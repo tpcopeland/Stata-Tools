@@ -4,23 +4,31 @@
 * Created: 2025-11-17
 * Purpose: Generate complete synthetic MS registry data for testing all packages
 *
-* GENERATES:
-* - ccids.dta: Case-control identifiers
-* - cohort.dta: Main cohort with demographics, study dates, outcomes
-* - msreg_terapi.dta: Disease-modifying therapy (DMT) periods
-* - msreg_skov.dta: MS relapses
-* - msreg_besoksdata.dta: Clinic visits with assessments
-* - msreg_edss.dta: EDSS functional system scores
-* - msreg_sdmt.dta: SDMT cognitive assessments
-* - msreg_smoking.dta: Smoking assessments
-* - cohort_raw.dta: Uncleaned version for datefix/check testing
+* GENERATES 11 DATASETS:
+* Main registry datasets:
+*   1. ccids.dta: Case-control identifiers (N=1000)
+*   2. cohort.dta: Main cohort with demographics, study dates, outcomes
+*   3. msreg_terapi.dta: Disease-modifying therapy (DMT) periods
+*   4. msreg_skov.dta: MS relapses
+*   5. msreg_besoksdata.dta: Clinic visits with assessments
+*   6. msreg_edss.dta: EDSS functional system scores
+*   7. msreg_sdmt.dta: SDMT cognitive assessments
+*   8. msreg_smoking.dta: Smoking assessments
+*
+* Time-varying exposure datasets (for tvexpose/tvmerge):
+*   9. hrt.dta: Hormone replacement therapy periods
+*  10. dmt.dta: DMT periods (simplified version of msreg_terapi.dta)
+*
+* Testing dataset:
+*  11. cohort_raw.dta: Uncleaned version for datefix/check testing
 *
 * DATA RELATIONSHIPS:
 * - All datasets linked by 'id' variable
-* - DMT periods used for tvexpose/tvmerge testing
-* - EDSS progression for survival analysis (cstat_surv)
+* - DMT and HRT periods used for tvexpose/tvmerge testing
+* - EDSS progression for survival analysis (cstat_surv, stratetab)
 * - Multiple variable types for table1_tc, datamap, check
 * - Proper value labels and variable labels throughout
+* - hrt.dta and dmt.dta match tvexpose/tvmerge help file examples exactly
 *******************************************************************************
 
 clear all
@@ -782,6 +790,178 @@ di as result "Created cohort_raw.dta (N=" _N ")"
 }
 
 *******************************************************************************
+**# DATASET 10: HRT EXPOSURES (hrt.dta) - For tvmerge testing
+*******************************************************************************
+{
+clear
+use "${datadir}/cohort.dta"
+keep if female == 1  // Only women receive HRT
+keep id study_entry study_exit
+
+local obs = 0
+forvalues i = 1/1000 {
+	qui count if id == `i'
+	if r(N) == 0 continue
+
+	preserve
+	keep if id == `i'
+	local entry = study_entry
+	local exit = study_exit
+	local followup = `exit' - `entry'
+	restore, not
+
+	* Determine HRT pattern based on ID modulo
+	* 40% never exposed
+	if mod(`i',5) == 0 {
+		continue
+	}
+
+	* 20% single continuous exposure
+	else if mod(`i',5) == 1 {
+		clear
+		set obs 1
+		gen rx_start = `entry' + floor(runiform()*`followup'*0.3)
+		gen rx_stop = rx_start + floor(runiform()*`followup'*0.5 + 90)
+		replace rx_stop = `exit' if rx_stop > `exit'
+		gen hrt_type = ceil(runiform()*3)
+		gen dose = runiform() * 50 + 0.5
+	}
+
+	* 20% multiple non-overlapping with gaps
+	else if mod(`i',5) == 2 {
+		clear
+		set obs 3
+		gen rx_start = `entry' + (_n-1)*floor(`followup'/3) + floor(runiform()*90)
+		gen rx_stop = rx_start + floor(runiform()*180 + 60)
+		replace rx_stop = `exit' if rx_stop > `exit'
+		replace rx_start = rx_stop[_n-1] + 30 if _n==2
+		replace rx_start = rx_stop[_n-1] + 45 if _n==3
+		gen hrt_type = ceil(runiform()*3)
+		gen dose = runiform() * 40 + 5
+		drop if rx_start >= rx_stop
+	}
+
+	* 10% sequential exposures no gaps
+	else if mod(`i',10) == 3 {
+		clear
+		set obs 4
+		gen rx_start = `entry' + (_n-1)*floor(`followup'/4)
+		gen rx_stop = rx_start + floor(`followup'/4)
+		replace rx_stop = `exit' if rx_stop > `exit'
+		gen hrt_type = mod(_n-1,3) + 1
+		gen dose = 5 + _n * 7.5 + runiform() * 10
+		drop if rx_start >= rx_stop
+	}
+
+	* 10% overlapping periods
+	else if mod(`i',10) == 4 {
+		clear
+		set obs 3
+		gen rx_start = `entry' + floor(runiform()*`followup'*0.4)
+		replace rx_start = rx_start[_n-1] + 60 if _n > 1
+		gen rx_stop = rx_start + 150
+		replace rx_stop = `exit' if rx_stop > `exit'
+		gen hrt_type = _n
+		if `i' < 500 {
+			gen dose = (_n==1) * 20 + (_n==2) * 35 + (_n==3) * 15
+		}
+		else {
+			gen dose = runiform() * 40 + 5
+		}
+		drop if rx_start >= rx_stop
+	}
+
+	if _N > 0 {
+		gen id = `i'
+		format rx_start rx_stop %tdCCYY/NN/DD
+
+		* Value labels for HRT type
+		label define hrt_lbl 0 "None" 1 "Oral estrogen" 2 "Transdermal estrogen" 3 "Combined"
+		label values hrt_type hrt_lbl
+
+		* Variable labels
+		label var id "Person ID"
+		label var rx_start "HRT Start Date"
+		label var rx_stop "HRT Stop Date"
+		label var hrt_type "HRT Type"
+		label var dose "Daily dose (mg)"
+
+		local newobs = _N
+		local obs = `obs' + `newobs'
+		tempfile temp_`i'
+		save `temp_`i''
+	}
+}
+
+* Append all
+clear
+forvalues i = 1/1000 {
+	capture confirm file `temp_`i''
+	if !_rc {
+		append using `temp_`i''
+	}
+}
+
+if _N > 0 {
+	sort id rx_start
+
+	* Data label
+	label data "Hormone Replacement Therapy (HRT) Exposure Periods"
+	note: Linked to cohort.dta via id
+	note: Time-varying exposure data for tvexpose/tvmerge testing
+	note: Can be merged with DMT data to test tvmerge functionality
+
+	compress
+	save "${datadir}/hrt.dta", replace
+	di as result "Created hrt.dta (N=" _N ")"
+}
+}
+
+*******************************************************************************
+**# DATASET 11: DMT SIMPLIFIED (dmt.dta) - For tvexpose/tvmerge examples
+*******************************************************************************
+{
+* Create simplified DMT dataset matching help file examples
+clear
+use "${datadir}/msreg_terapi.dta"
+
+* Rename variables to match tvexpose/tvmerge examples
+rename start_date dmt_start
+rename stop_date dmt_stop
+rename tx_category dmt
+
+* Keep only essential variables
+keep id dmt_start dmt_stop dmt
+
+* Add reference category (0 = unexposed) - this is implicit in gaps
+* The data structure already has this via the time-varying nature
+
+* Format dates
+format dmt_start dmt_stop %tdCCYY/NN/DD
+
+* Value labels
+label define dmt_lbl 0 "Unexposed" 1 "Anti-CD20" 2 "High-efficacy" ///
+	3 "Platform (injectable)" 4 "Moderate-efficacy oral"
+label values dmt dmt_lbl
+
+* Variable labels
+label var id "Person ID"
+label var dmt_start "DMT start date"
+label var dmt_stop "DMT stop date"
+label var dmt "DMT category"
+
+* Data label
+label data "Disease-Modifying Therapy (DMT) Exposure Periods - Simplified"
+note: Linked to cohort.dta via id
+note: Simplified version of msreg_terapi.dta for tvexpose/tvmerge examples
+note: Variable names match help file examples exactly
+
+compress
+save "${datadir}/dmt.dta", replace
+di as result "Created dmt.dta (N=" _N ")"
+}
+
+*******************************************************************************
 **# SUMMARY
 *******************************************************************************
 {
@@ -798,16 +978,31 @@ di as text "  5. msreg_besoksdata.dta     - Clinic visits"
 di as text "  6. msreg_edss.dta           - EDSS functional scores"
 di as text "  7. msreg_sdmt.dta           - SDMT cognitive assessments"
 di as text "  8. msreg_smoking.dta        - Smoking assessments"
+di _n as text "Time-varying exposure datasets:"
+di as text "  9. hrt.dta                  - HRT exposure periods (for tvmerge)"
+di as text " 10. dmt.dta                  - DMT exposure periods (for tvmerge)"
 di _n as text "Testing dataset (uncleaned):"
-di as text "  9. cohort_raw.dta           - Uncleaned data for datefix/check"
+di as text " 11. cohort_raw.dta           - Uncleaned data for datefix/check"
 di _n as text "Key features:"
 di as text "  - All datasets linked by 'id' variable"
 di as text "  - Realistic relationships between datasets"
 di as text "  - Proper value labels and variable labels"
 di as text "  - Data labels on all datasets"
-di as text "  - DMT periods for tvexpose/tvmerge testing"
+di as text "  - DMT and HRT periods for tvexpose/tvmerge testing"
 di as text "  - EDSS progression for survival analysis"
 di as text "  - Multiple variable types for table1_tc, datamap"
 di as text "  - cohort_raw.dta has string dates and data issues"
+di _n as text "tvexpose/tvmerge workflow (matching help file examples):"
+di as text "  use cohort, clear"
+di as text "  tvexpose using hrt, id(id) start(rx_start) stop(rx_stop) ///"
+di as text "    exposure(hrt_type) reference(0) ///"
+di as text "    entry(study_entry) exit(study_exit) saveas(tv_hrt.dta) replace"
+di as text "  use cohort, clear"
+di as text "  tvexpose using dmt, id(id) start(dmt_start) stop(dmt_stop) ///"
+di as text "    exposure(dmt) reference(0) ///"
+di as text "    entry(study_entry) exit(study_exit) saveas(tv_dmt.dta) replace"
+di as text "  tvmerge tv_hrt tv_dmt, id(id) ///"
+di as text "    start(rx_start rx_start) stop(rx_stop rx_stop) ///"
+di as text "    exposure(tv_exposure tv_exposure) generate(hrt dmt_type)"
 di as result "{hline 78}"
 }
