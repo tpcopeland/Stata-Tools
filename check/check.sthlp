@@ -23,17 +23,16 @@
 
 {p 4 8 2}{opt short} removes the descriptive statistics{p_end}
 
-{title:Authors}
+{marker author}{...}
+{title:Author}
+
+{pstd}Timothy P. Copeland{p_end}
+{pstd}Department of Clinical Neuroscience{p_end}
+{pstd}Karolinska Institutet{p_end}
+{pstd}Email: timothy.copeland@ki.se{p_end}
 
 {pstd}
-Revisions by: {break}
-Timothy P Copeland {break}
-Division of Nephrology {break}
-University of California, San Francisco{p_end}
-
-{pstd}
-Original concept & code by: {break}
-Michael N Mitchell{p_end}
+Revisions of original concept & code by Michael N Mitchell{p_end}
 
 {title:Also see}
 

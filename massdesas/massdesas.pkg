@@ -3,12 +3,14 @@ d 'MASSDESAS': module to convert all SAS files to Stata files in a folder
 d
 d Requires: Stata version 17 or higher.
 d
-d Distribution-Date: 2020724
+d Distribution-Date: 20251117
 d
 d First version: 24 July 2020
 d License: MIT
 d
-d Author: Timothy P Copeland
+d Author: Timothy P. Copeland
+d Department of Clinical Neuroscience, Karolinska Institutet, Stockholm, Sweden
+d Email: timothy.copeland@ki.se
 d
 f massdesas.ado
 f massdesas.sthlp

@@ -10,7 +10,9 @@ d Requires: Stata version 14
 d Distribution-Date: 20251117
 d License: MIT
 d
-d Author: Timothy P Copeland, University of California, San Francisco
+d Author: Timothy P. Copeland
+d Department of Clinical Neuroscience, Karolinska Institutet, Stockholm, Sweden
+d Email: timothy.copeland@ki.se
 d Original concept by Michael N Mitchell
 d
 d KW: data management

@@ -64,9 +64,13 @@
 
 {pstd}{cmd:regtab} stores nothing in {cmd:r()}. It clears the active {cmd:collect} at the end and deletes the temporary workbook.{p_end}
 
-{marker author}{title:Author}
+{marker author}{...}
+{title:Author}
 
 {pstd}Timothy P. Copeland{p_end}
 {pstd}Department of Clinical Neuroscience{p_end}
 {pstd}Karolinska Institutet{p_end}
+{pstd}Email: timothy.copeland@ki.se{p_end}
+
+{pstd}Version 1.2 - 25 September 2025{p_end}
 

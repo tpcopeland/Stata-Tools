@@ -12,12 +12,14 @@ d KW: date
 d KW: time
 d KW: global macro
 d
-d Distribution-Date: 19 Dec 2024
+d Distribution-Date: 20251117
 d
 d First version: 19 Dec 2024
 d License: MIT
 d
-d Author: Timothy P Copeland
+d Author: Timothy P. Copeland
+d Department of Clinical Neuroscience, Karolinska Institutet, Stockholm, Sweden
+d Email: timothy.copeland@ki.se
 d
 f today.ado
 f today.sthlp

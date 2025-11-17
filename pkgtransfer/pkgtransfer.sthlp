@@ -68,9 +68,12 @@ Downloads only the "estout" and "outreg2" packages and creates a local installat
 
 {p 4 4 2}
 
+{marker author}{...}
 {title:Author}
 
-{p 4 4 2}
-Timothy P. Copeland{break}
-Division of Nephrology{break}
-University of California, San Francisco{break}
+{pstd}Timothy P. Copeland{p_end}
+{pstd}Department of Clinical Neuroscience{p_end}
+{pstd}Karolinska Institutet{p_end}
+{pstd}Email: timothy.copeland@ki.se{p_end}
+
+{pstd}Version 2.0.0 - 19 December 2024{p_end}
