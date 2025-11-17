@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.0  15may2022}{...}
+{* *! version 1.0.0  17nov2025}{...}
 {viewerjumpto "Syntax" "cstat_surv##syntax"}{...}
 {viewerjumpto "Description" "cstat_surv##description"}{...}
 {viewerjumpto "Remarks" "cstat_surv##remarks"}{...}

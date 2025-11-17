@@ -1,4 +1,4 @@
-v 2
+v 1
 d 'PKGTRANSFER': Module to create a .do file with install commands for all user-written .ado files currently installed in Stata. Version 2 includes an option to create a zip file containing all packages and a do file to accompany it, allowing for offline installation.
 d
 d Requires: Stata (Any Version)

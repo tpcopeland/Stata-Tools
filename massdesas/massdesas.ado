@@ -1,7 +1,7 @@
-*! massdesas Version 1.0  24July2020
+*! massdesas Version 1.0.0  17November2025
 
-*! Author: Tim Copeland 
-*! Revised on  24 July 2020 at 22:41:00
+*! Author: Tim Copeland
+*! Revised on  17 November 2025
 
 program define massdesas
 syntax , directory(string) [ERASE LOWER]

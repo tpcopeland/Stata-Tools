@@ -1,7 +1,7 @@
-*! cstat_cox Version 1.0  15May2022
+*! cstat_cox Version 1.0.0  17November2025
 
-*! Original Author: Tim Copeland 
-*! Created on  15 May 2022 at 15:23:00 Pacific
+*! Original Author: Tim Copeland
+*! Created on  17 November 2025
 
 capture program drop cstat_surv
 program define cstat_surv, nclass

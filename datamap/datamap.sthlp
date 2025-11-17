@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 2.0.0  16nov2025}{...}
+{* *! version 1.0.0  17nov2025}{...}
 {viewerjumpto "Syntax" "datamap##syntax"}{...}
 {viewerjumpto "Description" "datamap##description"}{...}
 {viewerjumpto "Options" "datamap##options"}{...}
