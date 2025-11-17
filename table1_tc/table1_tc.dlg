@@ -57,7 +57,7 @@ BEGIN
   GROUPBOX gb_by          10  +25 620  45, label("Grouping Variable")
   CHECKBOX ck_by          20  +20 160  ., label("Group by variable:") ///
            onclickon(script bygroup_by_on) onclickoff(script bygroup_by_off)
-  VARNAME  vn_by          175 @ 450    ., label("By variable")
+  VARNAME  vn_by          180 @ 450    ., label("By variable")
 
   GROUPBOX gb_total       10  +25 620  85, label("Total Column")
   CHECKBOX ck_total       20  +15 160  ., label("Include total column") ///
