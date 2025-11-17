@@ -44,15 +44,9 @@ BEGIN
 
   GROUPBOX gb_vars       10  +30 620  180, label("Variables to Display (REQUIRED)")
   TEXT     tx_vars_help  20  +15 600  ., label("Specify variables with their types separated by backslash (\)")
-  TEXT     tx_vars_types 20  +15 600  ., label("Types: contn, contln, conts, cat, cate, bin, bine. See Quick Reference below or help file for detail")
+  TEXT     tx_vars_types 20  +15 600  ., label("Types: contn, contln, conts, cat, cate, bin, bine. See Quick Reference below or help file for details")
   EDIT     ed_vars       20  +20 600  100, error("Variables") label("Variables")
   TEXT     tx_vars_ex    20  +100 600 ., label("Example: weight contn \ price contln \ mpg conts \ rep78 cate \ foreign bin")
-
-  TEXT     tx_note1      10  +25 600  ., label("Quick Reference - Statistical Tests")
-  TEXT     tx_note2      20  +15 600  ., label("contn/contln: Mean & SD. ANOVA (>2 groups) or t-test (2 groups)")
-  TEXT     tx_note3      20  +15 600  ., label("conts: Median & Q1-Q3. Kruskal-Wallis (>2 groups) or Wilcoxon rank-sum (2 groups)")
-  TEXT     tx_note4      20  +15 600  ., label("cat/bin: % (n). Pearson's chi-square test")
-  TEXT     tx_note5      20  +15 600  ., label("cate/bine: % (n). Fisher's exact test")
 END
 
 
@@ -60,10 +54,10 @@ DIALOG bygroup, tabtitle("By/Grouping")
 BEGIN
   TEXT     tx_by_info     10  10  620  25, label("Group observations by a categorical variable and compare characteristics between groups.")
 
-  GROUPBOX gb_by          10  +25 620  35, label("Grouping Variable")
-  CHECKBOX ck_by          20  +15 160  ., label("Group by variable:") ///
+  GROUPBOX gb_by          10  +25 620  45, label("Grouping Variable")
+  CHECKBOX ck_by          20  +20 160  ., label("Group by variable:") ///
            onclickon(script bygroup_by_on) onclickoff(script bygroup_by_off)
-  VARNAME  vn_by          185 @ 445    ., label("By variable")
+  VARNAME  vn_by          175 @ 450    ., label("By variable")
 
   GROUPBOX gb_total       10  +25 620  85, label("Total Column")
   CHECKBOX ck_total       20  +15 160  ., label("Include total column") ///
@@ -79,6 +73,8 @@ BEGIN
   CHECKBOX ck_pairwise123 20  +20 280  ., label("Pairwise comparisons (first 3 groups)")
   CHECKBOX ck_headerperc  20  +20 280  ., label("Show group percentages in header")
 END
+
+
 
 SCRIPT bygroup_by_on
 BEGIN
