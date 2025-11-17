@@ -254,7 +254,7 @@ di as result "Created cohort.dta (N=1000)"
 {
 clear
 use "${datadir}/cohort.dta"
-keep if case == 1  // Only MS cases receive DMT
+keep if case == 1
 keep id study_entry study_exit
 
 local obs = 0
@@ -262,15 +262,12 @@ forvalues i = 1/1000 {
 	qui count if id == `i'
 	if r(N) == 0 continue
 
-	preserve
-	keep if id == `i'
-	local entry = study_entry
-	local exit = study_exit
+	qui sum study_entry if id == `i'
+	local entry = r(mean)
+	qui sum study_exit if id == `i'
+	local exit = r(mean)
 	local followup = `exit' - `entry'
 
-	restore, not
-
-	* Determine treatment pattern based on ID
 	* 20% never treated
 	if mod(`i',5) == 0 {
 		continue
@@ -278,6 +275,7 @@ forvalues i = 1/1000 {
 
 	* 30% single DMT throughout
 	else if mod(`i',5) == 1 {
+		preserve
 		clear
 		set obs 1
 		gen id = `i'
@@ -289,10 +287,42 @@ forvalues i = 1/1000 {
 		if tx_category == 2 replace tx_name = "Natalizumab"
 		if tx_category == 3 replace tx_name = "Interferon beta-1a"
 		if tx_category == 4 replace tx_name = "Dimethyl fumarate"
+		
+		gen tx_id = _n
+		gen rituximab = (tx_category == 1)
+		format start_date stop_date %tdCCYY/NN/DD
+		
+		gen stop_reason_code = .
+		replace stop_reason_code = . if stop_date == `exit'
+		replace stop_reason_code = 2 if stop_date < `exit' & runiform() < 0.4
+		replace stop_reason_code = 3 if stop_date < `exit' & missing(stop_reason_code) & runiform() < 0.5
+		replace stop_reason_code = 99 if stop_date < `exit' & missing(stop_reason_code)
+		
+		label define stop_reason_lbl 2 "Adverse effects" 3 "Lack of efficacy" ///
+			4 "Pregnancy" 5 "Planned pregnancy" 99 "Other reason"
+		label values stop_reason_code stop_reason_lbl
+		
+		label define tx_cat_lbl 1 "Anti-CD20" 2 "High-efficacy" ///
+			3 "Platform (injectable)" 4 "Moderate-efficacy oral"
+		label values tx_category tx_cat_lbl
+		
+		label var id "Patient identifier"
+		label var tx_id "Treatment record ID"
+		label var tx_name "Treatment preparation name"
+		label var tx_category "Treatment category"
+		label var rituximab "Rituximab (0=No, 1=Yes)"
+		label var start_date "Date treatment initiated/started"
+		label var stop_date "Date treatment discontinued"
+		label var stop_reason_code "Reason for discontinuation (coded)"
+		
+		tempfile temp_`i'
+		save `temp_`i''
+		restore
 	}
 
 	* 30% sequential DMT (switching)
 	else if mod(`i',5) == 2 {
+		preserve
 		clear
 		set obs 3
 		gen id = `i'
@@ -305,17 +335,51 @@ forvalues i = 1/1000 {
 
 		gen tx_name = ""
 		gen tx_category = .
-		replace tx_category = 3 if seq == 1  // Start platform
-		replace tx_category = 4 if seq == 2  // Switch to oral
-		replace tx_category = 2 if seq == 3  // Escalate to high-efficacy
+		replace tx_category = 3 if seq == 1
+		replace tx_category = 4 if seq == 2
+		replace tx_category = 2 if seq == 3
 		replace tx_name = "Interferon beta-1a" if tx_category == 3
 		replace tx_name = "Dimethyl fumarate" if tx_category == 4
 		replace tx_name = "Natalizumab" if tx_category == 2
 		drop seq
+		
+		if _N > 0 {
+			gen tx_id = _n
+			gen rituximab = (tx_category == 1)
+			format start_date stop_date %tdCCYY/NN/DD
+			
+			gen stop_reason_code = .
+			replace stop_reason_code = . if stop_date == `exit'
+			replace stop_reason_code = 2 if stop_date < `exit' & runiform() < 0.4
+			replace stop_reason_code = 3 if stop_date < `exit' & missing(stop_reason_code) & runiform() < 0.5
+			replace stop_reason_code = 99 if stop_date < `exit' & missing(stop_reason_code)
+			
+			label define stop_reason_lbl 2 "Adverse effects" 3 "Lack of efficacy" ///
+				4 "Pregnancy" 5 "Planned pregnancy" 99 "Other reason"
+			label values stop_reason_code stop_reason_lbl
+			
+			label define tx_cat_lbl 1 "Anti-CD20" 2 "High-efficacy" ///
+				3 "Platform (injectable)" 4 "Moderate-efficacy oral"
+			label values tx_category tx_cat_lbl
+			
+			label var id "Patient identifier"
+			label var tx_id "Treatment record ID"
+			label var tx_name "Treatment preparation name"
+			label var tx_category "Treatment category"
+			label var rituximab "Rituximab (0=No, 1=Yes)"
+			label var start_date "Date treatment initiated/started"
+			label var stop_date "Date treatment discontinued"
+			label var stop_reason_code "Reason for discontinuation (coded)"
+			
+			tempfile temp_`i'
+			save `temp_`i''
+		}
+		restore
 	}
 
 	* 20% with gaps between treatments
 	else if mod(`i',5) == 3 {
+		preserve
 		clear
 		set obs 2
 		gen id = `i'
@@ -332,51 +396,96 @@ forvalues i = 1/1000 {
 		replace tx_name = "Glatiramer acetate" if tx_category == 3
 		replace tx_name = "Rituximab" if tx_category == 1
 		drop seq
+		
+		if _N > 0 {
+			gen tx_id = _n
+			gen rituximab = (tx_category == 1)
+			format start_date stop_date %tdCCYY/NN/DD
+			
+			gen stop_reason_code = .
+			replace stop_reason_code = . if stop_date == `exit'
+			replace stop_reason_code = 2 if stop_date < `exit' & runiform() < 0.4
+			replace stop_reason_code = 3 if stop_date < `exit' & missing(stop_reason_code) & runiform() < 0.5
+			replace stop_reason_code = 99 if stop_date < `exit' & missing(stop_reason_code)
+			
+			label define stop_reason_lbl 2 "Adverse effects" 3 "Lack of efficacy" ///
+				4 "Pregnancy" 5 "Planned pregnancy" 99 "Other reason"
+			label values stop_reason_code stop_reason_lbl
+			
+			label define tx_cat_lbl 1 "Anti-CD20" 2 "High-efficacy" ///
+				3 "Platform (injectable)" 4 "Moderate-efficacy oral"
+			label values tx_category tx_cat_lbl
+			
+			label var id "Patient identifier"
+			label var tx_id "Treatment record ID"
+			label var tx_name "Treatment preparation name"
+			label var tx_category "Treatment category"
+			label var rituximab "Rituximab (0=No, 1=Yes)"
+			label var start_date "Date treatment initiated/started"
+			label var stop_date "Date treatment discontinued"
+			label var stop_reason_code "Reason for discontinuation (coded)"
+			
+			tempfile temp_`i'
+			save `temp_`i''
+		}
+		restore
 	}
+	
+	* 20% also with gaps (mod 4)
+	else if mod(`i',5) == 4 {
+		preserve
+		clear
+		set obs 2
+		gen id = `i'
+		gen seq = _n
+		gen start_date = `entry' + floor(`followup'*0.2) + (seq-1)*floor(`followup'*0.4)
+		gen stop_date = start_date + floor(`followup'*0.25)
+		replace stop_date = `exit' if stop_date > `exit'
+		drop if start_date >= stop_date
 
-	* 0% (already covered) remains
-
-	if _N > 0 {
-		gen tx_id = _n
-		gen rituximab = (tx_category == 1)
-
-		* Dates
-		format start_date stop_date %tdCCYY/NN/DD
-
-		* Reason codes for stopped treatments
-		gen stop_reason_code = .
-		replace stop_reason_code = . if stop_date == `exit'  // Ongoing
-		replace stop_reason_code = 2 if stop_date < `exit' & runiform() < 0.4  // Adverse effects
-		replace stop_reason_code = 3 if stop_date < `exit' & missing(stop_reason_code) & runiform() < 0.5  // Lack of efficacy
-		replace stop_reason_code = 99 if stop_date < `exit' & missing(stop_reason_code)  // Other
-
-		label define stop_reason_lbl 2 "Adverse effects" 3 "Lack of efficacy" ///
-			4 "Pregnancy" 5 "Planned pregnancy" 99 "Other reason"
-		label values stop_reason_code stop_reason_lbl
-
-		* Value labels
-		label define tx_cat_lbl 1 "Anti-CD20" 2 "High-efficacy" ///
-			3 "Platform (injectable)" 4 "Moderate-efficacy oral"
-		label values tx_category tx_cat_lbl
-
-		* Variable labels
-		label var id "Patient identifier"
-		label var tx_id "Treatment record ID"
-		label var tx_name "Treatment preparation name"
-		label var tx_category "Treatment category"
-		label var rituximab "Rituximab (0=No, 1=Yes)"
-		label var start_date "Date treatment initiated/started"
-		label var stop_date "Date treatment discontinued"
-		label var stop_reason_code "Reason for discontinuation (coded)"
-
-		local newobs = _N
-		local obs = `obs' + `newobs'
-		tempfile temp_`i'
-		save `temp_`i''
+		gen tx_name = ""
+		gen tx_category = .
+		replace tx_category = 4 if seq == 1
+		replace tx_category = 2 if seq == 2
+		replace tx_name = "Dimethyl fumarate" if tx_category == 4
+		replace tx_name = "Natalizumab" if tx_category == 2
+		drop seq
+		
+		if _N > 0 {
+			gen tx_id = _n
+			gen rituximab = (tx_category == 1)
+			format start_date stop_date %tdCCYY/NN/DD
+			
+			gen stop_reason_code = .
+			replace stop_reason_code = . if stop_date == `exit'
+			replace stop_reason_code = 2 if stop_date < `exit' & runiform() < 0.4
+			replace stop_reason_code = 3 if stop_date < `exit' & missing(stop_reason_code) & runiform() < 0.5
+			replace stop_reason_code = 99 if stop_date < `exit' & missing(stop_reason_code)
+			
+			label define stop_reason_lbl 2 "Adverse effects" 3 "Lack of efficacy" ///
+				4 "Pregnancy" 5 "Planned pregnancy" 99 "Other reason"
+			label values stop_reason_code stop_reason_lbl
+			
+			label define tx_cat_lbl 1 "Anti-CD20" 2 "High-efficacy" ///
+				3 "Platform (injectable)" 4 "Moderate-efficacy oral"
+			label values tx_category tx_cat_lbl
+			
+			label var id "Patient identifier"
+			label var tx_id "Treatment record ID"
+			label var tx_name "Treatment preparation name"
+			label var tx_category "Treatment category"
+			label var rituximab "Rituximab (0=No, 1=Yes)"
+			label var start_date "Date treatment initiated/started"
+			label var stop_date "Date treatment discontinued"
+			label var stop_reason_code "Reason for discontinuation (coded)"
+			
+			tempfile temp_`i'
+			save `temp_`i''
+		}
+		restore
 	}
 }
 
-* Append all
 clear
 forvalues i = 1/1000 {
 	capture confirm file `temp_`i''
@@ -682,7 +791,7 @@ format assessment_date %tdCCYY/NN/DD
 
 * Value labels
 label define smoking_lbl 1 "Never smoker" 2 "Former smoker" 3 "Daily smoker" ///
-	4 "Non-daily smoker" 5 "Daily non-cigarette tobacco user"
+	4 "Non-daily smoker" 5 "Daily non-cigarette tobacco user", replace 
 label values current_status smoking_lbl
 
 * Variable labels
@@ -788,36 +897,31 @@ compress
 save "${datadir}/cohort_raw.dta", replace
 di as result "Created cohort_raw.dta (N=" _N ")"
 }
-
 *******************************************************************************
 **# DATASET 10: HRT EXPOSURES (hrt.dta) - For tvmerge testing
 *******************************************************************************
 {
 clear
 use "${datadir}/cohort.dta"
-keep if female == 1  // Only women receive HRT
+keep if female == 1
 keep id study_entry study_exit
-
+set trace on 
 local obs = 0
 forvalues i = 1/1000 {
 	qui count if id == `i'
 	if r(N) == 0 continue
-
-	preserve
-	keep if id == `i'
-	local entry = study_entry
-	local exit = study_exit
+	qui sum study_entry if id == `i'
+	local entry = r(mean)
+	qui sum study_exit if id == `i'
+	local exit = r(mean)
 	local followup = `exit' - `entry'
-	restore, not
-
-	* Determine HRT pattern based on ID modulo
 	* 40% never exposed
 	if mod(`i',5) == 0 {
 		continue
 	}
-
 	* 20% single continuous exposure
 	else if mod(`i',5) == 1 {
+		preserve
 		clear
 		set obs 1
 		gen rx_start = `entry' + floor(runiform()*`followup'*0.3)
@@ -825,10 +929,24 @@ forvalues i = 1/1000 {
 		replace rx_stop = `exit' if rx_stop > `exit'
 		gen hrt_type = ceil(runiform()*3)
 		gen dose = runiform() * 50 + 0.5
+		if _N > 0 {
+			gen id = `i'
+			format rx_start rx_stop %tdCCYY/NN/DD
+			label define hrt_lbl 0 "None" 1 "Oral estrogen" 2 "Transdermal estrogen" 3 "Combined"
+			label values hrt_type hrt_lbl
+			label var id "Person ID"
+			label var rx_start "HRT Start Date"
+			label var rx_stop "HRT Stop Date"
+			label var hrt_type "HRT Type"
+			label var dose "Daily dose (mg)"
+			tempfile temp_`i'
+			save `temp_`i''
+		}
+		restore
 	}
-
 	* 20% multiple non-overlapping with gaps
 	else if mod(`i',5) == 2 {
+		preserve
 		clear
 		set obs 3
 		gen rx_start = `entry' + (_n-1)*floor(`followup'/3) + floor(runiform()*90)
@@ -839,10 +957,24 @@ forvalues i = 1/1000 {
 		gen hrt_type = ceil(runiform()*3)
 		gen dose = runiform() * 40 + 5
 		drop if rx_start >= rx_stop
+		if _N > 0 {
+			gen id = `i'
+			format rx_start rx_stop %tdCCYY/NN/DD
+			label define hrt_lbl 0 "None" 1 "Oral estrogen" 2 "Transdermal estrogen" 3 "Combined"
+			label values hrt_type hrt_lbl
+			label var id "Person ID"
+			label var rx_start "HRT Start Date"
+			label var rx_stop "HRT Stop Date"
+			label var hrt_type "HRT Type"
+			label var dose "Daily dose (mg)"
+			tempfile temp_`i'
+			save `temp_`i''
+		}
+		restore
 	}
-
 	* 10% sequential exposures no gaps
 	else if mod(`i',10) == 3 {
+		preserve
 		clear
 		set obs 4
 		gen rx_start = `entry' + (_n-1)*floor(`followup'/4)
@@ -851,10 +983,24 @@ forvalues i = 1/1000 {
 		gen hrt_type = mod(_n-1,3) + 1
 		gen dose = 5 + _n * 7.5 + runiform() * 10
 		drop if rx_start >= rx_stop
+		if _N > 0 {
+			gen id = `i'
+			format rx_start rx_stop %tdCCYY/NN/DD
+			label define hrt_lbl 0 "None" 1 "Oral estrogen" 2 "Transdermal estrogen" 3 "Combined"
+			label values hrt_type hrt_lbl
+			label var id "Person ID"
+			label var rx_start "HRT Start Date"
+			label var rx_stop "HRT Stop Date"
+			label var hrt_type "HRT Type"
+			label var dose "Daily dose (mg)"
+			tempfile temp_`i'
+			save `temp_`i''
+		}
+		restore
 	}
-
 	* 10% overlapping periods
 	else if mod(`i',10) == 4 {
+		preserve
 		clear
 		set obs 3
 		gen rx_start = `entry' + floor(runiform()*`followup'*0.4)
@@ -869,31 +1015,22 @@ forvalues i = 1/1000 {
 			gen dose = runiform() * 40 + 5
 		}
 		drop if rx_start >= rx_stop
-	}
-
-	if _N > 0 {
-		gen id = `i'
-		format rx_start rx_stop %tdCCYY/NN/DD
-
-		* Value labels for HRT type
-		label define hrt_lbl 0 "None" 1 "Oral estrogen" 2 "Transdermal estrogen" 3 "Combined"
-		label values hrt_type hrt_lbl
-
-		* Variable labels
-		label var id "Person ID"
-		label var rx_start "HRT Start Date"
-		label var rx_stop "HRT Stop Date"
-		label var hrt_type "HRT Type"
-		label var dose "Daily dose (mg)"
-
-		local newobs = _N
-		local obs = `obs' + `newobs'
-		tempfile temp_`i'
-		save `temp_`i''
+		if _N > 0 {
+			gen id = `i'
+			format rx_start rx_stop %tdCCYY/NN/DD
+			label define hrt_lbl 0 "None" 1 "Oral estrogen" 2 "Transdermal estrogen" 3 "Combined"
+			label values hrt_type hrt_lbl
+			label var id "Person ID"
+			label var rx_start "HRT Start Date"
+			label var rx_stop "HRT Stop Date"
+			label var hrt_type "HRT Type"
+			label var dose "Daily dose (mg)"
+			tempfile temp_`i'
+			save `temp_`i''
+		}
+		restore
 	}
 }
-
-* Append all
 clear
 forvalues i = 1/1000 {
 	capture confirm file `temp_`i''
@@ -901,17 +1038,14 @@ forvalues i = 1/1000 {
 		append using `temp_`i''
 	}
 }
-
 if _N > 0 {
 	sort id rx_start
-
-	* Data label
 	label data "Hormone Replacement Therapy (HRT) Exposure Periods"
 	note: Linked to cohort.dta via id
 	note: Time-varying exposure data for tvexpose/tvmerge testing
 	note: Can be merged with DMT data to test tvmerge functionality
-
 	compress
+	order id 
 	save "${datadir}/hrt.dta", replace
 	di as result "Created hrt.dta (N=" _N ")"
 }
@@ -959,52 +1093,4 @@ note: Variable names match help file examples exactly
 compress
 save "${datadir}/dmt.dta", replace
 di as result "Created dmt.dta (N=" _N ")"
-}
-
-*******************************************************************************
-**# SUMMARY
-*******************************************************************************
-{
-di _n as result "{hline 78}"
-di as result "SYNTHETIC DATA GENERATION COMPLETE"
-di as result "{hline 78}"
-di as text "Datasets created in: " as result "$datadir"
-di _n as text "Main datasets (clean):"
-di as text "  1. ccids.dta                - Case-control IDs (N=1000)"
-di as text "  2. cohort.dta               - Main cohort with demographics"
-di as text "  3. msreg_terapi.dta         - DMT treatment periods"
-di as text "  4. msreg_skov.dta           - MS relapses"
-di as text "  5. msreg_besoksdata.dta     - Clinic visits"
-di as text "  6. msreg_edss.dta           - EDSS functional scores"
-di as text "  7. msreg_sdmt.dta           - SDMT cognitive assessments"
-di as text "  8. msreg_smoking.dta        - Smoking assessments"
-di _n as text "Time-varying exposure datasets:"
-di as text "  9. hrt.dta                  - HRT exposure periods (for tvmerge)"
-di as text " 10. dmt.dta                  - DMT exposure periods (for tvmerge)"
-di _n as text "Testing dataset (uncleaned):"
-di as text " 11. cohort_raw.dta           - Uncleaned data for datefix/check"
-di _n as text "Key features:"
-di as text "  - All datasets linked by 'id' variable"
-di as text "  - Realistic relationships between datasets"
-di as text "  - Proper value labels and variable labels"
-di as text "  - Data labels on all datasets"
-di as text "  - DMT and HRT periods for tvexpose/tvmerge testing"
-di as text "  - EDSS progression for survival analysis"
-di as text "  - Multiple variable types for table1_tc, datamap"
-di as text "  - cohort_raw.dta has string dates and data issues"
-di _n as text "tvexpose/tvmerge workflow:"
-di as text "  use cohort, clear"
-di as text "  tvexpose using hrt, id(id) start(rx_start) stop(rx_stop) ///"
-di as text "    exposure(hrt_type) reference(0) ///"
-di as text "    entry(study_entry) exit(study_exit) saveas(tv_hrt.dta) replace"
-di as text "  "
-di as text "  use cohort, clear"
-di as text "  tvexpose using dmt, id(id) start(dmt_start) stop(dmt_stop) ///"
-di as text "    exposure(dmt) reference(0) ///"
-di as text "    entry(study_entry) exit(study_exit) saveas(tv_dmt.dta) replace"
-di as text "  "
-di as text "  tvmerge tv_hrt tv_dmt, id(id) ///"
-di as text "    start(rx_start dmt_start) stop(rx_stop dmt_stop) ///"
-di as text "    exposure(tv_exposure tv_exposure) generate(hrt dmt_type)"
-di as result "{hline 78}"
 }
