@@ -27,7 +27,52 @@
 program define datefix, rclass
     syntax [varlist] [, newvar(string) drop df(string) order(string) topyear(string asis)]
 
-	*Error Message if topyear() contains non-integer value 
+	* Validation: Check if varlist is empty
+	if "`varlist'" == "" {
+		display as error "varlist required"
+		exit 100
+	}
+
+	* Validation: Check if all variables are string type
+	foreach v of varlist `varlist' {
+		capture confirm string variable `v'
+		if _rc {
+			display as error "variable `v' is not a string variable"
+			display as error "datefix requires string variables"
+			exit 109
+		}
+	}
+
+	* Validation: Check if newvar() is used with multiple variables
+	local nvars : word count `varlist'
+	if `nvars' > 1 & "`newvar'" != "" {
+		display as error "newvar() cannot be used with multiple variables"
+		display as error "Use newvar() with a single variable only"
+		exit 198
+	}
+
+	* Validation: Validate order() option if specified
+	if "`order'" != "" {
+		local order_upper = upper("`order'")
+		if !inlist("`order_upper'", "MDY", "DMY", "YMD") {
+			display as error "order(`order') not valid"
+			display as error "Valid orders: MDY, DMY, YMD"
+			exit 198
+		}
+	}
+
+	* Validation: Validate df() option if specified
+	if "`df'" != "" {
+		* Check if it's a valid Stata date format
+		* Valid formats start with %t (for date/time formats)
+		if substr("`df'", 1, 2) != "%t" & "`df'" != "" {
+			display as error "df(`df') is not a valid Stata date format"
+			display as error "Date formats must start with %t (e.g., %tdCCYY/NN/DD)"
+			exit 198
+		}
+	}
+
+	*Error Message if topyear() contains non-integer value
 	capture confirm integer number `topyear'
 	if _rc!=0 & "`topyear'" != ""{
 		di in re "topyear() must contain an integer"

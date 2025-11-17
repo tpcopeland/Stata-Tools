@@ -8,7 +8,22 @@
 
 program define check
   syntax [varlist], [SHORT]
-  
+
+  * Validation: Check if varlist is empty
+  if "`varlist'" == "" {
+    display as error "varlist required"
+    exit 198
+  }
+
+  * Validation: Check if all variables exist
+  foreach v of varlist `varlist' {
+    capture confirm variable `v'
+    if _rc {
+      display as error "variable `v' not found"
+      exit 111
+    }
+  }
+
 *missing
 *not missing
 if "`short'"== "" {

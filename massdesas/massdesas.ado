@@ -5,12 +5,34 @@
 
 program define massdesas
 syntax , directory(string) [ERASE LOWER]
- 
+
+* Validation: Check if directory exists
+mata: st_numscalar("r_dir", direxists("`directory'"))
+if r_dir == 0 {
+	display as error "directory not found: `directory'"
+	exit 601
+}
+
+* Validation: Check if filelist command is available
+capture which filelist
+if _rc {
+	display as error "filelist command not found; install with: ssc install filelist"
+	exit 199
+}
+
 ****
 global source `directory'
 cd "$source"
-filelist, dir("$source") pat("*.sas7bdat") save("sas_files.dta") replace 
-use sas_files, replace 
+filelist, dir("$source") pat("*.sas7bdat") save("sas_files.dta") replace
+
+* Validation: Check if any SAS files were found
+use sas_files, clear
+quietly count
+if r(N) == 0 {
+	display as error "no SAS files found in directory: `directory'"
+	erase sas_files.dta
+	exit 601
+} 
 replace dirname = subinstr(dirname, "/\", "/",.) 
 replace dirname = subinstr(dirname, "\/", "/",.) 
 replace dirname = subinstr(dirname, "\", "/",.) 

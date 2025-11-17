@@ -92,6 +92,10 @@ program define datamap, rclass
 		noisily di as error "specify only one of directory(), filelist(), or single()"
 		exit 198
 	}
+	if `ninput' == 0 {
+		noisily di as error "must specify directory(), filelist(), or single()"
+		exit 198
+	}
 	
 	// Set defaults for output format
 	if "`format'" == "" local format "text"

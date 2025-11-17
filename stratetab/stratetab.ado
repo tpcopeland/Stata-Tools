@@ -39,14 +39,28 @@ if "`_byvars'" != "" {
 syntax, using(namelist) xlsx(string) [sheet(string) title(string) ///
 	labels(string) digits(integer 1) eventdigits(integer 0) pydigits(integer 0) unitlabel(string)]
 
+* Validation: Check if using option is provided (should be enforced by syntax)
+if "`using'" == "" {
+	di as err "using() option required"
+	exit 198
+}
+
+* Validation: Check if xlsx option is provided (should be enforced by syntax)
+if "`xlsx'" == "" {
+	di as err "xlsx() option required"
+	exit 198
+}
+
+* Validation: Check if xlsx has .xlsx extension
 if !strmatch("`xlsx'", "*.xlsx") {
 	di as err "xlsx must have .xlsx extension"
 	exit 198
 }
 
+* Validation: Check digit ranges
 if `digits' < 0 | `digits' > 10 | `eventdigits' < 0 | `eventdigits' > 10 | `pydigits' < 0 | `pydigits' > 10 {
 	di as err "digit options must be 0-10"
-	exit 198
+	exit 125
 }
 
 qui {
@@ -104,7 +118,26 @@ qui {
 			}
 		}
 		local catvar_list "`catvar_list' `catvar'"
+
+		* Store value label name for validation
+		local vallabel_`f' : value label `catvar'
+
 		restore
+	}
+
+	* Validation: Warn if value labels don't match across files with same variable
+	if `n_files' > 1 {
+		local first_catvar : word 1 of `catvar_list'
+		local first_vallabel `vallabel_1'
+		forvalues i = 2/`n_files' {
+			local this_catvar : word `i' of `catvar_list'
+			local this_vallabel `vallabel_`i''
+			if "`first_catvar'" == "`this_catvar'" & "`first_vallabel'" != "`this_vallabel'" {
+				noisily di as text "Warning: Variable `first_catvar' has different value labels across files"
+				noisily di as text "  File 1: `first_vallabel'"
+				noisily di as text "  File `i': `this_vallabel'"
+			}
+		}
 	}
 }
 
