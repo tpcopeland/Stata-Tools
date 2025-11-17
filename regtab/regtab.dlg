@@ -1,7 +1,7 @@
-VERSION 17.0
-
+VERSION 16.0
 INCLUDE _std_large
 DEFINE _dlght 420
+DEFINE _dlgwd 640
 INCLUDE header
 
 HELP hlp1, view("help regtab")
@@ -9,7 +9,13 @@ RESET res1
 
 SCRIPT PREINIT
 BEGIN
-        // Initialize dialog
+	program parseMessage
+	script max_setOptionalOn
+END
+
+SCRIPT POSTINIT
+BEGIN
+	script max_setDefaultWidth
 END
 
 // Define dialog structure
@@ -71,45 +77,14 @@ BEGIN
 
   CHECKBOX ck_noint         _ilft     +25       _cwd1     .,              ///
         label("Drop intercept row")                                       ///
-        onclickon(script main_noint_on)                                   ///
-        onclickoff(script main_noint_off)                                 ///
         tooltip("Exclude the intercept row from the output table.")
 
   CHECKBOX ck_nore          _ilft     +20       _cwd1     .,              ///
         label("Drop random effects rows")                                 ///
-        onclickon(script main_nore_on)                                    ///
-        onclickoff(script main_nore_off)                                  ///
         tooltip("Exclude random effects variance components from the output table.")
 
   TEXT     tx_note          _lft      +25       _iwd      .,              ///
         label("Note: Run your regression commands with -collect- before using regtab.")
-
-  // Command preview section
-  GROUPBOX gb_preview       _lft      +25       _iwd      _ht5h,          ///
-        label("Command Preview")
-
-  TEXT     tx_preview       _ilft     +15       _ibwd     55,             ///
-        label("The command will be displayed here based on your selections.")
-END
-
-SCRIPT main_noint_on
-BEGIN
-        // Placeholder for potential future logic
-END
-
-SCRIPT main_noint_off
-BEGIN
-        // Placeholder for potential future logic
-END
-
-SCRIPT main_nore_on
-BEGIN
-        // Placeholder for potential future logic
-END
-
-SCRIPT main_nore_off
-BEGIN
-        // Placeholder for potential future logic
 END
 
 // Help/Examples Tab
@@ -167,71 +142,72 @@ BEGIN
         label("For complete documentation, click Help above or type: help regtab")
 END
 
-// Validation and command building
+PROGRAM parseMessage
+BEGIN
+	// Handle max variable settings if needed
+END
+
 PROGRAM command
 BEGIN
-        require main.fi_xlsx
-        require main.ed_sheet
+	put "regtab, "
 
-        put "regtab"
-        put ", "
+	// Required: xlsx
+	require main.fi_xlsx
+	put "xlsx("
+	put `"""'
+	put main.fi_xlsx
+	put `"""'
+	put ") "
 
-        // Required options
-        require main.fi_xlsx
-        put "xlsx("
-        put `"""'
-        put main.fi_xlsx
-        put `"""'
-        put ") "
+	// Required: sheet
+	require main.ed_sheet
+	put "sheet("
+	put `"""'
+	put main.ed_sheet
+	put `"""'
+	put ") "
 
-        require main.ed_sheet
-        put "sheet("
-        put `"""'
-        put main.ed_sheet
-        put `"""'
-        put ") "
+	// Optional: title
+	if main.ed_title {
+		put "title("
+		put `"""'
+		put main.ed_title
+		put `"""'
+		put ") "
+	}
 
-        // Optional: title
-        if main.ed_title {
-                put "title("
-                put `"""'
-                put main.ed_title
-                put `"""'
-                put ") "
-        }
+	// Optional: coef
+	if main.ed_coef {
+		put "coef("
+		put `"""'
+		put main.ed_coef
+		put `"""'
+		put ") "
+	}
 
-        // Optional: coef
-        if main.ed_coef {
-                put "coef("
-                put `"""'
-                put main.ed_coef
-                put `"""'
-                put ") "
-        }
+	// Optional: models
+	if main.ed_models {
+		put "models("
+		put main.ed_models
+		put ") "
+	}
 
-        // Optional: models
-        if main.ed_models {
-                put "models("
-                put main.ed_models
-                put ") "
-        }
+	// Optional: sep
+	if !H(main.ed_sep) {
+		put "sep("
+		put `"""'
+		put main.ed_sep
+		put `"""'
+		put ") "
+	}
 
-        // Optional: sep
-        if !H(main.ed_sep) {
-                put "sep("
-                put `"""'
-                put main.ed_sep
-                put `"""'
-                put ") "
-        }
+	// Optional: noint
+	if main.ck_noint {
+		put "noint "
+	}
 
-        // Optional: noint
-        if main.ck_noint {
-                put "noint "
-        }
-
-        // Optional: nore
-        if main.ck_nore {
-                put "nore "
-        }
+	// Optional: nore
+	if main.ck_nore {
+		put "nore "
+	}
 END

@@ -1,7 +1,7 @@
-VERSION 14.2
-
+VERSION 16.0
 INCLUDE _std_xlarge
 DEFINE _dlght 500
+DEFINE _dlgwd 640
 INCLUDE header
 
 HELP hlp1, view("help table1_tc")
@@ -9,19 +9,20 @@ RESET res1
 
 SCRIPT PREINIT
 BEGIN
-        // Initialize dialog
-        program check_options
+	program parseMessage
+	script max_setOptionalOn
 END
 
 SCRIPT POSTINIT
 BEGIN
-        // Set initial control states
-        main.ed_if.disable
-        main.ed_in.disable
-        main.ed_fweight.disable
-        script bygroup_by_off
-        script bygroup_total_off
-        script output_excel_off
+	script max_setDefaultWidth
+	// Set initial control states
+	main.ed_if.disable
+	main.ed_in.disable
+	main.ed_fweight.disable
+	script bygroup_by_off
+	script bygroup_total_off
+	script output_excel_off
 END
 
 // Main dialog tab - Variables and basic setup
@@ -497,223 +498,209 @@ BEGIN
         label("For complete documentation: help table1_tc")
 END
 
-// Validation and command construction
-PROGRAM command
+PROGRAM parseMessage
 BEGIN
-        // Require vars option
-        require main.ed_vars
-
-        put "table1_tc"
-
-        // If/In conditions
-        beginoptions
-                if main.ck_if {
-                        require main.ed_if
-                        put " " "if " main.ed_if
-                }
-                if main.ck_in {
-                        require main.ed_in
-                        put " " "in " main.ed_in
-                }
-        endoptions
-
-        // Frequency weights
-        if main.ck_fweight {
-                require main.ed_fweight
-                put " [fweight=" main.ed_fweight "]"
-        }
-
-        put ", "
-
-        // Required: vars
-        require main.ed_vars
-        put "vars("
-        put main.ed_vars
-        put ") "
-
-        // By variable
-        if bygroup.ck_by {
-                require bygroup.vn_by
-                put "by("
-                put bygroup.vn_by
-                put ") "
-        }
-
-        // Total column
-        if bygroup.ck_total {
-                if bygroup.rb_total_before {
-                        put "total(before) "
-                }
-                if bygroup.rb_total_after {
-                        put "total(after) "
-                }
-        }
-
-        // Statistical options
-        if bygroup.ck_test {
-                put "test "
-        }
-        if bygroup.ck_statistic {
-                put "statistic "
-        }
-        if bygroup.ck_pairwise123 {
-                put "pairwise123 "
-        }
-        if bygroup.ck_headerperc {
-                put "headerperc "
-        }
-
-        // Formatting options
-        if format.ed_format {
-                put "format("
-                put format.ed_format
-                put ") "
-        }
-        if format.ed_nformat {
-                put "nformat("
-                put format.ed_nformat
-                put ") "
-        }
-        if format.ed_percformat {
-                put "percformat("
-                put format.ed_percformat
-                put ") "
-        }
-        if !H(format.ed_percsign) {
-                put "percsign("
-                put `"""'
-                put format.ed_percsign
-                put `"""'
-                put ") "
-        }
-        if format.ck_catrowperc {
-                put "catrowperc "
-        }
-        if format.ck_missing {
-                put "missing "
-        }
-        if !H(format.ed_iqrmiddle) {
-                put "iqrmiddle("
-                put `"""'
-                put format.ed_iqrmiddle
-                put `"""'
-                put ") "
-        }
-        if !H(format.ed_sdleft) {
-                put "sdleft("
-                put `"""'
-                put format.ed_sdleft
-                put `"""'
-                put ") "
-        }
-        if !H(format.ed_sdright) {
-                put "sdright("
-                put `"""'
-                put format.ed_sdright
-                put `"""'
-                put ") "
-        }
-        if !H(format.ed_gsdleft) {
-                put "gsdleft("
-                put `"""'
-                put format.ed_gsdleft
-                put `"""'
-                put ") "
-        }
-        if !H(format.ed_gsdright) {
-                put "gsdright("
-                put `"""'
-                put format.ed_gsdright
-                put `"""'
-                put ") "
-        }
-
-        // Display options
-        if display.ck_onecol {
-                put "onecol "
-        }
-        if display.ck_percent {
-                put "percent "
-        }
-        if display.ck_percent_n {
-                put "percent_n "
-        }
-        if display.ck_slashN {
-                put "slashN "
-        }
-        if display.ck_nospace {
-                put "nospacelowpercent "
-        }
-        if display.ck_extraspace {
-                put "extraspace "
-        }
-        if display.ck_varlabplus {
-                put "varlabplus "
-        }
-        if display.ed_pdp {
-                put "pdp("
-                put display.ed_pdp
-                put ") "
-        }
-        if display.ed_highpdp {
-                put "highpdp("
-                put display.ed_highpdp
-                put ") "
-        }
-        if display.ck_gurmeet {
-                put "gurmeet "
-        }
-
-        // Excel/Output options
-        if output.ck_excel {
-                require output.fi_excel
-                require output.ed_sheet
-                require output.ed_title
-
-                put "excel("
-                put `"""'
-                put output.fi_excel
-                put `"""'
-                put ") "
-
-                put "sheet("
-                put `"""'
-                put output.ed_sheet
-                put `"""'
-                put ") "
-
-                put "title("
-                put `"""'
-                put output.ed_title
-                put `"""'
-                put ") "
-
-                if output.cb_borderstyle {
-                        put "borderstyle("
-                        put output.cb_borderstyle
-                        put ") "
-                }
-        }
-
-        if output.ck_clear {
-                put "clear "
-        }
+	// Handle max variable settings if needed
 END
 
-// Program to check option dependencies
-PROGRAM check_options
+PROGRAM command
 BEGIN
-        // If Excel is checked, require sheet and title
-        if output.ck_excel {
-                call output.ed_sheet.setlabel "Sheet name (required for Excel)"
-                call output.ed_title.setlabel "Title (required for Excel)"
-        }
+	// Require vars option
+	require main.ed_vars
 
-        // If by is not checked, disable group-dependent options
-        if !bygroup.ck_by {
-                call bygroup.ck_total.disable
-                call bygroup.ck_test.disable
-                call bygroup.ck_statistic.disable
-                call bygroup.ck_pairwise123.disable
-        }
+	put "table1_tc"
+
+	// If/In conditions
+	beginoptions
+		if main.ck_if {
+			require main.ed_if
+			put " " "if " main.ed_if
+		}
+		if main.ck_in {
+			require main.ed_in
+			put " " "in " main.ed_in
+		}
+	endoptions
+
+	// Frequency weights
+	if main.ck_fweight {
+		require main.ed_fweight
+		put " [fweight=" main.ed_fweight "]"
+	}
+
+	put ", "
+
+	// Required: vars
+	require main.ed_vars
+	put "vars("
+	put main.ed_vars
+	put ") "
+
+	// By variable
+	if bygroup.ck_by {
+		require bygroup.vn_by
+		put "by("
+		put bygroup.vn_by
+		put ") "
+	}
+
+	// Total column
+	if bygroup.ck_total {
+		if bygroup.rb_total_before {
+			put "total(before) "
+		}
+		if bygroup.rb_total_after {
+			put "total(after) "
+		}
+	}
+
+	// Statistical options
+	if bygroup.ck_test {
+		put "test "
+	}
+	if bygroup.ck_statistic {
+		put "statistic "
+	}
+	if bygroup.ck_pairwise123 {
+		put "pairwise123 "
+	}
+	if bygroup.ck_headerperc {
+		put "headerperc "
+	}
+
+	// Formatting options
+	if format.ed_format {
+		put "format("
+		put format.ed_format
+		put ") "
+	}
+	if format.ed_nformat {
+		put "nformat("
+		put format.ed_nformat
+		put ") "
+	}
+	if format.ed_percformat {
+		put "percformat("
+		put format.ed_percformat
+		put ") "
+	}
+	if !H(format.ed_percsign) {
+		put "percsign("
+		put `"""'
+		put format.ed_percsign
+		put `"""'
+		put ") "
+	}
+	if format.ck_catrowperc {
+		put "catrowperc "
+	}
+	if format.ck_missing {
+		put "missing "
+	}
+	if !H(format.ed_iqrmiddle) {
+		put "iqrmiddle("
+		put `"""'
+		put format.ed_iqrmiddle
+		put `"""'
+		put ") "
+	}
+	if !H(format.ed_sdleft) {
+		put "sdleft("
+		put `"""'
+		put format.ed_sdleft
+		put `"""'
+		put ") "
+	}
+	if !H(format.ed_sdright) {
+		put "sdright("
+		put `"""'
+		put format.ed_sdright
+		put `"""'
+		put ") "
+	}
+	if !H(format.ed_gsdleft) {
+		put "gsdleft("
+		put `"""'
+		put format.ed_gsdleft
+		put `"""'
+		put ") "
+	}
+	if !H(format.ed_gsdright) {
+		put "gsdright("
+		put `"""'
+		put format.ed_gsdright
+		put `"""'
+		put ") "
+	}
+
+	// Display options
+	if display.ck_onecol {
+		put "onecol "
+	}
+	if display.ck_percent {
+		put "percent "
+	}
+	if display.ck_percent_n {
+		put "percent_n "
+	}
+	if display.ck_slashN {
+		put "slashN "
+	}
+	if display.ck_nospace {
+		put "nospacelowpercent "
+	}
+	if display.ck_extraspace {
+		put "extraspace "
+	}
+	if display.ck_varlabplus {
+		put "varlabplus "
+	}
+	if display.ed_pdp {
+		put "pdp("
+		put display.ed_pdp
+		put ") "
+	}
+	if display.ed_highpdp {
+		put "highpdp("
+		put display.ed_highpdp
+		put ") "
+	}
+	if display.ck_gurmeet {
+		put "gurmeet "
+	}
+
+	// Excel/Output options
+	if output.ck_excel {
+		require output.fi_excel
+		require output.ed_sheet
+		require output.ed_title
+
+		put "excel("
+		put `"""'
+		put output.fi_excel
+		put `"""'
+		put ") "
+
+		put "sheet("
+		put `"""'
+		put output.ed_sheet
+		put `"""'
+		put ") "
+
+		put "title("
+		put `"""'
+		put output.ed_title
+		put `"""'
+		put ") "
+
+		if output.cb_borderstyle {
+			put "borderstyle("
+			put output.cb_borderstyle
+			put ") "
+		}
+	}
+
+	if output.ck_clear {
+		put "clear "
+	}
 END
