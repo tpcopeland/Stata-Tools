@@ -44,7 +44,7 @@ BEGIN
   VARNAME  vn_exit       @   +20 @    ., label("Exit")
 
   GROUPBOX gb_stopopt    10  +30 620  70,  label("Stop date options")
-  CHECKBOX ck_pointtime  20  +0 280  ., label("Point-in-time data (no stop date)") ///
+  CHECKBOX ck_pointtime  20  +40 280  ., label("Point-in-time data (no stop date)") ///
            onclickon(script stop_disable) onclickoff(script stop_enable)
   TEXT     tx_stop       330 @ 280    ., label("Stop date variable:")
   VARNAME  vn_stop       @   +20 @    ., label("Stop")
