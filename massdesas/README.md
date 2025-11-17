@@ -51,7 +51,7 @@ Stata 14.0 or higher
 
 ## Author
 
-Timothy P Copeland, University of California, San Francisco
+Timothy P Copeland, Department of Clinical Neuroscience, Karolinska Institutet
 
 ## Help
 
