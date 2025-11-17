@@ -71,7 +71,7 @@ BEGIN
   EDIT     ed_recency    40  +20 280  ., label("Recency cutpoints (years)") ///
            option(recency)
 
-  GROUPBOX gb_contopt    10  +35 620  85, label("Units (for duration and continuous exposure types)")
+  GROUPBOX gb_contopt    10  +25 620  85, label("Units (for duration and continuous exposure types)")
   TEXT     tx_contunit   20  +15 220  ., label("Cumulative exposure unit:")
   COMBOBOX cb_contunit   @   +20 180  ., dropdownlist contents(contunits) ///
            option(continuousunit)
@@ -79,7 +79,7 @@ BEGIN
   COMBOBOX cb_expandunit @   +20 180  ., dropdownlist contents(expandunits) ///
            option(expandunit)
 
-  GROUPBOX gb_bytype     10  +35 620  45,  label("Output variables")
+  GROUPBOX gb_bytype     10  +65 620  45,  label("Output variables")
   CHECKBOX ck_bytype     20  +15 590  ., label("Create separate variable for each exposure type (not available for basic time-varying)") ///
            option(bytype)
 END
@@ -149,18 +149,18 @@ BEGIN
   TEXT     tx_label      20  +25 240  ., label("Custom variable label:")
   EDIT     ed_label      @   +20 370  ., label("Label") option(label)
 
-  GROUPBOX gb_keep       10  +35 620  60,  label("Additional variables")
+  GROUPBOX gb_keep       10  +30 620  60,  label("Additional variables")
   TEXT     tx_keepvars   20  +15 240  ., label("Keep from master dataset:")
   VARLIST  vl_keepvars   @   +20 370  ., label("Keep vars") option(keepvars)
   CHECKBOX ck_keepdates  410 @ 200    ., label("Keep entry/exit dates") option(keepdates)
 
-  GROUPBOX gb_save       10  +35 620  55,  label("Save output")
+  GROUPBOX gb_save       10  +45 620  55,  label("Save output")
   FILE     fi_saveas     20  +15 480  ., error("Save as") save ///
            label("Browse...") filter("Stata datasets|*.dta|All files|*.*") ///
            option(saveas)
   CHECKBOX ck_replace    510 @ 110    ., label("Replace") option(replace)
 
-  GROUPBOX gb_diag       10  +35 620  80, label("Diagnostics")
+  GROUPBOX gb_diag       10  +55 620  80, label("Diagnostics")
   CHECKBOX ck_check      20  +15 180  ., label("Check coverage") option(check)
   CHECKBOX ck_gaps       @   +20 @    ., label("Show gaps") option(gaps)
   CHECKBOX ck_overlaps   @   +20 @    ., label("Show overlaps") option(overlaps)

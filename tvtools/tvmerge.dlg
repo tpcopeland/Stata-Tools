@@ -97,7 +97,7 @@ BEGIN
            option(saveas)
   CHECKBOX ck_replace    510 @ 110    ., label("Replace") option(replace)
 
-  GROUPBOX gb_diag       10  +35 620  100, label("Diagnostics and validation")
+  GROUPBOX gb_diag       10  +55 620  100, label("Diagnostics and validation")
   CHECKBOX ck_check      20  +15 280  ., label("Display coverage diagnostics") option(check)
   CHECKBOX ck_valcov     @   +20 @    ., label("Validate coverage (check for gaps)") option(validatecoverage)
   CHECKBOX ck_valoverlap @   +20 @    ., label("Validate overlaps") option(validateoverlap)
