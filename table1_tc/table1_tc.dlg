@@ -16,7 +16,6 @@ END
 SCRIPT POSTINIT
 BEGIN
 	script max_setDefaultWidth
-	// Set initial control states
 	main.ed_if.disable
 	main.ed_in.disable
 	main.ed_fweight.disable
@@ -25,141 +24,59 @@ BEGIN
 	script output_excel_off
 END
 
-// Main dialog tab - Variables and basic setup
 DIALOG main, label("table1_tc - Table 1 of Baseline Characteristics") tabtitle("Main")
 BEGIN
-  TEXT     tx_info         _lft      _top      _iwd      .,              ///
-        label("Create publication-ready Table 1 of baseline characteristics.")
+  TEXT     tx_info       10  10  620  ., label("Create publication-ready Table 1 of baseline characteristics.")
 
-  // Sample selection
-  GROUPBOX gb_sample        _lft      +25       _iwd      _ht4,           ///
-        label("Sample Selection")
+  GROUPBOX gb_sample     10  +25 620  75, label("Sample Selection")
+  CHECKBOX ck_if         20  +15 60   ., label("If:") ///
+           onclickon(main.ed_if.enable) onclickoff(main.ed_if.disable)
+  EDIT     ed_if         85  @ 545    ., label("If condition")
 
-  CHECKBOX ck_if            _ilft     +15       _cwd1     .,              ///
-        label("If:")                                                      ///
-        onclickon(main.ed_if.enable)                                      ///
-        onclickoff(main.ed_if.disable)
+  CHECKBOX ck_in         20  +20 60   ., label("In:") ///
+           onclickon(main.ed_in.enable) onclickoff(main.ed_in.disable)
+  EDIT     ed_in         85  @ 545    ., label("In range")
 
-  EDIT     ed_if            _ilft2    @         _cwd2     .,              ///
-        label("If condition")                                             ///
-        tooltip("Specify if condition (e.g., age >= 18)")
+  GROUPBOX gb_weights    10  +25 620  55, label("Weights")
+  CHECKBOX ck_fweight    20  +15 160  ., label("Frequency weights:") ///
+           onclickon(main.ed_fweight.enable) onclickoff(main.ed_fweight.disable)
+  EDIT     ed_fweight    185 @ 445    ., label("Weight variable")
 
-  CHECKBOX ck_in            _ilft     +20       _cwd1     .,              ///
-        label("In:")                                                      ///
-        onclickon(main.ed_in.enable)                                      ///
-        onclickoff(main.ed_in.disable)
+  GROUPBOX gb_vars       10  +25 620  180, label("Variables to Display (REQUIRED)")
+  TEXT     tx_vars_help  20  +15 600  35, label("Specify variables with their types separated by backslash (\). Format: varname type [format1] [format2] \ ...")
+  TEXT     tx_vars_types 20  +38 600  50, label("Types: contn (normal), contln (log-normal), conts (skewed), cat (categorical), cate (categorical-exact), bin (binary), bine (binary-exact)")
+  EDIT     ed_vars       20  +53 600  100, error("Variables") label("Variables")
+  TEXT     tx_vars_ex    20  +103 600 ., label("Example: weight contn \ price contln \ mpg conts \ rep78 cate \ foreign bin")
 
-  EDIT     ed_in            _ilft2    @         _cwd2     .,              ///
-        label("In range")                                                 ///
-        tooltip("Specify observation range (e.g., 1/100)")
-
-  // Weights
-  GROUPBOX gb_weights       _lft      +25       _iwd      _ht3,           ///
-        label("Weights")
-
-  CHECKBOX ck_fweight       _ilft     +15       _cwd1     .,              ///
-        label("Frequency weights:")                                       ///
-        onclickon(main.ed_fweight.enable)                                 ///
-        onclickoff(main.ed_fweight.disable)
-
-  EDIT     ed_fweight       _ilft2    @         _cwd2     .,              ///
-        label("Weight variable")                                          ///
-        tooltip("Frequency weight variable")
-
-  // Variables specification - REQUIRED
-  GROUPBOX gb_vars          _lft      +25       _iwd      _ht13h,         ///
-        label("Variables to Display (REQUIRED)")
-
-  TEXT     tx_vars_help     _ilft     +15       _iwd      35,             ///
-        label("Specify variables with their types separated by backslash (\). Format: varname type [format1] [format2] \ ...")
-
-  TEXT     tx_vars_types    _ilft     +38       _iwd      50,             ///
-        label("Types: contn (normal), contln (log-normal), conts (skewed), cat (categorical), cate (categorical-exact), bin (binary), bine (binary-exact)")
-
-  EDIT     ed_vars          _ilft     +53       _ibwd     100,            ///
-        error("Variables")                                                ///
-        label("Variables")                                                ///
-        tooltip("Example: age contn \ gender bin \ race cat %10.0f")
-
-  TEXT     tx_vars_ex       _ilft     +103      _iwd      .,              ///
-        label("Example: weight contn \ price contln \ mpg conts \ rep78 cate \ foreign bin")
-
-  // Quick reference card
-  GROUPBOX gb_quickref      _lft      +25       _iwd      _ht8h,          ///
-        label("Quick Reference - Statistical Tests")
-
-  TEXT     tx_qr1           _ilft     +15       _iwd      .,              ///
-        label("contn/contln: ANOVA (>2 groups) or t-test (2 groups)")
-
-  TEXT     tx_qr2           _ilft     +15       _iwd      .,              ///
-        label("conts: Kruskal-Wallis (>2 groups) or Wilcoxon rank-sum (2 groups)")
-
-  TEXT     tx_qr3           _ilft     +15       _iwd      .,              ///
-        label("cat/bin: Pearson's chi-square test")
-
-  TEXT     tx_qr4           _ilft     +15       _iwd      .,              ///
-        label("cate/bine: Fisher's exact test")
+  GROUPBOX gb_quickref   10  +25 620  100, label("Quick Reference - Statistical Tests")
+  TEXT     tx_qr1        20  +15 600  ., label("contn/contln: ANOVA (>2 groups) or t-test (2 groups)")
+  TEXT     tx_qr2        20  +15 600  ., label("conts: Kruskal-Wallis (>2 groups) or Wilcoxon rank-sum (2 groups)")
+  TEXT     tx_qr3        20  +15 600  ., label("cat/bin: Pearson's chi-square test")
+  TEXT     tx_qr4        20  +15 600  ., label("cate/bine: Fisher's exact test")
 END
 
-// By/Grouping tab
 DIALOG bygroup, tabtitle("By/Grouping")
 BEGIN
-  TEXT     tx_by_info       _lft      _top      _iwd      25,             ///
-        label("Group observations by a categorical variable and compare characteristics between groups.")
+  TEXT     tx_by_info     10  10  620  25, label("Group observations by a categorical variable and compare characteristics between groups.")
 
-  GROUPBOX gb_by            _lft      +25       _iwd      _ht4,           ///
-        label("Grouping Variable")
+  GROUPBOX gb_by          10  +25 620  75, label("Grouping Variable")
+  CHECKBOX ck_by          20  +15 160  ., label("Group by variable:") ///
+           onclickon(script bygroup_by_on) onclickoff(script bygroup_by_off)
+  VARNAME  vn_by          185 @ 445    ., label("By variable")
 
-  CHECKBOX ck_by            _ilft     +15       _cwd1     .,              ///
-        label("Group by variable:")                                       ///
-        onclickon(script bygroup_by_on)                                   ///
-        onclickoff(script bygroup_by_off)                                 ///
-        tooltip("Group observations by this variable")
+  GROUPBOX gb_total       10  +25 620  85, label("Total Column")
+  CHECKBOX ck_total       20  +15 160  ., label("Include total column") ///
+           onclickon(script bygroup_total_on) onclickoff(script bygroup_total_off)
+  RADIO    rb_total_before 185 +20 445 ., first label("Before group columns") ///
+           option("before") default(1)
+  RADIO    rb_total_after @ +20 @      ., last label("After group columns") ///
+           option("after")
 
-  VARNAME  vn_by            _ilft2    @         _cwd2     .,              ///
-        label("By variable")                                              ///
-        tooltip("Must be string or numeric with non-negative integers")
-
-  // Total column options
-  GROUPBOX gb_total         _lft      +25       _iwd      _ht5h,          ///
-        label("Total Column")
-
-  CHECKBOX ck_total         _ilft     +15       _cwd1     .,              ///
-        label("Include total column")                                     ///
-        onclickon(script bygroup_total_on)                                ///
-        onclickoff(script bygroup_total_off)                              ///
-        tooltip("Add a column showing totals across all groups")
-
-  RADIO    rb_total_before  _ilft2    +20       _cwd2     .,              ///
-        first                                                             ///
-        label("Before group columns")                                     ///
-        option("before")                                                  ///
-        default(1)
-
-  RADIO    rb_total_after   @         +20       @         .,              ///
-        last                                                              ///
-        label("After group columns")                                      ///
-        option("after")
-
-  // Statistical comparisons
-  GROUPBOX gb_stats         _lft      +25       _iwd      _ht7h,          ///
-        label("Statistical Comparisons")
-
-  CHECKBOX ck_test          _ilft     +15       _cwd1     .,              ///
-        label("Include test column")                                      ///
-        tooltip("Add column describing which statistical test was used")
-
-  CHECKBOX ck_statistic     _ilft     +20       _cwd1     .,              ///
-        label("Include test statistic")                                   ///
-        tooltip("Add column with test statistic values")
-
-  CHECKBOX ck_pairwise123   _ilft     +20       _cwd1     .,              ///
-        label("Pairwise comparisons (first 3 groups)")                    ///
-        tooltip("Report unadjusted pairwise p-values between first 3 groups")
-
-  CHECKBOX ck_headerperc    _ilft     +20       _cwd1     .,              ///
-        label("Show group percentages in header")                         ///
-        tooltip("Add percentage of total to sample size row")
+  GROUPBOX gb_stats       10  +25 620  105, label("Statistical Comparisons")
+  CHECKBOX ck_test        20  +15 280  ., label("Include test column")
+  CHECKBOX ck_statistic   20  +20 280  ., label("Include test statistic")
+  CHECKBOX ck_pairwise123 20  +20 280  ., label("Pairwise comparisons (first 3 groups)")
+  CHECKBOX ck_headerperc  20  +20 280  ., label("Show group percentages in header")
 END
 
 SCRIPT bygroup_by_on
@@ -199,214 +116,91 @@ END
 // Formatting tab
 DIALOG format, tabtitle("Formatting")
 BEGIN
-  TEXT     tx_format_info   _lft      _top      _iwd      25,             ///
-        label("Customize how statistics are displayed in the table.")
+  TEXT     tx_format_info 10  10  620  25, label("Customize how statistics are displayed in the table.")
 
-  // Continuous variable formats
-  GROUPBOX gb_cont_format   _lft      +25       _iwd      _ht4,           ///
-        label("Continuous Variables")
+  GROUPBOX gb_cont_format 10  +25 620  75, label("Continuous Variables")
+  TEXT     tx_format      20  +15 160  ., label("Default format:")
+  EDIT     ed_format      185 @ 445    ., label("Format")
 
-  TEXT     tx_format        _ilft     +15       _cwd1     .,              ///
-        label("Default format:")
-  EDIT     ed_format        _ilft2    @         _cwd2     .,              ///
-        label("Format")                                                   ///
-        tooltip("Default display format for continuous variables (e.g., %9.2f)")
+  TEXT     tx_nformat     20  +20 160  ., label("Count format (n, N):")
+  EDIT     ed_nformat     185 @ 445    ., default("%12.0fc") label("N format")
 
-  TEXT     tx_nformat       _ilft     +20       _cwd1     .,              ///
-        label("Count format (n, N):")
-  EDIT     ed_nformat       _ilft2    @         _cwd2     .,              ///
-        default("%12.0fc")                                                ///
-        label("N format")                                                 ///
-        tooltip("Format for displaying counts")
+  GROUPBOX gb_cat_format  10  +25 620  115, label("Categorical Variables")
+  TEXT     tx_percformat  20  +15 160  ., label("Percentage format:")
+  EDIT     ed_percformat  185 @ 445    ., label("Percentage format")
 
-  // Categorical variable formats
-  GROUPBOX gb_cat_format    _lft      +25       _iwd      _ht6h,          ///
-        label("Categorical Variables")
+  TEXT     tx_percsign    20  +20 160  ., label("Percent sign:")
+  EDIT     ed_percsign    185 @ 100    ., default("%") label("Percent sign")
 
-  TEXT     tx_percformat    _ilft     +15       _cwd1     .,              ///
-        label("Percentage format:")
-  EDIT     ed_percformat    _ilft2    @         _cwd2     .,              ///
-        label("Percentage format")                                        ///
-        tooltip("Default format for percentages (e.g., %5.1f)")
+  CHECKBOX ck_catrowperc  20  +20 280  ., label("Use row percentages (instead of column)")
+  CHECKBOX ck_missing     20  +20 280  ., label("Include missing as category")
 
-  TEXT     tx_percsign      _ilft     +20       _cwd1     .,              ///
-        label("Percent sign:")
-  EDIT     ed_percsign      _ilft2    @         _cwd2_2   .,              ///
-        default("%")                                                      ///
-        label("Percent sign")                                             ///
-        tooltip("Character(s) to use as percent sign")
+  GROUPBOX gb_symbols     10  +25 620  145, label("Symbols and Delimiters")
+  TEXT     tx_iqrmiddle   20  +15 160  ., label("IQR separator:")
+  EDIT     ed_iqrmiddle   185 @ 100    ., default("-") label("IQR separator")
 
-  CHECKBOX ck_catrowperc    _ilft     +20       _cwd1     .,              ///
-        label("Use row percentages (instead of column)")                  ///
-        tooltip("Report row % rather than column % for categorical vars")
+  TEXT     tx_sdleft      20  +20 160  ., label("SD left symbol:")
+  EDIT     ed_sdleft      185 @ 100    ., default(" (") label("SD left")
 
-  CHECKBOX ck_missing       _ilft     +20       _cwd1     .,              ///
-        label("Include missing as category")                              ///
-        tooltip("Don't exclude missing values from categorical variables")
+  TEXT     tx_sdright     20  +20 160  ., label("SD right symbol:")
+  EDIT     ed_sdright     185 @ 100    ., default(")") label("SD right")
 
-  // Symbol customization
-  GROUPBOX gb_symbols       _lft      +25       _iwd      _ht10h,         ///
-        label("Symbols and Delimiters")
+  TEXT     tx_gsdleft     20  +20 160  ., label("GSD left symbol:")
+  EDIT     ed_gsdleft     185 @ 100    ., default(" (×/") label("GSD left")
 
-  TEXT     tx_iqrmiddle     _ilft     +15       _cwd1     .,              ///
-        label("IQR separator:")
-  EDIT     ed_iqrmiddle     _ilft2    @         _cwd2_2   .,              ///
-        default("-")                                                      ///
-        label("IQR separator")                                            ///
-        tooltip("Symbol between Q1 and Q3 (e.g., '-' gives 'Q1-Q3')")
-
-  TEXT     tx_sdleft        _ilft     +20       _cwd1     .,              ///
-        label("SD left symbol:")
-  EDIT     ed_sdleft        _ilft2    @         _cwd2_2   .,              ///
-        default(" (")                                                     ///
-        label("SD left")                                                  ///
-        tooltip("Symbol before SD")
-
-  TEXT     tx_sdright       _ilft     +20       _cwd1     .,              ///
-        label("SD right symbol:")
-  EDIT     ed_sdright       _ilft2    @         _cwd2_2   .,              ///
-        default(")")                                                      ///
-        label("SD right")                                                 ///
-        tooltip("Symbol after SD")
-
-  TEXT     tx_gsdleft       _ilft     +20       _cwd1     .,              ///
-        label("GSD left symbol:")
-  EDIT     ed_gsdleft       _ilft2    @         _cwd2_2   .,              ///
-        default(" (×/")                                                   ///
-        label("GSD left")                                                 ///
-        tooltip("Symbol before geometric SD")
-
-  TEXT     tx_gsdright      _ilft     +20       _cwd1     .,              ///
-        label("GSD right symbol:")
-  EDIT     ed_gsdright      _ilft2    @         _cwd2_2   .,              ///
-        default(")")                                                      ///
-        label("GSD right")                                                ///
-        tooltip("Symbol after geometric SD")
+  TEXT     tx_gsdright    20  +20 160  ., label("GSD right symbol:")
+  EDIT     ed_gsdright    185 @ 100    ., default(")") label("GSD right")
 END
 
-// Display options tab
 DIALOG display, tabtitle("Display")
 BEGIN
-  TEXT     tx_display_info  _lft      _top      _iwd      25,             ///
-        label("Control how data is presented and formatted in the table.")
+  TEXT     tx_display_info 10  10  620  25, label("Control how data is presented and formatted in the table.")
 
-  // Display style
-  GROUPBOX gb_style         _lft      +25       _iwd      _ht7h,          ///
-        label("Display Style")
+  GROUPBOX gb_style        10  +25 620  105, label("Display Style")
+  CHECKBOX ck_onecol       20  +15 280  ., label("One column for categorical variables")
+  CHECKBOX ck_percent      20  +20 280  ., label("Show % only (no n)")
+  CHECKBOX ck_percent_n    20  +20 280  ., label("Show % (n) instead of n (%)")
+  CHECKBOX ck_slashN       20  +20 280  ., label("Show n/N instead of n")
 
-  CHECKBOX ck_onecol        _ilft     +15       _cwd1     .,              ///
-        label("One column for categorical variables")                     ///
-        tooltip("Display categorical levels underneath variable name instead of separate column")
+  GROUPBOX gb_align        10  +25 620  85, label("Alignment and Spacing")
+  CHECKBOX ck_nospace      20  +15 280  ., label("No space for low percentages")
+  CHECKBOX ck_extraspace   20  +20 280  ., label("Add extra spacing")
+  CHECKBOX ck_varlabplus   20  +20 280  ., label("Add data type to variable labels")
 
-  CHECKBOX ck_percent       _ilft     +20       _cwd1     .,              ///
-        label("Show % only (no n)")                                       ///
-        tooltip("Report categorical vars as % only, not n (%)")
+  GROUPBOX gb_pvalue       10  +25 620  75, label("P-value Display")
+  TEXT     tx_pdp          20  +15 160  ., label("Decimals (p < 0.10):")
+  EDIT     ed_pdp          185 @ 70     ., default("3") numonly label("P decimals low")
 
-  CHECKBOX ck_percent_n     _ilft     +20       _cwd1     .,              ///
-        label("Show % (n) instead of n (%)")                              ///
-        tooltip("Reverse the order of n and %")
+  TEXT     tx_highpdp      20  +20 160  ., label("Decimals (p >= 0.10):")
+  EDIT     ed_highpdp      185 @ 70     ., default("2") numonly label("P decimals high")
 
-  CHECKBOX ck_slashN        _ilft     +20       _cwd1     .,              ///
-        label("Show n/N instead of n")                                    ///
-        tooltip("Report as fraction of total")
-
-  // Alignment and spacing
-  GROUPBOX gb_align         _lft      +25       _iwd      _ht5h,          ///
-        label("Alignment and Spacing")
-
-  CHECKBOX ck_nospace       _ilft     +15       _cwd1     .,              ///
-        label("No space for low percentages")                             ///
-        tooltip("Report (3%) instead of ( 3%)")
-
-  CHECKBOX ck_extraspace    _ilft     +20       _cwd1     .,              ///
-        label("Add extra spacing")                                        ///
-        tooltip("Helps alignment in DOCX with non-monospaced fonts")
-
-  CHECKBOX ck_varlabplus    _ilft     +20       _cwd1     .,              ///
-        label("Add data type to variable labels")                         ///
-        tooltip("Include ', mean (SD)', ', No. (%)', etc. after each variable label")
-
-  // P-value formatting
-  GROUPBOX gb_pvalue        _lft      +25       _iwd      _ht4,           ///
-        label("P-value Display")
-
-  TEXT     tx_pdp           _ilft     +15       _cwd1     .,              ///
-        label("Decimals (p < 0.10):")
-  EDIT     ed_pdp           _ilft2    @         70        .,              ///
-        default("3")                                                      ///
-        numonly                                                           ///
-        label("P decimals low")                                           ///
-        tooltip("Max decimal places when p-value < 0.10")
-
-  TEXT     tx_highpdp       _ilft     +20       _cwd1     .,              ///
-        label("Decimals (p >= 0.10):")
-  EDIT     ed_highpdp       _ilft2    @         70        .,              ///
-        default("2")                                                      ///
-        numonly                                                           ///
-        label("P decimals high")                                          ///
-        tooltip("Max decimal places when p-value >= 0.10")
-
-  // Preset
-  GROUPBOX gb_preset        _lft      +25       _iwd      _ht3,           ///
-        label("Preset Options")
-
-  CHECKBOX ck_gurmeet       _ilft     +15       _cwd1     .,              ///
-        label("Gurmeet preset (overrides other formatting)")              ///
-        tooltip("Apply preset formatting: percformat(%5.1f) percent_n percsign('') iqrmiddle(',') sdleft(' [±') sdright(']') gsdleft(' [×/') gsdright(']') onecol extraspace")
+  GROUPBOX gb_preset       10  +25 620  55, label("Preset Options")
+  CHECKBOX ck_gurmeet      20  +15 280  ., label("Gurmeet preset (overrides other formatting)")
 END
 
 // Excel/Output tab
 DIALOG output, tabtitle("Excel/Output")
 BEGIN
-  TEXT     tx_output_info   _lft      _top      _iwd      25,             ///
-        label("Export table to Excel with professional formatting or keep in memory.")
+  TEXT     tx_output_info 10  10  620  25, label("Export table to Excel with professional formatting or keep in memory.")
 
-  // Excel export
-  GROUPBOX gb_excel         _lft      +25       _iwd      _ht8h,          ///
-        label("Excel Export")
+  GROUPBOX gb_excel       10  +25 620  135, label("Excel Export")
+  CHECKBOX ck_excel       20  +15 160  ., label("Export to Excel:") ///
+           onclickon(script output_excel_on) onclickoff(script output_excel_off)
+  FILE     fi_excel       185 @ 445    ., error("Excel filename") label("Browse...") ///
+           filter("Excel Files (*.xlsx)|*.xlsx|All Files (*.*)|*.*") save defext("xlsx")
 
-  CHECKBOX ck_excel         _ilft     +15       _cwd1     .,              ///
-        label("Export to Excel:")                                         ///
-        onclickon(script output_excel_on)                                 ///
-        onclickoff(script output_excel_off)                               ///
-        tooltip("Save table to Excel file")
+  TEXT     tx_sheet       20  +25 160  ., label("Sheet name:")
+  EDIT     ed_sheet       185 @ 445    ., label("Sheet name")
 
-  FILE     fi_excel         _ilft2    @         _cwd2     .,              ///
-        error("Excel filename")                                           ///
-        label("Browse...")                                                ///
-        filter("Excel Files (*.xlsx)|*.xlsx|All Files (*.*)|*.*")        ///
-        save                                                              ///
-        defext("xlsx")                                                    ///
-        tooltip("Excel file to save the table")
+  TEXT     tx_title       20  +20 160  ., label("Table title:")
+  EDIT     ed_title       185 @ 445    ., label("Title")
 
-  TEXT     tx_sheet         _ilft     +25       _cwd1     .,              ///
-        label("Sheet name:")
-  EDIT     ed_sheet         _ilft2    @         _cwd2     .,              ///
-        label("Sheet name")                                               ///
-        tooltip("Name of the Excel sheet")
+  TEXT     tx_border      20  +20 160  ., label("Border style:")
+  COMBOBOX cb_borderstyle 185 @ 150    ., dropdown contents(output_border_contents) ///
+           default("default") label("Border style")
 
-  TEXT     tx_title         _ilft     +20       _cwd1     .,              ///
-        label("Table title:")
-  EDIT     ed_title         _ilft2    @         _cwd2     .,              ///
-        label("Title")                                                    ///
-        tooltip("Title for the table (appears in cell A1)")
-
-  TEXT     tx_border        _ilft     +20       _cwd1     .,              ///
-        label("Border style:")
-  COMBOBOX cb_borderstyle   _ilft2    @         150       .,              ///
-        dropdown                                                          ///
-        contents(output_border_contents)                                  ///
-        default("default")                                                ///
-        label("Border style")                                             ///
-        tooltip("Excel border style: default (mixed) or thin (uniform)")
-
-  // Output options
-  GROUPBOX gb_output        _lft      +25       _iwd      _ht3,           ///
-        label("Output Options")
-
-  CHECKBOX ck_clear         _ilft     +15       _cwd1     .,              ///
-        label("Keep table in memory (replace dataset)")                   ///
-        tooltip("Replace current dataset with the resulting table")
+  GROUPBOX gb_output      10  +25 620  55, label("Output Options")
+  CHECKBOX ck_clear       20  +15 280  ., label("Keep table in memory (replace dataset)")
 END
 
 SCRIPT output_excel_on
@@ -431,86 +225,41 @@ BEGIN
         thin
 END
 
-// Help/Examples tab
 DIALOG examples, tabtitle("Help/Examples")
 BEGIN
-  TEXT tx_help1    _lft    _top     _iwd    .,                            ///
-        label("table1_tc - Create Table 1 of Baseline Characteristics")
-
-  TEXT tx_help2    _lft    +25      _iwd    .,                            ///
-        label("DESCRIPTION:")
-
-  TEXT tx_help3    _lft    +15      _iwd    70,                           ///
-        label("Creates publication-ready 'Table 1' of baseline characteristics with statistics and formatting suitable for manuscripts. Variables can be continuous or categorical, with automatic statistical tests when grouped.")
-
-  TEXT tx_help4    _lft    +75      _iwd    .,                            ///
-        label("VARIABLE TYPES:")
-
-  TEXT tx_help5    _lft    +15      _iwd    .,                            ///
-        label("contn  - Continuous, normally distributed (mean ± SD, ANOVA/t-test)")
-
-  TEXT tx_help6    _lft    +15      _iwd    .,                            ///
-        label("contln - Continuous, log-normally distributed (geometric mean ×/ GSD)")
-
-  TEXT tx_help7    _lft    +15      _iwd    .,                            ///
-        label("conts  - Continuous, skewed (median Q1-Q3, Kruskal-Wallis/rank-sum)")
-
-  TEXT tx_help8    _lft    +15      _iwd    .,                            ///
-        label("cat    - Categorical (n (%), chi-square test)")
-
-  TEXT tx_help9    _lft    +15      _iwd    .,                            ///
-        label("cate   - Categorical (n (%), Fisher's exact test)")
-
-  TEXT tx_help10   _lft    +15      _iwd    .,                            ///
-        label("bin    - Binary 0/1 (n (%), chi-square test)")
-
-  TEXT tx_help11   _lft    +15      _iwd    .,                            ///
-        label("bine   - Binary 0/1 (n (%), Fisher's exact test)")
-
-  TEXT tx_help12   _lft    +25      _iwd    .,                            ///
-        label("EXAMPLE 1: Basic table")
-
-  TEXT tx_ex1      _lft    +15      _iwd    .,                            ///
-        label("   table1_tc, vars(age contn \ gender bin \ bmi conts)")
-
-  TEXT tx_help13   _lft    +25      _iwd    .,                            ///
-        label("EXAMPLE 2: Grouped by treatment, export to Excel")
-
-  TEXT tx_ex2a     _lft    +15      _iwd    .,                            ///
-        label("   table1_tc, by(treatment) vars(age contn \ gender bin \ bmi conts) ///")
-
-  TEXT tx_ex2b     _lft    +15      _iwd    .,                            ///
-        label("      excel('table1.xlsx') sheet('Table 1') ///")
-
-  TEXT tx_ex2c     _lft    +15      _iwd    .,                            ///
-        label("      title('Table 1: Baseline Characteristics')")
-
-  TEXT tx_help14   _lft    +25      _iwd    .,                            ///
-        label("EXAMPLE 3: Custom formatting with totals")
-
-  TEXT tx_ex3a     _lft    +15      _iwd    .,                            ///
-        label("   table1_tc, by(group) vars(weight contn \ price contln) ///")
-
-  TEXT tx_ex3b     _lft    +15      _iwd    .,                            ///
-        label("      total(before) onecol percent_n headerperc")
-
-  TEXT tx_help15   _lft    +25      _iwd    .,                            ///
-        label("For complete documentation: help table1_tc")
+  TEXT tx_help1    10  10  620  ., label("table1_tc - Create Table 1 of Baseline Characteristics")
+  TEXT tx_help2    10  +25 620  ., label("DESCRIPTION:")
+  TEXT tx_help3    10  +15 620  70, label("Creates publication-ready 'Table 1' of baseline characteristics with statistics and formatting suitable for manuscripts. Variables can be continuous or categorical, with automatic statistical tests when grouped.")
+  TEXT tx_help4    10  +75 620  ., label("VARIABLE TYPES:")
+  TEXT tx_help5    10  +15 620  ., label("contn  - Continuous, normally distributed (mean ± SD, ANOVA/t-test)")
+  TEXT tx_help6    10  +15 620  ., label("contln - Continuous, log-normally distributed (geometric mean ×/ GSD)")
+  TEXT tx_help7    10  +15 620  ., label("conts  - Continuous, skewed (median Q1-Q3, Kruskal-Wallis/rank-sum)")
+  TEXT tx_help8    10  +15 620  ., label("cat    - Categorical (n (%), chi-square test)")
+  TEXT tx_help9    10  +15 620  ., label("cate   - Categorical (n (%), Fisher's exact test)")
+  TEXT tx_help10   10  +15 620  ., label("bin    - Binary 0/1 (n (%), chi-square test)")
+  TEXT tx_help11   10  +15 620  ., label("bine   - Binary 0/1 (n (%), Fisher's exact test)")
+  TEXT tx_help12   10  +25 620  ., label("EXAMPLE 1: Basic table")
+  TEXT tx_ex1      10  +15 620  ., label("   table1_tc, vars(age contn \ gender bin \ bmi conts)")
+  TEXT tx_help13   10  +25 620  ., label("EXAMPLE 2: Grouped by treatment, export to Excel")
+  TEXT tx_ex2a     10  +15 620  ., label("   table1_tc, by(treatment) vars(age contn \ gender bin \ bmi conts) ///")
+  TEXT tx_ex2b     10  +15 620  ., label("      excel('table1.xlsx') sheet('Table 1') ///")
+  TEXT tx_ex2c     10  +15 620  ., label("      title('Table 1: Baseline Characteristics')")
+  TEXT tx_help14   10  +25 620  ., label("EXAMPLE 3: Custom formatting with totals")
+  TEXT tx_ex3a     10  +15 620  ., label("   table1_tc, by(group) vars(weight contn \ price contln) ///")
+  TEXT tx_ex3b     10  +15 620  ., label("      total(before) onecol percent_n headerperc")
+  TEXT tx_help15   10  +25 620  ., label("For complete documentation: help table1_tc")
 END
 
 PROGRAM parseMessage
 BEGIN
-	// Handle max variable settings if needed
 END
 
 PROGRAM command
 BEGIN
-	// Require vars option
 	require main.ed_vars
 
 	put "table1_tc"
 
-	// If/In conditions
 	beginoptions
 		if main.ck_if {
 			require main.ed_if
@@ -522,7 +271,6 @@ BEGIN
 		}
 	endoptions
 
-	// Frequency weights
 	if main.ck_fweight {
 		require main.ed_fweight
 		put " [fweight=" main.ed_fweight "]"
@@ -530,13 +278,11 @@ BEGIN
 
 	put ", "
 
-	// Required: vars
 	require main.ed_vars
 	put "vars("
 	put main.ed_vars
 	put ") "
 
-	// By variable
 	if bygroup.ck_by {
 		require bygroup.vn_by
 		put "by("
@@ -544,7 +290,6 @@ BEGIN
 		put ") "
 	}
 
-	// Total column
 	if bygroup.ck_total {
 		if bygroup.rb_total_before {
 			put "total(before) "
@@ -554,7 +299,6 @@ BEGIN
 		}
 	}
 
-	// Statistical options
 	if bygroup.ck_test {
 		put "test "
 	}
@@ -568,7 +312,6 @@ BEGIN
 		put "headerperc "
 	}
 
-	// Formatting options
 	if format.ed_format {
 		put "format("
 		put format.ed_format
@@ -584,7 +327,7 @@ BEGIN
 		put format.ed_percformat
 		put ") "
 	}
-	if !H(format.ed_percsign) {
+	if format.ed_percsign {
 		put "percsign("
 		put `"""'
 		put format.ed_percsign
@@ -597,35 +340,35 @@ BEGIN
 	if format.ck_missing {
 		put "missing "
 	}
-	if !H(format.ed_iqrmiddle) {
+	if format.ed_iqrmiddle {
 		put "iqrmiddle("
 		put `"""'
 		put format.ed_iqrmiddle
 		put `"""'
 		put ") "
 	}
-	if !H(format.ed_sdleft) {
+	if format.ed_sdleft {
 		put "sdleft("
 		put `"""'
 		put format.ed_sdleft
 		put `"""'
 		put ") "
 	}
-	if !H(format.ed_sdright) {
+	if format.ed_sdright {
 		put "sdright("
 		put `"""'
 		put format.ed_sdright
 		put `"""'
 		put ") "
 	}
-	if !H(format.ed_gsdleft) {
+	if format.ed_gsdleft {
 		put "gsdleft("
 		put `"""'
 		put format.ed_gsdleft
 		put `"""'
 		put ") "
 	}
-	if !H(format.ed_gsdright) {
+	if format.ed_gsdright {
 		put "gsdright("
 		put `"""'
 		put format.ed_gsdright
@@ -633,7 +376,6 @@ BEGIN
 		put ") "
 	}
 
-	// Display options
 	if display.ck_onecol {
 		put "onecol "
 	}
@@ -669,7 +411,6 @@ BEGIN
 		put "gurmeet "
 	}
 
-	// Excel/Output options
 	if output.ck_excel {
 		require output.fi_excel
 		require output.ed_sheet
