@@ -72,7 +72,6 @@ END
 
 PROGRAM parseMessage
 BEGIN
-	// Handle max variable settings if needed
 END
 
 PROGRAM command
