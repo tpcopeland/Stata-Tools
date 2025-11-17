@@ -146,7 +146,8 @@ Report issues and request features at: https://github.com/tpcopeland/Stata-Tools
 ## Author
 
 Timothy P Copeland
-University of California, San Francisco
+Department of Clinical Neuroscience
+Karolinska Institutet
 
 ## License
 
@@ -173,6 +174,6 @@ MIT License - see individual package files for details
 If you use these tools in your research, please cite the GitHub repository:
 
 ```
-Copeland TP. Stata-Tools: A collection of Stata commands for research data management and analysis.
+Copeland TP. Stata-Tools: A collection of Stata commands for data management and analysis.
 GitHub repository: https://github.com/tpcopeland/Stata-Tools
 ```
