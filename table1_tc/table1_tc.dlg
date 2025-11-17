@@ -1,13 +1,4 @@
 VERSION 14.2
-/*
-  table1_tc.dlg - Dialog for table1_tc command
-
-  Create "Table 1" of baseline characteristics for manuscripts.
-
-  Author: Tim Copeland (Fork of table1_mc by Mark Chatfield)
-  Version: 1.2
-  Date: November 2025
-*/
 
 INCLUDE _std_xlarge
 DEFINE _dlght 500
