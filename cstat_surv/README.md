@@ -59,7 +59,7 @@ The C-statistic ranges from 0 to 1:
 
 ## Author
 
-Timothy P Copeland, University of California, San Francisco
+Timothy P Copeland, Department of Clinical Neuroscience, Karolinska Institutet
 
 ## Help
 
