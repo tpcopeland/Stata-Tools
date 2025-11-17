@@ -158,11 +158,12 @@ This creates a comprehensive cardiovascular outcomes table with rates per 100 pe
 {marker author}{...}
 {title:Author}
 
-{pstd}
-Tim Copeland
+{pstd}Timothy P. Copeland{p_end}
+{pstd}Department of Clinical Neuroscience{p_end}
+{pstd}Karolinska Institutet{p_end}
+{pstd}Email: timothy.copeland@ki.se{p_end}
 
-{pstd}
-Version 2.1, 2025-10-23
+{pstd}Version 2.1 - 23 October 2025{p_end}
 
 
 {title:Also see}

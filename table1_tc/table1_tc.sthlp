@@ -151,8 +151,13 @@ binary variables on one row, provide finer control of decimal places, and other 
 {phang}table1 - Phil Clayton, ANZDATA Registry, Australia.{p_end}
 
 
+{marker author}{...}
 {title:Author}
 
-{p 4 4 2}
-Tim Copeland{break}
-Fork of table1_mc by Mark Chatfield, The University of Queensland, Australia.{break}
+{pstd}Timothy P. Copeland{p_end}
+{pstd}Department of Clinical Neuroscience{p_end}
+{pstd}Karolinska Institutet{p_end}
+{pstd}Email: timothy.copeland@ki.se{p_end}
+
+{pstd}Version 1.2 - 13 June 2025{p_end}
+{pstd}Fork of table1_mc by Mark Chatfield, The University of Queensland, Australia{p_end}

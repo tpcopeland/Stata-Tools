@@ -105,12 +105,15 @@ Assumes computer date and time is UTC+1 and converts to UTC-7 for the global mac
 
 {p 4 4 2}
 
+{marker author}{...}
 {title:Author}
 
-{p 4 4 2}
-Timothy P. Copeland{break}
-Division of Nephrology{break}
-University of California, San Francisco{break}
+{pstd}Timothy P. Copeland{p_end}
+{pstd}Department of Clinical Neuroscience{p_end}
+{pstd}Karolinska Institutet{p_end}
+{pstd}Email: timothy.copeland@ki.se{p_end}
+
+{pstd}Version 1.0 - 19 December 2024{p_end}
 
 {p 4 4 2}
 

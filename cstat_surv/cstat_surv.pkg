@@ -10,7 +10,9 @@ d Requires: Stata version 14, somersd package from SSC
 d Distribution-Date: 20251117
 d License: MIT
 d
-d Author: Timothy P Copeland, University of California, San Francisco
+d Author: Timothy P. Copeland
+d Department of Clinical Neuroscience, Karolinska Institutet, Stockholm, Sweden
+d Email: timothy.copeland@ki.se
 d
 d KW: survival analysis
 d KW: Cox model

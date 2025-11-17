@@ -100,11 +100,15 @@ The C-statistic is equivalent to the area under the ROC curve (AUC) and represen
 {phang2}{cmd:. ssc install somersd}{p_end}
 
 
+{marker author}{...}
 {title:Author}
 
-{pstd}
-Tim Copeland{break}
-University of California, San Francisco
+{pstd}Timothy P. Copeland{p_end}
+{pstd}Department of Clinical Neuroscience{p_end}
+{pstd}Karolinska Institutet{p_end}
+{pstd}Email: timothy.copeland@ki.se{p_end}
+
+{pstd}Version 1.0.0 - 15 May 2022{p_end}
 
 
 {title:Also see}

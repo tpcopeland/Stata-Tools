@@ -250,11 +250,15 @@ You can document datasets in three ways:
 {synopt:{cmd:r(output)}}name of output file created{p_end}
 
 
+{marker author}{...}
 {title:Author}
 
-{pstd}
-Tim Copeland{break}
-Email: {browse "mailto:tim.copeland@example.com":tim.copeland@example.com}
+{pstd}Timothy P. Copeland{p_end}
+{pstd}Department of Clinical Neuroscience{p_end}
+{pstd}Karolinska Institutet{p_end}
+{pstd}Email: timothy.copeland@ki.se{p_end}
+
+{pstd}Version 1.0.0 - 14 November 2025{p_end}
 
 
 {title:Also see}
