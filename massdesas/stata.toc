@@ -1,0 +1,5 @@
+v 3
+d Stata-Tools: massdesas
+d Tim Copeland, University of California, San Francisco
+d https://github.com/tpcopeland/Stata-Tools
+p massdesas
