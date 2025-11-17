@@ -145,9 +145,7 @@ Report issues and request features at: https://github.com/tpcopeland/Stata-Tools
 
 ## Author
 
-Timothy P Copeland
-Department of Clinical Neuroscience
-Karolinska Institutet
+Timothy P Copeland, Department of Clinical Neuroscience, Karolinska Institutet
 
 ## License
 
