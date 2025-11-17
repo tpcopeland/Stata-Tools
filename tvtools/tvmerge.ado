@@ -1,7 +1,7 @@
 *! tvmerge v1.0.0
 *! Merge multiple time-varying exposure datasets
 *! Author: Tim Copeland
-*! Date: 2025-11-07
+*! Date: 2025-11-17
 *! Program class: rclass (returns results in r())
 
 /*

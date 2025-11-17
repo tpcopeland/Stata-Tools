@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.0  2025-11-07}{...}
+{* *! version 1.0.0  17nov2025}{...}
 {vieweralsosee "[ST] stset" "help stset"}{...}
 {vieweralsosee "[ST] stsplit" "help stsplit"}{...}
 {vieweralsosee "[ST] stcox" "help stcox"}{...}

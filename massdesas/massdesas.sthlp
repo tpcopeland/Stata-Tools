@@ -1,5 +1,5 @@
 {smcl}
-{* 24july2020}{...}
+{* *! version 1.0.0  17nov2025}{...}
 {cmd:help massdesas}
 {hline}
 

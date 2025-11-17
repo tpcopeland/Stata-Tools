@@ -1,5 +1,5 @@
 {smcl}
-{* 2 October 2025}{...}
+{* *! version 1.0.0  17nov2025}{...}
 {cmd:help datefix}
 {hline}
 

@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 3.0  1March2025}{...}
+{* *! version 1.0.0  17nov2025}{...}
 {title:Title}
 
 {p 4 2}

@@ -1,6 +1,6 @@
-*! regtab | Version 1.2
+*! regtab | Version 1.0.0
 *! Originals Author: Tim Copeland
-*! Updated on: 25 September 2025
+*! Updated on: 17 November 2025
 
 /* 
 DESCRIPTION: 

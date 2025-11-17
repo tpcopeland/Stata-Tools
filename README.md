@@ -2,6 +2,8 @@
 
 A collection of Stata commands for data management, analysis, and table generation.
 
+**Note:** Version numbers were reset to 1.0.0 upon GitHub publication (2025-11-17) to establish a clean baseline for public releases.
+
 ## Overview
 
 This repository contains a suite of Stata packages developed to streamline common research tasks including data documentation, descriptive statistics, survival analysis, and publication-ready table creation.
@@ -155,17 +157,17 @@ MIT License - see individual package files for details
 
 | Package | Description | Version | Stata Version |
 |---------|-------------|---------|---------------|
-| check | Variable inspection | 1.0 | 14+ |
-| cstat_surv | C-statistic for survival | 1.0 | 14+ |
-| datamap | Dataset documentation | 1.0 | 16+ |
-| datefix | Date format conversion | 1.0 | 14+ |
-| massdesas | Batch string destring | 1.0 | 14+ |
-| pkgtransfer | Package management | 1.0 | 14+ |
-| regtab | Regression tables | 1.2 | 17+ |
-| stratetab | Strate output formatting | 2.1 | 17+ |
-| table1_tc | Table 1 creation | 1.2 | 14.2+ |
-| today | Date utilities | 1.0 | 14+ |
-| tvtools | Time-varying data | 1.0 | 16+ |
+| check | Variable inspection | 1.0.0 | 14+ |
+| cstat_surv | C-statistic for survival | 1.0.0 | 14+ |
+| datamap | Dataset documentation | 1.0.0 | 16+ |
+| datefix | Date format conversion | 1.0.0 | 14+ |
+| massdesas | Batch string destring | 1.0.0 | 14+ |
+| pkgtransfer | Package management | 1.0.0 | 14+ |
+| regtab | Regression tables | 1.0.0 | 17+ |
+| stratetab | Strate output formatting | 1.0.0 | 17+ |
+| table1_tc | Table 1 creation | 1.0.0 | 14.2+ |
+| today | Date utilities | 1.0.0 | 14+ |
+| tvtools | Time-varying data | 1.0.0 | 16+ |
 
 ## Citation
 

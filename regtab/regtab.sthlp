@@ -1,4 +1,5 @@
 {smcl}
+{* *! version 1.0.0  17nov2025}{...}
 {title:regtab}
 
 {pstd}Format {helpb collect}ed regression results into a polished Excel table.{p_end}

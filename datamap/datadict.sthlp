@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.0  16nov2025}{...}
+{* *! version 1.0.0  17nov2025}{...}
 {viewerjumpto "Syntax" "datadict##syntax"}{...}
 {viewerjumpto "Description" "datadict##description"}{...}
 {viewerjumpto "Options" "datadict##options"}{...}

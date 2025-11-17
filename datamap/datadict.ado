@@ -2,7 +2,7 @@
 *! Generate professional Markdown data dictionaries
 *! Companion to datamap (LLM-focused)
 *! Author: Tim Copeland
-*! Date: 2025-11-16
+*! Date: 2025-11-17
 
 /*
 SYNTAX

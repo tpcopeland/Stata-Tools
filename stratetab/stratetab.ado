@@ -1,6 +1,6 @@
-*! stratetab | Version 2.1
+*! stratetab | Version 1.0.0
 *! Author: Tim Copeland
-*! Revised: October 23, 2025
+*! Revised: November 17, 2025
 
 /*
 DESCRIPTION:
