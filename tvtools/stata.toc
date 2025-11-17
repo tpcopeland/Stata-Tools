@@ -2,4 +2,4 @@ v 1
 d Stata-Tools: tvtools
 d Timothy P. Copeland, Karolinska Institutet, Stockholm, Sweden
 d https://github.com/tpcopeland/Stata-Tools
-p tvtools
+d tvtools
