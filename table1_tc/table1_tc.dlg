@@ -28,32 +28,31 @@ DIALOG main, label("table1_tc - Table 1 of Baseline Characteristics") tabtitle("
 BEGIN
   TEXT     tx_info       10  10  620  ., label("Create publication-ready Table 1 of baseline characteristics.")
 
-  GROUPBOX gb_sample     10  +25 620  70, label("Sample Selection")
+  GROUPBOX gb_sample     10  +25 620  80, label("Sample Selection")
   CHECKBOX ck_if         20  +20 60   ., label("If:") ///
            onclickon(main.ed_if.enable) onclickoff(main.ed_if.disable)
-  EDIT     ed_if         85  @ 545    ., label("If condition")
+  EDIT     ed_if         75  @ 545    ., label("If condition")
 
   CHECKBOX ck_in         20  +25 60   ., label("In:") ///
            onclickon(main.ed_in.enable) onclickoff(main.ed_in.disable)
-  EDIT     ed_in         85  @ 545    ., label("In range")
+  EDIT     ed_in         75  @ 545    ., label("In range")
 
-  GROUPBOX gb_weights    10  +30 620  40, label("Weights")
+  GROUPBOX gb_weights    10  +30 620  50, label("Weights")
   CHECKBOX ck_fweight    20  +20 160  ., label("Frequency weights:") ///
            onclickon(main.ed_fweight.enable) onclickoff(main.ed_fweight.disable)
-  EDIT     ed_fweight    185 @ 445    ., label("Weight variable")
+  EDIT     ed_fweight    170 @ 445    ., label("Weight variable")
 
   GROUPBOX gb_vars       10  +25 620  180, label("Variables to Display (REQUIRED)")
-  TEXT     tx_vars_help  20  +15 600  ., label("Specify variables with their types separated by backslash (\). Format: varname type [format1] [format2] \ ...")
-  TEXT     tx_vars_types 20  +15 600  ., label("Types: contn (normal), contln (log-normal), conts (skewed), cat (categorical), cate (categorical-exact), bin (binary), bine (binary-exact)")
-  EDIT     ed_vars       20  +15 600  100, error("Variables") label("Variables")
+  TEXT     tx_vars_help  30  +15 600  ., label("Specify variables with their types separated by backslash (\)")
+  TEXT     tx_vars_types 30  +15 600  ., label("Types: contn, contln, conts, cat, cate, bin, bine. See Quick Reference below or help file for detail")
+  EDIT     ed_vars       20  +20 600  100, error("Variables") label("Variables")
   TEXT     tx_vars_ex    20  +100 600 ., label("Example: weight contn \ price contln \ mpg conts \ rep78 cate \ foreign bin")
 
-  GROUPBOX gb_quickref   10  +25 620  ., label("Quick Reference - Statistical Tests")
-  TEXT     tx_qr1        20  +15 600  ., label("Quick Reference - Statistical Tests")
-  TEXT     tx_qr2        20  +15 600  ., label("contn/contln: ANOVA (>2 groups) or t-test (2 groups)")
-  TEXT     tx_qr3        20  +15 600  ., label("conts: Kruskal-Wallis (>2 groups) or Wilcoxon rank-sum (2 groups)")
-  TEXT     tx_qr4        20  +15 600  ., label("cat/bin: Pearson's chi-square test")
-  TEXT     tx_qr5        20  +15 600  ., label("cate/bine: Fisher's exact test")
+  TEXT     tx_qr1        10  +25 620  ., label("Quick Reference - Statistical Tests")
+  TEXT     tx_qr2        20  +15 600  ., label("contn/contln: Mean & SD. ANOVA (>2 groups) or t-test (2 groups)")
+  TEXT     tx_qr3        20  +15 600  ., label("conts: Median & Q1-Q3. Kruskal-Wallis (>2 groups) or Wilcoxon rank-sum (2 groups)")
+  TEXT     tx_qr4        20  +15 600  ., label("cat/bin: % (n). Pearson's chi-square test")
+  TEXT     tx_qr5        20  +15 600  ., label("cate/bine: % (n). Fisher's exact test")
 END
 
 
@@ -231,8 +230,9 @@ DIALOG examples, tabtitle("Help/Examples")
 BEGIN
   TEXT tx_help1    10  10  620  ., label("table1_tc - Create Table 1 of Baseline Characteristics")
   TEXT tx_help2    10  +25 620  ., label("DESCRIPTION:")
-  TEXT tx_help3    10  +15 620  70, label("Creates publication-ready 'Table 1' of baseline characteristics with statistics and formatting suitable for manuscripts. Variables can be continuous or categorical, with automatic statistical tests when grouped.")
-  TEXT tx_help4    10  +75 620  ., label("VARIABLE TYPES:")
+  TEXT tx_help3    10  +15 620  ., label("Creates publication-ready 'Table 1' of baseline characteristics with statistics and formatting suitable for manuscripts.")
+  TEXT tx_help3    10  +15 620  ., label("Variables can be continuous or categorical, with automatic statistical tests when grouped.")
+  TEXT tx_help4    10  +25 620  ., label("VARIABLE TYPES:")
   TEXT tx_help5    10  +15 620  ., label("contn  - Continuous, normally distributed (mean ± SD, ANOVA/t-test)")
   TEXT tx_help6    10  +15 620  ., label("contln - Continuous, log-normally distributed (geometric mean ×/ GSD)")
   TEXT tx_help7    10  +15 620  ., label("conts  - Continuous, skewed (median Q1-Q3, Kruskal-Wallis/rank-sum)")
@@ -249,7 +249,7 @@ BEGIN
   TEXT tx_help14   10  +25 620  ., label("EXAMPLE 3: Custom formatting with totals")
   TEXT tx_ex3a     10  +15 620  ., label("   table1_tc, by(group) vars(weight contn \ price contln) ///")
   TEXT tx_ex3b     10  +15 620  ., label("      total(before) onecol percent_n headerperc")
-  TEXT tx_help15   10  +25 620  ., label("For complete documentation: help table1_tc")
+  TEXT tx_help15   10  +25 620  ., label("For complete documentation, click the help icon in the bottom left corner or type: help table1_tc")
 END
 
 PROGRAM parseMessage
