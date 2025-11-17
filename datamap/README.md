@@ -10,6 +10,10 @@ The package includes two commands:
 - **datamap** - Main command for generating dataset documentation
 - **datadict** - Data dictionary utility (helper command)
 
+## Dependencies
+
+None - uses only built-in Stata commands.
+
 ## Installation
 
 ```stata

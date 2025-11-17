@@ -6,6 +6,10 @@ Convert string date variables to numeric date formatted variables.
 
 datefix converts one or more string variables containing date information to numeric encoded variables with proper date formatting. The command automatically detects the date format and handles various date representations. It is particularly useful for cleaning imported data with inconsistent date formats.
 
+## Dependencies
+
+None - uses only built-in Stata commands.
+
 ## Installation
 
 ```stata

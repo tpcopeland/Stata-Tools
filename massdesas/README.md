@@ -6,6 +6,12 @@ Batch convert SAS datasets to Stata format.
 
 massdesas converts all .sas7bdat files to .dta files within a given directory and all subdirectories. The command provides options for erasing original SAS files after conversion and converting variable names to lowercase.
 
+## Dependencies
+
+Requires the **usesas** command and Java:
+- Install usesas: `ssc install usesas`
+- Java must be installed and configured for SAS file reading
+
 ## Installation
 
 ```stata

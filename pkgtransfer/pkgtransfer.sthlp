@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 2.0.0  19Dec2024}{...}
+{* *! version 3.0  1March2025}{...}
 {title:Title}
 
 {p 4 2}
@@ -76,4 +76,4 @@ Downloads only the "estout" and "outreg2" packages and creates a local installat
 {pstd}Karolinska Institutet{p_end}
 {pstd}Email: timothy.copeland@ki.se{p_end}
 
-{pstd}Version 2.0.0 - 19 December 2024{p_end}
+{pstd}Version 3.0 - 1 March 2025{p_end}

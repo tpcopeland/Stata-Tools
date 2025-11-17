@@ -1,5 +1,5 @@
 {smcl}
-{* 31 March 2023}{...}
+{* 2 October 2025}{...}
 {cmd:help datefix}
 {hline}
 
@@ -62,6 +62,6 @@
 {pstd}Karolinska Institutet{p_end}
 {pstd}Email: timothy.copeland@ki.se{p_end}
 
-{pstd}Version 2.0 - 31 March 2023{p_end}
+{pstd}Version 2.1 - 2 October 2025{p_end}
 
 {hline}

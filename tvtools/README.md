@@ -11,6 +11,10 @@ tvtools provides two commands for working with time-varying exposure data in sur
 
 Both commands include dialog interfaces and menu integration for ease of use.
 
+## Dependencies
+
+None - uses only built-in Stata commands.
+
 ## Installation
 
 ```stata
