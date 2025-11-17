@@ -20,8 +20,8 @@ END
 
 DIALOG main, label("tvexpose - Create time-varying exposure variables") tabtitle("Main")
 BEGIN
-  TEXT     tx_using      10  10  620  ., label("Exposure dataset:")
-  FILE     fi_using      @   +20 @    ., error("Exposure dataset") ///
+  TEXT     tx_using      20  10  620  ., label("Exposure dataset:")
+  FILE     fi_using      30   +20 @    ., error("Exposure dataset") ///
            label("Browse...") filter("Stata datasets|*.dta|All files|*.*")
 
   GROUPBOX gb_required   10  60 620  160, label("Required variables")
@@ -154,8 +154,8 @@ BEGIN
   VARLIST  vl_keepvars   @   +20 370  ., label("Keep vars") option(keepvars)
   CHECKBOX ck_keepdates  410 @ 200    ., label("Keep entry/exit dates") option(keepdates)
 
-  GROUPBOX gb_save       10  255 620  70,  label("Save output")
-  FILE     fi_saveas     20  +20 480  ., error("Save as") save ///
+  GROUPBOX gb_save       10  255 620  60,  label("Save output")
+  FILE     fi_saveas     20  +25 480  ., error("Save as") save ///
            label("Browse...") filter("Stata datasets|*.dta|All files|*.*") ///
            option(saveas)
   CHECKBOX ck_replace    510 @ 110    ., label("Replace") option(replace)
