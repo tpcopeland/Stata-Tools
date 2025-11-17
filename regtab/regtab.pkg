@@ -1,0 +1,19 @@
+v 4
+d 'REGTAB': module to format regression results captured with -collect-
+d See {bf:help regtab} after installation.
+d
+d Requires: Stata version 17 or higher.
+d
+d KW: Stata
+d KW: date
+d KW: string
+d
+d Distribution-Date: 20251117
+d
+d License: MIT
+d
+d Author: Timothy P Copeland
+d
+f regtab.ado
+f regtab.sthlp
+f regtab.dlg

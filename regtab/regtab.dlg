@@ -1,0 +1,247 @@
+/*
+  regtab.dlg - Dialog for regtab command
+
+  Formats collected regression tables, exports to Excel with formatting.
+
+  Author: Tim Copeland
+  Version: 1.2
+  Date: November 2025
+*/
+
+VERSION 17.0
+
+INCLUDE _std_large
+DEFINE _dlght 420
+INCLUDE header
+
+HELP hlp1, view("help regtab")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+        // Initialize dialog
+END
+
+// Define dialog structure
+
+DIALOG main, label("regtab - Format and Export Regression Tables") tabtitle("Main")
+BEGIN
+  TEXT     tx_info         _lft      _top      _iwd      .,              ///
+        label("Format collected regression tables and export to Excel with professional formatting.")
+
+  // Required Options Section
+  GROUPBOX gb_required      _lft      +25       _iwd      _ht8h,           ///
+        label("Required Options")
+
+  TEXT     tx_xlsx          _ilft     +15       _cwd1     .,              ///
+        label("Excel filename (.xlsx):")
+  FILE     fi_xlsx          @         +20       @         .,              ///
+        error("Excel filename")                                           ///
+        label("Browse...")                                                ///
+        filter("Excel Files (*.xlsx)|*.xlsx|All Files (*.*)|*.*")        ///
+        save                                                              ///
+        defext("xlsx")                                                    ///
+        tooltip("Excel file to save the formatted table. Must have .xlsx extension.")
+
+  TEXT     tx_sheet         _ilft     +25       _cwd1     .,              ///
+        label("Sheet name:")
+  EDIT     ed_sheet         @         +20       @         .,              ///
+        error("Sheet name")                                               ///
+        label("Sheet name")                                               ///
+        tooltip("Name of the Excel sheet where the table will be placed.")
+
+  // Optional Formatting Section
+  GROUPBOX gb_optional      _lft      +25       _iwd      _ht14h,          ///
+        label("Optional Formatting")
+
+  TEXT     tx_title         _ilft     +15       _cwd1     .,              ///
+        label("Table title:")
+  EDIT     ed_title         @         +20       @         .,              ///
+        label("Title")                                                    ///
+        tooltip("Title for the table (appears in cell A1).")
+
+  TEXT     tx_coef          _ilft     +25       _cwd1     .,              ///
+        label("Coefficient label:")
+  EDIT     ed_coef          @         +20       @         .,              ///
+        label("Coefficient label")                                        ///
+        tooltip("Label for the point estimate (e.g., 'OR', 'Coef.', 'HR').")
+
+  TEXT     tx_models        _ilft     +25       _cwd1     .,              ///
+        label("Model labels (separate with \):")
+  EDIT     ed_models        @         +20       @         .,              ///
+        label("Model labels")                                             ///
+        tooltip("Label models, separating names with backslash. Example: Model 1 \ Model 2 \ Model 3")
+
+  TEXT     tx_sep           _ilft     +25       _cwd1_2   .,              ///
+        label("CI separator:")
+  EDIT     ed_sep           @         +20       @         .,              ///
+        label("Separator")                                                ///
+        default(", ")                                                     ///
+        tooltip("Character(s) separating the 95% CI bounds. Default is ', '.")
+
+  CHECKBOX ck_noint         _ilft     +25       _cwd1     .,              ///
+        label("Drop intercept row")                                       ///
+        onclickon(script main_noint_on)                                   ///
+        onclickoff(script main_noint_off)                                 ///
+        tooltip("Exclude the intercept row from the output table.")
+
+  CHECKBOX ck_nore          _ilft     +20       _cwd1     .,              ///
+        label("Drop random effects rows")                                 ///
+        onclickon(script main_nore_on)                                    ///
+        onclickoff(script main_nore_off)                                  ///
+        tooltip("Exclude random effects variance components from the output table.")
+
+  TEXT     tx_note          _lft      +25       _iwd      .,              ///
+        label("Note: Run your regression commands with -collect- before using regtab.")
+
+  // Command preview section
+  GROUPBOX gb_preview       _lft      +25       _iwd      _ht5h,          ///
+        label("Command Preview")
+
+  TEXT     tx_preview       _ilft     +15       _ibwd     55,             ///
+        label("The command will be displayed here based on your selections.")
+END
+
+SCRIPT main_noint_on
+BEGIN
+        // Placeholder for potential future logic
+END
+
+SCRIPT main_noint_off
+BEGIN
+        // Placeholder for potential future logic
+END
+
+SCRIPT main_nore_on
+BEGIN
+        // Placeholder for potential future logic
+END
+
+SCRIPT main_nore_off
+BEGIN
+        // Placeholder for potential future logic
+END
+
+// Help/Examples Tab
+DIALOG examples, tabtitle("Help/Examples")
+BEGIN
+  TEXT tx_help1    _lft    _top     _iwd    .,                            ///
+        label("regtab - Format and Export Regression Tables")
+
+  TEXT tx_help2    _lft    +25      _iwd    .,                            ///
+        label("DESCRIPTION:")
+
+  TEXT tx_help3    _lft    +15      _iwd    70,                           ///
+        label("Formats collected regression tables, exports point estimate, 95% CI, and p-value to Excel, and applies Excel formatting. The title appears in cell A1. The top left cell of the table is B2.")
+
+  TEXT tx_help4    _lft    +75      _iwd    .,                            ///
+        label("WORKFLOW:")
+
+  TEXT tx_help5    _lft    +15      _iwd    .,                            ///
+        label("1. Run your regression models using Stata's collect commands")
+
+  TEXT tx_help6    _lft    +15      _iwd    .,                            ///
+        label("2. Configure regtab options in this dialog")
+
+  TEXT tx_help7    _lft    +15      _iwd    .,                            ///
+        label("3. Click OK to export the formatted table to Excel")
+
+  TEXT tx_help8    _lft    +25      _iwd    .,                            ///
+        label("EXAMPLES:")
+
+  TEXT tx_ex1      _lft    +15      _iwd    .,                            ///
+        label("Example 1: Basic usage")
+
+  TEXT tx_ex1b     _lft    +15      _iwd    .,                            ///
+        label("   regtab, xlsx(results.xlsx) sheet(Table1)")
+
+  TEXT tx_ex2      _lft    +25      _iwd    .,                            ///
+        label("Example 2: With model labels and title")
+
+  TEXT tx_ex2b     _lft    +15      _iwd    .,                            ///
+        label("   regtab, xlsx(results.xlsx) sheet(Table1) ///")
+
+  TEXT tx_ex2c     _lft    +15      _iwd    .,                            ///
+        label("      models(Model 1 \ Model 2) coef(OR) ///")
+
+  TEXT tx_ex2d     _lft    +15      _iwd    .,                            ///
+        label("      title(Table 1. Regression Results)")
+
+  TEXT tx_ex3      _lft    +25      _iwd    .,                            ///
+        label("Example 3: Customize separator and drop intercept")
+
+  TEXT tx_ex3b     _lft    +15      _iwd    .,                            ///
+        label("   regtab, xlsx(results.xlsx) sheet(Table1) sep(' to ') noint")
+
+  TEXT tx_help9    _lft    +25      _iwd    .,                            ///
+        label("For complete documentation, click Help above or type: help regtab")
+END
+
+// Validation and command building
+PROGRAM command
+BEGIN
+        require main.fi_xlsx
+        require main.ed_sheet
+
+        put "regtab"
+        put ", "
+
+        // Required options
+        require main.fi_xlsx
+        put "xlsx("
+        put `"""'
+        put main.fi_xlsx
+        put `"""'
+        put ") "
+
+        require main.ed_sheet
+        put "sheet("
+        put `"""'
+        put main.ed_sheet
+        put `"""'
+        put ") "
+
+        // Optional: title
+        if main.ed_title {
+                put "title("
+                put `"""'
+                put main.ed_title
+                put `"""'
+                put ") "
+        }
+
+        // Optional: coef
+        if main.ed_coef {
+                put "coef("
+                put `"""'
+                put main.ed_coef
+                put `"""'
+                put ") "
+        }
+
+        // Optional: models
+        if main.ed_models {
+                put "models("
+                put main.ed_models
+                put ") "
+        }
+
+        // Optional: sep
+        if !H(main.ed_sep) {
+                put "sep("
+                put `"""'
+                put main.ed_sep
+                put `"""'
+                put ") "
+        }
+
+        // Optional: noint
+        if main.ck_noint {
+                put "noint "
+        }
+
+        // Optional: nore
+        if main.ck_nore {
+                put "nore "
+        }
+END

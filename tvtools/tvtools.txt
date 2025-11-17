@@ -1,0 +1,43 @@
+v 4
+d 'TVTOOLS': Commands for formatting and merging time-varying data
+d
+d Requires: Stata version 16+
+d
+d Distribution-Date: 20251117
+d License: MIT
+d
+d Author: Timothy P Copeland
+d
+d KW: stset
+d KW: time-varying
+d KW: longitudinal
+d KW: survival analysis
+d KW: epidemiology
+d
+d INSTALLATION COMPLETE!
+d
+d Access the dialogs immediately with:
+d     . db tvexpose
+d     . db tvmerge
+d
+d OPTIONAL: Add to Stata menus for dropdown access
+d Run the included setup script:
+d     . do tvtools_menu_setup.do
+d
+d Or add manually to your profile.do:
+d     capture window menu append submenu "stUser" "Time-varying exposures"
+d     window menu append item "Time-varying exposures" "Create exposure variables (tvexpose)" "db tvexpose"
+d     window menu append item "Time-varying exposures" "Merge TV datasets (tvmerge)" "db tvmerge"
+d     window menu refresh
+d
+d For detailed instructions, see: INSTALLATION.md
+d For help: help tvexpose, help tvmerge
+d
+f tvexpose.ado
+f tvexpose.dlg
+f tvexpose.sthlp
+f tvmerge.ado
+f tvmerge.dlg
+f tvmerge.sthlp
+f tvtools_menu_setup.do
+f INSTALLATION.md
