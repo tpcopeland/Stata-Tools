@@ -549,18 +549,20 @@ program define tvmerge, rclass
                 drop new_start new_stop
                 
                 * For continuous exposures, interpolate values based on time elapsed
-                * Continuous exposure represents cumulative value over original interval
-                * When interval is split, value should be proportional to time elapsed
-                if `is_cont_k' == 1 {
-                    * Calculate proportion of original interval that has elapsed
-                    * at the end of the new (split) interval
-                    * For single-day periods (start_k == stop_k), use proportion of 1.0
-                    generate double _proportion = cond(stop_k > start_k, (`stopname' - start_k) / (stop_k - start_k), 1)
+                foreach exp_var in `exp_k_list' {
+                    * Check if this specific exposure is continuous
+                    local is_this_cont = 0
+                    foreach cont_name in `continuous_names' {
+                        if "`exp_var'" == "`cont_name'" {
+                            local is_this_cont = 1
+                        }
+                    }
                     
-                    * Adjust exposure value by proportion
-                    * This assumes linear accumulation from 0 at start_k to exp_k at stop_k
-                    replace `exp_k' = ceil(`exp_k' * _proportion)
-                    drop _proportion
+                    if `is_this_cont' == 1 {
+                        generate double _proportion = cond(stop_k > start_k, (`stopname' - start_k) / (stop_k - start_k), 1)
+                        replace `exp_var' = `exp_var' * _proportion
+                        drop _proportion
+                    }
                 }
                 
                 drop start_k stop_k
