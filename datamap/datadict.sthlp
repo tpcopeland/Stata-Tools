@@ -335,7 +335,7 @@ No external dependencies are required. The command works with Stata 14.0 or high
 {pstd}Karolinska Institutet{p_end}
 {pstd}Email: timothy.copeland@ki.se{p_end}
 
-{pstd}Version 1.0.0 - 14 November 2025{p_end}
+{pstd}Version 1.0.0 - 17 November 2025{p_end}
 
 
 {title:Also see}
