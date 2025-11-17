@@ -45,7 +45,22 @@ program define table1_tc, sclass
         [BORDERStyle(string)]   /// Border style: "default" or "thin"
 
 **# Input Validation and Option Setup
-    
+
+    /* Validation: Check if vars() is specified */
+    if "`vars'" == "" {
+        di in re "vars() option required"
+        error 100
+    }
+
+    /* Validation: Check if by() variable exists */
+    if "`by'" != "" {
+        capture confirm variable `by'
+        if _rc {
+            di in re "by() variable `by' not found"
+            error 111
+        }
+    }
+
     /* Check if by() variable will cause naming conflicts */
     if (substr("`by'",1,2) == "N_" | substr("`by'",1,2) == "m_" | inlist("`by'", "N", "m") | ///
         inlist("`by'", "_", "_c","_co","_col","_colu","_colum","_column","_columna","_columnb")) {

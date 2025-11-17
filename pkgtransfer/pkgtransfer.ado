@@ -31,7 +31,7 @@
 
 program define pkgtransfer
 	syntax [, DOWNLOAD(string) LIMITED(string) SKIP(string) RESTORE OS(string) DOfile(string) ZIPfile(string)]
-	
+
 /* Check For Errors */
 quietly {
 
@@ -41,6 +41,19 @@ quietly {
             noisily display as error "Error: stata.trk file not found in PLUS directory"
             exit 601
         }
+
+	/* Error if specified packages in limited() are not found */
+	if "`limited'" != "" {
+		foreach pkg of local limited {
+			* Check if package exists in stata.trk
+			capture ado describe `pkg'
+			if _rc {
+				noisily display as error "Error: package '`pkg'' not found"
+				noisily display as error "Package must be installed before transfer"
+				exit 111
+			}
+		}
+	}
     
 	/* Error if download() not specifid correctly */
 		if "`download'" != "local" & "`download'" != "online" &  "`download'" != "" {

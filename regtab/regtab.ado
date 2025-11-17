@@ -26,28 +26,40 @@ version 17
 syntax, xlsx(string) sheet(string) [sep(string asis) models(string) coef(string) title(string) noint nore]
 
 quietly{
-    /* Check if regression results exist 
+    * Validation: Check if collect table exists
     capture quietly collect query row
     if _rc {
-        display as error "No regression results found. Run regression commands first."
-        exit 301
+        noisily display as error "No active collect table found"
+        noisily display as error "Run regression commands with collect prefix first"
+        exit 119
     }
-    /* Check if file name has .xlsx extension */
-    if !strmatch("`xlsx'", "*.xlsx") {
-        display as error "Excel filename must have .xlsx extension"
+
+    * Validation: Check if xlsx option is provided (should be enforced by syntax)
+    if "`xlsx'" == "" {
+        noisily display as error "xlsx() option required"
         exit 198
     }
-    
-    /* Check if temporary file exists and warn */
+
+    * Validation: Check if sheet option is provided (should be enforced by syntax)
+    if "`sheet'" == "" {
+        noisily display as error "sheet() option required"
+        exit 198
+    }
+
+    * Validation: Check if file name has .xlsx extension
+    if !strmatch("`xlsx'", "*.xlsx") {
+        noisily display as error "Excel filename must have .xlsx extension"
+        exit 198
+    }
+
+    * Check if temporary file exists and warn
     capture confirm file "temp.xlsx"
     if !_rc {
-        display as text "Warning: temp.xlsx exists and will be overwritten"
+        noisily display as text "Warning: temp.xlsx exists and will be overwritten"
     }
-    
+
     return local xlsx "`xlsx'"
     return local sheet "`sheet'"
-
-    */
 	
 	    if `"`sep'"' == "" local sep ", "      // Default separator for IQR
 
