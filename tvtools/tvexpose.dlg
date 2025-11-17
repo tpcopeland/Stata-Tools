@@ -24,7 +24,7 @@ BEGIN
   FILE     fi_using      @   +20 @    ., error("Exposure dataset") ///
            label("Browse...") filter("Stata datasets|*.dta|All files|*.*")
 
-  GROUPBOX gb_required   10  55 620  160, label("Required variables")
+  GROUPBOX gb_required   10  60 620  160, label("Required variables")
   TEXT     tx_id         20  +15 280  ., label("Person ID variable:")
   VARNAME  vn_id         @   +20 @    ., label("ID variable")
 
@@ -43,7 +43,7 @@ BEGIN
   TEXT     tx_exit       330 -20 280  ., label("Study exit date:")
   VARNAME  vn_exit       @   +20 @    ., label("Exit")
 
-  GROUPBOX gb_stopopt    10  220 620  75,  label("Stop date options")
+  GROUPBOX gb_stopopt    10  225 620  75,  label("Stop date options")
   CHECKBOX ck_pointtime  20  +25 280  ., label("Point-in-time data (no stop date)") ///
            onclickon(script stop_disable) onclickoff(script stop_enable)
   TEXT     tx_stop       330 @ 280    ., label("Stop date variable:")
@@ -52,7 +52,7 @@ END
 
 DIALOG exposure, tabtitle("Exposure Definition")
 BEGIN
-  GROUPBOX gb_exptype    10  10  620  185, label("Exposure type (select one)")
+  GROUPBOX gb_exptype    10  10  620  195, label("Exposure type (select one)")
   RADIO    rb_basic      20  +15 590  ., label("Basic time-varying (default)") first ///
            onclickon(script basic_selected)
   RADIO    rb_evertreated @  +20 @    ., label("Ever-treated (binary switch at first exposure)") ///
@@ -71,23 +71,23 @@ BEGIN
   EDIT     ed_recency    40  +20 280  ., label("Recency cutpoints (years)") ///
            option(recency)
 
-  GROUPBOX gb_contopt    10  210 620  85, label("Units (for duration and continuous exposure types)")
-  TEXT     tx_contunit   20  +15 220  ., label("Cumulative exposure unit:")
+  GROUPBOX gb_contopt    10  210 620  75, label("Units (for duration and continuous exposure types)")
+  TEXT     tx_contunit   20  +20 220  ., label("Cumulative exposure unit:")
   COMBOBOX cb_contunit   @   +20 180  ., dropdownlist contents(contunits) ///
            option(continuousunit)
   TEXT     tx_expandunit 330 -20 220  ., label("Row expansion unit:")
   COMBOBOX cb_expandunit @   +20 180  ., dropdownlist contents(expandunits) ///
            option(expandunit)
 
-  GROUPBOX gb_bytype     10  310 620  45,  label("Output variables")
+  GROUPBOX gb_bytype     10  310 620  55,  label("Output variables")
   CHECKBOX ck_bytype     20  +15 590  ., label("Create separate variable for each exposure type (not available for basic time-varying)") ///
            option(bytype)
 END
 
 DIALOG datahand, tabtitle("Data Handling")
 BEGIN
-  GROUPBOX gb_gaps       10  10  620  200, label("Gap handling")
-  TEXT     tx_grace      20  +15 240  ., label("Grace period (days):")
+  GROUPBOX gb_gaps       10  10  620  210, label("Gap handling")
+  TEXT     tx_grace      20  +20 240  ., label("Grace period (days):")
   EDIT     ed_grace      @   +20 120  ., label("Grace") option(grace)
   TEXT     tx_graceinfo  150 @ 460    ., label("(numeric or exp=# syntax: e.g., 1=30 2=60)")
 
@@ -118,7 +118,7 @@ BEGIN
   TEXT     tx_window     20  +25 280  ., label("Acute window (min max days):")
   EDIT     ed_window     @   +20 200  ., label("Window") option(window)
 
-  GROUPBOX gb_compete    10  145 620  140, label("Overlapping exposures (select one approach)")
+  GROUPBOX gb_compete    10  135 620  150, label("Overlapping exposures (select one approach)")
   RADIO    rb_layer      20  +15 590  ., label("Layer (default): later exposures take precedence, earlier resume after overlap") first
   RADIO    rb_priority   @   +20 280  ., label("Priority order (space-separated list):") ///
            onclickon(script priority_enable) onclickoff(script priority_disable)
@@ -130,15 +130,15 @@ BEGIN
   EDIT     ed_combine    +20 +20 260  ., label("Combine var") option(combine)
 
   GROUPBOX gb_pattern    10  300 620  75, label("Pattern tracking")
-  CHECKBOX ck_switching  20  +15 280  ., label("Track exposure switching") option(switching)
+  CHECKBOX ck_switching  20  +20 280  ., label("Track exposure switching") option(switching)
   CHECKBOX ck_switchdetail @ +20 @    ., label("Detailed switching pattern") option(switchingdetail)
-  CHECKBOX ck_statetime  330 -40 280  ., label("Time in current state") option(statetime)
+  CHECKBOX ck_statetime  330 -20 280  ., label("Time in current state") option(statetime)
 END
 
 DIALOG output, tabtitle("Output")
 BEGIN
-  GROUPBOX gb_naming     10  10  620  145, label("Output variable naming")
-  TEXT     tx_generate   20  +15 240  ., label("Variable name:")
+  GROUPBOX gb_naming     10  10  620  165, label("Output variable naming")
+  TEXT     tx_generate   20  +20 240  ., label("Variable name:")
   EDIT     ed_generate   @   +20 280  ., label("Generate") option(generate) ///
            default(tv_exposure)
 
@@ -149,19 +149,19 @@ BEGIN
   TEXT     tx_label      20  +25 240  ., label("Custom variable label:")
   EDIT     ed_label      @   +20 370  ., label("Label") option(label)
 
-  GROUPBOX gb_keep       10  170 620  60,  label("Additional variables")
-  TEXT     tx_keepvars   20  +15 240  ., label("Keep from master dataset:")
+  GROUPBOX gb_keep       10  170 620  70,  label("Additional variables")
+  TEXT     tx_keepvars   20  +20 240  ., label("Keep from master dataset:")
   VARLIST  vl_keepvars   @   +20 370  ., label("Keep vars") option(keepvars)
   CHECKBOX ck_keepdates  410 @ 200    ., label("Keep entry/exit dates") option(keepdates)
 
-  GROUPBOX gb_save       10  245 620  55,  label("Save output")
-  FILE     fi_saveas     20  +15 480  ., error("Save as") save ///
+  GROUPBOX gb_save       10  245 620  70,  label("Save output")
+  FILE     fi_saveas     20  +20 480  ., error("Save as") save ///
            label("Browse...") filter("Stata datasets|*.dta|All files|*.*") ///
            option(saveas)
   CHECKBOX ck_replace    510 @ 110    ., label("Replace") option(replace)
 
-  GROUPBOX gb_diag       10  315 620  80, label("Diagnostics")
-  CHECKBOX ck_check      20  +15 180  ., label("Check coverage") option(check)
+  GROUPBOX gb_diag       10  315 620  90, label("Diagnostics")
+  CHECKBOX ck_check      20  +20 180  ., label("Check coverage") option(check)
   CHECKBOX ck_gaps       @   +20 @    ., label("Show gaps") option(gaps)
   CHECKBOX ck_overlaps   @   +20 @    ., label("Show overlaps") option(overlaps)
   CHECKBOX ck_summarize  220 -40 180  ., label("Summarize") option(summarize)
