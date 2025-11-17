@@ -399,11 +399,25 @@ program define tvmerge, rclass
         forvalues k = 2/`numds' {
             local ds_k: word `k' of `datasets'
             use "`ds_k'", clear
-            
+
             * Get variable names for this dataset
             local start_k: word `k' of `starts'
             local stop_k: word `k' of `stops'
             local exp_k_raw: word `k' of `exposures_raw'
+            
+            * Check which exposure variables exist in this dataset
+            local exp_k_list ""
+            foreach possible_exp in `exposures_raw' {
+                capture confirm variable `possible_exp'
+                if _rc == 0 {
+                    local exp_k_list "`exp_k_list' `possible_exp'"
+                }
+            }
+            
+            if "`exp_k_list'" == "" {
+                di as error "No exposure variables found in `ds_k'"
+                exit 111
+            }
             
             * Verify required variables exist
             capture confirm variable `id'
@@ -451,7 +465,7 @@ program define tvmerge, rclass
             }
             
             * Keep only necessary variables
-            local keeplist_k "id start_k stop_k `exp_k'"
+            local keeplist_k "id start_k stop_k `exp_k_list'"
             
             * Check if exposure is continuous
             local is_cont_k = 0
