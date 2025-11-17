@@ -324,11 +324,11 @@ forvalues i = 1/1000 {
 	else if mod(`i',5) == 2 {
 		preserve
 		clear
-		set obs 3
+		set obs 5
 		gen id = `i'
 		gen seq = _n
-		gen start_date = `entry' + (seq-1)*floor(`followup'/3) + floor(runiform()*90)
-		gen stop_date = start_date + floor(`followup'/3)
+		gen start_date = `entry' + (seq-1)*floor(`followup'/5) + floor(runiform()*90)
+		gen stop_date = start_date + floor(`followup'/5)
 		replace stop_date = `exit' if stop_date > `exit'
 		replace start_date = stop_date[_n-1] if _n > 1
 		drop if start_date >= stop_date
@@ -338,9 +338,12 @@ forvalues i = 1/1000 {
 		replace tx_category = 3 if seq == 1
 		replace tx_category = 4 if seq == 2
 		replace tx_category = 2 if seq == 3
+		replace tx_category = 1 if seq == 4
+		replace tx_category = 4 if seq == 5
 		replace tx_name = "Interferon beta-1a" if tx_category == 3
 		replace tx_name = "Dimethyl fumarate" if tx_category == 4
 		replace tx_name = "Natalizumab" if tx_category == 2
+		replace tx_name = "Rituximab" if tx_category == 1
 		drop seq
 		
 		if _N > 0 {
@@ -381,20 +384,24 @@ forvalues i = 1/1000 {
 	else if mod(`i',5) == 3 {
 		preserve
 		clear
-		set obs 2
+		set obs 4
 		gen id = `i'
 		gen seq = _n
-		gen start_date = `entry' + floor(`followup'*0.1) + (seq-1)*floor(`followup'*0.5)
-		gen stop_date = start_date + floor(`followup'*0.3)
+		gen start_date = `entry' + floor(`followup'*0.05) + (seq-1)*floor(`followup'*0.25)
+		gen stop_date = start_date + floor(`followup'*0.15)
 		replace stop_date = `exit' if stop_date > `exit'
 		drop if start_date >= stop_date
 
 		gen tx_name = ""
 		gen tx_category = .
 		replace tx_category = 3 if seq == 1
-		replace tx_category = 1 if seq == 2
+		replace tx_category = 4 if seq == 2
+		replace tx_category = 1 if seq == 3
+		replace tx_category = 2 if seq == 4
 		replace tx_name = "Glatiramer acetate" if tx_category == 3
+		replace tx_name = "Teriflunomide" if tx_category == 4
 		replace tx_name = "Rituximab" if tx_category == 1
+		replace tx_name = "Natalizumab" if tx_category == 2
 		drop seq
 		
 		if _N > 0 {
@@ -435,19 +442,21 @@ forvalues i = 1/1000 {
 	else if mod(`i',5) == 4 {
 		preserve
 		clear
-		set obs 2
+		set obs 3
 		gen id = `i'
 		gen seq = _n
-		gen start_date = `entry' + floor(`followup'*0.2) + (seq-1)*floor(`followup'*0.4)
-		gen stop_date = start_date + floor(`followup'*0.25)
+		gen start_date = `entry' + floor(`followup'*0.1) + (seq-1)*floor(`followup'*0.3)
+		gen stop_date = start_date + floor(`followup'*0.2)
 		replace stop_date = `exit' if stop_date > `exit'
 		drop if start_date >= stop_date
 
 		gen tx_name = ""
 		gen tx_category = .
 		replace tx_category = 4 if seq == 1
-		replace tx_category = 2 if seq == 2
+		replace tx_category = 3 if seq == 2
+		replace tx_category = 2 if seq == 3
 		replace tx_name = "Dimethyl fumarate" if tx_category == 4
+		replace tx_name = "Interferon beta-1b" if tx_category == 3
 		replace tx_name = "Natalizumab" if tx_category == 2
 		drop seq
 		
@@ -948,12 +957,14 @@ forvalues i = 1/1000 {
 	else if mod(`i',5) == 2 {
 		preserve
 		clear
-		set obs 3
-		gen rx_start = `entry' + (_n-1)*floor(`followup'/3) + floor(runiform()*90)
+		set obs 5
+		gen rx_start = `entry' + (_n-1)*floor(`followup'/5) + floor(runiform()*90)
 		gen rx_stop = rx_start + floor(runiform()*180 + 60)
 		replace rx_stop = `exit' if rx_stop > `exit'
 		replace rx_start = rx_stop[_n-1] + 30 if _n==2
 		replace rx_start = rx_stop[_n-1] + 45 if _n==3
+		replace rx_start = rx_stop[_n-1] + 60 if _n==4
+		replace rx_start = rx_stop[_n-1] + 30 if _n==5
 		gen hrt_type = ceil(runiform()*3)
 		gen dose = runiform() * 40 + 5
 		drop if rx_start >= rx_stop
@@ -976,9 +987,9 @@ forvalues i = 1/1000 {
 	else if mod(`i',10) == 3 {
 		preserve
 		clear
-		set obs 4
-		gen rx_start = `entry' + (_n-1)*floor(`followup'/4)
-		gen rx_stop = rx_start + floor(`followup'/4)
+		set obs 6
+		gen rx_start = `entry' + (_n-1)*floor(`followup'/6)
+		gen rx_stop = rx_start + floor(`followup'/6)
 		replace rx_stop = `exit' if rx_stop > `exit'
 		gen hrt_type = mod(_n-1,3) + 1
 		gen dose = 5 + _n * 7.5 + runiform() * 10
@@ -1002,14 +1013,14 @@ forvalues i = 1/1000 {
 	else if mod(`i',10) == 4 {
 		preserve
 		clear
-		set obs 3
-		gen rx_start = `entry' + floor(runiform()*`followup'*0.4)
+		set obs 5
+		gen rx_start = `entry' + floor(runiform()*`followup'*0.3)
 		replace rx_start = rx_start[_n-1] + 60 if _n > 1
 		gen rx_stop = rx_start + 150
 		replace rx_stop = `exit' if rx_stop > `exit'
-		gen hrt_type = _n
+		gen hrt_type = mod(_n-1,3) + 1
 		if `i' < 500 {
-			gen dose = (_n==1) * 20 + (_n==2) * 35 + (_n==3) * 15
+			gen dose = (_n==1) * 20 + (_n==2) * 35 + (_n==3) * 15 + (_n==4) * 25 + (_n==5) * 30
 		}
 		else {
 			gen dose = runiform() * 40 + 5
