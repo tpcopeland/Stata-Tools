@@ -24,7 +24,7 @@ BEGIN
   FILE     fi_using      @   +20 @    ., error("Exposure dataset") ///
            label("Browse...") filter("Stata datasets|*.dta|All files|*.*")
 
-  GROUPBOX gb_required   10  55 620  185, label("Required variables")
+  GROUPBOX gb_required   10  55 620  160, label("Required variables")
   TEXT     tx_id         20  +15 280  ., label("Person ID variable:")
   VARNAME  vn_id         @   +20 @    ., label("ID variable")
 
