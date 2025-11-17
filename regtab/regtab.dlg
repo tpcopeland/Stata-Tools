@@ -22,15 +22,15 @@ DIALOG main, label("regtab - Format and Export Regression Tables") tabtitle("Mai
 BEGIN
   TEXT     tx_info       10  10  620  ., label("Format collected regression tables and export to Excel with professional formatting.")
 
-  GROUPBOX gb_required   10  +25 620  105, label("Required Options")
-  TEXT     tx_xlsx       20  +15 280  ., label("Excel filename (.xlsx):")
+  GROUPBOX gb_required   10  +25 620  125, label("Required Options")
+  TEXT     tx_xlsx       20  +20 280  ., label("Excel filename (.xlsx):")
   FILE     fi_xlsx       @   +20 @    ., error("Excel filename") label("Browse...") ///
            filter("Excel Files (*.xlsx)|*.xlsx|All Files (*.*)|*.*") save defext("xlsx")
 
   TEXT     tx_sheet      20  +25 280  ., label("Sheet name:")
   EDIT     ed_sheet      @   +20 @    ., error("Sheet name") label("Sheet name")
 
-  GROUPBOX gb_optional   10  +25 620  215, label("Optional Formatting")
+  GROUPBOX gb_optional   10  +25 620  245, label("Optional Formatting")
   TEXT     tx_title      20  +15 280  ., label("Table title:")
   EDIT     ed_title      @   +20 @    ., label("Title")
 
@@ -53,8 +53,9 @@ DIALOG examples, tabtitle("Help/Examples")
 BEGIN
   TEXT tx_help1    10  10  620  ., label("regtab - Format and Export Regression Tables")
   TEXT tx_help2    10  +25 620  ., label("DESCRIPTION:")
-  TEXT tx_help3    10  +15 620  70, label("Formats collected regression tables, exports point estimate, 95% CI, and p-value to Excel, and applies Excel formatting. The title appears in cell A1. The top left cell of the table is B2.")
-  TEXT tx_help4    10  +75 620  ., label("WORKFLOW:")
+  TEXT tx_help3    10  +15 620  ., label("Formats collected regression tables, exports point estimate, 95% CI, and p-value to Excel, and applies Excel")
+  TEXT tx_help3    10  +15 620  ., label("formatting. The title appears in cell A1. The top left cell of the table is B2.")
+  TEXT tx_help4    10  +25 620  ., label("WORKFLOW:")
   TEXT tx_help5    10  +15 620  ., label("1. Run your regression models using Stata's collect commands")
   TEXT tx_help6    10  +15 620  ., label("2. Configure regtab options in this dialog")
   TEXT tx_help7    10  +15 620  ., label("3. Click OK to export the formatted table to Excel")
