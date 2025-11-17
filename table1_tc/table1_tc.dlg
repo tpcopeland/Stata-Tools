@@ -48,7 +48,7 @@ BEGIN
   EDIT     ed_vars       20  +20 600  100, error("Variables") label("Variables")
   TEXT     tx_vars_ex    20  +100 600 ., label("Example: weight contn \ price contln \ mpg conts \ rep78 cate \ foreign bin")
 
-  TEXT     tx_help1      10  +35 600  ., label("Quick Reference - Statistical Tests")
+  TEXT     tx_help1      10  +25 600  10, label("Quick Reference - Statistical Tests")
   TEXT     tx_help2      20  +15 600  ., label("contn/contln: Mean & SD. ANOVA (>2 groups) or t-test (2 groups)")
   TEXT     tx_help3      20  +15 600  ., label("conts: Median & Q1-Q3. Kruskal-Wallis (>2 groups) or Wilcoxon rank-sum (2 groups)")
   TEXT     tx_help4      20  +15 600  ., label("cat/bin: % (n). Pearson's chi-square test")
