@@ -21,7 +21,7 @@ END
 DIALOG main, label("tvexpose - Create time-varying exposure variables") tabtitle("Main")
 BEGIN
   TEXT     tx_using      20  10  620  ., label("Exposure dataset:")
-  FILE     fi_using      30   +20 @    ., error("Exposure dataset") ///
+  FILE     fi_using      20  +20 610    ., error("Exposure dataset") ///
            label("Browse...") filter("Stata datasets|*.dta|All files|*.*")
 
   GROUPBOX gb_required   10  60 620  160, label("Required variables")
@@ -71,7 +71,7 @@ BEGIN
   EDIT     ed_recency    40  +20 280  ., label("Recency cutpoints (years)") ///
            option(recency)
 
-  GROUPBOX gb_contopt    10  210 620  75, label("Units (for duration and continuous exposure types)")
+  GROUPBOX gb_contopt    10  215 620  75, label("Units (for duration and continuous exposure types)")
   TEXT     tx_contunit   20  +20 220  ., label("Cumulative exposure unit:")
   COMBOBOX cb_contunit   @   +20 180  ., dropdownlist contents(contunits) ///
            option(continuousunit)
@@ -79,7 +79,7 @@ BEGIN
   COMBOBOX cb_expandunit @   +20 180  ., dropdownlist contents(expandunits) ///
            option(expandunit)
 
-  GROUPBOX gb_bytype     10  290 620  55,  label("Output variables")
+  GROUPBOX gb_bytype     10  295 620  55,  label("Output variables")
   CHECKBOX ck_bytype     20  +20 590  ., label("Create separate variable for each exposure type (not available for basic time-varying)") ///
            option(bytype)
 END
@@ -160,7 +160,7 @@ BEGIN
            option(saveas)
   CHECKBOX ck_replace    510 @ 110    ., label("Replace") option(replace)
 
-  GROUPBOX gb_diag       10  330 620  90, label("Diagnostics")
+  GROUPBOX gb_diag       10  320 620  90, label("Diagnostics")
   CHECKBOX ck_check      20  +20 180  ., label("Check coverage") option(check)
   CHECKBOX ck_gaps       @   +20 @    ., label("Show gaps") option(gaps)
   CHECKBOX ck_overlaps   @   +20 @    ., label("Show overlaps") option(overlaps)
