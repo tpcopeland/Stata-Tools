@@ -70,7 +70,7 @@ Stata 14.0 or higher
 
 ## Author
 
-Timothy P Copeland
+Timothy P Copeland, Department of Clinical Neuroscience, Karolinska Institutet
 
 ## Help
 
