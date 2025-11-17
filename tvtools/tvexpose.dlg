@@ -43,7 +43,7 @@ BEGIN
   TEXT     tx_exit       330 -20 280  ., label("Study exit date:")
   VARNAME  vn_exit       @   +20 @    ., label("Exit")
 
-  GROUPBOX gb_stopopt    10  185 620  75,  label("Stop date options")
+  GROUPBOX gb_stopopt    10  220 620  75,  label("Stop date options")
   CHECKBOX ck_pointtime  20  +25 280  ., label("Point-in-time data (no stop date)") ///
            onclickon(script stop_disable) onclickoff(script stop_enable)
   TEXT     tx_stop       330 @ 280    ., label("Stop date variable:")
