@@ -6,6 +6,10 @@ Quick variable inspection with comprehensive descriptive statistics.
 
 check produces a detailed table with N, # Missing, % Missing, # Unique Values, Variable Type, Variable Format, Mean, Standard Deviation, Minimum, 25th Percentile, Median, 75th Percentile, Maximum, and Variable Label for one or multiple variables. It is useful for rapid data quality checks and initial exploration.
 
+## Dependencies
+
+None - uses only built-in Stata commands.
+
 ## Installation
 
 ```stata

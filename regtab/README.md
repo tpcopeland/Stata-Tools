@@ -6,6 +6,10 @@ Format and export regression tables to Excel.
 
 regtab formats collected regression tables and exports point estimates, 95% confidence intervals, and p-values to Excel with professional formatting. The command works with Stata 17+ collect commands to create publication-ready regression tables.
 
+## Dependencies
+
+Requires **collect** commands (Stata 17.0 or higher).
+
 ## Installation
 
 ```stata

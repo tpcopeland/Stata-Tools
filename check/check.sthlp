@@ -1,5 +1,5 @@
 {smcl}
-{* 25july2020}{...}
+{* 26July2020}{...}
 {cmd:help check}
 {hline}
 
@@ -17,11 +17,63 @@
 
 {title:Description}
 
-{p}Produces a table with: N, # Missing, % Missing, # Unique Values, Variable Type, Variable Format, Mean, Standard Deviation, Minimum, 25th Percentile, Median, 75th Percentile, Maximum, and Variable Label. May be used with one or multiple variables{p_end}
+{pstd}
+{cmd:check} provides a comprehensive summary of one or more variables, displaying both data quality
+metrics and descriptive statistics in a single table. This command is particularly useful for
+initial data exploration and validation, as it combines information typically obtained from
+multiple commands ({cmd:codebook}, {cmd:summarize}, {cmd:tabulate}, etc.) into one convenient output.
+{p_end}
+
+{pstd}
+The output table includes the following information for each variable:
+{p_end}
+
+{phang2}• N: Total number of observations{p_end}
+{phang2}• # Missing: Count of missing values{p_end}
+{phang2}• % Missing: Percentage of observations that are missing{p_end}
+{phang2}• # Unique Values: Number of distinct values{p_end}
+{phang2}• Variable Type: Storage type (byte, int, long, float, double, string){p_end}
+{phang2}• Variable Format: Display format{p_end}
+{phang2}• Mean: Arithmetic mean (for numeric variables){p_end}
+{phang2}• Standard Deviation: SD (for numeric variables){p_end}
+{phang2}• Minimum: Smallest value{p_end}
+{phang2}• 25th Percentile: First quartile{p_end}
+{phang2}• Median: 50th percentile{p_end}
+{phang2}• 75th Percentile: Third quartile{p_end}
+{phang2}• Maximum: Largest value{p_end}
+{phang2}• Variable Label: Descriptive label if defined{p_end}
 
 {title:Options}
 
-{p 4 8 2}{opt short} removes the descriptive statistics{p_end}
+{phang}
+{opt short} removes the descriptive statistics (mean, SD, min, percentiles, max) from the output,
+displaying only data quality metrics (N, missing, unique values, type, format, and label).
+This option is useful when you only need to check data completeness and structure without
+examining the distribution of values.
+{p_end}
+
+{marker examples}{...}
+{title:Examples}
+
+{pstd}Check a single variable{p_end}
+{phang2}{cmd:. sysuse auto, clear}{p_end}
+{phang2}{cmd:. check mpg}{p_end}
+
+{pstd}Check multiple variables{p_end}
+{phang2}{cmd:. check mpg weight price}{p_end}
+
+{pstd}Check all variables in dataset{p_end}
+{phang2}{cmd:. check _all}{p_end}
+
+{pstd}Check variables with short output (no descriptive statistics){p_end}
+{phang2}{cmd:. check mpg weight price, short}{p_end}
+
+{pstd}Check variables matching a pattern{p_end}
+{phang2}{cmd:. check rep*}{p_end}
+
+{pstd}Check after data import to validate data quality{p_end}
+{phang2}{cmd:. import delimited "rawdata.csv", clear}{p_end}
+{phang2}{cmd:. check _all}{p_end}
 
 {marker author}{...}
 {title:Author}

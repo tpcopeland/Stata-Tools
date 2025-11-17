@@ -6,6 +6,10 @@ Combine strate output files and export to Excel.
 
 stratetab combines pre-computed strate output files and exports them to Excel with outcome labels as headers and category labels indented in the first column. The command creates formatted tables with events, person-years, and rates with 95% confidence intervals.
 
+## Dependencies
+
+Requires **strate** (built-in Stata survival analysis command). Data must be declared as survival-time data using `stset`.
+
 ## Installation
 
 ```stata

@@ -6,6 +6,10 @@ Set global macros with current date and time.
 
 today sets two global macros - $today and $today_time - containing the current date and time with customizable formatting. It is convenient for incorporating timestamps into Stata programs, logs, and output files.
 
+## Dependencies
+
+None - uses only built-in Stata commands.
+
 ## Installation
 
 ```stata

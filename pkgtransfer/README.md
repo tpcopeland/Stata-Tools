@@ -6,6 +6,10 @@ Transfer installed Stata packages between installations.
 
 pkgtransfer facilitates transferring installed packages from one Stata installation to another. It can generate a do-file with the necessary net install, ssc install, or github install commands for online installation. Alternatively, it can download all package files and create a local installation script with a ZIP archive for offline installation.
 
+## Dependencies
+
+None - uses only built-in Stata commands. Optional support for the **github** command if packages were installed from GitHub (install with `net install github, from("https://haghish.github.io/github/")`).
+
 ## Installation
 
 ```stata

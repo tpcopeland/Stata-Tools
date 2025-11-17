@@ -6,6 +6,10 @@ Create publication-ready Table 1 of baseline characteristics.
 
 table1_tc generates descriptive statistics tables ("Table 1") for manuscripts. It summarizes continuous and categorical variables, optionally stratified by group, with automatic statistical test selection and p-values. The command is an extension of Phil Clayton's table1 and Mark Chatfield's table1_mc, with enhanced Excel export capabilities.
 
+## Dependencies
+
+None - uses only built-in Stata commands.
+
 ## Installation
 
 ```stata
