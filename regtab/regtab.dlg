@@ -1,3 +1,4 @@
+VERSION 17.0
 /*
   regtab.dlg - Dialog for regtab command
 
@@ -7,8 +8,6 @@
   Version: 1.2
   Date: November 2025
 */
-
-VERSION 17.0
 
 INCLUDE _std_large
 DEFINE _dlght 420
