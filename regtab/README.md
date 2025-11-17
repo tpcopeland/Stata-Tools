@@ -83,7 +83,7 @@ Stata 17.0 or higher (requires collect commands)
 
 ## Author
 
-Timothy P Copeland
+Timothy P Copeland, Department of Clinical Neuroscience, Karolinska Institutet
 
 ## Help
 
