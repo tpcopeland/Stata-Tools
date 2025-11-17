@@ -68,7 +68,7 @@ BEGIN
   TEXT tx_ex2d     10  +15 620  ., label("      title(Table 1. Regression Results)")
   TEXT tx_ex3      10  +25 620  ., label("Example 3: Customize separator and drop intercept")
   TEXT tx_ex3b     10  +15 620  ., label("   regtab, xlsx(results.xlsx) sheet(Table1) sep(' to ') noint")
-  TEXT tx_help10    10  +25 620  ., label("For complete documentation, click Help above or type: help regtab")
+  TEXT tx_help10    10  +25 620  ., label("For complete documentation, click the Help icon below or type: help regtab")
 END
 
 PROGRAM parseMessage
