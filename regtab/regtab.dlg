@@ -1,13 +1,4 @@
 VERSION 17.0
-/*
-  regtab.dlg - Dialog for regtab command
-
-  Formats collected regression tables, exports to Excel with formatting.
-
-  Author: Tim Copeland
-  Version: 1.2
-  Date: November 2025
-*/
 
 INCLUDE _std_large
 DEFINE _dlght 420
