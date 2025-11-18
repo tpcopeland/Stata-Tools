@@ -25,6 +25,7 @@
 */
 
 program define datefix, rclass
+    version 14.0
     syntax [varlist] [, newvar(string) drop df(string) order(string) topyear(string asis)]
 
 	* Validation: Check if varlist is empty
@@ -65,11 +66,20 @@ program define datefix, rclass
 	if "`df'" != "" {
 		* Check if it's a valid Stata date format
 		* Valid formats start with %t (for date/time formats)
-		if substr("`df'", 1, 2) != "%t" & "`df'" != "" {
+		if substr("`df'", 1, 2) != "%t" {
 			display as error "df(`df') is not a valid Stata date format"
 			display as error "Date formats must start with %t (e.g., %tdCCYY/NN/DD)"
 			exit 198
 		}
+		* Test the format validity
+		tempvar testvar
+		quietly generate double `testvar' = 22000
+		capture format `testvar' `df'
+		if _rc {
+			display as error "Invalid date format: `df'"
+			exit 198
+		}
+		drop `testvar'
 	}
 
 	*Error Message if topyear() contains non-integer value
@@ -95,21 +105,17 @@ program define datefix, rclass
 
 		capture confirm string variable `var'
 		if _rc == 0 {
-			*Datetime error 
-			if strpos(`var', ":"){
-				di in re "Error: Input variable `var' appears to be a datetime variable."
-				di in re "datefix does not support datetime variables."
-				di in re "If you believe this message is in error, check for timestamps or colons in `var'."
-				exit 198
+			*Datetime error - check first non-missing value for datetime indicators
+			quietly count if !missing(`var')
+			if r(N) > 0 {
+				local first_val = `var'[1]
+				if strpos("`first_val'", ":") > 0 {
+					di in re "Error: Variable `var' appears to contain datetime values"
+					di in re "datefix does not support datetime variables"
+					exit 198
+				}
 			}
 		}
-
-        * Validate varlist
-        if strpos("`varlist'", " ") > 0 & "`newvar'" != "" {
-            di in re "Error: 'newvar()' can only be specified when a single variable is used." 
-			di in re "For a list of variables, new variables will replace original variables."
-            exit 198
-        }
 
 		*Newvar error 
         if "`newvar'" == "`var'" {
@@ -132,41 +138,58 @@ program define datefix, rclass
 		if _rc == 0 {
 
 			if "`order'"!="" {
-				quietly capture gen new = date(`var',"`order'" `topyear') 
+				quietly capture gen new = date(`var',"`order'" `topyear')
 
-				if missing(new) & !missing(`var'){
-					di in re "Specified ordering of Year, Month, and Day producing new missingness."
-					di in re "Check ordering, number of year digits, and for non-date strings."
-					di in re "If year is in two digit format, use topyear() option."
-					quietly drop new 
+				* Check if conversion created NEW missing values
+				qui count if missing(new) & !missing(`var')
+				if r(N) > 0 {
+					di in re "Specified ordering produced `r(N)' missing values from valid strings"
+					di in re "Check ordering, year digits, and for non-date strings"
+					di in re "If year is two-digit format, use topyear() option"
+					qui drop new
 					exit 198
 				}
 			}
 				
 			else {
-				quietly{				
+				quietly{
 					*Generate temporary copies of the original variable
-					capture gen tmp_orig = `var' 
+					capture gen tmp_orig = `var'
 					gen new = .
 					*Generate dates for string in MDY format
 					capture gen MDY = date(`var',"MDY" `topyear')
-					capture egen MDY_ct = count(MDY) 
+					capture egen MDY_ct = count(MDY)
 					*Generate dates for string in YMD format
 					capture gen YMD = date(`var',"YMD" `topyear')
 					capture egen YMD_ct = count(YMD)
 					*Generate dates for string in DMY format
 					capture gen DMY = date(`var',"DMY" `topyear')
-					capture egen DMY_ct = count(DMY) 
+					capture egen DMY_ct = count(DMY)
 					*Select highest count for valid conversion
-					capture replace new = MDY if YMD_ct <= MDY_ct & DMY_ct <= MDY_ct 
-					capture replace new = YMD if MDY_ct < YMD_ct & DMY_ct <= YMD_ct 
+					capture replace new = MDY if YMD_ct <= MDY_ct & DMY_ct <= MDY_ct
+					capture replace new = YMD if MDY_ct < YMD_ct & DMY_ct <= YMD_ct
 					capture replace new = DMY if MDY_ct < DMY_ct & YMD_ct < DMY_ct
-					*Drop temporary variable  
+
+					* Determine which format was detected for display
+					if YMD_ct <= MDY_ct & DMY_ct <= MDY_ct {
+						local detected_format "MDY"
+					}
+					else if MDY_ct < YMD_ct & DMY_ct <= YMD_ct {
+						local detected_format "YMD"
+					}
+					else if MDY_ct < DMY_ct & YMD_ct < DMY_ct {
+						local detected_format "DMY"
+					}
+
+					*Drop temporary variable
 					foreach tmp in MDY YMD DMY MDY_ct YMD_ct DMY_ct tmp_orig{
-						capture drop `tmp' 
-					}       
+						capture drop `tmp'
+					}
 
 				}
+
+				* Display auto-detected format
+				di as text "Auto-detected date format: `detected_format'"
 
 				if missing(new) & !missing(`var'){
 					di in re "Optimal ordering of Year, Month, and Day producing missing values."

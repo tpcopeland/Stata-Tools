@@ -6,13 +6,20 @@
 *! Original Author: Michael N. Mitchell
 *! Created on  5 May 2020 at 14:38:31
 
-program define check
-  syntax [varlist], [SHORT]
+program define check, rclass
+  version 18.0
+  syntax varlist, [SHORT]
 
-  * Validation: Check if varlist is empty
-  if "`varlist'" == "" {
-    display as error "varlist required"
-    exit 198
+  * Validation: Check for required external commands
+  capture which mdesc
+  if _rc {
+    display as error "check requires the mdesc command. Install with: ssc install mdesc"
+    exit 199
+  }
+  capture which unique
+  if _rc {
+    display as error "check requires the unique command. Install with: ssc install unique"
+    exit 199
   }
 
   * Validation: Check if all variables exist
@@ -36,7 +43,7 @@ if "`short'"== "" {
       local max = `len'
     }
   }
-  local maxlen = max(`max',4)  // At least 8 spaces due to "Varname" 
+  local maxlen = max(`max',4)  // At least 4 characters due to "Varname" 
   *************************************************************************  
   * Part 1. Compute Column Positions
   local col1 = 1
@@ -108,7 +115,7 @@ else{
       local max = `len'
     }
   }
-  local maxlen = max(`max',4)  // At least 8 spaces due to "Varname" 
+  local maxlen = max(`max',4)  // At least 4 characters due to "Varname" 
   *************************************************************************  
   * Part 1. Compute Column Positions
   local col1 = 1
@@ -144,9 +151,14 @@ else{
     display _col(`col5') %8.0g `r(unique)'      _continue   // Disp Unique
     display _col(`col6') %6s "`:type `v''"     _continue   // Disp Type
     display _col(`col7') %6s "`:format `v''"      _continue   // Disp Format  
-    local varlab : variable label `v'                  // Make VarLab 
-    display _col(`col8')       "`varlab'"              // Disp Varlab  
+    local varlab : variable label `v'                  // Make VarLab
+    display _col(`col8')       "`varlab'"              // Disp Varlab
   }
 
 }
+
+  * Return values for programmatic use
+  return local varlist "`varlist'"
+  return scalar nvars = wordcount("`varlist'")
+  return local mode = cond("`short'" != "", "short", "full")
 end 

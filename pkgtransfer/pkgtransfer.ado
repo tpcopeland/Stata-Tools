@@ -29,7 +29,8 @@
 		restore:			Restores installation pathways to point to online sources after local installation.
 */
 
-program define pkgtransfer
+program define pkgtransfer, rclass
+	version 14.0
 	syntax [, DOWNLOAD(string) LIMITED(string) SKIP(string) RESTORE OS(string) DOfile(string) ZIPfile(string)]
 
 /* Check For Errors */
@@ -309,10 +310,25 @@ quietly{
 				replace file_source = substr(url, 1, strlen(url)-1) + substr(v2,1,strpos(v2,"/")-1) + "/" + substr(v2, strpos(v2,"/")+1, .) if strpos(v2,"/")
 				replace v2 = regexr(regexr(substr(v2, 1, .), "^\.\.\/", ""), "^[^\/]+\/", "")
 
-				// Download plugins 
+				// Download plugins with retry logic
 				noisily display "Downloading plugins for `package'..."
 				quietly forvalues u = 1(1)`=_N'{
-					copy "`=file_source[`u']'" "pkgtransfer_files`c(dirsep)'`=v2[`u']'", replace 
+					local max_retries = 3
+					local success = 0
+					forvalues attempt = 1/`max_retries' {
+						capture copy "`=file_source[`u']'" "pkgtransfer_files`c(dirsep)'`=v2[`u']'", replace
+						if _rc == 0 {
+							local success = 1
+							continue, break
+						}
+						if `attempt' < `max_retries' {
+							noisily display as text "Retry `attempt' of `max_retries' for plugin file..."
+							sleep 2000
+						}
+					}
+					if `success' == 0 {
+						noisily display as error "Failed to download plugin file after `max_retries' attempts"
+					}
 				}
 
 				// get current pkg file 
@@ -366,8 +382,24 @@ quietly{
             quietly forvalues i = 1/`=_N' {
                 local curr_url = url[`i']
                 local curr_pkg = package[`i']
-                
-				copy "`curr_url'`curr_pkg'.pkg" "pkgtransfer_files`c(dirsep)'`curr_pkg'.pkg", replace
+
+				* Network retry logic for package download (3 attempts)
+				local max_retries = 3
+				local success = 0
+				forvalues attempt = 1/`max_retries' {
+					capture copy "`curr_url'`curr_pkg'.pkg" "pkgtransfer_files`c(dirsep)'`curr_pkg'.pkg", replace
+					if _rc == 0 {
+						local success = 1
+						continue, break
+					}
+					if `attempt' < `max_retries' {
+						noisily display as text "Retry `attempt' of `max_retries' for `curr_pkg'.pkg..."
+						sleep 2000
+					}
+				}
+				if `success' == 0 {
+					noisily display as error "Failed to download `curr_pkg'.pkg after `max_retries' attempts"
+				}
 				
 				// Store description from first line
 				clear
@@ -425,9 +457,20 @@ quietly{
 						
 						// Clean the filepath of any directory components
 						local clean_source = regexr(regexr("`source_file'", "^\.\.\/", ""), "^[^\/]+\/", "")
-						
-						// Download all platform-specific files
-						capture copy "`base_url'`source_file'" "pkgtransfer_files`c(dirsep)'`clean_source'"
+
+						// Download all platform-specific files with retry logic
+						local max_retries = 3
+						local success = 0
+						forvalues attempt = 1/`max_retries' {
+							capture copy "`base_url'`source_file'" "pkgtransfer_files`c(dirsep)'`clean_source'"
+							if _rc == 0 {
+								local success = 1
+								continue, break
+							}
+							if `attempt' < `max_retries' {
+								sleep 2000
+							}
+						}
 						
 						// Also save a copy with the target filename
 						// This ensures all platform variants are downloaded and the target file exists
@@ -451,9 +494,22 @@ quietly{
 						else {
 							local base_url = "`curr_url'"
 						}
-						
+
 						local clean_filepath = regexr(regexr("`filepath'", "^\.\.\/", ""), "^[^\/]+\/", "")
-						capture copy "`base_url'`filepath'" "pkgtransfer_files`c(dirsep)'`clean_filepath'"
+
+						// Download with retry logic
+						local max_retries = 3
+						local success = 0
+						forvalues attempt = 1/`max_retries' {
+							capture copy "`base_url'`filepath'" "pkgtransfer_files`c(dirsep)'`clean_filepath'"
+							if _rc == 0 {
+								local success = 1
+								continue, break
+							}
+							if `attempt' < `max_retries' {
+								sleep 2000
+							}
+						}
 					}
 				}
 
@@ -520,8 +576,6 @@ quietly{
             zipfile "pkgtransfer_files", saving("`zipfile'", replace)
 			
             // Delete Directory
-			shell rd "pkgtransfer_files" /s /q
-
 			if "`os'" == "Windows"{
 				shell rd "pkgtransfer_files" /s /q
 			}
@@ -532,6 +586,8 @@ quietly{
             /* Restore installation pathways to online sources if requested */
             if "`restore'" != "" {
                 noisily display "Restoring installation pathways to online sources..."
+                * Backup stata.trk before modifying
+                copy "`c(sysdir_plus)'`c(dirsep)'stata.trk" "`c(sysdir_plus)'`c(dirsep)'stata.trk.backup", replace
                 import delimited using "`c(sysdir_plus)'`c(dirsep)'stata.trk", delim("$$$$$$$$$") stringcols(1) bindquote(strict) maxquotedrows(unlimited) clear
                 replace v1 = v1[_n+5] if substr(v1,1,2) == "S " &  substr(v1[_n+5],1,2) == "d S "
                 replace v1 = subinstr(v1,"d S ","S ",.) if substr(v1[_n+1],1,2) == "N "
@@ -542,9 +598,27 @@ quietly{
 
             // Announce Completion
 			noisily display "Preparation of installation do file and package ZIP file completed!"
-		
+
         }
 
+}
+
+/* Return values */
+if "`pkg_list_for_do'" != "" {
+	local n_pkgs : word count `pkg_list_for_do'
+	return scalar N_packages = `n_pkgs'
+	return local package_list "`pkg_list_for_do'"
+}
+if "`download'" != "" {
+	return local download_mode "`download'"
+}
+else {
+	return local download_mode "script_only"
+}
+return local os "`os'"
+return local dofile "`dofile'"
+if "`download'" != "" {
+	return local zipfile "`zipfile'"
 }
 
 *END PROGRAM
