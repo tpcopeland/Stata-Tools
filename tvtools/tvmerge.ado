@@ -79,15 +79,23 @@ program define tvmerge, rclass
         exit 198
     }
     
-    * Verify all dataset files exist before proceeding
+    * Verify all dataset files exist and are valid Stata datasets
     * This prevents cryptic error messages from use command
+    preserve
     foreach ds in `datasets' {
         capture confirm file "`ds'.dta"
         if _rc != 0 {
             di as error "Dataset file not found: `ds'.dta"
             exit 601
         }
+        * Also verify it's a valid Stata dataset
+        capture use "`ds'.dta" in 1, clear
+        if _rc != 0 {
+            di as error "`ds'.dta is not a valid Stata dataset or cannot be read"
+            exit 610
+        }
     }
+    restore
     
     * Check for conflicting naming options
     if "`prefix'" != "" & "`generate'" != "" {
@@ -514,10 +522,20 @@ program define tvmerge, rclass
             
             * For each person, get all combinations of intervals
             levelsof id, local(ids)
-            
+
+            * Pre-compute which exposures are continuous (optimization to avoid repeated checks)
+            foreach exp_var in `exp_k_list' {
+                local is_cont_`exp_var' = 0
+                foreach cont_name in `continuous_names' {
+                    if "`exp_var'" == "`cont_name'" {
+                        local is_cont_`exp_var' = 1
+                    }
+                }
+            }
+
             * Initialize empty dataset for results
             clear
-            
+
             * Process each person
             foreach pid in `ids' {
                 * Get person's records from merged data (dataset 1 through k-1)
@@ -550,15 +568,8 @@ program define tvmerge, rclass
                 
                 * For continuous exposures, interpolate values based on time elapsed
                 foreach exp_var in `exp_k_list' {
-                    * Check if this specific exposure is continuous
-                    local is_this_cont = 0
-                    foreach cont_name in `continuous_names' {
-                        if "`exp_var'" == "`cont_name'" {
-                            local is_this_cont = 1
-                        }
-                    }
-                    
-                    if `is_this_cont' == 1 {
+                    * Use pre-computed continuous indicator (optimization)
+                    if `is_cont_`exp_var'' == 1 {
                         generate double _proportion = cond(stop_k > start_k, (`stopname' - start_k) / (stop_k - start_k), 1)
                         replace `exp_var' = `exp_var' * _proportion
                         drop _proportion
