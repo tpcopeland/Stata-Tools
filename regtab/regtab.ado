@@ -20,7 +20,22 @@ SYNTAX:
 	   
 */
 capture program drop regtab
-program define regtab
+capture program drop col_to_letter
+
+* Helper program to convert column number to Excel letter
+program col_to_letter
+	args col_num
+	local col_letter = ""
+	local temp_col_num = `col_num'
+	while `temp_col_num' > 0 {
+		local remainder = mod(`temp_col_num' - 1, 26)
+		local col_letter = char(`remainder' + 65) + "`col_letter'"
+		local temp_col_num = floor((`temp_col_num' - 1) / 26)
+	}
+	c_local result "`col_letter'"
+end
+
+program define regtab, rclass
 version 17
 
 syntax, xlsx(string) sheet(string) [sep(string asis) models(string) coef(string) title(string) noint nore]
@@ -52,15 +67,13 @@ quietly{
         exit 198
     }
 
-    * Check if temporary file exists and warn
-    capture confirm file "temp.xlsx"
-    if !_rc {
-        noisily display as text "Warning: temp.xlsx exists and will be overwritten"
-    }
+    * Create temporary file for intermediate processing
+    tempfile temp_export
+    local temp_xlsx = subinstr("`temp_export'", ".tmp", ".xlsx", .)
 
     return local xlsx "`xlsx'"
     return local sheet "`sheet'"
-	
+
 	    if `"`sep'"' == "" local sep ", "      // Default separator for IQR
 
 collect label levels result _r_b "`coef'", modify
@@ -70,9 +83,9 @@ collect style cell result[_r_p], warn nformat(%5.4f) halign(center) valign(cente
 collect style column, dups(center)
 collect style row stack, nodelimiter nospacer indent length(.) wrapon(word) noabbreviate wrap(.) truncate(tail)
 collect layout (colname) (cmdset#result[_r_b _r_ci _r_p]) ()
-collect export temp.xlsx, sheet(temp,replace) modify open
+collect export "`temp_xlsx'", sheet(temp,replace) modify
 
-import excel temp.xlsx, sheet(temp) clear
+import excel "`temp_xlsx'", sheet(temp) clear
 if !missing(`noint') {
 	drop if inlist(strlower(strtrim(A)), "intercept", "_cons", "constant", "Intercept")
 }
@@ -89,11 +102,10 @@ ds
 local varlist `r(varlist)'
 local varlist = "_"+"`r(varlist)'"
 local allvars: subinstr local varlist "_A B " "B ", all
-display "`allvars'"
-local n 1 
+local n 1
 foreach var of local allvars{
 rename `var' c`n'
-replace c`n' = "" if _n == 1 
+replace c`n' = "" if _n == 1
 local n `=`n'+1'
 }
 local n2 `=`n'-3'
@@ -132,15 +144,19 @@ capture confirm variable c`=`i'+2'
 if _rc == 0 replace c`=`i'+2' = "" if _n == 1
 }
 forvalues i = 3(3)`n'{
-destring c`i', gen(c`i'z) force 
-replace c`i'z = round(c`i'z, 0.001) 
-replace c`i'z = round(c`i'z, 0.01) if c`i'z > 0.05
-tostring c`i'z, replace force 
-replace c`i'z = "0" + c`i'z if substr(c`i'z, 1, 1) == "." & c`i'z != "."
-replace c`i'z = "<0.001" if c`i'z == "0"
-replace c`i' = c`i'z if c`i' != "" & _n >= 3
-replace c`i' = c`i' + "0" if length(c`i') == 3
-drop c`i'z
+destring c`i', gen(c`i'z) force
+gen str20 c`i'_fmt = ""
+* Handle very small p-values
+replace c`i'_fmt = "<0.001" if c`i'z < 0.001 & !missing(c`i'z)
+* Format p-values 0.001 to 0.05 with 3 decimal places
+replace c`i'_fmt = string(c`i'z, "%5.3f") if c`i'z >= 0.001 & c`i'z < 0.05 & !missing(c`i'z)
+* Format p-values >= 0.05 with 2 decimal places
+replace c`i'_fmt = string(c`i'z, "%4.2f") if c`i'z >= 0.05 & !missing(c`i'z)
+* Add leading zero if missing (e.g., .123 -> 0.123)
+replace c`i'_fmt = "0" + c`i'_fmt if substr(c`i'_fmt, 1, 1) == "."
+* Apply formatting
+replace c`i' = c`i'_fmt if c`i' != "" & _n >= 3
+drop c`i'z c`i'_fmt
 }
 *
 gen id = _n 
@@ -187,7 +203,7 @@ local factor_length = `=ceil(`=`r(max)'*0.95')'
 drop A_length factor_length c*_max c*_length
 
 forvalues i = 1(3)`last'{
-gen ref`i' = _n if c`i' == "Reference" 
+gen ref`i' = _n if c`i' == "Reference"
 order ref`i', after(c`i')
 levelsof ref`i', local(ref`i'_levels)
 }
@@ -196,129 +212,124 @@ forvalues i = 1(3)`last'{
 local ref_rows "`ref_rows' `ref`i'_levels'"
 }
 local ref_rows: list uniq ref_rows
-clear 
-mata: b = xl()
-mata: b.load_book("`xlsx'")
-mata: b.set_sheet("`sheet'")
-mata: b.set_row_height(1,1,30)
-mata: b.set_column_width(2,2,`factor_length')
-forvalues i = 3(3)`=`num_cols'-2'{
-mata: b.set_column_width(`i',`i',`=`max_length'*.55')
-}
-forvalues i = 4(3)`=`num_cols'-1'{
-mata: b.set_column_width(`i',`i',`=`max_length'*1.3')
-}
-forvalues i = 5(3)`num_cols'{
-mata: b.set_column_width(`i',`i',`=`max_length'*.875')
-}
-if `=`max_header_length'*.9' > `=(`max_length'*.55)+(`max_length'*1.3)+(`max_length'*.875)' {
-local headerheight = ceil(`=`max_header_length'*.9'/`=(`max_length'*.55)+(`max_length'*1.3)+(`max_length'*.875)')
-mata: b.set_row_height(2,2,`=`headerheight'*15')
-}
-else {
+clear
 
+* Apply Excel formatting with error handling
+capture {
+	mata: b = xl()
+	mata: b.load_book("`xlsx'")
+	mata: b.set_sheet("`sheet'")
+	mata: b.set_row_height(1,1,30)
+	mata: b.set_column_width(2,2,`factor_length')
+	forvalues i = 3(3)`=`num_cols'-2'{
+		mata: b.set_column_width(`i',`i',`=`max_length'*.55')
+	}
+	forvalues i = 4(3)`=`num_cols'-1'{
+		mata: b.set_column_width(`i',`i',`=`max_length'*1.3')
+	}
+	forvalues i = 5(3)`num_cols'{
+		mata: b.set_column_width(`i',`i',`=`max_length'*.875')
+	}
+	if `=`max_header_length'*.9' > `=(`max_length'*.55)+(`max_length'*1.3)+(`max_length'*.875)' {
+		local headerheight = ceil(`=`max_header_length'*.9'/`=(`max_length'*.55)+(`max_length'*1.3)+(`max_length'*.875)')
+		mata: b.set_row_height(2,2,`=`headerheight'*15')
+	}
+	mata: b.close_book()
 }
-mata: b.close_book()
-
-putexcel set "`xlsx'", sheet("`sheet'") modify
-local letterleft B
-local lettertwo C
-
-local n1 = mod(`num_cols' - 1, 26)
-local letterright = upper(char(65 + `n1'))
-if `num_cols' > 26 {
-  local n2 = floor((`num_cols' - 1) / 26)
-  if `n2' > 0 {
-local firstletter = upper(char(64 + `n2'))
-local letterright = "`firstletter'" + "`letterright'"
-  }
-}
-local n1 2 
-local n2 `num_rows'
-local tl1 `letterleft'`n1'
-local tl2 `letterleft'`=1+`n1''
-local tl3 `letterleft'`=2+`n1''
-local tr1 `letterright'`n1'
-local tr2 `letterright'`=1+`n1''
-local tr3 `letterright'`=2+`n1''
-local bl `letterleft'`n2'
-local br `letterright'`n2'
-foreach row of local ref_rows {
-local col_num = 3
-while `col_num' <= `n' {
-local col_letter = ""
-local temp_col_num = `col_num'
-while `temp_col_num' > 0 {
-local remainder = mod(`temp_col_num' - 1, 26)
-local col_letter = char(`remainder' + 65) + "`col_letter'"
-local temp_col_num = floor((`temp_col_num' - 1) / 26)
+if _rc {
+	* Ensure Excel file handle is closed on error
+	capture mata: b.close_book()
+	noisily display as error "Excel formatting failed with error `=_rc'"
+	* Clean up temporary file
+	capture erase "`temp_xlsx'"
+	exit `=_rc'
 }
 
-local col_letter_next1 = ""
-local temp_col_num = `col_num' + 1
-while `temp_col_num' > 0 {
-local remainder = mod(`temp_col_num' - 1, 26)
-local col_letter_next1 = char(`remainder' + 65) + "`col_letter_next1'"
-local temp_col_num = floor((`temp_col_num' - 1) / 26)
+* Apply putexcel formatting with error handling
+capture {
+	putexcel set "`xlsx'", sheet("`sheet'") modify
+	local letterleft B
+	local lettertwo C
+
+	local n1 = mod(`num_cols' - 1, 26)
+	local letterright = upper(char(65 + `n1'))
+	if `num_cols' > 26 {
+		local n2 = floor((`num_cols' - 1) / 26)
+		if `n2' > 0 {
+			local firstletter = upper(char(64 + `n2'))
+			local letterright = "`firstletter'" + "`letterright'"
+		}
+	}
+	local n1 2
+	local n2 `num_rows'
+	local tl1 `letterleft'`n1'
+	local tl2 `letterleft'`=1+`n1''
+	local tl3 `letterleft'`=2+`n1''
+	local tr1 `letterright'`n1'
+	local tr2 `letterright'`=1+`n1''
+	local tr3 `letterright'`=2+`n1''
+	local bl `letterleft'`n2'
+	local br `letterright'`n2'
+	foreach row of local ref_rows {
+		local col_num = 3
+		while `col_num' <= `n' {
+			col_to_letter `col_num'
+			local col_letter = "`result'"
+
+			col_to_letter `=`col_num'+1'
+			local col_letter_next1 = "`result'"
+
+			col_to_letter `=`col_num'+2'
+			local col_letter_next2 = "`result'"
+
+			putexcel (`col_letter'`row':`col_letter_next2'`row'), merge hcenter vcenter
+			local col_num = `col_num' + 3
+		}
+	}
+	*Merge Headers over models
+	local col_num = 3
+	while `col_num' <= `n' {
+		col_to_letter `col_num'
+		local col_letter = "`result'"
+
+		col_to_letter `=`col_num'+1'
+		local col_letter_next1 = "`result'"
+
+		col_to_letter `=`col_num'+2'
+		local col_letter_next2 = "`result'"
+
+		putexcel (`col_letter'`n1':`col_letter_next2'`n1'), merge hcenter vcenter bold txtwrap // merge headers
+		putexcel (`col_letter_next2'`n1':`col_letter_next2'`n2'), border(right, thin) // right border
+		local col_num = `col_num' + 3
+	}
+	putexcel (A1:`letterright'1), merge txtwrap left top bold // merge title cells
+	putexcel (`letterleft'3:`letterright'3), bold // bold column labels
+	putexcel (`tl1':`tr1'), border(top, thin) // top
+	putexcel (`lettertwo'`n1':`tr2'), border(top, thin) // above column labels
+	putexcel (`tl2':`tr2'), border(bottom, thin) // header bottom
+	putexcel (`tr1':`br'), border(right, thin) // right
+	putexcel (`tl1':`bl'), border(left, thin) // left
+	putexcel (`tl1':`bl'), border(right, thin) // middle (right of variables)
+	putexcel (`bl':`br'), border(bottom, thin) // bottom
+	putexcel (`letterright'`n1':`letterright'`n2'), border(right, thin) // right of model "x"
+	putexcel (A1:`br'), font(Arial, 10)
+	putexcel clear
+}
+if _rc {
+	noisily display as error "Excel cell formatting failed with error `=_rc'"
+	* Clean up temporary file
+	capture erase "`temp_xlsx'"
+	exit `=_rc'
 }
 
-local col_letter_next2 = ""
-local temp_col_num = `col_num' + 2
-while `temp_col_num' > 0 {
-local remainder = mod(`temp_col_num' - 1, 26)
-local col_letter_next2 = char(`remainder' + 65) + "`col_letter_next2'"
-local temp_col_num = floor((`temp_col_num' - 1) / 26)
-}
+collect clear
 
-putexcel (`col_letter'`row':`col_letter_next2'`row'), merge hcenter vcenter
-local col_num = `col_num' + 3
-}
-}
-*Merge Headers over models
-local col_num = 3
-while `col_num' <= `n' {
-local col_letter = ""
-local temp_col_num = `col_num'
-while `temp_col_num' > 0 {
-local remainder = mod(`temp_col_num' - 1, 26)
-local col_letter = char(`remainder' + 65) + "`col_letter'"
-local temp_col_num = floor((`temp_col_num' - 1) / 26)
-}
+* Clean up temporary file
+capture erase "`temp_xlsx'"
 
-local col_letter_next1 = ""
-local temp_col_num = `col_num' + 1
-while `temp_col_num' > 0 {
-local remainder = mod(`temp_col_num' - 1, 26)
-local col_letter_next1 = char(`remainder' + 65) + "`col_letter_next1'"
-local temp_col_num = floor((`temp_col_num' - 1) / 26)
-}
-
-local col_letter_next2 = ""
-local temp_col_num = `col_num' + 2
-while `temp_col_num' > 0 {
-local remainder = mod(`temp_col_num' - 1, 26)
-local col_letter_next2 = char(`remainder' + 65) + "`col_letter_next2'"
-local temp_col_num = floor((`temp_col_num' - 1) / 26)
-}
-
-putexcel (`col_letter'`n1':`col_letter_next2'`n1'), merge hcenter vcenter bold txtwrap // merge headers 
-putexcel (`col_letter_next2'`n1':`col_letter_next2'`n2'), border(right, thin) // right border 
-local col_num = `col_num' + 3
-}
-putexcel (A1:`letterright'1), merge txtwrap left top bold // merge title cells 
-putexcel (`letterleft'3:`letterright'3), bold // bold column labels 
-putexcel (`tl1':`tr1'), border(top, thin) // top 
-putexcel (`lettertwo'`n1':`tr2'), border(top, thin) // above column labels
-putexcel (`tl2':`tr2'), border(bottom, thin) // header bottom 
-putexcel (`tr1':`br'), border(right, thin) // right 
-putexcel (`tl1':`bl'), border(left, thin) // left 
-putexcel (`tl1':`bl'), border(right, thin) // middle (right of variables)
-putexcel (`bl':`br'), border(bottom, thin) // bottom 
-putexcel (`letterright'`n1':`letterright'`n2'), border(right, thin) // right of model "x" 
-putexcel (A1:`br'), font(Arial, 10)
-putexcel clear 
-collect clear 
-erase temp.xlsx
+* Return statistics
+return scalar N_rows = `num_rows'
+return scalar N_cols = `num_cols'
 }
 
 end

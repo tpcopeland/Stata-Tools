@@ -3,8 +3,12 @@
 *! Author: Tim Copeland
 *! Revised on  17 November 2025
 
-program define massdesas
+program define massdesas, rclass
+version 18.0
 syntax , directory(string) [ERASE LOWER]
+
+* Save original working directory
+local original_dir `"`c(pwd)'"'
 
 * Validation: Check if directory exists
 mata: st_numscalar("r_dir", direxists("`directory'"))
@@ -21,42 +25,64 @@ if _rc {
 }
 
 ****
-global source `directory'
-cd "$source"
-filelist, dir("$source") pat("*.sas7bdat") save("sas_files.dta") replace
+local source `directory'
+tempfile sasfiles
+cd "`source'"
+filelist, dir("`source'") pat("*.sas7bdat") save("`sasfiles'") replace
 
 * Validation: Check if any SAS files were found
-use sas_files, clear
+use "`sasfiles'", clear
 quietly count
 if r(N) == 0 {
 	display as error "no SAS files found in directory: `directory'"
-	erase sas_files.dta
+	cd "`original_dir'"
 	exit 601
 } 
 replace dirname = subinstr(dirname, "/\", "/",.) 
 replace dirname = subinstr(dirname, "\/", "/",.) 
 replace dirname = subinstr(dirname, "\", "/",.) 
 
-levelsof dirname, local(levels) 
-erase sas_files.dta 
+levelsof dirname, local(levels)
+
+* Initialize counters
+local n_converted 0
+local n_failed 0
+
 foreach l of local levels {
 cd "`l'"
 quietly fs *.sas7bdat 
-foreach file in `r(files)'{ 
-clear 
-if "`lower'"== "" {
-import sas using "`file'", clear
+foreach file in `r(files)'{
+clear
+capture {
+	if "`lower'"== "" {
+		import sas using "`file'", clear
+	}
+	else{
+		import sas using "`file'", case(lower) clear
+	}
 }
-else{
-import sas using "`file'", case(lower) clear
+if _rc == 0 {
+	local dtaname = substr("`file'", 1, strpos("`file'", ".sas7bdat") - 1)
+	save "`dtaname'.dta", replace
+	if "`erase'" != "" {
+		erase "`file'"
+	}
+	local ++n_converted
 }
-save "`=substr("`file'", 1, strpos("`file'", ".sas7bdat") - 1)'.dta", replace 
-if "`erase'"== "" {
-}
-else{
-erase "`file'"
+else {
+	display as error "Failed to import: `file' (rc=`_rc')"
+	local ++n_failed
 }
 }
 }
-cd "$source"
+
+* Restore original working directory
+cd "`original_dir'"
+
+* Return values
+return scalar n_converted = `n_converted'
+return scalar n_failed = `n_failed'
+return local directory "`source'"
+
+display as result "Conversion complete: `n_converted' file(s) converted, `n_failed' failed"
 end 

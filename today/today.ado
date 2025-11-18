@@ -29,7 +29,8 @@
         to:      Specifies the target timezone in UTC format (e.g., UTC+7 or UTC-5).
                     Default is current time zone. Must be specified with from(string).
 */
-program today, eclass
+program today, rclass
+    version 14.0
     syntax [, DF(string) TSep(string) HM FROM(string) TO(string)]
     quietly {
         // Default values
@@ -49,25 +50,59 @@ program today, eclass
 		
         // Process timezone options
         if "`from'" != "" {
-            if regexm("`from'", "^UTC([+-])([0-9]+)$") {
+            if regexm("`from'", "^UTC([+-])([0-9]+)(:([0-9]+))?$") {
                 local sign = regexs(1)
                 local hours = regexs(2)
-				local from_offset = "`=`hours'*`sign'1'"
+                local minutes = regexs(4)
+                if "`minutes'" == "" local minutes = 0
+
+                // Validate minutes
+                if `minutes' >= 60 {
+                    noisily di in red "Error: Invalid minutes in timezone: `minutes'"
+                    exit 198
+                }
+
+                // Calculate offset in hours (fractional)
+                local from_offset = `hours' + `minutes'/60
+                if "`sign'" == "-" local from_offset = -`from_offset'
+
+                // Validate timezone range
+                if `from_offset' < -12 | `from_offset' > 14 {
+                    noisily di in red "Error: Timezone offset must be between UTC-12 and UTC+14"
+                    exit 198
+                }
             }
             else {
-                noisily di in red "Error: Invalid from format. Use UTC+X or UTC-X format."
+                noisily di in red "Error: Invalid from format. Use UTC+X or UTC-X format (e.g., UTC+5, UTC-3:30)."
                 exit 198
             }
         }
         
         if "`to'" != "" {
-            if regexm("`to'", "^UTC([+-])([0-9]+)$") {
+            if regexm("`to'", "^UTC([+-])([0-9]+)(:([0-9]+))?$") {
                 local sign = regexs(1)
                 local hours = regexs(2)
-				local to_offset = "`=`hours'*`sign'1'"
+                local minutes = regexs(4)
+                if "`minutes'" == "" local minutes = 0
+
+                // Validate minutes
+                if `minutes' >= 60 {
+                    noisily di in red "Error: Invalid minutes in timezone: `minutes'"
+                    exit 198
+                }
+
+                // Calculate offset in hours (fractional)
+                local to_offset = `hours' + `minutes'/60
+                if "`sign'" == "-" local to_offset = -`to_offset'
+
+                // Validate timezone range
+                if `to_offset' < -12 | `to_offset' > 14 {
+                    noisily di in red "Error: Timezone offset must be between UTC-12 and UTC+14"
+                    exit 198
+                }
             }
             else {
-                noisily di in red "Error: Invalid to format. Use UTC+X or UTC-X format."
+                noisily di in red "Error: Invalid to format. Use UTC+X or UTC-X format (e.g., UTC+5, UTC-3:30)."
                 exit 198
             }
         }
@@ -91,16 +126,15 @@ program today, eclass
         // Calculate time difference and adjust
         local net_offset = `to_offset' - `from_offset'
         local new_hour = `hour' + `net_offset'
-        local days_adjust = 0
-        
-        // Handle day boundary crossings
-        if `new_hour' >= 24 {
-            local new_hour = `new_hour' - 24
-            local days_adjust = 1
-        }
-        else if `new_hour' < 0 {
+
+        // Handle day boundary crossings (can be multiple days)
+        local days_adjust = floor(`new_hour' / 24)
+        local new_hour = mod(`new_hour', 24)
+
+        // Handle negative hours
+        if `new_hour' < 0 {
             local new_hour = `new_hour' + 24
-            local days_adjust = -1
+            local days_adjust = `days_adjust' - 1
         }
         
         // Adjust the date if necessary
@@ -154,4 +188,8 @@ program today, eclass
             noisily display in result "Time converted from `from' to `to'"
         }
     }
+
+    // Return values for programmatic use
+    return local today "$today"
+    return local today_time "$today_time"
 end

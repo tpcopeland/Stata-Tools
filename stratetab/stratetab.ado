@@ -28,8 +28,44 @@ EXAMPLE:
 	  title(Unadjusted Event Rates)
 */
 
-program define stratetab
+program define stratetab, rclass
 version 17
+
+* Helper program: Format strate data columns
+* Creates ev, py, and rt variables from _D, _Y, _Rate, _Lower, _Upper
+program format_strate_data
+	args eventdigits pydigits digits
+
+	if `eventdigits' == 0 {
+		gen ev = string(_D, "%11.0fc")
+	}
+	else {
+		gen ev = string(_D, "%11.`eventdigits'fc")
+	}
+
+	if `pydigits' == 0 {
+		gen py = string(round(_Y,1), "%11.0fc")
+	}
+	else {
+		gen py = string(_Y, "%11.`pydigits'fc")
+	}
+
+	gen rt = strtrim(string(round(_Rate,10^(-`digits')), "%11.`digits'f")) + " (" + ///
+	         strtrim(string(round(_Lower,10^(-`digits')), "%11.`digits'f")) + "-" + ///
+	         strtrim(string(round(_Upper,10^(-`digits')), "%11.`digits'f")) + ")"
+end
+
+* Helper program: Get categorical variable name
+* Returns first variable that is not a strate output column
+program get_categorical_var
+	unab allvars : *
+	foreach v of local allvars {
+		if !inlist("`v'", "_D", "_Y", "_Rate", "_Lower", "_Upper") {
+			c_local catvar "`v'"
+			exit
+		}
+	}
+end
 
 if "`_byvars'" != "" {
 	di as err "stratetab may not be combined with by:"
@@ -67,9 +103,8 @@ qui {
 * Parse labels
 local n_files : word count `using'
 if "`labels'" != "" {
-	local labels = subinstr("`labels'", " \ ", "\", .)
-	local labels = subinstr("`labels'", "\  ", "\", .)
-	local labels = subinstr("`labels'", "  \", "\", .)
+	* Normalize whitespace around backslash separators using regex (single pass)
+	local labels = ustrregexra("`labels'", " *\\ *", "\")
 	tokenize "`labels'", parse("\")
 	forvalues i = 1/`n_files' {
 		local j = (`i'-1)*2 + 1
@@ -109,14 +144,7 @@ qui {
 		}
 		
 		* Find the categorical variable (first non-strate column)
-		unab allvars : *
-		local catvar ""
-		foreach v of local allvars {
-			if "`v'" != "_D" & "`v'" != "_Y" & "`v'" != "_Rate" & "`v'" != "_Lower" & "`v'" != "_Upper" {
-				local catvar "`v'"
-				continue, break
-			}
-		}
+		get_categorical_var
 		local catvar_list "`catvar_list' `catvar'"
 
 		* Store value label name for validation
@@ -205,15 +233,8 @@ qui {
 		}
 		
 		* Get categorical variable
-		unab allvars : *
-		local catvar ""
-		foreach v of local allvars {
-			if "`v'" != "_D" & "`v'" != "_Y" & "`v'" != "_Rate" & "`v'" != "_Lower" & "`v'" != "_Upper" {
-				local catvar "`v'"
-				continue, break
-			}
-		}
-		
+		get_categorical_var
+
 		* Convert categorical to string if needed
 		cap confirm string var `catvar'
 		if _rc {
@@ -224,24 +245,8 @@ qui {
 		}
 		
 		* Format data
-		if `eventdigits' == 0 {
-			gen ev = string(_D, "%11.0fc")
-		}
-		else {
-			gen ev = string(_D, "%11.`eventdigits'fc")
-		}
-		
-		if `pydigits' == 0 {
-			gen py = string(round(_Y,1), "%11.0fc")
-		}
-		else {
-			gen py = string(_Y, "%11.`pydigits'fc")
-		}
-		
-		gen rt = strtrim(string(round(_Rate,10^(-`digits')), "%11.`digits'f")) + " (" + ///
-		         strtrim(string(round(_Lower,10^(-`digits')), "%11.`digits'f")) + "-" + ///
-		         strtrim(string(round(_Upper,10^(-`digits')), "%11.`digits'f")) + ")"
-		
+		format_strate_data `eventdigits' `pydigits' `digits'
+
 		local nobs = _N
 		
 		restore
@@ -254,17 +259,10 @@ qui {
 		* Data rows with indented levels
 		preserve
 		use "`file'.dta", clear
-		
+
 		* Get categorical variable
-		unab allvars : *
-		local catvar ""
-		foreach v of local allvars {
-			if "`v'" != "_D" & "`v'" != "_Y" & "`v'" != "_Rate" & "`v'" != "_Lower" & "`v'" != "_Upper" {
-				local catvar "`v'"
-				continue, break
-			}
-		}
-		
+		get_categorical_var
+
 		* Convert categorical to string if needed
 		cap confirm string var `catvar'
 		if _rc {
@@ -273,82 +271,33 @@ qui {
 		else {
 			gen catvar_str = `catvar'
 		}
-		
+
 		* Format data
-		if `eventdigits' == 0 {
-			gen ev = string(_D, "%11.0fc")
-		}
-		else {
-			gen ev = string(_D, "%11.`eventdigits'fc")
-		}
-		
-		if `pydigits' == 0 {
-			gen py = string(round(_Y,1), "%11.0fc")
-		}
-		else {
-			gen py = string(_Y, "%11.`pydigits'fc")
-		}
-		
-		gen rt = strtrim(string(round(_Rate,10^(-`digits')), "%11.`digits'f")) + " (" + ///
-		         strtrim(string(round(_Lower,10^(-`digits')), "%11.`digits'f")) + "-" + ///
-		         strtrim(string(round(_Upper,10^(-`digits')), "%11.`digits'f")) + ")"
-		
-		forvalues i = 1/`=_N' {
-			local v1 = "    " + catvar_str[`i']
-			local v2 = ev[`i']
-			local v3 = py[`i']
-			local v4 = rt[`i']
-			restore
-			
-			local new = _N + 1
-			set obs `new'
-			replace c2 = "`v1'" in `new'
-			replace c3 = "`v2'" in `new'
-			replace c4 = "`v3'" in `new'
-			replace c5 = "`v4'" in `new'
-			
-			preserve
-			use "`file'.dta", clear
-			
-			* Get categorical variable
-			unab allvars : *
-			local catvar ""
-			foreach v of local allvars {
-				if "`v'" != "_D" & "`v'" != "_Y" & "`v'" != "_Rate" & "`v'" != "_Lower" & "`v'" != "_Upper" {
-					local catvar "`v'"
-					continue, break
-				}
-			}
-			
-			* Convert categorical to string if needed
-			cap confirm string var `catvar'
-			if _rc {
-				decode `catvar', gen(catvar_str)
-			}
-			else {
-				gen catvar_str = `catvar'
-			}
-			
-			* Format data
-			if `eventdigits' == 0 {
-				gen ev = string(_D, "%11.0fc")
-			}
-			else {
-				gen ev = string(_D, "%11.`eventdigits'fc")
-			}
-			
-			if `pydigits' == 0 {
-				gen py = string(round(_Y,1), "%11.0fc")
-			}
-			else {
-				gen py = string(_Y, "%11.`pydigits'fc")
-			}
-			
-			gen rt = strtrim(string(round(_Rate,10^(-`digits')), "%11.`digits'f")) + " (" + ///
-			         strtrim(string(round(_Lower,10^(-`digits')), "%11.`digits'f")) + "-" + ///
-			         strtrim(string(round(_Upper,10^(-`digits')), "%11.`digits'f")) + ")"
+		format_strate_data `eventdigits' `pydigits' `digits'
+
+		* Store row count and extract all values to locals (ONCE, not in loop)
+		local data_rows = _N
+		forvalues i = 1/`data_rows' {
+			local v1_`i' = "    " + catvar_str[`i']
+			local v2_`i' = ev[`i']
+			local v3_`i' = py[`i']
+			local v4_`i' = rt[`i']
 		}
 		restore
+
+		* Pre-allocate all rows at once (not incrementally)
+		local current_n = _N
+		local new_n = `current_n' + `data_rows'
+		set obs `new_n'
+
+		* Fill in all data rows
+		forvalues i = 1/`data_rows' {
+			local row_num = `current_n' + `i'
+			replace c2 = "`v1_`i''" in `row_num'
+			replace c3 = "`v2_`i''" in `row_num'
+			replace c4 = "`v3_`i''" in `row_num'
+			replace c5 = "`v4_`i''" in `row_num'
+		}
 	}
 }
 
@@ -448,5 +397,11 @@ putexcel clear
 }
 
 di as txt "Exported to `xlsx'"
+
+* Return values for rclass program
+return scalar N_files = `n_files'
+return scalar N_rows = `lastrow'
+return local xlsx "`xlsx'"
+return local sheet "`sht'"
 
 end
