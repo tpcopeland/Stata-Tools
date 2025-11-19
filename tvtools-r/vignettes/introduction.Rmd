@@ -100,8 +100,8 @@ library(dplyr)
 
 # Create time-varying exposure
 tv_data <- tvexpose(
-  cohort = cohort,
-  exposures = exposures,
+  master = cohort,
+  exposure_data = exposures,
   id = "id",
   entry = "study_entry",
   exit = "study_exit",
@@ -138,16 +138,16 @@ Records actual exposure status during each period. Categories reflect the exposu
 
 ```{r basic_tv, eval=FALSE}
 tv_basic <- tvexpose(
-  cohort = cohort,
-  exposures = exposures,
+  master = cohort,
+  exposure_data = exposures,
   id = "id",
   entry = "study_entry",
   exit = "study_exit",
   exp_start = "exp_start",
   exp_stop = "exp_stop",
   exp_type = "drug_type",
-  reference = 0,
-  definition = "basic"  # This is the default
+  reference = 0
+  # Basic time-varying is the default behavior
 )
 
 # drug_type values: 0 = unexposed, 1-3 = different drug types
@@ -159,8 +159,8 @@ Creates a binary indicator that switches from 0 to 1 at first exposure and remai
 
 ```{r evertreated, eval=FALSE}
 tv_ever <- tvexpose(
-  cohort = cohort,
-  exposures = exposures,
+  master = cohort,
+  exposure_data = exposures,
   id = "id",
   entry = "study_entry",
   exit = "study_exit",
@@ -168,7 +168,7 @@ tv_ever <- tvexpose(
   exp_stop = "exp_stop",
   exp_type = "drug_type",
   reference = 0,
-  definition = "evertreated"
+  evertreated = TRUE
 )
 
 # Output variable: 0 = never treated (so far), 1 = ever treated
@@ -183,8 +183,8 @@ Creates a three-level variable distinguishing never, current, and former exposur
 
 ```{r currentformer, eval=FALSE}
 tv_cf <- tvexpose(
-  cohort = cohort,
-  exposures = exposures,
+  master = cohort,
+  exposure_data = exposures,
   id = "id",
   entry = "study_entry",
   exit = "study_exit",
@@ -192,7 +192,7 @@ tv_cf <- tvexpose(
   exp_stop = "exp_stop",
   exp_type = "drug_type",
   reference = 0,
-  definition = "currentformer"
+  currentformer = TRUE
 )
 
 # Output values:
@@ -210,8 +210,8 @@ Creates categories based on cumulative exposure duration:
 
 ```{r duration, eval=FALSE}
 tv_duration <- tvexpose(
-  cohort = cohort,
-  exposures = exposures,
+  master = cohort,
+  exposure_data = exposures,
   id = "id",
   entry = "study_entry",
   exit = "study_exit",
@@ -219,9 +219,7 @@ tv_duration <- tvexpose(
   exp_stop = "exp_stop",
   exp_type = "drug_type",
   reference = 0,
-  definition = "duration",
-  duration_breaks = c(1, 5, 10),  # Break points in years
-  duration_unit = "years"
+  duration = c(1, 5, 10)  # Break points in years
 )
 
 # Output values:
@@ -240,8 +238,8 @@ Creates a continuous variable tracking cumulative exposure:
 
 ```{r continuous, eval=FALSE}
 tv_continuous <- tvexpose(
-  cohort = cohort,
-  exposures = exposures,
+  master = cohort,
+  exposure_data = exposures,
   id = "id",
   entry = "study_entry",
   exit = "study_exit",
@@ -249,8 +247,7 @@ tv_continuous <- tvexpose(
   exp_stop = "exp_stop",
   exp_type = "drug_type",
   reference = 0,
-  definition = "continuous",
-  continuous_unit = "months"
+  continuousunit = "months"
 )
 
 # Output: Cumulative months of exposure at each time point
@@ -269,8 +266,8 @@ Small gaps between prescriptions may represent refill delays rather than true ce
 
 ```{r grace, eval=FALSE}
 tv_grace <- tvexpose(
-  cohort = cohort,
-  exposures = exposures,
+  master = cohort,
+  exposure_data = exposures,
   id = "id",
   entry = "study_entry",
   exit = "study_exit",
@@ -278,7 +275,7 @@ tv_grace <- tvexpose(
   exp_stop = "exp_stop",
   exp_type = "drug_type",
   reference = 0,
-  definition = "currentformer",
+  currentformer = TRUE,
   grace = 30  # Fill gaps of 30 days or less
 )
 
@@ -289,8 +286,8 @@ You can also specify different grace periods for different exposure types:
 
 ```{r grace_bytype, eval=FALSE}
 tv_grace_type <- tvexpose(
-  cohort = cohort,
-  exposures = exposures,
+  master = cohort,
+  exposure_data = exposures,
   id = "id",
   entry = "study_entry",
   exit = "study_exit",
@@ -309,8 +306,8 @@ Model biological delays in exposure effects:
 
 ```{r lag_washout, eval=FALSE}
 tv_lag <- tvexpose(
-  cohort = cohort,
-  exposures = exposures,
+  master = cohort,
+  exposure_data = exposures,
   id = "id",
   entry = "study_entry",
   exit = "study_exit",
@@ -337,8 +334,8 @@ When exposure periods overlap (e.g., switching between medications), you can con
 ```{r priority, eval=FALSE}
 # Give priority to certain exposure types
 tv_priority <- tvexpose(
-  cohort = cohort,
-  exposures = exposures,
+  master = cohort,
+  exposure_data = exposures,
   id = "id",
   entry = "study_entry",
   exit = "study_exit",
@@ -358,8 +355,8 @@ Track time since last exposure with recency categories:
 
 ```{r recency, eval=FALSE}
 tv_recency <- tvexpose(
-  cohort = cohort,
-  exposures = exposures,
+  master = cohort,
+  exposure_data = exposures,
   id = "id",
   entry = "study_entry",
   exit = "study_exit",
@@ -367,8 +364,7 @@ tv_recency <- tvexpose(
   exp_stop = "exp_stop",
   exp_type = "drug_type",
   reference = 0,
-  definition = "recency",
-  recency_breaks = c(1, 5)  # Break points in years
+  recency = c(1, 5)  # Break points in years
 )
 
 # Output values:
@@ -386,8 +382,8 @@ Bring baseline covariates into the time-varying dataset:
 
 ```{r keepvars, eval=FALSE}
 tv_full <- tvexpose(
-  cohort = cohort,
-  exposures = exposures,
+  master = cohort,
+  exposure_data = exposures,
   id = "id",
   entry = "study_entry",
   exit = "study_exit",
@@ -408,8 +404,8 @@ Always check your time-varying data before analysis:
 
 ```{r diagnostics, eval=FALSE}
 tv_checked <- tvexpose(
-  cohort = cohort,
-  exposures = exposures,
+  master = cohort,
+  exposure_data = exposures,
   id = "id",
   entry = "study_entry",
   exit = "study_exit",
@@ -456,8 +452,8 @@ exposures <- read.csv("drug_exposures.csv") %>%
 
 # 3. Create time-varying exposure with diagnostics
 tv_data <- tvexpose(
-  cohort = cohort,
-  exposures = exposures,
+  master = cohort,
+  exposure_data = exposures,
   id = "patient_id",
   entry = "study_entry",
   exit = "study_exit",
@@ -465,7 +461,7 @@ tv_data <- tvexpose(
   exp_stop = "exp_stop",
   exp_type = "drug_type",
   reference = 0,
-  definition = "currentformer",
+  currentformer = TRUE,
   grace = 30,  # 30-day grace period for refill gaps
   keep_vars = c("age", "sex", "comorbidity_index"),
   check_gaps = TRUE,
@@ -512,16 +508,16 @@ ggsurvplot(
 # accounting for treatment switching and adherence gaps
 
 tv_nsaid <- tvexpose(
-  cohort = cohort_cvd,
-  exposures = nsaid_prescriptions,
+  master = cohort_cvd,
+  exposure_data = nsaid_prescriptions,
   id = "id",
   entry = "cohort_entry",
   exit = "cvd_date_or_censor",
-  exp_start = "rx_start",
-  exp_stop = "rx_stop",
+  exp_start = "start",
+  exp_stop = "stop",
   exp_type = "nsaid_class",
   reference = 0,
-  definition = "currentformer",
+  currentformer = TRUE,
   grace = 60,  # Allow 60-day gap (2 prescription cycles)
   lag = 14,    # Effects begin 14 days after start
   washout = 30 # Effects persist 30 days after stop
@@ -541,8 +537,8 @@ cox_nsaid <- coxph(
 # Study cancer risk by cumulative occupational exposure
 
 tv_occupational <- tvexpose(
-  cohort = worker_cohort,
-  exposures = job_history,
+  master = worker_cohort,
+  exposure_data = job_history,
   id = "worker_id",
   entry = "hire_date",
   exit = "exit_date",
@@ -550,9 +546,7 @@ tv_occupational <- tvexpose(
   exp_stop = "job_stop",
   exp_type = "exposure_level",
   reference = 0,
-  definition = "duration",
-  duration_breaks = c(5, 10, 20),  # 0, <5, 5-10, 10-20, 20+ years
-  duration_unit = "years"
+  duration = c(5, 10, 20)  # 0, <5, 5-10, 10-20, 20+ years
 )
 
 # Test for dose-response trend
@@ -575,8 +569,8 @@ cox_trend <- coxph(
 # Patients may switch from control to active treatment
 
 tv_trial <- tvexpose(
-  cohort = trial_participants,
-  exposures = treatment_periods,
+  master = trial_participants,
+  exposure_data = treatment_periods,
   id = "subject_id",
   entry = "randomization_date",
   exit = "last_contact",
@@ -584,7 +578,6 @@ tv_trial <- tvexpose(
   exp_stop = "treatment_stop",
   exp_type = "treatment_arm",
   reference = 0,  # 0 = control
-  definition = "basic",
   track_switching = TRUE  # Creates switching indicator
 )
 
