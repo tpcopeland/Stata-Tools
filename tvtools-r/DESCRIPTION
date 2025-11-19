@@ -9,11 +9,13 @@ Imports:
     dplyr,
     tidyr,
     lubridate,
-    survival
+    survival,
+    zoo
 Suggests:
     testthat,
     knitr,
-    rmarkdown
+    rmarkdown,
+    roxygen2
 Encoding: UTF-8
 LazyData: true
 RoxygenNote: 7.2.0

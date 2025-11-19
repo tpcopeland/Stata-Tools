@@ -445,10 +445,7 @@
 #' @seealso \code{\link{tvexpose}} for creating time-varying exposure datasets
 #'
 #' @export
-#' @importFrom dplyr mutate filter select arrange group_by ungroup summarize left_join
-#' @importFrom dplyr bind_rows distinct pull inner_join full_join rename sym
-#' @importFrom lubridate as_date interval int_overlaps int_start int_end
-#' @importFrom purrr map map2 reduce
+#' @importFrom dplyr mutate filter select arrange group_by ungroup summarise distinct inner_join rename sym n_distinct
 #' @importFrom tidyr any_of
 tvmerge <- function(datasets,
                     id,
@@ -460,15 +457,14 @@ tvmerge <- function(datasets,
                     prefix = NULL,
                     startname = "start",
                     stopname = "stop",
+                    dateformat = "%Y-%m-%d",
+                    saveas = NULL,
+                    replace = FALSE,
                     keep = NULL,
                     check = FALSE,
                     validate_coverage = FALSE,
                     validate_overlap = FALSE,
                     summarize = FALSE) {
-
-  # Load required packages
-  require(dplyr)
-  require(tidyr)
 
   # =============================================================================
   # INPUT VALIDATION
@@ -504,16 +500,6 @@ tvmerge <- function(datasets,
   # Validate variable name vectors have correct length
   if (length(start) != numds || length(stop) != numds || length(exposure) != numds) {
     stop("Number of start, stop, and exposure variables must equal number of datasets")
-  }
-
-  # Check for duplicate exposure variable names
-  if (length(unique(exposure)) != length(exposure)) {
-    stop(paste(
-      "Duplicate exposure variable names detected across datasets.",
-      "Each dataset must have a unique exposure variable name.",
-      "Use the generate option to specify unique names for each exposure variable.",
-      sep = "\n"
-    ))
   }
 
   # Load datasets if file paths provided
@@ -655,6 +641,11 @@ tvmerge <- function(datasets,
            !is.na(start_var),
            !is.na(stop_var))
 
+  # Validate dataset is not empty after filtering
+  if (nrow(merged_data) == 0) {
+    stop("No valid time periods remain after filtering invalid dates in dataset 1")
+  }
+
   # Sort
   merged_data <- merged_data %>%
     arrange(id_var, start_var, stop_var)
@@ -708,6 +699,12 @@ tvmerge <- function(datasets,
       }
     }
 
+    # Validate continuous exposure is numeric
+    is_continuous_k <- k %in% continuous_positions
+    if (is_continuous_k && !is.numeric(dfk_clean$exp_k)) {
+      stop(sprintf("Continuous exposure '%s' in dataset %d must be numeric", exposure[k], k))
+    }
+
     # Drop invalid periods where start > stop
     invalid_counts[k] <- sum(dfk_clean$start_k > dfk_clean$stop_k |
                               is.na(dfk_clean$start_k) |
@@ -717,6 +714,11 @@ tvmerge <- function(datasets,
       filter(start_k <= stop_k,
              !is.na(start_k),
              !is.na(stop_k))
+
+    # Validate dataset is not empty after filtering
+    if (nrow(dfk_clean) == 0) {
+      stop(sprintf("No valid time periods remain after filtering invalid dates in dataset %d", k))
+    }
 
     # Sort
     dfk_clean <- dfk_clean %>%
@@ -742,18 +744,17 @@ tvmerge <- function(datasets,
       # Keep only valid intersections
       filter(new_start <= new_stop, !is.na(new_start), !is.na(new_stop))
 
-    # For continuous exposures, interpolate values based on time elapsed
+    # For continuous exposures, calculate period-specific exposure
     if (is_continuous_k) {
+      # Calculate period length (days in the intersection)
+      period_length <- cartesian$new_stop - cartesian$new_start + 1
+
       cartesian <- cartesian %>%
         mutate(
-          # Calculate proportion of time elapsed in original interval
-          proportion = ifelse(stop_k > start_k,
-                              (new_stop - start_k) / (stop_k - start_k),
-                              1),
-          # Interpolate exposure value
-          exp_k = exp_k * proportion
-        ) %>%
-        select(-proportion)
+          # Create period-specific exposure variable (rate * days)
+          !!sym(paste0(final_exposure_names[k], "_period")) := exp_k * period_length
+          # Keep exp_k as-is (it's the rate per day)
+        )
     }
 
     # Replace old interval with intersection
@@ -787,6 +788,13 @@ tvmerge <- function(datasets,
       !!sym(id) := id_var,
       !!sym(startname) := start_var,
       !!sym(stopname) := stop_var
+    )
+
+  # Apply date format if specified and convert back to Date objects
+  merged_data <- merged_data %>%
+    mutate(
+      !!sym(startname) := as.Date(!!sym(startname), origin = "1970-01-01"),
+      !!sym(stopname) := as.Date(!!sym(stopname), origin = "1970-01-01")
     )
 
   # Drop exact duplicates
@@ -948,6 +956,26 @@ tvmerge <- function(datasets,
   cat(sprintf("    Persons: %d\n", n_persons))
   cat(sprintf("    Exposure variables: %s\n", paste(final_exposure_names, collapse = ", ")))
   cat(strrep("-", 50), "\n")
+
+  # =============================================================================
+  # SAVE DATASET IF REQUESTED
+  # =============================================================================
+
+  if (!is.null(saveas)) {
+    if (file.exists(saveas) && !replace) {
+      stop(sprintf("File '%s' already exists. Use replace = TRUE to overwrite.", saveas))
+    }
+    if (grepl("\\.csv$", saveas, ignore.case = TRUE)) {
+      write.csv(merged_data, saveas, row.names = FALSE)
+    } else if (grepl("\\.rds$", saveas, ignore.case = TRUE)) {
+      saveRDS(merged_data, saveas)
+    } else if (grepl("\\.rda$|\\.RData$", saveas, ignore.case = TRUE)) {
+      save(merged_data, file = saveas)
+    } else {
+      stop("saveas must have extension .csv, .rds, .rda, or .RData")
+    }
+    cat(sprintf("\nDataset saved to: %s\n", saveas))
+  }
 
   # =============================================================================
   # RETURN RESULTS

@@ -303,9 +303,9 @@
 #'
 #' @export
 #' @importFrom dplyr mutate filter select arrange group_by ungroup summarize left_join
-#' @importFrom dplyr bind_rows distinct pull
+#' @importFrom dplyr bind_rows distinct pull n n_distinct any_of all_of sym inner_join right_join
 #' @importFrom lubridate as_date days weeks months years
-#' @importFrom tidyr pivot_longer
+#' @importFrom zoo na.locf
 tvexpose <- function(master,
                      exposure_data,
                      id,
@@ -348,14 +348,137 @@ tvexpose <- function(master,
                      summarize = FALSE,
                      validate = FALSE) {
 
-  # Load required packages
-  require(dplyr)
-  require(lubridate)
-  require(zoo)  # For na.locf (carry forward)
-
   # ============================================================================
   # PARAMETER VALIDATION
   # ============================================================================
+
+  # Check that master and exposure_data are data frames
+  if (!is.data.frame(master)) {
+    stop("master must be a data frame")
+  }
+  if (!is.data.frame(exposure_data)) {
+    stop("exposure_data must be a data frame")
+  }
+
+  # Check required columns exist in master
+  if (!id %in% names(master)) {
+    stop(sprintf("id variable '%s' not found in master dataset", id))
+  }
+  if (!entry %in% names(master)) {
+    stop(sprintf("entry variable '%s' not found in master dataset", entry))
+  }
+  if (!exit %in% names(master)) {
+    stop(sprintf("exit variable '%s' not found in master dataset", exit))
+  }
+
+  # Check required columns exist in exposure_data
+  if (!id %in% names(exposure_data)) {
+    stop(sprintf("id variable '%s' not found in exposure_data", id))
+  }
+  if (!start %in% names(exposure_data)) {
+    stop(sprintf("start variable '%s' not found in exposure_data", start))
+  }
+  if (!is.null(stop) && !stop %in% names(exposure_data)) {
+    stop(sprintf("stop variable '%s' not found in exposure_data", stop))
+  }
+  if (!exposure %in% names(exposure_data)) {
+    stop(sprintf("exposure variable '%s' not found in exposure_data", exposure))
+  }
+
+  # Check for NA values in critical columns (master)
+  if (any(is.na(master[[id]]))) {
+    stop("id variable in master contains NA values")
+  }
+  if (any(is.na(master[[entry]]))) {
+    stop("entry variable in master contains NA values")
+  }
+  if (any(is.na(master[[exit]]))) {
+    stop("exit variable in master contains NA values")
+  }
+
+  # Check for NA values in critical columns (exposure_data)
+  if (any(is.na(exposure_data[[id]]))) {
+    stop("id variable in exposure_data contains NA values")
+  }
+  if (any(is.na(exposure_data[[start]]))) {
+    stop("start variable in exposure_data contains NA values")
+  }
+  if (!is.null(stop) && any(is.na(exposure_data[[stop]]))) {
+    stop("stop variable in exposure_data contains NA values")
+  }
+
+  # Validate parameter types
+  if (!is.logical(pointtime)) {
+    stop("pointtime must be TRUE or FALSE")
+  }
+  if (!is.logical(evertreated)) {
+    stop("evertreated must be TRUE or FALSE")
+  }
+  if (!is.logical(currentformer)) {
+    stop("currentformer must be TRUE or FALSE")
+  }
+  if (!is.logical(bytype)) {
+    stop("bytype must be TRUE or FALSE")
+  }
+  if (!is.logical(layer)) {
+    stop("layer must be TRUE or FALSE")
+  }
+  if (!is.numeric(grace) || grace < 0) {
+    stop("grace must be a non-negative number")
+  }
+  if (!is.numeric(merge_periods) || merge_periods < 0) {
+    stop("merge_periods must be a non-negative number")
+  }
+  if (!is.numeric(lag) || lag < 0) {
+    stop("lag must be a non-negative number")
+  }
+  if (!is.numeric(washout) || washout < 0) {
+    stop("washout must be a non-negative number")
+  }
+
+  # Warn about unimplemented parameters
+  if (!is.null(expandunit)) {
+    warning("expandunit parameter is not yet implemented and will be ignored")
+  }
+  if (!is.null(priority)) {
+    warning("priority parameter is not yet implemented and will be ignored")
+  }
+  if (split) {
+    warning("split parameter is not yet implemented and will be ignored")
+  }
+  if (!is.null(combine)) {
+    warning("combine parameter is not yet implemented and will be ignored")
+  }
+  if (!is.null(window)) {
+    warning("window parameter is not yet implemented and will be ignored")
+  }
+  if (switching) {
+    warning("switching parameter is not yet implemented and will be ignored")
+  }
+  if (switchingdetail) {
+    warning("switchingdetail parameter is not yet implemented and will be ignored")
+  }
+  if (statetime) {
+    warning("statetime parameter is not yet implemented and will be ignored")
+  }
+  if (!is.null(label)) {
+    warning("label parameter is not yet implemented and will be ignored")
+  }
+  if (check) {
+    warning("check parameter is not yet implemented and will be ignored")
+  }
+  if (gaps) {
+    warning("gaps parameter is not yet implemented and will be ignored")
+  }
+  if (overlaps) {
+    warning("overlaps parameter is not yet implemented and will be ignored")
+  }
+  if (summarize) {
+    warning("summarize parameter is not yet implemented and will be ignored")
+  }
+  if (validate) {
+    warning("validate parameter is not yet implemented and will be ignored")
+  }
 
   # Determine exposure type from parameters
   exposure_type <- "timevarying"  # Default
@@ -475,7 +598,7 @@ tvexpose <- function(master,
       group_by(id) %>%
       arrange(exp_start) %>%
       mutate(is_last = row_number() == n()) %>%
-      mutate(exp_stop = ifelse(is_last, exp_stop + fillgaps, exp_stop)) %>%
+      mutate(exp_stop = ifelse(is_last, pmin(exp_stop + fillgaps, study_exit), exp_stop)) %>%
       select(-is_last) %>%
       ungroup()
   }
@@ -529,7 +652,7 @@ tvexpose <- function(master,
       mutate(
         next_start = lead(exp_start),
         next_value = lead(exp_value),
-        gap_to_next = next_start - exp_stop,
+        gap_to_next = next_start - exp_stop - 1,
         can_merge = !is.na(gap_to_next) &
                     gap_to_next <= merge_periods &
                     exp_value == next_value
@@ -956,12 +1079,13 @@ tvexpose <- function(master,
           group_by(id) %>%
           mutate(
             has_exposure = any(is_exposed),
-            !!var_name := ifelse(has_exposure & row_number() > min(which(is_exposed)) &
+            first_exposed_row = if(any(is_exposed)) min(which(is_exposed)) else Inf,
+            !!var_name := ifelse(has_exposure & row_number() > first_exposed_row &
                                 !!sym(var_name) == reference,
                                zoo::na.locf(!!sym(var_name), na.rm = FALSE),
                                !!sym(var_name))
           ) %>%
-          select(-has_exposure, -period_days, -cumul_days, -cumul_start_days, -cumul_units) %>%
+          select(-has_exposure, -first_exposed_row, -period_days, -cumul_days, -cumul_start_days, -cumul_units) %>%
           ungroup()
       }
 
@@ -1013,12 +1137,13 @@ tvexpose <- function(master,
         group_by(id) %>%
         mutate(
           has_exposure = any(is_exposed),
-          !!generate := ifelse(has_exposure & row_number() > min(which(is_exposed)) &
+          first_exposed_row = if(any(is_exposed)) min(which(is_exposed)) else Inf,
+          !!generate := ifelse(has_exposure & row_number() > first_exposed_row &
                               !!sym(generate) == reference,
                              zoo::na.locf(!!sym(generate), na.rm = FALSE),
                              !!sym(generate))
         ) %>%
-        select(-has_exposure, -period_days, -cumul_days, -cumul_start_days, -cumul_units) %>%
+        select(-has_exposure, -first_exposed_row, -period_days, -cumul_days, -cumul_start_days, -cumul_units) %>%
         ungroup()
 
       output_var <- generate
