@@ -1,0 +1,895 @@
+---
+title: "Merging Multiple Time-Varying Exposures with tvmerge"
+author: "Timothy P. Copeland"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Merging Multiple Time-Varying Exposures with tvmerge}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.width = 7,
+  fig.height = 5
+)
+```
+
+## Introduction
+
+This vignette demonstrates how to merge multiple time-varying exposure datasets using `tvmerge()`. This is essential when you need to analyze the joint effects of multiple exposures that change over time.
+
+## Why Merge Time-Varying Exposures?
+
+In real-world studies, multiple exposures often vary simultaneously:
+
+- **Pharmacoepidemiology**: Patients may use multiple medications concurrently
+- **Occupational studies**: Workers may have multiple concurrent exposure types
+- **Environmental epidemiology**: Multiple pollutants vary over time
+- **Clinical research**: Patients receive multiple concurrent treatments
+
+Analyzing these requires a single dataset where all time-varying exposures are synchronized on the same timeline.
+
+## The Challenge
+
+Standard Stata-style or SQL merges match on **keys** (like ID). But time-varying data requires matching on **time intervals**. For example:
+
+**HRT Exposure Data:**
+```
+ID  Start       Stop        HRT_Type
+1   2010-01-01  2012-06-30  1
+1   2014-01-01  2016-12-31  2
+```
+
+**DMT Exposure Data:**
+```
+ID  Start       Stop        DMT
+1   2011-01-01  2013-12-31  3
+1   2015-06-01  2018-12-31  5
+```
+
+We need to create **intersections** of these time periods:
+```
+ID  Start       Stop        HRT_Type  DMT
+1   2010-01-01  2011-01-01  1         0
+1   2011-01-01  2012-06-30  1         3
+1   2012-06-30  2013-12-31  0         3
+1   2013-12-31  2014-01-01  0         0
+1   2014-01-01  2015-06-01  2         0
+1   2015-06-01  2016-12-31  2         5
+1   2016-12-31  2018-12-31  0         5
+```
+
+`tvmerge()` automatically creates these temporal intersections.
+
+## Prerequisites: Use tvexpose First!
+
+**CRITICAL:** `tvmerge()` requires that each input dataset has already been processed by `tvexpose()`. You cannot use `tvmerge()` directly on raw exposure files.
+
+### Standard Workflow
+
+```{r workflow_diagram, eval=FALSE}
+# Step 1: Create time-varying dataset for first exposure
+tv_exposure1 <- tvexpose(
+  cohort = cohort,
+  exposures = exposure1_data,
+  # ... tvexpose parameters ...
+)
+
+# Step 2: Create time-varying dataset for second exposure
+tv_exposure2 <- tvexpose(
+  cohort = cohort,
+  exposures = exposure2_data,
+  # ... tvexpose parameters ...
+)
+
+# Step 3: Merge the time-varying datasets
+tv_merged <- tvmerge(
+  datasets = list(exp1 = tv_exposure1, exp2 = tv_exposure2),
+  id = "id"
+)
+
+# Step 4: Analyze
+cox_model <- coxph(Surv(start, stop, event) ~ exp1 + exp2 + covariates,
+                   data = tv_merged)
+```
+
+## Basic Two-Dataset Merge
+
+Let's start with a simple example merging HRT and DMT exposures:
+
+```{r basic_merge, eval=FALSE}
+library(tvtools)
+library(survival)
+library(dplyr)
+
+# Assume we have cohort data and two exposure datasets
+# cohort: master cohort with entry/exit dates
+# hrt_data: HRT prescription periods
+# dmt_data: DMT prescription periods
+
+# Step 1: Create time-varying HRT dataset
+tv_hrt <- tvexpose(
+  cohort = cohort,
+  exposures = hrt_data,
+  id = "id",
+  entry = "study_entry",
+  exit = "study_exit",
+  exp_start = "rx_start",
+  exp_stop = "rx_stop",
+  exp_type = "hrt_type",
+  reference = 0
+)
+
+# Step 2: Create time-varying DMT dataset
+tv_dmt <- tvexpose(
+  cohort = cohort,
+  exposures = dmt_data,
+  id = "id",
+  entry = "study_entry",
+  exit = "study_exit",
+  exp_start = "dmt_start",
+  exp_stop = "dmt_stop",
+  exp_type = "dmt",
+  reference = 0
+)
+
+# Step 3: Merge the two time-varying datasets
+tv_merged <- tvmerge(
+  datasets = list(hrt = tv_hrt, dmt = tv_dmt),
+  id = "id"
+)
+
+# The output contains synchronized time periods
+head(tv_merged)
+#   id      start       stop  hrt_type dmt
+# 1  1 2010-01-01 2010-06-15     0      0
+# 2  1 2010-06-15 2011-03-20     1      0
+# 3  1 2011-03-20 2012-01-10     1      3
+# 4  1 2012-01-10 2013-05-30     0      3
+# 5  1 2013-05-30 2015-08-15     0      0
+```
+
+Each row represents a unique combination of HRT and DMT exposure status during that time period.
+
+## Understanding Cartesian Merges
+
+`tvmerge()` performs a **Cartesian product** of overlapping time periods. This means:
+
+- If Person A has 2 HRT periods overlapping with 3 DMT periods, the merge creates 2 × 3 = 6 output periods
+- Each output period represents the intersection of one HRT period with one DMT period
+- All possible combinations of exposure states are represented
+
+This ensures complete representation of joint exposure patterns.
+
+## Custom Variable Naming
+
+Control the names of exposure variables in the output:
+
+```{r naming, eval=FALSE}
+# Option 1: Specify exact names for each exposure
+tv_merged <- tvmerge(
+  datasets = list(tv_hrt, tv_dmt),
+  id = "id",
+  exposure_names = c("hormone_therapy", "disease_mod_therapy")
+)
+
+# Option 2: Use a prefix for systematic naming
+tv_merged <- tvmerge(
+  datasets = list(tv_hrt, tv_dmt),
+  id = "id",
+  prefix = "exp_"
+)
+# Creates: exp_hrt, exp_dmt
+
+# Option 3: Keep original variable names (default)
+tv_merged <- tvmerge(
+  datasets = list(hrt = tv_hrt, dmt = tv_dmt),
+  id = "id"
+)
+# Exposure variables keep their names from input datasets
+```
+
+## Keeping Additional Covariates
+
+Bring covariates from the source datasets into the merged output:
+
+```{r keepvars, eval=FALSE}
+# First, include covariates when creating time-varying datasets
+tv_hrt <- tvexpose(
+  cohort = cohort,
+  exposures = hrt_data,
+  id = "id",
+  entry = "study_entry",
+  exit = "study_exit",
+  exp_start = "rx_start",
+  exp_stop = "rx_stop",
+  exp_type = "hrt_type",
+  reference = 0,
+  keep_vars = c("age", "female")  # Include these in tv_hrt
+)
+
+tv_dmt <- tvexpose(
+  cohort = cohort,
+  exposures = dmt_data,
+  id = "id",
+  entry = "study_entry",
+  exit = "study_exit",
+  exp_start = "dmt_start",
+  exp_stop = "dmt_stop",
+  exp_type = "dmt",
+  reference = 0,
+  keep_vars = c("ms_type", "edss_baseline")  # Include these in tv_dmt
+)
+
+# Then merge with keep option
+tv_merged <- tvmerge(
+  datasets = list(hrt = tv_hrt, dmt = tv_dmt),
+  id = "id",
+  keep_vars = c("age", "female", "ms_type", "edss_baseline")
+)
+
+# Output will have:
+# - age_ds1, female_ds1 (from HRT dataset)
+# - ms_type_ds2, edss_baseline_ds2 (from DMT dataset)
+# The _ds# suffix indicates which source dataset
+```
+
+**Note:** Variables are suffixed with `_ds#` (dataset number) to avoid naming conflicts when the same variable appears in multiple datasets.
+
+## Merging Three or More Datasets
+
+`tvmerge()` can handle any number of datasets:
+
+```{r three_datasets, eval=FALSE}
+# Create three time-varying datasets
+tv_hrt <- tvexpose(cohort, hrt_data, ...)
+tv_dmt <- tvexpose(cohort, dmt_data, ...)
+tv_nsaid <- tvexpose(cohort, nsaid_data, ...)
+
+# Merge all three
+tv_merged <- tvmerge(
+  datasets = list(
+    hrt = tv_hrt,
+    dmt = tv_dmt,
+    nsaid = tv_nsaid
+  ),
+  id = "id",
+  exposure_names = c("hormone_therapy", "dmt_type", "nsaid_use")
+)
+
+# Analyze joint effects of all three exposures
+cox_model <- coxph(
+  Surv(start, stop, event) ~ hormone_therapy + dmt_type + nsaid_use +
+    age + sex,
+  data = tv_merged
+)
+```
+
+## Handling Categorical vs Continuous Exposures
+
+### Categorical Exposures (Default)
+
+By default, all exposures are treated as categorical. The merge creates all combinations:
+
+```{r categorical, eval=FALSE}
+tv_merged <- tvmerge(
+  datasets = list(hrt = tv_hrt, dmt = tv_dmt),
+  id = "id"
+)
+
+# If HRT has types 0,1,2,3 and DMT has types 0,1,2,3,4,5,6
+# Output will have all observed combinations like:
+# (hrt=0, dmt=0), (hrt=0, dmt=3), (hrt=1, dmt=0), (hrt=2, dmt=5), etc.
+```
+
+### Continuous Exposures
+
+If an exposure represents a rate or intensity (e.g., dose per day), specify it as continuous:
+
+```{r continuous, eval=FALSE}
+# Suppose tv_dose contains a continuous dosage rate variable
+tv_dose <- tvexpose(
+  cohort = cohort,
+  exposures = dosage_data,
+  id = "id",
+  entry = "study_entry",
+  exit = "study_exit",
+  exp_start = "dose_start",
+  exp_stop = "dose_stop",
+  exp_type = "daily_dose_mg",  # This is continuous
+  reference = 0,
+  definition = "continuous"
+)
+
+# Merge with a categorical exposure
+tv_merged <- tvmerge(
+  datasets = list(hrt = tv_hrt, dose = tv_dose),
+  id = "id",
+  continuous = c("dose")  # Specify which exposures are continuous
+)
+
+# For continuous exposures, tvmerge creates TWO variables:
+# - dose: the rate per day
+# - dose_period: the total dose during that specific period
+# This allows both rate and cumulative dose to be used in models
+```
+
+Multiple continuous exposures can be specified:
+
+```{r multiple_continuous, eval=FALSE}
+tv_merged <- tvmerge(
+  datasets = list(drug1 = tv_drug1, drug2 = tv_drug2, drug3 = tv_drug3),
+  id = "id",
+  continuous = c("drug1", "drug2", "drug3")
+)
+
+# Creates: drug1, drug1_period, drug2, drug2_period, drug3, drug3_period
+```
+
+## Diagnostics and Validation
+
+Always validate your merged data:
+
+```{r diagnostics, eval=FALSE}
+tv_merged <- tvmerge(
+  datasets = list(hrt = tv_hrt, dmt = tv_dmt),
+  id = "id",
+  check = TRUE,              # Display coverage diagnostics
+  validate_coverage = TRUE,  # Check for gaps in timeline
+  validate_overlap = TRUE,   # Check for unexpected overlaps
+  summarize = TRUE          # Show summary statistics
+)
+
+# Output shows:
+# - Number of persons merged
+# - Average periods per person
+# - Any gaps in coverage (>1 day gaps between periods)
+# - Any unexpected overlaps (same exposures, overlapping times)
+# - Date range statistics
+```
+
+### What the Diagnostics Check
+
+1. **Coverage diagnostics** (`check = TRUE`):
+   - Number of unique persons
+   - Average number of periods per person
+   - Maximum periods for any person
+   - Total merged intervals
+
+2. **Gap validation** (`validate_coverage = TRUE`):
+   - Identifies gaps >1 day between consecutive periods within a person
+   - Lists IDs with gaps and gap sizes
+   - Helps identify incomplete follow-up
+
+3. **Overlap validation** (`validate_overlap = TRUE`):
+   - Identifies periods that overlap with identical exposure values
+   - These are unexpected and may indicate data quality issues
+   - Overlaps with different exposure values are expected in Cartesian merges
+
+## Complete Survival Analysis Workflow
+
+Here's a comprehensive example from raw data through final analysis:
+
+```{r complete_example, eval=FALSE}
+library(tvtools)
+library(survival)
+library(dplyr)
+library(ggplot2)
+
+# ============================================================================
+# STEP 1: Load and prepare cohort data
+# ============================================================================
+
+cohort <- read.csv("cohort.csv") %>%
+  mutate(
+    study_entry = as.Date(entry_date),
+    study_exit = as.Date(exit_date),
+    event = as.integer(outcome_occurred),
+    age_entry = as.numeric(age_at_entry),
+    female = as.integer(sex == "F")
+  ) %>%
+  select(id, study_entry, study_exit, event, age_entry, female,
+         ms_type, edss_baseline, region)
+
+# ============================================================================
+# STEP 2: Load and prepare exposure datasets
+# ============================================================================
+
+# HRT exposures
+hrt_data <- read.csv("hrt_prescriptions.csv") %>%
+  mutate(
+    rx_start = as.Date(prescription_start),
+    rx_stop = as.Date(prescription_end),
+    hrt_type = as.integer(hormone_type)
+  ) %>%
+  select(id, rx_start, rx_stop, hrt_type)
+
+# DMT exposures
+dmt_data <- read.csv("dmt_treatments.csv") %>%
+  mutate(
+    dmt_start = as.Date(treatment_start),
+    dmt_stop = as.Date(treatment_end),
+    dmt = as.integer(dmt_class)
+  ) %>%
+  select(id, dmt_start, dmt_stop, dmt)
+
+# ============================================================================
+# STEP 3: Create time-varying HRT exposure
+# ============================================================================
+
+tv_hrt <- tvexpose(
+  cohort = cohort,
+  exposures = hrt_data,
+  id = "id",
+  entry = "study_entry",
+  exit = "study_exit",
+  exp_start = "rx_start",
+  exp_stop = "rx_stop",
+  exp_type = "hrt_type",
+  reference = 0,
+  definition = "currentformer",  # Never/Current/Former
+  grace = 30,  # Fill 30-day gaps (prescription refills)
+  keep_vars = c("age_entry", "female", "region"),
+  check_gaps = TRUE,
+  summarize = TRUE
+)
+
+# Verify HRT data
+cat("\nHRT Time-Varying Data Summary:\n")
+table(tv_hrt$hrt_type_tv, useNA = "always")
+
+# ============================================================================
+# STEP 4: Create time-varying DMT exposure
+# ============================================================================
+
+tv_dmt <- tvexpose(
+  cohort = cohort,
+  exposures = dmt_data,
+  id = "id",
+  entry = "study_entry",
+  exit = "study_exit",
+  exp_start = "dmt_start",
+  exp_stop = "dmt_stop",
+  exp_type = "dmt",
+  reference = 0,
+  definition = "basic",  # Keep detailed DMT types
+  grace = 60,  # Allow longer gaps for DMT
+  keep_vars = c("ms_type", "edss_baseline"),
+  check_gaps = TRUE,
+  summarize = TRUE
+)
+
+# Verify DMT data
+cat("\nDMT Time-Varying Data Summary:\n")
+table(tv_dmt$dmt_tv, useNA = "always")
+
+# ============================================================================
+# STEP 5: Merge HRT and DMT time-varying datasets
+# ============================================================================
+
+tv_merged <- tvmerge(
+  datasets = list(hrt = tv_hrt, dmt = tv_dmt),
+  id = "id",
+  exposure_names = c("hrt_status", "dmt_type"),
+  keep_vars = c("age_entry", "female", "region", "ms_type", "edss_baseline"),
+  check = TRUE,
+  validate_coverage = TRUE,
+  validate_overlap = TRUE,
+  summarize = TRUE
+)
+
+# ============================================================================
+# STEP 6: Prepare for survival analysis
+# ============================================================================
+
+# Inspect merged data structure
+cat("\nMerged Data Structure:\n")
+str(tv_merged)
+
+# Check exposure combinations
+cat("\nHRT × DMT Cross-tabulation:\n")
+table(tv_merged$hrt_status, tv_merged$dmt_type, useNA = "always")
+
+# Verify person-time
+cat("\nPerson-time Summary:\n")
+tv_merged %>%
+  mutate(person_years = as.numeric(stop - start) / 365.25) %>%
+  group_by(hrt_status, dmt_type) %>%
+  summarise(
+    n_periods = n(),
+    total_person_years = sum(person_years),
+    n_events = sum(event),
+    .groups = "drop"
+  ) %>%
+  print()
+
+# ============================================================================
+# STEP 7: Merge additional baseline characteristics
+# ============================================================================
+
+# If we need more baseline variables not included via keep_vars
+tv_final <- tv_merged %>%
+  left_join(
+    cohort %>% select(id, additional_var1, additional_var2),
+    by = "id"
+  )
+
+# ============================================================================
+# STEP 8: Run Cox proportional hazards models
+# ============================================================================
+
+# Model 1: Main effects of HRT and DMT
+model1 <- coxph(
+  Surv(start, stop, event) ~ hrt_status + dmt_type + age_entry_ds1 + female_ds1,
+  data = tv_final
+)
+
+cat("\n========================================\n")
+cat("MODEL 1: Main Effects\n")
+cat("========================================\n")
+summary(model1)
+
+# Model 2: Add interaction between HRT and DMT
+model2 <- coxph(
+  Surv(start, stop, event) ~ hrt_status * dmt_type + age_entry_ds1 + female_ds1,
+  data = tv_final
+)
+
+cat("\n========================================\n")
+cat("MODEL 2: With Interaction\n")
+cat("========================================\n")
+summary(model2)
+
+# Model 3: Stratified by MS type
+model3 <- coxph(
+  Surv(start, stop, event) ~ hrt_status + dmt_type + age_entry_ds1 + female_ds1 +
+    strata(ms_type_ds2),
+  data = tv_final
+)
+
+cat("\n========================================\n")
+cat("MODEL 3: Stratified by MS Type\n")
+cat("========================================\n")
+summary(model3)
+
+# ============================================================================
+# STEP 9: Model diagnostics
+# ============================================================================
+
+# Check proportional hazards assumption
+cat("\nProportional Hazards Test:\n")
+ph_test <- cox.zph(model1)
+print(ph_test)
+plot(ph_test)
+
+# Check for influential observations
+cat("\nInfluential Observations (dfbeta > 0.3):\n")
+dfbeta_vals <- residuals(model1, type = "dfbeta")
+influential <- which(apply(abs(dfbeta_vals), 1, max) > 0.3)
+if (length(influential) > 0) {
+  print(tv_final[influential, c("id", "start", "stop", "hrt_status", "dmt_type")])
+} else {
+  cat("None detected\n")
+}
+
+# ============================================================================
+# STEP 10: Visualize results
+# ============================================================================
+
+library(survminer)
+
+# Survival curves by HRT status (adjusted for covariates)
+ggsurvplot(
+  fit = survfit(model1, newdata = data.frame(
+    hrt_status = c(0, 1, 2),
+    dmt_type = 0,
+    age_entry_ds1 = median(tv_final$age_entry_ds1),
+    female_ds1 = 0.5
+  )),
+  data = tv_final,
+  legend.labs = c("Never HRT", "Current HRT", "Former HRT"),
+  title = "Survival by HRT Status (Adjusted)",
+  xlab = "Time (years)",
+  ylab = "Survival Probability",
+  risk.table = TRUE,
+  conf.int = TRUE
+)
+
+# Forest plot of hazard ratios
+ggforest(model1, data = tv_final)
+
+# ============================================================================
+# STEP 11: Save results
+# ============================================================================
+
+# Save merged dataset for future analyses
+write.csv(tv_final, "merged_tv_dataset.csv", row.names = FALSE)
+
+# Save model results
+sink("cox_model_results.txt")
+cat("========================================\n")
+cat("Cox Proportional Hazards Model Results\n")
+cat("========================================\n\n")
+summary(model1)
+cat("\n\nProportional Hazards Test:\n")
+print(ph_test)
+sink()
+
+cat("\nAnalysis complete! Results saved to:\n")
+cat("  - merged_tv_dataset.csv\n")
+cat("  - cox_model_results.txt\n")
+```
+
+## Advanced Example: Multiple Exposures with Different Definitions
+
+Combine different exposure definitions in a single analysis:
+
+```{r advanced_definitions, eval=FALSE}
+# Create ever-treated HRT variable
+tv_hrt_ever <- tvexpose(
+  cohort = cohort,
+  exposures = hrt_data,
+  id = "id",
+  entry = "study_entry",
+  exit = "study_exit",
+  exp_start = "rx_start",
+  exp_stop = "rx_stop",
+  exp_type = "hrt_type",
+  reference = 0,
+  definition = "evertreated"
+)
+
+# Create duration-based DMT variable
+tv_dmt_duration <- tvexpose(
+  cohort = cohort,
+  exposures = dmt_data,
+  id = "id",
+  entry = "study_entry",
+  exit = "study_exit",
+  exp_start = "dmt_start",
+  exp_stop = "dmt_stop",
+  exp_type = "dmt",
+  reference = 0,
+  definition = "duration",
+  duration_breaks = c(2, 5),  # 0, <2, 2-5, 5+ years
+  duration_unit = "years"
+)
+
+# Create continuous NSAID exposure
+tv_nsaid_continuous <- tvexpose(
+  cohort = cohort,
+  exposures = nsaid_data,
+  id = "id",
+  entry = "study_entry",
+  exit = "study_exit",
+  exp_start = "nsaid_start",
+  exp_stop = "nsaid_stop",
+  exp_type = "nsaid_dose",
+  reference = 0,
+  definition = "continuous",
+  continuous_unit = "months"
+)
+
+# Merge all three with different definitions
+tv_complex <- tvmerge(
+  datasets = list(
+    hrt = tv_hrt_ever,
+    dmt = tv_dmt_duration,
+    nsaid = tv_nsaid_continuous
+  ),
+  id = "id",
+  continuous = c("nsaid")  # Only NSAID is continuous
+)
+
+# Analyze
+cox_complex <- coxph(
+  Surv(start, stop, event) ~
+    hrt_ever +                    # Binary: never vs ever
+    dmt_duration_category +        # Categorical: 0, <2, 2-5, 5+ years
+    nsaid_cumulative_months +      # Continuous: cumulative months
+    age + sex,
+  data = tv_complex
+)
+```
+
+## Dealing with Large Datasets
+
+For very large cohorts or complex exposure patterns:
+
+### 1. Pre-filter Exposure Data
+
+```{r large_data_filter, eval=FALSE}
+# Remove exposure periods completely outside study window
+hrt_filtered <- hrt_data %>%
+  inner_join(cohort %>% select(id, study_entry, study_exit), by = "id") %>%
+  filter(rx_stop >= study_entry & rx_start <= study_exit) %>%
+  select(-study_entry, -study_exit)
+
+# Use filtered data
+tv_hrt <- tvexpose(cohort, hrt_filtered, ...)
+```
+
+### 2. Process in Batches
+
+```{r large_data_batch, eval=FALSE}
+# Split cohort into batches
+batch_size <- 10000
+n_batches <- ceiling(nrow(cohort) / batch_size)
+
+merged_batches <- list()
+
+for (i in 1:n_batches) {
+  cat(sprintf("Processing batch %d of %d...\n", i, n_batches))
+
+  start_idx <- (i - 1) * batch_size + 1
+  end_idx <- min(i * batch_size, nrow(cohort))
+
+  cohort_batch <- cohort[start_idx:end_idx, ]
+  batch_ids <- cohort_batch$id
+
+  # Filter exposures to this batch
+  hrt_batch <- hrt_data %>% filter(id %in% batch_ids)
+  dmt_batch <- dmt_data %>% filter(id %in% batch_ids)
+
+  # Process batch
+  tv_hrt_batch <- tvexpose(cohort_batch, hrt_batch, ...)
+  tv_dmt_batch <- tvexpose(cohort_batch, dmt_batch, ...)
+  tv_merged_batch <- tvmerge(
+    list(hrt = tv_hrt_batch, dmt = tv_dmt_batch),
+    id = "id"
+  )
+
+  merged_batches[[i]] <- tv_merged_batch
+}
+
+# Combine all batches
+tv_final <- bind_rows(merged_batches)
+```
+
+### 3. Minimize Diagnostics for Production
+
+```{r large_data_optimize, eval=FALSE}
+# Turn off diagnostics for speed in production runs
+tv_merged <- tvmerge(
+  datasets = list(hrt = tv_hrt, dmt = tv_dmt),
+  id = "id",
+  check = FALSE,
+  validate_coverage = FALSE,
+  validate_overlap = FALSE,
+  summarize = FALSE
+)
+```
+
+## Common Pitfalls and Solutions
+
+### Pitfall 1: Forgetting to Use tvexpose First
+
+```{r pitfall1, eval=FALSE}
+# WRONG: Trying to merge raw exposure data
+tv_merged <- tvmerge(
+  datasets = list(hrt_data, dmt_data),  # These are raw, not time-varying!
+  id = "id"
+)
+# ERROR: tvmerge requires time-varying datasets created by tvexpose
+
+# CORRECT: Use tvexpose first
+tv_hrt <- tvexpose(cohort, hrt_data, ...)
+tv_dmt <- tvexpose(cohort, dmt_data, ...)
+tv_merged <- tvmerge(list(hrt = tv_hrt, dmt = tv_dmt), id = "id")
+```
+
+### Pitfall 2: Mismatched Cohorts
+
+```{r pitfall2, eval=FALSE}
+# WRONG: Using different cohorts for each exposure
+tv_hrt <- tvexpose(cohort_2010, hrt_data, ...)   # Cohort from 2010
+tv_dmt <- tvexpose(cohort_2015, dmt_data, ...)   # Cohort from 2015
+tv_merged <- tvmerge(list(hrt = tv_hrt, dmt = tv_dmt), id = "id")
+# May create incomplete or inconsistent person-time
+
+# CORRECT: Use the same cohort for all exposures
+cohort_final <- cohort  # Single cohort definition
+tv_hrt <- tvexpose(cohort_final, hrt_data, ...)
+tv_dmt <- tvexpose(cohort_final, dmt_data, ...)
+tv_merged <- tvmerge(list(hrt = tv_hrt, dmt = tv_dmt), id = "id")
+```
+
+### Pitfall 3: Not Handling _ds# Suffixes
+
+```{r pitfall3, eval=FALSE}
+# Variables from keep_vars get _ds# suffixes
+tv_merged <- tvmerge(
+  datasets = list(hrt = tv_hrt, dmt = tv_dmt),
+  id = "id",
+  keep_vars = c("age", "female")
+)
+
+# WRONG: Trying to use "age" and "female"
+cox_model <- coxph(Surv(start, stop, event) ~ hrt + dmt + age + female,
+                   data = tv_merged)
+# ERROR: Variables not found
+
+# CORRECT: Use the _ds# suffixed names
+cox_model <- coxph(Surv(start, stop, event) ~ hrt + dmt + age_ds1 + female_ds1,
+                   data = tv_merged)
+# Or rename them:
+tv_merged <- tv_merged %>%
+  rename(age = age_ds1, female = female_ds1)
+```
+
+### Pitfall 4: Ignoring Validation Warnings
+
+```{r pitfall4, eval=FALSE}
+# Always check diagnostics at least once
+tv_merged <- tvmerge(
+  datasets = list(hrt = tv_hrt, dmt = tv_dmt),
+  id = "id",
+  validate_coverage = TRUE,
+  validate_overlap = TRUE
+)
+
+# If you see warnings about gaps or overlaps, investigate!
+# Gaps may indicate:
+#   - Missing follow-up periods
+#   - Data quality issues
+#   - Need to adjust entry/exit dates
+
+# Unexpected overlaps may indicate:
+#   - Duplicate records in source data
+#   - Incorrect tvexpose parameters
+#   - Data entry errors
+```
+
+## Performance Benchmarks
+
+Approximate processing times (on standard laptop with 16GB RAM):
+
+| Cohort Size | Avg Exposures/Person | Datasets | Time |
+|-------------|---------------------|----------|------|
+| 1,000       | 5                   | 2        | <1s  |
+| 10,000      | 5                   | 2        | 5s   |
+| 100,000     | 5                   | 2        | 2min |
+| 1,000,000   | 5                   | 2        | 30min|
+| 10,000      | 20                  | 3        | 15s  |
+| 10,000      | 5                   | 5        | 10s  |
+
+Factors affecting performance:
+- Number of persons
+- Number of exposure periods per person
+- Number of datasets being merged
+- Complexity of temporal overlap patterns
+
+## Summary
+
+Key takeaways for using `tvmerge()`:
+
+1. **Always use tvexpose first** - `tvmerge()` requires time-varying datasets
+2. **Use the same cohort** - Ensure all tvexpose calls use the same cohort definition
+3. **Check diagnostics** - Use validation options to verify data quality
+4. **Handle _ds# suffixes** - Remember that keep_vars get suffixed
+5. **Consider performance** - For large datasets, use filtering and batching strategies
+6. **Specify continuous exposures** - Use `continuous` parameter for rate-based exposures
+
+## Further Reading
+
+- `vignette("introduction")` - Basics of tvexpose
+- `?tvmerge` - Complete function documentation
+- `?tvexpose` - tvexpose function details
+
+## References
+
+1. Hernán MA, Robins JM. Causal Inference: What If. Chapman & Hall/CRC, 2020.
+
+2. Sylvestre MP, Abrahamowicz M. Flexible modeling of the cumulative effects of time-dependent exposures on the hazard. *Stat Med*. 2009;28(27):3437-3453.
+
+3. Thomas L, Reyes EM. Tutorial: Survival Estimation for Cox Regression Models with Time-Varying Coefficients Using SAS and R. *J Stat Softw*. 2014;61(CS1):1-23.
+
+## Session Info
+
+```{r session_info}
+sessionInfo()
+```
