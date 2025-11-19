@@ -74,15 +74,15 @@ ID  Start       Stop        HRT_Type  DMT
 ```{r workflow_diagram, eval=FALSE}
 # Step 1: Create time-varying dataset for first exposure
 tv_exposure1 <- tvexpose(
-  cohort = cohort,
-  exposures = exposure1_data,
+  master = cohort,
+  exposure_data = exposure1_data,
   # ... tvexpose parameters ...
 )
 
 # Step 2: Create time-varying dataset for second exposure
 tv_exposure2 <- tvexpose(
-  cohort = cohort,
-  exposures = exposure2_data,
+  master = cohort,
+  exposure_data = exposure2_data,
   # ... tvexpose parameters ...
 )
 
@@ -113,26 +113,26 @@ library(dplyr)
 
 # Step 1: Create time-varying HRT dataset
 tv_hrt <- tvexpose(
-  cohort = cohort,
-  exposures = hrt_data,
+  master = cohort,
+  exposure_data = hrt_data,
   id = "id",
   entry = "study_entry",
   exit = "study_exit",
-  exp_start = "rx_start",
-  exp_stop = "rx_stop",
+  exp_start = "start",
+  exp_stop = "stop",
   exp_type = "hrt_type",
   reference = 0
 )
 
 # Step 2: Create time-varying DMT dataset
 tv_dmt <- tvexpose(
-  cohort = cohort,
-  exposures = dmt_data,
+  master = cohort,
+  exposure_data = dmt_data,
   id = "id",
   entry = "study_entry",
   exit = "study_exit",
-  exp_start = "dmt_start",
-  exp_stop = "dmt_stop",
+  exp_start = "start",
+  exp_stop = "stop",
   exp_type = "dmt",
   reference = 0
 )
@@ -200,26 +200,26 @@ Bring covariates from the source datasets into the merged output:
 ```{r keepvars, eval=FALSE}
 # First, include covariates when creating time-varying datasets
 tv_hrt <- tvexpose(
-  cohort = cohort,
-  exposures = hrt_data,
+  master = cohort,
+  exposure_data = hrt_data,
   id = "id",
   entry = "study_entry",
   exit = "study_exit",
-  exp_start = "rx_start",
-  exp_stop = "rx_stop",
+  exp_start = "start",
+  exp_stop = "stop",
   exp_type = "hrt_type",
   reference = 0,
   keep_vars = c("age", "female")  # Include these in tv_hrt
 )
 
 tv_dmt <- tvexpose(
-  cohort = cohort,
-  exposures = dmt_data,
+  master = cohort,
+  exposure_data = dmt_data,
   id = "id",
   entry = "study_entry",
   exit = "study_exit",
-  exp_start = "dmt_start",
-  exp_stop = "dmt_stop",
+  exp_start = "start",
+  exp_stop = "stop",
   exp_type = "dmt",
   reference = 0,
   keep_vars = c("ms_type", "edss_baseline")  # Include these in tv_dmt
@@ -246,9 +246,9 @@ tv_merged <- tvmerge(
 
 ```{r three_datasets, eval=FALSE}
 # Create three time-varying datasets
-tv_hrt <- tvexpose(cohort, hrt_data, ...)
-tv_dmt <- tvexpose(cohort, dmt_data, ...)
-tv_nsaid <- tvexpose(cohort, nsaid_data, ...)
+tv_hrt <- tvexpose(master = cohort, exposure_data = hrt_data, ...)
+tv_dmt <- tvexpose(master = cohort, exposure_data = dmt_data, ...)
+tv_nsaid <- tvexpose(master = cohort, exposure_data = nsaid_data, ...)
 
 # Merge all three
 tv_merged <- tvmerge(
@@ -293,8 +293,8 @@ If an exposure represents a rate or intensity (e.g., dose per day), specify it a
 ```{r continuous, eval=FALSE}
 # Suppose tv_dose contains a continuous dosage rate variable
 tv_dose <- tvexpose(
-  cohort = cohort,
-  exposures = dosage_data,
+  master = cohort,
+  exposure_data = dosage_data,
   id = "id",
   entry = "study_entry",
   exit = "study_exit",
@@ -302,7 +302,7 @@ tv_dose <- tvexpose(
   exp_stop = "dose_stop",
   exp_type = "daily_dose_mg",  # This is continuous
   reference = 0,
-  definition = "continuous"
+  continuousunit = "days"
 )
 
 # Merge with a categorical exposure
@@ -402,36 +402,36 @@ cohort <- read.csv("cohort.csv") %>%
 # HRT exposures
 hrt_data <- read.csv("hrt_prescriptions.csv") %>%
   mutate(
-    rx_start = as.Date(prescription_start),
-    rx_stop = as.Date(prescription_end),
+    start = as.Date(prescription_start),
+    stop = as.Date(prescription_end),
     hrt_type = as.integer(hormone_type)
   ) %>%
-  select(id, rx_start, rx_stop, hrt_type)
+  select(id, start, stop, hrt_type)
 
 # DMT exposures
 dmt_data <- read.csv("dmt_treatments.csv") %>%
   mutate(
-    dmt_start = as.Date(treatment_start),
-    dmt_stop = as.Date(treatment_end),
+    start = as.Date(treatment_start),
+    stop = as.Date(treatment_end),
     dmt = as.integer(dmt_class)
   ) %>%
-  select(id, dmt_start, dmt_stop, dmt)
+  select(id, start, stop, dmt)
 
 # ============================================================================
 # STEP 3: Create time-varying HRT exposure
 # ============================================================================
 
 tv_hrt <- tvexpose(
-  cohort = cohort,
-  exposures = hrt_data,
+  master = cohort,
+  exposure_data = hrt_data,
   id = "id",
   entry = "study_entry",
   exit = "study_exit",
-  exp_start = "rx_start",
-  exp_stop = "rx_stop",
+  exp_start = "start",
+  exp_stop = "stop",
   exp_type = "hrt_type",
   reference = 0,
-  definition = "currentformer",  # Never/Current/Former
+  currentformer = TRUE,  # Never/Current/Former
   grace = 30,  # Fill 30-day gaps (prescription refills)
   keep_vars = c("age_entry", "female", "region"),
   check_gaps = TRUE,
@@ -447,16 +447,16 @@ table(tv_hrt$hrt_type_tv, useNA = "always")
 # ============================================================================
 
 tv_dmt <- tvexpose(
-  cohort = cohort,
-  exposures = dmt_data,
+  master = cohort,
+  exposure_data = dmt_data,
   id = "id",
   entry = "study_entry",
   exit = "study_exit",
-  exp_start = "dmt_start",
-  exp_stop = "dmt_stop",
+  exp_start = "start",
+  exp_stop = "stop",
   exp_type = "dmt",
   reference = 0,
-  definition = "basic",  # Keep detailed DMT types
+  # Basic is default - keep detailed DMT types
   grace = 60,  # Allow longer gaps for DMT
   keep_vars = c("ms_type", "edss_baseline"),
   check_gaps = TRUE,
@@ -631,38 +631,36 @@ Combine different exposure definitions in a single analysis:
 ```{r advanced_definitions, eval=FALSE}
 # Create ever-treated HRT variable
 tv_hrt_ever <- tvexpose(
-  cohort = cohort,
-  exposures = hrt_data,
+  master = cohort,
+  exposure_data = hrt_data,
   id = "id",
   entry = "study_entry",
   exit = "study_exit",
-  exp_start = "rx_start",
-  exp_stop = "rx_stop",
+  exp_start = "start",
+  exp_stop = "stop",
   exp_type = "hrt_type",
   reference = 0,
-  definition = "evertreated"
+  evertreated = TRUE
 )
 
 # Create duration-based DMT variable
 tv_dmt_duration <- tvexpose(
-  cohort = cohort,
-  exposures = dmt_data,
+  master = cohort,
+  exposure_data = dmt_data,
   id = "id",
   entry = "study_entry",
   exit = "study_exit",
-  exp_start = "dmt_start",
-  exp_stop = "dmt_stop",
+  exp_start = "start",
+  exp_stop = "stop",
   exp_type = "dmt",
   reference = 0,
-  definition = "duration",
-  duration_breaks = c(2, 5),  # 0, <2, 2-5, 5+ years
-  duration_unit = "years"
+  duration = c(2, 5)  # 0, <2, 2-5, 5+ years
 )
 
 # Create continuous NSAID exposure
 tv_nsaid_continuous <- tvexpose(
-  cohort = cohort,
-  exposures = nsaid_data,
+  master = cohort,
+  exposure_data = nsaid_data,
   id = "id",
   entry = "study_entry",
   exit = "study_exit",
@@ -670,8 +668,7 @@ tv_nsaid_continuous <- tvexpose(
   exp_stop = "nsaid_stop",
   exp_type = "nsaid_dose",
   reference = 0,
-  definition = "continuous",
-  continuous_unit = "months"
+  continuousunit = "months"
 )
 
 # Merge all three with different definitions
@@ -706,11 +703,11 @@ For very large cohorts or complex exposure patterns:
 # Remove exposure periods completely outside study window
 hrt_filtered <- hrt_data %>%
   inner_join(cohort %>% select(id, study_entry, study_exit), by = "id") %>%
-  filter(rx_stop >= study_entry & rx_start <= study_exit) %>%
+  filter(stop >= study_entry & start <= study_exit) %>%
   select(-study_entry, -study_exit)
 
 # Use filtered data
-tv_hrt <- tvexpose(cohort, hrt_filtered, ...)
+tv_hrt <- tvexpose(master = cohort, exposure_data = hrt_filtered, ...)
 ```
 
 ### 2. Process in Batches
@@ -736,8 +733,8 @@ for (i in 1:n_batches) {
   dmt_batch <- dmt_data %>% filter(id %in% batch_ids)
 
   # Process batch
-  tv_hrt_batch <- tvexpose(cohort_batch, hrt_batch, ...)
-  tv_dmt_batch <- tvexpose(cohort_batch, dmt_batch, ...)
+  tv_hrt_batch <- tvexpose(master = cohort_batch, exposure_data = hrt_batch, ...)
+  tv_dmt_batch <- tvexpose(master = cohort_batch, exposure_data = dmt_batch, ...)
   tv_merged_batch <- tvmerge(
     list(hrt = tv_hrt_batch, dmt = tv_dmt_batch),
     id = "id"
@@ -777,8 +774,8 @@ tv_merged <- tvmerge(
 # ERROR: tvmerge requires time-varying datasets created by tvexpose
 
 # CORRECT: Use tvexpose first
-tv_hrt <- tvexpose(cohort, hrt_data, ...)
-tv_dmt <- tvexpose(cohort, dmt_data, ...)
+tv_hrt <- tvexpose(master = cohort, exposure_data = hrt_data, ...)
+tv_dmt <- tvexpose(master = cohort, exposure_data = dmt_data, ...)
 tv_merged <- tvmerge(list(hrt = tv_hrt, dmt = tv_dmt), id = "id")
 ```
 
@@ -786,15 +783,15 @@ tv_merged <- tvmerge(list(hrt = tv_hrt, dmt = tv_dmt), id = "id")
 
 ```{r pitfall2, eval=FALSE}
 # WRONG: Using different cohorts for each exposure
-tv_hrt <- tvexpose(cohort_2010, hrt_data, ...)   # Cohort from 2010
-tv_dmt <- tvexpose(cohort_2015, dmt_data, ...)   # Cohort from 2015
+tv_hrt <- tvexpose(master = cohort_2010, exposure_data = hrt_data, ...)   # Cohort from 2010
+tv_dmt <- tvexpose(master = cohort_2015, exposure_data = dmt_data, ...)   # Cohort from 2015
 tv_merged <- tvmerge(list(hrt = tv_hrt, dmt = tv_dmt), id = "id")
 # May create incomplete or inconsistent person-time
 
 # CORRECT: Use the same cohort for all exposures
 cohort_final <- cohort  # Single cohort definition
-tv_hrt <- tvexpose(cohort_final, hrt_data, ...)
-tv_dmt <- tvexpose(cohort_final, dmt_data, ...)
+tv_hrt <- tvexpose(master = cohort_final, exposure_data = hrt_data, ...)
+tv_dmt <- tvexpose(master = cohort_final, exposure_data = dmt_data, ...)
 tv_merged <- tvmerge(list(hrt = tv_hrt, dmt = tv_dmt), id = "id")
 ```
 

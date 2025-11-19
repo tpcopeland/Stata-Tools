@@ -1,0 +1,10 @@
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+*.Rproj
+*.rds
+*.RDS
+/tests/test_output/
+/man/*.Rd
+/.Rbuildignore

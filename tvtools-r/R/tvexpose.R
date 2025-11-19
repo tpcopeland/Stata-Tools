@@ -790,7 +790,7 @@ tvexpose <- function(master,
       rename(exp_start = gap_start, exp_stop = gap_stop) %>%
       mutate(exp_value = reference,
              orig_exp_category = reference) %>%
-      left_join(select(master_dates, -any_of(keepvars)), by = "id")
+      left_join(master_dates, by = "id")
   } else {
     gap_periods <- NULL
   }
@@ -799,7 +799,7 @@ tvexpose <- function(master,
   baseline <- exp_data %>%
     group_by(id) %>%
     summarise(earliest_exp = min(exp_start), .groups = "drop") %>%
-    right_join(master_dates %>% select(id, study_entry, study_exit), by = "id") %>%
+    right_join(master_dates, by = "id") %>%
     mutate(
       exp_start = study_entry,
       exp_stop = ifelse(!is.na(earliest_exp), earliest_exp - 1, study_exit),
@@ -813,7 +813,7 @@ tvexpose <- function(master,
   post_exposure <- exp_data %>%
     group_by(id) %>%
     summarise(latest_exp = max(exp_stop), .groups = "drop") %>%
-    inner_join(master_dates %>% select(id, study_entry, study_exit), by = "id") %>%
+    inner_join(master_dates, by = "id") %>%
     filter(latest_exp < study_exit) %>%
     mutate(
       exp_start = latest_exp + 1,
