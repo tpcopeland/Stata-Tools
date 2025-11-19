@@ -447,6 +447,156 @@
 #' @export
 #' @importFrom dplyr mutate filter select arrange group_by ungroup summarise distinct inner_join rename sym n_distinct
 #' @importFrom tidyr any_of
+
+# ============================================================================
+# HELPER FUNCTIONS FOR TYPE-SAFE DATE CONVERSIONS
+# ============================================================================
+
+#' Convert dates to numeric safely with validation
+#'
+#' @param date_var Vector of dates (Date, POSIXct, numeric, or character)
+#' @param var_name Name of variable for error messages
+#' @return Numeric vector of days since 1970-01-01
+#' @keywords internal
+convert_to_numeric_date <- function(date_var, var_name) {
+  # Case 1: Already Date or POSIXct
+  if (inherits(date_var, c("Date", "POSIXct", "POSIXlt"))) {
+    return(as.numeric(date_var))
+  }
+
+  # Case 2: Already numeric
+  if (is.numeric(date_var)) {
+    # Validate reasonable range (1970-01-01 to 2100-12-31)
+    if (any(!is.na(date_var) & (date_var < 0 | date_var > 47847))) {
+      warning(sprintf("%s contains dates outside reasonable range (1970-2100)", var_name))
+    }
+    return(date_var)
+  }
+
+  # Case 3: Character - try to parse
+  if (is.character(date_var)) {
+    parsed <- tryCatch(
+      as.Date(date_var),
+      error = function(e) {
+        stop(sprintf("Cannot convert %s to date. Error: %s\nPlease provide Date objects or YYYY-MM-DD format.",
+                     var_name, e$message))
+      }
+    )
+    return(as.numeric(parsed))
+  }
+
+  # Case 4: Unsupported type
+  stop(sprintf("%s must be Date, POSIXct, numeric, or character (YYYY-MM-DD), got: %s",
+               var_name, class(date_var)[1]))
+}
+
+#' Validate dates for infinite and missing values
+#'
+#' @param date_var Numeric date vector
+#' @param var_name Name of variable for error messages
+#' @keywords internal
+validate_date_values <- function(date_var, var_name) {
+  # Check for infinite values
+  if (any(is.infinite(date_var))) {
+    stop(sprintf("%s contains infinite (Inf or -Inf) values. Please provide finite dates.",
+                 var_name))
+  }
+
+  # Check for NA values
+  if (any(is.na(date_var))) {
+    stop(sprintf("%s contains NA values. All dates must be valid.", var_name))
+  }
+
+  invisible(TRUE)
+}
+
+#' Check for overlapping IDs between datasets
+#'
+#' @param datasets List of datasets
+#' @param id ID variable name
+#' @keywords internal
+validate_overlapping_ids <- function(datasets, id) {
+  # Get unique IDs from each dataset
+  all_ids <- lapply(datasets, function(df) unique(df[[id]]))
+
+  # Find common IDs across all datasets
+  common_ids <- Reduce(intersect, all_ids)
+
+  if (length(common_ids) == 0) {
+    # No overlapping IDs at all
+    stop(sprintf(
+      paste0("No common IDs found across all %d datasets.\n",
+             "Dataset 1 has %d unique IDs, Dataset 2 has %d unique IDs.\n",
+             "Please ensure datasets contain the same persons (IDs)."),
+      length(datasets),
+      length(all_ids[[1]]),
+      if (length(all_ids) >= 2) length(all_ids[[2]]) else 0
+    ))
+  }
+
+  # Warn if many IDs are not common
+  for (i in seq_along(all_ids)) {
+    pct_overlap <- length(common_ids) / length(all_ids[[i]]) * 100
+    if (pct_overlap < 50) {
+      warning(sprintf(
+        paste0("Only %.1f%% of IDs in dataset %d are present in all datasets.\n",
+               "  Dataset %d unique IDs: %d\n",
+               "  Common across all: %d"),
+        pct_overlap,
+        i,
+        i,
+        length(all_ids[[i]]),
+        length(common_ids)
+      ))
+    }
+  }
+
+  invisible(TRUE)
+}
+
+#' Estimate memory usage for Cartesian merge
+#'
+#' @param merged_data First dataset
+#' @param dfk_clean Second dataset
+#' @param id_var ID variable name
+#' @keywords internal
+estimate_cartesian_size <- function(merged_data, dfk_clean, id_var) {
+  # Count periods per person in each dataset
+  periods_ds1 <- merged_data %>%
+    group_by(!!sym(id_var)) %>%
+    summarise(n1 = n(), .groups = "drop")
+
+  periods_ds2 <- dfk_clean %>%
+    group_by(!!sym(id_var)) %>%
+    summarise(n2 = n(), .groups = "drop")
+
+  # Join to get product per person
+  combined <- periods_ds1 %>%
+    inner_join(periods_ds2, by = id_var) %>%
+    mutate(product = n1 * n2)
+
+  # Calculate statistics
+  total_output_rows <- sum(combined$product)
+  max_per_person <- max(combined$product)
+  mean_per_person <- mean(combined$product)
+
+  # Estimate memory (rough: 1 KB per row)
+  estimated_mb <- total_output_rows / 1024
+
+  return(list(
+    total_rows = total_output_rows,
+    max_rows_per_person = max_per_person,
+    mean_rows_per_person = mean_per_person,
+    estimated_mb = estimated_mb,
+    input_rows_ds1 = nrow(merged_data),
+    input_rows_ds2 = nrow(dfk_clean)
+  ))
+}
+
+# ============================================================================
+# MAIN FUNCTION
+# ============================================================================
+
 tvmerge <- function(datasets,
                     id,
                     start,
@@ -556,6 +706,13 @@ tvmerge <- function(datasets,
   categorical_names <- exposure[categorical_positions]
 
   # =============================================================================
+  # VALIDATE OVERLAPPING IDS
+  # =============================================================================
+
+  # Ensure datasets have common IDs
+  validate_overlapping_ids(datasets, id)
+
+  # =============================================================================
   # DETERMINE FINAL EXPOSURE NAMES
   # =============================================================================
 
@@ -615,9 +772,13 @@ tvmerge <- function(datasets,
     ) %>%
     # Floor start dates and ceil stop dates to handle fractional values
     mutate(
-      start_var = floor(as.numeric(start_var)),
-      stop_var = ceiling(as.numeric(stop_var))
+      start_var = floor(convert_to_numeric_date(start_var, paste0("dataset 1: ", start[1]))),
+      stop_var = ceiling(convert_to_numeric_date(stop_var, paste0("dataset 1: ", stop[1])))
     )
+
+  # Validate converted dates
+  validate_date_values(merged_data$start_var, paste0("dataset 1: ", start[1]))
+  validate_date_values(merged_data$stop_var, paste0("dataset 1: ", stop[1]))
 
   # Rename exposure variable to final name
   names(merged_data)[names(merged_data) == "exp_var"] <- final_exposure_names[1]
@@ -686,9 +847,13 @@ tvmerge <- function(datasets,
       ) %>%
       # Floor start dates and ceil stop dates
       mutate(
-        start_k = floor(as.numeric(start_k)),
-        stop_k = ceiling(as.numeric(stop_k))
+        start_k = floor(convert_to_numeric_date(start_k, paste0("dataset ", k, ": ", start[k]))),
+        stop_k = ceiling(convert_to_numeric_date(stop_k, paste0("dataset ", k, ": ", stop[k])))
       )
+
+    # Validate converted dates
+    validate_date_values(dfk_clean$start_k, paste0("dataset ", k, ": ", start[k]))
+    validate_date_values(dfk_clean$stop_k, paste0("dataset ", k, ": ", stop[k]))
 
     # Rename keep variables with _ds# suffix
     if (!is.null(keep)) {
@@ -730,6 +895,44 @@ tvmerge <- function(datasets,
 
     # Check if exposure k is continuous
     is_continuous_k <- k %in% continuous_positions
+
+    # -------------------------------------------------------------------------
+    # ESTIMATE CARTESIAN PRODUCT SIZE AND WARN IF LARGE
+    # -------------------------------------------------------------------------
+
+    size_est <- estimate_cartesian_size(merged_data, dfk_clean, "id_var")
+
+    # Warn if output will be very large
+    if (size_est$total_rows > 1e6) {
+      warning(sprintf(
+        paste0("Large Cartesian merge detected for dataset %d:\n",
+               "  Input: %s rows (merged data) × %s rows (dataset %d)\n",
+               "  Estimated output: %s rows (%.1f MB)\n",
+               "  Max rows per person: %s\n",
+               "  This may take several minutes and use significant memory."),
+        k,
+        format(size_est$input_rows_ds1, big.mark = ","),
+        format(size_est$input_rows_ds2, big.mark = ","),
+        k,
+        format(size_est$total_rows, big.mark = ","),
+        size_est$estimated_mb,
+        format(size_est$max_rows_per_person, big.mark = ",")
+      ))
+    }
+
+    # If extremely large, stop with error
+    if (size_est$total_rows > 1e8) {
+      stop(sprintf(
+        paste0("Cartesian merge would create %s rows (>100 million) for dataset %d.\n",
+               "This would likely exhaust memory.\n",
+               "Consider:\n",
+               "  1. Reducing the number of periods in your tvexpose outputs\n",
+               "  2. Merging datasets with fewer overlapping time periods\n",
+               "  3. Processing in smaller batches by ID"),
+        format(size_est$total_rows, big.mark = ","),
+        k
+      ))
+    }
 
     # Create cartesian product by joining on id only
     cartesian <- merged_data %>%

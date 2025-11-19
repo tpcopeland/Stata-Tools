@@ -1,3 +1,276 @@
+# ============================================================================
+# INPUT VALIDATION HELPER FUNCTIONS
+# ============================================================================
+
+#' Validate master dataset
+#'
+#' @description
+#' Checks that the master dataset is valid for tvexpose processing. Validates:
+#' \itemize{
+#'   \item Dataset is not empty
+#'   \item Required columns exist
+#'   \item No duplicate IDs (each person should appear once)
+#'   \item ID variable is numeric or character type
+#' }
+#'
+#' @param master Master dataset
+#' @param id ID variable name
+#' @param entry Entry date variable name
+#' @param exit Exit date variable name
+#' @keywords internal
+validate_master_dataset <- function(master, id, entry, exit) {
+  # Check 1: Not empty
+  if (nrow(master) == 0) {
+    stop("master dataset is empty (0 rows). Please provide a dataset with at least one person.")
+  }
+
+  # Check 2: Required columns exist (already done, but here for completeness)
+  missing_cols <- setdiff(c(id, entry, exit), names(master))
+  if (length(missing_cols) > 0) {
+    stop(sprintf("master dataset missing required columns: %s",
+                 paste(missing_cols, collapse = ", ")))
+  }
+
+  # Check 3: No duplicate IDs
+  if (anyDuplicated(master[[id]])) {
+    dup_ids <- master[[id]][duplicated(master[[id]])]
+    dup_count <- length(unique(dup_ids))
+    example_dups <- paste(head(unique(dup_ids), 5), collapse = ", ")
+
+    stop(sprintf(
+      paste0("master dataset has %d duplicate ID(s). Each person should appear once.\n",
+             "Duplicate IDs: %s%s"),
+      dup_count,
+      example_dups,
+      if (dup_count > 5) paste0(" ... and ", dup_count - 5, " more") else ""
+    ))
+  }
+
+  # Check 4: ID type
+  if (!is.numeric(master[[id]]) && !is.character(master[[id]])) {
+    stop(sprintf("ID variable '%s' must be numeric or character, got: %s",
+                 id, class(master[[id]])[1]))
+  }
+
+  invisible(TRUE)
+}
+
+#' Validate exposure dataset
+#'
+#' @description
+#' Checks that the exposure dataset is valid for tvexpose processing. Validates:
+#' \itemize{
+#'   \item Can be empty (all unexposed is valid scenario)
+#'   \item ID variable is numeric or character type
+#'   \item No NA values in exposure variable
+#' }
+#'
+#' @param exposure_data Exposure dataset
+#' @param id ID variable name
+#' @param exposure Exposure variable name
+#' @keywords internal
+validate_exposure_dataset <- function(exposure_data, id, exposure) {
+  # Check 1: Can be empty (all unexposed is valid)
+  if (nrow(exposure_data) == 0) {
+    message("exposure_data is empty - all persons will be classified as unexposed")
+    return(invisible(TRUE))
+  }
+
+  # Check 2: ID type
+  if (!is.numeric(exposure_data[[id]]) && !is.character(exposure_data[[id]])) {
+    stop(sprintf("ID variable '%s' in exposure_data must be numeric or character, got: %s",
+                 id, class(exposure_data[[id]])[1]))
+  }
+
+  # Check 3: No NA values in exposure variable
+  if (any(is.na(exposure_data[[exposure]]))) {
+    na_count <- sum(is.na(exposure_data[[exposure]]))
+    stop(sprintf(
+      paste0("exposure variable '%s' contains %d NA value(s).\n",
+             "Please recode NA values to a specific category or remove rows with NA."),
+      exposure,
+      na_count
+    ))
+  }
+
+  invisible(TRUE)
+}
+
+#' Validate ID types match between datasets
+#'
+#' @description
+#' Checks that ID variables have the same type in both master and exposure datasets.
+#' Prevents type mismatch errors during merging.
+#'
+#' @param master_id ID vector from master
+#' @param exposure_id ID vector from exposure
+#' @param id_varname Name of ID variable
+#' @keywords internal
+validate_id_type_match <- function(master_id, exposure_id, id_varname) {
+  master_class <- class(master_id)[1]
+  exposure_class <- class(exposure_id)[1]
+
+  if (master_class != exposure_class) {
+    stop(sprintf(
+      paste0("ID variable '%s' has different types in master and exposure_data:\n",
+             "  master: %s\n",
+             "  exposure_data: %s\n",
+             "Both must have the same type (numeric or character)."),
+      id_varname,
+      master_class,
+      exposure_class
+    ))
+  }
+
+  invisible(TRUE)
+}
+
+#' Validate keepvars exist in master
+#'
+#' @description
+#' Checks that all variables specified in keepvars parameter exist in the master dataset.
+#'
+#' @param master Master dataset
+#' @param keepvars Vector of variable names to keep
+#' @keywords internal
+validate_keepvars <- function(master, keepvars) {
+  if (is.null(keepvars) || length(keepvars) == 0) {
+    return(invisible(TRUE))
+  }
+
+  missing_vars <- setdiff(keepvars, names(master))
+  if (length(missing_vars) > 0) {
+    stop(sprintf(
+      "Variables specified in keepvars not found in master:\n  %s",
+      paste(missing_vars, collapse = ", ")
+    ))
+  }
+
+  invisible(TRUE)
+}
+
+#' Validate duration parameter
+#'
+#' @description
+#' Checks that duration cutpoints are valid. Validates:
+#' \itemize{
+#'   \item Numeric vector
+#'   \item Non-negative values
+#'   \item Ascending order
+#'   \item No duplicates
+#' }
+#'
+#' @param duration Duration cutpoints vector
+#' @keywords internal
+validate_duration <- function(duration) {
+  if (is.null(duration)) {
+    return(invisible(TRUE))
+  }
+
+  if (!is.numeric(duration)) {
+    stop("duration must be a numeric vector")
+  }
+
+  if (any(duration < 0)) {
+    stop("duration cutpoints must be non-negative (>= 0)")
+  }
+
+  if (is.unsorted(duration)) {
+    stop(sprintf(
+      "duration cutpoints must be in ascending order.\n  Provided: %s",
+      paste(duration, collapse = ", ")
+    ))
+  }
+
+  if (any(duplicated(duration))) {
+    stop("duration cutpoints must be unique (no duplicates)")
+  }
+
+  invisible(TRUE)
+}
+
+#' Validate recency parameter
+#'
+#' @description
+#' Checks that recency cutpoints are valid. Validates:
+#' \itemize{
+#'   \item Numeric vector
+#'   \item Non-negative values
+#'   \item Ascending order
+#'   \item No duplicates
+#' }
+#'
+#' @param recency Recency cutpoints vector
+#' @keywords internal
+validate_recency <- function(recency) {
+  if (is.null(recency)) {
+    return(invisible(TRUE))
+  }
+
+  if (!is.numeric(recency)) {
+    stop("recency must be a numeric vector")
+  }
+
+  if (any(recency < 0)) {
+    stop("recency cutpoints must be non-negative (>= 0)")
+  }
+
+  if (is.unsorted(recency)) {
+    stop(sprintf(
+      "recency cutpoints must be in ascending order.\n  Provided: %s",
+      paste(recency, collapse = ", ")
+    ))
+  }
+
+  if (any(duplicated(recency))) {
+    stop("recency cutpoints must be unique (no duplicates)")
+  }
+
+  invisible(TRUE)
+}
+
+#' Validate no conflicting exposure type parameters
+#'
+#' @description
+#' Ensures only one exposure type is specified at a time. Checks that at most one
+#' of the following is active: evertreated, currentformer, duration, recency, or
+#' continuousunit.
+#'
+#' @param evertreated Evertreated parameter
+#' @param currentformer Currentformer parameter
+#' @param duration Duration parameter
+#' @param recency Recency parameter
+#' @param continuousunit Continuousunit parameter
+#' @keywords internal
+validate_no_conflicting_exposure_types <- function(evertreated, currentformer,
+                                                     duration, recency, continuousunit) {
+  type_flags <- c(
+    evertreated = evertreated,
+    currentformer = currentformer,
+    duration = !is.null(duration),
+    recency = !is.null(recency),
+    continuous = !is.null(continuousunit)
+  )
+
+  n_types <- sum(type_flags)
+
+  if (n_types > 1) {
+    active_types <- names(type_flags)[type_flags]
+    stop(sprintf(
+      paste0("Only one exposure type can be specified at a time.\n",
+             "You specified: %s\n",
+             "Please choose only ONE of: evertreated, currentformer, duration, recency, or continuous"),
+      paste(active_types, collapse = ", ")
+    ))
+  }
+
+  invisible(TRUE)
+}
+
+# ============================================================================
+# MAIN FUNCTION
+# ============================================================================
+
 #' Create time-varying exposure variables for survival analysis
 #'
 #' @title Create Time-Varying Exposure Variables
@@ -306,6 +579,73 @@
 #' @importFrom dplyr bind_rows distinct pull n n_distinct any_of all_of sym inner_join right_join
 #' @importFrom lubridate as_date days weeks months years
 #' @importFrom zoo na.locf
+
+# ============================================================================
+# HELPER FUNCTIONS
+# ============================================================================
+
+#' Convert dates to numeric safely with validation
+#'
+#' @param date_var Vector of dates (Date, POSIXct, numeric, or character)
+#' @param var_name Name of variable for error messages
+#' @return Numeric vector of days since 1970-01-01
+#' @keywords internal
+convert_to_numeric_date <- function(date_var, var_name) {
+  # Case 1: Already Date or POSIXct
+  if (inherits(date_var, c("Date", "POSIXct", "POSIXlt"))) {
+    return(as.numeric(date_var))
+  }
+
+  # Case 2: Already numeric
+  if (is.numeric(date_var)) {
+    # Validate reasonable range (1970-01-01 to 2100-12-31)
+    if (any(!is.na(date_var) & (date_var < 0 | date_var > 47847))) {
+      warning(sprintf("%s contains dates outside reasonable range (1970-2100)", var_name))
+    }
+    return(date_var)
+  }
+
+  # Case 3: Character - try to parse
+  if (is.character(date_var)) {
+    parsed <- tryCatch(
+      as.Date(date_var),
+      error = function(e) {
+        stop(sprintf("Cannot convert %s to date. Error: %s\nPlease provide Date objects or YYYY-MM-DD format.",
+                     var_name, e$message))
+      }
+    )
+    return(as.numeric(parsed))
+  }
+
+  # Case 4: Unsupported type
+  stop(sprintf("%s must be Date, POSIXct, numeric, or character (YYYY-MM-DD), got: %s",
+               var_name, class(date_var)[1]))
+}
+
+#' Validate dates for infinite and missing values
+#'
+#' @param date_var Numeric date vector
+#' @param var_name Name of variable for error messages
+#' @keywords internal
+validate_date_values <- function(date_var, var_name) {
+  # Check for infinite values
+  if (any(is.infinite(date_var))) {
+    stop(sprintf("%s contains infinite (Inf or -Inf) values. Please provide finite dates.",
+                 var_name))
+  }
+
+  # Check for NA values (this is already done elsewhere but belt-and-suspenders)
+  if (any(is.na(date_var))) {
+    stop(sprintf("%s contains NA values. All dates must be valid.", var_name))
+  }
+
+  invisible(TRUE)
+}
+
+# ============================================================================
+# MAIN FUNCTION
+# ============================================================================
+
 tvexpose <- function(master,
                      exposure_data,
                      id,
@@ -436,6 +776,37 @@ tvexpose <- function(master,
     stop("washout must be a non-negative number")
   }
 
+  # ============================================================================
+  # COMPREHENSIVE INPUT VALIDATION
+  # ============================================================================
+
+  # Validate master dataset
+  validate_master_dataset(master, id, entry, exit)
+
+  # Validate exposure dataset
+  validate_exposure_dataset(exposure_data, id, exposure)
+
+  # Validate ID types match
+  validate_id_type_match(master[[id]], exposure_data[[id]], id)
+
+  # Validate keepvars
+  validate_keepvars(master, keepvars)
+
+  # Validate duration
+  validate_duration(duration)
+
+  # Validate recency
+  validate_recency(recency)
+
+  # Validate no conflicting exposure types
+  validate_no_conflicting_exposure_types(
+    evertreated, currentformer, duration, recency, continuousunit
+  )
+
+  # ============================================================================
+  # END VALIDATION
+  # ============================================================================
+
   # Warn about unimplemented parameters
   if (!is.null(expandunit)) {
     warning("expandunit parameter is not yet implemented and will be ignored")
@@ -524,9 +895,13 @@ tvexpose <- function(master,
       study_exit = !!sym(exit)
     ) %>%
     mutate(
-      study_entry = floor(as.numeric(study_entry)),
-      study_exit = ceiling(as.numeric(study_exit))
+      study_entry = floor(convert_to_numeric_date(study_entry, entry)),
+      study_exit = ceiling(convert_to_numeric_date(study_exit, exit))
     )
+
+  # Validate converted dates
+  validate_date_values(master_dates$study_entry, entry)
+  validate_date_values(master_dates$study_exit, exit)
 
   # Validate that entry < exit
   invalid_dates <- master_dates %>%
@@ -555,16 +930,23 @@ tvexpose <- function(master,
     exp_data <- exp_data %>%
       rename(exp_stop = !!sym(stop)) %>%
       mutate(
-        exp_start = floor(as.numeric(exp_start)),
-        exp_stop = ceiling(as.numeric(exp_stop))
+        exp_start = floor(convert_to_numeric_date(exp_start, start)),
+        exp_stop = ceiling(convert_to_numeric_date(exp_stop, stop))
       )
+
+    # Validate converted dates
+    validate_date_values(exp_data$exp_start, start)
+    validate_date_values(exp_data$exp_stop, stop)
   } else {
     # Point-in-time data
     exp_data <- exp_data %>%
       mutate(
-        exp_start = floor(as.numeric(exp_start)),
+        exp_start = floor(convert_to_numeric_date(exp_start, start)),
         exp_stop = exp_start
       )
+
+    # Validate converted dates
+    validate_date_values(exp_data$exp_start, start)
 
     # Apply carryforward for point-in-time data
     if (!is.null(carryforward) && carryforward > 0) {
