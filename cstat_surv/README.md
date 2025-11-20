@@ -61,8 +61,8 @@ The C-statistic ranges from 0 to 1:
 
 ## Author
 
-Timothy P Copeland
-Department of Clinical Neuroscience
+Timothy P Copeland<br>
+Department of Clinical Neuroscience<br>
 Karolinska Institutet
 
 ## License

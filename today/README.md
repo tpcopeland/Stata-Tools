@@ -84,8 +84,8 @@ Stata 14.0 or higher
 
 ## Author
 
-Timothy P Copeland
-Department of Clinical Neuroscience
+Timothy P Copeland<br>
+Department of Clinical Neuroscience<br>
 Karolinska Institutet
 
 ## Help

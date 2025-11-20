@@ -172,8 +172,8 @@ Report issues and request features at: https://github.com/tpcopeland/Stata-Tools
 
 ## Author
 
-Timothy P Copeland
-Department of Clinical Neuroscience
+Timothy P Copeland<br>
+Department of Clinical Neuroscience<br>
 Karolinska Institutet
 
 ## License
@@ -195,6 +195,7 @@ MIT License - see individual package files for details
 | table1_tc | Table 1 creation | 1.0.0 | 14.2+ |
 | today | Date utilities | 1.0.0 | 14+ |
 | tvtools | Time-varying data | 1.0.0 | 16+ |
+| tvtools-r | R package for time-varying data | 1.0.0 | R 3.5+ |
 
 ## Citation
 
