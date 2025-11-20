@@ -1,6 +1,20 @@
 # today
 
+![Stata 14+](https://img.shields.io/badge/Stata-14%2B-brightgreen)
+![MIT License](https://img.shields.io/badge/License-MIT-blue)
+![Status](https://img.shields.io/badge/Status-Active-success)
+
 Set global macros with current date and time.
+
+## Table of Contents
+
+- [Description](#description)
+- [Requirements](#requirements)
+- [Installation](#installation)
+- [Syntax](#syntax)
+- [Examples](#examples)
+- [Global Macros](#global-macros-created)
+- [Author](#author)
 
 ## Description
 
@@ -70,7 +84,9 @@ Stata 14.0 or higher
 
 ## Author
 
-Timothy P Copeland, Department of Clinical Neuroscience, Karolinska Institutet
+Timothy P Copeland
+Department of Clinical Neuroscience
+Karolinska Institutet
 
 ## Help
 

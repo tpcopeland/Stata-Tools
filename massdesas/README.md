@@ -1,5 +1,9 @@
 # massdesas
 
+![Stata 14+](https://img.shields.io/badge/Stata-14%2B-brightgreen)
+![MIT License](https://img.shields.io/badge/License-MIT-blue)
+![Status](https://img.shields.io/badge/Status-Active-success)
+
 Batch convert SAS datasets to Stata format.
 
 ## Description
@@ -51,7 +55,13 @@ Stata 14.0 or higher
 
 ## Author
 
-Timothy P Copeland, Department of Clinical Neuroscience, Karolinska Institutet
+Timothy P Copeland
+Department of Clinical Neuroscience
+Karolinska Institutet
+
+## License
+
+MIT License - See LICENSE file for details
 
 ## Help
 

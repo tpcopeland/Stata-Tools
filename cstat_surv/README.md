@@ -1,5 +1,7 @@
 # cstat_surv
 
+![Stata 14+](https://img.shields.io/badge/Stata-14%2B-brightgreen) ![MIT License](https://img.shields.io/badge/License-MIT-blue) ![Status](https://img.shields.io/badge/Status-Active-success)
+
 Calculate C-statistic (concordance statistic) for survival models.
 
 ## Description
@@ -59,7 +61,13 @@ The C-statistic ranges from 0 to 1:
 
 ## Author
 
-Timothy P Copeland, Department of Clinical Neuroscience, Karolinska Institutet
+Timothy P Copeland
+Department of Clinical Neuroscience
+Karolinska Institutet
+
+## License
+
+MIT License
 
 ## Help
 

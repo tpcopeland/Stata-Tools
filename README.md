@@ -1,5 +1,9 @@
 # Stata-Tools
 
+![Repository](https://img.shields.io/badge/Repository-Stata--Tools-blue)
+![MIT License](https://img.shields.io/badge/License-MIT-blue)
+![Status](https://img.shields.io/badge/Status-Active-success)
+
 A collection of Stata commands for data management, analysis, and table generation.
 
 **Note:** Version numbers were reset to 1.0.0 upon GitHub publication (2025-11-17) to establish a clean baseline for public releases.
@@ -7,6 +11,22 @@ A collection of Stata commands for data management, analysis, and table generati
 ## Overview
 
 This repository contains a suite of Stata packages developed to streamline common research tasks including data documentation, descriptive statistics, survival analysis, and publication-ready table creation.
+
+## Table of Contents
+
+- [Packages](#packages)
+  - [Data Management & Documentation](#data-management--documentation)
+  - [Analysis & Tables](#analysis--tables)
+  - [Survival Analysis](#survival-analysis)
+- [Installation](#installation)
+- [Quick Start](#quick-start)
+- [Requirements](#requirements)
+- [Documentation](#documentation)
+- [Support](#support)
+- [Author](#author)
+- [License](#license)
+- [Package Details](#package-details)
+- [Citation](#citation)
 
 ## Packages
 
@@ -82,10 +102,10 @@ net install table1_tc
 
 ### Manual Installation
 
-1. Download the package folder
-2. Place files in your Stata PERSONAL directory
-3. Find your directory with: `sysdir`
-4. Restart Stata or type: `discard`
+1. Download the package folder from the repository
+2. Identify your Stata PERSONAL directory using: `sysdir`
+3. Place the downloaded files in your PERSONAL directory
+4. Restart Stata or type `discard` to refresh the package list
 
 ## Quick Start
 
@@ -129,17 +149,22 @@ cstat_surv
 
 ## Requirements
 
-Most packages require Stata 14.2 or higher. Specific requirements:
+**Minimum Stata Version:** 14.2+
+
+The majority of packages are compatible with Stata 14.2 or higher. Specific version requirements:
+
 - **regtab**: Stata 17+ (uses collect commands)
 - **tvtools**: Stata 16+
 - **cstat_surv**: Requires somersd package from SSC
+- **datamap**: Stata 16+
 
 ## Documentation
 
-Each package includes:
-- Stata help file (.sthlp) - access via `help [command]`
-- Package README with installation instructions
-- Dialog interfaces for selected commands (table1_tc, regtab, tvtools)
+Each package includes comprehensive documentation:
+- **Stata Help Files (.sthlp)**: Access in-depth help using `help [command]`
+- **Package README**: Installation instructions and usage details
+- **Dialog Interfaces**: User-friendly GUI available for select commands (table1_tc, regtab, tvtools)
+- **Examples**: Quick start examples and best practices included in help files
 
 ## Support
 
@@ -147,7 +172,9 @@ Report issues and request features at: https://github.com/tpcopeland/Stata-Tools
 
 ## Author
 
-Timothy P Copeland, Department of Clinical Neuroscience, Karolinska Institutet
+Timothy P Copeland
+Department of Clinical Neuroscience
+Karolinska Institutet
 
 ## License
 
@@ -173,7 +200,14 @@ MIT License - see individual package files for details
 
 If you use these tools in your research, please cite the GitHub repository:
 
+```bibtex
+@software{copeland2025stata,
+  author = {Copeland, Timothy P},
+  title = {Stata-Tools: A collection of Stata commands for data management and analysis},
+  url = {https://github.com/tpcopeland/Stata-Tools},
+  year = {2025}
+}
 ```
-Copeland TP. Stata-Tools: A collection of Stata commands for data management and analysis.
-GitHub repository: https://github.com/tpcopeland/Stata-Tools
-```
+
+Or in text format:
+> Copeland TP. Stata-Tools: A collection of Stata commands for data management and analysis. GitHub repository: https://github.com/tpcopeland/Stata-Tools

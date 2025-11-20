@@ -1,5 +1,9 @@
 # table1_tc
 
+![Stata 14.2+](https://img.shields.io/badge/Stata-14.2%2B-brightgreen)
+![MIT License](https://img.shields.io/badge/License-MIT-blue)
+![Status](https://img.shields.io/badge/Status-Active-success)
+
 Create publication-ready Table 1 of baseline characteristics.
 
 ## Description
@@ -85,9 +89,15 @@ Stata 14.2 or higher
 
 ## Author
 
-Timothy P Copeland, Department of Clinical Neuroscience, Karolinska Institutet
+Timothy P Copeland
+Department of Clinical Neuroscience
+Karolinska Institutet
 
-Fork of table1_mc by Mark Chatfield
+**Based on:** table1_mc by Mark Chatfield
+
+## License
+
+MIT License - See repository for details
 
 ## Help
 

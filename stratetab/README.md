@@ -1,5 +1,7 @@
 # stratetab
 
+![Stata 17+](https://img.shields.io/badge/Stata-17%2B-brightgreen) ![MIT License](https://img.shields.io/badge/License-MIT-blue) ![Status](https://img.shields.io/badge/Status-Active-success)
+
 Combine strate output files and export to Excel.
 
 ## Description
@@ -70,7 +72,9 @@ Stata 17.0 or higher
 
 ## Author
 
-Timothy P Copeland, Department of Clinical Neuroscience, Karolinska Institutet
+Timothy P Copeland
+Department of Clinical Neuroscience
+Karolinska Institutet
 
 ## Help
 
