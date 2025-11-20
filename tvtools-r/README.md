@@ -285,8 +285,6 @@ Timothy P Copeland<br>
 Department of Clinical Neuroscience<br>
 Karolinska Institutet
 
-**Email:** timothy.copeland@ki.se
-
 ## License
 
 MIT License - see [LICENSE](LICENSE) file for details.
