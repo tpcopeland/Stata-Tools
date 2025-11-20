@@ -1,5 +1,9 @@
 # regtab
 
+![Stata 17+](https://img.shields.io/badge/Stata-17%2B-brightgreen)
+![MIT License](https://img.shields.io/badge/License-MIT-blue)
+![Status](https://img.shields.io/badge/Status-Active-success)
+
 Format and export regression tables to Excel.
 
 ## Description
@@ -77,13 +81,15 @@ do regtab_menu_setup.do
 - Point estimates, 95% CI, and p-values
 - Publication-ready appearance
 
-## Requirements
-
-Stata 17.0 or higher (requires collect commands)
-
 ## Author
 
-Timothy P Copeland, Department of Clinical Neuroscience, Karolinska Institutet
+Timothy P Copeland
+Department of Clinical Neuroscience
+Karolinska Institutet
+
+## License
+
+MIT License - See repository for details
 
 ## Help
 

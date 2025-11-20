@@ -1,9 +1,9 @@
 # tvtools: Time-Varying Exposure Tools for Survival Analysis
 
 <!-- badges: start -->
-[![R-CMD-check](https://img.shields.io/badge/R--CMD--check-passing-brightgreen.svg)](https://github.com/tpcopeland/tvtools-r)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/tpcopeland/tvtools-r)
+![R Package](https://img.shields.io/badge/R-Package-brightblue)
+![MIT License](https://img.shields.io/badge/License-MIT-blue)
+![Status](https://img.shields.io/badge/Status-Active-success)
 <!-- badges: end -->
 
 ## Overview
@@ -197,9 +197,9 @@ See `vignette("tvmerge-guide")` for detailed workflow examples.
 
 ## Documentation
 
-- [Introduction to tvtools](vignettes/introduction.Rmd) - Basic concepts and `tvexpose()` examples
-- [Merging Time-Varying Exposures](vignettes/tvmerge-guide.Rmd) - Complete workflow with `tvmerge()`
-- [Function Reference](man/) - Detailed documentation for all functions
+- **[Introduction to tvtools](vignettes/introduction.Rmd)** - Basic concepts and `tvexpose()` examples
+- **[Merging Time-Varying Exposures](vignettes/tvmerge-guide.Rmd)** - Complete workflow with `tvmerge()`
+- **[Function Reference](man/)** - Detailed documentation for all functions
 
 ## Use Cases
 
@@ -276,15 +276,16 @@ BibTeX entry:
 
 ## Related Software
 
-**tvtools** is also available for Stata users:
-- [tvtools for Stata](https://github.com/tpcopeland/Stata-Tools/tree/main/tvtools) - Original implementation with `tvexpose` and `tvmerge` commands
+**tvtools** is available in multiple statistical environments:
+- **[tvtools for Stata](https://github.com/tpcopeland/Stata-Tools/tree/main/tvtools)** - Original implementation with `tvexpose` and `tvmerge` commands
 
 ## Author
 
-**Timothy P. Copeland**
+Timothy P Copeland
 Department of Clinical Neuroscience
 Karolinska Institutet
-Email: timothy.copeland@ki.se
+
+**Email:** timothy.copeland@ki.se
 
 ## License
 

@@ -1,5 +1,9 @@
 # datamap
 
+![Stata 16+](https://img.shields.io/badge/Stata-16%2B-brightgreen)
+![MIT License](https://img.shields.io/badge/License-MIT-blue)
+![Status](https://img.shields.io/badge/Status-Active-success)
+
 Generate privacy-safe dataset documentation.
 
 ## Description
@@ -67,9 +71,15 @@ datamap, directory(.) separate
 
 Stata 16.0 or higher
 
+## License
+
+MIT License - See LICENSE file for details
+
 ## Author
 
-Timothy P Copeland, Department of Clinical Neuroscience, Karolinska Institutet
+Timothy P Copeland
+Department of Clinical Neuroscience
+Karolinska Institutet
 
 ## Help
 

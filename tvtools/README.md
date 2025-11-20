@@ -1,5 +1,7 @@
 # tvtools
 
+![Stata 16+](https://img.shields.io/badge/Stata-16%2B-brightgreen) ![MIT License](https://img.shields.io/badge/License-MIT-blue) ![Status](https://img.shields.io/badge/Status-Active-success)
+
 Commands for formatting and merging time-varying data.
 
 ## Description
@@ -97,7 +99,13 @@ Stata 16.0 or higher
 
 ## Author
 
-Timothy P Copeland, Department of Clinical Neuroscience, Karolinska Institutet
+Timothy P Copeland
+Department of Clinical Neuroscience
+Karolinska Institutet
+
+## License
+
+MIT License - see LICENSE file for details
 
 ## Documentation
 
