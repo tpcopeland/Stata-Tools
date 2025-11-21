@@ -62,6 +62,7 @@ program define tvmerge, rclass
          REPlace ///
          KEEP(namelist) ///
          CONtinuous(namelist) ///
+         Batch(integer 20) ///
          CHECK VALIDATEcoverage VALIDATEoverlap SUMmarize]
     
     **# INPUT VALIDATION AND SETUP
@@ -171,6 +172,12 @@ program define tvmerge, rclass
             exit 198
         }
         capture drop `_testvar'
+    }
+
+    * Validate batch option
+    if `batch' < 1 | `batch' > 100 {
+        di as error "batch() must be between 1 and 100 (percentage of IDs per batch)"
+        exit 198
     }
     
     * Force multi-dataset syntax for all merges
@@ -520,9 +527,6 @@ program define tvmerge, rclass
             * Create cartesian product of intervals
             tempfile cartesian
             
-            * For each person, get all combinations of intervals
-            levelsof id, local(ids)
-
             * Pre-compute which exposures are continuous (optimization to avoid repeated checks)
             foreach exp_var in `exp_k_list' {
                 local is_cont_`exp_var' = 0
@@ -533,63 +537,102 @@ program define tvmerge, rclass
                 }
             }
 
-            * Initialize empty dataset for results
+            * BATCH PROCESSING: Create numeric sequence for batching
+            * This handles string IDs and avoids macro length limits
+            use `merged_data', clear
+
+            tempvar batch_seq
+            egen long `batch_seq' = group(id)
+
+            * Calculate batch parameters
+            quietly summarize `batch_seq', meanonly
+            local n_unique_ids = r(max)
+
+            * Calculate batch size based on batch() option
+            local batch_size = ceil(`n_unique_ids' * (`batch' / 100))
+            local n_batches = ceil(`n_unique_ids' / `batch_size')
+
+            noisily di as txt "Processing `n_unique_ids' unique IDs in `n_batches' batches (batch size: `batch_size' IDs = `batch'%)..."
+
+            * Save dataset with the sequence variable for the loop
+            save `merged_data', replace
+
+            * Initialize empty result
             clear
 
-            * Process each person
-            foreach pid in `ids' {
-                * Get person's records from merged data (dataset 1 through k-1)
+            * Process IDs in batches
+            forvalues b = 1/`n_batches' {
+                local start_seq = ((`b' - 1) * `batch_size') + 1
+                local end_seq = `b' * `batch_size'
+
+                noisily di as txt "  Batch `b'/`n_batches'..."
+
+                * 1. Load batch of merged data
                 use `merged_data', clear
-                keep if id == `pid'
-                tempfile person_merged
-                save `person_merged', replace
-                
-                * Get person's records from dataset k
+                quietly keep if `batch_seq' >= `start_seq' & `batch_seq' <= `end_seq'
+                tempfile batch_merged
+                save `batch_merged', replace
+
+                * 2. Create ID filter list for this batch
+                keep id
+                sort id
+                quietly by id: keep if _n == 1
+                tempfile batch_filter
+                save `batch_filter', replace
+
+                * 3. Load and filter dataset k
                 use `ds_k_clean', clear
-                keep if id == `pid'
-                tempfile person_k
-                save `person_k', replace
-                
-                * Create cartesian product for this person
-                use `person_merged', clear
-                cross using `person_k'
-                
-                * Calculate interval intersection
+
+                * Use merge to filter (works for string and numeric IDs, no argument limits)
+                quietly merge m:1 id using `batch_filter', keep(match) keepusing(id) nogenerate
+
+                tempfile batch_k
+                save `batch_k', replace
+
+                * 4. Perform joinby (cartesian product within each ID)
+                use `batch_merged', clear
+
+                * Drop the sequence variable so it doesn't interfere
+                drop `batch_seq'
+
+                * Create cartesian product for entire batch
+                joinby id using `batch_k'
+
+                * 5. Calculate interval intersection
                 generate double new_start = max(`startname', start_k)
                 generate double new_stop = min(`stopname', stop_k)
-                
+
                 * Keep only valid intersections (where new_start <= new_stop)
                 keep if new_start <= new_stop & !missing(new_start, new_stop)
-                
+
                 * Replace old interval with intersection
                 replace `startname' = new_start
                 replace `stopname' = new_stop
                 drop new_start new_stop
-                
-                * For continuous exposures, interpolate values based on time elapsed
+
+                * 6. For continuous exposures, interpolate values based on time elapsed
                 foreach exp_var in `exp_k_list' {
                     * Use pre-computed continuous indicator (optimization)
                     if `is_cont_`exp_var'' == 1 {
-                        * FIX: Calculate cumulative proportion (progress to date) rather than interval proportion
+                        * Calculate cumulative proportion (progress to date)
                         * Uses (Current_End_Date - Original_Start_Date) / Total_Original_Duration
                         generate double _proportion = cond(stop_k > start_k, (`stopname' - start_k) / (stop_k - start_k), 1)
-                        
+
                         * Ensure proportion doesn't exceed 1 due to floating point rounding
                         replace _proportion = 1 if _proportion > 1 & !missing(_proportion)
-                        
+
                         replace `exp_var' = `exp_var' * _proportion
                         drop _proportion
                     }
                 }
-                
+
                 drop start_k stop_k
-                
-                * Save this person's results
-                tempfile person_result
-                save `person_result', replace
-                
-                * Append to overall results
+
+                * 7. Append batch results to overall results
                 if _N > 0 {
+                    tempfile batch_result
+                    save `batch_result', replace
+
                     capture confirm file `cartesian'
                     if _rc == 0 {
                         append using `cartesian'
