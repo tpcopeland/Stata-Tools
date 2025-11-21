@@ -570,7 +570,13 @@ program define tvmerge, rclass
                 foreach exp_var in `exp_k_list' {
                     * Use pre-computed continuous indicator (optimization)
                     if `is_cont_`exp_var'' == 1 {
+                        * FIX: Calculate cumulative proportion (progress to date) rather than interval proportion
+                        * Uses (Current_End_Date - Original_Start_Date) / Total_Original_Duration
                         generate double _proportion = cond(stop_k > start_k, (`stopname' - start_k) / (stop_k - start_k), 1)
+                        
+                        * Ensure proportion doesn't exceed 1 due to floating point rounding
+                        replace _proportion = 1 if _proportion > 1 & !missing(_proportion)
+                        
                         replace `exp_var' = `exp_var' * _proportion
                         drop _proportion
                     }
