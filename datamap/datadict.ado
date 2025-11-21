@@ -1,8 +1,8 @@
-*! datadict v1.0.0
+*! datadict v1.0.1
 *! Generate professional Markdown data dictionaries
 *! Companion to datamap (LLM-focused)
 *! Author: Tim Copeland
-*! Date: 2025-11-17
+*! Date: 2025-11-21
 
 /*
 SYNTAX
@@ -410,7 +410,8 @@ program define ProcessDatasetMarkdown
 	file write `fh' "| Observations | " (`obs') " |" _n
 	file write `fh' "| Variables | " (`nvars') " |" _n
 	if `"`label'"' != "" & `"`label'"' != "." {
-		file write `fh' "| Label | `label' |" _n
+		local label_safe = subinstr(`"`label'"', "|", "\|", .)
+		file write `fh' "| Label | `label_safe' |" _n
 	}
 	if "`sortlist'" != "" {
 		file write `fh' "| Sort Order | `sortlist' |" _n
@@ -505,10 +506,18 @@ program define ClassifyVariable, rclass
 	else {
 		// Check for value label or cardinality
 		local valab: value label `vname'
-		quietly tab `vname'
+
+		// If labeled, treat as categorical regardless of size
+		if "`valab'" != "" {
+			return local class "categorical"
+			exit
+		}
+
+		// Check cardinality
+		capture quietly tab `vname'
 		if _rc == 0 {
 			local nuniq = r(r)
-			if "`valab'" != "" | `nuniq' <= `maxcat' {
+			if `nuniq' <= `maxcat' {
 				return local class "categorical"
 			}
 			else {
@@ -516,6 +525,7 @@ program define ClassifyVariable, rclass
 			}
 		}
 		else {
+			// Tab failed (too many values) and no label -> continuous
 			return local class "continuous"
 		}
 	}
@@ -681,8 +691,14 @@ end
 program define WriteMarkdownCategoricalDetail
 	args fh vname maxfreq obs
 
-	quietly tab `vname'
-	local nuniq = r(r)
+	capture quietly tab `vname'
+	if _rc == 0 {
+		local nuniq = r(r)
+	}
+	else {
+		// If tab fails, treat as high cardinality
+		local nuniq = `maxfreq' + 1
+	}
 
 	if `nuniq' <= `maxfreq' {
 		file write `fh' "**Frequency Distribution:**" _n _n
