@@ -1,5 +1,5 @@
 v 3
-d check: Quick variable inspection with descriptive statistics
+d 'CHECK': Quick variable inspection with descriptive statistics
 d
 d check produces a table with N, # Missing, % Missing, # Unique Values,
 d Variable Type, Variable Format, Mean, Standard Deviation, Minimum,
