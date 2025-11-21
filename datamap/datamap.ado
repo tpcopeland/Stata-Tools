@@ -1339,7 +1339,8 @@ program define ProcessValueLabels
 			local labname "`vl'"
 
 			// Use extended macro to get label range
-			levelsof `: word 1 of `varlist'', local(levels)
+			local firstvar : word 1 of `varlist'
+			levelsof `firstvar', local(levels)
 			foreach lev of local levels {
 				local labtext : label `labname' `lev'
 				file write `fh' "  `lev' = `labtext'" _n
@@ -1584,8 +1585,11 @@ program define DetectPanel
 	quietly count if !missing(`panelid')
 	local n_nonmiss = r(N)
 
-	quietly tab `panelid'
-	local n_units = r(r)
+	tempvar tag
+	quietly bysort `panelid': gen byte `tag' = (_n==1)
+	quietly count if `tag'
+	local n_units = r(N)
+	drop `tag'
 
 	tempvar obs_per_unit
 	quietly bysort `panelid': gen `obs_per_unit' = _N
@@ -1936,6 +1940,7 @@ program define GenerateDatasetSummary
 	local has_dates 0
 	local earliest .
 	local latest .
+	local datefmt ""
 
 	foreach vn of local allvars {
 		local vfmt: format `vn'
@@ -1944,9 +1949,11 @@ program define GenerateDatasetSummary
 			if r(N) > 0 {
 				if `earliest' == . | r(min) < `earliest' {
 					local earliest = r(min)
+					local datefmt "`vfmt'"
 				}
 				if `latest' == . | r(max) > `latest' {
 					local latest = r(max)
+					local datefmt "`vfmt'"
 				}
 				local has_dates 1
 			}
@@ -1954,8 +1961,8 @@ program define GenerateDatasetSummary
 	}
 
 	if `has_dates' & `earliest' != . & `latest' != . {
-		local earliest_str = string(`earliest', "%tdCY-N-D")
-		local latest_str = string(`latest', "%tdCY-N-D")
+		local earliest_str = string(`earliest', "`datefmt'")
+		local latest_str = string(`latest', "`datefmt'")
 		local summary "`summary'The data spans from `earliest_str' to `latest_str'. "
 	}
 

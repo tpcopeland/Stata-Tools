@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.0  17nov2025}{...}
+{* *! version 2.0.0  17nov2025}{...}
 {viewerjumpto "Syntax" "datamap##syntax"}{...}
 {viewerjumpto "Description" "datamap##description"}{...}
 {viewerjumpto "Options" "datamap##options"}{...}
@@ -258,7 +258,7 @@ You can document datasets in three ways:
 {pstd}Karolinska Institutet{p_end}
 {pstd}Email: timothy.copeland@ki.se{p_end}
 
-{pstd}Version 1.0.0 - 17 November 2025{p_end}
+{pstd}Version 2.0.0 - 17 November 2025{p_end}
 
 
 {title:Also see}
