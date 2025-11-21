@@ -35,6 +35,13 @@ Diagnostic and validation options:
   validateoverlap    - Verify overlapping periods make sense
   summarize          - Display summary statistics of start/stop dates
 
+Performance options:
+  batch(#)           - Process IDs in batches (default: 20 = 20% of IDs per batch)
+                       Higher values = larger batches = potentially faster but more memory
+                       Lower values = smaller batches = less memory but more I/O
+                       Range: 1-100 (percentage of total IDs)
+                       Recommended: 20-50 for most datasets
+
 IMPORTANT: This program replaces the current dataset in memory with the merged result.
 Use the saveas() option to save the result to a file, or load your original data
 from a saved file before running if you need to preserve it.
