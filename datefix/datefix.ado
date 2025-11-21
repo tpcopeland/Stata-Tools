@@ -2,26 +2,26 @@
 *! Original Author: Tim Copeland
 *! Updated on: 17 November 2025
 
-/* 
-    DESCRIPTION: 
-    Given a variable name(s), optionally an input format, and an output format, 
-    'datefix' fixes the date string variable into a Stata date variable 
+/*
+    DESCRIPTION:
+    Given a variable name(s), optionally an input format, and an output format,
+    'datefix' fixes the date string variable into a Stata date variable
     and saves it with the same name using the specified output format.
 
-    SYNTAX: 
+    SYNTAX:
     datefix [varlist] [, newvar(string) drop df(string) order(string) twodigit topyear(integer)]
             varlist:    a space-separated list of variables to be processed
-            newvar:     renames new variable with specified name 
+            newvar:     renames new variable with specified name
             drop:       specifies to drop the original variable
                         only applies if newvar option is used, otherwise is redundant; however, will not trigger error.
             df:         specifies the output date format for the final Stata date variable.
                         Valid formats can be found in Stata's help on the 'format' command.
                         If empty, the CCYY/NN/DD will be applied.
-            order:      specifies the order of date elements in the original variable. 
+            order:      specifies the order of date elements in the original variable.
                         Valid date element orders include "MDY", "YMD", and "DMY."
                         If an invalid option is given, an error message will occur.
             topyear:   specifies the latest year possible if a two digit year is used
-                        
+
 */
 
 program define datefix, rclass
@@ -32,16 +32,6 @@ program define datefix, rclass
 	if "`varlist'" == "" {
 		display as error "varlist required"
 		exit 100
-	}
-
-	* Validation: Check if all variables are string type
-	foreach v of varlist `varlist' {
-		capture confirm string variable `v'
-		if _rc {
-			display as error "variable `v' is not a string variable"
-			display as error "datefix requires string variables"
-			exit 109
-		}
 	}
 
 	* Validation: Check if newvar() is used with multiple variables
@@ -117,23 +107,23 @@ program define datefix, rclass
 			}
 		}
 
-		*Newvar error 
+		*Newvar error
         if "`newvar'" == "`var'" {
             di in re "Error: New variable name same as old variable name. newvar() option not necessary. Please remove newvar() option."
             exit 198
         }
-        
+
         *Drop Notes
         if "`drop'"=="drop" & "`newvar'" == "" {
             di "Note: 'drop' option is redundant when 'newvar()' is not used."
         }
-        
+
         if "`drop'"=="drop" & "`newvar'" == "`var'" {
             di "Note: 'newvar()' specifies same name as original variable. Original variable will not be saved."
         }
 
         *Convert to date variable in specified ordering of Year, Month, and Day
-		
+
 		capture confirm string variable `var'
 		if _rc == 0 {
 
@@ -150,7 +140,7 @@ program define datefix, rclass
 					exit 198
 				}
 			}
-				
+
 			else {
 				quietly{
 					*Generate temporary copies of the original variable
@@ -195,29 +185,40 @@ program define datefix, rclass
 					di in re "Optimal ordering of Year, Month, and Day producing missing values."
 					di in re "Check ordering, number of year digits, and for non-date strings."
 					di in re "If year is in two digit format, use topyear() option."
-					quietly drop new 
+					quietly drop new
 					exit 198
 				}
 
-				*Retrieve original variable if original variable was a date 
-				quietly capture replace new = tmp_orig if new == . 
+				*Retrieve original variable if original variable was a date
+				quietly capture replace new = tmp_orig if new == .
 			}
+		}
+		else {
+			* Variable is already numeric - apply date format
+			* If newvar is specified, create a copy; otherwise just format the original
+			if "`newvar'" != "" {
+				quietly generate double new = `var'
+				local lbl : variable label `var'
+				quietly label var new "`lbl'"
+			}
+			* If newvar is not specified, "new" doesn't need to exist
+			* The format will be applied directly to the original variable
 		}
 
 	quietly{
 
-		*Order new variable after the original variable 
+		*Order new variable after the original variable
 		capture order new, after(`var')
-        
-		*Save previous label and apply to new variable
-		local lbl : variable label `var' 
-		capture label var new "`lbl'" 
 
-        *Apply drop option
-		if "`drop'"=="drop"{
+		*Save previous label and apply to new variable
+		local lbl : variable label `var'
+		capture label var new "`lbl'"
+
+        *Apply drop option (only applies when newvar is specified)
+		if "`drop'"=="drop" & "`newvar'"!=""{
 			drop `var'
         }
-            
+
         *Rename new variable to original variable name or specified newvar
 		if "`newvar'"!="" {
 			capture rename new `newvar'
@@ -238,7 +239,7 @@ program define datefix, rclass
 			format `df' `var'
 		}
 
-		*Set date format if new variable name 
+		*Set date format if new variable name
 		if "`df'"=="" & "`newvar'"!="" {
 			format %tdCCYY/NN/DD `newvar'
 		}
@@ -246,8 +247,8 @@ program define datefix, rclass
 		else if "`df'"!="" & "`newvar'"!="" {
 			format `df' `newvar'
 		}
-		
-	quietly capture drop new 
+
+	quietly capture drop new
 
 *END QUIETLY
 	}
@@ -262,7 +263,7 @@ program define datefix, rclass
 			local miss_after = r(N)
 		}
 
-		*Display ending Syntax 
+		*Display ending Syntax
 	if "`newvar'" == "" {
 		di "Date variable `var' converted to date formatted numeric variable."
 		di "	Original name retained and original `var' dropped, given `var' was a string; otherwise, date format applied."
