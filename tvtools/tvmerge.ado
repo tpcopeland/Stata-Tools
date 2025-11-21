@@ -548,6 +548,61 @@ program define tvmerge, rclass
             * This handles string IDs and avoids macro length limits
             use `merged_data', clear
 
+            * VALIDATION: Check that IDs match between merged data and current dataset
+            * This prevents silent data loss from joinby dropping mismatched IDs
+            tempfile merged_ids ds_k_ids
+
+            * Get unique IDs from merged data (datasets 1 through k-1)
+            preserve
+            keep id
+            sort id
+            quietly by id: keep if _n == 1
+            save `merged_ids', replace
+            restore
+
+            * Get unique IDs from dataset k
+            preserve
+            use `ds_k_clean', clear
+            keep id
+            sort id
+            quietly by id: keep if _n == 1
+            save `ds_k_ids', replace
+            restore
+
+            * Check for ID mismatches
+            use `merged_ids', clear
+            generate byte _in_merged = 1
+            merge 1:1 id using `ds_k_ids', generate(_merge_check)
+
+            * Count mismatches
+            quietly count if _merge_check == 1  // In merged_data but not ds_k
+            local n_only_merged = r(N)
+            quietly count if _merge_check == 2  // In ds_k but not merged_data
+            local n_only_dsk = r(N)
+
+            * If mismatches exist, report and error out
+            if `n_only_merged' > 0 | `n_only_dsk' > 0 {
+                noisily di as error _newline "ID mismatch detected between datasets!"
+
+                if `n_only_merged' > 0 {
+                    noisily di as error "  `n_only_merged' IDs exist in datasets 1-`=`k'-1' but not in dataset `k' (`ds_k'):"
+                    noisily list id if _merge_check == 1, noheader sep(0)
+                }
+
+                if `n_only_dsk' > 0 {
+                    noisily di as error "  `n_only_dsk' IDs exist in dataset `k' (`ds_k') but not in datasets 1-`=`k'-1':"
+                    noisily list id if _merge_check == 2, noheader sep(0)
+                }
+
+                noisily di as error _newline "All datasets must contain the same set of IDs."
+                noisily di as error "IDs that don't match across datasets will be silently dropped during merge."
+                noisily di as error "Please ensure all datasets contain the same person IDs before merging."
+                exit 459  // "variable not found or ambiguous abbreviation" - close to ID mismatch concept
+            }
+
+            * Validation passed - continue with merge
+            use `merged_data', clear
+
             tempvar batch_seq
             egen long `batch_seq' = group(id)
 
