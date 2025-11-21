@@ -8,6 +8,23 @@ The current `tvmerge.ado` implementation processes **one person ID at a time** d
 2. **Repeated file operations**: Creating and reading temporary files in a loop
 3. **Memory inefficiency**: Constantly clearing and reloading data
 
+---
+
+## Code Review Acknowledgment
+
+**Version 2.0 - Updated after peer review**
+
+Initial approach had **3 critical bugs**:
+1. ❌ `inlist()` syntax error (space vs comma separation)
+2. ❌ String ID incompatibility (quote handling)
+3. ❌ Macro length limits with `levelsof` (truncation with 50k+ IDs)
+
+**Solution**: Replace `levelsof` + `inlist()` with `egen group()` + numeric range filtering + `merge`
+
+*Thanks to code review for catching these issues before implementation!*
+
+---
+
 ## Current Implementation (Lines 539-599)
 
 ### BEFORE: One-at-a-time processing
@@ -92,13 +109,15 @@ foreach pid in `ids' {
 
 ## Proposed Solution: Batch Processing
 
-### AFTER: Process multiple IDs in batches
+### AFTER: Process multiple IDs in batches (CORRECTED VERSION)
+
+**CRITICAL FIXES (identified by code review)**:
+1. ❌ **Removed `levelsof`** - Avoids macro length limits with large ID counts
+2. ❌ **Removed `inlist()`** - Avoids syntax errors (comma separation) and string ID issues
+3. ✅ **Added `egen group()`** - Creates numeric sequence that works with any ID type
+4. ✅ **Use `merge` for filtering** - Robust for both string and numeric IDs, no argument limits
 
 ```stata
-* Get all unique IDs
-levelsof id, local(ids)
-local n_ids: word count `ids'
-
 * Pre-compute which exposures are continuous
 foreach exp_var in `exp_k_list' {
     local is_cont_`exp_var' = 0
@@ -109,114 +128,80 @@ foreach exp_var in `exp_k_list' {
     }
 }
 
-* Calculate batch size based on batch() option (default 20%)
+* CRITICAL FIX: Create numeric sequence for batching
+* This handles String IDs and avoids macro length limits
+use `merged_data', clear
+
+tempvar batch_seq
+egen long `batch_seq' = group(id)
+
+* Calculate batch parameters
+quietly summarize `batch_seq', meanonly
+local n_unique_ids = r(max)
+
+* Handle batch() option (default 20%)
 if "`batch'" == "" {
-    local batch_pct = 20
-}
-else {
-    local batch_pct = `batch'
+    local batch = 20
 }
 
 * Validate batch percentage
-if `batch_pct' < 1 | `batch_pct' > 100 {
+if `batch' < 1 | `batch' > 100 {
     di as error "batch() must be between 1 and 100"
     exit 198
 }
 
-* Calculate number of IDs per batch
-local batch_size = max(1, ceil(`n_ids' * `batch_pct' / 100))
-local n_batches = ceil(`n_ids' / `batch_size')
+* Calculate batch size
+local batch_size = ceil(`n_unique_ids' * (`batch' / 100))
+local n_batches = ceil(`n_unique_ids' / `batch_size')
 
-di as txt "Processing `n_ids' IDs in `n_batches' batches (batch size: `batch_size' IDs = `batch_pct'%)"
+di as txt "Processing `n_unique_ids' unique IDs in `n_batches' batches (batch size: `batch_size' IDs = `batch'%)..."
 
-* Initialize empty dataset for results
+* Save dataset with the sequence variable for the loop
+save `merged_data', replace
+
+* Initialize empty result
 clear
 
-* Process IDs in batches
-local id_counter = 0
-forvalues batch = 1/`n_batches' {
+* BATCH LOOP
+forvalues b = 1/`n_batches' {
+    local start_seq = ((`b' - 1) * `batch_size') + 1
+    local end_seq = `b' * `batch_size'
 
-    * Build list of IDs for this batch
-    local batch_ids ""
-    local batch_start = (`batch' - 1) * `batch_size' + 1
-    local batch_end = min(`batch' * `batch_size', `n_ids')
+    di as txt "  Batch `b'/`n_batches'..."
 
-    forvalues i = `batch_start'/`batch_end' {
-        local current_id: word `i' of `ids'
-        local batch_ids "`batch_ids' `current_id'"
-    }
-
-    * Display progress
-    local batch_count: word count `batch_ids'
-    di as txt "  Batch `batch'/`n_batches': Processing `batch_count' IDs..."
-
-    * Get batch's records from merged data (dataset 1 through k-1)
+    * 1. LOAD BATCH OF MERGED DATA
     use `merged_data', clear
-    * Use inlist() for efficient filtering of multiple IDs
-    * For very large batches, split into chunks of 250 (Stata's inlist limit)
-    local batch_count: word count `batch_ids'
-    if `batch_count' <= 250 {
-        keep if inlist(id, `batch_ids')
-    }
-    else {
-        * For batches > 250 IDs, use multiple inlist() calls combined with OR
-        tempvar keepflag
-        generate byte `keepflag' = 0
-        local chunk_size = 250
-        local n_chunks = ceil(`batch_count' / `chunk_size')
-
-        forvalues chunk = 1/`n_chunks' {
-            local chunk_start = (`chunk' - 1) * `chunk_size' + 1
-            local chunk_end = min(`chunk' * `chunk_size', `batch_count')
-
-            local chunk_ids ""
-            forvalues i = `chunk_start'/`chunk_end' {
-                local current_id: word `i' of `batch_ids'
-                local chunk_ids "`chunk_ids' `current_id'"
-            }
-            replace `keepflag' = 1 if inlist(id, `chunk_ids')
-        }
-        keep if `keepflag' == 1
-        drop `keepflag'
-    }
-
+    quietly keep if `batch_seq' >= `start_seq' & `batch_seq' <= `end_seq'
     tempfile batch_merged
-    save `batch_merged', replace
+    save `batch_merged'
 
-    * Get batch's records from dataset k
+    * 2. CREATE ID FILTER LIST
+    * Extract unique IDs for this batch to filter dataset K
+    keep id
+    by id: keep if _n == 1
+    tempfile batch_filter
+    save `batch_filter'
+
+    * 3. LOAD AND FILTER DATASET K
     use `ds_k_clean', clear
-    * Same filtering approach for dataset k
-    if `batch_count' <= 250 {
-        keep if inlist(id, `batch_ids')
-    }
-    else {
-        tempvar keepflag
-        generate byte `keepflag' = 0
-        local chunk_size = 250
-        local n_chunks = ceil(`batch_count' / `chunk_size')
 
-        forvalues chunk = 1/`n_chunks' {
-            local chunk_start = (`chunk' - 1) * `chunk_size' + 1
-            local chunk_end = min(`chunk' * `chunk_size', `batch_count')
-
-            local chunk_ids ""
-            forvalues i = `chunk_start'/`chunk_end' {
-                local current_id: word `i' of `batch_ids'
-                local chunk_ids "`chunk_ids' `current_id'"
-            }
-            replace `keepflag' = 1 if inlist(id, `chunk_ids')
-        }
-        keep if `keepflag' == 1
-        drop `keepflag'
-    }
+    * CRITICAL FIX: Use MERGE to filter instead of INLIST
+    * This works for strings and numbers and has no item limit
+    quietly merge m:1 id using `batch_filter', keep(match) keepusing(id) nogenerate
 
     tempfile batch_k
-    save `batch_k', replace
+    save `batch_k'
+
+    * 4. PERFORM JOINBY (Cartesian within ID)
+    use `batch_merged', clear
+
+    * Drop the sequence var so it doesn't interfere
+    drop `batch_seq'
 
     * Create cartesian product for entire batch
-    use `batch_merged', clear
     joinby id using `batch_k'
 
+    * 5. INTERSECTION LOGIC
     * Calculate interval intersection
     generate double new_start = max(`startname', start_k)
     generate double new_stop = min(`stopname', stop_k)
@@ -229,7 +214,8 @@ forvalues batch = 1/`n_batches' {
     replace `stopname' = new_stop
     drop new_start new_stop
 
-    * For continuous exposures, interpolate values
+    * 6. CONTINUOUS EXPOSURE INTERPOLATION
+    * For continuous exposures, interpolate values based on time elapsed
     foreach exp_var in `exp_k_list' {
         if `is_cont_`exp_var'' == 1 {
             generate double _proportion = cond(stop_k > start_k, (`stopname' - start_k) / (stop_k - start_k), 1)
@@ -241,10 +227,10 @@ forvalues batch = 1/`n_batches' {
 
     drop start_k stop_k
 
-    * Append batch results to overall results
+    * 7. APPEND TO RESULTS
     if _N > 0 {
         tempfile batch_result
-        save `batch_result', replace
+        save `batch_result'
 
         capture confirm file `cartesian'
         if _rc == 0 {
@@ -256,10 +242,11 @@ forvalues batch = 1/`n_batches' {
 ```
 
 **Key Changes**:
-1. **Batch IDs together**: Process 20% of IDs at once (configurable)
-2. **Use `inlist()` for filtering**: Much faster than individual `keep if id == `pid'` operations
-3. **Use `joinby` instead of `cross`**: More efficient for multi-ID cartesian products
-4. **Reduced I/O**: Load datasets once per batch instead of once per ID
+1. **`egen group()` for indexing**: Creates numeric sequence 1..N that works with any ID type
+2. **Numeric range filtering**: Use `>= start & <= end` instead of `inlist()`
+3. **`merge` for dataset K filtering**: Robust alternative to `inlist()` with no limits
+4. **Use `joinby` instead of `cross`**: More efficient for multi-ID cartesian products
+5. **Reduced I/O**: Load datasets once per batch instead of once per ID
 
 ---
 
@@ -328,6 +315,23 @@ Performance options:
 
 ## Implementation Notes
 
+### Critical Bugs Fixed in Code Review
+
+**🐛 Bug #1: `inlist()` Syntax Error**
+- **Problem**: Space-separated list `inlist(id, 1 2 3)` causes syntax error
+- **Required**: Comma-separated `inlist(id, 1, 2, 3)`
+- **Solution**: Replaced with `egen group()` + numeric range filtering
+
+**🐛 Bug #2: String ID Incompatibility**
+- **Problem**: `inlist(id, A001)` fails with string IDs (needs quotes: `"A001"`)
+- **Impact**: Made program incompatible with string identifiers
+- **Solution**: `egen group()` creates numeric sequence that works with any ID type
+
+**🐛 Bug #3: Macro Length Limits**
+- **Problem**: `levelsof id, local(ids)` truncates at ~64k-4M characters
+- **Impact**: Datasets with 50,000+ IDs silently drop thousands of people
+- **Solution**: Use `egen group()` instead of storing all IDs in macro
+
 ### Critical Changes
 
 1. **Replace `cross` with `joinby`**:
@@ -335,11 +339,17 @@ Performance options:
    - `joinby id` creates cartesian product **within each ID**, which is what we want
    - This is crucial for correctness when processing multiple IDs at once
 
-2. **Handle Stata's `inlist()` limit**:
-   - `inlist()` supports maximum 250 arguments
-   - For batches > 250 IDs, split into multiple `inlist()` calls
+2. **Use `egen group()` for batch indexing**:
+   - Creates numeric sequence 1..N for any ID type (string or numeric)
+   - Avoids macro length limits completely
+   - Enables simple range filtering: `keep if seq >= start & seq <= end`
 
-3. **Progress reporting**:
+3. **Use `merge` instead of `inlist()` for filtering dataset K**:
+   - Works with any ID type (string or numeric)
+   - No argument limits (unlike `inlist()`'s 250 limit)
+   - More efficient for large batches
+
+4. **Progress reporting**:
    - Display batch progress to give users feedback during long operations
 
 ### Testing Needed
