@@ -101,7 +101,7 @@ label var region "Region Code"
 label data "Case-Control IDs for MS Registry Cohort"
 
 compress
-save "${datadir}/ccids.dta", replace
+saveold "${datadir}/ccids.dta", replace version(13)
 di as result "Created ccids.dta (N=1000)"
 }
 
@@ -244,7 +244,7 @@ note: Synthetic data for testing Stata-Tools packages
 note: id links to all other datasets
 
 compress
-save "${datadir}/cohort.dta", replace
+saveold "${datadir}/cohort.dta", replace version(13)
 di as result "Created cohort.dta (N=1000)"
 }
 
@@ -510,7 +510,7 @@ if _N > 0 {
 	note: Time-varying exposure data for tvexpose/tvmerge testing
 
 	compress
-	save "${datadir}/msreg_terapi.dta", replace
+	saveold "${datadir}/msreg_terapi.dta", replace version(13)
 	di as result "Created msreg_terapi.dta (N=" _N ")"
 }
 }
@@ -568,7 +568,7 @@ label data "MS Registry - Relapses"
 note: Linked to cohort.dta via id
 
 compress
-save "${datadir}/msreg_skov.dta", replace
+saveold "${datadir}/msreg_skov.dta", replace version(13)
 di as result "Created msreg_skov.dta (N=" _N ")"
 }
 
@@ -652,7 +652,7 @@ label data "MS Registry - Clinic Visits"
 note: Linked to cohort.dta via id
 
 compress
-save "${datadir}/msreg_besoksdata.dta", replace
+saveold "${datadir}/msreg_besoksdata.dta", replace version(13)
 di as result "Created msreg_besoksdata.dta (N=" _N ")"
 }
 
@@ -713,7 +713,7 @@ label data "MS Registry - EDSS Functional System Scores"
 note: Linked to cohort.dta via id
 
 compress
-save "${datadir}/msreg_edss.dta", replace
+saveold "${datadir}/msreg_edss.dta", replace version(13)
 di as result "Created msreg_edss.dta (N=" _N ")"
 }
 
@@ -752,7 +752,7 @@ label data "MS Registry - Symbol Digit Modalities Test (SDMT)"
 note: Linked to cohort.dta via id
 
 compress
-save "${datadir}/msreg_sdmt.dta", replace
+saveold "${datadir}/msreg_sdmt.dta", replace version(13)
 di as result "Created msreg_sdmt.dta (N=" _N ")"
 }
 
@@ -819,7 +819,7 @@ label data "MS Registry - Smoking Assessments"
 note: Linked to cohort.dta via id
 
 compress
-save "${datadir}/msreg_smoking.dta", replace
+saveold "${datadir}/msreg_smoking.dta", replace version(13)
 di as result "Created msreg_smoking.dta (N=" _N ")"
 }
 
@@ -903,7 +903,7 @@ note: Contains data quality issues for check testing
 note: age and edss_baseline have intentional errors
 
 compress
-save "${datadir}/cohort_raw.dta", replace
+saveold "${datadir}/cohort_raw.dta", replace version(13)
 di as result "Created cohort_raw.dta (N=" _N ")"
 }
 *******************************************************************************
@@ -1056,8 +1056,8 @@ if _N > 0 {
 	note: Time-varying exposure data for tvexpose/tvmerge testing
 	note: Can be merged with DMT data to test tvmerge functionality
 	compress
-	order id 
-	save "${datadir}/hrt.dta", replace
+	order id
+	saveold "${datadir}/hrt.dta", replace version(13)
 	di as result "Created hrt.dta (N=" _N ")"
 }
 }
@@ -1102,6 +1102,6 @@ note: Simplified version of msreg_terapi.dta for tvexpose/tvmerge examples
 note: Variable names match help file examples exactly
 
 compress
-save "${datadir}/dmt.dta", replace
+saveold "${datadir}/dmt.dta", replace version(13)
 di as result "Created dmt.dta (N=" _N ")"
 }
