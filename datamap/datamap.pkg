@@ -1,5 +1,5 @@
 v 1
-d datamap: Generate privacy-safe dataset documentation
+d 'DATAMAP': Generate privacy-safe dataset documentation
 d
 d datamap generates comprehensive, privacy-safe documentation for Stata
 d datasets. It automatically classifies variables and generates appropriate
