@@ -274,8 +274,9 @@ program define tvmerge, rclass
     local continuous_exps ""
     local categorical_exps ""
 
-    * Process by datasets to get final exposure names
-    forvalues j = 1/`numds' {
+    * Process by exposure variables to get final exposure names
+    * Note: Loop through ALL exposure variables, not just dataset count
+    forvalues j = 1/`numexp_raw' {
         local exp_j: word `j' of `exposures_raw'
         
         * Find position of this exposure in unique list
