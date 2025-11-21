@@ -636,6 +636,9 @@ program define tvmerge, rclass
                 drop start_k stop_k
 
                 * 7. Append batch results to overall results
+                * Note: Skip saving if batch produced zero rows (e.g., disjoint time intervals)
+                * Variable structure is preserved by keep command even when _N = 0
+                * Empty cartesian file is handled by fallback code after batch loop
                 if _N > 0 {
                     tempfile batch_result
                     save `batch_result', replace
@@ -647,8 +650,9 @@ program define tvmerge, rclass
                     save `cartesian', replace
                 }
             }
-            
-            * If no valid intersections exist, create empty dataset with proper structure
+
+            * Fallback: If all batches produced zero rows (no valid intersections exist),
+            * create empty dataset with proper structure
             capture confirm file `cartesian'
             if _rc != 0 {
                 use `merged_data', clear
