@@ -230,7 +230,8 @@ version 17
             putexcel (A1:E1), merge txtwrap left top bold font(Arial,10) 
             
             * UPDATED BORDER SYNTAX HERE:
-            putexcel (B2:E2), txtwrap bold hcenter vcenter font(Arial,10) border(top bottom, thin)
+            putexcel (B2:E2), txtwrap bold hcenter vcenter font(Arial,10) border(top, thin)
+            putexcel (B2:E2), border(bottom, thin)
             
             putexcel (B2:E`lastrow'), font(Arial,10)
             putexcel (B2:B`lastrow'), left
@@ -240,9 +241,10 @@ version 17
                 putexcel (B`r':E`r'), border(top,thin) bold left
             }
 
-            putexcel (B2:B`lastrow'), border(left right, thin)
-            putexcel (E2:E`lastrow'), border(right,thin)
-            putexcel (B`lastrow':E`lastrow'), border(bottom,thin)
+            putexcel (B2:B`lastrow'), border(left, thin)
+            putexcel (B2:B`lastrow'), border(right, thin)
+            putexcel (E2:E`lastrow'), border(right, thin)
+            putexcel (B`lastrow':E`lastrow'), border(bottom, thin)
             putexcel clear
         }
         
