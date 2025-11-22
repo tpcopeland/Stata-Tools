@@ -1,0 +1,950 @@
+---
+title: "Creating Time-Varying Exposures with tvexpose"
+author: "Timothy P. Copeland"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Creating Time-Varying Exposures with tvexpose}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.width = 7,
+  fig.height = 5
+)
+```
+
+## Introduction
+
+This vignette demonstrates how to create time-varying exposure variables for survival analysis using `tvexpose()`. Time-varying exposures are essential when studying how exposures that change over time affect health outcomes.
+
+## Why Time-Varying Exposures?
+
+In many epidemiological studies, exposures are not static:
+
+- **Pharmacoepidemiology**: Patients start, stop, and switch medications over time
+- **Occupational studies**: Workers change jobs or exposure levels
+- **Environmental epidemiology**: Pollutant levels fluctuate
+- **Clinical research**: Treatment protocols change during follow-up
+
+Standard survival analysis with baseline-only exposures can lead to:
+
+1. **Immortal time bias**: Time before first exposure is incorrectly attributed to the exposed group
+2. **Misclassification**: Exposure status at baseline may not reflect true exposure during follow-up
+3. **Loss of information**: Changes in exposure status are ignored
+
+`tvexpose()` creates properly formatted time-varying datasets that avoid these biases.
+
+## The Challenge
+
+Consider a simple example of HRT (hormone replacement therapy) exposure:
+
+**Master Cohort:**
+```
+ID  Study_Entry  Study_Exit
+1   2010-01-01   2020-12-31
+```
+
+**HRT Exposure Data:**
+```
+ID  Start       Stop        HRT_Type
+1   2012-03-15  2014-06-30  1
+1   2016-01-01  2018-12-31  2
+```
+
+We need to create a time-varying dataset that shows:
+```
+ID  Start       Stop        HRT_Status
+1   2010-01-01  2012-03-14  0 (unexposed)
+1   2012-03-15  2014-06-30  1 (Estrogen only)
+1   2014-07-01  2015-12-31  0 (unexposed)
+1   2016-01-01  2018-12-31  2 (E+P)
+1   2019-01-01  2020-12-31  0 (unexposed)
+```
+
+`tvexpose()` automates this process, handling complex scenarios like overlapping exposures, gaps, and multiple exposure types.
+
+## Loading Example Data
+
+The tvtools package includes example datasets based on a simulated MS (multiple sclerosis) cohort:
+
+```{r load_data}
+library(tvtools)
+
+# Load the example datasets
+data(cohort)        # Master cohort: 1,000 persons
+data(hrt_exposure)  # HRT exposure periods: 791 records for 391 persons
+data(dmt_exposure)  # DMT exposure periods: 1,905 records for 758 persons
+
+# Examine the cohort structure
+str(cohort)
+head(cohort)
+
+# Examine HRT exposure data
+str(hrt_exposure)
+head(hrt_exposure)
+
+# Examine DMT exposure data
+str(dmt_exposure)
+head(dmt_exposure)
+```
+
+### Dataset Descriptions
+
+**cohort** (1,000 rows):
+- `id`: Person identifier
+- `study_entry`: Study entry date
+- `study_exit`: Study exit date
+- `age`: Age at baseline
+- `female`: Sex (0=male, 1=female)
+- `mstype`: MS type (1=RRMS, 2=SPMS, 3=PPMS)
+- `edss_baseline`: Baseline EDSS disability score
+- `region`: Geographic region
+
+**hrt_exposure** (791 rows):
+- `id`: Person identifier
+- `rx_start`: HRT prescription start date
+- `rx_stop`: HRT prescription stop date
+- `hrt_type`: HRT type (1=Estrogen only, 2=E+P, 3=Other)
+- `dose`: Daily dose in mg
+
+**dmt_exposure** (1,905 rows):
+- `id`: Person identifier
+- `dmt_start`: DMT treatment start date
+- `dmt_stop`: DMT treatment stop date
+- `dmt`: DMT type (1=Interferon beta, 2=Glatiramer acetate, 3=Natalizumab, 4=Fingolimod, 5=Dimethyl fumarate, 6=Ocrelizumab)
+
+## Basic Usage
+
+### Simple Time-Varying Categorical Exposure
+
+The most basic use case creates a time-varying categorical exposure variable:
+
+```{r basic_categorical, eval=FALSE}
+library(tvtools)
+library(dplyr)
+
+# Create time-varying HRT exposure
+tv_hrt <- tvexpose(
+  master = cohort,
+  exposure_data = hrt_exposure,
+  id = "id",
+  start = "rx_start",
+  stop = "rx_stop",
+  exposure = "hrt_type",
+  reference = 0,
+  entry = "study_entry",
+  exit = "study_exit",
+  generate = "hrt_status"
+)
+
+# Examine output
+head(tv_hrt, 20)
+#   id      start       stop  hrt_status
+# 1  1 2011-10-17 2020-12-31     0       # Never exposed
+# 2  4 2011-03-06 2013-11-06     0       # Pre-exposure
+# 3  4 2013-11-07 2015-09-03     1       # Estrogen only
+# 4  4 2015-09-04 2016-05-05     0       # Gap
+# 5  4 2016-05-06 2017-07-20     3       # Other
+# ...
+
+# Check distribution of exposure categories
+table(tv_hrt$hrt_status, useNA = "always")
+```
+
+### Creating DMT Time-Varying Exposure
+
+Similarly, create time-varying DMT exposure:
+
+```{r basic_dmt, eval=FALSE}
+tv_dmt <- tvexpose(
+  master = cohort,
+  exposure_data = dmt_exposure,
+  id = "id",
+  start = "dmt_start",
+  stop = "dmt_stop",
+  exposure = "dmt",
+  reference = 0,
+  entry = "study_entry",
+  exit = "study_exit",
+  generate = "dmt_status"
+)
+
+head(tv_dmt, 20)
+```
+
+## Exposure Type Options
+
+`tvexpose()` supports several ways to define time-varying exposure status.
+
+### 1. Categorical (Default)
+
+Keeps the original exposure categories, with unexposed periods set to the reference value:
+
+```{r categorical, eval=FALSE}
+tv_categorical <- tvexpose(
+  master = cohort,
+  exposure_data = hrt_exposure,
+  id = "id",
+  start = "rx_start",
+  stop = "rx_stop",
+  exposure = "hrt_type",
+  reference = 0,
+  entry = "study_entry",
+  exit = "study_exit",
+  generate = "hrt_type_tv"
+)
+
+# Output values: 0 (unexposed), 1 (Estrogen), 2 (E+P), 3 (Other)
+table(tv_categorical$hrt_type_tv)
+```
+
+### 2. Ever-Treated (Binary)
+
+Creates a binary variable that switches from 0 to 1 at first exposure and stays 1 forever. This is the proper way to handle "ever-treated" analyses and avoid immortal time bias:
+
+```{r evertreated, eval=FALSE}
+tv_ever <- tvexpose(
+  master = cohort,
+  exposure_data = hrt_exposure,
+  id = "id",
+  start = "rx_start",
+  stop = "rx_stop",
+  exposure = "hrt_type",
+  reference = 0,
+  entry = "study_entry",
+  exit = "study_exit",
+  evertreated = TRUE,
+  generate = "ever_hrt"
+)
+
+# Output values: 0 (never exposed yet), 1 (ever exposed)
+table(tv_ever$ever_hrt)
+
+# Verify: once someone becomes "ever-treated", they stay that way
+tv_ever %>%
+  group_by(id) %>%
+  summarise(
+    n_periods = n(),
+    switches_to_1 = sum(diff(ever_hrt) == 1),  # Should be 0 or 1
+    switches_to_0 = sum(diff(ever_hrt) == -1)  # Should always be 0
+  ) %>%
+  filter(switches_to_0 > 0)  # Should return 0 rows
+```
+
+### 3. Current/Former
+
+Creates a trichotomous variable: 0 = never exposed, 1 = currently exposed, 2 = formerly exposed. If re-exposed after a gap, switches back to 1:
+
+```{r currentformer, eval=FALSE}
+tv_cf <- tvexpose(
+  master = cohort,
+  exposure_data = dmt_exposure,
+  id = "id",
+  start = "dmt_start",
+  stop = "dmt_stop",
+  exposure = "dmt",
+  reference = 0,
+  entry = "study_entry",
+  exit = "study_exit",
+  currentformer = TRUE,
+  generate = "dmt_cf"
+)
+
+# Output values: 0 (never), 1 (current), 2 (former)
+table(tv_cf$dmt_cf)
+
+# Example person with gaps between treatments
+tv_cf %>%
+  filter(id == 1) %>%
+  select(id, start, stop, dmt_cf)
+#   id      start       stop  dmt_cf
+# 1  1 2011-10-17 2013-01-07     0   # Never exposed
+# 2  1 2013-01-08 2013-09-15     1   # Currently on DMT
+# 3  1 2013-09-16 2019-06-08     2   # Formerly exposed
+# 4  1 2019-06-09 2020-03-25     1   # Currently on DMT again
+# ...
+```
+
+### 4. Duration Categories
+
+Creates categories based on cumulative time of exposure. Useful for dose-response analyses:
+
+```{r duration, eval=FALSE}
+tv_duration <- tvexpose(
+  master = cohort,
+  exposure_data = dmt_exposure,
+  id = "id",
+  start = "dmt_start",
+  stop = "dmt_stop",
+  exposure = "dmt",
+  reference = 0,
+  entry = "study_entry",
+  exit = "study_exit",
+  duration = c(1, 3, 5),       # Cutpoints in years
+  continuousunit = "years",     # Unit for duration
+  generate = "dmt_duration"
+)
+
+# Output values:
+# 0 = unexposed
+# 1 = <1 year cumulative exposure
+# 2 = 1-3 years cumulative exposure
+# 3 = 3-5 years cumulative exposure
+# 4 = 5+ years cumulative exposure
+table(tv_duration$dmt_duration)
+```
+
+### 5. Continuous Cumulative Exposure
+
+Creates a continuous variable tracking cumulative exposure time:
+
+```{r continuous, eval=FALSE}
+tv_continuous <- tvexpose(
+  master = cohort,
+  exposure_data = dmt_exposure,
+  id = "id",
+  start = "dmt_start",
+  stop = "dmt_stop",
+  exposure = "dmt",
+  reference = 0,
+  entry = "study_entry",
+  exit = "study_exit",
+  continuousunit = "months",
+  generate = "cumul_dmt_months"
+)
+
+# Output: continuous variable (0 to max months of exposure)
+summary(tv_continuous$cumul_dmt_months)
+```
+
+### 6. Recency Categories
+
+Creates categories based on time since last exposure. Useful when exposure effects diminish over time:
+
+```{r recency, eval=FALSE}
+tv_recency <- tvexpose(
+  master = cohort,
+  exposure_data = hrt_exposure,
+  id = "id",
+  start = "rx_start",
+  stop = "rx_stop",
+  exposure = "hrt_type",
+  reference = 0,
+  entry = "study_entry",
+  exit = "study_exit",
+  recency = c(365, 1095),   # Cutpoints in days (1 year, 3 years)
+  generate = "hrt_recency"
+)
+
+# Output values:
+# 0 = never exposed
+# 1 = currently exposed
+# 2 = <1 year since last exposure
+# 3 = 1-3 years since last exposure
+# 4 = 3+ years since last exposure
+table(tv_recency$hrt_recency)
+```
+
+## Handling Exposure Gaps
+
+### Grace Period
+
+Small gaps between prescriptions (e.g., due to refill delays) can be bridged using the `grace` parameter:
+
+```{r grace, eval=FALSE}
+# Without grace period - small gaps create unexposed periods
+tv_no_grace <- tvexpose(
+  master = cohort,
+  exposure_data = hrt_exposure,
+  id = "id",
+  start = "rx_start",
+  stop = "rx_stop",
+  exposure = "hrt_type",
+  reference = 0,
+  entry = "study_entry",
+  exit = "study_exit",
+  grace = 0  # Default
+)
+
+# With 30-day grace period - gaps ≤30 days are bridged
+tv_with_grace <- tvexpose(
+  master = cohort,
+  exposure_data = hrt_exposure,
+  id = "id",
+  start = "rx_start",
+  stop = "rx_stop",
+  exposure = "hrt_type",
+  reference = 0,
+  entry = "study_entry",
+  exit = "study_exit",
+  grace = 30  # Bridge gaps up to 30 days
+)
+
+# Compare number of periods
+cat("Without grace:", nrow(tv_no_grace), "periods\n")
+cat("With grace:", nrow(tv_with_grace), "periods\n")
+```
+
+### Merging Close Periods
+
+The `merge_periods` parameter combines exposure periods of the same type that are close together:
+
+```{r merge_periods, eval=FALSE}
+tv_merged <- tvexpose(
+  master = cohort,
+  exposure_data = dmt_exposure,
+  id = "id",
+  start = "dmt_start",
+  stop = "dmt_stop",
+  exposure = "dmt",
+  reference = 0,
+  entry = "study_entry",
+  exit = "study_exit",
+  merge_periods = 120  # Merge same-type periods within 120 days (default)
+)
+```
+
+### Fill Gaps
+
+Extend the last exposure period by a fixed number of days:
+
+```{r fillgaps, eval=FALSE}
+tv_filled <- tvexpose(
+  master = cohort,
+  exposure_data = hrt_exposure,
+  id = "id",
+  start = "rx_start",
+  stop = "rx_stop",
+  exposure = "hrt_type",
+  reference = 0,
+  entry = "study_entry",
+  exit = "study_exit",
+  fillgaps = 90  # Extend last exposure by 90 days
+)
+```
+
+## Timing Adjustments
+
+### Lag Period
+
+Model delayed biological effects by shifting exposure start dates forward:
+
+```{r lag, eval=FALSE}
+# Exposure effect begins 30 days after recorded start
+tv_lagged <- tvexpose(
+  master = cohort,
+  exposure_data = dmt_exposure,
+  id = "id",
+  start = "dmt_start",
+  stop = "dmt_stop",
+  exposure = "dmt",
+  reference = 0,
+  entry = "study_entry",
+  exit = "study_exit",
+  lag = 30,  # 30-day lag
+  generate = "dmt_lagged"
+)
+```
+
+### Washout Period
+
+Model residual effects that persist after exposure ends:
+
+```{r washout, eval=FALSE}
+# Exposure effect persists 90 days after recorded stop
+tv_washout <- tvexpose(
+  master = cohort,
+  exposure_data = dmt_exposure,
+  id = "id",
+  start = "dmt_start",
+  stop = "dmt_stop",
+  exposure = "dmt",
+  reference = 0,
+  entry = "study_entry",
+  exit = "study_exit",
+  washout = 90,  # 90-day washout
+  generate = "dmt_washout"
+)
+```
+
+## Keeping Additional Variables
+
+Bring baseline covariates from the master dataset into the time-varying output:
+
+```{r keepvars, eval=FALSE}
+tv_with_covars <- tvexpose(
+  master = cohort,
+  exposure_data = dmt_exposure,
+  id = "id",
+  start = "dmt_start",
+  stop = "dmt_stop",
+  exposure = "dmt",
+  reference = 0,
+  entry = "study_entry",
+  exit = "study_exit",
+  generate = "dmt_status",
+  keepvars = c("age", "female", "mstype", "edss_baseline", "region")
+)
+
+# Output includes baseline covariates
+names(tv_with_covars)
+# [1] "id" "start" "stop" "dmt_status" "age" "female" "mstype" "edss_baseline" "region"
+```
+
+## By-Type Analysis
+
+Create separate time-varying variables for each exposure type using `bytype = TRUE`:
+
+```{r bytype, eval=FALSE}
+# Ever-treated by each HRT type
+tv_bytype_ever <- tvexpose(
+  master = cohort,
+  exposure_data = hrt_exposure,
+  id = "id",
+  start = "rx_start",
+  stop = "rx_stop",
+  exposure = "hrt_type",
+  reference = 0,
+  entry = "study_entry",
+  exit = "study_exit",
+  evertreated = TRUE,
+  bytype = TRUE,
+  generate = "ever_hrt"
+)
+
+# Creates: ever_hrt1, ever_hrt2, ever_hrt3
+names(tv_bytype_ever)
+
+# Current/former by each DMT type
+tv_bytype_cf <- tvexpose(
+  master = cohort,
+  exposure_data = dmt_exposure,
+  id = "id",
+  start = "dmt_start",
+  stop = "dmt_stop",
+  exposure = "dmt",
+  reference = 0,
+  entry = "study_entry",
+  exit = "study_exit",
+  currentformer = TRUE,
+  bytype = TRUE,
+  generate = "dmt_cf"
+)
+
+# Creates: dmt_cf1, dmt_cf2, ..., dmt_cf6
+names(tv_bytype_cf)
+```
+
+## Complete Survival Analysis Workflow
+
+Here's a comprehensive example from raw data through final analysis:
+
+```{r complete_workflow, eval=FALSE}
+library(tvtools)
+library(survival)
+library(dplyr)
+
+# ============================================================================
+# STEP 1: Load data
+# ============================================================================
+
+data(cohort)
+data(dmt_exposure)
+
+# Examine cohort
+cat("Cohort size:", nrow(cohort), "persons\n")
+cat("Study period:", as.character(min(cohort$study_entry)), "to",
+    as.character(max(cohort$study_exit)), "\n")
+
+# ============================================================================
+# STEP 2: Create time-varying DMT exposure (current/former)
+# ============================================================================
+
+tv_dmt <- tvexpose(
+  master = cohort,
+  exposure_data = dmt_exposure,
+  id = "id",
+  start = "dmt_start",
+  stop = "dmt_stop",
+  exposure = "dmt",
+  reference = 0,
+  entry = "study_entry",
+  exit = "study_exit",
+  currentformer = TRUE,
+  grace = 30,  # Bridge 30-day gaps
+  generate = "dmt_status",
+  keepvars = c("age", "female", "mstype", "edss_baseline")
+)
+
+# ============================================================================
+# STEP 3: Verify the time-varying data
+# ============================================================================
+
+cat("\nTime-varying data summary:\n")
+cat("Total periods:", nrow(tv_dmt), "\n")
+cat("Unique persons:", n_distinct(tv_dmt$id), "\n")
+
+# Distribution of DMT status
+cat("\nDMT status distribution:\n")
+table(tv_dmt$dmt_status, useNA = "always")
+# 0 = never, 1 = current, 2 = former
+
+# Calculate person-time by status
+tv_dmt %>%
+  mutate(person_days = as.numeric(stop - start) + 1) %>%
+  group_by(dmt_status) %>%
+  summarise(
+    n_periods = n(),
+    person_days = sum(person_days),
+    person_years = person_days / 365.25,
+    .groups = "drop"
+  ) %>%
+  mutate(pct_person_time = round(100 * person_years / sum(person_years), 1)) %>%
+  print()
+
+# ============================================================================
+# STEP 4: Prepare for survival analysis
+# ============================================================================
+
+# Convert dates to numeric for Surv()
+tv_analysis <- tv_dmt %>%
+  mutate(
+    # Convert to numeric days since study start
+    t_start = as.numeric(start - min(start)),
+    t_stop = as.numeric(stop - min(start)),
+    # Simulate an outcome (for demonstration)
+    # In real analysis, this would come from your outcome data
+    event = sample(c(0, 0, 0, 0, 1), n(), replace = TRUE)
+  )
+
+# ============================================================================
+# STEP 5: Fit Cox proportional hazards model
+# ============================================================================
+
+# Model with time-varying DMT status
+cox_model <- coxph(
+  Surv(t_start, t_stop, event) ~ factor(dmt_status) + age + factor(female) +
+    factor(mstype) + edss_baseline,
+  data = tv_analysis,
+  id = id
+)
+
+cat("\n========================================\n")
+cat("Cox Proportional Hazards Model Results\n")
+cat("========================================\n\n")
+summary(cox_model)
+
+# ============================================================================
+# STEP 6: Model diagnostics
+# ============================================================================
+
+# Test proportional hazards assumption
+cat("\nProportional Hazards Test:\n")
+ph_test <- cox.zph(cox_model)
+print(ph_test)
+
+# ============================================================================
+# STEP 7: Hazard ratios with 95% CI
+# ============================================================================
+
+# Extract hazard ratios
+hr <- exp(coef(cox_model))
+ci <- exp(confint(cox_model))
+
+cat("\nHazard Ratios (95% CI):\n")
+data.frame(
+  HR = round(hr, 3),
+  Lower = round(ci[, 1], 3),
+  Upper = round(ci[, 2], 3)
+) %>% print()
+```
+
+## Comparing Different Exposure Definitions
+
+Sensitivity analyses often compare results across different exposure definitions:
+
+```{r sensitivity, eval=FALSE}
+library(tvtools)
+library(survival)
+library(dplyr)
+
+data(cohort)
+data(dmt_exposure)
+
+# ============================================================================
+# Create multiple exposure definitions
+# ============================================================================
+
+# Definition 1: Ever-treated (binary)
+tv_ever <- tvexpose(
+  master = cohort, exposure_data = dmt_exposure,
+  id = "id", start = "dmt_start", stop = "dmt_stop", exposure = "dmt",
+  reference = 0, entry = "study_entry", exit = "study_exit",
+  evertreated = TRUE, generate = "dmt_ever",
+  keepvars = c("age", "female", "mstype", "edss_baseline")
+)
+
+# Definition 2: Current/Former (trichotomous)
+tv_cf <- tvexpose(
+  master = cohort, exposure_data = dmt_exposure,
+  id = "id", start = "dmt_start", stop = "dmt_stop", exposure = "dmt",
+  reference = 0, entry = "study_entry", exit = "study_exit",
+  currentformer = TRUE, generate = "dmt_cf",
+  keepvars = c("age", "female", "mstype", "edss_baseline")
+)
+
+# Definition 3: Duration categories (<1, 1-3, 3+ years)
+tv_dur <- tvexpose(
+  master = cohort, exposure_data = dmt_exposure,
+  id = "id", start = "dmt_start", stop = "dmt_stop", exposure = "dmt",
+  reference = 0, entry = "study_entry", exit = "study_exit",
+  duration = c(1, 3), continuousunit = "years", generate = "dmt_dur",
+  keepvars = c("age", "female", "mstype", "edss_baseline")
+)
+
+# Definition 4: Current/Former with 60-day grace period
+tv_cf_grace <- tvexpose(
+  master = cohort, exposure_data = dmt_exposure,
+  id = "id", start = "dmt_start", stop = "dmt_stop", exposure = "dmt",
+  reference = 0, entry = "study_entry", exit = "study_exit",
+  currentformer = TRUE, grace = 60, generate = "dmt_cf",
+  keepvars = c("age", "female", "mstype", "edss_baseline")
+)
+
+# ============================================================================
+# Compare results (with simulated outcome)
+# ============================================================================
+
+# Add simulated outcome and prepare for analysis
+prepare_for_cox <- function(data, exp_var) {
+  data %>%
+    mutate(
+      t_start = as.numeric(start - min(start)),
+      t_stop = as.numeric(stop - min(start)),
+      event = sample(c(0, 0, 0, 0, 1), n(), replace = TRUE)
+    )
+}
+
+# Run models
+results <- list()
+
+# Model 1: Ever-treated
+tv1 <- prepare_for_cox(tv_ever, "dmt_ever")
+m1 <- coxph(Surv(t_start, t_stop, event) ~ dmt_ever + age + female, data = tv1, id = id)
+results$ever_treated <- c(HR = exp(coef(m1)["dmt_ever"]),
+                          exp(confint(m1)["dmt_ever", ]))
+
+# Model 2: Current/Former
+tv2 <- prepare_for_cox(tv_cf, "dmt_cf")
+m2 <- coxph(Surv(t_start, t_stop, event) ~ factor(dmt_cf) + age + female, data = tv2, id = id)
+
+cat("\nSensitivity Analysis Results:\n")
+cat("==============================\n")
+
+cat("\n1. Ever-treated:\n")
+print(summary(m1)$conf.int[1, ])
+
+cat("\n2. Current/Former:\n")
+print(summary(m2)$conf.int[1:2, ])
+```
+
+## Common Pitfalls and Solutions
+
+### Pitfall 1: Wrong Variable Types
+
+```{r pitfall1, eval=FALSE}
+# WRONG: Dates as character strings not converted
+cohort_bad <- cohort
+cohort_bad$study_entry <- as.character(cohort_bad$study_entry)
+
+# tvexpose will attempt to convert, but may fail or produce warnings
+# Always ensure dates are Date or POSIXct objects
+
+# CORRECT: Proper date types
+cohort_good <- cohort
+class(cohort_good$study_entry)  # Should be "Date"
+```
+
+### Pitfall 2: Duplicate IDs in Master
+
+```{r pitfall2, eval=FALSE}
+# WRONG: Duplicate person in master dataset
+cohort_dup <- rbind(cohort[1, ], cohort[1, ])  # Duplicate ID 1
+
+tvexpose(
+  master = cohort_dup,  # This will ERROR
+  exposure_data = hrt_exposure,
+  id = "id", start = "rx_start", stop = "rx_stop", exposure = "hrt_type",
+  reference = 0, entry = "study_entry", exit = "study_exit"
+)
+# Error: master dataset has 1 duplicate ID(s)
+
+# CORRECT: Each person appears once in master
+cohort_unique <- cohort %>% distinct(id, .keep_all = TRUE)
+```
+
+### Pitfall 3: Conflicting Exposure Options
+
+```{r pitfall3, eval=FALSE}
+# WRONG: Multiple exposure types specified
+tvexpose(
+  master = cohort,
+  exposure_data = hrt_exposure,
+  id = "id", start = "rx_start", stop = "rx_stop", exposure = "hrt_type",
+  reference = 0, entry = "study_entry", exit = "study_exit",
+  evertreated = TRUE,     # Can't use both!
+  currentformer = TRUE    # Can't use both!
+)
+# Error: Only one exposure type can be specified at a time
+
+# CORRECT: Choose one exposure type
+tvexpose(
+  master = cohort,
+  exposure_data = hrt_exposure,
+  id = "id", start = "rx_start", stop = "rx_stop", exposure = "hrt_type",
+  reference = 0, entry = "study_entry", exit = "study_exit",
+  evertreated = TRUE  # OR currentformer, duration, etc.
+)
+```
+
+### Pitfall 4: Exit Before Entry
+
+```{r pitfall4, eval=FALSE}
+# WRONG: Person has exit date before entry date
+cohort_bad <- cohort
+cohort_bad$study_exit[1] <- as.Date("2009-01-01")  # Before entry
+
+tvexpose(
+  master = cohort_bad,
+  exposure_data = hrt_exposure,
+  id = "id", start = "rx_start", stop = "rx_stop", exposure = "hrt_type",
+  reference = 0, entry = "study_entry", exit = "study_exit"
+)
+# Error: 1 persons have study_exit < study_entry
+
+# CORRECT: Validate dates before calling tvexpose
+cohort %>%
+  filter(study_exit < study_entry) %>%
+  nrow()  # Should be 0
+```
+
+### Pitfall 5: NA Values in Critical Variables
+
+```{r pitfall5, eval=FALSE}
+# WRONG: Missing values in exposure or date columns
+hrt_bad <- hrt_exposure
+hrt_bad$hrt_type[1] <- NA
+
+tvexpose(
+  master = cohort,
+  exposure_data = hrt_bad,
+  id = "id", start = "rx_start", stop = "rx_stop", exposure = "hrt_type",
+  reference = 0, entry = "study_entry", exit = "study_exit"
+)
+# Error: exposure variable 'hrt_type' contains 1 NA value(s)
+
+# CORRECT: Handle missing values before tvexpose
+hrt_clean <- hrt_exposure %>%
+  filter(!is.na(hrt_type))  # Or impute as appropriate
+```
+
+### Pitfall 6: ID Type Mismatch
+
+```{r pitfall6, eval=FALSE}
+# WRONG: ID is numeric in one dataset, character in another
+cohort_char <- cohort %>% mutate(id = as.character(id))
+hrt_numeric <- hrt_exposure  # id is still numeric
+
+tvexpose(
+  master = cohort_char,
+  exposure_data = hrt_numeric,
+  id = "id", start = "rx_start", stop = "rx_stop", exposure = "hrt_type",
+  reference = 0, entry = "study_entry", exit = "study_exit"
+)
+# Error: ID variable 'id' has different types in master and exposure_data
+
+# CORRECT: Ensure consistent ID types
+hrt_char <- hrt_exposure %>% mutate(id = as.character(id))
+```
+
+## Performance Considerations
+
+For large datasets:
+
+```{r performance, eval=FALSE}
+# 1. Pre-filter exposure data to persons in cohort
+cohort_ids <- unique(cohort$id)
+hrt_filtered <- hrt_exposure %>%
+  filter(id %in% cohort_ids)
+
+# 2. Remove exposure periods completely outside study window
+hrt_filtered <- hrt_filtered %>%
+  inner_join(cohort %>% select(id, study_entry, study_exit), by = "id") %>%
+  filter(rx_stop >= study_entry, rx_start <= study_exit) %>%
+  select(-study_entry, -study_exit)
+
+# 3. Process in batches for very large datasets
+process_batch <- function(cohort_batch, exposure_data) {
+  batch_ids <- unique(cohort_batch$id)
+  exp_batch <- exposure_data %>% filter(id %in% batch_ids)
+
+  tvexpose(
+    master = cohort_batch,
+    exposure_data = exp_batch,
+    id = "id", start = "rx_start", stop = "rx_stop", exposure = "hrt_type",
+    reference = 0, entry = "study_entry", exit = "study_exit"
+  )
+}
+
+# Split into batches of 10,000
+batch_size <- 10000
+cohort_batches <- split(cohort, ceiling(seq_len(nrow(cohort)) / batch_size))
+results <- lapply(cohort_batches, process_batch, exposure_data = hrt_exposure)
+tv_combined <- bind_rows(results)
+```
+
+## Summary
+
+Key takeaways for using `tvexpose()`:
+
+1. **Choose the right exposure type**:
+   - `evertreated = TRUE`: Binary ever/never (avoids immortal time bias)
+   - `currentformer = TRUE`: Distinguishes current from former exposure
+   - `duration = c(...)`: Categories based on cumulative exposure time
+   - `continuousunit = "..."`: Continuous cumulative exposure
+   - `recency = c(...)`: Categories based on time since last exposure
+
+2. **Handle gaps appropriately**:
+   - Use `grace` to bridge short gaps (prescription refills)
+   - Use `merge_periods` to combine close same-type periods
+   - Use `fillgaps` to extend the last exposure
+
+3. **Adjust timing when needed**:
+   - Use `lag` for delayed biological effects
+   - Use `washout` for residual effects after exposure ends
+
+4. **Include covariates**: Use `keepvars` to bring baseline variables into the output
+
+5. **Validate your data**: Ensure no duplicate IDs, no NA values, and proper date types
+
+## Next Steps
+
+After creating time-varying exposures with `tvexpose()`:
+
+1. **Merge multiple exposures**: Use `tvmerge()` to combine multiple time-varying exposures
+   - See `vignette("tvmerge-guide")`
+
+2. **Run survival analysis**: Use the output directly with `coxph()` from the survival package
+
+3. **Perform sensitivity analyses**: Compare results across different exposure definitions
+
+## Session Info
+
+```{r session_info}
+sessionInfo()
+```
