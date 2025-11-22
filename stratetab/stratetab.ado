@@ -54,13 +54,13 @@ version 17
     frame create results
     frame results {
         clear
-        gen str244 c1 = ""
-        gen str244 c2 = ""
-        gen str244 c3 = ""
-        gen str244 c4 = ""
-        gen str244 c5 = ""
-        set obs 1
-        replace c1 = "`title'" in 1
+        quietly gen str244 c1 = ""
+        quietly gen str244 c2 = ""
+        quietly quietly gen str244 c3 = ""
+        quietly gen str244 c4 = ""
+        quietly gen str244 c5 = ""
+        quietly set obs 1
+        quietly replace c1 = "`title'" in 1
     }
 
     * -------------------------------------------------------
@@ -83,16 +83,16 @@ version 17
         
         * Add Column Headers
         local new = _N + 1
-        set obs `new'
-        replace c2 = "`col1_header'" in `new'
-        replace c3 = "Events" in `new'
+        quietly set obs `new'
+        quietly replace c2 = "`col1_header'" in `new'
+        quietly replace c3 = "Events" in `new'
         if "`unitlabel'" != "" {
-            replace c4 = "Person-years" + char(10) + "(`unitlabel's)" in `new'
-            replace c5 = "Rate per `unitlabel'" + char(10) + "person-years (95% CI)" in `new'
+            quietly replace c4 = "Person-years" + char(10) + "(`unitlabel's)" in `new'
+            quietly replace c5 = "Rate per `unitlabel'" + char(10) + "person-years (95% CI)" in `new'
         }
         else {
-            replace c4 = "Person-years" in `new'
-            replace c5 = "Rate (95% CI)" in `new'
+            quietly replace c4 = "Person-years" in `new'
+            quietly replace c5 = "Rate (95% CI)" in `new'
         }
     }
 
@@ -105,7 +105,7 @@ version 17
         * -- LOAD AND FORMAT IN WORKER FRAME --
         frame worker {
             qui {
-                use "`file'.dta", clear
+                quietly use "`file'.dta", clear
                 
                 * Check for required variables
                 cap confirm var _Rate _Lower _Upper _D _Y
@@ -149,20 +149,20 @@ version 17
                 * 1. Add Outcome Header
                 local current_n = _N
                 local new = `current_n' + 1
-                set obs `new'
-                replace c2 = "`lab`f''" in `new'
+                quietly set obs `new'
+                quietly replace c2 = "`lab`f''" in `new'
                 
                 * 2. Add Data Rows
                 local current_n = _N
                 local new_total = `current_n' + `data_count'
-                set obs `new_total'
+                quietly set obs `new_total'
                 
                 forvalues i = 1/`data_count' {
                     local row = `current_n' + `i'
-                    replace c2 = "`v1_`i''" in `row'
-                    replace c3 = "`v2_`i''" in `row'
-                    replace c4 = "`v3_`i''" in `row'
-                    replace c5 = "`v4_`i''" in `row'
+                    quietly replace c2 = "`v1_`i''" in `row'
+                    quietly replace c3 = "`v2_`i''" in `row'
+                    quietly replace c4 = "`v3_`i''" in `row'
+                    quietly replace c5 = "`v4_`i''" in `row'
                 }
             }
         }
@@ -190,11 +190,11 @@ version 17
 
             * Auto-fit logic
             forvalues i = 1(1)5 {
-                gen c`i'_length = length(c`i')
+                quietly gen c`i'_length = length(c`i')
             }
             if "`unitlabel'" != "" {
-                replace c4_length = c4_length - length(" (`unitlabel's)") if _n == 2
-                replace c5_length = c5_length - length(" per `unitlabel' person-years") if _n == 2 
+                quietly replace c4_length = c4_length - length(" (`unitlabel's)") if _n == 2
+                quietly replace c5_length = c5_length - length(" per `unitlabel' person-years") if _n == 2 
             }
             forvalues i = 1(1)5 {
                 sum c`i'_length
@@ -224,4 +224,72 @@ version 17
             mata: b.set_column_width(3,3,`col_c_width')
             mata: b.set_column_width(4,4,`col_d_width')
             mata: b.set_column_width(5,5,`col_e_width')
-            mata
+            mata: b.close_book()
+
+            putexcel set "`xlsx'", sheet("`sht'") modify
+            putexcel (A1:E1), merge txtwrap left top bold font(Arial,10) 
+            
+            * UPDATED BORDER SYNTAX HERE:
+            putexcel (B2:E2), txtwrap bold hcenter vcenter font(Arial,10) border(top bottom, thin)
+            
+            putexcel (B2:E`lastrow'), font(Arial,10)
+            putexcel (B2:B`lastrow'), left
+            putexcel (C2:E`lastrow'), hcenter
+
+            foreach r of local outcome_rows {
+                putexcel (B`r':E`r'), border(top,thin) bold left
+            }
+
+            putexcel (B2:B`lastrow'), border(left right, thin)
+            putexcel (E2:E`lastrow'), border(right,thin)
+            putexcel (B`lastrow':E`lastrow'), border(bottom,thin)
+            putexcel clear
+        }
+        
+        di as txt "Exported to `xlsx' with `lastrow' rows."
+        
+        return scalar N_files = `n_files'
+        return scalar N_rows = `lastrow'
+        return local xlsx "`xlsx'"
+        return local sheet "`sht'"
+    }
+    
+    * Close main frame
+    frame drop results
+end
+
+* --------------------------------------------------------
+* HELPER PROGRAMS
+* --------------------------------------------------------
+
+program format_strate_data
+    args eventdigits pydigits digits
+
+    if `eventdigits' == 0 {
+        gen ev = string(_D, "%11.0fc")
+    }
+    else {
+        gen ev = string(_D, "%11.`eventdigits'fc")
+    }
+
+    if `pydigits' == 0 {
+        gen py = string(round(_Y,1), "%11.0fc")
+    }
+    else {
+        gen py = string(_Y, "%11.`pydigits'fc")
+    }
+
+    gen rt = trim(string(round(_Rate,10^(-`digits')), "%11.`digits'f")) + " (" + ///
+             trim(string(round(_Lower,10^(-`digits')), "%11.`digits'f")) + "-" + ///
+             trim(string(round(_Upper,10^(-`digits')), "%11.`digits'f")) + ")"
+end
+
+program get_categorical_var
+    unab allvars : *
+    foreach v of local allvars {
+        if !inlist("`v'", "_D", "_Y", "_Rate", "_Lower", "_Upper") {
+            c_local catvar "`v'"
+            exit
+        }
+    }
+end
