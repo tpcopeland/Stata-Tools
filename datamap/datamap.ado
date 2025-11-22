@@ -525,31 +525,20 @@ program define ProcessDataset
 
 	noisily di as text "    Observations: `obs', Variables: `nvars'"
 
-	// Get file system info - use simple approach
-	// Extract basename from filepath
-	local basename = "`filepath'"
+	// Get file system info - extract basename from filepath
+	// Normalize slashes first to handle mixed path separators (Windows/Unix)
+	local normalized_path = subinstr("`filepath'", "\", "/", .)
+	local basename = "`normalized_path'"
 
-	// Try to extract filename from path
-	if strpos("`filepath'", "/") > 0 {
-		// Unix-style path - get last component
-		local basename = reverse("`filepath'")
+	// Extract filename from normalized path
+	if strpos("`normalized_path'", "/") > 0 {
+		local basename = reverse("`normalized_path'")
 		local slashpos = strpos("`basename'", "/")
 		if `slashpos' > 0 {
 			local basename = reverse(substr("`basename'", 1, `slashpos'-1))
 		}
 		else {
-			local basename = "`filepath'"
-		}
-	}
-	else if strpos("`filepath'", "\") > 0 {
-		// Windows-style path - get last component
-		local basename = reverse("`filepath'")
-		local slashpos = strpos("`basename'", "\")
-		if `slashpos' > 0 {
-			local basename = reverse(substr("`basename'", 1, `slashpos'-1))
-		}
-		else {
-			local basename = "`filepath'"
+			local basename = "`normalized_path'"
 		}
 	}
 
@@ -666,115 +655,173 @@ program define ProcessVariables
 	// First pass: classify all variables and compute basic stats
 	tempfile classifications
 
-	// Loop through each variable - extract info from current row first
+	// PERFORMANCE OPTIMIZATION: Load user dataset ONCE and collect all stats
+	// instead of loading it repeatedly for each variable
+
+	// Extract variable metadata from varinfo first
+	local vnames ""
+	local vtypes ""
+	local vfmts ""
+	local valabs ""
 	forvalues i = 1/`nvars' {
-			// Read info from varinfo while we're in that dataset
-			local vname = varname[`i']
-			local vtype = vartype[`i']
-			local vfmt = varformat[`i']
-			local valab = valuelabel[`i']
+		local vn = varname[`i']
+		local vnames "`vnames' `vn'"
+		local vt = vartype[`i']
+		local vtypes "`vtypes' `vt'"
+		local vf = varformat[`i']
+		local vfmts "`vfmts' `vf'"
+		local va = valuelabel[`i']
+		local valabs "`valabs' `va'"
+	}
 
-			// Calculate missing count by loading original dataset
-			use "`filepath'", clear
-			count if missing(`vname')
-			local nmiss = r(N)
-			if `obs' > 0 {
-				local pctmiss = round(100*`nmiss'/`obs', 0.1)
+	// Now load the user dataset ONCE for all statistics calculations
+	use "`filepath'", clear
+
+	// Initialize matrices to store results
+	tempname miss_n miss_pct uniq_vals is_bin
+	matrix `miss_n' = J(`nvars', 1, .)
+	matrix `miss_pct' = J(`nvars', 1, .)
+	matrix `uniq_vals' = J(`nvars', 1, .)
+	matrix `is_bin' = J(`nvars', 1, 0)
+
+	// Store classifications and quality flags in locals (strings)
+	forvalues i = 1/`nvars' {
+		local class_`i' ""
+		local qflag_`i' ""
+	}
+
+	// Calculate statistics for all variables in single pass through data
+	local i = 0
+	foreach vname of local vnames {
+		local ++i
+		local vtype : word `i' of `vtypes'
+		local vfmt : word `i' of `vfmts'
+		local valab : word `i' of `valabs'
+
+		// Calculate missing count
+		quietly count if missing(`vname')
+		local nmiss = r(N)
+		matrix `miss_n'[`i', 1] = `nmiss'
+		if `obs' > 0 {
+			matrix `miss_pct'[`i', 1] = round(100*`nmiss'/`obs', 0.1)
+		}
+
+		// Classify variable
+		local isexcluded 0
+		foreach ev of local exclude_vars {
+			if "`vname'" == "`ev'" local isexcluded 1
+		}
+
+		if `isexcluded' {
+			local class_`i' "excluded"
+		}
+		else if strpos("`vtype'", "str") == 1 {
+			local class_`i' "string"
+		}
+		else if strpos("`vfmt'", "%t") > 0 {
+			local class_`i' "date"
+		}
+		else {
+			// For numeric variables: check value label FIRST (more efficient)
+			// If labeled, treat as categorical without expensive tabulation
+			if "`valab'" != "" {
+				local class_`i' "categorical"
+				// Still need unique count for reporting, but use faster method
+				capture tab `vname'
+				if _rc == 0 {
+					matrix `uniq_vals'[`i', 1] = r(r)
+					if `detect_binary' & r(r) == 2 {
+						matrix `is_bin'[`i', 1] = 1
+					}
+				}
 			}
 			else {
-				local pctmiss = .
-			}
-
-			// Go back to varinfo and update
-			use "`varinfo'", clear
-			replace missing_n = `nmiss' in `i'
-			replace missing_pct = `pctmiss' in `i'
-
-			// Classify variable
-			local isexcluded 0
-			foreach ev of local exclude_vars {
-				if "`vname'" == "`ev'" local isexcluded 1
-			}
-
-			if `isexcluded' {
-				replace classification = "excluded" in `i'
-			}
-			else if strpos("`vtype'", "str") == 1 {
-				replace classification = "string" in `i'
-			}
-			else if strpos("`vfmt'", "%t") > 0 {
-				replace classification = "date" in `i'
-			}
-			else {
-				// Count unique values
-				use "`filepath'", clear
-				capture tab `vname', matrow(vals)
+				// No value label - need to check cardinality
+				capture tab `vname'
 				if _rc == 0 {
 					local nuniq = r(r)
+					matrix `uniq_vals'[`i', 1] = `nuniq'
+
+					if `nuniq' <= `maxcat' {
+						local class_`i' "categorical"
+					}
+					else {
+						local class_`i' "continuous"
+					}
+
+					// Check if binary (for detect_binary option)
+					if `detect_binary' & `nuniq' == 2 {
+						matrix `is_bin'[`i', 1] = 1
+					}
 				}
 				else {
 					// Tab failed (too many values), treat as continuous
-					local nuniq = `maxcat' + 1
-				}
-
-				use "`varinfo'", clear
-				replace unique_vals = `nuniq' in `i'
-
-				if "`valab'" != "" | `nuniq' <= `maxcat' {
-					replace classification = "categorical" in `i'
-				}
-				else {
-					replace classification = "continuous" in `i'
-				}
-
-				// Check if binary (for detect_binary option)
-				if `detect_binary' & `nuniq' == 2 {
-					replace is_binary = 1 in `i'
+					matrix `uniq_vals'[`i', 1] = `maxcat' + 1
+					local class_`i' "continuous"
 				}
 			}
-
-			// Quality checks if requested
-			if "`quality_level'" != "" & !`isexcluded' {
-				use "`filepath'", clear
-				local qflag ""
-
-				// Check for implausible values based on variable name
-				if regexm(lower("`vname'"), "age") {
-					quietly summarize `vname'
-					if !missing(r(min)) & r(min) < 0 {
-						local qflag "negative age values"
-					}
-					else if !missing(r(max)) & r(max) > 120 {
-						if "`quality_level'" == "strict" & r(max) > 100 {
-							local qflag "age >100"
-						}
-						else if r(max) > 120 {
-							local qflag "age >120"
-						}
-					}
-				}
-				else if regexm(lower("`vname'"), "count|number|^n_") {
-					quietly summarize `vname'
-					if !missing(r(min)) & r(min) < 0 {
-						local qflag "negative count"
-					}
-				}
-				else if regexm(lower("`vname'"), "percent|pct|proportion") {
-					quietly summarize `vname'
-					if !missing(r(min)) & (r(min) < 0 | r(max) > 100) {
-						local qflag "percent out of range 0-100"
-					}
-				}
-
-				use "`varinfo'", clear
-				if "`qflag'" != "" {
-					replace quality_flag = "`qflag'" in `i'
-				}
-			}
-
-			// Save varinfo after each iteration to preserve changes
-			save "`varinfo'", replace
 		}
+
+		// Quality checks if requested (while we have the data in memory)
+		if "`quality_level'" != "" & !`isexcluded' {
+			local qflag ""
+
+			// Check for implausible values based on variable name
+			if regexm(lower("`vname'"), "age") {
+				quietly summarize `vname'
+				if !missing(r(min)) & r(min) < 0 {
+					local qflag "negative age values"
+				}
+				else if !missing(r(max)) & r(max) > 120 {
+					if "`quality_level'" == "strict" & r(max) > 100 {
+						local qflag "age >100"
+					}
+					else if r(max) > 120 {
+						local qflag "age >120"
+					}
+				}
+			}
+			else if regexm(lower("`vname'"), "count|number|^n_") {
+				quietly summarize `vname'
+				if !missing(r(min)) & r(min) < 0 {
+					local qflag "negative count"
+				}
+			}
+			else if regexm(lower("`vname'"), "percent|pct|proportion") {
+				quietly summarize `vname'
+				if !missing(r(min)) & (r(min) < 0 | r(max) > 100) {
+					local qflag "percent out of range 0-100"
+				}
+			}
+
+			local qflag_`i' "`qflag'"
+		}
+	}
+
+	// Now load varinfo ONCE and update all values from matrices
+	use "`varinfo'", clear
+
+	forvalues i = 1/`nvars' {
+		replace missing_n = `miss_n'[`i', 1] in `i'
+		replace missing_pct = `miss_pct'[`i', 1] in `i'
+
+		if `uniq_vals'[`i', 1] != . {
+			replace unique_vals = `uniq_vals'[`i', 1] in `i'
+		}
+
+		replace is_binary = `is_bin'[`i', 1] in `i'
+
+		if "`class_`i''" != "" {
+			replace classification = "`class_`i''" in `i'
+		}
+
+		if "`qflag_`i''" != "" {
+			replace quality_flag = "`qflag_`i''" in `i'
+		}
+	}
+
+	// Save varinfo ONCE at the end
+	save "`varinfo'", replace
 
 	save "`classifications'", replace
 
@@ -1536,42 +1583,71 @@ program define DetectPanel
 
 	// Auto-detect panel ID if not specified
 	if "`panelid'" == "" {
-		// Get list of all variables
-		quietly describe, varlist
-		local allvars `r(varlist)'
+		// PRIORITY 1: Check if xtset is already defined
+		capture xtset
+		if _rc == 0 & "`r(panelvar)'" != "" {
+			local panelid "`r(panelvar)'"
+		}
+		else {
+			// Get list of all variables
+			quietly describe, varlist
+			local allvars `r(varlist)'
 
-		local potential_ids ""
+			// PRIORITY 2: Look for variables with ID-related names first
+			// This prevents demographic variables like gender/race from being
+			// incorrectly identified as panel IDs
+			local name_based_ids ""
+			local cardinality_ids ""
 
-		// Check each variable
-		foreach vname of local allvars {
-			// Get variable type
-			local vtype : type `vname'
-			local vfmt : format `vname'
+			// Check each variable
+			foreach vname of local allvars {
+				// Get variable type
+				local vtype : type `vname'
+				local vfmt : format `vname'
+				local vname_lower = lower("`vname'")
 
-			// Skip strings and dates
-			if strpos("`vtype'", "str") == 0 & strpos("`vfmt'", "%t") == 0 {
-				quietly count if !missing(`vname')
-				local nonmiss = r(N)
-				if `nonmiss' > 0 {
-					capture tab `vname'
-					if _rc == 0 {
-						local nuniq = r(r)
-						// Check if unique < 50% of total N
-						if `nuniq' < `nonmiss' * 0.5 & `nuniq' > 1 {
-							local potential_ids "`potential_ids' `vname'"
+				// Skip strings and dates
+				if strpos("`vtype'", "str") == 0 & strpos("`vfmt'", "%t") == 0 {
+					quietly count if !missing(`vname')
+					local nonmiss = r(N)
+					if `nonmiss' > 0 {
+						capture tab `vname'
+						if _rc == 0 {
+							local nuniq = r(r)
+
+							// Check if unique < 50% of total N (potential panel variable)
+							if `nuniq' < `nonmiss' * 0.5 & `nuniq' > 1 {
+								// PRIORITY 2a: Check for ID-related naming patterns
+								// Patterns: ends with "id", contains "_id", starts with "id_",
+								// or contains common ID terms
+								if regexm("`vname_lower'", "id$|_id$|_id_|^id_|^id$") | ///
+								   regexm("`vname_lower'", "patient|subject|person|individual") | ///
+								   regexm("`vname_lower'", "participant|respondent|member") | ///
+								   regexm("`vname_lower'", "code$|_code$|^code_") | ///
+								   regexm("`vname_lower'", "^pat_|^sub_|^ind_") {
+									local name_based_ids "`name_based_ids' `vname'"
+								}
+								else {
+									// Cardinality-based detection (fallback)
+									local cardinality_ids "`cardinality_ids' `vname'"
+								}
+							}
 						}
 					}
 				}
 			}
-		}
 
-		// Use first potential ID found
-		if "`potential_ids'" != "" {
-			local panelid : word 1 of `potential_ids'
-		}
-		else {
-			// No panel structure detected
-			exit
+			// Select panel ID with priority: name-based first, then cardinality-based
+			if "`name_based_ids'" != "" {
+				local panelid : word 1 of `name_based_ids'
+			}
+			else if "`cardinality_ids'" != "" {
+				local panelid : word 1 of `cardinality_ids'
+			}
+			else {
+				// No panel structure detected
+				exit
+			}
 		}
 	}
 

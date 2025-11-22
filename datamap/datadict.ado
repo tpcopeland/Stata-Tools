@@ -390,13 +390,19 @@ program define ProcessDatasetMarkdown
 		di as text "  Warning: Dataset `filepath' has 0 observations - limited documentation generated"
 	}
 
-	// Extract basename
-	local basename = "`filepath'"
-	if strpos("`filepath'", "/") > 0 {
-		local basename = reverse("`filepath'")
+	// Extract basename from filepath
+	// Normalize slashes first to handle mixed path separators (Windows/Unix)
+	local normalized_path = subinstr("`filepath'", "\", "/", .)
+	local basename = "`normalized_path'"
+
+	if strpos("`normalized_path'", "/") > 0 {
+		local basename = reverse("`normalized_path'")
 		local slashpos = strpos("`basename'", "/")
 		if `slashpos' > 0 {
 			local basename = reverse(substr("`basename'", 1, `slashpos'-1))
+		}
+		else {
+			local basename = "`normalized_path'"
 		}
 	}
 
@@ -482,6 +488,7 @@ end
 
 // =============================================================================
 // Helper: ClassifyVariable (returns classification string)
+// Optimized: checks value labels first before expensive tabulation
 // =============================================================================
 program define ClassifyVariable, rclass
 	args vname vtype vfmt maxcat exclude
@@ -504,16 +511,17 @@ program define ClassifyVariable, rclass
 		return local class "date"
 	}
 	else {
-		// Check for value label or cardinality
+		// Check for value label FIRST (most efficient)
+		// If labeled, treat as categorical without expensive tabulation
 		local valab: value label `vname'
 
-		// If labeled, treat as categorical regardless of size
 		if "`valab'" != "" {
 			return local class "categorical"
 			exit
 		}
 
-		// Check cardinality
+		// No value label - need to check cardinality
+		// Use quietly to suppress output
 		capture quietly tab `vname'
 		if _rc == 0 {
 			local nuniq = r(r)
@@ -526,6 +534,7 @@ program define ClassifyVariable, rclass
 		}
 		else {
 			// Tab failed (too many values) and no label -> continuous
+			// This is expected for high-cardinality continuous variables
 			return local class "continuous"
 		}
 	}
