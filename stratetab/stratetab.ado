@@ -1,6 +1,6 @@
 *! stratetab | Version 1.0.0
 *! Author: Tim Copeland
-*! Revised: November 22, 2025
+*! Revised: November 17, 2025
 
 program define stratetab, rclass
 version 17
