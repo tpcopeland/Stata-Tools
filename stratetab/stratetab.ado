@@ -1,6 +1,6 @@
 *! stratetab | Version 1.0.0
 *! Author: Tim Copeland
-*! Revised: November 17, 2025
+*! Revised: November 22, 2025
 
 program define stratetab, rclass
 version 17
@@ -56,51 +56,25 @@ version 17
         clear
         quietly gen str244 c1 = ""
         quietly gen str244 c2 = ""
-        quietly quietly gen str244 c3 = ""
+        quietly gen str244 c3 = ""
         quietly gen str244 c4 = ""
         quietly gen str244 c5 = ""
+        
+        * Tracking variable for formatting (1=Title, 2=Label, 3=Header, 4=Data)
+        quietly gen byte row_type = . 
+        
         quietly set obs 1
         quietly replace c1 = "`title'" in 1
+        quietly replace row_type = 1 in 1
     }
 
     * -------------------------------------------------------
-    * 3. DETERMINE HEADER (Using first file)
-    * -------------------------------------------------------
-    frame create worker
-    local first_file : word 1 of `using'
-    frame worker {
-        qui use "`first_file'.dta", clear
-        get_categorical_var
-        local catvar_name "`catvar'"
-        
-        * Get variable label
-        local varlabel : variable label `catvar_name'
-        if "`varlabel'" == "" local varlabel "`catvar_name'"
-    }
-
-    frame results {
-        local col1_header "Outcomes by `varlabel'"
-        
-        * Add Column Headers
-        local new = _N + 1
-        quietly set obs `new'
-        quietly replace c2 = "`col1_header'" in `new'
-        quietly replace c3 = "Events" in `new'
-        if "`unitlabel'" != "" {
-            quietly replace c4 = "Person-years" + char(10) + "(`unitlabel's)" in `new'
-            quietly replace c5 = "Rate per `unitlabel'" + char(10) + "person-years (95% CI)" in `new'
-        }
-        else {
-            quietly replace c4 = "Person-years" in `new'
-            quietly replace c5 = "Rate (95% CI)" in `new'
-        }
-    }
-
-    * -------------------------------------------------------
-    * 4. PROCESS FILES LOOP
+    * 3. PROCESS FILES LOOP (Headers moved here)
     * -------------------------------------------------------
     forvalues f = 1/`n_files' {
         local file : word `f' of `using'
+        
+        frame create worker
         
         * -- LOAD AND FORMAT IN WORKER FRAME --
         frame worker {
@@ -115,7 +89,12 @@ version 17
                 }
 
                 get_categorical_var
+                local catvar_name "`catvar'"
                 
+                * Get variable label for the Header
+                local varlabel : variable label `catvar_name'
+                if "`varlabel'" == "" local varlabel "`catvar_name'"
+
                 * Ensure string
                 cap confirm string var `catvar'
                 if _rc {
@@ -128,7 +107,7 @@ version 17
                 * Format numbers
                 format_strate_data `eventdigits' `pydigits' `digits'
                 
-                * Extract data to locals to pass across frames
+                * Extract data to locals
                 local data_count = _N
                 if `data_count' == 0 {
                     noisily di as text "Warning: File `file'.dta has 0 rows."
@@ -142,17 +121,40 @@ version 17
                 }
             }
         }
+        
+        * Cleanup worker frame immediately to prepare for next loop
+        frame drop worker
 
         * -- WRITE TO RESULTS FRAME --
         frame results {
             qui {
-                * 1. Add Outcome Header
                 local current_n = _N
+                
+                * A. Add File Label (e.g., "Cardiovascular Disease")
                 local new = `current_n' + 1
                 quietly set obs `new'
                 quietly replace c2 = "`lab`f''" in `new'
+                quietly replace row_type = 2 in `new'
                 
-                * 2. Add Data Rows
+                * B. Add Column Headers (Dynamic per file)
+                local header_row = `new' + 1
+                quietly set obs `header_row'
+                
+                local col1_header "Outcomes by `varlabel'"
+                quietly replace c2 = "`col1_header'" in `header_row'
+                quietly replace c3 = "Events" in `header_row'
+                
+                if "`unitlabel'" != "" {
+                    quietly replace c4 = "Person-years" + char(10) + "(`unitlabel's)" in `header_row'
+                    quietly replace c5 = "Rate per `unitlabel'" + char(10) + "person-years (95% CI)" in `header_row'
+                }
+                else {
+                    quietly replace c4 = "Person-years" in `header_row'
+                    quietly replace c5 = "Rate (95% CI)" in `header_row'
+                }
+                quietly replace row_type = 3 in `header_row'
+                
+                * C. Add Data Rows
                 local current_n = _N
                 local new_total = `current_n' + `data_count'
                 quietly set obs `new_total'
@@ -163,40 +165,29 @@ version 17
                     quietly replace c3 = "`v2_`i''" in `row'
                     quietly replace c4 = "`v3_`i''" in `row'
                     quietly replace c5 = "`v4_`i''" in `row'
+                    quietly replace row_type = 4 in `row'
                 }
+                
+                * Add a blank spacer row for readability (optional)
+                local spacer = `new_total' + 1
+                quietly set obs `spacer'
+                quietly replace row_type = 0 in `spacer'
             }
         }
     }
 
-    * Cleanup worker frame
-    frame drop worker
-
     * -------------------------------------------------------
-    * 5. EXPORT AND FORMAT
+    * 4. EXPORT AND FORMAT
     * -------------------------------------------------------
     frame results {
         qui {
             local lastrow = _N
-            gen outcome_row = (c3 == "" & c2 != "" & _n > 2)
-            local outcome_rows ""
-            forvalues r = 3/`lastrow' {
-                if outcome_row[`r'] == 1 {
-                    local outcome_rows "`outcome_rows' `r'"
-                }
-            }
-
             local sht = cond("`sheet'" != "", "`sheet'", "Results")
-            export excel c1-c5 using "`xlsx'", sheet("`sht'") sheetreplace
-
-            * Auto-fit logic
+            
+            * Calculate widths before dropping row_type
+            * (Logic simplified to look at max width of columns)
             forvalues i = 1(1)5 {
                 quietly gen c`i'_length = length(c`i')
-            }
-            if "`unitlabel'" != "" {
-                quietly replace c4_length = c4_length - length(" (`unitlabel's)") if _n == 2
-                quietly replace c5_length = c5_length - length(" per `unitlabel' person-years") if _n == 2 
-            }
-            forvalues i = 1(1)5 {
                 sum c`i'_length
                 local max_c`i' = r(max)
             }
@@ -211,40 +202,60 @@ version 17
                 local col_d_width = max(ceil(`max_c4' * 1.15), 13)
                 local col_e_width = max(ceil(`max_c5' * 1.1), 20)
             }
-        }
-        
-        * Apply Mata formatting
-        qui {
+
+            * Export Data (Excluding row_type)
+            export excel c1-c5 using "`xlsx'", sheet("`sht'") sheetreplace
+
+            * ---------------------------------------------------
+            * APPLY MATA (Column Widths)
+            * ---------------------------------------------------
             mata: b = xl()
             mata: b.load_book("`xlsx'")
             mata: b.set_sheet("`sht'")
-            mata: b.set_row_height(1,1,30)
-            mata: b.set_row_height(2,2,30)
+            mata: b.set_row_height(1, `lastrow', 15) // Default height
             mata: b.set_column_width(2,2,`col_b_width')
             mata: b.set_column_width(3,3,`col_c_width')
             mata: b.set_column_width(4,4,`col_d_width')
             mata: b.set_column_width(5,5,`col_e_width')
             mata: b.close_book()
 
+            * ---------------------------------------------------
+            * APPLY PUTEXCEL (Styles)
+            * ---------------------------------------------------
             putexcel set "`xlsx'", sheet("`sht'") modify
+            
+            * 1. Title (row_type 1)
             putexcel (A1:E1), merge txtwrap left top bold font(Arial,10) 
             
-            * UPDATED BORDER SYNTAX HERE:
-            putexcel (B2:E2), txtwrap bold hcenter vcenter font(Arial,10) border(top, thin)
-            putexcel (B2:E2), border(bottom, thin)
-            
-            putexcel (B2:E`lastrow'), font(Arial,10)
-            putexcel (B2:B`lastrow'), left
-            putexcel (C2:E`lastrow'), hcenter
-
-            foreach r of local outcome_rows {
-                putexcel (B`r':E`r'), border(top,thin) bold left
+            * 2. Loop through rows to apply styles based on row_type
+            forvalues r = 1/`lastrow' {
+                * Get row type
+                local rt = row_type[`r']
+                
+                * Type 2: File Label (e.g., "Outcome A")
+                if `rt' == 2 {
+                    putexcel (B`r':E`r'), bold left font(Arial,10) border(top, thin)
+                    putexcel (B`r':E`r'), border(bottom, thin) fillcolor("gray", 0.1)
+                }
+                
+                * Type 3: Column Headers (Outcomes | Events | Rate)
+                if `rt' == 3 {
+                    putexcel (B`r':E`r'), bold hcenter vcenter txtwrap font(Arial,10) border(bottom, thin)
+                    mata: b = xl()
+                    mata: b.load_book("`xlsx'")
+                    mata: b.set_sheet("`sht'")
+                    mata: b.set_row_height(`r',`r',30)
+                    mata: b.close_book()
+                }
+                
+                * Type 4: Data
+                if `rt' == 4 {
+                    putexcel (B`r'), left font(Arial,10) border(left, thin) border(right, thin)
+                    putexcel (C`r':E`r'), hcenter font(Arial,10) border(right, thin)
+                }
             }
-
-            putexcel (B2:B`lastrow'), border(left, thin)
-            putexcel (B2:B`lastrow'), border(right, thin)
-            putexcel (E2:E`lastrow'), border(right, thin)
-            putexcel (B`lastrow':E`lastrow'), border(bottom, thin)
+            
+            * Final cleanup
             putexcel clear
         }
         
