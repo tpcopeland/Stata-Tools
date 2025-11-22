@@ -30,7 +30,6 @@ version 17
     * -------------------------------------------------------
     local n_files : word count `using'
     if "`labels'" != "" {
-        * Normalize whitespace and tokenize by backslash
         local labels = ustrregexra("`labels'", " *\\ *", "\")
         tokenize "`labels'", parse("\")
         forvalues i = 1/`n_files' {
@@ -47,7 +46,6 @@ version 17
     * -------------------------------------------------------
     * 2. SETUP RESULTS FRAME
     * -------------------------------------------------------
-    * Clean up any existing frames from failed runs
     cap frame drop results
     cap frame drop worker
     
@@ -69,19 +67,16 @@ version 17
     }
 
     * -------------------------------------------------------
-    * 3. PROCESS FILES LOOP (Headers moved here)
+    * 3. PROCESS FILES LOOP
     * -------------------------------------------------------
     forvalues f = 1/`n_files' {
         local file : word `f' of `using'
         
         frame create worker
-        
-        * -- LOAD AND FORMAT IN WORKER FRAME --
         frame worker {
             qui {
                 quietly use "`file'.dta", clear
                 
-                * Check for required variables
                 cap confirm var _Rate _Lower _Upper _D _Y
                 if _rc {
                     noisily di as err "Error: `file'.dta is missing required strate columns."
@@ -90,12 +85,9 @@ version 17
 
                 get_categorical_var
                 local catvar_name "`catvar'"
-                
-                * Get variable label for the Header
                 local varlabel : variable label `catvar_name'
                 if "`varlabel'" == "" local varlabel "`catvar_name'"
 
-                * Ensure string
                 cap confirm string var `catvar'
                 if _rc {
                     decode `catvar', gen(catvar_str)
@@ -104,10 +96,8 @@ version 17
                     gen catvar_str = `catvar'
                 }
                 
-                * Format numbers
                 format_strate_data `eventdigits' `pydigits' `digits'
                 
-                * Extract data to locals
                 local data_count = _N
                 if `data_count' == 0 {
                     noisily di as text "Warning: File `file'.dta has 0 rows."
@@ -121,8 +111,6 @@ version 17
                 }
             }
         }
-        
-        * Cleanup worker frame immediately to prepare for next loop
         frame drop worker
 
         * -- WRITE TO RESULTS FRAME --
@@ -130,13 +118,13 @@ version 17
             qui {
                 local current_n = _N
                 
-                * A. Add File Label (e.g., "Cardiovascular Disease")
+                * A. Add File Label
                 local new = `current_n' + 1
                 quietly set obs `new'
                 quietly replace c2 = "`lab`f''" in `new'
                 quietly replace row_type = 2 in `new'
                 
-                * B. Add Column Headers (Dynamic per file)
+                * B. Add Column Headers
                 local header_row = `new' + 1
                 quietly set obs `header_row'
                 
@@ -168,7 +156,6 @@ version 17
                     quietly replace row_type = 4 in `row'
                 }
                 
-                * Add a blank spacer row for readability (optional)
                 local spacer = `new_total' + 1
                 quietly set obs `spacer'
                 quietly replace row_type = 0 in `spacer'
@@ -184,8 +171,6 @@ version 17
             local lastrow = _N
             local sht = cond("`sheet'" != "", "`sheet'", "Results")
             
-            * Calculate widths before dropping row_type
-            * (Logic simplified to look at max width of columns)
             forvalues i = 1(1)5 {
                 quietly gen c`i'_length = length(c`i')
                 sum c`i'_length
@@ -203,42 +188,32 @@ version 17
                 local col_e_width = max(ceil(`max_c5' * 1.1), 20)
             }
 
-            * Export Data (Excluding row_type)
             export excel c1-c5 using "`xlsx'", sheet("`sht'") sheetreplace
 
-            * ---------------------------------------------------
-            * APPLY MATA (Column Widths)
-            * ---------------------------------------------------
             mata: b = xl()
             mata: b.load_book("`xlsx'")
             mata: b.set_sheet("`sht'")
-            mata: b.set_row_height(1, `lastrow', 15) // Default height
+            mata: b.set_row_height(1, `lastrow', 15)
             mata: b.set_column_width(2,2,`col_b_width')
             mata: b.set_column_width(3,3,`col_c_width')
             mata: b.set_column_width(4,4,`col_d_width')
             mata: b.set_column_width(5,5,`col_e_width')
             mata: b.close_book()
 
-            * ---------------------------------------------------
-            * APPLY PUTEXCEL (Styles)
-            * ---------------------------------------------------
             putexcel set "`xlsx'", sheet("`sht'") modify
             
-            * 1. Title (row_type 1)
             putexcel (A1:E1), merge txtwrap left top bold font(Arial,10) 
             
-            * 2. Loop through rows to apply styles based on row_type
             forvalues r = 1/`lastrow' {
-                * Get row type
                 local rt = row_type[`r']
                 
-                * Type 2: File Label (e.g., "Outcome A")
+                * Type 2: File Label
                 if `rt' == 2 {
                     putexcel (B`r':E`r'), bold left font(Arial,10) border(top, thin)
-                    putexcel (B`r':E`r'), border(bottom, thin) fillcolor("gray", 0.1)
+                    putexcel (B`r':E`r'), border(bottom, thin)
                 }
                 
-                * Type 3: Column Headers (Outcomes | Events | Rate)
+                * Type 3: Column Headers
                 if `rt' == 3 {
                     putexcel (B`r':E`r'), bold hcenter vcenter txtwrap font(Arial,10) border(bottom, thin)
                     mata: b = xl()
@@ -254,8 +229,6 @@ version 17
                     putexcel (C`r':E`r'), hcenter font(Arial,10) border(right, thin)
                 }
             }
-            
-            * Final cleanup
             putexcel clear
         }
         
@@ -266,14 +239,8 @@ version 17
         return local xlsx "`xlsx'"
         return local sheet "`sht'"
     }
-    
-    * Close main frame
     frame drop results
 end
-
-* --------------------------------------------------------
-* HELPER PROGRAMS
-* --------------------------------------------------------
 
 program format_strate_data
     args eventdigits pydigits digits
