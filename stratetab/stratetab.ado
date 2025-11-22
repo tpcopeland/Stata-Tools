@@ -77,8 +77,6 @@ version 17
         local varlabel : variable label `catvar_name'
         if "`varlabel'" == "" local varlabel "`catvar_name'"
     }
-    * Check if all files have same categorical structure (optional but good practice)
-    * (Skipping complex check for speed, assuming user consistency)
 
     frame results {
         local col1_header "Outcomes by `varlabel'"
@@ -226,69 +224,4 @@ version 17
             mata: b.set_column_width(3,3,`col_c_width')
             mata: b.set_column_width(4,4,`col_d_width')
             mata: b.set_column_width(5,5,`col_e_width')
-            mata: b.close_book()
-
-            putexcel set "`xlsx'", sheet("`sht'") modify
-            putexcel (A1:E1), merge txtwrap left top bold font(Arial,10) 
-            putexcel (B2:E2), txtwrap bold hcenter vcenter font(Arial,10) border(top,thin) border(bottom,thin)
-            putexcel (B2:E`lastrow'), font(Arial,10)
-            putexcel (B2:B`lastrow'), left
-            putexcel (C2:E`lastrow'), hcenter
-
-            foreach r of local outcome_rows {
-                putexcel (B`r':E`r'), border(top,thin) bold left
-            }
-
-            putexcel (B2:B`lastrow'), border(left,thin) border(right,thin)
-            putexcel (E2:E`lastrow'), border(right,thin)
-            putexcel (B`lastrow':E`lastrow'), border(bottom,thin)
-            putexcel clear
-        }
-        
-        di as txt "Exported to `xlsx' with `lastrow' rows."
-        
-        return scalar N_files = `n_files'
-        return scalar N_rows = `lastrow'
-        return local xlsx "`xlsx'"
-        return local sheet "`sht'"
-    }
-    
-    * Close main frame
-    frame drop results
-end
-
-* --------------------------------------------------------
-* HELPER PROGRAMS
-* --------------------------------------------------------
-
-program format_strate_data
-    args eventdigits pydigits digits
-
-    if `eventdigits' == 0 {
-        gen ev = string(_D, "%11.0fc")
-    }
-    else {
-        gen ev = string(_D, "%11.`eventdigits'fc")
-    }
-
-    if `pydigits' == 0 {
-        gen py = string(round(_Y,1), "%11.0fc")
-    }
-    else {
-        gen py = string(_Y, "%11.`pydigits'fc")
-    }
-
-    gen rt = trim(string(round(_Rate,10^(-`digits')), "%11.`digits'f")) + " (" + ///
-             trim(string(round(_Lower,10^(-`digits')), "%11.`digits'f")) + "-" + ///
-             trim(string(round(_Upper,10^(-`digits')), "%11.`digits'f")) + ")"
-end
-
-program get_categorical_var
-    unab allvars : *
-    foreach v of local allvars {
-        if !inlist("`v'", "_D", "_Y", "_Rate", "_Lower", "_Upper") {
-            c_local catvar "`v'"
-            exit
-        }
-    }
-end
+            mata
