@@ -24,7 +24,7 @@ BEGIN
   FILE     fi_using      20  +20 610  ., error("Event dataset") ///
            label("Browse...") filter("Stata datasets|*.dta|All files|*.*")
 
-  GROUPBOX gb_required   10  60  620  120, label("Required variables")
+  GROUPBOX gb_required   10  60  620  115, label("Required variables")
   TEXT     tx_id         20  +15 280  ., label("Person ID variable:")
   VARNAME  vn_id         @   +20 @    ., label("ID variable")
 
@@ -34,7 +34,7 @@ BEGIN
   TEXT     tx_gen        20  +25 280  ., label("Generate indicator variable:")
   EDIT     ed_gen        @   +20 @    ., label("Generate") option(generate)
 
-  GROUPBOX gb_type       10  185 620  80, label("Event type")
+  GROUPBOX gb_type       10  185 620  70, label("Event type")
   RADIO    rb_single     20  +20 590  ., label("Single (terminal) - drops post-event time (e.g., death)") first
   RADIO    rb_recur      @   +20 @    ., label("Recurring - keeps all time (e.g., hospitalization)") last
 
@@ -59,11 +59,11 @@ END
 
 DIALOG advanced, tabtitle("Advanced")
 BEGIN
-  GROUPBOX gb_cont       10  10  620  80, label("Continuous adjustment")
+  GROUPBOX gb_cont       10  10  620  75, label("Continuous adjustment")
   TEXT     tx_cont       20  +20 590  ., label("Cumulative exposure variables to adjust (in master):")
   VARLIST  vl_cont       @   +20 @    ., label("Continuous") option(continuous)
 
-  GROUPBOX gb_time       10  95  620  120, label("Time generation")
+  GROUPBOX gb_time       10  95  620  100, label("Time generation")
   CHECKBOX ck_time       20  +20 280  ., label("Generate duration variable") ///
            onclickon(script time_on) onclickoff(script time_off)
   TEXT     tx_timegen    20  +25 180  ., label("Variable name:")
@@ -72,7 +72,7 @@ BEGIN
   COMBOBOX cb_timeunit   @   +20 180  ., dropdownlist contents(units) ///
            option(timeunit)
 
-  GROUPBOX gb_keep       10  220 620  80, label("Additional data")
+  GROUPBOX gb_keep       10  220 620  75, label("Additional data")
   TEXT     tx_keep       20  +20 590  ., label("Keep variables from event dataset:")
   EDIT     ed_keep       @   +20 @    ., label("Keep variables") option(keepvars)
 END
