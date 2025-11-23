@@ -25,7 +25,7 @@ BEGIN
            label("Browse...") filter("Stata datasets|*.dta|All files|*.*")
 
   GROUPBOX gb_required   10  60  620  120, label("Required variables")
-  TEXT     tx_id         20  +20 280  ., label("Person ID variable:")
+  TEXT     tx_id         20  +15 280  ., label("Person ID variable:")
   VARNAME  vn_id         @   +20 @    ., label("ID variable")
 
   TEXT     tx_date       330 -20 280  ., label("Event date variable (in using):")

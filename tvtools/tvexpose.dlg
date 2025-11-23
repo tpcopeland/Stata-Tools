@@ -80,7 +80,7 @@ BEGIN
            option(expandunit)
 
   GROUPBOX gb_bytype     10  295 620  55,  label("Output variables")
-  CHECKBOX ck_bytype     20  +20 590  ., label("Create separate variable for each exposure type (not available for basic time-varying)") ///
+  CHECKBOX ck_bytype     20  +15 590  ., label("Create separate variable for each exposure type (not available for basic time-varying)") ///
            option(bytype)
 END
 
