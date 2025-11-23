@@ -2311,41 +2311,45 @@ program define tvexpose, rclass
             
             * Calculate cumulative exposure for each type
             foreach exp_type_val of local exp_types {
+                local suffix = subinstr("`exp_type_val'", "-", "neg", .)
+                local suffix = subinstr("`suffix'", ".", "p", .)
                 sort id exp_start
-                quietly gen double __period_days_`exp_type_val' = exp_stop - exp_start + 1 if __orig_exp_category == `exp_type_val'
-                quietly replace __period_days_`exp_type_val' = 0 if missing(__period_days_`exp_type_val')
-                quietly by id: gen double __cumul_days_`exp_type_val' = sum(__period_days_`exp_type_val')
-                
+                quietly gen double __period_days_`suffix' = exp_stop - exp_start + 1 if __orig_exp_category == `exp_type_val'
+                quietly replace __period_days_`suffix' = 0 if missing(__period_days_`suffix')
+                quietly by id: gen double __cumul_days_`suffix' = sum(__period_days_`suffix')
+
                 * For each threshold, find the exact date when person crosses it
                 if `n_cuts' > 0 {
                     forvalues i = 1/`n_cuts' {
                         local thresh_units = ``i''
                         local thresh_days = `thresh_units' * `unit_divisor'
-                        
+
                         * Generate threshold crossing date
                         * Date = start of period containing threshold + days needed to reach threshold
-                        quietly by id: gen double __thresh_date_`exp_type_val'_`i' = .
-                        
+                        quietly by id: gen double __thresh_date_`suffix'_`i' = .
+
                         * Find period where cumulative crosses threshold
-                        quietly by id: replace __thresh_date_`exp_type_val'_`i' = ///
-                            exp_start + ceil(`thresh_days' - (__cumul_days_`exp_type_val' - __period_days_`exp_type_val')) ///
+                        quietly by id: replace __thresh_date_`suffix'_`i' = ///
+                            exp_start + ceil(`thresh_days' - (__cumul_days_`suffix' - __period_days_`suffix')) ///
                             if __orig_exp_category == `exp_type_val' & ///
-                            (__cumul_days_`exp_type_val' - __period_days_`exp_type_val') < `thresh_days' & ///
-                            __cumul_days_`exp_type_val' >= `thresh_days'
-                        
+                            (__cumul_days_`suffix' - __period_days_`suffix') < `thresh_days' & ///
+                            __cumul_days_`suffix' >= `thresh_days'
+
                         * Ensure threshold date is within period bounds
-                        quietly replace __thresh_date_`exp_type_val'_`i' = . if __thresh_date_`exp_type_val'_`i' > exp_stop
+                        quietly replace __thresh_date_`suffix'_`i' = . if __thresh_date_`suffix'_`i' > exp_stop
                     }
                 }
             }
-            
+
             * Collect all threshold dates - keep wide format (one row per ID)
             foreach exp_type_val of local exp_types {
+                local suffix = subinstr("`exp_type_val'", "-", "neg", .)
+                local suffix = subinstr("`suffix'", ".", "p", .)
                 if `n_cuts' > 0 {
                     forvalues i = 1/`n_cuts' {
-                        quietly by id: egen double __max_thresh_`exp_type_val'_`i' = max(__thresh_date_`exp_type_val'_`i')
-                        quietly drop __thresh_date_`exp_type_val'_`i'
-                        quietly rename __max_thresh_`exp_type_val'_`i' __thresh_date_`exp_type_val'_`i'
+                        quietly by id: egen double __max_thresh_`suffix'_`i' = max(__thresh_date_`suffix'_`i')
+                        quietly drop __thresh_date_`suffix'_`i'
+                        quietly rename __max_thresh_`suffix'_`i' __thresh_date_`suffix'_`i'
                     }
                 }
             }
@@ -2367,9 +2371,11 @@ program define tvexpose, rclass
                 clear
                 quietly gen double id = .
                 foreach exp_type_val of local exp_types {
+                    local suffix = subinstr("`exp_type_val'", "-", "neg", .)
+                    local suffix = subinstr("`suffix'", ".", "p", .)
                     if `n_cuts' > 0 {
                         forvalues i = 1/`n_cuts' {
-                            quietly gen double __thresh_date_`exp_type_val'_`i' = .
+                            quietly gen double __thresh_date_`suffix'_`i' = .
                         }
                     }
                 }
@@ -2388,10 +2394,12 @@ program define tvexpose, rclass
                 * Identify periods that need splitting by checking each threshold variable
                 quietly gen double __needs_split = 0
                 foreach exp_type_val of local exp_types {
+                    local suffix = subinstr("`exp_type_val'", "-", "neg", .)
+                    local suffix = subinstr("`suffix'", ".", "p", .)
                     if `n_cuts' > 0 {
                         forvalues i = 1/`n_cuts' {
-                            quietly replace __needs_split = 1 if !missing(__thresh_date_`exp_type_val'_`i') & ///
-                                __thresh_date_`exp_type_val'_`i' > exp_start & __thresh_date_`exp_type_val'_`i' <= exp_stop
+                            quietly replace __needs_split = 1 if !missing(__thresh_date_`suffix'_`i') & ///
+                                __thresh_date_`suffix'_`i' > exp_start & __thresh_date_`suffix'_`i' <= exp_stop
                         }
                     }
                 }
@@ -2410,10 +2418,12 @@ program define tvexpose, rclass
                     quietly gen double __obs_id = _n
                     local split_vars ""
                     foreach exp_type_val of local exp_types {
+                        local suffix = subinstr("`exp_type_val'", "-", "neg", .)
+                        local suffix = subinstr("`suffix'", ".", "p", .)
                         if `n_cuts' > 0 {
                             forvalues i = 1/`n_cuts' {
-                                quietly gen __split_`exp_type_val'_`i' = __thresh_date_`exp_type_val'_`i'
-                                local split_vars "`split_vars' __split_`exp_type_val'_`i'"
+                                quietly gen __split_`suffix'_`i' = __thresh_date_`suffix'_`i'
+                                local split_vars "`split_vars' __split_`suffix'_`i'"
                             }
                         }
                     }
@@ -2470,9 +2480,11 @@ program define tvexpose, rclass
                     * Clean up
                     quietly drop boundary boundary_type split_date __obs_id __needs_split
                     foreach exp_type_val of local exp_types {
+                        local suffix = subinstr("`exp_type_val'", "-", "neg", .)
+                        local suffix = subinstr("`suffix'", ".", "p", .)
                         if `n_cuts' > 0 {
                             forvalues i = 1/`n_cuts' {
-                                quietly drop __thresh_date_`exp_type_val'_`i'
+                                quietly drop __thresh_date_`suffix'_`i'
                             }
                         }
                     }
@@ -2488,9 +2500,11 @@ program define tvexpose, rclass
                     quietly drop if __needs_split == 1
                     quietly drop __needs_split
                     foreach exp_type_val of local exp_types {
+                        local suffix = subinstr("`exp_type_val'", "-", "neg", .)
+                        local suffix = subinstr("`suffix'", ".", "p", .)
                         if `n_cuts' > 0 {
                             forvalues i = 1/`n_cuts' {
-                                quietly drop __thresh_date_`exp_type_val'_`i'
+                                quietly drop __thresh_date_`suffix'_`i'
                             }
                         }
                     }
@@ -2500,9 +2514,11 @@ program define tvexpose, rclass
                 else {
                     quietly drop __needs_split
                     foreach exp_type_val of local exp_types {
+                        local suffix = subinstr("`exp_type_val'", "-", "neg", .)
+                        local suffix = subinstr("`suffix'", ".", "p", .)
                         if `n_cuts' > 0 {
                             forvalues i = 1/`n_cuts' {
-                                quietly drop __thresh_date_`exp_type_val'_`i'
+                                quietly drop __thresh_date_`suffix'_`i'
                             }
                         }
                     }
