@@ -32,7 +32,7 @@ BEGIN
   EDIT     ed_date       @   +20 @    ., label("Event date")
 
   TEXT     tx_gen        20  +25 280  ., label("Generate indicator variable:")
-  EDIT     ed_gen        @   +20 @    ., label("Generate") default(_failure)
+  EDIT     ed_gen        @   +20 @    ., label("Generate") option(generate)
 
   GROUPBOX gb_type       10  185 620  80, label("Event type")
   RADIO    rb_single     20  +20 590  ., label("Single (terminal) - drops post-event time (e.g., death)") first
@@ -70,7 +70,7 @@ BEGIN
   EDIT     ed_timegen    @   +20 180  ., label("Time variable") option(timegen)
   TEXT     tx_timeunit   330 -20 180  ., label("Unit:")
   COMBOBOX cb_timeunit   @   +20 180  ., dropdownlist contents(units) ///
-           option(timeunit) default(days)
+           option(timeunit)
 
   GROUPBOX gb_keep       10  220 620  80, label("Additional data")
   TEXT     tx_keep       20  +20 590  ., label("Keep variables from event dataset:")
@@ -115,9 +115,7 @@ BEGIN
 	require main.ed_date
 	put "date(" main.ed_date ") "
 
-	if main.ed_gen.isneq("_failure") {
-		put "generate(" main.ed_gen ") "
-	}
+	optionarg main.ed_gen
 
 	if main.rb_single {
 		put "type(single) "
