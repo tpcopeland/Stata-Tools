@@ -42,6 +42,12 @@ Performance options:
                        Range: 1-100 (percentage of total IDs)
                        Recommended: 20-50 for most datasets
 
+ID matching options:
+  force              - Allow merging datasets with non-matching IDs (issues warning)
+                       By default, tvmerge errors if IDs don't match across all datasets.
+                       With force, mismatched IDs are dropped with a warning.
+                       Useful when merging exposure data that is a subset of a cohort.
+
 IMPORTANT: This program replaces the current dataset in memory with the merged result.
 Use the saveas() option to save the result to a file, or load your original data
 from a saved file before running if you need to preserve it.
@@ -70,6 +76,7 @@ program define tvmerge, rclass
          KEEP(namelist) ///
          CONtinuous(namelist) ///
          Batch(integer 20) ///
+         FORCE ///
          CHECK VALIDATEcoverage VALIDATEoverlap SUMmarize]
     
     **# INPUT VALIDATION AND SETUP
@@ -581,24 +588,43 @@ program define tvmerge, rclass
             quietly count if _merge_check == 2  // In ds_k but not merged_data
             local n_only_dsk = r(N)
 
-            * If mismatches exist, report and error out
+            * If mismatches exist, report and either warn or error based on force option
             if `n_only_merged' > 0 | `n_only_dsk' > 0 {
-                noisily di as error _newline "ID mismatch detected between datasets!"
+                if "`force'" == "" {
+                    * No force option - error out (strict mode)
+                    noisily di as error _newline "ID mismatch detected between datasets!"
 
-                if `n_only_merged' > 0 {
-                    noisily di as error "  `n_only_merged' IDs exist in datasets 1-`=`k'-1' but not in dataset `k' (`ds_k'):"
-                    noisily list id if _merge_check == 1, noheader sep(0)
+                    if `n_only_merged' > 0 {
+                        noisily di as error "  `n_only_merged' IDs exist in datasets 1-`=`k'-1' but not in dataset `k' (`ds_k'):"
+                        noisily list id if _merge_check == 1, noheader sep(0)
+                    }
+
+                    if `n_only_dsk' > 0 {
+                        noisily di as error "  `n_only_dsk' IDs exist in dataset `k' (`ds_k') but not in datasets 1-`=`k'-1':"
+                        noisily list id if _merge_check == 2, noheader sep(0)
+                    }
+
+                    noisily di as error _newline "All datasets must contain the same set of IDs."
+                    noisily di as error "IDs that don't match across datasets will be silently dropped during merge."
+                    noisily di as error "Use the force option to proceed anyway (mismatched IDs will be treated as having no exposure in the missing dataset)."
+                    exit 459
                 }
+                else {
+                    * Force option specified - warn and continue
+                    noisily di as text _newline "Warning: ID mismatch detected between datasets (proceeding due to force option)"
 
-                if `n_only_dsk' > 0 {
-                    noisily di as error "  `n_only_dsk' IDs exist in dataset `k' (`ds_k') but not in datasets 1-`=`k'-1':"
-                    noisily list id if _merge_check == 2, noheader sep(0)
+                    if `n_only_merged' > 0 {
+                        noisily di as text "  `n_only_merged' IDs exist in datasets 1-`=`k'-1' but not in dataset `k' (`ds_k')"
+                        noisily di as text "  These IDs will be dropped from the merged result."
+                    }
+
+                    if `n_only_dsk' > 0 {
+                        noisily di as text "  `n_only_dsk' IDs exist in dataset `k' (`ds_k') but not in datasets 1-`=`k'-1'"
+                        noisily di as text "  These IDs will be dropped from the merged result."
+                    }
+
+                    noisily di as text "  Note: Only IDs present in ALL datasets will appear in the output."
                 }
-
-                noisily di as error _newline "All datasets must contain the same set of IDs."
-                noisily di as error "IDs that don't match across datasets will be silently dropped during merge."
-                noisily di as error "Please ensure all datasets contain the same person IDs before merging."
-                exit 459  // "variable not found or ambiguous abbreviation" - close to ID mismatch concept
             }
 
             * Validation passed - continue with merge
