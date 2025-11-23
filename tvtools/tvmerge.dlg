@@ -103,8 +103,8 @@ BEGIN
   CHECKBOX ck_valoverlap @   +20 @    ., label("Validate overlaps") option(validateoverlap)
   CHECKBOX ck_summarize  @   +20 @    ., label("Display summary statistics") option(summarize)
 
-  TEXT     tx_note       10  195 620  80,  label("Note: tvmerge replaces the current dataset in memory with the merged result.")
-  TEXT     tx_note       10  215 620  80,  label("Use saveas() to preserve the output, or save your work before running.")
+  TEXT     tx_note1      10  195 620  80,  label("Note: tvmerge replaces the current dataset in memory with the merged result.")
+  TEXT     tx_note2      10  215 620  80,  label("Use saveas() to preserve the output, or save your work before running.")
 END
 
 SCRIPT generate_disable

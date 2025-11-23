@@ -310,23 +310,17 @@ program define tvexpose, rclass
     }
     else if "`continuousunit'" != "" {
         local exp_type "continuous"
-        * Validate continuous unit if specified (required for continuous exposure)
-        if "`continuousunit'" != "" {
-            * Normalize to lowercase for comparison
-            local unit_lower = lower(trim("`continuousunit'"))
-            * Check if valid unit
-            if !inlist("`unit_lower'", "days", "weeks", "months", "quarters", "years") {
-                noisily display as error "continuousunit(unit): unit must be days, weeks, months, quarters, or years"
-                noisily display as error "You specified: `continuousunit'"
-                exit 198
-            }
-            * Store normalized unit for reporting
-            local cont_unit "`unit_lower'"
-        }
-        else {
-            noisily display as error "continuousunit(unit) required when using continuous exposure"
+        * Validate continuous unit (already confirmed non-empty by outer if)
+        * Normalize to lowercase for comparison
+        local unit_lower = lower(trim("`continuousunit'"))
+        * Check if valid unit
+        if !inlist("`unit_lower'", "days", "weeks", "months", "quarters", "years") {
+            noisily display as error "continuousunit(unit): unit must be days, weeks, months, quarters, or years"
+            noisily display as error "You specified: `continuousunit'"
             exit 198
         }
+        * Store normalized unit for reporting
+        local cont_unit "`unit_lower'"
         
         * Validate and parse expandunit option
         if "`expandunit'" != "" {
@@ -2366,8 +2360,9 @@ program define tvexpose, rclass
                     local thresh_count = `thresh_count' + `n_cuts'
                 }
             }
-            else {
-                * No thresholds - create empty dataset
+
+            * If no thresholds, create empty dataset
+            if `thresh_count' == 0 {
                 clear
                 quietly gen double id = .
                 foreach exp_type_val of local exp_types {
@@ -3678,7 +3673,14 @@ program define tvexpose, rclass
                 local show_id = id[`i']
                 local show_start = start[`i']
                 local show_stop = stop[`i']
-                local show_exp = `generate'[`i']
+                * Get exposure value - use generate var if exists, else use exp_value
+                if `skip_main_var' == 0 {
+                    local show_exp = `generate'[`i']
+                }
+                else {
+                    capture local show_exp = exp_value[`i']
+                    if _rc != 0 local show_exp = "N/A"
+                }
                 local prev_stop = stop[`i'-1]
                 * Only show if this is an overlap (defensive check)
                 if `i' > 1 & `show_id' == id[`i'-1] {
@@ -4045,10 +4047,11 @@ program define tvexpose, rclass
     }
     
     sort id start stop
-	* Rename to originals
-	capture quietly rename id `id'
-	capture quietly rename start `start'
-	capture quietly rename stop `stop'
+	* Rename id back to original name if different
+	* Note: start/stop should remain as "start" and "stop" in output
+	if "`id'" != "id" {
+		capture quietly rename id `id'
+	}
     capture quietly label data "`using'"
 
     **# SAVE DATA IF REQUESTED
