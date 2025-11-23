@@ -171,7 +171,12 @@ BEGIN
     optionarg main.vn_id
     optionarg main.ed_date
     optionarg main.ed_gen
-    option radio(main rb_single rb_recur)
+    if main.rb_single {
+        put " type(single)"
+    }
+    if main.rb_recur {
+        put " type(recurring)"
+    }
     option main.ck_replace
     
     optionarg compete.ed_compete

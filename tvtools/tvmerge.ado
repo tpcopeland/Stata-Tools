@@ -494,8 +494,8 @@ program define tvmerge, rclass
                 local exp_k "`exp_k_raw'"
             }
             
-            * Keep only necessary variables
-            local keeplist_k "id start_k stop_k `exp_k_list'"
+            * Keep only necessary variables (use renamed exp_k, not original exp_k_list)
+            local keeplist_k "id start_k stop_k `exp_k'"
             
             * Check if exposure is continuous
             local is_cont_k = 0
@@ -699,13 +699,13 @@ program define tvmerge, rclass
                 replace `stopname' = new_stop
                 drop new_start new_stop
 
-                * 6. For continuous exposures, interpolate values based on time elapsed
+                * 6. For continuous exposures, interpolate values based on overlap duration
                 foreach exp_var in `exp_k_list' {
                     * Use pre-computed continuous indicator (optimization)
                     if `is_cont_`exp_var'' == 1 {
-                        * Calculate cumulative proportion (progress to date)
-                        * Uses (Current_End_Date - Original_Start_Date) / Total_Original_Duration
-                        generate double _proportion = cond(stop_k > start_k, (`stopname' - start_k) / (stop_k - start_k), 1)
+                        * Calculate proportion as (overlap duration) / (original duration)
+                        * This correctly pro-rates the exposure value
+                        generate double _proportion = cond(stop_k > start_k, (`stopname' - `startname' + 1) / (stop_k - start_k + 1), 1)
 
                         * Ensure proportion doesn't exceed 1 due to floating point rounding
                         replace _proportion = 1 if _proportion > 1 & !missing(_proportion)
@@ -774,10 +774,12 @@ program define tvmerge, rclass
         
         * Drop exact duplicates (same id, start, stop, and all exposures)
         local dupvars "id `startname' `stopname' `final_exps'"
+        quietly count
+        local n_before_dedup = r(N)
         duplicates drop `dupvars', force
         quietly count
         local n_after_dedup = r(N)
-        local n_dups = _N - `n_after_dedup'
+        local n_dups = `n_before_dedup' - `n_after_dedup'
         
         * Sort final dataset
         sort id `startname' `stopname'
@@ -972,7 +974,7 @@ program define tvmerge, rclass
         if `n_gaps' > 0 {
             di in re "Found `n_gaps' gaps in coverage (>1 day gaps)"
             quietly use `gaps_data', clear
-            noisily list `id' `startname' `stopname' _gap if _gap > 1 & !missing(_gap), sep(20)
+            noisily list id `startname' `stopname' _gap if _gap > 1 & !missing(_gap), sep(20)
             quietly use `current', clear
             noisily display as text "{hline 50}"
         }
@@ -990,7 +992,7 @@ program define tvmerge, rclass
         if `n_overlaps' > 0 {
             di in re "Found `n_overlaps' unexpected overlapping periods (same interval, same exposures)"
             quietly use `overlap_data', clear
-            noisily list `id' `startname' `stopname' if _overlap == 1, sep(20)
+            noisily list id `startname' `stopname' if _overlap == 1, sep(20)
             quietly use `current', clear
             noisily display as text "{hline 50}"
         }
