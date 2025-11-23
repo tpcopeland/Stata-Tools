@@ -252,7 +252,7 @@ program define tvevent, rclass
         }
         
         frame drop `event_frame'
-        drop `match_date' `imported_type'
+        drop `match_date' `imported_type' `event_frame'
         
         **# 6. APPLY LABELS
         
