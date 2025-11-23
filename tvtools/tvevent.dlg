@@ -62,7 +62,7 @@ DIALOG compete, tabtitle("Competing Risks")
 BEGIN
   TEXT     tx_compete    _lft      _top      _iwd      .,           ///
         label("Competing risk date variables (in event dataset):")
-  VARLIST  vl_compete    @         _ss       @         .,           ///
+  EDIT     ed_compete    @         _ss       @         .,           ///
         option(compete)                                             ///
         label("Competing risk date variables")
   TEXT     tx_note1      @         _ss       @         .,           ///
@@ -174,7 +174,7 @@ BEGIN
     option radio(main rb_single rb_recur)
     option main.ck_replace
     
-    optionarg compete.vl_compete
+    optionarg compete.ed_compete
     if compete.ed_labels.isneq("") {
         optionarg compete.ed_labels
     }

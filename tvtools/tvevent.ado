@@ -121,12 +121,12 @@ program define tvevent, rclass
         preserve
         use "`using'", clear
         
-        if "`id'" != "id" capture confirm variable `id'
+        capture confirm variable `id'
         if _rc {
              di as error "ID variable `id' not found in event dataset `using'"
              exit 111
         }
-        if "`date'" != "date" capture confirm variable `date'
+        capture confirm variable `date'
         if _rc {
              di as error "Date variable `date' not found in event dataset `using'"
              exit 111
@@ -252,7 +252,7 @@ program define tvevent, rclass
         }
         
         frame drop `event_frame'
-        drop `match_date' frame_link_`event_frame' `imported_type'
+        drop `match_date' `event_frame' `imported_type'
         
         **# 6. APPLY LABELS
         
@@ -287,7 +287,7 @@ program define tvevent, rclass
         **# 7. APPLY TYPE-SPECIFIC LOGIC
         
         if "`type'" == "single" {
-            bysort `id' (`generate' stop): gen long _event_rank = sum(`generate' > 0)
+            bysort `id' (stop): gen long _event_rank = sum(`generate' > 0)
             
             tempvar censor_time
             gen double `censor_time' = stop if `generate' > 0 & _event_rank == 1
@@ -306,7 +306,7 @@ program define tvevent, rclass
         **# 8. GENERATE TIME VARIABLE
         if "`timegen'" != "" {
             tempvar days_diff
-            gen double `days_diff' = stop - start + 1
+            gen double `days_diff' = stop - start
             if "`timeunit'" == "days" {
                 gen double `timegen' = `days_diff'
                 label var `timegen' "Time (days)"
