@@ -41,5 +41,8 @@ f tvexpose.sthlp
 f tvmerge.ado
 f tvmerge.dlg
 f tvmerge.sthlp
+f tvevent.ado
+f tvevent.dlg
+f tvevent.sthlp
 f tvtools_menu_setup.do
 f INSTALLATION.md
