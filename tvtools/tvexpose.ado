@@ -460,6 +460,22 @@ program define tvexpose, rclass
     * We save the master dataset to a tempfile so we can reload it later
     * The master dataset contains study entry/exit dates for each person
     tempfile _master_orig
+
+    * Check for datetime formats (%tc, %tC) which will lose precision when coerced to integer days
+    * Warn user before applying floor/ceil operations
+    local entry_fmt : format `entry'
+    local exit_fmt : format `exit'
+    if substr("`entry_fmt'", 1, 3) == "%tc" | substr("`entry_fmt'", 1, 3) == "%tC" {
+        noisily display as text "Warning: Entry variable `entry' has datetime format (`entry_fmt')"
+        noisily display as text "         Precision will be lost when coercing to integer days (floor/ceil)"
+        noisily display as text "         Consider converting to date format before using tvexpose"
+    }
+    if substr("`exit_fmt'", 1, 3) == "%tc" | substr("`exit_fmt'", 1, 3) == "%tC" {
+        noisily display as text "Warning: Exit variable `exit' has datetime format (`exit_fmt')"
+        noisily display as text "         Precision will be lost when coercing to integer days (floor/ceil)"
+        noisily display as text "         Consider converting to date format before using tvexpose"
+    }
+
 	quietly replace `entry' = floor(`entry')
 	quietly replace `exit' = ceil(`exit')
     quietly save `_master_orig'
@@ -766,9 +782,12 @@ program define tvexpose, rclass
     
     * Iteratively merge periods until no more merging possible
     * Need iteration because merging can create new adjacent periods to merge
+    * Use high iteration limit (10000) to handle highly fragmented administrative data
+    * (e.g., daily pharmacy records spanning many years)
     local changes = 1
     local iter = 0
-    while `changes' > 0 & `iter' < 100 {
+    local max_merge_iter = 10000
+    while `changes' > 0 & `iter' < `max_merge_iter' {
         local changes = 0
         quietly replace drop_flag = 0
         
@@ -803,8 +822,8 @@ program define tvexpose, rclass
     }
     
     * Warn if iteration limit reached (may indicate incomplete merging)
-    if `iter' >= 100 {
-        noisily display as text "Warning: merge iteration limit (100) reached"
+    if `iter' >= `max_merge_iter' {
+        noisily display as text "Warning: merge iteration limit (`max_merge_iter') reached"
         noisily display as text "         Some periods may not have been fully merged"
         noisily display as text "         Consider increasing merge() parameter or simplifying exposure data"
     }
@@ -824,10 +843,12 @@ program define tvexpose, rclass
     * Remove periods completely contained within another period of same type
     * If period A is entirely within period B and same exposure type, A is redundant
     * Iterative because removing A might reveal another contained period
+    * Use high iteration limit (10000) to handle highly fragmented data
     quietly gen double contained = 0
     local iter = 0
     local done = 0
-    while `done' == 0 & `iter' < 10 {
+    local max_contain_iter = 10000
+    while `done' == 0 & `iter' < `max_contain_iter' {
         quietly count if contained == 1
         if r(N) > 0 {
             quietly drop if contained == 1
@@ -1659,36 +1680,42 @@ program define tvexpose, rclass
             quietly use `all_person_exp_types', clear
             quietly levelsof __all_exp_types, local(exp_types)
             restore
-            
+
             * Initialize all bytype variables to 0 (never exposed)
             foreach exp_type_val of local exp_types {
-                quietly gen double `stub_name'`exp_type_val' = 0
+                * Sanitize suffix for variable names (handles negative/decimal values)
+                local suffix = subinstr("`exp_type_val'", "-", "neg", .)
+                local suffix = subinstr("`suffix'", ".", "p", .)
+                quietly gen double `stub_name'`suffix' = 0
             }
-            
+
             * For each type, find first exposure date and mark all subsequent periods
             foreach exp_type_val of local exp_types {
-                quietly gen double __first_exp_`exp_type_val' = exp_start if __orig_exp_category == `exp_type_val'
-                quietly bysort id (exp_start): egen double __first_any_`exp_type_val' = min(__first_exp_`exp_type_val')
+                * Sanitize suffix for variable names (handles negative/decimal values)
+                local suffix = subinstr("`exp_type_val'", "-", "neg", .)
+                local suffix = subinstr("`suffix'", ".", "p", .)
+                quietly gen double __first_exp_`suffix' = exp_start if __orig_exp_category == `exp_type_val'
+                quietly bysort id (exp_start): egen double __first_any_`suffix' = min(__first_exp_`suffix')
                 * Mark ALL rows as "ever treated" if they occur at or after first exposure to this type
-                quietly replace `stub_name'`exp_type_val' = 1 if exp_start >= __first_any_`exp_type_val' & !missing(__first_any_`exp_type_val')
-                
+                quietly replace `stub_name'`suffix' = 1 if exp_start >= __first_any_`suffix' & !missing(__first_any_`suffix')
+
                 * Get label from original exposure variable for this type
                 if "`exp_value_label'" != "" {
                     local vallab : label `exp_value_label' `exp_type_val'
                 }
                 if "`vallab'" == "" local vallab "`exp_type_val'"
                 if "`label'" != "" {
-                    label var `stub_name'`exp_type_val' "`label' (`vallab')"
+                    label var `stub_name'`suffix' "`label' (`vallab')"
                 }
                 else {
-                    label var `stub_name'`exp_type_val' "Ever exposed: `vallab'"
+                    label var `stub_name'`suffix' "Ever exposed: `vallab'"
                 }
-                
+
                 * Define and apply value labels
-                label define `stub_name'labels_`exp_type_val' 0 "Never `vallab'" 1 "Ever `vallab'", replace
-                label values `stub_name'`exp_type_val' `stub_name'labels_`exp_type_val'
-                
-                drop __first_exp_`exp_type_val' __first_any_`exp_type_val'
+                label define `stub_name'labels_`suffix' 0 "Never `vallab'" 1 "Ever `vallab'", replace
+                label values `stub_name'`suffix' `stub_name'labels_`suffix'
+
+                drop __first_exp_`suffix' __first_any_`suffix'
             }
             
             * Collapse consecutive periods with identical ever_X values
@@ -1697,25 +1724,31 @@ program define tvexpose, rclass
             quietly by id: gen double __same_evers = 1 if _n == 1
             quietly by id: replace __same_evers = 1 if _n > 1
             foreach exp_type_val of local exp_types {
-                quietly by id: replace __same_evers = 0 if _n > 1 & `stub_name'`exp_type_val' != `stub_name'`exp_type_val'[_n-1]
+                local suffix = subinstr("`exp_type_val'", "-", "neg", .)
+                local suffix = subinstr("`suffix'", ".", "p", .)
+                quietly by id: replace __same_evers = 0 if _n > 1 & `stub_name'`suffix' != `stub_name'`suffix'[_n-1]
             }
             * Also check if exposure category changed (prevents merging exposed and unexposed periods)
             quietly by id: replace __same_evers = 0 if _n > 1 & exp_value != exp_value[_n-1]
             quietly by id: gen double __period_start = 1 if _n == 1
             quietly by id : replace __period_start = 1 if __same_evers == 0 & _n > 1
             quietly by id: gen double __period_id = sum(__period_start)
-            
+
             * Build collapse command with all ever variables
             local ever_vars ""
             foreach exp_type_val of local exp_types {
-                local ever_vars "`ever_vars' `stub_name'`exp_type_val'"
+                local suffix = subinstr("`exp_type_val'", "-", "neg", .)
+                local suffix = subinstr("`suffix'", ".", "p", .)
+                local ever_vars "`ever_vars' `stub_name'`suffix'"
             }
-            
+
             * Store variable labels before collapse
             foreach exp_type_val of local exp_types {
-                local varlab_`exp_type_val' : variable label `stub_name'`exp_type_val'
+                local suffix = subinstr("`exp_type_val'", "-", "neg", .)
+                local suffix = subinstr("`suffix'", ".", "p", .)
+                local varlab_`suffix' : variable label `stub_name'`suffix'
             }
-            
+
             if "`keepvars'" != "" {
                 collapse (min) exp_start (max) exp_stop (first) exp_value `ever_vars' `keepvars' study_entry study_exit, by(id __period_id)
             }
@@ -1723,13 +1756,15 @@ program define tvexpose, rclass
                 collapse (min) exp_start (max) exp_stop (first) exp_value `ever_vars' study_entry study_exit, by(id __period_id)
             }
             drop __period_id
-            
+
             * Reapply value labels after collapse
             foreach exp_type_val of local exp_types {
-                label values `stub_name'`exp_type_val' `stub_name'labels_`exp_type_val'
-                label variable `stub_name'`exp_type_val' "`varlab_`exp_type_val''"
+                local suffix = subinstr("`exp_type_val'", "-", "neg", .)
+                local suffix = subinstr("`suffix'", ".", "p", .)
+                label values `stub_name'`suffix' `stub_name'labels_`suffix'
+                label variable `stub_name'`suffix' "`varlab_`suffix''"
             }
-            
+
             * Keep original categorical exposure in exp_value
         }
         else {
@@ -1788,66 +1823,76 @@ program define tvexpose, rclass
             
             * Initialize all bytype variables to 0 (never exposed)
             foreach exp_type_val of local exp_types {
-                quietly gen double `stub_name'`exp_type_val' = 0
+                local suffix = subinstr("`exp_type_val'", "-", "neg", .)
+                local suffix = subinstr("`suffix'", ".", "p", .)
+                quietly gen double `stub_name'`suffix' = 0
             }
-            
+
             * For each type, determine current vs former status
             foreach exp_type_val of local exp_types {
+                local suffix = subinstr("`exp_type_val'", "-", "neg", .)
+                local suffix = subinstr("`suffix'", ".", "p", .)
                 * Mark current exposure (value = 1)
-                quietly replace `stub_name'`exp_type_val' = 1 if __orig_exp_category == `exp_type_val'
-                
+                quietly replace `stub_name'`suffix' = 1 if __orig_exp_category == `exp_type_val'
+
                 * Find first and last exposure dates for this type
-                quietly gen double __first_exp_`exp_type_val' = exp_start if __orig_exp_category == `exp_type_val'
-                quietly gen double __last_exp_`exp_type_val' = exp_stop if __orig_exp_category == `exp_type_val'
-                quietly bysort id (exp_start): egen double __first_any_`exp_type_val' = min(__first_exp_`exp_type_val')
-                quietly bysort id (exp_start): egen double __last_any_`exp_type_val' = max(__last_exp_`exp_type_val')
-                
+                quietly gen double __first_exp_`suffix' = exp_start if __orig_exp_category == `exp_type_val'
+                quietly gen double __last_exp_`suffix' = exp_stop if __orig_exp_category == `exp_type_val'
+                quietly bysort id (exp_start): egen double __first_any_`suffix' = min(__first_exp_`suffix')
+                quietly bysort id (exp_start): egen double __last_any_`suffix' = max(__last_exp_`suffix')
+
                 * Mark former exposure (value = 2): after last exposure to this type
-                quietly replace `stub_name'`exp_type_val' = 2 if exp_start >= __first_any_`exp_type_val' & `stub_name'`exp_type_val' != 1 & !missing(__first_any_`exp_type_val')
-                
+                quietly replace `stub_name'`suffix' = 2 if exp_start >= __first_any_`suffix' & `stub_name'`suffix' != 1 & !missing(__first_any_`suffix')
+
                 * Get label from original exposure variable for this type
                 if "`exp_value_label'" != "" {
                     local vallab : label `exp_value_label' `exp_type_val'
                 }
                 if "`vallab'" == "" local vallab "`exp_type_val'"
                 if "`label'" != "" {
-                    label var `stub_name'`exp_type_val' "`label' (`vallab')"
+                    label var `stub_name'`suffix' "`label' (`vallab')"
                 }
                 else {
-                    label var `stub_name'`exp_type_val' "`vallab'"
+                    label var `stub_name'`suffix' "`vallab'"
                 }
-                
+
                 * Define and apply value labels
-                label define `stub_name'labels_`exp_type_val' 0 "Never" 1 "Current" 2 "Former", replace
-                label values `stub_name'`exp_type_val' `stub_name'labels_`exp_type_val'
-                
-                drop __first_exp_`exp_type_val' __last_exp_`exp_type_val' __first_any_`exp_type_val' __last_any_`exp_type_val'
+                label define `stub_name'labels_`suffix' 0 "Never" 1 "Current" 2 "Former", replace
+                label values `stub_name'`suffix' `stub_name'labels_`suffix'
+
+                drop __first_exp_`suffix' __last_exp_`suffix' __first_any_`suffix' __last_any_`suffix'
             }
-            
+
             * Collapse consecutive periods with identical cf_X values
             sort id exp_start
             quietly by id: gen double __same_cf = 1 if _n == 1
             quietly by id: replace __same_cf = 1 if _n > 1
             foreach exp_type_val of local exp_types {
-                quietly by id: replace __same_cf = 0 if _n > 1 & `stub_name'`exp_type_val' != `stub_name'`exp_type_val'[_n-1]
+                local suffix = subinstr("`exp_type_val'", "-", "neg", .)
+                local suffix = subinstr("`suffix'", ".", "p", .)
+                quietly by id: replace __same_cf = 0 if _n > 1 & `stub_name'`suffix' != `stub_name'`suffix'[_n-1]
             }
             * Also check if exposure category changed
             quietly by id: replace __same_cf = 0 if _n > 1 & exp_value != exp_value[_n-1]
             quietly by id: gen double __period_start = 1 if _n == 1
             quietly by id : replace __period_start = 1 if __same_cf == 0 & _n > 1
             quietly by id: gen double __period_id = sum(__period_start)
-            
+
             * Build collapse command with all cf variables
             local cf_vars ""
             foreach exp_type_val of local exp_types {
-                local cf_vars "`cf_vars' `stub_name'`exp_type_val'"
+                local suffix = subinstr("`exp_type_val'", "-", "neg", .)
+                local suffix = subinstr("`suffix'", ".", "p", .)
+                local cf_vars "`cf_vars' `stub_name'`suffix'"
             }
-            
+
             * Store variable labels before collapse
             foreach exp_type_val of local exp_types {
-                local varlab_`exp_type_val' : variable label `stub_name'`exp_type_val'
+                local suffix = subinstr("`exp_type_val'", "-", "neg", .)
+                local suffix = subinstr("`suffix'", ".", "p", .)
+                local varlab_`suffix' : variable label `stub_name'`suffix'
             }
-            
+
             if "`keepvars'" != "" {
                     collapse (min) exp_start (max) exp_stop (first) exp_value `cf_vars' `keepvars' study_entry study_exit, by(id __period_id)
             }
@@ -1855,11 +1900,13 @@ program define tvexpose, rclass
                     collapse (min) exp_start (max) exp_stop (first) exp_value `cf_vars' study_entry study_exit, by(id __period_id)
             }
             drop __period_id
-            
+
             * Reapply value labels after collapse
             foreach exp_type_val of local exp_types {
-                label values `stub_name'`exp_type_val' `stub_name'labels_`exp_type_val'
-                label variable `stub_name'`exp_type_val' "`varlab_`exp_type_val''"
+                local suffix = subinstr("`exp_type_val'", "-", "neg", .)
+                local suffix = subinstr("`suffix'", ".", "p", .)
+                label values `stub_name'`suffix' `stub_name'labels_`suffix'
+                label variable `stub_name'`suffix' "`varlab_`suffix''"
             }
         }
         else {
@@ -2109,71 +2156,81 @@ program define tvexpose, rclass
             
             * For each exposure type, calculate cumulative exposure
             foreach exp_type_val of local exp_types {
+                local suffix = subinstr("`exp_type_val'", "-", "neg", .)
+                local suffix = subinstr("`suffix'", ".", "p", .)
                 * Calculate days exposed to this specific type
-                quietly gen period_days_`exp_type_val' = period_days if __orig_exp_value == `exp_type_val'
-                quietly replace period_days_`exp_type_val' = 0 if missing(period_days_`exp_type_val')
-                
+                quietly gen period_days_`suffix' = period_days if __orig_exp_value == `exp_type_val'
+                quietly replace period_days_`suffix' = 0 if missing(period_days_`suffix')
+
                 * Calculate cumulative exposure for this type
-                quietly bysort id (exp_start): gen cumul_days_`exp_type_val' = sum(period_days_`exp_type_val')
-                quietly gen `stub_name'`exp_type_val' = cumul_days_`exp_type_val' / `unit_divisor'
-                
+                quietly bysort id (exp_start): gen cumul_days_`suffix' = sum(period_days_`suffix')
+                quietly gen `stub_name'`suffix' = cumul_days_`suffix' / `unit_divisor'
+
                 * Label the variable with value label and units from continuousunit
                 if "`exp_value_label'" != "" {
                     local vallab : label `exp_value_label' `exp_type_val'
                 }
                 if "`vallab'" == "" local vallab "`exp_type_val'"
                 if "`label'" != "" {
-                    label var `stub_name'`exp_type_val' "`label' (`vallab')"
+                    label var `stub_name'`suffix' "`label' (`vallab')"
                 }
                 else {
-                    label var `stub_name'`exp_type_val' "Cumulative `vallab' exposure (`cont_unit')"
+                    label var `stub_name'`suffix' "Cumulative `vallab' exposure (`cont_unit')"
                 }
-                
+
                 * Clean up intermediate variables
-                quietly drop period_days_`exp_type_val' cumul_days_`exp_type_val'
+                quietly drop period_days_`suffix' cumul_days_`suffix'
             }
-            
+
             * For bytype, keep exposure variable as categorical type
             * Replace with preserved original values
             quietly replace exp_value = __orig_exp_value
             quietly drop __orig_exp_value
-            
+
             * Collapse consecutive periods with identical tv_exp_X values
             sort id exp_start
             quietly by id : gen double __same_cumuls = 1 if _n == 1
             quietly by id : replace __same_cumuls = 1 if _n > 1
             foreach exp_type_val of local exp_types {
-                quietly by id : replace __same_cumuls = 0 if _n > 1 & `stub_name'`exp_type_val' != `stub_name'`exp_type_val'[_n-1]
+                local suffix = subinstr("`exp_type_val'", "-", "neg", .)
+                local suffix = subinstr("`suffix'", ".", "p", .)
+                quietly by id : replace __same_cumuls = 0 if _n > 1 & `stub_name'`suffix' != `stub_name'`suffix'[_n-1]
             }
             quietly by id: gen double __period_start = 1 if _n == 1
             quietly by id : replace __period_start = 1 if __same_cumuls == 0 & _n > 1
             quietly by id: gen double __period_id = sum(__period_start)
-            
+
             * Build collapse command with all tv_exp variables
             local tvexp_vars ""
             foreach exp_type_val of local exp_types {
-                local tvexp_vars "`tvexp_vars' `stub_name'`exp_type_val'"
+                local suffix = subinstr("`exp_type_val'", "-", "neg", .)
+                local suffix = subinstr("`suffix'", ".", "p", .)
+                local tvexp_vars "`tvexp_vars' `stub_name'`suffix'"
             }
-            
+
             * Store variable labels before collapse
             foreach exp_type_val of local exp_types {
-                local varlab_`exp_type_val' : variable label `stub_name'`exp_type_val'
+                local suffix = subinstr("`exp_type_val'", "-", "neg", .)
+                local suffix = subinstr("`suffix'", ".", "p", .)
+                local varlab_`suffix' : variable label `stub_name'`suffix'
             }
-            
+
             if "`keepvars'" != "" {
                     collapse (min) exp_start (max) exp_stop (first) exp_value `tvexp_vars' `keepvars' study_entry study_exit, by(id __period_id)
                 }
-            else { 
+            else {
                     collapse (min) exp_start (max) exp_stop (first) exp_value `tvexp_vars' study_entry study_exit, by(id __period_id)
             }
 
             drop __period_id
-            
+
             * Reapply value labels after collapse
             foreach exp_type_val of local exp_types {
-                label variable `stub_name'`exp_type_val' "`varlab_`exp_type_val''"
+                local suffix = subinstr("`exp_type_val'", "-", "neg", .)
+                local suffix = subinstr("`suffix'", ".", "p", .)
+                label variable `stub_name'`suffix' "`varlab_`suffix''"
             }
-            
+
         }
         else {
             * Standard continuous: convert main exposure variable to specified units
@@ -2460,53 +2517,57 @@ program define tvexpose, rclass
             quietly bysort id (exp_start exp_stop): egen double __first_exp_any = min(cond(__orig_exp_binary == 1, _n, .))
             
             foreach exp_type_val of local exp_types {
+                * Sanitize suffix for variable names (handles negative/decimal values)
+                local suffix = subinstr("`exp_type_val'", "-", "neg", .)
+                local suffix = subinstr("`suffix'", ".", "p", .)
+
                 * Recalculate cumulative exposure in days
                 sort id exp_start
-                quietly gen double __period_days_`exp_type_val' = exp_stop - exp_start + 1 if __orig_exp_category == `exp_type_val'
-                quietly replace __period_days_`exp_type_val' = 0 if missing(__period_days_`exp_type_val')
-                quietly by id: gen double __cumul_days_`exp_type_val' = sum(__period_days_`exp_type_val')
-                
+                quietly gen double __period_days_`suffix' = exp_stop - exp_start + 1 if __orig_exp_category == `exp_type_val'
+                quietly replace __period_days_`suffix' = 0 if missing(__period_days_`suffix')
+                quietly by id: gen double __cumul_days_`suffix' = sum(__period_days_`suffix')
+
                 * Cumulative at period start
-                quietly by id: gen double __cumul_start_days_`exp_type_val' = __cumul_days_`exp_type_val' - __period_days_`exp_type_val'
-                
+                quietly by id: gen double __cumul_start_days_`suffix' = __cumul_days_`suffix' - __period_days_`suffix'
+
                 * Convert to units
-                quietly gen double __cumul_units_start_`exp_type_val' = __cumul_start_days_`exp_type_val' / `unit_divisor'
-                
+                quietly gen double __cumul_units_start_`suffix' = __cumul_start_days_`suffix' / `unit_divisor'
+
                 * Assign duration category based on cumulative exposure at period start
-                quietly gen `stub_name'`exp_type_val' = `reference'
+                quietly gen `stub_name'`suffix' = `reference'
                 if `n_cuts' > 0 {
                     local first_cut = `1'
-                    quietly replace `stub_name'`exp_type_val' = 1 if __orig_exp_category == `exp_type_val' & ///
-                        __cumul_units_start_`exp_type_val' < `first_cut' & __cumul_units_start_`exp_type_val' >= 0
-                    
+                    quietly replace `stub_name'`suffix' = 1 if __orig_exp_category == `exp_type_val' & ///
+                        __cumul_units_start_`suffix' < `first_cut' & __cumul_units_start_`suffix' >= 0
+
                     local i = 2
                     while `i' <= `n_cuts' {
                         local prev_cut = ``=`i'-1''
                         local curr_cut = ``i''
-                        quietly replace `stub_name'`exp_type_val' = `i' if __orig_exp_category == `exp_type_val' & ///
-                            __cumul_units_start_`exp_type_val' >= `prev_cut' & __cumul_units_start_`exp_type_val' < `curr_cut'
+                        quietly replace `stub_name'`suffix' = `i' if __orig_exp_category == `exp_type_val' & ///
+                            __cumul_units_start_`suffix' >= `prev_cut' & __cumul_units_start_`suffix' < `curr_cut'
                         local i = `i' + 1
                     }
-                    
+
                     local last_cut = ``n_cuts''
-                    quietly replace `stub_name'`exp_type_val' = `n_cuts' + 1 if __orig_exp_category == `exp_type_val' & ///
-                        __cumul_units_start_`exp_type_val' >= `last_cut'
+                    quietly replace `stub_name'`suffix' = `n_cuts' + 1 if __orig_exp_category == `exp_type_val' & ///
+                        __cumul_units_start_`suffix' >= `last_cut'
                 }
                 else {
-                    quietly replace `stub_name'`exp_type_val' = 1 if __orig_exp_category == `exp_type_val' & ///
-                        __cumul_units_start_`exp_type_val' >= 0
+                    quietly replace `stub_name'`suffix' = 1 if __orig_exp_category == `exp_type_val' & ///
+                        __cumul_units_start_`suffix' >= 0
                 }
-                
+
                 * Carry forward duration to all periods after first exposure (cumulative exposure)
                 local changes = 1
                 while `changes' > 0 {
-                    quietly bysort id (exp_start exp_stop): replace `stub_name'`exp_type_val' = `stub_name'`exp_type_val'[_n-1] if _n > 1 & ///
-                        `stub_name'`exp_type_val' == `reference' & `stub_name'`exp_type_val'[_n-1] != `reference' & ///
+                    quietly bysort id (exp_start exp_stop): replace `stub_name'`suffix' = `stub_name'`suffix'[_n-1] if _n > 1 & ///
+                        `stub_name'`suffix' == `reference' & `stub_name'`suffix'[_n-1] != `reference' & ///
                         _n > __first_exp_any
-                    quietly count if `stub_name'`exp_type_val' == `reference' & _n > 1 & _n > __first_exp_any
+                    quietly count if `stub_name'`suffix' == `reference' & _n > 1 & _n > __first_exp_any
                     local remaining = r(N)
                     if `remaining' > 0 {
-                        quietly bysort id (exp_start exp_stop): gen double __can_carry = (_n > 1 & `stub_name'`exp_type_val' == `reference' & `stub_name'`exp_type_val'[_n-1] != `reference' & _n > __first_exp_any)
+                        quietly bysort id (exp_start exp_stop): gen double __can_carry = (_n > 1 & `stub_name'`suffix' == `reference' & `stub_name'`suffix'[_n-1] != `reference' & _n > __first_exp_any)
                         quietly count if __can_carry == 1
                         local changes = r(N)
                         quietly drop __can_carry
@@ -2515,22 +2576,22 @@ program define tvexpose, rclass
                         local changes = 0
                     }
                 }
-                
+
                 * Enforce monotonicity within all periods after first exposure (cumulative exposure never decreases)
-                quietly bysort id (exp_start exp_stop): replace `stub_name'`exp_type_val' = max(`stub_name'`exp_type_val', `stub_name'`exp_type_val'[_n-1]) if _n > 1 & _n > __first_exp_any
-                
+                quietly bysort id (exp_start exp_stop): replace `stub_name'`suffix' = max(`stub_name'`suffix', `stub_name'`suffix'[_n-1]) if _n > 1 & _n > __first_exp_any
+
                 * Create value labels
                 if "`exp_value_label'" != "" {
                     local vallab : label `exp_value_label' `exp_type_val'
                 }
                 if "`vallab'" == "" local vallab "`exp_type_val'"
-                
-                label define `stub_name'labels_`exp_type_val' `reference' "`referencelabel'", replace
+
+                label define `stub_name'labels_`suffix' `reference' "`referencelabel'", replace
                 if `n_cuts' > 0 {
                     local first_cut = `1'
                     local first_cut_str = string(`first_cut', "%9.0f")
                     local first_cut_str = trim("`first_cut_str'")
-                    label define `stub_name'labels_`exp_type_val' 1 "<`first_cut_str' `unit_name'", add
+                    label define `stub_name'labels_`suffix' 1 "<`first_cut_str' `unit_name'", add
                     local i = 2
                     while `i' <= `n_cuts' {
                         local prev_cut = ``=`i'-1''
@@ -2539,78 +2600,86 @@ program define tvexpose, rclass
                         local curr_cut_str = string(`curr_cut', "%9.0f")
                         local prev_cut_str = trim("`prev_cut_str'")
                         local curr_cut_str = trim("`curr_cut_str'")
-                        label define `stub_name'labels_`exp_type_val' `i' "`prev_cut_str'-<`curr_cut_str' `unit_name'", add
+                        label define `stub_name'labels_`suffix' `i' "`prev_cut_str'-<`curr_cut_str' `unit_name'", add
                         local i = `i' + 1
                     }
                     local last_cut = ``n_cuts''
                     local last_cut_str = string(`last_cut', "%9.0f")
                     local last_cut_str = trim("`last_cut_str'")
-                    label define `stub_name'labels_`exp_type_val' `=`n_cuts'+1' "`last_cut_str'+ `unit_name'", add
+                    label define `stub_name'labels_`suffix' `=`n_cuts'+1' "`last_cut_str'+ `unit_name'", add
                 }
                 else {
-                    label define `stub_name'labels_`exp_type_val' 1 "Exposed", add
+                    label define `stub_name'labels_`suffix' 1 "Exposed", add
                 }
-                
-                label values `stub_name'`exp_type_val' `stub_name'labels_`exp_type_val'
+
+                label values `stub_name'`suffix' `stub_name'labels_`suffix'
                 if "`label'" != "" {
-                    label var `stub_name'`exp_type_val' "`label' (`vallab')"
+                    label var `stub_name'`suffix' "`label' (`vallab')"
                 }
                 else {
-                    label var `stub_name'`exp_type_val' "`vallab' exposure duration"
+                    label var `stub_name'`suffix' "`vallab' exposure duration"
                 }
-                
+
                 * Clean up temporary variables for this type
-                quietly drop __period_days_`exp_type_val' __cumul_days_`exp_type_val' __cumul_start_days_`exp_type_val' __cumul_units_start_`exp_type_val'
+                quietly drop __period_days_`suffix' __cumul_days_`suffix' __cumul_start_days_`suffix' __cumul_units_start_`suffix'
             }
-            
+
             * Clear numbered macros
             if `n_cuts' > 0 {
                 forvalues i = 1/`n_cuts' {
                     macro drop _`i'
                 }
             }
-            
+
             * Clean up carry-forward helper variable
             quietly drop __first_exp_any
-            
+
             * Collapse consecutive periods with identical duration categories
             sort id exp_start exp_stop exp_value
             quietly by id : gen double __same_durs = 1 if _n == 1
             quietly by id : replace __same_durs = 1 if _n > 1
             foreach exp_type_val of local exp_types {
-                quietly by id : replace __same_durs = 0 if _n > 1 & `stub_name'`exp_type_val' != `stub_name'`exp_type_val'[_n-1]
+                local suffix = subinstr("`exp_type_val'", "-", "neg", .)
+                local suffix = subinstr("`suffix'", ".", "p", .)
+                quietly by id : replace __same_durs = 0 if _n > 1 & `stub_name'`suffix' != `stub_name'`suffix'[_n-1]
             }
             quietly by id : gen double __is_sequential = (exp_start == exp_stop[_n-1] + 1) if _n > 1 & id == id[_n-1]
             quietly replace __is_sequential = 1 if missing(__is_sequential)
             quietly by id: gen double __period_start = 1 if _n == 1
             quietly by id : replace __period_start = 1 if (__same_durs == 0 | __is_sequential == 0) & _n > 1
             quietly by id: gen double __period_id = sum(__period_start)
-            
+
             * Build collapse command with all duration variables
             local dur_vars ""
             foreach exp_type_val of local exp_types {
-                local dur_vars "`dur_vars' `stub_name'`exp_type_val'"
+                local suffix = subinstr("`exp_type_val'", "-", "neg", .)
+                local suffix = subinstr("`suffix'", ".", "p", .)
+                local dur_vars "`dur_vars' `stub_name'`suffix'"
             }
-            
+
             * Store variable labels before collapse
             foreach exp_type_val of local exp_types {
-                local varlab_`exp_type_val' : variable label `stub_name'`exp_type_val'
+                local suffix = subinstr("`exp_type_val'", "-", "neg", .)
+                local suffix = subinstr("`suffix'", ".", "p", .)
+                local varlab_`suffix' : variable label `stub_name'`suffix'
             }
-            
-            if "`keepvars'" != "" { 
+
+            if "`keepvars'" != "" {
                     collapse (min) exp_start (max) exp_stop (first) exp_value `dur_vars' `keepvars' study_entry study_exit, by(id __period_id)
                 }
             else {
                     collapse (min) exp_start (max) exp_stop (first) exp_value `dur_vars' study_entry study_exit, by(id __period_id)
                 }
             drop __period_id
-            
+
             * Reapply value labels after collapse
             foreach exp_type_val of local exp_types {
-                label values `stub_name'`exp_type_val' `stub_name'labels_`exp_type_val'
-                label variable `stub_name'`exp_type_val' "`varlab_`exp_type_val''"
+                local suffix = subinstr("`exp_type_val'", "-", "neg", .)
+                local suffix = subinstr("`suffix'", ".", "p", .)
+                label values `stub_name'`suffix' `stub_name'labels_`suffix'
+                label variable `stub_name'`suffix' "`varlab_`suffix''"
             }
-            
+
             * Keep original categorical exposure in exp_value AND the duration_<type> variables
             capture quietly drop __orig_exp_binary __exp_now_dur
             capture quietly rename __orig_exp_value exp_value
@@ -2919,80 +2988,84 @@ program define tvexpose, rclass
             local max_recency_window = `last_cut' * 10
             
             foreach exp_type_val of local exp_types {
+                * Sanitize suffix for variable names (handles negative/decimal values)
+                local suffix = subinstr("`exp_type_val'", "-", "neg", .)
+                local suffix = subinstr("`suffix'", ".", "p", .)
+
                 sort id exp_start
-                quietly gen double __exp_now_`exp_type_val' = (__orig_exp_category == `exp_type_val')
-                quietly gen double __last_exp_end_`exp_type_val' = exp_stop if __exp_now_`exp_type_val'
-                
+                quietly gen double __exp_now_`suffix' = (__orig_exp_category == `exp_type_val')
+                quietly gen double __last_exp_end_`suffix' = exp_stop if __exp_now_`suffix'
+
                 * Carry forward last exposure end date
-                quietly bysort id (exp_start): gen double __last_carried_`exp_type_val' = __last_exp_end_`exp_type_val'[1] if _n == 1
-                quietly bysort id (exp_start): replace __last_carried_`exp_type_val' = __last_exp_end_`exp_type_val' if __exp_now_`exp_type_val' & _n > 1
-                quietly bysort id (exp_start): replace __last_carried_`exp_type_val' = __last_carried_`exp_type_val'[_n-1] ///
-                    if !__exp_now_`exp_type_val' & _n > 1 & !missing(__last_carried_`exp_type_val'[_n-1]) & id == id[_n-1]
-                
+                quietly bysort id (exp_start): gen double __last_carried_`suffix' = __last_exp_end_`suffix'[1] if _n == 1
+                quietly bysort id (exp_start): replace __last_carried_`suffix' = __last_exp_end_`suffix' if __exp_now_`suffix' & _n > 1
+                quietly bysort id (exp_start): replace __last_carried_`suffix' = __last_carried_`suffix'[_n-1] ///
+                    if !__exp_now_`suffix' & _n > 1 & !missing(__last_carried_`suffix'[_n-1]) & id == id[_n-1]
+
                 * Calculate days since last exposure to this type
-                quietly gen double __days_since_`exp_type_val' = exp_start - __last_carried_`exp_type_val' ///
-                    if !__exp_now_`exp_type_val' & !missing(__last_carried_`exp_type_val')
-                
+                quietly gen double __days_since_`suffix' = exp_start - __last_carried_`suffix' ///
+                    if !__exp_now_`suffix' & !missing(__last_carried_`suffix')
+
                 * Create recency categories
-                quietly gen `stub_name'`exp_type_val' = `reference'
-                quietly replace `stub_name'`exp_type_val' = 1 if __exp_now_`exp_type_val' == 1
-                
+                quietly gen `stub_name'`suffix' = `reference'
+                quietly replace `stub_name'`suffix' = 1 if __exp_now_`suffix' == 1
+
                 if `n_cuts' > 0 {
                     local cat = 2
                     if "`1'" != "" {
-                        quietly replace `stub_name'`exp_type_val' = `cat' if __days_since_`exp_type_val' >= 0 & ///
-                            __days_since_`exp_type_val' < `1' & !__exp_now_`exp_type_val' & !missing(__days_since_`exp_type_val')
+                        quietly replace `stub_name'`suffix' = `cat' if __days_since_`suffix' >= 0 & ///
+                            __days_since_`suffix' < `1' & !__exp_now_`suffix' & !missing(__days_since_`suffix')
                         local cat = `cat' + 1
                     }
-                    
+
                     local i = 2
                     while `i' <= `n_cuts' {
                         local prev = ``=`i'-1''
                         local curr = ``i''
-                        quietly replace `stub_name'`exp_type_val' = `cat' if __days_since_`exp_type_val' >= `prev' & ///
-                            __days_since_`exp_type_val' < `curr' & !__exp_now_`exp_type_val' & !missing(__days_since_`exp_type_val')
+                        quietly replace `stub_name'`suffix' = `cat' if __days_since_`suffix' >= `prev' & ///
+                            __days_since_`suffix' < `curr' & !__exp_now_`suffix' & !missing(__days_since_`suffix')
                         local cat = `cat' + 1
                         local i = `i' + 1
                     }
-                    
-                    quietly replace `stub_name'`exp_type_val' = `cat' if __days_since_`exp_type_val' >= `last_cut' & ///
-                        __days_since_`exp_type_val' < `max_recency_window' & !__exp_now_`exp_type_val' & !missing(__days_since_`exp_type_val')
+
+                    quietly replace `stub_name'`suffix' = `cat' if __days_since_`suffix' >= `last_cut' & ///
+                        __days_since_`suffix' < `max_recency_window' & !__exp_now_`suffix' & !missing(__days_since_`suffix')
                 }
-                
+
                 * Get label from original exposure variable for this type
                 if "`exp_value_label'" != "" {
                     local vallab : label `exp_value_label' `exp_type_val'
                 }
                 if "`vallab'" == "" local vallab "`exp_type_val'"
                 if "`label'" != "" {
-                    label var `stub_name'`exp_type_val' "`label' (`vallab')"
+                    label var `stub_name'`suffix' "`label' (`vallab')"
                 }
                 else {
-                    label var `stub_name'`exp_type_val' "Recency category: `vallab'"
+                    label var `stub_name'`suffix' "Recency category: `vallab'"
                 }
-                
+
                 * Define and apply value labels for recency categories
-                label define `stub_name'labels_`exp_type_val' `reference' "Never `vallab'", replace
-                label define `stub_name'labels_`exp_type_val' 1 "Current `vallab'", add
+                label define `stub_name'labels_`suffix' `reference' "Never `vallab'", replace
+                label define `stub_name'labels_`suffix' 1 "Current `vallab'", add
                 if `n_cuts' > 0 {
                     local cat = 2
                     if "`1'" != "" {
-                        label define `stub_name'labels_`exp_type_val' `cat' "<`1'd since `vallab'", add
+                        label define `stub_name'labels_`suffix' `cat' "<`1'd since `vallab'", add
                         local cat = `cat' + 1
                     }
                     local i = 2
                     while `i' <= `n_cuts' {
                         local prev = ``=`i'-1''
                         local curr = ``i''
-                        label define `stub_name'labels_`exp_type_val' `cat' "`prev'-<`curr'd since `vallab'", add
+                        label define `stub_name'labels_`suffix' `cat' "`prev'-<`curr'd since `vallab'", add
                         local cat = `cat' + 1
                         local i = `i' + 1
                     }
-                    label define `stub_name'labels_`exp_type_val' `cat' "`last_cut'+ d since `vallab'", add
+                    label define `stub_name'labels_`suffix' `cat' "`last_cut'+ d since `vallab'", add
                 }
-                label values `stub_name'`exp_type_val' `stub_name'labels_`exp_type_val'
-                
-                drop __exp_now_`exp_type_val' __last_exp_end_`exp_type_val' __last_carried_`exp_type_val' __days_since_`exp_type_val'
+                label values `stub_name'`suffix' `stub_name'labels_`suffix'
+
+                drop __exp_now_`suffix' __last_exp_end_`suffix' __last_carried_`suffix' __days_since_`suffix'
             }
             * Clear numbered macros from tokenize
             if `n_cuts' > 0 {
@@ -3000,32 +3073,38 @@ program define tvexpose, rclass
                     macro drop _`i'
                 }
             }
-            
+
             * Collapse consecutive periods with identical recency_X values
             * Must also check exp_value to distinguish exposed from unexposed periods
             sort id exp_start
             quietly by id : gen double __same_recencies = 1 if _n == 1
             quietly by id : replace __same_recencies = 1 if _n > 1
             foreach exp_type_val of local exp_types {
-                quietly by id : replace __same_recencies = 0 if _n > 1 & `stub_name'`exp_type_val' != `stub_name'`exp_type_val'[_n-1]
+                local suffix = subinstr("`exp_type_val'", "-", "neg", .)
+                local suffix = subinstr("`suffix'", ".", "p", .)
+                quietly by id : replace __same_recencies = 0 if _n > 1 & `stub_name'`suffix' != `stub_name'`suffix'[_n-1]
             }
             * Also check if exposure category changed (prevents merging exposed and unexposed periods)
             quietly by id : replace __same_recencies = 0 if _n > 1 & exp_value != exp_value[_n-1]
             quietly by id: gen double __period_start = 1 if _n == 1
             quietly by id : replace __period_start = 1 if __same_recencies == 0 & _n > 1
             quietly by id: gen double __period_id = sum(__period_start)
-            
+
             * Build collapse command with all recency variables
             local rec_vars ""
             foreach exp_type_val of local exp_types {
-                local rec_vars "`rec_vars' `stub_name'`exp_type_val'"
+                local suffix = subinstr("`exp_type_val'", "-", "neg", .)
+                local suffix = subinstr("`suffix'", ".", "p", .)
+                local rec_vars "`rec_vars' `stub_name'`suffix'"
             }
-            
+
             * Store variable labels before collapse
             foreach exp_type_val of local exp_types {
-                local varlab_`exp_type_val' : variable label `stub_name'`exp_type_val'
+                local suffix = subinstr("`exp_type_val'", "-", "neg", .)
+                local suffix = subinstr("`suffix'", ".", "p", .)
+                local varlab_`suffix' : variable label `stub_name'`suffix'
             }
-            
+
             if "`keepvars'" != "" {
                     collapse (min) exp_start (max) exp_stop (first) exp_value `rec_vars' `keepvars' study_entry study_exit, by(id __period_id)
             }
@@ -3033,13 +3112,15 @@ program define tvexpose, rclass
                     collapse (min) exp_start (max) exp_stop (first) exp_value `rec_vars' study_entry study_exit, by(id __period_id)
             }
             drop __period_id
-            
+
             * Reapply value labels after collapse
             foreach exp_type_val of local exp_types {
-                label values `stub_name'`exp_type_val' `stub_name'labels_`exp_type_val'
-                label variable `stub_name'`exp_type_val' "`varlab_`exp_type_val''"
+                local suffix = subinstr("`exp_type_val'", "-", "neg", .)
+                local suffix = subinstr("`suffix'", ".", "p", .)
+                label values `stub_name'`suffix' `stub_name'labels_`suffix'
+                label variable `stub_name'`suffix' "`varlab_`suffix''"
             }
-            
+
             * Keep original categorical exposure in exp_value
         }
         else {
