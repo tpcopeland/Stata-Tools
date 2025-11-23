@@ -47,45 +47,80 @@ This framework provides a structured approach to double-checking all Stata packa
 
 ### 1.2 Spacing Standards (CRITICAL)
 
-These standards from the Stata Development Guide must be followed consistently:
+These standards should be followed consistently, with context-aware choices:
 
-| Context | Spacing | Check |
-|---------|---------|-------|
-| After GROUPBOX label | +15 | First element inside groupbox |
+| Context | Spacing | Description |
+|---------|---------|-------------|
+| After GROUPBOX - Required sections | +15 | "Required variables" groupboxes with simple label→input pairs |
+| After GROUPBOX - Standard elements | +20 | Most first elements (TEXT, RADIO, CHECKBOX lists) |
+| After GROUPBOX - Large/interactive | +25 | FILE controls or CHECKBOXes that toggle other controls |
 | Between field pairs | +25 | Vertical rhythm between label/input pairs |
 | Between groupboxes | +25 | Section separation |
 | Label to input (same field) | +20 | Within a single field pair |
 | Radio/checkbox lists | +20 | Consecutive related items |
 | Side-by-side alignment | -20 | Right column aligns with left label |
 
-**Common Spacing Errors to Check:**
+**Context-Based First Element Spacing:**
+
+The first element after a GROUPBOX uses spacing based on context:
+
+- **+15** - Use when:
+  - The groupbox is a "Required variables" section with simple label→input pairs
+  - A simple standalone CHECKBOX at the end of a groupbox (e.g., `gb_bytype`)
+
+- **+20** - Use when (most common):
+  - Standard TEXT label followed by an input control
+  - RADIO button groups
+  - CHECKBOX lists with multiple items
+  - Most groupbox contents
+
+- **+25** - Use when:
+  - First element is a FILE control (needs visual breathing room)
+  - First element is a CHECKBOX that toggles/controls other elements
+  - Extra visual separation is needed for clarity
+
+**Examples:**
 
 ```stata
-# ERROR: Wrong spacing after groupbox
-GROUPBOX gb_opts  10  10  620  120, label("Options")
-TEXT     tx_opt1  20  +20 280  ., label("Option:")  # Should be +15!
+# Required variables section - use +15
+GROUPBOX gb_required   10  60  620  120, label("Required variables")
+TEXT     tx_id         20  +15 280  ., label("Person ID variable:")
+VARNAME  vn_id         @   +20 @    ., label("ID variable")
 
-# CORRECT:
-GROUPBOX gb_opts  10  10  620  120, label("Options")
-TEXT     tx_opt1  20  +15 280  ., label("Option:")
+# Standard options section - use +20
+GROUPBOX gb_options    10  10  620  100, label("Options")
+TEXT     tx_opt1       20  +20 280  ., label("First option:")
+EDIT     ed_opt1       @   +20 @    ., label("Option value")
 
-# ERROR: Inconsistent groupbox spacing
+# Radio button group - use +20
+GROUPBOX gb_type       10  185 620  80, label("Event type")
+RADIO    rb_single     20  +20 590  ., label("Single event") first
+RADIO    rb_recur      @   +20 @    ., label("Recurring event") last
+
+# FILE control - use +25
+GROUPBOX gb_save       10  10  620  60,  label("Save output")
+FILE     fi_saveas     20  +25 480  ., error("Save as") save ///
+         label("Browse...")
+
+# Toggle CHECKBOX that controls other elements - use +25
+GROUPBOX gb_stopopt    10  225 620  75,  label("Stop date options")
+CHECKBOX ck_pointtime  20  +25 280  ., label("Point-in-time data") ///
+         onclickon(script stop_disable) onclickoff(script stop_enable)
+
+# Simple standalone checkbox (not a toggle) - use +15
+GROUPBOX gb_bytype     10  295 620  55,  label("Output variables")
+CHECKBOX ck_bytype     20  +15 590  ., label("Create separate variable...")
+
+# Between groupboxes - use +25
 GROUPBOX gb_one   10  10  620  100, label("Section 1")
-GROUPBOX gb_two   10  +30 620  100, label("Section 2")  # Should be +25!
-
-# CORRECT:
-GROUPBOX gb_one   10  10  620  100, label("Section 1")
+...
 GROUPBOX gb_two   10  +25 620  100, label("Section 2")
 
-# ERROR: Wrong spacing in field pairs
-TEXT tx_field1  20  +15 280  ., label("Field 1:")
-EDIT ed_field1  @   +20 @    ., label("input")
-TEXT tx_field2  20  +20 280  ., label("Field 2:")  # Should be +25!
-
-# CORRECT:
+# Field pairs - +25 between pairs, +20 within
 TEXT tx_field1  20  +15 280  ., label("Field 1:")
 EDIT ed_field1  @   +20 @    ., label("input")
 TEXT tx_field2  20  +25 280  ., label("Field 2:")
+EDIT ed_field2  @   +20 @    ., label("input")
 ```
 
 ### 1.3 Control Validation
@@ -459,10 +494,15 @@ assert r(N) == _N
 
 | Error | Impact | Fix |
 |-------|--------|-----|
-| Wrong groupbox start spacing | Visual inconsistency | Use +15 after groupbox |
+| Wrong groupbox start spacing | Visual inconsistency | Use +15/+20/+25 based on context (see Section 1.2) |
 | Inconsistent groupbox gaps | Unprofessional appearance | Use +25 between groupboxes |
 | Wrong field pair spacing | Cramped/loose layout | Use +25 between pairs, +20 within |
 | Side-by-side misalignment | Poor readability | Use -20 for right column alignment |
+
+**Groupbox First Element Context Guide:**
+- +15: Required variable sections, simple standalone checkboxes
+- +20: Most elements (TEXT, RADIO groups, CHECKBOX lists)
+- +25: FILE controls, toggle CHECKBOXes with onclickon/onclickoff
 
 ### 6.2 Ado Syntax Errors
 
@@ -810,7 +850,7 @@ This framework should be updated when:
 
 ### 30-Second Dialog Check
 - [ ] VERSION on line 1
-- [ ] +15 after groupbox
+- [ ] After groupbox: +15 (required sections), +20 (standard), +25 (FILE/toggles)
 - [ ] +25 between groupboxes
 - [ ] +25 between field pairs
 - [ ] +20 label to input
