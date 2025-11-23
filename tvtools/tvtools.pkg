@@ -21,6 +21,7 @@ d
 d Access the dialogs immediately with:
 d     . db tvexpose
 d     . db tvmerge
+d     . db tvevent
 d
 d OPTIONAL: Add to Stata menus for dropdown access
 d Run the included setup script:
@@ -30,6 +31,7 @@ d Or add manually to your profile.do:
 d     capture window menu append submenu "stUser" "Time-varying exposures"
 d     window menu append item "Time-varying exposures" "Create exposure variables (tvexpose)" "db tvexpose"
 d     window menu append item "Time-varying exposures" "Merge TV datasets (tvmerge)" "db tvmerge"
+d     window menu append item "Time-varying exposures" "Add events to TV datasets (tvevent)" "db tvevent"
 d     window menu refresh
 d
 d For detailed instructions, see: INSTALLATION.md
