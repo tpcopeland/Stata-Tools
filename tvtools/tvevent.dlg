@@ -1,0 +1,190 @@
+/*
+  tvevent
+  
+  VERSION 1.0.0  23nov2025
+
+  keyword:  data management, survival, time-varying, competing risks
+*/
+
+VERSION 16.0
+
+POSITION . . 520 480
+
+DIALOG main, label("tvevent - Integrate events into time-varying data") tabtitle("Main")
+BEGIN
+  TEXT     tx_using      _lft      _top      _iwd      .,           ///
+        label("Event dataset (using):")
+  FILE     fi_using      @         _ss       @         .,           ///
+        label("Browse...")                                          ///
+        filter("Stata Dataset (*.dta)|*.dta|All Files (*.*)|*.*")   ///
+        defext(dta)                                                 ///
+        error("Event dataset")
+
+  GROUPBOX gb_vars       _lft      _ls       _iwd      _ht17,       ///
+        label("Required Variables")
+
+  TEXT     tx_id         _ilft     _ss       _inwd     .,           ///
+        label("Person ID variable (must exist in both datasets):")
+  VARNAME  vn_id         @         _ss       _vnwd     .,           ///
+        option(id)                                                  ///
+        label("Person ID variable")
+
+  TEXT     tx_date       _ilft     _ls       _inwd     .,           ///
+        label("Primary event date variable (in event dataset):")
+  EDIT     ed_date       @         _ss       _vnwd     .,           ///
+        option(date)                                                ///
+        label("Primary event date variable")
+
+  TEXT     tx_gen        _ilft     _ls       _inwd     .,           ///
+        label("Generate event indicator variable (default: _failure):")
+  EDIT     ed_gen        @         _ss       _vnwd     .,           ///
+        option(generate)                                            ///
+        default("_failure")                                         ///
+        label("Generate variable")
+
+  GROUPBOX gb_type       _lft      +45       _iwd      _ht6,        ///
+        label("Event Type")
+  RADIO    rb_single     _ilft     _ss       _inwd     .,           ///
+        first                                                       ///
+        option(type(single))                                        ///
+        label("Single (Terminal) - Drops post-event time (e.g., Death)")
+  RADIO    rb_recur      @         _ss       @         .,           ///
+        last                                                        ///
+        option(type(recurring))                                     ///
+        label("Recurring - Keeps all time (e.g., Hospitalization)")
+
+  CHECKBOX ck_replace    _lft      +45       _iwd      .,           ///
+        option(replace)                                             ///
+        label("Replace output variables if they already exist")
+END
+
+DIALOG compete, tabtitle("Competing Risks")
+BEGIN
+  TEXT     tx_compete    _lft      _top      _iwd      .,           ///
+        label("Competing risk date variables (in event dataset):")
+  VARLIST  vl_compete    @         _ss       @         .,           ///
+        option(compete)                                             ///
+        label("Competing risk date variables")
+  TEXT     tx_note1      @         _ss       @         .,           ///
+        label("Note: Earliest date wins. Outcome coded 2, 3... in order of list.")
+
+  GROUPBOX gb_labels     _lft      _ls       _iwd      _ht14,       ///
+        label("Event Labels")
+  TEXT     tx_labels     _ilft     _ss       _inwd     .,           ///
+        label("Custom value labels (optional):")
+  EDIT     ed_labels     @         _ss       @         .,           ///
+        option(eventlabel)                                          ///
+        label("Event labels")
+  
+  TEXT     tx_syntax     @         _ms       @         .,           ///
+        label("Syntax: value1 "Label1" value2 "Label2" ...")
+  
+  TEXT     tx_ex1        @         _ss       @         .,           ///
+        label(`"Example: 0 "Censored" 1 "Heart Failure" 2 "Death""')
+        
+  TEXT     tx_note2      @         _ls       @         .,           ///
+        label("If unspecified, defaults to:")
+  TEXT     tx_note3      @         _ss       @         .,           ///
+        label("0=Censored, 1=Primary Date Label, 2+=Competing Date Labels")
+END
+
+DIALOG advanced, tabtitle("Advanced")
+BEGIN
+  GROUPBOX gb_cont       _lft      _top      _iwd      _ht6,        ///
+        label("Continuous Adjustment")
+  TEXT     tx_cont       _ilft     _ss       _inwd     .,           ///
+        label("Cumulative exposure variables to adjust (in master dataset):")
+  VARLIST  vl_cont       @         _ss       @         .,           ///
+        option(continuous)                                          ///
+        label("Continuous variables")
+  TEXT     tx_cont_note  @         _ss       @         .,           ///
+        label("Values will be proportionally reduced when intervals are split.")
+
+  GROUPBOX gb_time       _lft      +45       _iwd      _ht9,        ///
+        label("Time Generation")
+  CHECKBOX ck_time       _ilft     _ss       _inwd     .,           ///
+        label("Generate duration variable")                         ///
+        onclickon(script time_on)                                   ///
+        onclickoff(script time_off)
+  
+  TEXT     tx_timegen    _indent   _ss       _vnwd     .,           ///
+        label("Variable name:")
+  DEFINE   holdy @y
+  EDIT     ed_timegen    @         _ss       @         .,           ///
+        option(timegen)                                             ///
+        label("Time variable name")
+        
+  TEXT     tx_timeunit   _lft2     holdy     _vnwd     .,           ///
+        label("Unit:")
+  COMBOBOX cb_timeunit   @         _ss       @         .,           ///
+        dropdownlist                                                ///
+        contents(units)                                             ///
+        option(timeunit)                                            ///
+        default(days)                                               ///
+        label("Time unit")
+
+  GROUPBOX gb_keep       _lft      +55       _iwd      _ht4,        ///
+        label("Additional Data")
+  TEXT     tx_keep       _ilft     _ss       _inwd     .,           ///
+        label("Keep variables from event dataset:")
+  EDIT     ed_keep       @         _ss       @         .,           ///
+        option(keepvars)                                            ///
+        label("Keep variables")
+END
+
+LIST units
+BEGIN
+  days
+  months
+  years
+END
+
+SCRIPT time_on
+BEGIN
+  advanced.ed_timegen.enable
+  advanced.tx_timegen.enable
+  advanced.cb_timeunit.enable
+  advanced.tx_timeunit.enable
+END
+
+SCRIPT time_off
+BEGIN
+  advanced.ed_timegen.disable
+  advanced.tx_timegen.disable
+  advanced.cb_timeunit.disable
+  advanced.tx_timeunit.disable
+END
+
+PROGRAM command
+BEGIN
+  require main.fi_using
+  require main.vn_id
+  require main.ed_date
+  
+  put "tvevent using "
+  put `"""'
+  put main.fi_using
+  put `"""'
+  put ", "
+  
+  beginoptions
+    optionarg main.vn_id
+    optionarg main.ed_date
+    optionarg main.ed_gen
+    option radio(main rb_single rb_recur)
+    option main.ck_replace
+    
+    optionarg compete.vl_compete
+    if compete.ed_labels.isneq("") {
+        optionarg compete.ed_labels
+    }
+    
+    optionarg advanced.vl_cont
+    if advanced.ck_time {
+        require advanced.ed_timegen
+        optionarg advanced.ed_timegen
+        optionarg advanced.cb_timeunit
+    }
+    optionarg advanced.ed_keep
+  endoptions
+END
