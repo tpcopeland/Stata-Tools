@@ -23,7 +23,7 @@ BEGIN
   TEXT     tx_info       10  10  620  ., label("Merge time-varying exposure datasets (2-6 datasets)")
 
   GROUPBOX gb_datasets   10  35 620  180, label("Datasets to merge")
-  TEXT     tx_ds1        20  +15 120  ., label("Dataset 1:")
+  TEXT     tx_ds1        20  +20 120  ., label("Dataset 1:")
   FILE     fi_ds1        140 @   470  ., error("Dataset 1") ///
            label("Browse...") filter("Stata datasets|*.dta|All files|*.*")
   TEXT     tx_ds2        20  +25 120  ., label("Dataset 2:")
@@ -43,7 +43,7 @@ BEGIN
            label("Browse...") filter("Stata datasets|*.dta|All files|*.*")
 
   GROUPBOX gb_required   10  215 620  210, label("Required variables (one entry per dataset, space-separated)")
-  TEXT     tx_id         20  +15 280  ., label("Person ID variable (same in all datasets):")
+  TEXT     tx_id         20  +20 280  ., label("Person ID variable (same in all datasets):")
   VARNAME  vn_id         @   +20 @    ., label("ID variable")
 
   TEXT     tx_start      20  +25 590  ., label("Start date variables:")
