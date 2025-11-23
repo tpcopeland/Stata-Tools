@@ -39,6 +39,15 @@ program define tvtools_menu_setup
         display as text "✓ tvmerge.ado found"
     }
 
+    capture which tvevent
+    if _rc {
+        display as error "Warning: tvevent.ado not found in ado path"
+        display as error "Make sure tvtools is properly installed"
+    }
+    else {
+        display as text "✓ tvevent.ado found"
+    }
+
     * Add submenu to User menu
     display as text _n "Adding menu items..."
 
@@ -65,6 +74,13 @@ program define tvtools_menu_setup
         display as text "✓ Added tvmerge dialog to menu"
     }
 
+    * Add tvevent dialog
+    capture window menu append item "Time-varying exposures" ///
+        "Add events to TV datasets (tvevent)" "db tvevent"
+    if _rc == 0 {
+        display as text "✓ Added tvevent dialog to menu"
+    }
+
     * Refresh menus
     window menu refresh
     display as text "✓ Menu refreshed"
@@ -75,6 +91,7 @@ program define tvtools_menu_setup
     display as text _n "Access dialogs via:"
     display as text "  User > Time-varying exposures > Create exposure variables"
     display as text "  User > Time-varying exposures > Merge TV datasets"
+    display as text "  User > Time-varying exposures > Add events to TV datasets"
     display as text _n "To make this permanent (persist across Stata sessions):"
     display as text "1. Find your PERSONAL directory: type {cmd:sysdir}"
     display as text "2. Create or edit {cmd:profile.do} in that directory"
@@ -82,6 +99,7 @@ program define tvtools_menu_setup
     display as input `"    capture window menu append submenu "stUser" "Time-varying exposures""'
     display as input `"    window menu append item "Time-varying exposures" "Create exposure variables (tvexpose)" "db tvexpose""'
     display as input `"    window menu append item "Time-varying exposures" "Merge TV datasets (tvmerge)" "db tvmerge""'
+    display as input `"    window menu append item "Time-varying exposures" "Add events to TV datasets (tvevent)" "db tvevent""'
     display as input `"    window menu refresh"'
     display as text _n "Then restart Stata. The menus will appear automatically."
     display as text _n "{hline 60}"
