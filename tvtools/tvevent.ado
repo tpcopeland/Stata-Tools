@@ -60,13 +60,6 @@ program define tvevent, rclass
         di as error "ID variable `id' not found in master dataset."
         exit 111
     }
-    foreach v in start stop {
-        capture confirm variable `v'
-        if _rc {
-            di as error "Variable '`v'' not found. tvevent requires output from tvexpose/tvmerge."
-            exit 111
-        }
-    }
     
     if "`replace'" == "" {
         capture confirm variable `generate'
@@ -85,29 +78,6 @@ program define tvevent, rclass
     else {
         capture drop `generate'
         if "`timegen'" != "" capture drop `timegen'
-    }
-    
-    if "`continuous'" != "" {
-        foreach v of local continuous {
-            capture confirm numeric variable `v'
-            if _rc {
-                di as error "Continuous variable `v' not found or is not numeric."
-                exit 111
-            }
-        }
-    }
-    
-    if "`keepvars'" != "" {
-        local collision_vars ""
-        foreach v of local keepvars {
-            capture confirm variable `v'
-            if _rc == 0 local collision_vars "`collision_vars' `v'"
-        }
-        if "`collision_vars'" != "" {
-            di as error "The following variables in keepvars() already exist in master: `collision_vars'"
-            di as error "Please rename them or remove them from keepvars()."
-            exit 110
-        }
     }
 
     quietly {
@@ -131,6 +101,35 @@ program define tvevent, rclass
              di as error "Date variable `date' not found in event dataset `using'"
              exit 111
         }
+        foreach v in start stop {
+            capture confirm variable `v'
+            if _rc {
+                di as error "Variable '`v'' not found in using dataset. tvevent requires output from tvexpose/tvmerge."
+                exit 111
+            }
+        }
+
+        if "`continuous'" != "" {
+            foreach v of local continuous {
+                capture confirm numeric variable `v'
+                if _rc {
+                    di as error "Continuous variable `v' not found or is not numeric in using dataset."
+                    exit 111
+                }
+            }
+        }
+
+        * Save using dataset as the master working dataset (has intervals)
+        tempfile using_data
+        save `using_data'
+
+        * Save just intervals for split identification
+        tempfile intervals
+        preserve
+        keep `id' start stop
+        duplicates drop
+        save `intervals'
+        restore
 
         * -- COMPETING RISK LOGIC START --
         
@@ -183,8 +182,8 @@ program define tvevent, rclass
         restore
 
         **# 3. IDENTIFY SPLIT POINTS
-        
-        keep `id' start stop
+
+        use `intervals', clear
         joinby `id' using `events'
         
         keep if `date' > start & `date' < stop
@@ -198,7 +197,7 @@ program define tvevent, rclass
         local n_splits = r(N)
         
         **# 4. EXECUTE SPLITS
-        use `master', clear
+        use `using_data', clear
         
         tempvar orig_dur new_dur ratio
         gen double `orig_dur' = stop - start
