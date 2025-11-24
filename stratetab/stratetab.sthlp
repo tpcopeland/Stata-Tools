@@ -16,7 +16,7 @@
 {title:Syntax}
 
 {p 8 17 2}
-{cmd:stratetab}{cmd:,} {opt using(namelist)} {opt xlsx(string)} [{opt sheet(string)} {opt title(string)} {opt labels(string)} {opt digits(integer 1)} {opt eventdigits(integer 0)} {opt pydigits(integer 0)} {opt unitlabel(string)}]
+{cmd:stratetab}{cmd:,} {opt using(namelist)} {opt xlsx(string)} [{opt sheet(string)} {opt title(string)} {opt labels(string)} {opt digits(integer 1)} {opt eventdigits(integer 0)} {opt pydigits(integer 0)} {opt unitlabel(string)} {opt pyscale(real 1)}]
 
 
 {marker description}{...}
@@ -64,7 +64,10 @@ The command reads multiple .dta files produced by {helpb strate}, extracts the c
 {opt pydigits(integer 0)} specifies the number of decimal places for person-years. Must be between 0 and 10. Default is 0.
 
 {phang}
-{opt unitlabel(string)} adds unit labels to the person-years and rate columns. For example, {cmd:unitlabel(1000)} produces column headers "Person-years (1000's)" and "Rate per 1000 person-years (95% CI)".
+{opt unitlabel(string)} adds a unit label to the rate column header. For example, {cmd:unitlabel(1000)} produces the header "Rate per 1000 person-years (95% CI)". This option only affects the rate column label; use {opt pyscale()} to scale and label the person-years column.
+
+{phang}
+{opt pyscale(real 1)} divides person-years values by the specified factor and updates the column header accordingly. Default is 1 (no scaling). For example, {cmd:pyscale(1000)} divides all person-years by 1000 and produces the header "Person-years (1000s)". This allows person-years and rates to be scaled independently.
 
 
 {marker examples}{...}
@@ -110,21 +113,34 @@ Specify 2 decimal places for rates and 1 for person-years:
 Rates and confidence intervals display with 2 decimal places, person-years with 1 decimal place, and events with 0 decimal places (default).
 
 {pstd}
-{bf:Example 4: Custom sheet name and unit label}
+{bf:Example 4: Rates per 1000 with unscaled person-years}
 
 {pstd}
-Create output in a sheet named "Analysis1" with rates per 1000 person-years:
+Display rates per 1000 person-years but keep person-years in original units (years):
+
+{phang2}{cmd:. stratetab, using(strate_outcome1 strate_outcome2) ///}{p_end}
+{phang2}{cmd:  xlsx(results.xlsx) ///}{p_end}
+{phang2}{cmd:  unitlabel(1000)}{p_end}
+
+{pstd}
+The rate column header shows "Rate per 1000 person-years (95% CI)" while person-years remain unscaled.
+
+{pstd}
+{bf:Example 5: Both person-years and rates scaled}
+
+{pstd}
+Scale both person-years (display in 1000s) and label rates per 1000:
 
 {phang2}{cmd:. stratetab, using(strate_outcome1 strate_outcome2) ///}{p_end}
 {phang2}{cmd:  xlsx(results.xlsx) ///}{p_end}
 {phang2}{cmd:  sheet(Analysis1) ///}{p_end}
-{phang2}{cmd:  unitlabel(1000)}{p_end}
+{phang2}{cmd:  unitlabel(1000) pyscale(1000)}{p_end}
 
 {pstd}
-The output appears in the "Analysis1" sheet with column headers "Person-years (1000's)" and "Rate per 1000 person-years (95% CI)".
+The person-years column shows values divided by 1000 with header "Person-years (1000s)", and rates are labeled "Rate per 1000 person-years (95% CI)".
 
 {pstd}
-{bf:Example 5: Single outcome with formatting}
+{bf:Example 6: Single outcome with formatting}
 
 {pstd}
 Export a single outcome with custom formatting:
@@ -139,7 +155,7 @@ Export a single outcome with custom formatting:
 A single outcome table is created showing mortality rates with standard decimal formatting.
 
 {pstd}
-{bf:Example 6: Multiple outcomes with consistent formatting}
+{bf:Example 7: Multiple outcomes with consistent formatting}
 
 {pstd}
 Create a comprehensive table with four outcomes:

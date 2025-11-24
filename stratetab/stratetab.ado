@@ -9,7 +9,8 @@ DESCRIPTION:
 
 SYNTAX:
 	stratetab, using(filelist) xlsx(string) [sheet(string) title(string) ///
-	  labels(string) digits(integer 1) eventdigits(integer 0) pydigits(integer 0) unitlabel(string)]
+	  labels(string) digits(integer 1) eventdigits(integer 0) pydigits(integer 0) ///
+	  unitlabel(string) pyscale(real 1)]
 
 	using:      Space-separated list of strate output files (.dta extension added automatically)
 	xlsx:       Excel output file (must have .xlsx extension)
@@ -19,7 +20,8 @@ SYNTAX:
 	digits:     Decimal places for rate and CI (default 1)
 	eventdigits:Decimal places for events (default 0)
 	pydigits:   Decimal places for person-years (default 0)
-	unitlabel:  Adds unit labels to person-years and rates  
+	unitlabel:  Adds unit label to rate column (e.g., "Rate per 1000 person-years")
+	pyscale:    Divides person-years by this value (default 1 = no scaling)  
 
 EXAMPLE:
 	stratetab, using(strate_edss4 strate_edss6 strate_relapse) ///
@@ -37,7 +39,8 @@ if "`_byvars'" != "" {
 }
 
 syntax, using(namelist) xlsx(string) [sheet(string) title(string) ///
-	labels(string) digits(integer 1) eventdigits(integer 0) pydigits(integer 0) unitlabel(string)]
+	labels(string) digits(integer 1) eventdigits(integer 0) pydigits(integer 0) ///
+	unitlabel(string) pyscale(real 1)]
 
 if !strmatch("`xlsx'", "*.xlsx") {
 	di as err "xlsx must have .xlsx extension"
@@ -46,6 +49,11 @@ if !strmatch("`xlsx'", "*.xlsx") {
 
 if `digits' < 0 | `digits' > 10 | `eventdigits' < 0 | `eventdigits' > 10 | `pydigits' < 0 | `pydigits' > 10 {
 	di as err "digit options must be 0-10"
+	exit 198
+}
+
+if `pyscale' <= 0 {
+	di as err "pyscale must be positive"
 	exit 198
 }
 
@@ -145,12 +153,20 @@ local new = _N + 1
 quietly set obs `new'
 quietly replace c2 = "`col1_header'" in `new'
 quietly replace c3 = "Events" in `new'
-if "`unitlabel'" != "" {
-	quietly replace c4 = "Person-years" + char(10) + "(`unitlabel's)" in `new'
-	quietly replace c5 = "Rate per `unitlabel'" + char(10) + "person-years (95% CI)" in `new'
+* Person-years header based on pyscale
+if `pyscale' != 1 {
+	local pyscale_int = string(`pyscale', "%12.0g")
+	quietly replace c4 = "Person-years" + char(10) + "(`pyscale_int's)" in `new'
 }
 else {
 	quietly replace c4 = "Person-years" in `new'
+}
+
+* Rate header based on unitlabel
+if "`unitlabel'" != "" {
+	quietly replace c5 = "Rate per `unitlabel'" + char(10) + "person-years (95% CI)" in `new'
+}
+else {
 	quietly replace c5 = "Rate (95% CI)" in `new'
 }
 
@@ -199,10 +215,10 @@ qui {
 		}
 		
 		if `pydigits' == 0 {
-			gen py = string(round(_Y,1), "%11.0fc")
+			gen py = string(round(_Y/`pyscale',1), "%11.0fc")
 		}
 		else {
-			gen py = string(_Y, "%11.`pydigits'fc")
+			gen py = string(_Y/`pyscale', "%11.`pydigits'fc")
 		}
 		
 		gen rt = strtrim(string(round(_Rate,10^(-`digits')), "%11.`digits'f")) + " (" + ///
@@ -250,10 +266,10 @@ qui {
 		}
 		
 		if `pydigits' == 0 {
-			gen py = string(round(_Y,1), "%11.0fc")
+			gen py = string(round(_Y/`pyscale',1), "%11.0fc")
 		}
 		else {
-			gen py = string(_Y, "%11.`pydigits'fc")
+			gen py = string(_Y/`pyscale', "%11.`pydigits'fc")
 		}
 		
 		gen rt = strtrim(string(round(_Rate,10^(-`digits')), "%11.`digits'f")) + " (" + ///
@@ -338,9 +354,12 @@ forvalues i = 1(1)5 {
 	gen c`i'_length = length(c`i')
 }
 
+if `pyscale' != 1 {
+	local pyscale_int = string(`pyscale', "%12.0g")
+	quietly replace c4_length = c4_length - length(" (`pyscale_int's)") if _n == 2
+}
 if "`unitlabel'" != "" {
-	quietly replace c4_length = c4_length - length(" (`unitlabel's)") if _n == 2
-	quietly replace c5_length = c5_length - length(" per `unitlabel' person-years") if _n == 2 
+	quietly replace c5_length = c5_length - length(" per `unitlabel' person-years") if _n == 2
 }
 
 forvalues i = 1(1)5 {
@@ -358,19 +377,24 @@ if `col_b_width' < 12 local col_b_width = 12
 local col_c_width = ceil(`max_c3' * 1.15)
 if `col_c_width' < 10 local col_c_width = 10
 
-if "`unitlabel'" != "" {
-local col_d_width = ceil(`max_c4' * 1.1)
-if `col_d_width' < 13 local col_d_width = 13
-
-local col_e_width = ceil(`max_c5' * 1.2)
-if `col_e_width' < 15 local col_e_width = 15
+* Column D width based on pyscale
+if `pyscale' != 1 {
+	local col_d_width = ceil(`max_c4' * 1.1)
+	if `col_d_width' < 13 local col_d_width = 13
 }
 else {
-local col_d_width = ceil(`max_c4' * 1.15)
-if `col_d_width' < 13 local col_d_width = 13
+	local col_d_width = ceil(`max_c4' * 1.15)
+	if `col_d_width' < 13 local col_d_width = 13
+}
 
-local col_e_width = ceil(`max_c5' * 1.1)
-if `col_e_width' < 20 local col_e_width = 20
+* Column E width based on unitlabel
+if "`unitlabel'" != "" {
+	local col_e_width = ceil(`max_c5' * 1.2)
+	if `col_e_width' < 15 local col_e_width = 15
+}
+else {
+	local col_e_width = ceil(`max_c5' * 1.1)
+	if `col_e_width' < 20 local col_e_width = 20
 }
 drop c*_length outcome_row
 }
