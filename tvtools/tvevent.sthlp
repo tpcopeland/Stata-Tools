@@ -60,6 +60,14 @@
 {cmd:tvevent} is the third step in the {bf:tvtools} workflow. It processes time-varying datasets (created by {helpb tvexpose} and {helpb tvmerge}) to integrate outcomes and competing risks.
 
 {pstd}
+{bf:Important:} The master dataset (currently in memory) must contain variables named {cmd:start} and {cmd:stop}
+representing the interval boundaries. These are created automatically by {helpb tvexpose} and {helpb tvmerge}.
+
+{pstd}
+By default, {cmd:tvevent} keeps all variables from the master dataset (the cohort dataset in memory before
+{cmd:tvevent} is run). Variables are merged back based on id, start, and stop.
+
+{pstd}
 It performs the following key tasks:
 
 {phang2}1. {bf:Resolves Event Dates:} Compares the primary {cmd:date()} and any variables in {cmd:compete()}. The earliest occurring date becomes the effective event date for that person.
@@ -108,7 +116,7 @@ If {cmd:type(single)} is used (default), all data after the first occurring even
 {opt generate(newvar)} names the new outcome variable. Default is {cmd:_failure}.
 
 {phang}
-{opt keepvars(varlist)} specifies additional variables to keep from the event dataset (e.g., diagnosis codes). These will be populated only on the rows where the event occurred.
+{opt keepvars(varlist)} specifies additional variables to keep from the event dataset (e.g., diagnosis codes). These will be populated only on the rows where the event occurred. Note that all variables from the master dataset (in memory before {cmd:tvevent}) are kept by default.
 
 
 {marker examples}{...}

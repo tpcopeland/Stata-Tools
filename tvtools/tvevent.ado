@@ -60,7 +60,33 @@ program define tvevent, rclass
         di as error "ID variable `id' not found in master dataset."
         exit 111
     }
-    
+
+    capture confirm variable `date'
+    if _rc {
+        di as error "Date variable `date' not found in master dataset."
+        exit 111
+    }
+
+    if "`continuous'" != "" {
+        foreach v of local continuous {
+            capture confirm numeric variable `v'
+            if _rc {
+                di as error "Continuous variable `v' not found or is not numeric in master dataset."
+                exit 111
+            }
+        }
+    }
+
+    if "`compete'" != "" {
+        foreach v of local compete {
+            capture confirm variable `v'
+            if _rc {
+                di as error "Competing variable `v' not found in master dataset."
+                exit 111
+            }
+        }
+    }
+
     if "`replace'" == "" {
         capture confirm variable `generate'
         if _rc == 0 {
@@ -81,9 +107,17 @@ program define tvevent, rclass
     }
 
     quietly {
-        
+
         **# 2. PREPARE DATASETS
-        
+
+        * Capture all variables from master dataset to keep by default
+        local master_vars ""
+        foreach v of varlist * {
+            if "`v'" != "`id'" & "`v'" != "start" & "`v'" != "stop" {
+                local master_vars "`master_vars' `v'"
+            }
+        }
+
         tempfile master
         save `master'
 
@@ -93,12 +127,7 @@ program define tvevent, rclass
         
         capture confirm variable `id'
         if _rc {
-             di as error "ID variable `id' not found in event dataset `using'"
-             exit 111
-        }
-        capture confirm variable `date'
-        if _rc {
-             di as error "Date variable `date' not found in event dataset `using'"
+             di as error "ID variable `id' not found in using dataset `using'"
              exit 111
         }
         foreach v in start stop {
@@ -106,16 +135,6 @@ program define tvevent, rclass
             if _rc {
                 di as error "Variable '`v'' not found in using dataset. tvevent requires output from tvexpose/tvmerge."
                 exit 111
-            }
-        }
-
-        if "`continuous'" != "" {
-            foreach v of local continuous {
-                capture confirm numeric variable `v'
-                if _rc {
-                    di as error "Continuous variable `v' not found or is not numeric in using dataset."
-                    exit 111
-                }
             }
         }
 
@@ -154,16 +173,11 @@ program define tvevent, rclass
         
         local k = 2
         foreach v of local compete {
-             capture confirm variable `v'
-             if _rc {
-                 di as error "Competing variable `v' not found in using dataset."
-                 exit 111
-             }
              replace `v' = floor(`v')
-             
+
              replace _eff_type = `k' if !missing(`v') & (`v' < _eff_date | missing(_eff_date))
              replace _eff_date = `v' if !missing(`v') & (`v' < _eff_date | missing(_eff_date))
-             
+
              local k = `k' + 1
         }
         
@@ -320,7 +334,22 @@ program define tvevent, rclass
             }
             drop `days_diff'
         }
-        
+
+        **# 9. MERGE MASTER VARIABLES BACK
+        * By default, keep all variables from the original master dataset
+        if "`master_vars'" != "" {
+            tempfile current
+            save `current'
+
+            use `master', clear
+            keep `id' start stop `master_vars'
+            tempfile master_to_merge
+            save `master_to_merge'
+
+            use `current', clear
+            merge m:1 `id' start stop using `master_to_merge', keep(master match) nogen
+        }
+
         format start stop %tdCCYY/NN/DD
         sort `id' start stop
         
