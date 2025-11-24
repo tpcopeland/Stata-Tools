@@ -321,10 +321,10 @@ qui {
 			}
 			
 			if `pydigits' == 0 {
-				gen py = string(round(_Y,1), "%11.0fc")
+				gen py = string(round(_Y/`pyscale',1), "%11.0fc")
 			}
 			else {
-				gen py = string(_Y, "%11.`pydigits'fc")
+				gen py = string(_Y/`pyscale', "%11.`pydigits'fc")
 			}
 			
 			gen rt = strtrim(string(round(_Rate,10^(-`digits')), "%11.`digits'f")) + " (" + ///
