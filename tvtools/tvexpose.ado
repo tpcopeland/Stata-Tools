@@ -4048,9 +4048,16 @@ program define tvexpose, rclass
     
     sort id start stop
 	* Rename id back to original name if different
-	* Note: start/stop should remain as "start" and "stop" in output
 	if "`id'" != "id" {
 		capture quietly rename id `id'
+	}
+
+	* Rename start/stop back to original names if different
+	if "`start'" != "start" {
+		capture quietly rename start `start'
+	}
+	if "`stop'" != "" & "`stop'" != "stop" {
+		capture quietly rename stop `stop'
 	}
     capture quietly label data "`using'"
 
