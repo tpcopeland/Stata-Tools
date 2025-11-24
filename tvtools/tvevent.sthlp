@@ -35,12 +35,12 @@
 
 {syntab:Competing Risks}
 {synopt:{opt com:pete(varlist)}}list of date variables in using file representing competing risks{p_end}
-{synopt:{opt eventl:abel(string)}}custom value labels for the generated event variable{p_end}
 
 {syntab:Event definition}
 {synopt:{opt type(string)}}event type: {bf:single} (default) or {bf:recurring}{p_end}
 {synopt:{opt gen:erate(newvar)}}name for event indicator variable (default: _failure){p_end}
 {synopt:{opt con:tinuous(varlist)}}cumulative exposure variables to adjust proportionally when splitting intervals{p_end}
+{synopt:{opt eventl:abel(string)}}custom value labels for the generated event variable{p_end}
 
 {syntab:Time generation}
 {synopt:{opt timeg:en(newvar)}}create a variable representing the duration of each interval{p_end}
@@ -85,13 +85,13 @@ If {cmd:type(single)} is used (default), all data after the first occurring even
 {opt compete(varlist)} specifies date variables in the using dataset that represent competing risks. If a competing date is earlier than the primary date, the status is set to 2 (for the first variable in the list), 3 (for the second), etc.
 
 {phang}
+{opt continuous(varlist)} specifies variables representing cumulative exposure amounts (e.g., total mg of drug, total days exposed) calculated for the *original* interval. When an interval is split, the values of these variables are multiplied by the ratio of (new duration / old duration), preserving the correct rate and total sum.
+
+{phang}
 {opt eventlabel(string)} specifies custom value labels for the outcome variable categories. 
 {break}Use standard Stata syntax: {it:value "Label" value "Label"}.
 {break}Example: {cmd:eventlabel(0 "Alive" 1 "Heart Failure" 2 "Death")}
 {break}If not specified, labels default to "Censored" (0) and the variable labels of the date variables from the using dataset.
-
-{phang}
-{opt continuous(varlist)} specifies variables representing cumulative exposure amounts (e.g., total mg of drug, total days exposed) calculated for the *original* interval. When an interval is split, the values of these variables are multiplied by the ratio of (new duration / old duration), preserving the correct rate and total sum.
 
 {phang}
 {opt timegen(newvar)} creates a new variable containing the duration of each interval. This is useful for Poisson regression offsets or descriptive statistics.
