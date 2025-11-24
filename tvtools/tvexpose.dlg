@@ -26,28 +26,28 @@ BEGIN
 
   GROUPBOX gb_required   10  60 620  160, label("Required variables")
   TEXT     tx_id         20  +15 280  ., label("Person ID variable:")
-  VARNAME  vn_id         @   +20 @    ., label("ID variable")
+  VARNAME  vn_id         @   +20 @    ., label("ID variable") option(id)
 
   TEXT     tx_start      330 -20 280  ., label("Start date variable:")
-  VARNAME  vn_start      @   +20 @    ., label("Start")
+  VARNAME  vn_start      @   +20 @    ., label("Start") option(start)
 
   TEXT     tx_exposure   20  +25 280  ., label("Exposure variable:")
-  VARNAME  vn_exposure   @   +20 @    ., label("Exposure")
+  VARNAME  vn_exposure   @   +20 @    ., label("Exposure") option(exposure)
 
   TEXT     tx_reference  330 -20 280  ., label("Reference value:")
-  EDIT     ed_reference  @   +20 120  ., label("Reference") numonly
+  EDIT     ed_reference  @   +20 120  ., label("Reference") numonly option(reference)
 
   TEXT     tx_entry      20  +25 280  ., label("Study entry date:")
-  VARNAME  vn_entry      @   +20 @    ., label("Entry")
+  VARNAME  vn_entry      @   +20 @    ., label("Entry") option(entry)
 
   TEXT     tx_exit       330 -20 280  ., label("Study exit date:")
-  VARNAME  vn_exit       @   +20 @    ., label("Exit")
+  VARNAME  vn_exit       @   +20 @    ., label("Exit") option(exit)
 
   GROUPBOX gb_stopopt    10  225 620  70,  label("Stop date options")
   CHECKBOX ck_pointtime  20  +20 280  ., label("Point-in-time data (no stop date)") ///
            onclickon(script stop_disable) onclickoff(script stop_enable)
   TEXT     tx_stop       330 @ 280    ., label("Stop date variable:")
-  VARNAME  vn_stop       @   +20 @    ., label("Stop")
+  VARNAME  vn_stop       @   +20 @    ., label("Stop") option(stop)
 END
 
 DIALOG exposure, tabtitle("Exposure Definition")
