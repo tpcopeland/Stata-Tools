@@ -81,9 +81,17 @@ program define tvevent, rclass
     }
 
     quietly {
-        
+
         **# 2. PREPARE DATASETS
-        
+
+        * Capture all variables from master dataset to keep by default
+        local master_vars ""
+        foreach v of varlist * {
+            if "`v'" != "`id'" & "`v'" != "start" & "`v'" != "stop" {
+                local master_vars "`master_vars' `v'"
+            }
+        }
+
         tempfile master
         save `master'
 
@@ -320,7 +328,22 @@ program define tvevent, rclass
             }
             drop `days_diff'
         }
-        
+
+        **# 9. MERGE MASTER VARIABLES BACK
+        * By default, keep all variables from the original master dataset
+        if "`master_vars'" != "" {
+            tempfile current
+            save `current'
+
+            use `master', clear
+            keep `id' start stop `master_vars'
+            tempfile master_to_merge
+            save `master_to_merge'
+
+            use `current', clear
+            merge m:1 `id' start stop using `master_to_merge', keep(master match) nogen
+        }
+
         format start stop %tdCCYY/NN/DD
         sort `id' start stop
         
