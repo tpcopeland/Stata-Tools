@@ -81,6 +81,23 @@ program define tvevent, rclass
         }
     }
 
+    * Check date and compete variables in master
+    capture confirm variable `date'
+    if _rc {
+        di as error "Date variable `date' not found in master dataset."
+        exit 111
+    }
+
+    if "`compete'" != "" {
+        foreach v of local compete {
+            capture confirm variable `v'
+            if _rc {
+                di as error "Competing variable `v' not found in master dataset."
+                exit 111
+            }
+        }
+    }
+
     if "`replace'" == "" {
         capture confirm variable `generate'
         if _rc == 0 {
@@ -134,20 +151,6 @@ program define tvevent, rclass
         if _rc {
              di as error "ID variable `id' not found in using dataset `using'"
              exit 111
-        }
-        capture confirm variable `date'
-        if _rc {
-             di as error "Date variable `date' not found in using dataset `using'"
-             exit 111
-        }
-        if "`compete'" != "" {
-            foreach v of local compete {
-                capture confirm variable `v'
-                if _rc {
-                    di as error "Competing variable `v' not found in using dataset `using'"
-                    exit 111
-                }
-            }
         }
 
         * -- COMPETING RISK LOGIC START --
