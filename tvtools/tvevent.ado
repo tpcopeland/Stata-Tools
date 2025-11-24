@@ -122,7 +122,6 @@ program define tvevent, rclass
         save `master'
 
         * Load and process Event data
-        preserve
         use "`using'", clear
         
         capture confirm variable `id'
