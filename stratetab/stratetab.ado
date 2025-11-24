@@ -10,7 +10,7 @@ DESCRIPTION:
 SYNTAX:
 	stratetab, using(filelist) xlsx(string) [sheet(string) title(string) ///
 	  labels(string) digits(integer 1) eventdigits(integer 0) pydigits(integer 0) ///
-	  unitlabel(string) pyscale(real 1)]
+	  unitlabel(string) pyscale(real 1) ratescale(real 1)]
 
 	using:      Space-separated list of strate output files (.dta extension added automatically)
 	xlsx:       Excel output file (must have .xlsx extension)
@@ -21,7 +21,8 @@ SYNTAX:
 	eventdigits:Decimal places for events (default 0)
 	pydigits:   Decimal places for person-years (default 0)
 	unitlabel:  Adds unit label to rate column (e.g., "Rate per 1000 person-years")
-	pyscale:    Divides person-years by this value (default 1 = no scaling)  
+	pyscale:    Divides person-years by this value (default 1 = no scaling)
+	ratescale:  Multiplies rates by this value (default 1 = no scaling)  
 
 EXAMPLE:
 	stratetab, using(strate_edss4 strate_edss6 strate_relapse) ///
@@ -40,7 +41,7 @@ if "`_byvars'" != "" {
 
 syntax, using(namelist) xlsx(string) [sheet(string) title(string) ///
 	labels(string) digits(integer 1) eventdigits(integer 0) pydigits(integer 0) ///
-	unitlabel(string) pyscale(real 1)]
+	unitlabel(string) pyscale(real 1) ratescale(real 1)]
 
 if !strmatch("`xlsx'", "*.xlsx") {
 	di as err "xlsx must have .xlsx extension"
@@ -54,6 +55,11 @@ if `digits' < 0 | `digits' > 10 | `eventdigits' < 0 | `eventdigits' > 10 | `pydi
 
 if `pyscale' <= 0 {
 	di as err "pyscale must be positive"
+	exit 198
+}
+
+if `ratescale' <= 0 {
+	di as err "ratescale must be positive"
 	exit 198
 }
 
@@ -221,9 +227,9 @@ qui {
 			gen py = string(_Y/`pyscale', "%11.`pydigits'fc")
 		}
 		
-		gen rt = strtrim(string(round(_Rate,10^(-`digits')), "%11.`digits'f")) + " (" + ///
-		         strtrim(string(round(_Lower,10^(-`digits')), "%11.`digits'f")) + "-" + ///
-		         strtrim(string(round(_Upper,10^(-`digits')), "%11.`digits'f")) + ")"
+		gen rt = strtrim(string(round(_Rate*`ratescale',10^(-`digits')), "%11.`digits'f")) + " (" + ///
+		         strtrim(string(round(_Lower*`ratescale',10^(-`digits')), "%11.`digits'f")) + "-" + ///
+		         strtrim(string(round(_Upper*`ratescale',10^(-`digits')), "%11.`digits'f")) + ")"
 		
 		local nobs = _N
 		
@@ -272,9 +278,9 @@ qui {
 			gen py = string(_Y/`pyscale', "%11.`pydigits'fc")
 		}
 		
-		gen rt = strtrim(string(round(_Rate,10^(-`digits')), "%11.`digits'f")) + " (" + ///
-		         strtrim(string(round(_Lower,10^(-`digits')), "%11.`digits'f")) + "-" + ///
-		         strtrim(string(round(_Upper,10^(-`digits')), "%11.`digits'f")) + ")"
+		gen rt = strtrim(string(round(_Rate*`ratescale',10^(-`digits')), "%11.`digits'f")) + " (" + ///
+		         strtrim(string(round(_Lower*`ratescale',10^(-`digits')), "%11.`digits'f")) + "-" + ///
+		         strtrim(string(round(_Upper*`ratescale',10^(-`digits')), "%11.`digits'f")) + ")"
 		
 		forvalues i = 1/`=_N' {
 			local v1 = "    " + catvar_str[`i']
@@ -327,9 +333,9 @@ qui {
 				gen py = string(_Y/`pyscale', "%11.`pydigits'fc")
 			}
 			
-			gen rt = strtrim(string(round(_Rate,10^(-`digits')), "%11.`digits'f")) + " (" + ///
-			         strtrim(string(round(_Lower,10^(-`digits')), "%11.`digits'f")) + "-" + ///
-			         strtrim(string(round(_Upper,10^(-`digits')), "%11.`digits'f")) + ")"
+			gen rt = strtrim(string(round(_Rate*`ratescale',10^(-`digits')), "%11.`digits'f")) + " (" + ///
+			         strtrim(string(round(_Lower*`ratescale',10^(-`digits')), "%11.`digits'f")) + "-" + ///
+			         strtrim(string(round(_Upper*`ratescale',10^(-`digits')), "%11.`digits'f")) + ")"
 		}
 		restore
 	}
