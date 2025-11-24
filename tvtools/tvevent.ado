@@ -61,27 +61,21 @@ program define tvevent, rclass
         exit 111
     }
 
-    capture confirm variable `date'
-    if _rc {
-        di as error "Date variable `date' not found in master dataset."
-        exit 111
+    * Check start/stop in master (time-varying intervals from tvexpose/tvmerge)
+    foreach v in start stop {
+        capture confirm variable `v'
+        if _rc {
+            di as error "Variable '`v'' not found in master dataset. tvevent requires output from tvexpose/tvmerge."
+            exit 111
+        }
     }
 
+    * Check continuous variables in master (exposure variables to adjust when splitting)
     if "`continuous'" != "" {
         foreach v of local continuous {
             capture confirm numeric variable `v'
             if _rc {
                 di as error "Continuous variable `v' not found or is not numeric in master dataset."
-                exit 111
-            }
-        }
-    }
-
-    if "`compete'" != "" {
-        foreach v of local compete {
-            capture confirm variable `v'
-            if _rc {
-                di as error "Competing variable `v' not found in master dataset."
                 exit 111
             }
         }
@@ -121,33 +115,40 @@ program define tvevent, rclass
         tempfile master
         save `master'
 
-        * Load and process Event data
-        use "`using'", clear
-        
-        capture confirm variable `id'
-        if _rc {
-             di as error "ID variable `id' not found in using dataset `using'"
-             exit 111
-        }
-        foreach v in start stop {
-            capture confirm variable `v'
-            if _rc {
-                di as error "Variable '`v'' not found in using dataset. tvevent requires output from tvexpose/tvmerge."
-                exit 111
-            }
-        }
-
-        * Save using dataset as the master working dataset (has intervals)
-        tempfile using_data
-        save `using_data'
-
-        * Save just intervals for split identification
+        * Save intervals from master for split identification
         tempfile intervals
         preserve
         keep `id' start stop
         duplicates drop
         save `intervals'
         restore
+
+        * Save master dataset (has intervals from tvexpose/tvmerge)
+        tempfile using_data
+        save `using_data'
+
+        * Load and process Event data from using file
+        use "`using'", clear
+
+        capture confirm variable `id'
+        if _rc {
+             di as error "ID variable `id' not found in using dataset `using'"
+             exit 111
+        }
+        capture confirm variable `date'
+        if _rc {
+             di as error "Date variable `date' not found in using dataset `using'"
+             exit 111
+        }
+        if "`compete'" != "" {
+            foreach v of local compete {
+                capture confirm variable `v'
+                if _rc {
+                    di as error "Competing variable `v' not found in using dataset `using'"
+                    exit 111
+                }
+            }
+        }
 
         * -- COMPETING RISK LOGIC START --
         
