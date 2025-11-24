@@ -493,9 +493,31 @@ program define tvmerge, rclass
             else {
                 local exp_k "`exp_k_raw'"
             }
-            
-            * Keep only necessary variables (use renamed exp_k, not original exp_k_list)
-            local keeplist_k "id start_k stop_k `exp_k'"
+
+            * Build complete list of exposures for this dataset with renamed variables
+            local exp_k_list_final ""
+            foreach found_exp in `exp_k_list' {
+                if "`found_exp'" == "`exp_k_raw'" {
+                    * This is the positional exposure, use the renamed version
+                    local exp_k_list_final "`exp_k_list_final' `exp_k'"
+                }
+                else {
+                    * Other exposure found in dataset, apply prefix if specified
+                    if "`prefix'" != "" {
+                        rename `found_exp' `prefix'`found_exp'
+                        local exp_k_list_final "`exp_k_list_final' `prefix'`found_exp'"
+                    }
+                    else {
+                        local exp_k_list_final "`exp_k_list_final' `found_exp'"
+                    }
+                }
+            }
+
+            * Update exp_k_list for later use (continuous interpolation)
+            local exp_k_list "`exp_k_list_final'"
+
+            * Keep only necessary variables (all exposures found in this dataset)
+            local keeplist_k "id start_k stop_k `exp_k_list'"
             
             * Check if exposure is continuous
             local is_cont_k = 0
