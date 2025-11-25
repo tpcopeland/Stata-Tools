@@ -220,13 +220,7 @@ program define tvexpose, rclass
         noisily display as error "Note: duration() may be combined with continuousunit() to specify units"
         exit 198
     }
-    
-    * Set default continuousunit for duration if not specified
-    if "`duration'" != "" & "`continuousunit'" == "" {
-        local continuousunit "years"
-        local unit_lower "years"
-    }
-    
+
     * Validate mutually exclusive overlap handling options
     * User may specify only ONE approach to handling overlapping exposures
     local n_overlap = ("`priority'" != "") + ("`split'" != "") + ///
@@ -293,18 +287,16 @@ program define tvexpose, rclass
     }
     else if "`duration'" != "" {
         local exp_type "duration"
-        * Duration now uses continuousunit for calculation, then recodes to categories
-        * Validate continuousunit (already set to default "years" if not specified)
-        if "`continuousunit'" != "" {
-            local unit_lower = lower(trim("`continuousunit'"))
-            if !inlist("`unit_lower'", "days", "weeks", "months", "quarters", "years") {
-                noisily display as error "continuousunit(unit): unit must be days, weeks, months, quarters, or years"
-                noisily display as error "You specified: `continuousunit'"
-                exit 198
-            }
+        * Set default continuousunit for duration if not specified
+        if "`continuousunit'" == "" {
+            local continuousunit "years"
         }
-        else {
-            noisily display as error "Internal error: continuousunit should be set for duration"
+        * Duration now uses continuousunit for calculation, then recodes to categories
+        * Validate and normalize continuousunit
+        local unit_lower = lower(trim("`continuousunit'"))
+        if !inlist("`unit_lower'", "days", "weeks", "months", "quarters", "years") {
+            noisily display as error "continuousunit(unit): unit must be days, weeks, months, quarters, or years"
+            noisily display as error "You specified: `continuousunit'"
             exit 198
         }
     }

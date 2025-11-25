@@ -89,15 +89,11 @@ import excel "`temp_xlsx'", sheet(temp) clear
 if !missing(`noint') {
 	drop if inlist(strlower(strtrim(A)), "intercept", "_cons", "constant", "Intercept")
 }
-else {
 
+if !missing(`nore') {
+	drop if strpos(A,"var(")
 }
-if !missing(`nore'){
-drop if strpos(A,"var(")
-}
-else {
 
-}
 ds
 local varlist `r(varlist)'
 local varlist = "_"+"`r(varlist)'"
