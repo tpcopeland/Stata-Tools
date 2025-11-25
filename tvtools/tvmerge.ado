@@ -97,20 +97,33 @@ program define tvmerge, rclass
     * Verify all dataset files exist and are valid Stata datasets
     * This prevents cryptic error messages from use command
     preserve
+    local validation_error = 0
+    local error_msg ""
+    local error_code = 0
+
     foreach ds in `datasets' {
         capture confirm file "`ds'.dta"
         if _rc != 0 {
-            di as error "Dataset file not found: `ds'.dta"
-            exit 601
+            local validation_error = 1
+            local error_msg "Dataset file not found: `ds'.dta"
+            local error_code = 601
+            continue, break
         }
         * Also verify it's a valid Stata dataset
         capture use "`ds'.dta" in 1, clear
         if _rc != 0 {
-            di as error "`ds'.dta is not a valid Stata dataset or cannot be read"
-            exit 610
+            local validation_error = 1
+            local error_msg "`ds'.dta is not a valid Stata dataset or cannot be read"
+            local error_code = 610
+            continue, break
         }
     }
     restore
+
+    if `validation_error' {
+        di as error "`error_msg'"
+        exit `error_code'
+    }
     
     * Check for conflicting naming options
     if "`prefix'" != "" & "`generate'" != "" {
@@ -206,19 +219,33 @@ program define tvmerge, rclass
     local starts "`start'"
     local stops "`stop'"
     
-    * Get unique exposure variable names (handles duplicates across datasets)
+    * Check for duplicate exposure variable names in the specification
     local exposures_raw "`exposure'"
-    local exposures: list uniq exposures_raw
-    local numexp: word count `exposures'
-    
-    * Check for duplicate exposure variable names
     local numexp_raw: word count `exposures_raw'
-    if `numexp' < `numexp_raw' {
-        di as error "Duplicate exposure variable names detected across datasets."
-        di as error "Each dataset must have a unique exposure variable name."
-        di as error "Use the generate() option to specify unique names for each exposure variable."
+
+    * Check if user specified same variable name multiple times
+    local seen_names ""
+    local has_dup = 0
+    local dup_name ""
+    foreach exp_name in `exposures_raw' {
+        local already_seen: list exp_name in seen_names
+        if `already_seen' {
+            local has_dup = 1
+            local dup_name "`exp_name'"
+            continue, break
+        }
+        local seen_names "`seen_names' `exp_name'"
+    }
+
+    if `has_dup' {
+        di as error "Duplicate exposure variable name '`dup_name'' specified multiple times."
+        di as error "Each position in exposure() must have a unique name."
+        di as error "Use the generate() option to rename exposures if datasets have same variable names."
         exit 198
     }
+
+    local exposures "`exposures_raw'"
+    local numexp: word count `exposures'
     
     * Parse continuous exposure specification (names or positions)
     local continuous_positions ""
