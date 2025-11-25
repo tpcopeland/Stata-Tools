@@ -413,8 +413,8 @@ program define ProcessDatasetMarkdown
 	// Write dataset info table
 	file write `fh' "| Property | Value |" _n
 	file write `fh' "|----------|-------|" _n
-	file write `fh' "| Observations | " (`obs') " |" _n
-	file write `fh' "| Variables | " (`nvars') " |" _n
+	file write `fh' "| Observations | `obs' |" _n
+	file write `fh' "| Variables | `nvars' |" _n
 	if `"`label'"' != "" & `"`label'"' != "." {
 		local label_safe = subinstr(`"`label'"', "|", "\|", .)
 		file write `fh' "| Label | `label_safe' |" _n
@@ -423,15 +423,15 @@ program define ProcessDatasetMarkdown
 		file write `fh' "| Sort Order | `sortlist' |" _n
 	}
 
-	// Add datasignature
-	capture datasignature using "`filepath'"
+	// Load dataset for variable processing
+	use "`filepath'", clear
+
+	// Add datasignature (data must be loaded first)
+	capture datasignature
 	if _rc == 0 {
 		file write `fh' "| Data Signature | `r(datasignature)' |" _n
 	}
 	file write `fh' _n
-
-	// Load dataset for variable processing
-	use "`filepath'", clear
 
 	// Generate variable summary table
 	WriteMarkdownVariableSummaryTable `fh' `maxfreq' `maxcat' "`exclude'" `obs'
@@ -480,7 +480,7 @@ program define WriteMarkdownVariableSummaryTable
 
 		// Write row (escape pipes in labels)
 		local vlab_safe = subinstr("`vlab'", "|", "\|", .)
-		file write `fh' "| \``vn'\` | `vlab_safe' | `vtype' | `vfmt' | "
+		file write `fh' "| " _char(96) "`vn'" _char(96) " | `vlab_safe' | `vtype' | `vfmt' | "
 		file write `fh' "`nmiss' (`pctmiss'%) | `class' |" _n
 	}
 	file write `fh' _n
@@ -670,7 +670,7 @@ program define WriteMarkdownVariableDetail
 	file write `fh' "**Type:** `vtype'  " _n
 	file write `fh' "**Format:** `vfmt'  " _n
 	if "`valab'" != "" {
-		file write `fh' "**Value Label:** \``valab'\`  " _n
+		file write `fh' "**Value Label:** " _char(96) "`valab'" _char(96) "  " _n
 	}
 	file write `fh' "**Missing:** `nmiss' observations (`pctmiss'%)  " _n _n
 
@@ -887,11 +887,11 @@ program define WriteMarkdownOneValueLabel
 	foreach vn of local allvars {
 		local valab: value label `vn'
 		if "`valab'" == "`labname'" {
-			local uservars "`uservars' \``vn'\`"
+			local uservars "`uservars' " _char(96) "`vn'" _char(96)
 		}
 	}
 
-	file write `fh' "#### \``labname'\`" _n
+	file write `fh' "#### " _char(96) "`labname'" _char(96) _n
 	file write `fh' "Used by: `uservars'  " _n _n
 
 	// Check if label exists
@@ -943,7 +943,6 @@ program define WriteMarkdownQualityNotes
 
 	local vars_gt50 ""
 	local vars_gt10 ""
-	local n_complete = `obs'
 
 	foreach vn of local allvars {
 		quietly count if missing(`vn')
@@ -956,18 +955,22 @@ program define WriteMarkdownQualityNotes
 		}
 
 		if `pct' > 50 {
-			local vars_gt50 "`vars_gt50' \``vn'\`"
+			local vars_gt50 "`vars_gt50' " _char(96) "`vn'" _char(96)
 		}
 		if `pct' > 10 {
-			local vars_gt10 "`vars_gt10' \``vn'\`"
-		}
-
-		// Count complete cases
-		quietly count if !missing(`vn')
-		if r(N) < `n_complete' {
-			local n_complete = r(N)
+			local vars_gt10 "`vars_gt10' " _char(96) "`vn'" _char(96)
 		}
 	}
+
+	// Count complete cases (rows with no missing values in any variable)
+	tempvar complete
+	quietly gen byte `complete' = 1
+	foreach vn of local allvars {
+		quietly replace `complete' = 0 if missing(`vn')
+	}
+	quietly count if `complete' == 1
+	local n_complete = r(N)
+	quietly drop `complete'
 
 	if `obs' > 0 {
 		local pct_complete = string(100*`n_complete'/`obs', "%4.1f")

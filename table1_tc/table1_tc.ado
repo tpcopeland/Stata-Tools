@@ -227,7 +227,7 @@ program define table1_tc, sclass
 **# Generate Sample Size Row (N)
     preserve
     qui keep if `touse'  // Keep only observations that satisfy if/in conditions
-    qui drop if missing(`by')  // Drop observations with missing by() values
+    qui drop if missing(`groupnum')  // Drop observations with missing group values
     
     /* Create total column if requested */
     if "`total'" != "" { 
@@ -280,7 +280,7 @@ program define table1_tc, sclass
             if "`vartype'"=="contn" {
                 preserve
                 qui keep if `touse'  // Keep relevant observations
-                qui drop if missing(`by')  // Drop observations with missing by() values
+                qui drop if missing(`groupnum')  // Drop observations with missing group values
                                 
                 // Count groups with non-missing values for this variable
                 qui levelsof `groupnum' if `varname'!=., local(glevels)
@@ -390,7 +390,7 @@ program define table1_tc, sclass
             if "`vartype'"=="contln" {
                 preserve
                 qui keep if `touse'  // Keep relevant observations
-                qui drop if missing(`by')  // Drop observations with missing by() values
+                qui drop if missing(`groupnum')  // Drop observations with missing group values
                 qui drop if `varname' <=0  // Drop values that would give missing after log transform
                 
                 // Create log-transformed variable
@@ -1394,11 +1394,11 @@ program define table1_tc, sclass
     }
     
     if `groupcount'==1 {
-        // Format for single group
-        qui replace N_1 = Total if factor == " "
-        qui replace m_1 = Total if factor == " "
-        qui replace _columna_1 = Total if factor == " "
-        qui replace _columnb_1 = Total if factor == " "
+        // Format for single group - use string literal
+        qui replace N_1 = "Total" if factor == " "
+        qui replace m_1 = "Total" if factor == " "
+        qui replace _columna_1 = "Total" if factor == " "
+        qui replace _columnb_1 = "Total" if factor == " "
     }    
     
     qui drop N_* m_* _columna_* _columnb_*  // Remove unused columns

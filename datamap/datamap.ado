@@ -99,12 +99,10 @@ program define datamap, rclass
 	
 	// Set defaults for output format
 	if "`format'" == "" local format "text"
-	if !inlist("`format'", "text", "json", "markdown", "md") {
-		noisily di as error "format must be text, json, or markdown"
+	if !inlist("`format'", "text") {
+		noisily di as error "format() currently only supports 'text'"
 		exit 198
 	}
-	// Normalize markdown format
-	if "`format'" == "md" local format "markdown"
 	
 	// Set default output filename
 	if "`output'" == "" {
@@ -558,15 +556,29 @@ program define ProcessDataset
 		file write `fh' `"Label: `label'"' _n
 	}
 
-	// Add datasignature for versioning
-	capture datasignature using "`filepath'"
-	if _rc == 0 {
-		file write `fh' "Data Signature: `r(datasignature)'" _n
+	// Add datasignature for versioning (data must be loaded first)
+	quietly {
+		preserve
+		capture use "`filepath'", clear
+		if _rc == 0 {
+			capture datasignature
+			if _rc == 0 {
+				local dsig "`r(datasignature)'"
+				restore
+				file write `fh' "Data Signature: `dsig'" _n
+			}
+			else {
+				restore
+			}
+		}
+		else {
+			restore
+		}
 	}
 
 	// Add sort order if set
 	capture describe using "`filepath'", short
-	if r(sortlist) != "" {
+	if _rc == 0 & "`r(sortlist)'" != "" {
 		file write `fh' "Sort Order: `r(sortlist)'" _n
 	}
 	file write `fh' _n
@@ -1082,10 +1094,12 @@ program define ProcessContinuous
 				file write `fh' "ANALYSIS GUIDANCE: "
 				file write `fh' "Use as continuous variable. "
 
-				// Check for skewness
-				local skew = (`mean' - `p50') / `sd'
-				if abs(`skew') > 1 {
-					file write `fh' "Distribution appears skewed - consider transformation. "
+				// Check for skewness (only if SD > 0)
+				if `sd' > 0 {
+					local skew = (`mean' - `p50') / `sd'
+					if abs(`skew') > 1 {
+						file write `fh' "Distribution appears skewed - consider transformation. "
+					}
 				}
 
 				// Check for outliers (simple IQR method)
@@ -1462,9 +1476,9 @@ program define ProcessBinary
 			else {
 				local pct = .
 			}
-			capture local vlab : label (`vname') `val'
-			if _rc == 0 & "`vlab'" != "" {
-				file write `fh' "    `val' (`vlab'): `freq' (`pct'%)" _n
+			capture local vallabtext : label (`vname') `val'
+			if _rc == 0 & "`vallabtext'" != "" {
+				file write `fh' "    `val' (`vallabtext'): `freq' (`pct'%)" _n
 			}
 			else {
 				file write `fh' "    `val': `freq' (`pct'%)" _n
@@ -1524,12 +1538,8 @@ program define ProcessSamples
 	file write `fh' "Sample Observations (first `nsamp' rows)" _n _n
 
 	// Get list of non-excluded variables
-	quietly describe
-	local allvars ""
-	forvalues i = 1/`r(k)' {
-		local vn = varname[`i']
-		local allvars "`allvars' `vn'"
-	}
+	quietly describe, varlist
+	local allvars `r(varlist)'
 
 	// Build excluded variable list
 	local exclude_list ""

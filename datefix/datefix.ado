@@ -181,16 +181,14 @@ program define datefix, rclass
 				* Display auto-detected format
 				di as text "Auto-detected date format: `detected_format'"
 
-				if missing(new) & !missing(`var'){
-					di in re "Optimal ordering of Year, Month, and Day producing missing values."
+				qui count if missing(new) & !missing(`var')
+				if r(N) > 0 {
+					di in re "Optimal ordering of Year, Month, and Day produced `r(N)' missing values."
 					di in re "Check ordering, number of year digits, and for non-date strings."
 					di in re "If year is in two digit format, use topyear() option."
 					quietly drop new
 					exit 198
 				}
-
-				*Retrieve original variable if original variable was a date
-				quietly capture replace new = tmp_orig if new == .
 			}
 		}
 		else {
@@ -248,7 +246,7 @@ program define datefix, rclass
 			format `df' `newvar'
 		}
 
-	quietly capture drop new
+	capture quietly drop new
 
 *END QUIETLY
 	}

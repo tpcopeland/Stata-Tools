@@ -153,6 +153,8 @@ program define tvevent, rclass
              exit 111
         }
 
+        preserve  * Preserve before modifying using data
+
         * -- COMPETING RISK LOGIC START --
         
         * 1. Capture labels for reporting later
@@ -186,8 +188,8 @@ program define tvevent, rclass
         
         * 3. Clean up event file
         keep if !missing(_eff_date)
-        
-        drop `date'
+
+        capture drop `date'
         rename _eff_date `date'
         rename _eff_type _event_type
         
@@ -234,8 +236,7 @@ program define tvevent, rclass
         * Adjust Continuous Variables
         if "`continuous'" != "" {
             gen double `new_dur' = stop - start
-            gen double `ratio' = `new_dur' / `orig_dur'
-            replace `ratio' = 1 if `orig_dur' == 0
+            gen double `ratio' = cond(`orig_dur' == 0 | `new_dur' == 0, 1, `new_dur' / `orig_dur')
             foreach v of local continuous {
                 replace `v' = `v' * `ratio'
             }
@@ -345,12 +346,20 @@ program define tvevent, rclass
             save `current'
 
             use `master', clear
-            keep `id' start stop `master_vars'
+            * Only keep master_vars that actually exist
+            local vars_to_keep "`id'"
+            foreach v of local master_vars {
+                capture confirm variable `v'
+                if _rc == 0 {
+                    local vars_to_keep "`vars_to_keep' `v'"
+                }
+            }
+            keep `vars_to_keep'
             tempfile master_to_merge
             save `master_to_merge'
 
             use `current', clear
-            merge m:1 `id' start stop using `master_to_merge', keep(master match) nogen
+            merge m:1 `id' using `master_to_merge', keep(master match) nogen update
         }
 
         format start stop %tdCCYY/NN/DD
