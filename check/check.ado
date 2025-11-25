@@ -7,7 +7,7 @@
 *! Created on  5 May 2020 at 14:38:31
 
 program define check, rclass
-  version 18.0
+  version 14.0
   syntax varlist, [SHORT]
 
   * Validation: Check for required external commands
@@ -43,7 +43,7 @@ if "`short'"== "" {
       local max = `len'
     }
   }
-  local maxlen = max(`max',4)  // At least 4 characters due to "Varname" 
+  local maxlen = max(`max',7)  // At least 7 characters due to "Varname" 
   *************************************************************************  
   * Part 1. Compute Column Positions
   local col1 = 1
@@ -115,7 +115,7 @@ else{
       local max = `len'
     }
   }
-  local maxlen = max(`max',4)  // At least 4 characters due to "Varname" 
+  local maxlen = max(`max',7)  // At least 7 characters due to "Varname" 
   *************************************************************************  
   * Part 1. Compute Column Positions
   local col1 = 1

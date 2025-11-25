@@ -5,7 +5,7 @@
 
 capture program drop cstat_surv
 program define cstat_surv, rclass
-  syntax ,
+  syntax
 
   * Validation: Check if last estimates found (Cox model fitted)
   if "`e(cmd)'" == "" {
