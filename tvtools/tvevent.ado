@@ -7,13 +7,17 @@
 
 /*
 Basic syntax:
-  tvevent using filename, id(varname) date(varname) ///
+  tvevent using intervals.dta, id(varname) date(varname) ///
     [generate(newvar) type(single|recurring) keepvars(varlist) ///
      continuous(varlist) timegen(newvar) timeunit(string) ///
      compete(varlist) eventlabel(string) replace]
 
+Data structure:
+  Master (in memory): Event data with id(), date(), compete(), keepvars()
+  Using:              Interval data from tvexpose/tvmerge with id, start, stop, continuous()
+
 Description:
-  Integrates event data into tvexpose/tvmerge intervals.
+  Integrates event data (master) into tvexpose/tvmerge intervals (using).
   1. Identifies events occurring within intervals (start < date < stop).
   2. Resolves competing risks (earliest date wins).
   3. Splits intervals at the event date.
@@ -39,6 +43,7 @@ program define tvevent, rclass
 
     **# 1. INPUT VALIDATION
     
+    * Set defaults for options
     if "`generate'" == "" local generate "_failure"
     
     if "`type'" == "" local type "single"
@@ -55,36 +60,16 @@ program define tvevent, rclass
         exit 198
     }
     
+    * --- Validate MASTER dataset (event data, currently in memory) ---
     capture confirm variable `id'
     if _rc {
-        di as error "ID variable `id' not found in master dataset."
+        di as error "ID variable `id' not found in master (event) dataset."
         exit 111
     }
 
-    * Check start/stop in master (time-varying intervals from tvexpose/tvmerge)
-    foreach v in start stop {
-        capture confirm variable `v'
-        if _rc {
-            di as error "Variable '`v'' not found in master dataset. tvevent requires output from tvexpose/tvmerge."
-            exit 111
-        }
-    }
-
-    * Check continuous variables in master (exposure variables to adjust when splitting)
-    if "`continuous'" != "" {
-        foreach v of local continuous {
-            capture confirm numeric variable `v'
-            if _rc {
-                di as error "Continuous variable `v' not found or is not numeric in master dataset."
-                exit 111
-            }
-        }
-    }
-
-    * Check date and compete variables in master
     capture confirm variable `date'
     if _rc {
-        di as error "Date variable `date' not found in master dataset."
+        di as error "Date variable `date' not found in master (event) dataset."
         exit 111
     }
 
@@ -92,72 +77,33 @@ program define tvevent, rclass
         foreach v of local compete {
             capture confirm variable `v'
             if _rc {
-                di as error "Competing variable `v' not found in master dataset."
+                di as error "Competing event variable `v' not found in master (event) dataset."
                 exit 111
             }
         }
     }
-
-    if "`replace'" == "" {
-        capture confirm variable `generate'
-        if _rc == 0 {
-            di as error "Variable `generate' already exists. Use replace option."
-            exit 110
-        }
-        if "`timegen'" != "" {
-            capture confirm variable `timegen'
-            if _rc == 0 {
-                di as error "Variable `timegen' already exists. Use replace option."
-                exit 110
+    
+    * Default keepvars to all variables in master except id and date/compete
+    if "`keepvars'" == "" {
+        foreach v of varlist * {
+            if "`v'" != "`id'" & "`v'" != "`date'" {
+                local is_compete = 0
+                foreach c of local compete {
+                    if "`v'" == "`c'" local is_compete = 1
+                }
+                if !`is_compete' {
+                    local keepvars "`keepvars' `v'"
+                }
             }
         }
-    }
-    else {
-        capture drop `generate'
-        if "`timegen'" != "" capture drop `timegen'
+        local keepvars = strtrim("`keepvars'")
     }
 
     quietly {
 
         **# 2. PREPARE DATASETS
 
-        * Capture all variables from master dataset to keep by default
-        local master_vars ""
-        foreach v of varlist * {
-            if "`v'" != "`id'" & "`v'" != "start" & "`v'" != "stop" {
-                local master_vars "`master_vars' `v'"
-            }
-        }
-
-        tempfile master
-        save `master'
-
-        * Save intervals from master for split identification
-        tempfile intervals
-        preserve
-        keep `id' start stop
-        duplicates drop
-        save `intervals'
-        restore
-
-        * Save master dataset (has intervals from tvexpose/tvmerge)
-        tempfile using_data
-        save `using_data'
-
-        * Load and process Event data from using file
-        use "`using'", clear
-
-        capture confirm variable `id'
-        if _rc {
-             di as error "ID variable `id' not found in using dataset `using'"
-             exit 111
-        }
-
-        preserve  * Preserve before modifying using data
-
-        * -- COMPETING RISK LOGIC START --
-        
-        * 1. Capture labels for reporting later
+        * Capture labels from master (event) dataset before processing
         local lab_1 : variable label `date'
         if "`lab_1'" == "" local lab_1 "Event: `date'"
         
@@ -171,7 +117,7 @@ program define tvevent, rclass
             }
         }
         
-        * 2. Determine Earliest Event per Person
+        * -- COMPETING RISK LOGIC: Determine earliest event per person --
         replace `date' = floor(`date')
         gen double _eff_date = `date'
         gen int _eff_type = 1 if !missing(`date')
@@ -179,16 +125,13 @@ program define tvevent, rclass
         local k = 2
         foreach v of local compete {
              replace `v' = floor(`v')
-
              replace _eff_type = `k' if !missing(`v') & (`v' < _eff_date | missing(_eff_date))
              replace _eff_date = `v' if !missing(`v') & (`v' < _eff_date | missing(_eff_date))
-
              local k = `k' + 1
         }
         
-        * 3. Clean up event file
+        * Clean up event data
         keep if !missing(_eff_date)
-
         capture drop `date'
         rename _eff_date `date'
         rename _eff_type _event_type
@@ -198,11 +141,66 @@ program define tvevent, rclass
         
         tempfile events
         save `events'
-        restore
+
+        * Load USING dataset (interval data from tvexpose/tvmerge)
+        use "`using'", clear
+
+        * --- Validate USING dataset (interval data) ---
+        capture confirm variable `id'
+        if _rc {
+             di as error "ID variable `id' not found in using (interval) dataset."
+             exit 111
+        }
+
+        foreach v in start stop {
+            capture confirm variable `v'
+            if _rc {
+                di as error "Variable '`v'' not found in using (interval) dataset. tvevent requires output from tvexpose/tvmerge."
+                exit 111
+            }
+        }
+
+        if "`continuous'" != "" {
+            foreach v of local continuous {
+                capture confirm numeric variable `v'
+                if _rc {
+                    di as error "Continuous variable `v' not found or is not numeric in using (interval) dataset."
+                    exit 111
+                }
+            }
+        }
+
+        * Check replace option (generate/timegen will be created in interval data)
+        if "`replace'" == "" {
+            capture confirm variable `generate'
+            if _rc == 0 {
+                di as error "Variable `generate' already exists in using dataset. Use replace option."
+                exit 110
+            }
+            if "`timegen'" != "" {
+                capture confirm variable `timegen'
+                if _rc == 0 {
+                    di as error "Variable `timegen' already exists in using dataset. Use replace option."
+                    exit 110
+                }
+            }
+        }
+        else {
+            capture drop `generate'
+            if "`timegen'" != "" capture drop `timegen'
+        }
+
+        * Save interval data for later
+        tempfile intervals
+        save `intervals'
 
         **# 3. IDENTIFY SPLIT POINTS
 
-        use `intervals', clear
+        * intervals tempfile already has the using data loaded
+        preserve
+        keep `id' start stop
+        duplicates drop
+        
         joinby `id' using `events'
         
         keep if `date' > start & `date' < stop
@@ -214,9 +212,10 @@ program define tvevent, rclass
         
         count
         local n_splits = r(N)
+        restore
         
         **# 4. EXECUTE SPLITS
-        use `using_data', clear
+        * intervals data is still in memory
         
         tempvar orig_dur new_dur ratio
         gen double `orig_dur' = stop - start
@@ -337,29 +336,6 @@ program define tvevent, rclass
                 label var `timegen' "Time (years)"
             }
             drop `days_diff'
-        }
-
-        **# 9. MERGE MASTER VARIABLES BACK
-        * By default, keep all variables from the original master dataset
-        if "`master_vars'" != "" {
-            tempfile current
-            save `current'
-
-            use `master', clear
-            * Only keep master_vars that actually exist
-            local vars_to_keep "`id'"
-            foreach v of local master_vars {
-                capture confirm variable `v'
-                if _rc == 0 {
-                    local vars_to_keep "`vars_to_keep' `v'"
-                }
-            }
-            keep `vars_to_keep'
-            tempfile master_to_merge
-            save `master_to_merge'
-
-            use `current', clear
-            merge m:1 `id' using `master_to_merge', keep(master match) nogen update
         }
 
         format start stop %tdCCYY/NN/DD
