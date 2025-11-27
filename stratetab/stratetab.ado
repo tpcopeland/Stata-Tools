@@ -1,34 +1,33 @@
-*! stratetab | Version 1.0
+*! stratetab | Version 2.0
 *! Author: Tim Copeland
-*! Revised: October 23, 2025
+*! Revised: November 27, 2025
 
 /*
 DESCRIPTION:
-	Combines pre-computed strate output files, exports to Excel with outcome 
-	labels as headers and category labels indented in first column.
+	Combines pre-computed strate output files, exports to Excel with outcomes 
+	as column groups and exposure variables as rows.
 
 SYNTAX:
-	stratetab, using(filelist) xlsx(string) [sheet(string) title(string) ///
-	  labels(string) digits(integer 1) eventdigits(integer 0) pydigits(integer 0) ///
-	  unitlabel(string) pyscale(real 1) ratescale(real 1)]
+	stratetab, using(filelist) xlsx(string) outcomes(integer) [sheet(string) ///
+	  title(string) outlabels(string) explabels(string) digits(integer 1) ///
+	  eventdigits(integer 0) pydigits(integer 0) unitlabel(string) ///
+	  pyscale(real 1) ratescale(real 1000)]
 
-	using:      Space-separated list of strate output files (.dta extension added automatically)
-	xlsx:       Excel output file (must have .xlsx extension)
-	sheet:      Sheet name (default: Results)
-	title:      Title text for row 1
-	labels:     Outcome labels separated by \ (e.g., "EDSS 4 \ EDSS 6 \ Relapse")
-	digits:     Decimal places for rate and CI (default 1)
-	eventdigits:Decimal places for events (default 0)
-	pydigits:   Decimal places for person-years (default 0)
-	unitlabel:  Adds unit label to rate column (e.g., "Rate per 1000 person-years")
-	pyscale:    Divides person-years by this value (default 1 = no scaling)
-	ratescale:  Multiplies rates by this value (default 1 = no scaling)  
-
-EXAMPLE:
-	stratetab, using(strate_edss4 strate_edss6 strate_relapse) ///
-	  xlsx(results.xlsx) ///
-	  labels(EDSS Progression \ EDSS 6 \ Relapse) ///
-	  title(Unadjusted Event Rates)
+	using:       Space-separated list of strate output files (.dta extension added automatically)
+	             Format: out1_exp1 out2_exp1 out3_exp1 out1_exp2 out2_exp2 out3_exp2 ...
+	             (all outcomes for exposure 1, then all outcomes for exposure 2, etc.)
+	xlsx:        Excel output file (must have .xlsx extension)
+	outcomes:    Number of outcomes (required)
+	sheet:       Sheet name (default: Results)
+	title:       Title text for row 1
+	outlabels:   Outcome labels separated by \ (e.g., "Sustained EDSS 4 \ Sustained EDSS 6 \ First Relapse")
+	explabels:   Exposure group labels separated by \ (e.g., "Time-Varying HRT \ HRT Duration")
+	digits:      Decimal places for rate and CI (default 1)
+	eventdigits: Decimal places for events (default 0)
+	pydigits:    Decimal places for person-years (default 0)
+	unitlabel:   Unit label for rate column (default "1,000")
+	pyscale:     Divides person-years by this value (default 1 = no scaling)
+	ratescale:   Multiplies rates by this value (default 1000)
 */
 
 program define stratetab
@@ -39,9 +38,10 @@ if "`_byvars'" != "" {
 	exit 190
 }
 
-syntax, using(namelist) xlsx(string) [sheet(string) title(string) ///
-	labels(string) digits(integer 1) eventdigits(integer 0) pydigits(integer 0) ///
-	unitlabel(string) pyscale(real 1) ratescale(real 1)]
+syntax, using(namelist) xlsx(string) outcomes(integer) ///
+	[sheet(string) title(string) outlabels(string) explabels(string) ///
+	digits(integer 1) eventdigits(integer 0) pydigits(integer 0) ///
+	unitlabel(string) pyscale(real 1) ratescale(real 1000)]
 
 if !strmatch("`xlsx'", "*.xlsx") {
 	di as err "xlsx must have .xlsx extension"
@@ -63,385 +63,312 @@ if `ratescale' <= 0 {
 	exit 198
 }
 
-qui {
-* Parse labels
+if `outcomes' < 1 {
+	di as err "outcomes must be at least 1"
+	exit 198
+}
+
 local n_files : word count `using'
-if "`labels'" != "" {
-	local labels = subinstr("`labels'", " \ ", "\", .)
-	local labels = subinstr("`labels'", "\  ", "\", .)
-	local labels = subinstr("`labels'", "  \", "\", .)
-	tokenize "`labels'", parse("\")
-	forvalues i = 1/`n_files' {
+if mod(`n_files', `outcomes') != 0 {
+	di as err "Number of files must be divisible by number of outcomes"
+	exit 198
+}
+
+local n_exposures = `n_files' / `outcomes'
+
+* Parse outcome labels
+if "`outlabels'" != "" {
+	local outlabels = subinstr("`outlabels'", " \ ", "\", .)
+	local outlabels = subinstr("`outlabels'", "\  ", "\", .)
+	local outlabels = subinstr("`outlabels'", "  \", "\", .)
+	tokenize "`outlabels'", parse("\")
+	local n_outlabs = 0
+	forvalues i = 1/100 {
 		local j = (`i'-1)*2 + 1
-		local lab`i' "``j''"
+		if "``j''" == "" continue, break
+		local n_outlabs = `n_outlabs' + 1
+		local outlab`i' = strtrim("``j''")
+	}
+	if `n_outlabs' != `outcomes' {
+		di as err "Number of outcome labels (`n_outlabs') must match outcomes (`outcomes')"
+		exit 198
 	}
 }
 else {
-	forvalues i = 1/`n_files' {
-		local lab`i' "Outcome `i'"
+	forvalues i = 1/`outcomes' {
+		local outlab`i' "Outcome `i'"
+	}
+}
+
+* Parse exposure labels
+if "`explabels'" != "" {
+	local explabels = subinstr("`explabels'", " \ ", "\", .)
+	local explabels = subinstr("`explabels'", "\  ", "\", .)
+	local explabels = subinstr("`explabels'", "  \", "\", .)
+	tokenize "`explabels'", parse("\")
+	local n_explabs = 0
+	forvalues i = 1/100 {
+		local j = (`i'-1)*2 + 1
+		if "``j''" == "" continue, break
+		local n_explabs = `n_explabs' + 1
+		local explab`i' = strtrim("``j''")
+	}
+	if `n_explabs' != `n_exposures' {
+		di as err "Number of exposure labels (`n_explabs') must match number of exposure groups (`n_exposures')"
+		exit 198
+	}
+}
+else {
+	forvalues i = 1/`n_exposures' {
+		local explab`i' "Exposure `i'"
+	}
+}
+
+qui {
+
+* Set default unit label
+if "`unitlabel'" == "" {
+	local unitlabel "1,000"
+}
+
+* Process each file and store data
+* Files are organized: out1_exp1 out2_exp1 out3_exp1 out1_exp2 out2_exp2 out3_exp2 ...
+local filenum = 0
+forvalues e = 1/`n_exposures' {
+	forvalues o = 1/`outcomes' {
+		local filenum = `filenum' + 1
+		local file : word `filenum' of `using'
+		
+		preserve
+		cap use "`file'.dta", clear
+		if _rc {
+			noi di as err "File not found: `file'.dta"
+			restore
+			exit 601
+		}
+		
+		cap confirm var _Rate _Lower _Upper _D _Y
+		if _rc {
+			noi di as err "`file'.dta missing required columns"
+			restore
+			exit 111
+		}
+		
+		* Find the categorical variable
+		unab allvars : *
+		local catvar ""
+		foreach v of local allvars {
+			if "`v'" != "_D" & "`v'" != "_Y" & "`v'" != "_Rate" & "`v'" != "_Lower" & "`v'" != "_Upper" {
+				local catvar "`v'"
+				continue, break
+			}
+		}
+		
+		* Convert categorical to string if needed
+		cap confirm string var `catvar'
+		if _rc {
+			decode `catvar', gen(catvar_str)
+		}
+		else {
+			gen catvar_str = `catvar'
+		}
+		
+		* Scale and format rate
+		gen _Rate_scaled = _Rate * `ratescale'
+		gen _Lower_scaled = _Lower * `ratescale'
+		gen _Upper_scaled = _Upper * `ratescale'
+		
+		* Store number of categories for this exposure
+		local ncat_e`e' = _N
+		
+		* Store data
+		forvalues i = 1/`=_N' {
+			local cat_e`e'_`i' = catvar_str[`i']
+			local D_o`o'_e`e'_`i' = _D[`i']
+			local Y_o`o'_e`e'_`i' = _Y[`i'] / `pyscale'
+			local Rate_o`o'_e`e'_`i' = _Rate_scaled[`i']
+			local Lower_o`o'_e`e'_`i' = _Lower_scaled[`i']
+			local Upper_o`o'_e`e'_`i' = _Upper_scaled[`i']
+		}
+		
+		restore
 	}
 }
 
 * Build output dataset
 clear
-quietly gen str244 c1 = ""
-quietly gen str244 c2 = ""
-quietly gen str244 c3 = ""
-quietly gen str244 c4 = ""
-quietly gen str244 c5 = ""
+local ncols = 1 + `outcomes' * 3
+forvalues c = 1/`ncols' {
+	quietly gen str244 c`c' = ""
+}
+quietly gen str244 title = ""
+
+* Row 1: Title (in title column, will be merged across all)
 quietly set obs 1
+quietly replace title = "`title'" in 1
 
-* Title row (in column A)
-quietly replace c1 = "`title'" in 1
-
-}
-* Identify categorical variable(s) and set column header
-local catvar_list ""
-qui {
-	forvalues f = 1/`n_files' {
-		local file : word `f' of `using'
-		preserve
-		cap use "`file'.dta", clear
-		if _rc {
-			di as err "File not found: `file'.dta"
-			restore
-			exit 601
-		}
-		
-		* Find the categorical variable (first non-strate column)
-		unab allvars : *
-		local catvar ""
-		foreach v of local allvars {
-			if "`v'" != "_D" & "`v'" != "_Y" & "`v'" != "_Rate" & "`v'" != "_Lower" & "`v'" != "_Upper" {
-				local catvar "`v'"
-				continue, break
-			}
-		}
-		local catvar_list "`catvar_list' `catvar'"
-		restore
-	}
-}
-
-qui {
-* Determine header label for column 1 using variable label
-local catvar_unique : list uniq catvar_list
-local n_unique : word count `catvar_unique'
-if `n_files' == 1 {
-	local firstcat : word 1 of `catvar_unique'
-	qui {
-		preserve
-		local file : word 1 of `using'
-		use "`file'.dta", clear
-		local varlabel : variable label `firstcat'
-		if "`varlabel'" == "" local varlabel "`firstcat'"
-		restore
-	}
-	local col1_header "Outcome by `varlabel'"
-}
-else if `n_unique' == 1 {
-	local firstcat : word 1 of `catvar_unique'
-	qui {
-		preserve
-		local file : word 1 of `using'
-		use "`file'.dta", clear
-		local varlabel : variable label `firstcat'
-		if "`varlabel'" == "" local varlabel "`firstcat'"
-		restore
-	}
-	local col1_header "Outcomes by `varlabel'"
-}
-else {
-	local col1_header "Outcomes by Group"
-}
-
-* Header row (column headers in B, C, D, E)
+* Row 2: Outcome headers (merged across 3 columns each)
 local new = _N + 1
 quietly set obs `new'
-quietly replace c2 = "`col1_header'" in `new'
-quietly replace c3 = "Events" in `new'
-* Person-years header based on pyscale
-if `pyscale' != 1 {
-	local pyscale_int = string(`pyscale', "%12.0g")
-	quietly replace c4 = "Person-years" + char(10) + "(`pyscale_int's)" in `new'
-}
-else {
-	quietly replace c4 = "Person-years" in `new'
+quietly replace c1 = "Exposure" in `new'
+local col = 2
+forvalues o = 1/`outcomes' {
+	quietly replace c`col' = "`outlab`o''" in `new'
+	local col = `col' + 3
 }
 
-* Rate header based on unitlabel
-if "`unitlabel'" != "" {
-	quietly replace c5 = "Rate per `unitlabel'" + char(10) + "person-years (95% CI)" in `new'
-}
-else {
-	quietly replace c5 = "Rate (95% CI)" in `new'
+* Row 3: Sub-headers (Events, Person-Years, Rate)
+local new = _N + 1
+quietly set obs `new'
+quietly replace c1 = "Exposure" in `new'
+local col = 2
+forvalues o = 1/`outcomes' {
+	quietly replace c`col' = "Events" in `new'
+	local col = `col' + 1
+	quietly replace c`col' = "Person-Years (PY)" in `new'
+	local col = `col' + 1
+	quietly replace c`col' = "Per `unitlabel' PY (95% CI)" in `new'
+	local col = `col' + 1
 }
 
-}
-
-qui {
-	forvalues f = 1/`n_files' {
-		local file : word `f' of `using'
-		
-		* Load file
-		preserve
-		use "`file'.dta", clear
-		
-		cap confirm var _Rate _Lower _Upper _D _Y
-		if _rc {
-			di as err "`file'.dta missing required columns"
-			restore
-			exit 111
-		}
-		
-		* Get categorical variable
-		unab allvars : *
-		local catvar ""
-		foreach v of local allvars {
-			if "`v'" != "_D" & "`v'" != "_Y" & "`v'" != "_Rate" & "`v'" != "_Lower" & "`v'" != "_Upper" {
-				local catvar "`v'"
-				continue, break
-			}
-		}
-		
-		* Convert categorical to string if needed
-		cap confirm string var `catvar'
-		if _rc {
-			decode `catvar', gen(catvar_str)
-		}
-		else {
-			gen catvar_str = `catvar'
-		}
-		
-		* Format data
-		if `eventdigits' == 0 {
-			gen ev = string(_D, "%11.0fc")
-		}
-		else {
-			gen ev = string(_D, "%11.`eventdigits'fc")
-		}
-		
-		if `pydigits' == 0 {
-			gen py = string(round(_Y/`pyscale',1), "%11.0fc")
-		}
-		else {
-			gen py = string(_Y/`pyscale', "%11.`pydigits'fc")
-		}
-		
-		gen rt = strtrim(string(round(_Rate*`ratescale',10^(-`digits')), "%11.`digits'f")) + " (" + ///
-		         strtrim(string(round(_Lower*`ratescale',10^(-`digits')), "%11.`digits'f")) + "-" + ///
-		         strtrim(string(round(_Upper*`ratescale',10^(-`digits')), "%11.`digits'f")) + ")"
-		
-		local nobs = _N
-		
-		restore
-		
-		* Outcome header row
+* Data rows by exposure group
+forvalues e = 1/`n_exposures' {
+	* Exposure header row
+	local new = _N + 1
+	quietly set obs `new'
+	quietly replace c1 = "`explab`e''" in `new'
+	
+	* Category rows (indented)
+	forvalues i = 1/`ncat_e`e'' {
 		local new = _N + 1
 		quietly set obs `new'
-		quietly replace c2 = "`lab`f''" in `new'
+		quietly replace c1 = "   `cat_e`e'_`i''" in `new'
 		
-		* Data rows with indented levels
-		preserve
-		use "`file'.dta", clear
-		
-		* Get categorical variable
-		unab allvars : *
-		local catvar ""
-		foreach v of local allvars {
-			if "`v'" != "_D" & "`v'" != "_Y" & "`v'" != "_Rate" & "`v'" != "_Lower" & "`v'" != "_Upper" {
-				local catvar "`v'"
-				continue, break
-			}
-		}
-		
-		* Convert categorical to string if needed
-		cap confirm string var `catvar'
-		if _rc {
-			decode `catvar', gen(catvar_str)
-		}
-		else {
-			gen catvar_str = `catvar'
-		}
-		
-		* Format data
-		if `eventdigits' == 0 {
-			gen ev = string(_D, "%11.0fc")
-		}
-		else {
-			gen ev = string(_D, "%11.`eventdigits'fc")
-		}
-		
-		if `pydigits' == 0 {
-			gen py = string(round(_Y/`pyscale',1), "%11.0fc")
-		}
-		else {
-			gen py = string(_Y/`pyscale', "%11.`pydigits'fc")
-		}
-		
-		gen rt = strtrim(string(round(_Rate*`ratescale',10^(-`digits')), "%11.`digits'f")) + " (" + ///
-		         strtrim(string(round(_Lower*`ratescale',10^(-`digits')), "%11.`digits'f")) + "-" + ///
-		         strtrim(string(round(_Upper*`ratescale',10^(-`digits')), "%11.`digits'f")) + ")"
-		
-		forvalues i = 1/`=_N' {
-			local v1 = "    " + catvar_str[`i']
-			local v2 = ev[`i']
-			local v3 = py[`i']
-			local v4 = rt[`i']
-			restore
-			
-			local new = _N + 1
-			quietly set obs `new'
-			quietly replace c2 = "`v1'" in `new'
-			quietly replace c3 = "`v2'" in `new'
-			quietly replace c4 = "`v3'" in `new'
-			quietly replace c5 = "`v4'" in `new'
-			
-			preserve
-			use "`file'.dta", clear
-			
-			* Get categorical variable
-			unab allvars : *
-			local catvar ""
-			foreach v of local allvars {
-				if "`v'" != "_D" & "`v'" != "_Y" & "`v'" != "_Rate" & "`v'" != "_Lower" & "`v'" != "_Upper" {
-					local catvar "`v'"
-					continue, break
-				}
-			}
-			
-			* Convert categorical to string if needed
-			cap confirm string var `catvar'
-			if _rc {
-				decode `catvar', gen(catvar_str)
-			}
-			else {
-				gen catvar_str = `catvar'
-			}
-			
-			* Format data
+		local col = 2
+		forvalues o = 1/`outcomes' {
+			* Events
 			if `eventdigits' == 0 {
-				gen ev = string(_D, "%11.0fc")
+				local ev_fmt = string(`D_o`o'_e`e'_`i'', "%11.0fc")
 			}
 			else {
-				gen ev = string(_D, "%11.`eventdigits'fc")
+				local ev_fmt = string(`D_o`o'_e`e'_`i'', "%11.`eventdigits'fc")
 			}
+			quietly replace c`col' = "`ev_fmt'" in `new'
+			local col = `col' + 1
 			
+			* Person-years
 			if `pydigits' == 0 {
-				gen py = string(round(_Y/`pyscale',1), "%11.0fc")
+				local py_fmt = string(round(`Y_o`o'_e`e'_`i'',1), "%11.0fc")
 			}
 			else {
-				gen py = string(_Y/`pyscale', "%11.`pydigits'fc")
+				local py_fmt = string(`Y_o`o'_e`e'_`i'', "%11.`pydigits'fc")
 			}
+			quietly replace c`col' = "`py_fmt'" in `new'
+			local col = `col' + 1
 			
-			gen rt = strtrim(string(round(_Rate*`ratescale',10^(-`digits')), "%11.`digits'f")) + " (" + ///
-			         strtrim(string(round(_Lower*`ratescale',10^(-`digits')), "%11.`digits'f")) + "-" + ///
-			         strtrim(string(round(_Upper*`ratescale',10^(-`digits')), "%11.`digits'f")) + ")"
+			* Rate (95% CI)
+			local rt_fmt = strtrim(string(round(`Rate_o`o'_e`e'_`i'',10^(-`digits')), "%11.`digits'f")) + ///
+				" (" + strtrim(string(round(`Lower_o`o'_e`e'_`i'',10^(-`digits')), "%11.`digits'f")) + ///
+				"-" + strtrim(string(round(`Upper_o`o'_e`e'_`i'',10^(-`digits')), "%11.`digits'f")) + ")"
+			quietly replace c`col' = "`rt_fmt'" in `new'
+			local col = `col' + 1
 		}
-		restore
 	}
 }
 
-qui {
-* Identify outcome label rows and export
+* Identify exposure header rows (for borders)
 local lastrow = _N
-gen outcome_row = (c3 == "" & c2 != "" & _n > 2)
-local outcome_rows ""
-forvalues r = 3/`lastrow' {
-	if outcome_row[`r'] == 1 {
-		local outcome_rows "`outcome_rows' `r'"
+gen exp_row = (c2 == "" & c1 != "" & c1 != "Exposure" & _n > 3)
+local exp_rows ""
+forvalues r = 4/`lastrow' {
+	if exp_row[`r'] == 1 {
+		local exp_rows "`exp_rows' `r'"
 	}
 }
+drop exp_row
 
+* Export to Excel
 local sht = cond("`sheet'" != "", "`sheet'", "Results")
-export excel c1-c5 using "`xlsx'", sheet("`sht'") sheetreplace
+order title c*
+export excel using "`xlsx'", sheet("`sht'") sheetreplace
 
-* Calculate column widths based on content
-forvalues i = 1(1)5 {
-	gen c`i'_length = length(c`i')
-}
-
-if `pyscale' != 1 {
-	local pyscale_int = string(`pyscale', "%12.0g")
-	quietly replace c4_length = c4_length - length(" (`pyscale_int's)") if _n == 2
-}
-if "`unitlabel'" != "" {
-	quietly replace c5_length = c5_length - length(" per `unitlabel' person-years") if _n == 2
-}
-
-forvalues i = 1(1)5 {
-	qui sum c`i'_length
-	local max_c`i' = r(max)
-}
-
-local col_a_width = `max_c1' + 2
-if `col_a_width' < 10 local col_a_width = 10
-if `col_a_width' > 50 local col_a_width = 50
-
-local col_b_width = ceil(`max_c2' * 1.2)
-if `col_b_width' < 12 local col_b_width = 12
-
-local col_c_width = ceil(`max_c3' * 1.15)
-if `col_c_width' < 10 local col_c_width = 10
-
-* Column D width based on pyscale
-if `pyscale' != 1 {
-	local col_d_width = ceil(`max_c4' * 1.1)
-	if `col_d_width' < 13 local col_d_width = 13
-}
-else {
-	local col_d_width = ceil(`max_c4' * 1.15)
-	if `col_d_width' < 13 local col_d_width = 13
-}
-
-* Column E width based on unitlabel
-if "`unitlabel'" != "" {
-	local col_e_width = ceil(`max_c5' * 1.2)
-	if `col_e_width' < 15 local col_e_width = 15
-}
-else {
-	local col_e_width = ceil(`max_c5' * 1.1)
-	if `col_e_width' < 20 local col_e_width = 20
-}
-drop c*_length outcome_row
-}
-
-qui {
-* Apply mata formatting
+* Apply formatting with mata
 clear
 mata: b = xl()
 mata: b.load_book("`xlsx'")
 mata: b.set_sheet("`sht'")
 mata: b.set_row_height(1,1,30)
-mata: b.set_row_height(2,2,30)
-mata: b.set_column_width(1,1,`col_a_width')
-mata: b.set_column_width(2,2,`col_b_width')
-mata: b.set_column_width(3,3,`col_c_width')
-mata: b.set_column_width(4,4,`col_d_width')
-mata: b.set_column_width(5,5,`col_e_width')
+mata: b.set_column_width(1,1,5)
+mata: b.set_column_width(2,2,18)
+
+local col = 3
+forvalues o = 1/`outcomes' {
+	mata: b.set_column_width(`col',`col',7)
+	local col = `col' + 1
+	mata: b.set_column_width(`col',`col',17)
+	local col = `col' + 1
+	mata: b.set_column_width(`col',`col',20)
+	local col = `col' + 1
+}
 mata: b.close_book()
 
-* Apply borders and formatting
+* Apply borders and formatting with putexcel
 putexcel set "`xlsx'", sheet("`sht'") modify
 
-putexcel (A1:E1), merge txtwrap left top bold font(Arial,10) 
-putexcel (B2:E2), txtwrap bold hcenter vcenter font(Arial,10) border(top,thin)
-putexcel (B2:E2), border(bottom,thin)
-putexcel (B2:E`lastrow'), font(Arial,10)
-putexcel (B2:B`lastrow'), left
-putexcel (C2:E`lastrow'), hcenter
+* Column letters
+local letters "A B C D E F G H I J K L M N O P Q R S T U V W X Y Z AA AB AC AD AE AF AG AH AI AJ AK AL AM AN AO AP AQ AR AS AT AU AV AW AX AY AZ"
+local lastcol_num = 1 + `outcomes' * 3
+local lastcol : word `=`lastcol_num'+1' of `letters'
 
-* Add top borders before outcome label rows to separate sections
-foreach r of local outcome_rows {
-	putexcel (B`r':E`r'), border(top,thin) bold left
+* Title row - merge and format
+putexcel (A1:`lastcol'1), merge bold txtwrap left top font(Arial,10)
+
+* Header rows
+putexcel (B2:`lastcol'2), border(top,thin)
+putexcel (B3:`lastcol'3), border(bottom,thin)
+
+* Merge outcome headers
+local col = 3
+forvalues o = 1/`outcomes' {
+	local col1 : word `col' of `letters'
+	local col3 : word `=`col'+2' of `letters'
+	putexcel (`col1'2:`col3'2), merge bold hcenter top
+	local col = `col' + 3
 }
 
-* Outer borders
+* Merge Exposure cell across rows 2-3
+putexcel (B2:B3), merge bold hcenter vcenter
+
+* Row 3 formatting
+putexcel (C3:`lastcol'3), bold
+
+* Font for all data
+putexcel (B2:`lastcol'`lastrow'), font(Arial,10)
+
+* Vertical borders between outcome groups
 putexcel (B2:B`lastrow'), border(left,thin)
 putexcel (B2:B`lastrow'), border(right,thin)
-putexcel (E2:E`lastrow'), border(right,thin)
-putexcel (B`lastrow':E`lastrow'), border(bottom,thin)
+
+local col = 3
+forvalues o = 1/`outcomes' {
+	local col_end : word `=`col'+2' of `letters'
+	putexcel (`col_end'2:`col_end'`lastrow'), border(right,thin)
+	local col = `col' + 3
+}
+
+* Horizontal borders between exposure groups (at bottom of each group)
+foreach r of local exp_rows {
+	local border_row = `r' - 1
+	if `border_row' > 3 {
+		putexcel (B`border_row':`lastcol'`border_row'), border(bottom,thin)
+	}
+}
+
+* Bottom border
+putexcel (B`lastrow':`lastcol'`lastrow'), border(bottom,thin)
 
 putexcel clear
+
 }
 
 di as txt "Exported to `xlsx'"
