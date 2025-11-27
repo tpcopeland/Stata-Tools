@@ -2,11 +2,15 @@
 
 ![Stata 17+](https://img.shields.io/badge/Stata-17%2B-brightgreen) ![MIT License](https://img.shields.io/badge/License-MIT-blue) ![Status](https://img.shields.io/badge/Status-Active-success)
 
-Combine strate output files and export to Excel.
+Combine strate output files and export to Excel with outcomes as column groups and exposure variables as rows.
 
 ## Description
 
-stratetab combines pre-computed strate output files and exports them to Excel with outcome labels as headers and category labels indented in the first column. The command creates formatted tables with events, person-years, and rates with 95% confidence intervals.
+`stratetab` combines pre-computed `strate` output files and exports them to Excel with outcomes as column groups and exposure variables as rows. Each outcome spans three columns: Events, Person-Years, and Rate (95% CI).
+
+The command reads multiple .dta files produced by `strate`, organized by exposure type. Files should be listed in order: all outcomes for exposure 1, then all outcomes for exposure 2, etc. For example, with 3 outcomes and 2 exposure types: *out1_exp1 out2_exp1 out3_exp1 out1_exp2 out2_exp2 out3_exp2*.
+
+`stratetab` cannot be combined with `by:`.
 
 ## Dependencies
 
@@ -22,49 +26,102 @@ net install stratetab
 ## Syntax
 
 ```stata
-stratetab, using(filelist) xlsx(filename) [options]
+stratetab, using(namelist) xlsx(string) outcomes(integer) [options]
 ```
 
-### Required options
+### Required Options
 
-- **using(namelist)** - Space-separated list of strate output files (without .dta extension)
-- **xlsx(filename)** - Excel output file (must have .xlsx extension)
+| Option | Description |
+|--------|-------------|
+| **using(namelist)** | Space-separated list of strate output files (without .dta extension) |
+| **xlsx(string)** | Excel output file (must have .xlsx extension) |
+| **outcomes(integer)** | Number of distinct outcomes; total files must be divisible by this number |
 
-### Optional options
+### Optional Options
 
-- **sheet(string)** - Excel sheet name (default: Results)
-- **title(string)** - Title text for row 1
-- **labels(string)** - Outcome labels separated by backslash
-- **digits(integer)** - Decimal places for rates (default: 1)
-- **eventdigits(integer)** - Decimal places for events (default: 0)
-- **pydigits(integer)** - Decimal places for person-years (default: 0)
-- **unitlabel(string)** - Unit label for person-years and rates
+| Option | Default | Description |
+|--------|---------|-------------|
+| **sheet(string)** | Results | Excel sheet name |
+| **title(string)** | *(none)* | Title text that appears in row 1 of the output table |
+| **outlabels(string)** | Outcome 1, Outcome 2, ... | Outcome labels separated by backslash (`\`); must match `outcomes()` count |
+| **explabels(string)** | Exposure 1, Exposure 2, ... | Exposure group labels separated by backslash (`\`); must match number of exposure groups |
+| **digits(integer)** | 1 | Decimal places for rates and confidence intervals (0-10) |
+| **eventdigits(integer)** | 0 | Decimal places for event counts (0-10) |
+| **pydigits(integer)** | 0 | Decimal places for person-years (0-10) |
+| **unitlabel(string)** | 1,000 | Unit label for rate column header (e.g., "Per 1,000 PY (95% CI)") |
+| **pyscale(real)** | 1 | Divides person-years values by this factor (must be positive) |
+| **ratescale(real)** | 1000 | Multiplies rate and CI values by this factor (must be positive) |
 
-## Example
+## Examples
+
+### Example 1: Three outcomes, one exposure type
+
+Combine strate output for EDSS 4, EDSS 6, and Relapse outcomes by HRT exposure:
 
 ```stata
-* First, run strate and save results
-use survdata, clear
-stset time, failure(event)
-
-strate exposure, output(strate_outcome1) replace
-strate exposure, failure(event2) output(strate_outcome2) replace
-
-* Combine results in formatted table
-stratetab, using(strate_outcome1 strate_outcome2) ///
-    xlsx(results.xlsx) ///
-    labels(Primary Outcome \ Secondary Outcome) ///
-    title(Event Rates by Exposure) ///
-    digits(2)
+stratetab, using(edss4_tv edss6_tv relapse_tv) ///
+  xlsx(results.xlsx) outcomes(3) ///
+  outlabels(Sustained EDSS 4 \ Sustained EDSS 6 \ First Relapse) ///
+  explabels(Time-Varying HRT)
 ```
 
-## Output format
+### Example 2: Three outcomes, four exposure types
+
+Full table with multiple exposure definitions:
+
+```stata
+stratetab, using(edss4_tv edss6_tv relapse_tv ///
+    edss4_dur edss6_dur relapse_dur ///
+    edss4_dur1 edss6_dur1 relapse_dur1 ///
+    edss4_dur2 edss6_dur2 relapse_dur2) ///
+  xlsx(table2.xlsx) outcomes(3) sheet(Table 2) ///
+  title(Table 2. Unadjusted rates of MS outcomes by HRT exposure) ///
+  outlabels(Sustained EDSS 4 \ Sustained EDSS 6 \ First Relapse) ///
+  explabels(Time-Varying HRT \ HRT Duration \ Estrogen Duration \ Combined Duration)
+```
+
+### Example 3: Custom scaling
+
+Display rates per 100 person-years with person-years in 1000s:
+
+```stata
+stratetab, using(out1_exp1 out2_exp1 out1_exp2 out2_exp2) ///
+  xlsx(results.xlsx) outcomes(2) ///
+  ratescale(100) unitlabel(100) pyscale(1000)
+```
+
+### Example 4: Two decimal places for rates
+
+```stata
+stratetab, using(edss4_tv edss6_tv relapse_tv) ///
+  xlsx(results.xlsx) outcomes(3) ///
+  outlabels(EDSS 4 \ EDSS 6 \ Relapse) ///
+  explabels(Time-Varying HRT) digits(2)
+```
+
+## Output Format
 
 The Excel table includes:
-- Outcome labels as headers
-- Indented category rows
-- Events, person-years, and rates with 95% CI
-- Professional formatting
+- **Title row**: Optional title merged across all columns
+- **Outcome headers**: Each outcome label merged across its 3 columns
+- **Sub-headers**: Events, Person-Years (PY), and Per [unit] PY (95% CI)
+- **Exposure groups**: Header rows for each exposure type
+- **Category rows**: Indented rows showing category-specific rates
+- **Professional formatting**: Borders, alignment, and appropriate column widths
+
+## Remarks
+
+### File Ordering
+
+Files must be listed with all outcomes for exposure 1 first, then all outcomes for exposure 2, etc. The order of outcomes within each exposure group determines the column order in the output.
+
+For example, with 3 outcomes (O1, O2, O3) and 2 exposures (E1, E2), list files as:
+**O1_E1 O2_E1 O3_E1 O1_E2 O2_E2 O3_E2**
+
+### Label Validation
+
+- If `outlabels()` is specified, the number of labels must exactly match `outcomes()`.
+- If `explabels()` is specified, the number of labels must match the number of exposure groups (total files / outcomes).
 
 ## Requirements
 
@@ -72,13 +129,13 @@ Stata 17.0 or higher
 
 ## Author
 
-Timothy P Copeland<br>
-Department of Clinical Neuroscience<br>
+Timothy P Copeland
+Department of Clinical Neuroscience
 Karolinska Institutet
+Email: timothy.copeland@ki.se
 
-## Help
+Version 2.0 - 27 November 2025
 
-For more information:
-```stata
-help stratetab
-```
+## See Also
+
+- [strate](https://www.stata.com/manuals/ststrate.pdf) - Stata manual entry for strate command
