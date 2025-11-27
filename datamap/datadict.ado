@@ -1,70 +1,16 @@
-*! datadict v1.0.1
-*! Generate professional Markdown data dictionaries
-*! Companion to datamap (LLM-focused)
+*! datadict v2.1.0
+*! Generate clean Markdown data dictionaries matching professional documentation style
 *! Author: Tim Copeland
-*! Date: 2025-11-21
-
-/*
-SYNTAX
-------
-datadict [, options]
-
-OPTIONS
--------
-Input (choose one):
-  single(filename)    Single .dta file to document
-  directory(path)     Document all .dta files in directory
-  filelist(filename)  Text file listing .dta files to process
-  recursive           Scan subdirectories (with directory())
-
-Output:
-  output(filename)    Output markdown file (default: data_dictionary.md)
-  separate            Create separate output file per dataset
-  append              Append to existing output file
-
-Content Control:
-  title(string)       Document title (default: "Data Dictionary")
-  version(string)     Version number for documentation
-  authors(string)     Author names
-  toc                 Include table of contents
-  maxfreq(#)          Max unique values for frequency tables (default: 25)
-  maxcat(#)           Max unique values to treat as categorical (default: 25)
-
-Privacy:
-  exclude(varlist)    Variables to document structure only
-  datesafe            Show only date range spans, not exact dates
-
-DESCRIPTION
------------
-datadict generates professional Markdown data dictionaries suitable for
-documentation, version control, and conversion to HTML/DOCX via Stata's
-dyndoc command.
-
-Output format is clean Markdown with tables, sections, and proper formatting
-that renders beautifully in GitHub, VSCode, Pandoc, and after dyndoc conversion.
-
-EXAMPLES
---------
-. datadict, single(patients.dta)
-. datadict, single(patients.dta) output(dict.md) title("Patient Registry")
-. datadict, directory(.) separate toc
-. dyndoc data_dictionary.md, replace   // Convert to HTML
-
-STORED RESULTS
---------------
-r(nfiles)   - number of datasets documented
-r(output)   - output filename
-*/
+*! Date: 2025-11-27
 
 program define datadict, rclass
 	version 14.0
 	syntax [, Single(string) DIRectory(string) FILElist(string) ///
 	          RECursive ///
-	          Output(string) SEParate APPend ///
-	          Title(string) VERsion(string) AUTHors(string) ///
-	          TOC ///
-	          MAXFreq(integer 25) MAXCat(integer 25) ///
-	          EXClude(string) DATESafe]
+	          Output(string) SEParate ///
+	          Title(string) SUBTitle(string) VERsion(string) ///
+	          AUTHor(string) DATE(string) ///
+	          NOTEs(string) CHANGElog(string)]
 
 	// Validate input options
 	local ninput = ("`single'" != "") + ("`directory'" != "") + ("`filelist'" != "")
@@ -78,83 +24,82 @@ program define datadict, rclass
 	}
 
 	// Set defaults
-	if "`output'" == "" local output "data_dictionary.md"
-	if "`title'" == "" local title "Data Dictionary"
-
-	// Validate numeric parameters
-	if `maxfreq' <= 0 {
-		di as error "maxfreq must be positive"
-		exit 198
-	}
-	if `maxcat' <= 0 {
-		di as error "maxcat must be positive"
-		exit 198
-	}
+	if `"`output'"' == "" local output "data_dictionary.md"
+	if `"`title'"' == "" local title "Data Dictionary"
+	if `"`date'"' == "" local date "`c(current_date)'"
 
 	// Collect files to process
 	tempfile filelist_tmp
-	if "`single'" != "" {
-		confirm file "`single'"
+	if `"`single'"' != "" {
+		confirm file `"`single'"'
 		local nfiles 1
+		tempname fh_tmp
+		file open `fh_tmp' using `"`filelist_tmp'"', write text replace
+		file write `fh_tmp' `"`single'"' _n
+		file close `fh_tmp'
 	}
-	else if "`filelist'" != "" {
-		confirm file "`filelist'"
-		CollectFromList "`filelist'" "`filelist_tmp'"
-		CountFiles "`filelist_tmp'"
+	else if `"`filelist'"' != "" {
+		confirm file `"`filelist'"'
+		CollectFromList `"`filelist'"' `"`filelist_tmp'"'
+		CountFiles `"`filelist_tmp'"'
 		local nfiles = r(nfiles)
 	}
 	else {
-		if "`directory'" == "" local directory "."
-		CollectFromDir "`directory'" "`recursive'" "`filelist_tmp'"
-		CountFiles "`filelist_tmp'"
+		if `"`directory'"' == "" local directory "."
+		CollectFromDir `"`directory'"' "`recursive'" `"`filelist_tmp'"'
+		CountFiles `"`filelist_tmp'"'
 		local nfiles = r(nfiles)
 	}
 
 	// Error if no files found
-	if "`single'" == "" & `nfiles' == 0 {
+	if `nfiles' == 0 {
 		di as error "no .dta files found"
 		exit 601
 	}
 
+	// Collect dataset names for TOC
+	tempfile names_tmp
+	CollectDatasetNames `"`filelist_tmp'"' `"`names_tmp'"' `nfiles'
+
+	// Preserve current data
+	preserve
+
 	// Process files
 	if "`separate'" != "" {
-		// Separate output per dataset
-		ProcessSeparateMarkdown, filelist("`filelist_tmp'") ///
-			title("`title'") version("`version'") authors("`authors'") ///
-			`toc' maxfreq(`maxfreq') maxcat(`maxcat') ///
-			exclude("`exclude'") `datesafe' nfiles(`nfiles')
+		ProcessSeparate `"`filelist_tmp'"' `"`names_tmp'"' ///
+			`"`title'"' `"`subtitle'"' `"`version'"' `"`author'"' `"`date'"' ///
+			`"`notes'"' `"`changelog'"' `nfiles'
 	}
 	else {
-		// Combined output
-		ProcessCombinedMarkdown, filelist("`filelist_tmp'") output("`output'") ///
-			single("`single'") `append' ///
-			title("`title'") version("`version'") authors("`authors'") ///
-			`toc' maxfreq(`maxfreq') maxcat(`maxcat') ///
-			exclude("`exclude'") `datesafe' nfiles(`nfiles')
+		ProcessCombined `"`filelist_tmp'"' `"`names_tmp'"' `"`output'"' ///
+			`"`title'"' `"`subtitle'"' `"`version'"' `"`author'"' `"`date'"' ///
+			`"`notes'"' `"`changelog'"' `nfiles'
 	}
+
+	// Restore original data
+	restore
 
 	// Return results
 	return scalar nfiles = `nfiles'
-	return local output = "`output'"
+	return local output `"`output'"'
 
-	di as result "Markdown dictionary generated: `output'"
-	di as text "To convert to HTML, run: dyndoc `output', replace"
+	di as result `"Markdown dictionary generated: `output'"'
 end
 
 // =============================================================================
-// Helper: CollectFromList (borrowed from datamap)
+// Helper: CollectFromList
 // =============================================================================
 program define CollectFromList
 	args filelist tmpfile
 
 	tempname fh_in fh_out
-	file open `fh_in' using "`filelist'", read text
-	file open `fh_out' using "`tmpfile'", write text replace
+	file open `fh_in' using `"`filelist'"', read text
+	file open `fh_out' using `"`tmpfile'"', write text replace
 
 	file read `fh_in' line
 	while r(eof) == 0 {
-		local line = strtrim("`line'")
-		if "`line'" != "" & substr("`line'", 1, 1) != "*" {
+		local line = strtrim(`"`macval(line)'"')
+		if `"`line'"' != "" & substr(`"`line'"', 1, 1) != "*" {
 			file write `fh_out' `"`line'"' _n
 		}
 		file read `fh_in' line
@@ -164,27 +109,27 @@ program define CollectFromList
 end
 
 // =============================================================================
-// Helper: CollectFromDir (borrowed from datamap)
+// Helper: CollectFromDir
 // =============================================================================
 program define CollectFromDir
 	args directory recursive tmpfile
 
 	tempname fh
-	file open `fh' using "`tmpfile'", write text replace
+	file open `fh' using `"`tmpfile'"', write text replace
 
 	if "`recursive'" == "" {
-		local files : dir "`directory'" files "*.dta"
+		local files : dir `"`directory'"' files "*.dta"
 		foreach f of local files {
-			if "`directory'" != "." {
-				file write `fh' "`directory'/`f'" _n
+			if `"`directory'"' != "." {
+				file write `fh' `"`directory'/`f'"' _n
 			}
 			else {
-				file write `fh' "`f'" _n
+				file write `fh' `"`f'"' _n
 			}
 		}
 	}
 	else {
-		RecursiveScan "`directory'" `fh'
+		RecursiveScan `"`directory'"' `fh'
 	}
 
 	file close `fh'
@@ -193,24 +138,24 @@ end
 program define RecursiveScan
 	args directory fh
 
-	local files : dir "`directory'" files "*.dta"
+	local files : dir `"`directory'"' files "*.dta"
 	foreach f of local files {
-		if "`directory'" != "." {
-			file write `fh' "`directory'/`f'" _n
+		if `"`directory'"' != "." {
+			file write `fh' `"`directory'/`f'"' _n
 		}
 		else {
-			file write `fh' "`f'" _n
+			file write `fh' `"`f'"' _n
 		}
 	}
 
-	local subdirs : dir "`directory'" dirs "*"
+	local subdirs : dir `"`directory'"' dirs "*"
 	foreach subdir of local subdirs {
-		if substr("`subdir'", 1, 1) != "." & "`subdir'" != "__pycache__" {
-			if "`directory'" != "." {
-				RecursiveScan "`directory'/`subdir'" `fh'
+		if substr(`"`subdir'"', 1, 1) != "." & `"`subdir'"' != "__pycache__" {
+			if `"`directory'"' != "." {
+				RecursiveScan `"`directory'/`subdir'"' `fh'
 			}
 			else {
-				RecursiveScan "`subdir'" `fh'
+				RecursiveScan `"`subdir'"' `fh'
 			}
 		}
 	}
@@ -223,7 +168,7 @@ program define CountFiles, rclass
 	args tmpfile
 
 	tempname fh
-	file open `fh' using "`tmpfile'", read text
+	file open `fh' using `"`tmpfile'"', read text
 	local nfiles 0
 	file read `fh' line
 	while r(eof) == 0 {
@@ -236,761 +181,455 @@ program define CountFiles, rclass
 end
 
 // =============================================================================
-// Helper: ProcessCombinedMarkdown
+// Helper: CollectDatasetNames - extract display names for TOC
 // =============================================================================
-program define ProcessCombinedMarkdown
-	syntax, filelist(string) output(string) [single(string) append ///
-		title(string) version(string) authors(string) toc ///
-		maxfreq(integer 25) maxcat(integer 25) exclude(string) datesafe nfiles(integer 1)]
+program define CollectDatasetNames
+	args filelist namesfile nfiles
 
-	di as text "Creating Markdown dictionary: `output'"
+	tempname fh_in fh_out
+	file open `fh_in' using `"`filelist'"', read text
+	file open `fh_out' using `"`namesfile'"', write text replace
+
+	file read `fh_in' filepath
+	while r(eof) == 0 {
+		// Extract basename using Stata's native functions
+		local basename = ustrregexra(`"`macval(filepath)'"', ".*[/\\]", "")
+		// Remove .dta extension
+		local basename = ustrregexra(`"`basename'"', "\.dta$", "")
+
+		// Try to get dataset label
+		capture quietly describe using `"`macval(filepath)'"', short
+		if _rc == 0 {
+			local dslabel `"`r(dtalabel)'"'
+		}
+		else {
+			local dslabel ""
+		}
+
+		// Write: basename|label
+		file write `fh_out' `"`basename'|`macval(dslabel)'"' _n
+
+		file read `fh_in' filepath
+	}
+	file close `fh_in'
+	file close `fh_out'
+end
+
+// =============================================================================
+// Helper: MakeAnchor - create markdown anchor from text
+// =============================================================================
+program define MakeAnchor, rclass
+	args idx name
+
+	// Convert to lowercase and replace spaces/special chars with hyphens
+	local anchor = lower(`"`name'"')
+	local anchor = ustrregexra(`"`anchor'"', "[ _]", "-")
+	local anchor = ustrregexra(`"`anchor'"', "[^a-z0-9-]", "")
+
+	return local anchor "`idx'-`anchor'"
+end
+
+// =============================================================================
+// Helper: EscapeMarkdown - escape special markdown characters
+// =============================================================================
+program define EscapeMarkdown, rclass
+	args text
+
+	local escaped `"`macval(text)'"'
+	local escaped = subinstr(`"`macval(escaped)'"', "|", "\|", .)
+	local escaped = subinstr(`"`macval(escaped)'"', "`", "\`", .)
+
+	return local escaped `"`macval(escaped)'"'
+end
+
+// =============================================================================
+// Helper: ProcessCombined
+// =============================================================================
+program define ProcessCombined
+	args filelist namesfile output title subtitle version author date notes changelog nfiles
+
+	di as text `"Creating Markdown dictionary: `output'"'
 
 	tempname fh
-	if "`append'" != "" {
-		file open `fh' using "`output'", write text append
+	file open `fh' using `"`output'"', write text replace
+
+	// Write document header
+	file write `fh' `"# `macval(title)'"' _n _n
+
+	if `"`subtitle'"' != "" {
+		file write `fh' `"`macval(subtitle)'"' _n _n
 	}
-	else {
-		file open `fh' using "`output'", write text replace
 
-		// Write document header
-		WriteMarkdownDocHeader `fh' "`title'" "`version'" "`authors'"
+	if `"`version'"' != "" {
+		file write `fh' `"Version `version'"' _n _n
+	}
 
-		// Write table of contents if requested
-		if "`toc'" != "" {
-			WriteMarkdownTOC `fh' `nfiles'
+	// Table of Contents
+	file write `fh' "## Table of Contents" _n _n
+
+	// Read names file for TOC entries
+	tempname fh_names
+	file open `fh_names' using `"`namesfile'"', read text
+	local i 0
+	file read `fh_names' nameline
+	while r(eof) == 0 {
+		local ++i
+		// Parse basename|label
+		local pipepos = strpos(`"`nameline'"', "|")
+		if `pipepos' > 0 {
+			local dsname = substr(`"`nameline'"', 1, `pipepos'-1)
+		}
+		else {
+			local dsname `"`nameline'"'
+		}
+
+		// Create anchor
+		MakeAnchor `i' `"`dsname'"'
+		local anchor = r(anchor)
+
+		// Format display name (capitalize, replace _ with space)
+		local dispname = proper(subinstr(`"`dsname'"', "_", " ", .))
+
+		file write `fh' `"`i'. [`dispname'](#`anchor')"' _n
+
+		file read `fh_names' nameline
+	}
+	file close `fh_names'
+
+	// Add Notes and Change Log to TOC
+	local notesidx = `nfiles' + 1
+	local chlogidx = `nfiles' + 2
+	file write `fh' `"`notesidx'. [Notes](#notes)"' _n
+	file write `fh' `"`chlogidx'. [Change Log](#change-log)"' _n
+	file write `fh' _n "---" _n _n
+
+	// Process each dataset
+	tempname fh_list fh_names2
+	file open `fh_list' using `"`filelist'"', read text
+	file open `fh_names2' using `"`namesfile'"', read text
+
+	local i 0
+	file read `fh_list' filepath
+	file read `fh_names2' nameline
+	while r(eof) == 0 {
+		local ++i
+
+		// Parse name
+		local pipepos = strpos(`"`nameline'"', "|")
+		if `pipepos' > 0 {
+			local dsname = substr(`"`nameline'"', 1, `pipepos'-1)
+			local dslabel = substr(`"`nameline'"', `pipepos'+1, .)
+		}
+		else {
+			local dsname `"`nameline'"'
+			local dslabel ""
+		}
+
+		di as text "  Processing `i' of `nfiles': `dsname'"
+
+		ProcessOneDataset `fh' `"`macval(filepath)'"' `"`dsname'"' `"`macval(dslabel)'"' `i'
+
+		file read `fh_list' filepath
+		file read `fh_names2' nameline
+	}
+	file close `fh_list'
+	file close `fh_names2'
+
+	// Notes section
+	file write `fh' "## Notes" _n _n
+	if `"`notes'"' != "" {
+		// Read notes from file
+		capture confirm file `"`notes'"'
+		if _rc == 0 {
+			tempname fh_notes
+			file open `fh_notes' using `"`notes'"', read text
+			file read `fh_notes' noteline
+			while r(eof) == 0 {
+				file write `fh' `"`macval(noteline)'"' _n
+				file read `fh_notes' noteline
+			}
+			file close `fh_notes'
+		}
+		else {
+			file write `fh' `"- Notes file not found: `notes'"' _n
 		}
 	}
+	else {
+		file write `fh' "- All date variables are formatted as %tdCCYY/NN/DD (Stata date format)" _n
+		file write `fh' "- Missing values for categorical variables are typically coded as . (numeric missing) or empty string" _n
+		file write `fh' "- All datasets contain anonymous identifiers for linking" _n
+	}
+	file write `fh' _n "---" _n _n
 
-	// Process each file
-	if "`single'" != "" {
-		di as text "  Processing: `single'"
-		ProcessDatasetMarkdown `fh' "`single'" `maxfreq' `maxcat' ///
-			"`exclude'" "`datesafe'" 1 `nfiles'
+	// Change Log section
+	file write `fh' "## Change Log" _n _n
+	if `"`changelog'"' != "" {
+		capture confirm file `"`changelog'"'
+		if _rc == 0 {
+			tempname fh_clog
+			file open `fh_clog' using `"`changelog'"', read text
+			file read `fh_clog' clogline
+			while r(eof) == 0 {
+				file write `fh' `"`macval(clogline)'"' _n
+				file read `fh_clog' clogline
+			}
+			file close `fh_clog'
+		}
+		else {
+			file write `fh' `"Changelog file not found: `changelog'"' _n
+		}
 	}
 	else {
-		tempname fh_list
-		file open `fh_list' using "`filelist'", read text
-		local i 0
-		file read `fh_list' thisfile
-		while r(eof) == 0 {
-			local ++i
-			di as text "  Processing `i' of `nfiles': `thisfile'"
-			ProcessDatasetMarkdown `fh' "`thisfile'" `maxfreq' `maxcat' ///
-				"`exclude'" "`datesafe'" `i' `nfiles'
-			file read `fh_list' thisfile
-		}
-		file close `fh_list'
+		file write `fh' "*No changes recorded.*" _n
 	}
+	file write `fh' _n "---" _n _n
+
+	// Footer
+	if `"`version'"' != "" {
+		file write `fh' `"**Document Version:** `version'"' _n _n
+	}
+	if `"`author'"' != "" {
+		file write `fh' `"**Author:** `macval(author)'"' _n _n
+	}
+	file write `fh' `"**Last Updated:** `date'"' _n
 
 	file close `fh'
 	di as result `"Output written to: `output'"'
 end
 
 // =============================================================================
-// Helper: ProcessSeparateMarkdown
+// Helper: ProcessSeparate
 // =============================================================================
-program define ProcessSeparateMarkdown
-	syntax, filelist(string) [title(string) version(string) authors(string) toc ///
-		maxfreq(integer 25) maxcat(integer 25) exclude(string) datesafe nfiles(integer 1)]
+program define ProcessSeparate
+	args filelist namesfile title subtitle version author date notes changelog nfiles
 
-	tempname fh_list
-	file open `fh_list' using "`filelist'", read text
-	file read `fh_list' thisfile
+	tempname fh_list fh_names
+	file open `fh_list' using `"`filelist'"', read text
+	file open `fh_names' using `"`namesfile'"', read text
+
+	file read `fh_list' filepath
+	file read `fh_names' nameline
 	while r(eof) == 0 {
-		// Generate output filename
-		local len = length("`thisfile'")
-		if substr("`thisfile'", `len'-3, 4) == ".dta" {
-			local basename = substr("`thisfile'", 1, `len'-4)
+		// Parse name
+		local pipepos = strpos(`"`nameline'"', "|")
+		if `pipepos' > 0 {
+			local dsname = substr(`"`nameline'"', 1, `pipepos'-1)
+			local dslabel = substr(`"`nameline'"', `pipepos'+1, .)
 		}
 		else {
-			local basename "`thisfile'"
+			local dsname `"`nameline'"'
+			local dslabel ""
 		}
-		local outfile "`basename'_dictionary.md"
 
-		di as text "Creating: `outfile'"
+		local outfile `"`dsname'_dictionary.md"'
+		di as text `"Creating: `outfile'"'
 
 		tempname fh
-		file open `fh' using "`outfile'", write text replace
+		file open `fh' using `"`outfile'"', write text replace
 
-		// Write header
-		WriteMarkdownDocHeader `fh' "`title'" "`version'" "`authors'"
-		if "`toc'" != "" {
-			WriteMarkdownTOC `fh' 1
+		// Header
+		file write `fh' `"# `macval(title)': `dsname'"' _n _n
+		if `"`subtitle'"' != "" {
+			file write `fh' `"`macval(subtitle)'"' _n _n
 		}
+		if `"`version'"' != "" {
+			file write `fh' `"Version `version'"' _n _n
+		}
+		file write `fh' "---" _n _n
 
 		// Process dataset
-		ProcessDatasetMarkdown `fh' "`thisfile'" `maxfreq' `maxcat' ///
-			"`exclude'" "`datesafe'" 1 1
+		ProcessOneDataset `fh' `"`macval(filepath)'"' `"`dsname'"' `"`macval(dslabel)'"' 1
+
+		// Notes
+		file write `fh' "## Notes" _n _n
+		file write `fh' "- All date variables are formatted as %tdCCYY/NN/DD (Stata date format)" _n
+		file write `fh' "- Missing values coded as . (numeric missing) or empty string" _n
+		file write `fh' _n "---" _n _n
+
+		// Footer
+		if `"`author'"' != "" {
+			file write `fh' `"**Author:** `macval(author)'"' _n _n
+		}
+		file write `fh' `"**Last Updated:** `date'"' _n
 
 		file close `fh'
 		di as result `"Output written to: `outfile'"'
 
-		file read `fh_list' thisfile
+		file read `fh_list' filepath
+		file read `fh_names' nameline
 	}
 	file close `fh_list'
+	file close `fh_names'
 end
 
 // =============================================================================
-// Helper: WriteMarkdownDocHeader
+// Helper: ProcessOneDataset
 // =============================================================================
-program define WriteMarkdownDocHeader
-	args fh title version authors
+program define ProcessOneDataset
+	args fh filepath dsname dslabel idx
 
-	file write `fh' "# `title'" _n _n
-
-	if "`version'" != "" {
-		file write `fh' "**Version:** `version'  " _n
-	}
-	file write `fh' "**Date:** `c(current_date)'  " _n
-	if "`authors'" != "" {
-		file write `fh' "**Authors:** `authors'  " _n
-	}
-	file write `fh' _n
-end
-
-// =============================================================================
-// Helper: WriteMarkdownTOC
-// =============================================================================
-program define WriteMarkdownTOC
-	args fh nfiles
-
-	file write `fh' "## Table of Contents" _n _n
-	file write `fh' "1. [Dataset Information](#dataset-information)" _n
-	file write `fh' "2. [Variable Definitions](#variable-definitions)" _n
-	file write `fh' "   - [Identifiers](#identifiers)" _n
-	file write `fh' "   - [Demographics](#demographics)" _n
-	file write `fh' "   - [Categorical Variables](#categorical-variables)" _n
-	file write `fh' "   - [Continuous Variables](#continuous-variables)" _n
-	file write `fh' "   - [Date Variables](#date-variables)" _n
-	file write `fh' "   - [String Variables](#string-variables)" _n
-	file write `fh' "3. [Value Label Definitions](#value-label-definitions)" _n
-	file write `fh' "4. [Data Quality Notes](#data-quality-notes)" _n
-	file write `fh' _n "---" _n _n
-end
-
-// =============================================================================
-// Helper: ProcessDatasetMarkdown
-// =============================================================================
-program define ProcessDatasetMarkdown
-	args fh filepath maxfreq maxcat exclude datesafe idx total
-
-	// Get dataset metadata
-	capture describe using "`filepath'", short
+	// Get metadata
+	capture quietly describe using `"`macval(filepath)'"', short
 	if _rc != 0 {
-		di as error "ERROR: Could not describe `filepath'"
+		di as error `"ERROR: Could not describe `filepath'"'
 		exit _rc
 	}
 	local obs = r(N)
 	local nvars = r(k)
-	local label = r(label)
-	local sortlist = r(sortlist)
-
-	// Handle empty dataset edge case
-	if `obs' == 0 {
-		di as text "  Warning: Dataset `filepath' has 0 observations - limited documentation generated"
+	if `"`dslabel'"' == "" | `"`dslabel'"' == "." {
+		local dslabel "Dataset containing `nvars' variables and `obs' observations."
 	}
 
-	// Extract basename from filepath
-	// Normalize slashes first to handle mixed path separators (Windows/Unix)
-	local normalized_path = subinstr("`filepath'", "\", "/", .)
-	local basename = "`normalized_path'"
+	// Format display name
+	local dispname = proper(subinstr(`"`dsname'"', "_", " ", .))
 
-	if strpos("`normalized_path'", "/") > 0 {
-		local basename = reverse("`normalized_path'")
-		local slashpos = strpos("`basename'", "/")
-		if `slashpos' > 0 {
-			local basename = reverse(substr("`basename'", 1, `slashpos'-1))
-		}
-		else {
-			local basename = "`normalized_path'"
-		}
-	}
+	// Section header
+	file write `fh' `"## `idx'. `dispname'"' _n _n
+	file write `fh' `"**Filename:** \``dsname'.dta\`  "' _n
+	file write `fh' `"**Description:** `macval(dslabel)'"' _n _n
 
-	// Dataset header
-	if `idx' > 1 file write `fh' _n "---" _n _n
-	file write `fh' "## Dataset: `basename'" _n _n
+	// Variables subsection
+	file write `fh' "### Variables" _n _n
 
-	// Write dataset info table
-	file write `fh' "| Property | Value |" _n
-	file write `fh' "|----------|-------|" _n
-	file write `fh' "| Observations | `obs' |" _n
-	file write `fh' "| Variables | `nvars' |" _n
-	if `"`label'"' != "" & `"`label'"' != "." {
-		local label_safe = subinstr(`"`label'"', "|", "\|", .)
-		file write `fh' "| Label | `label_safe' |" _n
-	}
-	if "`sortlist'" != "" {
-		file write `fh' "| Sort Order | `sortlist' |" _n
-	}
+	// Variable table header
+	file write `fh' "| Variable | Label | Type | Values/Notes |" _n
+	file write `fh' "|----------|-------|------|--------------|" _n
 
-	// Load dataset for variable processing
-	use "`filepath'", clear
+	// Load dataset (already preserved by main program)
+	quietly use `"`macval(filepath)'"', clear
 
-	// Add datasignature (data must be loaded first)
-	capture datasignature
-	if _rc == 0 {
-		file write `fh' "| Data Signature | `r(datasignature)' |" _n
-	}
-	file write `fh' _n
-
-	// Generate variable summary table
-	WriteMarkdownVariableSummaryTable `fh' `maxfreq' `maxcat' "`exclude'" `obs'
-
-	// Generate detailed variable sections by group
-	WriteMarkdownDetailedVariables `fh' `maxfreq' `maxcat' "`exclude'" "`datesafe'" `obs'
-
-	// Value label definitions
-	WriteMarkdownValueLabels `fh'
-
-	// Data quality notes
-	WriteMarkdownQualityNotes `fh' `obs'
-end
-
-// =============================================================================
-// Helper: WriteMarkdownVariableSummaryTable
-// =============================================================================
-program define WriteMarkdownVariableSummaryTable
-	args fh maxfreq maxcat exclude obs
-
-	file write `fh' "### Variable Summary" _n _n
-	file write `fh' "| Variable | Label | Type | Format | Missing | Classification |" _n
-	file write `fh' "|----------|-------|------|--------|---------|----------------|" _n
-
+	// Process each variable
 	quietly describe, varlist
 	local allvars `r(varlist)'
 
 	foreach vn of local allvars {
-		local vtype: type `vn'
-		local vfmt: format `vn'
-		local vlab: variable label `vn'
-
-		// Count missing
-		quietly count if missing(`vn')
-		local nmiss = r(N)
-		if `obs' > 0 {
-			local pctmiss = string(100*`nmiss'/`obs', "%4.1f")
-		}
-		else {
-			local pctmiss = "0.0"
-		}
-
-		// Classify
-		ClassifyVariable "`vn'" "`vtype'" "`vfmt'" `maxcat' "`exclude'"
-		local class = r(class)
-
-		// Write row (escape pipes in labels)
-		local vlab_safe = subinstr("`vlab'", "|", "\|", .)
-		file write `fh' "| " _char(96) "`vn'" _char(96) " | `vlab_safe' | `vtype' | `vfmt' | "
-		file write `fh' "`nmiss' (`pctmiss'%) | `class' |" _n
+		WriteVariableRow `fh' `"`vn'"'
 	}
-	file write `fh' _n
+
+	file write `fh' _n "---" _n _n
 end
 
 // =============================================================================
-// Helper: ClassifyVariable (returns classification string)
-// Optimized: checks value labels first before expensive tabulation
+// Helper: WriteVariableRow
 // =============================================================================
-program define ClassifyVariable, rclass
-	args vname vtype vfmt maxcat exclude
+program define WriteVariableRow
+	args fh vname
 
-	// Check if excluded
-	if "`exclude'" != "" {
-		foreach ev of local exclude {
-			if "`vname'" == "`ev'" {
-				return local class "excluded"
-				exit
-			}
-		}
-	}
-
-	// Classify
-	if strpos("`vtype'", "str") == 1 {
-		return local class "string"
-	}
-	else if strpos("`vfmt'", "%t") > 0 {
-		return local class "date"
-	}
-	else {
-		// Check for value label FIRST (most efficient)
-		// If labeled, treat as categorical without expensive tabulation
-		local valab: value label `vname'
-
-		if "`valab'" != "" {
-			return local class "categorical"
-			exit
-		}
-
-		// No value label - need to check cardinality
-		// Use quietly to suppress output
-		capture quietly tab `vname'
-		if _rc == 0 {
-			local nuniq = r(r)
-			if `nuniq' <= `maxcat' {
-				return local class "categorical"
-			}
-			else {
-				return local class "continuous"
-			}
-		}
-		else {
-			// Tab failed (too many values) and no label -> continuous
-			// This is expected for high-cardinality continuous variables
-			return local class "continuous"
-		}
-	}
-end
-
-// =============================================================================
-// Helper: WriteMarkdownDetailedVariables
-// =============================================================================
-program define WriteMarkdownDetailedVariables
-	args fh maxfreq maxcat exclude datesafe obs
-
-	// Group variables by type
-	quietly describe, varlist
-	local allvars `r(varlist)'
-
-	local id_vars ""
-	local demo_vars ""
-	local cat_vars ""
-	local cont_vars ""
-	local date_vars ""
-	local string_vars ""
-	local excl_vars ""
-
-	foreach vn of local allvars {
-		local vtype: type `vn'
-		local vfmt: format `vn'
-		ClassifyVariable "`vn'" "`vtype'" "`vfmt'" `maxcat' "`exclude'"
-		local class = r(class)
-
-		// Check if ID/key variable
-		local vn_lower = lower("`vn'")
-		if regexm("`vn_lower'", "^id$|_id$|patient|subject") {
-			local id_vars "`id_vars' `vn'"
-		}
-		// Check if demographic
-		else if regexm("`vn_lower'", "age|sex|gender|race|ethnic") {
-			local demo_vars "`demo_vars' `vn'"
-		}
-		// Otherwise group by classification
-		else {
-			if "`class'" == "categorical" local cat_vars "`cat_vars' `vn'"
-			else if "`class'" == "continuous" local cont_vars "`cont_vars' `vn'"
-			else if "`class'" == "date" local date_vars "`date_vars' `vn'"
-			else if "`class'" == "string" local string_vars "`string_vars' `vn'"
-			else if "`class'" == "excluded" local excl_vars "`excl_vars' `vn'"
-		}
-	}
-
-	// Write sections
-	file write `fh' "### Variable Definitions" _n _n
-
-	if "`id_vars'" != "" {
-		WriteMarkdownVariableGroup `fh' "Identifiers" "`id_vars'" `maxfreq' `maxcat' ///
-			"`exclude'" "`datesafe'" `obs'
-	}
-	if "`demo_vars'" != "" {
-		WriteMarkdownVariableGroup `fh' "Demographics" "`demo_vars'" `maxfreq' `maxcat' ///
-			"`exclude'" "`datesafe'" `obs'
-	}
-	if "`cat_vars'" != "" {
-		WriteMarkdownVariableGroup `fh' "Categorical Variables" "`cat_vars'" `maxfreq' `maxcat' ///
-			"`exclude'" "`datesafe'" `obs'
-	}
-	if "`cont_vars'" != "" {
-		WriteMarkdownVariableGroup `fh' "Continuous Variables" "`cont_vars'" `maxfreq' `maxcat' ///
-			"`exclude'" "`datesafe'" `obs'
-	}
-	if "`date_vars'" != "" {
-		WriteMarkdownVariableGroup `fh' "Date Variables" "`date_vars'" `maxfreq' `maxcat' ///
-			"`exclude'" "`datesafe'" `obs'
-	}
-	if "`string_vars'" != "" {
-		WriteMarkdownVariableGroup `fh' "String Variables" "`string_vars'" `maxfreq' `maxcat' ///
-			"`exclude'" "`datesafe'" `obs'
-	}
-	if "`excl_vars'" != "" {
-		WriteMarkdownVariableGroup `fh' "Excluded Variables" "`excl_vars'" `maxfreq' `maxcat' ///
-			"`exclude'" "`datesafe'" `obs'
-	}
-end
-
-// =============================================================================
-// Helper: WriteMarkdownVariableGroup
-// Write detailed documentation for a group of variables
-// =============================================================================
-program define WriteMarkdownVariableGroup
-	args fh section_title varlist maxfreq maxcat exclude datesafe obs
-
-	file write `fh' "####  `section_title'" _n _n
-
-	// Write each variable in the group
-	foreach vn of local varlist {
-		WriteMarkdownVariableDetail `fh' "`vn'" `maxfreq' `maxcat' ///
-			"`exclude'" "`datesafe'" `obs'
-	}
-end
-
-// =============================================================================
-// Helper: WriteMarkdownVariableDetail
-// Write detailed documentation for one variable
-// =============================================================================
-program define WriteMarkdownVariableDetail
-	args fh vname maxfreq maxcat exclude datesafe obs
-
-	// Get variable metadata
 	local vtype: type `vname'
 	local vfmt: format `vname'
 	local vlab: variable label `vname'
-	local valab: value label `vname'
+	local vallabname: value label `vname'
 
-	// Escape special markdown characters in label
-	local vlab_safe = subinstr("`vlab'", "|", "\|", .)
+	// Escape pipes and backticks in label
+	EscapeMarkdown `"`macval(vlab)'"'
+	local vlab_safe `"`r(escaped)'"'
 
-	// Count missing
-	quietly count if missing(`vname')
-	local nmiss = r(N)
-	if `obs' > 0 {
-		local pctmiss = string(100*`nmiss'/`obs', "%4.1f")
+	// Determine Type column
+	local typestr "Numeric"
+	if substr("`vtype'", 1, 3) == "str" {
+		local typestr "String"
 	}
-	else {
-		local pctmiss = "0.0"
-	}
-
-	// Classify variable
-	ClassifyVariable "`vname'" "`vtype'" "`vfmt'" `maxcat' "`exclude'"
-	local class = r(class)
-
-	// Write variable header
-	file write `fh' "##### `vname'" _n
-	if "`vlab'" != "" {
-		file write `fh' "**Description:** `vlab_safe'  " _n
-	}
-	file write `fh' "**Type:** `vtype'  " _n
-	file write `fh' "**Format:** `vfmt'  " _n
-	if "`valab'" != "" {
-		file write `fh' "**Value Label:** " _char(96) "`valab'" _char(96) "  " _n
-	}
-	file write `fh' "**Missing:** `nmiss' observations (`pctmiss'%)  " _n _n
-
-	// Type-specific details
-	if "`class'" == "categorical" {
-		WriteMarkdownCategoricalDetail `fh' "`vname'" `maxfreq' `obs'
-	}
-	else if "`class'" == "continuous" {
-		WriteMarkdownContinuousDetail `fh' "`vname'" `obs'
-	}
-	else if "`class'" == "date" {
-		WriteMarkdownDateDetail `fh' "`vname'" "`vfmt'" "`datesafe'"
-	}
-	else if "`class'" == "string" {
-		WriteMarkdownStringDetail `fh' "`vname'"
-	}
-	else if "`class'" == "excluded" {
-		file write `fh' "**Note:** Variable excluded for privacy protection.  " _n _n
+	else if strpos("`vfmt'", "%t") > 0 | strpos("`vfmt'", "%d") > 0 {
+		local typestr "Date"
 	}
 
-	file write `fh' "---" _n _n
-end
+	// Determine Values/Notes column
+	local valsnotes ""
 
-// =============================================================================
-// Helper: WriteMarkdownCategoricalDetail
-// =============================================================================
-program define WriteMarkdownCategoricalDetail
-	args fh vname maxfreq obs
-
-	capture quietly tab `vname'
-	if _rc == 0 {
-		local nuniq = r(r)
+	if "`vallabname'" != "" {
+		// Has value labels - extract them
+		GetValueLabelString `"`vname'"' `"`vallabname'"'
+		local valsnotes `"`r(valstring)'"'
 	}
-	else {
-		// If tab fails, treat as high cardinality
-		local nuniq = `maxfreq' + 1
-	}
-
-	if `nuniq' <= `maxfreq' {
-		file write `fh' "**Frequency Distribution:**" _n _n
-		file write `fh' "| Value | Label | Frequency | Percent |" _n
-		file write `fh' "|-------|-------|-----------|---------|" _n
-
-		quietly tab `vname', matrow(vals) matcell(freqs)
-		local nvals = r(r)
-
-		forvalues i = 1/`nvals' {
-			local val = vals[`i',1]
-			local freq = freqs[`i',1]
-			if `obs' > 0 {
-				local pct = string(100*`freq'/`obs', "%4.1f")
-			}
-			else {
-				local pct = "0.0"
-			}
-
-			capture local labtext: label (`vname') `val'
-			if _rc == 0 {
-				local labtext_safe = subinstr("`labtext'", "|", "\|", .)
-				file write `fh' "| `val' | `labtext_safe' | `freq' | `pct'% |" _n
-			}
-			else {
-				file write `fh' "| `val' | | `freq' | `pct'% |" _n
-			}
-		}
-		file write `fh' _n
-	}
-	else {
-		file write `fh' "**Note:** Variable has `nuniq' unique values (frequency table suppressed).  " _n _n
-	}
-end
-
-// =============================================================================
-// Helper: WriteMarkdownContinuousDetail
-// =============================================================================
-program define WriteMarkdownContinuousDetail
-	args fh vname obs
-
-	quietly summarize `vname', detail
-	local n = r(N)
-
-	if `n' > 0 {
-		local mean = string(r(mean), "%9.2f")
-		local sd = string(r(sd), "%9.2f")
-		local min = string(r(min), "%9.2f")
-		local p25 = string(r(p25), "%9.2f")
-		local p50 = string(r(p50), "%9.2f")
-		local p75 = string(r(p75), "%9.2f")
-		local max = string(r(max), "%9.2f")
-
-		file write `fh' "**Summary Statistics:**" _n _n
-		file write `fh' "| Statistic | Value |" _n
-		file write `fh' "|-----------|-------|" _n
-		file write `fh' "| Valid N | `n' |" _n
-		file write `fh' "| Mean | `mean' |" _n
-		file write `fh' "| SD | `sd' |" _n
-		file write `fh' "| Median | `p50' |" _n
-		file write `fh' "| IQR | `p25' - `p75' |" _n
-		file write `fh' "| Range | `min' - `max' |" _n
-		file write `fh' _n
-	}
-	else {
-		file write `fh' "**Summary Statistics:** All values missing.  " _n _n
-	}
-end
-
-// =============================================================================
-// Helper: WriteMarkdownDateDetail
-// =============================================================================
-program define WriteMarkdownDateDetail
-	args fh vname vfmt datesafe
-
-	quietly summarize `vname'
-	local n = r(N)
-
-	if `n' > 0 {
-		local minval = r(min)
-		local maxval = r(max)
-		local span = `maxval' - `minval'
-
-		file write `fh' "**Date Range:**" _n _n
-		file write `fh' "| Property | Value |" _n
-		file write `fh' "|----------|-------|" _n
-
-		if "`datesafe'" == "" {
-			local mindate = string(`minval', "`vfmt'")
-			local maxdate = string(`maxval', "`vfmt'")
-			file write `fh' "| Earliest | `mindate' |" _n
-			file write `fh' "| Latest | `maxdate' |" _n
-		}
-		file write `fh' "| Span | `span' days |" _n
-		file write `fh' _n
-	}
-	else {
-		file write `fh' "**Date Range:** All values missing.  " _n _n
-	}
-end
-
-// =============================================================================
-// Helper: WriteMarkdownStringDetail
-// =============================================================================
-program define WriteMarkdownStringDetail
-	args fh vname
-
-	// Get max length
-	gen double _len = length(`vname')
-	quietly summarize _len
-	local maxlen = r(max)
-	if missing(`maxlen') local maxlen = 0
-	drop _len
-
-	// Count unique
-	capture quietly tab `vname'
-	if _rc == 0 {
-		local nuniq = r(r)
-	}
-	else {
-		local nuniq "(too many to count)"
-	}
-
-	file write `fh' "**String Properties:**" _n _n
-	file write `fh' "| Property | Value |" _n
-	file write `fh' "|----------|-------|" _n
-	file write `fh' "| Max Length | `maxlen' characters |" _n
-	file write `fh' "| Unique Values | `nuniq' |" _n
-	file write `fh' _n
-
-	file write `fh' "**Note:** String values not displayed in documentation.  " _n _n
-end
-
-// =============================================================================
-// Helper: WriteMarkdownValueLabels
-// Document all value labels used in dataset
-// =============================================================================
-program define WriteMarkdownValueLabels
-	args fh
-
-	file write `fh' "### Value Label Definitions" _n _n
-
-	// Get all variables with value labels
-	quietly describe, varlist
-	local allvars `r(varlist)'
-
-	local all_labels ""
-	foreach vn of local allvars {
-		local valab: value label `vn'
-		if "`valab'" != "" {
-			local all_labels "`all_labels' `valab'"
-		}
-	}
-
-	// Remove duplicates
-	local all_labels: list uniq all_labels
-
-	if "`all_labels'" == "" {
-		file write `fh' "No value labels defined in this dataset.  " _n _n
-		exit
-	}
-
-	// Document each label
-	foreach vl of local all_labels {
-		WriteMarkdownOneValueLabel `fh' "`vl'" "`allvars'"
-	}
-end
-
-// =============================================================================
-// Helper: WriteMarkdownOneValueLabel
-// =============================================================================
-program define WriteMarkdownOneValueLabel
-	args fh labname allvars
-
-	// Find variables using this label
-	local uservars ""
-	foreach vn of local allvars {
-		local valab: value label `vn'
-		if "`valab'" == "`labname'" {
-			local uservars "`uservars' " _char(96) "`vn'" _char(96)
-		}
-	}
-
-	file write `fh' "#### " _char(96) "`labname'" _char(96) _n
-	file write `fh' "Used by: `uservars'  " _n _n
-
-	// Check if label exists
-	capture label list `labname'
-	if _rc != 0 {
-		file write `fh' "*(Label not defined)*  " _n _n
-		exit
-	}
-
-	// Get label mappings by extracting from first variable using it
-	local first_var: word 1 of `allvars'
-	foreach vn of local allvars {
-		local valab: value label `vn'
-		if "`valab'" == "`labname'" {
-			local first_var "`vn'"
-			break
-		}
-	}
-
-	// Write table
-	file write `fh' "| Value | Label |" _n
-	file write `fh' "|-------|-------|" _n
-
-	quietly levelsof `first_var', local(levels)
-	foreach lev of local levels {
-		capture local labtext: label `labname' `lev'
-		if _rc == 0 {
-			local labtext_safe = subinstr("`labtext'", "|", "\|", .)
-			file write `fh' "| `lev' | `labtext_safe' |" _n
-		}
-	}
-	file write `fh' _n
-end
-
-// =============================================================================
-// Helper: WriteMarkdownQualityNotes
-// Basic data quality summary
-// =============================================================================
-program define WriteMarkdownQualityNotes
-	args fh obs
-
-	file write `fh' "### Data Quality Notes" _n _n
-
-	// Missing data summary
-	file write `fh' "#### Missing Data Summary" _n _n
-
-	quietly describe, varlist
-	local allvars `r(varlist)'
-
-	local vars_gt50 ""
-	local vars_gt10 ""
-
-	foreach vn of local allvars {
-		quietly count if missing(`vn')
-		local nmiss = r(N)
-		if `obs' > 0 {
-			local pct = 100 * `nmiss' / `obs'
+	else if "`typestr'" == "Date" {
+		// Date variable - note format
+		if strpos("`vfmt'", "%tc") > 0 {
+			local valsnotes "Datetime"
 		}
 		else {
-			local pct = 0
-		}
-
-		if `pct' > 50 {
-			local vars_gt50 "`vars_gt50' " _char(96) "`vn'" _char(96)
-		}
-		if `pct' > 10 {
-			local vars_gt10 "`vars_gt10' " _char(96) "`vn'" _char(96)
+			local valsnotes "Date"
 		}
 	}
-
-	// Count complete cases (rows with no missing values in any variable)
-	tempvar complete
-	quietly gen byte `complete' = 1
-	foreach vn of local allvars {
-		quietly replace `complete' = 0 if missing(`vn')
-	}
-	quietly count if `complete' == 1
-	local n_complete = r(N)
-	quietly drop `complete'
-
-	if `obs' > 0 {
-		local pct_complete = string(100*`n_complete'/`obs', "%4.1f")
+	else if substr("`vtype'", 1, 3) == "str" {
+		// String variable
+		local valsnotes ""
 	}
 	else {
-		local pct_complete = "0.0"
+		// Numeric without value labels - check if identifier or continuous
+		local vname_lower = lower(`"`vname'"')
+		if inlist(`"`vname_lower'"', "id", "lopnr") | ///
+		   strpos(`"`vname_lower'"', "_id") > 0 | ///
+		   strpos(`"`vname_lower'"', "personid") > 0 | ///
+		   strpos(`"`vname_lower'"', "identifier") > 0 {
+			local valsnotes "Unique identifier"
+		}
+		else if inlist(`"`vname_lower'"', "year", "yr") {
+			local valsnotes "Year of observation"
+		}
 	}
 
-	file write `fh' "- Complete cases: `n_complete'/`obs' (`pct_complete'%)  " _n
-	if "`vars_gt50'" != "" {
-		file write `fh' "- Variables with >50% missing: `vars_gt50'  " _n
+	// Write the row
+	file write `fh' `"| \``vname'\` | `macval(vlab_safe)' | `typestr' | `macval(valsnotes)' |"' _n
+end
+
+// =============================================================================
+// Helper: GetValueLabelString - format value labels for display
+// =============================================================================
+program define GetValueLabelString, rclass
+	args vname vallabname
+
+	// Get unique non-missing values
+	capture quietly levelsof `vname' if !missing(`vname'), local(levels)
+	if _rc != 0 | `"`levels'"' == "" {
+		return local valstring ""
+		exit
 	}
-	else {
-		file write `fh' "- Variables with >50% missing: None  " _n
+
+	local nlevels: word count `levels'
+
+	// If too many levels, just note the count
+	if `nlevels' > 15 {
+		return local valstring "`nlevels' categories"
+		exit
 	}
-	if "`vars_gt10'" != "" {
-		file write `fh' "- Variables with >10% missing: `vars_gt10'  " _n
+
+	// Build string of value=label pairs
+	local valstring ""
+	local first 1
+	foreach lev of local levels {
+		capture local labtext: label `vallabname' `lev'
+		if _rc != 0 {
+			local labtext ""
+		}
+
+		// Escape special characters
+		local labtext = subinstr(`"`macval(labtext)'"', "|", "\|", .)
+		local labtext = subinstr(`"`macval(labtext)'"', ",", ";", .)
+
+		if `first' {
+			if `"`labtext'"' != "" {
+				local valstring "`lev'=`labtext'"
+			}
+			else {
+				local valstring "`lev'"
+			}
+			local first 0
+		}
+		else {
+			if `"`labtext'"' != "" {
+				local valstring `"`valstring', `lev'=`labtext'"'
+			}
+			else {
+				local valstring `"`valstring', `lev'"'
+			}
+		}
+
+		// Truncate if getting too long
+		if length(`"`valstring'"') > 200 {
+			local valstring = substr(`"`valstring'"', 1, 197) + "..."
+			continue, break
+		}
 	}
-	else {
-		file write `fh' "- Variables with >10% missing: None  " _n
-	}
-	file write `fh' _n
+
+	return local valstring `"`valstring'"'
 end
