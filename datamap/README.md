@@ -130,6 +130,29 @@ datamap, input_option [options]
 | **maxfreq(#)** | Maximum unique values to show frequencies for | 25 |
 | **maxcat(#)** | Maximum unique values to classify as categorical | 25 |
 
+### Detection features
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| **detect(options)** | Enable specific detection features (panel, binary, survival, survey, common) | None |
+| **autodetect** | Enable all detection features | Disabled |
+| **panelid(varname)** | Specify panel ID variable for panel detection | Auto-detect |
+| **survivalvars(varlist)** | Specify survival analysis variables | Auto-detect |
+
+### Data quality
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| **quality** | Enable basic data quality checks | Disabled |
+| **quality2(strict)** | Enable strict data quality checks | Disabled |
+| **missing(option)** | Missing data analysis (detail or pattern) | None |
+
+### Sample data
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| **samples(#)** | Include # sample observations in output | 0 |
+
 ### Advanced
 
 | Option | Description | Default |
@@ -453,6 +476,142 @@ datamap, single(cleaned_data.dta) ///
     output(QC_report.txt)
 ```
 
+## Detection Features
+
+`datamap` includes automatic detection of common data structures to help identify key variables and inform analysis planning.
+
+### Available detection features
+
+Enable specific features with `detect()` or all features with `autodetect`:
+
+```stata
+datamap, single(data.dta) detect(panel survival)
+datamap, single(data.dta) autodetect
+```
+
+### Panel/longitudinal data detection
+
+Detects repeated observations per unit and reports panel structure:
+
+```stata
+datamap, single(cohort.dta) detect(panel) panelid(patient_id)
+```
+
+Output includes:
+- ID variable identified
+- Number of unique units
+- Average observations per unit
+
+### Survival analysis detection
+
+Identifies time-to-event and censoring variables:
+
+```stata
+datamap, single(survival_data.dta) detect(survival)
+```
+
+Output includes:
+- Likely time variables (time, duration, followup)
+- Likely event indicators (event, failure, death, status)
+- Event rates and time ranges
+
+### Survey design detection
+
+Detects sampling weights, strata, and cluster variables:
+
+```stata
+datamap, single(survey.dta) detect(survey)
+```
+
+Output includes:
+- Sampling weights with ranges
+- Stratification variables and strata counts
+- Clustering variables and PSU counts
+
+### Binary variable detection
+
+Identifies variables with exactly 2 unique values as potential outcomes:
+
+```stata
+datamap, single(analysis.dta) detect(binary)
+```
+
+Flags binary variables suitable for binary outcome models.
+
+### Common pattern detection
+
+Identifies common variable naming patterns:
+
+```stata
+datamap, single(data.dta) detect(common)
+```
+
+Detects:
+- ID variables (id, patient_id, subject)
+- Date variables (date, dob, death)
+- Outcome variables (outcome, death, event)
+- Exposure variables (exposure, treatment, drug)
+- Demographics (age, sex, gender, race)
+
+## Data Quality Checks
+
+Enable automatic flagging of potential data quality issues:
+
+```stata
+datamap, single(clinical.dta) quality
+datamap, single(clinical.dta) quality2(strict)
+```
+
+### Basic quality checks
+
+The `quality` option flags:
+- Negative age values
+- Ages > 120
+- Negative counts
+- Percentages outside 0-100 range
+
+### Strict quality checks
+
+The `quality2(strict)` option uses more conservative thresholds:
+- Ages > 100 (instead of >120)
+- Other checks as above
+
+Quality flags appear in a dedicated section listing variables and issues found.
+
+## Missing Data Analysis
+
+Generate detailed missing data summaries:
+
+```stata
+datamap, single(study.dta) missing(detail)
+datamap, single(study.dta) missing(pattern)
+```
+
+### Detail level
+
+Shows:
+- Count of variables with >50% missing
+- Count of variables with >10% missing
+- Number and percentage of complete cases
+
+### Pattern level
+
+Includes all detail-level information plus pattern analysis across variables.
+
+## Sample Data Output
+
+Include sample observations in output (use with caution):
+
+```stata
+datamap, single(demo_data.dta) samples(5) exclude(id name)
+```
+
+**Important:**
+- Always combine with `exclude()` to mask sensitive variables
+- Sample data may contain identifiable information
+- Review output before sharing
+- Excluded variables appear as [MASKED] in samples
+
 ---
 
 # Command 2: datadict
@@ -516,6 +675,15 @@ datadict, input_option [options]
 |--------|-------------|---------|
 | **notes(filename)** | Path to text file with notes to append | Default notes |
 | **changelog(filename)** | Path to text file with changelog to append | None |
+| **missing** | Include missing n (%) column for each variable | Not included |
+| **stats** | Include descriptive statistics column for each variable | Not included |
+
+### Parameters
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| **maxcat(#)** | Maximum unique values to classify as categorical | 25 |
+| **maxfreq(#)** | Maximum unique values to show frequencies for | 25 |
 
 ## Output Structure
 
@@ -587,6 +755,54 @@ pandoc data_dictionary.md -o data_dictionary.docx
 
 # Convert to PDF with table of contents
 pandoc data_dictionary.md --toc -o data_dictionary.pdf
+```
+
+## Enhanced Output Options
+
+### Missing data column
+
+Add a Missing column showing count and percentage of missing values:
+
+```stata
+datadict, single(patients.dta) missing
+```
+
+Variable table includes: Variable | Label | Type | Missing | Values/Notes
+
+### Statistics column
+
+Add descriptive statistics based on variable classification:
+
+```stata
+datadict, single(patients.dta) stats
+```
+
+Statistics shown by type:
+- **Categorical:** Value frequencies (e.g., "1=Male, 2=Female")
+- **Continuous:** Mean, SD, and range (e.g., "Mean=45.2; SD=12.3; Range=18-89")
+- **Date:** Date range (e.g., "Range: 01jan2020 to 31dec2023")
+- **String:** Count of unique values
+
+### Both missing and statistics
+
+Combine both options for comprehensive variable information:
+
+```stata
+datadict, single(patients.dta) missing stats
+```
+
+Variable table includes: Variable | Label | Type | Missing | Statistics/Values
+
+### Customizing classification thresholds
+
+Control how variables are classified:
+
+```stata
+* Classify variables with ≤10 unique values as categorical
+datadict, single(data.dta) maxcat(10)
+
+* Show frequencies for up to 50 categories
+datadict, single(survey.dta) maxfreq(50)
 ```
 
 ## Examples
@@ -753,6 +969,32 @@ datadict, directory("../data/sites") ///
 
 Creates separate dictionaries for each site's data files.
 
+### Example 13: Enhanced dictionary with missing data and statistics
+
+```stata
+datadict, single(clinical_trial.dta) ///
+    output(comprehensive_dict.md) ///
+    title("Clinical Trial Data Dictionary") ///
+    version("1.0") ///
+    missing stats ///
+    author("Study Team")
+```
+
+Includes both missing data percentages and descriptive statistics for all variables.
+
+### Example 14: Custom thresholds for survey data
+
+```stata
+datadict, single(survey_responses.dta) ///
+    output(survey_dict.md) ///
+    stats ///
+    maxcat(10) ///
+    maxfreq(50) ///
+    title("Survey Data Dictionary")
+```
+
+Classifies variables with ≤10 unique values as categorical and shows frequencies for up to 50 categories.
+
 ## Stored Results
 
 `datadict` stores the following in `r()`:
@@ -898,7 +1140,8 @@ net install datamap
 
 ## Version History
 
-- **Version 2.1** (27 November 2025): Added datadict command
+- **Version 2.2** (28 November 2025): Enhanced datadict with missing and stats options, added maxcat and maxfreq parameters
+- **Version 2.1** (28 November 2025): Enhanced datamap with detection features, data quality checks, missing data analysis, and sample data output; added datadict command
 - **Version 2.0** (17 November 2025): Enhanced datamap with additional privacy controls
 
 ## Author
