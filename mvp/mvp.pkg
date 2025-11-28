@@ -1,0 +1,10 @@
+v 3
+d mvp: Missing value pattern analysis with enhanced features
+d 
+d Author: Timothy P Copeland
+d Fork of mvpatterns by Jeroen Weesie (STB-61: dm91)
+d 
+d Distribution-Date: 20251128
+d 
+f mvp.ado
+f mvp.sthlp

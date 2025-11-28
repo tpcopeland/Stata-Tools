@@ -1,0 +1,322 @@
+{smcl}
+{* *! version 1.1.0  28nov2025}{...}
+{vieweralsosee "[D] codebook" "help codebook"}{...}
+{vieweralsosee "[D] misstable" "help misstable"}{...}
+{vieweralsosee "[MI] mi misstable" "help mi_misstable"}{...}
+{viewerjumpto "Syntax" "mvp##syntax"}{...}
+{viewerjumpto "Description" "mvp##description"}{...}
+{viewerjumpto "Options" "mvp##options"}{...}
+{viewerjumpto "Examples" "mvp##examples"}{...}
+{viewerjumpto "Stored results" "mvp##results"}{...}
+{viewerjumpto "Authors" "mvp##authors"}{...}
+{hline}
+help for {cmd:mvp}{right:version 1.1.0}
+{hline}
+
+{title:Title}
+
+{p2colset 5 12 14 2}{...}
+{p2col:{cmd:mvp} {hline 2}}Missing value pattern analysis with enhanced features{p_end}
+{p2colreset}{...}
+
+
+{marker syntax}{...}
+{title:Syntax}
+
+{p 8 15 2}
+{cmd:mvp}
+[{varlist}]
+{ifin}
+[{cmd:,} {it:options}]
+
+{synoptset 26 tabbed}{...}
+{synopthdr}
+{synoptline}
+{syntab:Display}
+{synopt:{opt not:able}}suppress variable summary table{p_end}
+{synopt:{opt sk:ip}}insert spaces every 5 variables for readability{p_end}
+{synopt:{opt so:rt}}sort variables by descending missingness{p_end}
+{synopt:{opt nod:rop}}include variables with no missing values{p_end}
+{synopt:{opt wide}}compact display for many variables{p_end}
+{synopt:{opt nosu:mmary}}suppress summary statistics{p_end}
+
+{syntab:Pattern filtering}
+{synopt:{opt m:infreq(#)}}minimum frequency for pattern display; default is 1{p_end}
+{synopt:{opt minm:issing(#)}}show only patterns with at least # missing vars{p_end}
+{synopt:{opt maxm:issing(#)}}show only patterns with at most # missing vars{p_end}
+{synopt:{opt a:scending}}sort patterns by ascending frequency (rarest first){p_end}
+
+{syntab:Statistics}
+{synopt:{opt p:ercent}}display percentages{p_end}
+{synopt:{opt cu:mulative}}display cumulative frequencies/percentages{p_end}
+{synopt:{opt cor:relate}}display tetrachoric correlations of missingness{p_end}
+{synopt:{opt mo:notone}}test for monotone missingness pattern{p_end}
+
+{syntab:Output}
+{synopt:{opt g:enerate(stub)}}generate missingness indicator variables{p_end}
+{synopt:{opt save(name)}}save pattern data to file or frame{p_end}
+
+{syntab:Graphics}
+{synopt:{opt gr:aph(type)}}produce missingness graph; {it:type} may be {cmd:bar}, {cmd:patterns}, {cmd:matrix}, or {cmd:correlation}{p_end}
+{synopt:{opt sch:eme(schemename)}}graph scheme; requires {opt graph()}{p_end}
+{synoptline}
+{p2colreset}{...}
+
+{p 4 6 2}
+{cmd:by} is allowed; see {help prefix}.
+
+
+{marker description}{...}
+{title:Description}
+
+{pstd}
+{cmd:mvp} analyzes and displays missing value patterns in the data. For each
+unique combination of missing and nonmissing values across the specified
+variables, it shows the pattern, frequency, and number of missing variables.
+
+{pstd}
+In the pattern display, {cmd:+} denotes a nonmissing value and {cmd:.} denotes
+a missing value. For string variables, empty strings are treated as missing.
+Patterns are sorted by frequency (most common first) by default.
+
+{pstd}
+This command is a fork of {cmd:mvpatterns} by Jeroen Weesie (STB-61: dm91)
+with additional features for deeper missingness analysis.
+
+
+{marker options}{...}
+{title:Options}
+
+{dlgtab:Display}
+
+{phang}
+{opt notable} suppresses the variable summary table that shows observation
+counts, missing counts, and percentages for each variable.
+
+{phang}
+{opt skip} inserts a space in the pattern string after every 5 variables, and
+separator lines in the variable table, to enhance readability with many variables.
+
+{phang}
+{opt sort} sorts the variables in the display and pattern by descending
+missingness (most missing first).
+
+{phang}
+{opt nodrop} includes variables that have no missing values in the analysis.
+By default, such variables are excluded and listed separately.
+
+{phang}
+{opt wide} uses a compact display format suitable for analyses with many
+variables.
+
+{phang}
+{opt nosummary} suppresses the summary statistics shown at the bottom of
+the output.
+
+{dlgtab:Pattern filtering}
+
+{phang}
+{opt minfreq(#)} specifies the minimum frequency for a pattern to be displayed.
+Patterns with fewer observations are summarized at the end. Default is 1
+(show all patterns).
+
+{phang}
+{opt minmissing(#)} displays only patterns with at least {it:#} missing
+variables.
+
+{phang}
+{opt maxmissing(#)} displays only patterns with at most {it:#} missing
+variables.
+
+{phang}
+{opt ascending} sorts patterns by ascending frequency (rarest patterns first)
+instead of the default descending order.
+
+{dlgtab:Statistics}
+
+{phang}
+{opt percent} adds a column showing the percentage of observations for
+each pattern.
+
+{phang}
+{opt cumulative} adds a column showing cumulative frequencies or percentages.
+
+{phang}
+{opt correlate} displays tetrachoric correlations (or Pearson correlations
+if {cmd:tetrachoric} is unavailable) among the missingness indicators. This
+helps identify variables whose missingness tends to co-occur.
+
+{phang}
+{opt monotone} tests whether the missing data pattern is monotone. A pattern
+is monotone if, for each observation, once a variable is missing, all
+subsequent variables (in the specified or sorted order) are also missing.
+Monotone patterns are important for multiple imputation methods.
+
+{dlgtab:Output}
+
+{phang}
+{opt generate(stub)} creates missingness indicator variables with the
+specified stub. For each variable {it:var}, creates {it:stub}_{it:var}
+(1 if missing, 0 otherwise), plus {it:stub}_pattern (the pattern string)
+and {it:stub}_nmiss (count of missing values per observation).
+
+{phang}
+{opt save(name)} saves the pattern data. If {it:name} contains a period,
+slash, or backslash, it is treated as a filename and the data is saved
+as a Stata dataset. Otherwise, it is treated as a frame name.
+
+{dlgtab:Graphics}
+
+{phang}
+{opt graph(type)} produces a graph of the missingness structure. The following
+types are available:
+
+{phang2}
+{opt graph(bar)} produces a horizontal bar chart showing the percent missing
+for each variable, sorted by the variable order (or by missingness if {opt sort}
+is specified).
+
+{phang2}
+{opt graph(patterns)} produces a horizontal bar chart of the top 20 most
+common missing value patterns, showing their frequencies.
+
+{phang2}
+{opt graph(matrix)} produces an observation-by-variable heatmap showing
+missingness across the dataset. Missing values appear in red, observed values
+in blue. For large datasets (>500 observations), a random sample is drawn
+by default. Suboptions:
+
+{phang3}
+{opt graph(matrix, sample(#))} specifies the number of observations to sample.
+
+{phang3}
+{opt graph(matrix, sort)} sorts observations by their missingness pattern
+before display, revealing structure in the missing data.
+
+{phang2}
+{opt graph(correlation)} produces a heatmap of the correlation matrix among
+missingness indicators. Blue indicates positive correlation (variables tend
+to be missing together); red indicates negative correlation.
+
+{phang}
+{opt scheme(schemename)} specifies the graph scheme to use. This option
+requires {opt graph()} to be specified.
+
+
+{marker examples}{...}
+{title:Examples}
+
+{pstd}Basic usage{p_end}
+{phang2}{cmd:. sysuse auto, clear}{p_end}
+{phang2}{cmd:. mvp}{p_end}
+
+{pstd}Analyze specific variables with percentages{p_end}
+{phang2}{cmd:. mvp price mpg rep78 headroom, percent}{p_end}
+
+{pstd}Sort variables by missingness, show rare patterns first{p_end}
+{phang2}{cmd:. mvp, sort ascending}{p_end}
+
+{pstd}Show only patterns appearing at least 5 times with cumulative stats{p_end}
+{phang2}{cmd:. mvp, minfreq(5) percent cumulative}{p_end}
+
+{pstd}Filter to patterns with 1-3 missing variables{p_end}
+{phang2}{cmd:. mvp, minmissing(1) maxmissing(3)}{p_end}
+
+{pstd}Test for monotone missingness{p_end}
+{phang2}{cmd:. mvp var1 var2 var3 var4, monotone}{p_end}
+
+{pstd}Show correlations among missingness indicators{p_end}
+{phang2}{cmd:. mvp income education occupation, correlate}{p_end}
+
+{pstd}Generate missingness indicators for further analysis{p_end}
+{phang2}{cmd:. mvp, generate(m)}{p_end}
+{phang2}{cmd:. tab m_pattern}{p_end}
+
+{pstd}Save patterns to a frame for later use{p_end}
+{phang2}{cmd:. mvp, save(patterns)}{p_end}
+{phang2}{cmd:. frame patterns: list}{p_end}
+
+{pstd}Save patterns to a file{p_end}
+{phang2}{cmd:. mvp, save(mypatterns.dta)}{p_end}
+
+{pstd}Use with by prefix{p_end}
+{phang2}{cmd:. bysort foreign: mvp price mpg rep78}{p_end}
+
+{pstd}{bf:Graphics examples}{p_end}
+
+{pstd}Bar chart of missingness by variable{p_end}
+{phang2}{cmd:. mvp, graph(bar)}{p_end}
+
+{pstd}Bar chart with variables sorted by missingness{p_end}
+{phang2}{cmd:. mvp, sort graph(bar)}{p_end}
+
+{pstd}Pattern frequency bar chart{p_end}
+{phang2}{cmd:. mvp, graph(patterns)}{p_end}
+
+{pstd}Missingness matrix heatmap{p_end}
+{phang2}{cmd:. mvp, graph(matrix)}{p_end}
+
+{pstd}Matrix with 1000 sampled observations, sorted by pattern{p_end}
+{phang2}{cmd:. mvp, graph(matrix, sample(1000) sort)}{p_end}
+
+{pstd}Correlation heatmap of missingness{p_end}
+{phang2}{cmd:. mvp, graph(correlation)}{p_end}
+
+{pstd}Use a specific graph scheme{p_end}
+{phang2}{cmd:. mvp, graph(bar) scheme(s1mono)}{p_end}
+
+
+{marker results}{...}
+{title:Stored results}
+
+{pstd}
+{cmd:mvp} stores the following in {cmd:r()}:
+
+{synoptset 20 tabbed}{...}
+{p2col 5 20 24 2: Scalars}{p_end}
+{synopt:{cmd:r(N)}}number of observations{p_end}
+{synopt:{cmd:r(N_complete)}}number of complete cases (no missing){p_end}
+{synopt:{cmd:r(N_incomplete)}}number of incomplete cases{p_end}
+{synopt:{cmd:r(N_patterns)}}number of unique patterns displayed{p_end}
+{synopt:{cmd:r(N_vars)}}number of variables analyzed{p_end}
+{synopt:{cmd:r(max_miss)}}maximum missing values in any observation{p_end}
+{synopt:{cmd:r(mean_miss)}}mean missing values per observation{p_end}
+{synopt:{cmd:r(N_mv_total)}}total number of missing values{p_end}
+
+{pstd}If {opt monotone} is specified:{p_end}
+{synopt:{cmd:r(N_monotone)}}observations with monotone pattern{p_end}
+{synopt:{cmd:r(pct_monotone)}}percent with monotone pattern{p_end}
+
+{p2col 5 20 24 2: Macros}{p_end}
+{synopt:{cmd:r(varlist)}}variables with missing values analyzed{p_end}
+{synopt:{cmd:r(varlist_nomiss)}}variables with no missing values{p_end}
+{synopt:{cmd:r(monotone_status)}}{cmd:monotone} or {cmd:non-monotone} if tested{p_end}
+
+{p2col 5 20 24 2: Matrices}{p_end}
+{synopt:{cmd:r(corr_miss)}}correlation matrix of missingness (if {opt correlate} or {opt graph(correlation)} specified){p_end}
+
+
+{marker authors}{...}
+{title:Authors}
+
+{pstd}
+Timothy P Copeland
+
+{pstd}
+This is a fork of {cmd:mvpatterns} version 2.0.0 (STB-61: dm91) by:
+
+{pstd}
+Jeroen Weesie{break}
+Dept of Sociology{break}
+Utrecht University{break}
+J.Weesie@fss.uu.nl
+
+
+{title:Also see}
+
+{psee}
+Manual:  {manlink D codebook}, {manlink D misstable}
+
+{psee}
+{space 2}Help:  {help codebook}, {help misstable}, {help mi_misstable:mi misstable}
+{p_end}

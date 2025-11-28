@@ -1,0 +1,6 @@
+v 3
+d Timothy P Copeland
+d 
+d Missing value pattern analysis tools
+d 
+p mvp Missing value pattern analysis with enhanced features
