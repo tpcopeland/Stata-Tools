@@ -332,12 +332,12 @@ local col = 3
 forvalues o = 1/`outcomes' {
 	local col1 : word `col' of `letters'
 	local col3 : word `=`col'+2' of `letters'
-	putexcel (`col1'2:`col3'2), merge bold hcenter top
+	putexcel (`col1'2:`col3'2), merge bold hcenter top border(bottom,thin)
 	local col = `col' + 3
 }
 
 * Merge Exposure cell across rows 2-3
-putexcel (B2:B3), merge bold hcenter vcenter
+putexcel (B2:B3), merge bold hcenter vcenter border(bottom,thin)
 
 * Row 3 formatting
 putexcel (C3:`lastcol'3), bold
