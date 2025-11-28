@@ -36,6 +36,11 @@ This repository contains a suite of Stata packages developed to streamline commo
 - Displays N, missing values, unique values, type, format, and summary statistics
 - Useful for data quality checks and initial exploration
 
+**compress_tc** - Maximally compress string variables via strL conversion
+- Two-stage compression: converts to strL then runs compress for optimal storage
+- Dramatically reduces memory for datasets with long or repeated strings
+- Automatic detection and reversion for cases where compression isn't beneficial
+
 **datamap** - Generate privacy-safe dataset documentation
 - Creates comprehensive codebooks while protecting sensitive information
 - Supports batch processing of multiple datasets
@@ -44,6 +49,12 @@ This repository contains a suite of Stata packages developed to streamline commo
 **datefix** - Convert inconsistent date formats to Stata dates
 - Handles multiple date format variations automatically
 - Useful for cleaning imported data with mixed date formats
+
+**mvp** - Missing value pattern analysis with enhanced features
+- Analyzes and displays missing value patterns across variables
+- Visual representations including bar charts, heatmaps, and correlation matrices
+- Tests for monotone missingness patterns important for multiple imputation
+- Generate indicators, save patterns, and compute missingness correlations
 
 **pkgtransfer** - Transfer installed Stata packages between systems
 - Simplifies package management across multiple computers
@@ -139,6 +150,24 @@ check age weight height bp
 check age weight height, short
 ```
 
+### Missing Value Pattern Analysis
+```stata
+* Analyze missing patterns with visualization
+mvp price mpg rep78, graph(bar)
+
+* Test for monotone missingness
+mvp, monotone correlate
+```
+
+### String Compression
+```stata
+* Compress all string variables optimally
+compress_tc
+
+* Compress specific variables with detail
+compress_tc name address comments, detail
+```
+
 ### C-statistic for Survival Models
 ```stata
 * After fitting Cox model
@@ -185,10 +214,12 @@ MIT License - see individual package files for details
 | Package | Description | Version | Stata Version |
 |---------|-------------|---------|---------------|
 | check | Variable inspection | 1.0.0 | 14+ |
+| compress_tc | String compression via strL | 1.0.0 | 13+ |
 | cstat_surv | C-statistic for survival | 1.0.0 | 14+ |
 | datamap | Dataset documentation | 1.0.0 | 16+ |
 | datefix | Date format conversion | 1.0.0 | 14+ |
 | massdesas | Batch string destring | 1.0.0 | 14+ |
+| mvp | Missing value pattern analysis | 1.1.0 | 14+ |
 | pkgtransfer | Package management | 1.0.0 | 14+ |
 | regtab | Regression tables | 1.0.0 | 17+ |
 | stratetab | Strate output formatting | 1.0.0 | 17+ |
