@@ -149,10 +149,9 @@ Convert all SAS files to Stata format with lowercase variable names and remove t
 
 ## Author
 
-**Timothy P. Copeland**
-Department of Clinical Neuroscience
+Timothy P Copeland<br>
+Department of Clinical Neuroscience<br>
 Karolinska Institutet
-Email: timothy.copeland@ki.se
 
 ## License
 

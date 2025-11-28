@@ -63,10 +63,10 @@ display r(bytes_saved)           // access saved bytes
 
 ## Author
 
-Timothy P Copeland
-Department of Clinical Neuroscience
+Timothy P Copeland<br>
+Department of Clinical Neuroscience<br>
 Karolinska Institutet
 
-Fork of strcompress by Luke Stein (lcdstein@babson.edu) 
+Fork of strcompress by Luke Stein
 
 https://github.com/lukestein/strcompress/

@@ -442,10 +442,9 @@ The command can store the table in memory using the `clear` option, replacing th
 
 ## Author
 
-Timothy P. Copeland
-Department of Clinical Neuroscience
+Timothy P Copeland<br>
+Department of Clinical Neuroscience<br>
 Karolinska Institutet
-Email: timothy.copeland@ki.se
 
 ## License
 

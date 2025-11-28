@@ -182,10 +182,9 @@ Creates an installation script for commonly used regression and output packages.
 
 ## Author
 
-**Timothy P. Copeland**
-Department of Clinical Neuroscience
+Timothy P Copeland<br>
+Department of Clinical Neuroscience<br>
 Karolinska Institutet
-Email: timothy.copeland@ki.se
 
 ## License
 

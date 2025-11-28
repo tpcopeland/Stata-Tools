@@ -296,7 +296,6 @@ Full pipeline showing tvexpose, tvmerge, and tvevent integration:
 
 {pstd}Timothy P. Copeland{p_end}
 {pstd}Karolinska Institutet{p_end}
-{pstd}Email: timothy.copeland@ki.se{p_end}
 
 {title:Also see}
 

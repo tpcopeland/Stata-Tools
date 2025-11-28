@@ -299,8 +299,9 @@ requires {opt graph()} to be specified.
 {marker authors}{...}
 {title:Authors}
 
-{pstd}
-Timothy P Copeland
+{pstd}Timothy P Copeland{p_end}
+{pstd}Department of Clinical Neuroscience{p_end}
+{pstd}Karolinska Institutet{p_end}
 
 {pstd}
 This is a fork of {cmd:mvpatterns} version 2.0.0 (STB-61: dm91) by:
@@ -308,8 +309,7 @@ This is a fork of {cmd:mvpatterns} version 2.0.0 (STB-61: dm91) by:
 {pstd}
 Jeroen Weesie{break}
 Dept of Sociology{break}
-Utrecht University{break}
-J.Weesie@fss.uu.nl
+Utrecht University
 
 
 {title:Also see}

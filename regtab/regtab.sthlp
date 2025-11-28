@@ -68,10 +68,9 @@
 {marker author}{...}
 {title:Author}
 
-{pstd}Timothy P. Copeland{p_end}
+{pstd}Timothy P Copeland{p_end}
 {pstd}Department of Clinical Neuroscience{p_end}
 {pstd}Karolinska Institutet{p_end}
-{pstd}Email: timothy.copeland@ki.se{p_end}
 
 {pstd}Version 1.2 - 25 September 2025{p_end}
 
