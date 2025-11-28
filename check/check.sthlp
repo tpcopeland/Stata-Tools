@@ -81,7 +81,6 @@ examining the distribution of values.
 {pstd}Timothy P. Copeland{p_end}
 {pstd}Department of Clinical Neuroscience{p_end}
 {pstd}Karolinska Institutet{p_end}
-{pstd}Email: timothy.copeland@ki.se{p_end}
 
 {pstd}
 Revisions of original concept & code by Michael N Mitchell{p_end}

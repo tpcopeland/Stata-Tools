@@ -129,10 +129,9 @@ Stata 17.0 or higher
 
 ## Author
 
-Timothy P Copeland
-Department of Clinical Neuroscience
+Timothy P Copeland<br>
+Department of Clinical Neuroscience<br>
 Karolinska Institutet
-Email: timothy.copeland@ki.se
 
 Version 2.0 - 27 November 2025
 

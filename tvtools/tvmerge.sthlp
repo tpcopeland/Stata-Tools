@@ -637,7 +637,6 @@ Progress messages show batch processing status. For a dataset with 10,000 unique
 {pstd}Timothy P. Copeland{p_end}
 {pstd}Department of Clinical Neuroscience{p_end}
 {pstd}Karolinska Institutet{p_end}
-{pstd}Email: timothy.copeland@ki.se{p_end}
 {pstd}Version 1.0.0, 2025-11-07{p_end}
 
 

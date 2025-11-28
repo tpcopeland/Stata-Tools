@@ -102,10 +102,9 @@ For a complete list of date formats, see Stata's help on datetime display format
 
 ## Author
 
-**Timothy P. Copeland**
-Department of Clinical Neuroscience
+Timothy P Copeland<br>
+Department of Clinical Neuroscience<br>
 Karolinska Institutet
-Email: timothy.copeland@ki.se
 
 ## License
 
