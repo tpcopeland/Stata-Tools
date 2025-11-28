@@ -1,5 +1,5 @@
 v 1
-d compress_tc: Compress string variables
+d 'COMPRESS_TC': Compress string variables
 d
 d compress_tc performs two-stage compression of string variables:
 d first converting fixed-length str# variables to strL (which uses
