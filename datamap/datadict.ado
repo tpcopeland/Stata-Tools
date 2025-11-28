@@ -1,4 +1,4 @@
-*! datadict v2.2.0
+*! datadict v2.3.0
 *! Generate clean Markdown data dictionaries matching professional documentation style
 *! Author: Tim Copeland
 *! Date: 2025-11-28
@@ -596,10 +596,11 @@ program define WriteVariableRow
 		quietly count if missing(`vname')
 		local nmiss = r(N)
 		if `obs' > 0 {
-			local pctmiss = round(100 * `nmiss' / `obs', 0.1)
+			local pctmiss = string(round(100 * `nmiss' / `obs', 0.1), "%9.1f")
+			local pctmiss = strtrim("`pctmiss'")
 		}
 		else {
-			local pctmiss = 0
+			local pctmiss "0.0"
 		}
 		local missingstr "`nmiss' (`pctmiss'%)"
 	}
@@ -634,11 +635,31 @@ program define WriteVariableRow
 			// Show summary stats for continuous
 			quietly summarize `vname', detail
 			if r(N) > 0 {
-				local mean = round(r(mean), 0.01)
-				local sd = round(r(sd), 0.01)
-				local min = round(r(min), 0.01)
-				local max = round(r(max), 0.01)
-				local valsnotes "Mean=`mean'; SD=`sd'; Range=`min'-`max'"
+				// Get unique values count
+				capture quietly tab `vname'
+				if _rc == 0 {
+					local nuniq = r(r)
+				}
+				else {
+					local nuniq "many"
+				}
+				// Format all statistics with consistent precision
+				local mean = string(r(mean), "%9.2f")
+				local mean = strtrim("`mean'")
+				local sd = string(r(sd), "%9.2f")
+				local sd = strtrim("`sd'")
+				local min = string(r(min), "%9.2f")
+				local min = strtrim("`min'")
+				local p25 = string(r(p25), "%9.2f")
+				local p25 = strtrim("`p25'")
+				local p50 = string(r(p50), "%9.2f")
+				local p50 = strtrim("`p50'")
+				local p75 = string(r(p75), "%9.2f")
+				local p75 = strtrim("`p75'")
+				local max = string(r(max), "%9.2f")
+				local max = strtrim("`max'")
+				// Format for markdown cell with line breaks
+				local valsnotes "N unique: `nuniq' | Mean: `mean' | SD: `sd' | Min: `min' | P25: `p25' | Median: `p50' | P75: `p75' | Max: `max'"
 			}
 			else {
 				local valsnotes "All missing"
