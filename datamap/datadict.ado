@@ -1,7 +1,7 @@
-*! datadict v2.1.0
+*! datadict v2.2.0
 *! Generate clean Markdown data dictionaries matching professional documentation style
 *! Author: Tim Copeland
-*! Date: 2025-11-27
+*! Date: 2025-11-28
 
 program define datadict, rclass
 	version 14.0
@@ -10,7 +10,8 @@ program define datadict, rclass
 	          Output(string) SEParate ///
 	          Title(string) SUBTitle(string) VERsion(string) ///
 	          AUTHor(string) DATE(string) ///
-	          NOTEs(string) CHANGElog(string)]
+	          NOTEs(string) CHANGElog(string) ///
+	          MISSing STats MAXCat(integer 25) MAXFreq(integer 25)]
 
 	// Validate input options
 	local ninput = ("`single'" != "") + ("`directory'" != "") + ("`filelist'" != "")
@@ -22,6 +23,16 @@ program define datadict, rclass
 		di as error "must specify single(), directory(), or filelist()"
 		exit 198
 	}
+	
+	// Validate numeric parameters
+	if `maxcat' <= 0 {
+		di as error "maxcat must be positive"
+		exit 198
+	}
+	if `maxfreq' <= 0 {
+		di as error "maxfreq must be positive"
+		exit 198
+	}
 
 	// Set defaults
 	if `"`output'"' == "" local output "data_dictionary.md"
@@ -31,6 +42,8 @@ program define datadict, rclass
 	// Collect files to process
 	tempfile filelist_tmp
 	if `"`single'"' != "" {
+		// Add .dta extension if not present
+		local single = cond(regexm(`"`single'"', "\.dta$"), `"`single'"', `"`single'.dta"')
 		confirm file `"`single'"'
 		local nfiles 1
 		tempname fh_tmp
@@ -39,8 +52,9 @@ program define datadict, rclass
 		file close `fh_tmp'
 	}
 	else if `"`filelist'"' != "" {
-		confirm file `"`filelist'"'
-		CollectFromList `"`filelist'"' `"`filelist_tmp'"'
+		// filelist now contains dataset names directly (space-separated)
+		// Parse the list and write to temp file
+		CollectFromFilelistOption `"`filelist'"' `"`filelist_tmp'"'
 		CountFiles `"`filelist_tmp'"'
 		local nfiles = r(nfiles)
 	}
@@ -68,12 +82,12 @@ program define datadict, rclass
 	if "`separate'" != "" {
 		ProcessSeparate `"`filelist_tmp'"' `"`names_tmp'"' ///
 			`"`title'"' `"`subtitle'"' `"`version'"' `"`author'"' `"`date'"' ///
-			`"`notes'"' `"`changelog'"' `nfiles'
+			`"`notes'"' `"`changelog'"' `nfiles' "`missing'" "`stats'" `maxcat' `maxfreq'
 	}
 	else {
 		ProcessCombined `"`filelist_tmp'"' `"`names_tmp'"' `"`output'"' ///
 			`"`title'"' `"`subtitle'"' `"`version'"' `"`author'"' `"`date'"' ///
-			`"`notes'"' `"`changelog'"' `nfiles'
+			`"`notes'"' `"`changelog'"' `nfiles' "`missing'" "`stats'" `maxcat' `maxfreq'
 	}
 
 	// Restore original data
@@ -83,28 +97,41 @@ program define datadict, rclass
 	return scalar nfiles = `nfiles'
 	return local output `"`output'"'
 
-	di as result `"Markdown dictionary generated: `output'"'
+	if "`separate'" != "" {
+		di as result "Markdown dictionaries generated for `nfiles' dataset(s)"
+	}
+	else {
+		di as result `"Markdown dictionary generated: `output'"'
+	}
 end
 
 // =============================================================================
-// Helper: CollectFromList
+// Helper: CollectFromFilelistOption
+// Parse space-separated dataset names and write to temp file
 // =============================================================================
-program define CollectFromList
+program define CollectFromFilelistOption
 	args filelist tmpfile
 
-	tempname fh_in fh_out
-	file open `fh_in' using `"`filelist'"', read text
+	tempname fh_out
 	file open `fh_out' using `"`tmpfile'"', write text replace
 
-	file read `fh_in' line
-	while r(eof) == 0 {
-		local line = strtrim(`"`macval(line)'"')
-		if `"`line'"' != "" & substr(`"`line'"', 1, 1) != "*" {
-			file write `fh_out' `"`line'"' _n
+	// Parse the space-separated list
+	local remaining `"`filelist'"'
+	while `"`remaining'"' != "" {
+		gettoken dsname remaining : remaining
+		if `"`dsname'"' != "" {
+			// Add .dta extension if not present
+			local dsname = cond(regexm(`"`dsname'"', "\.dta$"), `"`dsname'"', `"`dsname'.dta"')
+			// Check file exists
+			capture confirm file `"`dsname'"'
+			if _rc != 0 {
+				di as error `"file `dsname' not found"'
+				file close `fh_out'
+				exit 601
+			}
+			file write `fh_out' `"`dsname'"' _n
 		}
-		file read `fh_in' line
 	}
-	file close `fh_in'
 	file close `fh_out'
 end
 
@@ -246,7 +273,7 @@ end
 // Helper: ProcessCombined
 // =============================================================================
 program define ProcessCombined
-	args filelist namesfile output title subtitle version author date notes changelog nfiles
+	args filelist namesfile output title subtitle version author date notes changelog nfiles showmissing showstats maxcat maxfreq
 
 	di as text `"Creating Markdown dictionary: `output'"'
 
@@ -327,7 +354,7 @@ program define ProcessCombined
 
 		di as text "  Processing `i' of `nfiles': `dsname'"
 
-		ProcessOneDataset `fh' `"`macval(filepath)'"' `"`dsname'"' `"`macval(dslabel)'"' `i'
+		ProcessOneDataset `fh' `"`macval(filepath)'"' `"`dsname'"' `"`macval(dslabel)'"' `i' "`showmissing'" "`showstats'" `maxcat' `maxfreq'
 
 		file read `fh_list' filepath
 		file read `fh_names2' nameline
@@ -401,7 +428,7 @@ end
 // Helper: ProcessSeparate
 // =============================================================================
 program define ProcessSeparate
-	args filelist namesfile title subtitle version author date notes changelog nfiles
+	args filelist namesfile title subtitle version author date notes changelog nfiles showmissing showstats maxcat maxfreq
 
 	tempname fh_list fh_names
 	file open `fh_list' using `"`filelist'"', read text
@@ -438,7 +465,7 @@ program define ProcessSeparate
 		file write `fh' "---" _n _n
 
 		// Process dataset
-		ProcessOneDataset `fh' `"`macval(filepath)'"' `"`dsname'"' `"`macval(dslabel)'"' 1
+		ProcessOneDataset `fh' `"`macval(filepath)'"' `"`dsname'"' `"`macval(dslabel)'"' 1 "`showmissing'" "`showstats'" `maxcat' `maxfreq'
 
 		// Notes
 		file write `fh' "## Notes" _n _n
@@ -466,7 +493,7 @@ end
 // Helper: ProcessOneDataset
 // =============================================================================
 program define ProcessOneDataset
-	args fh filepath dsname dslabel idx
+	args fh filepath dsname dslabel idx showmissing showstats maxcat maxfreq
 
 	// Get metadata
 	capture quietly describe using `"`macval(filepath)'"', short
@@ -491,9 +518,23 @@ program define ProcessOneDataset
 	// Variables subsection
 	file write `fh' "### Variables" _n _n
 
-	// Variable table header
-	file write `fh' "| Variable | Label | Type | Values/Notes |" _n
-	file write `fh' "|----------|-------|------|--------------|" _n
+	// Determine table header based on options
+	if "`showmissing'" != "" & "`showstats'" != "" {
+		file write `fh' "| Variable | Label | Type | Missing | Statistics/Values |" _n
+		file write `fh' "|----------|-------|------|---------|-------------------|" _n
+	}
+	else if "`showmissing'" != "" {
+		file write `fh' "| Variable | Label | Type | Missing | Values/Notes |" _n
+		file write `fh' "|----------|-------|------|---------|--------------|" _n
+	}
+	else if "`showstats'" != "" {
+		file write `fh' "| Variable | Label | Type | Statistics/Values |" _n
+		file write `fh' "|----------|-------|------|-------------------|" _n
+	}
+	else {
+		file write `fh' "| Variable | Label | Type | Values/Notes |" _n
+		file write `fh' "|----------|-------|------|--------------|" _n
+	}
 
 	// Load dataset (already preserved by main program)
 	quietly use `"`macval(filepath)'"', clear
@@ -503,7 +544,7 @@ program define ProcessOneDataset
 	local allvars `r(varlist)'
 
 	foreach vn of local allvars {
-		WriteVariableRow `fh' `"`vn'"'
+		WriteVariableRow `fh' `"`vn'"' `obs' "`showmissing'" "`showstats'" `maxcat' `maxfreq'
 	}
 
 	file write `fh' _n "---" _n _n
@@ -513,7 +554,7 @@ end
 // Helper: WriteVariableRow
 // =============================================================================
 program define WriteVariableRow
-	args fh vname
+	args fh vname obs showmissing showstats maxcat maxfreq
 
 	local vtype: type `vname'
 	local vfmt: format `vname'
@@ -526,57 +567,158 @@ program define WriteVariableRow
 
 	// Determine Type column
 	local typestr "Numeric"
+	local varclass "continuous"
 	if substr("`vtype'", 1, 3) == "str" {
 		local typestr "String"
+		local varclass "string"
 	}
 	else if strpos("`vfmt'", "%t") > 0 | strpos("`vfmt'", "%d") > 0 {
 		local typestr "Date"
-	}
-
-	// Determine Values/Notes column
-	local valsnotes ""
-
-	if "`vallabname'" != "" {
-		// Has value labels - extract them
-		GetValueLabelString `"`vname'"' `"`vallabname'"'
-		local valsnotes `"`r(valstring)'"'
-	}
-	else if "`typestr'" == "Date" {
-		// Date variable - note format
-		if strpos("`vfmt'", "%tc") > 0 {
-			local valsnotes "Datetime"
-		}
-		else {
-			local valsnotes "Date"
-		}
-	}
-	else if substr("`vtype'", 1, 3) == "str" {
-		// String variable
-		local valsnotes ""
+		local varclass "date"
 	}
 	else {
-		// Numeric without value labels - check if identifier or continuous
-		local vname_lower = lower(`"`vname'"')
-		if inlist(`"`vname_lower'"', "id", "lopnr") | ///
-		   strpos(`"`vname_lower'"', "_id") > 0 | ///
-		   strpos(`"`vname_lower'"', "personid") > 0 | ///
-		   strpos(`"`vname_lower'"', "identifier") > 0 {
-			local valsnotes "Unique identifier"
+		// Check if categorical
+		if "`vallabname'" != "" {
+			local varclass "categorical"
 		}
-		else if inlist(`"`vname_lower'"', "year", "yr") {
-			local valsnotes "Year of observation"
+		else {
+			// Check unique values
+			capture quietly tab `vname'
+			if _rc == 0 & r(r) <= `maxcat' {
+				local varclass "categorical"
+			}
 		}
 	}
 
-	// Write the row
-	file write `fh' `"| \``vname'\` | `macval(vlab_safe)' | `typestr' | `macval(valsnotes)' |"' _n
+	// Calculate missing if requested
+	local missingstr ""
+	if "`showmissing'" != "" {
+		quietly count if missing(`vname')
+		local nmiss = r(N)
+		if `obs' > 0 {
+			local pctmiss = round(100 * `nmiss' / `obs', 0.1)
+		}
+		else {
+			local pctmiss = 0
+		}
+		local missingstr "`nmiss' (`pctmiss'%)"
+	}
+
+	// Determine Values/Notes or Statistics column
+	local valsnotes ""
+
+	if "`showstats'" != "" {
+		// Show appropriate statistics based on variable classification
+		if "`varclass'" == "categorical" {
+			// Show frequencies for categorical
+			if "`vallabname'" != "" {
+				GetValueLabelString `"`vname'"' `"`vallabname'"' `maxfreq'
+				local valsnotes `"`r(valstring)'"'
+			}
+			else {
+				// Numeric without labels - show unique count
+				capture quietly tab `vname'
+				if _rc == 0 {
+					local nuniq = r(r)
+					if `nuniq' <= `maxfreq' {
+						GetUnlabeledFreqs `"`vname'"' `maxfreq'
+						local valsnotes `"`r(valstring)'"'
+					}
+					else {
+						local valsnotes "`nuniq' unique values"
+					}
+				}
+			}
+		}
+		else if "`varclass'" == "continuous" {
+			// Show summary stats for continuous
+			quietly summarize `vname', detail
+			if r(N) > 0 {
+				local mean = round(r(mean), 0.01)
+				local sd = round(r(sd), 0.01)
+				local min = round(r(min), 0.01)
+				local max = round(r(max), 0.01)
+				local valsnotes "Mean=`mean'; SD=`sd'; Range=`min'-`max'"
+			}
+			else {
+				local valsnotes "All missing"
+			}
+		}
+		else if "`varclass'" == "date" {
+			// Show date range
+			quietly summarize `vname'
+			if r(N) > 0 {
+				local mindate = string(r(min), "`vfmt'")
+				local maxdate = string(r(max), "`vfmt'")
+				local valsnotes "Range: `mindate' to `maxdate'"
+			}
+			else {
+				local valsnotes "All missing"
+			}
+		}
+		else if "`varclass'" == "string" {
+			// Show unique count for strings
+			capture quietly tab `vname'
+			if _rc == 0 {
+				local valsnotes "`r(r)' unique values"
+			}
+			else {
+				local valsnotes "High cardinality"
+			}
+		}
+	}
+	else {
+		// Original behavior - just show value labels or basic info
+		if "`vallabname'" != "" {
+			GetValueLabelString `"`vname'"' `"`vallabname'"' `maxfreq'
+			local valsnotes `"`r(valstring)'"'
+		}
+		else if "`typestr'" == "Date" {
+			if strpos("`vfmt'", "%tc") > 0 {
+				local valsnotes "Datetime"
+			}
+			else {
+				local valsnotes "Date"
+			}
+		}
+		else if substr("`vtype'", 1, 3) == "str" {
+			local valsnotes ""
+		}
+		else {
+			// Numeric without value labels - check if identifier or continuous
+			local vname_lower = lower(`"`vname'"')
+			if inlist(`"`vname_lower'"', "id", "lopnr") | ///
+			   strpos(`"`vname_lower'"', "_id") > 0 | ///
+			   strpos(`"`vname_lower'"', "personid") > 0 | ///
+			   strpos(`"`vname_lower'"', "identifier") > 0 {
+				local valsnotes "Unique identifier"
+			}
+			else if inlist(`"`vname_lower'"', "year", "yr") {
+				local valsnotes "Year of observation"
+			}
+		}
+	}
+
+	// Write the row based on options
+	if "`showmissing'" != "" & "`showstats'" != "" {
+		file write `fh' `"| \``vname'\` | `macval(vlab_safe)' | `typestr' | `missingstr' | `macval(valsnotes)' |"' _n
+	}
+	else if "`showmissing'" != "" {
+		file write `fh' `"| \``vname'\` | `macval(vlab_safe)' | `typestr' | `missingstr' | `macval(valsnotes)' |"' _n
+	}
+	else if "`showstats'" != "" {
+		file write `fh' `"| \``vname'\` | `macval(vlab_safe)' | `typestr' | `macval(valsnotes)' |"' _n
+	}
+	else {
+		file write `fh' `"| \``vname'\` | `macval(vlab_safe)' | `typestr' | `macval(valsnotes)' |"' _n
+	}
 end
 
 // =============================================================================
 // Helper: GetValueLabelString - format value labels for display
 // =============================================================================
 program define GetValueLabelString, rclass
-	args vname vallabname
+	args vname vallabname maxlevels
 
 	// Get unique non-missing values
 	capture quietly levelsof `vname' if !missing(`vname'), local(levels)
@@ -588,7 +730,7 @@ program define GetValueLabelString, rclass
 	local nlevels: word count `levels'
 
 	// If too many levels, just note the count
-	if `nlevels' > 15 {
+	if `nlevels' > `maxlevels' {
 		return local valstring "`nlevels' categories"
 		exit
 	}
@@ -627,6 +769,44 @@ program define GetValueLabelString, rclass
 		// Truncate if getting too long
 		if length(`"`valstring'"') > 200 {
 			local valstring = substr(`"`valstring'"', 1, 197) + "..."
+			continue, break
+		}
+	}
+
+	return local valstring `"`valstring'"'
+end
+
+// =============================================================================
+// Helper: GetUnlabeledFreqs - get frequencies for unlabeled categorical vars
+// =============================================================================
+program define GetUnlabeledFreqs, rclass
+	args vname maxlevels
+
+	capture quietly levelsof `vname' if !missing(`vname'), local(levels)
+	if _rc != 0 | `"`levels'"' == "" {
+		return local valstring ""
+		exit
+	}
+
+	local nlevels: word count `levels'
+	if `nlevels' > `maxlevels' {
+		return local valstring "`nlevels' unique values"
+		exit
+	}
+
+	local valstring ""
+	local first 1
+	foreach lev of local levels {
+		if `first' {
+			local valstring "`lev'"
+			local first 0
+		}
+		else {
+			local valstring `"`valstring', `lev'"'
+		}
+
+		if length(`"`valstring'"') > 150 {
+			local valstring = substr(`"`valstring'"', 1, 147) + "..."
 			continue, break
 		}
 	}

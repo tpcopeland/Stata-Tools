@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 2.1.0  27nov2025}{...}
+{* *! version 2.2.0  28nov2025}{...}
 {vieweralsosee "[D] describe" "help describe"}{...}
 {vieweralsosee "[D] codebook" "help codebook"}{...}
 {vieweralsosee "[D] labelbook" "help labelbook"}{...}
@@ -28,9 +28,9 @@
 {synopthdr}
 {synoptline}
 {syntab:Input (choose one)}
-{synopt:{opt single(filename)}}document a single .dta file{p_end}
+{synopt:{opt single(dataset)}}document a single dataset{p_end}
 {synopt:{opt dir:ectory(path)}}document all .dta files in directory{p_end}
-{synopt:{opt filelist(filename)}}text file listing .dta files to process{p_end}
+{synopt:{opt filelist(datasets)}}space-separated list of dataset names to process{p_end}
 {synopt:{opt rec:ursive}}scan subdirectories when using {opt directory()}{p_end}
 
 {syntab:Output}
@@ -47,6 +47,10 @@
 {syntab:Content}
 {synopt:{opt notes(filename)}}path to text file with notes to append{p_end}
 {synopt:{opt changelog(filename)}}path to text file with changelog to append{p_end}
+{synopt:{opt miss:ing}}include missing n (%) column for each variable{p_end}
+{synopt:{opt stats}}include descriptive statistics column for each variable{p_end}
+{synopt:{opt maxcat(#)}}max unique values to classify as categorical; default is {bf:25}{p_end}
+{synopt:{opt maxfreq(#)}}max unique values to show frequencies for; default is {bf:25}{p_end}
 {synoptline}
 {p2colreset}{...}
 
@@ -62,8 +66,11 @@ variable tables showing Variable, Label, Type, and Values/Notes columns.
 {pstd}
 The command automatically extracts variable labels, identifies variable types 
 (Numeric, String, Date), and formats value labels for categorical variables.
-For variables with more than 15 categories, it displays a count rather than 
-listing all values.
+For variables with more than {opt maxfreq()} unique values, it displays a count 
+rather than listing all values.
+
+{pstd}
+The {opt .dta} extension is optional and assumed if not specified.
 
 {pstd}
 The generated Markdown files are suitable for rendering in documentation 
@@ -76,8 +83,9 @@ systems, GitHub, or conversion to other formats via tools like Pandoc.
 {dlgtab:Input}
 
 {phang}
-{opt single(filename)} specifies a single .dta file to document. The file 
-must exist and be a valid Stata dataset.
+{opt single(dataset)} specifies a single dataset to document. The {opt .dta} 
+extension is optional and will be added automatically if not specified. 
+The file must exist and be a valid Stata dataset.
 
 {phang}
 {opt directory(path)} specifies a directory containing .dta files. All 
@@ -86,8 +94,12 @@ datasets in the directory will be documented in a single output file (unless
 directory is used.
 
 {phang}
-{opt filelist(filename)} specifies a text file containing paths to .dta files, 
-one per line. Lines beginning with * are treated as comments and ignored.
+{opt filelist(datasets)} specifies a space-separated list of dataset names 
+to process. The {opt .dta} extension is optional for each dataset name.
+
+{pmore}
+Example: {cmd:filelist(patients hrt dmt)} will process {it:patients.dta}, 
+{it:hrt.dta}, and {it:dmt.dta}.
 
 {phang}
 {opt recursive} causes {cmd:datadict} to scan subdirectories recursively when 
@@ -138,15 +150,48 @@ missing values are included.
 {opt changelog(filename)} specifies a text file containing changelog entries 
 to include in the Change Log section.
 
+{phang}
+{opt missing} adds a "Missing" column to the variable table showing the count 
+and percentage of missing values for each variable.
+
+{phang}
+{opt stats} adds descriptive statistics to the Values/Notes column. The type 
+of statistics shown depends on the variable classification:
+
+{pmore}
+{bf:Categorical variables:} Value frequencies (e.g., "1=Male, 2=Female")
+
+{pmore}
+{bf:Continuous variables:} Mean, SD, and range (e.g., "Mean=45.2; SD=12.3; Range=18-89")
+
+{pmore}
+{bf:Date variables:} Date range (e.g., "Range: 01jan2020 to 31dec2023")
+
+{pmore}
+{bf:String variables:} Count of unique values
+
+{phang}
+{opt maxcat(#)} specifies the threshold for classifying numeric variables 
+as categorical versus continuous. Numeric variables with {it:#} or fewer unique values 
+(or with value labels) are classified as categorical. Default is {bf:25}. Must be positive.
+
+{phang}
+{opt maxfreq(#)} specifies the maximum number of unique values for which 
+individual values will be shown. If a categorical variable has more than this 
+many unique values, only a count is shown. Default is {bf:25}. Must be positive.
+
 
 {marker examples}{...}
 {title:Examples}
 
 {pstd}Document a single dataset with default settings:{p_end}
-{phang2}{cmd:. datadict, single(patients.dta)}{p_end}
+{phang2}{cmd:. datadict, single(patients)}{p_end}
 
 {pstd}Document a dataset with custom title and version:{p_end}
-{phang2}{cmd:. datadict, single(patients.dta) output(dict.md) title("Patient Registry") version("1.0")}{p_end}
+{phang2}{cmd:. datadict, single(patients) output(dict.md) title("Patient Registry") version("1.0")}{p_end}
+
+{pstd}Document multiple datasets from a list:{p_end}
+{phang2}{cmd:. datadict, filelist(patients hrt dmt) output(combined.md)}{p_end}
 
 {pstd}Document all datasets in the current directory:{p_end}
 {phang2}{cmd:. datadict, directory(.) output(combined.md) title("Project Data") author("Jane Doe")}{p_end}
@@ -154,8 +199,11 @@ to include in the Change Log section.
 {pstd}Document datasets recursively with separate files:{p_end}
 {phang2}{cmd:. datadict, directory(data) recursive separate}{p_end}
 
-{pstd}Document datasets from a list file:{p_end}
-{phang2}{cmd:. datadict, filelist(myfiles.txt) output(documentation.md)}{p_end}
+{pstd}Include missing data and statistics in the output:{p_end}
+{phang2}{cmd:. datadict, single(patients) missing stats}{p_end}
+
+{pstd}Document with full metadata and statistics:{p_end}
+{phang2}{cmd:. datadict, filelist(patients labs visits) missing stats title("Clinical Study Data") version("2.0") author("Research Team")}{p_end}
 
 
 {marker results}{...}

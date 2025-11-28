@@ -1,7 +1,7 @@
-*! datamap v2.0.0
+*! datamap v2.1.0
 *! Generate privacy-safe LLM-readable dataset documentation
 *! Author: Tim Copeland
-*! Date: 2025-11-16
+*! Date: 2025-11-28
 
 /*
 SYNTAX
@@ -12,7 +12,7 @@ OPTIONS
 -------
 Input:
   directory(path)     Directory to scan for .dta files (default: current directory)
-  filelist(filename)  Text file listing .dta files to process (one per line)
+  filelist(datasets)  Space-separated list of dataset names to process
   single(filename)    Single .dta file to process
   recursive           Scan subdirectories recursively
 
@@ -56,7 +56,8 @@ EXAMPLES
 --------
 . datamap
 . datamap, directory("X:/data") recursive output(datadoc.txt)
-. datamap, single(analysis.dta) format(text)
+. datamap, single(analysis) format(text)
+. datamap, filelist(patients hrt dmt) output(combined.txt)
 . datamap, exclude(patient_id clinic_id) datesafe
 
 STORED RESULTS
@@ -72,6 +73,7 @@ NOTES
 - Use exclude() for sensitive identifiers
 - Use datesafe if exact dates are sensitive
 - Program loads datasets into memory; current dataset is not preserved
+- The .dta extension is optional and assumed if not specified
 */
 
 program define datamap, rclass
@@ -193,16 +195,17 @@ program define datamap, rclass
 	tempfile filelist_tmp  // Temporary file to hold file paths
 	if "`single'" != "" {
 		// Single file mode: process one specified file
-		confirm file "`single'"
+		// Add .dta extension if not present
+		local single = cond(regexm(`"`single'"', "\.dta$"), `"`single'"', `"`single'.dta")
+		confirm file `"`single'"'
 		local nfiles 1
 	}
 	else if "`filelist'" != "" {
-		// File list mode: read paths from text file
-		confirm file "`filelist'"
-		CollectFromList "`filelist'" "`filelist_tmp'"
+		// File list mode: parse space-separated dataset names
+		CollectFromFilelistOption `"`filelist'"' `"`filelist_tmp'"'
 		// Count lines in the temp file
 		tempname fh
-		file open `fh' using "`filelist_tmp'", read text
+		file open `fh' using `"`filelist_tmp'"', read text
 		local nfiles 0
 		file read `fh' line
 		while r(eof) == 0 {
@@ -214,10 +217,10 @@ program define datamap, rclass
 	else {
 		// Directory scan mode: find all .dta files in directory
 		if "`directory'" == "" local directory "."
-		CollectFromDir "`directory'" "`recursive'" "`filelist_tmp'"
+		CollectFromDir `"`directory'"' "`recursive'" `"`filelist_tmp'"'
 		// Count lines in the temp file
 		tempname fh
-		file open `fh' using "`filelist_tmp'", read text
+		file open `fh' using `"`filelist_tmp'"', read text
 		local nfiles 0
 		file read `fh' line
 		while r(eof) == 0 {
@@ -273,27 +276,32 @@ program define datamap, rclass
 end
 
 // =============================================================================
-// Helper: CollectFromList
-// Read file paths from text file, one per line, ignoring comments
-// Write output to another text file
+// Helper: CollectFromFilelistOption
+// Parse space-separated dataset names and write to temp file
 // =============================================================================
-program define CollectFromList
+program define CollectFromFilelistOption
 	args filelist tmpfile
 
-	tempname fh_in fh_out
-	file open `fh_in' using "`filelist'", read text
+	tempname fh_out
 	file open `fh_out' using "`tmpfile'", write text replace
 
-	file read `fh_in' line
-	while r(eof) == 0 {
-		local line = strtrim("`line'")
-		// Skip blank lines and comments (lines starting with *)
-		if "`line'" != "" & substr("`line'", 1, 1) != "*" {
-			file write `fh_out' `"`line'"' _n
+	// Parse the space-separated list
+	local remaining `"`filelist'"'
+	while `"`remaining'"' != "" {
+		gettoken dsname remaining : remaining
+		if `"`dsname'"' != "" {
+			// Add .dta extension if not present
+			local dsname = cond(regexm(`"`dsname'"', "\.dta$"), `"`dsname'"', `"`dsname'.dta")
+			// Check file exists
+			capture confirm file `"`dsname'"'
+			if _rc != 0 {
+				di as error `"file `dsname' not found"'
+				file close `fh_out'
+				exit 601
+			}
+			file write `fh_out' `"`dsname'"' _n
 		}
-		file read `fh_in' line
 	}
-	file close `fh_in'
 	file close `fh_out'
 end
 
@@ -1172,7 +1180,7 @@ program define ProcessDate
 		file write `fh' "Display Format: `vfmt'" _n
 		if `"`vlab'"' != "" file write `fh' `"Label: `vlab'"' _n
 		file write `fh' "Classification: date" _n
-		file write `fh' "  Missing: `nmiss' obs (`pctmiss'%)" _n _n
+		file write `fh' "Missing: `nmiss' obs (`pctmiss'%)" _n _n
 
 		// Date range
 		use "`filepath'", clear
@@ -1503,17 +1511,16 @@ program define ProcessQuality
 		exit
 	}
 
-	file write `fh' "Data Quality Flags" _n _n
+	file write `fh' "========================================" _n
+	file write `fh' "DATA QUALITY FLAGS" _n
+	file write `fh' "========================================" _n _n
 
-	use "`classifications'", clear
 	keep if quality_flag != ""
 	local nvars = _N
 
-	assert _N == `nvars'
 	forvalues i = 1/`nvars' {
 		local vname = varname[`i']
 		local qflag = quality_flag[`i']
-
 		file write `fh' "  `vname': `qflag'" _n
 	}
 	file write `fh' _n
@@ -1521,59 +1528,76 @@ end
 
 // =============================================================================
 // Helper: ProcessSamples
-// Include sample observations
+// Include sample observations (privacy-limited)
 // =============================================================================
 program define ProcessSamples
 	args fh filepath classifications format nsamples exclude
 
 	use "`filepath'", clear
 
-	// Limit to requested number of observations
-	if _N > `nsamples' {
-		keep in 1/`nsamples'
-	}
+	file write `fh' "========================================" _n
+	file write `fh' "SAMPLE OBSERVATIONS" _n
+	file write `fh' "========================================" _n _n
+	file write `fh' "First `nsamples' observations (excluded variables masked):" _n _n
 
-	local nsamp = _N
-
-	file write `fh' "Sample Observations (first `nsamp' rows)" _n _n
-
-	// Get list of non-excluded variables
-	quietly describe, varlist
+	// Get variable list
+	describe, varlist
 	local allvars `r(varlist)'
 
-	// Build excluded variable list
-	local exclude_list ""
-	if "`exclude'" != "" {
+	// Print header
+	file write `fh' "| "
+	foreach vn of local allvars {
+		local isexcl 0
 		foreach ev of local exclude {
-			local exclude_list "`exclude_list' `ev'"
+			if "`vn'" == "`ev'" local isexcl 1
 		}
-	}
-
-	// Write header row with variable names
-	file write `fh' "  "
-	foreach v of local allvars {
-		file write `fh' "`v'" _col(+2)
+		if `isexcl' {
+			file write `fh' "`vn'(masked) | "
+		}
+		else {
+			file write `fh' "`vn' | "
+		}
 	}
 	file write `fh' _n
 
-	// Write each observation
-	forvalues obs_i = 1/`nsamp' {
-		file write `fh' "  "
-		foreach v of local allvars {
-			// Check if excluded
-			local is_excluded 0
-			foreach ev of local exclude_list {
-				if "`v'" == "`ev'" {
-					local is_excluded 1
-				}
+	// Print separator
+	file write `fh' "|"
+	foreach vn of local allvars {
+		file write `fh' "---|"
+	}
+	file write `fh' _n
+
+	// Print sample rows
+	local maxrow = min(`nsamples', _N)
+	forvalues row = 1/`maxrow' {
+		file write `fh' "| "
+		foreach vn of local allvars {
+			local isexcl 0
+			foreach ev of local exclude {
+				if "`vn'" == "`ev'" local isexcl 1
 			}
 
-			if `is_excluded' {
-				file write `fh' "***" _col(+2)
+			if `isexcl' {
+				file write `fh' "[MASKED] | "
 			}
 			else {
-				local val = `v'[`obs_i']
-				file write `fh' "`val'" _col(+2)
+				local vtype : type `vn'
+				if substr("`vtype'", 1, 3) == "str" {
+					local val = `vn'[`row']
+					if length("`val'") > 20 {
+						local val = substr("`val'", 1, 17) + "..."
+					}
+					file write `fh' "`val' | "
+				}
+				else {
+					local val = `vn'[`row']
+					if missing(`val') {
+						file write `fh' ". | "
+					}
+					else {
+						file write `fh' "`val' | "
+					}
+				}
 			}
 		}
 		file write `fh' _n
@@ -1582,207 +1606,112 @@ program define ProcessSamples
 end
 
 // =============================================================================
-// Detection Functions
+// Detection Programs
 // =============================================================================
 
-// Detect panel/longitudinal structure
+// Detect panel/longitudinal data structure
 program define DetectPanel
 	args fh filepath panelid format
 
 	use "`filepath'", clear
 
-	// Auto-detect panel ID if not specified
-	if "`panelid'" == "" {
-		// PRIORITY 1: Check if xtset is already defined
-		capture xtset
-		if _rc == 0 & "`r(panelvar)'" != "" {
-			local panelid "`r(panelvar)'"
+	// If panelid specified, use it; otherwise try to detect
+	if "`panelid'" != "" {
+		capture confirm variable `panelid'
+		if _rc != 0 {
+			file write `fh' "Panel ID variable '`panelid'' not found" _n _n
+			exit
 		}
-		else {
-			// Get list of all variables
-			quietly describe, varlist
-			local allvars `r(varlist)'
-
-			// PRIORITY 2: Look for variables with ID-related names first
-			// This prevents demographic variables like gender/race from being
-			// incorrectly identified as panel IDs
-			local name_based_ids ""
-			local cardinality_ids ""
-
-			// Check each variable
-			foreach vname of local allvars {
-				// Get variable type
-				local vtype : type `vname'
-				local vfmt : format `vname'
-				local vname_lower = lower("`vname'")
-
-				// Skip strings and dates
-				if strpos("`vtype'", "str") == 0 & strpos("`vfmt'", "%t") == 0 {
-					quietly count if !missing(`vname')
-					local nonmiss = r(N)
-					if `nonmiss' > 0 {
-						capture tab `vname'
-						if _rc == 0 {
-							local nuniq = r(r)
-
-							// Check if unique < 50% of total N (potential panel variable)
-							if `nuniq' < `nonmiss' * 0.5 & `nuniq' > 1 {
-								// PRIORITY 2a: Check for ID-related naming patterns
-								// Patterns: ends with "id", contains "_id", starts with "id_",
-								// or contains common ID terms
-								if regexm("`vname_lower'", "id$|_id$|_id_|^id_|^id$") | ///
-								   regexm("`vname_lower'", "patient|subject|person|individual") | ///
-								   regexm("`vname_lower'", "participant|respondent|member") | ///
-								   regexm("`vname_lower'", "code$|_code$|^code_") | ///
-								   regexm("`vname_lower'", "^pat_|^sub_|^ind_") {
-									local name_based_ids "`name_based_ids' `vname'"
-								}
-								else {
-									// Cardinality-based detection (fallback)
-									local cardinality_ids "`cardinality_ids' `vname'"
-								}
-							}
-						}
-					}
-				}
-			}
-
-			// Select panel ID with priority: name-based first, then cardinality-based
-			if "`name_based_ids'" != "" {
-				local panelid : word 1 of `name_based_ids'
-			}
-			else if "`cardinality_ids'" != "" {
-				local panelid : word 1 of `cardinality_ids'
-			}
-			else {
-				// No panel structure detected
-				exit
-			}
-		}
-	}
-
-	// Verify panelid exists
-	capture confirm variable `panelid'
-	if _rc != 0 {
-		exit
-	}
-
-	// Calculate panel statistics
-	quietly count if !missing(`panelid')
-	local n_nonmiss = r(N)
-
-	tempvar tag
-	quietly bysort `panelid': gen byte `tag' = (_n==1)
-	quietly count if `tag'
-	local n_units = r(N)
-	drop `tag'
-
-	tempvar obs_per_unit
-	quietly bysort `panelid': gen `obs_per_unit' = _N
-	quietly summarize `obs_per_unit'
-	local mean_obs = round(r(mean), 0.1)
-	local min_obs = r(min)
-	local max_obs = r(max)
-
-	// Check balance
-	local is_balanced = (`min_obs' == `max_obs')
-
-	// Write output
-	file write `fh' "Dataset Structure: Panel/Longitudinal" _n
-	file write `fh' "  Panel ID: `panelid'" _n
-	file write `fh' "  Unique units: `n_units'" _n
-	file write `fh' "  Observations per unit: mean=`mean_obs', min=`min_obs', max=`max_obs', total=`n_nonmiss'" _n
-	if `is_balanced' {
-		file write `fh' "  Panel balance: Balanced" _n
+		local id_var "`panelid'"
 	}
 	else {
-		file write `fh' "  Panel balance: Unbalanced" _n
+		// Try to detect ID variable
+		quietly describe, varlist
+		local allvars `r(varlist)'
+		local id_var ""
+
+		foreach vn of local allvars {
+			local vn_lower = lower("`vn'")
+			if regexm("`vn_lower'", "id$|_id$|^id_|patient|subject|person") {
+				local id_var "`vn'"
+				continue, break
+			}
+		}
+
+		if "`id_var'" == "" exit
 	}
-	file write `fh' _n
+
+	// Check for repeated observations
+	quietly tab `id_var'
+	local n_units = r(r)
+	local n_obs = _N
+
+	if `n_units' < `n_obs' {
+		local avg_obs = round(`n_obs' / `n_units', 0.1)
+		file write `fh' "Panel Structure Detected" _n
+		file write `fh' "  ID Variable: `id_var'" _n
+		file write `fh' "  Unique Units: `n_units'" _n
+		file write `fh' "  Total Observations: `n_obs'" _n
+		file write `fh' "  Average Obs per Unit: `avg_obs'" _n _n
+	}
 end
 
-// Detect survival analysis structure
+// Detect survival/time-to-event data
 program define DetectSurvival
 	args fh filepath survivalvars format
 
 	use "`filepath'", clear
 
-	// Parse survivalvars if provided
-	if "`survivalvars'" != "" {
-		gettoken timevar failvar : survivalvars
-	}
-	else {
-		// Auto-detect
-		quietly describe, varlist
-		local allvars `r(varlist)'
+	quietly describe, varlist
+	local allvars `r(varlist)'
 
-		local timevar ""
-		local failvar ""
+	local time_vars ""
+	local event_vars ""
 
-		// Look for time variables (continuous, positive)
-		foreach vn of local allvars {
-			// Check for time-related names
-			if regexm(lower("`vn'"), "time|followup|duration|surv") {
-				capture summarize `vn'
-				if _rc == 0 & r(min) >= 0 {
-					local timevar "`vn'"
-				}
-			}
+	// Search for time and event variables
+	foreach vn of local allvars {
+		local vn_lower = lower("`vn'")
+
+		// Time variables
+		if regexm("`vn_lower'", "time|duration|followup|follow_up|survtime|_t$|^t_") {
+			local time_vars "`time_vars' `vn'"
 		}
-
-		// Look for event/failure variables (binary)
-		foreach vn of local allvars {
-			if regexm(lower("`vn'"), "event|fail|death|died|outcome") {
-				capture tab `vn'
-				if _rc == 0 & r(r) == 2 {
-					local failvar "`vn'"
-				}
-			}
-		}
-
-		if "`timevar'" == "" | "`failvar'" == "" {
-			// Not detected
-			exit
+		// Event/failure variables
+		if regexm("`vn_lower'", "event|failure|death|died|status|censor|_d$|^d_") {
+			local event_vars "`event_vars' `vn'"
 		}
 	}
 
-	// Verify variables exist
-	capture confirm variable `timevar'
-	if _rc != 0 exit
-	capture confirm variable `failvar'
-	if _rc != 0 exit
-
-	// Calculate survival statistics
-	quietly summarize `timevar', detail
-	local mean_time = round(r(mean), 0.1)
-	local sd_time = round(r(sd), 0.1)
-	local min_time = round(r(min), 0.1)
-	local max_time = round(r(max), 0.1)
-
-	quietly tab `failvar'
-	quietly count if `failvar' == 1
-	local n_events = r(N)
-	quietly count if `failvar' == 0
-	local n_censored = r(N)
-	quietly count if !missing(`failvar')
-	local n_total = r(N)
-
-	local pct_events = round(100 * `n_events' / `n_total', 0.1)
-	local pct_censored = round(100 * `n_censored' / `n_total', 0.1)
-
-	// Person-time
-	quietly summarize `timevar'
-	local person_time = round(r(sum), 0.1)
+	// Exit if nothing found
+	if "`time_vars'" == "" & "`event_vars'" == "" {
+		exit
+	}
 
 	// Write output
-	file write `fh' "Survival Analysis Structure Detected" _n
-	file write `fh' "  Time variable: `timevar'" _n
-	file write `fh' "    Mean follow-up: `mean_time' (SD: `sd_time')" _n
-	file write `fh' "    Range: `min_time' to `max_time'" _n
-	file write `fh' "  Event variable: `failvar'" _n
-	file write `fh' "    Events: `n_events' (`pct_events'%)" _n
-	file write `fh' "    Censored: `n_censored' (`pct_censored'%)" _n
-	file write `fh' "  Person-time: `person_time'" _n
+	file write `fh' "Survival Analysis Variables Detected" _n
+
+	if "`time_vars'" != "" {
+		file write `fh' "  Likely time variables:`time_vars'" _n
+		// Show range for first time variable
+		local first_time : word 1 of `time_vars'
+		quietly summarize `first_time'
+		local t_min = round(r(min), 0.1)
+		local t_max = round(r(max), 0.1)
+		file write `fh' "    `first_time' range: `t_min' to `t_max'" _n
+	}
+
+	if "`event_vars'" != "" {
+		file write `fh' "  Likely event indicators:`event_vars'" _n
+		// Show event rate for first event variable
+		local first_event : word 1 of `event_vars'
+		quietly tab `first_event'
+		if r(r) == 2 {
+			quietly summarize `first_event'
+			local event_rate = round(100 * r(mean), 0.1)
+			file write `fh' "    `first_event' rate: `event_rate'%" _n
+		}
+	}
+
 	file write `fh' _n
 end
 
@@ -1804,7 +1733,7 @@ program define DetectSurvey
 		local vn_lower = lower("`vn'")
 
 		// Weight variables
-		if regexm("`vn_lower'", "weight|wt$|^wt_") {
+		if regexm("`vn_lower'", "weight|wgt|_wt$|^wt_|pweight|fweight") {
 			local weight_vars "`weight_vars' `vn'"
 		}
 		// Strata variables
@@ -2082,4 +2011,3 @@ program define GenerateDatasetSummary
 	// Write the summary
 	file write `fh' "`summary'" _n _n
 end
-
