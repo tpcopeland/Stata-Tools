@@ -1,7 +1,7 @@
-*! datadict v2.2.0
+*! datadict v2.3.0
 *! Generate clean Markdown data dictionaries matching professional documentation style
 *! Author: Tim Copeland
-*! Date: 2025-11-28
+*! Date: 2025-11-30
 
 program define datadict, rclass
 	version 14.0
@@ -263,8 +263,15 @@ program define EscapeMarkdown, rclass
 	args text
 
 	local escaped `"`macval(text)'"'
+	// Escape characters that could break markdown table formatting
 	local escaped = subinstr(`"`macval(escaped)'"', "|", "\|", .)
 	local escaped = subinstr(`"`macval(escaped)'"', "`", "\`", .)
+	// Replace newlines/carriage returns with space to prevent table breaks
+	local escaped = subinstr(`"`macval(escaped)'"', char(10), " ", .)
+	local escaped = subinstr(`"`macval(escaped)'"', char(13), " ", .)
+	// Escape HTML angle brackets
+	local escaped = subinstr(`"`macval(escaped)'"', "<", "&lt;", .)
+	local escaped = subinstr(`"`macval(escaped)'"', ">", "&gt;", .)
 
 	return local escaped `"`macval(escaped)'"'
 end
@@ -610,60 +617,77 @@ program define WriteVariableRow
 	if "`showstats'" != "" {
 		// Show appropriate statistics based on variable classification
 		if "`varclass'" == "categorical" {
-			// Show frequencies for categorical
+			// Show frequencies for categorical with percentages
 			if "`vallabname'" != "" {
-				GetValueLabelString `"`vname'"' `"`vallabname'"' `maxfreq'
+				GetCategoricalStats `"`vname'"' `"`vallabname'"' `maxfreq' `obs'
 				local valsnotes `"`r(valstring)'"'
 			}
 			else {
-				// Numeric without labels - show unique count
+				// Numeric without labels - show unique count with frequencies
 				capture quietly tab `vname'
 				if _rc == 0 {
 					local nuniq = r(r)
 					if `nuniq' <= `maxfreq' {
-						GetUnlabeledFreqs `"`vname'"' `maxfreq'
+						GetUnlabeledStats `"`vname'"' `maxfreq' `obs'
 						local valsnotes `"`r(valstring)'"'
 					}
 					else {
-						local valsnotes "`nuniq' unique values"
+						quietly count if !missing(`vname')
+						local nvalid = r(N)
+						local valsnotes "N=`nvalid'; `nuniq' unique values"
 					}
 				}
 			}
 		}
 		else if "`varclass'" == "continuous" {
-			// Show summary stats for continuous
+			// Show comprehensive summary stats for continuous
 			quietly summarize `vname', detail
 			if r(N) > 0 {
-				local mean = round(r(mean), 0.01)
-				local sd = round(r(sd), 0.01)
-				local min = round(r(min), 0.01)
-				local max = round(r(max), 0.01)
-				local valsnotes "Mean=`mean'; SD=`sd'; Range=`min'-`max'"
+				local nvalid = r(N)
+				// Format numbers intelligently based on magnitude
+				FormatStatNumber `=r(mean)'
+				local mean `r(formatted)'
+				FormatStatNumber `=r(sd)'
+				local sd `r(formatted)'
+				FormatStatNumber `=r(p50)'
+				local median `r(formatted)'
+				FormatStatNumber `=r(p25)'
+				local p25 `r(formatted)'
+				FormatStatNumber `=r(p75)'
+				local p75 `r(formatted)'
+				FormatStatNumber `=r(min)'
+				local min `r(formatted)'
+				FormatStatNumber `=r(max)'
+				local max `r(formatted)'
+				local valsnotes "N=`nvalid'; Mean=`mean' (SD=`sd'); Median=`median'; IQR=`p25'-`p75'; Range=`min'-`max'"
 			}
 			else {
 				local valsnotes "All missing"
 			}
 		}
 		else if "`varclass'" == "date" {
-			// Show date range
+			// Show date range with count
 			quietly summarize `vname'
 			if r(N) > 0 {
+				local nvalid = r(N)
 				local mindate = string(r(min), "`vfmt'")
 				local maxdate = string(r(max), "`vfmt'")
-				local valsnotes "Range: `mindate' to `maxdate'"
+				local valsnotes "N=`nvalid'; Range: `mindate' to `maxdate'"
 			}
 			else {
 				local valsnotes "All missing"
 			}
 		}
 		else if "`varclass'" == "string" {
-			// Show unique count for strings
+			// Show unique count with N for strings
+			quietly count if !missing(`vname')
+			local nvalid = r(N)
 			capture quietly tab `vname'
 			if _rc == 0 {
-				local valsnotes "`r(r)' unique values"
+				local valsnotes "N=`nvalid'; `r(r)' unique values"
 			}
 			else {
-				local valsnotes "High cardinality"
+				local valsnotes "N=`nvalid'; High cardinality"
 			}
 		}
 	}
@@ -807,6 +831,176 @@ program define GetUnlabeledFreqs, rclass
 
 		if length(`"`valstring'"') > 150 {
 			local valstring = substr(`"`valstring'"', 1, 147) + "..."
+			continue, break
+		}
+	}
+
+	return local valstring `"`valstring'"'
+end
+
+// =============================================================================
+// Helper: FormatStatNumber - format numbers intelligently based on magnitude
+// =============================================================================
+program define FormatStatNumber, rclass
+	args num
+
+	// Handle missing
+	if missing(`num') {
+		return local formatted "."
+		exit
+	}
+
+	local absnum = abs(`num')
+
+	// Very large or very small numbers: use scientific notation
+	if `absnum' >= 1000000 | (`absnum' < 0.001 & `absnum' > 0) {
+		local formatted = string(`num', "%9.2e")
+	}
+	// Large numbers (>=100): no decimals
+	else if `absnum' >= 100 {
+		local formatted = string(`num', "%12.0fc")
+	}
+	// Medium numbers (>=1): 2 decimals
+	else if `absnum' >= 1 {
+		local formatted = string(`num', "%9.2f")
+	}
+	// Small numbers (<1): 3 decimals
+	else if `absnum' >= 0.001 {
+		local formatted = string(`num', "%9.3f")
+	}
+	// Zero
+	else {
+		local formatted = "0"
+	}
+
+	// Trim whitespace
+	local formatted = strtrim("`formatted'")
+
+	return local formatted "`formatted'"
+end
+
+// =============================================================================
+// Helper: GetCategoricalStats - get frequencies with percentages for labeled categoricals
+// =============================================================================
+program define GetCategoricalStats, rclass
+	args vname vallabname maxlevels totalobs
+
+	// Get unique non-missing values
+	capture quietly levelsof `vname' if !missing(`vname'), local(levels)
+	if _rc != 0 | `"`levels'"' == "" {
+		return local valstring "All missing"
+		exit
+	}
+
+	local nlevels: word count `levels'
+
+	// Count non-missing
+	quietly count if !missing(`vname')
+	local nvalid = r(N)
+
+	// If too many levels, just note the count with N
+	if `nlevels' > `maxlevels' {
+		return local valstring "N=`nvalid'; `nlevels' categories"
+		exit
+	}
+
+	// Build string of value=label (n, %) pairs
+	local valstring "N=`nvalid': "
+	local first 1
+	foreach lev of local levels {
+		capture local labtext: label `vallabname' `lev'
+		if _rc != 0 {
+			local labtext ""
+		}
+
+		// Get count for this level
+		quietly count if `vname' == `lev'
+		local levcount = r(N)
+		if `nvalid' > 0 {
+			local levpct = round(100 * `levcount' / `nvalid', 0.1)
+		}
+		else {
+			local levpct = 0
+		}
+
+		// Escape special characters
+		local labtext = subinstr(`"`macval(labtext)'"', "|", "\|", .)
+		local labtext = subinstr(`"`macval(labtext)'"', ",", ";", .)
+
+		if `first' {
+			if `"`labtext'"' != "" {
+				local valstring `"`valstring'`lev'=`labtext' (`levcount'; `levpct'%)"'
+			}
+			else {
+				local valstring `"`valstring'`lev' (`levcount'; `levpct'%)"'
+			}
+			local first 0
+		}
+		else {
+			if `"`labtext'"' != "" {
+				local valstring `"`valstring', `lev'=`labtext' (`levcount'; `levpct'%)"'
+			}
+			else {
+				local valstring `"`valstring', `lev' (`levcount'; `levpct'%)"'
+			}
+		}
+
+		// Truncate if getting too long
+		if length(`"`valstring'"') > 250 {
+			local valstring = substr(`"`valstring'"', 1, 247) + "..."
+			continue, break
+		}
+	}
+
+	return local valstring `"`valstring'"'
+end
+
+// =============================================================================
+// Helper: GetUnlabeledStats - get frequencies with percentages for unlabeled categoricals
+// =============================================================================
+program define GetUnlabeledStats, rclass
+	args vname maxlevels totalobs
+
+	capture quietly levelsof `vname' if !missing(`vname'), local(levels)
+	if _rc != 0 | `"`levels'"' == "" {
+		return local valstring "All missing"
+		exit
+	}
+
+	local nlevels: word count `levels'
+
+	// Count non-missing
+	quietly count if !missing(`vname')
+	local nvalid = r(N)
+
+	if `nlevels' > `maxlevels' {
+		return local valstring "N=`nvalid'; `nlevels' unique values"
+		exit
+	}
+
+	local valstring "N=`nvalid': "
+	local first 1
+	foreach lev of local levels {
+		// Get count for this level
+		quietly count if `vname' == `lev'
+		local levcount = r(N)
+		if `nvalid' > 0 {
+			local levpct = round(100 * `levcount' / `nvalid', 0.1)
+		}
+		else {
+			local levpct = 0
+		}
+
+		if `first' {
+			local valstring `"`valstring'`lev' (`levcount'; `levpct'%)"'
+			local first 0
+		}
+		else {
+			local valstring `"`valstring', `lev' (`levcount'; `levpct'%)"'
+		}
+
+		if length(`"`valstring'"') > 200 {
+			local valstring = substr(`"`valstring'"', 1, 197) + "..."
 			continue, break
 		}
 	}
