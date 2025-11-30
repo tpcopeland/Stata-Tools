@@ -1,5 +1,5 @@
-v 3
-d mvp: Missing value pattern analysis with enhanced features
+v 1
+d 'MVP': Missing value pattern analysis with enhanced features
 d 
 d Author: Timothy P Copeland
 d Fork of mvpatterns by Jeroen Weesie (STB-61: dm91)
