@@ -1,4 +1,4 @@
-*! datamap v2.2.0
+*! datamap v2.1.0
 *! Generate privacy-safe LLM-readable dataset documentation
 *! Author: Tim Copeland
 *! Date: 2025-11-28
@@ -862,11 +862,10 @@ program define ProcessVariables
 			local nmiss = missing_n[`i']
 		}
 		if missing(missing_pct[`i']) {
-			local pctmiss "0.0"
+			local pctmiss = 0
 		}
 		else {
-			local pctmiss = string(missing_pct[`i'], "%9.1f")
-			local pctmiss = strtrim("`pctmiss'")
+			local pctmiss = missing_pct[`i']
 		}
 
 		file write `fh' "  `vname'" _n
@@ -950,11 +949,10 @@ program define ProcessCategorical
 			local nmiss = missing_n[`i']
 		}
 		if missing(missing_pct[`i']) {
-			local pctmiss "0.0"
+			local pctmiss = 0
 		}
 		else {
-			local pctmiss = string(missing_pct[`i'], "%9.1f")
-			local pctmiss = strtrim("`pctmiss'")
+			local pctmiss = missing_pct[`i']
 		}
 		if missing(unique_vals[`i']) {
 			local nuniq = 0
@@ -986,11 +984,10 @@ program define ProcessCategorical
 					local val = vals[`j',1]
 					local freq = freqs[`j',1]
 					if `obs' > 0 {
-						local pct = string(round(100*`freq'/`obs', 0.1), "%9.1f")
-						local pct = strtrim("`pct'")
+						local pct = round(100*`freq'/`obs', 0.1)
 					}
 					else {
-						local pct "."
+						local pct = .
 					}
 					local vlab : label (`vname') `val'
 					file write `fh' "    `val' = `vlab': `freq' (`pct'%)" _n
@@ -1055,11 +1052,10 @@ program define ProcessContinuous
 			local nmiss = missing_n[`i']
 		}
 		if missing(missing_pct[`i']) {
-			local pctmiss "0.0"
+			local pctmiss = 0
 		}
 		else {
-			local pctmiss = string(missing_pct[`i'], "%9.1f")
-			local pctmiss = strtrim("`pctmiss'")
+			local pctmiss = missing_pct[`i']
 		}
 		if missing(unique_vals[`i']) {
 			local nuniq = 0
@@ -1171,11 +1167,10 @@ program define ProcessDate
 			local nmiss = missing_n[`i']
 		}
 		if missing(missing_pct[`i']) {
-			local pctmiss "0.0"
+			local pctmiss = 0
 		}
 		else {
-			local pctmiss = string(missing_pct[`i'], "%9.1f")
-			local pctmiss = strtrim("`pctmiss'")
+			local pctmiss = missing_pct[`i']
 		}
 
 		file write `fh' "VARIABLE: `vname'" _n
@@ -1262,11 +1257,10 @@ program define ProcessString
 			local nmiss = missing_n[`i']
 		}
 		if missing(missing_pct[`i']) {
-			local pctmiss "0.0"
+			local pctmiss = 0
 		}
 		else {
-			local pctmiss = string(missing_pct[`i'], "%9.1f")
-			local pctmiss = strtrim("`pctmiss'")
+			local pctmiss = missing_pct[`i']
 		}
 
 		use "`filepath'", clear
@@ -1343,11 +1337,10 @@ program define ProcessExcluded
 			local nmiss = missing_n[`i']
 		}
 		if missing(missing_pct[`i']) {
-			local pctmiss "0.0"
+			local pctmiss = 0
 		}
 		else {
-			local pctmiss = string(missing_pct[`i'], "%9.1f")
-			local pctmiss = strtrim("`pctmiss'")
+			local pctmiss = missing_pct[`i']
 		}
 
 		file write `fh' "VARIABLE: `vname'" _n
@@ -1464,11 +1457,10 @@ program define ProcessBinary
 			local nmiss = missing_n[`i']
 		}
 		if missing(missing_pct[`i']) {
-			local pctmiss "0.0"
+			local pctmiss = 0
 		}
 		else {
-			local pctmiss = string(missing_pct[`i'], "%9.1f")
-			local pctmiss = strtrim("`pctmiss'")
+			local pctmiss = missing_pct[`i']
 		}
 
 		file write `fh' "`vname'"
@@ -1487,11 +1479,10 @@ program define ProcessBinary
 			local val = vals[`j',1]
 			local freq = freqs[`j',1]
 			if `obs' > 0 {
-				local pct = string(round(100*`freq'/`obs', 0.1), "%9.1f")
-				local pct = strtrim("`pct'")
+				local pct = round(100*`freq'/`obs', 0.1)
 			}
 			else {
-				local pct "."
+				local pct = .
 			}
 			capture local vallabtext : label (`vname') `val'
 			if _rc == 0 & "`vallabtext'" != "" {
@@ -1901,11 +1892,10 @@ program define SummarizeMissing
 	quietly count if `complete' == 1
 	local n_complete = r(N)
 	if `obs' > 0 {
-		local pct_complete = string(round(100 * `n_complete' / `obs', 0.1), "%9.1f")
-		local pct_complete = strtrim("`pct_complete'")
+		local pct_complete = round(100 * `n_complete' / `obs', 0.1)
 	}
 	else {
-		local pct_complete "0.0"
+		local pct_complete = 0
 	}
 
 	// Write output
