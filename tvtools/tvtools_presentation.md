@@ -67,6 +67,13 @@ transition: fade-out
 Which treatment failed her?
 </div>
 
+<!--
+This is the "aha moment" - most of the audience will have encountered this problem.
+The treatment journey is typical for MS patients - platform → high efficacy escalation.
+Emphasize that if we analyze by "ever-treated" we get immortal time bias because
+Anna had to survive 5 years just to become "natalizumab-exposed."
+-->
+
 ::right::
 
 <div class="pl-8 pt-8">
@@ -292,16 +299,24 @@ layout: default
 
 ```mermaid {scale: 0.8}
 graph LR
-    A[SMSreg Data] --> B[tvexpose]
+    A[📁 Registry Data] --> B[tvexpose]
     B --> C[tvmerge]
     C --> D[tvevent]
-    D --> E[stcrreg]
-    style B fill:#3b82f6
-    style C fill:#8b5cf6
-    style D fill:#22c55e
+    D --> E[📈 stcrreg]
+    style A fill:#9CA3AF,color:#fff
+    style B fill:#3b82f6,color:#fff
+    style C fill:#8b5cf6,color:#fff
+    style D fill:#22c55e,color:#fff
+    style E fill:#F97316,color:#fff
 ```
 
 </div>
+
+<!--
+This workflow slide is critical - show that tvtools is a complete pipeline.
+Note that tvmerge is optional (only needed for multiple exposures).
+Emphasize the seamless integration with Stata's survival analysis commands.
+-->
 
 <style>
 .command-card {
@@ -438,6 +453,13 @@ No immortal time!
 </div>
 
 </div>
+
+<!--
+The before/after transformation is powerful - emphasize that gaps are automatically handled.
+This is the core value proposition: tvexpose does the tedious work of creating
+complete timelines where every moment of follow-up has defined exposure status.
+Point out: patient was unexposed 2014-2015, on IFN 2015-2017, gap 2017-2018, etc.
+-->
 
 <style>
 .timeline-visual {
@@ -646,19 +668,25 @@ layout: section
 ### The Setup
 
 ```stata
-* Create separate time-varying datasets
+* Create time-varying DMT dataset
 use ms_cohort, clear
-tvexpose using dmt, ... ///
+tvexpose using dmt_prescriptions, ///
+    id(patient_id) start(dmt_start) stop(dmt_stop) ///
+    exposure(dmt) reference(0) ///
+    entry(ms_diagnosis_date) exit(study_exit_date) ///
     saveas(tv_dmt.dta) replace
 
+* Create time-varying OC dataset
 use ms_cohort, clear
-tvexpose using oc_prescriptions, ... ///
+tvexpose using oc_prescriptions, ///
+    id(patient_id) start(oc_start) stop(oc_stop) ///
+    exposure(oc_type) reference(0) ///
+    entry(ms_diagnosis_date) exit(study_exit_date) ///
     saveas(tv_oc.dta) replace
 
-* Merge them
+* Merge at all temporal boundaries
 tvmerge tv_dmt tv_oc, id(patient_id) ///
-    start(start start) ///
-    stop(stop stop) ///
+    start(dmt_start oc_start) stop(dmt_stop oc_stop) ///
     exposure(tv_exposure tv_exposure) ///
     generate(dmt oc_use)
 ```
@@ -975,20 +1003,20 @@ layout: section
 
 <div class="code-scroll">
 
-```stata {all|1-6|8-10|12-13|all}
-* Step 1: Create time-varying DMT
+```stata {all|1-7|9-11|13-15|all}
+* Step 1: Create time-varying DMT exposure
 use ms_cohort, clear
 tvexpose using dmt_prescriptions, ///
     id(patient_id) start(dmt_start) stop(dmt_stop) ///
     exposure(dmt) reference(0) ///
     entry(ms_diagnosis_date) exit(study_exit_date) ///
-    keepvars(age_at_onset sex ms_type edss_baseline)
+    keepvars(age_at_onset sex ms_type edss_baseline edss4_date death_date)
 
-* Step 2: Integrate events with competing risks
+* Step 2: Integrate outcomes with competing risks
 tvevent using ms_cohort, id(patient_id) ///
     date(edss4_date) compete(death_date) generate(outcome)
 
-* Step 3: Survival analysis
+* Step 3: Survival analysis with competing risks
 stset stop, id(patient_id) failure(outcome==1) enter(start)
 stcrreg i.tv_exposure age_at_onset i.sex i.ms_type edss_baseline, ///
     compete(outcome==2)
@@ -1055,6 +1083,14 @@ Baseline EDSS              │    1.31    [1.25, 1.37]      <0.001
 
 </v-click>
 
+<!--
+These effect sizes are clinically plausible and match published literature on high-efficacy DMTs.
+The audience will recognize them as realistic.
+Key point: The gradient from platform (18% reduction) to moderate (32%) to high-efficacy (49%)
+makes biological and clinical sense.
+Reference: Hauser SL et al. NEJM 2017 for ocrelizumab trials showing similar magnitudes.
+-->
+
 <style>
 .results-container {
   @apply text-xs font-mono bg-gray-900 text-green-400 p-4 rounded-xl;
@@ -1100,6 +1136,13 @@ Baseline EDSS              │    1.31    [1.25, 1.37]      <0.001
 <div v-click class="mt-8 text-center text-sm text-gray-500">
   Multiple high-profile DMT papers have been criticized or retracted for these errors.
 </div>
+
+<!--
+This slide validates their concerns and shows the stakes.
+Don't name specific papers, but reference methodology papers like Suissa 2008.
+The immortal time bias error is VERY common - estimates suggest 2-3x spurious protection.
+Key takeaway: These aren't theoretical concerns - they've affected real research conclusions.
+-->
 
 <style>
 .errors-grid {
@@ -1158,10 +1201,8 @@ layout: two-cols
 ### Installation
 
 ```stata
-net install tvtools, from(https://
-  raw.githubusercontent.com/
-  tpcopeland/Stata-Tools/
-  main/tvtools)
+net install tvtools, ///
+    from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/tvtools")
 ```
 
 ### Help
