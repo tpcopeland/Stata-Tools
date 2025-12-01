@@ -629,7 +629,6 @@ program define tvmerge, rclass
 
             * Check for ID mismatches
             use `merged_ids', clear
-            generate long _in_merged = 1
             merge 1:1 id using `ds_k_ids', generate(_merge_check)
 
             * Count mismatches
