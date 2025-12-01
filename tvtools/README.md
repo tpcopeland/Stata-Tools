@@ -408,7 +408,7 @@ tvexpose using dmt, id(id) start(dmt_start) stop(dmt_stop) ///
 
 * Step 3: Merge the two time-varying datasets
 tvmerge tv_hrt tv_dmt, id(id) ///
-    start(rx_start rx_start) stop(rx_stop rx_stop) ///
+    start(rx_start dmt_start) stop(rx_stop dmt_stop) ///
     exposure(tv_exposure tv_exposure)
 ```
 
@@ -430,7 +430,7 @@ tvexpose using dmt, id(id) start(dmt_start) stop(dmt_stop) ///
 
 * Merge with meaningful variable names
 tvmerge tv_hrt tv_dmt, id(id) ///
-    start(rx_start rx_start) stop(rx_stop rx_stop) ///
+    start(rx_start dmt_start) stop(rx_stop dmt_stop) ///
     exposure(tv_exposure tv_exposure) ///
     generate(hrt dmt_type) ///
     startname(period_start) stopname(period_end)
@@ -457,7 +457,7 @@ tvexpose using dmt, id(id) start(dmt_start) stop(dmt_stop) ///
 
 * Merge and keep the covariates from both datasets
 tvmerge tv_hrt tv_dmt, id(id) ///
-    start(rx_start rx_start) stop(rx_stop rx_stop) ///
+    start(rx_start dmt_start) stop(rx_stop dmt_stop) ///
     exposure(tv_exposure tv_exposure) ///
     keep(age female mstype edss_baseline) ///
     generate(hrt dmt_type)
@@ -469,7 +469,7 @@ Output includes `age_ds1`, `female_ds1` (from HRT), `mstype_ds2`, `edss_baseline
 
 ```stata
 tvmerge tv_hrt tv_dmt, id(id) ///
-    start(rx_start rx_start) stop(rx_stop rx_stop) ///
+    start(rx_start dmt_start) stop(rx_stop dmt_stop) ///
     exposure(tv_exposure tv_exposure) ///
     check validatecoverage validateoverlap summarize
 ```
@@ -500,8 +500,8 @@ tvexpose using hrt, id(id) start(rx_start) stop(rx_stop) ///
 
 * Merge all three
 tvmerge tv_hrt tv_dmt tv_hrt2, id(id) ///
-    start(rx_start rx_start rx_start) ///
-    stop(rx_stop rx_stop rx_stop) ///
+    start(rx_start dmt_start rx_start) ///
+    stop(rx_stop dmt_stop rx_stop) ///
     exposure(tv_exposure tv_exposure tv_exposure) ///
     generate(hrt dmt_type hrt2)
 ```
@@ -511,19 +511,19 @@ tvmerge tv_hrt tv_dmt tv_hrt2, id(id) ///
 ```stata
 * Default batch processing (20% per batch)
 tvmerge tv_hrt tv_dmt, id(id) ///
-    start(rx_start rx_start) stop(rx_stop rx_stop) ///
+    start(rx_start dmt_start) stop(rx_stop dmt_stop) ///
     exposure(tv_exposure tv_exposure) ///
     generate(hrt dmt_type)
 
 * Larger batches for faster processing (50% per batch)
 tvmerge tv_hrt tv_dmt, id(id) ///
-    start(rx_start rx_start) stop(rx_stop rx_stop) ///
+    start(rx_start dmt_start) stop(rx_stop dmt_stop) ///
     exposure(tv_exposure tv_exposure) ///
     generate(hrt dmt_type) batch(50)
 
 * Smaller batches for memory-constrained systems (10% per batch)
 tvmerge tv_hrt tv_dmt, id(id) ///
-    start(rx_start rx_start) stop(rx_stop rx_stop) ///
+    start(rx_start dmt_start) stop(rx_stop dmt_stop) ///
     exposure(tv_exposure tv_exposure) ///
     generate(hrt dmt_type) batch(10)
 ```
@@ -754,7 +754,7 @@ tvexpose using dmt, id(id) start(dmt_start) stop(dmt_stop) ///
 
 * Step 3: Merge the two time-varying datasets
 tvmerge tv_hrt tv_dmt, id(id) ///
-    start(rx_start rx_start) stop(rx_stop rx_stop) ///
+    start(rx_start dmt_start) stop(rx_stop dmt_stop) ///
     exposure(tv_exposure tv_exposure) ///
     generate(hrt dmt_type)
 
@@ -878,8 +878,8 @@ tvexpose using comorbidity_periods, ///
 * Step 3: Merge both exposures
 tvmerge tv_meds tv_comorb, ///
     id(patient_id) ///
-    start(rx_start rx_start) ///
-    stop(rx_end rx_end) ///
+    start(rx_start comorb_start) ///
+    stop(rx_end comorb_end) ///
     exposure(tv_medication tv_comorbidity) ///
     generate(medication comorbidity)
 

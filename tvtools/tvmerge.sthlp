@@ -310,7 +310,7 @@ First, create time-varying datasets from the raw exposure files:
 Now merge the two time-varying datasets created by tvexpose:
 
 {phang2}{cmd:. tvmerge tv_hrt tv_dmt, id(id) ///}{p_end}
-{phang3}{cmd:start(rx_start rx_start) stop(rx_stop rx_stop) ///}{p_end}
+{phang3}{cmd:start(rx_start dmt_start) stop(rx_stop dmt_stop) ///}{p_end}
 {phang3}{cmd:exposure(tv_exposure tv_exposure)}{p_end}
 
 {pstd}
@@ -338,7 +338,7 @@ Same workflow as Example 1, but specify custom names for output variables:
 Now merge with meaningful variable names:
 
 {phang2}{cmd:. tvmerge tv_hrt tv_dmt, id(id) ///}{p_end}
-{phang3}{cmd:start(rx_start rx_start) stop(rx_stop rx_stop) ///}{p_end}
+{phang3}{cmd:start(rx_start dmt_start) stop(rx_stop dmt_stop) ///}{p_end}
 {phang3}{cmd:exposure(tv_exposure tv_exposure) ///}{p_end}
 {phang3}{cmd:generate(hrt dmt_type) ///}{p_end}
 {phang3}{cmd:startname(period_start) stopname(period_end)}{p_end}
@@ -371,7 +371,7 @@ When running tvexpose, use keepvars() to bring covariates into the time-varying 
 Now merge and keep the covariates from both datasets:
 
 {phang2}{cmd:. tvmerge tv_hrt tv_dmt, id(id) ///}{p_end}
-{phang3}{cmd:start(rx_start rx_start) stop(rx_stop rx_stop) ///}{p_end}
+{phang3}{cmd:start(rx_start dmt_start) stop(rx_stop dmt_stop) ///}{p_end}
 {phang3}{cmd:exposure(tv_exposure tv_exposure) ///}{p_end}
 {phang3}{cmd:keep(age female mstype edss_baseline) ///}{p_end}
 {phang3}{cmd:generate(hrt dmt_type)}{p_end}
@@ -387,7 +387,7 @@ The output includes age_ds1, female_ds1 (from HRT tvexpose), mstype_ds2, edss_ba
 Check the merge results for coverage issues (assume tv_hrt.dta and tv_dmt.dta already created as in Example 1):
 
 {phang2}{cmd:. tvmerge tv_hrt tv_dmt, id(id) ///}{p_end}
-{phang3}{cmd:start(rx_start rx_start) stop(rx_stop rx_stop) ///}{p_end}
+{phang3}{cmd:start(rx_start dmt_start) stop(rx_stop dmt_stop) ///}{p_end}
 {phang3}{cmd:exposure(tv_exposure tv_exposure) ///}{p_end}
 {phang3}{cmd:check validatecoverage validateoverlap summarize}{p_end}
 
@@ -402,7 +402,7 @@ The {cmd:check} option displays how many persons were merged, average periods pe
 Merge and save the result for later analysis (assume tv_hrt.dta and tv_dmt.dta already created):
 
 {phang2}{cmd:. tvmerge tv_hrt tv_dmt, id(id) ///}{p_end}
-{phang3}{cmd:start(rx_start rx_start) stop(rx_stop rx_stop) ///}{p_end}
+{phang3}{cmd:start(rx_start dmt_start) stop(rx_stop dmt_stop) ///}{p_end}
 {phang3}{cmd:exposure(tv_exposure tv_exposure) ///}{p_end}
 {phang3}{cmd:generate(hrt dmt_type) ///}{p_end}
 {phang3}{cmd:saveas(merged_exposures.dta) replace}{p_end}
@@ -425,8 +425,8 @@ Merge three tvexpose outputs (assume tv_hrt.dta and tv_dmt.dta already created):
 {phang3}{cmd:saveas(tv_hrt2.dta) replace}{p_end}
 
 {phang2}{cmd:. tvmerge tv_hrt tv_dmt tv_hrt2, id(id) ///}{p_end}
-{phang3}{cmd:start(rx_start rx_start rx_start) ///}{p_end}
-{phang3}{cmd:stop(rx_stop rx_stop rx_stop) ///}{p_end}
+{phang3}{cmd:start(rx_start dmt_start rx_start) ///}{p_end}
+{phang3}{cmd:stop(rx_stop dmt_stop rx_stop) ///}{p_end}
 {phang3}{cmd:exposure(tv_exposure tv_exposure tv_exposure) ///}{p_end}
 {phang3}{cmd:generate(hrt dmt_type hrt2)}{p_end}
 
@@ -457,7 +457,7 @@ Create one tvexpose output with evertreated and another with currentformer:
 {phang3}{cmd:saveas(tv_dmt_cf.dta) replace}{p_end}
 
 {phang2}{cmd:. tvmerge tv_hrt_ever tv_dmt_cf, id(id) ///}{p_end}
-{phang3}{cmd:start(rx_start rx_start) stop(rx_stop rx_stop) ///}{p_end}
+{phang3}{cmd:start(rx_start dmt_start) stop(rx_stop dmt_stop) ///}{p_end}
 {phang3}{cmd:exposure(ever_hrt dmt_cf) ///}{p_end}
 {phang3}{cmd:generate(hrt_ever dmt_status)}{p_end}
 
@@ -472,7 +472,7 @@ This combines an ever-treated HRT variable with a current/former DMT variable in
 Use a prefix instead of custom names for each variable (assume tv_hrt.dta and tv_dmt.dta already created):
 
 {phang2}{cmd:. tvmerge tv_hrt tv_dmt, id(id) ///}{p_end}
-{phang3}{cmd:start(rx_start rx_start) stop(rx_stop rx_stop) ///}{p_end}
+{phang3}{cmd:start(rx_start dmt_start) stop(rx_stop dmt_stop) ///}{p_end}
 {phang3}{cmd:exposure(tv_exposure tv_exposure) ///}{p_end}
 {phang3}{cmd:prefix(exp_)}{p_end}
 
@@ -487,7 +487,7 @@ This creates variables named exp_1 (HRT) and exp_2 (DMT) in the output.
 After merging tvexpose outputs, merge with the cohort file to bring in additional baseline characteristics:
 
 {phang2}{cmd:. tvmerge tv_hrt tv_dmt, id(id) ///}{p_end}
-{phang3}{cmd:start(rx_start rx_start) stop(rx_stop rx_stop) ///}{p_end}
+{phang3}{cmd:start(rx_start dmt_start) stop(rx_stop dmt_stop) ///}{p_end}
 {phang3}{cmd:exposure(tv_exposure tv_exposure) ///}{p_end}
 {phang3}{cmd:generate(hrt dmt_type)}{p_end}
 
@@ -519,7 +519,7 @@ Complete workflow showing tvexpose, tvmerge, validation, and preparation for sur
 
 {phang2}{cmd:. * Step 3: Merge the two time-varying datasets}{p_end}
 {phang2}{cmd:. tvmerge tv_hrt tv_dmt, id(id) ///}{p_end}
-{phang3}{cmd:start(rx_start rx_start) stop(rx_stop rx_stop) ///}{p_end}
+{phang3}{cmd:start(rx_start dmt_start) stop(rx_stop dmt_stop) ///}{p_end}
 {phang3}{cmd:exposure(tv_exposure tv_exposure) ///}{p_end}
 {phang3}{cmd:generate(hrt dmt_type) ///}{p_end}
 {phang3}{cmd:keep(age female mstype edss_baseline) ///}{p_end}
@@ -548,7 +548,7 @@ Merge continuous exposures (like dosage rates) using the continuous() option:
 {phang2}{cmd:. * and tv_dose.dta has continuous dosage rates per day}{p_end}
 
 {phang2}{cmd:. tvmerge tv_hrt tv_dose, id(id) ///}{p_end}
-{phang3}{cmd:start(rx_start rx_start) stop(rx_stop rx_stop) ///}{p_end}
+{phang3}{cmd:start(rx_start dmt_start) stop(rx_stop dmt_stop) ///}{p_end}
 {phang3}{cmd:exposure(tv_exposure dosage_rate) ///}{p_end}
 {phang3}{cmd:continuous(dosage_rate) ///}{p_end}
 {phang3}{cmd:generate(hrt_type dose)}{p_end}
@@ -581,19 +581,19 @@ For large datasets with many unique IDs, use the batch() option to control perfo
 
 {phang2}{cmd:. * Default batch processing (20% per batch)}{p_end}
 {phang2}{cmd:. tvmerge tv_hrt tv_dmt, id(id) ///}{p_end}
-{phang3}{cmd:start(rx_start rx_start) stop(rx_stop rx_stop) ///}{p_end}
+{phang3}{cmd:start(rx_start dmt_start) stop(rx_stop dmt_stop) ///}{p_end}
 {phang3}{cmd:exposure(tv_exposure tv_exposure) ///}{p_end}
 {phang3}{cmd:generate(hrt dmt_type)}{p_end}
 
 {phang2}{cmd:. * Larger batches for faster processing (50% per batch)}{p_end}
 {phang2}{cmd:. tvmerge tv_hrt tv_dmt, id(id) ///}{p_end}
-{phang3}{cmd:start(rx_start rx_start) stop(rx_stop rx_stop) ///}{p_end}
+{phang3}{cmd:start(rx_start dmt_start) stop(rx_stop dmt_stop) ///}{p_end}
 {phang3}{cmd:exposure(tv_exposure tv_exposure) ///}{p_end}
 {phang3}{cmd:generate(hrt dmt_type) batch(50)}{p_end}
 
 {phang2}{cmd:. * Smaller batches for memory-constrained systems (10% per batch)}{p_end}
 {phang2}{cmd:. tvmerge tv_hrt tv_dmt, id(id) ///}{p_end}
-{phang3}{cmd:start(rx_start rx_start) stop(rx_stop rx_stop) ///}{p_end}
+{phang3}{cmd:start(rx_start dmt_start) stop(rx_stop dmt_stop) ///}{p_end}
 {phang3}{cmd:exposure(tv_exposure tv_exposure) ///}{p_end}
 {phang3}{cmd:generate(hrt dmt_type) batch(10)}{p_end}
 

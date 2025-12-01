@@ -266,7 +266,7 @@ Full pipeline showing tvexpose, tvmerge, and tvevent integration:
 
 {phang2}{cmd:. * Step 3: Merge the two time-varying datasets}{p_end}
 {phang2}{cmd:. tvmerge tv_hrt tv_dmt, id(id) ///}{p_end}
-{phang3}{cmd:start(rx_start rx_start) stop(rx_stop rx_stop) ///}{p_end}
+{phang3}{cmd:start(rx_start dmt_start) stop(rx_stop dmt_stop) ///}{p_end}
 {phang3}{cmd:exposure(tv_exposure tv_exposure) ///}{p_end}
 {phang3}{cmd:generate(hrt dmt_type)}{p_end}
 
