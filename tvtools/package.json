@@ -1,0 +1,19 @@
+{
+  "name": "tvtools-presentation",
+  "version": "1.0.0",
+  "description": "Slidev presentation for tvtools - Time-Varying Exposure Analysis for MS Research",
+  "private": true,
+  "scripts": {
+    "dev": "slidev tvtools_presentation.md --open",
+    "build": "slidev build tvtools_presentation.md",
+    "export": "slidev export tvtools_presentation.md"
+  },
+  "dependencies": {
+    "@iconify-json/carbon": "^1.2.1",
+    "@slidev/cli": "^0.49.0",
+    "@slidev/theme-default": "latest"
+  },
+  "devDependencies": {
+    "playwright-chromium": "^1.40.0"
+  }
+}

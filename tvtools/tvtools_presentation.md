@@ -1277,8 +1277,7 @@ layout: two-cols
 ### Installation
 
 ```stata
-net install tvtools, ///
-    from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/tvtools")
+net install tvtools, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/tvtools")
 ```
 
 ### Help
@@ -1347,7 +1346,8 @@ class: text-center
 </div>
 
 ---
-layout: end
+layout: center
+class: text-center
 ---
 
 # Questions?
