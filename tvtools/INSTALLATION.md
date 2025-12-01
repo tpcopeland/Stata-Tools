@@ -35,6 +35,9 @@ Copy these files to your Stata PERSONAL or PLUS directory:
 - `tvmerge.ado`
 - `tvmerge.dlg`
 - `tvmerge.sthlp`
+- `tvevent.ado`
+- `tvevent.dlg`
+- `tvevent.sthlp`
 - `tvtools_menu_setup.do` (optional, for menu integration)
 - `INSTALLATION.md` (optional, this file)
 
@@ -54,9 +57,10 @@ Look for:
 ```stata
 which tvexpose
 which tvmerge
+which tvevent
 ```
 
-Both should display the file paths. If you see "command not found," the files are not in your ado path.
+All three should display the file paths. If you see "command not found," the files are not in your ado path.
 
 ---
 
@@ -66,6 +70,7 @@ Both should display the file paths. If you see "command not found," the files ar
 ```stata
 db tvexpose
 db tvmerge
+db tvevent
 ```
 
 **Add to menus (optional, see below):**
@@ -95,7 +100,7 @@ Run the menu setup script for dropdown menu access.
 
 #### Step 2: Copy Files
 
-Copy all 6 tvtools files to the PERSONAL directory:
+Copy all 9 tvtools files to the PERSONAL directory:
 ```
 tvexpose.ado
 tvexpose.dlg
@@ -103,6 +108,9 @@ tvexpose.sthlp
 tvmerge.ado
 tvmerge.dlg
 tvmerge.sthlp
+tvevent.ado
+tvevent.dlg
+tvevent.sthlp
 ```
 
 #### Step 3: Verify
@@ -111,8 +119,10 @@ Restart Stata (or type `discard` to reload ado files), then:
 ```stata
 which tvexpose
 which tvmerge
+which tvevent
 help tvexpose
 help tvmerge
+help tvevent
 ```
 
 All commands should work without errors.
@@ -156,6 +166,7 @@ Add these lines to your `profile.do`:
 capture window menu append submenu "stUser" "Time-varying exposures"
 window menu append item "Time-varying exposures" "Create exposure variables (tvexpose)" "db tvexpose"
 window menu append item "Time-varying exposures" "Merge TV datasets (tvmerge)" "db tvmerge"
+window menu append item "Time-varying exposures" "Add events to TV datasets (tvevent)" "db tvevent"
 window menu refresh
 ```
 
@@ -172,6 +183,7 @@ Navigate to: **User > Time-varying exposures**
 You'll see:
 - Create exposure variables (tvexpose)
 - Merge TV datasets (tvmerge)
+- Add events to TV datasets (tvevent)
 
 ---
 
@@ -182,6 +194,7 @@ You'll see:
 ```stata
 db tvexpose
 db tvmerge
+db tvevent
 ```
 
 This works immediately after installation, no menu setup required.
@@ -213,7 +226,7 @@ If you completed the menu integration steps above:
 **Cause:** .dlg file not in same directory as .ado file
 
 **Solution:**
-1. Ensure all 6 files are in the same directory
+1. Ensure all 9 files are in the same directory
 2. Check that .dlg files were copied (not just .ado files)
 3. Run `which tvexpose` to see where Stata found the .ado file
 4. Verify .dlg file is in that same directory
@@ -247,7 +260,7 @@ If you completed the menu integration steps above:
 
 **Solution:**
 1. Verify menu syntax exactly matches installation instructions
-2. Test dialogs directly: `db tvexpose` and `db tvmerge`
+2. Test dialogs directly: `db tvexpose`, `db tvmerge`, and `db tvevent`
 3. If direct commands work but menus don't, recreate menu items:
    ```stata
    window menu clear
@@ -259,9 +272,9 @@ If you completed the menu integration steps above:
 **Cause:** .sthlp files not installed
 
 **Solution:**
-1. Verify all 6 files were copied (including .sthlp files)
+1. Verify all 9 files were copied (including .sthlp files)
 2. .sthlp files must be in same directory as .ado files
-3. Check filenames are exactly: `tvexpose.sthlp` and `tvmerge.sthlp`
+3. Check filenames are exactly: `tvexpose.sthlp`, `tvmerge.sthlp`, and `tvevent.sthlp`
 
 ---
 
@@ -277,6 +290,9 @@ tvexpose.sthlp
 tvmerge.ado
 tvmerge.dlg
 tvmerge.sthlp
+tvevent.ado
+tvevent.dlg
+tvevent.sthlp
 ```
 
 ### Remove Menus (if configured)
@@ -301,14 +317,17 @@ Run these commands to verify everything works:
 * Test command availability
 which tvexpose
 which tvmerge
+which tvevent
 
 * Test help files
 help tvexpose
 help tvmerge
+help tvevent
 
 * Test dialogs
 db tvexpose
 db tvmerge
+db tvevent
 
 * Test actual commands (requires data)
 * See documentation for full examples
@@ -327,6 +346,9 @@ After installation, you should have:
 - ✓ tvmerge.ado - Command program
 - ✓ tvmerge.dlg - Dialog definition
 - ✓ tvmerge.sthlp - Help documentation
+- ✓ tvevent.ado - Command program
+- ✓ tvevent.dlg - Dialog definition
+- ✓ tvevent.sthlp - Help documentation
 
 **Optional files (for reference, not required for operation):**
 - tvexpose_dialog.md - Extended documentation
@@ -366,6 +388,7 @@ After installation, you should have:
 ```stata
 help tvexpose
 help tvmerge
+help tvevent
 ```
 
 ### Extended dialog documentation:
@@ -374,7 +397,7 @@ help tvmerge
 
 ### Common issues:
 - Check this INSTALLATION.md troubleshooting section
-- Verify all 6 files are installed in the correct location
+- Verify all 9 files are installed in the correct location
 - Ensure Stata 16.0 or later
 
 ---
@@ -383,18 +406,18 @@ help tvmerge
 
 - **Stata Version:** 16.0 or later
 - **Operating Systems:** Windows, macOS, Linux (all supported)
-- **Required files:** 6 total (3 per command: .ado, .dlg, .sthlp)
+- **Required files:** 9 total (3 per command: .ado, .dlg, .sthlp)
 
 ---
 
 ## Summary
 
 **Minimum installation:**
-1. Copy 6 files to PERSONAL directory
-2. Use dialogs via: `db tvexpose` and `db tvmerge`
+1. Copy 9 files to PERSONAL directory
+2. Use dialogs via: `db tvexpose`, `db tvmerge`, and `db tvevent`
 
 **Full installation with menus:**
-1. Copy 6 files to PERSONAL directory
+1. Copy 9 files to PERSONAL directory
 2. Add menu commands to profile.do
 3. Restart Stata
 4. Access via User menu

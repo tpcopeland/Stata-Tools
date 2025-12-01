@@ -3634,17 +3634,7 @@ program define tvexpose, rclass
     
     capture confirm variable state_time_years
     if _rc == 0 label variable state_time_years "Time in current exposure state (years)"
-    
-    capture confirm variable `generate'
-    if _rc == 0 {
-        if "`exp_type'" == "currentformer" & "`label'" == "" {
-            label variable `generate' "Never/current/former exposure"
-        }
-        else {
-            label variable `generate' "`exp_label'"
-        }
-    }
-    
+
     * Format all date variables with CCYY/NN/DD format
     format start stop %tdCCYY/NN/DD
     capture confirm variable study_entry
@@ -3719,7 +3709,7 @@ program define tvexpose, rclass
         quietly gen gap_days = gap_end - gap_start + 1 if !missing(gap_start)
         
         drop __gap_ind2
-		capture quietly drop if gap_days <= 0 
+        capture quietly drop if gap_days <= 0
         quietly keep if !missing(gap_start) 
         
         if _N > 0 {
