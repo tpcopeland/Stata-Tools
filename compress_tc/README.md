@@ -70,3 +70,11 @@ Karolinska Institutet
 Fork of strcompress by Luke Stein
 
 https://github.com/lukestein/strcompress/
+
+## License
+
+MIT License - see LICENSE file for details
+
+## Version
+
+Version 1.0.0, 2025-11-28

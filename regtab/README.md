@@ -229,8 +229,7 @@ See `regtab_dialog.md` for detailed dialog documentation.
 
 ## Version History
 
-- **Version 1.2** (25 September 2025): Current version
-- **Version 1.0**: Initial release
+- **Version 1.0.0** (17 November 2025): GitHub publication release
 
 ## Author
 

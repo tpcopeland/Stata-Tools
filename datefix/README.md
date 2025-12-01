@@ -96,9 +96,7 @@ For a complete list of date formats, see Stata's help on datetime display format
 
 ## Version History
 
-- **Version 2.1** (2 October 2025): Current version
-- **Version 2.0**: Added `newvar()`, `drop`, and `topyear()` options. Added error codes.
-- **Version 1.0**: First version
+- **Version 1.0.0** (17 November 2025): GitHub publication release
 
 ## Author
 

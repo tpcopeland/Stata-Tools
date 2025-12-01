@@ -145,6 +145,7 @@ Convert all SAS files to Stata format with lowercase variable names and remove t
 
 ## Version History
 
+- **Version 1.0.0** (17 November 2025): GitHub publication release
 - **Version 1.0** (24 July 2020): Initial release
 
 ## Author
