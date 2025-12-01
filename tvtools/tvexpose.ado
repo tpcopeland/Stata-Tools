@@ -2281,9 +2281,11 @@ program define tvexpose, rclass
             restore
 
 
-            * Fix 1-day overlaps before cumulative calculations
+            * Fix TRUE overlaps before cumulative calculations
+            * Note: exp_start == exp_stop[_n-1] is ABUTTING (valid), not an overlap
+            * Only fix when exp_start < exp_stop[_n-1] (actual overlap)
             sort id exp_start
-            quietly by id (exp_start): replace exp_start = exp_stop[_n-1] + 1 if _n > 1 & exp_start == exp_stop[_n-1] & __exp_now_dur & exp_stop[_n-1] + 1 <= exp_stop
+            quietly by id (exp_start): replace exp_start = exp_stop[_n-1] + 1 if _n > 1 & exp_start < exp_stop[_n-1] & __exp_now_dur & exp_stop[_n-1] + 1 <= exp_stop
 
             * NEW APPROACH: Pre-calculate threshold crossing dates, then split all periods at those dates
             * This eliminates floating-point errors and 1-day gaps caused by floor() arithmetic
@@ -2537,24 +2539,26 @@ program define tvexpose, rclass
                 quietly gen double __cumul_units_start_`suffix' = __cumul_start_days_`suffix' / `unit_divisor'
 
                 * Assign duration category based on cumulative exposure at period start
+                * Use epsilon for floating-point comparison consistency
+                local epsilon = 0.001
                 quietly gen `stub_name'`suffix' = `reference'
                 if `n_cuts' > 0 {
                     local first_cut = `1'
                     quietly replace `stub_name'`suffix' = 1 if __orig_exp_category == `exp_type_val' & ///
-                        __cumul_units_start_`suffix' < `first_cut' & __cumul_units_start_`suffix' >= 0
+                        __cumul_units_start_`suffix' < (`first_cut' - `epsilon') & __cumul_units_start_`suffix' >= 0
 
                     local i = 2
                     while `i' <= `n_cuts' {
                         local prev_cut = ``=`i'-1''
                         local curr_cut = ``i''
                         quietly replace `stub_name'`suffix' = `i' if __orig_exp_category == `exp_type_val' & ///
-                            __cumul_units_start_`suffix' >= `prev_cut' & __cumul_units_start_`suffix' < `curr_cut'
+                            __cumul_units_start_`suffix' >= (`prev_cut' - `epsilon') & __cumul_units_start_`suffix' < (`curr_cut' - `epsilon')
                         local i = `i' + 1
                     }
 
                     local last_cut = ``n_cuts''
                     quietly replace `stub_name'`suffix' = `n_cuts' + 1 if __orig_exp_category == `exp_type_val' & ///
-                        __cumul_units_start_`suffix' >= `last_cut'
+                        __cumul_units_start_`suffix' >= (`last_cut' - `epsilon')
                 }
                 else {
                     quietly replace `stub_name'`suffix' = 1 if __orig_exp_category == `exp_type_val' & ///
@@ -3270,20 +3274,20 @@ program define tvexpose, rclass
     
     if "`statetime'" != "" {
         * Calculate cumulative time in current exposure state
-        * Correct calculation using state groups
+        * Correct calculation using state groups with running sum
         * Measures how long person has been in current exposure state
         sort id exp_start
         quietly generate double period_days = exp_stop - exp_start + 1
         quietly by id: gen double __state_change = (exp_value != exp_value[_n-1]) if _n > 1 & id == id[_n-1]
         quietly replace __state_change = 1 if _n == 1
         quietly by id: gen double __state_group = sum(__state_change)
-        
-        * Calculate cumulative days within each state group only
-        * Sum by state_group, not by id
-        sort id __state_group
-        quietly by id __state_group: egen double cumul_state_days = sum(period_days)
+
+        * Calculate running cumulative days within each state group
+        * Use gen with sum() for running cumulative, not egen which gives total
+        sort id __state_group exp_start
+        quietly by id __state_group: gen double cumul_state_days = sum(period_days)
         quietly gen state_time_years = cumul_state_days / 365.25
-        
+
         drop period_days __state_change __state_group cumul_state_days
     }
     
@@ -3870,9 +3874,11 @@ program define tvexpose, rclass
     quietly {
         * Drop any temporary variables with __ prefix that might remain
         capture drop __*
-        
+
         * Drop other internal processing variables that shouldn't be in output
         capture drop has_overlap exp_combined
+        capture drop unit_seq n_units
+        capture drop _proportion
     }
     
     * Order variables properly (must be done before returns)
@@ -4074,8 +4080,7 @@ program define tvexpose, rclass
     return scalar unexposed_time = `unexposed_time'
     return scalar pct_exposed = `pct_exposed'
 
-    * Return Global Macro 
-    global overlap_ids "`conflict_ids'"
+    * Note: overlap_ids already available via return local, no global needed
 
 end
 *
