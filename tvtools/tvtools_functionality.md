@@ -151,8 +151,8 @@ tvexpose using medications, id(id) start(rx_start) stop(rx_stop) ///
 |-----------|---------|---------|
 | `dataset1 dataset2 [dataset3...]` | Names of tvexpose output files to merge | `tvmerge tv_hrt tv_dmt` |
 | `id(varname)` | Person identifier present in all datasets | `id(patient_id)` |
-| `start(namelist)` | Start variables (one per dataset, in order) | `start(rx_start rx_start)` |
-| `stop(namelist)` | Stop variables (one per dataset, in order) | `stop(rx_stop rx_stop)` |
+| `start(namelist)` | Start variables (one per dataset, in order) | `start(rx_start dmt_start)` |
+| `stop(namelist)` | Stop variables (one per dataset, in order) | `stop(rx_stop dmt_stop)` |
 | `exposure(namelist)` | Exposure variables (one per dataset, in order) | `exposure(tv_exposure tv_exposure)` |
 
 **Technical note:** The number of names in `start()`, `stop()`, and `exposure()` must match the number of datasets specified.
@@ -194,7 +194,7 @@ tvexpose using medications, id(id) start(rx_start) stop(rx_stop) ///
 **Pattern 1: Basic two-dataset merge**
 ```stata
 tvmerge tv_hrt tv_dmt, id(id) ///
-    start(rx_start rx_start) stop(rx_stop rx_stop) ///
+    start(rx_start dmt_start) stop(rx_stop dmt_stop) ///
     exposure(tv_exposure tv_exposure) ///
     generate(hrt dmt_type)
 // Creates: Dataset with all combinations of overlapping HRT and DMT periods
@@ -322,7 +322,7 @@ tvexpose using dmt, id(id) start(dmt_start) stop(dmt_stop) ///
 
 * Step 3: Merge the two time-varying datasets
 tvmerge tv_hrt tv_dmt, id(id) ///
-    start(rx_start rx_start) stop(rx_stop rx_stop) ///
+    start(rx_start dmt_start) stop(rx_stop dmt_stop) ///
     exposure(tv_exposure tv_exposure) ///
     generate(hrt dmt_type)
 // Creates: All combinations of overlapping HRT and DMT periods
