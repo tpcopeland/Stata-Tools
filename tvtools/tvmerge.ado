@@ -629,7 +629,7 @@ program define tvmerge, rclass
 
             * Check for ID mismatches
             use `merged_ids', clear
-            generate byte _in_merged = 1
+            generate long _in_merged = 1
             merge 1:1 id using `ds_k_ids', generate(_merge_check)
 
             * Count mismatches
@@ -843,7 +843,7 @@ program define tvmerge, rclass
         **# CALCULATE DIAGNOSTICS
         
         * Count unique persons
-        egen byte _tag = tag(id)
+        egen long _tag = tag(id)
         quietly count if _tag == 1
         local n_persons = r(N)
         drop _tag
@@ -929,7 +929,7 @@ program define tvmerge, rclass
         return scalar N = _N
 
         * Count and store unique persons
-        egen byte _tag = tag(id)
+        egen long _tag = tag(id)
         quietly count if _tag == 1
         return scalar N_persons = r(N)
         drop _tag
