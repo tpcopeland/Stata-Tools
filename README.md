@@ -101,7 +101,7 @@ This repository contains a suite of Stata packages developed to streamline commo
 **cstat_surv** - Calculate C-statistic for survival models
 - Post-estimation command for Cox models
 - Assesses model discrimination
-- Uses Somers' D transformation accounting for censoring
+- Standalone calculation with embedded Mata (no external dependencies)
 
 **tvtools** - Time-varying exposure data tools
 - tvexpose: Create time-varying exposure variables for survival analysis
@@ -199,7 +199,7 @@ The majority of packages are compatible with Stata 14.2 or higher. Specific vers
 
 - **regtab**: Stata 17+ (uses collect commands)
 - **tvtools**: Stata 16+
-- **cstat_surv**: Requires somersd package from SSC
+- **cstat_surv**: Stata 16+
 - **datamap**: Stata 16+
 
 ## Documentation
@@ -230,7 +230,7 @@ MIT License - see individual package files for details
 |---------|-------------|---------|---------------|
 | check | Variable inspection | 1.1.0 | 14+ |
 | compress_tc | String compression via strL | 1.0.0 | 13+ |
-| cstat_surv | C-statistic for survival | 1.0.0 | 14+ |
+| cstat_surv | C-statistic for survival | 2.0.0 | 16+ |
 | datamap | Dataset documentation | 2.1.0 | 16+ |
 | datefix | Date format conversion | 1.0.0 | 14+ |
 | massdesas | Batch SAS to Stata conversion | 1.0.0 | 14+ |

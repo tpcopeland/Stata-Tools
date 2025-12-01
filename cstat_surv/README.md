@@ -1,14 +1,14 @@
 # cstat_surv
 
-![Stata 13+](https://img.shields.io/badge/Stata-13%2B-brightgreen) ![MIT License](https://img.shields.io/badge/License-MIT-blue) ![Status](https://img.shields.io/badge/Status-Active-success)
+![Stata 16+](https://img.shields.io/badge/Stata-16%2B-brightgreen) ![MIT License](https://img.shields.io/badge/License-MIT-blue) ![Status](https://img.shields.io/badge/Status-Active-success)
 
-Calculate C-statistic for survival models.
+Calculate Harrell's C-statistic for survival models.
 
 ## Description
 
 `cstat_surv` calculates the C-statistic (concordance statistic) for survival models after fitting a Cox proportional hazards model. The C-statistic measures the model's ability to discriminate between subjects who experience the event and those who do not.
 
-The command must be run immediately after fitting a Cox model with `stcox`. It uses Somers' D transformation to calculate the C-statistic, accounting for censoring in survival data.
+The command must be run immediately after fitting a Cox model with `stcox`. It calculates the C-statistic directly by comparing all comparable pairs of observations, accounting for censoring in survival data.
 
 ### C-statistic Interpretation
 
@@ -17,21 +17,12 @@ The C-statistic ranges from 0 to 1:
 - **C > 0.7**: Acceptable discrimination
 - **C > 0.8**: Excellent discrimination
 
-The C-statistic is equivalent to the area under the ROC curve (AUC) and represents the probability that, for a randomly selected pair of subjects where one experienced the event and one did not, the model assigns a higher risk to the subject who experienced the event.
-
-## Dependencies
-
-**Required**: The `somersd` package (from SSC)
-
-```stata
-ssc install somersd
-```
+The C-statistic is equivalent to the area under the ROC curve (AUC) for binary outcomes and represents the probability that, for a randomly selected comparable pair, the model assigns a higher risk to the subject who experienced the event earlier.
 
 ## Installation
 
 ```stata
-net from https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/cstat_surv
-net install cstat_surv
+net install cstat_surv, from(https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/cstat_surv)
 ```
 
 ## Syntax
@@ -44,19 +35,20 @@ cstat_surv
 
 ## Requirements
 
-1. Your data must be `stset` before running the Cox model
-2. You must have just run `stcox` in the current session
-3. The `somersd` package must be installed (from SSC)
+1. Stata 16.0 or higher
+2. Your data must be `stset` before running the Cox model
+3. You must have just run `stcox` in the current session
 
 ## How It Works
 
 The command works by:
 
 1. Predicting hazard ratios from the fitted Cox model
-2. Computing the inverse hazard ratio for proper ordering
-3. Creating a censoring indicator from the failure variable
-4. Calculating Somers' D using the `somersd` command with the c-transformation
-5. Cleaning up temporary variables
+2. Comparing all comparable pairs of observations
+3. Calculating concordance (pairs where higher predicted risk corresponds to earlier event)
+4. Computing standard errors via infinitesimal jackknife
+
+A pair of observations is comparable if the observation with the shorter survival time experienced the event. For tied survival times where both subjects experienced events, each possible ordering is counted as half concordant and half discordant.
 
 ## Examples
 
@@ -78,7 +70,7 @@ Calculate the C-statistic:
 cstat_surv
 ```
 
-The output will display Somers' D and its transformation, including the C-statistic with confidence intervals and p-values.
+The output displays the C-statistic with standard error and 95% confidence interval, along with pair comparison statistics.
 
 ### More Complex Example
 
@@ -99,21 +91,37 @@ cstat_surv
 
 ## Stored Results
 
-`cstat_surv` stores the following in `r()` (via the `somersd` command):
+`cstat_surv` stores the following in `e()`:
+
+### Scalars
 
 | Result | Description |
 |--------|-------------|
-| `r(somers_d)` | Somers' D coefficient |
-| `r(c)` | C-statistic |
-| `r(se)` | Standard error |
-| `r(z)` | Z-statistic |
-| `r(p)` | P-value |
-| `r(lb)` | Lower bound of confidence interval |
-| `r(ub)` | Upper bound of confidence interval |
+| `e(c)` | C-statistic |
+| `e(se)` | Standard error (infinitesimal jackknife) |
+| `e(ci_lo)` | Lower bound of 95% confidence interval |
+| `e(ci_hi)` | Upper bound of 95% confidence interval |
+| `e(df_r)` | Degrees of freedom |
+| `e(N)` | Number of observations |
+| `e(N_comparable)` | Number of comparable pairs |
+| `e(N_concordant)` | Number of concordant pairs |
+| `e(N_discordant)` | Number of discordant pairs |
+| `e(N_tied)` | Number of tied pairs |
 
-## Requirements
+### Macros
 
-Stata 13.0 or higher (requires `stcox` and `somersd`)
+| Result | Description |
+|--------|-------------|
+| `e(cmd)` | `cstat_surv` |
+| `e(title)` | Harrell's C-statistic |
+| `e(vcetype)` | Jackknife |
+
+### Matrices
+
+| Result | Description |
+|--------|-------------|
+| `e(b)` | Coefficient vector (C-statistic) |
+| `e(V)` | Variance-covariance matrix |
 
 ## Author
 
@@ -123,14 +131,13 @@ Karolinska Institutet
 
 ## License
 
-MIT License - see LICENSE file for details
+MIT License
 
 ## Version
 
-Version 1.0.0, 2025-11-17
+Version 2.0.0, 2025-12-01
 
 ## See Also
 
 - [stcox](https://www.stata.com/manuals/ststcox.pdf) - Cox proportional hazards regression
 - [stset](https://www.stata.com/manuals/ststset.pdf) - Declare survival-time data
-- [somersd](https://www.stata.com/meeting/uk10/uk10_newson.pdf) - Somers' D and extensions
