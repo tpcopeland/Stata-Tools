@@ -80,15 +80,27 @@ Anna had to survive 5 years just to become "natalizumab-exposed."
 
 <div v-click class="patient-timeline">
   <div class="timeline-bar">
-    <div class="segment segment-ifn" style="flex: 2">IFN</div>
-    <div class="segment segment-fingo" style="flex: 2">FTY</div>
-    <div class="segment segment-ntz" style="flex: 3">NTZ</div>
+    <div
+      v-motion
+      :initial="{ scaleX: 0 }"
+      :enter="{ scaleX: 1, transition: { delay: 0, duration: 400 } }"
+      class="segment segment-ifn origin-left" style="flex: 2">IFN</div>
+    <div
+      v-motion
+      :initial="{ scaleX: 0 }"
+      :enter="{ scaleX: 1, transition: { delay: 400, duration: 400 } }"
+      class="segment segment-fingo origin-left" style="flex: 2">FTY</div>
+    <div
+      v-motion
+      :initial="{ scaleX: 0 }"
+      :enter="{ scaleX: 1, transition: { delay: 800, duration: 400 } }"
+      class="segment segment-ntz origin-left" style="flex: 3">NTZ</div>
   </div>
   <div class="timeline-labels">
-    <span>Dx</span>
-    <span>Y3</span>
-    <span>Y5</span>
-    <span class="text-red-500">Y8 ⚡</span>
+    <span v-motion :initial="{ opacity: 0 }" :enter="{ opacity: 1, transition: { delay: 0 } }">Dx</span>
+    <span v-motion :initial="{ opacity: 0 }" :enter="{ opacity: 1, transition: { delay: 400 } }">Y3</span>
+    <span v-motion :initial="{ opacity: 0 }" :enter="{ opacity: 1, transition: { delay: 800 } }">Y5</span>
+    <span v-motion :initial="{ opacity: 0, scale: 0.5 }" :enter="{ opacity: 1, scale: 1, transition: { delay: 1200, type: 'spring' } }" class="text-red-500">Y8 ⚡</span>
   </div>
 </div>
 
@@ -393,58 +405,77 @@ transition: slide-up
 
 # tvexpose: The Transformation
 
-### Raw DMT Data
+<div class="mt-4">
 
-<div class="mt-4 text-sm">
-
-```
+````md magic-move {lines: true}
+```txt {*|*}
+Raw DMT Prescriptions
+─────────────────────────────────────
 id │ dmt_start  │ dmt_stop   │ dmt
-───┼────────────┼────────────┼────────────
- 1 │ 2015-03    │ 2017-08    │ 1 (IFN)
- 1 │ 2018-01    │ 2022-06    │ 4 (NTZ)
+───┼────────────┼────────────┼────────
+ 1 │ 2015-03-01 │ 2017-08-15 │ 1 (IFN)
+ 1 │ 2018-01-10 │ 2022-06-30 │ 4 (NTZ)
 ```
+
+```txt {*|1-3|4|5|6|7|8|*}
+Time-Varying Output (tvexpose)
+─────────────────────────────────────
+id │ start      │ stop       │ exposure
+───┼────────────┼────────────┼─────────
+ 1 │ 2014-01-15 │ 2015-03-01 │ 0 (None)
+ 1 │ 2015-03-01 │ 2017-08-15 │ 1 (IFN)
+ 1 │ 2017-08-15 │ 2018-01-10 │ 0 (None)
+ 1 │ 2018-01-10 │ 2022-06-30 │ 4 (NTZ)
+ 1 │ 2022-06-30 │ 2023-12-31 │ 0 (None)
+```
+````
 
 </div>
 
-<v-click>
-
-<div class="mt-6 text-gray-500">
-  <carbon-arrow-down class="text-2xl animate-bounce" />
+<div v-click class="mt-4 text-sm text-gray-500">
+  <carbon-information class="inline" /> 2 prescription rows → 5 complete intervals
 </div>
-
-### Time-Varying Output
-
-<div class="mt-4 text-sm">
-
-```
-id │ start      │ stop       │ tv_exposure
-───┼────────────┼────────────┼────────────
- 1 │ 2014-01    │ 2015-03    │ 0 (None)
- 1 │ 2015-03    │ 2017-08    │ 1 (IFN)
- 1 │ 2017-08    │ 2018-01    │ 0 (None)
- 1 │ 2018-01    │ 2022-06    │ 4 (NTZ)
- 1 │ 2022-06    │ 2023-12    │ 0 (None)
-```
-
-</div>
-
-</v-click>
 
 ::right::
 
 <div class="pl-8 pt-4">
 
-<div v-click="2" class="timeline-visual">
+<div class="timeline-visual">
 
-<div class="timeline-row unexposed" style="width: 20%">None</div>
-<div class="timeline-row ifn" style="width: 25%">IFN</div>
-<div class="timeline-row unexposed" style="width: 10%">Gap</div>
-<div class="timeline-row ntz" style="width: 35%">NTZ</div>
-<div class="timeline-row unexposed" style="width: 10%">None</div>
+<div
+  v-click
+  v-motion
+  :initial="{ opacity: 0, x: -50 }"
+  :enter="{ opacity: 1, x: 0, transition: { delay: 0 } }"
+  class="timeline-row unexposed" style="width: 20%">None</div>
+<div
+  v-click
+  v-motion
+  :initial="{ opacity: 0, x: -50 }"
+  :enter="{ opacity: 1, x: 0, transition: { delay: 100 } }"
+  class="timeline-row ifn" style="width: 25%">IFN</div>
+<div
+  v-click
+  v-motion
+  :initial="{ opacity: 0, x: -50 }"
+  :enter="{ opacity: 1, x: 0, transition: { delay: 200 } }"
+  class="timeline-row unexposed" style="width: 10%">Gap</div>
+<div
+  v-click
+  v-motion
+  :initial="{ opacity: 0, x: -50 }"
+  :enter="{ opacity: 1, x: 0, transition: { delay: 300 } }"
+  class="timeline-row ntz" style="width: 35%">NTZ</div>
+<div
+  v-click
+  v-motion
+  :initial="{ opacity: 0, x: -50 }"
+  :enter="{ opacity: 1, x: 0, transition: { delay: 400 } }"
+  class="timeline-row unexposed" style="width: 10%">None</div>
 
 </div>
 
-<div v-click="3" class="mt-8 highlight-box">
+<div v-click class="mt-8 highlight-box">
 
 **Key insight:** Gaps automatically filled with reference category (unexposed)
 
@@ -701,7 +732,12 @@ tvmerge tv_dmt tv_oc, id(patient_id) ///
 
 <div class="mt-4">
 
-<div v-click class="timeline-container">
+<div
+  v-click
+  v-motion
+  :initial="{ opacity: 0, x: -100 }"
+  :enter="{ opacity: 1, x: 0, transition: { duration: 500, type: 'spring' } }"
+  class="timeline-container">
   <div class="timeline-label">DMT:</div>
   <div class="timeline">
     <div class="segment unexposed" style="flex: 2">None</div>
@@ -711,7 +747,12 @@ tvmerge tv_dmt tv_oc, id(patient_id) ///
   </div>
 </div>
 
-<div v-click class="timeline-container">
+<div
+  v-click
+  v-motion
+  :initial="{ opacity: 0, x: 100 }"
+  :enter="{ opacity: 1, x: 0, transition: { duration: 500, type: 'spring' } }"
+  class="timeline-container">
   <div class="timeline-label">OC:</div>
   <div class="timeline">
     <div class="segment oc-no" style="flex: 3">No</div>
@@ -720,9 +761,19 @@ tvmerge tv_dmt tv_oc, id(patient_id) ///
   </div>
 </div>
 
-<div v-click class="text-center text-2xl my-4">⬇️ Merge at all boundaries ⬇️</div>
+<div
+  v-click
+  v-motion
+  :initial="{ opacity: 0, scale: 0 }"
+  :enter="{ opacity: 1, scale: 1, transition: { duration: 300, type: 'spring', stiffness: 300 } }"
+  class="text-center text-2xl my-4">⬇️ Merge at all boundaries ⬇️</div>
 
-<div v-click class="timeline-container">
+<div
+  v-click
+  v-motion
+  :initial="{ opacity: 0, y: 50, scaleY: 0 }"
+  :enter="{ opacity: 1, y: 0, scaleY: 1, transition: { duration: 600, type: 'spring' } }"
+  class="timeline-container origin-top">
   <div class="timeline-label">Result:</div>
   <div class="timeline merged">
     <div class="segment s1" style="flex: 2">0,No</div>
@@ -736,7 +787,12 @@ tvmerge tv_dmt tv_oc, id(patient_id) ///
 
 </div>
 
-<div v-click class="mt-6 insight-box">
+<div
+  v-click
+  v-motion
+  :initial="{ opacity: 0, y: 20 }"
+  :enter="{ opacity: 1, y: 0, transition: { delay: 200, duration: 400 } }"
+  class="mt-6 insight-box">
   <carbon-checkmark-filled class="text-green-500 text-xl" />
   <span>Every interval has BOTH exposures defined. No gaps. Analysis-ready.</span>
 </div>
@@ -849,7 +905,12 @@ transition: slide-up
 
 <div class="split-demo mt-8">
 
-<div v-click class="split-before">
+<div
+  v-click
+  v-motion
+  :initial="{ opacity: 0, y: -30 }"
+  :enter="{ opacity: 1, y: 0, transition: { duration: 400 } }"
+  class="split-before">
   <div class="label">Before tvevent:</div>
   <div class="interval">
     <span class="date">2020-01-01</span>
@@ -859,12 +920,22 @@ transition: slide-up
   <div class="values">dmt = 4 (NTZ), outcome = ?</div>
 </div>
 
-<div v-click class="event-marker">
+<div
+  v-click
+  v-motion
+  :initial="{ opacity: 0, scale: 0, rotate: -180 }"
+  :enter="{ opacity: 1, scale: 1, rotate: 0, transition: { duration: 500, type: 'spring', stiffness: 200 } }"
+  class="event-marker">
   <carbon-flag-filled class="text-red-500 text-3xl" />
   <span>EDSS Progression: 2022-06-15</span>
 </div>
 
-<div v-click class="split-after">
+<div
+  v-click
+  v-motion
+  :initial="{ opacity: 0, scaleX: 0.6 }"
+  :enter="{ opacity: 1, scaleX: 1, transition: { duration: 600, type: 'spring' } }"
+  class="split-after origin-left">
   <div class="label">After tvevent:</div>
   <div class="interval">
     <span class="date">2020-01-01</span>
@@ -874,7 +945,12 @@ transition: slide-up
   <div class="values">dmt = 4 (NTZ), <span class="text-red-500 font-bold">outcome = 1</span></div>
 </div>
 
-<div v-click class="dropped">
+<div
+  v-click
+  v-motion
+  :initial="{ opacity: 0, x: 50 }"
+  :enter="{ opacity: 1, x: 0, transition: { duration: 300 } }"
+  class="dropped">
   <carbon-close-outline class="text-gray-400 text-xl" />
   <span>Post-progression follow-up dropped (type=single)</span>
 </div>
