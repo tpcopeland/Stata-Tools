@@ -228,7 +228,7 @@ program define tvevent, rclass
             replace stop = `date' if _needs_split & _copy == 0
             replace start = `date' if _needs_split & _copy == 1
             drop _needs_split _copy
-            capture drop _merge
+            * Note: joinby does not create _merge (unlike merge command)
             sort `id' start stop
             duplicates drop `id' start stop, force
         }

@@ -1349,9 +1349,10 @@ program define tvexpose, rclass
     * NEW: Bridge small gaps within grace by extending previous period's stop
     * This ensures gaps <= grace are treated as the same episode (no uncovered days).
     * CRITICAL: Only apply grace within same exposure type to avoid incorrectly extending exposure labels
+    * FIX: Added exp_value == exp_value[_n+1] condition to enforce same-type bridging
     quietly by id : replace exp_stop = exp_start[_n+1] - 1 if _n < _N & id == id[_n+1] & ///
         __gap_days <= __grace_days & !missing(__gap_days) & !missing(exp_start[_n+1]) & ///
-        exp_stop < exp_start[_n+1] - 1
+        exp_stop < exp_start[_n+1] - 1 & exp_value == exp_value[_n+1]
     
     * Recompute gap duration after bridging so remaining gaps reflect true uncovered time
     quietly replace __gap_days = .
