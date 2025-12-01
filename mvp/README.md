@@ -113,3 +113,19 @@ mvp, graph(correlation) scheme(s1mono)
 * Save patterns
 mvp, save(patterns)  // frame in Stata 16+, .dta in 14-15
 ```
+
+## Author
+
+Timothy P Copeland<br>
+Department of Clinical Neuroscience<br>
+Karolinska Institutet
+
+Fork of mvpatterns by Jeroen Weesie (STB-61: dm91)
+
+## License
+
+MIT License - see LICENSE file for details
+
+## Version
+
+Version 1.2.0, 2025-12-01

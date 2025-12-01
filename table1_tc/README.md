@@ -437,8 +437,7 @@ The command can store the table in memory using the `clear` option, replacing th
 
 ## Version History
 
-- **Version 1.2** (13 June 2025): Enhanced Excel export, border customization, header percentages
-- **Version 1.0**: Initial fork from table1_mc version 3.5
+- **Version 1.0.0** (17 November 2025): GitHub publication release
 
 ## Author
 

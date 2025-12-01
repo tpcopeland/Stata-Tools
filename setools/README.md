@@ -262,7 +262,11 @@ MIT License - see LICENSE file for details
 
 ## Version
 
-Version 1.0.0, 2025-12-01
+Version 1.1.1, 2025-12-01
+
+Individual command versions:
+- migrations: 1.0.3
+- sustainedss: 1.1.1
 
 ## References
 

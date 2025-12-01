@@ -133,7 +133,13 @@ Timothy P Copeland<br>
 Department of Clinical Neuroscience<br>
 Karolinska Institutet
 
-Version 2.0 - 27 November 2025
+## License
+
+MIT License - see LICENSE file for details
+
+## Version
+
+Version 2.0, 2025-11-27
 
 ## See Also
 

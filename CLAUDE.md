@@ -1284,6 +1284,66 @@ if _rc {
 
 ---
 
+## CRITICAL: Always Update .pkg and stata.toc Files
+
+**IMPORTANT**: When modifying any package in this repository, you MUST update both the .pkg file and stata.toc file to ensure users get the latest version when they check for updates.
+
+### Required Updates for Every Change:
+
+1. **Update .pkg file** - Change the `Distribution-Date` field:
+   ```stata
+   d Distribution-Date: 20251201
+   ```
+   Use format: YYYYMMDD (e.g., 20251201 for December 1, 2025)
+
+2. **Verify stata.toc file** - Ensure it points to the correct package:
+   ```stata
+   v 1
+   d Stata-Tools: packagename
+   d Author Name, Institution, Location
+   d https://github.com/username/repository
+   p packagename
+   ```
+
+3. **Update version in .ado file header** if making code changes:
+   ```stata
+   *! commandname Version X.Y.Z  DDMonthYYYY
+   ```
+
+4. **Update version in .sthlp file** to match .ado:
+   ```smcl
+   {* *! version X.Y.Z  ddmonyyyy}{...}
+   ```
+
+5. **Update README.md version section** to match .ado version
+
+### Why This Matters:
+
+- Users run `net from URL` followed by `net install packagename`
+- Stata checks the Distribution-Date in the .pkg file to determine if an update is available
+- If the date isn't updated, users won't see that a new version exists
+- The stata.toc file is required for the `net from` command to work properly
+
+### Workflow:
+
+```stata
+* User checks for updates:
+net from https://raw.githubusercontent.com/username/repository/main/packagename
+net install packagename, replace
+
+* Stata compares Distribution-Date in .pkg with installed version
+* If date is newer, prompts user to update
+```
+
+**ALWAYS update Distribution-Date in .pkg when:**
+- Fixing bugs in .ado files
+- Updating .sthlp documentation
+- Modifying dialog files (.dlg)
+- Changing any package functionality
+- Updating README or examples
+
+---
+
 ## Distribution Checklist
 
 **Before releasing a package:**
@@ -1298,8 +1358,8 @@ if _rc {
 - [ ] Handles missing data properly
 - [ ] README with single-line installation
 - [ ] README follows tvtools format (badges, <br> in Author)
-- [ ] stata.toc file present
-- [ ] .pkg file with complete metadata
+- [ ] stata.toc file present and correct
+- [ ] .pkg file with complete metadata and CURRENT Distribution-Date
 - [ ] License file (MIT recommended)
 - [ ] Dialog spacing follows +15/+20/+25 rules
 - [ ] All Stata syntax verified (backticks, quotes, macros)
