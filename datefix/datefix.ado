@@ -54,11 +54,12 @@ program define datefix, rclass
 
 	* Validation: Validate df() option if specified
 	if "`df'" != "" {
-		* Check if it's a valid Stata date format
-		* Valid formats start with %t (for date/time formats)
-		if substr("`df'", 1, 2) != "%t" {
-			display as error "df(`df') is not a valid Stata date format"
-			display as error "Date formats must start with %t (e.g., %tdCCYY/NN/DD)"
+		* Check if it's a valid Stata daily date format
+		* Daily date formats start with %td
+		if substr("`df'", 1, 3) != "%td" {
+			display as error "df(`df') is not a valid Stata daily date format"
+			display as error "Daily date formats must start with %td (e.g., %tdCCYY/NN/DD)"
+			display as error "For datetime formats, consider using different tools"
 			exit 198
 		}
 		* Test the format validity

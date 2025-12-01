@@ -104,7 +104,7 @@ program define table1_tc, sclass
     if "`borderstyle'" == "" local borderstyle "default"
         
     /* Apply gurmeet preset if specified */
-    if `"`gurmeet'"' == "gurmeet" {
+    if "`gurmeet'" == "gurmeet" {
         // Preset combination of formatting options
         local percformat "%5.1f"       // Percentage format
         local percent_n "percent_n"    // Display as % (n)
