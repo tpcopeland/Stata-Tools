@@ -1,7 +1,7 @@
-*! tvexpose v1.0.0
+*! tvexpose v1.1.0
 *! Create time-varying exposure variables for survival analysis
 *! Author: Tim Copeland
-*! Date: 2025-11-17
+*! Date: 2025-12-01
 *! Program class: rclass (returns results in r())
 
 /*
@@ -766,52 +766,83 @@ program define tvexpose, rclass
     sort id exp_start exp_stop exp_value
     quietly gen double drop_flag = 0
     
-    * Iteratively merge periods until no more merging possible
-    * Need iteration because merging can create new adjacent periods to merge
-    * Use high iteration limit (10000) to handle highly fragmented administrative data
-    * (e.g., daily pharmacy records spanning many years)
+    * ===========================================================================
+    * ITERATIVE PERIOD MERGING ALGORITHM
+    * ===========================================================================
+    * Purpose: Merge exposure periods of the same type that are close in time
+    *
+    * Algorithm overview:
+    *   1. Find consecutive periods with same exposure value within `merge' days
+    *   2. Extend earlier period's stop date to cover later period
+    *   3. Mark subsumed periods for deletion
+    *   4. Repeat until no more mergeable periods exist
+    *
+    * Why iteration is needed:
+    *   - Single pass may miss chains: A→B→C where A+B merge, then AB+C should merge
+    *   - Example: periods [1-10], [12-20], [22-30] with merge(5)
+    *     Pass 1: [1-10] merges with [12-20] → [1-20]
+    *     Pass 2: [1-20] merges with [22-30] → [1-30]
+    *
+    * Performance considerations:
+    *   - High limit (10000) handles fragmented administrative data (e.g., daily rx claims)
+    *   - Most datasets converge in <10 iterations
+    *   - Progress indicator shown every 100 iterations for long-running cases
+    * ===========================================================================
     local changes = 1
     local iter = 0
     local max_merge_iter = 10000
+    local progress_interval = 100
+
     while `changes' > 0 & `iter' < `max_merge_iter' {
         local changes = 0
         quietly replace drop_flag = 0
-        
+
+        * Progress indicator for long-running merges
+        if `iter' > 0 & mod(`iter', `progress_interval') == 0 {
+            noisily display as text "  Merge iteration `iter' of `max_merge_iter' (processing...)"
+        }
+
         * Identify periods that can be merged (same type, close timing)
-        * Condition: next period starts <= merge days after current period ends
+        * Merge condition: same ID, same exposure value, gap <= merge() days
+        * The gap is calculated as: start[n+1] - stop[n], which is negative for overlaps
         quietly gen double can_merge = 0
         quietly by id (exp_start exp_stop): replace can_merge = 1 if ///
             (exp_start[_n+1] - exp_stop <= `merge') & ///
             !missing(exp_start[_n+1]) & ///
             (exp_value == exp_value[_n+1]) & ///
             (_n < _N) & id == id[_n+1]
-        
-        * Extend current period to cover next period
+
+        * Extend current period's stop date to encompass the next period
+        * Uses max() to handle overlapping periods correctly
         quietly by id: replace exp_stop = max(exp_stop, exp_stop[_n+1]) if can_merge == 1 & _n < _N & id == id[_n+1]
-        
-        * Mark next period for deletion ONLY if it's completely subsumed (contained within previous period)
-        * This ensures periods that extend beyond the previous period are kept for next iteration
+
+        * Mark next period for deletion ONLY if it's completely subsumed
+        * Subsumed = starts at or after previous start AND stops at or before previous stop
+        * Critical: periods extending beyond the merged stop must be kept for next iteration
         quietly by id: replace drop_flag = 1 if _n > 1 & id == id[_n-1] & can_merge[_n-1] == 1 & exp_start >= exp_start[_n-1] & exp_stop <= exp_stop[_n-1]
-        
-        * Count changes to determine if iteration needed
+
+        * Count changes to determine if another iteration needed
         quietly count if drop_flag == 1
         local changes = r(N)
-        
-        * Remove merged periods
+
+        * Remove merged (subsumed) periods
         if `changes' > 0 {
             quietly drop if drop_flag == 1
         }
-        
+
         quietly drop can_merge
         sort id exp_start exp_stop exp_value
         local iter = `iter' + 1
     }
-    
-    * Warn if iteration limit reached (may indicate incomplete merging)
+
+    * Report completion status
     if `iter' >= `max_merge_iter' {
-        noisily display as text "Warning: merge iteration limit (`max_merge_iter') reached"
+        noisily display as error "Warning: merge iteration limit (`max_merge_iter') reached"
         noisily display as text "         Some periods may not have been fully merged"
         noisily display as text "         Consider increasing merge() parameter or simplifying exposure data"
+    }
+    else if `iter' > `progress_interval' {
+        noisily display as text "  Merge completed after `iter' iterations"
     }
     
     quietly drop drop_flag
@@ -826,22 +857,48 @@ program define tvexpose, rclass
     quietly drop if is_dup == 1
     quietly drop is_dup
     
-    * Remove periods completely contained within another period of same type
-    * If period A is entirely within period B and same exposure type, A is redundant
-    * Iterative because removing A might reveal another contained period
-    * Use high iteration limit (10000) to handle highly fragmented data
+    * ===========================================================================
+    * ITERATIVE CONTAINED PERIOD REMOVAL
+    * ===========================================================================
+    * Purpose: Remove redundant periods that are fully contained within another
+    *          period of the same exposure type
+    *
+    * Definition of "contained":
+    *   Period B is contained in Period A if:
+    *   - Same person (id)
+    *   - Same exposure value
+    *   - B.start >= A.start AND B.stop <= A.stop
+    *
+    * Why iteration is needed:
+    *   - Removing period B might reveal that period C is now contained in A
+    *   - Example: A=[1-30], B=[5-25], C=[10-20] (all same exposure)
+    *     Pass 1: C contained in B → remove C
+    *     Pass 2: B contained in A → remove B
+    *     (Without iteration, B might shadow C's containment in A)
+    *
+    * Performance: Progress indicator shown every 100 iterations
+    * ===========================================================================
     quietly gen double contained = 0
     local iter = 0
     local done = 0
     local max_contain_iter = 10000
+    local progress_interval = 100
+
     while `done' == 0 & `iter' < `max_contain_iter' {
+        * Progress indicator for long-running containment checks
+        if `iter' > 0 & mod(`iter', `progress_interval') == 0 {
+            noisily display as text "  Containment check iteration `iter' of `max_contain_iter' (processing...)"
+        }
+
         quietly count if contained == 1
         if r(N) > 0 {
             quietly drop if contained == 1
             sort id exp_start exp_stop exp_value
         }
         local iter = `iter' + 1
-        * Mark periods that are fully within a previous period
+
+        * Mark periods that are fully within a previous period of same type
+        * Check: current period's boundaries fall entirely within previous period
         quietly replace contained = 0
         quietly by id: replace contained = 1 if exp_stop <= exp_stop[_n-1] & ///
                                         exp_start >= exp_start[_n-1] & ///
@@ -849,6 +906,15 @@ program define tvexpose, rclass
         quietly count if contained == 1
         if r(N) == 0 local done = 1
     }
+
+    * Report if many iterations were needed
+    if `iter' >= `max_contain_iter' {
+        noisily display as error "Warning: containment check iteration limit reached"
+    }
+    else if `iter' > `progress_interval' {
+        noisily display as text "  Containment check completed after `iter' iterations"
+    }
+
     quietly drop contained
     
     **# Step 2: Handle overlapping exposures
@@ -1200,12 +1266,36 @@ program define tvexpose, rclass
         drop priority_rank
     }
     
+    * ===========================================================================
+    * LAYER ALGORITHM: Sequential Precedence with Resumption
+    * ===========================================================================
+    * Purpose: Handle overlapping exposure periods with intuitive precedence
+    *
+    * Key concept - "Layering":
+    *   When exposure B starts while exposure A is active:
+    *   1. A is truncated to end just before B starts (pre-overlap segment)
+    *   2. B takes full precedence during the overlap
+    *   3. If A extended beyond B, A resumes after B ends (post-overlap segment)
+    *
+    * Visual example:
+    *   Before:  A: |-------------------| (days 1-20, exposure type 1)
+    *            B:      |-------|       (days 5-12, exposure type 2)
+    *
+    *   After:   A: |----|               (days 1-4, type 1 - pre-overlap)
+    *            B:      |-------|       (days 5-12, type 2 - takes precedence)
+    *            A:               |----| (days 13-20, type 1 - resumption)
+    *
+    * Why layer vs other strategies:
+    *   - split: Creates separate periods for every combination (exponential growth)
+    *   - priority: Static ordering, no resumption
+    *   - combine: Merges overlaps into new combined type
+    *   - layer: Preserves original types with natural chronological precedence
+    *
+    * Iteration is needed because splitting may create new overlaps to resolve
+    * ===========================================================================
     **# Layer option: Sequential precedence with resumption
-    * Later exposures take precedence in overlapping regions
-    * Earlier exposures "pause" during overlap and resume after if they extend beyond
-    * Creates intuitive sequential precedence without exponential splitting
     if "`layer'" != "" {
-        
+
         local changed = 1
         local iter = 0
         local max_iter = 10
@@ -1308,16 +1398,33 @@ program define tvexpose, rclass
         exit 2000
     }
 
+    * ===========================================================================
+    * STEP 3: GAP PERIOD CREATION (Reference/Unexposed Time)
+    * ===========================================================================
+    * Purpose: Fill gaps between exposure periods with reference (unexposed) time
+    *
+    * Why this matters for survival analysis:
+    *   - Cox models require continuous person-time from entry to exit
+    *   - Gaps in coverage would cause incorrect risk set calculations
+    *   - This ensures every day from study entry to exit is accounted for
+    *
+    * Gap handling with grace periods:
+    *   - Grace <= gap: periods are bridged (same episode)
+    *   - Grace > gap: gap filled with reference (unexposed) period
+    *   - Category-specific grace: different thresholds per exposure type
+    *
+    * Carryforward interaction:
+    *   - If carryforward(#) specified, gaps <= # days get previous exposure value
+    *   - Remaining gap time (if any) becomes reference category
+    *
+    * Complete person-time coverage requires three types of unexposed periods:
+    *   1. Gap periods (this step) - time between exposures
+    *   2. Baseline periods (Step 5) - time before first exposure
+    *   3. Post-exposure periods (Step 6) - time after last exposure
+    *
+    * Together, these ensure: sum(period_days) = study_exit - study_entry + 1
+    * ===========================================================================
     **# Step 3: Create gap periods (reference category for unexposed time)
-    * Automatically creates UNEXPOSED (reference) periods between exposures
-    * Between exposure periods, people are unexposed (reference category)
-    * Grace period parameter controls gap size threshold:
-    *   - Gaps <= grace_days: treated as same episode (merged)
-    *   - Gaps > grace_days: filled with reference (unexposed) period
-    * This is one of three automatic unexposed period types:
-    *   1. Gap periods (this step) - between exposures
-    *   2. Post-exposure periods (Step 6) - after last exposure
-    *   3. Baseline periods (Step 5, if requested) - before first exposure
     {
     quietly use `exp_cleaned', clear
     sort id exp_start
