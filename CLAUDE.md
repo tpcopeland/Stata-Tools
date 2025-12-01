@@ -150,6 +150,8 @@ f mycommand.ado
 f mycommand.sthlp
 ```
 
+**Note**: Increment `v 1` to `v 2`, `v 3`, etc. with each update (see "CRITICAL: Always Update .pkg and stata.toc Files" section below).
+
 ### stata.toc
 
 ```stata
@@ -159,6 +161,8 @@ d Your Name, Institution, Location
 d https://github.com/username/repository
 p mycommand
 ```
+
+**Note**: Version number must match the .pkg file. Increment with each update.
 
 ### README.md Template
 
@@ -1290,38 +1294,48 @@ if _rc {
 
 ### Required Updates for Every Change:
 
-1. **Update .pkg file** - Change the `Distribution-Date` field:
+1. **Increment version number in .pkg file** - Change `v [#]` by incrementing by 1:
    ```stata
+   v 2    // was v 1
+   d 'MYCOMMAND': Brief description
+   d
    d Distribution-Date: 20251201
    ```
-   Use format: YYYYMMDD (e.g., 20251201 for December 1, 2025)
+   **CRITICAL**: The `v [#]` line MUST increase by 1 with each update (v 1 → v 2 → v 3, etc.) unless otherwise specified in user instructions. This is how Stata detects that a newer version exists.
 
-2. **Verify stata.toc file** - Ensure it points to the correct package:
+2. **Increment version number in stata.toc file** - Must match the .pkg file version:
    ```stata
-   v 1
+   v 2    // was v 1 - MUST match .pkg version number
    d Stata-Tools: packagename
    d Author Name, Institution, Location
    d https://github.com/username/repository
    p packagename
    ```
 
-3. **Update version in .ado file header** if making code changes:
+3. **Update Distribution-Date in .pkg file**:
+   ```stata
+   d Distribution-Date: 20251201
+   ```
+   Use format: YYYYMMDD (e.g., 20251201 for December 1, 2025)
+
+4. **Update version in .ado file header** if making code changes:
    ```stata
    *! commandname Version X.Y.Z  DDMonthYYYY
    ```
 
-4. **Update version in .sthlp file** to match .ado:
+5. **Update version in .sthlp file** to match .ado:
    ```smcl
    {* *! version X.Y.Z  ddmonyyyy}{...}
    ```
 
-5. **Update README.md version section** to match .ado version
+6. **Update README.md version section** to match .ado version
 
 ### Why This Matters:
 
 - Users run `net from URL` followed by `net install packagename`
-- Stata checks the Distribution-Date in the .pkg file to determine if an update is available
-- If the date isn't updated, users won't see that a new version exists
+- Stata uses BOTH the `v [#]` version number AND the Distribution-Date to determine if an update is available
+- If the `v [#]` version number is not incremented, existing installations will NOT recognize the update
+- The .pkg and stata.toc files MUST have matching `v [#]` version numbers
 - The stata.toc file is required for the `net from` command to work properly
 
 ### Workflow:
@@ -1331,16 +1345,17 @@ if _rc {
 net from https://raw.githubusercontent.com/username/repository/main/packagename
 net install packagename, replace
 
-* Stata compares Distribution-Date in .pkg with installed version
-* If date is newer, prompts user to update
+* Stata compares BOTH version number (v [#]) AND Distribution-Date in .pkg with installed version
+* If either is newer, prompts user to update
 ```
 
-**ALWAYS update Distribution-Date in .pkg when:**
+**ALWAYS increment v [#] AND update Distribution-Date in both .pkg and stata.toc when:**
 - Fixing bugs in .ado files
 - Updating .sthlp documentation
 - Modifying dialog files (.dlg)
 - Changing any package functionality
 - Updating README or examples
+- Making ANY changes that users should receive
 
 ---
 
@@ -1358,8 +1373,9 @@ net install packagename, replace
 - [ ] Handles missing data properly
 - [ ] README with single-line installation
 - [ ] README follows tvtools format (badges, <br> in Author)
-- [ ] stata.toc file present and correct
-- [ ] .pkg file with complete metadata and CURRENT Distribution-Date
+- [ ] stata.toc file present with correct version number (v [#])
+- [ ] .pkg file with matching version number (v [#]), complete metadata, and CURRENT Distribution-Date
+- [ ] Version numbers in .pkg and stata.toc are INCREMENTED from previous release
 - [ ] License file (MIT recommended)
 - [ ] Dialog spacing follows +15/+20/+25 rules
 - [ ] All Stata syntax verified (backticks, quotes, macros)
