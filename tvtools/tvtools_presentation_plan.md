@@ -2,344 +2,333 @@
 
 ## Presentation Overview
 
-**Title:** From Static to Dynamic: Time-Varying Exposure Analysis with tvtools
+**Title:** The Time-Varying Problem in MS Research: How tvtools Prevents the Biases That Haunt Our Papers
 
-**Duration:** 15 minutes
+**Duration:** 15-20 minutes (expandable to 30 with discussion)
 
-**Target Audience:** Epidemiologists, biostatisticians, and health researchers familiar with Stata survival analysis
+**Target Audience:** PhD students, postdocs, and faculty in neuroepidemiology and MS research; familiar with Stata survival analysis and registry-based studies
 
-**Key Message:** tvtools transforms complex time-varying exposure data into analysis-ready datasets through an intuitive three-command workflow
+**Key Message:** Time-varying exposure analysis isn't optional in MS pharmacoepidemiology—it's essential for avoiding immortal time bias and capturing treatment dynamics. tvtools makes it tractable.
+
+---
+
+## The Problem This Solves (Why Your Audience Should Care)
+
+### For MS Researchers Specifically:
+
+1. **Immortal Time Bias** - The silent killer of observational DMT studies
+   - Patients must survive until treatment initiation to be "treated"
+   - Naively assigning baseline exposure creates spurious protective effects
+   - Published studies have been retracted or heavily criticized for this
+
+2. **Treatment Switching is the Norm, Not the Exception**
+   - Escalation therapy: Platform → High-efficacy after breakthrough
+   - Lateral switching: Tolerability issues, pregnancy planning
+   - De-escalation: Age, infection risk, stable disease
+   - Registry data captures this complexity—our methods must too
+
+3. **Cumulative Exposure Matters**
+   - Is 5 years on natalizumab different from 2 years?
+   - What about total time immunosuppressed?
+   - Duration-response relationships require time-varying approaches
+
+4. **Competing Risks are Ubiquitous**
+   - Death competes with disability progression
+   - Emigration, pregnancy, and treatment discontinuation
+   - Ignoring competing risks biases effect estimates
 
 ---
 
 ## Presentation Structure
 
-### Act 1: The Problem (3 minutes)
+### Act 1: The Problem (4 minutes)
 
 #### Slide 1: Title Slide (30 sec)
-- **Title:** From Static to Dynamic: Time-Varying Exposure Analysis with tvtools
-- **Subtitle:** A Stata toolkit for survival analysis with time-varying exposures
-- **Visual:** Animated rows expanding/splitting
+- **Title:** The Time-Varying Problem in MS Research
+- **Subtitle:** How tvtools Prevents the Biases That Haunt Our Papers
+- **Visual:** Brain with timeline showing DMT transitions
 
-#### Slide 2: The Challenge (1 min)
-- **Hook:** "Your patient starts Treatment A, switches to B, then back to A. How do you model this?"
-- **Problem statement:** Traditional survival analysis assumes fixed exposures at baseline
-- **Reality:**
-  - Medications change over time
-  - Comorbidities develop
-  - Exposures accumulate
-- **Visual:** Static single row → question mark
+#### Slide 2: The Scenario We All Know (1.5 min)
+- **Hook:** "Anna is diagnosed with RRMS at age 32. She starts on interferon, switches to fingolimod after two relapses, then escalates to natalizumab. She develops EDSS progression at year 8. Which treatment failed her?"
+- **The uncomfortable truth:**
+  - If we analyze by "ever-exposed to natalizumab" → natalizumab looks protective (she survived long enough to get it)
+  - If we use baseline treatment → we're comparing different disease severities
+  - If we ignore switching → we're not measuring what we think we're measuring
+- **Visual:** Patient timeline showing the treatment journey
 
-#### Slide 3: What We Need (1 min)
-- **Goal:** Transform this...
+#### Slide 3: The Immortal Time Bias Problem (1.5 min)
+- **The classic error:** Assigning treatment status based on eventual exposure
+- **Diagram showing:**
+  ```
+  WRONG: Person starts as "treated" at study entry
+  ┌─────────────────────────────────────────────────┐
+  │ "Treated"                                       │
+  │ t=0────────────────────────────────────────►    │
+  └─────────────────────────────────────────────────┘
 
-```
-ID | Entry    | Exit     | Treatment
-1  | 2020-01  | 2025-01  | A
-```
+  RIGHT: Person is unexposed until treatment starts
+  ┌───────────┬─────────────────────────────────────┐
+  │ Unexposed │ Treated                             │
+  │ t=0───────┼─────────────────────────────────────►
+  └───────────┴─────────────────────────────────────┘
+              ↑
+         Treatment initiation (must survive to reach this)
+  ```
+- **Reference:** Suissa S. Immortal time bias in pharmacoepidemiology. AJE 2008.
+- **MS-specific examples:** Multiple high-profile DMT studies criticized for this
 
-...into this:
+#### Slide 4: What We Actually Need (30 sec)
+- **Goal:** Transform registry data into analysis-ready time-varying datasets
+- **Challenges:**
+  - Multiple concurrent exposures (DMT + comorbidity treatments)
+  - Event dates that split intervals
+  - Competing risks (death, emigration)
+  - Cumulative duration calculations
+- **tvtools:** Three commands that handle all of this
 
-```
-ID | Start    | Stop     | Treatment | Event
-1  | 2020-01  | 2021-06  | None      | 0
-1  | 2021-06  | 2022-03  | A         | 0
-1  | 2022-03  | 2023-01  | B         | 0
-1  | 2023-01  | 2024-08  | A         | 0
-1  | 2024-08  | 2025-01  | A         | 1
-```
+---
 
-- **Visual:** Animated transition showing one row "exploding" into multiple time periods
-- **Point:** This is what tvtools does automatically
+### Act 2: The Solution (8-10 minutes)
 
-#### Slide 4: The tvtools Solution (30 sec)
+#### Slide 5: The tvtools Workflow (1 min)
 - **Three integrated commands:**
-  1. `tvexpose` - Create time-varying exposures
-  2. `tvmerge` - Combine multiple exposures
-  3. `tvevent` - Integrate outcomes & competing risks
 
-- **Visual:** Workflow diagram with arrows
+| Command | Purpose | MS Example |
+|---------|---------|------------|
+| `tvexpose` | Create time-varying intervals | DMT exposure periods → TV dataset |
+| `tvmerge` | Combine multiple exposures | DMT + comorbidities → single dataset |
+| `tvevent` | Integrate outcomes | EDSS progression + death → failure flags |
 
----
+- **Visual:** Flowchart with Swedish MS Registry icon feeding into the pipeline
 
-### Act 2: The Workflow Demo (9 minutes)
-
-#### Slide 5: Meet Our Data (1 min)
-- **Dataset descriptions:**
-  - `cohort.dta`: 1,000 MS patients with study entry/exit, demographics, outcomes
-  - `hrt.dta`: Hormone replacement therapy periods (type, dates, dose)
-  - `dmt.dta`: Disease-modifying therapy periods (6 treatment types)
-
-- **Research question:** "Does DMT exposure reduce disability progression, accounting for death as a competing risk?"
-
-- **Visual:** Three data icons representing the datasets
-
----
-
-#### Slide 6: Step 1 - tvexpose Introduction (30 sec)
-- **Purpose:** Transform raw exposure periods into time-varying format
-- **Key insight:** Creates intervals where exposure status is constant
-
-```stata
-use cohort, clear
-
-tvexpose using dmt, id(id) start(dmt_start) stop(dmt_stop) ///
-    exposure(dmt) reference(0) ///
-    entry(study_entry) exit(study_exit)
-```
-
-- **Visual:** Code with syntax highlighting
-
-#### Slide 7: tvexpose - The Transformation (1.5 min)
-- **Before:** Raw DMT prescription data
+#### Slide 6: tvexpose - The Core Transformation (1.5 min)
+- **Research scenario:** Analyzing DMT effectiveness from Swedish MS Registry
+- **Input:** Raw prescription data
 
 ```
-ID | dmt_start | dmt_stop  | dmt
-1  | 2020-03   | 2021-08   | 2 (Interferon)
-1  | 2022-01   | 2024-06   | 4 (Natalizumab)
+id │ dmt_start  │ dmt_stop   │ dmt
+───┼────────────┼────────────┼─────────────────
+ 1 │ 2015-03-01 │ 2017-08-15 │ 1 (Interferon)
+ 1 │ 2018-01-10 │ 2022-06-30 │ 4 (Natalizumab)
 ```
 
-- **After:** Time-varying intervals
-
-```
-ID | start     | stop      | tv_exposure
-1  | 2019-01   | 2020-03   | 0 (Unexposed)
-1  | 2020-03   | 2021-08   | 2 (Interferon)
-1  | 2021-08   | 2022-01   | 0 (Unexposed)
-1  | 2022-01   | 2024-06   | 4 (Natalizumab)
-1  | 2024-06   | 2025-01   | 0 (Unexposed)
-```
-
-- **Visual:** Animated transformation with rows appearing sequentially
-- **Key point:** Gaps automatically filled with reference category
-
-#### Slide 8: tvexpose - Exposure Definitions (1.5 min)
-- **Multiple ways to define exposure:**
-
-| Definition | Use Case | Code |
-|------------|----------|------|
-| Basic | Standard time-varying | `[no option]` |
-| Ever-treated | Immortal time bias | `evertreated` |
-| Current/Former | Active vs past effects | `currentformer` |
-| Duration | Cumulative dose-response | `duration(1 5 10)` |
-| Continuous | Continuous predictor | `continuousunit(years)` |
-
-- **Example: Current vs Former DMT**
-
-```stata
-tvexpose using dmt, id(id) start(dmt_start) stop(dmt_stop) ///
-    exposure(dmt) reference(0) ///
-    entry(study_entry) exit(study_exit) ///
-    currentformer generate(dmt_status)
-```
-
-- **Result:** 0=Never, 1=Currently on DMT, 2=Formerly on DMT
-- **Visual:** Three-state diagram showing transitions
-
-#### Slide 9: tvexpose - Advanced Features (1 min)
-- **Grace periods:** Treat brief gaps as continuous exposure
-
-```stata
-grace(30)  // 30-day gaps become continuous
-```
-
-- **Lag/washout:** Model delayed onset and persistent effects
-
-```stata
-lag(30) washout(90)  // 30-day delay, 90-day persistence
-```
-
-- **Switching tracking:** Identify treatment changes
-
-```stata
-switching switchingdetail  // Creates pattern variable
-```
-
-- **Visual:** Timeline showing lag and washout visually
-
----
-
-#### Slide 10: Step 2 - tvmerge Introduction (30 sec)
-- **Purpose:** Combine multiple time-varying exposures
-- **Challenge:** HRT and DMT periods don't align - how to merge?
-- **Solution:** Temporal Cartesian product - creates all intersections
-
-#### Slide 11: tvmerge - The Merge Process (1.5 min)
-- **Setup:** Create two tvexpose outputs
-
-```stata
-* HRT time-varying dataset
-use cohort, clear
-tvexpose using hrt, id(id) start(rx_start) stop(rx_stop) ///
-    exposure(hrt_type) reference(0) ///
-    entry(study_entry) exit(study_exit) ///
-    saveas(tv_hrt.dta) replace
-
-* DMT time-varying dataset
-use cohort, clear
-tvexpose using dmt, id(id) start(dmt_start) stop(dmt_stop) ///
-    exposure(dmt) reference(0) ///
-    entry(study_entry) exit(study_exit) ///
-    saveas(tv_dmt.dta) replace
-```
-
-- **Merge:**
-
-```stata
-tvmerge tv_hrt tv_dmt, id(id) ///
-    start(rx_start dmt_start) stop(rx_stop dmt_stop) ///
-    exposure(tv_exposure tv_exposure) ///
-    generate(hrt dmt_type)
-```
-
-- **Visual:** Two timelines merging into one with intersection points highlighted
-
-#### Slide 12: tvmerge - Result Visualization (1 min)
-- **Before merge:** Two separate timelines
-
-```
-HRT:  |---None---|--Estrogen--|---None---|
-DMT:  |--None--|---IFN---|---None---|--NTZ--|
-```
-
-- **After merge:** Combined intervals
-
-```
-      |--0,0--|--0,IFN--|--E,IFN--|--E,0--|--0,0--|--0,NTZ--|
-```
-
-- **Output structure:**
-
-```
-ID | start     | stop      | hrt | dmt_type
-1  | 2020-01   | 2020-06   | 0   | 0
-1  | 2020-06   | 2021-03   | 0   | 2
-1  | 2021-03   | 2021-09   | 1   | 2
-1  | 2021-09   | 2022-04   | 1   | 0
-1  | 2022-04   | 2023-01   | 0   | 0
-1  | 2023-01   | 2025-01   | 0   | 4
-```
-
-- **Visual:** Animated splitting showing how periods divide at boundaries
-
----
-
-#### Slide 13: Step 3 - tvevent Introduction (30 sec)
-- **Purpose:** Integrate outcomes and competing risks
-- **Challenge:** Events occur mid-interval - need to split!
-- **Key task:** Create analysis-ready failure indicator
-
-#### Slide 14: tvevent - Event Integration (1.5 min)
 - **Code:**
 
 ```stata
-tvevent using cohort, id(id) date(edss4_dt) compete(death_dt) ///
-    generate(outcome) type(single)
+use ms_cohort, clear
+
+tvexpose using dmt_prescriptions, ///
+    id(patient_id) start(dmt_start) stop(dmt_stop) ///
+    exposure(dmt) reference(0) ///
+    entry(ms_diagnosis_date) exit(study_exit_date)
 ```
 
-- **What happens:**
-  1. Identifies earliest event (progression vs death)
-  2. Splits interval if event occurs mid-period
-  3. Flags the event type
-  4. Drops post-event follow-up (for `type(single)`)
+- **Output:** Complete timeline with gaps filled
 
+```
+id │ start      │ stop       │ tv_exposure
+───┼────────────┼────────────┼─────────────────
+ 1 │ 2014-01-15 │ 2015-03-01 │ 0 (Unexposed)
+ 1 │ 2015-03-01 │ 2017-08-15 │ 1 (Interferon)
+ 1 │ 2017-08-15 │ 2018-01-10 │ 0 (Unexposed)
+ 1 │ 2018-01-10 │ 2022-06-30 │ 4 (Natalizumab)
+ 1 │ 2022-06-30 │ 2023-12-31 │ 0 (Unexposed)
+```
+
+#### Slide 7: tvexpose - Exposure Definitions for MS Research (1.5 min)
+- **Different research questions need different exposure definitions:**
+
+| Research Question | tvexpose Option | Output |
+|-------------------|-----------------|--------|
+| Ever-treated vs never-treated | `evertreated` | Binary 0/1, switches permanently at first exposure |
+| Current vs former DMT use | `currentformer` | 0=Never, 1=Current, 2=Former |
+| Cumulative years on DMT | `continuousunit(years)` | Continuous: 0, 0.5, 1.2, 2.8, ... |
+| Duration categories | `duration(1 5)` | Categories: <1yr, 1-5yr, ≥5yr |
+| Time since last exposure | `recency(1 5)` | Current, <1yr ago, 1-5yr ago, ≥5yr ago |
+
+- **Example: Current/Former DMT analysis**
+
+```stata
+tvexpose using dmt_prescriptions, ///
+    id(patient_id) start(dmt_start) stop(dmt_stop) ///
+    exposure(dmt) reference(0) ///
+    entry(ms_diagnosis_date) exit(study_exit_date) ///
+    currentformer generate(dmt_status)
+```
+
+- **Why this matters:** Distinguishes active treatment effect from residual protection
+
+#### Slide 8: tvexpose - Handling Real-World Data Messiness (1 min)
+- **Prescription gaps:** `grace(30)` - Treat 30-day gaps as continuous
+- **Delayed onset:** `lag(30)` - DMT doesn't work instantly
+- **Washout effects:** `washout(90)` - Effects persist after stopping
+- **Treatment switching:** `switching switchingdetail` - Track patterns
+
+```stata
+tvexpose using dmt_prescriptions, ///
+    id(patient_id) start(dmt_start) stop(dmt_stop) ///
+    exposure(dmt) reference(0) ///
+    entry(ms_diagnosis_date) exit(study_exit_date) ///
+    grace(30) lag(14) washout(90) ///
+    switching switchingdetail
+```
+
+- **The switching pattern variable captures:** "0→1→4→0" (None → IFN → NTZ → None)
+
+#### Slide 9: tvmerge - When Multiple Exposures Matter (1.5 min)
+- **MS-relevant scenario:** DMT + Oral contraceptive use in pregnancy studies
+- **Or:** DMT + Antidepressant for fatigue/depression outcomes
+- **Or:** Multiple DMT types (high-efficacy vs platform categorization)
+
+```stata
+* Create separate time-varying datasets
+use ms_cohort, clear
+tvexpose using dmt, ... saveas(tv_dmt.dta) replace
+
+use ms_cohort, clear
+tvexpose using oc_prescriptions, ... saveas(tv_oc.dta) replace
+
+* Merge them - creates all temporal intersections
+tvmerge tv_dmt tv_oc, id(patient_id) ///
+    start(start start) stop(stop stop) ///
+    exposure(tv_exposure tv_exposure) ///
+    generate(dmt oc_use)
+```
+
+- **Visual:** Two overlapping timelines → merged timeline with all boundaries
+
+#### Slide 10: tvmerge - The Temporal Cartesian Product (1 min)
+- **What happens:**
+
+```
+DMT:    |───None───|──IFN──|────None────|──NTZ──|
+OC:     |────No────|────Yes─────|────No─────────|
+        ↓ Merge at all boundaries ↓
+Result: |─0,No─|─0,Yes─|─IFN,Yes─|─0,Yes─|─0,No─|─NTZ,No─|
+```
+
+- **Output:** Every possible combination, perfectly aligned
+- **Key insight:** Exposure status is now defined for every moment of follow-up
+
+#### Slide 11: tvevent - Integrating Outcomes (1.5 min)
+- **The final step:** Add events and competing risks
+- **MS-specific scenario:** EDSS progression with death as competing risk
+
+```stata
+tvevent using ms_cohort, ///
+    id(patient_id) date(edss4_date) ///
+    compete(death_date emigration_date) ///
+    eventlabel(0 "Censored" 1 "EDSS Progression" 2 "Death" 3 "Emigration") ///
+    generate(outcome)
+```
+
+- **What tvevent does:**
+  1. Finds the earliest event (progression vs death vs emigration)
+  2. Splits the interval if event occurs mid-period
+  3. Flags the event type (outcome = 1, 2, or 3)
+  4. Truncates follow-up at the event
+
+#### Slide 12: tvevent - Interval Splitting (1 min)
 - **Before tvevent:**
 
 ```
-ID | start     | stop      | hrt | dmt
-1  | 2023-01   | 2025-01   | 0   | 4
+id │ start      │ stop       │ dmt
+───┼────────────┼────────────┼────────
+ 1 │ 2020-01-01 │ 2023-12-31 │ 4 (NTZ)
 ```
 
-- **Event occurs:** 2024-03 (EDSS progression)
+- **Event occurs:** EDSS progression on 2022-06-15
 
 - **After tvevent:**
 
 ```
-ID | start     | stop      | hrt | dmt | outcome
-1  | 2023-01   | 2024-03   | 0   | 4   | 1 (Event!)
+id │ start      │ stop       │ dmt     │ outcome
+───┼────────────┼────────────┼─────────┼────────
+ 1 │ 2020-01-01 │ 2022-06-15 │ 4 (NTZ) │ 1 (Progression)
 ```
 
-- **Visual:** Timeline with event marker, showing truncation
-
-#### Slide 15: tvevent - Competing Risks (1 min)
-- **Multiple competing events:**
-
-```stata
-tvevent using cohort, id(id) date(edss4_dt) ///
-    compete(death_dt emigration_dt) ///
-    eventlabel(0 "Censored" 1 "Progression" 2 "Death" 3 "Emigrated") ///
-    generate(status)
-```
-
-- **Outcome coding:**
-  - 0 = Censored
-  - 1 = Primary event (EDSS progression)
-  - 2 = Death (competing)
-  - 3 = Emigration (competing)
-
-- **Visual:** Branching tree showing possible outcomes
+- **Post-event follow-up dropped** (for single events)
+- **Continuous variables adjusted** proportionally if specified
 
 ---
 
-### Act 3: Analysis & Wrap-up (3 minutes)
+### Act 3: The Analysis (3-4 minutes)
 
-#### Slide 16: Complete Workflow (1 min)
-- **Full pipeline in one view:**
+#### Slide 13: The Complete Workflow (1 min)
+- **Full pipeline:**
 
 ```stata
-* Step 1: Create time-varying exposures
-use cohort, clear
-tvexpose using hrt, ... saveas(tv_hrt.dta) replace
+* Step 1: Create time-varying DMT
+use ms_cohort, clear
+tvexpose using dmt, id(patient_id) start(dmt_start) stop(dmt_stop) ///
+    exposure(dmt) reference(0) ///
+    entry(ms_diagnosis_date) exit(study_exit_date) ///
+    keepvars(age_at_onset sex ms_type edss_baseline) ///
+    saveas(tv_dmt.dta) replace
 
-use cohort, clear
-tvexpose using dmt, ... saveas(tv_dmt.dta) replace
-
-* Step 2: Merge exposures
-tvmerge tv_hrt tv_dmt, ...
-    generate(hrt dmt_type)
-
-* Step 3: Integrate events
-tvevent using cohort, id(id) date(edss4_dt) compete(death_dt) ///
+* Step 2: Integrate events with competing risks
+tvevent using ms_cohort, id(patient_id) ///
+    date(edss4_date) compete(death_date) ///
     generate(outcome)
 
-* Step 4: Survival analysis
-stset stop, id(id) failure(outcome==1) enter(start)
-stcrreg i.hrt i.dmt_type, compete(outcome==2)
+* Step 3: Survival analysis
+stset stop, id(patient_id) failure(outcome==1) enter(start)
+stcrreg i.tv_exposure age_at_onset i.sex i.ms_type edss_baseline, ///
+    compete(outcome==2)
 ```
 
-- **Visual:** Flowchart with data transformation at each step
-
-#### Slide 17: The Payoff - Results (1 min)
-- **stcrreg output:** (example hazard ratios)
+#### Slide 14: The Results That Matter (1.5 min)
+- **Example results (clinically plausible effect sizes):**
 
 ```
-                        SHR    [95% CI]       P
-hrt
-  Estrogen only        0.89   [0.72-1.10]   0.284
-  Combined HRT         0.76   [0.58-0.99]   0.042
+Competing-risks regression                        No. of obs     = 45,832
+                                                  No. failed     =  2,847
+                                                  No. competing  =    612
 
-dmt_type
-  Interferon beta      0.65   [0.51-0.83]   0.001
-  Glatiramer           0.71   [0.54-0.93]   0.013
-  Natalizumab          0.42   [0.29-0.61]  <0.001
-  Fingolimod           0.53   [0.38-0.74]  <0.001
+──────────────────────────────────────────────────────────────────────────
+                           │     SHR    [95% CI]           P>|z|
+───────────────────────────┼──────────────────────────────────────────────
+DMT (vs Unexposed)         │
+  Platform therapies       │    0.82    [0.71, 0.95]       0.008
+  Moderate-efficacy        │    0.68    [0.56, 0.82]      <0.001
+  High-efficacy            │    0.51    [0.41, 0.63]      <0.001
+                           │
+Age at onset               │    1.02    [1.01, 1.03]      <0.001
+Female                     │    0.89    [0.80, 0.99]       0.032
+PPMS (vs RRMS)             │    1.74    [1.48, 2.05]      <0.001
+Baseline EDSS              │    1.31    [1.25, 1.37]      <0.001
+──────────────────────────────────────────────────────────────────────────
 ```
 
-- **Key insight:** Properly accounting for time-varying exposure reveals true effects
-- **Visual:** Forest plot of hazard ratios
+- **Key insight:** High-efficacy DMTs show ~50% reduction in progression risk
+- **This is what proper time-varying analysis reveals**
 
-#### Slide 18: Key Takeaways (30 sec)
-- **Three commands, one workflow:**
-  - `tvexpose`: Raw data → time-varying intervals
-  - `tvmerge`: Multiple exposures → synchronized dataset
-  - `tvevent`: Add outcomes → analysis-ready data
+#### Slide 15: What Goes Wrong Without This (1 min)
+- **Common errors and their consequences:**
 
-- **Benefits:**
-  - Handles complex exposure patterns automatically
-  - Supports competing risks out of the box
-  - Integrates seamlessly with `stset`/`stcox`/`stcrreg`
+| Error | Consequence | Magnitude |
+|-------|-------------|-----------|
+| Baseline exposure only | Misclassification bias | Attenuates toward null |
+| Ever-treated without time-varying | Immortal time bias | Spurious protection (can be 2-3x) |
+| Ignoring switching | Treatment assigned to wrong periods | Direction unpredictable |
+| No competing risks | Informative censoring | Overestimates effect |
 
-#### Slide 19: Installation & Resources (30 sec)
+- **Reference:** Example studies that got this wrong (don't name names, just cite methodology papers)
+
+---
+
+### Act 4: Wrap-up (2 minutes)
+
+#### Slide 16: Key Takeaways (1 min)
+1. **Time-varying analysis is mandatory** for DMT effectiveness studies
+2. **tvtools handles the complexity** so you don't have to
+3. **Three-command workflow:**
+   - `tvexpose`: Raw data → time-varying intervals
+   - `tvmerge`: Multiple exposures → synchronized dataset
+   - `tvevent`: Add outcomes → analysis-ready data
+4. **Integrates seamlessly** with stset, stcox, stcrreg
+
+#### Slide 17: Installation & Resources (30 sec)
 
 ```stata
 net install tvtools, from(https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/tvtools)
@@ -348,63 +337,97 @@ help tvexpose
 help tvmerge
 help tvevent
 
-db tvexpose  // GUI interface
+* GUI interfaces available
+db tvexpose
+db tvmerge
+db tvevent
 ```
 
-- **Documentation:** Full examples in help files
-- **Visual:** QR code to GitHub repo
-
-#### Slide 20: Thank You / Questions
+#### Slide 18: Questions / Discussion (flexible)
 - **Contact info**
-- **Visual:** Animated tvtools logo
+- **GitHub repository**
+- **Offer to help with specific projects**
+
+---
+
+## Anticipated Questions & Answers
+
+### Methodological Questions
+
+**Q: How does this compare to manual stsplit?**
+A: tvtools automates the entire pipeline and handles edge cases (gaps, overlaps, competing risks) that require significant manual coding with stsplit. It also preserves data integrity through the entire workflow.
+
+**Q: What about time-varying confounders?**
+A: tvmerge can combine any number of time-varying exposures. Create separate tvexpose outputs for each confounder, then merge them all together.
+
+**Q: Can I do marginal structural models with this?**
+A: Yes. tvtools creates the time-varying dataset structure needed for MSM. You'd then apply IPTW using the time-varying exposure and confounder values.
+
+**Q: How does it handle missing data?**
+A: Exposure periods with missing dates are excluded with warnings. You should handle missingness before running tvtools.
+
+### MS-Specific Questions
+
+**Q: Can I analyze treatment sequencing (first-line → second-line)?**
+A: Yes. Use the `switching` and `switchingdetail` options to track patterns. You can also create separate exposure variables for each line of therapy.
+
+**Q: What about analyzing by DMT class rather than individual drugs?**
+A: Recode your exposure variable before running tvexpose, or use the output and recode afterward. The package is flexible about how you define exposure categories.
+
+**Q: How do I handle patients who were on DMT before study entry?**
+A: This is a left-truncation issue. Set your `entry()` date appropriately and consider using `evertreated` which captures prior exposure.
+
+**Q: What about relapses as outcomes (recurrent events)?**
+A: Use `tvevent` with `type(recurring)` to retain all follow-up time after events. This creates data suitable for recurrent event models.
+
+### Practical Questions
+
+**Q: How long does this take to run on large datasets?**
+A: For typical registry datasets (10,000-50,000 patients), each command runs in seconds to a few minutes. The `batch()` option in tvmerge optimizes memory usage for very large datasets.
+
+**Q: Can I use this with SMSreg data?**
+A: Absolutely. The examples use data structures similar to Swedish MS Registry exports. You'll need to map your variable names to the command options.
+
+**Q: Is there a dialog/GUI interface?**
+A: Yes. Run `db tvexpose`, `db tvmerge`, or `db tvevent` for point-and-click interfaces.
 
 ---
 
 ## Visual Design Notes
 
-### Key Animations
+### Color Scheme (MS-Friendly)
+- **Unexposed:** Gray (#9CA3AF)
+- **Platform DMTs:** Blue (#3B82F6) - interferon, glatiramer
+- **Moderate-efficacy:** Purple (#8B5CF6) - fingolimod, dimethyl fumarate
+- **High-efficacy:** Orange (#F97316) - natalizumab, alemtuzumab, ocrelizumab
+- **Events:** Red (#EF4444)
+- **Code blocks:** Dark background with syntax highlighting
 
-1. **Row Explosion Effect** (Slides 3, 7, 12)
-   - One static row transforms into multiple time-varying rows
-   - Use fade-in with stagger effect
-   - Color-code different exposure states
-
-2. **Timeline Merge Animation** (Slides 11, 12)
-   - Two parallel timelines
-   - Vertical lines drop at intersection points
-   - New combined timeline emerges below
-
-3. **Event Splitting Animation** (Slide 14)
-   - Timeline with event marker dropping in
-   - Interval visibly "cuts" at event point
-   - Post-event portion fades/drops away
-
-### Color Scheme
-
-- **Unexposed:** Light gray (#E0E0E0)
-- **Exposure Type A:** Blue (#2196F3)
-- **Exposure Type B:** Orange (#FF9800)
-- **Events:** Red marker (#F44336)
-- **Code blocks:** Dark background (#1E1E1E) with syntax highlighting
+### Key Visuals to Create
+1. **Patient journey timeline** - Anna's story with treatment transitions
+2. **Immortal time bias diagram** - Side-by-side comparison
+3. **Timeline merge animation** - Two exposures combining
+4. **Interval splitting animation** - Event cutting through a period
+5. **Results forest plot** - DMT effectiveness estimates
 
 ### Typography
-
-- **Headings:** Bold, clean sans-serif
-- **Code:** Monospace (Fira Code or similar)
-- **Body:** Clear, readable at presentation distance
+- **Headings:** Bold, clean (avoid clinical/sterile fonts)
+- **Code:** Fira Code or similar monospace
+- **Data tables:** Aligned monospace for clarity
 
 ---
 
-## Timing Guide
+## Timing Guide (20-minute version)
 
 | Section | Slides | Duration |
 |---------|--------|----------|
-| The Problem | 1-4 | 3:00 |
-| tvexpose Demo | 5-9 | 4:30 |
-| tvmerge Demo | 10-12 | 3:00 |
-| tvevent Demo | 13-15 | 2:30 |
-| Wrap-up | 16-20 | 2:00 |
-| **Total** | **20** | **15:00** |
+| The Problem (MS-specific) | 1-4 | 4:00 |
+| tvexpose Demo | 5-8 | 5:00 |
+| tvmerge Demo | 9-10 | 2:30 |
+| tvevent Demo | 11-12 | 2:30 |
+| Complete Workflow & Results | 13-15 | 4:00 |
+| Wrap-up | 16-18 | 2:00 |
+| **Total** | **18** | **20:00** |
 
 ---
 
@@ -412,123 +435,172 @@ db tvexpose  // GUI interface
 
 ### Key Points to Emphasize
 
-1. **Slide 3:** The transformation visual is the "aha moment" - spend time here
-2. **Slide 7:** Emphasize that gaps are automatically handled
-3. **Slide 12:** The temporal Cartesian product is unique and powerful
-4. **Slide 14:** Event splitting is automatic and preserves data integrity
-5. **Slide 17:** The statistical results justify the methodology
+1. **Slide 3 (Immortal Time Bias):** This is the "aha moment" - most of the audience will have encountered this problem. Make it concrete with the diagram.
 
-### Potential Questions to Prepare For
+2. **Slide 6 (tvexpose transformation):** The before/after is powerful. Emphasize that gaps are automatically handled.
 
-1. "How does this compare to manual `stsplit`?"
-   - Answer: tvtools automates the entire process and handles edge cases
+3. **Slide 10 (Temporal Cartesian Product):** This is the unique value of tvmerge - no other tool does this easily.
 
-2. "What about very large datasets?"
-   - Answer: Batch processing option in tvmerge for memory efficiency
+4. **Slide 14 (Results):** These effect sizes are clinically plausible and match published literature on high-efficacy DMTs. The audience will recognize them as realistic.
 
-3. "Can it handle more than two exposures?"
-   - Answer: Yes, tvmerge accepts multiple datasets
+5. **Slide 15 (What Goes Wrong):** This validates their concerns and shows the stakes.
 
-4. "What about continuous exposures (not categorical)?"
-   - Answer: `continuousunit()` option and `continuous()` in tvmerge
+### Phrases to Use
+
+- "You've probably seen this in papers..." (creates recognition)
+- "The registry captures this complexity..." (validates their data)
+- "This is what the method papers recommend..." (appeals to authority)
+- "You can reproduce published findings..." (practical value)
+
+### Things to Avoid
+
+- Don't be preachy about methodology - they know it matters
+- Don't oversimplify the MS context - they're experts
+- Don't pretend there are no limitations - acknowledge edge cases
+- Don't dismiss other approaches - position as complementary
 
 ---
 
-## Appendix: Example Code Blocks
-
-### Complete Working Example
+## Appendix: Complete Working Example
 
 ```stata
 * ============================================
-* tvtools Complete Demonstration
+* tvtools Complete MS Analysis Demonstration
 * ============================================
 
 clear all
 set more off
+version 18.0
 
-* Load cohort data
-use cohort, clear
-
-* --------------------------------------------
-* STEP 1: Create time-varying HRT exposure
-* --------------------------------------------
-tvexpose using hrt, ///
-    id(id) ///
-    start(rx_start) ///
-    stop(rx_stop) ///
-    exposure(hrt_type) ///
-    reference(0) ///
-    entry(study_entry) ///
-    exit(study_exit) ///
-    currentformer ///
-    generate(hrt_status) ///
-    keepvars(age female) ///
-    saveas(tv_hrt.dta) replace
+* Assume we have:
+* - ms_cohort.dta: Patient-level data with dates and outcomes
+* - dmt_prescriptions.dta: DMT prescription periods
+* - Variables: patient_id, ms_diagnosis_date, study_exit_date,
+*              edss4_date, death_date, age_at_onset, sex, ms_type, edss_baseline
 
 * --------------------------------------------
-* STEP 2: Create time-varying DMT exposure
+* STEP 1: Create time-varying DMT exposure
 * --------------------------------------------
-use cohort, clear
+use ms_cohort, clear
 
-tvexpose using dmt, ///
-    id(id) ///
+tvexpose using dmt_prescriptions, ///
+    id(patient_id) ///
     start(dmt_start) ///
     stop(dmt_stop) ///
     exposure(dmt) ///
     reference(0) ///
-    entry(study_entry) ///
-    exit(study_exit) ///
+    entry(ms_diagnosis_date) ///
+    exit(study_exit_date) ///
+    currentformer ///
+    grace(30) ///
     generate(dmt_status) ///
-    keepvars(mstype edss_baseline) ///
-    saveas(tv_dmt.dta) replace
+    keepvars(age_at_onset sex ms_type edss_baseline edss4_date death_date) ///
+    saveas(tv_dmt_analysis.dta) replace
 
 * --------------------------------------------
-* STEP 3: Merge time-varying datasets
+* STEP 2: Integrate events and competing risks
 * --------------------------------------------
-tvmerge tv_hrt tv_dmt, ///
-    id(id) ///
-    start(rx_start dmt_start) ///
-    stop(rx_stop dmt_stop) ///
-    exposure(hrt_status dmt_status) ///
-    generate(hrt dmt) ///
-    keep(age female mstype edss_baseline) ///
-    check summarize ///
-    saveas(tv_merged.dta) replace
-
-* --------------------------------------------
-* STEP 4: Integrate events and competing risks
-* --------------------------------------------
-tvevent using cohort, ///
-    id(id) ///
-    date(edss4_dt) ///
-    compete(death_dt) ///
+tvevent using ms_cohort, ///
+    id(patient_id) ///
+    date(edss4_date) ///
+    compete(death_date) ///
     eventlabel(0 "Censored" 1 "EDSS Progression" 2 "Death") ///
     generate(outcome) ///
     timegen(interval_years) ///
     timeunit(years)
 
 * --------------------------------------------
-* STEP 5: Survival analysis setup
+* STEP 3: Descriptive statistics
+* --------------------------------------------
+* Exposure distribution
+tab dmt_status, mi
+
+* Events by exposure
+tab dmt_status outcome, row
+
+* Person-time by exposure
+table dmt_status, statistic(sum interval_years) nformat(%9.1f)
+
+* --------------------------------------------
+* STEP 4: Survival analysis setup
 * --------------------------------------------
 stset stop, ///
-    id(id) ///
+    id(patient_id) ///
     failure(outcome==1) ///
     enter(start) ///
-    scale(365.25)
+    scale(365.25) ///
+    exit(time .)
 
-* Descriptive statistics
+* Descriptive
 stdescribe
 stsum
 
+* Kaplan-Meier by exposure status
+sts graph, by(dmt_status) ///
+    title("EDSS Progression by DMT Status") ///
+    legend(rows(1)) ///
+    risktable
+
 * --------------------------------------------
-* STEP 6: Competing risks regression
+* STEP 5: Competing risks regression
 * --------------------------------------------
-stcrreg i.hrt i.dmt age_ds1 i.female_ds1 i.mstype_ds2 edss_baseline_ds2, ///
+* Primary analysis: DMT status effect on progression
+stcrreg i.dmt_status ///
+    age_at_onset ///
+    i.sex ///
+    i.ms_type ///
+    edss_baseline, ///
     compete(outcome==2)
 
-* Save results
+* Store results
 estimates store main_model
-estimates table main_model, b(%9.3f) se(%9.3f) stats(N)
+
+* Display formatted table
+estimates table main_model, ///
+    b(%9.3f) se(%9.3f) ///
+    stats(N ll chi2) ///
+    keep(*.dmt_status)
+
+* --------------------------------------------
+* STEP 6: Sensitivity analyses
+* --------------------------------------------
+
+* Alternative: Ever-treated analysis
+use ms_cohort, clear
+tvexpose using dmt_prescriptions, ///
+    id(patient_id) start(dmt_start) stop(dmt_stop) ///
+    exposure(dmt) reference(0) ///
+    entry(ms_diagnosis_date) exit(study_exit_date) ///
+    evertreated generate(ever_dmt) ///
+    keepvars(age_at_onset sex ms_type edss_baseline edss4_date death_date)
+
+tvevent using ms_cohort, id(patient_id) date(edss4_date) ///
+    compete(death_date) generate(outcome)
+
+stset stop, id(patient_id) failure(outcome==1) enter(start) scale(365.25)
+stcrreg i.ever_dmt age_at_onset i.sex i.ms_type edss_baseline, compete(outcome==2)
+estimates store ever_treated_model
+
+* Alternative: Duration categories
+use ms_cohort, clear
+tvexpose using dmt_prescriptions, ///
+    id(patient_id) start(dmt_start) stop(dmt_stop) ///
+    exposure(dmt) reference(0) ///
+    entry(ms_diagnosis_date) exit(study_exit_date) ///
+    duration(1 3 5) continuousunit(years) ///
+    generate(dmt_duration) ///
+    keepvars(age_at_onset sex ms_type edss_baseline edss4_date death_date)
+
+tvevent using ms_cohort, id(patient_id) date(edss4_date) ///
+    compete(death_date) generate(outcome)
+
+stset stop, id(patient_id) failure(outcome==1) enter(start) scale(365.25)
+stcrreg i.dmt_duration age_at_onset i.sex i.ms_type edss_baseline, compete(outcome==2)
+estimates store duration_model
+
+* Compare models
+estimates table main_model ever_treated_model duration_model, ///
+    b(%9.3f) star stats(N ll aic bic)
 ```
 
 ---
