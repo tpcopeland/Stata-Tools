@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.1.0  28nov2025}{...}
+{* *! version 1.2.0  01dec2025}{...}
 {vieweralsosee "[D] codebook" "help codebook"}{...}
 {vieweralsosee "[D] misstable" "help misstable"}{...}
 {vieweralsosee "[MI] mi misstable" "help mi_misstable"}{...}
@@ -10,7 +10,7 @@
 {viewerjumpto "Stored results" "mvp##results"}{...}
 {viewerjumpto "Authors" "mvp##authors"}{...}
 {hline}
-help for {cmd:mvp}{right:version 1.1.0}
+help for {cmd:mvp}{right:version 1.2.0}
 {hline}
 
 {title:Title}
@@ -58,7 +58,26 @@ help for {cmd:mvp}{right:version 1.1.0}
 
 {syntab:Graphics}
 {synopt:{opt gr:aph(type)}}produce missingness graph; {it:type} may be {cmd:bar}, {cmd:patterns}, {cmd:matrix}, or {cmd:correlation}{p_end}
-{synopt:{opt sch:eme(schemename)}}graph scheme; requires {opt graph()}{p_end}
+{synopt:{opt sch:eme(schemename)}}graph scheme{p_end}
+{synopt:{opt ti:tle(string)}}graph title{p_end}
+{synopt:{opt subti:tle(string)}}graph subtitle{p_end}
+{synopt:{opt gn:ame(name)}}name the graph in memory{p_end}
+{synopt:{opt gsav:ing(filename)}}save graph to file{p_end}
+{synopt:{opt nodr:aw}}suppress graph display{p_end}
+
+{syntab:Bar/Patterns graph options}
+{synopt:{opt barc:olor(colorstyle)}}bar fill color; default is {cmd:navy}{p_end}
+{synopt:{opt hor:izontal}}horizontal bars (default){p_end}
+{synopt:{opt ver:tical}}vertical bars{p_end}
+{synopt:{opt top(#)}}number of top patterns to show; default is 20{p_end}
+
+{syntab:Matrix heatmap options}
+{synopt:{opt missc:olor(colorstyle)}}color for missing values; default is {cmd:cranberry}{p_end}
+{synopt:{opt obsc:olor(colorstyle)}}color for observed values; default is {cmd:navy*0.2}{p_end}
+
+{syntab:Correlation heatmap options}
+{synopt:{opt textl:abels}}display correlation values in cells{p_end}
+{synopt:{opt colorr:amp(type)}}color scheme: {cmd:bluered} (default), {cmd:redblue}, or {cmd:grayscale}{p_end}
 {synoptline}
 {p2colreset}{...}
 
@@ -174,17 +193,19 @@ types are available:
 {phang2}
 {opt graph(bar)} produces a horizontal bar chart showing the percent missing
 for each variable, sorted by the variable order (or by missingness if {opt sort}
-is specified).
+is specified). Use {opt vertical} for vertical bars.
 
 {phang2}
-{opt graph(patterns)} produces a horizontal bar chart of the top 20 most
-common missing value patterns, showing their frequencies.
+{opt graph(patterns)} produces a horizontal bar chart of the most common missing
+value patterns, showing their frequencies. By default shows the top 20 patterns;
+use {opt top(#)} to adjust.
 
 {phang2}
 {opt graph(matrix)} produces an observation-by-variable heatmap showing
-missingness across the dataset. Missing values appear in red, observed values
-in blue. For large datasets (>500 observations), a random sample is drawn
-by default. Suboptions:
+missingness across the dataset. Missing values appear in red (customizable with
+{opt misscolor()}), observed values in blue (customizable with {opt obscolor()}).
+For large datasets (>500 observations), a random sample is drawn by default.
+Suboptions:
 
 {phang3}
 {opt graph(matrix, sample(#))} specifies the number of observations to sample.
@@ -195,12 +216,78 @@ before display, revealing structure in the missing data.
 
 {phang2}
 {opt graph(correlation)} produces a heatmap of the correlation matrix among
-missingness indicators. Blue indicates positive correlation (variables tend
-to be missing together); red indicates negative correlation.
+missingness indicators. Use {opt textlabels} to display correlation values in
+each cell. Use {opt colorramp()} to change the color scheme.
 
 {phang}
-{opt scheme(schemename)} specifies the graph scheme to use. This option
-requires {opt graph()} to be specified.
+{opt scheme(schemename)} specifies the graph scheme to use.
+
+{phang}
+{opt title(string)} specifies a custom title for the graph. If not specified,
+a default title is used based on the graph type.
+
+{phang}
+{opt subtitle(string)} specifies a custom subtitle for the graph.
+
+{phang}
+{opt gname(name)} names the graph in memory, allowing you to save or manipulate
+it later. The name replaces any existing graph with the same name.
+
+{phang}
+{opt gsaving(filename)} saves the graph to the specified file. Supports standard
+Stata graph saving options like {cmd:gsaving(mygraph.gph, replace)}.
+
+{phang}
+{opt nodraw} suppresses the display of the graph. Useful when you only want to
+save the graph to a file.
+
+{dlgtab:Bar/Patterns graph options}
+
+{phang}
+{opt barcolor(colorstyle)} specifies the fill color for bars in {opt graph(bar)}
+and {opt graph(patterns)}. Default is {cmd:navy}. Accepts any valid Stata color.
+
+{phang}
+{opt horizontal} displays bars horizontally (default for bar charts).
+
+{phang}
+{opt vertical} displays bars vertically.
+
+{phang}
+{opt top(#)} specifies how many of the most common patterns to display in
+{opt graph(patterns)}. Default is 20. Minimum is 1.
+
+{dlgtab:Matrix heatmap options}
+
+{phang}
+{opt misscolor(colorstyle)} specifies the color for missing values in
+{opt graph(matrix)}. Default is {cmd:cranberry}. Accepts any valid Stata color.
+
+{phang}
+{opt obscolor(colorstyle)} specifies the color for observed (non-missing) values
+in {opt graph(matrix)}. Default is {cmd:navy*0.2}. Accepts any valid Stata color.
+
+{dlgtab:Correlation heatmap options}
+
+{phang}
+{opt textlabels} displays the correlation coefficient value in each cell of
+{opt graph(correlation)}. Text size adjusts automatically based on the number
+of variables.
+
+{phang}
+{opt colorramp(type)} specifies the color scheme for {opt graph(correlation)}:
+
+{phang2}
+{opt colorramp(bluered)} uses blue for positive correlations and red for negative
+correlations (default).
+
+{phang2}
+{opt colorramp(redblue)} uses red for positive correlations and blue for negative
+correlations.
+
+{phang2}
+{opt colorramp(grayscale)} uses a grayscale gradient where darker shades indicate
+stronger correlations regardless of sign.
 
 
 {marker examples}{...}
@@ -250,8 +337,14 @@ requires {opt graph()} to be specified.
 {pstd}Bar chart with variables sorted by missingness{p_end}
 {phang2}{cmd:. mvp, sort graph(bar)}{p_end}
 
+{pstd}Vertical bar chart with custom color{p_end}
+{phang2}{cmd:. mvp, graph(bar) vertical barcolor(maroon)}{p_end}
+
 {pstd}Pattern frequency bar chart{p_end}
 {phang2}{cmd:. mvp, graph(patterns)}{p_end}
+
+{pstd}Show top 10 patterns with custom title{p_end}
+{phang2}{cmd:. mvp, graph(patterns) top(10) title("Missing Data Patterns")}{p_end}
 
 {pstd}Missingness matrix heatmap{p_end}
 {phang2}{cmd:. mvp, graph(matrix)}{p_end}
@@ -259,8 +352,23 @@ requires {opt graph()} to be specified.
 {pstd}Matrix with 1000 sampled observations, sorted by pattern{p_end}
 {phang2}{cmd:. mvp, graph(matrix, sample(1000) sort)}{p_end}
 
+{pstd}Matrix with custom colors{p_end}
+{phang2}{cmd:. mvp, graph(matrix) misscolor(red) obscolor(green*0.2)}{p_end}
+
 {pstd}Correlation heatmap of missingness{p_end}
 {phang2}{cmd:. mvp, graph(correlation)}{p_end}
+
+{pstd}Correlation heatmap with values displayed{p_end}
+{phang2}{cmd:. mvp, graph(correlation) textlabels}{p_end}
+
+{pstd}Correlation heatmap with grayscale color scheme{p_end}
+{phang2}{cmd:. mvp, graph(correlation) colorramp(grayscale)}{p_end}
+
+{pstd}Save graph to file without displaying{p_end}
+{phang2}{cmd:. mvp, graph(bar) gsaving(missingness.gph, replace) nodraw}{p_end}
+
+{pstd}Name graph in memory for later use{p_end}
+{phang2}{cmd:. mvp, graph(correlation) gname(mycorr)}{p_end}
 
 {pstd}Use a specific graph scheme{p_end}
 {phang2}{cmd:. mvp, graph(bar) scheme(s1mono)}{p_end}
@@ -310,6 +418,25 @@ This is a fork of {cmd:mvpatterns} version 2.0.0 (STB-61: dm91) by:
 Jeroen Weesie{break}
 Dept of Sociology{break}
 Utrecht University
+
+
+{marker technotes}{...}
+{title:Technical notes}
+
+{pstd}
+{bf:Variable limit:} The maximum number of variables that can be analyzed is
+244, due to Stata's string length limitations for pattern representation.
+If you need to analyze more than 244 variables, consider splitting your
+analysis into multiple runs.
+
+{pstd}
+{bf:Memory considerations:} The {opt graph(matrix)} option automatically samples
+500 observations for large datasets to avoid memory issues. Use the
+{cmd:sample(#)} suboption to adjust this limit.
+
+{pstd}
+{bf:Generated variable names:} When using {opt generate()}, variable names
+are truncated to 31 characters to comply with Stata's naming limits.
 
 
 {title:Also see}
