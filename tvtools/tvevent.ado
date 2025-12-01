@@ -227,7 +227,8 @@ program define tvevent, rclass
             expand 2 if _needs_split, gen(_copy)
             replace stop = `date' if _needs_split & _copy == 0
             replace start = `date' if _needs_split & _copy == 1
-            drop _needs_split _copy _merge
+            drop _needs_split _copy
+            capture drop _merge
             sort `id' start stop
             duplicates drop `id' start stop, force
         }
@@ -250,24 +251,37 @@ program define tvevent, rclass
         
         tempname event_frame
         frame create `event_frame'
-        frame `event_frame' {
-            use `events'
-            rename `date' `match_date'
+
+        * Use capture to ensure frame cleanup on error
+        local frame_rc = 0
+        capture noisily {
+            frame `event_frame' {
+                use `events'
+                rename `date' `match_date'
+            }
+
+            frlink 1:1 `id' `match_date', frame(`event_frame')
+
+            tempvar imported_type
+            frget `imported_type' = _event_type, from(`event_frame')
+
+            gen byte `generate' = `imported_type'
+            replace `generate' = 0 if missing(`generate')
+
+            if "`keepvars'" != "" {
+                 frget `keepvars', from(`event_frame')
+            }
         }
-        
-        frlink 1:1 `id' `match_date', frame(`event_frame')
-        
-        tempvar imported_type
-        frget `imported_type' = _event_type, from(`event_frame')
-        
-        gen int `generate' = `imported_type'
-        replace `generate' = 0 if missing(`generate')
-        
-        if "`keepvars'" != "" {
-             frget `keepvars', from(`event_frame')
+        local frame_rc = _rc
+
+        * Always clean up the frame
+        capture frame drop `event_frame'
+
+        * Exit if there was an error
+        if `frame_rc' != 0 {
+            exit `frame_rc'
         }
-        
-        frame drop `event_frame'
+
         drop `match_date' `imported_type'
         
         **# 6. APPLY LABELS
@@ -338,7 +352,11 @@ program define tvevent, rclass
             drop `days_diff'
         }
 
-        format start stop %tdCCYY/NN/DD
+        * Apply date format only if not already formatted as date
+        local start_fmt : format start
+        if substr("`start_fmt'", 1, 2) != "%t" {
+            format start stop %tdCCYY/NN/DD
+        }
         sort `id' start stop
         
         count if `generate' > 0

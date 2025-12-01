@@ -780,6 +780,9 @@ program define tvmerge, rclass
                     }
                     save `cartesian', replace
                 }
+                else {
+                    noisily di as txt "    (batch `b' produced no valid intersections)"
+                }
             }
 
             * Fallback: If all batches produced zero rows (no valid intersections exist),
@@ -839,13 +842,13 @@ program define tvmerge, rclass
         **# CALCULATE DIAGNOSTICS
         
         * Count unique persons
-        egen double _tag = tag(id)
+        egen byte _tag = tag(id)
         quietly count if _tag == 1
         local n_persons = r(N)
         drop _tag
         
         * Calculate average and max periods per person
-        by id: generate double _nper = _N
+        by id: generate long _nper = _N
         quietly summarize _nper, meanonly
         local avg_periods = r(mean)
         local max_periods = r(max)
@@ -923,16 +926,16 @@ program define tvmerge, rclass
         
         * Store scalar results
         return scalar N = _N
-        
+
         * Count and store unique persons
-        egen double _tag = tag(id)
+        egen byte _tag = tag(id)
         quietly count if _tag == 1
         return scalar N_persons = r(N)
         drop _tag
         
         * Calculate and store periods per person statistics
-        by id: generate double _per = _n
-        by id: generate double _per_max = _N
+        by id: generate long _per = _n
+        by id: generate long _per_max = _N
         quietly summarize _per, meanonly
         return scalar mean_periods = r(mean)
         quietly summarize _per_max, meanonly
