@@ -592,14 +592,15 @@ program define tvmerge, rclass
             tempfile cartesian
             
             * Pre-compute which exposures are continuous (optimization to avoid repeated checks)
+            * FIX: Must handle renamed variables - compare original names to continuous_names,
+            * then apply result to the renamed variable names in exp_k_list
             foreach exp_var in `exp_k_list' {
                 local is_cont_`exp_var' = 0
-                foreach cont_name in `continuous_names' {
-                    if "`exp_var'" == "`cont_name'" {
-                        local is_cont_`exp_var' = 1
-                    }
-                }
             }
+            * Set continuous flag for the primary exposure of this dataset
+            * is_cont_k was computed earlier using original name (exp_k_raw) vs continuous_names
+            * exp_k is the renamed version of exp_k_raw
+            local is_cont_`exp_k' = `is_cont_k'
 
             * BATCH PROCESSING: Create numeric sequence for batching
             * This handles string IDs and avoids macro length limits
@@ -628,7 +629,7 @@ program define tvmerge, rclass
 
             * Check for ID mismatches
             use `merged_ids', clear
-            generate byte _in_merged = 1
+            generate long _in_merged = 1
             merge 1:1 id using `ds_k_ids', generate(_merge_check)
 
             * Count mismatches
@@ -842,7 +843,7 @@ program define tvmerge, rclass
         **# CALCULATE DIAGNOSTICS
         
         * Count unique persons
-        egen byte _tag = tag(id)
+        egen long _tag = tag(id)
         quietly count if _tag == 1
         local n_persons = r(N)
         drop _tag
@@ -928,7 +929,7 @@ program define tvmerge, rclass
         return scalar N = _N
 
         * Count and store unique persons
-        egen byte _tag = tag(id)
+        egen long _tag = tag(id)
         quietly count if _tag == 1
         return scalar N_persons = r(N)
         drop _tag

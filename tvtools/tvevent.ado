@@ -223,12 +223,12 @@ program define tvevent, rclass
         if `n_splits' > 0 {
             noisily di as txt "Splitting intervals for `n_splits' internal events..."
             joinby `id' using `splits', unmatched(master)
-            gen byte _needs_split = (`date' > start & `date' < stop)
+            gen long _needs_split = (`date' > start & `date' < stop)
             expand 2 if _needs_split, gen(_copy)
             replace stop = `date' if _needs_split & _copy == 0
             replace start = `date' if _needs_split & _copy == 1
             drop _needs_split _copy
-            capture drop _merge
+            * Note: joinby does not create _merge (unlike merge command)
             sort `id' start stop
             duplicates drop `id' start stop, force
         }
@@ -265,7 +265,7 @@ program define tvevent, rclass
             tempvar imported_type
             frget `imported_type' = _event_type, from(`event_frame')
 
-            gen byte `generate' = `imported_type'
+            gen long `generate' = `imported_type'
             replace `generate' = 0 if missing(`generate')
 
             if "`keepvars'" != "" {
