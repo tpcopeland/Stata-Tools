@@ -1,4 +1,4 @@
-*! mvp 1.1.0  28nov2025
+*! mvp 1.2.0  01dec2025
 *! Fork of mvpatterns 2.0.0 by Jeroen Weesie (STB-61: dm91)
 *! Author: Timothy P Copeland
 *! Missing value pattern analysis with enhanced features
@@ -25,11 +25,83 @@ program define mvp, rclass byable(recall) sortpreserve
         noSUmmary               /// suppress summary statistics
         GRaph(string)           /// graph type: bar, patterns, matrix, correlation
         SCHeme(string)          /// graph scheme
+        /// Enhanced graph options
+        TItle(string asis)      /// graph title
+        SUBtitle(string asis)   /// graph subtitle
+        GName(string)           /// graph name for saving in memory
+        GSAVing(string asis)    /// save graph to file
+        noDRAW                  /// suppress graph display
+        /// Bar chart options
+        BARColor(string)        /// bar fill color
+        HORizontal              /// horizontal bars (default for bar)
+        VERtical                /// vertical bars
+        /// Pattern chart options
+        TOP(integer 20)         /// number of top patterns to show
+        /// Matrix heatmap options
+        MISSColor(string)       /// color for missing values
+        OBSColor(string)        /// color for observed values
+        /// Correlation heatmap options
+        TEXTLabels              /// show correlation values in cells
+        COLORRamp(string)       /// color ramp: bluered (default), redblue, grayscale
     ]
 
-    * Validate scheme option
-    if "`scheme'" != "" & "`graph'" == "" {
-        di as err "option {bf:scheme()} requires {bf:graph()} option"
+    * Validate graph-related options require graph()
+    if "`graph'" == "" {
+        if "`scheme'" != "" {
+            di as err "option {bf:scheme()} requires {bf:graph()} option"
+            exit 198
+        }
+        if `"`title'"' != "" | `"`subtitle'"' != "" {
+            di as err "options {bf:title()} and {bf:subtitle()} require {bf:graph()} option"
+            exit 198
+        }
+        if "`gname'" != "" | `"`gsaving'"' != "" | "`draw'" != "" {
+            di as err "options {bf:gname()}, {bf:gsaving()}, {bf:nodraw} require {bf:graph()} option"
+            exit 198
+        }
+    }
+
+    * Validate bar-specific options
+    if "`barcolor'" != "" | "`horizontal'" != "" | "`vertical'" != "" {
+        if "`graph'" == "" | ("`graph'" != "" & !strpos(lower("`graph'"), "bar") & !strpos(lower("`graph'"), "pattern")) {
+            di as err "options {bf:barcolor()}, {bf:horizontal}, {bf:vertical} require graph(bar) or graph(patterns)"
+            exit 198
+        }
+    }
+    if "`horizontal'" != "" & "`vertical'" != "" {
+        di as err "cannot specify both {bf:horizontal} and {bf:vertical}"
+        exit 198
+    }
+
+    * Validate matrix-specific options
+    if "`misscolor'" != "" | "`obscolor'" != "" {
+        if "`graph'" == "" | !strpos(lower("`graph'"), "matrix") {
+            di as err "options {bf:misscolor()} and {bf:obscolor()} require graph(matrix)"
+            exit 198
+        }
+    }
+
+    * Validate correlation-specific options
+    if "`textlabels'" != "" | "`colorramp'" != "" {
+        if "`graph'" == "" | lower("`graph'") != "correlation" {
+            di as err "options {bf:textlabels} and {bf:colorramp()} require graph(correlation)"
+            exit 198
+        }
+    }
+    if "`colorramp'" != "" & !inlist("`colorramp'", "bluered", "redblue", "grayscale") {
+        di as err "colorramp() must be one of: bluered, redblue, grayscale"
+        exit 198
+    }
+
+    * Validate top() option
+    if `top' < 1 {
+        di as err "top() must be at least 1"
+        exit 198
+    }
+
+    * Validate minmissing/maxmissing consistency
+    if `minmissing' >= 0 & `maxmissing' >= 0 & `minmissing' > `maxmissing' {
+        di as err "minmissing(`minmissing') cannot exceed maxmissing(`maxmissing')"
         exit 198
     }
 
@@ -91,7 +163,7 @@ program define mvp, rclass byable(recall) sortpreserve
     foreach v of local varlist {
         qui count if missing(`v') & `touse'
         local thismv = r(N)
-        if `thismv' > 0 | "`drop'" != "" {
+        if `thismv' > 0 | "`drop'" == "" {
             local p : display %8.0f `thismv'
             local nmv `nmv' `p'
             local vlist `vlist' `v'
@@ -493,7 +565,7 @@ program define mvp, rclass byable(recall) sortpreserve
     if "`generate'" != "" {
         tokenize `varlist'
         forv i = 1/`nvar' {
-            local vname = substr("``i''", 1, 26)
+            local vname = substr("``i''", 1, 31)
             capture drop `generate'_`vname'
             qui gen byte `generate'_`vname' = missing(``i'') if `touse'
             label var `generate'_`vname' "Missing: ``i''"
@@ -551,8 +623,36 @@ program define mvp, rclass byable(recall) sortpreserve
     * ===================================================================
 
     if "`graphtype'" != "" {
+        * Build common graph options
         local schemeopts = cond("`scheme'" != "", `"scheme(`scheme')"', "")
-        
+        local nameopts = cond("`gname'" != "", `"name(`gname', replace)"', "")
+        local savingopts = cond(`"`gsaving'"' != "", `"saving(`gsaving')"', "")
+        local drawopts = cond("`draw'" != "", "nodraw", "")
+
+        * Set default colors if not specified
+        if "`barcolor'" == "" local barcolor "navy"
+        if "`misscolor'" == "" local misscolor "cranberry"
+        if "`obscolor'" == "" local obscolor "navy*0.2"
+        if "`colorramp'" == "" local colorramp "bluered"
+
+        * Determine bar orientation (default horizontal for bar/patterns)
+        local barcmd "graph hbar"
+        local bartitle "ytitle"
+        if "`vertical'" != "" {
+            local barcmd "graph bar"
+            local bartitle "ytitle"
+        }
+
+        * Build title/subtitle options
+        local titleopts ""
+        if `"`title'"' != "" {
+            local titleopts `"title(`title')"'
+        }
+        local subtitleopts ""
+        if `"`subtitle'"' != "" {
+            local subtitleopts `"subtitle(`subtitle')"'
+        }
+
         * -----------------------------------------------------------------
         * Bar chart: percent missing by variable
         * -----------------------------------------------------------------
@@ -564,23 +664,33 @@ program define mvp, rclass byable(recall) sortpreserve
                 gen str32 varname = ""
                 gen double pctmiss = .
                 gen int varorder = _n
-                
+
                 tokenize `varlist'
                 forv i = 1/`nvar' {
                     replace varname = "``i''" in `i'
                     replace pctmiss = `pct_``i''' in `i'
                 }
             }
-            
-            graph hbar pctmiss, over(varname, sort(varorder) label(labsize(vsmall))) ///
+
+            * Set default title if not specified
+            local bartitle_text = cond(`"`title'"' != "", "", `"title("Missing Values by Variable")"')
+
+            * Adjust label size based on number of variables
+            local labsz "vsmall"
+            if `nvar' > 30 local labsz "tiny"
+            if `nvar' <= 10 local labsz "small"
+
+            `barcmd' pctmiss, over(varname, sort(varorder) label(labsize(`labsz'))) ///
                 ytitle("Percent missing") ///
-                title("Missing Values by Variable") ///
+                `bartitle_text' ///
+                `titleopts' `subtitleopts' ///
                 blabel(bar, format(%4.1f) size(vsmall)) ///
-                `schemeopts'
-            
+                bar(1, color(`barcolor')) ///
+                `schemeopts' `nameopts' `savingopts' `drawopts'
+
             restore
         }
-        
+
         * -----------------------------------------------------------------
         * Patterns: bar chart of pattern frequencies
         * -----------------------------------------------------------------
@@ -588,38 +698,55 @@ program define mvp, rclass byable(recall) sortpreserve
             preserve
             qui keep if `isf'
             qui count
-            local npat_graph = min(r(N), 20)
-            
+            local npat_graph = min(r(N), `top')
+
             if `npat_graph' > 0 {
                 qui {
                     gsort -`ng'
                     keep in 1/`npat_graph'
                     local pat1 = `mv_patt'[1]
                     gen int patorder = _n
-                    gen str3 patid = "P" + string(_n)
+                    * Use wider pattern ID for better display
+                    gen str8 patid = "P" + string(_n)
                 }
-                
-                graph hbar `ng', over(patid, sort(patorder) label(labsize(small))) ///
+
+                * Set default title if not specified
+                local pattitle_text = cond(`"`title'"' != "", "", `"title("Most Common Missing Value Patterns")"')
+                local patsubtitle_text = cond(`"`subtitle'"' != "", "", `"subtitle("(Top `npat_graph' patterns)")"')
+
+                * Adjust label size based on number of patterns
+                local patlabsz "small"
+                if `npat_graph' > 15 local patlabsz "vsmall"
+                if `npat_graph' > 25 local patlabsz "tiny"
+
+                * Truncate pattern note if too long (max 80 chars)
+                local pat1_display = substr("`pat1'", 1, 80)
+                if length("`pat1'") > 80 {
+                    local pat1_display "`pat1_display'..."
+                }
+
+                `barcmd' `ng', over(patid, sort(patorder) label(labsize(`patlabsz'))) ///
                     ytitle("Frequency") ///
-                    title("Most Common Missing Value Patterns") ///
-                    subtitle("(Top `npat_graph' patterns)") ///
+                    `pattitle_text' `patsubtitle_text' ///
+                    `titleopts' `subtitleopts' ///
                     blabel(bar, format(%9.0fc) size(vsmall)) ///
-                    note("P1=`pat1'") ///
-                    `schemeopts'
+                    note("P1=`pat1_display'", size(vsmall)) ///
+                    bar(1, color(`barcolor')) ///
+                    `schemeopts' `nameopts' `savingopts' `drawopts'
             }
             else {
                 di as txt "(no patterns to graph)"
             }
-            
+
             restore
         }
-        
+
         * -----------------------------------------------------------------
         * Matrix: observation x variable missingness heatmap
         * -----------------------------------------------------------------
         else if "`graphtype'" == "matrix" {
             preserve
-            
+
             * Sample if requested or if N is large
             local use_sample = 0
             if `matsample' > 0 & `matsample' < `N' {
@@ -631,56 +758,72 @@ program define mvp, rclass byable(recall) sortpreserve
                 local sample_n = 500
                 di as txt "(sampling 500 observations for matrix display; use graph(matrix, sample(#)) to adjust)"
             }
-            
+
             qui {
                 keep if `touse'
-                
+
                 * Sort by pattern if requested
                 if `matsort' {
                     sort `mv_n' `mv_patt'
                 }
-                
+
                 * Sample if needed
                 if `use_sample' {
                     sample `sample_n', count
                 }
-                
+
                 * Create observation ID
                 gen long _obsid = _n
                 local nobs = _N
-                
+
                 * Reshape to long format for heatmap
                 tokenize `varlist'
                 forv i = 1/`nvar' {
                     gen byte _m`i' = missing(``i'')
                 }
-                
+
                 keep _obsid _m*
                 reshape long _m, i(_obsid) j(_varid)
-                
+
                 * Create variable labels
                 gen str32 _varname = ""
                 forv i = 1/`nvar' {
                     replace _varname = "``i''" if _varid == `i'
                 }
             }
-            
+
+            * Set default title if not specified
+            local mattitle_text = cond(`"`title'"' != "", "", `"title("Missing Value Matrix")"')
+            local matsubtitle_text = cond(`"`subtitle'"' != "", "", `"subtitle("`nobs' observations x `nvar' variables")"')
+
+            * Dynamically size markers based on matrix dimensions
+            local msize "tiny"
+            if `nobs' <= 100 & `nvar' <= 20 local msize "vsmall"
+            if `nobs' <= 50 & `nvar' <= 10 local msize "small"
+            if `nobs' > 300 | `nvar' > 50 local msize "vtiny"
+
+            * Adjust label size based on number of variables
+            local xlabsz "tiny"
+            if `nvar' <= 20 local xlabsz "vsmall"
+            if `nvar' <= 10 local xlabsz "small"
+
             * Draw heatmap using twoway
             twoway (scatter _obsid _varid if _m == 1, ///
-                    msymbol(square) msize(tiny) mcolor(cranberry)) ///
+                    msymbol(square) msize(`msize') mcolor(`misscolor')) ///
                    (scatter _obsid _varid if _m == 0, ///
-                    msymbol(square) msize(tiny) mcolor(navy*0.3)), ///
-                xlabel(1(1)`nvar', valuelabel angle(90) labsize(tiny)) ///
+                    msymbol(square) msize(`msize') mcolor(`obscolor')), ///
+                xlabel(1(1)`nvar', valuelabel angle(90) labsize(`xlabsz')) ///
                 ylabel(, labsize(tiny) nogrid) ///
                 ytitle("Observation") xtitle("Variable") ///
-                title("Missing Value Matrix") ///
-                subtitle("`nobs' observations x `nvar' variables") ///
-                legend(order(1 "Missing" 2 "Observed") rows(1) size(small)) ///
-                `schemeopts'
-            
+                `mattitle_text' `matsubtitle_text' ///
+                `titleopts' `subtitleopts' ///
+                legend(order(1 "Missing" 2 "Observed") rows(1) size(small) position(6)) ///
+                plotregion(margin(zero)) ///
+                `schemeopts' `nameopts' `savingopts' `drawopts'
+
             restore
         }
-        
+
         * -----------------------------------------------------------------
         * Correlation: heatmap of missingness correlations
         * -----------------------------------------------------------------
@@ -689,7 +832,7 @@ program define mvp, rclass byable(recall) sortpreserve
                 di as err "correlation graph requires at least 2 variables"
                 exit 198
             }
-            
+
             preserve
             qui {
                 clear
@@ -698,43 +841,133 @@ program define mvp, rclass byable(recall) sortpreserve
                 gen int _rowid = .
                 gen int _colid = .
                 gen double _corr = .
+                gen str10 _corr_label = ""
                 local obs = 1
                 forv r = 1/`nvar' {
                     forv c = 1/`nvar' {
                         replace _rowid = `r' in `obs'
                         replace _colid = `c' in `obs'
-                        replace _corr = `corrmat'[`r',`c'] in `obs'
+                        local corrval = `corrmat'[`r',`c']
+                        replace _corr = `corrval' in `obs'
+                        * Format correlation label
+                        if abs(`corrval') < 0.01 {
+                            replace _corr_label = "" in `obs'
+                        }
+                        else {
+                            replace _corr_label = string(`corrval', "%4.2f") in `obs'
+                        }
                         local ++obs
                     }
                 }
+
+                * Create color intensity variable (0-10 scale for granularity)
+                gen int _color_int = .
+
+                * Assign colors based on ramp selection
+                if "`colorramp'" == "bluered" | "`colorramp'" == "redblue" {
+                    * For positive correlations (blue)
+                    replace _color_int = 1 if _corr >= 0 & _corr < 0.1
+                    replace _color_int = 2 if _corr >= 0.1 & _corr < 0.2
+                    replace _color_int = 3 if _corr >= 0.2 & _corr < 0.3
+                    replace _color_int = 4 if _corr >= 0.3 & _corr < 0.4
+                    replace _color_int = 5 if _corr >= 0.4 & _corr < 0.5
+                    replace _color_int = 6 if _corr >= 0.5 & _corr < 0.6
+                    replace _color_int = 7 if _corr >= 0.6 & _corr < 0.7
+                    replace _color_int = 8 if _corr >= 0.7 & _corr < 0.8
+                    replace _color_int = 9 if _corr >= 0.8 & _corr < 0.9
+                    replace _color_int = 10 if _corr >= 0.9
+                    * For negative correlations (red)
+                    replace _color_int = -1 if _corr < 0 & _corr >= -0.1
+                    replace _color_int = -2 if _corr < -0.1 & _corr >= -0.2
+                    replace _color_int = -3 if _corr < -0.2 & _corr >= -0.3
+                    replace _color_int = -4 if _corr < -0.3 & _corr >= -0.4
+                    replace _color_int = -5 if _corr < -0.4 & _corr >= -0.5
+                    replace _color_int = -6 if _corr < -0.5 & _corr >= -0.6
+                    replace _color_int = -7 if _corr < -0.6 & _corr >= -0.7
+                    replace _color_int = -8 if _corr < -0.7 & _corr >= -0.8
+                    replace _color_int = -9 if _corr < -0.8 & _corr >= -0.9
+                    replace _color_int = -10 if _corr < -0.9
+                }
+                else {
+                    * Grayscale: use absolute value
+                    replace _color_int = round(abs(_corr) * 10)
+                }
             }
-            
-            twoway (scatter _rowid _colid, ///
-                    msymbol(square) msize(large) mcolor(navy*0.1) mlcolor(none)) ///
-                   (scatter _rowid _colid if _corr >= 0.2 & _corr < 0.4, ///
-                    msymbol(square) msize(large) mcolor(navy*0.3)) ///
-                   (scatter _rowid _colid if _corr >= 0.4 & _corr < 0.6, ///
-                    msymbol(square) msize(large) mcolor(navy*0.5)) ///
-                   (scatter _rowid _colid if _corr >= 0.6 & _corr < 0.8, ///
-                    msymbol(square) msize(large) mcolor(navy*0.7)) ///
-                   (scatter _rowid _colid if _corr >= 0.8, ///
-                    msymbol(square) msize(large) mcolor(navy)) ///
-                   (scatter _rowid _colid if _corr < 0 & _corr >= -0.4, ///
-                    msymbol(square) msize(large) mcolor(cranberry*0.3)) ///
-                   (scatter _rowid _colid if _corr < -0.4 & _corr >= -0.7, ///
-                    msymbol(square) msize(large) mcolor(cranberry*0.6)) ///
-                   (scatter _rowid _colid if _corr < -0.7, ///
-                    msymbol(square) msize(large) mcolor(cranberry)), ///
-                xlabel(1(1)`nvar', angle(45) labsize(small)) ///
-                ylabel(1(1)`nvar', angle(0) labsize(small)) ///
+
+            * Set default title if not specified
+            local corrtitle_text = cond(`"`title'"' != "", "", `"title("Missingness Correlation Matrix")"')
+
+            * Dynamically size markers based on matrix size
+            local msize "large"
+            if `nvar' > 10 local msize "medium"
+            if `nvar' > 15 local msize "medsmall"
+            if `nvar' > 20 local msize "small"
+            if `nvar' > 30 local msize "vsmall"
+
+            * Adjust label size based on number of variables
+            local corrlabsz "small"
+            if `nvar' > 15 local corrlabsz "vsmall"
+            if `nvar' > 25 local corrlabsz "tiny"
+
+            * Build twoway command based on color ramp
+            if "`colorramp'" == "bluered" {
+                * Positive = blue, Negative = red
+                local pos_colors `"navy*0.1 navy*0.2 navy*0.3 navy*0.4 navy*0.5 navy*0.6 navy*0.7 navy*0.8 navy*0.9 navy"'
+                local neg_colors `"cranberry*0.1 cranberry*0.2 cranberry*0.3 cranberry*0.4 cranberry*0.5 cranberry*0.6 cranberry*0.7 cranberry*0.8 cranberry*0.9 cranberry"'
+            }
+            else if "`colorramp'" == "redblue" {
+                * Positive = red, Negative = blue
+                local pos_colors `"cranberry*0.1 cranberry*0.2 cranberry*0.3 cranberry*0.4 cranberry*0.5 cranberry*0.6 cranberry*0.7 cranberry*0.8 cranberry*0.9 cranberry"'
+                local neg_colors `"navy*0.1 navy*0.2 navy*0.3 navy*0.4 navy*0.5 navy*0.6 navy*0.7 navy*0.8 navy*0.9 navy"'
+            }
+            else {
+                * Grayscale
+                local pos_colors `"gs14 gs12 gs10 gs9 gs8 gs7 gs6 gs5 gs4 gs2"'
+                local neg_colors `"gs14 gs12 gs10 gs9 gs8 gs7 gs6 gs5 gs4 gs2"'
+            }
+
+            * Build the scatter layers
+            local twoway_cmd "twoway"
+            forv i = 1/10 {
+                local pcol : word `i' of `pos_colors'
+                local twoway_cmd `"`twoway_cmd' (scatter _rowid _colid if _color_int == `i', msymbol(square) msize(`msize') mcolor(`pcol') mlcolor(none))"'
+            }
+            forv i = 1/10 {
+                local ncol : word `i' of `neg_colors'
+                local twoway_cmd `"`twoway_cmd' (scatter _rowid _colid if _color_int == -`i', msymbol(square) msize(`msize') mcolor(`ncol') mlcolor(none))"'
+            }
+
+            * Add text labels if requested
+            local textlayer ""
+            if "`textlabels'" != "" {
+                local textlabsz "vsmall"
+                if `nvar' > 10 local textlabsz "tiny"
+                if `nvar' > 20 local textlabsz "half_tiny"
+                local textlayer `"(scatter _rowid _colid, msymbol(none) mlabel(_corr_label) mlabposition(0) mlabsize(`textlabsz') mlabcolor(black))"'
+            }
+
+            * Build variable name labels for axes
+            local xlabels ""
+            local ylabels ""
+            tokenize `varlist'
+            forv i = 1/`nvar' {
+                local xlabels `"`xlabels' `i' "``i''""'
+                local ylabels `"`ylabels' `i' "``i''""'
+            }
+
+            * Execute the graph
+            `twoway_cmd' `textlayer', ///
+                xlabel(`xlabels', angle(45) labsize(`corrlabsz') grid) ///
+                ylabel(`ylabels', angle(0) labsize(`corrlabsz') grid) ///
                 xtitle("") ytitle("") ///
-                title("Missingness Correlation Matrix") ///
-                legend(order(1 "<0.2" 2 "0.2-0.4" 3 "0.4-0.6" 4 "0.6-0.8" 5 ">=0.8" ///
-                       6 "neg low" 7 "neg med" 8 "neg high") ///
-                       rows(1) size(vsmall) position(6)) ///
+                `corrtitle_text' ///
+                `titleopts' `subtitleopts' ///
+                legend(off) ///
                 aspectratio(1) ///
-                `schemeopts'
-            
+                plotregion(margin(zero)) ///
+                note("Color intensity: stronger correlation = darker. Blue=positive, Red=negative", size(vsmall)) ///
+                `schemeopts' `nameopts' `savingopts' `drawopts'
+
             restore
         }
     }
@@ -761,7 +994,26 @@ end
 
 exit
 
-* Changes from mvpatterns 2.0.0:
+* Version 1.2.0 (01dec2025):
+* - Fixed nodrop option logic (was inverted)
+* - Added input validation for minmissing/maxmissing consistency
+* - Increased generated variable name limit from 26 to 31 characters
+* - Enhanced graph options:
+*   - Added title(), subtitle() for custom graph titles
+*   - Added gname() to name graphs in memory
+*   - Added gsaving() to save graphs to files
+*   - Added nodraw to suppress graph display
+*   - Added barcolor() for bar/patterns charts
+*   - Added vertical/horizontal options for bar orientation
+*   - Added top() to control number of patterns shown
+*   - Added misscolor(), obscolor() for matrix heatmap customization
+*   - Added textlabels to show correlation values in cells
+*   - Added colorramp() for correlation heatmap (bluered, redblue, grayscale)
+* - Improved correlation heatmap with finer color gradation (10 levels)
+* - Dynamic marker/label sizing based on data dimensions
+* - Better pattern note truncation for long patterns
+*
+* Changes from mvpatterns 2.0.0 (version 1.1.0):
 * - Updated to version 14
 * - Added percent option
 * - Added cumulative option
