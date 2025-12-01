@@ -1,12 +1,15 @@
 # Stata Coding Guide for Claude
 
-**Purpose**: Quick reference for developing Stata packages, auditing .do files, and writing Stata commands. Optimized for Claude Sonnet 4.5.
+**Purpose**: Quick reference for developing Stata packages, auditing .do files, and writing Stata commands. Optimized for Claude Opus 4.
 
 ---
 
 ## Critical Rules (Always Follow)
 
-1. **Always set**: `version 18.0`, `set varabbrev off`, `set more off`
+1. **Always set**: `version X.0`, `set varabbrev off`, `set more off`
+   - Use `version 16.0` for maximum compatibility (recommended for packages)
+   - Use `version 18.0` when using Stata 18-specific features
+   - Use `version 18.5` for StataNow-specific features
 2. **Use `marksample touse`** for if/in conditions in programs
 3. **Return results** via `return` (rclass) or `ereturn` (eclass)
 4. **Use temp objects**: `tempvar`, `tempfile`, `tempname` for temporary variables/files/matrices
@@ -383,10 +386,15 @@ END
 local varname "price"
 display "`varname'"           // Displays: price
 
-# CORRECT: Nested macros
-local var1 "price"
-local myvar "`var1'"
-display "``myvar''"           // Double backtick for nested
+# CORRECT: Nested macros (inside-out evaluation)
+local a = 1
+local b1 "test"
+display "`b`a''"              // Evaluates `a' first → b1 → "test"
+
+# CORRECT: Indirect macro reference
+local varname "price"
+local which "varname"
+display "``which''"           // Evaluates `which' → varname → price
 
 # WRONG: Spaces inside backticks
 if ` condition ' {            // ERROR - spaces not allowed
@@ -405,6 +413,98 @@ display "The variable is `varname'"
 
 # WRONG: Missing backticks
 display "The variable is varname"  // Displays literal text
+```
+
+### Extended Macro Functions
+
+Essential functions for working with macros programmatically:
+
+```stata
+* Word count and extraction
+local n: word count `varlist'              // Count words in list
+local first: word 1 of `varlist'           // Get first word
+local last: word `n' of `varlist'          // Get last word
+
+* Variable properties
+local type: type `varname'                 // Get storage type (byte, int, float, etc.)
+local label: variable label `varname'      // Get variable label
+local fmt: format `varname'                // Get display format
+local vallbl: value label `varname'        // Get value label name
+
+* List operations
+local exists: list var in varlist          // Check if var is in list (returns 0/1)
+local unique: list uniq mylist             // Remove duplicates
+local sorted: list sort mylist             // Sort alphabetically
+local combined: list list1 | list2         // Union of two lists
+local common: list list1 & list2           // Intersection
+local diff: list list1 - list2             // Elements in list1 not in list2
+
+* String operations
+local len: length local mystring           // String length
+local upper: upper local mystring          // Convert to uppercase
+local lower: lower local mystring          // Convert to lowercase
+local piece: piece 1 50 of `longstring'    // First 50 chars
+```
+
+### gettoken: Advanced Parsing
+
+Use `gettoken` for complex option parsing and tokenizing strings:
+
+```stata
+* Basic tokenization - extract first element
+local mylist "apple banana cherry"
+gettoken first rest : mylist
+// first = "apple", rest = "banana cherry"
+
+* Parse with custom delimiter
+local options "opt1, opt2, opt3"
+gettoken opt1 rest : options, parse(",")
+gettoken comma rest : rest, parse(",")     // Remove the comma
+// opt1 = "opt1", rest = "opt2, opt3"
+
+* Loop through all elements
+local mylist "a b c d e"
+while "`mylist'" != "" {
+    gettoken element mylist : mylist
+    display "Processing: `element'"
+}
+
+* Parse key=value pairs
+local opts "name=test size=large color=blue"
+while "`opts'" != "" {
+    gettoken pair opts : opts
+    gettoken key value : pair, parse("=")
+    gettoken eq value : value, parse("=")  // Remove the =
+    display "`key' -> `value'"
+}
+
+* Handle quoted strings
+local input `"first "second item" third"'
+gettoken item1 rest : input, qed(hasquote)
+// item1 = "first", hasquote = 0
+gettoken item2 rest : rest, qed(hasquote)
+// item2 = "second item", hasquote = 1
+```
+
+### tokenize Command
+
+```stata
+* Split string into numbered macros
+tokenize "`varlist'"
+display "First var: `1'"
+display "Second var: `2'"
+
+* With custom delimiter
+tokenize "`options'", parse(",")
+display "First option: `1'"
+
+* Process all tokens
+tokenize "`varlist'"
+local i = 1
+while "``i''" != "" {
+    display "Variable `i': ``i''"
+    local ++i
+}
 ```
 
 ---
@@ -430,6 +530,90 @@ display "The variable is varname"  // Displays literal text
 | `eclass` | Estimation commands | `program define cmd, eclass` | `ereturn post/scalar/local` |
 | `sclass` | String parsing | `program define cmd, sclass` | `sreturn local` |
 | `nclass` | No returns | `program define cmd` | Nothing stored |
+
+---
+
+## Program Options: byable and sortpreserve
+
+### Overview
+
+| Option | Purpose | When to Use |
+|--------|---------|-------------|
+| `byable(recall)` | Allow `by varlist:` prefix | Commands that report results |
+| `byable(onecall)` | Advanced by-processing | Commands that create variables |
+| `sortpreserve` | Restore original sort order | When program re-sorts data |
+
+### byable(recall) - Most Common
+
+Use for commands that report results and can be repeated for each by-group:
+
+```stata
+program define mycommand, rclass byable(recall)
+    version 16.0
+    syntax varlist [if] [in]
+
+    marksample touse
+
+    // Command is automatically re-called for each by-group
+    // _byvars contains the by-variables if specified
+    if "`_byvars'" != "" {
+        display "Processing by-group: `_byvars'"
+    }
+
+    // ... computation
+end
+```
+
+Usage: `by foreign: mycommand price mpg`
+
+### sortpreserve - Restore Sort Order
+
+Use when your program changes the sort order and you want to restore it:
+
+```stata
+program define mycommand, rclass sortpreserve
+    version 16.0
+    syntax varlist [if] [in]
+
+    marksample touse
+
+    // This sort will be undone when program ends
+    sort `varlist'
+
+    // ... computation that requires sorted data
+end
+```
+
+**Note**: `sortpreserve` uses O(n) time to restore order, not O(n ln n).
+
+### Combined Usage
+
+For byable commands that sort internally:
+
+```stata
+program define mycommand, rclass sortpreserve byable(recall)
+    version 16.0
+    syntax varlist [if] [in]
+
+    marksample touse
+
+    // Safe to sort - will be restored
+    bysort `_byvars' (`varlist'): /* computation */
+end
+```
+
+### When NOT to Use
+
+- **Don't use sortpreserve** if your program doesn't change sort order (adds overhead)
+- **Don't use byable** if command logically can't work with by-groups
+- **Check for by: usage** when command is incompatible:
+
+```stata
+if "`_byvars'" != "" {
+    display as error "mycommand cannot be used with by:"
+    exit 190
+}
+```
 
 ---
 
@@ -459,6 +643,97 @@ syntax varlist [aweight fweight pweight] [if] [in]
 
 * Anything (unparsed)
 syntax anything [, options]
+```
+
+---
+
+## Sample Marking: marksample and markout
+
+### marksample Basics
+
+`marksample` creates a byte indicator variable (conventionally named `touse`) that is 1 for observations to include and 0 for observations to exclude. It handles:
+- `if` and `in` conditions
+- Missing values in the varlist
+- Weight variables
+
+```stata
+program define mycommand, rclass
+    version 16.0
+    syntax varlist [if] [in] [fweight aweight]
+
+    marksample touse                    // Standard usage
+
+    quietly count if `touse'
+    if r(N) == 0 error 2000
+
+    // ... rest of program uses `if `touse''
+end
+```
+
+### marksample Options
+
+| Option | Use When |
+|--------|----------|
+| `marksample touse` | Standard - excludes obs with missing values in varlist |
+| `marksample touse, novarlist` | Allow string variables or don't exclude missing |
+| `marksample touse, strok` | Allow string variables (alternative to novarlist) |
+
+```stata
+* When varlist may contain strings
+syntax varlist [if] [in]
+marksample touse, strok           // Don't error on string vars
+
+* When you handle missing values yourself
+syntax varlist [if] [in]
+marksample touse, novarlist       // Don't auto-exclude missing
+```
+
+### markout: Handle Additional Variables
+
+`markout` further restricts the sample for variables NOT in the main varlist (like those in options). **Always use after marksample**.
+
+```stata
+program define mycommand, rclass
+    version 16.0
+    syntax varlist [if] [in], BYvar(varname) [ADJust(varlist)]
+
+    marksample touse                    // Handles main varlist, if/in
+    markout `touse' `byvar'             // Also exclude if byvar is missing
+    markout `touse' `adjust'            // Also exclude if adjust vars missing
+
+    quietly count if `touse'
+    if r(N) == 0 error 2000
+end
+```
+
+### Key Differences
+
+| Feature | marksample | markout |
+|---------|------------|---------|
+| Creates touse variable | Yes | No (modifies existing) |
+| Handles if/in | Yes | No |
+| Handles weights | Yes | No |
+| Handles main varlist missings | Yes | N/A |
+| Use for option variables | No | Yes |
+| Order of use | First | After marksample |
+
+### Common Pattern
+
+```stata
+* Complete sample marking pattern
+syntax varlist(numeric) [if] [in] [fweight], BY(varname) [Cluster(varname)]
+
+marksample touse                    // Main varlist + if/in + weights
+markout `touse' `by'                // Option variable
+if "`cluster'" != "" {
+    markout `touse' `cluster'       // Optional option variable
+}
+
+quietly count if `touse'
+if r(N) == 0 {
+    display as error "no observations"
+    exit 2000
+}
 ```
 
 ---
@@ -530,16 +805,141 @@ display _n as result "All tests passed!"
 
 ---
 
+## Certification Scripts (cscript)
+
+For formal package testing, use Stata's certification script framework:
+
+```stata
+* certification_mycommand.do
+cscript mycommand adofile mycommand
+
+* Test against known/verified values
+sysuse auto, clear
+mycommand price mpg
+assert abs(r(mean) - 6165.257) < 0.001
+assert r(N) == 74
+
+* Test error conditions
+rcof "mycommand" == 100                    // varlist required
+rcof "mycommand stringvar" == 109          // type mismatch
+
+* Log certification results
+cscript log using cert_mycommand.log, replace
+```
+
+**Key principles:**
+- Run certification script after every code change
+- Test against values from trusted sources (other Stata commands, hand calculations)
+- Include both success and failure cases
+- Protects against introducing bugs during "improvements"
+
+---
+
+## preserve and restore
+
+### Basic Usage
+
+`preserve` saves a copy of the data; `restore` brings it back. Essential when programs modify data temporarily.
+
+```stata
+program define mycommand, rclass
+    version 16.0
+    syntax varlist [if] [in]
+
+    // Parse and validate BEFORE preserve (catch errors early)
+    marksample touse
+    local varcount: word count `varlist'
+    if `varcount' < 2 {
+        display as error "need at least 2 variables"
+        exit 198
+    }
+
+    preserve                              // Now safe to modify data
+
+    keep if `touse'
+    // ... modify data, compute results ...
+
+    restore                               // Automatically called at program end
+end
+```
+
+### Advanced Patterns
+
+```stata
+* restore, preserve - Restore but keep preserved copy for reuse
+preserve
+collapse (mean) price, by(foreign)
+// ... use collapsed data ...
+restore, preserve                        // Restore but keep copy
+collapse (sum) price, by(rep78)
+// ... use differently collapsed data ...
+restore
+
+* restore, not - Keep modified data (cancel the restore)
+preserve
+// ... modify data ...
+if "`replace'" != "" {
+    restore, not                         // Keep changes, don't restore
+}
+else {
+    restore                              // Discard changes
+}
+```
+
+### Memory Considerations
+
+- Stata/MP stores preserved data in frames (memory) by default
+- Falls back to disk when memory is low
+- Control with: `set max_preservemem #` (default: 1GB)
+- `query memory` shows current settings
+
+### Best Practices
+
+1. **Parse before preserve** - Catch syntax errors before copying data
+2. **Use `restore, preserve`** for multiple restores to same state (avoid disk thrashing)
+3. **Cannot nest preserves** - Use tempfiles for nested preservation:
+   ```stata
+   tempfile outer
+   save `outer'
+   preserve
+   // ... inner operations ...
+   restore
+   use `outer', clear
+   ```
+4. **Automatic restore on error** - If program errors after preserve, data is restored
+
+---
+
 ## Common Error Codes
 
 | Code | Meaning | Common Causes |
 |------|---------|---------------|
+| 1 | error in expression | Invalid expression syntax |
 | 100 | varlist required | Missing variable list in syntax |
+| 101 | varlist not allowed | Passed variables when none expected |
+| 102 | too few variables | Need more variables than provided |
+| 103 | too many variables | Passed more variables than allowed |
 | 109 | type mismatch | String vs numeric, wrong variable type |
+| 110 | already defined | Variable/program already exists |
 | 111 | variable not found | Typo, variable doesn't exist |
+| 119 | by may not be combined | Command doesn't support by: prefix |
+| 190 | request may not be combined with by | Specific option conflicts with by: |
 | 198 | invalid syntax | Bad option, missing comma, wrong format |
+| 199 | unrecognized command | Typo in command name, ado not installed |
+| 301 | last estimates not found | No estimation results stored |
+| 303 | equation not found | Reference to non-existent equation |
+| 459 | data inconsistency | Data validation failed (good for custom checks) |
 | 601 | file not found | Wrong path, file doesn't exist |
+| 602 | file already exists | Use replace option |
+| 603 | file could not be opened | Permissions, locked file |
+| 610 | file not Stata format | Wrong file type, corrupted file |
+| 900 | out of memory | Dataset too large, need more RAM |
 | 2000 | no observations | Empty sample, if/in excluded all data |
+| 2001 | insufficient observations | Need more obs for computation |
+
+**Custom Error Codes**: Use codes 459 (data inconsistency) or 198 (invalid syntax) for custom validation errors. Avoid codes 1-99 (reserved for system).
+
+**Look up any code**: In Stata, type `search rc ###` to see documentation for error code ###.
 
 ---
 
@@ -615,6 +1015,42 @@ merge 1:1 id using other.dta         // NOT: mata custom merge
 scatter y x                          // Use Stata graphics
 ```
 
+### Memory Management
+
+```stata
+* Always compress after data creation/manipulation
+compress                              // Reduces storage types to minimum needed
+
+* Check memory usage
+memory                                // Shows current memory allocation
+query memory                          // Shows memory settings
+
+* For large datasets, use these patterns:
+* 1. Compress early and often
+* 2. Drop unneeded variables early: keep var1 var2 var3
+* 3. Use frames instead of merging (Stata 16+)
+* 4. Work with random subsample during development:
+     sample 10                         // Keep random 10%
+* 5. Use tempfiles for intermediate results
+```
+
+**Large Dataset Workflow**:
+```stata
+* Step 1: Load and immediately compress
+use bigdata.dta, clear
+compress
+describe, short                       // Check size reduction
+
+* Step 2: Keep only needed variables
+keep id year outcome treatment covariates
+
+* Step 3: Use frames for lookups instead of merge
+frame create lookup
+frame lookup: use lookup_table.dta
+frlink m:1 id, frame(lookup)
+frget needed_var, from(lookup)
+```
+
 ---
 
 ## Mata Quick Reference
@@ -667,6 +1103,103 @@ timer on 1
 // slow code section
 timer off 1
 timer list
+```
+
+---
+
+## Error Handling Patterns
+
+### Basic capture
+
+```stata
+* Suppress error and check return code
+capture regress y x1 x2
+if _rc != 0 {
+    display as error "Regression failed with error `_rc'"
+    exit _rc
+}
+```
+
+### capture noisily - Show Output But Don't Stop
+
+```stata
+* Run command, show output, but don't stop on error
+capture noisily regress y x1 x2
+local rc = _rc
+if `rc' != 0 {
+    display as error "Regression failed, continuing..."
+}
+
+* Useful for batch processing
+foreach var in `varlist' {
+    capture noisily regress y `var'
+    if _rc == 0 {
+        estimates store model_`var'
+    }
+}
+```
+
+### capture with Block
+
+```stata
+* Capture multiple commands as a block
+capture noisily {
+    generate newvar = oldvar * 2
+    label variable newvar "Doubled value"
+    compress newvar
+}
+if _rc != 0 {
+    display as error "Variable creation failed"
+    exit _rc
+}
+```
+
+### Graceful Error Recovery
+
+```stata
+program define robust_command
+    version 16.0
+    syntax varlist [if] [in]
+
+    marksample touse
+
+    * Try preferred method
+    capture noisily regress `varlist' if `touse', robust
+    if _rc == 0 {
+        exit                           // Success
+    }
+
+    * Fall back to simpler method
+    display as text "Robust failed, trying OLS..."
+    capture noisily regress `varlist' if `touse'
+    if _rc != 0 {
+        display as error "All methods failed"
+        exit _rc
+    }
+end
+```
+
+### confirm Commands for Validation
+
+```stata
+* Check existence before using
+capture confirm variable myvar
+if _rc != 0 {
+    display as error "Variable myvar not found"
+    exit 111
+}
+
+capture confirm file "data.dta"
+if _rc != 0 {
+    display as error "File data.dta not found"
+    exit 601
+}
+
+capture confirm numeric variable myvar
+if _rc != 0 {
+    display as error "myvar must be numeric"
+    exit 109
+}
 ```
 
 ---
@@ -834,12 +1367,23 @@ use "${data_dir}/analysis.dta", clear
 | Task | Command |
 |------|---------|
 | Mark sample | `marksample touse` |
+| Mark additional vars | `markout `touse' varname` |
 | Validate variable | `confirm variable var` |
+| Validate numeric | `confirm numeric variable var` |
 | Check file exists | `confirm file "path"` |
 | Temporary objects | `tempvar/tempfile/tempname` |
 | Profile performance | `timer on/off` |
 | Debug | `set trace on`, `pause` |
 | Test assertion | `assert condition` |
+| Safe error handling | `capture noisily command` |
+| Compress data | `compress` |
+| Check memory | `memory`, `query memory` |
+| Switch frame | `frame change framename` |
+| List frames | `frames dir` |
+| Word count | `local n: word count `list'` |
+| Get first word | `local first: word 1 of `list'` |
+| Parse tokens | `gettoken first rest : list` |
+| Export table | `collect export "file.docx"` |
 | Read before edit | ALWAYS use Read tool first |
 
 ---
@@ -945,20 +1489,120 @@ estimates store re
 hausman fe re
 ```
 
+### Frames: Multiple Datasets in Memory (Stata 16+)
+
+Frames allow working with multiple datasets simultaneously without saving/loading.
+
+```stata
+* Basic frame operations
+frame create analysis                      // Create new frame
+frame change analysis                      // Switch to frame (or: cwf analysis)
+frame change default                       // Switch back
+frames dir                                 // List all frames
+
+* Copy data between frames
+frame copy default analysis                // Copy current data to new frame
+
+* Work across frames without switching
+frame analysis: summarize income           // Run command in another frame
+frame analysis: local n = _N               // Get values from another frame
+
+* Drop frames when done
+frame drop analysis
+```
+
+### Linking Frames (Memory-Efficient Alternative to Merge)
+
+```stata
+* Instead of merging, link frames
+frame create counties
+frame counties: use county_data.dta
+
+* Create link from person data to county data
+frlink m:1 county_id, frame(counties)
+
+* Get variables from linked frame (like merge, but no duplication)
+frget median_income population, from(counties)
+
+* Alias variables (reference without copying - minimal memory)
+fralias add med_income = median_income, from(counties)
+```
+
+**Memory benefits**: Linked frames avoid duplicating data. For 100k persons linked to 1k counties, you save ~99% of memory vs. a merge.
+
+### Framesets (Stata 18+)
+
+```stata
+* Save multiple related frames together
+frames save myproject.dtas, frames(main analysis results)
+
+* Load a frameset
+frames use myproject.dtas
+
+* Modify frameset on disk without loading (Stata 19+)
+frames drop results using myproject.dtas
+```
+
+### Customizable Tables: collect and table (Stata 17+)
+
+The `collect` system creates publication-ready tables exportable to Word, Excel, LaTeX, etc.
+
+```stata
+* Basic regression table
+table () (result), command(regress y x1 x2 x3)
+collect export "results.docx", replace
+
+* Multiple models side-by-side
+collect clear
+quietly regress y x1 x2
+collect _r_b _r_se, name(m1) tag(model[1])
+quietly regress y x1 x2 x3
+collect _r_b _r_se, name(m1) tag(model[2])
+collect layout (colname) (model)
+collect export "comparison.xlsx", replace
+
+* Descriptive statistics table (Table 1)
+dtable age income education, by(treatment) export("table1.docx", replace)
+
+* Estimation table with common styling
+etable, column(dvlabel) export("regression.docx", replace)
+```
+
+### Table Customization
+
+```stata
+* Number formatting
+collect style cell result[_r_b], nformat(%9.3f)
+collect style cell result[_r_se], nformat(%9.3f) sformat("(%s)")
+
+* Headers and titles
+collect style header result, level(hide)
+collect title "Table 1: Regression Results"
+
+* Export to multiple formats
+collect export "results.docx", replace
+collect export "results.xlsx", replace
+collect export "results.tex", replace
+collect export "results.html", replace
+```
+
 ---
 
 ## Summary: Critical Success Factors
 
-1. **Always use**: `version 18.0`, `set varabbrev off`, `marksample touse`, `set seed`
+1. **Always use**: `version 16.0` (or 18.0), `set varabbrev off`, `marksample touse`, `set seed`
 2. **Read before editing**: NEVER modify files without reading them first
-3. **Verify syntax**: Double-check backticks, quotes, macro references
-4. **Dialog spacing**: Use context-aware +15/+20/+25 spacing rules
-5. **Test thoroughly**: Edge cases, error handling, reproducibility
-6. **Document completely**: Help file, examples, return values, README with <br>
-7. **Validate inputs**: All inputs, sanitize file paths, check ranges
-8. **Organize properly**: Clear structure, stata.toc, .pkg with metadata
-9. **Single-line install**: README must have one-line net install command
-10. **Follow templates**: Use tvtools format for README, proper .pkg format
+3. **Verify syntax**: Double-check backticks, quotes, macro references, nested expansions
+4. **Use marksample + markout**: Handle if/in/weights with marksample, options with markout
+5. **Dialog spacing**: Use context-aware +15/+20/+25 spacing rules
+6. **Test thoroughly**: Edge cases, error handling, certification scripts
+7. **Document completely**: Help file, examples, return values, README with <br>
+8. **Validate inputs**: All inputs, sanitize file paths, check ranges with confirm commands
+9. **Error handling**: Use capture noisily for graceful failures, proper error codes
+10. **Memory efficiency**: compress data, use frames (16+) over merges, keep minimal variables
+11. **Modern features**: collect/table for export (17+), frames for multi-dataset work (16+)
+12. **Single-line install**: README must have one-line net install command
+13. **Follow templates**: Use tvtools format for README, proper .pkg format
 
 ---
 
