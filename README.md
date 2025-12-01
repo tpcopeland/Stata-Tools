@@ -228,7 +228,7 @@ MIT License - see individual package files for details
 
 | Package | Description | Version | Stata Version |
 |---------|-------------|---------|---------------|
-| check | Variable inspection | 1.1 | 14+ |
+| check | Variable inspection | 1.1.0 | 14+ |
 | compress_tc | String compression via strL | 1.0.0 | 13+ |
 | cstat_surv | C-statistic for survival | 1.0.0 | 14+ |
 | datamap | Dataset documentation | 2.1.0 | 16+ |
@@ -238,7 +238,7 @@ MIT License - see individual package files for details
 | pkgtransfer | Package management | 1.0.0 | 14+ |
 | regtab | Regression tables | 1.0.0 | 17+ |
 | setools | Swedish registry data tools | 1.0.3 | 18+ |
-| stratetab | Strate output formatting | 2.0 | 17+ |
+| stratetab | Strate output formatting | 2.0.0 | 17+ |
 | synthdata | Synthetic data generation | 2.0.0 | 16+ |
 | table1_tc | Table 1 creation | 1.0.0 | 14.2+ |
 | today | Date utilities | 1.1.0 | 14+ |
