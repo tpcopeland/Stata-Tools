@@ -41,9 +41,10 @@ mypackage/
 ├── *.pkg               # Package description
 ├── stata.toc           # Table of contents
 ├── README.md           # Installation & examples
-├── LICENSE             # License file (MIT recommended)
 └── test_*.do           # Test scripts
 ```
+
+**Note**: All packages use MIT license. Do NOT create separate LICENSE or LICENSE.md files.
 
 ---
 
@@ -211,7 +212,7 @@ Location
 
 ## License
 
-MIT License - see LICENSE file for details
+MIT License
 
 ## Version
 
@@ -1329,7 +1330,10 @@ if _rc {
    {* *! version 1.2.3  15jan2025}{...}
    ```
 
-6. **Update README.md version section** to match .ado semantic version (X.Y.Z format)
+6. **Update README.md files** to match .ado semantic version (X.Y.Z format):
+   - Update the package-specific README.md in the package directory
+   - Update the main repository README.md in the root directory
+   - Both files must reflect the new version number
 
 ### CRITICAL: Understanding Two Version Numbering Systems
 
@@ -1387,6 +1391,11 @@ net install packagename, replace
 - Updating README or examples
 - Making ANY changes that users should receive
 
+**ALWAYS update BOTH README.md files when updating .ado and .pkg files:**
+- Update the package-specific README.md in the package directory (e.g., mycommand/README.md)
+- Update the main repository README.md in the root directory (e.g., README.md)
+- Both files must reflect the current semantic version (X.Y.Z format) from the .ado file
+
 ---
 
 ## Distribution Checklist
@@ -1395,7 +1404,8 @@ net install packagename, replace
 
 - [ ] Semantic version in .ado header uses X.Y.Z format (`*! version 1.0.0`), never X.Y or X
 - [ ] Semantic version in .sthlp matches .ado (X.Y.Z format)
-- [ ] Semantic version in README.md matches .ado (X.Y.Z format)
+- [ ] Semantic version in package README.md matches .ado (X.Y.Z format)
+- [ ] Semantic version in main repository README.md matches .ado (X.Y.Z format)
 - [ ] Package tracking version (v [#]) in stata.toc is incremented (v 1 → v 2, etc.)
 - [ ] Package tracking version (v [#]) in .pkg matches stata.toc
 - [ ] Distribution-Date in .pkg is CURRENT (YYYYMMDD format)
@@ -1408,7 +1418,7 @@ net install packagename, replace
 - [ ] Handles missing data properly
 - [ ] README with single-line installation
 - [ ] README follows tvtools format (badges, <br> in Author)
-- [ ] License file (MIT recommended)
+- [ ] MIT License specified in .pkg file and README.md (no separate LICENSE file)
 - [ ] Dialog spacing follows +15/+20/+25 rules
 - [ ] All Stata syntax verified (backticks, quotes, macros)
 
@@ -1451,6 +1461,8 @@ net install mycommand, from(https://raw.githubusercontent.com/username/repositor
 15. **Missing backticks in macros** - `` `macroname' `` not `macroname`
 16. **Spaces in macro references** - `` `var' `` not `` `var ' ``
 17. **Not testing edge cases** - Empty data, missing values, single obs
+18. **Creating LICENSE files** - NEVER create LICENSE or LICENSE.md files; use MIT in .pkg and README
+19. **Forgetting README updates** - ALWAYS update both package and main README.md when updating .ado/.pkg
 
 ---
 
@@ -1714,6 +1726,8 @@ collect export "results.html", replace
 12. **Single-line install**: README must have one-line net install command
 13. **Version numbers**: Use X.Y.Z format for semantic versions; increment v [#] in .pkg/.toc with each update
 14. **Follow templates**: Use tvtools format for README, proper .pkg format
+15. **License handling**: All packages use MIT license; NEVER create separate LICENSE or LICENSE.md files
+16. **README updates**: ALWAYS update BOTH package README.md and main repository README.md when updating .ado/.pkg files
 
 ---
 
