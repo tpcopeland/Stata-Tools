@@ -67,21 +67,40 @@ transition: fade-out
 Which treatment failed her?
 </div>
 
+<!--
+This is the "aha moment" - most of the audience will have encountered this problem.
+The treatment journey is typical for MS patients - platform → high efficacy escalation.
+Emphasize that if we analyze by "ever-treated" we get immortal time bias because
+Anna had to survive 5 years just to become "natalizumab-exposed."
+-->
+
 ::right::
 
 <div class="pl-8 pt-8">
 
 <div v-click class="patient-timeline">
   <div class="timeline-bar">
-    <div class="segment segment-ifn" style="flex: 2">IFN</div>
-    <div class="segment segment-fingo" style="flex: 2">FTY</div>
-    <div class="segment segment-ntz" style="flex: 3">NTZ</div>
+    <div
+      v-motion
+      :initial="{ scaleX: 0 }"
+      :enter="{ scaleX: 1, transition: { delay: 0, duration: 400 } }"
+      class="segment segment-ifn origin-left" style="flex: 2">IFN</div>
+    <div
+      v-motion
+      :initial="{ scaleX: 0 }"
+      :enter="{ scaleX: 1, transition: { delay: 400, duration: 400 } }"
+      class="segment segment-fingo origin-left" style="flex: 2">FTY</div>
+    <div
+      v-motion
+      :initial="{ scaleX: 0 }"
+      :enter="{ scaleX: 1, transition: { delay: 800, duration: 400 } }"
+      class="segment segment-ntz origin-left" style="flex: 3">NTZ</div>
   </div>
   <div class="timeline-labels">
-    <span>Dx</span>
-    <span>Y3</span>
-    <span>Y5</span>
-    <span class="text-red-500">Y8 ⚡</span>
+    <span v-motion :initial="{ opacity: 0 }" :enter="{ opacity: 1, transition: { delay: 0 } }">Dx</span>
+    <span v-motion :initial="{ opacity: 0 }" :enter="{ opacity: 1, transition: { delay: 400 } }">Y3</span>
+    <span v-motion :initial="{ opacity: 0 }" :enter="{ opacity: 1, transition: { delay: 800 } }">Y5</span>
+    <span v-motion :initial="{ opacity: 0, scale: 0.5 }" :enter="{ opacity: 1, scale: 1, transition: { delay: 1200, type: 'spring' } }" class="text-red-500">Y8 ⚡</span>
   </div>
 </div>
 
@@ -292,16 +311,24 @@ layout: default
 
 ```mermaid {scale: 0.8}
 graph LR
-    A[SMSreg Data] --> B[tvexpose]
+    A[📁 Registry Data] --> B[tvexpose]
     B --> C[tvmerge]
     C --> D[tvevent]
-    D --> E[stcrreg]
-    style B fill:#3b82f6
-    style C fill:#8b5cf6
-    style D fill:#22c55e
+    D --> E[📈 stcrreg]
+    style A fill:#9CA3AF,color:#fff
+    style B fill:#3b82f6,color:#fff
+    style C fill:#8b5cf6,color:#fff
+    style D fill:#22c55e,color:#fff
+    style E fill:#F97316,color:#fff
 ```
 
 </div>
+
+<!--
+This workflow slide is critical - show that tvtools is a complete pipeline.
+Note that tvmerge is optional (only needed for multiple exposures).
+Emphasize the seamless integration with Stata's survival analysis commands.
+-->
 
 <style>
 .command-card {
@@ -378,58 +405,77 @@ transition: slide-up
 
 # tvexpose: The Transformation
 
-### Raw DMT Data
+<div class="mt-4">
 
-<div class="mt-4 text-sm">
-
-```
+````md magic-move {lines: true}
+```txt {*|*}
+Raw DMT Prescriptions
+─────────────────────────────────────
 id │ dmt_start  │ dmt_stop   │ dmt
-───┼────────────┼────────────┼────────────
- 1 │ 2015-03    │ 2017-08    │ 1 (IFN)
- 1 │ 2018-01    │ 2022-06    │ 4 (NTZ)
+───┼────────────┼────────────┼────────
+ 1 │ 2015-03-01 │ 2017-08-15 │ 1 (IFN)
+ 1 │ 2018-01-10 │ 2022-06-30 │ 4 (NTZ)
 ```
+
+```txt {*|1-3|4|5|6|7|8|*}
+Time-Varying Output (tvexpose)
+─────────────────────────────────────
+id │ start      │ stop       │ exposure
+───┼────────────┼────────────┼─────────
+ 1 │ 2014-01-15 │ 2015-03-01 │ 0 (None)
+ 1 │ 2015-03-01 │ 2017-08-15 │ 1 (IFN)
+ 1 │ 2017-08-15 │ 2018-01-10 │ 0 (None)
+ 1 │ 2018-01-10 │ 2022-06-30 │ 4 (NTZ)
+ 1 │ 2022-06-30 │ 2023-12-31 │ 0 (None)
+```
+````
 
 </div>
 
-<v-click>
-
-<div class="mt-6 text-gray-500">
-  <carbon-arrow-down class="text-2xl animate-bounce" />
+<div v-click class="mt-4 text-sm text-gray-500">
+  <carbon-information class="inline" /> 2 prescription rows → 5 complete intervals
 </div>
-
-### Time-Varying Output
-
-<div class="mt-4 text-sm">
-
-```
-id │ start      │ stop       │ tv_exposure
-───┼────────────┼────────────┼────────────
- 1 │ 2014-01    │ 2015-03    │ 0 (None)
- 1 │ 2015-03    │ 2017-08    │ 1 (IFN)
- 1 │ 2017-08    │ 2018-01    │ 0 (None)
- 1 │ 2018-01    │ 2022-06    │ 4 (NTZ)
- 1 │ 2022-06    │ 2023-12    │ 0 (None)
-```
-
-</div>
-
-</v-click>
 
 ::right::
 
 <div class="pl-8 pt-4">
 
-<div v-click="2" class="timeline-visual">
+<div class="timeline-visual">
 
-<div class="timeline-row unexposed" style="width: 20%">None</div>
-<div class="timeline-row ifn" style="width: 25%">IFN</div>
-<div class="timeline-row unexposed" style="width: 10%">Gap</div>
-<div class="timeline-row ntz" style="width: 35%">NTZ</div>
-<div class="timeline-row unexposed" style="width: 10%">None</div>
+<div
+  v-click
+  v-motion
+  :initial="{ opacity: 0, x: -50 }"
+  :enter="{ opacity: 1, x: 0, transition: { delay: 0 } }"
+  class="timeline-row unexposed" style="width: 20%">None</div>
+<div
+  v-click
+  v-motion
+  :initial="{ opacity: 0, x: -50 }"
+  :enter="{ opacity: 1, x: 0, transition: { delay: 100 } }"
+  class="timeline-row ifn" style="width: 25%">IFN</div>
+<div
+  v-click
+  v-motion
+  :initial="{ opacity: 0, x: -50 }"
+  :enter="{ opacity: 1, x: 0, transition: { delay: 200 } }"
+  class="timeline-row unexposed" style="width: 10%">Gap</div>
+<div
+  v-click
+  v-motion
+  :initial="{ opacity: 0, x: -50 }"
+  :enter="{ opacity: 1, x: 0, transition: { delay: 300 } }"
+  class="timeline-row ntz" style="width: 35%">NTZ</div>
+<div
+  v-click
+  v-motion
+  :initial="{ opacity: 0, x: -50 }"
+  :enter="{ opacity: 1, x: 0, transition: { delay: 400 } }"
+  class="timeline-row unexposed" style="width: 10%">None</div>
 
 </div>
 
-<div v-click="3" class="mt-8 highlight-box">
+<div v-click class="mt-8 highlight-box">
 
 **Key insight:** Gaps automatically filled with reference category (unexposed)
 
@@ -438,6 +484,13 @@ No immortal time!
 </div>
 
 </div>
+
+<!--
+The before/after transformation is powerful - emphasize that gaps are automatically handled.
+This is the core value proposition: tvexpose does the tedious work of creating
+complete timelines where every moment of follow-up has defined exposure status.
+Point out: patient was unexposed 2014-2015, on IFN 2015-2017, gap 2017-2018, etc.
+-->
 
 <style>
 .timeline-visual {
@@ -646,19 +699,25 @@ layout: section
 ### The Setup
 
 ```stata
-* Create separate time-varying datasets
+* Create time-varying DMT dataset
 use ms_cohort, clear
-tvexpose using dmt, ... ///
+tvexpose using dmt_prescriptions, ///
+    id(patient_id) start(dmt_start) stop(dmt_stop) ///
+    exposure(dmt) reference(0) ///
+    entry(ms_diagnosis_date) exit(study_exit_date) ///
     saveas(tv_dmt.dta) replace
 
+* Create time-varying OC dataset
 use ms_cohort, clear
-tvexpose using oc_prescriptions, ... ///
+tvexpose using oc_prescriptions, ///
+    id(patient_id) start(oc_start) stop(oc_stop) ///
+    exposure(oc_type) reference(0) ///
+    entry(ms_diagnosis_date) exit(study_exit_date) ///
     saveas(tv_oc.dta) replace
 
-* Merge them
+* Merge at all temporal boundaries
 tvmerge tv_dmt tv_oc, id(patient_id) ///
-    start(start start) ///
-    stop(stop stop) ///
+    start(dmt_start oc_start) stop(dmt_stop oc_stop) ///
     exposure(tv_exposure tv_exposure) ///
     generate(dmt oc_use)
 ```
@@ -673,7 +732,12 @@ tvmerge tv_dmt tv_oc, id(patient_id) ///
 
 <div class="mt-4">
 
-<div v-click class="timeline-container">
+<div
+  v-click
+  v-motion
+  :initial="{ opacity: 0, x: -100 }"
+  :enter="{ opacity: 1, x: 0, transition: { duration: 500, type: 'spring' } }"
+  class="timeline-container">
   <div class="timeline-label">DMT:</div>
   <div class="timeline">
     <div class="segment unexposed" style="flex: 2">None</div>
@@ -683,7 +747,12 @@ tvmerge tv_dmt tv_oc, id(patient_id) ///
   </div>
 </div>
 
-<div v-click class="timeline-container">
+<div
+  v-click
+  v-motion
+  :initial="{ opacity: 0, x: 100 }"
+  :enter="{ opacity: 1, x: 0, transition: { duration: 500, type: 'spring' } }"
+  class="timeline-container">
   <div class="timeline-label">OC:</div>
   <div class="timeline">
     <div class="segment oc-no" style="flex: 3">No</div>
@@ -692,9 +761,19 @@ tvmerge tv_dmt tv_oc, id(patient_id) ///
   </div>
 </div>
 
-<div v-click class="text-center text-2xl my-4">⬇️ Merge at all boundaries ⬇️</div>
+<div
+  v-click
+  v-motion
+  :initial="{ opacity: 0, scale: 0 }"
+  :enter="{ opacity: 1, scale: 1, transition: { duration: 300, type: 'spring', stiffness: 300 } }"
+  class="text-center text-2xl my-4">⬇️ Merge at all boundaries ⬇️</div>
 
-<div v-click class="timeline-container">
+<div
+  v-click
+  v-motion
+  :initial="{ opacity: 0, y: 50, scaleY: 0 }"
+  :enter="{ opacity: 1, y: 0, scaleY: 1, transition: { duration: 600, type: 'spring' } }"
+  class="timeline-container origin-top">
   <div class="timeline-label">Result:</div>
   <div class="timeline merged">
     <div class="segment s1" style="flex: 2">0,No</div>
@@ -708,7 +787,12 @@ tvmerge tv_dmt tv_oc, id(patient_id) ///
 
 </div>
 
-<div v-click class="mt-6 insight-box">
+<div
+  v-click
+  v-motion
+  :initial="{ opacity: 0, y: 20 }"
+  :enter="{ opacity: 1, y: 0, transition: { delay: 200, duration: 400 } }"
+  class="mt-6 insight-box">
   <carbon-checkmark-filled class="text-green-500 text-xl" />
   <span>Every interval has BOTH exposures defined. No gaps. Analysis-ready.</span>
 </div>
@@ -821,7 +905,12 @@ transition: slide-up
 
 <div class="split-demo mt-8">
 
-<div v-click class="split-before">
+<div
+  v-click
+  v-motion
+  :initial="{ opacity: 0, y: -30 }"
+  :enter="{ opacity: 1, y: 0, transition: { duration: 400 } }"
+  class="split-before">
   <div class="label">Before tvevent:</div>
   <div class="interval">
     <span class="date">2020-01-01</span>
@@ -831,12 +920,22 @@ transition: slide-up
   <div class="values">dmt = 4 (NTZ), outcome = ?</div>
 </div>
 
-<div v-click class="event-marker">
+<div
+  v-click
+  v-motion
+  :initial="{ opacity: 0, scale: 0, rotate: -180 }"
+  :enter="{ opacity: 1, scale: 1, rotate: 0, transition: { duration: 500, type: 'spring', stiffness: 200 } }"
+  class="event-marker">
   <carbon-flag-filled class="text-red-500 text-3xl" />
   <span>EDSS Progression: 2022-06-15</span>
 </div>
 
-<div v-click class="split-after">
+<div
+  v-click
+  v-motion
+  :initial="{ opacity: 0, scaleX: 0.6 }"
+  :enter="{ opacity: 1, scaleX: 1, transition: { duration: 600, type: 'spring' } }"
+  class="split-after origin-left">
   <div class="label">After tvevent:</div>
   <div class="interval">
     <span class="date">2020-01-01</span>
@@ -846,7 +945,12 @@ transition: slide-up
   <div class="values">dmt = 4 (NTZ), <span class="text-red-500 font-bold">outcome = 1</span></div>
 </div>
 
-<div v-click class="dropped">
+<div
+  v-click
+  v-motion
+  :initial="{ opacity: 0, x: 50 }"
+  :enter="{ opacity: 1, x: 0, transition: { duration: 300 } }"
+  class="dropped">
   <carbon-close-outline class="text-gray-400 text-xl" />
   <span>Post-progression follow-up dropped (type=single)</span>
 </div>
@@ -975,20 +1079,20 @@ layout: section
 
 <div class="code-scroll">
 
-```stata {all|1-6|8-10|12-13|all}
-* Step 1: Create time-varying DMT
+```stata {all|1-7|9-11|13-15|all}
+* Step 1: Create time-varying DMT exposure
 use ms_cohort, clear
 tvexpose using dmt_prescriptions, ///
     id(patient_id) start(dmt_start) stop(dmt_stop) ///
     exposure(dmt) reference(0) ///
     entry(ms_diagnosis_date) exit(study_exit_date) ///
-    keepvars(age_at_onset sex ms_type edss_baseline)
+    keepvars(age_at_onset sex ms_type edss_baseline edss4_date death_date)
 
-* Step 2: Integrate events with competing risks
+* Step 2: Integrate outcomes with competing risks
 tvevent using ms_cohort, id(patient_id) ///
     date(edss4_date) compete(death_date) generate(outcome)
 
-* Step 3: Survival analysis
+* Step 3: Survival analysis with competing risks
 stset stop, id(patient_id) failure(outcome==1) enter(start)
 stcrreg i.tv_exposure age_at_onset i.sex i.ms_type edss_baseline, ///
     compete(outcome==2)
@@ -1055,6 +1159,14 @@ Baseline EDSS              │    1.31    [1.25, 1.37]      <0.001
 
 </v-click>
 
+<!--
+These effect sizes are clinically plausible and match published literature on high-efficacy DMTs.
+The audience will recognize them as realistic.
+Key point: The gradient from platform (18% reduction) to moderate (32%) to high-efficacy (49%)
+makes biological and clinical sense.
+Reference: Hauser SL et al. NEJM 2017 for ocrelizumab trials showing similar magnitudes.
+-->
+
 <style>
 .results-container {
   @apply text-xs font-mono bg-gray-900 text-green-400 p-4 rounded-xl;
@@ -1100,6 +1212,13 @@ Baseline EDSS              │    1.31    [1.25, 1.37]      <0.001
 <div v-click class="mt-8 text-center text-sm text-gray-500">
   Multiple high-profile DMT papers have been criticized or retracted for these errors.
 </div>
+
+<!--
+This slide validates their concerns and shows the stakes.
+Don't name specific papers, but reference methodology papers like Suissa 2008.
+The immortal time bias error is VERY common - estimates suggest 2-3x spurious protection.
+Key takeaway: These aren't theoretical concerns - they've affected real research conclusions.
+-->
 
 <style>
 .errors-grid {
@@ -1158,10 +1277,8 @@ layout: two-cols
 ### Installation
 
 ```stata
-net install tvtools, from(https://
-  raw.githubusercontent.com/
-  tpcopeland/Stata-Tools/
-  main/tvtools)
+net install tvtools, ///
+    from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/tvtools")
 ```
 
 ### Help
