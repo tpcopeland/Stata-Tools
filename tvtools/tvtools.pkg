@@ -1,4 +1,4 @@
-v 2
+v 3
 d 'TVTOOLS': Commands for formatting and merging time-varying data
 d
 d Requires: Stata version 16+

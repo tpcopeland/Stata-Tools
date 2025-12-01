@@ -911,11 +911,11 @@ Karolinska Institutet
 
 ## License
 
-MIT License - see LICENSE file for details
+MIT License
 
 ## Version
 
-Version 1.0.0, 2025-11-17
+Version 1.1.0, 2025-12-01
 
 ## Also See
 

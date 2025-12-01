@@ -778,18 +778,13 @@ Restricts analysis to persons entering after 2015 and examines exposure trends b
 {synopt:{cmd:r(unexposed_time)}}unexposed person-time in days{p_end}
 {synopt:{cmd:r(pct_exposed)}}percentage of time exposed{p_end}
 
-
-{synoptset 20 tabbed}{...}
-{p2col 5 20 24 2: Global Macro}{p_end}
-{synopt:{cmd:$overlap_ids}}list of IDs with overlapping exposure categories (when detected){p_end}
-
 {marker author}{...}
 {title:Author}
 
 {pstd}Timothy P Copeland{p_end}
 {pstd}Department of Clinical Neuroscience{p_end}
 {pstd}Karolinska Institutet{p_end}
-{pstd}Version 1.0.0, 2025-11-07{p_end}
+{pstd}Version 1.1.0, 2025-12-01{p_end}
 
 
 {title:Also see}

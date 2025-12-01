@@ -634,10 +634,10 @@ Progress messages show batch processing status. For a dataset with 10,000 unique
 {marker author}{...}
 {title:Author}
 
-{pstd}Timothy P. Copeland{p_end}
+{pstd}Timothy P Copeland{p_end}
 {pstd}Department of Clinical Neuroscience{p_end}
 {pstd}Karolinska Institutet{p_end}
-{pstd}Version 1.0.0, 2025-11-07{p_end}
+{pstd}Version 1.0.0, 2025-11-17{p_end}
 
 
 {title:Also see}

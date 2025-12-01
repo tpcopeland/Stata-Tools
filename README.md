@@ -242,7 +242,7 @@ MIT License - see individual package files for details
 | synthdata | Synthetic data generation | 2.0.0 | 16+ |
 | table1_tc | Table 1 creation | 1.0.0 | 14.2+ |
 | today | Date utilities | 1.1.0 | 14+ |
-| tvtools | Time-varying data | 1.0.0 | 16+ |
+| tvtools | Time-varying data | 1.1.0 | 16+ |
 
 ## Citation
 
