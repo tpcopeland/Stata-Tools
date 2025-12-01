@@ -1,5 +1,7 @@
 {smcl}
-{* *! version 1.1.0  26nov2025}{...}
+{* *! version 1.1.1  01dec2025}{...}
+{vieweralsosee "[ST] stset" "help stset"}{...}
+{vieweralsosee "migrations" "help migrations"}{...}
 {viewerjumpto "Syntax" "sustainedss##syntax"}{...}
 {viewerjumpto "Description" "sustainedss##description"}{...}
 {viewerjumpto "Options" "sustainedss##options"}{...}
@@ -237,3 +239,13 @@ concept. {it:Brain}. 2006;129(3):606-616.
 Tim Copeland{p_end}
 {pstd}
 Questions, comments, or bug reports: contact author{p_end}
+
+
+{marker alsosee}{...}
+{title:Also see}
+
+{pstd}
+{help migrations:migrations} - Process Swedish migration registry data{p_end}
+
+{pstd}
+Online: {browse "https://github.com/tpcopeland/Stata-Tools":Stata-Tools on GitHub}{p_end}

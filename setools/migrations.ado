@@ -1,5 +1,6 @@
-*! version 1.0.2  26nov2025  Tim Copeland
+*! version 1.0.3  01dec2025  Tim Copeland
 *! Handle Swedish migration data for registry-based cohort studies
+*! Part of the setools package
 
 program define migrations, rclass
     version 18.0
