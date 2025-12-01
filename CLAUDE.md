@@ -1318,17 +1318,47 @@ if _rc {
    ```
    Use format: YYYYMMDD (e.g., 20251201 for December 1, 2025)
 
-4. **Update version in .ado file header** if making code changes:
+4. **Update semantic version in .ado file header** if making code changes (use X.Y.Z format):
    ```stata
-   *! commandname Version X.Y.Z  DDMonthYYYY
+   *! commandname Version 1.2.3  15jan2025
    ```
+   **IMPORTANT**: Always use three-part format (X.Y.Z), never X.Y or X alone.
 
-5. **Update version in .sthlp file** to match .ado:
+5. **Update semantic version in .sthlp file** to match .ado:
    ```smcl
-   {* *! version X.Y.Z  ddmonyyyy}{...}
+   {* *! version 1.2.3  15jan2025}{...}
    ```
 
-6. **Update README.md version section** to match .ado version
+6. **Update README.md version section** to match .ado semantic version (X.Y.Z format)
+
+### CRITICAL: Understanding Two Version Numbering Systems
+
+There are **two separate and independent** version numbering systems:
+
+1. **Package tracking version (`v [#]`)** - Simple integers in .pkg and stata.toc:
+   - Format: `v 1`, `v 2`, `v 3`, etc.
+   - Location: ONLY the `v [#]` line at the top of .pkg and stata.toc files
+   - Purpose: Stata's internal package update tracking mechanism
+   - Rule: Increment by 1 with each package update
+   - Example: `v 15` means this is the 15th release of the package
+
+2. **Semantic version number (X.Y.Z)** - Three-part version numbers:
+   - Format: **ALWAYS X.Y.Z** (e.g., 1.0.0, 1.2.3, 2.0.1)
+   - **NEVER use X.Y or X format** (e.g., NOT 1.0 or 1)
+   - Location: .ado headers, .sthlp files, README.md, and text descriptions in .pkg/stata.toc
+   - Purpose: Semantic versioning for tracking feature changes
+   - Rule: Follow semantic versioning (major.minor.patch)
+   - Example: `*! commandname Version 1.2.3  15jan2025`
+
+**These systems are independent** - a package at `v 15` could be at semantic Version 1.2.3. The numbers don't need to match.
+
+**Example of both systems in a .pkg file**:
+```stata
+v 15                                    // Package tracking (15th update)
+d 'MYCOMMAND': Version 1.2.3            // Semantic version in description
+d
+d Distribution-Date: 20251201
+```
 
 ### Why This Matters:
 
@@ -1363,7 +1393,12 @@ net install packagename, replace
 
 **Before releasing a package:**
 
-- [ ] Version in header (`*! version 1.0.0`)
+- [ ] Semantic version in .ado header uses X.Y.Z format (`*! version 1.0.0`), never X.Y or X
+- [ ] Semantic version in .sthlp matches .ado (X.Y.Z format)
+- [ ] Semantic version in README.md matches .ado (X.Y.Z format)
+- [ ] Package tracking version (v [#]) in stata.toc is incremented (v 1 → v 2, etc.)
+- [ ] Package tracking version (v [#]) in .pkg matches stata.toc
+- [ ] Distribution-Date in .pkg is CURRENT (YYYYMMDD format)
 - [ ] Help file exists and complete
 - [ ] Examples in help file work
 - [ ] All tests pass
@@ -1373,9 +1408,6 @@ net install packagename, replace
 - [ ] Handles missing data properly
 - [ ] README with single-line installation
 - [ ] README follows tvtools format (badges, <br> in Author)
-- [ ] stata.toc file present with correct version number (v [#])
-- [ ] .pkg file with matching version number (v [#]), complete metadata, and CURRENT Distribution-Date
-- [ ] Version numbers in .pkg and stata.toc are INCREMENTED from previous release
 - [ ] License file (MIT recommended)
 - [ ] Dialog spacing follows +15/+20/+25 rules
 - [ ] All Stata syntax verified (backticks, quotes, macros)
@@ -1413,10 +1445,12 @@ net install mycommand, from(https://raw.githubusercontent.com/username/repositor
 9. **String vs numeric** - Check with `describe`, use `destring`
 10. **Global pollution** - Use `local` not `global` when possible
 11. **Editing without reading** - ALWAYS read files before modifying
-12. **Wrong dialog spacing** - Use context-aware +15/+20/+25
-13. **Missing backticks in macros** - `` `macroname' `` not `macroname`
-14. **Spaces in macro references** - `` `var' `` not `` `var ' ``
-15. **Not testing edge cases** - Empty data, missing values, single obs
+12. **Wrong version format** - Use X.Y.Z (1.0.0), never X.Y (1.0) or X (1) for semantic versions
+13. **Not incrementing v [#]** - MUST increment package tracking version in .pkg and stata.toc
+14. **Wrong dialog spacing** - Use context-aware +15/+20/+25
+15. **Missing backticks in macros** - `` `macroname' `` not `macroname`
+16. **Spaces in macro references** - `` `var' `` not `` `var ' ``
+17. **Not testing edge cases** - Empty data, missing values, single obs
 
 ---
 
@@ -1678,7 +1712,8 @@ collect export "results.html", replace
 10. **Memory efficiency**: compress data, use frames (16+) over merges, keep minimal variables
 11. **Modern features**: collect/table for export (17+), frames for multi-dataset work (16+)
 12. **Single-line install**: README must have one-line net install command
-13. **Follow templates**: Use tvtools format for README, proper .pkg format
+13. **Version numbers**: Use X.Y.Z format for semantic versions; increment v [#] in .pkg/.toc with each update
+14. **Follow templates**: Use tvtools format for README, proper .pkg format
 
 ---
 
