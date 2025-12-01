@@ -1,5 +1,6 @@
-*! version 1.1.0  26nov2025  Tim Copeland
+*! version 1.1.1  01dec2025  Tim Copeland
 *! Compute sustained EDSS progression date
+*! Part of the setools package
 
 program define sustainedss, rclass
     version 18.0

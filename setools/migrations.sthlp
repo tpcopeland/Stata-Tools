@@ -1,6 +1,7 @@
 {smcl}
-{* *! version 1.0.2  26nov2025}{...}
+{* *! version 1.0.3  01dec2025}{...}
 {vieweralsosee "[ST] stset" "help stset"}{...}
+{vieweralsosee "sustainedss" "help sustainedss"}{...}
 {viewerjumpto "Syntax" "migrations##syntax"}{...}
 {viewerjumpto "Description" "migrations##description"}{...}
 {viewerjumpto "Options" "migrations##options"}{...}
@@ -159,3 +160,13 @@ Tim Copeland{p_end}
 
 {pstd}
 For use with Swedish registry data (migrations_wide.dta format).{p_end}
+
+
+{marker alsosee}{...}
+{title:Also see}
+
+{pstd}
+{help sustainedss:sustainedss} - Compute sustained EDSS progression dates{p_end}
+
+{pstd}
+Online: {browse "https://github.com/tpcopeland/Stata-Tools":Stata-Tools on GitHub}{p_end}
