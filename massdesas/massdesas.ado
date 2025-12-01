@@ -24,6 +24,13 @@ if _rc {
 	exit 199
 }
 
+* Validation: Check if fs command is available
+capture which fs
+if _rc {
+	display as error "fs command not found; install with: ssc install fs"
+	exit 199
+}
+
 ****
 local source `directory'
 tempfile sasfiles
@@ -61,7 +68,8 @@ capture {
 		import sas using "`file'", case(lower) clear
 	}
 }
-if _rc == 0 {
+local import_rc = _rc
+if `import_rc' == 0 {
 	local dtaname = substr("`file'", 1, strpos("`file'", ".sas7bdat") - 1)
 	save "`dtaname'.dta", replace
 	if "`erase'" != "" {
@@ -70,7 +78,7 @@ if _rc == 0 {
 	local ++n_converted
 }
 else {
-	display as error "Failed to import: `file' (rc=`_rc')"
+	display as error "Failed to import: `file' (rc=`import_rc')"
 	local ++n_failed
 }
 }

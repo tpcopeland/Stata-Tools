@@ -86,11 +86,11 @@ collect layout (colname) (cmdset#result[_r_b _r_ci _r_p]) ()
 collect export "`temp_xlsx'", sheet(temp,replace) modify
 
 import excel "`temp_xlsx'", sheet(temp) clear
-if !missing(`noint') {
+if "`noint'" != "" {
 	drop if inlist(strlower(strtrim(A)), "intercept", "_cons", "constant", "Intercept")
 }
 
-if !missing(`nore') {
+if "`nore'" != "" {
 	drop if strpos(A,"var(")
 }
 
