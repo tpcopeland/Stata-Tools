@@ -48,6 +48,7 @@ h1 {
   color: #1a1a1a !important;
   letter-spacing: -0.02em;
 }
+</style>
 
 ---
 layout: two-cols
