@@ -41,10 +41,10 @@ This repository contains a suite of Stata packages developed to streamline commo
 - Dramatically reduces memory for datasets with long or repeated strings
 - Automatic detection and reversion for cases where compression isn't beneficial
 
-**datamap** - Generate privacy-safe dataset documentation
-- Creates comprehensive codebooks while protecting sensitive information
-- Supports batch processing of multiple datasets
-- Automatic variable classification and documentation
+**datamap** - Privacy-safe dataset documentation and Markdown data dictionaries
+- datamap: Generate comprehensive, privacy-safe text documentation with automatic variable classification
+- datadict: Create professional Markdown data dictionaries for GitHub and documentation systems
+- Supports batch processing of multiple datasets with flexible privacy controls
 
 **datefix** - Convert inconsistent date formats to Stata dates
 - Handles multiple date format variations automatically
@@ -106,6 +106,7 @@ This repository contains a suite of Stata packages developed to streamline commo
 **tvtools** - Time-varying exposure data tools
 - tvexpose: Create time-varying exposure variables for survival analysis
 - tvmerge: Merge time-varying datasets with validation
+- tvevent: Integrate events and competing risks into time-varying datasets
 - Includes dialogs and menu integration
 
 ## Installation
