@@ -1,4 +1,4 @@
-# table1_tc
+f# table1_tc
 
 ![Stata 14.2+](https://img.shields.io/badge/Stata-14.2%2B-brightgreen)
 ![MIT License](https://img.shields.io/badge/License-MIT-blue)
@@ -28,8 +28,7 @@ None - uses only built-in Stata commands.
 ## Installation
 
 ```stata
-net from https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/table1_tc
-net install table1_tc
+net install table1_tc, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/table1_tc")
 ```
 
 ## Syntax
