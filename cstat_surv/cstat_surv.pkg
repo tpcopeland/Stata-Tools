@@ -1,4 +1,4 @@
-v 2
+v 3
 d 'CSTAT_SURV': Calculate C-statistic for survival models
 d
 d cstat_surv calculates Harrell's C-statistic (concordance statistic) for

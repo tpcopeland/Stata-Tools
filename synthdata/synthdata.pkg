@@ -1,4 +1,4 @@
-v 1
+v 3
 d 'SYNTHDATA': Synthetic data generation preserving statistical properties
 d
 d Requires: Stata version 16+

@@ -1,4 +1,4 @@
-v 1
+v 3
 d 'DATEFIX': module to convert string date variables to numeric date formated variables
 d See {bf:help datefix} after installation.
 d

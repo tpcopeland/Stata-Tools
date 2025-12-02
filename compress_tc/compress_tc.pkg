@@ -1,4 +1,4 @@
-v 1
+v 3
 d 'COMPRESS_TC': Compress string variables
 d
 d compress_tc performs two-stage compression of string variables:
