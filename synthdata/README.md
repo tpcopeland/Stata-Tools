@@ -475,15 +475,6 @@ Users should be aware of the following limitations:
 
 ---
 
-## Installation
-
-Install directly from GitHub:
-
-```stata
-net from https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/synthdata
-net install synthdata
-```
-
 ## Requirements
 
 - Stata 16.0 or higher
