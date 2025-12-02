@@ -12,129 +12,168 @@ class: text-center
 highlighter: shiki
 drawings:
   persist: false
-transition: slide-left
+transition: fade
 mdc: true
 aspectRatio: '16/9'
-lineNumbers: true
+lineNumbers: false
+colorSchema: light
+fonts:
+  sans: Inter
+  mono: Fira Code
 ---
 
 # The Time-Varying Problem in MS Research
 
-## How **tvtools** Prevents the Biases That Haunt Our Papers
+<div class="mt-4 text-2xl text-gray-500 font-light tracking-wide">
+How <span class="text-gray-800 font-medium">tvtools</span> Prevents the Biases That Haunt Our Papers
+</div>
 
-<div class="pt-12">
-  <span class="px-4 py-2 rounded bg-gradient-to-r from-blue-600 to-purple-600 text-white text-xl font-semibold">
+<div class="mt-16">
+  <span class="px-6 py-3 rounded-full bg-gray-900 text-white text-lg font-medium tracking-wide">
     A Stata Toolkit for MS Pharmacoepidemiology
   </span>
 </div>
 
-<div class="abs-br m-6 flex gap-2">
-  <a href="https://github.com/tpcopeland/Stata-Tools" target="_blank" class="text-xl slidev-icon-btn opacity-50 !border-none !hover:text-white">
+<div class="abs-br m-8 flex gap-3 items-center">
+  <span class="text-sm text-gray-400">github.com/tpcopeland/Stata-Tools</span>
+  <a href="https://github.com/tpcopeland/Stata-Tools" target="_blank" class="text-xl text-gray-400 hover:text-gray-600 transition-colors">
     <carbon-logo-github />
   </a>
 </div>
 
 <style>
 h1 {
-  background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 50%, #f97316 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  font-size: 3.5rem !important;
+  font-weight: 600 !important;
+  color: #1a1a1a !important;
+  letter-spacing: -0.02em;
 }
-</style>
 
 ---
 layout: two-cols
-transition: fade-out
+transition: fade
 ---
 
 # Anna's Journey
 
+<div class="mt-8 space-y-4">
+
 <v-clicks>
 
-<div><span class="font-bold">Age 32:</span> Diagnosed with RRMS</div>
+<div class="journey-step">
+  <span class="step-marker">32</span>
+  <span class="step-text">Diagnosed with RRMS</span>
+</div>
 
-<div><span class="font-bold">Year 1:</span> Starts interferon beta</div>
+<div class="journey-step">
+  <span class="step-marker">Y1</span>
+  <span class="step-text">Starts interferon beta</span>
+</div>
 
-<div><span class="font-bold">Year 3:</span> Two relapses → switches to fingolimod</div>
+<div class="journey-step">
+  <span class="step-marker">Y3</span>
+  <span class="step-text">Two relapses → fingolimod</span>
+</div>
 
-<div><span class="font-bold">Year 5:</span> MRI activity → escalates to natalizumab</div>
+<div class="journey-step">
+  <span class="step-marker">Y5</span>
+  <span class="step-text">MRI activity → natalizumab</span>
+</div>
 
-<div><span class="font-bold">Year 8:</span> Develops EDSS progression</div>
+<div class="journey-step step-outcome">
+  <span class="step-marker marker-red">Y8</span>
+  <span class="step-text">Develops EDSS progression</span>
+</div>
 
 </v-clicks>
 
-<div v-click class="mt-8 text-red-500 font-bold text-xl">
+</div>
+
+<div v-click class="mt-10 text-xl text-gray-800 font-medium">
 Which treatment failed her?
 </div>
 
-<!--
-This is the "aha moment" - most of the audience will have encountered this problem.
-The treatment journey is typical for MS patients - platform → high efficacy escalation.
-Emphasize that if we analyze by "ever-treated" we get immortal time bias because
-Anna had to survive 5 years just to become "natalizumab-exposed."
--->
-
 ::right::
 
-<div class="pl-8 pt-8">
+<div class="pl-12 pt-6">
 
 <div v-click class="patient-timeline">
   <div class="timeline-bar">
     <div
       v-motion
       :initial="{ scaleX: 0 }"
-      :enter="{ scaleX: 1, transition: { delay: 0, duration: 400 } }"
+      :enter="{ scaleX: 1, transition: { delay: 0, duration: 500 } }"
       class="segment segment-ifn origin-left" style="flex: 2">IFN</div>
     <div
       v-motion
       :initial="{ scaleX: 0 }"
-      :enter="{ scaleX: 1, transition: { delay: 400, duration: 400 } }"
+      :enter="{ scaleX: 1, transition: { delay: 500, duration: 500 } }"
       class="segment segment-fingo origin-left" style="flex: 2">FTY</div>
     <div
       v-motion
       :initial="{ scaleX: 0 }"
-      :enter="{ scaleX: 1, transition: { delay: 800, duration: 400 } }"
+      :enter="{ scaleX: 1, transition: { delay: 1000, duration: 500 } }"
       class="segment segment-ntz origin-left" style="flex: 3">NTZ</div>
   </div>
   <div class="timeline-labels">
-    <span v-motion :initial="{ opacity: 0 }" :enter="{ opacity: 1, transition: { delay: 0 } }">Dx</span>
-    <span v-motion :initial="{ opacity: 0 }" :enter="{ opacity: 1, transition: { delay: 400 } }">Y3</span>
-    <span v-motion :initial="{ opacity: 0 }" :enter="{ opacity: 1, transition: { delay: 800 } }">Y5</span>
-    <span v-motion :initial="{ opacity: 0, scale: 0.5 }" :enter="{ opacity: 1, scale: 1, transition: { delay: 1200, type: 'spring' } }" class="text-red-500 font-semibold">Y8</span>
+    <span>Dx</span>
+    <span>Y3</span>
+    <span>Y5</span>
+    <span class="text-rose-500 font-medium">Y8 ●</span>
   </div>
 </div>
 
-<div v-click class="mt-8 problem-box">
+<div v-click class="mt-10 problem-box">
 
-**The uncomfortable truth:**
+<div class="text-sm font-medium text-gray-600 mb-2">The uncomfortable truth</div>
 
+<div class="text-base text-gray-800">
 If we analyze by "ever-exposed to NTZ" → NTZ looks protective
+</div>
 
-*(she survived long enough to get it)*
+<div class="text-sm text-gray-500 mt-2 italic">
+She had to survive 5 years just to receive it
+</div>
 
 </div>
 
 </div>
 
 <style>
+.journey-step {
+  @apply flex items-center gap-4;
+}
+.step-marker {
+  @apply w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center;
+  @apply text-sm font-semibold text-gray-600;
+}
+.marker-red {
+  @apply bg-rose-100 text-rose-600;
+}
+.step-text {
+  @apply text-gray-700;
+}
+.step-outcome .step-text {
+  @apply text-rose-600 font-medium;
+}
 .patient-timeline {
-  @apply mt-12;
+  @apply mt-8;
 }
 .timeline-bar {
-  @apply flex h-12 rounded-lg overflow-hidden;
+  @apply flex h-14 rounded-2xl overflow-hidden shadow-sm;
 }
 .segment {
-  @apply flex items-center justify-center text-white font-bold text-sm;
+  @apply flex items-center justify-center text-white font-medium text-sm tracking-wide;
 }
-.segment-ifn { @apply bg-blue-500; }
-.segment-fingo { @apply bg-purple-500; }
-.segment-ntz { @apply bg-orange-500; }
+.segment-ifn { background: #4A90A4; }
+.segment-fingo { background: #7B6BA8; }
+.segment-ntz { background: #D97706; }
 .timeline-labels {
-  @apply flex justify-between mt-2 text-sm text-gray-500;
+  @apply flex justify-between mt-3 text-sm text-gray-400 px-1;
 }
 .problem-box {
-  @apply bg-red-50 dark:bg-red-900/30 p-4 rounded-xl;
-  @apply border-l-4 border-red-500;
+  @apply bg-rose-50 p-5 rounded-2xl;
+  @apply border border-rose-100;
 }
 </style>
 
@@ -145,143 +184,147 @@ class: text-center
 
 # The Immortal Time Bias Problem
 
-<div class="bias-diagram mt-8">
+<div class="bias-diagram mt-12">
 
-<div v-click class="bias-row wrong">
-  <div class="label">WRONG</div>
+<div v-click class="bias-row">
+  <div class="row-header">
+    <div class="icon-wrong">✕</div>
+    <div class="label-text">Wrong approach</div>
+  </div>
   <div class="bar-container">
     <div class="bar treated-full">
-      <span>"Treated" from study entry</span>
+      <span>Classified as "treated" from study entry</span>
     </div>
   </div>
-  <div class="note">Patient must survive to get treatment → spurious protection</div>
+  <div class="note">Patient must survive to reach treatment → creates spurious protective effect</div>
 </div>
 
-<div v-click class="bias-row correct">
-  <div class="label">CORRECT</div>
+<div v-click class="bias-row">
+  <div class="row-header">
+    <div class="icon-correct">✓</div>
+    <div class="label-text">Correct approach</div>
+  </div>
   <div class="bar-container">
     <div class="bar unexposed-part">Unexposed</div>
     <div class="bar treated-part">Treated</div>
   </div>
-  <div class="note">Treatment status changes at initiation</div>
+  <div class="note">Exposure status changes at treatment initiation — time-varying analysis</div>
 </div>
 
 </div>
 
-<div v-click class="mt-8 text-sm text-gray-500">
-  Suissa S. Immortal time bias in pharmacoepidemiology. <i>Am J Epidemiol</i> 2008
+<div v-click class="mt-10 text-sm text-gray-400">
+  Suissa S. Immortal time bias in pharmacoepidemiology. <span class="italic">Am J Epidemiol</span> 2008
 </div>
 
 <style>
 .bias-diagram {
-  @apply flex flex-col gap-8 max-w-2xl mx-auto;
+  @apply flex flex-col gap-10 max-w-2xl mx-auto;
 }
 .bias-row {
   @apply text-left;
 }
-.bias-row .label {
-  @apply font-semibold mb-3 text-sm tracking-wide uppercase;
+.row-header {
+  @apply flex items-center gap-3 mb-4;
+}
+.icon-wrong {
+  @apply w-8 h-8 rounded-full bg-rose-100 text-rose-500 flex items-center justify-center font-bold text-sm;
+}
+.icon-correct {
+  @apply w-8 h-8 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center font-bold text-sm;
+}
+.label-text {
+  @apply font-medium text-gray-700;
 }
 .bar-container {
-  @apply flex h-14 rounded-xl overflow-hidden shadow-sm;
+  @apply flex h-12 rounded-xl overflow-hidden;
 }
 .bar {
   @apply flex items-center justify-center text-white font-medium text-sm px-4;
 }
 .treated-full {
-  @apply bg-orange-500 flex-1;
+  background: #D97706;
+  @apply flex-1;
 }
 .unexposed-part {
-  @apply bg-gray-400;
+  background: #9CA3AF;
   flex: 1;
 }
 .treated-part {
-  @apply bg-orange-500;
+  background: #D97706;
   flex: 2;
 }
 .note {
-  @apply text-xs text-gray-500 mt-3 leading-relaxed;
-}
-.wrong .label {
-  @apply text-red-500;
-}
-.wrong .label::before {
-  content: "✕ ";
-  @apply opacity-60;
-}
-.correct .label {
-  @apply text-green-600;
-}
-.correct .label::before {
-  content: "✓ ";
-  @apply opacity-60;
+  @apply text-sm text-gray-500 mt-3;
 }
 </style>
 
 ---
-transition: slide-up
+transition: fade
 ---
 
 # Why This Matters for MS Research
 
-<div class="grid grid-cols-2 gap-6 mt-6">
+<div class="grid grid-cols-2 gap-8 mt-10">
 
-<div v-click class="issue-card card-switch">
-  <div class="card-accent"></div>
+<div v-click class="issue-card">
+  <div class="card-icon icon-blue">
+    <carbon-arrows-horizontal />
+  </div>
   <h3>Treatment Switching</h3>
-  <p>Escalation, lateral switches, de-escalation</p>
+  <p>Escalation, lateral switches, de-escalation are the norm in MS care</p>
   <div class="example">Platform → High-efficacy after breakthrough</div>
 </div>
 
-<div v-click class="issue-card card-cumul">
-  <div class="card-accent"></div>
+<div v-click class="issue-card">
+  <div class="card-icon icon-purple">
+    <carbon-time />
+  </div>
   <h3>Cumulative Exposure</h3>
-  <p>Duration-response relationships</p>
+  <p>Duration-response relationships require tracking total time on therapy</p>
   <div class="example">5 years on NTZ ≠ 2 years on NTZ</div>
 </div>
 
-<div v-click class="issue-card card-risk">
-  <div class="card-accent"></div>
+<div v-click class="issue-card">
+  <div class="card-icon icon-amber">
+    <carbon-warning-alt />
+  </div>
   <h3>Competing Risks</h3>
-  <p>Death competes with progression</p>
-  <div class="example">Emigration, pregnancy, discontinuation</div>
+  <p>Death, emigration, and pregnancy compete with our outcomes</p>
+  <div class="example">Ignoring these biases effect estimates</div>
 </div>
 
-<div v-click class="issue-card card-data">
-  <div class="card-accent"></div>
+<div v-click class="issue-card">
+  <div class="card-icon icon-emerald">
+    <carbon-data-base />
+  </div>
   <h3>Registry Complexity</h3>
-  <p>SMSreg captures all of this</p>
-  <div class="example">Our methods must match our data</div>
+  <p>SMSreg captures this complexity — our methods must match</p>
+  <div class="example">Rich data demands rigorous analysis</div>
 </div>
 
 </div>
 
 <style>
 .issue-card {
-  @apply bg-white dark:bg-gray-800 p-5 rounded-xl shadow-lg relative overflow-hidden;
-  @apply border-l-4;
+  @apply bg-gray-50 p-6 rounded-2xl relative;
 }
-.card-accent {
-  @apply absolute top-0 right-0 w-16 h-16 opacity-5;
-  border-radius: 0 0 0 100%;
+.card-icon {
+  @apply w-10 h-10 rounded-xl flex items-center justify-center text-lg mb-4;
 }
-.card-switch { @apply border-blue-500; }
-.card-switch .card-accent { @apply bg-blue-500; }
-.card-cumul { @apply border-purple-500; }
-.card-cumul .card-accent { @apply bg-purple-500; }
-.card-risk { @apply border-orange-500; }
-.card-risk .card-accent { @apply bg-orange-500; }
-.card-data { @apply border-green-500; }
-.card-data .card-accent { @apply bg-green-500; }
+.icon-blue { @apply bg-blue-100 text-blue-600; }
+.icon-purple { @apply bg-purple-100 text-purple-600; }
+.icon-amber { @apply bg-amber-100 text-amber-600; }
+.icon-emerald { @apply bg-emerald-100 text-emerald-600; }
 .issue-card h3 {
-  @apply font-semibold text-base mb-2 text-gray-800 dark:text-gray-100;
+  @apply font-semibold text-lg mb-2 text-gray-800;
 }
 .issue-card p {
-  @apply text-gray-600 dark:text-gray-400 text-sm leading-relaxed;
+  @apply text-gray-600 text-sm leading-relaxed;
 }
 .issue-card .example {
-  @apply mt-3 text-xs bg-gray-50 dark:bg-gray-700/50 py-2 px-3 rounded-lg;
-  @apply font-mono text-gray-500 dark:text-gray-400;
+  @apply mt-4 text-xs text-gray-500 font-mono;
+  @apply bg-white py-2 px-3 rounded-lg;
 }
 </style>
 
@@ -291,143 +334,126 @@ layout: default
 
 # The tvtools Solution
 
-<div class="grid grid-cols-3 gap-8 mt-10">
+<div class="text-gray-500 text-lg mb-8">Three commands. One seamless workflow.</div>
 
-<div v-click class="command-card cmd-expose">
-  <div class="cmd-icon">
-    <div class="icon-bar"></div>
-    <div class="icon-bars">
-      <div></div><div></div><div></div>
-    </div>
+<div class="grid grid-cols-3 gap-10 mt-6">
+
+<div v-click class="command-card">
+  <div class="cmd-number">1</div>
+  <h3 class="text-blue-600">tvexpose</h3>
+  <p class="cmd-desc">Transform prescription records into time-varying exposure intervals</p>
+  <div class="cmd-features">
+    <span>Gaps</span>
+    <span>Switching</span>
+    <span>Duration</span>
   </div>
-  <h3>tvexpose</h3>
-  <p>DMT prescriptions → Time-varying intervals</p>
-  <div class="use-case">Handles gaps, switching, duration</div>
 </div>
 
-<div v-click class="command-card cmd-merge">
-  <div class="cmd-icon">
-    <div class="icon-lines">
-      <div></div><div></div>
-    </div>
-    <div class="icon-merged"></div>
+<div v-click class="command-card">
+  <div class="cmd-number">2</div>
+  <h3 class="text-purple-600">tvmerge</h3>
+  <p class="cmd-desc">Combine multiple time-varying exposures into synchronized intervals</p>
+  <div class="cmd-features">
+    <span>DMT</span>
+    <span>+</span>
+    <span>Comorbidities</span>
   </div>
-  <h3>tvmerge</h3>
-  <p>Multiple exposures → Single dataset</p>
-  <div class="use-case">DMT + comorbidity treatments</div>
 </div>
 
-<div v-click class="command-card cmd-event">
-  <div class="cmd-icon">
-    <div class="icon-timeline"></div>
-    <div class="icon-marker"></div>
+<div v-click class="command-card">
+  <div class="cmd-number">3</div>
+  <h3 class="text-emerald-600">tvevent</h3>
+  <p class="cmd-desc">Integrate outcomes and competing risks for survival analysis</p>
+  <div class="cmd-features">
+    <span>Progression</span>
+    <span>Death</span>
+    <span>Emigration</span>
   </div>
-  <h3>tvevent</h3>
-  <p>Add EDSS progression + competing risks</p>
-  <div class="use-case">Analysis-ready for stcrreg</div>
 </div>
 
 </div>
 
-<div v-click class="mt-12 text-center">
-
-```mermaid {scale: 0.8}
-graph LR
-    A[Registry Data] --> B[tvexpose]
-    B --> C[tvmerge]
-    C --> D[tvevent]
-    D --> E[stcrreg]
-    style A fill:#9CA3AF,color:#fff
-    style B fill:#3b82f6,color:#fff
-    style C fill:#8b5cf6,color:#fff
-    style D fill:#22c55e,color:#fff
-    style E fill:#F97316,color:#fff
-```
-
+<div v-click class="workflow-bar mt-14">
+  <div class="wf-step wf-data">Registry</div>
+  <div class="wf-arrow">→</div>
+  <div class="wf-step wf-expose">tvexpose</div>
+  <div class="wf-arrow">→</div>
+  <div class="wf-step wf-merge">tvmerge</div>
+  <div class="wf-arrow">→</div>
+  <div class="wf-step wf-event">tvevent</div>
+  <div class="wf-arrow">→</div>
+  <div class="wf-step wf-analysis">stcrreg</div>
 </div>
-
-<!--
-This workflow slide is critical - show that tvtools is a complete pipeline.
-Note that tvmerge is optional (only needed for multiple exposures).
-Emphasize the seamless integration with Stata's survival analysis commands.
--->
 
 <style>
 .command-card {
-  @apply bg-white dark:bg-gray-800 p-6 rounded-2xl text-center;
-  @apply transform hover:scale-102 transition-all duration-300;
-  box-shadow: 0 4px 20px -4px rgba(0,0,0,0.1);
+  @apply bg-white p-8 rounded-2xl text-center relative;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
 }
-.command-card:hover {
-  box-shadow: 0 8px 30px -4px rgba(0,0,0,0.15);
-}
-.cmd-icon {
-  @apply h-16 flex items-center justify-center mb-4 mx-auto;
-}
-.cmd-expose .icon-bar {
-  @apply w-12 h-2 bg-gray-300 rounded-full;
-}
-.cmd-expose .icon-bars {
-  @apply flex flex-col gap-1 ml-2;
-}
-.cmd-expose .icon-bars div {
-  @apply h-2 rounded-full;
-}
-.cmd-expose .icon-bars div:nth-child(1) { @apply w-8 bg-blue-500; }
-.cmd-expose .icon-bars div:nth-child(2) { @apply w-6 bg-purple-500; }
-.cmd-expose .icon-bars div:nth-child(3) { @apply w-10 bg-orange-500; }
-.cmd-merge .icon-lines {
-  @apply flex flex-col gap-2;
-}
-.cmd-merge .icon-lines div {
-  @apply w-8 h-2 rounded-full;
-}
-.cmd-merge .icon-lines div:nth-child(1) { @apply bg-blue-500; }
-.cmd-merge .icon-lines div:nth-child(2) { @apply bg-pink-400; }
-.cmd-merge .icon-merged {
-  @apply w-10 h-3 ml-2 rounded-full;
-  background: linear-gradient(90deg, #3b82f6 50%, #f472b6 50%);
-}
-.cmd-event .icon-timeline {
-  @apply w-16 h-2 bg-green-500 rounded-full relative;
-}
-.cmd-event .icon-marker {
-  @apply w-3 h-3 bg-red-500 rounded-full absolute;
-  margin-left: 24px;
-  margin-top: -6px;
+.cmd-number {
+  @apply absolute -top-3 -left-3 w-8 h-8 rounded-full bg-gray-900 text-white;
+  @apply flex items-center justify-center text-sm font-semibold;
 }
 .command-card h3 {
-  @apply text-xl font-semibold mb-2;
+  @apply text-2xl font-semibold mb-3;
 }
-.cmd-expose h3 { @apply text-blue-600; }
-.cmd-merge h3 { @apply text-purple-600; }
-.cmd-event h3 { @apply text-green-600; }
-.command-card p {
-  @apply text-sm text-gray-600 dark:text-gray-400 leading-relaxed;
+.cmd-desc {
+  @apply text-gray-600 text-sm leading-relaxed;
 }
-.command-card .use-case {
-  @apply mt-4 text-xs bg-gray-50 dark:bg-gray-700/50 py-2 px-3 rounded-lg;
-  @apply text-gray-500 dark:text-gray-400;
+.cmd-features {
+  @apply mt-5 flex justify-center gap-2 text-xs;
+}
+.cmd-features span {
+  @apply px-2 py-1 bg-gray-100 rounded text-gray-500;
+}
+.workflow-bar {
+  @apply flex items-center justify-center gap-2;
+}
+.wf-step {
+  @apply px-4 py-2 rounded-lg text-sm font-medium text-white;
+}
+.wf-arrow {
+  @apply text-gray-300 text-lg;
+}
+.wf-data { background: #6B7280; }
+.wf-expose { background: #3B82F6; }
+.wf-merge { background: #8B5CF6; }
+.wf-event { background: #10B981; }
+.wf-analysis { background: #D97706; }
+</style>
+
+---
+layout: center
+class: text-center
+---
+
+<div class="section-header">
+
+# tvexpose
+
+<div class="section-subtitle">Transform prescriptions into time-varying intervals</div>
+
+</div>
+
+<style>
+.section-header h1 {
+  @apply text-5xl font-semibold text-gray-900;
+  letter-spacing: -0.02em;
+}
+.section-subtitle {
+  @apply text-xl text-gray-500 mt-4 font-light;
 }
 </style>
 
 ---
-layout: section
----
-
-# Step 1: tvexpose
-
-## Transform DMT Prescriptions into Time-Varying Intervals
-
----
-transition: view-transition
+transition: fade
 ---
 
 # tvexpose: Basic Syntax
 
-<div class="mt-8">
+<div class="mt-10">
 
-```stata {all|1|3|4|5|6|all}
+```stata
 use ms_cohort, clear
 
 tvexpose using dmt_prescriptions, ///
@@ -438,233 +464,299 @@ tvexpose using dmt_prescriptions, ///
 
 </div>
 
-<div v-click class="mt-8 grid grid-cols-2 gap-4">
+<div v-click class="mt-10 grid grid-cols-2 gap-6">
 
 <div class="option-box">
-  <span class="font-bold text-blue-600">id()</span>
-  <span class="text-sm">Patient identifier</span>
+  <div class="opt-label">id()</div>
+  <div class="opt-desc">Patient identifier linking to master dataset</div>
 </div>
 
 <div class="option-box">
-  <span class="font-bold text-blue-600">start() / stop()</span>
-  <span class="text-sm">DMT prescription dates</span>
+  <div class="opt-label">start() / stop()</div>
+  <div class="opt-desc">Exposure period boundaries</div>
 </div>
 
 <div class="option-box">
-  <span class="font-bold text-blue-600">exposure()</span>
-  <span class="text-sm">DMT type variable</span>
+  <div class="opt-label">exposure()</div>
+  <div class="opt-desc">Categorical exposure type variable</div>
 </div>
 
 <div class="option-box">
-  <span class="font-bold text-blue-600">entry() / exit()</span>
-  <span class="text-sm">MS diagnosis to study end</span>
+  <div class="opt-label">entry() / exit()</div>
+  <div class="opt-desc">Study follow-up window</div>
 </div>
 
 </div>
 
 <style>
 .option-box {
-  @apply bg-gray-100 dark:bg-gray-800 p-3 rounded-lg;
-  @apply flex flex-col gap-1;
+  @apply bg-gray-50 p-4 rounded-xl;
+}
+.opt-label {
+  @apply font-mono text-blue-600 font-medium mb-1;
+}
+.opt-desc {
+  @apply text-sm text-gray-600;
 }
 </style>
 
 ---
 layout: two-cols
-transition: slide-up
+transition: fade
 ---
 
 # tvexpose: The Transformation
 
-<div class="mt-4">
+<div class="mt-6">
 
-````md magic-move {lines: true}
-```txt {*|*}
-Raw DMT Prescriptions
-─────────────────────────────────────
-id │ dmt_start  │ dmt_stop   │ dmt
-───┼────────────┼────────────┼────────
- 1 │ 2015-03-01 │ 2017-08-15 │ 1 (IFN)
- 1 │ 2018-01-10 │ 2022-06-30 │ 4 (NTZ)
-```
+<div class="data-table">
+<div class="table-header">Raw Prescriptions</div>
 
-```txt {*|1-3|4|5|6|7|8|*}
-Time-Varying Output (tvexpose)
-─────────────────────────────────────
-id │ start      │ stop       │ exposure
-───┼────────────┼────────────┼─────────
- 1 │ 2014-01-15 │ 2015-03-01 │ 0 (None)
- 1 │ 2015-03-01 │ 2017-08-15 │ 1 (IFN)
- 1 │ 2017-08-15 │ 2018-01-10 │ 0 (None)
- 1 │ 2018-01-10 │ 2022-06-30 │ 4 (NTZ)
- 1 │ 2022-06-30 │ 2023-12-31 │ 0 (None)
-```
-````
+| id | start | stop | dmt |
+|---|---|---|---|
+| 1 | 2015-03 | 2017-08 | IFN |
+| 1 | 2018-01 | 2022-06 | NTZ |
 
 </div>
 
-<div v-click class="mt-4 text-sm text-gray-500">
-  <carbon-information class="inline" /> 2 prescription rows → 5 complete intervals
+<div v-click class="transform-arrow">↓ tvexpose</div>
+
+<div v-click class="data-table output-table">
+<div class="table-header">Time-Varying Output</div>
+
+| id | start | stop | exposure |
+|---|---|---|---|
+| 1 | 2014-01 | 2015-03 | Unexposed |
+| 1 | 2015-03 | 2017-08 | IFN |
+| 1 | 2017-08 | 2018-01 | Unexposed |
+| 1 | 2018-01 | 2022-06 | NTZ |
+| 1 | 2022-06 | 2023-12 | Unexposed |
+
+</div>
+
 </div>
 
 ::right::
 
-<div class="pl-8 pt-4">
+<div class="pl-10 pt-6">
 
-<div class="timeline-visual">
-
-<div
-  v-click
-  v-motion
-  :initial="{ opacity: 0, x: -50 }"
-  :enter="{ opacity: 1, x: 0, transition: { delay: 0 } }"
-  class="timeline-row unexposed" style="width: 20%">None</div>
-<div
-  v-click
-  v-motion
-  :initial="{ opacity: 0, x: -50 }"
-  :enter="{ opacity: 1, x: 0, transition: { delay: 100 } }"
-  class="timeline-row ifn" style="width: 25%">IFN</div>
-<div
-  v-click
-  v-motion
-  :initial="{ opacity: 0, x: -50 }"
-  :enter="{ opacity: 1, x: 0, transition: { delay: 200 } }"
-  class="timeline-row unexposed" style="width: 10%">Gap</div>
-<div
-  v-click
-  v-motion
-  :initial="{ opacity: 0, x: -50 }"
-  :enter="{ opacity: 1, x: 0, transition: { delay: 300 } }"
-  class="timeline-row ntz" style="width: 35%">NTZ</div>
-<div
-  v-click
-  v-motion
-  :initial="{ opacity: 0, x: -50 }"
-  :enter="{ opacity: 1, x: 0, transition: { delay: 400 } }"
-  class="timeline-row unexposed" style="width: 10%">None</div>
-
+<div v-click class="timeline-visual">
+  <div class="tl-label">Complete Timeline</div>
+  <div class="tl-bar">
+    <div class="tl-seg seg-gray" style="flex: 1">—</div>
+    <div class="tl-seg seg-blue" style="flex: 2">IFN</div>
+    <div class="tl-seg seg-gray" style="flex: 0.5">—</div>
+    <div class="tl-seg seg-amber" style="flex: 3">NTZ</div>
+    <div class="tl-seg seg-gray" style="flex: 1">—</div>
+  </div>
+  <div class="tl-legend">
+    <span>Entry</span>
+    <span>Y3</span>
+    <span>Y5</span>
+    <span>Exit</span>
+  </div>
 </div>
 
-<div v-click class="mt-8 highlight-box">
+<div v-click class="insight-box mt-10">
+  <div class="insight-title">Key insight</div>
+  <div class="insight-text">
+    Gaps are automatically filled with the reference category.
+    Every moment of follow-up has defined exposure status.
+  </div>
+  <div class="insight-highlight">No immortal time bias.</div>
+</div>
 
-**Key insight:** Gaps automatically filled with reference category (unexposed)
-
-No immortal time!
-
+<div v-click class="stat-box mt-6">
+  <span class="stat-num">2</span>
+  <span class="stat-text">prescription rows →</span>
+  <span class="stat-num">5</span>
+  <span class="stat-text">complete intervals</span>
 </div>
 
 </div>
-
-<!--
-The before/after transformation is powerful - emphasize that gaps are automatically handled.
-This is the core value proposition: tvexpose does the tedious work of creating
-complete timelines where every moment of follow-up has defined exposure status.
-Point out: patient was unexposed 2014-2015, on IFN 2015-2017, gap 2017-2018, etc.
--->
 
 <style>
+.data-table {
+  @apply text-xs font-mono;
+}
+.table-header {
+  @apply text-sm font-sans font-medium text-gray-700 mb-2;
+}
+.output-table {
+  @apply bg-emerald-50 p-3 rounded-lg -mx-3;
+}
+.transform-arrow {
+  @apply text-center text-gray-400 my-3 text-lg;
+}
 .timeline-visual {
-  @apply flex flex-col gap-2 mt-8;
+  @apply bg-gray-50 p-5 rounded-2xl;
 }
-.timeline-row {
-  @apply py-3 px-4 rounded text-white text-sm font-semibold text-center;
-  @apply transform transition-all duration-500;
+.tl-label {
+  @apply text-sm font-medium text-gray-600 mb-3;
 }
-.unexposed { @apply bg-gray-400; }
-.ifn { @apply bg-blue-500; }
-.ntz { @apply bg-orange-500; }
-.highlight-box {
-  @apply bg-green-100 dark:bg-green-900 p-4 rounded-lg;
-  @apply border-l-4 border-green-500;
+.tl-bar {
+  @apply flex h-10 rounded-lg overflow-hidden;
+}
+.tl-seg {
+  @apply flex items-center justify-center text-white text-xs font-medium;
+}
+.seg-gray { background: #9CA3AF; }
+.seg-blue { background: #4A90A4; }
+.seg-amber { background: #D97706; }
+.tl-legend {
+  @apply flex justify-between mt-2 text-xs text-gray-400;
+}
+.insight-box {
+  @apply bg-emerald-50 p-5 rounded-2xl border border-emerald-100;
+}
+.insight-title {
+  @apply text-sm font-medium text-emerald-700 mb-2;
+}
+.insight-text {
+  @apply text-sm text-gray-600 leading-relaxed;
+}
+.insight-highlight {
+  @apply mt-2 text-emerald-700 font-medium;
+}
+.stat-box {
+  @apply flex items-center gap-2 text-sm text-gray-500;
+}
+.stat-num {
+  @apply text-lg font-semibold text-gray-800;
 }
 </style>
 
 ---
 layout: two-cols
-transition: slide-up
+transition: fade
 ---
 
 # tvexpose: Duration Categories
 
-<div class="mt-2">
+<div class="mt-6">
 
-Using `duration(1 3 5)` to categorize cumulative exposure:
-
-````md magic-move {lines: true}
-```txt {*|*}
-Raw DMT Prescriptions
-─────────────────────────────────────
-id │ dmt_start  │ dmt_stop   │ dmt
-───┼────────────┼────────────┼────────
- 1 │ 2015-03-01 │ 2017-08-15 │ 1 (IFN)
- 1 │ 2018-01-10 │ 2022-06-30 │ 4 (NTZ)
-```
-
-```txt {*|1-3|4-8|9-13|*}
-Duration Categories Output
-─────────────────────────────────────────────
-id │ start      │ stop       │ dur_cat │ cumul_yrs
-───┼────────────┼────────────┼─────────┼──────────
- 1 │ 2014-01-15 │ 2015-03-01 │ 0       │ 0.0
- 1 │ 2015-03-01 │ 2016-03-01 │ 1 (<1y) │ 0.0→1.0
- 1 │ 2016-03-01 │ 2017-08-15 │ 2 (1-3y)│ 1.0→2.5
- 1 │ 2017-08-15 │ 2018-01-10 │ 0       │ 2.5
- 1 │ 2018-01-10 │ 2019-01-10 │ 2 (1-3y)│ 2.5→3.5
- 1 │ 2019-01-10 │ 2021-01-10 │ 3 (3-5y)│ 3.5→5.5
- 1 │ 2021-01-10 │ 2022-06-30 │ 4 (≥5y) │ 5.5→7.0
- 1 │ 2022-06-30 │ 2023-12-31 │ 0       │ 7.0
-```
-````
-
-</div>
-
-::right::
-
-<div class="pl-6 pt-2">
-
-<div v-click class="code-box">
+<div class="code-block">
 
 ```stata
 tvexpose using dmt, ///
     id(patient_id) start(dmt_start) ///
     stop(dmt_stop) exposure(dmt) ///
-    reference(0) ///
-    entry(ms_dx) exit(study_exit) ///
+    reference(0) entry(ms_dx) exit(study_exit) ///
     duration(1 3 5) continuousunit(years)
 ```
 
 </div>
 
-<div v-click class="mt-4 text-sm">
+<div v-click class="mt-6 cat-grid">
 
-**Duration categories created:**
-
-| Code | Category | Meaning |
-|------|----------|---------|
-| 0 | Unexposed | Not on DMT |
-| 1 | <1 year | New to treatment |
-| 2 | 1-3 years | Established |
-| 3 | 3-5 years | Long-term |
-| 4 | ≥5 years | Very long-term |
+<div class="cat-item">
+  <span class="cat-code">0</span>
+  <span class="cat-label">Unexposed</span>
+</div>
+<div class="cat-item">
+  <span class="cat-code cat-1">&lt;1y</span>
+  <span class="cat-label">New</span>
+</div>
+<div class="cat-item">
+  <span class="cat-code cat-2">1-3y</span>
+  <span class="cat-label">Established</span>
+</div>
+<div class="cat-item">
+  <span class="cat-code cat-3">3-5y</span>
+  <span class="cat-label">Long-term</span>
+</div>
+<div class="cat-item">
+  <span class="cat-code cat-4">≥5y</span>
+  <span class="cat-label">Very long</span>
+</div>
 
 </div>
 
-<div v-click class="mt-4 insight-box">
+</div>
 
-**Key insight:** Intervals split automatically when cumulative duration crosses category boundaries
+::right::
 
+<div class="pl-10 pt-6">
+
+<div v-click class="duration-visual">
+  <div class="dv-label">How it works</div>
+  <div class="dv-timeline">
+    <div class="dv-seg dv-0" style="flex: 1"></div>
+    <div class="dv-seg dv-1" style="flex: 1"></div>
+    <div class="dv-seg dv-2" style="flex: 1.5"></div>
+    <div class="dv-seg dv-0" style="flex: 0.5"></div>
+    <div class="dv-seg dv-2" style="flex: 1"></div>
+    <div class="dv-seg dv-3" style="flex: 2"></div>
+    <div class="dv-seg dv-4" style="flex: 1.5"></div>
+    <div class="dv-seg dv-0" style="flex: 1"></div>
+  </div>
+  <div class="dv-legend">
+    <span>0y</span>
+    <span>1y</span>
+    <span>3y</span>
+    <span>5y</span>
+    <span>7y</span>
+  </div>
+</div>
+
+<div v-click class="insight-box mt-8">
+  <div class="insight-title">Automatic interval splitting</div>
+  <div class="insight-text">
+    When cumulative duration crosses a category boundary, the interval is automatically split.
+    This captures dose-response relationships with precision.
+  </div>
 </div>
 
 </div>
 
 <style>
-.code-box {
-  @apply bg-gray-900 p-3 rounded-lg text-xs;
+.code-block {
+  @apply bg-gray-900 p-4 rounded-xl text-xs;
+}
+.cat-grid {
+  @apply grid grid-cols-5 gap-2;
+}
+.cat-item {
+  @apply bg-gray-50 p-2 rounded-lg text-center;
+}
+.cat-code {
+  @apply block text-sm font-mono font-semibold text-gray-400;
+}
+.cat-1 { @apply text-blue-500; }
+.cat-2 { @apply text-purple-500; }
+.cat-3 { @apply text-amber-500; }
+.cat-4 { @apply text-rose-500; }
+.cat-label {
+  @apply block text-xs text-gray-500 mt-1;
+}
+.duration-visual {
+  @apply bg-gray-50 p-5 rounded-2xl;
+}
+.dv-label {
+  @apply text-sm font-medium text-gray-600 mb-3;
+}
+.dv-timeline {
+  @apply flex h-8 rounded-lg overflow-hidden;
+}
+.dv-seg {
+  @apply border-r border-white/20;
+}
+.dv-0 { background: #D1D5DB; }
+.dv-1 { background: #60A5FA; }
+.dv-2 { background: #A78BFA; }
+.dv-3 { background: #FBBF24; }
+.dv-4 { background: #F87171; }
+.dv-legend {
+  @apply flex justify-between mt-2 text-xs text-gray-400;
 }
 .insight-box {
-  @apply bg-blue-50 dark:bg-blue-900/30 p-3 rounded-lg text-sm;
-  @apply border-l-4 border-blue-500;
+  @apply bg-blue-50 p-5 rounded-2xl border border-blue-100;
+}
+.insight-title {
+  @apply text-sm font-medium text-blue-700 mb-2;
+}
+.insight-text {
+  @apply text-sm text-gray-600 leading-relaxed;
 }
 </style>
 
@@ -1026,12 +1118,27 @@ Track the entire pattern
 </style>
 
 ---
-layout: section
+layout: center
+class: text-center
 ---
 
-# Step 2: tvmerge
+<div class="section-header">
 
-## Combine Multiple Time-Varying Exposures
+# tvmerge
+
+<div class="section-subtitle">Combine multiple time-varying exposures</div>
+
+</div>
+
+<style>
+.section-header h1 {
+  @apply text-5xl font-semibold text-gray-900;
+  letter-spacing: -0.02em;
+}
+.section-subtitle {
+  @apply text-xl text-gray-500 mt-4 font-light;
+}
+</style>
 
 ---
 
@@ -1213,12 +1320,27 @@ tvmerge tv_dmt tv_oc, id(patient_id) ///
 </style>
 
 ---
-layout: section
+layout: center
+class: text-center
 ---
 
-# Step 3: tvevent
+<div class="section-header">
 
-## Integrate EDSS Progression & Competing Risks
+# tvevent
+
+<div class="section-subtitle">Integrate outcomes and competing risks</div>
+
+</div>
+
+<style>
+.section-header h1 {
+  @apply text-5xl font-semibold text-gray-900;
+  letter-spacing: -0.02em;
+}
+.section-subtitle {
+  @apply text-xl text-gray-500 mt-4 font-light;
+}
+</style>
 
 ---
 
@@ -1451,12 +1573,27 @@ tvevent using ms_cohort, id(patient_id) date(edss4_date) ///
 </style>
 
 ---
-layout: section
+layout: center
+class: text-center
 ---
+
+<div class="section-header">
 
 # Complete Workflow
 
-## From SMSreg to stcrreg
+<div class="section-subtitle">From registry data to competing risks analysis</div>
+
+</div>
+
+<style>
+.section-header h1 {
+  @apply text-5xl font-semibold text-gray-900;
+  letter-spacing: -0.02em;
+}
+.section-subtitle {
+  @apply text-xl text-gray-500 mt-4 font-light;
+}
+</style>
 
 ---
 
@@ -1659,35 +1796,51 @@ layout: two-cols
 
 # Key Takeaways
 
+<div class="mt-8 space-y-6">
+
 <v-clicks>
 
-<div><span class="font-bold">Time-varying analysis is mandatory</span> for DMT effectiveness studies</div>
+<div class="takeaway">
+  <div class="takeaway-title">Time-varying analysis is essential</div>
+  <div class="takeaway-desc">Standard approaches create immortal time bias in DMT studies</div>
+</div>
 
-<div><span class="font-bold">tvtools handles the complexity:</span></div>
+<div class="takeaway">
+  <div class="takeaway-title">tvtools handles the complexity</div>
+  <div class="takeaway-desc">
+    <span class="cmd">tvexpose</span> → intervals
+    <span class="cmd">tvmerge</span> → multiple exposures
+    <span class="cmd">tvevent</span> → competing risks
+  </div>
+</div>
 
-- `tvexpose` → Time-varying intervals
-- `tvmerge` → Multiple exposures
-- `tvevent` → Competing risks
+<div class="takeaway">
+  <div class="takeaway-title">Seamless Stata integration</div>
+  <div class="takeaway-desc">Works directly with stset, stcox, and stcrreg</div>
+</div>
 
-<div><span class="font-bold">Integrates seamlessly</span> with stset, stcox, stcrreg</div>
-
-<div><span class="font-bold">GUI interfaces available</span> for those who prefer point-and-click</div>
+<div class="takeaway">
+  <div class="takeaway-title">GUI available</div>
+  <div class="takeaway-desc">Dialog boxes for interactive use</div>
+</div>
 
 </v-clicks>
 
+</div>
+
 ::right::
 
-<div class="pl-8 pt-4">
+<div class="pl-10 pt-6">
 
-<div v-click class="install-box">
+<div v-click class="install-section">
 
-### Installation
+<div class="install-label">Installation</div>
 
 ```stata
 net install tvtools, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/tvtools")
 ```
 
-### Help
+<div class="install-label mt-6">Documentation</div>
 
 ```stata
 help tvexpose
@@ -1695,7 +1848,7 @@ help tvmerge
 help tvevent
 ```
 
-### GUI
+<div class="install-label mt-6">Dialog boxes</div>
 
 ```stata
 db tvexpose
@@ -1708,11 +1861,23 @@ db tvevent
 </div>
 
 <style>
-.install-box {
-  @apply bg-gray-100 dark:bg-gray-800 p-6 rounded-xl;
+.takeaway {
+  @apply py-2;
 }
-.install-box h3 {
-  @apply font-bold text-lg mb-2 mt-4 first:mt-0;
+.takeaway-title {
+  @apply font-medium text-gray-800 mb-1;
+}
+.takeaway-desc {
+  @apply text-sm text-gray-500;
+}
+.cmd {
+  @apply font-mono text-blue-600;
+}
+.install-section {
+  @apply bg-gray-50 p-6 rounded-2xl;
+}
+.install-label {
+  @apply text-sm font-medium text-gray-600 mb-2;
 }
 </style>
 
@@ -1721,59 +1886,95 @@ layout: center
 class: text-center
 ---
 
-# Thank You!
+<div class="thank-you">
 
-<div class="mt-8">
+# Thank You
 
-**tvtools** — Time-Varying Exposure Analysis for MS Research
+<div class="subtitle">tvtools — Time-Varying Exposure Analysis for MS Research</div>
 
-<div class="flex justify-center gap-12 mt-8">
+<div class="links mt-12">
 
-<div>
-  <carbon-logo-github class="text-5xl" />
-  <div class="text-sm mt-2">tpcopeland/Stata-Tools</div>
+<div class="link-item">
+  <carbon-logo-github class="link-icon" />
+  <div class="link-text">tpcopeland/Stata-Tools</div>
 </div>
 
-<div>
-  <carbon-document class="text-5xl" />
-  <div class="text-sm mt-2">help tvexpose</div>
+<div class="link-item">
+  <carbon-document class="link-icon" />
+  <div class="link-text">help tvexpose</div>
 </div>
 
-<div>
-  <carbon-email class="text-5xl" />
-  <div class="text-sm mt-2">Questions welcome!</div>
-</div>
-
+<div class="link-item">
+  <carbon-email class="link-icon" />
+  <div class="link-text">Questions welcome</div>
 </div>
 
 </div>
 
-<div class="abs-bl m-6 text-sm text-gray-500">
-  Timothy P Copeland | Department of Clinical Neuroscience | Karolinska Institutet
 </div>
+
+<div class="abs-bl m-8 text-sm text-gray-400">
+  Timothy P Copeland · Department of Clinical Neuroscience · Karolinska Institutet
+</div>
+
+<style>
+.thank-you h1 {
+  @apply text-5xl font-semibold text-gray-900;
+  letter-spacing: -0.02em;
+}
+.subtitle {
+  @apply text-xl text-gray-500 mt-4 font-light;
+}
+.links {
+  @apply flex justify-center gap-16;
+}
+.link-item {
+  @apply flex flex-col items-center gap-2;
+}
+.link-icon {
+  @apply text-3xl text-gray-400;
+}
+.link-text {
+  @apply text-sm text-gray-500;
+}
+</style>
 
 ---
 layout: center
 class: text-center
 ---
 
+<div class="questions">
+
 # Questions?
 
-<div class="mt-8 text-lg">
+<div class="mt-10 max-w-xl mx-auto">
 
-**Common questions I can address:**
+<div class="q-grid">
 
-- How does this compare to manual stsplit?
-- What about time-varying confounders?
-- Can I analyze treatment sequencing?
-- How do I handle patients on DMT before study entry?
+<div v-click class="q-item">How does this compare to manual stsplit?</div>
+
+<div v-click class="q-item">What about time-varying confounders?</div>
+
+<div v-click class="q-item">Can I analyze treatment sequencing?</div>
+
+<div v-click class="q-item">How do I handle patients on DMT before study entry?</div>
+
+</div>
+
+</div>
 
 </div>
 
 <style>
-h1 {
-  background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 50%, #f97316 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+.questions h1 {
+  @apply text-5xl font-semibold text-gray-900;
+  letter-spacing: -0.02em;
+}
+.q-grid {
+  @apply space-y-4;
+}
+.q-item {
+  @apply bg-gray-50 px-6 py-4 rounded-xl text-gray-600 text-left;
 }
 </style>
