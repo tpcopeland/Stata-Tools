@@ -26,6 +26,14 @@ Generate synthetic datasets that preserve statistical properties while protectin
 
 ---
 
+## Installation
+
+```stata
+net install synthdata, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/synthdata")
+```
+
+---
+
 ## Syntax
 
 ```stata
