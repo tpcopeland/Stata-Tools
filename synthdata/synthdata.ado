@@ -72,7 +72,7 @@ program define synthdata
     if `n' == 0 local n = `orig_n'
     
     // Classify variables
-    _synthdata_classify_v2 `varlist', categorical(`categorical') continuous(`continuous') dates(`dates')
+    _synthdata_classify `varlist', categorical(`categorical') continuous(`continuous') dates(`dates')
     local catvars `r(catvars)'
     local contvars `r(contvars)'
     local datevars `r(datevars)'
@@ -81,13 +81,13 @@ program define synthdata
     // Store original data bounds for noextreme option
     if "`noextreme'" != "" {
         tempfile origbounds
-        _synthdata_storebounds_v2 `contvars' `datevars', saving(`origbounds')
+        _synthdata_storebounds `contvars' `datevars', saving(`origbounds')
     }
     
     // Store original statistics for comparison
     if "`compare'" != "" | "`validate'" != "" | "`utility'" != "" {
         tempfile origstats
-        _synthdata_stats_v2 `varlist', saving(`origstats')
+        _synthdata_stats `varlist', saving(`origstats')
     }
     
     // Store original data for methods that need it
@@ -107,22 +107,22 @@ program define synthdata
     
     // Generate synthetic data based on method
     if "`method'" == "parametric" {
-        _synthdata_parametric_v2, n(`n') catvars(`catvars') contvars(`contvars') ///
+        _synthdata_parametric, n(`n') catvars(`catvars') contvars(`contvars') ///
             datevars(`datevars') strvars(`strvars') origdata(`origdata') ///
             `empirical' `smooth' `correlations' ///
             mincell(`mincell') trim(`trim')
     }
     else if "`method'" == "bootstrap" {
-        _synthdata_bootstrap_v2, n(`n') noise(`noise') ///
+        _synthdata_bootstrap, n(`n') noise(`noise') ///
             catvars(`catvars') contvars(`contvars') datevars(`datevars') ///
             strvars(`strvars') origdata(`origdata') ///
             mincell(`mincell') trim(`trim')
     }
     else if "`method'" == "permute" {
-        _synthdata_permute_v2 `varlist', n(`n') origdata(`origdata')
+        _synthdata_permute `varlist', n(`n') origdata(`origdata')
     }
     else if "`method'" == "sequential" {
-        _synthdata_sequential_v2, n(`n') catvars(`catvars') contvars(`contvars') ///
+        _synthdata_sequential, n(`n') catvars(`catvars') contvars(`contvars') ///
             datevars(`datevars') strvars(`strvars') origdata(`origdata') ///
             mincell(`mincell') trim(`trim')
     }
@@ -152,27 +152,27 @@ program define synthdata
     
     // Apply bounds first (before constraints, as constraints may depend on bounded values)
     if `"`bounds'"' != "" {
-        _synthdata_bounds_v2, bounds(`bounds')
+        _synthdata_bounds, bounds(`bounds')
     }
     
     // Enforce no extreme values using stored original bounds
     if "`noextreme'" != "" {
-        _synthdata_noextreme_v2 `contvars' `datevars', boundsfile(`origbounds')
+        _synthdata_noextreme `contvars' `datevars', boundsfile(`origbounds')
     }
     
     // Apply auto-detected constraints
     if "`autoconstraints'" != "" {
-        _synthdata_autoconstraints_v2 `contvars' `datevars', iterate(`iterate') origdata(`origdata')
+        _synthdata_autoconstraints `contvars' `datevars', iterate(`iterate') origdata(`origdata')
     }
     
     // Apply user constraints
     if `"`constraints'"' != "" {
-        _synthdata_constraints_v2, constraints(`constraints') iterate(`iterate')
+        _synthdata_constraints, constraints(`constraints') iterate(`iterate')
     }
     
     // Handle panel structure
     if "`panel'" != "" {
-        _synthdata_panel_v2, panelid(`panelid') paneltime(`paneltime') ///
+        _synthdata_panel, panelid(`panelid') paneltime(`paneltime') ///
             preserve(`preservevar') autocorr(`autocorr') n(`n') origdata(`origdata')
     }
     
@@ -188,19 +188,19 @@ program define synthdata
     
     // Validation and comparison (must use unprefixed names for stats)
     if "`compare'" != "" {
-        _synthdata_compare_v2 `synthvars', origstats(`origstats') prefix(`prefix')
+        _synthdata_compare `synthvars', origstats(`origstats') prefix(`prefix')
     }
     
     if "`validate'" != "" {
-        _synthdata_validate_v2 `synthvars', origstats(`origstats') saving(`validate') prefix(`prefix')
+        _synthdata_validate `synthvars', origstats(`origstats') saving(`validate') prefix(`prefix')
     }
     
     if "`utility'" != "" {
-        _synthdata_utility_v2 `synthvars', origstats(`origstats')
+        _synthdata_utility `synthvars', origstats(`origstats')
     }
     
     if "`graph'" != "" {
-        _synthdata_graph_v2 `contvars', origdata(`origdata') prefix(`prefix')
+        _synthdata_graph `contvars', origdata(`origdata') prefix(`prefix')
     }
     
     // Handle multiple synthetic datasets
@@ -223,22 +223,22 @@ program define synthdata
             }
             
             if "`method'" == "parametric" {
-                _synthdata_parametric_v2, n(`n') catvars(`catvars') contvars(`contvars') ///
+                _synthdata_parametric, n(`n') catvars(`catvars') contvars(`contvars') ///
                     datevars(`datevars') strvars(`strvars') origdata(`origdata') ///
                     `empirical' `smooth' `correlations' ///
                     mincell(`mincell') trim(`trim')
             }
             else if "`method'" == "bootstrap" {
-                _synthdata_bootstrap_v2, n(`n') noise(`noise') ///
+                _synthdata_bootstrap, n(`n') noise(`noise') ///
                     catvars(`catvars') contvars(`contvars') datevars(`datevars') ///
                     strvars(`strvars') origdata(`origdata') ///
                     mincell(`mincell') trim(`trim')
             }
             else if "`method'" == "permute" {
-                _synthdata_permute_v2 `varlist', n(`n') origdata(`origdata')
+                _synthdata_permute `varlist', n(`n') origdata(`origdata')
             }
             else if "`method'" == "sequential" {
-                _synthdata_sequential_v2, n(`n') catvars(`catvars') contvars(`contvars') ///
+                _synthdata_sequential, n(`n') catvars(`catvars') contvars(`contvars') ///
                     datevars(`datevars') strvars(`strvars') origdata(`origdata') ///
                     mincell(`mincell') trim(`trim')
             }
@@ -251,15 +251,15 @@ program define synthdata
             }
             
             if `"`bounds'"' != "" {
-                _synthdata_bounds_v2, bounds(`bounds')
+                _synthdata_bounds, bounds(`bounds')
             }
             
             if "`noextreme'" != "" {
-                _synthdata_noextreme_v2 `contvars' `datevars', boundsfile(`origbounds')
+                _synthdata_noextreme `contvars' `datevars', boundsfile(`origbounds')
             }
             
             if `"`constraints'"' != "" {
-                _synthdata_constraints_v2, constraints(`constraints') iterate(`iterate')
+                _synthdata_constraints, constraints(`constraints') iterate(`iterate')
             }
             
             if "`prefix'" != "" {
@@ -302,7 +302,7 @@ program define synthdata
 end
 
 // Classify variables as categorical, continuous, date, or string
-program define _synthdata_classify_v2, rclass
+program define _synthdata_classify, rclass
     syntax varlist, [categorical(varlist) continuous(varlist) dates(varlist)]
     
     local catvars `categorical'
@@ -353,7 +353,7 @@ program define _synthdata_classify_v2, rclass
 end
 
 // Store original variable bounds
-program define _synthdata_storebounds_v2
+program define _synthdata_storebounds
     syntax varlist, saving(string)
     
     tempname memhold
@@ -368,7 +368,7 @@ program define _synthdata_storebounds_v2
 end
 
 // Store original statistics (numeric variables only)
-program define _synthdata_stats_v2
+program define _synthdata_stats
     syntax varlist, saving(string)
     
     tempname memhold
@@ -388,7 +388,7 @@ program define _synthdata_stats_v2
 end
 
 // Parametric synthesis method
-program define _synthdata_parametric_v2
+program define _synthdata_parametric
     syntax, n(integer) [catvars(varlist) contvars(varlist) datevars(varlist) ///
         strvars(string) origdata(string) empirical smooth correlations ///
         mincell(integer 5) trim(real 0)]
@@ -450,10 +450,10 @@ program define _synthdata_parametric_v2
             matrix `covmat' = r(C)
             
             // Check for positive definiteness, regularize if needed
-            mata: st_local("isposdef", strofreal(_synthdata_isposdef_v2(st_matrix("`covmat'"))))
+            mata: st_local("isposdef", strofreal(_synthdata_isposdef(st_matrix("`covmat'"))))
             if `isposdef' == 0 {
                 di as txt "Note: Covariance matrix regularized for positive definiteness"
-                mata: st_matrix("`covmat'", _synthdata_regularize_v2(st_matrix("`covmat'")))
+                mata: st_matrix("`covmat'", _synthdata_regularize(st_matrix("`covmat'")))
             }
         }
     }
@@ -537,7 +537,7 @@ program define _synthdata_parametric_v2
         }
         else {
             // Multivariate normal via Cholesky
-            mata: _synthdata_genmvn_v2("`contvars'", st_matrix("`means'"), st_matrix("`covmat'"), `n')
+            mata: _synthdata_genmvn("`contvars'", st_matrix("`means'"), st_matrix("`covmat'"), `n')
         }
     }
     
@@ -546,7 +546,7 @@ program define _synthdata_parametric_v2
         local catnum = 1
         foreach v of local catvars {
             qui gen double `v' = .
-            mata: _synthdata_drawcat_v2("`v'", st_matrix("`catfreq_`catnum''"), `n')
+            mata: _synthdata_drawcat("`v'", st_matrix("`catfreq_`catnum''"), `n')
             
             // Restore value label
             if "`vallbl_`catnum''" != "" {
@@ -579,7 +579,7 @@ program define _synthdata_parametric_v2
             // Draw indices
             tempvar idx
             qui gen long `idx' = .
-            mata: _synthdata_drawcatidx_v2("`idx'", st_matrix("`strfreqmat'"), `n')
+            mata: _synthdata_drawcatidx("`idx'", st_matrix("`strfreqmat'"), `n')
             
             // Assign string values
             forvalues j = 1/`nstrlevels_`strnum'' {
@@ -604,7 +604,7 @@ program define _synthdata_parametric_v2
 end
 
 // Bootstrap synthesis method
-program define _synthdata_bootstrap_v2
+program define _synthdata_bootstrap
     syntax, n(integer) noise(real) [catvars(varlist) contvars(varlist) ///
         datevars(varlist) strvars(string) origdata(string) ///
         mincell(integer 5) trim(real 0)]
@@ -685,7 +685,7 @@ program define _synthdata_bootstrap_v2
 end
 
 // Permute method (breaks all relationships)
-program define _synthdata_permute_v2
+program define _synthdata_permute
     syntax varlist, n(integer) origdata(string)
     
     local orig_n = _N
@@ -721,7 +721,7 @@ program define _synthdata_permute_v2
 end
 
 // Sequential regression method
-program define _synthdata_sequential_v2
+program define _synthdata_sequential
     syntax, n(integer) [catvars(varlist) contvars(varlist) ///
         datevars(varlist) strvars(string) origdata(string) ///
         mincell(integer 5) trim(real 0)]
@@ -862,7 +862,7 @@ program define _synthdata_sequential_v2
             qui gen str`maxlen' `v' = ""
             tempvar idx
             qui gen long `idx' = .
-            mata: _synthdata_drawcatidx_v2("`idx'", st_matrix("`freqmat'"), `n')
+            mata: _synthdata_drawcatidx("`idx'", st_matrix("`freqmat'"), `n')
             
             forvalues j = 1/`nlevels' {
                 qui replace `v' = `"`strval_`j''"' if `idx' == `j'
@@ -874,7 +874,7 @@ program define _synthdata_sequential_v2
             // Draw from marginal
             tempname catcomb
             matrix `catcomb' = `catvals', `catfreqs'
-            mata: _synthdata_drawcat_v2("`v'", st_matrix("`catcomb'"), `n')
+            mata: _synthdata_drawcat("`v'", st_matrix("`catcomb'"), `n')
         }
         else {
             // Continuous or date
@@ -906,7 +906,7 @@ program define _synthdata_sequential_v2
 end
 
 // Apply user constraints via rejection/clipping
-program define _synthdata_constraints_v2
+program define _synthdata_constraints
     syntax, constraints(string asis) iterate(integer)
     
     local iter = 0
@@ -1004,7 +1004,7 @@ program define _synthdata_constraints_v2
 end
 
 // Auto-detect and apply constraints
-program define _synthdata_autoconstraints_v2
+program define _synthdata_autoconstraints
     syntax varlist, iterate(integer) origdata(string)
     
     local constraints ""
@@ -1026,12 +1026,12 @@ program define _synthdata_autoconstraints_v2
     restore
     
     if `"`constraints'"' != "" {
-        _synthdata_constraints_v2, constraints(`constraints') iterate(`iterate')
+        _synthdata_constraints, constraints(`constraints') iterate(`iterate')
     }
 end
 
 // Apply bounds
-program define _synthdata_bounds_v2
+program define _synthdata_bounds
     syntax, bounds(string asis)
     
     local remaining `"`bounds'"'
@@ -1063,7 +1063,7 @@ program define _synthdata_bounds_v2
 end
 
 // Enforce no values outside observed range
-program define _synthdata_noextreme_v2
+program define _synthdata_noextreme
     syntax varlist, boundsfile(string)
     
     preserve
@@ -1087,7 +1087,7 @@ program define _synthdata_noextreme_v2
 end
 
 // Handle panel structure
-program define _synthdata_panel_v2
+program define _synthdata_panel
     syntax, panelid(string) paneltime(string) [preserve(varlist) autocorr(integer 0) n(integer) origdata(string)]
     
     di as txt "Note: Panel structure synthesis generates similar panel structure but simplified correlations"
@@ -1120,7 +1120,7 @@ program define _synthdata_panel_v2
 end
 
 // Compare original and synthetic statistics
-program define _synthdata_compare_v2
+program define _synthdata_compare
     syntax varlist, origstats(string) [prefix(string)]
     
     // Compute synthetic stats
@@ -1137,7 +1137,7 @@ program define _synthdata_compare_v2
         local synthvarlist `varlist'
     }
     
-    _synthdata_stats_v2 `synthvarlist', saving(`synthstats')
+    _synthdata_stats `synthvarlist', saving(`synthstats')
     
     preserve
     
@@ -1193,7 +1193,7 @@ program define _synthdata_compare_v2
 end
 
 // Save validation statistics
-program define _synthdata_validate_v2
+program define _synthdata_validate
     syntax varlist, origstats(string) saving(string) [prefix(string)]
     
     // Handle prefix
@@ -1208,7 +1208,7 @@ program define _synthdata_validate_v2
     }
     
     tempfile synthstats
-    _synthdata_stats_v2 `synthvarlist', saving(`synthstats')
+    _synthdata_stats `synthvarlist', saving(`synthstats')
     
     preserve
     qui use `origstats', clear
@@ -1236,7 +1236,7 @@ program define _synthdata_validate_v2
 end
 
 // Utility metrics
-program define _synthdata_utility_v2
+program define _synthdata_utility
     syntax varlist, origstats(string)
     
     di as txt _n "Utility Metrics Summary:"
@@ -1245,7 +1245,7 @@ program define _synthdata_utility_v2
 end
 
 // Density comparison graphs
-program define _synthdata_graph_v2
+program define _synthdata_graph
     syntax varlist, origdata(string) [prefix(string)]
     
     local ngraphs: word count `varlist'
@@ -1310,7 +1310,7 @@ end
 mata:
 
 // Check if matrix is positive definite
-real scalar _synthdata_isposdef_v2(real matrix A)
+real scalar _synthdata_isposdef(real matrix A)
 {
     real matrix eigvals
     real scalar i
@@ -1323,7 +1323,7 @@ real scalar _synthdata_isposdef_v2(real matrix A)
 }
 
 // Regularize covariance matrix
-real matrix _synthdata_regularize_v2(real matrix A)
+real matrix _synthdata_regularize(real matrix A)
 {
     real scalar mineval, ridge
     real matrix eigvals
@@ -1341,7 +1341,7 @@ real matrix _synthdata_regularize_v2(real matrix A)
 }
 
 // Generate multivariate normal
-void _synthdata_genmvn_v2(string scalar varlist, real matrix means, real matrix cov, real scalar n)
+void _synthdata_genmvn(string scalar varlist, real matrix means, real matrix cov, real scalar n)
 {
     real matrix L, Z, X
     string rowvector vars
@@ -1369,7 +1369,7 @@ void _synthdata_genmvn_v2(string scalar varlist, real matrix means, real matrix 
 }
 
 // Draw from categorical distribution (vals in col 1, freqs in col 2)
-void _synthdata_drawcat_v2(string scalar varname, real matrix valfreq, real scalar n)
+void _synthdata_drawcat(string scalar varname, real matrix valfreq, real scalar n)
 {
     real matrix u, cumprob, result
     real scalar i, j, nlevels, total
@@ -1400,7 +1400,7 @@ void _synthdata_drawcat_v2(string scalar varname, real matrix valfreq, real scal
 }
 
 // Draw categorical index (for string variables)
-void _synthdata_drawcatidx_v2(string scalar varname, real matrix freqs, real scalar n)
+void _synthdata_drawcatidx(string scalar varname, real matrix freqs, real scalar n)
 {
     real matrix u, cumprob, result
     real scalar i, j, nlevels, total
