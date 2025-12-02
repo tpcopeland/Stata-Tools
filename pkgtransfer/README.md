@@ -188,7 +188,7 @@ Karolinska Institutet
 
 ## License
 
-MIT License - See LICENSE file for details
+MIT License
 
 ## See Also
 
