@@ -161,11 +161,11 @@ Timothy P Copeland<br>
 Department of Clinical Neuroscience<br>
 Karolinska Institutet
 
-Revisions of original concept & code by Michael N Mitchell
+Revisions of original concept & table1_mc code by Michael N Mitchell 
 
 ## License
 
-MIT License - see LICENSE file for details
+MIT License
 
 ## Version
 
