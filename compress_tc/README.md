@@ -134,7 +134,7 @@ https://github.com/lukestein/strcompress/
 
 ## License
 
-MIT License - see LICENSE file for details
+MIT License
 
 ## Version
 
