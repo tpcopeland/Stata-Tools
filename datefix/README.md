@@ -17,8 +17,7 @@ Convert string date variables to numeric date formatted variables.
 ## Installation
 
 ```stata
-net from https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/datefix
-net install datefix
+net install datefix, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/datefix")
 ```
 
 ## Syntax
