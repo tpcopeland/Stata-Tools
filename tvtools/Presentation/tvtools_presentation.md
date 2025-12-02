@@ -1377,7 +1377,7 @@ layout: section
 
 <div class="code-scroll">
 
-```stata {all|1-6|8-13|15-17|19-21|all}
+```stata {all|1-6|8-13|15-18|20-22|all}
 * Step 1: Create time-varying DMT exposure
 use ms_cohort, clear
 tvexpose using dmt_prescriptions, ///
@@ -1394,7 +1394,8 @@ tvexpose using oc_prescriptions, ///
 
 * Step 3: Merge multiple exposures
 tvmerge tv_dmt tv_oc, id(patient_id) ///
-    start(start start) stop(stop stop) exposure(tv_exposure tv_exposure)
+    start(dmt_start oc_start) stop(dmt_stop oc_stop) ///
+    exposure(tv_exposure tv_exposure) generate(dmt oc_use)
 
 * Step 4: Integrate outcomes with competing risks
 tvevent using ms_cohort, id(patient_id) ///
