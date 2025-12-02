@@ -13,7 +13,7 @@ Karolinska Institutet
 ## Installation
 
 ```stata
-net install mvp, from("https://raw.githubusercontent.com/USERNAME/REPO/main/")
+net install mvp, from(https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/mvp)
 ```
 
 ## Syntax

@@ -17,6 +17,7 @@ d
 d This is a fork of strcompress by Luke Stein lcdstein@babson.edu
 d
 d Distribution-Date: 20251128
+d License: MIT
 d
 f compress_tc.ado
 f compress_tc.sthlp
