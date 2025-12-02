@@ -51,15 +51,15 @@ transition: fade-out
 
 <v-clicks>
 
-**Age 32:** Diagnosed with RRMS
+<div><span class="font-bold">Age 32:</span> Diagnosed with RRMS</div>
 
-**Year 1:** Starts interferon beta
+<div><span class="font-bold">Year 1:</span> Starts interferon beta</div>
 
-**Year 3:** Two relapses → switches to fingolimod
+<div><span class="font-bold">Year 3:</span> Two relapses → switches to fingolimod</div>
 
-**Year 5:** MRI activity → escalates to natalizumab
+<div><span class="font-bold">Year 5:</span> MRI activity → escalates to natalizumab</div>
 
-**Year 8:** Develops EDSS progression
+<div><span class="font-bold">Year 8:</span> Develops EDSS progression</div>
 
 </v-clicks>
 
@@ -212,7 +212,7 @@ transition: slide-up
 
 # Why This Matters for MS Research
 
-<div class="grid grid-cols-2 gap-8 mt-8">
+<div class="grid grid-cols-2 gap-6 mt-6">
 
 <div v-click class="issue-card">
   <div class="icon">🔄</div>
@@ -246,20 +246,20 @@ transition: slide-up
 
 <style>
 .issue-card {
-  @apply bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg;
+  @apply bg-white dark:bg-gray-800 p-4 rounded-xl shadow-lg;
   @apply border-t-4 border-blue-500;
 }
 .issue-card .icon {
-  @apply text-3xl mb-2;
+  @apply text-2xl mb-1;
 }
 .issue-card h3 {
-  @apply font-bold text-lg mb-2;
+  @apply font-bold text-base mb-1;
 }
 .issue-card p {
   @apply text-gray-600 dark:text-gray-400 text-sm;
 }
 .issue-card .example {
-  @apply mt-3 text-xs bg-gray-100 dark:bg-gray-700 p-2 rounded;
+  @apply mt-2 text-xs bg-gray-100 dark:bg-gray-700 p-2 rounded;
   @apply font-mono;
 }
 </style>
@@ -506,6 +506,296 @@ Point out: patient was unexposed 2014-2015, on IFN 2015-2017, gap 2017-2018, etc
 .highlight-box {
   @apply bg-green-100 dark:bg-green-900 p-4 rounded-lg;
   @apply border-l-4 border-green-500;
+}
+</style>
+
+---
+layout: two-cols
+transition: slide-up
+---
+
+# tvexpose: Duration Categories
+
+<div class="mt-2">
+
+Using `duration(1 3 5)` to categorize cumulative exposure:
+
+````md magic-move {lines: true}
+```txt {*|*}
+Raw DMT Prescriptions
+─────────────────────────────────────
+id │ dmt_start  │ dmt_stop   │ dmt
+───┼────────────┼────────────┼────────
+ 1 │ 2015-03-01 │ 2017-08-15 │ 1 (IFN)
+ 1 │ 2018-01-10 │ 2022-06-30 │ 4 (NTZ)
+```
+
+```txt {*|1-3|4-8|9-13|*}
+Duration Categories Output
+─────────────────────────────────────────────
+id │ start      │ stop       │ dur_cat │ cumul_yrs
+───┼────────────┼────────────┼─────────┼──────────
+ 1 │ 2014-01-15 │ 2015-03-01 │ 0       │ 0.0
+ 1 │ 2015-03-01 │ 2016-03-01 │ 1 (<1y) │ 0.0→1.0
+ 1 │ 2016-03-01 │ 2017-08-15 │ 2 (1-3y)│ 1.0→2.5
+ 1 │ 2017-08-15 │ 2018-01-10 │ 0       │ 2.5
+ 1 │ 2018-01-10 │ 2019-01-10 │ 2 (1-3y)│ 2.5→3.5
+ 1 │ 2019-01-10 │ 2021-01-10 │ 3 (3-5y)│ 3.5→5.5
+ 1 │ 2021-01-10 │ 2022-06-30 │ 4 (≥5y) │ 5.5→7.0
+ 1 │ 2022-06-30 │ 2023-12-31 │ 0       │ 7.0
+```
+````
+
+</div>
+
+::right::
+
+<div class="pl-6 pt-2">
+
+<div v-click class="code-box">
+
+```stata
+tvexpose using dmt, ///
+    id(patient_id) start(dmt_start) ///
+    stop(dmt_stop) exposure(dmt) ///
+    reference(0) ///
+    entry(ms_dx) exit(study_exit) ///
+    duration(1 3 5) continuousunit(years)
+```
+
+</div>
+
+<div v-click class="mt-4 text-sm">
+
+**Duration categories created:**
+
+| Code | Category | Meaning |
+|------|----------|---------|
+| 0 | Unexposed | Not on DMT |
+| 1 | <1 year | New to treatment |
+| 2 | 1-3 years | Established |
+| 3 | 3-5 years | Long-term |
+| 4 | ≥5 years | Very long-term |
+
+</div>
+
+<div v-click class="mt-4 insight-box">
+
+**Key insight:** Intervals split automatically when cumulative duration crosses category boundaries
+
+</div>
+
+</div>
+
+<style>
+.code-box {
+  @apply bg-gray-900 p-3 rounded-lg text-xs;
+}
+.insight-box {
+  @apply bg-blue-50 dark:bg-blue-900/30 p-3 rounded-lg text-sm;
+  @apply border-l-4 border-blue-500;
+}
+</style>
+
+---
+layout: two-cols
+transition: slide-up
+---
+
+# tvexpose: Duration with bytype
+
+<div class="mt-2">
+
+Using `duration(1 3 5) bytype` for per-DMT duration:
+
+````md magic-move {lines: true}
+```txt {*|*}
+Raw DMT Prescriptions
+─────────────────────────────────────
+id │ dmt_start  │ dmt_stop   │ dmt
+───┼────────────┼────────────┼────────
+ 1 │ 2015-03-01 │ 2017-08-15 │ 1 (IFN)
+ 1 │ 2018-01-10 │ 2022-06-30 │ 4 (NTZ)
+```
+
+```txt {*|1-4|5-9|*}
+Duration by Type Output (bytype)
+───────────────────────────────────────────────────
+id │ start      │ stop       │ dur_IFN │ dur_NTZ
+───┼────────────┼────────────┼─────────┼─────────
+ 1 │ 2014-01-15 │ 2015-03-01 │ 0       │ 0
+ 1 │ 2015-03-01 │ 2016-03-01 │ 1 (<1y) │ 0
+ 1 │ 2016-03-01 │ 2017-08-15 │ 2 (1-3y)│ 0
+ 1 │ 2017-08-15 │ 2018-01-10 │ 0       │ 0
+ 1 │ 2018-01-10 │ 2019-01-10 │ 0       │ 1 (<1y)
+ 1 │ 2019-01-10 │ 2021-01-10 │ 0       │ 2 (1-3y)
+ 1 │ 2021-01-10 │ 2022-06-30 │ 0       │ 3 (3-5y)
+ 1 │ 2022-06-30 │ 2023-12-31 │ 0       │ 0
+```
+````
+
+</div>
+
+::right::
+
+<div class="pl-6 pt-2">
+
+<div v-click class="code-box">
+
+```stata
+tvexpose using dmt, ///
+    id(patient_id) start(dmt_start) ///
+    stop(dmt_stop) exposure(dmt) ///
+    reference(0) ///
+    entry(ms_dx) exit(study_exit) ///
+    duration(1 3 5) bytype
+```
+
+</div>
+
+<div v-click class="mt-4 feature-grid">
+
+<div class="feature-item">
+  <div class="feature-icon">📊</div>
+  <div class="feature-text">Separate duration variable per DMT type</div>
+</div>
+
+<div class="feature-item">
+  <div class="feature-icon">🎯</div>
+  <div class="feature-text">Track type-specific cumulative exposure</div>
+</div>
+
+<div class="feature-item">
+  <div class="feature-icon">📈</div>
+  <div class="feature-text">Model dose-response by specific DMT</div>
+</div>
+
+</div>
+
+<div v-click class="mt-4 insight-box">
+
+**Use case:** Compare duration effects across different DMT mechanisms (platform vs high-efficacy)
+
+</div>
+
+</div>
+
+<style>
+.code-box {
+  @apply bg-gray-900 p-3 rounded-lg text-xs;
+}
+.insight-box {
+  @apply bg-blue-50 dark:bg-blue-900/30 p-3 rounded-lg text-sm;
+  @apply border-l-4 border-blue-500;
+}
+.feature-grid {
+  @apply flex flex-col gap-2;
+}
+.feature-item {
+  @apply flex items-center gap-2 bg-gray-100 dark:bg-gray-800 p-2 rounded text-sm;
+}
+.feature-icon {
+  @apply text-lg;
+}
+</style>
+
+---
+layout: two-cols
+transition: slide-up
+---
+
+# tvexpose: Continuous + Expansion
+
+<div class="mt-2">
+
+Using `continuousunit(years) expandunit(months) bytype`:
+
+````md magic-move {lines: true}
+```txt {*|*}
+Raw DMT Prescriptions
+─────────────────────────────────────
+id │ dmt_start  │ dmt_stop   │ dmt
+───┼────────────┼────────────┼────────
+ 1 │ 2015-03-01 │ 2015-08-15 │ 1 (IFN)
+ 1 │ 2015-10-01 │ 2016-03-30 │ 4 (NTZ)
+```
+
+```txt {*|1-4|5-9|10-12|*}
+Expanded Monthly Output (bytype)
+─────────────────────────────────────────────────────
+id │ start      │ stop       │ yrs_IFN │ yrs_NTZ
+───┼────────────┼────────────┼─────────┼─────────
+ 1 │ 2015-01-01 │ 2015-02-01 │ 0.00    │ 0.00
+ 1 │ 2015-02-01 │ 2015-03-01 │ 0.00    │ 0.00
+ 1 │ 2015-03-01 │ 2015-04-01 │ 0.08    │ 0.00
+ 1 │ 2015-04-01 │ 2015-05-01 │ 0.17    │ 0.00
+   │     ...    │     ...    │   ...   │   ...
+ 1 │ 2015-10-01 │ 2015-11-01 │ 0.46    │ 0.08
+ 1 │ 2015-11-01 │ 2015-12-01 │ 0.46    │ 0.17
+   │     ...    │     ...    │   ...   │   ...
+ 1 │ 2016-03-01 │ 2016-03-30 │ 0.46    │ 0.50
+```
+````
+
+</div>
+
+::right::
+
+<div class="pl-6 pt-2">
+
+<div v-click class="code-box">
+
+```stata
+tvexpose using dmt, ///
+    id(patient_id) start(dmt_start) ///
+    stop(dmt_stop) exposure(dmt) ///
+    reference(0) ///
+    entry(ms_dx) exit(study_exit) ///
+    continuousunit(years) ///
+    expandunit(months) bytype
+```
+
+</div>
+
+<div v-click class="mt-4 text-sm">
+
+**What this creates:**
+
+- One row per calendar month
+- Separate cumulative years variable for each DMT type
+- Continuous exposure values (not categories)
+
+</div>
+
+<div v-click class="mt-4 use-cases">
+
+**Use cases:**
+
+- Time-stratified analysis
+- Merge with monthly lab values
+- Fine-grained exposure modeling
+- Flexible dose-response curves
+
+</div>
+
+<div v-click class="mt-4 warning-box">
+
+**Note:** Row expansion can create large datasets. Use judiciously.
+
+</div>
+
+</div>
+
+<style>
+.code-box {
+  @apply bg-gray-900 p-3 rounded-lg text-xs;
+}
+.use-cases {
+  @apply bg-green-50 dark:bg-green-900/30 p-3 rounded-lg text-sm;
+}
+.warning-box {
+  @apply bg-yellow-50 dark:bg-yellow-900/30 p-3 rounded-lg text-xs;
+  @apply border-l-4 border-yellow-500;
 }
 </style>
 
@@ -776,12 +1066,12 @@ tvmerge tv_dmt tv_oc, id(patient_id) ///
   class="timeline-container origin-top">
   <div class="timeline-label">Result:</div>
   <div class="timeline merged">
-    <div class="segment s1" style="flex: 2">0,No</div>
-    <div class="segment s2" style="flex: 1">IFN,No</div>
-    <div class="segment s3" style="flex: 2">IFN,Yes</div>
-    <div class="segment s4" style="flex: 2">0,Yes</div>
-    <div class="segment s5" style="flex: 1">0,No</div>
-    <div class="segment s6" style="flex: 2">NTZ,No</div>
+    <div class="segment merged-seg" style="flex: 2"><div class="top-half bg-gray-400"></div><div class="bot-half bg-gray-300"></div><span class="seg-label">None,No</span></div>
+    <div class="segment merged-seg" style="flex: 1"><div class="top-half bg-blue-500"></div><div class="bot-half bg-gray-300"></div><span class="seg-label">IFN,No</span></div>
+    <div class="segment merged-seg" style="flex: 2"><div class="top-half bg-blue-500"></div><div class="bot-half bg-pink-400"></div><span class="seg-label">IFN,Yes</span></div>
+    <div class="segment merged-seg" style="flex: 2"><div class="top-half bg-gray-400"></div><div class="bot-half bg-pink-400"></div><span class="seg-label">None,Yes</span></div>
+    <div class="segment merged-seg" style="flex: 1"><div class="top-half bg-gray-400"></div><div class="bot-half bg-gray-300"></div><span class="seg-label">None,No</span></div>
+    <div class="segment merged-seg" style="flex: 2"><div class="top-half bg-orange-500"></div><div class="bot-half bg-gray-300"></div><span class="seg-label">NTZ,No</span></div>
   </div>
 </div>
 
@@ -816,12 +1106,20 @@ tvmerge tv_dmt tv_oc, id(patient_id) ///
 .ntz { @apply bg-orange-500; }
 .oc-no { @apply bg-gray-300 text-gray-700; }
 .oc-yes { @apply bg-pink-400; }
-.merged .s1 { @apply bg-gray-400; }
-.merged .s2 { @apply bg-blue-500; }
-.merged .s3 { background: linear-gradient(135deg, #3b82f6 50%, #f472b6 50%); }
-.merged .s4 { @apply bg-pink-400; }
-.merged .s5 { @apply bg-gray-400; }
-.merged .s6 { @apply bg-orange-500; }
+.merged-seg {
+  @apply relative flex flex-col overflow-hidden p-0;
+}
+.merged-seg .top-half {
+  @apply flex-1 w-full;
+}
+.merged-seg .bot-half {
+  @apply flex-1 w-full;
+}
+.merged-seg .seg-label {
+  @apply absolute inset-0 flex items-center justify-center;
+  @apply text-xs font-semibold text-white;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+}
 .insight-box {
   @apply flex items-center gap-3 bg-green-50 dark:bg-green-900/30 p-4 rounded-xl;
 }
@@ -1079,31 +1377,38 @@ layout: section
 
 <div class="code-scroll">
 
-```stata {all|1-7|9-11|13-15|all}
+```stata {all|1-6|8-13|15-17|19-21|all}
 * Step 1: Create time-varying DMT exposure
 use ms_cohort, clear
 tvexpose using dmt_prescriptions, ///
     id(patient_id) start(dmt_start) stop(dmt_stop) ///
     exposure(dmt) reference(0) ///
-    entry(ms_diagnosis_date) exit(study_exit_date) ///
-    keepvars(age_at_onset sex ms_type edss_baseline edss4_date death_date)
+    entry(ms_diagnosis_date) exit(study_exit_date) saveas(tv_dmt.dta) replace
 
-* Step 2: Integrate outcomes with competing risks
+* Step 2: Create second exposure (e.g., oral contraceptives)
+use ms_cohort, clear
+tvexpose using oc_prescriptions, ///
+    id(patient_id) start(oc_start) stop(oc_stop) ///
+    exposure(oc_type) reference(0) ///
+    entry(ms_diagnosis_date) exit(study_exit_date) saveas(tv_oc.dta) replace
+
+* Step 3: Merge multiple exposures
+tvmerge tv_dmt tv_oc, id(patient_id) ///
+    start(start start) stop(stop stop) exposure(tv_exposure tv_exposure)
+
+* Step 4: Integrate outcomes with competing risks
 tvevent using ms_cohort, id(patient_id) ///
     date(edss4_date) compete(death_date) generate(outcome)
-
-* Step 3: Survival analysis with competing risks
-stset stop, id(patient_id) failure(outcome==1) enter(start)
-stcrreg i.tv_exposure age_at_onset i.sex i.ms_type edss_baseline, ///
-    compete(outcome==2)
 ```
 
 </div>
 
-<div v-click class="mt-6 workflow-summary">
-  <div class="step">📥 SMSreg export</div>
+<div v-click class="mt-4 workflow-summary">
+  <div class="step">📥 SMSreg</div>
   <div class="arrow">→</div>
   <div class="step">📊 tvexpose</div>
+  <div class="arrow">→</div>
+  <div class="step">🔗 tvmerge</div>
   <div class="arrow">→</div>
   <div class="step">🎯 tvevent</div>
   <div class="arrow">→</div>
@@ -1152,8 +1457,8 @@ Baseline EDSS              │    1.31    [1.25, 1.37]      <0.001
 
 <v-click>
 
-<div class="insight mt-6">
-  <carbon-idea class="text-yellow-500 text-2xl" />
+<div class="insight mt-4">
+  <carbon-idea class="text-yellow-500 text-xl" />
   <span><strong>High-efficacy DMTs: ~50% reduction in progression risk.</strong> This is what proper time-varying analysis reveals.</span>
 </div>
 
@@ -1169,10 +1474,10 @@ Reference: Hauser SL et al. NEJM 2017 for ocrelizumab trials showing similar mag
 
 <style>
 .results-container {
-  @apply text-xs font-mono bg-gray-900 text-green-400 p-4 rounded-xl;
+  @apply text-xs font-mono bg-gray-900 text-green-400 p-3 rounded-xl;
 }
 .insight {
-  @apply flex items-center gap-4 bg-yellow-50 dark:bg-yellow-900/30 p-4 rounded-xl;
+  @apply flex items-center gap-3 bg-yellow-50 dark:bg-yellow-900/30 p-3 rounded-xl text-sm;
   @apply border-l-4 border-yellow-500;
 }
 </style>
@@ -1181,7 +1486,7 @@ Reference: Hauser SL et al. NEJM 2017 for ocrelizumab trials showing similar mag
 
 # What Goes Wrong Without This
 
-<div class="errors-grid mt-8">
+<div class="errors-grid mt-4">
 
 <div v-click class="error-card">
   <div class="error-type">Baseline Exposure Only</div>
@@ -1189,7 +1494,7 @@ Reference: Hauser SL et al. NEJM 2017 for ocrelizumab trials showing similar mag
   <div class="magnitude">Attenuates toward null</div>
 </div>
 
-<div v-click class="error-card error-severe">
+<div v-click class="error-card">
   <div class="error-type">Ever-Treated (No Time-Varying)</div>
   <div class="consequence">Immortal time bias</div>
   <div class="magnitude">Spurious protection (2-3x!)</div>
@@ -1207,9 +1512,21 @@ Reference: Hauser SL et al. NEJM 2017 for ocrelizumab trials showing similar mag
   <div class="magnitude">Overestimates effect</div>
 </div>
 
+<div v-click class="error-card">
+  <div class="error-type">No Cumulative Exposure</div>
+  <div class="consequence">Miss dose-response</div>
+  <div class="magnitude">Use <code>continuousunit()</code></div>
 </div>
 
-<div v-click class="mt-8 text-center text-sm text-gray-500">
+<div v-click class="error-card">
+  <div class="error-type">Combined Exposure Types</div>
+  <div class="consequence">Confounded effects</div>
+  <div class="magnitude">Use <code>bytype</code> option</div>
+</div>
+
+</div>
+
+<div v-click class="mt-4 text-center text-sm text-gray-500">
   Multiple high-profile DMT papers have been criticized or retracted for these errors.
 </div>
 
@@ -1222,27 +1539,21 @@ Key takeaway: These aren't theoretical concerns - they've affected real research
 
 <style>
 .errors-grid {
-  @apply grid grid-cols-2 gap-4;
+  @apply grid grid-cols-3 gap-3;
 }
 .error-card {
-  @apply bg-white dark:bg-gray-800 p-4 rounded-xl;
-  @apply border-l-4 border-yellow-500;
+  @apply bg-white dark:bg-gray-800 p-3 rounded-xl;
+  @apply border-l-4 border-red-500;
 }
 .error-card .error-type {
-  @apply font-bold text-lg;
+  @apply font-bold text-sm;
 }
 .error-card .consequence {
-  @apply text-gray-600 dark:text-gray-400 mt-1;
+  @apply text-gray-600 dark:text-gray-400 text-sm mt-1;
 }
 .error-card .magnitude {
-  @apply mt-2 text-sm bg-yellow-100 dark:bg-yellow-900/30 p-2 rounded;
-  @apply font-mono;
-}
-.error-severe {
-  @apply border-red-500;
-}
-.error-severe .magnitude {
-  @apply bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400;
+  @apply mt-2 text-xs bg-red-100 dark:bg-red-900/30 p-2 rounded;
+  @apply font-mono text-red-600 dark:text-red-400;
 }
 </style>
 
@@ -1254,17 +1565,17 @@ layout: two-cols
 
 <v-clicks>
 
-**Time-varying analysis is mandatory** for DMT effectiveness studies
+<div><span class="font-bold">Time-varying analysis is mandatory</span> for DMT effectiveness studies</div>
 
-**tvtools handles the complexity:**
+<div><span class="font-bold">tvtools handles the complexity:</span></div>
 
 - `tvexpose` → Time-varying intervals
 - `tvmerge` → Multiple exposures
 - `tvevent` → Competing risks
 
-**Integrates seamlessly** with stset, stcox, stcrreg
+<div><span class="font-bold">Integrates seamlessly</span> with stset, stcox, stcrreg</div>
 
-**GUI interfaces available** for those who prefer point-and-click
+<div><span class="font-bold">GUI interfaces available</span> for those who prefer point-and-click</div>
 
 </v-clicks>
 
