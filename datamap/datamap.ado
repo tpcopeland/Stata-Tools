@@ -77,6 +77,7 @@ NOTES
 
 program define datamap, rclass
 	version 14.0
+	set varabbrev off
 	syntax [, DIRectory(string) FILElist(string) SINGLE(string) ///
 	          RECursive ///
 	          Output(string) Format(string) SEParate APPend ///

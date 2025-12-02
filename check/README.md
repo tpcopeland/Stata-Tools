@@ -21,7 +21,7 @@ None - uses only built-in Stata commands.
 ## Installation
 
 ```stata
-net install check, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/check"
+net install check, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/check")
 ```
 
 ## Syntax

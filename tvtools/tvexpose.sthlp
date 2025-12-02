@@ -784,7 +784,7 @@ Restricts analysis to persons entering after 2015 and examines exposure trends b
 {pstd}Timothy P Copeland{p_end}
 {pstd}Department of Clinical Neuroscience{p_end}
 {pstd}Karolinska Institutet{p_end}
-{pstd}Version 1.1.0, 2025-12-01{p_end}
+{pstd}Version 1.0.0, 2025-12-02{p_end}
 
 
 {title:Also see}

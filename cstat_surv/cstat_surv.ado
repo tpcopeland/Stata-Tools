@@ -6,6 +6,7 @@
 capture program drop cstat_surv
 program define cstat_surv, eclass
     version 16.0
+    set varabbrev off
     syntax
     
     * Validation: Check if last estimates found

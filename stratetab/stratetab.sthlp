@@ -159,7 +159,7 @@ If {opt explabels()} is specified, the number of labels must match the number of
 {pstd}Department of Clinical Neuroscience{p_end}
 {pstd}Karolinska Institutet{p_end}
 
-{pstd}Version 2.0 - 27 November 2025{p_end}
+{pstd}Version 1.0.0 - 2025-12-02{p_end}
 
 
 {title:Also see}

@@ -5,6 +5,7 @@
 
 program define mvp, rclass byable(recall) sortpreserve
     version 14.0
+    set varabbrev off
 
     syntax [varlist] [if] [in] [, ///
         Minfreq(integer 1)      /// minimum frequency to display

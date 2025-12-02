@@ -26,6 +26,7 @@
 
 program define datefix, rclass
     version 14.0
+    set varabbrev off
     syntax [varlist] [, newvar(string) drop df(string) order(string) topyear(string asis)]
 
 	* Validation: Check if varlist is empty

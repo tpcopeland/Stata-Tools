@@ -61,6 +61,6 @@
 {pstd}Department of Clinical Neuroscience{p_end}
 {pstd}Karolinska Institutet{p_end}
 
-{pstd}Version 2.1 - 2 October 2025{p_end}
+{pstd}Version 1.0.0 - 2025-12-02{p_end}
 
 {hline}

@@ -59,7 +59,8 @@ EXPOSURE TYPES:
 program define tvmerge, rclass
 
     version 16.0
-    
+    set varabbrev off
+
     **# SYNTAX DECLARATION
     
     syntax anything(name=datasets), ///

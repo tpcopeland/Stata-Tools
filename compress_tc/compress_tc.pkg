@@ -16,6 +16,11 @@ d Email: timothy.copeland@ki.se
 d
 d This is a fork of strcompress by Luke Stein lcdstein@babson.edu
 d
+d KW: compress
+d KW: string
+d KW: memory
+d KW: strL
+d
 d Distribution-Date: 20251202
 d License: MIT
 d

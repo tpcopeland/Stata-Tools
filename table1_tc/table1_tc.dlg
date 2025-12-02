@@ -60,7 +60,7 @@ BEGIN
   VARNAME  vn_by          180 @ 450    ., label("By variable")
 
   GROUPBOX gb_total       10  +25 620  85, label("Total Column")
-  CHECKBOX ck_total       20  +15 160  ., label("Include total column") ///
+  CHECKBOX ck_total       20  +20 160  ., label("Include total column") ///
            onclickon(script bygroup_total_on) onclickoff(script bygroup_total_off)
   RADIO    rb_total_before 185 +20 445 ., first label("Before group columns") ///
            option("before") default(1)
@@ -68,7 +68,7 @@ BEGIN
            option("after")
 
   GROUPBOX gb_stats       10  +25 620  105, label("Statistical Comparisons")
-  CHECKBOX ck_test        20  +15 280  ., label("Include test column")
+  CHECKBOX ck_test        20  +20 280  ., label("Include test column")
   CHECKBOX ck_statistic   20  +20 280  ., label("Include test statistic")
   CHECKBOX ck_pairwise123 20  +20 280  ., label("Pairwise comparisons (first 3 groups)")
   CHECKBOX ck_headerperc  20  +20 280  ., label("Show group percentages in header")
@@ -116,14 +116,14 @@ BEGIN
   TEXT     tx_format_info 10  10  620  25, label("Customize how statistics are displayed in the table.")
 
   GROUPBOX gb_cont_format 10  +25 620  75, label("Continuous Variables")
-  TEXT     tx_format      20  +15 160  ., label("Default format:")
+  TEXT     tx_format      20  +20 160  ., label("Default format:")
   EDIT     ed_format      185 @ 445    ., label("Format")
 
   TEXT     tx_nformat     20  +20 160  ., label("Count format (n, N):")
   EDIT     ed_nformat     185 @ 445    ., default("%12.0fc") label("N format")
 
   GROUPBOX gb_cat_format  10  +25 620  115, label("Categorical Variables")
-  TEXT     tx_percformat  20  +15 160  ., label("Percentage format:")
+  TEXT     tx_percformat  20  +20 160  ., label("Percentage format:")
   EDIT     ed_percformat  185 @ 445    ., label("Percentage format")
 
   TEXT     tx_percsign    20  +20 160  ., label("Percent sign:")
@@ -133,7 +133,7 @@ BEGIN
   CHECKBOX ck_missing     20  +20 280  ., label("Include missing as category")
 
   GROUPBOX gb_symbols     10  +25 620  145, label("Symbols and Delimiters")
-  TEXT     tx_iqrmiddle   20  +15 160  ., label("IQR separator:")
+  TEXT     tx_iqrmiddle   20  +20 160  ., label("IQR separator:")
   EDIT     ed_iqrmiddle   185 @ 100    ., default("-") label("IQR separator")
 
   TEXT     tx_sdleft      20  +20 160  ., label("SD left symbol:")
@@ -154,25 +154,25 @@ BEGIN
   TEXT     tx_display_info 10  10  620  25, label("Control how data is presented and formatted in the table.")
 
   GROUPBOX gb_style        10  +25 620  105, label("Display Style")
-  CHECKBOX ck_onecol       20  +15 280  ., label("One column for categorical variables")
+  CHECKBOX ck_onecol       20  +20 280  ., label("One column for categorical variables")
   CHECKBOX ck_percent      20  +20 280  ., label("Show % only (no n)")
   CHECKBOX ck_percent_n    20  +20 280  ., label("Show % (n) instead of n (%)")
   CHECKBOX ck_slashN       20  +20 280  ., label("Show n/N instead of n")
 
   GROUPBOX gb_align        10  +25 620  85, label("Alignment and Spacing")
-  CHECKBOX ck_nospace      20  +15 280  ., label("No space for low percentages")
+  CHECKBOX ck_nospace      20  +20 280  ., label("No space for low percentages")
   CHECKBOX ck_extraspace   20  +20 280  ., label("Add extra spacing")
   CHECKBOX ck_varlabplus   20  +20 280  ., label("Add data type to variable labels")
 
   GROUPBOX gb_pvalue       10  +25 620  75, label("P-value Display")
-  TEXT     tx_pdp          20  +15 160  ., label("Decimals (p < 0.10):")
+  TEXT     tx_pdp          20  +20 160  ., label("Decimals (p < 0.10):")
   EDIT     ed_pdp          185 @ 70     ., default("3") numonly label("P decimals low")
 
   TEXT     tx_highpdp      20  +20 160  ., label("Decimals (p >= 0.10):")
   EDIT     ed_highpdp      185 @ 70     ., default("2") numonly label("P decimals high")
 
   GROUPBOX gb_preset       10  +25 620  55, label("Preset Options")
-  CHECKBOX ck_gurmeet      20  +15 280  ., label("Gurmeet preset (overrides other formatting)")
+  CHECKBOX ck_gurmeet      20  +20 280  ., label("Gurmeet preset (overrides other formatting)")
 END
 
 // Excel/Output tab
@@ -181,7 +181,7 @@ BEGIN
   TEXT     tx_output_info 10  10  620  25, label("Export table to Excel with professional formatting or keep in memory.")
 
   GROUPBOX gb_excel       10  +25 620  135, label("Excel Export")
-  CHECKBOX ck_excel       20  +15 160  ., label("Export to Excel:") ///
+  CHECKBOX ck_excel       20  +20 160  ., label("Export to Excel:") ///
            onclickon(script output_excel_on) onclickoff(script output_excel_off)
   FILE     fi_excel       185 @ 445    ., error("Excel filename") label("Browse...") ///
            filter("Excel Files (*.xlsx)|*.xlsx|All Files (*.*)|*.*") save defext("xlsx")
@@ -197,7 +197,7 @@ BEGIN
            default("default") label("Border style")
 
   GROUPBOX gb_output      10  +25 620  55, label("Output Options")
-  CHECKBOX ck_clear       20  +15 280  ., label("Keep table in memory (replace dataset)")
+  CHECKBOX ck_clear       20  +20 280  ., label("Keep table in memory (replace dataset)")
 END
 
 SCRIPT output_excel_on

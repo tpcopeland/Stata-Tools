@@ -1,5 +1,7 @@
 # mvp - Missing Value Patterns
 
+![Stata 14+](https://img.shields.io/badge/Stata-14%2B-brightgreen) ![MIT License](https://img.shields.io/badge/License-MIT-blue) ![Status](https://img.shields.io/badge/Status-Active-success)
+
 Enhanced missing value pattern analysis for Stata 14+.
 
 Fork of `mvpatterns` by Jeroen Weesie (STB-61: dm91)
@@ -13,7 +15,7 @@ Karolinska Institutet
 ## Installation
 
 ```stata
-net install mvp, from(https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/mvp)
+net install mvp, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/mvp")
 ```
 
 ## Syntax

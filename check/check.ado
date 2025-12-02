@@ -8,6 +8,7 @@
 
 program define check, rclass
   version 14.0
+  set varabbrev off
   syntax varlist, [SHORT]
 
   * Validation: Check for required external commands

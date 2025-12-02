@@ -36,6 +36,7 @@ end
 
 program define regtab, rclass
 version 17
+set varabbrev off
 
 syntax, xlsx(string) sheet(string) [sep(string asis) models(string) coef(string) title(string) noint nore]
 
