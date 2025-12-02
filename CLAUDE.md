@@ -260,60 +260,204 @@ BEGIN
 END
 ```
 
+### Complete Dialog Structure (tvtools pattern)
+
+```stata
+VERSION 16.0
+INCLUDE _std_large
+DEFINE _dlght 480
+DEFINE _dlgwd 640
+INCLUDE header
+
+HELP hlp1, view("help mycommand")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+    program parseMessage
+    script max_setOptionalOn
+END
+
+SCRIPT POSTINIT
+BEGIN
+    script max_setDefaultWidth
+END
+
+DIALOG main, label("mycommand - Description") tabtitle("Main")
+BEGIN
+  TEXT     tx_using      20  10  620  ., label("Input dataset:")
+  FILE     fi_using      20  +20 610  ., error("Input dataset") ///
+           label("Browse...") filter("Stata datasets|*.dta|All files|*.*")
+
+  GROUPBOX gb_required   10  60  620  115, label("Required variables")
+  TEXT     tx_id         20  +15 280  ., label("Person ID variable:")
+  VARNAME  vn_id         @   +20 @    ., label("ID variable")
+
+  TEXT     tx_date       330 -20 280  ., label("Date variable:")
+  EDIT     ed_date       @   +20 @    ., label("Date")
+END
+
+DIALOG options, tabtitle("Options")
+BEGIN
+  GROUPBOX gb_type       10  10  620  80, label("Type selection")
+  RADIO    rb_opt1       20  +20 590  ., label("Option 1") first
+  RADIO    rb_opt2       @   +20 @    ., label("Option 2") last
+END
+
+DIALOG output, tabtitle("Output")
+BEGIN
+  GROUPBOX gb_save       10  10  620  60,  label("Save output")
+  FILE     fi_saveas     20  +25 480  ., error("Save as") save ///
+           label("Browse...") filter("Stata datasets|*.dta|All files|*.*") ///
+           option(saveas)
+  CHECKBOX ck_replace    510 @ 110    ., label("Replace") option(replace)
+END
+
+LIST units
+BEGIN
+    days
+    months
+    years
+END
+
+SCRIPT enable_something
+BEGIN
+    main.ed_field.enable
+    main.tx_field.enable
+END
+
+SCRIPT disable_something
+BEGIN
+    main.ed_field.disable
+    main.tx_field.disable
+END
+
+PROGRAM command
+BEGIN
+    put "mycommand using "
+    put `"""'
+    require main.fi_using
+    put main.fi_using
+    put `"""'
+    put ", "
+
+    require main.vn_id
+    put "id(" main.vn_id ") "
+
+    if main.rb_opt1 {
+        put "type(opt1) "
+    }
+    if main.rb_opt2 {
+        put "type(opt2) "
+    }
+
+    if output.fi_saveas {
+        put " saveas("
+        put `"""'
+        put output.fi_saveas
+        put `"""'
+        put ")"
+        option output.ck_replace
+    }
+END
+```
+
+### Dialog File Components
+
+| Component | Purpose | Example |
+|-----------|---------|---------|
+| `VERSION` | Stata version requirement | `VERSION 16.0` |
+| `INCLUDE _std_large` | Standard large dialog size | Provides consistent sizing |
+| `DEFINE _dlght` | Custom dialog height | `DEFINE _dlght 480` |
+| `DEFINE _dlgwd` | Custom dialog width | `DEFINE _dlgwd 640` |
+| `INCLUDE header` | Standard dialog header | Required for proper display |
+| `HELP hlp1` | Link to help file | `view("help mycommand")` |
+| `RESET res1` | Reset button definition | Clears all fields |
+| `SCRIPT PREINIT` | Pre-initialization script | `program parseMessage` |
+| `SCRIPT POSTINIT` | Post-initialization script | `script max_setDefaultWidth` |
+| `DIALOG name` | Tab definition | `tabtitle("Main")` |
+| `LIST name` | Dropdown contents | Used with COMBOBOX |
+| `SCRIPT name` | Enable/disable logic | For toggle controls |
+| `PROGRAM command` | Command builder | Constructs Stata command |
+
+### Position Syntax
+
+Controls use: `CONTROL name x y width height, options`
+
+| Symbol | Meaning | Example |
+|--------|---------|---------|
+| `@` | Same as previous | `@ +20 @` = same x, +20 y, same width |
+| `+N` | Relative offset | `+20` = 20 pixels below previous |
+| `-N` | Negative offset | `-20` = 20 pixels above previous |
+| `.` | Default/auto | `.` for height = auto-size |
+| Number | Absolute position | `330` = 330 pixels from left |
+
 ### CRITICAL: Dialog Spacing Standards
 
 **Context-Aware Spacing Rules**:
 
 | Context | Spacing | When to Use |
 |---------|---------|-------------|
-| **After GROUPBOX** | +15 | Required variable sections with simple label→input pairs |
-| **After GROUPBOX** | +20 | Standard elements (TEXT, RADIO groups, CHECKBOX lists) |
-| **After GROUPBOX** | +25 | FILE controls, toggle CHECKBOXes with onclickon/onclickoff |
-| **Between groupboxes** | +25 | Always use for section separation |
-| **Between field pairs** | +25 | Vertical rhythm between different fields |
-| **Label to input** | +20 | Within a single field pair |
-| **Radio/checkbox lists** | +20 | Consecutive related items |
-| **Side-by-side columns** | -20 | Right column aligns with left label |
+| **After GROUPBOX** | +15 | "Required variables" section in Main tab (label→input pairs) |
+| **After GROUPBOX** | +20 | Standard elements: TEXT, RADIO, CHECKBOX (including toggles), most content |
+| **After GROUPBOX** | +25 | FILE controls in save/output sections only |
+| **Between field pairs** | +25 | Vertical separation between different variable fields |
+| **Label to input** | +20 | Within a single TEXT→input pair |
+| **Radio/checkbox lists** | +20 | Consecutive RADIO or CHECKBOX items |
+| **Side-by-side columns** | -20 | Right column TEXT aligns with left label row |
+| **Indented sub-controls** | x=40 | Controls belonging to a RADIO option (instead of x=20) |
 
 ### Dialog Spacing Examples
 
 ```stata
-# Example 1: Required variables section - use +15
-GROUPBOX gb_required   10  60  620  120, label("Required variables")
+# Example 1: Required variables section - use +15 (Main tab only)
+GROUPBOX gb_required   10  60  620  115, label("Required variables")
 TEXT     tx_id         20  +15 280  ., label("Person ID variable:")
 VARNAME  vn_id         @   +20 @    ., label("ID variable")
 
-# Example 2: Standard options - use +20
+# Example 2: Standard TEXT/EDIT section - use +20
 GROUPBOX gb_options    10  10  620  100, label("Options")
 TEXT     tx_opt1       20  +20 280  ., label("First option:")
 EDIT     ed_opt1       @   +20 @    ., label("Option value")
 
-# Example 3: Radio button group - use +20
-GROUPBOX gb_type       10  185 620  80, label("Event type")
+# Example 3: Radio button group - use +20 for all radios
+GROUPBOX gb_type       10  185 620  70, label("Event type")
 RADIO    rb_single     20  +20 590  ., label("Single event") first
 RADIO    rb_recur      @   +20 @    ., label("Recurring event") last
 
-# Example 4: FILE control - use +25
-GROUPBOX gb_save       10  10  620  60,  label("Save output")
+# Example 4: FILE control in save section - use +25
+GROUPBOX gb_save       10  255 620  60,  label("Save output")
 FILE     fi_saveas     20  +25 480  ., error("Save as") save ///
-         label("Browse...")
+         label("Browse...") filter("Stata datasets|*.dta|All files|*.*") ///
+         option(saveas)
+CHECKBOX ck_replace    510 @ 110    ., label("Replace") option(replace)
 
-# Example 5: Toggle CHECKBOX - use +25
-GROUPBOX gb_stopopt    10  225 620  75,  label("Stop date options")
-CHECKBOX ck_pointtime  20  +25 280  ., label("Point-in-time data") ///
+# Example 5: Toggle CHECKBOX - use +20 (same as regular CHECKBOX)
+GROUPBOX gb_stopopt    10  225 620  70,  label("Stop date options")
+CHECKBOX ck_pointtime  20  +20 280  ., label("Point-in-time data") ///
          onclickon(script stop_disable) onclickoff(script stop_enable)
+TEXT     tx_stop       330 @ 280    ., label("Stop date variable:")
+VARNAME  vn_stop       @   +20 @    ., label("Stop") option(stop)
 
-# Example 6: Between groupboxes - always +25
-GROUPBOX gb_one   10  10  620  100, label("Section 1")
-...
-GROUPBOX gb_two   10  +25 620  100, label("Section 2")
+# Example 6: Side-by-side fields with @ alignment
+TEXT     tx_id         20  +15 280  ., label("Person ID variable:")
+VARNAME  vn_id         @   +20 @    ., label("ID variable")
 
-# Example 7: Side-by-side fields
-TEXT     tx_left   20  +15 280  ., label("Left field:")
-EDIT     ed_left   @   +20 @    ., label("Left")
+TEXT     tx_date       330 -20 280  ., label("Event date variable:")
+EDIT     ed_date       @   +20 @    ., label("Event date")
 
-TEXT     tx_right  330 -20 280  ., label("Right field:")
-EDIT     ed_right  @   +20 @    ., label("Right")
+# Example 7: Indented sub-controls under RADIO option
+RADIO    rb_duration   20  +20 590  ., label("Duration categories:") ///
+         onclickon(script duration_selected)
+EDIT     ed_duration   40  +20 280  ., label("Duration cutpoints") ///
+         option(duration)
+
+# Example 8: Vertical field progression with +25 between pairs
+TEXT     tx_start      20  +25 590  ., label("Start date variables:")
+EDIT     ed_start      @   +20 @    ., label("Start variables")
+
+TEXT     tx_stop       20  +25 590  ., label("Stop date variables:")
+EDIT     ed_stop       @   +20 @    ., label("Stop variables")
 ```
 
 ### Control Naming Conventions
@@ -1535,10 +1679,12 @@ use "${data_dir}/analysis.dta", clear
 
 | Error | Impact | Fix |
 |-------|--------|-----|
-| Wrong groupbox start spacing | Visual inconsistency | Use +15 (required), +20 (standard), +25 (FILE/toggles) |
-| Inconsistent groupbox gaps | Unprofessional appearance | Always use +25 between groupboxes |
+| Wrong groupbox start spacing | Visual inconsistency | Use +15 (required vars Main tab), +20 (standard), +25 (FILE in save sections) |
+| Using +25 for toggle CHECKBOX | Excessive spacing | Toggle CHECKBOXes use +20 like regular CHECKBOXes |
 | Wrong field pair spacing | Cramped/loose layout | Use +25 between pairs, +20 within |
-| Side-by-side misalignment | Poor readability | Use -20 for right column alignment |
+| Side-by-side misalignment | Poor readability | Use -20 for right column TEXT, @ for same row |
+| Missing @ for same-row | Elements misaligned | Use @ to maintain row alignment |
+| Wrong indentation for sub-controls | Confusing hierarchy | Use x=40 for controls under RADIO options |
 
 ### Common Ado Syntax Errors
 
