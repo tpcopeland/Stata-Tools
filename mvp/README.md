@@ -124,7 +124,7 @@ Fork of mvpatterns by Jeroen Weesie (STB-61: dm91)
 
 ## License
 
-MIT License - see LICENSE file for details
+MIT License
 
 ## Version
 
