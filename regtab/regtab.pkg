@@ -1,4 +1,4 @@
-v 1
+v 3
 d 'REGTAB': module to format regression results captured with -collect-
 d
 d regtab formats collected regression tables and exports point estimates,

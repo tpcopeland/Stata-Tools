@@ -1,4 +1,4 @@
-v 1
+v 3
 d 'TABLE1_TC': module to create "table 1" of baseline characteristics for a manuscript
 d
 d table1_tc summarises continuous and categorical variables,

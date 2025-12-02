@@ -132,7 +132,7 @@ Email: your@email.com
 ### mycommand.pkg
 
 ```stata
-v 1
+v 3
 d 'MYCOMMAND': Brief description
 d
 d Requires: Stata version 16+
@@ -151,7 +151,7 @@ f mycommand.ado
 f mycommand.sthlp
 ```
 
-**Note**: Increment `v 1` to `v 2`, `v 3`, etc. with each update (see "CRITICAL: Always Update .pkg Files" section below).
+**Note**: The `v 3` is the **.pkg file format version** (the current Stata specification), NOT a package version. This line should always be `v 3` and does NOT need to be incremented with updates. Package updates are tracked via the `Distribution-Date` field (see "CRITICAL: Always Update .pkg Files" section below).
 
 ### stata.toc
 
@@ -1439,56 +1439,48 @@ if _rc {
 
 ### Required Updates for Every Change:
 
-1. **Increment version number in .pkg file** - Change `v [#]` by incrementing by 1:
+1. **Update Distribution-Date in .pkg file** - This is how Stata detects package updates:
    ```stata
-   v 2    // was v 1
+   v 3
    d 'MYCOMMAND': Brief description
    d
    d Distribution-Date: 20251201
    ```
-   **CRITICAL**: The `v [#]` line MUST increase by 1 with each update (v 1 → v 2 → v 3, etc.) unless otherwise specified in user instructions. This is how Stata detects that a newer version exists.
+   **CRITICAL**: Stata's `adoupdate` command compares the `Distribution-Date` string in the local .pkg file against the remote .pkg file. You MUST update this date with each package update or users will not be notified of the update.
 
-2. **Update Distribution-Date in .pkg file**:
-   ```stata
-   d Distribution-Date: 20251201
-   ```
    Use format: YYYYMMDD (e.g., 20251201 for December 1, 2025)
 
-3. **Update semantic version in .ado file header** if making code changes (use X.Y.Z format):
+   **Note**: The `v 3` line is the .pkg file format version and should ALWAYS be `v 3`. Do NOT increment this number.
+
+2. **Update semantic version in .ado file header** if making code changes (use X.Y.Z format):
    ```stata
    *! commandname Version 1.2.3  15jan2025
    ```
    **IMPORTANT**: Always use three-part format (X.Y.Z), never X.Y or X alone.
 
-4. **Update semantic version in .sthlp file** to match .ado:
+3. **Update semantic version in .sthlp file** to match .ado:
    ```smcl
    {* *! version 1.2.3  15jan2025}{...}
    ```
 
-5. **Update README.md files** to match .ado semantic version (X.Y.Z format):
+4. **Update README.md files** to match .ado semantic version (X.Y.Z format):
    - Update the package-specific README.md in the package directory
    - Update the main repository README.md in the root directory
    - Both files must reflect the new version number
 
 ### CRITICAL: Understanding Version Numbering Systems
 
-There are **three separate version numbering systems** in Stata packages:
+There are **two separate version numbering systems** in Stata packages:
 
-1. **TOC format version (`v 3` in stata.toc)** - Fixed format specification:
-   - Format: Always `v 3` (the current Stata TOC format specification)
-   - Location: ONLY the `v #` line at the top of stata.toc files
-   - Purpose: Tells Stata which TOC file format to expect
-   - Rule: **NEVER change this** - it should always be `v 3`
+1. **File format version (`v 3`)** - Fixed format specification for both .toc and .pkg files:
+   - Format: Always `v 3` (the current Stata format specification)
+   - Location: First line of BOTH stata.toc and .pkg files
+   - Purpose: Tells Stata which file format specification to use when parsing these files
+   - Rule: **ALWAYS `v 3`** - this should NEVER change or be incremented
    - **DO NOT increment with package updates** - this is a format version, not a package version
+   - Background: `v 3` is the current standard that supports SMCL formatting and the Distribution-Date field. Older formats (`v 1`, `v 2`) are obsolete.
 
-2. **Package tracking version (`v [#]` in .pkg)** - Simple integers for update detection:
-   - Format: `v 1`, `v 2`, `v 3`, etc.
-   - Location: ONLY the `v [#]` line at the top of .pkg files
-   - Purpose: Stata's internal package update tracking mechanism
-   - Rule: Increment by 1 with each package update
-   - Example: `v 15` means this is the 15th release of the package
-
-3. **Semantic version number (X.Y.Z)** - Three-part version numbers:
+2. **Semantic version number (X.Y.Z)** - Three-part version numbers for your package:
    - Format: **ALWAYS X.Y.Z** (e.g., 1.0.0, 1.2.3, 2.0.1)
    - **NEVER use X.Y or X format** (e.g., NOT 1.0 or 1)
    - Location: .ado headers, .sthlp files, README.md, and text descriptions in .pkg
@@ -1496,34 +1488,38 @@ There are **three separate version numbering systems** in Stata packages:
    - Rule: Follow semantic versioning (major.minor.patch)
    - Example: `*! commandname Version 1.2.3  15jan2025`
 
-**These systems are independent** - a package at `v 15` (in .pkg) could be at semantic Version 1.2.3. The stata.toc always stays at `v 3`.
+**Package Update Detection**: Stata's `adoupdate` command detects new versions by comparing the `Distribution-Date` field in .pkg files, NOT by checking version numbers. You must update the Distribution-Date field in the .pkg file whenever you release an update.
 
 **Example files**:
 
 stata.toc (format version - never changes):
 ```stata
-v 3                                     // TOC format version - ALWAYS v 3
+v 3                                     // Format version - ALWAYS v 3
 d Stata-Tools: mycommand
 d Your Name, Institution
 d https://github.com/username/repository
 p mycommand
 ```
 
-mycommand.pkg (package tracking version - increment with updates):
+mycommand.pkg (format version - never changes; updates tracked by Distribution-Date):
 ```stata
-v 15                                    // Package tracking (15th update)
+v 3                                     // Format version - ALWAYS v 3
 d 'MYCOMMAND': Version 1.2.3            // Semantic version in description
 d
-d Distribution-Date: 20251201
+d Distribution-Date: 20251202           // THIS is how Stata detects updates
+d License: MIT
+d
+f mycommand.ado
+f mycommand.sthlp
 ```
 
 ### Why This Matters:
 
 - Users run `net from URL` followed by `net install packagename`
-- Stata uses BOTH the `v [#]` version number in the .pkg file AND the Distribution-Date to determine if an update is available
-- If the `v [#]` version number in the .pkg file is not incremented, existing installations will NOT recognize the update
+- Stata uses the `Distribution-Date` field in the .pkg file to determine if an update is available
+- If the `Distribution-Date` is not updated, existing installations will NOT recognize the update
 - The stata.toc file is required for the `net from` command to work properly (it lists available packages)
-- The stata.toc `v 3` line tells Stata to use the current TOC format - do NOT change this
+- Both stata.toc and .pkg files use `v 3` as the file format version - do NOT change this
 
 ### Workflow:
 
@@ -1532,11 +1528,11 @@ d Distribution-Date: 20251201
 net from https://raw.githubusercontent.com/username/repository/main/packagename
 net install packagename, replace
 
-* Stata compares BOTH version number (v [#]) AND Distribution-Date in .pkg with installed version
-* If either is newer, prompts user to update
+* Stata's adoupdate command compares Distribution-Date in .pkg with installed version
+* If the remote Distribution-Date is newer, prompts user to update
 ```
 
-**ALWAYS increment v [#] AND update Distribution-Date in .pkg file when:**
+**ALWAYS update Distribution-Date in .pkg file when:**
 - Fixing bugs in .ado files
 - Updating .sthlp documentation
 - Modifying dialog files (.dlg)
@@ -1559,9 +1555,9 @@ net install packagename, replace
 - [ ] Semantic version in .sthlp matches .ado (X.Y.Z format)
 - [ ] Semantic version in package README.md matches .ado (X.Y.Z format)
 - [ ] Semantic version in main repository README.md matches .ado (X.Y.Z format)
-- [ ] Package tracking version (v [#]) in .pkg is incremented (v 1 → v 2, etc.)
-- [ ] stata.toc has `v 3` (TOC format version - do NOT change)
-- [ ] Distribution-Date in .pkg is CURRENT (YYYYMMDD format)
+- [ ] .pkg file starts with `v 3` (file format version - NEVER change this)
+- [ ] stata.toc starts with `v 3` (file format version - NEVER change this)
+- [ ] Distribution-Date in .pkg is CURRENT (YYYYMMDD format) - this is how updates are detected
 - [ ] Help file exists and complete
 - [ ] Examples in help file work
 - [ ] All tests pass
@@ -1609,13 +1605,14 @@ net install mycommand, from(https://raw.githubusercontent.com/username/repositor
 10. **Global pollution** - Use `local` not `global` when possible
 11. **Editing without reading** - ALWAYS read files before modifying
 12. **Wrong version format** - Use X.Y.Z (1.0.0), never X.Y (1.0) or X (1) for semantic versions
-13. **Not incrementing v [#] in .pkg** - MUST increment package tracking version in .pkg file with each update (stata.toc stays at `v 3`)
-14. **Wrong dialog spacing** - Use context-aware +15/+20/+25
-15. **Missing backticks in macros** - `` `macroname' `` not `macroname`
-16. **Spaces in macro references** - `` `var' `` not `` `var ' ``
-17. **Not testing edge cases** - Empty data, missing values, single obs
-18. **Creating LICENSE files** - NEVER create LICENSE or LICENSE.md files; use MIT in .pkg and README
-19. **Forgetting README updates** - ALWAYS update both package and main README.md when updating .ado/.pkg
+13. **Not updating Distribution-Date** - MUST update Distribution-Date in .pkg file with each update for users to see updates
+14. **Changing v 3 in .pkg or .toc** - NEVER change `v 3` - it's a file format version, not a package version
+15. **Wrong dialog spacing** - Use context-aware +15/+20/+25
+16. **Missing backticks in macros** - `` `macroname' `` not `macroname`
+17. **Spaces in macro references** - `` `var' `` not `` `var ' ``
+18. **Not testing edge cases** - Empty data, missing values, single obs
+19. **Creating LICENSE files** - NEVER create LICENSE or LICENSE.md files; use MIT in .pkg and README
+20. **Forgetting README updates** - ALWAYS update both package and main README.md when updating .ado/.pkg
 
 ---
 
@@ -1879,7 +1876,7 @@ collect export "results.html", replace
 10. **Memory efficiency**: compress data, use frames (16+) over merges, keep minimal variables
 11. **Modern features**: collect/table for export (17+), frames for multi-dataset work (16+)
 12. **Single-line install**: README must have one-line net install command
-13. **Version numbers**: Use X.Y.Z format for semantic versions; increment v [#] in .pkg with each update (stata.toc stays at `v 3`)
+13. **Version numbers**: Use X.Y.Z format for semantic versions; ALWAYS use `v 3` in .pkg and .toc files (file format version); update Distribution-Date in .pkg for each release
 14. **Follow templates**: Use tvtools format for README, proper .pkg format
 15. **License handling**: All packages use MIT license; NEVER create separate LICENSE or LICENSE.md files
 16. **README updates**: ALWAYS update BOTH package README.md and main repository README.md when updating .ado/.pkg files

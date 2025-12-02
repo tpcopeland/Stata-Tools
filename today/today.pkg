@@ -1,4 +1,4 @@
-v 1
+v 3
 d 'TODAY': Set global macros with today's date and current time
 d See {bf:help today} after installation.
 d
