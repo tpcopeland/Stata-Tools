@@ -1,5 +1,5 @@
 *! synthdata Version 1.0.0  2025/12/02  Synthetic data generation
-program define synthdata_v2
+program define synthdata
     version 16.0
     set varabbrev off
 
