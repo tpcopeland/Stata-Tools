@@ -100,7 +100,7 @@ Anna had to survive 5 years just to become "natalizumab-exposed."
     <span v-motion :initial="{ opacity: 0 }" :enter="{ opacity: 1, transition: { delay: 0 } }">Dx</span>
     <span v-motion :initial="{ opacity: 0 }" :enter="{ opacity: 1, transition: { delay: 400 } }">Y3</span>
     <span v-motion :initial="{ opacity: 0 }" :enter="{ opacity: 1, transition: { delay: 800 } }">Y5</span>
-    <span v-motion :initial="{ opacity: 0, scale: 0.5 }" :enter="{ opacity: 1, scale: 1, transition: { delay: 1200, type: 'spring' } }" class="text-red-500">Y8 ⚡</span>
+    <span v-motion :initial="{ opacity: 0, scale: 0.5 }" :enter="{ opacity: 1, scale: 1, transition: { delay: 1200, type: 'spring' } }" class="text-red-500 font-semibold">Y8</span>
   </div>
 </div>
 
@@ -148,7 +148,7 @@ class: text-center
 <div class="bias-diagram mt-8">
 
 <div v-click class="bias-row wrong">
-  <div class="label">❌ WRONG</div>
+  <div class="label">WRONG</div>
   <div class="bar-container">
     <div class="bar treated-full">
       <span>"Treated" from study entry</span>
@@ -158,7 +158,7 @@ class: text-center
 </div>
 
 <div v-click class="bias-row correct">
-  <div class="label">✓ CORRECT</div>
+  <div class="label">CORRECT</div>
   <div class="bar-container">
     <div class="bar unexposed-part">Unexposed</div>
     <div class="bar treated-part">Treated</div>
@@ -180,13 +180,13 @@ class: text-center
   @apply text-left;
 }
 .bias-row .label {
-  @apply font-bold mb-2;
+  @apply font-semibold mb-3 text-sm tracking-wide uppercase;
 }
 .bar-container {
-  @apply flex h-12 rounded-lg overflow-hidden;
+  @apply flex h-14 rounded-xl overflow-hidden shadow-sm;
 }
 .bar {
-  @apply flex items-center justify-center text-white font-semibold text-sm px-4;
+  @apply flex items-center justify-center text-white font-medium text-sm px-4;
 }
 .treated-full {
   @apply bg-orange-500 flex-1;
@@ -200,10 +200,22 @@ class: text-center
   flex: 2;
 }
 .note {
-  @apply text-xs text-gray-500 mt-2 italic;
+  @apply text-xs text-gray-500 mt-3 leading-relaxed;
 }
-.wrong .label { @apply text-red-500; }
-.correct .label { @apply text-green-500; }
+.wrong .label {
+  @apply text-red-500;
+}
+.wrong .label::before {
+  content: "✕ ";
+  @apply opacity-60;
+}
+.correct .label {
+  @apply text-green-600;
+}
+.correct .label::before {
+  content: "✓ ";
+  @apply opacity-60;
+}
 </style>
 
 ---
@@ -214,29 +226,29 @@ transition: slide-up
 
 <div class="grid grid-cols-2 gap-6 mt-6">
 
-<div v-click class="issue-card">
-  <div class="icon">🔄</div>
+<div v-click class="issue-card card-switch">
+  <div class="card-accent"></div>
   <h3>Treatment Switching</h3>
   <p>Escalation, lateral switches, de-escalation</p>
   <div class="example">Platform → High-efficacy after breakthrough</div>
 </div>
 
-<div v-click class="issue-card">
-  <div class="icon">📈</div>
+<div v-click class="issue-card card-cumul">
+  <div class="card-accent"></div>
   <h3>Cumulative Exposure</h3>
   <p>Duration-response relationships</p>
   <div class="example">5 years on NTZ ≠ 2 years on NTZ</div>
 </div>
 
-<div v-click class="issue-card">
-  <div class="icon">⚔️</div>
+<div v-click class="issue-card card-risk">
+  <div class="card-accent"></div>
   <h3>Competing Risks</h3>
   <p>Death competes with progression</p>
   <div class="example">Emigration, pregnancy, discontinuation</div>
 </div>
 
-<div v-click class="issue-card">
-  <div class="icon">📊</div>
+<div v-click class="issue-card card-data">
+  <div class="card-accent"></div>
   <h3>Registry Complexity</h3>
   <p>SMSreg captures all of this</p>
   <div class="example">Our methods must match our data</div>
@@ -246,21 +258,30 @@ transition: slide-up
 
 <style>
 .issue-card {
-  @apply bg-white dark:bg-gray-800 p-4 rounded-xl shadow-lg;
-  @apply border-t-4 border-blue-500;
+  @apply bg-white dark:bg-gray-800 p-5 rounded-xl shadow-lg relative overflow-hidden;
+  @apply border-l-4;
 }
-.issue-card .icon {
-  @apply text-2xl mb-1;
+.card-accent {
+  @apply absolute top-0 right-0 w-16 h-16 opacity-5;
+  border-radius: 0 0 0 100%;
 }
+.card-switch { @apply border-blue-500; }
+.card-switch .card-accent { @apply bg-blue-500; }
+.card-cumul { @apply border-purple-500; }
+.card-cumul .card-accent { @apply bg-purple-500; }
+.card-risk { @apply border-orange-500; }
+.card-risk .card-accent { @apply bg-orange-500; }
+.card-data { @apply border-green-500; }
+.card-data .card-accent { @apply bg-green-500; }
 .issue-card h3 {
-  @apply font-bold text-base mb-1;
+  @apply font-semibold text-base mb-2 text-gray-800 dark:text-gray-100;
 }
 .issue-card p {
-  @apply text-gray-600 dark:text-gray-400 text-sm;
+  @apply text-gray-600 dark:text-gray-400 text-sm leading-relaxed;
 }
 .issue-card .example {
-  @apply mt-2 text-xs bg-gray-100 dark:bg-gray-700 p-2 rounded;
-  @apply font-mono;
+  @apply mt-3 text-xs bg-gray-50 dark:bg-gray-700/50 py-2 px-3 rounded-lg;
+  @apply font-mono text-gray-500 dark:text-gray-400;
 }
 </style>
 
@@ -270,39 +291,40 @@ layout: default
 
 # The tvtools Solution
 
-<div class="grid grid-cols-3 gap-8 mt-12">
+<div class="grid grid-cols-3 gap-8 mt-10">
 
-<div v-click class="command-card">
-  <div class="text-5xl mb-4">📊</div>
-  <h3 class="text-xl font-bold text-blue-600">tvexpose</h3>
-  <p class="text-sm mt-2 text-gray-600 dark:text-gray-400">
-    DMT prescriptions → Time-varying intervals
-  </p>
-  <div class="use-case">
-    Handles gaps, switching, duration
+<div v-click class="command-card cmd-expose">
+  <div class="cmd-icon">
+    <div class="icon-bar"></div>
+    <div class="icon-bars">
+      <div></div><div></div><div></div>
+    </div>
   </div>
+  <h3>tvexpose</h3>
+  <p>DMT prescriptions → Time-varying intervals</p>
+  <div class="use-case">Handles gaps, switching, duration</div>
 </div>
 
-<div v-click class="command-card">
-  <div class="text-5xl mb-4">🔗</div>
-  <h3 class="text-xl font-bold text-purple-600">tvmerge</h3>
-  <p class="text-sm mt-2 text-gray-600 dark:text-gray-400">
-    Multiple exposures → Single dataset
-  </p>
-  <div class="use-case">
-    DMT + comorbidity treatments
+<div v-click class="command-card cmd-merge">
+  <div class="cmd-icon">
+    <div class="icon-lines">
+      <div></div><div></div>
+    </div>
+    <div class="icon-merged"></div>
   </div>
+  <h3>tvmerge</h3>
+  <p>Multiple exposures → Single dataset</p>
+  <div class="use-case">DMT + comorbidity treatments</div>
 </div>
 
-<div v-click class="command-card">
-  <div class="text-5xl mb-4">🎯</div>
-  <h3 class="text-xl font-bold text-green-600">tvevent</h3>
-  <p class="text-sm mt-2 text-gray-600 dark:text-gray-400">
-    Add EDSS progression + competing risks
-  </p>
-  <div class="use-case">
-    Analysis-ready for stcrreg
+<div v-click class="command-card cmd-event">
+  <div class="cmd-icon">
+    <div class="icon-timeline"></div>
+    <div class="icon-marker"></div>
   </div>
+  <h3>tvevent</h3>
+  <p>Add EDSS progression + competing risks</p>
+  <div class="use-case">Analysis-ready for stcrreg</div>
 </div>
 
 </div>
@@ -311,10 +333,10 @@ layout: default
 
 ```mermaid {scale: 0.8}
 graph LR
-    A[📁 Registry Data] --> B[tvexpose]
+    A[Registry Data] --> B[tvexpose]
     B --> C[tvmerge]
     C --> D[tvevent]
-    D --> E[📈 stcrreg]
+    D --> E[stcrreg]
     style A fill:#9CA3AF,color:#fff
     style B fill:#3b82f6,color:#fff
     style C fill:#8b5cf6,color:#fff
@@ -332,11 +354,60 @@ Emphasize the seamless integration with Stata's survival analysis commands.
 
 <style>
 .command-card {
-  @apply bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg text-center;
-  @apply transform hover:scale-105 transition-transform duration-300;
+  @apply bg-white dark:bg-gray-800 p-6 rounded-2xl text-center;
+  @apply transform hover:scale-102 transition-all duration-300;
+  box-shadow: 0 4px 20px -4px rgba(0,0,0,0.1);
+}
+.command-card:hover {
+  box-shadow: 0 8px 30px -4px rgba(0,0,0,0.15);
+}
+.cmd-icon {
+  @apply h-16 flex items-center justify-center mb-4 mx-auto;
+}
+.cmd-expose .icon-bar {
+  @apply w-12 h-2 bg-gray-300 rounded-full;
+}
+.cmd-expose .icon-bars {
+  @apply flex flex-col gap-1 ml-2;
+}
+.cmd-expose .icon-bars div {
+  @apply h-2 rounded-full;
+}
+.cmd-expose .icon-bars div:nth-child(1) { @apply w-8 bg-blue-500; }
+.cmd-expose .icon-bars div:nth-child(2) { @apply w-6 bg-purple-500; }
+.cmd-expose .icon-bars div:nth-child(3) { @apply w-10 bg-orange-500; }
+.cmd-merge .icon-lines {
+  @apply flex flex-col gap-2;
+}
+.cmd-merge .icon-lines div {
+  @apply w-8 h-2 rounded-full;
+}
+.cmd-merge .icon-lines div:nth-child(1) { @apply bg-blue-500; }
+.cmd-merge .icon-lines div:nth-child(2) { @apply bg-pink-400; }
+.cmd-merge .icon-merged {
+  @apply w-10 h-3 ml-2 rounded-full;
+  background: linear-gradient(90deg, #3b82f6 50%, #f472b6 50%);
+}
+.cmd-event .icon-timeline {
+  @apply w-16 h-2 bg-green-500 rounded-full relative;
+}
+.cmd-event .icon-marker {
+  @apply w-3 h-3 bg-red-500 rounded-full absolute;
+  margin-left: 24px;
+  margin-top: -6px;
+}
+.command-card h3 {
+  @apply text-xl font-semibold mb-2;
+}
+.cmd-expose h3 { @apply text-blue-600; }
+.cmd-merge h3 { @apply text-purple-600; }
+.cmd-event h3 { @apply text-green-600; }
+.command-card p {
+  @apply text-sm text-gray-600 dark:text-gray-400 leading-relaxed;
 }
 .command-card .use-case {
-  @apply mt-4 text-xs bg-gray-100 dark:bg-gray-700 p-2 rounded;
+  @apply mt-4 text-xs bg-gray-50 dark:bg-gray-700/50 py-2 px-3 rounded-lg;
+  @apply text-gray-500 dark:text-gray-400;
 }
 </style>
 
@@ -626,11 +697,11 @@ id │ start      │ stop       │ dur_IFN │ dur_NTZ
  1 │ 2014-01-15 │ 2015-03-01 │ 0       │ 0
  1 │ 2015-03-01 │ 2016-03-01 │ 1 (<1y) │ 0
  1 │ 2016-03-01 │ 2017-08-15 │ 2 (1-3y)│ 0
- 1 │ 2017-08-15 │ 2018-01-10 │ 0       │ 0
- 1 │ 2018-01-10 │ 2019-01-10 │ 0       │ 1 (<1y)
- 1 │ 2019-01-10 │ 2021-01-10 │ 0       │ 2 (1-3y)
- 1 │ 2021-01-10 │ 2022-06-30 │ 0       │ 3 (3-5y)
- 1 │ 2022-06-30 │ 2023-12-31 │ 0       │ 0
+ 1 │ 2017-08-15 │ 2018-01-10 │ 2 (1-3y)│ 0
+ 1 │ 2018-01-10 │ 2019-01-10 │ 2 (1-3y)│ 1 (<1y)
+ 1 │ 2019-01-10 │ 2021-01-10 │ 2 (1-3y)│ 2 (1-3y)
+ 1 │ 2021-01-10 │ 2022-06-30 │ 2 (1-3y)│ 3 (3-5y)
+ 1 │ 2022-06-30 │ 2023-12-31 │ 2 (1-3y)│ 3 (3-5y)
 ```
 ````
 
@@ -656,17 +727,17 @@ tvexpose using dmt, ///
 <div v-click class="mt-4 feature-grid">
 
 <div class="feature-item">
-  <div class="feature-icon">📊</div>
+  <div class="feature-dot dot-blue"></div>
   <div class="feature-text">Separate duration variable per DMT type</div>
 </div>
 
 <div class="feature-item">
-  <div class="feature-icon">🎯</div>
+  <div class="feature-dot dot-purple"></div>
   <div class="feature-text">Track type-specific cumulative exposure</div>
 </div>
 
 <div class="feature-item">
-  <div class="feature-icon">📈</div>
+  <div class="feature-dot dot-orange"></div>
   <div class="feature-text">Model dose-response by specific DMT</div>
 </div>
 
@@ -692,10 +763,16 @@ tvexpose using dmt, ///
   @apply flex flex-col gap-2;
 }
 .feature-item {
-  @apply flex items-center gap-2 bg-gray-100 dark:bg-gray-800 p-2 rounded text-sm;
+  @apply flex items-center gap-3 bg-gray-50 dark:bg-gray-800/50 p-3 rounded-lg text-sm;
 }
-.feature-icon {
-  @apply text-lg;
+.feature-dot {
+  @apply w-2 h-2 rounded-full flex-shrink-0;
+}
+.dot-blue { @apply bg-blue-500; }
+.dot-purple { @apply bg-purple-500; }
+.dot-orange { @apply bg-orange-500; }
+.feature-text {
+  @apply text-gray-700 dark:text-gray-300;
 }
 </style>
 
@@ -1056,7 +1133,11 @@ tvmerge tv_dmt tv_oc, id(patient_id) ///
   v-motion
   :initial="{ opacity: 0, scale: 0 }"
   :enter="{ opacity: 1, scale: 1, transition: { duration: 300, type: 'spring', stiffness: 300 } }"
-  class="text-center text-2xl my-4">⬇️ Merge at all boundaries ⬇️</div>
+  class="merge-indicator text-center my-6">
+  <div class="merge-line"></div>
+  <span>Merge at all boundaries</span>
+  <div class="merge-line"></div>
+</div>
 
 <div
   v-click
@@ -1122,6 +1203,12 @@ tvmerge tv_dmt tv_oc, id(patient_id) ///
 }
 .insight-box {
   @apply flex items-center gap-3 bg-green-50 dark:bg-green-900/30 p-4 rounded-xl;
+}
+.merge-indicator {
+  @apply flex items-center justify-center gap-4 text-sm font-medium text-gray-500;
+}
+.merge-line {
+  @apply w-8 h-px bg-gray-300;
 }
 </style>
 
@@ -1405,26 +1492,34 @@ tvevent using ms_cohort, id(patient_id) ///
 </div>
 
 <div v-click class="mt-4 workflow-summary">
-  <div class="step">📥 SMSreg</div>
-  <div class="arrow">→</div>
-  <div class="step">📊 tvexpose</div>
-  <div class="arrow">→</div>
-  <div class="step">🔗 tvmerge</div>
-  <div class="arrow">→</div>
-  <div class="step">🎯 tvevent</div>
-  <div class="arrow">→</div>
-  <div class="step">📈 stcrreg</div>
+  <div class="step step-data">SMSreg</div>
+  <div class="arrow"></div>
+  <div class="step step-expose">tvexpose</div>
+  <div class="arrow"></div>
+  <div class="step step-merge">tvmerge</div>
+  <div class="arrow"></div>
+  <div class="step step-event">tvevent</div>
+  <div class="arrow"></div>
+  <div class="step step-analysis">stcrreg</div>
 </div>
 
 <style>
 .workflow-summary {
-  @apply flex items-center justify-center gap-2 text-sm;
+  @apply flex items-center justify-center gap-3 text-sm;
 }
 .step {
-  @apply bg-gray-100 dark:bg-gray-800 px-4 py-2 rounded-lg font-semibold;
+  @apply px-4 py-2 rounded-lg font-medium text-white;
 }
+.step-data { @apply bg-gray-500; }
+.step-expose { @apply bg-blue-500; }
+.step-merge { @apply bg-purple-500; }
+.step-event { @apply bg-green-500; }
+.step-analysis { @apply bg-orange-500; }
 .arrow {
-  @apply text-gray-400;
+  @apply text-gray-300 dark:text-gray-600;
+}
+.arrow::after {
+  content: "→";
 }
 </style>
 
