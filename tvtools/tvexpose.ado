@@ -107,7 +107,8 @@ See help tvexpose for complete documentation with examples
 
 program define tvexpose, rclass
     version 16.0
-    
+    set varabbrev off
+
     syntax using/ , ///
         id(name) ///
         start(name) ///

@@ -10,7 +10,7 @@
 {viewerjumpto "Stored results" "mvp##results"}{...}
 {viewerjumpto "Authors" "mvp##authors"}{...}
 {hline}
-help for {cmd:mvp}{right:version 1.2.0}
+help for {cmd:mvp}{right:version 1.0.0}
 {hline}
 
 {title:Title}

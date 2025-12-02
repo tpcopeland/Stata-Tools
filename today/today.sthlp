@@ -112,7 +112,7 @@ Assumes computer date and time is UTC+1 and converts to UTC-7 for the global mac
 {pstd}Department of Clinical Neuroscience{p_end}
 {pstd}Karolinska Institutet{p_end}
 
-{pstd}Version 1.1.0 - 19 December 2024{p_end}
+{pstd}Version 1.0.0 - 2025-12-02{p_end}
 
 {p 4 4 2}
 

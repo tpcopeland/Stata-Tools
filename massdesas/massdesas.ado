@@ -5,6 +5,7 @@
 
 program define massdesas, rclass
 version 18.0
+set varabbrev off
 syntax , directory(string) [ERASE LOWER]
 
 * Save original working directory

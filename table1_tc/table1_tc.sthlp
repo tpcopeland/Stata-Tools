@@ -158,5 +158,5 @@ binary variables on one row, provide finer control of decimal places, and other 
 {pstd}Department of Clinical Neuroscience{p_end}
 {pstd}Karolinska Institutet{p_end}
 
-{pstd}Version 1.2 - 13 June 2025{p_end}
+{pstd}Version 1.0.0 - 2025-12-02{p_end}
 {pstd}Fork of table1_mc by Mark Chatfield, The University of Queensland, Australia{p_end}

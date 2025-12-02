@@ -115,6 +115,21 @@ file and continue processing remaining files. When using the {opt erase} option,
 only deleted if conversion was successful.
 {p_end}
 
+{marker results}{...}
+{title:Stored results}
+
+{pstd}
+{cmd:massdesas} stores the following in {cmd:r()}:
+
+{synoptset 20 tabbed}{...}
+{p2col 5 20 24 2: Scalars}{p_end}
+{synopt:{cmd:r(n_converted)}}number of files successfully converted{p_end}
+{synopt:{cmd:r(n_failed)}}number of files that failed to convert{p_end}
+
+{p2col 5 20 24 2: Macros}{p_end}
+{synopt:{cmd:r(directory)}}source directory path{p_end}
+{p2colreset}{...}
+
 {marker author}{...}
 {title:Author}
 
@@ -122,7 +137,7 @@ only deleted if conversion was successful.
 {pstd}Department of Clinical Neuroscience{p_end}
 {pstd}Karolinska Institutet{p_end}
 
-{pstd}Version 1.0 - 24 July 2020{p_end}
+{pstd}Version 1.0.0 - 2025-12-02{p_end}
 
 {title:Also see}
 

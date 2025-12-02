@@ -116,13 +116,13 @@ This repository contains a suite of Stata packages developed to streamline commo
 For individual packages:
 
 ```stata
-net install [package-name], from(https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/[package-name])
+net install [package-name], from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/[package-name]")
 ```
 
 For example, to install table1_tc:
 
 ```stata
-net install table1_tc, from(https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/table1_tc)
+net install table1_tc, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/table1_tc")
 ```
 
 ### Manual Installation

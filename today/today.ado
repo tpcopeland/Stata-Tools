@@ -30,6 +30,7 @@
 */
 program today, rclass
     version 14.0
+    set varabbrev off
     syntax [, DF(string) TSep(string) HM FROM(string) TO(string)]
     quietly {
         // Default values

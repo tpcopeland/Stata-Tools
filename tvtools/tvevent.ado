@@ -26,6 +26,7 @@ Description:
 
 program define tvevent, rclass
     version 16.0
+    set varabbrev off
 
     syntax using/ , ///
         id(varname) ///

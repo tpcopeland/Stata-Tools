@@ -6,7 +6,8 @@
 
 program define table1_tc, sclass
     version 14.2 // Minimum Stata version required
-    
+    set varabbrev off
+
 **# Syntax Definition
     syntax [if] [in] [fweight], ///
         [by(varname)]           /// Optional grouping variable

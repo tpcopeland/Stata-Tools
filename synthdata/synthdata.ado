@@ -1,7 +1,8 @@
 *! synthdata Version 1.0.0  2025/12/02  Synthetic data generation
 program define synthdata_v2
     version 16.0
-    
+    set varabbrev off
+
     syntax [varlist] [if] [in], ///
         [n(integer 0) SAVing(string) REPLACE CLEAR PREfix(string) MULTiple(integer 1)] ///
         [PARAmetric SEQUential BOOTstrap PERMute] ///

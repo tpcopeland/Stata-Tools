@@ -68,6 +68,24 @@ Downloads only the "estout" and "outreg2" packages and creates a local installat
 
 {p 4 4 2}
 
+{marker results}{...}
+{title:Stored results}
+
+{pstd}
+{cmd:pkgtransfer} stores the following in {cmd:r()}:
+
+{synoptset 20 tabbed}{...}
+{p2col 5 20 24 2: Scalars}{p_end}
+{synopt:{cmd:r(N_packages)}}number of packages processed{p_end}
+
+{p2col 5 20 24 2: Macros}{p_end}
+{synopt:{cmd:r(package_list)}}list of packages processed{p_end}
+{synopt:{cmd:r(download_mode)}}download mode ("local", "online", or "script_only"){p_end}
+{synopt:{cmd:r(os)}}target operating system{p_end}
+{synopt:{cmd:r(dofile)}}path to generated do-file{p_end}
+{synopt:{cmd:r(zipfile)}}path to ZIP file (if download mode is "local"){p_end}
+{p2colreset}{...}
+
 {marker author}{...}
 {title:Author}
 
@@ -75,4 +93,4 @@ Downloads only the "estout" and "outreg2" packages and creates a local installat
 {pstd}Department of Clinical Neuroscience{p_end}
 {pstd}Karolinska Institutet{p_end}
 
-{pstd}Version 3.0 - 1 March 2025{p_end}
+{pstd}Version 1.0.0 - 2025-12-02{p_end}

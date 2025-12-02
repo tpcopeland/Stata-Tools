@@ -31,6 +31,7 @@ SYNTAX:
 
 program define stratetab
 version 17
+set varabbrev off
 
 if "`_byvars'" != "" {
 	di as err "stratetab may not be combined with by:"

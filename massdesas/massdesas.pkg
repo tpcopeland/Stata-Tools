@@ -3,6 +3,11 @@ d 'MASSDESAS': module to convert all SAS files to Stata files in a folder
 d
 d Requires: Stata version 17 or higher.
 d
+d KW: SAS
+d KW: import
+d KW: convert
+d KW: batch
+d
 d Distribution-Date: 20251202
 d
 d First version: 24 July 2020

@@ -75,6 +75,21 @@ examining the distribution of values.
 {phang2}{cmd:. import delimited "rawdata.csv", clear}{p_end}
 {phang2}{cmd:. check _all}{p_end}
 
+{marker results}{...}
+{title:Stored results}
+
+{pstd}
+{cmd:check} stores the following in {cmd:r()}:
+
+{synoptset 20 tabbed}{...}
+{p2col 5 20 24 2: Scalars}{p_end}
+{synopt:{cmd:r(nvars)}}number of variables checked{p_end}
+
+{p2col 5 20 24 2: Macros}{p_end}
+{synopt:{cmd:r(varlist)}}list of variables checked{p_end}
+{synopt:{cmd:r(mode)}}"short" or "full" depending on option{p_end}
+{p2colreset}{...}
+
 {marker author}{...}
 {title:Author}
 
