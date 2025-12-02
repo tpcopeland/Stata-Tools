@@ -499,7 +499,7 @@ MIT License - see LICENSE file for details
 
 ## Version
 
-Version 2.0.0, 2025-11-30
+Version 1.0.0, 2025-12-02
 
 ## Also See
 

@@ -3,7 +3,7 @@ d 'SETOOLS': Commands for managing Swedish registry data in cohort studies
 d
 d Requires: Stata version 18+
 d
-d Distribution-Date: 20251201
+d Distribution-Date: 20251202
 d License: MIT
 d
 d Author: Timothy P. Copeland

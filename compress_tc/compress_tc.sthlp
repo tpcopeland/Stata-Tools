@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.0  28nov2025}{...}
+{* *! version 1.0.0  2025/12/02}{...}
 {vieweralsosee "[D] compress" "help compress"}{...}
 {vieweralsosee "[D] recast" "help recast"}{...}
 {vieweralsosee "[D] memory" "help memory"}{...}

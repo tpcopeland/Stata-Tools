@@ -135,7 +135,7 @@ MIT License
 
 ## Version
 
-Version 2.0.0, 2025-12-01
+Version 1.0.0, 2025-12-02
 
 ## See Also
 

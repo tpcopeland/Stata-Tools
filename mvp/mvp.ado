@@ -1,4 +1,4 @@
-*! mvp 1.2.0  01dec2025
+*! mvp Version 1.0.0  2025/12/02
 *! Fork of mvpatterns 2.0.0 by Jeroen Weesie (STB-61: dm91)
 *! Author: Timothy P Copeland
 *! Missing value pattern analysis with enhanced features

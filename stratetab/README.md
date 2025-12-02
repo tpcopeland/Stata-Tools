@@ -139,7 +139,7 @@ MIT License - see LICENSE file for details
 
 ## Version
 
-Version 2.0, 2025-11-27
+Version 1.0.0, 2025-12-02
 
 ## See Also
 

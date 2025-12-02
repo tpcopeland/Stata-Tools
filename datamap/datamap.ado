@@ -1,7 +1,6 @@
-*! datamap v2.1.0
+*! datamap Version 1.0.0  2025/12/02
 *! Generate privacy-safe LLM-readable dataset documentation
 *! Author: Tim Copeland
-*! Date: 2025-11-28
 
 /*
 SYNTAX

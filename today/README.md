@@ -213,7 +213,7 @@ MIT License - see LICENSE file for details
 
 ## Version
 
-Version 1.1.0, 2024-12-19
+Version 1.0.0, 2025-12-02
 
 ## See Also
 

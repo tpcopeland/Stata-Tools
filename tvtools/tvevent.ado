@@ -1,7 +1,6 @@
-*! tvevent v1.0.0
+*! tvevent Version 1.0.0  2025/12/02
 *! Add event/failure flags to time-varying datasets
 *! Author: Tim Copeland
-*! Date: 2025-11-23
 *!
 *! Program class: rclass (returns results in r())
 

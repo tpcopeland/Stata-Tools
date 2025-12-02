@@ -1,4 +1,4 @@
-*! version 2.0.0  30nov2025  Synthetic data generation (audited)
+*! synthdata Version 1.0.0  2025/12/02  Synthetic data generation
 program define synthdata_v2
     version 16.0
     

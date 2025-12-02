@@ -178,7 +178,7 @@ Creates an installation script for commonly used regression and output packages.
 
 ## Version History
 
-- **Version 1.0.0** (17 November 2025): GitHub publication release
+- **Version 1.0.0** (2 December 2025): GitHub publication release
 
 ## Author
 

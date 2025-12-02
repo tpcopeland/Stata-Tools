@@ -77,4 +77,4 @@ MIT License - see LICENSE file for details
 
 ## Version
 
-Version 1.0.0, 2025-11-28
+Version 1.0.0, 2025-12-02

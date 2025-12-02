@@ -226,21 +226,21 @@ MIT License - see individual package files for details
 
 | Package | Description | Version | Stata Version |
 |---------|-------------|---------|---------------|
-| check | Variable inspection | 1.1.0 | 14+ |
+| check | Variable inspection | 1.0.0 | 14+ |
 | compress_tc | String compression via strL | 1.0.0 | 13+ |
-| cstat_surv | C-statistic for survival | 2.0.0 | 16+ |
-| datamap | Dataset documentation | 2.1.0 | 16+ |
+| cstat_surv | C-statistic for survival | 1.0.0 | 16+ |
+| datamap | Dataset documentation | 1.0.0 | 16+ |
 | datefix | Date format conversion | 1.0.0 | 14+ |
 | massdesas | Batch SAS to Stata conversion | 1.0.0 | 14+ |
-| mvp | Missing value pattern analysis | 1.2.0 | 14+ |
+| mvp | Missing value pattern analysis | 1.0.0 | 14+ |
 | pkgtransfer | Package management | 1.0.0 | 14+ |
 | regtab | Regression tables | 1.0.0 | 17+ |
-| setools | Swedish registry data tools | 1.0.3 | 18+ |
-| stratetab | Strate output formatting | 2.0.0 | 17+ |
-| synthdata | Synthetic data generation | 2.0.0 | 16+ |
+| setools | Swedish registry data tools | 1.0.0 | 18+ |
+| stratetab | Strate output formatting | 1.0.0 | 17+ |
+| synthdata | Synthetic data generation | 1.0.0 | 16+ |
 | table1_tc | Table 1 creation | 1.0.0 | 14.2+ |
-| today | Date utilities | 1.1.0 | 14+ |
-| tvtools | Time-varying data | 1.1.0 | 16+ |
+| today | Date utilities | 1.0.0 | 14+ |
+| tvtools | Time-varying data | 1.0.0 | 16+ |
 
 ## Citation
 
