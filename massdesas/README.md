@@ -25,8 +25,7 @@ Ensure both dependencies are properly installed and configured before using `mas
 ## Installation
 
 ```stata
-net from https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/massdesas
-net install massdesas
+net install massdesas, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/massdesas")
 ```
 
 ## Syntax
