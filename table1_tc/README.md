@@ -447,7 +447,7 @@ Karolinska Institutet
 
 ## License
 
-MIT License - See repository for details
+MIT License
 
 ## Support
 
