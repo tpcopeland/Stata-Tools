@@ -49,8 +49,7 @@ None - both commands use only built-in Stata functionality.
 ## Installation
 
 ```stata
-net from https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/datamap
-net install datamap
+net install datamap, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/datamap")
 ```
 
 This installs both `datamap` and `datadict` commands.
