@@ -1,4 +1,4 @@
-*! version 1.1.1  01dec2025  Tim Copeland
+*! sustainedss Version 1.0.0  2025/12/02  Tim Copeland
 *! Compute sustained EDSS progression date
 *! Part of the setools package
 

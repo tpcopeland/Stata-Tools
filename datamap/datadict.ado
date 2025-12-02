@@ -1,7 +1,6 @@
-*! datadict v2.3.0
+*! datadict Version 1.0.0  2025/12/02
 *! Generate clean Markdown data dictionaries matching professional documentation style
 *! Author: Tim Copeland
-*! Date: 2025-11-30
 
 program define datadict, rclass
 	version 14.0

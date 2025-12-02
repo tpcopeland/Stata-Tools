@@ -1140,10 +1140,7 @@ net install datamap
 
 ## Version History
 
-- **Version 2.3.0** (01 December 2025): Enhanced datadict with additional features and bug fixes
-- **Version 2.2** (28 November 2025): Enhanced datadict with missing and stats options, added maxcat and maxfreq parameters
-- **Version 2.1** (28 November 2025): Enhanced datamap with detection features, data quality checks, missing data analysis, and sample data output; added datadict command
-- **Version 2.0** (17 November 2025): Enhanced datamap with additional privacy controls
+- **Version 1.0.0** (2 December 2025): GitHub publication release
 
 ## Author
 

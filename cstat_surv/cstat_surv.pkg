@@ -7,7 +7,7 @@ d The C-statistic measures the model's ability to discriminate between
 d subjects who experience the event and those who do not.
 d
 d Requires: Stata version 16+
-d Distribution-Date: 20251201
+d Distribution-Date: 20251202
 d License: MIT
 d
 d Author: Timothy P. Copeland

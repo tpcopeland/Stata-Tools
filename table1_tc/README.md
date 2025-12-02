@@ -437,7 +437,7 @@ The command can store the table in memory using the `clear` option, replacing th
 
 ## Version History
 
-- **Version 1.0.0** (17 November 2025): GitHub publication release
+- **Version 1.0.0** (2 December 2025): GitHub publication release
 
 ## Author
 

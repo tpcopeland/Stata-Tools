@@ -3,7 +3,7 @@ d 'MASSDESAS': module to convert all SAS files to Stata files in a folder
 d
 d Requires: Stata version 17 or higher.
 d
-d Distribution-Date: 20251117
+d Distribution-Date: 20251202
 d
 d First version: 24 July 2020
 d License: MIT

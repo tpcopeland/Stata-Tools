@@ -128,4 +128,4 @@ MIT License - see LICENSE file for details
 
 ## Version
 
-Version 1.2.0, 2025-12-01
+Version 1.0.0, 2025-12-02

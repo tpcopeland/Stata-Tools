@@ -1,6 +1,5 @@
-*! pkgtransfer | Version 1.0.0
+*! pkgtransfer Version 1.0.0  2025/12/02
 *! Author: Tim Copeland
-*! Updated on: 17 November 2025
 
 /*
     DESCRIPTION:

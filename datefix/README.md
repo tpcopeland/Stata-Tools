@@ -96,7 +96,7 @@ For a complete list of date formats, see Stata's help on datetime display format
 
 ## Version History
 
-- **Version 1.0.0** (17 November 2025): GitHub publication release
+- **Version 1.0.0** (2 December 2025): GitHub publication release
 
 ## Author
 

@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 2.0.0  27nov2025}{...}
+{* *{* *! version 1.0.0  2025/12/02}{...}
 {viewerjumpto "Syntax" "stratetab##syntax"}{...}
 {viewerjumpto "Description" "stratetab##description"}{...}
 {viewerjumpto "Options" "stratetab##options"}{...}

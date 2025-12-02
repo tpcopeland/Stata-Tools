@@ -1,4 +1,4 @@
-*! version 1.0.3  01dec2025  Tim Copeland
+*! migrations Version 1.0.0  2025/12/02  Tim Copeland
 *! Handle Swedish migration data for registry-based cohort studies
 *! Part of the setools package
 

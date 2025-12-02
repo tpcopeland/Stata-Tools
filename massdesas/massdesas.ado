@@ -1,4 +1,4 @@
-*! massdesas Version 1.0.0  17November2025
+*! massdesas Version 1.0.0  2025/12/02
 
 *! Author: Tim Copeland
 *! Revised on  17 November 2025
