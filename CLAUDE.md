@@ -151,7 +151,7 @@ f mycommand.ado
 f mycommand.sthlp
 ```
 
-**Note**: Increment `v 1` to `v 2`, `v 3`, etc. with each update (see "CRITICAL: Always Update .pkg and stata.toc Files" section below).
+**Note**: Increment `v 1` to `v 2`, `v 3`, etc. with each update (see "CRITICAL: Always Update .pkg Files" section below).
 
 ### stata.toc
 
@@ -233,7 +233,7 @@ Version 1.0.0, 2025-01-15
 
 ```stata
 VERSION 18.0
-POSITION . . 400 250
+POSITION . . 640 250
 
 DIALOG main, label("My Command") tabtitle("Main")
 BEGIN
@@ -1691,7 +1691,7 @@ use "${data_dir}/analysis.dta", clear
 | Error | Impact | Fix |
 |-------|--------|-----|
 | Missing marksample | Wrong subset processed | Add `marksample touse` after syntax |
-| No observation check | Error on empty data | Add `quietly count if touse; if r(N)==0 error 2000` |
+| No observation check | Error on empty data | Add `quietly count if `touse'; if r(N)==0 error 2000` |
 | Abbreviated variables | Breaks with varabbrev off | Use full variable names |
 | Wrong return class | Return values not stored | Match program class to return type |
 | Missing version | Compatibility issues | Add `version 18.0` after program define |
