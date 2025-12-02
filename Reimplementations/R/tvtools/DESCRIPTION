@@ -1,0 +1,43 @@
+Package: tvtools
+Type: Package
+Title: Time-Varying Exposure and Event Analysis Tools
+Version: 0.1.0
+Authors@R: c(
+    person("Timothy P.", "Copeland",
+           email = "timothy.copeland@ki.se",
+           role = c("aut", "cre"),
+           comment = c(ORCID = "YOUR-ORCID-HERE")),
+    person("Claude", "AI",
+           role = "ctb",
+           comment = "R reimplementation")
+    )
+Description: Provides comprehensive tools for managing time-varying exposures
+    in longitudinal and survival analysis. The package implements three main
+    functions: tvexpose() for creating time-varying exposure variables from
+    period-based data, tvmerge() for merging multiple time-varying datasets
+    using Cartesian product of overlapping periods, and tvevent() for
+    integrating outcome events and competing risks. Originally developed as
+    Stata commands, this R implementation maintains API compatibility while
+    leveraging R's data manipulation capabilities.
+License: MIT + file LICENSE
+Encoding: UTF-8
+LazyData: true
+RoxygenNote: 7.2.0
+Depends:
+    R (>= 4.0.0)
+Imports:
+    dplyr (>= 1.0.0),
+    data.table (>= 1.14.0),
+    tibble (>= 3.0.0),
+    haven (>= 2.4.0),
+    rlang (>= 0.4.0),
+    tidyr (>= 1.1.0),
+    lubridate (>= 1.7.0)
+Suggests:
+    testthat (>= 3.0.0),
+    knitr,
+    rmarkdown,
+    survival
+URL: https://github.com/tpcopeland/Stata-Tools
+BugReports: https://github.com/tpcopeland/Stata-Tools/issues
+VignetteBuilder: knitr

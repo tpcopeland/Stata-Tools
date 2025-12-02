@@ -1,0 +1,15 @@
+^.*\.Rproj$
+^\.Rproj\.user$
+^\.git$
+^\.gitignore$
+^README\.Rmd$
+^LICENSE\.md$
+^data-raw$
+^doc$
+^docs$
+^Meta$
+^_pkgdown\.yml$
+^pkgdown$
+^\.github$
+^\.vscode$
+^\.DS_Store$
