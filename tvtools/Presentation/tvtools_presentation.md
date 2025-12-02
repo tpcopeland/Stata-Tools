@@ -374,7 +374,7 @@ layout: default
 
 </div>
 
-<div v-click class="workflow-bar mt-14">
+<div v-click class="workflow-bar mt-10">
   <div class="wf-step wf-data">Registry</div>
   <div class="wf-arrow">→</div>
   <div class="wf-step wf-expose">tvexpose</div>
@@ -388,7 +388,7 @@ layout: default
 
 <style>
 .command-card {
-  @apply bg-white p-8 rounded-2xl text-center relative;
+  @apply bg-white p-6 rounded-2xl text-center relative;
   box-shadow: 0 1px 3px rgba(0,0,0,0.08);
 }
 .cmd-number {
@@ -954,14 +954,14 @@ tvexpose using dmt, ///
   @apply bg-gray-900 p-3 rounded-lg text-xs;
 }
 .insight-box {
-  @apply bg-blue-50 dark:bg-blue-900/30 p-3 rounded-lg text-sm;
+  @apply bg-blue-50 p-3 rounded-lg text-sm;
   @apply border-l-4 border-blue-500;
 }
 .feature-grid {
   @apply flex flex-col gap-2;
 }
 .feature-item {
-  @apply flex items-center gap-3 bg-gray-50 dark:bg-gray-800/50 p-3 rounded-lg text-sm;
+  @apply flex items-center gap-3 bg-gray-50 p-3 rounded-lg text-sm;
 }
 .feature-dot {
   @apply w-2 h-2 rounded-full flex-shrink-0;
@@ -970,7 +970,7 @@ tvexpose using dmt, ///
 .dot-purple { @apply bg-purple-500; }
 .dot-orange { @apply bg-orange-500; }
 .feature-text {
-  @apply text-gray-700 dark:text-gray-300;
+  @apply text-gray-700;
 }
 </style>
 
@@ -1123,7 +1123,7 @@ tvexpose using dmt, ///
 <style>
 .def-card {
   @apply bg-white p-3 rounded-lg shadow-sm;
-  @apply border-t-3;
+  border-top-width: 3px;
 }
 .def-card h4 {
   @apply font-semibold text-sm;
@@ -1424,7 +1424,7 @@ tvmerge tv_dmt tv_oc, id(patient_id) ///
   text-shadow: 0 1px 2px rgba(0,0,0,0.5);
 }
 .insight-box {
-  @apply flex items-center gap-3 bg-green-50 dark:bg-green-900/30 p-4 rounded-xl;
+  @apply flex items-center gap-3 bg-green-50 p-4 rounded-xl;
 }
 .merge-indicator {
   @apply flex items-center justify-center gap-4 text-sm font-medium text-gray-500;
@@ -1514,7 +1514,7 @@ tvevent using ms_cohort, ///
 
 <style>
 .auto-step {
-  @apply bg-green-100 dark:bg-green-900 p-3 rounded-lg text-center text-sm;
+  @apply bg-green-100 p-3 rounded-lg text-center text-sm;
   @apply border-b-4 border-green-500;
 }
 </style>
@@ -1584,7 +1584,7 @@ transition: slide-up
   @apply flex flex-col items-center gap-6;
 }
 .split-before, .split-after {
-  @apply bg-gray-50 dark:bg-gray-800 p-6 rounded-xl w-full max-w-xl;
+  @apply bg-gray-50 p-6 rounded-xl w-full max-w-xl;
 }
 .label {
   @apply text-sm text-gray-500 mb-2 font-semibold;
@@ -1602,7 +1602,7 @@ transition: slide-up
   @apply bg-gradient-to-r from-orange-500 to-red-500;
 }
 .values {
-  @apply text-sm mt-3 font-mono bg-gray-100 dark:bg-gray-700 p-2 rounded;
+  @apply text-sm mt-3 font-mono bg-gray-100 p-2 rounded;
 }
 .event-marker {
   @apply flex items-center gap-3 text-red-600 font-bold text-lg;
@@ -1825,7 +1825,7 @@ Reference: Hauser SL et al. NEJM 2017 for ocrelizumab trials showing similar mag
   @apply text-xs font-mono bg-gray-900 text-green-400 p-3 rounded-xl;
 }
 .insight {
-  @apply flex items-center gap-3 bg-yellow-50 dark:bg-yellow-900/30 p-3 rounded-xl text-sm;
+  @apply flex items-center gap-3 bg-yellow-50 p-3 rounded-xl text-sm;
   @apply border-l-4 border-yellow-500;
 }
 </style>
@@ -1890,18 +1890,18 @@ Key takeaway: These aren't theoretical concerns - they've affected real research
   @apply grid grid-cols-3 gap-3;
 }
 .error-card {
-  @apply bg-white dark:bg-gray-800 p-3 rounded-xl;
+  @apply bg-white p-3 rounded-xl;
   @apply border-l-4 border-red-500;
 }
 .error-card .error-type {
   @apply font-bold text-sm;
 }
 .error-card .consequence {
-  @apply text-gray-600 dark:text-gray-400 text-sm mt-1;
+  @apply text-gray-600 text-sm mt-1;
 }
 .error-card .magnitude {
-  @apply mt-2 text-xs bg-red-100 dark:bg-red-900/30 p-2 rounded;
-  @apply font-mono text-red-600 dark:text-red-400;
+  @apply mt-2 text-xs bg-red-100 p-2 rounded;
+  @apply font-mono text-red-600;
 }
 </style>
 
@@ -1989,7 +1989,7 @@ db tvevent
   @apply font-mono text-blue-600;
 }
 .install-section {
-  @apply bg-gray-50 p-6 rounded-2xl;
+  @apply bg-gray-50 p-5 rounded-2xl text-xs;
 }
 .install-label {
   @apply text-sm font-medium text-gray-600 mb-2;
