@@ -19,8 +19,7 @@ Requires **strate** (built-in Stata survival analysis command). Data must be dec
 ## Installation
 
 ```stata
-net from https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/stratetab
-net install stratetab
+net install stratetab, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/stratetab")
 ```
 
 ## Syntax
