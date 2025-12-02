@@ -1820,7 +1820,7 @@ frames use myproject.dtas
 frames drop results using myproject.dtas
 ```
 
-### Customizable Tables: collect and table (Stata 17+)
+### Customizable Tables: collect, table, and etable (Stata 17+), dtable (Stata 18+)
 
 The `collect` system creates publication-ready tables exportable to Word, Excel, LaTeX, etc.
 
@@ -1838,7 +1838,7 @@ collect _r_b _r_se, name(m1) tag(model[2])
 collect layout (colname) (model)
 collect export "comparison.xlsx", replace
 
-* Descriptive statistics table (Table 1)
+* Descriptive statistics table (Table 1) - Stata 18+ only
 dtable age income education, by(treatment) export("table1.docx", replace)
 
 * Estimation table with common styling
