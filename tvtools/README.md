@@ -821,15 +821,6 @@ The command identifies the earliest occurring event among `date()` and `compete(
 
 ---
 
-## Installation
-
-Install directly from GitHub:
-
-```stata
-net from https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/tvtools
-net install tvtools
-```
-
 ## Requirements
 
 - Stata 16.0 or higher
