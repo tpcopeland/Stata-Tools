@@ -23,8 +23,7 @@ This command works with Stata 17+ `collect` commands to create publication-ready
 ## Installation
 
 ```stata
-net from https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/regtab
-net install regtab
+net install regtab, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/regtab")
 ```
 
 ## Syntax
