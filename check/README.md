@@ -169,7 +169,7 @@ MIT License - see LICENSE file for details
 
 ## Version
 
-Version 1.1, 2020-07-26
+Version 1.1.0, 2020-07-26
 
 ## See Also
 

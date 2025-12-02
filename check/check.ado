@@ -1,4 +1,4 @@
-*! check Version 1.1  26July2020
+*! check Version 1.1.0  26July2020
 
 *! Revision Author: Tim Copeland 
 *! Revised on  26 July 2020 at 12:11:00
