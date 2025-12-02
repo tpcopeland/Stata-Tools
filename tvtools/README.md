@@ -39,6 +39,14 @@ Raw exposure data
 
 ---
 
+## Installation
+
+```stata
+net install tvtools, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/tvtools")
+```
+
+---
+
 ## tvexpose - Create Time-Varying Exposure Variables
 
 **tvexpose** creates time-varying exposure variables suitable for survival analysis from a dataset containing exposure periods. It merges exposure data with a master cohort dataset, creating periods where exposure status changes over time.
