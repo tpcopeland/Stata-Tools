@@ -17,8 +17,7 @@ None - uses only built-in Stata commands.
 ## Installation
 
 ```stata
-net from https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/today
-net install today
+net install today, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/today")
 ```
 
 ## Syntax
