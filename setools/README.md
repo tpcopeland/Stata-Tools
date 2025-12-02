@@ -17,7 +17,13 @@ Toolkit for managing Swedish registry data in epidemiological cohort studies.
 
 **migrations** processes Swedish migration registry data to identify exclusions and censoring dates for cohort studies. It handles the complex logic of determining residency status at study entry and identifying emigration events for survival analysis censoring.
 
-### Syntax
+## Installation
+
+```stata
+net install setools, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/setools")
+```
+
+## Syntax
 
 ```stata
 migrations, migfile(filename) [options]
