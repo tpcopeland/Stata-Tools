@@ -6,8 +6,6 @@
 
 A collection of Stata commands for data management, analysis, and table generation.
 
-**Note:** Version numbers were reset to 1.0.0 upon GitHub publication (2025-11-17) to establish a clean baseline for public releases.
-
 ## Overview
 
 This repository contains a suite of Stata packages developed to streamline common research tasks including data documentation, descriptive statistics, survival analysis, and publication-ready table creation.
