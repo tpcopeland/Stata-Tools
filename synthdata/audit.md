@@ -8,8 +8,8 @@
 
 ## Executive Summary
 
-This audit identified **5 issues** in the synthdata package:
-- **2 Critical bugs** in the .ado file that cause runtime errors
+This audit identified **6 issues** in the synthdata package:
+- **3 Critical bugs** in the .ado file that cause runtime errors or incorrect results
 - **2 Documentation issues** in the .sthlp and README files
 - **1 Minor issue** (version mismatch between files)
 
@@ -171,7 +171,73 @@ The fix loads the original data from the tempfile to check the variable's type, 
 
 ---
 
-## Issue 3: SMCL Syntax Error in Help File
+## Issue 3: CRITICAL - `_synthdata_validate` Merge Order Bug
+
+**Severity:** Critical
+**Location:** `synthdata.ado` lines 1282-1298 (in `_synthdata_validate` program)
+**Impact:** The `validate()` option fails to match variables when `prefix()` is used, resulting in empty or missing validation statistics.
+
+### Problem Analysis
+
+The `_synthdata_validate` program attempts to merge original statistics with synthetic statistics for comparison. However, when `prefix()` is specified, the merge fails because:
+
+1. Synthetic variable names in `synthstats` include the prefix (e.g., `synth_price`)
+2. Original variable names in `origstats` do not have the prefix (e.g., `price`)
+3. The merge is performed on `varname` BEFORE removing the prefix
+4. Result: No matches found, validation statistics are empty/incorrect
+
+The correct implementation exists in `_synthdata_compare` which removes the prefix BEFORE merging.
+
+### Before (Buggy Code)
+
+```stata
+preserve
+qui use `origstats', clear
+rename (mean sd min max p25 p50 p75 N) =_orig
+
+qui merge 1:1 varname using `synthstats', nogen  // Merge BEFORE prefix removed!
+
+// Remove prefix for matching
+if "`prefix'" != "" {
+    qui replace varname = subinstr(varname, "`prefix'", "", 1)  // Too late!
+}
+
+rename (mean sd min max p25 p50 p75 N) =_synth
+```
+
+### After (Fixed Code)
+
+```stata
+preserve
+
+// Load origstats and save to tempfile
+qui use `origstats', clear
+rename (mean sd min max p25 p50 p75 N) =_orig
+tempfile orig
+qui save `orig'
+
+// Load synthstats and remove prefix BEFORE merging
+qui use `synthstats', clear
+if "`prefix'" != "" {
+    qui replace varname = subinstr(varname, "`prefix'", "", 1)
+}
+rename (mean sd min max p25 p50 p75 N) =_synth
+
+// Now merge with matching varnames
+qui merge 1:1 varname using `orig', nogen
+```
+
+### Reasoning
+
+The fix follows the same pattern as the correct implementation in `_synthdata_compare`:
+1. Load original stats, rename columns, save to tempfile
+2. Load synthetic stats, remove prefix from varnames
+3. Rename synthetic columns
+4. THEN merge - now the varnames match
+
+---
+
+## Issue 4: SMCL Syntax Error in Help File
 
 **Severity:** Medium
 **Location:** `synthdata.sthlp` line 2
@@ -201,7 +267,7 @@ The version comment line has corrupted SMCL syntax with an extra `*{*`:
 
 ---
 
-## Issue 4: Version Mismatch Between Files
+## Issue 5: Version Mismatch Between Files
 
 **Severity:** Low
 **Location:** `synthdata.sthlp` line 2
@@ -222,7 +288,7 @@ Updated .sthlp to version 1.0.1 with date 03dec2025 to match .ado.
 
 ---
 
-## Issue 5: README LICENSE Reference
+## Issue 6: README LICENSE Reference
 
 **Severity:** Low
 **Location:** `synthdata/README.md` line 497
@@ -250,7 +316,7 @@ Per repository standards (CLAUDE.md), packages should not have separate LICENSE 
 
 | File | Changes Made |
 |------|--------------|
-| `synthdata.ado` | Fixed `_synthdata_noextreme` logic; Fixed skip variable type detection (2 locations); Updated version date |
+| `synthdata.ado` | Fixed `_synthdata_noextreme` logic; Fixed skip variable type detection (2 locations); Fixed `_synthdata_validate` merge order bug |
 | `synthdata.sthlp` | Fixed SMCL syntax error; Updated version to 1.0.1 |
 | `README.md` | Removed LICENSE file reference |
 
@@ -283,6 +349,14 @@ After applying these fixes, test the following scenarios:
 4. **Help file display:**
    ```stata
    help synthdata   // Should display without SMCL errors
+   ```
+
+5. **Validate with prefix option:**
+   ```stata
+   sysuse auto, clear
+   synthdata price mpg, prefix(s_) saving(synth) validate(validation) seed(123)
+   use validation, clear
+   list varname mean_orig mean_synth   // Should show matched variables
    ```
 
 ---

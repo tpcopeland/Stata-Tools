@@ -1278,19 +1278,24 @@ program define _synthdata_validate
     
     tempfile synthstats
     _synthdata_stats `synthvarlist', saving(`synthstats')
-    
+
     preserve
+
+    // Load origstats and save to tempfile
     qui use `origstats', clear
     rename (mean sd min max p25 p50 p75 N) =_orig
-    
-    qui merge 1:1 varname using `synthstats', nogen
-    
-    // Remove prefix for matching
+    tempfile orig
+    qui save `orig'
+
+    // Load synthstats and remove prefix BEFORE merging
+    qui use `synthstats', clear
     if "`prefix'" != "" {
         qui replace varname = subinstr(varname, "`prefix'", "", 1)
     }
-    
     rename (mean sd min max p25 p50 p75 N) =_synth
+
+    // Now merge with matching varnames
+    qui merge 1:1 varname using `orig', nogen
     
     // Compute utility metrics
     qui gen mean_diff_pct = abs(mean_orig - mean_synth) / sd_orig * 100 if sd_orig != 0
