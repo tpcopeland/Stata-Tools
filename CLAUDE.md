@@ -174,41 +174,75 @@ p mycommand
 
 Brief description of what the command does.
 
+## Package Overview
+
+### Key Features
+
+- Feature 1
+- Feature 2
+
+---
+
 ## Installation
 
-Install directly from GitHub:
-
 ```stata
-net install mycommand, from(https://raw.githubusercontent.com/username/repository/main/mycommand)
+net install mycommand, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/mycommand")
 ```
 
-## Quick Start
+---
 
-```stata
-sysuse auto, clear
-mycommand price mpg
-```
+## mycommand - Brief Description
 
-## Syntax
+### Syntax
 
 ```stata
 mycommand varlist [if] [in] [, options]
 ```
 
-## Examples
+### Examples
 
-### Example 1: Basic Usage
+#### Example 1: Basic Usage
 
 ```stata
 sysuse auto, clear
 mycommand price mpg
 ```
 
+### Remarks
+
+Notes on usage and behavior.
+
+### Stored Results
+
+`mycommand` stores the following in `r()`:
+
+| Scalar | Description |
+|--------|-------------|
+| `r(N)` | Number of observations |
+
+---
+
+## Requirements
+
+- Stata 16.0 or higher
+
+## Dialog Interfaces
+
+Access the graphical interface:
+
+```stata
+db mycommand
+```
+
+## Documentation
+
+- Command help: `help mycommand`
+
 ## Author
 
-Your Name<br>
-Institution<br>
-Location
+Timothy P Copeland<br>
+Department of Clinical Neuroscience<br>
+Karolinska Institutet
 
 ## License
 
@@ -217,13 +251,22 @@ MIT License
 ## Version
 
 Version 1.0.0, 2025-01-15
+
+## Also See
+
+- Stata help: `help related_command`
 ```
 
 **Critical README Requirements**:
 - Use `<br>` at end of each Author line
-- Single-line `net install` command
-- Include badges for Stata version, license, status
+- Single-line `net install` command with quotes around URL
+- Include badges for Stata version, license, status (adjust Stata version badge as needed)
 - Follow tvtools/README.md format exactly
+- Use `---` dividers after Installation and command sections
+- Include Package Overview with Key Features section
+- Include Also See section at the end
+- Author is always: Timothy P Copeland, Department of Clinical Neuroscience, Karolinska Institutet
+- License is always: MIT License
 
 ---
 
