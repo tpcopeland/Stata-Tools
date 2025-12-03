@@ -1,0 +1,417 @@
+
+================================================================================ 
+R tvtools Comprehensive Testing Suite
+================================================================================ 
+
+
+-------------------------------------------------------------------------------- 
+STEP 1: Loading tvtools Package
+-------------------------------------------------------------------------------- 
+Installing tvtools from /home/user/Stata-Tools/Reimplementations/R/tvtools...
+Installing package into '/usr/local/lib/R/site-library'
+(as 'lib' is unspecified)
+* installing *source* package 'tvtools' ...
+** using staged installation
+** R
+** byte-compile and prepare package for lazy loading
+** help
+No man pages found in package  'tvtools' 
+*** installing help indices
+** building package indices
+** installing vignettes
+** testing if installed package can be loaded from temporary location
+** testing if installed package can be loaded from final location
+** testing if installed package keeps a record of temporary installation path
+* DONE (tvtools)
+SUCCESS: tvtools package loaded
+
+-------------------------------------------------------------------------------- 
+STEP 2: Loading Test Data
+-------------------------------------------------------------------------------- 
+  Loaded cohort: 100 rows, 5 columns
+  Loaded exposures: 246 rows, 4 columns
+  Loaded exposures2: 164 rows, 5 columns
+  Loaded events: 100 rows, 4 columns
+SUCCESS: Test data loaded
+
+
+================================================================================ 
+TESTING: tvexpose Function
+================================================================================ 
+
+
+Test 1: tvexpose - Basic evertreated
+------------------------------------------------------------ 
+tvexpose: Starting time-varying exposure creation
+  Validating inputs...
+  Preparing data...
+  Merging consecutive periods...
+  Removing contained periods...
+  Resolving overlaps...
+  Creating gap periods...
+  Adding baseline and post-exposure periods...
+  Applying exposure definition...
+  Finalizing output...
+tvexpose: Complete!
+  Result: 192 observations, 100 persons
+  SUCCESS: evertreated test passed
+  Saved output to: /home/user/Stata-Tools/Reimplementations/Testing/R_test_outputs/tvexpose_evertreated.csv
+  Saved output (RDS) to: /home/user/Stata-Tools/Reimplementations/Testing/R_test_outputs/tvexpose_evertreated_full.rds
+Warning messages:
+1: In min(exp_start[orig_exp_binary == 1]) :
+  no non-missing arguments to min; returning Inf
+2: In min(exp_start[orig_exp_binary == 1]) :
+  no non-missing arguments to min; returning Inf
+3: In min(exp_start[orig_exp_binary == 1]) :
+  no non-missing arguments to min; returning Inf
+4: In min(exp_start[orig_exp_binary == 1]) :
+  no non-missing arguments to min; returning Inf
+5: In min(exp_start[orig_exp_binary == 1]) :
+  no non-missing arguments to min; returning Inf
+6: In min(exp_start[orig_exp_binary == 1]) :
+  no non-missing arguments to min; returning Inf
+7: In min(exp_start[orig_exp_binary == 1]) :
+  no non-missing arguments to min; returning Inf
+8: In min(exp_start[orig_exp_binary == 1]) :
+  no non-missing arguments to min; returning Inf
+9: In `[.data.table`(result, , `:=`(first_exp_any, NULL)) :
+  Tried to assign NULL to column 'first_exp_any', but this column does not exist to remove
+
+Test 2: tvexpose - Current/Former with grace period
+------------------------------------------------------------ 
+tvexpose: Starting time-varying exposure creation
+  Validating inputs...
+  Preparing data...
+  Merging consecutive periods...
+  Removing contained periods...
+  Resolving overlaps...
+  Creating gap periods...
+  Adding baseline and post-exposure periods...
+  Applying exposure definition...
+  Finalizing output...
+tvexpose: Complete!
+  Result: 427 observations, 100 persons
+  SUCCESS: current/former test passed
+  Saved output to: /home/user/Stata-Tools/Reimplementations/Testing/R_test_outputs/tvexpose_currentformer.csv
+Warning messages:
+1: In min(exp_start[orig_exp_binary == 1]) :
+  no non-missing arguments to min; returning Inf
+2: In min(exp_start[orig_exp_binary == 1]) :
+  no non-missing arguments to min; returning Inf
+3: In min(exp_start[orig_exp_binary == 1]) :
+  no non-missing arguments to min; returning Inf
+4: In min(exp_start[orig_exp_binary == 1]) :
+  no non-missing arguments to min; returning Inf
+5: In min(exp_start[orig_exp_binary == 1]) :
+  no non-missing arguments to min; returning Inf
+6: In min(exp_start[orig_exp_binary == 1]) :
+  no non-missing arguments to min; returning Inf
+7: In min(exp_start[orig_exp_binary == 1]) :
+  no non-missing arguments to min; returning Inf
+8: In min(exp_start[orig_exp_binary == 1]) :
+  no non-missing arguments to min; returning Inf
+
+Test 3: tvexpose - Continuous cumulative exposure
+------------------------------------------------------------ 
+tvexpose: Starting time-varying exposure creation
+  Validating inputs...
+  Preparing data...
+  Merging consecutive periods...
+  Removing contained periods...
+  Resolving overlaps...
+  Creating gap periods...
+  Adding baseline and post-exposure periods...
+  Applying exposure definition...
+  Finalizing output...
+tvexpose: Complete!
+  Result: 496 observations, 100 persons
+  SUCCESS: continuous exposure test passed
+  Saved output to: /home/user/Stata-Tools/Reimplementations/Testing/R_test_outputs/tvexpose_continuous.csv
+
+Test 4: tvexpose - Duration categories
+------------------------------------------------------------ 
+tvexpose: Starting time-varying exposure creation
+  Validating inputs...
+  Preparing data...
+  Merging consecutive periods...
+  Removing contained periods...
+  Resolving overlaps...
+  Creating gap periods...
+  Adding baseline and post-exposure periods...
+  Applying exposure definition...
+  Finalizing output...
+tvexpose: Complete!
+  Result: 496 observations, 100 persons
+  SUCCESS: duration categories test passed
+  Saved output to: /home/user/Stata-Tools/Reimplementations/Testing/R_test_outputs/tvexpose_duration.csv
+
+Test 5: tvexpose - By-type evertreated
+------------------------------------------------------------ 
+tvexpose: Starting time-varying exposure creation
+  Validating inputs...
+  Preparing data...
+  Merging consecutive periods...
+  Removing contained periods...
+  Resolving overlaps...
+  Creating gap periods...
+  Adding baseline and post-exposure periods...
+  Applying exposure definition...
+  Finalizing output...
+tvexpose: Complete!
+  Result: 443 observations, 100 persons
+  SUCCESS: by-type test passed
+  Saved output to: /home/user/Stata-Tools/Reimplementations/Testing/R_test_outputs/tvexpose_bytype.csv
+There were 50 or more warnings (use warnings() to see the first 50)
+
+Test 6: tvexpose - Edge cases (overlapping exposures)
+------------------------------------------------------------ 
+tvexpose: Starting time-varying exposure creation
+  Validating inputs...
+  Preparing data...
+  Merging consecutive periods...
+  Removing contained periods...
+  Resolving overlaps...
+  Creating gap periods...
+  Adding baseline and post-exposure periods...
+  Applying exposure definition...
+  Finalizing output...
+
+Coverage Summary:
+  Mean coverage: 100.00%
+  Persons with gaps: 0
+  FAILED: object 'ever_exposed_layered' not found
+
+*** BUG #1 FOUND ***
+Function: tvexpose
+Test: Test 6: edge cases
+Description: Edge cases test failed
+Error: object 'ever_exposed_layered' not found
+***********************
+
+Warning messages:
+1: In min(exp_start[orig_exp_binary == 1]) :
+  no non-missing arguments to min; returning Inf
+2: In min(exp_start[orig_exp_binary == 1]) :
+  no non-missing arguments to min; returning Inf
+3: In min(exp_start[orig_exp_binary == 1]) :
+  no non-missing arguments to min; returning Inf
+4: In min(exp_start[orig_exp_binary == 1]) :
+  no non-missing arguments to min; returning Inf
+5: In min(exp_start[orig_exp_binary == 1]) :
+  no non-missing arguments to min; returning Inf
+6: In min(exp_start[orig_exp_binary == 1]) :
+  no non-missing arguments to min; returning Inf
+7: In min(exp_start[orig_exp_binary == 1]) :
+  no non-missing arguments to min; returning Inf
+8: In min(exp_start[orig_exp_binary == 1]) :
+  no non-missing arguments to min; returning Inf
+9: In `[.data.table`(result, , `:=`(first_exp_any, NULL)) :
+  Tried to assign NULL to column 'first_exp_any', but this column does not exist to remove
+
+
+================================================================================ 
+TESTING: tvmerge Function
+================================================================================ 
+
+Preparing time-varying datasets for tvmerge...
+  Prepared tv1.csv and tv2.csv for merging
+
+Test 7: tvmerge - Basic two-dataset merge
+------------------------------------------------------------ 
+  FAILED: Variable 'patient_id' not found in dataset 1
+
+*** BUG #2 FOUND ***
+Function: tvmerge
+Test: Test 7: basic merge
+Description: Basic tvmerge test failed
+Error: Variable 'patient_id' not found in dataset 1
+***********************
+
+
+Test 8: tvmerge - With continuous exposure
+------------------------------------------------------------ 
+  FAILED: Variable 'patient_id' not found in dataset 1
+
+*** BUG #3 FOUND ***
+Function: tvmerge
+Test: Test 8: continuous merge
+Description: Continuous tvmerge test failed
+Error: Variable 'patient_id' not found in dataset 1
+***********************
+
+
+Test 9: tvmerge - Validation checks
+------------------------------------------------------------ 
+  FAILED: Variable 'patient_id' not found in dataset 1
+
+*** BUG #4 FOUND ***
+Function: tvmerge
+Test: Test 9: validation
+Description: Validation checks test failed
+Error: Variable 'patient_id' not found in dataset 1
+***********************
+
+
+
+================================================================================ 
+TESTING: tvevent Function
+================================================================================ 
+
+
+Test 10: tvevent - Basic single event
+------------------------------------------------------------ 
+  FAILED: intervals_data missing required columns: patient_id
+  (tvevent requires output from tvexpose/tvmerge with start/stop columns)
+
+*** BUG #5 FOUND ***
+Function: tvevent
+Test: Test 10: single event
+Description: Basic single event test failed
+Error: intervals_data missing required columns: patient_id
+  (tvevent requires output from tvexpose/tvmerge with start/stop columns)
+***********************
+
+
+Test 11: tvevent - Recurring events
+------------------------------------------------------------ 
+  FAILED: intervals_data missing required columns: patient_id
+  (tvevent requires output from tvexpose/tvmerge with start/stop columns)
+
+*** BUG #6 FOUND ***
+Function: tvevent
+Test: Test 11: recurring
+Description: Recurring events test failed
+Error: intervals_data missing required columns: patient_id
+  (tvevent requires output from tvexpose/tvmerge with start/stop columns)
+***********************
+
+
+Test 12: tvevent - Competing risks
+------------------------------------------------------------ 
+  FAILED: intervals_data missing required columns: patient_id
+  (tvevent requires output from tvexpose/tvmerge with start/stop columns)
+
+*** BUG #7 FOUND ***
+Function: tvevent
+Test: Test 12: competing risks
+Description: Competing risks test failed
+Error: intervals_data missing required columns: patient_id
+  (tvevent requires output from tvexpose/tvmerge with start/stop columns)
+***********************
+
+
+Test 13: tvevent - Continuous variable adjustment
+------------------------------------------------------------ 
+  FAILED: intervals_data missing required columns: patient_id
+  (tvevent requires output from tvexpose/tvmerge with start/stop columns)
+
+*** BUG #8 FOUND ***
+Function: tvevent
+Test: Test 13: continuous adj
+Description: Continuous adjustment test failed
+Error: intervals_data missing required columns: patient_id
+  (tvevent requires output from tvexpose/tvmerge with start/stop columns)
+***********************
+
+
+
+================================================================================ 
+INTEGRATION TESTS: Full tvtools Workflow
+================================================================================ 
+
+
+Test 14: Complete workflow integration
+------------------------------------------------------------ 
+  Step 1: tvexpose...
+  Step 2: Second tvexpose...
+  Step 3: tvmerge...
+  FAILED: Variable 'patient_id' not found in dataset 1
+
+*** BUG #9 FOUND ***
+Function: integration
+Test: Test 14: workflow
+Description: Complete workflow test failed
+Error: Variable 'patient_id' not found in dataset 1
+***********************
+
+There were 30 warnings (use warnings() to see them)
+
+
+================================================================================ 
+TEST SUMMARY
+================================================================================ 
+
+Total tests run: 14
+Bugs found: 9
+
+-------------------------------------------------------------------------------- 
+BUG REPORT
+-------------------------------------------------------------------------------- 
+
+Bug #1
+  Function: tvexpose
+  Test: Test 6: edge cases
+  Description: Edge cases test failed
+  Error: object 'ever_exposed_layered' not found
+
+Bug #2
+  Function: tvmerge
+  Test: Test 7: basic merge
+  Description: Basic tvmerge test failed
+  Error: Variable 'patient_id' not found in dataset 1
+
+Bug #3
+  Function: tvmerge
+  Test: Test 8: continuous merge
+  Description: Continuous tvmerge test failed
+  Error: Variable 'patient_id' not found in dataset 1
+
+Bug #4
+  Function: tvmerge
+  Test: Test 9: validation
+  Description: Validation checks test failed
+  Error: Variable 'patient_id' not found in dataset 1
+
+Bug #5
+  Function: tvevent
+  Test: Test 10: single event
+  Description: Basic single event test failed
+  Error: intervals_data missing required columns: patient_id
+  (tvevent requires output from tvexpose/tvmerge with start/stop columns)
+
+Bug #6
+  Function: tvevent
+  Test: Test 11: recurring
+  Description: Recurring events test failed
+  Error: intervals_data missing required columns: patient_id
+  (tvevent requires output from tvexpose/tvmerge with start/stop columns)
+
+Bug #7
+  Function: tvevent
+  Test: Test 12: competing risks
+  Description: Competing risks test failed
+  Error: intervals_data missing required columns: patient_id
+  (tvevent requires output from tvexpose/tvmerge with start/stop columns)
+
+Bug #8
+  Function: tvevent
+  Test: Test 13: continuous adj
+  Description: Continuous adjustment test failed
+  Error: intervals_data missing required columns: patient_id
+  (tvevent requires output from tvexpose/tvmerge with start/stop columns)
+
+Bug #9
+  Function: integration
+  Test: Test 14: workflow
+  Description: Complete workflow test failed
+  Error: Variable 'patient_id' not found in dataset 1
+
+
+Bug report saved to: /home/user/Stata-Tools/Reimplementations/Testing/R_test_outputs/bug_report.txt
+
+================================================================================ 
+TESTING COMPLETE
+================================================================================ 
+
+All test outputs saved to: /home/user/Stata-Tools/Reimplementations/Testing/R_test_outputs
+

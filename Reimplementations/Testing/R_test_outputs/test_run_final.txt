@@ -1,0 +1,458 @@
+
+================================================================================ 
+R tvtools Comprehensive Testing Suite
+================================================================================ 
+
+
+-------------------------------------------------------------------------------- 
+STEP 1: Loading tvtools Package
+-------------------------------------------------------------------------------- 
+Installing tvtools from /home/user/Stata-Tools/Reimplementations/R/tvtools...
+Installing package into '/usr/local/lib/R/site-library'
+(as 'lib' is unspecified)
+* installing *source* package 'tvtools' ...
+** using staged installation
+** R
+** byte-compile and prepare package for lazy loading
+** help
+No man pages found in package  'tvtools' 
+*** installing help indices
+** building package indices
+** installing vignettes
+** testing if installed package can be loaded from temporary location
+** testing if installed package can be loaded from final location
+** testing if installed package keeps a record of temporary installation path
+* DONE (tvtools)
+SUCCESS: tvtools package loaded
+
+-------------------------------------------------------------------------------- 
+STEP 2: Loading Test Data
+-------------------------------------------------------------------------------- 
+  Loaded cohort: 100 rows, 5 columns
+  Loaded exposures: 246 rows, 4 columns
+  Loaded exposures2: 164 rows, 5 columns
+  Loaded events: 100 rows, 4 columns
+SUCCESS: Test data loaded
+
+
+================================================================================ 
+TESTING: tvexpose Function
+================================================================================ 
+
+
+Test 1: tvexpose - Basic evertreated
+------------------------------------------------------------ 
+tvexpose: Starting time-varying exposure creation
+  Validating inputs...
+  Preparing data...
+  Merging consecutive periods...
+  Removing contained periods...
+  Resolving overlaps...
+  Creating gap periods...
+  Adding baseline and post-exposure periods...
+  Applying exposure definition...
+  Finalizing output...
+tvexpose: Complete!
+  Result: 192 observations, 100 persons
+  SUCCESS: evertreated test passed
+  Saved output to: /home/user/Stata-Tools/Reimplementations/Testing/R_test_outputs/tvexpose_evertreated.csv
+  Saved output (RDS) to: /home/user/Stata-Tools/Reimplementations/Testing/R_test_outputs/tvexpose_evertreated_full.rds
+Warning messages:
+1: In min(exp_start[orig_exp_binary == 1]) :
+  no non-missing arguments to min; returning Inf
+2: In min(exp_start[orig_exp_binary == 1]) :
+  no non-missing arguments to min; returning Inf
+3: In min(exp_start[orig_exp_binary == 1]) :
+  no non-missing arguments to min; returning Inf
+4: In min(exp_start[orig_exp_binary == 1]) :
+  no non-missing arguments to min; returning Inf
+5: In min(exp_start[orig_exp_binary == 1]) :
+  no non-missing arguments to min; returning Inf
+6: In min(exp_start[orig_exp_binary == 1]) :
+  no non-missing arguments to min; returning Inf
+7: In min(exp_start[orig_exp_binary == 1]) :
+  no non-missing arguments to min; returning Inf
+8: In min(exp_start[orig_exp_binary == 1]) :
+  no non-missing arguments to min; returning Inf
+9: In `[.data.table`(result, , `:=`(first_exp_any, NULL)) :
+  Tried to assign NULL to column 'first_exp_any', but this column does not exist to remove
+
+Test 2: tvexpose - Current/Former with grace period
+------------------------------------------------------------ 
+tvexpose: Starting time-varying exposure creation
+  Validating inputs...
+  Preparing data...
+  Merging consecutive periods...
+  Removing contained periods...
+  Resolving overlaps...
+  Creating gap periods...
+  Adding baseline and post-exposure periods...
+  Applying exposure definition...
+  Finalizing output...
+tvexpose: Complete!
+  Result: 427 observations, 100 persons
+  SUCCESS: current/former test passed
+  Saved output to: /home/user/Stata-Tools/Reimplementations/Testing/R_test_outputs/tvexpose_currentformer.csv
+Warning messages:
+1: In min(exp_start[orig_exp_binary == 1]) :
+  no non-missing arguments to min; returning Inf
+2: In min(exp_start[orig_exp_binary == 1]) :
+  no non-missing arguments to min; returning Inf
+3: In min(exp_start[orig_exp_binary == 1]) :
+  no non-missing arguments to min; returning Inf
+4: In min(exp_start[orig_exp_binary == 1]) :
+  no non-missing arguments to min; returning Inf
+5: In min(exp_start[orig_exp_binary == 1]) :
+  no non-missing arguments to min; returning Inf
+6: In min(exp_start[orig_exp_binary == 1]) :
+  no non-missing arguments to min; returning Inf
+7: In min(exp_start[orig_exp_binary == 1]) :
+  no non-missing arguments to min; returning Inf
+8: In min(exp_start[orig_exp_binary == 1]) :
+  no non-missing arguments to min; returning Inf
+
+Test 3: tvexpose - Continuous cumulative exposure
+------------------------------------------------------------ 
+tvexpose: Starting time-varying exposure creation
+  Validating inputs...
+  Preparing data...
+  Merging consecutive periods...
+  Removing contained periods...
+  Resolving overlaps...
+  Creating gap periods...
+  Adding baseline and post-exposure periods...
+  Applying exposure definition...
+  Finalizing output...
+tvexpose: Complete!
+  Result: 496 observations, 100 persons
+  SUCCESS: continuous exposure test passed
+  Saved output to: /home/user/Stata-Tools/Reimplementations/Testing/R_test_outputs/tvexpose_continuous.csv
+
+Test 4: tvexpose - Duration categories
+------------------------------------------------------------ 
+tvexpose: Starting time-varying exposure creation
+  Validating inputs...
+  Preparing data...
+  Merging consecutive periods...
+  Removing contained periods...
+  Resolving overlaps...
+  Creating gap periods...
+  Adding baseline and post-exposure periods...
+  Applying exposure definition...
+  Finalizing output...
+tvexpose: Complete!
+  Result: 496 observations, 100 persons
+  SUCCESS: duration categories test passed
+  Saved output to: /home/user/Stata-Tools/Reimplementations/Testing/R_test_outputs/tvexpose_duration.csv
+
+Test 5: tvexpose - By-type evertreated
+------------------------------------------------------------ 
+tvexpose: Starting time-varying exposure creation
+  Validating inputs...
+  Preparing data...
+  Merging consecutive periods...
+  Removing contained periods...
+  Resolving overlaps...
+  Creating gap periods...
+  Adding baseline and post-exposure periods...
+  Applying exposure definition...
+  Finalizing output...
+tvexpose: Complete!
+  Result: 443 observations, 100 persons
+  SUCCESS: by-type test passed
+  Saved output to: /home/user/Stata-Tools/Reimplementations/Testing/R_test_outputs/tvexpose_bytype.csv
+There were 50 or more warnings (use warnings() to see the first 50)
+
+Test 6: tvexpose - Edge cases (overlapping exposures)
+------------------------------------------------------------ 
+tvexpose: Starting time-varying exposure creation
+  Validating inputs...
+  Preparing data...
+  Merging consecutive periods...
+  Removing contained periods...
+  Resolving overlaps...
+  Creating gap periods...
+  Adding baseline and post-exposure periods...
+  Applying exposure definition...
+  Finalizing output...
+
+Coverage Summary:
+  Mean coverage: 100.00%
+  Persons with gaps: 0
+  FAILED: object 'ever_exposed_layered' not found
+
+*** BUG #1 FOUND ***
+Function: tvexpose
+Test: Test 6: edge cases
+Description: Edge cases test failed
+Error: object 'ever_exposed_layered' not found
+***********************
+
+Warning messages:
+1: In min(exp_start[orig_exp_binary == 1]) :
+  no non-missing arguments to min; returning Inf
+2: In min(exp_start[orig_exp_binary == 1]) :
+  no non-missing arguments to min; returning Inf
+3: In min(exp_start[orig_exp_binary == 1]) :
+  no non-missing arguments to min; returning Inf
+4: In min(exp_start[orig_exp_binary == 1]) :
+  no non-missing arguments to min; returning Inf
+5: In min(exp_start[orig_exp_binary == 1]) :
+  no non-missing arguments to min; returning Inf
+6: In min(exp_start[orig_exp_binary == 1]) :
+  no non-missing arguments to min; returning Inf
+7: In min(exp_start[orig_exp_binary == 1]) :
+  no non-missing arguments to min; returning Inf
+8: In min(exp_start[orig_exp_binary == 1]) :
+  no non-missing arguments to min; returning Inf
+9: In `[.data.table`(result, , `:=`(first_exp_any, NULL)) :
+  Tried to assign NULL to column 'first_exp_any', but this column does not exist to remove
+
+
+================================================================================ 
+TESTING: tvmerge Function
+================================================================================ 
+
+Preparing time-varying datasets for tvmerge...
+  Prepared tv1.csv and tv2.csv for merging
+
+Test 7: tvmerge - Basic two-dataset merge
+------------------------------------------------------------ 
+
+Merging dataset 2 of 2...
+Processing 100 unique IDs in 5 batches (batch size: 20 IDs = 20%)...
+  Batch 1/5...
+  Batch 2/5...
+  Batch 3/5...
+  Batch 4/5...
+  Batch 5/5...
+
+-------------------------------------------------- 
+Coverage Diagnostics:
+    Number of persons: 100
+    Average periods per person: 7.81
+    Max periods per person: 15
+    Total merged intervals: 781
+-------------------------------------------------- 
+
+-------------------------------------------------- 
+Summary Statistics:
+
+Start dates:
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+  16438   16841   17258   17251   17572   18511 
+
+Stop dates:
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+  16466   17077   17418   17433   17743   18626 
+-------------------------------------------------- 
+
+Merged time-varying dataset successfully created
+-------------------------------------------------- 
+    Observations: 781
+    Persons: 100
+    Exposure variables: drug_final, treatment_final
+-------------------------------------------------- 
+  Result: 781 observations, 100 persons
+  SUCCESS: basic tvmerge test passed
+  Saved output to: /home/user/Stata-Tools/Reimplementations/Testing/R_test_outputs/tvmerge_basic.csv
+  Saved output (RDS) to: /home/user/Stata-Tools/Reimplementations/Testing/R_test_outputs/tvmerge_basic_full.rds
+
+Test 8: tvmerge - With continuous exposure
+------------------------------------------------------------ 
+
+Merging dataset 2 of 2...
+Processing 100 unique IDs in 5 batches (batch size: 20 IDs = 20%)...
+  Batch 1/5...
+  Batch 2/5...
+  Batch 3/5...
+  Batch 4/5...
+  Batch 5/5...
+
+Merged time-varying dataset successfully created
+-------------------------------------------------- 
+    Observations: 502
+    Persons: 100
+    Exposure variables: drug_type, dose
+-------------------------------------------------- 
+  Result: 502 observations
+  SUCCESS: continuous tvmerge test passed
+  Saved output to: /home/user/Stata-Tools/Reimplementations/Testing/R_test_outputs/tvmerge_continuous.csv
+
+Test 9: tvmerge - Validation checks
+------------------------------------------------------------ 
+
+Merging dataset 2 of 2...
+Processing 100 unique IDs in 5 batches (batch size: 20 IDs = 20%)...
+  Batch 1/5...
+  Batch 2/5...
+  Batch 3/5...
+  Batch 4/5...
+  Batch 5/5...
+
+-------------------------------------------------- 
+Validating coverage...
+Found 1 gaps in coverage (>1 day gaps)
+# A tibble: 1 x 6
+     id start_val stop_val drug_validated treatment_validated   gap
+  <int>     <dbl>    <dbl>          <dbl> <chr>               <dbl>
+1    89     17848    17946              0 0                     169
+-------------------------------------------------- 
+
+-------------------------------------------------- 
+Validating overlaps...
+Found 1 unexpected overlapping periods (same interval, same exposures)
+# A tibble: 1 x 5
+     id start_val stop_val drug_validated treatment_validated
+  <int>     <dbl>    <dbl>          <dbl> <chr>              
+1    66     17357    17404              2 B                  
+-------------------------------------------------- 
+
+-------------------------------------------------- 
+Summary Statistics:
+
+Start dates:
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+  16438   16841   17258   17251   17572   18511 
+
+Stop dates:
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+  16466   17077   17418   17433   17743   18626 
+-------------------------------------------------- 
+
+Merged time-varying dataset successfully created
+-------------------------------------------------- 
+    Observations: 781
+    Persons: 100
+    Exposure variables: drug_validated, treatment_validated
+-------------------------------------------------- 
+  SUCCESS: validation checks test passed
+  Saved output to: /home/user/Stata-Tools/Reimplementations/Testing/R_test_outputs/tvmerge_validated.csv
+
+
+================================================================================ 
+TESTING: tvevent Function
+================================================================================ 
+
+
+Test 10: tvevent - Basic single event
+------------------------------------------------------------ 
+Splitting intervals for 30 internal events...
+Single event type: Censored person-time after first event.
+
+-------------------------------------------------- 
+Event integration complete
+  Observations: 100
+  Events flagged (event_status): 100
+  Variable event_status labels:
+    1 = 1 (n=89)
+    2 = 2 (n=11)
+-------------------------------------------------- 
+  Result: 100 observations, 100 events
+  SUCCESS: basic tvevent test passed
+  Saved output to: /home/user/Stata-Tools/Reimplementations/Testing/R_test_outputs/tvevent_single.csv
+
+Test 11: tvevent - Recurring events
+------------------------------------------------------------ 
+Splitting intervals for 30 internal events...
+Recurring event type: Retained all person-time.
+
+-------------------------------------------------- 
+Event integration complete
+  Observations: 526
+  Events flagged (recurrent_event): 526
+  Variable recurrent_event labels:
+    Censored = Censored (n=496)
+    Event: mi_date = Event: mi_date (n=30)
+-------------------------------------------------- 
+  Result: 526 observations, 526 events
+  SUCCESS: recurring event test passed
+  Saved output to: /home/user/Stata-Tools/Reimplementations/Testing/R_test_outputs/tvevent_recurring.csv
+
+Test 12: tvevent - Competing risks
+------------------------------------------------------------ 
+Splitting intervals for 46 internal events...
+Single event type: Censored person-time after first event.
+
+-------------------------------------------------- 
+Event integration complete
+  Observations: 100
+  Events flagged (outcome): 100
+  Variable outcome labels:
+    1 = 1 (n=84)
+    2 = 2 (n=9)
+    3 = 3 (n=7)
+-------------------------------------------------- 
+  Result: 100 observations, 100 events
+  SUCCESS: competing risks test passed
+  Saved output to: /home/user/Stata-Tools/Reimplementations/Testing/R_test_outputs/tvevent_competing.csv
+
+Test 13: tvevent - Continuous variable adjustment
+------------------------------------------------------------ 
+Splitting intervals for 30 internal events...
+Single event type: Censored person-time after first event.
+
+-------------------------------------------------- 
+Event integration complete
+  Observations: 100
+  Events flagged (event): 100
+  Variable event labels:
+    1 = 1 (n=89)
+    2 = 2 (n=11)
+-------------------------------------------------- 
+  Result: 100 observations
+  SUCCESS: continuous adjustment test passed
+  Saved output to: /home/user/Stata-Tools/Reimplementations/Testing/R_test_outputs/tvevent_continuous.csv
+
+
+================================================================================ 
+INTEGRATION TESTS: Full tvtools Workflow
+================================================================================ 
+
+
+Test 14: Complete workflow integration
+------------------------------------------------------------ 
+  Step 1: tvexpose...
+  FAILED: EXPR must be a length 1 vector
+
+*** BUG #2 FOUND ***
+Function: integration
+Test: Test 14: workflow
+Description: Complete workflow test failed
+Error: EXPR must be a length 1 vector
+***********************
+
+
+
+================================================================================ 
+TEST SUMMARY
+================================================================================ 
+
+Total tests run: 14
+Bugs found: 2
+
+-------------------------------------------------------------------------------- 
+BUG REPORT
+-------------------------------------------------------------------------------- 
+
+Bug #1
+  Function: tvexpose
+  Test: Test 6: edge cases
+  Description: Edge cases test failed
+  Error: object 'ever_exposed_layered' not found
+
+Bug #2
+  Function: integration
+  Test: Test 14: workflow
+  Description: Complete workflow test failed
+  Error: EXPR must be a length 1 vector
+
+
+Bug report saved to: /home/user/Stata-Tools/Reimplementations/Testing/R_test_outputs/bug_report.txt
+
+================================================================================ 
+TESTING COMPLETE
+================================================================================ 
+
+All test outputs saved to: /home/user/Stata-Tools/Reimplementations/Testing/R_test_outputs
+

@@ -85,9 +85,12 @@ def _validate_data_types(exposer: 'TVExpose', exposure_df: pd.DataFrame, master_
         if not pd.api.types.is_datetime64_any_dtype(exposure_df[exposer.stop_col]):
             raise ValidationError(f"Exposure column '{exposer.stop_col}' must be datetime type")
 
-    # Check exposure_col is numeric
-    if not pd.api.types.is_numeric_dtype(exposure_df[exposer.exposure_col]):
-        raise ValidationError(f"Exposure column '{exposer.exposure_col}' must be numeric")
+    # Check exposure_col is numeric or categorical (string)
+    # Allow both numeric and string categorical exposures
+    if not (pd.api.types.is_numeric_dtype(exposure_df[exposer.exposure_col]) or
+            pd.api.types.is_string_dtype(exposure_df[exposer.exposure_col]) or
+            pd.api.types.is_object_dtype(exposure_df[exposer.exposure_col])):
+        raise ValidationError(f"Exposure column '{exposer.exposure_col}' must be numeric or categorical (string)")
 
 
 def _validate_option_combinations(exposer: 'TVExpose') -> None:

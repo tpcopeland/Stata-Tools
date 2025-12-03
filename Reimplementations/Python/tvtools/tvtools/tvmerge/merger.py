@@ -260,17 +260,25 @@ class TVMerge:
             )
 
             # Count and remove invalid periods
-            n_invalid = ((df[self.start_name] > df[self.stop_name]) |
-                        df[self.start_name].isna() |
-                        df[self.stop_name].isna()).sum()
+            # Use correct column names based on dataset number
+            if i == 1:
+                start_check = self.start_name
+                stop_check = self.stop_name
+            else:
+                start_check = f'{self.start_name}_new'
+                stop_check = f'{self.stop_name}_new'
+
+            n_invalid = ((df[start_check] > df[stop_check]) |
+                        df[start_check].isna() |
+                        df[stop_check].isna()).sum()
 
             if n_invalid > 0:
                 invalid_periods[f"dataset_{i}"] = n_invalid
                 print(f"  Warning: Dropping {n_invalid} invalid periods from dataset {i}")
                 df = df[
-                    (df[self.start_name] <= df[self.stop_name]) &
-                    df[self.start_name].notna() &
-                    df[self.stop_name].notna()
+                    (df[start_check] <= df[stop_check]) &
+                    df[start_check].notna() &
+                    df[stop_check].notna()
                 ]
 
             prepared_datasets.append(df)
@@ -402,9 +410,22 @@ class TVMerge:
         if self.id_col != 'id':
             df = df.rename(columns={self.id_col: 'id'})
 
-        # Floor start, ceil stop (handle fractional dates)
-        df[start_col] = np.floor(df[start_col].astype(float))
-        df[stop_col] = np.ceil(df[stop_col].astype(float))
+        # Parse date columns if they're not already datetime
+        for col in [start_col, stop_col]:
+            if col in df.columns and not pd.api.types.is_datetime64_any_dtype(df[col]):
+                df[col] = pd.to_datetime(df[col], errors='coerce')
+
+        # Convert datetime to numeric (days since epoch) then floor/ceil
+        # If already numeric, just use as is
+        if pd.api.types.is_datetime64_any_dtype(df[start_col]):
+            df[start_col] = np.floor((df[start_col] - pd.Timestamp('1970-01-01')).dt.days.astype(float))
+        else:
+            df[start_col] = np.floor(df[start_col].astype(float))
+
+        if pd.api.types.is_datetime64_any_dtype(df[stop_col]):
+            df[stop_col] = np.ceil((df[stop_col] - pd.Timestamp('1970-01-01')).dt.days.astype(float))
+        else:
+            df[stop_col] = np.ceil(df[stop_col].astype(float))
 
         # Rename date columns to standard names
         if dataset_num == 1:

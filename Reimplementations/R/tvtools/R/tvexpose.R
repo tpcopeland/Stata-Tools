@@ -447,8 +447,8 @@ tvexpose <- function(
 
   # Create helper variables
   exp_dt[, `:=`(
-    __orig_exp_binary = as.integer(exp_value != reference),
-    __orig_exp_category = exp_value
+    orig_exp_binary = as.integer(exp_value != reference),
+    orig_exp_category = exp_value
   )]
 
   # Sort by id, start, stop
@@ -581,7 +581,7 @@ tvexpose <- function(
   if (verbose) message("  Finalizing output...")
 
   # Remove internal helper columns
-  helper_cols <- c("__orig_exp_binary", "__orig_exp_category", "exp_value")
+  helper_cols <- c("orig_exp_binary", "orig_exp_category", "exp_value")
   for (col in helper_cols) {
     if (col %in% names(result_dt)) {
       result_dt[, (col) := NULL]
@@ -919,8 +919,8 @@ resolve_overlaps_layer_impl <- function(exp_dt) {
                             .(id, exp_start,
                               exp_stop = next_start - 1,
                               exp_value,
-                              __orig_exp_binary,
-                              __orig_exp_category,
+                              orig_exp_binary,
+                              orig_exp_category,
                               study_entry,
                               study_exit)]
 
@@ -929,8 +929,8 @@ resolve_overlaps_layer_impl <- function(exp_dt) {
                                exp_start = next_stop + 1,
                                exp_stop,
                                exp_value,
-                               __orig_exp_binary,
-                               __orig_exp_category,
+                               orig_exp_binary,
+                               orig_exp_category,
                                study_entry,
                                study_exit)]
 
@@ -1069,8 +1069,8 @@ create_gap_periods_impl <- function(exp_dt, reference, grace_default,
 
   # Add helper columns to gap periods
   gap_periods[, `:=`(
-    __orig_exp_binary = as.integer(exp_value != reference),
-    __orig_exp_category = exp_value
+    orig_exp_binary = as.integer(exp_value != reference),
+    orig_exp_category = exp_value
   )]
 
   exp_dt[, c("next_start", "next_value", "gap_days", "grace_days") := NULL]
@@ -1096,8 +1096,8 @@ create_baseline_periods_impl <- function(master_dt, exp_dt, reference) {
   baseline <- baseline[exp_stop >= exp_start]
 
   baseline[, `:=`(
-    __orig_exp_binary = 0L,
-    __orig_exp_category = reference,
+    orig_exp_binary = 0L,
+    orig_exp_category = reference,
     earliest_exp = NULL
   )]
 
@@ -1123,8 +1123,8 @@ create_postexposure_periods_impl <- function(exp_dt, reference) {
                      study_exit)]
 
   post[, `:=`(
-    __orig_exp_binary = 0L,
-    __orig_exp_category = reference
+    orig_exp_binary = 0L,
+    orig_exp_category = reference
   )]
 
   return(post)
@@ -1168,7 +1168,7 @@ remove_duplicate_coverage <- function(all_periods) {
 #' @keywords internal
 apply_evertreated_impl <- function(exp_dt, reference, bytype,
                                     stub_name, keepvars) {
-  exp_dt[, first_exp_any := min(exp_start[__orig_exp_binary == 1]), by = id]
+  exp_dt[, first_exp_any := min(exp_start[orig_exp_binary == 1]), by = id]
 
   if (bytype) {
     exp_types <- unique(exp_dt[exp_value != reference, exp_value])
@@ -1178,7 +1178,7 @@ apply_evertreated_impl <- function(exp_dt, reference, bytype,
       suffix <- gsub("\\.", "p", suffix)
       varname <- paste0(stub_name, suffix)
 
-      exp_dt[, temp_first := min(exp_start[__orig_exp_category == exp_type_val]),
+      exp_dt[, temp_first := min(exp_start[orig_exp_category == exp_type_val]),
              by = id]
 
       exp_dt[, (varname) := fifelse(
@@ -1259,13 +1259,13 @@ apply_currentformer_impl <- function(exp_dt, reference, bytype,
       varname <- paste0(stub_name, suffix)
 
       exp_dt[, `:=`(
-        first_exp = min(exp_start[__orig_exp_category == exp_type_val]),
-        last_exp = max(exp_stop[__orig_exp_category == exp_type_val])
+        first_exp = min(exp_start[orig_exp_category == exp_type_val]),
+        last_exp = max(exp_stop[orig_exp_category == exp_type_val])
       ), by = id]
 
       exp_dt[, (varname) := fcase(
         is.na(first_exp), 0L,
-        __orig_exp_category == exp_type_val, 1L,
+        orig_exp_category == exp_type_val, 1L,
         exp_start >= first_exp, 2L,
         default = 0L
       )]
@@ -1296,8 +1296,8 @@ apply_currentformer_impl <- function(exp_dt, reference, bytype,
 
   } else {
     exp_dt[, `:=`(
-      first_exp_any = min(exp_start[__orig_exp_binary == 1]),
-      currently_exposed = __orig_exp_binary
+      first_exp_any = min(exp_start[orig_exp_binary == 1]),
+      currently_exposed = orig_exp_binary
     ), by = id]
 
     exp_dt[, exp_value_new := fcase(
@@ -1377,7 +1377,7 @@ apply_continuous_impl <- function(exp_dt, reference, bytype, stub_name,
       suffix <- gsub("\\.", "p", suffix)
       varname <- paste0(stub_name, suffix)
 
-      exp_dt[, temp_days := fifelse(__orig_exp_category == exp_type_val,
+      exp_dt[, temp_days := fifelse(orig_exp_category == exp_type_val,
                                      period_days,
                                      0)]
 
@@ -1530,7 +1530,7 @@ apply_duration_impl <- function(exp_dt, reference, bytype, stub_name,
 #' @keywords internal
 apply_recency_impl <- function(exp_dt, reference, bytype, stub_name,
                                 keepvars, recency_cuts) {
-  exp_dt[, last_exp_end := max(exp_stop[__orig_exp_binary == 1]), by = id]
+  exp_dt[, last_exp_end := max(exp_stop[orig_exp_binary == 1]), by = id]
 
   # Calculate time since last exposure (in years)
   exp_dt[, years_since := (exp_start - last_exp_end) / 365.25]
@@ -1538,7 +1538,7 @@ apply_recency_impl <- function(exp_dt, reference, bytype, stub_name,
   # Categorize
   exp_dt[, recency_cat := fcase(
     is.na(last_exp_end), reference,
-    __orig_exp_binary == 1, 1L,
+    orig_exp_binary == 1, 1L,
     default = NA_integer_
   )]
 

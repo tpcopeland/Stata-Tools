@@ -271,6 +271,12 @@ class TVExpose:
         # Step 1: Load and validate data
         exposure_df = self._load_data(self.exposure_data)
         master_df = self._load_data(self.master_data)
+
+        # Parse date columns (if they're not already datetime)
+        exposure_df = self._parse_dates(exposure_df,
+                                       [self.start_col] + ([self.stop_col] if self.stop_col else []))
+        master_df = self._parse_dates(master_df, [self.entry_col, self.exit_col])
+
         validate_inputs(self, exposure_df, master_df)
 
         # Step 2: Prepare master data (entry/exit dates)
@@ -348,6 +354,28 @@ class TVExpose:
                 return pd.read_parquet(path)
             else:
                 raise ValidationError(f"Unsupported file format: {path.suffix}")
+
+    def _parse_dates(self, df: pd.DataFrame, date_cols: List[str]) -> pd.DataFrame:
+        """
+        Parse date columns to datetime type if they're not already.
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            DataFrame to process
+        date_cols : List[str]
+            Column names that should be datetime
+
+        Returns
+        -------
+        pd.DataFrame
+            DataFrame with parsed dates
+        """
+        df = df.copy()
+        for col in date_cols:
+            if col in df.columns and not pd.api.types.is_datetime64_any_dtype(df[col]):
+                df[col] = pd.to_datetime(df[col], errors='coerce')
+        return df
 
     def _prepare_master(self, master_df: pd.DataFrame) -> pd.DataFrame:
         """Prepare master data with standardized column names."""
