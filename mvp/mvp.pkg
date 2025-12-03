@@ -1,8 +1,9 @@
 v 3
-d 'MVP': Missing value pattern analysis with enhanced features
+d 'MVP': Missing value pattern analysis with enhanced features (v1.1.0)
 d
 d mvp analyzes and displays missing value patterns across variables.
 d Visual representations including bar charts, heatmaps, and correlation matrices.
+d Stratified analysis by categorical variables using gby() and over() options.
 d Tests for monotone missingness patterns important for multiple imputation.
 d Fork of mvpatterns by Jeroen Weesie (STB-61: dm91)
 d

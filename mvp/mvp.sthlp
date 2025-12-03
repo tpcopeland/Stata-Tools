@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.0  2025/12/02}{...}
+{* *! version 1.1.0  2025/12/03}{...}
 {vieweralsosee "[D] codebook" "help codebook"}{...}
 {vieweralsosee "[D] misstable" "help misstable"}{...}
 {vieweralsosee "[MI] mi misstable" "help mi_misstable"}{...}
@@ -10,7 +10,7 @@
 {viewerjumpto "Stored results" "mvp##results"}{...}
 {viewerjumpto "Authors" "mvp##authors"}{...}
 {hline}
-help for {cmd:mvp}{right:version 1.0.0}
+help for {cmd:mvp}{right:version 1.1.0}
 {hline}
 
 {title:Title}
@@ -78,6 +78,13 @@ help for {cmd:mvp}{right:version 1.0.0}
 {syntab:Correlation heatmap options}
 {synopt:{opt textl:abels}}display correlation values in cells{p_end}
 {synopt:{opt colorr:amp(type)}}color scheme: {cmd:bluered} (default), {cmd:redblue}, or {cmd:grayscale}{p_end}
+
+{syntab:Stratification options}
+{synopt:{opt gby(varname)}}stratify graphs by categorical variable (faceted display){p_end}
+{synopt:{opt over(varname)}}overlay comparison by categorical variable (grouped bars){p_end}
+{synopt:{opt st:acked}}show stacked bar chart; requires graph(bar){p_end}
+{synopt:{opt groupg:ap(#)}}gap between bar groups; default is 0{p_end}
+{synopt:{opt legendo:pts(string)}}pass-through legend options{p_end}
 {synoptline}
 {p2colreset}{...}
 
@@ -289,6 +296,32 @@ correlations.
 {opt colorramp(grayscale)} uses a grayscale gradient where darker shades indicate
 stronger correlations regardless of sign.
 
+{dlgtab:Stratification options}
+
+{phang}
+{opt gby(varname)} stratifies graphs by a categorical variable, producing separate
+faceted panels for each level of the variable. This allows direct comparison of
+missingness patterns across groups (e.g., treatment vs control, male vs female).
+Works with {opt graph(bar)} and {opt graph(patterns)}.
+
+{phang}
+{opt over(varname)} overlays bars for each level of the categorical variable
+within the same graph, showing grouped bars side-by-side for direct comparison.
+Only works with {opt graph(bar)}. Uses value labels if available.
+
+{phang}
+{opt stacked} displays a stacked bar chart where each variable's missingness
+contribution is shown as a segment. Only works with {opt graph(bar)}.
+
+{phang}
+{opt groupgap(#)} specifies the gap between bar groups when using {opt over()}.
+Default is 0. Larger values increase spacing between groups.
+
+{phang}
+{opt legendopts(string)} allows customization of the legend when using {opt over()}.
+The string is passed directly to the legend option of the graph command.
+Example: {cmd:legendopts(rows(2) position(3))}
+
 
 {marker examples}{...}
 {title:Examples}
@@ -373,6 +406,23 @@ stronger correlations regardless of sign.
 {pstd}Use a specific graph scheme{p_end}
 {phang2}{cmd:. mvp, graph(bar) scheme(s1mono)}{p_end}
 
+{pstd}{bf:Stratified graphics examples}{p_end}
+
+{pstd}Compare missingness by group (faceted display){p_end}
+{phang2}{cmd:. mvp price mpg rep78, graph(bar) gby(foreign)}{p_end}
+
+{pstd}Overlay groups in same chart (grouped bars){p_end}
+{phang2}{cmd:. mvp price mpg rep78, graph(bar) over(foreign)}{p_end}
+
+{pstd}Compare patterns by treatment group{p_end}
+{phang2}{cmd:. mvp outcome1-outcome5, graph(patterns) gby(treatment) top(10)}{p_end}
+
+{pstd}Stacked bar chart showing variable contributions{p_end}
+{phang2}{cmd:. mvp, graph(bar) stacked}{p_end}
+
+{pstd}Grouped bars with custom legend and spacing{p_end}
+{phang2}{cmd:. mvp price mpg rep78, graph(bar) over(foreign) groupgap(20) legendopts(rows(1) position(6))}{p_end}
+
 
 {marker results}{...}
 {title:Stored results}
@@ -399,6 +449,14 @@ stronger correlations regardless of sign.
 {synopt:{cmd:r(varlist)}}variables with missing values analyzed{p_end}
 {synopt:{cmd:r(varlist_nomiss)}}variables with no missing values{p_end}
 {synopt:{cmd:r(monotone_status)}}{cmd:monotone} or {cmd:non-monotone} if tested{p_end}
+
+{pstd}If {opt gby()} is specified:{p_end}
+{synopt:{cmd:r(gby)}}name of the gby variable{p_end}
+{synopt:{cmd:r(gby_levels)}}levels of the gby variable{p_end}
+
+{pstd}If {opt over()} is specified:{p_end}
+{synopt:{cmd:r(over)}}name of the over variable{p_end}
+{synopt:{cmd:r(over_levels)}}levels of the over variable{p_end}
 
 {p2col 5 20 24 2: Matrices}{p_end}
 {synopt:{cmd:r(corr_miss)}}correlation matrix of missingness (if {opt correlate} or {opt graph(correlation)} specified){p_end}
