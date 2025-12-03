@@ -1,4 +1,4 @@
-*! cstat_surv Version 1.0.0  2025/12/02
+*! cstat_surv Version 1.0.1  2025/12/03
 *! C-statistic for Cox proportional hazards models
 *! Original Author: Tim Copeland
 *! Standalone version with embedded calculation (no somersd dependency)

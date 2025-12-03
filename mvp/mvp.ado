@@ -1,4 +1,4 @@
-*! mvp Version 1.0.0  2025/12/02
+*! mvp Version 1.0.1  03dec2025
 *! Fork of mvpatterns 2.0.0 by Jeroen Weesie (STB-61: dm91)
 *! Author: Timothy P Copeland
 *! Missing value pattern analysis with enhanced features
@@ -6,6 +6,7 @@
 program define mvp, rclass byable(recall) sortpreserve
     version 14.0
     set varabbrev off
+    set more off
 
     syntax [varlist] [if] [in] [, ///
         Minfreq(integer 1)      /// minimum frequency to display
@@ -100,6 +101,20 @@ program define mvp, rclass byable(recall) sortpreserve
         exit 198
     }
 
+    * Sanitize file paths (security)
+    if "`save'" != "" {
+        if regexm("`save'", "[;&|><\$\`]") {
+            di as err "save() contains invalid characters"
+            exit 198
+        }
+    }
+    if `"`gsaving'"' != "" {
+        if regexm(`"`gsaving'"', "[;&|><\$\`]") {
+            di as err "gsaving() contains invalid characters"
+            exit 198
+        }
+    }
+
     * Validate minmissing/maxmissing consistency
     if `minmissing' >= 0 & `maxmissing' >= 0 & `minmissing' > `maxmissing' {
         di as err "minmissing(`minmissing') cannot exceed maxmissing(`maxmissing')"
@@ -164,7 +179,7 @@ program define mvp, rclass byable(recall) sortpreserve
     foreach v of local varlist {
         qui count if missing(`v') & `touse'
         local thismv = r(N)
-        if `thismv' > 0 | "`drop'" == "" {
+        if `thismv' > 0 | "`drop'" != "" {
             local p : display %8.0f `thismv'
             local nmv `nmv' `p'
             local vlist `vlist' `v'

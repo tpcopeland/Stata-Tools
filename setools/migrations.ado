@@ -1,4 +1,4 @@
-*! migrations Version 1.0.0  2025/12/02  Tim Copeland
+*! migrations Version 1.0.1  03dec2025  Tim Copeland
 *! Handle Swedish migration data for registry-based cohort studies
 *! Part of the setools package
 
@@ -6,11 +6,20 @@ program define migrations, rclass
     version 18.0
     set varabbrev off
     syntax , MIGfile(string) [IDvar(varname) STARTvar(varname) SAVEexclude(string) SAVEcensor(string) REPLACE VERBOSE]
-    
+
+    * Declare temporary variables
+    tempvar last_out last_in exclude_emigrated num total_migrations exclude_inmigration
+
     * Set defaults
     if "`idvar'" == "" local idvar "id"
     if "`startvar'" == "" local startvar "study_start"
-    
+
+    * Sanitize file path - prevent injection
+    if regexm("`migfile'", "[;&|><\$\`]") {
+        display as error "migfile() contains invalid characters"
+        exit 198
+    }
+
     * Validate migration file exists
     capture confirm file "`migfile'"
     if _rc {
@@ -92,88 +101,88 @@ program define migrations, rclass
     qui drop if out_ == . & in_ == .
     
     * Calculate last emigration and immigration dates per person
-    qui egen last_out = max(out_), by(`idvar')
-    qui egen last_in = max(in_), by(`idvar')
-    qui format last_out last_in %tdCCYY/NN/DD
-    
+    qui egen `last_out' = max(out_), by(`idvar')
+    qui egen `last_in' = max(in_), by(`idvar')
+    qui format `last_out' `last_in' %tdCCYY/NN/DD
+
     * EXCLUSION 1: Left Sweden before study_start and never returned
-    qui gen exclude_emigrated = 0
-    qui replace exclude_emigrated = 1 if last_out < `startvar' & last_in < last_out
+    qui gen `exclude_emigrated' = 0
+    qui replace `exclude_emigrated' = 1 if `last_out' < `startvar' & `last_in' < `last_out'
     
     tempfile temp_migrations
     qui save `temp_migrations', replace
     
     * Save list of exclusions (type 1)
-    qui keep if exclude_emigrated == 1
+    qui keep if `exclude_emigrated' == 1
     qui keep `idvar'
     qui duplicates drop `idvar', force
     qui gen exclude_reason = "Emigrated before study start, never returned"
-    
+
     tempfile exclude1
     qui save `exclude1', replace
     local n_exclude1 = _N
-    
+
     * Continue with remaining individuals
     qui use `temp_migrations', clear
-    qui drop if exclude_emigrated == 1
-    qui drop exclude_emigrated
-    
+    qui drop if `exclude_emigrated' == 1
+    qui drop `exclude_emigrated'
+
     * Drop individuals who immigrated before study_start with no emigration record
-    qui drop if last_in < `startvar' & last_out == .
-    
+    qui drop if `last_in' < `startvar' & `last_out' == .
+
     * Drop emigration records before study_start
     qui drop if out_ < `startvar'
-    
+
     * Recalculate migration sequence
-    qui drop num last_out last_in
-    qui egen last_out = max(out_), by(`idvar')
-    qui egen last_in = max(in_), by(`idvar')
-    qui format last_out last_in %tdCCYY/NN/DD
-    qui bysort `idvar' (out_ in_): gen num = _n
-    qui egen total_migrations = max(num), by(`idvar')
-    
+    qui drop num `last_out' `last_in'
+    qui egen `last_out' = max(out_), by(`idvar')
+    qui egen `last_in' = max(in_), by(`idvar')
+    qui format `last_out' `last_in' %tdCCYY/NN/DD
+    qui bysort `idvar' (out_ in_): gen `num' = _n
+    qui egen `total_migrations' = max(`num'), by(`idvar')
+
     * Drop if only one migration and it's an immigration before study_start
-    qui drop if total_migrations == 1 & last_in < `startvar'
-    
+    qui drop if `total_migrations' == 1 & `last_in' < `startvar'
+
     * EXCLUSION 2: Only migration is immigration after study_start (not in Sweden at baseline)
-    qui gen exclude_inmigration = 0
-    qui replace exclude_inmigration = 1 if in_ > `startvar' & total_migrations == 1 & in_ != .
-    
+    qui gen `exclude_inmigration' = 0
+    qui replace `exclude_inmigration' = 1 if in_ > `startvar' & `total_migrations' == 1 & in_ != .
+
     * Calculate emigration censoring date
     * Use last emigration after study_start as initial censoring date
-    qui gen migration_out_dt = last_out if `startvar' < last_out & last_out != .
+    qui gen migration_out_dt = `last_out' if `startvar' < `last_out' & `last_out' != .
     
     * Handle complex migration patterns:
     * - Drop records where immigration occurred after the censoring emigration
     qui drop if in_ > migration_out_dt & in_ != .
     * - Drop immigration records after study_start except the first (handles re-entries)
-    qui drop if in_ > `startvar' & num != 1
+    qui drop if in_ > `startvar' & `num' != 1
     * - Drop if last immigration was before study_start with no emigration (already in Sweden)
-    qui drop if last_in < `startvar' & last_out == .
-    
+    qui drop if `last_in' < `startvar' & `last_out' == .
+
     qui format migration_out_dt %tdCCYY/NN/DD
-    qui drop total_migrations num
-    qui bysort `idvar' (out_ in_): gen num = _n
-    qui egen total_migrations = max(num), by(`idvar')
+    qui drop `total_migrations' `num'
+    qui bysort `idvar' (out_ in_): gen `num' = _n
+    qui egen `total_migrations' = max(`num'), by(`idvar')
     * Clear pre-study immigrations (not relevant for censoring)
     qui replace in_ = . if in_ < `startvar'
     * Update censoring date to earliest emigration if multiple exist
-    qui replace migration_out_dt = out_ if exclude_inmigration == 0 & out_ < migration_out_dt
-    
+    qui replace migration_out_dt = out_ if `exclude_inmigration' == 0 & out_ < migration_out_dt
+
     * Save exclusions (type 2)
     preserve
-    qui keep if exclude_inmigration == 1
+    qui keep if `exclude_inmigration' == 1
     qui keep `idvar'
     qui duplicates drop `idvar', force
     qui gen exclude_reason = "Immigration after study start (not in Sweden at baseline)"
-    
+
     tempfile exclude2
     qui save `exclude2', replace
     local n_exclude2 = _N
     restore
-    
+
     * Keep only non-excluded individuals
-    qui keep if exclude_inmigration == 0
+    qui keep if `exclude_inmigration' == 0
     qui keep `idvar' migration_out_dt
     qui duplicates drop `idvar', force
     qui label var migration_out_dt "Emigration censoring date"
@@ -185,6 +194,12 @@ program define migrations, rclass
     
     * Save censoring data
     if "`savecensor'" != "" {
+        // Sanitize file path
+        if regexm("`savecensor'", "[;&|><\$\`]") {
+            display as error "savecensor() contains invalid characters"
+            exit 198
+        }
+
         if "`replace'" != "" {
             qui save "`savecensor'", replace
         }
@@ -205,6 +220,12 @@ program define migrations, rclass
     
     * Save exclusions
     if "`saveexclude'" != "" {
+        // Sanitize file path
+        if regexm("`saveexclude'", "[;&|><\$\`]") {
+            display as error "saveexclude() contains invalid characters"
+            exit 198
+        }
+
         if "`replace'" != "" {
             qui save "`saveexclude'", replace
         }

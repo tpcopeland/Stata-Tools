@@ -228,6 +228,11 @@ See `regtab_dialog.md` for detailed dialog documentation.
 
 ## Version History
 
+- **Version 1.0.1** (3 December 2025): Code quality improvements
+  - Added version declarations and varabbrev settings to helper programs
+  - Enhanced error handling for Excel import/export operations
+  - Added file path sanitization for security
+  - Improved error messages for better user feedback
 - **Version 1.0.0** (2 December 2025): GitHub publication release
 
 ## Author

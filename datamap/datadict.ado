@@ -1,4 +1,4 @@
-*! datadict Version 1.0.0  2025/12/02
+*! datadict Version 1.0.1  2025/12/03
 *! Generate clean Markdown data dictionaries matching professional documentation style
 *! Author: Tim Copeland
 
@@ -110,6 +110,7 @@ end
 // Parse space-separated dataset names and write to temp file
 // =============================================================================
 program define CollectFromFilelistOption
+	version 14.0
 	args filelist tmpfile
 
 	tempname fh_out
@@ -139,6 +140,7 @@ end
 // Helper: CollectFromDir
 // =============================================================================
 program define CollectFromDir
+	version 14.0
 	args directory recursive tmpfile
 
 	tempname fh
@@ -163,6 +165,7 @@ program define CollectFromDir
 end
 
 program define RecursiveScan
+	version 14.0
 	args directory fh
 
 	local files : dir `"`directory'"' files "*.dta"
@@ -192,6 +195,7 @@ end
 // Helper: CountFiles
 // =============================================================================
 program define CountFiles, rclass
+	version 14.0
 	args tmpfile
 
 	tempname fh
@@ -211,6 +215,7 @@ end
 // Helper: CollectDatasetNames - extract display names for TOC
 // =============================================================================
 program define CollectDatasetNames
+	version 14.0
 	args filelist namesfile nfiles
 
 	tempname fh_in fh_out
@@ -246,6 +251,7 @@ end
 // Helper: MakeAnchor - create markdown anchor from text
 // =============================================================================
 program define MakeAnchor, rclass
+	version 14.0
 	args idx name
 
 	// Convert to lowercase and replace spaces/special chars with hyphens
@@ -260,6 +266,7 @@ end
 // Helper: EscapeMarkdown - escape special markdown characters
 // =============================================================================
 program define EscapeMarkdown, rclass
+	version 14.0
 	args text
 
 	local escaped `"`macval(text)'"'
@@ -280,6 +287,7 @@ end
 // Helper: ProcessCombined
 // =============================================================================
 program define ProcessCombined
+	version 14.0
 	args filelist namesfile output title subtitle version author date notes changelog nfiles showmissing showstats maxcat maxfreq
 
 	di as text `"Creating Markdown dictionary: `output'"'
@@ -435,6 +443,7 @@ end
 // Helper: ProcessSeparate
 // =============================================================================
 program define ProcessSeparate
+	version 14.0
 	args filelist namesfile title subtitle version author date notes changelog nfiles showmissing showstats maxcat maxfreq
 
 	tempname fh_list fh_names
@@ -500,6 +509,7 @@ end
 // Helper: ProcessOneDataset
 // =============================================================================
 program define ProcessOneDataset
+	version 14.0
 	args fh filepath dsname dslabel idx showmissing showstats maxcat maxfreq
 
 	// Get metadata
@@ -561,6 +571,7 @@ end
 // Helper: WriteVariableRow
 // =============================================================================
 program define WriteVariableRow
+	version 14.0
 	args fh vname obs showmissing showstats maxcat maxfreq
 
 	local vtype: type `vname'
@@ -742,6 +753,7 @@ end
 // Helper: GetValueLabelString - format value labels for display
 // =============================================================================
 program define GetValueLabelString, rclass
+	version 14.0
 	args vname vallabname maxlevels
 
 	// Get unique non-missing values
@@ -804,6 +816,7 @@ end
 // Helper: GetUnlabeledFreqs - get frequencies for unlabeled categorical vars
 // =============================================================================
 program define GetUnlabeledFreqs, rclass
+	version 14.0
 	args vname maxlevels
 
 	capture quietly levelsof `vname' if !missing(`vname'), local(levels)
@@ -842,6 +855,7 @@ end
 // Helper: FormatStatNumber - format numbers intelligently based on magnitude
 // =============================================================================
 program define FormatStatNumber, rclass
+	version 14.0
 	args num
 
 	// Handle missing
@@ -883,6 +897,7 @@ end
 // Helper: GetCategoricalStats - get frequencies with percentages for labeled categoricals
 // =============================================================================
 program define GetCategoricalStats, rclass
+	version 14.0
 	args vname vallabname maxlevels totalobs
 
 	// Get unique non-missing values
@@ -959,6 +974,7 @@ end
 // Helper: GetUnlabeledStats - get frequencies with percentages for unlabeled categoricals
 // =============================================================================
 program define GetUnlabeledStats, rclass
+	version 14.0
 	args vname maxlevels totalobs
 
 	capture quietly levelsof `vname' if !missing(`vname'), local(levels)

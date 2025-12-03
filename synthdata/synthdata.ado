@@ -1,4 +1,4 @@
-*! synthdata Version 1.0.0  2025/12/02  Synthetic data generation
+*! synthdata Version 1.0.1  03dec2025  Synthetic data generation
 program define synthdata
     version 16.0
     set varabbrev off
@@ -139,9 +139,17 @@ program define synthdata
     // Handle skip variables - set to missing in synthetic data
     if "`skip'" != "" {
         foreach v of local skip {
-            cap drop `v'
+            // Check type before dropping
+            local is_string = 0
             cap confirm string variable `v'
             if !_rc {
+                local is_string = 1
+            }
+
+            cap drop `v'
+
+            // Recreate based on original type
+            if `is_string' {
                 qui gen str1 `v' = ""
             }
             else {
@@ -209,7 +217,13 @@ program define synthdata
             di as error "multiple() requires saving() option"
             exit 198
         }
-        
+
+        // Sanitize filename
+        if regexm("`saving'", "[;&|><\$\`]") {
+            di as error "saving() contains invalid characters"
+            exit 198
+        }
+
         // Save first dataset
         local savename = subinstr("`saving'", ".dta", "", .)
         qui save "`savename'_1.dta", replace
@@ -247,6 +261,28 @@ program define synthdata
                 foreach v of local id {
                     cap drop `v'
                     qui gen long `v' = _n
+                    label var `v' "Synthetic ID"
+                }
+            }
+
+            if "`skip'" != "" {
+                foreach v of local skip {
+                    // Check type before dropping
+                    local is_string = 0
+                    cap confirm string variable `v'
+                    if !_rc {
+                        local is_string = 1
+                    }
+
+                    cap drop `v'
+
+                    // Recreate based on original type
+                    if `is_string' {
+                        qui gen str1 `v' = ""
+                    }
+                    else {
+                        qui gen `v' = .
+                    }
                 }
             }
             
@@ -276,6 +312,11 @@ program define synthdata
     else {
         // Single dataset handling
         if "`saving'" != "" {
+            // Sanitize filename
+            if regexm("`saving'", "[;&|><\$\`]") {
+                di as error "saving() contains invalid characters"
+                exit 198
+            }
             local savename = subinstr("`saving'", ".dta", "", .)
             qui save "`savename'.dta", replace
             di as txt "Synthetic data saved to `savename'.dta"
@@ -303,6 +344,7 @@ end
 
 // Classify variables as categorical, continuous, date, or string
 program define _synthdata_classify, rclass
+    version 16.0
     syntax varlist, [categorical(varlist) continuous(varlist) dates(varlist)]
     
     local catvars `categorical'
@@ -333,9 +375,15 @@ program define _synthdata_classify, rclass
         }
         
         // Check number of unique values (for numeric only)
-        qui levelsof `v', local(levels)
-        local nuniq: word count `levels'
-        
+        qui count if !missing(`v')
+        if r(N) > 0 {
+            qui levelsof `v', local(levels)
+            local nuniq: word count `levels'
+        }
+        else {
+            local nuniq = 0
+        }
+
         // Heuristic: if <= 20 unique values or has value label, treat as categorical
         local vallbl: value label `v'
         if `nuniq' <= 20 | "`vallbl'" != "" {
@@ -354,6 +402,7 @@ end
 
 // Store original variable bounds
 program define _synthdata_storebounds
+    version 16.0
     syntax varlist, saving(string)
     
     tempname memhold
@@ -369,6 +418,7 @@ end
 
 // Store original statistics (numeric variables only)
 program define _synthdata_stats
+    version 16.0
     syntax varlist, saving(string)
     
     tempname memhold
@@ -389,6 +439,7 @@ end
 
 // Parametric synthesis method
 program define _synthdata_parametric
+    version 16.0
     syntax, n(integer) [catvars(varlist) contvars(varlist) datevars(varlist) ///
         strvars(string) origdata(string) empirical smooth correlations ///
         mincell(integer 5) trim(real 0)]
@@ -605,6 +656,7 @@ end
 
 // Bootstrap synthesis method
 program define _synthdata_bootstrap
+    version 16.0
     syntax, n(integer) noise(real) [catvars(varlist) contvars(varlist) ///
         datevars(varlist) strvars(string) origdata(string) ///
         mincell(integer 5) trim(real 0)]
@@ -686,6 +738,7 @@ end
 
 // Permute method (breaks all relationships)
 program define _synthdata_permute
+    version 16.0
     syntax varlist, n(integer) origdata(string)
     
     local orig_n = _N
@@ -722,6 +775,7 @@ end
 
 // Sequential regression method
 program define _synthdata_sequential
+    version 16.0
     syntax, n(integer) [catvars(varlist) contvars(varlist) ///
         datevars(varlist) strvars(string) origdata(string) ///
         mincell(integer 5) trim(real 0)]
@@ -907,6 +961,7 @@ end
 
 // Apply user constraints via rejection/clipping
 program define _synthdata_constraints
+    version 16.0
     syntax, constraints(string asis) iterate(integer)
     
     local iter = 0
@@ -1005,6 +1060,7 @@ end
 
 // Auto-detect and apply constraints
 program define _synthdata_autoconstraints
+    version 16.0
     syntax varlist, iterate(integer) origdata(string)
     
     local constraints ""
@@ -1032,6 +1088,7 @@ end
 
 // Apply bounds
 program define _synthdata_bounds
+    version 16.0
     syntax, bounds(string asis)
     
     local remaining `"`bounds'"'
@@ -1064,6 +1121,7 @@ end
 
 // Enforce no values outside observed range
 program define _synthdata_noextreme
+    version 16.0
     syntax varlist, boundsfile(string)
     
     preserve
@@ -1088,6 +1146,7 @@ end
 
 // Handle panel structure
 program define _synthdata_panel
+    version 16.0
     syntax, panelid(string) paneltime(string) [preserve(varlist) autocorr(integer 0) n(integer) origdata(string)]
     
     di as txt "Note: Panel structure synthesis generates similar panel structure but simplified correlations"
@@ -1121,6 +1180,7 @@ end
 
 // Compare original and synthetic statistics
 program define _synthdata_compare
+    version 16.0
     syntax varlist, origstats(string) [prefix(string)]
     
     // Compute synthetic stats
@@ -1194,6 +1254,7 @@ end
 
 // Save validation statistics
 program define _synthdata_validate
+    version 16.0
     syntax varlist, origstats(string) saving(string) [prefix(string)]
     
     // Handle prefix
@@ -1227,7 +1288,12 @@ program define _synthdata_validate
     qui gen mean_diff_pct = abs(mean_orig - mean_synth) / sd_orig * 100 if sd_orig != 0
     qui gen sd_ratio = sd_synth / sd_orig if sd_orig != 0
     qui gen range_coverage = (max_synth - min_synth) / (max_orig - min_orig) if (max_orig - min_orig) != 0
-    
+
+    // Sanitize filename
+    if regexm("`saving'", "[;&|><\$\`]") {
+        di as error "validate() filename contains invalid characters"
+        exit 198
+    }
     local savename = subinstr("`saving'", ".dta", "", .)
     qui save "`savename'.dta", replace
     
@@ -1237,6 +1303,7 @@ end
 
 // Utility metrics
 program define _synthdata_utility
+    version 16.0
     syntax varlist, origstats(string)
     
     di as txt _n "Utility Metrics Summary:"
@@ -1246,6 +1313,7 @@ end
 
 // Density comparison graphs
 program define _synthdata_graph
+    version 16.0
     syntax varlist, origdata(string) [prefix(string)]
     
     local ngraphs: word count `varlist'

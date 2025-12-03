@@ -1,4 +1,4 @@
-*! stratetab Version 1.0.0  2025/12/02
+*! stratetab Version 1.0.1  03dec2025
 *! Author: Tim Copeland
 
 /*
@@ -30,7 +30,7 @@ SYNTAX:
 */
 
 program define stratetab
-version 17
+version 17.0
 set varabbrev off
 
 if "`_byvars'" != "" {
@@ -45,6 +45,12 @@ syntax, using(namelist) xlsx(string) outcomes(integer) ///
 
 if !strmatch("`xlsx'", "*.xlsx") {
 	di as err "xlsx must have .xlsx extension"
+	exit 198
+}
+
+* Sanitize file path to prevent injection
+if regexm("`xlsx'", "[;&|><\$]") {
+	di as err "xlsx() contains invalid characters"
 	exit 198
 }
 
@@ -75,6 +81,14 @@ if mod(`n_files', `outcomes') != 0 {
 }
 
 local n_exposures = `n_files' / `outcomes'
+
+* Sanitize file paths in using()
+foreach file of local using {
+	if regexm("`file'", "[;&|><\$]") {
+		di as err "using() contains invalid characters: `file'"
+		exit 198
+	}
+}
 
 * Parse outcome labels
 if "`outlabels'" != "" {
@@ -167,7 +181,15 @@ forvalues e = 1/`n_exposures' {
 		* Convert categorical to string if needed
 		cap confirm string var `catvar'
 		if _rc {
-			decode `catvar', gen(catvar_str)
+			* Check if variable has a value label before decoding
+			local vallabel : value label `catvar'
+			if "`vallabel'" != "" {
+				decode `catvar', gen(catvar_str)
+			}
+			else {
+				* No value label - convert to string directly
+				gen catvar_str = string(`catvar')
+			}
 		}
 		else {
 			gen catvar_str = `catvar'
@@ -278,14 +300,14 @@ forvalues e = 1/`n_exposures' {
 
 * Identify exposure header rows (for borders)
 local lastrow = _N
-gen exp_row = (c2 == "" & c1 != "" & c1 != "Exposure" & _n > 3)
+tempvar exp_row
+gen `exp_row' = (c2 == "" & c1 != "" & c1 != "Exposure" & _n > 3)
 local exp_rows ""
 forvalues r = 4/`lastrow' {
-	if exp_row[`r'] == 1 {
+	if `exp_row'[`r'] == 1 {
 		local exp_rows "`exp_rows' `r'"
 	}
 }
-drop exp_row
 
 * Export to Excel
 local sht = cond("`sheet'" != "", "`sheet'", "Results")

@@ -95,6 +95,7 @@ For a complete list of date formats, see Stata's help on datetime display format
 
 ## Version History
 
+- **Version 1.0.1** (3 December 2025): Bug fixes - replaced hardcoded variable names with tempvars, improved datetime detection, fixed local macro checking
 - **Version 1.0.0** (2 December 2025): GitHub publication release
 
 ## Author

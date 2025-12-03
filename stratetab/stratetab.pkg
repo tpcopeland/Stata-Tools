@@ -7,7 +7,7 @@ d in the first column. The command creates a formatted table with events,
 d person-years, and rates with 95% confidence intervals.
 d
 d Requires: Stata version 17
-d Distribution-Date: 20251202
+d Distribution-Date: 20251203
 d License: MIT
 d
 d Author: Timothy P. Copeland

@@ -1139,6 +1139,7 @@ net install datamap
 
 ## Version History
 
+- **Version 1.0.1** (3 December 2025): Added version statements to all helper programs for Stata version compatibility
 - **Version 1.0.0** (2 December 2025): GitHub publication release
 
 ## Author

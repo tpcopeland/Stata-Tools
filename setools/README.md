@@ -268,11 +268,11 @@ MIT License
 
 ## Version
 
-Version 1.0.0, 2025-12-02
+Version 1.0.1, 2025-12-03
 
 Individual command versions:
-- migrations: 1.0.3
-- sustainedss: 1.1.1
+- migrations: 1.0.1
+- sustainedss: 1.0.1
 
 ## References
 

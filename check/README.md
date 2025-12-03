@@ -16,7 +16,11 @@ The command is ideal for:
 
 ## Dependencies
 
-None - uses only built-in Stata commands.
+This command requires the following user-written packages:
+- **mdesc** - Install with: `ssc install mdesc`
+- **unique** - Install with: `ssc install unique`
+
+These packages will be automatically checked when you run `check`, with informative error messages if not installed.
 
 ## Installation
 
@@ -168,7 +172,7 @@ MIT License
 
 ## Version
 
-Version 1.0.0, 2025-12-02
+Version 1.0.1, 2025-12-03
 
 ## See Also
 

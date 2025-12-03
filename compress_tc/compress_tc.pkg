@@ -21,7 +21,7 @@ d KW: string
 d KW: memory
 d KW: strL
 d
-d Distribution-Date: 20251202
+d Distribution-Date: 20251203
 d License: MIT
 d
 f compress_tc.ado

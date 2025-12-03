@@ -177,6 +177,10 @@ Creates an installation script for commonly used regression and output packages.
 
 ## Version History
 
+- **Version 1.0.1** (3 December 2025): Security and validation improvements
+  - Added file path sanitization for dofile() and zipfile() options
+  - Fixed file extension validation to check file endings
+  - Removed debugging code from production
 - **Version 1.0.0** (2 December 2025): GitHub publication release
 
 ## Author

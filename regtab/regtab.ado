@@ -1,4 +1,4 @@
-*! regtab Version 1.0.0  2025/12/02
+*! regtab Version 1.0.1  03dec2025
 *! Original Author: Tim Copeland
 
 /* 
@@ -23,6 +23,8 @@ capture program drop col_to_letter
 
 * Helper program to convert column number to Excel letter
 program col_to_letter
+	version 17.0
+	set varabbrev off
 	args col_num
 	local col_letter = ""
 	local temp_col_num = `col_num'
@@ -35,8 +37,8 @@ program col_to_letter
 end
 
 program define regtab, rclass
-version 17
-set varabbrev off
+	version 17.0
+	set varabbrev off
 
 syntax, xlsx(string) sheet(string) [sep(string asis) models(string) coef(string) title(string) noint nore]
 
@@ -67,6 +69,16 @@ quietly{
         exit 198
     }
 
+    * Validation: Check for dangerous characters in file path
+    if regexm("`xlsx'", "[;&|><\$\`]") {
+        noisily display as error "Excel filename contains invalid characters"
+        exit 198
+    }
+    if regexm("`sheet'", "[;&|><\$\`]") {
+        noisily display as error "Sheet name contains invalid characters"
+        exit 198
+    }
+
     * Create temporary file for intermediate processing
     tempfile temp_export
     local temp_xlsx = subinstr("`temp_export'", ".tmp", ".xlsx", .)
@@ -83,9 +95,20 @@ collect style cell result[_r_p], warn nformat(%5.4f) halign(center) valign(cente
 collect style column, dups(center)
 collect style row stack, nodelimiter nospacer indent length(.) wrapon(word) noabbreviate wrap(.) truncate(tail)
 collect layout (colname) (cmdset#result[_r_b _r_ci _r_p]) ()
-collect export "`temp_xlsx'", sheet(temp,replace) modify
 
-import excel "`temp_xlsx'", sheet(temp) clear
+capture collect export "`temp_xlsx'", sheet(temp,replace) modify
+if _rc {
+	noisily display as error "Failed to export collect table to temporary Excel file"
+	noisily display as error "Check that collect table is properly structured"
+	exit _rc
+}
+
+capture import excel "`temp_xlsx'", sheet(temp) clear
+if _rc {
+	noisily display as error "Failed to import temporary Excel file"
+	capture erase "`temp_xlsx'"
+	exit _rc
+}
 if "`noint'" != "" {
 	drop if inlist(strlower(strtrim(A)), "intercept", "_cons", "constant", "Intercept")
 }
@@ -162,10 +185,17 @@ set obs `count'
 replace id = 0 if id == . 
 sort id 
 drop id 
-gen title = "" 
-order title 
-replace title = "`title'" if _n == 1 
-export excel using "`xlsx'", sheet("`sheet'") sheetreplace
+gen title = ""
+order title
+replace title = "`title'" if _n == 1
+
+capture export excel using "`xlsx'", sheet("`sheet'") sheetreplace
+if _rc {
+	noisily display as error "Failed to export to `xlsx', sheet `sheet'"
+	noisily display as error "Check file permissions and that file is not open in Excel"
+	capture erase "`temp_xlsx'"
+	exit _rc
+}
 
 local num_rows = _N
 local num_cols = c(k)
