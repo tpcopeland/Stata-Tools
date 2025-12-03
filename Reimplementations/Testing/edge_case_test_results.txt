@@ -1,0 +1,114 @@
+================================================================================
+EDGE CASE TEST RESULTS FOR PYTHON TVTOOLS IMPLEMENTATION
+================================================================================
+Test Date: 2025-12-03 03:43:27
+Total Tests: 17
+Passed: 17
+Failed: 0
+Errors: 0
+Issues: 0
+Skipped: 0
+
+================================================================================
+TEST 1: Empty exposure dataset
+--------------------------------------------------------------------------------
+Status: PASSED
+Message: Returned 5 rows with no exposures
+
+================================================================================
+TEST 2: Patient with no exposures
+--------------------------------------------------------------------------------
+Status: PASSED
+Message: Processed 3 patients with no exposures, returned 3 rows
+
+================================================================================
+TEST 3: All exposures outside study period
+--------------------------------------------------------------------------------
+Status: PASSED
+Message: Returned 1 rows (exposures should be ignored)
+
+================================================================================
+TEST 4: Zero-duration exposures
+--------------------------------------------------------------------------------
+Status: PASSED
+Message: Returned 7 rows with zero-duration exposures
+
+================================================================================
+TEST 5: Negative duration exposures
+--------------------------------------------------------------------------------
+Status: PASSED
+Message: Handled gracefully, returned 1 rows
+
+================================================================================
+TEST 6: Single observation
+--------------------------------------------------------------------------------
+Status: PASSED
+Message: Processed 1 patient, returned 5 rows
+
+================================================================================
+TEST 7: Exposure starts at study_entry
+--------------------------------------------------------------------------------
+Status: PASSED
+Message: First interval correctly starts at study_entry
+
+================================================================================
+TEST 8: Exposure ends at study_exit
+--------------------------------------------------------------------------------
+Status: PASSED
+Message: Last interval correctly ends at/before study_exit
+
+================================================================================
+TEST 9: Event on study_entry date
+--------------------------------------------------------------------------------
+Status: PASSED
+Message: Event at study_entry handled, returned 4 rows
+
+================================================================================
+TEST 10: Event on study_exit date
+--------------------------------------------------------------------------------
+Status: PASSED
+Message: Event at study_exit handled, returned 4 rows
+
+================================================================================
+TEST 11: All competing events on same date
+--------------------------------------------------------------------------------
+Status: PASSED
+Message: Tie-breaking applied, found 1 event row(s), event value: 1
+
+================================================================================
+TEST 12: Event before all intervals
+--------------------------------------------------------------------------------
+Status: PASSED
+Message: Event before study period correctly ignored
+
+================================================================================
+TEST 13: Event after all intervals
+--------------------------------------------------------------------------------
+Status: PASSED
+Message: Event after study period correctly ignored
+
+================================================================================
+TEST 14: No events for any patient
+--------------------------------------------------------------------------------
+Status: PASSED
+Message: Correctly validates that events data must contain events
+Error: No events found in events_data. All date columns are missing.
+
+================================================================================
+TEST 15: Complete overlap
+--------------------------------------------------------------------------------
+Status: PASSED
+Message: Handled overlapping exposures, returned 3 rows
+
+================================================================================
+TEST 16: Nested exposures
+--------------------------------------------------------------------------------
+Status: PASSED
+Message: Handled nested exposures, returned 5 rows with proper intervals
+
+================================================================================
+TEST 17: Adjacent exposures
+--------------------------------------------------------------------------------
+Status: PASSED
+Message: Handled adjacent exposures, returned 4 rows
+

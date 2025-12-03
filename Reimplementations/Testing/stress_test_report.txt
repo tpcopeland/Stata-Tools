@@ -1,0 +1,130 @@
+======================================================================
+PYTHON TVTOOLS STRESS TEST REPORT
+======================================================================
+Generated: 2025-12-03 03:44:35
+Test data directory: /home/user/Stata-Tools/Reimplementations/Testing
+Output directory: /home/user/Stata-Tools/Reimplementations/Testing/stress_test_outputs
+
+DATASET SUMMARY
+----------------------------------------------------------------------
+Cohort: 1,000 patients
+Exposures: 4,708 exposure periods
+Exposures2: 2,857 exposure periods
+Events: 1,000 patient records
+
+SCALABILITY ANALYSIS
+----------------------------------------------------------------------
+
+1. TVExpose Performance
+   ------------------------------------------------------------
+   Patients     Time (s)     Memory (MB)  Output       Status      
+   ------------------------------------------------------------
+   100          0.283        0.37         585          PASS        
+   500          0.296        0.95         3,120        PASS        
+   1000         0.343        1.75         6,281        PASS        
+
+2. TVMerge Performance
+   ------------------------------------------------------------
+   Patients     Time (s)     Memory (MB)  Output       Status      
+   ------------------------------------------------------------
+   100          0.087        0.28         930          PASS        
+   500          0.098        1.08         4,885        PASS        
+   1000         0.117        2.11         9,940        PASS        
+
+3. TVEvent Performance
+   ------------------------------------------------------------
+   Patients     Time (s)     Memory (MB)  Events       Status      
+   ------------------------------------------------------------
+   100          ERROR        ERROR        ERROR        ERROR       
+   500          ERROR        ERROR        ERROR        ERROR       
+   1000         ERROR        ERROR        ERROR        ERROR       
+
+VALIDATION RESULTS
+----------------------------------------------------------------------
+
+100 patients:
+  TVExpose:
+    All patients present: True
+    No duplicates: True
+    Valid date order: True
+    Dates within study: True
+  TVMerge:
+    All patients present: True
+    No duplicates: True
+    Valid date order: True
+    Dates within study: True
+
+500 patients:
+  TVExpose:
+    All patients present: True
+    No duplicates: True
+    Valid date order: True
+    Dates within study: True
+  TVMerge:
+    All patients present: True
+    No duplicates: True
+    Valid date order: True
+    Dates within study: True
+
+1000 patients:
+  TVExpose:
+    All patients present: True
+    No duplicates: True
+    Valid date order: True
+    Dates within study: True
+  TVMerge:
+    All patients present: True
+    No duplicates: True
+    Valid date order: True
+    Dates within study: True
+
+ERRORS ENCOUNTERED
+----------------------------------------------------------------------
+Test: tvevent_basic
+N patients: 100
+Error: Found 19 intervals where start >= stop. Sample IDs: [2, 5, 6, 8, 9]
+
+Test: tvevent_basic
+N patients: 500
+Error: Found 73 intervals where start >= stop. Sample IDs: [2, 5, 6, 8, 9]
+
+Test: tvevent_basic
+N patients: 1000
+Error: Found 155 intervals where start >= stop. Sample IDs: [2, 5, 6, 8, 9]
+
+NOTE ON TVEVENT ERRORS:
+----------------------------------------------------------------------
+The TVEvent implementation currently rejects intervals where start = stop
+(single-day exposures). This is a known limitation that should be addressed.
+Single-day intervals are valid in time-varying analysis and represent
+exposures occurring on a specific date. The error affects approximately
+1-3% of intervals in these stress test datasets.
+
+RECOMMENDATION: Update TVEvent validation to allow start = stop intervals.
+Change validation from 'start >= stop' to 'start > stop'.
+
+
+PERFORMANCE ANALYSIS & RECOMMENDATIONS
+----------------------------------------------------------------------
+
+1. TVExpose Scaling:
+   - 100 patients: 0.283s
+   - 1000 patients: 0.343s
+   - Actual scaling factor: 1.21x
+   - Theoretical (linear): 10.00x
+   - Assessment: Good scaling (near-linear or better)
+
+3. Memory Usage:
+   - TVExpose @ 100 patients: 0.37 MB
+   - TVExpose @ 500 patients: 0.95 MB
+   - TVExpose @ 1000 patients: 1.75 MB
+
+4. General Recommendations:
+   - For datasets >10,000 patients, consider batch processing
+   - Monitor memory usage for very large exposure datasets
+   - Use data type optimization (e.g., categorical for codes)
+   - Consider parallel processing for independent patient cohorts
+
+======================================================================
+END OF REPORT
+======================================================================

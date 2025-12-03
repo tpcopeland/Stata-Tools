@@ -1,0 +1,99 @@
+================================================================================
+        STRESS TEST DATA - QUICK REFERENCE CARD
+================================================================================
+
+LOAD DATA (Python):
+-------------------
+import pandas as pd
+
+cohort = pd.read_csv('stress_cohort.csv', parse_dates=['study_entry', 'study_exit'])
+exp1 = pd.read_csv('stress_exposures.csv', parse_dates=['exp_start', 'exp_stop'])
+exp2 = pd.read_csv('stress_exposures2.csv', parse_dates=['exp_start', 'exp_stop'])
+events = pd.read_csv('stress_events.csv')
+for col in ['mi_date', 'death_date', 'emigration_date']:
+    events[col] = pd.to_datetime(events[col], errors='coerce')
+
+
+LOAD DATA (R):
+--------------
+cohort <- read.csv('stress_cohort.csv')
+cohort$study_entry <- as.Date(cohort$study_entry)
+cohort$study_exit <- as.Date(cohort$study_exit)
+
+exp1 <- read.csv('stress_exposures.csv')
+exp1$exp_start <- as.Date(exp1$exp_start)
+exp1$exp_stop <- as.Date(exp1$exp_stop)
+
+exp2 <- read.csv('stress_exposures2.csv')
+exp2$exp_start <- as.Date(exp2$exp_start)
+exp2$exp_stop <- as.Date(exp2$exp_stop)
+
+events <- read.csv('stress_events.csv')
+events$mi_date <- as.Date(events$mi_date)
+events$death_date <- as.Date(events$death_date)
+events$emigration_date <- as.Date(events$emigration_date)
+
+
+DATASET SIZES:
+--------------
+cohort:      1,000 patients
+exposures1:  4,708 records (895 patients, 5.26 avg per patient)
+exposures2:  2,857 records (854 patients, 3.35 avg per patient)
+events:      1,000 records (460 with events, 540 censored)
+
+
+CRITICAL EDGE CASES TO VERIFY:
+-------------------------------
+1. Zero-duration exposures (start == stop): 206 + 126 = 332 total
+2. Overlapping exposures: 1,745 + 806 = 2,551 pairs
+3. Adjacent exposures (end == next start): 77 + 70 = 147 pairs
+4. Exposures before study_entry: 217
+5. Exposures after study_exit: 1,083
+6. Events before study_entry (invalid): 24
+7. Events after study_exit (invalid): 23
+8. Multiple events same date: 10 occurrences
+9. Patients with NO exposures: 105
+10. Patients with NO events: 540
+
+
+VALIDATION CHECKLIST:
+---------------------
+[ ] Functions handle zero-duration exposures
+[ ] Overlapping exposures merged/handled correctly
+[ ] Adjacent exposures have no gaps
+[ ] Exposures clipped to study boundaries
+[ ] Invalid events (before/after study) excluded
+[ ] Boundary events (at entry/exit) included
+[ ] Same-date events handled correctly
+[ ] Patients with no exposures represented
+[ ] Censored patients contribute to risk set
+[ ] All drug types (0,1,2,3) processed correctly
+
+
+EXPECTED BEHAVIORS:
+-------------------
+tvsplit:   Should create multiple rows per patient based on exposure changes
+           Total output rows >> 1,000 (varies by implementation)
+
+tvmerge:   Should merge exp1 + exp2 into combined exposure timeline
+           Handle overlaps from both datasets
+           Create interaction categories
+
+tvcoxph:   Should produce hazard ratios for each drug_type vs reference (0)
+           Handle competing risks (mi, death, emigration)
+           Exclude invalid events (before entry/after exit)
+
+
+REGENERATE DATA:
+----------------
+cd /home/user/Stata-Tools/Reimplementations/Testing
+python3 generate_comprehensive_test_data.py
+
+(Deterministic: seed 42, produces identical data)
+
+
+MORE INFO:
+----------
+See STRESS_TEST_DATA_README.md for detailed documentation
+
+================================================================================
