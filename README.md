@@ -78,6 +78,13 @@ This repository contains a suite of Stata packages developed to streamline commo
 
 ### Analysis & Tables
 
+**consort** - CONSORT flow diagram generator for clinical trials
+- Generate publication-quality CONSORT flow diagrams
+- Support for 2, 3, or 4 treatment arms with automatic layout
+- Detailed tracking of exclusions, losses, and discontinuations
+- Export to PNG, PDF, EPS, SVG, and other formats
+- Includes dialog interface
+
 **table1_tc** - Create publication-ready Table 1 of baseline characteristics
 - Automatic statistical test selection based on variable types
 - Excel export with professional formatting
@@ -204,7 +211,7 @@ The majority of packages are compatible with Stata 14.2 or higher. Specific vers
 Each package includes comprehensive documentation:
 - **Stata Help Files (.sthlp)**: Access in-depth help using `help [command]`
 - **Package README**: Installation instructions and usage details
-- **Dialog Interfaces**: User-friendly GUI available for select commands (table1_tc, regtab, tvtools)
+- **Dialog Interfaces**: User-friendly GUI available for select commands (consort, table1_tc, regtab, tvtools)
 - **Examples**: Quick start examples and best practices included in help files
 
 ## Support
@@ -227,11 +234,12 @@ MIT License - see individual package files for details
 |---------|-------------|---------|---------------|
 | check | Variable inspection | 1.0.2 | 14+ |
 | compress_tc | String compression via strL | 1.0.2 | 13+ |
+| consort | CONSORT flow diagram generator | 1.0.0 | 16+ |
 | cstat_surv | C-statistic for survival | 1.0.1 | 16+ |
 | datamap | Dataset documentation | 1.0.1 | 16+ |
 | datefix | Date format conversion | 1.0.1 | 14+ |
 | massdesas | Batch SAS to Stata conversion | 1.0.2 | 14+ |
-| mvp | Missing value pattern analysis | 1.0.1 | 14+ |
+| mvp | Missing value pattern analysis | 1.1.0 | 14+ |
 | pkgtransfer | Package management | 1.0.1 | 14+ |
 | regtab | Regression tables | 1.0.2 | 17+ |
 | setools | Swedish registry data tools | 1.0.1 | 18+ |

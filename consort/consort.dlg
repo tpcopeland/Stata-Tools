@@ -1,0 +1,532 @@
+VERSION 16.0
+INCLUDE _std_xlarge
+DEFINE _dlght 520
+DEFINE _dlgwd 700
+INCLUDE header
+
+HELP hlp1, view("help consort")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	program parseMessage
+	script max_setOptionalOn
+END
+
+SCRIPT POSTINIT
+BEGIN
+	script max_setDefaultWidth
+	script arm3_disable
+	script arm4_disable
+END
+
+* ============================================================================
+* MAIN TAB - ENROLLMENT
+* ============================================================================
+
+DIALOG main, label("consort - CONSORT Flow Diagram Generator") tabtitle("Enrollment")
+BEGIN
+  TEXT     tx_info       10  10  680  ., ///
+           label("Generate CONSORT flow diagrams for randomized clinical trials")
+
+  GROUPBOX gb_enrollment 10  35  680  140, label("Enrollment stage (required)")
+  TEXT     tx_assessed   20  +15 220  ., label("Assessed for eligibility:")
+  SPINNER  sp_assessed   @   +20 120  ., min(0) max(999999) default(100) ///
+           label("Assessed")
+
+  TEXT     tx_excluded   260 -20 220  ., label("Excluded:")
+  SPINNER  sp_excluded   @   +20 120  ., min(0) max(999999) default(0) ///
+           label("Excluded")
+
+  TEXT     tx_randomized 500 -20 160  ., label("Randomized:")
+  SPINNER  sp_randomized @   +20 120  ., min(0) max(999999) default(100) ///
+           label("Randomized")
+
+  TEXT     tx_excreasons 20  +25 660  ., label("Exclusion reasons (separate with ;;):")
+  EDIT     ed_excreasons @   +20 660  ., label("Exclusion reasons")
+
+  GROUPBOX gb_arms       10  180 680  60, label("Number of treatment arms")
+  RADIO    rb_2arms      20  +20 120  ., label("2 arms") first default(1) ///
+           onclickon(script arms2_selected)
+  RADIO    rb_3arms      150 @   120  ., label("3 arms") ///
+           onclickon(script arms3_selected)
+  RADIO    rb_4arms      280 @   120  ., label("4 arms") last ///
+           onclickon(script arms4_selected)
+END
+
+* ============================================================================
+* ARM 1 TAB
+* ============================================================================
+
+DIALOG arm1, tabtitle("Arm 1")
+BEGIN
+  GROUPBOX gb_arm1_alloc 10  10  680  120, label("Arm 1 - Allocation (required)")
+  TEXT     tx_arm1_label 20  +15 220  ., label("Arm label:")
+  EDIT     ed_arm1_label @   +20 200  ., label("Arm 1 label") default("Treatment")
+
+  TEXT     tx_arm1_alloc 320 -20 180  ., label("Allocated:")
+  SPINNER  sp_arm1_alloc @   +20 120  ., min(0) max(999999) default(50) ///
+           label("Arm 1 allocated")
+
+  TEXT     tx_arm1_recv  20  +25 220  ., label("Received intervention (optional):")
+  SPINNER  sp_arm1_recv  @   +20 120  ., min(-1) max(999999) default(-1) ///
+           label("Arm 1 received")
+  TEXT     tx_recv_note  150 @   300  ., label("(-1 = not shown)")
+
+  TEXT     tx_arm1_notrec 320 -20 180  ., label("Did not receive:")
+  SPINNER  sp_arm1_notrec @ +20 120  ., min(0) max(999999) default(0) ///
+           label("Arm 1 not received")
+
+  GROUPBOX gb_arm1_fu    10  135 680  100, label("Arm 1 - Follow-up")
+  TEXT     tx_arm1_lost  20  +20 220  ., label("Lost to follow-up:")
+  SPINNER  sp_arm1_lost  @   +20 120  ., min(0) max(999999) default(0) ///
+           label("Arm 1 lost")
+
+  TEXT     tx_arm1_disc  320 -20 180  ., label("Discontinued:")
+  SPINNER  sp_arm1_disc  @   +20 120  ., min(0) max(999999) default(0) ///
+           label("Arm 1 discontinued")
+
+  TEXT     tx_arm1_lostr 20  +25 660  ., label("Reasons (separate with ;;):")
+  EDIT     ed_arm1_lostr @   +20 660  ., label("Arm 1 loss reasons")
+
+  GROUPBOX gb_arm1_ana   10  240 680  80, label("Arm 1 - Analysis (required)")
+  TEXT     tx_arm1_ana   20  +20 220  ., label("Analysed:")
+  SPINNER  sp_arm1_ana   @   +20 120  ., min(0) max(999999) default(50) ///
+           label("Arm 1 analysed")
+
+  TEXT     tx_arm1_exc   320 -20 180  ., label("Excluded from analysis:")
+  SPINNER  sp_arm1_exc   @   +20 120  ., min(0) max(999999) default(0) ///
+           label("Arm 1 excluded")
+END
+
+* ============================================================================
+* ARM 2 TAB
+* ============================================================================
+
+DIALOG arm2, tabtitle("Arm 2")
+BEGIN
+  GROUPBOX gb_arm2_alloc 10  10  680  120, label("Arm 2 - Allocation (required)")
+  TEXT     tx_arm2_label 20  +15 220  ., label("Arm label:")
+  EDIT     ed_arm2_label @   +20 200  ., label("Arm 2 label") default("Control")
+
+  TEXT     tx_arm2_alloc 320 -20 180  ., label("Allocated:")
+  SPINNER  sp_arm2_alloc @   +20 120  ., min(0) max(999999) default(50) ///
+           label("Arm 2 allocated")
+
+  TEXT     tx_arm2_recv  20  +25 220  ., label("Received intervention (optional):")
+  SPINNER  sp_arm2_recv  @   +20 120  ., min(-1) max(999999) default(-1) ///
+           label("Arm 2 received")
+  TEXT     tx_recv_note2 150 @   300  ., label("(-1 = not shown)")
+
+  TEXT     tx_arm2_notrec 320 -20 180  ., label("Did not receive:")
+  SPINNER  sp_arm2_notrec @ +20 120  ., min(0) max(999999) default(0) ///
+           label("Arm 2 not received")
+
+  GROUPBOX gb_arm2_fu    10  135 680  100, label("Arm 2 - Follow-up")
+  TEXT     tx_arm2_lost  20  +20 220  ., label("Lost to follow-up:")
+  SPINNER  sp_arm2_lost  @   +20 120  ., min(0) max(999999) default(0) ///
+           label("Arm 2 lost")
+
+  TEXT     tx_arm2_disc  320 -20 180  ., label("Discontinued:")
+  SPINNER  sp_arm2_disc  @   +20 120  ., min(0) max(999999) default(0) ///
+           label("Arm 2 discontinued")
+
+  TEXT     tx_arm2_lostr 20  +25 660  ., label("Reasons (separate with ;;):")
+  EDIT     ed_arm2_lostr @   +20 660  ., label("Arm 2 loss reasons")
+
+  GROUPBOX gb_arm2_ana   10  240 680  80, label("Arm 2 - Analysis (required)")
+  TEXT     tx_arm2_ana   20  +20 220  ., label("Analysed:")
+  SPINNER  sp_arm2_ana   @   +20 120  ., min(0) max(999999) default(50) ///
+           label("Arm 2 analysed")
+
+  TEXT     tx_arm2_exc   320 -20 180  ., label("Excluded from analysis:")
+  SPINNER  sp_arm2_exc   @   +20 120  ., min(0) max(999999) default(0) ///
+           label("Arm 2 excluded")
+END
+
+* ============================================================================
+* ADDITIONAL ARMS TAB (ARM 3 & 4)
+* ============================================================================
+
+DIALOG morearms, tabtitle("Arms 3-4")
+BEGIN
+  TEXT     tx_arms_note  10  10  680  ., ///
+           label("Configure additional arms here (enable on Enrollment tab)")
+
+  GROUPBOX gb_arm3       10  35  680  140, label("Arm 3 (if 3+ arms selected)")
+  TEXT     tx_arm3_label 20  +15 180  ., label("Label:")
+  EDIT     ed_arm3_label @   +20 180  ., label("Arm 3 label")
+
+  TEXT     tx_arm3_alloc 220 -20 100  ., label("Allocated:")
+  SPINNER  sp_arm3_alloc @   +20 100  ., min(0) max(999999) default(0) ///
+           label("Arm 3 allocated")
+
+  TEXT     tx_arm3_lost  340 -20 100  ., label("Lost:")
+  SPINNER  sp_arm3_lost  @   +20 80   ., min(0) max(999999) default(0) ///
+           label("Arm 3 lost")
+
+  TEXT     tx_arm3_disc  440 -20 100  ., label("Discontinued:")
+  SPINNER  sp_arm3_disc  @   +20 80   ., min(0) max(999999) default(0) ///
+           label("Arm 3 discontinued")
+
+  TEXT     tx_arm3_ana   540 -20 80   ., label("Analysed:")
+  SPINNER  sp_arm3_ana   @   +20 80   ., min(0) max(999999) default(0) ///
+           label("Arm 3 analysed")
+
+  TEXT     tx_arm3_exc   20  +25 180  ., label("Excluded from analysis:")
+  SPINNER  sp_arm3_exc   @   +20 80   ., min(0) max(999999) default(0) ///
+           label("Arm 3 excluded")
+
+  GROUPBOX gb_arm4       10  180 680  140, label("Arm 4 (if 4 arms selected)")
+  TEXT     tx_arm4_label 20  +15 180  ., label("Label:")
+  EDIT     ed_arm4_label @   +20 180  ., label("Arm 4 label")
+
+  TEXT     tx_arm4_alloc 220 -20 100  ., label("Allocated:")
+  SPINNER  sp_arm4_alloc @   +20 100  ., min(0) max(999999) default(0) ///
+           label("Arm 4 allocated")
+
+  TEXT     tx_arm4_lost  340 -20 100  ., label("Lost:")
+  SPINNER  sp_arm4_lost  @   +20 80   ., min(0) max(999999) default(0) ///
+           label("Arm 4 lost")
+
+  TEXT     tx_arm4_disc  440 -20 100  ., label("Discontinued:")
+  SPINNER  sp_arm4_disc  @   +20 80   ., min(0) max(999999) default(0) ///
+           label("Arm 4 discontinued")
+
+  TEXT     tx_arm4_ana   540 -20 80   ., label("Analysed:")
+  SPINNER  sp_arm4_ana   @   +20 80   ., min(0) max(999999) default(0) ///
+           label("Arm 4 analysed")
+
+  TEXT     tx_arm4_exc   20  +25 180  ., label("Excluded from analysis:")
+  SPINNER  sp_arm4_exc   @   +20 80   ., min(0) max(999999) default(0) ///
+           label("Arm 4 excluded")
+END
+
+* ============================================================================
+* OUTPUT TAB
+* ============================================================================
+
+DIALOG output, tabtitle("Output")
+BEGIN
+  GROUPBOX gb_titles     10  10  680  100, label("Graph titles")
+  TEXT     tx_title      20  +20 100  ., label("Title:")
+  EDIT     ed_title      @   +20 660  ., label("Title")
+
+  TEXT     tx_subtitle   20  +25 100  ., label("Subtitle:")
+  EDIT     ed_subtitle   @   +20 660  ., label("Subtitle")
+
+  GROUPBOX gb_save       10  115 680  80, label("Save graph")
+  TEXT     tx_saving     20  +20 100  ., label("Save as:")
+  FILE     fi_saving     @   +20 560  ., save label("Browse...") ///
+           filter("PNG files|*.png|PDF files|*.pdf|All files|*.*")
+  CHECKBOX ck_replace    590 @   90   ., label("Replace") option(replace)
+
+  TEXT     tx_name       20  +25 100  ., label("Graph name:")
+  EDIT     ed_name       @   +20 200  ., label("Name")
+
+  GROUPBOX gb_appear     10  200 680  140, label("Appearance")
+  TEXT     tx_boxcolor   20  +20 140  ., label("Box fill color:")
+  EDIT     ed_boxcolor   @   +20 140  ., label("Box color") default("white")
+
+  TEXT     tx_boxborder  200 -20 140  ., label("Box border color:")
+  EDIT     ed_boxborder  @   +20 140  ., label("Box border") default("black")
+
+  TEXT     tx_arrowcolor 380 -20 140  ., label("Arrow color:")
+  EDIT     ed_arrowcolor @   +20 140  ., label("Arrow color") default("black")
+
+  TEXT     tx_textsize   20  +25 140  ., label("Text size:")
+  COMBOBOX cb_textsize   @   +20 140  ., dropdownlist contents(textsizes) ///
+           default("vsmall")
+
+  TEXT     tx_labelsize  200 -20 140  ., label("Label size:")
+  COMBOBOX cb_labelsize  @   +20 140  ., dropdownlist contents(labelsizes) ///
+           default("small")
+
+  TEXT     tx_scheme     380 -20 140  ., label("Scheme:")
+  EDIT     ed_scheme     @   +20 140  ., label("Scheme")
+
+  GROUPBOX gb_dims       10  345 680  60, label("Dimensions (inches)")
+  TEXT     tx_width      20  +20 100  ., label("Width:")
+  SPINNER  sp_width      @   +20 80   ., min(3) max(20) default(7) ///
+           label("Width")
+
+  TEXT     tx_height     200 -20 100  ., label("Height:")
+  SPINNER  sp_height     @   +20 80   ., min(4) max(30) default(10) ///
+           label("Height")
+
+  CHECKBOX ck_nodraw     400 @ 200    ., label("Don't display graph (save only)") ///
+           option(nodraw)
+END
+
+* ============================================================================
+* LISTS
+* ============================================================================
+
+LIST textsizes
+BEGIN
+	tiny
+	vsmall
+	small
+	medsmall
+	medium
+END
+
+LIST labelsizes
+BEGIN
+	vsmall
+	small
+	medsmall
+	medium
+	medlarge
+END
+
+* ============================================================================
+* SCRIPTS FOR ARM SELECTION
+* ============================================================================
+
+SCRIPT arms2_selected
+BEGIN
+	script arm3_disable
+	script arm4_disable
+END
+
+SCRIPT arms3_selected
+BEGIN
+	script arm3_enable
+	script arm4_disable
+END
+
+SCRIPT arms4_selected
+BEGIN
+	script arm3_enable
+	script arm4_enable
+END
+
+SCRIPT arm3_enable
+BEGIN
+	morearms.tx_arm3_label.enable
+	morearms.ed_arm3_label.enable
+	morearms.tx_arm3_alloc.enable
+	morearms.sp_arm3_alloc.enable
+	morearms.tx_arm3_lost.enable
+	morearms.sp_arm3_lost.enable
+	morearms.tx_arm3_disc.enable
+	morearms.sp_arm3_disc.enable
+	morearms.tx_arm3_ana.enable
+	morearms.sp_arm3_ana.enable
+	morearms.tx_arm3_exc.enable
+	morearms.sp_arm3_exc.enable
+END
+
+SCRIPT arm3_disable
+BEGIN
+	morearms.tx_arm3_label.disable
+	morearms.ed_arm3_label.disable
+	morearms.tx_arm3_alloc.disable
+	morearms.sp_arm3_alloc.disable
+	morearms.tx_arm3_lost.disable
+	morearms.sp_arm3_lost.disable
+	morearms.tx_arm3_disc.disable
+	morearms.sp_arm3_disc.disable
+	morearms.tx_arm3_ana.disable
+	morearms.sp_arm3_ana.disable
+	morearms.tx_arm3_exc.disable
+	morearms.sp_arm3_exc.disable
+END
+
+SCRIPT arm4_enable
+BEGIN
+	morearms.tx_arm4_label.enable
+	morearms.ed_arm4_label.enable
+	morearms.tx_arm4_alloc.enable
+	morearms.sp_arm4_alloc.enable
+	morearms.tx_arm4_lost.enable
+	morearms.sp_arm4_lost.enable
+	morearms.tx_arm4_disc.enable
+	morearms.sp_arm4_disc.enable
+	morearms.tx_arm4_ana.enable
+	morearms.sp_arm4_ana.enable
+	morearms.tx_arm4_exc.enable
+	morearms.sp_arm4_exc.enable
+END
+
+SCRIPT arm4_disable
+BEGIN
+	morearms.tx_arm4_label.disable
+	morearms.ed_arm4_label.disable
+	morearms.tx_arm4_alloc.disable
+	morearms.sp_arm4_alloc.disable
+	morearms.tx_arm4_lost.disable
+	morearms.sp_arm4_lost.disable
+	morearms.tx_arm4_disc.disable
+	morearms.sp_arm4_disc.disable
+	morearms.tx_arm4_ana.disable
+	morearms.sp_arm4_ana.disable
+	morearms.tx_arm4_exc.disable
+	morearms.sp_arm4_exc.disable
+END
+
+* ============================================================================
+* COMMAND BUILDER
+* ============================================================================
+
+PROGRAM command
+BEGIN
+    put "consort"
+    put ", "
+
+    // Enrollment
+    put "assessed(" main.sp_assessed ") "
+    put "excluded(" main.sp_excluded ") "
+    put "randomized(" main.sp_randomized ") "
+
+    if main.ed_excreasons {
+        put `"excreasons(""'
+        put main.ed_excreasons
+        put `"") "'
+    }
+
+    // Arm 1
+    put `"arm1_label(""'
+    put arm1.ed_arm1_label
+    put `"") "'
+    put "arm1_allocated(" arm1.sp_arm1_alloc ") "
+
+    if arm1.sp_arm1_recv.isgt(-1) {
+        put "arm1_received(" arm1.sp_arm1_recv ") "
+    }
+    if arm1.sp_arm1_notrec.isgt(0) {
+        put "arm1_notrec(" arm1.sp_arm1_notrec ") "
+    }
+    if arm1.sp_arm1_lost.isgt(0) {
+        put "arm1_lost(" arm1.sp_arm1_lost ") "
+    }
+    if arm1.sp_arm1_disc.isgt(0) {
+        put "arm1_discontinued(" arm1.sp_arm1_disc ") "
+    }
+    if arm1.ed_arm1_lostr {
+        put `"arm1_lost_reasons(""'
+        put arm1.ed_arm1_lostr
+        put `"") "'
+    }
+    put "arm1_analyzed(" arm1.sp_arm1_ana ") "
+    if arm1.sp_arm1_exc.isgt(0) {
+        put "arm1_analysis_excluded(" arm1.sp_arm1_exc ") "
+    }
+
+    // Arm 2
+    put `"arm2_label(""'
+    put arm2.ed_arm2_label
+    put `"") "'
+    put "arm2_allocated(" arm2.sp_arm2_alloc ") "
+
+    if arm2.sp_arm2_recv.isgt(-1) {
+        put "arm2_received(" arm2.sp_arm2_recv ") "
+    }
+    if arm2.sp_arm2_notrec.isgt(0) {
+        put "arm2_notrec(" arm2.sp_arm2_notrec ") "
+    }
+    if arm2.sp_arm2_lost.isgt(0) {
+        put "arm2_lost(" arm2.sp_arm2_lost ") "
+    }
+    if arm2.sp_arm2_disc.isgt(0) {
+        put "arm2_discontinued(" arm2.sp_arm2_disc ") "
+    }
+    if arm2.ed_arm2_lostr {
+        put `"arm2_lost_reasons(""'
+        put arm2.ed_arm2_lostr
+        put `"") "'
+    }
+    put "arm2_analyzed(" arm2.sp_arm2_ana ") "
+    if arm2.sp_arm2_exc.isgt(0) {
+        put "arm2_analysis_excluded(" arm2.sp_arm2_exc ") "
+    }
+
+    // Arm 3 (if selected)
+    if main.rb_3arms | main.rb_4arms {
+        if morearms.ed_arm3_label {
+            put `"arm3_label(""'
+            put morearms.ed_arm3_label
+            put `"") "'
+            put "arm3_allocated(" morearms.sp_arm3_alloc ") "
+            if morearms.sp_arm3_lost.isgt(0) {
+                put "arm3_lost(" morearms.sp_arm3_lost ") "
+            }
+            if morearms.sp_arm3_disc.isgt(0) {
+                put "arm3_discontinued(" morearms.sp_arm3_disc ") "
+            }
+            put "arm3_analyzed(" morearms.sp_arm3_ana ") "
+            if morearms.sp_arm3_exc.isgt(0) {
+                put "arm3_analysis_excluded(" morearms.sp_arm3_exc ") "
+            }
+        }
+    }
+
+    // Arm 4 (if selected)
+    if main.rb_4arms {
+        if morearms.ed_arm4_label {
+            put `"arm4_label(""'
+            put morearms.ed_arm4_label
+            put `"") "'
+            put "arm4_allocated(" morearms.sp_arm4_alloc ") "
+            if morearms.sp_arm4_lost.isgt(0) {
+                put "arm4_lost(" morearms.sp_arm4_lost ") "
+            }
+            if morearms.sp_arm4_disc.isgt(0) {
+                put "arm4_discontinued(" morearms.sp_arm4_disc ") "
+            }
+            put "arm4_analyzed(" morearms.sp_arm4_ana ") "
+            if morearms.sp_arm4_exc.isgt(0) {
+                put "arm4_analysis_excluded(" morearms.sp_arm4_exc ") "
+            }
+        }
+    }
+
+    // Output options
+    if output.ed_title {
+        put `"title(""'
+        put output.ed_title
+        put `"") "'
+    }
+    if output.ed_subtitle {
+        put `"subtitle(""'
+        put output.ed_subtitle
+        put `"") "'
+    }
+    if output.fi_saving {
+        put `"saving(""'
+        put output.fi_saving
+        put `"") "'
+        option output.ck_replace
+    }
+    if output.ed_name {
+        put "name(" output.ed_name ") "
+    }
+
+    // Appearance
+    if output.ed_boxcolor.isneq("white") {
+        put "boxcolor(" output.ed_boxcolor ") "
+    }
+    if output.ed_boxborder.isneq("black") {
+        put "boxborder(" output.ed_boxborder ") "
+    }
+    if output.ed_arrowcolor.isneq("black") {
+        put "arrowcolor(" output.ed_arrowcolor ") "
+    }
+    if output.cb_textsize.isneq("vsmall") {
+        put "textsize(" output.cb_textsize ") "
+    }
+    if output.cb_labelsize.isneq("small") {
+        put "labelsize(" output.cb_labelsize ") "
+    }
+    if output.ed_scheme {
+        put "scheme(" output.ed_scheme ") "
+    }
+    if output.sp_width.isneq(7) {
+        put "width(" output.sp_width ") "
+    }
+    if output.sp_height.isneq(10) {
+        put "height(" output.sp_height ") "
+    }
+    option output.ck_nodraw
+END

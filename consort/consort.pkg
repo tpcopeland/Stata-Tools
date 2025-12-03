@@ -1,0 +1,31 @@
+v 3
+d 'CONSORT': CONSORT flow diagram generator for clinical trials (v1.0.0)
+d
+d consort generates publication-quality CONSORT (Consolidated Standards of
+d Reporting Trials) flow diagrams showing participant flow through enrollment,
+d allocation, follow-up, and analysis stages of randomized trials.
+d
+d Supports 2 to 4 treatment arms with automatic layout adjustment.
+d Customizable colors, text sizes, and graph dimensions.
+d Export to PNG, PDF, EPS, SVG, and other graphics formats.
+d
+d Requires: Stata version 16+
+d
+d Distribution-Date: 20251203
+d License: MIT
+d
+d Author: Timothy P Copeland
+d Department of Clinical Neuroscience, Karolinska Institutet, Stockholm, Sweden
+d Email: timothy.copeland@ki.se
+d
+d KW: CONSORT
+d KW: flow diagram
+d KW: clinical trial
+d KW: randomized trial
+d KW: RCT
+d KW: visualization
+d
+f consort.ado
+f consort.sthlp
+f consort.dlg
+d
