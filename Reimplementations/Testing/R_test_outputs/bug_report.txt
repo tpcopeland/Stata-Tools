@@ -1,0 +1,15 @@
+R tvtools Bug Report
+Generated: 2025-12-03 02:53:13.588129
+
+Bug #1
+  Function: tvexpose
+  Test: Test 6: edge cases
+  Description: Edge cases test failed
+  Error: object 'ever_exposed_layered' not found
+
+Bug #2
+  Function: integration
+  Test: Test 14: workflow
+  Description: Complete workflow test failed
+  Error: EXPR must be a length 1 vector
+
