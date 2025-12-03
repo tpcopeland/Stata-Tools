@@ -236,7 +236,7 @@ MIT License - see individual package files for details
 | regtab | Regression tables | 1.0.2 | 17+ |
 | setools | Swedish registry data tools | 1.0.1 | 18+ |
 | stratetab | Strate output formatting | 1.0.1 | 17+ |
-| synthdata | Synthetic data generation | 1.0.2 | 16+ |
+| synthdata | Synthetic data generation | 1.0.3 | 16+ |
 | table1_tc | Table 1 creation | 1.0.2 | 14.2+ |
 | today | Date utilities | 1.0.1 | 14+ |
 | tvtools | Time-varying data | 1.0.1 | 16+ |
