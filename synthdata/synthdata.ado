@@ -1,4 +1,4 @@
-*! synthdata Version 1.0.1  03dec2025  Synthetic data generation
+*! synthdata Version 1.0.2  03dec2025  Synthetic data generation
 program define synthdata
     version 16.0
     set varabbrev off
@@ -593,6 +593,10 @@ program define _synthdata_parametric
             qui gen double `v' = rnormal(`=`means'[1,1]', `=`sds'[1,1]')
         }
         else {
+            // Create variables first (st_store requires existing variables)
+            foreach v of local contvars {
+                qui gen double `v' = .
+            }
             // Multivariate normal via Cholesky
             mata: _synthdata_genmvn("`contvars'", st_matrix("`means'"), st_matrix("`covmat'"), `n')
         }
