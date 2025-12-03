@@ -139,12 +139,15 @@ program define synthdata
     // Handle skip variables - set to missing in synthetic data
     if "`skip'" != "" {
         foreach v of local skip {
-            // Check type before dropping
+            // Check type in ORIGINAL data (before synthesis modified dataset)
+            preserve
+            qui use `origdata', clear
             local is_string = 0
             cap confirm string variable `v'
             if !_rc {
                 local is_string = 1
             }
+            restore
 
             cap drop `v'
 
@@ -267,12 +270,15 @@ program define synthdata
 
             if "`skip'" != "" {
                 foreach v of local skip {
-                    // Check type before dropping
+                    // Check type in ORIGINAL data (before synthesis modified dataset)
+                    preserve
+                    qui use `origdata', clear
                     local is_string = 0
                     cap confirm string variable `v'
                     if !_rc {
                         local is_string = 1
                     }
+                    restore
 
                     cap drop `v'
 
@@ -932,7 +938,11 @@ program define _synthdata_sequential
         }
         else {
             // Continuous or date
-            if "`prevvars'" == "" | `use_reg' != 1 {
+            // Note: use_reg is only defined when prevvars != "", so check separately
+            if "`prevvars'" == "" {
+                qui gen double `v' = rnormal(`vmean', `vsd')
+            }
+            else if `use_reg' != 1 {
                 qui gen double `v' = rnormal(`vmean', `vsd')
             }
             else {
@@ -1123,25 +1133,27 @@ end
 program define _synthdata_noextreme
     version 16.0
     syntax varlist, boundsfile(string)
-    
+
+    // Load bounds into locals FIRST, before modifying data
     preserve
     qui use `boundsfile', clear
     local nbounds = _N
-    
+
     forvalues i = 1/`nbounds' {
-        local vn = varname[`i']
-        local vmin = vmin[`i']
-        local vmax = vmax[`i']
-        
-        restore, preserve
-        cap confirm variable `vn'
+        local vn_`i' = varname[`i']
+        local vmin_`i' = vmin[`i']
+        local vmax_`i' = vmax[`i']
+    }
+    restore
+
+    // Now apply bounds to synthetic data
+    forvalues i = 1/`nbounds' {
+        cap confirm variable `vn_`i''
         if !_rc {
-            qui replace `vn' = `vmin' if `vn' < `vmin' & !missing(`vn')
-            qui replace `vn' = `vmax' if `vn' > `vmax' & !missing(`vn')
+            qui replace `vn_`i'' = `vmin_`i'' if `vn_`i'' < `vmin_`i'' & !missing(`vn_`i'')
+            qui replace `vn_`i'' = `vmax_`i'' if `vn_`i'' > `vmax_`i'' & !missing(`vn_`i'')
         }
     }
-    
-    restore, not
 end
 
 // Handle panel structure
@@ -1270,19 +1282,24 @@ program define _synthdata_validate
     
     tempfile synthstats
     _synthdata_stats `synthvarlist', saving(`synthstats')
-    
+
     preserve
+
+    // Load origstats and save to tempfile
     qui use `origstats', clear
     rename (mean sd min max p25 p50 p75 N) =_orig
-    
-    qui merge 1:1 varname using `synthstats', nogen
-    
-    // Remove prefix for matching
+    tempfile orig
+    qui save `orig'
+
+    // Load synthstats and remove prefix BEFORE merging
+    qui use `synthstats', clear
     if "`prefix'" != "" {
         qui replace varname = subinstr(varname, "`prefix'", "", 1)
     }
-    
     rename (mean sd min max p25 p50 p75 N) =_synth
+
+    // Now merge with matching varnames
+    qui merge 1:1 varname using `orig', nogen
     
     // Compute utility metrics
     qui gen mean_diff_pct = abs(mean_orig - mean_synth) / sd_orig * 100 if sd_orig != 0
