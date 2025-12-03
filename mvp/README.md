@@ -58,6 +58,12 @@ Supports `by` prefix.
 | `graph(matrix, sort)` | Sort obs by pattern |
 | `graph(correlation)` | Missingness correlation heatmap |
 | `scheme(name)` | Graph scheme (requires `graph()`) |
+| **Stratification** | |
+| `gby(varname)` | Stratify graphs by categorical variable (faceted) |
+| `over(varname)` | Overlay groups in same graph (grouped bars) |
+| `stacked` | Stacked bar chart (requires `graph(bar)`) |
+| `groupgap(#)` | Gap between bar groups in `over()` |
+| `legendopts(string)` | Customize legend in grouped charts |
 
 ## Pattern Display
 
@@ -83,6 +89,8 @@ Patterns sorted by frequency (most common first) by default.
 - `r(varlist)` - analyzed variables
 - `r(varlist_nomiss)` - variables with no missing
 - `r(monotone_status)` - "monotone" or "non-monotone"
+- `r(gby)`, `r(gby_levels)` - if `gby()` specified
+- `r(over)`, `r(over_levels)` - if `over()` specified
 
 **Matrices:**
 - `r(corr_miss)` - correlation matrix (if `correlate` or `graph(correlation)`)
@@ -112,6 +120,12 @@ mvp, graph(bar)
 mvp, graph(matrix, sample(1000) sort)
 mvp, graph(correlation) scheme(s1mono)
 
+* Stratified graphics
+mvp price mpg rep78, graph(bar) gby(foreign)     // faceted by group
+mvp price mpg rep78, graph(bar) over(foreign)    // grouped bars
+mvp, graph(bar) stacked                          // stacked bars
+mvp, graph(patterns) gby(treatment) top(10)      // patterns by group
+
 * Save patterns
 mvp, save(patterns)  // frame in Stata 16+, .dta in 14-15
 ```
@@ -130,4 +144,4 @@ MIT License
 
 ## Version
 
-Version 1.0.1, 2025-12-03
+Version 1.1.0, 2025-12-03
