@@ -8,8 +8,8 @@
 
 ## Executive Summary
 
-This audit identified **6 issues** in the synthdata package:
-- **3 Critical bugs** in the .ado file that cause runtime errors or incorrect results
+This audit identified **7 issues** in the synthdata package:
+- **4 Critical bugs** in the .ado file that cause runtime errors or incorrect results
 - **2 Documentation issues** in the .sthlp and README files
 - **1 Minor issue** (version mismatch between files)
 
@@ -237,7 +237,61 @@ The fix follows the same pattern as the correct implementation in `_synthdata_co
 
 ---
 
-## Issue 4: SMCL Syntax Error in Help File
+## Issue 4: CRITICAL - `_synthdata_sequential` Undefined Macro Bug
+
+**Severity:** Critical
+**Location:** `synthdata.ado` line 941 (in `_synthdata_sequential` program)
+**Impact:** The `sequential` synthesis method fails with a syntax error when the first variable is continuous.
+
+### Problem Analysis
+
+Tracing through with example data (`synthdata price mpg, sequential` where both are continuous):
+
+1. First iteration: `v` = "price", `prevvars` = ""
+2. Line 832: `prevvars == ""` is TRUE → enters first-variable block
+3. Lines 855-860: Sets `vmean` and `vsd` for continuous case
+4. **`use_reg` is NEVER DEFINED** (only set in the `else` branch at line 862)
+5. Line 939: Enter continuous generation block
+6. Line 941: `if "`prevvars'" == "" | `use_reg' != 1`
+   - `` `prevvars' `` expands to ""
+   - `` `use_reg' `` expands to **NOTHING** (undefined!)
+   - Expression becomes: `if "" == "" |  != 1` → **SYNTAX ERROR!**
+
+In Stata, macro expansion happens before expression parsing. Even though the first part of the OR is true, the entire expression must be syntactically valid after macro expansion. An undefined local macro expands to nothing, making `` `use_reg' != 1 `` become ` != 1` which is invalid syntax.
+
+### Before (Buggy Code)
+
+```stata
+        else {
+            // Continuous or date
+            if "`prevvars'" == "" | `use_reg' != 1 {
+                qui gen double `v' = rnormal(`vmean', `vsd')
+            }
+            else {
+```
+
+### After (Fixed Code)
+
+```stata
+        else {
+            // Continuous or date
+            // Note: use_reg is only defined when prevvars != "", so check separately
+            if "`prevvars'" == "" {
+                qui gen double `v' = rnormal(`vmean', `vsd')
+            }
+            else if `use_reg' != 1 {
+                qui gen double `v' = rnormal(`vmean', `vsd')
+            }
+            else {
+```
+
+### Reasoning
+
+By splitting the compound OR condition into separate `if` and `else if` branches, `use_reg` is only evaluated when `prevvars != ""`, which is exactly when it's defined. This preserves the original logic while avoiding the undefined macro error.
+
+---
+
+## Issue 5: SMCL Syntax Error in Help File
 
 **Severity:** Medium
 **Location:** `synthdata.sthlp` line 2
@@ -267,7 +321,7 @@ The version comment line has corrupted SMCL syntax with an extra `*{*`:
 
 ---
 
-## Issue 5: Version Mismatch Between Files
+## Issue 6: Version Mismatch Between Files
 
 **Severity:** Low
 **Location:** `synthdata.sthlp` line 2
@@ -288,7 +342,7 @@ Updated .sthlp to version 1.0.1 with date 03dec2025 to match .ado.
 
 ---
 
-## Issue 6: README LICENSE Reference
+## Issue 7: README LICENSE Reference
 
 **Severity:** Low
 **Location:** `synthdata/README.md` line 497
@@ -316,7 +370,7 @@ Per repository standards (CLAUDE.md), packages should not have separate LICENSE 
 
 | File | Changes Made |
 |------|--------------|
-| `synthdata.ado` | Fixed `_synthdata_noextreme` logic; Fixed skip variable type detection (2 locations); Fixed `_synthdata_validate` merge order bug |
+| `synthdata.ado` | Fixed `_synthdata_noextreme` logic; Fixed skip variable type detection (2 locations); Fixed `_synthdata_validate` merge order bug; Fixed `_synthdata_sequential` undefined macro bug |
 | `synthdata.sthlp` | Fixed SMCL syntax error; Updated version to 1.0.1 |
 | `README.md` | Removed LICENSE file reference |
 
@@ -357,6 +411,14 @@ After applying these fixes, test the following scenarios:
    synthdata price mpg, prefix(s_) saving(synth) validate(validation) seed(123)
    use validation, clear
    list varname mean_orig mean_synth   // Should show matched variables
+   ```
+
+6. **Sequential method with continuous variables:**
+   ```stata
+   sysuse auto, clear
+   synthdata price mpg weight, sequential replace seed(123)
+   // Should complete without syntax error
+   summarize price mpg weight
    ```
 
 ---

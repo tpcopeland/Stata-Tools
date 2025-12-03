@@ -938,7 +938,11 @@ program define _synthdata_sequential
         }
         else {
             // Continuous or date
-            if "`prevvars'" == "" | `use_reg' != 1 {
+            // Note: use_reg is only defined when prevvars != "", so check separately
+            if "`prevvars'" == "" {
+                qui gen double `v' = rnormal(`vmean', `vsd')
+            }
+            else if `use_reg' != 1 {
                 qui gen double `v' = rnormal(`vmean', `vsd')
             }
             else {
