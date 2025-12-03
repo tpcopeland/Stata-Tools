@@ -1,4 +1,4 @@
-*! pkgtransfer Version 1.0.0  2025/12/02
+*! pkgtransfer Version 1.0.1  2025/12/03
 *! Author: Tim Copeland
 
 /*
@@ -69,15 +69,27 @@ quietly {
 		}
 
 	/* Error if `dofile' not specified correctly */
-		if "`dofile'" != "" & !strpos("`dofile'",".do") {
-			noisily di in red "Do file name must contain '.do' extension"
-			exit 198
+		if "`dofile'" != "" {
+			if regexm("`dofile'", "[;&|><\$\`]") {
+				noisily di in red "Error: dofile() contains invalid characters"
+				exit 198
+			}
+			if substr("`dofile'", -3, .) != ".do" {
+				noisily di in red "Do file name must end with '.do' extension"
+				exit 198
+			}
 		}
 
 	/* Error if `zipfile' not specified correctly */
-		if "`zipfile'" != "" & !strpos("`zipfile'",".zip") {
-			noisily di in red "ZIP file name must contain '.zip' extension"
-			exit 198
+		if "`zipfile'" != "" {
+			if regexm("`zipfile'", "[;&|><\$\`]") {
+				noisily di in red "Error: zipfile() contains invalid characters"
+				exit 198
+			}
+			if substr("`zipfile'", -4, .) != ".zip" {
+				noisily di in red "ZIP file name must end with '.zip' extension"
+				exit 198
+			}
 		}
 
 	/* Error if `zipfile' specified without 'download' option */
@@ -265,8 +277,6 @@ quietly{
             quietly forvalues i = 1/`=_N' {
                 local source = source_file[`i']
                 local destination = v1[`i']
-				disp "`source'"
-				disp "`destination'"
                 copy "`source'" "pkgtransfer_files/`destination'", replace
 			}
       

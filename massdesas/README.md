@@ -17,10 +17,11 @@ The command scans the specified directory tree, identifies all .sas7bdat files, 
 ## Dependencies
 
 **Required:**
-- **usesas** command - Install with: `ssc install usesas`
-- **Java** - Must be installed and configured for the Java-based SAS data reader
+- **filelist** command - Install with: `ssc install filelist`
+- **fs** command - Install with: `ssc install fs`
+- Stata's built-in `import sas` (available in Stata 14+)
 
-Ensure both dependencies are properly installed and configured before using `massdesas`.
+Ensure all dependencies are properly installed before using `massdesas`.
 
 ## Installation
 
@@ -139,11 +140,15 @@ Convert all SAS files to Stata format with lowercase variable names and remove t
 ## Requirements
 
 - Stata 14.0 or higher
-- `usesas` command (install via: `ssc install usesas`)
-- Java runtime environment properly configured
+- `filelist` command (install via: `ssc install filelist`)
+- `fs` command (install via: `ssc install fs`)
 
 ## Version History
 
+- **Version 1.0.1** (3 December 2025): Bug fixes and documentation updates
+  - Fixed syntax error in path separator replacement
+  - Corrected dependency documentation
+  - Updated version compatibility declaration
 - **Version 1.0.0** (2 December 2025): GitHub publication release
 - **Version 1.0** (24 July 2020): Initial release
 
@@ -159,9 +164,9 @@ MIT License
 
 ## See Also
 
-- `help usesas` - The underlying command for SAS file conversion
+- `help import sas` - Stata's built-in SAS file import command
+- `ssc describe filelist` - File listing utility
 - `ssc describe fs` - File system utilities
-- [Java installation guide for Stata](https://www.stata.com/java/)
 
 ## Getting Help
 

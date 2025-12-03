@@ -1,4 +1,4 @@
-*! datefix Version 1.0.0  2025/12/02
+*! datefix Version 1.0.1  2025/12/03
 *! Original Author: Tim Copeland
 *! 
 
@@ -24,7 +24,7 @@
 
 */
 
-program define datefix, rclass
+program define datefix
     version 14.0
     set varabbrev off
     syntax [varlist] [, newvar(string) drop df(string) order(string) topyear(string asis)]
@@ -53,6 +53,13 @@ program define datefix, rclass
 		}
 	}
 
+	* Validation: Check for observations in dataset
+	quietly count
+	if r(N) == 0 {
+		display as error "no observations"
+		exit 2000
+	}
+
 	* Validation: Validate df() option if specified
 	if "`df'" != "" {
 		* Check if it's a valid Stata daily date format
@@ -77,19 +84,18 @@ program define datefix, rclass
 	*Error Message if topyear() contains non-integer value
 	capture confirm integer number `topyear'
 	if _rc!=0 & "`topyear'" != ""{
-		di in re "topyear() must contain an integer"
+		display as error "topyear() must contain an integer"
 		error 198
 	}
 
-	if missing("`topyear'"){
-		local topyear  ""
-	}
-
-	if !missing("`topyear'"){
+	if "`topyear'" != "" {
 		local topyear  ", `topyear'"
 	}
 
 	foreach var of varlist `varlist' {
+
+		* Declare temporary variables
+		tempvar new_date tmp_orig MDY YMD DMY MDY_ct YMD_ct DMY_ct
 
 		* Count missing values before processing
 		quietly count if missing(`var')
@@ -97,13 +103,13 @@ program define datefix, rclass
 
 		capture confirm string variable `var'
 		if _rc == 0 {
-			*Datetime error - check first non-missing value for datetime indicators
+			*Datetime error - check any non-missing value for datetime indicators
 			quietly count if !missing(`var')
 			if r(N) > 0 {
-				local first_val = `var'[1]
-				if strpos("`first_val'", ":") > 0 {
-					di in re "Error: Variable `var' appears to contain datetime values"
-					di in re "datefix does not support datetime variables"
+				quietly count if strpos(`var', ":") > 0 & !missing(`var')
+				if r(N) > 0 {
+					display as error "Error: Variable `var' appears to contain datetime values"
+					display as error "datefix does not support datetime variables"
 					exit 198
 				}
 			}
@@ -111,17 +117,17 @@ program define datefix, rclass
 
 		*Newvar error
         if "`newvar'" == "`var'" {
-            di in re "Error: New variable name same as old variable name. newvar() option not necessary. Please remove newvar() option."
+            display as error "Error: New variable name same as old variable name. newvar() option not necessary. Please remove newvar() option."
             exit 198
         }
 
         *Drop Notes
         if "`drop'"=="drop" & "`newvar'" == "" {
-            di "Note: 'drop' option is redundant when 'newvar()' is not used."
+            display as text "Note: 'drop' option is redundant when 'newvar()' is not used."
         }
 
         if "`drop'"=="drop" & "`newvar'" == "`var'" {
-            di "Note: 'newvar()' specifies same name as original variable. Original variable will not be saved."
+            display as text "Note: 'newvar()' specifies same name as original variable. Original variable will not be saved."
         }
 
         *Convert to date variable in specified ordering of Year, Month, and Day
@@ -130,15 +136,15 @@ program define datefix, rclass
 		if _rc == 0 {
 
 			if "`order'"!="" {
-				quietly capture gen new = date(`var',"`order'" `topyear')
+				quietly capture gen `new_date' = date(`var',"`order'" `topyear')
 
 				* Check if conversion created NEW missing values
-				qui count if missing(new) & !missing(`var')
+				qui count if missing(`new_date') & !missing(`var')
 				if r(N) > 0 {
-					di in re "Specified ordering produced `r(N)' missing values from valid strings"
-					di in re "Check ordering, year digits, and for non-date strings"
-					di in re "If year is two-digit format, use topyear() option"
-					qui drop new
+					display as error "Specified ordering produced `r(N)' missing values from valid strings"
+					display as error "Check ordering, year digits, and for non-date strings"
+					display as error "If year is two-digit format, use topyear() option"
+					qui drop `new_date'
 					exit 198
 				}
 			}
@@ -146,49 +152,44 @@ program define datefix, rclass
 			else {
 				quietly{
 					*Generate temporary copies of the original variable
-					capture gen tmp_orig = `var'
-					gen new = .
+					capture gen `tmp_orig' = `var'
+					gen `new_date' = .
 					*Generate dates for string in MDY format
-					capture gen MDY = date(`var',"MDY" `topyear')
-					capture egen MDY_ct = count(MDY)
+					capture gen `MDY' = date(`var',"MDY" `topyear')
+					capture egen `MDY_ct' = count(`MDY')
 					*Generate dates for string in YMD format
-					capture gen YMD = date(`var',"YMD" `topyear')
-					capture egen YMD_ct = count(YMD)
+					capture gen `YMD' = date(`var',"YMD" `topyear')
+					capture egen `YMD_ct' = count(`YMD')
 					*Generate dates for string in DMY format
-					capture gen DMY = date(`var',"DMY" `topyear')
-					capture egen DMY_ct = count(DMY)
+					capture gen `DMY' = date(`var',"DMY" `topyear')
+					capture egen `DMY_ct' = count(`DMY')
 					*Select highest count for valid conversion
-					capture replace new = MDY if YMD_ct <= MDY_ct & DMY_ct <= MDY_ct
-					capture replace new = YMD if MDY_ct < YMD_ct & DMY_ct <= YMD_ct
-					capture replace new = DMY if MDY_ct < DMY_ct & YMD_ct < DMY_ct
+					capture replace `new_date' = `MDY' if `YMD_ct' <= `MDY_ct' & `DMY_ct' <= `MDY_ct'
+					capture replace `new_date' = `YMD' if `MDY_ct' < `YMD_ct' & `DMY_ct' <= `YMD_ct'
+					capture replace `new_date' = `DMY' if `MDY_ct' < `DMY_ct' & `YMD_ct' < `DMY_ct'
 
 					* Determine which format was detected for display
-					if YMD_ct <= MDY_ct & DMY_ct <= MDY_ct {
+					local detected_format "UNKNOWN"
+					if `YMD_ct' <= `MDY_ct' & `DMY_ct' <= `MDY_ct' {
 						local detected_format "MDY"
 					}
-					else if MDY_ct < YMD_ct & DMY_ct <= YMD_ct {
+					else if `MDY_ct' < `YMD_ct' & `DMY_ct' <= `YMD_ct' {
 						local detected_format "YMD"
 					}
-					else if MDY_ct < DMY_ct & YMD_ct < DMY_ct {
+					else if `MDY_ct' < `DMY_ct' & `YMD_ct' < `DMY_ct' {
 						local detected_format "DMY"
-					}
-
-					*Drop temporary variable
-					foreach tmp in MDY YMD DMY MDY_ct YMD_ct DMY_ct tmp_orig{
-						capture drop `tmp'
 					}
 
 				}
 
 				* Display auto-detected format
-				di as text "Auto-detected date format: `detected_format'"
+				display as text "Auto-detected date format: `detected_format'"
 
-				qui count if missing(new) & !missing(`var')
+				qui count if missing(`new_date') & !missing(`var')
 				if r(N) > 0 {
-					di in re "Optimal ordering of Year, Month, and Day produced `r(N)' missing values."
-					di in re "Check ordering, number of year digits, and for non-date strings."
-					di in re "If year is in two digit format, use topyear() option."
-					quietly drop new
+					display as error "Optimal ordering of Year, Month, and Day produced `r(N)' missing values."
+					display as error "Check ordering, number of year digits, and for non-date strings."
+					display as error "If year is in two digit format, use topyear() option."
 					exit 198
 				}
 			}
@@ -197,22 +198,22 @@ program define datefix, rclass
 			* Variable is already numeric - apply date format
 			* If newvar is specified, create a copy; otherwise just format the original
 			if "`newvar'" != "" {
-				quietly generate double new = `var'
+				quietly generate double `new_date' = `var'
 				local lbl : variable label `var'
-				quietly label var new "`lbl'"
+				quietly label var `new_date' "`lbl'"
 			}
-			* If newvar is not specified, "new" doesn't need to exist
+			* If newvar is not specified, new_date doesn't need to exist
 			* The format will be applied directly to the original variable
 		}
 
 	quietly{
 
 		*Order new variable after the original variable
-		capture order new, after(`var')
+		capture order `new_date', after(`var')
 
 		*Save previous label and apply to new variable
 		local lbl : variable label `var'
-		capture label var new "`lbl'"
+		capture label var `new_date' "`lbl'"
 
         *Apply drop option (only applies when newvar is specified)
 		if "`drop'"=="drop" & "`newvar'"!=""{
@@ -221,14 +222,14 @@ program define datefix, rclass
 
         *Rename new variable to original variable name or specified newvar
 		if "`newvar'"!="" {
-			capture rename new `newvar'
+			capture rename `new_date' `newvar'
 		}
 		else {
 			capture confirm string variable `var'
 			if _rc == 0 {
 				drop `var'
 			}
-			capture rename new `var'
+			capture rename `new_date' `var'
 		}
 
 		*Set date format if same variable name
@@ -248,8 +249,6 @@ program define datefix, rclass
 			format `df' `newvar'
 		}
 
-	capture quietly drop new
-
 *END QUIETLY
 	}
 
@@ -265,26 +264,26 @@ program define datefix, rclass
 
 		*Display ending Syntax
 	if "`newvar'" == "" {
-		di "Date variable `var' converted to date formatted numeric variable."
-		di "	Original name retained and original `var' dropped, given `var' was a string; otherwise, date format applied."
+		display as text "Date variable `var' converted to date formatted numeric variable."
+		display as text "	Original name retained and original `var' dropped, given `var' was a string; otherwise, date format applied."
 	}
 
 	if "`newvar'" != "" & "`drop'"=="" {
-    	di "Date variable `var' converted to date formatted numeric variable: `newvar'."
-		di "	Original `var' retained."
+    	display as text "Date variable `var' converted to date formatted numeric variable: `newvar'."
+		display as text "	Original `var' retained."
 	}
 
 	if "`newvar'" != "" & "`drop'"=="drop" {
-    	di "Date variable `var' converted to date formatted numeric variable: `newvar'."
-		di "	Original `var' dropped, given `var' was a string; otherwise, date format applied."
+    	display as text "Date variable `var' converted to date formatted numeric variable: `newvar'."
+		display as text "	Original `var' dropped, given `var' was a string; otherwise, date format applied."
 	}
 
 		* Display missing value information
 		if `miss_before' == `miss_after' {
-			di "Missing values: `miss_before' before, `miss_after' after"
+			display as text "Missing values: `miss_before' before, `miss_after' after"
 		}
 		else {
-			di in re "WARNING: Missing values: `miss_before' before, `miss_after' after"
+			display as error "WARNING: Missing values: `miss_before' before, `miss_after' after"
 		}
 
 }

@@ -1,4 +1,4 @@
-*! today Version 1.0.0  2025/12/02
+*! today Version 1.0.1  2025/12/03
 *! Author: Timothy P. Copeland
 
 /*

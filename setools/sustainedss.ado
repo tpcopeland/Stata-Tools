@@ -1,4 +1,4 @@
-*! sustainedss Version 1.0.0  2025/12/02  Tim Copeland
+*! sustainedss Version 1.0.1  03dec2025  Tim Copeland
 *! Compute sustained EDSS progression date
 *! Part of the setools package
 
@@ -54,33 +54,43 @@ program define sustainedss, rclass
     
     // Mark sample
     marksample touse
-    
+
+    // Check for valid observations BEFORE preserve
+    qui count if `touse'
+    if r(N) == 0 {
+        di as error "no valid observations"
+        exit 2000
+    }
+
+    // Declare temporary variables
+    tempvar edss_work obs_id first_dt lowest_after lastdt_window last_window not_sustained sustained_dt
+
     // Preserve original data
     preserve
-    
+
     // Keep only relevant observations
     qui keep if `touse'
     qui keep `idvar' `edssvar' `datevar'
-    
+
     // Drop missing values
     qui drop if missing(`edssvar') | missing(`datevar')
-    
-    // Check for valid observations
+
+    // Check for valid observations (redundant but safe)
     qui count
     if r(N) == 0 {
         di as error "no valid observations after dropping missing values"
         restore
         exit 2000
     }
-    
+
     // Create working edss variable (will be modified)
-    qui gen double _edss_work = `edssvar'
-    
+    qui gen double `edss_work' = `edssvar'
+
     // Sort data
     qui sort `idvar' `datevar' `edssvar'
-    
+
     // Generate observation ID for merging
-    qui gen long _obs_id = _n
+    qui gen long `obs_id' = _n
     
     // Save working dataset
     tempfile working
@@ -92,34 +102,34 @@ program define sustainedss, rclass
     
     while `keep_going' == 1 {
         qui use `working', clear
-        
+
         // Find first date when EDSS >= threshold for each person
-        qui egen long _first_dt = min(cond(_edss_work >= `threshold', `datevar', .)), by(`idvar')
-        
+        qui egen long `first_dt' = min(cond(`edss_work' >= `threshold', `datevar', .)), by(`idvar')
+
         // Find lowest EDSS in confirmation window (1 to `confirmwindow' days after first date)
-        qui egen double _lowest_after = min(cond( ///
-            inrange(`datevar', _first_dt + 1, _first_dt + `confirmwindow'), ///
-            _edss_work, .)), by(`idvar')
-        
+        qui egen double `lowest_after' = min(cond( ///
+            inrange(`datevar', `first_dt' + 1, `first_dt' + `confirmwindow'), ///
+            `edss_work', .)), by(`idvar')
+
         // Find last date in confirmation window
-        qui egen long _lastdt_window = max(cond( ///
-            inrange(`datevar', _first_dt + 1, _first_dt + `confirmwindow'), ///
+        qui egen long `lastdt_window' = max(cond( ///
+            inrange(`datevar', `first_dt' + 1, `first_dt' + `confirmwindow'), ///
             `datevar', .)), by(`idvar')
-        
+
         // Find EDSS at last date in window
-        qui egen double _last_window = max(cond( ///
-            `datevar' == _lastdt_window, ///
-            _edss_work, .)), by(`idvar')
-        
+        qui egen double `last_window' = max(cond( ///
+            `datevar' == `lastdt_window', ///
+            `edss_work', .)), by(`idvar')
+
         // Identify not sustained: lowest < baseline threshold AND last in window < threshold
-        qui gen byte _not_sustained = (_lowest_after < `baselinethreshold' & ///
-            !missing(_lowest_after) & ///
-            _last_window < `threshold' & ///
-            !missing(_last_window))
-        
+        qui gen byte `not_sustained' = (`lowest_after' < `baselinethreshold' & ///
+            !missing(`lowest_after') & ///
+            `last_window' < `threshold' & ///
+            !missing(`last_window'))
+
         // Keep only the records at the first threshold date that are not sustained
         tempfile notsustained
-        qui keep if `datevar' == _first_dt & _not_sustained == 1
+        qui keep if `datevar' == `first_dt' & `not_sustained' == 1
         
         qui count
         local n_rejected = r(N)
@@ -131,32 +141,32 @@ program define sustainedss, rclass
             if "`quietly'" == "" {
                 di as text "Iteration `iteration': `n_rejected' events not confirmed as sustained"
             }
-            
+
             // Save the records to update
-            qui keep _obs_id _last_window
+            qui keep `obs_id' `last_window'
             qui save `notsustained', replace
-            
+
             // Merge back and update working EDSS
             qui use `working', clear
-            qui merge 1:1 _obs_id using `notsustained', nogen keep(1 3)
-            qui replace _edss_work = _last_window if !missing(_last_window)
-            qui drop _last_window
-            
+            qui merge 1:1 `obs_id' using `notsustained', nogen keep(1 3)
+            qui replace `edss_work' = `last_window' if !missing(`last_window')
+            qui drop `last_window'
+
             qui save `working', replace
             local iteration = `iteration' + 1
         }
     }
-    
+
     // Final computation of sustained date
     qui use `working', clear
-    qui egen long _sustained_dt = min(cond(_edss_work >= `threshold', `datevar', .)), by(`idvar')
-    format _sustained_dt %tdCCYY/NN/DD
-    
+    qui egen long `sustained_dt' = min(cond(`edss_work' >= `threshold', `datevar', .)), by(`idvar')
+    format `sustained_dt' %tdCCYY/NN/DD
+
     // Keep one record per person with sustained date
-    qui keep `idvar' _sustained_dt
+    qui keep `idvar' `sustained_dt'
     qui duplicates drop `idvar', force
-    qui drop if missing(_sustained_dt)
-    qui rename _sustained_dt `generate'
+    qui drop if missing(`sustained_dt')
+    qui rename `sustained_dt' `generate'
     
     // Count results
     qui count

@@ -1,6 +1,6 @@
 *! compress_tc: Maximally compress string variables via strL conversion + compress
-*! Version: 1.0.0
-*! Date: 2025/12/02
+*! Version: 1.0.1
+*! Date: 2025/12/03
 *! Fork Author: Tim Copeland 
 *! Forked from strcompress
 *! Original Author: Luke Stein (lcdstein@babson.edu)
@@ -115,7 +115,7 @@ program define compress_tc, rclass
                 }
             }
             
-            capture noisily quietly recast strL `strvars'
+            quietly capture recast strL `strvars'
             if _rc {
                 display as error "  recast to strL failed"
                 exit _rc

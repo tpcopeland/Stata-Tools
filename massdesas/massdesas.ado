@@ -1,10 +1,11 @@
-*! massdesas Version 1.0.0  2025/12/02
+*! massdesas Version 1.0.1  03dec2025
 
 *! Author: Tim Copeland
-*! Revised on  17 November 2025
+*! Revised on  3 December 2025
 
 program define massdesas, rclass
-version 18.0
+version 16.0
+set more off
 set varabbrev off
 syntax , directory(string) [ERASE LOWER]
 
@@ -46,9 +47,9 @@ if r(N) == 0 {
 	cd "`original_dir'"
 	exit 601
 } 
-replace dirname = subinstr(dirname, "/\", "/",.) 
-replace dirname = subinstr(dirname, "\/", "/",.) 
-replace dirname = subinstr(dirname, "\", "/",.) 
+replace dirname = subinstr(dirname, "/\", "/", .)
+replace dirname = subinstr(dirname, "\/", "/", .)
+replace dirname = subinstr(dirname, "\", "/", .) 
 
 levelsof dirname, local(levels)
 

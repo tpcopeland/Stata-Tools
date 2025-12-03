@@ -1,4 +1,4 @@
-*! check Version 1.0.0  2025/12/02
+*! check Version 1.0.1  03dec2025
 
 *! Revision Author: Tim Copeland 
 *! Revised on  26 July 2020 at 12:11:00
@@ -9,7 +9,14 @@
 program define check, rclass
   version 14.0
   set varabbrev off
-  syntax varlist, [SHORT]
+  syntax varlist(numeric), [SHORT]
+
+  * Validation: Check dataset has observations
+  quietly count
+  if r(N) == 0 {
+    display as error "no observations in dataset"
+    exit 2000
+  }
 
   * Validation: Check for required external commands
   capture which mdesc
@@ -23,18 +30,8 @@ program define check, rclass
     exit 199
   }
 
-  * Validation: Check if all variables exist
-  foreach v of varlist `varlist' {
-    capture confirm variable `v'
-    if _rc {
-      display as error "variable `v' not found"
-      exit 111
-    }
-  }
-
-*missing
-*not missing
-if "`short'"== "" {
+  * Display full output (statistics + quality metrics)
+  if "`short'" == "" {
 *************************************************************************  
   * Part 0. Compute length of longest variable
   local max = 0
@@ -106,7 +103,7 @@ if "`short'"== "" {
   }
 }
 
-else{
+else {
 *************************************************************************  
   * Part 0. Compute length of longest variable
   local max = 0

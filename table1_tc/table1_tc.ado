@@ -1,4 +1,4 @@
-*! table1_tc Version 1.0.0  2025/12/02 - Descriptive Statistics Table Generator
+*! table1_tc Version 1.0.1  2025/12/03 - Descriptive Statistics Table Generator
 *! Author: Tim Copeland
 *! Fork of -table1_mc- version 3.5 (2024-12-19) by Mark Chatfield
 *! This program generates descriptive statistics tables with formatting options
@@ -84,7 +84,15 @@ program define table1_tc, sclass
         di in re "sheet() and title() are only available when using excel()"
         error 498
     }
-    
+
+    /* Validate Excel file path for security */
+    if `has_excel' {
+        if regexm("`excel'", "[;&|><\$\`]") {
+            display as error "excel() contains invalid characters"
+            error 198
+        }
+    }
+
     /* Validate borderstyle option */
     local has_borderstyle = "`borderstyle'" != ""
     
@@ -108,7 +116,7 @@ program define table1_tc, sclass
         // Preset combination of formatting options
         local percformat "%5.1f"       // Percentage format
         local percent_n "percent_n"    // Display as % (n)
-        local percsign = `""""'        // No percent sign
+        local percsign `""""'          // No percent sign
         local iqrmiddle `"",""'        // Comma between Q1 and Q3
         local sdleft `"" [±""'         // Format before SD
         local sdright `""]""'          // Format after SD
@@ -157,13 +165,20 @@ program define table1_tc, sclass
     if `"`percfootnote2'"' == "" local percfootnote2 "`percfootnote'"
     
 **# Data Preparation
-    
+
     /* Mark observations to include in analysis */
     marksample touse  // Creates indicator variable for observations that satisfy if/in conditions
-    
+
+    /* Validate that observations remain after if/in conditions */
+    quietly count if `touse'
+    if r(N) == 0 {
+        display as error "no observations"
+        error 2000
+    }
+
     /* Create temporary file for storing the results table */
     tempfile resultstable
-    
+
     /* Initialize row order counter */
     local sortorder=1  // Counter to maintain the order of variables in the final table
 

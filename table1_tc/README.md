@@ -436,6 +436,10 @@ The command can store the table in memory using the `clear` option, replacing th
 
 ## Version History
 
+- **Version 1.0.1** (3 December 2025): Code quality improvements
+  - Added observation count validation after marksample
+  - Added file path security validation for Excel export
+  - Fixed macro assignment syntax in gurmeet preset
 - **Version 1.0.0** (2 December 2025): GitHub publication release
 
 ## Author
