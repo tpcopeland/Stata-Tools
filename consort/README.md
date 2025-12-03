@@ -2,20 +2,23 @@
 
 ![Stata 16+](https://img.shields.io/badge/Stata-16%2B-brightgreen) ![MIT License](https://img.shields.io/badge/License-MIT-blue) ![Status](https://img.shields.io/badge/Status-Active-success)
 
-CONSORT flow diagram generator for clinical trials.
+CONSORT flow diagram generator for clinical trials and observational studies.
 
 ## Package Overview
 
-**consort** generates publication-quality CONSORT (Consolidated Standards of Reporting Trials) flow diagrams showing participant flow through each stage of a randomized trial.
+This package provides two commands for generating CONSORT-style flow diagrams:
+
+1. **consort** - For randomized controlled trials (RCTs) with 2-4 treatment arms
+2. **consortq** - For observational/retrospective studies with sequential exclusions
 
 ### Key Features
 
-- **Standard CONSORT stages**: Enrollment, Allocation, Follow-up, Analysis
-- **Multi-arm support**: 2, 3, or 4 treatment arms with automatic layout
+- **Two diagram types**: RCT diagrams with arms, or cohort flow with exclusions
+- **Flexible layout**: Automatic adjustment based on number of arms/steps
 - **Detailed tracking**: Exclusions, losses, and discontinuations with reasons
 - **Export formats**: PNG, PDF, EPS, SVG, TIF and other graphics formats
 - **Customizable appearance**: Colors, text sizes, dimensions
-- **Dialog interface**: Easy-to-use graphical interface
+- **Dialog interface**: Easy-to-use graphical interface (for consort)
 
 ---
 
@@ -162,7 +165,97 @@ consort, assessed(300) excluded(50) randomized(250) ///
 
 ---
 
-## CONSORT Flow Diagram Structure
+## consortq - Cohort Flow Diagrams for Observational Studies
+
+### Syntax
+
+```stata
+consortq, n1(#) [options]
+```
+
+### Required Option
+
+| Option | Description |
+|--------|-------------|
+| `n1(#)` | Starting population size |
+
+### Box and Exclusion Options
+
+| Option | Description |
+|--------|-------------|
+| `label1(string)` | Label for first box (default: "Initial population") |
+| `exc1(#)` | Number excluded at step 1 |
+| `exc1_reasons(string)` | Exclusion reasons; separate with `;;` |
+| `n2(#)` | N after exclusion 1 (auto-calculated if omitted) |
+| `label2(string)` | Label for box 2 |
+| `exc2(#)` ... `exc9(#)` | Exclusions for subsequent steps |
+| `n3(#)` ... `n10(#)` | Population counts (up to 10 boxes) |
+
+### consortq Examples
+
+#### Example 1: Simple Cohort Selection
+
+```stata
+consortq, n1(10000) ///
+    exc1(2000) exc1_reasons("Missing data (n=1200);; Age < 18 (n=800)") ///
+    n2(8000) label2("Eligible patients") ///
+    exc2(500) exc2_reasons("No outcome data") ///
+    n3(7500) label3("Final cohort")
+```
+
+#### Example 2: Multiple Exclusion Steps
+
+```stata
+consortq, n1(100000) label1("Initial database extract") ///
+    exc1(20000) exc1_reasons("Duplicate records") ///
+    label2("Unique patients") ///
+    exc2(15000) exc2_reasons("Missing exposure (n=10000);; Missing outcome (n=5000)") ///
+    label3("Complete cases") ///
+    exc3(8000) exc3_reasons("Prevalent cases at baseline") ///
+    label4("Incident cases") ///
+    exc4(2000) exc4_reasons("< 1 year follow-up") ///
+    label5("Final analysis cohort") ///
+    title("Cohort Selection") saving("cohort_flow.png") replace
+```
+
+#### Example 3: Auto-Calculate Remaining N
+
+```stata
+consortq, n1(5000) ///
+    exc1(500) ///
+    exc2(200) ///
+    exc3(100) ///
+    label4("Final cohort")
+```
+
+This automatically calculates n2=4500, n3=4300, n4=4200.
+
+### Cohort Flow Diagram Structure
+
+```
+┌─────────────────────────────────┐
+│  Initial population (n=10,000) │
+└───────────────┬─────────────────┘
+                │
+                ├────────────────────→ Excluded (n=2,000)
+                │                       - Missing data (n=1,200)
+                │                       - Age < 18 (n=800)
+                ↓
+┌─────────────────────────────────┐
+│  Eligible patients (n=8,000)   │
+└───────────────┬─────────────────┘
+                │
+                ├────────────────────→ Excluded (n=500)
+                │                       - No outcome data
+                ↓
+┌─────────────────────────────────┐
+│  Final cohort (n=7,500)        │
+└─────────────────────────────────┘
+```
+
+---
+
+## CONSORT Flow Diagram Structure (for consort command)
 
 The generated diagram follows the standard CONSORT 2010 format:
 
@@ -263,7 +356,8 @@ db consort
 
 ## Documentation
 
-- Command help: `help consort`
+- Command help: `help consort` (for RCTs)
+- Command help: `help consortq` (for cohort studies)
 
 ## Author
 
@@ -286,5 +380,5 @@ Version 1.0.0, 2025-12-03
 
 ## Also See
 
-- Stata help: `help graph`, `help graph export`
+- Stata help: `help consort`, `help consortq`, `help graph`, `help graph export`
 - CONSORT website: [www.consort-statement.org](http://www.consort-statement.org)

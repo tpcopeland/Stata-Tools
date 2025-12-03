@@ -78,10 +78,10 @@ This repository contains a suite of Stata packages developed to streamline commo
 
 ### Analysis & Tables
 
-**consort** - CONSORT flow diagram generator for clinical trials
-- Generate publication-quality CONSORT flow diagrams
-- Support for 2, 3, or 4 treatment arms with automatic layout
-- Detailed tracking of exclusions, losses, and discontinuations
+**consort** - CONSORT flow diagram generator for clinical trials and cohort studies
+- consort: For RCTs with 2-4 treatment arms (enrollment, allocation, follow-up, analysis)
+- consortq: For observational studies with sequential exclusions (single path flow)
+- Detailed tracking of exclusions, losses, and discontinuations with reasons
 - Export to PNG, PDF, EPS, SVG, and other formats
 - Includes dialog interface
 

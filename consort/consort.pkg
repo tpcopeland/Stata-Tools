@@ -1,13 +1,16 @@
 v 3
 d 'CONSORT': CONSORT flow diagram generator for clinical trials (v1.0.0)
 d
-d consort generates publication-quality CONSORT (Consolidated Standards of
-d Reporting Trials) flow diagrams showing participant flow through enrollment,
-d allocation, follow-up, and analysis stages of randomized trials.
+d This package provides two commands for generating CONSORT-style flow diagrams:
 d
-d Supports 2 to 4 treatment arms with automatic layout adjustment.
-d Customizable colors, text sizes, and graph dimensions.
-d Export to PNG, PDF, EPS, SVG, and other graphics formats.
+d consort: For randomized controlled trials (RCTs) with 2-4 treatment arms.
+d Shows enrollment, allocation, follow-up, and analysis stages.
+d
+d consortq: For observational/retrospective studies with sequential exclusions.
+d Shows a single path with exclusion boxes branching off.
+d
+d Both commands produce publication-quality graphics with customizable
+d colors, text sizes, and dimensions. Export to PNG, PDF, EPS, SVG, etc.
 d
 d Requires: Stata version 16+
 d
@@ -22,10 +25,13 @@ d KW: CONSORT
 d KW: flow diagram
 d KW: clinical trial
 d KW: randomized trial
-d KW: RCT
+d KW: cohort study
+d KW: observational study
 d KW: visualization
 d
 f consort.ado
 f consort.sthlp
 f consort.dlg
+f consortq.ado
+f consortq.sthlp
 d
