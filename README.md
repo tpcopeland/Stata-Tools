@@ -225,21 +225,21 @@ MIT License - see individual package files for details
 
 | Package | Description | Version | Stata Version |
 |---------|-------------|---------|---------------|
-| check | Variable inspection | 1.0.1 | 14+ |
-| compress_tc | String compression via strL | 1.0.1 | 13+ |
+| check | Variable inspection | 1.0.2 | 14+ |
+| compress_tc | String compression via strL | 1.0.2 | 13+ |
 | cstat_surv | C-statistic for survival | 1.0.1 | 16+ |
 | datamap | Dataset documentation | 1.0.1 | 16+ |
 | datefix | Date format conversion | 1.0.1 | 14+ |
-| massdesas | Batch SAS to Stata conversion | 1.0.1 | 14+ |
+| massdesas | Batch SAS to Stata conversion | 1.0.2 | 14+ |
 | mvp | Missing value pattern analysis | 1.0.1 | 14+ |
 | pkgtransfer | Package management | 1.0.1 | 14+ |
-| regtab | Regression tables | 1.0.1 | 17+ |
+| regtab | Regression tables | 1.0.2 | 17+ |
 | setools | Swedish registry data tools | 1.0.1 | 18+ |
 | stratetab | Strate output formatting | 1.0.1 | 17+ |
 | synthdata | Synthetic data generation | 1.0.1 | 16+ |
-| table1_tc | Table 1 creation | 1.0.1 | 14.2+ |
+| table1_tc | Table 1 creation | 1.0.2 | 14.2+ |
 | today | Date utilities | 1.0.1 | 14+ |
-| tvtools | Time-varying data | 1.0.0 | 16+ |
+| tvtools | Time-varying data | 1.0.1 | 16+ |
 
 ## Citation
 

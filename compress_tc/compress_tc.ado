@@ -1,12 +1,12 @@
 *! compress_tc: Maximally compress string variables via strL conversion + compress
-*! Version: 1.0.1
-*! Date: 2025/12/03
+*! Version: 1.0.2
+*! Date: 03dec2025
 *! Fork Author: Tim Copeland 
 *! Forked from strcompress
 *! Original Author: Luke Stein (lcdstein@babson.edu)
 *!
 *! Syntax:
-*!   compress_tc [varlist] [, NOCompress NOStrl NOReport Quietly Detail]
+*!   compress_tc [varlist] [, NOCompress NOStrl NOReport Quietly Detail VARSavings]
 *!
 *! Description:
 *!   Two-stage string compression: (1) convert str# to strL, (2) run compress.
@@ -19,13 +19,14 @@
 *!   noreport    Suppress compress's per-variable output; show summary only
 *!   quietly     Suppress all output
 *!   detail      Show per-variable type information before conversion
+*!   varsavings  Report per-variable memory savings
 *!
 *! Returns:
 *!   r(bytes_saved)    Bytes saved (string data only)
 *!   r(pct_saved)      Percentage reduction
 *!   r(bytes_initial)  Initial string data size
 *!   r(bytes_final)    Final string data size
-*!   r(varlist)        Variables processed
+*!   r(varlist)        Variables actually processed (string variables)
 *!
 *! Note: Memory calculations reflect total string data in dataset, not just
 *!       specified varlist. This is a limitation of Stata's memory reporting.
@@ -34,7 +35,7 @@ program define compress_tc, rclass
     version 13.0
     set varabbrev off
 
-    syntax [varlist] [, NOCompress NOStrl NOStrL NOReport Quietly Detail]
+    syntax [varlist] [, NOCompress NOStrl NOStrL NOReport Quietly Detail VARSavings]
     
     // Handle alternate spelling nostrl/nostrL
     if "`nostrl'" != "" | "`nostrL'" != "" {
@@ -80,11 +81,13 @@ program define compress_tc, rclass
     
     local midmem = `oldmem'
     local converted_vars ""
-    
+    local processed_vars ""
+
     // Stage 1: Convert str# to strL
     if "`nostrl'" == "" {
         quietly ds `varlist', has(type str#)
         local strvars `r(varlist)'
+        local processed_vars "`strvars'"
         
         if "`strvars'" != "" {
             local converted_vars "`strvars'"
@@ -149,11 +152,31 @@ program define compress_tc, rclass
     
     // Stage 2: Run compress
     if "`nocompress'" == "" {
+        // Get list of all string variables (str# and strL) for processed_vars
+        if "`nostrl'" != "" {
+            quietly ds `varlist', has(type string)
+            local processed_vars `r(varlist)'
+        }
+
         if "`quietly'" != "" | "`noreport'" != "" {
             quietly compress `varlist'
         }
         else {
             compress `varlist'
+        }
+    }
+
+    // Per-variable savings report if requested
+    if "`varsavings'" != "" & "`quietly'" == "" & "`processed_vars'" != "" {
+        display ""
+        display as text "  {hline 50}"
+        display as text "  Per-variable summary:"
+        display as text "  " _col(5) "Variable" _col(25) "Type" _col(35) "Width"
+        display as text "  {hline 50}"
+        foreach v of local processed_vars {
+            local vtype : type `v'
+            local vfmt : format `v'
+            display as text "  " _col(5) "`v'" _col(25) "`vtype'" _col(35) "`vfmt'"
         }
     }
     
@@ -184,6 +207,6 @@ program define compress_tc, rclass
     return scalar pct_saved = `pct_saved'
     return scalar bytes_initial = `oldmem'
     return scalar bytes_final = `newmem'
-    return local varlist "`varlist'"
+    return local varlist "`processed_vars'"
 
 end

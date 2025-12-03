@@ -1,4 +1,4 @@
-*! massdesas Version 1.0.1  03dec2025
+*! massdesas Version 1.0.2  03dec2025
 
 *! Author: Tim Copeland
 *! Revised on  3 December 2025
@@ -72,12 +72,19 @@ capture {
 }
 local import_rc = _rc
 if `import_rc' == 0 {
-	local dtaname = substr("`file'", 1, strpos("`file'", ".sas7bdat") - 1)
-	save "`dtaname'.dta", replace
-	if "`erase'" != "" {
-		erase "`file'"
+	quietly count
+	if r(N) == 0 {
+		display as text "Warning: `file' imported but contains 0 observations"
+		local ++n_failed
 	}
-	local ++n_converted
+	else {
+		local dtaname = substr("`file'", 1, strpos("`file'", ".sas7bdat") - 1)
+		save "`dtaname'.dta", replace
+		if "`erase'" != "" {
+			erase "`file'"
+		}
+		local ++n_converted
+	}
 }
 else {
 	display as error "Failed to import: `file' (rc=`import_rc')"

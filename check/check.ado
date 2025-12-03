@@ -1,4 +1,4 @@
-*! check Version 1.0.1  03dec2025
+*! check Version 1.0.2  03dec2025
 
 *! Revision Author: Tim Copeland 
 *! Revised on  26 July 2020 at 12:11:00
@@ -21,12 +21,14 @@ program define check, rclass
   * Validation: Check for required external commands
   capture which mdesc
   if _rc {
-    display as error "check requires the mdesc command. Install with: ssc install mdesc"
+    display as error "check requires the mdesc command"
+    display as text "Install with: {stata ssc install mdesc:ssc install mdesc}"
     exit 199
   }
   capture which unique
   if _rc {
-    display as error "check requires the unique command. Install with: ssc install unique"
+    display as error "check requires the unique command"
+    display as text "Install with: {stata ssc install unique:ssc install unique}"
     exit 199
   }
 
