@@ -1,5 +1,5 @@
 {smcl}
-{* *{* *! version 1.0.0  2025/12/02}{...}
+{* *! version 1.0.1  03dec2025}{...}
 {viewerjumpto "Syntax" "synthdata##syntax"}{...}
 {viewerjumpto "Description" "synthdata##description"}{...}
 {viewerjumpto "Options" "synthdata##options"}{...}
