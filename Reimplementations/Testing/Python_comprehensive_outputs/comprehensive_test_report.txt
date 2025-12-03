@@ -1,0 +1,194 @@
+COMPREHENSIVE PYTHON TVTOOLS TEST REPORT
+================================================================================
+
+Test Date: 2025-12-03 03:35:55
+Total Tests: 27
+Passed: 24
+Failed: 3
+Not Implemented: 0
+Skipped: 0
+
+================================================================================
+DETAILED RESULTS
+================================================================================
+
+TVE-01: Basic exposure creation
+  Status: PASSED
+  Rows: 6281
+  Columns: 4
+  Unique Patients: 1000
+  Output File: /home/user/Stata-Tools/Reimplementations/Testing/Python_comprehensive_outputs/tve01_basic.csv
+
+TVE-02: Ever treated indicator
+  Status: PASSED
+  Rows: 6281
+  Columns: 4
+  Unique Patients: 1000
+  Output File: /home/user/Stata-Tools/Reimplementations/Testing/Python_comprehensive_outputs/tve02_evertreated.csv
+
+TVE-03: Current/former exposure
+  Status: PASSED
+  Rows: 6281
+  Columns: 4
+  Unique Patients: 1000
+  Output File: /home/user/Stata-Tools/Reimplementations/Testing/Python_comprehensive_outputs/tve03_currentformer.csv
+
+TVE-04: Duration with cutpoints [30, 90, 180, 365]
+  Status: FAILED
+  Error: '_cumul_exp'
+
+TVE-05: Continuous exposure (days)
+  Status: PASSED
+  Rows: 6281
+  Columns: 4
+  Unique Patients: 1000
+  Output File: /home/user/Stata-Tools/Reimplementations/Testing/Python_comprehensive_outputs/tve05_continuous_days.csv
+
+TVE-06: Continuous exposure (months)
+  Status: PASSED
+  Rows: 6281
+  Columns: 4
+  Unique Patients: 1000
+  Output File: /home/user/Stata-Tools/Reimplementations/Testing/Python_comprehensive_outputs/tve06_continuous_months.csv
+
+TVE-07: Continuous exposure (years)
+  Status: PASSED
+  Rows: 6281
+  Columns: 4
+  Unique Patients: 1000
+  Output File: /home/user/Stata-Tools/Reimplementations/Testing/Python_comprehensive_outputs/tve07_continuous_years.csv
+
+TVE-08: By type (separate variables)
+  Status: PASSED
+  Rows: 6281
+  Columns: 4
+  Unique Patients: 1000
+  Output File: /home/user/Stata-Tools/Reimplementations/Testing/Python_comprehensive_outputs/tve08_bytype.csv
+
+TVE-09: Grace period = 30 days
+  Status: PASSED
+  Rows: 6198
+  Columns: 4
+  Unique Patients: 1000
+  Output File: /home/user/Stata-Tools/Reimplementations/Testing/Python_comprehensive_outputs/tve09_grace30.csv
+
+TVE-10: Grace period = 60 days
+  Status: PASSED
+  Rows: 6139
+  Columns: 4
+  Unique Patients: 1000
+  Output File: /home/user/Stata-Tools/Reimplementations/Testing/Python_comprehensive_outputs/tve10_grace60.csv
+
+TVE-11: Lag = 14 days
+  Status: PASSED
+  Rows: 5361
+  Columns: 4
+  Unique Patients: 1000
+  Output File: /home/user/Stata-Tools/Reimplementations/Testing/Python_comprehensive_outputs/tve11_lag14.csv
+
+TVE-12: Washout = 30 days
+  Status: PASSED
+  Rows: 6049
+  Columns: 4
+  Unique Patients: 1000
+  Output File: /home/user/Stata-Tools/Reimplementations/Testing/Python_comprehensive_outputs/tve12_washout30.csv
+
+TVE-13: Lag=14 + Washout=30
+  Status: PASSED
+  Rows: 6443
+  Columns: 4
+  Unique Patients: 1000
+  Output File: /home/user/Stata-Tools/Reimplementations/Testing/Python_comprehensive_outputs/tve13_lag_washout.csv
+
+TVE-14: Overlap handling: layer
+  Status: PASSED
+  Rows: 6281
+  Columns: 4
+  Unique Patients: 1000
+  Output File: /home/user/Stata-Tools/Reimplementations/Testing/Python_comprehensive_outputs/tve14_overlap_layer.csv
+
+TVE-15: Keep cols: age, sex
+  Status: PASSED
+  Rows: 6281
+  Columns: 6
+  Unique Patients: 1000
+  Output File: /home/user/Stata-Tools/Reimplementations/Testing/Python_comprehensive_outputs/tve15_keepcols.csv
+
+TVM-01: Basic two-dataset merge
+  Status: PASSED
+  Rows: 9940
+  Columns: 5
+  Unique Patients: 1000
+  Output File: /home/user/Stata-Tools/Reimplementations/Testing/Python_comprehensive_outputs/tvm01_basic.csv
+
+TVM-02: Merge with continuous interpolation
+  Status: FAILED
+  Error: list index out of range
+
+TVM-03: Three-dataset merge
+  Status: PASSED
+  Rows: 9856
+  Columns: 6
+  Unique Patients: 1000
+  Output File: /home/user/Stata-Tools/Reimplementations/Testing/Python_comprehensive_outputs/tvm03_three_datasets.csv
+
+TVM-04: Output naming with generate
+  Status: PASSED
+  Rows: 9940
+  Columns: 5
+  Unique Patients: 1000
+  Output File: /home/user/Stata-Tools/Reimplementations/Testing/Python_comprehensive_outputs/tvm04_generate.csv
+
+TVM-05: Output naming with prefix
+  Status: FAILED
+  Error: Index(['medicationtv_exposure'], dtype='object')
+
+TVT-01: Single event type (MI)
+  Status: PASSED
+  Rows: 5592
+  Columns: 7
+  Unique Patients: 1000
+  Output File: /home/user/Stata-Tools/Reimplementations/Testing/Python_comprehensive_outputs/tvt01_single.csv
+
+TVT-02: Recurring event type
+  Status: PASSED
+  Rows: 6355
+  Columns: 7
+  Unique Patients: 1000
+  Output File: /home/user/Stata-Tools/Reimplementations/Testing/Python_comprehensive_outputs/tvt02_recurring.csv
+
+TVT-03: Single competing risk (death)
+  Status: PASSED
+  Rows: 5314
+  Columns: 6
+  Unique Patients: 1000
+  Output File: /home/user/Stata-Tools/Reimplementations/Testing/Python_comprehensive_outputs/tvt03_single_compete.csv
+
+TVT-04: Multiple competing risks
+  Status: PASSED
+  Rows: 5180
+  Columns: 5
+  Unique Patients: 1000
+  Output File: /home/user/Stata-Tools/Reimplementations/Testing/Python_comprehensive_outputs/tvt04_multiple_compete.csv
+
+TVT-05: With continuous variable
+  Status: PASSED
+  Rows: 5314
+  Columns: 6
+  Unique Patients: 1000
+  Output File: /home/user/Stata-Tools/Reimplementations/Testing/Python_comprehensive_outputs/tvt05_continuous.csv
+
+TVT-06: Time generation (days)
+  Status: PASSED
+  Rows: 5592
+  Columns: 8
+  Unique Patients: 1000
+  Output File: /home/user/Stata-Tools/Reimplementations/Testing/Python_comprehensive_outputs/tvt06_time_days.csv
+
+TVT-07: Time generation (years)
+  Status: PASSED
+  Rows: 5592
+  Columns: 8
+  Unique Patients: 1000
+  Output File: /home/user/Stata-Tools/Reimplementations/Testing/Python_comprehensive_outputs/tvt07_time_years.csv
+
