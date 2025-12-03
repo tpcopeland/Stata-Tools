@@ -1,4 +1,4 @@
-*! synthdata Version 1.0.2  03dec2025  Synthetic data generation
+*! synthdata Version 1.0.3  03dec2025  Synthetic data generation
 program define synthdata
     version 16.0
     set varabbrev off
@@ -105,7 +105,19 @@ program define synthdata
         }
     }
     
-    // Generate synthetic data based on method
+    // =========================================================================
+    // SYNTHESIS: Generate synthetic data based on selected method
+    // =========================================================================
+    // Methods available:
+    //   - parametric (default): Multivariate normal with Cholesky decomposition
+    //   - sequential: Regression-based sequential synthesis
+    //   - bootstrap: Resample with replacement + noise
+    //   - permute: Independent permutation per variable (breaks correlations)
+
+    di as txt _n "Synthesizing data using `method' method..."
+    di as txt "  Variables: " as res `: word count `varlist''
+    di as txt "  Target observations: " as res `n'
+
     if "`method'" == "parametric" {
         _synthdata_parametric, n(`n') catvars(`catvars') contvars(`contvars') ///
             datevars(`datevars') strvars(`strvars') origdata(`origdata') ///
@@ -126,6 +138,8 @@ program define synthdata
             datevars(`datevars') strvars(`strvars') origdata(`origdata') ///
             mincell(`mincell') trim(`trim')
     }
+
+    di as txt "  Synthesis complete."
     
     // Handle ID variables - generate sequential IDs
     if "`id'" != "" {
@@ -214,25 +228,31 @@ program define synthdata
         _synthdata_graph `contvars', origdata(`origdata') prefix(`prefix')
     }
     
-    // Handle multiple synthetic datasets
+    // =========================================================================
+    // MULTIPLE DATASETS: Generate multiple synthetic datasets if requested
+    // =========================================================================
     if `multiple' > 1 {
         if "`saving'" == "" {
             di as error "multiple() requires saving() option"
             exit 198
         }
 
-        // Sanitize filename
+        // Sanitize filename for security
         if regexm("`saving'", "[;&|><\$\`]") {
             di as error "saving() contains invalid characters"
             exit 198
         }
 
-        // Save first dataset
+        di as txt _n "Generating `multiple' synthetic datasets..."
+
+        // Save first dataset (already generated above)
         local savename = subinstr("`saving'", ".dta", "", .)
         qui save "`savename'_1.dta", replace
-        
-        // Generate additional datasets
+        di as txt "  Dataset 1/`multiple' saved."
+
+        // Generate additional datasets with different random seeds
         forvalues m = 2/`multiple' {
+            di as txt "  Dataset `m'/`multiple'..." _continue
             qui use `origdata', clear
             
             if `seed' >= 0 {
@@ -309,11 +329,12 @@ program define synthdata
                     cap rename `v' `prefix'`v'
                 }
             }
-            
+
             qui save "`savename'_`m'.dta", replace
+            di as txt " saved."
         }
-        
-        di as txt "Saved `multiple' synthetic datasets: `savename'_1.dta to `savename'_`multiple'.dta"
+
+        di as txt _n "All `multiple' synthetic datasets saved: `savename'_1.dta to `savename'_`multiple'.dta"
     }
     else {
         // Single dataset handling
@@ -443,20 +464,42 @@ program define _synthdata_stats
     postclose `memhold'
 end
 
-// Parametric synthesis method
+// =============================================================================
+// PARAMETRIC SYNTHESIS METHOD
+// =============================================================================
+// Uses multivariate normal distribution with Cholesky decomposition to preserve
+// correlation structure among continuous variables. Categorical variables are
+// synthesized independently using observed frequency distributions.
+//
+// Algorithm:
+// 1. Compute means, SDs, and covariance matrix from original data
+// 2. Regularize covariance matrix if not positive definite
+// 3. Generate multivariate normal draws via Cholesky: X = Z * L' + mu
+// 4. Draw categorical variables from observed frequency distributions
+// 5. Handle string and date variables appropriately
+
 program define _synthdata_parametric
     version 16.0
     syntax, n(integer) [catvars(varlist) contvars(varlist) datevars(varlist) ///
         strvars(string) origdata(string) empirical smooth correlations ///
         mincell(integer 5) trim(real 0)]
-    
+
     local orig_n = _N
-    
-    // Store continuous variable parameters
+
+    // Count variables for progress reporting
     local ncont: word count `contvars'
-    
+    local ncat: word count `catvars'
+    local nstr: word count `strvars'
+    local ndate: word count `datevars'
+    local ntotal = `ncont' + `ncat' + `nstr' + `ndate'
+
+    // -------------------------------------------------------------------------
+    // STEP 1: Compute continuous variable parameters (mean, SD, covariance)
+    // -------------------------------------------------------------------------
     if `ncont' > 0 {
-        // Store means, SDs, and empirical distributions
+        di as txt "    [1/4] Computing continuous variable parameters (`ncont' variables)..."
+
+        // Allocate matrices for means, SDs, and bounds
         tempname means sds mins maxs
         matrix `means' = J(1, `ncont', .)
         matrix `sds' = J(1, `ncont', .)
@@ -515,9 +558,16 @@ program define _synthdata_parametric
         }
     }
     
-    // Store categorical variable frequencies
-    local ncat: word count `catvars'
+    // -------------------------------------------------------------------------
+    // STEP 2: Compute categorical variable frequency distributions
+    // -------------------------------------------------------------------------
+    // For each categorical variable, store:
+    // - Unique values (levels)
+    // - Frequency counts (with rare category pooling if mincell > 0)
+    // - Value labels for restoration
+
     if `ncat' > 0 {
+        di as txt "    [2/4] Computing categorical variable frequencies (`ncat' variables)..."
         local catnum = 1
         foreach v of local catvars {
             qui levelsof `v', local(levels_`catnum')
@@ -546,9 +596,14 @@ program define _synthdata_parametric
         }
     }
     
-    // Store string variable frequencies
-    local nstr: word count `strvars'
+    // -------------------------------------------------------------------------
+    // STEP 2b: Compute string variable frequency distributions
+    // -------------------------------------------------------------------------
+    // String variables cannot use matrices for storage, so we use locals.
+    // Each unique string value is stored with its frequency count.
+
     if `nstr' > 0 {
+        di as txt "    [2/4] Computing string variable frequencies (`nstr' variables)..."
         local strnum = 1
         foreach v of local strvars {
             qui levelsof `v', local(strlevels_`strnum') clean
@@ -566,9 +621,14 @@ program define _synthdata_parametric
         }
     }
     
-    // Store date variable parameters (treat as continuous)
-    local ndate: word count `datevars'
+    // -------------------------------------------------------------------------
+    // STEP 2c: Compute date variable parameters
+    // -------------------------------------------------------------------------
+    // Dates are treated similarly to continuous variables (mean, SD, bounds)
+    // but are rounded to integer values and formatted appropriately.
+
     if `ndate' > 0 {
+        di as txt "    [2/4] Computing date variable parameters (`ndate' variables)..."
         local datenum = 1
         foreach v of local datevars {
             qui su `v', detail
@@ -581,44 +641,60 @@ program define _synthdata_parametric
         }
     }
     
-    // Create synthetic dataset
+    // =========================================================================
+    // STEP 3: Create synthetic dataset structure
+    // =========================================================================
+    di as txt "    [3/4] Creating synthetic dataset (`n' observations)..."
     qui drop _all
     qui set obs `n'
-    
-    // Generate continuous variables
+
+    // -------------------------------------------------------------------------
+    // STEP 4: Generate synthetic values for each variable type
+    // -------------------------------------------------------------------------
+
+    // --- Generate continuous variables ---
+    // Uses multivariate normal for multiple variables (preserves correlations)
+    // or simple normal for single variable
     if `ncont' > 0 {
+        di as txt "    [4/4] Generating continuous variables (`ncont')..."
         if `ncont' == 1 {
-            // Single variable: simple normal
+            // Single variable: simple univariate normal N(mean, sd)
             local v: word 1 of `contvars'
             qui gen double `v' = rnormal(`=`means'[1,1]', `=`sds'[1,1]')
         }
         else {
-            // Create variables first (st_store requires existing variables)
+            // Multiple variables: multivariate normal via Cholesky decomposition
+            // IMPORTANT: Variables must exist before Mata st_store() call
             foreach v of local contvars {
                 qui gen double `v' = .
             }
-            // Multivariate normal via Cholesky
+            // Generate MVN: X = Z * L' + mu, where L = cholesky(Sigma)
             mata: _synthdata_genmvn("`contvars'", st_matrix("`means'"), st_matrix("`covmat'"), `n')
         }
     }
-    
-    // Generate categorical variables
+
+    // --- Generate categorical variables ---
+    // Draws from observed frequency distribution (with rare category pooling)
     if `ncat' > 0 {
+        di as txt "    [4/4] Generating categorical variables (`ncat')..."
         local catnum = 1
         foreach v of local catvars {
             qui gen double `v' = .
+            // Draw from categorical distribution using inverse CDF method
             mata: _synthdata_drawcat("`v'", st_matrix("`catfreq_`catnum''"), `n')
-            
-            // Restore value label
+
+            // Restore value label for categorical interpretation
             if "`vallbl_`catnum''" != "" {
                 cap label values `v' `vallbl_`catnum''
             }
             local ++catnum
         }
     }
-    
-    // Generate string variables
+
+    // --- Generate string variables ---
+    // Similar to categorical but stores actual string values
     if `nstr' > 0 {
+        di as txt "    [4/4] Generating string variables (`nstr')..."
         local strnum = 1
         foreach v of local strvars {
             // Determine max string length
@@ -651,13 +727,18 @@ program define _synthdata_parametric
         }
     }
     
-    // Generate date variables
+    // --- Generate date variables ---
+    // Treated as continuous but rounded to integer and bounded
     if `ndate' > 0 {
+        di as txt "    [4/4] Generating date variables (`ndate')..."
         local datenum = 1
         foreach v of local datevars {
+            // Generate from normal distribution centered on original mean
             qui gen double `v' = round(rnormal(`datemean_`datenum'', `datesd_`datenum''))
+            // Clip to original date range
             qui replace `v' = max(`v', `datemin_`datenum'')
             qui replace `v' = min(`v', `datemax_`datenum'')
+            // Restore original date format
             format `v' `datefmt_`datenum''
             local ++datenum
         }
@@ -783,22 +864,45 @@ program define _synthdata_permute
     }
 end
 
-// Sequential regression method
+// =============================================================================
+// SEQUENTIAL SYNTHESIS METHOD
+// =============================================================================
+// Generates synthetic data using conditional modeling approach:
+//   1. First variable drawn from its marginal distribution
+//   2. Each subsequent variable modeled conditional on previous variables
+//   3. For continuous: linear regression + random residuals
+//   4. For categorical/string: marginal frequency distribution
+//
+// Advantages: Handles mixed variable types naturally
+// Limitations: Order-dependent, may not fully preserve correlations
+//
+// Reference: Similar to MICE imputation approach but for synthesis
+
 program define _synthdata_sequential
     version 16.0
     syntax, n(integer) [catvars(varlist) contvars(varlist) ///
         datevars(varlist) strvars(string) origdata(string) ///
         mincell(integer 5) trim(real 0)]
-    
-    // Combine all vars in synthesis order (continuous first, then categorical)
+
+    // -------------------------------------------------------------------------
+    // STEP 1: Determine synthesis order and variable count
+    // -------------------------------------------------------------------------
+    // Order: continuous -> dates -> categorical -> string
+    // This order helps continuous regression models work better
     local allvars `contvars' `datevars' `catvars' `strvars'
-    
+    local nvars: word count `allvars'
+
     if "`allvars'" == "" {
         di as error "no variables to synthesize"
         exit 102
     }
-    
-    // Store original data info
+
+    di as txt "    Sequential synthesis: `nvars' variables"
+
+    // -------------------------------------------------------------------------
+    // STEP 2: Pre-compute variable properties for all variables
+    // -------------------------------------------------------------------------
+    local vnum = 0
     foreach v of local allvars {
         local iscat_`v': list v in catvars
         local isdate_`v': list v in datevars
@@ -815,20 +919,26 @@ program define _synthdata_sequential
         local fmt_`v': format `v'
     }
     
-    // Create empty synthetic dataset structure
+    // -------------------------------------------------------------------------
+    // STEP 3: Create empty synthetic dataset and synthesize sequentially
+    // -------------------------------------------------------------------------
     tempfile origdata_temp
     qui save `origdata_temp'
-    
+
     qui drop _all
     qui set obs `n'
-    
+
     local prevvars ""
-    
+    local vnum = 0
+
     foreach v of local allvars {
-        // Load original to fit model
+        local ++vnum
+        di as txt "      Variable `vnum'/`nvars': `v'" _continue
+
+        // Load original data to fit conditional model
         preserve
         qui use `origdata_temp', clear
-        
+
         local iscat = `iscat_`v''
         local isdate = `isdate_`v''
         local isstr = `isstr_`v''
@@ -932,13 +1042,15 @@ program define _synthdata_sequential
                 qui replace `v' = `"`strval_`j''"' if `idx' == `j'
             }
             drop `idx'
+            di as txt " (string, marginal)"
         }
         else if `iscat' {
             qui gen double `v' = .
-            // Draw from marginal
+            // Draw from marginal frequency distribution
             tempname catcomb
             matrix `catcomb' = `catvals', `catfreqs'
             mata: _synthdata_drawcat("`v'", st_matrix("`catcomb'"), `n')
+            di as txt " (categorical, marginal)"
         }
         else {
             // Continuous or date
@@ -966,11 +1078,17 @@ program define _synthdata_sequential
             if `isdate' {
                 qui replace `v' = round(`v')
                 format `v' `fmt_`v''
+                di as txt " (date, regression)"
+            }
+            else {
+                di as txt " (continuous, regression)"
             }
         }
-        
+
         local prevvars `prevvars' `v'
     }
+
+    di as txt "    Sequential synthesis complete."
 end
 
 // Apply user constraints via rejection/clipping
