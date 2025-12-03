@@ -35,6 +35,7 @@
 {synopt:{opt norep:ort}}suppress {cmd:compress}'s per-variable output{p_end}
 {synopt:{opt q:uietly}}suppress all output{p_end}
 {synopt:{opt det:ail}}show per-variable type information before conversion{p_end}
+{synopt:{opt vars:avings}}report per-variable summary after compression{p_end}
 {synoptline}
 {p2colreset}{...}
 
@@ -84,6 +85,11 @@ still showing the summary statistics.
 {opt detail} displays the original type of each string variable before
 conversion.
 
+{phang}
+{opt varsavings} displays a per-variable summary after compression, showing
+each processed variable with its final type and format. Useful for seeing
+which variables were affected by the compression.
+
 
 {marker results}{...}
 {title:Stored results}
@@ -100,7 +106,7 @@ conversion.
 
 {synoptset 20 tabbed}{...}
 {p2col 5 20 24 2: Macros}{p_end}
-{synopt:{cmd:r(varlist)}}variables specified (or all if none specified){p_end}
+{synopt:{cmd:r(varlist)}}string variables actually processed{p_end}
 
 
 {marker examples}{...}
@@ -127,6 +133,9 @@ conversion.
 {pstd}Silent operation, access results programmatically{p_end}
 {phang2}{cmd:. compress_tc, quietly}{p_end}
 {phang2}{cmd:. display "Saved " r(bytes_saved) " bytes (" %4.1f r(pct_saved) "%)"}{p_end}
+
+{pstd}Show per-variable summary after compression{p_end}
+{phang2}{cmd:. compress_tc, varsavings}{p_end}
 
 
 {marker technical}{...}

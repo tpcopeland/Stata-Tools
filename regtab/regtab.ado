@@ -1,4 +1,4 @@
-*! regtab Version 1.0.1  03dec2025
+*! regtab Version 1.0.2  03dec2025
 *! Original Author: Tim Copeland
 
 /* 
@@ -49,18 +49,6 @@ quietly{
         noisily display as error "No active collect table found"
         noisily display as error "Run regression commands with collect prefix first"
         exit 119
-    }
-
-    * Validation: Check if xlsx option is provided (should be enforced by syntax)
-    if "`xlsx'" == "" {
-        noisily display as error "xlsx() option required"
-        exit 198
-    }
-
-    * Validation: Check if sheet option is provided (should be enforced by syntax)
-    if "`sheet'" == "" {
-        noisily display as error "sheet() option required"
-        exit 198
     }
 
     * Validation: Check if file name has .xlsx extension

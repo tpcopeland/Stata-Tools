@@ -43,6 +43,13 @@ The output table includes the following information for each variable:
 {phang2}• Maximum: Largest value{p_end}
 {phang2}• Variable Label: Descriptive label if defined{p_end}
 
+{pstd}
+{bf:Note on missing values:} When all observations for a variable are missing,
+statistics (mean, SD, min, max, percentiles) will display as missing (".").
+The N will show 0, and % Missing will show 100. This is expected behavior
+and indicates the variable has no valid data.
+{p_end}
+
 {title:Options}
 
 {phang}

@@ -1,4 +1,4 @@
-*! tvevent Version 1.0.0  2025/12/02
+*! tvevent Version 1.0.1  03dec2025
 *! Add event/failure flags to time-varying datasets
 *! Author: Tim Copeland
 *!
@@ -144,6 +144,13 @@ program define tvevent, rclass
 
         * Load USING dataset (interval data from tvexpose/tvmerge)
         use "`using'", clear
+
+        * Check for observations in using dataset
+        quietly count
+        if r(N) == 0 {
+            noisily di as error "No observations in using (interval) dataset"
+            exit 2000
+        }
 
         * --- Validate USING dataset (interval data) ---
         capture confirm variable `id'
