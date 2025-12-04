@@ -135,17 +135,20 @@ program define consortq, rclass
                 exit 198
             }
 
-            * Default label
-            if "`label`next''" == "" {
-                if `i' == `nboxes' - 1 {
-                    local label`next' "Final cohort"
-                }
-                else {
-                    local label`next' "After exclusion `i'"
-                }
-            }
-
             local prev_n = `n`next''
+        }
+    }
+
+    * Set default labels (after counting boxes so we know which is last)
+    forvalues i = 2/`nboxes' {
+        if "`label`i''" == "" {
+            if `i' == `nboxes' {
+                local label`i' "Final cohort"
+            }
+            else {
+                local prev = `i' - 1
+                local label`i' "After exclusion `prev'"
+            }
         }
     }
 
@@ -171,7 +174,12 @@ program define consortq, rclass
     local box_height = 6
     local total_box_height = `nboxes' * `box_height'
     local remaining = `y_range' - `total_box_height'
-    local spacing = `remaining' / (`nboxes' - 0.5)
+    if `nboxes' > 1 {
+        local spacing = `remaining' / (`nboxes' - 0.5)
+    }
+    else {
+        local spacing = 0
+    }
 
     * =========================================================================
     * BUILD GRAPH
@@ -271,20 +279,18 @@ program define consortq, rclass
         local graph_options "`graph_options' name(`name', replace)"
     }
 
+    * Add nodraw if specified
+    if "`draw'" == "nodraw" {
+        local graph_options "`graph_options' nodraw"
+    }
+
     * =========================================================================
     * EXECUTE GRAPH COMMAND
     * =========================================================================
 
-    * Build the complete command
+    * Build and execute the complete command
     local full_cmd `"`graph_cmd', `text_content' `graph_options'"'
-
-    * Execute
-    if "`draw'" == "nodraw" {
-        `full_cmd' nodraw
-    }
-    else {
-        `full_cmd'
-    }
+    `full_cmd'
 
     * Save if requested
     if `"`saving'"' != "" {

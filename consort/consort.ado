@@ -532,20 +532,18 @@ program define consort, rclass
         local graph_options "`graph_options' name(`name', replace)"
     }
 
+    * Add nodraw if specified
+    if "`draw'" == "nodraw" {
+        local graph_options "`graph_options' nodraw"
+    }
+
     * =========================================================================
     * EXECUTE GRAPH COMMAND
     * =========================================================================
 
-    * Build the complete command
+    * Build and execute the complete command
     local full_cmd `"`graph_cmd', `text_content' `graph_options'"'
-
-    * Execute
-    if "`draw'" == "nodraw" {
-        `full_cmd' nodraw
-    }
-    else {
-        `full_cmd'
-    }
+    `full_cmd'
 
     * Save if requested
     if `"`saving'"' != "" {

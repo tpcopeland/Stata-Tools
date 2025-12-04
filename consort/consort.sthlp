@@ -1,5 +1,6 @@
 {smcl}
 {* *! version 1.0.0  2025/12/03}{...}
+{vieweralsosee "consortq" "help consortq"}{...}
 {vieweralsosee "[G] graph" "help graph"}{...}
 {vieweralsosee "[G] graph export" "help graph_export"}{...}
 {viewerjumpto "Syntax" "consort##syntax"}{...}
@@ -354,5 +355,5 @@ Elaboration: updated guidelines for reporting parallel group randomised trials.
 {title:Also see}
 
 {psee}
-Online: {helpb graph}, {helpb graph export}
+Online: {helpb consortq} (for cohort studies), {helpb graph}, {helpb graph export}
 {p_end}
