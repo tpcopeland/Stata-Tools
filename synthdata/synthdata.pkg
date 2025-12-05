@@ -3,7 +3,7 @@ d 'SYNTHDATA': Synthetic data generation preserving statistical properties
 d
 d Requires: Stata version 16+
 d
-d Distribution-Date: 20251203
+d Distribution-Date: 20251205
 d License: MIT
 d
 d Author: Timothy P. Copeland

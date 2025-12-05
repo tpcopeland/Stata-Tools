@@ -17,12 +17,13 @@ Generate synthetic datasets that preserve statistical properties while protectin
 ### Key Features
 
 - **Multiple synthesis methods**: Parametric (Cholesky), sequential regression, bootstrap with perturbation, independent permutation
-- **Flexible variable handling**: Automatic classification of continuous, categorical, string, and date variables
+- **Flexible variable handling**: Automatic classification of continuous, categorical, string, date, and integer variables
 - **Relationship preservation**: Correlations, conditional distributions, constraints
 - **Privacy controls**: Rare category protection, extreme value trimming, bounded outputs
 - **Panel data support**: Preserve panel structure, within-unit correlations, autocorrelation
 - **Comprehensive validation**: Comparison reports, utility metrics, density plots, validation statistics
 - **Multiple datasets**: Generate multiple synthetic replicates for uncertainty quantification
+- **Automatic metadata preservation**: Variable labels, value labels, variable order, and missingness rates are automatically preserved
 
 ---
 
@@ -76,6 +77,7 @@ None. If no options are specified, `synthdata` will:
 |--------|-------------|
 | `categorical(varlist)` | Force treatment as categorical |
 | `continuous(varlist)` | Force treatment as continuous |
+| `integer(varlist)` | Force treatment as integer (whole numbers only) |
 | `skip(varlist)` | Exclude from synthesis (set to missing) |
 | `id(varlist)` | ID variables (generate new sequential IDs) |
 | `dates(varlist)` | Date variables with special handling |
@@ -195,6 +197,36 @@ Permutes each variable independently, breaking all relationships. Useful as a nu
 ```stata
 synthdata, permute n(10000) saving(synth_permute)
 ```
+
+---
+
+## Automatic Features
+
+**synthdata** automatically preserves key properties from the original data:
+
+### Variable Labels
+All variable labels from the original data are applied to the synthetic variables. This ensures the synthetic dataset is self-documenting.
+
+### Value Labels
+Value label attachments for categorical variables are preserved, maintaining meaningful category descriptions.
+
+### Variable Order
+Variables in the synthetic data are ordered to match the original data, facilitating direct comparison and analysis.
+
+### Missingness Rates
+The proportion of missing values for each variable is preserved. If a variable has 10% missing values in the original data, approximately 10% of values will be randomly set to missing in the synthetic data. This is important for:
+- Variables that are conditionally missing (e.g., dates of events that never occurred)
+- Preserving realistic data patterns for imputation testing
+- Maintaining the utility of the synthetic data for analyses that handle missing data
+
+### Integer Detection
+Continuous variables that contain only whole numbers (integers) are automatically detected. Synthesized values for these variables are rounded to integers. This is useful for:
+- Age in years (not fractional)
+- Count variables (number of visits, events, etc.)
+- Year variables
+- Any continuous measure recorded as whole numbers
+
+You can also explicitly specify integer variables using the `integer(varlist)` option.
 
 ---
 
@@ -498,7 +530,7 @@ MIT License
 
 ## Version
 
-Version 1.0.3, 2025-12-03
+Version 1.1.0, 2025-12-05
 
 ## Also See
 
