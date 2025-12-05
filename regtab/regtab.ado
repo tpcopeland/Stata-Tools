@@ -1,4 +1,4 @@
-*! regtab Version 1.0.2  03dec2025
+*! regtab Version 1.0.3  05dec2025
 *! Original Author: Tim Copeland
 
 /* 
@@ -151,19 +151,31 @@ capture confirm variable c`=`i'+2'
 if _rc == 0 replace c`=`i'+2' = "" if _n == 1
 }
 forvalues i = 3(3)`n'{
+* Store original string value to detect genuinely missing p-values
+gen str20 c`i'_orig = c`i'
+* Convert to numeric - force will set non-numeric to missing
 destring c`i', gen(c`i'z) force
 gen str20 c`i'_fmt = ""
+* Handle genuinely missing p-values (e.g., omitted variables, base categories)
+* If original string was "." or empty or converted to missing, leave blank
+replace c`i'_fmt = "" if missing(c`i'z) & (strtrim(c`i'_orig) == "." | strtrim(c`i'_orig) == "")
 * Handle very small p-values
 replace c`i'_fmt = "<0.001" if c`i'z < 0.001 & !missing(c`i'z)
+* Handle negative p-values (shouldn't happen but safety check)
+replace c`i'_fmt = "<0.001" if c`i'z < 0 & !missing(c`i'z)
 * Format p-values 0.001 to 0.05 with 3 decimal places
 replace c`i'_fmt = string(c`i'z, "%5.3f") if c`i'z >= 0.001 & c`i'z < 0.05 & !missing(c`i'z)
 * Format p-values >= 0.05 with 2 decimal places
 replace c`i'_fmt = string(c`i'z, "%4.2f") if c`i'z >= 0.05 & !missing(c`i'z)
+* Handle p-values that are exactly 0 (edge case from some models)
+replace c`i'_fmt = "<0.001" if c`i'z == 0 & !missing(c`i'z)
 * Add leading zero if missing (e.g., .123 -> 0.123)
 replace c`i'_fmt = "0" + c`i'_fmt if substr(c`i'_fmt, 1, 1) == "."
-* Apply formatting
-replace c`i' = c`i'_fmt if c`i' != "" & _n >= 3
-drop c`i'z c`i'_fmt
+* Apply formatting - only if we have a non-missing formatted value
+replace c`i' = c`i'_fmt if c`i'_fmt != "" & _n >= 3
+* Leave blank for missing p-values (omitted/base categories)
+replace c`i' = "" if missing(c`i'z) & _n >= 3
+drop c`i'z c`i'_fmt c`i'_orig
 }
 *
 gen id = _n 

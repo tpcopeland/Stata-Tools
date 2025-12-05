@@ -1,4 +1,4 @@
-*! table1_tc Version 1.0.2  03dec2025 - Descriptive Statistics Table Generator
+*! table1_tc Version 1.0.3  05dec2025 - Descriptive Statistics Table Generator
 *! Author: Tim Copeland
 *! Fork of -table1_mc- version 3.5 (2024-12-19) by Mark Chatfield
 *! This program generates descriptive statistics tables with formatting options
@@ -48,7 +48,7 @@ program define table1_tc, sclass
 
     /* Validation: Check if vars() is specified */
     if "`vars'" == "" {
-        di in re "vars() option required"
+        display as error "vars() option required"
         error 100
     }
 
@@ -56,7 +56,7 @@ program define table1_tc, sclass
     if "`by'" != "" {
         capture confirm variable `by'
         if _rc {
-            di in re "by() variable `by' not found"
+            display as error "by() variable `by' not found"
             error 111
         }
     }
@@ -64,7 +64,7 @@ program define table1_tc, sclass
     /* Check if by() variable will cause naming conflicts */
     if (substr("`by'",1,2) == "N_" | substr("`by'",1,2) == "m_" | inlist("`by'", "N", "m") | ///
         inlist("`by'", "_", "_c","_co","_col","_colu","_colum","_column","_columna","_columnb")) {
-        di in re "by() variable cannot start with the prefix N_ or m_, or be named N, m, _, _c, _co, _col, _colu, _colum, _column, _columna, _columnb. Please rename that variable."
+        display as error "by() variable cannot start with the prefix N_ or m_, or be named N, m, _, _c, _co, _col, _colu, _colum, _column, _columna, _columnb. Please rename that variable."
         error 498  // User-defined error
     }
 
@@ -75,13 +75,13 @@ program define table1_tc, sclass
 
     // If Excel file is specified, both sheet and title are required
     if `has_excel' & (!`has_sheet' | !`has_title') {
-        di in re "sheet() and title() are both required when using excel()"
+        display as error "sheet() and title() are both required when using excel()"
         error 498
     }
 
     // sheet() and title() only make sense with excel()
     if !`has_excel' & (`has_sheet' | `has_title') {
-        di in re "sheet() and title() are only available when using excel()"
+        display as error "sheet() and title() are only available when using excel()"
         error 498
     }
 
@@ -105,16 +105,16 @@ program define table1_tc, sclass
 
     /* Validate borderstyle option */
     local has_borderstyle = "`borderstyle'" != ""
-    
+
     // borderstyle only makes sense with excel()
     if `has_borderstyle' & !`has_excel' {
-        di in re "borderstyle() is only available when using excel()"
+        display as error "borderstyle() is only available when using excel()"
         error 498
     }
-    
+
     // borderstyle must be either 'default' or 'thin'
     if `has_borderstyle' & !inlist("`borderstyle'", "default", "thin") {
-        di in re "borderstyle() must be either 'default' or 'thin'"
+        display as error "borderstyle() must be either 'default' or 'thin'"
         error 498
     }
     
@@ -209,17 +209,17 @@ program define table1_tc, sclass
     qui su `groupnum'
     // Check that grouping variable values are non-negative
     if `r(min)' < 0 {
-        di in re "by() variable must be either (i) string, or (ii) numeric and contain only non-negative integers, whether or not a value label is attached"
-        error 498    
+        display as error "by() variable must be either (i) string, or (ii) numeric and contain only non-negative integers, whether or not a value label is attached"
+        error 498
     }
-    
+
     // Check if grouping variable contains the reserved value 919 (used for totals)
     qui count if `groupnum' == 919 & `touse'
     if `r(N)' > 0 {
-        di in re "by() variable not allowed to take the value 919 due to internal coding. Please recode to any other non-negative integer."
-        error 498    
+        display as error "by() variable not allowed to take the value 919 due to internal coding. Please recode to any other non-negative integer."
+        error 498
     }
-    
+
     // Get unique values of the grouping variable
     qui levelsof `groupnum' if `touse', local(levels)
 
@@ -227,16 +227,16 @@ program define table1_tc, sclass
     foreach l of local levels {
         capture confirm integer number `l'
         if _rc!=0 {
-            di in re "by() variable must be either (i) string, or (ii) numeric and contain only non-negative integers, whether or not a value label is attached"
+            display as error "by() variable must be either (i) string, or (ii) numeric and contain only non-negative integers, whether or not a value label is attached"
             error 498
         }
     }
-    
+
     /* Determine number of groups and validate */
     local groupcount: word count `levels'  // Count number of unique groups
     // Check that by() has at least 2 groups if specified
     if `groupcount'<2 & "`by'"!="" {
-        di in re "by() variable must have at least 2 levels"
+        display as error "by() variable must have at least 2 levels"
         error 498
     }
     
@@ -289,11 +289,11 @@ program define table1_tc, sclass
 
             /* Validate variable and type */
             confirm variable `varname'  // Check that variable exists
-            
+
             // Check that variable type is valid
             if !inlist("`vartype'", "contn", "contln", "conts", "cat", "cate", "bin", "bine") {
-                di in re "-`varname' `vartype'- not allowed in vars() option"
-                di in re "Variables must be classified as contn, contln, conts, cat, cate, bin or bine"
+                display as error "-`varname' `vartype'- not allowed in vars() option"
+                display as error "Variables must be classified as contn, contln, conts, cat, cate, bin or bine"
                 error 498
             }
             
@@ -315,7 +315,8 @@ program define table1_tc, sclass
                 if `nglevels'>=2 {
                     // ANOVA for >1 group
                     qui anova `varname' `groupnum' [`weight'`exp']
-                    local p=1-F(e(df_m), e(df_r), e(F))  // Calculate p-value
+                    // Use Ftail() for numerical stability - equivalent to 1-F() but more robust
+                    local p = Ftail(e(df_m), e(df_r), e(F))
                     local f : di %6.2f e(F)  // F statistic
                     local df1 = e(df_m)  // Degrees of freedom (numerator)
                     local df2 = e(df_r)  // Degrees of freedom (denominator)
@@ -326,20 +327,20 @@ program define table1_tc, sclass
                     matrix T = r(table)
                     local tstat : di %6.2f -1*T[3,2]  // t statistic
                 }
-                
+
                 /* Calculate pairwise comparisons if requested */
                 if "`pairwise123'" == "pairwise123" & `nglevels' >1 {
                     // Group 1 vs Group 2
                     qui anova `varname' `groupnum' [`weight'`exp'] if `groupnum' == `level1' | `groupnum' == `level2'
-                    local p12=1-F(e(df_m), e(df_r), e(F))
-                    
+                    local p12 = Ftail(e(df_m), e(df_r), e(F))
+
                     // Group 2 vs Group 3
                     qui anova `varname' `groupnum' [`weight'`exp'] if `groupnum' == `level2' | `groupnum' == `level3'
-                    local p23=1-F(e(df_m), e(df_r), e(F))
-                    
+                    local p23 = Ftail(e(df_m), e(df_r), e(F))
+
                     // Group 1 vs Group 3
                     qui anova `varname' `groupnum' [`weight'`exp'] if `groupnum' == `level1' | `groupnum' == `level3'
-                    local p13=1-F(e(df_m), e(df_r), e(F))                    
+                    local p13 = Ftail(e(df_m), e(df_r), e(F))
                 }
 
                 /* Set display format */
@@ -430,7 +431,8 @@ program define table1_tc, sclass
                 if `nglevels'>=2 {
                     // ANOVA on log-transformed values
                     qui anova `lvarname' `groupnum' [`weight'`exp']
-                    local p=1-F(e(df_m), e(df_r), e(F))  // Calculate p-value
+                    // Use Ftail() for numerical stability - equivalent to 1-F() but more robust
+                    local p = Ftail(e(df_m), e(df_r), e(F))
                     local f : di %6.2f e(F)  // F statistic
                     local df1 = e(df_m)  // Degrees of freedom (numerator)
                     local df2 = e(df_r)  // Degrees of freedom (denominator)
@@ -439,22 +441,22 @@ program define table1_tc, sclass
                     // t-test for exactly 2 groups
                     qui regress `lvarname' ib(first).`groupnum' [`weight'`exp']
                     matrix T = r(table)
-                    local tstat : di %6.2f -1*T[3,2]  // t statistic                
-                }                                
-                
+                    local tstat : di %6.2f -1*T[3,2]  // t statistic
+                }
+
                 /* Calculate pairwise comparisons if requested */
                 if "`pairwise123'" == "pairwise123" & `nglevels' >1 {
                     // Group 1 vs Group 2
                     qui anova `lvarname' `groupnum' [`weight'`exp'] if `groupnum' == `level1' | `groupnum' == `level2'
-                    local p12=1-F(e(df_m), e(df_r), e(F))
-                    
+                    local p12 = Ftail(e(df_m), e(df_r), e(F))
+
                     // Group 2 vs Group 3
                     qui anova `lvarname' `groupnum' [`weight'`exp'] if `groupnum' == `level2' | `groupnum' == `level3'
-                    local p23=1-F(e(df_m), e(df_r), e(F))
-                    
+                    local p23 = Ftail(e(df_m), e(df_r), e(F))
+
                     // Group 1 vs Group 3
                     qui anova `lvarname' `groupnum' [`weight'`exp'] if `groupnum' == `level1' | `groupnum' == `level3'
-                    local p13=1-F(e(df_m), e(df_r), e(F))                    
+                    local p13 = Ftail(e(df_m), e(df_r), e(F))
                 }
 
                 /* Set display format */
@@ -657,9 +659,9 @@ program define table1_tc, sclass
                 // Check if observations remain after filtering
                 qui count
                 if r(N)==0 {
-                    di in red "no categories for `varname' ... cannot tabulate"
+                    display as error "no categories for `varname' ... cannot tabulate"
                     exit 198
-                }                
+                }
 
                 /* Ensure categorical variable is numeric */
                 tempvar varnum
@@ -876,14 +878,14 @@ program define table1_tc, sclass
                 
                 qui count
                 if r(N)==0 {
-                    di in red "no categories for `varname' ... cannot tabulate"
+                    display as error "no categories for `varname' ... cannot tabulate"
                     exit 198
-                }                                                        
+                }
 
                 /* Verify variable is truly binary (0/1) */
                 capture assert `varname'==0 | `varname'==1
                 if _rc {
-                    di in red "binary variable `varname' must be 0 (negative) or 1 (positive)"
+                    display as error "binary variable `varname' must be 0 (negative) or 1 (positive)"
                     exit 198
                 }
 

@@ -1,4 +1,4 @@
-*! massdesas Version 1.0.2  03dec2025
+*! massdesas Version 1.0.3  05dec2025
 
 *! Author: Tim Copeland
 *! Revised on  3 December 2025
@@ -46,10 +46,21 @@ if r(N) == 0 {
 	display as error "no SAS files found in directory: `directory'"
 	cd "`original_dir'"
 	exit 601
-} 
-replace dirname = subinstr(dirname, "/\", "/", .)
-replace dirname = subinstr(dirname, "\/", "/", .)
-replace dirname = subinstr(dirname, "\", "/", .) 
+}
+* Normalize path separators using the system's native separator
+* c(dirsep) returns "/" on Mac/Unix and "\" on Windows
+* This approach is more robust than hardcoding specific replacements
+local dirsep = c(dirsep)
+if "`dirsep'" == "/" {
+    * On Mac/Unix: convert backslashes to forward slashes
+    replace dirname = subinstr(dirname, "\", "/", .)
+}
+else {
+    * On Windows: convert forward slashes to backslashes
+    replace dirname = subinstr(dirname, "/", "\", .)
+}
+* Clean up any doubled separators that might result from mixed paths
+replace dirname = subinstr(dirname, "`dirsep'`dirsep'", "`dirsep'", .) 
 
 levelsof dirname, local(levels)
 
