@@ -113,6 +113,8 @@ class: text-center
 
 # The Toolkit Overview
 
+<br>
+
 <div class="grid grid-cols-5 gap-3 mt-8">
 
 <div v-click class="pkg-category cat-prep">
@@ -163,6 +165,8 @@ class: text-center
 </div>
 
 </div>
+
+<br>
 
 <div v-click class="mt-8 text-center">
   <div class="inline-flex items-center gap-6 text-sm text-gray-500">
@@ -1853,104 +1857,6 @@ net from "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main"
 }
 .req-list {
   @apply text-xs text-gray-500;
-}
-</style>
-
----
-layout: two-cols
----
-
-# Quick Reference
-
-<div class="mt-4 space-y-2">
-
-<div class="ref-item">
-  <span class="ref-cmd">check</span>
-  <span class="ref-desc">Variable summary</span>
-</div>
-
-<div class="ref-item">
-  <span class="ref-cmd">datefix</span>
-  <span class="ref-desc">String to date</span>
-</div>
-
-<div class="ref-item">
-  <span class="ref-cmd">compress_tc</span>
-  <span class="ref-desc">String compression</span>
-</div>
-
-<div class="ref-item">
-  <span class="ref-cmd">datamap</span>
-  <span class="ref-desc">Documentation</span>
-</div>
-
-<div class="ref-item">
-  <span class="ref-cmd">mvp</span>
-  <span class="ref-desc">Missing patterns</span>
-</div>
-
-<div class="ref-item">
-  <span class="ref-cmd">cstat_surv</span>
-  <span class="ref-desc">C-statistic</span>
-</div>
-
-<div class="ref-item">
-  <span class="ref-cmd">table1_tc</span>
-  <span class="ref-desc">Baseline table</span>
-</div>
-
-</div>
-
-::right::
-
-<div class="pl-8 mt-4 space-y-2">
-
-<div class="ref-item">
-  <span class="ref-cmd">synthdata</span>
-  <span class="ref-desc">Synthetic data</span>
-</div>
-
-<div class="ref-item">
-  <span class="ref-cmd">tvtools</span>
-  <span class="ref-desc">Time-varying</span>
-</div>
-
-<div class="ref-item">
-  <span class="ref-cmd">regtab</span>
-  <span class="ref-desc">Regression tables</span>
-</div>
-
-<div class="ref-item">
-  <span class="ref-cmd">stratetab</span>
-  <span class="ref-desc">Rate tables</span>
-</div>
-
-<div class="ref-item">
-  <span class="ref-cmd">setools</span>
-  <span class="ref-desc">Swedish registries</span>
-</div>
-
-<div class="ref-item">
-  <span class="ref-cmd">today</span>
-  <span class="ref-desc">Timestamps</span>
-</div>
-
-<div class="ref-item">
-  <span class="ref-cmd">pkgtransfer</span>
-  <span class="ref-desc">Package migration</span>
-</div>
-
-</div>
-
-<style>
-.ref-item {
-  @apply flex items-center gap-3 bg-gray-50 p-2 rounded-lg;
-}
-.ref-cmd {
-  @apply font-mono text-sm font-medium text-blue-600 w-24;
-}
-.ref-desc {
-  @apply text-sm text-gray-600;
 }
 </style>
 
