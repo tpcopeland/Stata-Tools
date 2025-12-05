@@ -1,5 +1,5 @@
 {smcl}
-{* *{* *! version 1.0.0  2025/12/02}{...}
+{* *! version 1.0.2  05dec2025}{...}
 {viewerjumpto "Syntax" "stratetab##syntax"}{...}
 {viewerjumpto "Description" "stratetab##description"}{...}
 {viewerjumpto "Options" "stratetab##options"}{...}
@@ -159,7 +159,7 @@ If {opt explabels()} is specified, the number of labels must match the number of
 {pstd}Department of Clinical Neuroscience{p_end}
 {pstd}Karolinska Institutet{p_end}
 
-{pstd}Version 1.0.0 - 2025-12-02{p_end}
+{pstd}Version 1.0.2 - 2025-12-05{p_end}
 
 
 {title:Also see}
