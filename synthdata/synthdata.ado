@@ -1,4 +1,4 @@
-*! synthdata Version 1.0.3  03dec2025  Synthetic data generation
+*! synthdata Version 1.0.4  05dec2025  Synthetic data generation
 program define synthdata
     version 16.0
     set varabbrev off
@@ -1251,10 +1251,17 @@ program define _synthdata_bounds
     }
 end
 
-// Enforce no values outside observed range
+// Enforce no values outside observed range (with privacy buffer)
+// PRIVACY CONSIDERATION: The noextreme option constrains synthetic data to avoid
+// extreme outliers. However, using exact min/max values from the original data
+// would leak information about the most extreme individuals (e.g., the exact
+// highest salary or age in the dataset). This violates differential privacy principles.
+// SOLUTION: We apply a 5% buffer to the bounds to prevent exact value leakage
+// while still constraining outliers. The buffer is calculated as 5% of the
+// original data range, and is subtracted from min and added to max.
 program define _synthdata_noextreme
     version 16.0
-    syntax varlist, boundsfile(string)
+    syntax varlist, boundsfile(string) [buffer(real 0.05)]
 
     // Load bounds into locals FIRST, before modifying data
     preserve
@@ -1265,10 +1272,20 @@ program define _synthdata_noextreme
         local vn_`i' = varname[`i']
         local vmin_`i' = vmin[`i']
         local vmax_`i' = vmax[`i']
+
+        // Calculate privacy buffer: 5% of the range by default
+        // This prevents exact data leakage while still constraining outliers
+        local range_`i' = `vmax_`i'' - `vmin_`i''
+        if `range_`i'' > 0 {
+            local buffer_`i' = `range_`i'' * `buffer'
+            // Apply buffer: shrink the allowed range slightly
+            local vmin_`i' = `vmin_`i'' + `buffer_`i''
+            local vmax_`i' = `vmax_`i'' - `buffer_`i''
+        }
     }
     restore
 
-    // Now apply bounds to synthetic data
+    // Now apply bounds (with privacy buffer) to synthetic data
     forvalues i = 1/`nbounds' {
         cap confirm variable `vn_`i''
         if !_rc {

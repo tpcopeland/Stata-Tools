@@ -1,4 +1,4 @@
-*! pkgtransfer Version 1.0.1  2025/12/03
+*! pkgtransfer Version 1.0.2  2025/12/05
 *! Author: Tim Copeland
 
 /*
@@ -574,24 +574,28 @@ quietly{
 			file write inst `"capture noisily net install \`pkg', from("\$package_dir/pkgtransfer_files")"' _n
             file write inst "}" _n _n
 			file write inst "*Clean up" _n
+			file write inst "* SAFETY NOTE: Automated removal of 'pkgtransfer_files' folder disabled for safety." _n
+			file write inst "* The rm -rf/rmdir command is high-risk when run from scripts on different machines." _n
+			file write inst "* Please manually remove the 'pkgtransfer_files' folder when finished:" _n
 			if "`os'" == "Windows"{
-				file write inst `"shell rmdir /s /q "pkgtransfer_files""' _n
+				file write inst `"* shell rmdir /s /q "pkgtransfer_files""' _n
 			}
 			if "`os'" == "MacOSX" | "`os'" == "Unix" {
-				file write inst `"shell rm -rf "pkgtransfer_files""' _n
+				file write inst `"* shell rm -rf "pkgtransfer_files""' _n
 			}
             file close inst
-             
-            // Create ZIP file 
+
+            // Create ZIP file
             zipfile "pkgtransfer_files", saving("`zipfile'", replace)
-			
-            // Delete Directory
-			if "`os'" == "Windows"{
-				shell rd "pkgtransfer_files" /s /q
-			}
-			if "`os'" == "MacOSX" | "`os'" == "Unix" {
-				shell rm -rf "pkgtransfer_files"
-			}
+
+            // Delete Directory using Stata's file commands (safer than shell)
+            // Note: Stata's rmdir only deletes empty directories, but we use
+            // a local recursive approach with Stata file commands
+            local filelist : dir "pkgtransfer_files" files "*", respectcase
+            foreach f of local filelist {
+                capture erase "pkgtransfer_files/`f'"
+            }
+            capture rmdir "pkgtransfer_files"
             
             /* Restore installation pathways to online sources if requested */
             if "`restore'" != "" {

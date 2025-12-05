@@ -1,4 +1,4 @@
-*! tvexpose Version 1.0.0  2025/12/02
+*! tvexpose Version 1.0.1  2025/12/05
 *! Create time-varying exposure variables for survival analysis
 *! Author: Tim Copeland
 *! Program class: rclass (returns results in r())
@@ -447,19 +447,26 @@ program define tvexpose, rclass
     * The master dataset contains study entry/exit dates for each person
     tempfile _master_orig
 
-    * Check for datetime formats (%tc, %tC) which will lose precision when coerced to integer days
-    * Warn user before applying floor/ceil operations
+    * STRICT check for datetime formats (%tc, %tC) - abort if detected
+    * Stata datetimes are milliseconds (e.g., 1,600,000,000,000). Stata dates are days (e.g., 22,000).
+    * If floor() is applied to a datetime, it keeps the millisecond value. When the code later
+    * applies grace(30) (adding 30 to the value), it adds 30 milliseconds instead of 30 days.
+    * This renders all lag, grace, and washout logic silent failures.
     local entry_fmt : format `entry'
     local exit_fmt : format `exit'
     if substr("`entry_fmt'", 1, 3) == "%tc" | substr("`entry_fmt'", 1, 3) == "%tC" {
-        noisily display as text "Warning: Entry variable `entry' has datetime format (`entry_fmt')"
-        noisily display as text "         Precision will be lost when coercing to integer days (floor/ceil)"
-        noisily display as text "         Consider converting to date format before using tvexpose"
+        noisily display as error "CRITICAL ERROR: Entry variable `entry' is a datetime (%tc/%tC format)."
+        noisily display as error "tvexpose requires daily dates (integer days). Using floor() on datetimes"
+        noisily display as error "will result in values like 1.6 billion, breaking all lag/grace logic."
+        noisily display as error "Please convert using: gen date_var = dofc(`entry')"
+        exit 198
     }
     if substr("`exit_fmt'", 1, 3) == "%tc" | substr("`exit_fmt'", 1, 3) == "%tC" {
-        noisily display as text "Warning: Exit variable `exit' has datetime format (`exit_fmt')"
-        noisily display as text "         Precision will be lost when coercing to integer days (floor/ceil)"
-        noisily display as text "         Consider converting to date format before using tvexpose"
+        noisily display as error "CRITICAL ERROR: Exit variable `exit' is a datetime (%tc/%tC format)."
+        noisily display as error "tvexpose requires daily dates (integer days). Using floor() on datetimes"
+        noisily display as error "will result in values like 1.6 billion, breaking all lag/grace logic."
+        noisily display as error "Please convert using: gen date_var = dofc(`exit')"
+        exit 198
     }
 
 	quietly replace `entry' = floor(`entry')
@@ -581,6 +588,27 @@ program define tvexpose, rclass
     tempfile _master_with_dates
     quietly save `_master_with_dates'
     quietly use "`using'", clear
+
+    * STRICT check for datetime formats on start/stop variables - abort if detected
+    local start_fmt : format `start'
+    if substr("`start_fmt'", 1, 3) == "%tc" | substr("`start_fmt'", 1, 3) == "%tC" {
+        noisily display as error "CRITICAL ERROR: Start variable `start' is a datetime (%tc/%tC format)."
+        noisily display as error "tvexpose requires daily dates (integer days). Using floor() on datetimes"
+        noisily display as error "will result in values like 1.6 billion, breaking all lag/grace logic."
+        noisily display as error "Please convert using: gen date_var = dofc(`start')"
+        exit 198
+    }
+    if "`stop'" != "" {
+        local stop_fmt : format `stop'
+        if substr("`stop_fmt'", 1, 3) == "%tc" | substr("`stop_fmt'", 1, 3) == "%tC" {
+            noisily display as error "CRITICAL ERROR: Stop variable `stop' is a datetime (%tc/%tC format)."
+            noisily display as error "tvexpose requires daily dates (integer days). Using floor() on datetimes"
+            noisily display as error "will result in values like 1.6 billion, breaking all lag/grace logic."
+            noisily display as error "Please convert using: gen date_var = dofc(`stop')"
+            exit 198
+        }
+    }
+
 	quietly replace `start' = floor(`start')
 	quietly capture replace `stop' = ceil(`stop')
     
