@@ -1,4 +1,4 @@
-*! tvmerge Version 1.0.1  2025/12/05
+*! tvmerge Version 1.0.2  2025/12/05
 *! Merge multiple time-varying exposure datasets
 *! Author: Tim Copeland
 *! Program class: rclass (returns results in r())
@@ -567,33 +567,39 @@ program define tvmerge, rclass
                 di as error "(This is variable `k' from stop() option: `stops')"
                 exit 111
             }
-            capture confirm variable `exp_k_raw'
-            if _rc != 0 {
-                di as error "Variable `exp_k_raw' not found in `ds_k'"
-                exit 111
-            }
-            
+            * Note: exp_k_raw (word k of exposure list) may not exist in this dataset
+            * when exposure() has more variables than datasets. The exp_k_list
+            * (built above) contains all exposures actually found in this dataset.
+            * We only validate that at least one exposure was found (done at lines 528-531).
+
             * Rename to standard internal names for processing
             rename `id' id
             rename `start_k_varname' start_k
             rename `stop_k_varname' stop_k
-            
+
             * Floor start dates and ceil stop dates to handle fractional date values
             replace start_k = floor(start_k)
             replace stop_k = ceil(stop_k)
-            
-            * Apply new exposure name if specified
-            if "`generate'" != "" {
-                local newname_k: word `k' of `generate'
-                rename `exp_k_raw' `newname_k'
-                local exp_k "`newname_k'"
-            }
-            else if "`prefix'" != "" {
-                rename `exp_k_raw' `prefix'`exp_k_raw'
-                local exp_k "`prefix'`exp_k_raw'"
+
+            * Apply new exposure name if specified - only if exp_k_raw exists in this dataset
+            local exp_k_raw_exists: list exp_k_raw in exp_k_list
+            if `exp_k_raw_exists' {
+                if "`generate'" != "" {
+                    local newname_k: word `k' of `generate'
+                    rename `exp_k_raw' `newname_k'
+                    local exp_k "`newname_k'"
+                }
+                else if "`prefix'" != "" {
+                    rename `exp_k_raw' `prefix'`exp_k_raw'
+                    local exp_k "`prefix'`exp_k_raw'"
+                }
+                else {
+                    local exp_k "`exp_k_raw'"
+                }
             }
             else {
-                local exp_k "`exp_k_raw'"
+                * exp_k_raw not in this dataset - exposures will be renamed via exp_k_list loop below
+                local exp_k ""
             }
 
             * Build complete list of exposures for this dataset with renamed variables

@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.1  2025/12/05}{...}
+{* *! version 1.0.2  2025/12/05}{...}
 {vieweralsosee "[D] merge" "help merge"}{...}
 {viewerjumpto "Syntax" "tvmerge##syntax"}{...}
 {viewerjumpto "Description" "tvmerge##description"}{...}
@@ -637,7 +637,7 @@ Progress messages show batch processing status. For a dataset with 10,000 unique
 {pstd}Timothy P Copeland{p_end}
 {pstd}Department of Clinical Neuroscience{p_end}
 {pstd}Karolinska Institutet{p_end}
-{pstd}Version 1.0.0, 2025-11-17{p_end}
+{pstd}Version 1.0.2, 2025-12-05{p_end}
 
 
 {title:Also see}
