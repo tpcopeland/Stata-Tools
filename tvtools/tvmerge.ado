@@ -220,8 +220,8 @@ program define tvmerge, rclass
         di as error "Number of stop() variables (`numst') must equal number of datasets (`numds')"
         exit 198
     }
-    if `numexp' != `numds' {
-        di as error "Number of exposure() variables (`numexp') must equal number of datasets (`numds')"
+    if `numexp' < `numds' {
+        di as error "Number of exposure() variables (`numexp') must be at least the number of datasets (`numds')"
         exit 198
     }
 
