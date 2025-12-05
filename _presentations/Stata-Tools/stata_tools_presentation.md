@@ -113,7 +113,10 @@ class: text-center
 
 # The Toolkit Overview
 
-<div class="grid grid-cols-5 gap-3 mt-6">
+<div class="flex-1 flex items-center justify-center -mt-4">
+<div class="w-full">
+
+<div class="grid grid-cols-5 gap-3">
 
 <div v-click class="pkg-category cat-prep">
   <div class="cat-header">Data Prep</div>
@@ -147,6 +150,7 @@ class: text-center
 <div v-click class="pkg-category cat-output">
   <div class="cat-header">Output</div>
   <div class="pkg-list">
+    <span>table1_tc</span>
     <span>regtab</span>
     <span>stratetab</span>
   </div>
@@ -168,6 +172,9 @@ class: text-center
     <span class="flex items-center gap-2"><span class="w-3 h-3 rounded bg-emerald-500"></span> GUI Available</span>
     <span>table1_tc · regtab · tvtools</span>
   </div>
+</div>
+
+</div>
 </div>
 
 <style>
@@ -263,7 +270,7 @@ class: text-center
 
 ### The .ado Pattern
 
-```stata {all|1-2|3-4|6-8|10-14|all}
+```stata
 *! version 1.0.0  01dec2025
 program define mycommand, rclass
     version 16.0
@@ -341,7 +348,7 @@ db tvexpose
 
 ### Dialog Structure
 
-```stata {all|1-2|4-9|11-17|all}
+```stata
 VERSION 16.0
 POSITION . . 640 400
 
@@ -500,7 +507,10 @@ diagnosis   1,234  0      1,102 float   Date of diagnosis
 
 # datefix — Intelligent Date Conversion
 
-<div class="grid grid-cols-2 gap-8 mt-4">
+<div class="flex-1 flex items-center">
+<div class="w-full">
+
+<div class="grid grid-cols-2 gap-8">
 
 <div>
 
@@ -568,6 +578,9 @@ datefix admission_date, order(MDY)
 
 </div>
 
+</div>
+</div>
+
 <style>
 .problem-box {
   @apply bg-rose-50 p-4 rounded-xl text-sm text-gray-700 border border-rose-100;
@@ -608,7 +621,10 @@ datefix admission_date, order(MDY)
 
 # compress_tc & massdesas
 
-<div class="grid grid-cols-2 gap-8 mt-6">
+<div class="flex-1 flex items-center">
+<div class="w-full">
+
+<div class="grid grid-cols-2 gap-8">
 
 <div v-click>
 
@@ -677,6 +693,9 @@ massdesas, directory("/data/sas_files")
 
 </div>
 
+</div>
+</div>
+
 <style>
 .cmd-box {
   @apply bg-gray-900 p-4 rounded-xl text-sm;
@@ -728,7 +747,10 @@ class: text-center
 
 # datamap — Privacy-Safe Documentation
 
-<div class="grid grid-cols-2 gap-8 mt-4">
+<div class="flex-1 flex items-center">
+<div class="w-full">
+
+<div class="grid grid-cols-2 gap-8">
 
 <div>
 
@@ -812,6 +834,9 @@ datamap, single("patient_data.dta") ///
 
 </div>
 
+</div>
+</div>
+
 <style>
 .problem-box {
   @apply bg-rose-50 p-4 rounded-xl text-sm text-gray-700 border border-rose-100;
@@ -877,7 +902,10 @@ class: text-center
 
 # mvp — Understanding Missing Data
 
-<div class="grid grid-cols-2 gap-8 mt-4">
+<div class="flex-1 flex items-center">
+<div class="w-full">
+
+<div class="grid grid-cols-2 gap-8">
 
 <div>
 
@@ -955,6 +983,9 @@ mvp varlist, ///
 
 </div>
 
+</div>
+
+</div>
 </div>
 
 <style>
@@ -1207,7 +1238,10 @@ table1_tc, vars( ///
 
 # synthdata — Privacy-Preserving Data
 
-<div class="grid grid-cols-2 gap-8 mt-4">
+<div class="flex-1 flex items-center">
+<div class="w-full">
+
+<div class="grid grid-cols-2 gap-8">
 
 <div>
 
@@ -1287,6 +1321,9 @@ synthdata age sex income diagnosis, ///
 
 </div>
 
+</div>
+
+</div>
 </div>
 
 <style>
@@ -1489,7 +1526,10 @@ regtab, xlsx("regression_results.xlsx") ///
 
 # stratetab — Incidence Rate Tables
 
-<div class="grid grid-cols-2 gap-8 mt-4">
+<div class="flex-1 flex items-center">
+<div class="w-full">
+
+<div class="grid grid-cols-2 gap-8">
 
 <div>
 
@@ -1547,6 +1587,9 @@ stratetab, ///
 
 </div>
 
+</div>
+
+</div>
 </div>
 
 <style>
@@ -1671,7 +1714,10 @@ pkgtransfer, limited("estout coefplot")
 
 # setools — Swedish Registry Analysis
 
-<div class="grid grid-cols-2 gap-8 mt-6">
+<div class="flex-1 flex items-center">
+<div class="w-full">
+
+<div class="grid grid-cols-2 gap-8">
 
 <div v-click>
 
@@ -1721,6 +1767,9 @@ sustainedss lopnr edss edss_date, ///
 
 <div v-click class="mt-6 text-center text-sm text-gray-500">
   Specialized for Swedish national registry research workflows
+</div>
+
+</div>
 </div>
 
 <style>
@@ -1950,46 +1999,6 @@ layout: two-cols
 }
 .ref-desc {
   @apply text-sm text-gray-600;
-}
-</style>
-
----
-layout: center
-class: text-center
----
-
-<div class="questions">
-
-# Questions?
-
-<div class="mt-10 max-w-xl mx-auto">
-
-<div class="q-grid">
-
-<div v-click class="q-item">Which package should I start with?</div>
-
-<div v-click class="q-item">How do I request a new feature?</div>
-
-<div v-click class="q-item">Can these tools work with my existing workflow?</div>
-
-<div v-click class="q-item">What about packages with dependencies?</div>
-
-</div>
-
-</div>
-
-</div>
-
-<style>
-.questions h1 {
-  @apply text-5xl font-semibold text-gray-900;
-  letter-spacing: -0.02em;
-}
-.q-grid {
-  @apply space-y-4;
-}
-.q-item {
-  @apply bg-gray-50 px-6 py-4 rounded-xl text-gray-600 text-left;
 }
 </style>
 
