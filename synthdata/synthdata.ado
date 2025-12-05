@@ -1,4 +1,4 @@
-*! synthdata Version 1.0.4  05dec2025  Synthetic data generation
+*! synthdata Version 1.1.0  05dec2025  Synthetic data generation
 program define synthdata
     version 16.0
     set varabbrev off
@@ -7,7 +7,7 @@ program define synthdata
         [n(integer 0) SAVing(string) REPLACE CLEAR PREfix(string) MULTiple(integer 1)] ///
         [PARAmetric SEQUential BOOTstrap PERMute] ///
         [EMPirical NOISE(real 0.1) SMOOTH] ///
-        [CATEgorical(varlist) CONTinuous(varlist) SKIP(varlist) ID(varlist) DATEs(varlist)] ///
+        [CATEgorical(varlist) CONTinuous(varlist) SKIP(varlist) ID(varlist) DATEs(varlist) INTeger(varlist)] ///
         [CORRelations CONDitional CONSTraints(string asis) AUTOCONStraints] ///
         [PANEL(string) PRESERVEvar(varlist) AUTOCORR(integer 0)] ///
         [MINCell(integer 5) TRIM(real 0) BOUNDs(string asis) NOEXTreme] ///
@@ -53,7 +53,82 @@ program define synthdata
         di as error "no variables to synthesize"
         exit 102
     }
-    
+
+    // =========================================================================
+    // STORE ORIGINAL METADATA: labels, order, missingness, value labels
+    // =========================================================================
+    // Store the original variable order (all variables, including id/skip)
+    qui ds
+    local orig_varorder `r(varlist)'
+
+    // Store variable labels, value labels, formats, and missingness rates
+    // Create a combined list of all variables we need to track
+    local allvars_track `varlist' `id' `skip'
+    local allvars_track: list uniq allvars_track
+
+    foreach v of local allvars_track {
+        // Store variable label
+        local varlabel_`v': variable label `v'
+
+        // Store value label name (for categorical vars)
+        local vallblname_`v': value label `v'
+
+        // Store format
+        local varfmt_`v': format `v'
+
+        // Calculate and store missingness rate
+        qui count if missing(`v')
+        local nmiss_`v' = r(N)
+        local missrate_`v' = r(N) / _N
+    }
+
+    // =========================================================================
+    // DETECT INTEGER (WHOLE NUMBER) CONTINUOUS VARIABLES
+    // =========================================================================
+    // Integer variables are continuous variables that only contain whole numbers
+    // User can specify via integer() option, or we auto-detect
+    local intvars `integer'
+
+    // Auto-detect integer variables from continuous variables
+    // A variable is considered integer if all non-missing values are whole numbers
+    foreach v of local varlist {
+        // Skip if already specified in integer()
+        local inint: list v in intvars
+        if `inint' continue
+
+        // Skip if explicitly specified as categorical or date
+        local incat: list v in categorical
+        local indate: list v in dates
+        if `incat' | `indate' continue
+
+        // Check if numeric
+        cap confirm numeric variable `v'
+        if _rc continue
+
+        // Check if has a value label (categorical)
+        local vallbl: value label `v'
+        if "`vallbl'" != "" continue
+
+        // Check for date format
+        local fmt: format `v'
+        if strpos("`fmt'", "%t") | strpos("`fmt'", "%d") continue
+
+        // Check unique values - if <= 20, likely categorical
+        qui count if !missing(`v')
+        if r(N) > 0 {
+            qui levelsof `v', local(levels)
+            local nuniq: word count `levels'
+            if `nuniq' <= 20 continue
+        }
+
+        // Now check if all values are integers (whole numbers)
+        qui count if !missing(`v') & `v' != floor(`v')
+        if r(N) == 0 {
+            // All non-missing values are whole numbers
+            local intvars `intvars' `v'
+        }
+    }
+
     // Determine synthesis method (only one allowed)
     local nmethods = ("`parametric'" != "") + ("`sequential'" != "") + ///
                      ("`bootstrap'" != "") + ("`permute'" != "")
@@ -72,11 +147,12 @@ program define synthdata
     if `n' == 0 local n = `orig_n'
     
     // Classify variables
-    _synthdata_classify `varlist', categorical(`categorical') continuous(`continuous') dates(`dates')
+    _synthdata_classify `varlist', categorical(`categorical') continuous(`continuous') dates(`dates') integer(`intvars')
     local catvars `r(catvars)'
     local contvars `r(contvars)'
     local datevars `r(datevars)'
     local strvars `r(strvars)'
+    local intvars `r(intvars)'
     
     // Store original data bounds for noextreme option
     if "`noextreme'" != "" {
@@ -200,7 +276,83 @@ program define synthdata
         _synthdata_panel, panelid(`panelid') paneltime(`paneltime') ///
             preserve(`preservevar') autocorr(`autocorr') n(`n') origdata(`origdata')
     }
-    
+
+    // =========================================================================
+    // POST-SYNTHESIS RESTORATION: labels, missingness, integers, variable order
+    // =========================================================================
+
+    // Round integer variables to whole numbers
+    if "`intvars'" != "" {
+        foreach v of local intvars {
+            cap confirm variable `v'
+            if !_rc {
+                qui replace `v' = round(`v')
+            }
+        }
+    }
+
+    // Apply missingness rates to synthetic data
+    // This ensures the synthetic data has similar missingness patterns to the original
+    foreach v of local allvars_track {
+        cap confirm variable `v'
+        if _rc continue
+
+        // Skip ID variables (they have different handling)
+        local isid: list v in id
+        if `isid' continue
+
+        // Skip skip variables (they're already missing)
+        local isskip: list v in skip
+        if `isskip' continue
+
+        // Apply missingness if original had any missing values
+        if `missrate_`v'' > 0 {
+            // Generate random missingness at the same rate
+            tempvar randmiss
+            qui gen double `randmiss' = runiform()
+            cap confirm string variable `v'
+            if !_rc {
+                // String variable
+                qui replace `v' = "" if `randmiss' < `missrate_`v''
+            }
+            else {
+                // Numeric variable
+                qui replace `v' = . if `randmiss' < `missrate_`v''
+            }
+            drop `randmiss'
+        }
+    }
+
+    // Restore variable labels
+    foreach v of local allvars_track {
+        cap confirm variable `v'
+        if _rc continue
+
+        // Restore variable label if there was one
+        if `"`varlabel_`v''"' != "" {
+            label variable `v' `"`varlabel_`v''"'
+        }
+
+        // Restore value label attachment if there was one
+        // (the value label definition itself should still exist)
+        if "`vallblname_`v''" != "" {
+            cap label values `v' `vallblname_`v''
+        }
+    }
+
+    // Reorder variables to match original order
+    // Build the reorder list from variables that exist in synthetic data
+    local reorder_list ""
+    foreach v of local orig_varorder {
+        cap confirm variable `v'
+        if !_rc {
+            local reorder_list `reorder_list' `v'
+        }
+    }
+    if "`reorder_list'" != "" {
+        order `reorder_list'
+    }
+
     // Store synthetic variable names before prefix (for compare)
     local synthvars `varlist'
     
@@ -323,7 +475,64 @@ program define synthdata
             if `"`constraints'"' != "" {
                 _synthdata_constraints, constraints(`constraints') iterate(`iterate')
             }
-            
+
+            // Post-synthesis restoration for multiple datasets
+            // Round integer variables
+            if "`intvars'" != "" {
+                foreach v of local intvars {
+                    cap confirm variable `v'
+                    if !_rc {
+                        qui replace `v' = round(`v')
+                    }
+                }
+            }
+
+            // Apply missingness rates
+            foreach v of local allvars_track {
+                cap confirm variable `v'
+                if _rc continue
+                local isid: list v in id
+                if `isid' continue
+                local isskip: list v in skip
+                if `isskip' continue
+                if `missrate_`v'' > 0 {
+                    tempvar randmiss
+                    qui gen double `randmiss' = runiform()
+                    cap confirm string variable `v'
+                    if !_rc {
+                        qui replace `v' = "" if `randmiss' < `missrate_`v''
+                    }
+                    else {
+                        qui replace `v' = . if `randmiss' < `missrate_`v''
+                    }
+                    drop `randmiss'
+                }
+            }
+
+            // Restore variable labels
+            foreach v of local allvars_track {
+                cap confirm variable `v'
+                if _rc continue
+                if `"`varlabel_`v''"' != "" {
+                    label variable `v' `"`varlabel_`v''"'
+                }
+                if "`vallblname_`v''" != "" {
+                    cap label values `v' `vallblname_`v''
+                }
+            }
+
+            // Reorder variables
+            local reorder_list ""
+            foreach v of local orig_varorder {
+                cap confirm variable `v'
+                if !_rc {
+                    local reorder_list `reorder_list' `v'
+                }
+            }
+            if "`reorder_list'" != "" {
+                order `reorder_list'
+            }
+
             if "`prefix'" != "" {
                 foreach v of varlist * {
                     cap rename `v' `prefix'`v'
@@ -362,6 +571,7 @@ program define synthdata
     di as txt "  Synthetic observations: " as res `n'
     di as txt "  Variables synthesized: " as res `: word count `varlist''
     if "`contvars'" != "" di as txt "    Continuous: " as res `: word count `contvars''
+    if "`intvars'" != "" di as txt "    Integer (whole numbers): " as res `: word count `intvars''
     if "`catvars'" != "" di as txt "    Categorical (numeric): " as res `: word count `catvars''
     if "`strvars'" != "" di as txt "    Categorical (string): " as res `: word count `strvars''
     if "`datevars'" != "" di as txt "    Dates: " as res `: word count `datevars''
@@ -369,38 +579,40 @@ program define synthdata
     if "`skip'" != "" di as txt "  Skipped variables: " as res "`skip'"
 end
 
-// Classify variables as categorical, continuous, date, or string
+// Classify variables as categorical, continuous, date, string, or integer
 program define _synthdata_classify, rclass
     version 16.0
-    syntax varlist, [categorical(varlist) continuous(varlist) dates(varlist)]
-    
+    syntax varlist, [categorical(varlist) continuous(varlist) dates(varlist) integer(varlist)]
+
     local catvars `categorical'
     local contvars `continuous'
     local datevars `dates'
+    local intvars `integer'
     local strvars ""
-    
+
     foreach v of local varlist {
         // Skip if already classified
         local incat: list v in catvars
         local incont: list v in contvars
         local indate: list v in datevars
-        
-        if `incat' | `incont' | `indate' continue
-        
+        local inint: list v in intvars
+
+        if `incat' | `incont' | `indate' | `inint' continue
+
         // Check if string first
         cap confirm string variable `v'
         if !_rc {
             local strvars `strvars' `v'
             continue
         }
-        
+
         // Check if date format
         local fmt: format `v'
         if strpos("`fmt'", "%t") | strpos("`fmt'", "%d") {
             local datevars `datevars' `v'
             continue
         }
-        
+
         // Check number of unique values (for numeric only)
         qui count if !missing(`v')
         if r(N) > 0 {
@@ -420,11 +632,12 @@ program define _synthdata_classify, rclass
             local contvars `contvars' `v'
         }
     }
-    
+
     return local catvars `catvars'
     return local contvars `contvars'
     return local datevars `datevars'
     return local strvars `strvars'
+    return local intvars `intvars'
 end
 
 // Store original variable bounds

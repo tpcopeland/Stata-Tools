@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.3  03dec2025}{...}
+{* *! version 1.1.0  05dec2025}{...}
 {viewerjumpto "Syntax" "synthdata##syntax"}{...}
 {viewerjumpto "Description" "synthdata##description"}{...}
 {viewerjumpto "Options" "synthdata##options"}{...}
@@ -47,6 +47,7 @@
 {syntab:Variable Type}
 {synopt:{opt cat:egorical(varlist)}}force treatment as categorical{p_end}
 {synopt:{opt cont:inuous(varlist)}}force treatment as continuous{p_end}
+{synopt:{opt int:eger(varlist)}}force treatment as integer (whole numbers){p_end}
 {synopt:{opt skip(varlist)}}exclude from synthesis{p_end}
 {synopt:{opt id(varlist)}}ID variables; generate new sequential IDs{p_end}
 {synopt:{opt dat:es(varlist)}}ensure date constraints{p_end}
@@ -85,8 +86,8 @@
 {title:Description}
 
 {pstd}
-{cmd:synthdata} generates synthetic datasets that preserve the statistical 
-properties and variable relationships of the original data without containing 
+{cmd:synthdata} generates synthetic datasets that preserve the statistical
+properties and variable relationships of the original data without containing
 real observations. This is useful for:
 
 {phang2}- Working with sensitive data in unsecured environments{p_end}
@@ -97,6 +98,30 @@ real observations. This is useful for:
 
 {pstd}
 If {varlist} is omitted, all variables are synthesized.
+
+{pstd}
+{bf:Automatic preservation features:}
+
+{pstd}
+{cmd:synthdata} automatically preserves key properties from the original data:
+
+{phang2}{bf:Variable labels} - All variable labels from the original data are
+applied to the synthetic variables.{p_end}
+
+{phang2}{bf:Value labels} - Value label attachments for categorical variables
+are preserved.{p_end}
+
+{phang2}{bf:Variable order} - Variables in the synthetic data are ordered to
+match the original data.{p_end}
+
+{phang2}{bf:Missingness rates} - The proportion of missing values for each
+variable is preserved. If a variable has 10% missing values in the original
+data, approximately 10% of values will be randomly set to missing in the
+synthetic data.{p_end}
+
+{phang2}{bf:Integer detection} - Continuous variables that contain only whole
+numbers (integers) are automatically detected and synthesized values are
+rounded to integers.{p_end}
 
 
 {marker options}{...}
@@ -170,6 +195,14 @@ categorical, overriding automatic detection.
 {phang}
 {opt continuous(varlist)} forces specified variables to be treated as
 continuous, overriding automatic detection.
+
+{phang}
+{opt integer(varlist)} forces specified variables to be treated as
+integer (whole number) continuous variables. These are synthesized as
+continuous variables but rounded to whole numbers after synthesis. Integer
+variables are also automatically detected: any numeric variable with more
+than 20 unique values where all non-missing values are whole numbers is
+treated as integer.
 
 {phang}
 {opt skip(varlist)} excludes specified variables from synthesis. They are
