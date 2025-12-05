@@ -1,4 +1,4 @@
-*! tvmerge Version 1.0.0  2025/12/02
+*! tvmerge Version 1.0.1  2025/12/05
 *! Merge multiple time-varying exposure datasets
 *! Author: Tim Copeland
 *! Program class: rclass (returns results in r())
@@ -210,14 +210,38 @@ program define tvmerge, rclass
     * Force multi-dataset syntax for all merges
     local numsv: word count `start'
     local numst: word count `stop'
+    local numexp: word count `exposure'
 
-    if `numsv' != `numds' | `numst' != `numds' {
-        di as error "Number of start() and stop() variables must equal number of datasets"
+    if `numsv' != `numds' {
+        di as error "Number of start() variables (`numsv') must equal number of datasets (`numds')"
+        exit 198
+    }
+    if `numst' != `numds' {
+        di as error "Number of stop() variables (`numst') must equal number of datasets (`numds')"
+        exit 198
+    }
+    if `numexp' != `numds' {
+        di as error "Number of exposure() variables (`numexp') must equal number of datasets (`numds')"
         exit 198
     }
 
     local starts "`start'"
     local stops "`stop'"
+
+    * Validate that startname/stopname don't conflict with internal variable names
+    local reserved_names "start_k stop_k id new_start new_stop _valid _gap _overlap _same_exposures _tag _nper _per _per_max"
+    local startname_conflict: list startname in reserved_names
+    if `startname_conflict' {
+        di as error "startname(`startname') conflicts with internal variable name"
+        di as error "Please choose a different name for the output start variable"
+        exit 198
+    }
+    local stopname_conflict: list stopname in reserved_names
+    if `stopname_conflict' {
+        di as error "stopname(`stopname') conflicts with internal variable name"
+        di as error "Please choose a different name for the output stop variable"
+        exit 198
+    }
     
     * Check for duplicate exposure variable names in the specification
     local exposures_raw "`exposure'"
@@ -455,13 +479,43 @@ program define tvmerge, rclass
         * Process each additional dataset
         forvalues k = 2/`numds' {
             local ds_k: word `k' of `datasets'
+
+            * Get variable names for this dataset BEFORE loading
+            * This avoids any potential macro confusion from data in memory
+            local start_k_varname: word `k' of `starts'
+            local stop_k_varname: word `k' of `stops'
+            local exp_k_raw: word `k' of `exposures_raw'
+
+            * Validate that we got valid variable names
+            if "`start_k_varname'" == "" {
+                di as error "Could not extract start variable name for dataset `k' from start() option"
+                di as error "start() option contains: `starts'"
+                exit 198
+            }
+            if "`stop_k_varname'" == "" {
+                di as error "Could not extract stop variable name for dataset `k' from stop() option"
+                di as error "stop() option contains: `stops'"
+                exit 198
+            }
+            if "`exp_k_raw'" == "" {
+                di as error "Could not extract exposure variable name for dataset `k' from exposure() option"
+                di as error "exposure() option contains: `exposures_raw'"
+                exit 198
+            }
+
+            * Check if user's variable name conflicts with internal temp name
+            * This would cause issues when we try to rename to start_k/stop_k
+            capture confirm name start_k
+            capture confirm name stop_k
+            if "`start_k_varname'" == "start_k" | "`stop_k_varname'" == "stop_k" {
+                * User specified a variable literally named start_k or stop_k
+                * This is allowed but we should warn about potential confusion
+                noisily di as text "Note: Variable name '`start_k_varname'' or '`stop_k_varname'' matches internal temp name"
+            }
+
+            * Now load the dataset
             use "`ds_k'", clear
 
-            * Get variable names for this dataset
-            local start_k: word `k' of `starts'
-            local stop_k: word `k' of `stops'
-            local exp_k_raw: word `k' of `exposures_raw'
-            
             * Check which exposure variables exist in this dataset
             local exp_k_list ""
             foreach possible_exp in `exposures_raw' {
@@ -470,26 +524,47 @@ program define tvmerge, rclass
                     local exp_k_list "`exp_k_list' `possible_exp'"
                 }
             }
-            
+
             if "`exp_k_list'" == "" {
                 di as error "No exposure variables found in `ds_k'"
                 exit 111
             }
-            
+
+            * Verify required variables exist - check for pre-existing start_k/stop_k conflict
+            capture confirm variable start_k
+            local has_start_k = (_rc == 0)
+            capture confirm variable stop_k
+            local has_stop_k = (_rc == 0)
+
+            * If user's variable is NOT named start_k but dataset already has start_k,
+            * we'll have a conflict during rename
+            if `has_start_k' & "`start_k_varname'" != "start_k" {
+                di as error "Dataset `ds_k' already contains a variable named 'start_k'"
+                di as error "This conflicts with internal processing. Please rename this variable before using tvmerge."
+                exit 110
+            }
+            if `has_stop_k' & "`stop_k_varname'" != "stop_k" {
+                di as error "Dataset `ds_k' already contains a variable named 'stop_k'"
+                di as error "This conflicts with internal processing. Please rename this variable before using tvmerge."
+                exit 110
+            }
+
             * Verify required variables exist
             capture confirm variable `id'
             if _rc != 0 {
                 di as error "Variable `id' not found in `ds_k'"
                 exit 111
             }
-            capture confirm variable `start_k'
+            capture confirm variable `start_k_varname'
             if _rc != 0 {
-                di as error "Variable `start_k' not found in `ds_k'"
+                di as error "Variable `start_k_varname' not found in `ds_k'"
+                di as error "(This is variable `k' from start() option: `starts')"
                 exit 111
             }
-            capture confirm variable `stop_k'
+            capture confirm variable `stop_k_varname'
             if _rc != 0 {
-                di as error "Variable `stop_k' not found in `ds_k'"
+                di as error "Variable `stop_k_varname' not found in `ds_k'"
+                di as error "(This is variable `k' from stop() option: `stops')"
                 exit 111
             }
             capture confirm variable `exp_k_raw'
@@ -498,10 +573,10 @@ program define tvmerge, rclass
                 exit 111
             }
             
-            * Rename to standard names
+            * Rename to standard internal names for processing
             rename `id' id
-            rename `start_k' start_k
-            rename `stop_k' stop_k
+            rename `start_k_varname' start_k
+            rename `stop_k_varname' stop_k
             
             * Floor start dates and ceil stop dates to handle fractional date values
             replace start_k = floor(start_k)
