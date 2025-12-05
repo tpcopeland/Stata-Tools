@@ -1,4 +1,4 @@
-*! stratetab Version 1.0.1  03dec2025
+*! stratetab Version 1.0.2  05dec2025
 *! Author: Tim Copeland
 
 /*
@@ -308,6 +308,7 @@ forvalues r = 4/`lastrow' {
 		local exp_rows "`exp_rows' `r'"
 	}
 }
+drop `exp_row'
 
 * Export to Excel
 local sht = cond("`sheet'" != "", "`sheet'", "Results")
