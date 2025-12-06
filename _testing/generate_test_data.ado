@@ -1,4 +1,4 @@
-*! version 1.0.0  2025/12/05
+*! version 1.0.1  2025/12/06
 *! Author: Timothy P Copeland
 *! Generate synthetic datasets for testing tvtools, mvp, and other commands
 program define generate_test_data
@@ -6,8 +6,8 @@ program define generate_test_data
     syntax , SAVEdir(string) [SEED(integer 12345) NOBS(integer 1000) MISS REPLACE]
 
     * Validate savedir exists
-    capture confirm file "`savedir'/."
-    if _rc {
+    mata: st_local("direxists", strofreal(direxists(st_local("savedir"))))
+    if `direxists' == 0 {
         display as error "Directory `savedir' does not exist"
         exit 601
     }
@@ -69,27 +69,32 @@ program define generate_test_data
     label variable study_exit "Study exit date"
 
     * EDSS 4 sustained progression date (outcome) - ~25% have event
+    * Event occurs strictly after study_entry (add 1 to avoid day-0 events)
     gen int edss4_dt = .
     gen temp = runiform()
-    replace edss4_dt = study_entry + floor(runiform() * (study_exit - study_entry)) if temp < 0.25 & edss_baseline < 4
+    replace edss4_dt = study_entry + 1 + floor(runiform() * (study_exit - study_entry - 1)) if temp < 0.25 & edss_baseline < 4
     format edss4_dt %tdCCYY/NN/DD
     label variable edss4_dt "Date of sustained EDSS >= 4"
     drop temp
 
     * Death date (competing event) - ~5% die
+    * Event occurs strictly after study_entry
     gen int death_dt = .
     gen temp = runiform()
-    replace death_dt = study_entry + floor(runiform() * (study_exit - study_entry)) if temp < 0.05
-    * Death must be after EDSS4 if EDSS4 occurred
-    replace death_dt = . if !missing(edss4_dt) & death_dt < edss4_dt
+    replace death_dt = study_entry + 1 + floor(runiform() * (study_exit - study_entry - 1)) if temp < 0.05
     format death_dt %tdCCYY/NN/DD
     label variable death_dt "Date of death"
     drop temp
 
+    * If death occurred before EDSS4, the EDSS4 event couldn't have happened
+    * (death is a competing event that precludes reaching EDSS 4)
+    replace edss4_dt = . if !missing(death_dt) & !missing(edss4_dt) & edss4_dt >= death_dt
+
     * Emigration date (censoring) - ~8%
+    * Event occurs strictly after study_entry
     gen int emigration_dt = .
     gen temp = runiform()
-    replace emigration_dt = study_entry + floor(runiform() * (study_exit - study_entry)) if temp < 0.08 & missing(death_dt)
+    replace emigration_dt = study_entry + 1 + floor(runiform() * (study_exit - study_entry - 1)) if temp < 0.08 & missing(death_dt)
     format emigration_dt %tdCCYY/NN/DD
     label variable emigration_dt "Date of emigration"
     drop temp
@@ -163,7 +168,7 @@ program define generate_test_data
     clear
 
     * Approximately 40% of females will have HRT exposure
-    * Multiple periods per person (1-5)
+    * Multiple periods per person (1-4)
     use `cohort_ref', clear
     keep if female == 1
     local nfemale = _N
@@ -255,7 +260,7 @@ program define generate_test_data
     drop female
 
     * Approximately 70% will have DMT exposure
-    * Multiple periods per person (1-6)
+    * Multiple periods per person (1-5)
     gen byte n_periods = 1 + floor(runiform() * 5)  // 1-5 periods
     expand n_periods
     bysort id: gen byte period = _n
@@ -509,6 +514,13 @@ program define generate_test_data
     restore
 
     merge m:1 id using `baseline', nogen keep(match)
+
+    * Verify merge was successful (all IDs should match)
+    quietly count
+    if r(N) == 0 {
+        display as error "EDSS merge failed - no matching observations"
+        exit 459
+    }
 
     * Generate EDSS with some progression over time
     gen float edss = edss_baseline + floor(visit * 0.3 * runiform()) / 2
