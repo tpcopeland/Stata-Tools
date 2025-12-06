@@ -317,17 +317,177 @@ if _rc {
 }
 
 * =============================================================================
+* TEST 15: Directory mode
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': Directory mode"
+display as text "{hline 50}"
+
+capture noisily {
+    datadict, directory("`testdir'") output("`testdir'/_test_dd_dir.md")
+
+    confirm file "`testdir'/_test_dd_dir.md"
+    display as result "  PASSED: Directory mode works"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 16: Directory with recursive option
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': Directory with recursive"
+display as text "{hline 50}"
+
+capture noisily {
+    * Create a subdirectory with a test file for recursive testing
+    capture mkdir "`testdir'/_subdir"
+    use "`testdir'/cohort.dta", clear
+    keep in 1/10
+    save "`testdir'/_subdir/_subtest.dta", replace
+
+    datadict, directory("`testdir'") output("`testdir'/_test_dd_recursive.md") recursive
+
+    confirm file "`testdir'/_test_dd_recursive.md"
+
+    * Cleanup subdirectory
+    capture erase "`testdir'/_subdir/_subtest.dta"
+    capture rmdir "`testdir'/_subdir"
+
+    display as result "  PASSED: Recursive option works"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 17: Separate output files
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': Separate output files"
+display as text "{hline 50}"
+
+capture noisily {
+    datadict, filelist("`testdir'/cohort" "`testdir'/hrt") ///
+        output("`testdir'/_test_dd_sep.md") separate
+
+    * Check that separate files were created
+    confirm file "`testdir'/_test_dd_sep_cohort.md"
+    confirm file "`testdir'/_test_dd_sep_hrt.md"
+
+    display as result "  PASSED: Separate output works"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 18: Date option
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': Date option"
+display as text "{hline 50}"
+
+capture noisily {
+    datadict, single("`testdir'/cohort") output("`testdir'/_test_dd_date.md") ///
+        date("2025-12-06")
+
+    confirm file "`testdir'/_test_dd_date.md"
+    display as result "  PASSED: Date option works"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 19: Notes option
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': Notes option"
+display as text "{hline 50}"
+
+capture noisily {
+    datadict, single("`testdir'/cohort") output("`testdir'/_test_dd_notes.md") ///
+        notes("This dataset contains clinical data from the MS cohort study. All dates are in Stata date format.")
+
+    confirm file "`testdir'/_test_dd_notes.md"
+    display as result "  PASSED: Notes option works"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 20: Changelog option
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': Changelog option"
+display as text "{hline 50}"
+
+capture noisily {
+    datadict, single("`testdir'/cohort") output("`testdir'/_test_dd_changelog.md") ///
+        changelog("v1.0 (2025-01-01): Initial release \ v1.1 (2025-06-01): Added region variable \ v2.0 (2025-12-01): Added outcome variables")
+
+    confirm file "`testdir'/_test_dd_changelog.md"
+    display as result "  PASSED: Changelog option works"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 21: Full documentation with all metadata
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': Full documentation with all metadata"
+display as text "{hline 50}"
+
+capture noisily {
+    datadict, single("`testdir'/cohort") output("`testdir'/_test_dd_complete.md") ///
+        title("MS Cohort Study") subtitle("Clinical Data Dictionary") ///
+        version("2.0") author("Timothy P Copeland") date("2025-12-06") ///
+        notes("Comprehensive clinical dataset for MS progression analysis.") ///
+        changelog("v1.0: Initial \ v2.0: Added outcomes") ///
+        missing stats maxcat(15) maxfreq(20)
+
+    confirm file "`testdir'/_test_dd_complete.md"
+    display as result "  PASSED: Complete documentation works"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
 * CLEANUP: Remove temporary files
 * =============================================================================
 display as text _n "{hline 70}"
 display as text "Cleaning up temporary files..."
 display as text "{hline 70}"
 
-local temp_files "_test_datadict _test_dd_title _test_dd_sub _test_dd_ver _test_dd_author _test_dd_miss _test_dd_stats _test_dd_both _test_dd_multi _test_dd_maxcat _test_dd_maxfreq _test_dd_full _test_dd_hrt _test_dd_dmt"
+local temp_files "_test_datadict _test_dd_title _test_dd_sub _test_dd_ver _test_dd_author _test_dd_miss _test_dd_stats _test_dd_both _test_dd_multi _test_dd_maxcat _test_dd_maxfreq _test_dd_full _test_dd_hrt _test_dd_dmt _test_dd_dir _test_dd_recursive _test_dd_sep _test_dd_sep_cohort _test_dd_sep_hrt _test_dd_date _test_dd_notes _test_dd_changelog _test_dd_complete"
 
 foreach f of local temp_files {
     capture erase "`testdir'/`f'.md"
 }
+
+* Also cleanup any leftover subdirectory from recursive test
+capture erase "`testdir'/_subdir/_subtest.dta"
+capture rmdir "`testdir'/_subdir"
 
 * =============================================================================
 * SUMMARY

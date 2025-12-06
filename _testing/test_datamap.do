@@ -335,17 +335,298 @@ if _rc {
 }
 
 * =============================================================================
+* TEST 16: Directory mode
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': Directory mode"
+display as text "{hline 50}"
+
+capture noisily {
+    datamap, directory("`testdir'") output("`testdir'/_test_datamap_dir.txt")
+
+    confirm file "`testdir'/_test_datamap_dir.txt"
+    display as result "  PASSED: Directory mode works"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 17: Directory with recursive option
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': Directory with recursive"
+display as text "{hline 50}"
+
+capture noisily {
+    * Create a subdirectory with a test file
+    capture mkdir "`testdir'/_subdir_dm"
+    use "`testdir'/cohort.dta", clear
+    keep in 1/10
+    save "`testdir'/_subdir_dm/_subtest.dta", replace
+
+    datamap, directory("`testdir'") output("`testdir'/_test_datamap_recursive.txt") recursive
+
+    confirm file "`testdir'/_test_datamap_recursive.txt"
+
+    * Cleanup subdirectory
+    capture erase "`testdir'/_subdir_dm/_subtest.dta"
+    capture rmdir "`testdir'/_subdir_dm"
+
+    display as result "  PASSED: Recursive option works"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 18: Separate output files
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': Separate output files"
+display as text "{hline 50}"
+
+capture noisily {
+    datamap, filelist("`testdir'/cohort" "`testdir'/hrt") ///
+        output("`testdir'/_test_datamap_sep.txt") separate
+
+    * Check that separate files were created
+    confirm file "`testdir'/_test_datamap_sep_cohort.txt"
+    confirm file "`testdir'/_test_datamap_sep_hrt.txt"
+
+    display as result "  PASSED: Separate output works"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 19: Append mode
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': Append mode"
+display as text "{hline 50}"
+
+capture noisily {
+    * First create initial file
+    datamap, single("`testdir'/cohort") output("`testdir'/_test_datamap_append.txt")
+
+    * Then append another dataset
+    datamap, single("`testdir'/hrt") output("`testdir'/_test_datamap_append.txt") append
+
+    confirm file "`testdir'/_test_datamap_append.txt"
+    display as result "  PASSED: Append mode works"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 20: No labels option
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': No labels option"
+display as text "{hline 50}"
+
+capture noisily {
+    datamap, single("`testdir'/cohort") nolabels ///
+        output("`testdir'/_test_datamap_nolabels.txt")
+
+    confirm file "`testdir'/_test_datamap_nolabels.txt"
+    display as result "  PASSED: nolabels option works"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 21: No notes option
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': No notes option"
+display as text "{hline 50}"
+
+capture noisily {
+    datamap, single("`testdir'/cohort") nonotes ///
+        output("`testdir'/_test_datamap_nonotes.txt")
+
+    confirm file "`testdir'/_test_datamap_nonotes.txt"
+    display as result "  PASSED: nonotes option works"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 22: Quality2 strict mode
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': Quality2 strict mode"
+display as text "{hline 50}"
+
+capture noisily {
+    datamap, single("`testdir'/cohort") quality2(strict) ///
+        output("`testdir'/_test_datamap_quality2.txt")
+
+    confirm file "`testdir'/_test_datamap_quality2.txt"
+    display as result "  PASSED: quality2(strict) works"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 23: Missing pattern analysis
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': Missing pattern analysis"
+display as text "{hline 50}"
+
+capture noisily {
+    datamap, single("`testdir'/cohort_miss") missing(pattern) ///
+        output("`testdir'/_test_datamap_misspattern.txt")
+
+    confirm file "`testdir'/_test_datamap_misspattern.txt"
+    display as result "  PASSED: missing(pattern) works"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 24: Survival variables detection
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': Survival variables detection"
+display as text "{hline 50}"
+
+capture noisily {
+    datamap, single("`testdir'/cohort") survivalvars(study_entry study_exit edss4_dt) ///
+        output("`testdir'/_test_datamap_survival.txt")
+
+    confirm file "`testdir'/_test_datamap_survival.txt"
+    display as result "  PASSED: survivalvars() works"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 25: Detect binary variables
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': Detect binary variables"
+display as text "{hline 50}"
+
+capture noisily {
+    datamap, single("`testdir'/cohort") detect(binary) ///
+        output("`testdir'/_test_datamap_binary.txt")
+
+    confirm file "`testdir'/_test_datamap_binary.txt"
+    display as result "  PASSED: detect(binary) works"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 26: Detect survival structure
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': Detect survival structure"
+display as text "{hline 50}"
+
+capture noisily {
+    datamap, single("`testdir'/cohort") detect(survival) ///
+        output("`testdir'/_test_datamap_detectsurv.txt")
+
+    confirm file "`testdir'/_test_datamap_detectsurv.txt"
+    display as result "  PASSED: detect(survival) works"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 27: Detect common issues
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': Detect common issues"
+display as text "{hline 50}"
+
+capture noisily {
+    datamap, single("`testdir'/cohort") detect(common) ///
+        output("`testdir'/_test_datamap_common.txt")
+
+    confirm file "`testdir'/_test_datamap_common.txt"
+    display as result "  PASSED: detect(common) works"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 28: Full comprehensive analysis
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': Full comprehensive analysis"
+display as text "{hline 50}"
+
+capture noisily {
+    datamap, single("`testdir'/cohort_miss") ///
+        output("`testdir'/_test_datamap_complete.txt") ///
+        exclude(id) datesafe quality missing(detail) ///
+        samples(3) autodetect maxcat(15) maxfreq(20)
+
+    confirm file "`testdir'/_test_datamap_complete.txt"
+    display as result "  PASSED: Full comprehensive analysis works"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
 * CLEANUP: Remove temporary files
 * =============================================================================
 display as text _n "{hline 70}"
 display as text "Cleaning up temporary files..."
 display as text "{hline 70}"
 
-local temp_files "_test_datamap _test_cohort_map _test_datamap_exclude _test_datamap_datesafe _test_datamap_nostats _test_datamap_nofreq _test_datamap_multi _test_datamap_maxcat _test_datamap_quality _test_datamap_missing _test_datamap_samples _test_datamap_autodetect _test_datamap_panel _test_datamap_privacy _test_datamap_hrt"
+local temp_files "_test_datamap _test_cohort_map _test_datamap_exclude _test_datamap_datesafe _test_datamap_nostats _test_datamap_nofreq _test_datamap_multi _test_datamap_maxcat _test_datamap_quality _test_datamap_missing _test_datamap_samples _test_datamap_autodetect _test_datamap_panel _test_datamap_privacy _test_datamap_hrt _test_datamap_dir _test_datamap_recursive _test_datamap_sep _test_datamap_sep_cohort _test_datamap_sep_hrt _test_datamap_append _test_datamap_nolabels _test_datamap_nonotes _test_datamap_quality2 _test_datamap_misspattern _test_datamap_survival _test_datamap_binary _test_datamap_detectsurv _test_datamap_common _test_datamap_complete"
 
 foreach f of local temp_files {
     capture erase "`testdir'/`f'.txt"
 }
+
+* Also cleanup any leftover subdirectory from recursive test
+capture erase "`testdir'/_subdir_dm/_subtest.dta"
+capture rmdir "`testdir'/_subdir_dm"
 
 * =============================================================================
 * SUMMARY

@@ -2,14 +2,14 @@
 * test_tvexpose.do
 *
 * Purpose: Comprehensive testing of tvexpose command
-*          Tests all options and common combinations
+*          Tests all options documented in tvexpose.sthlp
 *
 * Prerequisites:
 *   - Run generate_test_data.do first to create synthetic datasets
 *   - tvexpose.ado must be installed/accessible
 *
 * Author: Timothy P Copeland
-* Date: 2025-12-05
+* Date: 2025-12-06
 *******************************************************************************/
 
 clear all
@@ -37,26 +37,27 @@ local pass_count = 0
 local fail_count = 0
 
 * =============================================================================
-* TEST 1: Basic binary time-varying exposure (HRT)
+* TEST 1: Basic time-varying exposure (default behavior)
 * =============================================================================
 local ++test_count
-display as text _n "TEST `test_count': Basic binary time-varying exposure"
+display as text _n "TEST `test_count': Basic time-varying exposure"
 display as text "{hline 50}"
 
 capture noisily {
     use "`testdir'/cohort.dta", clear
 
     tvexpose using "`testdir'/hrt.dta", ///
-        id(id) start(study_entry) stop(study_exit) event(edss4_dt) ///
-        expstart(rx_start) expstop(rx_stop) ///
-        type(binary) ///
-        saveas("`testdir'/_test_tvexpose_binary") replace
+        id(id) start(rx_start) stop(rx_stop) ///
+        exposure(hrt_type) reference(0) ///
+        entry(study_entry) exit(study_exit) ///
+        generate(tv_hrt) ///
+        saveas("`testdir'/_test_tvexpose_basic") replace
 
     * Verify output
-    use "`testdir'/_test_tvexpose_binary.dta", clear
+    use "`testdir'/_test_tvexpose_basic.dta", clear
     assert _N > 0
-    confirm variable id _start _stop _event _exposed
-    display as result "  PASSED: Binary exposure created successfully"
+    confirm variable id tv_hrt
+    display as result "  PASSED: Basic time-varying exposure created"
     local ++pass_count
 }
 if _rc {
@@ -65,27 +66,122 @@ if _rc {
 }
 
 * =============================================================================
-* TEST 2: Duration-based exposure
+* TEST 2: evertreated option (binary ever/never)
 * =============================================================================
 local ++test_count
-display as text _n "TEST `test_count': Duration-based exposure"
+display as text _n "TEST `test_count': evertreated option"
 display as text "{hline 50}"
 
 capture noisily {
     use "`testdir'/cohort.dta", clear
 
     tvexpose using "`testdir'/hrt.dta", ///
-        id(id) start(study_entry) stop(study_exit) event(edss4_dt) ///
-        expstart(rx_start) expstop(rx_stop) ///
-        type(duration) ///
-        saveas("`testdir'/_test_tvexpose_duration") replace
+        id(id) start(rx_start) stop(rx_stop) ///
+        exposure(hrt_type) reference(0) ///
+        entry(study_entry) exit(study_exit) ///
+        evertreated ///
+        generate(ever_hrt) ///
+        saveas("`testdir'/_test_tvexpose_ever") replace
 
-    use "`testdir'/_test_tvexpose_duration.dta", clear
+    use "`testdir'/_test_tvexpose_ever.dta", clear
     assert _N > 0
-    confirm variable _duration
-    sum _duration
+    confirm variable ever_hrt
+    * Ever-treated should only have values 0 and 1
+    tab ever_hrt
+    display as result "  PASSED: evertreated option works"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 3: currentformer option (trichotomous never/current/former)
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': currentformer option"
+display as text "{hline 50}"
+
+capture noisily {
+    use "`testdir'/cohort.dta", clear
+
+    tvexpose using "`testdir'/hrt.dta", ///
+        id(id) start(rx_start) stop(rx_stop) ///
+        exposure(hrt_type) reference(0) ///
+        entry(study_entry) exit(study_exit) ///
+        currentformer ///
+        generate(cf_hrt) ///
+        saveas("`testdir'/_test_tvexpose_cf") replace
+
+    use "`testdir'/_test_tvexpose_cf.dta", clear
+    assert _N > 0
+    confirm variable cf_hrt
+    * Should have values 0=never, 1=current, 2=former
+    tab cf_hrt
+    display as result "  PASSED: currentformer option works"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 4: duration() option (cumulative duration categories)
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': duration() option"
+display as text "{hline 50}"
+
+capture noisily {
+    use "`testdir'/cohort.dta", clear
+
+    * Create duration categories: unexposed, <1 year, 1-<5 years, 5+ years
+    tvexpose using "`testdir'/hrt.dta", ///
+        id(id) start(rx_start) stop(rx_stop) ///
+        exposure(hrt_type) reference(0) ///
+        entry(study_entry) exit(study_exit) ///
+        duration(1 5) continuousunit(years) ///
+        generate(dur_hrt) ///
+        saveas("`testdir'/_test_tvexpose_dur") replace
+
+    use "`testdir'/_test_tvexpose_dur.dta", clear
+    assert _N > 0
+    confirm variable dur_hrt
+    tab dur_hrt
+    display as result "  PASSED: duration() option works"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 5: continuousunit() option (cumulative exposure in years)
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': continuousunit() option"
+display as text "{hline 50}"
+
+capture noisily {
+    use "`testdir'/cohort.dta", clear
+
+    tvexpose using "`testdir'/hrt.dta", ///
+        id(id) start(rx_start) stop(rx_stop) ///
+        exposure(hrt_type) reference(0) ///
+        entry(study_entry) exit(study_exit) ///
+        continuousunit(years) ///
+        generate(cumexp_hrt) ///
+        saveas("`testdir'/_test_tvexpose_cont") replace
+
+    use "`testdir'/_test_tvexpose_cont.dta", clear
+    assert _N > 0
+    confirm variable cumexp_hrt
+    sum cumexp_hrt
     assert r(min) >= 0
-    display as result "  PASSED: Duration exposure created successfully"
+    display as result "  PASSED: continuousunit() option works"
     local ++pass_count
 }
 if _rc {
@@ -94,27 +190,26 @@ if _rc {
 }
 
 * =============================================================================
-* TEST 3: Categorical exposure with multiple categories
+* TEST 6: grace() option (grace period for gaps)
 * =============================================================================
 local ++test_count
-display as text _n "TEST `test_count': Categorical exposure"
+display as text _n "TEST `test_count': grace() option"
 display as text "{hline 50}"
 
 capture noisily {
     use "`testdir'/cohort.dta", clear
 
     tvexpose using "`testdir'/hrt.dta", ///
-        id(id) start(study_entry) stop(study_exit) event(edss4_dt) ///
-        expstart(rx_start) expstop(rx_stop) ///
-        expvalue(hrt_type) ///
-        type(categories) ///
-        saveas("`testdir'/_test_tvexpose_categorical") replace
+        id(id) start(rx_start) stop(rx_stop) ///
+        exposure(hrt_type) reference(0) ///
+        entry(study_entry) exit(study_exit) ///
+        grace(30) ///
+        generate(tv_hrt) ///
+        saveas("`testdir'/_test_tvexpose_grace") replace
 
-    use "`testdir'/_test_tvexpose_categorical.dta", clear
+    use "`testdir'/_test_tvexpose_grace.dta", clear
     assert _N > 0
-    confirm variable hrt_type
-    tab hrt_type
-    display as result "  PASSED: Categorical exposure created successfully"
+    display as result "  PASSED: grace() option works"
     local ++pass_count
 }
 if _rc {
@@ -123,25 +218,26 @@ if _rc {
 }
 
 * =============================================================================
-* TEST 4: Using gap (grace period) option
+* TEST 7: lag() option (delay before exposure active)
 * =============================================================================
 local ++test_count
-display as text _n "TEST `test_count': Gap (grace period) option"
+display as text _n "TEST `test_count': lag() option"
 display as text "{hline 50}"
 
 capture noisily {
     use "`testdir'/cohort.dta", clear
 
     tvexpose using "`testdir'/hrt.dta", ///
-        id(id) start(study_entry) stop(study_exit) event(edss4_dt) ///
-        expstart(rx_start) expstop(rx_stop) ///
-        type(binary) ///
-        gap(30) ///
-        saveas("`testdir'/_test_tvexpose_gap30") replace
+        id(id) start(rx_start) stop(rx_stop) ///
+        exposure(hrt_type) reference(0) ///
+        entry(study_entry) exit(study_exit) ///
+        lag(30) ///
+        generate(tv_hrt) ///
+        saveas("`testdir'/_test_tvexpose_lag") replace
 
-    use "`testdir'/_test_tvexpose_gap30.dta", clear
+    use "`testdir'/_test_tvexpose_lag.dta", clear
     assert _N > 0
-    display as result "  PASSED: Gap option works correctly"
+    display as result "  PASSED: lag() option works"
     local ++pass_count
 }
 if _rc {
@@ -150,30 +246,26 @@ if _rc {
 }
 
 * =============================================================================
-* TEST 5: Multiple competing events
+* TEST 8: washout() option (exposure persists after stopping)
 * =============================================================================
 local ++test_count
-display as text _n "TEST `test_count': Multiple events (death as competing)"
+display as text _n "TEST `test_count': washout() option"
 display as text "{hline 50}"
 
 capture noisily {
     use "`testdir'/cohort.dta", clear
 
-    * Use earliest of edss4_dt and death_dt as the event
-    gen event_date = min(edss4_dt, death_dt) if !missing(edss4_dt) | !missing(death_dt)
-    replace event_date = edss4_dt if missing(event_date) & !missing(edss4_dt)
-    replace event_date = death_dt if missing(event_date) & !missing(death_dt)
-    format event_date %tdCCYY/NN/DD
-
     tvexpose using "`testdir'/hrt.dta", ///
-        id(id) start(study_entry) stop(study_exit) event(event_date) ///
-        expstart(rx_start) expstop(rx_stop) ///
-        type(binary) ///
-        saveas("`testdir'/_test_tvexpose_competing") replace
+        id(id) start(rx_start) stop(rx_stop) ///
+        exposure(hrt_type) reference(0) ///
+        entry(study_entry) exit(study_exit) ///
+        washout(90) ///
+        generate(tv_hrt) ///
+        saveas("`testdir'/_test_tvexpose_washout") replace
 
-    use "`testdir'/_test_tvexpose_competing.dta", clear
+    use "`testdir'/_test_tvexpose_washout.dta", clear
     assert _N > 0
-    display as result "  PASSED: Competing events handled correctly"
+    display as result "  PASSED: washout() option works"
     local ++pass_count
 }
 if _rc {
@@ -182,25 +274,57 @@ if _rc {
 }
 
 * =============================================================================
-* TEST 6: DMT exposure (different dataset)
+* TEST 9: bytype option (separate variables per exposure type)
 * =============================================================================
 local ++test_count
-display as text _n "TEST `test_count': DMT exposure dataset"
+display as text _n "TEST `test_count': bytype option"
+display as text "{hline 50}"
+
+capture noisily {
+    use "`testdir'/cohort.dta", clear
+
+    tvexpose using "`testdir'/hrt.dta", ///
+        id(id) start(rx_start) stop(rx_stop) ///
+        exposure(hrt_type) reference(0) ///
+        entry(study_entry) exit(study_exit) ///
+        evertreated bytype ///
+        generate(ever_hrt) ///
+        saveas("`testdir'/_test_tvexpose_bytype") replace
+
+    use "`testdir'/_test_tvexpose_bytype.dta", clear
+    assert _N > 0
+    * Should have separate variables for each HRT type
+    describe ever_hrt*
+    display as result "  PASSED: bytype option works"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 10: DMT dataset test
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': DMT dataset exposure"
 display as text "{hline 50}"
 
 capture noisily {
     use "`testdir'/cohort.dta", clear
 
     tvexpose using "`testdir'/dmt.dta", ///
-        id(id) start(study_entry) stop(study_exit) event(edss4_dt) ///
-        expstart(dmt_start) expstop(dmt_stop) ///
-        type(binary) ///
+        id(id) start(dmt_start) stop(dmt_stop) ///
+        exposure(dmt) reference(0) ///
+        entry(study_entry) exit(study_exit) ///
+        generate(tv_dmt) ///
         saveas("`testdir'/_test_tvexpose_dmt") replace
 
     use "`testdir'/_test_tvexpose_dmt.dta", clear
     assert _N > 0
-    confirm variable _exposed
-    display as result "  PASSED: DMT exposure dataset works"
+    confirm variable tv_dmt
+    tab tv_dmt
+    display as result "  PASSED: DMT exposure works"
     local ++pass_count
 }
 if _rc {
@@ -209,66 +333,24 @@ if _rc {
 }
 
 * =============================================================================
-* TEST 7: Datetime exposure type
+* TEST 11: check option (diagnostics)
 * =============================================================================
 local ++test_count
-display as text _n "TEST `test_count': Datetime exposure type"
-display as text "{hline 50}"
-
-capture noisily {
-    use "`testdir'/cohort.dta", clear
-
-    * Convert dates to datetime for testing
-    gen double study_entry_dt = study_entry * 24 * 60 * 60 * 1000
-    gen double study_exit_dt = study_exit * 24 * 60 * 60 * 1000
-    gen double edss4_datetime = edss4_dt * 24 * 60 * 60 * 1000 if !missing(edss4_dt)
-    format study_entry_dt study_exit_dt edss4_datetime %tc
-
-    * Create datetime HRT file
-    preserve
-    use "`testdir'/hrt.dta", clear
-    gen double rx_start_dt = rx_start * 24 * 60 * 60 * 1000
-    gen double rx_stop_dt = rx_stop * 24 * 60 * 60 * 1000
-    format rx_start_dt rx_stop_dt %tc
-    save "`testdir'/_temp_hrt_datetime.dta", replace
-    restore
-
-    tvexpose using "`testdir'/_temp_hrt_datetime.dta", ///
-        id(id) start(study_entry_dt) stop(study_exit_dt) event(edss4_datetime) ///
-        expstart(rx_start_dt) expstop(rx_stop_dt) ///
-        type(datetime) ///
-        saveas("`testdir'/_test_tvexpose_datetime") replace
-
-    use "`testdir'/_test_tvexpose_datetime.dta", clear
-    assert _N > 0
-    display as result "  PASSED: Datetime exposure type works"
-    local ++pass_count
-}
-if _rc {
-    display as error "  FAILED: Error code " _rc
-    local ++fail_count
-}
-
-* =============================================================================
-* TEST 8: nodelete option
-* =============================================================================
-local ++test_count
-display as text _n "TEST `test_count': nodelete option"
+display as text _n "TEST `test_count': check option"
 display as text "{hline 50}"
 
 capture noisily {
     use "`testdir'/cohort.dta", clear
 
     tvexpose using "`testdir'/hrt.dta", ///
-        id(id) start(study_entry) stop(study_exit) event(edss4_dt) ///
-        expstart(rx_start) expstop(rx_stop) ///
-        type(binary) ///
-        nodelete ///
-        saveas("`testdir'/_test_tvexpose_nodelete") replace
+        id(id) start(rx_start) stop(rx_stop) ///
+        exposure(hrt_type) reference(0) ///
+        entry(study_entry) exit(study_exit) ///
+        generate(tv_hrt) ///
+        check ///
+        saveas("`testdir'/_test_tvexpose_check") replace
 
-    use "`testdir'/_test_tvexpose_nodelete.dta", clear
-    assert _N > 0
-    display as result "  PASSED: nodelete option works"
+    display as result "  PASSED: check option works"
     local ++pass_count
 }
 if _rc {
@@ -277,26 +359,24 @@ if _rc {
 }
 
 * =============================================================================
-* TEST 9: Duration with custom exposure value
+* TEST 12: summarize option
 * =============================================================================
 local ++test_count
-display as text _n "TEST `test_count': Duration with dose as exposure value"
+display as text _n "TEST `test_count': summarize option"
 display as text "{hline 50}"
 
 capture noisily {
     use "`testdir'/cohort.dta", clear
 
     tvexpose using "`testdir'/hrt.dta", ///
-        id(id) start(study_entry) stop(study_exit) event(edss4_dt) ///
-        expstart(rx_start) expstop(rx_stop) ///
-        expvalue(dose) ///
-        type(duration) ///
-        saveas("`testdir'/_test_tvexpose_dose_duration") replace
+        id(id) start(rx_start) stop(rx_stop) ///
+        exposure(hrt_type) reference(0) ///
+        entry(study_entry) exit(study_exit) ///
+        generate(tv_hrt) ///
+        summarize ///
+        saveas("`testdir'/_test_tvexpose_summ") replace
 
-    use "`testdir'/_test_tvexpose_dose_duration.dta", clear
-    assert _N > 0
-    confirm variable dose _duration
-    display as result "  PASSED: Duration with custom value works"
+    display as result "  PASSED: summarize option works"
     local ++pass_count
 }
 if _rc {
@@ -305,54 +385,24 @@ if _rc {
 }
 
 * =============================================================================
-* TEST 10: DMT with efficacy categories
+* TEST 13: validate option
 * =============================================================================
 local ++test_count
-display as text _n "TEST `test_count': DMT with efficacy categories"
-display as text "{hline 50}"
-
-capture noisily {
-    use "`testdir'/cohort.dta", clear
-
-    tvexpose using "`testdir'/dmt.dta", ///
-        id(id) start(study_entry) stop(study_exit) event(edss4_dt) ///
-        expstart(dmt_start) expstop(dmt_stop) ///
-        expvalue(efficacy) ///
-        type(categories) ///
-        saveas("`testdir'/_test_tvexpose_efficacy") replace
-
-    use "`testdir'/_test_tvexpose_efficacy.dta", clear
-    assert _N > 0
-    confirm variable efficacy
-    tab efficacy, missing
-    display as result "  PASSED: DMT efficacy categories work"
-    local ++pass_count
-}
-if _rc {
-    display as error "  FAILED: Error code " _rc
-    local ++fail_count
-}
-
-* =============================================================================
-* TEST 11: Large gap value
-* =============================================================================
-local ++test_count
-display as text _n "TEST `test_count': Large gap value (90 days)"
+display as text _n "TEST `test_count': validate option"
 display as text "{hline 50}"
 
 capture noisily {
     use "`testdir'/cohort.dta", clear
 
     tvexpose using "`testdir'/hrt.dta", ///
-        id(id) start(study_entry) stop(study_exit) event(edss4_dt) ///
-        expstart(rx_start) expstop(rx_stop) ///
-        type(binary) ///
-        gap(90) ///
-        saveas("`testdir'/_test_tvexpose_gap90") replace
+        id(id) start(rx_start) stop(rx_stop) ///
+        exposure(hrt_type) reference(0) ///
+        entry(study_entry) exit(study_exit) ///
+        generate(tv_hrt) ///
+        validate ///
+        saveas("`testdir'/_test_tvexpose_validate") replace
 
-    use "`testdir'/_test_tvexpose_gap90.dta", clear
-    assert _N > 0
-    display as result "  PASSED: Large gap value works"
+    display as result "  PASSED: validate option works"
     local ++pass_count
 }
 if _rc {
@@ -361,7 +411,147 @@ if _rc {
 }
 
 * =============================================================================
-* TEST 12: Subset of observations using if
+* TEST 14: gaps option (show persons with gaps)
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': gaps option"
+display as text "{hline 50}"
+
+capture noisily {
+    use "`testdir'/cohort.dta", clear
+
+    tvexpose using "`testdir'/hrt.dta", ///
+        id(id) start(rx_start) stop(rx_stop) ///
+        exposure(hrt_type) reference(0) ///
+        entry(study_entry) exit(study_exit) ///
+        generate(tv_hrt) ///
+        gaps ///
+        saveas("`testdir'/_test_tvexpose_gaps") replace
+
+    display as result "  PASSED: gaps option works"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 15: overlaps option
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': overlaps option"
+display as text "{hline 50}"
+
+capture noisily {
+    use "`testdir'/cohort.dta", clear
+
+    tvexpose using "`testdir'/hrt.dta", ///
+        id(id) start(rx_start) stop(rx_stop) ///
+        exposure(hrt_type) reference(0) ///
+        entry(study_entry) exit(study_exit) ///
+        generate(tv_hrt) ///
+        overlaps ///
+        saveas("`testdir'/_test_tvexpose_overlaps") replace
+
+    display as result "  PASSED: overlaps option works"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 16: referencelabel() option
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': referencelabel() option"
+display as text "{hline 50}"
+
+capture noisily {
+    use "`testdir'/cohort.dta", clear
+
+    tvexpose using "`testdir'/hrt.dta", ///
+        id(id) start(rx_start) stop(rx_stop) ///
+        exposure(hrt_type) reference(0) ///
+        entry(study_entry) exit(study_exit) ///
+        referencelabel("No HRT") ///
+        generate(tv_hrt) ///
+        saveas("`testdir'/_test_tvexpose_reflabel") replace
+
+    use "`testdir'/_test_tvexpose_reflabel.dta", clear
+    assert _N > 0
+    display as result "  PASSED: referencelabel() option works"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 17: keepvars() option
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': keepvars() option"
+display as text "{hline 50}"
+
+capture noisily {
+    use "`testdir'/cohort.dta", clear
+
+    tvexpose using "`testdir'/hrt.dta", ///
+        id(id) start(rx_start) stop(rx_stop) ///
+        exposure(hrt_type) reference(0) ///
+        entry(study_entry) exit(study_exit) ///
+        keepvars(age female mstype) ///
+        generate(tv_hrt) ///
+        saveas("`testdir'/_test_tvexpose_keepvars") replace
+
+    use "`testdir'/_test_tvexpose_keepvars.dta", clear
+    assert _N > 0
+    confirm variable age female mstype
+    display as result "  PASSED: keepvars() option works"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 18: Stored results verification
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': Stored results verification"
+display as text "{hline 50}"
+
+capture noisily {
+    use "`testdir'/cohort.dta", clear
+
+    tvexpose using "`testdir'/hrt.dta", ///
+        id(id) start(rx_start) stop(rx_stop) ///
+        exposure(hrt_type) reference(0) ///
+        entry(study_entry) exit(study_exit) ///
+        generate(tv_hrt) check ///
+        saveas("`testdir'/_test_tvexpose_results") replace
+
+    * Verify stored results exist
+    assert r(N) > 0
+    assert r(N_persons) > 0
+
+    display as result "  PASSED: Stored results present"
+    display as text "  r(N) = " r(N)
+    display as text "  r(N_persons) = " r(N_persons)
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 19: Subset using if condition on master
 * =============================================================================
 local ++test_count
 display as text _n "TEST `test_count': Subset using if condition"
@@ -374,9 +564,10 @@ capture noisily {
     keep if female == 1
 
     tvexpose using "`testdir'/hrt.dta", ///
-        id(id) start(study_entry) stop(study_exit) event(edss4_dt) ///
-        expstart(rx_start) expstop(rx_stop) ///
-        type(binary) ///
+        id(id) start(rx_start) stop(rx_stop) ///
+        exposure(hrt_type) reference(0) ///
+        entry(study_entry) exit(study_exit) ///
+        generate(tv_hrt) ///
         saveas("`testdir'/_test_tvexpose_females") replace
 
     use "`testdir'/_test_tvexpose_females.dta", clear
@@ -390,30 +581,30 @@ if _rc {
 }
 
 * =============================================================================
-* TEST 13: No events (all censored)
+* TEST 20: Combined options test
 * =============================================================================
 local ++test_count
-display as text _n "TEST `test_count': No events (all censored)"
+display as text _n "TEST `test_count': Combined options"
 display as text "{hline 50}"
 
 capture noisily {
     use "`testdir'/cohort.dta", clear
 
-    * Replace all events with missing
-    replace edss4_dt = .
-
     tvexpose using "`testdir'/hrt.dta", ///
-        id(id) start(study_entry) stop(study_exit) event(edss4_dt) ///
-        expstart(rx_start) expstop(rx_stop) ///
-        type(binary) ///
-        saveas("`testdir'/_test_tvexpose_noevents") replace
+        id(id) start(rx_start) stop(rx_stop) ///
+        exposure(hrt_type) reference(0) ///
+        entry(study_entry) exit(study_exit) ///
+        grace(30) lag(14) washout(60) ///
+        keepvars(age female) ///
+        referencelabel("Unexposed") ///
+        generate(tv_hrt) ///
+        check summarize ///
+        saveas("`testdir'/_test_tvexpose_combined") replace
 
-    use "`testdir'/_test_tvexpose_noevents.dta", clear
+    use "`testdir'/_test_tvexpose_combined.dta", clear
     assert _N > 0
-    * All _event should be 0
-    sum _event
-    assert r(max) == 0
-    display as result "  PASSED: No events handled correctly"
+    confirm variable tv_hrt age female
+    display as result "  PASSED: Combined options work together"
     local ++pass_count
 }
 if _rc {
@@ -428,7 +619,7 @@ display as text _n "{hline 70}"
 display as text "Cleaning up temporary files..."
 display as text "{hline 70}"
 
-local temp_files "_test_tvexpose_binary _test_tvexpose_duration _test_tvexpose_categorical _test_tvexpose_gap30 _test_tvexpose_competing _test_tvexpose_dmt _test_tvexpose_datetime _temp_hrt_datetime _test_tvexpose_nodelete _test_tvexpose_dose_duration _test_tvexpose_efficacy _test_tvexpose_gap90 _test_tvexpose_females _test_tvexpose_noevents"
+local temp_files "_test_tvexpose_basic _test_tvexpose_ever _test_tvexpose_cf _test_tvexpose_dur _test_tvexpose_cont _test_tvexpose_grace _test_tvexpose_lag _test_tvexpose_washout _test_tvexpose_bytype _test_tvexpose_dmt _test_tvexpose_check _test_tvexpose_summ _test_tvexpose_validate _test_tvexpose_gaps _test_tvexpose_overlaps _test_tvexpose_reflabel _test_tvexpose_keepvars _test_tvexpose_results _test_tvexpose_females _test_tvexpose_combined"
 
 foreach f of local temp_files {
     capture erase "`testdir'/`f'.dta"

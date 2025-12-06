@@ -2,14 +2,14 @@
 * test_mvp.do
 *
 * Purpose: Comprehensive testing of mvp (Missing Value Patterns) command
-*          Tests all options and common combinations
+*          Tests all options documented in mvp.sthlp
 *
 * Prerequisites:
 *   - Run generate_test_data.do first to create synthetic datasets
 *   - mvp.ado must be installed/accessible
 *
 * Author: Timothy P Copeland
-* Date: 2025-12-05
+* Date: 2025-12-06
 *******************************************************************************/
 
 clear all
@@ -49,8 +49,12 @@ capture noisily {
     mvp age education bmi income_q comorbidity smoking
 
     * Check stored results
-    assert !missing(r(nvars))
-    assert r(nvars) == 6
+    assert !missing(r(N))
+    assert !missing(r(N_vars))
+    assert !missing(r(N_patterns))
+    display as text "  N observations: " r(N)
+    display as text "  N variables: " r(N_vars)
+    display as text "  N patterns: " r(N_patterns)
     display as result "  PASSED: Basic pattern analysis works"
     local ++pass_count
 }
@@ -60,16 +64,16 @@ if _rc {
 }
 
 * =============================================================================
-* TEST 2: All variables
+* TEST 2: All variables (implicit)
 * =============================================================================
 local ++test_count
-display as text _n "TEST `test_count': All variables"
+display as text _n "TEST `test_count': All variables (no varlist)"
 display as text "{hline 50}"
 
 capture noisily {
     use "`testdir'/cohort_miss.dta", clear
 
-    mvp _all
+    mvp
 
     display as result "  PASSED: All variables analysis works"
     local ++pass_count
@@ -80,18 +84,18 @@ if _rc {
 }
 
 * =============================================================================
-* TEST 3: Pattern count option
+* TEST 3: notable option (suppress variable table)
 * =============================================================================
 local ++test_count
-display as text _n "TEST `test_count': Pattern count option"
+display as text _n "TEST `test_count': notable option"
 display as text "{hline 50}"
 
 capture noisily {
     use "`testdir'/cohort_miss.dta", clear
 
-    mvp age education bmi income_q, patterns(10)
+    mvp age education bmi income_q, notable
 
-    display as result "  PASSED: Pattern count option works"
+    display as result "  PASSED: notable option works"
     local ++pass_count
 }
 if _rc {
@@ -100,18 +104,18 @@ if _rc {
 }
 
 * =============================================================================
-* TEST 4: Sort by frequency
+* TEST 4: skip option (spaces every 5 variables)
 * =============================================================================
 local ++test_count
-display as text _n "TEST `test_count': Sort by frequency"
+display as text _n "TEST `test_count': skip option"
 display as text "{hline 50}"
 
 capture noisily {
     use "`testdir'/cohort_miss.dta", clear
 
-    mvp age education bmi income_q, sort(freq)
+    mvp age education bmi income_q comorbidity smoking, skip
 
-    display as result "  PASSED: Sort by frequency works"
+    display as result "  PASSED: skip option works"
     local ++pass_count
 }
 if _rc {
@@ -120,18 +124,18 @@ if _rc {
 }
 
 * =============================================================================
-* TEST 5: Sort by variable name
+* TEST 5: sort option (sort by descending missingness)
 * =============================================================================
 local ++test_count
-display as text _n "TEST `test_count': Sort by variable name"
+display as text _n "TEST `test_count': sort option"
 display as text "{hline 50}"
 
 capture noisily {
     use "`testdir'/cohort_miss.dta", clear
 
-    mvp age education bmi income_q, sort(varname)
+    mvp age education bmi income_q comorbidity smoking, sort
 
-    display as result "  PASSED: Sort by varname works"
+    display as result "  PASSED: sort option works"
     local ++pass_count
 }
 if _rc {
@@ -140,10 +144,70 @@ if _rc {
 }
 
 * =============================================================================
-* TEST 6: Minimum frequency threshold
+* TEST 6: nodrop option (include vars with no missing)
 * =============================================================================
 local ++test_count
-display as text _n "TEST `test_count': Minimum frequency threshold"
+display as text _n "TEST `test_count': nodrop option"
+display as text "{hline 50}"
+
+capture noisily {
+    use "`testdir'/cohort_miss.dta", clear
+
+    mvp age education bmi female, nodrop
+
+    display as result "  PASSED: nodrop option works"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 7: wide option (compact display)
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': wide option"
+display as text "{hline 50}"
+
+capture noisily {
+    use "`testdir'/cohort_miss.dta", clear
+
+    mvp age education bmi income_q comorbidity smoking, wide
+
+    display as result "  PASSED: wide option works"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 8: nosummary option
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': nosummary option"
+display as text "{hline 50}"
+
+capture noisily {
+    use "`testdir'/cohort_miss.dta", clear
+
+    mvp age education bmi income_q, nosummary
+
+    display as result "  PASSED: nosummary option works"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 9: minfreq() option (minimum frequency threshold)
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': minfreq() option"
 display as text "{hline 50}"
 
 capture noisily {
@@ -151,7 +215,7 @@ capture noisily {
 
     mvp age education bmi income_q comorbidity smoking, minfreq(5)
 
-    display as result "  PASSED: Minimum frequency threshold works"
+    display as result "  PASSED: minfreq() option works"
     local ++pass_count
 }
 if _rc {
@@ -160,20 +224,18 @@ if _rc {
 }
 
 * =============================================================================
-* TEST 7: Matrix output
+* TEST 10: minmissing() option
 * =============================================================================
 local ++test_count
-display as text _n "TEST `test_count': Matrix output"
+display as text _n "TEST `test_count': minmissing() option"
 display as text "{hline 50}"
 
 capture noisily {
     use "`testdir'/cohort_miss.dta", clear
 
-    mvp age education bmi income_q, matrix(mvp_patterns)
+    mvp age education bmi income_q comorbidity smoking, minmissing(2)
 
-    * Check that matrix was created
-    matrix list mvp_patterns
-    display as result "  PASSED: Matrix output works"
+    display as result "  PASSED: minmissing() option works"
     local ++pass_count
 }
 if _rc {
@@ -182,21 +244,18 @@ if _rc {
 }
 
 * =============================================================================
-* TEST 8: Generate pattern variable
+* TEST 11: maxmissing() option
 * =============================================================================
 local ++test_count
-display as text _n "TEST `test_count': Generate pattern variable"
+display as text _n "TEST `test_count': maxmissing() option"
 display as text "{hline 50}"
 
 capture noisily {
     use "`testdir'/cohort_miss.dta", clear
 
-    mvp age education bmi income_q, gen(miss_pattern)
+    mvp age education bmi income_q comorbidity smoking, maxmissing(3)
 
-    * Check that variable was created
-    confirm variable miss_pattern
-    tab miss_pattern
-    display as result "  PASSED: Generate pattern variable works"
+    display as result "  PASSED: maxmissing() option works"
     local ++pass_count
 }
 if _rc {
@@ -205,18 +264,18 @@ if _rc {
 }
 
 * =============================================================================
-* TEST 9: Detail option
+* TEST 12: ascending option
 * =============================================================================
 local ++test_count
-display as text _n "TEST `test_count': Detail option"
+display as text _n "TEST `test_count': ascending option"
 display as text "{hline 50}"
 
 capture noisily {
     use "`testdir'/cohort_miss.dta", clear
 
-    mvp age education bmi income_q comorbidity smoking, detail
+    mvp age education bmi income_q, ascending
 
-    display as result "  PASSED: Detail option works"
+    display as result "  PASSED: ascending option works"
     local ++pass_count
 }
 if _rc {
@@ -225,18 +284,18 @@ if _rc {
 }
 
 * =============================================================================
-* TEST 10: Variable summary statistics
+* TEST 13: percent option
 * =============================================================================
 local ++test_count
-display as text _n "TEST `test_count': Variable summary statistics"
+display as text _n "TEST `test_count': percent option"
 display as text "{hline 50}"
 
 capture noisily {
     use "`testdir'/cohort_miss.dta", clear
 
-    mvp age education bmi income_q, varsummary
+    mvp age education bmi income_q, percent
 
-    display as result "  PASSED: Variable summary works"
+    display as result "  PASSED: percent option works"
     local ++pass_count
 }
 if _rc {
@@ -245,7 +304,544 @@ if _rc {
 }
 
 * =============================================================================
-* TEST 11: No missing values scenario
+* TEST 14: cumulative option
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': cumulative option"
+display as text "{hline 50}"
+
+capture noisily {
+    use "`testdir'/cohort_miss.dta", clear
+
+    mvp age education bmi income_q, percent cumulative
+
+    display as result "  PASSED: cumulative option works"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 15: correlate option
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': correlate option"
+display as text "{hline 50}"
+
+capture noisily {
+    use "`testdir'/cohort_miss.dta", clear
+
+    mvp age education bmi income_q comorbidity smoking, correlate
+
+    * Check correlation matrix is stored
+    matrix list r(corr_miss)
+    display as result "  PASSED: correlate option works"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 16: monotone option
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': monotone option"
+display as text "{hline 50}"
+
+capture noisily {
+    use "`testdir'/cohort_miss.dta", clear
+
+    mvp age education bmi income_q, monotone
+
+    * Check monotone results stored
+    display as text "  Monotone status: " r(monotone_status)
+    display as text "  N monotone: " r(N_monotone)
+    display as text "  Pct monotone: " %5.1f r(pct_monotone) "%"
+    display as result "  PASSED: monotone option works"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 17: generate() option
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': generate() option"
+display as text "{hline 50}"
+
+capture noisily {
+    use "`testdir'/cohort_miss.dta", clear
+
+    mvp age education bmi income_q, generate(m)
+
+    * Check that variables were created
+    confirm variable m_age m_education m_bmi m_income_q
+    confirm variable m_pattern m_nmiss
+    tab m_nmiss
+    display as result "  PASSED: generate() option works"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 18: save() option - save to frame
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': save() option - frame"
+display as text "{hline 50}"
+
+capture noisily {
+    use "`testdir'/cohort_miss.dta", clear
+
+    mvp age education bmi income_q, save(mvp_patterns)
+
+    * Check frame was created
+    frame mvp_patterns: describe, short
+    frame drop mvp_patterns
+    display as result "  PASSED: save() to frame works"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 19: save() option - save to file
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': save() option - file"
+display as text "{hline 50}"
+
+capture noisily {
+    use "`testdir'/cohort_miss.dta", clear
+
+    mvp age education bmi income_q, save("`testdir'/_mvp_patterns.dta")
+
+    * Check file was created
+    confirm file "`testdir'/_mvp_patterns.dta"
+    * Clean up
+    erase "`testdir'/_mvp_patterns.dta"
+    display as result "  PASSED: save() to file works"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 20: graph(bar) option
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': graph(bar) option"
+display as text "{hline 50}"
+
+capture noisily {
+    use "`testdir'/cohort_miss.dta", clear
+
+    mvp age education bmi income_q comorbidity smoking, graph(bar) nodraw
+
+    display as result "  PASSED: graph(bar) works"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 21: graph(bar) with sort and vertical
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': graph(bar) with sort and vertical"
+display as text "{hline 50}"
+
+capture noisily {
+    use "`testdir'/cohort_miss.dta", clear
+
+    mvp age education bmi income_q, graph(bar) sort vertical barcolor(maroon) nodraw
+
+    display as result "  PASSED: graph(bar) vertical with sort works"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 22: graph(patterns) option
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': graph(patterns) option"
+display as text "{hline 50}"
+
+capture noisily {
+    use "`testdir'/cohort_miss.dta", clear
+
+    mvp age education bmi income_q comorbidity smoking, graph(patterns) nodraw
+
+    display as result "  PASSED: graph(patterns) works"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 23: graph(patterns) with top()
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': graph(patterns) with top()"
+display as text "{hline 50}"
+
+capture noisily {
+    use "`testdir'/cohort_miss.dta", clear
+
+    mvp age education bmi income_q comorbidity smoking, ///
+        graph(patterns) top(10) title("Top 10 Missing Patterns") nodraw
+
+    display as result "  PASSED: graph(patterns) with top() works"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 24: graph(matrix) option
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': graph(matrix) option"
+display as text "{hline 50}"
+
+capture noisily {
+    use "`testdir'/cohort_miss.dta", clear
+
+    mvp age education bmi income_q, graph(matrix) nodraw
+
+    display as result "  PASSED: graph(matrix) works"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 25: graph(matrix) with sample and sort suboptions
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': graph(matrix) with suboptions"
+display as text "{hline 50}"
+
+capture noisily {
+    use "`testdir'/cohort_miss.dta", clear
+
+    mvp age education bmi income_q, ///
+        graph(matrix, sample(200) sort) ///
+        misscolor(red) obscolor(green*0.2) nodraw
+
+    display as result "  PASSED: graph(matrix) with suboptions works"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 26: graph(correlation) option
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': graph(correlation) option"
+display as text "{hline 50}"
+
+capture noisily {
+    use "`testdir'/cohort_miss.dta", clear
+
+    mvp age education bmi income_q comorbidity smoking, graph(correlation) nodraw
+
+    display as result "  PASSED: graph(correlation) works"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 27: graph(correlation) with textlabels and colorramp
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': graph(correlation) with options"
+display as text "{hline 50}"
+
+capture noisily {
+    use "`testdir'/cohort_miss.dta", clear
+
+    mvp age education bmi income_q comorbidity smoking, ///
+        graph(correlation) textlabels colorramp(grayscale) nodraw
+
+    display as result "  PASSED: graph(correlation) with options works"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 28: graph with gname() option
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': graph with gname()"
+display as text "{hline 50}"
+
+capture noisily {
+    use "`testdir'/cohort_miss.dta", clear
+
+    mvp age education bmi income_q, graph(bar) gname(mvp_test) nodraw
+
+    * Check graph exists in memory
+    graph describe mvp_test
+    graph drop mvp_test
+    display as result "  PASSED: gname() option works"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 29: graph with gsaving() option
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': graph with gsaving()"
+display as text "{hline 50}"
+
+capture noisily {
+    use "`testdir'/cohort_miss.dta", clear
+
+    mvp age education bmi income_q, ///
+        graph(bar) gsaving("`testdir'/_mvp_graph.gph", replace) nodraw
+
+    * Check file was created
+    confirm file "`testdir'/_mvp_graph.gph"
+    * Clean up
+    erase "`testdir'/_mvp_graph.gph"
+    display as result "  PASSED: gsaving() option works"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 30: graph with scheme() and title()
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': graph with scheme() and title()"
+display as text "{hline 50}"
+
+capture noisily {
+    use "`testdir'/cohort_miss.dta", clear
+
+    mvp age education bmi income_q, ///
+        graph(bar) scheme(s1mono) ///
+        title("Missing Data by Variable") subtitle("Test Data") nodraw
+
+    display as result "  PASSED: scheme() and title() options work"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 31: gby() stratification option
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': gby() stratification"
+display as text "{hline 50}"
+
+capture noisily {
+    use "`testdir'/cohort_miss.dta", clear
+
+    mvp age education bmi income_q, graph(bar) gby(female) nodraw
+
+    * Check stored results
+    assert "`r(gby)'" == "female"
+    display as result "  PASSED: gby() stratification works"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 32: over() stratification option
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': over() stratification"
+display as text "{hline 50}"
+
+capture noisily {
+    use "`testdir'/cohort_miss.dta", clear
+
+    mvp age education bmi income_q, graph(bar) over(female) nodraw
+
+    * Check stored results
+    assert "`r(over)'" == "female"
+    display as result "  PASSED: over() stratification works"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 33: stacked option
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': stacked option"
+display as text "{hline 50}"
+
+capture noisily {
+    use "`testdir'/cohort_miss.dta", clear
+
+    mvp age education bmi income_q, graph(bar) stacked nodraw
+
+    display as result "  PASSED: stacked option works"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 34: over() with groupgap() and legendopts()
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': over() with groupgap() and legendopts()"
+display as text "{hline 50}"
+
+capture noisily {
+    use "`testdir'/cohort_miss.dta", clear
+
+    mvp age education bmi income_q, ///
+        graph(bar) over(female) groupgap(20) ///
+        legendopts(rows(1) position(6)) nodraw
+
+    display as result "  PASSED: over() with groupgap() and legendopts() works"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 35: gby() with graph(patterns)
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': gby() with graph(patterns)"
+display as text "{hline 50}"
+
+capture noisily {
+    use "`testdir'/cohort_miss.dta", clear
+
+    mvp age education bmi income_q, graph(patterns) gby(female) top(5) nodraw
+
+    display as result "  PASSED: gby() with graph(patterns) works"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 36: If condition
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': If condition"
+display as text "{hline 50}"
+
+capture noisily {
+    use "`testdir'/cohort_miss.dta", clear
+
+    mvp age education bmi income_q if female == 1
+
+    display as result "  PASSED: If condition works"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 37: In range
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': In range"
+display as text "{hline 50}"
+
+capture noisily {
+    use "`testdir'/cohort_miss.dta", clear
+
+    mvp age education bmi income_q in 1/500
+
+    display as result "  PASSED: In range works"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 38: by prefix
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': by prefix"
+display as text "{hline 50}"
+
+capture noisily {
+    use "`testdir'/cohort_miss.dta", clear
+
+    bysort female: mvp age education bmi income_q
+
+    display as result "  PASSED: by prefix works"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 39: No missing values scenario
 * =============================================================================
 local ++test_count
 display as text _n "TEST `test_count': No missing values scenario"
@@ -266,7 +862,7 @@ if _rc {
 }
 
 * =============================================================================
-* TEST 12: All missing in one variable
+* TEST 40: All missing in one variable
 * =============================================================================
 local ++test_count
 display as text _n "TEST `test_count': All missing in one variable"
@@ -290,18 +886,35 @@ if _rc {
 }
 
 * =============================================================================
-* TEST 13: Correlation between missingness
+* TEST 41: Stored results verification
 * =============================================================================
 local ++test_count
-display as text _n "TEST `test_count': Correlation analysis"
+display as text _n "TEST `test_count': Stored results verification"
 display as text "{hline 50}"
 
 capture noisily {
     use "`testdir'/cohort_miss.dta", clear
 
-    mvp age education bmi income_q comorbidity smoking, corr
+    mvp age education bmi income_q comorbidity smoking
 
-    display as result "  PASSED: Correlation analysis works"
+    * Verify all expected stored results exist
+    assert !missing(r(N))
+    assert !missing(r(N_complete))
+    assert !missing(r(N_incomplete))
+    assert !missing(r(N_patterns))
+    assert !missing(r(N_vars))
+    assert !missing(r(max_miss))
+    assert !missing(r(mean_miss))
+    assert !missing(r(N_mv_total))
+
+    display as result "  PASSED: All stored results present"
+    display as text "  r(N) = " r(N)
+    display as text "  r(N_complete) = " r(N_complete)
+    display as text "  r(N_incomplete) = " r(N_incomplete)
+    display as text "  r(N_patterns) = " r(N_patterns)
+    display as text "  r(N_vars) = " r(N_vars)
+    display as text "  r(max_miss) = " r(max_miss)
+    display as text "  r(mean_miss) = " %5.2f r(mean_miss)
     local ++pass_count
 }
 if _rc {
@@ -310,18 +923,19 @@ if _rc {
 }
 
 * =============================================================================
-* TEST 14: If condition
+* TEST 42: Multiple filtering options combined
 * =============================================================================
 local ++test_count
-display as text _n "TEST `test_count': If condition"
+display as text _n "TEST `test_count': Multiple filtering options combined"
 display as text "{hline 50}"
 
 capture noisily {
     use "`testdir'/cohort_miss.dta", clear
 
-    mvp age education bmi income_q if female == 1
+    mvp age education bmi income_q comorbidity smoking, ///
+        minfreq(3) minmissing(1) maxmissing(4) percent cumulative
 
-    display as result "  PASSED: If condition works"
+    display as result "  PASSED: Multiple filtering options work together"
     local ++pass_count
 }
 if _rc {
@@ -330,18 +944,19 @@ if _rc {
 }
 
 * =============================================================================
-* TEST 15: In range
+* TEST 43: All display options combined
 * =============================================================================
 local ++test_count
-display as text _n "TEST `test_count': In range"
+display as text _n "TEST `test_count': All display options combined"
 display as text "{hline 50}"
 
 capture noisily {
     use "`testdir'/cohort_miss.dta", clear
 
-    mvp age education bmi income_q in 1/500
+    mvp age education bmi income_q comorbidity smoking, ///
+        sort skip wide percent cumulative
 
-    display as result "  PASSED: In range works"
+    display as result "  PASSED: All display options work together"
     local ++pass_count
 }
 if _rc {
@@ -350,7 +965,7 @@ if _rc {
 }
 
 * =============================================================================
-* TEST 16: HRT dataset with missingness
+* TEST 44: HRT dataset with missingness
 * =============================================================================
 local ++test_count
 display as text _n "TEST `test_count': HRT dataset missingness"
@@ -370,7 +985,7 @@ if _rc {
 }
 
 * =============================================================================
-* TEST 17: DMT dataset with missingness
+* TEST 45: DMT dataset with missingness
 * =============================================================================
 local ++test_count
 display as text _n "TEST `test_count': DMT dataset missingness"

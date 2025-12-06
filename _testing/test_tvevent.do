@@ -2,14 +2,18 @@
 * test_tvevent.do
 *
 * Purpose: Comprehensive testing of tvevent command
-*          Tests all options and common combinations
+*          Tests all options documented in tvevent.sthlp
 *
 * Prerequisites:
 *   - Run generate_test_data.do first to create synthetic datasets
-*   - tvevent.ado must be installed/accessible
+*   - tvexpose.ado and tvevent.ado must be installed/accessible
+*
+* Note: tvevent operates on datasets that already have start/stop variables
+*       (created by tvexpose or tvmerge). It integrates event dates and
+*       competing risks into the time-varying structure.
 *
 * Author: Timothy P Copeland
-* Date: 2025-12-05
+* Date: 2025-12-06
 *******************************************************************************/
 
 clear all
@@ -37,24 +41,49 @@ local pass_count = 0
 local fail_count = 0
 
 * =============================================================================
-* TEST 1: Basic single event (first hospitalization)
+* SETUP: Create tvexpose output for tvevent testing
+* tvevent requires a dataset with start/stop variables from tvexpose
+* =============================================================================
+display as text _n "SETUP: Creating tvexpose output dataset..."
+display as text "{hline 50}"
+
+capture {
+    * Create time-varying DMT dataset (base for tvevent tests)
+    use "`testdir'/cohort.dta", clear
+    tvexpose using "`testdir'/dmt.dta", ///
+        id(id) start(dmt_start) stop(dmt_stop) ///
+        exposure(dmt) reference(0) ///
+        entry(study_entry) exit(study_exit) ///
+        generate(tv_dmt) ///
+        saveas("`testdir'/_tv_base.dta") replace
+}
+if _rc {
+    display as error "SETUP FAILED: Could not create tvexpose dataset"
+    display as error "Error code: " _rc
+    exit _rc
+}
+display as result "Setup complete: tvexpose output file created"
+
+* =============================================================================
+* TEST 1: Basic single event (primary outcome)
 * =============================================================================
 local ++test_count
 display as text _n "TEST `test_count': Basic single event"
 display as text "{hline 50}"
 
 capture noisily {
-    use "`testdir'/cohort.dta", clear
+    use "`testdir'/_tv_base.dta", clear
 
-    tvevent using "`testdir'/hospitalizations.dta", ///
-        id(id) start(study_entry) stop(study_exit) event(edss4_dt) ///
-        eventdate(hosp_date) ///
+    tvevent using "`testdir'/cohort.dta", ///
+        id(id) date(edss4_dt) ///
         type(single) ///
-        saveas("`testdir'/_test_tvevent_single") replace
+        generate(outcome)
 
-    use "`testdir'/_test_tvevent_single.dta", clear
+    * Verify results
     assert _N > 0
-    confirm variable _start _stop _event
+    confirm variable outcome
+    * outcome should be 0 (censored) or 1 (event)
+    tab outcome
     display as result "  PASSED: Basic single event works"
     local ++pass_count
 }
@@ -64,27 +93,84 @@ if _rc {
 }
 
 * =============================================================================
-* TEST 2: Recurring events
+* TEST 2: Single event with competing risk (death)
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': Single event with competing risk"
+display as text "{hline 50}"
+
+capture noisily {
+    use "`testdir'/_tv_base.dta", clear
+
+    tvevent using "`testdir'/cohort.dta", ///
+        id(id) date(edss4_dt) ///
+        compete(death_dt) ///
+        type(single) ///
+        generate(outcome)
+
+    * Verify results
+    assert _N > 0
+    confirm variable outcome
+    * outcome should be 0=censored, 1=primary, 2=competing
+    tab outcome
+    count if outcome == 2
+    display as text "  Deaths (competing): " r(N)
+    display as result "  PASSED: Competing risk works"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 3: Multiple competing risks
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': Multiple competing risks"
+display as text "{hline 50}"
+
+capture noisily {
+    use "`testdir'/_tv_base.dta", clear
+
+    tvevent using "`testdir'/cohort.dta", ///
+        id(id) date(edss4_dt) ///
+        compete(death_dt emigration_dt) ///
+        type(single) ///
+        generate(status)
+
+    * Verify results
+    assert _N > 0
+    confirm variable status
+    * status should be 0=censored, 1=primary, 2=death, 3=emigration
+    tab status
+    display as result "  PASSED: Multiple competing risks work"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 4: Recurring events
 * =============================================================================
 local ++test_count
 display as text _n "TEST `test_count': Recurring events"
 display as text "{hline 50}"
 
 capture noisily {
-    use "`testdir'/cohort.dta", clear
+    use "`testdir'/_tv_base.dta", clear
 
     tvevent using "`testdir'/hospitalizations.dta", ///
-        id(id) start(study_entry) stop(study_exit) event(edss4_dt) ///
-        eventdate(hosp_date) ///
+        id(id) date(hosp_date) ///
         type(recurring) ///
-        saveas("`testdir'/_test_tvevent_recurring") replace
+        generate(hospitalized)
 
-    use "`testdir'/_test_tvevent_recurring.dta", clear
+    * Verify results
     assert _N > 0
-    * Check that event count variable exists
-    confirm variable _n_events
-    sum _n_events
-    assert r(max) >= 1
+    confirm variable hospitalized
+    * With recurring, follow-up continues after events
     display as result "  PASSED: Recurring events work"
     local ++pass_count
 }
@@ -94,137 +180,26 @@ if _rc {
 }
 
 * =============================================================================
-* TEST 3: Count exposure (cumulative count of events)
+* TEST 5: Custom event labels
 * =============================================================================
 local ++test_count
-display as text _n "TEST `test_count': Count exposure type"
+display as text _n "TEST `test_count': Custom event labels"
 display as text "{hline 50}"
 
 capture noisily {
-    use "`testdir'/cohort.dta", clear
+    use "`testdir'/_tv_base.dta", clear
 
-    tvevent using "`testdir'/hospitalizations.dta", ///
-        id(id) start(study_entry) stop(study_exit) event(edss4_dt) ///
-        eventdate(hosp_date) ///
-        type(count) ///
-        saveas("`testdir'/_test_tvevent_count") replace
-
-    use "`testdir'/_test_tvevent_count.dta", clear
-    assert _N > 0
-    * Count should be cumulative
-    confirm variable _count
-    display as result "  PASSED: Count exposure type works"
-    local ++pass_count
-}
-if _rc {
-    display as error "  FAILED: Error code " _rc
-    local ++fail_count
-}
-
-* =============================================================================
-* TEST 4: Ever exposed (binary time-varying)
-* =============================================================================
-local ++test_count
-display as text _n "TEST `test_count': Ever exposed type"
-display as text "{hline 50}"
-
-capture noisily {
-    use "`testdir'/cohort.dta", clear
-
-    tvevent using "`testdir'/hospitalizations.dta", ///
-        id(id) start(study_entry) stop(study_exit) event(edss4_dt) ///
-        eventdate(hosp_date) ///
-        type(ever) ///
-        saveas("`testdir'/_test_tvevent_ever") replace
-
-    use "`testdir'/_test_tvevent_ever.dta", clear
-    assert _N > 0
-    * Ever should be 0 or 1
-    confirm variable _ever
-    assert inlist(_ever, 0, 1)
-    display as result "  PASSED: Ever exposed type works"
-    local ++pass_count
-}
-if _rc {
-    display as error "  FAILED: Error code " _rc
-    local ++fail_count
-}
-
-* =============================================================================
-* TEST 5: With lag period
-* =============================================================================
-local ++test_count
-display as text _n "TEST `test_count': Lag period option"
-display as text "{hline 50}"
-
-capture noisily {
-    use "`testdir'/cohort.dta", clear
-
-    tvevent using "`testdir'/hospitalizations.dta", ///
-        id(id) start(study_entry) stop(study_exit) event(edss4_dt) ///
-        eventdate(hosp_date) ///
-        type(ever) ///
-        lag(30) ///
-        saveas("`testdir'/_test_tvevent_lag") replace
-
-    use "`testdir'/_test_tvevent_lag.dta", clear
-    assert _N > 0
-    display as result "  PASSED: Lag period option works"
-    local ++pass_count
-}
-if _rc {
-    display as error "  FAILED: Error code " _rc
-    local ++fail_count
-}
-
-* =============================================================================
-* TEST 6: With washout period
-* =============================================================================
-local ++test_count
-display as text _n "TEST `test_count': Washout period option"
-display as text "{hline 50}"
-
-capture noisily {
-    use "`testdir'/cohort.dta", clear
-
-    tvevent using "`testdir'/hospitalizations.dta", ///
-        id(id) start(study_entry) stop(study_exit) event(edss4_dt) ///
-        eventdate(hosp_date) ///
-        type(ever) ///
-        washout(90) ///
-        saveas("`testdir'/_test_tvevent_washout") replace
-
-    use "`testdir'/_test_tvevent_washout.dta", clear
-    assert _N > 0
-    display as result "  PASSED: Washout period option works"
-    local ++pass_count
-}
-if _rc {
-    display as error "  FAILED: Error code " _rc
-    local ++fail_count
-}
-
-* =============================================================================
-* TEST 7: Event with value (hospitalization type)
-* =============================================================================
-local ++test_count
-display as text _n "TEST `test_count': Event with categorical value"
-display as text "{hline 50}"
-
-capture noisily {
-    use "`testdir'/cohort.dta", clear
-
-    tvevent using "`testdir'/hospitalizations.dta", ///
-        id(id) start(study_entry) stop(study_exit) event(edss4_dt) ///
-        eventdate(hosp_date) ///
-        eventvalue(hosp_type) ///
+    tvevent using "`testdir'/cohort.dta", ///
+        id(id) date(edss4_dt) ///
+        compete(death_dt) ///
         type(single) ///
-        saveas("`testdir'/_test_tvevent_value") replace
+        eventlabel(0 "Censored" 1 "EDSS Progression" 2 "Death") ///
+        generate(outcome)
 
-    use "`testdir'/_test_tvevent_value.dta", clear
+    * Verify labels were applied
     assert _N > 0
-    confirm variable hosp_type
-    display as result "  PASSED: Event with value works"
+    label list outcome
+    display as result "  PASSED: Custom event labels work"
     local ++pass_count
 }
 if _rc {
@@ -233,85 +208,28 @@ if _rc {
 }
 
 * =============================================================================
-* TEST 8: Combined lag and washout
+* TEST 6: Generate time duration variable (days)
 * =============================================================================
 local ++test_count
-display as text _n "TEST `test_count': Combined lag and washout"
+display as text _n "TEST `test_count': timegen() option - days"
 display as text "{hline 50}"
 
 capture noisily {
-    use "`testdir'/cohort.dta", clear
+    use "`testdir'/_tv_base.dta", clear
 
-    tvevent using "`testdir'/hospitalizations.dta", ///
-        id(id) start(study_entry) stop(study_exit) event(edss4_dt) ///
-        eventdate(hosp_date) ///
-        type(ever) ///
-        lag(30) washout(60) ///
-        saveas("`testdir'/_test_tvevent_lag_washout") replace
-
-    use "`testdir'/_test_tvevent_lag_washout.dta", clear
-    assert _N > 0
-    display as result "  PASSED: Combined lag and washout works"
-    local ++pass_count
-}
-if _rc {
-    display as error "  FAILED: Error code " _rc
-    local ++fail_count
-}
-
-* =============================================================================
-* TEST 9: Subjects with no events
-* =============================================================================
-local ++test_count
-display as text _n "TEST `test_count': Subjects with no events"
-display as text "{hline 50}"
-
-capture noisily {
-    use "`testdir'/cohort.dta", clear
-
-    * Keep only first 100 subjects
-    keep if id <= 100
-
-    tvevent using "`testdir'/hospitalizations.dta", ///
-        id(id) start(study_entry) stop(study_exit) event(edss4_dt) ///
-        eventdate(hosp_date) ///
-        type(ever) ///
-        saveas("`testdir'/_test_tvevent_subset") replace
-
-    use "`testdir'/_test_tvevent_subset.dta", clear
-    assert _N > 0
-    * Some should have _ever = 0
-    count if _ever == 0
-    display as text "  Subjects with no events: " r(N)
-    display as result "  PASSED: Subjects with no events handled"
-    local ++pass_count
-}
-if _rc {
-    display as error "  FAILED: Error code " _rc
-    local ++fail_count
-}
-
-* =============================================================================
-* TEST 10: Time-since-event variable
-* =============================================================================
-local ++test_count
-display as text _n "TEST `test_count': Time since event"
-display as text "{hline 50}"
-
-capture noisily {
-    use "`testdir'/cohort.dta", clear
-
-    tvevent using "`testdir'/hospitalizations.dta", ///
-        id(id) start(study_entry) stop(study_exit) event(edss4_dt) ///
-        eventdate(hosp_date) ///
+    tvevent using "`testdir'/cohort.dta", ///
+        id(id) date(edss4_dt) ///
         type(single) ///
-        timesince ///
-        saveas("`testdir'/_test_tvevent_timesince") replace
+        timegen(interval_days) timeunit(days) ///
+        generate(outcome)
 
-    use "`testdir'/_test_tvevent_timesince.dta", clear
+    * Verify time variable was created
     assert _N > 0
-    confirm variable _time_since
-    display as result "  PASSED: Time since event works"
+    confirm variable interval_days
+    sum interval_days
+    assert r(min) >= 0
+    display as text "  Mean interval (days): " %6.1f r(mean)
+    display as result "  PASSED: timegen() with days works"
     local ++pass_count
 }
 if _rc {
@@ -320,25 +238,218 @@ if _rc {
 }
 
 * =============================================================================
-* TEST 11: Nodelete option
+* TEST 7: Generate time duration variable (years)
 * =============================================================================
 local ++test_count
-display as text _n "TEST `test_count': Nodelete option"
+display as text _n "TEST `test_count': timegen() option - years"
 display as text "{hline 50}"
 
 capture noisily {
-    use "`testdir'/cohort.dta", clear
+    use "`testdir'/_tv_base.dta", clear
+
+    tvevent using "`testdir'/cohort.dta", ///
+        id(id) date(edss4_dt) ///
+        type(single) ///
+        timegen(interval_years) timeunit(years) ///
+        generate(outcome)
+
+    * Verify time variable was created
+    assert _N > 0
+    confirm variable interval_years
+    sum interval_years
+    assert r(min) >= 0
+    display as text "  Mean interval (years): " %6.3f r(mean)
+    display as result "  PASSED: timegen() with years works"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 8: keepvars() option
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': keepvars() option"
+display as text "{hline 50}"
+
+capture noisily {
+    use "`testdir'/_tv_base.dta", clear
 
     tvevent using "`testdir'/hospitalizations.dta", ///
-        id(id) start(study_entry) stop(study_exit) event(edss4_dt) ///
-        eventdate(hosp_date) ///
-        type(ever) ///
-        nodelete ///
-        saveas("`testdir'/_test_tvevent_nodelete") replace
+        id(id) date(hosp_date) ///
+        type(single) ///
+        keepvars(icd_code hosp_type) ///
+        generate(hospitalized)
 
-    use "`testdir'/_test_tvevent_nodelete.dta", clear
+    * Verify keepvars were brought over
     assert _N > 0
-    display as result "  PASSED: Nodelete option works"
+    confirm variable icd_code hosp_type
+    display as result "  PASSED: keepvars() option works"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 9: replace option
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': replace option"
+display as text "{hline 50}"
+
+capture noisily {
+    use "`testdir'/_tv_base.dta", clear
+
+    * First create a variable that will be replaced
+    gen outcome = 99
+
+    tvevent using "`testdir'/cohort.dta", ///
+        id(id) date(edss4_dt) ///
+        type(single) ///
+        generate(outcome) replace
+
+    * Verify outcome was replaced (no longer all 99)
+    assert _N > 0
+    count if outcome != 99
+    assert r(N) > 0
+    display as result "  PASSED: replace option works"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 10: Continuous variable adjustment
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': continuous() option"
+display as text "{hline 50}"
+
+capture noisily {
+    * First create a dataset with a continuous exposure variable
+    use "`testdir'/cohort.dta", clear
+    tvexpose using "`testdir'/dmt.dta", ///
+        id(id) start(dmt_start) stop(dmt_stop) ///
+        exposure(dmt) reference(0) ///
+        entry(study_entry) exit(study_exit) ///
+        continuousunit(years) ///
+        generate(tv_dmt) ///
+        saveas("`testdir'/_tv_continuous.dta") replace
+
+    use "`testdir'/_tv_continuous.dta", clear
+
+    tvevent using "`testdir'/cohort.dta", ///
+        id(id) date(edss4_dt) ///
+        type(single) ///
+        continuous(tv_dmt) ///
+        generate(outcome)
+
+    * Verify continuous adjustment happened
+    assert _N > 0
+    display as result "  PASSED: continuous() option works"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 11: Stored results verification
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': Stored results verification"
+display as text "{hline 50}"
+
+capture noisily {
+    use "`testdir'/_tv_base.dta", clear
+
+    tvevent using "`testdir'/cohort.dta", ///
+        id(id) date(edss4_dt) ///
+        compete(death_dt) ///
+        type(single) ///
+        generate(outcome)
+
+    * Verify stored results exist
+    assert r(N) > 0
+    assert r(N_events) >= 0
+
+    display as result "  PASSED: Stored results present"
+    display as text "  r(N) = " r(N)
+    display as text "  r(N_events) = " r(N_events)
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 12: Complete workflow (tvexpose -> tvevent -> stset)
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': Complete workflow"
+display as text "{hline 50}"
+
+capture noisily {
+    * Step 1: Create time-varying dataset
+    use "`testdir'/cohort.dta", clear
+    tvexpose using "`testdir'/dmt.dta", ///
+        id(id) start(dmt_start) stop(dmt_stop) ///
+        exposure(dmt) reference(0) ///
+        entry(study_entry) exit(study_exit) ///
+        generate(tv_dmt)
+
+    * Step 2: Integrate events
+    tvevent using "`testdir'/cohort.dta", ///
+        id(id) date(edss4_dt) ///
+        compete(death_dt) ///
+        type(single) ///
+        generate(outcome)
+
+    * Step 3: Set up for survival analysis
+    stset stop, id(id) failure(outcome==1) enter(start)
+
+    * Verify stset worked
+    assert _N > 0
+    display as result "  PASSED: Complete workflow works"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 13: All options combined
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': All options combined"
+display as text "{hline 50}"
+
+capture noisily {
+    use "`testdir'/_tv_base.dta", clear
+
+    tvevent using "`testdir'/cohort.dta", ///
+        id(id) date(edss4_dt) ///
+        compete(death_dt emigration_dt) ///
+        type(single) ///
+        eventlabel(0 "Censored" 1 "EDSS4" 2 "Death" 3 "Emigration") ///
+        timegen(ptime) timeunit(years) ///
+        generate(status) replace
+
+    * Verify all components
+    assert _N > 0
+    confirm variable status ptime
+    tab status
+    sum ptime
+    display as result "  PASSED: All options combined work"
     local ++pass_count
 }
 if _rc {
@@ -353,7 +464,7 @@ display as text _n "{hline 70}"
 display as text "Cleaning up temporary files..."
 display as text "{hline 70}"
 
-local temp_files "_test_tvevent_single _test_tvevent_recurring _test_tvevent_count _test_tvevent_ever _test_tvevent_lag _test_tvevent_washout _test_tvevent_value _test_tvevent_lag_washout _test_tvevent_subset _test_tvevent_timesince _test_tvevent_nodelete"
+local temp_files "_tv_base _tv_continuous"
 
 foreach f of local temp_files {
     capture erase "`testdir'/`f'.dta"

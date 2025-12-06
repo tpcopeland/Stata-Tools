@@ -2,14 +2,18 @@
 * test_tvmerge.do
 *
 * Purpose: Comprehensive testing of tvmerge command
-*          Tests all options and common combinations
+*          Tests all options documented in tvmerge.sthlp
 *
 * Prerequisites:
 *   - Run generate_test_data.do first to create synthetic datasets
-*   - tvmerge.ado must be installed/accessible
+*   - tvexpose.ado and tvmerge.ado must be installed/accessible
+*
+* Note: tvmerge operates on datasets already processed by tvexpose, not raw
+*       exposure files. This test first creates tvexpose output datasets,
+*       then tests tvmerge on those outputs.
 *
 * Author: Timothy P Copeland
-* Date: 2025-12-05
+* Date: 2025-12-06
 *******************************************************************************/
 
 clear all
@@ -37,84 +41,56 @@ local pass_count = 0
 local fail_count = 0
 
 * =============================================================================
-* SETUP: Create interval datasets for testing
+* SETUP: Create tvexpose output files for tvmerge testing
+* tvmerge requires datasets that have been processed by tvexpose first
 * =============================================================================
-display as text _n "Setting up interval datasets..."
-
-* Create a master dataset with person-periods (cohort split into intervals)
-use "`testdir'/cohort.dta", clear
-
-* Create pseudo-intervals for master (quarterly)
-gen _start = study_entry
-gen _stop = study_entry + 90
-format _start _stop %tdCCYY/NN/DD
-
-* Expand to create multiple intervals per person
-gen n_intervals = ceil((study_exit - study_entry) / 90)
-expand n_intervals
-bysort id: gen interval = _n
-replace _start = study_entry + (interval - 1) * 90
-replace _stop = min(study_entry + interval * 90, study_exit)
-
-* Event indicator
-gen _event = 0
-replace _event = 1 if !missing(edss4_dt) & edss4_dt >= _start & edss4_dt <= _stop
-
-keep id _start _stop _event age female mstype edss_baseline region
-save "`testdir'/_master_intervals.dta", replace
-
-display as text "  Master intervals created: " _N " records"
-
-* =============================================================================
-* TEST 1: Basic interval join with HRT
-* =============================================================================
-local ++test_count
-display as text _n "TEST `test_count': Basic interval join"
+display as text _n "SETUP: Creating tvexpose output datasets..."
 display as text "{hline 50}"
 
-capture noisily {
-    use "`testdir'/_master_intervals.dta", clear
+capture {
+    * Create time-varying HRT dataset
+    use "`testdir'/cohort.dta", clear
+    tvexpose using "`testdir'/hrt.dta", ///
+        id(id) start(rx_start) stop(rx_stop) ///
+        exposure(hrt_type) reference(0) ///
+        entry(study_entry) exit(study_exit) ///
+        generate(tv_hrt) ///
+        saveas("`testdir'/_tv_hrt.dta") replace
 
-    tvmerge using "`testdir'/hrt.dta", ///
-        id(id) ///
-        m_start(_start) m_stop(_stop) ///
-        u_start(rx_start) u_stop(rx_stop) ///
-        gen(_merge_hrt)
-
-    * Verify results
-    assert _N > 0
-    confirm variable _merge_hrt
-    tab _merge_hrt, missing
-    display as result "  PASSED: Basic interval join completed"
-    local ++pass_count
-
-    * Save for later tests
-    save "`testdir'/_test_tvmerge_basic.dta", replace
+    * Create time-varying DMT dataset
+    use "`testdir'/cohort.dta", clear
+    tvexpose using "`testdir'/dmt.dta", ///
+        id(id) start(dmt_start) stop(dmt_stop) ///
+        exposure(dmt) reference(0) ///
+        entry(study_entry) exit(study_exit) ///
+        generate(tv_dmt) ///
+        saveas("`testdir'/_tv_dmt.dta") replace
 }
 if _rc {
-    display as error "  FAILED: Error code " _rc
-    local ++fail_count
+    display as error "SETUP FAILED: Could not create tvexpose datasets"
+    display as error "Error code: " _rc
+    exit _rc
 }
+display as result "Setup complete: tvexpose output files created"
 
 * =============================================================================
-* TEST 2: Many-to-one join
+* TEST 1: Basic two-dataset merge
 * =============================================================================
 local ++test_count
-display as text _n "TEST `test_count': Many-to-one join"
+display as text _n "TEST `test_count': Basic two-dataset merge"
 display as text "{hline 50}"
 
 capture noisily {
-    use "`testdir'/_master_intervals.dta", clear
-
-    tvmerge using "`testdir'/hrt.dta", ///
+    tvmerge "`testdir'/_tv_hrt.dta" "`testdir'/_tv_dmt.dta", ///
         id(id) ///
-        m_start(_start) m_stop(_stop) ///
-        u_start(rx_start) u_stop(rx_stop) ///
-        manytoone ///
-        gen(_merge_hrt)
+        start(rx_start dmt_start) stop(rx_stop dmt_stop) ///
+        exposure(tv_hrt tv_dmt)
 
+    * Verify output
     assert _N > 0
-    display as result "  PASSED: Many-to-one join completed"
+    confirm variable id start stop
+    display as result "  PASSED: Basic merge works"
+    display as text "  Merged observations: " _N
     local ++pass_count
 }
 if _rc {
@@ -123,25 +99,22 @@ if _rc {
 }
 
 * =============================================================================
-* TEST 3: Join with DMT dataset
+* TEST 2: Merge with generate() option for custom names
 * =============================================================================
 local ++test_count
-display as text _n "TEST `test_count': Join with DMT dataset"
+display as text _n "TEST `test_count': generate() option for custom variable names"
 display as text "{hline 50}"
 
 capture noisily {
-    use "`testdir'/_master_intervals.dta", clear
-
-    tvmerge using "`testdir'/dmt.dta", ///
+    tvmerge "`testdir'/_tv_hrt.dta" "`testdir'/_tv_dmt.dta", ///
         id(id) ///
-        m_start(_start) m_stop(_stop) ///
-        u_start(dmt_start) u_stop(dmt_stop) ///
-        gen(_merge_dmt)
+        start(rx_start dmt_start) stop(rx_stop dmt_stop) ///
+        exposure(tv_hrt tv_dmt) ///
+        generate(hrt_status dmt_status)
 
-    assert _N > 0
-    confirm variable dmt efficacy
-    tab _merge_dmt, missing
-    display as result "  PASSED: DMT join completed"
+    * Verify custom names exist
+    confirm variable hrt_status dmt_status
+    display as result "  PASSED: generate() creates custom variable names"
     local ++pass_count
 }
 if _rc {
@@ -150,32 +123,22 @@ if _rc {
 }
 
 * =============================================================================
-* TEST 4: Multiple sequential joins (HRT then DMT)
+* TEST 3: Merge with prefix() option
 * =============================================================================
 local ++test_count
-display as text _n "TEST `test_count': Multiple sequential joins"
+display as text _n "TEST `test_count': prefix() option"
 display as text "{hline 50}"
 
 capture noisily {
-    use "`testdir'/_master_intervals.dta", clear
-
-    * First join HRT
-    tvmerge using "`testdir'/hrt.dta", ///
+    tvmerge "`testdir'/_tv_hrt.dta" "`testdir'/_tv_dmt.dta", ///
         id(id) ///
-        m_start(_start) m_stop(_stop) ///
-        u_start(rx_start) u_stop(rx_stop) ///
-        gen(_merge_hrt)
+        start(rx_start dmt_start) stop(rx_stop dmt_stop) ///
+        exposure(tv_hrt tv_dmt) ///
+        prefix(exp_)
 
-    * Then join DMT
-    tvmerge using "`testdir'/dmt.dta", ///
-        id(id) ///
-        m_start(_start) m_stop(_stop) ///
-        u_start(dmt_start) u_stop(dmt_stop) ///
-        gen(_merge_dmt)
-
-    assert _N > 0
-    confirm variable hrt_type dmt
-    display as result "  PASSED: Multiple sequential joins completed"
+    * Verify prefixed names exist
+    confirm variable exp_1 exp_2
+    display as result "  PASSED: prefix() creates prefixed variable names"
     local ++pass_count
 }
 if _rc {
@@ -184,24 +147,22 @@ if _rc {
 }
 
 * =============================================================================
-* TEST 5: keepaliased option
+* TEST 4: Custom start/stop names with startname() and stopname()
 * =============================================================================
 local ++test_count
-display as text _n "TEST `test_count': keepaliased option"
+display as text _n "TEST `test_count': startname() and stopname() options"
 display as text "{hline 50}"
 
 capture noisily {
-    use "`testdir'/_master_intervals.dta", clear
-
-    tvmerge using "`testdir'/hrt.dta", ///
+    tvmerge "`testdir'/_tv_hrt.dta" "`testdir'/_tv_dmt.dta", ///
         id(id) ///
-        m_start(_start) m_stop(_stop) ///
-        u_start(rx_start) u_stop(rx_stop) ///
-        keepaliased ///
-        gen(_merge_hrt)
+        start(rx_start dmt_start) stop(rx_stop dmt_stop) ///
+        exposure(tv_hrt tv_dmt) ///
+        startname(period_start) stopname(period_end)
 
-    assert _N > 0
-    display as result "  PASSED: keepaliased option works"
+    * Verify custom date names exist
+    confirm variable period_start period_end
+    display as result "  PASSED: startname() and stopname() work"
     local ++pass_count
 }
 if _rc {
@@ -210,27 +171,23 @@ if _rc {
 }
 
 * =============================================================================
-* TEST 6: Verify interval splitting is correct
+* TEST 5: saveas() and replace options
 * =============================================================================
 local ++test_count
-display as text _n "TEST `test_count': Verify interval splitting logic"
+display as text _n "TEST `test_count': saveas() and replace options"
 display as text "{hline 50}"
 
 capture noisily {
-    use "`testdir'/_master_intervals.dta", clear
-
-    tvmerge using "`testdir'/hrt.dta", ///
+    tvmerge "`testdir'/_tv_hrt.dta" "`testdir'/_tv_dmt.dta", ///
         id(id) ///
-        m_start(_start) m_stop(_stop) ///
-        u_start(rx_start) u_stop(rx_stop) ///
-        gen(_merge_hrt)
+        start(rx_start dmt_start) stop(rx_stop dmt_stop) ///
+        exposure(tv_hrt tv_dmt) ///
+        generate(hrt dmt) ///
+        saveas("`testdir'/_test_merged.dta") replace
 
-    * Check that _stop > _start for all records
-    assert _stop > _start
-
-    * Check that records for same person are contiguous (no gaps within original intervals)
-    sort id _start
-    display as result "  PASSED: Interval splitting is correct"
+    * Verify file was saved
+    confirm file "`testdir'/_test_merged.dta"
+    display as result "  PASSED: saveas() saves merged dataset"
     local ++pass_count
 }
 if _rc {
@@ -239,192 +196,209 @@ if _rc {
 }
 
 * =============================================================================
-* TEST 7: Join with no matching using records
+* TEST 6: check option (diagnostics)
 * =============================================================================
 local ++test_count
-display as text _n "TEST `test_count': Join with no matches"
+display as text _n "TEST `test_count': check option (diagnostics)"
 display as text "{hline 50}"
 
 capture noisily {
-    * Create subset with IDs not in HRT
-    use "`testdir'/_master_intervals.dta", clear
-
-    * Keep only IDs that definitely don't have HRT exposure
-    preserve
-    use "`testdir'/hrt.dta", clear
-    levelsof id, local(hrt_ids)
-    restore
-
-    * Keep only first 10 IDs not in HRT
-    gen has_hrt = 0
-    foreach hid of local hrt_ids {
-        replace has_hrt = 1 if id == `hid'
-    }
-    keep if has_hrt == 0
-    drop has_hrt
-
-    * Now join (should have many unmatched)
-    tvmerge using "`testdir'/hrt.dta", ///
+    tvmerge "`testdir'/_tv_hrt.dta" "`testdir'/_tv_dmt.dta", ///
         id(id) ///
-        m_start(_start) m_stop(_stop) ///
-        u_start(rx_start) u_stop(rx_stop) ///
-        gen(_merge_hrt)
+        start(rx_start dmt_start) stop(rx_stop dmt_stop) ///
+        exposure(tv_hrt tv_dmt) ///
+        check
+
+    * Verify stored results from check
+    assert r(N_persons) > 0
+    assert r(mean_periods) > 0
+    display as result "  PASSED: check option displays diagnostics"
+    display as text "  N persons: " r(N_persons) ", mean periods: " %5.2f r(mean_periods)
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 7: summarize option
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': summarize option"
+display as text "{hline 50}"
+
+capture noisily {
+    tvmerge "`testdir'/_tv_hrt.dta" "`testdir'/_tv_dmt.dta", ///
+        id(id) ///
+        start(rx_start dmt_start) stop(rx_stop dmt_stop) ///
+        exposure(tv_hrt tv_dmt) ///
+        summarize
+
+    display as result "  PASSED: summarize option works"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 8: validatecoverage option
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': validatecoverage option"
+display as text "{hline 50}"
+
+capture noisily {
+    tvmerge "`testdir'/_tv_hrt.dta" "`testdir'/_tv_dmt.dta", ///
+        id(id) ///
+        start(rx_start dmt_start) stop(rx_stop dmt_stop) ///
+        exposure(tv_hrt tv_dmt) ///
+        validatecoverage
+
+    display as result "  PASSED: validatecoverage option works"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 9: validateoverlap option
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': validateoverlap option"
+display as text "{hline 50}"
+
+capture noisily {
+    tvmerge "`testdir'/_tv_hrt.dta" "`testdir'/_tv_dmt.dta", ///
+        id(id) ///
+        start(rx_start dmt_start) stop(rx_stop dmt_stop) ///
+        exposure(tv_hrt tv_dmt) ///
+        validateoverlap
+
+    display as result "  PASSED: validateoverlap option works"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 10: batch() option for performance control
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': batch() option"
+display as text "{hline 50}"
+
+capture noisily {
+    * Test with small batch size
+    tvmerge "`testdir'/_tv_hrt.dta" "`testdir'/_tv_dmt.dta", ///
+        id(id) ///
+        start(rx_start dmt_start) stop(rx_stop dmt_stop) ///
+        exposure(tv_hrt tv_dmt) ///
+        batch(10)
 
     assert _N > 0
-    * Most should be unmatched
-    count if _merge_hrt == 1
+    display as result "  PASSED: batch(10) works"
+
+    * Test with larger batch size
+    tvmerge "`testdir'/_tv_hrt.dta" "`testdir'/_tv_dmt.dta", ///
+        id(id) ///
+        start(rx_start dmt_start) stop(rx_stop dmt_stop) ///
+        exposure(tv_hrt tv_dmt) ///
+        batch(50)
+
+    assert _N > 0
+    display as result "  PASSED: batch(50) works"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 11: dateformat() option
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': dateformat() option"
+display as text "{hline 50}"
+
+capture noisily {
+    tvmerge "`testdir'/_tv_hrt.dta" "`testdir'/_tv_dmt.dta", ///
+        id(id) ///
+        start(rx_start dmt_start) stop(rx_stop dmt_stop) ///
+        exposure(tv_hrt tv_dmt) ///
+        dateformat(%tdNN/DD/CCYY)
+
+    * Check that the format was applied
+    local fmt : format start
+    assert "`fmt'" == "%tdNN/DD/CCYY"
+    display as result "  PASSED: dateformat() applies custom format"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 12: All diagnostic options combined
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': All diagnostic options combined"
+display as text "{hline 50}"
+
+capture noisily {
+    tvmerge "`testdir'/_tv_hrt.dta" "`testdir'/_tv_dmt.dta", ///
+        id(id) ///
+        start(rx_start dmt_start) stop(rx_stop dmt_stop) ///
+        exposure(tv_hrt tv_dmt) ///
+        generate(hrt dmt) ///
+        check validatecoverage validateoverlap summarize
+
+    display as result "  PASSED: All diagnostic options work together"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 13: Stored results verification
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': Stored results verification"
+display as text "{hline 50}"
+
+capture noisily {
+    tvmerge "`testdir'/_tv_hrt.dta" "`testdir'/_tv_dmt.dta", ///
+        id(id) ///
+        start(rx_start dmt_start) stop(rx_stop dmt_stop) ///
+        exposure(tv_hrt tv_dmt) ///
+        generate(hrt dmt) ///
+        check
+
+    * Verify all expected stored results exist
     assert r(N) > 0
-    display as result "  PASSED: No matches handled correctly"
-    local ++pass_count
-}
-if _rc {
-    display as error "  FAILED: Error code " _rc
-    local ++fail_count
-}
+    assert r(N_persons) > 0
+    assert r(mean_periods) > 0
+    assert r(max_periods) > 0
+    assert r(N_datasets) == 2
 
-* =============================================================================
-* TEST 8: Large dataset performance check
-* =============================================================================
-local ++test_count
-display as text _n "TEST `test_count': Performance with full dataset"
-display as text "{hline 50}"
+    * Verify macros
+    assert "`r(datasets)'" != ""
+    assert "`r(exposure_vars)'" != ""
 
-capture noisily {
-    use "`testdir'/_master_intervals.dta", clear
-    local n_before = _N
-
-    timer clear 1
-    timer on 1
-
-    tvmerge using "`testdir'/hrt.dta", ///
-        id(id) ///
-        m_start(_start) m_stop(_stop) ///
-        u_start(rx_start) u_stop(rx_stop) ///
-        gen(_merge_hrt)
-
-    timer off 1
-    quietly timer list 1
-    local elapsed = r(t1)
-
-    display as text "  Processed `n_before' master records in " %5.2f `elapsed' " seconds"
-    display as result "  PASSED: Performance test completed"
-    local ++pass_count
-}
-if _rc {
-    display as error "  FAILED: Error code " _rc
-    local ++fail_count
-}
-
-* =============================================================================
-* TEST 9: Verify merge indicator values
-* =============================================================================
-local ++test_count
-display as text _n "TEST `test_count': Verify merge indicator"
-display as text "{hline 50}"
-
-capture noisily {
-    use "`testdir'/_master_intervals.dta", clear
-
-    tvmerge using "`testdir'/hrt.dta", ///
-        id(id) ///
-        m_start(_start) m_stop(_stop) ///
-        u_start(rx_start) u_stop(rx_stop) ///
-        gen(_merge_hrt)
-
-    * Check that merge indicator has expected values
-    tab _merge_hrt, missing
-    assert inlist(_merge_hrt, 1, 2, 3)
-    display as result "  PASSED: Merge indicator values are correct"
-    local ++pass_count
-}
-if _rc {
-    display as error "  FAILED: Error code " _rc
-    local ++fail_count
-}
-
-* =============================================================================
-* TEST 10: Point-in-time lookup (where u_start == u_stop conceptually)
-* =============================================================================
-local ++test_count
-display as text _n "TEST `test_count': Point-in-time lookup"
-display as text "{hline 50}"
-
-capture noisily {
-    * Create a point-in-time using file (e.g., hospitalization dates)
-    use "`testdir'/hospitalizations.dta", clear
-    * For point-in-time, we can set stop = start
-    rename hosp_date event_date
-    gen event_stop = event_date
-    save "`testdir'/_temp_hosp_point.dta", replace
-
-    use "`testdir'/_master_intervals.dta", clear
-
-    tvmerge using "`testdir'/_temp_hosp_point.dta", ///
-        id(id) ///
-        m_start(_start) m_stop(_stop) ///
-        u_start(event_date) u_stop(event_stop) ///
-        gen(_merge_hosp)
-
-    assert _N > 0
-    display as result "  PASSED: Point-in-time lookup works"
-    local ++pass_count
-}
-if _rc {
-    display as error "  FAILED: Error code " _rc
-    local ++fail_count
-}
-
-* =============================================================================
-* TEST 11: Join preserving all master observations
-* =============================================================================
-local ++test_count
-display as text _n "TEST `test_count': Preserve all master observations"
-display as text "{hline 50}"
-
-capture noisily {
-    use "`testdir'/_master_intervals.dta", clear
-    local n_master = _N
-
-    tvmerge using "`testdir'/hrt.dta", ///
-        id(id) ///
-        m_start(_start) m_stop(_stop) ///
-        u_start(rx_start) u_stop(rx_stop) ///
-        gen(_merge_hrt)
-
-    * Total records should be >= master records (due to splitting)
-    assert _N >= `n_master'
-
-    * Original time coverage should be preserved
-    * (Total person-time before and after should match for each person)
-    display as result "  PASSED: All master observations preserved"
-    local ++pass_count
-}
-if _rc {
-    display as error "  FAILED: Error code " _rc
-    local ++fail_count
-}
-
-* =============================================================================
-* TEST 12: Verify using variables are brought over
-* =============================================================================
-local ++test_count
-display as text _n "TEST `test_count': Using variables transferred"
-display as text "{hline 50}"
-
-capture noisily {
-    use "`testdir'/_master_intervals.dta", clear
-
-    tvmerge using "`testdir'/hrt.dta", ///
-        id(id) ///
-        m_start(_start) m_stop(_stop) ///
-        u_start(rx_start) u_stop(rx_stop) ///
-        gen(_merge_hrt)
-
-    * Check that HRT variables were brought over
-    confirm variable hrt_type dose
-    sum dose if _merge_hrt == 3
-    assert r(N) > 0
-    display as result "  PASSED: Using variables transferred correctly"
+    display as result "  PASSED: All stored results present"
+    display as text "  r(N) = " r(N)
+    display as text "  r(N_persons) = " r(N_persons)
+    display as text "  r(N_datasets) = " r(N_datasets)
     local ++pass_count
 }
 if _rc {
@@ -439,7 +413,7 @@ display as text _n "{hline 70}"
 display as text "Cleaning up temporary files..."
 display as text "{hline 70}"
 
-local temp_files "_master_intervals _test_tvmerge_basic _temp_hosp_point"
+local temp_files "_tv_hrt _tv_dmt _test_merged"
 
 foreach f of local temp_files {
     capture erase "`testdir'/`f'.dta"
