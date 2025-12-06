@@ -430,13 +430,463 @@ if _rc {
 }
 
 * =============================================================================
+* TEST 17: Clear option (replace current data)
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': Clear option"
+display as text "{hline 50}"
+
+capture noisily {
+    use "`testdir'/cohort.dta", clear
+    keep age female edss_baseline bmi
+    local orig_N = _N
+
+    synthdata, n(200) clear seed(12345)
+
+    * Data should now be synthetic with 200 obs
+    assert _N == 200
+    display as result "  PASSED: Clear option works"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 18: Prefix option
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': Prefix option"
+display as text "{hline 50}"
+
+capture noisily {
+    use "`testdir'/cohort.dta", clear
+    keep age female edss_baseline bmi
+
+    synthdata, prefix(syn_) saving("`testdir'/_test_synth_prefix") seed(12345)
+
+    use "`testdir'/_test_synth_prefix.dta", clear
+    * Should have prefixed variables
+    confirm variable syn_age syn_female syn_edss_baseline syn_bmi
+    display as result "  PASSED: Prefix option works"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 19: Multiple synthetic datasets
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': Multiple synthetic datasets"
+display as text "{hline 50}"
+
+capture noisily {
+    use "`testdir'/cohort.dta", clear
+    keep age female edss_baseline bmi
+
+    synthdata, n(100) multiple(3) saving("`testdir'/_test_synth_multi") seed(12345)
+
+    * Check multiple files created
+    confirm file "`testdir'/_test_synth_multi_1.dta"
+    confirm file "`testdir'/_test_synth_multi_2.dta"
+    confirm file "`testdir'/_test_synth_multi_3.dta"
+    display as result "  PASSED: Multiple datasets work"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 20: Smooth option (kernel density)
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': Smooth option"
+display as text "{hline 50}"
+
+capture noisily {
+    use "`testdir'/cohort.dta", clear
+    keep age female edss_baseline bmi
+
+    synthdata, smooth saving("`testdir'/_test_synth_smooth") seed(12345)
+
+    use "`testdir'/_test_synth_smooth.dta", clear
+    assert _N > 0
+    display as result "  PASSED: Smooth option works"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 21: Integer variable option
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': Integer variable option"
+display as text "{hline 50}"
+
+capture noisily {
+    use "`testdir'/cohort.dta", clear
+    keep age female edss_baseline region
+
+    synthdata, integer(region) saving("`testdir'/_test_synth_int") seed(12345)
+
+    use "`testdir'/_test_synth_int.dta", clear
+    * Region should be integer
+    gen region_check = region == floor(region)
+    sum region_check
+    assert r(mean) == 1
+    display as result "  PASSED: Integer option works"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 22: Dates option
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': Dates option"
+display as text "{hline 50}"
+
+capture noisily {
+    use "`testdir'/cohort.dta", clear
+    keep id study_entry study_exit age female
+
+    synthdata, id(id) dates(study_entry study_exit) ///
+        saving("`testdir'/_test_synth_dates") seed(12345)
+
+    use "`testdir'/_test_synth_dates.dta", clear
+    assert _N > 0
+    display as result "  PASSED: Dates option works"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 23: Correlations option
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': Correlations option"
+display as text "{hline 50}"
+
+capture noisily {
+    use "`testdir'/cohort.dta", clear
+    keep age female edss_baseline bmi
+
+    synthdata, correlations saving("`testdir'/_test_synth_corr") seed(12345)
+
+    use "`testdir'/_test_synth_corr.dta", clear
+    assert _N > 0
+    display as result "  PASSED: Correlations option works"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 24: Conditional option
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': Conditional option"
+display as text "{hline 50}"
+
+capture noisily {
+    use "`testdir'/cohort.dta", clear
+    keep age female mstype edss_baseline
+
+    synthdata, conditional saving("`testdir'/_test_synth_cond") seed(12345)
+
+    use "`testdir'/_test_synth_cond.dta", clear
+    assert _N > 0
+    display as result "  PASSED: Conditional option works"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 25: Constraints option
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': Constraints option"
+display as text "{hline 50}"
+
+capture noisily {
+    use "`testdir'/cohort.dta", clear
+    keep age female edss_baseline bmi
+
+    synthdata, constraints("age>=18" "age<=100") ///
+        saving("`testdir'/_test_synth_constraints") seed(12345)
+
+    use "`testdir'/_test_synth_constraints.dta", clear
+    sum age
+    assert r(min) >= 18
+    assert r(max) <= 100
+    display as result "  PASSED: Constraints option works"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 26: Autoconstraints option
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': Autoconstraints option"
+display as text "{hline 50}"
+
+capture noisily {
+    use "`testdir'/cohort.dta", clear
+    keep age female edss_baseline bmi
+
+    synthdata, autoconstraints saving("`testdir'/_test_synth_autocon") seed(12345)
+
+    use "`testdir'/_test_synth_autocon.dta", clear
+    assert _N > 0
+    display as result "  PASSED: Autoconstraints option works"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 27: Panel structure
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': Panel structure"
+display as text "{hline 50}"
+
+capture noisily {
+    use "`testdir'/edss_long.dta", clear
+
+    synthdata, panel(id edss_dt) saving("`testdir'/_test_synth_panel") seed(12345)
+
+    use "`testdir'/_test_synth_panel.dta", clear
+    assert _N > 0
+    display as result "  PASSED: Panel structure works"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 28: Mincell option (rare category protection)
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': Mincell option"
+display as text "{hline 50}"
+
+capture noisily {
+    use "`testdir'/cohort.dta", clear
+    keep age female mstype region edss_baseline
+
+    synthdata, mincell(10) saving("`testdir'/_test_synth_mincell") seed(12345)
+
+    use "`testdir'/_test_synth_mincell.dta", clear
+    assert _N > 0
+    display as result "  PASSED: Mincell option works"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 29: Trim option
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': Trim option"
+display as text "{hline 50}"
+
+capture noisily {
+    use "`testdir'/cohort.dta", clear
+    keep age female edss_baseline bmi
+
+    synthdata, trim(5) saving("`testdir'/_test_synth_trim") seed(12345)
+
+    use "`testdir'/_test_synth_trim.dta", clear
+    assert _N > 0
+    display as result "  PASSED: Trim option works"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 30: Bounds option
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': Bounds option"
+display as text "{hline 50}"
+
+capture noisily {
+    use "`testdir'/cohort.dta", clear
+    keep age female edss_baseline bmi
+
+    synthdata, bounds("age 18 90") saving("`testdir'/_test_synth_bounds") seed(12345)
+
+    use "`testdir'/_test_synth_bounds.dta", clear
+    sum age
+    assert r(min) >= 18
+    assert r(max) <= 90
+    display as result "  PASSED: Bounds option works"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 31: Validate option
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': Validate option"
+display as text "{hline 50}"
+
+capture noisily {
+    use "`testdir'/cohort.dta", clear
+    keep age female edss_baseline bmi
+
+    synthdata, validate("`testdir'/_test_synth_validation") ///
+        saving("`testdir'/_test_synth_val") seed(12345)
+
+    confirm file "`testdir'/_test_synth_validation.dta"
+    display as result "  PASSED: Validate option works"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 32: Utility option
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': Utility option"
+display as text "{hline 50}"
+
+capture noisily {
+    use "`testdir'/cohort.dta", clear
+    keep age female edss_baseline bmi
+
+    synthdata, utility saving("`testdir'/_test_synth_utility") seed(12345)
+
+    display as result "  PASSED: Utility option works"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 33: Graph option
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': Graph option"
+display as text "{hline 50}"
+
+capture noisily {
+    use "`testdir'/cohort.dta", clear
+    keep age female edss_baseline bmi
+
+    set graphics off
+    synthdata, graph saving("`testdir'/_test_synth_graph") seed(12345)
+    set graphics on
+
+    display as result "  PASSED: Graph option works"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 34: Iterate and tolerance options
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': Iterate and tolerance options"
+display as text "{hline 50}"
+
+capture noisily {
+    use "`testdir'/cohort.dta", clear
+    keep age female edss_baseline bmi
+
+    synthdata, constraints("age>=18") iterate(50) tolerance(1e-4) ///
+        saving("`testdir'/_test_synth_iter") seed(12345)
+
+    use "`testdir'/_test_synth_iter.dta", clear
+    assert _N > 0
+    display as result "  PASSED: Iterate and tolerance options work"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 35: Full comprehensive synthesis
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': Full comprehensive synthesis"
+display as text "{hline 50}"
+
+capture noisily {
+    use "`testdir'/cohort.dta", clear
+    keep id age female mstype edss_baseline bmi region
+
+    synthdata, n(500) id(id) categorical(mstype region) ///
+        noextreme autoconstraints correlations compare ///
+        saving("`testdir'/_test_synth_full") seed(12345)
+
+    use "`testdir'/_test_synth_full.dta", clear
+    assert _N == 500
+    display as result "  PASSED: Full comprehensive synthesis works"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
 * CLEANUP: Remove temporary files
 * =============================================================================
 display as text _n "{hline 70}"
 display as text "Cleaning up temporary files..."
 display as text "{hline 70}"
 
-local temp_files "_test_synth_basic _test_synth_n500 _test_synth_seq _test_synth_boot _test_synth_perm _test_synth_emp _test_synth_noise _test_synth_id _test_synth_skip _test_synth_cat _test_synth_cont _test_synth_noext _test_synth_compare _test_synth_varlist _test_synth_rep1 _test_synth_rep2"
+local temp_files "_test_synth_basic _test_synth_n500 _test_synth_seq _test_synth_boot _test_synth_perm _test_synth_emp _test_synth_noise _test_synth_id _test_synth_skip _test_synth_cat _test_synth_cont _test_synth_noext _test_synth_compare _test_synth_varlist _test_synth_rep1 _test_synth_rep2 _test_synth_prefix _test_synth_multi_1 _test_synth_multi_2 _test_synth_multi_3 _test_synth_smooth _test_synth_int _test_synth_dates _test_synth_corr _test_synth_cond _test_synth_constraints _test_synth_autocon _test_synth_panel _test_synth_mincell _test_synth_trim _test_synth_bounds _test_synth_val _test_synth_validation _test_synth_utility _test_synth_graph _test_synth_iter _test_synth_full"
 
 foreach f of local temp_files {
     capture erase "`testdir'/`f'.dta"
