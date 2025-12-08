@@ -1,75 +1,25 @@
-# Docker Compose configuration for Stata-MCP Testing Environment
+# Stata Linux Docker Environment
 #
 # Usage:
-#   1. Place your Stata-MCP directory path in the .env file
-#   2. Run: docker-compose up -d
-#   3. Connect Claude Code to the container
-#   4. Run tests via Claude Code
-#
-# Security Notes:
-#   - Only Stata-Tools and Stata-MCP directories are mounted (read-write)
-#   - Test output goes to a separate volume
-#   - No access to host system outside mounted directories
-#   - Runs as non-root user inside container
+#   1. Copy .env.example to .env and update paths
+#   2. docker-compose build
+#   3. docker-compose run --rm stata
 
 version: '3.8'
 
 services:
-  stata-mcp-tester:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: stata-mcp-tester
+  stata:
+    build: .
+    container_name: stata-linux
 
-    # Mount only the necessary directories (sandboxed)
     volumes:
-      # Stata-Tools repository - read-write for test output
-      - ${STATA_TOOLS_PATH:-../../}:/workspace/Stata-Tools:rw
+      # Mount your Stata Linux installation (read-only for safety)
+      - ${STATA_PATH}:/usr/local/stata18:ro
 
-      # Stata-MCP server - read-write for MCP operations
-      - ${STATA_MCP_PATH:?Please set STATA_MCP_PATH in .env}:/workspace/Stata-MCP:rw
+      # Mount your working directory
+      - ${WORK_DIR:-../..}:/workspace:rw
 
-      # Test output directory - persisted between runs
-      - test-output:/workspace/test-output:rw
-
-      # Claude Code config (if needed)
-      - claude-config:/home/tester/.local/share/claude-code:rw
-
-    # Environment variables
-    environment:
-      - STATA_TOOLS_DIR=/workspace/Stata-Tools
-      - STATA_MCP_DIR=/workspace/Stata-MCP
-      - TEST_OUTPUT_DIR=/workspace/test-output
-      - STATA_PATH=${STATA_PATH:-}
-      - HOME=/home/tester
-
-    # Keep container running
     stdin_open: true
     tty: true
 
-    # Resource limits (optional, for safety)
-    deploy:
-      resources:
-        limits:
-          cpus: '4'
-          memory: 8G
-        reservations:
-          cpus: '1'
-          memory: 2G
-
-    # Security options
-    security_opt:
-      - no-new-privileges:true
-
-    # Network isolation (optional - uncomment to isolate from internet)
-    # network_mode: none
-
-    # Working directory
-    working_dir: /workspace/Stata-Tools
-
-# Named volumes for persistence
-volumes:
-  test-output:
-    driver: local
-  claude-config:
-    driver: local
+    working_dir: /workspace

@@ -1,45 +1,39 @@
 #!/bin/bash
-# Entrypoint script for Stata-MCP Testing Environment
-
 set -e
 
 echo "=========================================="
-echo "Stata-MCP Testing Environment"
-echo "=========================================="
-echo ""
-echo "Available directories:"
-echo "  - Stata-Tools:   $STATA_TOOLS_DIR"
-echo "  - Stata-MCP:     $STATA_MCP_DIR"
-echo "  - Test Output:   $TEST_OUTPUT_DIR"
-echo ""
+echo "  Stata Linux Docker Environment"
 echo "=========================================="
 
-# Check if Stata is available (via MCP)
-if [ -n "$STATA_PATH" ]; then
-    echo "Stata path configured: $STATA_PATH"
+# Check for Stata installation
+if [ -f "/usr/local/stata18/stata-mp" ]; then
+    echo "✓ Stata MP found"
+elif [ -f "/usr/local/stata18/stata-se" ]; then
+    echo "✓ Stata SE found"
+elif [ -f "/usr/local/stata18/stata" ]; then
+    echo "✓ Stata BE found"
 else
-    echo "Note: STATA_PATH not set. Stata-MCP server should handle Stata execution."
+    echo "✗ Stata not found in /usr/local/stata18"
+    echo ""
+    echo "Check that STATA_PATH in .env points to your Stata Linux installation"
 fi
 
-# Check if Stata-MCP is mounted
-if [ -d "$STATA_MCP_DIR" ] && [ "$(ls -A $STATA_MCP_DIR 2>/dev/null)" ]; then
-    echo "Stata-MCP directory is mounted and contains files."
+# Check for license
+if [ -f "/usr/local/stata18/stata.lic" ]; then
+    echo "✓ Stata license found"
 else
-    echo "Warning: Stata-MCP directory is empty or not mounted."
-    echo "  Mount your Stata-MCP installation to: $STATA_MCP_DIR"
+    echo "✗ License file not found"
+    echo "  Create stata.lic in your Stata Linux directory"
 fi
 
-# Check if Stata-Tools is mounted
-if [ -d "$STATA_TOOLS_DIR" ] && [ "$(ls -A $STATA_TOOLS_DIR 2>/dev/null)" ]; then
-    echo "Stata-Tools directory is mounted and contains files."
+# Check workspace
+if [ -d "/workspace" ] && [ "$(ls -A /workspace 2>/dev/null)" ]; then
+    echo "✓ Workspace mounted"
 else
-    echo "Warning: Stata-Tools directory is empty or not mounted."
-    echo "  Mount your Stata-Tools repository to: $STATA_TOOLS_DIR"
+    echo "○ Workspace empty"
 fi
 
 echo ""
-echo "Starting container..."
-echo ""
+echo "=========================================="
 
-# Execute the command passed to docker run
 exec "$@"
