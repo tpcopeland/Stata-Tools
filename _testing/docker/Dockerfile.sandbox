@@ -1,0 +1,36 @@
+# Sandboxed Claude Code Environment
+# Connects to host's Stata-MCP server but isolates filesystem
+
+FROM ubuntu:22.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install minimal dependencies for Claude Code
+RUN apt-get update && apt-get install -y \
+    curl \
+    wget \
+    git \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Node.js LTS (required for Claude Code)
+RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y nodejs \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create non-root user
+RUN useradd -m -s /bin/bash claude && \
+    mkdir -p /workspace/Stata-Tools /workspace/output && \
+    chown -R claude:claude /workspace
+
+# Install Claude Code CLI
+RUN npm install -g @anthropic-ai/claude-code
+
+USER claude
+WORKDIR /workspace/Stata-Tools
+
+# Configure Claude Code to use host's MCP server
+RUN mkdir -p /home/claude/.config/claude-code
+
+# Entry point
+CMD ["bash"]
