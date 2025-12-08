@@ -28,14 +28,14 @@ ENV LANG=en_US.UTF-8
 ENV LC_ALL=en_US.UTF-8
 
 # Create directories
-RUN mkdir -p /usr/local/stata /workspace
+RUN mkdir -p /usr/local/stata17 /workspace
 
 # Copy entrypoint script
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
 # Add Stata to PATH
-ENV PATH="/usr/local/stata:$PATH"
+ENV PATH="/usr/local/stata17:$PATH"
 
 WORKDIR /workspace
 

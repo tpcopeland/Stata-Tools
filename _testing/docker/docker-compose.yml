@@ -20,7 +20,7 @@ services:
     volumes:
       # Mount your Stata Linux installation
       # NOT read-only - stinit needs to write license files on first run
-      - ${STATA_PATH}:/usr/local/stata:rw
+      - ${STATA_PATH}:/usr/local/stata17:rw
 
       # Mount your working directory
       - ${WORK_DIR:-../..}:/workspace:rw
