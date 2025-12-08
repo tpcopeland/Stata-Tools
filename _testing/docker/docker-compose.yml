@@ -4,6 +4,8 @@
 #   1. Copy .env.example to .env and update paths
 #   2. docker-compose build
 #   3. docker-compose run --rm stata
+#
+# Apple Silicon Macs: Uses linux/amd64 emulation via Rosetta/QEMU
 
 version: '3.8'
 
@@ -12,12 +14,19 @@ services:
     build: .
     container_name: stata-linux
 
+    # Required for Apple Silicon Macs (Stata only has x86-64 Linux builds)
+    platform: linux/amd64
+
     volumes:
-      # Mount your Stata Linux installation (read-only for safety)
-      - ${STATA_PATH}:/usr/local/stata18:ro
+      # Mount your Stata Linux installation
+      # NOT read-only - stinit needs to write license files on first run
+      - ${STATA_PATH}:/usr/local/stata:rw
 
       # Mount your working directory
       - ${WORK_DIR:-../..}:/workspace:rw
+
+    environment:
+      - STATA_VERSION=${STATA_VERSION:-18}
 
     stdin_open: true
     tty: true
