@@ -1,0 +1,73 @@
+# Full Sandbox: Stata + Claude Code in Docker
+# Complete filesystem isolation - even python:/shell commands are contained
+
+FROM ubuntu:22.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install Stata dependencies and tools
+RUN apt-get update && apt-get install -y \
+    libpng16-16 \
+    libncurses5 \
+    libncurses6 \
+    libtinfo5 \
+    libtinfo6 \
+    libgtk-3-0 \
+    libxt6 \
+    libxmu6 \
+    libxss1 \
+    libxft2 \
+    curl \
+    wget \
+    git \
+    python3 \
+    python3-pip \
+    python3-venv \
+    ca-certificates \
+    unzip \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Node.js 20 LTS
+RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
+    apt-get install -y nodejs && \
+    rm -rf /var/lib/apt/lists/*
+
+# Create directories
+RUN mkdir -p /usr/local/stata17 \
+    /workspace/Stata-Tools \
+    /workspace/output \
+    /opt/stata-mcp
+
+# Stata will be installed via volume mount or copied in
+# See setup instructions
+
+# Install Python packages for Stata-MCP (from requirements.txt)
+# See: https://github.com/hanlulong/stata-mcp/blob/main/src/requirements.txt
+RUN pip3 install --no-cache-dir \
+    fastapi==0.119.1 \
+    uvicorn==0.38.0 \
+    fastapi-mcp==0.4.0 \
+    mcp==1.18.0 \
+    pydantic==2.11.1 \
+    pandas==2.3.3 \
+    httpx==0.28.1
+
+# Create non-root user
+RUN useradd -m -s /bin/bash tester && \
+    chown -R tester:tester /workspace /opt/stata-mcp
+
+# Copy entrypoint script
+COPY entrypoint-full.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+# Set Stata path (will be configured at runtime)
+ENV PATH="/usr/local/stata17:$PATH"
+ENV STATA_LICENSE_FILE="/usr/local/stata17/stata.lic"
+
+USER tester
+WORKDIR /workspace/Stata-Tools
+
+EXPOSE 4000
+
+ENTRYPOINT ["/entrypoint.sh"]
+CMD ["bash"]
