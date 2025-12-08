@@ -23,11 +23,10 @@ services:
       # Your Stata-Tools repo (the only host directory accessible)
       - ${STATA_TOOLS_PATH:-../..}:/workspace/Stata-Tools:rw
 
-      # Stata installation - REQUIRED
-      # Option A: Mount existing Linux Stata installation
-      - ${STATA_LINUX_PATH:-./stata17}:/usr/local/stata17:ro
-
-      # Option B: Or build with Stata copied into image (see Dockerfile.full)
+      # Stata installation - REQUIRED (external to repo)
+      # Set STATA_LINUX_PATH in .env.full to your Linux Stata location
+      # Example: ~/stata17-linux or /opt/stata17
+      - ${STATA_LINUX_PATH}:/usr/local/stata17:ro
 
       # Stata-MCP server (from VS Code extension)
       - ${STATA_MCP_PATH}:/opt/stata-mcp:ro
