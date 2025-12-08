@@ -12,25 +12,27 @@ if [ ! -d "$STATA_DIR" ] || [ -z "$(ls -A $STATA_DIR 2>/dev/null)" ]; then
     echo "✗ Stata directory not mounted or empty"
     echo ""
     echo "  The STATA_PATH in your .env file should point to a directory"
-    echo "  containing your Stata Linux installation files."
+    echo "  containing your extracted Stata Linux files."
     echo ""
-    echo "  Expected contents: stata-mp (or stata-se/stata), ado/, etc."
-    echo ""
-    echo "  Common issues:"
-    echo "  1. STATA_PATH points to wrong directory"
-    echo "  2. Stata Linux not extracted yet"
-    echo "  3. Using macOS Stata instead of Linux Stata"
+    echo "  To set up Stata Linux:"
+    echo "  1. Download Stata for Linux from stata.com/customer-service/"
+    echo "  2. Extract: tar -xzf Stata17Linux64.tar.gz -C ~/stata17-linux"
+    echo "  3. Set STATA_PATH=~/stata17-linux in your .env file"
     echo ""
 else
     # Check for Stata executables
+    STATA_EXEC=""
     if [ -f "$STATA_DIR/stata-mp" ]; then
         echo "✓ Stata MP found"
+        STATA_EXEC="stata-mp"
         chmod +x "$STATA_DIR/stata-mp" 2>/dev/null || true
     elif [ -f "$STATA_DIR/stata-se" ]; then
         echo "✓ Stata SE found"
+        STATA_EXEC="stata-se"
         chmod +x "$STATA_DIR/stata-se" 2>/dev/null || true
     elif [ -f "$STATA_DIR/stata" ]; then
         echo "✓ Stata BE found"
+        STATA_EXEC="stata"
         chmod +x "$STATA_DIR/stata" 2>/dev/null || true
     else
         echo "✗ No Stata executable found in $STATA_DIR"
@@ -45,20 +47,29 @@ else
         echo ""
     fi
 
-    # Check for license
+    # Check for license - look for stata.lic or check if stinit was run
     if [ -f "$STATA_DIR/stata.lic" ]; then
         echo "✓ Stata license found"
+    elif [ -f "$STATA_DIR/stinit" ]; then
+        echo "⚠ License not initialized"
+        echo ""
+        echo "  Run the license initialization inside this container:"
+        echo "    cd /usr/local/stata"
+        echo "    ./stinit"
+        echo ""
+        echo "  You'll need your:"
+        echo "    - Serial number"
+        echo "    - Code (authorization code)"
+        echo "    - License info from your Stata purchase email"
+        echo ""
+        echo "  Find license info: stata.com/customer-service/ or"
+        echo "  macOS Stata: Help > About Stata"
+        echo ""
     else
-        echo "✗ License file not found"
+        echo "✗ No license file or stinit found"
         echo ""
-        echo "  Create stata.lic in your Stata Linux directory with:"
-        echo "    Your Name"
-        echo "    Your Institution"
-        echo "    Serial Number"
-        echo "    Authorization Code"
-        echo "    License Lines..."
-        echo ""
-        echo "  Find your license info in Stata: Help > About Stata"
+        echo "  Your Stata installation appears incomplete."
+        echo "  Re-extract the Stata Linux tarball."
         echo ""
     fi
 fi
@@ -73,7 +84,11 @@ fi
 echo ""
 echo "=========================================="
 echo ""
-echo "Run Stata with: stata-mp (or stata-se, stata)"
+if [ -n "$STATA_EXEC" ]; then
+    echo "Run Stata with: $STATA_EXEC"
+else
+    echo "Run Stata with: stata-mp (or stata-se, stata)"
+fi
 echo ""
 
 exec "$@"
