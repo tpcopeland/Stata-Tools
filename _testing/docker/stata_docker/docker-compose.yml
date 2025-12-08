@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  stata:
+    build: .
+    container_name: stata-linux
+
+    volumes:
+      # Mount your Stata Linux installation (read-only for safety)
+      - ${STATA_PATH:-~/stata18-linux}:/usr/local/stata18:ro
+
+      # Mount your working directory
+      - ${WORK_DIR:-.}:/workspace:rw
+
+    stdin_open: true
+    tty: true
+
+    working_dir: /workspace
