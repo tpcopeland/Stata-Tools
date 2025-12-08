@@ -1,0 +1,73 @@
+# Full Sandbox: Stata runs inside Docker
+#
+# Complete filesystem isolation:
+# - Stata executes inside container
+# - python: and shell commands are sandboxed
+# - Only Stata-Tools directory is accessible
+#
+# Requirements:
+# 1. Stata for Linux (installer or existing installation)
+# 2. Your Stata license file
+# 3. Stata-MCP server files
+
+version: '3.8'
+
+services:
+  stata-full-sandbox:
+    build:
+      context: .
+      dockerfile: Dockerfile.full
+    container_name: stata-full-sandbox
+
+    volumes:
+      # Your Stata-Tools repo (the only host directory accessible)
+      - ${STATA_TOOLS_PATH:-../..}:/workspace/Stata-Tools:rw
+
+      # Stata installation - REQUIRED
+      # Option A: Mount existing Linux Stata installation
+      - ${STATA_LINUX_PATH:-./stata17}:/usr/local/stata17:ro
+
+      # Option B: Or build with Stata copied into image (see Dockerfile.full)
+
+      # Stata-MCP server (from VS Code extension)
+      - ${STATA_MCP_PATH}:/opt/stata-mcp:ro
+
+      # Persistent output directory
+      - sandbox-output:/workspace/output:rw
+
+    environment:
+      - STATA_EDITION=${STATA_EDITION:-mp}
+      - MCP_PORT=4000
+
+    ports:
+      # Expose MCP server port
+      - "4000:4000"
+
+    # Security hardening
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETUID
+      - SETGID
+
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 8G
+        reservations:
+          cpus: '1'
+          memory: 2G
+
+    stdin_open: true
+    tty: true
+
+    working_dir: /workspace/Stata-Tools
+
+volumes:
+  sandbox-output:
+    driver: local
