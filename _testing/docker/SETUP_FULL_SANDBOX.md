@@ -23,19 +23,19 @@ You have two options:
 Email stata@stata.com and explain you need the Linux version for Docker testing.
 They can usually add it to your license.
 
-## Step 2: Set Up the Stata Directory
+## Step 2: Set Up Stata Linux (External to Repo)
+
+Store Stata Linux **outside your repos** so it's reusable across projects:
 
 ```bash
-cd /path/to/Stata-Tools/_testing/docker
+# Create a dedicated directory for Stata Linux (outside any repo)
+mkdir -p ~/stata17-linux
 
-# Create stata17 directory
-mkdir -p stata17
-
-# Extract Stata Linux
-tar -xzf ~/Downloads/Stata17Linux64.tar.gz -C stata17/
+# Extract Stata Linux there
+tar -xzf ~/Downloads/Stata17Linux64.tar.gz -C ~/stata17-linux/
 
 # Your license file - create from your existing license info
-cat > stata17/stata.lic << 'EOF'
+cat > ~/stata17-linux/stata.lic << 'EOF'
 Timothy Copeland
 UCSF
 501706305188
@@ -67,9 +67,16 @@ nano .env.full
 
 Set these values:
 ```bash
+# Path to the repo you're testing (can change for different projects)
 STATA_TOOLS_PATH=../..
-STATA_LINUX_PATH=./stata17
+
+# Path to your Stata Linux installation (reusable across all projects)
+STATA_LINUX_PATH=/Users/tcopeland/stata17-linux
+
+# Path to Stata-MCP extension
 STATA_MCP_PATH=/Users/tcopeland/.vscode/extensions/deepecon.stata-mcp-0.3.6/src
+
+# Stata edition
 STATA_EDITION=mp
 ```
 
@@ -179,15 +186,33 @@ sysuse auto
 summarize price
 ```
 
+## Testing Other Repositories
+
+Once set up, you can easily test any Stata project:
+
+```bash
+# Option 1: Create a separate .env file for each project
+cp .env.full .env.full.myproject
+# Edit STATA_TOOLS_PATH to point to /path/to/my-other-project
+
+# Run with that config
+docker-compose -f docker-compose.full.yml --env-file .env.full.myproject run --rm stata-full-sandbox
+
+# Option 2: Override just the repo path
+STATA_TOOLS_PATH=/path/to/other-repo docker-compose -f docker-compose.full.yml --env-file .env.full run --rm stata-full-sandbox
+```
+
+The Stata Linux installation (`~/stata17-linux`) is shared across all projects.
+
 ## Troubleshooting
 
 ### "License not found"
-- Check `stata17/stata.lic` exists and is correctly formatted
+- Check `~/stata17-linux/stata.lic` exists and is correctly formatted
 - Run `stata-mp` without `-b` to see interactive license prompt
 
 ### "Command not found: stata-mp"
-- Check Stata files are in `stata17/` directory
-- Verify `stata17/stata-mp` is executable: `chmod +x stata17/stata-mp`
+- Check Stata files are in `~/stata17-linux/` directory
+- Verify executable: `chmod +x ~/stata17-linux/stata-mp`
 
 ### "Library not found"
 - The Dockerfile installs common dependencies
@@ -200,7 +225,7 @@ summarize price
 ## Quick Reference
 
 ```bash
-# Build
+# Build (only needed once, or after Dockerfile changes)
 docker-compose -f docker-compose.full.yml --env-file .env.full build
 
 # Start interactive shell
@@ -209,6 +234,9 @@ docker-compose -f docker-compose.full.yml --env-file .env.full run --rm stata-fu
 # Run a specific test
 docker-compose -f docker-compose.full.yml --env-file .env.full run --rm stata-full-sandbox \
   stata-mp -b "do _testing/test_tvexpose.do"
+
+# Test a different repo
+STATA_TOOLS_PATH=/path/to/other-repo docker-compose -f docker-compose.full.yml --env-file .env.full run --rm stata-full-sandbox
 
 # Stop and clean up
 docker-compose -f docker-compose.full.yml down -v
