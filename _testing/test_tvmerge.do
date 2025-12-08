@@ -407,13 +407,139 @@ if _rc {
 }
 
 * =============================================================================
+* TEST 14: continuous() option - treating exposure as rate per day
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': continuous() option"
+display as text "{hline 50}"
+
+capture noisily {
+    * First create a continuous exposure dataset
+    use "`testdir'/cohort.dta", clear
+    tvexpose using "`testdir'/hrt.dta", ///
+        id(id) start(rx_start) stop(rx_stop) ///
+        exposure(hrt_type) reference(0) ///
+        entry(study_entry) exit(study_exit) ///
+        continuousunit(years) ///
+        generate(tv_hrt_cont) ///
+        saveas("`testdir'/_tv_hrt_cont.dta") replace
+
+    tvmerge "`testdir'/_tv_hrt_cont.dta" "`testdir'/_tv_dmt.dta", ///
+        id(id) ///
+        start(rx_start dmt_start) stop(rx_stop dmt_stop) ///
+        exposure(tv_hrt_cont tv_dmt) ///
+        continuous(tv_hrt_cont) ///
+        generate(hrt_cont dmt_status)
+
+    * Verify continuous exposure creates rate and period variables
+    assert _N > 0
+    confirm variable hrt_cont dmt_status
+    display as result "  PASSED: continuous() option works"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 15: keep() option - additional variables from source datasets
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': keep() option"
+display as text "{hline 50}"
+
+capture noisily {
+    * Create tvexpose output with additional variables to keep
+    use "`testdir'/cohort.dta", clear
+    tvexpose using "`testdir'/hrt.dta", ///
+        id(id) start(rx_start) stop(rx_stop) ///
+        exposure(hrt_type) reference(0) ///
+        entry(study_entry) exit(study_exit) ///
+        keepvars(age female) ///
+        generate(tv_hrt) ///
+        saveas("`testdir'/_tv_hrt_keep.dta") replace
+
+    use "`testdir'/cohort.dta", clear
+    tvexpose using "`testdir'/dmt.dta", ///
+        id(id) start(dmt_start) stop(dmt_stop) ///
+        exposure(dmt) reference(0) ///
+        entry(study_entry) exit(study_exit) ///
+        keepvars(mstype edss_baseline) ///
+        generate(tv_dmt) ///
+        saveas("`testdir'/_tv_dmt_keep.dta") replace
+
+    tvmerge "`testdir'/_tv_hrt_keep.dta" "`testdir'/_tv_dmt_keep.dta", ///
+        id(id) ///
+        start(rx_start dmt_start) stop(rx_stop dmt_stop) ///
+        exposure(tv_hrt tv_dmt) ///
+        keep(age female mstype edss_baseline) ///
+        generate(hrt dmt)
+
+    * Verify kept variables are present (with _ds# suffixes)
+    assert _N > 0
+    * Variables from different datasets get _ds1, _ds2 suffixes
+    describe
+    display as result "  PASSED: keep() option works"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 16: Multiple continuous exposures
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': Multiple continuous exposures"
+display as text "{hline 50}"
+
+capture noisily {
+    * Create two continuous exposure datasets
+    use "`testdir'/cohort.dta", clear
+    tvexpose using "`testdir'/hrt.dta", ///
+        id(id) start(rx_start) stop(rx_stop) ///
+        exposure(hrt_type) reference(0) ///
+        entry(study_entry) exit(study_exit) ///
+        continuousunit(months) ///
+        generate(tv_hrt_months) ///
+        saveas("`testdir'/_tv_hrt_cont2.dta") replace
+
+    use "`testdir'/cohort.dta", clear
+    tvexpose using "`testdir'/dmt.dta", ///
+        id(id) start(dmt_start) stop(dmt_stop) ///
+        exposure(dmt) reference(0) ///
+        entry(study_entry) exit(study_exit) ///
+        continuousunit(years) ///
+        generate(tv_dmt_years) ///
+        saveas("`testdir'/_tv_dmt_cont.dta") replace
+
+    tvmerge "`testdir'/_tv_hrt_cont2.dta" "`testdir'/_tv_dmt_cont.dta", ///
+        id(id) ///
+        start(rx_start dmt_start) stop(rx_stop dmt_stop) ///
+        exposure(tv_hrt_months tv_dmt_years) ///
+        continuous(1 2) ///
+        generate(hrt_exp dmt_exp)
+
+    * Verify both continuous exposures work
+    assert _N > 0
+    display as result "  PASSED: Multiple continuous exposures work"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
 * CLEANUP: Remove temporary files
 * =============================================================================
 display as text _n "{hline 70}"
 display as text "Cleaning up temporary files..."
 display as text "{hline 70}"
 
-local temp_files "_tv_hrt _tv_dmt _test_merged"
+local temp_files "_tv_hrt _tv_dmt _test_merged _tv_hrt_cont _tv_hrt_keep _tv_dmt_keep _tv_hrt_cont2 _tv_dmt_cont"
 
 foreach f of local temp_files {
     capture erase "`testdir'/`f'.dta"
