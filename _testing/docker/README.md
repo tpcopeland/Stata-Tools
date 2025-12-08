@@ -1,124 +1,168 @@
-# Docker Setup for Sandboxed Stata-MCP Testing
+# Stata Linux Docker Setup
 
-This directory contains Docker configuration for running Claude Code in a sandboxed environment to test Stata-Tools commands using the Stata-MCP server.
+Run Stata inside a Docker container for sandboxed testing.
 
-## Security Features
+## Why Docker?
 
-- **Sandboxed Environment**: Only Stata-Tools and Stata-MCP directories are accessible
-- **Non-root User**: Container runs as non-root `tester` user
-- **Resource Limits**: CPU and memory limits prevent runaway processes
-- **No Host Access**: Cannot access host filesystem outside mounted directories
+- **Sandboxed execution**: Filesystem isolation protects your system
+- **Reproducible environments**: Consistent testing across machines
+- **Linux Stata required**: Docker runs Linux containers, so you need Stata for Linux
 
 ## Prerequisites
 
-1. **Docker** and **Docker Compose** installed
-2. **Stata-MCP** server directory (your MCP server for Stata)
-3. **Stata** installed and licensed (accessible by Stata-MCP)
+1. **Docker Desktop** installed
+2. **Stata for Linux** (your license typically covers all platforms)
 
 ## Quick Start
 
-### 1. Configure Environment
+### Step 1: Get Stata for Linux
+
+1. Log into https://www.stata.com/customer-service/
+2. Go to "Download Stata"
+3. Select **"Stata for Unix/Linux (64-bit x86-64)"**
+4. Download the `.tar.gz` file
+
+If you don't see the Linux option, email support@stata.com with your serial number.
+
+### Step 2: Extract Stata Linux
+
+Store Stata Linux **outside any git repos** so it's reusable:
 
 ```bash
-# Copy the example env file
+mkdir -p ~/stata18-linux
+cd ~/stata18-linux
+tar -xzf ~/Downloads/Stata18Linux64.tar.gz
+```
+
+### Step 3: Create License File
+
+Create `~/stata18-linux/stata.lic` with this format (5+ lines):
+
+```
+Your Name
+Your Institution
+123456789012
+ABCD-EFGH-IJKL-MNOP
+xxxx xxxx xxxx xxxx
+xxxx xxxx xxxx xxxx
+```
+
+**To find your license info:**
+- Check your Stata purchase/renewal email
+- On macOS: `Help > About Stata` or `~/Library/Application Support/Stata/stata.lic`
+
+### Step 4: Configure Docker Environment
+
+```bash
+cd /path/to/Stata-Tools/_testing/docker
 cp .env.example .env
-
-# Edit .env and set your Stata-MCP path
-# STATA_MCP_PATH=/path/to/your/Stata-MCP
 ```
 
-### 2. Build the Container
+Edit `.env` with your actual paths:
+
+```
+STATA_PATH=/Users/yourusername/stata18-linux
+WORK_DIR=../..
+```
+
+### Step 5: Build and Run
 
 ```bash
+# Build the container (one time)
 docker-compose build
+
+# Run Stata interactively
+docker-compose run --rm stata
+
+# Inside container, run Stata
+stata-mp
 ```
 
-### 3. Start the Container
+### Step 6: Verify It Works
+
+Inside Stata:
+
+```stata
+. display c(version)
+18
+
+. display c(os)
+Unix
+
+. sysuse auto
+. summarize price
+```
+
+## Quick Reference
 
 ```bash
-docker-compose up -d
+# Build container
+docker-compose build
+
+# Interactive shell
+docker-compose run --rm stata
+
+# Run a .do file
+docker-compose run --rm stata stata-mp -b do myfile.do
+
+# Different working directory
+WORK_DIR=/path/to/project docker-compose run --rm stata
+
+# Clean up
+docker-compose down -v
 ```
-
-### 4. Connect to Container
-
-```bash
-docker exec -it stata-mcp-tester bash
-```
-
-### 5. Run Tests
-
-Inside the container:
-```bash
-cd /workspace/Stata-Tools/_testing
-# Follow instructions in TESTING_INSTRUCTIONS.md
-```
-
-## Directory Structure
-
-When running, the container has access to:
-
-```
-/workspace/
-├── Stata-Tools/        # This repository (read-write)
-├── Stata-MCP/          # Your MCP server (read-write)
-└── test-output/        # Test results output (persisted)
-```
-
-## Using with Claude Code
-
-### VS Code Setup
-
-1. Install Claude Code extension
-2. Configure MCP server settings to point to container
-3. Open Stata-Tools in VS Code
-4. Claude can now execute Stata commands via MCP
-
-### MCP Configuration Example
-
-Add to your Claude Code settings:
-
-```json
-{
-  "mcpServers": {
-    "stata": {
-      "command": "docker",
-      "args": [
-        "exec", "-i", "stata-mcp-tester",
-        "python3", "/workspace/Stata-MCP/server.py"
-      ]
-    }
-  }
-}
-```
-
-## Safety Notes
-
-1. **No Internet Access (Optional)**: Uncomment `network_mode: none` in docker-compose.yml
-2. **Read-Only Mode**: Change `:rw` to `:ro` for read-only mounts if desired
-3. **Resource Limits**: Adjust CPU/memory limits in docker-compose.yml
 
 ## Troubleshooting
 
-### Container Won't Start
-```bash
-docker-compose logs stata-mcp-tester
-```
-
-### Stata Not Found
-Ensure `STATA_PATH` in `.env` points to your Stata executable, or configure it in your Stata-MCP settings.
-
-### Permission Denied
-The container runs as user `tester` (UID 1000). Ensure mounted directories are accessible.
-
-## Cleanup
+### "License not found"
 
 ```bash
-# Stop container
-docker-compose down
-
-# Remove volumes (deletes test output)
-docker-compose down -v
-
-# Remove image
-docker rmi stata-mcp-tester
+ls -la ~/stata18-linux/stata.lic    # Check file exists
+cat ~/stata18-linux/stata.lic       # Check format (5+ lines)
+chmod 644 ~/stata18-linux/stata.lic # Fix permissions
 ```
+
+### "Command not found: stata-mp"
+
+```bash
+ls -la ~/stata18-linux/stata*       # Check executable exists
+chmod +x ~/stata18-linux/stata-mp   # Make executable
+```
+
+Use `stata-se` or `stata` if you don't have MP edition.
+
+### "error while loading shared libraries"
+
+Check which library is missing:
+
+```bash
+docker-compose run --rm stata ldd /usr/local/stata18/stata-mp
+```
+
+Add missing library to `apt-get install` in `Dockerfile`.
+
+## Directory Structure
+
+```
+~/stata18-linux/              # Stata installation (outside repos)
+├── stata-mp                  # Executable
+├── stata.lic                 # Your license file
+├── ado/                      # Stata packages
+└── ...
+
+Stata-Tools/_testing/docker/  # This directory
+├── Dockerfile
+├── docker-compose.yml
+├── .env.example
+├── .env                      # Your config (create from .env.example)
+├── entrypoint.sh
+└── README.md
+```
+
+## Edition Selection
+
+| Edition | Executable | Usage |
+|---------|------------|-------|
+| MP | `stata-mp` | `docker-compose run --rm stata stata-mp` |
+| SE | `stata-se` | `docker-compose run --rm stata stata-se` |
+| BE | `stata` | `docker-compose run --rm stata stata` |
