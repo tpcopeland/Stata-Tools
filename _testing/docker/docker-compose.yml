@@ -14,10 +14,13 @@ services:
 
     volumes:
       # Mount your Stata Linux installation (read-only for safety)
-      - ${STATA_PATH}:/usr/local/stata18:ro
+      - ${STATA_PATH}:/usr/local/stata:ro
 
       # Mount your working directory
       - ${WORK_DIR:-../..}:/workspace:rw
+
+    environment:
+      - STATA_VERSION=${STATA_VERSION:-18}
 
     stdin_open: true
     tty: true
