@@ -54,7 +54,7 @@ else
         echo "⚠ License not initialized"
         echo ""
         echo "  Run the license initialization inside this container:"
-        echo "    cd /usr/local/stata"
+        echo "    cd /usr/local/stata17"
         echo "    ./stinit"
         echo ""
         echo "  You'll need your:"
