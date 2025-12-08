@@ -81,7 +81,7 @@ On first run, you'll see "License not initialized". Run `stinit` inside the cont
 
 ```bash
 # Inside the container:
-cd /usr/local/stata
+cd /usr/local/stata17
 ./stinit
 ```
 
@@ -136,7 +136,7 @@ docker-compose run --rm stata
 docker-compose run --rm stata stata-mp -b do myfile.do
 
 # Initialize license (first time)
-docker-compose run --rm stata bash -c "cd /usr/local/stata && ./stinit"
+docker-compose run --rm stata bash -c "cd /usr/local/stata17 && ./stinit"
 
 # Clean up
 docker-compose down -v
@@ -167,7 +167,7 @@ Run `stinit` inside the container:
 ```bash
 docker-compose run --rm stata
 # Then inside container:
-cd /usr/local/stata
+cd /usr/local/stata17
 ./stinit
 ```
 
@@ -193,7 +193,7 @@ This is expected - Docker is emulating x86-64 on ARM. For heavy work, consider:
 Check which library is missing:
 
 ```bash
-docker-compose run --rm stata ldd /usr/local/stata/stata-mp
+docker-compose run --rm stata ldd /usr/local/stata17/stata-mp
 ```
 
 Add missing library to `apt-get install` in `Dockerfile`, then rebuild.

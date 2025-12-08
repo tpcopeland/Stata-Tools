@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-STATA_DIR="/usr/local/stata"
+STATA_DIR="/usr/local/stata17"
 
 echo "=========================================="
 echo "  Stata Linux Docker Environment"
