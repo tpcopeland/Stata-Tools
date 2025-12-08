@@ -12,6 +12,21 @@ You are testing a collection of Stata packages for statistical analysis. Your go
 
 ## Environment Setup
 
+### Stata-MCP Connection
+
+This testing uses [Stata-MCP](https://github.com/hanlulong/stata-mcp) to execute Stata commands. The MCP server runs on `http://localhost:4000/mcp` with SSE transport.
+
+**Verify MCP is connected before testing:**
+```stata
+display "Hello from Stata"
+display c(version)
+```
+
+**Recommended VS Code settings for testing:**
+- `stata-vscode.resultDisplayMode`: "compact" (reduces token usage)
+- `stata-vscode.maxOutputTokens`: 10000 (or higher for verbose tests)
+- `stata-vscode.runFileTimeout`: 600 (10 minutes for long tests)
+
 ### Prerequisites
 - Stata must be accessible via the MCP server
 - All test data must be generated (run `generate_test_data.do` first)
@@ -120,30 +135,30 @@ do test_sustainedss.do
 
 #### tvexpose - Time-Varying Exposure Creation
 
-**Current test coverage**: 20 tests
-**Options that NEED additional tests**:
+**Current test coverage**: 37 tests (comprehensive)
+**All documented options now tested:**
 
 | Option | Description | Test Status |
 |--------|-------------|-------------|
-| `pointtime` | Point-in-time data (no stop date) | NOT TESTED |
-| `expandunit()` | Row expansion granularity | NOT TESTED |
-| `recency()` | Time since last exposure categories | NOT TESTED |
-| `grace(exp=# ...)` | Type-specific grace periods | NOT TESTED |
-| `merge()` | Merge consecutive periods | NOT TESTED |
-| `fillgaps()` | Fill gaps with exposure | NOT TESTED |
-| `carryforward()` | Carry forward exposure | NOT TESTED |
-| `layer` | Later exposures take precedence | NOT TESTED |
-| `priority()` | Priority order for overlaps | NOT TESTED |
-| `split` | Split overlapping periods | NOT TESTED |
-| `combine()` | Combined exposure variable | NOT TESTED |
-| `window()` | Acute exposure window | NOT TESTED |
-| `switching` | Switching indicator | NOT TESTED |
-| `switchingdetail` | Switching pattern string | NOT TESTED |
-| `statetime` | Time in current state | NOT TESTED |
-| `label()` | Custom variable label | NOT TESTED |
-| `keepdates` | Keep entry/exit dates | NOT TESTED |
+| `pointtime` | Point-in-time data (no stop date) | ✅ Test 21 |
+| `expandunit()` | Row expansion granularity | ✅ Test 22 |
+| `recency()` | Time since last exposure categories | ✅ Test 21 |
+| `grace(exp=# ...)` | Type-specific grace periods | ✅ Test 23 |
+| `merge()` | Merge consecutive periods | ✅ Test 24 |
+| `fillgaps()` | Fill gaps with exposure | ✅ Test 25 |
+| `carryforward()` | Carry forward exposure | ✅ Test 26 |
+| `layer` | Later exposures take precedence | ✅ Test 27 |
+| `priority()` | Priority order for overlaps | ✅ Test 28 |
+| `split` | Split overlapping periods | ✅ Test 29 |
+| `combine()` | Combined exposure variable | ✅ Test 30 |
+| `window()` | Acute exposure window | ✅ Test 31 |
+| `switching` | Switching indicator | ✅ Test 32 |
+| `switchingdetail` | Switching pattern string | ✅ Test 33 |
+| `statetime` | Time in current state | ✅ Test 34 |
+| `label()` | Custom variable label | ✅ Test 35 |
+| `keepdates` | Keep entry/exit dates | ✅ Test 36-37 |
 
-**Manual test examples for missing options**:
+**Example tests for reference**:
 
 ```stata
 * Test: pointtime option
@@ -178,15 +193,16 @@ confirm variable has_switched switching_pattern
 
 #### tvmerge - Merge Time-Varying Datasets
 
-**Current test coverage**: 13 tests
-**Options that NEED additional tests**:
+**Current test coverage**: 16 tests (comprehensive)
+**All documented options now tested:**
 
 | Option | Description | Test Status |
 |--------|-------------|-------------|
-| `continuous()` | Continuous exposure handling | NOT TESTED |
-| `keep()` | Keep additional variables | NOT TESTED |
+| `continuous()` | Continuous exposure handling | ✅ Test 14 |
+| `keep()` | Keep additional variables | ✅ Test 15 |
+| Multiple continuous | Multiple continuous exposures | ✅ Test 16 |
 
-**Manual test examples**:
+**Example tests for reference**:
 
 ```stata
 * Test: continuous option

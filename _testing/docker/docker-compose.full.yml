@@ -40,7 +40,8 @@ services:
       - MCP_PORT=4000
 
     ports:
-      # Expose MCP server port
+      # Expose MCP server port (SSE transport)
+      # Connect via: http://localhost:4000/mcp
       - "4000:4000"
 
     # Security hardening

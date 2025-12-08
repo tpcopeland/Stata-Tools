@@ -117,18 +117,38 @@ claude
 
 ### Option B: Connect from host to container's MCP
 
-The container exposes port 4000. Configure Claude Code on your Mac:
+The container exposes port 4000 with SSE transport. Configure Claude Code on your Mac:
 
+**Method 1: CLI (Recommended)**
+```bash
+claude mcp add --transport sse stata-mcp http://localhost:4000/mcp --scope user
+```
+
+**Method 2: Manual config** (in `~/.claude/mcp.json`):
 ```json
 {
   "mcpServers": {
-    "stata-sandbox": {
-      "transport": "http",
-      "url": "http://localhost:4000"
+    "stata-mcp": {
+      "transport": "sse",
+      "url": "http://localhost:4000/mcp"
     }
   }
 }
 ```
+
+### Stata-MCP VS Code Settings (Optional)
+
+Configure these in VS Code settings for better AI interaction:
+
+| Setting | Description | Recommended |
+|---------|-------------|-------------|
+| `stata-vscode.resultDisplayMode` | "compact" filters verbose output | compact |
+| `stata-vscode.maxOutputTokens` | Limit tokens (0=unlimited) | 10000 |
+| `stata-vscode.runFileTimeout` | Execution timeout (seconds) | 600 |
+| `stata-vscode.stataEdition` | MP, SE, or BE | mp |
+| `stata-vscode.autoStartServer` | Start MCP on extension load | true |
+
+See: https://github.com/hanlulong/stata-mcp
 
 ## Directory Structure Inside Container
 

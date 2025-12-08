@@ -41,14 +41,16 @@ RUN mkdir -p /usr/local/stata17 \
 # Stata will be installed via volume mount or copied in
 # See setup instructions
 
-# Install Python packages for Stata-MCP
+# Install Python packages for Stata-MCP (from requirements.txt)
+# See: https://github.com/hanlulong/stata-mcp/blob/main/src/requirements.txt
 RUN pip3 install --no-cache-dir \
-    pystata \
-    httpx \
-    pydantic \
-    uvicorn \
-    fastapi \
-    websockets
+    fastapi==0.119.1 \
+    uvicorn==0.38.0 \
+    fastapi-mcp==0.4.0 \
+    mcp==1.18.0 \
+    pydantic==2.11.1 \
+    pandas==2.3.3 \
+    httpx==0.28.1
 
 # Create non-root user
 RUN useradd -m -s /bin/bash tester && \
