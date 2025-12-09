@@ -41,7 +41,7 @@ tar -xzf ~/Downloads/Stata17Linux64.tar.gz
 
 After extraction, you should see:
 ```
-~/stata17-linux/
+~/stata17
 ├── stata-mp        # Executable
 ├── stinit          # License initialization tool
 ├── ado/            # Stata packages
@@ -53,16 +53,16 @@ After extraction, you should see:
 ### Step 3: Configure Docker Environment
 
 ```bash
-cd /path/to/Stata-Tools/_testing/docker
+cd /Users/tcopeland/Documents/GitHub/Stata-Tools/_testing/docker
 cp .env.example .env
 ```
 
 Edit `.env` with your paths:
 
 ```
-STATA_PATH=/Users/yourusername/stata17-linux
+STATA_PATH=/usr/local/stata17
 STATA_VERSION=17
-WORK_DIR=/path/to/your/working/directory
+WORK_DIR=/Users/tcopeland/Documents/GitHub/Stata-Tools/_testing
 ```
 
 ### Step 4: Build and Run
