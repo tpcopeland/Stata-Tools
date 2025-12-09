@@ -1,4 +1,4 @@
-*! consortq Version 1.0.0  03dec2025
+*! consortq Version 1.0.1  09dec2025
 *! Author: Timothy P Copeland
 *! CONSORT-style cohort flow diagram for observational/retrospective studies
 
@@ -108,35 +108,50 @@ program define consortq, rclass
     if "`label1'" == "" local label1 "Initial population"
 
     * Count number of boxes and validate
+    * First pass: detect how many boxes are specified (find highest used index)
     local nboxes = 1
-    local prev_n = `n1'
-
     forvalues i = 1/9 {
         local next = `i' + 1
-        if `n`next'' >= 0 | `exc`i'' > 0 {
-            * We have another box
+        if `n`next'' >= 0 | `exc`i'' > 0 | "`label`next''" != "" {
             local nboxes = `next'
-
-            * Auto-calculate n if not provided
-            if `n`next'' < 0 & `exc`i'' > 0 {
-                local n`next' = `prev_n' - `exc`i''
-            }
-            else if `n`next'' < 0 {
-                local n`next' = `prev_n'
-            }
-
-            * Validate
-            if `n`next'' < 0 {
-                display as error "n`next'() cannot be negative"
-                exit 198
-            }
-            if `exc`i'' > `prev_n' {
-                display as error "exc`i'() cannot exceed previous n (`prev_n')"
-                exit 198
-            }
-
-            local prev_n = `n`next''
         }
+    }
+
+    * Second pass: validate sequential specification and calculate missing n values
+    local prev_n = `n1'
+    forvalues i = 2/`nboxes' {
+        local prev = `i' - 1
+
+        * Check that intermediate boxes have proper specification
+        * (either explicit n, or an exclusion from previous step, or a label)
+        if `i' < `nboxes' {
+            if `n`i'' < 0 & `exc`prev'' == 0 & "`label`i''" == "" {
+                display as error "Gap in flow specification: box `i' is undefined"
+                display as error "Specify n`i'(), exc`prev'(), or label`i'() to define box `i'"
+                exit 198
+            }
+        }
+
+        * Auto-calculate n if not provided but exclusion exists
+        if `n`i'' < 0 & `exc`prev'' > 0 {
+            local n`i' = `prev_n' - `exc`prev''
+        }
+        else if `n`i'' < 0 {
+            * No exclusion and no explicit n - carry forward previous n
+            local n`i' = `prev_n'
+        }
+
+        * Validate
+        if `n`i'' < 0 {
+            display as error "n`i'() cannot be negative"
+            exit 198
+        }
+        if `exc`prev'' > `prev_n' {
+            display as error "exc`prev'() cannot exceed previous n (`prev_n')"
+            exit 198
+        }
+
+        local prev_n = `n`i''
     }
 
     * Set default labels (after counting boxes so we know which is last)

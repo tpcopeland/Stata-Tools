@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.0  2025/12/03}{...}
+{* *! version 1.0.1  2025/12/09}{...}
 {vieweralsosee "consort" "help consort"}{...}
 {vieweralsosee "[G] graph" "help graph"}{...}
 {viewerjumpto "Syntax" "consortq##syntax"}{...}
@@ -9,7 +9,7 @@
 {viewerjumpto "Stored results" "consortq##results"}{...}
 {viewerjumpto "Authors" "consortq##authors"}{...}
 {hline}
-help for {cmd:consortq}{right:version 1.0.0}
+help for {cmd:consortq}{right:version 1.0.1}
 {hline}
 
 {title:Title}

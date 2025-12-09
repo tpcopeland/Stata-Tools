@@ -311,6 +311,17 @@ The generated diagram follows the standard CONSORT 2010 format:
 |-------|-------------|
 | `r(arm#_label)` | Label for arm # |
 
+### consortq Stored Results
+
+`consortq` stores the following in `r()`:
+
+| Result | Description |
+|--------|-------------|
+| `r(nboxes)` | Number of boxes in diagram |
+| `r(n1)` ... `r(n#)` | Population in box # (up to 10) |
+| `r(exc1)` ... `r(exc#)` | Excluded at step # (up to 9, if > 0) |
+| `r(label1)` ... `r(label#)` | Label for box # |
+
 ---
 
 ## Remarks
@@ -371,7 +382,8 @@ MIT License
 
 ## Version
 
-Version 1.0.0, 2025-12-03
+- consort: Version 1.0.0, 2025-12-03
+- consortq: Version 1.0.1, 2025-12-09
 
 ## References
 
