@@ -1,5 +1,5 @@
 v 3
-d 'CONSORT': CONSORT flow diagram generator for clinical trials (v1.0.0)
+d 'CONSORT': CONSORT flow diagram generator for clinical trials (consort v1.0.0, consortq v1.0.1)
 d
 d This package provides two commands for generating CONSORT-style flow diagrams:
 d
@@ -14,7 +14,7 @@ d colors, text sizes, and dimensions. Export to PNG, PDF, EPS, SVG, etc.
 d
 d Requires: Stata version 16+
 d
-d Distribution-Date: 20251203
+d Distribution-Date: 20251209
 d License: MIT
 d
 d Author: Timothy P Copeland
@@ -34,4 +34,3 @@ f consort.sthlp
 f consort.dlg
 f consortq.ado
 f consortq.sthlp
-d

@@ -139,6 +139,70 @@ else {
 display as result "TEST 6: PASSED"
 
 * =============================================================================
+* TEST 7: consortq basic flow
+* =============================================================================
+
+display _n as result "TEST 7: consortq basic flow"
+display as result "-" * 40
+
+consortq, n1(10000) ///
+    exc1(2000) exc1_reasons("Missing data (n=1200);; Age < 18 (n=800)") ///
+    n2(8000) label2("Eligible patients") ///
+    exc2(500) exc2_reasons("No outcome data") ///
+    n3(7500) label3("Final cohort")
+
+assert r(nboxes) == 3
+assert r(n1) == 10000
+assert r(n2) == 8000
+assert r(n3) == 7500
+assert r(exc1) == 2000
+assert r(exc2) == 500
+
+display as result "TEST 7: PASSED"
+
+* =============================================================================
+* TEST 8: consortq auto-calculate n
+* =============================================================================
+
+display _n as result "TEST 8: consortq auto-calculate n"
+display as result "-" * 40
+
+consortq, n1(5000) ///
+    exc1(500) ///
+    exc2(200) ///
+    exc3(100) ///
+    label4("Final cohort")
+
+* Verify auto-calculation: 5000 -> 4500 -> 4300 -> 4200
+assert r(nboxes) == 4
+assert r(n1) == 5000
+assert r(n2) == 4500
+assert r(n3) == 4300
+assert r(n4) == 4200
+
+display as result "TEST 8: PASSED"
+
+* =============================================================================
+* TEST 9: consortq gap detection (error handling)
+* =============================================================================
+
+display _n as result "TEST 9: consortq gap detection"
+display as result "-" * 40
+
+* Test: specifying exc2 without exc1/n2/label2 should error
+capture noisily consortq, n1(10000) exc2(100)
+
+if _rc != 0 {
+    display as result "Correctly caught gap in flow specification"
+}
+else {
+    display as error "Should have caught gap detection error!"
+    exit 198
+}
+
+display as result "TEST 9: PASSED"
+
+* =============================================================================
 * SUMMARY
 * =============================================================================
 
