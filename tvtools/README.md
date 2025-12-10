@@ -611,7 +611,7 @@ tvevent using filename,
 
 | Option | Description | Default |
 |--------|-------------|---------|
-| `type(string)` | Event type: **single** or **recurring** | single |
+| `type(string)` | Event type: **single** or **recurring** (see below for wide format requirement) | single |
 | `generate(newvar)` | Name for event indicator variable | _failure |
 | `continuous(varlist)` | Cumulative exposure variables to adjust proportionally when splitting intervals | — |
 | `eventlabel(string)` | Custom value labels for the generated event variable | Derived from variable labels |
@@ -707,22 +707,32 @@ tvevent using cohort, id(id) date(death_dt) type(single) continuous(tv_exposure)
 
 If death occurs mid-interval, the continuous variable is adjusted by the ratio (new duration / original duration).
 
-#### Example 4: Recurring Events
+#### Example 4: Recurring Events (Wide Format)
 
-For events that can occur multiple times (e.g., hospitalizations):
+For events that can occur multiple times (e.g., hospitalizations), use `type(recurring)`. The event dataset must have dates in **wide format** with numbered suffixes:
 
 ```stata
+* Event dataset structure (one row per person, multiple date columns):
+* id  hosp1       hosp2       hosp3
+* 1   2020-01-15  2020-06-20  .
+* 2   2020-04-01  .           .
+
 use cohort, clear
 
 tvexpose using dmt, id(id) start(dmt_start) stop(dmt_stop) ///
     exposure(dmt) reference(0) ///
-    entry(study_entry) exit(study_exit)
+    entry(study_entry) exit(study_exit) ///
+    saveas(tv_intervals.dta) replace
 
-tvevent using hospitalizations, id(id) date(hosp_date) ///
+* Load event data with wide-format recurring events
+use hospitalizations, clear
+
+* date(hosp) finds hosp1, hosp2, hosp3, etc.
+tvevent using tv_intervals, id(id) date(hosp) ///
     type(recurring) generate(hospitalized)
 ```
 
-Unlike `type(single)`, recurring events do not truncate follow-up after the first event.
+The command automatically detects hosp1, hosp2, hosp3, etc. and processes all events. Unlike `type(single)`, recurring events do not truncate follow-up after the first event. Note that `compete()` is not supported with recurring events.
 
 #### Example 5: Generate Time Duration Variable
 
@@ -789,7 +799,7 @@ This complete workflow demonstrates:
 **Event Type Selection:**
 
 - **type(single)**: Use for terminal events (death, study outcomes). All follow-up after the first event is dropped. This is the most common scenario for survival analysis.
-- **type(recurring)**: Use for events that can occur multiple times per person (hospitalizations, disease relapses). Retains all follow-up time.
+- **type(recurring)**: Use for events that can occur multiple times per person (hospitalizations, disease relapses). Retains all follow-up time. **Important:** Requires wide-format event data where `date()` specifies a stubname (e.g., `date(hosp)` expects variables `hosp1`, `hosp2`, etc.). The `compete()` option is not supported with recurring events.
 
 **Continuous Variable Adjustment:**
 
@@ -914,7 +924,7 @@ MIT License
 
 ## Version
 
-Version 1.0.2, 2025-12-05
+Version 1.1.0, 2025-12-10
 
 ## Also See
 
