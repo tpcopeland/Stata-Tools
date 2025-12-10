@@ -4,6 +4,7 @@
 Department of Clinical Neuroscience
 Karolinska Institutet
 Stockholm, Sweden
+timothy.copeland@ki.se
 
 ---
 
@@ -11,7 +12,7 @@ Stockholm, Sweden
 
 Time-varying exposures present significant analytical challenges in survival studies. Researchers must transform raw exposure period data—such as medication dispensing records or treatment episodes—into analysis-ready datasets suitable for Cox regression or competing risks models. This process is labor-intensive, error-prone, and poorly supported by existing tools. This article introduces tvtools, a Stata package comprising three integrated commands: tvexpose creates time-varying exposure variables from period-based data with support for six exposure definitions (basic categorical, ever-treated, current/former, duration categories, continuous cumulative, and recency); tvmerge performs temporal alignment when merging multiple exposures using efficient batch processing; and tvevent integrates outcome events and competing risks with automatic interval splitting. The package workflow produces datasets compatible with stset, stcox, and stcrreg. Comprehensive examples demonstrate applications in pharmacoepidemiology, including addressing immortal time bias and conducting competing risks analyses. The tvtools package is available for Stata 16.0 and later.
 
-**Keywords:** st0001, survival analysis, time-varying covariates, competing risks, pharmacoepidemiology, Cox regression, exposure assessment
+**Keywords:** st0001, tvexpose, tvmerge, tvevent, survival analysis, time-varying covariates, competing risks, pharmacoepidemiology, Cox regression, exposure assessment
 
 ---
 
@@ -61,7 +62,7 @@ The package handles common complications including overlapping exposures, gaps i
 
 ### 1.4 Paper organization
 
-Section 2 provides background on time-varying covariates in survival analysis. Section 3 describes the tvtools workflow and data requirements. Sections 4–6 detail each command. Section 7 presents comprehensive examples. Section 8 compares tvtools with alternative approaches. Section 9 concludes.
+Section 2 provides background on time-varying covariates in survival analysis. Section 3 describes the tvtools workflow and data requirements. Sections 4–6 detail each command. Section 7 presents comprehensive examples. Section 8 compares tvtools with alternative approaches. Section 9 discusses design decisions and limitations. Section 10 concludes.
 
 ---
 
@@ -71,9 +72,9 @@ Section 2 provides background on time-varying covariates in survival analysis. S
 
 The Cox proportional hazards model with time-varying covariates takes the form:
 
-$$h(t|X(t)) = h_0(t) \exp(\beta' X(t))$$
+$$h(t|\mathbf{x}(t)) = h_0(t) \exp(\boldsymbol{\beta}' \mathbf{x}(t))$$
 
-where $h_0(t)$ is the baseline hazard and $X(t)$ represents covariate values at time $t$. The partial likelihood is computed over risk sets at each failure time, with covariates evaluated at their values at those times (Therneau and Grambsch 2000).
+where $h_0(t)$ is the baseline hazard and $\mathbf{x}(t)$ represents the covariate vector at time $t$. The partial likelihood is computed over risk sets at each failure time, with covariates evaluated at their values at those times (Therneau and Grambsch 2000).
 
 In practice, Stata implements time-varying covariates using the counting process formulation with data in the form:
 
@@ -125,7 +126,8 @@ The tvevent command creates this structure, determining which event occurred fir
 The tvtools package can be installed from GitHub:
 
 ```stata
-net install tvtools, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/tvtools")
+net install tvtools, ///
+    from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/tvtools")
 ```
 
 This installs three commands (tvexpose, tvmerge, tvevent) along with their help files and optional dialog interfaces.
@@ -389,9 +391,9 @@ The post-event interval is dropped for type(single) (the default), which is appr
 
 When intervals are split, cumulative exposure variables should be proportionally adjusted. The continuous(*varlist*) option handles this automatically:
 
-$$\text{new value} = \text{old value} \times \frac{\text{new duration}}{\text{original duration}}$$
+$$v_{\text{new}} = v_{\text{old}} \times \frac{d_{\text{new}}}{d_{\text{old}}}$$
 
-This preserves the correct rate and ensures that cumulative totals sum correctly.
+where $v$ represents the cumulative variable value and $d$ represents duration. This preserves the correct rate and ensures that cumulative totals sum correctly.
 
 ### 6.6 Event types
 
@@ -434,10 +436,12 @@ generate female = runiform() < 0.55
 format study_entry study_exit %tdCCYY-NN-DD
 
 * Generate outcome dates (30% event rate)
-generate death_dt = study_entry + floor(runiform() * (study_exit - study_entry)) ///
+generate followup = study_exit - study_entry
+generate death_dt = study_entry + floor(runiform() * followup) ///
     if runiform() < 0.15
-generate outcome_dt = study_entry + floor(runiform() * (study_exit - study_entry)) ///
+generate outcome_dt = study_entry + floor(runiform() * followup) ///
     if runiform() < 0.20 & missing(death_dt)
+drop followup
 format death_dt outcome_dt %tdCCYY-NN-DD
 
 save cohort, replace
@@ -569,10 +573,11 @@ tvexpose using medications2, id(id) start(rx_start) stop(rx_stop) ///
     generate(med2) saveas(tv_med2.dta) replace
 
 * Merge the two time-varying datasets
-tvmerge tv_med1 tv_med2, id(id) ///
-    start(rx_start rx_start) stop(rx_stop rx_stop) ///
+tvmerge tv_med1.dta tv_med2.dta, id(id) ///
+    start(start start) stop(stop stop) ///
     exposure(med1 med2) ///
-    generate(medication1 medication2)
+    generate(medication1 medication2) ///
+    saveas(tv_merged.dta) replace
 
 * Integrate events
 tvevent using cohort, id(id) date(outcome_dt) compete(death_dt) ///
@@ -783,11 +788,11 @@ Timothy P. Copeland is a researcher at the Department of Clinical Neuroscience, 
 
 ## References
 
-Fine, J. P., and R. J. Gray. 1999. A proportional hazards model for the subdistribution of a competing risk. *Journal of the American Statistical Association* 94(446): 496–509.
+Fine, J. P., and R. J. Gray. 1999. A proportional hazards model for the subdistribution of a competing risk. *Journal of the American Statistical Association* 94: 496–509. https://doi.org/10.1080/01621459.1999.10474144.
 
 Hernán, M. A., and J. M. Robins. 2020. *Causal Inference: What If*. Boca Raton: Chapman & Hall/CRC.
 
-Suissa, S. 2007. Immortal time bias in observational studies of drug effects. *Pharmacoepidemiology and Drug Safety* 16(3): 241–249.
+Suissa, S. 2007. Immortal time bias in observational studies of drug effects. *Pharmacoepidemiology and Drug Safety* 16: 241–249. https://doi.org/10.1002/pds.1357.
 
 Therneau, T. M., and P. M. Grambsch. 2000. *Modeling Survival Data: Extending the Cox Model*. New York: Springer.
 
