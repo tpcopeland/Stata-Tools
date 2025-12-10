@@ -1,4 +1,4 @@
-*! tvevent Version 1.0.2  10dec2025
+*! tvevent Version 1.1.0  10dec2025
 *! Add event/failure flags to time-varying datasets
 *! Author: Tim Copeland
 *!
@@ -52,7 +52,40 @@ program define tvevent, rclass
         di as error "type() must be either 'single' or 'recurring'"
         exit 198
     }
-    
+
+    * For recurring events, detect wide-format event variables (date1, date2, ...)
+    local eventvars ""
+    local n_eventvars = 0
+    if "`type'" == "recurring" {
+        local eventnum = 1
+        while 1 {
+            capture confirm variable `date'`eventnum'
+            if _rc {
+                continue, break
+            }
+            local eventvars "`eventvars' `date'`eventnum'"
+            local eventnum = `eventnum' + 1
+        }
+        local eventvars = strtrim("`eventvars'")
+        local n_eventvars : word count `eventvars'
+
+        * Validation: error if no event variables found
+        if `n_eventvars' == 0 {
+            di as error "type(recurring) requires wide-format event variables."
+            di as error "No variables found matching pattern `date'1, `date'2, ..."
+            di as error "Ensure your event data has variables like `date'1, `date'2, `date'3, etc."
+            exit 111
+        }
+
+        * Validation: warn if only one event variable
+        if `n_eventvars' == 1 {
+            di as txt "Note: Only one event variable (`date'1) found with type(recurring)."
+            di as txt "      Consider type(single) if events do not recur."
+        }
+
+        di as txt "Recurring events: Found `n_eventvars' event variables (`eventvars')"
+    }
+
     if "`timeunit'" == "" local timeunit "days"
     local timeunit = lower("`timeunit'")
     if !inlist("`timeunit'", "days", "months", "years") {
@@ -67,10 +100,39 @@ program define tvevent, rclass
         exit 111
     }
 
-    capture confirm variable `date'
-    if _rc {
-        di as error "Date variable `date' not found in master (event) dataset."
-        exit 111
+    * Check for duplicate IDs in master (should be 1 row per person for event data)
+    tempvar dup_check
+    quietly bysort `id': gen `dup_check' = _N
+    quietly count if `dup_check' > 1
+    if r(N) > 0 {
+        local dup_ids = r(N)
+        di as txt "Warning: Master (event) dataset has multiple rows per `id' (`dup_ids' observations affected)."
+        di as txt "         Event data should have one row per person with event dates in columns."
+        if "`type'" == "recurring" {
+            di as txt "         For recurring events, use wide format: `date'1, `date'2, etc."
+        }
+    }
+    drop `dup_check'
+
+    * Validate date variable(s) based on event type
+    if "`type'" == "recurring" {
+        * For recurring: eventvars already validated above
+        * Validate each event variable is numeric (date)
+        foreach evar of local eventvars {
+            capture confirm numeric variable `evar'
+            if _rc {
+                di as error "Event variable `evar' must be numeric (date format)."
+                exit 109
+            }
+        }
+    }
+    else {
+        * For single: validate date variable exists
+        capture confirm variable `date'
+        if _rc {
+            di as error "Date variable `date' not found in master (event) dataset."
+            exit 111
+        }
     }
 
     if "`compete'" != "" {
@@ -83,17 +145,27 @@ program define tvevent, rclass
         }
     }
     
-    * Default keepvars to all variables in master except id and date/compete
+    * Default keepvars to all variables in master except id, date/eventvars, and compete
     if "`keepvars'" == "" {
         foreach v of varlist * {
-            if "`v'" != "`id'" & "`v'" != "`date'" {
-                local is_compete = 0
-                foreach c of local compete {
-                    if "`v'" == "`c'" local is_compete = 1
+            local is_excluded = 0
+            * Exclude id
+            if "`v'" == "`id'" local is_excluded = 1
+            * Exclude date (for single) or eventvars (for recurring)
+            if "`type'" == "recurring" {
+                foreach evar of local eventvars {
+                    if "`v'" == "`evar'" local is_excluded = 1
                 }
-                if !`is_compete' {
-                    local keepvars "`keepvars' `v'"
-                }
+            }
+            else {
+                if "`v'" == "`date'" local is_excluded = 1
+            }
+            * Exclude compete variables
+            foreach c of local compete {
+                if "`v'" == "`c'" local is_excluded = 1
+            }
+            if !`is_excluded' {
+                local keepvars "`keepvars' `v'"
             }
         }
         local keepvars = strtrim("`keepvars'")
@@ -103,44 +175,88 @@ program define tvevent, rclass
 
         **# 2. PREPARE DATASETS
 
-        * Capture labels from master (event) dataset before processing
-        local lab_1 : variable label `date'
-        if "`lab_1'" == "" local lab_1 "Event: `date'"
-        
-        local num_compete : word count `compete'
-        if `num_compete' > 0 {
-            local i = 1
-            foreach v of local compete {
-                local c_lab_`i' : variable label `v'
-                if "`c_lab_`i''" == "" local c_lab_`i' "Competing: `v'"
-                local i = `i' + 1
+        if "`type'" == "recurring" {
+            * --- RECURRING EVENTS: Reshape wide to long ---
+
+            * Capture label from first event variable
+            local first_evar : word 1 of `eventvars'
+            local lab_1 : variable label `first_evar'
+            if "`lab_1'" == "" local lab_1 "Event: `date'"
+
+            * Note: competing risks not supported with recurring events
+            if "`compete'" != "" {
+                noisily di as txt "Note: compete() option ignored for recurring events."
+                local compete ""
             }
+            local num_compete = 0
+
+            * Keep only needed variables for reshape
+            keep `id' `eventvars' `keepvars'
+
+            * Reshape wide event dates to long format
+            * eventvars are: date1 date2 date3 ...
+            gen long _obs = _n
+            reshape long `date', i(`id' _obs `keepvars') j(_eventnum)
+
+            * Drop missing event dates and temporary variables
+            drop if missing(`date')
+            drop _obs _eventnum
+
+            * Floor dates and set event type (all are type 1 for recurring)
+            replace `date' = floor(`date')
+            gen int _event_type = 1
+
+            * Remove duplicate id-date combinations (same event on same date)
+            duplicates drop `id' `date', force
+
+            * Sort by id and date for proper processing
+            sort `id' `date'
+
+            tempfile events
+            save `events'
         }
-        
-        * -- COMPETING RISK LOGIC: Determine earliest event per person --
-        replace `date' = floor(`date')
-        gen double _eff_date = `date'
-        gen int _eff_type = 1 if !missing(`date')
-        
-        local k = 2
-        foreach v of local compete {
-             replace `v' = floor(`v')
-             replace _eff_type = `k' if !missing(`v') & (`v' < _eff_date | missing(_eff_date))
-             replace _eff_date = `v' if !missing(`v') & (`v' < _eff_date | missing(_eff_date))
-             local k = `k' + 1
+        else {
+            * --- SINGLE EVENTS: Original logic with competing risks ---
+
+            * Capture labels from master (event) dataset before processing
+            local lab_1 : variable label `date'
+            if "`lab_1'" == "" local lab_1 "Event: `date'"
+
+            local num_compete : word count `compete'
+            if `num_compete' > 0 {
+                local i = 1
+                foreach v of local compete {
+                    local c_lab_`i' : variable label `v'
+                    if "`c_lab_`i''" == "" local c_lab_`i' "Competing: `v'"
+                    local i = `i' + 1
+                }
+            }
+
+            * -- COMPETING RISK LOGIC: Determine earliest event per person --
+            replace `date' = floor(`date')
+            gen double _eff_date = `date'
+            gen int _eff_type = 1 if !missing(`date')
+
+            local k = 2
+            foreach v of local compete {
+                 replace `v' = floor(`v')
+                 replace _eff_type = `k' if !missing(`v') & (`v' < _eff_date | missing(_eff_date))
+                 replace _eff_date = `v' if !missing(`v') & (`v' < _eff_date | missing(_eff_date))
+                 local k = `k' + 1
+            }
+
+            * Clean up event data
+            keep if !missing(_eff_date)
+            capture drop `date'
+            rename _eff_date `date'
+            rename _eff_type _event_type
+
+            keep `id' `date' _event_type `keepvars'
+            duplicates drop `id' `date', force
+
+            tempfile events
+            save `events'
         }
-        
-        * Clean up event data
-        keep if !missing(_eff_date)
-        capture drop `date'
-        rename _eff_date `date'
-        rename _eff_type _event_type
-        
-        keep `id' `date' _event_type `keepvars'
-        duplicates drop `id' `date', force
-        
-        tempfile events
-        save `events'
 
         * Load USING dataset (interval data from tvexpose/tvmerge)
         use "`using'", clear

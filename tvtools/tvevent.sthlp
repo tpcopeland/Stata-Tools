@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.2  2025/12/10}{...}
+{* *! version 1.1.0  2025/12/10}{...}
 {vieweralsosee "[ST] stset" "help stset"}{...}
 {vieweralsosee "[ST] stcrreg" "help stcrreg"}{...}
 {vieweralsosee "tvexpose" "help tvexpose"}{...}
@@ -111,6 +111,12 @@ If {cmd:type(single)} is used (default), all data after the first occurring even
 {opt type(string)} specifies the event logic.
 {break}{bf:single} (default): Treats the first event as terminal. Drops all follow-up time after the first event.
 {break}{bf:recurring}: Allows multiple events per person. Splits intervals as needed but retains all follow-up time.
+{break}
+{break}{bf:Important:} For {cmd:type(recurring)}, event dates must be in {bf:wide format} with the variable name
+specified in {cmd:date()} serving as a stubname. For example, if you specify {cmd:date(hosp)}, the command
+expects variables {cmd:hosp1}, {cmd:hosp2}, {cmd:hosp3}, etc. in the event dataset. This avoids many-to-many
+merge issues when your interval data already has multiple rows per person. The {cmd:compete()} option is
+not supported with recurring events.
 
 {phang}
 {opt generate(newvar)} names the new outcome variable. Default is {cmd:_failure}.
@@ -205,23 +211,35 @@ If death occurs mid-interval, the continuous variable is adjusted by the ratio
 
 
 {pstd}
-{bf:Example 4: Recurring Events}
+{bf:Example 4: Recurring Events (Wide Format)}
 
 {pstd}
-For events that can occur multiple times (e.g., hospitalizations), use {cmd:type(recurring)}
-to retain all follow-up time:
+For events that can occur multiple times (e.g., hospitalizations), use {cmd:type(recurring)}.
+The event dataset must have dates in {bf:wide format} with numbered suffixes (hosp1, hosp2, etc.):
+
+{phang2}{cmd:. * Event dataset structure (one row per person, multiple date columns):}{p_end}
+{phang2}{cmd:. * id  hosp1       hosp2       hosp3}{p_end}
+{phang2}{cmd:. * 1   2020-01-15  2020-06-20  .}{p_end}
+{phang2}{cmd:. * 2   2020-04-01  .           .}{p_end}
 
 {phang2}{cmd:. use cohort, clear}{p_end}
 
 {phang2}{cmd:. tvexpose using dmt, id(id) start(dmt_start) stop(dmt_stop) ///}{p_end}
 {phang3}{cmd:exposure(dmt) reference(0) ///}{p_end}
-{phang3}{cmd:entry(study_entry) exit(study_exit)}{p_end}
+{phang3}{cmd:entry(study_entry) exit(study_exit) ///}{p_end}
+{phang3}{cmd:saveas(tv_intervals.dta) replace}{p_end}
 
-{phang2}{cmd:. tvevent using hospitalizations, id(id) date(hosp_date) ///}{p_end}
+{phang2}{cmd:. * Load event data with wide-format recurring events}{p_end}
+{phang2}{cmd:. use hospitalizations, clear}{p_end}
+
+{phang2}{cmd:. * date(hosp) finds hosp1, hosp2, hosp3, etc.}{p_end}
+{phang2}{cmd:. tvevent using tv_intervals, id(id) date(hosp) ///}{p_end}
 {phang3}{cmd:type(recurring) generate(hospitalized)}{p_end}
 
 {pstd}
+The command automatically detects hosp1, hosp2, hosp3, etc. and processes all events.
 Unlike {cmd:type(single)}, recurring events do not truncate follow-up after the first event.
+Note that {cmd:compete()} is not supported with recurring events.
 
 
 {pstd}
@@ -297,7 +315,7 @@ Full pipeline showing tvexpose, tvmerge, and tvevent integration:
 {pstd}Timothy P Copeland{p_end}
 {pstd}Department of Clinical Neuroscience{p_end}
 {pstd}Karolinska Institutet{p_end}
-{pstd}Version 1.0.2, 2025-12-10{p_end}
+{pstd}Version 1.1.0, 2025-12-10{p_end}
 
 {title:Also see}
 
