@@ -4,7 +4,6 @@
 Department of Clinical Neuroscience
 Karolinska Institutet
 Stockholm, Sweden
-timothy.copeland@ki.se
 
 ---
 
@@ -772,7 +771,7 @@ The package addresses a critical gap in epidemiological data preparation, enabli
 
 ## Acknowledgments
 
-The author thanks colleagues at the Department of Clinical Neuroscience, Karolinska Institutet, for valuable discussions during package development.
+The author thanks Kyla McKay and Katharina Fink (Department of Clinical Neuroscience, Karolinska Institutet) for supporting the development of this package.
 
 ---
 
