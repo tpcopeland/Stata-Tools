@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.0  2025/12/02}{...}
+{* *! version 1.0.2  2025/12/10}{...}
 {vieweralsosee "[ST] stset" "help stset"}{...}
 {vieweralsosee "[ST] stcrreg" "help stcrreg"}{...}
 {vieweralsosee "tvexpose" "help tvexpose"}{...}
@@ -297,7 +297,7 @@ Full pipeline showing tvexpose, tvmerge, and tvevent integration:
 {pstd}Timothy P Copeland{p_end}
 {pstd}Department of Clinical Neuroscience{p_end}
 {pstd}Karolinska Institutet{p_end}
-{pstd}Version 1.0.0, 2025-11-17{p_end}
+{pstd}Version 1.0.2, 2025-12-10{p_end}
 
 {title:Also see}
 

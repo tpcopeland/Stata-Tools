@@ -1,4 +1,4 @@
-*! tvevent Version 1.0.1  03dec2025
+*! tvevent Version 1.0.2  10dec2025
 *! Add event/failure flags to time-varying datasets
 *! Author: Tim Copeland
 *!
@@ -155,39 +155,51 @@ program define tvevent, rclass
         * --- Validate USING dataset (interval data) ---
         capture confirm variable `id'
         if _rc {
-             di as error "ID variable `id' not found in using (interval) dataset."
+             noisily di as error "ID variable `id' not found in using (interval) dataset."
              exit 111
         }
 
         foreach v in start stop {
             capture confirm variable `v'
             if _rc {
-                di as error "Variable '`v'' not found in using (interval) dataset. tvevent requires output from tvexpose/tvmerge."
+                noisily di as error "Variable '`v'' not found in using (interval) dataset. tvevent requires output from tvexpose/tvmerge."
                 exit 111
             }
         }
+
+        * Capture original formats from using dataset to restore later
+        local orig_start_fmt : format start
+        local orig_stop_fmt : format stop
 
         if "`continuous'" != "" {
             foreach v of local continuous {
                 capture confirm numeric variable `v'
                 if _rc {
-                    di as error "Continuous variable `v' not found or is not numeric in using (interval) dataset."
+                    noisily di as error "Continuous variable `v' not found or is not numeric in using (interval) dataset."
                     exit 111
                 }
             }
+        }
+
+        * Check for variable name collision with date variable from master
+        capture confirm variable `date'
+        if _rc == 0 {
+            noisily di as error "Variable `date' exists in both master (event) and using (interval) datasets."
+            noisily di as error "Rename the date variable in one dataset to avoid collision."
+            exit 110
         }
 
         * Check replace option (generate/timegen will be created in interval data)
         if "`replace'" == "" {
             capture confirm variable `generate'
             if _rc == 0 {
-                di as error "Variable `generate' already exists in using dataset. Use replace option."
+                noisily di as error "Variable `generate' already exists in using dataset. Use replace option."
                 exit 110
             }
             if "`timegen'" != "" {
                 capture confirm variable `timegen'
                 if _rc == 0 {
-                    di as error "Variable `timegen' already exists in using dataset. Use replace option."
+                    noisily di as error "Variable `timegen' already exists in using dataset. Use replace option."
                     exit 110
                 }
             }
@@ -234,8 +246,7 @@ program define tvevent, rclass
             expand 2 if _needs_split, gen(_copy)
             replace stop = `date' if _needs_split & _copy == 0
             replace start = `date' if _needs_split & _copy == 1
-            drop _needs_split _copy
-            * Note: joinby does not create _merge (unlike merge command)
+            drop _needs_split _copy `date'
             sort `id' start stop
             duplicates drop `id' start stop, force
         }
@@ -289,8 +300,8 @@ program define tvevent, rclass
             exit `frame_rc'
         }
 
-        drop `match_date' `imported_type'
-        
+        drop `match_date' `imported_type' `event_frame'
+
         **# 6. APPLY LABELS
         
         * A. Define Defaults (from Variable Labels)
@@ -313,7 +324,7 @@ program define tvevent, rclass
             * Use 'modify' to overwrite specific values or add new ones
             capture label define `generate'_lbl `eventlabel', modify
             if _rc {
-                 di as error "Error applying eventlabel(). Ensure syntax follows 'value \"Label\"' pairs."
+                 noisily di as error "Error applying eventlabel(). Ensure syntax follows 'value \"Label\"' pairs."
                  exit 198
             }
         }
@@ -359,11 +370,9 @@ program define tvevent, rclass
             drop `days_diff'
         }
 
-        * Apply date format only if not already formatted as date
-        local start_fmt : format start
-        if substr("`start_fmt'", 1, 2) != "%t" {
-            format start stop %tdCCYY/NN/DD
-        }
+        * Restore original date formats from using dataset
+        format start `orig_start_fmt'
+        format stop `orig_stop_fmt'
         sort `id' start stop
         
         count if `generate' > 0
