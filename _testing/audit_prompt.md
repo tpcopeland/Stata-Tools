@@ -579,7 +579,8 @@ When uncertain about a pattern, compare against these known-working .ado files i
 |------|-----------------|
 | `check/check.ado` | Simple rclass program, validation |
 | `today/today.ado` | Option parsing, timezone handling |
-| `tvtools/tvevent.ado` | Complex program, frames, tempfiles |
+| `tvtools/tvexpose.ado` | Complex program, comprehensive test coverage (37 tests) |
+| `tvtools/tvevent.ado` | Frames, tempfiles, competing risks logic |
 | `datamap/datamap.ado` | File operations, SMCL output |
 | `synthdata/synthdata.ado` | Data generation, many options |
 
@@ -752,7 +753,7 @@ AUDIT COMPLETE: [timestamp]
 ### Full Audit of Single Package
 
 ```
-Please audit the tvtools/tvevent.ado file using the audit prompt in
+Please audit the tvtools/tvexpose.ado file using the audit prompt in
 _testing/audit_prompt.md. Use fix mode - apply corrections as needed.
 ```
 
