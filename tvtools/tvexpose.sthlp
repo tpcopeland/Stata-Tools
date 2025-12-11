@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.1.0  2025/12/11}{...}
+{* *! version 1.1.1  2025/12/11}{...}
 {vieweralsosee "[ST] stset" "help stset"}{...}
 {vieweralsosee "[ST] stsplit" "help stsplit"}{...}
 {vieweralsosee "[ST] stcox" "help stcox"}{...}
@@ -33,7 +33,7 @@
 {cmd:id(}{varname}{cmd:)}
 {cmd:start(}{varname}{cmd:)}
 {cmd:exposure(}{varname}{cmd:)}
-{cmd:reference(}{it:#}{cmd:)}
+[{cmd:reference(}{it:#}{cmd:)}]
 {cmd:entry(}{varname}{cmd:)}
 {cmd:exit(}{varname}{cmd:)}
 [{it:options}]
@@ -46,7 +46,7 @@
 {synopt:{opt id(varname)}}person identifier linking to master dataset{p_end}
 {synopt:{opt start(varname)}}start date of exposure period in using dataset{p_end}
 {synopt:{opt exposure(varname)}}exposure variable: categorical status OR dose amount (with {cmd:dose}){p_end}
-{synopt:{opt reference(#)}}value indicating unexposed/reference status (not allowed with {cmd:dose}){p_end}
+{synopt:{opt reference(#)}}value indicating unexposed/reference status; required except with {cmd:dose}{p_end}
 {synopt:{opt entry(varname)}}study entry date from master dataset{p_end}
 {synopt:{opt exit(varname)}}study exit date from master dataset{p_end}
 
@@ -158,7 +158,8 @@ exposure dataset. This identifies what type of exposure occurred in each period.
 
 {phang}
 {opt reference(#)} specifies the value in the exposure variable that represents
-the unexposed or reference state. This is typically 0.
+the unexposed or reference state. This is typically 0. Required for all exposure
+types except {cmd:dose}, where it defaults to 0 (the inherent reference).
 
 {phang}
 {opt entry(varname)} specifies the variable in the master dataset containing each
@@ -227,8 +228,8 @@ contains the dose amount per period (e.g., grams of medication) rather than
 a categorical exposure type. When periods overlap, dose is allocated proportionally
 based on daily dose rates. For example, if two 30-day prescriptions of 1 gram each
 have a 10-day overlap, the overlap period receives ((10/30)*1) + ((10/30)*1) = 0.667 grams.
-The {cmd:reference()} option cannot be used with {cmd:dose}; 0 cumulative dose is
-the inherent reference category. The {cmd:bytype} option is not supported with dose.
+The {cmd:reference()} option defaults to 0 for {cmd:dose} mode (the inherent reference
+category) and can be omitted. The {cmd:bytype} option is not supported with dose.
 
 {phang}
 {opt dosecuts(numlist)} creates categorical dose output instead of continuous.

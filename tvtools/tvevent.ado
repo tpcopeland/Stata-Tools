@@ -1,4 +1,4 @@
-*! tvevent Version 1.1.1  11dec2025
+*! tvevent Version 1.1.2  11dec2025
 *! Add event/failure flags to time-varying datasets
 *! Author: Tim Copeland
 *!
@@ -416,7 +416,7 @@ program define tvevent, rclass
             exit `frame_rc'
         }
 
-        drop `match_date' `imported_type' `event_frame'
+        drop `match_date' `imported_type'
 
         **# 6. APPLY LABELS
         

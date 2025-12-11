@@ -956,7 +956,7 @@ MIT License
 
 ## Version
 
-Version 1.1.0, 2025-12-11
+Version 1.1.1, 2025-12-11
 
 ## Also See
 
