@@ -1,4 +1,4 @@
-*! tvevent Version 1.1.0  10dec2025
+*! tvevent Version 1.1.1  11dec2025
 *! Add event/failure flags to time-varying datasets
 *! Author: Tim Copeland
 *!
@@ -30,7 +30,7 @@ program define tvevent, rclass
 
     syntax using/ , ///
         id(varname) ///
-        Date(varname) ///
+        Date(name) ///
         [GENerate(name) ///
          Type(string) ///
          KEEPvars(namelist) ///
