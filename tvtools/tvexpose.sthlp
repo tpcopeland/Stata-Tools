@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.0  2025/12/02}{...}
+{* *! version 1.1.0  2025/12/11}{...}
 {vieweralsosee "[ST] stset" "help stset"}{...}
 {vieweralsosee "[ST] stsplit" "help stsplit"}{...}
 {vieweralsosee "[ST] stcox" "help stcox"}{...}
@@ -45,8 +45,8 @@
 {syntab:Required}
 {synopt:{opt id(varname)}}person identifier linking to master dataset{p_end}
 {synopt:{opt start(varname)}}start date of exposure period in using dataset{p_end}
-{synopt:{opt exposure(varname)}}categorical exposure status variable{p_end}
-{synopt:{opt reference(#)}}value indicating unexposed/reference status{p_end}
+{synopt:{opt exposure(varname)}}exposure variable: categorical status OR dose amount (with {cmd:dose}){p_end}
+{synopt:{opt reference(#)}}value indicating unexposed/reference status (not allowed with {cmd:dose}){p_end}
 {synopt:{opt entry(varname)}}study entry date from master dataset{p_end}
 {synopt:{opt exit(varname)}}study exit date from master dataset{p_end}
 
@@ -63,6 +63,8 @@
 {synopt:{opt expandunit(unit)}}row expansion granularity for continuous exposure (days, weeks, months, quarters, years){p_end}
 {synopt:{opt bytype}}create separate variables for each exposure type{p_end}
 {synopt:{opt recency(numlist)}}time since last exposure categories{p_end}
+{synopt:{opt dose}}cumulative dose tracking (exposure contains dose amounts){p_end}
+{synopt:{opt dosecuts(numlist)}}cutpoints for dose categorization (use with {cmd:dose}){p_end}
 
 {syntab:Data handling}
 {synopt:{opt grace(#)}}days grace period to merge gaps (default: 0){p_end}
@@ -218,6 +220,21 @@ type. Useful when different exposure types have independent effects.
 The numlist specifies category boundaries in years. For example,
 {cmd:recency(1 5)} creates: current exposure, <1 year since last,
 1 to <5 years since last, ≥5 years since last.
+
+{phang}
+{opt dose} enables cumulative dose tracking where the {cmd:exposure()} variable
+contains the dose amount per period (e.g., grams of medication) rather than
+a categorical exposure type. When periods overlap, dose is allocated proportionally
+based on daily dose rates. For example, if two 30-day prescriptions of 1 gram each
+have a 10-day overlap, the overlap period receives ((10/30)*1) + ((10/30)*1) = 0.667 grams.
+The {cmd:reference()} option cannot be used with {cmd:dose}; 0 cumulative dose is
+the inherent reference category. The {cmd:bytype} option is not supported with dose.
+
+{phang}
+{opt dosecuts(numlist)} creates categorical dose output instead of continuous.
+The numlist specifies ascending cutpoints for categorization. For example,
+{cmd:dose dosecuts(5 10 20)} creates: 0=no dose, 1=<5, 2=5-<10, 3=10-<20, 4=20+.
+Requires the {cmd:dose} option.
 
 
 {marker data_handling}{...}
@@ -761,6 +778,40 @@ Create separate exposure variables for different calendar periods:
 
 {pstd}
 Restricts analysis to persons entering after 2015 and examines exposure trends by calendar year. Useful for assessing temporal changes in treatment patterns.
+
+
+{pstd}
+{bf:Example 19: Cumulative dose tracking}
+
+{pstd}
+Track cumulative medication dose for dose-response analysis:
+
+{phang2}{cmd:. use cohort, clear}{p_end}
+
+{phang2}{cmd:. tvexpose using hrt, id(id) start(rx_start) stop(rx_stop) ///}{p_end}
+{phang3}{cmd:exposure(dose) reference(0) ///}{p_end}
+{phang3}{cmd:entry(study_entry) exit(study_exit) ///}{p_end}
+{phang3}{cmd:dose generate(cumul_dose)}{p_end}
+
+{pstd}
+Creates cumul_dose showing cumulative dose at each time point. When prescriptions overlap, dose is allocated proportionally based on daily dose rates.
+
+
+{pstd}
+{bf:Example 20: Categorical dose for dose-response}
+
+{pstd}
+Create categorical cumulative dose for dose-response analysis:
+
+{phang2}{cmd:. use cohort, clear}{p_end}
+
+{phang2}{cmd:. tvexpose using hrt, id(id) start(rx_start) stop(rx_stop) ///}{p_end}
+{phang3}{cmd:exposure(dose) reference(0) ///}{p_end}
+{phang3}{cmd:entry(study_entry) exit(study_exit) ///}{p_end}
+{phang3}{cmd:dose dosecuts(5 10 20) generate(dose_cat)}{p_end}
+
+{pstd}
+Creates dose_cat with categories: 0=no dose, 1=<5, 2=5-<10, 3=10-<20, 4=20+. Useful for Cox regression with categorized dose-response.
 
 
 {marker results}{...}

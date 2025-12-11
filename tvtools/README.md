@@ -30,7 +30,7 @@ Raw exposure data
 
 ### Key Features
 
-- **Comprehensive exposure definitions**: Basic time-varying, ever-treated, current/former, duration categories, continuous cumulative, recency
+- **Comprehensive exposure definitions**: Basic time-varying, ever-treated, current/former, duration categories, continuous cumulative, recency, dose tracking
 - **Advanced data handling**: Grace periods, gap filling, overlap resolution, lag/washout periods
 - **Flexible merging**: Cartesian product temporal matching, continuous vs categorical exposures, batch processing
 - **Competing risks support**: Multiple competing events, automatic interval splitting, custom event labels
@@ -95,6 +95,8 @@ tvexpose using filename,
 | `expandunit(unit)` | Row expansion granularity: days, weeks, months, quarters, years | — |
 | `bytype` | Create separate variables for each exposure type | Single variable |
 | `recency(numlist)` | Time since last exposure categories (cutpoints in years) | — |
+| `dose` | Cumulative dose tracking (exposure contains dose amounts) | — |
+| `dosecuts(numlist)` | Cutpoints for dose categorization (use with `dose`) | — |
 
 ### Data Handling Options
 
@@ -259,7 +261,37 @@ tvexpose using dmt, id(id) start(dmt_start) stop(dmt_stop) ///
 
 Creates `tv_exp1` through `tv_exp6` showing cumulative years on each specific DMT type.
 
-#### Example 8: Complete Workflow for Survival Analysis
+#### Example 8: Cumulative Dose Tracking
+
+Track cumulative medication dose for dose-response analysis:
+
+```stata
+use cohort, clear
+
+tvexpose using hrt, id(id) start(rx_start) stop(rx_stop) ///
+    exposure(dose) reference(0) ///
+    entry(study_entry) exit(study_exit) ///
+    dose generate(cumul_dose)
+```
+
+Creates `cumul_dose` showing cumulative dose at each time point. When prescriptions overlap, dose is allocated proportionally based on daily dose rates.
+
+#### Example 9: Categorical Dose for Dose-Response
+
+Create categorical cumulative dose for dose-response analysis:
+
+```stata
+use cohort, clear
+
+tvexpose using hrt, id(id) start(rx_start) stop(rx_stop) ///
+    exposure(dose) reference(0) ///
+    entry(study_entry) exit(study_exit) ///
+    dose dosecuts(5 10 20) generate(dose_cat)
+```
+
+Creates `dose_cat` with categories: 0=no dose, 1=<5, 2=5-<10, 3=10-<20, 4=20+.
+
+#### Example 10: Complete Workflow for Survival Analysis
 
 Full analysis pipeline from time-varying exposure to Cox regression:
 
@@ -924,7 +956,7 @@ MIT License
 
 ## Version
 
-Version 1.1.0, 2025-12-10
+Version 1.1.0, 2025-12-11
 
 ## Also See
 
