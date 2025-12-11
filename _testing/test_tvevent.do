@@ -20,8 +20,19 @@ clear all
 set more off
 version 16.0
 
-* Get directory of this do file
-local testdir = c(pwd)
+* =============================================================================
+* SETUP: Change to data directory and install package from local repository
+* =============================================================================
+
+* Data directory for test datasets
+cd "/Users/tcopeland/Documents/GitHub/Stata-Tools/_testing/data/"
+
+* Install tvtools package from local repository
+local basedir "/Users/tcopeland/Documents/GitHub/Stata-Tools"
+capture net uninstall tvtools
+net install tvtools, from("`basedir'/tvtools")
+
+local testdir "`c(pwd)'"
 
 * Check for required test data
 capture confirm file "`testdir'/cohort.dta"

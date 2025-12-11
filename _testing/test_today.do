@@ -15,6 +15,20 @@ clear all
 set more off
 version 16.0
 
+* =============================================================================
+* SETUP: Change to data directory and install package from local repository
+* =============================================================================
+
+* Data directory for test datasets
+cd "/Users/tcopeland/Documents/GitHub/Stata-Tools/_testing/data/"
+
+* Install today package from local repository
+local basedir "/Users/tcopeland/Documents/GitHub/Stata-Tools"
+capture net uninstall today
+net install today, from("`basedir'/today")
+
+local testdir "`c(pwd)'"
+
 display as text _n "{hline 70}"
 display as text "TODAY COMMAND TESTING"
 display as text "{hline 70}"

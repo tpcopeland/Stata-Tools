@@ -15,8 +15,19 @@ clear all
 set more off
 version 16.0
 
-* Get directory of this do file
-local testdir = c(pwd)
+* =============================================================================
+* SETUP: Change to data directory and install package from local repository
+* =============================================================================
+
+* Data directory for test datasets
+cd "/Users/tcopeland/Documents/GitHub/Stata-Tools/_testing/data/"
+
+* Install datefix package from local repository
+local basedir "/Users/tcopeland/Documents/GitHub/Stata-Tools"
+capture net uninstall datefix
+net install datefix, from("`basedir'/datefix")
+
+local testdir "`c(pwd)'"
 
 display as text _n "{hline 70}"
 display as text "DATEFIX COMMAND TESTING"

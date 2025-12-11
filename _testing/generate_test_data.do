@@ -17,15 +17,20 @@ clear all
 set more off
 version 16.0
 
-* Get directory of this do file
-local thisdir = c(pwd)
+* =============================================================================
+* SETUP: Change to data directory and install package from local repository
+* =============================================================================
 
-* Check if generate_test_data.ado is in the same directory
-capture which generate_test_data
-if _rc {
-    * Add local directory to adopath temporarily
-    adopath ++ "`thisdir'"
-}
+* Data directory for test datasets
+cd "/Users/tcopeland/Documents/GitHub/Stata-Tools/_testing/data/"
+
+* Install synthdata package from local repository (contains generate_test_data)
+local basedir "/Users/tcopeland/Documents/GitHub/Stata-Tools"
+capture net uninstall synthdata
+net install synthdata, from("`basedir'/synthdata")
+
+* Get directory of this do file
+local thisdir "`c(pwd)'"
 
 * Display start message
 display as text _n "{hline 70}"

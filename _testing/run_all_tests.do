@@ -16,8 +16,15 @@ clear all
 set more off
 version 16.0
 
-* Get directory of this do file
-local testdir = c(pwd)
+* =============================================================================
+* SETUP: Change to data directory and install packages from local repository
+* =============================================================================
+
+* Data directory for test datasets
+cd "/Users/tcopeland/Documents/GitHub/Stata-Tools/_testing/data/"
+
+local testdir "`c(pwd)'"
+local basedir "/Users/tcopeland/Documents/GitHub/Stata-Tools"
 
 display as text _n "{hline 70}"
 display as text "STATA-TOOLS COMPREHENSIVE TEST SUITE"
@@ -27,6 +34,19 @@ display as text "Date: `c(current_date)' `c(current_time)'"
 display as text "{hline 70}"
 
 * =============================================================================
+* SETUP: Install all packages from local repository
+* =============================================================================
+display as text _n "Installing packages from local repository..."
+
+local packages "tvtools datamap synthdata mvp table1_tc consort regtab cstat_surv stratetab compress_tc datefix check today setools"
+
+foreach pkg of local packages {
+    display as text "  Installing: `pkg'"
+    capture net uninstall `pkg'
+    capture noisily net install `pkg', from("`basedir'/`pkg'")
+}
+
+* =============================================================================
 * SETUP: Verify test data exists
 * =============================================================================
 display as text _n "Checking prerequisites..."
@@ -34,7 +54,7 @@ display as text _n "Checking prerequisites..."
 capture confirm file "`testdir'/cohort.dta"
 if _rc {
     display as text "Test data not found. Generating..."
-    capture noisily do "`testdir'/generate_test_data.do"
+    capture noisily do "`basedir'/_testing/generate_test_data.do"
     if _rc {
         display as error "ERROR: Could not generate test data"
         exit _rc
@@ -43,20 +63,6 @@ if _rc {
 }
 else {
     display as result "Test data found"
-}
-
-* =============================================================================
-* SETUP: Add all packages to adopath
-* =============================================================================
-display as text _n "Adding packages to adopath..."
-
-local packages "tvtools datamap synthdata mvp table1_tc consort regtab cstat_surv stratetab compress_tc datefix check today setools pkgtransfer"
-
-foreach pkg of local packages {
-    capture adopath ++ "`testdir'/../`pkg'"
-    if _rc == 0 {
-        display as text "  Added: `pkg'"
-    }
 }
 
 * =============================================================================
