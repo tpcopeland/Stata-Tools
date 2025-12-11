@@ -3358,8 +3358,16 @@ program define tvexpose, rclass
         }
 
         * Collapse consecutive periods with same dose/category
+        * For categorized dose, use exact comparison
+        * For continuous dose, use tolerance-based comparison to handle floating point precision
         sort id exp_start
-        quietly by id: gen double __same_dose = (exp_value == exp_value[_n-1]) if _n > 1 & id == id[_n-1]
+        if "`dose_cuts'" != "" {
+            quietly by id: gen double __same_dose = (exp_value == exp_value[_n-1]) if _n > 1 & id == id[_n-1]
+        }
+        else {
+            * Use relative tolerance of 1e-9 for floating point comparison
+            quietly by id: gen double __same_dose = (reldif(exp_value, exp_value[_n-1]) < 1e-9) if _n > 1 & id == id[_n-1]
+        }
         quietly replace __same_dose = 0 if missing(__same_dose)
         quietly by id: gen double __period_start = 1 if _n == 1
         quietly by id: replace __period_start = 1 if __same_dose == 0 & _n > 1
