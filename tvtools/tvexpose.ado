@@ -1,4 +1,4 @@
-*! tvexpose Version 1.0.1  2025/12/05
+*! tvexpose Version 1.1.0  2025/12/11
 *! Create time-varying exposure variables for survival analysis
 *! Author: Tim Copeland
 *! Program class: rclass (returns results in r())
@@ -14,8 +14,8 @@ Required core options:
   id(varname)          - Person identifier (links to master dataset)
   start(varname)       - Start date of exposure period
   stop(varname)        - End date of exposure period (optional if pointtime specified)
-  exposure(varname)    - Categorical exposure status variable
-  reference(#)         - Value indicating unexposed/reference status
+  exposure(varname)    - Exposure variable: categorical status OR dose amount (with dose option)
+  reference(#)         - Value indicating unexposed/reference status (not allowed with dose)
   entry(varname)       - Study entry date (from master dataset in memory)
   exit(varname)        - Study exit date (from master dataset in memory)
 
@@ -28,6 +28,12 @@ Exposure definition options (choose one):
                          duration() recodes the continuous cumulative exposure into categories.
                          Example: duration(1 5) creates: unexposed, <1, 1-<5, 5+ 
   recency(numlist)     - Time since last exposure categories (cutpoints)
+  dose                 - Cumulative dose tracking (exposure() contains dose amounts)
+                         When periods overlap, dose is allocated proportionally
+                         Example: Two 30-day prescriptions of 1g with 10-day overlap:
+                         During overlap: ((10/30)*1) + ((10/30)*1) = 0.667g
+  dosecuts(numlist)    - Cutpoints for dose categorization (use with dose)
+                         Example: dose dosecuts(5 10 20) creates: 0, <5, 5-<10, 10-<20, 20+
   continuousunit(unit) - Cumulative exposure reporting unit (required for continuous exposure)
                          units are {days, weeks, months, quarters, years}
                          Reporting units: generated tv_exp_* variables report cumulative exposure
@@ -124,6 +130,8 @@ program define tvexpose, rclass
         EVERtreated ///
         CURrentformer ///
         DURation(numlist ascending) ///
+        DOse ///
+        DOsecuts(numlist ascending) ///
         CONTINUOUSunit(string) ///
         EXPANDunit(string) ///
         BYtype ///
@@ -164,6 +172,23 @@ program define tvexpose, rclass
         di as error "tvexpose cannot be used with by:"
         exit 190
     }
+
+    * Check that dose is not used with reference() (unless reference is 0)
+    * For dose, 0 cumulative dose is the inherent reference
+    if "`dose'" != "" {
+        if `reference' != 0 {
+            noisily display as error "reference() may not be used with dose"
+            noisily display as error "For dose, 0 cumulative dose is the inherent reference"
+            exit 198
+        }
+    }
+
+    * Check that dosecuts() requires dose
+    if "`dosecuts'" != "" & "`dose'" == "" {
+        noisily display as error "dosecuts() requires the dose option"
+        noisily display as error "Example: tvexpose ..., dose dosecuts(5 10 20)"
+        exit 198
+    }
     
     * Lock sample in master dataset
     marksample touse
@@ -202,21 +227,29 @@ program define tvexpose, rclass
     * Set default reference label if not specified
     if "`referencelabel'" == "" local referencelabel "Unexposed"
     
-    * Flag error if bytype with default
+    * Flag error if bytype with default or dose
     if (("`evertreated'" == "") & ("`currentformer'" == "") & ("`duration'" == "") & ///
-        ("`continuousunit'" == "") & ("`recency'" == "")) & ("`bytype'" != "") {
+        ("`continuousunit'" == "") & ("`recency'" == "") & ("`dose'" == "")) & ("`bytype'" != "") {
         noisily display as error "bytype may not be specified with the default time-varying option"
         exit 198
     }
 
+    * Flag error if bytype with dose (dose does not support bytype)
+    if "`dose'" != "" & "`bytype'" != "" {
+        noisily display as error "bytype may not be specified with dose"
+        noisily display as error "To analyze doses by drug type, run tvexpose separately for each type"
+        exit 198
+    }
+
     * Validate mutually exclusive exposure type options
-    * User may specify only ONE of: evertreated, currentformer, duration(), continuous(unit), recency()
+    * User may specify only ONE of: evertreated, currentformer, duration(), continuous(unit), recency(), dose()
     * Note: duration() may be combined with continuousunit() to specify units
     * Specifying multiple would create ambiguous output, so we reject this
     local n_types = ("`evertreated'" != "") + ("`currentformer'" != "") + ("`duration'" != "") + ///
-                    (("`continuousunit'" != "") & ("`duration'" == "")) + ("`recency'" != "")
+                    (("`continuousunit'" != "") & ("`duration'" == "")) + ("`recency'" != "") + ///
+                    ("`dose'" != "")
     if `n_types' > 1 {
-        noisily display as error "Only one exposure type can be specified: evertreated, currentformer, duration(), continuous(unit), or recency()"
+        noisily display as error "Only one exposure type can be specified: evertreated, currentformer, duration(), continuous(unit), recency(), or dose()"
         noisily display as error "Note: duration() may be combined with continuousunit() to specify units"
         exit 198
     }
@@ -332,13 +365,20 @@ program define tvexpose, rclass
             local expand_unit "`cont_unit'"
         }
     }
+    else if "`dose'" != "" {
+        local exp_type "dose"
+        * dose is a flag; dosecuts() provides optional cutpoints for categorization
+        * If dosecuts is empty, output is continuous cumulative dose
+        * If dosecuts has values, output is categorized like duration()
+        local dose_cuts "`dosecuts'"
+    }
     else if "`recency'" != "" {
         local exp_type "recency"
     }
     else {
         local exp_type "timevarying"
     }
-    
+
     * Parse grace period specifications
     * Grace can be specified as:
     *   - Single number: grace(30) applies to all categories
@@ -944,7 +984,138 @@ program define tvexpose, rclass
     }
 
     quietly drop contained
-    
+
+    **# Special overlap handling for dose option
+    * For dose, overlapping periods require proportional dose allocation
+    * Algorithm:
+    *   1. Calculate daily_rate = exp_value / period_length for each period
+    *   2. Split at all overlap boundaries
+    *   3. For each segment: segment_dose = segment_days × Σ(active daily_rates)
+    * This ensures correct dose accounting when prescriptions overlap
+    if "`exp_type'" == "dose" {
+        noisily display as text "Processing dose with proportional overlap handling..."
+
+        * Step 1: Calculate daily dose rate for each period
+        quietly gen double __period_length = exp_stop - exp_start + 1
+        quietly gen double __daily_rate = exp_value / __period_length
+
+        * Save original period info with unique ID
+        quietly gen double __orig_period_id = _n
+        quietly gen double __orig_start = exp_start
+        quietly gen double __orig_stop = exp_stop
+        quietly gen double __orig_daily_rate = __daily_rate
+        quietly gen double __orig_dose = exp_value
+
+        tempfile dose_periods
+        quietly save `dose_periods', replace
+
+        * Check if there are any overlaps that need handling
+        sort id exp_start exp_stop
+        quietly by id: gen double __has_overlap = (exp_start <= exp_stop[_n-1]) if _n > 1 & id == id[_n-1]
+        quietly count if __has_overlap == 1
+        local n_dose_overlaps = r(N)
+        drop __has_overlap
+
+        if `n_dose_overlaps' > 0 {
+            noisily display as text "  Found `n_dose_overlaps' overlapping dose periods to resolve..."
+
+            * Step 2: Create all boundary points
+            preserve
+            keep id exp_start exp_stop
+
+            * Collect start dates as boundaries
+            quietly gen double boundary = exp_start
+            keep id boundary
+            tempfile boundaries_start
+            quietly save `boundaries_start', replace
+            restore
+
+            preserve
+            keep id exp_start exp_stop
+            * Collect stop+1 dates as boundaries
+            quietly gen double boundary = exp_stop + 1
+            keep id boundary
+            quietly append using `boundaries_start'
+            quietly duplicates drop id boundary, force
+            sort id boundary
+
+            tempfile all_boundaries
+            quietly save `all_boundaries', replace
+            restore
+
+            * Step 3: For each person, create segments between consecutive boundaries
+            preserve
+            quietly use `all_boundaries', clear
+            sort id boundary
+            quietly by id: gen double seg_start = boundary
+            quietly by id: gen double seg_stop = boundary[_n+1] - 1 if _n < _N
+            quietly drop if missing(seg_stop)
+            keep id seg_start seg_stop
+
+            * For each segment, find which original periods overlap and sum their daily rates
+            quietly gen double __seg_dose = 0
+            quietly gen double __seg_days = seg_stop - seg_start + 1
+
+            tempfile segments
+            quietly save `segments', replace
+            restore
+
+            * Step 4: Calculate dose contribution for each segment from each overlapping period
+            * Use cross-join approach: for each segment, check all periods for that person
+            quietly use `segments', clear
+            quietly gen double __seg_id = _n
+
+            tempfile segments_with_id
+            quietly save `segments_with_id', replace
+
+            * Join segments with original periods
+            quietly use `dose_periods', clear
+            keep id __orig_period_id __orig_start __orig_stop __orig_daily_rate study_entry study_exit
+            if "`keepvars'" != "" {
+                quietly merge m:1 id using `master_dates', keepusing(`keepvars') nogen keep(1 3)
+            }
+
+            tempfile periods_for_join
+            quietly save `periods_for_join', replace
+
+            quietly use `segments_with_id', clear
+            joinby id using `periods_for_join'
+
+            * Keep only where segment overlaps with original period
+            quietly keep if seg_start <= __orig_stop & seg_stop >= __orig_start
+
+            * Calculate this period's contribution to this segment
+            * Contribution = segment_days × daily_rate
+            quietly gen double __contrib = __seg_days * __orig_daily_rate
+
+            * Sum contributions by segment
+            collapse (sum) exp_value=__contrib (first) seg_start seg_stop study_entry study_exit, by(id __seg_id)
+
+            rename (seg_start seg_stop) (exp_start exp_stop)
+            drop __seg_id
+
+            * Add back keepvars if needed
+            if "`keepvars'" != "" {
+                quietly merge m:1 id using `master_dates', keepusing(`keepvars') nogen keep(1 3)
+            }
+
+            sort id exp_start exp_stop
+
+            noisily display as text "  Dose overlap resolution complete."
+        }
+        else {
+            * No overlaps - just clean up temp variables
+            noisily display as text "  No overlapping dose periods found."
+            drop __period_length __daily_rate __orig_period_id __orig_start __orig_stop __orig_daily_rate __orig_dose
+        }
+
+        * Clean up any remaining temp variables
+        capture drop __period_length __daily_rate __orig_period_id __orig_start __orig_stop __orig_daily_rate __orig_dose
+
+        * Save the dose-processed data
+        quietly save `exp_cleaned', replace
+    }
+
     **# Step 2: Handle overlapping exposures
     * Different exposure types may overlap; need to decide how to handle
     * Four strategies available:
@@ -952,8 +1123,9 @@ program define tvexpose, rclass
     *   2. combine: Encode overlaps as combined exposure value (val1*100 + val2)
     *   3. priority: Assign precedence order, truncate lower priority periods
     * Default (none specified): Later exposures take precedence (simple truncation)
-    
-    if "`split'" != "" {
+
+    * Skip standard overlap handling for dose (already handled above)
+    if "`exp_type'" != "dose" & "`split'" != "" {
         * SPLIT OVERLAPPING: Creates separate periods for each boundary
         * Useful when analyzing how different exposures interact
         * Result: Every exposure combination gets its own time period
@@ -1069,7 +1241,7 @@ program define tvexpose, rclass
         restore
     }
     
-    if "`combine'" != "" {
+    if "`exp_type'" != "dose" & "`combine'" != "" {
         * COMBINE OVERLAPPING: Creates combined exposure category for overlaps
         * Assigns new value to combinations (encodes as val1*100 + val2)
         * Allows analysis of synergistic or interactive effects
@@ -1095,12 +1267,14 @@ program define tvexpose, rclass
     }
   
     **# Check for overlapping exposures and warn if no strategy specified
+    * Skip for dose (already handled with proportional allocation above)
+    if "`exp_type'" != "dose" {
     * Detect overlaps between different exposure categories
     sort id exp_start exp_stop exp_value
     quietly gen double __has_conflict = 0
     quietly by id: replace __has_conflict = 1 if (exp_start[_n+1] <= exp_stop & ///
         exp_value != exp_value[_n+1]) & _n < _N & id == id[_n+1]
-    
+
     * Get list of IDs with conflicts (only if no overlap strategy specified)
     if "`priority'" == "" & "`split'" == "" & "`combine'" == "" & "`layer'" == "" {
         quietly levelsof id if __has_conflict == 1, local(conflict_ids) clean
@@ -1410,7 +1584,8 @@ program define tvexpose, rclass
             noisily display in re "Warning: Layer resolution reached iteration limit; some overlaps may remain"
         }
     }
-    
+    } // End of if "`exp_type'" != "dose" block for overlap handling
+
     * Save cleaned and overlap-adjusted exposures
     sort id exp_start exp_stop exp_value
     quietly save `exp_cleaned', replace
@@ -3102,9 +3277,109 @@ program define tvexpose, rclass
             else {
                 collapse (min) exp_start (max) exp_stop (first) exp_value study_entry study_exit, by(id __period_id)
             }
-            drop __period_id 
+            drop __period_id
             label values exp_value dur_labels
         }
+    }
+
+    **# Dose Exposure Type
+    * Research question: Is there dose-response relationship?
+    * Output: Cumulative dose (continuous or categorized by cutpoints)
+    * Time-varying: Increases with each dose period
+    * Note: Overlap handling with proportional allocation is done earlier in the code
+    else if "`exp_type'" == "dose" {
+        noisily display as text "Calculating cumulative dose..."
+
+        sort id exp_start
+
+        * exp_value now contains the per-segment dose from overlap handling
+        * Calculate cumulative dose as running sum
+        quietly by id: gen double __cumul_dose = sum(exp_value)
+
+        if "`dose_cuts'" != "" {
+            * Categorized dose output based on cutpoints
+            local n_cuts : word count `dose_cuts'
+            tokenize `dose_cuts'
+
+            * Create dose category variable
+            * Category 0: 0 cumulative dose (reference)
+            * Category 1: >0 but < first cutpoint
+            * Category 2..n: between cutpoints
+            * Category n+1: >= last cutpoint
+            quietly gen double exp_dose_cat = 0  // Reference: 0 cumulative dose
+
+            * Category 1: >0 but < first cutpoint
+            quietly replace exp_dose_cat = 1 if __cumul_dose > 0 & __cumul_dose < `1'
+
+            * Middle categories
+            local cat = 2
+            forvalues i = 2/`n_cuts' {
+                local prev = ``=`i'-1''
+                local curr = ``i''
+                quietly replace exp_dose_cat = `cat' if __cumul_dose >= `prev' & __cumul_dose < `curr'
+                local cat = `cat' + 1
+            }
+
+            * Final category: >= last cutpoint
+            quietly replace exp_dose_cat = `n_cuts' + 1 if __cumul_dose >= ``n_cuts''
+
+            * Create value labels
+            label define dose_labels 0 "No dose", replace
+            label define dose_labels 1 "<`1'", add
+
+            local cat = 2
+            forvalues i = 2/`n_cuts' {
+                local prev = ``=`i'-1''
+                local curr = ``i''
+                label define dose_labels `cat' "`prev'-<`curr'", add
+                local cat = `cat' + 1
+            }
+            label define dose_labels `=`n_cuts'+1' "``n_cuts''+", add
+
+            * Replace exp_value with category
+            drop exp_value
+            rename exp_dose_cat exp_value
+            label values exp_value dose_labels
+
+            * Clean up tokenize macros
+            forvalues i = 1/`n_cuts' {
+                macro drop _`i'
+            }
+
+            noisily display as text "  Created `=`n_cuts'+2' dose categories."
+        }
+        else {
+            * Continuous dose output
+            drop exp_value
+            rename __cumul_dose exp_value
+            label variable exp_value "Cumulative dose"
+
+            noisily display as text "  Created continuous cumulative dose variable."
+        }
+
+        * Collapse consecutive periods with same dose/category
+        sort id exp_start
+        quietly by id: gen double __same_dose = (exp_value == exp_value[_n-1]) if _n > 1 & id == id[_n-1]
+        quietly replace __same_dose = 0 if missing(__same_dose)
+        quietly by id: gen double __period_start = 1 if _n == 1
+        quietly by id: replace __period_start = 1 if __same_dose == 0 & _n > 1
+        quietly by id: gen double __period_id = sum(__period_start)
+
+        if "`keepvars'" != "" {
+            collapse (min) exp_start (max) exp_stop (first) exp_value `keepvars' study_entry study_exit, by(id __period_id)
+        }
+        else {
+            collapse (min) exp_start (max) exp_stop (first) exp_value study_entry study_exit, by(id __period_id)
+        }
+        drop __period_id
+
+        * Reapply value labels for categorized dose
+        if "`dose_cuts'" != "" {
+            label values exp_value dose_labels
+        }
+
+        * Clean up
+        capture drop __cumul_dose __same_dose __period_start
     }
 
     **# Recency (Time Since Last Exposure) Type
@@ -3595,10 +3870,10 @@ program define tvexpose, rclass
                 quietly replace __final_binary = 1 if `v' == 1
             }
         }
-        else if inlist("`exp_type'","duration","continuous") {
+        else if inlist("`exp_type'","duration","continuous","dose") {
             * Ever-exposed for these types
             foreach v of local __byvars {
-                quietly replace __final_binary = 1 if `v' > `reference'
+                quietly replace __final_binary = 1 if `v' > 0
             }
         }
         else {
@@ -3611,6 +3886,9 @@ program define tvexpose, rclass
     else {
         if inlist("`exp_type'","currentformer","recency") {
             quietly gen double __final_binary = (exp_value == 1)
+        }
+        else if "`exp_type'" == "dose" {
+            quietly gen double __final_binary = (exp_value > 0)
         }
         else {
             quietly gen double __final_binary = (exp_value != `reference')
@@ -3646,6 +3924,14 @@ program define tvexpose, rclass
     if `skip_main_var' == 0 {
         if "`exp_type'" == "currentformer" & "`label'" == "" {
             label variable `generate' "Never/current/former exposure"
+        }
+        else if "`exp_type'" == "dose" & "`label'" == "" {
+            if "`dose_cuts'" != "" {
+                label variable `generate' "Cumulative dose category"
+            }
+            else {
+                label variable `generate' "Cumulative dose"
+            }
         }
         else {
             label variable `generate' "`exp_label'"
