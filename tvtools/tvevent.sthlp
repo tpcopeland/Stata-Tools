@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.1.0  2025/12/10}{...}
+{* *! version 1.1.1  2025/12/11}{...}
 {vieweralsosee "[ST] stset" "help stset"}{...}
 {vieweralsosee "[ST] stcrreg" "help stcrreg"}{...}
 {vieweralsosee "tvexpose" "help tvexpose"}{...}
@@ -22,7 +22,7 @@
 {cmd:tvevent}
 {cmd:using} {it:filename},
 {cmd:id(}{varname}{cmd:)}
-{cmd:date(}{varname}{cmd:)}
+{cmd:date(}{it:name}{cmd:)}
 [{it:options}]
 
 
@@ -31,7 +31,7 @@
 {synoptline}
 {syntab:Required}
 {synopt:{opt id(varname)}}person identifier matching the master dataset{p_end}
-{synopt:{opt date(varname)}}variable in using file containing the primary event date{p_end}
+{synopt:{opt date(name)}}variable name or stubname for event date(s); for {cmd:type(recurring)}, specifies the stub for {it:stub}1, {it:stub}2, etc.{p_end}
 
 {syntab:Competing Risks}
 {synopt:{opt com:pete(varlist)}}list of date variables in using file representing competing risks{p_end}
