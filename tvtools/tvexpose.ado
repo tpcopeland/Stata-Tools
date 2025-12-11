@@ -1,4 +1,4 @@
-*! tvexpose Version 1.1.0  2025/12/11
+*! tvexpose Version 1.1.1  2025/12/11
 *! Create time-varying exposure variables for survival analysis
 *! Author: Tim Copeland
 *! Program class: rclass (returns results in r())
@@ -119,10 +119,10 @@ program define tvexpose, rclass
         id(name) ///
         start(name) ///
         exposure(name) ///
-        reference(numlist max=1) ///
         entry(varname) ///
         exit(varname) ///
         [stop(name) ///
+        reference(numlist max=1) ///
         generate(name) ///
         SAVEas(string) ///
         replace ///
@@ -173,12 +173,25 @@ program define tvexpose, rclass
         exit 190
     }
 
-    * Check that dose is not used with reference() (unless reference is 0)
-    * For dose, 0 cumulative dose is the inherent reference
+    * Handle reference() option
+    * - For dose mode: reference defaults to 0 (the only valid value)
+    * - For other modes: reference is required
     if "`dose'" != "" {
-        if `reference' != 0 {
-            noisily display as error "reference() may not be used with dose"
+        * Dose mode: default to 0 if not specified, error if non-zero
+        if "`reference'" == "" {
+            local reference 0
+        }
+        else if `reference' != 0 {
+            noisily display as error "reference() must be 0 when dose is specified"
             noisily display as error "For dose, 0 cumulative dose is the inherent reference"
+            exit 198
+        }
+    }
+    else {
+        * Non-dose mode: reference is required
+        if "`reference'" == "" {
+            noisily display as error "reference() is required"
+            noisily display as error "Specify the exposure value that represents the reference category"
             exit 198
         }
     }
@@ -760,12 +773,34 @@ program define tvexpose, rclass
     
     * Merge exposure data with study entry/exit dates
     * This adds the observation window to each exposure record
-    * keep(3) means keep only matched records (exposure records with matching entry/exit)
+    * Keep only matched records (exposure records with matching entry/exit)
     preserve
     quietly use `master_dates', clear
     isid id
     restore
-    quietly merge m:1 id using `master_dates', nogen keep(3)
+
+    * Count exposure records before merge to track any dropped
+    quietly count
+    local n_exp_before = r(N)
+
+    quietly merge m:1 id using `master_dates', generate(_merge_check)
+
+    * Count and warn about exposure records with IDs not in master
+    quietly count if _merge_check == 1
+    local n_exp_only = r(N)
+    if `n_exp_only' > 0 {
+        quietly count if _merge_check == 1
+        local n_ids_dropped = r(N)
+        quietly egen long _tag_dropped = tag(id) if _merge_check == 1
+        quietly count if _tag_dropped == 1
+        local n_unique_ids_dropped = r(N)
+        capture drop _tag_dropped
+        noisily display as text "Note: `n_ids_dropped' exposure records excluded (`n_unique_ids_dropped' IDs not in master dataset)"
+    }
+
+    * Keep only matched records
+    quietly keep if _merge_check == 3
+    drop _merge_check
     
     * Remove exposures completely outside study observation window
     * If exposure ended before entry or started after exit, person never truly exposed
