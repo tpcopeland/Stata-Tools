@@ -16,8 +16,19 @@ clear all
 set more off
 version 16.0
 
-* Get directory of this do file
-local testdir = c(pwd)
+* =============================================================================
+* SETUP: Change to data directory and install package from local repository
+* =============================================================================
+
+* Data directory for test datasets
+cd "/Users/tcopeland/Documents/GitHub/Stata-Tools/_testing/data/"
+
+* Install setools package from local repository (contains migrations)
+local basedir "/Users/tcopeland/Documents/GitHub/Stata-Tools"
+capture net uninstall setools
+net install setools, from("`basedir'/setools")
+
+local testdir "`c(pwd)'"
 
 * Check for required test data
 capture confirm file "`testdir'/migrations_wide.dta"

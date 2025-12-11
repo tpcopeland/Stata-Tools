@@ -16,8 +16,19 @@ clear all
 set more off
 version 16.0
 
-* Get directory of this do file
-local testdir = c(pwd)
+* =============================================================================
+* SETUP: Change to data directory and install package from local repository
+* =============================================================================
+
+* Data directory for test datasets
+cd "/Users/tcopeland/Documents/GitHub/Stata-Tools/_testing/data/"
+
+* Install table1_tc package from local repository
+local basedir "/Users/tcopeland/Documents/GitHub/Stata-Tools"
+capture net uninstall table1_tc
+net install table1_tc, from("`basedir'/table1_tc")
+
+local testdir "`c(pwd)'"
 
 * Check for required test data
 capture confirm file "`testdir'/cohort.dta"

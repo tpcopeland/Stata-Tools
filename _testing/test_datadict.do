@@ -16,8 +16,19 @@ clear all
 set more off
 version 16.0
 
-* Get directory of this do file
-local testdir = c(pwd)
+* =============================================================================
+* SETUP: Change to data directory and install package from local repository
+* =============================================================================
+
+* Data directory for test datasets
+cd "/Users/tcopeland/Documents/GitHub/Stata-Tools/_testing/data/"
+
+* Install datamap package from local repository (contains datadict)
+local basedir "/Users/tcopeland/Documents/GitHub/Stata-Tools"
+capture net uninstall datamap
+net install datamap, from("`basedir'/datamap")
+
+local testdir "`c(pwd)'"
 
 * Check for required test data
 capture confirm file "`testdir'/cohort.dta"
