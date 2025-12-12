@@ -52,12 +52,57 @@ mypackage/
 
 ### mycommand.ado
 
+The .ado file header should include:
+1. Version line with command name, semantic version (X.Y.Z), and date
+2. Brief description line
+3. Author line
+4. Program class line (rclass, eclass, sclass, or nclass)
+5. Comprehensive block comment with syntax documentation (mini help file)
+
 ```stata
-*! version 1.0.0  15jan2025
+*! mycommand Version 1.0.0  2025/01/15
+*! Brief description of what the command does
 *! Author: Your Name
+*! Program class: rclass (returns results in r())
+
+/*
+Basic syntax:
+  mycommand varlist [if] [in], required_option(varname) [options]
+
+Required options:
+  required_option(varname)  - Description of required option
+  another_required(string)  - Description of another required option
+
+Optional options:
+  option1                   - Description of option1 (default: value)
+  option2(numlist)          - Description of option2 with argument
+  option3(string)           - Description of option3 with string argument
+
+Output options:
+  generate(newvar)          - Name for output variable (default: result)
+  saveas(filename)          - Save results to file
+  replace                   - Overwrite existing file
+
+Diagnostic options:
+  verbose                   - Display detailed progress information
+  validate                  - Run validation checks
+
+See help mycommand for complete documentation with examples
+*/
+
 program define mycommand, rclass
     version 18.0
-    syntax varlist(numeric) [if] [in] [, Option1 Option2(string)]
+    set varabbrev off
+
+    syntax varlist(numeric) [if] [in] , ///
+        REQuired_option(varname) ///
+        [ANother_required(string) ///
+        option1 ///
+        option2(numlist) ///
+        GENerate(name) ///
+        SAVEas(string) ///
+        replace ///
+        verbose]
 
     marksample touse
     quietly count if `touse'
@@ -71,6 +116,22 @@ program define mycommand, rclass
     return local varlist "`varlist'"
 end
 ```
+
+**Header Format Requirements**:
+- Line 1: `*! commandname Version X.Y.Z  YYYY/MM/DD` - use command name, semantic version, and date
+- Line 2: `*! Brief description` - one-line summary of command purpose
+- Line 3: `*! Author: Name` - author attribution
+- Line 4: `*! Program class: type (description)` - document return class
+
+**Block Comment Documentation**:
+The block comment (`/* ... */`) serves as a mini help file and should include:
+- Basic syntax example with line continuation (`///`) for long commands
+- All options organized by category (Required, Optional, Output, Diagnostic, etc.)
+- Brief descriptions aligned for readability
+- Default values noted in parentheses where applicable
+- Reference to full help file at the end
+
+This format makes the .ado file self-documenting and helps users understand the command without opening the help file.
 
 ### mycommand.sthlp
 
@@ -1594,7 +1655,9 @@ net install packagename, replace
 
 **Before releasing a package:**
 
-- [ ] Semantic version in .ado header uses X.Y.Z format (`*! version 1.0.0`), never X.Y or X
+- [ ] Semantic version in .ado header uses X.Y.Z format (`*! commandname Version 1.0.0`), never X.Y or X
+- [ ] .ado header includes all 4 lines: version, description, author, program class
+- [ ] .ado includes block comment documentation (mini help file with syntax and all options)
 - [ ] Semantic version in .sthlp matches .ado (X.Y.Z format)
 - [ ] Semantic version in package README.md matches .ado (X.Y.Z format)
 - [ ] Semantic version in main repository README.md matches .ado (X.Y.Z format)
@@ -1648,14 +1711,15 @@ net install mycommand, from(https://raw.githubusercontent.com/username/repositor
 10. **Global pollution** - Use `local` not `global` when possible
 11. **Editing without reading** - ALWAYS read files before modifying
 12. **Wrong version format** - Use X.Y.Z (1.0.0), never X.Y (1.0) or X (1) for semantic versions
-13. **Not updating Distribution-Date** - MUST update Distribution-Date in .pkg file with each update for users to see updates
-14. **Changing v 3 in .pkg or .toc** - NEVER change `v 3` - it's a file format version, not a package version
-15. **Wrong dialog spacing** - Use context-aware +15/+20/+25
-16. **Missing backticks in macros** - `` `macroname' `` not `macroname`
-17. **Spaces in macro references** - `` `var' `` not `` `var ' ``
-18. **Not testing edge cases** - Empty data, missing values, single obs
-19. **Creating LICENSE files** - NEVER create LICENSE or LICENSE.md files; use MIT in .pkg and README
-20. **Forgetting README updates** - ALWAYS update both package and main README.md when updating .ado/.pkg
+13. **Missing .ado header documentation** - Include 4-line header AND block comment with syntax/options (mini help file)
+14. **Not updating Distribution-Date** - MUST update Distribution-Date in .pkg file with each update for users to see updates
+15. **Changing v 3 in .pkg or .toc** - NEVER change `v 3` - it's a file format version, not a package version
+16. **Wrong dialog spacing** - Use context-aware +15/+20/+25
+17. **Missing backticks in macros** - `` `macroname' `` not `macroname`
+18. **Spaces in macro references** - `` `var' `` not `` `var ' ``
+19. **Not testing edge cases** - Empty data, missing values, single obs
+20. **Creating LICENSE files** - NEVER create LICENSE or LICENSE.md files; use MIT in .pkg and README
+21. **Forgetting README updates** - ALWAYS update both package and main README.md when updating .ado/.pkg
 
 ---
 
@@ -1914,15 +1978,16 @@ collect export "results.html", replace
 5. **Dialog spacing**: Use context-aware +15/+20/+25 spacing rules
 6. **Test thoroughly**: Edge cases, error handling, certification scripts
 7. **Document completely**: Help file, examples, return values, README with <br>
-8. **Validate inputs**: All inputs, sanitize file paths, check ranges with confirm commands
-9. **Error handling**: Use capture noisily for graceful failures, proper error codes
-10. **Memory efficiency**: compress data, use frames (16+) over merges, keep minimal variables
-11. **Modern features**: collect/table for export (17+), frames for multi-dataset work (16+)
-12. **Single-line install**: README must have one-line net install command
-13. **Version numbers**: Use X.Y.Z format for semantic versions; ALWAYS use `v 3` in .pkg and .toc files (file format version); update Distribution-Date in .pkg for each release
-14. **Follow templates**: Use tvtools format for README, proper .pkg format
-15. **License handling**: All packages use MIT license; NEVER create separate LICENSE or LICENSE.md files
-16. **README updates**: ALWAYS update BOTH package README.md and main repository README.md when updating .ado/.pkg files
+8. **.ado header format**: Include 4-line header (version, description, author, class) plus block comment documentation
+9. **Validate inputs**: All inputs, sanitize file paths, check ranges with confirm commands
+10. **Error handling**: Use capture noisily for graceful failures, proper error codes
+11. **Memory efficiency**: compress data, use frames (16+) over merges, keep minimal variables
+12. **Modern features**: collect/table for export (17+), frames for multi-dataset work (16+)
+13. **Single-line install**: README must have one-line net install command
+14. **Version numbers**: Use X.Y.Z format for semantic versions; ALWAYS use `v 3` in .pkg and .toc files (file format version); update Distribution-Date in .pkg for each release
+15. **Follow templates**: Use tvtools format for README, proper .pkg format
+16. **License handling**: All packages use MIT license; NEVER create separate LICENSE or LICENSE.md files
+17. **README updates**: ALWAYS update BOTH package README.md and main repository README.md when updating .ado/.pkg files
 
 ---
 
