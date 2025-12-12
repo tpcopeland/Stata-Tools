@@ -164,13 +164,18 @@ class ExpressionEvaluator:
                 expr[i] == "." and i + 1 < len(expr) and expr[i + 1].isdigit()
             ):
                 j = i
-                while j < len(expr) and (expr[j].isdigit() or expr[j] in ".eE+-"):
-                    if expr[j] in "eE":
+                while j < len(expr):
+                    ch = expr[j]
+                    if ch.isdigit() or ch == ".":
+                        j += 1
+                    elif ch in "eE":
+                        # Scientific notation - allow e/E followed by optional +/-
                         j += 1
                         if j < len(expr) and expr[j] in "+-":
                             j += 1
                     else:
-                        j += 1
+                        # Not a valid number character
+                        break
                 num_str = expr[i:j]
                 try:
                     tokens.append(("NUMBER", float(num_str)))

@@ -104,6 +104,8 @@ class StataInterpreter:
         self._preserve_stack: list[StataData] = []
         self._current_by_vars: list[str] = []
         self._current_by_sort_vars: list[str] = []
+        self._ado_paths: list[str] = []  # Additional paths to search for ado files
+        self._project_root: str = os.getcwd()  # Remember initial working directory
 
         # Build command dispatch table
         self._commands = self._build_command_table()
@@ -581,25 +583,74 @@ class StataInterpreter:
         if not cmd.arguments:
             return
 
-        # Parse: local name [= expression] or local name "value" or local name: extended
+        raw = cmd.raw_line
+
+        # Remove "local " prefix from raw_line for reference
+        if raw.lower().startswith("local "):
+            raw_arg_str = raw[6:].strip()
+        else:
+            raw_arg_str = raw
+
+        # Use args (preserves quotes) but we'll also check raw_line for macro patterns
         arg_str = " ".join(str(a) for a in cmd.arguments)
 
-        # Extended macro function: local name: function args
-        # Check using raw_line since parser strips colons
-        raw = cmd.raw_line
-        if ":" in raw and "=" not in raw:
-            # Find the colon position in raw line
-            colon_idx = raw.find(":")
-            # Extract name and extended function
-            before_colon = raw[:colon_idx].strip()
-            # Name is after 'local '
-            if before_colon.lower().startswith("local "):
-                name = before_colon[6:].strip()
-            else:
-                name = before_colon
-            extended = raw[colon_idx + 1 :].strip()
+        # Handle increment/decrement operators: local ++name or local --name
+        # Note: Parser may tokenize ++ as ['+', '+', 'name'] or ++name as a single token
+        is_increment = (
+            arg_str.startswith("++") or
+            raw_arg_str.startswith("++") or
+            (len(cmd.arguments) >= 3 and str(cmd.arguments[0]) == "+" and str(cmd.arguments[1]) == "+")
+        )
+        is_decrement = (
+            arg_str.startswith("--") or
+            raw_arg_str.startswith("--") or
+            (len(cmd.arguments) >= 3 and str(cmd.arguments[0]) == "-" and str(cmd.arguments[1]) == "-")
+        )
 
-            # Expand macros in extended part
+        if is_increment:
+            # Get the name - may be after ++ in string, or third argument
+            if len(cmd.arguments) >= 3 and str(cmd.arguments[0]) == "+" and str(cmd.arguments[1]) == "+":
+                name = str(cmd.arguments[2])
+            elif arg_str.startswith("++"):
+                name = arg_str[2:].strip()
+            else:
+                name = raw_arg_str[2:].strip()
+            current = self.macros.get_local(name)
+            try:
+                new_val = float(current) + 1
+                # Convert to int if it's a whole number
+                if new_val == int(new_val):
+                    new_val = int(new_val)
+                self.macros.set_local(name, str(new_val))
+            except (ValueError, TypeError):
+                self.macros.set_local(name, "1")
+            return
+
+        if is_decrement:
+            # Get the name - may be after -- in string, or third argument
+            if len(cmd.arguments) >= 3 and str(cmd.arguments[0]) == "-" and str(cmd.arguments[1]) == "-":
+                name = str(cmd.arguments[2])
+            elif arg_str.startswith("--"):
+                name = arg_str[2:].strip()
+            else:
+                name = raw_arg_str[2:].strip()
+            current = self.macros.get_local(name)
+            try:
+                new_val = float(current) - 1
+                # Convert to int if it's a whole number
+                if new_val == int(new_val):
+                    new_val = int(new_val)
+                self.macros.set_local(name, str(new_val))
+            except (ValueError, TypeError):
+                self.macros.set_local(name, "-1")
+            return
+
+        # Extended macro function: local name: function args
+        # Check raw_line for colon since parser may strip it
+        if ":" in raw_arg_str and "=" not in raw_arg_str:
+            colon_idx = raw_arg_str.find(":")
+            name = raw_arg_str[:colon_idx].strip()
+            extended = raw_arg_str[colon_idx + 1 :].strip()
             extended = self.macros.expand(extended)
             value = self.macros.parse_extended_macro(":" + extended)
             self.macros.set_local(name, value)
@@ -609,10 +660,32 @@ class StataInterpreter:
         if "=" in arg_str:
             parts = arg_str.split("=", 1)
             name = parts[0].strip()
-            expr = parts[1].strip()
+            expr_from_args = parts[1].strip()
 
-            # Evaluate expression
-            expr = self.macros.expand(expr)
+            # Check if raw_line has macro patterns
+            raw_parts = raw_arg_str.split("=", 1)
+            raw_expr = raw_parts[1].strip() if len(raw_parts) > 1 else ""
+
+            # Strategy:
+            # - raw_line preserves macro patterns (`name') but loses quotes
+            # - args preserves quotes but may lose unquoted macro patterns
+            # We need to decide: if raw_line has macro patterns that args doesn't
+            # preserve, we must use raw_line (and add quotes where needed).
+            has_macro_in_raw = "`" in raw_expr
+            has_macro_in_args = "`" in expr_from_args
+
+            # If raw_line has macros that args lost, we must use raw_line
+            if has_macro_in_raw and not has_macro_in_args:
+                # Use raw_line for macro expansion
+                # Add quotes around unquoted % format patterns
+                def quote_format(m):
+                    return '"' + m.group(1) + '"'
+                raw_expr_fixed = re.sub(r'(?<!")\s(%[0-9]*\.?[0-9]*[a-zA-Z])\s', quote_format, ' ' + raw_expr + ' ').strip()
+                expr = self.macros.expand(raw_expr_fixed)
+            else:
+                # Use args (preserves quotes for string arguments)
+                expr = self.macros.expand(expr_from_args)
+
             try:
                 value = self.expr_eval.evaluate(expr, row_context=False)
                 if isinstance(value, pd.Series):
@@ -633,7 +706,14 @@ class StataInterpreter:
         if not cmd.arguments:
             return
 
-        arg_str = " ".join(str(a) for a in cmd.arguments)
+        # Use raw_line to preserve macro syntax (backticks get stripped by parser)
+        raw = cmd.raw_line
+
+        # Remove "global " prefix
+        if raw.lower().startswith("global "):
+            arg_str = raw[7:].strip()
+        else:
+            arg_str = " ".join(str(a) for a in cmd.arguments)
 
         if "=" in arg_str:
             parts = arg_str.split("=", 1)
@@ -947,43 +1027,121 @@ class StataInterpreter:
     def _cmd_if_block(
         self, cmd: ParsedCommand, all_commands: list[ParsedCommand], idx: int
     ) -> int:
-        """Handle if/else block (not if qualifier)."""
-        # Use raw_line to get the full condition with operators
-        raw = cmd.raw_line
-        if raw.lower().startswith("if "):
-            arg_str = raw[3:].strip()
-        else:
-            arg_str = " ".join(str(a) for a in cmd.arguments)
-        # Remove trailing brace if present
-        if arg_str.endswith("{"):
-            arg_str = arg_str[:-1].strip()
-        arg_str = self.macros.expand(arg_str)
+        """Handle if/else/else-if block (not if qualifier)."""
+
+        def extract_condition(raw: str, args: list) -> str:
+            """Extract and expand the condition from raw line or args."""
+            # Get raw_arg_str (preserves macro patterns)
+            if raw.lower().startswith("if "):
+                raw_arg_str = raw[3:].strip()
+            elif raw.lower().startswith("else if "):
+                raw_arg_str = raw[8:].strip()
+            else:
+                raw_arg_str = raw
+
+            # Get args_str (preserves quotes)
+            args_str = " ".join(str(a) for a in args)
+
+            # Remove trailing brace if present
+            if raw_arg_str.endswith("{"):
+                raw_arg_str = raw_arg_str[:-1].strip()
+            if args_str.endswith("{"):
+                args_str = args_str[:-1].strip()
+
+            # Use hybrid approach: if raw_line has macros and args lacks them, use raw_line
+            # Otherwise use args (preserves quotes in string comparisons)
+            if "`" in raw_arg_str and "`" not in args_str:
+                return self.macros.expand(raw_arg_str)
+            else:
+                return self.macros.expand(args_str)
+
+        def evaluate_condition(cond_str: str) -> bool:
+            """Evaluate a condition string."""
+            result = self.expr_eval.evaluate(cond_str, row_context=False)
+            if isinstance(result, pd.Series):
+                result = result.iloc[0] if len(result) > 0 else False
+            return bool(result)
+
+        # Extract initial condition
+        arg_str = extract_condition(cmd.raw_line, cmd.arguments)
 
         # Find if body
         body_start = idx + 1
         body_end = self._find_block_end(all_commands, body_start)
         if_body = all_commands[body_start:body_end]
 
-        # Check for else
+        # Build list of (condition, body) for if/else-if chain
+        branches = [(arg_str, if_body)]
         else_body = []
         next_idx = body_end + 1
 
-        if next_idx < len(all_commands):
+        # Process else-if and else chain
+        while next_idx < len(all_commands):
             next_cmd = all_commands[next_idx]
-            if next_cmd.command and next_cmd.command.lower() == "else":
+            if not next_cmd.command or next_cmd.command.lower() != "else":
+                break
+
+            # Check if it's "else if" or just "else"
+            args_str = " ".join(str(a) for a in next_cmd.arguments)
+            raw_line = next_cmd.raw_line
+
+            # Check for "else if" pattern
+            is_else_if = False
+            if next_cmd.arguments and str(next_cmd.arguments[0]).lower() == "if":
+                is_else_if = True
+            elif raw_line.lower().strip().startswith("else if"):
+                is_else_if = True
+
+            if is_else_if:
+                # else if - extract condition (remove leading "if" from args)
+                if next_cmd.arguments and str(next_cmd.arguments[0]).lower() == "if":
+                    elseif_args = next_cmd.arguments[1:]
+                else:
+                    elseif_args = next_cmd.arguments
+
+                # Get condition string
+                if raw_line.lower().strip().startswith("else if"):
+                    # Extract from raw line
+                    elseif_raw = raw_line.strip()
+                    if elseif_raw.lower().startswith("else if "):
+                        elseif_cond_raw = elseif_raw[8:].strip()
+                    else:
+                        elseif_cond_raw = elseif_raw[7:].strip()  # "else if"
+                else:
+                    elseif_cond_raw = " ".join(str(a) for a in elseif_args)
+
+                # Remove trailing brace
+                if elseif_cond_raw.endswith("{"):
+                    elseif_cond_raw = elseif_cond_raw[:-1].strip()
+
+                # Expand macros
+                elseif_cond = self.macros.expand(elseif_cond_raw)
+
+                # Find else-if body
+                elseif_body_start = next_idx + 1
+                elseif_body_end = self._find_block_end(all_commands, elseif_body_start)
+                elseif_body = all_commands[elseif_body_start:elseif_body_end]
+
+                branches.append((elseif_cond, elseif_body))
+                next_idx = elseif_body_end + 1
+            else:
+                # Plain else - find body
                 else_start = next_idx + 1
                 else_end = self._find_block_end(all_commands, else_start)
                 else_body = all_commands[else_start:else_end]
                 next_idx = else_end + 1
+                break  # else is always the last in chain
 
-        # Evaluate condition
-        result = self.expr_eval.evaluate(arg_str, row_context=False)
-        if isinstance(result, pd.Series):
-            result = result.iloc[0] if len(result) > 0 else False
+        # Evaluate conditions in order
+        executed = False
+        for condition, body in branches:
+            if evaluate_condition(condition):
+                self._execute_commands(body)
+                executed = True
+                break
 
-        if result:
-            self._execute_commands(if_body)
-        elif else_body:
+        # Execute else body if nothing matched
+        if not executed and else_body:
             self._execute_commands(else_body)
 
         return next_idx
@@ -1411,11 +1569,24 @@ class StataInterpreter:
 
     def _try_execute_ado(self, command: str, cmd: ParsedCommand) -> bool:
         """Try to find and execute an ado file for the command."""
-        # Look in common locations
+        # Build search paths
         search_paths = [
-            os.getcwd(),
-            os.path.dirname(os.path.abspath(__file__)),
+            os.getcwd(),  # Current directory
         ]
+
+        # Add registered ado paths (from net install)
+        search_paths.extend(self._ado_paths)
+
+        # Add project root and subdirectories
+        search_paths.append(self._project_root)
+
+        # Check for package directory at project root (e.g., project/command/command.ado)
+        pkg_dir = os.path.join(self._project_root, command)
+        if os.path.isdir(pkg_dir):
+            search_paths.append(pkg_dir)
+
+        # Add interpreter directory
+        search_paths.append(os.path.dirname(os.path.abspath(__file__)))
 
         for path in search_paths:
             ado_file = os.path.join(path, f"{command}.ado")
@@ -1429,3 +1600,12 @@ class StataInterpreter:
                     return True
 
         return False
+
+    def add_ado_path(self, path: str) -> None:
+        """Add a path to search for ado files."""
+        if path and path not in self._ado_paths:
+            # Handle relative paths
+            if not os.path.isabs(path):
+                path = os.path.abspath(path)
+            if os.path.isdir(path):
+                self._ado_paths.append(path)

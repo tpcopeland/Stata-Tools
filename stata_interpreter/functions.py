@@ -20,6 +20,9 @@ import math
 Numeric = Union[int, float, np.number, pd.Series]
 Value = Union[Numeric, str, pd.Series]
 
+# Module-level state for regex functions
+_last_regex_match: Optional[re.Match] = None
+
 
 class StataFunctions:
     """Collection of Stata built-in functions."""
@@ -273,10 +276,13 @@ class StataFunctions:
 
     @staticmethod
     def regexm(s: Union[str, pd.Series], pattern: str) -> Union[int, pd.Series]:
-        """Check if string matches regex pattern."""
+        """Check if string matches regex pattern and store match for regexs()."""
+        global _last_regex_match
         if isinstance(s, pd.Series):
             return s.astype(str).str.contains(pattern, regex=True, na=False).astype(int)
-        return 1 if re.search(pattern, str(s)) else 0
+        match = re.search(pattern, str(s))
+        _last_regex_match = match
+        return 1 if match else 0
 
     @staticmethod
     def regexr(
@@ -289,13 +295,40 @@ class StataFunctions:
 
     @staticmethod
     def regexs(n: int) -> str:
-        """Return captured group from most recent regexm (not implemented without state)."""
-        # This would need interpreter state to track
-        return ""
+        """Return captured group from most recent regexm()."""
+        global _last_regex_match
+        if _last_regex_match is None:
+            return ""
+        try:
+            n = int(n)
+            return _last_regex_match.group(n) or ""
+        except (IndexError, AttributeError):
+            return ""
 
     @staticmethod
-    def string(x: Numeric) -> Union[str, pd.Series]:
-        """Convert number to string."""
+    def string(x: Numeric, format: str = None) -> Union[str, pd.Series]:
+        """
+        Convert number to string, optionally with format.
+
+        Stata syntax: string(x) or string(x, "%fmt")
+        Common formats: %02.0f (zero-padded 2 digits), %9.2f, etc.
+        """
+        if format is not None:
+            # Parse Stata format and convert to Python format
+            # Handle common formats like "%02.0f", "%9.2f", etc.
+            format = str(format).strip('"').strip("'")
+            try:
+                # Convert Stata format to Python format
+                # Stata: %02.0f -> Python: {:02.0f}
+                if format.startswith("%"):
+                    py_fmt = format[1:]  # Remove leading %
+                    # Handle common patterns
+                    if isinstance(x, pd.Series):
+                        return x.apply(lambda v: f"{v:{py_fmt}}" if pd.notna(v) else "")
+                    return f"{x:{py_fmt}}"
+            except (ValueError, TypeError):
+                pass
+
         if isinstance(x, pd.Series):
             return x.astype(str)
         return str(x)
@@ -339,24 +372,54 @@ class StataFunctions:
         Convert string to Stata date (days since 1960-01-01).
 
         Common formats: "DMY", "MDY", "YMD"
+        Handles various input formats including:
+        - "12 Dec 2025" (day monthname year)
+        - "12/12/2025" (with separators)
+        - "12122025" (continuous digits)
         """
         stata_epoch = datetime(1960, 1, 1)
 
         def parse_date(date_str: str, fmt: str) -> int:
             try:
-                # Map Stata format to strptime format
+                fmt_upper = fmt.upper()
+                date_str = date_str.strip()
+
+                # Try multiple parsing strategies
+                # Strategy 1: Handle "DD Mon YYYY" format (like "12 Dec 2025")
+                if fmt_upper == "DMY":
+                    # Try day month-name year format first
+                    for date_fmt in ["%d %b %Y", "%d %B %Y", "%d/%m/%Y", "%d-%m-%Y", "%d%m%Y"]:
+                        try:
+                            dt = datetime.strptime(date_str, date_fmt)
+                            return (dt - stata_epoch).days
+                        except ValueError:
+                            continue
+                elif fmt_upper == "MDY":
+                    for date_fmt in ["%m/%d/%Y", "%m-%d-%Y", "%m%d%Y", "%b %d %Y", "%B %d %Y"]:
+                        try:
+                            dt = datetime.strptime(date_str, date_fmt)
+                            return (dt - stata_epoch).days
+                        except ValueError:
+                            continue
+                elif fmt_upper == "YMD":
+                    for date_fmt in ["%Y/%m/%d", "%Y-%m-%d", "%Y%m%d", "%Y %b %d", "%Y %B %d"]:
+                        try:
+                            dt = datetime.strptime(date_str, date_fmt)
+                            return (dt - stata_epoch).days
+                        except ValueError:
+                            continue
+
+                # Fallback: remove common separators and try basic format
+                clean_str = date_str.replace("/", "").replace("-", "").replace(" ", "")
                 format_map = {
                     "DMY": "%d%m%Y",
                     "MDY": "%m%d%Y",
                     "YMD": "%Y%m%d",
-                    "DM20Y": "%d%m%Y",  # Handle variations
-                    "MD20Y": "%m%d%Y",
                 }
-                py_fmt = format_map.get(fmt.upper(), "%Y%m%d")
-
-                # Try to parse
-                dt = datetime.strptime(date_str.replace("/", "").replace("-", ""), py_fmt)
+                py_fmt = format_map.get(fmt_upper, "%Y%m%d")
+                dt = datetime.strptime(clean_str, py_fmt)
                 return (dt - stata_epoch).days
+
             except (ValueError, AttributeError):
                 return np.nan
 

@@ -804,14 +804,30 @@ class IOCommands:
         options: dict = None,
     ) -> None:
         """
-        Network commands (stub).
+        Network commands.
 
-        Syntax: net install pkgname, from(url)
+        Syntax: net install pkgname, from(path)
                 net uninstall pkgname
-        Note: Network commands are not implemented - this is a stub.
+        Note: Network commands with URLs are not supported - only local paths.
         """
-        # Stub - net commands would require actual network access
-        pass
+        options = options or {}
+
+        if not args:
+            return
+
+        subcmd = str(args[0]).lower()
+
+        if subcmd == "install":
+            # Handle net install pkgname, from(path)
+            from_path = options.get("from", "")
+            if from_path:
+                from_path = self.macros.expand(from_path)
+                from_path = from_path.strip('"').strip("'")
+                # Register the path for ado file search
+                self.interp.add_ado_path(from_path)
+        elif subcmd == "uninstall":
+            # Uninstall is a no-op for now
+            pass
 
     def cmd_confirm(
         self,
