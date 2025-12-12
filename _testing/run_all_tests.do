@@ -38,7 +38,7 @@ display as text "{hline 70}"
 * =============================================================================
 display as text _n "Installing packages from local repository..."
 
-local packages "tvtools datamap synthdata mvp table1_tc consort regtab cstat_surv stratetab compress_tc datefix check today setools"
+local packages "tvtools datamap synthdata mvp table1_tc regtab cstat_surv stratetab compress_tc datefix check today setools"
 
 foreach pkg of local packages {
     display as text "  Installing: `pkg'"
@@ -89,8 +89,6 @@ local test_files "`test_files' test_today"
 
 * Analysis commands
 local test_files "`test_files' test_table1_tc"
-local test_files "`test_files' test_consort"
-local test_files "`test_files' test_consortq"
 local test_files "`test_files' test_regtab"
 local test_files "`test_files' test_cstat_surv"
 local test_files "`test_files' test_stratetab"

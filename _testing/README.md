@@ -25,7 +25,7 @@ _testing/
 ├── generate_test_data.ado       # Program for data generation
 ├── run_all_tests.do             # Master test runner
 │
-├── Test Files (19):
+├── Test Files (17):
 │   ├── test_tvexpose.do         # 37 tests - tvexpose command
 │   ├── test_tvmerge.do          # 16 tests - tvmerge command
 │   ├── test_tvevent.do          # 13 tests - tvevent command
@@ -34,8 +34,6 @@ _testing/
 │   ├── test_synthdata.do        # 35 tests - synthdata command
 │   ├── test_mvp.do              # 45 tests - mvp command
 │   ├── test_table1_tc.do        # 24 tests - table1_tc command
-│   ├── test_consort.do          # 5 tests - consort command
-│   ├── test_consortq.do         # consortq tests
 │   ├── test_regtab.do           # 6 tests - regtab command
 │   ├── test_cstat_surv.do       # 4 tests - cstat_surv command
 │   ├── test_stratetab.do        # 2 tests - stratetab command
@@ -142,7 +140,6 @@ display "Total: `test_count' Passed: `pass_count' Failed: `fail_count'"
 | synthdata | synthdata | 35 | Excellent |
 | mvp | mvp | 45 | Excellent |
 | table1_tc | table1_tc | 24 | Good |
-| consort | consort | 5 | Partial |
 | regtab | regtab | 6 | Good |
 | cstat_surv | cstat_surv | 4 | Good |
 | stratetab | stratetab | 2 | Partial |
