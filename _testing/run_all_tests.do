@@ -10,6 +10,7 @@
 *
 * Author: Timothy P Copeland
 * Date: 2025-12-08
+* Updated: 2025-12-12 (reorganized paths, added steroids dataset support)
 *******************************************************************************/
 
 clear all
@@ -17,19 +18,23 @@ set more off
 version 16.0
 
 * =============================================================================
-* SETUP: Change to data directory and install packages from local repository
+* PATH CONFIGURATION
 * =============================================================================
+* Local machine path (for Claude with stata-mcp access)
+global STATA_TOOLS_PATH "/Users/tcopeland/Documents/GitHub/Stata-Tools"
 
-* Data directory for test datasets
-cd "_testing/data/"
+* Directory structure
+global TESTING_DIR "${STATA_TOOLS_PATH}/_testing"
+global DATA_DIR "${TESTING_DIR}/data"
 
-local testdir "`c(pwd)'"
-local basedir "."
+* Change to the data directory
+cd "${DATA_DIR}"
 
 display as text _n "{hline 70}"
 display as text "STATA-TOOLS COMPREHENSIVE TEST SUITE"
 display as text "{hline 70}"
-display as text "Test directory: `testdir'"
+display as text "Repository path: ${STATA_TOOLS_PATH}"
+display as text "Data directory: ${DATA_DIR}"
 display as text "Date: `c(current_date)' `c(current_time)'"
 display as text "{hline 70}"
 
@@ -43,7 +48,7 @@ local packages "tvtools datamap synthdata mvp table1_tc regtab cstat_surv strate
 foreach pkg of local packages {
     display as text "  Installing: `pkg'"
     capture net uninstall `pkg'
-    capture noisily net install `pkg', from("`basedir'/`pkg'")
+    capture noisily net install `pkg', from("${STATA_TOOLS_PATH}/`pkg'")
 }
 
 * =============================================================================
@@ -51,10 +56,10 @@ foreach pkg of local packages {
 * =============================================================================
 display as text _n "Checking prerequisites..."
 
-capture confirm file "`testdir'/cohort.dta"
+capture confirm file "${DATA_DIR}/cohort.dta"
 if _rc {
     display as text "Test data not found. Generating..."
-    capture noisily do "`basedir'/_testing/generate_test_data.do"
+    capture noisily do "${TESTING_DIR}/generate_test_data.do"
     if _rc {
         display as error "ERROR: Could not generate test data"
         exit _rc
@@ -63,6 +68,17 @@ if _rc {
 }
 else {
     display as result "Test data found"
+}
+
+* Verify steroids.dta exists (new dataset for dose testing)
+capture confirm file "${DATA_DIR}/steroids.dta"
+if _rc {
+    display as text "Steroids data not found. Regenerating all test data..."
+    capture noisily do "${TESTING_DIR}/generate_test_data.do"
+    if _rc {
+        display as error "ERROR: Could not generate test data"
+        exit _rc
+    }
 }
 
 * =============================================================================
@@ -116,7 +132,7 @@ foreach test of local test_files {
     display as text "Running: `test'.do"
     display as text "{hline 50}"
 
-    capture confirm file "`testdir'/`test'.do"
+    capture confirm file "${TESTING_DIR}/`test'.do"
     if _rc {
         display as error "  FILE NOT FOUND: `test'.do"
         local ++failed_files
@@ -124,7 +140,7 @@ foreach test of local test_files {
         continue
     }
 
-    capture noisily do "`testdir'/`test'.do"
+    capture noisily do "${TESTING_DIR}/`test'.do"
     local rc = _rc
 
     if `rc' == 0 {
