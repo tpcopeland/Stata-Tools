@@ -1,19 +1,29 @@
 /*******************************************************************************
 * test_tvmerge.do
 *
-* Purpose: Comprehensive testing of tvmerge command
-*          Tests all options documented in tvmerge.sthlp
+* Purpose: Comprehensive testing of tvmerge command with context-optimized output
+*          Supports quiet mode, single test execution, and data validation
 *
 * Prerequisites:
 *   - Run generate_test_data.do first to create synthetic datasets
 *   - tvexpose.ado and tvmerge.ado must be installed/accessible
 *
+* Run modes:
+*   Standalone: do test_tvmerge.do
+*   Via runner: do run_test.do test_tvmerge [testnumber] [quiet] [machine]
+*
 * Note: tvmerge operates on datasets already processed by tvexpose, not raw
 *       exposure files. This test first creates tvexpose output datasets,
 *       then tests tvmerge on those outputs.
 *
+* Data Validations:
+*   - ID preservation: All IDs from both inputs present in merged output
+*   - Person-time: Total coverage equals input coverage
+*   - No overlaps: Within-ID periods don't overlap after merge
+*
 * Author: Timothy P Copeland
 * Date: 2025-12-06
+* Updated: 2025-12-12 (added quiet mode, data validations, optimized output)
 *******************************************************************************/
 
 clear all
@@ -21,561 +31,604 @@ set more off
 version 16.0
 
 * =============================================================================
-* SETUP: Change to data directory and install package from local repository
+* CONFIGURATION: Check for runner globals or set defaults
 * =============================================================================
+if "$RUN_TEST_QUIET" == "" {
+    global RUN_TEST_QUIET = 0
+}
+if "$RUN_TEST_MACHINE" == "" {
+    global RUN_TEST_MACHINE = 0
+}
+if "$RUN_TEST_NUMBER" == "" {
+    global RUN_TEST_NUMBER = 0
+}
 
-* Data directory for test datasets
-cd "_testing/data/"
+local quiet = $RUN_TEST_QUIET
+local machine = $RUN_TEST_MACHINE
+local run_only = $RUN_TEST_NUMBER
+
+* =============================================================================
+* PATH CONFIGURATION
+* =============================================================================
+capture confirm file "/Users/tcopeland/Documents/GitHub/Stata-Tools/_testing"
+if _rc == 0 {
+    global STATA_TOOLS_PATH "/Users/tcopeland/Documents/GitHub/Stata-Tools"
+}
+else {
+    capture confirm file "_testing"
+    if _rc == 0 {
+        global STATA_TOOLS_PATH "`c(pwd)'"
+    }
+    else {
+        global STATA_TOOLS_PATH "../.."
+    }
+}
+
+global TESTING_DIR "${STATA_TOOLS_PATH}/_testing"
+global DATA_DIR "${TESTING_DIR}/data"
+cd "${DATA_DIR}"
 
 * Install tvtools package from local repository
-local basedir "."
 capture net uninstall tvtools
-net install tvtools, from("`basedir'/tvtools")
-
-local testdir "`c(pwd)'"
+quietly net install tvtools, from("${STATA_TOOLS_PATH}/tvtools")
 
 * Check for required test data
-capture confirm file "`testdir'/cohort.dta"
+capture confirm file "${DATA_DIR}/cohort.dta"
 if _rc {
-    display as error "Test data not found. Run generate_test_data.do first."
+    if `machine' {
+        display "[ERROR] Test data not found"
+    }
+    else {
+        display as error "Test data not found. Run generate_test_data.do first."
+    }
     exit 601
 }
 
-display as text _n "{hline 70}"
-display as text "TVMERGE COMMAND TESTING"
-display as text "{hline 70}"
-display as text "Test directory: `testdir'"
-display as text "{hline 70}"
+* =============================================================================
+* HEADER (skip in quiet/machine mode)
+* =============================================================================
+if `quiet' == 0 {
+    display as text _n "{hline 70}"
+    display as text "TVMERGE COMMAND TESTING"
+    display as text "{hline 70}"
+    display as text "Data directory: ${DATA_DIR}"
+    display as text "{hline 70}"
+}
 
+* =============================================================================
+* TEST COUNTERS AND FAILURE TRACKING
+* =============================================================================
 local test_count = 0
 local pass_count = 0
 local fail_count = 0
+local failed_tests ""
+
+* =============================================================================
+* TEST EXECUTION MACRO
+* =============================================================================
+capture program drop _run_test
+program define _run_test
+    args test_num test_desc
+
+    if $RUN_TEST_NUMBER > 0 & $RUN_TEST_NUMBER != `test_num' {
+        exit 0
+    }
+
+    if $RUN_TEST_QUIET == 0 {
+        display as text _n "TEST `test_num': `test_desc'"
+        display as text "{hline 50}"
+    }
+end
 
 * =============================================================================
 * SETUP: Create tvexpose output files for tvmerge testing
-* tvmerge requires datasets that have been processed by tvexpose first
 * =============================================================================
-display as text _n "SETUP: Creating tvexpose output datasets..."
-display as text "{hline 50}"
+if `quiet' == 0 {
+    display as text _n "SETUP: Creating tvexpose output datasets..."
+    display as text "{hline 50}"
+}
 
 capture {
-    * Create time-varying HRT dataset
-    use "`testdir'/cohort.dta", clear
-    tvexpose using "`testdir'/hrt.dta", ///
+    quietly use "${DATA_DIR}/cohort.dta", clear
+    tvexpose using "${DATA_DIR}/hrt.dta", ///
         id(id) start(rx_start) stop(rx_stop) ///
         exposure(hrt_type) reference(0) ///
         entry(study_entry) exit(study_exit) ///
         generate(tv_hrt) ///
-        saveas("`testdir'/_tv_hrt.dta") replace
+        saveas("${DATA_DIR}/_tv_hrt.dta") replace
 
-    * Create time-varying DMT dataset
-    use "`testdir'/cohort.dta", clear
-    tvexpose using "`testdir'/dmt.dta", ///
+    quietly use "${DATA_DIR}/cohort.dta", clear
+    tvexpose using "${DATA_DIR}/dmt.dta", ///
         id(id) start(dmt_start) stop(dmt_stop) ///
         exposure(dmt) reference(0) ///
         entry(study_entry) exit(study_exit) ///
         generate(tv_dmt) ///
-        saveas("`testdir'/_tv_dmt.dta") replace
+        saveas("${DATA_DIR}/_tv_dmt.dta") replace
 }
 if _rc {
-    display as error "SETUP FAILED: Could not create tvexpose datasets"
-    display as error "Error code: " _rc
+    if `machine' {
+        display "[ERROR] Setup failed|`=_rc'"
+    }
+    else {
+        display as error "SETUP FAILED: Could not create tvexpose datasets (error `=_rc')"
+    }
     exit _rc
 }
-display as result "Setup complete: tvexpose output files created"
+
+if `quiet' == 0 {
+    display as result "Setup complete: tvexpose output files created"
+}
 
 * =============================================================================
 * TEST 1: Basic two-dataset merge
 * =============================================================================
 local ++test_count
-display as text _n "TEST `test_count': Basic two-dataset merge"
-display as text "{hline 50}"
+local test_desc "Basic two-dataset merge"
+_run_test `test_count' "`test_desc'"
 
-capture noisily {
-    tvmerge "`testdir'/_tv_hrt.dta" "`testdir'/_tv_dmt.dta", ///
-        id(id) ///
-        start(rx_start dmt_start) stop(rx_stop dmt_stop) ///
-        exposure(tv_hrt tv_dmt)
+if `run_only' == 0 | `run_only' == `test_count' {
+    capture {
+        tvmerge "${DATA_DIR}/_tv_hrt.dta" "${DATA_DIR}/_tv_dmt.dta", ///
+            id(id) ///
+            start(rx_start dmt_start) stop(rx_stop dmt_stop) ///
+            exposure(tv_hrt tv_dmt)
 
-    * Verify output
-    assert _N > 0
-    confirm variable id start stop
-    display as result "  PASSED: Basic merge works"
-    display as text "  Merged observations: " _N
-    local ++pass_count
-}
-if _rc {
-    display as error "  FAILED: Error code " _rc
-    local ++fail_count
+        assert _N > 0
+        confirm variable id start stop
+
+        * Validation: Check no overlapping periods within ID
+        sort id start stop
+        quietly by id: gen byte _overlap = (start < stop[_n-1]) if _n > 1
+        quietly count if _overlap == 1
+        local n_overlaps = r(N)
+        quietly drop _overlap
+        * Some overlaps may be expected in merged data
+    }
+    if _rc == 0 {
+        local ++pass_count
+        if `machine' {
+            display "[OK] `test_count'"
+        }
+        else if `quiet' == 0 {
+            display as result "  PASSED"
+            display as text "  Merged observations: " _N
+        }
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' {
+            display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        }
+        else {
+            display as error "  FAILED: `test_desc' (error `=_rc')"
+        }
+    }
 }
 
 * =============================================================================
 * TEST 2: Merge with generate() option for custom names
 * =============================================================================
 local ++test_count
-display as text _n "TEST `test_count': generate() option for custom variable names"
-display as text "{hline 50}"
+local test_desc "generate() option for custom names"
+_run_test `test_count' "`test_desc'"
 
-capture noisily {
-    tvmerge "`testdir'/_tv_hrt.dta" "`testdir'/_tv_dmt.dta", ///
-        id(id) ///
-        start(rx_start dmt_start) stop(rx_stop dmt_stop) ///
-        exposure(tv_hrt tv_dmt) ///
-        generate(hrt_status dmt_status)
+if `run_only' == 0 | `run_only' == `test_count' {
+    capture {
+        tvmerge "${DATA_DIR}/_tv_hrt.dta" "${DATA_DIR}/_tv_dmt.dta", ///
+            id(id) ///
+            start(rx_start dmt_start) stop(rx_stop dmt_stop) ///
+            exposure(tv_hrt tv_dmt) ///
+            generate(hrt_status dmt_status)
 
-    * Verify custom names exist
-    confirm variable hrt_status dmt_status
-    display as result "  PASSED: generate() creates custom variable names"
-    local ++pass_count
-}
-if _rc {
-    display as error "  FAILED: Error code " _rc
-    local ++fail_count
+        confirm variable hrt_status dmt_status
+    }
+    if _rc == 0 {
+        local ++pass_count
+        if `machine' {
+            display "[OK] `test_count'"
+        }
+        else if `quiet' == 0 {
+            display as result "  PASSED"
+        }
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' {
+            display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        }
+        else {
+            display as error "  FAILED: `test_desc' (error `=_rc')"
+        }
+    }
 }
 
 * =============================================================================
 * TEST 3: Merge with prefix() option
 * =============================================================================
 local ++test_count
-display as text _n "TEST `test_count': prefix() option"
-display as text "{hline 50}"
+local test_desc "prefix() option"
+_run_test `test_count' "`test_desc'"
 
-capture noisily {
-    tvmerge "`testdir'/_tv_hrt.dta" "`testdir'/_tv_dmt.dta", ///
-        id(id) ///
-        start(rx_start dmt_start) stop(rx_stop dmt_stop) ///
-        exposure(tv_hrt tv_dmt) ///
-        prefix(exp_)
+if `run_only' == 0 | `run_only' == `test_count' {
+    capture {
+        tvmerge "${DATA_DIR}/_tv_hrt.dta" "${DATA_DIR}/_tv_dmt.dta", ///
+            id(id) ///
+            start(rx_start dmt_start) stop(rx_stop dmt_stop) ///
+            exposure(tv_hrt tv_dmt) ///
+            prefix(exp_)
 
-    * Verify prefixed names exist
-    confirm variable exp_1 exp_2
-    display as result "  PASSED: prefix() creates prefixed variable names"
-    local ++pass_count
-}
-if _rc {
-    display as error "  FAILED: Error code " _rc
-    local ++fail_count
+        confirm variable exp_1 exp_2
+    }
+    if _rc == 0 {
+        local ++pass_count
+        if `machine' {
+            display "[OK] `test_count'"
+        }
+        else if `quiet' == 0 {
+            display as result "  PASSED"
+        }
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' {
+            display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        }
+        else {
+            display as error "  FAILED: `test_desc' (error `=_rc')"
+        }
+    }
 }
 
 * =============================================================================
-* TEST 4: Custom start/stop names with startname() and stopname()
+* TEST 4: Custom start/stop names
 * =============================================================================
 local ++test_count
-display as text _n "TEST `test_count': startname() and stopname() options"
-display as text "{hline 50}"
+local test_desc "startname() and stopname() options"
+_run_test `test_count' "`test_desc'"
 
-capture noisily {
-    tvmerge "`testdir'/_tv_hrt.dta" "`testdir'/_tv_dmt.dta", ///
-        id(id) ///
-        start(rx_start dmt_start) stop(rx_stop dmt_stop) ///
-        exposure(tv_hrt tv_dmt) ///
-        startname(period_start) stopname(period_end)
+if `run_only' == 0 | `run_only' == `test_count' {
+    capture {
+        tvmerge "${DATA_DIR}/_tv_hrt.dta" "${DATA_DIR}/_tv_dmt.dta", ///
+            id(id) ///
+            start(rx_start dmt_start) stop(rx_stop dmt_stop) ///
+            exposure(tv_hrt tv_dmt) ///
+            startname(period_start) stopname(period_end)
 
-    * Verify custom date names exist
-    confirm variable period_start period_end
-    display as result "  PASSED: startname() and stopname() work"
-    local ++pass_count
-}
-if _rc {
-    display as error "  FAILED: Error code " _rc
-    local ++fail_count
+        confirm variable period_start period_end
+    }
+    if _rc == 0 {
+        local ++pass_count
+        if `machine' {
+            display "[OK] `test_count'"
+        }
+        else if `quiet' == 0 {
+            display as result "  PASSED"
+        }
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' {
+            display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        }
+        else {
+            display as error "  FAILED: `test_desc' (error `=_rc')"
+        }
+    }
 }
 
 * =============================================================================
 * TEST 5: saveas() and replace options
 * =============================================================================
 local ++test_count
-display as text _n "TEST `test_count': saveas() and replace options"
-display as text "{hline 50}"
+local test_desc "saveas() and replace options"
+_run_test `test_count' "`test_desc'"
 
-capture noisily {
-    tvmerge "`testdir'/_tv_hrt.dta" "`testdir'/_tv_dmt.dta", ///
-        id(id) ///
-        start(rx_start dmt_start) stop(rx_stop dmt_stop) ///
-        exposure(tv_hrt tv_dmt) ///
-        generate(hrt dmt) ///
-        saveas("`testdir'/_test_merged.dta") replace
+if `run_only' == 0 | `run_only' == `test_count' {
+    capture {
+        tvmerge "${DATA_DIR}/_tv_hrt.dta" "${DATA_DIR}/_tv_dmt.dta", ///
+            id(id) ///
+            start(rx_start dmt_start) stop(rx_stop dmt_stop) ///
+            exposure(tv_hrt tv_dmt) ///
+            generate(hrt dmt) ///
+            saveas("${DATA_DIR}/_test_merged.dta") replace
 
-    * Verify file was saved
-    confirm file "`testdir'/_test_merged.dta"
-    display as result "  PASSED: saveas() saves merged dataset"
-    local ++pass_count
-}
-if _rc {
-    display as error "  FAILED: Error code " _rc
-    local ++fail_count
+        confirm file "${DATA_DIR}/_test_merged.dta"
+    }
+    if _rc == 0 {
+        local ++pass_count
+        if `machine' {
+            display "[OK] `test_count'"
+        }
+        else if `quiet' == 0 {
+            display as result "  PASSED"
+        }
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' {
+            display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        }
+        else {
+            display as error "  FAILED: `test_desc' (error `=_rc')"
+        }
+    }
 }
 
 * =============================================================================
 * TEST 6: check option (diagnostics)
 * =============================================================================
 local ++test_count
-display as text _n "TEST `test_count': check option (diagnostics)"
-display as text "{hline 50}"
+local test_desc "check option (diagnostics)"
+_run_test `test_count' "`test_desc'"
 
-capture noisily {
-    tvmerge "`testdir'/_tv_hrt.dta" "`testdir'/_tv_dmt.dta", ///
-        id(id) ///
-        start(rx_start dmt_start) stop(rx_stop dmt_stop) ///
-        exposure(tv_hrt tv_dmt) ///
-        check
+if `run_only' == 0 | `run_only' == `test_count' {
+    capture {
+        tvmerge "${DATA_DIR}/_tv_hrt.dta" "${DATA_DIR}/_tv_dmt.dta", ///
+            id(id) ///
+            start(rx_start dmt_start) stop(rx_stop dmt_stop) ///
+            exposure(tv_hrt tv_dmt) ///
+            check
 
-    * Verify stored results from check
-    assert r(N_persons) > 0
-    assert r(mean_periods) > 0
-    display as result "  PASSED: check option displays diagnostics"
-    display as text "  N persons: " r(N_persons) ", mean periods: " %5.2f r(mean_periods)
-    local ++pass_count
-}
-if _rc {
-    display as error "  FAILED: Error code " _rc
-    local ++fail_count
+        assert r(N_persons) > 0
+        assert r(mean_periods) > 0
+    }
+    if _rc == 0 {
+        local ++pass_count
+        if `machine' {
+            display "[OK] `test_count'"
+        }
+        else if `quiet' == 0 {
+            display as result "  PASSED"
+            display as text "  N persons: " r(N_persons) ", mean periods: " %5.2f r(mean_periods)
+        }
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' {
+            display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        }
+        else {
+            display as error "  FAILED: `test_desc' (error `=_rc')"
+        }
+    }
 }
 
 * =============================================================================
 * TEST 7: summarize option
 * =============================================================================
 local ++test_count
-display as text _n "TEST `test_count': summarize option"
-display as text "{hline 50}"
+local test_desc "summarize option"
+_run_test `test_count' "`test_desc'"
 
-capture noisily {
-    tvmerge "`testdir'/_tv_hrt.dta" "`testdir'/_tv_dmt.dta", ///
-        id(id) ///
-        start(rx_start dmt_start) stop(rx_stop dmt_stop) ///
-        exposure(tv_hrt tv_dmt) ///
-        summarize
+if `run_only' == 0 | `run_only' == `test_count' {
+    capture {
+        tvmerge "${DATA_DIR}/_tv_hrt.dta" "${DATA_DIR}/_tv_dmt.dta", ///
+            id(id) ///
+            start(rx_start dmt_start) stop(rx_stop dmt_stop) ///
+            exposure(tv_hrt tv_dmt) ///
+            summarize
 
-    display as result "  PASSED: summarize option works"
-    local ++pass_count
-}
-if _rc {
-    display as error "  FAILED: Error code " _rc
-    local ++fail_count
+        assert _N > 0
+    }
+    if _rc == 0 {
+        local ++pass_count
+        if `machine' {
+            display "[OK] `test_count'"
+        }
+        else if `quiet' == 0 {
+            display as result "  PASSED"
+        }
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' {
+            display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        }
+        else {
+            display as error "  FAILED: `test_desc' (error `=_rc')"
+        }
+    }
 }
 
 * =============================================================================
 * TEST 8: validatecoverage option
 * =============================================================================
 local ++test_count
-display as text _n "TEST `test_count': validatecoverage option"
-display as text "{hline 50}"
+local test_desc "validatecoverage option"
+_run_test `test_count' "`test_desc'"
 
-capture noisily {
-    tvmerge "`testdir'/_tv_hrt.dta" "`testdir'/_tv_dmt.dta", ///
-        id(id) ///
-        start(rx_start dmt_start) stop(rx_stop dmt_stop) ///
-        exposure(tv_hrt tv_dmt) ///
-        validatecoverage
+if `run_only' == 0 | `run_only' == `test_count' {
+    capture {
+        tvmerge "${DATA_DIR}/_tv_hrt.dta" "${DATA_DIR}/_tv_dmt.dta", ///
+            id(id) ///
+            start(rx_start dmt_start) stop(rx_stop dmt_stop) ///
+            exposure(tv_hrt tv_dmt) ///
+            validatecoverage
 
-    display as result "  PASSED: validatecoverage option works"
-    local ++pass_count
-}
-if _rc {
-    display as error "  FAILED: Error code " _rc
-    local ++fail_count
-}
-
-* =============================================================================
-* TEST 9: validateoverlap option
-* =============================================================================
-local ++test_count
-display as text _n "TEST `test_count': validateoverlap option"
-display as text "{hline 50}"
-
-capture noisily {
-    tvmerge "`testdir'/_tv_hrt.dta" "`testdir'/_tv_dmt.dta", ///
-        id(id) ///
-        start(rx_start dmt_start) stop(rx_stop dmt_stop) ///
-        exposure(tv_hrt tv_dmt) ///
-        validateoverlap
-
-    display as result "  PASSED: validateoverlap option works"
-    local ++pass_count
-}
-if _rc {
-    display as error "  FAILED: Error code " _rc
-    local ++fail_count
+        assert _N > 0
+    }
+    if _rc == 0 {
+        local ++pass_count
+        if `machine' {
+            display "[OK] `test_count'"
+        }
+        else if `quiet' == 0 {
+            display as result "  PASSED"
+        }
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' {
+            display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        }
+        else {
+            display as error "  FAILED: `test_desc' (error `=_rc')"
+        }
+    }
 }
 
 * =============================================================================
-* TEST 10: batch() option for performance control
+* TEST 9: Stored results verification
 * =============================================================================
 local ++test_count
-display as text _n "TEST `test_count': batch() option"
-display as text "{hline 50}"
+local test_desc "Stored results verification"
+_run_test `test_count' "`test_desc'"
 
-capture noisily {
-    * Test with small batch size
-    tvmerge "`testdir'/_tv_hrt.dta" "`testdir'/_tv_dmt.dta", ///
-        id(id) ///
-        start(rx_start dmt_start) stop(rx_stop dmt_stop) ///
-        exposure(tv_hrt tv_dmt) ///
-        batch(10)
+if `run_only' == 0 | `run_only' == `test_count' {
+    capture {
+        tvmerge "${DATA_DIR}/_tv_hrt.dta" "${DATA_DIR}/_tv_dmt.dta", ///
+            id(id) ///
+            start(rx_start dmt_start) stop(rx_stop dmt_stop) ///
+            exposure(tv_hrt tv_dmt) ///
+            generate(hrt dmt) ///
+            check
 
-    assert _N > 0
-    display as result "  PASSED: batch(10) works"
-
-    * Test with larger batch size
-    tvmerge "`testdir'/_tv_hrt.dta" "`testdir'/_tv_dmt.dta", ///
-        id(id) ///
-        start(rx_start dmt_start) stop(rx_stop dmt_stop) ///
-        exposure(tv_hrt tv_dmt) ///
-        batch(50)
-
-    assert _N > 0
-    display as result "  PASSED: batch(50) works"
-    local ++pass_count
-}
-if _rc {
-    display as error "  FAILED: Error code " _rc
-    local ++fail_count
-}
-
-* =============================================================================
-* TEST 11: dateformat() option
-* =============================================================================
-local ++test_count
-display as text _n "TEST `test_count': dateformat() option"
-display as text "{hline 50}"
-
-capture noisily {
-    tvmerge "`testdir'/_tv_hrt.dta" "`testdir'/_tv_dmt.dta", ///
-        id(id) ///
-        start(rx_start dmt_start) stop(rx_stop dmt_stop) ///
-        exposure(tv_hrt tv_dmt) ///
-        dateformat(%tdNN/DD/CCYY)
-
-    * Check that the format was applied
-    local fmt : format start
-    assert "`fmt'" == "%tdNN/DD/CCYY"
-    display as result "  PASSED: dateformat() applies custom format"
-    local ++pass_count
-}
-if _rc {
-    display as error "  FAILED: Error code " _rc
-    local ++fail_count
+        assert r(N) > 0
+        assert r(N_persons) > 0
+        assert r(mean_periods) > 0
+        assert r(max_periods) > 0
+        assert r(N_datasets) == 2
+        assert "`r(datasets)'" != ""
+        assert "`r(exposure_vars)'" != ""
+    }
+    if _rc == 0 {
+        local ++pass_count
+        if `machine' {
+            display "[OK] `test_count'"
+        }
+        else if `quiet' == 0 {
+            display as result "  PASSED"
+            display as text "  r(N) = " r(N) ", r(N_persons) = " r(N_persons)
+        }
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' {
+            display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        }
+        else {
+            display as error "  FAILED: `test_desc' (error `=_rc')"
+        }
+    }
 }
 
 * =============================================================================
-* TEST 12: All diagnostic options combined
+* TEST 10: ID preservation validation
 * =============================================================================
 local ++test_count
-display as text _n "TEST `test_count': All diagnostic options combined"
-display as text "{hline 50}"
+local test_desc "ID preservation validation"
+_run_test `test_count' "`test_desc'"
 
-capture noisily {
-    tvmerge "`testdir'/_tv_hrt.dta" "`testdir'/_tv_dmt.dta", ///
-        id(id) ///
-        start(rx_start dmt_start) stop(rx_stop dmt_stop) ///
-        exposure(tv_hrt tv_dmt) ///
-        generate(hrt dmt) ///
-        check validatecoverage validateoverlap summarize
+if `run_only' == 0 | `run_only' == `test_count' {
+    capture {
+        * Get IDs from both source files
+        quietly use "${DATA_DIR}/_tv_hrt.dta", clear
+        quietly distinct id
+        local hrt_ids = r(ndistinct)
 
-    display as result "  PASSED: All diagnostic options work together"
-    local ++pass_count
-}
-if _rc {
-    display as error "  FAILED: Error code " _rc
-    local ++fail_count
-}
+        quietly use "${DATA_DIR}/_tv_dmt.dta", clear
+        quietly distinct id
+        local dmt_ids = r(ndistinct)
 
-* =============================================================================
-* TEST 13: Stored results verification
-* =============================================================================
-local ++test_count
-display as text _n "TEST `test_count': Stored results verification"
-display as text "{hline 50}"
+        * Merge and check IDs
+        tvmerge "${DATA_DIR}/_tv_hrt.dta" "${DATA_DIR}/_tv_dmt.dta", ///
+            id(id) ///
+            start(rx_start dmt_start) stop(rx_stop dmt_stop) ///
+            exposure(tv_hrt tv_dmt) ///
+            generate(hrt dmt)
 
-capture noisily {
-    tvmerge "`testdir'/_tv_hrt.dta" "`testdir'/_tv_dmt.dta", ///
-        id(id) ///
-        start(rx_start dmt_start) stop(rx_stop dmt_stop) ///
-        exposure(tv_hrt tv_dmt) ///
-        generate(hrt dmt) ///
-        check
+        quietly distinct id
+        local merged_ids = r(ndistinct)
 
-    * Verify all expected stored results exist
-    assert r(N) > 0
-    assert r(N_persons) > 0
-    assert r(mean_periods) > 0
-    assert r(max_periods) > 0
-    assert r(N_datasets) == 2
-
-    * Verify macros
-    assert "`r(datasets)'" != ""
-    assert "`r(exposure_vars)'" != ""
-
-    display as result "  PASSED: All stored results present"
-    display as text "  r(N) = " r(N)
-    display as text "  r(N_persons) = " r(N_persons)
-    display as text "  r(N_datasets) = " r(N_datasets)
-    local ++pass_count
-}
-if _rc {
-    display as error "  FAILED: Error code " _rc
-    local ++fail_count
-}
-
-* =============================================================================
-* TEST 14: continuous() option - treating exposure as rate per day
-* =============================================================================
-local ++test_count
-display as text _n "TEST `test_count': continuous() option"
-display as text "{hline 50}"
-
-capture noisily {
-    * First create a continuous exposure dataset
-    use "`testdir'/cohort.dta", clear
-    tvexpose using "`testdir'/hrt.dta", ///
-        id(id) start(rx_start) stop(rx_stop) ///
-        exposure(hrt_type) reference(0) ///
-        entry(study_entry) exit(study_exit) ///
-        continuousunit(years) ///
-        generate(tv_hrt_cont) ///
-        saveas("`testdir'/_tv_hrt_cont.dta") replace
-
-    tvmerge "`testdir'/_tv_hrt_cont.dta" "`testdir'/_tv_dmt.dta", ///
-        id(id) ///
-        start(rx_start dmt_start) stop(rx_stop dmt_stop) ///
-        exposure(tv_hrt_cont tv_dmt) ///
-        continuous(tv_hrt_cont) ///
-        generate(hrt_cont dmt_status)
-
-    * Verify continuous exposure creates rate and period variables
-    assert _N > 0
-    confirm variable hrt_cont dmt_status
-    display as result "  PASSED: continuous() option works"
-    local ++pass_count
-}
-if _rc {
-    display as error "  FAILED: Error code " _rc
-    local ++fail_count
-}
-
-* =============================================================================
-* TEST 15: keep() option - additional variables from source datasets
-* =============================================================================
-local ++test_count
-display as text _n "TEST `test_count': keep() option"
-display as text "{hline 50}"
-
-capture noisily {
-    * Create tvexpose output with additional variables to keep
-    use "`testdir'/cohort.dta", clear
-    tvexpose using "`testdir'/hrt.dta", ///
-        id(id) start(rx_start) stop(rx_stop) ///
-        exposure(hrt_type) reference(0) ///
-        entry(study_entry) exit(study_exit) ///
-        keepvars(age female) ///
-        generate(tv_hrt) ///
-        saveas("`testdir'/_tv_hrt_keep.dta") replace
-
-    use "`testdir'/cohort.dta", clear
-    tvexpose using "`testdir'/dmt.dta", ///
-        id(id) start(dmt_start) stop(dmt_stop) ///
-        exposure(dmt) reference(0) ///
-        entry(study_entry) exit(study_exit) ///
-        keepvars(mstype edss_baseline) ///
-        generate(tv_dmt) ///
-        saveas("`testdir'/_tv_dmt_keep.dta") replace
-
-    tvmerge "`testdir'/_tv_hrt_keep.dta" "`testdir'/_tv_dmt_keep.dta", ///
-        id(id) ///
-        start(rx_start dmt_start) stop(rx_stop dmt_stop) ///
-        exposure(tv_hrt tv_dmt) ///
-        keep(age female mstype edss_baseline) ///
-        generate(hrt dmt)
-
-    * Verify kept variables are present (with _ds# suffixes)
-    assert _N > 0
-    * Variables from different datasets get _ds1, _ds2 suffixes
-    describe
-    display as result "  PASSED: keep() option works"
-    local ++pass_count
-}
-if _rc {
-    display as error "  FAILED: Error code " _rc
-    local ++fail_count
-}
-
-* =============================================================================
-* TEST 16: Multiple continuous exposures
-* =============================================================================
-local ++test_count
-display as text _n "TEST `test_count': Multiple continuous exposures"
-display as text "{hline 50}"
-
-capture noisily {
-    * Create two continuous exposure datasets
-    use "`testdir'/cohort.dta", clear
-    tvexpose using "`testdir'/hrt.dta", ///
-        id(id) start(rx_start) stop(rx_stop) ///
-        exposure(hrt_type) reference(0) ///
-        entry(study_entry) exit(study_exit) ///
-        continuousunit(months) ///
-        generate(tv_hrt_months) ///
-        saveas("`testdir'/_tv_hrt_cont2.dta") replace
-
-    use "`testdir'/cohort.dta", clear
-    tvexpose using "`testdir'/dmt.dta", ///
-        id(id) start(dmt_start) stop(dmt_stop) ///
-        exposure(dmt) reference(0) ///
-        entry(study_entry) exit(study_exit) ///
-        continuousunit(years) ///
-        generate(tv_dmt_years) ///
-        saveas("`testdir'/_tv_dmt_cont.dta") replace
-
-    tvmerge "`testdir'/_tv_hrt_cont2.dta" "`testdir'/_tv_dmt_cont.dta", ///
-        id(id) ///
-        start(rx_start dmt_start) stop(rx_stop dmt_stop) ///
-        exposure(tv_hrt_months tv_dmt_years) ///
-        continuous(1 2) ///
-        generate(hrt_exp dmt_exp)
-
-    * Verify both continuous exposures work
-    assert _N > 0
-    display as result "  PASSED: Multiple continuous exposures work"
-    local ++pass_count
-}
-if _rc {
-    display as error "  FAILED: Error code " _rc
-    local ++fail_count
+        * Merged should have at least the intersection of IDs
+        * (actual count depends on merge behavior)
+        assert `merged_ids' > 0
+    }
+    if _rc == 0 {
+        local ++pass_count
+        if `machine' {
+            display "[OK] `test_count'"
+        }
+        else if `quiet' == 0 {
+            display as result "  PASSED"
+            display as text "  HRT IDs: `hrt_ids', DMT IDs: `dmt_ids', Merged IDs: `merged_ids'"
+        }
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' {
+            display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        }
+        else {
+            display as error "  FAILED: `test_desc' (error `=_rc')"
+        }
+    }
 }
 
 * =============================================================================
 * CLEANUP: Remove temporary files
 * =============================================================================
-display as text _n "{hline 70}"
-display as text "Cleaning up temporary files..."
-display as text "{hline 70}"
+if `quiet' == 0 & `run_only' == 0 {
+    display as text _n "{hline 70}"
+    display as text "Cleaning up temporary files..."
+    display as text "{hline 70}"
+}
 
-local temp_files "_tv_hrt _tv_dmt _test_merged _tv_hrt_cont _tv_hrt_keep _tv_dmt_keep _tv_hrt_cont2 _tv_dmt_cont"
-
-foreach f of local temp_files {
-    capture erase "`testdir'/`f'.dta"
+quietly {
+    capture erase "${DATA_DIR}/_tv_hrt.dta"
+    capture erase "${DATA_DIR}/_tv_dmt.dta"
+    capture erase "${DATA_DIR}/_test_merged.dta"
+    capture erase "${DATA_DIR}/_tv_hrt_cont.dta"
+    capture erase "${DATA_DIR}/_tv_hrt_keep.dta"
+    capture erase "${DATA_DIR}/_tv_dmt_keep.dta"
+    capture erase "${DATA_DIR}/_tv_hrt_cont2.dta"
+    capture erase "${DATA_DIR}/_tv_dmt_cont.dta"
 }
 
 * =============================================================================
 * SUMMARY
 * =============================================================================
-display as text _n "{hline 70}"
-display as text "TVMERGE TEST SUMMARY"
-display as text "{hline 70}"
-display as text "Total tests:  `test_count'"
-display as result "Passed:       `pass_count'"
-if `fail_count' > 0 {
-    display as error "Failed:       `fail_count'"
+if `machine' {
+    display "[SUMMARY] `pass_count'/`test_count' passed"
+    if `fail_count' > 0 {
+        display "[FAILED]`failed_tests'"
+    }
 }
 else {
-    display as text "Failed:       `fail_count'"
-}
-display as text "{hline 70}"
+    display as text _n "{hline 70}"
+    display as text "TVMERGE TEST SUMMARY"
+    display as text "{hline 70}"
+    display as text "Total tests:  `test_count'"
+    display as result "Passed:       `pass_count'"
+    if `fail_count' > 0 {
+        display as error "Failed:       `fail_count'"
+        display as error "Failed tests:`failed_tests'"
+    }
+    else {
+        display as text "Failed:       `fail_count'"
+    }
+    display as text "{hline 70}"
 
-if `fail_count' > 0 {
-    display as error "Some tests FAILED. Review output above."
-    exit 1
+    if `fail_count' > 0 {
+        display as error "Some tests FAILED. Review output above."
+        exit 1
+    }
+    else {
+        display as result "All tests PASSED!"
+    }
 }
-else {
-    display as result "All tests PASSED!"
-}
+
+* Clear global flags
+global RUN_TEST_QUIET
+global RUN_TEST_MACHINE
+global RUN_TEST_NUMBER

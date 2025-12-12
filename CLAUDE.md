@@ -1358,6 +1358,39 @@ timer off 1
 timer list
 ```
 
+### Deep Debugging with set trace
+
+**When standard debugging doesn't reveal the problem**, use trace mode to see every line execute:
+
+```stata
+set trace on
+* Paste the exact failing command here
+tvexpose using "data.dta", id(id) start(rx_start) ...
+set trace off
+```
+
+**set trace options:**
+- `set trace on` - Full trace (very verbose)
+- `set trace on, noindent` - Less indentation
+- `set tracedepth 2` - Limit nesting depth shown
+- `set traceexpand off` - Don't show macro expansion
+- `set tracesep on` - Add separator lines
+
+**What trace shows:**
+- Every line of code as it executes
+- Macro expansion (`` `varname' `` → actual value)
+- Program calls and returns
+- Conditional branch taken (if/else)
+- Loop iterations
+
+**When to use trace:**
+- Error message is vague (e.g., "invalid syntax")
+- `capture noisily` doesn't show enough
+- Need to see macro expansion or conditional logic
+- Bug is in a subroutine call
+
+**IMPORTANT:** Always run `set trace off` after debugging - trace output fills context tokens rapidly.
+
 ---
 
 ## Error Handling Patterns

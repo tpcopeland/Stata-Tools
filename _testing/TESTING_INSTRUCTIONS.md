@@ -103,6 +103,33 @@ The tvtools tests include validation that compares transformed data against sour
 
 These validations catch data transformation errors automatically.
 
+### Deep Debugging with set trace
+
+When you can't figure out what's causing an error, use Stata's trace mode to see every line of code as it executes:
+
+```stata
+* Enable tracing
+set trace on
+
+* Run the failing command (paste it manually into Stata)
+tvexpose using "data/hrt.dta", id(id) start(rx_start) stop(rx_stop) ...
+
+* Disable tracing after diagnosing
+set trace off
+```
+
+**Key points:**
+- `set trace on` shows every macro expansion, program call, and line execution
+- Output is verbose but reveals exactly where/why errors occur
+- Always turn it off after debugging: `set trace off`
+- For less verbose output: `set trace on, noindent` or `set tracedepth 2`
+
+**When to use:**
+- Error messages are unclear (e.g., "invalid syntax" with no details)
+- `capture noisily` doesn't show enough information
+- Need to see macro expansion or conditional evaluation
+- Debugging complex nested program calls
+
 ---
 
 ## Environment Setup
