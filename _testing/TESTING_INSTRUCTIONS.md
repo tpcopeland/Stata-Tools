@@ -10,6 +10,128 @@ You are testing a collection of Stata packages for statistical analysis. Your go
 3. Identify and report any failures
 4. Ensure comprehensive test coverage
 
+---
+
+## Context-Optimized Testing for Claude Code
+
+### The Problem
+Running full test suites generates 1,500-2,500 lines of output per run, consuming significant context tokens. When debugging:
+1. First run shows error buried in verbose output
+2. After fixing, re-running regenerates all that output
+3. Context fills up quickly with repeated test runs
+
+### The Solution: Optimized Test Runner
+
+The test framework supports three output modes to minimize context usage:
+
+| Mode | Usage | Token Reduction |
+|------|-------|-----------------|
+| **verbose** (default) | Full output with separators | 0% |
+| **quiet** | Only failures + summary | ~80% |
+| **machine** | Parseable format for automation | ~85% |
+
+### Recommended Workflow
+
+#### 1. Discovery Run (First Time)
+```stata
+* Run in quiet mode to identify failures
+do run_test.do test_tvexpose . quiet
+```
+
+Output example (quiet mode):
+```
+[SUMMARY] 16/18 passed
+[FAILED] 15 16
+```
+
+#### 2. Diagnose Single Failure
+```stata
+* Run only the failing test to see error details
+do run_test.do test_tvexpose 15
+```
+
+This shows full output for just test 15, not all 18 tests.
+
+#### 3. Fix and Verify
+```stata
+* After fixing the .ado file, re-run just that test
+do run_test.do test_tvexpose 15 quiet
+
+* If it passes, verify no regressions
+do run_test.do test_tvexpose . quiet
+```
+
+#### 4. Machine Mode (for parsing)
+```stata
+do run_test.do test_tvexpose . machine
+```
+
+Output:
+```
+[OK] 1
+[OK] 2
+[FAIL] 15|198|dose option with validation
+[FAIL] 16|198|dose + dosecuts() option
+[SUMMARY] 16/18 passed
+[FAILED] 15 16
+[DONE] test_tvexpose FAILED|1
+```
+
+### Test Runner Usage
+
+```stata
+do run_test.do testfile [testnumber] [quiet] [machine]
+
+* Arguments:
+*   testfile   - Test file name without .do (e.g., test_tvexpose)
+*   testnumber - Specific test to run, or . for all (default: all)
+*   quiet      - "quiet" for minimal output
+*   machine    - "machine" for parseable format
+```
+
+### Data Validation Tests
+
+The tvtools tests include validation that compares transformed data against source data:
+
+| Validation | Description |
+|------------|-------------|
+| ID preservation | All input IDs present in output |
+| Date bounds | All dates within study_entry/exit |
+| Person-time | Total follow-up time preserved (±1%) |
+| No overlaps | Within-ID periods don't overlap |
+| Monotonic | Cumulative values non-decreasing |
+
+These validations catch data transformation errors automatically.
+
+### Deep Debugging with set trace
+
+When you can't figure out what's causing an error, use Stata's trace mode to see every line of code as it executes:
+
+```stata
+* Enable tracing
+set trace on
+
+* Run the failing command (paste it manually into Stata)
+tvexpose using "data/hrt.dta", id(id) start(rx_start) stop(rx_stop) ...
+
+* Disable tracing after diagnosing
+set trace off
+```
+
+**Key points:**
+- `set trace on` shows every macro expansion, program call, and line execution
+- Output is verbose but reveals exactly where/why errors occur
+- Always turn it off after debugging: `set trace off`
+- For less verbose output: `set trace on, noindent` or `set tracedepth 2`
+
+**When to use:**
+- Error messages are unclear (e.g., "invalid syntax" with no details)
+- `capture noisily` doesn't show enough information
+- Need to see macro expansion or conditional evaluation
+- Debugging complex nested program calls
+
+---
+
 ## Environment Setup
 
 ### Repository Location

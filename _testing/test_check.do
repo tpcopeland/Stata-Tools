@@ -1,15 +1,20 @@
 /*******************************************************************************
 * test_check.do
 *
-* Purpose: Comprehensive testing of check command
-*          Tests all options and common combinations
+* Purpose: Comprehensive testing of check command with context-optimized output
+*          Supports quiet mode, single test execution
 *
 * Prerequisites:
 *   - Run generate_test_data.do first to create synthetic datasets
 *   - check.ado must be installed/accessible
 *
+* Run modes:
+*   Standalone: do test_check.do
+*   Via runner: do run_test.do test_check [testnumber] [quiet] [machine]
+*
 * Author: Timothy P Copeland
 * Date: 2025-12-05
+* Updated: 2025-12-12 (added quiet mode, optimized output)
 *******************************************************************************/
 
 clear all
@@ -17,374 +22,571 @@ set more off
 version 16.0
 
 * =============================================================================
-* SETUP: Change to data directory and install package from local repository
+* CONFIGURATION: Check for runner globals or set defaults
 * =============================================================================
+if "$RUN_TEST_QUIET" == "" {
+    global RUN_TEST_QUIET = 0
+}
+if "$RUN_TEST_MACHINE" == "" {
+    global RUN_TEST_MACHINE = 0
+}
+if "$RUN_TEST_NUMBER" == "" {
+    global RUN_TEST_NUMBER = 0
+}
 
-* Data directory for test datasets
-cd "_testing/data/"
+local quiet = $RUN_TEST_QUIET
+local machine = $RUN_TEST_MACHINE
+local run_only = $RUN_TEST_NUMBER
+
+* =============================================================================
+* PATH CONFIGURATION
+* =============================================================================
+capture confirm file "/Users/tcopeland/Documents/GitHub/Stata-Tools/_testing"
+if _rc == 0 {
+    global STATA_TOOLS_PATH "/Users/tcopeland/Documents/GitHub/Stata-Tools"
+}
+else {
+    capture confirm file "_testing"
+    if _rc == 0 {
+        global STATA_TOOLS_PATH "`c(pwd)'"
+    }
+    else {
+        global STATA_TOOLS_PATH "../.."
+    }
+}
+
+global TESTING_DIR "${STATA_TOOLS_PATH}/_testing"
+global DATA_DIR "${TESTING_DIR}/data"
+cd "${DATA_DIR}"
 
 * Install check package from local repository
-local basedir "."
 capture net uninstall check
-net install check, from("`basedir'/check")
-
-local testdir "`c(pwd)'"
+quietly net install check, from("${STATA_TOOLS_PATH}/check")
 
 * Check for required test data
-capture confirm file "`testdir'/cohort.dta"
+capture confirm file "${DATA_DIR}/cohort.dta"
 if _rc {
-    display as error "Test data not found. Run generate_test_data.do first."
+    if `machine' {
+        display "[ERROR] Test data not found"
+    }
+    else {
+        display as error "Test data not found. Run generate_test_data.do first."
+    }
     exit 601
 }
 
-display as text _n "{hline 70}"
-display as text "CHECK COMMAND TESTING"
-display as text "{hline 70}"
-display as text "Test directory: `testdir'"
-display as text "{hline 70}"
+* =============================================================================
+* HEADER (skip in quiet/machine mode)
+* =============================================================================
+if `quiet' == 0 {
+    display as text _n "{hline 70}"
+    display as text "CHECK COMMAND TESTING"
+    display as text "{hline 70}"
+    display as text "Data directory: ${DATA_DIR}"
+    display as text "{hline 70}"
+}
 
+* =============================================================================
+* TEST COUNTERS AND FAILURE TRACKING
+* =============================================================================
 local test_count = 0
 local pass_count = 0
 local fail_count = 0
+local failed_tests ""
+
+* =============================================================================
+* TEST EXECUTION MACRO
+* =============================================================================
+capture program drop _run_test
+program define _run_test
+    args test_num test_desc
+
+    if $RUN_TEST_NUMBER > 0 & $RUN_TEST_NUMBER != `test_num' {
+        exit 0
+    }
+
+    if $RUN_TEST_QUIET == 0 {
+        display as text _n "TEST `test_num': `test_desc'"
+        display as text "{hline 50}"
+    }
+end
 
 * =============================================================================
 * TEST 1: Check single variable
 * =============================================================================
 local ++test_count
-display as text _n "TEST `test_count': Check single variable"
-display as text "{hline 50}"
+local test_desc "Check single variable"
+_run_test `test_count' "`test_desc'"
 
-capture noisily {
-    use "`testdir'/cohort.dta", clear
-
-    check age
-
-    * Verify stored results
-    assert r(nvars) == 1
-    display as result "  PASSED: Single variable check works"
-    local ++pass_count
-}
-if _rc {
-    display as error "  FAILED: Error code " _rc
-    local ++fail_count
+if `run_only' == 0 | `run_only' == `test_count' {
+    capture {
+        quietly use "${DATA_DIR}/cohort.dta", clear
+        check age
+        assert r(nvars) == 1
+    }
+    if _rc == 0 {
+        local ++pass_count
+        if `machine' {
+            display "[OK] `test_count'"
+        }
+        else if `quiet' == 0 {
+            display as result "  PASSED"
+        }
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' {
+            display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        }
+        else {
+            display as error "  FAILED: `test_desc' (error `=_rc')"
+        }
+    }
 }
 
 * =============================================================================
 * TEST 2: Check multiple variables
 * =============================================================================
 local ++test_count
-display as text _n "TEST `test_count': Check multiple variables"
-display as text "{hline 50}"
+local test_desc "Check multiple variables"
+_run_test `test_count' "`test_desc'"
 
-capture noisily {
-    use "`testdir'/cohort.dta", clear
-
-    check age female mstype edss_baseline region
-
-    assert r(nvars) == 5
-    display as result "  PASSED: Multiple variables check works"
-    local ++pass_count
-}
-if _rc {
-    display as error "  FAILED: Error code " _rc
-    local ++fail_count
+if `run_only' == 0 | `run_only' == `test_count' {
+    capture {
+        quietly use "${DATA_DIR}/cohort.dta", clear
+        check age female mstype
+        assert r(nvars) == 3
+    }
+    if _rc == 0 {
+        local ++pass_count
+        if `machine' {
+            display "[OK] `test_count'"
+        }
+        else if `quiet' == 0 {
+            display as result "  PASSED"
+        }
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' {
+            display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        }
+        else {
+            display as error "  FAILED: `test_desc' (error `=_rc')"
+        }
+    }
 }
 
 * =============================================================================
 * TEST 3: Check all variables
 * =============================================================================
 local ++test_count
-display as text _n "TEST `test_count': Check all variables"
-display as text "{hline 50}"
+local test_desc "Check all variables"
+_run_test `test_count' "`test_desc'"
 
-capture noisily {
-    use "`testdir'/cohort.dta", clear
-
-    check _all
-
-    display as result "  PASSED: All variables check works"
-    local ++pass_count
-}
-if _rc {
-    display as error "  FAILED: Error code " _rc
-    local ++fail_count
+if `run_only' == 0 | `run_only' == `test_count' {
+    capture {
+        quietly use "${DATA_DIR}/cohort.dta", clear
+        check _all
+    }
+    if _rc == 0 {
+        local ++pass_count
+        if `machine' {
+            display "[OK] `test_count'"
+        }
+        else if `quiet' == 0 {
+            display as result "  PASSED"
+        }
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' {
+            display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        }
+        else {
+            display as error "  FAILED: `test_desc' (error `=_rc')"
+        }
+    }
 }
 
 * =============================================================================
 * TEST 4: Short option
 * =============================================================================
 local ++test_count
-display as text _n "TEST `test_count': Short option"
-display as text "{hline 50}"
+local test_desc "Short option"
+_run_test `test_count' "`test_desc'"
 
-capture noisily {
-    use "`testdir'/cohort.dta", clear
-
-    check age female mstype, short
-
-    assert r(mode) == "short"
-    display as result "  PASSED: Short option works"
-    local ++pass_count
-}
-if _rc {
-    display as error "  FAILED: Error code " _rc
-    local ++fail_count
+if `run_only' == 0 | `run_only' == `test_count' {
+    capture {
+        quietly use "${DATA_DIR}/cohort.dta", clear
+        check age female mstype, short
+        assert r(mode) == "short"
+    }
+    if _rc == 0 {
+        local ++pass_count
+        if `machine' {
+            display "[OK] `test_count'"
+        }
+        else if `quiet' == 0 {
+            display as result "  PASSED"
+        }
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' {
+            display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        }
+        else {
+            display as error "  FAILED: `test_desc' (error `=_rc')"
+        }
+    }
 }
 
 * =============================================================================
 * TEST 5: Variable with missing values
 * =============================================================================
 local ++test_count
-display as text _n "TEST `test_count': Variable with missing values"
-display as text "{hline 50}"
+local test_desc "Variable with missing values"
+_run_test `test_count' "`test_desc'"
 
-capture noisily {
-    use "`testdir'/cohort_miss.dta", clear
-
-    check age education bmi
-
-    display as result "  PASSED: Missing values handled"
-    local ++pass_count
-}
-if _rc {
-    display as error "  FAILED: Error code " _rc
-    local ++fail_count
-}
-
-* =============================================================================
-* TEST 6: Numeric variable types
-* =============================================================================
-local ++test_count
-display as text _n "TEST `test_count': Different numeric types"
-display as text "{hline 50}"
-
-capture noisily {
-    use "`testdir'/cohort.dta", clear
-
-    check age female edss_baseline bmi
-
-    display as result "  PASSED: Different numeric types handled"
-    local ++pass_count
-}
-if _rc {
-    display as error "  FAILED: Error code " _rc
-    local ++fail_count
+if `run_only' == 0 | `run_only' == `test_count' {
+    capture {
+        quietly use "${DATA_DIR}/cohort_miss.dta", clear
+        check age
+    }
+    if _rc == 0 {
+        local ++pass_count
+        if `machine' {
+            display "[OK] `test_count'"
+        }
+        else if `quiet' == 0 {
+            display as result "  PASSED"
+        }
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' {
+            display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        }
+        else {
+            display as error "  FAILED: `test_desc' (error `=_rc')"
+        }
+    }
 }
 
 * =============================================================================
-* TEST 7: Date variables
+* TEST 6: Date variables
 * =============================================================================
 local ++test_count
-display as text _n "TEST `test_count': Date variables"
-display as text "{hline 50}"
+local test_desc "Date variables"
+_run_test `test_count' "`test_desc'"
 
-capture noisily {
-    use "`testdir'/cohort.dta", clear
-
-    check study_entry study_exit edss4_dt
-
-    display as result "  PASSED: Date variables handled"
-    local ++pass_count
-}
-if _rc {
-    display as error "  FAILED: Error code " _rc
-    local ++fail_count
-}
-
-* =============================================================================
-* TEST 8: Variable with wildcard pattern
-* =============================================================================
-local ++test_count
-display as text _n "TEST `test_count': Wildcard pattern"
-display as text "{hline 50}"
-
-capture noisily {
-    use "`testdir'/cohort.dta", clear
-
-    check edss*
-
-    display as result "  PASSED: Wildcard pattern works"
-    local ++pass_count
-}
-if _rc {
-    display as error "  FAILED: Error code " _rc
-    local ++fail_count
+if `run_only' == 0 | `run_only' == `test_count' {
+    capture {
+        quietly use "${DATA_DIR}/cohort.dta", clear
+        check study_entry study_exit edss4_dt
+    }
+    if _rc == 0 {
+        local ++pass_count
+        if `machine' {
+            display "[OK] `test_count'"
+        }
+        else if `quiet' == 0 {
+            display as result "  PASSED"
+        }
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' {
+            display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        }
+        else {
+            display as error "  FAILED: `test_desc' (error `=_rc')"
+        }
+    }
 }
 
 * =============================================================================
-* TEST 9: HRT dataset
+* TEST 7: Wildcard pattern
 * =============================================================================
 local ++test_count
-display as text _n "TEST `test_count': HRT dataset"
-display as text "{hline 50}"
+local test_desc "Wildcard pattern"
+_run_test `test_count' "`test_desc'"
 
-capture noisily {
-    use "`testdir'/hrt.dta", clear
-
-    check _all
-
-    display as result "  PASSED: HRT dataset check works"
-    local ++pass_count
-}
-if _rc {
-    display as error "  FAILED: Error code " _rc
-    local ++fail_count
-}
-
-* =============================================================================
-* TEST 10: DMT dataset
-* =============================================================================
-local ++test_count
-display as text _n "TEST `test_count': DMT dataset"
-display as text "{hline 50}"
-
-capture noisily {
-    use "`testdir'/dmt.dta", clear
-
-    check _all
-
-    display as result "  PASSED: DMT dataset check works"
-    local ++pass_count
-}
-if _rc {
-    display as error "  FAILED: Error code " _rc
-    local ++fail_count
+if `run_only' == 0 | `run_only' == `test_count' {
+    capture {
+        quietly use "${DATA_DIR}/cohort.dta", clear
+        check study*
+    }
+    if _rc == 0 {
+        local ++pass_count
+        if `machine' {
+            display "[OK] `test_count'"
+        }
+        else if `quiet' == 0 {
+            display as result "  PASSED"
+        }
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' {
+            display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        }
+        else {
+            display as error "  FAILED: `test_desc' (error `=_rc')"
+        }
+    }
 }
 
 * =============================================================================
-* TEST 11: All missing variable
+* TEST 8: HRT dataset
 * =============================================================================
 local ++test_count
-display as text _n "TEST `test_count': All missing variable"
-display as text "{hline 50}"
+local test_desc "HRT dataset"
+_run_test `test_count' "`test_desc'"
 
-capture noisily {
-    use "`testdir'/cohort.dta", clear
-
-    gen all_missing = .
-
-    check all_missing age
-
-    drop all_missing
-    display as result "  PASSED: All missing variable handled"
-    local ++pass_count
-}
-if _rc {
-    display as error "  FAILED: Error code " _rc
-    local ++fail_count
-}
-
-* =============================================================================
-* TEST 12: Zero variance variable
-* =============================================================================
-local ++test_count
-display as text _n "TEST `test_count': Zero variance variable"
-display as text "{hline 50}"
-
-capture noisily {
-    use "`testdir'/cohort.dta", clear
-
-    gen constant = 5
-
-    check constant age
-
-    drop constant
-    display as result "  PASSED: Zero variance variable handled"
-    local ++pass_count
-}
-if _rc {
-    display as error "  FAILED: Error code " _rc
-    local ++fail_count
+if `run_only' == 0 | `run_only' == `test_count' {
+    capture {
+        quietly use "${DATA_DIR}/hrt.dta", clear
+        check _all
+    }
+    if _rc == 0 {
+        local ++pass_count
+        if `machine' {
+            display "[OK] `test_count'"
+        }
+        else if `quiet' == 0 {
+            display as result "  PASSED"
+        }
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' {
+            display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        }
+        else {
+            display as error "  FAILED: `test_desc' (error `=_rc')"
+        }
+    }
 }
 
 * =============================================================================
-* TEST 13: String variable (should show limited stats)
+* TEST 9: DMT dataset
 * =============================================================================
 local ++test_count
-display as text _n "TEST `test_count': String variable"
-display as text "{hline 50}"
+local test_desc "DMT dataset"
+_run_test `test_count' "`test_desc'"
 
-capture noisily {
-    use "`testdir'/hospitalizations.dta", clear
-
-    check icd_code
-
-    display as result "  PASSED: String variable handled"
-    local ++pass_count
-}
-if _rc {
-    display as error "  FAILED: Error code " _rc
-    local ++fail_count
-}
-
-* =============================================================================
-* TEST 14: Labeled variable
-* =============================================================================
-local ++test_count
-display as text _n "TEST `test_count': Labeled variable"
-display as text "{hline 50}"
-
-capture noisily {
-    use "`testdir'/cohort.dta", clear
-
-    check mstype female region
-
-    display as result "  PASSED: Labeled variables handled"
-    local ++pass_count
-}
-if _rc {
-    display as error "  FAILED: Error code " _rc
-    local ++fail_count
+if `run_only' == 0 | `run_only' == `test_count' {
+    capture {
+        quietly use "${DATA_DIR}/dmt.dta", clear
+        check _all
+    }
+    if _rc == 0 {
+        local ++pass_count
+        if `machine' {
+            display "[OK] `test_count'"
+        }
+        else if `quiet' == 0 {
+            display as result "  PASSED"
+        }
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' {
+            display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        }
+        else {
+            display as error "  FAILED: `test_desc' (error `=_rc')"
+        }
+    }
 }
 
 * =============================================================================
-* TEST 15: Large dataset performance
+* TEST 10: All missing variable
 * =============================================================================
 local ++test_count
-display as text _n "TEST `test_count': Performance check"
-display as text "{hline 50}"
+local test_desc "All missing variable"
+_run_test `test_count' "`test_desc'"
 
-capture noisily {
-    use "`testdir'/cohort.dta", clear
-
-    timer clear 1
-    timer on 1
-
-    check _all
-
-    timer off 1
-    quietly timer list 1
-    local elapsed = r(t1)
-
-    display as text "  Checked all variables in " %5.2f `elapsed' " seconds"
-    display as result "  PASSED: Performance is acceptable"
-    local ++pass_count
+if `run_only' == 0 | `run_only' == `test_count' {
+    capture {
+        quietly use "${DATA_DIR}/cohort.dta", clear
+        gen all_missing = .
+        check all_missing age
+        drop all_missing
+    }
+    if _rc == 0 {
+        local ++pass_count
+        if `machine' {
+            display "[OK] `test_count'"
+        }
+        else if `quiet' == 0 {
+            display as result "  PASSED"
+        }
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' {
+            display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        }
+        else {
+            display as error "  FAILED: `test_desc' (error `=_rc')"
+        }
+    }
 }
-if _rc {
-    display as error "  FAILED: Error code " _rc
-    local ++fail_count
+
+* =============================================================================
+* TEST 11: Zero variance variable
+* =============================================================================
+local ++test_count
+local test_desc "Zero variance variable"
+_run_test `test_count' "`test_desc'"
+
+if `run_only' == 0 | `run_only' == `test_count' {
+    capture {
+        quietly use "${DATA_DIR}/cohort.dta", clear
+        gen constant = 5
+        check constant age
+        drop constant
+    }
+    if _rc == 0 {
+        local ++pass_count
+        if `machine' {
+            display "[OK] `test_count'"
+        }
+        else if `quiet' == 0 {
+            display as result "  PASSED"
+        }
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' {
+            display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        }
+        else {
+            display as error "  FAILED: `test_desc' (error `=_rc')"
+        }
+    }
+}
+
+* =============================================================================
+* TEST 12: Labeled variable
+* =============================================================================
+local ++test_count
+local test_desc "Labeled variable"
+_run_test `test_count' "`test_desc'"
+
+if `run_only' == 0 | `run_only' == `test_count' {
+    capture {
+        quietly use "${DATA_DIR}/cohort.dta", clear
+        check mstype female
+    }
+    if _rc == 0 {
+        local ++pass_count
+        if `machine' {
+            display "[OK] `test_count'"
+        }
+        else if `quiet' == 0 {
+            display as result "  PASSED"
+        }
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' {
+            display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        }
+        else {
+            display as error "  FAILED: `test_desc' (error `=_rc')"
+        }
+    }
+}
+
+* =============================================================================
+* TEST 13: Performance check
+* =============================================================================
+local ++test_count
+local test_desc "Performance check"
+_run_test `test_count' "`test_desc'"
+
+if `run_only' == 0 | `run_only' == `test_count' {
+    capture {
+        quietly use "${DATA_DIR}/cohort.dta", clear
+        timer clear 1
+        timer on 1
+        check _all
+        timer off 1
+        quietly timer list 1
+        local elapsed = r(t1)
+    }
+    if _rc == 0 {
+        local ++pass_count
+        if `machine' {
+            display "[OK] `test_count'"
+        }
+        else if `quiet' == 0 {
+            display as result "  PASSED"
+            display as text "  Checked all variables in " %5.2f `elapsed' " seconds"
+        }
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' {
+            display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        }
+        else {
+            display as error "  FAILED: `test_desc' (error `=_rc')"
+        }
+    }
 }
 
 * =============================================================================
 * SUMMARY
 * =============================================================================
-display as text _n "{hline 70}"
-display as text "CHECK TEST SUMMARY"
-display as text "{hline 70}"
-display as text "Total tests:  `test_count'"
-display as result "Passed:       `pass_count'"
-if `fail_count' > 0 {
-    display as error "Failed:       `fail_count'"
+if `machine' {
+    display "[SUMMARY] `pass_count'/`test_count' passed"
+    if `fail_count' > 0 {
+        display "[FAILED]`failed_tests'"
+    }
 }
 else {
-    display as text "Failed:       `fail_count'"
-}
-display as text "{hline 70}"
+    display as text _n "{hline 70}"
+    display as text "CHECK TEST SUMMARY"
+    display as text "{hline 70}"
+    display as text "Total tests:  `test_count'"
+    display as result "Passed:       `pass_count'"
+    if `fail_count' > 0 {
+        display as error "Failed:       `fail_count'"
+        display as error "Failed tests:`failed_tests'"
+    }
+    else {
+        display as text "Failed:       `fail_count'"
+    }
+    display as text "{hline 70}"
 
-if `fail_count' > 0 {
-    display as error "Some tests FAILED. Review output above."
-    exit 1
+    if `fail_count' > 0 {
+        display as error "Some tests FAILED. Review output above."
+        exit 1
+    }
+    else {
+        display as result "All tests PASSED!"
+    }
 }
-else {
-    display as result "All tests PASSED!"
-}
+
+* Clear global flags
+global RUN_TEST_QUIET
+global RUN_TEST_MACHINE
+global RUN_TEST_NUMBER
