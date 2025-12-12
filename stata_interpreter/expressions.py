@@ -406,6 +406,13 @@ class ExpressionEvaluator:
         except Exception:
             return np.nan
 
+    # Random functions that need N values
+    RANDOM_FUNCTIONS = {
+        "runiform", "rnormal", "rbinomial", "rpoisson",
+        "rexponential", "rgamma", "rbeta", "rchi2",
+        "runiformint"
+    }
+
     def _call_function(self, name: str, args: list) -> Any:
         """Call a Stata function."""
         name_lower = name.lower()
@@ -413,6 +420,44 @@ class ExpressionEvaluator:
         # Check built-in functions
         if name_lower in self.functions:
             try:
+                # Handle random functions specially - generate N values
+                if name_lower in self.RANDOM_FUNCTIONS and self.data is not None and self.data.N > 0:
+                    n = self.data.N
+                    # Generate N random values using numpy
+                    if name_lower == "runiform":
+                        a = float(args[0]) if args else 0.0
+                        b = float(args[1]) if len(args) > 1 else 1.0
+                        return pd.Series(np.random.uniform(a, b, n))
+                    elif name_lower == "rnormal":
+                        mean = float(args[0]) if args else 0.0
+                        sd = float(args[1]) if len(args) > 1 else 1.0
+                        return pd.Series(np.random.normal(mean, sd, n))
+                    elif name_lower == "rbinomial":
+                        trials = int(args[0]) if args else 1
+                        p = float(args[1]) if len(args) > 1 else 0.5
+                        return pd.Series(np.random.binomial(trials, p, n))
+                    elif name_lower == "rpoisson":
+                        mu = float(args[0]) if args else 1.0
+                        return pd.Series(np.random.poisson(mu, n))
+                    elif name_lower == "rexponential":
+                        scale = float(args[0]) if args else 1.0
+                        return pd.Series(np.random.exponential(scale, n))
+                    elif name_lower == "rgamma":
+                        shape = float(args[0]) if args else 1.0
+                        scale = float(args[1]) if len(args) > 1 else 1.0
+                        return pd.Series(np.random.gamma(shape, scale, n))
+                    elif name_lower == "rbeta":
+                        a = float(args[0]) if args else 1.0
+                        b = float(args[1]) if len(args) > 1 else 1.0
+                        return pd.Series(np.random.beta(a, b, n))
+                    elif name_lower == "rchi2":
+                        df = float(args[0]) if args else 1.0
+                        return pd.Series(np.random.chisquare(df, n))
+                    elif name_lower == "runiformint":
+                        a = int(args[0]) if args else 0
+                        b = int(args[1]) if len(args) > 1 else 1
+                        return pd.Series(np.random.randint(a, b + 1, n))
+
                 return self.functions[name_lower](*args)
             except Exception as e:
                 return np.nan

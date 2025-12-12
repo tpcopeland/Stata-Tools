@@ -61,7 +61,8 @@ class IOCommands:
             filename = using
             varlist = [str(a) for a in args] if args else None
         elif args:
-            filename = str(args[0]).strip('"')
+            # Reconstruct filename from split args (path/file.dta may be split)
+            filename = "".join(str(a) for a in args).strip('"')
             varlist = None
         else:
             raise ValueError("use requires filename")
@@ -184,7 +185,8 @@ class IOCommands:
         if using:
             filename = using
         elif args:
-            filename = str(args[0]).strip('"')
+            # Reconstruct filename from split args (path/file.dta may be split)
+            filename = "".join(str(a) for a in args).strip('"')
         else:
             raise ValueError("save requires filename")
 
@@ -530,15 +532,76 @@ class IOCommands:
         """
         Display text or expression result.
 
-        Syntax: display [exp] [exp] ...
+        Syntax: display [as {text|result|error}] [exp] [exp] ...
         """
         result_parts = []
+        add_newline = True
+        skip_next = False
+        i = 0
 
-        for arg in args:
-            arg_str = str(arg)
+        while i < len(args):
+            if skip_next:
+                skip_next = False
+                i += 1
+                continue
+
+            arg_str = str(args[i])
+            arg_lower = arg_str.lower()
+
+            # Handle "as text/error/result" formatting (skip these)
+            if arg_lower == "as" and i + 1 < len(args):
+                next_arg = str(args[i + 1]).lower()
+                if next_arg in ("text", "error", "result", "input", "txt", "err", "res"):
+                    i += 2
+                    continue
+
+            # Handle special display directives
+            if arg_lower == "_n":
+                # Newline
+                result_parts.append("\n")
+                i += 1
+                continue
+            elif arg_lower == "_c":
+                # Continue (no newline at end)
+                add_newline = False
+                i += 1
+                continue
+            elif arg_lower == "_continue":
+                add_newline = False
+                i += 1
+                continue
+            elif arg_lower == "_skip" and i + 1 < len(args):
+                # Skip N lines
+                try:
+                    n = int(args[i + 1])
+                    result_parts.append("\n" * n)
+                except ValueError:
+                    pass
+                i += 2
+                continue
+            elif arg_lower == "_newline" and i + 1 < len(args):
+                # Add N newlines
+                try:
+                    n = int(args[i + 1])
+                    result_parts.append("\n" * n)
+                except ValueError:
+                    result_parts.append("\n")
+                i += 2
+                continue
+            elif arg_lower.startswith("{hline") or arg_lower == "{hline}":
+                # Horizontal line
+                result_parts.append("-" * 60)
+                i += 1
+                continue
+            elif arg_lower == "_col" and i + 1 < len(args):
+                # Column positioning (simplified - just add spaces)
+                i += 2
+                continue
 
             # String literal
             if arg_str.startswith('"') and arg_str.endswith('"'):
+                result_parts.append(arg_str[1:-1])
+            elif arg_str.startswith("'") and arg_str.endswith("'"):
                 result_parts.append(arg_str[1:-1])
             # Expression
             else:
@@ -550,7 +613,13 @@ class IOCommands:
                 except Exception:
                     result_parts.append(arg_str)
 
-        self.interp.output(" ".join(result_parts))
+            i += 1
+
+        output = " ".join(result_parts)
+        # Clean up multiple spaces
+        while "  " in output:
+            output = output.replace("  ", " ")
+        self.interp.output(output)
 
     def cmd_set(
         self,
@@ -653,3 +722,35 @@ class IOCommands:
         else:
             if not result:
                 raise AssertionError("assertion is false")
+
+    def cmd_format(
+        self,
+        args: list,
+        if_cond: Optional[str] = None,
+        in_range: Optional[tuple] = None,
+        options: dict = None,
+    ) -> None:
+        """
+        Set display format for variables.
+
+        Syntax: format varlist %fmt
+        Note: Display formats are not implemented - this is a stub.
+        """
+        # Stub - formats don't affect data manipulation
+        pass
+
+    def cmd_note(
+        self,
+        args: list,
+        if_cond: Optional[str] = None,
+        in_range: Optional[tuple] = None,
+        options: dict = None,
+    ) -> None:
+        """
+        Add notes to dataset or variables.
+
+        Syntax: note varname: text
+        Note: Notes are not implemented - this is a stub.
+        """
+        # Stub - notes don't affect data manipulation
+        pass

@@ -838,11 +838,15 @@ class DataManipCommands:
     def _convert_type(self, values: pd.Series, var_type: str) -> pd.Series:
         """Convert values to specified Stata type."""
         if var_type == "byte":
-            return values.astype("Int8")
+            # Round to integer first, then convert to nullable Int8
+            rounded = np.floor(values + 0.5)  # round to nearest int
+            return rounded.astype("Int8")
         elif var_type == "int":
-            return values.astype("Int16")
+            rounded = np.floor(values + 0.5)
+            return rounded.astype("Int16")
         elif var_type == "long":
-            return values.astype("Int32")
+            rounded = np.floor(values + 0.5)
+            return rounded.astype("Int32")
         elif var_type == "float":
             return values.astype("float32")
         elif var_type == "double":
