@@ -1203,6 +1203,15 @@ class StataInterpreter:
             # Build full argument string including options
             arg_parts = [str(a) for a in cmd.arguments]
 
+            # Add using clause if present
+            if cmd.using:
+                arg_parts.append("using")
+                # Quote the filename if it contains spaces or isn't already quoted
+                using_val = cmd.using
+                if not (using_val.startswith('"') and using_val.endswith('"')):
+                    using_val = f'"{using_val}"'
+                arg_parts.append(using_val)
+
             # Add if condition if present
             if cmd.if_condition:
                 arg_parts.append("if")
@@ -1289,6 +1298,18 @@ class StataInterpreter:
             parts = program_args.split(",")[0].split()
             vars = [p for p in parts if not p.startswith("-")]
             self.macros.set_local("varlist", " ".join(vars))
+
+        # Handle using/ - extract filename from program args
+        if "using" in arg_str.lower():
+            # Look for "using" in program_args
+            using_match = re.search(r'\busing\s+"([^"]+)"', program_args, re.IGNORECASE)
+            if not using_match:
+                using_match = re.search(r"\busing\s+'([^']+)'", program_args, re.IGNORECASE)
+            if not using_match:
+                using_match = re.search(r'\busing\s+(\S+)', program_args, re.IGNORECASE)
+            if using_match:
+                using_val = using_match.group(1)
+                self.macros.set_local("using", using_val)
 
         # Handle if/in
         if " if " in program_args:
