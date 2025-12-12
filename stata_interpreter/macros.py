@@ -130,6 +130,23 @@ class MacroManager:
 
         return text
 
+    def _find_matching_close(self, text: str, start: int) -> int:
+        """Find the matching closing apostrophe for a backtick-apostrophe pair.
+
+        Handles nested `...' pairs properly.
+        """
+        depth = 1
+        i = start + 1
+        while i < len(text):
+            if text[i] == "`":
+                depth += 1
+            elif text[i] == "'":
+                depth -= 1
+                if depth == 0:
+                    return i
+            i += 1
+        return -1
+
     def _expand_once(self, text: str) -> str:
         """Perform one pass of macro expansion."""
         result = []
@@ -138,16 +155,31 @@ class MacroManager:
         while i < len(text):
             # Check for local macro `name'
             if text[i] == "`":
-                end = text.find("'", i + 1)
+                # Find matching closing apostrophe (handles nested pairs)
+                end = self._find_matching_close(text, i)
                 if end != -1:
                     macro_content = text[i + 1 : end]
 
                     # Check for scalar evaluation `=expr'
                     if macro_content.startswith("="):
                         expr = macro_content[1:]
+                        # First expand any nested macros in the expression
+                        expr = self._expand_once(expr)
                         if self.eval_expr:
                             try:
                                 value = self.eval_expr(expr)
+                                result.append(str(value))
+                            except Exception:
+                                result.append("")
+                        else:
+                            result.append("")
+                    # Check for c() system constant: `c(name)'
+                    elif macro_content.startswith("c(") and macro_content.endswith(")"):
+                        const_name = macro_content[2:-1]  # Extract name from c(name)
+                        if self.eval_expr:
+                            try:
+                                # Use the c() function - pass name as quoted string
+                                value = self.eval_expr(f'c("{const_name}")')
                                 result.append(str(value))
                             except Exception:
                                 result.append("")

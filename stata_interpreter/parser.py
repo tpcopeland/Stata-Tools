@@ -223,11 +223,25 @@ class StataLexer:
                 result.append(self.advance())
             return "".join(result)
 
-        # Regular string
+        # Regular string - handle nested macro references with quotes
         while self.peek() and self.peek() != quote_char:
             if self.peek() == "\\" and self.peek(1) == quote_char:
                 self.advance()  # skip backslash
-            result.append(self.advance())
+                result.append(self.advance())
+            elif self.peek() == "`":
+                # Nested macro reference - read until matching apostrophe
+                # This handles `name' and `=expr' which may contain quotes
+                result.append(self.advance())  # add backtick
+                depth = 1
+                while self.peek() and depth > 0:
+                    ch = self.peek()
+                    result.append(self.advance())
+                    if ch == "`":
+                        depth += 1
+                    elif ch == "'":
+                        depth -= 1
+            else:
+                result.append(self.advance())
 
         if self.peek() == quote_char:
             self.advance()  # skip closing quote
@@ -562,7 +576,7 @@ class StataParser:
         cmd = ParsedCommand()
         raw_tokens = []
 
-        # Collect raw line for debugging (preserve macro syntax)
+        # Collect raw line for debugging (preserve macro syntax and quotes)
         start_pos = self.pos
         while not self.match(TokenType.NEWLINE, TokenType.EOF):
             token = self.peek()
@@ -572,6 +586,9 @@ class StataParser:
                 raw_tokens.append(f"${token.value}")
             elif token.type == TokenType.MACRO_SCALAR:
                 raw_tokens.append(f"`={token.value}'")
+            elif token.type == TokenType.STRING:
+                # Preserve quotes around strings
+                raw_tokens.append(f'"{token.value}"')
             elif token.value is not None:
                 raw_tokens.append(str(token.value))
             self.advance()
@@ -725,6 +742,15 @@ class StataParser:
                 TokenType.CARET,
                 TokenType.DOT,
                 TokenType.COLON,
+                TokenType.LESS,
+                TokenType.GREATER,
+                TokenType.LESS_EQUAL,
+                TokenType.GREATER_EQUAL,
+                TokenType.NOT_EQUAL,
+                TokenType.BANG,
+                TokenType.AMPERSAND,
+                TokenType.PIPE,
+                TokenType.TILDE,
             }:
                 args.append(token.value)
             elif token.type == TokenType.LPAREN:

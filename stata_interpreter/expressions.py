@@ -164,13 +164,18 @@ class ExpressionEvaluator:
                 expr[i] == "." and i + 1 < len(expr) and expr[i + 1].isdigit()
             ):
                 j = i
-                while j < len(expr) and (expr[j].isdigit() or expr[j] in ".eE+-"):
-                    if expr[j] in "eE":
+                while j < len(expr):
+                    ch = expr[j]
+                    if ch.isdigit() or ch == ".":
+                        j += 1
+                    elif ch in "eE":
+                        # Scientific notation - allow e/E followed by optional +/-
                         j += 1
                         if j < len(expr) and expr[j] in "+-":
                             j += 1
                     else:
-                        j += 1
+                        # Not a valid number character
+                        break
                 num_str = expr[i:j]
                 try:
                     tokens.append(("NUMBER", float(num_str)))
@@ -325,7 +330,12 @@ class ExpressionEvaluator:
     ) -> tuple[Any, int]:
         """Get variable value, handling subscripts."""
         if self.data is None or not self.data.has_var(name):
-            # Not a variable - might be a constant or error
+            # Not a variable - check if it's a scalar (like _rc)
+            if self.macros:
+                scalar_val = self.macros.get_scalar(name)
+                if scalar_val is not None:
+                    return scalar_val, pos
+            # Not a variable or scalar - might be a constant or error
             return np.nan, pos
 
         # Check for subscript [expr]
