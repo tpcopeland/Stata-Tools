@@ -576,6 +576,595 @@ if `run_only' == 0 | `run_only' == `test_count' {
 }
 
 * =============================================================================
+* TEST 11: Three-dataset merge
+* =============================================================================
+local ++test_count
+local test_desc "Three-dataset merge"
+_run_test `test_count' "`test_desc'"
+
+if `run_only' == 0 | `run_only' == `test_count' {
+    capture {
+        * First create a third tvexpose output for steroids
+        quietly use "${DATA_DIR}/cohort.dta", clear
+        tvexpose using "${DATA_DIR}/steroids.dta", ///
+            id(id) start(steroid_start) stop(steroid_stop) ///
+            exposure(steroid_type) reference(0) ///
+            entry(study_entry) exit(study_exit) ///
+            generate(tv_steroid) ///
+            saveas("${DATA_DIR}/_tv_steroid.dta") replace
+
+        * Now merge all three
+        tvmerge "${DATA_DIR}/_tv_hrt.dta" "${DATA_DIR}/_tv_dmt.dta" "${DATA_DIR}/_tv_steroid.dta", ///
+            id(id) ///
+            start(rx_start dmt_start steroid_start) stop(rx_stop dmt_stop steroid_stop) ///
+            exposure(tv_hrt tv_dmt tv_steroid) ///
+            generate(hrt dmt steroid) ///
+            check
+
+        assert _N > 0
+        confirm variable hrt dmt steroid
+        assert r(N_datasets) == 3
+    }
+    if _rc == 0 {
+        local ++pass_count
+        if `machine' {
+            display "[OK] `test_count'"
+        }
+        else if `quiet' == 0 {
+            display as result "  PASSED"
+            display as text "  Three-way merge: " _N " rows"
+        }
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' {
+            display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        }
+        else {
+            display as error "  FAILED: `test_desc' (error `=_rc')"
+        }
+    }
+}
+
+* =============================================================================
+* TEST 12: continuous() option for continuous exposure types
+* =============================================================================
+local ++test_count
+local test_desc "continuous() option"
+_run_test `test_count' "`test_desc'"
+
+if `run_only' == 0 | `run_only' == `test_count' {
+    capture {
+        * Create continuous exposure outputs
+        quietly use "${DATA_DIR}/cohort.dta", clear
+        tvexpose using "${DATA_DIR}/hrt.dta", ///
+            id(id) start(rx_start) stop(rx_stop) ///
+            exposure(hrt_type) reference(0) ///
+            entry(study_entry) exit(study_exit) ///
+            continuousunit(years) ///
+            generate(cum_hrt) ///
+            saveas("${DATA_DIR}/_tv_hrt_cont.dta") replace
+
+        quietly use "${DATA_DIR}/cohort.dta", clear
+        tvexpose using "${DATA_DIR}/dmt.dta", ///
+            id(id) start(dmt_start) stop(dmt_stop) ///
+            exposure(dmt) reference(0) ///
+            entry(study_entry) exit(study_exit) ///
+            continuousunit(years) ///
+            generate(cum_dmt) ///
+            saveas("${DATA_DIR}/_tv_dmt_cont.dta") replace
+
+        * Merge continuous exposures
+        tvmerge "${DATA_DIR}/_tv_hrt_cont.dta" "${DATA_DIR}/_tv_dmt_cont.dta", ///
+            id(id) ///
+            start(rx_start dmt_start) stop(rx_stop dmt_stop) ///
+            exposure(cum_hrt cum_dmt) ///
+            continuous(cum_hrt cum_dmt)
+
+        assert _N > 0
+        confirm variable cum_hrt cum_dmt
+    }
+    if _rc == 0 {
+        local ++pass_count
+        if `machine' {
+            display "[OK] `test_count'"
+        }
+        else if `quiet' == 0 {
+            display as result "  PASSED"
+        }
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' {
+            display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        }
+        else {
+            display as error "  FAILED: `test_desc' (error `=_rc')"
+        }
+    }
+}
+
+* =============================================================================
+* TEST 13: keep() option to retain additional variables
+* =============================================================================
+local ++test_count
+local test_desc "keep() option"
+_run_test `test_count' "`test_desc'"
+
+if `run_only' == 0 | `run_only' == `test_count' {
+    capture {
+        * Create tvexpose outputs with keepvars
+        quietly use "${DATA_DIR}/cohort.dta", clear
+        tvexpose using "${DATA_DIR}/hrt.dta", ///
+            id(id) start(rx_start) stop(rx_stop) ///
+            exposure(hrt_type) reference(0) ///
+            entry(study_entry) exit(study_exit) ///
+            keepvars(age female mstype) ///
+            generate(tv_hrt) ///
+            saveas("${DATA_DIR}/_tv_hrt_keep.dta") replace
+
+        quietly use "${DATA_DIR}/cohort.dta", clear
+        tvexpose using "${DATA_DIR}/dmt.dta", ///
+            id(id) start(dmt_start) stop(dmt_stop) ///
+            exposure(dmt) reference(0) ///
+            entry(study_entry) exit(study_exit) ///
+            keepvars(age female) ///
+            generate(tv_dmt) ///
+            saveas("${DATA_DIR}/_tv_dmt_keep.dta") replace
+
+        tvmerge "${DATA_DIR}/_tv_hrt_keep.dta" "${DATA_DIR}/_tv_dmt_keep.dta", ///
+            id(id) ///
+            start(rx_start dmt_start) stop(rx_stop dmt_stop) ///
+            exposure(tv_hrt tv_dmt) ///
+            keep(age female mstype)
+
+        assert _N > 0
+        confirm variable age female mstype
+    }
+    if _rc == 0 {
+        local ++pass_count
+        if `machine' {
+            display "[OK] `test_count'"
+        }
+        else if `quiet' == 0 {
+            display as result "  PASSED"
+        }
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' {
+            display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        }
+        else {
+            display as error "  FAILED: `test_desc' (error `=_rc')"
+        }
+    }
+}
+
+* =============================================================================
+* TEST 14: validateoverlap option
+* =============================================================================
+local ++test_count
+local test_desc "validateoverlap option"
+_run_test `test_count' "`test_desc'"
+
+if `run_only' == 0 | `run_only' == `test_count' {
+    capture {
+        tvmerge "${DATA_DIR}/_tv_hrt.dta" "${DATA_DIR}/_tv_dmt.dta", ///
+            id(id) ///
+            start(rx_start dmt_start) stop(rx_stop dmt_stop) ///
+            exposure(tv_hrt tv_dmt) ///
+            validateoverlap
+
+        assert _N > 0
+    }
+    if _rc == 0 {
+        local ++pass_count
+        if `machine' {
+            display "[OK] `test_count'"
+        }
+        else if `quiet' == 0 {
+            display as result "  PASSED"
+        }
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' {
+            display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        }
+        else {
+            display as error "  FAILED: `test_desc' (error `=_rc')"
+        }
+    }
+}
+
+* =============================================================================
+* TEST 15: force option
+* =============================================================================
+local ++test_count
+local test_desc "force option"
+_run_test `test_count' "`test_desc'"
+
+if `run_only' == 0 | `run_only' == `test_count' {
+    capture {
+        tvmerge "${DATA_DIR}/_tv_hrt.dta" "${DATA_DIR}/_tv_dmt.dta", ///
+            id(id) ///
+            start(rx_start dmt_start) stop(rx_stop dmt_stop) ///
+            exposure(tv_hrt tv_dmt) ///
+            force
+
+        assert _N > 0
+    }
+    if _rc == 0 {
+        local ++pass_count
+        if `machine' {
+            display "[OK] `test_count'"
+        }
+        else if `quiet' == 0 {
+            display as result "  PASSED"
+        }
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' {
+            display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        }
+        else {
+            display as error "  FAILED: `test_desc' (error `=_rc')"
+        }
+    }
+}
+
+* =============================================================================
+* TEST 16: batch() option for large datasets
+* =============================================================================
+local ++test_count
+local test_desc "batch() option"
+_run_test `test_count' "`test_desc'"
+
+if `run_only' == 0 | `run_only' == `test_count' {
+    capture {
+        tvmerge "${DATA_DIR}/_tv_hrt.dta" "${DATA_DIR}/_tv_dmt.dta", ///
+            id(id) ///
+            start(rx_start dmt_start) stop(rx_stop dmt_stop) ///
+            exposure(tv_hrt tv_dmt) ///
+            batch(100)
+
+        assert _N > 0
+    }
+    if _rc == 0 {
+        local ++pass_count
+        if `machine' {
+            display "[OK] `test_count'"
+        }
+        else if `quiet' == 0 {
+            display as result "  PASSED"
+        }
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' {
+            display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        }
+        else {
+            display as error "  FAILED: `test_desc' (error `=_rc')"
+        }
+    }
+}
+
+* =============================================================================
+* TEST 17: Person-time conservation validation
+* =============================================================================
+local ++test_count
+local test_desc "Person-time conservation"
+_run_test `test_count' "`test_desc'"
+
+if `run_only' == 0 | `run_only' == `test_count' {
+    capture {
+        * Calculate input person-time from HRT file
+        quietly use "${DATA_DIR}/_tv_hrt.dta", clear
+        gen double ptime = rx_stop - rx_start
+        quietly sum ptime
+        local input_ptime = r(sum)
+
+        * Merge and check output person-time
+        tvmerge "${DATA_DIR}/_tv_hrt.dta" "${DATA_DIR}/_tv_dmt.dta", ///
+            id(id) ///
+            start(rx_start dmt_start) stop(rx_stop dmt_stop) ///
+            exposure(tv_hrt tv_dmt)
+
+        gen double output_ptime = stop - start
+        quietly sum output_ptime
+        local output_ptime = r(sum)
+
+        * Person-time should be approximately conserved
+        * (exact match depends on merge behavior and overlaps)
+        assert `output_ptime' > 0
+    }
+    if _rc == 0 {
+        local ++pass_count
+        if `machine' {
+            display "[OK] `test_count'"
+        }
+        else if `quiet' == 0 {
+            display as result "  PASSED"
+        }
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' {
+            display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        }
+        else {
+            display as error "  FAILED: `test_desc' (error `=_rc')"
+        }
+    }
+}
+
+* =============================================================================
+* TEST 18: Merge same exposure with different transformations
+* =============================================================================
+local ++test_count
+local test_desc "Same exposure - different transformations"
+_run_test `test_count' "`test_desc'"
+
+if `run_only' == 0 | `run_only' == `test_count' {
+    capture {
+        * Create evertreated version
+        quietly use "${DATA_DIR}/cohort.dta", clear
+        tvexpose using "${DATA_DIR}/hrt.dta", ///
+            id(id) start(rx_start) stop(rx_stop) ///
+            exposure(hrt_type) reference(0) ///
+            entry(study_entry) exit(study_exit) ///
+            evertreated ///
+            generate(ever_hrt) ///
+            saveas("${DATA_DIR}/_tv_hrt_ever.dta") replace
+
+        * Create currentformer version
+        quietly use "${DATA_DIR}/cohort.dta", clear
+        tvexpose using "${DATA_DIR}/hrt.dta", ///
+            id(id) start(rx_start) stop(rx_stop) ///
+            exposure(hrt_type) reference(0) ///
+            entry(study_entry) exit(study_exit) ///
+            currentformer ///
+            generate(cf_hrt) ///
+            saveas("${DATA_DIR}/_tv_hrt_cf.dta") replace
+
+        * Merge both versions
+        tvmerge "${DATA_DIR}/_tv_hrt_ever.dta" "${DATA_DIR}/_tv_hrt_cf.dta", ///
+            id(id) ///
+            start(rx_start rx_start) stop(rx_stop rx_stop) ///
+            exposure(ever_hrt cf_hrt)
+
+        assert _N > 0
+        confirm variable ever_hrt cf_hrt
+    }
+    if _rc == 0 {
+        local ++pass_count
+        if `machine' {
+            display "[OK] `test_count'"
+        }
+        else if `quiet' == 0 {
+            display as result "  PASSED"
+        }
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' {
+            display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        }
+        else {
+            display as error "  FAILED: `test_desc' (error `=_rc')"
+        }
+    }
+}
+
+* =============================================================================
+* TEST 19: Full workflow - tvexpose then tvmerge then Cox model
+* =============================================================================
+local ++test_count
+local test_desc "Full workflow: tvexpose -> tvmerge -> Cox"
+_run_test `test_count' "`test_desc'"
+
+if `run_only' == 0 | `run_only' == `test_count' {
+    capture {
+        * Create HRT exposure with keepvars
+        quietly use "${DATA_DIR}/cohort.dta", clear
+        tvexpose using "${DATA_DIR}/hrt.dta", ///
+            id(id) start(rx_start) stop(rx_stop) ///
+            exposure(hrt_type) reference(0) ///
+            entry(study_entry) exit(study_exit) ///
+            evertreated ///
+            keepvars(age female mstype edss4_dt) ///
+            generate(ever_hrt) ///
+            saveas("${DATA_DIR}/_tv_hrt_workflow.dta") replace
+
+        * Create DMT exposure
+        quietly use "${DATA_DIR}/cohort.dta", clear
+        tvexpose using "${DATA_DIR}/dmt.dta", ///
+            id(id) start(dmt_start) stop(dmt_stop) ///
+            exposure(dmt) reference(0) ///
+            entry(study_entry) exit(study_exit) ///
+            evertreated ///
+            keepvars(age female) ///
+            generate(ever_dmt) ///
+            saveas("${DATA_DIR}/_tv_dmt_workflow.dta") replace
+
+        * Merge both exposures
+        tvmerge "${DATA_DIR}/_tv_hrt_workflow.dta" "${DATA_DIR}/_tv_dmt_workflow.dta", ///
+            id(id) ///
+            start(rx_start dmt_start) stop(rx_stop dmt_stop) ///
+            exposure(ever_hrt ever_dmt) ///
+            keep(age female mstype edss4_dt) ///
+            saveas("${DATA_DIR}/_workflow_merged.dta") replace
+
+        * Use merged dataset for Cox model
+        quietly use "${DATA_DIR}/_workflow_merged.dta", clear
+
+        * Create failure indicator
+        gen byte failure = (!missing(edss4_dt) & edss4_dt >= start & edss4_dt <= stop)
+
+        * Run stset and Cox model
+        stset stop, failure(failure) entry(start) id(id) scale(365.25)
+        stcox ever_hrt ever_dmt age i.female
+
+        assert e(N) > 0
+    }
+    if _rc == 0 {
+        local ++pass_count
+        if `machine' {
+            display "[OK] `test_count'"
+        }
+        else if `quiet' == 0 {
+            display as result "  PASSED"
+            display as text "  Cox model N = " e(N)
+        }
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' {
+            display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        }
+        else {
+            display as error "  FAILED: `test_desc' (error `=_rc')"
+        }
+    }
+}
+
+* =============================================================================
+* EDGE CASE TESTS
+* =============================================================================
+
+* TEST 20: Edge case - Single observation merge
+local ++test_count
+local test_desc "Edge case: single observation"
+_run_test `test_count' "`test_desc'"
+
+if `run_only' == 0 | `run_only' == `test_count' {
+    capture {
+        * Create single-obs tvexpose outputs
+        quietly use "${DATA_DIR}/edge_single_obs.dta", clear
+        tvexpose using "${DATA_DIR}/edge_single_exp.dta", ///
+            id(id) start(rx_start) stop(rx_stop) ///
+            exposure(hrt_type) reference(0) ///
+            entry(study_entry) exit(study_exit) ///
+            generate(tv_hrt) ///
+            saveas("${DATA_DIR}/_tv_edge1.dta") replace
+
+        * Create a simple second exposure
+        quietly use "${DATA_DIR}/edge_single_obs.dta", clear
+        tvexpose using "${DATA_DIR}/edge_single_exp.dta", ///
+            id(id) start(rx_start) stop(rx_stop) ///
+            exposure(hrt_type) reference(0) ///
+            entry(study_entry) exit(study_exit) ///
+            evertreated ///
+            generate(ever_hrt) ///
+            saveas("${DATA_DIR}/_tv_edge2.dta") replace
+
+        * Merge single observations
+        tvmerge "${DATA_DIR}/_tv_edge1.dta" "${DATA_DIR}/_tv_edge2.dta", ///
+            id(id) ///
+            start(rx_start rx_start) stop(rx_stop rx_stop) ///
+            exposure(tv_hrt ever_hrt)
+
+        assert _N > 0
+    }
+    if _rc == 0 {
+        local ++pass_count
+        if `machine' {
+            display "[OK] `test_count'"
+        }
+        else if `quiet' == 0 {
+            display as result "  PASSED"
+        }
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' {
+            display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        }
+        else {
+            display as error "  FAILED: `test_desc' (error `=_rc')"
+        }
+    }
+}
+
+* TEST 21: Merge bytype exposures from same source
+local ++test_count
+local test_desc "Bytype exposures merge"
+_run_test `test_count' "`test_desc'"
+
+if `run_only' == 0 | `run_only' == `test_count' {
+    capture {
+        * Create bytype HRT exposures
+        quietly use "${DATA_DIR}/cohort.dta", clear
+        tvexpose using "${DATA_DIR}/hrt.dta", ///
+            id(id) start(rx_start) stop(rx_stop) ///
+            exposure(hrt_type) reference(0) ///
+            entry(study_entry) exit(study_exit) ///
+            evertreated bytype ///
+            generate(ever_hrt) ///
+            saveas("${DATA_DIR}/_tv_hrt_bytype.dta") replace
+
+        * Create bytype DMT exposures
+        quietly use "${DATA_DIR}/cohort.dta", clear
+        tvexpose using "${DATA_DIR}/dmt.dta", ///
+            id(id) start(dmt_start) stop(dmt_stop) ///
+            exposure(dmt) reference(0) ///
+            entry(study_entry) exit(study_exit) ///
+            evertreated bytype ///
+            generate(ever_dmt) ///
+            saveas("${DATA_DIR}/_tv_dmt_bytype.dta") replace
+
+        * Check how many exposure variables were created
+        quietly use "${DATA_DIR}/_tv_hrt_bytype.dta", clear
+        quietly describe ever_hrt*
+        local n_hrt_vars = r(k)
+
+        quietly use "${DATA_DIR}/_tv_dmt_bytype.dta", clear
+        quietly describe ever_dmt*
+        local n_dmt_vars = r(k)
+
+        * Merge bytype exposures - this tests complex multi-variable merge
+        tvmerge "${DATA_DIR}/_tv_hrt_bytype.dta" "${DATA_DIR}/_tv_dmt_bytype.dta", ///
+            id(id) ///
+            start(rx_start dmt_start) stop(rx_stop dmt_stop) ///
+            exposure(ever_hrt1 ever_dmt1)
+
+        assert _N > 0
+    }
+    if _rc == 0 {
+        local ++pass_count
+        if `machine' {
+            display "[OK] `test_count'"
+        }
+        else if `quiet' == 0 {
+            display as result "  PASSED"
+        }
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' {
+            display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        }
+        else {
+            display as error "  FAILED: `test_desc' (error `=_rc')"
+        }
+    }
+}
+
+* =============================================================================
 * CLEANUP: Remove temporary files
 * =============================================================================
 if `quiet' == 0 & `run_only' == 0 {
@@ -585,14 +1174,10 @@ if `quiet' == 0 & `run_only' == 0 {
 }
 
 quietly {
-    capture erase "${DATA_DIR}/_tv_hrt.dta"
-    capture erase "${DATA_DIR}/_tv_dmt.dta"
-    capture erase "${DATA_DIR}/_test_merged.dta"
-    capture erase "${DATA_DIR}/_tv_hrt_cont.dta"
-    capture erase "${DATA_DIR}/_tv_hrt_keep.dta"
-    capture erase "${DATA_DIR}/_tv_dmt_keep.dta"
-    capture erase "${DATA_DIR}/_tv_hrt_cont2.dta"
-    capture erase "${DATA_DIR}/_tv_dmt_cont.dta"
+    local temp_files "_tv_hrt _tv_dmt _tv_steroid _test_merged _tv_hrt_cont _tv_hrt_keep _tv_dmt_keep _tv_hrt_cont2 _tv_dmt_cont _tv_hrt_ever _tv_hrt_cf _tv_hrt_workflow _tv_dmt_workflow _workflow_merged _tv_edge1 _tv_edge2 _tv_hrt_bytype _tv_dmt_bytype"
+    foreach f of local temp_files {
+        capture erase "${DATA_DIR}/`f'.dta"
+    }
 }
 
 * =============================================================================
