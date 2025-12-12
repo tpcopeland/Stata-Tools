@@ -73,7 +73,6 @@ adopath ++ "/workspace/Stata-Tools/datamap"
 adopath ++ "/workspace/Stata-Tools/synthdata"
 adopath ++ "/workspace/Stata-Tools/mvp"
 adopath ++ "/workspace/Stata-Tools/table1_tc"
-adopath ++ "/workspace/Stata-Tools/consort"
 adopath ++ "/workspace/Stata-Tools/regtab"
 adopath ++ "/workspace/Stata-Tools/cstat_surv"
 adopath ++ "/workspace/Stata-Tools/stratetab"
@@ -116,8 +115,6 @@ do test_today.do
 #### 3.4 Analysis Commands
 ```stata
 do test_table1_tc.do
-do test_consort.do
-do test_consortq.do
 do test_regtab.do
 do test_cstat_surv.do
 do test_stratetab.do
@@ -263,11 +260,6 @@ table1_tc mpg weight, by(foreign) gsdleft("[") gsdright("]")
 table1_tc mpg weight, by(foreign) test pdp(3) highpdp(4)
 ```
 
-#### consort - CONSORT Flow Diagrams
-
-**Current test coverage**: 5 tests - INCOMPLETE
-**Missing tests**: All arm-specific options (received, lost, discontinued, etc.)
-
 ### LOWER PRIORITY: Utility Commands
 
 #### compress_tc - String Compression
@@ -379,7 +371,7 @@ log using "test_run_`c(current_date)'.log", replace
 * Run all tests
 local test_files "generate_test_data test_tvexpose test_tvmerge test_tvevent"
 local test_files "`test_files' test_datamap test_datadict test_synthdata test_mvp"
-local test_files "`test_files' test_table1_tc test_consort test_consortq test_regtab"
+local test_files "`test_files' test_table1_tc test_regtab"
 local test_files "`test_files' test_cstat_surv test_stratetab"
 local test_files "`test_files' test_compress_tc test_datefix test_check test_today"
 local test_files "`test_files' test_migrations test_sustainedss"
