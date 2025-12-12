@@ -17,16 +17,44 @@ set more off
 version 16.0
 
 * =============================================================================
-* SETUP: Change to data directory and install package from local repository
+* PATH CONFIGURATION
 * =============================================================================
+* Detect environment and set paths accordingly
+capture confirm file "/Users/tcopeland/Documents/GitHub/Stata-Tools/_testing"
+if _rc == 0 {
+    * Local machine path (for Claude with stata-mcp access)
+    global STATA_TOOLS_PATH "/Users/tcopeland/Documents/GitHub/Stata-Tools"
+}
+else {
+    * Try to detect from current directory
+    capture confirm file "_testing"
+    if _rc == 0 {
+        * Running from repo root
+        global STATA_TOOLS_PATH "`c(pwd)'"
+    }
+    else {
+        capture confirm file "data"
+        if _rc == 0 {
+            * Running from _testing directory
+            global STATA_TOOLS_PATH "`c(pwd)'/.."
+        }
+        else {
+            * Assume running from _testing/data directory
+            global STATA_TOOLS_PATH "`c(pwd)'/../.."
+        }
+    }
+}
 
-* Data directory for test datasets
-cd "_testing/data/"
+* Directory structure
+global TESTING_DIR "${STATA_TOOLS_PATH}/_testing"
+global DATA_DIR "${TESTING_DIR}/data"
+
+* Change to data directory
+cd "${DATA_DIR}"
 
 * Install synthdata package from local repository
-local basedir "."
 capture net uninstall synthdata
-net install synthdata, from("`basedir'/synthdata")
+quietly net install synthdata, from("${STATA_TOOLS_PATH}/synthdata")
 
 local testdir "`c(pwd)'"
 

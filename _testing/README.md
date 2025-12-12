@@ -24,25 +24,26 @@ _testing/
 ├── generate_test_data.do        # Creates synthetic test datasets
 ├── generate_test_data.ado       # Program for data generation
 ├── run_all_tests.do             # Master test runner
+├── run_test.do                  # Single test runner with quiet/machine modes
 │
 ├── Test Files (17):
-│   ├── test_tvexpose.do         # 37 tests - tvexpose command
-│   ├── test_tvmerge.do          # 16 tests - tvmerge command
-│   ├── test_tvevent.do          # 13 tests - tvevent command
+│   ├── test_tvexpose.do         # 51 tests - tvexpose command
+│   ├── test_tvmerge.do          # 21 tests - tvmerge command
+│   ├── test_tvevent.do          # 20 tests - tvevent command
 │   ├── test_datamap.do          # 28 tests - datamap command
 │   ├── test_datadict.do         # 21 tests - datadict command
 │   ├── test_synthdata.do        # 35 tests - synthdata command
 │   ├── test_mvp.do              # 45 tests - mvp command
 │   ├── test_table1_tc.do        # 24 tests - table1_tc command
-│   ├── test_regtab.do           # 6 tests - regtab command
-│   ├── test_cstat_surv.do       # 4 tests - cstat_surv command
-│   ├── test_stratetab.do        # 2 tests - stratetab command
-│   ├── test_compress_tc.do      # compress_tc tests
-│   ├── test_datefix.do          # datefix tests
-│   ├── test_check.do            # check tests
-│   ├── test_today.do            # today tests
-│   ├── test_migrations.do       # migrations tests
-│   └── test_sustainedss.do      # sustainedss tests
+│   ├── test_regtab.do           # 10 tests - regtab command
+│   ├── test_cstat_surv.do       # 10 tests - cstat_surv command
+│   ├── test_stratetab.do        # 12 tests - stratetab command
+│   ├── test_compress_tc.do      # 14 tests - compress_tc command
+│   ├── test_datefix.do          # 14 tests - datefix command
+│   ├── test_check.do            # 13 tests - check command
+│   ├── test_today.do            # 13 tests - today command
+│   ├── test_migrations.do       # 12 tests - migrations command
+│   └── test_sustainedss.do      # 17 tests - sustainedss command
 │
 └── docker/                       # Docker configuration for sandboxed testing
     ├── Dockerfile
@@ -132,23 +133,23 @@ display "Total: `test_count' Passed: `pass_count' Failed: `fail_count'"
 
 | Package | Command | Tests | Coverage |
 |---------|---------|-------|----------|
-| tvtools | tvexpose | 37 | Complete |
-| tvtools | tvmerge | 16 | Complete |
-| tvtools | tvevent | 13 | Complete |
+| tvtools | tvexpose | 51 | Complete |
+| tvtools | tvmerge | 21 | Complete |
+| tvtools | tvevent | 20 | Complete |
 | datamap | datamap | 28 | Excellent |
 | datamap | datadict | 21 | Excellent |
 | synthdata | synthdata | 35 | Excellent |
 | mvp | mvp | 45 | Excellent |
 | table1_tc | table1_tc | 24 | Good |
-| regtab | regtab | 6 | Good |
-| cstat_surv | cstat_surv | 4 | Good |
-| stratetab | stratetab | 2 | Partial |
-| compress_tc | compress_tc | 4 | Partial |
-| datefix | datefix | 4 | Good |
-| check | check | 6 | Complete |
-| today | today | 4 | Partial |
-| setools | migrations | 3 | Partial |
-| setools | sustainedss | 5 | Partial |
+| regtab | regtab | 10 | Good |
+| cstat_surv | cstat_surv | 10 | Good |
+| stratetab | stratetab | 12 | Good |
+| compress_tc | compress_tc | 14 | Good |
+| datefix | datefix | 14 | Good |
+| check | check | 13 | Complete |
+| today | today | 13 | Good |
+| setools | migrations | 12 | Good |
+| setools | sustainedss | 17 | Good |
 
 ## Docker Setup for Claude Code Testing
 
