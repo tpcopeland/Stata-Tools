@@ -16,8 +16,8 @@ if [ ! -d "$STATA_DIR" ] || [ -z "$(ls -A $STATA_DIR 2>/dev/null)" ]; then
     echo ""
     echo "  To set up Stata Linux:"
     echo "  1. Download Stata for Linux from stata.com/customer-service/"
-    echo "  2. Extract: tar -xzf Stata17Linux64.tar.gz -C ~/stata17-linux"
-    echo "  3. Set STATA_PATH=~/stata17-linux in your .env file"
+    echo "  2. Extract: tar -xzf Stata17Linux64.tar.gz -C ~/stata17"
+    echo "  3. Set STATA_PATH=~/stata17 in your .env file"
     echo ""
 else
     # Check for Stata executables
