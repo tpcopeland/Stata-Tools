@@ -61,6 +61,7 @@ class TokenType(Enum):
     USING = auto()  # using clause
     NEWLINE = auto()
     EOF = auto()
+    DOT = auto()  # . (for filenames, etc.)
 
     # Keywords
     KEYWORD = auto()
@@ -474,6 +475,7 @@ class StataLexer:
                 ",": TokenType.COMMA,
                 ":": TokenType.COLON,
                 ";": TokenType.SEMICOLON,
+                ".": TokenType.DOT,
             }
 
             if char in single_char_tokens:
@@ -721,6 +723,8 @@ class StataParser:
                 TokenType.STAR,
                 TokenType.SLASH,
                 TokenType.CARET,
+                TokenType.DOT,
+                TokenType.COLON,
             }:
                 args.append(token.value)
             elif token.type == TokenType.LPAREN:
@@ -812,6 +816,11 @@ class StataParser:
                 parts.append(token.value)
             elif token.type == TokenType.NAME:
                 parts.append(token.value)
+            elif token.type == TokenType.MACRO_LOCAL:
+                # Preserve macro reference format for later expansion
+                parts.append(f"`{token.value}'")
+            elif token.type == TokenType.MACRO_GLOBAL:
+                parts.append(f"${token.value}")
             elif token.value is not None:
                 parts.append(str(token.value))
         return "".join(parts).strip()

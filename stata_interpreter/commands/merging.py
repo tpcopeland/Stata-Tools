@@ -50,9 +50,20 @@ class MergingCommands:
         if not args:
             raise ValueError("merge requires match type and varlist")
 
-        # Parse merge type
+        # Parse merge type - may be split by parser (e.g., ['m', ':', 1, 'id'] for 'm:1 id')
         merge_type = str(args[0]).lower()
         key_vars = [str(a) for a in args[1:]]
+
+        # Handle split merge type (parser splits m:1 into ['m', ':', 1] or ['m', 1])
+        if merge_type in ("m", "1") and len(args) > 1:
+            # Check if next token is ':' (colon captured separately)
+            if str(args[1]) == ":" and len(args) > 2 and str(args[2]) in ("1", "m"):
+                merge_type = f"{merge_type}:{args[2]}"
+                key_vars = [str(a) for a in args[3:]]
+            # Check if next token is '1' or 'm' directly (no colon)
+            elif str(args[1]) in ("1", "m"):
+                merge_type = f"{merge_type}:{args[1]}"
+                key_vars = [str(a) for a in args[2:]]
 
         if merge_type not in ("1:1", "m:1", "1:m", "m:m"):
             # Maybe old syntax without merge type
@@ -74,7 +85,8 @@ class MergingCommands:
 
         # Options
         keep_opt = options.get("keep", "match master using")
-        nogenerate = options.get("nogenerate", False)
+        # nogen, nogenerate, and nogenerat are all valid abbreviations
+        nogenerate = options.get("nogenerate", options.get("nogen", False))
         keepusing = options.get("keepusing")
         generate = options.get("generate", "_merge")
 

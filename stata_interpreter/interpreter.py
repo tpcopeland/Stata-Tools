@@ -151,6 +151,8 @@ class StataInterpreter:
             "set": self.io.cmd_set,
             "compress": self.io.cmd_compress,
             "assert": self.io.cmd_assert,
+            "format": self.io.cmd_format,
+            "note": self.io.cmd_note,
             # Merging
             "merge": self.merging.cmd_merge,
             "append": self.merging.cmd_append,
@@ -294,8 +296,10 @@ class StataInterpreter:
                 self._cmd_preserve()
             elif command == "restore":
                 self._cmd_restore(cmd)
-            elif command in ("version", "mata", "mata:"):
+            elif command in ("version",):
                 pass  # Ignore
+            elif command in ("mata", "mata:"):
+                self._cmd_mata(cmd)
             elif command in ("quietly", "qui", "capture", "cap", "noisily"):
                 pass  # Prefix only
             elif command in ("end", "}", "{"):
@@ -363,6 +367,11 @@ class StataInterpreter:
         if cmd.if_condition:
             expanded_if = self.macros.expand(cmd.if_condition)
 
+        # Expand macros in using clause
+        expanded_using = None
+        if cmd.using:
+            expanded_using = self.macros.expand(cmd.using)
+
         # Handle by/bysort prefix
         if cmd.prefix in ("by", "bysort"):
             self._execute_with_by(cmd, handler)
@@ -374,7 +383,7 @@ class StataInterpreter:
                     if_cond=expanded_if,
                     in_range=cmd.in_range,
                     options=cmd.options,
-                    using=cmd.using,
+                    using=expanded_using,
                 )
             else:
                 handler(
@@ -413,6 +422,13 @@ class StataInterpreter:
         # Expand macros in arguments
         expanded_args = self._expand_args(cmd.arguments)
         expanded_if = self.macros.expand(cmd.if_condition) if cmd.if_condition else None
+
+        # Special handling for generate - use vectorized by-group _n and _N
+        if cmd.command.lower() in ('generate', 'gen', 'g'):
+            self._generate_with_by(expanded_args, expanded_if, cmd, by_vars, sort_vars)
+            self._current_by_vars = []
+            self._current_by_sort_vars = []
+            return
 
         # Execute for each group
         grouped = self.data.df.groupby(by_vars, sort=False)
@@ -456,6 +472,91 @@ class StataInterpreter:
 
         self._current_by_vars = []
         self._current_by_sort_vars = []
+
+    def _generate_with_by(
+        self,
+        args: list,
+        if_cond: str,
+        cmd: ParsedCommand,
+        by_vars: list,
+        sort_vars: list
+    ) -> None:
+        """Handle generate command with by-group context using vectorized operations."""
+        import re
+
+        # Parse arguments: [type] newvar = expression
+        arg_str = " ".join(str(a) for a in args)
+
+        # Check for type specification
+        var_type = None
+        type_match = re.match(r'^(byte|int|long|float|double|str\d*)\s+', arg_str, re.IGNORECASE)
+        if type_match:
+            var_type = type_match.group(1).lower()
+            arg_str = arg_str[type_match.end():]
+
+        # Parse newvar = expression
+        if '=' not in arg_str:
+            raise ValueError("generate requires newvar = expression")
+
+        parts = arg_str.split('=', 1)
+        new_var = parts[0].strip()
+        expression = parts[1].strip()
+
+        # Check if variable already exists
+        if self.data.has_var(new_var):
+            raise ValueError(f"variable {new_var} already defined")
+
+        # Calculate by-group _n (within-group observation number) for all observations
+        # This creates a cumulative count within each group
+        grouped = self.data.df.groupby(by_vars, sort=False)
+        by_group_n = grouped.cumcount() + 1  # 1-indexed like Stata
+
+        # Calculate by-group _N (group size) for all observations
+        by_group_N = grouped[by_vars[0]].transform('count')
+
+        # Create a mask for all observations (all True since we want all rows)
+        full_mask = pd.Series([True] * self.data.N)
+
+        # Set by-group context for expression evaluator
+        self.expr_eval.set_by_context(
+            pd.Series(by_group_n.values, dtype=float),
+            None,  # _N varies by group, handled via by_group_N
+            full_mask
+        )
+
+        # Temporarily set _current_group_N to the by_group_N series for vectorized evaluation
+        self.expr_eval._by_group_N_series = by_group_N
+
+        try:
+            # Evaluate expression
+            result = self.expr_eval.evaluate(expression)
+
+            # Apply if condition if any
+            if if_cond:
+                mask = self.cond_eval.evaluate_if(if_cond)
+            else:
+                mask = full_mask
+
+            # Create new variable
+            if isinstance(result, pd.Series):
+                new_values = pd.Series(index=range(self.data.N), dtype=float)
+                new_values.loc[:] = np.nan
+                new_values.loc[mask] = result.loc[mask]
+            else:
+                new_values = pd.Series([np.nan] * self.data.N)
+                new_values.loc[mask] = result
+
+            # Convert type if specified
+            if var_type:
+                new_values = self.data_manip._convert_type(new_values, var_type)
+
+            self.data.set_var(new_var, new_values)
+
+        finally:
+            self.expr_eval.clear_by_context()
+            # Clean up temporary attribute
+            if hasattr(self.expr_eval, '_by_group_N_series'):
+                delattr(self.expr_eval, '_by_group_N_series')
 
     def _cmd_local(self, cmd: ParsedCommand) -> None:
         """Handle local macro assignment."""
@@ -618,6 +719,72 @@ class StataInterpreter:
                         self.macros.set_ereturn(name, float(value))
                     else:
                         self.macros.set_ereturn(name, expr)
+
+    def _cmd_mata(self, cmd: ParsedCommand) -> None:
+        """Handle simple mata commands.
+
+        Supports limited Mata functionality for common patterns:
+        - st_local("name", value) - set local macro
+        - direxists(path) - check if directory exists
+        """
+        import re
+
+        # Get the mata expression from raw_line
+        raw = cmd.raw_line
+        # Handle "mata :" or "mata:" prefix
+        if raw.lower().startswith("mata"):
+            expr = raw[4:].strip()
+            if expr.startswith(":"):
+                expr = expr[1:].strip()
+        else:
+            expr = " ".join(str(a) for a in cmd.arguments)
+
+        # Expand macros in the expression
+        expr = self.macros.expand(expr)
+
+        # Remove extra spaces around parentheses and commas
+        expr = re.sub(r'\s*\(\s*', '(', expr)
+        expr = re.sub(r'\s*\)\s*', ')', expr)
+        expr = re.sub(r'\s*,\s*', ',', expr)
+
+        # Pattern: st_local("name", strofreal(direxists(st_local("varname"))))
+        # This is used to check if a directory exists
+
+        # Match st_local("name", value) - handle both "quotes" and unquoted
+        match = re.match(r'st_local\((["\']?)(\w+)\1,(.+)\)', expr)
+        if match:
+            local_name = match.group(2)
+            value_expr = match.group(3).strip()
+
+            # Handle direxists with st_local pattern
+            # Pattern: strofreal(direxists(st_local("mydir")))
+            inner_local_match = re.search(r'direxists\(st_local\((["\']?)(\w+)\1\)\)', value_expr)
+            if inner_local_match:
+                inner_name = inner_local_match.group(2)
+                inner_value = self.macros.get_local(inner_name)
+                exists = "1" if os.path.isdir(inner_value) else "0"
+                self.macros.set_local(local_name, exists)
+                return
+
+            # Handle direxists with literal path
+            dir_match = re.search(r'direxists\((["\']?)([^"\']+)\1\)', value_expr)
+            if dir_match:
+                dir_path = dir_match.group(2)
+                exists = "1" if os.path.isdir(dir_path) else "0"
+                self.macros.set_local(local_name, exists)
+                return
+
+            # Try to evaluate as simple string
+            if value_expr.startswith('"') and value_expr.endswith('"'):
+                self.macros.set_local(local_name, value_expr[1:-1])
+                return
+
+            # Default: try to evaluate as numeric
+            try:
+                result = self.expr_eval.evaluate(value_expr, row_context=False)
+                self.macros.set_local(local_name, str(result))
+            except Exception:
+                pass  # Silently ignore unsupported mata expressions
 
     def _cmd_foreach(
         self, cmd: ParsedCommand, all_commands: list[ParsedCommand], idx: int
@@ -857,8 +1024,34 @@ class StataInterpreter:
 
         try:
             # Set up arguments
-            # Set 0 to full argument string
-            arg_str = " ".join(str(a) for a in cmd.arguments)
+            # Build full argument string including options
+            arg_parts = [str(a) for a in cmd.arguments]
+
+            # Add if condition if present
+            if cmd.if_condition:
+                arg_parts.append("if")
+                arg_parts.append(cmd.if_condition)
+
+            # Add in range if present
+            if cmd.in_range:
+                arg_parts.append("in")
+                arg_parts.append(cmd.in_range)
+
+            # Add options after comma
+            if cmd.options:
+                opt_parts = []
+                for opt_name, opt_value in cmd.options.items():
+                    if opt_value is True:
+                        # Flag option (no value)
+                        opt_parts.append(opt_name)
+                    else:
+                        # Option with value
+                        opt_parts.append(f"{opt_name}({opt_value})")
+                if opt_parts:
+                    arg_parts.append(",")
+                    arg_parts.extend(opt_parts)
+
+            arg_str = " ".join(arg_parts)
             self.macros.set_local("0", arg_str)
 
             # Set positional arguments
@@ -899,15 +1092,23 @@ class StataInterpreter:
 
     def _cmd_syntax(self, cmd: ParsedCommand) -> None:
         """Parse syntax specification."""
-        # Basic implementation - parse syntax and set locals
-        arg_str = " ".join(str(a) for a in cmd.arguments)
+        import re
+
+        # Use raw_line to get the actual syntax specification
+        # The parser puts options into cmd.options but we need the raw spec
+        raw_line = cmd.raw_line
+        # Remove "syntax" from the beginning
+        if raw_line.lower().startswith("syntax"):
+            arg_str = raw_line[6:].strip()
+        else:
+            arg_str = " ".join(str(a) for a in cmd.arguments)
         arg_str = self.macros.expand(arg_str)
 
         # Get the arguments passed to the program
         program_args = self.macros.get_local("0")
 
         # Very basic syntax parsing - just set varlist
-        if "varlist" in arg_str:
+        if "varlist" in arg_str.lower():
             # Extract variables from program args
             parts = program_args.split(",")[0].split()
             vars = [p for p in parts if not p.startswith("-")]
@@ -923,6 +1124,63 @@ class StataInterpreter:
                 if marker in if_part:
                     end_idx = min(end_idx, if_part.find(marker))
             self.macros.set_local("if", if_part[:end_idx].strip())
+
+        # Parse options from syntax specification
+        # Options appear after comma in syntax: syntax [varlist] , options
+        if "," in arg_str:
+            options_spec = arg_str.split(",", 1)[1].strip()
+
+            # Remove brackets for optional parts (simplified - treat all as optional for now)
+            options_spec_clean = options_spec.replace("[", " ").replace("]", " ")
+
+            # Find option specifications like: OPTNAME(type default) or OPTNAME
+            # Pattern: word(type) or word(type default) or just word
+            opt_pattern = re.compile(r'(\w+)(?:\((\w+)(?:\s+(\S+))?\))?', re.IGNORECASE)
+
+            # Parse actual arguments passed to the program
+            # Split on comma to get options part
+            if "," in program_args:
+                actual_options = program_args.split(",", 1)[1].strip()
+            else:
+                # Options-only syntax (syntax starts with comma)
+                actual_options = program_args.strip()
+
+            # Build a dict of option specs with their defaults
+            option_specs = {}
+            for match in opt_pattern.finditer(options_spec_clean):
+                opt_name = match.group(1).lower()
+                opt_type = match.group(2)  # string, integer, real, etc.
+                opt_default = match.group(3)  # default value if any
+                option_specs[opt_name] = {
+                    'type': opt_type,
+                    'default': opt_default
+                }
+
+            # Set defaults first
+            for opt_name, spec in option_specs.items():
+                if spec['default'] is not None:
+                    self.macros.set_local(opt_name, spec['default'])
+
+            # Parse actual option values from program args
+            # Handle optname(value) pattern
+            opt_value_pattern = re.compile(r'(\w+)\s*\(\s*([^)]+)\s*\)', re.IGNORECASE)
+            for match in opt_value_pattern.finditer(actual_options):
+                opt_name = match.group(1).lower()
+                opt_value = match.group(2).strip()
+                # Remove surrounding quotes if present
+                if (opt_value.startswith('"') and opt_value.endswith('"')) or \
+                   (opt_value.startswith("'") and opt_value.endswith("'")):
+                    opt_value = opt_value[1:-1]
+                self.macros.set_local(opt_name, opt_value)
+
+            # Handle flag options (options without values)
+            # Remove matched option(value) patterns to find remaining flags
+            remaining = opt_value_pattern.sub('', actual_options)
+            for word in remaining.split():
+                word_lower = word.lower()
+                if word_lower in option_specs or word_lower in [s.lower() for s in option_specs]:
+                    # It's a flag option - set to non-empty value
+                    self.macros.set_local(word_lower, word_lower)
 
     def _cmd_marksample(self, cmd: ParsedCommand) -> None:
         """Create sample marker variable."""
