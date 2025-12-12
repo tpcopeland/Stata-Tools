@@ -754,3 +754,126 @@ class IOCommands:
         """
         # Stub - notes don't affect data manipulation
         pass
+
+    def cmd_cd(
+        self,
+        args: list,
+        if_cond: Optional[str] = None,
+        in_range: Optional[tuple] = None,
+        options: dict = None,
+    ) -> None:
+        """
+        Change directory.
+
+        Syntax: cd "path"
+        """
+        if args:
+            # Reconstruct path from split args
+            path = "".join(str(a) for a in args).strip('"').strip("'")
+            # Expand macros in path
+            path = self.macros.expand(path)
+            try:
+                os.chdir(path)
+            except FileNotFoundError:
+                raise ValueError(f"directory {path} not found")
+            except PermissionError:
+                raise ValueError(f"cannot access directory {path}")
+        else:
+            # Without args, display current directory
+            print(os.getcwd())
+
+    def cmd_pwd(
+        self,
+        args: list,
+        if_cond: Optional[str] = None,
+        in_range: Optional[tuple] = None,
+        options: dict = None,
+    ) -> None:
+        """
+        Print working directory.
+
+        Syntax: pwd
+        """
+        print(os.getcwd())
+
+    def cmd_net(
+        self,
+        args: list,
+        if_cond: Optional[str] = None,
+        in_range: Optional[tuple] = None,
+        options: dict = None,
+    ) -> None:
+        """
+        Network commands (stub).
+
+        Syntax: net install pkgname, from(url)
+                net uninstall pkgname
+        Note: Network commands are not implemented - this is a stub.
+        """
+        # Stub - net commands would require actual network access
+        pass
+
+    def cmd_confirm(
+        self,
+        args: list,
+        if_cond: Optional[str] = None,
+        in_range: Optional[tuple] = None,
+        options: dict = None,
+    ) -> None:
+        """
+        Confirm existence of items.
+
+        Syntax: confirm file filename
+                confirm variable varname
+                confirm numeric variable varname
+                confirm string variable varname
+                confirm new variable varname
+        """
+        if not args:
+            raise ValueError("confirm requires arguments")
+
+        confirm_type = str(args[0]).lower()
+
+        if confirm_type == "file":
+            if len(args) < 2:
+                raise ValueError("confirm file requires filename")
+            # Reconstruct filename from split args
+            filename = "".join(str(a) for a in args[1:]).strip('"').strip("'")
+            filename = self.macros.expand(filename)
+            if not os.path.exists(filename):
+                raise ValueError(f'file "{filename}" not found')
+
+        elif confirm_type == "variable":
+            if len(args) < 2:
+                raise ValueError("confirm variable requires varname")
+            varname = str(args[1])
+            if varname not in self.data.df.columns:
+                raise ValueError(f"variable {varname} not found")
+
+        elif confirm_type == "numeric":
+            if len(args) < 3 or str(args[1]).lower() != "variable":
+                raise ValueError("confirm numeric variable requires varname")
+            varname = str(args[2])
+            if varname not in self.data.df.columns:
+                raise ValueError(f"variable {varname} not found")
+            if not pd.api.types.is_numeric_dtype(self.data.df[varname]):
+                raise ValueError(f"variable {varname} is not numeric")
+
+        elif confirm_type == "string":
+            if len(args) < 3 or str(args[1]).lower() != "variable":
+                raise ValueError("confirm string variable requires varname")
+            varname = str(args[2])
+            if varname not in self.data.df.columns:
+                raise ValueError(f"variable {varname} not found")
+            if pd.api.types.is_numeric_dtype(self.data.df[varname]):
+                raise ValueError(f"variable {varname} is not string")
+
+        elif confirm_type == "new":
+            if len(args) < 3 or str(args[1]).lower() != "variable":
+                raise ValueError("confirm new variable requires varname")
+            varname = str(args[2])
+            if varname in self.data.df.columns:
+                raise ValueError(f"variable {varname} already exists")
+
+        else:
+            raise ValueError(f"unknown confirm type: {confirm_type}")

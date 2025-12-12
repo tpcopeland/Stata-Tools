@@ -711,3 +711,50 @@ STATA_FUNCTIONS = {
     "invttail": StataFunctions.invt,  # alias
     "Ftail": StataFunctions.F,  # alias
 }
+
+
+def c(name: str) -> Any:
+    """
+    Return Stata system constant.
+
+    Common constants:
+    - c(pwd) - current working directory
+    - c(current_date) - current date
+    - c(N) - number of observations (requires data context)
+    - c(k) - number of variables (requires data context)
+    - c(os) - operating system
+    - c(pi) - value of pi
+    """
+    import os
+    import sys
+    from datetime import datetime
+
+    name_lower = name.lower() if isinstance(name, str) else str(name).lower()
+
+    constants = {
+        "pwd": os.getcwd(),
+        "current_date": datetime.now().strftime("%d %b %Y"),
+        "current_time": datetime.now().strftime("%H:%M:%S"),
+        "os": sys.platform,
+        "pi": np.pi,
+        "e": np.e,
+        "maxbyte": 100,
+        "maxint": 32740,
+        "maxlong": 2147483620,
+        "maxfloat": 1.7014117e38,
+        "maxdouble": 8.9884656743e307,
+        "mindouble": -8.9884656743e307,
+        "epsfloat": 1.1920929e-7,
+        "epsdouble": 2.2204460493e-16,
+        "stata_version": 18.0,
+        "version": 18.0,
+        "rc": 0,  # Default return code
+        "linesize": 79,
+        "pagesize": 23,
+    }
+
+    return constants.get(name_lower, "")
+
+
+# Add c() to STATA_FUNCTIONS
+STATA_FUNCTIONS["c"] = c

@@ -153,6 +153,10 @@ class StataInterpreter:
             "assert": self.io.cmd_assert,
             "format": self.io.cmd_format,
             "note": self.io.cmd_note,
+            "cd": self.io.cmd_cd,
+            "pwd": self.io.cmd_pwd,
+            "net": self.io.cmd_net,
+            "confirm": self.io.cmd_confirm,
             # Merging
             "merge": self.merging.cmd_merge,
             "append": self.merging.cmd_append,
@@ -262,8 +266,9 @@ class StataInterpreter:
         # Handle capture prefix
         was_capture = self._capture_mode
         was_quiet = self._quietly_mode
+        is_capture_cmd = cmd.prefix == "capture"
 
-        if cmd.prefix == "capture":
+        if is_capture_cmd:
             self._capture_mode = True
         if cmd.prefix == "quietly":
             self._quietly_mode = True
@@ -332,12 +337,25 @@ class StataInterpreter:
                     if not self._capture_mode:
                         self.output(f"unrecognized command: {command}")
 
-        except StataError:
-            raise
+        except StataError as e:
+            if is_capture_cmd or was_capture:
+                # In capture mode, store rc and continue
+                self._return_code = e.rc
+                self.macros.set_scalar("_rc", e.rc)
+            else:
+                raise
         except Exception as e:
-            if not self._capture_mode:
+            if is_capture_cmd or was_capture:
+                self._return_code = 198
+                self.macros.set_scalar("_rc", 198)
+            else:
                 raise StataError(str(e))
-            self._return_code = 198
+
+        else:
+            # Command succeeded
+            if is_capture_cmd:
+                self.macros.set_scalar("_rc", 0)
+            self._return_code = 0
 
         finally:
             self._capture_mode = was_capture
@@ -1247,9 +1265,11 @@ class StataInterpreter:
         name = str(cmd.arguments[1])
 
         if what == "variable":
+            name = self.macros.expand(name)
             if not self.data.has_var(name):
                 raise StataError(f"variable {name} not found", 111)
         elif what in ("numeric", "string"):
+            name = self.macros.expand(name)
             if not self.data.has_var(name):
                 raise StataError(f"variable {name} not found", 111)
             is_num = self.data.is_numeric(name)
@@ -1258,8 +1278,11 @@ class StataInterpreter:
             if what == "string" and is_num:
                 raise StataError(f"{name} is not string", 109)
         elif what == "file":
-            if not os.path.exists(name):
-                raise StataError(f"file {name} not found", 601)
+            # Reconstruct filename from args and expand macros
+            filename = "".join(str(a) for a in cmd.arguments[1:]).strip('"').strip("'")
+            filename = self.macros.expand(filename)
+            if not os.path.exists(filename):
+                raise StataError(f'file "{filename}" not found', 601)
 
     def _cmd_gettoken(self, cmd: ParsedCommand) -> None:
         """Parse gettoken command."""

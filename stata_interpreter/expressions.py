@@ -325,7 +325,12 @@ class ExpressionEvaluator:
     ) -> tuple[Any, int]:
         """Get variable value, handling subscripts."""
         if self.data is None or not self.data.has_var(name):
-            # Not a variable - might be a constant or error
+            # Not a variable - check if it's a scalar (like _rc)
+            if self.macros:
+                scalar_val = self.macros.get_scalar(name)
+                if scalar_val is not None:
+                    return scalar_val, pos
+            # Not a variable or scalar - might be a constant or error
             return np.nan, pos
 
         # Check for subscript [expr]

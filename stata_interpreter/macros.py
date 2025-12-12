@@ -153,6 +153,18 @@ class MacroManager:
                                 result.append("")
                         else:
                             result.append("")
+                    # Check for c() system constant: `c(name)'
+                    elif macro_content.startswith("c(") and macro_content.endswith(")"):
+                        const_name = macro_content[2:-1]  # Extract name from c(name)
+                        if self.eval_expr:
+                            try:
+                                # Use the c() function - pass name as quoted string
+                                value = self.eval_expr(f'c("{const_name}")')
+                                result.append(str(value))
+                            except Exception:
+                                result.append("")
+                        else:
+                            result.append("")
                     else:
                         # Regular local macro - handle nested references
                         expanded_name = self._expand_once(macro_content)
