@@ -127,9 +127,23 @@ format death_dt %td
 label variable death_dt "Date of death"
 drop has_death
 
-* Study exit date (min of: administrative end, death, or max follow-up)
+* Events: Emigration (8% rate, for multiple competing risks testing)
+gen byte has_emigration = runiform() < 0.08
+gen emigration_dt = .
+* Emigration can only happen if patient hasn't died
+replace emigration_dt = study_entry + 60 + floor(runiform() * (follow_up_days - 120)) if has_emigration & missing(death_dt)
+format emigration_dt %td
+label variable emigration_dt "Date of emigration"
+drop has_emigration
+
+* Ensure emigration doesn't happen after death or EDSS4
+replace emigration_dt = . if !missing(death_dt) & emigration_dt >= death_dt
+replace emigration_dt = . if !missing(edss4_dt) & emigration_dt >= edss4_dt
+
+* Study exit date (min of: administrative end, death, emigration, or max follow-up)
 gen study_exit = study_entry + follow_up_days
 replace study_exit = death_dt if !missing(death_dt) & death_dt < study_exit
+replace study_exit = emigration_dt if !missing(emigration_dt) & emigration_dt < study_exit
 format study_exit %td
 label variable study_exit "Study exit date"
 
@@ -166,6 +180,14 @@ label variable hrt_type "HRT type"
 label define hrt_type_lbl 0 "None" 1 "Estrogen" 2 "Combined" 3 "Progestin"
 label values hrt_type hrt_type_lbl
 
+* Dose in mg (for dose testing - varies by HRT type)
+* Estrogen: 0.3-1.25mg, Combined: 0.3-0.625mg estrogen equivalent, Progestin: 2.5-10mg
+gen double dose = .
+replace dose = 0.3 + runiform() * 0.95 if hrt_type == 1  // Estrogen
+replace dose = 0.3 + runiform() * 0.325 if hrt_type == 2  // Combined
+replace dose = 2.5 + runiform() * 7.5 if hrt_type == 3  // Progestin
+label variable dose "Daily dose (mg)"
+
 * Prescription dates
 gen rx_start = study_entry + floor(runiform() * (study_exit - study_entry - 30))
 gen rx_duration = 30 + floor(runiform() * 365)  // 30-395 days
@@ -180,8 +202,8 @@ label variable rx_stop "Prescription end date"
 drop if rx_stop <= rx_start
 drop if missing(rx_start) | missing(rx_stop)
 
-keep id hrt_type rx_start rx_stop
-order id rx_start rx_stop hrt_type
+keep id hrt_type dose rx_start rx_stop
+order id rx_start rx_stop hrt_type dose
 
 compress
 save "hrt.dta", replace
@@ -355,6 +377,158 @@ quietly describe
 display as text "  Created hospitalizations.dta: `r(N)' observations, `r(k)' variables"
 
 * =============================================================================
+* DATASET 5b: HOSPITALIZATIONS_WIDE (Wide Format - for tvevent recurring events)
+* =============================================================================
+display as text _n "Creating hospitalizations_wide.dta..."
+
+use "cohort.dta", clear
+keep id study_entry study_exit
+
+* Approximately 40% of patients have hospitalizations (wide format: hosp_date1, hosp_date2, etc.)
+gen byte has_hosp = runiform() < 0.40
+
+* Generate up to 5 hospitalization dates per person (wide format)
+gen hosp_date1 = study_entry + floor(runiform() * (study_exit - study_entry) * 0.2) if has_hosp
+gen hosp_date2 = hosp_date1 + 60 + floor(runiform() * 180) if has_hosp & runiform() < 0.60
+gen hosp_date3 = hosp_date2 + 60 + floor(runiform() * 180) if !missing(hosp_date2) & runiform() < 0.50
+gen hosp_date4 = hosp_date3 + 60 + floor(runiform() * 180) if !missing(hosp_date3) & runiform() < 0.30
+gen hosp_date5 = hosp_date4 + 60 + floor(runiform() * 180) if !missing(hosp_date4) & runiform() < 0.20
+
+* Ensure dates are within study period
+foreach v in hosp_date1 hosp_date2 hosp_date3 hosp_date4 hosp_date5 {
+    replace `v' = . if `v' > study_exit - 7
+    replace `v' = . if `v' <= study_entry
+}
+
+format hosp_date1 hosp_date2 hosp_date3 hosp_date4 hosp_date5 %td
+label variable hosp_date1 "First hospitalization date"
+label variable hosp_date2 "Second hospitalization date"
+label variable hosp_date3 "Third hospitalization date"
+label variable hosp_date4 "Fourth hospitalization date"
+label variable hosp_date5 "Fifth hospitalization date"
+
+drop has_hosp
+
+compress
+save "hospitalizations_wide.dta", replace
+
+quietly describe
+display as text "  Created hospitalizations_wide.dta: `r(N)' observations, `r(k)' variables"
+
+* =============================================================================
+* DATASET 5c: POINT_EVENTS (Point-in-time events - for pointtime option)
+* =============================================================================
+display as text _n "Creating point_events.dta..."
+
+use "cohort.dta", clear
+keep id study_entry study_exit
+
+* Approximately 50% of patients have point events (e.g., vaccinations, clinic visits)
+gen byte has_event = runiform() < 0.50
+
+* Each patient can have 1-6 point events
+expand 1 + floor(runiform() * 6) if has_event
+bysort id: gen event_num = _n
+
+* Event dates (point in time, no duration)
+gen event_date = study_entry + floor(runiform() * (study_exit - study_entry - 14))
+format event_date %td
+label variable event_date "Event date"
+
+* Event type (1=Vaccination, 2=Clinic visit, 3=Lab test, 4=Imaging)
+gen byte event_type = 1 + floor(runiform() * 4)
+label variable event_type "Event type"
+label define event_type_lbl 0 "None" 1 "Vaccination" 2 "Clinic visit" 3 "Lab test" 4 "Imaging"
+label values event_type event_type_lbl
+
+* Remove invalid records
+drop if missing(event_date)
+drop if event_date <= study_entry | event_date >= study_exit
+
+keep id event_date event_type
+order id event_date event_type
+
+compress
+save "point_events.dta", replace
+
+quietly describe
+display as text "  Created point_events.dta: `r(N)' observations, `r(k)' variables"
+
+* =============================================================================
+* DATASET 5d: OVERLAPPING_EXPOSURES (Deliberately overlapping - for split/combine/priority testing)
+* =============================================================================
+display as text _n "Creating overlapping_exposures.dta..."
+
+use "cohort.dta", clear
+keep id study_entry study_exit
+
+* Select 30% of patients to have overlapping exposures
+gen byte has_overlap = runiform() < 0.30
+
+* Create base exposure period
+gen exp_start1 = study_entry + floor(runiform() * (study_exit - study_entry - 365))
+gen exp_stop1 = exp_start1 + 90 + floor(runiform() * 180)
+replace exp_stop1 = study_exit if exp_stop1 > study_exit
+gen byte exp_type1 = 1  // Type A
+
+* Create overlapping second exposure (starts during first, different type)
+gen exp_start2 = exp_start1 + 30 + floor(runiform() * 60) if has_overlap
+gen exp_stop2 = exp_start2 + 120 + floor(runiform() * 180) if has_overlap
+replace exp_stop2 = study_exit if !missing(exp_stop2) & exp_stop2 > study_exit
+gen byte exp_type2 = 2 if has_overlap  // Type B
+
+* Create third exposure with possible triple overlap
+gen exp_start3 = exp_start2 + floor(runiform() * 30) if has_overlap & runiform() < 0.40
+gen exp_stop3 = exp_start3 + 60 + floor(runiform() * 120) if !missing(exp_start3)
+replace exp_stop3 = study_exit if !missing(exp_stop3) & exp_stop3 > study_exit
+gen byte exp_type3 = 3 if !missing(exp_start3)  // Type C
+
+* Reshape to long format
+preserve
+keep id exp_start1 exp_stop1 exp_type1
+rename (exp_start1 exp_stop1 exp_type1) (exp_start exp_stop exp_type)
+drop if missing(exp_start) | missing(exp_stop) | exp_stop <= exp_start
+tempfile part1
+save `part1'
+
+restore, preserve
+keep id exp_start2 exp_stop2 exp_type2
+rename (exp_start2 exp_stop2 exp_type2) (exp_start exp_stop exp_type)
+drop if missing(exp_start) | missing(exp_stop) | exp_stop <= exp_start
+tempfile part2
+save `part2'
+
+restore
+keep id exp_start3 exp_stop3 exp_type3
+rename (exp_start3 exp_stop3 exp_type3) (exp_start exp_stop exp_type)
+drop if missing(exp_start) | missing(exp_stop) | exp_stop <= exp_start
+
+append using `part1'
+append using `part2'
+
+format exp_start exp_stop %td
+label variable exp_start "Exposure start date"
+label variable exp_stop "Exposure end date"
+label variable exp_type "Exposure type"
+label define exp_type_lbl 0 "None" 1 "Type A" 2 "Type B" 3 "Type C"
+label values exp_type exp_type_lbl
+
+sort id exp_start exp_stop
+compress
+save "overlapping_exposures.dta", replace
+
+quietly describe
+display as text "  Created overlapping_exposures.dta: `r(N)' observations, `r(k)' variables"
+
+* Check for actual overlaps
+sort id exp_start
+by id: gen byte has_overlap_flag = (exp_start <= exp_stop[_n-1]) if _n > 1
+quietly count if has_overlap_flag == 1
+local n_overlaps = r(N)
+display as text "  [INFO] overlapping_exposures.dta: `n_overlaps' overlapping periods (expected for testing)"
+drop has_overlap_flag
+
+* =============================================================================
 * DATASET 6: MIGRATIONS (Wide Format - for migrations command testing)
 * =============================================================================
 display as text _n "Creating migrations_wide.dta..."
@@ -468,6 +642,152 @@ save "dmt_miss.dta", replace
 display as text "  Created dmt_miss.dta"
 
 * =============================================================================
+* EDGE CASE DATASETS (for robustness testing)
+* =============================================================================
+display as text _n "Creating edge case datasets..."
+
+* Edge case 1: Single observation cohort
+clear
+set obs 1
+gen long id = 1
+gen age = 45
+gen byte female = 1
+gen byte mstype = 1
+gen study_entry = date("2015-01-01", "YMD")
+gen study_exit = study_entry + 730
+gen edss4_dt = study_entry + 365
+gen death_dt = .
+gen emigration_dt = .
+format study_entry study_exit edss4_dt death_dt emigration_dt %td
+compress
+save "edge_single_obs.dta", replace
+display as text "  Created edge_single_obs.dta (1 observation)"
+
+* Edge case 2: Single observation exposure
+clear
+set obs 1
+gen long id = 1
+gen rx_start = date("2015-02-01", "YMD")
+gen rx_stop = date("2015-08-01", "YMD")
+gen byte hrt_type = 1
+gen double dose = 0.5
+format rx_start rx_stop %td
+compress
+save "edge_single_exp.dta", replace
+display as text "  Created edge_single_exp.dta (1 exposure)"
+
+* Edge case 3: Empty exposure dataset (matching ids in cohort but no exposures)
+use "cohort.dta", clear
+keep id
+gen rx_start = .
+gen rx_stop = .
+gen byte hrt_type = .
+gen double dose = .
+format rx_start rx_stop %td
+drop if _n > 0  // Empty dataset but with structure
+compress
+save "edge_empty_exp.dta", replace
+display as text "  Created edge_empty_exp.dta (0 exposures)"
+
+* Edge case 4: Very short follow-up (1-7 days per person)
+use "cohort.dta", clear
+keep id female age
+gen study_entry = date("2015-01-01", "YMD") + floor(runiform() * 365)
+gen study_exit = study_entry + 1 + floor(runiform() * 6)  // 1-7 days only
+gen edss4_dt = .
+gen death_dt = .
+gen emigration_dt = .
+format study_entry study_exit %td
+* Keep only first 50 for testing
+keep if _n <= 50
+compress
+save "edge_short_followup.dta", replace
+display as text "  Created edge_short_followup.dta (50 obs, 1-7 day follow-up)"
+
+* Edge case 5: Exposure matching short follow-up
+clear
+set obs 50
+gen long id = _n
+gen rx_start = date("2015-01-01", "YMD") + floor(runiform() * 365)
+gen rx_stop = rx_start + 1 + floor(runiform() * 3)  // 1-4 day exposures
+gen byte hrt_type = 1 + floor(runiform() * 3)
+gen double dose = 0.3 + runiform() * 0.5
+format rx_start rx_stop %td
+compress
+save "edge_short_exp.dta", replace
+display as text "  Created edge_short_exp.dta (50 short exposures)"
+
+* Edge case 6: All same exposure type (no variation)
+use "cohort.dta", clear
+keep id study_entry study_exit
+keep if _n <= 100
+expand 2  // Two exposures per person
+bysort id: gen exp_num = _n
+gen rx_start = study_entry + 30 * exp_num
+gen rx_stop = rx_start + 90
+replace rx_stop = study_exit if rx_stop > study_exit
+gen byte hrt_type = 1  // All type 1
+gen double dose = 0.5  // All same dose
+drop if rx_stop <= rx_start
+keep id rx_start rx_stop hrt_type dose
+format rx_start rx_stop %td
+compress
+save "edge_same_type.dta", replace
+display as text "  Created edge_same_type.dta (single exposure type)"
+
+* Edge case 7: Person with no exposure at all (control group only)
+use "cohort.dta", clear
+keep if _n <= 50  // 50 persons
+gen byte has_exp = 0  // No one has exposure
+compress
+save "edge_no_exposure_cohort.dta", replace
+display as text "  Created edge_no_exposure_cohort.dta (unexposed cohort)"
+
+* Edge case 8: Extreme long follow-up (30+ years)
+clear
+set obs 20
+gen long id = _n
+gen age = 25 + floor(runiform() * 20)
+gen byte female = runiform() < 0.6
+gen byte mstype = 1 + floor(runiform() * 4)
+gen study_entry = date("1990-01-01", "YMD") + floor(runiform() * 365)
+gen study_exit = study_entry + 10950 + floor(runiform() * 3650)  // 30-40 years
+gen edss4_dt = .
+gen death_dt = .
+gen emigration_dt = .
+format study_entry study_exit %td
+compress
+save "edge_long_followup.dta", replace
+display as text "  Created edge_long_followup.dta (20 obs, 30-40 year follow-up)"
+
+* Edge case 9: Matching long exposure periods
+clear
+set obs 50
+gen long id = ceil(_n / 3)  // ~17 persons, 3 exposures each
+gen rx_start = date("1990-01-01", "YMD") + floor(runiform() * 3650)  // 10 years spread
+gen rx_stop = rx_start + 730 + floor(runiform() * 3650)  // 2-12 year exposures
+gen byte hrt_type = 1 + floor(runiform() * 3)
+gen double dose = 0.3 + runiform() * 0.7
+format rx_start rx_stop %td
+compress
+save "edge_long_exp.dta", replace
+display as text "  Created edge_long_exp.dta (long exposure periods)"
+
+* Edge case 10: Exposures with exact same start/stop as study period
+use "cohort.dta", clear
+keep id study_entry study_exit
+keep if _n <= 30
+gen rx_start = study_entry  // Exactly at entry
+gen rx_stop = study_exit    // Exactly at exit
+gen byte hrt_type = 1
+gen double dose = 0.5
+keep id rx_start rx_stop hrt_type dose
+format rx_start rx_stop %td
+compress
+save "edge_boundary_exp.dta", replace
+display as text "  Created edge_boundary_exp.dta (exposure = study period)"
+
+* =============================================================================
 * DATA QUALITY VALIDATION
 * =============================================================================
 display as text _n "{hline 70}"
@@ -574,7 +894,7 @@ display as text _n "{hline 70}"
 display as text "Verifying created files..."
 display as text "{hline 70}"
 
-local files "cohort hrt dmt steroids hospitalizations migrations_wide edss_long cohort_miss hrt_miss dmt_miss"
+local files "cohort hrt dmt steroids hospitalizations hospitalizations_wide point_events overlapping_exposures migrations_wide edss_long cohort_miss hrt_miss dmt_miss edge_single_obs edge_single_exp edge_empty_exp edge_short_followup edge_short_exp edge_same_type edge_no_exposure_cohort edge_long_followup edge_long_exp edge_boundary_exp"
 local all_ok = 1
 
 foreach f of local files {

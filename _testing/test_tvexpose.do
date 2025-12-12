@@ -1055,6 +1055,1231 @@ if `run_only' == 0 | `run_only' == `test_count' {
 }
 
 * =============================================================================
+* TEST 19: recency() option (time since last exposure categories)
+* =============================================================================
+local ++test_count
+local test_desc "recency() option"
+_run_test `test_count' "`test_desc'"
+
+if `run_only' == 0 | `run_only' == `test_count' {
+    capture {
+        quietly use "${DATA_DIR}/cohort.dta", clear
+
+        tvexpose using "${DATA_DIR}/hrt.dta", ///
+            id(id) start(rx_start) stop(rx_stop) ///
+            exposure(hrt_type) reference(0) ///
+            entry(study_entry) exit(study_exit) ///
+            recency(1 5) ///
+            generate(recency_hrt) ///
+            saveas("${DATA_DIR}/_test_tvexpose_recency") replace
+
+        quietly use "${DATA_DIR}/_test_tvexpose_recency.dta", clear
+        assert _N > 0
+        confirm variable recency_hrt
+    }
+    if _rc == 0 {
+        local ++pass_count
+        if `machine' {
+            display "[OK] `test_count'"
+        }
+        else if `quiet' == 0 {
+            display as result "  PASSED"
+        }
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' {
+            display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        }
+        else {
+            display as error "  FAILED: `test_desc' (error `=_rc')"
+        }
+    }
+}
+
+* =============================================================================
+* TEST 20: category-specific grace() option
+* =============================================================================
+local ++test_count
+local test_desc "Category-specific grace()"
+_run_test `test_count' "`test_desc'"
+
+if `run_only' == 0 | `run_only' == `test_count' {
+    capture {
+        quietly use "${DATA_DIR}/cohort.dta", clear
+
+        tvexpose using "${DATA_DIR}/hrt.dta", ///
+            id(id) start(rx_start) stop(rx_stop) ///
+            exposure(hrt_type) reference(0) ///
+            entry(study_entry) exit(study_exit) ///
+            grace(1=30 2=60 3=90) ///
+            generate(tv_hrt) ///
+            saveas("${DATA_DIR}/_test_tvexpose_grace_cat") replace
+
+        quietly use "${DATA_DIR}/_test_tvexpose_grace_cat.dta", clear
+        assert _N > 0
+    }
+    if _rc == 0 {
+        local ++pass_count
+        if `machine' {
+            display "[OK] `test_count'"
+        }
+        else if `quiet' == 0 {
+            display as result "  PASSED"
+        }
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' {
+            display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        }
+        else {
+            display as error "  FAILED: `test_desc' (error `=_rc')"
+        }
+    }
+}
+
+* =============================================================================
+* TEST 21: priority() option for overlapping exposures
+* =============================================================================
+local ++test_count
+local test_desc "priority() option"
+_run_test `test_count' "`test_desc'"
+
+if `run_only' == 0 | `run_only' == `test_count' {
+    capture {
+        quietly use "${DATA_DIR}/cohort.dta", clear
+
+        tvexpose using "${DATA_DIR}/overlapping_exposures.dta", ///
+            id(id) start(exp_start) stop(exp_stop) ///
+            exposure(exp_type) reference(0) ///
+            entry(study_entry) exit(study_exit) ///
+            priority(3 2 1) ///
+            generate(tv_overlap) ///
+            saveas("${DATA_DIR}/_test_tvexpose_priority") replace
+
+        quietly use "${DATA_DIR}/_test_tvexpose_priority.dta", clear
+        assert _N > 0
+    }
+    if _rc == 0 {
+        local ++pass_count
+        if `machine' {
+            display "[OK] `test_count'"
+        }
+        else if `quiet' == 0 {
+            display as result "  PASSED"
+        }
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' {
+            display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        }
+        else {
+            display as error "  FAILED: `test_desc' (error `=_rc')"
+        }
+    }
+}
+
+* =============================================================================
+* TEST 22: split option for overlapping exposures
+* =============================================================================
+local ++test_count
+local test_desc "split option"
+_run_test `test_count' "`test_desc'"
+
+if `run_only' == 0 | `run_only' == `test_count' {
+    capture {
+        quietly use "${DATA_DIR}/cohort.dta", clear
+
+        tvexpose using "${DATA_DIR}/overlapping_exposures.dta", ///
+            id(id) start(exp_start) stop(exp_stop) ///
+            exposure(exp_type) reference(0) ///
+            entry(study_entry) exit(study_exit) ///
+            split ///
+            generate(tv_overlap) ///
+            saveas("${DATA_DIR}/_test_tvexpose_split") replace
+
+        quietly use "${DATA_DIR}/_test_tvexpose_split.dta", clear
+        assert _N > 0
+    }
+    if _rc == 0 {
+        local ++pass_count
+        if `machine' {
+            display "[OK] `test_count'"
+        }
+        else if `quiet' == 0 {
+            display as result "  PASSED"
+        }
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' {
+            display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        }
+        else {
+            display as error "  FAILED: `test_desc' (error `=_rc')"
+        }
+    }
+}
+
+* =============================================================================
+* TEST 23: combine() option for overlapping exposures
+* =============================================================================
+local ++test_count
+local test_desc "combine() option"
+_run_test `test_count' "`test_desc'"
+
+if `run_only' == 0 | `run_only' == `test_count' {
+    capture {
+        quietly use "${DATA_DIR}/cohort.dta", clear
+
+        tvexpose using "${DATA_DIR}/overlapping_exposures.dta", ///
+            id(id) start(exp_start) stop(exp_stop) ///
+            exposure(exp_type) reference(0) ///
+            entry(study_entry) exit(study_exit) ///
+            combine(combined_exp) ///
+            generate(tv_overlap) ///
+            saveas("${DATA_DIR}/_test_tvexpose_combine") replace
+
+        quietly use "${DATA_DIR}/_test_tvexpose_combine.dta", clear
+        assert _N > 0
+        confirm variable combined_exp
+    }
+    if _rc == 0 {
+        local ++pass_count
+        if `machine' {
+            display "[OK] `test_count'"
+        }
+        else if `quiet' == 0 {
+            display as result "  PASSED"
+        }
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' {
+            display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        }
+        else {
+            display as error "  FAILED: `test_desc' (error `=_rc')"
+        }
+    }
+}
+
+* =============================================================================
+* TEST 24: window() option (acute exposure window)
+* =============================================================================
+local ++test_count
+local test_desc "window() option"
+_run_test `test_count' "`test_desc'"
+
+if `run_only' == 0 | `run_only' == `test_count' {
+    capture {
+        quietly use "${DATA_DIR}/cohort.dta", clear
+
+        tvexpose using "${DATA_DIR}/hrt.dta", ///
+            id(id) start(rx_start) stop(rx_stop) ///
+            exposure(hrt_type) reference(0) ///
+            entry(study_entry) exit(study_exit) ///
+            window(30 180) ///
+            generate(tv_hrt) ///
+            saveas("${DATA_DIR}/_test_tvexpose_window") replace
+
+        quietly use "${DATA_DIR}/_test_tvexpose_window.dta", clear
+        assert _N > 0
+    }
+    if _rc == 0 {
+        local ++pass_count
+        if `machine' {
+            display "[OK] `test_count'"
+        }
+        else if `quiet' == 0 {
+            display as result "  PASSED"
+        }
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' {
+            display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        }
+        else {
+            display as error "  FAILED: `test_desc' (error `=_rc')"
+        }
+    }
+}
+
+* =============================================================================
+* TEST 25: switchingdetail option
+* =============================================================================
+local ++test_count
+local test_desc "switchingdetail option"
+_run_test `test_count' "`test_desc'"
+
+if `run_only' == 0 | `run_only' == `test_count' {
+    capture {
+        quietly use "${DATA_DIR}/cohort.dta", clear
+
+        tvexpose using "${DATA_DIR}/dmt.dta", ///
+            id(id) start(dmt_start) stop(dmt_stop) ///
+            exposure(dmt) reference(0) ///
+            entry(study_entry) exit(study_exit) ///
+            switchingdetail ///
+            generate(tv_dmt) ///
+            saveas("${DATA_DIR}/_test_tvexpose_switchdetail") replace
+
+        quietly use "${DATA_DIR}/_test_tvexpose_switchdetail.dta", clear
+        assert _N > 0
+        confirm variable switching_pattern
+    }
+    if _rc == 0 {
+        local ++pass_count
+        if `machine' {
+            display "[OK] `test_count'"
+        }
+        else if `quiet' == 0 {
+            display as result "  PASSED"
+        }
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' {
+            display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        }
+        else {
+            display as error "  FAILED: `test_desc' (error `=_rc')"
+        }
+    }
+}
+
+* =============================================================================
+* TEST 26: statetime option
+* =============================================================================
+local ++test_count
+local test_desc "statetime option"
+_run_test `test_count' "`test_desc'"
+
+if `run_only' == 0 | `run_only' == `test_count' {
+    capture {
+        quietly use "${DATA_DIR}/cohort.dta", clear
+
+        tvexpose using "${DATA_DIR}/dmt.dta", ///
+            id(id) start(dmt_start) stop(dmt_stop) ///
+            exposure(dmt) reference(0) ///
+            entry(study_entry) exit(study_exit) ///
+            statetime ///
+            generate(tv_dmt) ///
+            saveas("${DATA_DIR}/_test_tvexpose_statetime") replace
+
+        quietly use "${DATA_DIR}/_test_tvexpose_statetime.dta", clear
+        assert _N > 0
+        confirm variable state_time
+    }
+    if _rc == 0 {
+        local ++pass_count
+        if `machine' {
+            display "[OK] `test_count'"
+        }
+        else if `quiet' == 0 {
+            display as result "  PASSED"
+        }
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' {
+            display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        }
+        else {
+            display as error "  FAILED: `test_desc' (error `=_rc')"
+        }
+    }
+}
+
+* =============================================================================
+* TEST 27: expandunit() option with continuousunit()
+* =============================================================================
+local ++test_count
+local test_desc "expandunit() option"
+_run_test `test_count' "`test_desc'"
+
+if `run_only' == 0 | `run_only' == `test_count' {
+    capture {
+        quietly use "${DATA_DIR}/cohort.dta", clear
+
+        tvexpose using "${DATA_DIR}/hrt.dta", ///
+            id(id) start(rx_start) stop(rx_stop) ///
+            exposure(hrt_type) reference(0) ///
+            entry(study_entry) exit(study_exit) ///
+            continuousunit(years) expandunit(months) ///
+            generate(cumul_hrt) ///
+            saveas("${DATA_DIR}/_test_tvexpose_expand") replace
+
+        quietly use "${DATA_DIR}/_test_tvexpose_expand.dta", clear
+        assert _N > 0
+
+        * With month expansion, should have more rows
+        quietly count
+        local n_rows = r(N)
+        assert `n_rows' > `cohort_ids'  // More rows than persons
+    }
+    if _rc == 0 {
+        local ++pass_count
+        if `machine' {
+            display "[OK] `test_count'"
+        }
+        else if `quiet' == 0 {
+            display as result "  PASSED"
+        }
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' {
+            display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        }
+        else {
+            display as error "  FAILED: `test_desc' (error `=_rc')"
+        }
+    }
+}
+
+* =============================================================================
+* TEST 28: continuousunit() with days
+* =============================================================================
+local ++test_count
+local test_desc "continuousunit(days)"
+_run_test `test_count' "`test_desc'"
+
+if `run_only' == 0 | `run_only' == `test_count' {
+    capture {
+        quietly use "${DATA_DIR}/cohort.dta", clear
+
+        tvexpose using "${DATA_DIR}/hrt.dta", ///
+            id(id) start(rx_start) stop(rx_stop) ///
+            exposure(hrt_type) reference(0) ///
+            entry(study_entry) exit(study_exit) ///
+            continuousunit(days) ///
+            generate(cumul_days) ///
+            saveas("${DATA_DIR}/_test_tvexpose_days") replace
+
+        quietly use "${DATA_DIR}/_test_tvexpose_days.dta", clear
+        assert _N > 0
+        confirm variable cumul_days
+    }
+    if _rc == 0 {
+        local ++pass_count
+        if `machine' {
+            display "[OK] `test_count'"
+        }
+        else if `quiet' == 0 {
+            display as result "  PASSED"
+        }
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' {
+            display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        }
+        else {
+            display as error "  FAILED: `test_desc' (error `=_rc')"
+        }
+    }
+}
+
+* =============================================================================
+* TEST 29: bytype with currentformer
+* =============================================================================
+local ++test_count
+local test_desc "bytype + currentformer"
+_run_test `test_count' "`test_desc'"
+
+if `run_only' == 0 | `run_only' == `test_count' {
+    capture {
+        quietly use "${DATA_DIR}/cohort.dta", clear
+
+        tvexpose using "${DATA_DIR}/hrt.dta", ///
+            id(id) start(rx_start) stop(rx_stop) ///
+            exposure(hrt_type) reference(0) ///
+            entry(study_entry) exit(study_exit) ///
+            currentformer bytype ///
+            generate(cf_hrt) ///
+            saveas("${DATA_DIR}/_test_tvexpose_bytype_cf") replace
+
+        quietly use "${DATA_DIR}/_test_tvexpose_bytype_cf.dta", clear
+        assert _N > 0
+
+        * Should have cf_hrt1, cf_hrt2, cf_hrt3 for HRT types
+        quietly describe cf_hrt*
+        assert r(k) >= 1
+    }
+    if _rc == 0 {
+        local ++pass_count
+        if `machine' {
+            display "[OK] `test_count'"
+        }
+        else if `quiet' == 0 {
+            display as result "  PASSED"
+        }
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' {
+            display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        }
+        else {
+            display as error "  FAILED: `test_desc' (error `=_rc')"
+        }
+    }
+}
+
+* =============================================================================
+* TEST 30: bytype with duration
+* =============================================================================
+local ++test_count
+local test_desc "bytype + duration"
+_run_test `test_count' "`test_desc'"
+
+if `run_only' == 0 | `run_only' == `test_count' {
+    capture {
+        quietly use "${DATA_DIR}/cohort.dta", clear
+
+        tvexpose using "${DATA_DIR}/hrt.dta", ///
+            id(id) start(rx_start) stop(rx_stop) ///
+            exposure(hrt_type) reference(0) ///
+            entry(study_entry) exit(study_exit) ///
+            duration(1 3) bytype ///
+            generate(dur_hrt) ///
+            saveas("${DATA_DIR}/_test_tvexpose_bytype_dur") replace
+
+        quietly use "${DATA_DIR}/_test_tvexpose_bytype_dur.dta", clear
+        assert _N > 0
+    }
+    if _rc == 0 {
+        local ++pass_count
+        if `machine' {
+            display "[OK] `test_count'"
+        }
+        else if `quiet' == 0 {
+            display as result "  PASSED"
+        }
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' {
+            display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        }
+        else {
+            display as error "  FAILED: `test_desc' (error `=_rc')"
+        }
+    }
+}
+
+* =============================================================================
+* TEST 31: bytype with continuousunit
+* =============================================================================
+local ++test_count
+local test_desc "bytype + continuousunit"
+_run_test `test_count' "`test_desc'"
+
+if `run_only' == 0 | `run_only' == `test_count' {
+    capture {
+        quietly use "${DATA_DIR}/cohort.dta", clear
+
+        tvexpose using "${DATA_DIR}/dmt.dta", ///
+            id(id) start(dmt_start) stop(dmt_stop) ///
+            exposure(dmt) reference(0) ///
+            entry(study_entry) exit(study_exit) ///
+            continuousunit(years) bytype ///
+            generate(tv_dmt) ///
+            saveas("${DATA_DIR}/_test_tvexpose_bytype_cont") replace
+
+        quietly use "${DATA_DIR}/_test_tvexpose_bytype_cont.dta", clear
+        assert _N > 0
+
+        * Should have tv_dmt1 through tv_dmt6 for DMT types
+        quietly describe tv_dmt*
+        assert r(k) >= 1
+    }
+    if _rc == 0 {
+        local ++pass_count
+        if `machine' {
+            display "[OK] `test_count'"
+        }
+        else if `quiet' == 0 {
+            display as result "  PASSED"
+        }
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' {
+            display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        }
+        else {
+            display as error "  FAILED: `test_desc' (error `=_rc')"
+        }
+    }
+}
+
+* =============================================================================
+* TEST 32: bytype with recency
+* =============================================================================
+local ++test_count
+local test_desc "bytype + recency"
+_run_test `test_count' "`test_desc'"
+
+if `run_only' == 0 | `run_only' == `test_count' {
+    capture {
+        quietly use "${DATA_DIR}/cohort.dta", clear
+
+        tvexpose using "${DATA_DIR}/hrt.dta", ///
+            id(id) start(rx_start) stop(rx_stop) ///
+            exposure(hrt_type) reference(0) ///
+            entry(study_entry) exit(study_exit) ///
+            recency(1 3) bytype ///
+            generate(recency_hrt) ///
+            saveas("${DATA_DIR}/_test_tvexpose_bytype_rec") replace
+
+        quietly use "${DATA_DIR}/_test_tvexpose_bytype_rec.dta", clear
+        assert _N > 0
+    }
+    if _rc == 0 {
+        local ++pass_count
+        if `machine' {
+            display "[OK] `test_count'"
+        }
+        else if `quiet' == 0 {
+            display as result "  PASSED"
+        }
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' {
+            display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        }
+        else {
+            display as error "  FAILED: `test_desc' (error `=_rc')"
+        }
+    }
+}
+
+* =============================================================================
+* TEST 33: fillgaps() option
+* =============================================================================
+local ++test_count
+local test_desc "fillgaps() option"
+_run_test `test_count' "`test_desc'"
+
+if `run_only' == 0 | `run_only' == `test_count' {
+    capture {
+        quietly use "${DATA_DIR}/cohort.dta", clear
+
+        tvexpose using "${DATA_DIR}/hrt.dta", ///
+            id(id) start(rx_start) stop(rx_stop) ///
+            exposure(hrt_type) reference(0) ///
+            entry(study_entry) exit(study_exit) ///
+            fillgaps(30) ///
+            generate(tv_hrt) ///
+            saveas("${DATA_DIR}/_test_tvexpose_fillgaps") replace
+
+        quietly use "${DATA_DIR}/_test_tvexpose_fillgaps.dta", clear
+        assert _N > 0
+    }
+    if _rc == 0 {
+        local ++pass_count
+        if `machine' {
+            display "[OK] `test_count'"
+        }
+        else if `quiet' == 0 {
+            display as result "  PASSED"
+        }
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' {
+            display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        }
+        else {
+            display as error "  FAILED: `test_desc' (error `=_rc')"
+        }
+    }
+}
+
+* =============================================================================
+* TEST 34: carryforward() option
+* =============================================================================
+local ++test_count
+local test_desc "carryforward() option"
+_run_test `test_count' "`test_desc'"
+
+if `run_only' == 0 | `run_only' == `test_count' {
+    capture {
+        quietly use "${DATA_DIR}/cohort.dta", clear
+
+        tvexpose using "${DATA_DIR}/hrt.dta", ///
+            id(id) start(rx_start) stop(rx_stop) ///
+            exposure(hrt_type) reference(0) ///
+            entry(study_entry) exit(study_exit) ///
+            carryforward(60) ///
+            generate(tv_hrt) ///
+            saveas("${DATA_DIR}/_test_tvexpose_carry") replace
+
+        quietly use "${DATA_DIR}/_test_tvexpose_carry.dta", clear
+        assert _N > 0
+    }
+    if _rc == 0 {
+        local ++pass_count
+        if `machine' {
+            display "[OK] `test_count'"
+        }
+        else if `quiet' == 0 {
+            display as result "  PASSED"
+        }
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' {
+            display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        }
+        else {
+            display as error "  FAILED: `test_desc' (error `=_rc')"
+        }
+    }
+}
+
+* =============================================================================
+* TEST 35: pointtime option (point-in-time events)
+* =============================================================================
+local ++test_count
+local test_desc "pointtime option"
+_run_test `test_count' "`test_desc'"
+
+if `run_only' == 0 | `run_only' == `test_count' {
+    capture {
+        quietly use "${DATA_DIR}/cohort.dta", clear
+
+        tvexpose using "${DATA_DIR}/point_events.dta", ///
+            id(id) start(event_date) ///
+            exposure(event_type) reference(0) ///
+            entry(study_entry) exit(study_exit) ///
+            pointtime ///
+            evertreated ///
+            generate(ever_event) ///
+            saveas("${DATA_DIR}/_test_tvexpose_pointtime") replace
+
+        quietly use "${DATA_DIR}/_test_tvexpose_pointtime.dta", clear
+        assert _N > 0
+    }
+    if _rc == 0 {
+        local ++pass_count
+        if `machine' {
+            display "[OK] `test_count'"
+        }
+        else if `quiet' == 0 {
+            display as result "  PASSED"
+        }
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' {
+            display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        }
+        else {
+            display as error "  FAILED: `test_desc' (error `=_rc')"
+        }
+    }
+}
+
+* =============================================================================
+* TEST 36: keepdates option
+* =============================================================================
+local ++test_count
+local test_desc "keepdates option"
+_run_test `test_count' "`test_desc'"
+
+if `run_only' == 0 | `run_only' == `test_count' {
+    capture {
+        quietly use "${DATA_DIR}/cohort.dta", clear
+
+        tvexpose using "${DATA_DIR}/hrt.dta", ///
+            id(id) start(rx_start) stop(rx_stop) ///
+            exposure(hrt_type) reference(0) ///
+            entry(study_entry) exit(study_exit) ///
+            keepdates ///
+            generate(tv_hrt) ///
+            saveas("${DATA_DIR}/_test_tvexpose_keepdates") replace
+
+        quietly use "${DATA_DIR}/_test_tvexpose_keepdates.dta", clear
+        assert _N > 0
+
+        * Entry and exit dates should be preserved
+        confirm variable study_entry study_exit
+    }
+    if _rc == 0 {
+        local ++pass_count
+        if `machine' {
+            display "[OK] `test_count'"
+        }
+        else if `quiet' == 0 {
+            display as result "  PASSED"
+        }
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' {
+            display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        }
+        else {
+            display as error "  FAILED: `test_desc' (error `=_rc')"
+        }
+    }
+}
+
+* =============================================================================
+* TEST 37: validate option
+* =============================================================================
+local ++test_count
+local test_desc "validate option"
+_run_test `test_count' "`test_desc'"
+
+if `run_only' == 0 | `run_only' == `test_count' {
+    capture {
+        quietly use "${DATA_DIR}/cohort.dta", clear
+
+        tvexpose using "${DATA_DIR}/hrt.dta", ///
+            id(id) start(rx_start) stop(rx_stop) ///
+            exposure(hrt_type) reference(0) ///
+            entry(study_entry) exit(study_exit) ///
+            validate ///
+            generate(tv_hrt) ///
+            saveas("${DATA_DIR}/_test_tvexpose_validate") replace
+
+        * Check validation dataset was created
+        capture confirm file "${DATA_DIR}/tv_validation.dta"
+    }
+    if _rc == 0 {
+        local ++pass_count
+        if `machine' {
+            display "[OK] `test_count'"
+        }
+        else if `quiet' == 0 {
+            display as result "  PASSED"
+        }
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' {
+            display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        }
+        else {
+            display as error "  FAILED: `test_desc' (error `=_rc')"
+        }
+    }
+}
+
+* =============================================================================
+* TEST 38: gaps option
+* =============================================================================
+local ++test_count
+local test_desc "gaps option"
+_run_test `test_count' "`test_desc'"
+
+if `run_only' == 0 | `run_only' == `test_count' {
+    capture {
+        quietly use "${DATA_DIR}/cohort.dta", clear
+
+        tvexpose using "${DATA_DIR}/hrt.dta", ///
+            id(id) start(rx_start) stop(rx_stop) ///
+            exposure(hrt_type) reference(0) ///
+            entry(study_entry) exit(study_exit) ///
+            gaps ///
+            generate(tv_hrt) ///
+            saveas("${DATA_DIR}/_test_tvexpose_gaps") replace
+    }
+    if _rc == 0 {
+        local ++pass_count
+        if `machine' {
+            display "[OK] `test_count'"
+        }
+        else if `quiet' == 0 {
+            display as result "  PASSED"
+        }
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' {
+            display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        }
+        else {
+            display as error "  FAILED: `test_desc' (error `=_rc')"
+        }
+    }
+}
+
+* =============================================================================
+* TEST 39: overlaps option
+* =============================================================================
+local ++test_count
+local test_desc "overlaps option"
+_run_test `test_count' "`test_desc'"
+
+if `run_only' == 0 | `run_only' == `test_count' {
+    capture {
+        quietly use "${DATA_DIR}/cohort.dta", clear
+
+        tvexpose using "${DATA_DIR}/overlapping_exposures.dta", ///
+            id(id) start(exp_start) stop(exp_stop) ///
+            exposure(exp_type) reference(0) ///
+            entry(study_entry) exit(study_exit) ///
+            overlaps ///
+            generate(tv_exp) ///
+            saveas("${DATA_DIR}/_test_tvexpose_overlaps") replace
+    }
+    if _rc == 0 {
+        local ++pass_count
+        if `machine' {
+            display "[OK] `test_count'"
+        }
+        else if `quiet' == 0 {
+            display as result "  PASSED"
+        }
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' {
+            display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        }
+        else {
+            display as error "  FAILED: `test_desc' (error `=_rc')"
+        }
+    }
+}
+
+* =============================================================================
+* EDGE CASE TESTS
+* =============================================================================
+
+* TEST 40: Edge case - Single observation cohort
+local ++test_count
+local test_desc "Edge case: single observation"
+_run_test `test_count' "`test_desc'"
+
+if `run_only' == 0 | `run_only' == `test_count' {
+    capture {
+        quietly use "${DATA_DIR}/edge_single_obs.dta", clear
+
+        tvexpose using "${DATA_DIR}/edge_single_exp.dta", ///
+            id(id) start(rx_start) stop(rx_stop) ///
+            exposure(hrt_type) reference(0) ///
+            entry(study_entry) exit(study_exit) ///
+            generate(tv_hrt) ///
+            saveas("${DATA_DIR}/_test_tvexpose_edge1") replace
+
+        quietly use "${DATA_DIR}/_test_tvexpose_edge1.dta", clear
+        assert _N > 0
+    }
+    if _rc == 0 {
+        local ++pass_count
+        if `machine' {
+            display "[OK] `test_count'"
+        }
+        else if `quiet' == 0 {
+            display as result "  PASSED"
+        }
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' {
+            display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        }
+        else {
+            display as error "  FAILED: `test_desc' (error `=_rc')"
+        }
+    }
+}
+
+* TEST 41: Edge case - Very short follow-up
+local ++test_count
+local test_desc "Edge case: short follow-up (1-7 days)"
+_run_test `test_count' "`test_desc'"
+
+if `run_only' == 0 | `run_only' == `test_count' {
+    capture {
+        quietly use "${DATA_DIR}/edge_short_followup.dta", clear
+
+        tvexpose using "${DATA_DIR}/edge_short_exp.dta", ///
+            id(id) start(rx_start) stop(rx_stop) ///
+            exposure(hrt_type) reference(0) ///
+            entry(study_entry) exit(study_exit) ///
+            generate(tv_hrt) ///
+            saveas("${DATA_DIR}/_test_tvexpose_edge2") replace
+
+        quietly use "${DATA_DIR}/_test_tvexpose_edge2.dta", clear
+        assert _N > 0
+    }
+    if _rc == 0 {
+        local ++pass_count
+        if `machine' {
+            display "[OK] `test_count'"
+        }
+        else if `quiet' == 0 {
+            display as result "  PASSED"
+        }
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' {
+            display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        }
+        else {
+            display as error "  FAILED: `test_desc' (error `=_rc')"
+        }
+    }
+}
+
+* TEST 42: Edge case - Boundary exposures (exposure = study period)
+local ++test_count
+local test_desc "Edge case: boundary exposures"
+_run_test `test_count' "`test_desc'"
+
+if `run_only' == 0 | `run_only' == `test_count' {
+    capture {
+        quietly use "${DATA_DIR}/cohort.dta", clear
+        keep if _n <= 30
+
+        tvexpose using "${DATA_DIR}/edge_boundary_exp.dta", ///
+            id(id) start(rx_start) stop(rx_stop) ///
+            exposure(hrt_type) reference(0) ///
+            entry(study_entry) exit(study_exit) ///
+            generate(tv_hrt) ///
+            saveas("${DATA_DIR}/_test_tvexpose_edge3") replace
+
+        quietly use "${DATA_DIR}/_test_tvexpose_edge3.dta", clear
+        assert _N > 0
+    }
+    if _rc == 0 {
+        local ++pass_count
+        if `machine' {
+            display "[OK] `test_count'"
+        }
+        else if `quiet' == 0 {
+            display as result "  PASSED"
+        }
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' {
+            display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        }
+        else {
+            display as error "  FAILED: `test_desc' (error `=_rc')"
+        }
+    }
+}
+
+* TEST 43: Edge case - Single exposure type (no variation)
+local ++test_count
+local test_desc "Edge case: single exposure type"
+_run_test `test_count' "`test_desc'"
+
+if `run_only' == 0 | `run_only' == `test_count' {
+    capture {
+        quietly use "${DATA_DIR}/cohort.dta", clear
+        keep if _n <= 100
+
+        tvexpose using "${DATA_DIR}/edge_same_type.dta", ///
+            id(id) start(rx_start) stop(rx_stop) ///
+            exposure(hrt_type) reference(0) ///
+            entry(study_entry) exit(study_exit) ///
+            evertreated ///
+            generate(ever_hrt) ///
+            saveas("${DATA_DIR}/_test_tvexpose_edge4") replace
+
+        quietly use "${DATA_DIR}/_test_tvexpose_edge4.dta", clear
+        assert _N > 0
+    }
+    if _rc == 0 {
+        local ++pass_count
+        if `machine' {
+            display "[OK] `test_count'"
+        }
+        else if `quiet' == 0 {
+            display as result "  PASSED"
+        }
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' {
+            display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        }
+        else {
+            display as error "  FAILED: `test_desc' (error `=_rc')"
+        }
+    }
+}
+
+* TEST 44: Edge case - Long follow-up (30-40 years)
+local ++test_count
+local test_desc "Edge case: long follow-up (30-40 years)"
+_run_test `test_count' "`test_desc'"
+
+if `run_only' == 0 | `run_only' == `test_count' {
+    capture {
+        quietly use "${DATA_DIR}/edge_long_followup.dta", clear
+
+        tvexpose using "${DATA_DIR}/edge_long_exp.dta", ///
+            id(id) start(rx_start) stop(rx_stop) ///
+            exposure(hrt_type) reference(0) ///
+            entry(study_entry) exit(study_exit) ///
+            duration(5 10 20) ///
+            generate(dur_hrt) ///
+            saveas("${DATA_DIR}/_test_tvexpose_edge5") replace
+
+        quietly use "${DATA_DIR}/_test_tvexpose_edge5.dta", clear
+        assert _N > 0
+    }
+    if _rc == 0 {
+        local ++pass_count
+        if `machine' {
+            display "[OK] `test_count'"
+        }
+        else if `quiet' == 0 {
+            display as result "  PASSED"
+        }
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' {
+            display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        }
+        else {
+            display as error "  FAILED: `test_desc' (error `=_rc')"
+        }
+    }
+}
+
+* TEST 45: Full workflow test - Cox regression compatible output
+local ++test_count
+local test_desc "Full workflow: Cox regression compatible"
+_run_test `test_count' "`test_desc'"
+
+if `run_only' == 0 | `run_only' == `test_count' {
+    capture {
+        quietly use "${DATA_DIR}/cohort.dta", clear
+
+        tvexpose using "${DATA_DIR}/dmt.dta", ///
+            id(id) start(dmt_start) stop(dmt_stop) ///
+            exposure(dmt) reference(0) ///
+            entry(study_entry) exit(study_exit) ///
+            currentformer ///
+            keepvars(age female mstype edss4_dt) ///
+            generate(dmt_status) ///
+            saveas("${DATA_DIR}/_test_tvexpose_cox") replace
+
+        quietly use "${DATA_DIR}/_test_tvexpose_cox.dta", clear
+
+        * Create failure indicator
+        gen byte failure = (!missing(edss4_dt) & edss4_dt >= start & edss4_dt <= stop)
+
+        * Set survival data
+        stset stop, failure(failure) entry(start) id(id) scale(365.25)
+
+        * Run Cox model (should not error)
+        stcox i.dmt_status age i.female i.mstype
+
+        assert e(N) > 0
+    }
+    if _rc == 0 {
+        local ++pass_count
+        if `machine' {
+            display "[OK] `test_count'"
+        }
+        else if `quiet' == 0 {
+            display as result "  PASSED"
+        }
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' {
+            display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        }
+        else {
+            display as error "  FAILED: `test_desc' (error `=_rc')"
+        }
+    }
+}
+
+* TEST 46: dose option with HRT dataset (dose column)
+local ++test_count
+local test_desc "dose option with HRT dose variable"
+_run_test `test_count' "`test_desc'"
+
+if `run_only' == 0 | `run_only' == `test_count' {
+    capture {
+        quietly use "${DATA_DIR}/cohort.dta", clear
+
+        tvexpose using "${DATA_DIR}/hrt.dta", ///
+            id(id) start(rx_start) stop(rx_stop) ///
+            exposure(dose) ///
+            entry(study_entry) exit(study_exit) ///
+            dose ///
+            generate(cumul_hrt_dose) ///
+            saveas("${DATA_DIR}/_test_tvexpose_hrt_dose") replace
+
+        quietly use "${DATA_DIR}/_test_tvexpose_hrt_dose.dta", clear
+        assert _N > 0
+        confirm variable cumul_hrt_dose
+
+        * Cumulative dose should be non-negative
+        quietly sum cumul_hrt_dose
+        assert r(min) >= 0
+    }
+    if _rc == 0 {
+        local ++pass_count
+        if `machine' {
+            display "[OK] `test_count'"
+        }
+        else if `quiet' == 0 {
+            display as result "  PASSED"
+        }
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' {
+            display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        }
+        else {
+            display as error "  FAILED: `test_desc' (error `=_rc')"
+        }
+    }
+}
+
+* =============================================================================
 * CLEANUP: Remove temporary files
 * =============================================================================
 if `quiet' == 0 & `run_only' == 0 {

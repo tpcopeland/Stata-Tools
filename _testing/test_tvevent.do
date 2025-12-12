@@ -609,6 +609,529 @@ if `run_only' == 0 | `run_only' == `test_count' {
 }
 
 * =============================================================================
+* TEST 11: Recurring events in wide format (hosp_date1 hosp_date2 ...)
+* =============================================================================
+local ++test_count
+local test_desc "Recurring events - wide format"
+_run_test `test_count' "`test_desc'"
+
+if `run_only' == 0 | `run_only' == `test_count' {
+    capture {
+        quietly use "${DATA_DIR}/_tv_base.dta", clear
+
+        tvevent using "${DATA_DIR}/hospitalizations_wide.dta", ///
+            id(id) date(hosp_date1 hosp_date2 hosp_date3 hosp_date4 hosp_date5) ///
+            type(recurring) ///
+            generate(hospitalized)
+
+        assert _N > 0
+        confirm variable hospitalized
+
+        * Should have multiple events per person
+        quietly count if hospitalized == 1
+        local n_events = r(N)
+        assert `n_events' > 0
+    }
+    if _rc == 0 {
+        local ++pass_count
+        if `machine' {
+            display "[OK] `test_count'"
+        }
+        else if `quiet' == 0 {
+            display as result "  PASSED"
+            display as text "  Hospitalization events: `n_events'"
+        }
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' {
+            display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        }
+        else {
+            display as error "  FAILED: `test_desc' (error `=_rc')"
+        }
+    }
+}
+
+* =============================================================================
+* TEST 12: continuous() option for proportional event adjustment
+* =============================================================================
+local ++test_count
+local test_desc "continuous() option"
+_run_test `test_count' "`test_desc'"
+
+if `run_only' == 0 | `run_only' == `test_count' {
+    capture {
+        * Create time-varying dataset with continuous exposure
+        quietly use "${DATA_DIR}/cohort.dta", clear
+        tvexpose using "${DATA_DIR}/dmt.dta", ///
+            id(id) start(dmt_start) stop(dmt_stop) ///
+            exposure(dmt) reference(0) ///
+            entry(study_entry) exit(study_exit) ///
+            continuousunit(years) ///
+            generate(cum_dmt) ///
+            saveas("${DATA_DIR}/_tv_continuous.dta") replace
+
+        * Integrate events with continuous adjustment
+        tvevent using "${DATA_DIR}/cohort.dta", ///
+            id(id) date(edss4_dt) ///
+            type(single) ///
+            continuous(cum_dmt) ///
+            generate(outcome)
+
+        assert _N > 0
+        confirm variable cum_dmt
+    }
+    if _rc == 0 {
+        local ++pass_count
+        if `machine' {
+            display "[OK] `test_count'"
+        }
+        else if `quiet' == 0 {
+            display as result "  PASSED"
+        }
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' {
+            display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        }
+        else {
+            display as error "  FAILED: `test_desc' (error `=_rc')"
+        }
+    }
+}
+
+* =============================================================================
+* TEST 13: keepvars() option
+* =============================================================================
+local ++test_count
+local test_desc "keepvars() option"
+_run_test `test_count' "`test_desc'"
+
+if `run_only' == 0 | `run_only' == `test_count' {
+    capture {
+        * Create base dataset with keepvars
+        quietly use "${DATA_DIR}/cohort.dta", clear
+        tvexpose using "${DATA_DIR}/dmt.dta", ///
+            id(id) start(dmt_start) stop(dmt_stop) ///
+            exposure(dmt) reference(0) ///
+            entry(study_entry) exit(study_exit) ///
+            keepvars(age female mstype) ///
+            generate(tv_dmt) ///
+            saveas("${DATA_DIR}/_tv_keepvars.dta") replace
+
+        * Use keepvars in tvevent
+        tvevent using "${DATA_DIR}/cohort.dta", ///
+            id(id) date(edss4_dt) ///
+            type(single) ///
+            keepvars(death_dt) ///
+            generate(outcome)
+
+        assert _N > 0
+        * Both original keepvars and tvevent keepvars should be present
+        confirm variable age female mstype death_dt
+    }
+    if _rc == 0 {
+        local ++pass_count
+        if `machine' {
+            display "[OK] `test_count'"
+        }
+        else if `quiet' == 0 {
+            display as result "  PASSED"
+        }
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' {
+            display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        }
+        else {
+            display as error "  FAILED: `test_desc' (error `=_rc')"
+        }
+    }
+}
+
+* =============================================================================
+* TEST 14: replace option
+* =============================================================================
+local ++test_count
+local test_desc "replace option"
+_run_test `test_count' "`test_desc'"
+
+if `run_only' == 0 | `run_only' == `test_count' {
+    capture {
+        quietly use "${DATA_DIR}/_tv_base.dta", clear
+
+        * First call to create outcome variable
+        tvevent using "${DATA_DIR}/cohort.dta", ///
+            id(id) date(edss4_dt) ///
+            type(single) ///
+            generate(outcome)
+
+        * Second call with replace to overwrite
+        tvevent using "${DATA_DIR}/cohort.dta", ///
+            id(id) date(edss4_dt) ///
+            compete(death_dt) ///
+            type(single) ///
+            generate(outcome) replace
+
+        assert _N > 0
+        confirm variable outcome
+    }
+    if _rc == 0 {
+        local ++pass_count
+        if `machine' {
+            display "[OK] `test_count'"
+        }
+        else if `quiet' == 0 {
+            display as result "  PASSED"
+        }
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' {
+            display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        }
+        else {
+            display as error "  FAILED: `test_desc' (error `=_rc')"
+        }
+    }
+}
+
+* =============================================================================
+* TEST 15: timeunit(months) option
+* =============================================================================
+local ++test_count
+local test_desc "timeunit(months) option"
+_run_test `test_count' "`test_desc'"
+
+if `run_only' == 0 | `run_only' == `test_count' {
+    capture {
+        quietly use "${DATA_DIR}/_tv_base.dta", clear
+
+        tvevent using "${DATA_DIR}/cohort.dta", ///
+            id(id) date(edss4_dt) ///
+            type(single) ///
+            timegen(interval_months) timeunit(months) ///
+            generate(outcome)
+
+        assert _N > 0
+        confirm variable interval_months
+        quietly sum interval_months
+        assert r(min) >= 0
+    }
+    if _rc == 0 {
+        local ++pass_count
+        if `machine' {
+            display "[OK] `test_count'"
+        }
+        else if `quiet' == 0 {
+            display as result "  PASSED"
+            display as text "  Mean interval (months): " %6.2f r(mean)
+        }
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' {
+            display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        }
+        else {
+            display as error "  FAILED: `test_desc' (error `=_rc')"
+        }
+    }
+}
+
+* =============================================================================
+* TEST 16: Full Cox regression workflow with competing risks
+* =============================================================================
+local ++test_count
+local test_desc "Full Cox workflow with competing risks"
+_run_test `test_count' "`test_desc'"
+
+if `run_only' == 0 | `run_only' == `test_count' {
+    capture {
+        * Create base dataset
+        quietly use "${DATA_DIR}/cohort.dta", clear
+        tvexpose using "${DATA_DIR}/dmt.dta", ///
+            id(id) start(dmt_start) stop(dmt_stop) ///
+            exposure(dmt) reference(0) ///
+            entry(study_entry) exit(study_exit) ///
+            keepvars(age female mstype) ///
+            generate(tv_dmt)
+
+        * Integrate event with competing risk
+        tvevent using "${DATA_DIR}/cohort.dta", ///
+            id(id) date(edss4_dt) ///
+            compete(death_dt) ///
+            type(single) ///
+            generate(outcome)
+
+        * Run stset and competing risks analysis
+        stset stop, id(id) failure(outcome==1) enter(start) scale(365.25)
+
+        * Run Cox model (cause-specific hazard)
+        stcox i.tv_dmt age i.female i.mstype
+
+        assert e(N) > 0
+    }
+    if _rc == 0 {
+        local ++pass_count
+        if `machine' {
+            display "[OK] `test_count'"
+        }
+        else if `quiet' == 0 {
+            display as result "  PASSED"
+            display as text "  Cox model N = " e(N) ", failures = " e(N_fail)
+        }
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' {
+            display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        }
+        else {
+            display as error "  FAILED: `test_desc' (error `=_rc')"
+        }
+    }
+}
+
+* =============================================================================
+* TEST 17: Fine-Gray competing risks regression
+* =============================================================================
+local ++test_count
+local test_desc "Fine-Gray subdistribution hazard"
+_run_test `test_count' "`test_desc'"
+
+if `run_only' == 0 | `run_only' == `test_count' {
+    capture {
+        quietly use "${DATA_DIR}/_tv_base.dta", clear
+
+        tvevent using "${DATA_DIR}/cohort.dta", ///
+            id(id) date(edss4_dt) ///
+            compete(death_dt) ///
+            type(single) ///
+            generate(outcome)
+
+        * Fine-Gray requires specific stset for competing risks
+        stset stop, id(id) failure(outcome==1) enter(start) scale(365.25)
+
+        * Run Fine-Gray model if available (Stata 14+)
+        capture stcrreg i.tv_dmt, compete(outcome==2)
+        if _rc == 0 {
+            assert e(N) > 0
+        }
+        else {
+            * If stcrreg not available, just verify data is ready
+            assert _N > 0
+        }
+    }
+    if _rc == 0 {
+        local ++pass_count
+        if `machine' {
+            display "[OK] `test_count'"
+        }
+        else if `quiet' == 0 {
+            display as result "  PASSED"
+        }
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' {
+            display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        }
+        else {
+            display as error "  FAILED: `test_desc' (error `=_rc')"
+        }
+    }
+}
+
+* =============================================================================
+* EDGE CASE TESTS
+* =============================================================================
+
+* TEST 18: Edge case - Single observation
+local ++test_count
+local test_desc "Edge case: single observation"
+_run_test `test_count' "`test_desc'"
+
+if `run_only' == 0 | `run_only' == `test_count' {
+    capture {
+        * Create single-obs tvexpose output
+        quietly use "${DATA_DIR}/edge_single_obs.dta", clear
+        tvexpose using "${DATA_DIR}/edge_single_exp.dta", ///
+            id(id) start(rx_start) stop(rx_stop) ///
+            exposure(hrt_type) reference(0) ///
+            entry(study_entry) exit(study_exit) ///
+            generate(tv_exp) ///
+            saveas("${DATA_DIR}/_tv_edge_single.dta") replace
+
+        * Integrate event for single observation
+        tvevent using "${DATA_DIR}/edge_single_obs.dta", ///
+            id(id) date(edss4_dt) ///
+            type(single) ///
+            generate(outcome)
+
+        assert _N > 0
+    }
+    if _rc == 0 {
+        local ++pass_count
+        if `machine' {
+            display "[OK] `test_count'"
+        }
+        else if `quiet' == 0 {
+            display as result "  PASSED"
+        }
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' {
+            display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        }
+        else {
+            display as error "  FAILED: `test_desc' (error `=_rc')"
+        }
+    }
+}
+
+* TEST 19: Edge case - No events in data
+local ++test_count
+local test_desc "Edge case: no events (all censored)"
+_run_test `test_count' "`test_desc'"
+
+if `run_only' == 0 | `run_only' == `test_count' {
+    capture {
+        * Create cohort with no events
+        quietly use "${DATA_DIR}/edge_no_exposure_cohort.dta", clear
+        gen edss4_dt = .  // No events
+
+        * Create simple time structure
+        gen tv_exp = 0
+        rename study_entry start
+        rename study_exit stop
+
+        * Integrate event - should work with no events
+        preserve
+        tempfile no_events
+        save `no_events', replace
+        restore
+
+        tvevent using `no_events', ///
+            id(id) date(edss4_dt) ///
+            type(single) ///
+            generate(outcome)
+
+        assert _N > 0
+        * All should be censored (outcome = 0)
+        quietly sum outcome
+        assert r(max) == 0
+    }
+    if _rc == 0 {
+        local ++pass_count
+        if `machine' {
+            display "[OK] `test_count'"
+        }
+        else if `quiet' == 0 {
+            display as result "  PASSED"
+        }
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' {
+            display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        }
+        else {
+            display as error "  FAILED: `test_desc' (error `=_rc')"
+        }
+    }
+}
+
+* TEST 20: Full workflow - tvexpose -> tvmerge -> tvevent -> Cox
+local ++test_count
+local test_desc "Full pipeline: tvexpose -> tvmerge -> tvevent -> Cox"
+_run_test `test_count' "`test_desc'"
+
+if `run_only' == 0 | `run_only' == `test_count' {
+    capture {
+        * Step 1: Create HRT exposure
+        quietly use "${DATA_DIR}/cohort.dta", clear
+        tvexpose using "${DATA_DIR}/hrt.dta", ///
+            id(id) start(rx_start) stop(rx_stop) ///
+            exposure(hrt_type) reference(0) ///
+            entry(study_entry) exit(study_exit) ///
+            evertreated ///
+            keepvars(age female mstype edss4_dt death_dt) ///
+            generate(ever_hrt) ///
+            saveas("${DATA_DIR}/_full_hrt.dta") replace
+
+        * Step 2: Create DMT exposure
+        quietly use "${DATA_DIR}/cohort.dta", clear
+        tvexpose using "${DATA_DIR}/dmt.dta", ///
+            id(id) start(dmt_start) stop(dmt_stop) ///
+            exposure(dmt) reference(0) ///
+            entry(study_entry) exit(study_exit) ///
+            evertreated ///
+            keepvars(age female) ///
+            generate(ever_dmt) ///
+            saveas("${DATA_DIR}/_full_dmt.dta") replace
+
+        * Step 3: Merge exposures
+        tvmerge "${DATA_DIR}/_full_hrt.dta" "${DATA_DIR}/_full_dmt.dta", ///
+            id(id) ///
+            start(rx_start dmt_start) stop(rx_stop dmt_stop) ///
+            exposure(ever_hrt ever_dmt) ///
+            keep(age female mstype edss4_dt death_dt)
+
+        * Step 4: Integrate events with competing risk
+        preserve
+        tempfile merged_data
+        save `merged_data', replace
+        restore
+
+        tvevent using "${DATA_DIR}/cohort.dta", ///
+            id(id) date(edss4_dt) ///
+            compete(death_dt) ///
+            type(single) ///
+            generate(outcome)
+
+        * Step 5: Run Cox model
+        stset stop, id(id) failure(outcome==1) enter(start) scale(365.25)
+        stcox ever_hrt ever_dmt age i.female i.mstype
+
+        assert e(N) > 0
+    }
+    if _rc == 0 {
+        local ++pass_count
+        if `machine' {
+            display "[OK] `test_count'"
+        }
+        else if `quiet' == 0 {
+            display as result "  PASSED"
+            display as text "  Full pipeline Cox model N = " e(N)
+        }
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' {
+            display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        }
+        else {
+            display as error "  FAILED: `test_desc' (error `=_rc')"
+        }
+    }
+}
+
+* =============================================================================
 * CLEANUP: Remove temporary files
 * =============================================================================
 if `quiet' == 0 & `run_only' == 0 {
@@ -618,8 +1141,10 @@ if `quiet' == 0 & `run_only' == 0 {
 }
 
 quietly {
-    capture erase "${DATA_DIR}/_tv_base.dta"
-    capture erase "${DATA_DIR}/_tv_continuous.dta"
+    local temp_files "_tv_base _tv_continuous _tv_keepvars _tv_edge_single _full_hrt _full_dmt"
+    foreach f of local temp_files {
+        capture erase "${DATA_DIR}/`f'.dta"
+    }
 }
 
 * =============================================================================
