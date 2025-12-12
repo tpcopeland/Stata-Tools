@@ -21,10 +21,10 @@ version 16.0
 * =============================================================================
 
 * Data directory for test datasets
-cd "/Users/tcopeland/Documents/GitHub/Stata-Tools/_testing/data/"
+cd "_testing/data/"
 
 * Install cstat_surv package from local repository
-local basedir "/Users/tcopeland/Documents/GitHub/Stata-Tools"
+local basedir "."
 capture net uninstall cstat_surv
 net install cstat_surv, from("`basedir'/cstat_surv")
 

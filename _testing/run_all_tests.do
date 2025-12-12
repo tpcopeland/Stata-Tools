@@ -21,10 +21,10 @@ version 16.0
 * =============================================================================
 
 * Data directory for test datasets
-cd "/Users/tcopeland/Documents/GitHub/Stata-Tools/_testing/data/"
+cd "_testing/data/"
 
 local testdir "`c(pwd)'"
-local basedir "/Users/tcopeland/Documents/GitHub/Stata-Tools"
+local basedir "."
 
 display as text _n "{hline 70}"
 display as text "STATA-TOOLS COMPREHENSIVE TEST SUITE"

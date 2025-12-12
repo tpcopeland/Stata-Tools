@@ -20,10 +20,10 @@ version 16.0
 * =============================================================================
 
 * Data directory for test datasets
-cd "/Users/tcopeland/Documents/GitHub/Stata-Tools/_testing/data/"
+cd "_testing/data/"
 
 * Install datefix package from local repository
-local basedir "/Users/tcopeland/Documents/GitHub/Stata-Tools"
+local basedir "."
 capture net uninstall datefix
 net install datefix, from("`basedir'/datefix")
 
