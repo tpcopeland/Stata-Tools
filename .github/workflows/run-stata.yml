@@ -1,0 +1,85 @@
+name: Run Stata Tests
+
+on:
+  push:
+    branches:
+      - 'claude/**'      # Branches starting with claude/
+      - 'test/**'        # Branches starting with test/
+    paths:
+      - '**.do'          # Only when .do files change
+      - '_testing/**'    # Or anything in _testing
+  workflow_dispatch:     # Manual trigger from Actions tab
+    inputs:
+      dofile:
+        description: 'Specific .do file to run (e.g., _testing/test_tvtools.do)'
+        required: false
+        default: ''
+
+jobs:
+  stata-tests:
+    runs-on: self-hosted
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Setup output directories
+        run: |
+          TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+          echo "TIMESTAMP=$TIMESTAMP" >> $GITHUB_ENV
+          mkdir -p _output/$TIMESTAMP
+          mkdir -p _logs/$TIMESTAMP
+      
+      - name: Run Stata
+        run: |
+          cd ${{ github.workspace }}
+          
+          # Determine what to run
+          if [ -n "${{ github.event.inputs.dofile }}" ]; then
+            # Manual trigger with specific file
+            DOFILES="${{ github.event.inputs.dofile }}"
+          else
+            # Auto-detect: find .do files changed in this push
+            DOFILES=$(git diff --name-only HEAD~1 HEAD -- '*.do' 2>/dev/null || find _testing -name "*.do" -type f)
+          fi
+          
+          echo "Files to run: $DOFILES"
+          
+          for dofile in $DOFILES; do
+            if [ -f "$dofile" ]; then
+              echo "========================================"
+              echo "Running: $dofile"
+              echo "========================================"
+              
+              BASENAME=$(basename "$dofile" .do)
+              
+              # Run Stata in batch mode
+              /usr/local/stata17/stata-mp -b do "$dofile" || true
+              
+              # Collect log
+              if [ -f "${BASENAME}.log" ]; then
+                mv "${BASENAME}.log" "_logs/${{ env.TIMESTAMP }}/"
+              fi
+              
+              # Collect any outputs created in current directory
+              find . -maxdepth 1 -type f \( \
+                -name "*.dta" -o -name "*.csv" -o -name "*.xlsx" -o \
+                -name "*.pdf" -o -name "*.png" -o -name "*.smcl" \
+              \) -newer "$dofile" -exec mv {} "_output/${{ env.TIMESTAMP }}/" \; 2>/dev/null || true
+            fi
+          done
+      
+      - name: Commit results
+        run: |
+          git config user.name "stata-runner"
+          git config user.email "stata-runner@users.noreply.github.com"
+          
+          # Add outputs and logs if they exist
+          git add _output/ _logs/ || true
+          
+          if git diff --staged --quiet; then
+            echo "No output files to commit"
+          else
+            git commit -m "Stata results: ${{ env.TIMESTAMP }}"
+            git push
+          fi
