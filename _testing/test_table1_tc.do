@@ -21,10 +21,10 @@ version 16.0
 * =============================================================================
 
 * Data directory for test datasets
-cd "/Users/tcopeland/Documents/GitHub/Stata-Tools/_testing/data/"
+cd "_testing/data/"
 
 * Install table1_tc package from local repository
-local basedir "/Users/tcopeland/Documents/GitHub/Stata-Tools"
+local basedir "."
 capture net uninstall table1_tc
 net install table1_tc, from("`basedir'/table1_tc")
 

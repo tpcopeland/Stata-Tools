@@ -53,7 +53,7 @@ After extraction, you should see:
 ### Step 3: Configure Docker Environment
 
 ```bash
-cd /Users/tcopeland/Documents/GitHub/Stata-Tools/_testing/docker
+cd ./_testing/docker
 cp .env.example .env
 ```
 
@@ -62,7 +62,7 @@ Edit `.env` with your paths:
 ```
 STATA_PATH=/usr/local/stata17
 STATA_VERSION=17
-WORK_DIR=/Users/tcopeland/Documents/GitHub/Stata-Tools/_testing
+WORK_DIR=./_testing
 ```
 
 ### Step 4: Build and Run
