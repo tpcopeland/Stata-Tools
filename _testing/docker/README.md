@@ -32,8 +32,8 @@ Store Stata Linux **outside any git repos**:
 
 ```bash
 # Create directory (use your Stata version number)
-mkdir -p ~/stata17-linux
-cd ~/stata17-linux
+mkdir -p /usr/local/stata17
+cd /usr/local/stata17
 
 # Extract the tar.gz file
 tar -xzf ~/Downloads/Stata17Linux64.tar.gz
