@@ -196,7 +196,7 @@ capture {
     cstat_surv
 
     * C should be very high (near 1.0 for perfect prediction)
-    assert e(cstat) > 0.9
+    assert e(c) > 0.9
 }
 if _rc == 0 {
     display as result "  PASS: Perfect prediction gives C > 0.9"
@@ -241,7 +241,7 @@ capture {
 
     * C should be around 0.5 for random predictor
     * Allow wider range due to sampling variability
-    assert e(cstat) > 0.3 & e(cstat) < 0.7
+    assert e(c) > 0.3 & e(c) < 0.7
 }
 if _rc == 0 {
     display as result "  PASS: Random predictor gives C near 0.5"
@@ -280,7 +280,7 @@ capture {
 
     * Cox model learns the inverse relationship
     * C should still be high because model adapts
-    assert e(cstat) != .
+    assert e(c) != .
 }
 if _rc == 0 {
     display as result "  PASS: Inverse prediction handled"
@@ -332,7 +332,7 @@ capture {
     cstat_surv
 
     * All pairs concordant, C should be very high
-    assert e(cstat) > 0.95
+    assert e(c) > 0.95
 }
 if _rc == 0 {
     display as result "  PASS: Hand-calculated concordance matches"
@@ -426,7 +426,7 @@ capture {
     stcox x
     cstat_surv
 
-    assert e(cstat) >= 0 & e(cstat) <= 1
+    assert e(c) >= 0 & e(c) <= 1
 }
 if _rc == 0 {
     display as result "  PASS: C-statistic in valid range [0, 1]"
@@ -452,7 +452,7 @@ capture {
     stcox x
     cstat_surv
 
-    assert e(se_cstat) >= 0
+    assert e(se) >= 0
 }
 if _rc == 0 {
     display as result "  PASS: SE is non-negative"
@@ -478,7 +478,7 @@ capture {
     stcox x
     cstat_surv
 
-    assert e(cstat) >= e(lb_cstat) & e(cstat) <= e(ub_cstat)
+    assert e(c) >= e(ci_lo) & e(c) <= e(ci_hi)
 }
 if _rc == 0 {
     display as result "  PASS: C-statistic within CI"

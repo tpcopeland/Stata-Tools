@@ -1,6 +1,6 @@
-*! check Version 1.0.2  03dec2025
+*! check Version 1.0.3  13dec2025
 
-*! Revision Author: Tim Copeland 
+*! Revision Author: Tim Copeland
 *! Revised on  26 July 2020 at 12:11:00
 
 *! Original Author: Michael N. Mitchell
@@ -10,6 +10,9 @@ program define check, rclass
   version 14.0
   set varabbrev off
   syntax varlist(numeric), [SHORT]
+
+  * Store stats for the last variable to return at the end
+  local last_var : word `: word count `varlist'' of `varlist'
 
   * Validation: Check dataset has observations
   quietly count
@@ -161,4 +164,22 @@ else {
   return local varlist "`varlist'"
   return scalar nvars = wordcount("`varlist'")
   return local mode = cond("`short'" != "", "short", "full")
-end 
+
+  * Return statistics for the last variable processed (for single-variable use)
+  * Compute stats for the last variable
+  quietly summarize `last_var', detail
+  return scalar N = r(N)
+  return scalar mean = r(mean)
+  return scalar sd = r(sd)
+  return scalar min = r(min)
+  return scalar max = r(max)
+  return scalar p25 = r(p25)
+  return scalar p50 = r(p50)
+  return scalar p75 = r(p75)
+
+  quietly mdesc `last_var'
+  return scalar nmissing = r(miss)
+
+  quietly unique `last_var' if !missing(`last_var')
+  return scalar unique = r(unique)
+end
