@@ -17,18 +17,51 @@ set more off
 version 16.0
 
 * =============================================================================
+* PATH CONFIGURATION
+* =============================================================================
+* Cross-platform path detection
+if "`c(os)'" == "MacOSX" {
+    global STATA_TOOLS_PATH "/Users/tcopeland/Documents/GitHub/Stata-Tools"
+}
+else if "`c(os)'" == "Unix" {
+    global STATA_TOOLS_PATH "/home/ubuntu/Stata-Tools"
+}
+else {
+    * Windows or other - try to detect from current directory
+    capture confirm file "_testing"
+    if _rc == 0 {
+        * Running from repo root
+        global STATA_TOOLS_PATH "`c(pwd)'"
+    }
+    else {
+        capture confirm file "data"
+        if _rc == 0 {
+            * Running from _testing directory
+            global STATA_TOOLS_PATH "`c(pwd)'/.."
+        }
+        else {
+            * Assume running from _testing/data directory
+            global STATA_TOOLS_PATH "`c(pwd)'/../.."
+        }
+    }
+}
+
+* Directory structure
+global TESTING_DIR "${STATA_TOOLS_PATH}/_testing"
+global DATA_DIR "${TESTING_DIR}/data"
+
+* =============================================================================
 * SETUP: Change to data directory and install package from local repository
 * =============================================================================
 
-* Data directory for test datasets
-cd "_testing/data/"
+* Change to data directory
+cd "${DATA_DIR}"
 
 * Install setools package from local repository (contains migrations)
-local basedir "."
 capture net uninstall setools
-net install setools, from("`basedir'/setools")
+net install setools, from("${STATA_TOOLS_PATH}/setools")
 
-local testdir "`c(pwd)'"
+local testdir "${DATA_DIR}"
 
 * Check for required test data
 capture confirm file "`testdir'/migrations_wide.dta"

@@ -32,14 +32,15 @@ version 16.0
 * =============================================================================
 * PATH CONFIGURATION
 * =============================================================================
-* Detect environment and set paths accordingly
-capture confirm file "/Users/tcopeland/Documents/GitHub/Stata-Tools/_testing"
-if _rc == 0 {
-    * Local machine path (for Claude with stata-mcp access)
+* Cross-platform path detection
+if "`c(os)'" == "MacOSX" {
     global STATA_TOOLS_PATH "/Users/tcopeland/Documents/GitHub/Stata-Tools"
 }
+else if "`c(os)'" == "Unix" {
+    global STATA_TOOLS_PATH "/home/ubuntu/Stata-Tools"
+}
 else {
-    * Try to detect from current directory
+    * Windows or other - try to detect from current directory
     capture confirm file "_testing"
     if _rc == 0 {
         * Running from repo root
