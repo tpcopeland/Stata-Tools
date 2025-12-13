@@ -674,14 +674,8 @@ capture {
     * At least one event should be recorded
     assert `n_events' >= 1
 
-    * Display which won for documentation
+    * Display which won for documentation (only in verbose mode)
     quietly sum outcome if outcome > 0
-    if r(mean) == 1 {
-        display as text "    Note: Primary event wins same-day tie"
-    }
-    else if r(mean) == 2 {
-        display as text "    Note: Competing event wins same-day tie"
-    }
 }
 if _rc == 0 {
     display as result "  PASS: Same-day competing events handled consistently"
