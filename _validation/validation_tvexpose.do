@@ -2002,17 +2002,20 @@ if `quiet' == 0 {
 
 capture {
     use "${DATA_DIR}/cohort_single.dta", clear
-    capture erase "${DATA_DIR}/tv_validation.dta"
+    capture erase "${DATA_DIR}/tvexpose_val_output.dta"
+    capture erase "${DATA_DIR}/tvexpose_val_output_validation.dta"
 
+    * Use saveas() so validation file goes to DATA_DIR (validation file is saveas_validation.dta)
     tvexpose using "${DATA_DIR}/exp_basic.dta", id(id) start(rx_start) stop(rx_stop) ///
         exposure(exp_type) reference(0) entry(study_entry) exit(study_exit) ///
-        validate generate(tv_exp)
+        validate saveas("${DATA_DIR}/tvexpose_val_output.dta") replace generate(tv_exp)
 
-    * Verify validation file was created
-    confirm file "${DATA_DIR}/tv_validation.dta"
+    * Verify validation file was created (derived from saveas path)
+    confirm file "${DATA_DIR}/tvexpose_val_output_validation.dta"
 
     * Cleanup
-    capture erase "${DATA_DIR}/tv_validation.dta"
+    capture erase "${DATA_DIR}/tvexpose_val_output.dta"
+    capture erase "${DATA_DIR}/tvexpose_val_output_validation.dta"
 }
 if _rc == 0 {
     display as result "  PASS: validate creates validation dataset"
