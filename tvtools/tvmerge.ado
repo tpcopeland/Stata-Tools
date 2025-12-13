@@ -102,18 +102,23 @@ program define tvmerge, rclass
     local error_code = 0
 
     foreach ds in `datasets' {
-        capture confirm file "`ds'.dta"
+        * Handle .dta extension: add only if not already present
+        local ds_file "`ds'"
+        if substr("`ds'", -4, .) != ".dta" {
+            local ds_file "`ds'.dta"
+        }
+        capture confirm file "`ds_file'"
         if _rc != 0 {
             local validation_error = 1
-            local error_msg "Dataset file not found: `ds'.dta"
+            local error_msg "Dataset file not found: `ds_file'"
             local error_code = 601
             continue, break
         }
         * Also verify it's a valid Stata dataset
-        capture use "`ds'.dta" in 1, clear
+        capture use "`ds_file'" in 1, clear
         if _rc != 0 {
             local validation_error = 1
-            local error_msg "`ds'.dta is not a valid Stata dataset or cannot be read"
+            local error_msg "`ds_file' is not a valid Stata dataset or cannot be read"
             local error_code = 610
             continue, break
         }

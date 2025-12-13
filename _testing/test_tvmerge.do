@@ -272,7 +272,7 @@ if `run_only' == 0 | `run_only' == `test_count' {
             exposure(tv_hrt tv_dmt) ///
             prefix(exp_)
 
-        confirm variable exp_1 exp_2
+        confirm variable exp_tv_hrt exp_tv_dmt
     }
     if _rc == 0 {
         local ++pass_count
@@ -509,8 +509,12 @@ if `run_only' == 0 | `run_only' == `test_count' {
         assert r(mean_periods) > 0
         assert r(max_periods) > 0
         assert r(N_datasets) == 2
-        assert "`r(datasets)'" != ""
-        assert "`r(exposure_vars)'" != ""
+        * Check that stored local results are non-empty
+        * Use word count instead of direct string comparison to handle paths with quotes
+        local ds : word 1 of `r(datasets)'
+        assert "`ds'" != ""
+        local exps : word 1 of `r(exposure_vars)'
+        assert "`exps'" != ""
     }
     if _rc == 0 {
         local ++pass_count
@@ -734,7 +738,8 @@ if `run_only' == 0 | `run_only' == `test_count' {
             keep(age female mstype)
 
         assert _N > 0
-        confirm variable age female mstype
+        * Variables are suffixed with _ds1/_ds2 to avoid conflicts between datasets
+        confirm variable age_ds1 female_ds1 mstype_ds1
     }
     if _rc == 0 {
         local ++pass_count
@@ -1023,11 +1028,12 @@ if `run_only' == 0 | `run_only' == `test_count' {
         quietly use "${DATA_DIR}/_workflow_merged.dta", clear
 
         * Create failure indicator
-        gen byte failure = (!missing(edss4_dt) & edss4_dt >= start & edss4_dt <= stop)
+        * Note: kept variables get suffixed with _ds1/_ds2 by tvmerge
+        gen byte failure = (!missing(edss4_dt_ds1) & edss4_dt_ds1 >= start & edss4_dt_ds1 <= stop)
 
         * Run stset and Cox model
         stset stop, failure(failure) entry(start) id(id) scale(365.25)
-        stcox ever_hrt ever_dmt age i.female
+        stcox ever_hrt ever_dmt age_ds1 i.female_ds1
 
         assert e(N) > 0
     }
@@ -1187,7 +1193,9 @@ if `quiet' == 0 & `run_only' == 0 {
 }
 
 quietly {
-    local temp_files "_tv_hrt _tv_dmt _tv_steroid _test_merged _tv_hrt_cont _tv_hrt_keep _tv_dmt_keep _tv_hrt_cont2 _tv_dmt_cont _tv_hrt_ever _tv_hrt_cf _tv_hrt_workflow _tv_dmt_workflow _workflow_merged _tv_edge1 _tv_edge2 _tv_hrt_bytype _tv_dmt_bytype"
+    * Note: _tv_hrt and _tv_dmt are setup files needed for re-running tests
+    * Only delete test-specific temporary files
+    local temp_files "_tv_steroid _test_merged _tv_hrt_cont _tv_hrt_keep _tv_dmt_keep _tv_hrt_cont2 _tv_dmt_cont _tv_hrt_ever _tv_hrt_cf _tv_hrt_workflow _tv_dmt_workflow _workflow_merged _tv_edge1 _tv_edge2 _tv_hrt_bytype _tv_dmt_bytype"
     foreach f of local temp_files {
         capture erase "${DATA_DIR}/`f'.dta"
     }

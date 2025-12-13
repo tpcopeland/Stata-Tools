@@ -1,4 +1,4 @@
-*! tvevent Version 1.1.2  11dec2025
+*! tvevent Version 1.2.0  13dec2025
 *! Add event/failure flags to time-varying datasets
 *! Author: Tim Copeland
 *!
@@ -34,18 +34,22 @@ program define tvevent, rclass
         [GENerate(name) ///
          Type(string) ///
          KEEPvars(namelist) ///
-         CONtinuous(varlist) ///
+         CONtinuous(namelist) ///
          TIMEGen(name) ///
          TIMEUnit(string) ///
          COMpete(namelist) ///
          EVENTLabel(string asis) ///
+         STARTvar(name) ///
+         STOPvar(name) ///
          REPlace]
 
     **# 1. INPUT VALIDATION
-    
+
     * Set defaults for options
     if "`generate'" == "" local generate "_failure"
-    
+    if "`startvar'" == "" local startvar "start"
+    if "`stopvar'" == "" local stopvar "stop"
+
     if "`type'" == "" local type "single"
     local type = lower("`type'")
     if !inlist("`type'", "single", "recurring") {
@@ -275,17 +279,18 @@ program define tvevent, rclass
              exit 111
         }
 
-        foreach v in start stop {
+        foreach v in `startvar' `stopvar' {
             capture confirm variable `v'
             if _rc {
                 noisily di as error "Variable '`v'' not found in using (interval) dataset. tvevent requires output from tvexpose/tvmerge."
+                noisily di as error "Use startvar() and stopvar() options to specify the variable names if different from 'start' and 'stop'."
                 exit 111
             }
         }
 
         * Capture original formats from using dataset to restore later
-        local orig_start_fmt : format start
-        local orig_stop_fmt : format stop
+        local orig_start_fmt : format `startvar'
+        local orig_stop_fmt : format `stopvar'
 
         if "`continuous'" != "" {
             foreach v of local continuous {
@@ -333,12 +338,12 @@ program define tvevent, rclass
 
         * intervals tempfile already has the using data loaded
         preserve
-        keep `id' start stop
+        keep `id' `startvar' `stopvar'
         duplicates drop
-        
+
         joinby `id' using `events'
-        
-        keep if `date' > start & `date' < stop
+
+        keep if `date' > `startvar' & `date' < `stopvar'
         
         keep `id' `date'
         duplicates drop `id' `date', force
@@ -353,23 +358,23 @@ program define tvevent, rclass
         * intervals data is still in memory
         
         tempvar orig_dur new_dur ratio
-        gen double `orig_dur' = stop - start
-        
+        gen double `orig_dur' = `stopvar' - `startvar'
+
         if `n_splits' > 0 {
             noisily di as txt "Splitting intervals for `n_splits' internal events..."
             joinby `id' using `splits', unmatched(master)
-            gen long _needs_split = (`date' > start & `date' < stop)
+            gen long _needs_split = (`date' > `startvar' & `date' < `stopvar')
             expand 2 if _needs_split, gen(_copy)
-            replace stop = `date' if _needs_split & _copy == 0
-            replace start = `date' if _needs_split & _copy == 1
+            replace `stopvar' = `date' if _needs_split & _copy == 0
+            replace `startvar' = `date' if _needs_split & _copy == 1
             drop _needs_split _copy `date'
-            sort `id' start stop
-            duplicates drop `id' start stop, force
+            sort `id' `startvar' `stopvar'
+            duplicates drop `id' `startvar' `stopvar', force
         }
         
         * Adjust Continuous Variables
         if "`continuous'" != "" {
-            gen double `new_dur' = stop - start
+            gen double `new_dur' = `stopvar' - `startvar'
             gen double `ratio' = cond(`orig_dur' == 0 | `new_dur' == 0, 1, `new_dur' / `orig_dur')
             foreach v of local continuous {
                 replace `v' = `v' * `ratio'
@@ -381,7 +386,7 @@ program define tvevent, rclass
         **# 5. MERGE EVENT FLAGS
         
         tempvar match_date
-        gen double `match_date' = stop
+        gen double `match_date' = `stopvar'
         
         tempname event_frame
         frame create `event_frame'
@@ -403,7 +408,11 @@ program define tvevent, rclass
             replace `generate' = 0 if missing(`generate')
 
             if "`keepvars'" != "" {
-                 frget `keepvars', from(`event_frame')
+                * Drop existing keepvars to avoid collision
+                foreach v of local keepvars {
+                    capture drop `v'
+                }
+                frget `keepvars', from(`event_frame')
             }
         }
         local frame_rc = _rc
@@ -451,26 +460,26 @@ program define tvevent, rclass
         **# 7. APPLY TYPE-SPECIFIC LOGIC
         
         if "`type'" == "single" {
-            bysort `id' (stop): gen long _event_rank = sum(`generate' > 0)
-            
+            bysort `id' (`stopvar'): gen long _event_rank = sum(`generate' > 0)
+
             tempvar censor_time
-            gen double `censor_time' = stop if `generate' > 0 & _event_rank == 1
+            gen double `censor_time' = `stopvar' if `generate' > 0 & _event_rank == 1
             bysort `id': egen double _first_fail = min(`censor_time')
-            
-            drop if !missing(_first_fail) & start >= _first_fail
+
+            drop if !missing(_first_fail) & `startvar' >= _first_fail
             replace `generate' = 0 if _event_rank > 1
-            
+
             drop _event_rank `censor_time' _first_fail
             noisily di as txt "Single event type: Censored person-time after first event."
         }
         else {
             noisily di as txt "Recurring event type: Retained all person-time."
         }
-        
+
         **# 8. GENERATE TIME VARIABLE
         if "`timegen'" != "" {
             tempvar days_diff
-            gen double `days_diff' = stop - start
+            gen double `days_diff' = `stopvar' - `startvar'
             if "`timeunit'" == "days" {
                 gen double `timegen' = `days_diff'
                 label var `timegen' "Time (days)"
@@ -487,9 +496,9 @@ program define tvevent, rclass
         }
 
         * Restore original date formats from using dataset
-        format start `orig_start_fmt'
-        format stop `orig_stop_fmt'
-        sort `id' start stop
+        format `startvar' `orig_start_fmt'
+        format `stopvar' `orig_stop_fmt'
+        sort `id' `startvar' `stopvar'
         
         count if `generate' > 0
         local n_failures = r(N)
