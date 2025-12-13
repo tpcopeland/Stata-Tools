@@ -4,4 +4,3 @@ __pycache__/
 _testing/data/*.dta
 *.smcl
 *.log
-!_logs/**/*.log
