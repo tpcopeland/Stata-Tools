@@ -12,6 +12,7 @@ This repository contains a suite of Stata packages developed to streamline commo
 
 ## Table of Contents
 
+- [Repository Structure](#repository-structure)
 - [Packages](#packages)
   - [Data Management & Documentation](#data-management--documentation)
   - [Analysis & Tables](#analysis--tables)
@@ -20,11 +21,52 @@ This repository contains a suite of Stata packages developed to streamline commo
 - [Quick Start](#quick-start)
 - [Requirements](#requirements)
 - [Documentation](#documentation)
+- [Development](#development)
 - [Support](#support)
 - [Author](#author)
 - [License](#license)
 - [Package Details](#package-details)
 - [Citation](#citation)
+
+## Repository Structure
+
+```
+Stata-Tools/
+├── [package]/              # Individual Stata packages (see Packages section)
+│   ├── *.ado               # Command implementation
+│   ├── *.sthlp             # Help documentation
+│   ├── *.pkg               # Package metadata
+│   ├── *.dlg               # Dialog file (optional)
+│   └── README.md           # Package documentation
+│
+├── _guides/                # Development documentation
+│   ├── developing.md       # Guide for creating new commands
+│   ├── testing.md          # Guide for writing functional tests
+│   └── validating.md       # Guide for writing validation tests
+│
+├── _templates/             # Templates for new Stata commands
+│   ├── TEMPLATE.ado        # Command template
+│   ├── TEMPLATE.sthlp      # Help file template
+│   ├── TEMPLATE.pkg        # Package metadata template
+│   ├── TEMPLATE.dlg        # Dialog template
+│   ├── testing_TEMPLATE.do # Functional test template
+│   └── validation_TEMPLATE.do # Validation test template
+│
+├── _testing/               # Functional test suites
+│   ├── generate_test_data.do  # Creates synthetic test datasets
+│   ├── run_all_tests.do       # Master test runner
+│   └── test_*.do              # Individual command tests
+│
+├── _validation/            # Validation tests (correctness verification)
+│   └── validation_*.do     # Tests with hand-calculated expected values
+│
+├── _reimplementations/     # Cross-language ports
+│   ├── R/tvtools/          # R implementation of tvtools
+│   └── Python/tvtools/     # Python implementation of tvtools
+│
+├── CLAUDE.md               # AI assistant coding guide
+└── README.md               # This file
+```
 
 ## Packages
 
@@ -206,6 +248,40 @@ Each package includes comprehensive documentation:
 - **Package README**: Installation instructions and usage details
 - **Dialog Interfaces**: User-friendly GUI available for select commands (table1_tc, regtab, tvtools)
 - **Examples**: Quick start examples and best practices included in help files
+
+## Development
+
+### Creating New Commands
+
+Use the templates in `_templates/` as starting points for new Stata commands:
+
+```bash
+# Copy templates to create a new package
+cp _templates/TEMPLATE.ado mycommand/mycommand.ado
+cp _templates/TEMPLATE.sthlp mycommand/mycommand.sthlp
+cp _templates/TEMPLATE.pkg mycommand/mycommand.pkg
+```
+
+See `_guides/developing.md` for detailed development instructions.
+
+### Testing and Validation
+
+This repository distinguishes between two types of tests:
+
+| Testing | Validation |
+|---------|------------|
+| Does the command **run** without errors? | Does the command produce **correct** results? |
+| Uses realistic datasets | Uses minimal hand-crafted datasets |
+| Location: `_testing/test_*.do` | Location: `_validation/validation_*.do` |
+
+**Running tests:**
+```stata
+cd "_testing"
+do generate_test_data.do    // Generate test datasets (first time only)
+do run_all_tests.do         // Run all functional tests
+```
+
+See `_guides/testing.md` and `_guides/validating.md` for comprehensive testing guidance.
 
 ## Support
 
