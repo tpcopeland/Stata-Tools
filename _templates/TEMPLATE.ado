@@ -1,11 +1,11 @@
-*! NAME Version 1.0.0  YYYY/MM/DD
+*! TEMPLATE Version 1.0.0  YYYY/MM/DD
 *! Brief description of what the command does
 *! Author: Your Name
 *! Program class: rclass (returns results in r())
 
 /*
 Basic syntax:
-  NAME varlist [if] [in], required_option(varname) [options]
+  TEMPLATE varlist [if] [in], required_option(varname) [options]
 
 Required options:
   required_option(varname)  - Description of what this option does
@@ -15,10 +15,10 @@ Optional options:
   option2(numlist)          - Description
   generate(newvar)          - Name for output variable
 
-See help NAME for complete documentation
+See help TEMPLATE for complete documentation
 */
 
-program define NAME, rclass
+program define TEMPLATE, rclass
     version 18.0
     set varabbrev off
 
@@ -68,7 +68,7 @@ program define NAME, rclass
     * SET DEFAULTS
     * =========================================================================
     if "`generate'" == "" {
-        local generate "NAME_result"
+        local generate "TEMPLATE_result"
     }
 
     * =========================================================================
@@ -114,7 +114,7 @@ program define NAME, rclass
     * DISPLAY OUTPUT
     * =========================================================================
     display as text _n "{hline 60}"
-    display as text "NAME Results"
+    display as text "TEMPLATE Results"
     display as text "{hline 60}"
     display as text "Observations:     " as result %10.0fc `N'
     display as text "Output variable:  " as result "`generate'"
@@ -126,7 +126,7 @@ end
 * HELPER SUBROUTINES (if needed)
 * =============================================================================
 
-capture program drop _NAME_helper
-program define _NAME_helper
+capture program drop _TEMPLATE_helper
+program define _TEMPLATE_helper
     * Helper program logic
 end

@@ -1,5 +1,5 @@
 v 3
-d 'NAME': Brief description of what the package does
+d 'TEMPLATE': Brief description of what the package does
 d
 d Requires: Stata version 16+
 d
@@ -14,6 +14,6 @@ d KW: keyword1
 d KW: keyword2
 d KW: keyword3
 d
-f NAME.ado
-f NAME.sthlp
-f NAME.dlg
+f TEMPLATE.ado
+f TEMPLATE.sthlp
+f TEMPLATE.dlg

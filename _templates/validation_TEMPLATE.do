@@ -1,7 +1,7 @@
 /*******************************************************************************
-* validation_NAME.do
+* validation_TEMPLATE.do
 *
-* Purpose: Deep validation tests for NAME command using known-answer testing.
+* Purpose: Deep validation tests for TEMPLATE command using known-answer testing.
 *          These tests verify computed values match expected results, not just
 *          that commands execute without error.
 *
@@ -9,11 +9,11 @@
 *             mathematically verified by hand.
 *
 * Run modes:
-*   Standalone: do validation_NAME.do
-*   Via runner: do run_test.do validation_NAME [testnumber] [quiet] [machine]
+*   Standalone: do validation_TEMPLATE.do
+*   Via runner: do run_test.do validation_TEMPLATE [testnumber] [quiet] [machine]
 *
 * Prerequisites:
-*   - NAME.ado must be installed/accessible
+*   - TEMPLATE.ado must be installed/accessible
 *
 * Author: Your Name
 * Date: YYYY-MM-DD
@@ -77,15 +77,15 @@ global DATA_DIR "${VALIDATION_DIR}/data"
 capture mkdir "${DATA_DIR}"
 
 * Install package (adjust path as needed)
-* capture net uninstall NAME
-* quietly net install NAME, from("${STATA_TOOLS_PATH}/NAME")
+* capture net uninstall TEMPLATE
+* quietly net install TEMPLATE, from("${STATA_TOOLS_PATH}/TEMPLATE")
 
 * =============================================================================
 * HEADER (skip in quiet/machine mode)
 * =============================================================================
 if `quiet' == 0 {
     display as text _n "{hline 70}"
-    display as text "NAME DEEP VALIDATION TESTS"
+    display as text "TEMPLATE DEEP VALIDATION TESTS"
     display as text "{hline 70}"
     display as text "These tests verify mathematical correctness, not just execution."
     display as text "{hline 70}"
@@ -184,7 +184,7 @@ capture {
     use "${DATA_DIR}/valid_simple.dta", clear
 
     * Run command (adjust to your actual command)
-    * NAME x, required_option(y) generate(result)
+    * TEMPLATE x, required_option(y) generate(result)
 
     * For this template, simulate the expected behavior
     gen result = x / y
@@ -392,7 +392,7 @@ capture {
     use "${DATA_DIR}/valid_simple.dta", clear
 
     * Run command that returns r(N)
-    * NAME x, required_option(y)
+    * TEMPLATE x, required_option(y)
 
     * For template, use count to simulate
     count
@@ -506,7 +506,7 @@ capture {
     end
 
     * Attempting to run on string variable should fail
-    * capture NAME x, required_option(y)
+    * capture TEMPLATE x, required_option(y)
     * For template, simulate type check
     capture confirm numeric variable x
     assert _rc != 0  // Should have failed
@@ -533,7 +533,7 @@ capture erase "${DATA_DIR}/valid_stats.dta"
 * SUMMARY
 * =============================================================================
 display as text _n "{hline 70}"
-display as text "NAME VALIDATION SUMMARY"
+display as text "TEMPLATE VALIDATION SUMMARY"
 display as text "{hline 70}"
 display as text "Total tests:  `test_count'"
 display as result "Passed:       `pass_count'"

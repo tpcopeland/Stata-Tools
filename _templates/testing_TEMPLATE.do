@@ -1,16 +1,16 @@
 /*******************************************************************************
-* testing_NAME.do
+* testing_TEMPLATE.do
 *
-* Purpose: Functional tests for NAME command - verifies the command runs
+* Purpose: Functional tests for TEMPLATE command - verifies the command runs
 *          without errors across various scenarios and options.
 *
 * Prerequisites:
 *   - Run generate_test_data.do first to create synthetic datasets (if needed)
-*   - NAME.ado must be installed/accessible
+*   - TEMPLATE.ado must be installed/accessible
 *
 * Run modes:
-*   Standalone: do testing_NAME.do
-*   Via runner: do run_test.do testing_NAME [testnumber] [quiet] [machine]
+*   Standalone: do testing_TEMPLATE.do
+*   Via runner: do run_test.do testing_TEMPLATE [testnumber] [quiet] [machine]
 *
 * Test philosophy:
 *   - Does the command RUN without errors?
@@ -77,15 +77,15 @@ global TESTING_DIR "${STATA_TOOLS_PATH}/_testing"
 global DATA_DIR "${TESTING_DIR}/data"
 
 * Install package from local repository (adjust path as needed)
-* capture net uninstall NAME
-* quietly net install NAME, from("${STATA_TOOLS_PATH}/NAME")
+* capture net uninstall TEMPLATE
+* quietly net install TEMPLATE, from("${STATA_TOOLS_PATH}/TEMPLATE")
 
 * =============================================================================
 * HEADER (skip in quiet/machine mode)
 * =============================================================================
 if `quiet' == 0 {
     display as text _n "{hline 70}"
-    display as text "NAME COMMAND FUNCTIONAL TESTING"
+    display as text "TEMPLATE COMMAND FUNCTIONAL TESTING"
     display as text "{hline 70}"
     display as text "Data directory: ${DATA_DIR}"
     display as text "{hline 70}"
@@ -131,7 +131,7 @@ if `run_only' == 0 | `run_only' == `test_count' {
         sysuse auto, clear
 
         * Run command with minimal required options
-        * NAME varlist, required_option(varname)
+        * TEMPLATE varlist, required_option(varname)
 
         * Verify expected outputs exist
         * confirm variable expected_output
@@ -170,7 +170,7 @@ if `run_only' == 0 | `run_only' == `test_count' {
         sysuse auto, clear
 
         * Run command with option1
-        * NAME varlist, required_option(varname) option1
+        * TEMPLATE varlist, required_option(varname) option1
 
         * Verify option1 behavior
     }
@@ -207,7 +207,7 @@ if `run_only' == 0 | `run_only' == `test_count' {
         sysuse auto, clear
 
         * Run command with option2
-        * NAME varlist, required_option(varname) option2(1 5 10)
+        * TEMPLATE varlist, required_option(varname) option2(1 5 10)
 
         * Verify option2 behavior
     }
@@ -244,7 +244,7 @@ if `run_only' == 0 | `run_only' == `test_count' {
         sysuse auto, clear
 
         * Run command with generate
-        * NAME varlist, required_option(varname) generate(myresult)
+        * TEMPLATE varlist, required_option(varname) generate(myresult)
 
         * Verify generated variable exists
         * confirm variable myresult
@@ -282,10 +282,10 @@ if `run_only' == 0 | `run_only' == `test_count' {
         sysuse auto, clear
 
         * Run with if condition
-        * NAME varlist if foreign == 0, required_option(varname)
+        * TEMPLATE varlist if foreign == 0, required_option(varname)
 
         * Run with in condition
-        * NAME varlist in 1/50, required_option(varname)
+        * TEMPLATE varlist in 1/50, required_option(varname)
     }
     if _rc == 0 {
         local ++pass_count
@@ -320,7 +320,7 @@ if `run_only' == 0 | `run_only' == `test_count' {
         sysuse auto, clear
 
         * Run with multiple options combined
-        * NAME varlist, required_option(varname) option1 option2(1 5) generate(result)
+        * TEMPLATE varlist, required_option(varname) option1 option2(1 5) generate(result)
     }
     if _rc == 0 {
         local ++pass_count
@@ -357,7 +357,7 @@ if `run_only' == 0 | `run_only' == `test_count' {
         sysuse auto, clear
         keep if _n == 1
 
-        * NAME varlist, required_option(varname)
+        * TEMPLATE varlist, required_option(varname)
         assert _N > 0
     }
     if _rc == 0 {
@@ -391,7 +391,7 @@ if `run_only' == 0 | `run_only' == `test_count' {
         sysuse auto, clear
         replace price = . if _n <= 10
 
-        * NAME varlist, required_option(varname)
+        * TEMPLATE varlist, required_option(varname)
     }
     if _rc == 0 {
         local ++pass_count
@@ -427,7 +427,7 @@ if `run_only' == 0 | `run_only' == `test_count' {
         gen y = .
 
         * Should fail with appropriate error
-        capture NAME x, required_option(y)
+        capture TEMPLATE x, required_option(y)
         assert _rc != 0  // Should have failed
     }
     if _rc == 0 {
@@ -467,7 +467,7 @@ if `run_only' == 0 | `run_only' == `test_count' {
         * Time the command
         timer clear 1
         timer on 1
-        * NAME x, required_option(y)
+        * TEMPLATE x, required_option(y)
         timer off 1
 
         * Should complete in reasonable time (< 60 seconds)
@@ -518,7 +518,7 @@ if `machine' {
 }
 else {
     display as text _n "{hline 70}"
-    display as text "NAME FUNCTIONAL TEST SUMMARY"
+    display as text "TEMPLATE FUNCTIONAL TEST SUMMARY"
     display as text "{hline 70}"
     display as text "Total tests:  `test_count'"
     display as result "Passed:       `pass_count'"

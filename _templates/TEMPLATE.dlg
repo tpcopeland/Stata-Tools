@@ -4,7 +4,7 @@ DEFINE _dlght 480
 DEFINE _dlgwd 640
 INCLUDE header
 
-HELP hlp1, view("help NAME")
+HELP hlp1, view("help TEMPLATE")
 RESET res1
 
 SCRIPT PREINIT
@@ -18,7 +18,7 @@ BEGIN
 	script max_setDefaultWidth
 END
 
-DIALOG main, label("NAME - Brief description") tabtitle("Main")
+DIALOG main, label("TEMPLATE - Brief description") tabtitle("Main")
 BEGIN
   * =========================================================================
   * FILE INPUT (if using external data)
@@ -55,7 +55,7 @@ BEGIN
 
   TEXT     tx_generate   20  +30 140  ., label("Output variable name:")
   EDIT     ed_generate   @   +20 200  ., label("Generate") option(generate) ///
-           default(NAME_result)
+           default(TEMPLATE_result)
 
   * =========================================================================
   * SAVE OPTIONS
@@ -115,7 +115,7 @@ END
 * =============================================================================
 PROGRAM command
 BEGIN
-	put "NAME "
+	put "TEMPLATE "
 
 	* Handle using file if present
 	if main.fi_using {

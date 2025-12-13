@@ -2,17 +2,17 @@
 {* *! version 1.0.0  DDmonYYYY}{...}
 {vieweralsosee "[R] regress" "help regress"}{...}
 {vieweralsosee "[D] generate" "help generate"}{...}
-{viewerjumpto "Syntax" "NAME##syntax"}{...}
-{viewerjumpto "Description" "NAME##description"}{...}
-{viewerjumpto "Options" "NAME##options"}{...}
-{viewerjumpto "Remarks" "NAME##remarks"}{...}
-{viewerjumpto "Examples" "NAME##examples"}{...}
-{viewerjumpto "Stored results" "NAME##results"}{...}
-{viewerjumpto "Author" "NAME##author"}{...}
+{viewerjumpto "Syntax" "TEMPLATE##syntax"}{...}
+{viewerjumpto "Description" "TEMPLATE##description"}{...}
+{viewerjumpto "Options" "TEMPLATE##options"}{...}
+{viewerjumpto "Remarks" "TEMPLATE##remarks"}{...}
+{viewerjumpto "Examples" "TEMPLATE##examples"}{...}
+{viewerjumpto "Stored results" "TEMPLATE##results"}{...}
+{viewerjumpto "Author" "TEMPLATE##author"}{...}
 {title:Title}
 
 {p2colset 5 18 20 2}{...}
-{p2col:{cmd:NAME} {hline 2}}Brief description of what the command does{p_end}
+{p2col:{cmd:TEMPLATE} {hline 2}}Brief description of what the command does{p_end}
 {p2colreset}{...}
 
 
@@ -20,7 +20,7 @@
 {title:Syntax}
 
 {p 8 17 2}
-{cmd:NAME}
+{cmd:TEMPLATE}
 {varlist}
 {ifin}
 {cmd:,}
@@ -48,7 +48,7 @@
 {title:Description}
 
 {pstd}
-{cmd:NAME} does something useful with your data. This is a longer description
+{cmd:TEMPLATE} does something useful with your data. This is a longer description
 that explains what the command does, when you would use it, and any important
 details about how it works.
 
@@ -82,7 +82,7 @@ important. This option is required because...
 
 {phang}
 {opt generate(newvar)} specifies the name for the output variable. Default
-is {cmd:NAME_result}.
+is {cmd:TEMPLATE_result}.
 
 {phang}
 {opt replace} allows the command to overwrite existing variables.
@@ -115,7 +115,7 @@ Description of what this example demonstrates:
 
 {phang2}{cmd:. sysuse auto, clear}{p_end}
 
-{phang2}{cmd:. NAME price mpg, required_option(weight)}{p_end}
+{phang2}{cmd:. TEMPLATE price mpg, required_option(weight)}{p_end}
 
 
 {pstd}
@@ -126,7 +126,7 @@ Description of what this example demonstrates:
 
 {phang2}{cmd:. sysuse auto, clear}{p_end}
 
-{phang2}{cmd:. NAME price mpg, required_option(weight) option1 generate(result)}{p_end}
+{phang2}{cmd:. TEMPLATE price mpg, required_option(weight) option1 generate(result)}{p_end}
 
 
 {pstd}
@@ -137,14 +137,14 @@ Description of what this example demonstrates:
 
 {phang2}{cmd:. sysuse auto, clear}{p_end}
 
-{phang2}{cmd:. NAME price mpg if foreign == 0, required_option(weight) option2(1 5 10)}{p_end}
+{phang2}{cmd:. TEMPLATE price mpg if foreign == 0, required_option(weight) option2(1 5 10)}{p_end}
 
 
 {marker results}{...}
 {title:Stored results}
 
 {pstd}
-{cmd:NAME} stores the following in {cmd:r()}:
+{cmd:TEMPLATE} stores the following in {cmd:r()}:
 
 {synoptset 20 tabbed}{...}
 {p2col 5 20 24 2: Scalars}{p_end}

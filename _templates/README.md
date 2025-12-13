@@ -1,17 +1,17 @@
 # Stata Command Templates
 
-This folder contains templates for creating new Stata commands, based on the structure of `tvexpose`. Replace `NAME` with your actual command name when using these templates.
+This folder contains templates for creating new Stata commands, based on the structure of `tvexpose`. Replace `TEMPLATE` with your actual command name when using these templates.
 
 ## Template Files
 
 | File | Purpose |
 |------|---------|
-| `template_NAME.ado` | Main command file with placeholder code structure |
-| `template_NAME.sthlp` | Help file in SMCL format |
-| `template_NAME.pkg` | Package metadata for `net install` |
-| `template_NAME.dlg` | Dialog file for GUI (kept complete for reference) |
-| `testing_NAME.do` | Functional tests (does it run?) |
-| `validation_NAME.do` | Validation tests (is it correct?) |
+| `TEMPLATE.ado` | Main command file with placeholder code structure |
+| `TEMPLATE.sthlp` | Help file in SMCL format |
+| `TEMPLATE.pkg` | Package metadata for `net install` |
+| `TEMPLATE.dlg` | Dialog file for GUI (kept complete for reference) |
+| `testing_TEMPLATE.do` | Functional tests (does it run?) |
+| `validation_TEMPLATE.do` | Validation tests (is it correct?) |
 
 ## How to Use
 
@@ -22,23 +22,23 @@ This folder contains templates for creating new Stata commands, based on the str
 mkdir mycommand
 
 # Copy templates
-cp _templates/template_NAME.ado mycommand/mycommand.ado
-cp _templates/template_NAME.sthlp mycommand/mycommand.sthlp
-cp _templates/template_NAME.pkg mycommand/mycommand.pkg
-cp _templates/template_NAME.dlg mycommand/mycommand.dlg
+cp _templates/TEMPLATE.ado mycommand/mycommand.ado
+cp _templates/TEMPLATE.sthlp mycommand/mycommand.sthlp
+cp _templates/TEMPLATE.pkg mycommand/mycommand.pkg
+cp _templates/TEMPLATE.dlg mycommand/mycommand.dlg
 
 # Copy test files to testing/validation directories
-cp _templates/testing_NAME.do _testing/testing_mycommand.do
-cp _templates/validation_NAME.do _validation/validation_mycommand.do
+cp _templates/testing_TEMPLATE.do _testing/testing_mycommand.do
+cp _templates/validation_TEMPLATE.do _validation/validation_mycommand.do
 ```
 
 ### 2. Search and Replace
 
-Replace all instances of `NAME` with your command name in each file:
+Replace all instances of `TEMPLATE` with your command name in each file:
 
 ```stata
 * In Stata or a text editor, replace:
-*   NAME → mycommand
+*   TEMPLATE → mycommand
 *   YYYY/MM/DD → actual date
 *   Your Name → your name
 *   etc.
@@ -70,13 +70,13 @@ Replace all instances of `NAME` with your command name in each file:
 - Update the PROGRAM command section to build your syntax
 - Test with `db mycommand` in Stata
 
-#### `testing_NAME.do`
+#### `testing_TEMPLATE.do`
 - Replace placeholder command calls with your actual command
 - Add tests for each option your command supports
 - Include edge case tests (single obs, missing values, empty data)
 - Tests verify the command **runs** without errors
 
-#### `validation_NAME.do`
+#### `validation_TEMPLATE.do`
 - Create minimal datasets with known expected outputs
 - Write tests that verify **computed values** match expected
 - Use hand-calculable examples
@@ -117,7 +117,7 @@ option main.ck_option     // Outputs: option (if checked)
 
 ## Checklist Before Release
 
-- [ ] All `NAME` placeholders replaced
+- [ ] All `TEMPLATE` placeholders replaced
 - [ ] Version numbers consistent (X.Y.Z format)
 - [ ] Distribution-Date updated in .pkg
 - [ ] All tests pass
