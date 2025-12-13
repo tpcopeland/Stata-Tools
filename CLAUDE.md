@@ -17,6 +17,29 @@
 
 ---
 
+## Detailed Guides
+
+For in-depth guidance on specific workflows, see the `_guides/` directory:
+
+| Guide | Use When |
+|-------|----------|
+| **[_guides/developing.md](_guides/developing.md)** | Creating new Stata commands from scratch |
+| **[_guides/testing.md](_guides/testing.md)** | Writing functional tests (does it run?) |
+| **[_guides/validating.md](_guides/validating.md)** | Writing validation tests (is it correct?) |
+
+### Testing vs Validation
+
+| Testing | Validation |
+|---------|------------|
+| Does the command **run** without errors? | Does the command produce **correct** results? |
+| Uses realistic datasets | Uses minimal hand-crafted datasets |
+| Checks return codes, variable existence | Checks specific computed values |
+| Location: `_testing/test_*.do` | Location: `_validation/validation_*.do` |
+
+**Both are required** for production-ready commands.
+
+---
+
 ## Package Structure
 
 ```
