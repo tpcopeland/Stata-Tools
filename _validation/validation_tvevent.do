@@ -258,7 +258,9 @@ if `quiet' == 0 {
 * Purpose: Verify event occurs at interval endpoint, not mid-interval
 * -----------------------------------------------------------------------------
 local ++test_count
-display as text _n "Test 4.1.1: Event Placed at Correct Boundary"
+if `quiet' == 0 {
+    display as text _n "Test 4.1.1: Event Placed at Correct Boundary"
+}
 
 capture {
     use "${DATA_DIR}/events_midyear.dta", clear
@@ -290,7 +292,9 @@ else {
 * Purpose: Verify number of events in output matches input
 * -----------------------------------------------------------------------------
 local ++test_count
-display as text _n "Test 4.1.2: Event Count Preservation"
+if `quiet' == 0 {
+    display as text _n "Test 4.1.2: Event Count Preservation"
+}
 
 capture {
     * Count events in source
@@ -321,16 +325,20 @@ else {
 * =============================================================================
 * TEST SECTION 4.2: INTERVAL SPLITTING TESTS
 * =============================================================================
-display as text _n "{hline 70}"
-display as text "SECTION 4.2: Interval Splitting Tests"
-display as text "{hline 70}"
+if `quiet' == 0 {
+    display as text _n "{hline 70}"
+    display as text "SECTION 4.2: Interval Splitting Tests"
+    display as text "{hline 70}"
+}
 
 * -----------------------------------------------------------------------------
 * Test 4.2.1: Split Preserves Total Duration
 * Purpose: Verify splitting doesn't create/lose person-time
 * -----------------------------------------------------------------------------
 local ++test_count
-display as text _n "Test 4.2.1: Split Preserves Total Duration"
+if `quiet' == 0 {
+    display as text _n "Test 4.2.1: Split Preserves Total Duration"
+}
 
 capture {
     * Calculate pre-tvevent total duration
@@ -367,16 +375,20 @@ else {
 * =============================================================================
 * TEST SECTION 4.3: COMPETING RISK TESTS
 * =============================================================================
-display as text _n "{hline 70}"
-display as text "SECTION 4.3: Competing Risk Tests"
-display as text "{hline 70}"
+if `quiet' == 0 {
+    display as text _n "{hline 70}"
+    display as text "SECTION 4.3: Competing Risk Tests"
+    display as text "{hline 70}"
+}
 
 * -----------------------------------------------------------------------------
 * Test 4.3.1: Earliest Event Wins
 * Purpose: Verify competing risk resolution picks earliest date
 * -----------------------------------------------------------------------------
 local ++test_count
-display as text _n "Test 4.3.1: Earliest Event Wins"
+if `quiet' == 0 {
+    display as text _n "Test 4.3.1: Earliest Event Wins"
+}
 
 capture {
     * Primary event Jun 30, competing event Apr 1
@@ -409,7 +421,9 @@ else {
 * Purpose: Verify correct assignment among multiple competing risks
 * -----------------------------------------------------------------------------
 local ++test_count
-display as text _n "Test 4.3.2: Multiple Competing Risks"
+if `quiet' == 0 {
+    display as text _n "Test 4.3.2: Multiple Competing Risks"
+}
 
 capture {
     * Three events: primary (Aug 1), death (Apr 1), emigration (May 15)
@@ -437,16 +451,20 @@ else {
 * =============================================================================
 * TEST SECTION 4.4: SINGLE VS RECURRING TESTS
 * =============================================================================
-display as text _n "{hline 70}"
-display as text "SECTION 4.4: Single vs Recurring Tests"
-display as text "{hline 70}"
+if `quiet' == 0 {
+    display as text _n "{hline 70}"
+    display as text "SECTION 4.4: Single vs Recurring Tests"
+    display as text "{hline 70}"
+}
 
 * -----------------------------------------------------------------------------
 * Test 4.4.1: type(single) Censors After First Event
 * Purpose: Verify follow-up ends after first event for single events
 * -----------------------------------------------------------------------------
 local ++test_count
-display as text _n "Test 4.4.1: type(single) Censors After Event"
+if `quiet' == 0 {
+    display as text _n "Test 4.4.1: type(single) Censors After Event"
+}
 
 capture {
     use "${DATA_DIR}/events_midyear.dta", clear
@@ -473,17 +491,21 @@ else {
 * =============================================================================
 * TEST SECTION 4.6: BOUNDARY CONDITION TESTS
 * =============================================================================
-display as text _n "{hline 70}"
-display as text "SECTION 4.6: Boundary Condition Tests (CRITICAL)"
-display as text "{hline 70}"
-display as text "Note: tvevent uses STRICT inequality: start < date < stop"
+if `quiet' == 0 {
+    display as text _n "{hline 70}"
+    display as text "SECTION 4.6: Boundary Condition Tests (CRITICAL)"
+    display as text "{hline 70}"
+    display as text "Note: tvevent uses STRICT inequality: start < date < stop"
+}
 
 * -----------------------------------------------------------------------------
 * Test 4.6.1: Event Exactly at Interval Start
 * Purpose: Verify event at start boundary is NOT captured
 * -----------------------------------------------------------------------------
 local ++test_count
-display as text _n "Test 4.6.1: Event at Exact Interval Start"
+if `quiet' == 0 {
+    display as text _n "Test 4.6.1: Event at Exact Interval Start"
+}
 
 capture {
     use "${DATA_DIR}/events_at_start.dta", clear
@@ -509,7 +531,9 @@ else {
 * Purpose: Verify event at stop boundary is NOT captured
 * -----------------------------------------------------------------------------
 local ++test_count
-display as text _n "Test 4.6.2: Event at Exact Interval Stop"
+if `quiet' == 0 {
+    display as text _n "Test 4.6.2: Event at Exact Interval Stop"
+}
 
 capture {
     use "${DATA_DIR}/events_at_stop.dta", clear
@@ -535,7 +559,9 @@ else {
 * Purpose: Verify events just inside boundaries ARE captured
 * -----------------------------------------------------------------------------
 local ++test_count
-display as text _n "Test 4.6.3: Event One Day Inside Start"
+if `quiet' == 0 {
+    display as text _n "Test 4.6.3: Event One Day Inside Start"
+}
 
 capture {
     use "${DATA_DIR}/events_day_after_start.dta", clear
@@ -559,16 +585,20 @@ else {
 * =============================================================================
 * TEST SECTION 4.7: EDGE CASE TESTS
 * =============================================================================
-display as text _n "{hline 70}"
-display as text "SECTION 4.7: Edge Case Tests"
-display as text "{hline 70}"
+if `quiet' == 0 {
+    display as text _n "{hline 70}"
+    display as text "SECTION 4.7: Edge Case Tests"
+    display as text "{hline 70}"
+}
 
 * -----------------------------------------------------------------------------
 * Test 4.7.1: Event Outside Study Period
 * Purpose: Verify events outside all intervals are ignored
 * -----------------------------------------------------------------------------
 local ++test_count
-display as text _n "Test 4.7.1: Event Outside Study Period"
+if `quiet' == 0 {
+    display as text _n "Test 4.7.1: Event Outside Study Period"
+}
 
 capture {
     use "${DATA_DIR}/events_outside.dta", clear
@@ -594,7 +624,9 @@ else {
 * Purpose: Verify persons without events are properly censored
 * -----------------------------------------------------------------------------
 local ++test_count
-display as text _n "Test 4.7.2: Person with No Event (Censored)"
+if `quiet' == 0 {
+    display as text _n "Test 4.7.2: Person with No Event (Censored)"
+}
 
 capture {
     use "${DATA_DIR}/events_mixed.dta", clear
@@ -624,7 +656,9 @@ else {
 * Purpose: Verify handling when primary and competing events occur on same day
 * -----------------------------------------------------------------------------
 local ++test_count
-display as text _n "Test 4.7.3: Same-Day Competing Events"
+if `quiet' == 0 {
+    display as text _n "Test 4.7.3: Same-Day Competing Events"
+}
 
 capture {
     use "${DATA_DIR}/events_sameday.dta", clear
@@ -662,16 +696,20 @@ else {
 * =============================================================================
 * TEST SECTION 4.8: ERROR HANDLING TESTS
 * =============================================================================
-display as text _n "{hline 70}"
-display as text "SECTION 4.8: Error Handling Tests"
-display as text "{hline 70}"
+if `quiet' == 0 {
+    display as text _n "{hline 70}"
+    display as text "SECTION 4.8: Error Handling Tests"
+    display as text "{hline 70}"
+}
 
 * -----------------------------------------------------------------------------
 * Test 4.8.1: Missing Required Variables
 * Purpose: Verify informative errors for invalid inputs
 * -----------------------------------------------------------------------------
 local ++test_count
-display as text _n "Test 4.8.1: Missing Required Variables"
+if `quiet' == 0 {
+    display as text _n "Test 4.8.1: Missing Required Variables"
+}
 
 capture {
     use "${DATA_DIR}/events_midyear.dta", clear
@@ -705,7 +743,9 @@ else {
 * Purpose: Verify invalid type values are rejected
 * -----------------------------------------------------------------------------
 local ++test_count
-display as text _n "Test 4.8.2: Invalid Type Option"
+if `quiet' == 0 {
+    display as text _n "Test 4.8.2: Invalid Type Option"
+}
 
 capture {
     use "${DATA_DIR}/events_midyear.dta", clear
@@ -726,16 +766,20 @@ else {
 * =============================================================================
 * TEST SECTION 4.9: TIMEGEN AND TIMEUNIT TESTS
 * =============================================================================
-display as text _n "{hline 70}"
-display as text "SECTION 4.9: timegen and timeunit Tests"
-display as text "{hline 70}"
+if `quiet' == 0 {
+    display as text _n "{hline 70}"
+    display as text "SECTION 4.9: timegen and timeunit Tests"
+    display as text "{hline 70}"
+}
 
 * -----------------------------------------------------------------------------
 * Test 4.9.1: timegen Creates Time-to-Event Variable
 * Purpose: Verify time-to-event calculation is correct
 * -----------------------------------------------------------------------------
 local ++test_count
-display as text _n "Test 4.9.1: timegen Creates Time Variable"
+if `quiet' == 0 {
+    display as text _n "Test 4.9.1: timegen Creates Time Variable"
+}
 
 capture {
     use "${DATA_DIR}/events_midyear.dta", clear
@@ -766,7 +810,9 @@ else {
 * Purpose: Verify time conversion to different units
 * -----------------------------------------------------------------------------
 local ++test_count
-display as text _n "Test 4.9.2: timeunit(years) Conversion"
+if `quiet' == 0 {
+    display as text _n "Test 4.9.2: timeunit(years) Conversion"
+}
 
 capture {
     use "${DATA_DIR}/events_midyear.dta", clear
@@ -791,15 +837,19 @@ else {
 * =============================================================================
 * INVARIANT TESTS: Properties that must always hold
 * =============================================================================
-display as text _n "{hline 70}"
-display as text "INVARIANT TESTS: Universal Properties"
-display as text "{hline 70}"
+if `quiet' == 0 {
+    display as text _n "{hline 70}"
+    display as text "INVARIANT TESTS: Universal Properties"
+    display as text "{hline 70}"
+}
 
 * -----------------------------------------------------------------------------
 * Invariant 1: Date Ordering (start < stop for all rows)
 * -----------------------------------------------------------------------------
 local ++test_count
-display as text _n "Invariant 1: Date Ordering (start < stop)"
+if `quiet' == 0 {
+    display as text _n "Invariant 1: Date Ordering (start < stop)"
+}
 
 capture {
     use "${DATA_DIR}/events_midyear.dta", clear
@@ -823,7 +873,9 @@ else {
 * Invariant 2: Outcome Values Only Valid Categories
 * -----------------------------------------------------------------------------
 local ++test_count
-display as text _n "Invariant 2: Valid Outcome Categories"
+if `quiet' == 0 {
+    display as text _n "Invariant 2: Valid Outcome Categories"
+}
 
 capture {
     use "${DATA_DIR}/events_competing.dta", clear
@@ -849,7 +901,9 @@ else {
 * Invariant 3: Exactly One Event Per ID (type=single)
 * -----------------------------------------------------------------------------
 local ++test_count
-display as text _n "Invariant 3: At Most One Event Per ID (type=single)"
+if `quiet' == 0 {
+    display as text _n "Invariant 3: At Most One Event Per ID (type=single)"
+}
 
 capture {
     use "${DATA_DIR}/events_midyear.dta", clear

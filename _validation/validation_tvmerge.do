@@ -259,7 +259,9 @@ if `quiet' == 0 {
 * Purpose: Verify all overlapping intervals from both datasets appear
 * -----------------------------------------------------------------------------
 local ++test_count
-display as text _n "Test 5.1.1: Complete Intersection Coverage"
+if `quiet' == 0 {
+    display as text _n "Test 5.1.1: Complete Intersection Coverage"
+}
 
 capture {
     tvmerge "${DATA_DIR}/tvmerge_ds1_fullyear.dta" "${DATA_DIR}/tvmerge_ds2_split.dta", ///
@@ -290,7 +292,9 @@ else {
 * Purpose: Verify intervals that don't overlap produce no output
 * -----------------------------------------------------------------------------
 local ++test_count
-display as text _n "Test 5.1.2: Non-Overlapping Periods Excluded"
+if `quiet' == 0 {
+    display as text _n "Test 5.1.2: Non-Overlapping Periods Excluded"
+}
 
 capture {
     tvmerge "${DATA_DIR}/tvmerge_ds1_nonoverlap.dta" "${DATA_DIR}/tvmerge_ds2_nonoverlap.dta", ///
@@ -313,16 +317,20 @@ else {
 * =============================================================================
 * TEST SECTION 5.2: PERSON-TIME TESTS
 * =============================================================================
-display as text _n "{hline 70}"
-display as text "SECTION 5.2: Person-Time Tests"
-display as text "{hline 70}"
+if `quiet' == 0 {
+    display as text _n "{hline 70}"
+    display as text "SECTION 5.2: Person-Time Tests"
+    display as text "{hline 70}"
+}
 
 * -----------------------------------------------------------------------------
 * Test 5.2.1: Merged Duration Equals Intersection
 * Purpose: Verify output duration matches overlap duration exactly
 * -----------------------------------------------------------------------------
 local ++test_count
-display as text _n "Test 5.2.1: Merged Duration Equals Intersection"
+if `quiet' == 0 {
+    display as text _n "Test 5.2.1: Merged Duration Equals Intersection"
+}
 
 capture {
     tvmerge "${DATA_DIR}/tvmerge_ds1_partial.dta" "${DATA_DIR}/tvmerge_ds2_partial.dta", ///
@@ -353,7 +361,9 @@ else {
 * Purpose: Verify merged output has no overlapping intervals per ID
 * -----------------------------------------------------------------------------
 local ++test_count
-display as text _n "Test 5.2.2: No Overlapping Intervals in Output"
+if `quiet' == 0 {
+    display as text _n "Test 5.2.2: No Overlapping Intervals in Output"
+}
 
 capture {
     tvmerge "${DATA_DIR}/tvmerge_ds1_fullyear.dta" "${DATA_DIR}/tvmerge_ds2_split.dta", ///
@@ -376,16 +386,20 @@ else {
 * =============================================================================
 * TEST SECTION 5.3: CONTINUOUS VARIABLE TESTS
 * =============================================================================
-display as text _n "{hline 70}"
-display as text "SECTION 5.3: Continuous Variable Tests"
-display as text "{hline 70}"
+if `quiet' == 0 {
+    display as text _n "{hline 70}"
+    display as text "SECTION 5.3: Continuous Variable Tests"
+    display as text "{hline 70}"
+}
 
 * -----------------------------------------------------------------------------
 * Test 5.3.1: Continuous Interpolation
 * Purpose: Verify continuous values are pro-rated correctly
 * -----------------------------------------------------------------------------
 local ++test_count
-display as text _n "Test 5.3.1: Continuous Variable Interpolation"
+if `quiet' == 0 {
+    display as text _n "Test 5.3.1: Continuous Variable Interpolation"
+}
 
 capture {
     tvmerge "${DATA_DIR}/tvmerge_ds1_cont.dta" "${DATA_DIR}/tvmerge_ds2_cont.dta", ///
@@ -425,16 +439,20 @@ else {
 * =============================================================================
 * TEST SECTION 5.4: ID MATCHING TESTS
 * =============================================================================
-display as text _n "{hline 70}"
-display as text "SECTION 5.4: ID Matching Tests"
-display as text "{hline 70}"
+if `quiet' == 0 {
+    display as text _n "{hline 70}"
+    display as text "SECTION 5.4: ID Matching Tests"
+    display as text "{hline 70}"
+}
 
 * -----------------------------------------------------------------------------
 * Test 5.4.1: ID Intersection Behavior (Without Force)
 * Purpose: Verify error when IDs don't match without force option
 * -----------------------------------------------------------------------------
 local ++test_count
-display as text _n "Test 5.4.1: ID Mismatch Without Force"
+if `quiet' == 0 {
+    display as text _n "Test 5.4.1: ID Mismatch Without Force"
+}
 
 capture {
     * Without force: should error on mismatch
@@ -460,7 +478,9 @@ else {
 * Purpose: Verify force option allows ID mismatches with intersection
 * -----------------------------------------------------------------------------
 local ++test_count
-display as text _n "Test 5.4.2: ID Intersection With Force"
+if `quiet' == 0 {
+    display as text _n "Test 5.4.2: ID Intersection With Force"
+}
 
 capture {
     * With force: should warn and keep only intersection (IDs 2, 3)
@@ -498,16 +518,20 @@ else {
 * =============================================================================
 * TEST SECTION 5.5: THREE-WAY MERGE TESTS
 * =============================================================================
-display as text _n "{hline 70}"
-display as text "SECTION 5.5: Three-Way Merge Tests"
-display as text "{hline 70}"
+if `quiet' == 0 {
+    display as text _n "{hline 70}"
+    display as text "SECTION 5.5: Three-Way Merge Tests"
+    display as text "{hline 70}"
+}
 
 * -----------------------------------------------------------------------------
 * Test 5.5.1: Three Dataset Intersection
 * Purpose: Verify three-way merge creates correct intersection
 * -----------------------------------------------------------------------------
 local ++test_count
-display as text _n "Test 5.5.1: Three-Way Merge Intersection"
+if `quiet' == 0 {
+    display as text _n "Test 5.5.1: Three-Way Merge Intersection"
+}
 
 capture {
     * ds1: Jan-Sep (21915-22189)
@@ -545,7 +569,9 @@ else {
 * Purpose: Verify duration of three-way intersection is correct
 * -----------------------------------------------------------------------------
 local ++test_count
-display as text _n "Test 5.5.2: Three-Way Merge Duration"
+if `quiet' == 0 {
+    display as text _n "Test 5.5.2: Three-Way Merge Duration"
+}
 
 capture {
     tvmerge "${DATA_DIR}/tvmerge_3way_ds1.dta" "${DATA_DIR}/tvmerge_3way_ds2.dta" ///
@@ -572,16 +598,20 @@ else {
 * =============================================================================
 * TEST SECTION: ERROR HANDLING
 * =============================================================================
-display as text _n "{hline 70}"
-display as text "ERROR HANDLING TESTS"
-display as text "{hline 70}"
+if `quiet' == 0 {
+    display as text _n "{hline 70}"
+    display as text "ERROR HANDLING TESTS"
+    display as text "{hline 70}"
+}
 
 * -----------------------------------------------------------------------------
 * Test: Missing Required Options
 * Purpose: Verify errors for missing required inputs
 * -----------------------------------------------------------------------------
 local ++test_count
-display as text _n "Test: Missing Required Options"
+if `quiet' == 0 {
+    display as text _n "Test: Missing Required Options"
+}
 
 capture {
     * Missing id()
@@ -613,7 +643,9 @@ else {
 * Purpose: Verify error when dataset file doesn't exist
 * -----------------------------------------------------------------------------
 local ++test_count
-display as text _n "Test: File Not Found"
+if `quiet' == 0 {
+    display as text _n "Test: File Not Found"
+}
 
 capture {
     capture tvmerge "nonexistent_file.dta" "${DATA_DIR}/tvmerge_ds2_split.dta", ///
@@ -633,15 +665,19 @@ else {
 * =============================================================================
 * INVARIANT TESTS: Properties that must always hold
 * =============================================================================
-display as text _n "{hline 70}"
-display as text "INVARIANT TESTS: Universal Properties"
-display as text "{hline 70}"
+if `quiet' == 0 {
+    display as text _n "{hline 70}"
+    display as text "INVARIANT TESTS: Universal Properties"
+    display as text "{hline 70}"
+}
 
 * -----------------------------------------------------------------------------
 * Invariant 1: Date Ordering (start < stop for all rows)
 * -----------------------------------------------------------------------------
 local ++test_count
-display as text _n "Invariant 1: Date Ordering (start < stop)"
+if `quiet' == 0 {
+    display as text _n "Invariant 1: Date Ordering (start < stop)"
+}
 
 capture {
     tvmerge "${DATA_DIR}/tvmerge_ds1_fullyear.dta" "${DATA_DIR}/tvmerge_ds2_split.dta", ///
@@ -665,7 +701,9 @@ else {
 * Invariant 2: Output Contains Only IDs Present in All Inputs
 * -----------------------------------------------------------------------------
 local ++test_count
-display as text _n "Invariant 2: Output IDs are Intersection of Input IDs"
+if `quiet' == 0 {
+    display as text _n "Invariant 2: Output IDs are Intersection of Input IDs"
+}
 
 capture {
     tvmerge "${DATA_DIR}/tvmerge_ds1_ids123.dta" "${DATA_DIR}/tvmerge_ds2_ids234.dta", ///
@@ -690,7 +728,9 @@ else {
 * Invariant 3: No Duplicate Intervals
 * -----------------------------------------------------------------------------
 local ++test_count
-display as text _n "Invariant 3: No Duplicate Intervals"
+if `quiet' == 0 {
+    display as text _n "Invariant 3: No Duplicate Intervals"
+}
 
 capture {
     tvmerge "${DATA_DIR}/tvmerge_ds1_fullyear.dta" "${DATA_DIR}/tvmerge_ds2_split.dta", ///

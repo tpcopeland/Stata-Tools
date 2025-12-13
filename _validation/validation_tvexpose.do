@@ -269,7 +269,9 @@ else {
 * Purpose: Verify total follow-up time is preserved through transformation
 * -----------------------------------------------------------------------------
 local ++test_count
-display as text _n "Test 3.1.2: Person-Time Conservation"
+if `quiet' == 0 {
+    display as text _n "Test 3.1.2: Person-Time Conservation"
+}
 
 capture {
     use "${DATA_DIR}/cohort_single.dta", clear
@@ -299,7 +301,9 @@ else {
 * Purpose: Verify no intervals overlap within a person
 * -----------------------------------------------------------------------------
 local ++test_count
-display as text _n "Test 3.1.3: Non-Overlapping Intervals"
+if `quiet' == 0 {
+    display as text _n "Test 3.1.3: Non-Overlapping Intervals"
+}
 
 capture {
     use "${DATA_DIR}/cohort_single.dta", clear
@@ -323,16 +327,20 @@ else {
 * =============================================================================
 * TEST SECTION 3.2: CUMULATIVE EXPOSURE TESTS
 * =============================================================================
-display as text _n "{hline 70}"
-display as text "SECTION 3.2: Cumulative Exposure Tests"
-display as text "{hline 70}"
+if `quiet' == 0 {
+    display as text _n "{hline 70}"
+    display as text "SECTION 3.2: Cumulative Exposure Tests"
+    display as text "{hline 70}"
+}
 
 * -----------------------------------------------------------------------------
 * Test 3.2.1: continuousunit() Calculation Verification
 * Purpose: Verify cumulative exposure is calculated correctly in years
 * -----------------------------------------------------------------------------
 local ++test_count
-display as text _n "Test 3.2.1: continuousunit(years) Calculation"
+if `quiet' == 0 {
+    display as text _n "Test 3.2.1: continuousunit(years) Calculation"
+}
 
 capture {
     use "${DATA_DIR}/cohort_single.dta", clear
@@ -362,7 +370,9 @@ else {
 * Purpose: Verify cumulative exposure never decreases within a person
 * -----------------------------------------------------------------------------
 local ++test_count
-display as text _n "Test 3.2.2: Cumulative Monotonicity"
+if `quiet' == 0 {
+    display as text _n "Test 3.2.2: Cumulative Monotonicity"
+}
 
 capture {
     use "${DATA_DIR}/cohort_single.dta", clear
@@ -388,16 +398,20 @@ else {
 * =============================================================================
 * TEST SECTION 3.3: CURRENT/FORMER STATUS TESTS
 * =============================================================================
-display as text _n "{hline 70}"
-display as text "SECTION 3.3: Current/Former Status Tests"
-display as text "{hline 70}"
+if `quiet' == 0 {
+    display as text _n "{hline 70}"
+    display as text "SECTION 3.3: Current/Former Status Tests"
+    display as text "{hline 70}"
+}
 
 * -----------------------------------------------------------------------------
 * Test 3.3.1: currentformer Transitions
 * Purpose: Verify never->current->former transitions are correct
 * -----------------------------------------------------------------------------
 local ++test_count
-display as text _n "Test 3.3.1: currentformer Transitions"
+if `quiet' == 0 {
+    display as text _n "Test 3.3.1: currentformer Transitions"
+}
 
 capture {
     use "${DATA_DIR}/cohort_single.dta", clear
@@ -428,7 +442,9 @@ else {
 * Purpose: Verify once "former", status doesn't revert to "current" without new exposure
 * -----------------------------------------------------------------------------
 local ++test_count
-display as text _n "Test 3.3.2: currentformer Never Reverts to Current"
+if `quiet' == 0 {
+    display as text _n "Test 3.3.2: currentformer Never Reverts to Current"
+}
 
 capture {
     use "${DATA_DIR}/cohort_single.dta", clear
@@ -454,16 +470,20 @@ else {
 * =============================================================================
 * TEST SECTION 3.4: GRACE PERIOD TESTS
 * =============================================================================
-display as text _n "{hline 70}"
-display as text "SECTION 3.4: Grace Period Tests"
-display as text "{hline 70}"
+if `quiet' == 0 {
+    display as text _n "{hline 70}"
+    display as text "SECTION 3.4: Grace Period Tests"
+    display as text "{hline 70}"
+}
 
 * -----------------------------------------------------------------------------
 * Test 3.4.1: Grace Period with Gap > Grace Value
 * Purpose: Verify exposures NOT merged when gap exceeds grace period
 * -----------------------------------------------------------------------------
 local ++test_count
-display as text _n "Test 3.4.1: Grace Period (gap > grace value)"
+if `quiet' == 0 {
+    display as text _n "Test 3.4.1: Grace Period (gap > grace value)"
+}
 
 capture {
     use "${DATA_DIR}/cohort_single.dta", clear
@@ -535,16 +555,20 @@ else {
 * =============================================================================
 * TEST SECTION 3.5: DURATION CATEGORY TESTS
 * =============================================================================
-display as text _n "{hline 70}"
-display as text "SECTION 3.5: Duration Category Tests"
-display as text "{hline 70}"
+if `quiet' == 0 {
+    display as text _n "{hline 70}"
+    display as text "SECTION 3.5: Duration Category Tests"
+    display as text "{hline 70}"
+}
 
 * -----------------------------------------------------------------------------
 * Test 3.5.1: duration() Cutpoint Verification
 * Purpose: Verify duration categories are assigned correctly at thresholds
 * -----------------------------------------------------------------------------
 local ++test_count
-display as text _n "Test 3.5.1: duration() Cutpoint Assignment"
+if `quiet' == 0 {
+    display as text _n "Test 3.5.1: duration() Cutpoint Assignment"
+}
 
 capture {
     use "${DATA_DIR}/cohort_single.dta", clear
@@ -579,16 +603,20 @@ else {
 * =============================================================================
 * TEST SECTION 3.6: LAG AND WASHOUT TESTS
 * =============================================================================
-display as text _n "{hline 70}"
-display as text "SECTION 3.6: Lag and Washout Tests"
-display as text "{hline 70}"
+if `quiet' == 0 {
+    display as text _n "{hline 70}"
+    display as text "SECTION 3.6: Lag and Washout Tests"
+    display as text "{hline 70}"
+}
 
 * -----------------------------------------------------------------------------
 * Test 3.6.1: lag() Delays Exposure Start
 * Purpose: Verify exposure becomes active only after lag period
 * -----------------------------------------------------------------------------
 local ++test_count
-display as text _n "Test 3.6.1: lag() Delays Exposure Start"
+if `quiet' == 0 {
+    display as text _n "Test 3.6.1: lag() Delays Exposure Start"
+}
 
 capture {
     use "${DATA_DIR}/cohort_single.dta", clear
@@ -620,7 +648,9 @@ else {
 * Purpose: Verify exposure persists after nominal stop date
 * -----------------------------------------------------------------------------
 local ++test_count
-display as text _n "Test 3.6.2: washout() Extends Exposure End"
+if `quiet' == 0 {
+    display as text _n "Test 3.6.2: washout() Extends Exposure End"
+}
 
 capture {
     use "${DATA_DIR}/cohort_single.dta", clear
@@ -650,16 +680,20 @@ else {
 * =============================================================================
 * TEST SECTION 3.7: OVERLAPPING EXPOSURE TESTS
 * =============================================================================
-display as text _n "{hline 70}"
-display as text "SECTION 3.7: Overlapping Exposure Tests"
-display as text "{hline 70}"
+if `quiet' == 0 {
+    display as text _n "{hline 70}"
+    display as text "SECTION 3.7: Overlapping Exposure Tests"
+    display as text "{hline 70}"
+}
 
 * -----------------------------------------------------------------------------
 * Test 3.7.1: priority() Resolves Overlaps Correctly
 * Purpose: Verify higher priority exposure takes precedence during overlap
 * -----------------------------------------------------------------------------
 local ++test_count
-display as text _n "Test 3.7.1: priority() Resolves Overlaps"
+if `quiet' == 0 {
+    display as text _n "Test 3.7.1: priority() Resolves Overlaps"
+}
 
 capture {
     use "${DATA_DIR}/cohort_single.dta", clear
@@ -686,16 +720,20 @@ else {
 * =============================================================================
 * TEST SECTION 3.8: EVERTREATED TESTS
 * =============================================================================
-display as text _n "{hline 70}"
-display as text "SECTION 3.8: evertreated Tests"
-display as text "{hline 70}"
+if `quiet' == 0 {
+    display as text _n "{hline 70}"
+    display as text "SECTION 3.8: evertreated Tests"
+    display as text "{hline 70}"
+}
 
 * -----------------------------------------------------------------------------
 * Test 3.8.1: evertreated Never Reverts
 * Purpose: Verify once exposed, status never returns to unexposed
 * -----------------------------------------------------------------------------
 local ++test_count
-display as text _n "Test 3.8.1: evertreated Never Reverts"
+if `quiet' == 0 {
+    display as text _n "Test 3.8.1: evertreated Never Reverts"
+}
 
 capture {
     use "${DATA_DIR}/cohort_single.dta", clear
@@ -723,7 +761,9 @@ else {
 * Purpose: Verify exact timing of ever-treated transition
 * -----------------------------------------------------------------------------
 local ++test_count
-display as text _n "Test 3.8.2: evertreated Switches at First Exposure"
+if `quiet' == 0 {
+    display as text _n "Test 3.8.2: evertreated Switches at First Exposure"
+}
 
 capture {
     use "${DATA_DIR}/cohort_single.dta", clear
@@ -761,16 +801,20 @@ else {
 * =============================================================================
 * TEST SECTION 3.17: ERROR HANDLING TESTS
 * =============================================================================
-display as text _n "{hline 70}"
-display as text "SECTION 3.17: Error Handling Tests"
-display as text "{hline 70}"
+if `quiet' == 0 {
+    display as text _n "{hline 70}"
+    display as text "SECTION 3.17: Error Handling Tests"
+    display as text "{hline 70}"
+}
 
 * -----------------------------------------------------------------------------
 * Test 3.17.1: Missing Required Options
 * Purpose: Verify informative errors for missing required inputs
 * -----------------------------------------------------------------------------
 local ++test_count
-display as text _n "Test 3.17.1: Missing Required Options"
+if `quiet' == 0 {
+    display as text _n "Test 3.17.1: Missing Required Options"
+}
 
 capture {
     * Missing id()
@@ -805,7 +849,9 @@ else {
 * Purpose: Verify clear errors when specified variables don't exist
 * -----------------------------------------------------------------------------
 local ++test_count
-display as text _n "Test 3.17.3: Variable Not Found"
+if `quiet' == 0 {
+    display as text _n "Test 3.17.3: Variable Not Found"
+}
 
 capture {
     use "${DATA_DIR}/cohort_single.dta", clear
@@ -827,16 +873,20 @@ else {
 * =============================================================================
 * TEST SECTION 3.18: DATE FORMAT PRESERVATION TESTS
 * =============================================================================
-display as text _n "{hline 70}"
-display as text "SECTION 3.18: Date Format Preservation Tests"
-display as text "{hline 70}"
+if `quiet' == 0 {
+    display as text _n "{hline 70}"
+    display as text "SECTION 3.18: Date Format Preservation Tests"
+    display as text "{hline 70}"
+}
 
 * -----------------------------------------------------------------------------
 * Test 3.18.1: Format Retained Through Transformation
 * Purpose: Verify date format from input is preserved in output
 * -----------------------------------------------------------------------------
 local ++test_count
-display as text _n "Test 3.18.1: Date Format Preserved"
+if `quiet' == 0 {
+    display as text _n "Test 3.18.1: Date Format Preserved"
+}
 
 capture {
     * Create data with specific date format
@@ -869,15 +919,19 @@ else {
 * =============================================================================
 * INVARIANT TESTS: Properties that must always hold
 * =============================================================================
-display as text _n "{hline 70}"
-display as text "INVARIANT TESTS: Universal Properties"
-display as text "{hline 70}"
+if `quiet' == 0 {
+    display as text _n "{hline 70}"
+    display as text "INVARIANT TESTS: Universal Properties"
+    display as text "{hline 70}"
+}
 
 * -----------------------------------------------------------------------------
 * Invariant 1: Date Ordering (start < stop for all rows)
 * -----------------------------------------------------------------------------
 local ++test_count
-display as text _n "Invariant 1: Date Ordering (start < stop)"
+if `quiet' == 0 {
+    display as text _n "Invariant 1: Date Ordering (start < stop)"
+}
 
 capture {
     use "${DATA_DIR}/cohort_single.dta", clear
@@ -902,7 +956,9 @@ else {
 * Invariant 2: Exposure Values Only Valid Categories
 * -----------------------------------------------------------------------------
 local ++test_count
-display as text _n "Invariant 2: Valid Exposure Categories"
+if `quiet' == 0 {
+    display as text _n "Invariant 2: Valid Exposure Categories"
+}
 
 capture {
     use "${DATA_DIR}/cohort_single.dta", clear
