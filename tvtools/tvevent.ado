@@ -1,4 +1,4 @@
-*! tvevent Version 1.2.0  13dec2025
+*! tvevent Version 1.3.0  13dec2025
 *! Add event/failure flags to time-varying datasets
 *! Author: Tim Copeland
 *!
@@ -356,32 +356,128 @@ program define tvevent, rclass
         
         **# 4. EXECUTE SPLITS
         * intervals data is still in memory
-        
-        tempvar orig_dur new_dur ratio
-        gen double `orig_dur' = `stopvar' - `startvar'
+
+        * Use regular variable names (not tempvars) for values that must persist across file saves
+        gen double _orig_dur = `stopvar' - `startvar'
+        gen long _orig_interval_id = _n
 
         if `n_splits' > 0 {
             noisily di as txt "Splitting intervals for `n_splits' internal events..."
+
+            * Join with split points - creates row per (interval, split_date) combination
             joinby `id' using `splits', unmatched(master)
-            gen long _needs_split = (`date' > `startvar' & `date' < `stopvar')
-            expand 2 if _needs_split, gen(_copy)
-            replace `stopvar' = `date' if _needs_split & _copy == 0
-            replace `startvar' = `date' if _needs_split & _copy == 1
-            drop _needs_split _copy `date'
+
+            * Mark valid splits (date falls strictly within this specific interval)
+            gen byte _valid_split = (`date' > `startvar' & `date' < `stopvar') & !missing(`date')
+
+            * For intervals with multiple split points, we need to:
+            * 1. Collect all split points for each original interval
+            * 2. Create sequential non-overlapping segments
+
+            * Count valid splits per original interval
+            bysort _orig_interval_id: egen long _n_splits_this = total(_valid_split)
+
+            * Separate intervals that need splitting from those that don't
+            tempfile no_splits needs_splits
+            preserve
+            keep if _n_splits_this == 0
+            drop `date' _valid_split _n_splits_this
+            * Remove duplicate rows created by joinby for intervals with no valid splits
+            duplicates drop
+            save `no_splits'
+            restore
+
+            * Process intervals that need splitting
+            keep if _n_splits_this > 0 & _valid_split == 1
+
+            * For each original interval, number the split points in order
+            bysort _orig_interval_id (`date'): gen long _split_rank = _n
+            bysort _orig_interval_id: gen long _total_splits = _N
+
+            * Reshape wide: one row per original interval with all split dates
+            * First, save the split dates
+            tempfile split_dates
+            keep _orig_interval_id `date' _split_rank
+            reshape wide `date', i(_orig_interval_id) j(_split_rank)
+            save `split_dates'
+
+            * Go back to get one row per original interval with all its data
+            use `intervals', clear
+            gen long _orig_interval_id = _n
+            gen double _orig_dur = `stopvar' - `startvar'
+
+            * Merge in split dates
+            merge 1:1 _orig_interval_id using `split_dates', keep(match) nogen
+
+            * Count splits (number of date* variables that exist)
+            local max_splits = 0
+            foreach v of varlist `date'* {
+                local max_splits = `max_splits' + 1
+            }
+
+            * Calculate how many segments each interval needs
+            gen long _n_segments = 0
+            forvalues i = 1/`max_splits' {
+                capture confirm variable `date'`i'
+                if _rc == 0 {
+                    replace _n_segments = _n_segments + 1 if !missing(`date'`i')
+                }
+            }
+            replace _n_segments = _n_segments + 1  // splits + 1 = segments
+
+            * Expand to create one row per segment
+            expand _n_segments
+            bysort _orig_interval_id: gen long _seg_num = _n
+
+            * Set segment boundaries
+            * Segment 1: [original_start, split1]
+            * Segment 2: [split1, split2]
+            * ...
+            * Segment N: [split(N-1), original_stop]
+
+            tempvar new_start new_stop
+            gen double `new_start' = `startvar'
+            gen double `new_stop' = `stopvar'
+
+            * For each segment, set the correct boundaries
+            forvalues i = 1/`max_splits' {
+                capture confirm variable `date'`i'
+                if _rc == 0 {
+                    * Segment i ends at split point i (if it exists)
+                    replace `new_stop' = `date'`i' if _seg_num == `i' & !missing(`date'`i')
+                    * Segment i+1 starts at split point i (if segment i+1 exists)
+                    replace `new_start' = `date'`i' if _seg_num == `i' + 1 & !missing(`date'`i')
+                }
+            }
+
+            replace `startvar' = `new_start'
+            replace `stopvar' = `new_stop'
+
+            * Clean up temporary variables
+            drop `new_start' `new_stop' _n_segments _seg_num
+            capture drop `date'*
+
+            save `needs_splits'
+
+            * Combine intervals that didn't need splitting with those that did
+            use `no_splits', clear
+            append using `needs_splits'
+
             sort `id' `startvar' `stopvar'
             duplicates drop `id' `startvar' `stopvar', force
         }
-        
+
         * Adjust Continuous Variables
         if "`continuous'" != "" {
+            tempvar new_dur ratio
             gen double `new_dur' = `stopvar' - `startvar'
-            gen double `ratio' = cond(`orig_dur' == 0 | `new_dur' == 0, 1, `new_dur' / `orig_dur')
+            gen double `ratio' = cond(_orig_dur == 0 | `new_dur' == 0, 1, `new_dur' / _orig_dur)
             foreach v of local continuous {
                 replace `v' = `v' * `ratio'
             }
             drop `new_dur' `ratio'
         }
-        drop `orig_dur'
+        drop _orig_dur _orig_interval_id
 
         **# 5. MERGE EVENT FLAGS
         
