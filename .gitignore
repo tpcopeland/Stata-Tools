@@ -2,5 +2,6 @@
 __pycache__/
 *.pyc
 _testing/data/*.dta
+_testing/data/*.md
 *.smcl
 *.log
