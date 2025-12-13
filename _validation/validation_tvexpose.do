@@ -1038,9 +1038,10 @@ if `quiet' == 0 {
 
 capture {
     use "${DATA_DIR}/cohort_single.dta", clear
+    * bytype requires an exposure type option (evertreated, currentformer, duration, continuousunit, or recency)
     tvexpose using "${DATA_DIR}/exp_two.dta", id(id) start(rx_start) stop(rx_stop) ///
         exposure(exp_type) reference(0) entry(study_entry) exit(study_exit) ///
-        bytype generate(tv_exp)
+        continuousunit(days) bytype generate(tv_exp)
 
     * Should have tv_exp1 and tv_exp2 (for exposure types 1 and 2)
     confirm variable tv_exp1
@@ -1473,11 +1474,11 @@ capture {
         exposure(exp_type) reference(0) entry(study_entry) exit(study_exit) ///
         switching generate(tv_exp)
 
-    * Verify has_switched variable exists
-    confirm variable has_switched
+    * Verify ever_switched variable exists
+    confirm variable ever_switched
 
     * Should be 0 or 1 only
-    quietly count if has_switched < 0 | has_switched > 1
+    quietly count if ever_switched < 0 | ever_switched > 1
     assert r(N) == 0
 }
 if _rc == 0 {
@@ -1534,11 +1535,11 @@ capture {
         exposure(exp_type) reference(0) entry(study_entry) exit(study_exit) ///
         statetime generate(tv_exp)
 
-    * Verify state_time variable exists
-    confirm variable state_time
+    * Verify state_time_years variable exists
+    confirm variable state_time_years
 
     * Should be non-negative
-    quietly count if state_time < 0
+    quietly count if state_time_years < 0
     assert r(N) == 0
 }
 if _rc == 0 {

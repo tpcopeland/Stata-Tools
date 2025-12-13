@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.3.0  2025/12/13}{...}
+{* *! version 1.3.1  2025/12/13}{...}
 {vieweralsosee "[ST] stset" "help stset"}{...}
 {vieweralsosee "[ST] stcrreg" "help stcrreg"}{...}
 {vieweralsosee "tvexpose" "help tvexpose"}{...}
@@ -49,6 +49,8 @@
 {syntab:Data handling}
 {synopt:{opt keep:vars(varlist)}}additional variables to keep from event dataset{p_end}
 {synopt:{opt replace}}replace output variables if they already exist{p_end}
+{synopt:{opt start:var(varname)}}name of start date variable in using file (default: start){p_end}
+{synopt:{opt stop:var(varname)}}name of stop date variable in using file (default: stop){p_end}
 {synoptline}
 {p2colreset}{...}
 
@@ -60,12 +62,17 @@
 {cmd:tvevent} is the third step in the {bf:tvtools} workflow. It processes time-varying datasets (created by {helpb tvexpose} and {helpb tvmerge}) to integrate outcomes and competing risks.
 
 {pstd}
-{bf:Important:} The master dataset (currently in memory) must contain variables named {cmd:start} and {cmd:stop}
-representing the interval boundaries. These are created automatically by {helpb tvexpose} and {helpb tvmerge}.
+{bf:Data structure:}
+{break}{cmd:Master (in memory):} Event data containing {cmd:id()}, {cmd:date()}, and optionally {cmd:compete()} variables.
+{break}{cmd:Using file:} Interval data from {helpb tvexpose} or {helpb tvmerge} containing id, start, and stop variables.
 
 {pstd}
-By default, {cmd:tvevent} keeps all variables from the master dataset (the cohort dataset in memory before
-{cmd:tvevent} is run). Variables are merged back based on id, start, and stop.
+The using file must contain variables for interval boundaries. By default, these are named {cmd:start} and {cmd:stop}
+(as created by {helpb tvexpose} and {helpb tvmerge}). Use {cmd:startvar()} and {cmd:stopvar()} to specify different names.
+
+{pstd}
+By default, {cmd:tvevent} keeps all variables from the master dataset (the event data in memory before
+{cmd:tvevent} is run). Variables are merged back based on id and event date.
 
 {pstd}
 It performs the following key tasks:
@@ -123,6 +130,12 @@ not supported with recurring events.
 
 {phang}
 {opt keepvars(varlist)} specifies additional variables to keep from the event dataset (e.g., diagnosis codes). These will be populated only on the rows where the event occurred. Note that all variables from the master dataset (in memory before {cmd:tvevent}) are kept by default.
+
+{phang}
+{opt startvar(varname)} specifies the name of the start date variable in the using (interval) dataset. Default is {cmd:start}.
+
+{phang}
+{opt stopvar(varname)} specifies the name of the stop date variable in the using (interval) dataset. Default is {cmd:stop}.
 
 
 {marker examples}{...}
@@ -315,7 +328,7 @@ Full pipeline showing tvexpose, tvmerge, and tvevent integration:
 {pstd}Timothy P Copeland{p_end}
 {pstd}Department of Clinical Neuroscience{p_end}
 {pstd}Karolinska Institutet{p_end}
-{pstd}Version 1.3.0, 2025-12-13{p_end}
+{pstd}Version 1.3.1, 2025-12-13{p_end}
 
 {title:Also see}
 

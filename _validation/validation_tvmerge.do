@@ -804,9 +804,9 @@ capture {
         id(id) start(start1 start2) stop(stop1 stop2) ///
         exposure(exp1 exp2) prefix(tv_)
 
-    * Verify prefixed variable names exist
-    confirm variable tv_1
-    confirm variable tv_2
+    * Verify prefixed variable names exist (prefix + original name)
+    confirm variable tv_exp1
+    confirm variable tv_exp2
 }
 if _rc == 0 {
     display as result "  PASS: prefix() adds prefix to variable names"
