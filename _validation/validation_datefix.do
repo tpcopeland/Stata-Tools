@@ -112,7 +112,7 @@ if `quiet' == 0 {
 clear
 input str20 date_ymd str20 date_mdy str20 date_dmy double expected_stata
     "2020-01-01" "01/01/2020" "01/01/2020" 21915
-    "2020-06-15" "06/15/2020" "15/06/2020" 22082
+    "2020-06-15" "06/15/2020" "15/06/2020" 22081
     "2020-12-31" "12/31/2020" "31/12/2020" 22280
     "2000-01-01" "01/01/2000" "01/01/2000" 14610
     "1960-01-01" "01/01/1960" "01/01/1960" 0
@@ -546,10 +546,10 @@ capture {
     datefix mdy, order(MDY)
     datefix dmy, order(DMY)
 
-    * All should equal 22082
+    * All should equal 22081
     assert ymd == mdy
     assert mdy == dmy
-    assert ymd == 22082
+    assert ymd == 22081
 }
 if _rc == 0 {
     display as result "  PASS: All formats produce same result"
