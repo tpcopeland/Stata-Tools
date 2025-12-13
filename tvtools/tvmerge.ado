@@ -1,4 +1,4 @@
-*! tvmerge Version 1.0.2  2025/12/05
+*! tvmerge Version 1.0.3  2025/12/13
 *! Merge multiple time-varying exposure datasets
 *! Author: Tim Copeland
 *! Program class: rclass (returns results in r())
@@ -759,6 +759,16 @@ program define tvmerge, rclass
                     }
 
                     noisily di as text "  Note: Only IDs present in ALL datasets will appear in the output."
+
+                    * Filter merged_data to keep only IDs present in both datasets
+                    keep if _merge_check == 3
+                    keep id
+                    tempfile valid_ids
+                    save `valid_ids', replace
+
+                    use `merged_data', clear
+                    merge m:1 id using `valid_ids', keep(match) nogenerate
+                    save `merged_data', replace
                 }
             }
 
@@ -914,35 +924,49 @@ program define tvmerge, rclass
         local dupvars "id `startname' `stopname' `final_exps'"
         quietly count
         local n_before_dedup = r(N)
-        duplicates drop `dupvars', force
-        quietly count
-        local n_after_dedup = r(N)
+        if `n_before_dedup' > 0 {
+            duplicates drop `dupvars', force
+            quietly count
+            local n_after_dedup = r(N)
+        }
+        else {
+            local n_after_dedup = 0
+        }
         local n_dups = `n_before_dedup' - `n_after_dedup'
-        
+
         * Sort final dataset
-        sort id `startname' `stopname'
+        if _N > 0 {
+            sort id `startname' `stopname'
+        }
         
         * Apply date format to start and stop
         format `startname' `stopname' `dateformat'
         
         **# CALCULATE DIAGNOSTICS
-        
+
         * Count unique persons
-        egen long _tag = tag(id)
-        quietly count if _tag == 1
-        local n_persons = r(N)
-        drop _tag
-        
-        * Calculate average and max periods per person
-        by id: generate long _nper = _N
-        quietly summarize _nper, meanonly
-        local avg_periods = r(mean)
-        local max_periods = r(max)
-        drop _nper
+        if _N > 0 {
+            egen long _tag = tag(id)
+            quietly count if _tag == 1
+            local n_persons = r(N)
+            drop _tag
+
+            * Calculate average and max periods per person
+            by id: generate long _nper = _N
+            quietly summarize _nper, meanonly
+            local avg_periods = r(mean)
+            local max_periods = r(max)
+            drop _nper
+        }
+        else {
+            local n_persons = 0
+            local avg_periods = 0
+            local max_periods = 0
+        }
         
         * Validate coverage if requested
         * This checks for gaps in coverage within each person's time span
-        if "`validatecoverage'" != "" {
+        if "`validatecoverage'" != "" & _N > 0 {
             * Check for gaps between consecutive periods
             bysort id (`startname'): generate double _gap = `startname'[_n] - `stopname'[_n-1] if _n > 1
             
@@ -1009,25 +1033,32 @@ program define tvmerge, rclass
         save `current', replace
         
         **# STORE RETURN RESULTS
-        
+
         * Store scalar results
         return scalar N = _N
 
-        * Count and store unique persons
-        egen long _tag = tag(id)
-        quietly count if _tag == 1
-        return scalar N_persons = r(N)
-        drop _tag
-        
-        * Calculate and store periods per person statistics
-        by id: generate long _per = _n
-        by id: generate long _per_max = _N
-        quietly summarize _per, meanonly
-        return scalar mean_periods = r(mean)
-        quietly summarize _per_max, meanonly
-        return scalar max_periods = r(max)
-        drop _per _per_max
-        
+        if _N > 0 {
+            * Count and store unique persons
+            egen long _tag = tag(id)
+            quietly count if _tag == 1
+            return scalar N_persons = r(N)
+            drop _tag
+
+            * Calculate and store periods per person statistics
+            by id: generate long _per = _n
+            by id: generate long _per_max = _N
+            quietly summarize _per, meanonly
+            return scalar mean_periods = r(mean)
+            quietly summarize _per_max, meanonly
+            return scalar max_periods = r(max)
+            drop _per _per_max
+        }
+        else {
+            return scalar N_persons = 0
+            return scalar mean_periods = 0
+            return scalar max_periods = 0
+        }
+
         * Store number of merged datasets
         return scalar N_datasets = `numds'
         

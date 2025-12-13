@@ -1,4 +1,4 @@
-*! tvexpose Version 1.1.1  2025/12/11
+*! tvexpose Version 1.1.2  2025/12/13
 *! Create time-varying exposure variables for survival analysis
 *! Author: Tim Copeland
 *! Program class: rclass (returns results in r())
@@ -1811,9 +1811,9 @@ program define tvexpose, rclass
         isid id
         quietly merge 1:1 id using `earliest', nogen keep(1 3)
         
-        * Create baseline period from entry to day before first exposure
+        * Create baseline period from entry to first exposure start (half-open interval)
         quietly generate double exp_start = study_entry
-        quietly generate double exp_stop = earliest_exp - 1 if !missing(earliest_exp)
+        quietly generate double exp_stop = earliest_exp if !missing(earliest_exp)
         * If no exposure ever, baseline extends to exit
         quietly replace exp_stop = study_exit if missing(exp_stop)
         
@@ -1843,9 +1843,9 @@ program define tvexpose, rclass
     
     * Only create post-exposure period if gap exists between last exposure and exit
     quietly keep if last_exp_stop < study_exit
-    
+
     quietly gen exp_value = `reference'
-    quietly generate double exp_start = last_exp_stop + 1
+    quietly generate double exp_start = last_exp_stop  // Half-open interval starts at exposure end
     quietly generate double exp_stop = study_exit
     
     keep id exp_start exp_stop exp_value
