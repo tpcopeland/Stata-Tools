@@ -1199,6 +1199,7 @@ else {
 * -----------------------------------------------------------------------------
 * Test 3.12.2: merge() Consolidates Close Periods
 * Purpose: Verify merge() option merges periods within threshold
+* Note: merge() must be positive (>=1), default is 120
 * -----------------------------------------------------------------------------
 local ++test_count
 if `quiet' == 0 {
@@ -1208,20 +1209,20 @@ if `quiet' == 0 {
 capture {
     use "${DATA_DIR}/cohort_single.dta", clear
 
-    * Get count with no merge option (should have more intervals)
+    * Get count with minimal merge (merge=1: only merge periods 1 day apart)
     tvexpose using "${DATA_DIR}/exp_gap15.dta", id(id) start(rx_start) stop(rx_stop) ///
         exposure(exp_type) reference(0) entry(study_entry) exit(study_exit) ///
-        merge(0) generate(tv_no_merge)
+        merge(1) generate(tv_no_merge)
     local n_no_merge = _N
 
-    * With merge(30) - should consolidate nearby periods
+    * With merge(30) - should consolidate nearby periods (15-day gap would be merged)
     use "${DATA_DIR}/cohort_single.dta", clear
     tvexpose using "${DATA_DIR}/exp_gap15.dta", id(id) start(rx_start) stop(rx_stop) ///
         exposure(exp_type) reference(0) entry(study_entry) exit(study_exit) ///
         merge(30) generate(tv_merge)
     local n_merge = _N
 
-    * Should have equal or fewer intervals after merge
+    * Should have equal or fewer intervals after larger merge threshold
     assert `n_merge' <= `n_no_merge'
 }
 if _rc == 0 {

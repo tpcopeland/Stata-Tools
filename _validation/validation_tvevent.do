@@ -1381,28 +1381,32 @@ else {
 }
 
 * -----------------------------------------------------------------------------
-* Test 4.18.2: compete() Not Allowed with type(recurring)
-* Purpose: Verify error when compete() used with type(recurring)
+* Test 4.18.2: compete() Ignored with type(recurring)
+* Purpose: Verify compete() is silently ignored (not error) with type(recurring)
+* Note: tvevent displays a note and ignores compete() rather than erroring
 * -----------------------------------------------------------------------------
 local ++test_count
 if `quiet' == 0 {
-    display as text _n "Test 4.18.2: compete() Invalid with type(recurring)"
+    display as text _n "Test 4.18.2: compete() Ignored with type(recurring)"
 }
 
 capture {
     use "${DATA_DIR}/events_recurring_wide.dta", clear
-    capture tvevent using "${DATA_DIR}/intervals_fullyear.dta", id(id) date(hosp) ///
+    tvevent using "${DATA_DIR}/intervals_fullyear.dta", id(id) date(hosp) ///
         startvar(start) stopvar(stop) ///
         type(recurring) compete(hosp2) generate(outcome)
-    * This should error since compete() isn't allowed with recurring
-    assert _rc != 0
+    * Command should succeed (compete() is ignored, not error)
+    * Outcome should only have values 0 and 1 (no competing risk value 2)
+    quietly tab outcome
+    quietly count if outcome == 2
+    assert r(N) == 0  // No competing risk outcomes since compete() was ignored
 }
 if _rc == 0 {
-    display as result "  PASS: compete() with type(recurring) produces error"
+    display as result "  PASS: compete() with type(recurring) is ignored (no error)"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: compete() with recurring error (error `=_rc')"
+    display as error "  FAIL: compete() with recurring handling (error `=_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' 4.18.2"
 }

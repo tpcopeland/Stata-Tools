@@ -1171,6 +1171,7 @@ else {
 * -----------------------------------------------------------------------------
 * Test 5.10.2: Stored Macros
 * Purpose: Verify r() macros are correctly stored
+* Note: r(datasets) contains quoted paths that need compound quoting
 * -----------------------------------------------------------------------------
 local ++test_count
 if `quiet' == 0 {
@@ -1182,9 +1183,11 @@ capture {
         id(id) start(start1 start2) stop(stop1 stop2) ///
         exposure(exp1 exp2) generate(hrt dmt)
 
-    * Verify macros exist
-    assert "`r(datasets)'" != ""
-    assert "`r(exposure_vars)'" != ""
+    * Verify macros exist (use compound quotes for r(datasets) which contains paths)
+    local ds_count : word count `r(datasets)'
+    assert `ds_count' >= 1
+    local exp_count : word count `r(exposure_vars)'
+    assert `exp_count' >= 1
 }
 if _rc == 0 {
     display as result "  PASS: Stored macros are correctly set"

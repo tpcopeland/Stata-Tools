@@ -1,4 +1,4 @@
-*! tvexpose Version 1.1.2  2025/12/13
+*! tvexpose Version 1.1.3  2025/12/13
 *! Create time-varying exposure variables for survival analysis
 *! Author: Tim Copeland
 *! Program class: rclass (returns results in r())
@@ -4032,8 +4032,8 @@ program define tvexpose, rclass
         * Keep one row per person for display
         quietly by id: keep if _n == 1
         
-        * Display sample of results
-        noisily list id pct_covered n_periods n_gaps in 1/20, clean noobs
+        * Display sample of results (limit to actual number of observations)
+        noisily list id pct_covered n_periods n_gaps in 1/`=min(_N,20)', clean noobs
         
         * Display summary statistics
         quietly sum pct_covered
