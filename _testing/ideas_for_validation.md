@@ -39,6 +39,10 @@
 | **Competing Risk Resolution** | No verification earliest date wins correctly | Wrong competing risk assignment |
 | **Label Verification** | No tests check value labels are applied correctly | Missing/wrong labels |
 | **Missing Value Handling** | Limited testing of missing date scenarios | Unexpected missing data behavior |
+| **Date Format Preservation** | No verification that date formats from input are preserved | Display issues |
+| **Error Handling** | Limited testing of graceful failure with invalid inputs | Cryptic errors |
+| **String ID Handling** | Most tests use numeric IDs, string IDs not tested | ID matching failures |
+| **Same-Day Events** | No testing of multiple events on same date | Event loss or duplication |
 
 ---
 
@@ -50,13 +54,18 @@ Create minimal datasets where you can calculate expected results by hand:
 
 ```
 Input:
-  Person 1: Study Jan 1-Dec 31, 2020
+  Person 1: Study Jan 1-Dec 31, 2020 (leap year)
             Exposure Mar 1-Jun 30, 2020 (type=1)
 
-Expected output:
-  Person 1, Row 1: Jan 1 - Feb 29, tv_exp=0 (91 days unexposed)
-  Person 1, Row 2: Mar 1 - Jun 30, tv_exp=1 (122 days exposed)
-  Person 1, Row 3: Jul 1 - Dec 31, tv_exp=0 (184 days unexposed)
+Expected output (assuming exclusive stop dates, i.e., stop = day after last day):
+  Person 1, Row 1: Jan 1 - Mar 1, tv_exp=0 (60 days: Jan=31, Feb=29)
+  Person 1, Row 2: Mar 1 - Jul 1, tv_exp=1 (122 days: Mar=31, Apr=30, May=31, Jun=30)
+  Person 1, Row 3: Jul 1 - Jan 1 2021, tv_exp=0 (184 days: Jul-Dec)
+  Total: 60 + 122 + 184 = 366 days ✓
+
+Note: Verify whether tvexpose uses inclusive or exclusive stop dates!
+The above assumes exclusive (stop = first day NOT in interval).
+If inclusive (stop = last day IN interval), adjust accordingly.
 ```
 
 ### 2.2 Invariant Testing
@@ -64,10 +73,13 @@ Expected output:
 Properties that must hold regardless of input:
 
 1. **Person-time conservation**: Sum of (stop - start) should equal original (exit - entry)
-2. **ID preservation**: All input IDs appear in output
-3. **Non-overlapping intervals**: Within each ID, no two rows should overlap
+2. **ID preservation**: All input IDs appear in output (for tvexpose); intersection of IDs (for tvmerge)
+3. **Non-overlapping intervals**: Within each ID, no two rows should have overlapping periods
 4. **Monotonic cumulative values**: Cumulative exposure should never decrease within person
 5. **Date ordering**: start < stop for all rows; rows sorted by start within ID
+6. **Contiguous coverage**: For tvexpose, intervals should cover entire study period with no gaps (unless fillgaps/carryforward not used)
+7. **Date format preservation**: Output dates should retain input date format (%td, %tc, etc.)
+8. **Exposure category values**: Output exposure values should only contain valid input categories plus reference
 
 ### 2.3 Boundary Condition Testing
 
@@ -88,6 +100,10 @@ Explicit tests for edge cases:
 
 #### Test 3.1.1: Basic Interval Splitting
 **Purpose**: Verify exposure periods are correctly split at boundaries
+
+**CRITICAL**: First determine whether tvexpose uses inclusive or exclusive stop dates.
+- Inclusive: stop date is the LAST day of the interval (person-time = stop - start + 1)
+- Exclusive: stop date is the FIRST day AFTER the interval (person-time = stop - start)
 
 ```stata
 * Create known data
@@ -111,28 +127,30 @@ tvexpose using exp_test, id(id) start(rx_start) stop(rx_stop) ///
     exposure(exp_type) reference(0) entry(study_entry) exit(study_exit) ///
     generate(tv_exp)
 
-* Verify EXACT values
-assert _N == 3  // Three intervals
+* First: determine how many rows and list them
+assert _N == 3  // Three intervals expected
+sort rx_start
+list id rx_start rx_stop tv_exp, noobs
 
-* Row 1: Before exposure
-assert rx_start[1] == mdy(1,1,2020)
-assert rx_stop[1] == mdy(2,29,2020)  // Day before exposure start
-assert tv_exp[1] == 0
+* Verify person-time conservation FIRST (determines inclusive vs exclusive)
+* Input: 2020 is leap year = 366 days
+* If inclusive stop: ptime = stop - start + 1
+* If exclusive stop: ptime = stop - start
+gen ptime_inclusive = rx_stop - rx_start + 1
+gen ptime_exclusive = rx_stop - rx_start
+egen total_incl = total(ptime_inclusive)
+egen total_excl = total(ptime_exclusive)
 
-* Row 2: During exposure
-assert rx_start[2] == mdy(3,1,2020)
-assert rx_stop[2] == mdy(6,30,2020)
-assert tv_exp[2] == 1
+* One of these should equal 366
+di "Inclusive total: " total_incl[1]
+di "Exclusive total: " total_excl[1]
 
-* Row 3: After exposure
-assert rx_start[3] == mdy(7,1,2020)
-assert rx_stop[3] == mdy(12,31,2020)
-assert tv_exp[3] == 0
+* Assert the correct one (adjust based on actual tvexpose behavior)
+* assert total_incl == 366  // Use if inclusive
+* assert total_excl == 366  // Use if exclusive
 
-* Verify person-time conservation
-gen ptime = rx_stop - rx_start + 1  // +1 for inclusive
-egen total_ptime = total(ptime)
-assert total_ptime == 366  // 2020 is leap year
+* Then verify specific date boundaries match expected
+* (exact assertions depend on inclusive/exclusive determination above)
 ```
 
 #### Test 3.1.2: Person-Time Conservation (General)
@@ -531,6 +549,272 @@ tvexpose using exp_test, id(id) start(rx_start) stop(rx_stop) ///
 * After second period (300mg cumulative): should be category 4 (250+)
 ```
 
+### 3.11 merge() Option Tests
+
+#### Test 3.11.1: merge() Combines Same-Type Periods
+**Purpose**: Verify periods of same exposure type within merge window are combined
+
+```stata
+* Two same-type exposures 60 days apart (within default 120-day merge window)
+clear
+input long id double(rx_start rx_stop) byte exp_type
+    1 mdy(1,1,2020) mdy(1,31,2020) 1   // Jan
+    1 mdy(4,1,2020) mdy(4,30,2020) 1   // Apr (60 days after Jan 31)
+end
+save exp_test, replace
+
+* With default merge(120) - should merge into single period
+use cohort_test, clear
+tvexpose using exp_test, id(id) start(rx_start) stop(rx_stop) ///
+    exposure(exp_type) reference(0) entry(study_entry) exit(study_exit) ///
+    generate(tv_exp)
+
+* Count exposed periods (should be 1 merged period, not 2 separate)
+count if tv_exp == 1
+* Note: Verify expected behavior - does merge() fill the gap or just combine?
+
+* With merge(30) - should NOT merge (gap > 30 days)
+use cohort_test, clear
+tvexpose using exp_test, id(id) start(rx_start) stop(rx_stop) ///
+    exposure(exp_type) reference(0) entry(study_entry) exit(study_exit) ///
+    merge(30) generate(tv_exp)
+
+* Should have 2 separate exposed periods
+```
+
+### 3.12 window() Option Tests
+
+#### Test 3.12.1: window() Creates Acute Exposure Period
+**Purpose**: Verify window() limits exposure to specified time range
+
+```stata
+* Single exposure starting Jan 1
+clear
+input long id double(rx_start rx_stop) byte exp_type
+    1 mdy(1,1,2020) mdy(6,30,2020) 1
+end
+save exp_test, replace
+
+* Window of 30-90 days after exposure start
+use cohort_test, clear
+tvexpose using exp_test, id(id) start(rx_start) stop(rx_stop) ///
+    exposure(exp_type) reference(0) entry(study_entry) exit(study_exit) ///
+    window(30 90) generate(tv_exp)
+
+* Exposed period should only be day 30-90 after Jan 1
+* Days 1-29: unexposed (before window)
+* Days 30-90: exposed (within window)
+* Days 91+: unexposed (after window)
+sort rx_start
+list rx_start rx_stop tv_exp
+```
+
+### 3.13 layer Option Tests
+
+#### Test 3.13.1: layer() Resumes Earlier Exposure After Overlap
+**Purpose**: Verify layer allows overlapping exposures with later taking precedence
+
+```stata
+* Two overlapping exposures
+clear
+input long id double(rx_start rx_stop) byte exp_type
+    1 mdy(1,1,2020) mdy(6,30,2020) 1  // Type 1: Jan-Jun
+    1 mdy(3,1,2020) mdy(4,30,2020) 2  // Type 2: Mar-Apr (overlaps, later in data)
+end
+save exp_test, replace
+
+use cohort_test, clear
+tvexpose using exp_test, id(id) start(rx_start) stop(rx_stop) ///
+    exposure(exp_type) reference(0) entry(study_entry) exit(study_exit) ///
+    layer generate(tv_exp)
+
+* Expected with layer:
+*   Jan-Feb: type 1
+*   Mar-Apr: type 2 (later exposure takes precedence)
+*   May-Jun: type 1 RESUMES after type 2 ends
+sort rx_start
+list rx_start rx_stop tv_exp
+
+* Verify May-Jun is type 1
+gen has_may = (rx_start <= mdy(5,15,2020) & rx_stop >= mdy(5,15,2020))
+assert tv_exp == 1 if has_may == 1
+```
+
+### 3.14 fillgaps() and carryforward() Tests
+
+#### Test 3.14.1: fillgaps() Extends Exposure Beyond Last Record
+**Purpose**: Verify fillgaps() continues exposure for specified days
+
+```stata
+* Exposure ending before study exit
+clear
+input long id double(rx_start rx_stop) byte exp_type
+    1 mdy(1,1,2020) mdy(3,31,2020) 1
+end
+save exp_test, replace
+
+* With fillgaps(30) - exposure should continue 30 days past last record
+use cohort_test, clear
+tvexpose using exp_test, id(id) start(rx_start) stop(rx_stop) ///
+    exposure(exp_type) reference(0) entry(study_entry) exit(study_exit) ///
+    fillgaps(30) generate(tv_exp)
+
+* Check that Apr 15 (15 days after Mar 31) is still exposed
+gen has_apr15 = (rx_start <= mdy(4,15,2020) & rx_stop >= mdy(4,15,2020))
+assert tv_exp == 1 if has_apr15 == 1
+
+* Check that May 15 (45 days after Mar 31) is NOT exposed
+gen has_may15 = (rx_start <= mdy(5,15,2020) & rx_stop >= mdy(5,15,2020))
+assert tv_exp == 0 if has_may15 == 1
+```
+
+#### Test 3.14.2: carryforward() Bridges Gaps in Exposure
+**Purpose**: Verify carryforward() continues exposure through gaps
+
+```stata
+* Two exposures with a gap
+clear
+input long id double(rx_start rx_stop) byte exp_type
+    1 mdy(1,1,2020) mdy(2,29,2020) 1   // Jan-Feb
+    1 mdy(4,1,2020) mdy(5,31,2020) 1   // Apr-May (31-day gap in March)
+end
+save exp_test, replace
+
+* With carryforward(45) - should bridge the 31-day gap
+use cohort_test, clear
+tvexpose using exp_test, id(id) start(rx_start) stop(rx_stop) ///
+    exposure(exp_type) reference(0) entry(study_entry) exit(study_exit) ///
+    carryforward(45) generate(tv_exp)
+
+* March (the gap) should be exposed
+gen has_mar15 = (rx_start <= mdy(3,15,2020) & rx_stop >= mdy(3,15,2020))
+assert tv_exp == 1 if has_mar15 == 1
+```
+
+### 3.15 switching and switchingdetail Tests
+
+#### Test 3.15.1: switching Creates Binary Indicator
+**Purpose**: Verify switching flag is set when exposure type changes
+
+```stata
+* Two different exposure types
+clear
+input long id double(rx_start rx_stop) byte exp_type
+    1 mdy(1,1,2020) mdy(3,31,2020) 1
+    1 mdy(4,1,2020) mdy(6,30,2020) 2  // Switch from type 1 to 2
+end
+save exp_test, replace
+
+use cohort_test, clear
+tvexpose using exp_test, id(id) start(rx_start) stop(rx_stop) ///
+    exposure(exp_type) reference(0) entry(study_entry) exit(study_exit) ///
+    switching generate(tv_exp)
+
+* Verify switching indicator exists
+confirm variable _switching
+
+* After the switch (Apr 1), _switching should be 1
+gen has_apr = (rx_start <= mdy(4,15,2020) & rx_stop >= mdy(4,15,2020))
+assert _switching == 1 if has_apr == 1
+
+* Before the switch (Jan), _switching should be 0
+gen has_jan = (rx_start <= mdy(1,15,2020) & rx_stop >= mdy(1,15,2020))
+assert _switching == 0 if has_jan == 1
+```
+
+### 3.16 statetime Tests
+
+#### Test 3.16.1: statetime Tracks Cumulative Time in Current State
+**Purpose**: Verify statetime accumulates correctly within each exposure state
+
+```stata
+use cohort_test, clear
+tvexpose using exp_test, id(id) start(rx_start) stop(rx_stop) ///
+    exposure(exp_type) reference(0) entry(study_entry) exit(study_exit) ///
+    statetime generate(tv_exp)
+
+* Verify statetime variable exists
+confirm variable _statetime
+
+* Statetime should increase within each exposure state
+* and reset when state changes
+sort id rx_start
+by id tv_exp: assert _statetime >= _statetime[_n-1] if _n > 1
+```
+
+### 3.17 Error Handling Tests
+
+#### Test 3.17.1: Missing Required Options
+**Purpose**: Verify informative errors for missing required inputs
+
+```stata
+* Missing reference()
+capture tvexpose using exp_test, id(id) start(rx_start) stop(rx_stop) ///
+    exposure(exp_type) entry(study_entry) exit(study_exit)
+assert _rc == 198
+
+* Missing exposure()
+capture tvexpose using exp_test, id(id) start(rx_start) stop(rx_stop) ///
+    reference(0) entry(study_entry) exit(study_exit)
+assert _rc != 0
+
+* Missing id()
+capture tvexpose using exp_test, start(rx_start) stop(rx_stop) ///
+    exposure(exp_type) reference(0) entry(study_entry) exit(study_exit)
+assert _rc != 0
+```
+
+#### Test 3.17.2: Invalid Input Values
+**Purpose**: Verify graceful handling of invalid data
+
+```stata
+* Exposure file with stop < start (invalid interval)
+clear
+input long id double(rx_start rx_stop) byte exp_type
+    1 mdy(6,30,2020) mdy(1,1,2020) 1  // Stop before start!
+end
+save exp_invalid, replace
+
+capture tvexpose using exp_invalid, id(id) start(rx_start) stop(rx_stop) ///
+    exposure(exp_type) reference(0) entry(study_entry) exit(study_exit) ///
+    generate(tv_exp)
+* Should error or warn about invalid intervals
+```
+
+#### Test 3.17.3: Variable Not Found
+**Purpose**: Verify clear errors when specified variables don't exist
+
+```stata
+* Reference to non-existent variable
+capture tvexpose using exp_test, id(nonexistent_id) start(rx_start) stop(rx_stop) ///
+    exposure(exp_type) reference(0) entry(study_entry) exit(study_exit)
+assert _rc == 111  // Variable not found
+```
+
+### 3.18 Date Format Preservation Tests
+
+#### Test 3.18.1: Format Retained Through Transformation
+**Purpose**: Verify date format from input is preserved in output
+
+```stata
+* Create data with specific date format
+clear
+input long id double(study_entry study_exit)
+    1 mdy(1,1,2020) mdy(12,31,2020)
+end
+format %tdCCYY-NN-DD study_entry study_exit
+save cohort_formatted, replace
+
+use cohort_formatted, clear
+tvexpose using exp_test, id(id) start(rx_start) stop(rx_stop) ///
+    exposure(exp_type) reference(0) entry(study_entry) exit(study_exit) ///
+    generate(tv_exp)
+
+* Check format is preserved
+local fmt : format rx_start
+assert "`fmt'" == "%tdCCYY-NN-DD" | "`fmt'" == "%td"
+```
+
 ---
 
 ## 4. tvevent Validation Plan
@@ -769,6 +1053,255 @@ assert "`lbl1'" == "Progression"
 
 local lbl2 : label `lblname' 2
 assert "`lbl2'" == "Death"
+```
+
+### 4.6 Boundary Condition Tests
+
+#### Test 4.6.1: Event Exactly at Interval Start
+**Purpose**: Verify event at start boundary is handled correctly
+
+**IMPORTANT**: tvevent uses `start < date < stop` (strictly between), so events
+exactly at start should NOT be captured in that interval.
+
+```stata
+* Create interval Jan 1 - Dec 31
+clear
+input long id double(start stop) byte tv_exp
+    1 mdy(1,1,2020) mdy(12,31,2020) 1
+end
+save intervals_test, replace
+
+* Event exactly on Jan 1 (interval start)
+clear
+input long id double event_dt
+    1 mdy(1,1,2020)
+end
+save events_test, replace
+
+use events_test, clear
+tvevent using intervals_test, id(id) date(event_dt) ///
+    startvar(start) stopvar(stop) type(single) generate(outcome)
+
+* Event should NOT be captured (date not > start)
+count if outcome == 1
+assert r(N) == 0  // Event at exact start is NOT within interval
+```
+
+#### Test 4.6.2: Event Exactly at Interval Stop
+**Purpose**: Verify event at stop boundary is handled correctly
+
+```stata
+* Event exactly on Dec 31 (interval stop)
+clear
+input long id double event_dt
+    1 mdy(12,31,2020)
+end
+save events_test, replace
+
+use events_test, clear
+tvevent using intervals_test, id(id) date(event_dt) ///
+    startvar(start) stopvar(stop) type(single) generate(outcome)
+
+* Event should NOT be captured (date not < stop)
+count if outcome == 1
+assert r(N) == 0  // Event at exact stop is NOT within interval
+```
+
+#### Test 4.6.3: Event One Day Inside Boundaries
+**Purpose**: Verify events just inside boundaries ARE captured
+
+```stata
+* Event on Jan 2 (one day after start)
+clear
+input long id double event_dt
+    1 mdy(1,2,2020)
+end
+save events_test, replace
+
+use events_test, clear
+tvevent using intervals_test, id(id) date(event_dt) ///
+    startvar(start) stopvar(stop) type(single) generate(outcome)
+
+* Event SHOULD be captured (Jan 2 > Jan 1 and < Dec 31)
+count if outcome == 1
+assert r(N) == 1
+```
+
+### 4.7 Edge Case Tests
+
+#### Test 4.7.1: Event Outside Study Period
+**Purpose**: Verify events outside all intervals are ignored
+
+```stata
+* Create interval Jan 1 - Jun 30
+clear
+input long id double(start stop) byte tv_exp
+    1 mdy(1,1,2020) mdy(6,30,2020) 1
+end
+save intervals_test, replace
+
+* Event on Dec 15 (after interval ends)
+clear
+input long id double event_dt
+    1 mdy(12,15,2020)
+end
+save events_test, replace
+
+use events_test, clear
+tvevent using intervals_test, id(id) date(event_dt) ///
+    startvar(start) stopvar(stop) type(single) generate(outcome)
+
+* No event should be recorded (event outside all intervals)
+count if outcome == 1
+assert r(N) == 0
+```
+
+#### Test 4.7.2: Person with No Events
+**Purpose**: Verify persons without events are properly censored
+
+```stata
+* Two persons in interval data
+clear
+input long id double(start stop) byte tv_exp
+    1 mdy(1,1,2020) mdy(12,31,2020) 1
+    2 mdy(1,1,2020) mdy(12,31,2020) 1
+end
+save intervals_test, replace
+
+* Only person 1 has event
+clear
+input long id double event_dt
+    1 mdy(6,15,2020)
+    2 .                // Person 2: missing event date (no event)
+end
+save events_test, replace
+
+use events_test, clear
+tvevent using intervals_test, id(id) date(event_dt) ///
+    startvar(start) stopvar(stop) type(single) generate(outcome)
+
+* Person 2 should have all outcome = 0 (censored)
+count if id == 2 & outcome == 1
+assert r(N) == 0
+
+* Person 2 should still have follow-up
+count if id == 2
+assert r(N) >= 1
+```
+
+#### Test 4.7.3: Same-Day Competing Events
+**Purpose**: Verify handling when primary and competing events occur on same day
+
+```stata
+* Primary and competing event on same day
+clear
+input long id double(primary_dt compete_dt)
+    1 mdy(6,15,2020) mdy(6,15,2020)  // Same day!
+end
+save events_test, replace
+
+use events_test, clear
+tvevent using intervals_test, id(id) date(primary_dt) ///
+    startvar(start) stopvar(stop) compete(compete_dt) ///
+    type(single) generate(outcome)
+
+* When dates are equal, which wins? Document the behavior.
+* Typically primary should take precedence (outcome = 1)
+tab outcome
+* Assert expected behavior (adjust based on actual implementation)
+```
+
+#### Test 4.7.4: Multiple Events on Same Day (Recurring)
+**Purpose**: Verify multiple events on same day are counted correctly
+
+```stata
+* Two events on same day in recurring format
+clear
+input long id double(event_dt1 event_dt2)
+    1 mdy(6,15,2020) mdy(6,15,2020)  // Both on June 15
+end
+save events_test, replace
+
+use events_test, clear
+tvevent using intervals_test, id(id) date(event_dt) ///
+    startvar(start) stopvar(stop) type(recurring) generate(outcome)
+
+* How many event rows? Should it be 2 (both counted) or 1 (deduplicated)?
+count if outcome == 1
+* Document and assert expected behavior
+```
+
+### 4.8 Error Handling Tests
+
+#### Test 4.8.1: Missing Required Variables
+**Purpose**: Verify informative errors for invalid inputs
+
+```stata
+* Missing id variable
+capture tvevent using intervals_test, date(event_dt) ///
+    startvar(start) stopvar(stop) type(single) generate(outcome)
+assert _rc != 0
+
+* Missing date variable
+capture tvevent using intervals_test, id(id) ///
+    startvar(start) stopvar(stop) type(single) generate(outcome)
+assert _rc != 0
+```
+
+#### Test 4.8.2: Invalid Type Option
+**Purpose**: Verify invalid type values are rejected
+
+```stata
+capture tvevent using intervals_test, id(id) date(event_dt) ///
+    startvar(start) stopvar(stop) type(invalid) generate(outcome)
+assert _rc == 198
+```
+
+### 4.9 timegen and timeunit Tests
+
+#### Test 4.9.1: timegen Creates Time-to-Event Variable
+**Purpose**: Verify time-to-event calculation is correct
+
+```stata
+* Create known interval
+clear
+input long id double(start stop) byte tv_exp
+    1 mdy(1,1,2020) mdy(12,31,2020) 1
+end
+save intervals_test, replace
+
+* Event on Jul 1 (182 days from Jan 1)
+clear
+input long id double event_dt
+    1 mdy(7,1,2020)
+end
+save events_test, replace
+
+use events_test, clear
+tvevent using intervals_test, id(id) date(event_dt) ///
+    startvar(start) stopvar(stop) type(single) ///
+    timegen(time_to_event) timeunit(days) generate(outcome)
+
+* Verify time variable exists
+confirm variable time_to_event
+
+* Time to event should be 182 days (Jan 1 to Jul 1)
+sum time_to_event if outcome == 1
+assert abs(r(mean) - 182) < 1
+```
+
+#### Test 4.9.2: timeunit Conversion
+**Purpose**: Verify time conversion to different units
+
+```stata
+use events_test, clear
+tvevent using intervals_test, id(id) date(event_dt) ///
+    startvar(start) stopvar(stop) type(single) ///
+    timegen(time_yrs) timeunit(years) generate(outcome)
+
+* Time in years should be ~0.5 (182 days / 365.25)
+sum time_yrs if outcome == 1
+assert abs(r(mean) - 0.5) < 0.05
 ```
 
 ---
@@ -1160,40 +1693,274 @@ end
 
 ---
 
-## Appendix: Quick Reference Checklists
+## Appendix A: Quick Reference Checklists
 
 ### tvexpose Validation Checklist
 
+**Core Invariants**
 - [ ] Person-time equals input follow-up time
 - [ ] No overlapping intervals within person
 - [ ] All IDs from cohort present in output
-- [ ] Exposure values match input categories
+- [ ] Intervals cover entire study period (contiguous)
+- [ ] Date format preserved from input
+
+**Exposure Tracking**
+- [ ] Exposure values match input categories plus reference
 - [ ] Cumulative exposure never decreases
 - [ ] Duration categories assigned at correct thresholds
-- [ ] Grace period correctly merges gaps
-- [ ] Lag delays exposure start
-- [ ] Washout extends exposure end
-- [ ] Priority resolves overlaps correctly
-- [ ] evertreated never reverts
-- [ ] currentformer transitions correctly
+- [ ] evertreated never reverts to unexposed
+- [ ] currentformer transitions: never→current→former only
+
+**Timing Options**
+- [ ] Grace period correctly bridges gaps of specified length
+- [ ] Lag delays exposure activation by specified days
+- [ ] Washout extends exposure persistence after stop
+- [ ] Window restricts exposure to specified time range
+
+**Overlap Resolution**
+- [ ] Priority assigns higher priority exposure during overlaps
+- [ ] Split creates intervals at all change points
+- [ ] Layer resumes earlier exposure after later one ends
+
+**Edge Cases**
+- [ ] Exposure exactly at study entry handled correctly
+- [ ] Exposure exactly at study exit handled correctly
+- [ ] Single-day exposures processed correctly
+- [ ] Missing/invalid inputs produce informative errors
 
 ### tvevent Validation Checklist
 
-- [ ] Event count matches input
-- [ ] Events occur at interval boundaries (stop date)
-- [ ] Continuous variables pro-rated correctly
-- [ ] Competing risks assigned to earliest date
-- [ ] type(single) censors after first event
-- [ ] type(recurring) keeps all person-time
-- [ ] Labels applied correctly
+**Core Behavior**
+- [ ] Event count in output matches input (non-missing events)
+- [ ] Events placed at correct row (stop = event date)
+- [ ] Interval splitting preserves total person-time
+
+**Boundary Conditions**
+- [ ] Event exactly at interval start NOT captured (strict >)
+- [ ] Event exactly at interval stop NOT captured (strict <)
+- [ ] Event one day inside boundaries IS captured
+- [ ] Event outside all intervals results in censoring
+
+**Competing Risks**
+- [ ] Earliest event wins when multiple events exist
+- [ ] Correct outcome code assigned (1=primary, 2+=competing)
+- [ ] Same-day primary and competing: document tiebreaker
+
+**Type Handling**
+- [ ] type(single) truncates follow-up at first event
+- [ ] type(recurring) preserves all person-time
+- [ ] Wide-format recurring events (var1, var2, ...) detected
+
+**Continuous Variables**
+- [ ] Continuous variables pro-rated during interval splitting
+- [ ] Total value preserved across split intervals
+
+**Error Handling**
+- [ ] Missing id/date variables produce errors
+- [ ] Invalid type() value rejected
+- [ ] Person not in interval file handled gracefully
 
 ### tvmerge Validation Checklist
 
-- [ ] Output intervals are intersection of inputs
+**Core Behavior**
+- [ ] Output intervals are intersection of all inputs
+- [ ] All overlapping periods from all datasets represented
 - [ ] No duplicate intervals in output
-- [ ] Continuous variables interpolated correctly
-- [ ] IDs present in all input datasets appear in output
-- [ ] Three-way merge creates correct intersection
+
+**ID Handling**
+- [ ] Only IDs present in ALL datasets appear (without force)
+- [ ] force option allows mismatched IDs with warning
+
+**Continuous Variables**
+- [ ] Continuous variables interpolated proportionally
+- [ ] Original total value preserved
+
+**Multi-Way Merges**
+- [ ] Three-way merge produces correct intersection
+- [ ] Non-overlapping periods excluded from output
+
+---
+
+## Appendix B: Potential Issues Identified
+
+During review of the validation plan, the following potential issues were identified that should be investigated:
+
+### Critical Questions to Resolve
+
+1. **Inclusive vs Exclusive Stop Dates**
+   - Does tvexpose use inclusive stop (last day in interval) or exclusive stop (first day after)?
+   - This affects ALL person-time calculations and boundary assertions
+   - **Action**: Run a simple test case and document the convention
+
+2. **tvevent Strict Inequality**
+   - Code uses `start < date < stop` (strictly between)
+   - Events exactly at start or stop are NOT captured
+   - **Risk**: User may not expect this behavior
+   - **Action**: Document clearly in help file; consider optional `<=` mode
+
+3. **Same-Day Event Tiebreaker**
+   - When primary and competing events occur on same day, which wins?
+   - Code order suggests primary wins, but verify
+   - **Action**: Add explicit test and document behavior
+
+4. **merge() vs grace() Distinction**
+   - merge() combines same-type periods within window
+   - grace() extends exposure through gaps
+   - The distinction may be confusing to users
+   - **Action**: Document clearly with examples
+
+### Potential Bugs to Investigate
+
+1. **Leap Year Handling**
+   - 2020 is a leap year (366 days)
+   - Verify all tests use leap years intentionally or document limitation
+
+2. **Floating Point Precision**
+   - Continuous exposure calculations may accumulate rounding errors
+   - Use tolerance in all assertions (e.g., `abs(x - expected) < 0.01`)
+
+3. **Empty Input Handling**
+   - What happens with zero-observation exposure files?
+   - What happens when no events occur for any person?
+
+4. **String IDs**
+   - All test examples use numeric IDs
+   - tvmerge in particular may have issues with string ID matching
+
+5. **Date Format Edge Cases**
+   - What if cohort uses %td but exposure uses %tc?
+   - What about datetime variables?
+
+### Documentation Gaps
+
+1. Add examples showing exact boundary behavior
+2. Document the merge() vs grace() difference
+3. Clarify whether person-time calculation is inclusive or exclusive
+4. Add troubleshooting section for common issues
+
+---
+
+## Appendix C: Test Data Generation Script
+
+Create a master script that generates all validation datasets:
+
+```stata
+/*******************************************************************************
+* generate_validation_data.do
+*
+* Purpose: Create all datasets needed for deep validation testing
+*******************************************************************************/
+
+clear all
+set more off
+version 16.0
+
+* Define output directory
+global VAL_DATA "${STATA_TOOLS_PATH}/_testing/validation/data"
+capture mkdir "${VAL_DATA}"
+
+* =============================================================================
+* COHORT DATA
+* =============================================================================
+
+* Standard 3-person cohort for most tests
+clear
+input long id double(study_entry study_exit)
+    1 `=mdy(1,1,2020)' `=mdy(12,31,2020)'
+    2 `=mdy(1,1,2020)' `=mdy(12,31,2020)'
+    3 `=mdy(1,1,2020)' `=mdy(12,31,2020)'
+end
+format %td study_entry study_exit
+label data "Standard 3-person cohort, 2020 (leap year)"
+save "${VAL_DATA}/cohort_standard.dta", replace
+
+* =============================================================================
+* EXPOSURE DATA
+* =============================================================================
+
+* Basic single exposure
+clear
+input long id double(rx_start rx_stop) byte exp_type
+    1 `=mdy(3,1,2020)' `=mdy(6,30,2020)' 1
+end
+format %td rx_start rx_stop
+label data "Single exposure Mar-Jun 2020"
+save "${VAL_DATA}/exp_basic.dta", replace
+
+* Two non-overlapping exposures
+clear
+input long id double(rx_start rx_stop) byte exp_type
+    1 `=mdy(2,1,2020)' `=mdy(3,31,2020)' 1
+    1 `=mdy(8,1,2020)' `=mdy(10,31,2020)' 2
+end
+format %td rx_start rx_stop
+label data "Two non-overlapping exposures, different types"
+save "${VAL_DATA}/exp_two_types.dta", replace
+
+* Overlapping exposures
+clear
+input long id double(rx_start rx_stop) byte exp_type
+    1 `=mdy(1,1,2020)' `=mdy(6,30,2020)' 1
+    1 `=mdy(4,1,2020)' `=mdy(9,30,2020)' 2
+end
+format %td rx_start rx_stop
+label data "Overlapping exposures Apr-Jun"
+save "${VAL_DATA}/exp_overlap.dta", replace
+
+* Boundary conditions
+clear
+input long id double(rx_start rx_stop) byte exp_type
+    1 `=mdy(1,1,2020)' `=mdy(12,31,2020)' 1  // Entire study
+    2 `=mdy(1,1,2020)' `=mdy(6,30,2020)' 1   // Starts at entry
+    3 `=mdy(7,1,2020)' `=mdy(12,31,2020)' 1  // Ends at exit
+end
+format %td rx_start rx_stop
+label data "Boundary condition exposures"
+save "${VAL_DATA}/exp_boundary.dta", replace
+
+* =============================================================================
+* EVENT DATA
+* =============================================================================
+
+* Single event per person
+clear
+input long id double event_dt
+    1 `=mdy(5,15,2020)'
+    2 `=mdy(9,15,2020)'
+    3 .
+end
+format %td event_dt
+label data "Single events, person 3 censored"
+save "${VAL_DATA}/events_single.dta", replace
+
+* Events with competing risks
+clear
+input long id double(primary_dt death_dt)
+    1 `=mdy(6,15,2020)' .
+    2 . `=mdy(4,1,2020)'
+    3 `=mdy(8,1,2020)' `=mdy(7,1,2020)'
+end
+format %td primary_dt death_dt
+label data "Events with competing risks"
+save "${VAL_DATA}/events_competing.dta", replace
+
+* =============================================================================
+* INTERVAL DATA (pre-processed by tvexpose)
+* =============================================================================
+
+* Simple intervals for tvevent testing
+clear
+input long id double(start stop) byte tv_exp
+    1 `=mdy(1,1,2020)' `=mdy(6,30,2020)' 1
+    1 `=mdy(7,1,2020)' `=mdy(12,31,2020)' 0
+    2 `=mdy(1,1,2020)' `=mdy(12,31,2020)' 0
+end
+format %td start stop
+label data "Pre-split intervals for tvevent tests"
+save "${VAL_DATA}/intervals_test.dta", replace
+
+di as result "Validation data generated successfully in: ${VAL_DATA}"
+```
 
 ---
 
