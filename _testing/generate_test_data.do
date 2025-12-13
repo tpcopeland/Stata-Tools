@@ -31,9 +31,31 @@ version 16.0
 * =============================================================================
 * PATH CONFIGURATION
 * =============================================================================
-* Local machine path (for Claude with stata-mcp access)
-* Update this path if your local clone is in a different location
-global STATA_TOOLS_PATH "/Users/tcopeland/Documents/GitHub/Stata-Tools"
+* Detect environment and set paths accordingly
+capture confirm file "/Users/tcopeland/Documents/GitHub/Stata-Tools/_testing"
+if _rc == 0 {
+    * Local machine path (for Claude with stata-mcp access)
+    global STATA_TOOLS_PATH "/Users/tcopeland/Documents/GitHub/Stata-Tools"
+}
+else {
+    * Try to detect from current directory
+    capture confirm file "_testing"
+    if _rc == 0 {
+        * Running from repo root
+        global STATA_TOOLS_PATH "`c(pwd)'"
+    }
+    else {
+        capture confirm file "data"
+        if _rc == 0 {
+            * Running from _testing directory
+            global STATA_TOOLS_PATH "`c(pwd)'/.."
+        }
+        else {
+            * Assume running from _testing/data directory
+            global STATA_TOOLS_PATH "`c(pwd)'/../.."
+        }
+    }
+}
 
 * Directory structure
 global TESTING_DIR "${STATA_TOOLS_PATH}/_testing"
