@@ -50,17 +50,30 @@ local run_only = $RUN_TEST_NUMBER
 * =============================================================================
 * PATH CONFIGURATION
 * =============================================================================
-capture confirm file "/Users/tcopeland/Documents/GitHub/Stata-Tools/_testing"
-if _rc == 0 {
+* Cross-platform path detection
+if "`c(os)'" == "MacOSX" {
     global STATA_TOOLS_PATH "/Users/tcopeland/Documents/GitHub/Stata-Tools"
 }
+else if "`c(os)'" == "Unix" {
+    global STATA_TOOLS_PATH "/home/ubuntu/Stata-Tools"
+}
 else {
+    * Windows or other - try to detect from current directory
     capture confirm file "_testing"
     if _rc == 0 {
+        * Running from repo root
         global STATA_TOOLS_PATH "`c(pwd)'"
     }
     else {
-        global STATA_TOOLS_PATH "../.."
+        capture confirm file "data"
+        if _rc == 0 {
+            * Running from _testing directory
+            global STATA_TOOLS_PATH "`c(pwd)'/.."
+        }
+        else {
+            * Assume running from _testing/data directory
+            global STATA_TOOLS_PATH "`c(pwd)'/../.."
+        }
     }
 }
 
