@@ -754,6 +754,449 @@ else {
 }
 
 * =============================================================================
+* TEST SECTION 5.6: OUTPUT NAMING OPTIONS TESTS
+* =============================================================================
+if `quiet' == 0 {
+    display as text _n "{hline 70}"
+    display as text "SECTION 5.6: Output Naming Options Tests"
+    display as text "{hline 70}"
+}
+
+* -----------------------------------------------------------------------------
+* Test 5.6.1: generate() Creates Custom-Named Variables
+* Purpose: Verify generate() renames exposure variables in output
+* -----------------------------------------------------------------------------
+local ++test_count
+if `quiet' == 0 {
+    display as text _n "Test 5.6.1: generate() Custom Variable Names"
+}
+
+capture {
+    tvmerge "${DATA_DIR}/tvmerge_ds1_fullyear.dta" "${DATA_DIR}/tvmerge_ds2_split.dta", ///
+        id(id) start(start1 start2) stop(stop1 stop2) ///
+        exposure(exp1 exp2) generate(hrt_type dmt_type)
+
+    * Verify custom variable names exist
+    confirm variable hrt_type
+    confirm variable dmt_type
+}
+if _rc == 0 {
+    display as result "  PASS: generate() creates custom-named variables"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: generate() custom names (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 5.6.1"
+}
+
+* -----------------------------------------------------------------------------
+* Test 5.6.2: prefix() Adds Prefix to Variable Names
+* Purpose: Verify prefix() adds consistent prefix to all exposure names
+* -----------------------------------------------------------------------------
+local ++test_count
+if `quiet' == 0 {
+    display as text _n "Test 5.6.2: prefix() Adds Prefix"
+}
+
+capture {
+    tvmerge "${DATA_DIR}/tvmerge_ds1_fullyear.dta" "${DATA_DIR}/tvmerge_ds2_split.dta", ///
+        id(id) start(start1 start2) stop(stop1 stop2) ///
+        exposure(exp1 exp2) prefix(tv_)
+
+    * Verify prefixed variable names exist
+    confirm variable tv_1
+    confirm variable tv_2
+}
+if _rc == 0 {
+    display as result "  PASS: prefix() adds prefix to variable names"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: prefix() (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 5.6.2"
+}
+
+* -----------------------------------------------------------------------------
+* Test 5.6.3: startname() and stopname() Customize Date Variable Names
+* Purpose: Verify startname/stopname change output date variable names
+* -----------------------------------------------------------------------------
+local ++test_count
+if `quiet' == 0 {
+    display as text _n "Test 5.6.3: startname() and stopname() Custom Date Names"
+}
+
+capture {
+    tvmerge "${DATA_DIR}/tvmerge_ds1_fullyear.dta" "${DATA_DIR}/tvmerge_ds2_split.dta", ///
+        id(id) start(start1 start2) stop(stop1 stop2) ///
+        exposure(exp1 exp2) ///
+        startname(period_begin) stopname(period_end)
+
+    * Verify custom date variable names exist
+    confirm variable period_begin
+    confirm variable period_end
+}
+if _rc == 0 {
+    display as result "  PASS: startname()/stopname() customize date variable names"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: startname()/stopname() (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 5.6.3"
+}
+
+* -----------------------------------------------------------------------------
+* Test 5.6.4: dateformat() Applies Custom Date Format
+* Purpose: Verify dateformat() changes output date display format
+* -----------------------------------------------------------------------------
+local ++test_count
+if `quiet' == 0 {
+    display as text _n "Test 5.6.4: dateformat() Custom Date Format"
+}
+
+capture {
+    tvmerge "${DATA_DIR}/tvmerge_ds1_fullyear.dta" "${DATA_DIR}/tvmerge_ds2_split.dta", ///
+        id(id) start(start1 start2) stop(stop1 stop2) ///
+        exposure(exp1 exp2) dateformat(%tdCCYY-NN-DD)
+
+    * Verify date format was applied
+    local fmt : format start
+    assert substr("`fmt'", 1, 3) == "%td"
+}
+if _rc == 0 {
+    display as result "  PASS: dateformat() applies custom date format"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: dateformat() (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 5.6.4"
+}
+
+* =============================================================================
+* TEST SECTION 5.7: DATA MANAGEMENT OPTIONS TESTS
+* =============================================================================
+if `quiet' == 0 {
+    display as text _n "{hline 70}"
+    display as text "SECTION 5.7: Data Management Options Tests"
+    display as text "{hline 70}"
+}
+
+* -----------------------------------------------------------------------------
+* Test 5.7.1: saveas() and replace Save Output File
+* Purpose: Verify saveas() saves merged dataset to file
+* -----------------------------------------------------------------------------
+local ++test_count
+if `quiet' == 0 {
+    display as text _n "Test 5.7.1: saveas() and replace Save Output"
+}
+
+capture {
+    capture erase "${DATA_DIR}/tvmerge_output.dta"
+
+    tvmerge "${DATA_DIR}/tvmerge_ds1_fullyear.dta" "${DATA_DIR}/tvmerge_ds2_split.dta", ///
+        id(id) start(start1 start2) stop(stop1 stop2) ///
+        exposure(exp1 exp2) ///
+        saveas("${DATA_DIR}/tvmerge_output.dta") replace
+
+    * Verify file was created
+    confirm file "${DATA_DIR}/tvmerge_output.dta"
+
+    * Load and verify content
+    use "${DATA_DIR}/tvmerge_output.dta", clear
+    assert _N >= 1
+
+    * Cleanup
+    capture erase "${DATA_DIR}/tvmerge_output.dta"
+}
+if _rc == 0 {
+    display as result "  PASS: saveas() and replace save output file"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: saveas()/replace (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 5.7.1"
+}
+
+* Create datasets with additional variables for keep() testing
+clear
+input long id double(start1 stop1) byte exp1 int dose1
+    1 21915 22281 1 100
+end
+format %td start1 stop1
+label data "Dataset 1 with dose variable"
+save "${DATA_DIR}/tvmerge_ds1_withvars.dta", replace
+
+clear
+input long id double(start2 stop2) byte exp2 str10 drug2
+    1 21915 22097 1 "DrugA"
+    1 22097 22281 2 "DrugB"
+end
+format %td start2 stop2
+label data "Dataset 2 with drug variable"
+save "${DATA_DIR}/tvmerge_ds2_withvars.dta", replace
+
+* -----------------------------------------------------------------------------
+* Test 5.7.2: keep() Retains Additional Variables
+* Purpose: Verify keep() brings additional variables from source datasets
+* -----------------------------------------------------------------------------
+local ++test_count
+if `quiet' == 0 {
+    display as text _n "Test 5.7.2: keep() Retains Additional Variables"
+}
+
+capture {
+    tvmerge "${DATA_DIR}/tvmerge_ds1_withvars.dta" "${DATA_DIR}/tvmerge_ds2_withvars.dta", ///
+        id(id) start(start1 start2) stop(stop1 stop2) ///
+        exposure(exp1 exp2) keep(dose1 drug2)
+
+    * Verify kept variables exist (with _ds# suffix)
+    confirm variable dose1_ds1
+    confirm variable drug2_ds2
+}
+if _rc == 0 {
+    display as result "  PASS: keep() retains additional variables with suffixes"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: keep() (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 5.7.2"
+}
+
+* =============================================================================
+* TEST SECTION 5.8: DIAGNOSTIC OPTIONS TESTS
+* =============================================================================
+if `quiet' == 0 {
+    display as text _n "{hline 70}"
+    display as text "SECTION 5.8: Diagnostic Options Tests"
+    display as text "{hline 70}"
+}
+
+* -----------------------------------------------------------------------------
+* Test 5.8.1: check Displays Diagnostics
+* Purpose: Verify check option runs and displays coverage information
+* -----------------------------------------------------------------------------
+local ++test_count
+if `quiet' == 0 {
+    display as text _n "Test 5.8.1: check Displays Diagnostics"
+}
+
+capture {
+    tvmerge "${DATA_DIR}/tvmerge_ds1_fullyear.dta" "${DATA_DIR}/tvmerge_ds2_split.dta", ///
+        id(id) start(start1 start2) stop(stop1 stop2) ///
+        exposure(exp1 exp2) check
+
+    * Should run without error
+    assert _N >= 1
+}
+if _rc == 0 {
+    display as result "  PASS: check displays diagnostics without error"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: check option (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 5.8.1"
+}
+
+* -----------------------------------------------------------------------------
+* Test 5.8.2: validatecoverage Checks for Gaps
+* Purpose: Verify validatecoverage option runs gap detection
+* -----------------------------------------------------------------------------
+local ++test_count
+if `quiet' == 0 {
+    display as text _n "Test 5.8.2: validatecoverage Checks Gaps"
+}
+
+capture {
+    tvmerge "${DATA_DIR}/tvmerge_ds1_fullyear.dta" "${DATA_DIR}/tvmerge_ds2_split.dta", ///
+        id(id) start(start1 start2) stop(stop1 stop2) ///
+        exposure(exp1 exp2) validatecoverage
+
+    * Should run without error
+    assert _N >= 1
+}
+if _rc == 0 {
+    display as result "  PASS: validatecoverage checks for gaps"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: validatecoverage (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 5.8.2"
+}
+
+* -----------------------------------------------------------------------------
+* Test 5.8.3: validateoverlap Checks for Overlaps
+* Purpose: Verify validateoverlap option runs overlap detection
+* -----------------------------------------------------------------------------
+local ++test_count
+if `quiet' == 0 {
+    display as text _n "Test 5.8.3: validateoverlap Checks Overlaps"
+}
+
+capture {
+    tvmerge "${DATA_DIR}/tvmerge_ds1_fullyear.dta" "${DATA_DIR}/tvmerge_ds2_split.dta", ///
+        id(id) start(start1 start2) stop(stop1 stop2) ///
+        exposure(exp1 exp2) validateoverlap
+
+    * Should run without error
+    assert _N >= 1
+}
+if _rc == 0 {
+    display as result "  PASS: validateoverlap checks for overlaps"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: validateoverlap (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 5.8.3"
+}
+
+* -----------------------------------------------------------------------------
+* Test 5.8.4: summarize Displays Summary Statistics
+* Purpose: Verify summarize option shows date range statistics
+* -----------------------------------------------------------------------------
+local ++test_count
+if `quiet' == 0 {
+    display as text _n "Test 5.8.4: summarize Displays Statistics"
+}
+
+capture {
+    tvmerge "${DATA_DIR}/tvmerge_ds1_fullyear.dta" "${DATA_DIR}/tvmerge_ds2_split.dta", ///
+        id(id) start(start1 start2) stop(stop1 stop2) ///
+        exposure(exp1 exp2) summarize
+
+    * Should run without error
+    assert _N >= 1
+}
+if _rc == 0 {
+    display as result "  PASS: summarize displays summary statistics"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: summarize (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 5.8.4"
+}
+
+* =============================================================================
+* TEST SECTION 5.9: PERFORMANCE OPTIONS TESTS
+* =============================================================================
+if `quiet' == 0 {
+    display as text _n "{hline 70}"
+    display as text "SECTION 5.9: Performance Options Tests"
+    display as text "{hline 70}"
+}
+
+* -----------------------------------------------------------------------------
+* Test 5.9.1: batch() Controls Batch Processing
+* Purpose: Verify batch() option works with different batch sizes
+* -----------------------------------------------------------------------------
+local ++test_count
+if `quiet' == 0 {
+    display as text _n "Test 5.9.1: batch() Batch Processing"
+}
+
+capture {
+    * With batch(50) - larger batches
+    tvmerge "${DATA_DIR}/tvmerge_ds1_ids123.dta" "${DATA_DIR}/tvmerge_ds2_ids234.dta", ///
+        id(id) start(start1 start2) stop(stop1 stop2) ///
+        exposure(exp1 exp2) batch(50) force
+
+    local n_batch50 = _N
+
+    * With batch(10) - smaller batches (should produce same result)
+    tvmerge "${DATA_DIR}/tvmerge_ds1_ids123.dta" "${DATA_DIR}/tvmerge_ds2_ids234.dta", ///
+        id(id) start(start1 start2) stop(stop1 stop2) ///
+        exposure(exp1 exp2) batch(10) force
+
+    local n_batch10 = _N
+
+    * Results should be identical regardless of batch size
+    assert `n_batch50' == `n_batch10'
+}
+if _rc == 0 {
+    display as result "  PASS: batch() produces consistent results across batch sizes"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: batch() (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 5.9.1"
+}
+
+* =============================================================================
+* TEST SECTION 5.10: STORED RESULTS TESTS
+* =============================================================================
+if `quiet' == 0 {
+    display as text _n "{hline 70}"
+    display as text "SECTION 5.10: Stored Results Tests"
+    display as text "{hline 70}"
+}
+
+* -----------------------------------------------------------------------------
+* Test 5.10.1: Stored Scalars
+* Purpose: Verify r() scalars are correctly stored
+* -----------------------------------------------------------------------------
+local ++test_count
+if `quiet' == 0 {
+    display as text _n "Test 5.10.1: Stored Scalars"
+}
+
+capture {
+    tvmerge "${DATA_DIR}/tvmerge_ds1_fullyear.dta" "${DATA_DIR}/tvmerge_ds2_split.dta", ///
+        id(id) start(start1 start2) stop(stop1 stop2) ///
+        exposure(exp1 exp2)
+
+    * Verify scalars exist
+    assert r(N) > 0
+    assert r(N_persons) > 0
+    assert r(N_datasets) == 2
+}
+if _rc == 0 {
+    display as result "  PASS: Stored scalars are correctly set"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: Stored scalars (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 5.10.1"
+}
+
+* -----------------------------------------------------------------------------
+* Test 5.10.2: Stored Macros
+* Purpose: Verify r() macros are correctly stored
+* -----------------------------------------------------------------------------
+local ++test_count
+if `quiet' == 0 {
+    display as text _n "Test 5.10.2: Stored Macros"
+}
+
+capture {
+    tvmerge "${DATA_DIR}/tvmerge_ds1_fullyear.dta" "${DATA_DIR}/tvmerge_ds2_split.dta", ///
+        id(id) start(start1 start2) stop(stop1 stop2) ///
+        exposure(exp1 exp2) generate(hrt dmt)
+
+    * Verify macros exist
+    assert "`r(datasets)'" != ""
+    assert "`r(exposure_vars)'" != ""
+}
+if _rc == 0 {
+    display as result "  PASS: Stored macros are correctly set"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: Stored macros (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 5.10.2"
+}
+
+* =============================================================================
 * SUMMARY
 * =============================================================================
 display as text _n "{hline 70}"

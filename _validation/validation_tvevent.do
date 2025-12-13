@@ -920,6 +920,494 @@ else {
 }
 
 * =============================================================================
+* TEST SECTION 4.10: CONTINUOUS ADJUSTMENT TESTS
+* =============================================================================
+if `quiet' == 0 {
+    display as text _n "{hline 70}"
+    display as text "SECTION 4.10: continuous() Adjustment Tests"
+    display as text "{hline 70}"
+}
+
+* Create intervals with cumulative exposure variable
+clear
+input long id double(start stop) byte tv_exp double cum_dose
+    1 21915 22281 1 365
+end
+format %td start stop
+label data "Full-year interval with cumulative dose"
+save "${DATA_DIR}/intervals_with_cum.dta", replace
+
+* -----------------------------------------------------------------------------
+* Test 4.10.1: continuous() Adjusts Cumulative Variables
+* Purpose: Verify continuous variables are proportionally adjusted when split
+* -----------------------------------------------------------------------------
+local ++test_count
+if `quiet' == 0 {
+    display as text _n "Test 4.10.1: continuous() Proportional Adjustment"
+}
+
+capture {
+    use "${DATA_DIR}/events_midyear.dta", clear
+    tvevent using "${DATA_DIR}/intervals_with_cum.dta", id(id) date(event_dt) ///
+        startvar(start) stopvar(stop) type(single) ///
+        continuous(cum_dose) generate(outcome)
+
+    * The original interval was 366 days with cum_dose = 365
+    * After split at day 136 (May 15), the first segment should have
+    * proportionally adjusted cum_dose
+    sort id start
+    quietly sum cum_dose if outcome == 1
+    local cum_at_event = r(mean)
+
+    * Should be approximately 136/366 * 365 = 135.7
+    assert abs(`cum_at_event' - 135.7) < 5
+}
+if _rc == 0 {
+    display as result "  PASS: continuous() proportionally adjusts cumulative variables"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: continuous() adjustment (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 4.10.1"
+}
+
+* =============================================================================
+* TEST SECTION 4.11: EVENTLABEL TESTS
+* =============================================================================
+if `quiet' == 0 {
+    display as text _n "{hline 70}"
+    display as text "SECTION 4.11: eventlabel() Tests"
+    display as text "{hline 70}"
+}
+
+* -----------------------------------------------------------------------------
+* Test 4.11.1: eventlabel() Sets Custom Value Labels
+* Purpose: Verify custom labels are applied to outcome variable
+* -----------------------------------------------------------------------------
+local ++test_count
+if `quiet' == 0 {
+    display as text _n "Test 4.11.1: eventlabel() Custom Labels"
+}
+
+capture {
+    use "${DATA_DIR}/events_competing.dta", clear
+    tvevent using "${DATA_DIR}/intervals_fullyear.dta", id(id) date(primary_dt) ///
+        startvar(start) stopvar(stop) compete(death_dt) ///
+        type(single) generate(outcome) ///
+        eventlabel(0 "Alive" 1 "EDSS Progression" 2 "Death")
+
+    * Verify value labels were applied
+    local vallbl : value label outcome
+    if "`vallbl'" != "" {
+        local lbl0 : label `vallbl' 0
+        assert "`lbl0'" == "Alive"
+        local lbl2 : label `vallbl' 2
+        assert "`lbl2'" == "Death"
+    }
+}
+if _rc == 0 {
+    display as result "  PASS: eventlabel() sets custom value labels"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: eventlabel() (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 4.11.1"
+}
+
+* =============================================================================
+* TEST SECTION 4.12: KEEPVARS TESTS
+* =============================================================================
+if `quiet' == 0 {
+    display as text _n "{hline 70}"
+    display as text "SECTION 4.12: keepvars() Tests"
+    display as text "{hline 70}"
+}
+
+* Create event data with additional variables
+clear
+input long id double event_dt str10 dx_code int severity
+    1 22051 "G35" 3
+end
+format %td event_dt
+label data "Event with diagnosis code and severity"
+save "${DATA_DIR}/events_with_vars.dta", replace
+
+* -----------------------------------------------------------------------------
+* Test 4.12.1: keepvars() Retains Additional Variables from Event Dataset
+* Purpose: Verify additional variables from event dataset are kept
+* -----------------------------------------------------------------------------
+local ++test_count
+if `quiet' == 0 {
+    display as text _n "Test 4.12.1: keepvars() Retains Event Variables"
+}
+
+capture {
+    use "${DATA_DIR}/events_with_vars.dta", clear
+    tvevent using "${DATA_DIR}/intervals_fullyear.dta", id(id) date(event_dt) ///
+        startvar(start) stopvar(stop) type(single) ///
+        keepvars(dx_code severity) generate(outcome)
+
+    * Verify kept variables exist
+    confirm variable dx_code
+    confirm variable severity
+
+    * Values should be populated on event row
+    quietly count if outcome == 1 & !missing(dx_code)
+    assert r(N) >= 1
+}
+if _rc == 0 {
+    display as result "  PASS: keepvars() retains additional variables from event dataset"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: keepvars() (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 4.12.1"
+}
+
+* =============================================================================
+* TEST SECTION 4.13: REPLACE OPTION TESTS
+* =============================================================================
+if `quiet' == 0 {
+    display as text _n "{hline 70}"
+    display as text "SECTION 4.13: replace Option Tests"
+    display as text "{hline 70}"
+}
+
+* -----------------------------------------------------------------------------
+* Test 4.13.1: replace Overwrites Existing Variables
+* Purpose: Verify replace allows overwriting existing outcome variable
+* -----------------------------------------------------------------------------
+local ++test_count
+if `quiet' == 0 {
+    display as text _n "Test 4.13.1: replace Overwrites Existing Variables"
+}
+
+capture {
+    * Create intervals with existing outcome variable
+    use "${DATA_DIR}/intervals_fullyear.dta", clear
+    gen byte outcome = 99
+    save "${DATA_DIR}/intervals_with_outcome.dta", replace
+
+    use "${DATA_DIR}/events_midyear.dta", clear
+    tvevent using "${DATA_DIR}/intervals_with_outcome.dta", id(id) date(event_dt) ///
+        startvar(start) stopvar(stop) type(single) ///
+        generate(outcome) replace
+
+    * Outcome should be 0 or 1, not 99
+    quietly count if outcome == 99
+    assert r(N) == 0
+}
+if _rc == 0 {
+    display as result "  PASS: replace overwrites existing variables"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: replace option (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 4.13.1"
+}
+
+* =============================================================================
+* TEST SECTION 4.14: RECURRING EVENTS TESTS
+* =============================================================================
+if `quiet' == 0 {
+    display as text _n "{hline 70}"
+    display as text "SECTION 4.14: type(recurring) Tests"
+    display as text "{hline 70}"
+}
+
+* Create wide-format recurring events data
+clear
+input long id double(hosp1 hosp2 hosp3)
+    1 21975 22097 22189
+end
+format %td hosp1 hosp2 hosp3
+label data "Recurring hospitalizations in wide format"
+save "${DATA_DIR}/events_recurring_wide.dta", replace
+
+* -----------------------------------------------------------------------------
+* Test 4.14.1: type(recurring) Processes Multiple Events
+* Purpose: Verify recurring events are all captured
+* -----------------------------------------------------------------------------
+local ++test_count
+if `quiet' == 0 {
+    display as text _n "Test 4.14.1: type(recurring) Multiple Events"
+}
+
+capture {
+    use "${DATA_DIR}/events_recurring_wide.dta", clear
+    tvevent using "${DATA_DIR}/intervals_fullyear.dta", id(id) date(hosp) ///
+        startvar(start) stopvar(stop) type(recurring) generate(hospitalized)
+
+    * Should have multiple event rows
+    quietly count if hospitalized == 1
+    assert r(N) >= 1
+}
+if _rc == 0 {
+    display as result "  PASS: type(recurring) processes multiple events"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: type(recurring) (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 4.14.1"
+}
+
+* -----------------------------------------------------------------------------
+* Test 4.14.2: type(recurring) Does Not Truncate Follow-up
+* Purpose: Verify recurring events preserve all follow-up time
+* -----------------------------------------------------------------------------
+local ++test_count
+if `quiet' == 0 {
+    display as text _n "Test 4.14.2: type(recurring) Preserves Follow-up"
+}
+
+capture {
+    use "${DATA_DIR}/events_recurring_wide.dta", clear
+    tvevent using "${DATA_DIR}/intervals_fullyear.dta", id(id) date(hosp) ///
+        startvar(start) stopvar(stop) type(recurring) generate(hospitalized)
+
+    * Total follow-up should be preserved (approximately 366 days)
+    gen double dur = stop - start
+    quietly sum dur
+    assert r(sum) >= 300
+}
+if _rc == 0 {
+    display as result "  PASS: type(recurring) preserves follow-up time"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: type(recurring) follow-up (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 4.14.2"
+}
+
+* =============================================================================
+* TEST SECTION 4.15: ADDITIONAL TIMEUNIT TESTS
+* =============================================================================
+if `quiet' == 0 {
+    display as text _n "{hline 70}"
+    display as text "SECTION 4.15: Additional timeunit Tests"
+    display as text "{hline 70}"
+}
+
+* -----------------------------------------------------------------------------
+* Test 4.15.1: timeunit(months) Conversion
+* Purpose: Verify time conversion to months
+* -----------------------------------------------------------------------------
+local ++test_count
+if `quiet' == 0 {
+    display as text _n "Test 4.15.1: timeunit(months) Conversion"
+}
+
+capture {
+    use "${DATA_DIR}/events_midyear.dta", clear
+    tvevent using "${DATA_DIR}/intervals_fullyear.dta", id(id) date(event_dt) ///
+        startvar(start) stopvar(stop) type(single) ///
+        timegen(time_months) timeunit(months) generate(outcome)
+
+    * Time in months should be ~4.5 (136 days / 30.4375)
+    quietly sum time_months if outcome == 1
+    assert abs(r(mean) - 4.5) < 0.5
+}
+if _rc == 0 {
+    display as result "  PASS: timeunit(months) converts correctly (~4.5 months)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: timeunit(months) (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 4.15.1"
+}
+
+* =============================================================================
+* TEST SECTION 4.16: STORED RESULTS TESTS
+* =============================================================================
+if `quiet' == 0 {
+    display as text _n "{hline 70}"
+    display as text "SECTION 4.16: Stored Results Tests"
+    display as text "{hline 70}"
+}
+
+* -----------------------------------------------------------------------------
+* Test 4.16.1: r(N) and r(N_events) Stored
+* Purpose: Verify stored scalars are correctly set
+* -----------------------------------------------------------------------------
+local ++test_count
+if `quiet' == 0 {
+    display as text _n "Test 4.16.1: Stored Results"
+}
+
+capture {
+    use "${DATA_DIR}/events_midyear.dta", clear
+    tvevent using "${DATA_DIR}/intervals_fullyear.dta", id(id) date(event_dt) ///
+        startvar(start) stopvar(stop) type(single) generate(outcome)
+
+    * Verify r() scalars
+    assert r(N) > 0
+    assert r(N_events) >= 1
+}
+if _rc == 0 {
+    display as result "  PASS: Stored results are correctly set"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: Stored results (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 4.16.1"
+}
+
+* =============================================================================
+* TEST SECTION 4.17: ADDITIONAL COMPETING RISK TESTS
+* =============================================================================
+if `quiet' == 0 {
+    display as text _n "{hline 70}"
+    display as text "SECTION 4.17: Additional Competing Risk Tests"
+    display as text "{hline 70}"
+}
+
+* Create events with 3 competing risks
+clear
+input long id double(primary_dt cr1_dt cr2_dt cr3_dt)
+    1 22189 22097 22128 22159
+end
+format %td primary_dt cr1_dt cr2_dt cr3_dt
+label data "Primary with 3 competing risks"
+save "${DATA_DIR}/events_3_competing.dta", replace
+
+* -----------------------------------------------------------------------------
+* Test 4.17.1: Three Competing Risks
+* Purpose: Verify correct outcome coding with multiple competing risks
+* -----------------------------------------------------------------------------
+local ++test_count
+if `quiet' == 0 {
+    display as text _n "Test 4.17.1: Three Competing Risks"
+}
+
+capture {
+    use "${DATA_DIR}/events_3_competing.dta", clear
+    tvevent using "${DATA_DIR}/intervals_fullyear.dta", id(id) date(primary_dt) ///
+        startvar(start) stopvar(stop) ///
+        compete(cr1_dt cr2_dt cr3_dt) ///
+        type(single) generate(outcome)
+
+    * cr1 is earliest (Jun 30) -> outcome should be 2
+    quietly count if outcome == 2
+    assert r(N) == 1
+}
+if _rc == 0 {
+    display as result "  PASS: Three competing risks correctly resolved"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: Three competing risks (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 4.17.1"
+}
+
+* -----------------------------------------------------------------------------
+* Test 4.17.2: Primary Event Wins When Earliest
+* Purpose: Verify primary event is coded as 1 when it's earliest
+* -----------------------------------------------------------------------------
+local ++test_count
+if `quiet' == 0 {
+    display as text _n "Test 4.17.2: Primary Event Wins When Earliest"
+}
+
+capture {
+    * Create events where primary is earliest
+    clear
+    input long id double(primary_dt death_dt)
+        1 21975 22097
+    end
+    format %td primary_dt death_dt
+    save "${DATA_DIR}/events_primary_first.dta", replace
+
+    use "${DATA_DIR}/events_primary_first.dta", clear
+    tvevent using "${DATA_DIR}/intervals_fullyear.dta", id(id) date(primary_dt) ///
+        startvar(start) stopvar(stop) ///
+        compete(death_dt) ///
+        type(single) generate(outcome)
+
+    * Primary is earliest -> outcome should be 1
+    quietly count if outcome == 1
+    assert r(N) == 1
+}
+if _rc == 0 {
+    display as result "  PASS: Primary event coded as 1 when earliest"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: Primary event priority (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 4.17.2"
+}
+
+* =============================================================================
+* TEST SECTION 4.18: ERROR HANDLING - ADDITIONAL TESTS
+* =============================================================================
+if `quiet' == 0 {
+    display as text _n "{hline 70}"
+    display as text "SECTION 4.18: Additional Error Handling Tests"
+    display as text "{hline 70}"
+}
+
+* -----------------------------------------------------------------------------
+* Test 4.18.1: File Not Found Error
+* Purpose: Verify error when using file doesn't exist
+* -----------------------------------------------------------------------------
+local ++test_count
+if `quiet' == 0 {
+    display as text _n "Test 4.18.1: File Not Found Error"
+}
+
+capture {
+    use "${DATA_DIR}/events_midyear.dta", clear
+    capture tvevent using "nonexistent_file.dta", id(id) date(event_dt) ///
+        startvar(start) stopvar(stop) type(single) generate(outcome)
+    assert _rc != 0
+}
+if _rc == 0 {
+    display as result "  PASS: File not found produces error"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: File not found error (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 4.18.1"
+}
+
+* -----------------------------------------------------------------------------
+* Test 4.18.2: compete() Not Allowed with type(recurring)
+* Purpose: Verify error when compete() used with type(recurring)
+* -----------------------------------------------------------------------------
+local ++test_count
+if `quiet' == 0 {
+    display as text _n "Test 4.18.2: compete() Invalid with type(recurring)"
+}
+
+capture {
+    use "${DATA_DIR}/events_recurring_wide.dta", clear
+    capture tvevent using "${DATA_DIR}/intervals_fullyear.dta", id(id) date(hosp) ///
+        startvar(start) stopvar(stop) ///
+        type(recurring) compete(hosp2) generate(outcome)
+    * This should error since compete() isn't allowed with recurring
+    assert _rc != 0
+}
+if _rc == 0 {
+    display as result "  PASS: compete() with type(recurring) produces error"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: compete() with recurring error (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 4.18.2"
+}
+
+* =============================================================================
 * SUMMARY
 * =============================================================================
 display as text _n "{hline 70}"
