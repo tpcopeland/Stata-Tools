@@ -59,7 +59,7 @@ cd "${DATA_DIR}"
 
 * Install datamap package from local repository
 capture net uninstall datamap
-net install datamap, from("${STATA_TOOLS_PATH}/datamap")
+net install datamap, from("${STATA_TOOLS_PATH}/datamap") force
 
 local testdir "${DATA_DIR}"
 
@@ -439,8 +439,9 @@ capture noisily {
         output("`testdir'/_test_datamap_sep.txt") separate
 
     * Check that separate files were created
-    confirm file "`testdir'/_test_datamap_sep_cohort.txt"
-    confirm file "`testdir'/_test_datamap_sep_hrt.txt"
+    * Note: separate creates <basename>_map.txt files, not using output() prefix
+    confirm file "`testdir'/cohort_map.txt"
+    confirm file "`testdir'/hrt_map.txt"
 
     display as result "  PASSED: Separate output works"
     local ++pass_count

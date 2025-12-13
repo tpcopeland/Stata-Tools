@@ -3,7 +3,7 @@
 *! Part of the setools package
 
 program define sustainedss, rclass
-    version 18.0
+    version 16.0
     set varabbrev off
 
     syntax varlist(min=3 max=3) [if] [in], ///
