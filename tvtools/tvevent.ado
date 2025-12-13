@@ -1,4 +1,4 @@
-*! tvevent Version 1.3.0  13dec2025
+*! tvevent Version 1.3.1  13dec2025
 *! Add event/failure flags to time-varying datasets
 *! Author: Tim Copeland
 *!
@@ -344,9 +344,11 @@ program define tvevent, rclass
         joinby `id' using `events'
 
         keep if `date' > `startvar' & `date' < `stopvar'
-        
+
         keep `id' `date'
-        duplicates drop `id' `date', force
+        if _N > 0 {
+            duplicates drop `id' `date', force
+        }
         tempfile splits
         save `splits'
         
@@ -360,6 +362,7 @@ program define tvevent, rclass
         * Use regular variable names (not tempvars) for values that must persist across file saves
         gen double _orig_dur = `stopvar' - `startvar'
         gen long _orig_interval_id = _n
+        gen double _orig_stop = `stopvar'  // Track original stop to detect boundary events
 
         if `n_splits' > 0 {
             noisily di as txt "Splitting intervals for `n_splits' internal events..."
@@ -383,7 +386,9 @@ program define tvevent, rclass
             keep if _n_splits_this == 0
             drop `date' _valid_split _n_splits_this
             * Remove duplicate rows created by joinby for intervals with no valid splits
-            duplicates drop
+            if _N > 0 {
+                duplicates drop
+            }
             save `no_splits'
             restore
 
@@ -503,6 +508,10 @@ program define tvevent, rclass
             gen long `generate' = `imported_type'
             replace `generate' = 0 if missing(`generate')
 
+            * Filter out boundary events: if stop == original stop, event is at boundary (not strictly inside)
+            * An event should only be flagged if it caused a split, which changes stop from _orig_stop
+            replace `generate' = 0 if `generate' > 0 & `stopvar' == _orig_stop
+
             if "`keepvars'" != "" {
                 * Drop existing keepvars to avoid collision
                 foreach v of local keepvars {
@@ -521,7 +530,7 @@ program define tvevent, rclass
             exit `frame_rc'
         }
 
-        drop `match_date' `imported_type'
+        drop `match_date' `imported_type' _orig_stop
 
         **# 6. APPLY LABELS
         
