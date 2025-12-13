@@ -26,6 +26,7 @@
 
 clear all
 set more off
+set varabbrev off
 version 16.0
 
 * =============================================================================
@@ -158,9 +159,9 @@ format emigration_dt %td
 label variable emigration_dt "Date of emigration"
 drop has_emigration
 
-* Ensure emigration doesn't happen after death or EDSS4
+* Ensure emigration doesn't happen on or after death (competing event)
+* Note: Emigration can happen after EDSS4 - they are independent events
 replace emigration_dt = . if !missing(death_dt) & emigration_dt >= death_dt
-replace emigration_dt = . if !missing(edss4_dt) & emigration_dt >= edss4_dt
 
 * Study exit date (min of: administrative end, death, emigration, or max follow-up)
 gen study_exit = study_entry + follow_up_days
@@ -293,11 +294,10 @@ expand 1 + floor(runiform() * 8) if has_steroids
 bysort id: gen steroid_num = _n
 
 * Steroid dose in mg (methylprednisolone equivalent)
-* Common doses: 500mg, 1000mg (1g), 1250mg courses
-gen double steroid_dose = 0
-replace steroid_dose = 500 if runiform() < 0.3
-replace steroid_dose = 1000 if steroid_dose == 0 & runiform() < 0.6
-replace steroid_dose = 1250 if steroid_dose == 0
+* Common doses: 500mg (30%), 1000mg (42%), 1250mg (28%)
+gen temp = runiform()
+gen double steroid_dose = cond(temp < 0.3, 500, cond(temp < 0.72, 1000, 1250))
+drop temp
 label variable steroid_dose "Steroid dose (mg methylprednisolone)"
 
 * Steroid course type
@@ -328,8 +328,8 @@ drop if missing(steroid_start) | missing(steroid_stop)
 sort id steroid_start
 by id: gen double prev_stop = steroid_stop[_n-1]
 by id: gen byte create_overlap = runiform() < 0.20 if _n > 1 & !missing(prev_stop)
-* Push start date back to create overlap
-replace steroid_start = prev_stop - floor(runiform() * 5) - 1 if create_overlap == 1 & steroid_start > prev_stop
+* Push start date back to create overlap (1-5 days before previous stop)
+replace steroid_start = prev_stop - floor(runiform() * 5) - 1 if create_overlap == 1
 drop prev_stop create_overlap
 
 keep id steroid_dose steroid_type steroid_start steroid_stop
