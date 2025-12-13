@@ -17,9 +17,9 @@ program define cstat_surv, eclass
     }
     
     * Validation: Check if last estimation was stcox
-    if "`e(cmd)'" != "stcox" {
-        display as error "last estimation was `e(cmd)', not stcox"
-        display as error "cstat_surv requires stcox estimation"
+    if "`e(cmd)'" != "cox" {
+        display as error "last estimation was `e(cmd)', not cox"
+        display as error "cstat_surv requires cox estimation"
         exit 301
     }
     
@@ -109,11 +109,11 @@ program define cstat_surv, eclass
     display as text "  Discordant pairs" _col(35) "= " as result %10.0fc `N_disc'
     display as text "  Tied pairs" _col(35) "= " as result %10.0fc `N_tied'
     display
-    display as text "{hline 50}"
+    display as text "{hline 80}"
     display as text _col(35) "Coef." _col(46) "Std. Err." _col(60) "[95% Conf. Interval]"
-    display as text "{hline 50}"
+    display as text "{hline 80}"
     display as text "c_statistic" _col(32) as result %9.6f `cstat' _col(45) %9.6f `se_cstat' _col(58) %9.6f `ci_lo' _col(70) %9.6f `ci_hi'
-    display as text "{hline 50}"
+    display as text "{hline 80}"
     display as text "Note: Standard error computed via infinitesimal jackknife"
 end
 

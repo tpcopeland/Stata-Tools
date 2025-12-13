@@ -142,7 +142,7 @@ display as text "{hline 50}"
 capture noisily {
     use "`testdir'/_surv_cohort.dta", clear
 
-    stcox age female i.mstype edss_baseline
+    stcox age female i.mstype
 
     cstat_surv
 
@@ -166,7 +166,7 @@ display as text "{hline 50}"
 capture noisily {
     use "`testdir'/_surv_cohort.dta", clear
 
-    stcox i.mstype i.region
+    stcox i.female i.mstype 
 
     cstat_surv
 
@@ -190,7 +190,7 @@ display as text "{hline 50}"
 capture noisily {
     use "`testdir'/_surv_cohort.dta", clear
 
-    stcox edss_baseline
+    stcox female
 
     cstat_surv
 
@@ -214,7 +214,7 @@ display as text "{hline 50}"
 capture noisily {
     use "`testdir'/_surv_cohort.dta", clear
 
-    stcox age female edss_baseline
+    stcox age female 
 
     cstat_surv
 
@@ -272,7 +272,7 @@ display as text "{hline 50}"
 capture noisily {
     use "`testdir'/_surv_cohort.dta", clear
 
-    stcox age female edss_baseline, strata(region)
+    stcox age female, strata(mstype)
 
     cstat_surv
 
@@ -296,7 +296,7 @@ display as text "{hline 50}"
 capture noisily {
     use "`testdir'/_surv_cohort.dta", clear
 
-    stcox age c.age#i.female edss_baseline
+    stcox age c.age#i.female 
 
     cstat_surv
 
@@ -326,12 +326,13 @@ capture noisily {
     local c_simple = e(c)
 
     * Complex model
-    stcox age female i.mstype edss_baseline bmi
+    stcox age female i.mstype bmi
     cstat_surv
     local c_complex = e(c)
 
     display as text "  Simple model C: " %6.4f `c_simple'
     display as text "  Complex model C: " %6.4f `c_complex'
+
 
     * Complex should generally be >= simple (more information)
     display as result "  PASSED: Model comparison completed"
@@ -356,7 +357,7 @@ capture noisily {
     keep if female == 1
 
     stset follow_time, failure(event)
-    stcox age edss_baseline
+    stcox age i.mstype
 
     cstat_surv
 

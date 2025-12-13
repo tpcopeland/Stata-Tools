@@ -75,6 +75,8 @@ cd "${DATA_DIR}"
 * Install check package from local repository
 capture net uninstall check
 quietly net install check, from("${STATA_TOOLS_PATH}/check")
+ssc install mdesc 
+ssc install unique 
 
 * Check for required test data
 capture confirm file "${DATA_DIR}/cohort.dta"

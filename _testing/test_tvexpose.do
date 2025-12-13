@@ -82,6 +82,7 @@ cd "${DATA_DIR}"
 * Install tvtools package from local repository
 capture net uninstall tvtools
 quietly net install tvtools, from("${STATA_TOOLS_PATH}/tvtools")
+ssc install distinct 
 
 * Check for required test data
 capture confirm file "${DATA_DIR}/cohort.dta"
