@@ -728,17 +728,20 @@ save "edge_short_followup.dta", replace
 display as text "  Created edge_short_followup.dta (50 obs, 1-7 day follow-up)"
 
 * Edge case 5: Exposure matching short follow-up
-clear
-set obs 50
-gen long id = _n
-gen rx_start = date("2015-01-01", "YMD") + floor(runiform() * 365)
-gen rx_stop = rx_start + 1 + floor(runiform() * 3)  // 1-4 day exposures
+* Generate exposures that align with the short follow-up cohort
+use "edge_short_followup.dta", clear
+keep id study_entry study_exit
+* Create exposure that falls within the short study period
+gen rx_start = study_entry
+gen rx_stop = study_exit - 1  // Exposure ends 1 day before exit
+replace rx_stop = rx_start + 1 if rx_stop <= rx_start  // Ensure at least 1 day
 gen byte hrt_type = 1 + floor(runiform() * 3)
 gen double dose = 0.3 + runiform() * 0.5
 format rx_start rx_stop %td
+keep id rx_start rx_stop hrt_type dose
 compress
 save "edge_short_exp.dta", replace
-display as text "  Created edge_short_exp.dta (50 short exposures)"
+display as text "  Created edge_short_exp.dta (50 short exposures matching cohort)"
 
 * Edge case 6: All same exposure type (no variation)
 use "cohort.dta", clear
@@ -784,13 +787,19 @@ save "edge_long_followup.dta", replace
 display as text "  Created edge_long_followup.dta (20 obs, 30-40 year follow-up)"
 
 * Edge case 9: Matching long exposure periods
-clear
-set obs 50
-gen long id = ceil(_n / 3)  // ~17 persons, 3 exposures each
-gen rx_start = date("1990-01-01", "YMD") + floor(runiform() * 3650)  // 10 years spread
-gen rx_stop = rx_start + 730 + floor(runiform() * 3650)  // 2-12 year exposures
+* Use the long follow-up cohort to create aligned exposures
+use "edge_long_followup.dta", clear
+keep id study_entry study_exit
+* Create multiple exposures per person (3 exposure periods each)
+expand 3
+bysort id: gen exp_num = _n
+* Create exposure periods within the study window
+gen rx_start = study_entry + (exp_num - 1) * floor((study_exit - study_entry) / 4)
+gen rx_stop = rx_start + 730 + floor(runiform() * 1095)  // 2-5 year exposures
+replace rx_stop = study_exit if rx_stop > study_exit
 gen byte hrt_type = 1 + floor(runiform() * 3)
 gen double dose = 0.3 + runiform() * 0.7
+keep id rx_start rx_stop hrt_type dose
 format rx_start rx_stop %td
 compress
 save "edge_long_exp.dta", replace

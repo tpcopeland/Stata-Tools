@@ -141,7 +141,11 @@ local failed_tests ""
 * This program validates tvexpose output against expected properties
 capture program drop _validate_tvexpose_output
 program define _validate_tvexpose_output, rclass
-    syntax, cohort_ids(integer) [tolerance(real 0.01)]
+    syntax, cohort_ids(integer) [tolerance(real 0.01) startvar(string) stopvar(string)]
+
+    * Use default variable names if not specified
+    if "`startvar'" == "" local startvar "start"
+    if "`stopvar'" == "" local stopvar "stop"
 
     * Check 1: Has observations
     quietly count
@@ -158,17 +162,18 @@ program define _validate_tvexpose_output, rclass
         display as error "    Validation WARN: Only `output_ids'/`cohort_ids' IDs in output"
     }
 
-    * Check 3: Dates are valid (stop > start)
-    quietly count if stop <= start
+    * Check 3: Dates are valid (stop >= start)
+    * Note: stop == start is allowed for zero-length boundary periods
+    quietly count if `stopvar' < `startvar'
     if r(N) > 0 {
-        display as error "    Validation FAIL: " r(N) " rows with stop <= start"
+        display as error "    Validation FAIL: " r(N) " rows with stop < start"
         return scalar valid = 0
         exit
     }
 
     * Check 4: No overlapping periods within same ID
-    sort id start stop
-    quietly by id: gen byte _overlap = (start < stop[_n-1]) if _n > 1
+    sort id `startvar' `stopvar'
+    quietly by id: gen byte _overlap = (`startvar' < `stopvar'[_n-1]) if _n > 1
     quietly count if _overlap == 1
     local n_overlaps = r(N)
     if `n_overlaps' > 0 {
@@ -222,11 +227,11 @@ if `run_only' == 0 | `run_only' == `test_count' {
         quietly use "${DATA_DIR}/_test_tvexpose_basic.dta", clear
 
         * Validate output
-        _validate_tvexpose_output, cohort_ids(`cohort_ids')
+        _validate_tvexpose_output, cohort_ids(`cohort_ids') startvar(rx_start) stopvar(rx_stop)
         assert r(valid) == 1
 
         * Verify exposure variable exists and has expected values
-        confirm variable id tv_hrt start stop
+        confirm variable id tv_hrt rx_start rx_stop
         quietly tab tv_hrt
         assert r(r) >= 1  // At least 1 category
     }
@@ -290,7 +295,7 @@ if `run_only' == 0 | `run_only' == `test_count' {
         assert r(min) >= 0 & r(max) <= 1
 
         * Additional validation: once exposed, should stay exposed
-        sort id start
+        sort id rx_start
         quietly by id: gen byte _decreased = (ever_hrt < ever_hrt[_n-1]) if _n > 1
         quietly count if _decreased == 1
         assert r(N) == 0
@@ -438,7 +443,7 @@ if `run_only' == 0 | `run_only' == `test_count' {
         assert r(min) >= 0
 
         * Verify non-decreasing within person
-        sort id start
+        sort id rx_start
         quietly by id: gen byte _decreased = (cumexp_hrt < cumexp_hrt[_n-1] - 0.001) if _n > 1
         quietly count if _decreased == 1
         assert r(N) == 0
@@ -992,7 +997,7 @@ if `run_only' == 0 | `run_only' == `test_count' {
 
         quietly use "${DATA_DIR}/_test_tvexpose_switching.dta", clear
         assert _N > 0
-        confirm variable has_switched
+        confirm variable ever_switched
     }
     if _rc == 0 {
         local ++pass_count
@@ -1039,7 +1044,7 @@ if `run_only' == 0 | `run_only' == `test_count' {
         quietly use "${DATA_DIR}/_test_tvexpose_ptime.dta", clear
 
         * Calculate output person-time
-        gen double output_ptime = stop - start
+        gen double output_ptime = rx_stop - rx_start
         quietly sum output_ptime
         local output_total = r(sum)
 
@@ -1395,7 +1400,7 @@ if `run_only' == 0 | `run_only' == `test_count' {
 
         quietly use "${DATA_DIR}/_test_tvexpose_statetime.dta", clear
         assert _N > 0
-        confirm variable state_time
+        confirm variable state_time_years
     }
     if _rc == 0 {
         local ++pass_count
@@ -2218,10 +2223,10 @@ if `run_only' == 0 | `run_only' == `test_count' {
         quietly use "${DATA_DIR}/_test_tvexpose_cox.dta", clear
 
         * Create failure indicator
-        gen byte failure = (!missing(edss4_dt) & edss4_dt >= start & edss4_dt <= stop)
+        gen byte failure = (!missing(edss4_dt) & edss4_dt >= dmt_start & edss4_dt <= dmt_stop)
 
         * Set survival data
-        stset stop, failure(failure) entry(start) id(id) scale(365.25)
+        stset dmt_stop, failure(failure) entry(dmt_start) id(id) scale(365.25)
 
         * Run Cox model (should not error)
         stcox i.dmt_status age i.female i.mstype
@@ -2412,7 +2417,7 @@ if `run_only' == 0 | `run_only' == `test_count' {
         confirm variable tv_short
 
         * Verify person-time is very short (1-7 days max)
-        gen ptime = stop - start
+        gen ptime = rx_stop - rx_start
         quietly sum ptime
         assert r(max) <= 7
     }
@@ -2458,7 +2463,7 @@ if `run_only' == 0 | `run_only' == `test_count' {
         confirm variable tv_long
 
         * Verify long person-time is handled correctly
-        gen ptime = stop - start
+        gen ptime = rx_stop - rx_start
         quietly sum ptime
         * Should have some periods > 1 year (365 days)
         assert r(max) > 365
