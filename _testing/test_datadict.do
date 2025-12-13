@@ -59,7 +59,7 @@ cd "${DATA_DIR}"
 
 * Install datamap package from local repository (contains datadict)
 capture net uninstall datamap
-net install datamap, from("${STATA_TOOLS_PATH}/datamap")
+net install datamap, from("${STATA_TOOLS_PATH}/datamap") force
 
 local testdir "${DATA_DIR}"
 
@@ -421,8 +421,9 @@ capture noisily {
         output("`testdir'/_test_dd_sep.md") separate
 
     * Check that separate files were created
-    confirm file "`testdir'/_test_dd_sep_cohort.md"
-    confirm file "`testdir'/_test_dd_sep_hrt.md"
+    * Note: separate creates <basename>_dictionary.md files, not using output() prefix
+    confirm file "`testdir'/cohort_dictionary.md"
+    confirm file "`testdir'/hrt_dictionary.md"
 
     display as result "  PASSED: Separate output works"
     local ++pass_count

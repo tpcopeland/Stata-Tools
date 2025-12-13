@@ -196,7 +196,9 @@ program define datamap, rclass
 	if "`single'" != "" {
 		// Single file mode: process one specified file
 		// Add .dta extension if not present
-		local single = cond(regexm(`"`single'"', "\.dta$"), `"`single'"', `"`single'.dta")
+		if !regexm(`"`single'"', "\.dta$") {
+			local single `"`single'.dta"'
+		}
 		confirm file `"`single'"'
 		local nfiles 1
 	}
@@ -292,7 +294,9 @@ program define CollectFromFilelistOption
 		gettoken dsname remaining : remaining
 		if `"`dsname'"' != "" {
 			// Add .dta extension if not present
-			local dsname = cond(regexm(`"`dsname'"', "\.dta$"), `"`dsname'"', `"`dsname'.dta")
+			if !regexm(`"`dsname'"', "\.dta$") {
+				local dsname `"`dsname'.dta"'
+			}
 			// Check file exists
 			capture confirm file `"`dsname'"'
 			if _rc != 0 {

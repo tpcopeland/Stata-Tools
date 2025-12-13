@@ -3,7 +3,7 @@
 *! Part of the setools package
 
 program define migrations, rclass
-    version 18.0
+    version 16.0
     set varabbrev off
     syntax , MIGfile(string) [IDvar(varname) STARTvar(varname) SAVEexclude(string) SAVEcensor(string) REPLACE VERBOSE]
 

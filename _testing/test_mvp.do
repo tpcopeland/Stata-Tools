@@ -59,7 +59,7 @@ cd "${DATA_DIR}"
 
 * Install mvp package from local repository
 capture net uninstall mvp
-net install mvp, from("${STATA_TOOLS_PATH}/mvp")
+net install mvp, from("${STATA_TOOLS_PATH}/mvp") force
 
 local testdir "${DATA_DIR}"
 
@@ -1038,7 +1038,8 @@ display as text "{hline 50}"
 capture noisily {
     use "`testdir'/dmt_miss.dta", clear
 
-    mvp dmt efficacy
+    * Note: dmt_miss.dta only has: id, dmt_start, dmt_stop, dmt
+    mvp dmt
 
     display as result "  PASSED: DMT dataset missingness works"
     local ++pass_count

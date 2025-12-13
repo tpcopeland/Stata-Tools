@@ -121,6 +121,34 @@ label values female female_lbl
 gen byte age = round(25 + runiform() * 45)  // Age 25-70
 label variable age "Age at study entry"
 
+* Additional demographic and clinical variables (for synthdata/mvp tests)
+gen double edss_baseline = round((runiform() * 6) * 2) / 2  // EDSS 0-6 in 0.5 increments
+replace edss_baseline = 0 if edss_baseline < 0
+label variable edss_baseline "Baseline EDSS score"
+
+gen double bmi = 18 + runiform() * 17  // BMI 18-35
+replace bmi = round(bmi, 0.1)
+label variable bmi "Body mass index"
+
+gen byte education = 1 + floor(runiform() * 4)  // 1-4 education levels
+label variable education "Education level"
+label define education_lbl 1 "Primary" 2 "Secondary" 3 "Tertiary" 4 "Postgraduate"
+label values education education_lbl
+
+gen byte income_q = 1 + floor(runiform() * 5)  // Income quintile 1-5
+label variable income_q "Income quintile"
+
+gen byte comorbidity = floor(runiform() * 4)  // 0-3 comorbidities
+label variable comorbidity "Number of comorbidities"
+
+gen byte smoking = floor(runiform() * 3)  // 0=never, 1=former, 2=current
+label variable smoking "Smoking status"
+label define smoking_lbl 0 "Never" 1 "Former" 2 "Current"
+label values smoking smoking_lbl
+
+gen byte region = 1 + floor(runiform() * 21)  // Swedish counties 1-21
+label variable region "County of residence"
+
 * MS type (for MS-related tests)
 gen byte mstype = 1 + floor(runiform() * 4)
 label variable mstype "MS type"
@@ -640,9 +668,16 @@ display as text _n "Creating datasets with missing data patterns..."
 
 * Cohort with missingness
 use "cohort.dta", clear
-* Introduce 5% missing for age, 3% for mstype
+* Introduce various missing rates for different variables
 replace age = . if runiform() < 0.05
 replace mstype = . if runiform() < 0.03
+replace edss_baseline = . if runiform() < 0.08
+replace bmi = . if runiform() < 0.10
+replace education = . if runiform() < 0.06
+replace income_q = . if runiform() < 0.12
+replace comorbidity = . if runiform() < 0.04
+replace smoking = . if runiform() < 0.07
+replace region = . if runiform() < 0.02
 save "cohort_miss.dta", replace
 display as text "  Created cohort_miss.dta"
 

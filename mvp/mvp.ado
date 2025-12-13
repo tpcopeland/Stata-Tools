@@ -628,8 +628,9 @@ program define mvp, rclass byable(recall) sortpreserve
             }
             matrix rownames `corrmat' = `rnames'
             matrix colnames `corrmat' = `rnames'
-            
-            return matrix corr_miss = `corrmat'
+
+            * Use copy option to keep matrix available for graph(correlation)
+            return matrix corr_miss = `corrmat', copy
         }
         else {
             * Fall back to pwcorr
@@ -638,7 +639,7 @@ program define mvp, rclass byable(recall) sortpreserve
             }
             qui correlate `misslist' if `touse'
             matrix `corrmat' = r(C)
-            
+
             * Rename and display
             local rnames
             forv i = 1/`nvar' {
@@ -649,8 +650,9 @@ program define mvp, rclass byable(recall) sortpreserve
             if "`correlate'" != "" {
                 matrix list `corrmat', format(%6.3f) noheader
             }
-            
-            return matrix corr_miss = `corrmat'
+
+            * Use copy option to keep matrix available for graph(correlation)
+            return matrix corr_miss = `corrmat', copy
         }
     }
 
@@ -799,6 +801,10 @@ program define mvp, rclass byable(recall) sortpreserve
                     }
 
                     * Now calculate actual percentages using original data
+                    * First save the tempfile we just created
+                    tempfile gby_tempdata
+                    save `gby_tempdata', replace
+
                     local row = 1
                     foreach lev of local gby_levels {
                         forv i = 1/`nvar' {
@@ -808,11 +814,15 @@ program define mvp, rclass byable(recall) sortpreserve
                             qui count if missing(``i'') & `gby' == `lev' & `touse'
                             local nmisslev = r(N)
                             local pctlev = 100 * `nmisslev' / `nlev'
-                            preserve
+                            * Load tempfile, update, save back
+                            use `gby_tempdata', clear
                             qui replace pctmiss = `pctlev' in `row'
+                            save `gby_tempdata', replace
                             local ++row
                         }
                     }
+                    * Load final tempfile for graphing (stay in preserved state)
+                    use `gby_tempdata', clear
                 }
 
                 * Set default title if not specified
@@ -861,6 +871,10 @@ program define mvp, rclass byable(recall) sortpreserve
                     }
 
                     * Now calculate actual percentages using original data
+                    * First save the tempfile we just created
+                    tempfile over_tempdata
+                    save `over_tempdata', replace
+
                     local row = 1
                     foreach lev of local over_levels {
                         forv i = 1/`nvar' {
@@ -870,11 +884,15 @@ program define mvp, rclass byable(recall) sortpreserve
                             qui count if missing(``i'') & `over' == `lev' & `touse'
                             local nmisslev = r(N)
                             local pctlev = 100 * `nmisslev' / `nlev'
-                            preserve
+                            * Load tempfile, update, save back
+                            use `over_tempdata', clear
                             qui replace pctmiss = `pctlev' in `row'
+                            save `over_tempdata', replace
                             local ++row
                         }
                     }
+                    * Load final tempfile for graphing (stay in preserved state)
+                    use `over_tempdata', clear
                 }
 
                 * Set default title if not specified
@@ -1198,6 +1216,14 @@ program define mvp, rclass byable(recall) sortpreserve
                 exit 198
             }
 
+            * Extract correlation values to locals BEFORE preserve/clear
+            * (clear destroys matrices, so we need to save values first)
+            forv r = 1/`nvar' {
+                forv c = 1/`nvar' {
+                    local corrval_`r'_`c' = `corrmat'[`r',`c']
+                }
+            }
+
             preserve
             qui {
                 clear
@@ -1212,7 +1238,8 @@ program define mvp, rclass byable(recall) sortpreserve
                     forv c = 1/`nvar' {
                         replace _rowid = `r' in `obs'
                         replace _colid = `c' in `obs'
-                        local corrval = `corrmat'[`r',`c']
+                        * Use pre-extracted correlation value
+                        local corrval = `corrval_`r'_`c''
                         replace _corr = `corrval' in `obs'
                         * Format correlation label
                         if abs(`corrval') < 0.01 {
