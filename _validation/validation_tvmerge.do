@@ -8,9 +8,12 @@
 * Philosophy: Create minimal datasets where every output value can be
 *             mathematically verified by hand.
 *
+* Run modes:
+*   Standalone: do validation_tvmerge.do
+*   Via runner: do run_test.do validation_tvmerge [testnumber] [quiet] [machine]
+*
 * Prerequisites:
 *   - tvmerge.ado must be installed/accessible
-*   - Run from _validation directory or set STATA_TOOLS_PATH
 *
 * Author: Auto-generated from validation plan
 * Date: 2025-12-13
@@ -21,8 +24,26 @@ set more off
 version 16.0
 
 * =============================================================================
+* CONFIGURATION: Check for runner globals or set defaults
+* =============================================================================
+if "$RUN_TEST_QUIET" == "" {
+    global RUN_TEST_QUIET = 0
+}
+if "$RUN_TEST_MACHINE" == "" {
+    global RUN_TEST_MACHINE = 0
+}
+if "$RUN_TEST_NUMBER" == "" {
+    global RUN_TEST_NUMBER = 0
+}
+
+local quiet = $RUN_TEST_QUIET
+local machine = $RUN_TEST_MACHINE
+local run_only = $RUN_TEST_NUMBER
+
+* =============================================================================
 * PATH CONFIGURATION
 * =============================================================================
+* Cross-platform path detection
 if "`c(os)'" == "MacOSX" {
     global STATA_TOOLS_PATH "/Users/tcopeland/Documents/GitHub/Stata-Tools"
 }
@@ -30,12 +51,22 @@ else if "`c(os)'" == "Unix" {
     global STATA_TOOLS_PATH "/home/ubuntu/Stata-Tools"
 }
 else {
+    * Windows or other - try to detect from current directory
     capture confirm file "_validation"
     if _rc == 0 {
+        * Running from repo root
         global STATA_TOOLS_PATH "`c(pwd)'"
     }
     else {
-        global STATA_TOOLS_PATH "`c(pwd)'/.."
+        capture confirm file "data"
+        if _rc == 0 {
+            * Running from _validation directory
+            global STATA_TOOLS_PATH "`c(pwd)'/.."
+        }
+        else {
+            * Assume running from _validation/data directory
+            global STATA_TOOLS_PATH "`c(pwd)'/../.."
+        }
     }
 }
 
@@ -48,16 +79,18 @@ capture mkdir "${DATA_DIR}"
 * Install tvtools package
 capture net uninstall tvtools
 quietly net install tvtools, from("${STATA_TOOLS_PATH}/tvtools")
-capture ssc install distinct
+capture quietly ssc install distinct
 
 * =============================================================================
-* HEADER
+* HEADER (skip in quiet/machine mode)
 * =============================================================================
-display as text _n "{hline 70}"
-display as text "TVMERGE DEEP VALIDATION TESTS"
-display as text "{hline 70}"
-display as text "These tests verify mathematical correctness, not just execution."
-display as text "{hline 70}"
+if `quiet' == 0 {
+    display as text _n "{hline 70}"
+    display as text "TVMERGE DEEP VALIDATION TESTS"
+    display as text "{hline 70}"
+    display as text "These tests verify mathematical correctness, not just execution."
+    display as text "{hline 70}"
+}
 
 * =============================================================================
 * TEST COUNTERS
