@@ -135,7 +135,9 @@ end
 * =============================================================================
 * CREATE VALIDATION DATA
 * =============================================================================
-display as text _n "Creating validation datasets..."
+if `quiet' == 0 {
+    display as text _n "Creating validation datasets..."
+}
 
 * Standard cohort: 1 person, 2020 (leap year = 366 days)
 clear
@@ -189,39 +191,49 @@ label data "Overlapping exposures"
 save "${DATA_DIR}/exp_overlap.dta", replace
 
 * Exposures with 15-day gap for grace period testing
+* First exposure: Jan 1 - Jan 31 (21915 - 21945)
+* Second exposure: Feb 15 - Mar 17 (21960 - 21991)
+* Gap: 21960 - 21945 = 15 days
 clear
 input long id double(rx_start rx_stop) byte exp_type
     1 21915 21945 1
-    1 21961 21991 1
+    1 21960 21991 1
 end
 format %td rx_start rx_stop
 label data "Two exposures with 15-day gap"
 save "${DATA_DIR}/exp_gap15.dta", replace
 
 * Full-year exposure for cumulative testing
+* Jan 1 (21915) to Dec 31 (22281) = 366 days (leap year)
 clear
 input long id double(rx_start rx_stop) byte exp_type
-    1 21915 22280 1
+    1 21915 22281 1
 end
 format %td rx_start rx_stop
-label data "Full year exposure"
+label data "Full year exposure (366 days)"
 save "${DATA_DIR}/exp_fullyear.dta", replace
 
-display as result "Validation datasets created in: ${DATA_DIR}"
+if `quiet' == 0 {
+    display as result "Validation datasets created in: ${DATA_DIR}"
+}
 
 * =============================================================================
 * TEST SECTION 3.1: CORE TRANSFORMATION TESTS
 * =============================================================================
-display as text _n "{hline 70}"
-display as text "SECTION 3.1: Core Transformation Tests"
-display as text "{hline 70}"
+if `quiet' == 0 {
+    display as text _n "{hline 70}"
+    display as text "SECTION 3.1: Core Transformation Tests"
+    display as text "{hline 70}"
+}
 
 * -----------------------------------------------------------------------------
 * Test 3.1.1: Basic Interval Splitting
 * Purpose: Verify exposure periods are correctly split at boundaries
 * -----------------------------------------------------------------------------
 local ++test_count
-display as text _n "Test 3.1.1: Basic Interval Splitting"
+if `quiet' == 0 {
+    display as text _n "Test 3.1.1: Basic Interval Splitting"
+}
 
 capture {
     use "${DATA_DIR}/cohort_single.dta", clear
@@ -480,24 +492,35 @@ else {
 * Purpose: Verify exposures ARE merged when gap within grace period
 * -----------------------------------------------------------------------------
 local ++test_count
-display as text _n "Test 3.4.2: Grace Period (gap <= grace value)"
+if `quiet' == 0 {
+    display as text _n "Test 3.4.2: Grace Period (gap <= grace value)"
+}
 
 capture {
     use "${DATA_DIR}/cohort_single.dta", clear
 
-    * With grace(15) - SHOULD merge (15-day gap <= 15)
+    * First: count unexposed intervals WITHOUT grace period
+    tvexpose using "${DATA_DIR}/exp_gap15.dta", id(id) start(rx_start) stop(rx_stop) ///
+        exposure(exp_type) reference(0) entry(study_entry) exit(study_exit) ///
+        grace(0) generate(tv_no_grace)
+
+    quietly count if tv_no_grace == 0
+    local n_unexposed_no_grace = r(N)
+
+    * Now with grace(15) - SHOULD merge (15-day gap <= 15)
+    use "${DATA_DIR}/cohort_single.dta", clear
     tvexpose using "${DATA_DIR}/exp_gap15.dta", id(id) start(rx_start) stop(rx_stop) ///
         exposure(exp_type) reference(0) entry(study_entry) exit(study_exit) ///
         grace(15) generate(tv_exp)
 
     * Count unexposed intervals - should be fewer due to bridging
     quietly count if tv_exp == 0
-    local n_unexposed = r(N)
+    local n_unexposed_grace = r(N)
 
     * The gap period (Feb 1-15) should now be exposed
-    * This means the 15-day gap is bridged and we have continuous exposure
-    * The number of unexposed periods should be reduced
-    assert `n_unexposed' >= 1  // Still have some unexposed (before first/after last exposure)
+    * With grace(15), the gap is bridged, so we should have fewer unexposed intervals
+    * (or at minimum, the gap itself should be exposed)
+    assert `n_unexposed_grace' <= `n_unexposed_no_grace'
 }
 if _rc == 0 {
     display as result "  PASS: Grace(15) bridges 15-day gap"

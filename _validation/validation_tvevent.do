@@ -126,7 +126,9 @@ end
 * =============================================================================
 * CREATE VALIDATION DATA
 * =============================================================================
-display as text _n "Creating validation datasets..."
+if `quiet' == 0 {
+    display as text _n "Creating validation datasets..."
+}
 
 * Interval data for tvevent testing (simulating tvexpose output)
 clear
@@ -238,14 +240,18 @@ format %td primary_dt death_dt emig_dt
 label data "Multiple competing risks: death (Apr 1), emig (May 15), primary (Aug 1)"
 save "${DATA_DIR}/events_multi_compete.dta", replace
 
-display as result "Validation datasets created in: ${DATA_DIR}"
+if `quiet' == 0 {
+    display as result "Validation datasets created in: ${DATA_DIR}"
+}
 
 * =============================================================================
 * TEST SECTION 4.1: EVENT INTEGRATION TESTS
 * =============================================================================
-display as text _n "{hline 70}"
-display as text "SECTION 4.1: Event Integration Tests"
-display as text "{hline 70}"
+if `quiet' == 0 {
+    display as text _n "{hline 70}"
+    display as text "SECTION 4.1: Event Integration Tests"
+    display as text "{hline 70}"
+}
 
 * -----------------------------------------------------------------------------
 * Test 4.1.1: Event Placed at Correct Boundary

@@ -120,7 +120,9 @@ end
 * =============================================================================
 * CREATE VALIDATION DATA
 * =============================================================================
-display as text _n "Creating validation datasets..."
+if `quiet' == 0 {
+    display as text _n "Creating validation datasets..."
+}
 
 * Dataset 1: Single full-year interval
 clear
@@ -239,14 +241,18 @@ format %td s3 e3
 label data "Dataset 3: Jun-Dec"
 save "${DATA_DIR}/tvmerge_3way_ds3.dta", replace
 
-display as result "Validation datasets created in: ${DATA_DIR}"
+if `quiet' == 0 {
+    display as result "Validation datasets created in: ${DATA_DIR}"
+}
 
 * =============================================================================
 * TEST SECTION 5.1: CARTESIAN PRODUCT TESTS
 * =============================================================================
-display as text _n "{hline 70}"
-display as text "SECTION 5.1: Cartesian Product Tests"
-display as text "{hline 70}"
+if `quiet' == 0 {
+    display as text _n "{hline 70}"
+    display as text "SECTION 5.1: Cartesian Product Tests"
+    display as text "{hline 70}"
+}
 
 * -----------------------------------------------------------------------------
 * Test 5.1.1: Complete Intersection Coverage
