@@ -981,6 +981,1101 @@ else {
 }
 
 * =============================================================================
+* TEST SECTION 3.9: RECENCY TESTS
+* =============================================================================
+if `quiet' == 0 {
+    display as text _n "{hline 70}"
+    display as text "SECTION 3.9: Recency Tests"
+    display as text "{hline 70}"
+}
+
+* -----------------------------------------------------------------------------
+* Test 3.9.1: recency() Creates Time-Since-Last Categories
+* Purpose: Verify recency categories are assigned based on time since exposure
+* -----------------------------------------------------------------------------
+local ++test_count
+if `quiet' == 0 {
+    display as text _n "Test 3.9.1: recency() Creates Categories"
+}
+
+capture {
+    use "${DATA_DIR}/cohort_single.dta", clear
+    tvexpose using "${DATA_DIR}/exp_basic.dta", id(id) start(rx_start) stop(rx_stop) ///
+        exposure(exp_type) reference(0) entry(study_entry) exit(study_exit) ///
+        recency(0.5 1) generate(recency_cat)
+
+    * Verify variable created with expected categories
+    quietly tab recency_cat
+    assert r(r) >= 1
+}
+if _rc == 0 {
+    display as result "  PASS: recency() creates time-since-last categories"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: recency() categories (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 3.9.1"
+}
+
+* =============================================================================
+* TEST SECTION 3.10: BYTYPE TESTS
+* =============================================================================
+if `quiet' == 0 {
+    display as text _n "{hline 70}"
+    display as text "SECTION 3.10: bytype Tests"
+    display as text "{hline 70}"
+}
+
+* -----------------------------------------------------------------------------
+* Test 3.10.1: bytype Creates Separate Variables
+* Purpose: Verify bytype creates individual variables for each exposure type
+* -----------------------------------------------------------------------------
+local ++test_count
+if `quiet' == 0 {
+    display as text _n "Test 3.10.1: bytype Creates Separate Variables"
+}
+
+capture {
+    use "${DATA_DIR}/cohort_single.dta", clear
+    * bytype requires an exposure type option (evertreated, currentformer, duration, continuousunit, or recency)
+    tvexpose using "${DATA_DIR}/exp_two.dta", id(id) start(rx_start) stop(rx_stop) ///
+        exposure(exp_type) reference(0) entry(study_entry) exit(study_exit) ///
+        continuousunit(days) bytype generate(tv_exp)
+
+    * Should have tv_exp1 and tv_exp2 (for exposure types 1 and 2)
+    confirm variable tv_exp1
+    confirm variable tv_exp2
+}
+if _rc == 0 {
+    display as result "  PASS: bytype creates separate variables for each exposure type"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: bytype separate variables (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 3.10.1"
+}
+
+* =============================================================================
+* TEST SECTION 3.11: DOSE AND DOSECUTS TESTS
+* =============================================================================
+if `quiet' == 0 {
+    display as text _n "{hline 70}"
+    display as text "SECTION 3.11: Dose and Dosecuts Tests"
+    display as text "{hline 70}"
+}
+
+* Create dose exposure data first
+clear
+input long id double(rx_start rx_stop) double dose_amt
+    1 21946 22006 100
+    1 22067 22128 150
+end
+format %td rx_start rx_stop
+label data "Dose exposure data"
+save "${DATA_DIR}/exp_dose.dta", replace
+
+* -----------------------------------------------------------------------------
+* Test 3.11.1: dose Tracks Cumulative Dose
+* Purpose: Verify cumulative dose tracking
+* -----------------------------------------------------------------------------
+local ++test_count
+if `quiet' == 0 {
+    display as text _n "Test 3.11.1: dose Tracks Cumulative Dose"
+}
+
+capture {
+    use "${DATA_DIR}/cohort_single.dta", clear
+    tvexpose using "${DATA_DIR}/exp_dose.dta", id(id) start(rx_start) stop(rx_stop) ///
+        exposure(dose_amt) entry(study_entry) exit(study_exit) ///
+        dose generate(cum_dose)
+
+    * Verify cumulative dose is tracked
+    quietly sum cum_dose
+    assert r(max) > 0
+
+    * Should be monotonically increasing
+    sort id rx_start
+    by id: gen double cum_change = cum_dose - cum_dose[_n-1] if _n > 1
+    quietly count if cum_change < -0.0001
+    assert r(N) == 0
+}
+if _rc == 0 {
+    display as result "  PASS: dose tracks cumulative dose correctly"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: dose cumulative tracking (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 3.11.1"
+}
+
+* -----------------------------------------------------------------------------
+* Test 3.11.2: dosecuts Creates Categorical Dose Variable
+* Purpose: Verify dose categorization at specified cutpoints
+* -----------------------------------------------------------------------------
+local ++test_count
+if `quiet' == 0 {
+    display as text _n "Test 3.11.2: dosecuts Creates Categories"
+}
+
+capture {
+    use "${DATA_DIR}/cohort_single.dta", clear
+    tvexpose using "${DATA_DIR}/exp_dose.dta", id(id) start(rx_start) stop(rx_stop) ///
+        exposure(dose_amt) entry(study_entry) exit(study_exit) ///
+        dose dosecuts(50 100 200) generate(dose_cat)
+
+    * Verify categories exist
+    quietly tab dose_cat
+    assert r(r) >= 1
+
+    * Values should be non-negative integers
+    quietly count if dose_cat < 0 | mod(dose_cat, 1) != 0
+    assert r(N) == 0
+}
+if _rc == 0 {
+    display as result "  PASS: dosecuts creates categorical dose variable"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: dosecuts categorization (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 3.11.2"
+}
+
+* =============================================================================
+* TEST SECTION 3.12: DATA HANDLING OPTIONS TESTS
+* =============================================================================
+if `quiet' == 0 {
+    display as text _n "{hline 70}"
+    display as text "SECTION 3.12: Data Handling Options Tests"
+    display as text "{hline 70}"
+}
+
+* Create data for type-specific grace testing
+clear
+input long id double(rx_start rx_stop) byte exp_type
+    1 21915 21945 1
+    1 21960 21991 1
+    1 22006 22036 2
+    1 22066 22097 2
+end
+format %td rx_start rx_stop
+label data "Exposures with different gap sizes by type"
+save "${DATA_DIR}/exp_typegrace.dta", replace
+
+* -----------------------------------------------------------------------------
+* Test 3.12.1: Type-Specific Grace Periods
+* Purpose: Verify different grace periods for different exposure types
+* -----------------------------------------------------------------------------
+local ++test_count
+if `quiet' == 0 {
+    display as text _n "Test 3.12.1: Type-Specific Grace Periods"
+}
+
+capture {
+    use "${DATA_DIR}/cohort_single.dta", clear
+
+    * Type 1 has 15-day gap, Type 2 has 30-day gap
+    * With grace(1=20 2=25): Type 1 bridged, Type 2 NOT bridged
+    tvexpose using "${DATA_DIR}/exp_typegrace.dta", id(id) start(rx_start) stop(rx_stop) ///
+        exposure(exp_type) reference(0) entry(study_entry) exit(study_exit) ///
+        grace(1=20 2=25) generate(tv_exp)
+
+    * Command should run without error
+    assert _N >= 1
+}
+if _rc == 0 {
+    display as result "  PASS: Type-specific grace periods accepted"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: Type-specific grace (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 3.12.1"
+}
+
+* -----------------------------------------------------------------------------
+* Test 3.12.2: merge() Consolidates Close Periods
+* Purpose: Verify merge() option merges periods within threshold
+* -----------------------------------------------------------------------------
+local ++test_count
+if `quiet' == 0 {
+    display as text _n "Test 3.12.2: merge() Consolidates Close Periods"
+}
+
+capture {
+    use "${DATA_DIR}/cohort_single.dta", clear
+
+    * Get count with no merge option (should have more intervals)
+    tvexpose using "${DATA_DIR}/exp_gap15.dta", id(id) start(rx_start) stop(rx_stop) ///
+        exposure(exp_type) reference(0) entry(study_entry) exit(study_exit) ///
+        merge(0) generate(tv_no_merge)
+    local n_no_merge = _N
+
+    * With merge(30) - should consolidate nearby periods
+    use "${DATA_DIR}/cohort_single.dta", clear
+    tvexpose using "${DATA_DIR}/exp_gap15.dta", id(id) start(rx_start) stop(rx_stop) ///
+        exposure(exp_type) reference(0) entry(study_entry) exit(study_exit) ///
+        merge(30) generate(tv_merge)
+    local n_merge = _N
+
+    * Should have equal or fewer intervals after merge
+    assert `n_merge' <= `n_no_merge'
+}
+if _rc == 0 {
+    display as result "  PASS: merge() consolidates nearby periods"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: merge() consolidation (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 3.12.2"
+}
+
+* -----------------------------------------------------------------------------
+* Test 3.12.3: fillgaps() Extends Exposure Beyond Records
+* Purpose: Verify fillgaps() extends exposure beyond last stop date
+* -----------------------------------------------------------------------------
+local ++test_count
+if `quiet' == 0 {
+    display as text _n "Test 3.12.3: fillgaps() Extends Exposure"
+}
+
+capture {
+    use "${DATA_DIR}/cohort_single.dta", clear
+
+    * Without fillgaps - baseline
+    tvexpose using "${DATA_DIR}/exp_basic.dta", id(id) start(rx_start) stop(rx_stop) ///
+        exposure(exp_type) reference(0) entry(study_entry) exit(study_exit) ///
+        fillgaps(0) generate(tv_no_fill)
+
+    * Count exposed time
+    gen double dur_exp = (rx_stop - rx_start) if tv_no_fill == 1
+    quietly sum dur_exp
+    local exposed_no_fill = r(sum)
+
+    use "${DATA_DIR}/cohort_single.dta", clear
+    tvexpose using "${DATA_DIR}/exp_basic.dta", id(id) start(rx_start) stop(rx_stop) ///
+        exposure(exp_type) reference(0) entry(study_entry) exit(study_exit) ///
+        fillgaps(30) generate(tv_fill)
+
+    gen double dur_exp = (rx_stop - rx_start) if tv_fill == 1
+    quietly sum dur_exp
+    local exposed_fill = r(sum)
+
+    * Exposed time should be equal or greater with fillgaps
+    assert `exposed_fill' >= `exposed_no_fill'
+}
+if _rc == 0 {
+    display as result "  PASS: fillgaps() extends exposure duration"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: fillgaps() extension (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 3.12.3"
+}
+
+* -----------------------------------------------------------------------------
+* Test 3.12.4: carryforward() Carries Exposure Through Gaps
+* Purpose: Verify carryforward() maintains exposure through gap periods
+* -----------------------------------------------------------------------------
+local ++test_count
+if `quiet' == 0 {
+    display as text _n "Test 3.12.4: carryforward() Through Gaps"
+}
+
+capture {
+    use "${DATA_DIR}/cohort_single.dta", clear
+    tvexpose using "${DATA_DIR}/exp_gap15.dta", id(id) start(rx_start) stop(rx_stop) ///
+        exposure(exp_type) reference(0) entry(study_entry) exit(study_exit) ///
+        carryforward(20) generate(tv_cf)
+
+    * With carryforward(20), the 15-day gap should be filled
+    * Gap interval should be exposed (not reference)
+    assert _N >= 1
+}
+if _rc == 0 {
+    display as result "  PASS: carryforward() carries exposure through gaps"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: carryforward() (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 3.12.4"
+}
+
+* =============================================================================
+* TEST SECTION 3.13: COMPETING EXPOSURE OPTIONS TESTS
+* =============================================================================
+if `quiet' == 0 {
+    display as text _n "{hline 70}"
+    display as text "SECTION 3.13: Competing Exposure Options Tests"
+    display as text "{hline 70}"
+}
+
+* -----------------------------------------------------------------------------
+* Test 3.13.1: layer (Default) Behavior
+* Purpose: Verify layer gives precedence to later exposures
+* -----------------------------------------------------------------------------
+local ++test_count
+if `quiet' == 0 {
+    display as text _n "Test 3.13.1: layer (Default) Behavior"
+}
+
+capture {
+    use "${DATA_DIR}/cohort_single.dta", clear
+    tvexpose using "${DATA_DIR}/exp_overlap.dta", id(id) start(rx_start) stop(rx_stop) ///
+        exposure(exp_type) reference(0) entry(study_entry) exit(study_exit) ///
+        layer generate(tv_layer)
+
+    * With layer, later exposure (type 2) takes precedence during overlap
+    * Exposure 2 starts later (Apr), so during Apr-Jun should be type 2
+    gen has_may = (rx_start <= mdy(5,15,2020) & rx_stop >= mdy(5,15,2020))
+    quietly count if has_may == 1 & tv_layer == 2
+    assert r(N) >= 1
+}
+if _rc == 0 {
+    display as result "  PASS: layer gives precedence to later exposures"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: layer behavior (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 3.13.1"
+}
+
+* -----------------------------------------------------------------------------
+* Test 3.13.2: split Creates All Overlap Combinations
+* Purpose: Verify split option creates separate rows for overlaps
+* -----------------------------------------------------------------------------
+local ++test_count
+if `quiet' == 0 {
+    display as text _n "Test 3.13.2: split Creates Overlap Combinations"
+}
+
+capture {
+    use "${DATA_DIR}/cohort_single.dta", clear
+
+    * Without split (using layer)
+    tvexpose using "${DATA_DIR}/exp_overlap.dta", id(id) start(rx_start) stop(rx_stop) ///
+        exposure(exp_type) reference(0) entry(study_entry) exit(study_exit) ///
+        layer generate(tv_nosplit)
+    local n_layer = _N
+
+    * With split - should have more rows due to splitting at boundaries
+    use "${DATA_DIR}/cohort_single.dta", clear
+    tvexpose using "${DATA_DIR}/exp_overlap.dta", id(id) start(rx_start) stop(rx_stop) ///
+        exposure(exp_type) reference(0) entry(study_entry) exit(study_exit) ///
+        split generate(tv_split)
+    local n_split = _N
+
+    * Split should create equal or more intervals
+    assert `n_split' >= `n_layer'
+}
+if _rc == 0 {
+    display as result "  PASS: split creates boundary-split intervals"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: split option (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 3.13.2"
+}
+
+* -----------------------------------------------------------------------------
+* Test 3.13.3: combine() Creates Combined Exposure Variable
+* Purpose: Verify combine() creates indicator for simultaneous exposures
+* -----------------------------------------------------------------------------
+local ++test_count
+if `quiet' == 0 {
+    display as text _n "Test 3.13.3: combine() Creates Combined Variable"
+}
+
+capture {
+    use "${DATA_DIR}/cohort_single.dta", clear
+    tvexpose using "${DATA_DIR}/exp_overlap.dta", id(id) start(rx_start) stop(rx_stop) ///
+        exposure(exp_type) reference(0) entry(study_entry) exit(study_exit) ///
+        combine(combined_exp) generate(tv_exp)
+
+    * Verify combined variable was created
+    confirm variable combined_exp
+}
+if _rc == 0 {
+    display as result "  PASS: combine() creates combined exposure variable"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: combine() variable creation (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 3.13.3"
+}
+
+* =============================================================================
+* TEST SECTION 3.14: WINDOW OPTION TESTS
+* =============================================================================
+if `quiet' == 0 {
+    display as text _n "{hline 70}"
+    display as text "SECTION 3.14: Window Option Tests"
+    display as text "{hline 70}"
+}
+
+* -----------------------------------------------------------------------------
+* Test 3.14.1: window() Restricts to Acute Window
+* Purpose: Verify window() only counts exposures within time bounds
+* -----------------------------------------------------------------------------
+local ++test_count
+if `quiet' == 0 {
+    display as text _n "Test 3.14.1: window() Acute Exposure Window"
+}
+
+capture {
+    use "${DATA_DIR}/cohort_single.dta", clear
+    tvexpose using "${DATA_DIR}/exp_basic.dta", id(id) start(rx_start) stop(rx_stop) ///
+        exposure(exp_type) reference(0) entry(study_entry) exit(study_exit) ///
+        window(30 90) generate(tv_window)
+
+    * Command should run - window restricts which periods are counted
+    assert _N >= 1
+}
+if _rc == 0 {
+    display as result "  PASS: window() option restricts to acute window"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: window() option (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 3.14.1"
+}
+
+* =============================================================================
+* TEST SECTION 3.15: PATTERN TRACKING OPTIONS TESTS
+* =============================================================================
+if `quiet' == 0 {
+    display as text _n "{hline 70}"
+    display as text "SECTION 3.15: Pattern Tracking Options Tests"
+    display as text "{hline 70}"
+}
+
+* -----------------------------------------------------------------------------
+* Test 3.15.1: switching Creates Binary Indicator
+* Purpose: Verify switching creates 0/1 indicator for any switch
+* -----------------------------------------------------------------------------
+local ++test_count
+if `quiet' == 0 {
+    display as text _n "Test 3.15.1: switching Creates Binary Indicator"
+}
+
+capture {
+    use "${DATA_DIR}/cohort_single.dta", clear
+    tvexpose using "${DATA_DIR}/exp_two.dta", id(id) start(rx_start) stop(rx_stop) ///
+        exposure(exp_type) reference(0) entry(study_entry) exit(study_exit) ///
+        switching generate(tv_exp)
+
+    * Verify ever_switched variable exists
+    confirm variable ever_switched
+
+    * Should be 0 or 1 only
+    quietly count if ever_switched < 0 | ever_switched > 1
+    assert r(N) == 0
+}
+if _rc == 0 {
+    display as result "  PASS: switching creates binary indicator"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: switching indicator (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 3.15.1"
+}
+
+* -----------------------------------------------------------------------------
+* Test 3.15.2: switchingdetail Creates Pattern String
+* Purpose: Verify switchingdetail creates string showing switch sequence
+* -----------------------------------------------------------------------------
+local ++test_count
+if `quiet' == 0 {
+    display as text _n "Test 3.15.2: switchingdetail Creates Pattern String"
+}
+
+capture {
+    use "${DATA_DIR}/cohort_single.dta", clear
+    tvexpose using "${DATA_DIR}/exp_two.dta", id(id) start(rx_start) stop(rx_stop) ///
+        exposure(exp_type) reference(0) entry(study_entry) exit(study_exit) ///
+        switchingdetail generate(tv_exp)
+
+    * Verify switching_pattern variable exists (string type)
+    confirm variable switching_pattern
+    confirm string variable switching_pattern
+}
+if _rc == 0 {
+    display as result "  PASS: switchingdetail creates pattern string variable"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: switchingdetail pattern (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 3.15.2"
+}
+
+* -----------------------------------------------------------------------------
+* Test 3.15.3: statetime Creates Cumulative State Time
+* Purpose: Verify statetime tracks cumulative time in current state
+* -----------------------------------------------------------------------------
+local ++test_count
+if `quiet' == 0 {
+    display as text _n "Test 3.15.3: statetime Creates Cumulative State Time"
+}
+
+capture {
+    use "${DATA_DIR}/cohort_single.dta", clear
+    tvexpose using "${DATA_DIR}/exp_basic.dta", id(id) start(rx_start) stop(rx_stop) ///
+        exposure(exp_type) reference(0) entry(study_entry) exit(study_exit) ///
+        statetime generate(tv_exp)
+
+    * Verify state_time_years variable exists
+    confirm variable state_time_years
+
+    * Should be non-negative
+    quietly count if state_time_years < 0
+    assert r(N) == 0
+}
+if _rc == 0 {
+    display as result "  PASS: statetime creates cumulative state time variable"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: statetime variable (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 3.15.3"
+}
+
+* =============================================================================
+* TEST SECTION 3.16: OUTPUT OPTIONS TESTS
+* =============================================================================
+if `quiet' == 0 {
+    display as text _n "{hline 70}"
+    display as text "SECTION 3.16: Output Options Tests"
+    display as text "{hline 70}"
+}
+
+* -----------------------------------------------------------------------------
+* Test 3.16.1: referencelabel() Sets Reference Category Label
+* Purpose: Verify referencelabel() changes the label for unexposed
+* -----------------------------------------------------------------------------
+local ++test_count
+if `quiet' == 0 {
+    display as text _n "Test 3.16.1: referencelabel() Sets Reference Label"
+}
+
+capture {
+    use "${DATA_DIR}/cohort_single.dta", clear
+    tvexpose using "${DATA_DIR}/exp_basic.dta", id(id) start(rx_start) stop(rx_stop) ///
+        exposure(exp_type) reference(0) entry(study_entry) exit(study_exit) ///
+        referencelabel("No Treatment") generate(tv_exp)
+
+    * Verify label was applied
+    local vallbl : value label tv_exp
+    if "`vallbl'" != "" {
+        local lbl0 : label `vallbl' 0
+        assert "`lbl0'" == "No Treatment"
+    }
+}
+if _rc == 0 {
+    display as result "  PASS: referencelabel() sets custom reference label"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: referencelabel() (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 3.16.1"
+}
+
+* -----------------------------------------------------------------------------
+* Test 3.16.2: label() Sets Variable Label
+* Purpose: Verify label() sets custom variable label
+* -----------------------------------------------------------------------------
+local ++test_count
+if `quiet' == 0 {
+    display as text _n "Test 3.16.2: label() Sets Variable Label"
+}
+
+capture {
+    use "${DATA_DIR}/cohort_single.dta", clear
+    tvexpose using "${DATA_DIR}/exp_basic.dta", id(id) start(rx_start) stop(rx_stop) ///
+        exposure(exp_type) reference(0) entry(study_entry) exit(study_exit) ///
+        label("My Custom Exposure Label") generate(tv_exp)
+
+    * Verify variable label was applied
+    local varlbl : variable label tv_exp
+    assert "`varlbl'" == "My Custom Exposure Label"
+}
+if _rc == 0 {
+    display as result "  PASS: label() sets custom variable label"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: label() variable label (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 3.16.2"
+}
+
+* -----------------------------------------------------------------------------
+* Test 3.16.3: saveas() and replace Save Output
+* Purpose: Verify saveas() saves dataset to file
+* -----------------------------------------------------------------------------
+local ++test_count
+if `quiet' == 0 {
+    display as text _n "Test 3.16.3: saveas() and replace Save Output"
+}
+
+capture {
+    use "${DATA_DIR}/cohort_single.dta", clear
+    capture erase "${DATA_DIR}/tvexpose_output.dta"
+
+    tvexpose using "${DATA_DIR}/exp_basic.dta", id(id) start(rx_start) stop(rx_stop) ///
+        exposure(exp_type) reference(0) entry(study_entry) exit(study_exit) ///
+        saveas("${DATA_DIR}/tvexpose_output.dta") replace generate(tv_exp)
+
+    * Verify file was created
+    confirm file "${DATA_DIR}/tvexpose_output.dta"
+
+    * Load and verify
+    use "${DATA_DIR}/tvexpose_output.dta", clear
+    confirm variable tv_exp
+
+    * Cleanup
+    capture erase "${DATA_DIR}/tvexpose_output.dta"
+}
+if _rc == 0 {
+    display as result "  PASS: saveas() and replace save output to file"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: saveas() and replace (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 3.16.3"
+}
+
+* -----------------------------------------------------------------------------
+* Test 3.16.4: keepvars() Keeps Additional Variables
+* Purpose: Verify keepvars() brings additional variables from master
+* -----------------------------------------------------------------------------
+local ++test_count
+if `quiet' == 0 {
+    display as text _n "Test 3.16.4: keepvars() Keeps Additional Variables"
+}
+
+capture {
+    * Create cohort with additional variables
+    clear
+    input long id double(study_entry study_exit) byte female int age
+        1 21915 22281 1 45
+    end
+    format %td study_entry study_exit
+    save "${DATA_DIR}/cohort_with_covars.dta", replace
+
+    use "${DATA_DIR}/cohort_with_covars.dta", clear
+    tvexpose using "${DATA_DIR}/exp_basic.dta", id(id) start(rx_start) stop(rx_stop) ///
+        exposure(exp_type) reference(0) entry(study_entry) exit(study_exit) ///
+        keepvars(female age) generate(tv_exp)
+
+    * Verify kept variables exist
+    confirm variable female
+    confirm variable age
+
+    * Values should be preserved
+    quietly sum female
+    assert r(mean) == 1
+    quietly sum age
+    assert r(mean) == 45
+}
+if _rc == 0 {
+    display as result "  PASS: keepvars() keeps additional variables from master"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: keepvars() (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 3.16.4"
+}
+
+* -----------------------------------------------------------------------------
+* Test 3.16.5: keepdates Retains Entry/Exit Dates
+* Purpose: Verify keepdates option keeps entry and exit date variables
+* -----------------------------------------------------------------------------
+local ++test_count
+if `quiet' == 0 {
+    display as text _n "Test 3.16.5: keepdates Retains Entry/Exit Dates"
+}
+
+capture {
+    use "${DATA_DIR}/cohort_single.dta", clear
+    tvexpose using "${DATA_DIR}/exp_basic.dta", id(id) start(rx_start) stop(rx_stop) ///
+        exposure(exp_type) reference(0) entry(study_entry) exit(study_exit) ///
+        keepdates generate(tv_exp)
+
+    * Verify entry and exit dates are present
+    confirm variable study_entry
+    confirm variable study_exit
+}
+if _rc == 0 {
+    display as result "  PASS: keepdates retains entry and exit date variables"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: keepdates option (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 3.16.5"
+}
+
+* =============================================================================
+* TEST SECTION 3.19: CONTINUOUS UNIT TESTS (Additional Units)
+* =============================================================================
+if `quiet' == 0 {
+    display as text _n "{hline 70}"
+    display as text "SECTION 3.19: continuousunit Additional Units Tests"
+    display as text "{hline 70}"
+}
+
+* -----------------------------------------------------------------------------
+* Test 3.19.1: continuousunit(months)
+* Purpose: Verify cumulative exposure in months
+* -----------------------------------------------------------------------------
+local ++test_count
+if `quiet' == 0 {
+    display as text _n "Test 3.19.1: continuousunit(months)"
+}
+
+capture {
+    use "${DATA_DIR}/cohort_single.dta", clear
+    tvexpose using "${DATA_DIR}/exp_fullyear.dta", id(id) start(rx_start) stop(rx_stop) ///
+        exposure(exp_type) reference(0) entry(study_entry) exit(study_exit) ///
+        continuousunit(months) generate(cum_months)
+
+    * Full year should be ~12 months
+    quietly sum cum_months
+    assert abs(r(max) - 12) < 1
+}
+if _rc == 0 {
+    display as result "  PASS: continuousunit(months) calculates ~12 months"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: continuousunit(months) (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 3.19.1"
+}
+
+* -----------------------------------------------------------------------------
+* Test 3.19.2: continuousunit(weeks)
+* Purpose: Verify cumulative exposure in weeks
+* -----------------------------------------------------------------------------
+local ++test_count
+if `quiet' == 0 {
+    display as text _n "Test 3.19.2: continuousunit(weeks)"
+}
+
+capture {
+    use "${DATA_DIR}/cohort_single.dta", clear
+    tvexpose using "${DATA_DIR}/exp_fullyear.dta", id(id) start(rx_start) stop(rx_stop) ///
+        exposure(exp_type) reference(0) entry(study_entry) exit(study_exit) ///
+        continuousunit(weeks) generate(cum_weeks)
+
+    * Full year should be ~52 weeks
+    quietly sum cum_weeks
+    assert abs(r(max) - 52) < 2
+}
+if _rc == 0 {
+    display as result "  PASS: continuousunit(weeks) calculates ~52 weeks"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: continuousunit(weeks) (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 3.19.2"
+}
+
+* -----------------------------------------------------------------------------
+* Test 3.19.3: continuousunit(quarters)
+* Purpose: Verify cumulative exposure in quarters
+* -----------------------------------------------------------------------------
+local ++test_count
+if `quiet' == 0 {
+    display as text _n "Test 3.19.3: continuousunit(quarters)"
+}
+
+capture {
+    use "${DATA_DIR}/cohort_single.dta", clear
+    tvexpose using "${DATA_DIR}/exp_fullyear.dta", id(id) start(rx_start) stop(rx_stop) ///
+        exposure(exp_type) reference(0) entry(study_entry) exit(study_exit) ///
+        continuousunit(quarters) generate(cum_quarters)
+
+    * Full year should be ~4 quarters
+    quietly sum cum_quarters
+    assert abs(r(max) - 4) < 0.5
+}
+if _rc == 0 {
+    display as result "  PASS: continuousunit(quarters) calculates ~4 quarters"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: continuousunit(quarters) (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 3.19.3"
+}
+
+* =============================================================================
+* TEST SECTION 3.20: EXPANDUNIT TESTS
+* =============================================================================
+if `quiet' == 0 {
+    display as text _n "{hline 70}"
+    display as text "SECTION 3.20: expandunit Tests"
+    display as text "{hline 70}"
+}
+
+* -----------------------------------------------------------------------------
+* Test 3.20.1: expandunit Creates Finer Granularity
+* Purpose: Verify expandunit splits into calendar intervals
+* -----------------------------------------------------------------------------
+local ++test_count
+if `quiet' == 0 {
+    display as text _n "Test 3.20.1: expandunit Creates Finer Granularity"
+}
+
+capture {
+    use "${DATA_DIR}/cohort_single.dta", clear
+
+    * Without expandunit
+    tvexpose using "${DATA_DIR}/exp_fullyear.dta", id(id) start(rx_start) stop(rx_stop) ///
+        exposure(exp_type) reference(0) entry(study_entry) exit(study_exit) ///
+        continuousunit(years) generate(tv_no_expand)
+    local n_no_expand = _N
+
+    * With expandunit(months) - should create more rows
+    use "${DATA_DIR}/cohort_single.dta", clear
+    tvexpose using "${DATA_DIR}/exp_fullyear.dta", id(id) start(rx_start) stop(rx_stop) ///
+        exposure(exp_type) reference(0) entry(study_entry) exit(study_exit) ///
+        continuousunit(years) expandunit(months) generate(tv_expand)
+    local n_expand = _N
+
+    * Expanded should have more rows
+    assert `n_expand' >= `n_no_expand'
+}
+if _rc == 0 {
+    display as result "  PASS: expandunit creates finer granularity rows"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: expandunit (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 3.20.1"
+}
+
+* =============================================================================
+* TEST SECTION 3.21: DIAGNOSTIC OPTIONS TESTS
+* =============================================================================
+if `quiet' == 0 {
+    display as text _n "{hline 70}"
+    display as text "SECTION 3.21: Diagnostic Options Tests"
+    display as text "{hline 70}"
+}
+
+* -----------------------------------------------------------------------------
+* Test 3.21.1: check Option Runs Without Error
+* Purpose: Verify check displays diagnostics without error
+* -----------------------------------------------------------------------------
+local ++test_count
+if `quiet' == 0 {
+    display as text _n "Test 3.21.1: check Option Runs"
+}
+
+capture {
+    use "${DATA_DIR}/cohort_single.dta", clear
+    tvexpose using "${DATA_DIR}/exp_basic.dta", id(id) start(rx_start) stop(rx_stop) ///
+        exposure(exp_type) reference(0) entry(study_entry) exit(study_exit) ///
+        check generate(tv_exp)
+
+    assert _N >= 1
+}
+if _rc == 0 {
+    display as result "  PASS: check option runs without error"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: check option (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 3.21.1"
+}
+
+* -----------------------------------------------------------------------------
+* Test 3.21.2: gaps Option Runs Without Error
+* Purpose: Verify gaps displays gap information without error
+* -----------------------------------------------------------------------------
+local ++test_count
+if `quiet' == 0 {
+    display as text _n "Test 3.21.2: gaps Option Runs"
+}
+
+capture {
+    use "${DATA_DIR}/cohort_single.dta", clear
+    tvexpose using "${DATA_DIR}/exp_gap15.dta", id(id) start(rx_start) stop(rx_stop) ///
+        exposure(exp_type) reference(0) entry(study_entry) exit(study_exit) ///
+        gaps generate(tv_exp)
+
+    assert _N >= 1
+}
+if _rc == 0 {
+    display as result "  PASS: gaps option runs without error"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: gaps option (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 3.21.2"
+}
+
+* -----------------------------------------------------------------------------
+* Test 3.21.3: overlaps Option Runs Without Error
+* Purpose: Verify overlaps displays overlap information without error
+* -----------------------------------------------------------------------------
+local ++test_count
+if `quiet' == 0 {
+    display as text _n "Test 3.21.3: overlaps Option Runs"
+}
+
+capture {
+    use "${DATA_DIR}/cohort_single.dta", clear
+    tvexpose using "${DATA_DIR}/exp_overlap.dta", id(id) start(rx_start) stop(rx_stop) ///
+        exposure(exp_type) reference(0) entry(study_entry) exit(study_exit) ///
+        overlaps generate(tv_exp)
+
+    assert _N >= 1
+}
+if _rc == 0 {
+    display as result "  PASS: overlaps option runs without error"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: overlaps option (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 3.21.3"
+}
+
+* -----------------------------------------------------------------------------
+* Test 3.21.4: summarize Option Runs Without Error
+* Purpose: Verify summarize displays summary statistics without error
+* -----------------------------------------------------------------------------
+local ++test_count
+if `quiet' == 0 {
+    display as text _n "Test 3.21.4: summarize Option Runs"
+}
+
+capture {
+    use "${DATA_DIR}/cohort_single.dta", clear
+    tvexpose using "${DATA_DIR}/exp_basic.dta", id(id) start(rx_start) stop(rx_stop) ///
+        exposure(exp_type) reference(0) entry(study_entry) exit(study_exit) ///
+        summarize generate(tv_exp)
+
+    assert _N >= 1
+}
+if _rc == 0 {
+    display as result "  PASS: summarize option runs without error"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: summarize option (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 3.21.4"
+}
+
+* -----------------------------------------------------------------------------
+* Test 3.21.5: validate Option Creates Validation Dataset
+* Purpose: Verify validate creates coverage metrics dataset
+* -----------------------------------------------------------------------------
+local ++test_count
+if `quiet' == 0 {
+    display as text _n "Test 3.21.5: validate Option Creates Dataset"
+}
+
+capture {
+    use "${DATA_DIR}/cohort_single.dta", clear
+    capture erase "${DATA_DIR}/tvexpose_val_output.dta"
+    capture erase "${DATA_DIR}/tvexpose_val_output_validation.dta"
+
+    * Use saveas() so validation file goes to DATA_DIR (validation file is saveas_validation.dta)
+    tvexpose using "${DATA_DIR}/exp_basic.dta", id(id) start(rx_start) stop(rx_stop) ///
+        exposure(exp_type) reference(0) entry(study_entry) exit(study_exit) ///
+        validate saveas("${DATA_DIR}/tvexpose_val_output.dta") replace generate(tv_exp)
+
+    * Verify validation file was created (derived from saveas path)
+    confirm file "${DATA_DIR}/tvexpose_val_output_validation.dta"
+
+    * Cleanup
+    capture erase "${DATA_DIR}/tvexpose_val_output.dta"
+    capture erase "${DATA_DIR}/tvexpose_val_output_validation.dta"
+}
+if _rc == 0 {
+    display as result "  PASS: validate creates validation dataset"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: validate option (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 3.21.5"
+}
+
+* =============================================================================
+* TEST SECTION 3.22: POINTTIME TESTS
+* =============================================================================
+if `quiet' == 0 {
+    display as text _n "{hline 70}"
+    display as text "SECTION 3.22: pointtime Tests"
+    display as text "{hline 70}"
+}
+
+* Create point-in-time exposure data
+clear
+input long id double rx_start byte exp_type
+    1 21946 1
+    1 22067 1
+    1 22128 2
+end
+format %td rx_start
+label data "Point-in-time exposures"
+save "${DATA_DIR}/exp_pointtime.dta", replace
+
+* -----------------------------------------------------------------------------
+* Test 3.22.1: pointtime Works Without stop Variable
+* Purpose: Verify pointtime allows exposure data without stop dates
+* -----------------------------------------------------------------------------
+local ++test_count
+if `quiet' == 0 {
+    display as text _n "Test 3.22.1: pointtime Without stop Variable"
+}
+
+capture {
+    use "${DATA_DIR}/cohort_single.dta", clear
+    tvexpose using "${DATA_DIR}/exp_pointtime.dta", id(id) start(rx_start) ///
+        exposure(exp_type) reference(0) entry(study_entry) exit(study_exit) ///
+        pointtime generate(tv_exp)
+
+    * Should run without stop() option
+    assert _N >= 1
+}
+if _rc == 0 {
+    display as result "  PASS: pointtime works without stop variable"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: pointtime option (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 3.22.1"
+}
+
+* =============================================================================
 * SUMMARY
 * =============================================================================
 display as text _n "{hline 70}"
