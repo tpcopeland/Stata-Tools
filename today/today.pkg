@@ -1,0 +1,26 @@
+v 3
+d 'TODAY': Set global macros with today's date and current time
+d See {bf:help today} after installation.
+d
+d today is a command that sets two global macros: 'today' and 'today_time'
+d Global 'today' contains the current date; global 'today_time' contains the current date and time.
+d The command allows flexible formatting of both the date and time components.
+d
+d Requires: Stata version 8 or higher.
+d
+d KW: date
+d KW: time
+d KW: global macro
+d
+d Distribution-Date: 20251203
+d
+d First version: 19 Dec 2024
+d License: MIT
+d
+d Author: Timothy P. Copeland
+d Department of Clinical Neuroscience, Karolinska Institutet, Stockholm, Sweden
+d Email: timothy.copeland@ki.se
+d
+f today.ado
+f today.sthlp
+d

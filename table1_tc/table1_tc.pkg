@@ -1,0 +1,39 @@
+v 3
+d 'TABLE1_TC': module to create "table 1" of baseline characteristics for a manuscript
+d
+d table1_tc summarises continuous and categorical variables,
+d optionally by group, with a p-value column. This command is
+d an extension of Phil Clayton's table1 and Mark Chatfield's
+d table1_mc. This version allows easy export to excel.
+d
+d KW: data management
+d KW: baseline characteristics
+d KW: descriptive statistics
+d
+d Requires: Stata version 14.2
+d
+d Distribution-Date: 20251203
+d
+d License: MIT
+d
+d Author: Timothy P. Copeland
+d Department of Clinical Neuroscience, Karolinska Institutet, Stockholm, Sweden
+d Email: timothy.copeland@ki.se
+d
+d INSTALLATION COMPLETE!
+d
+d Access the dialog immediately with:
+d     . db table1_tc
+d
+d OPTIONAL: Add to Stata menus for dropdown access
+d Run the included setup script:
+d     . do table1_tc_menu_setup.do
+d
+d For dialog documentation, see: table1_tc_dialog.md
+d For help: help table1_tc
+d
+f table1_tc.ado
+f table1_tc.dlg
+f table1_tc.sthlp
+f table1_tc_menu_setup.do
+f table1_tc_dialog.md

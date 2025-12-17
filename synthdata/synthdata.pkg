@@ -1,0 +1,32 @@
+v 3
+d 'SYNTHDATA': Synthetic data generation preserving statistical properties
+d
+d Requires: Stata version 16+
+d
+d Distribution-Date: 20251217
+d License: MIT
+d
+d Author: Timothy P. Copeland
+d Department of Clinical Neuroscience, Karolinska Institutet, Stockholm, Sweden
+d Email: timothy.copeland@ki.se
+d
+d KW: synthetic data
+d KW: privacy
+d KW: data generation
+d KW: simulation
+d KW: bootstrap
+d KW: statistical disclosure control
+d KW: data sharing
+d KW: confidentiality
+d
+d INSTALLATION COMPLETE!
+d
+d Access the command immediately with:
+d     . help synthdata
+d
+d For detailed documentation, see: README.md
+d For examples and options: help synthdata
+d
+f synthdata.ado
+f synthdata.sthlp
+f README.md

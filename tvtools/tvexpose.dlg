@@ -1,0 +1,386 @@
+VERSION 16.0
+INCLUDE _std_large
+DEFINE _dlght 580
+DEFINE _dlgwd 640
+INCLUDE header
+
+HELP hlp1, view("help tvexpose")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	program parseMessage
+	script max_setOptionalOn
+END
+
+SCRIPT POSTINIT
+BEGIN
+	script max_setDefaultWidth
+END
+
+DIALOG main, label("tvexpose - Create time-varying exposure variables") tabtitle("Main")
+BEGIN
+  TEXT     tx_using      20  10  620  ., label("Exposure dataset:")
+  FILE     fi_using      20  +20 610    ., error("Exposure dataset") ///
+           label("Browse...") filter("Stata datasets|*.dta|All files|*.*")
+
+  GROUPBOX gb_required   10  60 620  160, label("Required variables")
+  TEXT     tx_id         20  +15 280  ., label("Person ID variable:")
+  VARNAME  vn_id         @   +20 @    ., label("ID variable") option(id)
+
+  TEXT     tx_start      330 -20 280  ., label("Start date variable:")
+  VARNAME  vn_start      @   +20 @    ., label("Start") option(start)
+
+  TEXT     tx_exposure   20  +25 280  ., label("Exposure variable:")
+  VARNAME  vn_exposure   @   +20 @    ., label("Exposure") option(exposure)
+
+  TEXT     tx_reference  330 -20 280  ., label("Reference value:")
+  EDIT     ed_reference  @   +20 120  ., label("Reference") numonly option(reference)
+
+  TEXT     tx_entry      20  +25 280  ., label("Study entry date:")
+  VARNAME  vn_entry      @   +20 @    ., label("Entry") option(entry)
+
+  TEXT     tx_exit       330 -20 280  ., label("Study exit date:")
+  VARNAME  vn_exit       @   +20 @    ., label("Exit") option(exit)
+
+  GROUPBOX gb_stopopt    10  225 620  70,  label("Stop date options")
+  CHECKBOX ck_pointtime  20  +20 280  ., label("Point-in-time data (no stop date)") ///
+           onclickon(script stop_disable) onclickoff(script stop_enable)
+  TEXT     tx_stop       330 @ 280    ., label("Stop date variable:")
+  VARNAME  vn_stop       @   +20 @    ., label("Stop") option(stop)
+END
+
+DIALOG exposure, tabtitle("Exposure Definition")
+BEGIN
+  GROUPBOX gb_exptype    10  10  620  200, label("Exposure type (select one)")
+  RADIO    rb_basic      20  +20 590  ., label("Basic time-varying (default)") first ///
+           onclickon(script basic_selected)
+  RADIO    rb_evertreated @  +20 @    ., label("Ever-treated (binary switch at first exposure)") ///
+           onclickon(script evertreated_selected)
+  RADIO    rb_currentformer @ +20 @   ., label("Current/former (never=0, current=1, former=2)") ///
+           onclickon(script currentformer_selected)
+  RADIO    rb_duration   @   +20 @    ., label("Duration categories:") ///
+           onclickon(script duration_selected) onclickoff(script duration_disable)
+  EDIT     ed_duration   40  +20 280  ., label("Duration cutpoints") ///
+           option(duration)
+  TEXT     tx_durunit    330 @ 280    ., label("(cutpoints use continuousunit below)")
+  RADIO    rb_continuous 20  +25 590  ., label("Continuous cumulative exposure") ///
+           onclickon(script continuous_selected) onclickoff(script continuous_disable)
+  RADIO    rb_recency    @   +20 @    ., label("Recency categories:") last ///
+           onclickon(script recency_selected) onclickoff(script recency_disable)
+  EDIT     ed_recency    40  +20 280  ., label("Recency cutpoints (years)") ///
+           option(recency)
+
+  GROUPBOX gb_contopt    10  215 620  75, label("Units (for duration and continuous exposure types)")
+  TEXT     tx_contunit   20  +20 220  ., label("Cumulative exposure unit:")
+  COMBOBOX cb_contunit   @   +20 180  ., dropdownlist contents(contunits) ///
+           option(continuousunit)
+  TEXT     tx_expandunit 330 -20 220  ., label("Row expansion unit:")
+  COMBOBOX cb_expandunit @   +20 180  ., dropdownlist contents(expandunits) ///
+           option(expandunit)
+
+  GROUPBOX gb_bytype     10  295 620  55,  label("Output variables")
+  CHECKBOX ck_bytype     20  +20 590  ., label("Create separate variable for each exposure type (not available for basic time-varying)") ///
+           option(bytype)
+END
+
+DIALOG datahand, tabtitle("Data Handling")
+BEGIN
+  GROUPBOX gb_gaps       10  10  620  210, label("Gap handling")
+  TEXT     tx_grace      20  +20 240  ., label("Grace period (days):")
+  EDIT     ed_grace      @   +20 120  ., label("Grace") option(grace)
+  TEXT     tx_graceinfo  150 @ 460    ., label("(numeric or exp=# syntax: e.g., 1=30 2=60)")
+
+  TEXT     tx_merge      20  +25 240  ., label("Merge same-type periods within (days):")
+  EDIT     ed_merge      @   +20 120  ., label("Merge") numonly option(merge) ///
+           default(120)
+
+  TEXT     tx_fillgaps   20  +25 240  ., label("Fill gaps beyond last record (days):")
+  EDIT     ed_fillgaps   @   +20 120  ., label("Fill gaps") numonly option(fillgaps) ///
+           default(0)
+
+  TEXT     tx_carryforward 20 +25 240 ., label("Carry forward through gaps (days):")
+  EDIT     ed_carryforward @ +20 120  ., label("Carry forward") numonly option(carryforward) ///
+           default(0)
+END
+
+DIALOG advanced, tabtitle("Advanced")
+BEGIN
+  GROUPBOX gb_timing     10  10  620  120, label("Timing adjustments")
+  TEXT     tx_lag        20  +20 280  ., label("Lag period (days):")
+  EDIT     ed_lag        @   +20 120  ., label("Lag") numonly option(lag) ///
+           default(0)
+
+  TEXT     tx_washout    330 -20 280  ., label("Washout period (days):")
+  EDIT     ed_washout    @   +20 120  ., label("Washout") numonly option(washout) ///
+           default(0)
+
+  TEXT     tx_window     20  +25 280  ., label("Acute window (min max days):")
+  EDIT     ed_window     @   +20 200  ., label("Window") option(window)
+
+  GROUPBOX gb_compete    10  135 620  160, label("Overlapping exposures (select one approach)")
+  RADIO    rb_layer      20  +20 590  ., label("Layer (default): later exposures take precedence, earlier resume after overlap") first
+  RADIO    rb_priority   @   +20 280  ., label("Priority order (space-separated list):") ///
+           onclickon(script priority_enable) onclickoff(script priority_disable)
+  EDIT     ed_priority   +20 +20 260  ., label("Priority") option(priority)
+  RADIO    rb_split      20  +25 590  ., label("Split: create separate periods at all exposure boundaries") ///
+           option(split)
+  RADIO    rb_combine    @   +20 280  ., label("Combine overlaps into variable:") last ///
+           onclickon(script combine_enable) onclickoff(script combine_disable)
+  EDIT     ed_combine    +20 +20 260  ., label("Combine var") option(combine)
+
+  GROUPBOX gb_pattern    10  295 620  70, label("Pattern tracking")
+  CHECKBOX ck_switching  20  +20 280  ., label("Track exposure switching") option(switching)
+  CHECKBOX ck_switchdetail @ +20 @    ., label("Detailed switching pattern") option(switchingdetail)
+  CHECKBOX ck_statetime  330 -20 280  ., label("Time in current state") option(statetime)
+END
+
+DIALOG output, tabtitle("Output")
+BEGIN
+  GROUPBOX gb_naming     10  10  620  165, label("Output variable naming")
+  TEXT     tx_generate   20  +20 240  ., label("Variable name:")
+  EDIT     ed_generate   @   +20 280  ., label("Generate") option(generate) ///
+           default(tv_exposure)
+
+  TEXT     tx_reflabel   20  +25 240  ., label("Reference category label:")
+  EDIT     ed_reflabel   @   +20 370  ., label("Reference label") option(referencelabel) ///
+           default(Unexposed)
+
+  TEXT     tx_label      20  +25 240  ., label("Custom variable label:")
+  EDIT     ed_label      @   +20 370  ., label("Label") option(label)
+
+  GROUPBOX gb_keep       10  180 620  70,  label("Additional variables")
+  TEXT     tx_keepvars   20  +20 240  ., label("Keep from master dataset:")
+  VARLIST  vl_keepvars   @   +20 370  ., label("Keep vars") option(keepvars)
+  CHECKBOX ck_keepdates  410 @ 200    ., label("Keep entry/exit dates") option(keepdates)
+
+  GROUPBOX gb_save       10  255 620  60,  label("Save output")
+  FILE     fi_saveas     20  +25 480  ., error("Save as") save ///
+           label("Browse...") filter("Stata datasets|*.dta|All files|*.*") ///
+           option(saveas)
+  CHECKBOX ck_replace    510 @ 110    ., label("Replace") option(replace)
+
+  GROUPBOX gb_diag       10  320 620  90, label("Diagnostics")
+  CHECKBOX ck_check      20  +20 180  ., label("Check coverage") option(check)
+  CHECKBOX ck_gaps       @   +20 @    ., label("Show gaps") option(gaps)
+  CHECKBOX ck_overlaps   @   +20 @    ., label("Show overlaps") option(overlaps)
+  CHECKBOX ck_summarize  220 -40 180  ., label("Summarize") option(summarize)
+  CHECKBOX ck_validate   @   +20 @    ., label("Create validation") option(validate)
+END
+
+LIST contunits
+BEGIN
+	days
+	weeks
+	months
+	quarters
+	years
+END
+
+LIST expandunits
+BEGIN
+	days
+	weeks
+	months
+	quarters
+	years
+END
+
+SCRIPT stop_disable
+BEGIN
+	main.tx_stop.disable
+	main.vn_stop.disable
+END
+
+SCRIPT stop_enable
+BEGIN
+	main.tx_stop.enable
+	main.vn_stop.enable
+END
+
+SCRIPT basic_selected
+BEGIN
+	exposure.ed_duration.disable
+	exposure.ed_recency.disable
+	exposure.cb_contunit.disable
+	exposure.cb_expandunit.disable
+	exposure.ck_bytype.disable
+	exposure.ck_bytype.setoff
+END
+
+SCRIPT evertreated_selected
+BEGIN
+	exposure.ed_duration.disable
+	exposure.ed_recency.disable
+	exposure.cb_contunit.disable
+	exposure.cb_expandunit.disable
+	exposure.ck_bytype.enable
+END
+
+SCRIPT currentformer_selected
+BEGIN
+	exposure.ed_duration.disable
+	exposure.ed_recency.disable
+	exposure.cb_contunit.disable
+	exposure.cb_expandunit.disable
+	exposure.ck_bytype.enable
+END
+
+SCRIPT duration_selected
+BEGIN
+	exposure.ed_duration.enable
+	exposure.ed_recency.disable
+	exposure.cb_contunit.enable
+	exposure.cb_expandunit.enable
+	exposure.ck_bytype.enable
+END
+
+SCRIPT duration_disable
+BEGIN
+	exposure.ed_duration.disable
+END
+
+SCRIPT continuous_selected
+BEGIN
+	exposure.ed_duration.disable
+	exposure.ed_recency.disable
+	exposure.cb_contunit.enable
+	exposure.cb_expandunit.enable
+	exposure.ck_bytype.enable
+END
+
+SCRIPT continuous_disable
+BEGIN
+	exposure.cb_contunit.disable
+	exposure.cb_expandunit.disable
+END
+
+SCRIPT recency_selected
+BEGIN
+	exposure.ed_duration.disable
+	exposure.ed_recency.enable
+	exposure.cb_contunit.disable
+	exposure.cb_expandunit.disable
+	exposure.ck_bytype.enable
+END
+
+SCRIPT recency_disable
+BEGIN
+	exposure.ed_recency.disable
+END
+
+SCRIPT priority_disable
+BEGIN
+	advanced.ed_priority.disable
+END
+
+SCRIPT priority_enable
+BEGIN
+	advanced.ed_priority.enable
+END
+
+SCRIPT combine_disable
+BEGIN
+	advanced.ed_combine.disable
+END
+
+SCRIPT combine_enable
+BEGIN
+	advanced.ed_combine.enable
+END
+
+PROGRAM command
+BEGIN
+	put "tvexpose using "
+	put `"""'
+	require main.fi_using
+	put main.fi_using
+	put `"""'
+	put ", "
+
+	require main.vn_id
+	optionarg main.vn_id
+
+	require main.vn_start
+	optionarg main.vn_start
+
+	if ! main.ck_pointtime {
+		require main.vn_stop
+		optionarg main.vn_stop
+	}
+
+	require main.vn_exposure
+	optionarg main.vn_exposure
+
+	require main.ed_reference
+	optionarg main.ed_reference
+
+	require main.vn_entry
+	optionarg main.vn_entry
+
+	require main.vn_exit
+	optionarg main.vn_exit
+
+	option main.ck_pointtime
+
+	if exposure.rb_evertreated {
+		put " evertreated"
+	}
+	if exposure.rb_currentformer {
+		put " currentformer"
+	}
+	if exposure.rb_duration {
+		optionarg exposure.ed_duration
+	}
+	if exposure.rb_recency {
+		optionarg exposure.ed_recency
+	}
+
+	optionarg exposure.cb_contunit
+	optionarg exposure.cb_expandunit
+	option exposure.ck_bytype
+
+	optionarg datahand.ed_grace
+	optionarg datahand.ed_merge
+	optionarg datahand.ed_fillgaps
+	optionarg datahand.ed_carryforward
+
+	optionarg advanced.ed_lag
+	optionarg advanced.ed_washout
+	optionarg advanced.ed_window
+
+	if advanced.rb_priority {
+		optionarg advanced.ed_priority
+	}
+	if advanced.rb_split {
+		put " split"
+	}
+	if advanced.rb_combine {
+		optionarg advanced.ed_combine
+	}
+
+	option advanced.ck_switching
+	option advanced.ck_switchdetail
+	option advanced.ck_statetime
+
+	optionarg output.ed_generate
+	optionarg output.ed_reflabel
+	optionarg output.ed_label
+	optionarg output.vl_keepvars
+	option output.ck_keepdates
+
+	if output.fi_saveas {
+		put " saveas("
+		put `"""'
+		put output.fi_saveas
+		put `"""'
+		put ")"
+		option output.ck_replace
+	}
+
+	option output.ck_check
+	option output.ck_gaps
+	option output.ck_overlaps
+	option output.ck_summarize
+	option output.ck_validate
+END
