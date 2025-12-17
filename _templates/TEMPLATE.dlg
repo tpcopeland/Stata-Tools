@@ -1,0 +1,164 @@
+VERSION 16.0
+INCLUDE _std_large
+DEFINE _dlght 480
+DEFINE _dlgwd 640
+INCLUDE header
+
+HELP hlp1, view("help TEMPLATE")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	program parseMessage
+	script max_setOptionalOn
+END
+
+SCRIPT POSTINIT
+BEGIN
+	script max_setDefaultWidth
+END
+
+DIALOG main, label("TEMPLATE - Brief description") tabtitle("Main")
+BEGIN
+  * =========================================================================
+  * FILE INPUT (if using external data)
+  * =========================================================================
+  TEXT     tx_using      20  10  620  ., label("Input dataset:")
+  FILE     fi_using      20  +20 610    ., error("Input dataset") ///
+           label("Browse...") filter("Stata datasets|*.dta|All files|*.*")
+
+  * =========================================================================
+  * REQUIRED VARIABLES
+  * =========================================================================
+  GROUPBOX gb_required   10  60 620  115, label("Required variables")
+  TEXT     tx_id         20  +15 280  ., label("ID variable:")
+  VARNAME  vn_id         @   +20 @    ., label("ID variable") option(id)
+
+  TEXT     tx_date       330 -20 280  ., label("Date variable:")
+  VARNAME  vn_date       @   +20 @    ., label("Date") option(date)
+
+  TEXT     tx_value      20  +25 280  ., label("Value variable:")
+  VARNAME  vn_value      @   +20 @    ., label("Value") option(value)
+
+  * =========================================================================
+  * OPTIONS SECTION
+  * =========================================================================
+  GROUPBOX gb_options    10  180 620  120, label("Options")
+
+  CHECKBOX ck_option1    20  +20 280  ., label("Enable option 1") ///
+           option(option1)
+  CHECKBOX ck_option2    @   +25 @    ., label("Enable option 2") ///
+           option(option2)
+
+  TEXT     tx_param      330 -25 140  ., label("Numeric parameter:")
+  EDIT     ed_param      @   +20 100  ., label("Parameter") numonly option(param)
+
+  TEXT     tx_generate   20  +30 140  ., label("Output variable name:")
+  EDIT     ed_generate   @   +20 200  ., label("Generate") option(generate) ///
+           default(TEMPLATE_result)
+
+  * =========================================================================
+  * SAVE OPTIONS
+  * =========================================================================
+  GROUPBOX gb_save       10  305 620  55, label("Save output")
+  FILE     fi_saveas     20  +25 480  ., error("Save as") save ///
+           label("Browse...") filter("Stata datasets|*.dta|All files|*.*") ///
+           option(saveas)
+  CHECKBOX ck_replace    510 @ 110    ., label("Replace") option(replace)
+END
+
+* =============================================================================
+* ADDITIONAL TABS (if needed)
+* =============================================================================
+DIALOG advanced, tabtitle("Advanced")
+BEGIN
+  GROUPBOX gb_advanced   10  10  620  150, label("Advanced options")
+
+  TEXT     tx_adv1       20  +20 280  ., label("Advanced option 1:")
+  EDIT     ed_adv1       @   +20 200  ., label("Advanced 1") option(advanced1)
+
+  TEXT     tx_adv2       20  +25 280  ., label("Advanced option 2:")
+  COMBOBOX cb_adv2       @   +20 180  ., dropdownlist contents(adv2_choices) ///
+           option(advanced2)
+
+  GROUPBOX gb_flags      10  165 620  80, label("Additional flags")
+  CHECKBOX ck_flag1      20  +20 280  ., label("Flag option 1") option(flag1)
+  CHECKBOX ck_flag2      @   +25 @    ., label("Flag option 2") option(flag2)
+  CHECKBOX ck_flag3      330 -25 280  ., label("Flag option 3") option(flag3)
+END
+
+* =============================================================================
+* LIST DEFINITIONS
+* =============================================================================
+LIST adv2_choices
+BEGIN
+	choice1
+	choice2
+	choice3
+END
+
+* =============================================================================
+* SCRIPTS FOR ENABLING/DISABLING CONTROLS
+* =============================================================================
+SCRIPT option1_enable
+BEGIN
+	main.ed_param.enable
+END
+
+SCRIPT option1_disable
+BEGIN
+	main.ed_param.disable
+END
+
+* =============================================================================
+* COMMAND BUILDER
+* =============================================================================
+PROGRAM command
+BEGIN
+	put "TEMPLATE "
+
+	* Handle using file if present
+	if main.fi_using {
+		put "using "
+		put `"""'
+		put main.fi_using
+		put `"""'
+		put ", "
+	}
+
+	* Required options
+	require main.vn_id
+	optionarg main.vn_id
+
+	require main.vn_date
+	optionarg main.vn_date
+
+	optionarg main.vn_value
+
+	* Optional flags
+	option main.ck_option1
+	option main.ck_option2
+
+	* Numeric parameter
+	optionarg main.ed_param
+
+	* Generate option
+	optionarg main.ed_generate
+
+	* Save options
+	if main.fi_saveas {
+		put " saveas("
+		put `"""'
+		put main.fi_saveas
+		put `"""'
+		put ")"
+		option main.ck_replace
+	}
+
+	* Advanced options
+	optionarg advanced.ed_adv1
+	optionarg advanced.cb_adv2
+	option advanced.ck_flag1
+	option advanced.ck_flag2
+	option advanced.ck_flag3
+END

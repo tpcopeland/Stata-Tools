@@ -1,0 +1,19 @@
+v 3
+d 'TEMPLATE': Brief description of what the package does
+d
+d Requires: Stata version 16+
+d
+d Distribution-Date: YYYYMMDD
+d License: MIT
+d
+d Author: Your Name
+d Department/Institution
+d Email: your@email.com
+d
+d KW: keyword1
+d KW: keyword2
+d KW: keyword3
+d
+f TEMPLATE.ado
+f TEMPLATE.sthlp
+f TEMPLATE.dlg

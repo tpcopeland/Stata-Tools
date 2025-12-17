@@ -1,0 +1,240 @@
+---
+title: "Introduction to tvtools"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Introduction to tvtools}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+# Overview
+
+The **tvtools** package provides comprehensive tools for managing time-varying exposures in longitudinal and survival analysis. This vignette introduces the three main functions and demonstrates a typical workflow.
+
+## The Three Core Functions
+
+1. **`tvexpose()`** - Create time-varying exposure variables from period-based data
+2. **`tvmerge()`** - Merge multiple time-varying datasets with temporal alignment
+3. **`tvevent()`** - Integrate outcome events and competing risks
+
+## Typical Workflow
+
+```
+Raw exposure data
+        ↓
+    tvexpose()  ←──── Create time-varying exposure variables
+        ↓
+   [tvmerge()]  ←──── Merge multiple exposures (optional)
+        ↓
+    tvevent()   ←──── Integrate events and competing risks
+        ↓
+  Surv() + coxph() ←─ Survival analysis
+```
+
+# Basic Example: Single Exposure
+
+```{r setup}
+library(tvtools)
+library(dplyr)
+library(lubridate)
+```
+
+## Step 1: Prepare Data
+
+First, we create sample cohort and exposure data:
+
+```{r}
+# Cohort with entry and exit dates
+cohort <- tibble(
+  id = 1:100,
+  entry_date = as.Date("2010-01-01"),
+  exit_date = as.Date("2015-12-31")
+)
+
+# Exposure periods (medication use)
+set.seed(123)
+exposures <- tibble(
+  id = rep(1:50, each = 2),
+  start_date = as.Date("2010-01-01") +
+    sample(0:1000, 100, replace = TRUE),
+  stop_date = as.Date("2010-01-01") +
+    sample(1001:2000, 100, replace = TRUE),
+  medication = sample(1:2, 100, replace = TRUE)
+)
+
+head(exposures)
+```
+
+## Step 2: Create Time-Varying Exposure with tvexpose()
+
+```{r}
+tv_result <- tvexpose(
+  master_data = cohort,
+  exposure_file = exposures,
+  id = "id",
+  start = "start_date",
+  stop = "stop_date",
+  exposure = "medication",
+  reference = 0,
+  entry = "entry_date",
+  exit = "exit_date",
+  generate = "med_exposure"
+)
+
+head(tv_result$data, 10)
+```
+
+## Step 3: Add Events with tvevent()
+
+```{r}
+# Create outcome events
+events <- tibble(
+  id = sample(1:100, 30),
+  event_date = as.Date("2010-01-01") + sample(365:2000, 30)
+)
+
+final_result <- tvevent(
+  intervals_data = tv_result$data,
+  events_data = events,
+  id = "id",
+  date = "event_date",
+  generate = "outcome",
+  type = "single"
+)
+
+# Show some intervals with events
+final_result$data %>%
+  filter(outcome > 0) %>%
+  head(10)
+```
+
+## Step 4: Survival Analysis
+
+```{r, eval=FALSE}
+library(survival)
+
+cox_model <- coxph(
+  Surv(start, stop, outcome == 1) ~ med_exposure,
+  data = final_result$data,
+  id = id
+)
+
+summary(cox_model)
+```
+
+# Advanced Example: Multiple Exposures
+
+When working with multiple exposures, use `tvmerge()`:
+
+```{r, eval=FALSE}
+# Create two exposure datasets
+med_data <- tvexpose(
+  master_data = cohort,
+  exposure_file = medication_data,
+  id = "id",
+  start = "start_date",
+  stop = "stop_date",
+  exposure = "med_type",
+  reference = 0,
+  entry = "entry_date",
+  exit = "exit_date"
+)
+
+comorbid_data <- tvexpose(
+  master_data = cohort,
+  exposure_file = comorbidity_data,
+  id = "id",
+  start = "dx_date",
+  exposure = "condition",
+  reference = 0,
+  entry = "entry_date",
+  exit = "exit_date",
+  pointtime = TRUE
+)
+
+# Merge both exposures
+merged <- tvmerge(
+  datasets = list(med_data$data, comorbid_data$data),
+  id = "id",
+  start = c("start", "start"),
+  stop = c("stop", "stop"),
+  exposure = c("med_type", "condition"),
+  generate = c("medication", "comorbidity")
+)
+
+# Then add events
+final <- tvevent(
+  intervals_data = merged$data,
+  events_data = events,
+  id = "id",
+  date = "event_date",
+  generate = "outcome"
+)
+```
+
+# Exposure Types
+
+## Ever-Treated
+
+```{r, eval=FALSE}
+tvexpose(
+  master_data = cohort,
+  exposure_file = exposures,
+  id = "id",
+  start = "start_date",
+  stop = "stop_date",
+  exposure = "medication",
+  reference = 0,
+  entry = "entry_date",
+  exit = "exit_date",
+  evertreated = TRUE
+)
+```
+
+## Current/Former
+
+```{r, eval=FALSE}
+tvexpose(
+  master_data = cohort,
+  exposure_file = exposures,
+  id = "id",
+  start = "start_date",
+  stop = "stop_date",
+  exposure = "medication",
+  reference = 0,
+  entry = "entry_date",
+  exit = "exit_date",
+  currentformer = TRUE
+)
+```
+
+## Duration Categories
+
+```{r, eval=FALSE}
+tvexpose(
+  master_data = cohort,
+  exposure_file = exposures,
+  id = "id",
+  start = "start_date",
+  stop = "stop_date",
+  exposure = "medication",
+  reference = 0,
+  entry = "entry_date",
+  exit = "exit_date",
+  duration = c(90, 180, 365)  # Categories: <90d, 90-180d, 180-365d, >365d
+)
+```
+
+# Additional Resources
+
+- Package README: Comprehensive examples and function reference
+- Function documentation: `?tvexpose`, `?tvmerge`, `?tvevent`
+- Original Stata package: https://github.com/tpcopeland/Stata-Tools/tree/main/tvtools
+- Issue tracker: https://github.com/tpcopeland/Stata-Tools/issues

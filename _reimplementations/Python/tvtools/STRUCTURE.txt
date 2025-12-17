@@ -1,0 +1,57 @@
+tvtools/
+├── pyproject.toml           # Modern Python package configuration
+├── setup.py                 # Backward-compatible setup script
+├── README.md                # Comprehensive package documentation
+├── LICENSE                  # MIT License
+├── MANIFEST.in              # Package manifest for distribution
+├── .gitignore               # Git ignore rules
+│
+├── tvtools/                 # Main package directory
+│   ├── __init__.py          # Package initialization
+│   │
+│   ├── tvevent/             # Event integration module
+│   │   ├── __init__.py
+│   │   ├── core.py          # TVEvent class (to be implemented)
+│   │   ├── exceptions.py    # Custom exceptions
+│   │   └── types.py         # Type definitions
+│   │
+│   ├── tvexpose/            # Exposure creation module
+│   │   ├── __init__.py
+│   │   ├── exposer.py       # TVExpose class (to be implemented)
+│   │   ├── algorithms.py    # Core algorithms (merging, overlap resolution)
+│   │   ├── exposure_types.py # Exposure type implementations
+│   │   ├── validators.py    # Input validation
+│   │   ├── exceptions.py    # Custom exceptions
+│   │   └── types.py         # Type definitions
+│   │
+│   ├── tvmerge/             # Dataset merging module
+│   │   ├── __init__.py
+│   │   ├── merger.py        # TVMerge class (to be implemented)
+│   │   ├── validators.py    # Input validation
+│   │   ├── cartesian.py     # Cartesian merge algorithm
+│   │   ├── diagnostics.py   # Coverage and overlap validation
+│   │   ├── exceptions.py    # Custom exceptions
+│   │   ├── types.py         # Type definitions
+│   │   └── utils.py         # Utility functions
+│   │
+│   └── utils/               # Shared utilities
+│       ├── __init__.py
+│       ├── dates.py         # Date utilities (to be implemented)
+│       └── io.py            # File I/O utilities (to be implemented)
+│
+└── tests/                   # Test suite
+    ├── __init__.py
+    ├── conftest.py          # Pytest fixtures (with sample data)
+    ├── test_tvevent.py      # tvevent tests (to be implemented)
+    ├── test_tvexpose.py     # tvexpose tests (to be implemented)
+    └── test_tvmerge.py      # tvmerge tests (to be implemented)
+
+Summary:
+- Total modules: 3 (tvevent, tvexpose, tvmerge)
+- Total Python files: 32
+- Configuration files: 5
+- Documentation files: 2
+- Test files: 5
+
+Status: ✓ Package structure created
+Next steps: Implement module functionality (see implementation plans)
