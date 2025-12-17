@@ -256,40 +256,6 @@ Each package includes comprehensive documentation:
 - **Dialog Interfaces**: User-friendly GUI available for select commands (table1_tc, regtab, tvtools)
 - **Examples**: Quick start examples and best practices included in help files
 
-## Development
-
-### Creating New Commands
-
-Use the templates in `_templates/` as starting points for new Stata commands:
-
-```bash
-# Copy templates to create a new package
-cp _templates/TEMPLATE.ado mycommand/mycommand.ado
-cp _templates/TEMPLATE.sthlp mycommand/mycommand.sthlp
-cp _templates/TEMPLATE.pkg mycommand/mycommand.pkg
-```
-
-See `_guides/developing.md` for detailed development instructions.
-
-### Testing and Validation
-
-This repository distinguishes between two types of tests:
-
-| Testing | Validation |
-|---------|------------|
-| Does the command **run** without errors? | Does the command produce **correct** results? |
-| Uses realistic datasets | Uses minimal hand-crafted datasets |
-| Location: `_testing/test_*.do` | Location: `_validation/validation_*.do` |
-
-**Running tests:**
-```stata
-cd "_testing"
-do generate_test_data.do    // Generate test datasets (first time only)
-do run_all_tests.do         // Run all functional tests
-```
-
-See `_guides/testing.md` and `_guides/validating.md` for comprehensive testing guidance.
-
 ## Support
 
 Report issues and request features at: https://github.com/tpcopeland/Stata-Tools/issues
