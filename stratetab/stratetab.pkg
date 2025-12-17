@@ -1,0 +1,24 @@
+v 3
+d 'STRATETAB': Combine strate output files and export to Excel
+d
+d stratetab combines pre-computed strate output files and exports them
+d to Excel with outcome labels as headers and category labels indented
+d in the first column. The command creates a formatted table with events,
+d person-years, and rates with 95% confidence intervals.
+d
+d Requires: Stata version 17
+d Distribution-Date: 20251205
+d License: MIT
+d
+d Author: Timothy P. Copeland
+d Department of Clinical Neuroscience, Karolinska Institutet, Stockholm, Sweden
+d Email: timothy.copeland@ki.se
+d
+d KW: survival analysis
+d KW: incidence rates
+d KW: strate
+d KW: tables
+d KW: Excel export
+d
+f stratetab.ado
+f stratetab.sthlp

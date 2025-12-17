@@ -1,0 +1,23 @@
+v 3
+d 'PKGTRANSFER': Module to create a .do file with install commands for all user-written .ado files currently installed in Stata. Version 2 includes an option to create a zip file containing all packages and a do file to accompany it, allowing for offline installation.
+d
+d Requires: Stata (Any Version)
+d
+d KW: Stata
+d KW: pkg
+d KW: sec
+d KW: ado
+d
+d Distribution-Date: 20251203
+d
+d This  version: 17 Nov 2025
+d First version: 24 Mar 2024
+d License: MIT
+d
+d Author: Timothy P. Copeland
+d Department of Clinical Neuroscience, Karolinska Institutet, Stockholm, Sweden
+d Email: timothy.copeland@ki.se
+d
+f pkgtransfer.ado
+f pkgtransfer.sthlp
+d

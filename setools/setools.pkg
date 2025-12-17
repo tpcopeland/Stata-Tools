@@ -1,0 +1,32 @@
+v 3
+d 'SETOOLS': Commands for managing Swedish registry data in cohort studies
+d
+d Requires: Stata version 18+
+d
+d Distribution-Date: 20251203
+d License: MIT
+d
+d Author: Timothy P. Copeland
+d Department of Clinical Neuroscience, Karolinska Institutet, Stockholm, Sweden
+d Email: timothy.copeland@ki.se
+d
+d KW: Swedish registry
+d KW: migration
+d KW: cohort study
+d KW: epidemiology
+d KW: EDSS
+d KW: multiple sclerosis
+d KW: survival analysis
+d
+d INSTALLATION COMPLETE!
+d
+d Available commands:
+d     . migrations  - Process Swedish migration registry data
+d     . sustainedss - Compute sustained EDSS progression dates
+d
+d For help: help migrations, help sustainedss
+d
+f migrations.ado
+f migrations.sthlp
+f sustainedss.ado
+f sustainedss.sthlp

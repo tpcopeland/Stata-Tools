@@ -1,0 +1,26 @@
+v 3
+d 'MVP': Missing value pattern analysis with enhanced features (v1.1.1)
+d
+d mvp analyzes and displays missing value patterns across variables.
+d Visual representations including bar charts, heatmaps, and correlation matrices.
+d Stratified analysis by categorical variables using gby() and over() options.
+d Tests for monotone missingness patterns important for multiple imputation.
+d Fork of mvpatterns by Jeroen Weesie (STB-61: dm91)
+d
+d Requires: Stata version 14+
+d
+d Distribution-Date: 20251216
+d License: MIT
+d
+d Author: Timothy P Copeland
+d Department of Clinical Neuroscience, Karolinska Institutet, Stockholm, Sweden
+d Email: timothy.copeland@ki.se
+d
+d KW: missing values
+d KW: missing data
+d KW: multiple imputation
+d KW: data quality
+d
+f mvp.ado
+f mvp.sthlp
+d
