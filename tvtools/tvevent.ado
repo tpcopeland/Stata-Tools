@@ -1,4 +1,4 @@
-*! tvevent Version 1.3.4  17dec2025
+*! tvevent Version 1.3.5  17dec2025
 *! Add event/failure flags to time-varying datasets
 *! Author: Tim Copeland
 *!
@@ -654,9 +654,10 @@ program define tvevent, rclass
             quietly gen long `generate' = `imported_type'
             quietly replace `generate' = 0 if missing(`generate')
 
-            * Filter out boundary events: if stop == original stop, event is at boundary (not strictly inside)
-            * An event should only be flagged if it caused a split, which changes stop from _orig_stop
-            quietly replace `generate' = 0 if `generate' > 0 & `stopvar' == _orig_stop
+            * Note: Events at interval boundaries (where stop == event date) ARE valid events.
+            * Previous versions incorrectly filtered these out. Events should be flagged
+            * whenever the event date matches the interval stop time, regardless of whether
+            * the interval was split or retained its original boundaries.
 
             if "`keepvars'" != "" {
                 * Drop existing keepvars to avoid collision
