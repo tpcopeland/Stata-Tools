@@ -1,0 +1,28 @@
+v 3
+d 'COMPRESS_TC': Compress string variables
+d
+d compress_tc performs two-stage compression of string variables:
+d first converting fixed-length str# variables to strL (which uses
+d heap storage with deduplication and zlib compression), then running
+d Stata's compress to find optimal storage types. This approach can
+d dramatically reduce memory usage for datasets with long, repeated,
+d or sparse string values.
+d
+d Requires: Stata 13.0+
+d
+d Author: Timothy P. Copeland
+d Department of Clinical Neuroscience, Karolinska Institutet, Stockholm, Sweden
+d Email: timothy.copeland@ki.se
+d
+d This is a fork of strcompress by Luke Stein lcdstein@babson.edu
+d
+d KW: compress
+d KW: string
+d KW: memory
+d KW: strL
+d
+d Distribution-Date: 20251203
+d License: MIT
+d
+f compress_tc.ado
+f compress_tc.sthlp

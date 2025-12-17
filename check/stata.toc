@@ -1,0 +1,5 @@
+v 3
+d Stata-Tools: check
+d Timothy P. Copeland, Karolinska Institutet, Stockholm, Sweden
+d https://github.com/tpcopeland/Stata-Tools
+p check

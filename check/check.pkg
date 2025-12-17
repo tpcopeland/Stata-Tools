@@ -1,0 +1,23 @@
+v 3
+d 'CHECK': Quick variable inspection with descriptive statistics
+d
+d check produces a table with N, # Missing, % Missing, # Unique Values,
+d Variable Type, Variable Format, Mean, Standard Deviation, Minimum,
+d 25th Percentile, Median, 75th Percentile, Maximum, and Variable Label
+d for one or multiple variables.
+d
+d Requires: Stata version 14
+d Distribution-Date: 20251213
+d License: MIT
+d
+d Author: Timothy P. Copeland
+d Department of Clinical Neuroscience, Karolinska Institutet, Stockholm, Sweden
+d Email: timothy.copeland@ki.se
+d Original concept by Michael N Mitchell
+d
+d KW: data management
+d KW: descriptive statistics
+d KW: variable inspection
+d
+f check.ado
+f check.sthlp

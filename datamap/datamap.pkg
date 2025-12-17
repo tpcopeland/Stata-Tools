@@ -1,0 +1,30 @@
+v 3
+d 'DATAMAP': Generate privacy-safe dataset documentation
+d
+d datamap generates comprehensive, privacy-safe documentation for Stata
+d datasets. It automatically classifies variables and generates appropriate
+d documentation for each type, with privacy controls to exclude sensitive
+d variables or limit date precision.
+d
+d The package includes two commands:
+d - datamap: Main command for generating dataset documentation
+d - datadict: Data dictionary utility (helper command)
+d
+d Requires: Stata version 16
+d Distribution-Date: 20251203
+d License: MIT
+d
+d Author: Timothy P. Copeland
+d Department of Clinical Neuroscience, Karolinska Institutet, Stockholm, Sweden
+d Email: timothy.copeland@ki.se
+d
+d KW: data management
+d KW: documentation
+d KW: codebook
+d KW: privacy
+d KW: metadata
+d
+f datamap.ado
+f datamap.sthlp
+f datadict.ado
+f datadict.sthlp

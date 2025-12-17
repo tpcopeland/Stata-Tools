@@ -1,0 +1,23 @@
+v 3
+d 'DATEFIX': module to convert string date variables to numeric date formated variables
+d See {bf:help datefix} after installation.
+d
+d Requires: Stata version 6 or higher.
+d
+d KW: Stata
+d KW: date
+d KW: string
+d
+d Distribution-Date: 20251203
+d
+d This  version: 17 Nov 2025
+d First version: 17 Jun 2022
+d License: MIT
+d
+d Author: Timothy P. Copeland
+d Department of Clinical Neuroscience, Karolinska Institutet, Stockholm, Sweden
+d Email: timothy.copeland@ki.se
+d
+f datefix.ado
+f datefix.sthlp
+d

@@ -1,0 +1,27 @@
+v 3
+d 'CONSORT': Generate CONSORT-style exclusion flowcharts for observational research
+d
+d consort creates publication-ready CONSORT (Consolidated Standards
+d of Reporting Trials) style exclusion diagrams. Track your data
+d cleaning steps and generate clear visualizations showing how
+d observations were excluded at each stage of your analysis.
+d
+d Requires: Stata version 16+, Python 3 with matplotlib
+d
+d Distribution-Date: 20251215
+d License: MIT
+d
+d Author: Timothy P Copeland
+d Department of Clinical Neuroscience
+d Karolinska Institutet
+d
+d KW: CONSORT
+d KW: flowchart
+d KW: exclusion diagram
+d KW: observational research
+d KW: data cleaning
+d KW: visualization
+d
+f consort.ado
+f consort.sthlp
+f consort_diagram.py
