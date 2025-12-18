@@ -1,4 +1,4 @@
-*! tvmerge Version 1.0.4  2025/12/14
+*! tvmerge Version 1.0.5  2025/12/18
 *! Merge multiple time-varying exposure datasets
 *! Author: Tim Copeland
 *! Program class: rclass (returns results in r())
@@ -493,6 +493,13 @@ program define tvmerge, rclass
         tempfile merged_data
         save `merged_data', replace
 
+        * Track continuous exposures already in merged_data
+        * These need to be re-proportioned when intervals are sliced in subsequent merges
+        local merged_continuous_exps ""
+        if `is_cont1' == 1 {
+            local merged_continuous_exps "`exp1'"
+        }
+
         **# PROCESS ADDITIONAL DATASETS AND MERGE
         * Process each additional dataset
         forvalues k = 2/`numds' {
@@ -854,6 +861,11 @@ program define tvmerge, rclass
                 * Drop the sequence variable so it doesn't interfere
                 drop `batch_seq'
 
+                * Save original merged_data interval boundaries before joinby
+                * These are needed to correctly proportion continuous exposures from earlier datasets
+                generate double _orig_start_merged = `startname'
+                generate double _orig_stop_merged = `stopname'
+
                 * Create cartesian product for entire batch
                 joinby id using `batch_k'
 
@@ -870,10 +882,31 @@ program define tvmerge, rclass
                 drop new_start new_stop
 
                 * 6. For continuous exposures, interpolate values based on overlap duration
+
+                * 6a. First, proportion continuous exposures from EARLIER datasets
+                * These exposures have already been proportioned to their current interval size,
+                * so we re-proportion them based on how much the merged interval shrunk
+                foreach merged_exp in `merged_continuous_exps' {
+                    capture confirm variable `merged_exp'
+                    if _rc == 0 {
+                        * Calculate proportion based on how much the merged interval shrunk
+                        * proportion = (new interval size) / (original merged interval size)
+                        generate double _proportion = cond(_orig_stop_merged > _orig_start_merged, ///
+                            (`stopname' - `startname' + 1) / (_orig_stop_merged - _orig_start_merged + 1), 1)
+
+                        * Ensure proportion doesn't exceed 1 due to floating point rounding
+                        replace _proportion = 1 if _proportion > 1 & !missing(_proportion)
+
+                        replace `merged_exp' = `merged_exp' * _proportion
+                        drop _proportion
+                    }
+                }
+
+                * 6b. Then, proportion continuous exposures from dataset k
                 foreach exp_var in `exp_k_list' {
                     * Use pre-computed continuous indicator (optimization)
                     if `is_cont_`exp_var'' == 1 {
-                        * Calculate proportion as (overlap duration) / (original duration)
+                        * Calculate proportion as (overlap duration) / (original duration from dataset k)
                         * This correctly pro-rates the exposure value
                         generate double _proportion = cond(stop_k > start_k, (`stopname' - `startname' + 1) / (stop_k - start_k + 1), 1)
 
@@ -885,7 +918,7 @@ program define tvmerge, rclass
                     }
                 }
 
-                drop start_k stop_k
+                drop start_k stop_k _orig_start_merged _orig_stop_merged
 
                 * 7. Append batch results to overall results
                 * Note: Skip saving if batch produced zero rows (e.g., disjoint time intervals)
@@ -918,11 +951,16 @@ program define tvmerge, rclass
             
             * Use cartesian result
             use `cartesian', clear
-            
+
             * Save updated merged data
             save `merged_data', replace
+
+            * Update tracking list: add this dataset's continuous exposure if applicable
+            if `is_cont_k' == 1 {
+                local merged_continuous_exps "`merged_continuous_exps' `exp_k'"
+            }
         }
-        
+
         * Validate that all keep() variables were found in at least one dataset
         if "`keep'" != "" {
             foreach var in `keep' {
