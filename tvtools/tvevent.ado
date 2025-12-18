@@ -1,4 +1,4 @@
-*! tvevent Version 1.3.5  17dec2025
+*! tvevent Version 1.4.0  18dec2025
 *! Add event/failure flags to time-varying datasets
 *! Author: Tim Copeland
 *!
@@ -9,7 +9,13 @@ Basic syntax:
   tvevent using intervals.dta, id(varname) date(varname) ///
     [generate(newvar) type(single|recurring) keepvars(varlist) ///
      continuous(varlist) timegen(newvar) timeunit(string) ///
-     compete(varlist) eventlabel(string) replace]
+     compete(varlist) eventlabel(string) validate replace]
+
+Diagnostic options:
+  validate           - Display validation diagnostics including:
+                       • Events falling outside interval boundaries
+                       • Multiple events per person when type(single)
+                       • Competing events occurring on the same date
 
 Data structure:
   Master (in memory): Event data with id(), date(), compete(), keepvars()
@@ -41,6 +47,7 @@ program define tvevent, rclass
          EVENTLabel(string asis) ///
          STARTvar(name) ///
          STOPvar(name) ///
+         VALidate ///
          REPlace]
 
     **# 1. INPUT VALIDATION
@@ -176,6 +183,120 @@ program define tvevent, rclass
             }
         }
         local keepvars = strtrim("`keepvars'")
+    }
+
+    **# 1b. VALIDATION DIAGNOSTICS (if requested)
+
+    if "`validate'" != "" {
+        * Store validation results for return
+        local v_outside = 0
+        local v_multiple = 0
+        local v_same_date = 0
+
+        noisily di _newline
+        noisily di as txt "{hline 50}"
+        noisily di as txt "{bf:Validation Diagnostics}"
+        noisily di as txt "{hline 50}"
+
+        * Check 1: Multiple events per person when type(single)
+        if "`type'" == "single" {
+            preserve
+            if "`compete'" != "" {
+                * Count how many non-missing event dates per person
+                tempvar n_events
+                egen `n_events' = rownonmiss(`date' `compete')
+                quietly count if `n_events' > 1
+                local v_multiple = r(N)
+            }
+            else {
+                * Just check the primary date
+                tempvar has_event
+                gen `has_event' = !missing(`date')
+                bysort `id': egen long _total_events = total(`has_event')
+                quietly count if _total_events > 1
+                local v_multiple = r(N)
+            }
+            restore
+
+            if `v_multiple' > 0 {
+                noisily di as txt "  Multiple events per person: " as result "`v_multiple' persons"
+                noisily di as txt "    (type(single) expects at most one event per person)"
+            }
+            else {
+                noisily di as txt "  Multiple events per person: " as result "None (OK)"
+            }
+        }
+
+        * Check 2: Competing events on same date
+        if "`compete'" != "" & "`type'" == "single" {
+            preserve
+            local v_same_date = 0
+
+            * Check if primary event date equals any competing event date
+            foreach cvar of local compete {
+                quietly count if `date' == `cvar' & !missing(`date') & !missing(`cvar')
+                local v_same_date = `v_same_date' + r(N)
+            }
+            restore
+
+            if `v_same_date' > 0 {
+                noisily di as txt "  Competing events on same date: " as result "`v_same_date' occurrences"
+                noisily di as txt "    (earliest event wins; ties resolved by variable order)"
+            }
+            else {
+                noisily di as txt "  Competing events on same date: " as result "None (OK)"
+            }
+        }
+
+        * Check 3: Events outside interval boundaries
+        * This requires loading the using (interval) dataset
+        preserve
+        tempfile master_events
+        if "`type'" == "single" {
+            keep `id' `date' `compete'
+            rename `date' _event_date
+        }
+        else {
+            keep `id' `eventvars'
+            * Reshape to long for checking
+            gen long _obs = _n
+            reshape long `date', i(`id' _obs) j(_eventnum)
+            drop if missing(`date')
+            rename `date' _event_date
+            drop _obs _eventnum
+        }
+        save `master_events', replace
+
+        * Load interval data
+        use "`using'", clear
+
+        * Get min/max interval times per person
+        collapse (min) _min_start=`startvar' (max) _max_stop=`stopvar', by(`id')
+
+        * Merge with events
+        merge 1:m `id' using `master_events', keep(match) nogen
+
+        * Check events outside boundaries
+        quietly count if _event_date < _min_start | _event_date > _max_stop
+        local v_outside = r(N)
+
+        restore
+
+        if `v_outside' > 0 {
+            noisily di as txt "  Events outside interval bounds: " as result "`v_outside' events"
+            noisily di as txt "    (these events will not be flagged in output)"
+        }
+        else {
+            noisily di as txt "  Events outside interval bounds: " as result "None (OK)"
+        }
+
+        noisily di as txt "{hline 50}"
+        noisily di ""
+
+        * Store validation results
+        return scalar v_outside_bounds = `v_outside'
+        return scalar v_multiple_events = `v_multiple'
+        return scalar v_same_date_compete = `v_same_date'
     }
 
     quietly {

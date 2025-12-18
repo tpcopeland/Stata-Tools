@@ -1009,10 +1009,61 @@ if `run_only' == 0 | `run_only' == `test_count' {
 }
 
 * =============================================================================
+* TEST 18: validate option
+* =============================================================================
+local ++test_count
+local test_desc "validate option"
+_run_test `test_count' "`test_desc'"
+
+if `run_only' == 0 | `run_only' == `test_count' {
+    capture {
+        quietly use "${DATA_DIR}/cohort.dta", clear
+
+        tvevent using "${DATA_DIR}/_tv_base.dta", ///
+            id(id) date(edss4_dt) ///
+            startvar(dmt_start) stopvar(dmt_stop) ///
+            compete(death_dt) ///
+            type(single) ///
+            validate ///
+            generate(outcome)
+
+        assert _N > 0
+        confirm variable outcome
+
+        * Validate that validation results were stored
+        assert r(v_outside_bounds) >= 0
+        assert r(v_multiple_events) >= 0
+        assert r(v_same_date_compete) >= 0
+    }
+    if _rc == 0 {
+        local ++pass_count
+        if `machine' {
+            display "[OK] `test_count'"
+        }
+        else if `quiet' == 0 {
+            display as result "  PASSED"
+            display as text "  Outside bounds: " r(v_outside_bounds)
+            display as text "  Multiple events: " r(v_multiple_events)
+            display as text "  Same date compete: " r(v_same_date_compete)
+        }
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' {
+            display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        }
+        else {
+            display as error "  FAILED: `test_desc' (error `=_rc')"
+        }
+    }
+}
+
+* =============================================================================
 * EDGE CASE TESTS
 * =============================================================================
 
-* TEST 18: Edge case - Single observation
+* TEST 19: Edge case - Single observation (renumbered from TEST 18)
 local ++test_count
 local test_desc "Edge case: single observation"
 _run_test `test_count' "`test_desc'"

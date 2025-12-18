@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.3.4  2025/12/17}{...}
+{* *! version 1.4.0  2025/12/18}{...}
 {vieweralsosee "[ST] stset" "help stset"}{...}
 {vieweralsosee "[ST] stcrreg" "help stcrreg"}{...}
 {vieweralsosee "tvexpose" "help tvexpose"}{...}
@@ -51,6 +51,9 @@
 {synopt:{opt replace}}replace output variables if they already exist{p_end}
 {synopt:{opt start:var(varname)}}name of start date variable in using file (default: start){p_end}
 {synopt:{opt stop:var(varname)}}name of stop date variable in using file (default: stop){p_end}
+
+{syntab:Diagnostics}
+{synopt:{opt val:idate}}display validation diagnostics for event data quality{p_end}
 {synoptline}
 {p2colreset}{...}
 
@@ -136,6 +139,14 @@ not supported with recurring events.
 
 {phang}
 {opt stopvar(varname)} specifies the name of the stop date variable in the using (interval) dataset. Default is {cmd:stop}.
+
+{phang}
+{opt validate} displays validation diagnostics before processing. This option checks for:
+{break}1. {bf:Events outside interval boundaries}: Events that occur before the earliest start or after the latest stop for each person (these will not be flagged in output).
+{break}2. {bf:Multiple events per person}: When using {cmd:type(single)}, persons with multiple non-missing event dates.
+{break}3. {bf:Competing events on same date}: When {cmd:compete()} is specified, cases where the primary event and a competing event occur on the same date.
+{break}
+{break}Validation results are also stored in {cmd:r(v_outside_bounds)}, {cmd:r(v_multiple_events)}, and {cmd:r(v_same_date_compete)}.
 
 
 {marker examples}{...}
@@ -317,10 +328,17 @@ Full pipeline showing tvexpose, tvmerge, and tvevent integration:
 {pstd}
 {cmd:tvevent} stores the following in {cmd:r()}:
 
-{synoptset 20 tabbed}{...}
-{p2col 5 20 24 2: Scalars}{p_end}
+{synoptset 24 tabbed}{...}
+{p2col 5 24 28 2: Scalars}{p_end}
 {synopt:{cmd:r(N)}}Total number of observations in output{p_end}
 {synopt:{cmd:r(N_events)}}Total number of events/failures flagged{p_end}
+
+{pstd}
+When {cmd:validate} is specified, additional scalars are stored:
+
+{synopt:{cmd:r(v_outside_bounds)}}Number of events outside interval boundaries{p_end}
+{synopt:{cmd:r(v_multiple_events)}}Number of persons with multiple events (type(single) only){p_end}
+{synopt:{cmd:r(v_same_date_compete)}}Number of competing events on same date as primary{p_end}
 
 
 {title:Author}
@@ -328,7 +346,7 @@ Full pipeline showing tvexpose, tvmerge, and tvevent integration:
 {pstd}Timothy P Copeland{p_end}
 {pstd}Department of Clinical Neuroscience{p_end}
 {pstd}Karolinska Institutet{p_end}
-{pstd}Version 1.3.2, 2025-12-14{p_end}
+{pstd}Version 1.4.0, 2025-12-18{p_end}
 
 {title:Also see}
 

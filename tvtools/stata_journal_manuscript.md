@@ -97,6 +97,16 @@ stset stop, failure(failure) id(id) enter(start)
 
 The stcox and streg commands then correctly handle the time-varying covariates, updating risk sets appropriately at each failure time.
 
+**Note on variance estimation:** The counting process formulation creates multiple records per person. While stcox with the id() option correctly handles the partial likelihood contribution, researchers analyzing recurrent events or concerned about unmeasured within-person heterogeneity should consider:
+
+```stata
+* Cluster-robust standard errors
+stcox i.medication age female, vce(cluster id)
+
+* Shared frailty model for unmeasured heterogeneity
+stcox i.medication age female, shared(id)
+```
+
 The key challenge is creating this properly structured data from raw exposure records. The tvtools package automates this transformation.
 
 ### 2.3 Competing risks
@@ -130,7 +140,13 @@ net install tvtools, ///
     from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/tvtools")
 ```
 
-This installs three commands (tvexpose, tvmerge, tvevent) along with their help files and optional dialog interfaces.
+This installs three commands (tvexpose, tvmerge, tvevent) along with their help files and optional dialog interfaces. The help files contain additional examples and option combinations not covered in this article:
+
+```stata
+help tvexpose    // Comprehensive options including bytype, priority()
+help tvmerge     // Batch processing and continuous exposure handling
+help tvevent     // Recurring events and wide-format event data
+```
 
 To access the dialog interfaces:
 
@@ -239,6 +255,19 @@ Enables cumulative dose tracking where the exposure() variable contains the dose
 Option: dosecuts(*numlist*)
 Used with the dose option to create categorical rather than continuous dose output. The numlist specifies ascending cutpoints for categorization. For example, dosecuts(5 10 20) creates categories: 0=no dose, 1=<5, 2=5–<10, 3=10–<20, 4=≥20. This enables dose-response analysis using categorical exposure levels while accounting for the temporal accumulation of dose.
 
+### 4.3.1 Choosing an exposure definition
+
+The choice of exposure definition should reflect the research question and biological mechanism:
+
+| Research Question | Recommended Definition | Rationale |
+|:-----------------|:----------------------|:----------|
+| Does treatment vs. no treatment affect risk? | `evertreated` | Addresses immortal time bias; binary comparison |
+| Do effects persist after treatment stops? | `currentformer` | Separates active from residual effects |
+| Does longer treatment duration increase risk? | `duration()` | Cumulative exposure hypothesis |
+| Is there a dose-response relationship? | `dose` with `dosecuts()` | Pharmacoepidemiologic dose-response |
+| Do recent vs. remote exposures differ? | `recency()` | Recency hypothesis; waning effects |
+| What is the instantaneous effect of being on treatment? | Default (time-varying) | Pure exposure-status effect |
+
 ### 4.4 Data handling options
 
 tvexpose provides options for handling common data quality issues:
@@ -324,13 +353,34 @@ For a dataset with 10,000 unique IDs:
 - batch(50) processes 2 batches of 5,000 IDs each
 - batch(10) processes 10 batches of 1,000 IDs each
 
-Larger batches are faster but use more memory. For datasets with over 50,000 IDs, smaller batch sizes prevent memory exhaustion.
+Larger batches are faster but use more memory. Approximate guidelines:
 
-### 5.5 Output naming
+| Dataset Size (IDs) | Recommended batch() | Memory Usage |
+|:------------------|:-------------------|:-------------|
+| < 10,000 | 50–100 | Low |
+| 10,000–50,000 | 20–50 | Moderate |
+| 50,000–100,000 | 10–20 | High |
+| > 100,000 | 5–10 | Very high |
+
+For datasets exceeding available RAM, consider processing in separate chunks and appending results.
+
+### 5.5 Handling ID mismatches
+
+By default, tvmerge requires all datasets to contain the same set of IDs and will error if IDs don't match. When merging exposure datasets that may not cover all cohort members, use the force option:
+
+```stata
+tvmerge tv_med1.dta tv_med2.dta, id(id) ///
+    start(start start) stop(stop stop) ///
+    exposure(med1 med2) force
+```
+
+With force, mismatched IDs are dropped with a warning. This is appropriate when exposure data represents a subset of the cohort (e.g., only patients who received at least one prescription).
+
+### 5.6 Output naming
 
 The generate(*namelist*) option provides custom names for output exposure variables. Alternatively, prefix(*string*) adds a common prefix. The startname() and stopname() options name the output date variables (defaults: start, stop).
 
-### 5.6 Stored results
+### 5.7 Stored results
 
 tvmerge stores the following in r():
 
@@ -490,11 +540,18 @@ stset stop, id(id) failure(status==1) enter(start) scale(365.25)
 * Step 4: Analyze
 stcox i.medication age female
 
-* Step 5: Competing risks analysis
+* Step 5: Competing risks analysis using Fine-Gray subdistribution hazard
+* Note: stcrreg models the subdistribution hazard, which accounts for the
+* probability of experiencing the primary event in the presence of competing risks.
+* Interpretation: The subdistribution hazard ratio quantifies the effect on
+* cumulative incidence, not on cause-specific hazard.
 stcrreg i.medication age female, compete(status==2)
+
+* For cause-specific hazard ratios (alternative interpretation):
+stcox i.medication age female if status != 2 | status == 1
 ```
 
-The output shows hazard ratios for each medication type compared to unexposed, adjusted for age and sex, with death as a competing risk.
+The output shows hazard ratios for each medication type compared to unexposed, adjusted for age and sex, with death as a competing risk. The subdistribution hazard ratio from stcrreg reflects effects on cumulative incidence, while the cause-specific hazard ratio from the filtered stcox reflects effects on the instantaneous rate among those still at risk.
 
 ### 7.3 Addressing immortal time bias
 
@@ -504,12 +561,23 @@ Immortal time bias arises when time before first exposure is misclassified as ex
 use cohort, clear
 
 * Incorrect analysis (baseline exposure - introduces immortal time bias)
-merge 1:1 id using medications, keep(master match) nogen keepusing(med_type)
-replace med_type = 0 if missing(med_type)
+* First, create an ever-treated indicator from medications
+preserve
+use medications, clear
+collapse (min) first_rx=rx_start, by(id)
+tempfile ever_treated
+save `ever_treated'
+restore
+
+merge 1:1 id using `ever_treated', keep(master match) nogen
+generate byte treated = !missing(first_rx)
 
 stset study_exit, failure(outcome_dt != .) origin(study_entry) scale(365.25)
-stcox i.med_type age female
-* This analysis is BIASED - ever-treated appear protected due to immortal time
+stcox treated age female
+* This analysis is BIASED - ever-treated appear protected because:
+* 1. Time from study entry to first prescription is classified as "treated"
+* 2. Patients must survive long enough to receive treatment
+* 3. This "immortal time" artificially inflates apparent protective effects
 
 * Correct analysis using tvexpose with evertreated
 use cohort, clear
@@ -538,7 +606,8 @@ tvexpose using medications, id(id) start(rx_start) stop(rx_stop) ///
     duration(0.5 1 2) continuousunit(years) ///
     generate(duration_cat) keepvars(age female)
 
-* Duration categories: 0=unexposed, 1=<0.5yr, 2=0.5-1yr, 3=1-2yr, 4=≥2yr
+* Note: duration() cutpoints are in continuousunit() scale (years here)
+* Duration categories: 0=unexposed, 1=<0.5yr, 2=0.5–<1yr, 3=1–<2yr, 4=≥2yr
 
 tvevent using cohort, id(id) date(outcome_dt) compete(death_dt) ///
     generate(status)
@@ -808,7 +877,15 @@ For a typical pharmacoepidemiology study with 50,000 patients and 200,000 prescr
 
 **Single event per interval.** The current implementation assumes at most one event per interval. For high-frequency recurring events, data may need pre-aggregation.
 
-**No direct support for time-dependent coefficients.** tvtools creates time-varying covariates, not time-varying coefficients. Testing the proportional hazards assumption requires post-estimation diagnostics.
+**No direct support for time-dependent coefficients.** tvtools creates time-varying covariates, not time-varying coefficients. Testing the proportional hazards assumption requires post-estimation diagnostics. After fitting a Cox model with time-varying exposures created by tvtools, researchers should examine Schoenfeld residuals:
+
+```stata
+stcox i.medication age female
+estat phtest, detail
+estat phtest, plot(1.medication)
+```
+
+If the PH assumption is violated for the time-varying exposure, researchers may consider stratification, time-partitioned models, or parametric alternatives such as flexible parametric survival models (stpm2).
 
 **Point-in-time data limitations.** While the pointtime option handles single-day exposures, complex point-process data may require custom preprocessing.
 
@@ -850,13 +927,21 @@ Timothy P. Copeland is a researcher at the Department of Clinical Neuroscience, 
 
 ## References
 
+Andersen, P. K., and R. D. Gill. 1982. Cox's regression model for counting processes: A large sample study. *Annals of Statistics* 10: 1100–1120.
+
+Austin, P. C., D. S. Lee, and J. P. Fine. 2016. Introduction to the analysis of survival data in the presence of competing risks. *Circulation* 133: 601–609. https://doi.org/10.1161/CIRCULATIONAHA.115.017719.
+
 Fine, J. P., and R. J. Gray. 1999. A proportional hazards model for the subdistribution of a competing risk. *Journal of the American Statistical Association* 94: 496–509. https://doi.org/10.1080/01621459.1999.10474144.
 
 Hernán, M. A., and J. M. Robins. 2020. *Causal Inference: What If*. Boca Raton: Chapman & Hall/CRC.
 
+Lau, B., S. R. Cole, and S. J. Gange. 2009. Competing risk regression models for epidemiologic data. *American Journal of Epidemiology* 170: 244–256. https://doi.org/10.1093/aje/kwp107.
+
 Suissa, S. 2007. Immortal time bias in observational studies of drug effects. *Pharmacoepidemiology and Drug Safety* 16: 241–249. https://doi.org/10.1002/pds.1357.
 
 Therneau, T. M., and P. M. Grambsch. 2000. *Modeling Survival Data: Extending the Cox Model*. New York: Springer.
+
+Zhou, B., J. Fine, A. Latouche, and M. Labopin. 2012. Competing risks regression for clustered data. *Biostatistics* 13: 371–383.
 
 ---
 

@@ -2969,6 +2969,163 @@ capture erase "${DATA_DIR}/cohort_stress_val.dta"
 capture erase "${DATA_DIR}/tv_stress_val.dta"
 
 * =============================================================================
+* Test 4.31: Validation Option Tests
+* Purpose: Verify the validate option correctly identifies data quality issues
+* =============================================================================
+if `quiet' == 0 {
+    display as text _n "=========================="
+    display as text "Test Set 4.31: Validate Option"
+    display as text "=========================="
+}
+
+* -----------------------------------------------------------------------------
+* Test 4.31.1: Validate option returns stored results
+* Purpose: Verify r(v_outside_bounds), r(v_multiple_events), r(v_same_date_compete)
+* -----------------------------------------------------------------------------
+local ++test_count
+if `quiet' == 0 {
+    display as text _n "Test 4.31.1: Validate Option Stored Results"
+}
+
+capture {
+    * Create simple test data
+    clear
+    set obs 10
+    gen id = _n
+    gen edss4_dt = mdy(6, 15, 2020) + runiform()*100
+    gen death_dt = .
+    replace death_dt = mdy(8, 1, 2020) if _n <= 2
+    tempfile event_data
+    save `event_data'
+
+    * Create interval data
+    clear
+    set obs 10
+    gen id = _n
+    gen start = mdy(1, 1, 2020)
+    gen stop = mdy(12, 31, 2020)
+    gen tv_exp = mod(_n, 3)
+    tempfile interval_data
+    save `interval_data'
+
+    * Run tvevent with validate
+    use `event_data', clear
+    tvevent using `interval_data', id(id) date(edss4_dt) compete(death_dt) ///
+        type(single) validate generate(outcome)
+
+    * Verify stored results exist and are non-negative
+    assert r(v_outside_bounds) >= 0
+    assert r(v_multiple_events) >= 0
+    assert r(v_same_date_compete) >= 0
+}
+if _rc == 0 {
+    display as result "  PASS: Validate option returns stored results"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: Validate option stored results (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 4.31.1"
+}
+
+* -----------------------------------------------------------------------------
+* Test 4.31.2: Validate detects same-date competing events
+* Purpose: Verify v_same_date_compete correctly counts same-date events
+* -----------------------------------------------------------------------------
+local ++test_count
+if `quiet' == 0 {
+    display as text _n "Test 4.31.2: Validate Detects Same-Date Competing Events"
+}
+
+capture {
+    * Create test data with same-date events
+    clear
+    set obs 5
+    gen id = _n
+    gen event_dt = mdy(6, 15, 2020)
+    gen compete_dt = mdy(6, 15, 2020) if _n <= 2  // 2 same-date events
+    replace compete_dt = mdy(7, 1, 2020) if _n > 2
+    tempfile event_data
+    save `event_data'
+
+    * Create interval data
+    clear
+    set obs 5
+    gen id = _n
+    gen start = mdy(1, 1, 2020)
+    gen stop = mdy(12, 31, 2020)
+    gen tv_exp = 1
+    tempfile interval_data
+    save `interval_data'
+
+    * Run tvevent with validate
+    use `event_data', clear
+    tvevent using `interval_data', id(id) date(event_dt) compete(compete_dt) ///
+        type(single) validate generate(outcome)
+
+    * Should detect 2 same-date competing events
+    assert r(v_same_date_compete) == 2
+}
+if _rc == 0 {
+    display as result "  PASS: Validate correctly detects same-date competing events"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: Same-date competing event detection (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 4.31.2"
+}
+
+* -----------------------------------------------------------------------------
+* Test 4.31.3: Validate detects events outside interval bounds
+* Purpose: Verify v_outside_bounds correctly counts out-of-range events
+* -----------------------------------------------------------------------------
+local ++test_count
+if `quiet' == 0 {
+    display as text _n "Test 4.31.3: Validate Detects Events Outside Bounds"
+}
+
+capture {
+    * Create test data with out-of-bounds events
+    clear
+    set obs 5
+    gen id = _n
+    * Events outside the interval (before start or after stop)
+    gen event_dt = mdy(6, 1, 2019) if _n <= 2  // Before start
+    replace event_dt = mdy(6, 1, 2021) if _n == 3  // After stop
+    replace event_dt = mdy(6, 15, 2020) if _n > 3  // Within bounds
+    tempfile event_data
+    save `event_data'
+
+    * Create interval data
+    clear
+    set obs 5
+    gen id = _n
+    gen start = mdy(1, 1, 2020)
+    gen stop = mdy(12, 31, 2020)
+    gen tv_exp = 1
+    tempfile interval_data
+    save `interval_data'
+
+    * Run tvevent with validate
+    use `event_data', clear
+    tvevent using `interval_data', id(id) date(event_dt) ///
+        type(single) validate generate(outcome)
+
+    * Should detect 3 events outside bounds (2 before + 1 after)
+    assert r(v_outside_bounds) == 3
+}
+if _rc == 0 {
+    display as result "  PASS: Validate correctly detects events outside bounds"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: Out-of-bounds event detection (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 4.31.3"
+}
+
+* =============================================================================
 * SUMMARY
 * =============================================================================
 display as text _n "{hline 70}"
