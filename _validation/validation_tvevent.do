@@ -8,8 +8,9 @@
 * Philosophy: Create minimal datasets where every output value can be
 *             mathematically verified by hand.
 *
-* Key Behavior: tvevent uses strict inequality (start < date < stop)
-*               Events exactly at boundaries are NOT captured.
+* Key Behavior: tvevent v1.3.5+ correctly captures events at boundaries.
+*               Events are flagged when event_date == stop.
+*               (Fixed in v1.3.5 - previously events at boundaries were filtered out)
 *
 * Run modes:
 *   Standalone: do validation_tvevent.do
@@ -92,7 +93,7 @@ if `quiet' == 0 {
     display as text "TVEVENT DEEP VALIDATION TESTS"
     display as text "{hline 70}"
     display as text "These tests verify mathematical correctness, not just execution."
-    display as text "Note: tvevent uses STRICT inequality (start < date < stop)"
+    display as text "Note: tvevent v1.3.5+ captures events at boundaries (stop == event)"
     display as text "{hline 70}"
 }
 
@@ -513,7 +514,8 @@ if `quiet' == 0 {
     display as text _n "{hline 70}"
     display as text "SECTION 4.6: Boundary Condition Tests (CRITICAL)"
     display as text "{hline 70}"
-    display as text "Note: tvevent uses STRICT inequality: start < date < stop"
+    display as text "Note: tvevent v1.3.5+ captures events at stop (event == stop)"
+    display as text "      Events at start are NOT captured (belong to previous interval)"
 }
 
 * -----------------------------------------------------------------------------
@@ -546,7 +548,8 @@ else {
 
 * -----------------------------------------------------------------------------
 * Test 4.6.2: Event Exactly at Interval Stop
-* Purpose: Verify event at stop boundary is NOT captured
+* Purpose: Verify event at stop boundary IS captured (v1.3.5+ behavior)
+* Note: This test was updated for v1.3.5 fix - events at stop ARE valid
 * -----------------------------------------------------------------------------
 local ++test_count
 if `quiet' == 0 {
@@ -558,16 +561,17 @@ capture {
     tvevent using "${DATA_DIR}/intervals_fullyear.dta", id(id) date(event_dt) ///
         startvar(start) stopvar(stop) type(single) generate(outcome)
 
-    * Event should NOT be captured (date not < stop)
+    * Event SHOULD be captured (v1.3.5+ fix: events at stop boundary are valid)
     quietly count if outcome == 1
-    assert r(N) == 0
+    assert r(N) == 1
 }
 if _rc == 0 {
-    display as result "  PASS: Event at exact stop NOT captured (strict inequality)"
+    display as result "  PASS: Event at exact stop IS captured (v1.3.5+ behavior)"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: Event at stop boundary (error `=_rc')"
+    display as error "  FAIL: Event at stop boundary not captured (error `=_rc')"
+    display as error "  This may indicate regression to pre-v1.3.5 bug!"
     local ++fail_count
     local failed_tests "`failed_tests' 4.6.2"
 }
@@ -2429,7 +2433,8 @@ else {
 
 * -----------------------------------------------------------------------------
 * Test 4.27.5: Event on Pre-Existing Split Boundary
-* Purpose: Verify event at split point handled correctly (strict inequality)
+* Purpose: Verify event at split point IS captured (v1.3.5+ behavior)
+* Note: This test was updated for v1.3.5 fix - events at stop ARE valid
 * -----------------------------------------------------------------------------
 local ++test_count
 if `quiet' == 0 {
@@ -2442,17 +2447,18 @@ capture {
         startvar(start) stopvar(stop) type(single) generate(outcome)
 
     * Event at boundary (21946) is stop of first interval and start of second
-    * With strict inequality, this should NOT be captured
-    * (start=21915 < 21946 < stop=21946 is FALSE)
+    * With v1.3.5+ fix, event at stop SHOULD be captured
+    * Event is flagged at the interval that ENDS at the event date
     quietly count if outcome == 1
-    assert r(N) == 0  // Event at stop boundary not captured
+    assert r(N) == 1  // Event at stop boundary IS captured (v1.3.5+)
 }
 if _rc == 0 {
-    display as result "  PASS: Event on pre-existing split boundary handled correctly"
+    display as result "  PASS: Event on pre-existing split boundary captured (v1.3.5+)"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: Event on split boundary (error `=_rc')"
+    display as error "  FAIL: Event on split boundary not captured (error `=_rc')"
+    display as error "  This may indicate regression to pre-v1.3.5 bug!"
     local ++fail_count
     local failed_tests "`failed_tests' 4.27.5"
 }
