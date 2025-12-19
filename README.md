@@ -132,11 +132,13 @@ Stata-Tools/
 - Excel export with professional formatting
 - Includes dialog interface for easy use
 
-**regtab** - Format and export regression tables
+**regtab** - Format and export regression and treatment effects tables
+- **regtab**: Format standard regression output (logit, regress, stcox, etc.)
+- **effecttab**: Format causal inference results (teffects ipw, margins, g-computation)
 - Works with Stata 17+ collect commands
-- Exports coefficient tables with confidence intervals and p-values to Excel
+- Exports tables with confidence intervals and p-values to Excel
 - Professional formatting suitable for publication
-- Includes dialog interface
+- Includes dialog interface for regtab
 
 **stratetab** - Combine and format strate output tables
 - Merges multiple strate results into formatted Excel tables
@@ -200,6 +202,16 @@ regtab, xlsx(results.xlsx) sheet(Table1) coef(OR)
 
 * Or use dialog
 db regtab
+```
+
+### Formatting Treatment Effects Tables
+```stata
+* IPTW estimation
+collect clear
+collect: teffects ipw (outcome) (treatment age sex), ate
+
+* Format and export
+effecttab, xlsx(results.xlsx) sheet(ATE) effect(ATE) clean
 ```
 
 ### Variable Inspection
@@ -283,7 +295,7 @@ MIT License - see individual package files for details
 | massdesas | Batch SAS to Stata conversion | 1.0.3 | 14+ |
 | mvp | Missing value pattern analysis | 1.1.1 | 14+ |
 | pkgtransfer | Package management | 1.0.2 | 14+ |
-| regtab | Regression tables | 1.0.3 | 17+ |
+| regtab | Regression & treatment effects tables | 1.1.0 | 17+ |
 | setools | Swedish registry data tools | 1.0.1 | 18+ |
 | stratetab | Strate output formatting | 1.0.2 | 17+ |
 | synthdata | Synthetic data generation | 1.2.2 | 16+ |

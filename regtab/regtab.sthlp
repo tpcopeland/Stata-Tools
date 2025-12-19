@@ -1,5 +1,5 @@
 {smcl}
-{* *{* *! version 1.0.0  2025/12/02}{...}
+{* *! version 1.1.0  19dec2025}{...}
 {title:regtab}
 
 {pstd}Format {helpb collect}ed regression results into a polished Excel table.{p_end}
@@ -72,5 +72,5 @@
 {pstd}Department of Clinical Neuroscience{p_end}
 {pstd}Karolinska Institutet{p_end}
 
-{pstd}Version 1.0.0 - 2025-12-02{p_end}
+{pstd}Version 1.1.0 - 2025-12-19{p_end}
 

@@ -4,15 +4,26 @@
 ![MIT License](https://img.shields.io/badge/License-MIT-blue)
 ![Status](https://img.shields.io/badge/Status-Active-success)
 
-Format and export regression tables to Excel with professional formatting.
+Format and export regression and treatment effects tables to Excel with professional formatting.
 
 ## Description
 
-`regtab` reads the current `collect` table and writes a clean Excel sheet with, for each model (each `cmdset`), three columns: point estimate (`_r_b`), 95% CI (`_r_ci`), and p-value (`_r_p`).
+This package provides two commands for creating publication-ready Excel tables from Stata results:
 
-The command applies labels and number formats, exports to a temporary workbook, re-imports to allow row edits (e.g., dropping intercept or random-effects rows), optionally merges model headers, writes to your target workbook/sheet, and styles borders, alignment, fonts, and column widths. Title text can be written to cell `A1`; the main table begins at `B2`.
+### regtab - Regression Tables
 
-This command works with Stata 17+ `collect` commands to create publication-ready regression tables with professional Excel formatting.
+`regtab` formats standard regression output (logit, regress, stcox, poisson, etc.) into polished Excel tables with point estimates, 95% CIs, and p-values.
+
+### effecttab - Treatment Effects Tables
+
+`effecttab` formats causal inference results including:
+- **IPTW/MSM**: `teffects ipw` for inverse probability weighting
+- **G-computation**: `teffects ra` and `margins` for regression adjustment
+- **Doubly robust**: `teffects aipw`, `teffects ipwra`
+- **Matching**: `teffects psmatch`, `teffects nnmatch`
+- **Marginal effects**: `margins` with `dydx()`, `at()`, `over()`
+
+Both commands work with Stata 17+ `collect` commands to create publication-ready tables with professional Excel formatting.
 
 ## Dependencies
 
@@ -226,8 +237,98 @@ See `regtab_dialog.md` for detailed dialog documentation.
 5. **Check reference categories**: Verify that reference category labeling is correct
 6. **Remove clutter**: Use `noint` and `nore` to remove rows that aren't relevant for your table
 
+---
+
+## effecttab - Treatment Effects Tables
+
+### Syntax
+
+```stata
+effecttab, xlsx(string) sheet(string) [type(string) effect(string) sep(string)
+    models(string) title(string) clean]
+```
+
+### Options
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `xlsx(string)` | required | Output Excel filename (must end with `.xlsx`) |
+| `sheet(string)` | required | Target sheet name |
+| `type(string)` | `auto` | Result type: `teffects`, `margins`, or `auto` |
+| `effect(string)` | varies | Label for effect column (ATE, RD, RR, AME, etc.) |
+| `models(string)` | none | Model labels separated by backslash |
+| `title(string)` | none | Table title for cell A1 |
+| `clean` | off | Clean teffects labels (e.g., "r1vs0.treat" to "Treat (1 vs 0)") |
+
+### effecttab Examples
+
+#### Example 1: IPTW Treatment Effect
+
+```stata
+* Load data
+sysuse cancer, clear
+
+* Estimate ATE using IPTW
+collect clear
+collect: teffects ipw (died) (drug age), ate
+
+* Export formatted table
+effecttab, xlsx(results.xlsx) sheet("ATE") ///
+    effect("ATE") ///
+    title("Average Treatment Effect (IPTW)") ///
+    clean
+```
+
+#### Example 2: Compare IPTW and Doubly Robust
+
+```stata
+collect clear
+collect: teffects ipw (died) (drug age), ate
+collect: teffects aipw (died age) (drug age), ate
+
+effecttab, xlsx(results.xlsx) sheet("Comparison") ///
+    models("IPTW \ AIPW") ///
+    effect("ATE") ///
+    clean
+```
+
+#### Example 3: Marginal Effects (G-computation style)
+
+```stata
+sysuse auto, clear
+logit foreign mpg weight
+
+collect clear
+collect: margins, dydx(mpg weight)
+
+effecttab, xlsx(results.xlsx) sheet("AME") ///
+    effect("AME") ///
+    title("Average Marginal Effects")
+```
+
+#### Example 4: Predicted Probabilities
+
+```stata
+logit foreign i.rep78 mpg weight
+
+collect clear
+collect: margins rep78
+
+effecttab, xlsx(results.xlsx) sheet("Predictions") ///
+    type(margins) ///
+    effect("Pr(Foreign)") ///
+    title("Predicted Probability by Repair Record")
+```
+
+---
+
 ## Version History
 
+- **Version 1.1.0** (19 December 2025): Added effecttab for causal inference
+  - New `effecttab` command for teffects and margins output
+  - Supports IPTW, g-computation, doubly robust, and matching estimators
+  - Auto-detection of result type (teffects vs margins)
+  - Clean option for human-readable effect labels
 - **Version 1.0.3** (5 December 2025): Minor updates
 - **Version 1.0.1** (3 December 2025): Code quality improvements
   - Added version declarations and varabbrev settings to helper programs
@@ -248,15 +349,18 @@ MIT License
 
 ## See Also
 
+- `help regtab` - Regression tables command
+- `help effecttab` - Treatment effects tables command
 - `help collect` - Stata's collect system for tables
+- `help teffects` - Treatment effects estimation
+- `help margins` - Marginal effects and predictions
 - `help putexcel` - Export results to Excel
-- `help melogit` - Mixed-effects logistic regression
-- `help logit` - Logistic regression
 - `regtab_dialog.md` - Detailed dialog documentation
 
 ## Getting Help
 
-For more detailed information, you can access the Stata help file:
+For more detailed information, you can access the Stata help files:
 ```stata
 help regtab
+help effecttab
 ```
