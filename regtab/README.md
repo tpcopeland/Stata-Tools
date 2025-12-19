@@ -4,21 +4,45 @@
 ![MIT License](https://img.shields.io/badge/License-MIT-blue)
 ![Status](https://img.shields.io/badge/Status-Active-success)
 
-Format and export regression tables to Excel with professional formatting.
+Format and export regression, treatment effects, and mediation analysis tables to Excel with professional formatting.
 
 ## Description
 
-`regtab` reads the current `collect` table and writes a clean Excel sheet with, for each model (each `cmdset`), three columns: point estimate (`_r_b`), 95% CI (`_r_ci`), and p-value (`_r_p`).
+This package provides three commands for creating publication-ready Excel tables from Stata results:
 
-The command applies labels and number formats, exports to a temporary workbook, re-imports to allow row edits (e.g., dropping intercept or random-effects rows), optionally merges model headers, writes to your target workbook/sheet, and styles borders, alignment, fonts, and column widths. Title text can be written to cell `A1`; the main table begins at `B2`.
+### regtab - Regression Tables
 
-This command works with Stata 17+ `collect` commands to create publication-ready regression tables with professional Excel formatting.
+`regtab` formats standard regression output (logit, regress, stcox, poisson, etc.) into polished Excel tables with point estimates, 95% CIs, and p-values.
+
+### effecttab - Treatment Effects Tables
+
+`effecttab` formats causal inference results including:
+- **IPTW/MSM**: `teffects ipw` for inverse probability weighting
+- **G-computation**: `teffects ra` and `margins` for regression adjustment
+- **Doubly robust**: `teffects aipw`, `teffects ipwra`
+- **Matching**: `teffects psmatch`, `teffects nnmatch`
+- **Marginal effects**: `margins` with `dydx()`, `at()`, `over()`
+
+### gformtab - Mediation Analysis Tables
+
+`gformtab` formats output from the `gformula` command (parametric g-formula) including:
+- **Total Causal Effect (TCE)**
+- **Natural Direct Effect (NDE)**
+- **Natural Indirect Effect (NIE)**
+- **Proportion Mediated (PM)**
+- **Controlled Direct Effect (CDE)**
+
+`regtab` and `effecttab` work with Stata 17+ `collect` commands. `gformtab` works with the user-written `gformula` command. All create publication-ready tables with professional Excel formatting.
 
 ## Dependencies
 
 **Required:**
-- Stata 17.0 or higher (requires `collect` commands)
-- `putexcel` command (built-in to Stata 17+)
+- Stata 17.0 or higher for `regtab` and `effecttab` (requires `collect` commands)
+- Stata 16.0 or higher for `gformtab`
+- `putexcel` command (built-in to Stata 14+)
+
+**Optional (for gformtab):**
+- `gformula` command from SSC: `ssc install gformula`
 
 ## Installation
 
@@ -226,8 +250,174 @@ See `regtab_dialog.md` for detailed dialog documentation.
 5. **Check reference categories**: Verify that reference category labeling is correct
 6. **Remove clutter**: Use `noint` and `nore` to remove rows that aren't relevant for your table
 
+---
+
+## effecttab - Treatment Effects Tables
+
+### Syntax
+
+```stata
+effecttab, xlsx(string) sheet(string) [type(string) effect(string) sep(string)
+    models(string) title(string) clean]
+```
+
+### Options
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `xlsx(string)` | required | Output Excel filename (must end with `.xlsx`) |
+| `sheet(string)` | required | Target sheet name |
+| `type(string)` | `auto` | Result type: `teffects`, `margins`, or `auto` |
+| `effect(string)` | varies | Label for effect column (ATE, RD, RR, AME, etc.) |
+| `models(string)` | none | Model labels separated by backslash |
+| `title(string)` | none | Table title for cell A1 |
+| `clean` | off | Clean teffects labels (e.g., "r1vs0.treat" to "Treat (1 vs 0)") |
+
+### effecttab Examples
+
+#### Example 1: IPTW Treatment Effect
+
+```stata
+* Load data
+sysuse cancer, clear
+
+* Estimate ATE using IPTW
+collect clear
+collect: teffects ipw (died) (drug age), ate
+
+* Export formatted table
+effecttab, xlsx(results.xlsx) sheet("ATE") ///
+    effect("ATE") ///
+    title("Average Treatment Effect (IPTW)") ///
+    clean
+```
+
+#### Example 2: Compare IPTW and Doubly Robust
+
+```stata
+collect clear
+collect: teffects ipw (died) (drug age), ate
+collect: teffects aipw (died age) (drug age), ate
+
+effecttab, xlsx(results.xlsx) sheet("Comparison") ///
+    models("IPTW \ AIPW") ///
+    effect("ATE") ///
+    clean
+```
+
+#### Example 3: Marginal Effects (G-computation style)
+
+```stata
+sysuse auto, clear
+logit foreign mpg weight
+
+collect clear
+collect: margins, dydx(mpg weight)
+
+effecttab, xlsx(results.xlsx) sheet("AME") ///
+    effect("AME") ///
+    title("Average Marginal Effects")
+```
+
+#### Example 4: Predicted Probabilities
+
+```stata
+logit foreign i.rep78 mpg weight
+
+collect clear
+collect: margins rep78
+
+effecttab, xlsx(results.xlsx) sheet("Predictions") ///
+    type(margins) ///
+    effect("Pr(Foreign)") ///
+    title("Predicted Probability by Repair Record")
+```
+
+---
+
+## gformtab - Mediation Analysis Tables
+
+### Syntax
+
+```stata
+gformtab, xlsx(string) sheet(string) [ci(string) effect(string) title(string)
+    labels(string) decimal(#)]
+```
+
+### Description
+
+`gformtab` formats output from the user-written `gformula` command (parametric g-formula for causal mediation analysis). It exports:
+
+- Total Causal Effect (TCE)
+- Natural Direct Effect (NDE)
+- Natural Indirect Effect (NIE)
+- Proportion Mediated (PM)
+- Controlled Direct Effect (CDE)
+
+### Options
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `xlsx(string)` | required | Output Excel filename (must end with `.xlsx`) |
+| `sheet(string)` | required | Target sheet name |
+| `ci(string)` | `normal` | CI type: `normal`, `percentile`, `bc`, or `bca` |
+| `effect(string)` | `Effect` | Label for effect column |
+| `title(string)` | none | Table title for cell A1 |
+| `labels(string)` | default labels | Custom effect labels separated by backslash |
+| `decimal(#)` | 3 | Decimal places for estimates (1-6) |
+
+### gformtab Examples
+
+#### Example 1: Basic Mediation Analysis
+
+```stata
+* Run gformula first (example syntax)
+gformula outcome mediator treatment confounder, ///
+    outcome(outcome) treatment(treatment) mediator(mediator) ///
+    control(0) base_confs(confounder) sim(1000) bootstrap(500)
+
+* Format results to Excel
+gformtab, xlsx(mediation.xlsx) sheet("Table 1") ///
+    title("Table 1. Causal Mediation Analysis")
+```
+
+#### Example 2: Using Percentile Bootstrap CIs
+
+```stata
+gformtab, xlsx(mediation.xlsx) sheet("Percentile CI") ///
+    ci(percentile) title("Mediation Results (Percentile CI)")
+```
+
+#### Example 3: Custom Effect Labels
+
+```stata
+gformtab, xlsx(mediation.xlsx) sheet("Custom") ///
+    labels("Total Effect \ Direct Effect \ Indirect Effect \ % Mediated \ CDE") ///
+    effect("RD") title("Risk Difference Decomposition")
+```
+
+### Prerequisites
+
+Run `gformula` with the bootstrap option before using `gformtab`. The `gformula` command is available from the SSC archive:
+
+```stata
+ssc install gformula
+```
+
+---
+
 ## Version History
 
+- **Version 1.2.0** (19 December 2025): Added gformtab for mediation analysis
+  - New `gformtab` command for gformula output
+  - Formats TCE, NDE, NIE, PM, and CDE with CIs and SEs
+  - Support for normal, percentile, BC, and BCa confidence intervals
+  - Custom labels and decimal precision options
+- **Version 1.1.0** (19 December 2025): Added effecttab for causal inference
+  - New `effecttab` command for teffects and margins output
+  - Supports IPTW, g-computation, doubly robust, and matching estimators
+  - Auto-detection of result type (teffects vs margins)
+  - Clean option for human-readable effect labels
 - **Version 1.0.3** (5 December 2025): Minor updates
 - **Version 1.0.1** (3 December 2025): Code quality improvements
   - Added version declarations and varabbrev settings to helper programs
@@ -248,15 +438,21 @@ MIT License
 
 ## See Also
 
+- `help regtab` - Regression tables command
+- `help effecttab` - Treatment effects tables command
+- `help gformtab` - Mediation analysis tables command
 - `help collect` - Stata's collect system for tables
+- `help teffects` - Treatment effects estimation
+- `help margins` - Marginal effects and predictions
 - `help putexcel` - Export results to Excel
-- `help melogit` - Mixed-effects logistic regression
-- `help logit` - Logistic regression
 - `regtab_dialog.md` - Detailed dialog documentation
+- SSC package `gformula` - Parametric g-formula for mediation analysis
 
 ## Getting Help
 
-For more detailed information, you can access the Stata help file:
+For more detailed information, you can access the Stata help files:
 ```stata
 help regtab
+help effecttab
+help gformtab
 ```
