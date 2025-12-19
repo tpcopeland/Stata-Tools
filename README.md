@@ -132,10 +132,11 @@ Stata-Tools/
 - Excel export with professional formatting
 - Includes dialog interface for easy use
 
-**regtab** - Format and export regression and treatment effects tables
+**regtab** - Format and export regression, treatment effects, and mediation tables
 - **regtab**: Format standard regression output (logit, regress, stcox, etc.)
 - **effecttab**: Format causal inference results (teffects ipw, margins, g-computation)
-- Works with Stata 17+ collect commands
+- **gformtab**: Format gformula mediation analysis (TCE, NDE, NIE, PM, CDE)
+- Works with Stata 17+ collect commands (regtab/effecttab) and gformula (gformtab)
 - Exports tables with confidence intervals and p-values to Excel
 - Professional formatting suitable for publication
 - Includes dialog interface for regtab
@@ -295,7 +296,7 @@ MIT License - see individual package files for details
 | massdesas | Batch SAS to Stata conversion | 1.0.3 | 14+ |
 | mvp | Missing value pattern analysis | 1.1.1 | 14+ |
 | pkgtransfer | Package management | 1.0.2 | 14+ |
-| regtab | Regression & treatment effects tables | 1.1.0 | 17+ |
+| regtab | Regression, treatment effects & mediation tables | 1.2.0 | 16+/17+ |
 | setools | Swedish registry data tools | 1.0.1 | 18+ |
 | stratetab | Strate output formatting | 1.0.2 | 17+ |
 | synthdata | Synthetic data generation | 1.2.2 | 16+ |

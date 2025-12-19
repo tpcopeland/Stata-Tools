@@ -7,8 +7,11 @@ d
 d effecttab formats treatment effects (teffects) and margins output for causal
 d inference workflows including IPTW, g-computation, and marginal effects.
 d
-d Both commands work with Stata 17+ collect commands to create publication-ready
-d tables with professional Excel formatting.
+d gformtab formats gformula (parametric g-formula) mediation analysis output
+d including TCE, NDE, NIE, proportion mediated, and CDE.
+d
+d regtab and effecttab work with Stata 17+ collect commands. gformtab works with
+d the user-written gformula command. All create publication-ready Excel tables.
 d
 d KW: regression
 d KW: tables
@@ -19,6 +22,9 @@ d KW: treatment effects
 d KW: causal inference
 d KW: IPTW
 d KW: margins
+d KW: mediation
+d KW: gformula
+d KW: g-formula
 d
 d Requires: Stata version 17 or higher.
 d
@@ -35,6 +41,7 @@ d
 d Commands included:
 d     regtab     - Format regression tables (logit, regress, stcox, etc.)
 d     effecttab  - Format treatment effects and margins tables
+d     gformtab   - Format gformula mediation analysis tables
 d
 d Access the dialogs with:
 d     . db regtab
@@ -44,12 +51,14 @@ d Run the included setup script:
 d     . do regtab_menu_setup.do
 d
 d For dialog documentation, see: regtab_dialog.md
-d For help: help regtab / help effecttab
+d For help: help regtab / help effecttab / help gformtab
 d
 f regtab.ado
 f regtab.dlg
 f regtab.sthlp
 f effecttab.ado
 f effecttab.sthlp
+f gformtab.ado
+f gformtab.sthlp
 f regtab_menu_setup.do
 f regtab_dialog.md

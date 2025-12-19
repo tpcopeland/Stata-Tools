@@ -4,11 +4,11 @@
 ![MIT License](https://img.shields.io/badge/License-MIT-blue)
 ![Status](https://img.shields.io/badge/Status-Active-success)
 
-Format and export regression and treatment effects tables to Excel with professional formatting.
+Format and export regression, treatment effects, and mediation analysis tables to Excel with professional formatting.
 
 ## Description
 
-This package provides two commands for creating publication-ready Excel tables from Stata results:
+This package provides three commands for creating publication-ready Excel tables from Stata results:
 
 ### regtab - Regression Tables
 
@@ -23,13 +23,26 @@ This package provides two commands for creating publication-ready Excel tables f
 - **Matching**: `teffects psmatch`, `teffects nnmatch`
 - **Marginal effects**: `margins` with `dydx()`, `at()`, `over()`
 
-Both commands work with Stata 17+ `collect` commands to create publication-ready tables with professional Excel formatting.
+### gformtab - Mediation Analysis Tables
+
+`gformtab` formats output from the `gformula` command (parametric g-formula) including:
+- **Total Causal Effect (TCE)**
+- **Natural Direct Effect (NDE)**
+- **Natural Indirect Effect (NIE)**
+- **Proportion Mediated (PM)**
+- **Controlled Direct Effect (CDE)**
+
+`regtab` and `effecttab` work with Stata 17+ `collect` commands. `gformtab` works with the user-written `gformula` command. All create publication-ready tables with professional Excel formatting.
 
 ## Dependencies
 
 **Required:**
-- Stata 17.0 or higher (requires `collect` commands)
-- `putexcel` command (built-in to Stata 17+)
+- Stata 17.0 or higher for `regtab` and `effecttab` (requires `collect` commands)
+- Stata 16.0 or higher for `gformtab`
+- `putexcel` command (built-in to Stata 14+)
+
+**Optional (for gformtab):**
+- `gformula` command from SSC: `ssc install gformula`
 
 ## Installation
 
@@ -322,8 +335,84 @@ effecttab, xlsx(results.xlsx) sheet("Predictions") ///
 
 ---
 
+## gformtab - Mediation Analysis Tables
+
+### Syntax
+
+```stata
+gformtab, xlsx(string) sheet(string) [ci(string) effect(string) title(string)
+    labels(string) decimal(#)]
+```
+
+### Description
+
+`gformtab` formats output from the user-written `gformula` command (parametric g-formula for causal mediation analysis). It exports:
+
+- Total Causal Effect (TCE)
+- Natural Direct Effect (NDE)
+- Natural Indirect Effect (NIE)
+- Proportion Mediated (PM)
+- Controlled Direct Effect (CDE)
+
+### Options
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `xlsx(string)` | required | Output Excel filename (must end with `.xlsx`) |
+| `sheet(string)` | required | Target sheet name |
+| `ci(string)` | `normal` | CI type: `normal`, `percentile`, `bc`, or `bca` |
+| `effect(string)` | `Effect` | Label for effect column |
+| `title(string)` | none | Table title for cell A1 |
+| `labels(string)` | default labels | Custom effect labels separated by backslash |
+| `decimal(#)` | 3 | Decimal places for estimates (1-6) |
+
+### gformtab Examples
+
+#### Example 1: Basic Mediation Analysis
+
+```stata
+* Run gformula first (example syntax)
+gformula outcome mediator treatment confounder, ///
+    outcome(outcome) treatment(treatment) mediator(mediator) ///
+    control(0) base_confs(confounder) sim(1000) bootstrap(500)
+
+* Format results to Excel
+gformtab, xlsx(mediation.xlsx) sheet("Table 1") ///
+    title("Table 1. Causal Mediation Analysis")
+```
+
+#### Example 2: Using Percentile Bootstrap CIs
+
+```stata
+gformtab, xlsx(mediation.xlsx) sheet("Percentile CI") ///
+    ci(percentile) title("Mediation Results (Percentile CI)")
+```
+
+#### Example 3: Custom Effect Labels
+
+```stata
+gformtab, xlsx(mediation.xlsx) sheet("Custom") ///
+    labels("Total Effect \ Direct Effect \ Indirect Effect \ % Mediated \ CDE") ///
+    effect("RD") title("Risk Difference Decomposition")
+```
+
+### Prerequisites
+
+Run `gformula` with the bootstrap option before using `gformtab`. The `gformula` command is available from the SSC archive:
+
+```stata
+ssc install gformula
+```
+
+---
+
 ## Version History
 
+- **Version 1.2.0** (19 December 2025): Added gformtab for mediation analysis
+  - New `gformtab` command for gformula output
+  - Formats TCE, NDE, NIE, PM, and CDE with CIs and SEs
+  - Support for normal, percentile, BC, and BCa confidence intervals
+  - Custom labels and decimal precision options
 - **Version 1.1.0** (19 December 2025): Added effecttab for causal inference
   - New `effecttab` command for teffects and margins output
   - Supports IPTW, g-computation, doubly robust, and matching estimators
@@ -351,11 +440,13 @@ MIT License
 
 - `help regtab` - Regression tables command
 - `help effecttab` - Treatment effects tables command
+- `help gformtab` - Mediation analysis tables command
 - `help collect` - Stata's collect system for tables
 - `help teffects` - Treatment effects estimation
 - `help margins` - Marginal effects and predictions
 - `help putexcel` - Export results to Excel
 - `regtab_dialog.md` - Detailed dialog documentation
+- SSC package `gformula` - Parametric g-formula for mediation analysis
 
 ## Getting Help
 
@@ -363,4 +454,5 @@ For more detailed information, you can access the Stata help files:
 ```stata
 help regtab
 help effecttab
+help gformtab
 ```
