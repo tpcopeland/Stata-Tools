@@ -21,16 +21,31 @@ version 16.0
 * =============================================================================
 * PATH CONFIGURATION
 * =============================================================================
-local pwd "`c(pwd)'"
-if regexm("`pwd'", "_validation$") {
-    local base_path ".."
+* Cross-platform path detection
+if "`c(os)'" == "MacOSX" {
+    global STATA_TOOLS_PATH "/Users/tcopeland/Documents/GitHub/Stata-Tools"
+}
+else if "`c(os)'" == "Unix" {
+    global STATA_TOOLS_PATH "/home/ubuntu/Stata-Tools"
 }
 else {
-    local base_path "."
+    * Windows or other - try to detect from current directory
+    capture confirm file "_validation"
+    if _rc == 0 {
+        * Running from repo root
+        global STATA_TOOLS_PATH "`c(pwd)'"
+    }
+    else {
+        * Assume running from _validation directory
+        global STATA_TOOLS_PATH "`c(pwd)'/.."
+    }
 }
 
-adopath ++ "`base_path'/regtab"
-local testdir "`base_path'/_testing/data"
+local testdir "${STATA_TOOLS_PATH}/_testing/data"
+
+* Reinstall package from local repository to ensure latest version
+capture net uninstall regtab
+net install regtab, from("${STATA_TOOLS_PATH}/regtab")
 
 * =============================================================================
 * HELPER: Mock gformula output (same as in test file)

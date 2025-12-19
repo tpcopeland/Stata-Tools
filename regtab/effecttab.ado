@@ -110,30 +110,33 @@ quietly {
 	}
 
 	* Create temporary file for intermediate processing
+	* Note: tempfile on Unix creates paths like /tmp/StXXXXX.XXXXXX without .tmp
+	* We append .xlsx to ensure a valid Excel file path
 	tempfile temp_export
-	local temp_xlsx = subinstr("`temp_export'", ".tmp", ".xlsx", .)
-
-	return local xlsx "`xlsx'"
-	return local sheet "`sheet'"
-	return local type "`type'"
+	local temp_xlsx "`temp_export'.xlsx"
 
 	* =========================================================================
 	* AUTO-DETECT RESULT TYPE
 	* =========================================================================
 
 	if "`type'" == "auto" {
-		* Try to detect based on collect contents
-		* teffects typically has colnames like "r1vs0." or "POmean:"
-		capture collect levelsof colname
-		local colnames = r(levels)
+		* Check e(cmd) to detect teffects vs margins
+		* After teffects, e(cmd) = "teffects"
+		* After margins, e(cmd) = the underlying model (logit, probit, etc.)
+		local ecmd "`e(cmd)'"
 
-		if regexm("`colnames'", "r[0-9]+vs[0-9]+\.") | regexm("`colnames'", "POmean:") {
+		if "`ecmd'" == "teffects" {
 			local type "teffects"
 		}
 		else {
 			local type "margins"
 		}
 	}
+
+	* Return input/detected values
+	return local xlsx "`xlsx'"
+	return local sheet "`sheet'"
+	return local type "`type'"
 
 	* Set default effect label based on type
 	if "`effect'" == "" {
@@ -162,21 +165,48 @@ quietly {
 	* Set layout based on type
 	* Both teffects and margins use colname for row dimension
 	* Multiple models (cmdset) go on columns
-	capture collect levelsof cmdset
-	local num_models = wordcount("`r(levels)'")
 
-	if `num_models' > 1 {
-		collect layout (colname) (cmdset#result[_r_b _r_ci _r_p]) ()
+	* Note: collect levelsof cmdset returns r(levels) as empty even when cmdset
+	* has levels (Stata quirk). So we try multi-model layout first regardless.
+
+	* Set layout - ALWAYS try multi-model first since r(levels) is unreliable
+	local layout_ok = 0
+
+	* Try multi-model layout with cmdset dimension
+	capture collect layout (colname) (cmdset#result[_r_b _r_ci _r_p])
+	if _rc == 0 {
+		local layout_ok = 1
 	}
-	else {
-		collect layout (colname) (result[_r_b _r_ci _r_p]) ()
+
+	if `layout_ok' == 0 {
+		* Try single model layout (for cases with only one model)
+		capture collect layout (colname) (result[_r_b _r_ci _r_p])
+		if _rc == 0 {
+			local layout_ok = 1
+		}
+	}
+
+	if `layout_ok' == 0 {
+		* Try generic layout without result specification
+		capture collect layout (colname) (result)
+		if _rc == 0 {
+			local layout_ok = 1
+		}
+	}
+
+	if `layout_ok' == 0 {
+		noisily display as error "Could not set collect layout"
+		noisily display as error "Check that teffects/margins results are in the collection"
+		exit 198
 	}
 
 	* =========================================================================
 	* EXPORT AND IMPORT FOR PROCESSING
 	* =========================================================================
 
-	capture collect export "`temp_xlsx'", sheet(temp,replace) modify
+	* Export collect table to temporary Excel file
+	* Note: Don't use 'modify' option as temp file is new
+	capture collect export "`temp_xlsx'", sheet("temp", replace)
 	if _rc {
 		noisily display as error "Failed to export collect table to temporary Excel file"
 		noisily display as error "Check that collect table is properly structured"
@@ -189,6 +219,41 @@ quietly {
 		capture erase "`temp_xlsx'"
 		exit _rc
 	}
+
+	* =========================================================================
+	* PROCESS COLUMNS (same logic as regtab)
+	* =========================================================================
+
+	* Get all variables - first variable is row labels, rest are data columns
+	ds
+	local allvars `r(varlist)'
+
+	* Check that we have data to process
+	local nvars : word count `allvars'
+	if `nvars' < 2 {
+		noisily display as error "Insufficient columns in collect export"
+		noisily display as error "Expected at least 2 columns, found `nvars'"
+		capture erase "`temp_xlsx'"
+		exit 198
+	}
+
+	* Get the first variable name (row labels column)
+	gettoken firstvar allvars : allvars
+
+	* Rename the first variable to A if it's not already named A
+	if "`firstvar'" != "A" {
+		rename `firstvar' A
+	}
+
+	* Rename remaining variables to c1, c2, c3, etc.
+	local n 1
+	foreach var of local allvars {
+		rename `var' c`n'
+		replace c`n' = "" if _n == 1
+		local n `=`n'+1'
+	}
+	local n2 `=`n'-3'
+	local n `=`n'-1'
 
 	* =========================================================================
 	* CLEAN UP EFFECT LABELS (if requested)
@@ -209,23 +274,6 @@ quietly {
 		* Clean underscores to spaces
 		replace A = subinstr(A, "_", " ", .)
 	}
-
-	* =========================================================================
-	* PROCESS COLUMNS (same logic as regtab)
-	* =========================================================================
-
-	ds
-	local varlist `r(varlist)'
-	local varlist = "_"+"`r(varlist)'"
-	local allvars: subinstr local varlist "_A B " "B ", all
-	local n 1
-	foreach var of local allvars {
-		rename `var' c`n'
-		replace c`n' = "" if _n == 1
-		local n `=`n'+1'
-	}
-	local n2 `=`n'-3'
-	local n `=`n'-1'
 
 	* Apply model labels if provided
 	if "`models'" != "" {
