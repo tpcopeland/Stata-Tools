@@ -3,7 +3,6 @@
 *! Original Author: Tim Copeland
 *! Standalone version with embedded calculation (no somersd dependency)
 
-capture program drop cstat_surv
 program define cstat_surv, eclass
     version 16.0
     set varabbrev off

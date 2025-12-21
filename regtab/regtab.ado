@@ -18,8 +18,6 @@ SYNTAX:
 	sep:    character separating 95% CI, default is ", "
 	   
 */
-capture program drop regtab
-capture program drop col_to_letter
 
 * Helper program to convert column number to Excel letter
 program col_to_letter

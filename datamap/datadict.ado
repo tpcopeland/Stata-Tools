@@ -3,7 +3,7 @@
 *! Author: Tim Copeland
 
 program define datadict, rclass
-	version 14.0
+	version 16.0
 	set varabbrev off
 	syntax [, Single(string) DIRectory(string) FILElist(string) ///
 	          RECursive ///

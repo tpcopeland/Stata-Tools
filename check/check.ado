@@ -7,7 +7,7 @@
 *! Created on  5 May 2020 at 14:38:31
 
 program define check, rclass
-  version 14.0
+  version 16.0
   set varabbrev off
   syntax varlist(numeric), [SHORT]
 
