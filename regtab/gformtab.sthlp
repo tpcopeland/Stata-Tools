@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.0  19dec2025}{...}
+{* *! version 1.0.1  21dec2025}{...}
 {title:gformtab}
 
 {pstd}Format gformula mediation analysis results into a polished Excel table.{p_end}
