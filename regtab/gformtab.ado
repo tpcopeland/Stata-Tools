@@ -1,4 +1,4 @@
-*! gformtab Version 1.0.0  19dec2025
+*! gformtab Version 1.0.1  21dec2025
 *! Format gformula mediation analysis results for Excel export
 *! Author: Timothy P Copeland
 *! Program class: rclass (returns results in r())
@@ -257,10 +257,13 @@ quietly {
 	replace se = string(`se_cde', "`fmt'") in 7
 
 	* Handle missing values (display as blank)
-	foreach var in estimate ci_95 se {
-		replace `var' = "" if `var' == "."
-		replace `var' = "" if strpos(`var', ".")>0 & real(subinstr(`var',"(","",.))==.
-	}
+	* For estimate and se: blank if equals "." (missing value string)
+	replace estimate = "" if estimate == "."
+	replace se = "" if se == "."
+	* For CI: blank only if it contains actual missing values (pattern like "(    .,     .)")
+	* This checks for the pattern where numeric missing "." appears after opening paren
+	* or before the comma, indicating gformula returned missing bounds
+	replace ci_95 = "" if regexm(ci_95, "^\([[:space:]]*\.[[:space:]]*,") | regexm(ci_95, ",[[:space:]]*\.[[:space:]]*\)$")
 
 	* =========================================================================
 	* EXPORT TO EXCEL

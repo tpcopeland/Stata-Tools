@@ -344,7 +344,7 @@ capture {
     * Import and check structure
     import excel "`testdir'/_val_effecttab_dydx.xlsx", sheet("dydx") clear
     count
-    assert r(N) >= 3  * Title + header + at least 2 effects
+    assert r(N) >= 3  // Title + header + at least 2 effects
 }
 if _rc == 0 {
     display as result "  PASS: margins dydx produces valid output"
@@ -378,7 +378,7 @@ capture {
     import excel "`testdir'/_val_effecttab_pred.xlsx", sheet("Pred") clear
     count
     * Should have rows for treatment=0 and treatment=1
-    assert r(N) >= 4  * Title + header + 2 treatment levels
+    assert r(N) >= 4  // Title + header + 2 treatment levels
 }
 if _rc == 0 {
     display as result "  PASS: margins predictions produce valid output"
@@ -449,7 +449,7 @@ capture {
 
     import excel "`testdir'/_val_effecttab_single.xlsx", sheet("Single") clear
     count
-    assert r(N) >= 3  * Title + header + 1 effect
+    assert r(N) >= 3  // Title + header + 1 effect
 }
 if _rc == 0 {
     display as result "  PASS: Single effect row works"
