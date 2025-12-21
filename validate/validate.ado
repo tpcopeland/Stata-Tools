@@ -462,10 +462,14 @@ program define validate, rclass
     display as text "  Rules evaluated: " as result `total_rules'
     display as text "  Rules passed:    " as result `rules_passed' ///
         as text " (" as result %5.1f 100*`rules_passed'/`total_rules' as text "%)"
-    display as text "  Rules failed:    " ///
-        cond(`rules_failed' > 0, "as error", "as result") `rules_failed' ///
-        as text " (" cond(`rules_failed' > 0, "as error", "as result") ///
-        %5.1f 100*`rules_failed'/`total_rules' as text "%)"
+    if `rules_failed' > 0 {
+        display as text "  Rules failed:    " as error `rules_failed' ///
+            as text " (" as error %5.1f 100*`rules_failed'/`total_rules' as text "%)"
+    }
+    else {
+        display as text "  Rules failed:    " as result `rules_failed' ///
+            as text " (" as result %5.1f 100*`rules_failed'/`total_rules' as text "%)"
+    }
 
     if `rules_failed' > 0 {
         display as error _n "WARNING: `rules_failed' validation rule(s) failed!"
@@ -573,7 +577,12 @@ program define validate, rclass
     * Trim matrix to actual size
     if `rule_num' > 0 {
         matrix `results_mat' = `results_mat'[1..`rule_num', 1..5]
-        matrix rownames `results_mat' = `rownames'
+        * Create simple sequential rownames (special chars not allowed)
+        local safe_rownames ""
+        forvalues i = 1/`rule_num' {
+            local safe_rownames "`safe_rownames' rule`i'"
+        }
+        matrix rownames `results_mat' = `safe_rownames'
     }
 
     return scalar N = `N'
