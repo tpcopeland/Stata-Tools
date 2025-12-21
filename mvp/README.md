@@ -6,12 +6,6 @@ Enhanced missing value pattern analysis for Stata 14+.
 
 Fork of `mvpatterns` by Jeroen Weesie (STB-61: dm91)
 
-## Author
-
-Timothy P Copeland<br>
-Department of Clinical Neuroscience<br>
-Karolinska Institutet
-
 ## Installation
 
 ```stata

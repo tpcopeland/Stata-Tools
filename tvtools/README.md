@@ -968,7 +968,7 @@ MIT License
 
 Version 1.2.0, 2025-12-14
 
-## Also See
+## See Also
 
 - Stata help: `help stset`, `help stcox`, `help stcrreg`, `help stsplit`
 - Manual: [ST] stset, [ST] stcox, [ST] stcrreg

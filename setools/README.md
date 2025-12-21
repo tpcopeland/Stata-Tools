@@ -280,7 +280,7 @@ Kappos L, et al. Inclusion of brain volume loss in a revised measure of 'no evid
 
 Confavreux C, Vukusic S. Natural history of multiple sclerosis: a unifying concept. *Brain*. 2006;129(3):606-616.
 
-## Also See
+## See Also
 
 - Stata help: `help stset`, `help stcox`, `help merge`
 - Related package: [tvtools](../tvtools/) - Time-varying exposure analysis
