@@ -15,7 +15,10 @@ This repository contains a suite of Stata packages developed to streamline commo
 - [Repository Structure](#repository-structure)
 - [Packages](#packages)
   - [Data Management & Documentation](#data-management--documentation)
+  - [Data Quality](#data-quality)
+  - [Visualization & Reporting](#visualization--reporting)
   - [Analysis & Tables](#analysis--tables)
+  - [Causal Inference Diagnostics](#causal-inference-diagnostics)
   - [Survival Analysis](#survival-analysis)
 - [Installation](#installation)
 - [Quick Start](#quick-start)
@@ -118,6 +121,19 @@ Stata-Tools/
 **today** - Quick date stamping utilities
 - Convenient commands for adding date stamps to files and analysis output
 
+### Data Quality
+
+**outlier** - Outlier detection toolkit
+- Multiple detection methods: IQR, standard deviation, Mahalanobis distance, influence diagnostics
+- Actions: flag, winsorize, or exclude outliers
+- Group-specific outlier detection and Excel report export
+
+**validate** - Data validation rules
+- Define expected ranges, patterns, and cross-variable checks
+- Run validation suites and generate reports
+- Assert on failure option for automated QC pipelines
+- Useful for registry data quality control
+
 ### Visualization & Reporting
 
 **consort** - Generate CONSORT-style exclusion flowcharts
@@ -145,6 +161,20 @@ Stata-Tools/
 - Merges multiple strate results into formatted Excel tables
 - Custom labeling and precision control
 - Person-years, event rates, and confidence intervals
+
+### Causal Inference Diagnostics
+
+**balancetab** - Propensity score balance diagnostics
+- Standardized mean differences before/after matching or weighting
+- Love plot visualization for balance assessment
+- Export balance tables to Excel
+- Pairs naturally with effecttab workflow
+
+**iptw_diag** - IPTW weight diagnostics
+- Weight distribution summaries (mean, max, percentiles)
+- Effective sample size (ESS) calculation
+- Extreme weight detection and trimming options
+- Weight stabilization utilities
 
 ### Survival Analysis
 
@@ -257,6 +287,7 @@ cstat_surv
 The majority of packages are compatible with Stata 14.2 or higher. Specific version requirements:
 
 - **regtab**: Stata 17+ (uses collect commands)
+- **balancetab, iptw_diag, outlier, validate**: Stata 16+
 - **tvtools**: Stata 16+
 - **cstat_surv**: Stata 16+
 - **datamap**: Stata 16+
@@ -287,14 +318,17 @@ MIT License - see individual package files for details
 
 | Package | Description | Version | Stata Version |
 |---------|-------------|---------|---------------|
+| balancetab | Propensity score balance diagnostics | 1.0.0 | 16+ |
 | check | Variable inspection | 1.0.3 | 14+ |
 | compress_tc | String compression via strL | 1.0.2 | 13+ |
 | consort | CONSORT flowchart generation | 1.0.1 | 16+ |
 | cstat_surv | C-statistic for survival | 1.0.1 | 16+ |
 | datamap | Dataset documentation | 1.0.1 | 16+ |
 | datefix | Date format conversion | 1.0.1 | 14+ |
+| iptw_diag | IPTW weight diagnostics | 1.0.0 | 16+ |
 | massdesas | Batch SAS to Stata conversion | 1.0.3 | 14+ |
 | mvp | Missing value pattern analysis | 1.1.1 | 14+ |
+| outlier | Outlier detection toolkit | 1.0.0 | 16+ |
 | pkgtransfer | Package management | 1.0.2 | 14+ |
 | regtab | Regression, treatment effects & mediation tables | 1.2.0 | 16+/17+ |
 | setools | Swedish registry data tools | 1.0.1 | 18+ |
@@ -303,6 +337,7 @@ MIT License - see individual package files for details
 | table1_tc | Table 1 creation | 1.0.3 | 14.2+ |
 | today | Date utilities | 1.0.1 | 14+ |
 | tvtools | Time-varying data | 1.2.0 | 16+ |
+| validate | Data validation rules | 1.0.0 | 16+ |
 
 ## Citation
 

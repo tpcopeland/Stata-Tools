@@ -1,0 +1,5 @@
+v 3
+d Stata-Tools: outlier
+d Timothy P Copeland, Karolinska Institutet
+d https://github.com/tpcopeland/Stata-Tools
+p outlier

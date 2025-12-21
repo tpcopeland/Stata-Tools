@@ -1,0 +1,26 @@
+v 3
+d 'BALANCETAB': Propensity score balance diagnostics with standardized mean differences
+d
+d Calculates and displays covariate balance diagnostics for propensity score
+d analysis. Computes standardized mean differences (SMD) before and after
+d matching/weighting, generates Love plots, and exports balance tables.
+d
+d Requires: Stata version 16+
+d
+d Distribution-Date: 20251221
+d License: MIT
+d
+d Author: Timothy P Copeland
+d Department of Clinical Neuroscience
+d Karolinska Institutet
+d
+d KW: propensity score
+d KW: balance
+d KW: standardized mean difference
+d KW: IPTW
+d KW: matching
+d KW: Love plot
+d KW: causal inference
+d
+f balancetab.ado
+f balancetab.sthlp

@@ -1,0 +1,25 @@
+v 3
+d 'OUTLIER': Outlier detection toolkit with multiple methods
+d
+d Comprehensive outlier detection supporting IQR, standard deviation,
+d Mahalanobis distance, and regression influence methods. Options to
+d flag, winsorize, or exclude outliers with detailed reporting.
+d
+d Requires: Stata version 16+
+d
+d Distribution-Date: 20251221
+d License: MIT
+d
+d Author: Timothy P Copeland
+d Department of Clinical Neuroscience
+d Karolinska Institutet
+d
+d KW: outlier
+d KW: detection
+d KW: IQR
+d KW: Mahalanobis
+d KW: winsorize
+d KW: data quality
+d
+f outlier.ado
+f outlier.sthlp
