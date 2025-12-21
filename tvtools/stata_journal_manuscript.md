@@ -12,7 +12,7 @@ timothy.copeland@ki.se
 
 Time-varying exposures present significant analytical challenges in survival studies. Researchers must transform raw exposure period data—such as medication dispensing records or treatment episodes—into analysis-ready datasets suitable for Cox regression or competing risks models. This process is labor-intensive, error-prone, and poorly supported by existing tools. This article introduces tvtools, a Stata package comprising three integrated commands: tvexpose creates time-varying exposure variables from period-based data with support for eight exposure definitions (basic categorical, ever-treated, current/former, duration categories, continuous cumulative, recency, cumulative dose, and categorical dose); tvmerge performs temporal alignment when merging multiple exposures using efficient batch processing; and tvevent integrates outcome events and competing risks with automatic interval splitting. The package workflow produces datasets compatible with stset, stcox, and stcrreg. Comprehensive examples demonstrate applications in pharmacoepidemiology, including addressing immortal time bias, dose-response analyses, and competing risks analyses. The tvtools package is available for Stata 16.0 and later.
 
-**Keywords:** st0001, tvexpose, tvmerge, tvevent, survival analysis, time-varying covariates, competing risks, pharmacoepidemiology, Cox regression, exposure assessment
+**Keywords:** st0XXX, tvexpose, tvmerge, tvevent, survival analysis, time-varying covariates, competing risks, pharmacoepidemiology, Cox regression, exposure assessment, time-splitting, interval data, counting process
 
 ---
 
@@ -62,7 +62,7 @@ The package handles common complications including overlapping exposures, gaps i
 
 ### 1.4 Paper organization
 
-Section 2 provides background on time-varying covariates in survival analysis. Section 3 describes the tvtools workflow and data requirements. Sections 4–6 detail each command. Section 7 presents comprehensive examples. Section 8 compares tvtools with alternative approaches. Section 9 discusses design decisions and limitations. Section 10 concludes.
+Section 2 provides background on time-varying covariates in survival analysis, including key assumptions and when time-varying approaches are appropriate. Section 3 describes the tvtools workflow and data requirements. Sections 4–6 detail each command with a comprehensive quick reference. Section 7 presents 11 worked examples covering basic usage through advanced scenarios. Section 8 compares tvtools with manual approaches, stsplit, and R alternatives. Section 9 discusses design decisions, performance, and limitations. Section 10 concludes.
 
 ---
 
@@ -109,7 +109,22 @@ stcox i.medication age female, shared(id)
 
 The key challenge is creating this properly structured data from raw exposure records. The tvtools package automates this transformation.
 
-### 2.3 Competing risks
+### 2.3 Assumptions and when not to use time-varying exposures
+
+The validity of time-varying covariate analysis rests on several assumptions that researchers should verify:
+
+**Independent censoring.** Censoring must be independent of future exposure and outcomes, conditional on observed covariates. If patients are censored *because* their exposure changed (e.g., loss to follow-up upon treatment discontinuation), estimates may be biased.
+
+**No unmeasured time-varying confounding.** Standard Cox regression with time-varying covariates assumes no unmeasured confounders that themselves vary over time. Marginal structural models or g-estimation may be preferable when this assumption is suspect (Hernán and Robins 2020; Suissa 2008).
+
+**Exposure timing is meaningful.** Time-varying analysis assumes the timing of exposure changes carries causal information. For randomized trials with intent-to-treat analyses, baseline (time-fixed) exposure assignment is often preferred.
+
+tvtools is most appropriate when:
+- Exposure timing is accurately measured
+- The research question concerns actual exposure rather than assigned treatment
+- Time-varying confounding can be addressed through measured covariates or sensitivity analyses
+
+### 2.4 Competing risks
 
 Many studies involve competing risks—events that preclude the occurrence of the primary outcome. For example, in a study of disease progression, death is a competing risk that prevents the observation of progression.
 
@@ -472,6 +487,70 @@ tvevent stores the following in r():
 | r(N) | Total observations in output |
 | r(N_events) | Total number of events flagged |
 
+### 6.8 Quick reference: All tvtools options
+
+**tvexpose options:**
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `id(varname)` | Person identifier | Required |
+| `start(varname)` | Period start date in using data | Required |
+| `stop(varname)` | Period stop date in using data | Required* |
+| `pointtime` | Single-day exposures | Required* |
+| `exposure(varname)` | Exposure status variable | Required |
+| `reference(#)` | Unexposed/reference value | Required |
+| `entry(varname)` | Study entry date | Required |
+| `exit(varname)` | Study exit date | Required |
+| `evertreated` | Binary ever-vs-never | — |
+| `currentformer` | 3-level current/former/never | — |
+| `duration(numlist)` | Duration category cutpoints | — |
+| `continuousunit(unit)` | Cumulative time unit | days |
+| `recency(numlist)` | Time-since-exposure cutpoints | — |
+| `dose` | Cumulative dose mode | — |
+| `dosecuts(numlist)` | Dose category cutpoints | — |
+| `grace(#)` | Fill gaps ≤# days | 0 |
+| `merge(#)` | Merge periods within # days | 120 |
+| `lag(#)` | Delay exposure onset by # days | 0 |
+| `washout(#)` | Extend exposure # days after stop | 0 |
+| `priority(numlist)` | Overlap resolution priority | — |
+| `split` | Split overlapping periods | — |
+| `bytype` | Create separate variables per type | — |
+| `expandunit(unit)` | Expand to regular intervals | — |
+| `generate(name)` | Output variable name | tv_exposure |
+| `saveas(filename)` | Save output to file | — |
+| `keepvars(varlist)` | Retain master variables | — |
+| `check` / `gaps` / `overlaps` / `summarize` | Diagnostic output | — |
+
+*Either stop() or pointtime required
+
+**tvmerge options:**
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `id(varname)` | Person identifier | Required |
+| `start(namelist)` | Start variables (one per dataset) | Required |
+| `stop(namelist)` | Stop variables (one per dataset) | Required |
+| `exposure(namelist)` | Exposure variables (one per dataset) | Required |
+| `batch(#)` | Batch size percentage | 20 |
+| `force` | Allow mismatched IDs | — |
+| `generate(namelist)` | Output exposure names | — |
+| `prefix(string)` | Common prefix for outputs | — |
+| `startname(name)` | Output start variable name | start |
+| `stopname(name)` | Output stop variable name | stop |
+| `saveas(filename)` | Save output to file | — |
+
+**tvevent options:**
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `id(varname)` | Person identifier | Required |
+| `date(varname)` | Primary event date | Required |
+| `compete(varlist)` | Competing event dates | — |
+| `type(single\|recurring)` | Event type | single |
+| `continuous(varlist)` | Proportionally adjust variables | — |
+| `generate(name)` | Output status variable | status |
+| `saveas(filename)` | Save output to file | — |
+
 ---
 
 ## 7. Examples
@@ -548,7 +627,8 @@ stcox i.medication age female
 stcrreg i.medication age female, compete(status==2)
 
 * For cause-specific hazard ratios (alternative interpretation):
-stcox i.medication age female if status != 2 | status == 1
+* Censor at competing events rather than treating them as failures
+stcox i.medication age female if status != 2
 ```
 
 The output shows hazard ratios for each medication type compared to unexposed, adjusted for age and sex, with death as a competing risk. The subdistribution hazard ratio from stcrreg reflects effects on cumulative incidence, while the cause-specific hazard ratio from the filtered stcox reflects effects on the instantaneous rate among those still at risk.
@@ -627,14 +707,15 @@ For dose-response analyses where the exposure variable contains actual dose amou
 ```stata
 * Add dose variable to medications dataset
 use medications, clear
-generate dose = runiform() * 2 + 0.5  // Random dose 0.5-2.5 units per prescription
+generate rx_dose = runiform() * 2 + 0.5  // Random dose 0.5-2.5 units per prescription
 save medications_dose, replace
 
 use cohort, clear
 
 * Continuous cumulative dose
+* Note: exposure() contains dose amounts, dose option enables accumulation mode
 tvexpose using medications_dose, id(id) start(rx_start) stop(rx_stop) ///
-    exposure(dose) ///
+    exposure(rx_dose) ///
     entry(study_entry) exit(study_exit) ///
     dose generate(cumul_dose) keepvars(age female)
 
@@ -655,7 +736,7 @@ To create dose categories for comparing risk across dose levels:
 use cohort, clear
 
 tvexpose using medications_dose, id(id) start(rx_start) stop(rx_stop) ///
-    exposure(dose) ///
+    exposure(rx_dose) ///
     entry(study_entry) exit(study_exit) ///
     dose dosecuts(2 5 10) generate(dose_cat) keepvars(age female)
 
@@ -680,7 +761,7 @@ When patients may receive multiple treatments simultaneously:
 
 ```stata
 * Create second medication dataset
-clear
+clear all
 set obs 1500
 generate id = ceil(_n / 1.5)
 bysort id: generate period = _n
@@ -772,7 +853,37 @@ tvexpose using medications, id(id) start(rx_start) stop(rx_stop) ///
 display "Percent exposed with 30-day grace: " r(pct_exposed) "%"
 ```
 
-### 7.10 Diagnostic options
+### 7.10 Advanced options: bytype and expandunit
+
+**Separate exposure types with bytype.** When exposure types should create separate variables rather than a single categorical variable:
+
+```stata
+use cohort, clear
+
+tvexpose using medications, id(id) start(rx_start) stop(rx_stop) ///
+    exposure(med_type) reference(0) ///
+    entry(study_entry) exit(study_exit) ///
+    bytype generate(med_) keepvars(age female)
+
+* Creates med_1, med_2, med_3 as separate binary indicators
+* Useful when exposures can co-occur within the same period
+```
+
+**Expand to regular time units with expandunit.** For analyses requiring regular time intervals (e.g., discrete-time survival models):
+
+```stata
+use cohort, clear
+
+tvexpose using medications, id(id) start(rx_start) stop(rx_stop) ///
+    exposure(med_type) reference(0) ///
+    entry(study_entry) exit(study_exit) ///
+    expandunit(months) generate(medication)
+
+* Creates one row per person-month
+* Caution: This dramatically increases dataset size
+```
+
+### 7.11 Diagnostic options
 
 Verifying data quality before analysis:
 
@@ -803,8 +914,10 @@ Without tvtools, creating time-varying exposure data requires extensive manual p
 ```stata
 * Manual approach (simplified - actual code is more complex)
 use cohort, clear
+rename id cohort_id
 cross using medications   // Creates Cartesian product
-keep if id == _id         // Match on ID
+keep if cohort_id == id   // Match on ID
+rename cohort_id id
 generate overlap = max(study_entry, rx_start)
 generate end = min(study_exit, rx_stop)
 keep if overlap < end     // Valid intervals only
@@ -836,18 +949,33 @@ However, stsplit requires data already structured in survival format. It cannot:
 
 stsplit complements tvtools—after tvtools creates the structured data, stsplit can add additional time splits if needed.
 
-### 8.3 Summary comparison
+### 8.3 Comparison with R packages
 
-| Feature | tvtools | Manual | stsplit |
-|---------|---------|--------|---------|
-| Process raw exposure data | Yes | Requires code | No |
-| Multiple exposures | Yes (tvmerge) | Complex | No |
-| Ever-treated definition | Yes | Manual | No |
-| Duration categories | Yes | Manual | No |
-| Competing risks | Yes | Complex | No |
-| Batch processing | Yes | No | N/A |
-| Validated, tested | Yes | No | Yes |
-| Documentation | Help files | Project-specific | Help file |
+The R survival package provides `tmerge()` for creating time-varying datasets (Therneau 2024). While conceptually similar to tvtools, key differences exist:
+
+| Feature | tvtools (Stata) | tmerge (R) |
+|---------|-----------------|------------|
+| Exposure definitions | 8 built-in types | Manual specification |
+| Dose accumulation | Automatic with overlap handling | Manual calculation |
+| Competing risks | Integrated via tvevent | Separate workflow |
+| Batch processing | Built-in for large data | Requires external parallelization |
+| Dialog interface | Yes | No (R has no standard dialogs) |
+
+Researchers working in multi-platform environments may find the conceptual similarity helpful—skills transfer readily between the two approaches.
+
+### 8.4 Summary comparison
+
+| Feature | tvtools | Manual | stsplit | R tmerge |
+|---------|---------|--------|---------|----------|
+| Process raw exposure data | Yes | Requires code | No | Yes |
+| Multiple exposures | Yes (tvmerge) | Complex | No | Yes |
+| Ever-treated definition | Yes | Manual | No | Manual |
+| Duration categories | Yes | Manual | No | Manual |
+| Dose accumulation | Yes | Manual | No | Manual |
+| Competing risks | Yes | Complex | No | Separate |
+| Batch processing | Yes | No | N/A | External |
+| Validated, tested | Yes | No | Yes | Yes |
+| Documentation | Help files | Project-specific | Help file | Vignettes |
 
 ---
 
@@ -875,6 +1003,11 @@ For a typical pharmacoepidemiology study with 50,000 patients and 200,000 prescr
 
 ### 9.3 Limitations
 
+**Missing exposure periods.** tvtools treats gaps in exposure data as unexposed time. If exposure data is incomplete due to data collection issues (e.g., prescriptions from outside the health system), unexposed periods may be misclassified. Researchers should consider:
+- Sensitivity analyses assuming different exposure rates during gaps
+- Restricting to populations with complete data capture
+- Using the grace() option to bridge gaps likely due to refill timing
+
 **Single event per interval.** The current implementation assumes at most one event per interval. For high-frequency recurring events, data may need pre-aggregation.
 
 **No direct support for time-dependent coefficients.** tvtools creates time-varying covariates, not time-varying coefficients. Testing the proportional hazards assumption requires post-estimation diagnostics. After fitting a Cox model with time-varying exposures created by tvtools, researchers should examine Schoenfeld residuals:
@@ -889,7 +1022,30 @@ If the PH assumption is violated for the time-varying exposure, researchers may 
 
 **Point-in-time data limitations.** While the pointtime option handles single-day exposures, complex point-process data may require custom preprocessing.
 
-### 9.4 Future directions
+### 9.4 Troubleshooting common issues
+
+**"no observations" error after tvexpose.** This usually indicates date misalignment. Check that:
+- Entry and exit dates bracket the exposure period dates
+- All date variables are numeric Stata dates (not strings)
+- The identifier values match exactly between master and using datasets
+
+**Unexpected exposure patterns.** Use the diagnostic options:
+```stata
+tvexpose ..., check gaps overlaps summarize
+```
+
+**Memory errors with tvmerge.** Reduce the batch size:
+```stata
+tvmerge ..., batch(5)
+```
+
+**Proportional hazards violated.** After fitting the model:
+```stata
+estat phtest, detail
+```
+Consider stratification by exposure or time-partitioned models.
+
+### 9.5 Future directions
 
 Planned enhancements include:
 - Support for multiple imputation workflows
@@ -927,21 +1083,25 @@ Timothy P. Copeland is a researcher at the Department of Clinical Neuroscience, 
 
 ## References
 
-Andersen, P. K., and R. D. Gill. 1982. Cox's regression model for counting processes: A large sample study. *Annals of Statistics* 10: 1100–1120.
+Andersen, P. K., and R. D. Gill. 1982. Cox's regression model for counting processes: A large sample study. *Annals of Statistics* 10: 1100–1120. https://doi.org/10.1214/aos/1176345976.
 
 Austin, P. C., D. S. Lee, and J. P. Fine. 2016. Introduction to the analysis of survival data in the presence of competing risks. *Circulation* 133: 601–609. https://doi.org/10.1161/CIRCULATIONAHA.115.017719.
 
 Fine, J. P., and R. J. Gray. 1999. A proportional hazards model for the subdistribution of a competing risk. *Journal of the American Statistical Association* 94: 496–509. https://doi.org/10.1080/01621459.1999.10474144.
 
-Hernán, M. A., and J. M. Robins. 2020. *Causal Inference: What If*. Boca Raton: Chapman & Hall/CRC.
+Hernán, M. A., and J. M. Robins. 2020. *Causal Inference: What If*. Boca Raton: Chapman & Hall/CRC. https://www.hsph.harvard.edu/miguel-hernan/causal-inference-book/.
 
 Lau, B., S. R. Cole, and S. J. Gange. 2009. Competing risk regression models for epidemiologic data. *American Journal of Epidemiology* 170: 244–256. https://doi.org/10.1093/aje/kwp107.
 
 Suissa, S. 2007. Immortal time bias in observational studies of drug effects. *Pharmacoepidemiology and Drug Safety* 16: 241–249. https://doi.org/10.1002/pds.1357.
 
-Therneau, T. M., and P. M. Grambsch. 2000. *Modeling Survival Data: Extending the Cox Model*. New York: Springer.
+Suissa, S. 2008. Immortal time bias in pharmacoepidemiology. *American Journal of Epidemiology* 167: 492–499. https://doi.org/10.1093/aje/kwm324.
 
-Zhou, B., J. Fine, A. Latouche, and M. Labopin. 2012. Competing risks regression for clustered data. *Biostatistics* 13: 371–383.
+Therneau, T. M. 2024. A package for survival analysis in R. R package version 3.5-8. https://CRAN.R-project.org/package=survival.
+
+Therneau, T. M., and P. M. Grambsch. 2000. *Modeling Survival Data: Extending the Cox Model*. New York: Springer. https://doi.org/10.1007/978-1-4757-3294-8.
+
+Zhou, B., J. Fine, A. Latouche, and M. Labopin. 2012. Competing risks regression for clustered data. *Biostatistics* 13: 371–383. https://doi.org/10.1093/biostatistics/kxr032.
 
 ---
 
