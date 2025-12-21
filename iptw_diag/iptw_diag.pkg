@@ -1,0 +1,25 @@
+v 3
+d 'IPTW_DIAG': IPTW weight diagnostics - distribution, ESS, extreme weights, trimming
+d
+d Provides comprehensive diagnostics for inverse probability of treatment
+d weights (IPTW). Assesses weight distribution, calculates effective sample
+d size, detects extreme weights, and provides trimming/stabilization utilities.
+d
+d Requires: Stata version 16+
+d
+d Distribution-Date: 20251221
+d License: MIT
+d
+d Author: Timothy P Copeland
+d Department of Clinical Neuroscience
+d Karolinska Institutet
+d
+d KW: IPTW
+d KW: inverse probability weighting
+d KW: propensity score
+d KW: effective sample size
+d KW: weight diagnostics
+d KW: causal inference
+d
+f iptw_diag.ado
+f iptw_diag.sthlp
