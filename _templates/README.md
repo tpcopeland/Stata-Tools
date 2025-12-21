@@ -10,6 +10,7 @@ This folder contains templates for creating new Stata commands, based on the str
 | `TEMPLATE.sthlp` | Help file in SMCL format |
 | `TEMPLATE.pkg` | Package metadata for `net install` |
 | `TEMPLATE.dlg` | Dialog file for GUI (kept complete for reference) |
+| `TEMPLATE_README.md` | Package README.md documentation template |
 | `testing_TEMPLATE.do` | Functional tests (does it run?) |
 | `validation_TEMPLATE.do` | Validation tests (is it correct?) |
 
@@ -26,6 +27,7 @@ cp _templates/TEMPLATE.ado mycommand/mycommand.ado
 cp _templates/TEMPLATE.sthlp mycommand/mycommand.sthlp
 cp _templates/TEMPLATE.pkg mycommand/mycommand.pkg
 cp _templates/TEMPLATE.dlg mycommand/mycommand.dlg
+cp _templates/TEMPLATE_README.md mycommand/README.md
 
 # Copy test files to testing/validation directories
 cp _templates/testing_TEMPLATE.do _testing/testing_mycommand.do
@@ -82,6 +84,13 @@ Replace all instances of `TEMPLATE` with your command name in each file:
 - Use hand-calculable examples
 - Tests verify the command produces **correct results**
 
+#### `README.md`
+- Update badges (Stata version, License, Status)
+- Write clear description and examples
+- Document all options and stored results
+- Include installation command with correct path
+- Use `<br>` for line breaks in Author section
+
 ## Testing vs Validation
 
 | Testing | Validation |
@@ -120,6 +129,8 @@ option main.ck_option     // Outputs: option (if checked)
 - [ ] All `TEMPLATE` placeholders replaced
 - [ ] Version numbers consistent (X.Y.Z format)
 - [ ] Distribution-Date updated in .pkg
+- [ ] README.md has correct installation path and version
+- [ ] README.md Author section uses `<br>` for line breaks
 - [ ] All tests pass
 - [ ] Help file examples work
 - [ ] Dialog builds correct command syntax

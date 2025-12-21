@@ -520,8 +520,8 @@ Users should be aware of the following limitations:
 
 ## Author
 
-Timothy P Copeland
-Department of Clinical Neuroscience
+Timothy P Copeland<br>
+Department of Clinical Neuroscience<br>
 Karolinska Institutet
 
 ## License
@@ -532,7 +532,7 @@ MIT License
 
 Version 1.2.2, 2025-12-15
 
-## Also See
+## See Also
 
 - Stata help: `help simulate`, `help bootstrap`, `help permute`
 - Related packages: `synth` (synthetic control methods)

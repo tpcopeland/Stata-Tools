@@ -1,4 +1,4 @@
-f# table1_tc
+# table1_tc
 
 ![Stata 14.2+](https://img.shields.io/badge/Stata-14.2%2B-brightgreen)
 ![MIT License](https://img.shields.io/badge/License-MIT-blue)
