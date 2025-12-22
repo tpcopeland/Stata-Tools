@@ -4,6 +4,12 @@
 
 ---
 
+## Stata Executable
+
+**Always use `stata-mp`** when running Stata commands or do-files. This is the multiprocessor version installed on this machine.
+
+---
+
 ## Critical Rules (Always Follow)
 
 1. **Always set**: `version 16.0` (compatibility) or `version 18.0`, `set varabbrev off`, `set more off`
