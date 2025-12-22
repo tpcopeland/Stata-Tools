@@ -67,7 +67,7 @@ quietly{
 
     * Create temporary file for intermediate processing
     tempfile temp_export
-    local temp_xlsx = subinstr("`temp_export'", ".tmp", ".xlsx", .)
+    local temp_xlsx "`temp_export'.xlsx"
 
     return local xlsx "`xlsx'"
     return local sheet "`sheet'"
