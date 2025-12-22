@@ -6,6 +6,7 @@ d Mahalanobis distance, and regression influence methods. Options to
 d flag, winsorize, or exclude outliers with detailed reporting.
 d
 d Requires: Stata version 16+
+d Requires: mahascore (for mahal method) - ssc install mahascore
 d
 d Distribution-Date: 20251221
 d License: MIT
