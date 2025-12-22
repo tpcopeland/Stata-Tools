@@ -115,11 +115,13 @@ program define migrations, rclass
     * Save list of exclusions (type 1)
     qui keep if `exclude_emigrated' == 1
     qui keep `idvar'
-    qui duplicates drop `idvar', force
-    qui gen exclude_reason = "Emigrated before study start, never returned"
+    if _N > 0 {
+        qui duplicates drop `idvar', force
+        qui gen exclude_reason = "Emigrated before study start, never returned"
+    }
 
     tempfile exclude1
-    qui save `exclude1', replace
+    qui save `exclude1', replace emptyok
     local n_exclude1 = _N
 
     * Continue with remaining individuals
@@ -169,22 +171,31 @@ program define migrations, rclass
     * Update censoring date to earliest emigration if multiple exist
     qui replace migration_out_dt = out_ if `exclude_inmigration' == 0 & out_ < migration_out_dt
 
+    * Save current state before extracting exclusions type 2
+    tempfile pre_exclude2
+    qui save `pre_exclude2', replace
+
     * Save exclusions (type 2)
-    preserve
     qui keep if `exclude_inmigration' == 1
     qui keep `idvar'
-    qui duplicates drop `idvar', force
-    qui gen exclude_reason = "Immigration after study start (not in Sweden at baseline)"
+    if _N > 0 {
+        qui duplicates drop `idvar', force
+        qui gen exclude_reason = "Immigration after study start (not in Sweden at baseline)"
+    }
 
     tempfile exclude2
-    qui save `exclude2', replace
+    qui save `exclude2', replace emptyok
     local n_exclude2 = _N
-    restore
+
+    * Restore to pre-exclude2 state
+    qui use `pre_exclude2', clear
 
     * Keep only non-excluded individuals
     qui keep if `exclude_inmigration' == 0
     qui keep `idvar' migration_out_dt
-    qui duplicates drop `idvar', force
+    if _N > 0 {
+        qui duplicates drop `idvar', force
+    }
     qui label var migration_out_dt "Emigration censoring date"
     
     * Count censoring dates
@@ -215,7 +226,9 @@ program define migrations, rclass
     * Combine exclusion files
     qui use `exclude1', clear
     qui append using `exclude2'
-    qui duplicates drop `idvar', force
+    if _N > 0 {
+        qui duplicates drop `idvar', force
+    }
     local n_exclude_total = _N
     
     * Save exclusions

@@ -192,10 +192,11 @@ capture noisily {
     confirm file "`testdir'/_test_excluded.dta"
 
     * Check that file has expected variables
+    capture restore  // Clean up any lingering preserve state
     preserve
     use "`testdir'/_test_excluded.dta", clear
     confirm variable id
-    confirm variable exclusion_reason
+    confirm variable exclude_reason
     restore
 
     display as result "  PASSED: Save excluded works"
@@ -223,6 +224,7 @@ capture noisily {
     confirm file "`testdir'/_test_censor.dta"
 
     * Check that file has expected variables
+    capture restore  // Clean up any lingering preserve state
     preserve
     use "`testdir'/_test_censor.dta", clear
     confirm variable id
