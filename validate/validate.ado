@@ -456,28 +456,37 @@ program define validate, rclass
     * =========================================================================
     * SUMMARY
     * =========================================================================
-    display as text "{hline 75}"
-    display ""
-    display as text "Summary:"
-    display as text "  Rules evaluated: " as result `total_rules'
-    display as text "  Rules passed:    " as result `rules_passed' ///
-        as text " (" as result %5.1f 100*`rules_passed'/`total_rules' as text "%)"
-    if `rules_failed' > 0 {
-        display as text "  Rules failed:    " as error `rules_failed' ///
-            as text " (" as error %5.1f 100*`rules_failed'/`total_rules' as text "%)"
+    * Handle case where no rules were evaluated
+    if `total_rules' == 0 {
+        display as text "{hline 75}"
+        display as text "No validation rules specified."
+        display as text "Use options: nomiss, range(), values(), pattern(), unique, or cross()"
+        display as text "{hline 75}"
     }
     else {
-        display as text "  Rules failed:    " as result `rules_failed' ///
-            as text " (" as result %5.1f 100*`rules_failed'/`total_rules' as text "%)"
-    }
+        display as text "{hline 75}"
+        display ""
+        display as text "Summary:"
+        display as text "  Rules evaluated: " as result `total_rules'
+        display as text "  Rules passed:    " as result `rules_passed' ///
+            as text " (" as result %5.1f 100*`rules_passed'/`total_rules' as text "%)"
+        if `rules_failed' > 0 {
+            display as text "  Rules failed:    " as error `rules_failed' ///
+                as text " (" as error %5.1f 100*`rules_failed'/`total_rules' as text "%)"
+        }
+        else {
+            display as text "  Rules failed:    " as result `rules_failed' ///
+                as text " (" as result %5.1f 100*`rules_failed'/`total_rules' as text "%)"
+        }
 
-    if `rules_failed' > 0 {
-        display as error _n "WARNING: `rules_failed' validation rule(s) failed!"
+        if `rules_failed' > 0 {
+            display as error _n "WARNING: `rules_failed' validation rule(s) failed!"
+        }
+        else {
+            display as result _n "All validation rules passed."
+        }
+        display as text "{hline 75}"
     }
-    else {
-        display as result _n "All validation rules passed."
-    }
-    display as text "{hline 75}"
 
     * =========================================================================
     * GENERATE VALIDATION INDICATOR
@@ -589,7 +598,12 @@ program define validate, rclass
     return scalar n_rules = `total_rules'
     return scalar rules_passed = `rules_passed'
     return scalar rules_failed = `rules_failed'
-    return scalar pct_passed = 100 * `rules_passed' / `total_rules'
+    if `total_rules' > 0 {
+        return scalar pct_passed = 100 * `rules_passed' / `total_rules'
+    }
+    else {
+        return scalar pct_passed = .
+    }
     if `rule_num' > 0 {
         return matrix results = `results_mat'
     }

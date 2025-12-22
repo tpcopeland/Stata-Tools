@@ -121,12 +121,19 @@ program define outlier, rclass
         exit 198
     }
 
-    * Mahalanobis requires multiple variables
+    * Mahalanobis requires multiple variables and mahascore command
     if "`method'" == "mahal" {
         local nvars : word count `varlist'
         if `nvars' < 2 {
             display as error "mahal method requires at least 2 variables"
             exit 198
+        }
+        * Check if mahascore is installed (SSC package)
+        capture which mahascore
+        if _rc {
+            display as error "mahal method requires the mahascore package"
+            display as error "Install it with: ssc install mahascore"
+            exit 199
         }
     }
 
@@ -367,21 +374,33 @@ program define outlier, rclass
                     gen double `lower' = .
                     gen double `upper' = .
 
+                    * Check if by variable is string
+                    capture confirm string variable `by'
+                    local by_is_string = (_rc == 0)
+
                     levelsof `by' if `touse', local(groups)
                     foreach g of local groups {
+                        * Build condition based on variable type
+                        if `by_is_string' {
+                            local bycond `"`by' == `"`g'"'"'
+                        }
+                        else {
+                            local bycond "`by' == `g'"
+                        }
+
                         if "`method'" == "iqr" {
-                            summarize `var' if `touse' & `by' == `g', detail
+                            summarize `var' if `touse' & `bycond', detail
                             local iqr = r(p75) - r(p25)
                             local lb = r(p25) - `multiplier' * `iqr'
                             local ub = r(p75) + `multiplier' * `iqr'
                         }
                         else {
-                            summarize `var' if `touse' & `by' == `g'
+                            summarize `var' if `touse' & `bycond'
                             local lb = r(mean) - `multiplier' * r(sd)
                             local ub = r(mean) + `multiplier' * r(sd)
                         }
-                        replace `lower' = `lb' if `by' == `g' & `touse'
-                        replace `upper' = `ub' if `by' == `g' & `touse'
+                        replace `lower' = `lb' if `bycond' & `touse'
+                        replace `upper' = `ub' if `bycond' & `touse'
                     }
                 }
                 else {
