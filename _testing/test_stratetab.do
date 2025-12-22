@@ -112,6 +112,7 @@ gen _Y = 1000 + floor(runiform() * 5000)
 gen _Rate = _D / _Y
 gen _Lower = _Rate * 0.7
 gen _Upper = _Rate * 1.3
+label define exp_lbl 0 "Never" 1 "Former" 2 "Current", replace
 label values exposure exp_lbl
 save "`testdir'/_strate_out2_exp1.dta", replace
 
@@ -124,6 +125,7 @@ gen _Y = 1000 + floor(runiform() * 5000)
 gen _Rate = _D / _Y
 gen _Lower = _Rate * 0.7
 gen _Upper = _Rate * 1.3
+label define exp_lbl 0 "Never" 1 "Former" 2 "Current", replace
 label values exposure exp_lbl
 save "`testdir'/_strate_out3_exp1.dta", replace
 
@@ -150,6 +152,8 @@ gen _Y = 800 + floor(runiform() * 4000)
 gen _Rate = _D / _Y
 gen _Lower = _Rate * 0.7
 gen _Upper = _Rate * 1.3
+label variable duration_cat "HRT Duration"
+label define dur_lbl 1 "Never" 2 "<1 year" 3 "1-5 years" 4 ">5 years", replace
 label values duration_cat dur_lbl
 save "`testdir'/_strate_out2_exp2.dta", replace
 
@@ -162,6 +166,8 @@ gen _Y = 800 + floor(runiform() * 4000)
 gen _Rate = _D / _Y
 gen _Lower = _Rate * 0.7
 gen _Upper = _Rate * 1.3
+label variable duration_cat "HRT Duration"
+label define dur_lbl 1 "Never" 2 "<1 year" 3 "1-5 years" 4 ">5 years", replace
 label values duration_cat dur_lbl
 save "`testdir'/_strate_out3_exp2.dta", replace
 

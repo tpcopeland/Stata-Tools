@@ -581,36 +581,49 @@ drop has_overlap_flag
 
 * =============================================================================
 * DATASET 6: MIGRATIONS (Wide Format - for migrations command testing)
+* Format: in_1, out_1, in_2, out_2, ... for immigration/emigration dates
 * =============================================================================
 display as text _n "Creating migrations_wide.dta..."
 
 use "cohort.dta", clear
 keep id study_entry study_exit
 
-* Approximately 25% of patients migrate during follow-up
+* Approximately 25% of patients have migration events during follow-up
 gen byte has_migration = runiform() < 0.25
 
-* Up to 3 migration events per person
-gen migration1_date = study_entry + floor(runiform() * (study_exit - study_entry)/3) if has_migration
-gen migration2_date = migration1_date + 365 + floor(runiform() * 365) if has_migration & runiform() < 0.40
-gen migration3_date = migration2_date + 365 + floor(runiform() * 365) if !missing(migration2_date) & runiform() < 0.20
+* Migration pattern: emigration (out_N) followed by immigration (in_N)
+* in_N = immigration date (return to Sweden)
+* out_N = emigration date (left Sweden)
+
+* First migration event pair
+gen out_1 = study_entry + floor(runiform() * (study_exit - study_entry)/4) if has_migration
+gen in_1 = out_1 + 30 + floor(runiform() * 365) if !missing(out_1)
+
+* Second migration event pair (40% of those with first)
+gen out_2 = in_1 + 365 + floor(runiform() * 365) if !missing(in_1) & runiform() < 0.40
+gen in_2 = out_2 + 30 + floor(runiform() * 365) if !missing(out_2)
+
+* Third migration event pair (20% of those with second)
+gen out_3 = in_2 + 365 + floor(runiform() * 365) if !missing(in_2) & runiform() < 0.20
+gen in_3 = out_3 + 30 + floor(runiform() * 365) if !missing(out_3)
 
 * Ensure migration dates are within study period
-replace migration1_date = . if migration1_date > study_exit - 30
-replace migration2_date = . if migration2_date > study_exit - 30
-replace migration3_date = . if migration3_date > study_exit - 30
+replace out_1 = . if out_1 > study_exit - 30
+replace in_1 = . if in_1 > study_exit - 30 | missing(out_1)
+replace out_2 = . if out_2 > study_exit - 30 | missing(in_1)
+replace in_2 = . if in_2 > study_exit - 30 | missing(out_2)
+replace out_3 = . if out_3 > study_exit - 30 | missing(in_2)
+replace in_3 = . if in_3 > study_exit - 30 | missing(out_3)
 
-format migration1_date migration2_date migration3_date %td
-label variable migration1_date "First migration date"
-label variable migration2_date "Second migration date"
-label variable migration3_date "Third migration date"
+format in_1 out_1 in_2 out_2 in_3 out_3 %td
+label variable in_1 "First immigration date"
+label variable out_1 "First emigration date"
+label variable in_2 "Second immigration date"
+label variable out_2 "Second emigration date"
+label variable in_3 "Third immigration date"
+label variable out_3 "Third emigration date"
 
-* Region codes (Swedish counties 1-21)
-gen byte region1 = 1 + floor(runiform() * 21) if !missing(migration1_date)
-gen byte region2 = 1 + floor(runiform() * 21) if !missing(migration2_date)
-gen byte region3 = 1 + floor(runiform() * 21) if !missing(migration3_date)
-
-drop has_migration
+drop has_migration study_entry study_exit
 
 compress
 save "migrations_wide.dta", replace
@@ -633,9 +646,9 @@ bysort id: gen edss_num = _n
 * Assessment dates (spread over follow-up)
 bysort id: gen total_assessments = _N
 bysort id: gen assessment_interval = (study_exit - study_entry) / total_assessments
-gen edss_date = study_entry + floor((edss_num - 1) * assessment_interval + runiform() * assessment_interval * 0.5)
-format edss_date %td
-label variable edss_date "EDSS assessment date"
+gen edss_dt = study_entry + floor((edss_num - 1) * assessment_interval + runiform() * assessment_interval * 0.5)
+format edss_dt %td
+label variable edss_dt "EDSS assessment date"
 
 * EDSS scores (0-10 in 0.5 increments)
 * Baseline EDSS 1.5-4.0, with progression over time
@@ -652,8 +665,8 @@ replace edss = 10 if edss > 10
 replace edss = 0 if edss < 0
 label variable edss "EDSS score"
 
-keep id edss_date edss
-order id edss_date edss
+keep id edss_dt edss
+order id edss_dt edss
 
 compress
 save "edss_long.dta", replace

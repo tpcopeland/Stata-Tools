@@ -38,7 +38,7 @@ if "`_byvars'" != "" {
 	exit 190
 }
 
-syntax, using(namelist) xlsx(string) outcomes(integer) ///
+syntax, using(string asis) xlsx(string) outcomes(integer) ///
 	[sheet(string) title(string) outlabels(string) explabels(string) ///
 	digits(integer 1) eventdigits(integer 0) pydigits(integer 0) ///
 	unitlabel(string) pyscale(real 1) ratescale(real 1000)]
