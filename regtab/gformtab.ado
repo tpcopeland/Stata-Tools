@@ -49,9 +49,6 @@ EXAMPLES:
 	    title("Table 2. Mediation Analysis Results")
 */
 
-capture program drop gformtab
-capture program drop col_to_letter_gform
-
 * Helper program to convert column number to Excel letter
 program col_to_letter_gform
 	version 16.0

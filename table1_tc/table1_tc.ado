@@ -5,7 +5,7 @@
 *! and can export them to Excel with automatic column width calculation
 
 program define table1_tc, sclass
-    version 14.2 // Minimum Stata version required
+    version 16.0
     set varabbrev off
 
 **# Syntax Definition

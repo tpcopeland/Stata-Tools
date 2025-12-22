@@ -45,9 +45,6 @@ EXAMPLES:
 	effecttab, xlsx(results.xlsx) sheet("Effects") effect("AME")
 */
 
-capture program drop effecttab
-capture program drop col_to_letter_effect
-
 * Helper program to convert column number to Excel letter
 program col_to_letter_effect
 	version 17.0

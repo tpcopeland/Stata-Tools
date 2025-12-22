@@ -29,7 +29,7 @@
 */
 
 program define pkgtransfer, rclass
-	version 14.0
+	version 16.0
 	set varabbrev off
 	syntax [, DOWNLOAD(string) LIMITED(string) SKIP(string) RESTORE OS(string) DOfile(string) ZIPfile(string)]
 

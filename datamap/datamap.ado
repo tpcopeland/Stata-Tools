@@ -76,7 +76,7 @@ NOTES
 */
 
 program define datamap, rclass
-	version 14.0
+	version 16.0
 	set varabbrev off
 	syntax [, DIRectory(string) FILElist(string) SINGLE(string) ///
 	          RECursive ///
@@ -282,7 +282,7 @@ end
 // Parse space-separated dataset names and write to temp file
 // =============================================================================
 program define CollectFromFilelistOption
-	version 14.0
+	version 16.0
 	args filelist tmpfile
 
 	tempname fh_out
@@ -316,7 +316,7 @@ end
 // Write output to text file
 // =============================================================================
 program define CollectFromDir
-	version 14.0
+	version 16.0
 	args directory recursive tmpfile
 
 	tempname fh
@@ -346,7 +346,7 @@ end
 
 // Helper for recursive scanning
 program define RecursiveScan
-	version 14.0
+	version 16.0
 	args directory fh
 
 	// Get files in current directory
@@ -380,7 +380,7 @@ end
 // Generate single output file containing all datasets
 // =============================================================================
 program define ProcessCombined
-	version 14.0
+	version 16.0
 	syntax, filelist(string) output(string) format(string) [append ///
 		nostats nofreq nolabels nonotes maxfreq(integer 25) ///
 		maxcat(integer 25) exclude(string) datesafe single(string) nfiles(integer 1) ///
@@ -450,7 +450,7 @@ end
 // Generate separate output file for each dataset
 // =============================================================================
 program define ProcessSeparate
-	version 14.0
+	version 16.0
 	syntax, filelist(string) format(string) [nostats nofreq nolabels nonotes ///
 		maxfreq(integer 25) maxcat(integer 25) exclude(string) datesafe nfiles(integer 1) ///
 		detect_panel(integer 0) detect_binary(integer 0) detect_survival(integer 0) ///
@@ -522,7 +522,7 @@ end
 //       missing_detail missing_pattern
 // =============================================================================
 program define ProcessDataset
-	version 14.0
+	version 16.0
 	args fh filepath format nostats nofreq nolabels nonotes maxfreq maxcat exclude datesafe idx total ///
 	     detect_panel detect_binary detect_survival detect_survey detect_common ///
 	     panelid survivalvars quality_level samples missing_detail missing_pattern
@@ -636,7 +636,7 @@ end
 // Classify and document all variables in a dataset
 // =============================================================================
 program define ProcessVariables
-	version 14.0
+	version 16.0
 	args fh filepath format nostats nofreq nolabels nonotes maxfreq maxcat exclude datesafe obs ///
 	     detect_panel detect_binary detect_survival detect_survey detect_common ///
 	     panelid survivalvars quality_level samples missing_detail missing_pattern
@@ -925,7 +925,7 @@ program define ProcessVariables
 end
 
 program define ProcessCategorical
-	version 14.0
+	version 16.0
 	args fh filepath classifications format nofreq maxfreq obs
 
 	tempfile catdata
@@ -1031,7 +1031,7 @@ program define ProcessCategorical
 end
 
 program define ProcessContinuous
-	version 14.0
+	version 16.0
 	args fh filepath classifications format nostats obs
 
 	tempfile contdata
@@ -1147,7 +1147,7 @@ program define ProcessContinuous
 end
 
 program define ProcessDate
-	version 14.0
+	version 16.0
 	args fh filepath classifications format datesafe
 
 	tempfile datedata
@@ -1239,7 +1239,7 @@ program define ProcessDate
 end
 
 program define ProcessString
-	version 14.0
+	version 16.0
 	args fh filepath classifications format
 
 	tempfile stringdata
@@ -1319,7 +1319,7 @@ program define ProcessString
 end
 
 program define ProcessExcluded
-	version 14.0
+	version 16.0
 	args fh filepath classifications format
 
 	tempfile excludedata
@@ -1377,7 +1377,7 @@ program define ProcessExcluded
 end
 
 program define ProcessValueLabels
-	version 14.0
+	version 16.0
 	args fh filepath classifications format
 
 	// Get all value labels used
@@ -1445,7 +1445,7 @@ end
 // Document binary variables (exactly 2 unique values)
 // =============================================================================
 program define ProcessBinary
-	version 14.0
+	version 16.0
 	args fh filepath classifications format obs
 
 	tempfile bindata
@@ -1521,7 +1521,7 @@ end
 // Report data quality flags
 // =============================================================================
 program define ProcessQuality
-	version 14.0
+	version 16.0
 	args fh filepath classifications format
 
 	use "`classifications'", clear
@@ -1550,7 +1550,7 @@ end
 // Include sample observations (privacy-limited)
 // =============================================================================
 program define ProcessSamples
-	version 14.0
+	version 16.0
 	args fh filepath classifications format nsamples exclude
 
 	use "`filepath'", clear
@@ -1631,7 +1631,7 @@ end
 
 // Detect panel/longitudinal data structure
 program define DetectPanel
-	version 14.0
+	version 16.0
 	args fh filepath panelid format
 
 	use "`filepath'", clear
@@ -1679,7 +1679,7 @@ end
 
 // Detect survival/time-to-event data
 program define DetectSurvival
-	version 14.0
+	version 16.0
 	args fh filepath survivalvars format
 
 	use "`filepath'", clear
@@ -1739,7 +1739,7 @@ end
 
 // Detect survey design elements
 program define DetectSurvey
-	version 14.0
+	version 16.0
 	args fh filepath format
 
 	use "`filepath'", clear
@@ -1805,7 +1805,7 @@ end
 
 // Detect common variable name patterns
 program define DetectCommon
-	version 14.0
+	version 16.0
 	args fh filepath format
 
 	use "`filepath'", clear
@@ -1874,7 +1874,7 @@ end
 
 // Summarize missing data patterns
 program define SummarizeMissing
-	version 14.0
+	version 16.0
 	args fh filepath format pattern_check obs
 
 	use "`filepath'", clear
@@ -1941,7 +1941,7 @@ end
 // Generate natural language description of the dataset
 // =============================================================================
 program define GenerateDatasetSummary
-	version 14.0
+	version 16.0
 	args fh filepath obs nvars label detect_panel detect_survival panelid
 
 	use "`filepath'", clear

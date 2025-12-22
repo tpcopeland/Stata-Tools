@@ -32,7 +32,7 @@
 *!       specified varlist. This is a limitation of Stata's memory reporting.
 
 program define compress_tc, rclass
-    version 13.0
+    version 16.0
     set varabbrev off
 
     syntax [varlist] [, NOCompress NOStrl NOStrL NOReport Quietly Detail VARSavings]

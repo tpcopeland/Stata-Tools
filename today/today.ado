@@ -29,7 +29,7 @@
                     Default is current time zone. Must be specified with from(string).
 */
 program today, rclass
-    version 14.0
+    version 16.0
     set varabbrev off
     syntax [, DF(string) TSep(string) HM FROM(string) TO(string)]
     quietly {
