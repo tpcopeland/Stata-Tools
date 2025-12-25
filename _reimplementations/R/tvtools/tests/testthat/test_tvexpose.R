@@ -3,15 +3,14 @@
 
 library(testthat)
 library(tvtools)
-library(haven)
 
-# Test data path
-data_path <- "/home/ubuntu/Stata-Tools/_testing/data"
+# Test data path - use RDS files that don't require haven
+data_path <- "/home/tpcopeland/Stata-Tools/_reimplementations/data/R"
 
 # Helper function to load test data
 load_test_data <- function() {
-  cohort <- read_dta(file.path(data_path, "cohort.dta"))
-  hrt <- read_dta(file.path(data_path, "hrt.dta"))
+  cohort <- readRDS(file.path(data_path, "cohort.rds"))
+  hrt <- readRDS(file.path(data_path, "hrt.rds"))
   list(cohort = cohort, hrt = hrt)
 }
 

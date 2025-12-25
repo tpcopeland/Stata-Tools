@@ -1,0 +1,2307 @@
+id,event_date,event_type
+1,31dec2015,Imaging
+2,01apr2011,Clinic visit
+3,07mar2014,Clinic visit
+4,24jan2011,Clinic visit
+4,16nov2010,Clinic visit
+4,15apr2012,Lab test
+5,03mar2018,Clinic visit
+6,26apr2011,Imaging
+6,17oct2013,Clinic visit
+6,04apr2012,Vaccination
+6,13sep2012,Lab test
+6,28jan2012,Clinic visit
+6,28apr2011,Vaccination
+7,09dec2012,Imaging
+7,23sep2014,Clinic visit
+7,18may2013,Clinic visit
+7,09may2013,Lab test
+8,11jul2015,Vaccination
+8,24jul2018,Clinic visit
+8,15sep2012,Lab test
+8,07aug2014,Vaccination
+8,15mar2018,Clinic visit
+8,30mar2016,Imaging
+9,24apr2013,Clinic visit
+9,14feb2013,Clinic visit
+9,04jan2013,Clinic visit
+9,10jul2011,Imaging
+10,19oct2015,Clinic visit
+10,09feb2014,Clinic visit
+11,24jul2022,Imaging
+11,01jan2018,Lab test
+12,10oct2015,Lab test
+13,31aug2015,Vaccination
+13,04dec2014,Lab test
+14,08jan2016,Clinic visit
+14,22mar2017,Lab test
+14,06dec2019,Vaccination
+14,06apr2016,Imaging
+15,12aug2013,Lab test
+16,23jul2016,Imaging
+16,18mar2017,Lab test
+16,25aug2019,Clinic visit
+16,06dec2015,Clinic visit
+16,04sep2017,Imaging
+16,15nov2013,Lab test
+17,18apr2015,Clinic visit
+17,30dec2014,Imaging
+17,27jul2015,Imaging
+17,18oct2017,Vaccination
+17,07apr2019,Lab test
+18,29sep2014,Lab test
+19,11dec2011,Imaging
+19,05feb2015,Vaccination
+19,26oct2015,Vaccination
+20,31mar2013,Vaccination
+21,30jul2017,Clinic visit
+22,16aug2016,Vaccination
+23,01feb2019,Imaging
+24,27mar2014,Lab test
+24,27dec2013,Clinic visit
+25,17feb2020,Imaging
+26,04oct2015,Clinic visit
+27,29mar2015,Clinic visit
+27,30apr2013,Clinic visit
+28,14jul2011,Lab test
+28,25may2011,Vaccination
+28,10sep2011,Imaging
+29,17apr2018,Clinic visit
+30,09oct2013,Lab test
+31,22feb2017,Clinic visit
+32,25jan2012,Vaccination
+32,13sep2011,Imaging
+32,12oct2013,Clinic visit
+32,05jul2014,Clinic visit
+33,09jun2011,Vaccination
+34,29nov2013,Clinic visit
+35,10sep2011,Imaging
+35,03oct2011,Vaccination
+35,23aug2013,Clinic visit
+35,23sep2012,Imaging
+35,04dec2012,Imaging
+36,27may2015,Vaccination
+37,10jun2015,Clinic visit
+37,08jun2017,Lab test
+38,25aug2019,Lab test
+39,30nov2018,Clinic visit
+40,07nov2012,Imaging
+41,23jun2014,Clinic visit
+41,26sep2017,Imaging
+41,13apr2016,Clinic visit
+41,02aug2018,Lab test
+42,19may2019,Lab test
+42,31mar2020,Clinic visit
+42,30jun2020,Imaging
+42,17oct2020,Clinic visit
+43,19jan2011,Lab test
+44,24mar2016,Imaging
+44,13may2015,Vaccination
+45,29jul2019,Lab test
+46,11may2013,Clinic visit
+46,21feb2010,Imaging
+47,21mar2013,Vaccination
+47,01jan2013,Imaging
+47,20feb2012,Vaccination
+47,21aug2011,Clinic visit
+47,28may2013,Vaccination
+48,27nov2011,Lab test
+49,24sep2019,Imaging
+49,13jun2016,Lab test
+49,06mar2016,Lab test
+49,27apr2016,Lab test
+49,25sep2019,Vaccination
+49,20oct2013,Vaccination
+50,10jul2011,Vaccination
+50,27mar2013,Vaccination
+50,08feb2015,Clinic visit
+50,22may2015,Vaccination
+51,15aug2017,Vaccination
+52,26oct2016,Imaging
+52,08jan2011,Lab test
+52,22sep2012,Lab test
+52,16jun2016,Imaging
+52,24nov2017,Vaccination
+53,17oct2011,Clinic visit
+54,17jun2015,Clinic visit
+55,28mar2013,Lab test
+55,15jul2012,Imaging
+55,13dec2012,Clinic visit
+56,04may2012,Clinic visit
+57,18may2018,Clinic visit
+57,20may2020,Imaging
+57,17may2018,Vaccination
+58,26jun2010,Clinic visit
+59,01jan2021,Clinic visit
+60,04oct2019,Imaging
+61,01feb2016,Imaging
+61,10feb2017,Lab test
+62,10aug2012,Imaging
+63,22apr2011,Lab test
+63,05sep2013,Clinic visit
+63,01oct2013,Lab test
+63,10aug2012,Imaging
+63,27jan2014,Clinic visit
+63,18may2014,Clinic visit
+64,20sep2012,Lab test
+65,24apr2016,Clinic visit
+65,16feb2015,Clinic visit
+66,30oct2014,Lab test
+66,02jan2014,Lab test
+66,19mar2015,Clinic visit
+66,08jun2016,Clinic visit
+66,03jul2019,Clinic visit
+67,24nov2018,Vaccination
+67,14dec2017,Vaccination
+67,22mar2018,Vaccination
+67,18dec2020,Lab test
+68,06sep2014,Vaccination
+69,08may2022,Imaging
+70,27nov2014,Clinic visit
+70,02jul2017,Clinic visit
+70,10jul2015,Lab test
+70,16dec2016,Vaccination
+70,11may2015,Vaccination
+70,20may2014,Vaccination
+71,21sep2016,Clinic visit
+72,18mar2021,Clinic visit
+73,29dec2012,Lab test
+73,21feb2015,Imaging
+73,28jun2013,Clinic visit
+74,08feb2016,Imaging
+74,19apr2015,Vaccination
+75,24apr2016,Vaccination
+76,21jan2012,Vaccination
+76,25mar2012,Imaging
+76,27feb2011,Vaccination
+76,30apr2011,Clinic visit
+76,06mar2011,Imaging
+76,25mar2012,Clinic visit
+77,23jan2019,Lab test
+78,09aug2012,Lab test
+79,26jan2015,Vaccination
+79,07nov2014,Lab test
+80,04aug2018,Clinic visit
+80,24apr2015,Clinic visit
+81,01may2011,Vaccination
+81,06apr2011,Clinic visit
+82,06jan2016,Clinic visit
+83,02dec2015,Vaccination
+84,14jun2011,Lab test
+85,29may2014,Vaccination
+85,30nov2013,Imaging
+85,18oct2013,Imaging
+85,20mar2014,Clinic visit
+86,03jul2015,Clinic visit
+87,12mar2012,Clinic visit
+88,22feb2016,Vaccination
+89,11dec2012,Vaccination
+90,19jul2015,Lab test
+90,14dec2014,Clinic visit
+90,19jun2016,Imaging
+90,16mar2015,Clinic visit
+91,25aug2013,Lab test
+91,26jun2018,Lab test
+92,08may2014,Imaging
+93,25oct2015,Vaccination
+94,25nov2019,Lab test
+94,31oct2015,Lab test
+94,04dec2016,Imaging
+94,05jan2018,Vaccination
+95,30oct2011,Clinic visit
+96,25aug2020,Imaging
+96,12jun2019,Vaccination
+96,05dec2016,Vaccination
+97,19sep2017,Lab test
+97,07mar2019,Clinic visit
+97,22aug2019,Lab test
+97,30jun2017,Clinic visit
+98,11may2014,Clinic visit
+99,19jul2015,Vaccination
+100,08oct2015,Imaging
+100,16feb2015,Imaging
+100,28sep2015,Clinic visit
+101,04sep2011,Lab test
+102,21aug2014,Clinic visit
+103,18may2016,Clinic visit
+104,15dec2013,Vaccination
+104,07jun2015,Clinic visit
+104,01mar2020,Clinic visit
+104,09jul2011,Clinic visit
+104,24oct2014,Clinic visit
+105,30mar2013,Vaccination
+105,20nov2012,Lab test
+105,19aug2013,Clinic visit
+105,26may2013,Vaccination
+105,20may2013,Imaging
+106,24jan2011,Lab test
+107,07jan2013,Imaging
+108,03jan2011,Vaccination
+109,25apr2013,Lab test
+109,19may2013,Imaging
+109,28oct2011,Clinic visit
+109,02nov2012,Lab test
+109,27jul2012,Vaccination
+110,16nov2015,Lab test
+110,02may2013,Lab test
+110,13mar2019,Lab test
+110,13jan2016,Clinic visit
+110,09sep2014,Vaccination
+110,01oct2019,Imaging
+111,13jul2013,Vaccination
+112,31dec2013,Vaccination
+112,27may2014,Imaging
+113,02apr2016,Lab test
+113,26jul2015,Imaging
+113,23feb2016,Clinic visit
+113,17jan2017,Vaccination
+113,28sep2016,Lab test
+113,25jul2019,Imaging
+114,02oct2015,Lab test
+114,24feb2014,Vaccination
+114,20feb2014,Clinic visit
+114,25oct2013,Vaccination
+114,19mar2014,Vaccination
+114,22jul2013,Vaccination
+115,05jan2021,Clinic visit
+115,04apr2021,Lab test
+115,05jul2020,Clinic visit
+115,22jan2021,Lab test
+116,25jun2015,Vaccination
+117,21may2012,Lab test
+117,19jul2010,Clinic visit
+117,24may2010,Clinic visit
+117,24jun2017,Clinic visit
+117,02jul2018,Lab test
+118,18oct2014,Clinic visit
+119,10apr2016,Lab test
+119,06apr2016,Vaccination
+119,09apr2014,Clinic visit
+119,02aug2013,Lab test
+120,24dec2012,Clinic visit
+121,10nov2019,Lab test
+122,09jun2013,Lab test
+123,12jun2012,Clinic visit
+124,24jun2015,Vaccination
+125,06feb2013,Lab test
+126,29nov2016,Lab test
+126,24may2019,Vaccination
+126,01jul2016,Vaccination
+126,25jul2017,Vaccination
+126,09dec2018,Lab test
+126,18apr2018,Clinic visit
+127,24mar2012,Vaccination
+127,07mar2012,Vaccination
+127,31mar2012,Lab test
+127,18mar2012,Clinic visit
+128,06aug2017,Vaccination
+128,03aug2018,Lab test
+129,08sep2016,Clinic visit
+129,17aug2015,Lab test
+129,01feb2017,Imaging
+129,30jul2015,Clinic visit
+130,07feb2014,Imaging
+131,21dec2017,Lab test
+132,02feb2021,Clinic visit
+132,02jan2019,Imaging
+132,25jan2018,Imaging
+132,18aug2018,Clinic visit
+133,06jun2015,Imaging
+134,25nov2014,Clinic visit
+135,06apr2012,Lab test
+136,15jun2016,Vaccination
+136,26jun2015,Imaging
+136,31may2015,Lab test
+136,09apr2016,Lab test
+137,25jul2014,Vaccination
+138,19apr2016,Imaging
+139,01sep2014,Clinic visit
+140,07feb2019,Lab test
+141,14feb2015,Imaging
+142,06jun2016,Clinic visit
+143,21mar2018,Imaging
+143,24apr2014,Lab test
+143,16may2017,Clinic visit
+143,06mar2019,Vaccination
+143,09oct2017,Lab test
+144,24may2015,Imaging
+145,25may2014,Clinic visit
+146,05jul2017,Vaccination
+146,26apr2019,Lab test
+146,10jun2019,Imaging
+146,06oct2019,Lab test
+146,03feb2014,Clinic visit
+146,21sep2015,Lab test
+147,18may2013,Vaccination
+147,05dec2013,Imaging
+147,09apr2014,Vaccination
+147,24sep2011,Vaccination
+147,12aug2014,Lab test
+147,24feb2013,Vaccination
+148,07dec2011,Clinic visit
+148,06aug2014,Clinic visit
+148,10dec2014,Vaccination
+149,19feb2015,Vaccination
+150,09oct2015,Vaccination
+151,14nov2014,Lab test
+151,23apr2016,Vaccination
+151,13sep2016,Vaccination
+152,01oct2012,Clinic visit
+153,05aug2013,Imaging
+154,30dec2011,Vaccination
+155,19sep2015,Imaging
+155,29sep2012,Clinic visit
+155,17feb2020,Lab test
+156,16jun2017,Vaccination
+157,02mar2014,Lab test
+157,10may2018,Vaccination
+157,02apr2015,Vaccination
+158,13jun2016,Vaccination
+158,03mar2015,Clinic visit
+158,09mar2015,Lab test
+158,03sep2016,Vaccination
+158,04jul2016,Lab test
+159,18jun2016,Vaccination
+160,11jun2013,Imaging
+161,21apr2013,Vaccination
+161,03may2013,Vaccination
+161,02sep2014,Lab test
+161,22may2013,Clinic visit
+161,25apr2014,Lab test
+162,17oct2015,Vaccination
+163,08apr2012,Lab test
+163,03nov2012,Lab test
+163,24feb2013,Lab test
+163,20apr2013,Imaging
+163,24apr2012,Clinic visit
+164,07dec2015,Imaging
+165,30dec2017,Clinic visit
+165,05feb2021,Clinic visit
+165,18dec2018,Lab test
+165,10feb2020,Clinic visit
+165,18oct2014,Vaccination
+165,11nov2021,Vaccination
+166,28oct2012,Clinic visit
+166,22may2015,Imaging
+166,12nov2013,Lab test
+166,07sep2012,Clinic visit
+166,30sep2012,Imaging
+166,12aug2014,Clinic visit
+167,11may2012,Lab test
+168,03nov2013,Clinic visit
+168,18oct2015,Vaccination
+169,16jun2021,Clinic visit
+170,20jul2021,Vaccination
+171,19sep2010,Lab test
+172,21nov2016,Lab test
+173,20apr2018,Clinic visit
+174,04sep2014,Clinic visit
+175,05oct2015,Imaging
+175,14jul2016,Clinic visit
+175,07mar2018,Lab test
+176,29apr2011,Imaging
+176,28jan2012,Imaging
+176,27apr2011,Vaccination
+177,18mar2013,Lab test
+178,24jun2014,Lab test
+179,07apr2013,Clinic visit
+180,05sep2011,Lab test
+181,20mar2016,Imaging
+181,10mar2017,Lab test
+181,29jun2016,Lab test
+181,21apr2015,Imaging
+182,15feb2016,Vaccination
+182,30nov2017,Imaging
+182,08nov2018,Imaging
+182,31jul2019,Clinic visit
+182,02sep2021,Imaging
+182,27aug2014,Lab test
+183,01apr2015,Imaging
+184,12aug2019,Vaccination
+184,12oct2014,Imaging
+185,26oct2013,Lab test
+186,24jan2014,Lab test
+186,28may2011,Clinic visit
+186,02feb2014,Imaging
+187,19apr2014,Imaging
+188,21dec2015,Clinic visit
+188,19may2013,Imaging
+188,09jul2014,Imaging
+189,11nov2014,Imaging
+190,13jan2015,Imaging
+190,15sep2018,Clinic visit
+190,19oct2016,Clinic visit
+190,12aug2014,Clinic visit
+191,05apr2013,Vaccination
+192,25jan2015,Imaging
+193,02mar2018,Lab test
+194,27jul2017,Imaging
+195,06jan2015,Vaccination
+195,11sep2015,Clinic visit
+195,09oct2016,Imaging
+196,08dec2017,Imaging
+196,14jul2016,Vaccination
+196,24jul2018,Vaccination
+197,29jul2014,Imaging
+197,25oct2014,Vaccination
+198,31jan2012,Vaccination
+199,17feb2012,Lab test
+200,19feb2014,Vaccination
+201,17sep2018,Vaccination
+202,25sep2014,Imaging
+202,27jan2020,Lab test
+202,13aug2018,Vaccination
+202,18sep2016,Clinic visit
+203,16apr2017,Vaccination
+203,09aug2017,Vaccination
+203,09feb2017,Imaging
+203,25feb2014,Vaccination
+204,16may2012,Clinic visit
+205,03dec2018,Lab test
+206,17nov2014,Clinic visit
+207,25dec2017,Lab test
+208,07oct2011,Clinic visit
+208,11mar2012,Lab test
+209,13may2011,Imaging
+209,04jul2011,Clinic visit
+209,25apr2011,Clinic visit
+210,27sep2013,Vaccination
+211,03oct2020,Imaging
+212,11aug2019,Imaging
+212,19oct2015,Imaging
+212,03nov2018,Vaccination
+212,18may2019,Imaging
+213,26sep2016,Imaging
+214,12jan2014,Lab test
+214,25sep2011,Imaging
+215,15jan2012,Vaccination
+215,17apr2011,Clinic visit
+215,25nov2011,Clinic visit
+215,27apr2013,Vaccination
+216,21nov2017,Lab test
+216,17sep2016,Vaccination
+216,05dec2019,Imaging
+216,11oct2019,Vaccination
+216,20oct2017,Imaging
+217,24may2012,Vaccination
+217,08jun2013,Clinic visit
+218,25jul2012,Clinic visit
+219,05may2014,Lab test
+220,04dec2016,Clinic visit
+221,23jun2013,Clinic visit
+222,28may2016,Vaccination
+223,11dec2010,Imaging
+223,04jun2010,Clinic visit
+223,17oct2010,Vaccination
+223,12dec2010,Clinic visit
+223,31dec2010,Lab test
+224,28jul2012,Clinic visit
+224,09jun2012,Clinic visit
+224,24may2012,Clinic visit
+224,29feb2012,Imaging
+224,06feb2012,Clinic visit
+225,24dec2011,Clinic visit
+226,20may2019,Imaging
+226,01sep2021,Vaccination
+226,25jan2018,Imaging
+226,18aug2016,Vaccination
+226,11jan2021,Clinic visit
+227,03oct2014,Lab test
+227,05jun2014,Imaging
+227,10oct2018,Imaging
+228,07mar2018,Vaccination
+229,11aug2016,Lab test
+230,24nov2011,Clinic visit
+231,17feb2017,Lab test
+232,24jan2014,Vaccination
+233,27jun2014,Clinic visit
+233,15jul2013,Clinic visit
+234,16feb2014,Clinic visit
+234,01aug2016,Vaccination
+234,27oct2018,Vaccination
+234,16mar2016,Vaccination
+234,24may2018,Imaging
+235,05may2017,Vaccination
+235,18sep2015,Lab test
+235,16oct2018,Lab test
+236,16jun2018,Imaging
+236,21nov2018,Vaccination
+236,14aug2016,Clinic visit
+237,16feb2015,Vaccination
+238,01nov2012,Lab test
+239,13dec2016,Lab test
+239,09dec2022,Vaccination
+239,03dec2014,Imaging
+240,26aug2017,Imaging
+241,16jul2016,Clinic visit
+241,01jan2017,Clinic visit
+241,29sep2018,Clinic visit
+242,30mar2013,Clinic visit
+242,25aug2014,Clinic visit
+242,12apr2014,Lab test
+242,13dec2013,Imaging
+242,17mar2014,Clinic visit
+242,10apr2013,Clinic visit
+243,24aug2016,Imaging
+244,14feb2012,Vaccination
+244,08oct2011,Imaging
+244,04apr2012,Clinic visit
+244,17apr2013,Vaccination
+245,22jun2017,Vaccination
+246,04jun2012,Clinic visit
+247,24nov2015,Imaging
+247,08may2018,Vaccination
+247,14jun2017,Clinic visit
+247,24feb2017,Vaccination
+247,30aug2015,Lab test
+247,20may2017,Vaccination
+248,30nov2019,Imaging
+248,07aug2015,Imaging
+248,27nov2013,Vaccination
+248,21jan2019,Vaccination
+249,15may2016,Imaging
+250,19jun2015,Vaccination
+251,07mar2014,Vaccination
+251,04apr2014,Lab test
+251,17aug2010,Clinic visit
+251,29oct2012,Lab test
+251,24jun2014,Lab test
+252,26feb2013,Clinic visit
+252,10jun2018,Clinic visit
+252,27sep2017,Clinic visit
+253,24jul2015,Vaccination
+253,22may2011,Clinic visit
+253,29jul2011,Clinic visit
+254,12apr2016,Lab test
+255,12nov2015,Lab test
+256,23jan2017,Clinic visit
+256,19aug2018,Vaccination
+256,30apr2020,Imaging
+256,25jul2018,Vaccination
+256,26jan2018,Vaccination
+257,18mar2016,Clinic visit
+258,01apr2016,Clinic visit
+259,15apr2015,Imaging
+260,16jun2012,Clinic visit
+261,24apr2015,Lab test
+262,22jan2015,Clinic visit
+263,22aug2016,Vaccination
+263,28apr2016,Vaccination
+263,15aug2015,Clinic visit
+263,28apr2016,Imaging
+263,27nov2014,Vaccination
+263,25may2017,Clinic visit
+264,11aug2015,Lab test
+264,13sep2015,Vaccination
+265,11oct2013,Clinic visit
+265,19feb2015,Lab test
+265,17nov2014,Clinic visit
+266,20jul2015,Vaccination
+267,08jan2018,Clinic visit
+267,06dec2015,Vaccination
+267,06jan2018,Imaging
+267,27oct2019,Lab test
+267,21mar2018,Lab test
+268,28feb2016,Imaging
+268,24apr2015,Vaccination
+269,19sep2021,Vaccination
+269,24mar2019,Imaging
+270,18may2011,Lab test
+271,31aug2016,Lab test
+272,24nov2016,Imaging
+273,04feb2015,Lab test
+274,31jan2015,Vaccination
+274,21feb2016,Lab test
+274,23sep2017,Imaging
+275,07apr2014,Lab test
+275,01oct2014,Imaging
+275,08dec2013,Imaging
+275,17apr2018,Clinic visit
+276,20feb2017,Imaging
+277,28feb2015,Imaging
+278,17mar2014,Imaging
+279,06jul2017,Imaging
+280,14jan2015,Imaging
+281,28may2016,Lab test
+282,17sep2012,Clinic visit
+283,23feb2020,Imaging
+284,29jun2012,Vaccination
+284,14mar2012,Lab test
+285,16apr2019,Lab test
+286,10jul2014,Clinic visit
+287,16jan2017,Clinic visit
+287,07sep2015,Imaging
+287,25jun2015,Clinic visit
+287,21oct2014,Clinic visit
+288,16nov2015,Imaging
+289,03oct2021,Vaccination
+290,31oct2016,Imaging
+291,26nov2014,Clinic visit
+292,25dec2012,Imaging
+292,12feb2013,Vaccination
+292,12jan2013,Imaging
+292,25feb2013,Clinic visit
+293,10feb2013,Lab test
+294,05nov2016,Clinic visit
+295,16jun2014,Lab test
+295,13jun2014,Vaccination
+295,02apr2014,Lab test
+296,31jul2010,Vaccination
+297,28feb2015,Vaccination
+298,31mar2013,Vaccination
+298,23mar2017,Clinic visit
+298,20nov2013,Imaging
+298,10jul2016,Clinic visit
+298,01jun2016,Vaccination
+299,19apr2018,Imaging
+300,03nov2014,Clinic visit
+301,28nov2011,Vaccination
+302,15jan2013,Imaging
+303,25may2012,Imaging
+304,08may2013,Vaccination
+305,28jun2017,Clinic visit
+305,28jun2016,Vaccination
+305,09jul2015,Lab test
+305,01jun2013,Clinic visit
+305,07apr2013,Imaging
+306,22aug2015,Vaccination
+306,29may2015,Imaging
+307,18feb2012,Lab test
+308,23jun2011,Vaccination
+309,30mar2019,Clinic visit
+309,05oct2013,Vaccination
+309,31aug2011,Vaccination
+309,15feb2014,Imaging
+309,02jul2016,Lab test
+310,18jan2015,Lab test
+310,10jan2016,Lab test
+310,11apr2016,Vaccination
+310,26dec2016,Vaccination
+310,04nov2020,Clinic visit
+310,02feb2016,Imaging
+311,07aug2013,Lab test
+311,07jan2014,Vaccination
+311,21feb2013,Vaccination
+311,06dec2011,Clinic visit
+311,20apr2013,Clinic visit
+312,07jan2015,Imaging
+312,17jul2014,Clinic visit
+312,27dec2014,Lab test
+312,16jan2015,Clinic visit
+312,27aug2014,Clinic visit
+312,25jun2015,Clinic visit
+313,15jun2019,Vaccination
+313,26may2013,Vaccination
+313,20jul2015,Lab test
+313,05nov2018,Vaccination
+313,20jun2017,Clinic visit
+313,01dec2017,Imaging
+314,18may2017,Imaging
+314,07aug2016,Clinic visit
+314,03apr2016,Vaccination
+314,25nov2015,Imaging
+314,03jul2015,Vaccination
+314,12aug2017,Vaccination
+315,14oct2017,Clinic visit
+315,03nov2019,Lab test
+315,27mar2018,Imaging
+316,21aug2016,Clinic visit
+316,11feb2019,Lab test
+316,06jun2019,Imaging
+317,28jan2017,Clinic visit
+317,26feb2015,Lab test
+317,25sep2013,Imaging
+318,23jun2012,Vaccination
+318,27dec2016,Imaging
+318,10jul2013,Clinic visit
+318,10oct2013,Vaccination
+318,16jan2010,Clinic visit
+318,29jan2010,Vaccination
+319,23may2012,Lab test
+319,07jul2012,Imaging
+319,03jul2012,Lab test
+320,14oct2012,Clinic visit
+321,12may2012,Imaging
+321,10mar2014,Clinic visit
+321,31oct2016,Lab test
+321,05nov2016,Lab test
+322,18jul2012,Lab test
+323,11feb2014,Lab test
+323,14dec2020,Vaccination
+323,15mar2021,Clinic visit
+323,04oct2013,Vaccination
+323,23apr2017,Imaging
+323,21may2020,Lab test
+324,19oct2012,Clinic visit
+325,13apr2016,Imaging
+326,25dec2010,Lab test
+327,20oct2016,Clinic visit
+328,02feb2013,Lab test
+329,17jul2013,Imaging
+329,14mar2014,Vaccination
+329,14nov2011,Imaging
+329,05feb2012,Vaccination
+329,22jun2012,Lab test
+330,13feb2020,Clinic visit
+330,10nov2017,Clinic visit
+330,30mar2019,Imaging
+330,06nov2014,Lab test
+330,10jul2017,Clinic visit
+331,10jul2011,Imaging
+332,23dec2012,Vaccination
+333,12dec2012,Vaccination
+333,08dec2012,Clinic visit
+333,25aug2010,Vaccination
+333,13may2012,Imaging
+333,18jun2012,Lab test
+334,29may2015,Imaging
+335,02aug2016,Lab test
+336,06apr2020,Vaccination
+337,27mar2013,Lab test
+338,12dec2019,Imaging
+339,18may2014,Imaging
+340,29dec2010,Imaging
+341,17dec2013,Imaging
+341,11apr2014,Vaccination
+342,23may2014,Imaging
+342,18apr2016,Clinic visit
+342,10dec2014,Imaging
+342,15jun2016,Lab test
+342,12may2013,Vaccination
+343,06mar2013,Vaccination
+343,23feb2015,Lab test
+343,17nov2017,Imaging
+343,20nov2017,Lab test
+344,10feb2015,Imaging
+345,27apr2019,Lab test
+346,13apr2015,Vaccination
+346,28apr2015,Lab test
+346,15feb2015,Imaging
+346,02apr2015,Clinic visit
+346,13apr2015,Vaccination
+346,18jul2015,Clinic visit
+347,26sep2012,Clinic visit
+348,10sep2015,Vaccination
+349,26apr2017,Vaccination
+350,05jan2014,Vaccination
+351,02jul2016,Vaccination
+352,08may2015,Imaging
+352,30jan2015,Clinic visit
+352,12feb2014,Lab test
+353,28may2011,Imaging
+353,25jun2011,Imaging
+354,23mar2022,Lab test
+355,22mar2017,Vaccination
+355,08oct2012,Lab test
+355,16aug2012,Lab test
+355,31dec2014,Clinic visit
+356,24jun2011,Clinic visit
+357,27apr2015,Lab test
+358,27aug2018,Lab test
+358,18nov2019,Clinic visit
+358,16aug2018,Clinic visit
+358,17aug2014,Lab test
+358,18aug2018,Imaging
+358,05jan2015,Lab test
+359,22nov2011,Imaging
+359,30oct2012,Lab test
+359,29may2011,Vaccination
+359,13mar2011,Imaging
+360,05may2016,Clinic visit
+361,07sep2012,Imaging
+362,20may2015,Lab test
+363,25apr2014,Lab test
+363,11jul2012,Imaging
+363,29may2012,Lab test
+363,15may2014,Vaccination
+363,04aug2013,Vaccination
+363,07oct2014,Vaccination
+364,31dec2022,Imaging
+364,10feb2019,Imaging
+365,27jul2010,Imaging
+365,10may2011,Lab test
+365,14sep2011,Clinic visit
+365,04nov2010,Imaging
+365,04aug2010,Lab test
+365,15sep2011,Lab test
+366,02aug2013,Lab test
+367,23oct2015,Vaccination
+368,14dec2016,Clinic visit
+368,03jul2015,Lab test
+368,12aug2015,Vaccination
+368,23jul2017,Vaccination
+369,24aug2014,Imaging
+369,26mar2016,Clinic visit
+369,16may2015,Imaging
+369,19aug2013,Clinic visit
+370,15may2011,Imaging
+371,23jun2013,Vaccination
+372,11apr2016,Imaging
+373,09may2012,Vaccination
+374,17mar2016,Vaccination
+374,09oct2017,Imaging
+374,01dec2015,Vaccination
+374,31aug2021,Vaccination
+375,28oct2015,Clinic visit
+375,21jan2016,Lab test
+375,01dec2017,Imaging
+375,25jul2015,Vaccination
+375,29nov2015,Vaccination
+376,27dec2010,Imaging
+376,18jan2015,Clinic visit
+376,14jan2012,Clinic visit
+376,28jun2013,Imaging
+377,10nov2016,Imaging
+378,22jun2015,Lab test
+379,29nov2017,Clinic visit
+379,11jan2021,Imaging
+379,22may2022,Imaging
+380,29nov2015,Vaccination
+380,10dec2016,Vaccination
+380,24dec2016,Clinic visit
+380,15apr2016,Vaccination
+380,10jan2016,Lab test
+381,21feb2012,Lab test
+382,26aug2012,Lab test
+382,26jan2014,Vaccination
+382,14sep2014,Vaccination
+383,28may2013,Clinic visit
+384,20feb2011,Clinic visit
+385,17dec2014,Lab test
+385,25aug2014,Clinic visit
+385,07jan2017,Lab test
+385,04may2017,Clinic visit
+385,07aug2014,Imaging
+386,10jul2014,Lab test
+387,25aug2016,Vaccination
+387,24jun2019,Lab test
+387,29aug2013,Clinic visit
+388,30nov2010,Lab test
+388,17jun2014,Imaging
+388,07apr2014,Imaging
+388,15may2014,Clinic visit
+388,06apr2015,Clinic visit
+389,29apr2019,Lab test
+389,24nov2017,Clinic visit
+390,13jan2014,Vaccination
+390,12jun2019,Imaging
+390,31may2021,Clinic visit
+390,24sep2015,Imaging
+390,09jan2015,Clinic visit
+390,03jan2014,Imaging
+391,16nov2018,Lab test
+392,16apr2012,Imaging
+393,10aug2013,Vaccination
+394,02feb2015,Clinic visit
+395,10may2015,Vaccination
+396,15oct2017,Clinic visit
+396,26jan2015,Vaccination
+396,20feb2015,Imaging
+396,12sep2016,Imaging
+396,14jan2018,Lab test
+397,19oct2010,Vaccination
+398,18mar2018,Lab test
+399,14aug2013,Clinic visit
+399,06nov2013,Lab test
+399,10feb2014,Imaging
+399,22may2011,Imaging
+400,07mar2014,Clinic visit
+400,08jan2015,Clinic visit
+400,14oct2012,Imaging
+400,22mar2017,Lab test
+400,25jul2013,Clinic visit
+400,17jan2014,Clinic visit
+401,29aug2016,Vaccination
+402,16sep2014,Lab test
+403,14mar2014,Vaccination
+404,13dec2015,Imaging
+405,17mar2012,Clinic visit
+405,07apr2011,Lab test
+406,23feb2018,Imaging
+406,02nov2016,Imaging
+407,16jan2018,Vaccination
+407,20oct2018,Vaccination
+408,13may2013,Clinic visit
+408,29may2013,Clinic visit
+408,30nov2015,Imaging
+409,01apr2012,Imaging
+410,23feb2021,Imaging
+411,12jul2012,Imaging
+412,29nov2015,Clinic visit
+413,02sep2015,Vaccination
+414,29aug2014,Clinic visit
+415,15may2016,Imaging
+416,16nov2013,Vaccination
+417,26jul2015,Lab test
+418,04jan2015,Clinic visit
+418,02apr2015,Imaging
+418,21dec2013,Lab test
+419,03aug2012,Imaging
+419,22dec2013,Clinic visit
+419,20jan2014,Clinic visit
+419,22nov2014,Vaccination
+420,25nov2013,Vaccination
+421,29jun2016,Imaging
+421,17jun2016,Imaging
+421,07jun2014,Clinic visit
+422,03apr2020,Clinic visit
+422,05sep2018,Imaging
+422,29mar2020,Imaging
+422,19jan2014,Imaging
+422,14jun2012,Lab test
+422,27oct2020,Lab test
+423,03mar2010,Lab test
+424,30may2017,Lab test
+424,02oct2015,Vaccination
+424,13jun2017,Imaging
+424,14oct2016,Imaging
+424,21aug2015,Clinic visit
+424,10may2016,Vaccination
+425,08dec2013,Clinic visit
+425,03mar2013,Lab test
+425,02jul2013,Imaging
+426,14dec2021,Imaging
+427,04feb2014,Vaccination
+428,28nov2017,Clinic visit
+429,10mar2016,Imaging
+430,08aug2022,Clinic visit
+431,13jun2012,Clinic visit
+432,28feb2019,Lab test
+433,17jan2015,Clinic visit
+434,16mar2016,Lab test
+435,13dec2015,Lab test
+435,09oct2017,Imaging
+436,08mar2018,Vaccination
+437,31jan2013,Lab test
+437,16feb2013,Imaging
+437,01sep2012,Clinic visit
+437,18jun2012,Lab test
+438,17nov2012,Imaging
+439,14may2019,Imaging
+440,25jun2016,Vaccination
+441,18jul2012,Vaccination
+442,13apr2012,Vaccination
+443,12jul2011,Vaccination
+443,05oct2011,Lab test
+443,26jun2012,Clinic visit
+443,15mar2012,Clinic visit
+443,11jan2013,Vaccination
+443,16aug2013,Lab test
+444,24apr2015,Lab test
+444,06oct2015,Vaccination
+444,01mar2015,Clinic visit
+444,01jul2015,Imaging
+445,05nov2010,Lab test
+446,07feb2016,Vaccination
+447,09may2015,Imaging
+447,16dec2013,Vaccination
+448,10nov2015,Clinic visit
+448,02jun2013,Vaccination
+449,07aug2013,Vaccination
+450,12feb2015,Imaging
+451,26jun2014,Vaccination
+452,12apr2015,Vaccination
+453,14sep2021,Imaging
+454,28mar2015,Clinic visit
+455,13jan2013,Lab test
+456,06sep2019,Lab test
+456,03aug2016,Clinic visit
+456,22may2014,Vaccination
+456,15mar2014,Clinic visit
+456,17aug2014,Vaccination
+457,06apr2012,Imaging
+457,23sep2011,Imaging
+457,02oct2011,Lab test
+458,13jun2013,Clinic visit
+458,09dec2011,Lab test
+458,10sep2012,Clinic visit
+458,19feb2012,Clinic visit
+459,27oct2023,Lab test
+460,24may2014,Vaccination
+461,08feb2019,Imaging
+462,13mar2011,Lab test
+462,12jun2014,Imaging
+462,04jul2015,Imaging
+463,19sep2014,Clinic visit
+463,21sep2018,Lab test
+464,03oct2012,Clinic visit
+464,22mar2012,Clinic visit
+465,30sep2014,Lab test
+465,05dec2012,Lab test
+465,12nov2014,Lab test
+465,09mar2014,Lab test
+465,26jun2013,Clinic visit
+465,29jun2014,Vaccination
+466,09may2017,Vaccination
+467,04apr2018,Clinic visit
+467,14aug2018,Vaccination
+467,25apr2015,Lab test
+467,24feb2018,Imaging
+468,01jan2014,Vaccination
+469,03jun2020,Vaccination
+469,11jan2019,Clinic visit
+469,02jan2021,Imaging
+469,20nov2020,Imaging
+469,03jun2016,Vaccination
+470,12jun2013,Clinic visit
+471,18dec2015,Imaging
+472,01jan2015,Imaging
+473,12oct2011,Lab test
+473,31jan2014,Lab test
+473,10may2012,Imaging
+473,10jan2013,Vaccination
+473,15oct2013,Imaging
+473,19jan2013,Imaging
+474,09mar2015,Vaccination
+475,09sep2010,Lab test
+476,01nov2019,Imaging
+476,31mar2019,Clinic visit
+476,23jun2015,Imaging
+476,14mar2019,Clinic visit
+476,29aug2015,Vaccination
+476,30sep2019,Vaccination
+477,18mar2011,Imaging
+478,01may2015,Clinic visit
+478,11apr2011,Vaccination
+478,08nov2013,Vaccination
+478,18may2012,Vaccination
+478,07sep2012,Lab test
+479,05feb2015,Clinic visit
+480,10dec2019,Imaging
+480,02dec2016,Vaccination
+481,01jan2014,Clinic visit
+481,26jan2015,Lab test
+481,02dec2014,Vaccination
+481,29jan2014,Imaging
+481,14oct2014,Imaging
+481,28jan2015,Vaccination
+482,25oct2015,Vaccination
+483,29nov2014,Vaccination
+484,17jan2022,Clinic visit
+485,13feb2013,Lab test
+485,12jul2012,Clinic visit
+485,17apr2013,Imaging
+486,01may2013,Lab test
+486,12jun2014,Clinic visit
+486,02oct2013,Vaccination
+486,04jan2014,Vaccination
+487,23jan2015,Vaccination
+487,09may2014,Clinic visit
+487,05oct2013,Clinic visit
+487,27sep2014,Lab test
+487,17jan2013,Imaging
+488,28oct2018,Clinic visit
+488,13dec2015,Vaccination
+488,18jan2018,Clinic visit
+488,14nov2017,Imaging
+488,30jul2015,Lab test
+488,18jun2016,Lab test
+489,28oct2014,Lab test
+490,15sep2017,Lab test
+490,18apr2016,Clinic visit
+490,03jan2016,Imaging
+490,23aug2016,Vaccination
+490,06dec2020,Imaging
+490,11mar2017,Lab test
+491,16oct2014,Imaging
+492,09dec2010,Lab test
+492,01jan2012,Vaccination
+492,11jan2017,Vaccination
+492,14dec2014,Clinic visit
+492,15feb2016,Lab test
+492,10feb2016,Vaccination
+493,23jan2017,Lab test
+493,03apr2014,Vaccination
+493,06jul2018,Clinic visit
+493,21oct2016,Imaging
+493,19apr2015,Vaccination
+494,08nov2010,Imaging
+494,04may2011,Lab test
+494,26nov2010,Vaccination
+494,10dec2010,Clinic visit
+494,19jan2011,Vaccination
+494,06may2011,Imaging
+495,27may2016,Vaccination
+495,13feb2015,Imaging
+495,22apr2015,Lab test
+495,04jul2017,Imaging
+496,27jul2013,Clinic visit
+496,08may2014,Imaging
+497,09mar2016,Lab test
+498,07may2015,Clinic visit
+499,23jan2014,Clinic visit
+500,20apr2014,Vaccination
+500,28may2015,Vaccination
+500,11nov2012,Clinic visit
+500,10mar2015,Clinic visit
+500,09feb2014,Vaccination
+501,10nov2014,Lab test
+501,14nov2012,Clinic visit
+501,06oct2012,Vaccination
+501,05jan2015,Imaging
+502,13may2013,Vaccination
+503,24mar2016,Lab test
+504,17dec2012,Clinic visit
+505,01aug2015,Clinic visit
+505,20may2016,Vaccination
+505,24nov2015,Imaging
+505,24aug2022,Vaccination
+505,27feb2020,Lab test
+506,03jul2013,Clinic visit
+506,18jan2017,Clinic visit
+506,08may2013,Clinic visit
+506,23apr2015,Imaging
+506,02jun2014,Vaccination
+507,13sep2021,Imaging
+507,19jan2018,Lab test
+507,04jul2016,Imaging
+507,06jun2019,Clinic visit
+507,21jan2023,Imaging
+507,26oct2018,Clinic visit
+508,31jan2016,Clinic visit
+509,11oct2015,Vaccination
+509,23mar2017,Imaging
+509,10aug2014,Imaging
+510,31aug2011,Lab test
+511,20sep2015,Clinic visit
+512,03aug2011,Vaccination
+512,19may2011,Clinic visit
+512,09mar2010,Clinic visit
+512,05dec2010,Lab test
+512,24feb2014,Imaging
+513,09may2014,Vaccination
+514,23sep2015,Lab test
+515,13apr2018,Imaging
+515,04nov2015,Lab test
+515,30jan2019,Vaccination
+515,23aug2019,Clinic visit
+515,16dec2014,Lab test
+515,18may2017,Lab test
+516,09feb2012,Vaccination
+516,23jul2011,Clinic visit
+517,04aug2011,Vaccination
+518,20oct2013,Imaging
+518,04may2014,Lab test
+518,15nov2013,Imaging
+518,01jan2013,Vaccination
+518,11dec2013,Lab test
+518,10jan2013,Imaging
+519,08may2019,Clinic visit
+519,30jul2015,Vaccination
+520,19oct2017,Imaging
+521,15feb2017,Clinic visit
+521,15feb2019,Vaccination
+521,29nov2016,Lab test
+521,07aug2016,Vaccination
+521,30aug2017,Lab test
+522,23mar2014,Clinic visit
+522,05oct2012,Vaccination
+522,19jul2011,Vaccination
+523,16mar2015,Clinic visit
+524,14jan2020,Clinic visit
+525,30mar2019,Clinic visit
+526,30jun2012,Vaccination
+526,13aug2017,Vaccination
+526,17sep2012,Imaging
+527,21jan2013,Lab test
+528,16may2012,Lab test
+529,29aug2014,Clinic visit
+529,14sep2017,Lab test
+529,10jun2013,Vaccination
+529,31oct2014,Vaccination
+529,22apr2013,Imaging
+529,25oct2016,Clinic visit
+530,22may2016,Lab test
+530,10mar2015,Lab test
+530,07sep2012,Lab test
+530,26jul2017,Lab test
+530,29may2015,Imaging
+531,15jan2017,Imaging
+532,27nov2014,Lab test
+532,04jan2016,Vaccination
+533,19mar2017,Vaccination
+534,11jul2017,Imaging
+534,26oct2013,Vaccination
+535,16jan2015,Lab test
+536,14jun2018,Clinic visit
+537,24apr2017,Imaging
+538,22jul2012,Clinic visit
+539,04jul2015,Lab test
+539,02jun2017,Imaging
+539,15aug2016,Vaccination
+539,15aug2016,Clinic visit
+540,07dec2013,Vaccination
+541,18may2011,Vaccination
+542,29oct2014,Clinic visit
+542,10apr2014,Lab test
+542,07sep2014,Clinic visit
+542,27jul2014,Imaging
+542,11nov2013,Clinic visit
+542,24oct2015,Clinic visit
+543,26nov2012,Vaccination
+544,22apr2016,Imaging
+544,06apr2018,Imaging
+544,27jun2010,Clinic visit
+544,30jun2016,Lab test
+545,04may2014,Clinic visit
+546,30dec2011,Vaccination
+546,14aug2011,Lab test
+546,28aug2011,Vaccination
+546,26may2013,Lab test
+546,12jan2011,Clinic visit
+547,03feb2013,Imaging
+548,04sep2013,Clinic visit
+548,08oct2015,Clinic visit
+548,10dec2010,Clinic visit
+548,25nov2015,Imaging
+549,30dec2013,Lab test
+549,13mar2013,Lab test
+549,17may2013,Clinic visit
+550,02mar2014,Imaging
+551,10oct2012,Imaging
+552,11jan2021,Lab test
+552,27dec2017,Imaging
+553,20oct2017,Lab test
+553,13dec2019,Lab test
+553,09sep2020,Lab test
+553,15nov2017,Vaccination
+553,28sep2019,Lab test
+553,08dec2017,Imaging
+554,13jan2013,Vaccination
+555,18dec2017,Imaging
+556,12nov2011,Clinic visit
+556,19jun2010,Lab test
+556,26oct2011,Imaging
+556,19sep2011,Clinic visit
+556,30jun2011,Clinic visit
+556,11jul2011,Lab test
+557,10jan2018,Imaging
+558,24mar2013,Vaccination
+559,11jun2015,Lab test
+560,14sep2013,Clinic visit
+560,02oct2014,Vaccination
+561,12jun2014,Lab test
+561,10jul2014,Lab test
+561,23jun2014,Imaging
+561,14aug2014,Lab test
+561,18apr2014,Clinic visit
+561,29apr2014,Lab test
+562,20jul2013,Imaging
+562,27mar2014,Vaccination
+562,05aug2013,Imaging
+563,04dec2017,Clinic visit
+563,18dec2017,Lab test
+563,24jan2012,Lab test
+564,04oct2014,Vaccination
+564,06jul2015,Clinic visit
+564,19oct2014,Lab test
+564,27feb2015,Vaccination
+565,12oct2012,Lab test
+566,24may2012,Lab test
+567,25nov2012,Vaccination
+568,01nov2015,Imaging
+569,27oct2017,Lab test
+570,19feb2018,Lab test
+571,16nov2019,Vaccination
+572,21nov2011,Imaging
+573,24jul2019,Imaging
+573,03feb2017,Imaging
+573,19sep2014,Clinic visit
+573,20apr2019,Lab test
+574,24mar2018,Lab test
+574,04dec2014,Vaccination
+574,08aug2017,Imaging
+574,15mar2018,Clinic visit
+575,20may2013,Vaccination
+576,26dec2014,Clinic visit
+576,09oct2014,Clinic visit
+577,02may2014,Vaccination
+578,14mar2013,Vaccination
+579,04jan2020,Lab test
+580,28mar2013,Clinic visit
+581,01nov2013,Vaccination
+582,08jul2014,Vaccination
+583,19mar2015,Lab test
+584,07oct2014,Clinic visit
+584,15feb2015,Clinic visit
+584,08feb2015,Clinic visit
+584,29oct2014,Lab test
+584,05dec2015,Vaccination
+584,15sep2015,Imaging
+585,13dec2015,Lab test
+585,15jul2014,Clinic visit
+585,05feb2017,Imaging
+586,22feb2015,Clinic visit
+587,14nov2018,Lab test
+587,01jun2023,Vaccination
+587,14mar2015,Lab test
+587,23jun2021,Lab test
+588,19sep2022,Lab test
+589,17sep2016,Vaccination
+589,28apr2017,Clinic visit
+589,27mar2015,Clinic visit
+589,04mar2015,Lab test
+590,07oct2014,Lab test
+591,03jan2015,Lab test
+591,04dec2013,Clinic visit
+592,13nov2014,Clinic visit
+593,20sep2017,Clinic visit
+594,06apr2016,Vaccination
+594,07aug2017,Lab test
+594,01nov2016,Imaging
+594,12aug2010,Clinic visit
+594,26may2013,Lab test
+594,11apr2011,Lab test
+595,12feb2015,Imaging
+596,07nov2011,Clinic visit
+597,21mar2017,Clinic visit
+598,28dec2011,Imaging
+599,09may2016,Lab test
+600,29sep2012,Clinic visit
+600,20sep2014,Lab test
+600,05feb2016,Lab test
+600,25jul2016,Clinic visit
+601,07may2021,Lab test
+602,12may2011,Imaging
+602,10feb2011,Vaccination
+602,27jul2011,Vaccination
+602,30aug2011,Lab test
+602,11sep2011,Lab test
+603,15apr2015,Vaccination
+604,27may2016,Clinic visit
+604,10mar2014,Vaccination
+604,31may2012,Lab test
+604,25jun2015,Lab test
+605,16apr2014,Vaccination
+606,19jan2016,Lab test
+606,11jan2017,Imaging
+607,17dec2014,Imaging
+607,24jan2012,Imaging
+607,12jul2015,Imaging
+607,13sep2015,Imaging
+608,29jun2017,Clinic visit
+609,23sep2014,Vaccination
+610,23oct2015,Vaccination
+611,09jan2019,Clinic visit
+611,23dec2016,Lab test
+611,27apr2015,Lab test
+611,07nov2022,Clinic visit
+612,27mar2019,Lab test
+613,11may2014,Vaccination
+614,01sep2016,Vaccination
+615,20jul2013,Vaccination
+616,25apr2014,Lab test
+616,03dec2013,Imaging
+617,15nov2015,Lab test
+618,13jan2015,Clinic visit
+619,18may2017,Vaccination
+619,08jul2012,Lab test
+619,30jul2018,Imaging
+619,29jun2017,Vaccination
+619,01nov2014,Clinic visit
+619,17sep2015,Vaccination
+620,04jan2016,Imaging
+620,18sep2016,Imaging
+621,01nov2013,Clinic visit
+622,16jan2020,Vaccination
+623,17jul2012,Clinic visit
+623,20jul2012,Lab test
+624,14jun2014,Vaccination
+625,28mar2018,Vaccination
+625,25mar2016,Imaging
+625,25jan2017,Lab test
+625,23feb2014,Lab test
+625,22aug2019,Clinic visit
+625,03jan2018,Imaging
+626,29mar2012,Clinic visit
+626,12aug2011,Vaccination
+626,28jan2011,Imaging
+626,21nov2010,Vaccination
+627,12jul2013,Lab test
+628,21mar2011,Lab test
+628,08feb2011,Vaccination
+629,27jun2015,Lab test
+630,13oct2021,Clinic visit
+630,04sep2020,Imaging
+630,24sep2021,Imaging
+631,25may2012,Clinic visit
+631,13nov2010,Lab test
+631,19apr2013,Clinic visit
+631,16sep2010,Vaccination
+631,16may2013,Clinic visit
+632,27apr2016,Clinic visit
+632,06jun2023,Vaccination
+632,24jul2022,Vaccination
+632,25jul2020,Lab test
+633,08nov2010,Clinic visit
+633,23dec2011,Imaging
+633,08jul2010,Vaccination
+633,07jun2010,Lab test
+634,23jan2016,Vaccination
+634,22dec2017,Clinic visit
+634,03mar2017,Vaccination
+634,30dec2013,Lab test
+635,02apr2012,Lab test
+635,06nov2011,Vaccination
+635,16jul2010,Clinic visit
+636,20mar2013,Vaccination
+636,04dec2019,Clinic visit
+637,11oct2013,Vaccination
+638,20dec2017,Imaging
+639,11jan2015,Imaging
+640,01may2015,Imaging
+641,08apr2015,Lab test
+641,01may2015,Lab test
+641,01jun2015,Imaging
+641,12dec2014,Imaging
+641,09dec2014,Lab test
+642,26apr2015,Lab test
+643,27nov2010,Vaccination
+644,21oct2010,Imaging
+645,28feb2014,Lab test
+645,25jun2015,Lab test
+645,18dec2012,Imaging
+645,27nov2013,Clinic visit
+645,25jan2017,Imaging
+645,08jun2016,Lab test
+646,20aug2013,Imaging
+647,27apr2013,Vaccination
+647,06aug2012,Clinic visit
+647,21aug2012,Lab test
+648,06nov2014,Imaging
+648,21aug2014,Lab test
+648,01jun2016,Lab test
+648,12jan2018,Vaccination
+649,18may2012,Clinic visit
+649,02may2012,Imaging
+649,20jul2012,Lab test
+649,12jul2013,Lab test
+649,23apr2013,Lab test
+650,17jan2012,Vaccination
+651,27may2012,Lab test
+652,02jun2013,Vaccination
+653,31oct2011,Vaccination
+654,11jan2014,Lab test
+654,20jan2013,Lab test
+654,23may2013,Imaging
+654,13mar2013,Lab test
+654,27may2013,Imaging
+654,13nov2013,Imaging
+655,31jul2014,Imaging
+656,10jun2014,Lab test
+656,10jan2014,Lab test
+656,23apr2016,Clinic visit
+657,27may2015,Clinic visit
+657,21apr2014,Lab test
+657,18oct2015,Imaging
+657,24dec2014,Lab test
+658,22feb2015,Clinic visit
+659,04apr2019,Vaccination
+660,22aug2015,Clinic visit
+660,04nov2011,Vaccination
+660,13feb2015,Imaging
+660,30jul2014,Lab test
+661,20jan2011,Lab test
+662,21oct2011,Vaccination
+663,12jan2015,Vaccination
+663,16apr2019,Imaging
+663,27aug2014,Imaging
+664,26jun2016,Lab test
+665,21nov2012,Clinic visit
+666,01dec2016,Clinic visit
+667,04apr2014,Clinic visit
+668,12dec2010,Vaccination
+668,17aug2011,Vaccination
+669,05apr2012,Imaging
+669,28dec2010,Imaging
+669,29jun2010,Clinic visit
+669,27dec2010,Lab test
+669,04apr2011,Vaccination
+669,31dec2010,Clinic visit
+670,20jul2017,Clinic visit
+670,27apr2014,Lab test
+670,17mar2017,Lab test
+670,25oct2014,Lab test
+670,30aug2017,Imaging
+670,14sep2014,Imaging
+671,08nov2015,Imaging
+671,19nov2016,Imaging
+671,25mar2016,Vaccination
+671,31aug2014,Lab test
+671,26nov2013,Clinic visit
+672,06oct2015,Vaccination
+672,22feb2019,Clinic visit
+672,10jan2022,Vaccination
+672,29may2019,Imaging
+673,17jul2018,Imaging
+674,02mar2015,Lab test
+674,05aug2020,Imaging
+674,26mar2020,Lab test
+674,30jul2019,Vaccination
+674,10mar2017,Imaging
+674,29dec2017,Lab test
+675,03jul2011,Clinic visit
+676,01apr2011,Lab test
+676,02jul2018,Vaccination
+676,19may2013,Imaging
+676,16apr2018,Clinic visit
+677,22mar2017,Vaccination
+678,28aug2013,Lab test
+679,09jun2022,Lab test
+680,11mar2014,Lab test
+680,11jul2014,Vaccination
+680,27nov2015,Lab test
+681,27may2013,Clinic visit
+682,05mar2015,Clinic visit
+682,16may2018,Clinic visit
+682,12dec2014,Vaccination
+682,10jun2016,Clinic visit
+682,19oct2019,Lab test
+682,11mar2015,Imaging
+683,04nov2017,Clinic visit
+683,20nov2015,Imaging
+683,28jun2020,Clinic visit
+683,17mar2021,Clinic visit
+684,29may2015,Vaccination
+685,09jul2015,Lab test
+686,18jan2015,Clinic visit
+687,10mar2015,Lab test
+687,06dec2013,Imaging
+687,18nov2014,Vaccination
+687,02feb2015,Clinic visit
+688,29jun2011,Vaccination
+689,26aug2017,Lab test
+690,11dec2017,Imaging
+691,10nov2013,Lab test
+692,12nov2015,Vaccination
+693,10dec2015,Lab test
+694,21jul2015,Imaging
+695,17sep2012,Vaccination
+696,07apr2021,Vaccination
+697,08nov2013,Vaccination
+698,21apr2013,Lab test
+698,15dec2010,Vaccination
+698,23apr2011,Clinic visit
+698,27sep2013,Lab test
+698,15jun2015,Clinic visit
+699,16sep2013,Clinic visit
+700,13may2012,Clinic visit
+700,10jul2012,Imaging
+701,01dec2018,Lab test
+701,23sep2017,Clinic visit
+701,11dec2013,Vaccination
+701,10jul2019,Clinic visit
+701,12may2015,Lab test
+701,06jan2017,Vaccination
+702,02jun2017,Clinic visit
+702,27mar2021,Clinic visit
+702,15nov2017,Vaccination
+702,09mar2021,Lab test
+702,12jan2017,Imaging
+703,06mar2016,Lab test
+703,17jan2014,Vaccination
+704,07mar2015,Clinic visit
+704,27sep2018,Imaging
+704,03jun2016,Lab test
+704,09oct2016,Vaccination
+704,10sep2017,Imaging
+704,04jun2017,Imaging
+705,19may2015,Clinic visit
+705,31aug2014,Imaging
+705,18jan2015,Vaccination
+705,20nov2015,Vaccination
+705,01mar2016,Vaccination
+705,13feb2016,Lab test
+706,13nov2012,Vaccination
+706,24feb2014,Vaccination
+706,28mar2013,Lab test
+706,12feb2014,Clinic visit
+706,30may2015,Lab test
+707,17may2015,Lab test
+707,27feb2019,Lab test
+707,19jul2018,Clinic visit
+707,02aug2015,Vaccination
+708,22dec2012,Clinic visit
+709,27mar2016,Imaging
+710,03apr2016,Vaccination
+710,22apr2014,Vaccination
+710,17may2015,Clinic visit
+711,27apr2015,Imaging
+711,13apr2020,Lab test
+711,21jun2014,Clinic visit
+711,17sep2019,Clinic visit
+712,20mar2016,Imaging
+712,13aug2015,Vaccination
+712,24aug2016,Lab test
+712,05feb2015,Clinic visit
+712,03jul2016,Vaccination
+713,29dec2014,Vaccination
+714,02dec2013,Clinic visit
+715,11jun2016,Clinic visit
+715,26nov2017,Imaging
+716,22oct2014,Clinic visit
+717,09nov2010,Vaccination
+718,28oct2014,Imaging
+718,25jun2015,Clinic visit
+719,03oct2013,Imaging
+720,26nov2016,Vaccination
+721,29mar2017,Clinic visit
+722,18may2017,Clinic visit
+723,20mar2012,Vaccination
+724,30jun2015,Lab test
+725,05sep2011,Imaging
+726,14may2017,Lab test
+726,01jun2017,Clinic visit
+726,17feb2016,Imaging
+727,13jan2013,Lab test
+727,24mar2012,Lab test
+727,07mar2013,Clinic visit
+727,26jul2012,Clinic visit
+728,21apr2013,Lab test
+729,27aug2018,Clinic visit
+730,01may2011,Imaging
+730,24apr2012,Imaging
+730,01oct2011,Vaccination
+731,13sep2015,Imaging
+731,01dec2012,Vaccination
+731,27dec2010,Vaccination
+732,12mar2021,Imaging
+733,17jan2013,Imaging
+734,26mar2011,Imaging
+735,02dec2014,Imaging
+736,05feb2012,Clinic visit
+737,15apr2014,Vaccination
+737,21dec2015,Vaccination
+737,18sep2011,Imaging
+737,17apr2013,Lab test
+738,16sep2011,Imaging
+738,04sep2011,Vaccination
+738,24apr2012,Lab test
+738,02jun2012,Clinic visit
+738,04aug2011,Clinic visit
+739,23jun2014,Clinic visit
+740,11apr2012,Clinic visit
+740,23may2014,Imaging
+740,04jan2013,Lab test
+740,27jan2013,Lab test
+740,20dec2014,Vaccination
+740,09jul2015,Lab test
+741,27jul2012,Vaccination
+741,20jun2013,Imaging
+742,27jun2014,Imaging
+742,19feb2013,Lab test
+742,09may2015,Imaging
+742,10mar2020,Vaccination
+742,23may2017,Clinic visit
+742,04oct2015,Lab test
+743,30aug2016,Clinic visit
+743,24nov2013,Clinic visit
+744,16may2012,Clinic visit
+744,11nov2015,Vaccination
+745,07jul2010,Lab test
+745,15jul2010,Imaging
+745,23may2010,Lab test
+745,06jun2010,Imaging
+745,19jul2010,Imaging
+745,07jun2010,Imaging
+746,09feb2015,Clinic visit
+746,04sep2014,Lab test
+746,27mar2015,Clinic visit
+746,30mar2015,Imaging
+746,06sep2014,Clinic visit
+747,25dec2014,Imaging
+748,18oct2015,Clinic visit
+749,13sep2014,Imaging
+750,13nov2014,Lab test
+750,14jul2016,Lab test
+750,07jan2016,Lab test
+750,03may2017,Vaccination
+750,23nov2016,Imaging
+750,05jan2015,Lab test
+751,22jun2016,Lab test
+752,12aug2013,Clinic visit
+753,28apr2017,Lab test
+753,30mar2013,Vaccination
+753,28nov2018,Vaccination
+753,27jul2012,Clinic visit
+753,28mar2013,Clinic visit
+754,28jul2016,Lab test
+755,06nov2010,Vaccination
+756,26jan2016,Lab test
+757,01jan2013,Vaccination
+758,30jun2018,Vaccination
+759,16dec2013,Vaccination
+760,09feb2013,Lab test
+761,18jul2013,Clinic visit
+762,02jan2014,Imaging
+763,09sep2013,Lab test
+764,21jan2014,Lab test
+765,25jun2015,Clinic visit
+765,03feb2015,Lab test
+765,06nov2016,Vaccination
+765,19jan2014,Lab test
+765,18jun2017,Vaccination
+765,17oct2018,Lab test
+766,31aug2013,Imaging
+766,10may2013,Clinic visit
+766,21oct2014,Lab test
+766,25jun2013,Imaging
+766,07jun2015,Clinic visit
+767,08sep2013,Imaging
+768,08sep2012,Imaging
+769,26jan2015,Clinic visit
+770,21jan2013,Lab test
+770,02nov2013,Vaccination
+771,13sep2012,Lab test
+771,18may2014,Lab test
+771,23sep2011,Imaging
+771,23oct2011,Vaccination
+771,22oct2013,Imaging
+772,19apr2013,Vaccination
+772,14nov2017,Imaging
+772,20nov2014,Imaging
+772,17dec2014,Vaccination
+772,11aug2014,Lab test
+772,06oct2016,Clinic visit
+773,14may2015,Clinic visit
+773,03apr2015,Imaging
+773,13apr2015,Clinic visit
+774,05jul2017,Lab test
+774,14may2012,Clinic visit
+774,14nov2015,Imaging
+774,31may2017,Vaccination
+774,19sep2013,Lab test
+775,15feb2013,Vaccination
+776,31mar2014,Imaging
+777,16mar2019,Clinic visit
+777,04oct2017,Vaccination
+777,10aug2019,Imaging
+778,13dec2016,Clinic visit
+778,13nov2016,Clinic visit
+778,25nov2012,Lab test
+778,19dec2011,Vaccination
+779,23jan2015,Lab test
+780,07dec2015,Clinic visit
+780,15may2015,Lab test
+780,18nov2015,Vaccination
+780,01dec2011,Vaccination
+780,05sep2016,Clinic visit
+781,30apr2015,Lab test
+781,17oct2013,Lab test
+782,02jan2012,Vaccination
+783,06oct2013,Imaging
+783,08dec2013,Vaccination
+783,24jul2013,Imaging
+783,22jun2016,Imaging
+783,19aug2013,Vaccination
+783,25jun2011,Imaging
+784,18nov2011,Clinic visit
+784,22jan2011,Imaging
+784,20may2011,Vaccination
+784,07mar2011,Clinic visit
+784,14mar2011,Clinic visit
+784,13apr2011,Clinic visit
+785,22nov2015,Imaging
+785,30mar2015,Lab test
+785,11may2020,Imaging
+785,16jan2017,Vaccination
+785,08aug2019,Lab test
+785,15aug2015,Imaging
+786,14aug2018,Vaccination
+787,10aug2013,Vaccination
+787,03jun2013,Lab test
+787,04apr2014,Imaging
+787,28mar2010,Vaccination
+787,08apr2015,Vaccination
+787,02jul2012,Imaging
+788,29feb2012,Imaging
+789,11jun2013,Clinic visit
+790,09dec2013,Clinic visit
+790,01aug2013,Vaccination
+790,12jul2010,Vaccination
+790,22jul2015,Vaccination
+791,27jun2020,Imaging
+792,05apr2014,Lab test
+793,31mar2013,Vaccination
+793,14jul2012,Vaccination
+794,25jan2015,Clinic visit
+795,18apr2011,Clinic visit
+796,12jun2011,Imaging
+797,15feb2018,Imaging
+798,26jan2012,Clinic visit
+799,10jun2016,Vaccination
+800,19aug2018,Imaging
+801,17mar2012,Vaccination
+801,12mar2013,Clinic visit
+801,02dec2011,Imaging
+802,09oct2017,Imaging
+803,11jul2015,Clinic visit
+804,03jan2014,Vaccination
+805,01nov2021,Imaging
+805,04jun2020,Vaccination
+805,20jan2014,Imaging
+805,17jan2020,Vaccination
+805,13may2015,Clinic visit
+806,01nov2019,Lab test
+806,02may2013,Vaccination
+806,12nov2019,Lab test
+806,10dec2014,Lab test
+806,29sep2018,Imaging
+806,10sep2015,Clinic visit
+807,01mar2015,Imaging
+808,19nov2018,Lab test
+809,04dec2011,Imaging
+809,02jan2012,Imaging
+809,07dec2010,Vaccination
+810,13may2013,Lab test
+811,03mar2015,Vaccination
+812,01apr2013,Clinic visit
+813,14nov2013,Clinic visit
+813,03nov2013,Imaging
+813,04aug2012,Clinic visit
+813,14jan2012,Imaging
+813,06nov2012,Imaging
+814,27jan2017,Lab test
+815,02jan2022,Lab test
+816,30jul2016,Clinic visit
+817,17jul2014,Vaccination
+817,25mar2014,Imaging
+818,08apr2016,Clinic visit
+819,25nov2018,Clinic visit
+820,26nov2012,Lab test
+821,10apr2014,Imaging
+821,17nov2014,Lab test
+822,11apr2014,Clinic visit
+823,27feb2019,Lab test
+824,24jun2010,Lab test
+825,27oct2013,Vaccination
+826,27apr2013,Clinic visit
+827,17may2015,Lab test
+827,09dec2014,Clinic visit
+827,22jan2015,Vaccination
+827,09aug2015,Imaging
+827,10nov2015,Lab test
+828,19feb2016,Vaccination
+828,13mar2015,Lab test
+828,15may2015,Lab test
+828,11jan2013,Imaging
+828,19dec2016,Clinic visit
+829,17aug2015,Imaging
+830,12nov2017,Lab test
+830,29apr2017,Imaging
+830,16feb2014,Lab test
+830,03jan2016,Vaccination
+830,23oct2013,Clinic visit
+830,30jul2014,Clinic visit
+831,22may2016,Clinic visit
+831,03jul2013,Lab test
+831,17jun2013,Clinic visit
+832,10sep2018,Lab test
+832,08dec2015,Clinic visit
+832,04sep2010,Clinic visit
+832,28mar2017,Imaging
+832,10jun2018,Imaging
+832,23aug2017,Lab test
+833,18mar2015,Vaccination
+834,03feb2015,Clinic visit
+835,23jul2014,Lab test
+835,10oct2014,Imaging
+835,18oct2013,Imaging
+835,25dec2011,Imaging
+835,29oct2012,Clinic visit
+835,03nov2012,Clinic visit
+836,24jul2020,Imaging
+837,15apr2012,Imaging
+838,09oct2019,Clinic visit
+839,05mar2011,Clinic visit
+840,08mar2019,Vaccination
+840,28nov2015,Imaging
+840,05may2016,Lab test
+840,09nov2018,Vaccination
+840,17nov2018,Clinic visit
+840,15nov2019,Imaging
+841,11nov2011,Imaging
+842,29nov2017,Imaging
+842,08dec2012,Clinic visit
+843,19sep2015,Imaging
+843,04aug2014,Imaging
+844,13aug2013,Imaging
+844,29sep2013,Imaging
+844,23feb2014,Clinic visit
+845,25may2012,Lab test
+845,19jan2011,Lab test
+845,26dec2010,Lab test
+845,14jun2011,Clinic visit
+845,29aug2011,Clinic visit
+846,18sep2013,Lab test
+847,30may2017,Imaging
+848,06sep2014,Lab test
+849,04jan2011,Imaging
+850,28jun2016,Vaccination
+850,23aug2017,Lab test
+850,17nov2015,Imaging
+850,20jan2017,Clinic visit
+850,13dec2019,Vaccination
+851,26oct2012,Clinic visit
+852,28mar2020,Lab test
+853,22aug2018,Imaging
+853,18jun2015,Vaccination
+853,26sep2016,Lab test
+854,28oct2013,Vaccination
+855,15aug2014,Imaging
+855,04nov2014,Clinic visit
+855,03may2018,Lab test
+855,18jan2018,Imaging
+855,13feb2015,Lab test
+855,03may2018,Lab test
+856,26apr2012,Lab test
+856,15jul2012,Vaccination
+856,19jan2013,Lab test
+856,25aug2011,Lab test
+857,23nov2015,Vaccination
+858,11jun2014,Clinic visit
+858,15jul2015,Vaccination
+859,21sep2013,Lab test
+860,31jul2016,Lab test
+861,23jan2013,Vaccination
+862,23feb2022,Imaging
+863,12may2017,Imaging
+863,01sep2016,Lab test
+863,21dec2016,Lab test
+863,29aug2017,Vaccination
+863,14nov2017,Vaccination
+864,16jan2014,Imaging
+864,03nov2012,Vaccination
+864,31dec2014,Imaging
+864,16nov2016,Imaging
+864,08feb2013,Lab test
+864,22jan2013,Clinic visit
+865,07nov2013,Lab test
+865,01nov2012,Vaccination
+865,02dec2011,Imaging
+865,12mar2012,Clinic visit
+865,19oct2012,Lab test
+866,01jan2017,Lab test
+866,02dec2013,Lab test
+866,11apr2016,Vaccination
+867,28jun2016,Imaging
+867,09aug2018,Lab test
+867,19aug2015,Lab test
+867,14mar2017,Clinic visit
+867,03may2017,Lab test
+867,18sep2011,Lab test
+868,22jan2016,Imaging
+869,24may2014,Vaccination
+869,10feb2015,Imaging
+869,13nov2014,Imaging
+870,08jul2014,Clinic visit
+871,28jan2018,Vaccination
+872,08nov2013,Clinic visit
+873,07may2014,Vaccination
+873,04feb2019,Lab test
+873,21jan2015,Imaging
+873,02jul2014,Imaging
+874,02jul2013,Vaccination
+875,20aug2015,Vaccination
+876,19jun2013,Vaccination
+877,13apr2016,Clinic visit
+877,07feb2014,Vaccination
+877,10apr2015,Lab test
+877,18mar2016,Imaging
+877,24jul2016,Clinic visit
+878,14may2018,Lab test
+879,16mar2014,Clinic visit
+880,03sep2016,Vaccination
+880,09mar2014,Imaging
+880,17jan2018,Imaging
+880,07apr2014,Clinic visit
+881,04jul2014,Imaging
+882,18jul2011,Vaccination
+882,04jan2012,Lab test
+882,03jan2012,Clinic visit
+882,28sep2011,Vaccination
+882,07jan2012,Clinic visit
+883,31may2015,Vaccination
+884,10jan2018,Vaccination
+885,16nov2013,Vaccination
+886,01jun2015,Clinic visit
+887,20jul2011,Clinic visit
+888,24feb2017,Lab test
+888,30oct2011,Clinic visit
+889,14oct2015,Lab test
+890,15sep2012,Imaging
+891,15may2011,Imaging
+892,21nov2017,Imaging
+892,28dec2019,Lab test
+893,12jan2015,Vaccination
+894,12aug2014,Lab test
+895,21dec2017,Imaging
+896,13apr2018,Imaging
+896,05jun2015,Clinic visit
+896,26jul2015,Vaccination
+897,09jan2013,Vaccination
+897,23mar2013,Clinic visit
+897,03oct2011,Imaging
+898,25mar2017,Clinic visit
+899,31aug2020,Vaccination
+899,07may2018,Imaging
+899,22mar2018,Vaccination
+899,10sep2018,Imaging
+900,07dec2020,Vaccination
+901,11jul2015,Clinic visit
+901,27mar2015,Imaging
+901,08jun2013,Vaccination
+901,18jun2015,Imaging
+901,29mar2012,Vaccination
+902,29oct2012,Clinic visit
+903,18feb2012,Clinic visit
+904,01apr2013,Clinic visit
+904,11dec2014,Imaging
+904,28nov2013,Lab test
+904,19mar2015,Clinic visit
+904,11jul2014,Lab test
+904,21apr2015,Clinic visit
+905,19oct2012,Lab test
+906,25mar2022,Clinic visit
+907,18jan2013,Lab test
+908,25dec2011,Vaccination
+909,02feb2015,Vaccination
+910,01jan2012,Clinic visit
+910,22mar2012,Clinic visit
+910,01jan2011,Clinic visit
+910,07nov2011,Imaging
+911,19jun2019,Clinic visit
+912,18apr2018,Lab test
+912,19sep2016,Imaging
+912,26feb2016,Clinic visit
+912,10feb2016,Clinic visit
+912,23jul2015,Vaccination
+912,16may2015,Lab test
+913,18feb2015,Clinic visit
+913,25jan2014,Imaging
+913,10jan2014,Vaccination
+914,16may2013,Vaccination
+914,17jul2013,Clinic visit
+914,28jan2014,Vaccination
+914,06apr2014,Clinic visit
+915,07feb2015,Imaging
+915,22aug2014,Vaccination
+916,04dec2011,Imaging
+917,20jan2015,Lab test
+918,22aug2014,Vaccination
+919,27may2012,Imaging
+920,07aug2011,Clinic visit
+920,23oct2011,Clinic visit
+920,20oct2012,Clinic visit
+920,07feb2011,Clinic visit
+920,07may2017,Vaccination
+920,02sep2016,Lab test
+921,14sep2012,Lab test
+922,15apr2016,Clinic visit
+923,28may2016,Lab test
+924,20jan2015,Lab test
+924,23may2015,Lab test
+924,15jul2012,Lab test
+924,19jul2013,Lab test
+925,25jun2017,Imaging
+925,03jun2014,Lab test
+925,25mar2017,Vaccination
+925,17jun2013,Lab test
+925,23jul2017,Imaging
+925,25jun2016,Imaging
+926,06sep2014,Vaccination
+926,06may2015,Lab test
+926,24sep2015,Lab test
+927,06dec2020,Lab test
+927,24sep2016,Clinic visit
+927,25apr2015,Imaging
+927,19feb2016,Vaccination
+927,28jul2019,Clinic visit
+928,04nov2012,Clinic visit
+928,21jan2013,Clinic visit
+928,25jan2015,Clinic visit
+929,24oct2015,Clinic visit
+930,01apr2016,Vaccination
+930,12feb2012,Imaging
+930,01oct2014,Imaging
+930,17oct2013,Lab test
+930,29nov2012,Clinic visit
+931,18may2013,Lab test
+932,31mar2019,Vaccination
+933,18dec2011,Imaging
+934,14jan2015,Lab test
+935,15feb2012,Imaging
+935,12dec2015,Imaging
+935,15aug2013,Lab test
+935,12jun2015,Imaging
+935,15dec2014,Lab test
+936,08apr2018,Vaccination
+936,01aug2015,Imaging
+936,02mar2015,Lab test
+937,19oct2011,Clinic visit
+938,01aug2017,Imaging
+939,01feb2017,Vaccination
+940,03sep2017,Vaccination
+941,26oct2010,Lab test
+942,01dec2017,Lab test
+942,16jan2019,Lab test
+942,15oct2019,Clinic visit
+942,25jul2019,Imaging
+942,15sep2014,Clinic visit
+943,11feb2014,Clinic visit
+943,31oct2016,Clinic visit
+943,11sep2017,Clinic visit
+943,07apr2014,Imaging
+943,18jun2016,Vaccination
+943,01aug2016,Lab test
+944,03aug2012,Clinic visit
+945,16jun2011,Vaccination
+946,29oct2018,Vaccination
+947,14oct2020,Lab test
+947,18aug2019,Lab test
+947,24apr2014,Lab test
+948,31jan2014,Clinic visit
+948,03sep2013,Vaccination
+948,16jul2013,Imaging
+948,24jul2013,Clinic visit
+948,29dec2013,Imaging
+948,06nov2013,Clinic visit
+949,20jul2014,Lab test
+949,22oct2012,Lab test
+949,10feb2014,Vaccination
+949,21may2014,Vaccination
+949,03aug2014,Lab test
+949,19nov2013,Lab test
+950,13oct2012,Imaging
+950,16oct2012,Vaccination
+950,13jun2013,Imaging
+950,05oct2012,Imaging
+951,21may2018,Clinic visit
+952,02feb2020,Clinic visit
+953,27nov2015,Imaging
+953,05may2019,Clinic visit
+953,18jun2015,Clinic visit
+954,15sep2011,Clinic visit
+955,13mar2017,Clinic visit
+955,25aug2017,Imaging
+955,01feb2017,Clinic visit
+955,05jul2016,Lab test
+955,11jun2016,Lab test
+955,22jul2017,Clinic visit
+956,05jan2015,Lab test
+957,11sep2012,Clinic visit
+957,29dec2016,Lab test
+957,16jul2012,Clinic visit
+957,12may2012,Lab test
+957,29may2015,Lab test
+957,15mar2012,Lab test
+958,26sep2021,Clinic visit
+958,22nov2018,Lab test
+958,10may2017,Lab test
+958,22may2015,Lab test
+959,15jan2015,Vaccination
+960,25sep2011,Vaccination
+961,21sep2014,Imaging
+962,04apr2018,Clinic visit
+962,17jan2020,Vaccination
+962,05dec2020,Clinic visit
+962,19jan2020,Vaccination
+963,26mar2018,Clinic visit
+963,19feb2016,Lab test
+963,10apr2018,Vaccination
+963,07mar2019,Vaccination
+963,19oct2015,Imaging
+964,24may2018,Imaging
+965,17feb2016,Clinic visit
+965,15nov2017,Imaging
+966,10jul2019,Lab test
+966,19nov2015,Imaging
+967,16jun2016,Imaging
+968,23dec2017,Lab test
+969,04jul2013,Lab test
+970,06dec2015,Clinic visit
+970,15jan2020,Vaccination
+970,13may2019,Lab test
+970,03aug2014,Clinic visit
+970,06sep2019,Clinic visit
+971,15may2011,Vaccination
+971,14jan2012,Vaccination
+972,11jan2012,Clinic visit
+973,02apr2016,Imaging
+974,19feb2018,Lab test
+974,16may2015,Imaging
+974,27jul2017,Lab test
+974,06mar2016,Clinic visit
+974,21nov2017,Lab test
+974,18oct2015,Lab test
+975,01sep2012,Lab test
+975,17oct2011,Imaging
+975,08feb2011,Vaccination
+976,28jan2016,Imaging
+976,21aug2016,Vaccination
+976,23apr2016,Imaging
+976,09dec2013,Imaging
+977,02may2015,Imaging
+978,25sep2018,Imaging
+978,18jan2014,Imaging
+978,12jul2015,Lab test
+978,16mar2018,Imaging
+978,07jun2016,Lab test
+978,07dec2015,Lab test
+979,04sep2016,Imaging
+980,15aug2012,Clinic visit
+980,05sep2012,Lab test
+980,30jun2015,Vaccination
+980,28aug2012,Lab test
+981,24sep2014,Lab test
+982,26jun2016,Clinic visit
+983,04jan2013,Imaging
+983,31jan2012,Clinic visit
+983,22oct2013,Lab test
+984,12feb2015,Vaccination
+984,01aug2014,Clinic visit
+984,16jan2014,Imaging
+984,27apr2014,Imaging
+984,18mar2015,Clinic visit
+985,16sep2015,Lab test
+985,26mar2017,Clinic visit
+985,11jan2015,Imaging
+986,06dec2013,Imaging
+987,29dec2021,Vaccination
+988,03may2015,Imaging
+988,09aug2017,Lab test
+988,09may2015,Imaging
+989,17apr2012,Imaging
+990,09oct2011,Clinic visit
+991,17jun2015,Lab test
+991,15aug2018,Lab test
+991,09sep2013,Imaging
+991,12jul2012,Clinic visit
+991,08may2017,Vaccination
+992,25jan2018,Imaging
+992,29sep2011,Lab test
+992,23apr2012,Lab test
+992,22nov2013,Imaging
+992,30jan2012,Imaging
+992,28feb2015,Clinic visit
+993,12oct2014,Vaccination
+994,30jul2013,Imaging
+995,20nov2016,Clinic visit
+995,31dec2015,Imaging
+995,01apr2019,Clinic visit
+996,25nov2019,Vaccination
+996,28aug2015,Clinic visit
+996,16jun2016,Vaccination
+996,13sep2017,Lab test
+997,09may2015,Lab test
+998,16jun2015,Vaccination
+998,10nov2013,Clinic visit
+998,16sep2015,Lab test
+998,25jul2016,Imaging
+998,08mar2015,Imaging
+998,02mar2014,Clinic visit
+999,12oct2017,Vaccination
+999,01jul2016,Vaccination
+999,06may2019,Lab test
+999,18jun2018,Clinic visit
+1000,27dec2011,Vaccination

@@ -1,0 +1,1866 @@
+id,dmt_start,dmt_stop,dmt
+1,24aug2013,16jan2015,Dimethyl fumarate
+1,16may2015,16oct2016,Interferon
+1,07mar2014,09jun2014,Natalizumab
+1,20dec2015,16oct2016,Interferon
+2,14dec2011,01apr2012,Dimethyl fumarate
+3,21sep2011,24apr2012,Dimethyl fumarate
+4,13jan2011,14sep2011,Ocrelizumab
+4,12feb2012,07jul2012,Interferon
+4,07feb2011,14jul2011,Fingolimod
+4,10jul2011,06jan2012,Glatiramer
+5,13feb2021,02aug2021,Glatiramer
+5,09jul2018,01oct2019,Natalizumab
+6,04jun2013,03dec2013,Glatiramer
+7,12jan2014,14may2015,Dimethyl fumarate
+7,04sep2011,20jul2012,Glatiramer
+7,16oct2013,28aug2015,Natalizumab
+7,06sep2013,05mar2014,Natalizumab
+8,03nov2014,03aug2016,Glatiramer
+9,19dec2011,27apr2012,Natalizumab
+10,24sep2013,07nov2015,Ocrelizumab
+10,18feb2017,27mar2018,Natalizumab
+10,05dec2014,10mar2016,Natalizumab
+10,10oct2014,17feb2016,Ocrelizumab
+11,19jul2019,24sep2020,Fingolimod
+12,12feb2015,02apr2016,Interferon
+12,09apr2015,02apr2016,Ocrelizumab
+12,26mar2015,02apr2016,Dimethyl fumarate
+12,07aug2015,02apr2016,Dimethyl fumarate
+13,14oct2015,11jul2016,Natalizumab
+13,30jun2016,23dec2016,Natalizumab
+13,16aug2014,09apr2016,Ocrelizumab
+14,01feb2017,28apr2018,Ocrelizumab
+15,16nov2014,08jul2015,Glatiramer
+15,24sep2012,26apr2014,Ocrelizumab
+15,28sep2012,06mar2013,Dimethyl fumarate
+16,11sep2020,29jan2021,Glatiramer
+17,07jul2017,22apr2019,Natalizumab
+18,16jun2014,31mar2015,Interferon
+19,16feb2013,09mar2015,Natalizumab
+19,18sep2012,02sep2014,Natalizumab
+19,16oct2013,24nov2015,Fingolimod
+19,06jun2011,19dec2011,Fingolimod
+20,30apr2012,24dec2013,Interferon
+21,21sep2015,17may2016,Glatiramer
+21,20sep2016,16jan2018,Interferon
+21,03apr2017,29mar2018,Dimethyl fumarate
+22,26aug2016,07apr2017,Interferon
+22,06aug2016,07dec2016,Natalizumab
+22,13jun2014,03sep2014,Ocrelizumab
+22,11apr2017,28nov2017,Ocrelizumab
+23,09feb2018,02feb2019,Natalizumab
+24,12dec2012,08jul2014,Ocrelizumab
+24,20aug2011,21aug2013,Interferon
+24,25mar2015,25oct2015,Natalizumab
+25,05mar2015,24jan2017,Dimethyl fumarate
+26,06jul2017,28dec2017,Natalizumab
+27,04dec2013,08jan2016,Glatiramer
+28,27may2012,07oct2012,Fingolimod
+28,10oct2012,14dec2012,Ocrelizumab
+29,27dec2011,24feb2013,Ocrelizumab
+30,22oct2014,20apr2016,Interferon
+30,16dec2015,01jul2016,Fingolimod
+30,16aug2013,18sep2014,Fingolimod
+31,23apr2016,01jul2017,Ocrelizumab
+32,10aug2013,01jul2014,Dimethyl fumarate
+33,25jun2010,23jul2012,Natalizumab
+33,27mar2015,31mar2016,Glatiramer
+33,15apr2010,04jun2012,Fingolimod
+34,02sep2013,08feb2014,Fingolimod
+35,28dec2012,17nov2013,Ocrelizumab
+36,18jun2015,19aug2015,Dimethyl fumarate
+36,22apr2013,06jul2014,Natalizumab
+37,23nov2014,21aug2016,Fingolimod
+38,15mar2015,31oct2015,Interferon
+38,26jul2016,08feb2017,Interferon
+38,24jul2019,28jan2020,Natalizumab
+38,09may2015,02jan2017,Glatiramer
+39,08may2016,02aug2016,Glatiramer
+39,10dec2012,22jan2015,Glatiramer
+39,02jul2014,31may2015,Dimethyl fumarate
+40,28nov2012,11feb2013,Ocrelizumab
+41,02feb2016,03apr2016,Fingolimod
+42,10mar2021,03jun2021,Interferon
+43,16aug2014,05mar2016,Natalizumab
+44,23nov2014,20oct2015,Glatiramer
+45,31jul2016,17aug2018,Ocrelizumab
+45,19oct2018,24jan2020,Dimethyl fumarate
+45,02nov2018,01jan2020,Natalizumab
+45,25dec2017,20jul2018,Interferon
+46,05jun2011,01nov2012,Interferon
+47,22dec2012,14nov2013,Fingolimod
+48,03jul2014,31mar2015,Fingolimod
+49,10feb2020,08dec2020,Dimethyl fumarate
+49,26jul2018,25nov2018,Fingolimod
+49,15oct2015,09aug2016,Ocrelizumab
+49,15jul2018,08feb2020,Fingolimod
+50,01nov2012,12jun2013,Ocrelizumab
+50,24sep2015,02dec2015,Natalizumab
+50,05may2013,26jan2014,Glatiramer
+50,23nov2011,26may2013,Dimethyl fumarate
+51,07jan2016,06mar2018,Fingolimod
+52,09aug2018,10jan2019,Interferon
+52,17feb2014,21feb2016,Ocrelizumab
+53,19jul2011,22sep2011,Fingolimod
+53,30mar2014,21nov2015,Ocrelizumab
+53,30dec2014,01jul2015,Fingolimod
+53,18jul2013,24apr2014,Fingolimod
+54,27nov2015,27dec2016,Glatiramer
+55,31jul2011,08feb2012,Ocrelizumab
+55,25aug2013,28aug2014,Ocrelizumab
+56,08apr2013,26oct2013,Dimethyl fumarate
+56,04apr2013,26oct2013,Fingolimod
+57,28nov2019,06apr2021,Ocrelizumab
+58,08jun2016,24jun2018,Dimethyl fumarate
+59,17nov2022,18jun2023,Ocrelizumab
+59,02apr2023,18jun2023,Glatiramer
+60,22mar2012,22jan2013,Natalizumab
+60,29apr2017,20nov2018,Ocrelizumab
+61,30may2013,27jun2014,Fingolimod
+61,07apr2013,28jul2014,Natalizumab
+61,24feb2016,16may2017,Glatiramer
+61,15feb2013,16may2014,Glatiramer
+62,15dec2015,28aug2017,Natalizumab
+63,22oct2010,04sep2012,Dimethyl fumarate
+63,09jun2011,05feb2013,Ocrelizumab
+63,22oct2014,07apr2015,Interferon
+64,28jan2012,08feb2014,Fingolimod
+65,10dec2014,18sep2016,Ocrelizumab
+65,09apr2017,07dec2017,Ocrelizumab
+65,26mar2019,21jul2020,Fingolimod
+65,03nov2016,27jun2018,Dimethyl fumarate
+66,14nov2014,29dec2016,Glatiramer
+67,13jun2018,15may2020,Fingolimod
+68,01jul2014,31dec2014,Natalizumab
+68,20aug2013,16dec2013,Natalizumab
+68,02nov2014,31aug2015,Natalizumab
+68,13feb2013,12nov2013,Natalizumab
+69,29sep2016,22mar2018,Dimethyl fumarate
+69,06dec2016,15jul2018,Ocrelizumab
+69,06feb2022,02jun2022,Dimethyl fumarate
+69,23apr2015,27aug2015,Fingolimod
+70,08oct2015,31mar2016,Dimethyl fumarate
+71,20oct2015,23jun2016,Natalizumab
+72,01sep2015,01oct2016,Ocrelizumab
+73,19nov2013,15apr2014,Ocrelizumab
+73,14oct2015,18jan2016,Interferon
+74,30may2014,21aug2015,Interferon
+74,19feb2015,17jul2016,Fingolimod
+74,25nov2014,06apr2016,Ocrelizumab
+74,06feb2014,16jun2015,Interferon
+75,24nov2011,19jun2012,Ocrelizumab
+76,06oct2013,03mar2014,Natalizumab
+76,10apr2012,03jan2013,Dimethyl fumarate
+76,04may2012,04apr2014,Glatiramer
+76,25aug2011,30mar2013,Dimethyl fumarate
+77,18jan2018,02oct2019,Natalizumab
+77,14feb2019,02oct2019,Interferon
+77,11jun2017,10may2018,Interferon
+78,30may2012,29apr2013,Natalizumab
+78,06nov2011,12may2013,Ocrelizumab
+79,15aug2013,28nov2013,Interferon
+79,17aug2013,14feb2014,Dimethyl fumarate
+79,04jun2014,07may2015,Glatiramer
+80,29jul2013,06feb2015,Glatiramer
+80,11oct2015,19dec2015,Ocrelizumab
+80,09feb2012,02jan2013,Interferon
+80,14nov2013,04aug2015,Ocrelizumab
+81,30nov2011,07mar2012,Glatiramer
+82,06jan2017,05apr2017,Natalizumab
+82,28jan2014,10jul2015,Dimethyl fumarate
+82,24feb2014,25apr2015,Glatiramer
+82,21jan2018,27oct2018,Ocrelizumab
+83,22oct2016,15jun2018,Natalizumab
+84,05aug2011,07feb2012,Ocrelizumab
+85,02may2014,31jul2014,Interferon
+85,25feb2014,31jul2014,Ocrelizumab
+85,03nov2013,31jul2014,Glatiramer
+86,18jul2013,08jul2014,Ocrelizumab
+87,04sep2016,05jan2017,Ocrelizumab
+87,06nov2015,26jan2016,Glatiramer
+87,09jul2011,15feb2012,Interferon
+88,23dec2017,30apr2018,Glatiramer
+88,10jun2013,29apr2015,Interferon
+88,16oct2015,09oct2016,Dimethyl fumarate
+88,06sep2011,23jan2012,Natalizumab
+89,05dec2015,15jan2018,Dimethyl fumarate
+89,15oct2013,07jul2014,Natalizumab
+89,27nov2015,01jul2016,Interferon
+89,30sep2014,22jun2016,Glatiramer
+90,03mar2016,15jan2017,Fingolimod
+91,16mar2018,08jul2019,Glatiramer
+92,27jul2015,01feb2017,Glatiramer
+92,20sep2013,25jul2014,Ocrelizumab
+92,24jan2012,14sep2013,Ocrelizumab
+93,05apr2014,10mar2016,Natalizumab
+93,11feb2015,23feb2017,Interferon
+93,14jan2015,11aug2015,Glatiramer
+94,14apr2014,04aug2015,Glatiramer
+95,20sep2018,03aug2019,Glatiramer
+95,01sep2018,03aug2019,Glatiramer
+95,26jan2011,24may2012,Natalizumab
+96,24may2018,15sep2018,Interferon
+96,01dec2019,09oct2021,Ocrelizumab
+96,09oct2018,17nov2019,Glatiramer
+96,21mar2018,12sep2018,Fingolimod
+97,29apr2017,13nov2018,Dimethyl fumarate
+98,04sep2018,25jan2019,Dimethyl fumarate
+98,26sep2021,01jan2022,Fingolimod
+99,31oct2015,04feb2017,Glatiramer
+100,17dec2010,21feb2012,Fingolimod
+101,05mar2015,12may2015,Natalizumab
+101,20sep2014,12may2015,Natalizumab
+101,12dec2013,21dec2014,Fingolimod
+101,24dec2011,29mar2013,Ocrelizumab
+102,05aug2013,08dec2013,Interferon
+102,24aug2013,29nov2013,Ocrelizumab
+102,12feb2017,22dec2017,Interferon
+102,23jul2016,15jan2017,Ocrelizumab
+103,27may2013,25may2014,Dimethyl fumarate
+103,08jan2015,08oct2015,Natalizumab
+104,09jul2014,08sep2014,Ocrelizumab
+105,06sep2013,21jul2014,Natalizumab
+105,09mar2013,19mar2014,Fingolimod
+106,10sep2013,24feb2014,Natalizumab
+107,08mar2012,09jan2014,Dimethyl fumarate
+108,12nov2010,26feb2011,Natalizumab
+109,20nov2011,10mar2012,Natalizumab
+110,27dec2020,07mar2021,Ocrelizumab
+110,16feb2019,10nov2019,Natalizumab
+110,14jan2017,31may2018,Dimethyl fumarate
+110,25jun2015,15dec2015,Glatiramer
+111,13dec2019,03may2020,Glatiramer
+112,11feb2013,25nov2014,Fingolimod
+113,03mar2016,30dec2016,Ocrelizumab
+114,04oct2015,06sep2016,Dimethyl fumarate
+114,26feb2014,09mar2016,Fingolimod
+114,12jun2014,12jun2016,Glatiramer
+115,02sep2022,19dec2022,Ocrelizumab
+115,03jan2015,15may2015,Interferon
+115,10feb2015,25mar2017,Natalizumab
+116,24may2015,28jul2015,Fingolimod
+116,23dec2012,31jul2014,Dimethyl fumarate
+117,10may2014,18nov2015,Fingolimod
+117,29jul2017,14may2019,Dimethyl fumarate
+118,22jul2014,11oct2014,Interferon
+119,25jan2015,01jun2016,Natalizumab
+120,01nov2014,17mar2015,Dimethyl fumarate
+121,10mar2020,09jun2021,Dimethyl fumarate
+122,27dec2011,21jul2013,Interferon
+123,05jan2021,23mar2021,Interferon
+123,27jun2017,09may2019,Glatiramer
+124,01jun2020,13oct2021,Dimethyl fumarate
+125,02jun2014,15aug2014,Glatiramer
+126,23mar2021,07jul2022,Dimethyl fumarate
+126,06jul2019,11sep2020,Dimethyl fumarate
+126,10dec2020,07jul2022,Fingolimod
+126,20may2017,29jun2019,Interferon
+127,18feb2012,18apr2012,Natalizumab
+128,12mar2016,28jan2018,Dimethyl fumarate
+128,30apr2015,02jan2016,Glatiramer
+128,21may2018,03jan2019,Interferon
+128,23apr2016,26aug2017,Ocrelizumab
+129,15sep2012,08apr2013,Fingolimod
+129,16aug2015,14feb2016,Ocrelizumab
+129,20aug2011,01sep2013,Ocrelizumab
+130,17feb2013,18nov2013,Interferon
+131,06jul2018,17aug2019,Glatiramer
+132,04oct2021,10feb2022,Glatiramer
+132,05oct2021,10feb2022,Ocrelizumab
+133,25jun2014,09sep2014,Ocrelizumab
+134,12may2013,09apr2014,Fingolimod
+134,24sep2012,13may2014,Ocrelizumab
+135,01oct2016,16jul2017,Ocrelizumab
+136,09jul2016,02may2017,Ocrelizumab
+136,17nov2015,02may2017,Natalizumab
+136,06dec2014,20jun2015,Glatiramer
+137,26aug2014,20feb2016,Fingolimod
+138,10apr2017,11dec2017,Dimethyl fumarate
+138,08jul2016,01aug2017,Interferon
+138,29jan2016,08mar2018,Interferon
+139,21aug2015,13feb2016,Dimethyl fumarate
+140,15nov2019,01feb2020,Glatiramer
+140,10mar2013,03oct2013,Natalizumab
+140,14oct2014,30dec2015,Fingolimod
+141,10apr2012,10mar2014,Fingolimod
+142,10may2015,19may2016,Natalizumab
+142,07apr2017,26jun2017,Glatiramer
+143,24apr2012,10dec2013,Glatiramer
+143,07nov2015,10jan2017,Fingolimod
+143,25jun2017,08mar2019,Natalizumab
+144,27jun2019,08dec2020,Dimethyl fumarate
+144,26jan2016,26mar2016,Natalizumab
+144,13jan2016,10oct2017,Dimethyl fumarate
+145,22dec2016,08apr2017,Interferon
+145,17nov2015,10nov2017,Glatiramer
+145,09jan2020,23nov2020,Ocrelizumab
+146,08jul2015,03jan2016,Ocrelizumab
+146,12oct2015,19apr2016,Glatiramer
+146,04jan2017,14oct2018,Dimethyl fumarate
+146,05dec2017,08oct2018,Fingolimod
+147,24jul2013,02oct2014,Dimethyl fumarate
+148,10aug2013,20sep2014,Dimethyl fumarate
+149,02sep2018,26oct2019,Interferon
+150,20apr2016,05jul2017,Fingolimod
+151,21sep2014,14aug2015,Glatiramer
+152,04sep2014,19mar2016,Natalizumab
+152,04jan2013,24nov2014,Glatiramer
+153,30sep2016,23jan2017,Ocrelizumab
+154,02jul2012,22oct2013,Dimethyl fumarate
+155,25dec2012,15sep2013,Ocrelizumab
+155,09dec2014,29jun2016,Glatiramer
+155,10sep2014,22mar2015,Natalizumab
+155,31jul2018,25aug2020,Dimethyl fumarate
+156,11feb2016,29jul2017,Dimethyl fumarate
+157,21aug2015,13jun2016,Ocrelizumab
+158,31jan2014,07may2014,Interferon
+158,18sep2016,20aug2018,Interferon
+158,04dec2014,25jul2015,Natalizumab
+159,18feb2014,17may2015,Ocrelizumab
+160,05mar2012,30jul2013,Ocrelizumab
+161,12nov2013,17dec2014,Dimethyl fumarate
+161,19aug2013,20dec2013,Ocrelizumab
+161,15nov2013,03aug2014,Fingolimod
+162,09jan2017,05may2017,Ocrelizumab
+163,02may2013,18aug2013,Glatiramer
+163,19mar2013,04sep2013,Dimethyl fumarate
+163,22sep2012,03dec2012,Interferon
+164,12aug2015,11feb2017,Glatiramer
+165,10sep2018,07sep2019,Dimethyl fumarate
+166,06jul2011,17apr2013,Natalizumab
+167,15aug2011,16feb2012,Glatiramer
+168,24jun2014,12jan2015,Glatiramer
+169,29mar2020,24sep2020,Dimethyl fumarate
+170,16sep2015,07dec2016,Dimethyl fumarate
+171,12jul2011,13nov2012,Interferon
+171,04mar2012,13nov2012,Glatiramer
+171,28aug2010,02jan2011,Dimethyl fumarate
+172,14apr2018,18jul2018,Ocrelizumab
+173,31jan2020,09jan2021,Natalizumab
+173,04oct2019,09jan2021,Fingolimod
+173,07jun2017,24jan2019,Ocrelizumab
+174,11jan2014,29mar2014,Fingolimod
+174,02jun2013,17dec2013,Interferon
+174,16may2013,21oct2014,Natalizumab
+175,28apr2019,05aug2019,Glatiramer
+175,07jun2018,01nov2018,Ocrelizumab
+175,07jun2016,14jun2018,Ocrelizumab
+176,24jan2012,11aug2012,Natalizumab
+177,07sep2012,03may2013,Fingolimod
+177,13nov2012,03may2013,Dimethyl fumarate
+178,07may2015,17jan2016,Glatiramer
+178,17jul2013,04feb2014,Dimethyl fumarate
+179,29sep2013,26sep2014,Ocrelizumab
+180,19dec2012,29aug2013,Dimethyl fumarate
+181,14jan2015,04mar2017,Natalizumab
+182,29mar2016,07jun2017,Natalizumab
+183,23apr2015,12jan2016,Ocrelizumab
+183,14nov2013,28oct2014,Fingolimod
+183,21oct2013,02oct2014,Ocrelizumab
+184,31aug2014,09oct2016,Dimethyl fumarate
+184,02nov2015,16aug2017,Ocrelizumab
+184,06may2013,28sep2013,Glatiramer
+185,14nov2013,01jul2014,Glatiramer
+186,21jul2015,24oct2015,Glatiramer
+187,27may2014,29oct2014,Glatiramer
+188,29dec2015,02aug2016,Glatiramer
+188,14may2014,25jun2015,Interferon
+188,13apr2015,19jun2016,Dimethyl fumarate
+189,11nov2015,17apr2016,Ocrelizumab
+189,30jul2015,02may2016,Ocrelizumab
+189,12feb2012,10apr2014,Ocrelizumab
+189,09nov2012,28jun2014,Dimethyl fumarate
+190,12sep2015,02sep2016,Natalizumab
+190,13jul2017,19dec2018,Interferon
+190,02feb2015,16dec2015,Glatiramer
+190,31jan2015,01mar2016,Glatiramer
+191,04jun2011,12oct2011,Ocrelizumab
+191,21jan2013,15jun2013,Interferon
+191,09sep2013,10dec2013,Glatiramer
+192,08dec2015,16nov2017,Dimethyl fumarate
+193,21feb2017,25nov2018,Dimethyl fumarate
+194,09dec2014,06apr2015,Fingolimod
+195,12aug2016,26may2017,Dimethyl fumarate
+196,21jul2018,18dec2018,Ocrelizumab
+197,24nov2016,13mar2017,Natalizumab
+197,02feb2015,27jul2015,Interferon
+198,07apr2012,16jul2012,Interferon
+198,28dec2011,11aug2013,Dimethyl fumarate
+198,21nov2011,24jul2012,Dimethyl fumarate
+198,10jul2012,11aug2013,Fingolimod
+199,07may2011,17aug2012,Fingolimod
+200,05feb2014,27may2015,Fingolimod
+201,16sep2017,23feb2018,Glatiramer
+202,13feb2019,04sep2020,Dimethyl fumarate
+203,04apr2016,05sep2017,Fingolimod
+204,24nov2016,01apr2018,Glatiramer
+205,24oct2020,14may2021,Fingolimod
+205,28aug2014,26apr2016,Dimethyl fumarate
+206,19aug2014,19oct2015,Ocrelizumab
+207,12jun2017,13may2019,Glatiramer
+208,19aug2011,02sep2012,Glatiramer
+209,08jun2011,26feb2012,Ocrelizumab
+209,23jul2011,26feb2012,Interferon
+209,29sep2011,26feb2012,Natalizumab
+210,21dec2013,28jun2014,Interferon
+211,29sep2016,07aug2018,Dimethyl fumarate
+212,15jul2020,27apr2022,Dimethyl fumarate
+213,16mar2017,24jul2017,Natalizumab
+213,18oct2016,31aug2018,Natalizumab
+214,06oct2011,14apr2012,Ocrelizumab
+215,29aug2011,18jan2013,Glatiramer
+215,16jan2012,07dec2012,Glatiramer
+215,10nov2012,25nov2013,Interferon
+216,16feb2016,13may2016,Ocrelizumab
+217,25aug2013,30jan2014,Interferon
+217,08oct2012,30jan2014,Fingolimod
+218,28jan2013,11sep2013,Natalizumab
+219,09feb2014,12feb2016,Glatiramer
+219,13sep2014,18sep2015,Glatiramer
+219,20dec2013,07mar2015,Ocrelizumab
+220,19oct2016,14oct2017,Interferon
+220,14aug2013,22jan2015,Glatiramer
+220,11jan2014,20may2014,Interferon
+220,31jan2011,31may2011,Ocrelizumab
+221,01jan2013,24jul2013,Ocrelizumab
+222,08aug2014,10jul2015,Natalizumab
+223,29mar2010,29mar2011,Dimethyl fumarate
+224,20jul2012,04oct2012,Natalizumab
+225,11sep2011,22mar2012,Dimethyl fumarate
+226,03dec2015,22jan2017,Natalizumab
+226,09oct2016,04jun2017,Glatiramer
+226,12sep2014,29jul2016,Fingolimod
+227,14sep2012,28may2013,Glatiramer
+228,04apr2015,07feb2017,Interferon
+228,21apr2015,07jul2016,Dimethyl fumarate
+228,15may2016,29jan2017,Glatiramer
+229,24nov2018,26oct2019,Glatiramer
+230,12sep2012,27jan2014,Fingolimod
+230,28oct2011,10oct2012,Interferon
+230,24oct2013,27jan2014,Dimethyl fumarate
+231,06jan2014,27may2014,Fingolimod
+231,24jun2011,11oct2011,Glatiramer
+232,01jan2017,23jul2018,Fingolimod
+233,20aug2014,19jan2015,Natalizumab
+234,04jul2018,18jan2019,Dimethyl fumarate
+234,23feb2016,18mar2018,Glatiramer
+234,28may2017,19aug2017,Interferon
+234,18aug2013,15nov2013,Glatiramer
+235,09nov2017,05sep2019,Interferon
+235,30nov2019,07feb2020,Glatiramer
+235,05mar2014,05jan2015,Natalizumab
+236,17jan2013,02apr2014,Interferon
+236,10feb2016,26oct2017,Glatiramer
+237,25jan2020,12jun2021,Dimethyl fumarate
+237,20jan2015,12jun2015,Interferon
+237,13may2017,01dec2018,Ocrelizumab
+237,27feb2014,15oct2014,Natalizumab
+238,15sep2011,23sep2012,Ocrelizumab
+238,30jul2012,17jul2013,Natalizumab
+238,22sep2010,15may2011,Ocrelizumab
+239,13jul2016,26dec2016,Interferon
+240,04oct2016,12apr2018,Natalizumab
+240,07jan2018,29apr2018,Fingolimod
+240,02dec2014,24jul2016,Fingolimod
+241,03oct2016,06jul2018,Fingolimod
+242,26oct2013,17nov2014,Glatiramer
+243,01may2016,25apr2018,Fingolimod
+244,12apr2012,25jun2012,Ocrelizumab
+245,22mar2015,31jan2016,Interferon
+246,27jul2012,24jun2013,Natalizumab
+247,06dec2016,09aug2017,Glatiramer
+247,13oct2017,03jan2018,Dimethyl fumarate
+248,23sep2017,12nov2018,Ocrelizumab
+249,18mar2015,08dec2016,Glatiramer
+250,19oct2014,24sep2015,Fingolimod
+251,23jun2010,21jul2011,Interferon
+252,09feb2012,25jan2014,Ocrelizumab
+253,11apr2012,25feb2013,Ocrelizumab
+254,24may2013,13jul2015,Interferon
+255,27jul2012,05mar2013,Interferon
+255,18oct2014,04apr2016,Dimethyl fumarate
+256,05dec2019,07jun2020,Natalizumab
+256,23feb2020,22jul2020,Glatiramer
+256,27may2017,26jan2018,Glatiramer
+257,20jul2019,17apr2021,Dimethyl fumarate
+257,10jul2013,28oct2014,Dimethyl fumarate
+257,10jan2015,08aug2015,Glatiramer
+257,26jul2017,12apr2019,Dimethyl fumarate
+258,15feb2013,08mar2014,Glatiramer
+259,17nov2020,06aug2021,Glatiramer
+260,17jan2013,11jun2014,Glatiramer
+260,22dec2016,03mar2017,Fingolimod
+260,19jun2013,19dec2014,Ocrelizumab
+260,14mar2016,26dec2016,Ocrelizumab
+261,09nov2016,26mar2018,Interferon
+262,11sep2014,25jan2015,Fingolimod
+263,07may2017,20oct2017,Interferon
+263,06sep2013,03sep2015,Interferon
+264,18aug2016,29jan2018,Natalizumab
+264,16feb2019,22nov2019,Fingolimod
+264,30jun2013,05sep2014,Ocrelizumab
+264,27mar2018,14may2019,Glatiramer
+265,27feb2014,09jul2015,Dimethyl fumarate
+266,27jan2011,11feb2012,Glatiramer
+267,16may2014,16sep2015,Dimethyl fumarate
+267,07jan2019,19oct2019,Fingolimod
+268,04jan2017,04jun2018,Dimethyl fumarate
+268,17dec2014,04apr2016,Natalizumab
+269,30nov2014,16jun2016,Ocrelizumab
+270,06dec2011,06feb2012,Natalizumab
+270,18apr2013,22may2014,Fingolimod
+270,21may2012,16oct2012,Interferon
+271,19aug2016,17jul2018,Glatiramer
+272,08mar2018,13dec2019,Fingolimod
+273,27apr2018,03may2019,Interferon
+274,24jun2012,22dec2012,Fingolimod
+275,15dec2015,29nov2017,Glatiramer
+275,05oct2013,16mar2015,Interferon
+275,14jan2016,02feb2018,Ocrelizumab
+276,26mar2013,13dec2014,Ocrelizumab
+276,28may2015,01mar2016,Natalizumab
+276,06jun2017,20sep2018,Fingolimod
+276,18nov2016,29jun2018,Glatiramer
+277,06dec2015,05aug2016,Interferon
+277,29may2015,13dec2016,Natalizumab
+278,01jun2013,18oct2014,Dimethyl fumarate
+278,11jul2012,23aug2014,Interferon
+279,25aug2020,02nov2020,Natalizumab
+279,19may2014,10aug2015,Natalizumab
+280,29mar2015,11jul2015,Glatiramer
+281,14may2018,13dec2018,Ocrelizumab
+282,03nov2012,03mar2013,Interferon
+282,05aug2012,20oct2012,Ocrelizumab
+282,27apr2011,13mar2013,Natalizumab
+283,22dec2022,25sep2023,Natalizumab
+284,05feb2011,21sep2011,Ocrelizumab
+285,12oct2014,06may2016,Ocrelizumab
+286,11jan2016,08apr2016,Interferon
+287,19apr2014,02feb2015,Fingolimod
+288,02jun2012,17apr2014,Natalizumab
+289,29aug2015,31jul2016,Fingolimod
+290,29dec2017,20jan2019,Fingolimod
+290,12may2016,24jun2018,Dimethyl fumarate
+290,02aug2015,17feb2016,Natalizumab
+291,24nov2013,08oct2014,Natalizumab
+292,26dec2012,26apr2013,Ocrelizumab
+292,15feb2013,26apr2013,Glatiramer
+292,09dec2012,10feb2013,Fingolimod
+292,25oct2012,26apr2013,Dimethyl fumarate
+293,03oct2013,03jun2015,Interferon
+294,09may2015,27jun2017,Ocrelizumab
+294,09oct2019,06dec2020,Fingolimod
+295,07aug2014,04dec2015,Dimethyl fumarate
+296,30jan2012,07mar2013,Natalizumab
+297,01apr2015,31mar2016,Ocrelizumab
+298,18may2016,12aug2016,Natalizumab
+298,25mar2014,05sep2014,Fingolimod
+298,08nov2016,21nov2017,Interferon
+299,07nov2017,09sep2018,Fingolimod
+300,23sep2015,07jan2016,Glatiramer
+301,13aug2013,02mar2015,Ocrelizumab
+301,12nov2012,29oct2013,Interferon
+301,08aug2015,06feb2016,Dimethyl fumarate
+302,26oct2013,27jun2014,Dimethyl fumarate
+302,29jun2016,04nov2016,Natalizumab
+302,03nov2013,16apr2014,Natalizumab
+303,14aug2012,10apr2013,Ocrelizumab
+304,20may2014,15jul2015,Interferon
+305,24jun2017,12oct2018,Ocrelizumab
+305,05dec2013,20jun2014,Natalizumab
+306,05jan2014,29apr2015,Ocrelizumab
+306,31mar2018,03may2019,Interferon
+306,09jul2018,13nov2018,Ocrelizumab
+306,08jul2018,31mar2019,Fingolimod
+307,21oct2012,10jun2013,Natalizumab
+308,08mar2012,08jul2012,Interferon
+308,16nov2012,16jan2013,Dimethyl fumarate
+308,31oct2012,16jan2013,Natalizumab
+309,02apr2017,10oct2018,Dimethyl fumarate
+310,13jun2020,27apr2022,Interferon
+311,16aug2013,15feb2014,Natalizumab
+311,13mar2013,15feb2014,Dimethyl fumarate
+311,26nov2013,15feb2014,Glatiramer
+312,05may2015,11jul2015,Ocrelizumab
+313,03dec2016,04oct2017,Fingolimod
+314,20oct2016,26aug2017,Natalizumab
+315,10feb2019,24dec2019,Natalizumab
+316,07jul2016,05sep2017,Dimethyl fumarate
+317,10mar2016,16may2017,Natalizumab
+318,09feb2016,28mar2018,Fingolimod
+319,19apr2012,03nov2012,Ocrelizumab
+320,20oct2012,10jan2013,Interferon
+320,11oct2012,10jan2013,Interferon
+320,26oct2012,10jan2013,Glatiramer
+321,06jul2012,05sep2013,Fingolimod
+322,27aug2012,04feb2013,Interferon
+323,01feb2019,21mar2021,Glatiramer
+324,14dec2018,21mar2019,Fingolimod
+324,26dec2017,21mar2019,Interferon
+324,10oct2018,21mar2019,Ocrelizumab
+324,19jun2016,04may2018,Glatiramer
+325,25apr2018,05mar2019,Dimethyl fumarate
+326,23jul2015,17apr2017,Ocrelizumab
+327,11dec2010,14mar2012,Natalizumab
+328,03apr2013,16oct2014,Fingolimod
+328,13oct2017,17nov2018,Interferon
+328,06mar2016,07mar2017,Interferon
+328,08oct2018,21apr2020,Natalizumab
+329,05may2015,07sep2015,Ocrelizumab
+330,27aug2015,20nov2016,Ocrelizumab
+331,28may2011,10aug2011,Glatiramer
+332,06jun2012,20nov2013,Fingolimod
+332,15jul2012,08may2014,Fingolimod
+332,14mar2012,31mar2013,Natalizumab
+333,14aug2011,08oct2012,Ocrelizumab
+333,27mar2013,02jun2013,Ocrelizumab
+334,01oct2014,10may2016,Fingolimod
+335,28nov2016,12dec2018,Dimethyl fumarate
+335,07jun2018,23jul2020,Glatiramer
+335,14feb2016,28may2016,Natalizumab
+336,23nov2015,22feb2016,Dimethyl fumarate
+336,05oct2015,07jul2017,Natalizumab
+337,20nov2016,03jan2019,Interferon
+338,14jan2016,12sep2016,Fingolimod
+339,05nov2014,18dec2015,Ocrelizumab
+340,24aug2014,18nov2014,Natalizumab
+340,24sep2011,29feb2012,Fingolimod
+340,07oct2011,01jul2013,Interferon
+340,10feb2012,14jun2012,Natalizumab
+341,10jun2014,03jun2015,Dimethyl fumarate
+342,01sep2015,04nov2016,Natalizumab
+343,03feb2017,18oct2018,Dimethyl fumarate
+344,01may2014,06nov2015,Dimethyl fumarate
+345,04mar2020,22sep2020,Dimethyl fumarate
+345,25may2020,22sep2020,Natalizumab
+345,05apr2017,18jun2017,Dimethyl fumarate
+345,03mar2019,08sep2020,Natalizumab
+346,31oct2014,04jan2016,Dimethyl fumarate
+347,27feb2015,13feb2016,Glatiramer
+347,21aug2012,21mar2013,Glatiramer
+347,08apr2017,01nov2017,Natalizumab
+347,13jun2016,01nov2017,Ocrelizumab
+348,27may2016,21feb2017,Dimethyl fumarate
+349,05nov2014,02aug2016,Natalizumab
+349,01feb2017,11apr2018,Glatiramer
+350,30aug2019,07apr2020,Dimethyl fumarate
+350,01sep2018,17aug2020,Glatiramer
+350,24mar2022,08jul2022,Dimethyl fumarate
+350,01nov2014,31jul2015,Fingolimod
+351,23aug2016,06dec2016,Interferon
+351,03jul2016,23mar2018,Dimethyl fumarate
+351,21nov2013,04mar2015,Glatiramer
+351,26apr2016,08dec2016,Interferon
+352,29oct2014,29feb2016,Dimethyl fumarate
+352,07may2014,12nov2015,Glatiramer
+352,03sep2013,20apr2015,Dimethyl fumarate
+352,06jan2016,19jul2016,Fingolimod
+353,16apr2011,03nov2011,Interferon
+353,30nov2010,03nov2011,Ocrelizumab
+354,22jan2019,21oct2020,Natalizumab
+355,10may2018,24aug2018,Ocrelizumab
+355,19dec2015,23apr2016,Dimethyl fumarate
+356,10mar2013,21jun2013,Fingolimod
+357,04mar2016,07aug2016,Interferon
+357,01jan2016,07aug2016,Glatiramer
+358,08jun2019,14aug2020,Interferon
+358,24aug2017,16may2018,Ocrelizumab
+358,02jun2018,23nov2019,Dimethyl fumarate
+358,11aug2014,06oct2015,Dimethyl fumarate
+359,01mar2011,27sep2011,Interferon
+360,03oct2016,29jul2017,Ocrelizumab
+360,06sep2015,14jul2016,Interferon
+361,13jul2010,05oct2011,Ocrelizumab
+362,23mar2022,01oct2023,Fingolimod
+362,26oct2015,08jun2017,Dimethyl fumarate
+362,29jul2020,01feb2021,Natalizumab
+362,18mar2018,10jan2020,Dimethyl fumarate
+363,28jul2012,06apr2014,Natalizumab
+364,16sep2019,03aug2021,Natalizumab
+365,17jan2011,15dec2011,Glatiramer
+366,05aug2018,20may2020,Interferon
+367,16nov2014,10may2015,Interferon
+368,15jan2017,29may2017,Natalizumab
+368,11jun2016,25jul2017,Natalizumab
+368,08feb2014,18sep2014,Fingolimod
+369,25feb2016,22aug2016,Ocrelizumab
+370,15oct2012,30nov2013,Fingolimod
+371,28mar2012,28nov2012,Glatiramer
+371,28may2011,08mar2012,Natalizumab
+371,26feb2013,10aug2013,Glatiramer
+371,26dec2012,16sep2013,Dimethyl fumarate
+372,01aug2014,13feb2015,Glatiramer
+373,07sep2013,19feb2015,Glatiramer
+374,17sep2019,30aug2021,Dimethyl fumarate
+374,26sep2013,10aug2015,Dimethyl fumarate
+374,23nov2021,01feb2023,Glatiramer
+375,24apr2017,08apr2018,Interferon
+376,02may2014,19apr2015,Glatiramer
+377,06dec2015,19jun2017,Ocrelizumab
+378,06jun2019,05nov2019,Interferon
+379,21oct2020,15jul2021,Dimethyl fumarate
+379,01aug2014,31jul2015,Ocrelizumab
+380,26nov2016,13may2017,Fingolimod
+380,02apr2016,13may2017,Fingolimod
+380,05jan2017,13may2017,Dimethyl fumarate
+381,19apr2015,11sep2015,Natalizumab
+382,22aug2015,23dec2015,Glatiramer
+382,17nov2013,10dec2015,Glatiramer
+382,11dec2012,31jan2014,Ocrelizumab
+382,30sep2012,10may2013,Fingolimod
+383,04jul2013,19may2014,Dimethyl fumarate
+383,17sep2012,16mar2014,Natalizumab
+383,02may2013,19may2014,Fingolimod
+383,18oct2013,19may2014,Fingolimod
+384,02nov2015,16jul2017,Natalizumab
+384,03jan2013,13sep2014,Interferon
+384,15apr2013,14feb2015,Glatiramer
+385,05dec2016,06may2017,Interferon
+386,19oct2012,15aug2014,Fingolimod
+387,04jan2020,05dec2020,Natalizumab
+388,18apr2014,12jul2015,Fingolimod
+389,27dec2016,14sep2018,Glatiramer
+389,06nov2012,23mar2014,Ocrelizumab
+389,12may2018,16dec2019,Interferon
+389,30may2013,09aug2013,Dimethyl fumarate
+390,23apr2014,27jan2015,Ocrelizumab
+391,18jan2021,11may2021,Fingolimod
+392,30oct2013,26mar2014,Fingolimod
+393,13may2018,02may2019,Ocrelizumab
+393,20aug2016,05may2017,Interferon
+393,06sep2016,13jul2017,Dimethyl fumarate
+394,24dec2014,01jul2016,Fingolimod
+394,08aug2016,28jun2018,Glatiramer
+395,22apr2014,09jul2015,Fingolimod
+396,25jan2017,30apr2018,Natalizumab
+396,27mar2014,08apr2016,Dimethyl fumarate
+397,24oct2010,24dec2010,Natalizumab
+397,25oct2010,27nov2011,Natalizumab
+398,07feb2022,26jul2022,Dimethyl fumarate
+399,01nov2013,05may2014,Dimethyl fumarate
+400,11aug2013,29jul2015,Interferon
+400,26jun2013,06apr2014,Ocrelizumab
+401,25jul2014,23dec2014,Dimethyl fumarate
+402,28may2014,08aug2015,Ocrelizumab
+403,13oct2017,28aug2018,Dimethyl fumarate
+404,19jun2014,27apr2015,Interferon
+404,25sep2014,30may2016,Ocrelizumab
+404,01aug2014,18feb2015,Dimethyl fumarate
+404,01may2014,01feb2015,Fingolimod
+405,02jul2011,16dec2011,Dimethyl fumarate
+406,24sep2016,03apr2017,Dimethyl fumarate
+406,09nov2014,06jul2016,Glatiramer
+406,30jul2016,30aug2017,Interferon
+406,18nov2017,06aug2018,Glatiramer
+407,11may2015,15nov2015,Glatiramer
+407,26may2016,13dec2016,Ocrelizumab
+407,24jun2019,10sep2019,Natalizumab
+407,11feb2019,26jul2019,Interferon
+408,23dec2015,31jul2016,Interferon
+409,05feb2012,02aug2013,Natalizumab
+410,27mar2016,29mar2018,Natalizumab
+410,26sep2014,16nov2016,Natalizumab
+411,10sep2012,25nov2012,Dimethyl fumarate
+412,03sep2015,07jan2017,Fingolimod
+412,24sep2016,07jan2017,Interferon
+412,06jan2016,29sep2016,Fingolimod
+412,13oct2015,13nov2016,Ocrelizumab
+413,07oct2014,02jul2016,Ocrelizumab
+413,25sep2014,12jan2015,Interferon
+413,03jun2015,23mar2016,Interferon
+414,08mar2017,01jun2018,Ocrelizumab
+415,28mar2017,12jul2018,Ocrelizumab
+416,19jun2015,23nov2015,Interferon
+417,08mar2018,06oct2018,Glatiramer
+417,11sep2018,26jun2019,Natalizumab
+417,27sep2013,17nov2014,Interferon
+418,06may2012,10may2014,Ocrelizumab
+419,06dec2013,13jun2014,Interferon
+420,16jun2012,07oct2013,Glatiramer
+420,04jun2012,25sep2012,Dimethyl fumarate
+420,11nov2012,29nov2014,Natalizumab
+420,11sep2014,12jun2015,Fingolimod
+421,24feb2017,17jan2018,Natalizumab
+422,08may2020,20oct2020,Ocrelizumab
+422,01sep2018,24may2019,Dimethyl fumarate
+423,23may2014,24feb2016,Natalizumab
+423,28apr2011,03jun2013,Dimethyl fumarate
+423,15jun2010,15may2012,Dimethyl fumarate
+424,31dec2016,27may2018,Dimethyl fumarate
+425,19jan2013,09aug2013,Interferon
+425,08jul2013,02feb2014,Glatiramer
+425,09jul2013,02feb2014,Ocrelizumab
+425,30aug2013,02feb2014,Ocrelizumab
+426,13nov2021,24oct2022,Ocrelizumab
+427,07oct2015,09jul2016,Ocrelizumab
+427,14jun2016,18jul2017,Natalizumab
+427,22jun2014,15jul2015,Natalizumab
+427,22oct2015,09mar2016,Glatiramer
+428,24jul2018,01apr2019,Fingolimod
+429,28dec2014,23nov2015,Glatiramer
+429,18feb2014,10dec2014,Glatiramer
+429,19feb2015,02aug2015,Fingolimod
+429,19feb2015,04nov2015,Dimethyl fumarate
+430,09aug2016,26mar2017,Natalizumab
+431,05jan2013,10jun2013,Interferon
+431,16apr2012,16jul2013,Natalizumab
+431,15oct2014,30jan2015,Fingolimod
+431,16mar2013,08dec2014,Glatiramer
+432,16jan2016,12nov2017,Fingolimod
+432,05mar2017,17feb2019,Interferon
+432,16jul2019,19jun2020,Natalizumab
+432,07nov2017,22jun2019,Fingolimod
+433,06dec2015,25jul2016,Interferon
+433,09dec2011,19apr2013,Dimethyl fumarate
+433,06may2014,23dec2014,Dimethyl fumarate
+434,29jun2011,13jun2012,Fingolimod
+434,25may2015,30may2016,Interferon
+434,31dec2014,05dec2015,Natalizumab
+434,20feb2012,10nov2013,Fingolimod
+435,21jun2019,19nov2020,Fingolimod
+435,11jul2016,25oct2017,Natalizumab
+435,30jun2018,29jul2020,Interferon
+436,08dec2016,06jan2018,Ocrelizumab
+436,20nov2014,08jul2016,Interferon
+436,28oct2014,11jul2016,Natalizumab
+436,08apr2018,13may2019,Glatiramer
+437,28apr2012,19jul2013,Natalizumab
+437,07sep2012,19jul2013,Interferon
+437,12mar2012,11dec2012,Ocrelizumab
+437,22jan2013,19jul2013,Ocrelizumab
+438,15jun2011,27dec2011,Glatiramer
+438,30apr2012,01may2013,Natalizumab
+438,21mar2012,07jan2013,Ocrelizumab
+438,23oct2011,12feb2012,Fingolimod
+439,15mar2021,14jun2021,Interferon
+440,21dec2013,04jun2014,Natalizumab
+441,07feb2012,07nov2012,Fingolimod
+442,08dec2011,23may2012,Dimethyl fumarate
+443,27nov2012,11nov2013,Glatiramer
+444,29jun2013,31dec2014,Ocrelizumab
+444,23jan2015,02feb2016,Interferon
+444,19may2014,15jul2015,Glatiramer
+444,04oct2013,15apr2014,Ocrelizumab
+445,16oct2010,24apr2011,Natalizumab
+446,10nov2013,08jul2015,Ocrelizumab
+447,07mar2014,15sep2014,Natalizumab
+448,21aug2013,13sep2014,Interferon
+449,19jun2013,01nov2013,Glatiramer
+449,05oct2012,22jul2013,Natalizumab
+449,19jul2012,01nov2013,Natalizumab
+449,03dec2012,01nov2013,Fingolimod
+450,17nov2017,20jul2018,Natalizumab
+450,24sep2016,23apr2017,Natalizumab
+450,30oct2014,26apr2016,Dimethyl fumarate
+451,07feb2014,02oct2014,Ocrelizumab
+451,13oct2013,09mar2014,Interferon
+452,12may2016,13oct2016,Ocrelizumab
+453,04aug2019,04jul2020,Ocrelizumab
+454,04mar2015,03nov2016,Dimethyl fumarate
+455,25dec2013,30sep2015,Interferon
+456,11feb2019,19mar2021,Natalizumab
+457,18sep2011,31dec2012,Interferon
+458,02jul2013,05nov2013,Ocrelizumab
+459,22dec2016,17feb2018,Glatiramer
+460,06apr2013,05jul2013,Fingolimod
+461,08mar2013,05jul2013,Natalizumab
+462,17sep2015,23aug2016,Glatiramer
+462,08apr2014,20jan2015,Interferon
+462,30jan2012,27aug2013,Natalizumab
+462,16oct2014,04mar2016,Natalizumab
+463,26jan2018,27dec2019,Ocrelizumab
+464,30mar2012,02jan2013,Ocrelizumab
+464,01mar2012,02jan2013,Natalizumab
+464,09aug2012,10nov2012,Natalizumab
+465,11nov2011,28sep2012,Glatiramer
+466,09nov2016,29apr2018,Ocrelizumab
+466,28aug2016,29apr2018,Dimethyl fumarate
+466,14apr2016,10mar2017,Ocrelizumab
+466,21jan2017,18apr2018,Fingolimod
+467,25sep2018,28feb2020,Dimethyl fumarate
+467,21may2016,23mar2018,Glatiramer
+468,18jun2015,06sep2015,Glatiramer
+468,14apr2014,10dec2014,Interferon
+469,17oct2017,07mar2018,Glatiramer
+470,15apr2013,13jul2013,Ocrelizumab
+470,10feb2013,13jul2013,Natalizumab
+470,07mar2013,13jul2013,Fingolimod
+471,14jun2015,07may2016,Fingolimod
+471,13dec2016,10oct2017,Interferon
+471,01sep2017,03may2018,Interferon
+472,30may2016,16feb2018,Dimethyl fumarate
+472,04feb2014,10may2015,Glatiramer
+472,24apr2018,11feb2019,Natalizumab
+473,17jan2015,23may2015,Glatiramer
+473,27mar2013,22jun2013,Dimethyl fumarate
+473,27nov2012,12nov2014,Interferon
+473,17dec2011,15nov2012,Interferon
+474,14may2018,25sep2019,Fingolimod
+475,17nov2011,14nov2012,Interferon
+475,31aug2012,14nov2012,Dimethyl fumarate
+476,02nov2018,21dec2019,Natalizumab
+476,03jan2018,15jun2019,Ocrelizumab
+477,14aug2010,02jul2012,Natalizumab
+477,30jan2012,17jul2012,Fingolimod
+477,05mar2011,21sep2012,Glatiramer
+478,12apr2015,19jan2016,Natalizumab
+478,14nov2011,04jun2012,Glatiramer
+478,19jan2012,04feb2014,Ocrelizumab
+479,24sep2014,09jun2015,Natalizumab
+480,18apr2016,13jan2018,Fingolimod
+481,13nov2013,23dec2014,Fingolimod
+481,09jan2015,15may2015,Dimethyl fumarate
+482,30dec2012,05may2013,Natalizumab
+482,25jul2014,24nov2015,Fingolimod
+482,29aug2015,24nov2015,Fingolimod
+483,04jun2013,01mar2015,Glatiramer
+484,07dec2019,19sep2021,Fingolimod
+485,17feb2013,17oct2013,Fingolimod
+486,08sep2013,10jul2014,Natalizumab
+486,13mar2014,10jul2014,Interferon
+486,22sep2013,15feb2014,Ocrelizumab
+486,20jul2013,24oct2013,Ocrelizumab
+487,29mar2014,14mar2015,Ocrelizumab
+488,25jan2016,25aug2016,Ocrelizumab
+489,27feb2015,21apr2017,Fingolimod
+489,25aug2014,21jul2015,Ocrelizumab
+489,29jul2015,01nov2015,Glatiramer
+490,13apr2020,06may2021,Ocrelizumab
+490,19apr2023,13apr2024,Natalizumab
+490,23apr2023,13apr2024,Ocrelizumab
+491,30dec2014,25dec2015,Glatiramer
+492,06apr2014,18may2015,Glatiramer
+492,13may2013,05nov2013,Glatiramer
+493,30apr2016,02jan2018,Fingolimod
+494,22apr2011,28jun2011,Ocrelizumab
+494,17nov2010,19sep2011,Fingolimod
+494,30oct2010,29apr2011,Ocrelizumab
+495,28oct2017,28dec2017,Dimethyl fumarate
+496,16may2016,13jun2018,Interferon
+497,26dec2016,27mar2017,Natalizumab
+498,26mar2018,10sep2019,Dimethyl fumarate
+498,23may2015,13apr2017,Fingolimod
+498,31oct2018,24aug2019,Dimethyl fumarate
+499,09may2018,03jan2019,Fingolimod
+500,21dec2013,09jul2015,Fingolimod
+500,25oct2014,28jun2015,Natalizumab
+500,19nov2012,10aug2014,Ocrelizumab
+501,24dec2010,27apr2012,Natalizumab
+502,11jan2015,28apr2016,Ocrelizumab
+503,06aug2016,28jan2018,Ocrelizumab
+504,04dec2013,02feb2014,Interferon
+505,13dec2018,05nov2020,Dimethyl fumarate
+505,09mar2019,22mar2021,Glatiramer
+506,24jun2013,28apr2015,Natalizumab
+507,08feb2023,19jun2023,Glatiramer
+508,29oct2014,04may2016,Interferon
+509,19nov2015,11dec2017,Ocrelizumab
+509,29dec2011,12jan2014,Fingolimod
+509,17mar2017,17aug2017,Ocrelizumab
+509,24dec2014,05aug2015,Dimethyl fumarate
+510,03may2013,08oct2013,Dimethyl fumarate
+510,30dec2016,09sep2017,Ocrelizumab
+510,16jul2016,09sep2017,Glatiramer
+511,19sep2014,03dec2015,Fingolimod
+512,02nov2013,25apr2014,Interferon
+512,31jul2012,11jun2013,Ocrelizumab
+512,28feb2012,16aug2013,Interferon
+513,05jan2013,26jan2015,Natalizumab
+513,21nov2010,01oct2012,Dimethyl fumarate
+513,08feb2013,07apr2014,Interferon
+514,20dec2014,23mar2015,Interferon
+515,29jul2018,29jul2019,Fingolimod
+516,17nov2010,13apr2011,Interferon
+517,25aug2011,19mar2012,Dimethyl fumarate
+518,03nov2013,24jun2014,Natalizumab
+518,24jul2014,26apr2015,Interferon
+519,17sep2013,07oct2015,Fingolimod
+520,26dec2018,07mar2020,Dimethyl fumarate
+521,15oct2016,03may2018,Ocrelizumab
+521,04jan2014,21aug2014,Ocrelizumab
+522,15jun2011,13feb2012,Interferon
+522,13apr2014,11sep2014,Fingolimod
+522,12apr2012,15aug2013,Interferon
+523,15jul2011,24sep2012,Ocrelizumab
+523,11oct2013,13oct2015,Fingolimod
+523,08jan2015,14aug2016,Glatiramer
+523,24oct2014,08sep2015,Ocrelizumab
+524,27mar2021,11dec2022,Interferon
+524,07oct2017,26apr2019,Dimethyl fumarate
+525,08apr2014,21nov2015,Ocrelizumab
+526,26jul2016,22jan2018,Interferon
+527,21mar2013,05sep2014,Dimethyl fumarate
+527,07feb2016,04mar2018,Natalizumab
+527,01jan2015,26sep2016,Glatiramer
+528,21jan2013,02mar2015,Fingolimod
+528,29oct2011,12apr2012,Dimethyl fumarate
+529,30may2017,04jan2018,Natalizumab
+530,28oct2013,20sep2014,Natalizumab
+530,31aug2011,18sep2012,Ocrelizumab
+531,08jan2018,26mar2018,Natalizumab
+532,12jul2016,19dec2016,Fingolimod
+533,21oct2017,12jan2018,Natalizumab
+534,30jan2018,28jun2018,Interferon
+534,01jul2017,25apr2018,Glatiramer
+534,06may2016,12dec2017,Natalizumab
+534,19jun2016,28jun2018,Fingolimod
+535,18jul2015,27sep2015,Dimethyl fumarate
+536,11feb2014,28oct2015,Natalizumab
+537,23oct2012,05jan2014,Dimethyl fumarate
+537,06apr2013,12may2015,Glatiramer
+537,09dec2011,08jan2013,Natalizumab
+537,02oct2014,17mar2016,Dimethyl fumarate
+538,26sep2018,13feb2019,Natalizumab
+538,11dec2014,30may2015,Natalizumab
+539,27jun2014,23oct2014,Interferon
+540,15jun2015,04jan2017,Glatiramer
+540,06jun2016,04jan2017,Natalizumab
+541,10apr2012,11apr2013,Glatiramer
+542,30aug2016,22aug2017,Interferon
+542,22jun2016,12aug2017,Interferon
+542,22oct2014,03apr2015,Interferon
+542,06mar2016,22aug2017,Interferon
+543,30aug2014,26feb2015,Ocrelizumab
+544,06mar2011,30jul2011,Glatiramer
+544,10apr2016,23jun2016,Interferon
+544,16jun2013,28jan2015,Dimethyl fumarate
+544,18aug2014,22jan2016,Interferon
+545,17jan2013,16may2014,Glatiramer
+545,31may2018,06feb2019,Ocrelizumab
+545,10jul2018,23dec2018,Fingolimod
+546,12mar2012,01nov2012,Fingolimod
+547,28sep2016,30nov2017,Interferon
+547,30aug2016,01feb2017,Natalizumab
+547,17jul2014,02nov2014,Glatiramer
+548,28sep2010,02aug2011,Dimethyl fumarate
+548,10nov2014,10may2016,Interferon
+548,02may2015,20mar2016,Glatiramer
+549,16jan2014,10jul2014,Fingolimod
+549,03dec2012,25may2013,Dimethyl fumarate
+549,19mar2013,24jan2014,Glatiramer
+549,17sep2013,13jan2014,Natalizumab
+550,23jul2015,03apr2017,Natalizumab
+550,23dec2017,28apr2019,Natalizumab
+550,22sep2018,28apr2019,Ocrelizumab
+551,18jan2016,30mar2016,Ocrelizumab
+552,10jun2020,25feb2021,Ocrelizumab
+553,22mar2019,11mar2021,Dimethyl fumarate
+554,20apr2013,11oct2013,Glatiramer
+555,08oct2014,11jan2015,Ocrelizumab
+556,03jul2012,19nov2012,Ocrelizumab
+556,17aug2012,06feb2013,Fingolimod
+557,03nov2018,14jun2019,Ocrelizumab
+558,30oct2013,23jul2014,Glatiramer
+559,28jun2014,31may2016,Dimethyl fumarate
+560,01nov2014,20jan2015,Dimethyl fumarate
+561,04jul2015,06jan2016,Fingolimod
+562,19oct2013,23may2014,Glatiramer
+563,21oct2017,10jul2018,Natalizumab
+564,11mar2017,13may2017,Natalizumab
+565,29apr2013,22feb2014,Dimethyl fumarate
+565,08oct2013,22feb2014,Fingolimod
+565,12oct2012,22feb2014,Glatiramer
+565,01jun2013,22feb2014,Glatiramer
+566,18jan2012,16jun2012,Interferon
+566,18nov2012,11oct2013,Interferon
+567,25sep2012,15jan2014,Interferon
+567,10jul2010,19oct2010,Dimethyl fumarate
+567,22dec2011,19jan2014,Interferon
+568,13jan2016,06jan2017,Fingolimod
+569,01sep2016,03dec2017,Glatiramer
+570,05nov2019,22sep2021,Dimethyl fumarate
+570,04apr2018,16jul2018,Glatiramer
+570,01nov2016,20jul2018,Natalizumab
+571,09may2015,13nov2015,Fingolimod
+572,07jul2019,25dec2019,Natalizumab
+572,01nov2011,23may2012,Glatiramer
+573,18aug2014,29jan2015,Glatiramer
+574,24mar2015,02sep2016,Dimethyl fumarate
+574,19jul2015,26apr2017,Fingolimod
+575,14aug2014,24may2016,Glatiramer
+576,10jan2013,23jun2014,Natalizumab
+576,07jun2013,03may2014,Interferon
+576,06jul2014,21apr2015,Glatiramer
+576,12nov2013,21apr2015,Interferon
+577,14nov2018,20apr2019,Interferon
+578,03jul2013,29nov2013,Interferon
+579,31jul2020,21oct2020,Dimethyl fumarate
+579,05nov2017,10mar2018,Glatiramer
+579,19oct2018,20jul2020,Natalizumab
+579,20feb2018,09jan2020,Dimethyl fumarate
+580,26sep2015,28feb2016,Dimethyl fumarate
+581,08jan2013,20feb2014,Glatiramer
+581,01jun2015,21oct2016,Ocrelizumab
+581,06sep2014,05mar2016,Glatiramer
+582,27jan2015,16oct2016,Fingolimod
+582,22sep2014,10nov2016,Ocrelizumab
+582,26nov2014,09sep2015,Glatiramer
+582,11jun2014,17aug2014,Fingolimod
+583,02sep2016,02apr2017,Ocrelizumab
+584,16jan2016,04jun2016,Dimethyl fumarate
+585,03jun2015,19mar2017,Natalizumab
+586,28jan2017,17aug2017,Ocrelizumab
+586,27jun2015,27aug2016,Ocrelizumab
+586,28may2016,29apr2017,Fingolimod
+586,02sep2014,03jun2016,Glatiramer
+587,11feb2015,25nov2016,Interferon
+588,28apr2021,26jul2022,Natalizumab
+588,04jan2020,13jan2022,Interferon
+589,03jul2014,19sep2014,Interferon
+590,11feb2016,08sep2016,Interferon
+590,01jan2013,15mar2014,Interferon
+590,09nov2013,12feb2014,Glatiramer
+591,20dec2018,10oct2019,Interferon
+592,06mar2017,16may2017,Dimethyl fumarate
+593,17aug2014,23jan2016,Natalizumab
+593,25apr2015,28may2017,Dimethyl fumarate
+594,12mar2016,11sep2017,Glatiramer
+594,05jan2014,18apr2014,Natalizumab
+594,22dec2011,11jun2013,Dimethyl fumarate
+594,12mar2015,31jan2016,Ocrelizumab
+595,05sep2012,15aug2014,Natalizumab
+596,01aug2013,23dec2014,Natalizumab
+597,14oct2014,18aug2015,Ocrelizumab
+598,13apr2017,22sep2018,Ocrelizumab
+598,21feb2017,14nov2017,Ocrelizumab
+599,16may2017,10mar2018,Interferon
+599,03jul2012,16apr2013,Dimethyl fumarate
+599,06mar2011,27jan2013,Glatiramer
+600,02dec2014,17nov2016,Interferon
+601,02feb2017,18aug2017,Glatiramer
+601,27mar2019,23apr2020,Natalizumab
+601,15dec2021,21may2023,Glatiramer
+602,01apr2011,26nov2011,Interferon
+602,31mar2011,22jun2011,Natalizumab
+603,08jun2014,02jan2016,Natalizumab
+604,10feb2014,09feb2015,Natalizumab
+604,31jul2014,05jun2015,Ocrelizumab
+605,16nov2012,21mar2014,Ocrelizumab
+606,09jan2018,18aug2018,Ocrelizumab
+606,23aug2018,07may2019,Fingolimod
+606,09nov2014,20sep2015,Glatiramer
+606,07mar2015,09jan2016,Interferon
+607,13jun2014,08feb2015,Glatiramer
+608,03apr2016,14feb2017,Ocrelizumab
+609,13sep2018,14sep2019,Interferon
+610,16mar2014,01may2015,Ocrelizumab
+610,07jul2013,30may2015,Natalizumab
+611,20oct2015,03aug2017,Ocrelizumab
+612,30mar2020,17jun2021,Fingolimod
+613,15aug2012,26aug2013,Natalizumab
+613,02dec2016,08feb2017,Glatiramer
+613,16dec2014,20may2016,Glatiramer
+613,26nov2017,14feb2018,Glatiramer
+614,15mar2014,05dec2015,Interferon
+614,07jan2019,22jul2019,Glatiramer
+614,10jun2018,24jul2019,Glatiramer
+614,27jun2017,14apr2019,Ocrelizumab
+615,11jul2014,21mar2015,Dimethyl fumarate
+615,01mar2014,21mar2015,Glatiramer
+615,10jul2013,21mar2015,Natalizumab
+615,19oct2014,21mar2015,Glatiramer
+616,23aug2016,02jul2017,Natalizumab
+616,17feb2020,26feb2021,Interferon
+617,30nov2014,10aug2015,Dimethyl fumarate
+617,03mar2016,04aug2016,Glatiramer
+617,08apr2015,08jul2016,Fingolimod
+617,09jan2017,11nov2018,Interferon
+618,13may2010,07jul2012,Ocrelizumab
+618,15may2010,15dec2011,Fingolimod
+618,30mar2014,15feb2015,Natalizumab
+619,02nov2013,30dec2015,Ocrelizumab
+620,01nov2017,23jan2018,Glatiramer
+621,11nov2013,05oct2014,Natalizumab
+622,27jul2018,22feb2020,Dimethyl fumarate
+623,30nov2012,20feb2013,Ocrelizumab
+624,11mar2018,27feb2019,Fingolimod
+625,05mar2013,27jun2014,Ocrelizumab
+625,22jan2013,14nov2014,Interferon
+626,16apr2012,23jul2012,Dimethyl fumarate
+626,14oct2011,25feb2012,Natalizumab
+627,14may2018,20sep2019,Fingolimod
+628,16sep2010,07jan2011,Interferon
+629,04may2012,28jul2012,Glatiramer
+630,03jun2015,22dec2016,Natalizumab
+630,12feb2017,19may2018,Fingolimod
+630,28feb2020,16nov2020,Ocrelizumab
+630,02jan2022,20may2022,Ocrelizumab
+631,12feb2011,08dec2011,Dimethyl fumarate
+632,19jun2023,16feb2024,Glatiramer
+633,17may2010,28jun2011,Ocrelizumab
+634,18feb2018,06dec2019,Fingolimod
+634,09jul2017,27feb2019,Dimethyl fumarate
+635,24aug2011,22dec2011,Fingolimod
+636,02aug2015,30aug2017,Ocrelizumab
+637,09jul2015,05feb2016,Glatiramer
+638,21dec2016,03may2017,Fingolimod
+638,26jul2015,07jul2017,Dimethyl fumarate
+639,23apr2018,25nov2019,Dimethyl fumarate
+640,05sep2014,05apr2016,Interferon
+641,29jul2015,20nov2015,Glatiramer
+641,02apr2015,21jun2015,Fingolimod
+641,02jan2015,20nov2015,Dimethyl fumarate
+641,25jul2015,20nov2015,Glatiramer
+642,28may2022,31aug2022,Natalizumab
+643,27nov2012,22oct2014,Dimethyl fumarate
+644,29apr2010,19nov2010,Glatiramer
+645,09oct2018,21dec2018,Natalizumab
+646,18mar2019,26may2020,Dimethyl fumarate
+647,02apr2013,16jul2013,Natalizumab
+648,22sep2015,13jan2017,Glatiramer
+648,11jun2018,21oct2018,Interferon
+648,02jan2018,14nov2018,Interferon
+649,28aug2013,20jan2014,Interferon
+650,23dec2012,19mar2014,Ocrelizumab
+651,08mar2016,06jul2016,Natalizumab
+652,17may2012,01sep2012,Dimethyl fumarate
+653,23jun2011,20nov2011,Natalizumab
+654,24sep2014,17dec2014,Interferon
+655,01jan2014,22aug2014,Natalizumab
+655,02may2014,10jan2015,Interferon
+655,18jun2014,10jan2015,Fingolimod
+655,27may2013,04feb2014,Dimethyl fumarate
+656,18feb2015,07dec2015,Interferon
+657,02oct2014,21jan2015,Dimethyl fumarate
+658,30nov2012,14feb2013,Fingolimod
+659,13oct2013,24feb2015,Glatiramer
+660,24oct2011,13oct2013,Interferon
+660,17aug2012,17oct2012,Natalizumab
+661,16mar2012,27may2012,Glatiramer
+662,02jan2010,09jan2012,Ocrelizumab
+663,22apr2018,25apr2019,Interferon
+664,22nov2015,17jan2017,Natalizumab
+664,20jan2016,30jul2016,Dimethyl fumarate
+665,31jan2012,07nov2012,Dimethyl fumarate
+666,19apr2012,03jun2013,Dimethyl fumarate
+666,30nov2014,21mar2016,Ocrelizumab
+666,19apr2010,11oct2011,Natalizumab
+666,16aug2012,06sep2013,Fingolimod
+667,08feb2017,24dec2017,Natalizumab
+668,19jul2011,05may2012,Glatiramer
+669,19nov2011,12mar2012,Glatiramer
+670,15oct2013,22feb2015,Ocrelizumab
+670,19apr2015,04jan2016,Fingolimod
+671,02may2017,04aug2017,Dimethyl fumarate
+671,06may2017,04aug2017,Dimethyl fumarate
+671,02dec2011,10may2012,Fingolimod
+672,09nov2017,08may2019,Glatiramer
+673,20sep2014,11apr2015,Interferon
+673,24oct2019,09dec2020,Dimethyl fumarate
+673,22may2018,11nov2018,Interferon
+673,11jul2014,15mar2015,Glatiramer
+674,23mar2018,10oct2019,Fingolimod
+674,20oct2018,09mar2019,Natalizumab
+675,15mar2012,14oct2012,Natalizumab
+676,31dec2016,17apr2017,Interferon
+676,23aug2015,03feb2017,Ocrelizumab
+676,30may2014,06jun2016,Dimethyl fumarate
+677,18jan2016,04may2017,Interferon
+677,12mar2016,08jul2017,Glatiramer
+678,08may2018,01dec2018,Natalizumab
+679,06apr2019,24aug2020,Fingolimod
+680,18sep2011,17jun2013,Glatiramer
+681,22nov2012,19mar2014,Fingolimod
+681,21dec2014,10aug2015,Interferon
+681,27feb2014,30jun2015,Glatiramer
+681,12may2014,10aug2015,Natalizumab
+682,05oct2019,21may2020,Ocrelizumab
+682,14sep2019,15dec2019,Interferon
+683,01oct2015,31oct2016,Interferon
+684,15may2015,03oct2016,Glatiramer
+685,21jan2014,21oct2014,Ocrelizumab
+686,13jun2018,06jun2020,Ocrelizumab
+687,06oct2013,12dec2013,Glatiramer
+688,06jan2012,24sep2012,Interferon
+688,12nov2011,13may2012,Natalizumab
+689,13may2018,27aug2019,Interferon
+690,16dec2018,04may2019,Natalizumab
+690,19jan2020,23may2020,Natalizumab
+690,25jan2015,09mar2016,Natalizumab
+691,23oct2014,29dec2015,Glatiramer
+692,10sep2012,05jan2014,Natalizumab
+692,17jul2013,08apr2014,Fingolimod
+692,17jan2013,17nov2014,Fingolimod
+693,18feb2015,01sep2015,Interferon
+693,02nov2018,05apr2019,Ocrelizumab
+693,21apr2013,07feb2014,Natalizumab
+693,05nov2017,15mar2019,Natalizumab
+694,09may2016,15mar2018,Fingolimod
+694,15jan2016,30dec2016,Glatiramer
+694,20jul2015,20dec2015,Natalizumab
+694,31mar2015,18feb2016,Fingolimod
+695,22jun2012,21apr2013,Natalizumab
+696,22jan2015,19sep2016,Fingolimod
+697,24mar2014,12aug2014,Interferon
+698,07sep2013,07may2015,Ocrelizumab
+699,26aug2015,24apr2017,Fingolimod
+700,21feb2012,10sep2012,Natalizumab
+701,12mar2018,13feb2019,Natalizumab
+701,14sep2018,30jun2020,Interferon
+702,10may2019,04jul2020,Natalizumab
+703,15apr2014,06jun2015,Fingolimod
+703,25may2014,25jul2014,Ocrelizumab
+703,01nov2013,10aug2014,Glatiramer
+703,15sep2014,04jul2015,Interferon
+704,05jul2016,23sep2016,Ocrelizumab
+705,08sep2014,20oct2015,Natalizumab
+705,30oct2014,26mar2016,Fingolimod
+705,03jul2015,26mar2016,Glatiramer
+705,15feb2015,10may2015,Natalizumab
+706,12aug2014,01sep2015,Natalizumab
+706,20apr2015,19aug2016,Glatiramer
+706,24aug2015,19aug2016,Natalizumab
+706,05apr2015,04jul2016,Natalizumab
+707,21may2017,14mar2019,Glatiramer
+708,02oct2012,13mar2013,Fingolimod
+709,24apr2015,07nov2016,Natalizumab
+710,30aug2016,20mar2017,Natalizumab
+711,26nov2016,20may2017,Ocrelizumab
+712,07jun2017,28mar2018,Ocrelizumab
+713,21apr2015,15jul2015,Natalizumab
+714,01jan2012,22aug2013,Fingolimod
+715,02aug2014,29nov2015,Glatiramer
+715,28may2016,12jul2017,Glatiramer
+716,16oct2015,29oct2016,Glatiramer
+716,20dec2015,29oct2016,Dimethyl fumarate
+716,27may2014,15jul2016,Interferon
+717,14jan2018,14apr2018,Natalizumab
+717,11oct2015,15jul2016,Natalizumab
+717,17nov2015,09may2016,Fingolimod
+718,19apr2015,12nov2015,Ocrelizumab
+719,06jun2013,23oct2014,Glatiramer
+719,18feb2012,19nov2012,Dimethyl fumarate
+719,03jun2012,07aug2012,Glatiramer
+720,03nov2013,01jan2016,Natalizumab
+721,14apr2014,25aug2014,Ocrelizumab
+721,24may2013,24oct2013,Fingolimod
+721,03feb2019,22may2020,Fingolimod
+722,09jan2017,02mar2018,Dimethyl fumarate
+722,28jun2019,29sep2019,Dimethyl fumarate
+723,08nov2012,20may2013,Ocrelizumab
+723,02feb2012,09jan2013,Dimethyl fumarate
+723,03aug2011,23apr2013,Fingolimod
+723,18jul2012,20may2013,Dimethyl fumarate
+724,25jun2016,02mar2018,Interferon
+724,27dec2014,10jun2016,Dimethyl fumarate
+724,12jan2016,14nov2017,Interferon
+724,17nov2016,12mar2018,Dimethyl fumarate
+725,11jul2012,14jan2013,Dimethyl fumarate
+726,16feb2014,08apr2015,Fingolimod
+727,08jul2012,29mar2013,Interferon
+727,16apr2012,03aug2012,Glatiramer
+727,10jan2012,29mar2013,Dimethyl fumarate
+727,15feb2012,22dec2012,Ocrelizumab
+728,27apr2014,14nov2014,Interferon
+729,24oct2014,09dec2015,Interferon
+730,22may2013,27jan2015,Fingolimod
+731,28feb2019,19jun2019,Glatiramer
+732,27jun2015,30sep2016,Dimethyl fumarate
+733,12may2014,05nov2015,Ocrelizumab
+733,07jun2015,05nov2015,Dimethyl fumarate
+734,07jul2011,31dec2011,Interferon
+735,01dec2019,05apr2021,Natalizumab
+736,14may2015,28aug2015,Ocrelizumab
+737,08feb2012,10dec2013,Ocrelizumab
+738,31jul2011,27dec2011,Glatiramer
+739,15nov2022,19feb2023,Glatiramer
+740,31may2012,27jun2014,Interferon
+740,06feb2013,11jan2014,Fingolimod
+740,04nov2012,23oct2013,Interferon
+741,03nov2012,18dec2013,Fingolimod
+741,27jan2011,07dec2012,Fingolimod
+741,03sep2012,29mar2013,Glatiramer
+741,25jun2011,22mar2013,Dimethyl fumarate
+742,09dec2019,30aug2020,Natalizumab
+742,02jun2017,07oct2017,Interferon
+742,30sep2013,27may2015,Natalizumab
+742,29dec2018,21may2020,Natalizumab
+743,17dec2013,16jan2015,Fingolimod
+744,29oct2010,15jan2011,Glatiramer
+744,27sep2012,20sep2014,Dimethyl fumarate
+745,09jun2010,02sep2010,Glatiramer
+746,11oct2014,14apr2015,Fingolimod
+746,22jan2015,04apr2015,Dimethyl fumarate
+746,15nov2014,14apr2015,Natalizumab
+746,16sep2014,14apr2015,Glatiramer
+747,22oct2011,09nov2012,Glatiramer
+748,28mar2014,24sep2014,Glatiramer
+748,03mar2015,11jan2016,Glatiramer
+749,01oct2012,16oct2014,Natalizumab
+750,16may2016,16dec2017,Fingolimod
+751,26apr2015,29jan2016,Glatiramer
+752,07nov2014,06mar2015,Fingolimod
+753,02feb2016,26jan2018,Fingolimod
+753,30nov2015,02dec2017,Fingolimod
+753,16feb2013,18dec2013,Glatiramer
+754,28jul2015,23jun2016,Interferon
+755,22jan2011,26mar2011,Glatiramer
+756,29jun2019,28nov2019,Natalizumab
+757,31oct2013,24dec2014,Ocrelizumab
+757,12feb2013,20jan2014,Ocrelizumab
+757,29mar2017,30jan2019,Dimethyl fumarate
+757,15jun2012,04may2013,Glatiramer
+758,28jun2015,08feb2017,Natalizumab
+759,01nov2010,20nov2012,Fingolimod
+759,03oct2010,28apr2012,Natalizumab
+759,07jun2014,27jul2015,Glatiramer
+759,09dec2013,13dec2014,Ocrelizumab
+760,25mar2014,02jun2015,Natalizumab
+760,07feb2014,19feb2015,Interferon
+760,19jan2018,20nov2018,Natalizumab
+760,17dec2018,13jul2020,Ocrelizumab
+761,16jun2014,06dec2014,Ocrelizumab
+762,30aug2014,09aug2015,Glatiramer
+762,04aug2013,02jun2015,Fingolimod
+762,29nov2014,09aug2015,Natalizumab
+763,14jan2014,24jun2014,Ocrelizumab
+764,30apr2013,08may2014,Natalizumab
+765,26mar2014,24dec2015,Natalizumab
+766,05apr2014,15jul2015,Fingolimod
+766,25jul2013,25apr2014,Ocrelizumab
+766,30nov2013,22apr2014,Ocrelizumab
+766,21jun2013,24dec2014,Fingolimod
+767,27mar2013,16dec2014,Ocrelizumab
+768,05jun2016,20jan2017,Dimethyl fumarate
+769,16jun2013,22may2015,Fingolimod
+769,30mar2014,11oct2015,Natalizumab
+769,11may2017,17nov2017,Dimethyl fumarate
+769,10mar2012,23jan2013,Ocrelizumab
+770,29mar2012,18jan2013,Interferon
+771,12may2012,09mar2013,Fingolimod
+771,10sep2013,17jan2014,Fingolimod
+771,08may2012,15oct2013,Interferon
+771,03feb2013,28jul2014,Interferon
+772,26sep2016,31oct2017,Glatiramer
+772,18may2015,19jun2017,Glatiramer
+772,18oct2013,13jan2014,Dimethyl fumarate
+773,20may2015,23jul2015,Natalizumab
+773,16dec2014,21jun2015,Fingolimod
+774,18aug2014,27feb2016,Natalizumab
+775,19aug2014,20jun2015,Ocrelizumab
+775,24jul2012,11nov2012,Glatiramer
+775,12sep2012,02oct2013,Interferon
+776,19jun2014,06apr2016,Dimethyl fumarate
+777,22may2015,13mar2017,Ocrelizumab
+778,13aug2016,28oct2017,Dimethyl fumarate
+779,24may2017,26mar2019,Interferon
+780,23sep2015,21jan2016,Natalizumab
+780,21dec2012,15mar2013,Ocrelizumab
+780,27sep2012,11feb2013,Ocrelizumab
+781,18nov2012,28may2014,Ocrelizumab
+782,09feb2016,30oct2016,Interferon
+782,10mar2016,30oct2016,Natalizumab
+782,25oct2014,30oct2016,Interferon
+783,26jul2013,22jan2014,Ocrelizumab
+784,04mar2011,23jan2012,Ocrelizumab
+784,19may2011,23jan2012,Natalizumab
+784,22may2011,23jan2012,Natalizumab
+785,14may2015,11apr2016,Glatiramer
+786,29sep2017,11mar2018,Fingolimod
+787,05may2011,23jan2012,Natalizumab
+788,10nov2011,22mar2012,Ocrelizumab
+789,03jan2013,30jan2014,Ocrelizumab
+789,12jan2013,30jan2014,Fingolimod
+789,07nov2012,30jan2014,Natalizumab
+789,13nov2012,03dec2013,Interferon
+790,08feb2011,26nov2012,Natalizumab
+791,08sep2016,11feb2017,Dimethyl fumarate
+791,03may2016,14sep2016,Interferon
+791,18feb2016,01jul2017,Natalizumab
+792,14oct2014,10nov2016,Fingolimod
+792,18oct2016,14feb2017,Glatiramer
+792,29jul2013,03jul2014,Natalizumab
+793,30may2010,24aug2010,Dimethyl fumarate
+793,06apr2011,09jan2013,Fingolimod
+793,21mar2013,25sep2013,Natalizumab
+793,21jun2011,16sep2011,Ocrelizumab
+794,30sep2016,20aug2017,Interferon
+794,03aug2016,20aug2017,Natalizumab
+794,02aug2015,22jul2017,Dimethyl fumarate
+795,01jun2011,05nov2012,Interferon
+795,16mar2011,16jun2012,Dimethyl fumarate
+795,22nov2011,05nov2012,Interferon
+795,18apr2011,01mar2012,Fingolimod
+796,16aug2012,17jun2013,Glatiramer
+796,23jan2012,15jul2012,Interferon
+796,21may2012,17jun2013,Glatiramer
+796,23feb2012,12apr2013,Ocrelizumab
+797,14jun2019,10jan2021,Interferon
+798,04dec2016,27may2018,Ocrelizumab
+799,30sep2016,04mar2017,Interferon
+799,12aug2017,29nov2017,Ocrelizumab
+800,31aug2018,06feb2019,Interferon
+801,29jun2012,05sep2012,Natalizumab
+802,28dec2012,23jan2015,Fingolimod
+802,05feb2016,18dec2016,Fingolimod
+802,04jun2017,27oct2017,Glatiramer
+802,04apr2016,22sep2016,Dimethyl fumarate
+803,24mar2019,16jul2019,Fingolimod
+804,23may2015,14jun2016,Ocrelizumab
+804,04aug2013,28mar2014,Dimethyl fumarate
+805,03jul2015,06nov2015,Natalizumab
+805,02mar2020,08oct2021,Ocrelizumab
+806,01may2016,27nov2017,Dimethyl fumarate
+806,12mar2017,14may2018,Dimethyl fumarate
+806,07sep2019,18jan2020,Interferon
+806,30jun2017,28jun2018,Dimethyl fumarate
+807,12feb2015,27mar2017,Ocrelizumab
+808,21nov2015,06mar2017,Natalizumab
+808,03oct2014,25apr2016,Ocrelizumab
+808,05jun2016,17feb2017,Natalizumab
+808,12apr2012,27sep2013,Interferon
+809,21feb2014,17sep2014,Glatiramer
+810,20feb2015,05jan2016,Ocrelizumab
+811,29dec2015,16jul2017,Natalizumab
+812,07aug2012,26jun2013,Natalizumab
+813,14apr2013,14feb2014,Fingolimod
+814,22jan2019,24mar2019,Natalizumab
+815,28nov2021,22feb2022,Natalizumab
+815,15aug2014,22jun2015,Ocrelizumab
+816,11jun2017,13aug2018,Interferon
+817,04jan2015,01oct2015,Glatiramer
+818,01nov2014,26jan2015,Interferon
+819,13oct2016,23mar2018,Natalizumab
+820,16jun2016,21oct2016,Glatiramer
+821,08feb2020,17jul2020,Interferon
+822,30mar2014,27dec2015,Fingolimod
+823,18nov2014,14sep2016,Glatiramer
+823,12oct2014,08jul2015,Dimethyl fumarate
+823,29apr2022,17aug2022,Natalizumab
+823,24oct2017,19sep2018,Ocrelizumab
+824,25jun2010,18sep2010,Natalizumab
+825,25may2014,10oct2015,Dimethyl fumarate
+825,03jan2015,24may2016,Natalizumab
+825,15nov2012,05jan2015,Dimethyl fumarate
+825,13apr2016,28jun2016,Dimethyl fumarate
+826,25feb2013,22may2013,Interferon
+827,18dec2015,05mar2016,Interferon
+828,29may2014,06jan2016,Glatiramer
+829,30nov2015,17apr2016,Ocrelizumab
+830,03jul2014,16oct2014,Fingolimod
+831,05aug2011,02jun2012,Ocrelizumab
+831,17dec2012,12jun2013,Ocrelizumab
+831,23aug2015,07nov2015,Natalizumab
+831,13feb2019,09sep2019,Interferon
+832,30jun2017,30mar2018,Interferon
+833,22aug2015,11nov2015,Ocrelizumab
+833,05sep2013,24dec2014,Interferon
+834,23jul2014,07sep2016,Natalizumab
+834,23sep2014,13mar2015,Glatiramer
+835,26jul2014,04jun2015,Interferon
+835,24aug2012,17jan2014,Fingolimod
+835,22may2012,30nov2012,Natalizumab
+836,13nov2015,02dec2016,Dimethyl fumarate
+837,31may2014,03jun2015,Glatiramer
+837,17sep2014,03jun2015,Interferon
+837,29dec2014,03jun2015,Fingolimod
+837,07oct2011,08apr2013,Natalizumab
+838,06jan2020,02jul2020,Dimethyl fumarate
+839,04oct2010,17oct2011,Fingolimod
+840,11dec2020,30may2021,Interferon
+841,27jul2013,02dec2014,Natalizumab
+841,26aug2015,14apr2016,Interferon
+842,25may2015,10may2016,Ocrelizumab
+843,22jan2015,19sep2016,Ocrelizumab
+844,06may2012,14sep2013,Interferon
+845,09dec2010,06jul2012,Interferon
+846,21mar2014,02dec2014,Fingolimod
+847,01oct2012,26mar2013,Interferon
+847,22feb2014,18apr2016,Natalizumab
+847,20jan2014,27apr2015,Glatiramer
+848,07nov2016,17oct2017,Fingolimod
+849,30jan2011,27sep2011,Interferon
+849,26jul2011,27sep2011,Dimethyl fumarate
+849,15may2011,27sep2011,Glatiramer
+849,01feb2011,27sep2011,Natalizumab
+850,04jun2017,27sep2017,Glatiramer
+850,07jun2020,06aug2020,Fingolimod
+850,18nov2015,07feb2016,Interferon
+850,02apr2017,23mar2019,Fingolimod
+851,05feb2014,24jan2015,Interferon
+851,11jan2015,18jun2015,Natalizumab
+852,23apr2020,21jan2021,Natalizumab
+853,10dec2014,17nov2016,Natalizumab
+854,22jul2015,13jan2016,Interferon
+855,07feb2019,11aug2019,Interferon
+856,14mar2012,03jan2013,Fingolimod
+857,13apr2017,18feb2018,Natalizumab
+857,07apr2021,02feb2023,Fingolimod
+858,10jun2013,15feb2014,Dimethyl fumarate
+858,06dec2014,20sep2015,Interferon
+858,23mar2014,20sep2015,Ocrelizumab
+858,06jul2013,06dec2013,Ocrelizumab
+859,10mar2013,27sep2013,Fingolimod
+859,24sep2013,08dec2013,Interferon
+859,08jun2013,08dec2013,Dimethyl fumarate
+859,17aug2013,08dec2013,Fingolimod
+860,26jul2017,08sep2018,Glatiramer
+860,15jul2016,29nov2016,Ocrelizumab
+861,04jul2013,25dec2013,Ocrelizumab
+862,27aug2022,26apr2024,Ocrelizumab
+863,29aug2017,31jan2018,Ocrelizumab
+863,23feb2015,08aug2016,Ocrelizumab
+863,22jul2016,03oct2017,Fingolimod
+863,15may2015,23dec2015,Interferon
+864,26sep2016,12dec2016,Glatiramer
+865,11jan2013,28feb2014,Dimethyl fumarate
+866,07dec2013,29oct2015,Fingolimod
+866,06sep2013,28jan2015,Interferon
+866,02jun2017,08jun2018,Glatiramer
+866,16nov2016,08jun2018,Interferon
+867,12oct2012,29jan2014,Dimethyl fumarate
+867,27dec2017,01may2019,Ocrelizumab
+867,22sep2018,15jun2019,Interferon
+868,16apr2016,03apr2018,Interferon
+868,23feb2015,05jul2016,Ocrelizumab
+869,03jun2013,16sep2014,Dimethyl fumarate
+870,26jul2017,06may2018,Fingolimod
+871,27feb2015,28jun2016,Interferon
+871,17oct2012,13dec2013,Interferon
+872,26feb2012,07feb2013,Interferon
+873,27apr2015,01nov2015,Glatiramer
+873,17may2015,27dec2015,Glatiramer
+873,07aug2012,03jul2013,Glatiramer
+873,18mar2012,31jan2013,Interferon
+874,23nov2016,04dec2017,Interferon
+875,26mar2014,08oct2015,Glatiramer
+876,06jan2012,04aug2013,Interferon
+877,09oct2014,07may2016,Ocrelizumab
+878,28jul2012,02nov2012,Natalizumab
+879,12aug2013,21aug2014,Ocrelizumab
+880,22nov2014,21sep2016,Ocrelizumab
+881,02jul2014,01jun2015,Fingolimod
+881,15mar2015,01jun2015,Natalizumab
+881,01mar2015,01jun2015,Interferon
+882,17oct2011,08jul2012,Ocrelizumab
+882,19feb2012,08jul2012,Ocrelizumab
+882,14oct2011,08jul2012,Fingolimod
+883,09feb2017,29aug2017,Glatiramer
+884,19oct2018,14sep2019,Interferon
+885,09aug2011,28may2012,Dimethyl fumarate
+886,30mar2015,20dec2015,Ocrelizumab
+887,15dec2012,10mar2014,Natalizumab
+887,15feb2016,26apr2016,Glatiramer
+887,18jan2016,26apr2016,Interferon
+887,14feb2012,10jun2012,Natalizumab
+888,07oct2015,06oct2016,Glatiramer
+889,03jul2015,22jul2016,Natalizumab
+890,21dec2012,14dec2013,Fingolimod
+891,29nov2010,19oct2011,Ocrelizumab
+891,10may2012,08dec2013,Glatiramer
+891,14sep2012,08dec2013,Glatiramer
+891,08jan2012,08dec2013,Dimethyl fumarate
+892,15dec2018,18jan2020,Glatiramer
+893,07may2018,01jul2019,Natalizumab
+894,05feb2018,21jun2019,Fingolimod
+895,30jul2017,04mar2019,Fingolimod
+896,21oct2016,11may2018,Natalizumab
+897,19aug2011,08apr2012,Ocrelizumab
+897,01jan2013,22may2013,Ocrelizumab
+897,04apr2012,28nov2012,Fingolimod
+897,13dec2011,14aug2012,Interferon
+898,19jul2014,11sep2016,Ocrelizumab
+898,19jun2012,03feb2014,Glatiramer
+898,22mar2012,04jan2013,Ocrelizumab
+898,02jan2020,30jun2020,Dimethyl fumarate
+899,24jun2020,19may2021,Ocrelizumab
+900,22sep2017,23jul2018,Ocrelizumab
+901,29aug2016,30may2017,Fingolimod
+901,05jul2015,13sep2016,Dimethyl fumarate
+902,11jul2012,13dec2012,Fingolimod
+902,14jan2012,17jul2012,Dimethyl fumarate
+902,17jul2012,13dec2012,Fingolimod
+903,07feb2012,25may2012,Ocrelizumab
+903,27oct2012,16mar2013,Natalizumab
+903,18feb2012,12mar2013,Ocrelizumab
+904,10may2014,05jun2015,Interferon
+904,16mar2015,05jun2015,Glatiramer
+904,07oct2013,18nov2014,Fingolimod
+905,07mar2019,25dec2020,Natalizumab
+906,29mar2018,17may2019,Ocrelizumab
+907,04sep2012,17mar2013,Ocrelizumab
+907,20dec2011,08jan2013,Dimethyl fumarate
+908,26dec2011,10jun2012,Ocrelizumab
+909,04oct2014,17dec2015,Ocrelizumab
+910,30jul2011,04oct2012,Ocrelizumab
+910,06sep2014,29feb2016,Natalizumab
+910,21jan2013,19may2014,Natalizumab
+910,07jan2015,29feb2016,Dimethyl fumarate
+911,23dec2014,27nov2016,Natalizumab
+911,26dec2019,30may2021,Glatiramer
+911,01sep2021,24feb2023,Natalizumab
+911,24may2017,08nov2018,Glatiramer
+912,25sep2017,04jul2018,Interferon
+913,22feb2013,03feb2015,Ocrelizumab
+914,01feb2015,06oct2016,Glatiramer
+915,31oct2014,20jan2016,Ocrelizumab
+915,11apr2015,06jan2016,Glatiramer
+916,02may2012,04mar2014,Fingolimod
+917,01jul2013,12jan2015,Interferon
+917,01mar2014,19mar2015,Glatiramer
+917,25jan2015,27may2015,Natalizumab
+917,30jan2015,27may2015,Interferon
+918,29mar2015,13apr2016,Ocrelizumab
+919,29may2014,19oct2014,Ocrelizumab
+920,03jun2015,04mar2016,Fingolimod
+921,11oct2011,30jun2012,Interferon
+922,18sep2016,07mar2017,Ocrelizumab
+923,02apr2018,06feb2019,Glatiramer
+923,28may2014,02apr2015,Natalizumab
+923,31jul2017,16mar2019,Ocrelizumab
+924,27may2013,29dec2014,Interferon
+925,25apr2016,18jun2017,Fingolimod
+925,20jun2013,17jan2015,Natalizumab
+925,24jun2013,07may2014,Glatiramer
+926,19sep2014,18dec2015,Interferon
+926,23oct2014,18dec2015,Interferon
+926,06feb2015,15oct2015,Interferon
+927,24jul2016,03mar2017,Dimethyl fumarate
+928,20apr2011,09aug2011,Dimethyl fumarate
+929,07jul2021,21sep2021,Fingolimod
+929,14sep2020,21sep2021,Glatiramer
+930,11feb2016,21jan2017,Ocrelizumab
+930,28apr2015,21oct2016,Ocrelizumab
+931,04mar2013,10jun2014,Dimethyl fumarate
+932,10aug2015,09nov2016,Natalizumab
+933,03feb2012,30may2012,Dimethyl fumarate
+933,08sep2012,13nov2013,Natalizumab
+933,15sep2012,30jan2014,Glatiramer
+933,14sep2013,30jan2014,Interferon
+934,04dec2016,15apr2017,Fingolimod
+935,06jul2011,20feb2013,Ocrelizumab
+935,24may2013,17jun2014,Dimethyl fumarate
+935,02aug2014,24aug2015,Ocrelizumab
+936,04may2017,31dec2018,Interferon
+937,11feb2012,23aug2012,Natalizumab
+937,10apr2012,23aug2012,Fingolimod
+937,28jul2011,03nov2011,Ocrelizumab
+938,29mar2019,10jun2019,Interferon
+939,05sep2014,23jan2016,Dimethyl fumarate
+940,01nov2014,16jun2016,Dimethyl fumarate
+940,07aug2017,12mar2018,Interferon
+940,14dec2016,28apr2017,Ocrelizumab
+941,24may2011,02sep2011,Interferon
+942,11oct2014,15sep2015,Ocrelizumab
+943,22sep2018,10sep2019,Dimethyl fumarate
+943,27aug2014,23nov2014,Interferon
+943,28jul2014,28jun2015,Natalizumab
+943,04nov2013,22jan2014,Natalizumab
+944,31aug2014,18feb2016,Glatiramer
+945,10feb2011,02nov2011,Dimethyl fumarate
+945,28may2011,02nov2011,Dimethyl fumarate
+945,17apr2011,02nov2011,Fingolimod
+945,24mar2011,02nov2011,Ocrelizumab
+946,29jan2017,20may2017,Interferon
+946,25nov2014,04nov2015,Glatiramer
+946,21jan2015,21dec2015,Natalizumab
+947,08apr2018,19feb2020,Ocrelizumab
+947,14mar2015,09dec2015,Ocrelizumab
+948,01apr2013,24nov2014,Glatiramer
+948,12aug2013,24nov2014,Dimethyl fumarate
+948,10sep2014,24nov2014,Glatiramer
+948,29mar2013,02feb2014,Fingolimod
+949,29aug2013,24sep2014,Ocrelizumab
+949,12jun2014,24sep2014,Dimethyl fumarate
+949,05jan2013,15mar2013,Dimethyl fumarate
+950,04dec2012,03nov2013,Dimethyl fumarate
+951,03mar2021,09apr2022,Fingolimod
+951,13apr2015,18jun2015,Dimethyl fumarate
+951,11may2018,06mar2020,Interferon
+952,15mar2014,27sep2014,Glatiramer
+953,07feb2020,25jun2021,Natalizumab
+953,22mar2018,02jan2020,Glatiramer
+953,04jun2018,14feb2019,Ocrelizumab
+953,21dec2016,10sep2018,Fingolimod
+954,04aug2011,25dec2011,Natalizumab
+955,05apr2015,30nov2016,Ocrelizumab
+955,23jun2017,11oct2018,Fingolimod
+956,16sep2012,12sep2013,Glatiramer
+956,22feb2013,27jul2013,Natalizumab
+957,17mar2016,11oct2016,Natalizumab
+958,17oct2015,18apr2016,Interferon
+958,02mar2015,08jun2015,Glatiramer
+959,20nov2018,07jun2020,Fingolimod
+959,19may2015,12aug2015,Fingolimod
+959,23oct2015,12aug2016,Interferon
+959,02may2019,15mar2021,Fingolimod
+960,22mar2011,09jan2012,Ocrelizumab
+961,07apr2013,11apr2014,Ocrelizumab
+962,21feb2021,20jan2022,Natalizumab
+963,31aug2014,26oct2015,Interferon
+963,17aug2018,08sep2019,Interferon
+963,23mar2017,19sep2018,Fingolimod
+964,21mar2017,20apr2018,Dimethyl fumarate
+965,17apr2016,29dec2017,Interferon
+965,25mar2018,24jan2019,Fingolimod
+966,27jul2022,22feb2023,Fingolimod
+967,27jul2016,06jan2018,Fingolimod
+968,27jan2014,27dec2015,Fingolimod
+969,17jun2013,09dec2013,Fingolimod
+970,08jan2017,09jul2018,Fingolimod
+970,14apr2016,04apr2017,Dimethyl fumarate
+970,24may2018,12dec2018,Glatiramer
+971,29dec2012,11may2013,Fingolimod
+971,04oct2011,11may2013,Natalizumab
+971,20sep2011,19nov2012,Interferon
+971,14feb2012,16oct2012,Dimethyl fumarate
+972,22nov2011,30aug2012,Fingolimod
+972,22nov2011,30aug2012,Glatiramer
+972,26jun2011,16oct2011,Fingolimod
+972,01nov2011,08feb2012,Dimethyl fumarate
+973,28may2015,08aug2015,Natalizumab
+974,25sep2015,14dec2015,Dimethyl fumarate
+975,12apr2012,01jul2013,Ocrelizumab
+976,19jan2016,01may2016,Glatiramer
+976,09oct2015,09mar2016,Dimethyl fumarate
+976,10feb2016,12aug2017,Ocrelizumab
+977,07dec2010,08jan2012,Ocrelizumab
+977,15jul2014,14sep2015,Ocrelizumab
+978,31dec2013,29apr2014,Natalizumab
+978,05nov2015,06sep2017,Dimethyl fumarate
+978,17apr2014,04feb2015,Glatiramer
+979,29mar2016,13jan2017,Fingolimod
+980,10dec2014,25dec2015,Dimethyl fumarate
+980,27apr2013,27aug2014,Ocrelizumab
+980,21may2015,25dec2015,Ocrelizumab
+980,08nov2013,14apr2015,Glatiramer
+981,21jul2013,27mar2015,Fingolimod
+982,23may2018,19sep2018,Fingolimod
+983,20feb2011,10may2012,Fingolimod
+984,24dec2014,11apr2015,Ocrelizumab
+985,16may2015,28oct2015,Dimethyl fumarate
+985,26dec2013,25mar2015,Ocrelizumab
+985,04jul2016,16jun2017,Fingolimod
+985,18feb2015,09apr2016,Ocrelizumab
+986,31jul2013,02mar2014,Natalizumab
+987,12aug2015,14feb2017,Fingolimod
+987,20feb2016,28jul2017,Glatiramer
+987,24jul2018,26aug2020,Ocrelizumab
+987,02sep2021,27feb2022,Dimethyl fumarate
+988,16feb2017,01aug2018,Interferon
+988,13mar2015,24may2016,Interferon
+989,04dec2013,02feb2014,Glatiramer
+989,23dec2013,30oct2014,Fingolimod
+990,21aug2012,26sep2014,Glatiramer
+991,08jul2014,29sep2014,Glatiramer
+992,15apr2013,20jun2014,Fingolimod
+993,24sep2015,26nov2015,Dimethyl fumarate
+993,18mar2015,26nov2015,Natalizumab
+994,17nov2012,01sep2013,Dimethyl fumarate
+995,04nov2013,11apr2014,Ocrelizumab
+996,14oct2018,20nov2020,Glatiramer
+997,18apr2016,30sep2016,Dimethyl fumarate
+997,17jun2015,27apr2017,Fingolimod
+997,25jan2016,27apr2017,Glatiramer
+998,26mar2015,25may2015,Dimethyl fumarate
+998,05feb2016,07feb2017,Glatiramer
+998,11feb2014,13nov2014,Natalizumab
+998,26mar2016,07feb2017,Interferon
+999,30aug2019,29dec2019,Dimethyl fumarate
+999,28may2015,07jan2017,Natalizumab
+999,28apr2018,04may2020,Natalizumab
+999,21may2016,03jan2018,Interferon
+1000,27apr2013,07sep2013,Ocrelizumab
+1000,08jul2012,07sep2013,Natalizumab
+1000,04jun2012,07sep2013,Fingolimod

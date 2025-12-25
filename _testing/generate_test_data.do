@@ -37,7 +37,7 @@ if "`c(os)'" == "MacOSX" {
     global STATA_TOOLS_PATH "/Users/tcopeland/Documents/GitHub/Stata-Tools"
 }
 else if "`c(os)'" == "Unix" {
-    global STATA_TOOLS_PATH "/home/ubuntu/Stata-Tools"
+    global STATA_TOOLS_PATH "/home/tpcopeland/Stata-Tools"
 }
 else {
     * Windows or other - try to detect from current directory

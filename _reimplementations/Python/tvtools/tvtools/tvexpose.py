@@ -46,7 +46,7 @@ def tvexpose(
     bytype: bool = False,
     recency: Optional[List[float]] = None,
     grace: Union[int, Dict[int, int]] = 0,
-    merge_days: int = 120,
+    merge_days: int = 0,
     fillgaps: int = 0,
     carryforward: int = 0,
     priority: Optional[List[int]] = None,
@@ -777,19 +777,26 @@ def _apply_currentformer(
     bytype: bool,
     stub_name: str
 ) -> pd.DataFrame:
-    """Apply current/former exposure definition."""
+    """Apply current/former exposure definition.
+
+    Values: 0=never exposed, 1=currently exposed, 2=formerly exposed
+    """
+    exp = exp.copy()
     first_exp = exp[exp['orig_exp_binary'] == 1].groupby('id')['exp_start'].min()
     exp['_first_exp'] = exp['id'].map(first_exp)
 
-    exp['exp_value'] = np.select(
-        [
-            exp['_first_exp'].isna(),
-            exp['orig_exp_binary'] == 1,
-            exp['exp_start'] >= exp['_first_exp']
-        ],
-        [0, 1, 2],
-        default=0
-    )
+    # Build conditions as boolean arrays
+    never_exposed = exp['_first_exp'].isna()
+    currently_exposed = (exp['orig_exp_binary'] == 1)
+
+    # For former: has been exposed (not never), not currently exposed, and after first exposure
+    was_exposed_before = (~never_exposed) & (exp['exp_start'] >= exp['_first_exp'])
+    formerly_exposed = was_exposed_before & (~currently_exposed)
+
+    # Assign values using numpy where for clarity
+    exp['exp_value'] = 0  # default: never
+    exp.loc[formerly_exposed, 'exp_value'] = 2  # former
+    exp.loc[currently_exposed, 'exp_value'] = 1  # current (overrides former)
 
     exp = exp.drop(columns=['_first_exp'])
     return _collapse_periods(exp, None)
