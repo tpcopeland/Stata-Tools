@@ -11,15 +11,14 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from tvtools import tvexpose, tvevent
 
-DATA_PATH = "/home/ubuntu/Stata-Tools/_testing/data"
+DATA_PATH = "/home/tpcopeland/Stata-Tools/_reimplementations/data/Python"
 
 
 @pytest.fixture
 def test_data():
-    """Load test data."""
-    import pyreadstat
-    cohort, _ = pyreadstat.read_dta(f"{DATA_PATH}/cohort.dta")
-    hrt, _ = pyreadstat.read_dta(f"{DATA_PATH}/hrt.dta")
+    """Load test data from pickle files."""
+    cohort = pd.read_pickle(f"{DATA_PATH}/cohort.pkl")
+    hrt = pd.read_pickle(f"{DATA_PATH}/hrt.pkl")
     return {'cohort': cohort, 'hrt': hrt}
 
 

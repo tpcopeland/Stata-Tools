@@ -3,15 +3,15 @@
 
 library(testthat)
 library(tvtools)
-library(haven)
 
-# Test data path
-data_path <- "/home/ubuntu/Stata-Tools/_testing/data"
+# Test data path - use RDS files
+data_path <- "/home/tpcopeland/Stata-Tools/_reimplementations/data/R"
 
 # Helper functions
 load_test_data <- function() {
-  cohort <- read_dta(file.path(data_path, "cohort.dta"))
-  outcomes <- read_dta(file.path(data_path, "outcomes.dta"))
+  cohort <- readRDS(file.path(data_path, "cohort.rds"))
+  # Create outcomes from cohort data (events are in cohort)
+  outcomes <- cohort[, c("id", "edss4_dt", "death_dt", "emigration_dt")]
   list(cohort = cohort, outcomes = outcomes)
 }
 

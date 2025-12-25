@@ -30,7 +30,7 @@
 #'   Creates categories: No dose, <cut1, cut1-<cut2, ..., lastcut+
 #'   Example: dosecuts=c(5, 10, 20) creates: No dose, <5, 5-<10, 10-<20, 20+
 #' @param grace Numeric or named list: grace period(s) in days
-#' @param merge_days Numeric: days to merge same-type consecutive periods (default: 120)
+#' @param merge_days Numeric: days to merge same-type consecutive periods (default: 0)
 #' @param fillgaps Numeric: assume exposure continues N days beyond last record
 #' @param carryforward Numeric: carry forward exposure N days through gaps
 #' @param priority Numeric vector: priority order for overlapping exposures (highest first)
@@ -125,7 +125,7 @@ tvexpose <- function(
 
   # Data handling options
   grace = 0,
-  merge_days = 120,
+  merge_days = 0,
   fillgaps = 0,
   carryforward = 0,
 
@@ -303,8 +303,8 @@ tvexpose <- function(
     if (!is.numeric(val) || length(val) != 1) {
       stop(sprintf("%s must be a single numeric value", param_name))
     }
-    if (param_name == "merge_days" && val <= 0) {
-      stop("merge_days must be positive")
+    if (param_name == "merge_days" && val < 0) {
+      stop("merge_days cannot be negative")
     }
     if (val < 0 && param_name != "merge_days") {
       stop(sprintf("%s cannot be negative", param_name))
