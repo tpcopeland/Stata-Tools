@@ -136,7 +136,8 @@ program define _verify_ptime_conserved, rclass
     syntax, start(varname) stop(varname) expected_ptime(real) [tolerance(real 0.001)]
 
     tempvar dur
-    gen double `dur' = `stop' - `start'
+    * tvexpose uses inclusive endpoints: duration = stop - start + 1
+    gen double `dur' = `stop' - `start' + 1
     quietly sum `dur'
     local actual = r(sum)
     local pct_diff = abs(`actual' - `expected_ptime') / `expected_ptime'
@@ -307,8 +308,8 @@ if `quiet' == 0 {
 capture {
     use "${DATA_DIR}/cohort_single.dta", clear
 
-    * Original person-time: 2020 is a leap year = 366 days
-    local expected_ptime = 22281 - 21915
+    * Original person-time: 2020 is a leap year = 367 days (inclusive endpoints)
+    local expected_ptime = 22281 - 21915 + 1
 
     tvexpose using "${DATA_DIR}/exp_basic.dta", id(id) start(rx_start) stop(rx_stop) ///
         exposure(exp_type) reference(0) entry(study_entry) exit(study_exit) ///
@@ -318,7 +319,7 @@ capture {
     assert r(passed) == 1
 }
 if _rc == 0 {
-    display as result "  PASS: Person-time is conserved (366 days)"
+    display as result "  PASS: Person-time is conserved (367 days, inclusive)"
     local ++pass_count
 }
 else {
@@ -2488,12 +2489,12 @@ capture {
     quietly count if tv_exp == 1
     assert r(N) >= 1
 
-    * Total person-time should be preserved
+    * Total person-time should be preserved (inclusive endpoints)
     * Note: tvexpose renames start/stop back to original names (rx_start/rx_stop)
-    gen dur = rx_stop - rx_start
+    gen dur = rx_stop - rx_start + 1
     quietly sum dur
     local total_dur = r(sum)
-    assert abs(`total_dur' - 366) < 2
+    assert abs(`total_dur' - 367) < 2
 }
 if _rc == 0 {
     display as result "  PASS: Single-day exposure handled correctly"
@@ -3338,10 +3339,10 @@ capture {
     assert rx_start[1] >= 21915
 
     * Total person-time should still equal study duration (366 days)
-    gen dur = rx_stop - rx_start
+    gen dur = rx_stop - rx_start + 1
     quietly sum dur
     local total = r(sum)
-    assert abs(`total' - 366) < 2
+    assert abs(`total' - 367) < 2
 }
 if _rc == 0 {
     display as result "  PASS: Exposure before entry is truncated correctly"
@@ -3373,10 +3374,10 @@ capture {
     assert rx_stop[_N] <= 22281
 
     * Person-time should be preserved
-    gen dur = rx_stop - rx_start
+    gen dur = rx_stop - rx_start + 1
     quietly sum dur
     local total = r(sum)
-    assert abs(`total' - 366) < 2
+    assert abs(`total' - 367) < 2
 }
 if _rc == 0 {
     display as result "  PASS: Exposure after exit is truncated correctly"
@@ -3408,10 +3409,10 @@ capture {
     assert r(n_overlaps) == 0
 
     * Person-time preserved
-    gen dur = rx_stop - rx_start
+    gen dur = rx_stop - rx_start + 1
     quietly sum dur
     local total = r(sum)
-    assert abs(`total' - 366) < 2
+    assert abs(`total' - 367) < 2
 }
 if _rc == 0 {
     display as result "  PASS: Same-type overlapping exposures handled without output overlaps"
@@ -3815,10 +3816,10 @@ capture {
     assert _N >= 1
 
     * Person-time should still be conserved
-    gen dur = rx_stop - rx_start
+    gen dur = rx_stop - rx_start + 1
     quietly sum dur
     local total = r(sum)
-    assert abs(`total' - 366) < 2
+    assert abs(`total' - 367) < 2
 }
 if _rc == 0 {
     display as result "  PASS: Lag and washout work correctly together"
@@ -4000,9 +4001,9 @@ capture {
     assert r(n_overlaps) == 0
 
     * Person-time conserved
-    gen dur = rx_stop - rx_start
+    gen dur = rx_stop - rx_start + 1
     quietly sum dur
-    assert abs(r(sum) - 366) < 2
+    assert abs(r(sum) - 367) < 2
 }
 if _rc == 0 {
     display as result "  PASS: Duplicate exposures handled without double-counting"
@@ -4628,13 +4629,13 @@ capture {
 
     * All person-time should be exposed (check duration, not row count)
     * Note: 0-duration baseline periods may exist when exposure starts at study entry
-    gen dur = rx_stop - rx_start
+    gen dur = rx_stop - rx_start + 1
     quietly sum dur if tv_exp == 0
     assert r(sum) == 0 | r(N) == 0
 
     * Total time should be full 366 days
     quietly sum dur
-    assert abs(r(sum) - 366) < 2
+    assert abs(r(sum) - 367) < 2
 }
 if _rc == 0 {
     display as result "  PASS: Full-span exposure covers all person-time"
@@ -5169,10 +5170,10 @@ capture {
         exposure(exp_type) reference(0) entry(study_entry) exit(study_exit) ///
         generate(tv_exp)
 
-    gen dur = rx_stop - rx_start
+    gen dur = rx_stop - rx_start + 1
     quietly sum dur
     local total = r(sum)
-    assert abs(`total' - 366) < 2
+    assert abs(`total' - 367) < 2
 }
 if _rc == 0 {
     display as result "  PASS: Person-time conservation (basic)"
@@ -5199,10 +5200,10 @@ capture {
         exposure(exp_type) reference(0) entry(study_entry) exit(study_exit) ///
         generate(tv_exp)
 
-    gen dur = rx_stop - rx_start
+    gen dur = rx_stop - rx_start + 1
     quietly sum dur
     local total = r(sum)
-    assert abs(`total' - 366) < 2
+    assert abs(`total' - 367) < 2
 }
 if _rc == 0 {
     display as result "  PASS: Person-time conservation (complex overlaps)"
@@ -5229,11 +5230,11 @@ capture {
         exposure(exp_type) reference(0) entry(study_entry) exit(study_exit) ///
         layer generate(tv_exp)
 
-    gen dur = rx_stop - rx_start
+    gen dur = rx_stop - rx_start + 1
     quietly sum dur
     local total = r(sum)
     * Note: Layer option may have minor boundary effects (up to 2 days)
-    assert abs(`total' - 366) <= 2
+    assert abs(`total' - 367) <= 2
 }
 if _rc == 0 {
     display as result "  PASS: Person-time conservation (layer option)"
@@ -5260,10 +5261,10 @@ capture {
         exposure(exp_type) reference(0) entry(study_entry) exit(study_exit) ///
         lag(30) generate(tv_exp)
 
-    gen dur = rx_stop - rx_start
+    gen dur = rx_stop - rx_start + 1
     quietly sum dur
     local total = r(sum)
-    assert abs(`total' - 366) < 2
+    assert abs(`total' - 367) < 2
 }
 if _rc == 0 {
     display as result "  PASS: Person-time conservation (lag option)"
@@ -5290,10 +5291,10 @@ capture {
         exposure(exp_type) reference(0) entry(study_entry) exit(study_exit) ///
         washout(30) generate(tv_exp)
 
-    gen dur = rx_stop - rx_start
+    gen dur = rx_stop - rx_start + 1
     quietly sum dur
     local total = r(sum)
-    assert abs(`total' - 366) < 2
+    assert abs(`total' - 367) < 2
 }
 if _rc == 0 {
     display as result "  PASS: Person-time conservation (washout option)"
@@ -5326,7 +5327,7 @@ capture {
         exposure(exp_type) reference(0) entry(study_entry) exit(study_exit) ///
         generate(tv_exp)
 
-    gen dur = rx_stop - rx_start
+    gen dur = rx_stop - rx_start + 1
     quietly sum dur
     local actual_total = r(sum)
     assert abs(`actual_total' - `expected_total') < 5
@@ -5497,7 +5498,7 @@ capture {
     * Verify exposed period exists and has exactly 1 day
     quietly count if tv_exp == 1
     assert r(N) >= 1
-    gen dur = rx_stop - rx_start
+    gen dur = rx_stop - rx_start + 1
     quietly sum dur if tv_exp == 1
     assert r(sum) == 0 | r(sum) == 1  // Single day = 0 or 1 depending on interval convention
 }
@@ -5655,10 +5656,10 @@ capture {
         exposure(exp_type) reference(0) entry(study_entry) exit(study_exit) ///
         generate(tv_exp)
 
-    * Verify Feb 29 is included (exposure period should be 2 days: Feb 28-29 to Mar 1)
-    gen dur = rx_stop - rx_start
+    * Verify Feb 29 is included (exposure period should be 3 days: Feb 28, Feb 29, Mar 1)
+    gen dur = rx_stop - rx_start + 1
     quietly sum dur if tv_exp == 1
-    assert r(sum) == 2  // Feb 28 to Mar 1 = 2 days
+    assert r(sum) == 3  // Feb 28 to Mar 1 inclusive = 3 days
 }
 if _rc == 0 {
     display as result "  PASS: Leap year Feb 29 handled correctly"
@@ -5697,10 +5698,10 @@ capture {
     quietly sum rx_start
     assert r(min) == 21915
 
-    * Verify exposed time is correct (30 days)
-    gen dur = rx_stop - rx_start
+    * Verify exposed time is correct (31 days inclusive)
+    gen dur = rx_stop - rx_start + 1
     quietly sum dur if tv_exp == 1
-    assert r(sum) == 30
+    assert r(sum) == 31
 }
 if _rc == 0 {
     display as result "  PASS: Study entry boundary handled correctly"
@@ -5739,10 +5740,10 @@ capture {
     quietly sum rx_stop
     assert r(max) == 22281
 
-    * Verify exposed time is correct (30 days)
-    gen dur = rx_stop - rx_start
+    * Verify exposed time is correct (31 days inclusive)
+    gen dur = rx_stop - rx_start + 1
     quietly sum dur if tv_exp == 1
-    assert r(sum) == 30
+    assert r(sum) == 31
 }
 if _rc == 0 {
     display as result "  PASS: Study exit boundary handled correctly"
@@ -5779,12 +5780,12 @@ capture {
         generate(tv_exp)
 
     * Total person-time should equal study window (366 days for 2020)
-    gen dur = rx_stop - rx_start
+    gen dur = rx_stop - rx_start + 1
     quietly sum dur
     local total_ptime = r(sum)
 
     * Allow 1 day tolerance for boundary handling
-    assert abs(`total_ptime' - 366) <= 1
+    assert abs(`total_ptime' - 367) <= 1
 }
 if _rc == 0 {
     display as result "  PASS: Person-time conserved (basic)"
@@ -5812,12 +5813,12 @@ capture {
         generate(tv_exp)
 
     * Total person-time should still equal study window
-    gen dur = rx_stop - rx_start
+    gen dur = rx_stop - rx_start + 1
     quietly sum dur
     local total_ptime = r(sum)
 
     * Allow 2 day tolerance for complex boundary handling
-    assert abs(`total_ptime' - 366) <= 2
+    assert abs(`total_ptime' - 367) <= 2
 }
 if _rc == 0 {
     display as result "  PASS: Person-time conserved (complex overlaps)"
@@ -5911,8 +5912,8 @@ if `quiet' == 0 {
 
 capture {
     use "${DATA_DIR}/cohort_multi.dta", clear
-    * Store expected person-time from cohort
-    gen expected_ptime = study_exit - study_entry
+    * Store expected person-time from cohort (inclusive endpoints)
+    gen expected_ptime = study_exit - study_entry + 1
     tempfile cohort_expected
     save `cohort_expected', replace
 
@@ -5920,8 +5921,8 @@ capture {
         exposure(exp_type) reference(0) entry(study_entry) exit(study_exit) ///
         generate(tv_exp)
 
-    * Calculate actual person-time for each person
-    gen dur = rx_stop - rx_start
+    * Calculate actual person-time for each person (inclusive endpoints)
+    gen dur = rx_stop - rx_start + 1
     bysort id: egen actual_ptime = sum(dur)
 
     * Get one row per person
