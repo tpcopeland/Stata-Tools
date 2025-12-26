@@ -22,7 +22,20 @@ version 16.0
 * PATH CONFIGURATION
 * =============================================================================
 if "`c(os)'" == "Unix" {
-    global STATA_TOOLS_PATH "/home/ubuntu/Stata-Tools"
+    * Try to detect path from current working directory
+    capture confirm file "_testing"
+    if _rc == 0 {
+        global STATA_TOOLS_PATH "`c(pwd)'"
+    }
+    else {
+        capture confirm file "data"
+        if _rc == 0 {
+            global STATA_TOOLS_PATH "`c(pwd)'/.."
+        }
+        else {
+            global STATA_TOOLS_PATH "/home/`c(username)'/Stata-Tools"
+        }
+    }
 }
 else {
     global STATA_TOOLS_PATH "`c(pwd)'"
