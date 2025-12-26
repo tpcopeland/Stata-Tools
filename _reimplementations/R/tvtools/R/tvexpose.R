@@ -532,7 +532,26 @@ tvexpose <- function(
     } else if (!is.null(combine)) {
       exp_dt <- resolve_overlaps_combine_impl(exp_dt, combine)
     } else if (layer) {
-      exp_dt <- resolve_overlaps_layer_impl(exp_dt)
+      # Layer resolution must be iterative - new overlaps may be created when
+      # pre/post overlap segments are added
+      max_iter <- 1000
+      for (iter in seq_len(max_iter)) {
+        exp_dt <- resolve_overlaps_layer_impl(exp_dt)
+        # After layer creates new segments, merge same-type periods that now overlap
+        exp_dt <- merge_periods_impl(exp_dt, merge_days, reference, verbose = FALSE)
+        # Check if any different-type overlaps remain
+        setkey(exp_dt, id, exp_start, exp_stop)
+        exp_dt[, next_start_check := shift(exp_start, type = "lead"), by = id]
+        exp_dt[, next_value_check := shift(exp_value, type = "lead"), by = id]
+        has_remaining <- exp_dt[!is.na(next_start_check) &
+                                 next_start_check <= exp_stop &
+                                 exp_value != next_value_check, .N]
+        exp_dt[, c("next_start_check", "next_value_check") := NULL]
+        if (has_remaining == 0) break
+      }
+      if (iter >= max_iter) {
+        warning("Layer overlap resolution reached iteration limit")
+      }
     }
   } else {
     if (verbose) message("  Skipping standard overlap resolution (dose mode uses proportional allocation)...")

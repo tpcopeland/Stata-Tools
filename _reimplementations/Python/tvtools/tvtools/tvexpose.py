@@ -380,7 +380,24 @@ def tvexpose(
     elif split:
         exp = _resolve_overlaps_split(exp)
     elif layer:
-        exp = _resolve_overlaps_layer(exp)
+        # Layer resolution must be iterative - resumption segments may create new overlaps
+        max_iter = 1000
+        for _ in range(max_iter):
+            exp = _resolve_overlaps_layer(exp)
+            # Merge same-type periods that may now overlap after layer creates resumption segments
+            exp = _merge_periods(exp, merge_days, reference)
+            # Check if any different-type overlaps remain
+            exp = exp.sort_values(['id', 'exp_start', 'exp_stop'])
+            exp['_check_next_start'] = exp.groupby('id')['exp_start'].shift(-1)
+            exp['_check_next_value'] = exp.groupby('id')['exp_value'].shift(-1)
+            has_remaining = (
+                exp['_check_next_start'].notna() &
+                (exp['_check_next_start'] <= exp['exp_stop']) &
+                (exp['exp_value'] != exp['_check_next_value'])
+            ).sum()
+            exp = exp.drop(columns=['_check_next_start', '_check_next_value'], errors='ignore')
+            if has_remaining == 0:
+                break
 
     # =========================================================================
     # GAP PERIODS
@@ -583,9 +600,18 @@ def _merge_periods(exp: pd.DataFrame, merge_days: int, reference: float) -> pd.D
         # Extend stop dates
         exp.loc[can_merge, 'exp_stop'] = exp.loc[can_merge, ['exp_stop', '_next_stop']].max(axis=1)
 
-        # Mark next rows for deletion
-        exp['_to_drop'] = can_merge.shift(1).fillna(False)
+        # Mark rows for deletion - only if COMPLETELY SUBSUMED by previous row
+        # (matches Stata logic: drop if prev merged AND this start >= prev start AND this stop <= prev stop)
+        exp['_prev_merged'] = can_merge.shift(1).fillna(False)
+        exp['_prev_start'] = exp.groupby('id')['exp_start'].shift(1)
+        exp['_prev_stop'] = exp.groupby('id')['exp_stop'].shift(1)
+        exp['_to_drop'] = (
+            exp['_prev_merged'] &
+            (exp['exp_start'] >= exp['_prev_start']) &
+            (exp['exp_stop'] <= exp['_prev_stop'])
+        )
         exp = exp[~exp['_to_drop']]
+        exp = exp.drop(columns=['_prev_merged', '_prev_start', '_prev_stop'], errors='ignore')
 
     # Clean up
     for col in ['_next_start', '_next_stop', '_next_value', '_gap', '_to_drop']:
@@ -633,23 +659,47 @@ def _resolve_overlaps_split(exp: pd.DataFrame) -> pd.DataFrame:
 
 
 def _resolve_overlaps_layer(exp: pd.DataFrame) -> pd.DataFrame:
-    """Resolve overlaps using layer strategy (later takes precedence)."""
+    """Resolve overlaps using layer strategy (later takes precedence with resumption).
+
+    When period A overlaps with later period B (different type):
+    1. A is truncated to end before B starts (pre-overlap segment)
+    2. B takes full precedence during overlap
+    3. If A extended beyond B, A resumes after B ends (post-overlap segment)
+    """
     exp = exp.sort_values(['id', 'exp_start', 'exp_stop'])
 
     exp['_next_start'] = exp.groupby('id')['exp_start'].shift(-1)
+    exp['_next_stop'] = exp.groupby('id')['exp_stop'].shift(-1)
     exp['_next_value'] = exp.groupby('id')['exp_value'].shift(-1)
 
-    mask = (
+    # Identify overlaps with different exposure type
+    has_overlap = (
         exp['_next_start'].notna() &
         (exp['_next_start'] <= exp['exp_stop']) &
         (exp['exp_value'] != exp['_next_value'])
     )
 
-    # Truncate current period
-    exp.loc[mask, 'exp_stop'] = exp.loc[mask, '_next_start'] - 1
+    # Check if current period extends beyond the overlapping period
+    extends_beyond = has_overlap & (exp['exp_stop'] > exp['_next_stop'])
+
+    # Create post-overlap resumption segments for periods that extend beyond
+    post_segments = exp[extends_beyond].copy()
+    if len(post_segments) > 0:
+        post_segments['exp_start'] = post_segments['_next_stop'] + 1
+        # Keep original exp_stop (the resumption ends at original end)
+        post_segments = post_segments[post_segments['exp_start'] <= post_segments['exp_stop']]
+
+    # Truncate current periods that overlap (create pre-overlap segments)
+    exp.loc[has_overlap, 'exp_stop'] = exp.loc[has_overlap, '_next_start'] - 1
 
     exp = exp[exp['exp_start'] <= exp['exp_stop']]
-    exp = exp.drop(columns=['_next_start', '_next_value'], errors='ignore')
+    exp = exp.drop(columns=['_next_start', '_next_stop', '_next_value'], errors='ignore')
+
+    # Append post-overlap resumption segments
+    if len(post_segments) > 0:
+        post_segments = post_segments.drop(columns=['_next_start', '_next_stop', '_next_value'], errors='ignore')
+        exp = pd.concat([exp, post_segments], ignore_index=True)
+        exp = exp.sort_values(['id', 'exp_start', 'exp_stop'])
 
     return exp
 
