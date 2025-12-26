@@ -966,7 +966,34 @@ MIT License
 
 ## Version
 
-Version 1.2.0, 2025-12-14
+| Command | Version | Date |
+|---------|---------|------|
+| tvexpose | 1.2.0 | 2025-12-14 |
+| tvmerge | 1.0.5 | 2025-12-18 |
+| tvevent | 1.4.0 | 2025-12-18 |
+
+Package Distribution-Date: 20251226
+
+### Checking Installed Version
+
+Use the `tvtools_version` command to display all installed versions:
+
+```stata
+tvtools_version
+```
+
+Output includes:
+- Version numbers for all three commands
+- Installation paths
+- Suggested citation format for methods sections
+
+For programmatic access:
+```stata
+tvtools_version, quiet
+display "tvexpose: " r(tvexpose)
+display "tvmerge: " r(tvmerge)
+display "tvevent: " r(tvevent)
+```
 
 ## See Also
 
