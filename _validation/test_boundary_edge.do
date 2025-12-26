@@ -11,7 +11,20 @@ clear all
 set more off
 version 16.0
 
-global STATA_TOOLS_PATH "/home/ubuntu/Stata-Tools"
+* Try to detect path from current working directory
+    capture confirm file "_validation"
+    if _rc == 0 {
+        global STATA_TOOLS_PATH "`c(pwd)'"
+    }
+    else {
+        capture confirm file "_testing"
+        if _rc == 0 {
+            global STATA_TOOLS_PATH "`c(pwd)'"
+        }
+        else {
+            global STATA_TOOLS_PATH "/home/`c(username)'/Stata-Tools"
+        }
+    }
 capture net uninstall tvtools
 quietly net install tvtools, from("${STATA_TOOLS_PATH}/tvtools")
 

@@ -12,7 +12,20 @@ clear all
 set more off
 version 17.0
 
-global STATA_TOOLS_PATH "/home/ubuntu/Stata-Tools"
+* Try to detect path from current working directory
+    capture confirm file "_testing"
+    if _rc == 0 {
+        global STATA_TOOLS_PATH "`c(pwd)'"
+    }
+    else {
+        capture confirm file "data"
+        if _rc == 0 {
+            global STATA_TOOLS_PATH "`c(pwd)'/.."
+        }
+        else {
+            global STATA_TOOLS_PATH "/home/`c(username)'/Stata-Tools"
+        }
+    }
 global TESTING_DIR "${STATA_TOOLS_PATH}/_testing"
 global AUDIT_DIR "${TESTING_DIR}/audit_output"
 
