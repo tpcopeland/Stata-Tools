@@ -1,4 +1,4 @@
-*! tvmerge Version 1.0.5  2025/12/18
+*! tvmerge Version 1.0.6  2025/12/26
 *! Merge multiple time-varying exposure datasets
 *! Author: Tim Copeland
 *! Program class: rclass (returns results in r())
@@ -130,7 +130,31 @@ program define tvmerge, rclass
         di as error "`error_msg'"
         exit `error_code'
     }
-    
+
+    * Validate variable name lengths (Stata silently truncates names >31 chars)
+    * Check single-value options
+    foreach opt in id startname stopname prefix {
+        if "``opt''" != "" {
+            local len = strlen("``opt''")
+            if `len' > 31 {
+                noisily display as error "Variable name too long: ``opt'' (`len' characters)"
+                noisily display as error "Stata variable names must be 31 characters or fewer"
+                exit 198
+            }
+        }
+    }
+    * Check list-value options
+    foreach opt in start stop exposure generate {
+        foreach v of local `opt' {
+            local len = strlen("`v'")
+            if `len' > 31 {
+                noisily display as error "Variable name too long: `v' (`len' characters)"
+                noisily display as error "Stata variable names must be 31 characters or fewer"
+                exit 198
+            }
+        }
+    }
+
     * Check for conflicting naming options
     if "`prefix'" != "" & "`generate'" != "" {
         di as error "Specify either prefix() or generate(), not both"
@@ -783,23 +807,55 @@ program define tvmerge, rclass
                     if `n_only_merged' > 0 {
                         noisily di as text "  `n_only_merged' IDs exist in datasets 1-`=`k'-1' but not in dataset `k' (`ds_k')"
                         noisily di as text "  These IDs will be dropped from the merged result."
+                        * Show sample of dropped IDs (up to 10)
+                        noisily di as text "  Sample of dropped IDs:"
+                        quietly count if _merge_check == 1
+                        local n_show = min(10, r(N))
+                        noisily list id if _merge_check == 1 in 1/`n_show', noheader sep(0)
+                        if `n_only_merged' > 10 {
+                            noisily di as text "  ... and `=`n_only_merged'-10' more"
+                        }
                     }
 
                     if `n_only_dsk' > 0 {
                         noisily di as text "  `n_only_dsk' IDs exist in dataset `k' (`ds_k') but not in datasets 1-`=`k'-1'"
                         noisily di as text "  These IDs will be dropped from the merged result."
+                        * Show sample of dropped IDs (up to 10)
+                        noisily di as text "  Sample of dropped IDs:"
+                        quietly count if _merge_check == 2
+                        local n_show = min(10, r(N))
+                        noisily list id if _merge_check == 2 in 1/`n_show', noheader sep(0)
+                        if `n_only_dsk' > 10 {
+                            noisily di as text "  ... and `=`n_only_dsk'-10' more"
+                        }
                     }
 
                     noisily di as text "  Note: Only IDs present in ALL datasets will appear in the output."
 
-                    * Filter merged_data to keep only IDs present in both datasets
+                    * Filter to keep only IDs present in both datasets
+                    * (current data has _merge_check from ID comparison)
                     keep if _merge_check == 3
                     keep id
                     tempfile valid_ids
                     save `valid_ids', replace
 
+                    * Count observations before filtering
                     use `merged_data', clear
+                    quietly count
+                    local n_obs_before = r(N)
+
+                    * Apply ID filter to merged_data
                     merge m:1 id using `valid_ids', keep(match) nogenerate
+
+                    * Report observation impact
+                    quietly count
+                    local n_obs_after = r(N)
+                    local n_obs_dropped = `n_obs_before' - `n_obs_after'
+                    local total_ids_dropped = `n_only_merged' + `n_only_dsk'
+
+                    noisily di as text _newline "  Summary: Dropped `total_ids_dropped' IDs (`n_obs_dropped' observations)"
+                    noisily di as text "           Retained `n_obs_after' observations from matching IDs"
+
                     save `merged_data', replace
                 }
             }
