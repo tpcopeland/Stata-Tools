@@ -264,12 +264,6 @@ display as text "  | Events              |     --     |      1     |"
 display as text "  +---------------------+------------+----------+"
 display as text ""
 
-* Get tvtools version for citation
-tvtools_version, quiet
-display as text "Software Version:"
-display as text "  tvtools (tvexpose `r(tvexpose)', tvmerge `r(tvmerge)', tvevent `r(tvevent)')"
-display as text "  Package date: `r(package_date)'"
-display as text ""
 display as result "ALL VALIDATION TESTS PASSED"
 display as text ""
 

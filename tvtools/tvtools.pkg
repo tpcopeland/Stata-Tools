@@ -43,6 +43,4 @@ f tvevent.ado
 f tvevent.dlg
 f tvevent.sthlp
 f tvtools_menu_setup.do
-f tvtools_version.ado
-f tvtools_version.sthlp
 g validation_example.do
