@@ -1,4 +1,4 @@
-*! tvexpose Version 1.3.0  2025/12/26
+*! tvexpose Version 1.4.0  2025/12/26
 *! Create time-varying exposure variables for survival analysis
 *! Author: Tim Copeland
 *! Program class: rclass (returns results in r())
@@ -115,8 +115,12 @@ program define tvexpose, rclass
     version 16.0
     set varabbrev off
 
-    * Load Mata library for performance-critical operations (O(n log n) overlap detection)
+    * Load helper libraries for modular architecture
+    * - Mata library: O(n log n) overlap detection
+    * - Diagnostic library: coverage, gaps, overlaps, summary, validation
     findfile _tvexpose_mata.ado
+    quietly run "`r(fn)'"
+    findfile _tvexpose_diagnose.ado
     quietly run "`r(fn)'"
 
     syntax using/ , ///
