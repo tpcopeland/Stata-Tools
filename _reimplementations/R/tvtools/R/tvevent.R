@@ -30,6 +30,10 @@
 #' @param eventlabel Named character vector for custom event labels.
 #'   E.g., c("0"="Censored", "1"="Myocardial Infarction", "2"="Death").
 #'   Default uses variable labels from date/compete columns.
+#' @param startvar String name of the start date column in intervals_data.
+#'   Default is "start" (standard output from tvexpose/tvmerge).
+#' @param stopvar String name of the stop date column in intervals_data.
+#'   Default is "stop" (standard output from tvexpose/tvmerge).
 #' @param replace Logical; if TRUE, replace generate/timegen variables if they exist.
 #'   Default is FALSE (error if variables exist).
 #'
@@ -118,6 +122,8 @@ tvevent <- function(
   timegen = NULL,
   timeunit = "days",
   eventlabel = NULL,
+  startvar = "start",
+  stopvar = "stop",
   replace = FALSE
 ) {
 
@@ -167,7 +173,7 @@ tvevent <- function(
     attr(intervals_data[[generate]], "label") <- "Event Status"
 
     if (!is.null(timegen)) {
-      days_diff <- as.numeric(intervals_data$stop - intervals_data$start)
+      days_diff <- as.numeric(intervals_data[[stopvar]] - intervals_data[[startvar]])
       if (timeunit == "days") {
         intervals_data[[timegen]] <- days_diff
       } else if (timeunit == "months") {
@@ -193,11 +199,11 @@ tvevent <- function(
   # ============================================================================
 
   # Required columns from tvexpose/tvmerge
-  required_cols <- c(id, "start", "stop")
+  required_cols <- c(id, startvar, stopvar)
   missing_cols <- setdiff(required_cols, names(intervals_data))
   if (length(missing_cols) > 0) {
     stop(sprintf(
-      "intervals_data missing required columns: %s\n  (tvevent requires output from tvexpose/tvmerge with start/stop columns)",
+      "intervals_data missing required columns: %s\n  (tvevent requires output from tvexpose/tvmerge with start/stop columns, or specify startvar/stopvar)",
       paste(missing_cols, collapse=", ")
     ))
   }
@@ -245,7 +251,7 @@ tvevent <- function(
   }
 
   # Validate interval structure (allow single-day intervals where start == stop)
-  if (any(intervals_data$start > intervals_data$stop, na.rm = TRUE)) {
+  if (any(intervals_data[[startvar]] > intervals_data[[stopvar]], na.rm = TRUE)) {
     stop("intervals_data contains invalid intervals where start > stop")
   }
 
@@ -372,7 +378,7 @@ tvevent <- function(
     attr(intervals_data[[generate]], "label") <- "Event Status"
 
     if (!is.null(timegen)) {
-      days_diff <- as.numeric(intervals_data$stop - intervals_data$start)
+      days_diff <- as.numeric(intervals_data[[stopvar]] - intervals_data[[startvar]])
       if (timeunit == "days") {
         intervals_data[[timegen]] <- days_diff
       } else if (timeunit == "months") {
@@ -409,7 +415,7 @@ tvevent <- function(
 
   # Create minimal interval structure for join
   intervals_minimal <- intervals_data %>%
-    dplyr::select(dplyr::all_of(c(id, "start", "stop"))) %>%
+    dplyr::select(dplyr::all_of(c(id, startvar, stopvar))) %>%
     dplyr::distinct()
 
   # Join intervals with events (Stata: joinby)
@@ -422,7 +428,7 @@ tvevent <- function(
 
   # Keep only events occurring STRICTLY within intervals
   splits_needed <- split_candidates %>%
-    dplyr::filter(get(date) > start & get(date) < stop) %>%
+    dplyr::filter(get(date) > get(startvar) & get(date) < get(stopvar)) %>%
     dplyr::select(dplyr::all_of(c(id, date))) %>%
     dplyr::distinct()
 
@@ -434,22 +440,22 @@ tvevent <- function(
   # ============================================================================
 
   # Store original duration for continuous adjustment
-  intervals_data$orig_dur <- as.numeric(intervals_data$stop - intervals_data$start)
+  intervals_data$orig_dur <- as.numeric(intervals_data[[stopvar]] - intervals_data[[startvar]])
 
   if (n_splits > 0) {
     # First identify which unique intervals need splitting (at any date)
     # This prevents keeping duplicate rows when an interval has multiple event dates
     intervals_to_split <- intervals_data %>%
       dplyr::inner_join(splits_needed, by = id, relationship = "many-to-many") %>%
-      dplyr::filter(get(date) > start & get(date) < stop) %>%
-      dplyr::select(dplyr::all_of(c(id, "start", "stop"))) %>%
+      dplyr::filter(get(date) > get(startvar) & get(date) < get(stopvar)) %>%
+      dplyr::select(dplyr::all_of(c(id, startvar, stopvar))) %>%
       dplyr::distinct()
 
     # Mark intervals that need splitting
     intervals_data <- intervals_data %>%
       dplyr::left_join(
         intervals_to_split %>% dplyr::mutate(will_split = TRUE),
-        by = c(id, "start", "stop")
+        by = c(id, startvar, stopvar)
       ) %>%
       dplyr::mutate(will_split = ifelse(is.na(will_split), FALSE, will_split))
 
@@ -463,11 +469,11 @@ tvevent <- function(
       dplyr::filter(will_split) %>%
       dplyr::select(-will_split) %>%
       dplyr::inner_join(splits_needed, by = id, relationship = "many-to-many") %>%
-      dplyr::filter(get(date) > start & get(date) < stop)
+      dplyr::filter(get(date) > get(startvar) & get(date) < get(stopvar))
 
     if (nrow(split_rows) > 0) {
       # Check if start/stop columns are Date type BEFORE mutate
-      start_is_date <- inherits(split_rows$start, "Date")
+      start_is_date <- inherits(split_rows[[startvar]], "Date")
 
       # Convert the date column to match start/stop type
       if (start_is_date) {
@@ -479,13 +485,13 @@ tvevent <- function(
       # First copy: end at event date
       split_rows_pre <- split_rows %>%
         dplyr::mutate(
-          stop = get(date)
+          !!rlang::sym(stopvar) := get(date)
         )
 
       # Second copy: start at event date
       split_rows_post <- split_rows %>%
         dplyr::mutate(
-          start = get(date)
+          !!rlang::sym(startvar) := get(date)
         )
 
       # Combine: non-split intervals + both halves of split intervals
@@ -494,11 +500,11 @@ tvevent <- function(
         split_rows_pre %>% dplyr::select(-dplyr::all_of(date)),
         split_rows_post %>% dplyr::select(-dplyr::all_of(date))
       ) %>%
-        dplyr::arrange(dplyr::across(dplyr::all_of(c(id, "start", "stop"))))
+        dplyr::arrange(dplyr::across(dplyr::all_of(c(id, startvar, stopvar))))
 
       # Remove duplicates
       intervals_data <- intervals_data %>%
-        dplyr::distinct(dplyr::across(dplyr::all_of(c(id, "start", "stop"))), .keep_all = TRUE)
+        dplyr::distinct(dplyr::across(dplyr::all_of(c(id, startvar, stopvar))), .keep_all = TRUE)
     } else {
       # No splits actually needed, use non-split intervals
       intervals_data <- non_split_intervals
@@ -531,7 +537,7 @@ tvevent <- function(
   # ============================================================================
 
   # Create match variable (stop date)
-  intervals_data$match_date <- as.numeric(intervals_data$stop)
+  intervals_data$match_date <- as.numeric(intervals_data[[stopvar]])
 
   # Prepare events for merging
   events_for_merge <- events_work %>%
@@ -566,7 +572,7 @@ tvevent <- function(
   if (type == "single") {
     # Find first event per person
     intervals_data <- intervals_data %>%
-      dplyr::arrange(dplyr::across(dplyr::all_of(c(id, "stop")))) %>%
+      dplyr::arrange(dplyr::across(dplyr::all_of(c(id, stopvar)))) %>%
       dplyr::group_by(dplyr::across(dplyr::all_of(id))) %>%
       dplyr::mutate(
         event_rank = cumsum(get(generate) > 0)
@@ -577,7 +583,7 @@ tvevent <- function(
     intervals_data <- intervals_data %>%
       dplyr::mutate(
         censor_time = ifelse(get(generate) > 0 & event_rank == 1,
-                             as.numeric(stop), NA_real_)
+                             as.numeric(get(stopvar)), NA_real_)
       ) %>%
       dplyr::group_by(dplyr::across(dplyr::all_of(id))) %>%
       dplyr::mutate(
@@ -587,7 +593,7 @@ tvevent <- function(
 
     # Drop intervals starting at or after first failure
     intervals_data <- intervals_data %>%
-      dplyr::filter(is.na(first_fail) | is.infinite(first_fail) | as.numeric(start) < first_fail)
+      dplyr::filter(is.na(first_fail) | is.infinite(first_fail) | as.numeric(get(startvar)) < first_fail)
 
     # Reset failure flag for any subsequent events (after first)
     intervals_data <- intervals_data %>%
@@ -652,7 +658,7 @@ tvevent <- function(
 
   if (!is.null(timegen)) {
     # Calculate duration in days
-    days_diff <- as.numeric(intervals_data$stop - intervals_data$start)
+    days_diff <- as.numeric(intervals_data[[stopvar]] - intervals_data[[startvar]])
 
     # Convert to requested unit
     if (timeunit == "days") {
@@ -676,16 +682,16 @@ tvevent <- function(
   # ============================================================================
 
   # Ensure Date class for start/stop
-  if (!inherits(intervals_data$start, "Date")) {
-    intervals_data$start <- as.Date(intervals_data$start, origin = "1970-01-01")
+  if (!inherits(intervals_data[[startvar]], "Date")) {
+    intervals_data[[startvar]] <- as.Date(intervals_data[[startvar]], origin = "1970-01-01")
   }
-  if (!inherits(intervals_data$stop, "Date")) {
-    intervals_data$stop <- as.Date(intervals_data$stop, origin = "1970-01-01")
+  if (!inherits(intervals_data[[stopvar]], "Date")) {
+    intervals_data[[stopvar]] <- as.Date(intervals_data[[stopvar]], origin = "1970-01-01")
   }
 
   # Sort by id, start, stop
   intervals_data <- intervals_data %>%
-    dplyr::arrange(dplyr::across(dplyr::all_of(c(id, "start", "stop"))))
+    dplyr::arrange(dplyr::across(dplyr::all_of(c(id, startvar, stopvar))))
 
   # Calculate summary statistics
   n_total <- nrow(intervals_data)
