@@ -1452,6 +1452,116 @@ if `run_only' == 0 | `run_only' == `test_count' {
 }
 
 * =============================================================================
+* TEST: Asymmetric person coverage (inner join behavior)
+* =============================================================================
+local ++test_count
+local test_desc "Asymmetric person coverage (inner join)"
+_run_test `test_count' "`test_desc'"
+
+if `run_only' == 0 | `run_only' == `test_count' {
+    local asym_rc = 0
+
+    * Create first TV dataset with persons 1, 2, 3
+    quietly {
+        clear
+        input long id double(study_entry study_exit)
+            1  21915  22280
+            2  21915  22280
+            3  21915  22280
+        end
+        format %td study_entry study_exit
+        save "${DATA_DIR}/_asym_cohort1.dta", replace
+
+        clear
+        input long id double(start stop) byte exp
+            1  21950  22100  1
+            2  21950  22100  1
+            3  21950  22100  1
+        end
+        format %td start stop
+        save "${DATA_DIR}/_asym_exp1.dta", replace
+
+        use "${DATA_DIR}/_asym_cohort1.dta", clear
+        tvexpose using "${DATA_DIR}/_asym_exp1.dta", id(id) start(start) stop(stop) ///
+            exposure(exp) reference(0) entry(study_entry) exit(study_exit) ///
+            generate(exp1)
+        rename start start1
+        rename stop stop1
+        save "${DATA_DIR}/_asym_tv1.dta", replace
+    }
+
+    * Create second TV dataset with person 1 only (persons 2, 3 missing)
+    quietly {
+        clear
+        input long id double(study_entry study_exit)
+            1  21915  22280
+        end
+        format %td study_entry study_exit
+        save "${DATA_DIR}/_asym_cohort2.dta", replace
+
+        clear
+        input long id double(start stop) byte exp2
+            1  22000  22200  1
+        end
+        format %td start stop
+        save "${DATA_DIR}/_asym_exp2.dta", replace
+
+        use "${DATA_DIR}/_asym_cohort2.dta", clear
+        tvexpose using "${DATA_DIR}/_asym_exp2.dta", id(id) start(start) stop(stop) ///
+            exposure(exp2) reference(0) entry(study_entry) exit(study_exit) ///
+            generate(exp2_tv)
+        rename start start2
+        rename stop stop2
+        save "${DATA_DIR}/_asym_tv2.dta", replace
+    }
+
+    * Merge - only person 1 should remain (inner join behavior)
+    * Note: force option required when IDs don't match across datasets
+    capture noisily tvmerge "${DATA_DIR}/_asym_tv1.dta" "${DATA_DIR}/_asym_tv2.dta", ///
+        id(id) start(start1 start2) stop(stop1 stop2) ///
+        exposure(exp1 exp2_tv) force
+    local asym_rc = _rc
+
+    * Verify only person 1 is in result
+    if `asym_rc' == 0 {
+        levelsof id, local(result_ids)
+        if "`result_ids'" != "1" {
+            local asym_rc = 9
+        }
+    }
+
+    * Cleanup temp files
+    quietly {
+        capture erase "${DATA_DIR}/_asym_cohort1.dta"
+        capture erase "${DATA_DIR}/_asym_cohort2.dta"
+        capture erase "${DATA_DIR}/_asym_exp1.dta"
+        capture erase "${DATA_DIR}/_asym_exp2.dta"
+        capture erase "${DATA_DIR}/_asym_tv1.dta"
+        capture erase "${DATA_DIR}/_asym_tv2.dta"
+    }
+
+    if `asym_rc' == 0 {
+        local ++pass_count
+        if `machine' {
+            display "[OK] `test_count'"
+        }
+        else if `quiet' == 0 {
+            display as result "  PASSED: Asymmetric coverage handled (inner join)"
+        }
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' {
+            display "[FAIL] `test_count'|`asym_rc'|`test_desc'"
+        }
+        else {
+            display as error "  FAILED: `test_desc' (error `asym_rc')"
+        }
+    }
+}
+
+* =============================================================================
 * CLEANUP: Remove temporary files
 * =============================================================================
 if `quiet' == 0 & `run_only' == 0 {

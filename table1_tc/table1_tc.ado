@@ -1185,28 +1185,33 @@ program define table1_tc, sclass
     /* Add percentages to header if requested */
     if "`headerperc'" != "" {
         qui {
-
+            // Build list of columns to process (include T only if total option used)
+            local hperc_cols "`glevels'"
+            if "`total'" != "" {
+                local hperc_cols "`glevels' T"
+            }
 
             // Process each group column (including total if present)
-            foreach gl in `glevels' T {
+            foreach gl in `hperc_cols' {
                 replace `by'_`gl' = subinstr(`by'_`gl',"N=","",.)  // Remove N= prefix
                 gen `by'_`gl'2 = subinstr(`by'_`gl',",","",.)  // Clean up for conversion
                 destring `by'_`gl'2, replace force  // Convert to numeric
             }
-            
-			if "`total'" == "" {
-				capture egen `by'_T2 = rowtotal(`by'_*2) if inlist(_n,2)  // Sum all groups for denominator
-			}
+
+            // Calculate total denominator (sum of all groups) if total column not present
+            if "`total'" == "" {
+                capture egen `by'_T2 = rowtotal(`by'_*2) if inlist(_n,2)  // Sum all groups for denominator
+            }
 
             // Add percentage of total to each group label
-            foreach gl in `glevels' T {
+            foreach gl in `hperc_cols' {
                 capture replace `by'_`gl' = `by'_`gl' + " " + "(" + string(round(`by'_`gl'2/`by'_T2,0.001)*100,"%9.1f") + `percsign' + ")" if inlist(_n,2)
                 capture drop `by'_`gl'2
             }
-			
-			if "`total'" == "" {
-				capture drop `by'_T2
-			}
+
+            if "`total'" == "" {
+                capture drop `by'_T2
+            }
 
         }
     }
@@ -1637,7 +1642,12 @@ program define table1_tc, sclass
                 }
                 local i = `i' + 1
             }
-            
+
+            /* Get level_letter from level_pos */
+            if `level_pos' > 0 {
+                local level_letter: word `level_pos' of `col_letters'
+            }
+
             /* Find p-value column position if it exists */
             local pvalue_pos = 0
             local i = 1

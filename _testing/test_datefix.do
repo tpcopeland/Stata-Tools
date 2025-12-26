@@ -411,10 +411,10 @@ if _rc {
 }
 
 * =============================================================================
-* TEST 13: Invalid date strings
+* TEST 13: Invalid date strings (should error to prevent silent data loss)
 * =============================================================================
 local ++test_count
-display as text _n "TEST `test_count': Invalid date strings"
+display as text _n "TEST `test_count': Invalid date strings (expects error)"
 display as text "{hline 50}"
 
 capture noisily {
@@ -424,12 +424,14 @@ capture noisily {
     replace str_ymd = "not a date" in 1/5
     replace str_ymd = "13/45/9999" in 6/10
 
-    datefix str_ymd, newvar(date_ymd)
+    * datefix should ERROR when it encounters unparseable dates
+    * This prevents silent data loss - user must clean data first
+    capture datefix str_ymd, newvar(date_ymd)
+    local datefix_rc = _rc
 
-    * Invalid dates should become missing
-    count if missing(date_ymd) & _n <= 10
-    assert r(N) >= 5
-    display as result "  PASSED: Invalid dates handled"
+    * Verify datefix correctly errors on invalid input
+    assert `datefix_rc' == 198
+    display as result "  PASSED: datefix correctly errors on invalid dates (rc=198)"
     local ++pass_count
 }
 if _rc {

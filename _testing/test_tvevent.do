@@ -1538,6 +1538,71 @@ if `run_only' == 0 | `run_only' == `test_count' {
 }
 
 * =============================================================================
+* TEST: Event exactly on interval boundary
+* =============================================================================
+local ++test_count
+local test_desc "Event on interval boundary"
+_run_test `test_count' "`test_desc'"
+
+if `run_only' == 0 | `run_only' == `test_count' {
+    capture {
+        * Create intervals with known boundaries
+        quietly {
+            clear
+            input long id double(start stop) byte exp
+                1  21915  22000  1
+                1  22000  22100  0
+                1  22100  22200  1
+            end
+            format %td start stop
+            save "${DATA_DIR}/_tv_boundary.dta", replace
+        }
+
+        * Create event exactly on boundary (22000)
+        quietly {
+            clear
+            input long id double event_dt
+                1  22000
+            end
+            format %td event_dt
+        }
+
+        * Integrate event - should flag at boundary correctly
+        tvevent using "${DATA_DIR}/_tv_boundary.dta", id(id) date(event_dt) ///
+            startvar(start) stopvar(stop) type(single) generate(outcome)
+
+        * Verify event is flagged exactly once
+        count if outcome == 1
+        assert r(N) == 1
+
+        * Verify the event row has stop == 22000 (boundary date)
+        sum stop if outcome == 1
+        assert r(max) == 22000
+
+        quietly erase "${DATA_DIR}/_tv_boundary.dta"
+    }
+    if _rc == 0 {
+        local ++pass_count
+        if `machine' {
+            display "[OK] `test_count'"
+        }
+        else if `quiet' == 0 {
+            display as result "  PASSED: Event on interval boundary handled correctly"
+        }
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' {
+            display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        }
+        else {
+            display as error "  FAILED: `test_desc' (error `=_rc')"
+        }
+    }
+}
+
+* =============================================================================
 * CLEANUP: Remove temporary files
 * =============================================================================
 if `quiet' == 0 & `run_only' == 0 {
