@@ -37,7 +37,7 @@ save `cohort_temp'
 tvexpose using "${DATA_IN}/hrt.dta", ///
     id(id) start(rx_start) stop(rx_stop) exposure(hrt_type) ///
     entry(study_entry) exit(study_exit) reference(0) ///
-    generate(tv_hrt) replace
+    layer generate(tv_hrt) replace
 
 * Export to CSV
 export delimited using "${OUT_DIR}/test1_basic_tvexpose.csv", replace
@@ -53,7 +53,7 @@ use `cohort_temp', clear
 tvexpose using "${DATA_IN}/hrt.dta", ///
     id(id) start(rx_start) stop(rx_stop) exposure(hrt_type) ///
     entry(study_entry) exit(study_exit) reference(0) ///
-    evertreated generate(ever_hrt) replace
+    layer evertreated generate(ever_hrt) replace
 
 export delimited using "${OUT_DIR}/test2_evertreated.csv", replace
 display as text "  Saved: test2_evertreated.csv (`r(N)' obs)"
@@ -68,7 +68,7 @@ use `cohort_temp', clear
 tvexpose using "${DATA_IN}/hrt.dta", ///
     id(id) start(rx_start) stop(rx_stop) exposure(hrt_type) ///
     entry(study_entry) exit(study_exit) reference(0) ///
-    currentformer generate(cf_hrt) replace
+    layer currentformer generate(cf_hrt) replace
 
 export delimited using "${OUT_DIR}/test3_currentformer.csv", replace
 display as text "  Saved: test3_currentformer.csv (`r(N)' obs)"
@@ -83,7 +83,7 @@ use `cohort_temp', clear
 tvexpose using "${DATA_IN}/hrt.dta", ///
     id(id) start(rx_start) stop(rx_stop) exposure(hrt_type) ///
     entry(study_entry) exit(study_exit) reference(0) ///
-    lag(30) generate(lag_hrt) replace
+    layer lag(30) generate(lag_hrt) replace
 
 export delimited using "${OUT_DIR}/test4_lag.csv", replace
 display as text "  Saved: test4_lag.csv (`r(N)' obs)"
@@ -98,7 +98,7 @@ use `cohort_temp', clear
 tvexpose using "${DATA_IN}/hrt.dta", ///
     id(id) start(rx_start) stop(rx_stop) exposure(hrt_type) ///
     entry(study_entry) exit(study_exit) reference(0) ///
-    washout(30) generate(washout_hrt) replace
+    layer washout(30) generate(washout_hrt) replace
 
 export delimited using "${OUT_DIR}/test5_washout.csv", replace
 display as text "  Saved: test5_washout.csv (`r(N)' obs)"
@@ -113,7 +113,7 @@ use `cohort_temp', clear
 tvexpose using "${DATA_IN}/hrt.dta", ///
     id(id) start(rx_start) stop(rx_stop) exposure(hrt_type) ///
     entry(study_entry) exit(study_exit) reference(0) ///
-    continuousunit(years) generate(cumul_hrt) replace
+    layer continuousunit(years) generate(cumul_hrt) replace
 
 export delimited using "${OUT_DIR}/test6_continuousunit.csv", replace
 display as text "  Saved: test6_continuousunit.csv (`r(N)' obs)"
@@ -128,7 +128,7 @@ use `cohort_temp', clear
 tvexpose using "${DATA_IN}/hrt.dta", ///
     id(id) start(rx_start) stop(rx_stop) exposure(hrt_type) ///
     entry(study_entry) exit(study_exit) reference(0) ///
-    generate(tv_hrt) replace
+    layer generate(tv_hrt) replace
 tempfile intervals_temp
 save `intervals_temp'
 
@@ -154,7 +154,7 @@ use `cohort_temp', clear
 tvexpose using "${DATA_IN}/hrt.dta", ///
     id(id) start(rx_start) stop(rx_stop) exposure(hrt_type) ///
     entry(study_entry) exit(study_exit) reference(0) ///
-    generate(hrt_exp) replace
+    layer generate(hrt_exp) replace
 * Rename to standard start/stop
 rename rx_start start
 rename rx_stop stop
@@ -165,7 +165,7 @@ use `cohort_temp', clear
 tvexpose using "${DATA_IN}/dmt.dta", ///
     id(id) start(dmt_start) stop(dmt_stop) exposure(dmt) ///
     entry(study_entry) exit(study_exit) reference(0) ///
-    generate(dmt_exp) replace
+    layer generate(dmt_exp) replace
 * Rename to standard start/stop
 rename dmt_start start
 rename dmt_stop stop
@@ -191,7 +191,7 @@ use `cohort_temp', clear
 tvexpose using "${DATA_IN}/hrt.dta", ///
     id(id) start(rx_start) stop(rx_stop) exposure(hrt_type) ///
     entry(study_entry) exit(study_exit) reference(0) ///
-    generate(tv_hrt) replace
+    layer generate(tv_hrt) replace
 
 * Calculate person-time per category (use rx_stop/rx_start)
 gen person_days = rx_stop - rx_start + 1

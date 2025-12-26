@@ -1343,44 +1343,47 @@ program define tvexpose, rclass
         }
     }
     drop __has_conflict
-    
+
     * Adjust for overlapping different exposure types (simple truncation)
     * When different exposure types overlap, later one takes precedence
     * (Assumes data recording order reflects most recent exposure status)
     * Use iterative resolution to handle cascading overlaps
-    sort id exp_start exp_stop exp_value
-    
-    local iter = 0
-    local max_iter = 10
-    local has_overlaps = 1
-    
-    while `has_overlaps' == 1 & `iter' < `max_iter' {
-        * Truncate earlier period when later period overlaps with different exposure
-        * If next period starts before current ends, truncate current to end before next starts
-        quietly by id: replace exp_stop = exp_start[_n+1] - 1 if exp_value != exp_value[_n+1] & ///
-                                                          exp_start[_n+1] <= exp_stop & _n < _N & id == id[_n+1]
-        
-        * Drop periods that became invalid after adjustment
-        quietly drop if exp_start > exp_stop
-        
-        * Re-sort after dropping periods
+    * ONLY run when NOT in layer mode - layer mode handles overlaps with resumption
+    if "`layer'" == "" {
         sort id exp_start exp_stop exp_value
-        
-        * Check if any overlaps remain
-        quietly gen double __still_overlap = 0 
-        quietly by id: replace __still_overlap = (exp_start[_n+1] <= exp_stop & ///
-            exp_value != exp_value[_n+1]) if _n < _N & id == id[_n+1]
-        quietly count if __still_overlap == 1
-        if r(N) == 0 {
-            local has_overlaps = 0
+
+        local iter = 0
+        local max_iter = 10
+        local has_overlaps = 1
+
+        while `has_overlaps' == 1 & `iter' < `max_iter' {
+            * Truncate earlier period when later period overlaps with different exposure
+            * If next period starts before current ends, truncate current to end before next starts
+            quietly by id: replace exp_stop = exp_start[_n+1] - 1 if exp_value != exp_value[_n+1] & ///
+                                                              exp_start[_n+1] <= exp_stop & _n < _N & id == id[_n+1]
+
+            * Drop periods that became invalid after adjustment
+            quietly drop if exp_start > exp_stop
+
+            * Re-sort after dropping periods
+            sort id exp_start exp_stop exp_value
+
+            * Check if any overlaps remain
+            quietly gen double __still_overlap = 0
+            quietly by id: replace __still_overlap = (exp_start[_n+1] <= exp_stop & ///
+                exp_value != exp_value[_n+1]) if _n < _N & id == id[_n+1]
+            quietly count if __still_overlap == 1
+            if r(N) == 0 {
+                local has_overlaps = 0
+            }
+            quietly drop __still_overlap
+
+            local iter = `iter' + 1
         }
-        quietly drop __still_overlap
-        
-        local iter = `iter' + 1
-    }
-    
-    if `iter' >= `max_iter' {
-        noisily display in re "Warning: Simple overlap resolution reached iteration limit; some overlaps may remain"
+
+        if `iter' >= `max_iter' {
+            noisily display in re "Warning: Simple overlap resolution reached iteration limit; some overlaps may remain"
+        }
     }
     
     * Apply priority ordering if specified
@@ -1548,7 +1551,10 @@ program define tvexpose, rclass
         
         while `changed' == 1 & `iter' < `max_iter' {
             sort id exp_start exp_stop exp_value
-            
+
+            * Clean up any leftover temp variables from previous iteration
+            capture drop __has_next_overlap __orig_row __next_start __next_stop __pre_stop __extends_beyond __post_start
+
             * Mark periods that overlap with next period (different exposure)
             quietly by id: gen double __has_next_overlap = ///
                 (exp_start[_n+1] <= exp_stop & exp_value != exp_value[_n+1]) if _n < _N & id == id[_n+1]
@@ -1576,9 +1582,9 @@ program define tvexpose, rclass
                 * Preserve original data
                 tempfile pre_split
                 quietly save `pre_split', replace
-                
-                * Keep non-overlapping periods as-is
-                quietly keep if __has_next_overlap == 0
+
+                * Keep non-overlapping periods as-is (includes last rows with missing values)
+                quietly keep if __has_next_overlap != 1
                 tempfile non_overlap
                 quietly save `non_overlap', replace
                 
@@ -1626,6 +1632,41 @@ program define tvexpose, rclass
         
         if `iter' >= `max_iter' {
             noisily display in re "Warning: Layer resolution reached iteration limit; some overlaps may remain"
+        }
+
+        * After layer resolution, merge overlapping same-type periods
+        * Layer can create resumption segments that overlap with other same-type periods
+        local merge_iter = 0
+        local merge_max = 10
+        local merge_changes = 1
+
+        while `merge_changes' > 0 & `merge_iter' < `merge_max' {
+            sort id exp_start exp_stop exp_value
+            quietly gen double __merge_flag = 0
+
+            * Identify adjacent/overlapping same-type periods
+            quietly by id (exp_start exp_stop): replace __merge_flag = 1 if ///
+                (exp_start[_n+1] - exp_stop <= `merge') & ///
+                !missing(exp_start[_n+1]) & ///
+                (exp_value == exp_value[_n+1]) & ///
+                (_n < _N) & id == id[_n+1]
+
+            * Extend stop date to encompass next period
+            quietly by id: replace exp_stop = max(exp_stop, exp_stop[_n+1]) if __merge_flag == 1 & _n < _N & id == id[_n+1]
+
+            * Mark subsumed periods for deletion
+            quietly gen double __drop_merge = 0
+            quietly by id: replace __drop_merge = 1 if _n > 1 & id == id[_n-1] & __merge_flag[_n-1] == 1 & exp_start >= exp_start[_n-1] & exp_stop <= exp_stop[_n-1]
+
+            quietly count if __drop_merge == 1
+            local merge_changes = r(N)
+
+            if `merge_changes' > 0 {
+                quietly drop if __drop_merge == 1
+            }
+
+            capture drop __merge_flag __drop_merge
+            local merge_iter = `merge_iter' + 1
         }
     }
     } // End of if "`exp_type'" != "dose" block for overlap handling
@@ -1828,9 +1869,9 @@ program define tvexpose, rclass
         isid id
         quietly merge 1:1 id using `earliest', nogen keep(1 3)
         
-        * Create baseline period from entry to first exposure start (half-open interval)
+        * Create baseline period from entry to day before first exposure (inclusive dates)
         quietly generate double exp_start = study_entry
-        quietly generate double exp_stop = earliest_exp if !missing(earliest_exp)
+        quietly generate double exp_stop = earliest_exp - 1 if !missing(earliest_exp)
         * If no exposure ever, baseline extends to exit
         quietly replace exp_stop = study_exit if missing(exp_stop)
         
@@ -1863,7 +1904,7 @@ program define tvexpose, rclass
         quietly keep if last_exp_stop < study_exit
 
         quietly gen exp_value = `reference'
-        quietly generate double exp_start = last_exp_stop  // Half-open interval starts at exposure end
+        quietly generate double exp_start = last_exp_stop + 1  // Start day after last exposure ends
         quietly generate double exp_stop = study_exit
 
         keep id exp_start exp_stop exp_value
