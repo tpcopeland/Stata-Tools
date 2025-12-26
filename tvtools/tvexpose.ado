@@ -1,4 +1,4 @@
-*! tvexpose Version 1.2.0  2025/12/14
+*! tvexpose Version 1.2.1  2025/12/26
 *! Create time-varying exposure variables for survival analysis
 *! Author: Tim Copeland
 *! Program class: rclass (returns results in r())
@@ -203,6 +203,18 @@ program define tvexpose, rclass
         exit 198
     }
     
+    * Validate variable name lengths (Stata silently truncates names >31 chars)
+    foreach opt in id start stop exposure generate combine {
+        if "``opt''" != "" {
+            local len = strlen("``opt''")
+            if `len' > 31 {
+                noisily display as error "Variable name too long: ``opt'' (`len' characters)"
+                noisily display as error "Stata variable names must be 31 characters or fewer"
+                exit 198
+            }
+        }
+    }
+
     * Lock sample in master dataset
     marksample touse
     quietly count if `touse'

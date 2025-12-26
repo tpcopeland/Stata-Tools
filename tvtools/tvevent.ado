@@ -1,4 +1,4 @@
-*! tvevent Version 1.4.0  18dec2025
+*! tvevent Version 1.4.1  26dec2025
 *! Add event/failure flags to time-varying datasets
 *! Author: Tim Copeland
 *!
@@ -23,11 +23,16 @@ Data structure:
 
 Description:
   Integrates event data (master) into tvexpose/tvmerge intervals (using).
-  1. Identifies events occurring within intervals (start < date < stop).
+  1. Identifies events occurring within intervals.
   2. Resolves competing risks (earliest date wins).
-  3. Splits intervals at the event date.
+  3. Splits intervals at the event date (when start < date < stop).
   4. Proportionally adjusts 'continuous' variables.
   5. Flags the event type (1=Primary, 2+=Competing).
+
+  Boundary behavior:
+  - Splitting: Only events strictly inside an interval (start < date < stop) trigger a split.
+  - Flagging: Events at the stop boundary (date == stop) ARE valid events and will be flagged.
+  - Events exactly at start are NOT flagged (risk begins at start, not before).
 */
 
 program define tvevent, rclass
@@ -56,6 +61,18 @@ program define tvevent, rclass
     if "`generate'" == "" local generate "_failure"
     if "`startvar'" == "" local startvar "start"
     if "`stopvar'" == "" local stopvar "stop"
+
+    * Validate variable name lengths (Stata silently truncates names >31 chars)
+    foreach opt in id date generate timegen startvar stopvar {
+        if "``opt''" != "" {
+            local len = strlen("``opt''")
+            if `len' > 31 {
+                noisily display as error "Variable name too long: ``opt'' (`len' characters)"
+                noisily display as error "Stata variable names must be 31 characters or fewer"
+                exit 198
+            }
+        }
+    }
 
     if "`type'" == "" local type "single"
     local type = lower("`type'")
@@ -775,10 +792,9 @@ program define tvevent, rclass
             quietly gen long `generate' = `imported_type'
             quietly replace `generate' = 0 if missing(`generate')
 
-            * Note: Events at interval boundaries (where stop == event date) ARE valid events.
-            * Previous versions incorrectly filtered these out. Events should be flagged
-            * whenever the event date matches the interval stop time, regardless of whether
-            * the interval was split or retained its original boundaries.
+            * Note: Boundary events (date == stop) are flagged but not split.
+            * Splitting only occurs when start < date < stop (event strictly inside interval).
+            * An event at the stop date ends that interval without needing to split it.
 
             if "`keepvars'" != "" {
                 * Drop existing keepvars to avoid collision

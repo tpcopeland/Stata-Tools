@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.4.0  2025/12/18}{...}
+{* *! version 1.4.1  2025/12/26}{...}
 {vieweralsosee "[ST] stset" "help stset"}{...}
 {vieweralsosee "[ST] stcrreg" "help stcrreg"}{...}
 {vieweralsosee "tvexpose" "help tvexpose"}{...}
@@ -147,6 +147,12 @@ not supported with recurring events.
 {break}3. {bf:Competing events on same date}: When {cmd:compete()} is specified, cases where the primary event and a competing event occur on the same date.
 {break}
 {break}Validation results are also stored in {cmd:r(v_outside_bounds)}, {cmd:r(v_multiple_events)}, and {cmd:r(v_same_date_compete)}.
+
+{pmore}
+{bf:Note on interval boundaries:} The command uses open intervals (start, stop] for event detection.
+An event is flagged when it matches the stop date of an interval (the event ends that interval).
+Interval splitting only occurs when an event falls strictly inside: start < event < stop.
+Events exactly on the start date are not flagged (risk begins at start, not before).
 
 
 {marker examples}{...}
