@@ -976,23 +976,10 @@ Package Distribution-Date: 20251226
 
 ### Checking Installed Version
 
-Use the `tvtools_version` command to display all installed versions:
-
 ```stata
-tvtools_version
-```
-
-Output includes:
-- Version numbers for all three commands
-- Installation paths
-- Suggested citation format for methods sections
-
-For programmatic access:
-```stata
-tvtools_version, quiet
-display "tvexpose: " r(tvexpose)
-display "tvmerge: " r(tvmerge)
-display "tvevent: " r(tvevent)
+which tvexpose
+which tvmerge
+which tvevent
 ```
 
 ## See Also
