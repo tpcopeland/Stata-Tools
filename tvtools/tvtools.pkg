@@ -44,5 +44,7 @@ f tvmerge.sthlp
 f tvevent.ado
 f tvevent.dlg
 f tvevent.sthlp
+f tvdiagnose.ado
+f tvdiagnose.sthlp
 f tvtools_menu_setup.do
 g validation_example.do
