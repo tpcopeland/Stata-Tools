@@ -48,5 +48,7 @@ f tvdiagnose.ado
 f tvdiagnose.sthlp
 f tvplot.ado
 f tvplot.sthlp
+f tvbalance.ado
+f tvbalance.sthlp
 f tvtools_menu_setup.do
 g validation_example.do
