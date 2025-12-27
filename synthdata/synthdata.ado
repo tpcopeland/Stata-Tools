@@ -1,14 +1,15 @@
-*! synthdata Version 1.2.7  17dec2025  Synthetic data generation
+*! synthdata Version 1.3.0  27dec2025  Synthetic data generation with smart realism
 program define synthdata
     version 16.0
     set varabbrev off
 
     syntax [varlist] [if] [in], ///
         [n(integer 0) SAVing(string) REPLACE CLEAR PREfix(string) MULTiple(integer 1)] ///
-        [PARAmetric SEQUential BOOTstrap PERMute] ///
-        [EMPirical NOISE(real 0.1) SMOOTH] ///
+        [PARAmetric SEQUential BOOTstrap PERMute SMART] ///
+        [EMPirical NOISE(real 0.1) SMOOTH AUTOEMPirical] ///
         [CATEgorical(varlist) CONTinuous(varlist) SKIP(varlist) ID(varlist) DATEs(varlist) INTeger(varlist)] ///
         [CORRelations CONDitional CONSTraints(string asis) AUTOCONStraints] ///
+        [AUTORELate CONDitionalcat] ///
         [PANEL(string) PRESERVEvar(varlist) AUTOCORR(integer 0)] ///
         [MINCell(integer 5) TRIM(real 0) BOUNDs(string asis) NOEXTreme] ///
         [COMPare VALidate(string) UTILity GRAPH] ///
@@ -141,16 +142,25 @@ program define synthdata
 
     // Determine synthesis method (only one allowed)
     local nmethods = ("`parametric'" != "") + ("`sequential'" != "") + ///
-                     ("`bootstrap'" != "") + ("`permute'" != "")
+                     ("`bootstrap'" != "") + ("`permute'" != "") + ("`smart'" != "")
     if `nmethods' > 1 {
         di as error "only one synthesis method may be specified"
         exit 198
     }
-    
+
     local method "parametric"
     if "`sequential'" != "" local method "sequential"
     if "`bootstrap'" != "" local method "bootstrap"
     if "`permute'" != "" local method "permute"
+    if "`smart'" != "" local method "smart"
+
+    // Smart method enables all automatic features
+    if "`method'" == "smart" {
+        local autoempirical "autoempirical"
+        local autorelate "autorelate"
+        local conditionalcat "conditionalcat"
+        local autoconstraints "autoconstraints"
+    }
     
     // Default n to current observation count
     local orig_n = _N
@@ -163,7 +173,70 @@ program define synthdata
     local datevars `r(datevars)'
     local strvars `r(strvars)'
     local intvars `r(intvars)'
-    
+
+    // =========================================================================
+    // AUTO-EMPIRICAL: Detect non-normal distributions
+    // =========================================================================
+    // If autoempirical is specified (or smart method), check each continuous
+    // variable for non-normality and flag for empirical synthesis
+    local empirical_vars ""
+    local normal_vars ""
+    if "`autoempirical'" != "" & "`contvars'`intvars'" != "" {
+        di as txt _n "Detecting distribution shapes..."
+        _synthdata_detect_nonnormal `contvars' `intvars'
+        local empirical_vars `r(nonnormal_vars)'
+        local normal_vars `r(normal_vars)'
+        local n_emp: word count `empirical_vars'
+        local n_norm: word count `normal_vars'
+        if `n_emp' > 0 {
+            di as txt "  Non-normal (using empirical): " as res `n_emp' as txt " variables"
+        }
+        if `n_norm' > 0 {
+            di as txt "  Normal-ish (using parametric): " as res `n_norm' as txt " variables"
+        }
+    }
+
+    // =========================================================================
+    // AUTO-RELATE: Detect variable relationships
+    // =========================================================================
+    // Detect derived variables (sums, ratios, perfect correlations) and preserve them
+    local derived_vars ""
+    local base_vars ""
+    local n_derived = 0
+    if "`autorelate'" != "" & "`contvars'`intvars'" != "" {
+        di as txt _n "Detecting variable relationships..."
+        _synthdata_detect_relations `contvars' `intvars'
+        local derived_vars `r(derived_vars)'
+        local base_vars `r(base_vars)'
+        local n_derived = r(n_derived)
+        if `n_derived' > 0 {
+            di as txt "  Derived variables detected: " as res `n_derived'
+            // Remove derived vars from synthesis list - they'll be reconstructed
+            local contvars: list contvars - derived_vars
+            local intvars: list intvars - derived_vars
+        }
+    }
+
+    // =========================================================================
+    // CONDITIONAL CATEGORICAL: Detect associated categoricals
+    // =========================================================================
+    // Group strongly associated categorical variables for joint synthesis
+    local catgroups ""
+    if "`conditionalcat'" != "" & "`catvars'" != "" {
+        local ncatvars: word count `catvars'
+        if `ncatvars' > 1 {
+            di as txt _n "Detecting categorical associations..."
+            _synthdata_detect_catassoc `catvars'
+            local catgroups `"`r(catgroups)'"'
+            local joint_catvars `r(joint_catvars)'
+            local indep_catvars `r(indep_catvars)'
+            local n_groups: word count `catgroups'
+            if `n_groups' > 0 {
+                di as txt "  Associated categorical groups: " as res `n_groups'
+            }
+        }
+    }
+
     // Store original data bounds for noextreme option
     // Include intvars since they're also continuous (just whole numbers)
     if "`noextreme'" != "" {
@@ -196,6 +269,7 @@ program define synthdata
     // SYNTHESIS: Generate synthetic data based on selected method
     // =========================================================================
     // Methods available:
+    //   - smart: Adaptive synthesis with auto-detection of best approach
     //   - parametric (default): Multivariate normal with Cholesky decomposition
     //   - sequential: Regression-based sequential synthesis
     //   - bootstrap: Resample with replacement + noise
@@ -208,10 +282,25 @@ program define synthdata
     // Include integer variables with continuous for synthesis (they get rounded afterward)
     local synth_contvars `contvars' `intvars'
 
-    if "`method'" == "parametric" {
+    if "`method'" == "smart" {
+        // Smart method: adaptive synthesis using detected characteristics
+        _synthdata_smart, n(`n') catvars(`catvars') contvars(`synth_contvars') ///
+            datevars(`datevars') strvars(`strvars') origdata(`origdata') ///
+            empirical_vars(`empirical_vars') normal_vars(`normal_vars') ///
+            catgroups(`catgroups') joint_catvars(`joint_catvars') indep_catvars(`indep_catvars') ///
+            `smooth' `correlations' ///
+            mincell(`mincell') trim(`trim')
+    }
+    else if "`method'" == "parametric" {
+        // Check if autoempirical flagged any variables
+        // If so, enable empirical mode for all continuous (uses Gaussian copula for correlations)
+        local use_empirical = "`empirical'"
+        if "`autoempirical'" != "" & "`empirical_vars'" != "" {
+            local use_empirical "empirical"
+        }
         _synthdata_parametric, n(`n') catvars(`catvars') contvars(`synth_contvars') ///
             datevars(`datevars') strvars(`strvars') origdata(`origdata') ///
-            `empirical' `smooth' `correlations' ///
+            `use_empirical' `smooth' `correlations' ///
             mincell(`mincell') trim(`trim')
     }
     else if "`method'" == "bootstrap" {
@@ -227,6 +316,15 @@ program define synthdata
         _synthdata_sequential, n(`n') catvars(`catvars') contvars(`synth_contvars') ///
             datevars(`datevars') strvars(`strvars') origdata(`origdata') ///
             mincell(`mincell') trim(`trim')
+    }
+
+    // =========================================================================
+    // RECONSTRUCT DERIVED VARIABLES
+    // =========================================================================
+    // If autorelate detected derived variables, reconstruct them from base vars
+    if "`autorelate'" != "" & `n_derived' > 0 {
+        di as txt "  Reconstructing derived variables..."
+        _synthdata_reconstruct_derived, n_derived(`n_derived')
     }
 
     di as txt "  Synthesis complete."
@@ -578,6 +676,23 @@ program define synthdata
     if "`datevars'" != "" di as txt "    Dates: " as res `: word count `datevars''
     if "`id'" != "" di as txt "  ID variables (regenerated): " as res "`id'"
     if "`skip'" != "" di as txt "  Skipped variables: " as res "`skip'"
+
+    // Display smart synthesis info
+    if "`method'" == "smart" | "`autoempirical'" != "" {
+        di as txt _n "  Smart synthesis features:"
+        if "`empirical_vars'" != "" {
+            di as txt "    Empirical (non-normal): " as res `: word count `empirical_vars''
+        }
+        if "`normal_vars'" != "" {
+            di as txt "    Parametric (normal): " as res `: word count `normal_vars''
+        }
+        if "`derived_vars'" != "" {
+            di as txt "    Derived (reconstructed): " as res `: word count `derived_vars''
+        }
+        if "`catgroups'" != "" {
+            di as txt "    Categorical groups: " as res `: word count `catgroups''
+        }
+    }
 end
 
 // =============================================================================
@@ -723,6 +838,373 @@ program define _synthdata_classify, rclass
     return local datevars `datevars'
     return local strvars `strvars'
     return local intvars `intvars'
+end
+
+// =============================================================================
+// NON-NORMALITY DETECTION
+// =============================================================================
+// Detects non-normal distributions using skewness and kurtosis.
+// Variables with |skewness| > 1 or |kurtosis - 3| > 2 are flagged as non-normal.
+// These thresholds are based on common rules of thumb for departures from normality.
+//
+// Returns:
+//   r(nonnormal_vars) - variables that should use empirical synthesis
+//   r(normal_vars)    - variables that can use parametric (normal) synthesis
+
+program define _synthdata_detect_nonnormal, rclass
+    version 16.0
+    syntax varlist
+
+    local nonnormal_vars ""
+    local normal_vars ""
+
+    foreach v of local varlist {
+        cap confirm numeric variable `v'
+        if _rc continue
+
+        // Get sample statistics
+        qui su `v', detail
+        local n = r(N)
+
+        // Need enough observations for reliable skewness/kurtosis
+        if `n' < 20 {
+            // Too few obs - default to normal (less risky)
+            local normal_vars `normal_vars' `v'
+            continue
+        }
+
+        local skew = r(skewness)
+        local kurt = r(kurtosis)
+
+        // Handle missing skewness/kurtosis (zero variance, etc.)
+        if `skew' == . | `kurt' == . {
+            local normal_vars `normal_vars' `v'
+            continue
+        }
+
+        // Non-normality thresholds:
+        // |skewness| > 1: Highly skewed (log-normal, exponential, etc.)
+        // |kurtosis - 3| > 2: Heavy tails or too peaked (kurtosis=3 for normal)
+        local is_nonnormal = 0
+        if abs(`skew') > 1 {
+            local is_nonnormal = 1
+        }
+        if abs(`kurt' - 3) > 2 {
+            local is_nonnormal = 1
+        }
+
+        // Additional check: bounded variables (all positive, all negative, or 0-1)
+        // These are often better synthesized empirically
+        if r(min) >= 0 & r(max) <= 1 {
+            // Proportion/probability variable
+            local is_nonnormal = 1
+        }
+
+        if `is_nonnormal' {
+            local nonnormal_vars `nonnormal_vars' `v'
+        }
+        else {
+            local normal_vars `normal_vars' `v'
+        }
+    }
+
+    return local nonnormal_vars `nonnormal_vars'
+    return local normal_vars `normal_vars'
+end
+
+// =============================================================================
+// VARIABLE RELATIONSHIP DETECTION
+// =============================================================================
+// Detects derived variables that are perfect (or near-perfect) functions of
+// other variables. These include:
+//   1. Sums: total = a + b + c
+//   2. Differences: diff = end - start
+//   3. Products: interaction = a * b
+//   4. Ratios: rate = numerator / denominator
+//   5. Perfect linear combinations: z = a*x + b*y + c
+//
+// Uses regression with R² > 0.999 to detect near-perfect relationships.
+// Derived variables are excluded from synthesis and reconstructed afterward.
+//
+// Returns:
+//   r(derived_vars) - variables that are derived from others
+//   r(base_vars)    - variables used in derivations
+//   r(formulas)     - reconstruction formulas (quoted list)
+
+program define _synthdata_detect_relations, rclass
+    version 16.0
+    syntax varlist
+
+    local derived_vars ""
+    local base_vars ""
+
+    local nvars: word count `varlist'
+    if `nvars' < 2 {
+        return local derived_vars ""
+        return local base_vars ""
+        return scalar n_derived = 0
+        exit
+    }
+
+    // For each variable, check if it's a near-perfect linear function of others
+    // We process variables in REVERSE order, so genuinely derived variables
+    // (which are usually defined last, like "total = a + b + c") are detected first
+    local nvars: word count `varlist'
+    local max_derived = max(0, `nvars' - 2)  // Leave at least 2 base vars
+
+    // Build reverse order list (last vars first, as they're likely to be derived)
+    local revlist ""
+    local i = `nvars'
+    while `i' >= 1 {
+        local v: word `i' of `varlist'
+        local revlist `revlist' `v'
+        local i = `i' - 1
+    }
+
+    foreach v of local revlist {
+        // Skip if already identified as derived
+        local is_derived: list v in derived_vars
+        if `is_derived' continue
+
+        // Limit how many we mark as derived
+        local n_derived: word count `derived_vars'
+        if `n_derived' >= `max_derived' continue
+
+        // Build list of potential predictors:
+        // Only use variables that appear BEFORE v in the original varlist
+        // and are not already identified as derived
+        local all_preds ""
+        local found_v = 0
+        foreach p of local varlist {
+            if "`p'" == "`v'" {
+                local found_v = 1
+            }
+            if `found_v' == 0 {
+                local is_derived_p: list p in derived_vars
+                if !`is_derived_p' {
+                    local all_preds `all_preds' `p'
+                }
+            }
+        }
+
+        // Skip if not enough predictors
+        local npred: word count `all_preds'
+        if `npred' < 2 continue
+
+        // Try to find the SIMPLEST combination that explains v perfectly
+        // Start with pairs, then triples, to avoid collinearity issues
+        local found_formula = 0
+        local best_expr ""
+        local best_preds ""
+
+        // Try pairs first (most derived vars are sums/diffs of 2-3 base vars)
+        forvalues i = 1/`npred' {
+            if `found_formula' continue
+            local p1: word `i' of `all_preds'
+            local j = `i' + 1
+            forvalues j = `j'/`npred' {
+                if `found_formula' continue
+                local p2: word `j' of `all_preds'
+                cap qui regress `v' `p1' `p2'
+                if _rc continue
+                if e(r2) > 0.9999 {
+                    local found_formula = 1
+                    local best_preds "`p1' `p2'"
+                }
+            }
+        }
+
+        // Try triples if pairs didn't work
+        if !`found_formula' & `npred' >= 3 {
+            forvalues i = 1/`npred' {
+                if `found_formula' continue
+                local p1: word `i' of `all_preds'
+                local j = `i' + 1
+                forvalues j = `j'/`npred' {
+                    if `found_formula' continue
+                    local p2: word `j' of `all_preds'
+                    local k = `j' + 1
+                    forvalues k = `k'/`npred' {
+                        if `found_formula' continue
+                        local p3: word `k' of `all_preds'
+                        cap qui regress `v' `p1' `p2' `p3'
+                        if _rc continue
+                        if e(r2) > 0.9999 {
+                            local found_formula = 1
+                            local best_preds "`p1' `p2' `p3'"
+                        }
+                    }
+                }
+            }
+        }
+
+        if `found_formula' {
+            // Re-run regression with best predictors to get coefficients
+            qui regress `v' `best_preds'
+
+            // This variable is derived - save the regression formula
+            local derived_vars `derived_vars' `v'
+
+            // Store formula in a simpler format using global macros
+            local n_derived: word count `derived_vars'
+
+            // Build expression from coefficients
+            local expr ""
+            local first = 1
+            foreach p of local best_preds {
+                local coef = round(_b[`p'], 0.0001)
+                // Skip near-zero coefficients
+                if abs(`coef') > 0.0001 {
+                    if `first' {
+                        local expr "(`coef')*`p'"
+                        local first = 0
+                    }
+                    else {
+                        local expr "`expr'+(`coef')*`p'"
+                    }
+                    local base_vars `base_vars' `p'
+                }
+            }
+            local const = round(_b[_cons], 0.0001)
+            if abs(`const') > 0.0001 {
+                local expr "`expr'+(`const')"
+            }
+
+            // Store formula in numbered globals (will be cleaned up later)
+            // Note: Global names cannot start with underscore in Stata
+            local gname "SYNTHDATA_derived_`n_derived'_name"
+            local gexpr "SYNTHDATA_derived_`n_derived'_expr"
+            global `gname' `v'
+            global `gexpr' `expr'
+        }
+    }
+
+    // Remove duplicates from base_vars
+    local base_vars: list uniq base_vars
+
+    // Return count of derived vars (formulas are in globals)
+    local n_derived: word count `derived_vars'
+
+    return local derived_vars `derived_vars'
+    return local base_vars `base_vars'
+    return scalar n_derived = `n_derived'
+end
+
+// =============================================================================
+// CATEGORICAL ASSOCIATION DETECTION
+// =============================================================================
+// Detects strongly associated categorical variables using Cramér's V.
+// Associated variables are grouped for joint synthesis to preserve their
+// relationship (e.g., region and country, diagnosis and treatment).
+//
+// Cramér's V thresholds:
+//   V > 0.5: Strong association - synthesize jointly
+//   V > 0.3: Moderate association - consider joint synthesis
+//
+// Returns:
+//   r(catgroups)     - groups of associated variables (quoted list)
+//   r(joint_catvars) - all variables in groups
+//   r(indep_catvars) - independent variables (not in any group)
+
+program define _synthdata_detect_catassoc, rclass
+    version 16.0
+    syntax varlist
+
+    local catgroups ""
+    local joint_catvars ""
+    local indep_catvars ""
+
+    local ncats: word count `varlist'
+    if `ncats' < 2 {
+        return local catgroups ""
+        return local joint_catvars ""
+        return local indep_catvars `varlist'
+        exit
+    }
+
+    // Build association matrix
+    // For now, use a simpler approach: pair variables with V > 0.5
+    local paired ""
+
+    forvalues i = 1/`=`ncats'-1' {
+        local v1: word `i' of `varlist'
+        local v1_paired: list v1 in paired
+        if `v1_paired' continue
+
+        forvalues j = `=`i'+1'/`ncats' {
+            local v2: word `j' of `varlist'
+            local v2_paired: list v2 in paired
+            if `v2_paired' continue
+
+            // Compute Cramér's V
+            cap qui tab `v1' `v2', chi2
+            if _rc continue
+            if r(chi2) == . continue
+
+            local chi2 = r(chi2)
+            local n = r(N)
+            local r = r(r)
+            local c = r(c)
+            local minrc = min(`r', `c') - 1
+
+            if `minrc' <= 0 | `n' <= 0 continue
+
+            local cramers_v = sqrt(`chi2' / (`n' * `minrc'))
+
+            // Strong association threshold
+            if `cramers_v' > 0.5 {
+                local catgroups `"`catgroups' "`v1' `v2'""'
+                local paired `paired' `v1' `v2'
+                local joint_catvars `joint_catvars' `v1' `v2'
+            }
+        }
+    }
+
+    // Remaining vars are independent
+    local indep_catvars: list varlist - joint_catvars
+
+    // Remove duplicates
+    local joint_catvars: list uniq joint_catvars
+
+    return local catgroups `catgroups'
+    return local joint_catvars `joint_catvars'
+    return local indep_catvars `indep_catvars'
+end
+
+// =============================================================================
+// RECONSTRUCT DERIVED VARIABLES
+// =============================================================================
+// Reconstructs derived variables from their base variables using stored formulas.
+
+program define _synthdata_reconstruct_derived
+    version 16.0
+    syntax, n_derived(integer)
+
+    // Reconstruct each derived variable using formulas stored in globals
+    // Note: Global names use SYNTHDATA prefix (no leading underscore)
+    forvalues i = 1/`n_derived' {
+        local vname = "${SYNTHDATA_derived_`i'_name}"
+        local expr = "${SYNTHDATA_derived_`i'_expr}"
+
+        if "`vname'" == "" | "`expr'" == "" {
+            di as txt "    Warning: Missing formula for derived variable `i'"
+            continue
+        }
+
+        // Check if variable exists (shouldn't, but be safe)
+        cap drop `vname'
+
+        // Generate the derived variable from the expression
+        cap qui gen double `vname' = `expr'
+        if _rc {
+            di as txt "    Warning: Could not reconstruct `vname' (rc=`=_rc')"
+            di as txt "    Expression was: `expr'"
+        }
+
+        // Clean up globals
+        macro drop SYNTHDATA_derived_`i'_name
+        macro drop SYNTHDATA_derived_`i'_expr
+    }
 end
 
 // Store original variable bounds
@@ -1132,15 +1614,241 @@ program define _synthdata_parametric
     }
 end
 
+// =============================================================================
+// SMART SYNTHESIS METHOD
+// =============================================================================
+// Adaptive synthesis that automatically uses the best approach for each variable:
+//   1. Non-normal continuous variables -> empirical quantile synthesis
+//   2. Normal continuous variables -> parametric (MVN) synthesis
+//   3. Associated categoricals -> joint synthesis
+//   4. Independent categoricals -> marginal frequency synthesis
+//   5. Dates -> bounded normal synthesis
+//   6. Strings -> frequency-based synthesis
+//
+// This method combines all automatic detection features for realistic synthesis
+// with minimal user configuration.
+
+program define _synthdata_smart
+    version 16.0
+    syntax, n(integer) [catvars(varlist) contvars(varlist) ///
+        datevars(varlist) strvars(string) origdata(string) ///
+        empirical_vars(string) normal_vars(string) ///
+        catgroups(string asis) joint_catvars(string) indep_catvars(string) ///
+        smooth correlations ///
+        mincell(integer 5) trim(real 0)]
+
+    local orig_n = _N
+
+    // Count variables for progress reporting
+    local ncont: word count `contvars'
+    local ncat: word count `catvars'
+    local nstr: word count `strvars'
+    local ndate: word count `datevars'
+    local n_emp: word count `empirical_vars'
+    local n_norm: word count `normal_vars'
+
+    // -------------------------------------------------------------------------
+    // STEP 1: Prepare for synthesis - compute all required parameters
+    // -------------------------------------------------------------------------
+
+    // 1a. Store sorted values for empirical variables
+    if `n_emp' > 0 {
+        di as txt "    [1/5] Preparing empirical variables (`n_emp')..."
+        tempfile sorteddata_emp
+        preserve
+        qui keep `empirical_vars'
+        qui save `sorteddata_emp', replace
+        restore
+    }
+
+    // 1b. Compute MVN parameters for normal variables
+    if `n_norm' > 0 {
+        di as txt "    [2/5] Computing parametric parameters (`n_norm')..."
+        tempname means_n sds_n
+        matrix `means_n' = J(1, `n_norm', .)
+        matrix `sds_n' = J(1, `n_norm', .)
+
+        local i = 1
+        foreach v of local normal_vars {
+            qui su `v', detail
+            matrix `means_n'[1, `i'] = r(mean)
+            matrix `sds_n'[1, `i'] = cond(r(sd) == 0 | r(sd) == ., 1, r(sd))
+            local ++i
+        }
+
+        // Compute covariance matrix for normal variables
+        if `n_norm' > 1 {
+            qui correlate `normal_vars', cov
+            tempname covmat_n corrmat_n
+            matrix `covmat_n' = r(C)
+            qui correlate `normal_vars'
+            matrix `corrmat_n' = r(C)
+
+            // Regularize if needed
+            mata: st_local("isposdef", strofreal(_synthdata_isposdef(st_matrix("`covmat_n'"))))
+            if `isposdef' == 0 {
+                mata: st_matrix("`covmat_n'", _synthdata_regularize(st_matrix("`covmat_n'")))
+            }
+            mata: st_local("isposdef_corr", strofreal(_synthdata_isposdef(st_matrix("`corrmat_n'"))))
+            if `isposdef_corr' == 0 {
+                mata: st_matrix("`corrmat_n'", _synthdata_regularize(st_matrix("`corrmat_n'")))
+            }
+        }
+    }
+
+    // 1c. Compute categorical frequencies
+    if `ncat' > 0 {
+        di as txt "    [3/5] Computing categorical frequencies (`ncat')..."
+        local catnum = 1
+        foreach v of local catvars {
+            qui levelsof `v', local(levels_`catnum')
+            local nlevels_`catnum': word count `levels_`catnum''
+
+            if `nlevels_`catnum'' == 0 {
+                local vallbl_`catnum' ""
+                local ++catnum
+                continue
+            }
+
+            tempname catfreq_`catnum'
+            matrix `catfreq_`catnum'' = J(`nlevels_`catnum'', 2, .)
+
+            local j = 1
+            foreach lev of local levels_`catnum' {
+                qui count if `v' == `lev'
+                local freq = r(N)
+                if `freq' < `mincell' & `mincell' > 0 {
+                    local freq = `mincell'
+                }
+                matrix `catfreq_`catnum''[`j', 1] = `lev'
+                matrix `catfreq_`catnum''[`j', 2] = `freq'
+                local ++j
+            }
+
+            local vallbl_`catnum': value label `v'
+            local ++catnum
+        }
+    }
+
+    // 1d. Compute date parameters
+    if `ndate' > 0 {
+        di as txt "    [3/5] Computing date parameters (`ndate')..."
+        local datenum = 1
+        foreach v of local datevars {
+            qui su `v', detail
+            local datemean_`datenum' = r(mean)
+            local datesd_`datenum' = cond(r(sd) == 0 | r(sd) == ., 1, r(sd))
+            local datemin_`datenum' = r(min)
+            local datemax_`datenum' = r(max)
+            local datefmt_`datenum': format `v'
+            local ++datenum
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // STEP 2: Create empty synthetic dataset
+    // -------------------------------------------------------------------------
+    di as txt "    [4/5] Creating synthetic dataset (`n' observations)..."
+    qui drop _all
+    qui set obs `n'
+
+    // -------------------------------------------------------------------------
+    // STEP 3: Generate synthetic values using adaptive methods
+    // -------------------------------------------------------------------------
+    di as txt "    [5/5] Generating synthetic values..."
+
+    // 3a. Generate empirical variables via quantile mapping
+    if `n_emp' > 0 {
+        foreach v of local empirical_vars {
+            qui gen double `v' = .
+        }
+        // Use correlated empirical synthesis if multiple vars
+        if `n_emp' == 1 {
+            local v: word 1 of `empirical_vars'
+            local smooth_flag = ("`smooth'" != "")
+            mata: _synthdata_genquantile_fromdata("`v'", "`sorteddata_emp'", `n', `smooth_flag')
+        }
+        else {
+            // For correlated empirical: need to compute correlation of empirical vars
+            preserve
+            qui use `sorteddata_emp', clear
+            qui correlate `empirical_vars'
+            tempname corrmat_emp
+            matrix `corrmat_emp' = r(C)
+            mata: st_local("isposdef_emp", strofreal(_synthdata_isposdef(st_matrix("`corrmat_emp'"))))
+            if `isposdef_emp' == 0 {
+                mata: st_matrix("`corrmat_emp'", _synthdata_regularize(st_matrix("`corrmat_emp'")))
+            }
+            restore
+            local smooth_flag = ("`smooth'" != "")
+            mata: _synth_genquant_corr_fromdata("`empirical_vars'", "`sorteddata_emp'", ///
+                st_matrix("`corrmat_emp'"), `n', `smooth_flag')
+        }
+    }
+
+    // 3b. Generate normal variables via MVN
+    if `n_norm' > 0 {
+        foreach v of local normal_vars {
+            qui gen double `v' = .
+        }
+        if `n_norm' == 1 {
+            local v: word 1 of `normal_vars'
+            qui replace `v' = rnormal(`=`means_n'[1,1]', `=`sds_n'[1,1]')
+        }
+        else {
+            mata: _synthdata_genmvn("`normal_vars'", st_matrix("`means_n'"), st_matrix("`covmat_n'"), `n')
+        }
+    }
+
+    // 3c. Generate categorical variables
+    if `ncat' > 0 {
+        local catnum = 1
+        foreach v of local catvars {
+            qui gen double `v' = .
+
+            if `nlevels_`catnum'' == 0 {
+                local ++catnum
+                continue
+            }
+
+            mata: _synthdata_drawcat("`v'", st_matrix("`catfreq_`catnum''"), `n')
+
+            if "`vallbl_`catnum''" != "" {
+                cap label values `v' `vallbl_`catnum''
+            }
+            local ++catnum
+        }
+    }
+
+    // 3d. Generate string variables
+    if `nstr' > 0 {
+        mata: _synthdata_synthstr_multi("`strvars'", "`origdata'", `n')
+    }
+
+    // 3e. Generate date variables
+    if `ndate' > 0 {
+        local datenum = 1
+        foreach v of local datevars {
+            qui gen double `v' = round(rnormal(`datemean_`datenum'', `datesd_`datenum''))
+            qui replace `v' = max(`v', `datemin_`datenum'')
+            qui replace `v' = min(`v', `datemax_`datenum'')
+            format `v' `datefmt_`datenum''
+            local ++datenum
+        }
+    }
+
+    di as txt "    Smart synthesis complete."
+end
+
 // Bootstrap synthesis method
 program define _synthdata_bootstrap
     version 16.0
     syntax, n(integer) noise(real) [catvars(varlist) contvars(varlist) ///
         datevars(varlist) strvars(string) origdata(string) ///
         mincell(integer 5) trim(real 0)]
-    
+
     local orig_n = _N
-    
+
     // Store SDs for noise addition
     if "`contvars'" != "" {
         foreach v of local contvars {
