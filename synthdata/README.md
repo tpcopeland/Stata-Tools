@@ -2,7 +2,7 @@
 
 ![Stata 16+](https://img.shields.io/badge/Stata-16%2B-brightgreen) ![MIT License](https://img.shields.io/badge/License-MIT-blue) ![Status](https://img.shields.io/badge/Status-Active-success)
 
-Generate synthetic datasets that preserve statistical properties while protecting privacy.
+Generate realistic synthetic datasets that preserve statistical properties while protecting privacy.
 
 ## Package Overview
 
@@ -16,9 +16,14 @@ Generate synthetic datasets that preserve statistical properties while protectin
 
 ### Key Features
 
-- **Multiple synthesis methods**: Parametric (Cholesky), sequential regression, bootstrap with perturbation, independent permutation
+- **Smart adaptive synthesis** (NEW): Automatically detects distribution shapes, variable relationships, and categorical associations for the most realistic output with minimal configuration
+- **Multiple synthesis methods**: Smart (recommended), Parametric (Cholesky), sequential regression, bootstrap with perturbation, independent permutation
+- **Auto-detection features** (NEW):
+  - Non-normal distributions automatically use empirical quantiles
+  - Derived variables (sums, ratios) are automatically detected and reconstructed
+  - Strongly associated categorical variables are synthesized jointly
 - **Flexible variable handling**: Automatic classification of continuous, categorical, string, date, and integer variables
-- **Relationship preservation**: Correlations, conditional distributions, constraints
+- **Relationship preservation**: Correlations, conditional distributions, constraints, derived variables
 - **Privacy controls**: Rare category protection, extreme value trimming, bounded outputs
 - **Panel data support**: Preserve panel structure, within-unit correlations, autocorrelation
 - **Comprehensive validation**: Comparison reports, utility metrics, density plots, validation statistics
@@ -66,10 +71,20 @@ None. If no options are specified, `synthdata` will:
 
 | Option | Description |
 |--------|-------------|
-| `parametric` | Parametric synthesis via Cholesky decomposition (default) |
+| `smart` | **Recommended**: Adaptive synthesis with automatic optimizations |
+| `parametric` | Parametric synthesis via Cholesky decomposition (default if smart not specified) |
 | `sequential` | Sequential regression synthesis |
 | `bootstrap` | Bootstrap with perturbation |
 | `permute` | Independent permutation (breaks all relationships) |
+
+#### Method Modifiers
+
+| Option | Description |
+|--------|-------------|
+| `empirical` | Use empirical quantiles instead of normal distribution |
+| `autoempirical` | Auto-detect non-normal distributions |
+| `noise(#)` | Perturbation SD as fraction of variable SD (default 0.1) |
+| `smooth` | Apply kernel density smoothing |
 
 #### Variable Type Options
 
@@ -99,6 +114,8 @@ None. If no options are specified, `synthdata` will:
 | `conditional` | Preserve conditional distributions |
 | `constraints(string)` | User-specified constraints |
 | `autoconstraints` | Auto-detect logical constraints |
+| `autorelate` | Auto-detect derived variables (sums, ratios) |
+| `conditionalcat` | Preserve categorical associations |
 
 #### Panel/Longitudinal Data
 
@@ -131,7 +148,26 @@ For complete option details, see: `help synthdata`
 
 ## Synthesis Methods
 
-### Parametric Method (Default)
+### Smart Method (Recommended)
+
+The **smart** method is the recommended approach for generating the most realistic synthetic data with minimal configuration. It automatically:
+
+1. **Detects non-normal distributions** using skewness and kurtosis, and uses empirical quantile synthesis for them
+2. **Detects derived variables** (sums, ratios, perfect linear combinations) and reconstructs them from base variables
+3. **Detects categorical associations** using Cramér's V and synthesizes associated categoricals jointly
+4. **Auto-detects logical constraints** (non-negative values, etc.)
+
+**Advantages:**
+- Most realistic output with minimal configuration
+- Preserves distribution shapes automatically
+- Maintains variable relationships
+- Handles mixed data types intelligently
+
+```stata
+synthdata, smart saving(synth_realistic)
+```
+
+### Parametric Method (Default if smart not specified)
 
 The parametric method fits normal distributions to continuous variables and preserves the correlation matrix via Cholesky decomposition. Categorical variables are drawn from observed frequencies.
 

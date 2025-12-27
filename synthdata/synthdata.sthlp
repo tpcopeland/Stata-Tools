@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.2.7  17dec2025}{...}
+{* *! version 1.3.0  27dec2025}{...}
 {viewerjumpto "Syntax" "synthdata##syntax"}{...}
 {viewerjumpto "Description" "synthdata##description"}{...}
 {viewerjumpto "Options" "synthdata##options"}{...}
@@ -10,7 +10,7 @@
 {title:Title}
 
 {phang}
-{bf:synthdata} {hline 2} Generate synthetic datasets preserving statistical properties
+{bf:synthdata} {hline 2} Generate realistic synthetic datasets preserving statistical properties
 
 
 {marker syntax}{...}
@@ -34,6 +34,7 @@
 {synopt:{opt mul:tiple(#)}}generate # synthetic datasets{p_end}
 
 {syntab:Synthesis Method}
+{synopt:{opt smart}}adaptive synthesis with automatic optimizations (recommended){p_end}
 {synopt:{opt para:metric}}parametric synthesis via Cholesky decomposition (default){p_end}
 {synopt:{opt seq:uential}}sequential regression synthesis{p_end}
 {synopt:{opt boot:strap}}bootstrap with perturbation{p_end}
@@ -41,6 +42,7 @@
 
 {syntab:Method Modifiers}
 {synopt:{opt emp:irical}}use empirical quantiles for marginals{p_end}
+{synopt:{opt autoemp:irical}}auto-detect non-normal distributions{p_end}
 {synopt:{opt noise(#)}}perturbation SD as fraction of variable SD; default 0.1{p_end}
 {synopt:{opt smooth}}kernel density estimation for continuous variables{p_end}
 
@@ -57,6 +59,8 @@
 {synopt:{opt cond:itional}}preserve conditional distributions for categoricals{p_end}
 {synopt:{opt const:raints(string)}}user-specified constraints{p_end}
 {synopt:{opt autocons:traints}}auto-detect logical constraints{p_end}
+{synopt:{opt autorel:ate}}auto-detect derived variables (sums, ratios){p_end}
+{synopt:{opt cond:itionalcat}}preserve categorical associations{p_end}
 
 {syntab:Panel/Longitudinal}
 {synopt:{opt panel(id time)}}preserve panel structure{p_end}
@@ -158,9 +162,19 @@ names, keeping originals for comparison.
 {dlgtab:Synthesis Method}
 
 {phang}
-{opt parametric} (the default) fits parametric distributions to continuous
-variables and preserves the correlation matrix via Cholesky decomposition.
-Categorical variables are drawn from observed frequencies.
+{opt smart} is the recommended method for realistic synthesis. It automatically:
+{p_end}
+{pmore}(1) Detects non-normal distributions and uses empirical quantiles for them{p_end}
+{pmore}(2) Detects derived variables (sums, ratios) and reconstructs them{p_end}
+{pmore}(3) Detects strongly associated categorical variables and synthesizes jointly{p_end}
+{pmore}(4) Auto-detects logical constraints (non-negative values, etc.){p_end}
+{pmore}This method produces the most realistic synthetic data with minimal configuration.
+
+{phang}
+{opt parametric} (the default if smart is not specified) fits parametric
+distributions to continuous variables and preserves the correlation matrix
+via Cholesky decomposition. Categorical variables are drawn from observed
+frequencies.
 
 {phang}
 {opt sequential} models each variable conditional on previous variables using
@@ -186,6 +200,14 @@ continuous variables. This approach:
 {pmore}(3) Uses a Gaussian copula to maintain correlations between variables{p_end}
 {pmore}Recommended when distribution shape and bounds are important, or when the original
 data is not normally distributed.
+
+{phang}
+{opt autoempirical} automatically detects non-normal distributions and uses
+empirical quantile synthesis for them, while using parametric synthesis for
+normally-distributed variables. This is the best of both worlds: parametric
+efficiency where appropriate, and empirical accuracy for non-normal data.
+Non-normality is detected using skewness (|skewness| > 1) and kurtosis
+(|kurtosis - 3| > 2) thresholds.
 
 {phang}
 {opt noise(#)} specifies the standard deviation of random noise added to
@@ -246,6 +268,22 @@ e.g., {cmd:constraints("age>=18" "start_date<end_date")}.
 {phang}
 {opt autoconstraints} automatically detects logical constraints such as
 non-negative values and applies them.
+
+{phang}
+{opt autorelate} automatically detects derived variables that are perfect or
+near-perfect functions of other variables (R² > 0.999). Examples include:
+{p_end}
+{pmore}- Sums: total = a + b + c{p_end}
+{pmore}- Differences: duration = end_date - start_date{p_end}
+{pmore}- Perfect linear combinations{p_end}
+{pmore}Detected derived variables are excluded from synthesis and reconstructed
+from their base variables afterward, perfectly preserving the relationship.
+
+{phang}
+{opt conditionalcat} detects strongly associated categorical variables using
+Cramér's V (V > 0.5) and synthesizes them jointly to preserve their association.
+This is useful for preserving relationships like region-country,
+diagnosis-treatment, or department-job_title.
 
 {dlgtab:Panel/Longitudinal}
 
@@ -350,11 +388,20 @@ The bootstrap method:
 {marker examples}{...}
 {title:Examples}
 
+{pstd}Smart synthesis (recommended for most realistic output){p_end}
+{phang2}{cmd:. synthdata, smart saving(synthetic_patients)}{p_end}
+
 {pstd}Basic usage: synthesize current dataset and save{p_end}
 {phang2}{cmd:. synthdata, saving(synthetic_patients)}{p_end}
 
 {pstd}Generate 10,000 synthetic observations, replacing current data{p_end}
 {phang2}{cmd:. synthdata, n(10000) replace}{p_end}
+
+{pstd}Parametric with auto-detection of non-normal distributions{p_end}
+{phang2}{cmd:. synthdata, autoempirical saving(synth_adaptive)}{p_end}
+
+{pstd}Preserve derived variables and categorical associations{p_end}
+{phang2}{cmd:. synthdata, autorelate conditionalcat saving(synth_relations)}{p_end}
 
 {pstd}Sequential method with panel structure{p_end}
 {phang2}{cmd:. synthdata, sequential panel(patient_id visit_num) saving(synth_panel)}{p_end}
