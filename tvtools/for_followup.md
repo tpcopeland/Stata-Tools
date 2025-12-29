@@ -2,6 +2,8 @@
 
 This document tracks conceptual issues, design decisions, and items requiring future consideration for the tvtools package.
 
+**Last Updated:** 2025-12-29
+
 ---
 
 ## 1. Continuous Variable Splitting: The Core Problem (FIXED in v1.3.0)
@@ -166,3 +168,141 @@ For most epidemiological datasets, the performance impact should be negligible. 
 - **v1.3.0 (2025-12-13):** Fixed multiple-event interval splitting bug
 - **v1.2.0 (2025-12-13):** Added startvar/stopvar options
 - **v1.1.0 (2025-12-10):** Added recurring events support
+
+---
+
+## 7. New Commands: Integration Considerations (December 2025)
+
+Three new commands were added to the tvtools package:
+
+### tvdiagnose
+
+**Purpose:** Standalone diagnostic tool for time-varying datasets.
+
+**Design decisions:**
+- Works on any time-varying dataset, not just tvtools output
+- Reports are modular (coverage, gaps, overlaps, summarize)
+- Threshold-based gap flagging (default 30 days)
+
+**Integration notes:**
+- Shares diagnostic logic with tvexpose's built-in options
+- Entry/exit required for coverage; exposure required for summarize
+- Could potentially be called automatically by other commands with a `diagnose` option
+
+**Future considerations:**
+- Add transition matrix showing exposure switching patterns
+- Export to CSV/Excel for external analysis
+- Time-series coverage trends
+
+---
+
+### tvbalance
+
+**Purpose:** Covariate balance assessment for causal inference workflows.
+
+**Design decisions:**
+- Works at observation level (not person level) - each row is weighted
+- Supports IPTW weights with effective sample size calculation
+- Uses pooled standard deviation for SMD calculation
+- Love plot uses Stata graphics system
+
+**Integration notes:**
+- Pairs with external propensity score estimation (logit/probit)
+- Future tvweight command would integrate directly
+- Currently assumes binary exposure (reference vs exposed)
+
+**Conceptual considerations:**
+- Time-varying balance: Current implementation ignores temporal structure. SMD is calculated across all person-time, not at each time point. For marginal structural models, time-varying balance assessment would be more appropriate.
+- Person-level clustering: SMD calculation doesn't account for clustering within persons. Consider robust variance estimation or cluster-aware summaries.
+
+**Future considerations:**
+- Time-varying SMD (at each calendar or follow-up time)
+- Variance ratio diagnostics
+- Automated covariate selection
+
+---
+
+### tvplot
+
+**Purpose:** Visualization of exposure patterns.
+
+**Design decisions:**
+- Swimlane plot: horizontal bars per person, color by exposure
+- Person-time plot: bar chart of total person-time by exposure
+- Sample-based (default 30 individuals) to manage plot complexity
+- Uses Stata's twoway bar and rbar graphics
+
+**Integration notes:**
+- Designed to work with tvexpose/tvmerge output
+- Expects start/stop/id structure
+- Exposure variable optional for swimlane (single color if not specified)
+
+**Conceptual considerations:**
+- Sorting affects interpretation: sortby(persontime) shows most complex patients first
+- Large samples (>100) can be cluttered; consider aggregation options
+- Event markers would enhance clinical interpretation
+
+**Future considerations:**
+- Event markers on swimlane plots (where outcomes occurred)
+- Calendar-time axis option
+- Interactive HTML export (using Stata's puthtml or external tools)
+- Aggregate summary panels showing population-level patterns
+
+---
+
+## 8. Command Interoperability
+
+The six tvtools commands are designed to work together:
+
+```
+[tvexpose] → [tvmerge] → [tvdiagnose] → [tvevent] → [tvbalance] → [tvplot] → [stset/stcox]
+```
+
+### Data Flow Assumptions
+
+| From | To | Assumptions |
+|------|-----|------------|
+| tvexpose | tvdiagnose | Output has id, start, stop, exposure |
+| tvexpose | tvmerge | Multiple tvexpose outputs with same id |
+| tvmerge | tvdiagnose | Merged output has id, start, stop |
+| tvdiagnose | tvevent | No data modification, diagnostic only |
+| tvevent | tvbalance | Output has exposure variable, covariates |
+| tvevent | tvplot | Output has id, start, stop, exposure |
+
+### Missing Integrations
+
+1. **tvdiagnose → automatic cleanup**: Could offer to fix identified issues
+2. **tvbalance → tvweight**: Future command for weight generation
+3. **tvplot → events**: Show outcome events on swimlane plots
+4. **Pipeline command**: Single command to run full workflow
+
+---
+
+## 9. Test Coverage for New Commands
+
+### Current gaps:
+
+**tvdiagnose:**
+- [ ] Empty dataset handling
+- [ ] Missing entry/exit with coverage option
+- [ ] Unicode variable names
+- [ ] Very large datasets (>100K obs)
+
+**tvbalance:**
+- [ ] Categorical exposure with >2 levels
+- [ ] Missing covariate values
+- [ ] Extreme weights
+- [ ] Zero-variance covariates
+
+**tvplot:**
+- [ ] Zero observations after filtering
+- [ ] All same exposure category
+- [ ] Very wide date ranges (decades)
+- [ ] Missing exposure values
+
+### Recommended test file:
+
+Create `tvtools/_testing/test_diagnostic_commands.do` covering:
+1. Basic functionality for each command
+2. Edge cases listed above
+3. Integration with core workflow

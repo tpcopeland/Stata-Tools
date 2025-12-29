@@ -6,11 +6,17 @@ Comprehensive toolkit for time-varying exposure analysis in survival studies.
 
 ## Package Overview
 
-**tvtools** provides three integrated commands for creating and analyzing time-varying exposure data in survival analysis:
+**tvtools** provides six integrated commands for creating, analyzing, and visualizing time-varying exposure data in survival analysis:
 
+### Core Workflow Commands
 1. **tvexpose** - Create time-varying exposure variables from period-based exposure data
 2. **tvmerge** - Merge multiple time-varying exposure datasets with temporal alignment
 3. **tvevent** - Integrate events and competing risks into time-varying datasets
+
+### Diagnostic and Visualization Commands
+4. **tvdiagnose** - Assess data quality with coverage, gap, and overlap diagnostics
+5. **tvbalance** - Calculate standardized mean differences for covariate balance
+6. **tvplot** - Visualize exposure patterns with swimlane and person-time plots
 
 ### Typical Workflow
 
@@ -21,7 +27,13 @@ Raw exposure data
         ↓
    [tvmerge]  ←──────────── Merge multiple exposures (optional)
         ↓
+  [tvdiagnose] ←─────────── Check data quality (optional)
+        ↓
     tvevent   ←──────────── Integrate events and competing risks
+        ↓
+  [tvbalance] ←──────────── Assess covariate balance (optional)
+        ↓
+   [tvplot]   ←──────────── Visualize exposure patterns (optional)
         ↓
      stset    ←──────────── Declare survival-time data
         ↓
@@ -31,6 +43,7 @@ Raw exposure data
 ### Key Features
 
 - **Comprehensive exposure definitions**: Basic time-varying, ever-treated, current/former, duration categories, continuous cumulative, recency, dose tracking
+- **Diagnostic tools**: Coverage analysis, gap detection, overlap checking, balance assessment
 - **Advanced data handling**: Grace periods, gap filling, overlap resolution, lag/washout periods
 - **Flexible merging**: Cartesian product temporal matching, continuous vs categorical exposures, batch processing
 - **Competing risks support**: Multiple competing events, automatic interval splitting, custom event labels
@@ -874,6 +887,199 @@ The command identifies the earliest occurring event among `date()` and `compete(
 
 ---
 
+## tvdiagnose - Data Quality Diagnostics
+
+**tvdiagnose** provides diagnostic tools to assess data quality in time-varying exposure datasets. It can identify coverage gaps, overlapping periods, and exposure distribution issues.
+
+### Syntax
+
+```stata
+tvdiagnose, id(varname) start(varname) stop(varname) [options]
+```
+
+### Required Options
+
+| Option | Description |
+|--------|-------------|
+| `id(varname)` | Person identifier variable |
+| `start(varname)` | Period start date variable |
+| `stop(varname)` | Period stop date variable |
+
+### Report Options
+
+| Option | Description | Requirements |
+|--------|-------------|--------------|
+| `coverage` | Coverage diagnostics by person | Requires `entry()` and `exit()` |
+| `gaps` | Gap analysis between periods | — |
+| `overlaps` | Overlap detection | — |
+| `summarize` | Exposure distribution summary | Requires `exposure()` |
+| `all` | Run all diagnostic reports | — |
+
+### Additional Options
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `exposure(varname)` | Exposure variable (for summarize) | — |
+| `entry(varname)` | Study entry date (for coverage) | — |
+| `exit(varname)` | Study exit date (for coverage) | — |
+| `threshold(#)` | Flag gaps exceeding # days | 30 |
+
+### Examples
+
+```stata
+* Check coverage after tvexpose
+tvexpose using medications, id(id) start(rx_start) stop(rx_stop) ///
+    exposure(drug) reference(0) entry(entry) exit(exit)
+tvdiagnose, id(id) start(start) stop(stop) coverage entry(entry) exit(exit)
+
+* Run all diagnostics
+tvdiagnose, id(id) start(start) stop(stop) exposure(tv_exposure) ///
+    entry(entry) exit(exit) all
+
+* Check for gaps exceeding 90 days
+tvdiagnose, id(id) start(start) stop(stop) gaps threshold(90)
+```
+
+### Stored Results
+
+| Scalar | Description |
+|--------|-------------|
+| `r(n_persons)` | Number of unique persons |
+| `r(mean_coverage)` | Mean coverage percentage (if coverage) |
+| `r(n_gaps)` | Total number of gaps (if gaps) |
+| `r(mean_gap)` | Mean gap duration in days (if gaps) |
+| `r(n_overlaps)` | Number of overlapping periods (if overlaps) |
+
+---
+
+## tvbalance - Covariate Balance Diagnostics
+
+**tvbalance** calculates standardized mean differences (SMD) to assess covariate balance between exposure groups. It is useful for checking baseline balance, assessing IPTW quality, and identifying confounders requiring adjustment.
+
+### Syntax
+
+```stata
+tvbalance varlist, exposure(varname) [options]
+```
+
+### Required Options
+
+| Option | Description |
+|--------|-------------|
+| `varlist` | Covariates to assess balance |
+| `exposure(varname)` | Exposure variable (binary or categorical) |
+
+### Options
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `weights(varname)` | IPTW or other weights for weighted balance | — |
+| `threshold(#)` | SMD threshold for imbalance flag | 0.1 |
+| `id(varname)` | Person identifier variable | — |
+| `loveplot` | Generate Love plot of SMD values | — |
+| `saving(filename)` | Save Love plot to file | — |
+| `replace` | Replace existing file | — |
+
+### Examples
+
+```stata
+* Basic balance check
+tvbalance age sex comorbidity_score, exposure(tv_exposure)
+
+* Balance with IPTW weights
+logit tv_exposure age sex comorbidity_score
+predict ps, pr
+gen iptw = cond(tv_exposure==1, 1/ps, 1/(1-ps))
+tvbalance age sex comorbidity_score, exposure(tv_exposure) weights(iptw)
+
+* Generate Love plot with stricter threshold
+tvbalance age sex comorbidity_score, exposure(tv_exposure) ///
+    weights(iptw) threshold(0.05) loveplot
+
+* Save Love plot
+tvbalance age sex, exposure(tv_exposure) loveplot saving(balance.png) replace
+```
+
+### Stored Results
+
+| Result | Description |
+|--------|-------------|
+| `r(n_ref)` | Observations in reference group |
+| `r(n_exp)` | Observations in exposed group |
+| `r(n_imbalanced)` | Imbalanced covariates (unweighted) |
+| `r(n_imbalanced_wt)` | Imbalanced covariates (weighted) |
+| `r(ess_ref)` | Effective sample size, reference (if weighted) |
+| `r(ess_exp)` | Effective sample size, exposed (if weighted) |
+| `r(balance)` | Matrix of balance statistics |
+
+---
+
+## tvplot - Exposure Visualization
+
+**tvplot** creates visualizations of time-varying exposure data to understand exposure patterns, identify data quality issues, and communicate results.
+
+### Syntax
+
+```stata
+tvplot, id(varname) start(varname) stop(varname) [options]
+```
+
+### Required Options
+
+| Option | Description |
+|--------|-------------|
+| `id(varname)` | Person identifier variable |
+| `start(varname)` | Period start date variable |
+| `stop(varname)` | Period stop date variable |
+
+### Plot Type Options
+
+| Option | Description |
+|--------|-------------|
+| `swimlane` | Individual exposure timelines (default) |
+| `persontime` | Stacked bar chart of person-time by exposure |
+
+### Additional Options
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `exposure(varname)` | Exposure variable for color coding | — |
+| `sample(#)` | Number of individuals to plot | 30 |
+| `sortby(spec)` | Sort order: `entry`, `exit`, `persontime`, or varname | entry |
+| `title(string)` | Graph title | — |
+| `saving(filename)` | Save graph to file | — |
+| `replace` | Replace existing file | — |
+| `colors(colorlist)` | Custom color palette | — |
+
+### Examples
+
+```stata
+* Basic swimlane plot
+tvplot, id(id) start(start) stop(stop) exposure(tv_exposure)
+
+* Plot 50 individuals sorted by total person-time
+tvplot, id(id) start(start) stop(stop) exposure(tv_exposure) ///
+    sample(50) sortby(persontime)
+
+* Person-time bar chart
+tvplot, id(id) start(start) stop(stop) exposure(tv_exposure) persontime
+
+* Save plot with custom title
+tvplot, id(id) start(start) stop(stop) exposure(tv_exposure) ///
+    title("Treatment Patterns") saving(patterns.png) replace
+```
+
+### Stored Results
+
+| Macro | Description |
+|-------|-------------|
+| `r(plottype)` | Type of plot created (swimlane or persontime) |
+| `r(id)` | Name of ID variable |
+| `r(start)` | Name of start date variable |
+| `r(stop)` | Name of stop date variable |
+
+---
+
 ## Requirements
 
 - Stata 16.0 or higher
@@ -887,6 +1093,9 @@ Access the graphical interfaces:
 db tvexpose
 db tvmerge
 db tvevent
+db tvdiagnose
+db tvbalance
+db tvplot
 ```
 
 Optional menu integration (requires `net get`, see Installation above):
@@ -952,7 +1161,8 @@ stcox i.medication i.comorbidity
 
 ## Documentation
 
-- Command help: `help tvexpose`, `help tvmerge`, `help tvevent`
+- Core commands: `help tvexpose`, `help tvmerge`, `help tvevent`
+- Diagnostics: `help tvdiagnose`, `help tvbalance`, `help tvplot`
 
 ## Author
 
@@ -971,8 +1181,11 @@ MIT License
 | tvexpose | 1.2.0 | 2025-12-14 |
 | tvmerge | 1.0.5 | 2025-12-18 |
 | tvevent | 1.4.0 | 2025-12-18 |
+| tvdiagnose | 1.0.0 | 2025-12-26 |
+| tvbalance | 1.0.0 | 2025-12-27 |
+| tvplot | 1.0.0 | 2025-12-27 |
 
-Package Distribution-Date: 20251226
+Package Distribution-Date: 20251229
 
 ### Checking Installed Version
 
@@ -980,6 +1193,9 @@ Package Distribution-Date: 20251226
 which tvexpose
 which tvmerge
 which tvevent
+which tvdiagnose
+which tvbalance
+which tvplot
 ```
 
 ## See Also
