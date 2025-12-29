@@ -2,6 +2,8 @@
 
 This document tracks conceptual issues, design decisions, and items requiring future consideration for the tvtools package.
 
+**Last Updated:** 2025-12-29
+
 ---
 
 ## 1. Continuous Variable Splitting: The Core Problem (FIXED in v1.3.0)
@@ -166,3 +168,236 @@ For most epidemiological datasets, the performance impact should be negligible. 
 - **v1.3.0 (2025-12-13):** Fixed multiple-event interval splitting bug
 - **v1.2.0 (2025-12-13):** Added startvar/stopvar options
 - **v1.1.0 (2025-12-10):** Added recurring events support
+
+---
+
+## 7. New Commands: Integration Considerations (December 2025)
+
+Three new commands were added to the tvtools package:
+
+### tvdiagnose
+
+**Purpose:** Standalone diagnostic tool for time-varying datasets.
+
+**Design decisions:**
+- Works on any time-varying dataset, not just tvtools output
+- Reports are modular (coverage, gaps, overlaps, summarize)
+- Threshold-based gap flagging (default 30 days)
+
+**Integration notes:**
+- Shares diagnostic logic with tvexpose's built-in options
+- Entry/exit required for coverage; exposure required for summarize
+- Could potentially be called automatically by other commands with a `diagnose` option
+
+**Future considerations:**
+- Add transition matrix showing exposure switching patterns
+- Export to CSV/Excel for external analysis
+- Time-series coverage trends
+
+---
+
+### tvbalance
+
+**Purpose:** Covariate balance assessment for causal inference workflows.
+
+**Design decisions:**
+- Works at observation level (not person level) - each row is weighted
+- Supports IPTW weights with effective sample size calculation
+- Uses pooled standard deviation for SMD calculation
+- Love plot uses Stata graphics system
+
+**Integration notes:**
+- Pairs with external propensity score estimation (logit/probit)
+- Future tvweight command would integrate directly
+- Currently assumes binary exposure (reference vs exposed)
+
+**Conceptual considerations:**
+- Time-varying balance: Current implementation ignores temporal structure. SMD is calculated across all person-time, not at each time point. For marginal structural models, time-varying balance assessment would be more appropriate.
+- Person-level clustering: SMD calculation doesn't account for clustering within persons. Consider robust variance estimation or cluster-aware summaries.
+
+**Future considerations:**
+- Time-varying SMD (at each calendar or follow-up time)
+- Variance ratio diagnostics
+- Automated covariate selection
+
+---
+
+### tvplot
+
+**Purpose:** Visualization of exposure patterns.
+
+**Design decisions:**
+- Swimlane plot: horizontal bars per person, color by exposure
+- Person-time plot: bar chart of total person-time by exposure
+- Sample-based (default 30 individuals) to manage plot complexity
+- Uses Stata's twoway bar and rbar graphics
+
+**Integration notes:**
+- Designed to work with tvexpose/tvmerge output
+- Expects start/stop/id structure
+- Exposure variable optional for swimlane (single color if not specified)
+
+**Conceptual considerations:**
+- Sorting affects interpretation: sortby(persontime) shows most complex patients first
+- Large samples (>100) can be cluttered; consider aggregation options
+- Event markers would enhance clinical interpretation
+
+**Future considerations:**
+- Event markers on swimlane plots (where outcomes occurred)
+- Calendar-time axis option
+- Interactive HTML export (using Stata's puthtml or external tools)
+- Aggregate summary panels showing population-level patterns
+
+---
+
+## 8. Command Interoperability
+
+The six tvtools commands are designed to work together:
+
+```
+[tvexpose] → [tvmerge] → [tvdiagnose] → [tvevent] → [tvbalance] → [tvplot] → [stset/stcox]
+```
+
+### Data Flow Assumptions
+
+| From | To | Assumptions |
+|------|-----|------------|
+| tvexpose | tvdiagnose | Output has id, start, stop, exposure |
+| tvexpose | tvmerge | Multiple tvexpose outputs with same id |
+| tvmerge | tvdiagnose | Merged output has id, start, stop |
+| tvdiagnose | tvevent | No data modification, diagnostic only |
+| tvevent | tvbalance | Output has exposure variable, covariates |
+| tvevent | tvplot | Output has id, start, stop, exposure |
+
+### Missing Integrations
+
+1. **tvdiagnose → automatic cleanup**: Could offer to fix identified issues
+2. **tvbalance → tvweight**: Future command for weight generation
+3. **tvplot → events**: Show outcome events on swimlane plots
+4. **Pipeline command**: Single command to run full workflow
+
+---
+
+## 9. Test Coverage for New Commands
+
+### Current gaps:
+
+**tvdiagnose:**
+- [ ] Empty dataset handling
+- [ ] Missing entry/exit with coverage option
+- [ ] Unicode variable names
+- [ ] Very large datasets (>100K obs)
+
+**tvbalance:**
+- [ ] Categorical exposure with >2 levels
+- [ ] Missing covariate values
+- [ ] Extreme weights
+- [ ] Zero-variance covariates
+
+**tvplot:**
+- [ ] Zero observations after filtering
+- [ ] All same exposure category
+- [ ] Very wide date ranges (decades)
+- [ ] Missing exposure values
+
+### Recommended test file:
+
+Create `tvtools/_testing/test_diagnostic_commands.do` covering:
+1. Basic functionality for each command
+2. Edge cases listed above
+3. Integration with core workflow
+
+---
+
+## 10. Common User Pitfalls and Guidance
+
+### Misunderstandings About Time-Varying Balance
+
+**Pitfall**: Users run `tvbalance` and assume good SMD means no confounding.
+
+**Reality**: tvbalance calculates balance across all person-time pooled. This ignores:
+- Time-varying confounding (confounders that change over time)
+- Selection into treatment groups over time
+- Informative censoring
+
+**Guidance**: For rigorous causal inference with time-varying exposures:
+1. Consider marginal structural models with `tvweight` (future command)
+2. Use `tvbalance` as a screening tool, not definitive proof of balance
+3. Report balance at baseline separately from time-varying balance
+
+### Interpreting Coverage Diagnostics
+
+**Pitfall**: Users see 95% coverage and assume data is complete.
+
+**Reality**: Coverage measures the proportion of follow-up time with exposure records. It doesn't indicate:
+- Whether unexposed gaps represent true unexposed time or missing data
+- Whether exposure records are accurate
+- Whether there's measurement error in exposure timing
+
+**Guidance**:
+1. Understand your data source (dispensing vs. prescribing vs. self-report)
+2. Use `grace()` option in tvexpose if gaps likely represent refill timing
+3. Conduct sensitivity analyses varying assumptions about missing data
+
+### Swimlane Plot Interpretation
+
+**Pitfall**: Users show swimlane plots as evidence of treatment patterns without considering selection.
+
+**Reality**: Who appears in the plot depends on:
+- The `sample()` selection
+- The `sortby()` ordering
+- Which patients are in the dataset
+
+**Guidance**:
+1. Use `sortby(persontime)` to show patients with most complex patterns
+2. Use `sortby(entry)` for chronological view
+3. Always report sample selection criteria in figure captions
+4. Consider multiple plots with different sorting/sampling
+
+### Categorical vs Continuous Dose
+
+**Pitfall**: Users create dose categories without considering the underlying distribution.
+
+**Reality**: Cutpoints should be clinically meaningful, not arbitrary quantiles.
+
+**Guidance**:
+1. Examine dose distribution before choosing `dosecuts()`
+2. Use clinically relevant thresholds (DDD multiples, therapeutic ranges)
+3. Consider continuous cumulative dose with splines for flexible modeling
+
+---
+
+## 11. Architecture Notes for Developers
+
+### Variable Naming Conventions
+
+| Variable | Purpose | Created By |
+|----------|---------|------------|
+| `start` | Period start date | tvexpose, tvmerge |
+| `stop` | Period end date | tvexpose, tvmerge |
+| `tv_exposure` | Default exposure variable | tvexpose |
+| `status` | Default event status | tvevent |
+| `_merge` | Temporary merge indicator | tvmerge (dropped) |
+
+### Return Value Conventions
+
+All commands store:
+- `r(N)` or `r(n_persons)`: Count of observations or persons
+- `r(cmd)`: Command name (for postestimation)
+- Named scalars for key statistics
+- Matrices for tabular results (when appropriate)
+
+### Error Handling Philosophy
+
+1. **Validate early**: Check all inputs before any data modification
+2. **Fail loudly**: Use `exit` with appropriate error codes, not silent failures
+3. **Preserve context**: Use `preserve/restore` for any destructive operations
+4. **Clear messages**: Error messages should tell users what went wrong AND how to fix it
+
+### Memory Management
+
+For large datasets:
+1. `tvmerge` uses batch processing (configurable via `batch()`)
+2. `tvexpose` processes one person at a time
+3. Temporary variables are systematically dropped
+4. Consider `compress` after creation for long-term storage

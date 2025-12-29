@@ -2,9 +2,37 @@
 
 This document outlines potential future enhancements to the tvtools package for time-varying exposure analysis in survival studies.
 
+**Last updated:** 2025-12-29
+
 ---
 
-## Suggested Enhancements
+## Recently Completed Enhancements ✓
+
+The following items from previous versions of this document have been implemented:
+
+### ✓ Visualization and Diagnostics (Completed December 2025)
+
+**tvplot** - Exposure swimlane plots and person-time visualization
+- Individual-level exposure histories with color coding
+- Person-time bar charts by exposure category
+- Sorting by entry, exit, or total person-time
+- Export to PNG, PDF, and other formats
+
+**tvdiagnose** - Comprehensive diagnostic output
+- Coverage diagnostics: percentage of follow-up covered by exposure records
+- Gap analysis: distribution and duration of unexposed intervals
+- Overlap detection: identify overlapping exposure periods
+- Exposure distribution summary: person-time by category
+
+**tvbalance** - Balance diagnostics for causal inference
+- Standardized mean differences (SMD) between exposure groups
+- Support for IPTW weights with effective sample size calculation
+- Love plots for visual balance assessment
+- Configurable imbalance thresholds
+
+---
+
+## Suggested Enhancements (Active Roadmap)
 
 ### 1. Multiple Imputation Workflow Support
 
@@ -178,51 +206,35 @@ tvexpose ..., doseintensity(avg max) dosewindow(90)
 
 ---
 
-### 5. Visualization and Diagnostics
+### 5. Visualization and Diagnostics — ✓ COMPLETED
 
-**Current limitation:** No built-in visualization of exposure patterns or diagnostic output.
+> **Status:** Implemented in tvtools v1.2+ (December 2025)
+>
+> See: `help tvplot`, `help tvdiagnose`, `help tvbalance`
 
-**Proposed enhancements:**
+The following have been implemented:
 
-#### A. Exposure Swimlane Plots
+- **tvplot** - Swimlane plots and person-time visualization
+- **tvdiagnose** - Coverage, gap, and overlap diagnostics
+- **tvbalance** - SMD calculation and Love plots for balance assessment
 
-```stata
-* New command: tvplot
-tvplot id(id) start(start) stop(stop) exposure(tv_exposure), ///
-    sample(50) sortby(total_exposed) ///
-    colors(navy maroon forest_green) ///
-    export(exposure_patterns.png)
-```
+#### Remaining enhancements for these commands:
 
-- Individual-level exposure histories
-- Color-coded by exposure type
-- Timeline with events marked
-- Aggregate summary panels
+**tvplot enhancements:**
+- Event markers on swimlane plots (show where outcomes occurred)
+- Calendar-time axis option (vs. time-from-entry)
+- Aggregate summary panels showing population-level patterns
+- Interactive HTML export option
 
-#### B. Diagnostic Output
+**tvdiagnose enhancements:**
+- Transition matrices showing exposure switching patterns
+- Temporal trends in coverage over calendar time
+- Export diagnostics to Excel/CSV
 
-```stata
-tvdiagnose, exposure(tv_exposure) ///
-    report(gaps overlaps transitions) ///
-    threshold(30)  // Flag gaps > 30 days
-```
-
-- Gap analysis: distribution of unexposed intervals
-- Transition matrices: exposure switching patterns
-- Coverage statistics: person-time by exposure category
-- Data quality flags: impossible dates, overlaps, etc.
-
-#### C. Balance Diagnostics (for IPTW)
-
-```stata
-tvbalance, exposure(tv_exposure) ///
-    covariates(age sex comorbidity) ///
-    weights(iptw) smd threshold(0.1)
-```
-
-- Standardized mean differences over time
-- Love plots at each time point
-- Effective sample size by period
+**tvbalance enhancements:**
+- Time-varying balance assessment (SMD at each time point)
+- Automated covariate selection based on SMD
+- Variance ratio diagnostics
 
 ---
 
@@ -344,20 +356,122 @@ tvvalidate, id(id) start(start) stop(stop) exposure(tv_exposure) ///
 
 ---
 
+### 11. Workflow Integration Enhancements
+
+**Current state:** Commands work independently; users must chain them manually.
+
+**Proposed enhancements:**
+
+#### A. Pipeline Command
+
+```stata
+* Single command for complete workflow
+tvpipeline using exposure_data, ///
+    id(id) start(start) stop(stop) exposure(drug) ///
+    entry(entry) exit(exit) event(outcome_dt) ///
+    compete(death_dt) ///
+    diagnose balance(age sex) plot ///
+    saveas(analysis_ready.dta)
+```
+
+- Chain tvexpose → tvmerge → tvevent in one call
+- Automatic diagnostic output
+- Generate standard visualizations
+- Produce analysis-ready dataset
+
+#### B. Reporting Suite
+
+```stata
+* Generate comprehensive analysis report
+tvreport, id(id) start(start) stop(stop) exposure(tv_exposure) ///
+    covariates(age sex comorbidity) ///
+    event(outcome) compete(death) ///
+    format(html) output(report.html)
+```
+
+- Automated report generation
+- Exposure pattern summary
+- Balance tables
+- Preliminary hazard ratios
+- Diagnostic plots
+
+---
+
+### 12. Machine Learning Integration
+
+**Use case:** Modern causal inference methods using ML for nuisance parameter estimation.
+
+```stata
+* Double/debiased machine learning for causal effects
+tvdml, exposure(tv_exposure) outcome(outcome) ///
+    covariates(age sex comorbidity bp bmi) ///
+    method(lasso) crossfit(5)
+```
+
+- LASSO/elastic net for high-dimensional confounding
+- Cross-fitting for doubly robust estimation
+- Integration with Stata's lasso commands
+- Support for continuous and binary treatments
+
+---
+
+### 13. Real-World Evidence Workflows
+
+**Use case:** Pharmacovigilance and regulatory submissions.
+
+```stata
+* PASS/PAES workflow support
+tvpass, ///
+    cohort(cohort.dta) ///
+    exposure(drug_periods.dta) ///
+    outcomes(adverse_events.dta) ///
+    protocol(protocol.xlsx)
+```
+
+- Post-authorization safety/efficacy studies
+- Structured output for regulatory submissions
+- Standard safety endpoints (MACE, bleeding, etc.)
+- Sensitivity analysis frameworks
+
+---
+
 ## Implementation Priority
 
-| Enhancement | Complexity | Impact | Priority |
-|-------------|------------|--------|----------|
-| Mata optimization | High | High | 1 |
-| IPTW/MSM support | High | High | 2 |
-| Visualization | Medium | High | 3 |
-| Multiple imputation | High | Medium | 4 |
-| Dose-response enhancement | Medium | Medium | 5 |
-| G-estimation | High | Medium | 6 |
-| Diagnostics | Low | Medium | 7 |
-| Sensitivity analysis | Medium | Medium | 8 |
-| External factors | Low | Low | 9 |
-| Output utilities | Low | Low | 10 |
+### Completed
+
+| Enhancement | Complexity | Impact | Status |
+|-------------|------------|--------|--------|
+| Visualization (tvplot) | Medium | High | ✓ Complete |
+| Diagnostics (tvdiagnose) | Low | Medium | ✓ Complete |
+| Balance (tvbalance) | Medium | High | ✓ Complete |
+
+### Active Roadmap
+
+| Enhancement | Complexity | Impact | Priority | Status |
+|-------------|------------|--------|----------|--------|
+| Mata optimization | High | High | 1 | Planned |
+| IPTW/MSM support (tvweight) | High | High | 2 | Planned |
+| Workflow integration (tvpipeline) | Medium | High | 3 | Planned |
+| Multiple imputation | High | Medium | 4 | Planned |
+| tvplot/tvdiagnose enhancements | Low | Medium | 5 | Planned |
+
+### Research Phase
+
+| Enhancement | Complexity | Impact | Priority | Status |
+|-------------|------------|--------|----------|--------|
+| G-estimation (tvestimate) | High | Medium | 6 | Research |
+| Target trial emulation (tvtrial) | High | High | 7 | Research |
+| ML integration (tvdml) | High | Medium | 8 | Research |
+| Sensitivity analysis (tvsensitivity) | Medium | Medium | 9 | Research |
+
+### Backlog
+
+| Enhancement | Complexity | Impact | Priority | Status |
+|-------------|------------|--------|----------|--------|
+| External factors (tvcalendar) | Low | Low | 10 | Backlog |
+| Output utilities (tvtable) | Low | Low | 11 | Backlog |
+| RWE workflows (tvpass) | Medium | Low | 12 | Backlog |
+| Reporting suite (tvreport) | Medium | Medium | 13 | Backlog |
 
 ---
 
@@ -398,5 +512,82 @@ Suggestions and contributions welcome. Priority will be given to:
 
 ---
 
-**Document Version:** 1.0.0
-**Created:** December 2025
+## Lessons Learned from Diagnostic Command Implementation
+
+The development of tvdiagnose, tvbalance, and tvplot in December 2025 provided insights for future development:
+
+### What Worked Well
+
+1. **Modular design**: Making each report type optional (coverage, gaps, overlaps) allows users to run only what they need.
+
+2. **Consistent interface patterns**: Using the same option names (id, start, stop) across all commands reduces learning curve.
+
+3. **Standalone flexibility**: Commands work on any time-varying dataset, not just tvtools output, increasing utility.
+
+4. **Graphics integration**: Using Stata's native graphics system (twoway, graph bar) ensures compatibility and familiar output.
+
+### Challenges Encountered
+
+1. **Time-varying SMD calculation**: Computing balance at each time point requires careful handling of the observation structure. Current implementation uses pooled SMD which may mask temporal imbalance.
+
+2. **Swimlane plot scaling**: Large date ranges (decades) require intelligent axis scaling. Current implementation uses automatic Stata scaling.
+
+3. **Memory efficiency**: Creating Love plots with many covariates can be memory-intensive. Consider Mata optimization for future versions.
+
+### Recommendations for Future Commands
+
+1. **Start with minimal viable options**, add complexity later
+2. **Use consistent naming**: `id()`, `start()`, `stop()`, `exposure()` pattern
+3. **Store results systematically**: All r() scalars and macros
+4. **Provide both graphical and tabular output** where appropriate
+5. **Test with edge cases early**: empty data, all same category, extreme values
+
+---
+
+## Implementation Notes for Priority Items
+
+### Mata Optimization (Priority 1)
+
+Key bottlenecks identified:
+- `tvexpose`: O(n²) overlap detection loop in lines 450-520
+- `tvmerge`: Cartesian product generation for large datasets
+- `tvevent`: Multiple-event interval splitting
+
+Recommended approach:
+1. Profile with large datasets (>100K observations)
+2. Identify top 3 performance bottlenecks
+3. Rewrite in Mata with parallel hash-based lookups
+4. Maintain Stata syntax wrapper for user interface
+
+### tvweight Command (Priority 2)
+
+Proposed implementation phases:
+
+**Phase 1: Basic IPTW**
+```stata
+tvweight tv_exposure, covariates(age sex) model(logit) generate(iptw)
+```
+
+**Phase 2: Stabilized weights**
+```stata
+tvweight tv_exposure, covariates(age sex) stabilized generate(siptw)
+```
+
+**Phase 3: Time-varying confounders**
+```stata
+tvweight tv_exposure, covariates(age sex) tvcovariates(bp_control) ///
+    model(pooled_logit) generate(tviptw)
+```
+
+---
+
+## Changelog
+
+- **v1.2.0 (2025-12-29):** Added lessons learned; implementation notes for priority items
+- **v1.1.0 (2025-12-29):** Marked visualization/diagnostics as complete; updated priority table
+- **v1.0.0 (2025-12):** Initial future directions document
+
+---
+
+**Document Version:** 1.2.0
+**Last Updated:** 2025-12-29

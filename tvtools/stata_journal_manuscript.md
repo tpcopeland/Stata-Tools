@@ -10,9 +10,9 @@ timothy.copeland@ki.se
 
 ## Abstract
 
-Time-varying exposures present significant analytical challenges in survival studies. Researchers must transform raw exposure period data—such as medication dispensing records or treatment episodes—into analysis-ready datasets suitable for Cox regression or competing risks models. This process is labor-intensive, error-prone, and poorly supported by existing tools. This article introduces tvtools, a Stata package comprising three integrated commands: tvexpose creates time-varying exposure variables from period-based data with support for eight exposure definitions (basic categorical, ever-treated, current/former, duration categories, continuous cumulative, recency, cumulative dose, and categorical dose); tvmerge performs temporal alignment when merging multiple exposures using efficient batch processing; and tvevent integrates outcome events and competing risks with automatic interval splitting. The package workflow produces datasets compatible with stset, stcox, and stcrreg. Comprehensive examples demonstrate applications in pharmacoepidemiology, including addressing immortal time bias, dose-response analyses, and competing risks analyses. The tvtools package is available for Stata 16.0 and later.
+Time-varying exposures present significant analytical challenges in survival studies. Researchers must transform raw exposure period data—such as medication dispensing records or treatment episodes—into analysis-ready datasets suitable for Cox regression or competing risks models. This process is labor-intensive, error-prone, and poorly supported by existing tools. This article introduces tvtools, a Stata package comprising six integrated commands for time-varying exposure analysis. The core workflow commands—tvexpose, tvmerge, and tvevent—create time-varying exposure variables from period-based data, perform temporal alignment when merging multiple exposures, and integrate outcome events with competing risks. tvexpose supports eight exposure definitions (basic categorical, ever-treated, current/former, duration categories, continuous cumulative, recency, cumulative dose, and categorical dose). Three additional diagnostic and visualization commands—tvdiagnose, tvbalance, and tvplot—enable data quality assessment, covariate balance checking, and exposure pattern visualization. The package workflow produces datasets compatible with stset, stcox, and stcrreg. Comprehensive examples demonstrate applications in pharmacoepidemiology, including addressing immortal time bias, dose-response analyses, and competing risks analyses. The tvtools package is available for Stata 16.0 and later.
 
-**Keywords:** st0XXX, tvexpose, tvmerge, tvevent, survival analysis, time-varying covariates, competing risks, pharmacoepidemiology, Cox regression, exposure assessment, time-splitting, interval data, counting process
+**Keywords:** st0XXX, tvexpose, tvmerge, tvevent, tvdiagnose, tvbalance, tvplot, survival analysis, time-varying covariates, competing risks, pharmacoepidemiology, Cox regression, exposure assessment, time-splitting, interval data, counting process
 
 ---
 
@@ -46,23 +46,29 @@ This process can require hundreds of lines of code, even for straightforward ana
 
 ### 1.3 Contribution
 
-The tvtools package addresses these challenges by providing three integrated commands that transform raw exposure data into analysis-ready datasets:
+The tvtools package addresses these challenges by providing six integrated commands that transform raw exposure data into analysis-ready datasets:
 
+**Core workflow commands:**
 - **tvexpose** creates time-varying exposure variables from period-based exposure data
 - **tvmerge** performs temporal alignment when merging multiple time-varying exposures
 - **tvevent** integrates outcome events and competing risks
 
+**Diagnostic and visualization commands:**
+- **tvdiagnose** assesses data quality with coverage, gap, and overlap diagnostics
+- **tvbalance** calculates standardized mean differences for covariate balance assessment
+- **tvplot** visualizes exposure patterns with swimlane and person-time plots
+
 Together, these commands implement a complete workflow from raw data to survival analysis:
 
 ```
-Raw exposure data → tvexpose → [tvmerge] → tvevent → stset → stcox/stcrreg
+Raw exposure data → tvexpose → [tvmerge] → [tvdiagnose] → tvevent → [tvbalance] → [tvplot] → stset → stcox/stcrreg
 ```
 
 The package handles common complications including overlapping exposures, gaps in coverage, lag and washout periods, and competing risks—all through intuitive options rather than custom programming.
 
 ### 1.4 Paper organization
 
-Section 2 provides background on time-varying covariates in survival analysis, including key assumptions and when time-varying approaches are appropriate. Section 3 describes the tvtools workflow and data requirements. Sections 4–6 detail each command with a comprehensive quick reference. Section 7 presents 11 worked examples covering basic usage through advanced scenarios. Section 8 compares tvtools with manual approaches, stsplit, and R alternatives. Section 9 discusses design decisions, performance, and limitations. Section 10 concludes.
+Section 2 provides background on time-varying covariates in survival analysis, including key assumptions and when time-varying approaches are appropriate. Section 3 describes the tvtools workflow and data requirements. Sections 4–6 detail the core workflow commands. Section 6.8 provides a comprehensive quick reference for all commands. Section 6.9 documents the diagnostic and visualization commands (tvdiagnose, tvbalance, tvplot). Section 7 presents worked examples covering basic usage through advanced scenarios. Section 8 compares tvtools with manual approaches, stsplit, and R alternatives. Section 9 discusses design decisions, performance, and limitations. Section 10 concludes.
 
 ---
 
@@ -551,6 +557,81 @@ tvevent stores the following in r():
 | `generate(name)` | Output status variable | status |
 | `saveas(filename)` | Save output to file | — |
 
+**tvdiagnose options:**
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `id(varname)` | Person identifier | Required |
+| `start(varname)` | Period start date | Required |
+| `stop(varname)` | Period end date | Required |
+| `coverage` | Coverage diagnostics | — |
+| `gaps` | Gap analysis | — |
+| `overlaps` | Overlap detection | — |
+| `summarize` | Exposure distribution | — |
+| `all` | Run all diagnostics | — |
+| `exposure(varname)` | Exposure variable (for summarize) | — |
+| `entry(varname)` | Study entry date (for coverage) | — |
+| `exit(varname)` | Study exit date (for coverage) | — |
+| `threshold(#)` | Gap threshold in days | 30 |
+
+**tvbalance options:**
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `varlist` | Covariates to assess | Required |
+| `exposure(varname)` | Exposure variable | Required |
+| `weights(varname)` | IPTW or other weights | — |
+| `threshold(#)` | SMD threshold | 0.1 |
+| `loveplot` | Generate Love plot | — |
+| `saving(filename)` | Save plot to file | — |
+
+**tvplot options:**
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `id(varname)` | Person identifier | Required |
+| `start(varname)` | Period start date | Required |
+| `stop(varname)` | Period end date | Required |
+| `swimlane` | Swimlane plot (default) | — |
+| `persontime` | Person-time bar chart | — |
+| `exposure(varname)` | Exposure for color coding | — |
+| `sample(#)` | Individuals to plot | 30 |
+| `sortby(spec)` | Sort order | entry |
+| `saving(filename)` | Save plot to file | — |
+
+### 6.9 Diagnostic and visualization commands
+
+The tvtools package includes three commands for data quality assessment and visualization:
+
+**tvdiagnose** provides comprehensive diagnostics for time-varying datasets. It identifies coverage gaps, overlapping periods, and summarizes exposure distributions. Use it after tvexpose or tvmerge to verify data quality before proceeding to event integration.
+
+```stata
+* Run all diagnostics
+tvdiagnose, id(id) start(start) stop(stop) exposure(tv_exposure) ///
+    entry(study_entry) exit(study_exit) all
+```
+
+**tvbalance** calculates standardized mean differences (SMD) to assess covariate balance between exposure groups. This is essential for causal inference, particularly when using inverse probability of treatment weighting (IPTW).
+
+```stata
+* Assess balance with IPTW weights
+logit tv_exposure age sex comorbidity
+predict ps, pr
+gen iptw = cond(tv_exposure==1, 1/ps, 1/(1-ps))
+tvbalance age sex comorbidity, exposure(tv_exposure) weights(iptw) loveplot
+```
+
+**tvplot** creates visualizations of exposure patterns. Swimlane plots show individual exposure histories, while person-time plots summarize the distribution of follow-up across exposure groups.
+
+```stata
+* Swimlane plot of 50 individuals
+tvplot, id(id) start(start) stop(stop) exposure(tv_exposure) ///
+    sample(50) sortby(persontime) saving(patterns.png) replace
+
+* Person-time by exposure category
+tvplot, id(id) start(start) stop(stop) exposure(tv_exposure) persontime
+```
+
 ---
 
 ## 7. Examples
@@ -885,7 +966,7 @@ tvexpose using medications, id(id) start(rx_start) stop(rx_stop) ///
 
 ### 7.11 Diagnostic options
 
-Verifying data quality before analysis:
+Verifying data quality before analysis using tvexpose's built-in diagnostics:
 
 ```stata
 use cohort, clear
@@ -902,6 +983,71 @@ The diagnostic options display:
 - gaps: Persons with gaps in exposure coverage
 - overlaps: Periods with overlapping exposures
 - summarize: Exposure distribution summary
+
+### 7.12 Comprehensive diagnostics with tvdiagnose
+
+For more detailed diagnostics on existing time-varying datasets:
+
+```stata
+* After creating time-varying data
+use cohort, clear
+tvexpose using medications, id(id) start(rx_start) stop(rx_stop) ///
+    exposure(med_type) reference(0) ///
+    entry(study_entry) exit(study_exit) ///
+    generate(medication)
+
+* Run comprehensive diagnostics
+tvdiagnose, id(id) start(start) stop(stop) exposure(medication) ///
+    entry(study_entry) exit(study_exit) all threshold(60)
+```
+
+### 7.13 Balance assessment with tvbalance
+
+Assessing covariate balance for causal inference:
+
+```stata
+* Create time-varying exposure
+use cohort, clear
+tvexpose using medications, id(id) start(rx_start) stop(rx_stop) ///
+    exposure(med_type) reference(0) ///
+    entry(study_entry) exit(study_exit) ///
+    evertreated generate(ever_treated) keepvars(age female)
+
+* Assess unadjusted balance
+tvbalance age female, exposure(ever_treated)
+
+* Create and assess IPTW weights
+logit ever_treated age female
+predict ps, pr
+gen iptw = cond(ever_treated==1, 1/ps, 1/(1-ps))
+tvbalance age female, exposure(ever_treated) weights(iptw) ///
+    threshold(0.1) loveplot saving(balance.png) replace
+
+* The Love plot shows SMD before and after weighting
+```
+
+### 7.14 Visualizing exposure patterns with tvplot
+
+Creating visualizations for data exploration and presentation:
+
+```stata
+* Swimlane plot showing individual exposure histories
+use cohort, clear
+tvexpose using medications, id(id) start(rx_start) stop(rx_stop) ///
+    exposure(med_type) reference(0) ///
+    entry(study_entry) exit(study_exit) ///
+    generate(medication)
+
+tvplot, id(id) start(start) stop(stop) exposure(medication) ///
+    sample(50) sortby(persontime) ///
+    title("Medication Exposure Patterns") ///
+    saving(swimlane.png) replace
+
+* Person-time distribution by exposure category
+tvplot, id(id) start(start) stop(stop) exposure(medication) ///
+    persontime title("Person-Time by Medication") ///
+    saving(persontime.png) replace
+```
 
 ---
 
@@ -960,6 +1106,9 @@ The R survival package provides `tmerge()` for creating time-varying datasets (T
 | Competing risks | Integrated via tvevent | Separate workflow |
 | Batch processing | Built-in for large data | Requires external parallelization |
 | Dialog interface | Yes | No (R has no standard dialogs) |
+| Data quality diagnostics | tvdiagnose | Manual checks |
+| Balance assessment | tvbalance with Love plots | cobalt package |
+| Visualization | tvplot swimlane/person-time | Manual ggplot2 |
 
 Researchers working in multi-platform environments may find the conceptual similarity helpful—skills transfer readily between the two approaches.
 
@@ -974,6 +1123,9 @@ Researchers working in multi-platform environments may find the conceptual simil
 | Dose accumulation | Yes | Manual | No | Manual |
 | Competing risks | Yes | Complex | No | Separate |
 | Batch processing | Yes | No | N/A | External |
+| Data quality diagnostics | Yes (tvdiagnose) | Manual | No | Manual |
+| Balance assessment | Yes (tvbalance) | Manual | No | cobalt |
+| Exposure visualization | Yes (tvplot) | Manual | No | ggplot2 |
 | Validated, tested | Yes | No | Yes | Yes |
 | Documentation | Help files | Project-specific | Help file | Vignettes |
 
@@ -1029,9 +1181,16 @@ If the PH assumption is violated for the time-varying exposure, researchers may 
 - All date variables are numeric Stata dates (not strings)
 - The identifier values match exactly between master and using datasets
 
-**Unexpected exposure patterns.** Use the diagnostic options:
+**Unexpected exposure patterns.** Use the diagnostic options or tvdiagnose:
 ```stata
 tvexpose ..., check gaps overlaps summarize
+* Or for more detailed diagnostics:
+tvdiagnose, id(id) start(start) stop(stop) exposure(tv_exposure) all
+```
+
+**Poor covariate balance.** Use tvbalance to identify problematic confounders:
+```stata
+tvbalance age sex comorbidity, exposure(tv_exposure) loveplot
 ```
 
 **Memory errors with tvmerge.** Reduce the batch size:
@@ -1056,12 +1215,18 @@ Planned enhancements include:
 
 ## 10. Conclusions
 
-The tvtools package provides a comprehensive, validated solution for creating time-varying exposure data in survival studies. The three-command workflow—tvexpose, tvmerge, tvevent—transforms raw exposure period data into analysis-ready datasets compatible with Stata's survival analysis suite.
+The tvtools package provides a comprehensive, validated solution for creating and analyzing time-varying exposure data in survival studies. The six-command suite addresses the complete analytical workflow:
+
+- **Core workflow:** tvexpose, tvmerge, and tvevent transform raw exposure period data into analysis-ready datasets compatible with Stata's survival analysis suite
+- **Diagnostics:** tvdiagnose provides data quality assessment, identifying coverage gaps and overlapping periods
+- **Balance assessment:** tvbalance calculates standardized mean differences and generates Love plots for causal inference workflows
+- **Visualization:** tvplot creates swimlane and person-time plots for understanding exposure patterns
 
 Key advantages include:
 - **Reduced programming burden:** Encapsulates complex date arithmetic and merge operations
 - **Flexibility:** Eight exposure definitions cover common analytical frameworks
-- **Validation:** Built-in diagnostics identify data quality issues
+- **Integrated diagnostics:** Built-in and standalone diagnostic tools identify data quality issues
+- **Causal inference support:** Balance assessment and visualization for propensity score methods
 - **Performance:** Batch processing enables analysis of large cohorts
 - **Reproducibility:** Documented commands with clear option specifications
 

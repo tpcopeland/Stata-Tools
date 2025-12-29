@@ -1,8 +1,23 @@
 # tvtools Improvement Recommendations
 
 **Date:** 2025-12-26
-**Status:** Pending Review
+**Last Updated:** 2025-12-29
+**Status:** Under Active Development
 **Current Test Status:** All tests passing (87 comprehensive, 146 validation)
+
+---
+
+## Recent Developments (Since Initial Review)
+
+Since this document was created, three new commands have been added to tvtools:
+
+| Command | Version | Purpose |
+|---------|---------|---------|
+| **tvdiagnose** | 1.0.0 | Data quality diagnostics (coverage, gaps, overlaps) |
+| **tvbalance** | 1.0.0 | Covariate balance assessment with SMD and Love plots |
+| **tvplot** | 1.0.0 | Exposure visualization (swimlane and person-time plots) |
+
+These additions address item #7 (Missing Help File Examples) partially, and item #8 (Missing Integration Tests) should be expanded to cover these new commands.
 
 ---
 
@@ -426,6 +441,29 @@ tvexpose uses excessive `preserve`/`restore` for temporary operations:
 1. **Sync help file versions** - 5 minute fix
 2. **Add post-merge summary** when `force` drops IDs - show count and sample
 3. **Document endpoint convention** - add note to each help file
+
+## New Commands: Items to Address
+
+The following items should be considered for the new commands (tvdiagnose, tvbalance, tvplot):
+
+### tvdiagnose
+- [ ] Add transition matrix report (exposure switching patterns)
+- [ ] Add temporal trends in coverage
+- [ ] Export diagnostics to CSV/Excel option
+- [ ] Integration tests with other commands
+
+### tvbalance
+- [ ] Time-varying balance assessment (SMD at each time point)
+- [ ] Variance ratio diagnostics
+- [ ] Support for continuous exposures (not just binary/categorical)
+- [ ] Integration with tvweight (future command)
+
+### tvplot
+- [ ] Event markers on swimlane plots
+- [ ] Calendar-time axis option
+- [ ] Aggregate summary panels
+- [ ] Interactive HTML export option
+- [ ] Integration tests with tvexpose output
 
 ---
 
