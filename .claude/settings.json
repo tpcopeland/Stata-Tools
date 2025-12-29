@@ -1,0 +1,72 @@
+{
+  "$schema": "https://claude.ai/schema/settings.json",
+  "description": "Claude Code settings for Stata-Tools repository",
+  "skills": {
+    "stata-develop": {
+      "file": ".claude/skills/stata-develop.md",
+      "description": "Create new Stata commands (.ado files)",
+      "triggers": [
+        "create a new stata command",
+        "new ado file",
+        "develop stata",
+        "implement command"
+      ]
+    },
+    "stata-test": {
+      "file": ".claude/skills/stata-test.md",
+      "description": "Write functional tests for Stata commands",
+      "triggers": [
+        "write tests",
+        "test stata",
+        "create test file",
+        "functional test"
+      ]
+    },
+    "stata-validate": {
+      "file": ".claude/skills/stata-validate.md",
+      "description": "Write validation tests with known-answer testing",
+      "triggers": [
+        "validate",
+        "validation test",
+        "verify correctness",
+        "known answer"
+      ]
+    },
+    "stata-audit": {
+      "file": ".claude/skills/stata-audit.md",
+      "description": "Audit and review .ado files for errors",
+      "triggers": [
+        "audit",
+        "review ado",
+        "check errors",
+        "code review"
+      ]
+    }
+  },
+  "hooks": {
+    "validate-ado": {
+      "file": ".claude/hooks/validate-ado.sh",
+      "description": "Static validation of .ado files (no Stata required)",
+      "on": "manual"
+    },
+    "run-stata-check": {
+      "file": ".claude/hooks/run-stata-check.sh",
+      "description": "Run Stata syntax check (requires Stata)",
+      "on": "manual",
+      "requires": "stata-mp"
+    }
+  },
+  "scripts": {
+    "scaffold-command": {
+      "file": ".claude/scripts/scaffold-command.sh",
+      "description": "Create new command package from templates",
+      "usage": "scaffold-command.sh COMMAND_NAME \"Description\" [AUTHOR]"
+    }
+  },
+  "preferences": {
+    "stata_executable": "stata-mp",
+    "default_author": "Timothy P Copeland",
+    "default_version": "18.0",
+    "run_validation_after_edit": false
+  }
+}
