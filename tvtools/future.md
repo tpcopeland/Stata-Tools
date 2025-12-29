@@ -512,12 +512,82 @@ Suggestions and contributions welcome. Priority will be given to:
 
 ---
 
+## Lessons Learned from Diagnostic Command Implementation
+
+The development of tvdiagnose, tvbalance, and tvplot in December 2025 provided insights for future development:
+
+### What Worked Well
+
+1. **Modular design**: Making each report type optional (coverage, gaps, overlaps) allows users to run only what they need.
+
+2. **Consistent interface patterns**: Using the same option names (id, start, stop) across all commands reduces learning curve.
+
+3. **Standalone flexibility**: Commands work on any time-varying dataset, not just tvtools output, increasing utility.
+
+4. **Graphics integration**: Using Stata's native graphics system (twoway, graph bar) ensures compatibility and familiar output.
+
+### Challenges Encountered
+
+1. **Time-varying SMD calculation**: Computing balance at each time point requires careful handling of the observation structure. Current implementation uses pooled SMD which may mask temporal imbalance.
+
+2. **Swimlane plot scaling**: Large date ranges (decades) require intelligent axis scaling. Current implementation uses automatic Stata scaling.
+
+3. **Memory efficiency**: Creating Love plots with many covariates can be memory-intensive. Consider Mata optimization for future versions.
+
+### Recommendations for Future Commands
+
+1. **Start with minimal viable options**, add complexity later
+2. **Use consistent naming**: `id()`, `start()`, `stop()`, `exposure()` pattern
+3. **Store results systematically**: All r() scalars and macros
+4. **Provide both graphical and tabular output** where appropriate
+5. **Test with edge cases early**: empty data, all same category, extreme values
+
+---
+
+## Implementation Notes for Priority Items
+
+### Mata Optimization (Priority 1)
+
+Key bottlenecks identified:
+- `tvexpose`: O(n²) overlap detection loop in lines 450-520
+- `tvmerge`: Cartesian product generation for large datasets
+- `tvevent`: Multiple-event interval splitting
+
+Recommended approach:
+1. Profile with large datasets (>100K observations)
+2. Identify top 3 performance bottlenecks
+3. Rewrite in Mata with parallel hash-based lookups
+4. Maintain Stata syntax wrapper for user interface
+
+### tvweight Command (Priority 2)
+
+Proposed implementation phases:
+
+**Phase 1: Basic IPTW**
+```stata
+tvweight tv_exposure, covariates(age sex) model(logit) generate(iptw)
+```
+
+**Phase 2: Stabilized weights**
+```stata
+tvweight tv_exposure, covariates(age sex) stabilized generate(siptw)
+```
+
+**Phase 3: Time-varying confounders**
+```stata
+tvweight tv_exposure, covariates(age sex) tvcovariates(bp_control) ///
+    model(pooled_logit) generate(tviptw)
+```
+
+---
+
 ## Changelog
 
+- **v1.2.0 (2025-12-29):** Added lessons learned; implementation notes for priority items
 - **v1.1.0 (2025-12-29):** Marked visualization/diagnostics as complete; updated priority table
 - **v1.0.0 (2025-12):** Initial future directions document
 
 ---
 
-**Document Version:** 1.1.0
+**Document Version:** 1.2.0
 **Last Updated:** 2025-12-29

@@ -1108,7 +1108,7 @@ After menu setup, access via: **User > Time-varying exposures**
 
 ## Quick Start Example
 
-This example demonstrates the complete workflow with all three commands:
+This example demonstrates the complete workflow with all six commands:
 
 ```stata
 * Load main cohort data
@@ -1123,6 +1123,7 @@ tvexpose using medication_periods, ///
     entry(study_entry) ///
     exit(study_exit) ///
     generate(tv_medication) ///
+    keepvars(age sex) ///
     saveas(tv_meds.dta) replace
 
 * Step 2: Create time-varying comorbidity exposure
@@ -1145,18 +1146,113 @@ tvmerge tv_meds tv_comorb, ///
     exposure(tv_medication tv_comorbidity) ///
     generate(medication comorbidity)
 
-* Step 4: Integrate outcomes
+* Step 4: Check data quality (optional but recommended)
+tvdiagnose, id(patient_id) start(start) stop(stop) ///
+    exposure(medication) gaps overlaps threshold(30)
+
+* Step 5: Integrate outcomes
 tvevent using cohort, ///
     id(patient_id) ///
     date(outcome_date) ///
     compete(death_date) ///
     generate(status)
 
-* Step 5: Set up survival data
+* Step 6: Assess covariate balance (optional)
+tvbalance age sex, exposure(medication) threshold(0.1)
+
+* Step 7: Visualize exposure patterns (optional)
+tvplot, id(patient_id) start(start) stop(stop) ///
+    exposure(medication) sample(50) sortby(persontime)
+
+* Step 8: Set up survival data
 stset stop, id(patient_id) failure(status==1) enter(start)
 
-* Step 6: Analyze
-stcox i.medication i.comorbidity
+* Step 9: Analyze
+stcox i.medication i.comorbidity age sex
+```
+
+### Minimal Workflow (Core Commands Only)
+
+For simple analyses, use just the three core commands:
+
+```stata
+use cohort, clear
+tvexpose using medications, id(id) start(rx_start) stop(rx_stop) ///
+    exposure(drug) reference(0) entry(entry) exit(exit)
+tvevent using cohort, id(id) date(outcome_dt) generate(status)
+stset stop, id(id) failure(status==1) enter(start)
+stcox i.tv_exposure
+```
+
+## When to Use Each Command
+
+| Scenario | Command | Purpose |
+|----------|---------|---------|
+| Converting prescription records to time-varying exposure | `tvexpose` | Core workflow |
+| Analyzing multiple concurrent medications | `tvmerge` | Core workflow |
+| Adding death or disease outcome events | `tvevent` | Core workflow |
+| Checking for data quality issues before analysis | `tvdiagnose` | Quality assurance |
+| Verifying propensity score weights are working | `tvbalance` | Causal inference |
+| Understanding patient treatment patterns | `tvplot` | Visualization |
+| Publishing treatment pattern figures | `tvplot` | Communication |
+
+### Command Decision Tree
+
+```
+Do you have exposure period data to convert?
+  └─ YES → tvexpose
+       └─ Multiple exposures to combine? → tvmerge
+            └─ Check data quality? → tvdiagnose
+                 └─ Add outcomes? → tvevent
+                      └─ Using propensity scores? → tvbalance
+                           └─ Need visualizations? → tvplot
+```
+
+## Troubleshooting
+
+### "no observations" error after tvexpose
+
+This usually indicates date misalignment:
+```stata
+* Check that exposure dates fall within study period
+summarize rx_start rx_stop study_entry study_exit, format
+* Ensure dates are numeric Stata dates
+describe rx_start rx_stop
+```
+
+### Unexpected exposure patterns
+
+Use diagnostics to investigate:
+```stata
+* Built-in diagnostics
+tvexpose ..., check gaps overlaps summarize
+
+* Or standalone diagnostics
+tvdiagnose, id(id) start(start) stop(stop) all
+```
+
+### Poor covariate balance
+
+Check balance and consider propensity score weighting:
+```stata
+tvbalance age sex comorbidity, exposure(tv_exposure) loveplot
+* If SMD > 0.1, create IPTW weights
+```
+
+### Memory errors with large datasets
+
+Reduce batch size in tvmerge:
+```stata
+tvmerge file1 file2, ... batch(5)  // Process 5% of IDs per batch
+```
+
+### Proportional hazards assumption violated
+
+After fitting the Cox model:
+```stata
+stcox i.tv_exposure age sex
+estat phtest, detail
+* Consider stratification or time-partitioned models if violated
 ```
 
 ## Documentation

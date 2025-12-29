@@ -306,3 +306,98 @@ Create `tvtools/_testing/test_diagnostic_commands.do` covering:
 1. Basic functionality for each command
 2. Edge cases listed above
 3. Integration with core workflow
+
+---
+
+## 10. Common User Pitfalls and Guidance
+
+### Misunderstandings About Time-Varying Balance
+
+**Pitfall**: Users run `tvbalance` and assume good SMD means no confounding.
+
+**Reality**: tvbalance calculates balance across all person-time pooled. This ignores:
+- Time-varying confounding (confounders that change over time)
+- Selection into treatment groups over time
+- Informative censoring
+
+**Guidance**: For rigorous causal inference with time-varying exposures:
+1. Consider marginal structural models with `tvweight` (future command)
+2. Use `tvbalance` as a screening tool, not definitive proof of balance
+3. Report balance at baseline separately from time-varying balance
+
+### Interpreting Coverage Diagnostics
+
+**Pitfall**: Users see 95% coverage and assume data is complete.
+
+**Reality**: Coverage measures the proportion of follow-up time with exposure records. It doesn't indicate:
+- Whether unexposed gaps represent true unexposed time or missing data
+- Whether exposure records are accurate
+- Whether there's measurement error in exposure timing
+
+**Guidance**:
+1. Understand your data source (dispensing vs. prescribing vs. self-report)
+2. Use `grace()` option in tvexpose if gaps likely represent refill timing
+3. Conduct sensitivity analyses varying assumptions about missing data
+
+### Swimlane Plot Interpretation
+
+**Pitfall**: Users show swimlane plots as evidence of treatment patterns without considering selection.
+
+**Reality**: Who appears in the plot depends on:
+- The `sample()` selection
+- The `sortby()` ordering
+- Which patients are in the dataset
+
+**Guidance**:
+1. Use `sortby(persontime)` to show patients with most complex patterns
+2. Use `sortby(entry)` for chronological view
+3. Always report sample selection criteria in figure captions
+4. Consider multiple plots with different sorting/sampling
+
+### Categorical vs Continuous Dose
+
+**Pitfall**: Users create dose categories without considering the underlying distribution.
+
+**Reality**: Cutpoints should be clinically meaningful, not arbitrary quantiles.
+
+**Guidance**:
+1. Examine dose distribution before choosing `dosecuts()`
+2. Use clinically relevant thresholds (DDD multiples, therapeutic ranges)
+3. Consider continuous cumulative dose with splines for flexible modeling
+
+---
+
+## 11. Architecture Notes for Developers
+
+### Variable Naming Conventions
+
+| Variable | Purpose | Created By |
+|----------|---------|------------|
+| `start` | Period start date | tvexpose, tvmerge |
+| `stop` | Period end date | tvexpose, tvmerge |
+| `tv_exposure` | Default exposure variable | tvexpose |
+| `status` | Default event status | tvevent |
+| `_merge` | Temporary merge indicator | tvmerge (dropped) |
+
+### Return Value Conventions
+
+All commands store:
+- `r(N)` or `r(n_persons)`: Count of observations or persons
+- `r(cmd)`: Command name (for postestimation)
+- Named scalars for key statistics
+- Matrices for tabular results (when appropriate)
+
+### Error Handling Philosophy
+
+1. **Validate early**: Check all inputs before any data modification
+2. **Fail loudly**: Use `exit` with appropriate error codes, not silent failures
+3. **Preserve context**: Use `preserve/restore` for any destructive operations
+4. **Clear messages**: Error messages should tell users what went wrong AND how to fix it
+
+### Memory Management
+
+For large datasets:
+1. `tvmerge` uses batch processing (configurable via `batch()`)
+2. `tvexpose` processes one person at a time
+3. Temporary variables are systematically dropped
+4. Consider `compress` after creation for long-term storage
