@@ -89,7 +89,8 @@ fi
 
 # Get current date in various formats
 DATE_ADO=$(date +"%Y/%m/%d")        # 2025/01/15
-DATE_STHLP=$(date +"%-d%b%Y" | tr '[:upper:]' '[:lower:]')  # 15jan2025
+# For STHLP: DDmonYYYY format (e.g., 15jan2025) - portable version without GNU %-d
+DATE_STHLP=$(date +"%d%b%Y" | sed 's/^0//' | tr '[:upper:]' '[:lower:]')
 DATE_PKG=$(date +"%Y%m%d")          # 20250115
 DATE_README=$(date +"%Y-%m-%d")     # 2025-01-15
 

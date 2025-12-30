@@ -99,12 +99,20 @@ version 16.0
 if "$RUN_TEST_QUIET" == "" global RUN_TEST_QUIET = 0
 local quiet = $RUN_TEST_QUIET
 
-* Path configuration
-if "`c(os)'" == "MacOSX" {
-    global STATA_TOOLS_PATH "/Users/tcopeland/Documents/GitHub/Stata-Tools"
+* Path configuration - CUSTOMIZE THESE PATHS FOR YOUR SYSTEM
+* Option 1: Set environment variable STATA_TOOLS_PATH before running Stata
+* Option 2: Modify the paths below for your system
+if "`c(STATA_TOOLS_PATH)'" != "" {
+    global STATA_TOOLS_PATH "`c(STATA_TOOLS_PATH)'"
+}
+else if "`c(os)'" == "MacOSX" {
+    global STATA_TOOLS_PATH "~/Documents/GitHub/Stata-Tools"  // Customize this
 }
 else if "`c(os)'" == "Unix" {
-    global STATA_TOOLS_PATH "/home/ubuntu/Stata-Tools"
+    global STATA_TOOLS_PATH "~/Stata-Tools"  // Customize this
+}
+else {
+    global STATA_TOOLS_PATH "`c(pwd)'"  // Fallback to current directory
 }
 
 global VALIDATION_DIR "${STATA_TOOLS_PATH}/_validation"

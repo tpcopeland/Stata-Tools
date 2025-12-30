@@ -183,8 +183,8 @@ done
 echo "========================="
 echo "Summary"
 echo "========================="
-# Count packages properly (newline-separated list)
-PKG_COUNT=$(echo "$PACKAGES" | grep -c . || echo 0)
+# Count packages properly - count non-empty lines
+PKG_COUNT=$(echo "$PACKAGES" | grep -c '[^[:space:]]' 2>/dev/null || echo 0)
 echo "Packages checked: $PKG_COUNT"
 echo -e "Errors: ${RED}$ERRORS${NC}"
 echo -e "Warnings: ${YELLOW}$WARNINGS${NC}"

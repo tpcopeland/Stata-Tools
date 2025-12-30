@@ -34,8 +34,25 @@ THRESHOLD=0
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --threshold)
-            THRESHOLD="${2:-0}"
+            if [[ -z "$2" ]] || [[ "$2" == -* ]]; then
+                echo "Error: --threshold requires a numeric value"
+                echo "Usage: $0 [--threshold N]"
+                exit 3
+            fi
+            if ! [[ "$2" =~ ^[0-9]+$ ]]; then
+                echo "Error: --threshold value must be a number (0-100)"
+                exit 3
+            fi
+            THRESHOLD="$2"
             shift 2
+            ;;
+        -h|--help)
+            echo "Usage: $0 [--threshold N]"
+            echo ""
+            echo "Options:"
+            echo "  --threshold N  Exit with code 1 if coverage below N percent"
+            echo "  -h, --help     Show this help message"
+            exit 0
             ;;
         *)
             echo "Unknown argument: $1"
