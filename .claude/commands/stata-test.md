@@ -1,6 +1,6 @@
-# Stata Functional Testing Skill
+# Stata Functional Testing
 
-**Trigger**: Use when writing or running test files (`test_*.do`) that verify commands execute without errors.
+Use this when writing or running test files (`test_*.do`) that verify commands execute without errors.
 
 ---
 

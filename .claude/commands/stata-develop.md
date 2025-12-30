@@ -1,6 +1,6 @@
-# Stata Command Development Skill
+# Stata Command Development
 
-**Trigger**: Use when creating a new Stata .ado command, adding features to existing commands, or fixing bugs in .ado files.
+Use this when creating a new Stata .ado command, adding features to existing commands, or fixing bugs in .ado files.
 
 ---
 
@@ -164,7 +164,7 @@ When creating/updating a command, update ALL of these:
 
 ## After Implementation
 
-1. Run static validation: `.claude/hooks/validate-ado.sh mycommand/mycommand.ado`
+1. Run static validation: `.claude/validators/validate-ado.sh mycommand/mycommand.ado`
 2. Check version consistency: `.claude/scripts/check-versions.sh mycommand`
 3. Create functional test: `_testing/test_mycommand.do` (ask: "write tests for mycommand")
 4. Create validation test: `_validation/validation_mycommand.do` (ask: "validate the command")
