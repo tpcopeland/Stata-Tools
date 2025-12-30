@@ -1,45 +1,66 @@
 {
   "$schema": "https://claude.ai/schema/settings.json",
-  "description": "Claude Code settings for Stata-Tools repository",
+  "description": "Claude Code settings for Stata-Tools repository - skills triggered by natural language",
   "skills": {
     "stata-develop": {
       "file": ".claude/skills/stata-develop.md",
-      "description": "Create new Stata commands (.ado files)",
+      "description": "Create new Stata commands (.ado files) or modify existing ones",
       "triggers": [
         "create a new stata command",
+        "create a new command",
         "new ado file",
         "develop stata",
-        "implement command"
+        "implement command",
+        "write an ado",
+        "make a stata package",
+        "add a new feature to",
+        "fix bug in .ado",
+        "modify the command",
+        "update the ado file"
       ]
     },
     "stata-test": {
       "file": ".claude/skills/stata-test.md",
       "description": "Write functional tests for Stata commands",
       "triggers": [
-        "write tests",
-        "test stata",
-        "create test file",
-        "functional test"
+        "write tests for",
+        "create tests",
+        "test the command",
+        "functional test",
+        "add tests",
+        "test file for",
+        "run the tests",
+        "debug failing test",
+        "fix failing test"
       ]
     },
     "stata-validate": {
       "file": ".claude/skills/stata-validate.md",
       "description": "Write validation tests with known-answer testing",
       "triggers": [
-        "validate",
+        "validate the command",
         "validation test",
         "verify correctness",
-        "known answer"
+        "known answer test",
+        "check the output is correct",
+        "mathematical correctness",
+        "write validation",
+        "create validation file"
       ]
     },
     "stata-audit": {
       "file": ".claude/skills/stata-audit.md",
       "description": "Audit and review .ado files for errors",
       "triggers": [
-        "audit",
-        "review ado",
-        "check errors",
-        "code review"
+        "audit the code",
+        "review the ado",
+        "check for errors",
+        "code review",
+        "find bugs in",
+        "check the ado file",
+        "look for issues",
+        "review before commit",
+        "check syntax"
       ]
     }
   },

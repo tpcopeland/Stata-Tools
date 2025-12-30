@@ -275,6 +275,6 @@ grep -h 'version\|Version' command.ado command.sthlp command.pkg
 
 ---
 
-*For developing new commands, use skill: stata-develop*
-*For writing tests, use skill: stata-test*
-*For validation tests, use skill: stata-validate*
+*For developing new commands, ask: "create a new command" or "help me implement"*
+*For writing tests, ask: "write tests for [command]"*
+*For validation tests, ask: "validate the command" or "verify correctness"*
