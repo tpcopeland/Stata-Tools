@@ -1,5 +1,5 @@
 {smcl}
-{* *{* *! version 1.0.0  2025/12/02}{...}
+{* *! version 1.0.3  05dec2025}{...}
 {hline}
 help for {cmd:table1_tc}
 {hline}

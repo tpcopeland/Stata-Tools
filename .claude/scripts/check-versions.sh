@@ -110,10 +110,10 @@ for pkg in $PACKAGES; do
         error "$pkg.pkg not found"
     fi
 
-    # README.md version
+    # README.md version (get first match - most recent in version history)
     if [ -f "$README_FILE" ]; then
         README_VERSION=$(grep -iE 'Version [0-9]+\.[0-9]+\.[0-9]+' "$README_FILE" 2>/dev/null | \
-                        grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | tail -1 || true)
+                        grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1 || true)
     else
         warn "$pkg/README.md not found"
     fi
