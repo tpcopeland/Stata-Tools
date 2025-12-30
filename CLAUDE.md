@@ -53,6 +53,21 @@ Task: "Audit/review .ado file"         → Read _guides/developing.md + _testing
 | `_testing/notes/audit_prompt.md` | Full audit workflow for reviewing .ado files without Stata runtime |
 | `_testing/TESTING_INSTRUCTIONS.md` | Repository-specific test data and command coverage |
 
+### Claude Code Skills
+
+This repository includes specialized Claude Code skills that provide contextual guidance:
+
+| Skill | Trigger | Purpose |
+|-------|---------|---------|
+| `stata-develop` | "create a new command", "fix bug in ado" | Development guidance, error patterns |
+| `stata-test` | "write tests for", "debug failing test" | Functional testing workflow |
+| `stata-validate` | "validate the command", "verify correctness" | Known-answer validation |
+| `stata-audit` | "audit the code", "review the ado" | Code review, error detection |
+
+**Scaffolding**: Run `.claude/scripts/scaffold-command.sh COMMAND_NAME "Description"` to create a complete package structure.
+
+**Static Validation**: Run `.claude/hooks/validate-ado.sh mycommand.ado` to check for common errors without Stata.
+
 ### Testing vs Validation
 
 | Testing | Validation |
