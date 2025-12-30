@@ -1,6 +1,6 @@
-# Stata Code Audit Skill
+# Stata Code Audit
 
-**Trigger**: Use when reviewing or auditing .ado files, especially when Stata runtime is not available. This skill enables systematic code review through pattern detection and mental execution.
+Use this when reviewing or auditing .ado files. This provides systematic code review guidance through pattern detection and mental execution techniques.
 
 ---
 
@@ -263,7 +263,7 @@ Use these scripts for automated checking:
 
 ```bash
 # Static validation without Stata
-.claude/hooks/validate-ado.sh command/command.ado
+.claude/validators/validate-ado.sh command/command.ado
 
 # Check version consistency across .ado/.sthlp/.pkg/README
 .claude/scripts/check-versions.sh command

@@ -42,7 +42,7 @@ Task: "Write tests for X"              → Read _guides/testing.md
 Task: "Fix bug in X.ado"               → Read _guides/developing.md (for error patterns)
 Task: "Validate output is correct"     → Read _guides/validating.md
 Task: "Debug failing test"             → Read _guides/testing.md (for debugging section)
-Task: "Audit/review .ado file"         → Use stata-audit skill or read _testing/notes/ado_error_patterns.md
+Task: "Audit/review .ado file"         → Use /stata-audit or read _testing/notes/ado_error_patterns.md
 ```
 
 ### Additional Reference Files
@@ -52,16 +52,16 @@ Task: "Audit/review .ado file"         → Use stata-audit skill or read _testin
 | `_testing/notes/ado_error_patterns.md` | Comprehensive catalog of common .ado errors with detection methods |
 | `_testing/TESTING_INSTRUCTIONS.md` | Repository-specific test data and command coverage |
 
-### Claude Code Skills
+### Slash Commands
 
-This repository includes specialized Claude Code skills that provide contextual guidance:
+This repository includes slash commands in `.claude/commands/` that provide contextual guidance:
 
-| Skill | Trigger | Purpose |
-|-------|---------|---------|
-| `stata-develop` | "create a new command", "fix bug in ado" | Development guidance, error patterns |
-| `stata-test` | "write tests for", "debug failing test" | Functional testing workflow |
-| `stata-validate` | "validate the command", "verify correctness" | Known-answer validation |
-| `stata-audit` | "audit the code", "review the ado" | Code review, error detection |
+| Command | Purpose |
+|---------|---------|
+| `/stata-develop` | Development guidance for creating/modifying commands |
+| `/stata-test` | Functional testing workflow |
+| `/stata-validate` | Known-answer validation guidance |
+| `/stata-audit` | Code review and error detection |
 
 ### Automation Infrastructure
 
@@ -75,12 +75,12 @@ Full documentation: `.claude/README.md`
 | `check-versions.sh` | Verify version consistency across files | `.claude/scripts/check-versions.sh [PACKAGE]` |
 | `check-test-coverage.sh` | Report test/validation coverage | `.claude/scripts/check-test-coverage.sh [--threshold N]` |
 
-**Hooks** (`.claude/hooks/`):
+**Validators** (`.claude/validators/`):
 
-| Hook | Purpose | Usage |
-|------|---------|-------|
-| `validate-ado.sh` | Static analysis (no Stata required) | `.claude/hooks/validate-ado.sh mycommand.ado` |
-| `run-stata-check.sh` | Syntax check with Stata runtime | `.claude/hooks/run-stata-check.sh mycommand.ado` |
+| Script | Purpose | Usage |
+|--------|---------|-------|
+| `validate-ado.sh` | Static analysis (no Stata required) | `.claude/validators/validate-ado.sh mycommand.ado` |
+| `run-stata-check.sh` | Syntax check with Stata runtime | `.claude/validators/run-stata-check.sh mycommand.ado` |
 
 **Libraries** (`.claude/lib/`):
 

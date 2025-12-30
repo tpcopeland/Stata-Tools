@@ -1,6 +1,6 @@
-# Stata Validation Testing Skill
+# Stata Validation Testing
 
-**Trigger**: Use when writing validation tests that verify commands produce mathematically correct results, not just that they run.
+Use this when writing validation tests that verify commands produce mathematically correct results, not just that they run.
 
 ---
 

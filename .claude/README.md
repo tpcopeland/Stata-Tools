@@ -1,26 +1,27 @@
 # Claude Code Automation Infrastructure
 
-This directory contains automation scripts, hooks, and skills for Claude Code integration with Stata-Tools development.
+This directory contains automation scripts, validation tools, and slash commands for Claude Code integration with Stata-Tools development.
 
 ## Directory Structure
 
 ```
 .claude/
 ├── README.md           # This file
-├── settings.json       # Claude Code settings
 ├── lib/                # Shared libraries
 │   ├── common.sh       # Common functions (colors, output, validation)
 │   └── config.sh       # Centralized configuration
-├── hooks/              # Git and Claude hooks
+├── validators/         # Validation scripts (run manually or via pre-commit)
 │   ├── validate-ado.sh # Static .ado file validation
 │   └── run-stata-check.sh # Stata runtime syntax check
 ├── scripts/            # Automation scripts
 │   ├── scaffold-command.sh    # Create new package from templates
 │   ├── check-versions.sh      # Check version consistency
 │   └── check-test-coverage.sh # Report test coverage
-└── skills/             # Claude Code skills
-    ├── stata-test.md   # Test execution skill
-    └── stata-validate.md # Validation execution skill
+└── commands/           # Claude Code slash commands (invoke with /command-name)
+    ├── stata-develop.md   # Development guidance
+    ├── stata-test.md      # Functional testing guidance
+    ├── stata-validate.md  # Validation testing guidance
+    └── stata-audit.md     # Code audit guidance
 ```
 
 ## Requirements
@@ -75,7 +76,7 @@ Centralized configuration with environment variable overrides.
 STATA_EXEC=/usr/local/stata17/stata-mp ./script.sh
 ```
 
-## Hooks
+## Validators
 
 ### validate-ado.sh
 
@@ -96,8 +97,8 @@ Static analysis for `.ado` files. Runs without Stata.
 
 **Usage:**
 ```bash
-.claude/hooks/validate-ado.sh mypackage/mypackage.ado
-.claude/hooks/validate-ado.sh --help
+.claude/validators/validate-ado.sh mypackage/mypackage.ado
+.claude/validators/validate-ado.sh --help
 ```
 
 **Exit codes:**
@@ -112,8 +113,8 @@ Runtime syntax check using Stata. Requires Stata installation.
 
 **Usage:**
 ```bash
-.claude/hooks/run-stata-check.sh mypackage/mypackage.ado
-STATA_EXEC=/path/to/stata DEBUG=1 .claude/hooks/run-stata-check.sh file.ado
+.claude/validators/run-stata-check.sh mypackage/mypackage.ado
+STATA_EXEC=/path/to/stata DEBUG=1 .claude/validators/run-stata-check.sh file.ado
 ```
 
 **Exit codes:**
@@ -170,21 +171,27 @@ Report test and validation coverage.
 .claude/scripts/check-test-coverage.sh --threshold 80  # Fail if <80% coverage
 ```
 
-## Skills
+## Slash Commands
 
-Skills are natural language triggers for Claude Code. Located in `.claude/skills/`.
+Slash commands provide contextual guidance for specific tasks. Located in `.claude/commands/`.
+
+Invoke with `/stata-develop`, `/stata-test`, `/stata-validate`, or `/stata-audit`.
+
+### stata-develop.md
+
+Guidance for creating new Stata commands or modifying existing ones.
 
 ### stata-test.md
 
-Execute functional tests for Stata packages.
-
-**Triggers:** "run tests", "test [package]", "execute test file"
+Guidance for writing functional tests for Stata packages.
 
 ### stata-validate.md
 
-Execute validation tests for correctness verification.
+Guidance for writing validation tests that verify correctness.
 
-**Triggers:** "validate", "run validation", "check correctness"
+### stata-audit.md
+
+Guidance for auditing and reviewing .ado files.
 
 ## Git Integration
 
@@ -205,7 +212,7 @@ SKIP_VERSION_CHECK=1 git commit
 
 The pre-commit hook is already installed. To reinstall:
 ```bash
-cp .claude/hooks/pre-commit.example .git/hooks/pre-commit
+cp .claude/validators/pre-commit.example .git/hooks/pre-commit
 chmod +x .git/hooks/pre-commit
 ```
 
@@ -262,7 +269,7 @@ export STATA_EXEC=/path/to/stata-mp
 
 Or skip runtime checks:
 ```bash
-.claude/hooks/validate-ado.sh file.ado  # Static only, no Stata needed
+.claude/validators/validate-ado.sh file.ado  # Static only, no Stata needed
 ```
 
 ## Development
