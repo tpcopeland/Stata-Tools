@@ -1,11 +1,12 @@
 #!/bin/bash
 #
 # run-stata-check.sh - Run Stata syntax check on .ado file
+# Version: 1.1.0
 #
 # This hook requires Stata to be installed and available as 'stata-mp'.
 # It compiles the .ado file to check for syntax errors.
 #
-# Usage: run-stata-check.sh FILE.ado
+# Usage: run-stata-check.sh [-h|--help] FILE.ado
 #
 # Environment:
 #   STATA_EXEC    - Path to Stata executable (default: stata-mp)
@@ -18,15 +19,44 @@
 #   3 - Configuration error
 #
 
-# Source common library
+set -o pipefail
+
+# Source common library (required)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/../lib/common.sh" || {
-    echo "[ERROR] Failed to source common.sh" >&2
+if [[ ! -f "$SCRIPT_DIR/../lib/common.sh" ]]; then
+    echo "[ERROR] common.sh not found. Run from repository root." >&2
     exit 3
-}
+fi
+source "$SCRIPT_DIR/../lib/common.sh"
 
 # Setup cleanup trap immediately
 setup_cleanup_trap
+
+# Help function
+show_help() {
+    echo "Usage: $0 [-h|--help] FILE.ado"
+    echo ""
+    echo "Run Stata syntax check on .ado file."
+    echo ""
+    echo "Arguments:"
+    echo "  FILE.ado        Path to the .ado file to check"
+    echo ""
+    echo "Options:"
+    echo "  -h, --help      Show this help message"
+    echo ""
+    echo "Environment variables:"
+    echo "  STATA_EXEC      Path to Stata executable (default: stata-mp)"
+    echo "  STATA_TIMEOUT   Timeout in seconds (default: 60)"
+    echo "  DEBUG           Set to 1 for verbose output"
+}
+
+# Check for help flag
+case "${1:-}" in
+    -h|--help)
+        show_help
+        exit 0
+        ;;
+esac
 
 # Configuration
 STATA_EXEC="${STATA_EXEC:-stata-mp}"
@@ -34,7 +64,7 @@ STATA_TIMEOUT="${STATA_TIMEOUT:-60}"
 
 # Validate arguments
 if [[ $# -lt 1 ]]; then
-    echo "Usage: $0 FILE.ado"
+    echo "Usage: $0 [-h|--help] FILE.ado"
     exit 3
 fi
 

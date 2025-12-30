@@ -1,11 +1,12 @@
 #!/bin/bash
 #
 # validate-ado.sh - Validate Stata .ado file syntax and structure
+# Version: 1.1.0
 #
 # This hook performs static analysis without requiring Stata runtime.
 # It checks for common errors and best practices.
 #
-# Usage: validate-ado.sh FILE.ado
+# Usage: validate-ado.sh [-h|--help] FILE.ado
 #
 # Exit codes:
 #   0 - All checks passed
@@ -14,28 +15,56 @@
 #   3 - Configuration error
 #
 
-# Source common library if available
+set -o pipefail
+
+# Source common library (required)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-if [[ -f "$SCRIPT_DIR/../lib/common.sh" ]]; then
-    source "$SCRIPT_DIR/../lib/common.sh"
-else
-    # Fallback if common.sh not available
-    RED='\033[0;31m'
-    YELLOW='\033[1;33m'
-    GREEN='\033[0;32m'
-    NC='\033[0m'
-    error() { echo -e "${RED}[ERROR]${NC} $1"; ERRORS=$((ERRORS + 1)); }
-    warn() { echo -e "${YELLOW}[WARN]${NC} $1"; WARNINGS=$((WARNINGS + 1)); }
-    pass() { echo -e "${GREEN}[OK]${NC} $1"; }
+if [[ ! -f "$SCRIPT_DIR/../lib/common.sh" ]]; then
+    echo "[ERROR] common.sh not found. Run from repository root." >&2
+    exit 3
 fi
+source "$SCRIPT_DIR/../lib/common.sh"
+
+# Help function
+show_help() {
+    echo "Usage: $0 [-h|--help] FILE.ado"
+    echo ""
+    echo "Validate Stata .ado file syntax and structure (static analysis)."
+    echo ""
+    echo "Arguments:"
+    echo "  FILE.ado    Path to the .ado file to validate"
+    echo ""
+    echo "Options:"
+    echo "  -h, --help  Show this help message"
+    echo ""
+    echo "Checks performed:"
+    echo "  - Version line format (*! name Version X.Y.Z  YYYY/MM/DD)"
+    echo "  - Program class declaration (rclass, eclass, etc.)"
+    echo "  - Version statement (version 16.0/17.0/18.0)"
+    echo "  - varabbrev off setting"
+    echo "  - marksample usage with if/in"
+    echo "  - Macro name length (>31 chars truncated)"
+    echo "  - Tempvar backtick usage"
+    echo "  - capture with _rc check"
+    echo "  - Return statement consistency"
+    echo "  - Global macro usage"
+    echo "  - Hardcoded paths"
+}
+
+# Check for help flag
+case "${1:-}" in
+    -h|--help)
+        show_help
+        exit 0
+        ;;
+esac
 
 # Initialize counters
-ERRORS=0
-WARNINGS=0
+init_counters
 
 # Validate arguments
 if [[ $# -lt 1 ]]; then
-    echo "Usage: $0 FILE.ado"
+    echo "Usage: $0 [-h|--help] FILE.ado"
     exit 3
 fi
 

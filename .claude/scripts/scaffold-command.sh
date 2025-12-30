@@ -1,8 +1,9 @@
 #!/bin/bash
 #
 # scaffold-command.sh - Create a new Stata command package from templates
+# Version: 1.1.0
 #
-# Usage: scaffold-command.sh COMMAND_NAME "Brief description" [AUTHOR]
+# Usage: scaffold-command.sh [-h|--help] COMMAND_NAME "Brief description" [AUTHOR]
 #
 # Examples:
 #   ./scaffold-command.sh mycommand "Process time-varying data"
@@ -19,43 +20,56 @@
 # Exit codes:
 #   0 - Success
 #   1 - Error (invalid args, package exists, template missing)
+#   3 - Configuration error
 #
 
-# Source common library if available
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-if [[ -f "$SCRIPT_DIR/../lib/common.sh" ]]; then
-    source "$SCRIPT_DIR/../lib/common.sh"
-    REPO_ROOT=$(get_repo_root)
-else
-    # Fallback if common.sh not available
-    RED='\033[0;31m'
-    GREEN='\033[0;32m'
-    YELLOW='\033[1;33m'
-    NC='\033[0m'
-    info() { echo -e "${GREEN}[INFO]${NC} $1"; }
-    warn() { echo -e "${YELLOW}[WARN]${NC} $1"; }
-    error() { echo -e "${RED}[ERROR]${NC} $1"; exit 1; }
-    REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+set -o pipefail
 
-    # Platform-specific sed in-place
-    sed_inplace() {
-        local expression="$1"
-        local file="$2"
-        if [[ "$(uname -s)" == "Darwin" ]]; then
-            sed -i '' "$expression" "$file"
-        else
-            sed -i "$expression" "$file"
-        fi
-    }
+# Source common library (required)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [[ ! -f "$SCRIPT_DIR/../lib/common.sh" ]]; then
+    echo "[ERROR] common.sh not found. Run from repository root." >&2
+    exit 3
+fi
+source "$SCRIPT_DIR/../lib/common.sh"
+
+# Source config if available
+if [[ -f "$SCRIPT_DIR/../lib/config.sh" ]]; then
+    source "$SCRIPT_DIR/../lib/config.sh"
+else
+    readonly REPO_ROOT="$(get_repo_root)"
+    readonly TEMPLATES_DIR="${REPO_ROOT}/_templates"
+    readonly TESTING_DIR="${REPO_ROOT}/_testing"
+    readonly VALIDATION_DIR="${REPO_ROOT}/_validation"
+    readonly DEFAULT_AUTHOR="${DEFAULT_AUTHOR:-Timothy P Copeland}"
 fi
 
-# Configuration
-TEMPLATES_DIR="${REPO_ROOT}/_templates"
-TESTING_DIR="${REPO_ROOT}/_testing"
-VALIDATION_DIR="${REPO_ROOT}/_validation"
+# Help function
+show_help() {
+    echo "Usage: $0 [-h|--help] COMMAND_NAME \"Brief description\" [AUTHOR]"
+    echo ""
+    echo "Create a new Stata command package from templates."
+    echo ""
+    echo "Arguments:"
+    echo "  COMMAND_NAME    Name of the new command (lowercase, letters/numbers/underscores)"
+    echo "  DESCRIPTION     Brief description of the command"
+    echo "  AUTHOR          Author name (optional, default: $DEFAULT_AUTHOR)"
+    echo ""
+    echo "Options:"
+    echo "  -h, --help      Show this help message"
+    echo ""
+    echo "Examples:"
+    echo "  $0 mycommand \"Process time-varying data\""
+    echo "  $0 mycommand \"Process data\" \"John Smith\""
+}
 
-# Default author
-DEFAULT_AUTHOR="Timothy P Copeland"
+# Check for help flag
+case "${1:-}" in
+    -h|--help)
+        show_help
+        exit 0
+        ;;
+esac
 
 # Check arguments
 if [[ $# -lt 2 ]]; then

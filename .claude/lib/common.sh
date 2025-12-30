@@ -1,6 +1,7 @@
 #!/bin/bash
 #
 # common.sh - Shared functions for Stata-Tools automation scripts
+# Version: 1.1.0
 #
 # This library provides standardized functions for:
 #   - Color-coded output
@@ -9,6 +10,9 @@
 #   - Cleanup on exit
 #
 # Usage: source "$(dirname "${BASH_SOURCE[0]}")/../lib/common.sh"
+#
+# Requirements:
+#   - Bash 4.0 or higher
 #
 # Exit codes (standardized across all scripts):
 #   0 - Success / all checks passed
@@ -19,29 +23,43 @@
 
 # Prevent multiple sourcing
 [[ -n "$_COMMON_SH_LOADED" ]] && return 0
+
+# =============================================================================
+# BASH VERSION CHECK
+# =============================================================================
+
+# Require bash 4.0+ for associative arrays, better regex, etc.
+if [[ -z "${BASH_VERSINFO:-}" ]] || [[ "${BASH_VERSINFO[0]}" -lt 4 ]]; then
+    echo "[ERROR] Bash 4.0 or higher required. Current: ${BASH_VERSION:-unknown}" >&2
+    echo "        On macOS, install newer bash: brew install bash" >&2
+    return 3 2>/dev/null || exit 3
+fi
+
 _COMMON_SH_LOADED=1
+readonly _COMMON_SH_VERSION="1.1.0"
 
 # =============================================================================
 # COLOR DEFINITIONS
 # =============================================================================
 
 # Check if stdout is a terminal for color support
+# Use declare -r for readonly protection
 if [[ -t 1 ]]; then
-    RED='\033[0;31m'
-    GREEN='\033[0;32m'
-    YELLOW='\033[1;33m'
-    BLUE='\033[0;34m'
-    CYAN='\033[0;36m'
-    BOLD='\033[1m'
-    NC='\033[0m'  # No Color
+    declare -r RED='\033[0;31m'
+    declare -r GREEN='\033[0;32m'
+    declare -r YELLOW='\033[1;33m'
+    declare -r BLUE='\033[0;34m'
+    declare -r CYAN='\033[0;36m'
+    declare -r BOLD='\033[1m'
+    declare -r NC='\033[0m'  # No Color
 else
-    RED=''
-    GREEN=''
-    YELLOW=''
-    BLUE=''
-    CYAN=''
-    BOLD=''
-    NC=''
+    declare -r RED=''
+    declare -r GREEN=''
+    declare -r YELLOW=''
+    declare -r BLUE=''
+    declare -r CYAN=''
+    declare -r BOLD=''
+    declare -r NC=''
 fi
 
 # =============================================================================

@@ -1,11 +1,12 @@
 #!/bin/bash
 #
 # check-versions.sh - Check version consistency across package files
+# Version: 1.1.0
 #
 # Verifies that version numbers match across .ado, .sthlp, .pkg, and README.md
 # Also checks header format compliance.
 #
-# Usage: check-versions.sh [PACKAGE_NAME]
+# Usage: check-versions.sh [-h|--help] [PACKAGE_NAME]
 #        check-versions.sh           # Check all packages
 #        check-versions.sh balancetab # Check specific package
 #
@@ -16,28 +17,47 @@
 #   3 - Configuration error
 #
 
-# Source common library if available
+set -o pipefail
+
+# Source common library (required)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-if [[ -f "$SCRIPT_DIR/../lib/common.sh" ]]; then
-    source "$SCRIPT_DIR/../lib/common.sh"
-    REPO_ROOT=$(get_repo_root)
-else
-    # Fallback if common.sh not available
-    RED='\033[0;31m'
-    YELLOW='\033[1;33m'
-    GREEN='\033[0;32m'
-    BLUE='\033[0;34m'
-    NC='\033[0m'
-    error() { echo -e "${RED}[ERROR]${NC} $1"; ERRORS=$((ERRORS + 1)); }
-    warn() { echo -e "${YELLOW}[WARN]${NC} $1"; WARNINGS=$((WARNINGS + 1)); }
-    pass() { echo -e "${GREEN}[OK]${NC} $1"; }
-    info() { echo -e "${BLUE}[INFO]${NC} $1"; }
-    REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+if [[ ! -f "$SCRIPT_DIR/../lib/common.sh" ]]; then
+    echo "[ERROR] common.sh not found. Run from repository root." >&2
+    exit 3
 fi
+source "$SCRIPT_DIR/../lib/common.sh"
+
+# Get repo root
+readonly REPO_ROOT="$(get_repo_root)"
+
+# Parse arguments
+show_help() {
+    echo "Usage: $0 [-h|--help] [PACKAGE_NAME]"
+    echo ""
+    echo "Check version consistency across package files."
+    echo ""
+    echo "Arguments:"
+    echo "  PACKAGE_NAME    Check specific package (optional)"
+    echo ""
+    echo "Options:"
+    echo "  -h, --help      Show this help message"
+    echo ""
+    echo "Exit codes:"
+    echo "  0 - All checks passed"
+    echo "  1 - Errors found"
+    echo "  2 - Warnings found (no errors)"
+    echo "  3 - Configuration error"
+}
+
+case "${1:-}" in
+    -h|--help)
+        show_help
+        exit 0
+        ;;
+esac
 
 # Initialize counters
-ERRORS=0
-WARNINGS=0
+init_counters
 
 # Get list of packages to check
 if [[ -n "$1" ]]; then

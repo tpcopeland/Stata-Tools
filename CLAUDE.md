@@ -63,24 +63,37 @@ This repository includes specialized Claude Code skills that provide contextual 
 | `stata-validate` | "validate the command", "verify correctness" | Known-answer validation |
 | `stata-audit` | "audit the code", "review the ado" | Code review, error detection |
 
-### Automation Scripts
+### Automation Infrastructure
 
-Located in `.claude/scripts/`:
+Full documentation: `.claude/README.md`
+
+**Scripts** (`.claude/scripts/`):
 
 | Script | Purpose | Usage |
 |--------|---------|-------|
-| `scaffold-command.sh` | Create complete package structure | `./scaffold-command.sh COMMAND "Description"` |
-| `check-versions.sh` | Verify version consistency across files | `./check-versions.sh [PACKAGE]` |
-| `check-test-coverage.sh` | Report test/validation coverage | `./check-test-coverage.sh` |
+| `scaffold-command.sh` | Create complete package structure | `.claude/scripts/scaffold-command.sh COMMAND "Description"` |
+| `check-versions.sh` | Verify version consistency across files | `.claude/scripts/check-versions.sh [PACKAGE]` |
+| `check-test-coverage.sh` | Report test/validation coverage | `.claude/scripts/check-test-coverage.sh [--threshold N]` |
 
-Located in `.claude/hooks/`:
+**Hooks** (`.claude/hooks/`):
 
 | Hook | Purpose | Usage |
 |------|---------|-------|
-| `validate-ado.sh` | Static analysis without Stata | `./validate-ado.sh mycommand.ado` |
-| `run-stata-check.sh` | Syntax check with Stata runtime | `./run-stata-check.sh mycommand.ado` |
+| `validate-ado.sh` | Static analysis (no Stata required) | `.claude/hooks/validate-ado.sh mycommand.ado` |
+| `run-stata-check.sh` | Syntax check with Stata runtime | `.claude/hooks/run-stata-check.sh mycommand.ado` |
 
-**Pre-commit hook**: A git pre-commit hook is installed that runs `validate-ado.sh` on staged .ado files.
+**Libraries** (`.claude/lib/`):
+
+| Library | Purpose |
+|---------|---------|
+| `common.sh` | Shared functions: colors, output, validation, temp files |
+| `config.sh` | Centralized configuration with env var overrides |
+
+**Pre-commit hook**: Automatically runs `validate-ado.sh` on staged `.ado` files and `check-versions.sh` on modified packages. Skip with `git commit --no-verify` or `SKIP_ADO_VALIDATION=1`.
+
+**Integration tests**: Run `.claude/tests/run-tests.sh` to verify all automation scripts work correctly.
+
+**Requirements**: Bash 4.0+ (macOS: `brew install bash`), Git, Stata (optional for static analysis).
 
 ### Testing vs Validation
 
