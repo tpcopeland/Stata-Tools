@@ -3,7 +3,7 @@ d 'TVTOOLS': Commands for formatting and merging time-varying data
 d
 d Requires: Stata version 16+
 d
-d Distribution-Date: 20251227
+d Distribution-Date: 20251229
 d License: MIT
 d
 d Author: Timothy P. Copeland
@@ -50,5 +50,25 @@ f tvplot.ado
 f tvplot.sthlp
 f tvbalance.ado
 f tvbalance.sthlp
+f tvweight.ado
+f tvweight.sthlp
+f tvpipeline.ado
+f tvpipeline.sthlp
+f tvestimate.ado
+f tvestimate.sthlp
+f tvtrial.ado
+f tvtrial.sthlp
+f tvdml.ado
+f tvdml.sthlp
+f tvsensitivity.ado
+f tvsensitivity.sthlp
+f tvcalendar.ado
+f tvcalendar.sthlp
+f tvtable.ado
+f tvtable.sthlp
+f tvpass.ado
+f tvpass.sthlp
+f tvreport.ado
+f tvreport.sthlp
 f tvtools_menu_setup.do
 g validation_example.do
