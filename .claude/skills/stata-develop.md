@@ -164,10 +164,12 @@ When creating/updating a command, update ALL of these:
 
 ## After Implementation
 
-1. Create functional test: `_testing/test_mycommand.do` (ask: "write tests for mycommand")
-2. Create validation test: `_validation/validation_mycommand.do` (ask: "validate the command")
-3. Run tests on VM with Stata 17/18
-4. Add package to root README.md table
+1. Run static validation: `.claude/hooks/validate-ado.sh mycommand/mycommand.ado`
+2. Check version consistency: `.claude/scripts/check-versions.sh mycommand`
+3. Create functional test: `_testing/test_mycommand.do` (ask: "write tests for mycommand")
+4. Create validation test: `_validation/validation_mycommand.do` (ask: "validate the command")
+5. Run tests on VM with Stata 17/18
+6. Add package to root README.md table
 
 ---
 

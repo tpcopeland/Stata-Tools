@@ -63,9 +63,24 @@ This repository includes specialized Claude Code skills that provide contextual 
 | `stata-validate` | "validate the command", "verify correctness" | Known-answer validation |
 | `stata-audit` | "audit the code", "review the ado" | Code review, error detection |
 
-**Scaffolding**: Run `.claude/scripts/scaffold-command.sh COMMAND_NAME "Description"` to create a complete package structure.
+### Automation Scripts
 
-**Static Validation**: Run `.claude/hooks/validate-ado.sh mycommand.ado` to check for common errors without Stata.
+Located in `.claude/scripts/`:
+
+| Script | Purpose | Usage |
+|--------|---------|-------|
+| `scaffold-command.sh` | Create complete package structure | `./scaffold-command.sh COMMAND "Description"` |
+| `check-versions.sh` | Verify version consistency across files | `./check-versions.sh [PACKAGE]` |
+| `check-test-coverage.sh` | Report test/validation coverage | `./check-test-coverage.sh` |
+
+Located in `.claude/hooks/`:
+
+| Hook | Purpose | Usage |
+|------|---------|-------|
+| `validate-ado.sh` | Static analysis without Stata | `./validate-ado.sh mycommand.ado` |
+| `run-stata-check.sh` | Syntax check with Stata runtime | `./run-stata-check.sh mycommand.ado` |
+
+**Pre-commit hook**: A git pre-commit hook is installed that runs `validate-ado.sh` on staged .ado files.
 
 ### Testing vs Validation
 
