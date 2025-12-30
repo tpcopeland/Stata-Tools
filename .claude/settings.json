@@ -68,13 +68,25 @@
     "validate-ado": {
       "file": ".claude/hooks/validate-ado.sh",
       "description": "Static validation of .ado files (no Stata required)",
-      "on": "manual"
+      "on": "manual",
+      "exit_codes": {
+        "0": "All checks passed",
+        "1": "Errors found",
+        "2": "Warnings found (no errors)",
+        "3": "Configuration error"
+      }
     },
     "run-stata-check": {
       "file": ".claude/hooks/run-stata-check.sh",
       "description": "Run Stata syntax check (requires Stata)",
       "on": "manual",
-      "requires": "stata-mp"
+      "requires": "stata-mp",
+      "exit_codes": {
+        "0": "Syntax valid",
+        "1": "Syntax errors found",
+        "2": "Stata not available or timeout",
+        "3": "Configuration error"
+      }
     }
   },
   "scripts": {
@@ -82,12 +94,38 @@
       "file": ".claude/scripts/scaffold-command.sh",
       "description": "Create new command package from templates",
       "usage": "scaffold-command.sh COMMAND_NAME \"Description\" [AUTHOR]"
+    },
+    "check-versions": {
+      "file": ".claude/scripts/check-versions.sh",
+      "description": "Check version consistency across package files",
+      "usage": "check-versions.sh [PACKAGE_NAME]",
+      "exit_codes": {
+        "0": "All checks passed",
+        "1": "Errors found",
+        "2": "Warnings found (no errors)",
+        "3": "Configuration error"
+      }
+    },
+    "check-test-coverage": {
+      "file": ".claude/scripts/check-test-coverage.sh",
+      "description": "Report test and validation coverage for packages",
+      "usage": "check-test-coverage.sh [--threshold N]",
+      "exit_codes": {
+        "0": "Report generated, coverage meets threshold",
+        "1": "Coverage below threshold",
+        "3": "Configuration error"
+      }
+    }
+  },
+  "lib": {
+    "common": {
+      "file": ".claude/lib/common.sh",
+      "description": "Shared functions for all scripts (colors, error handling, paths, cleanup)"
     }
   },
   "preferences": {
     "stata_executable": "stata-mp",
     "default_author": "Timothy P Copeland",
-    "default_version": "18.0",
-    "run_validation_after_edit": false
+    "default_version": "18.0"
   }
 }
