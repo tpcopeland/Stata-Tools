@@ -1,11 +1,12 @@
 #!/bin/bash
 #
 # check-test-coverage.sh - Report test and validation coverage for packages
+# Version: 1.1.0
 #
 # Shows which packages have functional tests (test_*.do) and validation tests
 # (validation_*.do), highlighting gaps in coverage.
 #
-# Usage: check-test-coverage.sh [--threshold N]
+# Usage: check-test-coverage.sh [-h|--help] [--threshold N]
 #        --threshold N : Exit with code 1 if coverage below N percent (default: 0)
 #
 # Exit codes:
@@ -14,20 +15,18 @@
 #   3 - Configuration error
 #
 
-# Source common library if available
+set -o pipefail
+
+# Source common library (required)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-if [[ -f "$SCRIPT_DIR/../lib/common.sh" ]]; then
-    source "$SCRIPT_DIR/../lib/common.sh"
-    REPO_ROOT=$(get_repo_root)
-else
-    # Fallback if common.sh not available
-    RED='\033[0;31m'
-    YELLOW='\033[1;33m'
-    GREEN='\033[0;32m'
-    BLUE='\033[0;34m'
-    NC='\033[0m'
-    REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+if [[ ! -f "$SCRIPT_DIR/../lib/common.sh" ]]; then
+    echo "[ERROR] common.sh not found. Run from repository root." >&2
+    exit 3
 fi
+source "$SCRIPT_DIR/../lib/common.sh"
+
+# Get repo root
+readonly REPO_ROOT="$(get_repo_root)"
 
 # Parse arguments
 THRESHOLD=0
