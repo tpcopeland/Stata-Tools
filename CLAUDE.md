@@ -42,7 +42,7 @@ Task: "Write tests for X"              → Read _guides/testing.md
 Task: "Fix bug in X.ado"               → Read _guides/developing.md (for error patterns)
 Task: "Validate output is correct"     → Read _guides/validating.md
 Task: "Debug failing test"             → Read _guides/testing.md (for debugging section)
-Task: "Audit/review .ado file"         → Read _guides/developing.md + _testing/notes/audit_prompt.md
+Task: "Audit/review .ado file"         → Use stata-audit skill or read _testing/notes/ado_error_patterns.md
 ```
 
 ### Additional Reference Files
@@ -50,7 +50,6 @@ Task: "Audit/review .ado file"         → Read _guides/developing.md + _testing
 | File | Contains |
 |------|----------|
 | `_testing/notes/ado_error_patterns.md` | Comprehensive catalog of common .ado errors with detection methods |
-| `_testing/notes/audit_prompt.md` | Full audit workflow for reviewing .ado files without Stata runtime |
 | `_testing/TESTING_INSTRUCTIONS.md` | Repository-specific test data and command coverage |
 
 ### Claude Code Skills
