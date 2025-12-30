@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.1  2025/12/03}{...}
+{* *! version 1.0.1  03dec2025}{...}
 {cmd:help today}
 {hline}
 

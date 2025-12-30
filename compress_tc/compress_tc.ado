@@ -1,8 +1,6 @@
-*! compress_tc: Maximally compress string variables via strL conversion + compress
-*! Version: 1.0.2
-*! Date: 03dec2025
-*! Fork Author: Tim Copeland 
-*! Forked from strcompress
+*! compress_tc Version 1.0.2  2025/12/03
+*! Maximally compress string variables via strL conversion + compress
+*! Fork Author: Tim Copeland (Forked from strcompress)
 *! Original Author: Luke Stein (lcdstein@babson.edu)
 *!
 *! Syntax:

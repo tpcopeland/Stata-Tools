@@ -12,8 +12,6 @@
 #   1 - Errors found
 #   2 - Warnings found (but no errors)
 
-set -e
-
 if [ $# -lt 1 ]; then
     echo "Usage: $0 FILE.ado"
     exit 1
@@ -35,8 +33,8 @@ YELLOW='\033[1;33m'
 GREEN='\033[0;32m'
 NC='\033[0m'
 
-error() { echo -e "${RED}[ERROR]${NC} $1"; ((ERRORS++)); }
-warn() { echo -e "${YELLOW}[WARN]${NC} $1"; ((WARNINGS++)); }
+error() { echo -e "${RED}[ERROR]${NC} $1"; ERRORS=$((ERRORS + 1)); }
+warn() { echo -e "${YELLOW}[WARN]${NC} $1"; WARNINGS=$((WARNINGS + 1)); }
 pass() { echo -e "${GREEN}[OK]${NC} $1"; }
 
 echo "Validating: $FILE"

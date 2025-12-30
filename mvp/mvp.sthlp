@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.1.1  2025/12/16}{...}
+{* *! version 1.1.1  16dec2025}{...}
 {vieweralsosee "[D] codebook" "help codebook"}{...}
 {vieweralsosee "[D] misstable" "help misstable"}{...}
 {vieweralsosee "[MI] mi misstable" "help mi_misstable"}{...}
