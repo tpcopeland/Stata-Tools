@@ -257,6 +257,23 @@ This compensates for lack of runtime by systematic analysis.
 
 ---
 
+## Automation Scripts
+
+Use these scripts for automated checking:
+
+```bash
+# Static validation without Stata
+.claude/hooks/validate-ado.sh command/command.ado
+
+# Check version consistency across .ado/.sthlp/.pkg/README
+.claude/scripts/check-versions.sh command
+
+# Check all packages
+.claude/scripts/check-versions.sh
+```
+
+---
+
 ## Sample Audit Commands
 
 ```bash

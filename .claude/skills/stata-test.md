@@ -278,5 +278,11 @@ if `run_only' == 0 | `run_only' == N {
 
 ---
 
+## Check Coverage
+
+Run `.claude/scripts/check-test-coverage.sh` to see which packages are missing functional or validation tests.
+
+---
+
 *Template location: `_templates/testing_TEMPLATE.do`*
 *Full testing guide: `_guides/testing.md`*

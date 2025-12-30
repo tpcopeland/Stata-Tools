@@ -6,3 +6,8 @@ _testing/data/*.md
 _validation/data/
 *.smcl
 *.log
+*.tmp
+
+# Debug files
+_reimplementations/validation/debug*.do
+_testing/data/*_map.txt
