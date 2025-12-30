@@ -27,17 +27,12 @@ Successfully implemented a complete Claude Code skills and hooks system that:
 │   ├── stata-test.md         # Functional testing guidance
 │   ├── stata-validate.md     # Known-answer validation testing
 │   └── stata-audit.md        # Code review and error detection
-├── commands/
-│   ├── stata-develop.md      # Slash command to invoke skill
-│   ├── stata-test.md         # Slash command to invoke skill
-│   ├── stata-validate.md     # Slash command to invoke skill
-│   └── stata-audit.md        # Slash command to invoke skill
 ├── hooks/
 │   ├── validate-ado.sh       # Static validation (no Stata required)
 │   └── run-stata-check.sh    # Runtime validation (Stata required)
 ├── scripts/
 │   └── scaffold-command.sh   # Package scaffolding automation
-└── settings.json             # Configuration file
+└── settings.json             # Configuration with natural language triggers
 ```
 
 ---
@@ -54,7 +49,7 @@ Successfully implemented a complete Claude Code skills and hooks system that:
 - Version management checklist
 - Links to templates
 
-**Usage:** `/stata-develop` or triggered by phrases like "create a new Stata command"
+**Triggered by:** "create a new Stata command", "new ado file", "fix bug in .ado", "add a new feature to"
 
 ### 2. stata-test
 **Purpose:** Write functional tests that verify commands run without errors
@@ -66,7 +61,7 @@ Successfully implemented a complete Claude Code skills and hooks system that:
 - Debugging workflow (quiet mode, single test, trace)
 - Test runner globals reference
 
-**Usage:** `/stata-test` or triggered by phrases like "write tests"
+**Triggered by:** "write tests for", "test the command", "debug failing test", "add tests"
 
 ### 3. stata-validate
 **Purpose:** Write validation tests with known-answer testing
@@ -79,7 +74,7 @@ Successfully implemented a complete Claude Code skills and hooks system that:
 - Mental execution tracing (for use without Stata)
 - Date reference table for 2020 leap year
 
-**Usage:** `/stata-validate` or triggered by phrases like "validate" or "verify correctness"
+**Triggered by:** "validate the command", "verify correctness", "known answer test", "check the output is correct"
 
 ### 4. stata-audit
 **Purpose:** Review and audit .ado files for errors
@@ -92,7 +87,7 @@ Successfully implemented a complete Claude Code skills and hooks system that:
 - Audit report template
 - Cross-file consistency checks
 
-**Usage:** `/stata-audit` or triggered by phrases like "audit" or "code review"
+**Triggered by:** "audit the code", "review the ado", "code review", "check for errors", "find bugs in"
 
 ---
 
@@ -229,7 +224,7 @@ The skills reference and summarize the detailed guides:
    .claude/scripts/scaffold-command.sh mycommand "Process time-varying data"
    ```
 
-2. Use `/stata-develop` skill for guidance on implementation
+2. Ask Claude to "help me implement this command" (triggers stata-develop skill)
 
 3. Edit `mycommand.ado` to implement logic
 
@@ -238,9 +233,9 @@ The skills reference and summarize the detailed guides:
    .claude/hooks/validate-ado.sh mycommand/mycommand.ado
    ```
 
-5. Use `/stata-test` skill to complete test file
+5. Ask Claude to "write tests for mycommand" (triggers stata-test skill)
 
-6. Use `/stata-validate` skill to complete validation file
+6. Ask Claude to "validate the command output" (triggers stata-validate skill)
 
 7. On VM with Stata: Run tests
    ```stata
@@ -248,11 +243,11 @@ The skills reference and summarize the detailed guides:
    do _validation/validation_mycommand.do
    ```
 
-8. Use `/stata-audit` for final review
+8. Ask Claude to "review the ado file" for final review (triggers stata-audit skill)
 
 ### Code Review/Audit
 
-1. Use `/stata-audit` skill
+1. Ask Claude to "audit the code" or "check for errors" (triggers stata-audit skill)
 
 2. Run validation hook:
    ```bash
@@ -293,7 +288,7 @@ The skills and hooks system successfully:
 5. **Integrates with VM workflow** through runtime validation hooks
 
 Claude Code instances can now create high-quality Stata commands with fewer iterations by:
-- Using `/stata-develop` when creating commands
+- Saying "create a new command" or "fix bug in ado" to trigger development guidance
 - Running `scaffold-command.sh` to get correct structure
 - Using `validate-ado.sh` to catch common errors before runtime
 - Following the systematic testing/validation workflow
