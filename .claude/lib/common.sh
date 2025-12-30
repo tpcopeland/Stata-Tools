@@ -183,11 +183,13 @@ setup_cleanup_trap() {
 
 # Create a temporary file and register it for cleanup
 # Usage: TEMP_FILE=$(make_temp_file "prefix")
+# Respects TMPDIR environment variable for portability
 make_temp_file() {
     local prefix="${1:-temp}"
     local temp_file
+    local tmpdir="${TMPDIR:-/tmp}"
 
-    temp_file=$(mktemp "/tmp/${prefix}_XXXXXX") || {
+    temp_file=$(mktemp "${tmpdir}/${prefix}_XXXXXX") || {
         error "Failed to create temporary file"
         return 1
     }
@@ -198,11 +200,13 @@ make_temp_file() {
 
 # Create a temporary directory and register it for cleanup
 # Usage: TEMP_DIR=$(make_temp_dir "prefix")
+# Respects TMPDIR environment variable for portability
 make_temp_dir() {
     local prefix="${1:-temp}"
     local temp_dir
+    local tmpdir="${TMPDIR:-/tmp}"
 
-    temp_dir=$(mktemp -d "/tmp/${prefix}_XXXXXX") || {
+    temp_dir=$(mktemp -d "${tmpdir}/${prefix}_XXXXXX") || {
         error "Failed to create temporary directory"
         return 1
     }

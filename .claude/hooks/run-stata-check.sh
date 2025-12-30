@@ -132,30 +132,53 @@ fi
 
 # Check for various error indicators in log
 ERROR_FOUND=0
+ERROR_DETAILS=""
 
-# Check for Stata return code pattern: r(NNN);
-if grep -qE "^r\([0-9]+\);$" "$TEMP_LOG" 2>/dev/null; then
-    ERROR_CODE=$(grep -oE "^r\([0-9]+\);" "$TEMP_LOG" | head -1 | grep -oE "[0-9]+")
+# Check for Stata return code pattern: r(NNN); (with optional whitespace)
+if grep -qE "^[[:space:]]*r\([0-9]+\);[[:space:]]*$" "$TEMP_LOG" 2>/dev/null; then
+    ERROR_CODE=$(grep -oE "r\([0-9]+\);" "$TEMP_LOG" | head -1 | grep -oE "[0-9]+")
     echo ""
     echo "================================"
     error "Stata returned error code: $ERROR_CODE"
     ERROR_FOUND=1
 fi
 
-# Check for explicit error messages
-if grep -qi "^error" "$TEMP_LOG" 2>/dev/null; then
-    ERROR_FOUND=1
-fi
+# Check for various Stata error patterns (case-insensitive where appropriate)
+# These patterns cover common Stata error messages
+ERROR_PATTERNS=(
+    "syntax error"
+    "invalid syntax"
+    "unrecognized command"
+    "invalid command"
+    "type mismatch"
+    "variable .* not found"
+    "file .* not found"
+    "option .* not allowed"
+    "too few variables"
+    "too many variables"
+    "varlist required"
+    "parse error"
+    "undefined"
+    "unknown function"
+)
 
-# Check for syntax errors specifically
-if grep -qi "syntax error" "$TEMP_LOG" 2>/dev/null; then
+for pattern in "${ERROR_PATTERNS[@]}"; do
+    if grep -qi "$pattern" "$TEMP_LOG" 2>/dev/null; then
+        ERROR_FOUND=1
+        ERROR_DETAILS="$ERROR_DETAILS (matched: $pattern)"
+        break
+    fi
+done
+
+# Check for explicit "error" at start of line (Stata error output)
+if grep -qE "^[[:space:]]*(error|Error)" "$TEMP_LOG" 2>/dev/null; then
     ERROR_FOUND=1
 fi
 
 if [[ $ERROR_FOUND -eq 1 ]]; then
     echo ""
     echo "--- Relevant log output ---"
-    grep -iE "(error|invalid|undefined|unrecognized|^r\([0-9]+\))" "$TEMP_LOG" 2>/dev/null | head -20
+    grep -iE "(error|invalid|undefined|unrecognized|syntax|not found|mismatch|^[[:space:]]*r\([0-9]+\))" "$TEMP_LOG" 2>/dev/null | head -20
     exit 1
 fi
 
@@ -172,6 +195,7 @@ echo ""
 echo "================================"
 warn "Could not verify syntax check result"
 info "Check log for details: $TEMP_LOG"
-# Don't clean up log on ambiguous result for debugging
-_CLEANUP_TASKS=("${_CLEANUP_TASKS[@]/$TEMP_LOG}")
+# Keep log file for debugging - copy to persistent location
+LOG_BACKUP="/tmp/stata_check_ambiguous_$(date +%Y%m%d_%H%M%S).log"
+cp "$TEMP_LOG" "$LOG_BACKUP" 2>/dev/null && info "Log saved to: $LOG_BACKUP"
 exit 2
