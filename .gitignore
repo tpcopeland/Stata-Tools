@@ -11,3 +11,4 @@ _validation/data/
 # Debug files
 _reimplementations/validation/debug*.do
 _testing/data/*_map.txt
+*.dta
