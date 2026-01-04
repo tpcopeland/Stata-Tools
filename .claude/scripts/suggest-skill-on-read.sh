@@ -41,7 +41,7 @@ case "$FILE_PATH" in
         SUGGESTION=""
         CONTEXT="Package definition file - check stata.toc consistency"
         echo ""
-        echo "📋 Package file detected: check stata.toc is updated"
+        echo "[Package] Package file detected: check stata.toc is updated"
         ;;
 
     # Log files (test output)
@@ -50,7 +50,7 @@ case "$FILE_PATH" in
         # Check if log has errors
         if grep -qE "^r\([0-9]+" "$FILE_PATH" 2>/dev/null; then
             echo ""
-            echo "⚠️  Test log with errors detected"
+            echo "[Warning] Test log with errors detected"
             echo "   Review errors and create development log if novel patterns"
         fi
         ;;
@@ -69,7 +69,7 @@ esac
 # Output skill suggestion if applicable (compact format)
 if [ -n "$SUGGESTION" ]; then
     echo ""
-    echo "📋 Skill suggestion: $SUGGESTION"
+    echo "[Skill] Suggestion: $SUGGESTION"
     echo "   $CONTEXT"
 fi
 

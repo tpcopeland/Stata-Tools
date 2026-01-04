@@ -29,13 +29,13 @@ Activate this skill when:
 ## Role Definition
 
 **Expertise:**
-- ✓ Running test files with stata-mp
-- ✓ Parsing Stata log files for errors
-- ✓ Validating package structure
-- ✓ Creating test files
-- ✓ Documenting errors for learning system
-- ⚠️ Fixing code bugs → use `code-reviewer` skill
-- ❌ Running on user data → user responsibility
+- Running test files with stata-mp
+- Parsing Stata log files for errors
+- Validating package structure
+- Creating test files
+- Documenting errors for learning system
+- (For fixing code bugs) -> use `code-reviewer` skill
+- (For user data) -> user responsibility
 
 ## Testing Workflow
 
@@ -43,9 +43,10 @@ Activate this skill when:
 
 ```
 FIND test files:
-├─ tests/test_*.do
-├─ **/test_*.do
-└─ Check if test exists for target command
+- tests/test_*.do
+- _testing/test_*.do
+- **/test_*.do
+- Check if test exists for target command
 ```
 
 ### Step 2: Run Tests
@@ -62,10 +63,10 @@ grep -E "^r\([0-9]+" tests/test_command.log
 
 ```
 FOR each test run:
-├─ Check exit code
-├─ Parse log for r(XXX) errors
-├─ Check for "ALL TESTS PASSED" message
-└─ Note any warnings
+- Check exit code
+- Parse log for r(XXX) errors
+- Check for "ALL TESTS PASSED" message
+- Note any warnings
 ```
 
 ### Step 4: Document Errors
@@ -83,14 +84,14 @@ If errors found:
 
 ```
 For each command:
-├─ command.ado         # Command implementation
-├─ command.sthlp       # Help file
-└─ tests/test_command.do  # Test file (recommended)
+- command.ado         # Command implementation
+- command.sthlp       # Help file
+- tests/test_command.do  # Test file (recommended)
 
 For the package:
-├─ stata.toc           # Package index
-├─ packagename.pkg     # Package definition
-└─ README.md           # Documentation
+- stata.toc           # Package index
+- packagename.pkg     # Package definition
+- README.md           # Documentation
 ```
 
 ### stata.toc Format
@@ -257,8 +258,8 @@ When errors are found, create a development log:
 
 | Test File | Status | Notes |
 |-----------|--------|-------|
-| test_command1.do | ✓ Pass | |
-| test_command2.do | ✗ Fail | r(111) line 45 |
+| test_command1.do | Pass | |
+| test_command2.do | Fail | r(111) line 45 |
 
 ### Errors Found
 
@@ -274,10 +275,10 @@ When errors are found, create a development log:
 
 | Check | Status |
 |-------|--------|
-| stata.toc exists | ✓/✗ |
-| .pkg files valid | ✓/✗ |
-| All .ado have .sthlp | ✓/✗ |
-| All commands have tests | ✓/✗ |
+| stata.toc exists | Y/N |
+| .pkg files valid | Y/N |
+| All .ado have .sthlp | Y/N |
+| All commands have tests | Y/N |
 
 ### Recommendation
 
@@ -300,13 +301,13 @@ When errors are found, create a development log:
 
 ```bash
 # Find and run all test files
-for f in tests/test_*.do; do
+for f in _testing/test_*.do; do
     echo "Running $f..."
     stata-mp -b do "$f"
 done
 
 # Check all logs for errors
-grep -l "^r([0-9]" tests/*.log
+grep -l "^r([0-9]" _testing/*.log
 ```
 
 ### Continuous Integration Pattern
@@ -317,7 +318,7 @@ grep -l "^r([0-9]" tests/*.log
 
 FAILED=0
 
-for testfile in tests/test_*.do; do
+for testfile in _testing/test_*.do; do
     echo "Testing: $testfile"
     stata-mp -b do "$testfile"
 
@@ -346,12 +347,12 @@ fi
 
 ```
 USE code-reviewer skill WHEN:
-├─ Tests fail and code needs fixing
-├─ Reviewing test file quality
-└─ Checking for common error patterns
+- Tests fail and code needs fixing
+- Reviewing test file quality
+- Checking for common error patterns
 
 CREATE development log WHEN:
-├─ Novel error patterns found
-├─ Multiple iterations needed
-└─ Variable name corrections discovered
+- Novel error patterns found
+- Multiple iterations needed
+- Variable name corrections discovered
 ```

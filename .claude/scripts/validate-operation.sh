@@ -29,7 +29,7 @@ if [[ "$TOOL_NAME" == "Write" || "$TOOL_NAME" == "Edit" ]] && [ -n "$FILE_PATH" 
             if [[ "$FILE_PATH" == *"/SKILL.md" ]]; then
                 exit 0
             fi
-            echo "⚠️  Protected file: $FILE_PATH"
+            echo "WARNING: Protected file: $FILE_PATH"
             echo "    This is a core configuration file."
             exit 0  # Warning only, don't block
         fi
@@ -37,7 +37,7 @@ if [[ "$TOOL_NAME" == "Write" || "$TOOL_NAME" == "Edit" ]] && [ -n "$FILE_PATH" 
 
     # Warn about .pkg file modifications
     if [[ "$FILE_PATH" == *.pkg ]]; then
-        echo "⚠️  Package definition file: $FILE_PATH"
+        echo "WARNING: Package definition file: $FILE_PATH"
         echo "    Ensure stata.toc is also updated if needed."
         exit 0
     fi
@@ -47,38 +47,38 @@ fi
 if [[ "$TOOL_NAME" == "Bash" ]] && [ -n "$COMMAND" ]; then
     # Block rm -rf on important directories
     if echo "$COMMAND" | grep -qE "rm\s+(-rf?|--force)\s+\.claude"; then
-        echo "❌ BLOCKED: Destructive command on .claude directory"
+        echo "BLOCKED: Destructive command on .claude directory"
         echo "   Command: $COMMAND"
         exit 2  # Block the operation
     fi
 
     # Block rm -rf on root-level important files
     if echo "$COMMAND" | grep -qE "rm\s+(-rf?|--force)\s+(CLAUDE\.md|README\.md|stata\.toc)"; then
-        echo "❌ BLOCKED: Cannot delete core files"
+        echo "BLOCKED: Cannot delete core files"
         exit 2
     fi
 
     # Warn about git push --force
     if echo "$COMMAND" | grep -qE "git\s+push\s+.*--force"; then
-        echo "⚠️  Force push detected - proceed with caution"
+        echo "WARNING: Force push detected - proceed with caution"
         exit 0  # Warning only
     fi
 
     # Warn about git reset --hard
     if echo "$COMMAND" | grep -qE "git\s+reset\s+--hard"; then
-        echo "⚠️  Hard reset detected - this discards uncommitted changes"
+        echo "WARNING: Hard reset detected - this discards uncommitted changes"
         exit 0  # Warning only
     fi
 
     # Warn about branch deletion of main
     if echo "$COMMAND" | grep -qE "git\s+branch\s+(-d|-D)\s+main"; then
-        echo "❌ BLOCKED: Cannot delete main branch"
+        echo "BLOCKED: Cannot delete main branch"
         exit 2
     fi
 
     # Warn about running Stata without stata-mp
     if echo "$COMMAND" | grep -qE '\bstata\b|\bstata-se\b' && ! echo "$COMMAND" | grep -qE '\bstata-mp\b'; then
-        echo "⚠️  Use stata-mp (multiprocessor) instead of stata or stata-se"
+        echo "WARNING: Use stata-mp (multiprocessor) instead of stata or stata-se"
         exit 0  # Warning only
     fi
 fi

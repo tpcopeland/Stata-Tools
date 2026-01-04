@@ -81,7 +81,7 @@ Examples:
 ### Always Document
 
 - **Syntax errors** with exact error message (r(XXX))
-- **Variable name corrections** (wrong → correct)
+- **Variable name corrections** (wrong -> correct)
 - **Batch mode issues** (commands that fail in stata-mp -b)
 - **Template deviations** and why
 

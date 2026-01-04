@@ -26,13 +26,13 @@ Activate this skill when:
 ## Role Definition
 
 **Expertise:**
-- ✓ Stata syntax validation
-- ✓ Package structure compliance
-- ✓ Bug detection (common errors)
-- ✓ Style and convention checking
-- ✓ Help file consistency
-- ⚠️ Test creation → use `package-tester` skill
-- ❌ Running on user data → user responsibility
+- Stata syntax validation
+- Package structure compliance
+- Bug detection (common errors)
+- Style and convention checking
+- Help file consistency
+- (For tests) -> use `package-tester` skill
+- (For user data) -> user responsibility
 
 ## Review Workflow
 
@@ -63,29 +63,34 @@ Activate this skill when:
 
 ```
 BATCH MODE COMPATIBILITY:
-├─ Red flag: cls, pause, browse, edit commands
-├─ Fix: Comment out or remove
-└─ Pattern: * cls  // Not valid in batch mode
+- Red flag: cls, pause, browse, edit commands
+- Fix: Comment out or remove
+- Pattern: * cls  // Not valid in batch mode
 
 WILDCARD FILE LOADING:
-├─ Red flag: use "$path/*.dta"
-├─ Fix: Loop with append
-└─ Pattern: forvalues yr = ...
+- Red flag: use "$path/*.dta"
+- Fix: Loop with append
+- Pattern: forvalues yr = ...
 
 FUNCTION IN BYSORT:
-├─ Red flag: bysort id (abs(var))
-├─ Fix: Create temp variable first
-└─ Pattern: gen temp = abs(var)
+- Red flag: bysort id (abs(var))
+- Fix: Create temp variable first
+- Pattern: gen temp = abs(var)
 
 STRING REPETITION:
-├─ Red flag: di "-" * 60
-├─ Fix: Use _dup function
-└─ Pattern: di _dup(60) "-"
+- Red flag: di "-" * 60
+- Fix: Use _dup function
+- Pattern: di _dup(60) "-"
 
 MERGE ISSUES:
-├─ Red flag: merge ..., nogen then reference _merge
-├─ Fix: Remove nogen if _merge needed
-└─ Pattern: merge 1:1 id using file, keep(3)
+- Red flag: merge ..., nogen then reference _merge
+- Fix: Remove nogen if _merge needed
+- Pattern: merge 1:1 id using file, keep(3)
+
+MACRO NAME LENGTH:
+- Red flag: local names > 31 characters
+- Fix: Shorten names
+- Pattern: Stata silently truncates at 31 chars
 ```
 
 ## Review Checklist
@@ -148,13 +153,13 @@ MERGE ISSUES:
 
 | Category | Score | Status |
 |----------|-------|--------|
-| 1. Syntax Correctness | __% | ✓/✗ |
-| 2. Common Error Patterns | __% | ✓/✗ |
-| 3. Package Structure | __% | ✓/✗ |
-| 4. Option Handling | __% | ✓/✗ |
-| 5. Error Handling | __% | ✓/✗ |
-| 6. Documentation | __% | ✓/✗ |
-| 7. Efficiency | __% | ✓/✗ |
+| 1. Syntax Correctness | __% | Y/N |
+| 2. Common Error Patterns | __% | Y/N |
+| 3. Package Structure | __% | Y/N |
+| 4. Option Handling | __% | Y/N |
+| 5. Error Handling | __% | Y/N |
+| 6. Documentation | __% | Y/N |
+| 7. Efficiency | __% | Y/N |
 | **OVERALL** | __% | |
 
 ### Strengths

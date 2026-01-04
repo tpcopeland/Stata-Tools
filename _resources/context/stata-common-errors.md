@@ -148,7 +148,32 @@ forvalues yr = $start_year/$end_year {
 
 ---
 
-## 6. Correct Patterns Reference
+## 6. Macro Name Length Truncation
+
+### Error
+No error message - silent bug causing wrong values.
+
+### Cause
+Stata silently truncates macro names longer than 31 characters. Two different names that share the same first 31 characters become the same macro.
+
+### Solution
+```stata
+* WRONG - both names truncate to same 31 chars!
+local very_long_descriptive_name_one = 1
+local very_long_descriptive_name_two = 2
+display `very_long_descriptive_name_one'  // Shows 2, not 1!
+
+* CORRECT - use shorter names
+local desc_name_one = 1
+local desc_name_two = 2
+```
+
+### Detection
+Count characters in macro names: `echo "macro_name" | wc -c`
+
+---
+
+## 7. Correct Patterns Reference
 
 ### Character Repetition
 ```stata
@@ -206,7 +231,7 @@ if `first' == 1 {
 
 ---
 
-## 7. Common Syntax Errors
+## 8. Common Syntax Errors
 
 ### Missing Comma in Options
 
@@ -241,7 +266,7 @@ keep if status == "active"
 
 ---
 
-## 8. Package-Specific Issues
+## 9. Package-Specific Issues
 
 ### Program Already Defined (r(110))
 
@@ -280,7 +305,7 @@ end
 
 | Date | Package | Errors Added |
 |------|---------|--------------|
-| 2026-01-04 | Initial | Batch mode, bysort functions, string repetition, merge nogen, wildcards |
+| 2026-01-04 | Initial | Batch mode, bysort functions, string repetition, merge nogen, wildcards, macro length |
 
 ---
 

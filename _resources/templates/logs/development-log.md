@@ -115,8 +115,8 @@
 
 List any patterns discovered that should be added to `_resources/context/stata-common-errors.md`:
 
-1. [Pattern: wrong → correct]
-2. [Pattern: wrong → correct]
+1. [Pattern: wrong -> correct]
+2. [Pattern: wrong -> correct]
 
 ---
 

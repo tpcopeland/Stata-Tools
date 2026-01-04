@@ -35,17 +35,17 @@ done
 
 # Output skill routing reminder if matches found
 if [ -n "$MATCHED_SKILLS" ]; then
-    echo "╔════════════════════════════════════════════════════════════╗"
-    echo "║ 🎯 SKILL ROUTING DETECTED                                   ║"
-    echo "╠════════════════════════════════════════════════════════════╣"
-    echo "║ Recommended skill(s) for this task:                        ║"
+    echo "+============================================================+"
+    echo "| SKILL ROUTING DETECTED                                     |"
+    echo "+============================================================+"
+    echo "| Recommended skill(s) for this task:                        |"
     for skill in $MATCHED_SKILLS; do
-        printf "║   → %-52s ║\n" "$skill"
+        printf "|   -> %-52s |\n" "$skill"
     done
-    echo "╠════════════════════════════════════════════════════════════╣"
-    echo "║ USE: Skill tool with skill=\"<skill-name>\" BEFORE writing  ║"
-    echo "║ This ensures proper templates, quality gates, and output.  ║"
-    echo "╚════════════════════════════════════════════════════════════╝"
+    echo "+------------------------------------------------------------+"
+    echo "| USE: Skill tool with skill=\"<skill-name>\" BEFORE writing  |"
+    echo "| This ensures proper templates, quality gates, and output.  |"
+    echo "+============================================================+"
 fi
 
 exit 0

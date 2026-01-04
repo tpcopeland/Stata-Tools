@@ -40,8 +40,8 @@ Skill(skill="package-tester")
 ### Method 3: Natural Language (Automatic)
 The `user-prompt-skill-router.sh` hook detects relevant keywords and suggests skills:
 ```
-"Review the tvexpose.ado file" → suggests code-reviewer
-"Run tests for the package" → suggests package-tester
+"Review the tvexpose.ado file" -> suggests code-reviewer
+"Run tests for the package" -> suggests package-tester
 ```
 
 ## Skill File Structure
@@ -90,9 +90,9 @@ allowed-tools:
 
 | Skill | Read | Write | Edit | Grep | Glob | Bash |
 |-------|:----:|:-----:|:----:|:----:|:----:|:----:|
-| code-reviewer | ✓ | ✓ | ✓ | ✓ | ✓ | |
-| stata-code-generator | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| package-tester | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| code-reviewer | Y | Y | Y | Y | Y | |
+| stata-code-generator | Y | Y | Y | Y | Y | Y |
+| package-tester | Y | Y | Y | Y | Y | Y |
 
 **Note:** Task tool is NEVER allowed for any skill.
 
@@ -110,14 +110,24 @@ Skills can delegate to each other for specialized tasks:
 
 ```
 code-reviewer
-├── delegates to → package-tester (for running tests after fixes)
-└── references → stata-common-errors.md (for known patterns)
+├── delegates to -> package-tester (for running tests after fixes)
+└── references -> stata-common-errors.md (for known patterns)
 
 stata-code-generator
-├── delegates to → code-reviewer (for validation)
-└── references → existing .ado files (for patterns)
+├── delegates to -> code-reviewer (for validation)
+└── references -> existing .ado files (for patterns)
 
 package-tester
-├── delegates to → code-reviewer (if tests fail)
-└── creates → development logs (if novel errors)
+├── delegates to -> code-reviewer (if tests fail)
+└── creates -> development logs (if novel errors)
 ```
+
+## Relationship to Slash Commands
+
+The `.claude/commands/` directory contains slash commands (e.g., `/stata-develop`). These provide task-specific guidance and can work alongside skills:
+
+| Commands | Skills |
+|----------|--------|
+| Invoked explicitly by user | Auto-suggested by hooks |
+| Focus on workflow guidance | Focus on expertise/patterns |
+| `/stata-develop`, `/stata-audit` | `code-reviewer`, `package-tester` |

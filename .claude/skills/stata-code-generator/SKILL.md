@@ -29,13 +29,13 @@ Activate this skill when:
 ## Role Definition
 
 **Expertise:**
-- ✓ .ado file creation following conventions
-- ✓ Syntax parsing and option handling
-- ✓ Help file (.sthlp) creation
-- ✓ Test file creation
-- ✓ Package structure setup
-- ⚠️ Code review → use `code-reviewer` skill
-- ❌ Running on user data → user responsibility
+- .ado file creation following conventions
+- Syntax parsing and option handling
+- Help file (.sthlp) creation
+- Test file creation
+- Package structure setup
+- (For code review) -> use `code-reviewer` skill
+- (For user data) -> user responsibility
 
 ## Context Files
 
@@ -54,12 +54,12 @@ Activate this skill when:
 
 ```
 EXTRACT from user request:
-├─ Command name
-├─ Input requirements (varlist, using, if/in)
-├─ Required options
-├─ Optional options with defaults
-├─ Output (return values, saved results)
-└─ Error conditions
+- Command name
+- Input requirements (varlist, using, if/in)
+- Required options
+- Optional options with defaults
+- Output (return values, saved results)
+- Error conditions
 ```
 
 ### Step 2: Generate .ado File
@@ -73,6 +73,7 @@ EXTRACT from user request:
 
 program define command_name, [rclass | eclass | sclass]
     version 16.0
+    set varabbrev off
 
     // Parse syntax
     syntax [varlist] [if] [in] [using/] [, ///
@@ -238,23 +239,23 @@ Run through error pattern checklist:
 
 ```
 BATCH MODE CHECK:
-├─ No cls, pause, browse, edit commands?
-└─ IF any found → REMOVE or comment out
+- No cls, pause, browse, edit commands?
+- IF any found -> REMOVE or comment out
 
 SYNTAX CHECK:
-├─ All options correctly specified?
-├─ Default values sensible?
-└─ Required options enforced?
+- All options correctly specified?
+- Default values sensible?
+- Required options enforced?
 
 ERROR HANDLING CHECK:
-├─ Invalid inputs produce clear errors?
-├─ Exit codes appropriate?
-└─ Temporary files cleaned up?
+- Invalid inputs produce clear errors?
+- Exit codes appropriate?
+- Temporary files cleaned up?
 
 HELP FILE CHECK:
-├─ All options documented?
-├─ Examples work?
-└─ Stored results documented?
+- All options documented?
+- Examples work?
+- Stored results documented?
 ```
 
 ---
@@ -335,12 +336,12 @@ drop temp_abs
 
 | Check | Status | Notes |
 |-------|--------|-------|
-| Syntax parsing correct | ✓/✗ | |
-| Options handled | ✓/✗ | |
-| Error handling | ✓/✗ | |
-| Batch mode compatible | ✓/✗ | |
-| Help file complete | ✓/✗ | |
-| Test file created | ✓/✗ | |
+| Syntax parsing correct | Y/N | |
+| Options handled | Y/N | |
+| Error handling | Y/N | |
+| Batch mode compatible | Y/N | |
+| Help file complete | Y/N | |
+| Test file created | Y/N | |
 
 ### NEXT STEPS
 
@@ -355,14 +356,15 @@ drop temp_abs
 
 ```
 DO NOT:
-├─ Use cls, pause, browse, edit in .ado files
-├─ Use "string" * n for character repetition
-├─ Put functions in bysort sort specification
-├─ Use wildcards in 'use' command
-├─ Forget to document options in help file
-├─ Skip error handling for invalid inputs
-├─ Hard-code paths (use arguments or macros)
-└─ Forget to clean up temp files on error
+- Use cls, pause, browse, edit in .ado files
+- Use "string" * n for character repetition
+- Put functions in bysort sort specification
+- Use wildcards in 'use' command
+- Forget to document options in help file
+- Skip error handling for invalid inputs
+- Hard-code paths (use arguments or macros)
+- Forget to clean up temp files on error
+- Use macro names > 31 characters
 ```
 
 ---
@@ -371,12 +373,12 @@ DO NOT:
 
 ```
 USE code-reviewer skill WHEN:
-├─ Validating generated code
-├─ Checking for bug patterns
-└─ Reviewing existing code
+- Validating generated code
+- Checking for bug patterns
+- Reviewing existing code
 
 USE package-tester skill WHEN:
-├─ Running tests
-├─ Validating package structure
-└─ Checking test coverage
+- Running tests
+- Validating package structure
+- Checking test coverage
 ```

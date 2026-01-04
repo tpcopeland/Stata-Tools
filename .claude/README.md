@@ -7,12 +7,14 @@ This guide explains how to use Claude Code effectively with the Stata-Tools repo
 When working with Claude Code in this repository:
 
 1. **Claude reads `CLAUDE.md`** automatically - it contains coding standards and critical rules
-2. **Use slash commands** for specialized guidance:
+2. **Hooks fire automatically** - Session context, skill suggestions, and validation happen via hooks
+3. **Use slash commands** for specialized guidance:
    - `/stata-develop` - Creating or modifying Stata commands
    - `/stata-test` - Writing functional tests
    - `/stata-validate` - Writing validation tests
    - `/stata-audit` - Auditing .ado files for errors
-3. **Ask Claude to run validators** after writing code:
+4. **Skills provide expertise** - Automatic suggestions for code review, testing, generation
+5. **Ask Claude to run validators** after writing code:
    - `.claude/validators/validate-ado.sh mycommand.ado`
 
 ## How It Works
@@ -63,24 +65,45 @@ Ask Claude to run these scripts:
 
 ```
 .claude/
-├── README.md           # This file
-├── commands/           # Slash commands (invoke with /command-name)
-│   ├── stata-develop.md   # Development guidance
-│   ├── stata-test.md      # Functional testing guidance
-│   ├── stata-validate.md  # Validation testing guidance
-│   └── stata-audit.md     # Code audit guidance
-├── validators/         # Validation scripts
-│   ├── validate-ado.sh    # Static analysis (no Stata required)
-│   └── run-stata-check.sh # Syntax check (requires Stata)
-├── scripts/            # Automation scripts
-│   ├── scaffold-command.sh    # Create new package from templates
-│   ├── check-versions.sh      # Check version consistency
-│   └── check-test-coverage.sh # Report test coverage
-├── lib/                # Shared libraries for scripts
-│   ├── common.sh          # Common functions
-│   └── config.sh          # Configuration
-└── tests/              # Integration tests for automation
+├── README.md              # This file
+├── settings.json          # Hook configuration
+├── commands/              # Slash commands (invoke with /command-name)
+│   ├── stata-develop.md      # Development guidance
+│   ├── stata-test.md         # Functional testing guidance
+│   ├── stata-validate.md     # Validation testing guidance
+│   └── stata-audit.md        # Code audit guidance
+├── skills/                # Expertise modules (auto-suggested by hooks)
+│   ├── README.md             # Skills documentation
+│   ├── code-reviewer/        # Code review expertise
+│   ├── stata-code-generator/ # Code generation expertise
+│   └── package-tester/       # Testing expertise
+├── validators/            # Validation scripts
+│   ├── validate-ado.sh       # Static analysis (no Stata required)
+│   └── run-stata-check.sh    # Syntax check (requires Stata)
+├── scripts/               # Automation and hook scripts
+│   ├── scaffold-command.sh       # Create new package from templates
+│   ├── check-versions.sh         # Check version consistency
+│   ├── check-test-coverage.sh    # Report test coverage
+│   ├── session-context.sh        # SessionStart hook
+│   ├── user-prompt-skill-router.sh  # UserPromptSubmit hook
+│   ├── validate-operation.sh     # PreToolUse hook
+│   ├── suggest-skill-on-read.sh  # PostToolUse (Read) hook
+│   ├── format-markdown.sh        # PostToolUse (Edit/Write) hook
+│   └── stop-hook-validation.sh   # Stop hook
+├── lib/                   # Shared libraries for scripts
+│   ├── common.sh             # Common functions
+│   └── config.sh             # Configuration
+└── tests/                 # Integration tests for automation
     └── run-tests.sh
+
+_resources/                # Learning system resources
+├── context/
+│   └── stata-common-errors.md   # Accumulated error patterns
+├── templates/
+│   └── logs/
+│       └── development-log.md   # Log template
+└── logs/
+    └── README.md                # Learning system documentation
 ```
 
 ## Common Workflows
@@ -209,6 +232,82 @@ All scripts use standardized exit codes:
 | `SKIP_ADO_VALIDATION` | pre-commit | Skip .ado validation |
 | `SKIP_VERSION_CHECK` | pre-commit | Skip version check |
 
+## Hooks System
+
+Hooks are scripts that run automatically at specific points in the Claude Code session lifecycle. They are configured in `.claude/settings.json`.
+
+### Hook Scripts
+
+| Hook | Script | Purpose |
+|------|--------|---------|
+| SessionStart | `session-context.sh` | Shows repo status, recent files at session start |
+| UserPromptSubmit | `user-prompt-skill-router.sh` | Detects keywords and suggests relevant skills |
+| PreToolUse | `validate-operation.sh` | Protects important files, blocks dangerous commands |
+| PostToolUse (Read) | `suggest-skill-on-read.sh` | Suggests skills based on file type |
+| PostToolUse (Edit/Write) | `format-markdown.sh` | Ensures consistent markdown formatting |
+| Stop | `stop-hook-validation.sh` | Shows uncommitted changes, suggests next steps |
+
+### What Happens Automatically
+
+1. **Session Start**: Shows git status, recent .ado files, failed tests
+2. **On Prompt**: Detects if task matches a skill and suggests using it
+3. **On File Read**: Suggests relevant skills based on file extension
+4. **On File Write**: Warns about protected files, validates operations
+5. **Session End**: Lists uncommitted changes, reminds about dev logs
+
+## Skills System
+
+Skills are "expertise hats" that provide domain-specific workflows, quality gates, and output formats. Unlike slash commands, skills are automatically suggested by hooks.
+
+### Available Skills
+
+| Skill | Purpose | Suggested When |
+|-------|---------|----------------|
+| `code-reviewer` | Review code for bugs and style | Reading .ado/.do files |
+| `stata-code-generator` | Generate new commands | Creating new .ado files |
+| `package-tester` | Run tests and validate packages | Testing packages |
+
+### Skills vs Commands
+
+| Commands (`.claude/commands/`) | Skills (`.claude/skills/`) |
+|--------------------------------|---------------------------|
+| Invoked explicitly with `/name` | Auto-suggested by hooks |
+| Focus on workflow guidance | Focus on expertise/patterns |
+| `/stata-develop`, `/stata-audit` | `code-reviewer`, `package-tester` |
+
+See `.claude/skills/README.md` for full documentation.
+
+## Learning System
+
+The learning system captures errors during development and accumulates patterns to prevent future mistakes.
+
+### Three-Tier Knowledge System
+
+| Tier | Location | Purpose | When Loaded |
+|------|----------|---------|-------------|
+| 1 | Skills (inline) | Critical checks | With skill |
+| 2 | `_resources/context/stata-common-errors.md` | Accumulated patterns | On request |
+| 3 | `_resources/logs/*.md` | Individual logs | On-demand |
+
+### Workflow
+
+1. **During Development**: Errors occur, fixes applied
+2. **After Testing**: Create development log from template
+3. **Periodic Review**: Distill novel patterns into common errors
+4. **Future Sessions**: Skills reference accumulated knowledge
+
+### Creating Development Logs
+
+```bash
+# Template location
+_resources/templates/logs/development-log.md
+
+# Save logs as
+_resources/logs/[package]_[YYYY_MM_DD].md
+```
+
+See `_resources/logs/README.md` for full documentation.
+
 ## Troubleshooting
 
 ### "common.sh not found"
@@ -249,6 +348,7 @@ On macOS, install newer bash: `brew install bash`
 
 ## Version History
 
+- **2.0.0** - Added hooks system, skills, and learning system (_resources/)
 - **1.2.0** - Reorganized as Claude Code usage guide, renamed skills to commands, hooks to validators
 - **1.1.0** - Added config.sh, bash version check, standardized exit codes
 - **1.0.0** - Initial automation infrastructure

@@ -26,7 +26,7 @@ RECENT_ADO=$(find "$REPO_ROOT" -name "*.ado" -mtime -7 -type f 2>/dev/null | sed
 if [ -n "$RECENT_ADO" ]; then
     echo "Recently Modified Commands (last 7 days):"
     echo "$RECENT_ADO" | while read -r file; do
-        echo "  • $file"
+        echo "  * $file"
     done
     echo ""
 fi
@@ -36,7 +36,7 @@ RECENT_TESTS=$(find "$REPO_ROOT" -name "test_*.do" -mtime -7 -type f 2>/dev/null
 if [ -n "$RECENT_TESTS" ]; then
     echo "Recent Test Files:"
     echo "$RECENT_TESTS" | while read -r file; do
-        echo "  • $file"
+        echo "  * $file"
     done
     echo ""
 fi
@@ -44,9 +44,9 @@ fi
 # Check for failed test logs (logs with errors)
 FAILED_TESTS=$(find "$REPO_ROOT" -name "*.log" -mtime -1 -type f -exec grep -l "^r([0-9]" {} \; 2>/dev/null | head -3)
 if [ -n "$FAILED_TESTS" ]; then
-    echo "⚠️  Recent Failed Tests:"
+    echo "WARNING: Recent Failed Tests:"
     echo "$FAILED_TESTS" | while read -r file; do
-        echo "  • $(basename "$file")"
+        echo "  * $(basename "$file")"
     done
     echo ""
 fi
@@ -57,6 +57,7 @@ ADO_COUNT=$(find "$REPO_ROOT" -name "*.ado" -type f 2>/dev/null | wc -l)
 
 # Compact footer
 echo "Skills:   .claude/skills/ for code review, testing, generation"
+echo "Commands: .claude/commands/ for /stata-develop, /stata-test, etc."
 echo "Packages: $PACKAGE_COUNT | Commands: $ADO_COUNT"
 echo ""
 
