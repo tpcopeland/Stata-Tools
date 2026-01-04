@@ -1,32 +1,53 @@
 v 3
-d 'SETOOLS': Commands for managing Swedish registry data in cohort studies
+d 'SETOOLS': Swedish Registry Toolkit for Epidemiological Cohort Studies
 d
-d Requires: Stata version 18+
+d Provides utilities for working with Swedish health registries including:
+d - ICD-10 code expansion and matching
+d - KVA procedure code matching
+d - Date parsing and window calculations for cohort studies
+d - Migration registry processing for exclusions and censoring
+d - MS disability progression: sustained EDSS, CDP, and PIRA
+d - Time-varying age interval generation
+d - Closest covariate extraction from longitudinal data
 d
-d Distribution-Date: 20251203
+d Requires: Stata version 16+
+d
+d Distribution-Date: 20251231
 d License: MIT
 d
-d Author: Timothy P. Copeland
-d Department of Clinical Neuroscience, Karolinska Institutet, Stockholm, Sweden
-d Email: timothy.copeland@ki.se
+d Author: Tim Copeland
+d Department of Clinical Neuroscience, Karolinska Institutet, Stockholm
 d
-d KW: Swedish registry
-d KW: migration
-d KW: cohort study
+d KW: Swedish registries
+d KW: ICD-10
+d KW: KVA procedures
+d KW: cohort studies
 d KW: epidemiology
-d KW: EDSS
+d KW: migration
 d KW: multiple sclerosis
-d KW: survival analysis
+d KW: EDSS
+d KW: CDP
+d KW: PIRA
+d KW: date utilities
+d KW: time-varying
 d
-d INSTALLATION COMPLETE!
-d
-d Available commands:
-d     . migrations  - Process Swedish migration registry data
-d     . sustainedss - Compute sustained EDSS progression dates
-d
-d For help: help migrations, help sustainedss
-d
+f setools.ado
+f setools.sthlp
+f icdexpand.ado
+f icdexpand.sthlp
+f dateparse.ado
+f dateparse.sthlp
 f migrations.ado
 f migrations.sthlp
 f sustainedss.ado
 f sustainedss.sthlp
+f cdp.ado
+f cdp.sthlp
+f pira.ado
+f pira.sthlp
+f procmatch.ado
+f procmatch.sthlp
+f tvage.ado
+f tvage.sthlp
+f covarclose.ado
+f covarclose.sthlp

@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # check-versions.sh - Check version consistency across package files
-# Version: 1.1.0
+# Version: 1.2.0
 #
 # Verifies that version numbers match across .ado, .sthlp, .pkg, and README.md
 # Also checks header format compliance.
@@ -94,6 +94,16 @@ for pkg in $PACKAGES; do
     PKG_FILE="$PKG_DIR/$pkg.pkg"
     README_FILE="$PKG_DIR/README.md"
 
+    # Check if this is a meta-package (no main .ado but has other .ado files)
+    IS_METAPACKAGE=false
+    if [[ ! -f "$ADO_FILE" ]]; then
+        OTHER_ADO_COUNT=$(find "$PKG_DIR" -maxdepth 1 -name "*.ado" 2>/dev/null | wc -l)
+        if [[ "$OTHER_ADO_COUNT" -gt 0 ]]; then
+            IS_METAPACKAGE=true
+            echo "  (meta-package: $OTHER_ADO_COUNT commands, no main $pkg.ado)"
+        fi
+    fi
+
     # Extract versions
     ADO_VERSION=""
     ADO_DATE=""
@@ -121,7 +131,8 @@ for pkg in $PACKAGES; do
                 warn "$pkg.ado: Invalid semantic version format: $ADO_VERSION"
             fi
         fi
-    else
+    elif [[ "$IS_METAPACKAGE" == false ]]; then
+        # Only error if not a meta-package
         error "$pkg.ado not found"
     fi
 
@@ -141,7 +152,8 @@ for pkg in $PACKAGES; do
         if echo "$STHLP_LINE" | grep -q '{\* \*{\*'; then
             error "$pkg.sthlp: Malformed SMCL header (duplicate braces)"
         fi
-    else
+    elif [[ "$IS_METAPACKAGE" == false ]]; then
+        # Only error if not a meta-package
         error "$pkg.sthlp not found"
     fi
 
@@ -170,8 +182,13 @@ for pkg in $PACKAGES; do
     fi
 
     # Display extracted versions
-    echo "  .ado version:    ${ADO_VERSION:-NOT FOUND} (${ADO_DATE:-no date})"
-    echo "  .sthlp version:  ${STHLP_VERSION:-NOT FOUND} (${STHLP_DATE:-no date})"
+    if [[ "$IS_METAPACKAGE" == true ]]; then
+        echo "  .ado version:    N/A (meta-package)"
+        echo "  .sthlp version:  N/A (meta-package)"
+    else
+        echo "  .ado version:    ${ADO_VERSION:-NOT FOUND} (${ADO_DATE:-no date})"
+        echo "  .sthlp version:  ${STHLP_VERSION:-NOT FOUND} (${STHLP_DATE:-no date})"
+    fi
     echo "  .pkg date:       ${PKG_DATE:-NOT FOUND}"
     echo "  README version:  ${README_VERSION:-NOT FOUND}"
 
