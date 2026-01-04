@@ -7,6 +7,12 @@ Scope:
 Notes:
 - Static review only; no Stata execution in this pass.
 
+## Test Execution (Stata batch)
+- `/usr/local/stata17/stata-mp -b do _testing/test_tvtools_comprehensive.do` → PASS (87/87). Log: `test_tvtools_comprehensive.log`.
+- `/usr/local/stata17/stata-mp -b do _validation/validation_tvtools_comprehensive.do` → PASS (16/16). Log: `validation_tvtools_comprehensive.log`.
+- `/usr/local/stata17/stata-mp -b do _testing/run_all_tests.do` → FAIL (1/17 files): `test_datefix.do` failed with r(602) because `datefix.sthlp` already exists. Log: `run_all_tests.log`.
+- `/usr/local/stata17/stata-mp -b do run_all_validation.do` from `_validation/` → PASS (3 suites). Log: `_validation/run_all_validation.log`.
+
 ## High-priority Issues
 - tvpipeline diagnose option always fails because tvdiagnose is called without any report flags (tvtools/tvpipeline.ado:320-328); tests expect this to pass (_testing/test_tvpipeline.do:312-323). Best fix: call `tvdiagnose, ... all` (or a specific report option plus entry()/exit()) when diagnose is set, or make tvdiagnose default to `all` when no report option is provided.
 - tvcalendar merge() option is computed but never used in the merge; merge() is effectively ignored (tvtools/tvcalendar.ado:78-102). Best fix: use `keepusing()` or subset `using` to merge() variables; exclude `datevar` by default when auto-selecting merge vars.
@@ -30,4 +36,3 @@ Notes:
 ## Dependency/Testing Notes
 - `distinct` is used in tvdiagnose, tvpass, tvpipeline, tvreport, and tvtrial without bundling (tvtools/tvdiagnose.ado:95-96; tvtools/tvpass.ado:71-72; tvtools/tvpipeline.ado:133-134; tvtools/tvreport.ado:62-63; tvtools/tvtrial.ado:397-398). Best fix: replace with built-in unique-ID counting or include a local fallback utility.
 - _testing/test_tvexpose.do installs `distinct` without capture, causing hard failures in restricted/offline environments (_testing/test_tvexpose.do:95-99). Best fix: `capture quietly ssc install distinct` and provide a skip/warn path when unavailable.
-
