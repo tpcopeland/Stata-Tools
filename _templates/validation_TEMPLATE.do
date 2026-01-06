@@ -21,6 +21,7 @@
 
 clear all
 set more off
+set seed 12345
 version 16.0
 
 * =============================================================================
@@ -104,14 +105,26 @@ local failed_tests ""
 * =============================================================================
 
 * Program to check floating point equality with tolerance
+* Uses Stata's built-in reldif() for robust relative difference checking
+* Default tolerance of 1e-6 is appropriate for double precision calculations
 capture program drop _assert_equal
 program define _assert_equal
     args actual expected tolerance
-    if "`tolerance'" == "" local tolerance = 0.0001
-    local diff = abs(`actual' - `expected')
-    local rel_diff = `diff' / max(abs(`expected'), 1)
+    if "`tolerance'" == "" local tolerance = 1e-6
+
+    * Handle missing values
+    if missing(`actual') & missing(`expected') exit 0
+    if missing(`actual') | missing(`expected') {
+        display as error "  Expected: `expected', Got: `actual' (one is missing)"
+        exit 9
+    }
+
+    * Use reldif() for robust relative difference
+    local rel_diff = reldif(`actual', `expected')
     if `rel_diff' > `tolerance' {
-        display as error "  Expected: `expected', Got: `actual' (diff: `diff')"
+        local abs_diff = abs(`actual' - `expected')
+        display as error "  Expected: `expected', Got: `actual'"
+        display as error "  Absolute diff: `abs_diff', Relative diff: `rel_diff'"
         exit 9
     }
 end

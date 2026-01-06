@@ -2,6 +2,7 @@
 *! Brief description of what the command does
 *! Author: Your Name
 *! Program class: rclass (returns results in r())
+*! Requires: Stata 16.0+
 
 /*
 Basic syntax:
@@ -18,8 +19,8 @@ Optional options:
 See help TEMPLATE for complete documentation
 */
 
-program define TEMPLATE, rclass
-    version 18.0
+program define TEMPLATE, rclass sortpreserve
+    version 16.0
     set varabbrev off
 
     * =========================================================================
@@ -74,34 +75,52 @@ program define TEMPLATE, rclass
     * =========================================================================
     * MAIN COMPUTATION
     * =========================================================================
-    * Use preserve/restore if modifying data
-    * Parse before preserve to catch errors early
+    * IMPORTANT: Choose the right pattern based on your command's purpose:
+    *
+    * PATTERN A: Command GENERATES new variables (most common)
+    *   - Do NOT use preserve/restore - generated vars would be lost!
+    *   - Work directly on data using `if `touse''
+    *   - Use tempvars for intermediate calculations
+    *
+    * PATTERN B: Command only REPORTS/ESTIMATES (no new vars for user)
+    *   - Use preserve/restore to safely modify data
+    *   - All calculations stay within preserve block
+    *   - Only return r() or e() results
 
-    preserve
-
+    * ------------------------------------------------------------------
+    * PATTERN A: Generating variables (no preserve)
+    * ------------------------------------------------------------------
     quietly {
-        keep if `touse'
+        * Use tempvar for intermediate calculations
+        tempvar temp1 temp2
+        gen double `temp1' = . if `touse'
+        gen double `temp2' = . if `touse'
 
-        * ------------------------------------------------------------------
-        * Your main computation logic goes here
-        * ------------------------------------------------------------------
+        * Create output variable (survives because no restore)
+        if "`replace'" != "" {
+            capture drop `generate'
+        }
+        gen double `generate' = . if `touse'
 
-        * Example: Create output variable
-        gen double `generate' = .
-
+        * Your computation logic goes here
         * Example: Loop over observations
         forvalues i = 1/`=_N' {
-            * Process each observation
+            if `touse'[`i'] {
+                * Process each observation
+            }
         }
-
-        * Example: Use tempvar for intermediate calculations
-        tempvar temp1 temp2
-        gen double `temp1' = .
-        gen double `temp2' = .
-
     }
 
-    restore
+    * ------------------------------------------------------------------
+    * PATTERN B: Reporting only (uncomment if needed)
+    * ------------------------------------------------------------------
+    * preserve
+    * quietly {
+    *     keep if `touse'
+    *     * ... calculations that modify data structure ...
+    *     * ... results stored in locals/scalars only ...
+    * }
+    * restore
 
     * =========================================================================
     * RETURN RESULTS

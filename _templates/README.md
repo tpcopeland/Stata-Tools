@@ -9,12 +9,23 @@ This folder contains templates for creating new Stata commands, based on the str
 | `TEMPLATE.ado` | Main command file with placeholder code structure |
 | `TEMPLATE.sthlp` | Help file in SMCL format |
 | `TEMPLATE.pkg` | Package metadata for `net install` |
-| `TEMPLATE.dlg` | Dialog file for GUI (kept complete for reference) |
+| `TEMPLATE.dlg` | Dialog file for GUI **(Optional - most commands don't need this)** |
 | `TEMPLATE_README.md` | Package README.md documentation template |
 | `testing_TEMPLATE.do` | Functional tests (does it run?) |
 | `validation_TEMPLATE.do` | Validation tests (is it correct?) |
 
-## How to Use
+**Note**: Dialog files (`.dlg`) are rarely needed for modern Stata packages. Most users prefer command-line syntax. Only create dialogs if your command targets users who specifically need GUI access.
+
+## Quick Start
+
+```bash
+# One-liner to set up a new command (from repo root):
+.claude/scripts/scaffold-command.sh mycommand "Description of what it does"
+```
+
+This creates the directory structure, copies templates, and replaces placeholders automatically.
+
+## Manual Setup
 
 ### 1. Copy and Rename Files
 
@@ -102,7 +113,9 @@ Replace all instances of `TEMPLATE` with your command name in each file:
 
 Both are required for production-ready commands.
 
-## Dialog File Tips
+## Dialog File Tips (Optional/Advanced)
+
+> **Most commands don't need dialog files.** Only create one if you specifically need GUI support.
 
 The `.dlg` template is kept complete because dialog syntax is difficult for LLMs. Key patterns:
 

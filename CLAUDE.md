@@ -12,7 +12,7 @@
 
 ## Critical Rules (Always Follow)
 
-1. **Always set**: `version 16.0` (compatibility) or `version 18.0`, `set varabbrev off`, `set more off`
+1. **Always set**: `version 16.0` (compatibility), `set varabbrev off`, `set more off`
 2. **Use `marksample touse`** for if/in conditions in programs
 3. **Return results** via `return` (rclass) or `ereturn` (eclass)
 4. **Use temp objects**: `tempvar`, `tempfile`, `tempname`
@@ -20,7 +20,11 @@
 6. **Never abbreviate** variable names in production code
 7. **Read before editing**: ALWAYS use Read tool before modifying any files
 8. **Check syntax twice**: Verify backticks, quotes, and macro references before implementing
-9. **Macro name limit**: Local and global macro names must be ≤31 characters (Stata silently truncates longer names)
+9. **Macro name limit**: Local and global macro names must be ≤31 characters (Stata silently truncated)
+10. **Use `double` precision**: Always use `gen double` for new numeric variables to prevent precision loss
+11. **Avoid SSC dependencies**: Minimize external dependencies; if SSC commands are needed, check with `capture which command`
+
+**Version targeting**: Use `version 16.0` for maximum compatibility unless Stata 18 features (frames, Python integration) are specifically required.
 
 ---
 
@@ -500,6 +504,20 @@ end
 
 **Key**: Parse before preserve (catch errors early). Cannot nest preserves.
 
+**CRITICAL WARNING**: Variables created inside `preserve`/`restore` are **lost** when `restore` runs!
+
+```stata
+// WRONG - variable disappears after restore!
+preserve
+gen double result = x * 2
+restore    // result is gone!
+
+// CORRECT - don't use preserve when generating variables
+gen double result = x * 2 if `touse'
+```
+
+**When to use preserve**: Only for estimation/reporting commands that need to temporarily modify data structure (e.g., `collapse`, `reshape`) but don't create user-visible variables.
+
 ---
 
 ## Testing
@@ -576,6 +594,8 @@ set trace off
 10. Creating LICENSE files (use MIT in .pkg and README only)
 11. Forgetting to update both READMEs
 12. **Macro names >31 characters** (silently truncated, causes collision bugs)
+13. **Using `preserve`/`restore` when generating variables** - generated vars are lost on `restore`! Only use preserve for estimation/reporting commands that don't create user-visible variables.
+14. **Using `float` instead of `double`** - causes precision loss; always use `gen double`
 
 ---
 
