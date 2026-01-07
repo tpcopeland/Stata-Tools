@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.1  31dec2025}{...}
+{* *! version 2.0.0  07jan2026}{...}
 {viewerjumpto "Syntax" "procmatch##syntax"}{...}
 {viewerjumpto "Description" "procmatch##description"}{...}
 {viewerjumpto "Options" "procmatch##options"}{...}

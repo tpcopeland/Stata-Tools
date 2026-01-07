@@ -31,7 +31,7 @@ d     window menu append item "Time-varying exposures" "Merge TV datasets (tvmer
 d     window menu append item "Time-varying exposures" "Add events to TV datasets (tvevent)" "db tvevent"
 d     window menu refresh
 d
-d For help: help tvexpose, help tvmerge, help tvevent
+d For help: help tvexpose, help tvmerge, help tvevent, help tvage
 d
 f tvexpose.ado
 f tvexpose.dlg
@@ -72,4 +72,6 @@ f tvreport.ado
 f tvreport.sthlp
 f tvtools_menu_setup.do
 f tvtools.sthlp
+f tvage.ado
+f tvage.sthlp
 g validation_example.do

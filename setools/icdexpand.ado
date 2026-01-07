@@ -1,4 +1,4 @@
-*! icdexpand Version 1.0.1  2025/12/17
+*! icdexpand Version 2.0.0  2026/01/07
 *! ICD-10 code utilities for Swedish registry research
 *! Part of the setools package
 *!
@@ -351,19 +351,12 @@ end
 
 
 **# icdexpand_match - Generate matching condition for diagnosis variables
+*  Rewritten in v2.0 to use efficient set-based operations instead of
+*  looping through expanded codes. Uses inrange() for ranges and
+*  substr() for prefix matching.
 program define icdexpand_match, rclass
     version 16.0
-    syntax, codes(string) dxvars(varlist) [GENerate(name) REPlace CASEsensitive MAXcodes(integer 15000) NOIsily]
-
-    * First expand the codes
-    icdexpand_expand, pattern(`codes') maxcodes(`maxcodes')
-    local expanded_codes "`r(codes)'"
-    local n_codes = r(n_codes)
-
-    if `n_codes' == 0 {
-        display as error "No valid codes after expansion"
-        exit 198
-    }
+    syntax, codes(string) dxvars(varlist) [GENerate(name) REPlace NOIsily]
 
     * Generate variable name if not specified
     if "`generate'" == "" {
@@ -385,31 +378,67 @@ program define icdexpand_match, rclass
     quietly generate byte `generate' = 0
     label variable `generate' "ICD match: `codes'"
 
-    * Match using loop approach (avoids compound quote issues with inlist)
-    * For each diagnosis variable
-    foreach dxvar of varlist `dxvars' {
+    * Parse patterns and apply efficient matching
+    * Handle comma-separated patterns
+    local pattern = trim("`codes'")
+    tokenize "`pattern'", parse(", ")
+    local i = 1
+    local n_patterns = 0
 
-        * Create uppercase version of dx variable for case-insensitive matching
-        if "`casesensitive'" == "" {
-            tempvar dxvar_upper
-            quietly gen str `dxvar_upper' = upper(`dxvar')
-        }
-        else {
-            local dxvar_upper "`dxvar'"
-        }
+    while "``i''" != "" {
+        local thispattern = upper(trim("``i''"))
 
-        * Loop through each expanded code and mark matches
-        foreach code of local expanded_codes {
-            if "`casesensitive'" == "" {
-                local code = upper("`code'")
+        if "`thispattern'" != "," & "`thispattern'" != "" {
+            local ++n_patterns
+
+            * Determine pattern type and apply efficient matching
+            local has_range = (strpos("`thispattern'", "-") > 0)
+            local has_wild = (strpos("`thispattern'", "*") > 0)
+
+            if `has_range' & `has_wild' {
+                * Combined range+wildcard (e.g., I60-I69*)
+                * Extract range part (remove *)
+                local range_part = subinstr("`thispattern'", "*", "", .)
+                tokenize "`range_part'", parse("-")
+                local start = upper(trim("`1'"))
+                local end = upper(trim("`3'"))
+                local prefixlen = length("`start'")
+
+                foreach dxvar of varlist `dxvars' {
+                    quietly replace `generate' = 1 if ///
+                        inrange(substr(upper(`dxvar'), 1, `prefixlen'), "`start'", "`end'")
+                }
             }
-            quietly replace `generate' = 1 if `dxvar_upper' == "`code'"
-        }
+            else if `has_range' {
+                * Range only (e.g., E10-E14)
+                tokenize "`thispattern'", parse("-")
+                local start = upper(trim("`1'"))
+                local end = upper(trim("`3'"))
+                local prefixlen = length("`start'")
 
-        * Clean up temp variable
-        if "`casesensitive'" == "" {
-            capture drop `dxvar_upper'
+                foreach dxvar of varlist `dxvars' {
+                    quietly replace `generate' = 1 if ///
+                        inrange(substr(upper(`dxvar'), 1, `prefixlen'), "`start'", "`end'")
+                }
+            }
+            else if `has_wild' {
+                * Wildcard only (e.g., I63*)
+                local prefix = subinstr("`thispattern'", "*", "", .)
+                local prefixlen = length("`prefix'")
+
+                foreach dxvar of varlist `dxvars' {
+                    quietly replace `generate' = 1 if ///
+                        substr(upper(`dxvar'), 1, `prefixlen') == "`prefix'"
+                }
+            }
+            else {
+                * Exact match
+                foreach dxvar of varlist `dxvars' {
+                    quietly replace `generate' = 1 if upper(`dxvar') == "`thispattern'"
+                }
+            }
         }
+        local ++i
     }
 
     * Report results
@@ -418,11 +447,10 @@ program define icdexpand_match, rclass
 
     if "`noisily'" != "" {
         display as text "Created variable " as result "`generate'" as text " with " as result `n_matches' as text " matches"
-        display as text "Searched " as result `n_codes' as text " ICD codes across " as result `: word count `dxvars'' as text " diagnosis variables"
+        display as text "Matched " as result `n_patterns' as text " pattern(s) across " as result `: word count `dxvars'' as text " diagnosis variable(s)"
     }
 
     return local varname "`generate'"
-    return local codes "`expanded_codes'"
-    return scalar n_codes = `n_codes'
+    return scalar n_patterns = `n_patterns'
     return scalar n_matches = `n_matches'
 end

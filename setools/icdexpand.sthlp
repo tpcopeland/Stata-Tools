@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.1  31dec2025}{...}
+{* *! version 2.0.0  07jan2026}{...}
 {vieweralsosee "[D] generate" "help generate"}{...}
 {vieweralsosee "migrations" "help migrations"}{...}
 {vieweralsosee "sustainedss" "help sustainedss"}{...}
@@ -63,7 +63,6 @@ Create matching indicator variable:
 {syntab:Optional}
 {synopt:{opt gen:erate(name)}}name for generated indicator variable; default is {cmd:_icd_match}{p_end}
 {synopt:{opt replace}}replace existing variable if it exists{p_end}
-{synopt:{opt case:sensitive}}perform case-sensitive matching{p_end}
 {synopt:{opt noi:sily}}display matching summary{p_end}
 {synoptline}
 {p2colreset}{...}
@@ -183,10 +182,6 @@ Default is {cmd:_icd_match}.
 {opt replace} allows an existing variable with the same name to be replaced.
 
 {phang}
-{opt casesensitive} performs case-sensitive matching. By default, matching is
-case-insensitive (both codes and diagnosis variables are converted to uppercase).
-
-{phang}
 {opt noisily} displays a summary of matching results.
 
 
@@ -284,10 +279,9 @@ case-insensitive (both codes and diagnosis variables are converted to uppercase)
 {synoptset 20 tabbed}{...}
 {p2col 5 20 24 2: Macros}{p_end}
 {synopt:{cmd:r(varname)}}name of generated indicator variable{p_end}
-{synopt:{cmd:r(codes)}}space-separated list of expanded codes searched{p_end}
 
 {p2col 5 20 24 2: Scalars}{p_end}
-{synopt:{cmd:r(n_codes)}}number of codes searched{p_end}
+{synopt:{cmd:r(n_patterns)}}number of patterns matched{p_end}
 {synopt:{cmd:r(n_matches)}}number of observations matching{p_end}
 
 

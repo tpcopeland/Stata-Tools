@@ -36,7 +36,6 @@ and MS disability progression endpoints (EDSS, CDP, PIRA).
 
 {synopt:{helpb dateparse}}Date utilities for Swedish registry cohort studies{p_end}
 {synopt:{helpb covarclose}}Extract covariate values closest to index date{p_end}
-{synopt:{helpb tvage}}Generate time-varying age intervals for survival analysis{p_end}
 
 {pstd}
 {bf:Migration Registry}

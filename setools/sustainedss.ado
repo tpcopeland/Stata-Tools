@@ -1,4 +1,4 @@
-*! sustainedss Version 1.0.1  03dec2025  Tim Copeland
+*! sustainedss Version 1.1.0  07jan2026  Tim Copeland
 *! Compute sustained EDSS progression date
 *! Part of the setools package
 
@@ -11,7 +11,7 @@ program define sustainedss, rclass
         [ ///
         GENerate(string) ///
         CONFirmwindow(integer 182) ///
-        BASElinethreshold(real 4) ///
+        BASElinethreshold(real -1) ///
         KEEPall ///
         Quietly ///
         ]
@@ -39,7 +39,12 @@ program define sustainedss, rclass
         di as error "threshold() must be positive"
         exit 198
     }
-    
+
+    // Default baselinethreshold to threshold if not specified
+    if `baselinethreshold' < 0 {
+        local baselinethreshold = `threshold'
+    }
+
     // Default generate name
     if "`generate'" == "" {
         local generate "sustained`=subinstr(string(`threshold'),".","_",.)'_dt"

@@ -1,4 +1,4 @@
-*! procmatch Version 1.0.1  2025/12/31
+*! procmatch Version 2.0.0  2026/01/07
 *! Procedure code matching for Swedish registry research
 *! Part of the setools package
 *!
@@ -48,6 +48,8 @@ end
 
 
 **# procmatch_match - Generate matching condition for procedure variables
+*  Rewritten in v2.0 to use efficient matching with inlist() for exact
+*  matching and substr() for prefix matching.
 program define procmatch_match, rclass
     version 16.0
     syntax, codes(string) procvars(varlist) [GENerate(name) REPlace PREfix NOIsily]
@@ -90,29 +92,32 @@ program define procmatch_match, rclass
     quietly generate byte `generate' = 0
     label variable `generate' "Procedure match: `codes'"
 
-    * For each procedure variable, check for matches
+    * For each procedure variable, apply efficient matching
     foreach procvar of varlist `procvars' {
 
-        * Create uppercase version for case-insensitive matching
-        tempvar procvar_upper
-        quietly gen str `procvar_upper' = upper(`procvar')
-
-        * Match using prefix (first N characters) or exact match
-        foreach code of local codes_upper {
-            local codelen = strlen("`code'")
-
-            if "`prefix'" != "" {
-                * Prefix matching - match if procedure starts with code
-                quietly replace `generate' = 1 if substr(`procvar_upper', 1, `codelen') == "`code'"
-            }
-            else {
-                * Exact matching
-                quietly replace `generate' = 1 if `procvar_upper' == "`code'"
+        if "`prefix'" != "" {
+            * Prefix matching - one replace per code using substr
+            foreach code of local codes_upper {
+                local codelen = length("`code'")
+                quietly replace `generate' = 1 if ///
+                    substr(upper(`procvar'), 1, `codelen') == "`code'"
             }
         }
-
-        * Clean up temp variable
-        capture drop `procvar_upper'
+        else {
+            * Exact matching - use inlist() in chunks of 10
+            local remaining "`codes_upper'"
+            while "`remaining'" != "" {
+                * Get up to 10 codes for inlist
+                local chunk ""
+                local chunk_count = 0
+                while `chunk_count' < 10 & "`remaining'" != "" {
+                    gettoken code remaining : remaining
+                    local chunk `"`chunk' "`code'""'
+                    local ++chunk_count
+                }
+                quietly replace `generate' = 1 if inlist(upper(`procvar'), `chunk')
+            }
+        }
     }
 
     * Report results
@@ -132,6 +137,7 @@ end
 
 
 **# procmatch_first - Extract first occurrence date of matching procedures
+*  Rewritten in v2.0 to use efficient matching.
 program define procmatch_first, rclass
     version 16.0
     syntax, codes(string) procvars(varlist) datevar(varname) IDvar(varname) ///
@@ -179,28 +185,32 @@ program define procmatch_first, rclass
     tempvar row_match
     quietly generate byte `row_match' = 0
 
-    * For each procedure variable, check for matches
+    * For each procedure variable, apply efficient matching
     foreach procvar of varlist `procvars' {
 
-        * Create uppercase version for case-insensitive matching
-        tempvar procvar_upper
-        quietly gen str `procvar_upper' = upper(`procvar')
-
-        * Match using prefix (first N characters) or exact match
-        foreach code of local codes_upper {
-            local codelen = strlen("`code'")
-
-            if "`prefix'" != "" {
-                * Prefix matching
-                quietly replace `row_match' = 1 if substr(`procvar_upper', 1, `codelen') == "`code'"
-            }
-            else {
-                * Exact matching
-                quietly replace `row_match' = 1 if `procvar_upper' == "`code'"
+        if "`prefix'" != "" {
+            * Prefix matching - one replace per code using substr
+            foreach code of local codes_upper {
+                local codelen = length("`code'")
+                quietly replace `row_match' = 1 if ///
+                    substr(upper(`procvar'), 1, `codelen') == "`code'"
             }
         }
-
-        capture drop `procvar_upper'
+        else {
+            * Exact matching - use inlist() in chunks of 10
+            local remaining "`codes_upper'"
+            while "`remaining'" != "" {
+                * Get up to 10 codes for inlist
+                local chunk ""
+                local chunk_count = 0
+                while `chunk_count' < 10 & "`remaining'" != "" {
+                    gettoken code remaining : remaining
+                    local chunk `"`chunk' "`code'""'
+                    local ++chunk_count
+                }
+                quietly replace `row_match' = 1 if inlist(upper(`procvar'), `chunk')
+            }
+        }
     }
 
     * Find first occurrence date per person

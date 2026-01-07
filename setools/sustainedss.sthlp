@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.1  31dec2025}{...}
+{* *! version 1.1.0  07jan2026}{...}
 {vieweralsosee "[ST] stset" "help stset"}{...}
 {vieweralsosee "migrations" "help migrations"}{...}
 {viewerjumpto "Syntax" "sustainedss##syntax"}{...}
@@ -37,7 +37,7 @@
 {syntab:Optional}
 {synopt:{opt gen:erate(newvar)}}name for generated date variable; default is {it:sustained#_dt}{p_end}
 {synopt:{opt conf:irmwindow(#)}}confirmation window in days; default is {bf:182}{p_end}
-{synopt:{opt base:linethreshold(#)}}EDSS level for reversal check; default is {bf:4}{p_end}
+{synopt:{opt base:linethreshold(#)}}EDSS level for reversal check; default is {it:threshold}{p_end}
 {synopt:{opt keepall}}retain all observations; default keeps only patients with events{p_end}
 {synopt:{opt q:uietly}}suppress iteration messages and summary output{p_end}
 {synoptline}
@@ -91,10 +91,11 @@ progression event during which EDSS must be sustained. The default is {bf:182}
 days (approximately 6 months), which is standard in MS research.
 
 {phang}
-{opt baselinethreshold(#)} specifies the EDSS level used to determine if 
-a progression was reversed. If the lowest EDSS in the confirmation window 
-falls below this value AND the last EDSS in the window is below the target 
-threshold, the event is rejected as not sustained. The default is {bf:4}.
+{opt baselinethreshold(#)} specifies the EDSS level used to determine if
+a progression was reversed. If the lowest EDSS in the confirmation window
+falls below this value AND the last EDSS in the window is below the target
+threshold, the event is rejected as not sustained. The default is the value
+specified in {opt threshold()}.
 
 {phang}
 {opt keepall} retains all observations from the original dataset, adding 

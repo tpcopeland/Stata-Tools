@@ -6,17 +6,18 @@ Comprehensive toolkit for time-varying exposure analysis in survival studies.
 
 ## Package Overview
 
-**tvtools** provides six integrated commands for creating, analyzing, and visualizing time-varying exposure data in survival analysis:
+**tvtools** provides seven integrated commands for creating, analyzing, and visualizing time-varying exposure data in survival analysis:
 
 ### Core Workflow Commands
 1. **tvexpose** - Create time-varying exposure variables from period-based exposure data
 2. **tvmerge** - Merge multiple time-varying exposure datasets with temporal alignment
 3. **tvevent** - Integrate events and competing risks into time-varying datasets
+4. **tvage** - Generate time-varying age intervals for survival analysis
 
 ### Diagnostic and Visualization Commands
-4. **tvdiagnose** - Assess data quality with coverage, gap, and overlap diagnostics
-5. **tvbalance** - Calculate standardized mean differences for covariate balance
-6. **tvplot** - Visualize exposure patterns with swimlane and person-time plots
+5. **tvdiagnose** - Assess data quality with coverage, gap, and overlap diagnostics
+6. **tvbalance** - Calculate standardized mean differences for covariate balance
+7. **tvplot** - Visualize exposure patterns with swimlane and person-time plots
 
 ### Typical Workflow
 
@@ -1080,6 +1081,112 @@ tvplot, id(id) start(start) stop(stop) exposure(tv_exposure) ///
 
 ---
 
+## tvage - Time-Varying Age Intervals
+
+**tvage** creates a long-format dataset with time-varying age intervals for survival analysis. Each observation represents a period where an individual was at a specific age (or age group), enabling age-adjusted Cox models with time-varying age.
+
+### Syntax
+
+```stata
+tvage, idvar(varname) dobvar(varname) entryvar(varname) exitvar(varname) ///
+    [generate(name) startgen(name) stopgen(name) groupwidth(#) ///
+     minage(#) maxage(#) saveas(filename) replace noisily]
+```
+
+### Required Options
+
+| Option | Description |
+|--------|-------------|
+| `idvar(varname)` | Person identifier variable |
+| `dobvar(varname)` | Date of birth variable (Stata date format) |
+| `entryvar(varname)` | Study entry date variable (Stata date format) |
+| `exitvar(varname)` | Study exit date variable (Stata date format) |
+
+### Optional Options
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `generate(name)` | Name for generated age variable | age_tv |
+| `startgen(name)` | Name for interval start date variable | age_start |
+| `stopgen(name)` | Name for interval stop date variable | age_stop |
+| `groupwidth(#)` | Width of age groups in years (1 = continuous) | 1 |
+| `minage(#)` | Minimum age to include | 0 |
+| `maxage(#)` | Maximum age to include | 120 |
+| `saveas(filename)` | Save expanded dataset to file | — |
+| `replace` | Overwrite existing file | — |
+| `noisily` | Display progress and summary | — |
+
+### Examples
+
+#### Example 1: Continuous Age (Default)
+
+Create single-year time-varying age intervals:
+
+```stata
+use cohort, clear
+tvage, idvar(id) dobvar(dob) entryvar(study_entry) exitvar(study_exit) noisily
+```
+
+Creates `age_tv` with continuous age values (40, 41, 42, ...) and corresponding `age_start`/`age_stop` dates.
+
+#### Example 2: 5-Year Age Groups
+
+Create 5-year age groups for survival analysis:
+
+```stata
+use cohort, clear
+tvage, idvar(id) dobvar(dob) entryvar(study_entry) exitvar(study_exit) ///
+    groupwidth(5) minage(40) maxage(80) noisily
+```
+
+Creates `age_tv` with labeled groups (40-44, 45-49, 50-54, ...).
+
+#### Example 3: Save to File
+
+Save expanded age data while preserving original data:
+
+```stata
+use cohort, clear
+tvage, idvar(id) dobvar(dob) entryvar(study_entry) exitvar(study_exit) ///
+    groupwidth(10) saveas(age_tv_data) replace noisily
+```
+
+#### Example 4: Use with tvmerge
+
+Merge time-varying age with time-varying exposures:
+
+```stata
+* Create time-varying age dataset
+use cohort, clear
+tvage, idvar(id) dobvar(dob) entryvar(study_entry) exitvar(study_exit) ///
+    groupwidth(5) saveas(tv_age.dta) replace
+
+* Create time-varying exposure dataset
+use cohort, clear
+tvexpose using medications, id(id) start(rx_start) stop(rx_stop) ///
+    exposure(drug) reference(0) entry(study_entry) exit(study_exit) ///
+    saveas(tv_meds.dta) replace
+
+* Merge age and exposure
+tvmerge tv_age tv_meds, id(id) ///
+    start(age_start rx_start) stop(age_stop rx_stop) ///
+    exposure(age_tv tv_exposure) ///
+    generate(age_group medication)
+```
+
+### Stored Results
+
+| Result | Description |
+|--------|-------------|
+| `r(n_persons)` | Number of unique persons |
+| `r(n_observations)` | Total person-age periods |
+| `r(groupwidth)` | Age group width used |
+| `r(varname)` | Name of age variable |
+| `r(startvar)` | Name of start date variable |
+| `r(stopvar)` | Name of stop date variable |
+
+---
+
 ## Requirements
 
 - Stata 16.0 or higher
@@ -1257,7 +1364,7 @@ estat phtest, detail
 
 ## Documentation
 
-- Core commands: `help tvexpose`, `help tvmerge`, `help tvevent`
+- Core commands: `help tvexpose`, `help tvmerge`, `help tvevent`, `help tvage`
 - Diagnostics: `help tvdiagnose`, `help tvbalance`, `help tvplot`
 
 ## Author
@@ -1277,11 +1384,12 @@ MIT License
 | tvexpose | 1.2.0 | 2025-12-14 |
 | tvmerge | 1.0.5 | 2025-12-18 |
 | tvevent | 1.4.0 | 2025-12-18 |
+| tvage | 1.1.0 | 2025-01-07 |
 | tvdiagnose | 1.0.0 | 2025-12-26 |
 | tvbalance | 1.0.0 | 2025-12-27 |
 | tvplot | 1.0.0 | 2025-12-27 |
 
-Package Distribution-Date: 20251229
+Package Distribution-Date: 20260107
 
 ### Checking Installed Version
 
@@ -1289,6 +1397,7 @@ Package Distribution-Date: 20251229
 which tvexpose
 which tvmerge
 which tvevent
+which tvage
 which tvdiagnose
 which tvbalance
 which tvplot

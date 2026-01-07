@@ -17,7 +17,6 @@ Toolkit for managing Swedish registry data in epidemiological cohort studies.
 | **sustainedss** | Compute sustained EDSS threshold dates (e.g., EDSS 4, EDSS 6) |
 | **cdp** | Confirmed Disability Progression from baseline EDSS |
 | **pira** | Progression Independent of Relapse Activity |
-| **tvage** | Generate time-varying age intervals for survival analysis |
 | **covarclose** | Extract covariate values closest to index date from longitudinal data |
 
 ---
@@ -381,36 +380,6 @@ tab progression_type
 | `r(N_cdp)` | Total CDP events |
 | `r(N_pira)` | PIRA events |
 | `r(N_raw)` | RAW events |
-
----
-
-## tvage - Time-Varying Age Intervals
-
-**tvage** creates a long-format dataset with time-varying age intervals for survival analysis. Each observation represents a period where an individual was at a specific age (or age group), enabling age-adjusted Cox models with time-varying age.
-
-### Syntax
-
-```stata
-tvage, idvar(varname) dobvar(varname) entryvar(varname) exitvar(varname) ///
-    [generate(name) startgen(name) stopgen(name) groupwidth(#) ///
-     minage(#) maxage(#) saveas(filename) replace noisily]
-```
-
-### Example
-
-```stata
-* Create 5-year age groups for survival analysis
-use cohort, clear
-tvage, idvar(id) dobvar(dob) entryvar(study_entry) exitvar(study_exit) ///
-    groupwidth(5) minage(40) maxage(80) saveas(age_tv) replace noisily
-```
-
-### Output
-
-The command creates a dataset with:
-- `age_tv` - Time-varying age or age group
-- `age_start` - Start date of age interval
-- `age_stop` - Stop date of age interval
 
 ---
 

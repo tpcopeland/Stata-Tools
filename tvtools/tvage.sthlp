@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.0  16dec2025}{...}
+{* *! version 1.1.0  07jan2026}{...}
 {viewerjumpto "Syntax" "tvage##syntax"}{...}
 {viewerjumpto "Description" "tvage##description"}{...}
 {viewerjumpto "Options" "tvage##options"}{...}
@@ -88,7 +88,7 @@ Default is {cmd:age_stop}.
 {phang}
 {opt groupwidth(#)} specifies the width of age groups in years. For example,
 {cmd:groupwidth(5)} creates 5-year age groups (40-44, 45-49, etc.).
-Default is 5. Use {cmd:groupwidth(1)} for single-year ages.
+Default is 1 (single-year continuous ages with no labels).
 
 {phang}
 {opt minage(#)} specifies the minimum age to include. Ages below this are set
@@ -152,7 +152,7 @@ the current data in memory.
 Karolinska Institutet{break}
 Stockholm, Sweden{p_end}
 
-{pstd}Part of the {cmd:setools} package for Swedish registry epidemiology.{p_end}
+{pstd}Part of the {cmd:tvtools} package for time-varying exposure analysis.{p_end}
 
 
 {title:Also see}

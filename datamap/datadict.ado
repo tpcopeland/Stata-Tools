@@ -1,4 +1,4 @@
-*! datadict Version 1.0.1  2025/12/03
+*! datadict Version 1.0.2  2026/01/07
 *! Generate clean Markdown data dictionaries matching professional documentation style
 *! Author: Tim Copeland
 
@@ -690,15 +690,17 @@ program define WriteVariableRow
 			}
 		}
 		else if "`varclass'" == "string" {
-			// Show unique count with N for strings
-			quietly count if !missing(`vname')
-			local nvalid = r(N)
-			capture quietly tab `vname'
+			// Use codebook compact for fast unique count (much faster than tab for high-cardinality strings)
+			capture quietly codebook `vname', compact
 			if _rc == 0 {
-				local valsnotes "N=`nvalid'; `r(r)' unique values"
+				local nvalid = r(N)
+				local nuniq = r(ndistinct)
+				local valsnotes "N=`nvalid'; `nuniq' unique values"
 			}
 			else {
-				local valsnotes "N=`nvalid'; High cardinality"
+				quietly count if !missing(`vname')
+				local nvalid = r(N)
+				local valsnotes "N=`nvalid'; String variable"
 			}
 		}
 	}

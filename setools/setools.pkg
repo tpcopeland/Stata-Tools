@@ -7,7 +7,6 @@ d - KVA procedure code matching
 d - Date parsing and window calculations for cohort studies
 d - Migration registry processing for exclusions and censoring
 d - MS disability progression: sustained EDSS, CDP, and PIRA
-d - Time-varying age interval generation
 d - Closest covariate extraction from longitudinal data
 d
 d Requires: Stata version 16+
@@ -29,7 +28,6 @@ d KW: EDSS
 d KW: CDP
 d KW: PIRA
 d KW: date utilities
-d KW: time-varying
 d
 f setools.sthlp
 f icdexpand.ado
@@ -46,7 +44,5 @@ f pira.ado
 f pira.sthlp
 f procmatch.ado
 f procmatch.sthlp
-f tvage.ado
-f tvage.sthlp
 f covarclose.ado
 f covarclose.sthlp
