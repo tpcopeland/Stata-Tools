@@ -1,5 +1,41 @@
 {smcl}
-{* *! version 1.2.0  19dec2025}{...}
+{* *! version 1.2.1  07jan2026}{...}
+{vieweralsosee "effecttab" "help effecttab"}{...}
+{vieweralsosee "gformtab" "help gformtab"}{...}
+{viewerjumpto "Package overview" "regtab##package"}{...}
+{viewerjumpto "Syntax" "regtab##syntax"}{...}
+{viewerjumpto "Description" "regtab##description"}{...}
+{viewerjumpto "Options" "regtab##options"}{...}
+{viewerjumpto "Examples" "regtab##examples"}{...}
+{viewerjumpto "Author" "regtab##author"}{...}
+{title:Title}
+
+{p2colset 5 15 17 2}{...}
+{p2col:{cmd:regtab} {hline 2}}Format regression and treatment effects tables for Excel{p_end}
+{p2colreset}{...}
+
+
+{marker package}{...}
+{title:Package Overview}
+
+{pstd}
+The {cmd:regtab} package provides commands for formatting regression and treatment
+effects output into publication-ready Excel tables. All commands work with
+Stata's {helpb collect} framework and apply professional formatting.
+
+{synoptset 14}{...}
+{synopt:{helpb regtab}}Format collected regression tables (logit, regress, stcox, etc.){p_end}
+{synopt:{helpb effecttab}}Format treatment effects and margins tables (teffects, margins){p_end}
+{synopt:{helpb gformtab}}Format gformula mediation analysis tables (TCE, NDE, NIE, PM, CDE){p_end}
+
+{pstd}
+{bf:Installation}
+
+{phang2}{cmd:. net install regtab, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/regtab") replace}{p_end}
+
+{hline}
+
+
 {title:regtab}
 
 {pstd}Format {helpb collect}ed regression results into a polished Excel table.{p_end}

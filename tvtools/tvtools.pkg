@@ -3,7 +3,7 @@ d 'TVTOOLS': Commands for formatting and merging time-varying data
 d
 d Requires: Stata version 16+
 d
-d Distribution-Date: 20251229
+d Distribution-Date: 20260107
 d License: MIT
 d
 d Author: Timothy P. Copeland
@@ -71,4 +71,5 @@ f tvpass.sthlp
 f tvreport.ado
 f tvreport.sthlp
 f tvtools_menu_setup.do
+f tvtools.sthlp
 g validation_example.do

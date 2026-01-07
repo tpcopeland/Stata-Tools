@@ -279,6 +279,18 @@ When errors are found, create a development log:
 | .pkg files valid | Y/N |
 | All .ado have .sthlp | Y/N |
 | All commands have tests | Y/N |
+| **Versions synchronized** | Y/N |
+
+### Version Consistency (run before commit)
+
+```bash
+.claude/scripts/check-versions.sh [package_name]
+```
+
+Verify:
+- `.ado` version == `.sthlp` version
+- `.pkg` Distribution-Date is current
+- README versions match
 
 ### Recommendation
 

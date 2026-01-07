@@ -12,7 +12,7 @@ d - Closest covariate extraction from longitudinal data
 d
 d Requires: Stata version 16+
 d
-d Distribution-Date: 20251231
+d Distribution-Date: 20260107
 d License: MIT
 d
 d Author: Tim Copeland
@@ -31,7 +31,6 @@ d KW: PIRA
 d KW: date utilities
 d KW: time-varying
 d
-f setools.ado
 f setools.sthlp
 f icdexpand.ado
 f icdexpand.sthlp

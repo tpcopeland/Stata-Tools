@@ -178,6 +178,26 @@ After approval:
 3. Update help file if options changed
 ```
 
+## Version Synchronization Check
+
+**When reviewing or editing package files, ALWAYS verify version consistency:**
+
+| Check | Files |
+|-------|-------|
+| Version match | `.ado` version == `.sthlp` version |
+| Date current | `.pkg` Distribution-Date reflects latest changes |
+| README updated | Package and root README versions match .ado |
+
+**If you edit ANY package file, you MUST also update:**
+1. `.ado` version line: `*! command Version X.Y.Z  YYYY/MM/DD`
+2. `.sthlp` version: `{* *! version X.Y.Z  DDmonYYYY}`
+3. `.pkg` Distribution-Date: `YYYYMMDD`
+4. README.md version references
+
+**Pre-commit will fail if versions are mismatched.**
+
+---
+
 ## Anti-Patterns
 
 DO NOT:
@@ -186,6 +206,7 @@ DO NOT:
 - Ignore missing error handling
 - Approve without checking help file alignment
 - Make assumptions about variable names - verify in code
+- Edit one file without updating versions in related package files
 
 ## Context Files to Load
 

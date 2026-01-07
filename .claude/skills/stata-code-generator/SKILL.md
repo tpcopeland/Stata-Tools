@@ -352,6 +352,36 @@ drop temp_abs
 
 ---
 
+## Version Synchronization (CRITICAL)
+
+**When modifying ANY file in a package, you MUST update versions in ALL related files to stay synchronized:**
+
+| File | What to Update |
+|------|----------------|
+| `.ado` | Version line: `*! command Version X.Y.Z  YYYY/MM/DD` |
+| `.sthlp` | Version comment: `{* *! version X.Y.Z  DDmonYYYY}` |
+| `.pkg` | `Distribution-Date: YYYYMMDD` (how Stata detects updates) |
+| Package `README.md` | Version in footer |
+| Root `README.md` | Version if command is listed |
+
+**Version Rules:**
+- Use semantic versioning: X.Y.Z (never X.Y)
+- Increment PATCH (Z) for bug fixes and minor changes
+- Increment MINOR (Y) for new features
+- Increment MAJOR (X) for breaking changes
+- All files MUST have matching version numbers
+- `v 3` in .pkg/.toc is file format version - NEVER change
+
+**Example - After modifying regtab.sthlp:**
+```
+1. Update regtab.ado version line to match
+2. Update regtab.pkg Distribution-Date to today
+3. Update regtab/README.md version
+4. Check root README.md if applicable
+```
+
+---
+
 ## Anti-Patterns
 
 ```
@@ -365,6 +395,7 @@ DO NOT:
 - Hard-code paths (use arguments or macros)
 - Forget to clean up temp files on error
 - Use macro names > 31 characters
+- Modify one package file without updating versions in ALL related files
 ```
 
 ---
