@@ -1,0 +1,445 @@
+VERSION 16.0
+INCLUDE _std_xlarge
+DEFINE _dlght 500
+DEFINE _dlgwd 640
+INCLUDE header
+
+HELP hlp1, view("help table1_tc")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	program parseMessage
+	script max_setOptionalOn
+END
+
+SCRIPT POSTINIT
+BEGIN
+	script max_setDefaultWidth
+	main.ed_if.disable
+	main.ed_in.disable
+	main.ed_fweight.disable
+	script bygroup_by_off
+	script bygroup_total_off
+	script output_excel_off
+END
+
+DIALOG main, label("table1_tc - Table 1 of Baseline Characteristics") tabtitle("Main")
+BEGIN
+  TEXT     tx_info       10  10  620  ., label("Create publication-ready Table 1 of baseline characteristics.")
+
+  GROUPBOX gb_sample     10  +25 620  75, label("Sample Selection")
+  CHECKBOX ck_if         20  +20 60   ., label("If:") ///
+           onclickon(main.ed_if.enable) onclickoff(main.ed_if.disable)
+  EDIT     ed_if         75  @ 545    ., label("If condition")
+
+  CHECKBOX ck_in         20  +25 60   ., label("In:") ///
+           onclickon(main.ed_in.enable) onclickoff(main.ed_in.disable)
+  EDIT     ed_in         75  @ 545    ., label("In range")
+
+  GROUPBOX gb_weights    10  +30 620  50, label("Weights")
+  CHECKBOX ck_fweight    20  +20 160  ., label("Frequency weights:") ///
+           onclickon(main.ed_fweight.enable) onclickoff(main.ed_fweight.disable)
+  EDIT     ed_fweight    170 @ 445    ., label("Weight variable")
+
+  GROUPBOX gb_vars       10  +30 620  180, label("Variables to Display (REQUIRED)")
+  TEXT     tx_vars_help  20  +15 600  ., label("Specify variables with their types separated by backslash (\)")
+  TEXT     tx_vars_types 20  +15 600  ., label("Types: contn, contln, conts, cat, cate, bin, bine. See Quick Reference below or help file for details")
+  EDIT     ed_vars       20  +20 600  100, error("Variables") label("Variables")
+  TEXT     tx_vars_ex    20  +100 600 ., label("Example: weight contn \ price contln \ mpg conts \ rep78 cate \ foreign bin")
+END
+
+
+DIALOG bygroup, tabtitle("By/Grouping")
+BEGIN
+  TEXT     tx_by_info     10  10  620  25, label("Group observations by a categorical variable and compare characteristics between groups.")
+
+  GROUPBOX gb_by          10  +25 620  45, label("Grouping Variable")
+  CHECKBOX ck_by          20  +20 160  ., label("Group by variable:") ///
+           onclickon(script bygroup_by_on) onclickoff(script bygroup_by_off)
+  VARNAME  vn_by          180 @ 450    ., label("By variable")
+
+  GROUPBOX gb_total       10  +25 620  85, label("Total Column")
+  CHECKBOX ck_total       20  +20 160  ., label("Include total column") ///
+           onclickon(script bygroup_total_on) onclickoff(script bygroup_total_off)
+  RADIO    rb_total_before 185 +20 445 ., first label("Before group columns") ///
+           option("before") default(1)
+  RADIO    rb_total_after @ +20 @      ., last label("After group columns") ///
+           option("after")
+
+  GROUPBOX gb_stats       10  +25 620  105, label("Statistical Comparisons")
+  CHECKBOX ck_test        20  +20 280  ., label("Include test column")
+  CHECKBOX ck_statistic   20  +20 280  ., label("Include test statistic")
+  CHECKBOX ck_pairwise123 20  +20 280  ., label("Pairwise comparisons (first 3 groups)")
+  CHECKBOX ck_headerperc  20  +20 280  ., label("Show group percentages in header")
+END
+
+
+
+SCRIPT bygroup_by_on
+BEGIN
+        bygroup.vn_by.enable
+        bygroup.ck_total.enable
+        bygroup.ck_test.enable
+        bygroup.ck_statistic.enable
+        bygroup.ck_pairwise123.enable
+        bygroup.ck_headerperc.enable
+END
+
+SCRIPT bygroup_by_off
+BEGIN
+        bygroup.vn_by.disable
+        bygroup.ck_total.disable
+        bygroup.rb_total_before.disable
+        bygroup.rb_total_after.disable
+        bygroup.ck_test.disable
+        bygroup.ck_statistic.disable
+        bygroup.ck_pairwise123.disable
+        bygroup.ck_headerperc.disable
+END
+
+SCRIPT bygroup_total_on
+BEGIN
+        bygroup.rb_total_before.enable
+        bygroup.rb_total_after.enable
+END
+
+SCRIPT bygroup_total_off
+BEGIN
+        bygroup.rb_total_before.disable
+        bygroup.rb_total_after.disable
+END
+
+// Formatting tab
+DIALOG format, tabtitle("Formatting")
+BEGIN
+  TEXT     tx_format_info 10  10  620  25, label("Customize how statistics are displayed in the table.")
+
+  GROUPBOX gb_cont_format 10  +25 620  75, label("Continuous Variables")
+  TEXT     tx_format      20  +20 160  ., label("Default format:")
+  EDIT     ed_format      185 @ 445    ., label("Format")
+
+  TEXT     tx_nformat     20  +20 160  ., label("Count format (n, N):")
+  EDIT     ed_nformat     185 @ 445    ., default("%12.0fc") label("N format")
+
+  GROUPBOX gb_cat_format  10  +25 620  115, label("Categorical Variables")
+  TEXT     tx_percformat  20  +20 160  ., label("Percentage format:")
+  EDIT     ed_percformat  185 @ 445    ., label("Percentage format")
+
+  TEXT     tx_percsign    20  +20 160  ., label("Percent sign:")
+  EDIT     ed_percsign    185 @ 100    ., default("%") label("Percent sign")
+
+  CHECKBOX ck_catrowperc  20  +20 280  ., label("Use row percentages (instead of column)")
+  CHECKBOX ck_missing     20  +20 280  ., label("Include missing as category")
+
+  GROUPBOX gb_symbols     10  +25 620  145, label("Symbols and Delimiters")
+  TEXT     tx_iqrmiddle   20  +20 160  ., label("IQR separator:")
+  EDIT     ed_iqrmiddle   185 @ 100    ., default("-") label("IQR separator")
+
+  TEXT     tx_sdleft      20  +20 160  ., label("SD left symbol:")
+  EDIT     ed_sdleft      185 @ 100    ., default(" (") label("SD left")
+
+  TEXT     tx_sdright     20  +20 160  ., label("SD right symbol:")
+  EDIT     ed_sdright     185 @ 100    ., default(")") label("SD right")
+
+  TEXT     tx_gsdleft     20  +20 160  ., label("GSD left symbol:")
+  EDIT     ed_gsdleft     185 @ 100    ., default(" (×/") label("GSD left")
+
+  TEXT     tx_gsdright    20  +20 160  ., label("GSD right symbol:")
+  EDIT     ed_gsdright    185 @ 100    ., default(")") label("GSD right")
+END
+
+DIALOG display, tabtitle("Display")
+BEGIN
+  TEXT     tx_display_info 10  10  620  25, label("Control how data is presented and formatted in the table.")
+
+  GROUPBOX gb_style        10  +25 620  105, label("Display Style")
+  CHECKBOX ck_onecol       20  +20 280  ., label("One column for categorical variables")
+  CHECKBOX ck_percent      20  +20 280  ., label("Show % only (no n)")
+  CHECKBOX ck_percent_n    20  +20 280  ., label("Show % (n) instead of n (%)")
+  CHECKBOX ck_slashN       20  +20 280  ., label("Show n/N instead of n")
+
+  GROUPBOX gb_align        10  +25 620  85, label("Alignment and Spacing")
+  CHECKBOX ck_nospace      20  +20 280  ., label("No space for low percentages")
+  CHECKBOX ck_extraspace   20  +20 280  ., label("Add extra spacing")
+  CHECKBOX ck_varlabplus   20  +20 280  ., label("Add data type to variable labels")
+
+  GROUPBOX gb_pvalue       10  +25 620  75, label("P-value Display")
+  TEXT     tx_pdp          20  +20 160  ., label("Decimals (p < 0.10):")
+  EDIT     ed_pdp          185 @ 70     ., default("3") numonly label("P decimals low")
+
+  TEXT     tx_highpdp      20  +20 160  ., label("Decimals (p >= 0.10):")
+  EDIT     ed_highpdp      185 @ 70     ., default("2") numonly label("P decimals high")
+
+  GROUPBOX gb_preset       10  +25 620  55, label("Preset Options")
+  CHECKBOX ck_gurmeet      20  +20 280  ., label("Gurmeet preset (overrides other formatting)")
+END
+
+// Excel/Output tab
+DIALOG output, tabtitle("Excel/Output")
+BEGIN
+  TEXT     tx_output_info 10  10  620  25, label("Export table to Excel with professional formatting or keep in memory.")
+
+  GROUPBOX gb_excel       10  +25 620  135, label("Excel Export")
+  CHECKBOX ck_excel       20  +20 160  ., label("Export to Excel:") ///
+           onclickon(script output_excel_on) onclickoff(script output_excel_off)
+  FILE     fi_excel       185 @ 445    ., error("Excel filename") label("Browse...") ///
+           filter("Excel Files (*.xlsx)|*.xlsx|All Files (*.*)|*.*") save defext("xlsx")
+
+  TEXT     tx_sheet       20  +25 160  ., label("Sheet name:")
+  EDIT     ed_sheet       185 @ 445    ., label("Sheet name")
+
+  TEXT     tx_title       20  +20 160  ., label("Table title:")
+  EDIT     ed_title       185 @ 445    ., label("Title")
+
+  TEXT     tx_border      20  +20 160  ., label("Border style:")
+  COMBOBOX cb_borderstyle 185 @ 150    ., dropdown contents(output_border_contents) ///
+           default("default") label("Border style")
+
+  GROUPBOX gb_output      10  +25 620  55, label("Output Options")
+  CHECKBOX ck_clear       20  +20 280  ., label("Keep table in memory (replace dataset)")
+END
+
+SCRIPT output_excel_on
+BEGIN
+        output.fi_excel.enable
+        output.ed_sheet.enable
+        output.ed_title.enable
+        output.cb_borderstyle.enable
+END
+
+SCRIPT output_excel_off
+BEGIN
+        output.fi_excel.disable
+        output.ed_sheet.disable
+        output.ed_title.disable
+        output.cb_borderstyle.disable
+END
+
+LIST output_border_contents
+BEGIN
+        default
+        thin
+END
+
+DIALOG examples, tabtitle("Help/Examples")
+BEGIN
+  TEXT tx_help1    10  10  620  ., label("table1_tc - Create Table 1 of Baseline Characteristics")
+  TEXT tx_help2    10  +25 620  ., label("DESCRIPTION:")
+  TEXT tx_help3    10  +15 620  ., label("Creates publication-ready 'Table 1' of baseline characteristics with statistics and formatting suitable for manuscripts.")
+  TEXT tx_help4    10  +15 620  ., label("Variables can be continuous or categorical, with automatic statistical tests when grouped.")
+  TEXT tx_help5    10  +25 620  ., label("VARIABLE TYPES:")
+  TEXT tx_help6    10  +15 620  ., label("contn	- Continuous, normally distributed (mean ± SD, ANOVA/t-test)")
+  TEXT tx_help7    10  +15 620  ., label("contln	- Continuous, log-normally distributed (geometric mean ×/ GSD)")
+  TEXT tx_help8    10  +15 620  ., label("conts	- Continuous, skewed (median Q1-Q3, Kruskal-Wallis/rank-sum)")
+  TEXT tx_help9    10  +15 620  ., label("cat	- Categorical (n (%), chi-square test)")
+  TEXT tx_help10   10  +15 620  ., label("cate	- Categorical (n (%), Fisher's exact test)")
+  TEXT tx_help11   10  +15 620  ., label("bin	- Binary 0/1 (n (%), chi-square test)")
+  TEXT tx_help12   10  +15 620  ., label("bine	- Binary 0/1 (n (%), Fisher's exact test)")
+  TEXT tx_help13   10  +25 620  ., label("EXAMPLE 1: Basic table")
+  TEXT tx_ex1      10  +15 620  ., label("   table1_tc, vars(age contn \ gender bin \ bmi conts)")
+  TEXT tx_help14   10  +25 620  ., label("EXAMPLE 2: Grouped by treatment, export to Excel")
+  TEXT tx_ex2a     10  +15 620  ., label("   table1_tc, by(treatment) vars(age contn \ gender bin \ bmi conts) ///")
+  TEXT tx_ex2b     10  +15 620  ., label("      excel('table1.xlsx') sheet('Table 1') ///")
+  TEXT tx_ex2c     10  +15 620  ., label("      title('Table 1: Baseline Characteristics')")
+  TEXT tx_help15   10  +25 620  ., label("EXAMPLE 3: Custom formatting with totals")
+  TEXT tx_ex3a     10  +15 620  ., label("   table1_tc, by(group) vars(weight contn \ price contln) ///")
+  TEXT tx_ex3b     10  +15 620  ., label("      total(before) onecol percent_n headerperc")
+  TEXT tx_help16   10  +25 620  ., label("For complete documentation, click the help icon in the bottom left corner or type: help table1_tc")
+END
+
+PROGRAM parseMessage
+BEGIN
+END
+
+PROGRAM command
+BEGIN
+	require main.ed_vars
+
+	put "table1_tc"
+
+	beginoptions
+		if main.ck_if {
+			require main.ed_if
+			put " " "if " main.ed_if
+		}
+		if main.ck_in {
+			require main.ed_in
+			put " " "in " main.ed_in
+		}
+	endoptions
+
+	if main.ck_fweight {
+		require main.ed_fweight
+		put " [fweight=" main.ed_fweight "]"
+	}
+
+	put ", "
+
+	require main.ed_vars
+	put "vars("
+	put main.ed_vars
+	put ") "
+
+	if bygroup.ck_by {
+		require bygroup.vn_by
+		put "by("
+		put bygroup.vn_by
+		put ") "
+	}
+
+	if bygroup.ck_total {
+		if bygroup.rb_total_before {
+			put "total(before) "
+		}
+		if bygroup.rb_total_after {
+			put "total(after) "
+		}
+	}
+
+	if bygroup.ck_test {
+		put "test "
+	}
+	if bygroup.ck_statistic {
+		put "statistic "
+	}
+	if bygroup.ck_pairwise123 {
+		put "pairwise123 "
+	}
+	if bygroup.ck_headerperc {
+		put "headerperc "
+	}
+
+	if format.ed_format {
+		put "format("
+		put format.ed_format
+		put ") "
+	}
+	if format.ed_nformat {
+		put "nformat("
+		put format.ed_nformat
+		put ") "
+	}
+	if format.ed_percformat {
+		put "percformat("
+		put format.ed_percformat
+		put ") "
+	}
+	if format.ed_percsign {
+		put "percsign("
+		put `"""'
+		put format.ed_percsign
+		put `"""'
+		put ") "
+	}
+	if format.ck_catrowperc {
+		put "catrowperc "
+	}
+	if format.ck_missing {
+		put "missing "
+	}
+	if format.ed_iqrmiddle {
+		put "iqrmiddle("
+		put `"""'
+		put format.ed_iqrmiddle
+		put `"""'
+		put ") "
+	}
+	if format.ed_sdleft {
+		put "sdleft("
+		put `"""'
+		put format.ed_sdleft
+		put `"""'
+		put ") "
+	}
+	if format.ed_sdright {
+		put "sdright("
+		put `"""'
+		put format.ed_sdright
+		put `"""'
+		put ") "
+	}
+	if format.ed_gsdleft {
+		put "gsdleft("
+		put `"""'
+		put format.ed_gsdleft
+		put `"""'
+		put ") "
+	}
+	if format.ed_gsdright {
+		put "gsdright("
+		put `"""'
+		put format.ed_gsdright
+		put `"""'
+		put ") "
+	}
+
+	if display.ck_onecol {
+		put "onecol "
+	}
+	if display.ck_percent {
+		put "percent "
+	}
+	if display.ck_percent_n {
+		put "percent_n "
+	}
+	if display.ck_slashN {
+		put "slashN "
+	}
+	if display.ck_nospace {
+		put "nospacelowpercent "
+	}
+	if display.ck_extraspace {
+		put "extraspace "
+	}
+	if display.ck_varlabplus {
+		put "varlabplus "
+	}
+	if display.ed_pdp {
+		put "pdp("
+		put display.ed_pdp
+		put ") "
+	}
+	if display.ed_highpdp {
+		put "highpdp("
+		put display.ed_highpdp
+		put ") "
+	}
+	if display.ck_gurmeet {
+		put "gurmeet "
+	}
+
+	if output.ck_excel {
+		require output.fi_excel
+		require output.ed_sheet
+		require output.ed_title
+
+		put "excel("
+		put `"""'
+		put output.fi_excel
+		put `"""'
+		put ") "
+
+		put "sheet("
+		put `"""'
+		put output.ed_sheet
+		put `"""'
+		put ") "
+
+		put "title("
+		put `"""'
+		put output.ed_title
+		put `"""'
+		put ") "
+
+		if output.cb_borderstyle {
+			put "borderstyle("
+			put output.cb_borderstyle
+			put ") "
+		}
+	}
+
+	if output.ck_clear {
+		put "clear "
+	}
+END

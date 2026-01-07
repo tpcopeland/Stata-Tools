@@ -1,0 +1,39 @@
+v 3
+d 'TABTOOLS': Suite of table export commands for publication-ready Excel output
+d
+d tabtools is a comprehensive suite of Stata commands for exporting
+d tables to professionally formatted Excel files. Includes:
+d
+d   table1_tc  - Descriptive statistics (Table 1) with automatic tests
+d   regtab     - Regression results from any model
+d   effecttab  - Treatment effects and margins results
+d   gformtab   - G-formula mediation analysis results
+d   stratetab  - Incidence rates from strate output
+d   tablex     - General table export wrapper (NEW)
+d
+d All commands apply consistent Excel formatting: column widths,
+d borders, fonts, merged headers, and professional styling.
+d
+d Requires: Stata version 16+ (17+ for regtab, effecttab, stratetab, tablex)
+d
+d Distribution-Date: 20260107
+d License: MIT
+d
+d Author: Timothy P Copeland
+d Support: Karolinska Institutet
+d
+f _tabtools_common.ado
+f table1_tc.ado
+f table1_tc.sthlp
+f table1_tc.dlg
+f regtab.ado
+f regtab.sthlp
+f regtab.dlg
+f effecttab.ado
+f effecttab.sthlp
+f gformtab.ado
+f gformtab.sthlp
+f stratetab.ado
+f stratetab.sthlp
+f tablex.ado
+f tablex.sthlp
