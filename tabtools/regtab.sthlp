@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.3.0  07jan2026}{...}
+{* *! version 1.4.1  08jan2026}{...}
 {vieweralsosee "effecttab" "help effecttab"}{...}
 {vieweralsosee "gformtab" "help gformtab"}{...}
 {viewerjumpto "Package overview" "regtab##package"}{...}
@@ -63,7 +63,7 @@ Stata's {helpb collect} framework and apply professional formatting.
 {synopt:{opt noint}}Drop the intercept row. Matches {cmd:_cons}, {cmd:constant}, or {cmd:Intercept} (case-insensitive).{p_end}
 {synopt:{opt nore}}Drop rows whose variable name contains {cmd:var(}...{cmd:)} (common for random-effects variance components).{p_end}
 {synopt:{opt stats(string)}}Add model fit statistics at the bottom of the table. Space-separated list of: {cmd:n} (observations), {cmd:aic}, {cmd:bic}, {cmd:icc} (intraclass correlation), {cmd:ll} (log-likelihood), {cmd:groups} (for mixed models).{p_end}
-{synopt:{opt relabel}}Relabel random effects for readability (e.g., {cmd:var(_cons)} becomes {it:Variance (Intercept)}).{p_end}
+{synopt:{opt relabel}}Relabel random effects using variable labels from the grouping variable and random effects. For example, if the grouping variable {cmd:provider} has label "Healthcare Provider" and the model includes a random slope on {cmd:treatment} (labeled "Treatment Group"), the output will show "Healthcare Provider (Intercept)" for the random intercept variance, "Healthcare Provider (Treatment Group)" for the random slope variance, and "Healthcare Provider (Intercept, Treatment Group)" for the covariance. The residual variance is labeled "Residual Variance". If variable labels are not available, falls back to generic labels like {it:Variance (Intercept)}.{p_end}
 {synoptline}
 
 {marker remarks}{title:Remarks}
@@ -100,9 +100,12 @@ Stata's {helpb collect} framework and apply professional formatting.
 {phang2}{cmd:. regtab, xlsx(results.xlsx) sheet("Table 3") models("GEE") coef("RR") title("Table 3. Rate ratios") nore}{p_end}
 
 {pstd}Mixed model with random effects, model fit statistics, and relabeled variance components{p_end}
+{phang2}{cmd:. label variable provider "Healthcare Provider"}{p_end}
+{phang2}{cmd:. label variable treatment "Treatment Group"}{p_end}
 {phang2}{cmd:. collect clear}{p_end}
-{phang2}{cmd:. collect: mixed y i.treatment age || cluster: }{p_end}
+{phang2}{cmd:. collect: mixed y i.treatment age || provider: treatment, cov(unstructured)}{p_end}
 {phang2}{cmd:. regtab, xlsx(results.xlsx) sheet("Table 4") coef("Coef.") title("Table 4. Mixed Model") stats(n groups aic bic icc) relabel}{p_end}
+{pstd}With {opt relabel}, variance components appear as "Healthcare Provider (Intercept)", "Healthcare Provider (Treatment Group)", and "Healthcare Provider (Intercept, Treatment Group)".{p_end}
 
 {marker stored}{title:Stored results}
 
@@ -115,5 +118,5 @@ Stata's {helpb collect} framework and apply professional formatting.
 {pstd}Department of Clinical Neuroscience{p_end}
 {pstd}Karolinska Institutet{p_end}
 
-{pstd}Version 1.3.0 - 2026-01-07{p_end}
+{pstd}Version 1.4.0 - 2026-01-08{p_end}
 

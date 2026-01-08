@@ -1,4 +1,4 @@
-*! regtab Version 1.3.0  2026/01/07
+*! regtab Version 1.4.1  2026/01/08
 *! Original Author: Tim Copeland
 
 /*
@@ -46,7 +46,11 @@ program define regtab, rclass
 	version 17.0
 	set varabbrev off
 
-syntax, xlsx(string) sheet(string) [sep(string asis) models(string) coef(string) title(string) noint nore stats(string) relabel]
+syntax, xlsx(string) sheet(string) [sep(string asis) models(string) coef(string) title(string) NOINTercept NOREeffects stats(string) RELABel]
+
+* Map option names for internal use
+local noint `nointercept'
+local nore `noreeffects'
 
 quietly{
     * Validation: Check if collect table exists
@@ -220,6 +224,39 @@ quietly{
         }
     }
 
+    * =========================================================================
+    * STORE RANDOM EFFECTS LABELS BEFORE COLLECT EXPORT (for relabel option)
+    * =========================================================================
+    local re_groupvar = ""
+    local re_grouplbl = ""
+    local re_vars = ""
+
+    if "`relabel'" != "" {
+        * Get grouping variable(s) and label(s) from e(ivars)
+        capture local re_groupvar = e(ivars)
+        * Check for empty string AND "." (missing value returned by OLS models)
+        if "`re_groupvar'" != "" & "`re_groupvar'" != "." {
+            * For single-level models, get the label
+            local re_grouplbl : variable label `re_groupvar'
+            if "`re_grouplbl'" == "" local re_grouplbl "`re_groupvar'"
+
+            * Get random effects variables
+            capture local re_vars = e(revars)
+            if "`re_vars'" != "" {
+                * Store labels for each random effect variable
+                foreach revar of local re_vars {
+                    if "`revar'" == "_cons" {
+                        local lbl_`revar' "Intercept"
+                    }
+                    else {
+                        local lbl_`revar' : variable label `revar'
+                        if "`lbl_`revar''" == "" local lbl_`revar' "`revar'"
+                    }
+                }
+            }
+        }
+    }
+
 collect label levels result _r_b "`coef'", modify
 collect style cell result[_r_b], warn nformat(%4.2fc) halign(center) valign(center)
 collect style cell result[_r_ci], warn nformat(%4.2fc) sformat("(%s)") cidelimiter("`sep'") halign(center) valign(center)
@@ -241,26 +278,108 @@ if _rc {
 	capture erase "`temp_xlsx'"
 	exit _rc
 }
+* Trim all types of whitespace from column A
+replace A = stritrim(strtrim(A))
+* Also replace non-breaking spaces and other Unicode whitespace
+replace A = subinstr(A, char(160), " ", .)
+replace A = stritrim(strtrim(A))
+
 if "`noint'" != "" {
-	drop if inlist(strlower(strtrim(A)), "intercept", "_cons", "constant", "Intercept")
+	drop if regexm(strlower(A), "^(intercept|_cons|constant)$")
 }
 
 if "`nore'" != "" {
-	drop if strpos(A,"var(")
+	drop if strpos(A,"var(") > 0
 }
 
 * Relabel random effects if requested
 if "`relabel'" != "" {
-    * Clean up random effects labels for readability
-    replace A = subinstr(A, "var(_cons)", "Variance (Intercept)", .)
-    replace A = subinstr(A, "var(e.", "Variance (Residual", .)
-    replace A = subinstr(A, "var(", "Variance (", .)
-    replace A = subinstr(A, "cov(", "Covariance (", .)
-    replace A = subinstr(A, "sd(_cons)", "SD (Intercept)", .)
-    replace A = subinstr(A, "sd(e.", "SD (Residual", .)
-    replace A = subinstr(A, "sd(", "SD (", .)
-    replace A = subinstr(A, "lns1_1_1", "Log SD (Intercept)", .)
-    replace A = subinstr(A, "lnsig_e", "Log SD (Residual)", .)
+    if "`re_grouplbl'" != "" {
+        * Use grouping variable label for random effects
+
+        * Random intercept: var(_cons) -> "GroupLabel (Intercept)"
+        replace A = "`re_grouplbl' (Intercept)" if A == "var(_cons)"
+
+        * Handle melogit/mepoisson format: var(_cons[groupvar]) -> "GroupLabel (Intercept)"
+        * Pattern: var(_cons[...]) where ... is any groupvar name
+        replace A = "`re_grouplbl' (Intercept)" if strpos(A, "var(_cons[") > 0
+
+        * Handle melogit/mepoisson random slopes: var(varname[groupvar]) -> "GroupLabel (VarLabel)"
+        foreach revar of local re_vars {
+            if "`revar'" != "_cons" {
+                local slope_lbl "`lbl_`revar''"
+                replace A = "`re_grouplbl' (`slope_lbl')" if strpos(A, "var(`revar'[") > 0
+            }
+        }
+
+        * Random slopes: var(varname) -> "GroupLabel (VarLabel)"
+        foreach revar of local re_vars {
+            if "`revar'" != "_cons" {
+                local slope_lbl "`lbl_`revar''"
+                replace A = "`re_grouplbl' (`slope_lbl')" if A == "var(`revar')"
+            }
+        }
+
+        * Covariances: cov(var1,var2) -> "GroupLabel (Label1, Label2)"
+        * Parse and replace covariance terms
+        count if strpos(A, "cov(") > 0
+        if r(N) > 0 {
+            * For each row with cov(), extract and replace
+            gen _temp_row = _n
+            levelsof _temp_row if strpos(A, "cov(") > 0, local(cov_rows)
+            foreach row of local cov_rows {
+                local cov_str = A[`row']
+                * Extract variable names from cov(var1,var2)
+                local cov_inner = subinstr("`cov_str'", "cov(", "", 1)
+                local cov_inner = subinstr("`cov_inner'", ")", "", 1)
+                * Split by comma
+                gettoken cov_v1 cov_v2 : cov_inner, parse(",")
+                local cov_v2 = subinstr("`cov_v2'", ",", "", 1)
+                local cov_v1 = strtrim("`cov_v1'")
+                local cov_v2 = strtrim("`cov_v2'")
+                * Get labels
+                local cov_lbl1 "`lbl_`cov_v1''"
+                if "`cov_lbl1'" == "" local cov_lbl1 "`cov_v1'"
+                local cov_lbl2 "`lbl_`cov_v2''"
+                if "`cov_lbl2'" == "" local cov_lbl2 "`cov_v2'"
+                * Replace
+                replace A = "`re_grouplbl' (`cov_lbl1', `cov_lbl2')" in `row'
+            }
+            drop _temp_row
+        }
+
+        * Residual variance: var(e) -> "Residual Variance"
+        replace A = "Residual Variance" if A == "var(e)"
+
+        * Standard deviations (if present)
+        replace A = "`re_grouplbl' SD (Intercept)" if A == "sd(_cons)"
+        foreach revar of local re_vars {
+            if "`revar'" != "_cons" {
+                local slope_lbl "`lbl_`revar''"
+                replace A = "`re_grouplbl' SD (`slope_lbl')" if A == "sd(`revar')"
+            }
+        }
+        replace A = "Residual SD" if A == "sd(e)"
+
+        * Log-scale parameters (raw coefficient names)
+        replace A = subinstr(A, "lns1_1_1", "`re_grouplbl' Log SD (Intercept)", .)
+        replace A = subinstr(A, "lnsig_e", "Residual Log SD", .)
+    }
+    else {
+        * Fallback: no random effects info, use generic labels
+        replace A = subinstr(A, "var(_cons)", "Variance (Intercept)", .)
+        replace A = subinstr(A, "var(e.", "Variance (Residual", .)
+        replace A = subinstr(A, "var(e)", "Residual Variance", .)
+        replace A = subinstr(A, "var(", "Variance (", .)
+        replace A = subinstr(A, "cov(", "Covariance (", .)
+        replace A = subinstr(A, "sd(_cons)", "SD (Intercept)", .)
+        replace A = subinstr(A, "sd(e.", "SD (Residual", .)
+        replace A = subinstr(A, "sd(", "SD (", .)
+        replace A = subinstr(A, "lns1_1_1", "Log SD (Intercept)", .)
+        replace A = subinstr(A, "lnsig_e", "Log SD (Residual)", .)
+    }
+
+    * Clean up _cons in fixed effects (Intercept row)
     replace A = subinstr(A, "_cons", "Intercept", .)
 }
 
