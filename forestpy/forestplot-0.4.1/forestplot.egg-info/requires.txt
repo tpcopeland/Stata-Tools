@@ -1,0 +1,4 @@
+pandas
+numpy
+matplotlib
+matplotlib-inline<=0.1.3

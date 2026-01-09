@@ -1,0 +1,17 @@
+LICENSE
+README.md
+setup.py
+forestplot/__init__.py
+forestplot/arg_validators.py
+forestplot/dataframe_utils.py
+forestplot/graph_utils.py
+forestplot/mplot.py
+forestplot/mplot_dataframe_utils.py
+forestplot/mplot_graph_utils.py
+forestplot/plot.py
+forestplot/text_utils.py
+forestplot.egg-info/PKG-INFO
+forestplot.egg-info/SOURCES.txt
+forestplot.egg-info/dependency_links.txt
+forestplot.egg-info/requires.txt
+forestplot.egg-info/top_level.txt
