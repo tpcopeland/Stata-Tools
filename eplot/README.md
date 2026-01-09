@@ -112,16 +112,16 @@ eplot ., drop(_cons) ///
 
 | Option | Description |
 |--------|-------------|
-| `keep(coeflist)` | Keep specified coefficients |
+| `keep(coeflist)` | Keep specified coefficients (wildcards supported) |
 | `drop(coeflist)` | Drop specified coefficients (e.g., `drop(_cons)`) |
-| `rename(spec)` | Rename coefficients |
+| `rename(spec)` | Rename coefficients (estimates mode only) |
 
 ### Labeling
 
 | Option | Description |
 |--------|-------------|
 | `coeflabels(spec)` | Custom labels for coefficients/effects |
-| `groups(spec)` | Define groups with labels |
+| `groups(spec)` | Define groups with headers |
 | `headers(spec)` | Insert section headers |
 
 ### Transform
@@ -131,24 +131,24 @@ eplot ., drop(_cons) ///
 | `eform` | Exponentiate (OR, HR, RR) |
 | `rescale(#)` | Multiply estimates by # |
 
-### Layout
+### Reference Lines
+
+| Option | Description |
+|--------|-------------|
+| `xline(numlist)` | Add reference lines |
+| `null(#)` | Null line position (default: 0, or 1 if eform) |
+| `nonull` | Suppress null line |
+
+### Layout & Display
 
 | Option | Description |
 |--------|-------------|
 | `horizontal` | Horizontal layout (default) |
 | `vertical` | Vertical layout |
-| `xline(numlist)` | Reference lines |
-| `null(#)` | Null line position |
-| `nonull` | Suppress null line |
-
-### Display
-
-| Option | Description |
-|--------|-------------|
-| `effect(string)` | Column header for effects |
-| `dp(#)` | Decimal places |
-| `level(#)` | Confidence level |
+| `effect(string)` | X-axis title for effects |
+| `level(#)` | Confidence level (default: 95) |
 | `noci` | Suppress confidence intervals |
+| `dp(#)` | Decimal places (default: 2) |
 
 ## Type Variable Values
 
@@ -184,7 +184,7 @@ MIT License
 
 ## Version
 
-Version 1.0.0, 2026-01-09
+Version 1.0.1, 2026-01-09
 
 ## Acknowledgments
 

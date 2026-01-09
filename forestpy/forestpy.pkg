@@ -1,0 +1,19 @@
+v 3
+d 'FORESTPY': Stata wrapper for Python forestplot - publication-ready forest plots
+d
+d forestpy creates publication-ready forest plots using the Python
+d forestplot package. It provides a seamless Stata interface for
+d visualizing estimates with confidence intervals, commonly used
+d in meta-analyses and epidemiological studies.
+d
+d Requires: Stata version 16+ with Python integration
+d           Python 3.6+ with pandas, numpy, matplotlib
+d
+d Distribution-Date: 20260109
+d License: MIT
+d
+d Author: Timothy P Copeland
+d         Karolinska Institutet
+d
+f forestpy.ado
+f forestpy.sthlp

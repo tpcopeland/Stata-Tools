@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.0  09jan2026}{...}
+{* *! version 1.0.1  09jan2026}{...}
 {viewerjumpto "Syntax" "eplot##syntax"}{...}
 {viewerjumpto "Description" "eplot##description"}{...}
 {viewerjumpto "Options" "eplot##options"}{...}
@@ -37,13 +37,11 @@ Plot coefficients from stored estimates:
 {synopt:{opt lab:els(varname)}}variable containing row labels{p_end}
 {synopt:{opt w:eights(varname)}}variable for marker/box sizing{p_end}
 {synopt:{opt type(varname)}}row type indicator (1=effect, 3=subgroup, 5=overall){p_end}
-{synopt:{opt se(varname)}}standard errors (alternative to CI variables){p_end}
 
 {syntab:Coefficient selection}
 {synopt:{opt keep(coeflist)}}keep specified coefficients{p_end}
 {synopt:{opt drop(coeflist)}}drop specified coefficients{p_end}
-{synopt:{opt order(coeflist)}}reorder coefficients{p_end}
-{synopt:{opt rename(spec)}}rename coefficients{p_end}
+{synopt:{opt rename(spec)}}rename coefficients (estimates mode){p_end}
 
 {syntab:Labeling}
 {synopt:{opt coefl:abels(spec)}}custom coefficient/effect labels{p_end}
@@ -53,7 +51,6 @@ Plot coefficients from stored estimates:
 
 {syntab:Transform}
 {synopt:{opt eform}}exponentiate estimates (for OR, HR, RR){p_end}
-{synopt:{opt percent}}display as percentages{p_end}
 {synopt:{opt rescale(#)}}multiply estimates by #{p_end}
 
 {syntab:Reference lines}
@@ -63,23 +60,13 @@ Plot coefficients from stored estimates:
 
 {syntab:Confidence intervals}
 {synopt:{opt level(#)}}confidence level; default is {cmd:level(95)}{p_end}
-{synopt:{opt levels(numlist)}}multiple CI levels{p_end}
 {synopt:{opt noci}}suppress confidence intervals{p_end}
 
 {syntab:Display}
-{synopt:{opt nostats}}suppress effect size column{p_end}
-{synopt:{opt nowt}}suppress weight column{p_end}
-{synopt:{opt nonames}}suppress row labels{p_end}
 {synopt:{opt dp(#)}}decimal places; default is 2{p_end}
-{synopt:{opt eff:ect(string)}}column header for effect sizes{p_end}
-{synopt:{opt favours(spec)}}x-axis labels (left # right){p_end}
+{synopt:{opt eff:ect(string)}}x-axis title for effect sizes{p_end}
 
 {syntab:Layout}
-{synopt:{opt lcols(varlist)}}left-side text columns{p_end}
-{synopt:{opt rcols(varlist)}}right-side text columns{p_end}
-{synopt:{opt spacing(#)}}row spacing multiplier{p_end}
-{synopt:{opt textsize(#)}}text size multiplier (percentage){p_end}
-{synopt:{opt astext(#)}}percent of width for text (10-90){p_end}
 {synopt:{opt hor:izontal}}horizontal layout (default){p_end}
 {synopt:{opt vert:ical}}vertical layout{p_end}
 

@@ -1,4 +1,4 @@
-*! eplot Version 1.0.0  2026/01/09
+*! eplot Version 1.0.1  2026/01/09
 *! Unified effect plotting command for forest plots and coefficient plots
 *! Author: Timothy Copeland (Karolinska Institutet)
 *! Program class: rclass
@@ -135,11 +135,9 @@ program define _eplot_data, rclass
         LABels(varname string) ///
         WEIghts(varname numeric) ///
         Type(varname) ///
-        SE(varname numeric) ///
-        /// Coefficient selection (for compatibility)
+        /// Coefficient selection
         KEEP(string asis) ///
         DROP(string asis) ///
-        ORDER(string asis) ///
         /// Labeling
         COEFLabels(string asis) ///
         GRoups(string asis) ///
@@ -147,7 +145,6 @@ program define _eplot_data, rclass
         HEADings(string asis) ///
         /// Transform
         EFORM ///
-        PERcent ///
         REScale(real 1) ///
         /// Reference lines
         XLine(numlist) ///
@@ -155,21 +152,11 @@ program define _eplot_data, rclass
         NONULL ///
         /// Confidence intervals
         LEVel(cilevel) ///
-        LEVels(numlist) ///
         NOCI ///
         /// Display
-        NOSTATS ///
-        NOWT ///
-        NONames ///
         DP(integer 2) ///
         EFFect(string) ///
-        FAVours(string asis) ///
         /// Layout
-        LCols(varlist) ///
-        RCols(varlist) ///
-        SPacing(real 1.5) ///
-        TEXTSize(real 100) ///
-        ASText(real 50) ///
         HORizontal ///
         VERTical ///
         /// Box/marker options
@@ -325,27 +312,27 @@ program define _eplot_data, rclass
 
     // Determine plot range
     quietly summarize `lci' if inlist(`rowtype', 1, 3, 5), meanonly
+    if r(N) == 0 {
+        display as error "no valid confidence intervals to plot"
+        exit 2000
+    }
     local xmin = r(min)
     quietly summarize `uci' if inlist(`rowtype', 1, 3, 5), meanonly
     local xmax = r(max)
 
-    // Add buffer
+    // Handle edge case where all values are identical
     local xrange = `xmax' - `xmin'
+    if `xrange' == 0 {
+        local xrange = abs(`xmax') * 0.1
+        if `xrange' == 0 local xrange = 1
+    }
     local xmin = `xmin' - 0.05 * `xrange'
     local xmax = `xmax' + 0.05 * `xrange'
 
     // Build graph command
     local graphcmd ""
 
-    // Determine axes based on orientation
-    if "`horizontal'" != "" {
-        local xax "x"
-        local yax "y"
-    }
-    else {
-        local xax "y"
-        local yax "x"
-    }
+    // Orientation is used directly in conditionals below
 
     // --- Confidence interval spikes for regular effects ---
     local ci_cmd ""
@@ -395,25 +382,19 @@ program define _eplot_data, rclass
             local diam_height = 0.3
 
             // Create diamond line coordinates
-            tempvar diam_lx1 diam_ly1 diam_lx2 diam_ly2
+            tempvar diam_ly2 diam_ly3
 
             quietly {
-                // Line 1: left point to top point
-                gen double `diam_lx1' = `lci' if inlist(`rowtype', 3, 5)
-                gen double `diam_ly1' = `pos' if inlist(`rowtype', 3, 5)
-                gen double `diam_lx2' = `es' if inlist(`rowtype', 3, 5)
                 gen double `diam_ly2' = `pos' + `diam_height' if inlist(`rowtype', 3, 5)
+                gen double `diam_ly3' = `pos' - `diam_height' if inlist(`rowtype', 3, 5)
             }
 
-            // Draw diamonds using pcspike - draw all diamond lines at once
-            // For simplicity, just draw the diamond outline for overall effects
+            // Draw diamonds using pcspike
             if "`horizontal'" != "" {
                 // For horizontal: x is effect, y is position
                 // Overall diamond (black) - 4 lines to form diamond
                 local diamond_cmd `"`diamond_cmd' (pcspike `pos' `lci' `diam_ly2' `es' if `rowtype' == 5, lcolor(black) lwidth(medthick))"'
                 local diamond_cmd `"`diamond_cmd' (pcspike `diam_ly2' `es' `pos' `uci' if `rowtype' == 5, lcolor(black) lwidth(medthick))"'
-                tempvar diam_ly3
-                quietly gen double `diam_ly3' = `pos' - `diam_height' if inlist(`rowtype', 3, 5)
                 local diamond_cmd `"`diamond_cmd' (pcspike `pos' `uci' `diam_ly3' `es' if `rowtype' == 5, lcolor(black) lwidth(medthick))"'
                 local diamond_cmd `"`diamond_cmd' (pcspike `diam_ly3' `es' `pos' `lci' if `rowtype' == 5, lcolor(black) lwidth(medthick))"'
 
@@ -427,8 +408,6 @@ program define _eplot_data, rclass
                 // For vertical: y is effect, x is position
                 local diamond_cmd `"`diamond_cmd' (pcspike `lci' `pos' `es' `diam_ly2' if `rowtype' == 5, lcolor(black) lwidth(medthick))"'
                 local diamond_cmd `"`diamond_cmd' (pcspike `es' `diam_ly2' `uci' `pos' if `rowtype' == 5, lcolor(black) lwidth(medthick))"'
-                tempvar diam_ly3
-                quietly gen double `diam_ly3' = `pos' - `diam_height' if inlist(`rowtype', 3, 5)
                 local diamond_cmd `"`diamond_cmd' (pcspike `uci' `pos' `es' `diam_ly3' if `rowtype' == 5, lcolor(black) lwidth(medthick))"'
                 local diamond_cmd `"`diamond_cmd' (pcspike `es' `diam_ly3' `lci' `pos' if `rowtype' == 5, lcolor(black) lwidth(medthick))"'
 
@@ -568,17 +547,14 @@ program define _eplot_estimates, rclass
         /// Coefficient selection
         KEEP(string asis) ///
         DROP(string asis) ///
-        ORDER(string asis) ///
         REName(string asis) ///
         /// Labeling
         COEFLabels(string asis) ///
         GRoups(string asis) ///
         HEADers(string asis) ///
         HEADings(string asis) ///
-        EQLabels(string asis) ///
         /// Transform
         EFORM ///
-        PERcent ///
         REScale(real 1) ///
         /// Reference lines
         XLine(numlist) ///
@@ -636,7 +612,12 @@ program define _eplot_estimates, rclass
 
     // Get estimates
     if "`anything'" == "." {
-        // Use current estimates
+        // Use current estimates - verify they exist
+        if "`e(cmd)'" == "" {
+            display as error "no estimation results found"
+            display as error "run a regression command first, or specify stored estimate names"
+            exit 301
+        }
         tempname b V
         matrix `b' = e(b)
         matrix `V' = e(V)
@@ -646,7 +627,12 @@ program define _eplot_estimates, rclass
         tempname ecurrent
         _est hold `ecurrent', restore nullok
 
-        quietly estimates restore `anything'
+        capture estimates restore `anything'
+        if _rc {
+            display as error `"estimation results '`anything'' not found"'
+            _est unhold `ecurrent'
+            exit 111
+        }
 
         tempname b V
         matrix `b' = e(b)
@@ -1005,7 +991,6 @@ program define _eplot_process_groups, rclass
     local remaining `"`groups'"'
     local n_groups 0
     local group_coefs ""
-    local in_label 0
 
     while `"`remaining'"' != "" {
         // Get next token - use bind to keep quoted strings together
@@ -1099,15 +1084,16 @@ program define _eplot_process_headers, rclass
         }
 
         // Find position
-        quietly summarize `posvar' if `labelvar' == "`ref'", meanonly
+        quietly count if `labelvar' == `"`ref'"'
         if r(N) > 0 {
+            quietly summarize `posvar' if `labelvar' == `"`ref'"', meanonly
             local header_pos = r(mean) + 0.5
 
             // Insert header row
             local newN = _N + 1
             quietly set obs `newN'
             quietly replace `posvar' = `header_pos' in `newN'
-            quietly replace `labelvar' = "`label'" in `newN'
+            quietly replace `labelvar' = `"`label'"' in `newN'
             quietly replace `typevar' = 0 in `newN'
         }
     }
