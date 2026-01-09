@@ -1,0 +1,19 @@
+v 3
+d 'EPLOT': Unified effect plotting for forest plots and coefficient plots
+d
+d eplot creates effect plots (forest plots and coefficient plots) from either
+d data in memory or stored estimation results. It provides a unified, intuitive
+d interface for visualizing effect sizes with confidence intervals.
+d
+d Supports: Data from memory, stored estimates, groups, headers, eform
+d transformation, custom labeling, weighted markers, and diamond rendering.
+d
+d Requires: Stata version 16+
+d
+d Distribution-Date: 20260109
+d License: MIT
+d
+d Author: Timothy P Copeland, Karolinska Institutet
+d
+f eplot.ado
+f eplot.sthlp

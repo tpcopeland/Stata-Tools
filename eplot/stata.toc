@@ -1,0 +1,5 @@
+v 3
+d Stata-Tools: eplot
+d Timothy P Copeland, Karolinska Institutet
+d https://github.com/tpcopeland/Stata-Tools
+p eplot Unified effect plotting for forest plots and coefficient plots
