@@ -320,6 +320,9 @@ program define _eplot_data, rclass
     sort `pos'
     quietly replace `pos' = _N - _n + 1
 
+    // Update N to include any added header rows
+    local N = _N
+
     // Determine plot range
     quietly summarize `lci' if inlist(`rowtype', 1, 3, 5), meanonly
     local xmin = r(min)
@@ -998,49 +1001,59 @@ program define _eplot_process_groups, rclass
     local typevar `3'
 
     // Parse groups: coef1 coef2 = "Group Label" coef3 coef4 = "Group 2" ...
+    // Strategy: parse word by word, collect coefs until "=", then get quoted label
     local remaining `"`groups'"'
     local n_groups 0
+    local group_coefs ""
+    local in_label 0
 
     while `"`remaining'"' != "" {
-        local `++n_groups'
-        local group_coefs ""
+        // Get next token - use bind to keep quoted strings together
+        gettoken token remaining : remaining, bind
+        local token = trim(`"`token'"')
 
-        // Collect coefficients until we hit =
-        while 1 {
-            gettoken token remaining : remaining, parse("=") bind
-            local token = trim("`token'")
-
-            if "`token'" == "=" {
-                break
-            }
-            if "`token'" == "" {
-                continue, break
-            }
-
-            local group_coefs `group_coefs' `token'
+        if `"`token'"' == "" {
+            continue
         }
 
-        // Get the label
-        gettoken label remaining : remaining, parse(" ") bind
-        local label = trim(`"`label'"')
+        // Check if this is the equals sign
+        if `"`token'"' == "=" {
+            // Next token should be the label
+            gettoken label remaining : remaining, bind
+            local label = trim(`"`label'"')
 
-        // Remove quotes
-        if substr(`"`label'"', 1, 1) == `"""' {
-            local label = substr(`"`label'"', 2, length(`"`label'"') - 2)
+            // Remove surrounding quotes if present
+            if substr(`"`label'"', 1, 1) == `"""' {
+                local labellen = length(`"`label'"')
+                local label = substr(`"`label'"', 2, `labellen' - 2)
+            }
+
+            // Now we have a complete group
+            local `++n_groups'
+
+            // Find position for group header (before first coefficient in group)
+            local first_coef : word 1 of `group_coefs'
+
+            // Look for this coefficient in the label variable
+            quietly count if `labelvar' == `"`first_coef'"'
+            if r(N) > 0 {
+                quietly summarize `posvar' if `labelvar' == `"`first_coef'"', meanonly
+                local header_pos = r(mean) + 0.5
+
+                // Insert header row
+                local newN = _N + 1
+                quietly set obs `newN'
+                quietly replace `posvar' = `header_pos' in `newN'
+                quietly replace `labelvar' = `"`label'"' in `newN'
+                quietly replace `typevar' = 0 in `newN'
+            }
+
+            // Reset for next group
+            local group_coefs ""
         }
-
-        // Find position for group header (before first coefficient in group)
-        local first_coef : word 1 of `group_coefs'
-        quietly summarize `posvar' if `labelvar' == "`first_coef'", meanonly
-        if r(N) > 0 {
-            local header_pos = r(mean) + 0.5
-
-            // Insert header row
-            local newN = _N + 1
-            quietly set obs `newN'
-            quietly replace `posvar' = `header_pos' in `newN'
-            quietly replace `labelvar' = "`label'" in `newN'
-            quietly replace `typevar' = 0 in `newN'
+        else {
+            // This is a coefficient name - add to current group
+            local group_coefs `"`group_coefs' `token'"'
         }
     }
 
