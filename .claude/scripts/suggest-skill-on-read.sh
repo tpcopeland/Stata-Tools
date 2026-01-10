@@ -15,15 +15,18 @@ SUGGESTION=""
 case "$FILE_PATH" in
     # Stata ado files (commands)
     *.ado)
-        SUGGESTION="code-reviewer"
-        CONTEXT="Stata command file detected - consider reviewing for bugs and style"
+        SUGGESTION="stata-audit"
+        CONTEXT="Stata command file detected - use /stata-audit for systematic review or /code-reviewer for detailed scoring"
         ;;
 
     # Stata do files (scripts/tests)
     *.do)
-        if [[ "$FILE_PATH" == *test* ]]; then
-            SUGGESTION="package-tester"
-            CONTEXT="Test file detected - consider running tests"
+        if [[ "$FILE_PATH" == *test_* ]]; then
+            SUGGESTION="stata-test"
+            CONTEXT="Functional test file detected - use /stata-test for test workflow or /package-tester to run tests"
+        elif [[ "$FILE_PATH" == *validation_* ]]; then
+            SUGGESTION="stata-validate"
+            CONTEXT="Validation test file detected - use /stata-validate for validation workflow"
         else
             SUGGESTION="code-reviewer"
             CONTEXT="Stata do-file detected - consider reviewing code"

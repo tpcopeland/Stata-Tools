@@ -1,3 +1,15 @@
+---
+name: stata-audit
+description: Stata Code Audit - reviewing .ado files through pattern detection and mental execution
+allowed-tools:
+  - Read
+  - Grep
+  - Glob
+  - Write
+  - Edit
+# NOTE: Task tool is NOT allowed - do NOT use subagents
+---
+
 # Stata Code Audit
 
 Use this when reviewing or auditing .ado files. This provides systematic code review guidance through pattern detection and mental execution techniques.
@@ -292,6 +304,24 @@ grep -h 'version\|Version' command.ado command.sthlp command.pkg
 
 ---
 
-*For developing new commands, ask: "create a new command" or "help me implement"*
-*For writing tests, ask: "write tests for [command]"*
-*For validation tests, ask: "validate the command" or "verify correctness"*
+## Delegation to Other Skills
+
+```
+USE stata-develop skill WHEN:
+- Creating new commands
+- Implementing fixes for found issues
+
+USE code-reviewer skill WHEN:
+- Detailed code review with scoring
+- Checking specific bug patterns
+
+USE package-tester skill WHEN:
+- Running tests after fixes
+- Verifying changes work
+```
+
+---
+
+*For developing new commands, use: `/stata-develop`*
+*For writing tests, use: `/stata-test`*
+*For validation tests, use: `/stata-validate`*

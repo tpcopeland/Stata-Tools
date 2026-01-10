@@ -8,13 +8,14 @@ When working with Claude Code in this repository:
 
 1. **Claude reads `CLAUDE.md`** automatically - it contains coding standards and critical rules
 2. **Hooks fire automatically** - Session context, skill suggestions, and validation happen via hooks
-3. **Use slash commands** for specialized guidance:
+3. **Use slash commands** for specialized guidance (all skills can be invoked with `/skill-name`):
    - `/stata-develop` - Creating or modifying Stata commands
    - `/stata-test` - Writing functional tests
    - `/stata-validate` - Writing validation tests
    - `/stata-audit` - Auditing .ado files for errors
-4. **Skills provide expertise** - Automatic suggestions for code review, testing, generation
-5. **Ask Claude to run validators** after writing code:
+   - `/code-reviewer` - Code review with bug detection
+   - `/package-tester` - Running tests and validating packages
+4. **Ask Claude to run validators** after writing code:
    - `.claude/validators/validate-ado.sh mycommand.ado`
 
 ## How It Works
@@ -30,16 +31,19 @@ The `CLAUDE.md` file in the repository root is automatically loaded by Claude Co
 
 **You don't need to do anything** - Claude reads this automatically.
 
-### Slash Commands
+### Skills (Slash Commands)
 
-Slash commands provide detailed, task-specific guidance. Type them in the chat:
+Skills provide task-specific guidance and expertise. All skills can be invoked with `/skill-name`:
 
-| Command | When to Use |
-|---------|-------------|
+| Skill | When to Use |
+|-------|-------------|
 | `/stata-develop` | Creating a new .ado command or fixing bugs |
 | `/stata-test` | Writing `test_*.do` functional test files |
 | `/stata-validate` | Writing `validation_*.do` correctness tests |
 | `/stata-audit` | Reviewing code for common errors |
+| `/code-reviewer` | Detailed code review with scoring |
+| `/stata-code-generator` | Generating code from requirements |
+| `/package-tester` | Running tests and parsing results |
 
 **Example workflow:**
 ```
@@ -67,13 +71,12 @@ Ask Claude to run these scripts:
 .claude/
 ├── README.md              # This file
 ├── settings.json          # Hook configuration
-├── commands/              # Slash commands (invoke with /command-name)
-│   ├── stata-develop.md      # Development guidance
-│   ├── stata-test.md         # Functional testing guidance
-│   ├── stata-validate.md     # Validation testing guidance
-│   └── stata-audit.md        # Code audit guidance
-├── skills/                # Expertise modules (auto-suggested by hooks)
+├── skills/                # All skills (invoke with /skill-name)
 │   ├── README.md             # Skills documentation
+│   ├── stata-develop/        # Command development guidance
+│   ├── stata-test/           # Functional testing guidance
+│   ├── stata-validate/       # Validation testing guidance
+│   ├── stata-audit/          # Code audit guidance
 │   ├── code-reviewer/        # Code review expertise
 │   ├── stata-code-generator/ # Code generation expertise
 │   └── package-tester/       # Testing expertise
@@ -257,23 +260,19 @@ Hooks are scripts that run automatically at specific points in the Claude Code s
 
 ## Skills System
 
-Skills are "expertise hats" that provide domain-specific workflows, quality gates, and output formats. Unlike slash commands, skills are automatically suggested by hooks.
+Skills are "expertise hats" that provide domain-specific workflows, quality gates, and output formats. All skills can be invoked with `/skill-name`.
 
 ### Available Skills
 
 | Skill | Purpose | Suggested When |
 |-------|---------|----------------|
+| `stata-develop` | Command development guidance | Creating/modifying .ado files |
+| `stata-test` | Functional testing workflow | Writing test_*.do files |
+| `stata-validate` | Validation testing workflow | Writing validation_*.do files |
+| `stata-audit` | Code audit and review | Reviewing .ado files |
 | `code-reviewer` | Review code for bugs and style | Reading .ado/.do files |
 | `stata-code-generator` | Generate new commands | Creating new .ado files |
 | `package-tester` | Run tests and validate packages | Testing packages |
-
-### Skills vs Commands
-
-| Commands (`.claude/commands/`) | Skills (`.claude/skills/`) |
-|--------------------------------|---------------------------|
-| Invoked explicitly with `/name` | Auto-suggested by hooks |
-| Focus on workflow guidance | Focus on expertise/patterns |
-| `/stata-develop`, `/stata-audit` | `code-reviewer`, `package-tester` |
 
 See `.claude/skills/README.md` for full documentation.
 
@@ -348,6 +347,7 @@ On macOS, install newer bash: `brew install bash`
 
 ## Version History
 
+- **3.0.0** - Merged commands and skills into unified skills system
 - **2.0.0** - Added hooks system, skills, and learning system (_resources/)
 - **1.2.0** - Reorganized as Claude Code usage guide, renamed skills to commands, hooks to validators
 - **1.1.0** - Added config.sh, bash version check, standardized exit codes

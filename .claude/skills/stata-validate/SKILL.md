@@ -1,3 +1,16 @@
+---
+name: stata-validate
+description: Stata Validation Testing - verifying commands produce mathematically correct results
+allowed-tools:
+  - Read
+  - Write
+  - Edit
+  - Glob
+  - Grep
+  - Bash
+# NOTE: Task tool is NOT allowed - do NOT use subagents
+---
+
 # Stata Validation Testing
 
 Use this when writing validation tests that verify commands produce mathematically correct results, not just that they run.
@@ -6,7 +19,7 @@ Use this when writing validation tests that verify commands produce mathematical
 
 ## Testing vs Validation
 
-| Testing (Use stata-test) | Validation (This Skill) |
+| Testing (Use /stata-test) | Validation (This Skill) |
 |--------------------------|------------------------|
 | Does the command **run** without errors? | Does it produce **correct** results? |
 | Uses realistic datasets | Uses minimal hand-crafted datasets |
@@ -352,6 +365,24 @@ RESULT: Execution completes successfully
 - [ ] Display respects quiet mode
 - [ ] Summary section with exit code
 - [ ] Cleans up temporary datasets
+
+---
+
+## Delegation to Other Skills
+
+```
+USE stata-test skill WHEN:
+- Writing functional tests (does it run?)
+- Testing error handling
+
+USE code-reviewer skill WHEN:
+- Reviewing validation test quality
+- Checking test coverage
+
+USE package-tester skill WHEN:
+- Running validation tests
+- Checking results
+```
 
 ---
 

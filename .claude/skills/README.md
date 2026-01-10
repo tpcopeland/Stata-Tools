@@ -1,6 +1,8 @@
 # Skills Directory
 
-This directory contains specialized skills that Claude invokes to handle Stata package development tasks. Skills are "expertise hats" that provide domain-specific workflows, quality gates, and output formats.
+This directory contains all skills that Claude uses for Stata package development tasks. Skills are "expertise hats" that provide domain-specific workflows, quality gates, and output formats.
+
+**Note:** In Claude Code, commands and skills have been merged. All skills can be invoked with `/skill-name` (e.g., `/stata-develop`).
 
 ## Critical Policy: No Subagents
 
@@ -15,17 +17,32 @@ This directory contains specialized skills that Claude invokes to handle Stata p
 
 ## Available Skills
 
+### Workflow Skills (invoke with /skill-name)
+
+| Skill | Purpose | Invoke When |
+|-------|---------|-------------|
+| `stata-develop` | Development guidance for creating/modifying commands | Creating new .ado files, adding features, fixing bugs |
+| `stata-test` | Functional testing workflow | Writing `test_*.do` files that verify commands run |
+| `stata-validate` | Known-answer validation guidance | Writing `validation_*.do` files that verify correctness |
+| `stata-audit` | Code review and error detection | Auditing .ado files, finding bugs |
+
+### Expertise Skills (auto-suggested by hooks)
+
 | Skill | Purpose | Invoke When |
 |-------|---------|-------------|
 | `code-reviewer` | Review Stata package code for bugs and style | Editing/reviewing .ado or .do files |
-| `stata-code-generator` | Generate new commands following conventions | Creating new .ado files |
-| `package-tester` | Run tests and validate package structure | Testing packages |
+| `stata-code-generator` | Generate new commands following conventions | Generating code from requirements |
+| `package-tester` | Run tests and validate package structure | Testing packages, parsing results |
 
 ## Invoking Skills
 
 ### Method 1: Slash Commands (User)
-Users can invoke skills directly with `/skill-name`:
+Users can invoke any skill directly with `/skill-name`:
 ```
+/stata-develop
+/stata-test
+/stata-validate
+/stata-audit
 /code-reviewer
 /package-tester
 ```
@@ -33,8 +50,8 @@ Users can invoke skills directly with `/skill-name`:
 ### Method 2: Skill Tool (Claude)
 Claude invokes skills using the `Skill` tool:
 ```
+Skill(skill="stata-develop")
 Skill(skill="code-reviewer")
-Skill(skill="package-tester")
 ```
 
 ### Method 3: Natural Language (Automatic)
@@ -42,6 +59,7 @@ The `user-prompt-skill-router.sh` hook detects relevant keywords and suggests sk
 ```
 "Review the tvexpose.ado file" -> suggests code-reviewer
 "Run tests for the package" -> suggests package-tester
+"Create a new command" -> suggests stata-code-generator
 ```
 
 ## Skill File Structure
@@ -73,7 +91,7 @@ allowed-tools:
 ## Skill Workflow
 
 1. **Detection**: User prompt or file context suggests a skill
-2. **Invocation**: Claude calls `Skill(skill="name")` or user types `/name`
+2. **Invocation**: User types `/name` or Claude calls `Skill(skill="name")`
 3. **Activation**: Skill instructions are loaded into context
 4. **Execution**: Claude follows skill's workflows and quality gates
 5. **Output**: Results formatted per skill's output template
@@ -90,6 +108,10 @@ allowed-tools:
 
 | Skill | Read | Write | Edit | Grep | Glob | Bash |
 |-------|:----:|:-----:|:----:|:----:|:----:|:----:|
+| stata-develop | Y | Y | Y | Y | Y | Y |
+| stata-test | Y | Y | Y | Y | Y | Y |
+| stata-validate | Y | Y | Y | Y | Y | Y |
+| stata-audit | Y | Y | Y | Y | Y | |
 | code-reviewer | Y | Y | Y | Y | Y | |
 | stata-code-generator | Y | Y | Y | Y | Y | Y |
 | package-tester | Y | Y | Y | Y | Y | Y |
@@ -109,25 +131,39 @@ All skills that produce artifacts include:
 Skills can delegate to each other for specialized tasks:
 
 ```
-code-reviewer
-├── delegates to -> package-tester (for running tests after fixes)
-└── references -> stata-common-errors.md (for known patterns)
+stata-develop
+├── delegates to -> code-reviewer (for validation)
+├── delegates to -> stata-test (for writing tests)
+└── delegates to -> stata-validate (for correctness tests)
 
 stata-code-generator
 ├── delegates to -> code-reviewer (for validation)
 └── references -> existing .ado files (for patterns)
 
+code-reviewer
+├── delegates to -> package-tester (for running tests after fixes)
+└── references -> stata-common-errors.md (for known patterns)
+
 package-tester
 ├── delegates to -> code-reviewer (if tests fail)
 └── creates -> development logs (if novel errors)
+
+stata-audit
+├── delegates to -> stata-develop (for implementing fixes)
+└── delegates to -> package-tester (for verification)
 ```
 
-## Relationship to Slash Commands
+## Skill Categories
 
-The `.claude/commands/` directory contains slash commands (e.g., `/stata-develop`). These provide task-specific guidance and can work alongside skills:
+### When to Use Each Skill
 
-| Commands | Skills |
-|----------|--------|
-| Invoked explicitly by user | Auto-suggested by hooks |
-| Focus on workflow guidance | Focus on expertise/patterns |
-| `/stata-develop`, `/stata-audit` | `code-reviewer`, `package-tester` |
+| Task | Recommended Skill |
+|------|-------------------|
+| Create a new .ado command | `/stata-develop` |
+| Add a feature to existing command | `/stata-develop` |
+| Fix a bug in .ado file | `/stata-develop` |
+| Write functional tests | `/stata-test` |
+| Write correctness validation tests | `/stata-validate` |
+| Review code for bugs/style | `/stata-audit` or `/code-reviewer` |
+| Generate code from requirements | `/stata-code-generator` |
+| Run tests and check results | `/package-tester` |

@@ -56,16 +56,19 @@ Task: "Audit/review .ado file"         → Use /stata-audit or read _testing/not
 | `_testing/notes/ado_error_patterns.md` | Comprehensive catalog of common .ado errors with detection methods |
 | `_testing/TESTING_INSTRUCTIONS.md` | Repository-specific test data and command coverage |
 
-### Slash Commands
+### Skills (Slash Commands)
 
-This repository includes slash commands in `.claude/commands/` that provide contextual guidance:
+This repository includes skills in `.claude/skills/` that provide contextual guidance. All can be invoked with `/skill-name`:
 
-| Command | Purpose |
-|---------|---------|
+| Skill | Purpose |
+|-------|---------|
 | `/stata-develop` | Development guidance for creating/modifying commands |
 | `/stata-test` | Functional testing workflow |
 | `/stata-validate` | Known-answer validation guidance |
 | `/stata-audit` | Code review and error detection |
+| `/code-reviewer` | Detailed code review with scoring |
+| `/stata-code-generator` | Generate code from requirements |
+| `/package-tester` | Run tests and validate packages |
 
 ### Automation Infrastructure
 

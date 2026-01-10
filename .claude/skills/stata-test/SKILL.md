@@ -1,3 +1,16 @@
+---
+name: stata-test
+description: Stata Functional Testing - writing and running test files that verify commands execute without errors
+allowed-tools:
+  - Read
+  - Write
+  - Edit
+  - Glob
+  - Grep
+  - Bash
+# NOTE: Task tool is NOT allowed - do NOT use subagents
+---
+
 # Stata Functional Testing
 
 Use this when writing or running test files (`test_*.do`) that verify commands execute without errors.
@@ -6,7 +19,7 @@ Use this when writing or running test files (`test_*.do`) that verify commands e
 
 ## Testing vs Validation
 
-| Testing (This Skill) | Validation (Use stata-validate) |
+| Testing (This Skill) | Validation (Use /stata-validate) |
 |---------------------|--------------------------------|
 | Does the command **run** without errors? | Does it produce **correct** results? |
 | Uses realistic datasets | Uses minimal hand-crafted datasets |
@@ -286,6 +299,25 @@ if `run_only' == 0 | `run_only' == N {
 ## Check Coverage
 
 Run `.claude/scripts/check-test-coverage.sh` to see which packages are missing functional or validation tests.
+
+---
+
+## Delegation to Other Skills
+
+```
+USE stata-validate skill WHEN:
+- Testing correctness of computed values
+- Known-answer testing
+- Verifying mathematical accuracy
+
+USE code-reviewer skill WHEN:
+- Reviewing test file quality
+- Checking test coverage
+
+USE package-tester skill WHEN:
+- Running tests and parsing results
+- Validating package structure
+```
 
 ---
 

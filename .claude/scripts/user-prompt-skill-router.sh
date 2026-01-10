@@ -11,14 +11,21 @@ PROMPT_LOWER=$(echo "$USER_PROMPT" | tr '[:upper:]' '[:lower:]')
 # Skill routing patterns for Stata package development
 # Format: skill-name -> patterns (pipe-separated regex)
 declare -A SKILL_ROUTES=(
-    # Code review skill
-    ["code-reviewer"]="review.*code|check.*ado|validate.*code|code.*review|review.*ado|check.*syntax|bug.*fix|debug|review.*command|audit.*code|style.*check"
+    # Workflow skills (formerly commands)
+    ["stata-develop"]="create.*command|new.*command|fix.*bug|add.*feature|modify.*ado|develop.*ado|implement.*feature|write.*ado|scaffold.*command"
 
-    # Code generation skill
-    ["stata-code-generator"]="generate.*code|create.*command|new.*ado|write.*ado|create.*ado|implement.*command|stata.*code|add.*option|add.*feature|extend.*command"
+    ["stata-test"]="write.*test|create.*test|functional.*test|test.*file|test_.*\.do|testing.*workflow"
 
-    # Package testing skill
-    ["package-tester"]="test.*package|run.*test|validate.*package|test.*command|check.*test|certify|test.*ado|run.*ado|execute.*test|integration.*test"
+    ["stata-validate"]="validation.*test|validate.*output|verify.*correct|known.*answer|correctness.*test|validation_.*\.do"
+
+    ["stata-audit"]="audit.*code|audit.*ado|review.*code.*systematically|check.*error.*pattern|mental.*execution"
+
+    # Expertise skills (auto-suggested)
+    ["code-reviewer"]="review.*code|check.*ado|validate.*code|code.*review|review.*ado|check.*syntax|bug.*fix|debug|review.*command|style.*check"
+
+    ["stata-code-generator"]="generate.*code|generate.*ado|boilerplate|code.*from.*requirements|stata.*code"
+
+    ["package-tester"]="test.*package|run.*test|validate.*package|test.*command|check.*test|certify|run.*ado|execute.*test|integration.*test"
 
     # Help file skill (if you have one)
     ["help-file-reviewer"]="help.*file|sthlp|documentation|write.*help|update.*help|check.*help"
