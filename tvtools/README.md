@@ -1389,7 +1389,7 @@ MIT License
 | tvbalance | 1.0.0 | 2025-12-27 |
 | tvplot | 1.0.0 | 2025-12-27 |
 
-Package Distribution-Date: 20260107
+Package Distribution-Date: 20251226
 
 ### Checking Installed Version
 
@@ -1407,3 +1407,7 @@ which tvplot
 
 - Stata help: `help stset`, `help stcox`, `help stcrreg`, `help stsplit`
 - Manual: [ST] stset, [ST] stcox, [ST] stcrreg
+
+## Version
+
+Version 1.4.0, 2025-12-26

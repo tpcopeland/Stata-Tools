@@ -1,0 +1,5 @@
+v 3
+d Stata-Tools: tc_schemes
+d Timothy P Copeland, Karolinska Institutet
+d https://github.com/tpcopeland/Stata-Tools
+p tc_schemes Consolidated graph schemes (blindschemes + schemepack)

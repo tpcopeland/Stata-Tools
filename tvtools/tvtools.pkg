@@ -3,7 +3,7 @@ d 'TVTOOLS': Commands for formatting and merging time-varying data
 d
 d Requires: Stata version 16+
 d
-d Distribution-Date: 20260107
+d Distribution-Date: 20251226
 d License: MIT
 d
 d Author: Timothy P. Copeland
@@ -33,6 +33,7 @@ d     window menu refresh
 d
 d For help: help tvexpose, help tvmerge, help tvevent, help tvage
 d
+f tvtools.ado
 f tvexpose.ado
 f tvexpose.dlg
 f tvexpose.sthlp

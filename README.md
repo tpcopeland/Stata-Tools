@@ -141,6 +141,12 @@ Stata-Tools/
 - Tracks observation counts through sequential exclusion criteria
 - Exports PNG images via Python/matplotlib integration
 
+**tc_schemes** - Consolidated graph schemes from blindschemes and schemepack
+- Solves the `which schemepack` reinstallation issue with a proper .ado file
+- 4 blindschemes (plotplain, plotplainblind, plottig, plottigblind) with fixes
+- 35 schemepack schemes with modern color palettes (tableau, viridis, etc.)
+- 21 colorblind-safe color styles for accessible visualization
+
 ### Analysis & Tables
 
 **table1_tc** - Create publication-ready Table 1 of baseline characteristics
@@ -335,6 +341,7 @@ MIT License - see individual package files for details
 | stratetab | Strate output formatting | 1.0.2 | 17+ |
 | synthdata | Synthetic data generation | 1.2.2 | 16+ |
 | table1_tc | Table 1 creation | 1.0.3 | 14.2+ |
+| tc_schemes | Consolidated graph schemes | 1.0.0 | 16+ |
 | today | Date utilities | 1.0.1 | 14+ |
 | tvtools | Time-varying data | 1.2.0 | 16+ |
 | validate | Data validation rules | 1.0.0 | 16+ |

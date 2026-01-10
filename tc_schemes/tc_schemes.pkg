@@ -1,0 +1,81 @@
+v 3
+d 'TC_SCHEMES': Consolidated Stata graph schemes from blindschemes and schemepack
+d
+d tc_schemes consolidates high-quality Stata graph schemes from
+d Daniel Bischof's blindschemes (with Mead Over's fixes) and
+d Asjad Naqvi's schemepack into a single installable package.
+d
+d Includes 4 blindschemes (plotplain, plotplainblind, plottig,
+d plottigblind) plus 35 schemepack schemes with colorblind-safe
+d palettes, ggplot2-style themes, and modern color science.
+d
+d Requires: Stata version 16+
+d
+d Distribution-Date: 20250111
+d License: MIT (wrapper); original schemes retain original licenses
+d
+d Author: Timothy P Copeland (consolidation)
+d Original Authors: Daniel Bischof, Mead Over, Asjad Naqvi
+d
+f tc_schemes.ado
+f tc_schemes.sthlp
+f scheme-plotplain.scheme
+f scheme-plotplainblind.scheme
+f scheme-plottig.scheme
+f scheme-plottigblind.scheme
+f scheme-white_tableau.scheme
+f scheme-black_tableau.scheme
+f scheme-gg_tableau.scheme
+f scheme-white_cividis.scheme
+f scheme-black_cividis.scheme
+f scheme-gg_cividis.scheme
+f scheme-white_viridis.scheme
+f scheme-black_viridis.scheme
+f scheme-gg_viridis.scheme
+f scheme-white_hue.scheme
+f scheme-black_hue.scheme
+f scheme-gg_hue.scheme
+f scheme-white_brbg.scheme
+f scheme-black_brbg.scheme
+f scheme-gg_brbg.scheme
+f scheme-white_piyg.scheme
+f scheme-black_piyg.scheme
+f scheme-gg_piyg.scheme
+f scheme-white_ptol.scheme
+f scheme-black_ptol.scheme
+f scheme-gg_ptol.scheme
+f scheme-white_jet.scheme
+f scheme-black_jet.scheme
+f scheme-gg_jet.scheme
+f scheme-white_w3d.scheme
+f scheme-black_w3d.scheme
+f scheme-gg_w3d.scheme
+f scheme-tab1.scheme
+f scheme-tab2.scheme
+f scheme-tab3.scheme
+f scheme-cblind1.scheme
+f scheme-ukraine.scheme
+f scheme-swift_red.scheme
+f scheme-neon.scheme
+f scheme-rainbow.scheme
+f color-vermillion.style
+f color-sky.style
+f color-turquoise.style
+f color-reddish.style
+f color-sea.style
+f color-orangebrown.style
+f color-ananas.style
+f color-plb1.style
+f color-plb2.style
+f color-plb3.style
+f color-plg1.style
+f color-plg2.style
+f color-plg3.style
+f color-plr1.style
+f color-plr2.style
+f color-ply1.style
+f color-ply2.style
+f color-ply3.style
+f color-pll1.style
+f color-pll2.style
+f color-pll3.style
