@@ -1,4 +1,4 @@
-*! synthdata Version 1.3.0  27dec2025  Synthetic data generation with smart realism
+*! synthdata Version 1.5.0  11jan2026  Synthetic data generation with smart realism
 program define synthdata
     version 16.0
     set varabbrev off
@@ -10,10 +10,12 @@ program define synthdata
         [CATEgorical(varlist) CONTinuous(varlist) SKIP(varlist) ID(varlist) DATEs(varlist) INTeger(varlist)] ///
         [CORRelations CONDitional CONSTraints(string asis) AUTOCONStraints] ///
         [AUTORELate CONDitionalcat] ///
-        [PANEL(string) PRESERVEvar(varlist) AUTOCORR(integer 0)] ///
+        [PANEL(string) PRESERVEvar(varlist) AUTOCORR(integer 0) ROWDist(string)] ///
         [MINCell(integer 5) TRIM(real 0) BOUNDs(string asis) NOEXTreme] ///
         [COMPare VALidate(string) UTILity GRAPH] ///
-        [SEED(integer -1) ITERate(integer 100) TOLerance(real 1e-6)]
+        [SEED(integer -1) ITERate(integer 100) TOLerance(real 1e-6)] ///
+        [CONDitionalcont RANDomeffects TRANSform MISSpattern TRENDs] ///
+        [PRIVacycheck PRIVacysample(integer 0) PRIVacythresh(real 0.05)]
     
     // Preserve original data
     preserve
@@ -90,6 +92,15 @@ program define synthdata
         qui count if missing(`v')
         local _nm_`v' = r(N)
         local _mr_`v' = r(N) / _N
+    }
+
+    // =========================================================================
+    // CAPTURE MISSINGNESS PATTERNS (if misspattern option enabled)
+    // =========================================================================
+    local misspattern_file ""
+    if "`misspattern'" != "" {
+        tempfile misspattern_file
+        _synthdata_misspattern_capture `allvars_track', saving(`misspattern_file')
     }
 
     // =========================================================================
@@ -264,7 +275,99 @@ program define synthdata
             exit 198
         }
     }
-    
+
+    // Validate rowdist option
+    if "`rowdist'" == "" local rowdist "empirical"
+    local rowdist = lower("`rowdist'")
+    if !inlist("`rowdist'", "empirical", "parametric", "exact") {
+        di as error "rowdist() must be: empirical, parametric, or exact"
+        exit 198
+    }
+
+    // =========================================================================
+    // ANALYZE ROW-COUNT DISTRIBUTION FOR ID/PANEL VARIABLES
+    // =========================================================================
+    // If id() or panel() is specified, analyze how many rows per ID exist
+    // This is critical for realistic synthesis of longitudinal/panel data
+    local has_rowstruct = 0
+    if "`id'" != "" {
+        local has_rowstruct = 1
+    }
+    if "`panel'" != "" {
+        local has_rowstruct = 1
+    }
+    local rowcount_info ""
+    local orig_n_ids = 0
+    local target_n_ids = 0
+
+    if `has_rowstruct' == 1 {
+        // Determine ID variable(s)
+        if "`panel'" != "" {
+            local idvar `panelid'
+        }
+        else {
+            local idvar: word 1 of `id'
+        }
+
+        di as txt _n "Analyzing row-count distribution for `idvar'..."
+
+        // Get row counts per ID
+        tempvar rowcount
+        qui bysort `idvar': gen long `rowcount' = _N
+        qui bysort `idvar': keep if _n == 1
+
+        // Store row-count distribution statistics
+        qui su `rowcount', detail
+        local rc_mean = r(mean)
+        local rc_sd = r(sd)
+        local rc_min = r(min)
+        local rc_max = r(max)
+        local rc_p25 = r(p25)
+        local rc_p50 = r(p50)
+        local rc_p75 = r(p75)
+        local orig_n_ids = r(N)
+
+        di as txt "  Unique IDs: " as res `orig_n_ids'
+        di as txt "  Rows per ID: mean=" as res %5.1f `rc_mean' ///
+            as txt ", median=" as res %3.0f `rc_p50' ///
+            as txt ", range=[" as res `rc_min' as txt "-" as res `rc_max' as txt "]"
+
+        // Save row count distribution for later use
+        tempfile rowcount_dist
+        qui keep `idvar' `rowcount'
+        qui save `rowcount_dist'
+
+        // Reload original data
+        qui use `origdata', clear
+
+        // Calculate target number of IDs based on n()
+        // If n() specified, estimate how many IDs needed to get ~n observations
+        if `n' != `orig_n' {
+            local target_n_ids = round(`n' / `rc_mean')
+            if `target_n_ids' < 1 local target_n_ids = 1
+        }
+        else {
+            local target_n_ids = `orig_n_ids'
+        }
+
+        di as txt "  Target IDs: " as res `target_n_ids'
+    }
+
+    // =========================================================================
+    // DETECT AND APPLY TRANSFORMS (if transform option enabled)
+    // =========================================================================
+    local transforms ""
+    local transform_vars ""
+    if "`transform'" != "" & "`contvars'" != "" {
+        di as txt _n "Detecting skewed distributions for transformation..."
+        _synthdata_transform `contvars', origdata(`origdata')
+        local transforms `"`r(transforms)'"'
+        local transform_vars "`r(transform_vars)'"
+        if "`transform_vars'" != "" {
+            di as txt "  Variables to transform: `transform_vars'"
+        }
+    }
+
     // =========================================================================
     // SYNTHESIS: Generate synthetic data based on selected method
     // =========================================================================
@@ -282,7 +385,62 @@ program define synthdata
     // Include integer variables with continuous for synthesis (they get rounded afterward)
     local synth_contvars `contvars' `intvars'
 
-    if "`method'" == "smart" {
+    // Check if conditionalcont is enabled and we have both continuous and categorical vars
+    // Use synth_contvars which includes both continuous and integer variables
+    local use_condcont = 0
+    if "`conditionalcont'" != "" & "`synth_contvars'" != "" & "`catvars'" != "" {
+        local use_condcont = 1
+        di as txt "  Using categorical-continuous conditioning..."
+    }
+
+    if `use_condcont' {
+        // Use conditional continuous synthesis
+        _synthdata_condcont, contvars(`synth_contvars') catvars(`catvars') ///
+            n(`n') origdata(`origdata')
+        // Still need to generate other variables (categorical, string, date)
+        // The condcont handles continuous + one categorical already
+        // Generate remaining categoricals and other types
+        if `: word count `catvars'' > 1 {
+            // Generate remaining categorical variables
+            preserve
+            qui use `origdata', clear
+            local catnum = 1
+            foreach v of local catvars {
+                if `catnum' > 1 {
+                    qui levelsof `v', local(levels_`catnum')
+                    local nlevels_`catnum': word count `levels_`catnum''
+                    if `nlevels_`catnum'' > 0 {
+                        tempname catfreq_`catnum'
+                        matrix `catfreq_`catnum'' = J(`nlevels_`catnum'', 2, .)
+                        local j = 1
+                        foreach lev of local levels_`catnum' {
+                            qui count if `v' == `lev'
+                            matrix `catfreq_`catnum''[`j', 1] = `lev'
+                            matrix `catfreq_`catnum''[`j', 2] = r(N)
+                            local ++j
+                        }
+                        local vallbl_`catnum': value label `v'
+                    }
+                }
+                local ++catnum
+            }
+            restore
+            // Generate remaining categoricals in synthetic data
+            local catnum = 1
+            foreach v of local catvars {
+                if `catnum' > 1 & `nlevels_`catnum'' > 0 {
+                    cap drop `v'
+                    qui gen double `v' = .
+                    mata: _synthdata_drawcat("`v'", st_matrix("`catfreq_`catnum''"), `n')
+                    if "`vallbl_`catnum''" != "" {
+                        cap label values `v' `vallbl_`catnum''
+                    }
+                }
+                local ++catnum
+            }
+        }
+    }
+    else if "`method'" == "smart" {
         // Smart method: adaptive synthesis using detected characteristics
         _synthdata_smart, n(`n') catvars(`catvars') contvars(`synth_contvars') ///
             datevars(`datevars') strvars(`strvars') origdata(`origdata') ///
@@ -327,17 +485,136 @@ program define synthdata
         _synthdata_reconstruct_derived, n_derived(`n_derived')
     }
 
+    // =========================================================================
+    // BACK-TRANSFORM (if transform option was used)
+    // =========================================================================
+    if "`transform'" != "" & "`transform_vars'" != "" {
+        di as txt "  Back-transforming skewed variables..."
+        _synthdata_backtransform `contvars', transforms(`transforms')
+    }
+
     di as txt "  Synthesis complete."
-    
-    // Handle ID variables - generate sequential IDs
-    if "`id'" != "" {
+
+    // =========================================================================
+    // HANDLE ID VARIABLES WITH ROW-COUNT DISTRIBUTION
+    // =========================================================================
+    // For panel/longitudinal data, preserve realistic row counts per ID
+    if `has_rowstruct' == 1 & "`id'" != "" {
+        di as txt _n "Generating ID structure with realistic row counts..."
+
+        // Save current synthetic data before ID structure work
+        tempfile synthdata_temp
+        qui save `synthdata_temp'
+
+        // Generate row counts for synthetic IDs
+        _synthdata_rowcounts, target_n_ids(`target_n_ids') ///
+            rowcount_dist(`rowcount_dist') rowdist(`rowdist') ///
+            rc_mean(`rc_mean') rc_sd(`rc_sd') rc_min(`rc_min') rc_max(`rc_max')
+
+        // Get the generated row counts
+        tempfile synth_rowcounts
+        qui save `synth_rowcounts'
+
+        // Now expand synthetic data to match ID structure
+        // Current synthetic data has `n' rows - we need to restructure
+        qui use `synth_rowcounts', clear
+        qui su synth_rowcount, meanonly
+        local total_synth_rows = r(sum)
+        local n_synth_ids = _N
+
+        di as txt "  Generated " as res `n_synth_ids' as txt " IDs with " ///
+            as res `total_synth_rows' as txt " total rows"
+
+        // Expand to create proper row structure
+        qui expand synth_rowcount
+        qui bysort synth_id: gen long _rownum = _n
+
+        // Save the ID structure with observation number for merge
+        qui gen long _obs = _n
+        tempfile id_structure
+        qui keep synth_id _rownum _obs
+        qui save `id_structure'
+
+        // Load the synthetic data and adjust to match ID structure
+        qui use `synthdata_temp', clear
+        local curr_n = _N
+
+        if `total_synth_rows' > `curr_n' {
+            // Need to expand - sample with replacement
+            qui expand ceil(`total_synth_rows' / `curr_n') + 1
+            qui gen double _rand = runiform()
+            qui sort _rand
+            qui keep in 1/`total_synth_rows'
+            drop _rand
+        }
+        else if `total_synth_rows' < `curr_n' {
+            // Need to reduce - random sample
+            qui gen double _rand = runiform()
+            qui sort _rand
+            qui keep in 1/`total_synth_rows'
+            drop _rand
+        }
+
+        // Assign ID structure
+        qui gen long _obs = _n
+        qui merge 1:1 _obs using `id_structure', nogen keepusing(synth_id)
+
+        // Create the ID variable(s)
+        foreach v of local id {
+            cap drop `v'
+            qui gen long `v' = synth_id
+            label var `v' "Synthetic ID"
+        }
+        cap drop synth_id _obs _rownum
+
+        di as txt "  ID structure applied successfully"
+    }
+    else if "`id'" != "" {
+        // Simple case - just generate sequential IDs (original behavior)
         foreach v of local id {
             cap drop `v'
             qui gen long `v' = _n
             label var `v' "Synthetic ID"
         }
     }
-    
+
+    // =========================================================================
+    // APPLY RANDOM EFFECTS FOR PANEL DATA (if randomeffects option enabled)
+    // =========================================================================
+    if "`randomeffects'" != "" & "`id'" != "" & "`synth_contvars'" != "" {
+        local first_id: word 1 of `id'
+        _synthdata_randomeffects, idvar(`first_id') contvars(`synth_contvars') origdata(`origdata')
+    }
+
+    // =========================================================================
+    // APPLY TEMPORAL TRENDS FOR PANEL DATA (if trends option enabled)
+    // =========================================================================
+    if "`trends'" != "" & "`id'" != "" & "`synth_contvars'" != "" {
+        // Try to detect a time variable - look for common patterns
+        local timevar ""
+        foreach v of local varlist {
+            if inlist("`v'", "time", "visit", "wave", "period", "t", "year", "date") {
+                local timevar "`v'"
+                continue, break
+            }
+        }
+        // Also check if panel() option specified a time variable
+        if "`panel'" != "" {
+            tokenize "`panel'"
+            if "`2'" != "" {
+                local timevar "`2'"
+            }
+        }
+        if "`timevar'" != "" {
+            local first_id: word 1 of `id'
+            cap confirm numeric variable `timevar'
+            if !_rc {
+                _synthdata_trends, idvar(`first_id') timevar(`timevar') ///
+                    contvars(`synth_contvars') origdata(`origdata')
+            }
+        }
+    }
+
     // Handle skip variables - set to missing in synthetic data
     if "`skip'" != "" {
         foreach v of local skip {
@@ -378,11 +655,12 @@ program define synthdata
     if "`panel'" != "" {
         if "`preservevar'" != "" {
             _synthdata_panel, panelid(`panelid') paneltime(`paneltime') ///
-                preserve(`preservevar') autocorr(`autocorr') nobs(`n') origdata("`origdata'")
+                preserve(`preservevar') autocorr(`autocorr') nobs(`n') ///
+                origdata("`origdata'") rowdist(`rowdist')
         }
         else {
             _synthdata_panel, panelid(`panelid') paneltime(`paneltime') ///
-                autocorr(`autocorr') nobs(`n') origdata("`origdata'")
+                autocorr(`autocorr') nobs(`n') origdata("`origdata'") rowdist(`rowdist')
         }
     }
 
@@ -400,35 +678,56 @@ program define synthdata
         }
     }
 
-    // Apply missingness rates to synthetic data
-    // This ensures the synthetic data has similar missingness patterns to the original
-    foreach v of local allvars_track {
-        cap confirm variable `v'
-        if _rc continue
+    // Apply missingness to synthetic data
+    // Use pattern-based approach if misspattern option was enabled, otherwise use rate-based
+    if "`misspattern'" != "" & "`misspattern_file'" != "" {
+        // Pattern-based missingness - preserves which variables are missing together
+        di as txt "  Applying missingness patterns..."
+        // Build list of variables to apply patterns to (excluding id and skip)
+        local miss_varlist ""
+        foreach v of local allvars_track {
+            cap confirm variable `v'
+            if _rc continue
+            local isid: list v in id
+            if `isid' continue
+            local isskip: list v in skip
+            if `isskip' continue
+            local miss_varlist `miss_varlist' `v'
+        }
+        if "`miss_varlist'" != "" {
+            _synthdata_misspattern_apply `miss_varlist', patterns(`misspattern_file')
+        }
+    }
+    else {
+        // Rate-based missingness (original behavior)
+        foreach v of local allvars_track {
+            cap confirm variable `v'
+            if _rc continue
 
-        // Skip ID variables (they have different handling)
-        local isid: list v in id
-        if `isid' continue
+            // Skip ID variables (they have different handling)
+            local isid: list v in id
+            if `isid' continue
 
-        // Skip skip variables (they're already missing)
-        local isskip: list v in skip
-        if `isskip' continue
+            // Skip skip variables (they're already missing)
+            local isskip: list v in skip
+            if `isskip' continue
 
-        // Apply missingness if original had any missing values
-        if `_mr_`v'' > 0 {
-            // Generate random missingness at the same rate
-            tempvar randmiss
-            qui gen double `randmiss' = runiform()
-            cap confirm string variable `v'
-            if !_rc {
-                // String variable
-                qui replace `v' = "" if `randmiss' < `_mr_`v''
+            // Apply missingness if original had any missing values
+            if `_mr_`v'' > 0 {
+                // Generate random missingness at the same rate
+                tempvar randmiss
+                qui gen double `randmiss' = runiform()
+                cap confirm string variable `v'
+                if !_rc {
+                    // String variable
+                    qui replace `v' = "" if `randmiss' < `_mr_`v''
+                }
+                else {
+                    // Numeric variable
+                    qui replace `v' = . if `randmiss' < `_mr_`v''
+                }
+                drop `randmiss'
             }
-            else {
-                // Numeric variable
-                qui replace `v' = . if `randmiss' < `_mr_`v''
-            }
-            drop `randmiss'
         }
     }
 
@@ -662,7 +961,25 @@ program define synthdata
             di as txt "Current data replaced with synthetic version (`n' observations)"
         }
     }
-    
+
+    // =========================================================================
+    // PRIVACY CHECK (if privacycheck option enabled with sample > 0)
+    // =========================================================================
+    if "`privacycheck'" != "" & `privacysample' > 0 {
+        // Build list of numeric variables for distance calculation
+        local privacy_vars ""
+        foreach v of local contvars {
+            cap confirm variable `v'
+            if !_rc {
+                local privacy_vars `privacy_vars' `v'
+            }
+        }
+        if "`privacy_vars'" != "" {
+            _synthdata_privacycheck `privacy_vars', origdata(`origdata') ///
+                sample(`privacysample') threshold(`privacythresh')
+        }
+    }
+
     // Display summary
     di as txt _n "Synthetic data generation complete:"
     di as txt "  Method: " as res "`method'"
@@ -691,6 +1008,33 @@ program define synthdata
         }
         if "`catgroups'" != "" {
             di as txt "    Categorical groups: " as res `: word count `catgroups''
+        }
+    }
+
+    // Display new realism features used
+    local realism_features = 0
+    if "`conditionalcont'" != "" local ++realism_features
+    if "`randomeffects'" != "" local ++realism_features
+    if "`transform'" != "" local ++realism_features
+    if "`misspattern'" != "" local ++realism_features
+    if "`trends'" != "" local ++realism_features
+
+    if `realism_features' > 0 {
+        di as txt _n "  Realism enhancements:"
+        if "`conditionalcont'" != "" {
+            di as txt "    Categorical-continuous conditioning: " as res "enabled"
+        }
+        if "`randomeffects'" != "" {
+            di as txt "    Within-ID random effects: " as res "enabled"
+        }
+        if "`transform'" != "" & "`transform_vars'" != "" {
+            di as txt "    Skewness transforms: " as res `: word count `transform_vars'' " variables"
+        }
+        if "`misspattern'" != "" {
+            di as txt "    Missingness patterns: " as res "preserved"
+        }
+        if "`trends'" != "" {
+            di as txt "    Temporal trends: " as res "enabled"
         }
     }
 end
@@ -2356,38 +2700,218 @@ program define _synthdata_noextreme
     }
 end
 
-// Handle panel structure
+// =========================================================================
+// GENERATE SYNTHETIC ROW COUNTS PER ID
+// =========================================================================
+// This subroutine generates realistic row counts for synthetic IDs
+// by sampling from or fitting the original row-count distribution
+program define _synthdata_rowcounts
+    version 16.0
+    syntax, target_n_ids(integer) rowcount_dist(string) rowdist(string) ///
+        rc_mean(real) rc_sd(real) rc_min(real) rc_max(real)
+
+    // Load original row count distribution
+    qui use "`rowcount_dist'", clear
+
+    // Get the row count variable name (second variable in file)
+    qui ds
+    local varlist `r(varlist)'
+    local rcvar: word 2 of `varlist'
+
+    if "`rowdist'" == "exact" {
+        // Use exact distribution - sample IDs with replacement
+        // This preserves the exact shape of the distribution
+        qui gen double _rand = runiform()
+        qui sort _rand
+        if `target_n_ids' <= _N {
+            qui keep in 1/`target_n_ids'
+        }
+        else {
+            // Need more IDs than original - sample with replacement
+            local orig_n = _N
+            qui expand ceil(`target_n_ids' / `orig_n') + 1
+            qui gen double _rand2 = runiform()
+            qui sort _rand2
+            qui keep in 1/`target_n_ids'
+            drop _rand2
+        }
+        qui gen long synth_id = _n
+        qui gen long synth_rowcount = `rcvar'
+        drop _rand
+    }
+    else if "`rowdist'" == "empirical" {
+        // Bootstrap from observed distribution
+        // Sample row counts with replacement from original
+        local orig_n = _N
+        preserve
+        qui keep `rcvar'
+        tempfile rc_vals
+        qui save `rc_vals'
+        restore
+
+        clear
+        qui set obs `target_n_ids'
+        qui gen long synth_id = _n
+        qui gen long synth_rowcount = .
+
+        // Sample row counts from original distribution
+        forvalues i = 1/`target_n_ids' {
+            local rand_idx = ceil(runiform() * `orig_n')
+            preserve
+            qui use `rc_vals', clear
+            qui keep in `rand_idx'
+            local sampled_rc = `rcvar'[1]
+            restore
+            qui replace synth_rowcount = `sampled_rc' in `i'
+        }
+    }
+    else if "`rowdist'" == "parametric" {
+        // Fit parametric distribution (negative binomial or Poisson)
+        // and generate from fitted distribution
+        clear
+        qui set obs `target_n_ids'
+        qui gen long synth_id = _n
+
+        // Use negative binomial if variance > mean (overdispersion)
+        // Otherwise use Poisson
+        local variance = `rc_sd'^2
+        if `variance' > `rc_mean' & `rc_sd' > 0 {
+            // Negative binomial: parameterize via mean and dispersion
+            // dispersion r = mean^2 / (variance - mean)
+            local r_param = `rc_mean'^2 / (`variance' - `rc_mean')
+            local p_param = `r_param' / (`r_param' + `rc_mean')
+
+            // Generate using gamma-Poisson mixture
+            qui gen double _lambda = rgamma(`r_param', (1 - `p_param') / `p_param')
+            qui gen long synth_rowcount = rpoisson(_lambda)
+            drop _lambda
+        }
+        else {
+            // Poisson distribution
+            qui gen long synth_rowcount = rpoisson(`rc_mean')
+        }
+
+        // Enforce min/max constraints
+        qui replace synth_rowcount = `rc_min' if synth_rowcount < `rc_min'
+        qui replace synth_rowcount = `rc_max' if synth_rowcount > `rc_max'
+        qui replace synth_rowcount = 1 if synth_rowcount < 1
+    }
+
+    // Keep only needed variables
+    qui keep synth_id synth_rowcount
+end
+
+// Handle panel structure with improved row-count distribution
 program define _synthdata_panel
     version 16.0
-    syntax, panelid(string) paneltime(string) [preserve(varlist) autocorr(integer 0) Nobs(integer 0) origdata(string)]
-
-    di as txt "Note: Panel structure synthesis generates similar panel structure but simplified correlations"
+    syntax, panelid(string) paneltime(string) ///
+        [preserve(varlist) autocorr(integer 0) Nobs(integer 0) origdata(string) ///
+         rowdist(string) rowcount_dist(string)]
 
     // Get original panel structure info
     preserve
     qui use "`origdata'", clear
-    
-    qui duplicates report `panelid'
-    local npanels = r(unique_value)
-    
-    // Compute obs per panel
-    tempvar nper
-    qui bysort `panelid': gen `nper' = _N
-    qui su `nper', meanonly
-    local mean_nper = round(r(mean))
-    
+
+    // Analyze original panel structure
+    tempvar nper orig_timevar
+    qui bysort `panelid': gen long `nper' = _N
+    qui bysort `panelid' (`paneltime'): gen long `orig_timevar' = _n
+
+    // Get row count statistics
+    qui bysort `panelid': keep if _n == 1
+    qui su `nper', detail
+    local rc_mean = r(mean)
+    local rc_sd = r(sd)
+    local rc_min = r(min)
+    local rc_max = r(max)
+    local npanels = r(N)
+
+    // Save row count distribution if not provided
+    if "`rowcount_dist'" == "" {
+        tempfile rowcount_dist
+        qui keep `panelid' `nper'
+        qui save `rowcount_dist'
+    }
+
     restore
-    
-    // Restructure to match panel pattern
-    cap confirm variable `panelid'
-    if !_rc {
-        qui replace `panelid' = mod(_n - 1, `npanels') + 1
+
+    // Determine target number of panels
+    local target_panels = `npanels'
+    if `nobs' > 0 {
+        local target_panels = round(`nobs' / `rc_mean')
+        if `target_panels' < 1 local target_panels = 1
     }
-    
-    cap confirm variable `paneltime'
-    if !_rc {
-        qui bysort `panelid': replace `paneltime' = _n
+
+    di as txt "  Panel structure: " as res `target_panels' as txt " panels"
+    di as txt "  Rows per panel: mean=" as res %5.1f `rc_mean' ///
+        as txt ", range=[" as res `rc_min' as txt "-" as res `rc_max' as txt "]"
+
+    // Generate row counts for synthetic panels
+    if "`rowdist'" == "" local rowdist "empirical"
+
+    _synthdata_rowcounts, target_n_ids(`target_panels') ///
+        rowcount_dist(`rowcount_dist') rowdist(`rowdist') ///
+        rc_mean(`rc_mean') rc_sd(`rc_sd') rc_min(`rc_min') rc_max(`rc_max')
+
+    // Get the generated structure
+    qui su synth_rowcount, meanonly
+    local total_rows = r(sum)
+
+    // Expand to create panel structure
+    qui expand synth_rowcount
+    qui bysort synth_id: gen long _timevar = _n
+
+    // Now merge back with synthetic data
+    // The current data has the ID structure; we need to sample from synthetic values
+    tempfile panel_structure
+    qui keep synth_id _timevar synth_rowcount
+    qui save `panel_structure'
+
+    // Load synthetic data and restructure
+    restore, preserve
+
+    local curr_n = _N
+    if `total_rows' != `curr_n' {
+        if `total_rows' > `curr_n' {
+            qui expand ceil(`total_rows' / `curr_n') + 1
+        }
+        qui gen double _rand = runiform()
+        qui sort _rand
+        qui keep in 1/`total_rows'
+        drop _rand
     }
+
+    // Assign panel structure
+    qui gen long _obs = _n
+    qui merge 1:1 _obs using `panel_structure', nogen
+
+    // Create/replace panel variables
+    cap drop `panelid'
+    qui gen long `panelid' = synth_id
+    label var `panelid' "Synthetic panel ID"
+
+    cap drop `paneltime'
+    qui gen long `paneltime' = _timevar
+    label var `paneltime' "Synthetic time index"
+
+    // Handle preserved variables (constant within panel)
+    if "`preserve'" != "" {
+        foreach v of local preserve {
+            cap confirm variable `v'
+            if !_rc {
+                // Make variable constant within panel by taking first value
+                tempvar first_val
+                qui bysort `panelid' (`paneltime'): gen `first_val' = `v'[1]
+                qui replace `v' = `first_val'
+                drop `first_val'
+            }
+        }
+    }
+
+    // Clean up
+    cap drop synth_id _timevar synth_rowcount _obs
+
+    di as txt "  Panel structure applied: " as res `total_rows' as txt " total observations"
 end
 
 // Compare original and synthetic statistics
@@ -2589,6 +3113,712 @@ program define _synthdata_graph
     }
     
     di as txt "Created `=`gnum'-1' density comparison graphs"
+end
+
+// =============================================================================
+// CATEGORICAL-CONTINUOUS CONDITIONING
+// =============================================================================
+// Generates continuous variables stratified by categorical variable levels
+// This preserves relationships like different heights for males vs females
+//
+// Process:
+//   1. Identify main stratification categorical (most levels or user-specified)
+//   2. For each stratum level, compute separate means/SDs/correlations
+//   3. Generate continuous values stratum-by-stratum using MVN
+//   4. Combine strata into final synthetic data
+
+program define _synthdata_condcont, rclass
+    version 16.0
+    syntax, contvars(varlist) catvars(varlist) n(integer) origdata(string)
+
+    // Use first categorical as stratification variable (typically the most important)
+    local stratvar: word 1 of `catvars'
+
+    // Load original data to compute stratum-specific parameters
+    preserve
+    qui use `origdata', clear
+
+    // Get stratum levels
+    qui levelsof `stratvar', local(strat_levels)
+    local nstrat: word count `strat_levels'
+
+    if `nstrat' < 2 | `nstrat' > 50 {
+        // Too few or too many strata - fall back to unconditional
+        restore
+        return local used_conditioning = 0
+        exit
+    }
+
+    di as txt "    Conditioning on `stratvar' (`nstrat' levels)..."
+
+    // Compute stratum counts and proportions
+    local total_n = _N
+    foreach lev of local strat_levels {
+        qui count if `stratvar' == `lev'
+        local strat_n_`lev' = r(N)
+        local strat_prop_`lev' = r(N) / `total_n'
+    }
+
+    // Compute means and SDs per stratum per variable
+    local ncont: word count `contvars'
+    foreach lev of local strat_levels {
+        local j = 1
+        foreach v of local contvars {
+            qui su `v' if `stratvar' == `lev', meanonly
+            local strat_mean_`lev'_`j' = cond(r(N) > 0, r(mean), 0)
+            qui su `v' if `stratvar' == `lev'
+            local strat_sd_`lev'_`j' = cond(r(N) > 1 & r(sd) > 0, r(sd), 1)
+            local ++j
+        }
+
+        // Compute correlation matrix for this stratum if ncont > 1
+        if `ncont' > 1 {
+            qui correlate `contvars' if `stratvar' == `lev', cov
+            if _rc == 0 & r(N) >= `ncont' {
+                tempname covmat_`lev'
+                matrix `covmat_`lev'' = r(C)
+                // Check and regularize if needed
+                mata: st_local("isposdef", strofreal(_synthdata_isposdef(st_matrix("`covmat_`lev''"))))
+                if `isposdef' == 0 {
+                    mata: st_matrix("`covmat_`lev''", _synthdata_regularize(st_matrix("`covmat_`lev''")))
+                }
+            }
+            else {
+                // Fall back to diagonal covariance
+                tempname covmat_`lev'
+                matrix `covmat_`lev'' = J(`ncont', `ncont', 0)
+                local j = 1
+                foreach v of local contvars {
+                    matrix `covmat_`lev''[`j', `j'] = `strat_sd_`lev'_`j''^2
+                    local ++j
+                }
+            }
+        }
+    }
+
+    restore
+
+    // Now generate synthetic data stratum by stratum
+    qui drop _all
+
+    foreach lev of local strat_levels {
+        // Calculate n for this stratum
+        local strat_synth_n = round(`n' * `strat_prop_`lev'')
+        if `strat_synth_n' < 1 local strat_synth_n = 1
+
+        // Create temp dataset for this stratum
+        preserve
+        qui drop _all
+        qui set obs `strat_synth_n'
+
+        // Generate stratification variable
+        qui gen double `stratvar' = `lev'
+
+        // Generate continuous variables
+        if `ncont' == 1 {
+            local v: word 1 of `contvars'
+            qui gen double `v' = rnormal(`strat_mean_`lev'_1', `strat_sd_`lev'_1')
+        }
+        else {
+            // Multivariate normal generation
+            tempname means_strat
+            matrix `means_strat' = J(1, `ncont', .)
+            local j = 1
+            foreach v of local contvars {
+                matrix `means_strat'[1, `j'] = `strat_mean_`lev'_`j''
+                local ++j
+            }
+
+            foreach v of local contvars {
+                qui gen double `v' = .
+            }
+
+            mata: _synthdata_genmvn("`contvars'", st_matrix("`means_strat'"), ///
+                st_matrix("`covmat_`lev''"), `strat_synth_n')
+        }
+
+        tempfile strat_`lev'
+        qui save `strat_`lev''
+        restore
+    }
+
+    // Combine all strata
+    qui drop _all
+    local first = 1
+    foreach lev of local strat_levels {
+        if `first' {
+            qui use `strat_`lev'', clear
+            local first = 0
+        }
+        else {
+            qui append using `strat_`lev''
+        }
+    }
+
+    // Shuffle and trim/expand to exact n
+    qui gen double _rand = runiform()
+    sort _rand
+    drop _rand
+
+    if _N > `n' {
+        qui keep in 1/`n'
+    }
+    else if _N < `n' {
+        local deficit = `n' - _N
+        qui expand ceil(`n' / _N) + 1
+        qui gen double _rand = runiform()
+        sort _rand
+        qui keep in 1/`n'
+        drop _rand
+    }
+
+    return local used_conditioning = 1
+    return local strat_var "`stratvar'"
+end
+
+// =============================================================================
+// WITHIN-ID RANDOM EFFECTS FOR PANEL DATA
+// =============================================================================
+// Adds ID-level random effects to preserve within-person correlation
+// For longitudinal data, if person A has high BP at visit 1, they likely
+// have high BP at visits 2-3 too.
+//
+// Process:
+//   1. For each continuous variable, estimate ICC from original data
+//   2. Generate a random effect for each synthetic ID
+//   3. Add the random effect to all rows within that ID
+//   4. Scale to preserve overall variance
+
+program define _synthdata_randomeffects
+    version 16.0
+    syntax, idvar(varname) contvars(varlist) origdata(string)
+
+    // Load original data to compute ICCs
+    preserve
+    qui use `origdata', clear
+
+    local ncont: word count `contvars'
+    if `ncont' == 0 {
+        restore
+        exit
+    }
+
+    di as txt "    Computing intra-class correlations..."
+
+    // Compute ICC for each continuous variable using one-way ANOVA
+    // ICC = (MSB - MSW) / (MSB + (k-1)*MSW) where k = mean cluster size
+    foreach v of local contvars {
+        // Check if variable exists and has variation
+        cap confirm variable `v'
+        if _rc {
+            local icc_`v' = 0
+            continue
+        }
+
+        qui su `v'
+        if r(sd) == 0 | r(sd) == . {
+            local icc_`v' = 0
+            continue
+        }
+
+        // Compute between and within variance using mixed model approach
+        // Simplified: use variance decomposition
+        cap quietly anova `v' `idvar'
+        if _rc {
+            local icc_`v' = 0
+            continue
+        }
+
+        // Get mean squares
+        local msb = e(mss) / e(df_m)
+        local msw = e(rss) / e(df_r)
+
+        // Mean cluster size
+        qui tab `idvar'
+        local n_ids = r(r)
+        local k = _N / `n_ids'
+
+        // ICC
+        if `msb' + (`k' - 1) * `msw' > 0 {
+            local icc_`v' = (`msb' - `msw') / (`msb' + (`k' - 1) * `msw')
+            if `icc_`v'' < 0 local icc_`v' = 0
+            if `icc_`v'' > 1 local icc_`v' = 1
+        }
+        else {
+            local icc_`v' = 0
+        }
+    }
+
+    restore
+
+    // Now apply random effects to synthetic data
+    // Get unique IDs in synthetic data
+    tempvar id_num
+    qui egen `id_num' = group(`idvar')
+    qui su `id_num', meanonly
+    local n_synth_ids = r(max)
+
+    foreach v of local contvars {
+        if `icc_`v'' > 0.01 {
+            // Generate random effect for each ID
+            // RE variance = ICC * total_var
+            // Within variance = (1-ICC) * total_var
+
+            qui su `v'
+            local total_var = r(Var)
+            local total_sd = r(sd)
+            local total_mean = r(mean)
+
+            if `total_sd' > 0 {
+                local re_sd = sqrt(`icc_`v'') * `total_sd'
+
+                // Generate one random effect per ID
+                tempvar re_`v'
+                qui gen double `re_`v'' = .
+
+                // Create ID-level random effects
+                forvalues i = 1/`n_synth_ids' {
+                    local this_re = rnormal(0, `re_sd')
+                    qui replace `re_`v'' = `this_re' if `id_num' == `i'
+                }
+
+                // Scale within-ID variance to maintain total variance
+                // New value = mean + (value - mean) * sqrt(1-ICC) + RE
+                qui replace `v' = `total_mean' + (`v' - `total_mean') * sqrt(1 - `icc_`v'') + `re_`v''
+                drop `re_`v''
+            }
+        }
+    }
+
+    drop `id_num'
+
+    di as txt "    Random effects applied to continuous variables"
+end
+
+// =============================================================================
+// MARGINAL DISTRIBUTION TRANSFORMS
+// =============================================================================
+// Detects and applies transforms to handle skewed distributions
+// For non-normal variables: transform -> synthesize as normal -> back-transform
+//
+// Supported transforms:
+//   - log: for positive skewed data (min > 0)
+//   - sqrt: for count-like data (min >= 0)
+//   - none: for approximately normal data
+
+program define _synthdata_transform, rclass
+    version 16.0
+    syntax varlist, origdata(string) [SAVing(string)]
+
+    // Load original data
+    preserve
+    qui use `origdata', clear
+
+    local transforms ""
+    local transform_vars ""
+
+    foreach v of local varlist {
+        cap confirm numeric variable `v'
+        if _rc continue
+
+        qui su `v', detail
+        if r(N) < 10 | r(sd) == 0 {
+            local transforms `"`transforms' "none""'
+            continue
+        }
+
+        local skew = r(skewness)
+        local vmin = r(min)
+        local vmean = r(mean)
+        local vsd = r(sd)
+
+        // Decision logic for transform
+        if abs(`skew') < 0.5 {
+            // Approximately normal
+            local transforms `"`transforms' "none""'
+        }
+        else if `skew' > 0.5 & `vmin' > 0 {
+            // Positive skew and positive values -> log transform
+            local transforms `"`transforms' "log""'
+            local transform_vars `transform_vars' `v'
+        }
+        else if `skew' > 0.5 & `vmin' >= 0 {
+            // Positive skew and non-negative -> sqrt transform
+            local transforms `"`transforms' "sqrt""'
+            local transform_vars `transform_vars' `v'
+        }
+        else if `skew' < -0.5 {
+            // Negative skew -> reflect and log
+            local transforms `"`transforms' "neglog""'
+            local transform_vars `transform_vars' `v'
+        }
+        else {
+            local transforms `"`transforms' "none""'
+        }
+    }
+
+    restore
+
+    // Store transform info for later back-transformation
+    if "`saving'" != "" {
+        local i = 1
+        foreach v of local varlist {
+            local trans: word `i' of `transforms'
+            c_local _trans_`v' "`trans'"
+            local ++i
+        }
+    }
+
+    // Return the list of transformed variables
+    return local transform_vars "`transform_vars'"
+    return local transforms `"`transforms'"'
+end
+
+// Apply transforms to original data before synthesis
+program define _synthdata_apply_transform
+    version 16.0
+    syntax varlist, transforms(string asis)
+
+    local i = 1
+    foreach v of local varlist {
+        local trans: word `i' of `transforms'
+
+        if "`trans'" == "log" {
+            qui replace `v' = ln(`v')
+        }
+        else if "`trans'" == "sqrt" {
+            qui replace `v' = sqrt(`v')
+        }
+        else if "`trans'" == "neglog" {
+            qui su `v', meanonly
+            local vmax = r(max)
+            qui replace `v' = ln(`vmax' + 1 - `v')
+            c_local _neglog_max_`v' = `vmax'
+        }
+        local ++i
+    }
+end
+
+// Back-transform synthetic data
+program define _synthdata_backtransform
+    version 16.0
+    syntax varlist, transforms(string asis)
+
+    local i = 1
+    foreach v of local varlist {
+        local trans: word `i' of `transforms'
+
+        if "`trans'" == "log" {
+            qui replace `v' = exp(`v')
+        }
+        else if "`trans'" == "sqrt" {
+            qui replace `v' = `v'^2
+            qui replace `v' = 0 if `v' < 0  // Handle numerical issues
+        }
+        else if "`trans'" == "neglog" {
+            // Need the original max value - stored in c_local
+            local vmax = ${_neglog_max_`v'}
+            if "`vmax'" != "" {
+                qui replace `v' = `vmax' + 1 - exp(`v')
+            }
+        }
+        local ++i
+    }
+end
+
+// =============================================================================
+// MISSINGNESS PATTERN PRESERVATION
+// =============================================================================
+// Preserves the pattern of missingness, not just the rate
+// If variables A and B are often missing together, this structure is maintained
+//
+// Process:
+//   1. Create missingness indicator matrix from original
+//   2. Identify unique missingness patterns and their frequencies
+//   3. Sample patterns proportionally for synthetic data
+//   4. Apply patterns to make values missing
+
+program define _synthdata_misspattern_capture
+    version 16.0
+    syntax varlist, SAVing(string)
+
+    // Create missingness indicator for each variable
+    local nvars: word count `varlist'
+
+    // Create a pattern string for each observation
+    tempvar pattern
+    qui gen str`nvars' `pattern' = ""
+
+    foreach v of local varlist {
+        qui replace `pattern' = `pattern' + cond(missing(`v'), "1", "0")
+    }
+
+    // Get unique patterns and counts
+    preserve
+    qui contract `pattern', freq(_freq)
+    qui rename `pattern' pattern
+    qui gen double _prop = _freq / _N
+
+    // Save patterns
+    qui save `saving', replace
+    restore
+end
+
+program define _synthdata_misspattern_apply
+    version 16.0
+    syntax varlist, patterns(string)
+
+    // Load patterns
+    preserve
+    qui use `patterns', clear
+    local npatterns = _N
+
+    // Build pattern list and cumulative probabilities
+    local cumprob = 0
+    forvalues i = 1/`npatterns' {
+        local pat`i' = pattern[`i']
+        local prop`i' = _prop[`i']
+        local cumprob = `cumprob' + `prop`i''
+        local cumprob`i' = `cumprob'
+    }
+    restore
+
+    // Apply patterns to synthetic data
+    tempvar u assigned_pattern
+    qui gen double `u' = runiform()
+    qui gen str`=length("`pat1'")' `assigned_pattern' = ""
+
+    // Assign patterns based on cumulative probability
+    forvalues i = 1/`npatterns' {
+        if `i' == 1 {
+            qui replace `assigned_pattern' = "`pat`i''" if `u' <= `cumprob`i''
+        }
+        else {
+            local prev = `i' - 1
+            qui replace `assigned_pattern' = "`pat`i''" if `u' > `cumprob`prev'' & `u' <= `cumprob`i''
+        }
+    }
+
+    // Apply missingness based on pattern
+    local j = 1
+    foreach v of local varlist {
+        tempvar should_miss
+        qui gen byte `should_miss' = substr(`assigned_pattern', `j', 1) == "1"
+
+        cap confirm string variable `v'
+        if !_rc {
+            qui replace `v' = "" if `should_miss'
+        }
+        else {
+            qui replace `v' = . if `should_miss'
+        }
+        drop `should_miss'
+        local ++j
+    }
+
+    drop `u' `assigned_pattern'
+end
+
+// =============================================================================
+// PRIVACY DISTANCE CHECK (OPTIONAL, SAMPLING-BASED)
+// =============================================================================
+// Checks that synthetic records are not too close to original records
+// Uses Gower distance (handles mixed types) on a sample of synthetic records
+//
+// Off by default (privacysample = 0)
+
+program define _synthdata_privacycheck, rclass
+    version 16.0
+    syntax varlist, origdata(string) [sample(integer 1000) threshold(real 0.05)]
+
+    if `sample' <= 0 {
+        di as txt "  Privacy check skipped (privacysample = 0)"
+        exit
+    }
+
+    local n_synth = _N
+    if `sample' > `n_synth' {
+        local sample = `n_synth'
+    }
+
+    di as txt _n "Privacy check (sampling `sample' synthetic records)..."
+
+    // Sample synthetic records
+    tempvar rand_order
+    qui gen double `rand_order' = runiform()
+    sort `rand_order'
+
+    // Save sampled synthetic records
+    tempfile synth_sample
+    preserve
+    qui keep in 1/`sample'
+    qui gen long _synth_id = _n
+    qui save `synth_sample'
+    restore
+    drop `rand_order'
+
+    // Load original data
+    preserve
+    qui use `origdata', clear
+    local n_orig = _N
+
+    // Keep only relevant variables
+    qui keep `varlist'
+
+    // For each sampled synthetic record, find minimum distance to any original
+    // This is O(sample * n_orig) which is manageable
+
+    // Compute variable ranges for Gower distance normalization
+    local nvars: word count `varlist'
+    local j = 1
+    foreach v of local varlist {
+        cap confirm numeric variable `v'
+        if !_rc {
+            qui su `v'
+            local range_`j' = r(max) - r(min)
+            if `range_`j'' == 0 local range_`j' = 1
+            local type_`j' = "num"
+        }
+        else {
+            local range_`j' = 1
+            local type_`j' = "str"
+        }
+        local ++j
+    }
+
+    // Save original
+    tempfile orig_temp
+    qui save `orig_temp'
+
+    // Process synthetic sample
+    qui use `synth_sample', clear
+
+    tempvar min_dist
+    qui gen double `min_dist' = .
+
+    // For computational efficiency, use Mata
+    mata: _synthdata_compute_mindist("`varlist'", "`orig_temp'", `sample', `nvars')
+
+    // Report statistics
+    qui su `min_dist', detail
+    local mean_dist = r(mean)
+    local min_dist_val = r(min)
+    local p5_dist = r(p5)
+
+    local n_close = 0
+    qui count if `min_dist' < `threshold'
+    local n_close = r(N)
+    local pct_close = 100 * `n_close' / `sample'
+
+    di as txt "  Mean distance to nearest original: " as res %6.4f `mean_dist'
+    di as txt "  Minimum distance found: " as res %6.4f `min_dist_val'
+    di as txt "  5th percentile distance: " as res %6.4f `p5_dist'
+    di as txt "  Records within threshold (`threshold'): " as res `n_close' " (" %4.1f `pct_close' "%)"
+
+    if `n_close' > 0 {
+        di as txt "  Warning: `n_close' synthetic records may be too similar to originals"
+    }
+    else {
+        di as txt "  Privacy check passed: no records below threshold"
+    }
+
+    restore
+
+    return scalar mean_dist = `mean_dist'
+    return scalar min_dist = `min_dist_val'
+    return scalar n_close = `n_close'
+    return scalar pct_close = `pct_close'
+end
+
+// =============================================================================
+// TEMPORAL TREND PRESERVATION FOR PANEL DATA
+// =============================================================================
+// For longitudinal data with time variables, preserves within-ID trends
+// If disease progresses over time in original, synthetic shows similar patterns
+//
+// Process:
+//   1. Detect time/visit variable in panel
+//   2. Estimate within-ID slopes for continuous outcomes
+//   3. Generate synthetic slopes from the distribution
+//   4. Apply trends to synthetic data
+
+program define _synthdata_trends
+    version 16.0
+    syntax, idvar(varname) timevar(varname) contvars(varlist) origdata(string)
+
+    // Load original to estimate trend distributions
+    preserve
+    qui use `origdata', clear
+
+    di as txt "    Analyzing within-ID temporal trends..."
+
+    // For each continuous variable, estimate within-ID slopes
+    foreach v of local contvars {
+        cap confirm numeric variable `v'
+        if _rc continue
+
+        // Check that variable has variation
+        qui su `v'
+        if r(sd) == 0 | r(sd) == . continue
+
+        // Estimate slopes per ID using regression
+        // Store slope distribution parameters
+        tempvar slope_`v'
+
+        // Statsby approach to get slopes
+        cap statsby _b[`timevar'], by(`idvar') saving(`"`c(tmpdir)'/slopes_`v'"', replace): ///
+            regress `v' `timevar'
+
+        if _rc {
+            // Fall back - no trends for this variable
+            local slope_mean_`v' = 0
+            local slope_sd_`v' = 0
+            continue
+        }
+
+        qui use `"`c(tmpdir)'/slopes_`v'"', clear
+        qui su _stat_1
+        local slope_mean_`v' = r(mean)
+        local slope_sd_`v' = r(sd)
+        if `slope_sd_`v'' == . local slope_sd_`v' = 0
+
+        // Clean up
+        cap erase `"`c(tmpdir)'/slopes_`v'.dta"'
+    }
+
+    restore
+
+    // Apply trends to synthetic data
+    // Get unique IDs
+    tempvar id_num
+    qui egen `id_num' = group(`idvar')
+    qui su `id_num', meanonly
+    local n_synth_ids = r(max)
+
+    // Get time values
+    qui su `timevar'
+    local time_mean = r(mean)
+
+    foreach v of local contvars {
+        if `slope_sd_`v'' > 0 {
+            // Generate one slope per ID
+            tempvar synth_slope
+            qui gen double `synth_slope' = .
+
+            forvalues i = 1/`n_synth_ids' {
+                local this_slope = rnormal(`slope_mean_`v'', `slope_sd_`v'')
+                qui replace `synth_slope' = `this_slope' if `id_num' == `i'
+            }
+
+            // Apply trend: value += slope * (time - mean_time)
+            qui replace `v' = `v' + `synth_slope' * (`timevar' - `time_mean')
+            drop `synth_slope'
+        }
+    }
+
+    drop `id_num'
+
+    di as txt "    Temporal trends applied"
 end
 
 // Mata helper functions
@@ -3257,6 +4487,75 @@ void _synthdata_synthstr_multi(string scalar varlist, string scalar datafile,
     for (j = 1; j <= nvars; j++) {
         _synthdata_synthstr_fromdata(vars[j], datafile, n)
     }
+}
+
+// Compute minimum Gower distance from each synthetic record to any original
+// This is O(n_synth * n_orig) but manageable for sampled synthetic records
+void _synthdata_compute_mindist(string scalar varlist, string scalar origfile,
+                                 real scalar n_synth, real scalar nvars)
+{
+    real matrix synth_data, orig_data
+    real colvector min_dists, ranges
+    string rowvector vars
+    real scalar i, j, k, n_orig, dist, d_ij, range_k
+    real rowvector synth_row, orig_row
+
+    vars = tokens(varlist)
+
+    // Load synthetic data (currently in memory)
+    synth_data = st_data(., vars)
+
+    // Load original data
+    stata("preserve")
+    stata("qui use `" + origfile + "', clear")
+    orig_data = st_data(., vars)
+    stata("restore")
+
+    n_orig = rows(orig_data)
+    min_dists = J(n_synth, 1, .)
+
+    // Compute ranges for normalization (from original data)
+    ranges = J(nvars, 1, 1)
+    for (k = 1; k <= nvars; k++) {
+        range_k = max(orig_data[., k]) - min(orig_data[., k])
+        if (range_k > 0) ranges[k] = range_k
+    }
+
+    // For each synthetic record, find minimum distance to any original
+    for (i = 1; i <= n_synth; i++) {
+        synth_row = synth_data[i, .]
+        min_dists[i] = .
+
+        for (j = 1; j <= n_orig; j++) {
+            orig_row = orig_data[j, .]
+
+            // Compute Gower distance
+            dist = 0
+            for (k = 1; k <= nvars; k++) {
+                // Handle missing values
+                if (synth_row[k] == . | orig_row[k] == .) {
+                    continue
+                }
+                // Normalized absolute difference for numeric
+                d_ij = abs(synth_row[k] - orig_row[k]) / ranges[k]
+                dist = dist + d_ij
+            }
+            dist = dist / nvars
+
+            if (min_dists[i] == . | dist < min_dists[i]) {
+                min_dists[i] = dist
+            }
+        }
+    }
+
+    // Store results back to Stata
+    // Find the min_dist variable index
+    real scalar idx
+    idx = st_varindex("__min_dist__")
+    if (idx == .) {
+        idx = st_addvar("double", "__min_dist__")
+    }
+    st_store(., idx, min_dists)
 }
 
 end

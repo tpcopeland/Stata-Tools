@@ -566,7 +566,7 @@ MIT License
 
 ## Version
 
-Version 1.3.0, 2025-12-27
+Version 1.4.0, 2026-01-11
 
 ## See Also
 

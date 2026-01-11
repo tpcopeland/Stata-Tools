@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.3.0  27dec2025}{...}
+{* *! version 1.5.0  11jan2026}{...}
 {viewerjumpto "Syntax" "synthdata##syntax"}{...}
 {viewerjumpto "Description" "synthdata##description"}{...}
 {viewerjumpto "Options" "synthdata##options"}{...}
@@ -66,12 +66,23 @@
 {synopt:{opt panel(id time)}}preserve panel structure{p_end}
 {synopt:{opt preservevar(varlist)}}variables constant within panel unit{p_end}
 {synopt:{opt autocorr(#)}}preserve autocorrelation up to # lags{p_end}
+{synopt:{opt rowdist(method)}}row-count distribution: empirical, parametric, or exact{p_end}
+
+{syntab:Realism Enhancements}
+{synopt:{opt cond:itionalcont}}stratify continuous synthesis by categorical levels{p_end}
+{synopt:{opt rand:omeffects}}add within-ID random effects for panel data{p_end}
+{synopt:{opt missp:attern}}preserve missingness patterns (not just rates){p_end}
+{synopt:{opt trends}}preserve within-ID temporal trends{p_end}
+{synopt:{opt trans:form}}auto-transform skewed variables (experimental){p_end}
 
 {syntab:Privacy/Disclosure Control}
 {synopt:{opt mincell(#)}}rare category protection; default 5{p_end}
 {synopt:{opt trim(#)}}trim extreme values at #th percentile{p_end}
 {synopt:{opt bounds(spec)}}enforce min/max bounds{p_end}
 {synopt:{opt noext:reme}}prevent values outside observed range{p_end}
+{synopt:{opt priv:acycheck}}enable privacy distance check (experimental){p_end}
+{synopt:{opt privacysample(#)}}number of records to sample for privacy check; default 0 (off){p_end}
+{synopt:{opt privacythresh(#)}}minimum distance threshold; default 0.05{p_end}
 
 {syntab:Validation/Diagnostics}
 {synopt:{opt com:pare}}produce comparison report{p_end}
@@ -299,6 +310,56 @@ within panel units (e.g., sex, birth date).
 {phang}
 {opt autocorr(#)} preserves autocorrelation structure up to # lags.
 
+{phang}
+{opt rowdist(method)} controls how the number of rows per ID is generated in
+synthetic data. This is critical for realistic panel/longitudinal synthesis:
+{p_end}
+{pmore}{bf:empirical} (default) - Bootstrap samples row counts from the observed
+distribution. Preserves the exact shape of the distribution.{p_end}
+{pmore}{bf:parametric} - Fits a negative binomial or Poisson distribution to the
+row counts and generates from the fitted model. Good when you want to allow
+row counts outside the observed range.{p_end}
+{pmore}{bf:exact} - Samples entire ID-rowcount pairs from the original data.
+Produces row counts identical to original IDs (with replacement if needed).{p_end}
+
+{dlgtab:Realism Enhancements}
+
+{phang}
+{opt conditionalcont} stratifies continuous variable synthesis by categorical
+variable levels. This preserves relationships between categorical and continuous
+variables. For example, if males have different heights than females in the
+original data, this relationship is preserved in the synthetic data. The first
+categorical variable is used for stratification.
+
+{phang}
+{opt randomeffects} adds ID-level random effects for panel/longitudinal data.
+This preserves within-person correlation (intra-class correlation). In longitudinal
+data, if person A has high blood pressure at visit 1, they likely have high
+blood pressure at visits 2-3 too. Without this option, each row within an ID
+is generated independently. This option computes the ICC from the original data
+and applies appropriate random shifts to maintain within-ID correlation.
+
+{phang}
+{opt misspattern} preserves the pattern of missingness, not just the rate.
+Standard synthesis reintroduces missing values at the same rate per variable,
+but randomly. With {opt misspattern}, if variables A and B are often missing
+together in the original data (e.g., lab panels), this co-missingness structure
+is preserved in the synthetic data.
+
+{phang}
+{opt trends} preserves within-ID temporal trends for longitudinal data. If disease
+progresses over time in the original data (e.g., biomarkers increasing across
+visits), synthetic data will show similar within-person trends. Requires a time
+variable named "time", "visit", "wave", "period", "t", "year", or "date", or
+specified via the {opt panel()} option. Works best with {opt randomeffects}.
+
+{phang}
+{opt transform} automatically detects skewed distributions and applies
+transformations (log, sqrt) before synthesis, then back-transforms afterward.
+This can improve synthesis quality for non-normal variables like income or
+lab values. {bf:Note}: This feature is experimental and may not work correctly
+in all cases.
+
 {dlgtab:Privacy/Disclosure Control}
 
 {phang}
@@ -316,6 +377,23 @@ as {it:varname min max}, e.g., {cmd:bounds("age 0 120")}.
 {phang}
 {opt noextreme} prevents synthetic values from falling outside the observed
 range in the original data.
+
+{phang}
+{opt privacycheck} enables a privacy distance check that computes the minimum
+Gower distance between each synthetic record and the original records. This
+helps identify synthetic records that may be too similar to real individuals.
+{bf:Note}: This feature is experimental.
+
+{phang}
+{opt privacysample(#)} specifies the number of synthetic records to sample for
+the privacy check. Computing distances for all records can be computationally
+expensive, so sampling is used. Default is 0 (privacy check disabled). Set to
+a positive number (e.g., 1000) to enable the check.
+
+{phang}
+{opt privacythresh(#)} specifies the distance threshold below which a synthetic
+record is considered "too close" to an original record. Default is 0.05.
+Records with distance below this threshold are flagged in the output.
 
 {dlgtab:Validation/Diagnostics}
 
@@ -427,6 +505,23 @@ The bootstrap method:
 {pstd}Synthesize with validation output{p_end}
 {phang2}{cmd:. synthdata, saving(synth) validate(synth_validation) compare}{p_end}
 
+{pstd}{bf:Realism Enhancement Examples}{p_end}
+
+{pstd}Preserve categorical-continuous relationships (e.g., height by sex){p_end}
+{phang2}{cmd:. synthdata height weight sex, replace conditionalcont categorical(sex)}{p_end}
+
+{pstd}Panel data with within-person correlation preserved{p_end}
+{phang2}{cmd:. synthdata bp_systolic bp_diastolic, id(patient_id) replace randomeffects}{p_end}
+
+{pstd}Preserve missingness patterns (co-missingness structure){p_end}
+{phang2}{cmd:. synthdata lab_a lab_b lab_c, replace misspattern}{p_end}
+
+{pstd}Longitudinal data with trends and random effects{p_end}
+{phang2}{cmd:. synthdata biomarker visit, id(patient_id) replace randomeffects trends}{p_end}
+
+{pstd}Full realism enhancement for panel data{p_end}
+{phang2}{cmd:. synthdata outcome treatment sex age, id(patient_id) replace conditionalcont randomeffects misspattern categorical(sex treatment)}{p_end}
+
 
 {marker results}{...}
 {title:Stored results}
@@ -447,7 +542,10 @@ Users should be aware of the following limitations:
 {phang2}- Synthetic data is {bf:not} a disclosure-proof guarantee; there is always
 a utility/privacy tradeoff.{p_end}
 {phang2}- The sequential method may be slow for datasets with many variables.{p_end}
-{phang2}- Panel structure preservation is simplified in this version.{p_end}
+{phang2}- The {opt transform} and {opt privacycheck} options are experimental and
+may not work correctly in all cases.{p_end}
+{phang2}- {opt conditionalcont} uses the first categorical variable for stratification;
+strata with few observations may have unreliable estimates.{p_end}
 
 
 {marker author}{...}
