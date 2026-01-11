@@ -35,8 +35,8 @@ case "$FILE_PATH" in
 
     # Stata help files
     *.sthlp|*.hlp)
-        SUGGESTION="help-file-reviewer"
-        CONTEXT="Help file detected - consider reviewing documentation"
+        SUGGESTION="code-reviewer"
+        CONTEXT="Help file detected - use /code-reviewer for documentation review"
         ;;
 
     # Package definition files

@@ -45,6 +45,12 @@ fi
 
 # Validate Bash commands for dangerous patterns
 if [[ "$TOOL_NAME" == "Bash" ]] && [ -n "$COMMAND" ]; then
+    # Block catastrophic rm commands (root, home, entire repo)
+    if echo "$COMMAND" | grep -qE "rm\s+(-rf?|--force)\s+(/|~|\.\s*$)"; then
+        echo "BLOCKED: Catastrophic delete command"
+        exit 2
+    fi
+
     # Block rm -rf on important directories
     if echo "$COMMAND" | grep -qE "rm\s+(-rf?|--force)\s+\.claude"; then
         echo "BLOCKED: Destructive command on .claude directory"

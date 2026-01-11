@@ -43,7 +43,8 @@ else
 fi
 
 # Check if development log should be created
-RECENT_ERRORS=$(find . -name "*.log" -mmin -60 -exec grep -l "^r([0-9]" {} \; 2>/dev/null | head -1)
+# Pattern ^r([0-9]\+) matches Stata error codes like r(111);
+RECENT_ERRORS=$(find . -name "*.log" -mmin -60 -exec grep -l '^r([0-9]\+)' {} \; 2>/dev/null | head -1)
 if [ -n "$RECENT_ERRORS" ]; then
     echo ""
     echo "[Log] Consider creating development log for recent test errors"

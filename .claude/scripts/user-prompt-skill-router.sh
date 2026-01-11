@@ -26,9 +26,6 @@ declare -A SKILL_ROUTES=(
     ["stata-code-generator"]="generate.*code|generate.*ado|boilerplate|code.*from.*requirements|stata.*code"
 
     ["package-tester"]="test.*package|run.*test|validate.*package|test.*command|check.*test|certify|run.*ado|execute.*test|integration.*test"
-
-    # Help file skill (if you have one)
-    ["help-file-reviewer"]="help.*file|sthlp|documentation|write.*help|update.*help|check.*help"
 )
 
 # Check for matches and output routing instructions
@@ -40,19 +37,10 @@ for skill in "${!SKILL_ROUTES[@]}"; do
     fi
 done
 
-# Output skill routing reminder if matches found
+# Output skill routing reminder if matches found (compact format)
 if [ -n "$MATCHED_SKILLS" ]; then
-    echo "+============================================================+"
-    echo "| SKILL ROUTING DETECTED                                     |"
-    echo "+============================================================+"
-    echo "| Recommended skill(s) for this task:                        |"
-    for skill in $MATCHED_SKILLS; do
-        printf "|   -> %-52s |\n" "$skill"
-    done
-    echo "+------------------------------------------------------------+"
-    echo "| USE: Skill tool with skill=\"<skill-name>\" BEFORE writing  |"
-    echo "| This ensures proper templates, quality gates, and output.  |"
-    echo "+============================================================+"
+    echo ""
+    echo "[Skill] Recommended for this task:$MATCHED_SKILLS"
 fi
 
 exit 0

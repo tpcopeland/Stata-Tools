@@ -42,7 +42,8 @@ if [ -n "$RECENT_TESTS" ]; then
 fi
 
 # Check for failed test logs (logs with errors)
-FAILED_TESTS=$(find "$REPO_ROOT" -name "*.log" -mtime -1 -type f -exec grep -l "^r([0-9]" {} \; 2>/dev/null | head -3)
+# Pattern ^r\([0-9]+ matches Stata error codes like r(111);
+FAILED_TESTS=$(find "$REPO_ROOT" -name "*.log" -mtime -1 -type f -exec grep -l '^r([0-9]\+)' {} \; 2>/dev/null | head -3)
 if [ -n "$FAILED_TESTS" ]; then
     echo "WARNING: Recent Failed Tests:"
     echo "$FAILED_TESTS" | while read -r file; do
