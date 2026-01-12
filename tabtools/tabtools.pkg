@@ -22,6 +22,8 @@ d
 d Author: Timothy P Copeland
 d Support: Karolinska Institutet
 d
+f tabtools.ado
+f tabtools.sthlp
 f _tabtools_common.ado
 f table1_tc.ado
 f table1_tc.sthlp
