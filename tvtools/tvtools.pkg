@@ -3,7 +3,7 @@ d 'TVTOOLS': Commands for formatting and merging time-varying data
 d
 d Requires: Stata version 16+
 d
-d Distribution-Date: 20251226
+d Distribution-Date: 20260112
 d License: MIT
 d
 d Author: Timothy P. Copeland

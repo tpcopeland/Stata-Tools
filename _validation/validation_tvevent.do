@@ -863,6 +863,49 @@ else {
     local failed_tests "`failed_tests' 4.9.2"
 }
 
+* -----------------------------------------------------------------------------
+* Test 4.9.3: timegen Cumulative Time with Multi-Interval Data
+* Purpose: Verify timegen calculates stop - first_start (cumulative time)
+* -----------------------------------------------------------------------------
+local ++test_count
+if `quiet' == 0 {
+    display as text _n "Test 4.9.3: timegen Cumulative Time (Multi-Interval)"
+}
+
+capture {
+    use "${DATA_DIR}/events_cumtime_test.dta", clear
+    tvevent using "${DATA_DIR}/intervals_cumtime_test.dta", id(id) date(event_dt) ///
+        startvar(start) stopvar(stop) type(single) ///
+        timegen(cum_time) timeunit(days) generate(outcome)
+
+    * Calculate expected cumulative time for verification
+    bysort id (start): gen double first_start = start[1]
+    gen double expected = stop - first_start
+
+    * Verify timegen matches expected cumulative time for ALL rows
+    gen byte match = abs(cum_time - expected) < 0.001
+    quietly count if match == 0
+    assert r(N) == 0
+
+    * Verify specific values for event rows:
+    * Person 1: event at 22150, cumulative = 22150-21915 = 235
+    * Person 2: event at 22100, cumulative = 22100-21915 = 185
+    quietly sum cum_time if id == 1 & outcome == 1
+    assert abs(r(mean) - 235) < 2
+
+    quietly sum cum_time if id == 2 & outcome == 1
+    assert abs(r(mean) - 185) < 2
+}
+if _rc == 0 {
+    display as result "  PASS: timegen correctly calculates cumulative time"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: timegen cumulative time calculation (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 4.9.3"
+}
+
 * =============================================================================
 * INVARIANT TESTS: Properties that must always hold
 * =============================================================================

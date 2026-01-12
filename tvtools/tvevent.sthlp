@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.4.1  2025/12/26}{...}
+{* *! version 1.5.0  2026/01/12}{...}
 {vieweralsosee "[ST] stset" "help stset"}{...}
 {vieweralsosee "[ST] stcrreg" "help stcrreg"}{...}
 {vieweralsosee "tvexpose" "help tvexpose"}{...}
@@ -43,7 +43,7 @@
 {synopt:{opt eventl:abel(string)}}custom value labels for the generated event variable{p_end}
 
 {syntab:Time generation}
-{synopt:{opt timeg:en(newvar)}}create a variable representing the duration of each interval{p_end}
+{synopt:{opt timeg:en(newvar)}}create a variable representing cumulative time since each person's first interval start{p_end}
 {synopt:{opt timeu:nit(string)}}unit for timegen: {bf:days} (default), {bf:months}, or {bf:years}{p_end}
 
 {syntab:Data handling}
@@ -112,7 +112,7 @@ If {cmd:type(single)} is used (default), all data after the first occurring even
 {break}If not specified, labels default to "Censored" (0) and the variable labels of the date variables from the using dataset.
 
 {phang}
-{opt timegen(newvar)} creates a new variable containing the duration of each interval. This is useful for Poisson regression offsets or descriptive statistics.
+{opt timegen(newvar)} creates a new variable containing the cumulative time since each person's first interval start (study entry). For each row, this calculates stop - first_start, giving the time elapsed from the person's entry to the end of that interval. This is the analysis time typically used in survival models.
 
 {phang}
 {opt timeunit(string)} specifies the unit for {cmd:timegen()}. Options are {bf:days} (default), {bf:months} (days/30.4375), or {bf:years} (days/365.25).
@@ -288,8 +288,7 @@ Create a variable for interval duration, useful for Poisson regression offsets:
 {phang3}{cmd:timegen(interval_years) timeunit(years)}{p_end}
 
 {pstd}
-The timegen() option creates a variable showing the duration of each interval in the
-specified unit (days, months, or years).
+The timegen() option creates a variable showing cumulative time from study entry to each interval's stop date, in the specified unit (days, months, or years). For each person, this is the time elapsed since their first interval start.
 
 
 {pstd}

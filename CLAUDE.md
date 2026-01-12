@@ -599,6 +599,8 @@ set trace off
 12. **Macro names >31 characters** (silently truncated, causes collision bugs)
 13. **Using `preserve`/`restore` when generating variables** - generated vars are lost on `restore`! Only use preserve for estimation/reporting commands that don't create user-visible variables.
 14. **Using `float` instead of `double`** - causes precision loss; always use `gen double`
+15. **Testing only with single-observation per person data** - Bugs in row-level calculations (e.g., cumulative time) only manifest with multi-observation data; always test with multi-interval data
+16. **Validating aggregates instead of row-level values** - Checking `assert abs(r(mean) - expected) < 0.01` can pass even if individual row calculations are wrong; validate each row matches expected
 
 ---
 

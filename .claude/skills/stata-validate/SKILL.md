@@ -238,6 +238,48 @@ local result2 = r(mean)
 assert abs(`result1' - `result2') < 0.001
 ```
 
+### 6. Row-Level Validation (CRITICAL)
+**Always verify row-level calculations, not just aggregates:**
+
+```stata
+* BAD: Only checks aggregate - bug can hide!
+quietly sum time_var
+assert abs(r(mean) - 136) < 2  // Could pass with wrong values
+
+* GOOD: Verify row-by-row
+gen double expected_time = stop - first_start  // Calculate expected
+gen byte match = abs(time_var - expected_time) < 0.001
+quietly count if match == 0
+assert r(N) == 0  // Fails immediately if ANY row is wrong
+```
+
+### 7. Multi-Observation Testing (CRITICAL)
+**Test with multi-observation per person data:**
+
+Single-obs data can mask bugs where row-level calculations collapse to same value.
+
+```stata
+* Create multi-interval test data
+clear
+input long id double(start stop)
+    1  21915  22000   // Person 1, interval 1: 85 days
+    1  22000  22100   // Person 1, interval 2: 100 days
+    1  22100  22200   // Person 1, interval 3: 100 days
+    2  21915  22050   // Person 2, interval 1: 135 days
+    2  22050  22200   // Person 2, interval 2: 150 days
+end
+
+* Test command
+mycommand ...
+
+* Verify each person has DIFFERENT values across their intervals
+bysort id: gen byte same_value = (result == result[1])
+by id: egen all_same = min(same_value)
+* For cumulative time, later intervals should have larger values
+quietly count if all_same == 1
+assert r(N) < _N  // Not all same!
+```
+
 ---
 
 ## Floating Point Comparisons
@@ -362,6 +404,8 @@ RESULT: Execution completes successfully
 - [ ] Uses appropriate tolerance for floats
 - [ ] Includes invariant tests
 - [ ] Includes boundary condition tests
+- [ ] **Uses multi-observation per person test data** (CRITICAL)
+- [ ] **Validates row-level calculations, not just aggregates** (CRITICAL)
 - [ ] Display respects quiet mode
 - [ ] Summary section with exit code
 - [ ] Cleans up temporary datasets

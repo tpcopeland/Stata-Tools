@@ -1,4 +1,4 @@
-*! tvevent Version 1.4.1  26dec2025
+*! tvevent Version 1.5.0  12jan2026
 *! Add event/failure flags to time-varying datasets
 *! Author: Tim Copeland
 *!
@@ -352,20 +352,23 @@ program define tvevent, rclass
             label define `generate'_lbl 0 "Censored"
             label values `generate' `generate'_lbl
 
-            * Create timegen if requested
+            * Create timegen if requested (cumulative time from first start)
             if "`timegen'" != "" {
-                gen double `timegen' = `stopvar' - `startvar'
+                tempvar first_start
+                bysort `id' (`startvar'): gen double `first_start' = `startvar'[1]
+                gen double `timegen' = `stopvar' - `first_start'
                 if "`timeunit'" == "months" {
                     replace `timegen' = `timegen' / 30.4375
-                    label var `timegen' "Time (months)"
+                    label var `timegen' "Time since entry (months)"
                 }
                 else if "`timeunit'" == "years" {
                     replace `timegen' = `timegen' / 365.25
-                    label var `timegen' "Time (years)"
+                    label var `timegen' "Time since entry (years)"
                 }
                 else {
-                    label var `timegen' "Time (days)"
+                    label var `timegen' "Time since entry (days)"
                 }
+                drop `first_start'
             }
 
             sort `id' `startvar' `stopvar'
@@ -495,20 +498,23 @@ program define tvevent, rclass
                 label define `generate'_lbl 0 "Censored"
                 label values `generate' `generate'_lbl
 
-                * Create timegen if requested
+                * Create timegen if requested (cumulative time from first start)
                 if "`timegen'" != "" {
-                    gen double `timegen' = `stopvar' - `startvar'
+                    tempvar first_start
+                    bysort `id' (`startvar'): gen double `first_start' = `startvar'[1]
+                    gen double `timegen' = `stopvar' - `first_start'
                     if "`timeunit'" == "months" {
                         replace `timegen' = `timegen' / 30.4375
-                        label var `timegen' "Time (months)"
+                        label var `timegen' "Time since entry (months)"
                     }
                     else if "`timeunit'" == "years" {
                         replace `timegen' = `timegen' / 365.25
-                        label var `timegen' "Time (years)"
+                        label var `timegen' "Time since entry (years)"
                     }
                     else {
-                        label var `timegen' "Time (days)"
+                        label var `timegen' "Time since entry (days)"
                     }
+                    drop `first_start'
                 }
 
                 sort `id' `startvar' `stopvar'
@@ -867,21 +873,23 @@ program define tvevent, rclass
 
         **# 8. GENERATE TIME VARIABLE
         if "`timegen'" != "" {
-            tempvar days_diff
-            gen double `days_diff' = `stopvar' - `startvar'
+            * Calculate cumulative time from person's first interval start to current stop
+            tempvar first_start days_from_entry
+            bysort `id' (`startvar'): gen double `first_start' = `startvar'[1]
+            gen double `days_from_entry' = `stopvar' - `first_start'
             if "`timeunit'" == "days" {
-                gen double `timegen' = `days_diff'
-                label var `timegen' "Time (days)"
+                gen double `timegen' = `days_from_entry'
+                label var `timegen' "Time since entry (days)"
             }
             else if "`timeunit'" == "months" {
-                gen double `timegen' = `days_diff' / 30.4375
-                label var `timegen' "Time (months)"
+                gen double `timegen' = `days_from_entry' / 30.4375
+                label var `timegen' "Time since entry (months)"
             }
             else if "`timeunit'" == "years" {
-                gen double `timegen' = `days_diff' / 365.25
-                label var `timegen' "Time (years)"
+                gen double `timegen' = `days_from_entry' / 365.25
+                label var `timegen' "Time since entry (years)"
             }
-            drop `days_diff'
+            drop `first_start' `days_from_entry'
         }
 
         * Restore original date formats from using dataset
