@@ -16,19 +16,22 @@ Generate realistic synthetic datasets that preserve statistical properties while
 
 ### Key Features
 
-- **Smart adaptive synthesis** (NEW): Automatically detects distribution shapes, variable relationships, and categorical associations for the most realistic output with minimal configuration
-- **Multiple synthesis methods**: Smart (recommended), Parametric (Cholesky), sequential regression, bootstrap with perturbation, independent permutation
-- **Auto-detection features** (NEW):
+- **Smart adaptive synthesis**: Automatically detects distribution shapes, variable relationships, and categorical associations for the most realistic output with minimal configuration
+- **Complex synthesis** (NEW): Smart features plus date ordering enforcement and frequency validation
+- **Multiple synthesis methods**: Smart (recommended), Complex, Parametric (Cholesky), sequential regression, bootstrap with perturbation, independent permutation
+- **Auto-detection features**:
   - Non-normal distributions automatically use empirical quantiles
   - Derived variables (sums, ratios) are automatically detected and reconstructed
   - Strongly associated categorical variables are synthesized jointly
+  - Date ordering relationships detected and enforced (e.g., admission < procedure < discharge)
 - **Flexible variable handling**: Automatic classification of continuous, categorical, string, date, and integer variables
 - **Relationship preservation**: Correlations, conditional distributions, constraints, derived variables
 - **Privacy controls**: Rare category protection, extreme value trimming, bounded outputs
 - **Panel data support**: Preserve panel structure, within-unit correlations, autocorrelation
-- **Comprehensive validation**: Comparison reports, utility metrics, density plots, validation statistics
+- **Comprehensive validation**: Comparison reports, utility metrics, density plots, frequency validation, validation statistics
 - **Multiple datasets**: Generate multiple synthetic replicates for uncertainty quantification
 - **Automatic metadata preservation**: Variable labels, value labels, variable order, and missingness rates are automatically preserved
+- **Long variable name support**: Safe handling of variable names up to 32 characters with prefixes
 
 ---
 
@@ -72,6 +75,7 @@ None. If no options are specified, `synthdata` will:
 | Option | Description |
 |--------|-------------|
 | `smart` | **Recommended**: Adaptive synthesis with automatic optimizations |
+| `complex` | Smart + date ordering enforcement + frequency validation |
 | `parametric` | Parametric synthesis via Cholesky decomposition (default if smart not specified) |
 | `sequential` | Sequential regression synthesis |
 | `bootstrap` | Bootstrap with perturbation |
@@ -133,6 +137,7 @@ None. If no options are specified, `synthdata` will:
 | `validate(filename)` | Save validation statistics |
 | `utility` | Compute utility metrics |
 | `graph` | Produce overlay density plots |
+| `freqcheck` | Validate categorical frequency distributions |
 
 #### Technical Options
 
@@ -165,6 +170,24 @@ The **smart** method is the recommended approach for generating the most realist
 
 ```stata
 synthdata, smart saving(synth_realistic)
+```
+
+### Complex Method
+
+The **complex** method includes all smart features plus additional capabilities for handling date relationships and validating frequency distributions:
+
+1. **All smart features** (auto-empirical, auto-relate, conditional categorical)
+2. **Date relationship detection** - Automatically detects temporal ordering patterns (e.g., admission_date < procedure_date < discharge_date)
+3. **Date ordering enforcement** - Sorts date values within each observation to maintain detected orderings
+4. **Frequency validation** - Reports Total Variation Distance (TVD) to verify categorical distributions are preserved
+
+**Use when:**
+- You have date variables that should maintain temporal ordering
+- You want to verify categorical frequency preservation
+- You need the most comprehensive synthesis with validation
+
+```stata
+synthdata, complex n(500) dates(admission_date procedure_date discharge_date) replace
 ```
 
 ### Parametric Method (Default if smart not specified)
@@ -566,7 +589,7 @@ MIT License
 
 ## Version
 
-Version 1.4.0, 2026-01-11
+Version 1.6.0, 2026-01-17
 
 ## See Also
 

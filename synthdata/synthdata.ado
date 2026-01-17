@@ -1,18 +1,18 @@
-*! synthdata Version 1.5.0  11jan2026  Synthetic data generation with smart realism
+*! synthdata Version 1.6.0  17jan2026  Synthetic data generation with smart realism
 program define synthdata
     version 16.0
     set varabbrev off
 
     syntax [varlist] [if] [in], ///
         [n(integer 0) SAVing(string) REPLACE CLEAR PREfix(string) MULTiple(integer 1)] ///
-        [PARAmetric SEQUential BOOTstrap PERMute SMART] ///
+        [PARAmetric SEQUential BOOTstrap PERMute SMART COMPLEX] ///
         [EMPirical NOISE(real 0.1) SMOOTH AUTOEMPirical] ///
         [CATEgorical(varlist) CONTinuous(varlist) SKIP(varlist) ID(varlist) DATEs(varlist) INTeger(varlist)] ///
         [CORRelations CONDitional CONSTraints(string asis) AUTOCONStraints] ///
         [AUTORELate CONDitionalcat] ///
         [PANEL(string) PRESERVEvar(varlist) AUTOCORR(integer 0) ROWDist(string)] ///
         [MINCell(integer 5) TRIM(real 0) BOUNDs(string asis) NOEXTreme] ///
-        [COMPare VALidate(string) UTILity GRAPH] ///
+        [COMPare VALidate(string) UTILity GRAPH FREQcheck] ///
         [SEED(integer -1) ITERate(integer 100) TOLerance(real 1e-6)] ///
         [CONDitionalcont RANDomeffects TRANSform MISSpattern TRENDs] ///
         [PRIVacycheck PRIVacysample(integer 0) PRIVacythresh(real 0.05)]
@@ -69,29 +69,31 @@ program define synthdata
     local allvars_track `varlist' `id' `skip'
     local allvars_track: list uniq allvars_track
 
-    // NOTE: Using short prefixes (_vl_, _vn_, _vf_, _nm_, _mr_, _tp_) to stay within
-    // Stata's 31-character limit for local macro names
+    // Store variable metadata using truncated names to stay within 31-char macro limit
+    // Uses single-char prefix + truncated varname (max 30 chars) = max 31 chars
     foreach v of local allvars_track {
-        // Store variable label
-        local _vl_`v': variable label `v'
+        local sv = substr("`v'", 1, 30)
 
-        // Store value label name (for categorical vars)
-        local _vn_`v': value label `v'
+        // Store variable label (L = label)
+        local L`sv': variable label `v'
 
-        // Store format
-        local _vf_`v': format `v'
+        // Store value label name (N = name of value label)
+        local N`sv': value label `v'
 
-        // Store variable type (for skip variable recreation)
-        local _tp_`v' = 0
+        // Store format (F = format)
+        local F`sv': format `v'
+
+        // Store variable type for skip variable recreation (T = type, 0=num, 1=str)
+        local T`sv' = 0
         cap confirm string variable `v'
         if !_rc {
-            local _tp_`v' = 1
+            local T`sv' = 1
         }
 
-        // Calculate and store missingness rate
+        // Calculate and store missingness rate (M = miss count, R = miss rate)
         qui count if missing(`v')
-        local _nm_`v' = r(N)
-        local _mr_`v' = r(N) / _N
+        local M`sv' = r(N)
+        local R`sv' = r(N) / _N
     }
 
     // =========================================================================
@@ -153,7 +155,8 @@ program define synthdata
 
     // Determine synthesis method (only one allowed)
     local nmethods = ("`parametric'" != "") + ("`sequential'" != "") + ///
-                     ("`bootstrap'" != "") + ("`permute'" != "") + ("`smart'" != "")
+                     ("`bootstrap'" != "") + ("`permute'" != "") + ///
+                     ("`smart'" != "") + ("`complex'" != "")
     if `nmethods' > 1 {
         di as error "only one synthesis method may be specified"
         exit 198
@@ -164,6 +167,7 @@ program define synthdata
     if "`bootstrap'" != "" local method "bootstrap"
     if "`permute'" != "" local method "permute"
     if "`smart'" != "" local method "smart"
+    if "`complex'" != "" local method "complex"
 
     // Smart method enables all automatic features
     if "`method'" == "smart" {
@@ -171,6 +175,23 @@ program define synthdata
         local autorelate "autorelate"
         local conditionalcat "conditionalcat"
         local autoconstraints "autoconstraints"
+    }
+
+    // Complex method: smart features + date relationship detection + frequency validation
+    if "`method'" == "complex" {
+        local autoempirical "autoempirical"
+        local autorelate "autorelate"
+        local conditionalcat "conditionalcat"
+        local autoconstraints "autoconstraints"
+        local detect_date_order = 1
+        local freqcheck "freqcheck"
+        di as txt _n "Complex synthesis mode enabled:"
+        di as txt "  - All smart features (auto-empirical, auto-relate, conditional categorical)"
+        di as txt "  - Date relationship detection and ordering enforcement"
+        di as txt "  - Frequency distribution validation"
+    }
+    else {
+        local detect_date_order = 0
     }
     
     // Default n to current observation count
@@ -241,11 +262,46 @@ program define synthdata
             local catgroups `"`r(catgroups)'"'
             local joint_catvars `r(joint_catvars)'
             local indep_catvars `r(indep_catvars)'
-            local n_groups: word count `catgroups'
+            // Count quoted groups properly
+            local n_groups = 0
+            local temp_groups `"`catgroups'"'
+            while `"`temp_groups'"' != "" {
+                gettoken grp temp_groups : temp_groups
+                if `"`grp'"' != "" local ++n_groups
+            }
             if `n_groups' > 0 {
                 di as txt "  Associated categorical groups: " as res `n_groups'
             }
         }
+    }
+
+    // =========================================================================
+    // DETECT DATE ORDERING RELATIONSHIPS (if complex method)
+    // =========================================================================
+    // For panel/longitudinal data with multiple dates, detect if dates have
+    // natural ordering (e.g., admission_date < procedure_date < discharge_date)
+    local date_orderings ""
+    local n_date_orders = 0
+    if `detect_date_order' == 1 & "`datevars'" != "" {
+        local ndatevars: word count `datevars'
+        if `ndatevars' >= 2 {
+            di as txt _n "Detecting date ordering relationships..."
+            _synthdata_detect_dateorder `datevars'
+            local date_orderings `"`r(date_orderings)'"'
+            local n_date_orders = r(n_orderings)
+            if `n_date_orders' > 0 {
+                di as txt "  Date ordering constraints detected: " as res `n_date_orders'
+            }
+            else {
+                di as txt "  No consistent date orderings found"
+            }
+        }
+    }
+
+    // Store original categorical frequencies for freqcheck
+    if "`freqcheck'" != "" & "`catvars'" != "" {
+        tempfile orig_catfreq
+        _synthdata_store_catfreq `catvars', saving(`orig_catfreq')
     }
 
     // Store original data bounds for noextreme option
@@ -440,8 +496,9 @@ program define synthdata
             }
         }
     }
-    else if "`method'" == "smart" {
-        // Smart method: adaptive synthesis using detected characteristics
+    else if "`method'" == "smart" | "`method'" == "complex" {
+        // Smart/Complex method: adaptive synthesis using detected characteristics
+        // Complex adds date ordering detection/enforcement and frequency checking
         _synthdata_smart, n(`n') catvars(`catvars') contvars(`synth_contvars') ///
             datevars(`datevars') strvars(`strvars') origdata(`origdata') ///
             empirical_vars(`empirical_vars') normal_vars(`normal_vars') ///
@@ -620,8 +677,9 @@ program define synthdata
         foreach v of local skip {
             cap drop `v'
 
-            // Recreate based on original type (stored in _tp_`v')
-            if `_tp_`v'' == 1 {
+            // Recreate based on original type (stored in T`sv')
+            local sv = substr("`v'", 1, 30)
+            if `T`sv'' == 1 {
                 qui gen str1 `v' = ""
             }
             else {
@@ -641,8 +699,8 @@ program define synthdata
         _synthdata_noextreme `contvars' `intvars' `datevars', boundsfile(`origbounds')
     }
     
-    // Apply auto-detected constraints
-    if "`autoconstraints'" != "" {
+    // Apply auto-detected constraints (only if there are continuous or date vars)
+    if "`autoconstraints'" != "" & ("`contvars'" != "" | "`datevars'" != "") {
         _synthdata_autoconstraints `contvars' `datevars', iterate(`iterate') origdata(`origdata')
     }
     
@@ -650,7 +708,15 @@ program define synthdata
     if `"`constraints'"' != "" {
         _synthdata_constraints, constraints(`constraints') iterate(`iterate')
     }
-    
+
+    // =========================================================================
+    // ENFORCE DATE ORDERING (if complex method detected orderings)
+    // =========================================================================
+    if `n_date_orders' > 0 & "`date_orderings'" != "" {
+        di as txt "  Enforcing date ordering constraints..."
+        _synthdata_enforce_dateorder, orderings(`date_orderings') iterate(`iterate')
+    }
+
     // Handle panel structure
     if "`panel'" != "" {
         if "`preservevar'" != "" {
@@ -713,18 +779,19 @@ program define synthdata
             if `isskip' continue
 
             // Apply missingness if original had any missing values
-            if `_mr_`v'' > 0 {
+            local sv = substr("`v'", 1, 30)
+            if `R`sv'' > 0 {
                 // Generate random missingness at the same rate
                 tempvar randmiss
                 qui gen double `randmiss' = runiform()
                 cap confirm string variable `v'
                 if !_rc {
                     // String variable
-                    qui replace `v' = "" if `randmiss' < `_mr_`v''
+                    qui replace `v' = "" if `randmiss' < `R`sv''
                 }
                 else {
                     // Numeric variable
-                    qui replace `v' = . if `randmiss' < `_mr_`v''
+                    qui replace `v' = . if `randmiss' < `R`sv''
                 }
                 drop `randmiss'
             }
@@ -736,15 +803,17 @@ program define synthdata
         cap confirm variable `v'
         if _rc continue
 
+        local sv = substr("`v'", 1, 30)
+
         // Restore variable label if there was one
-        if `"`_vl_`v''"' != "" {
-            label variable `v' `"`_vl_`v''"'
+        if `"`L`sv''"' != "" {
+            label variable `v' `"`L`sv''"'
         }
 
         // Restore value label attachment if there was one
         // (the value label definition itself should still exist)
-        if "`_vn_`v''" != "" {
-            cap label values `v' `_vn_`v''
+        if "`N`sv''" != "" {
+            cap label values `v' `N`sv''
         }
     }
 
@@ -763,11 +832,16 @@ program define synthdata
 
     // Store synthetic variable names before prefix (for compare)
     local synthvars `varlist'
-    
+
     // Add prefix to variable names if requested
+    // Uses safe naming to handle 32-character limit
     if "`prefix'" != "" {
         foreach v of varlist * {
-            cap rename `v' `prefix'`v'
+            _synthdata_safename `prefix' `v'
+            local newname = r(safename)
+            if "`newname'" != "`v'" {
+                cap rename `v' `newname'
+            }
         }
     }
     
@@ -852,8 +926,9 @@ program define synthdata
                 foreach v of local skip {
                     cap drop `v'
 
-                    // Recreate based on original type (stored in _tp_`v')
-                    if `_tp_`v'' == 1 {
+                    // Recreate based on original type (stored in T`sv')
+                    local sv = substr("`v'", 1, 30)
+                    if `T`sv'' == 1 {
                         qui gen str1 `v' = ""
                     }
                     else {
@@ -893,15 +968,16 @@ program define synthdata
                 if `isid' continue
                 local isskip: list v in skip
                 if `isskip' continue
-                if `_mr_`v'' > 0 {
+                local sv = substr("`v'", 1, 30)
+                if `R`sv'' > 0 {
                     tempvar randmiss
                     qui gen double `randmiss' = runiform()
                     cap confirm string variable `v'
                     if !_rc {
-                        qui replace `v' = "" if `randmiss' < `_mr_`v''
+                        qui replace `v' = "" if `randmiss' < `R`sv''
                     }
                     else {
-                        qui replace `v' = . if `randmiss' < `_mr_`v''
+                        qui replace `v' = . if `randmiss' < `R`sv''
                     }
                     drop `randmiss'
                 }
@@ -911,11 +987,12 @@ program define synthdata
             foreach v of local allvars_track {
                 cap confirm variable `v'
                 if _rc continue
-                if `"`_vl_`v''"' != "" {
-                    label variable `v' `"`_vl_`v''"'
+                local sv = substr("`v'", 1, 30)
+                if `"`L`sv''"' != "" {
+                    label variable `v' `"`L`sv''"'
                 }
-                if "`_vn_`v''" != "" {
-                    cap label values `v' `_vn_`v''
+                if "`N`sv''" != "" {
+                    cap label values `v' `N`sv''
                 }
             }
 
@@ -933,7 +1010,11 @@ program define synthdata
 
             if "`prefix'" != "" {
                 foreach v of varlist * {
-                    cap rename `v' `prefix'`v'
+                    _synthdata_safename `prefix' `v'
+                    local newname = r(safename)
+                    if "`newname'" != "`v'" {
+                        cap rename `v' `newname'
+                    }
                 }
             }
 
@@ -980,6 +1061,14 @@ program define synthdata
         }
     }
 
+    // =========================================================================
+    // FREQUENCY CHECK (if freqcheck option or complex method)
+    // =========================================================================
+    if "`freqcheck'" != "" & "`catvars'" != "" {
+        di as txt _n "Validating categorical frequency distributions..."
+        _synthdata_freqcheck `catvars', origfreq(`orig_catfreq')
+    }
+
     // Display summary
     di as txt _n "Synthetic data generation complete:"
     di as txt "  Method: " as res "`method'"
@@ -995,7 +1084,7 @@ program define synthdata
     if "`skip'" != "" di as txt "  Skipped variables: " as res "`skip'"
 
     // Display smart synthesis info
-    if "`method'" == "smart" | "`autoempirical'" != "" {
+    if "`method'" == "smart" | "`method'" == "complex" | "`autoempirical'" != "" {
         di as txt _n "  Smart synthesis features:"
         if "`empirical_vars'" != "" {
             di as txt "    Empirical (non-normal): " as res `: word count `empirical_vars''
@@ -1006,8 +1095,18 @@ program define synthdata
         if "`derived_vars'" != "" {
             di as txt "    Derived (reconstructed): " as res `: word count `derived_vars''
         }
-        if "`catgroups'" != "" {
-            di as txt "    Categorical groups: " as res `: word count `catgroups''
+        if `"`catgroups'"' != "" {
+            // Count quoted groups properly
+            local n_catgroups = 0
+            local temp_groups `"`catgroups'"'
+            while `"`temp_groups'"' != "" {
+                gettoken grp temp_groups : temp_groups
+                if `"`grp'"' != "" local ++n_catgroups
+            }
+            di as txt "    Categorical groups: " as res `n_catgroups'
+        }
+        if `n_date_orders' > 0 {
+            di as txt "    Date orderings enforced: " as res `n_date_orders'
         }
     }
 
@@ -1036,6 +1135,32 @@ program define synthdata
         if "`trends'" != "" {
             di as txt "    Temporal trends: " as res "enabled"
         }
+    }
+end
+
+// =============================================================================
+// SAFE PREFIX NAMING (handles 32-char limit)
+// =============================================================================
+// Creates a safely prefixed variable name, respecting Stata's 32-char limit.
+// If prefix + varname exceeds 32 chars, truncates varname to fit.
+// Returns the safe name via r(safename).
+
+program define _synthdata_safename, rclass
+    version 16.0
+    args prefix varname
+
+    local combined `prefix'`varname'
+    local len = strlen("`combined'")
+
+    if `len' <= 32 {
+        return local safename `combined'
+    }
+    else {
+        // Truncate varname to fit with prefix
+        local prefixlen = strlen("`prefix'")
+        local maxvarlen = 32 - `prefixlen'
+        local truncated = substr("`varname'", 1, `maxvarlen')
+        return local safename `prefix'`truncated'
     }
 end
 
@@ -1510,9 +1635,9 @@ program define _synthdata_detect_catassoc, rclass
     // Remove duplicates
     local joint_catvars: list uniq joint_catvars
 
-    return local catgroups `catgroups'
-    return local joint_catvars `joint_catvars'
-    return local indep_catvars `indep_catvars'
+    return local catgroups `"`catgroups'"'
+    return local joint_catvars `"`joint_catvars'"'
+    return local indep_catvars `"`indep_catvars'"'
 end
 
 // =============================================================================
@@ -2145,9 +2270,90 @@ program define _synthdata_smart
     }
 
     // 3c. Generate categorical variables
+    // Handle joint categoricals (associated pairs) separately from independent ones
     if `ncat' > 0 {
+        // First, synthesize joint categorical groups
+        local joint_vars_done ""
+        if `"`catgroups'"' != "" {
+            local remaining_groups `"`catgroups'"'
+            while `"`remaining_groups'"' != "" {
+                // Extract next group (pair of variables)
+                gettoken group remaining_groups : remaining_groups
+
+                // Parse the pair
+                tokenize `group'
+                local v1 `1'
+                local v2 `2'
+
+                if "`v1'" == "" | "`v2'" == "" continue
+
+                // Sample from joint distribution of this pair
+                // Load original data to get joint distribution
+                preserve
+                qui use `origdata', clear
+
+                // Keep only non-missing combinations
+                qui keep if !missing(`v1') & !missing(`v2')
+
+                // Contract to get unique combinations with frequencies
+                qui contract `v1' `v2', freq(_jfreq)
+
+                // Apply mincell threshold
+                if `mincell' > 0 {
+                    qui replace _jfreq = max(_jfreq, `mincell')
+                }
+
+                local njoint = _N
+
+                if `njoint' > 0 {
+                    // Store joint distribution in matrix
+                    tempname jointfreq
+                    matrix `jointfreq' = J(`njoint', 3, .)
+                    forvalues i = 1/`njoint' {
+                        matrix `jointfreq'[`i', 1] = `v1'[`i']
+                        matrix `jointfreq'[`i', 2] = `v2'[`i']
+                        matrix `jointfreq'[`i', 3] = _jfreq[`i']
+                    }
+
+                    // Store value labels
+                    local vallbl_v1: value label `v1'
+                    local vallbl_v2: value label `v2'
+
+                    restore
+
+                    // Generate both variables jointly
+                    qui gen double `v1' = .
+                    qui gen double `v2' = .
+
+                    // Draw from joint distribution
+                    mata: _synthdata_drawjoint("`v1'", "`v2'", st_matrix("`jointfreq'"), `n')
+
+                    // Restore value labels
+                    if "`vallbl_v1'" != "" {
+                        cap label values `v1' `vallbl_v1'
+                    }
+                    if "`vallbl_v2'" != "" {
+                        cap label values `v2' `vallbl_v2'
+                    }
+
+                    local joint_vars_done `joint_vars_done' `v1' `v2'
+                }
+                else {
+                    restore
+                }
+            }
+        }
+
+        // Now synthesize independent categoricals (not in any joint group)
         local catnum = 1
         foreach v of local catvars {
+            // Skip if already done as part of joint group
+            local is_joint: list v in joint_vars_done
+            if `is_joint' {
+                local ++catnum
+                continue
+            }
+
             qui gen double `v' = .
 
             if `nlevels_`catnum'' == 0 {
@@ -2922,17 +3128,18 @@ program define _synthdata_compare
     // Compute synthetic stats
     tempfile synthstats
     
-    // Handle prefix
+    // Handle prefix (using safe naming for 32-char limit)
     if "`prefix'" != "" {
         local synthvarlist ""
         foreach v of local varlist {
-            local synthvarlist `synthvarlist' `prefix'`v'
+            _synthdata_safename `prefix' `v'
+            local synthvarlist `synthvarlist' `r(safename)'
         }
     }
     else {
         local synthvarlist `varlist'
     }
-    
+
     _synthdata_stats `synthvarlist', saving(`synthstats')
     
     preserve
@@ -2992,18 +3199,19 @@ end
 program define _synthdata_validate
     version 16.0
     syntax varlist, origstats(string) saving(string) [prefix(string)]
-    
-    // Handle prefix
+
+    // Handle prefix (using safe naming for 32-char limit)
     if "`prefix'" != "" {
         local synthvarlist ""
         foreach v of local varlist {
-            local synthvarlist `synthvarlist' `prefix'`v'
+            _synthdata_safename `prefix' `v'
+            local synthvarlist `synthvarlist' `r(safename)'
         }
     }
     else {
         local synthvarlist `varlist'
     }
-    
+
     tempfile synthstats
     _synthdata_stats `synthvarlist', saving(`synthstats')
 
@@ -3071,9 +3279,10 @@ program define _synthdata_graph
     
     local gnum = 1
     foreach v of local varlist {
-        // Determine synthetic variable name
+        // Determine synthetic variable name (using safe naming for 32-char limit)
         if "`prefix'" != "" {
-            local synthv `prefix'`v'
+            _synthdata_safename `prefix' `v'
+            local synthv `r(safename)'
         }
         else {
             local synthv `v'
@@ -3821,6 +4030,242 @@ program define _synthdata_trends
     di as txt "    Temporal trends applied"
 end
 
+// =============================================================================
+// DATE ORDERING DETECTION (for complex method)
+// =============================================================================
+// Detects date variables that consistently follow ordering patterns.
+// For example: admission_date < procedure_date < discharge_date
+// Only pairs where >95% of observations satisfy ordering are returned.
+
+program define _synthdata_detect_dateorder, rclass
+    version 16.0
+    syntax varlist
+
+    local orderings ""
+    local n_orderings = 0
+
+    local nvars: word count `varlist'
+    if `nvars' < 2 {
+        return local date_orderings ""
+        return scalar n_orderings = 0
+        exit
+    }
+
+    // Check all pairs of date variables for consistent ordering
+    forvalues i = 1/`=`nvars'-1' {
+        local d1: word `i' of `varlist'
+        forvalues j = `=`i'+1'/`nvars' {
+            local d2: word `j' of `varlist'
+
+            // Count where d1 < d2 (excluding missing)
+            qui count if !missing(`d1') & !missing(`d2')
+            local n_valid = r(N)
+            if `n_valid' < 10 continue
+
+            qui count if `d1' < `d2' & !missing(`d1') & !missing(`d2')
+            local n_d1_before = r(N)
+
+            qui count if `d1' > `d2' & !missing(`d1') & !missing(`d2')
+            local n_d2_before = r(N)
+
+            // Check if ordering is consistent (>95% in one direction)
+            local pct_d1_before = `n_d1_before' / `n_valid'
+            local pct_d2_before = `n_d2_before' / `n_valid'
+
+            if `pct_d1_before' >= 0.95 {
+                // d1 is consistently before d2
+                local orderings `orderings' `d1'<`d2'
+                local ++n_orderings
+                di as txt "    `d1' < `d2' (" as res %4.1f `=`pct_d1_before'*100' as txt "% consistent)"
+            }
+            else if `pct_d2_before' >= 0.95 {
+                // d2 is consistently before d1
+                local orderings `orderings' `d2'<`d1'
+                local ++n_orderings
+                di as txt "    `d2' < `d1' (" as res %4.1f `=`pct_d2_before'*100' as txt "% consistent)"
+            }
+        }
+    }
+
+    return local date_orderings `orderings'
+    return scalar n_orderings = `n_orderings'
+end
+
+// =============================================================================
+// DATE ORDERING ENFORCEMENT (for complex method)
+// =============================================================================
+// Enforces detected date orderings by sorting dates within each observation.
+
+program define _synthdata_enforce_dateorder
+    version 16.0
+    syntax, orderings(string asis) [iterate(integer 100)]
+
+    // Parse orderings to extract unique date variables in order
+    // Orderings is space-separated list like: d1<d2 d1<d3 d2<d3
+    local date_vars ""
+    foreach ordering of local orderings {
+        // Parse ordering like "date1<date2"
+        if regexm("`ordering'", "([a-zA-Z_][a-zA-Z0-9_]*)<([a-zA-Z_][a-zA-Z0-9_]*)") {
+            local d1 = regexs(1)
+            local d2 = regexs(2)
+
+            local is_in1: list d1 in date_vars
+            if !`is_in1' {
+                local date_vars `date_vars' `d1'
+            }
+            local is_in2: list d2 in date_vars
+            if !`is_in2' {
+                local date_vars `date_vars' `d2'
+            }
+        }
+    }
+
+    local ndates: word count `date_vars'
+    if `ndates' < 2 {
+        exit
+    }
+
+    // Sort dates within each observation using row-by-row approach
+    // This is robust and works with any dataset structure
+    local n = _N
+    forvalues obs = 1/`n' {
+        // Collect date values for this observation into numbered locals
+        local k = 1
+        foreach v of local date_vars {
+            local val`k' = `v'[`obs']
+            local ++k
+        }
+
+        // Sort the values (bubble sort for small n)
+        forvalues pass = 1/`=`ndates'-1' {
+            forvalues i = 1/`=`ndates'-`pass'' {
+                local j = `i' + 1
+                if `val`i'' > `val`j'' {
+                    // Swap
+                    local tmp = `val`i''
+                    local val`i' = `val`j''
+                    local val`j' = `tmp'
+                }
+            }
+        }
+
+        // Replace values in sorted order
+        local k = 1
+        foreach v of local date_vars {
+            qui replace `v' = `val`k'' in `obs'
+            local ++k
+        }
+    }
+end
+
+// =============================================================================
+// STORE CATEGORICAL FREQUENCIES (for freqcheck)
+// =============================================================================
+// Saves frequency tables for all categorical variables to a tempfile.
+
+program define _synthdata_store_catfreq
+    version 16.0
+    syntax varlist, saving(string)
+
+    tempname memhold
+    postfile `memhold' str32 varname double(value freq pct) using `saving', replace
+
+    foreach v of local varlist {
+        qui levelsof `v', local(levels)
+        foreach lev of local levels {
+            qui count if `v' == `lev'
+            local freq = r(N)
+            local pct = `freq' / _N
+            post `memhold' ("`v'") (`lev') (`freq') (`pct')
+        }
+    }
+
+    postclose `memhold'
+end
+
+// =============================================================================
+// FREQUENCY CHECK (for complex method or freqcheck option)
+// =============================================================================
+// Compares categorical frequency distributions between original and synthetic.
+// Reports total variation distance (TVD) for each variable.
+
+program define _synthdata_freqcheck
+    version 16.0
+    syntax varlist, origfreq(string)
+
+    di as txt "{hline 60}"
+    di as txt %20s "Variable" %15s "Max Diff" %15s "TVD" %10s "Status"
+    di as txt "{hline 60}"
+
+    local total_tvd = 0
+    local n_vars = 0
+    local n_good = 0
+    local n_warn = 0
+
+    foreach v of local varlist {
+        // Get synthetic frequencies
+        qui levelsof `v', local(synth_levels)
+        local synth_n = _N
+
+        local max_diff = 0
+        local tvd = 0
+
+        foreach lev of local synth_levels {
+            // Synthetic proportion
+            qui count if `v' == `lev'
+            local synth_pct = r(N) / `synth_n'
+
+            // Original proportion (from stored file)
+            preserve
+            qui use `origfreq', clear
+            qui su pct if varname == "`v'" & value == `lev', meanonly
+            local orig_pct = cond(r(N) > 0, r(mean), 0)
+            restore
+
+            local diff = abs(`synth_pct' - `orig_pct')
+            local tvd = `tvd' + `diff'
+            if `diff' > `max_diff' {
+                local max_diff = `diff'
+            }
+        }
+
+        // TVD is sum of |p-q| / 2
+        local tvd = `tvd' / 2
+
+        // Determine status
+        if `max_diff' < 0.03 {
+            local status "OK"
+            local ++n_good
+        }
+        else if `max_diff' < 0.10 {
+            local status "WARN"
+            local ++n_warn
+        }
+        else {
+            local status "POOR"
+        }
+
+        di as txt %20s abbrev("`v'", 20) %15.3f `max_diff' %15.3f `tvd' %10s "`status'"
+
+        local total_tvd = `total_tvd' + `tvd'
+        local ++n_vars
+    }
+
+    di as txt "{hline 60}"
+
+    if `n_vars' > 0 {
+        local avg_tvd = `total_tvd' / `n_vars'
+        di as txt "Average TVD: " as res %6.4f `avg_tvd'
+    }
+
+    if `n_warn' > 0 | `n_good' < `n_vars' {
+        di as txt "Note: Frequency differences may indicate joint synthesis needed"
+    }
+    else {
+        di as txt "All categorical frequencies well preserved"
+    }
+end
+
 // Mata helper functions
 mata:
 
@@ -3912,6 +4357,83 @@ void _synthdata_drawcat(string scalar varname, real matrix valfreq, real scalar 
     }
     
     st_store(., varname, result)
+}
+
+// Draw from joint distribution of two categorical variables
+// valfreq has 3 columns: val1, val2, frequency
+void _synthdata_drawjoint(string scalar varname1, string scalar varname2,
+                          real matrix valfreq, real scalar n)
+{
+    real colvector u, cumprob, result1, result2, freqs
+    real matrix vals
+    real scalar i, j, nlevels, total
+
+    vals = valfreq[., 1..2]
+    freqs = valfreq[., 3]
+    nlevels = rows(vals)
+
+    // Normalize frequencies to probabilities
+    total = sum(freqs)
+    if (total == 0) total = 1
+    cumprob = runningsum(freqs) :/ total
+
+    u = runiform(n, 1)
+    result1 = J(n, 1, vals[1, 1])
+    result2 = J(n, 1, vals[1, 2])
+
+    for (i = 1; i <= n; i++) {
+        for (j = 1; j <= nlevels; j++) {
+            if (u[i] <= cumprob[j]) {
+                result1[i] = vals[j, 1]
+                result2[i] = vals[j, 2]
+                break
+            }
+        }
+    }
+
+    st_store(., varname1, result1)
+    st_store(., varname2, result2)
+}
+
+// Sort date values within each observation to enforce ordering
+void _synthdata_sortdates(string scalar varlist)
+{
+    string rowvector vars
+    real matrix data, sorted_data
+    real rowvector vals, sorted_vals, idx
+    real scalar n, nvars, i, j
+
+    vars = tokens(varlist)
+    nvars = cols(vars)
+
+    if (nvars < 2) return
+
+    n = st_nobs()
+
+    // Load date data
+    data = st_data(., vars)
+    sorted_data = data
+
+    // For each observation, sort the non-missing values
+    for (i = 1; i <= n; i++) {
+        vals = data[i, .]
+
+        // Get indices of non-missing values
+        idx = selectindex(vals :< .)
+
+        if (cols(idx) < 2) continue
+
+        // Extract non-missing values and sort
+        sorted_vals = sort(vals[1, idx]', 1)'
+
+        // Put sorted values back in same positions
+        for (j = 1; j <= cols(idx); j++) {
+            sorted_data[i, idx[j]] = sorted_vals[j]
+        }
+    }
+
+    // Store back
+    st_store(., vars, sorted_data)
 }
 
 // Draw categorical index (for string variables)

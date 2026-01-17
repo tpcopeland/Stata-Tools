@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.5.0  11jan2026}{...}
+{* *! version 1.6.0  17jan2026}{...}
 {viewerjumpto "Syntax" "synthdata##syntax"}{...}
 {viewerjumpto "Description" "synthdata##description"}{...}
 {viewerjumpto "Options" "synthdata##options"}{...}
@@ -35,6 +35,7 @@
 
 {syntab:Synthesis Method}
 {synopt:{opt smart}}adaptive synthesis with automatic optimizations (recommended){p_end}
+{synopt:{opt complex}}smart + date ordering enforcement + frequency validation{p_end}
 {synopt:{opt para:metric}}parametric synthesis via Cholesky decomposition (default){p_end}
 {synopt:{opt seq:uential}}sequential regression synthesis{p_end}
 {synopt:{opt boot:strap}}bootstrap with perturbation{p_end}
@@ -89,6 +90,7 @@
 {synopt:{opt val:idate(filename)}}save validation statistics{p_end}
 {synopt:{opt util:ity}}compute utility metrics{p_end}
 {synopt:{opt graph}}produce overlay density plots{p_end}
+{synopt:{opt freq:check}}validate categorical frequency distributions{p_end}
 
 {syntab:Technical}
 {synopt:{opt seed(#)}}random seed for reproducibility{p_end}
@@ -180,6 +182,16 @@ names, keeping originals for comparison.
 {pmore}(3) Detects strongly associated categorical variables and synthesizes jointly{p_end}
 {pmore}(4) Auto-detects logical constraints (non-negative values, etc.){p_end}
 {pmore}This method produces the most realistic synthetic data with minimal configuration.
+
+{phang}
+{opt complex} includes all {opt smart} features plus additional capabilities:
+{p_end}
+{pmore}(1) All smart features (auto-empirical, auto-relate, conditional categorical){p_end}
+{pmore}(2) Date relationship detection and ordering enforcement{p_end}
+{pmore}(3) Frequency distribution validation for categorical variables{p_end}
+{pmore}Use this when you have date variables that should maintain temporal ordering
+(e.g., admission_date < procedure_date < discharge_date) and want to verify
+that categorical frequencies are preserved.
 
 {phang}
 {opt parametric} (the default if smart is not specified) fits parametric
@@ -412,6 +424,16 @@ squared error).
 {opt graph} produces overlay density plots comparing original and synthetic
 distributions for continuous variables.
 
+{phang}
+{opt freqcheck} validates categorical frequency distributions by comparing
+the original and synthetic data. Reports:
+{p_end}
+{pmore}- Maximum absolute difference in proportion for each category{p_end}
+{pmore}- Total Variation Distance (TVD) for each categorical variable{p_end}
+{pmore}- Average TVD across all categorical variables{p_end}
+{pmore}TVD below 0.1 indicates well-preserved frequencies. This option is
+automatically enabled with the {opt complex} method.
+
 {dlgtab:Technical}
 
 {phang}
@@ -468,6 +490,9 @@ The bootstrap method:
 
 {pstd}Smart synthesis (recommended for most realistic output){p_end}
 {phang2}{cmd:. synthdata, smart saving(synthetic_patients)}{p_end}
+
+{pstd}Complex synthesis with date ordering and frequency validation{p_end}
+{phang2}{cmd:. synthdata, complex n(500) dates(admission_date procedure_date discharge_date) replace}{p_end}
 
 {pstd}Basic usage: synthesize current dataset and save{p_end}
 {phang2}{cmd:. synthdata, saving(synthetic_patients)}{p_end}
