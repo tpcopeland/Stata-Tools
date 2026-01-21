@@ -278,7 +278,7 @@ if _rc {
 	capture erase "`temp_xlsx'"
 	exit _rc
 }
-* Note: DO NOT TRIM WHITE SPACE--NEED IT FOR LEADING INDENT FOR CATEGORICAL VARIABLE
+* Note: DO NOT TRIM WHITE SPACE--NEED IT FOR LEADING INDENT FOR CATEGORICAL V
 
 if "`noint'" != "" {
 	drop if regexm(strlower(A), "^(intercept|_cons|constant)$")
