@@ -672,7 +672,7 @@ capture {
 		local col_num = `col_num' + 3
 	}
 	putexcel (A1:`letterright'1), merge txtwrap left top bold // merge title cells
-	putexcel (`letterleft'3:`letterright'3), bold // bold column labels
+	putexcel (`letterleft'3:`letterright'3), hcenter vcenter bold // bold and center column labels
 	putexcel (`tl1':`tr1'), border(top, thin) // top
 	putexcel (`lettertwo'`n1':`tr2'), border(top, thin) // above column labels
 	putexcel (`tl2':`tr2'), border(bottom, thin) // header bottom
