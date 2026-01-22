@@ -283,7 +283,7 @@ cstat_surv
 
 The majority of packages are compatible with Stata 14.2 or higher. Specific version requirements:
 
-- **regtab**: Stata 17+ (uses collect commands)
+- **tabtools**: Stata 16+ (regtab, effecttab, stratetab, tablex require Stata 17+)
 - **balancetab, iptw_diag, outlier, validate**: Stata 16+
 - **tvtools**: Stata 16+
 - **cstat_surv**: Stata 16+
@@ -294,7 +294,7 @@ The majority of packages are compatible with Stata 14.2 or higher. Specific vers
 Each package includes comprehensive documentation:
 - **Stata Help Files (.sthlp)**: Access in-depth help using `help [command]`
 - **Package README**: Installation instructions and usage details
-- **Dialog Interfaces**: User-friendly GUI available for select commands (table1_tc, regtab, tvtools)
+- **Dialog Interfaces**: User-friendly GUI available for select commands (tabtools: table1_tc, regtab; tvtools)
 - **Examples**: Quick start examples and best practices included in help files
 
 ## Support
