@@ -327,11 +327,9 @@ MIT License - see individual package files for details
 | mvp | Missing value pattern analysis | 1.1.1 | 14+ |
 | outlier | Outlier detection toolkit | 1.0.0 | 16+ |
 | pkgtransfer | Package management | 1.0.2 | 14+ |
-| regtab | Regression, treatment effects & mediation tables | 1.2.0 | 16+/17+ |
 | setools | Swedish registry data tools | 1.0.1 | 18+ |
-| stratetab | Strate output formatting | 1.0.2 | 17+ |
 | synthdata | Synthetic data generation | 1.2.2 | 16+ |
-| table1_tc | Table 1 creation | 1.0.3 | 14.2+ |
+| tabtools | Publication-ready tables (table1_tc, regtab, effecttab, gformtab, stratetab, tablex) | 1.0.0 | 16+/17+ |
 | tc_schemes | Consolidated graph schemes | 1.0.0 | 16+ |
 | today | Date utilities | 1.0.1 | 14+ |
 | tvtools | Time-varying data | 1.2.0 | 16+ |
