@@ -149,24 +149,15 @@ Stata-Tools/
 
 ### Analysis & Tables
 
-**table1_tc** - Create publication-ready Table 1 of baseline characteristics
-- Automatic statistical test selection based on variable types
-- Excel export with professional formatting
-- Includes dialog interface for easy use
-
-**regtab** - Format and export regression, treatment effects, and mediation tables
-- **regtab**: Format standard regression output (logit, regress, stcox, etc.)
-- **effecttab**: Format causal inference results (teffects ipw, margins, g-computation)
-- **gformtab**: Format gformula mediation analysis (TCE, NDE, NIE, PM, CDE)
-- Works with Stata 17+ collect commands (regtab/effecttab) and gformula (gformtab)
-- Exports tables with confidence intervals and p-values to Excel
-- Professional formatting suitable for publication
-- Includes dialog interface for regtab
-
-**stratetab** - Combine and format strate output tables
-- Merges multiple strate results into formatted Excel tables
-- Custom labeling and precision control
-- Person-years, event rates, and confidence intervals
+**tabtools** - Comprehensive suite for exporting publication-ready tables to Excel
+- **table1_tc**: Descriptive statistics table (Table 1) with automatic statistical tests
+- **regtab**: Format regression results from any model (logit, regress, stcox, etc.)
+- **effecttab**: Format treatment effects and margins results (teffects ipw, g-computation)
+- **gformtab**: Format g-formula mediation analysis (TCE, NDE, NIE, PM, CDE)
+- **stratetab**: Combine and format strate incidence rate outputs
+- **tablex**: General table export for any Stata table
+- Professional formatting with automatic column widths, borders, and merged headers
+- Includes dialog interfaces for table1_tc and regtab
 
 ### Causal Inference Diagnostics
 
