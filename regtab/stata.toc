@@ -1,5 +1,0 @@
-v 3
-d Stata-Tools: regtab
-d Timothy P. Copeland, Karolinska Institutet, Stockholm, Sweden
-d https://github.com/tpcopeland/Stata-Tools
-p regtab
