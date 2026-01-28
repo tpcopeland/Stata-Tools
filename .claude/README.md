@@ -75,11 +75,15 @@ Ask Claude to run these scripts:
 │   ├── README.md             # Skills documentation
 │   ├── stata-develop/        # Command development guidance
 │   ├── stata-test/           # Functional testing guidance
-│   ├── stata-validate/       # Validation testing guidance
+│   ├── stata-validate/       # Validation testing (with lazy sections)
 │   ├── stata-audit/          # Code audit guidance
 │   ├── code-reviewer/        # Code review expertise
-│   ├── stata-code-generator/ # Code generation expertise
-│   └── package-tester/       # Testing expertise
+│   ├── stata-code-generator/ # Code generation (with lazy sections)
+│   └── package-tester/       # Testing expertise (with lazy sections)
+├── policies/              # Quality enforcement policies
+│   ├── mandatory-code-review.md  # Code review requirements
+│   ├── test-before-commit.md     # Testing requirements
+│   └── version-consistency.md    # Version sync requirements
 ├── validators/            # Validation scripts
 │   ├── validate-ado.sh       # Static analysis (no Stata required)
 │   └── run-stata-check.sh    # Syntax check (requires Stata)
@@ -87,11 +91,13 @@ Ask Claude to run these scripts:
 │   ├── scaffold-command.sh       # Create new package from templates
 │   ├── check-versions.sh         # Check version consistency
 │   ├── check-test-coverage.sh    # Report test coverage
+│   ├── pre-tool-dispatcher.sh    # PreToolUse dispatcher
+│   ├── post-tool-dispatcher.sh   # PostToolUse dispatcher
 │   ├── session-context.sh        # SessionStart hook
 │   ├── user-prompt-skill-router.sh  # UserPromptSubmit hook
-│   ├── validate-operation.sh     # PreToolUse hook
-│   ├── suggest-skill-on-read.sh  # PostToolUse (Read) hook
-│   ├── format-markdown.sh        # PostToolUse (Edit/Write) hook
+│   ├── validate-operation.sh     # Validation logic
+│   ├── suggest-skill-on-read.sh  # Skill suggestion logic
+│   ├── format-markdown.sh        # Markdown formatting logic
 │   └── stop-hook-validation.sh   # Stop hook
 ├── lib/                   # Shared libraries for scripts
 │   ├── common.sh             # Common functions
@@ -239,24 +245,38 @@ All scripts use standardized exit codes:
 
 Hooks are scripts that run automatically at specific points in the Claude Code session lifecycle. They are configured in `.claude/settings.json`.
 
-### Hook Scripts
+### Hook Architecture (Dispatcher Pattern)
 
-| Hook | Script | Purpose |
-|------|--------|---------|
-| SessionStart | `session-context.sh` | Shows repo status, recent files at session start |
-| UserPromptSubmit | `user-prompt-skill-router.sh` | Detects keywords and suggests relevant skills |
-| PreToolUse | `validate-operation.sh` | Protects important files, blocks dangerous commands |
-| PostToolUse (Read) | `suggest-skill-on-read.sh` | Suggests skills based on file type |
-| PostToolUse (Edit/Write) | `format-markdown.sh` | Ensures consistent markdown formatting |
-| Stop | `stop-hook-validation.sh` | Shows uncommitted changes, suggests next steps |
+All hooks use a unified dispatcher pattern for cleaner configuration and centralized logic:
+
+| Hook | Dispatcher | Purpose |
+|------|------------|---------|
+| SessionStart | `session-context.sh` | Shows repo status, recent files |
+| UserPromptSubmit | `user-prompt-skill-router.sh` | Suggests relevant skills |
+| PreToolUse | `pre-tool-dispatcher.sh` | Routes to validation scripts |
+| PostToolUse | `post-tool-dispatcher.sh` | Routes to post-processing scripts |
+| Stop | `stop-hook-validation.sh` | Shows uncommitted changes |
 
 ### What Happens Automatically
 
 1. **Session Start**: Shows git status, recent .ado files, failed tests
 2. **On Prompt**: Detects if task matches a skill and suggests using it
 3. **On File Read**: Suggests relevant skills based on file extension
-4. **On File Write**: Warns about protected files, validates operations
-5. **Session End**: Lists uncommitted changes, reminds about dev logs
+4. **On File Write**: Auto-validates .ado files, warns about protected files
+5. **On Stata Run**: Reminds to check logs for errors
+6. **Session End**: Lists uncommitted changes, reminds about dev logs
+
+## Policies
+
+Quality enforcement policies are documented in `.claude/policies/`:
+
+| Policy | Purpose |
+|--------|---------|
+| `mandatory-code-review.md` | Requires `/code-reviewer` after code generation |
+| `test-before-commit.md` | Requires tests to pass before committing |
+| `version-consistency.md` | Ensures version synchronization across files |
+
+These policies are enforced through hooks and skill workflows.
 
 ## Skills System
 
@@ -347,6 +367,7 @@ On macOS, install newer bash: `brew install bash`
 
 ## Version History
 
+- **3.1.0** - Added dispatcher pattern for hooks, policies directory, lazy loading for skills
 - **3.0.0** - Merged commands and skills into unified skills system
 - **2.0.0** - Added hooks system, skills, and learning system (_resources/)
 - **1.2.0** - Reorganized as Claude Code usage guide, renamed skills to commands, hooks to validators

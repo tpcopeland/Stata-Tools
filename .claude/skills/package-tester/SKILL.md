@@ -43,9 +43,8 @@ Activate this skill when:
 
 ```
 FIND test files:
-- tests/test_*.do
 - _devkit/_testing/test_*.do
-- **/test_*.do
+- _devkit/_validation/validation_*.do
 - Check if test exists for target command
 ```
 
@@ -53,10 +52,10 @@ FIND test files:
 
 ```bash
 # Run single test
-stata-mp -b do tests/test_command.do
+stata-mp -b do _devkit/_testing/test_command.do
 
 # Check log for errors
-grep -E "^r\([0-9]+" tests/test_command.log
+grep -E "^r\([0-9]+" _devkit/_testing/test_command.log
 ```
 
 ### Step 3: Parse Results
@@ -86,7 +85,6 @@ If errors found:
 For each command:
 - command.ado         # Command implementation
 - command.sthlp       # Help file
-- tests/test_command.do  # Test file (recommended)
 
 For the package:
 - stata.toc           # Package index
@@ -94,35 +92,93 @@ For the package:
 - README.md           # Documentation
 ```
 
-### stata.toc Format
+### Version Consistency Check
 
-```stata
-v 3
-d Stata Tools
-d [Author Name]
-d [Institution]
-d [URL]
+**Run before every commit:**
 
-p package1 Description of package 1
-p package2 Description of package 2
+```bash
+.claude/scripts/check-versions.sh [package_name]
 ```
 
-### .pkg Format
+Verify:
+- `.ado` version == `.sthlp` version
+- `.pkg` Distribution-Date is current
+- README versions match
 
-```stata
-v 3
-d packagename - Description
-d
-d Author: [Name]
-d
-d Distribution-Date: 20260104
+---
 
-f packagename/command.ado
-f packagename/command.sthlp
+## Output Format
+
+```
+## TEST RESULTS SUMMARY
+
+**Package:** [package_name]
+**Tests Run:** [N]
+**Passed:** [N]
+**Failed:** [N]
+
+### Test Results
+
+| Test File | Status | Notes |
+|-----------|--------|-------|
+| test_command1.do | Pass | |
+| test_command2.do | Fail | r(111) line 45 |
+
+### Errors Found
+
+[If any failures, list each error with details]
+
+### Package Structure
+
+| Check | Status |
+|-------|--------|
+| stata.toc exists | Y/N |
+| .pkg files valid | Y/N |
+| All .ado have .sthlp | Y/N |
+| Versions synchronized | Y/N |
+
+### Recommendation
+
+[ ] **All tests passed** - Package ready for use
+[ ] **Minor issues** - Fix noted errors and re-test
+[ ] **Major issues** - Significant problems found
+
+### Next Steps
+
+1. [Action item based on results]
+2. Create development log if novel error patterns
 ```
 
 ---
 
+## Common Error Codes
+
+| Code | Meaning | Common Cause |
+|------|---------|--------------|
+| r(111) | Variable not found | Wrong variable name |
+| r(198) | Invalid syntax | Syntax error in command |
+| r(199) | Unrecognized command | Command not installed |
+| r(601) | File not found | Wrong path |
+| r(110) | Already defined | Duplicate program |
+| r(2000) | No observations | Empty dataset or if condition |
+
+---
+
+## Delegation Rules
+
+```
+USE code-reviewer skill WHEN:
+- Tests fail and code needs fixing
+- Reviewing test file quality
+- Checking for common error patterns
+
+CREATE development log WHEN:
+- Novel error patterns found
+- Multiple iterations needed
+- Variable name corrections discovered
+```
+
+<!-- LAZY_START: test_file_validation -->
 ## Test File Validation
 
 ### Required Elements
@@ -196,22 +252,10 @@ di _dup(60) "="
 log close
 exit, clear
 ```
+<!-- LAZY_END: test_file_validation -->
 
----
-
-## Error Handling
-
-### Common Error Codes
-
-| Code | Meaning | Common Cause |
-|------|---------|--------------|
-| r(111) | Variable not found | Wrong variable name |
-| r(198) | Invalid syntax | Syntax error in command |
-| r(199) | Unrecognized command | Command not installed |
-| r(601) | File not found | Wrong path |
-| r(110) | Already defined | Duplicate program |
-
-### Error Documentation
+<!-- LAZY_START: error_documentation -->
+## Error Documentation
 
 When errors are found, create a development log:
 
@@ -242,71 +286,18 @@ When errors are found, create a development log:
 **Novel Pattern?** [Yes/No]
 ```
 
----
+### Common Error Patterns
 
-## Output Format
+| Pattern | Symptom | Fix |
+|---------|---------|-----|
+| Missing backticks | r(111) variable not found | Add backticks: `` `varname' `` |
+| Unquoted path | r(601) file not found | Quote paths: `"path/file.dta"` |
+| Macro truncation | Wrong value used | Shorten macro name to <32 chars |
+| Type mismatch | r(109) | Check variable types |
+| No observations | r(2000) | Check if/in condition |
+<!-- LAZY_END: error_documentation -->
 
-```
-## TEST RESULTS SUMMARY
-
-**Package:** [package_name]
-**Tests Run:** [N]
-**Passed:** [N]
-**Failed:** [N]
-
-### Test Results
-
-| Test File | Status | Notes |
-|-----------|--------|-------|
-| test_command1.do | Pass | |
-| test_command2.do | Fail | r(111) line 45 |
-
-### Errors Found
-
-[If any failures, list each error with details]
-
-#### Error 1: [test_command2.do, line 45]
-
-**Error:** r(111) variable not found
-**Code:** `gen x = wrongvar`
-**Fix:** Check variable name in data
-
-### Package Structure
-
-| Check | Status |
-|-------|--------|
-| stata.toc exists | Y/N |
-| .pkg files valid | Y/N |
-| All .ado have .sthlp | Y/N |
-| All commands have tests | Y/N |
-| **Versions synchronized** | Y/N |
-
-### Version Consistency (run before commit)
-
-```bash
-.claude/scripts/check-versions.sh [package_name]
-```
-
-Verify:
-- `.ado` version == `.sthlp` version
-- `.pkg` Distribution-Date is current
-- README versions match
-
-### Recommendation
-
-[ ] **All tests passed** - Package ready for use
-[ ] **Minor issues** - Fix noted errors and re-test
-[ ] **Major issues** - Significant problems found
-
-### Next Steps
-
-1. [Action item based on results]
-2. Create development log if novel error patterns
-3. Update stata-common-errors.md if needed
-```
-
----
-
+<!-- LAZY_START: batch_testing -->
 ## Batch Testing
 
 ### Run All Tests
@@ -353,18 +344,100 @@ else
 fi
 ```
 
----
+### Test Coverage Check
 
-## Delegation Rules
+```bash
+# Check which packages have tests
+.claude/scripts/check-test-coverage.sh
 
+# With threshold
+.claude/scripts/check-test-coverage.sh --threshold 80
 ```
-USE code-reviewer skill WHEN:
-- Tests fail and code needs fixing
-- Reviewing test file quality
-- Checking for common error patterns
+<!-- LAZY_END: batch_testing -->
 
-CREATE development log WHEN:
-- Novel error patterns found
-- Multiple iterations needed
-- Variable name corrections discovered
+<!-- LAZY_START: package_structure -->
+## Package Structure Details
+
+### stata.toc Format
+
+```stata
+v 3
+d Stata Tools
+d [Author Name]
+d [Institution]
+d [URL]
+
+p package1 Description of package 1
+p package2 Description of package 2
 ```
+
+### .pkg Format
+
+```stata
+v 3
+d packagename - Description
+d
+d Author: [Name]
+d
+d Distribution-Date: 20260128
+
+f packagename/command.ado
+f packagename/command.sthlp
+```
+
+### Version Format Rules
+
+| File | Format | Example |
+|------|--------|---------|
+| .ado | X.Y.Z in header | `*! mycommand Version 1.0.0  2026/01/28` |
+| .sthlp | X.Y.Z in comment | `{* *! version 1.0.0  28jan2026}` |
+| .pkg | YYYYMMDD | `Distribution-Date: 20260128` |
+| README | X.Y.Z, YYYY-MM-DD | `Version 1.0.0, 2026-01-28` |
+
+### File Format Version
+
+**CRITICAL:** `v 3` in .pkg and .toc files is the FILE FORMAT version, not your package version. NEVER change this value.
+<!-- LAZY_END: package_structure -->
+
+<!-- LAZY_START: log_parsing -->
+## Log File Parsing
+
+### Finding Errors
+
+```bash
+# Find error codes
+grep -E "^r\([0-9]+" logfile.log
+
+# Find error context (5 lines before)
+grep -B5 "^r\([0-9]+" logfile.log
+
+# Find all failed assertions
+grep -E "(^assertion is false|^FAIL)" logfile.log
+
+# Count tests
+grep -c "PASS\|FAIL" logfile.log
+```
+
+### Parsing Test Results
+
+```bash
+# Count passed/failed
+PASSED=$(grep -c "PASS" logfile.log)
+FAILED=$(grep -c "FAIL" logfile.log)
+ERRORS=$(grep -c "^r([0-9]" logfile.log)
+
+echo "Passed: $PASSED"
+echo "Failed: $FAILED"
+echo "Errors: $ERRORS"
+```
+
+### Common Log Patterns
+
+| Pattern | Meaning |
+|---------|---------|
+| `^r(###);` | Stata error code |
+| `assertion is false` | Failed assert statement |
+| `PASS:` or `PASSED` | Test passed |
+| `FAIL:` or `FAILED` | Test failed |
+| `ALL TESTS PASSED` | Complete success |
+<!-- LAZY_END: log_parsing -->

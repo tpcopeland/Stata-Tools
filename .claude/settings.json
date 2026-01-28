@@ -25,31 +25,22 @@
     ],
     "PreToolUse": [
       {
-        "matcher": "Bash|Write|Edit",
+        "matcher": "",
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/scripts/validate-operation.sh"
+            "command": ".claude/scripts/pre-tool-dispatcher.sh"
           }
         ]
       }
     ],
     "PostToolUse": [
       {
-        "matcher": "Edit|Write",
+        "matcher": "",
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/scripts/format-markdown.sh"
-          }
-        ]
-      },
-      {
-        "matcher": "Read",
-        "hooks": [
-          {
-            "type": "command",
-            "command": ".claude/scripts/suggest-skill-on-read.sh"
+            "command": ".claude/scripts/post-tool-dispatcher.sh"
           }
         ]
       }
