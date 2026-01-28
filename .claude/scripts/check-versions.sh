@@ -64,7 +64,7 @@ if [[ -n "$1" ]]; then
     PACKAGES="$1"
 else
     # Find all packages (directories with .pkg files, excluding _templates)
-    PACKAGES=$(find "$REPO_ROOT" -maxdepth 2 -name "*.pkg" ! -path "*/_templates/*" -exec basename -s .pkg {} \; 2>/dev/null | sort)
+    PACKAGES=$(find "$REPO_ROOT" -maxdepth 2 -name "*.pkg" ! -path "*/_devkit/*" -exec basename -s .pkg {} \; 2>/dev/null | sort)
 fi
 
 # Check if any packages found

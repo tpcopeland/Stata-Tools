@@ -34,15 +34,15 @@ This creates the directory structure, copies templates, and replaces placeholder
 mkdir mycommand
 
 # Copy templates
-cp _templates/TEMPLATE.ado mycommand/mycommand.ado
-cp _templates/TEMPLATE.sthlp mycommand/mycommand.sthlp
-cp _templates/TEMPLATE.pkg mycommand/mycommand.pkg
-cp _templates/TEMPLATE.dlg mycommand/mycommand.dlg
-cp _templates/TEMPLATE_README.md mycommand/README.md
+cp _devkit/_templates/TEMPLATE.ado mycommand/mycommand.ado
+cp _devkit/_templates/TEMPLATE.sthlp mycommand/mycommand.sthlp
+cp _devkit/_templates/TEMPLATE.pkg mycommand/mycommand.pkg
+cp _devkit/_templates/TEMPLATE.dlg mycommand/mycommand.dlg
+cp _devkit/_templates/TEMPLATE_README.md mycommand/README.md
 
 # Copy test files to testing/validation directories
-cp _templates/testing_TEMPLATE.do _testing/testing_mycommand.do
-cp _templates/validation_TEMPLATE.do _validation/validation_mycommand.do
+cp _devkit/_templates/testing_TEMPLATE.do _devkit/_testing/testing_mycommand.do
+cp _devkit/_templates/validation_TEMPLATE.do _devkit/_validation/validation_mycommand.do
 ```
 
 ### 2. Search and Replace

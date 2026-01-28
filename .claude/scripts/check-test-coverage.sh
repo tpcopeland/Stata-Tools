@@ -66,7 +66,7 @@ echo "===================="
 echo ""
 
 # Find all packages (directories with .pkg files, excluding _templates)
-PACKAGES=$(find "$REPO_ROOT" -maxdepth 2 -name "*.pkg" ! -path "*/_templates/*" -exec basename -s .pkg {} \; 2>/dev/null | sort)
+PACKAGES=$(find "$REPO_ROOT" -maxdepth 2 -name "*.pkg" ! -path "*/_devkit/*" -exec basename -s .pkg {} \; 2>/dev/null | sort)
 
 # Check if any packages found
 if [[ -z "$PACKAGES" ]]; then
@@ -87,13 +87,13 @@ for pkg in $PACKAGES; do
     TOTAL=$((TOTAL + 1))
 
     # Check for functional test
-    TEST_FILE="$REPO_ROOT/_testing/test_${pkg}.do"
+    TEST_FILE="$REPO_ROOT/_devkit/_testing/test_${pkg}.do"
     if [[ -f "$TEST_FILE" ]]; then
         TEST_STATUS="${GREEN}Yes${NC}"
         HAS_TEST=$((HAS_TEST + 1))
     else
         # Also check for comprehensive test files (e.g., test_pkg_comprehensive.do)
-        ALT_TEST=$(find "$REPO_ROOT/_testing" -name "test_${pkg}*.do" 2>/dev/null | head -1)
+        ALT_TEST=$(find "$REPO_ROOT/_devkit/_testing" -name "test_${pkg}*.do" 2>/dev/null | head -1)
         if [[ -n "$ALT_TEST" ]]; then
             TEST_STATUS="${GREEN}Yes${NC}"
             HAS_TEST=$((HAS_TEST + 1))
@@ -104,13 +104,13 @@ for pkg in $PACKAGES; do
     fi
 
     # Check for validation test
-    VAL_FILE="$REPO_ROOT/_validation/validation_${pkg}.do"
+    VAL_FILE="$REPO_ROOT/_devkit/_validation/validation_${pkg}.do"
     if [[ -f "$VAL_FILE" ]]; then
         VAL_STATUS="${GREEN}Yes${NC}"
         HAS_VALIDATION=$((HAS_VALIDATION + 1))
     else
         # Also check for alternative validation files
-        ALT_VAL=$(find "$REPO_ROOT/_validation" -name "validation_${pkg}*.do" 2>/dev/null | head -1)
+        ALT_VAL=$(find "$REPO_ROOT/_devkit/_validation" -name "validation_${pkg}*.do" 2>/dev/null | head -1)
         if [[ -n "$ALT_VAL" ]]; then
             VAL_STATUS="${GREEN}Yes${NC}"
             HAS_VALIDATION=$((HAS_VALIDATION + 1))
@@ -156,8 +156,8 @@ echo ""
 # Additional stats
 echo "Additional Test Files"
 echo "---------------------"
-TOTAL_TEST_FILES=$(find "$REPO_ROOT/_testing" -name "test_*.do" 2>/dev/null | wc -l | tr -d ' ')
-TOTAL_VAL_FILES=$(find "$REPO_ROOT/_validation" -name "validation_*.do" 2>/dev/null | wc -l | tr -d ' ')
+TOTAL_TEST_FILES=$(find "$REPO_ROOT/_devkit/_testing" -name "test_*.do" 2>/dev/null | wc -l | tr -d ' ')
+TOTAL_VAL_FILES=$(find "$REPO_ROOT/_devkit/_validation" -name "validation_*.do" 2>/dev/null | wc -l | tr -d ' ')
 echo "Total functional test files: $TOTAL_TEST_FILES"
 echo "Total validation test files: $TOTAL_VAL_FILES"
 
@@ -170,8 +170,8 @@ if [[ -d "$REPO_ROOT/tvtools" ]]; then
     echo "tvtools commands: $TVTOOLS_CMDS"
 
     # Check for tvtools-specific tests
-    TV_TESTS=$(find "$REPO_ROOT/_testing" -name "test_tv*.do" 2>/dev/null | wc -l | tr -d ' ')
-    TV_VALS=$(find "$REPO_ROOT/_validation" -name "validation_tv*.do" 2>/dev/null | wc -l | tr -d ' ')
+    TV_TESTS=$(find "$REPO_ROOT/_devkit/_testing" -name "test_tv*.do" 2>/dev/null | wc -l | tr -d ' ')
+    TV_VALS=$(find "$REPO_ROOT/_devkit/_validation" -name "validation_tv*.do" 2>/dev/null | wc -l | tr -d ' ')
     echo "tvtools functional tests: $TV_TESTS"
     echo "tvtools validation tests: $TV_VALS"
 fi

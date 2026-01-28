@@ -241,7 +241,7 @@ eplot
 
 ## Testing Strategy
 
-### Unit Tests (_testing/test_eplot.do)
+### Unit Tests (_devkit/_testing/test_eplot.do)
 1. Basic data mode - simple 3-variable input
 2. With labels and weights
 3. With type variable (mixed rows)

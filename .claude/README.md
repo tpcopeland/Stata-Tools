@@ -193,8 +193,8 @@ Creates a complete package structure from templates.
 - `mycommand/mycommand.dlg`
 - `mycommand/stata.toc`
 - `mycommand/README.md`
-- `_testing/test_mycommand.do`
-- `_validation/validation_mycommand.do`
+- `_devkit/_testing/test_mycommand.do`
+- `_devkit/_validation/validation_mycommand.do`
 
 ### check-versions.sh
 

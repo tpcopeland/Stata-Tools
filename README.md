@@ -42,26 +42,11 @@ Stata-Tools/
 │   ├── *.dlg               # Dialog file (optional)
 │   └── README.md           # Package documentation
 │
-├── _guides/                # Development documentation
-│   ├── developing.md       # Guide for creating new commands
-│   ├── testing.md          # Guide for writing functional tests
-│   └── validating.md       # Guide for writing validation tests
-│
-├── _templates/             # Templates for new Stata commands
-│   ├── TEMPLATE.ado        # Command template
-│   ├── TEMPLATE.sthlp      # Help file template
-│   ├── TEMPLATE.pkg        # Package metadata template
-│   ├── TEMPLATE.dlg        # Dialog template
-│   ├── testing_TEMPLATE.do # Functional test template
-│   └── validation_TEMPLATE.do # Validation test template
-│
-├── _testing/               # Functional test suites
-│   ├── generate_test_data.do  # Creates synthetic test datasets
-│   ├── run_all_tests.do       # Master test runner
-│   └── test_*.do              # Individual command tests
-│
-├── _validation/            # Validation tests (correctness verification)
-│   └── validation_*.do     # Tests with hand-calculated expected values
+├── _devkit/                # Development resources (not distributed)
+│   ├── _templates/         # Templates for new Stata commands
+│   ├── _testing/           # Functional test suites
+│   ├── _validation/        # Validation tests (correctness verification)
+│   └── _resources/         # Development support materials
 │
 ├── _reimplementations/     # Cross-language ports
 │   ├── R/tvtools/          # R implementation of tvtools
@@ -196,10 +181,10 @@ For individual packages:
 net install [package-name], from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/[package-name]")
 ```
 
-For example, to install table1_tc:
+For example, to install tabtools (includes table1_tc, regtab, effecttab, and more):
 
 ```stata
-net install table1_tc, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/table1_tc")
+net install tabtools, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/tabtools")
 ```
 
 ### Manual Installation

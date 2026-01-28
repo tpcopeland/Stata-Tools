@@ -2,20 +2,20 @@
 
 Scope:
 - tvtools/*.ado and tvtools/_tvexpose_*.ado
-- Related tests in _testing/ and _validation/ (spot-checked)
+- Related tests in _devkit/_testing/ and _devkit/_validation/ (spot-checked)
 
 Notes:
 - Static review only; no Stata execution in this pass.
 
 ## Test Execution (Stata batch)
-- `/usr/local/stata17/stata-mp -b do _testing/test_tvtools_comprehensive.do` → PASS (87/87). Log: `test_tvtools_comprehensive.log`.
-- `/usr/local/stata17/stata-mp -b do _validation/validation_tvtools_comprehensive.do` → PASS (16/16). Log: `validation_tvtools_comprehensive.log`.
-- `/usr/local/stata17/stata-mp -b do _testing/run_all_tests.do` → FAIL (1/17 files): `test_datefix.do` failed with r(602) because `datefix.sthlp` already exists. Log: `run_all_tests.log`.
-- `/usr/local/stata17/stata-mp -b do run_all_validation.do` from `_validation/` → PASS (3 suites). Log: `_validation/run_all_validation.log`.
-- Additional _validation/ suites run individually: boundary_tests, test_boundary_edge, validation_tvtools_boundary, missing_data_tests, invariant_tests, time_varying_tests, stress_tests, integration_workflow_test, exhaustive_validation, reproducibility_tests, monte_carlo_validation, control_tests, helpfile_validation, validation_tvexpose, validation_tvevent, validation_tvmerge, validation_tvpipeline, validation_tvweight, validation_tvestimate → all PASS. Logs in `_validation/*.log` (notably `_validation/monte_carlo_validation.log` after extended runtime).
+- `/usr/local/stata17/stata-mp -b do _devkit/_testing/test_tvtools_comprehensive.do` → PASS (87/87). Log: `test_tvtools_comprehensive.log`.
+- `/usr/local/stata17/stata-mp -b do _devkit/_validation/validation_tvtools_comprehensive.do` → PASS (16/16). Log: `validation_tvtools_comprehensive.log`.
+- `/usr/local/stata17/stata-mp -b do _devkit/_testing/run_all_tests.do` → FAIL (1/17 files): `test_datefix.do` failed with r(602) because `datefix.sthlp` already exists. Log: `run_all_tests.log`.
+- `/usr/local/stata17/stata-mp -b do run_all_validation.do` from `_devkit/_validation/` → PASS (3 suites). Log: `_devkit/_validation/run_all_validation.log`.
+- Additional _devkit/_validation/ suites run individually: boundary_tests, test_boundary_edge, validation_tvtools_boundary, missing_data_tests, invariant_tests, time_varying_tests, stress_tests, integration_workflow_test, exhaustive_validation, reproducibility_tests, monte_carlo_validation, control_tests, helpfile_validation, validation_tvexpose, validation_tvevent, validation_tvmerge, validation_tvpipeline, validation_tvweight, validation_tvestimate → all PASS. Logs in `_devkit/_validation/*.log` (notably `_devkit/_validation/monte_carlo_validation.log` after extended runtime).
 
 ## High-priority Issues
-- tvpipeline diagnose option always fails because tvdiagnose is called without any report flags (tvtools/tvpipeline.ado:320-328); tests expect this to pass (_testing/test_tvpipeline.do:312-323). Best fix: call `tvdiagnose, ... all` (or a specific report option plus entry()/exit()) when diagnose is set, or make tvdiagnose default to `all` when no report option is provided.
+- tvpipeline diagnose option always fails because tvdiagnose is called without any report flags (tvtools/tvpipeline.ado:320-328); tests expect this to pass (_devkit/_testing/test_tvpipeline.do:312-323). Best fix: call `tvdiagnose, ... all` (or a specific report option plus entry()/exit()) when diagnose is set, or make tvdiagnose default to `all` when no report option is provided.
 - tvcalendar merge() option is computed but never used in the merge; merge() is effectively ignored (tvtools/tvcalendar.ado:78-102). Best fix: use `keepusing()` or subset `using` to merge() variables; exclude `datevar` by default when auto-selecting merge vars.
 - tvweight uses logit for any 2-level exposure but does not enforce 0/1 coding; exposures coded 1/2 will be treated as all 1s by logit (tvtools/tvweight.ado:71-88,188-195). Best fix: require min==0 and max==1 for logit or recode to an indicator; otherwise auto-switch to mlogit or error with guidance.
 - tvweight mlogit path uses `tempvar ps_`lev'` which breaks for non-integer/negative levels (invalid variable names) (tvtools/tvweight.ado:242-246). Best fix: use a single tempvar inside the loop and overwrite, or map levels to numeric indices and use safe names.
@@ -189,4 +189,4 @@ display as text "  ID " as result "`show_id'" as text ///
 
 ## Dependency/Testing Notes
 - `distinct` is used in tvdiagnose, tvpass, tvpipeline, tvreport, and tvtrial without bundling (tvtools/tvdiagnose.ado:95-96; tvtools/tvpass.ado:71-72; tvtools/tvpipeline.ado:133-134; tvtools/tvreport.ado:62-63; tvtools/tvtrial.ado:397-398). Best fix: replace with built-in unique-ID counting or include a local fallback utility.
-- _testing/test_tvexpose.do installs `distinct` without capture, causing hard failures in restricted/offline environments (_testing/test_tvexpose.do:95-99). Best fix: `capture quietly ssc install distinct` and provide a skip/warn path when unavailable.
+- _devkit/_testing/test_tvexpose.do installs `distinct` without capture, causing hard failures in restricted/offline environments (_devkit/_testing/test_tvexpose.do:95-99). Best fix: `capture quietly ssc install distinct` and provide a skip/warn path when unavailable.

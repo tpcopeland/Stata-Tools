@@ -24,7 +24,7 @@ Use this when writing validation tests that verify commands produce mathematical
 | Does the command **run** without errors? | Does it produce **correct** results? |
 | Uses realistic datasets | Uses minimal hand-crafted datasets |
 | Checks return codes, variable existence | Checks specific computed values |
-| Location: `_testing/test_*.do` | Location: `_validation/validation_*.do` |
+| Location: `_devkit/_testing/test_*.do` | Location: `_devkit/_validation/validation_*.do` |
 
 ---
 
@@ -87,7 +87,7 @@ assert r(result) != .
 
 ### Create Validation File
 
-1. Copy template: `cp _templates/validation_TEMPLATE.do _validation/validation_mycommand.do`
+1. Copy template: `cp _devkit/_templates/validation_TEMPLATE.do _devkit/_validation/validation_mycommand.do`
 2. Replace all `TEMPLATE` with `mycommand`
 3. Create validation datasets with known expected values
 4. Write assertions comparing actual to expected
@@ -430,5 +430,4 @@ USE package-tester skill WHEN:
 
 ---
 
-*Template location: `_templates/validation_TEMPLATE.do`*
-*Full validation guide: `_guides/validating.md`*
+*Template location: `_devkit/_templates/validation_TEMPLATE.do`*

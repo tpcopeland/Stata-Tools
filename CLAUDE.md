@@ -28,33 +28,25 @@
 
 ---
 
-## Detailed Guides
+## Development Resources
 
-**IMPORTANT**: When performing specific tasks, **READ the appropriate guide file** for detailed instructions:
+All development resources are consolidated in the `_devkit/` directory:
 
-| Guide | Read When | Contents |
-|-------|-----------|----------|
-| **`_guides/developing.md`** | Creating new .ado files, adding options, fixing bugs in commands | Full development workflow, common mistakes checklist, error patterns |
-| **`_guides/testing.md`** | Writing or running test files (`test_*.do`) | Test file structure, running tests, debugging techniques, context-optimized workflow |
-| **`_guides/validating.md`** | Writing validation tests, verifying correctness | Known-answer testing, invariants, mental execution techniques |
+| Directory | Contents |
+|-----------|----------|
+| `_devkit/_templates/` | Templates for new Stata commands (.ado, .sthlp, .pkg, .dlg, test files) |
+| `_devkit/_testing/` | Functional test suites (`test_*.do`) and test data generation |
+| `_devkit/_validation/` | Validation tests (`validation_*.do`) with hand-calculated expected values |
+| `_devkit/_resources/` | Development support materials (error patterns, log templates) |
 
-### When to Load Each Guide
-
-```
-Task: "Create a new command"           → Read _guides/developing.md
-Task: "Write tests for X"              → Read _guides/testing.md
-Task: "Fix bug in X.ado"               → Read _guides/developing.md (for error patterns)
-Task: "Validate output is correct"     → Read _guides/validating.md
-Task: "Debug failing test"             → Read _guides/testing.md (for debugging section)
-Task: "Audit/review .ado file"         → Use /stata-audit or read _testing/notes/ado_error_patterns.md
-```
-
-### Additional Reference Files
+### Reference Files
 
 | File | Contains |
 |------|----------|
-| `_testing/notes/ado_error_patterns.md` | Comprehensive catalog of common .ado errors with detection methods |
-| `_testing/TESTING_INSTRUCTIONS.md` | Repository-specific test data and command coverage |
+| `_devkit/_testing/notes/ado_error_patterns.md` | Comprehensive catalog of common .ado errors with detection methods |
+| `_devkit/_testing/TESTING_INSTRUCTIONS.md` | Repository-specific test data and command coverage |
+| `_devkit/_templates/README.md` | Template usage instructions |
+| `_devkit/README.md` | Development kit overview |
 
 ### Skills (Slash Commands)
 
@@ -109,7 +101,7 @@ Full documentation: `.claude/README.md`
 | Does the command **run** without errors? | Does the command produce **correct** results? |
 | Uses realistic datasets | Uses minimal hand-crafted datasets |
 | Checks return codes, variable existence | Checks specific computed values |
-| Location: `_testing/test_*.do` | Location: `_validation/validation_*.do` |
+| Location: `_devkit/_testing/test_*.do` | Location: `_devkit/_validation/validation_*.do` |
 
 **Both are required** for production-ready commands.
 

@@ -24,7 +24,7 @@ Use this when writing or running test files (`test_*.do`) that verify commands e
 | Does the command **run** without errors? | Does it produce **correct** results? |
 | Uses realistic datasets | Uses minimal hand-crafted datasets |
 | Checks return codes, variable existence | Checks specific computed values |
-| Location: `_testing/test_*.do` | Location: `_validation/validation_*.do` |
+| Location: `_devkit/_testing/test_*.do` | Location: `_devkit/_validation/validation_*.do` |
 
 ---
 
@@ -32,7 +32,7 @@ Use this when writing or running test files (`test_*.do`) that verify commands e
 
 ### Create Test File
 
-1. Copy template: `cp _templates/testing_TEMPLATE.do _testing/test_mycommand.do`
+1. Copy template: `cp _devkit/_templates/testing_TEMPLATE.do _devkit/_testing/test_mycommand.do`
 2. Replace all `TEMPLATE` with `mycommand`
 3. Uncomment and customize the command calls
 
@@ -40,19 +40,19 @@ Use this when writing or running test files (`test_*.do`) that verify commands e
 
 ```stata
 * Run all tests
-do _testing/run_all_tests.do
+do _devkit/_testing/run_all_tests.do
 
 * Run single command's tests
-do _testing/run_test.do mycommand
+do _devkit/_testing/run_test.do mycommand
 
 * Run specific test number only
-do _testing/run_test.do mycommand 3
+do _devkit/_testing/run_test.do mycommand 3
 
 * Run in quiet mode (CI/CD)
-do _testing/run_test.do mycommand 0 1
+do _devkit/_testing/run_test.do mycommand 0 1
 
 * Machine-parseable output
-do _testing/run_test.do mycommand 0 1 1
+do _devkit/_testing/run_test.do mycommand 0 1 1
 ```
 
 ---

@@ -35,9 +35,10 @@ readonly _CONFIG_SH_VERSION="1.0.0"
 # Get repository root (readonly after set)
 declare -r REPO_ROOT="$(get_repo_root)"
 declare -r CLAUDE_DIR="$REPO_ROOT/.claude"
-declare -r TEMPLATES_DIR="$REPO_ROOT/_templates"
-declare -r TESTING_DIR="$REPO_ROOT/_testing"
-declare -r VALIDATION_DIR="$REPO_ROOT/_validation"
+declare -r DEVKIT_DIR="$REPO_ROOT/_devkit"
+declare -r TEMPLATES_DIR="$REPO_ROOT/_devkit/_templates"
+declare -r TESTING_DIR="$REPO_ROOT/_devkit/_testing"
+declare -r VALIDATION_DIR="$REPO_ROOT/_devkit/_validation"
 
 # =============================================================================
 # STATA CONFIGURATION

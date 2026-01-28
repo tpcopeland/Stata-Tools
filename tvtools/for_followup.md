@@ -302,7 +302,7 @@ The six tvtools commands are designed to work together:
 
 ### Recommended test file:
 
-Create `tvtools/_testing/test_diagnostic_commands.do` covering:
+Create `_devkit/_testing/test_diagnostic_commands.do` covering:
 1. Basic functionality for each command
 2. Edge cases listed above
 3. Integration with core workflow

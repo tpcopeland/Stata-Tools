@@ -1,0 +1,159 @@
+Dataset Documentation
+Generated:  7 Jan 2026 14:33:19
+
+========================================
+DATASET: hrt.dta
+========================================
+
+METADATA
+--------
+Observations: 1858
+Variables: 5
+Data Signature: 1858:5(17240):4094448700:4263218057
+
+DESCRIPTION
+-----------
+This dataset contains cross-sectional data. It includes 1858 observations and 5 variables. The data spans from 05feb2010 to 28jun2024. Key variable categories include: identifiers, clinical data. 
+
+========================================
+VARIABLE SUMMARY
+========================================
+
+  id
+    Type: int
+    Format: %12.0g
+    Label: Patient ID
+    Missing: 0 (0%)
+    Classification: categorical
+
+  rx_start
+    Type: int
+    Format: %td
+    Label: Prescription start date
+    Missing: 0 (0%)
+    Classification: date
+
+  rx_stop
+    Type: int
+    Format: %td
+    Label: Prescription end date
+    Missing: 0 (0%)
+    Classification: date
+
+  hrt_type
+    Type: byte
+    Format: %9.0g
+    Label: HRT type
+    Missing: 0 (0%)
+    Classification: categorical
+
+  dose
+    Type: double
+    Format: %10.0g
+    Label: Daily dose (mg)
+    Missing: 0 (0%)
+    Classification: continuous
+
+========================================
+CATEGORICAL VARIABLES
+========================================
+
+VARIABLE: id
+--------------------
+Position: 1
+Storage Type: int
+Display Format: %12.0g
+Label: Patient ID
+Classification: categorical
+Missing: 0 obs (0%)
+Unique Values: 1000
+
+ANALYSIS GUIDANCE: Use as factor/categorical variable. Consider reference category selection based on largest group or clinically meaningful baseline. 
+
+VARIABLE: hrt_type
+--------------------
+Position: 2
+Storage Type: byte
+Display Format: %9.0g
+Label: HRT type
+Value Label: hrt_type_lbl
+Classification: categorical
+Missing: 0 obs (0%)
+Unique Values: 3
+
+  Frequencies:
+    1 = Estrogen: 649 (34.9%)
+    2 = Combined: 572 (30.8%)
+    3 = Progestin: 637 (34.3%)
+
+ANALYSIS GUIDANCE: Use as factor/categorical variable. Low cardinality - suitable for stratification or interaction terms. 
+
+========================================
+CONTINUOUS VARIABLES
+========================================
+
+VARIABLE: dose
+--------------------
+Position: 1
+Storage Type: double
+Display Format: %10.0g
+Label: Daily dose (mg)
+Classification: continuous
+Missing: 0 obs (0%)
+Unique Values: 1858
+
+DISTRIBUTION:
+  Valid N: 1858
+  Mean: 2.56
+  SD: 2.97
+  Median: .8300000000000001
+  IQR: .49-4.62
+  Range: .3 to 10
+
+ANALYSIS GUIDANCE: Use as continuous variable. Check normality assumption if using parametric tests.
+
+========================================
+DATE VARIABLES
+========================================
+
+VARIABLE: rx_start
+--------------------
+Position: 1
+Storage Type: int
+Display Format: %td
+Label: Prescription start date
+Classification: date
+Missing: 0 obs (0%)
+
+DATE RANGE:
+  Earliest: 05feb2010
+  Latest: 13mar2024
+  Span: 5150 days
+
+ANALYSIS GUIDANCE: Can be used to calculate durations, create time-to-event variables, or generate time periods. Verify date ranges are plausible before analysis.
+
+VARIABLE: rx_stop
+--------------------
+Position: 2
+Storage Type: int
+Display Format: %td
+Label: Prescription end date
+Classification: date
+Missing: 0 obs (0%)
+
+DATE RANGE:
+  Earliest: 15may2010
+  Latest: 28jun2024
+  Span: 5158 days
+
+ANALYSIS GUIDANCE: Can be used to calculate durations, create time-to-event variables, or generate time periods. Verify date ranges are plausible before analysis.
+
+========================================
+VALUE LABEL DEFINITIONS
+========================================
+
+hrt_type_lbl (used by: hrt_type)
+  1 = Estrogen
+  2 = Combined
+  3 = Progestin
+

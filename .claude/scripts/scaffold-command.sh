@@ -11,7 +11,7 @@
 #
 # This script:
 #   1. Creates the package directory
-#   2. Copies all templates from _templates/
+#   2. Copies all templates from _devkit/_templates/
 #   3. Replaces TEMPLATE placeholders with command name
 #   4. Updates dates to current date
 #   5. Creates test and validation files
@@ -38,9 +38,9 @@ if [[ -f "$SCRIPT_DIR/../lib/config.sh" ]]; then
     source "$SCRIPT_DIR/../lib/config.sh"
 else
     readonly REPO_ROOT="$(get_repo_root)"
-    readonly TEMPLATES_DIR="${REPO_ROOT}/_templates"
-    readonly TESTING_DIR="${REPO_ROOT}/_testing"
-    readonly VALIDATION_DIR="${REPO_ROOT}/_validation"
+    readonly TEMPLATES_DIR="${REPO_ROOT}/_devkit/_templates"
+    readonly TESTING_DIR="${REPO_ROOT}/_devkit/_testing"
+    readonly VALIDATION_DIR="${REPO_ROOT}/_devkit/_validation"
     readonly DEFAULT_AUTHOR="${DEFAULT_AUTHOR:-Timothy P Copeland}"
 fi
 
@@ -195,7 +195,7 @@ d https://github.com/tpcopeland/Stata-Tools
 p ${COMMAND_NAME}
 EOF
 
-# Create test file in _testing/
+# Create test file in _devkit/_testing/
 if [[ -f "${TEMPLATES_DIR}/testing_TEMPLATE.do" ]]; then
     info "Creating test file..."
     mkdir -p "$TESTING_DIR"
@@ -207,7 +207,7 @@ else
     warn "Template testing_TEMPLATE.do not found, skipping"
 fi
 
-# Create validation file in _validation/
+# Create validation file in _devkit/_validation/
 if [[ -f "${TEMPLATES_DIR}/validation_TEMPLATE.do" ]]; then
     info "Creating validation file..."
     mkdir -p "$VALIDATION_DIR"
@@ -240,7 +240,7 @@ echo "  1. Edit ${COMMAND_NAME}.ado to implement your command logic"
 echo "  2. Update ${COMMAND_NAME}.sthlp with accurate option descriptions"
 echo "  3. Customize test_${COMMAND_NAME}.do with actual test cases"
 echo "  4. Create validation_${COMMAND_NAME}.do with known-answer tests"
-echo "  5. Run tests on VM with Stata: stata-mp -b do _testing/test_${COMMAND_NAME}.do"
+echo "  5. Run tests on VM with Stata: stata-mp -b do _devkit/_testing/test_${COMMAND_NAME}.do"
 echo "  6. Add package to root README.md table"
 echo ""
 echo "Ask Claude for help with natural language:"

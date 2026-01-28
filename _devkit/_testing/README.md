@@ -6,7 +6,7 @@ This directory contains comprehensive test suites for all Stata commands in the 
 
 ```stata
 * Change to testing directory
-cd "_testing"
+cd "_devkit/_testing"
 
 * Generate test data (required first)
 do generate_test_data.do
@@ -72,21 +72,21 @@ After running `generate_test_data.do`, these files are created:
 ### Individual Test Files
 
 ```stata
-cd "_testing"
+cd "_devkit/_testing"
 do test_tvexpose.do
 ```
 
 ### All Tests
 
 ```stata
-cd "_testing"
+cd "_devkit/_testing"
 do run_all_tests.do
 ```
 
 ### With Logging
 
 ```stata
-cd "_testing"
+cd "_devkit/_testing"
 log using "test_results.log", replace
 do run_all_tests.do
 log close

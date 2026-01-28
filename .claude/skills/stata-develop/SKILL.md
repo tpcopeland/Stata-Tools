@@ -23,12 +23,12 @@ Use this when creating a new Stata .ado command, adding features to existing com
 
 ```
 mycommand/
-├── mycommand.ado       # Main command (use _templates/TEMPLATE.ado)
-├── mycommand.sthlp     # Help file (use _templates/TEMPLATE.sthlp)
-├── mycommand.pkg       # Package metadata (use _templates/TEMPLATE.pkg)
+├── mycommand.ado       # Main command (use _devkit/_templates/TEMPLATE.ado)
+├── mycommand.sthlp     # Help file (use _devkit/_templates/TEMPLATE.sthlp)
+├── mycommand.pkg       # Package metadata (use _devkit/_templates/TEMPLATE.pkg)
 ├── stata.toc           # Table of contents (create: v 3 + package line)
-├── mycommand.dlg       # Dialog (optional, use _templates/TEMPLATE.dlg)
-└── README.md           # Documentation (use _templates/TEMPLATE_README.md)
+├── mycommand.dlg       # Dialog (optional, use _devkit/_templates/TEMPLATE.dlg)
+└── README.md           # Documentation (use _devkit/_templates/TEMPLATE_README.md)
 ```
 
 ### Scaffolding a New Command
@@ -36,7 +36,7 @@ mycommand/
 Run: `.claude/scripts/scaffold-command.sh mycommand "Brief description"`
 
 Or manually:
-1. Copy templates from `_templates/` to new package folder
+1. Copy templates from `_devkit/_templates/` to new package folder
 2. Replace all `TEMPLATE` with command name
 3. Update dates (YYYY/MM/DD in .ado, DDmonYYYY in .sthlp, YYYYMMDD in .pkg)
 4. Fill in descriptions and author info
@@ -179,8 +179,8 @@ When creating/updating a command, update ALL of these:
 
 1. Run static validation: `.claude/validators/validate-ado.sh mycommand/mycommand.ado`
 2. Check version consistency: `.claude/scripts/check-versions.sh mycommand`
-3. Create functional test: `_testing/test_mycommand.do` (use `/stata-test` skill)
-4. Create validation test: `_validation/validation_mycommand.do` (use `/stata-validate` skill)
+3. Create functional test: `_devkit/_testing/test_mycommand.do` (use `/stata-test` skill)
+4. Create validation test: `_devkit/_validation/validation_mycommand.do` (use `/stata-validate` skill)
 5. Run tests on VM with Stata 17/18
 6. Add package to root README.md table
 
@@ -221,13 +221,13 @@ Key formatting:
 
 | Template | Purpose |
 |----------|---------|
-| `_templates/TEMPLATE.ado` | Main command with full structure |
-| `_templates/TEMPLATE.sthlp` | Help file with all sections |
-| `_templates/TEMPLATE.pkg` | Package metadata |
-| `_templates/TEMPLATE.dlg` | Dialog with common controls |
-| `_templates/TEMPLATE_README.md` | README with badges and formatting |
-| `_templates/testing_TEMPLATE.do` | Functional test structure |
-| `_templates/validation_TEMPLATE.do` | Validation test structure |
+| `_devkit/_templates/TEMPLATE.ado` | Main command with full structure |
+| `_devkit/_templates/TEMPLATE.sthlp` | Help file with all sections |
+| `_devkit/_templates/TEMPLATE.pkg` | Package metadata |
+| `_devkit/_templates/TEMPLATE.dlg` | Dialog with common controls |
+| `_devkit/_templates/TEMPLATE_README.md` | README with badges and formatting |
+| `_devkit/_templates/testing_TEMPLATE.do` | Functional test structure |
+| `_devkit/_templates/validation_TEMPLATE.do` | Validation test structure |
 
 ---
 
@@ -250,5 +250,4 @@ USE package-tester skill WHEN:
 
 ---
 
-*For full error pattern catalog, see: `_testing/notes/ado_error_patterns.md`*
-*For detailed development guide, see: `_guides/developing.md`*
+*For full error pattern catalog, see: `_devkit/_testing/notes/ado_error_patterns.md`*

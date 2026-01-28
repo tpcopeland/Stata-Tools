@@ -44,7 +44,7 @@ Activate this skill when:
 ```
 FIND test files:
 - tests/test_*.do
-- _testing/test_*.do
+- _devkit/_testing/test_*.do
 - **/test_*.do
 - Check if test exists for target command
 ```
@@ -313,13 +313,13 @@ Verify:
 
 ```bash
 # Find and run all test files
-for f in _testing/test_*.do; do
+for f in _devkit/_testing/test_*.do; do
     echo "Running $f..."
     stata-mp -b do "$f"
 done
 
 # Check all logs for errors
-grep -l "^r([0-9]" _testing/*.log
+grep -l "^r([0-9]" _devkit/_testing/*.log
 ```
 
 ### Continuous Integration Pattern
@@ -330,7 +330,7 @@ grep -l "^r([0-9]" _testing/*.log
 
 FAILED=0
 
-for testfile in _testing/test_*.do; do
+for testfile in _devkit/_testing/test_*.do; do
     echo "Testing: $testfile"
     stata-mp -b do "$testfile"
 
