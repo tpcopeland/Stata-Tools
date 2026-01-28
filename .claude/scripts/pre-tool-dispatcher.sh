@@ -17,6 +17,12 @@ SCRIPT_DIR="$(dirname "$0")"
 [ -z "$TOOL_NAME" ] && exit 0
 
 case "$TOOL_NAME" in
+    Task)
+        # BLOCK: Never use subagents - do work directly in main session
+        echo "BLOCKED: Task tool (subagents) is disabled. Do the work directly."
+        exit 2
+        ;;
+
     Bash)
         # Validate bash commands
         source "$SCRIPT_DIR/validate-operation.sh"

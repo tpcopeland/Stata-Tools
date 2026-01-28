@@ -1,0 +1,2 @@
+# Stata Library MCP Server Requirements
+# No external dependencies - uses only Python standard library

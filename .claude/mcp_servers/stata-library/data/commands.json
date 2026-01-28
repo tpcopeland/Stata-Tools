@@ -1,0 +1,2490 @@
+[
+  {
+    "name": "check",
+    "package": "check",
+    "purpose": "",
+    "syntax": "",
+    "options": {},
+    "results": {
+      "scalars": [
+        {
+          "name": "nvars",
+          "description": "number of variables checked"
+        },
+        {
+          "name": "varlist",
+          "description": "list of variables checked"
+        },
+        {
+          "name": "mode",
+          "description": "\"short\" or \"full\" depending on option"
+        }
+      ],
+      "macros": [],
+      "matrices": []
+    },
+    "file": "check/check.sthlp"
+  },
+  {
+    "name": "tc_schemes",
+    "package": "tc_schemes",
+    "purpose": "}Consolidated Stata graph schemes from blindschemes and schemepack",
+    "syntax": "{p 8 16 2} tc_schemes [, options] {synoptset 20 tabbed} {opt s:ource(string)}filter schemes by source package; all (default), blindschemes, or schemepack {opt l:ist}display schemes as a simple list {opt d:etail}show detailed information with descriptions",
+    "options": {
+      "s:ource(string)": "filter schemes by source package;",
+      "l:ist": "display schemes as a simple list",
+      "d:etail": "show detailed information with descriptions"
+    },
+    "results": {
+      "scalars": [
+        {
+          "name": "n_schemes",
+          "description": "number of schemes in selected source"
+        },
+        {
+          "name": "schemes",
+          "description": "space-separated list of all scheme names"
+        },
+        {
+          "name": "sources",
+          "description": "source packages included: \"blindschemes schemepack\""
+        },
+        {
+          "name": "version",
+          "description": "version of tc_schemes"
+        }
+      ],
+      "macros": [],
+      "matrices": []
+    },
+    "file": "tc_schemes/tc_schemes.sthlp"
+  },
+  {
+    "name": "eplot",
+    "package": "eplot",
+    "purpose": "}Unified effect plotting for forest plots and coefficient plots",
+    "syntax": "Plot effects from data in memory: {p 8 16 2} eplot esvar lcivar ucivar [, options] Plot coefficients from stored estimates: {p 8 16 2} eplot [namelist] [, options] {synoptset 28 tabbed} Data specification {opt lab:els(varname)}variable containing row labels {opt w:eights(varname)}variable for marker/box sizing {opt type(varname)}row type indicator (1=effect, 3=subgroup, 5=overall) Coefficient selection {opt keep(coeflist)}keep specified coefficients {opt drop(coeflist)}drop specified coefficients {opt rename(spec)}rename coefficients (estimates mode) Labeling {opt coefl:abels(spec)}custom coefficient/effect labels {opt groups(spec)}define groups of effects with labels {opt head:ers(spec)}insert section headers {opt headings(spec)}alias for {opt headers()} Transform {opt eform}exponentiate estimates (for OR, HR, RR) {opt rescale(#)}multiply estimates by # Reference lines {opt xline(numlist)}add vertical reference lines {opt null(#)}null hypothesis line position {opt nonull}suppress null line Confidence intervals {opt level(#)}confidence level; default is level(95) {opt noci}suppress confidence intervals Display {opt dp(#)}decimal places; default is 2 {opt eff:ect(string)}x-axis title for effect sizes Layout {opt hor:izontal}horizontal layout (default) {opt vert:ical}vertical layout Markers {opt boxscale(#)}box size scaling (percentage) {opt nobox}suppress weighted boxes {opt nodiamonds}use markers instead of diamonds for pooled effects Graph options {opt ti:tle(string)}graph title {opt subti:tle(string)}graph subtitle {opt note(string)}graph note {opt name(string)}graph name {opt saving(filename)}save graph to file {opt scheme(schemename)}graph scheme {it:twoway_options}other {help twoway} options",
+    "options": {
+      "lab:els(varname)": "variable containing row labels",
+      "w:eights(varname)": "variable for marker/box sizing",
+      "type(varname)": "row type indicator (1=effect, 3=subgroup, 5=overall)",
+      "keep(coeflist)": "keep specified coefficients",
+      "drop(coeflist)": "drop specified coefficients",
+      "rename(spec)": "rename coefficients (estimates mode)",
+      "coefl:abels(spec)": "custom coefficient/effect labels",
+      "groups(spec)": "define groups of effects with labels",
+      "head:ers(spec)": "insert section headers",
+      "headings(spec)": "alias for",
+      "eform": "exponentiate estimates (for OR, HR, RR)",
+      "rescale(#)": "multiply estimates by #",
+      "xline(numlist)": "add vertical reference lines",
+      "null(#)": "null hypothesis line position",
+      "nonull": "suppress null line",
+      "level(#)": "confidence level; default is",
+      "noci": "suppress confidence intervals",
+      "dp(#)": "decimal places; default is 2",
+      "eff:ect(string)": "x-axis title for effect sizes",
+      "hor:izontal": "horizontal layout (default)",
+      "vert:ical": "vertical layout",
+      "boxscale(#)": "box size scaling (percentage)",
+      "nobox": "suppress weighted boxes",
+      "nodiamonds": "use markers instead of diamonds for pooled effects",
+      "ti:tle(string)": "graph title",
+      "subti:tle(string)": "graph subtitle",
+      "note(string)": "graph note",
+      "name(string)": "graph name",
+      "saving(filename)": "save graph to file",
+      "scheme(schemename)": "graph scheme"
+    },
+    "results": {
+      "scalars": [
+        {
+          "name": "N",
+          "description": "number of effects plotted"
+        },
+        {
+          "name": "cmd",
+          "description": "graph command executed"
+        }
+      ],
+      "macros": [],
+      "matrices": []
+    },
+    "file": "eplot/eplot.sthlp"
+  },
+  {
+    "name": "cstat_surv",
+    "package": "cstat_surv",
+    "purpose": "}Calculate C-statistic for survival models",
+    "syntax": "{p 8 17 2} cstat_surv",
+    "options": {},
+    "results": {
+      "scalars": [],
+      "macros": [],
+      "matrices": []
+    },
+    "file": "cstat_surv/cstat_surv.sthlp"
+  },
+  {
+    "name": "datamap",
+    "package": "datamap",
+    "purpose": "Generate privacy-safe dataset documentation",
+    "syntax": "{p 8 17 2} datamap , input_option [options] {synoptset 25 tabbed} Input (choose one) {opt single(dataset)}document a single Stata dataset {opt dir:ectory(path)}document all .dta files in a directory {opt filelist(datasets)}space-separated list of dataset names to process Output {opt output(filename)}name of output file; default is datamap.txt {opt format(format)}output format; only text is currently supported {opt sep:arate}create separate output file for each dataset {opt app:end}append to existing output file Privacy controls {opt exclude(varlist)}exclude specified variables from documentation {opt datesafe}show only date ranges, not exact dates Content controls {opt nostats}suppress summary statistics for continuous variables {opt nofreq}suppress frequency tables for categorical variables {opt nolabels}suppress value label definitions {opt nonotes}suppress dataset notes Parameters {opt maxfreq(#)}maximum unique values to show frequencies for; default is 25 {opt maxcat(#)}maximum unique values to classify as categorical; default is 25 Detection features {opt detect(options)}enable specific detection features {opt autodetect}enable all detection features {opt panelid(varname)}specify panel ID variable for panel detection {opt survivalvars(varlist)}specify survival analysis variables Data quality {opt quality}enable basic data quality checks {opt quality2(strict)}enable strict data quality checks {opt missing(option)}missing data analysis; detail or pattern Sample data {opt samples(#)}include # sample observations in output Advanced {opt rec:ursive}scan subdirectories recursively (with directory()) {p2colreset}",
+    "options": {
+      "single(dataset)": "document a single Stata dataset",
+      "dir:ectory(path)": "document all .dta files in a directory",
+      "filelist(datasets)": "space-separated list of dataset names to process",
+      "output(filename)": "name of output file; default is",
+      "format(format)": "output format; only",
+      "sep:arate": "create separate output file for each dataset",
+      "app:end": "append to existing output file",
+      "exclude(varlist)": "exclude specified variables from documentation",
+      "datesafe": "show only date ranges, not exact dates",
+      "nostats": "suppress summary statistics for continuous variables",
+      "nofreq": "suppress frequency tables for categorical variables",
+      "nolabels": "suppress value label definitions",
+      "nonotes": "suppress dataset notes",
+      "maxfreq(#)": "maximum unique values to show frequencies for; default is",
+      "maxcat(#)": "maximum unique values to classify as categorical; default is",
+      "detect(options)": "enable specific detection features",
+      "autodetect": "enable all detection features",
+      "panelid(varname)": "specify panel ID variable for panel detection",
+      "survivalvars(varlist)": "specify survival analysis variables",
+      "quality": "enable basic data quality checks",
+      "quality2(strict)": "enable strict data quality checks",
+      "missing(option)": "missing data analysis;",
+      "samples(#)": "include # sample observations in output",
+      "rec:ursive": "scan subdirectories recursively (with"
+    },
+    "results": {
+      "scalars": [
+        {
+          "name": "nfiles",
+          "description": "number of datasets documented"
+        },
+        {
+          "name": "format",
+          "description": "output format used (text)"
+        },
+        {
+          "name": "output",
+          "description": "name of output file created"
+        }
+      ],
+      "macros": [],
+      "matrices": []
+    },
+    "file": "datamap/datamap.sthlp"
+  },
+  {
+    "name": "datadict",
+    "package": "datamap",
+    "purpose": "Generate Markdown data dictionaries from Stata datasets",
+    "syntax": "{p 8 17 2} datadict , input_option [options] {synoptset 25 tabbed} Input (choose one) {opt single(dataset)}document a single dataset {opt dir:ectory(path)}document all .dta files in directory {opt filelist(datasets)}space-separated list of dataset names to process {opt rec:ursive}scan subdirectories when using {opt directory()} Output {opt output(filename)}output markdown file; default is data_dictionary.md {opt sep:arate}create separate output file per dataset Document metadata {opt title(string)}document title; default is Data Dictionary {opt sub:title(string)}subtitle or description line {opt ver:sion(string)}version number for documentation {opt auth:or(string)}author name (can include markdown links) {opt date(string)}date string; default is current date Content {opt notes(filename)}path to text file with notes to append {opt changelog(filename)}path to text file with changelog to append {opt miss:ing}include missing n (%) column for each variable {opt stats}include descriptive statistics column for each variable {opt maxcat(#)}max unique values to classify as categorical; default is 25 {opt maxfreq(#)}max unique values to show frequencies for; default is 25 {p2colreset}",
+    "options": {
+      "single(dataset)": "document a single dataset",
+      "dir:ectory(path)": "document all .dta files in directory",
+      "filelist(datasets)": "space-separated list of dataset names to process",
+      "rec:ursive": "scan subdirectories when using",
+      "output(filename)": "output markdown file; default is",
+      "sep:arate": "create separate output file per dataset",
+      "title(string)": "document title; default is",
+      "sub:title(string)": "subtitle or description line",
+      "ver:sion(string)": "version number for documentation",
+      "auth:or(string)": "author name (can include markdown links)",
+      "date(string)": "date string; default is current date",
+      "notes(filename)": "path to text file with notes to append",
+      "changelog(filename)": "path to text file with changelog to append",
+      "miss:ing": "include missing n (%) column for each variable",
+      "stats": "include descriptive statistics column for each variable",
+      "maxcat(#)": "max unique values to classify as categorical; default is",
+      "maxfreq(#)": "max unique values to show frequencies for; default is"
+    },
+    "results": {
+      "scalars": [
+        {
+          "name": "nfiles",
+          "description": "number of datasets documented"
+        },
+        {
+          "name": "output",
+          "description": "output filename"
+        }
+      ],
+      "macros": [],
+      "matrices": []
+    },
+    "file": "datamap/datadict.sthlp"
+  },
+  {
+    "name": "balancetab",
+    "package": "balancetab",
+    "purpose": "}Propensity score balance diagnostics with standardized mean differences",
+    "syntax": "{p 8 17 2} balancetab , {opt treat:ment(varname)} [options] {synoptset 24 tabbed} Required {opt treat:ment(varname)}binary treatment indicator (0/1) Adjustment {opt wvar(varname)}weight variable (e.g., IPTW weights) {opt strata(varname)}strata variable for stratified analysis {opt match:ed}indicates data has been matched Thresholds {opt thr:eshold(#)}SMD threshold for imbalance; default is 0.1 Export {opt xlsx(filename)}export balance table to Excel file {opt sheet(name)}Excel sheet name; default is \"Balance\" Visualization {opt loveplot}generate Love plot {opt saving(filename)}save Love plot to file Display {opt format(fmt)}display format for SMD; default is %6.3f {opt title(string)}title for output and plot {p2colreset}",
+    "options": {
+      "treat:ment(varname)": "binary treatment indicator (0/1)",
+      "wvar(varname)": "weight variable (e.g., IPTW weights)",
+      "strata(varname)": "strata variable for stratified analysis",
+      "match:ed": "indicates data has been matched",
+      "thr:eshold(#)": "SMD threshold for imbalance; default is 0.1",
+      "xlsx(filename)": "export balance table to Excel file",
+      "sheet(name)": "Excel sheet name; default is \"Balance\"",
+      "loveplot": "generate Love plot",
+      "saving(filename)": "save Love plot to file",
+      "format(fmt)": "display format for SMD; default is %6.3f",
+      "title(string)": "title for output and plot"
+    },
+    "results": {
+      "scalars": [
+        {
+          "name": "N",
+          "description": "total number of observations"
+        },
+        {
+          "name": "N_treated",
+          "description": "number in treatment group"
+        },
+        {
+          "name": "N_control",
+          "description": "number in control group"
+        },
+        {
+          "name": "max_smd_raw",
+          "description": "maximum absolute SMD before adjustment"
+        },
+        {
+          "name": "max_smd_adj",
+          "description": "maximum absolute SMD after adjustment"
+        },
+        {
+          "name": "n_imbalanced",
+          "description": "number of covariates exceeding threshold"
+        },
+        {
+          "name": "threshold",
+          "description": "threshold used"
+        },
+        {
+          "name": "treatment",
+          "description": "treatment variable name"
+        },
+        {
+          "name": "varlist",
+          "description": "covariates assessed"
+        },
+        {
+          "name": "wvar",
+          "description": "weight variable (if specified)"
+        },
+        {
+          "name": "balance",
+          "description": "matrix of balance statistics"
+        }
+      ],
+      "macros": [],
+      "matrices": []
+    },
+    "file": "balancetab/balancetab.sthlp"
+  },
+  {
+    "name": "consort",
+    "package": "consort",
+    "purpose": "}Generate CONSORT-style exclusion flowcharts",
+    "syntax": "Initialize a CONSORT diagram {p 8 16 2} consort init, {opt ini:tial(string)} [{opt file(filename)}] Add an exclusion step {p 8 16 2} consort exclude if, {opt lab:el(string)} [{opt rem:aining(string)}] Generate and save the diagram {p 8 16 2} consort save, {opt out:put(filename)} [save_options] Clear diagram state {p 8 16 2} consort clear [, {opt quiet}] {synoptset 24 tabbed} init options {p2coldent:* {opt ini:tial(string)}}label for initial population box {opt file(filename)}path to store CSV data; default is temp file {synoptset 24 tabbed} exclude options {p2coldent:* {opt lab:el(string)}}label for exclusion box {opt rem:aining(string)}custom label for remaining population box {synoptset 24 tabbed} save options {p2coldent:* {opt out:put(filename)}}output image path (.png recommended) {opt fin:al(string)}label for final cohort box; default \"Final Cohort\" {opt shading}enable box shading (blue for flow, red for exclusions) {opt python(path)}path to Python executable {opt dpi(#)}image resolution; default 150 {p 4 6 2}* indicates required option.",
+    "options": {
+      "file(filename)": "path to store CSV data; default is temp file",
+      "rem:aining(string)": "custom label for remaining population box",
+      "fin:al(string)": "label for final cohort box; default \"Final Cohort\"",
+      "shading": "enable box shading (blue for flow, red for exclusions)",
+      "python(path)": "path to Python executable",
+      "dpi(#)": "image resolution; default 150"
+    },
+    "results": {
+      "scalars": [
+        {
+          "name": "N",
+          "description": "initial number of observations"
+        },
+        {
+          "name": "initial",
+          "description": "initial population label"
+        },
+        {
+          "name": "file",
+          "description": "path to CSV file"
+        },
+        {
+          "name": "n_excluded",
+          "description": "number of observations excluded"
+        },
+        {
+          "name": "n_remaining",
+          "description": "number of observations remaining"
+        },
+        {
+          "name": "step",
+          "description": "exclusion step number"
+        },
+        {
+          "name": "label",
+          "description": "exclusion label"
+        },
+        {
+          "name": "N_initial",
+          "description": "initial number of observations"
+        },
+        {
+          "name": "N_final",
+          "description": "final number of observations"
+        },
+        {
+          "name": "N_excluded",
+          "description": "total number excluded"
+        },
+        {
+          "name": "steps",
+          "description": "number of exclusion steps"
+        },
+        {
+          "name": "output",
+          "description": "output file path"
+        },
+        {
+          "name": "final",
+          "description": "final cohort label"
+        }
+      ],
+      "macros": [],
+      "matrices": []
+    },
+    "file": "consort/consort.sthlp"
+  },
+  {
+    "name": "datefix",
+    "package": "datefix",
+    "purpose": "",
+    "syntax": "",
+    "options": {},
+    "results": {
+      "scalars": [],
+      "macros": [],
+      "matrices": []
+    },
+    "file": "datefix/datefix.sthlp"
+  },
+  {
+    "name": "icdexpand",
+    "package": "setools",
+    "purpose": "}ICD-10 code utilities for Swedish registry research",
+    "syntax": "Expand ICD code patterns to full code list: {p 8 17 2} icdexpand expand , {opt pat:tern(string)} [expand_options] Validate ICD-10 code format: {p 8 17 2} icdexpand validate , {opt pat:tern(string)} [{opt noi:sily}] Create matching indicator variable: {p 8 17 2} icdexpand match , {opt codes(string)} {opt dxvars(varlist)} [match_options] {synoptset 24 tabbed} expand_options Required {opt pat:tern(string)}ICD code pattern to expand (e.g., \"I63*\", \"E10-E14\") Optional {opt max:codes(#)}maximum number of codes to expand; default is 1000 {opt noi:sily}display expansion summary {synoptset 24 tabbed} match_options Required {opt codes(string)}ICD code pattern to match {opt dxvars(varlist)}diagnosis variables to search (e.g., dx1-dx30) Optional {opt gen:erate(name)}name for generated indicator variable; default is _icd_match {opt replace}replace existing variable if it exists {opt noi:sily}display matching summary {p2colreset}",
+    "options": {
+      "pat:tern(string)": "ICD code pattern to expand (e.g., \"I63*\", \"E10-E14\")",
+      "max:codes(#)": "maximum number of codes to expand; default is",
+      "noi:sily": "display matching summary",
+      "codes(string)": "ICD code pattern to match",
+      "dxvars(varlist)": "diagnosis variables to search (e.g., dx1-dx30)",
+      "gen:erate(name)": "name for generated indicator variable; default is",
+      "replace": "replace existing variable if it exists"
+    },
+    "results": {
+      "scalars": [
+        {
+          "name": "codes",
+          "description": "space-separated list of expanded codes"
+        },
+        {
+          "name": "n_codes",
+          "description": "number of codes after expansion"
+        },
+        {
+          "name": "valid",
+          "description": "1 if all codes valid, 0 otherwise"
+        },
+        {
+          "name": "invalid_codes",
+          "description": "list of invalid codes (if any)"
+        },
+        {
+          "name": "varname",
+          "description": "name of generated indicator variable"
+        },
+        {
+          "name": "n_patterns",
+          "description": "number of patterns matched"
+        },
+        {
+          "name": "n_matches",
+          "description": "number of observations matching"
+        }
+      ],
+      "macros": [],
+      "matrices": []
+    },
+    "file": "setools/icdexpand.sthlp"
+  },
+  {
+    "name": "sustainedss",
+    "package": "setools",
+    "purpose": "}Compute sustained EDSS progression date",
+    "syntax": "{p 8 17 2} sustainedss idvar edssvar datevar , {opt th:reshold(#)} [options] {synoptset 25 tabbed} Required {opt th:reshold(#)}EDSS threshold for progression (e.g., 4 or 6) Optional {opt gen:erate(newvar)}name for generated date variable; default is sustained#_dt {opt conf:irmwindow(#)}confirmation window in days; default is 182 {opt base:linethreshold(#)}EDSS level for reversal check; default is threshold {opt keepall}retain all observations; default keeps only patients with events {opt q:uietly}suppress iteration messages and summary output {p2colreset}",
+    "options": {
+      "th:reshold(#)": "EDSS threshold for progression (e.g., 4 or 6)",
+      "gen:erate(newvar)": "name for generated date variable; default is",
+      "conf:irmwindow(#)": "confirmation window in days; default is",
+      "base:linethreshold(#)": "EDSS level for reversal check; default is",
+      "keepall": "retain all observations; default keeps only patients with events",
+      "q:uietly": "suppress iteration messages and summary output"
+    },
+    "results": {
+      "scalars": [
+        {
+          "name": "N_events",
+          "description": "number of sustained events identified"
+        },
+        {
+          "name": "iterations",
+          "description": "number of iterations required"
+        },
+        {
+          "name": "threshold",
+          "description": "EDSS threshold used"
+        },
+        {
+          "name": "confirmwindow",
+          "description": "confirmation window in days"
+        },
+        {
+          "name": "varname",
+          "description": "name of generated variable"
+        }
+      ],
+      "macros": [],
+      "matrices": []
+    },
+    "file": "setools/sustainedss.sthlp"
+  },
+  {
+    "name": "procmatch",
+    "package": "setools",
+    "purpose": "}Procedure code matching for Swedish registry research",
+    "syntax": "Match procedure codes in diagnosis variables {p 8 16 2} procmatch match, {opt codes(string)} {opt procvars(varlist)} [{opt gen:erate(name)} {opt replace} {opt prefix} {opt noisily}] Extract first occurrence date of matching procedures {p 8 16 2} procmatch first, {opt codes(string)} {opt procvars(varlist)} {opt datevar(varname)} {opt idvar(varname)} [{opt gen:erate(name)} {opt gendatevar(name)} {opt replace} {opt prefix} {opt noisily}]",
+    "options": {},
+    "results": {
+      "scalars": [
+        {
+          "name": "n_codes",
+          "description": "number of procedure codes searched"
+        },
+        {
+          "name": "n_matches",
+          "description": "number of matching observations"
+        },
+        {
+          "name": "varname",
+          "description": "name of generated variable"
+        },
+        {
+          "name": "codes",
+          "description": "procedure codes searched (uppercase)"
+        },
+        {
+          "name": "n_persons",
+          "description": "number of persons with procedure"
+        },
+        {
+          "name": "datevarname",
+          "description": "name of generated date variable"
+        }
+      ],
+      "macros": [],
+      "matrices": []
+    },
+    "file": "setools/procmatch.sthlp"
+  },
+  {
+    "name": "dateparse",
+    "package": "setools",
+    "purpose": "}Date utilities for Swedish registry cohort studies",
+    "syntax": "Parse date strings to Stata date format: {p 8 17 2} dateparse parse , {opt datestring(string)} [{opt format(string)}] Calculate lookback or followup windows: {p 8 17 2} dateparse window , {opt lookback(#)} | {opt followup(#)} [window_options] Validate date range: {p 8 17 2} dateparse validate , {opt start(string)} {opt end(string)} [{opt format(string)}] Check if dates fall within window: {p 8 17 2} dateparse inwindow , {opt start(string)} {opt end(string)} {opt generate(name)} [{opt replace}] Determine which year files are needed: {p 8 17 2} dateparse filerange , {opt index_start(string)} {opt index_end(string)} [filerange_options] {synoptset 24 tabbed} window_options Required (one of) {opt lookback(#)}lookback window in days {opt followup(#)}followup window in days Optional {opt gen:erate(names)}names for window start and end variables {opt replace}replace existing variables if they exist {synoptset 24 tabbed} filerange_options Required {opt index_start(string)}earliest index date (YYYY-MM-DD) {opt index_end(string)}latest index date (YYYY-MM-DD) Optional {opt lookback(#)}lookback window in days; default is 0 {opt followup(#)}followup window in days; default is 0 {p2colreset}",
+    "options": {
+      "lookback(#)": "lookback window in days; default is",
+      "followup(#)": "followup window in days; default is",
+      "gen:erate(names)": "names for window start and end variables",
+      "replace": "replace existing variables if they exist",
+      "index_start(string)": "earliest index date (YYYY-MM-DD)",
+      "index_end(string)": "latest index date (YYYY-MM-DD)"
+    },
+    "results": {
+      "scalars": [
+        {
+          "name": "date",
+          "description": "Stata numeric date value (%td)"
+        },
+        {
+          "name": "datestr",
+          "description": "original date string"
+        },
+        {
+          "name": "lookback",
+          "description": "lookback period in days"
+        },
+        {
+          "name": "followup",
+          "description": "followup period in days"
+        },
+        {
+          "name": "startvar",
+          "description": "name of window start variable (if generated)"
+        },
+        {
+          "name": "endvar",
+          "description": "name of window end variable (if generated)"
+        },
+        {
+          "name": "start_date",
+          "description": "Stata date value for start"
+        },
+        {
+          "name": "end_date",
+          "description": "Stata date value for end"
+        },
+        {
+          "name": "span_days",
+          "description": "number of days between dates (inclusive)"
+        },
+        {
+          "name": "span_years",
+          "description": "number of years (rounded to 0.1)"
+        },
+        {
+          "name": "start_str",
+          "description": "original start date string"
+        },
+        {
+          "name": "end_str",
+          "description": "original end date string"
+        },
+        {
+          "name": "n_inwindow",
+          "description": "number of observations within window"
+        },
+        {
+          "name": "index_start_year",
+          "description": "year of earliest index date"
+        },
+        {
+          "name": "index_end_year",
+          "description": "year of latest index date"
+        },
+        {
+          "name": "file_start_year",
+          "description": "first year of files needed (accounting for lookback)"
+        },
+        {
+          "name": "file_end_year",
+          "description": "last year of files needed (accounting for followup)"
+        },
+        {
+          "name": "lookback_years",
+          "description": "lookback period in years (rounded up)"
+        },
+        {
+          "name": "followup_years",
+          "description": "followup period in years (rounded up)"
+        }
+      ],
+      "macros": [],
+      "matrices": []
+    },
+    "file": "setools/dateparse.sthlp"
+  },
+  {
+    "name": "cdp",
+    "package": "setools",
+    "purpose": "}Confirmed Disability Progression from baseline EDSS",
+    "syntax": "{p 8 16 2} cdp idvar edssvar datevar , {opt dx:date(varname)} [options] {synoptset 24 tabbed} Required {opt dx:date(varname)}diagnosis date variable Optional {opt gen:erate(name)}name for CDP date variable; default is cdp_date {opt conf:irmdays(#)}days required for confirmation; default is 180 {opt base:linewindow(#)}days from diagnosis for baseline EDSS; default is 730 {opt roving}use roving baseline (reset after each progression) {opt alle:vents}track all CDP events, not just first {opt keepall}retain all observations {opt q:uietly}suppress output messages",
+    "options": {
+      "dx:date(varname)": "diagnosis date variable",
+      "gen:erate(name)": "name for CDP date variable; default is",
+      "conf:irmdays(#)": "days required for confirmation; default is",
+      "base:linewindow(#)": "days from diagnosis for baseline EDSS; default is",
+      "roving": "use roving baseline (reset after each progression)",
+      "alle:vents": "track all CDP events, not just first",
+      "keepall": "retain all observations",
+      "q:uietly": "suppress output messages"
+    },
+    "results": {
+      "scalars": [
+        {
+          "name": "N_persons",
+          "description": "number of persons with CDP"
+        },
+        {
+          "name": "N_events",
+          "description": "total number of CDP events"
+        },
+        {
+          "name": "confirmdays",
+          "description": "confirmation period in days"
+        },
+        {
+          "name": "baselinewindow",
+          "description": "baseline window in days"
+        },
+        {
+          "name": "varname",
+          "description": "name of generated variable"
+        },
+        {
+          "name": "roving",
+          "description": "yes/no indicating roving baseline"
+        }
+      ],
+      "macros": [],
+      "matrices": []
+    },
+    "file": "setools/cdp.sthlp"
+  },
+  {
+    "name": "setools",
+    "package": "setools",
+    "purpose": "}Swedish Registry Toolkit for Epidemiological Cohort Studies",
+    "syntax": "",
+    "options": {},
+    "results": {
+      "scalars": [],
+      "macros": [],
+      "matrices": []
+    },
+    "file": "setools/setools.sthlp"
+  },
+  {
+    "name": "migrations",
+    "package": "setools",
+    "purpose": "}Process Swedish migration registry data for cohort studies",
+    "syntax": "{p 8 17 2} migrations , {opt mig:file(filename)} [options] {synoptset 24 tabbed} Required {opt mig:file(filename)}path to migrations_wide.dta file Optional {opt id:var(varname)}ID variable; default is id {opt start:var(varname)}study start date variable; default is study_start {opt savee:xclude(filename)}save excluded observations to file {opt savec:ensor(filename)}save emigration censoring dates to file {opt replace}replace existing files {opt verb:ose}display processing messages {p2colreset}",
+    "options": {
+      "mig:file(filename)": "path to migrations_wide.dta file",
+      "id:var(varname)": "ID variable; default is",
+      "start:var(varname)": "study start date variable; default is",
+      "savee:xclude(filename)": "save excluded observations to file",
+      "savec:ensor(filename)": "save emigration censoring dates to file",
+      "replace": "replace existing files",
+      "verb:ose": "display processing messages"
+    },
+    "results": {
+      "scalars": [
+        {
+          "name": "N_excluded_emigrated",
+          "description": "number excluded due to emigration before study start"
+        },
+        {
+          "name": "N_excluded_inmigration",
+          "description": "number excluded due to immigration after study start"
+        },
+        {
+          "name": "N_excluded_total",
+          "description": "total number excluded"
+        },
+        {
+          "name": "N_censored",
+          "description": "number with emigration censoring dates"
+        },
+        {
+          "name": "N_final",
+          "description": "final sample size after exclusions"
+        }
+      ],
+      "macros": [],
+      "matrices": []
+    },
+    "file": "setools/migrations.sthlp"
+  },
+  {
+    "name": "pira",
+    "package": "setools",
+    "purpose": "}Progression Independent of Relapse Activity",
+    "syntax": "{p 8 16 2} pira idvar edssvar datevar , {opt dx:date(varname)} {opt rel:apses(filename)} [options] {synoptset 28 tabbed} Required {opt dx:date(varname)}diagnosis date variable {opt rel:apses(filename)}path to relapse dataset Relapse file options {opt relapseid:var(varname)}ID variable in relapse file; default is idvar {opt relapsedate:var(varname)}relapse date variable; default is relapse_date Relapse window {opt windowb:efore(#)}days before relapse to exclude; default is 90 {opt windowa:fter(#)}days after relapse to exclude; default is 30 CDP parameters {opt gen:erate(name)}name for PIRA date variable; default is pira_date {opt rawgen:erate(name)}name for RAW date variable; default is raw_date {opt conf:irmdays(#)}days for confirmation; default is 180 {opt base:linewindow(#)}days from diagnosis for baseline; default is 730 Baseline options {opt rebase:linerelapse}reset baseline EDSS after relapses {opt roving}use roving baseline after each progression Output options {opt alle:vents}track all events, not just first {opt keepall}retain all observations {opt q:uietly}suppress output messages",
+    "options": {
+      "dx:date(varname)": "diagnosis date variable",
+      "rel:apses(filename)": "path to relapse dataset",
+      "relapseid:var(varname)": "ID variable in relapse file; default is",
+      "relapsedate:var(varname)": "relapse date variable; default is",
+      "windowb:efore(#)": "days before relapse to exclude; default is",
+      "windowa:fter(#)": "days after relapse to exclude; default is",
+      "gen:erate(name)": "name for PIRA date variable; default is",
+      "rawgen:erate(name)": "name for RAW date variable; default is",
+      "conf:irmdays(#)": "days for confirmation; default is",
+      "base:linewindow(#)": "days from diagnosis for baseline; default is",
+      "rebase:linerelapse": "reset baseline EDSS after relapses",
+      "roving": "use roving baseline after each progression",
+      "alle:vents": "track all events, not just first",
+      "keepall": "retain all observations",
+      "q:uietly": "suppress output messages"
+    },
+    "results": {
+      "scalars": [
+        {
+          "name": "N_cdp",
+          "description": "total number of CDP events"
+        },
+        {
+          "name": "N_pira",
+          "description": "number of PIRA events"
+        },
+        {
+          "name": "N_raw",
+          "description": "number of RAW events"
+        },
+        {
+          "name": "windowbefore",
+          "description": "days before relapse in window"
+        },
+        {
+          "name": "windowafter",
+          "description": "days after relapse in window"
+        },
+        {
+          "name": "confirmdays",
+          "description": "confirmation period in days"
+        },
+        {
+          "name": "baselinewindow",
+          "description": "baseline window in days"
+        },
+        {
+          "name": "pira_varname",
+          "description": "name of PIRA variable"
+        },
+        {
+          "name": "raw_varname",
+          "description": "name of RAW variable"
+        },
+        {
+          "name": "rebaselinerelapse",
+          "description": "yes/no for re-baseline option"
+        }
+      ],
+      "macros": [],
+      "matrices": []
+    },
+    "file": "setools/pira.sthlp"
+  },
+  {
+    "name": "covarclose",
+    "package": "setools",
+    "purpose": "}Extract covariate values closest to index date",
+    "syntax": "{p 8 16 2} covarclose using filename, {opt idvar(varname)} {opt indexdate(varname)} {opt datevar(string)} {opt vars(varlist)} [{opt yearformat} {opt impute} {opt prefer(string)} {opt missing(numlist)} {opt noisily}]",
+    "options": {},
+    "results": {
+      "scalars": [
+        {
+          "name": "n_total",
+          "description": "number of observations in master data"
+        },
+        {
+          "name": "vars",
+          "description": "variables extracted"
+        },
+        {
+          "name": "prefer",
+          "description": "preference method used"
+        }
+      ],
+      "macros": [],
+      "matrices": []
+    },
+    "file": "setools/covarclose.sthlp"
+  },
+  {
+    "name": "validate",
+    "package": "validate",
+    "purpose": "}Data validation rules - define and run validation suites",
+    "syntax": "{p 8 17 2} validate [, options] {synoptset 24 tabbed} Validation Rules {opt range(# #)}expected numeric range (min max) {opt val:ues(list)}expected values (numeric or string) {opt pat:tern(regex)}expected regex pattern for strings {opt type(string)}expected type: numeric, string, date {opt nomiss}no missing values allowed {opt unique}all values must be unique {opt cross(condition)}cross-variable validation expression Behavior {opt assert}stop execution on validation failure {opt gen:erate(name)}generate indicator for valid observations {opt replace}allow replacing existing variable Output {opt rep:ort}display detailed report {opt xlsx(filename)}export validation report to Excel {opt sheet(name)}Excel sheet name; default is \"Validation\" {opt title(string)}report title {p2colreset}",
+    "options": {
+      "range(# #)": "expected numeric range (min max)",
+      "val:ues(list)": "expected values (numeric or string)",
+      "pat:tern(regex)": "expected regex pattern for strings",
+      "type(string)": "expected type: numeric, string, date",
+      "nomiss": "no missing values allowed",
+      "unique": "all values must be unique",
+      "cross(condition)": "cross-variable validation expression",
+      "assert": "stop execution on validation failure",
+      "gen:erate(name)": "generate indicator for valid observations",
+      "replace": "allow replacing existing variable",
+      "rep:ort": "display detailed report",
+      "xlsx(filename)": "export validation report to Excel",
+      "sheet(name)": "Excel sheet name; default is \"Validation\"",
+      "title(string)": "report title"
+    },
+    "results": {
+      "scalars": [
+        {
+          "name": "N",
+          "description": "number of observations checked"
+        },
+        {
+          "name": "n_rules",
+          "description": "total number of rules evaluated"
+        },
+        {
+          "name": "rules_passed",
+          "description": "number of rules that passed"
+        },
+        {
+          "name": "rules_failed",
+          "description": "number of rules that failed"
+        },
+        {
+          "name": "pct_passed",
+          "description": "percentage of rules passed"
+        },
+        {
+          "name": "varlist",
+          "description": "variables validated"
+        },
+        {
+          "name": "results",
+          "description": "matrix of validation results"
+        }
+      ],
+      "macros": [],
+      "matrices": []
+    },
+    "file": "validate/validate.sthlp"
+  },
+  {
+    "name": "tablex",
+    "package": "tabtools",
+    "purpose": "}Export Stata tables to formatted Excel",
+    "syntax": "{p 8 16 2} tablex using filename.xlsx, {opt sheet(name)} [options] {synoptset 22 tabbed} {p2coldent:* {opt sheet(name)}}Excel sheet name {opt title(string)}table title for cell A1 {opt replace}replace existing sheet {opt font(name)}font name; default is Arial {opt fontsize(#)}font size in points; default is 10 {opt borderstyle(style)}border style: thin or medium; default is thin {opt headerrows(#)}number of header rows; default is auto-detect {p 4 6 2}* {opt sheet()} is required.",
+    "options": {
+      "title(string)": "table title for cell A1",
+      "replace": "replace existing sheet",
+      "font(name)": "font name; default is",
+      "fontsize(#)": "font size in points; default is",
+      "borderstyle(style)": "border style:",
+      "headerrows(#)": "number of header rows; default is auto-detect"
+    },
+    "results": {
+      "scalars": [
+        {
+          "name": "N_rows",
+          "description": "number of rows in exported table"
+        },
+        {
+          "name": "N_cols",
+          "description": "number of columns in exported table"
+        },
+        {
+          "name": "header_rows",
+          "description": "number of header rows detected/used"
+        },
+        {
+          "name": "using",
+          "description": "Excel filename"
+        },
+        {
+          "name": "sheet",
+          "description": "sheet name"
+        }
+      ],
+      "macros": [],
+      "matrices": []
+    },
+    "file": "tabtools/tablex.sthlp"
+  },
+  {
+    "name": "regtab",
+    "package": "tabtools",
+    "purpose": "}Format regression and treatment effects tables for Excel",
+    "syntax": "{p 4 8 2}regtab, {opt xlsx(string)} {opt sheet(string)} [{opt sep(string asis)} {opt models(string)} {opt coef(string)} {opt title(string)} {opt noint} {opt nore} {opt stats(string)} {opt relabel}] Required: an active {helpb collect} with items _r_b, _r_ci, and _r_p and dimensions including colname and cmdset.",
+    "options": {
+      "xlsx(string)": "Output Excel filename (must end with",
+      "sheet(string)": "Target sheet name to create/replace in",
+      "sep(string asis)": "Delimiter between CI endpoints used by",
+      "models(string)": "Labels to merge above each model's three columns. Separate labels with a backslash, e.g.,",
+      "coef(string)": "Header label for the point estimate column (the",
+      "title(string)": "Text written into",
+      "noint": "Drop the intercept row. Matches",
+      "nore": "Drop rows whose variable name contains",
+      "stats(string)": "Add model fit statistics at the bottom of the table. Space-separated list of:",
+      "relabel": "Relabel random effects using variable labels from the grouping variable and random effects. For example, if the grouping variable"
+    },
+    "results": {
+      "scalars": [],
+      "macros": [],
+      "matrices": []
+    },
+    "file": "tabtools/regtab.sthlp"
+  },
+  {
+    "name": "stratetab",
+    "package": "tabtools",
+    "purpose": "}Combine strate output files and export to Excel with outcomes as columns",
+    "syntax": "{p 8 17 2} stratetab, {opt using(namelist)} {opt xlsx(string)} {opt outcomes(integer)} [{opt sheet(string)} {opt title(string)} {opt outlabels(string)} {opt explabels(string)} {opt digits(integer 1)} {opt eventdigits(integer 0)} {opt pydigits(integer 0)} {opt unitlabel(string)} {opt pyscale(real 1)} {opt ratescale(real 1000)}]",
+    "options": {},
+    "results": {
+      "scalars": [],
+      "macros": [],
+      "matrices": []
+    },
+    "file": "tabtools/stratetab.sthlp"
+  },
+  {
+    "name": "gformtab",
+    "package": "tabtools",
+    "purpose": "",
+    "syntax": "{p 4 8 2}gformtab, {opt xlsx(string)} {opt sheet(string)} [{opt ci(string)} {opt effect(string)} {opt title(string)} {opt labels(string)} {opt decimal(#)}] Required: Run gformula first. gformtab reads results from r() scalars and matrices.",
+    "options": {
+      "xlsx(string)": "Output Excel filename (must end with",
+      "sheet(string)": "Target sheet name to create/replace in",
+      "ci(string)": "Type of confidence interval to display:",
+      "effect(string)": "Header label for the effect estimate column. Default is",
+      "title(string)": "Text written into cell",
+      "labels(string)": "Custom labels for the five effects, separated by backslash. Default is",
+      "decimal(#)": "Number of decimal places for estimates and CIs. Default is 3. Range: 1-6."
+    },
+    "results": {
+      "scalars": [],
+      "macros": [],
+      "matrices": []
+    },
+    "file": "tabtools/gformtab.sthlp"
+  },
+  {
+    "name": "effecttab",
+    "package": "tabtools",
+    "purpose": "",
+    "syntax": "{p 4 8 2}effecttab, {opt xlsx(string)} {opt sheet(string)} [{opt type(string)} {opt effect(string)} {opt sep(string asis)} {opt models(string)} {opt title(string)} {opt clean}] Required: an active {helpb collect} containing results from {helpb teffects} or {helpb margins}.",
+    "options": {
+      "xlsx(string)": "Output Excel filename (must end with",
+      "sheet(string)": "Target sheet name to create/replace in",
+      "type(string)": "Type of collected results:",
+      "effect(string)": "Header label for the effect column. Examples:",
+      "sep(string asis)": "Delimiter between CI endpoints. Default is",
+      "models(string)": "Labels for multiple models, separated by backslash. Example:",
+      "title(string)": "Text written into cell",
+      "clean": "Clean up teffects-style labels (e.g.,"
+    },
+    "results": {
+      "scalars": [],
+      "macros": [],
+      "matrices": []
+    },
+    "file": "tabtools/effecttab.sthlp"
+  },
+  {
+    "name": "table1_tc",
+    "package": "tabtools",
+    "purpose": "",
+    "syntax": "",
+    "options": {
+      "by(varname)": "group observations by",
+      "total(before|after)": "include a total column before/after presenting by group",
+      "one:col": "report categorical variable levels underneath variable name instead of in separate column",
+      "mis:sing": "for categorical variables (cat and cate) treat missing values as another category",
+      "test": "include column describing the significance test used",
+      "stat:istic": "include column describing the value of the test statistic",
+      "pairwise123": "report pairwise comparisons (unadjusted for multiple comparisons) between first 3 groups",
+      "headerperc": "add percentage of total to sample size row",
+      "varlabplus": "adds \", median (IQR)\" \", mean (SD)\" \", No. (%)\" etc. after variable label; default is to explain all this in one footnote",
+      "iqrmiddle(\"string\")": "allows for e.g. median (Q1, Q3) using iqrmiddle(\", \") rather than median (Q1-Q3)",
+      "sdleft(\"string\")": "allows for e.g. mean\u00b1sd using sdleft(\"\u00b1\") rather than mean (SD)",
+      "sdright(\"string\")": "allows for e.g. mean\u00b1sd using sdright(\"\") rather than mean (SD)",
+      "gsdleft(\"string\")": "allows for presentation other than: geometric_mean (\u00d7/geometric_SD)",
+      "gsdright(\"string\")": "allows for presentation other than: geometric_mean (\u00d7/geometric_SD)",
+      "percsign(\"string\")": "default is percsign(\"%\"); consider percsign(\"\")",
+      "nospace:lowpercent": "report e.g. (3%) instead of the default ( 3%), [the default can look nice if output is right/left justified]",
+      "extraspace": "helps alignment of p-values and ( 3%) in .docx file if non-monospaced datafont (e.g. Calibri - the default) used",
+      "percent": "report % rather than n (%) for categorical/binary vars",
+      "percent_n": "report % (n) rather than n (%) for categorical/binary vars",
+      "slashN": "report n/N instead of n for categorical/binary vars",
+      "catrowperc": "report row percentages rather than column percentages for categorical vars (but not binary vars)",
+      "pdp(#)": "max number of decimal places in p-value when p-value < 0.10; default is pdp(3)",
+      "highpdp(#)": "max number of decimal places in p-value when p-value \u2265 0.10; default is highpdp(2)",
+      "gurmeet": "equivalent to specifying: percformat(%5.1f) percent_n percsign(\"\") iqrmiddle(\",\") sdleft(\" [\u00b1\") sdright(\"]\") gsdleft(\" [\u00d7/\") gsdright(\"]\") onecol extraspace",
+      "excel(\"filename\")": "save table to Excel file (requires sheet and title options), e.g., excel(\"file.xlsx\")",
+      "sheet(\"string\")": "name of Excel sheet for output, e.g., sheet(\"Table 1\")",
+      "title(\"string\")": "title for the Excel table, e.g., title(\"Table 1. Patient Characteristics\")",
+      "borders:tyle(default|thin)": "Excel border style; default creates mixed borders, thin creates uniform thin borders",
+      "clear": "replace the dataset in memory with the table"
+    },
+    "results": {
+      "scalars": [],
+      "macros": [],
+      "matrices": []
+    },
+    "file": "tabtools/table1_tc.sthlp"
+  },
+  {
+    "name": "tabtools",
+    "package": "tabtools",
+    "purpose": "}Suite of table export commands for publication-ready Excel output",
+    "syntax": "",
+    "options": {},
+    "results": {
+      "scalars": [],
+      "macros": [],
+      "matrices": []
+    },
+    "file": "tabtools/tabtools.sthlp"
+  },
+  {
+    "name": "pkgtransfer",
+    "package": "pkgtransfer",
+    "purpose": "",
+    "syntax": "",
+    "options": {},
+    "results": {
+      "scalars": [
+        {
+          "name": "N_packages",
+          "description": "number of packages processed"
+        },
+        {
+          "name": "package_list",
+          "description": "list of packages processed"
+        },
+        {
+          "name": "download_mode",
+          "description": "download mode (\"local\", \"online\", or \"script_only\")"
+        },
+        {
+          "name": "os",
+          "description": "target operating system"
+        },
+        {
+          "name": "dofile",
+          "description": "path to generated do-file"
+        },
+        {
+          "name": "zipfile",
+          "description": "path to ZIP file (if download mode is \"local\")"
+        }
+      ],
+      "macros": [],
+      "matrices": []
+    },
+    "file": "pkgtransfer/pkgtransfer.sthlp"
+  },
+  {
+    "name": "today",
+    "package": "today",
+    "purpose": "Set global macros with today's date and current time, with customizable formatting.",
+    "syntax": "",
+    "options": {},
+    "results": {
+      "scalars": [],
+      "macros": [],
+      "matrices": []
+    },
+    "file": "today/today.sthlp"
+  },
+  {
+    "name": "synthdata",
+    "package": "synthdata",
+    "purpose": "Generate realistic synthetic datasets preserving statistical properties",
+    "syntax": "{p 8 17 2} synthdata [] , [options] {synoptset 28 tabbed} Output {opt n(#)}number of synthetic observations; default is same as original {opt sav:ing(filename)}save synthetic data to file {opt replace}replace current data with synthetic version {opt clear}clear current data and load synthetic {opt pre:fix(string)}prefix for synthetic variable names {opt mul:tiple(#)}generate # synthetic datasets Synthesis Method {opt smart}adaptive synthesis with automatic optimizations (recommended) {opt complex}smart + date ordering enforcement + frequency validation {opt para:metric}parametric synthesis via Cholesky decomposition (default) {opt seq:uential}sequential regression synthesis {opt boot:strap}bootstrap with perturbation {opt perm:ute}independent permutation (null/baseline) Method Modifiers {opt emp:irical}use empirical quantiles for marginals {opt autoemp:irical}auto-detect non-normal distributions {opt noise(#)}perturbation SD as fraction of variable SD; default 0.1 {opt smooth}kernel density estimation for continuous variables Variable Type {opt cat:egorical(varlist)}force treatment as categorical {opt cont:inuous(varlist)}force treatment as continuous {opt int:eger(varlist)}force treatment as integer (whole numbers) {opt skip(varlist)}exclude from synthesis {opt id(varlist)}ID variables; generate new sequential IDs {opt dat:es(varlist)}ensure date constraints Relationship Preservation {opt corr:elations}preserve correlation matrix structure {opt cond:itional}preserve conditional distributions for categoricals {opt const:raints(string)}user-specified constraints {opt autocons:traints}auto-detect logical constraints {opt autorel:ate}auto-detect derived variables (sums, ratios) {opt cond:itionalcat}preserve categorical associations Panel/Longitudinal {opt panel(id time)}preserve panel structure {opt preservevar(varlist)}variables constant within panel unit {opt autocorr(#)}preserve autocorrelation up to # lags {opt rowdist(method)}row-count distribution: empirical, parametric, or exact Realism Enhancements {opt cond:itionalcont}stratify continuous synthesis by categorical levels {opt rand:omeffects}add within-ID random effects for panel data {opt missp:attern}preserve missingness patterns (not just rates) {opt trends}preserve within-ID temporal trends {opt trans:form}auto-transform skewed variables (experimental) Privacy/Disclosure Control {opt mincell(#)}rare category protection; default 5 {opt trim(#)}trim extreme values at #th percentile {opt bounds(spec)}enforce min/max bounds {opt noext:reme}prevent values outside observed range {opt priv:acycheck}enable privacy distance check (experimental) {opt privacysample(#)}number of records to sample for privacy check; default 0 (off) {opt privacythresh(#)}minimum distance threshold; default 0.05 Validation/Diagnostics {opt com:pare}produce comparison report {opt val:idate(filename)}save validation statistics {opt util:ity}compute utility metrics {opt graph}produce overlay density plots {opt freq:check}validate categorical frequency distributions Technical {opt seed(#)}random seed for reproducibility {opt iter:ate(#)}max iterations for constraints; default 100 {opt tol:erance(#)}convergence tolerance; default 1e-6",
+    "options": {
+      "n(#)": "number of synthetic observations; default is same as original",
+      "sav:ing(filename)": "save synthetic data to file",
+      "replace": "replace current data with synthetic version",
+      "clear": "clear current data and load synthetic",
+      "pre:fix(string)": "prefix for synthetic variable names",
+      "mul:tiple(#)": "generate # synthetic datasets",
+      "smart": "adaptive synthesis with automatic optimizations (recommended)",
+      "complex": "smart + date ordering enforcement + frequency validation",
+      "para:metric": "parametric synthesis via Cholesky decomposition (default)",
+      "seq:uential": "sequential regression synthesis",
+      "boot:strap": "bootstrap with perturbation",
+      "perm:ute": "independent permutation (null/baseline)",
+      "emp:irical": "use empirical quantiles for marginals",
+      "autoemp:irical": "auto-detect non-normal distributions",
+      "noise(#)": "perturbation SD as fraction of variable SD; default 0.1",
+      "smooth": "kernel density estimation for continuous variables",
+      "cat:egorical(varlist)": "force treatment as categorical",
+      "cont:inuous(varlist)": "force treatment as continuous",
+      "int:eger(varlist)": "force treatment as integer (whole numbers)",
+      "skip(varlist)": "exclude from synthesis",
+      "id(varlist)": "ID variables; generate new sequential IDs",
+      "dat:es(varlist)": "ensure date constraints",
+      "corr:elations": "preserve correlation matrix structure",
+      "cond:itional": "preserve conditional distributions for categoricals",
+      "const:raints(string)": "user-specified constraints",
+      "autocons:traints": "auto-detect logical constraints",
+      "autorel:ate": "auto-detect derived variables (sums, ratios)",
+      "cond:itionalcat": "preserve categorical associations",
+      "panel(id time)": "preserve panel structure",
+      "preservevar(varlist)": "variables constant within panel unit",
+      "autocorr(#)": "preserve autocorrelation up to # lags",
+      "rowdist(method)": "row-count distribution: empirical, parametric, or exact",
+      "cond:itionalcont": "stratify continuous synthesis by categorical levels",
+      "rand:omeffects": "add within-ID random effects for panel data",
+      "missp:attern": "preserve missingness patterns (not just rates)",
+      "trends": "preserve within-ID temporal trends",
+      "trans:form": "auto-transform skewed variables (experimental)",
+      "mincell(#)": "rare category protection; default 5",
+      "trim(#)": "trim extreme values at #th percentile",
+      "bounds(spec)": "enforce min/max bounds",
+      "noext:reme": "prevent values outside observed range",
+      "priv:acycheck": "enable privacy distance check (experimental)",
+      "privacysample(#)": "number of records to sample for privacy check; default 0 (off)",
+      "privacythresh(#)": "minimum distance threshold; default 0.05",
+      "com:pare": "produce comparison report",
+      "val:idate(filename)": "save validation statistics",
+      "util:ity": "compute utility metrics",
+      "graph": "produce overlay density plots",
+      "freq:check": "validate categorical frequency distributions",
+      "seed(#)": "random seed for reproducibility",
+      "iter:ate(#)": "max iterations for constraints; default 100",
+      "tol:erance(#)": "convergence tolerance; default 1e-6"
+    },
+    "results": {
+      "scalars": [],
+      "macros": [],
+      "matrices": []
+    },
+    "file": "synthdata/synthdata.sthlp"
+  },
+  {
+    "name": "iptw_diag",
+    "package": "iptw_diag",
+    "purpose": "}IPTW weight diagnostics - distribution, ESS, extreme weights, trimming",
+    "syntax": "{p 8 17 2} iptw_diag wvar , {opt treat:ment(varname)} [options] {synoptset 24 tabbed} Required {it:wvar}IPTW weight variable {opt treat:ment(varname)}binary treatment indicator (0/1) Weight Modification {opt trim(#)}trim weights at specified percentile (50-99.9) {opt trunc:ate(#)}truncate weights at maximum value {opt stab:ilize}calculate stabilized weights {opt gen:erate(name)}name for modified weight variable {opt replace}allow replacing existing variable Display {opt det:ail}show detailed percentile distribution Visualization {opt gr:aph}display weight distribution histogram {opt saving(filename)}save graph to file {opt xlabel(numlist)}custom x-axis labels for graph {p2colreset}",
+    "options": {
+      "treat:ment(varname)": "binary treatment indicator (0/1)",
+      "trim(#)": "trim weights at specified percentile (50-99.9)",
+      "trunc:ate(#)": "truncate weights at maximum value",
+      "stab:ilize": "calculate stabilized weights",
+      "gen:erate(name)": "name for modified weight variable",
+      "replace": "allow replacing existing variable",
+      "det:ail": "show detailed percentile distribution",
+      "gr:aph": "display weight distribution histogram",
+      "saving(filename)": "save graph to file",
+      "xlabel(numlist)": "custom x-axis labels for graph"
+    },
+    "results": {
+      "scalars": [
+        {
+          "name": "N",
+          "description": "total number of observations"
+        },
+        {
+          "name": "N_treated",
+          "description": "number in treatment group"
+        },
+        {
+          "name": "N_control",
+          "description": "number in control group"
+        },
+        {
+          "name": "mean_wt",
+          "description": "mean weight"
+        },
+        {
+          "name": "sd_wt",
+          "description": "standard deviation of weights"
+        },
+        {
+          "name": "min_wt",
+          "description": "minimum weight"
+        },
+        {
+          "name": "max_wt",
+          "description": "maximum weight"
+        },
+        {
+          "name": "cv",
+          "description": "coefficient of variation"
+        },
+        {
+          "name": "ess",
+          "description": "effective sample size (overall)"
+        },
+        {
+          "name": "ess_pct",
+          "description": "ESS as percentage of N"
+        },
+        {
+          "name": "ess_treated",
+          "description": "ESS for treated group"
+        },
+        {
+          "name": "ess_control",
+          "description": "ESS for control group"
+        },
+        {
+          "name": "n_extreme",
+          "description": "number of extreme weights (>10)"
+        },
+        {
+          "name": "pct_extreme",
+          "description": "percentage of extreme weights"
+        },
+        {
+          "name": "p1",
+          "description": "1st percentile of weights"
+        },
+        {
+          "name": "p5",
+          "description": "5th percentile of weights"
+        },
+        {
+          "name": "p95",
+          "description": "95th percentile of weights"
+        },
+        {
+          "name": "p99",
+          "description": "99th percentile of weights"
+        },
+        {
+          "name": "new_mean",
+          "description": "mean of modified weights"
+        },
+        {
+          "name": "new_sd",
+          "description": "SD of modified weights"
+        },
+        {
+          "name": "new_max",
+          "description": "maximum of modified weights"
+        },
+        {
+          "name": "new_ess",
+          "description": "ESS of modified weights"
+        },
+        {
+          "name": "new_ess_pct",
+          "description": "ESS percentage of modified weights"
+        },
+        {
+          "name": "wvar",
+          "description": "weight variable name"
+        },
+        {
+          "name": "treatment",
+          "description": "treatment variable name"
+        },
+        {
+          "name": "generate",
+          "description": "name of generated variable (if applicable)"
+        }
+      ],
+      "macros": [],
+      "matrices": []
+    },
+    "file": "iptw_diag/iptw_diag.sthlp"
+  },
+  {
+    "name": "forestpy",
+    "package": "forestpy",
+    "purpose": "}Publication-ready forest plots using Python forestplot",
+    "syntax": "{p 8 16 2} forestpy , {opth est:imate(varname)} {opth varl:abel(varname)} [options] {synoptset 28 tabbed} Required {opth est:imate(varname)}variable containing point estimates {opth varl:abel(varname)}variable containing row labels Confidence intervals {opth ll(varname)}lower confidence limit variable {opth hl(varname)}upper confidence limit variable Grouping and sorting {opth groupv:ar(varname)}variable for grouping rows {opt groupo:rder(string)}order of groups (space-separated) {opt sort}sort rows by estimate value {opth sortby(varname)}variable to sort by Display {opt logs:cale}use logarithmic scale for x-axis {opt xla:bel(string)}x-axis label {opt yla:bel(string)}y-axis label {opt dec:imal(#)}decimal precision; default is 2 {opt figs:ize(# #)}figure width and height {opt color_alt_rows}shade alternate rows {opt table}display as table format with lines {opt flush}left-flush labels; default {opt cap:italize(string)}text capitalization style Annotations {opth annote(varlist)}variables for left-side annotations {opt annotehead(string)}headers for left annotations {opth rightannote(varlist)}variables for right-side annotations {opt righthead(string)}headers for right annotations {opth pval(varname)}p-value variable {opt nostarpval}do not add stars to significant p-values Plot customization {opt xticks(numlist)}custom x-axis tick positions {opt xline(#)}reference line position; default is 0 {opt marker(string)}marker style; default is s (square) {opt markersize(#)}marker size; default is 40 {opt markercolor(string)}marker color; default is darkslategray {opt linecolor(string)}CI line color; default is .6 {opt linewidth(#)}CI line width; default is 1.4 Multi-model {opth modelcol(varname)}variable identifying models {opt modellabels(string)}display labels for models Output {opt sav:ing(filename)}save plot to file (PNG, PDF, SVG, EPS) {opt replace}replace existing file Advanced {opt nopreprocess}skip data preprocessing {opt debug}show debug information {p2colreset}",
+    "options": {
+      "est:imate(varname)": "variable containing point estimates",
+      "varl:abel(varname)": "variable containing row labels",
+      "ll(varname)": "lower confidence limit variable",
+      "hl(varname)": "upper confidence limit variable",
+      "groupv:ar(varname)": "variable for grouping rows",
+      "groupo:rder(string)": "order of groups (space-separated)",
+      "sort": "sort rows by estimate value",
+      "sortby(varname)": "variable to sort by",
+      "logs:cale": "use logarithmic scale for x-axis",
+      "xla:bel(string)": "x-axis label",
+      "yla:bel(string)": "y-axis label",
+      "dec:imal(#)": "decimal precision; default is",
+      "figs:ize(# #)": "figure width and height",
+      "color_alt_rows": "shade alternate rows",
+      "table": "display as table format with lines",
+      "flush": "left-flush labels; default",
+      "cap:italize(string)": "text capitalization style",
+      "annote(varlist)": "variables for left-side annotations",
+      "annotehead(string)": "headers for left annotations",
+      "rightannote(varlist)": "variables for right-side annotations",
+      "righthead(string)": "headers for right annotations",
+      "pval(varname)": "p-value variable",
+      "nostarpval": "do not add stars to significant p-values",
+      "xticks(numlist)": "custom x-axis tick positions",
+      "xline(#)": "reference line position; default is",
+      "marker(string)": "marker style; default is",
+      "markersize(#)": "marker size; default is",
+      "markercolor(string)": "marker color; default is",
+      "linecolor(string)": "CI line color; default is",
+      "linewidth(#)": "CI line width; default is",
+      "modelcol(varname)": "variable identifying models",
+      "modellabels(string)": "display labels for models",
+      "sav:ing(filename)": "save plot to file (PNG, PDF, SVG, EPS)",
+      "replace": "replace existing file",
+      "nopreprocess": "skip data preprocessing",
+      "debug": "show debug information"
+    },
+    "results": {
+      "scalars": [
+        {
+          "name": "N",
+          "description": "number of observations plotted"
+        },
+        {
+          "name": "estimate",
+          "description": "estimate variable name"
+        },
+        {
+          "name": "varlabel",
+          "description": "label variable name"
+        },
+        {
+          "name": "ll",
+          "description": "lower limit variable name (if specified)"
+        },
+        {
+          "name": "hl",
+          "description": "upper limit variable name (if specified)"
+        },
+        {
+          "name": "filename",
+          "description": "output filename (if saved)"
+        }
+      ],
+      "macros": [],
+      "matrices": []
+    },
+    "file": "forestpy/forestpy.sthlp"
+  },
+  {
+    "name": "outlier",
+    "package": "outlier",
+    "purpose": "}Outlier detection toolkit with multiple methods",
+    "syntax": "{p 8 17 2} outlier [, options] {synoptset 24 tabbed} Detection Method {opt met:hod(string)}detection method: iqr, sd, mahal, or influence {opt mult:iplier(#)}IQR/SD multiplier; default is 1.5 for IQR, 3 for SD {opt maha_p(#)}Mahalanobis p-value threshold; default is 0.001 Action {opt act:ion(string)}action: flag, winsorize, or exclude {opt gen:erate(name)}prefix for generated variables {opt replace}allow replacing existing variables Grouping {opt by(varname)}detect outliers within groups Output {opt rep:ort}display detailed report {opt xlsx(filename)}export report to Excel {opt sheet(name)}Excel sheet name; default is \"Outliers\" {p2colreset}",
+    "options": {
+      "met:hod(string)": "detection method: iqr, sd, mahal, or influence",
+      "mult:iplier(#)": "IQR/SD multiplier; default is 1.5 for IQR, 3 for SD",
+      "maha_p(#)": "Mahalanobis p-value threshold; default is 0.001",
+      "act:ion(string)": "action: flag, winsorize, or exclude",
+      "gen:erate(name)": "prefix for generated variables",
+      "replace": "allow replacing existing variables",
+      "by(varname)": "detect outliers within groups",
+      "rep:ort": "display detailed report",
+      "xlsx(filename)": "export report to Excel",
+      "sheet(name)": "Excel sheet name; default is \"Outliers\""
+    },
+    "results": {
+      "scalars": [
+        {
+          "name": "N",
+          "description": "number of observations"
+        },
+        {
+          "name": "n_outliers",
+          "description": "total outliers detected"
+        },
+        {
+          "name": "pct_outliers",
+          "description": "percentage of outliers (for mahal/influence)"
+        },
+        {
+          "name": "multiplier",
+          "description": "multiplier used (for iqr/sd)"
+        },
+        {
+          "name": "lower",
+          "description": "lower bound (for single variable iqr/sd)"
+        },
+        {
+          "name": "upper",
+          "description": "upper bound (for single variable iqr/sd)"
+        },
+        {
+          "name": "maha_p",
+          "description": "p-value threshold (for mahal)"
+        },
+        {
+          "name": "method",
+          "description": "detection method used"
+        },
+        {
+          "name": "action",
+          "description": "action taken"
+        },
+        {
+          "name": "varlist",
+          "description": "variables analyzed"
+        },
+        {
+          "name": "results",
+          "description": "matrix of results by variable (for iqr/sd)"
+        }
+      ],
+      "macros": [],
+      "matrices": []
+    },
+    "file": "outlier/outlier.sthlp"
+  },
+  {
+    "name": "tvtools",
+    "package": "tvtools",
+    "purpose": "}A suite of commands for time-varying exposure analysis",
+    "syntax": "",
+    "options": {},
+    "results": {
+      "scalars": [],
+      "macros": [],
+      "matrices": []
+    },
+    "file": "tvtools/tvtools.sthlp"
+  },
+  {
+    "name": "tvplot",
+    "package": "tvtools",
+    "purpose": "}Visualization tools for time-varying exposure datasets",
+    "syntax": "{p 8 16 2} tvplot , {opt id(varname)} {opt start(varname)} {opt stop(varname)} [options] {synoptset 25 tabbed} Required {opt id(varname)}person identifier variable {opt start(varname)}period start date variable {opt stop(varname)}period stop date variable Plot type {opt swim:lane}individual exposure timelines (default) {opt per:sontime}stacked bar chart of person-time by exposure Options {opt exp:osure(varname)}exposure variable for color coding {opt sam:ple(#)}number of individuals to plot; default is 30 {opt sort:by(spec)}sort order: {opt entry}, {opt exit}, {opt persontime}, or varname {opt title(string)}graph title {opt sav:ing(filename)}save graph to file {opt replace}replace existing file {opt col:ors(colorlist)}custom color palette",
+    "options": {
+      "id(varname)": "person identifier variable",
+      "start(varname)": "period start date variable",
+      "stop(varname)": "period stop date variable",
+      "swim:lane": "individual exposure timelines (default)",
+      "per:sontime": "stacked bar chart of person-time by exposure",
+      "exp:osure(varname)": "exposure variable for color coding",
+      "sam:ple(#)": "number of individuals to plot; default is 30",
+      "sort:by(spec)": "sort order:",
+      "title(string)": "graph title",
+      "sav:ing(filename)": "save graph to file",
+      "replace": "replace existing file",
+      "col:ors(colorlist)": "custom color palette"
+    },
+    "results": {
+      "scalars": [
+        {
+          "name": "plottype",
+          "description": "type of plot created ("
+        },
+        {
+          "name": "id",
+          "description": "name of ID variable"
+        },
+        {
+          "name": "start",
+          "description": "name of start date variable"
+        },
+        {
+          "name": "stop",
+          "description": "name of stop date variable"
+        }
+      ],
+      "macros": [],
+      "matrices": []
+    },
+    "file": "tvtools/tvplot.sthlp"
+  },
+  {
+    "name": "tvmerge",
+    "package": "tvtools",
+    "purpose": "}Merge multiple time-varying exposure datasets",
+    "syntax": "{p 8 16 2} tvmerge dataset1 dataset2 [dataset3 ...], {opt id(varname)} {opt start(namelist)} {opt stop(namelist)} {opt exposure(namelist)} [options] {synoptset 28 tabbed} Required {opt id(varname)}person identifier variable present in all datasets {opt start(namelist)}start date variables (one per dataset, in order) {opt stop(namelist)}stop date variables (one per dataset, in order) {opt exposure(namelist)}exposure variables (one per dataset, in order) Exposure types {opt con:tinuous(namelist)}specify which exposures are continuous (rates per day) Output naming {opt gen:erate(namelist)}new names for exposure variables (one per dataset) {opt pre:fix(string)}prefix for all exposure variable names {opt startname(string)}name for output start date variable (default: start) {opt stopname(string)}name for output stop date variable (default: stop) {opt dateformat(fmt)}Stata date format for output (default: %tdCCYY/NN/DD) Data management {opt saveas(filename)}save merged dataset to file {opt replace}overwrite existing file {opt keep(varlist)}additional variables to keep from source datasets (suffixed with _ds#) Diagnostics and validation {opt check}display coverage diagnostics {opt validatecoverage}verify all person-time accounted for (check for gaps) {opt validateoverlap}verify overlapping periods make sense {opt sum:marize}display summary statistics of start/stop dates Performance {opt batch(#)}process IDs in batches (default: 20 = 20% per batch; range: 1-100) {p2colreset}",
+    "options": {
+      "id(varname)": "person identifier variable present in all datasets",
+      "start(namelist)": "start date variables (one per dataset, in order)",
+      "stop(namelist)": "stop date variables (one per dataset, in order)",
+      "exposure(namelist)": "exposure variables (one per dataset, in order)",
+      "con:tinuous(namelist)": "specify which exposures are continuous (rates per day)",
+      "gen:erate(namelist)": "new names for exposure variables (one per dataset)",
+      "pre:fix(string)": "prefix for all exposure variable names",
+      "startname(string)": "name for output start date variable (default: start)",
+      "stopname(string)": "name for output stop date variable (default: stop)",
+      "dateformat(fmt)": "Stata date format for output (default: %tdCCYY/NN/DD)",
+      "saveas(filename)": "save merged dataset to file",
+      "replace": "overwrite existing file",
+      "keep(varlist)": "additional variables to keep from source datasets (suffixed with _ds#)",
+      "check": "display coverage diagnostics",
+      "validatecoverage": "verify all person-time accounted for (check for gaps)",
+      "validateoverlap": "verify overlapping periods make sense",
+      "sum:marize": "display summary statistics of start/stop dates",
+      "batch(#)": "process IDs in batches (default: 20 = 20% per batch; range: 1-100)"
+    },
+    "results": {
+      "scalars": [
+        {
+          "name": "N",
+          "description": "number of observations in merged dataset"
+        },
+        {
+          "name": "N_persons",
+          "description": "number of unique persons"
+        },
+        {
+          "name": "mean_periods",
+          "description": "mean periods per person"
+        },
+        {
+          "name": "max_periods",
+          "description": "maximum periods for any person"
+        },
+        {
+          "name": "N_datasets",
+          "description": "number of datasets merged"
+        },
+        {
+          "name": "n_continuous",
+          "description": "number of continuous exposures (if continuous() used)"
+        },
+        {
+          "name": "n_categorical",
+          "description": "number of categorical exposures"
+        },
+        {
+          "name": "datasets",
+          "description": "list of datasets merged"
+        },
+        {
+          "name": "exposure_vars",
+          "description": "names of exposure variables in output"
+        },
+        {
+          "name": "continuous_vars",
+          "description": "names of continuous exposure variables (if continuous() used)"
+        },
+        {
+          "name": "categorical_vars",
+          "description": "names of categorical exposure variables"
+        },
+        {
+          "name": "startname",
+          "description": "name of start date variable in output"
+        },
+        {
+          "name": "stopname",
+          "description": "name of stop date variable in output"
+        },
+        {
+          "name": "dateformat",
+          "description": "date format applied to output"
+        },
+        {
+          "name": "prefix",
+          "description": "prefix used (if prefix option used)"
+        },
+        {
+          "name": "generated_names",
+          "description": "generated names (if generate option used)"
+        },
+        {
+          "name": "output_file",
+          "description": "output filename (if saveas option used)"
+        }
+      ],
+      "macros": [],
+      "matrices": []
+    },
+    "file": "tvtools/tvmerge.sthlp"
+  },
+  {
+    "name": "tvevent",
+    "package": "tvtools",
+    "purpose": "}Integrate events and competing risks into time-varying datasets",
+    "syntax": "{p 8 17 2} tvevent using filename, id() date(name) [options] {synoptset 28 tabbed} Required {opt id(varname)}person identifier matching the master dataset {opt date(name)}variable name or stubname for event date(s); for type(recurring), specifies the stub for stub1, stub2, etc. Competing Risks {opt com:pete(varlist)}list of date variables in using file representing competing risks Event definition {opt type(string)}event type: single (default) or recurring {opt gen:erate(newvar)}name for event indicator variable (default: _failure) {opt con:tinuous(varlist)}cumulative exposure variables to adjust proportionally when splitting intervals {opt eventl:abel(string)}custom value labels for the generated event variable Time generation {opt timeg:en(newvar)}create a variable representing cumulative time since each person's first interval start {opt timeu:nit(string)}unit for timegen: days (default), months, or years Data handling {opt keep:vars(varlist)}additional variables to keep from event dataset {opt replace}replace output variables if they already exist {opt start:var(varname)}name of start date variable in using file (default: start) {opt stop:var(varname)}name of stop date variable in using file (default: stop) Diagnostics {opt val:idate}display validation diagnostics for event data quality {p2colreset}",
+    "options": {
+      "id(varname)": "person identifier matching the master dataset",
+      "date(name)": "variable name or stubname for event date(s); for",
+      "com:pete(varlist)": "list of date variables in using file representing competing risks",
+      "type(string)": "event type:",
+      "gen:erate(newvar)": "name for event indicator variable (default: _failure)",
+      "con:tinuous(varlist)": "cumulative exposure variables to adjust proportionally when splitting intervals",
+      "eventl:abel(string)": "custom value labels for the generated event variable",
+      "timeg:en(newvar)": "create a variable representing cumulative time since each person's first interval start",
+      "timeu:nit(string)": "unit for timegen:",
+      "keep:vars(varlist)": "additional variables to keep from event dataset",
+      "replace": "replace output variables if they already exist",
+      "start:var(varname)": "name of start date variable in using file (default: start)",
+      "stop:var(varname)": "name of stop date variable in using file (default: stop)",
+      "val:idate": "display validation diagnostics for event data quality"
+    },
+    "results": {
+      "scalars": [
+        {
+          "name": "N",
+          "description": "Total number of observations in output"
+        },
+        {
+          "name": "N_events",
+          "description": "Total number of events/failures flagged"
+        },
+        {
+          "name": "v_outside_bounds",
+          "description": "Number of events outside interval boundaries"
+        },
+        {
+          "name": "v_multiple_events",
+          "description": "Number of persons with multiple events (type(single) only)"
+        },
+        {
+          "name": "v_same_date_compete",
+          "description": "Number of competing events on same date as primary"
+        }
+      ],
+      "macros": [],
+      "matrices": []
+    },
+    "file": "tvtools/tvevent.sthlp"
+  },
+  {
+    "name": "tvdiagnose",
+    "package": "tvtools",
+    "purpose": "}Diagnostic tools for time-varying exposure datasets",
+    "syntax": "{p 8 16 2} tvdiagnose , {opt id(varname)} {opt start(varname)} {opt stop(varname)} [options] {synoptset 24 tabbed} Required {opt id(varname)}person identifier {opt start(varname)}period start date {opt stop(varname)}period end date Report options {opt cov:erage}coverage diagnostics (requires entry/exit) {opt gaps}gap analysis between periods {opt over:laps}overlap detection {opt sum:marize}exposure distribution summary (requires exposure) {opt all}run all diagnostic reports Additional options {opt exp:osure(varname)}exposure variable (required for summarize) {opt entry(varname)}study entry date (required for coverage) {opt exit(varname)}study exit date (required for coverage) {opt thr:eshold(#)}flag gaps exceeding # days (default: 30)",
+    "options": {
+      "id(varname)": "person identifier",
+      "start(varname)": "period start date",
+      "stop(varname)": "period end date",
+      "cov:erage": "coverage diagnostics (requires entry/exit)",
+      "gaps": "gap analysis between periods",
+      "over:laps": "overlap detection",
+      "sum:marize": "exposure distribution summary (requires exposure)",
+      "all": "run all diagnostic reports",
+      "exp:osure(varname)": "exposure variable (required for summarize)",
+      "entry(varname)": "study entry date (required for coverage)",
+      "exit(varname)": "study exit date (required for coverage)",
+      "thr:eshold(#)": "flag gaps exceeding # days (default: 30)"
+    },
+    "results": {
+      "scalars": [
+        {
+          "name": "n_persons",
+          "description": "number of unique persons"
+        },
+        {
+          "name": "n_observations",
+          "description": "number of observations"
+        },
+        {
+          "name": "mean_coverage",
+          "description": "mean coverage percentage (if coverage)"
+        },
+        {
+          "name": "n_with_gaps",
+          "description": "persons with incomplete coverage (if coverage)"
+        },
+        {
+          "name": "n_gaps",
+          "description": "total number of gaps (if gaps)"
+        },
+        {
+          "name": "mean_gap",
+          "description": "mean gap duration in days (if gaps)"
+        },
+        {
+          "name": "max_gap",
+          "description": "maximum gap duration in days (if gaps)"
+        },
+        {
+          "name": "n_large_gaps",
+          "description": "gaps exceeding threshold (if gaps)"
+        },
+        {
+          "name": "n_overlaps",
+          "description": "number of overlapping periods (if overlaps)"
+        },
+        {
+          "name": "n_ids_affected",
+          "description": "persons with overlaps (if overlaps)"
+        },
+        {
+          "name": "total_person_time",
+          "description": "total person-time in days (if summarize)"
+        },
+        {
+          "name": "id",
+          "description": "name of ID variable"
+        },
+        {
+          "name": "start",
+          "description": "name of start variable"
+        },
+        {
+          "name": "stop",
+          "description": "name of stop variable"
+        }
+      ],
+      "macros": [],
+      "matrices": []
+    },
+    "file": "tvtools/tvdiagnose.sthlp"
+  },
+  {
+    "name": "tvcalendar",
+    "package": "tvtools",
+    "purpose": "}Merge calendar-time external factors",
+    "syntax": "",
+    "options": {},
+    "results": {
+      "scalars": [],
+      "macros": [],
+      "matrices": []
+    },
+    "file": "tvtools/tvcalendar.sthlp"
+  },
+  {
+    "name": "tvtrial",
+    "package": "tvtools",
+    "purpose": "}Target trial emulation for observational data",
+    "syntax": "{p 8 15 2} tvtrial, {opt id(varname)} {opt entry(varname)} {opt exit(varname)} {opt treatstart(varname)} [options] {synoptset 25 tabbed} Required {opt id(varname)}person identifier {opt entry(varname)}study entry date {opt exit(varname)}study exit date {opt treatstart(varname)}treatment initiation date Eligibility {opt eligstart(varname)}eligibility start date (default: entry) {opt eligend(varname)}eligibility end date (default: exit) Trial specification {opt trials(#)}number of sequential trials (default: automatic) {opt trialinterval(#)}days between trial starts; default is 30 {opt graceperiod(#)}grace period for treatment initiation; default is 0 {opt maxfollowup(#)}maximum follow-up days per trial Methods {opt clone}use clone-censor-weight approach {opt ipcweight}calculate inverse probability of censoring weights Output {opt generate(prefix)}variable prefix; default is trial_",
+    "options": {
+      "id(varname)": "person identifier",
+      "entry(varname)": "study entry date",
+      "exit(varname)": "study exit date",
+      "treatstart(varname)": "treatment initiation date",
+      "eligstart(varname)": "eligibility start date (default: entry)",
+      "eligend(varname)": "eligibility end date (default: exit)",
+      "trials(#)": "number of sequential trials (default: automatic)",
+      "trialinterval(#)": "days between trial starts; default is 30",
+      "graceperiod(#)": "grace period for treatment initiation; default is 0",
+      "maxfollowup(#)": "maximum follow-up days per trial",
+      "clone": "use clone-censor-weight approach",
+      "ipcweight": "calculate inverse probability of censoring weights",
+      "generate(prefix)": "variable prefix; default is"
+    },
+    "results": {
+      "scalars": [
+        {
+          "name": "n_orig",
+          "description": "original number of observations"
+        },
+        {
+          "name": "n_ids",
+          "description": "number of unique individuals"
+        },
+        {
+          "name": "n_trials",
+          "description": "number of trials with participants"
+        },
+        {
+          "name": "n_eligible",
+          "description": "total eligible person-trial entries"
+        },
+        {
+          "name": "n_persontrials",
+          "description": "total person-trial observations"
+        },
+        {
+          "name": "n_treat",
+          "description": "observations in treatment arm"
+        },
+        {
+          "name": "n_control",
+          "description": "observations in control arm"
+        },
+        {
+          "name": "mean_fu",
+          "description": "mean follow-up time (days)"
+        },
+        {
+          "name": "total_fu",
+          "description": "total follow-up (person-days)"
+        },
+        {
+          "name": "id",
+          "description": "ID variable name"
+        },
+        {
+          "name": "entry",
+          "description": "entry variable name"
+        },
+        {
+          "name": "exit",
+          "description": "exit variable name"
+        },
+        {
+          "name": "treatstart",
+          "description": "treatment start variable name"
+        },
+        {
+          "name": "prefix",
+          "description": "variable prefix"
+        }
+      ],
+      "macros": [],
+      "matrices": []
+    },
+    "file": "tvtools/tvtrial.sthlp"
+  },
+  {
+    "name": "tvweight",
+    "package": "tvtools",
+    "purpose": "}Calculate inverse probability of treatment weights (IPTW) for time-varying exposures",
+    "syntax": "{p 8 16 2} tvweight exposure , {opt cov:ariates(varlist)} [options] {synoptset 28 tabbed} Required {it:exposure}binary or categorical exposure variable {opt cov:ariates(varlist)}covariates for propensity score model Weight Options {opt gen:erate(name)}name for weight variable; default is iptw {opt stab:ilized}calculate stabilized weights {opt trunc:ate(# #)}truncate at lower and upper percentiles Model Options {opt model(string)}model type: logit (binary) or mlogit (categorical) {opt tvcov:ariates(varlist)}time-varying covariates {opt id(varname)}person identifier for time-varying models {opt time(varname)}time variable for time-varying models Output Options {opt den:ominator(name)}also generate propensity score variable {opt replace}replace existing weight variable {opt nolog}suppress model iteration log",
+    "options": {
+      "cov:ariates(varlist)": "covariates for propensity score model",
+      "gen:erate(name)": "name for weight variable; default is",
+      "stab:ilized": "calculate stabilized weights",
+      "trunc:ate(# #)": "truncate at lower and upper percentiles",
+      "model(string)": "model type:",
+      "tvcov:ariates(varlist)": "time-varying covariates",
+      "id(varname)": "person identifier for time-varying models",
+      "time(varname)": "time variable for time-varying models",
+      "den:ominator(name)": "also generate propensity score variable",
+      "replace": "replace existing weight variable",
+      "nolog": "suppress model iteration log"
+    },
+    "results": {
+      "scalars": [
+        {
+          "name": "N",
+          "description": "number of observations"
+        },
+        {
+          "name": "n_levels",
+          "description": "number of exposure levels"
+        },
+        {
+          "name": "ess",
+          "description": "effective sample size"
+        },
+        {
+          "name": "ess_pct",
+          "description": "effective sample size as percentage of N"
+        },
+        {
+          "name": "w_mean",
+          "description": "mean of weights"
+        },
+        {
+          "name": "w_sd",
+          "description": "standard deviation of weights"
+        },
+        {
+          "name": "w_min",
+          "description": "minimum weight"
+        },
+        {
+          "name": "w_max",
+          "description": "maximum weight"
+        },
+        {
+          "name": "w_p1",
+          "description": "1st percentile of weights"
+        },
+        {
+          "name": "w_p5",
+          "description": "5th percentile of weights"
+        },
+        {
+          "name": "w_p25",
+          "description": "25th percentile of weights"
+        },
+        {
+          "name": "w_p50",
+          "description": "50th percentile of weights (median)"
+        },
+        {
+          "name": "w_p75",
+          "description": "75th percentile of weights"
+        },
+        {
+          "name": "w_p95",
+          "description": "95th percentile of weights"
+        },
+        {
+          "name": "w_p99",
+          "description": "99th percentile of weights"
+        },
+        {
+          "name": "n_truncated",
+          "description": "number of truncated observations (if truncate specified)"
+        },
+        {
+          "name": "trunc_lo",
+          "description": "lower truncation percentile (if truncate specified)"
+        },
+        {
+          "name": "trunc_hi",
+          "description": "upper truncation percentile (if truncate specified)"
+        },
+        {
+          "name": "exposure",
+          "description": "name of exposure variable"
+        },
+        {
+          "name": "covariates",
+          "description": "covariates used in model"
+        },
+        {
+          "name": "model",
+          "description": "model type (logit or mlogit)"
+        },
+        {
+          "name": "generate",
+          "description": "name of generated weight variable"
+        },
+        {
+          "name": "stabilized",
+          "description": "stabilized if stabilized weights requested"
+        },
+        {
+          "name": "denominator",
+          "description": "name of propensity score variable (if requested)"
+        }
+      ],
+      "macros": [],
+      "matrices": []
+    },
+    "file": "tvtools/tvweight.sthlp"
+  },
+  {
+    "name": "tvestimate",
+    "package": "tvtools",
+    "purpose": "}G-estimation for structural nested models",
+    "syntax": "{p 8 17 2} tvestimate treatment , {opt conf:ounders(varlist)} [options] {synoptset 25 tabbed} Required {opt conf:ounders(varlist)}confounding variables for propensity score Model {opt model(string)}model type: snmm (default) or snftm SE/Inference {opt rob:ust}robust (sandwich) standard errors {opt cl:uster(varname)}compute clustered standard errors {opt boot:strap}use bootstrap standard errors {opt reps(#)}bootstrap replications; default is 200 {opt seed(#)}random seed for bootstrap {opt level(#)}confidence level; default is 95",
+    "options": {
+      "conf:ounders(varlist)": "confounding variables for propensity score",
+      "model(string)": "model type:",
+      "rob:ust": "robust (sandwich) standard errors",
+      "cl:uster(varname)": "compute clustered standard errors",
+      "boot:strap": "use bootstrap standard errors",
+      "reps(#)": "bootstrap replications; default is 200",
+      "seed(#)": "random seed for bootstrap",
+      "level(#)": "confidence level; default is"
+    },
+    "results": {
+      "scalars": [],
+      "macros": [],
+      "matrices": []
+    },
+    "file": "tvtools/tvestimate.sthlp"
+  },
+  {
+    "name": "tvtable",
+    "package": "tvtools",
+    "purpose": "}Publication-ready summary tables",
+    "syntax": "",
+    "options": {},
+    "results": {
+      "scalars": [],
+      "macros": [],
+      "matrices": []
+    },
+    "file": "tvtools/tvtable.sthlp"
+  },
+  {
+    "name": "tvsensitivity",
+    "package": "tvtools",
+    "purpose": "}Sensitivity analysis for unmeasured confounding",
+    "syntax": "{p 8 20 2} tvsensitivity, {opt rr(#)} [{opt method(string)} {opt rru(numlist)} {opt rrou(numlist)}]",
+    "options": {},
+    "results": {
+      "scalars": [],
+      "macros": [],
+      "matrices": []
+    },
+    "file": "tvtools/tvsensitivity.sthlp"
+  },
+  {
+    "name": "tvage",
+    "package": "tvtools",
+    "purpose": "}Generate time-varying age intervals for survival analysis",
+    "syntax": "{p 8 16 2} tvage, {opt idvar(varname)} {opt dobvar(varname)} {opt entryvar(varname)} {opt exitvar(varname)} [{opt gen:erate(name)} {opt startgen(name)} {opt stopgen(name)} {opt groupwidth(#)} {opt minage(#)} {opt maxage(#)} {opt saveas(filename)} {opt replace} {opt noisily}]",
+    "options": {},
+    "results": {
+      "scalars": [
+        {
+          "name": "n_persons",
+          "description": "number of unique persons"
+        },
+        {
+          "name": "n_observations",
+          "description": "total number of observations (person-age periods)"
+        },
+        {
+          "name": "groupwidth",
+          "description": "age group width used"
+        },
+        {
+          "name": "varname",
+          "description": "name of age variable"
+        },
+        {
+          "name": "startvar",
+          "description": "name of start date variable"
+        },
+        {
+          "name": "stopvar",
+          "description": "name of stop date variable"
+        }
+      ],
+      "macros": [],
+      "matrices": []
+    },
+    "file": "tvtools/tvage.sthlp"
+  },
+  {
+    "name": "tvpass",
+    "package": "tvtools",
+    "purpose": "}Post-authorization study workflow support",
+    "syntax": "",
+    "options": {},
+    "results": {
+      "scalars": [],
+      "macros": [],
+      "matrices": []
+    },
+    "file": "tvtools/tvpass.sthlp"
+  },
+  {
+    "name": "tvdml",
+    "package": "tvtools",
+    "purpose": "}Double/Debiased Machine Learning for causal inference",
+    "syntax": "{p 8 14 2} tvdml treatment , {opt cov:ariates(varlist)} [options] {synoptset 20 tabbed} Required {opt cov:ariates(varlist)}high-dimensional covariates Model {opt method(string)}ML method: lasso, ridge, elasticnet {opt crossfit(#)}cross-fitting folds; default is 5 Reporting {opt seed(#)}random seed {opt level(#)}confidence level; default is 95",
+    "options": {
+      "cov:ariates(varlist)": "high-dimensional covariates",
+      "method(string)": "ML method:",
+      "crossfit(#)": "cross-fitting folds; default is 5",
+      "seed(#)": "random seed",
+      "level(#)": "confidence level; default is 95"
+    },
+    "results": {
+      "scalars": [],
+      "macros": [],
+      "matrices": []
+    },
+    "file": "tvtools/tvdml.sthlp"
+  },
+  {
+    "name": "tvreport",
+    "package": "tvtools",
+    "purpose": "}Automated analysis report generation",
+    "syntax": "",
+    "options": {},
+    "results": {
+      "scalars": [],
+      "macros": [],
+      "matrices": []
+    },
+    "file": "tvtools/tvreport.sthlp"
+  },
+  {
+    "name": "tvexpose",
+    "package": "tvtools",
+    "purpose": "}Create time-varying exposure variables for survival analysis",
+    "syntax": "{p 8 17 2} tvexpose using filename, id() start() exposure() [reference(#)] entry() exit() [options] {synoptset 28 tabbed} Required {opt id(varname)}person identifier linking to master dataset {opt start(varname)}start date of exposure period in using dataset {opt exposure(varname)}exposure variable: categorical status OR dose amount (with dose) {opt reference(#)}value indicating unexposed/reference status; required except with dose {opt entry(varname)}study entry date from master dataset {opt exit(varname)}study exit date from master dataset Core options {opt stop(varname)}end date of exposure period; required unless pointtime specified {opt pointtime}data are point-in-time (start only, no stop date) Exposure definition [none specified]basic time-varying implementation of exposures {opt evert:reated}binary ever/never exposed (switches at first exposure) {opt current:former}trichotomous never/current/former exposed (0=never, 1=current, 2=former) {opt duration(numlist)}cumulative duration categories (uses continuousunit if specified, defaults to years) {opt continuousunit(unit)}cumulative exposure reporting unit (days, weeks, months, quarters, years) {opt expandunit(unit)}row expansion granularity for continuous exposure (days, weeks, months, quarters, years) {opt bytype}create separate variables for each exposure type {opt recency(numlist)}time since last exposure categories {opt dose}cumulative dose tracking (exposure contains dose amounts) {opt dosecuts(numlist)}cutpoints for dose categorization (use with dose) Data handling {opt grace(#)}days grace period to merge gaps (default: 0) {opt grace(exp=# exp=# ...)}different grace periods by exposure category {opt merge(#)}days within which to merge same-type periods (default: 0) {opt fillgaps(#)}assume exposure continues # days beyond last record {opt carryforward(#)}carry forward last exposure # days through gaps Competing exposures {opt layer}later exposures take precedence; earlier resume after (default) {opt priority(numlist)}priority order when periods overlap {opt split}split overlapping periods at all boundaries {opt combine(newvar)}create combined exposure variable for overlaps Lag and washout {opt lag(#)}days lag before exposure becomes active {opt washout(#)}days exposure persists after stopping {opt window(# #)}minimum and maximum days for acute exposure window Pattern tracking {opt switching}create binary indicator for any exposure switching {opt switchingdetail}create string variable showing switching pattern {opt statetime}create cumulative time in current exposure state Output {opt generate(newvar)}name for output exposure variable (default: tv_exposure) {opt referencelabel(text)}label for reference category (default: \"Unexposed\") {opt label(text)}custom variable label for output exposure variable {opt saveas(filename)}save time-varying dataset to file {opt replace}overwrite existing output file {opt keepvars(varlist)}additional variables to keep from master dataset {opt keepdates}keep entry and exit dates in output Diagnostics {opt check}display coverage diagnostics by person {opt gaps}show persons with gaps in coverage {opt overlaps}show overlapping exposure periods {opt summarize}display exposure distribution summary {opt validate}create validation dataset with coverage metrics {p2colreset}",
+    "options": {
+      "id(varname)": "person identifier linking to master dataset",
+      "start(varname)": "start date of exposure period in using dataset",
+      "exposure(varname)": "exposure variable: categorical status OR dose amount (with",
+      "reference(#)": "value indicating unexposed/reference status; required except with",
+      "entry(varname)": "study entry date from master dataset",
+      "exit(varname)": "study exit date from master dataset",
+      "stop(varname)": "end date of exposure period; required unless",
+      "pointtime": "data are point-in-time (start only, no stop date)",
+      "evert:reated": "binary ever/never exposed (switches at first exposure)",
+      "current:former": "trichotomous never/current/former exposed (0=never, 1=current, 2=former)",
+      "duration(numlist)": "cumulative duration categories (uses continuousunit if specified, defaults to years)",
+      "continuousunit(unit)": "cumulative exposure reporting unit (days, weeks, months, quarters, years)",
+      "expandunit(unit)": "row expansion granularity for continuous exposure (days, weeks, months, quarters, years)",
+      "bytype": "create separate variables for each exposure type",
+      "recency(numlist)": "time since last exposure categories",
+      "dose": "cumulative dose tracking (exposure contains dose amounts)",
+      "dosecuts(numlist)": "cutpoints for dose categorization (use with",
+      "grace(#)": "days grace period to merge gaps (default: 0)",
+      "grace(exp=# exp=# ...)": "different grace periods by exposure category",
+      "merge(#)": "days within which to merge same-type periods (default: 0)",
+      "fillgaps(#)": "assume exposure continues # days beyond last record",
+      "carryforward(#)": "carry forward last exposure # days through gaps",
+      "layer": "later exposures take precedence; earlier resume after (default)",
+      "priority(numlist)": "priority order when periods overlap",
+      "split": "split overlapping periods at all boundaries",
+      "combine(newvar)": "create combined exposure variable for overlaps",
+      "lag(#)": "days lag before exposure becomes active",
+      "washout(#)": "days exposure persists after stopping",
+      "window(# #)": "minimum and maximum days for acute exposure window",
+      "switching": "create binary indicator for any exposure switching",
+      "switchingdetail": "create string variable showing switching pattern",
+      "statetime": "create cumulative time in current exposure state",
+      "generate(newvar)": "name for output exposure variable (default: tv_exposure)",
+      "referencelabel(text)": "label for reference category (default: \"Unexposed\")",
+      "label(text)": "custom variable label for output exposure variable",
+      "saveas(filename)": "save time-varying dataset to file",
+      "replace": "overwrite existing output file",
+      "keepvars(varlist)": "additional variables to keep from master dataset",
+      "keepdates": "keep entry and exit dates in output",
+      "check": "display coverage diagnostics by person",
+      "gaps": "show persons with gaps in coverage",
+      "overlaps": "show overlapping exposure periods",
+      "summarize": "display exposure distribution summary",
+      "validate": "create validation dataset with coverage metrics"
+    },
+    "results": {
+      "scalars": [
+        {
+          "name": "N_persons",
+          "description": "number of unique persons"
+        },
+        {
+          "name": "N_periods",
+          "description": "number of time-varying periods"
+        },
+        {
+          "name": "total_time",
+          "description": "total person-time in days"
+        },
+        {
+          "name": "exposed_time",
+          "description": "exposed person-time in days"
+        },
+        {
+          "name": "unexposed_time",
+          "description": "unexposed person-time in days"
+        },
+        {
+          "name": "pct_exposed",
+          "description": "percentage of time exposed"
+        }
+      ],
+      "macros": [],
+      "matrices": []
+    },
+    "file": "tvtools/tvexpose.sthlp"
+  },
+  {
+    "name": "tvbalance",
+    "package": "tvtools",
+    "purpose": "}Balance diagnostics for time-varying exposure data",
+    "syntax": "{p 8 16 2} tvbalance , {opt exp:osure(varname)} [options] {synoptset 25 tabbed} Required {it:varlist}covariates to assess balance {opt exp:osure(varname)}exposure variable (binary or categorical) Options {opt w:eights(varname)}IPTW or other weights for weighted balance {opt thr:eshold(#)}SMD threshold for imbalance flag; default is 0.1 {opt id(varname)}person identifier variable {opt love:plot}generate Love plot of SMD values {opt sav:ing(filename)}save Love plot to file {opt replace}replace existing file",
+    "options": {
+      "exp:osure(varname)": "exposure variable (binary or categorical)",
+      "w:eights(varname)": "IPTW or other weights for weighted balance",
+      "thr:eshold(#)": "SMD threshold for imbalance flag; default is 0.1",
+      "id(varname)": "person identifier variable",
+      "love:plot": "generate Love plot of SMD values",
+      "sav:ing(filename)": "save Love plot to file",
+      "replace": "replace existing file"
+    },
+    "results": {
+      "scalars": [
+        {
+          "name": "n_ref",
+          "description": "number of observations in reference group"
+        },
+        {
+          "name": "n_exp",
+          "description": "number of observations in exposed group"
+        },
+        {
+          "name": "n_covariates",
+          "description": "number of covariates assessed"
+        },
+        {
+          "name": "n_imbalanced",
+          "description": "number of imbalanced covariates (unweighted)"
+        },
+        {
+          "name": "threshold",
+          "description": "SMD threshold used"
+        },
+        {
+          "name": "n_imbalanced_wt",
+          "description": "number of imbalanced covariates (weighted; if weights specified)"
+        },
+        {
+          "name": "ess_ref",
+          "description": "effective sample size, reference group (if weights specified)"
+        },
+        {
+          "name": "ess_exp",
+          "description": "effective sample size, exposed group (if weights specified)"
+        },
+        {
+          "name": "exposure",
+          "description": "name of exposure variable"
+        },
+        {
+          "name": "weights",
+          "description": "name of weights variable (if specified)"
+        },
+        {
+          "name": "balance",
+          "description": "matrix of balance statistics (Mean_Ref, Mean_Exp, SMD_Unwt, SMD_Wt)"
+        }
+      ],
+      "macros": [],
+      "matrices": []
+    },
+    "file": "tvtools/tvbalance.sthlp"
+  },
+  {
+    "name": "tvpipeline",
+    "package": "tvtools",
+    "purpose": "}Complete workflow for time-varying exposure analysis",
+    "syntax": "{p 8 16 2} tvpipeline using exposure_data , {opt id(varname)} {opt start(varname)} {opt stop(varname)} {opt exp:osure(varname)} {opt ent:ry(varname)} {opt exit(varname)} [options] {synoptset 28 tabbed} Required - Exposure data {opt using filename}exposure data file {opt id(varname)}person identifier (in both datasets) {opt start(varname)}exposure start date (in exposure data) {opt stop(varname)}exposure stop date (in exposure data) {opt exp:osure(varname)}exposure variable (in exposure data) Required - Cohort data (current dataset) {opt ent:ry(varname)}follow-up entry date {opt exit(varname)}follow-up exit date Exposure Options {opt ref:erence(#)}reference level for exposure; default is 0 Event Options {opt event(varname)}event date variable (runs tvevent) {opt com:pete(varname)}competing event date variable Diagnostic Options {opt diag:nose}run tvdiagnose after creation {opt bal:ance(varlist)}run tvbalance on specified covariates {opt plot}generate exposure swimlane plot Output Options {opt save:as(filename)}save final dataset {opt replace}replace existing file",
+    "options": {
+      "id(varname)": "person identifier (in both datasets)",
+      "start(varname)": "exposure start date (in exposure data)",
+      "stop(varname)": "exposure stop date (in exposure data)",
+      "exp:osure(varname)": "exposure variable (in exposure data)",
+      "ent:ry(varname)": "follow-up entry date",
+      "exit(varname)": "follow-up exit date",
+      "ref:erence(#)": "reference level for exposure; default is 0",
+      "event(varname)": "event date variable (runs tvevent)",
+      "com:pete(varname)": "competing event date variable",
+      "diag:nose": "run tvdiagnose after creation",
+      "bal:ance(varlist)": "run tvbalance on specified covariates",
+      "plot": "generate exposure swimlane plot",
+      "save:as(filename)": "save final dataset",
+      "replace": "replace existing file"
+    },
+    "results": {
+      "scalars": [
+        {
+          "name": "n_cohort",
+          "description": "number of observations in input cohort"
+        },
+        {
+          "name": "n_ids",
+          "description": "number of unique IDs in input cohort"
+        },
+        {
+          "name": "n_output",
+          "description": "number of observations in output dataset"
+        },
+        {
+          "name": "n_ids_output",
+          "description": "number of unique IDs in output dataset"
+        },
+        {
+          "name": "n_events",
+          "description": "number of events (if event specified)"
+        },
+        {
+          "name": "n_compete",
+          "description": "number of competing events (if compete specified)"
+        },
+        {
+          "name": "id",
+          "description": "ID variable name"
+        },
+        {
+          "name": "entry",
+          "description": "entry variable name"
+        },
+        {
+          "name": "exit",
+          "description": "exit variable name"
+        },
+        {
+          "name": "exposure",
+          "description": "exposure variable name"
+        },
+        {
+          "name": "reference",
+          "description": "reference level"
+        },
+        {
+          "name": "expfile",
+          "description": "exposure data filename"
+        },
+        {
+          "name": "event",
+          "description": "event variable name (if specified)"
+        },
+        {
+          "name": "compete",
+          "description": "competing event variable name (if specified)"
+        },
+        {
+          "name": "saveas",
+          "description": "output filename (if specified)"
+        }
+      ],
+      "macros": [],
+      "matrices": []
+    },
+    "file": "tvtools/tvpipeline.sthlp"
+  },
+  {
+    "name": "compress_tc",
+    "package": "compress_tc",
+    "purpose": "Maximally compress string variables via strL conversion",
+    "syntax": "{p 8 17 2} compress_tc [] [, options] {synoptset 20 tabbed} Main {opt nocomp:ress}skip the compress step; perform strL conversion only {opt nostrl}skip strL conversion; perform standard compress only Reporting {opt norep:ort}suppress compress's per-variable output {opt q:uietly}suppress all output {opt det:ail}show per-variable type information before conversion {opt vars:avings}report per-variable summary after compression {p2colreset}",
+    "options": {
+      "nocomp:ress": "skip the",
+      "nostrl": "skip strL conversion; perform standard",
+      "norep:ort": "suppress",
+      "q:uietly": "suppress all output",
+      "det:ail": "show per-variable type information before conversion",
+      "vars:avings": "report per-variable summary after compression"
+    },
+    "results": {
+      "scalars": [
+        {
+          "name": "bytes_saved",
+          "description": "total bytes saved"
+        },
+        {
+          "name": "pct_saved",
+          "description": "percentage reduction in string data"
+        },
+        {
+          "name": "bytes_initial",
+          "description": "initial string data size in bytes"
+        },
+        {
+          "name": "bytes_final",
+          "description": "final string data size in bytes"
+        },
+        {
+          "name": "varlist",
+          "description": "string variables actually processed"
+        }
+      ],
+      "macros": [],
+      "matrices": []
+    },
+    "file": "compress_tc/compress_tc.sthlp"
+  },
+  {
+    "name": "mvp",
+    "package": "mvp",
+    "purpose": "}Missing value pattern analysis with enhanced features",
+    "syntax": "{p 8 15 2} mvp [] [, options] {synoptset 26 tabbed} Display {opt not:able}suppress variable summary table {opt sk:ip}insert spaces every 5 variables for readability {opt so:rt}sort variables by descending missingness {opt nod:rop}include variables with no missing values {opt wide}compact display for many variables {opt nosu:mmary}suppress summary statistics Pattern filtering {opt m:infreq(#)}minimum frequency for pattern display; default is 1 {opt minm:issing(#)}show only patterns with at least # missing vars {opt maxm:issing(#)}show only patterns with at most # missing vars {opt a:scending}sort patterns by ascending frequency (rarest first) Statistics {opt p:ercent}display percentages {opt cu:mulative}display cumulative frequencies/percentages {opt cor:relate}display tetrachoric correlations of missingness {opt mo:notone}test for monotone missingness pattern Output {opt g:enerate(stub)}generate missingness indicator variables {opt save(name)}save pattern data to file or frame Graphics {opt gr:aph(type)}produce missingness graph; type may be bar, patterns, matrix, or correlation {opt sch:eme(schemename)}graph scheme {opt ti:tle(string)}graph title {opt subti:tle(string)}graph subtitle {opt gn:ame(name)}name the graph in memory {opt gsav:ing(filename)}save graph to file {opt nodr:aw}suppress graph display Bar/Patterns graph options {opt barc:olor(colorstyle)}bar fill color; default is navy {opt hor:izontal}horizontal bars (default) {opt ver:tical}vertical bars {opt top(#)}number of top patterns to show; default is 20 Matrix heatmap options {opt missc:olor(colorstyle)}color for missing values; default is cranberry {opt obsc:olor(colorstyle)}color for observed values; default is navy*0.2 Correlation heatmap options {opt textl:abels}display correlation values in cells {opt colorr:amp(type)}color scheme: bluered (default), redblue, or grayscale Stratification options {opt gby(varname)}stratify graphs by categorical variable (faceted display) {opt over(varname)}overlay comparison by categorical variable (grouped bars) {opt st:acked}show stacked bar chart; requires graph(bar) {opt groupg:ap(#)}gap between bar groups; default is 0 {opt legendo:pts(string)}pass-through legend options {p2colreset} {p 4 6 2} by is allowed; see {help prefix}.",
+    "options": {
+      "not:able": "suppress variable summary table",
+      "sk:ip": "insert spaces every 5 variables for readability",
+      "so:rt": "sort variables by descending missingness",
+      "nod:rop": "include variables with no missing values",
+      "wide": "compact display for many variables",
+      "nosu:mmary": "suppress summary statistics",
+      "m:infreq(#)": "minimum frequency for pattern display; default is 1",
+      "minm:issing(#)": "show only patterns with at least # missing vars",
+      "maxm:issing(#)": "show only patterns with at most # missing vars",
+      "a:scending": "sort patterns by ascending frequency (rarest first)",
+      "p:ercent": "display percentages",
+      "cu:mulative": "display cumulative frequencies/percentages",
+      "cor:relate": "display tetrachoric correlations of missingness",
+      "mo:notone": "test for monotone missingness pattern",
+      "g:enerate(stub)": "generate missingness indicator variables",
+      "save(name)": "save pattern data to file or frame",
+      "gr:aph(type)": "produce missingness graph;",
+      "sch:eme(schemename)": "graph scheme",
+      "ti:tle(string)": "graph title",
+      "subti:tle(string)": "graph subtitle",
+      "gn:ame(name)": "name the graph in memory",
+      "gsav:ing(filename)": "save graph to file",
+      "nodr:aw": "suppress graph display",
+      "barc:olor(colorstyle)": "bar fill color; default is",
+      "hor:izontal": "horizontal bars (default)",
+      "ver:tical": "vertical bars",
+      "top(#)": "number of top patterns to show; default is 20",
+      "missc:olor(colorstyle)": "color for missing values; default is",
+      "obsc:olor(colorstyle)": "color for observed values; default is",
+      "textl:abels": "display correlation values in cells",
+      "colorr:amp(type)": "color scheme:",
+      "gby(varname)": "stratify graphs by categorical variable (faceted display)",
+      "over(varname)": "overlay comparison by categorical variable (grouped bars)",
+      "st:acked": "show stacked bar chart; requires graph(bar)",
+      "groupg:ap(#)": "gap between bar groups; default is 0",
+      "legendo:pts(string)": "pass-through legend options"
+    },
+    "results": {
+      "scalars": [
+        {
+          "name": "N",
+          "description": "number of observations"
+        },
+        {
+          "name": "N_complete",
+          "description": "number of complete cases (no missing)"
+        },
+        {
+          "name": "N_incomplete",
+          "description": "number of incomplete cases"
+        },
+        {
+          "name": "N_patterns",
+          "description": "number of unique patterns displayed"
+        },
+        {
+          "name": "N_vars",
+          "description": "number of variables analyzed"
+        },
+        {
+          "name": "max_miss",
+          "description": "maximum missing values in any observation"
+        },
+        {
+          "name": "mean_miss",
+          "description": "mean missing values per observation"
+        },
+        {
+          "name": "N_mv_total",
+          "description": "total number of missing values"
+        },
+        {
+          "name": "N_monotone",
+          "description": "observations with monotone pattern"
+        },
+        {
+          "name": "pct_monotone",
+          "description": "percent with monotone pattern"
+        },
+        {
+          "name": "varlist",
+          "description": "variables with missing values analyzed"
+        },
+        {
+          "name": "varlist_nomiss",
+          "description": "variables with no missing values"
+        },
+        {
+          "name": "monotone_status",
+          "description": ""
+        },
+        {
+          "name": "gby",
+          "description": "name of the gby variable"
+        },
+        {
+          "name": "gby_levels",
+          "description": "levels of the gby variable"
+        },
+        {
+          "name": "over",
+          "description": "name of the over variable"
+        },
+        {
+          "name": "over_levels",
+          "description": "levels of the over variable"
+        },
+        {
+          "name": "corr_miss",
+          "description": "correlation matrix of missingness (if"
+        }
+      ],
+      "macros": [],
+      "matrices": []
+    },
+    "file": "mvp/mvp.sthlp"
+  },
+  {
+    "name": "massdesas",
+    "package": "massdesas",
+    "purpose": "",
+    "syntax": "",
+    "options": {},
+    "results": {
+      "scalars": [
+        {
+          "name": "n_converted",
+          "description": "number of files successfully converted"
+        },
+        {
+          "name": "n_failed",
+          "description": "number of files that failed to convert"
+        },
+        {
+          "name": "directory",
+          "description": "source directory path"
+        }
+      ],
+      "macros": [],
+      "matrices": []
+    },
+    "file": "massdesas/massdesas.sthlp"
+  }
+]
