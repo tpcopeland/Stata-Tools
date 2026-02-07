@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.6.0  17jan2026}{...}
+{* *! version 1.7.0  07feb2026}{...}
 {viewerjumpto "Syntax" "synthdata##syntax"}{...}
 {viewerjumpto "Description" "synthdata##description"}{...}
 {viewerjumpto "Options" "synthdata##options"}{...}
@@ -75,6 +75,11 @@
 {synopt:{opt missp:attern}}preserve missingness patterns (not just rates){p_end}
 {synopt:{opt trends}}preserve within-ID temporal trends{p_end}
 {synopt:{opt trans:form}}auto-transform skewed variables (experimental){p_end}
+
+{syntab:Index Date Anchoring}
+{synopt:{opt indexdate(varname)}}anchor date variable for offset-based synthesis{p_end}
+{synopt:{opt indexfrom(spec)}}merge index date from external file{p_end}
+{synopt:{opt datenoise(#)}}SD of Gaussian noise added to date offsets; default 14 days{p_end}
 
 {syntab:Privacy/Disclosure Control}
 {synopt:{opt mincell(#)}}rare category protection; default 5{p_end}
@@ -372,6 +377,42 @@ This can improve synthesis quality for non-normal variables like income or
 lab values. {bf:Note}: This feature is experimental and may not work correctly
 in all cases.
 
+{dlgtab:Index Date Anchoring}
+
+{phang}
+{opt indexdate(varname)} specifies an anchor date variable for offset-based
+date synthesis. Instead of synthesizing each date variable independently (which
+destroys temporal relationships), all other date variables are synthesized as
+offsets relative to this anchor date. This preserves the temporal structure
+within each person. For example, if prescriptions typically cluster 30 days
+after diagnosis and death occurs ~365 days after diagnosis, these relationships
+are preserved in the synthetic data.
+{p_end}
+{pmore}The index date itself is synthesized from its marginal distribution using
+the selected synthesis method. All other date variables are reconstructed
+by resampling from the empirical offset distribution and adding the offset
+to the synthetic index date.
+
+{phang}
+{opt indexfrom(spec)} merges an index date from an external file. The
+specification takes the form {it:filename} [{it:varname}], where {it:filename}
+is a Stata .dta file and {it:varname} (optional, default "indexdate") is the
+name of the date variable in that file. Requires {opt id()} for the merge key.
+{p_end}
+{pmore}Example: {cmd:indexfrom(case_control_dates.dta indexdate)} merges the
+variable "indexdate" from case_control_dates.dta using the first {opt id()}
+variable as the merge key.
+
+{phang}
+{opt datenoise(#)} specifies the standard deviation (in days) of Gaussian noise
+added to date offsets during synthesis. Default is 14 days. This noise prevents
+exact replication of original temporal patterns while preserving the overall
+structure. Set to 0 for no noise (exact offset replication).
+{p_end}
+{pmore}Larger values provide more privacy protection but may distort
+fine-grained temporal patterns. For registry data with GDPR requirements,
+the default of 14 days provides a reasonable balance.
+
 {dlgtab:Privacy/Disclosure Control}
 
 {phang}
@@ -546,6 +587,17 @@ The bootstrap method:
 
 {pstd}Full realism enhancement for panel data{p_end}
 {phang2}{cmd:. synthdata outcome treatment sex age, id(patient_id) replace conditionalcont randomeffects misspattern categorical(sex treatment)}{p_end}
+
+{pstd}{bf:Index Date Anchoring Examples}{p_end}
+
+{pstd}Registry data with diagnosis as anchor date{p_end}
+{phang2}{cmd:. synthdata, id(patient_id) dates(diagnosis_date rx_date visit_date death_date) indexdate(diagnosis_date) datenoise(14) smart replace}{p_end}
+
+{pstd}Panel data with index date from external file{p_end}
+{phang2}{cmd:. synthdata visit_date procedure_date, id(patient_id) dates(visit_date procedure_date) indexfrom(case_control_ids.dta indexdate) smart replace}{p_end}
+
+{pstd}Exact offset reproduction (no noise) for testing{p_end}
+{phang2}{cmd:. synthdata, dates(index_date follow_up_date) indexdate(index_date) datenoise(0) smart replace}{p_end}
 
 
 {marker results}{...}

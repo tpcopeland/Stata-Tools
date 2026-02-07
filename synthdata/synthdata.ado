@@ -1,4 +1,4 @@
-*! synthdata Version 1.6.0  17jan2026  Synthetic data generation with smart realism
+*! synthdata Version 1.7.0  07feb2026  Synthetic data generation with smart realism
 program define synthdata
     version 16.0
     set varabbrev off
@@ -15,7 +15,8 @@ program define synthdata
         [COMPare VALidate(string) UTILity GRAPH FREQcheck] ///
         [SEED(integer -1) ITERate(integer 100) TOLerance(real 1e-6)] ///
         [CONDitionalcont RANDomeffects TRANSform MISSpattern TRENDs] ///
-        [PRIVacycheck PRIVacysample(integer 0) PRIVacythresh(real 0.05)]
+        [PRIVacycheck PRIVacysample(integer 0) PRIVacythresh(real 0.05)] ///
+        [INDEXDate(varname) INDEXFrom(string asis) DATENoise(real 14)]
     
     // Preserve original data
     preserve
@@ -51,6 +52,43 @@ program define synthdata
         local varlist: list varlist - id
     }
     
+    // =========================================================================
+    // HANDLE INDEXFROM: Merge index date from external file
+    // =========================================================================
+    if `"`indexfrom'"' != "" {
+        // Parse: first word is filename, second (optional) is varname
+        tokenize `"`indexfrom'"'
+        local idx_file `"`1'"'
+        local idx_var `"`2'"'
+        if "`idx_var'" == "" local idx_var "indexdate"
+
+        // Require id() for merge
+        if "`id'" == "" {
+            di as error "indexfrom() requires id() option for merging"
+            exit 198
+        }
+
+        // Confirm external file exists
+        confirm file `"`idx_file'"'
+
+        // Merge using first id variable
+        local merge_id: word 1 of `id'
+        qui merge m:1 `merge_id' using `"`idx_file'"', keepusing(`idx_var') keep(master match) nogen
+
+        // Set indexdate if not already specified
+        if "`indexdate'" == "" {
+            local indexdate `idx_var'
+        }
+
+        // Add to varlist if not present
+        local idx_in_vl: list indexdate in varlist
+        if !`idx_in_vl' {
+            local varlist `varlist' `indexdate'
+        }
+
+        di as txt "Merged index date `indexdate' from `idx_file'"
+    }
+
     // Check we have variables to synthesize
     if "`varlist'" == "" {
         di as error "no variables to synthesize"
@@ -207,6 +245,25 @@ program define synthdata
     local intvars `r(intvars)'
 
     // =========================================================================
+    // VALIDATE AND SETUP INDEX DATE ANCHORING
+    // =========================================================================
+    local offset_datevars ""
+    local idx_datevar ""
+    tempfile offset_dist_file
+    if "`indexdate'" != "" {
+        // Validate indexdate exists and is numeric
+        confirm numeric variable `indexdate'
+
+        // Ensure it's in the datevars list
+        local idx_in_dates: list indexdate in datevars
+        if !`idx_in_dates' {
+            local datevars `datevars' `indexdate'
+        }
+
+        local idx_datevar `indexdate'
+    }
+
+    // =========================================================================
     // AUTO-EMPIRICAL: Detect non-normal distributions
     // =========================================================================
     // If autoempirical is specified (or smart method), check each continuous
@@ -295,6 +352,33 @@ program define synthdata
             else {
                 di as txt "  No consistent date orderings found"
             }
+        }
+    }
+
+    // =========================================================================
+    // ANALYZE INDEX DATE OFFSETS (if indexdate specified)
+    // =========================================================================
+    if "`indexdate'" != "" & "`datevars'" != "" {
+        // Build list of date vars excluding the index date itself
+        local other_datevars ""
+        foreach dv of local datevars {
+            if "`dv'" != "`indexdate'" {
+                local other_datevars `other_datevars' `dv'
+            }
+        }
+
+        if "`other_datevars'" != "" {
+            di as txt _n "Analyzing date offsets relative to `indexdate'..."
+            _synthdata_indexdate_analyze `other_datevars', ///
+                indexdate(`indexdate') saving(`offset_dist_file')
+            local offset_datevars `other_datevars'
+
+            // Remove offset dates from normal date synthesis path
+            // Only the index date goes through normal synthesis
+            local datevars `idx_datevar'
+
+            local n_offvars: word count `offset_datevars'
+            di as txt "  Offset date variables: " as res `n_offvars'
         }
     }
 
@@ -550,6 +634,36 @@ program define synthdata
         _synthdata_backtransform `contvars', transforms(`transforms')
     }
 
+    // =========================================================================
+    // RECONSTRUCT OFFSET DATES FROM INDEX DATE
+    // =========================================================================
+    if "`indexdate'" != "" & "`offset_datevars'" != "" {
+        di as txt "  Reconstructing dates from index date offsets..."
+
+        // Apply format to index date (may have been lost during synthesis)
+        if "`idx_fmt'" != "" {
+            format `indexdate' `idx_fmt'
+        }
+
+        // Reconstruct each offset date variable
+        _synthdata_apply_offsets `offset_datevars', ///
+            indexdate(`indexdate') offsets(`offset_dist_file') ///
+            datenoise(`datenoise')
+
+        // Restore formats for offset date variables
+        foreach v of local offset_datevars {
+            local sv = substr("`v'", 1, 30)
+            cap format `v' `F`sv''
+        }
+
+        local n_offvars: word count `offset_datevars'
+        di as txt "    Reconstructed " as res `n_offvars' as txt " date variables from offsets"
+        di as txt "    Date noise SD: " as res `datenoise' as txt " days"
+
+        // Add offset datevars back to datevars for downstream processing
+        local datevars `datevars' `offset_datevars'
+    }
+
     di as txt "  Synthesis complete."
 
     // =========================================================================
@@ -632,6 +746,24 @@ program define synthdata
             cap drop `v'
             qui gen long `v' = _n
             label var `v' "Synthetic ID"
+        }
+    }
+
+    // =========================================================================
+    // ENFORCE INDEX DATE CONSISTENCY WITHIN IDs
+    // =========================================================================
+    // For panel/multi-row data: all rows for the same synthetic ID must share
+    // the same index date value
+    if "`indexdate'" != "" & "`id'" != "" {
+        local first_id: word 1 of `id'
+        cap confirm variable `first_id'
+        if !_rc {
+            // Set index date to the first value within each ID group
+            tempvar idx_first
+            qui bysort `first_id': gen double `idx_first' = `indexdate'[1]
+            qui replace `indexdate' = `idx_first'
+            drop `idx_first'
+            di as txt "  Index date made constant within IDs"
         }
     }
 
@@ -1117,6 +1249,7 @@ program define synthdata
     if "`transform'" != "" local ++realism_features
     if "`misspattern'" != "" local ++realism_features
     if "`trends'" != "" local ++realism_features
+    if "`indexdate'" != "" local ++realism_features
 
     if `realism_features' > 0 {
         di as txt _n "  Realism enhancements:"
@@ -1134,6 +1267,13 @@ program define synthdata
         }
         if "`trends'" != "" {
             di as txt "    Temporal trends: " as res "enabled"
+        }
+        if "`indexdate'" != "" {
+            di as txt "    Index date anchoring: " as res "`indexdate'"
+            if "`offset_datevars'" != "" {
+                di as txt "    Offset-synthesized dates: " as res `: word count `offset_datevars''
+            }
+            di as txt "    Date noise SD: " as res "`datenoise' days"
         }
     }
 end
@@ -4266,8 +4406,166 @@ program define _synthdata_freqcheck
     }
 end
 
+// =============================================================================
+// INDEX DATE ANALYSIS: Compute offset distributions
+// =============================================================================
+// Analyzes date offsets (d - indexdate) for each date variable relative to the
+// anchor/index date. Stores the empirical offset distribution in a tempfile
+// for later reconstruction during synthesis.
+
+program define _synthdata_indexdate_analyze
+    version 16.0
+    syntax varlist, indexdate(varname) saving(string)
+
+    // Compute offset distributions for each date variable
+    // Store: offset values in a dataset with one column per date var
+    local nvars: word count `varlist'
+
+    // Report stats for each offset variable
+    local vnum = 0
+    foreach v of local varlist {
+        local ++vnum
+        local sv = substr("`v'", 1, 24)
+
+        // Compute offset for non-missing pairs
+        tempvar off_`vnum'
+        qui gen double `off_`vnum'' = `v' - `indexdate' if !missing(`v') & !missing(`indexdate')
+
+        // Store stats via c_local for parent access
+        qui su `off_`vnum'', detail
+        if r(N) > 0 {
+            local off_mean = r(mean)
+            local off_sd = cond(r(sd) == 0 | r(sd) == ., 1, r(sd))
+            local off_min = r(min)
+            local off_max = r(max)
+            di as txt "    `v': mean offset = " as res %6.1f `off_mean' ///
+                as txt " days, SD = " as res %6.1f `off_sd' ///
+                as txt ", range = [" as res `off_min' as txt ", " as res `off_max' as txt "]"
+        }
+        else {
+            di as txt "    `v': no valid offset observations"
+        }
+    }
+
+    // Save the offsets as a dataset for empirical resampling
+    preserve
+
+    // Keep only the offset columns and rename them to match date var names
+    local keepvars ""
+    local vnum = 0
+    foreach v of local varlist {
+        local ++vnum
+        qui rename `off_`vnum'' _off_`v'
+        local keepvars `keepvars' _off_`v'
+    }
+
+    // Also store the original index date stats
+    qui su `indexdate', detail
+    local idx_mean = r(mean)
+    local idx_sd = cond(r(sd) == 0 | r(sd) == ., 1, r(sd))
+    local idx_min = r(min)
+    local idx_max = r(max)
+    local idx_fmt: format `indexdate'
+
+    // Keep only offset data and save
+    qui keep `keepvars'
+    qui drop if _n == 0  // keep all rows, missing offsets handled at draw time
+    qui save `saving', replace
+
+    restore
+
+    // Store index date marginal stats for use in parent
+    c_local idx_mean `idx_mean'
+    c_local idx_sd `idx_sd'
+    c_local idx_min `idx_min'
+    c_local idx_max `idx_max'
+    c_local idx_fmt `idx_fmt'
+end
+
+// =============================================================================
+// INDEX DATE OFFSET RECONSTRUCTION: Apply offsets to synthesized index date
+// =============================================================================
+// Reconstructs date variables by drawing from the empirical offset distribution
+// relative to the synthesized index date, with optional Gaussian noise.
+
+program define _synthdata_apply_offsets
+    version 16.0
+    syntax anything, indexdate(varname) offsets(string) datenoise(real)
+
+    local offset_vars `anything'
+    local n = _N
+
+    foreach v of local offset_vars {
+        // Load empirical offsets from saved file
+        preserve
+        qui use `offsets', clear
+        qui drop if missing(_off_`v')
+        local n_offsets = _N
+
+        if `n_offsets' == 0 {
+            // No valid offsets - generate missing
+            restore
+            cap drop `v'
+            qui gen double `v' = .
+            continue
+        }
+
+        // Extract offset values into Mata matrix for efficient resampling
+        tempname off_vals
+        mata: st_matrix("`off_vals'", st_data(., "_off_`v'"))
+        restore
+
+        // Create variable to hold the resampled offsets
+        cap drop `v'
+        qui gen double `v' = .
+
+        // Use Mata for efficient resampling from empirical distribution
+        mata: _synthdata_resample_offsets("`v'", st_matrix("`off_vals'"), ///
+            `n', `datenoise')
+
+        // Compute: synth_date = synth_indexdate + offset
+        qui replace `v' = `indexdate' + `v'
+
+        // Round to integer (dates are integers)
+        qui replace `v' = round(`v')
+    }
+end
+
 // Mata helper functions
 mata:
+
+// =============================================================================
+// RESAMPLE OFFSETS: Draw from empirical offset distribution with noise
+// =============================================================================
+// Draws n offsets by resampling with replacement from the empirical offset
+// distribution, then adds Gaussian noise with the specified SD.
+void _synthdata_resample_offsets(string scalar varname, real matrix off_vals,
+                                  real scalar n, real scalar datenoise)
+{
+    real colvector offsets, result, indices
+    real scalar noff, i
+
+    offsets = off_vals[., 1]
+    noff = rows(offsets)
+
+    // Generate random indices for resampling with replacement
+    indices = ceil(runiform(n, 1) :* noff)
+    // Ensure indices are in range [1, noff]
+    indices = rowmax((indices, J(n, 1, 1)))
+    indices = rowmin((indices, J(n, 1, noff)))
+
+    result = J(n, 1, .)
+    for (i = 1; i <= n; i++) {
+        result[i] = offsets[indices[i]]
+    }
+
+    // Add Gaussian noise if datenoise > 0
+    if (datenoise > 0) {
+        result = result + rnormal(n, 1, 0, datenoise)
+    }
+
+    st_store(., varname, result)
+}
 
 // Check if matrix is positive definite
 real scalar _synthdata_isposdef(real matrix A)

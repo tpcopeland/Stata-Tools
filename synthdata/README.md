@@ -589,7 +589,7 @@ MIT License
 
 ## Version
 
-Version 1.6.0, 2026-01-17
+Version 1.7.0, 2026-02-07
 
 ## See Also
 
