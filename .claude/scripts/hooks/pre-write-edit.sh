@@ -3,6 +3,8 @@
 # PreToolUse hook for Write|Edit tools - validates file operations
 # Matcher: Write|Edit
 
+set +e  # Prevent inherited error settings from causing hook errors
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 # Source shared utilities

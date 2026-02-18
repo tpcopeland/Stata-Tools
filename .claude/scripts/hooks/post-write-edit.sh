@@ -3,6 +3,8 @@
 # PostToolUse hook for Write|Edit - auto-validate .ado files, format markdown, version check
 # Matcher: Write|Edit
 
+set +e  # Prevent inherited error settings from causing hook errors
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 # Source shared utilities

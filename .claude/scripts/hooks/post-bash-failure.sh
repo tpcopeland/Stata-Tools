@@ -3,6 +3,8 @@
 # PostToolUseFailure hook for Bash - enhanced Stata failure diagnostics
 # Matcher: Bash
 
+set +e  # Prevent inherited error settings from causing hook errors
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source "$SCRIPT_DIR/_read-hook-input.sh"
 

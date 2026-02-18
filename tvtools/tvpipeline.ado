@@ -1,4 +1,4 @@
-*! tvpipeline Version 1.0.0  2025/12/29
+*! tvpipeline Version 1.0.1  2026/02/18
 *! Complete workflow for time-varying exposure analysis
 *! Author: Tim Copeland
 *! Program class: rclass (returns results in r())
@@ -130,8 +130,8 @@ program define tvpipeline, rclass
     * Count initial observations
     quietly count
     local n_cohort = r(N)
-    quietly levelsof `id'
-    local n_ids = r(numlevels)
+    quietly tab `id'
+    local n_ids = r(r)
 
     * =========================================================================
     * DISPLAY HEADER
@@ -207,8 +207,8 @@ program define tvpipeline, rclass
 
     * Store tvexpose results
     local n_after_expose = _N
-    quietly levelsof `id'
-    local n_ids_after = r(numlevels)
+    quietly tab `id'
+    local n_ids_after = r(r)
 
     * Standardize variable names for pipeline
     * tvexpose preserves original variable names, but we need consistent names
@@ -384,7 +384,7 @@ program define tvpipeline, rclass
         display as text ""
 
         * Run tvplot (swimlane for first 20 individuals)
-        capture noisily tvplot, id(`id') start(start) stop(stop) exposure(tv_exposure) type(swimlane) nmax(20)
+        capture noisily tvplot, id(`id') start(start) stop(stop) exposure(tv_exposure) swimlane sample(20)
 
         if _rc != 0 {
             display as error "tvplot failed with error `=_rc'"

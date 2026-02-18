@@ -4853,10 +4853,10 @@ if `quiet' == 0 {
 * Create exposure ending exactly at duration threshold
 clear
 input long id double(rx_start rx_stop) byte exp_type
-    1 21915 22006 1
+    1 21915 22007 1
 end
 format %td rx_start rx_stop
-label data "91-day exposure (exactly 0.25 years)"
+label data "92-day exposure (crosses 0.25 years = 91.3 days)"
 save "${DATA_DIR}/exp_91days.dta", replace
 
 * Create very short exposure (1 day)
@@ -4873,7 +4873,7 @@ save "${DATA_DIR}/exp_single_day.dta", replace
 * -----------------------------------------------------------------------------
 local ++test_count
 if `quiet' == 0 {
-    display as text _n "Test 3.44.1: Exposure at Duration Threshold (91 days ≈ 0.25 years)"
+    display as text _n "Test 3.44.1: Exposure at Duration Threshold (92 days > 0.25 years)"
 }
 
 capture {

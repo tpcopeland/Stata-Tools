@@ -21,8 +21,11 @@ fi
 
 # For batch mode runs, check the log file
 if [[ "$COMMAND" == *"-b do"* ]]; then
-    # Extract log file path from command
-    DO_FILE=$(echo "$COMMAND" | grep -oP '(?<=-b do\s+)[^\s]+')
+    # Extract log file path from command (bash regex, no grep -P dependency)
+    DO_FILE=""
+    if [[ "$COMMAND" =~ -b\ do\ +([^\ ]+) ]]; then
+        DO_FILE="${BASH_REMATCH[1]}"
+    fi
     if [ -n "$DO_FILE" ]; then
         LOG_FILE="${DO_FILE%.do}.log"
         if [ -f "$LOG_FILE" ]; then

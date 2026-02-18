@@ -1,4 +1,4 @@
-*! tvbalance Version 1.0.0  2025/12/27
+*! tvbalance Version 1.0.1  2026/02/18
 *! Balance diagnostics for time-varying exposure datasets
 *! Author: Tim Copeland
 *! Program class: rclass (returns results in r())
@@ -105,7 +105,13 @@ program define tvbalance, rclass
             local smd_unwt = (`mean_exp' - `mean_ref') / `pooled_sd'
         }
         else {
-            local smd_unwt = .
+            * Zero variance: if means are equal, SMD is 0; otherwise undefined
+            if abs(`mean_exp' - `mean_ref') < 1e-10 {
+                local smd_unwt = 0
+            }
+            else {
+                local smd_unwt = .
+            }
         }
 
         matrix `results_mat'[`i', 1] = `mean_ref'
@@ -133,7 +139,12 @@ program define tvbalance, rclass
                 local smd_wt = (`wmean_exp' - `wmean_ref') / `wpooled_sd'
             }
             else {
-                local smd_wt = .
+                if abs(`wmean_exp' - `wmean_ref') < 1e-10 {
+                    local smd_wt = 0
+                }
+                else {
+                    local smd_wt = .
+                }
             }
 
             matrix `results_mat'[`i', 4] = `smd_wt'
@@ -161,9 +172,9 @@ program define tvbalance, rclass
             local s1 = `results_mat'[`i', 3]
             local s2 = `results_mat'[`i', 4]
 
-            * Flag imbalanced covariates
-            local flag1 = cond(abs(`s1') > `threshold', "*", " ")
-            local flag2 = cond(abs(`s2') > `threshold', "*", " ")
+            * Flag imbalanced covariates (missing SMD = not imbalanced)
+            local flag1 = cond(!missing(`s1') & abs(`s1') > `threshold', "*", " ")
+            local flag2 = cond(!missing(`s2') & abs(`s2') > `threshold', "*", " ")
 
             display as text abbrev("`var'", 16) _col(17) ///
                 as result %7.3f `m1' _col(27) %7.3f `m2' ///
@@ -183,8 +194,8 @@ program define tvbalance, rclass
             local m2 = `results_mat'[`i', 2]
             local s1 = `results_mat'[`i', 3]
 
-            * Flag imbalanced covariates
-            local flag1 = cond(abs(`s1') > `threshold', "*", " ")
+            * Flag imbalanced covariates (missing SMD = not imbalanced)
+            local flag1 = cond(!missing(`s1') & abs(`s1') > `threshold', "*", " ")
 
             display as text abbrev("`var'", 16) _col(17) ///
                 as result %7.3f `m1' _col(27) %7.3f `m2' ///
@@ -199,7 +210,8 @@ program define tvbalance, rclass
     * Summary statistics
     local n_imbalanced = 0
     forvalues i = 1/`n_covars' {
-        if abs(`results_mat'[`i', 3]) > `threshold' {
+        local this_smd = `results_mat'[`i', 3]
+        if !missing(`this_smd') & abs(`this_smd') > `threshold' {
             local n_imbalanced = `n_imbalanced' + 1
         }
     }
@@ -212,7 +224,8 @@ program define tvbalance, rclass
     if "`weights'" != "" {
         local n_imbalanced_wt = 0
         forvalues i = 1/`n_covars' {
-            if abs(`results_mat'[`i', 4]) > `threshold' {
+            local this_smd_wt = `results_mat'[`i', 4]
+            if !missing(`this_smd_wt') & abs(`this_smd_wt') > `threshold' {
                 local n_imbalanced_wt = `n_imbalanced_wt' + 1
             }
         }
