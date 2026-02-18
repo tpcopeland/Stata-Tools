@@ -1301,8 +1301,10 @@ if `run_only' == 0 | `run_only' == `test_count' {
         confirm variable outcome
 
         * All 5000 IDs should be present
-        quietly distinct id
-        assert r(ndistinct) == 5000
+        tempvar _tag
+        quietly egen `_tag' = tag(id)
+        quietly count if `_tag' == 1
+        assert r(N) == 5000
     }
     if _rc == 0 {
         local ++pass_count
@@ -1400,8 +1402,10 @@ if `run_only' == 0 | `run_only' == `test_count' {
         assert _N > 0
 
         * All 10000 IDs should be present
-        quietly distinct id
-        assert r(ndistinct) == 10000
+        tempvar _tag
+        quietly egen `_tag' = tag(id)
+        quietly count if `_tag' == 1
+        assert r(N) == 10000
     }
     if _rc == 0 {
         local ++pass_count

@@ -73,7 +73,7 @@ capture mkdir "${DATA_DIR}"
 * Install tvtools package
 capture net uninstall tvtools
 quietly net install tvtools, from("${STATA_TOOLS_PATH}/tvtools")
-capture quietly ssc install distinct
+
 
 * =============================================================================
 * HEADER
@@ -276,15 +276,15 @@ if `quiet' == 0 {
 
 capture {
     use "${DATA_DIR}/val_cohort_pipe.dta", clear
-    distinct id
-    local cohort_ids = r(ndistinct)
+    quietly levelsof id
+    local cohort_ids = r(r)
 
     tvpipeline using "${DATA_DIR}/val_exp_pipe.dta", ///
         id(id) start(rx_start) stop(rx_stop) exposure(drug) ///
         entry(study_entry) exit(study_exit)
 
-    distinct id
-    local output_ids = r(ndistinct)
+    quietly levelsof id
+    local output_ids = r(r)
 
     * All 5 cohort IDs should be in output
     assert `output_ids' == `cohort_ids'
@@ -353,8 +353,8 @@ if `quiet' == 0 {
 capture {
     use "${DATA_DIR}/val_cohort_pipe.dta", clear
     local input_n = _N
-    distinct id
-    local input_ids = r(ndistinct)
+    quietly levelsof id
+    local input_ids = r(r)
 
     tvpipeline using "${DATA_DIR}/val_exp_pipe.dta", ///
         id(id) start(rx_start) stop(rx_stop) exposure(drug) ///

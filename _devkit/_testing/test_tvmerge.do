@@ -562,12 +562,12 @@ if `run_only' == 0 | `run_only' == `test_count' {
     capture {
         * Get IDs from both source files
         quietly use "${DATA_DIR}/_tv_hrt.dta", clear
-        quietly distinct id
-        local hrt_ids = r(ndistinct)
+        quietly levelsof id
+        local hrt_ids = r(r)
 
         quietly use "${DATA_DIR}/_tv_dmt.dta", clear
-        quietly distinct id
-        local dmt_ids = r(ndistinct)
+        quietly levelsof id
+        local dmt_ids = r(r)
 
         * Merge and check IDs
         tvmerge "${DATA_DIR}/_tv_hrt.dta" "${DATA_DIR}/_tv_dmt.dta", ///
@@ -576,8 +576,8 @@ if `run_only' == 0 | `run_only' == `test_count' {
             exposure(tv_hrt tv_dmt) ///
             generate(hrt dmt)
 
-        quietly distinct id
-        local merged_ids = r(ndistinct)
+        quietly levelsof id
+        local merged_ids = r(r)
 
         * Merged should have at least the intersection of IDs
         * (actual count depends on merge behavior)
@@ -1241,8 +1241,10 @@ if `run_only' == 0 | `run_only' == `test_count' {
         assert _N > 0
 
         * All 5000 IDs should be present
-        quietly distinct id
-        assert r(ndistinct) == 5000
+        tempvar _tag
+        quietly egen `_tag' = tag(id)
+        quietly count if `_tag' == 1
+        assert r(N) == 5000
     }
     if _rc == 0 {
         local ++pass_count
@@ -1349,8 +1351,10 @@ if `run_only' == 0 | `run_only' == `test_count' {
         assert _N > 0
 
         * All 10000 IDs should be present
-        quietly distinct id
-        assert r(ndistinct) == 10000
+        tempvar _tag
+        quietly egen `_tag' = tag(id)
+        quietly count if `_tag' == 1
+        assert r(N) == 10000
     }
     if _rc == 0 {
         local ++pass_count

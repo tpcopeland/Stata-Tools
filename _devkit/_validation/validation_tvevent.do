@@ -96,7 +96,7 @@ capture mkdir "${DATA_DIR}"
 * Install tvtools package
 capture net uninstall tvtools
 quietly net install tvtools, from("${STATA_TOOLS_PATH}/tvtools")
-capture quietly ssc install distinct
+
 
 * =============================================================================
 * HEADER (skip in quiet/machine mode)
@@ -2869,8 +2869,10 @@ capture {
         type(single) generate(outcome)
 
     * All 5000 IDs should be present
-    quietly distinct id
-    assert r(ndistinct) == 5000
+    tempvar _tag
+    quietly egen `_tag' = tag(id)
+    quietly count if `_tag' == 1
+    assert r(N) == 5000
 }
 if _rc == 0 {
     display as result "  PASS: Large dataset (5000 patients) integration works"
@@ -2930,8 +2932,10 @@ capture {
         type(single) generate(outcome)
 
     * All 10000 IDs should be present
-    quietly distinct id
-    assert r(ndistinct) == 10000
+    tempvar _tag
+    quietly egen `_tag' = tag(id)
+    quietly count if `_tag' == 1
+    assert r(N) == 10000
 }
 if _rc == 0 {
     display as result "  PASS: Very large dataset (10000 patients) stress test works"

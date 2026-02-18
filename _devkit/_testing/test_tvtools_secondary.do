@@ -16,8 +16,7 @@
 *   - tvestimate   (g-estimation)
 *   - tvpass       (workflow support)
 *
-* Note: tvreport, tvtrial, tvpass, tvpipeline internally use the SSC package
-*       "distinct". These tests install it if not already present.
+* Note: No external SSC dependencies required.
 *
 * Run: stata-mp -b do test_tvtools_secondary.do
 * Log: test_tvtools_secondary.log
@@ -97,7 +96,6 @@ else {
 }
 
 * Calendar dataset for tvcalendar (point-in-time merge using same varname "start")
-* tvcalendar's range-based merge (startvar/stopvar) is not yet implemented.
 * Point-in-time merge requires the datevar to exist in the EXTERNAL dataset too.
 * Create a calendar with the same "start" variable matching unique dates in the output.
 use "/tmp/sec_tve.dta", clear
@@ -191,11 +189,10 @@ else {
 * TEST: TVCALENDAR
 * ============================================================================
 display _n _dup(60) "-"
-display "TEST: tvcalendar - calendar-time factor merge (point-in-time)"
+display "TEST: tvcalendar - calendar-time factor merge"
 display _dup(60) "-"
 
 * tvcalendar point-in-time merge: external dataset must have same datevar name
-* (Range-based merge with startvar/stopvar is not implemented in current version)
 use "/tmp/sec_tve.dta", clear
 capture noisily tvcalendar using "/tmp/sec_calendar.dta", datevar(start)
 
@@ -215,6 +212,45 @@ else {
     display as error "  FAIL [tvcalendar.run]: error `=_rc'"
     local fail_count = `fail_count' + 1
     local failed_tests "`failed_tests' tvcalendar"
+}
+
+* Test range-based merge with startvar/stopvar
+* Create a period-based calendar dataset
+clear
+quietly set obs 2
+gen double period_start = .
+gen double period_end = .
+gen double risk_level = .
+quietly replace period_start = mdy(1, 1, 2020) if _n == 1
+quietly replace period_end = mdy(6, 30, 2020) if _n == 1
+quietly replace risk_level = 1 if _n == 1
+quietly replace period_start = mdy(7, 1, 2020) if _n == 2
+quietly replace period_end = mdy(12, 31, 2021) if _n == 2
+quietly replace risk_level = 2 if _n == 2
+format period_start period_end %td
+save "/tmp/sec_calendar_range.dta", replace
+
+use "/tmp/sec_tve.dta", clear
+capture noisily tvcalendar using "/tmp/sec_calendar_range.dta", ///
+    datevar(start) startvar(period_start) stopvar(period_end) ///
+    merge(risk_level)
+
+if _rc == 0 {
+    capture confirm variable risk_level
+    if _rc == 0 {
+        display as result "  PASS [tvcalendar.range]: range-based merge ran without error"
+        local pass_count = `pass_count' + 1
+    }
+    else {
+        display as error "  FAIL [tvcalendar.range_var]: risk_level variable not created"
+        local fail_count = `fail_count' + 1
+        local failed_tests "`failed_tests' tvcalendar.range"
+    }
+}
+else {
+    display as error "  FAIL [tvcalendar.range]: error `=_rc'"
+    local fail_count = `fail_count' + 1
+    local failed_tests "`failed_tests' tvcalendar.range"
 }
 
 * ============================================================================

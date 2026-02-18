@@ -65,7 +65,7 @@ capture mkdir "${DATA_DIR}"
 * Install tvtools package
 capture net uninstall tvtools
 quietly net install tvtools, from("${STATA_TOOLS_PATH}/tvtools")
-capture quietly ssc install distinct
+
 
 * =============================================================================
 * HEADER
@@ -176,8 +176,8 @@ if `run_only' == 0 | `run_only' == 2 {
             trials(6) trialinterval(60)
 
         * Should have 6 trials
-        distinct trial_trial
-        assert r(ndistinct) <= 6
+        quietly levelsof trial_trial
+        assert r(r) <= 6
     }
     if _rc == 0 {
         display as result "  PASS: Custom trial parameters work"

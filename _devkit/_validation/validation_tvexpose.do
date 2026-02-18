@@ -92,7 +92,7 @@ capture mkdir "${DATA_DIR}"
 * Install tvtools package
 capture net uninstall tvtools
 quietly net install tvtools, from("${STATA_TOOLS_PATH}/tvtools")
-capture quietly ssc install distinct
+
 
 * =============================================================================
 * HEADER (skip in quiet/machine mode)

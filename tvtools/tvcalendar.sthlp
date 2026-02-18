@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.0  29dec2025}{...}
+{* *! version 1.1.0  18feb2026}{...}
 {vieweralsosee "tvtools" "help tvtools"}{...}
 {title:Title}
 

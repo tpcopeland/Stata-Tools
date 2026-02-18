@@ -189,8 +189,8 @@ capture {
     display as text "        Person-trials: `n_persontrials'"
 
     * Step 3: Verify structure
-    quietly distinct id
-    local n_unique = r(ndistinct)
+    quietly levelsof id
+    local n_unique = r(r)
 
     quietly count if trial_arm == 1
     local n_treat = r(N)

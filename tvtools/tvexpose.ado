@@ -1,4 +1,4 @@
-*! tvexpose Version 1.4.0  2025/12/26
+*! tvexpose Version 1.4.1  2026/02/18
 *! Create time-varying exposure variables for survival analysis
 *! Author: Tim Copeland
 *! Program class: rclass (returns results in r())
@@ -2687,7 +2687,7 @@ program define tvexpose, rclass
                 if `n_cuts' > 0 {
                     forvalues i = 1/`n_cuts' {
                         local thresh_units = ``i''
-                        local thresh_days = `thresh_units' * `unit_divisor'
+                        local thresh_days = round(`thresh_units' * `unit_divisor')
 
                         * Generate threshold crossing date
                         * Date = start of period containing threshold + days needed to reach threshold
@@ -2695,7 +2695,7 @@ program define tvexpose, rclass
 
                         * Find period where cumulative crosses threshold
                         quietly by id: replace __thresh_date_`suffix'_`i' = ///
-                            exp_start + ceil(`thresh_days' - (__cumul_days_`suffix' - __period_days_`suffix')) ///
+                            exp_start + (`thresh_days' - (__cumul_days_`suffix' - __period_days_`suffix')) ///
                             if __orig_exp_category == `exp_type_val' & ///
                             (__cumul_days_`suffix' - __period_days_`suffix') < `thresh_days' & ///
                             __cumul_days_`suffix' >= `thresh_days'
@@ -2912,30 +2912,30 @@ program define tvexpose, rclass
                 * Cumulative at period start
                 quietly by id: gen double __cumul_start_days_`suffix' = __cumul_days_`suffix' - __period_days_`suffix'
 
-                * Convert to units
-                quietly gen double __cumul_units_start_`suffix' = __cumul_start_days_`suffix' / `unit_divisor'
-
-                * Assign duration category based on cumulative exposure at period start
-                * Use epsilon for floating-point comparison consistency
-                local epsilon = 0.001
+                * Assign duration category based on cumulative exposure days at period start
+                * Compare in integer days to avoid floating-point precision issues
                 quietly gen `stub_name'`suffix' = `reference'
                 if `n_cuts' > 0 {
                     local first_cut = `1'
+                    local first_thresh_days = round(`first_cut' * `unit_divisor')
                     quietly replace `stub_name'`suffix' = 1 if __orig_exp_category == `exp_type_val' & ///
-                        __cumul_units_start_`suffix' < (`first_cut' - `epsilon') & __cumul_units_start_`suffix' >= 0
+                        __cumul_start_days_`suffix' < `first_thresh_days' & __cumul_start_days_`suffix' >= 0
 
                     local i = 2
                     while `i' <= `n_cuts' {
                         local prev_cut = ``=`i'-1''
                         local curr_cut = ``i''
+                        local prev_thresh_days = round(`prev_cut' * `unit_divisor')
+                        local curr_thresh_days = round(`curr_cut' * `unit_divisor')
                         quietly replace `stub_name'`suffix' = `i' if __orig_exp_category == `exp_type_val' & ///
-                            __cumul_units_start_`suffix' >= (`prev_cut' - `epsilon') & __cumul_units_start_`suffix' < (`curr_cut' - `epsilon')
+                            __cumul_start_days_`suffix' >= `prev_thresh_days' & __cumul_start_days_`suffix' < `curr_thresh_days'
                         local i = `i' + 1
                     }
 
                     local last_cut = ``n_cuts''
+                    local last_thresh_days = round(`last_cut' * `unit_divisor')
                     quietly replace `stub_name'`suffix' = `n_cuts' + 1 if __orig_exp_category == `exp_type_val' & ///
-                        __cumul_units_start_`suffix' >= (`last_cut' - `epsilon')
+                        __cumul_start_days_`suffix' >= `last_thresh_days'
                 }
                 else {
                     quietly replace `stub_name'`suffix' = 1 if __orig_exp_category == `exp_type_val' & ///
@@ -3005,7 +3005,7 @@ program define tvexpose, rclass
                 }
 
                 * Clean up temporary variables for this type
-                quietly drop __period_days_`suffix' __cumul_days_`suffix' __cumul_start_days_`suffix' __cumul_units_start_`suffix'
+                quietly drop __period_days_`suffix' __cumul_days_`suffix' __cumul_start_days_`suffix'
             }
 
             * Clear numbered macros
@@ -3081,10 +3081,6 @@ program define tvexpose, rclass
             quietly by id : gen cumul_days_start = cumul_days_end[_n-1] if _n > 1 & id == id[_n-1]
             quietly replace cumul_days_start = 0 if missing(cumul_days_start)
             
-            * Convert to specified units
-            quietly gen cumul_units_start = cumul_days_start / `unit_divisor'
-            quietly gen cumul_units_end = cumul_days_end / `unit_divisor'
-            
             * Step 2: Calculate exact threshold crossing dates
             tempfile threshold_dates
             if `n_cuts' > 0 {
@@ -3093,11 +3089,11 @@ program define tvexpose, rclass
                 * For each threshold, find exact crossing date
                 forvalues i = 1/`n_cuts' {
                     local thresh_units = ``i''
-                    local thresh_days = `thresh_units' * `unit_divisor'
-                    
+                    local thresh_days = round(`thresh_units' * `unit_divisor')
+
                     * Calculate threshold crossing date
                     quietly by id: gen double __thresh_date_`i' = ///
-                        exp_start + ceil(`thresh_days' - cumul_days_start) ///
+                        exp_start + (`thresh_days' - cumul_days_start) ///
                         if __exp_now_dur & cumul_days_start < `thresh_days' & cumul_days_end >= `thresh_days'
                     
                     * Ensure threshold date is within period bounds
@@ -3228,7 +3224,7 @@ program define tvexpose, rclass
             
             * Step 4: Recalculate cumulative exposure and assign duration categories
 
-            drop period_days cumul_days_start cumul_days_end cumul_units_start cumul_units_end
+            drop period_days cumul_days_start cumul_days_end
 
             * Recalculate cumulative exposure after splitting
             sort id exp_start
@@ -3237,28 +3233,28 @@ program define tvexpose, rclass
             quietly by id : gen cumul_days_end = sum(period_days)
             quietly by id : gen cumul_days_start = cumul_days_end[_n-1] if _n > 1 & id == id[_n-1]
             quietly replace cumul_days_start = 0 if missing(cumul_days_start)
-            
-            quietly gen cumul_units_start = cumul_days_start / `unit_divisor'
-            quietly gen cumul_units_end = cumul_days_end / `unit_divisor'
-            
-            * Assign duration categories based on cumulative at period start
+
+            * Assign duration categories based on cumulative days at period start
             quietly gen exp_duration = `reference'
             if `n_cuts' > 0 {
                 local first_cut = `1'
-                local epsilon = 0.001
-                quietly replace exp_duration = 1 if __exp_now_dur & cumul_units_start < (`first_cut' - `epsilon') & cumul_units_start >= 0
-                
+                local first_thresh_days = round(`first_cut' * `unit_divisor')
+                quietly replace exp_duration = 1 if __exp_now_dur & cumul_days_start < `first_thresh_days' & cumul_days_start >= 0
+
                 local i = 2
                 while `i' <= `n_cuts' {
                     local prev_cut = ``=`i'-1''
                     local curr_cut = ``i''
+                    local prev_thresh_days = round(`prev_cut' * `unit_divisor')
+                    local curr_thresh_days = round(`curr_cut' * `unit_divisor')
                     quietly replace exp_duration = `i' if __exp_now_dur & ///
-                        cumul_units_start >= (`prev_cut' - `epsilon') & cumul_units_start < (`curr_cut' - `epsilon')
+                        cumul_days_start >= `prev_thresh_days' & cumul_days_start < `curr_thresh_days'
                     local i = `i' + 1
                 }
-                
+
                 local last_cut = ``n_cuts''
-                quietly replace exp_duration = `n_cuts' + 1 if __exp_now_dur & cumul_units_start >= (`last_cut' - `epsilon')
+                local last_thresh_days = round(`last_cut' * `unit_divisor')
+                quietly replace exp_duration = `n_cuts' + 1 if __exp_now_dur & cumul_days_start >= `last_thresh_days'
             }
             else {
                 quietly replace exp_duration = 1 if __exp_now_dur
@@ -3325,7 +3321,7 @@ program define tvexpose, rclass
             }
             
             * Replace exposure variable with duration category
-            drop exp_value __orig_exp_binary cumul_units_start cumul_units_end period_days cumul_days_start cumul_days_end
+            drop exp_value __orig_exp_binary period_days cumul_days_start cumul_days_end
             rename exp_duration exp_value
             label values exp_value dur_labels
             

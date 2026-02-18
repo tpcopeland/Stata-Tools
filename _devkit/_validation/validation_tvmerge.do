@@ -92,7 +92,7 @@ capture mkdir "${DATA_DIR}"
 * Install tvtools package
 capture net uninstall tvtools
 quietly net install tvtools, from("${STATA_TOOLS_PATH}/tvtools")
-capture quietly ssc install distinct
+
 
 * =============================================================================
 * HEADER (skip in quiet/machine mode)
@@ -501,9 +501,9 @@ capture {
         id(id) start(start1 start2) stop(stop1 stop2) ///
         exposure(exp1 exp2) force
 
-    distinct id
+    quietly levelsof id
     * Only IDs 2 and 3 should appear (intersection)
-    assert r(ndistinct) == 2
+    assert r(r) == 2
 
     * Verify it's IDs 2 and 3
     quietly count if id == 1
@@ -1874,8 +1874,8 @@ capture {
         exposure(exp1 exp2)
 
     * All persons should be present
-    distinct id
-    assert r(ndistinct) == 3
+    quietly levelsof id
+    assert r(r) == 3
 
     * Each person should have proper intervals
     by id: assert _N >= 1
@@ -1905,8 +1905,8 @@ capture {
         exposure(exp1 exp2) force
 
     * Only common IDs (2, 3) should be present
-    distinct id
-    assert r(ndistinct) == 2
+    quietly levelsof id
+    assert r(r) == 2
 
     quietly count if id == 1 | id == 4
     assert r(N) == 0

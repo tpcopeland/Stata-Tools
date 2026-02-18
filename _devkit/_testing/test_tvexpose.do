@@ -88,14 +88,20 @@ else {
     }
 }
 
-global TESTING_DIR "${STATA_TOOLS_PATH}/_testing"
+* Validate path - if tvtools directory not found, try one more level up
+* (handles _devkit/_testing/ directory structure)
+capture confirm file "${STATA_TOOLS_PATH}/tvtools/stata.toc"
+if _rc != 0 {
+    global STATA_TOOLS_PATH "${STATA_TOOLS_PATH}/.."
+}
+
+global TESTING_DIR "${STATA_TOOLS_PATH}/_devkit/_testing"
 global DATA_DIR "${TESTING_DIR}/data"
 cd "${DATA_DIR}"
 
 * Install tvtools package from local repository
 capture net uninstall tvtools
 quietly net install tvtools, from("${STATA_TOOLS_PATH}/tvtools")
-ssc install distinct 
 
 * Check for required test data
 capture confirm file "${DATA_DIR}/cohort.dta"
@@ -130,8 +136,8 @@ quietly {
     count
     local cohort_n = r(N)
 
-    distinct id
-    local cohort_ids = r(ndistinct)
+    quietly levelsof id
+    local cohort_ids = r(r)
 
     * Total person-time in days
     gen double _ptime = study_exit - study_entry
@@ -169,8 +175,8 @@ program define _validate_tvexpose_output, rclass
     }
 
     * Check 2: All IDs from cohort are present
-    quietly distinct id
-    local output_ids = r(ndistinct)
+    quietly levelsof id
+    local output_ids = r(r)
     if `output_ids' < `cohort_ids' * 0.95 {
         display as error "    Validation WARN: Only `output_ids'/`cohort_ids' IDs in output"
     }
@@ -2585,8 +2591,10 @@ if `run_only' == 0 | `run_only' == `test_count' {
         assert _N > 0
 
         * Validate: Should have at least as many rows as original cohort
-        quietly distinct id
-        assert r(ndistinct) == 5000
+        tempvar _tag
+        quietly egen `_tag' = tag(id)
+        quietly count if `_tag' == 1
+        assert r(N) == 5000
     }
     if _rc == 0 {
         local ++pass_count
@@ -2868,8 +2876,10 @@ if `run_only' == 0 | `run_only' == `test_count' {
         assert _N > 0
 
         * All 10000 IDs should be present
-        quietly distinct id
-        assert r(ndistinct) == 10000
+        tempvar _tag
+        quietly egen `_tag' = tag(id)
+        quietly count if `_tag' == 1
+        assert r(N) == 10000
     }
     if _rc == 0 {
         local ++pass_count
