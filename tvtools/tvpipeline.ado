@@ -130,8 +130,8 @@ program define tvpipeline, rclass
     * Count initial observations
     quietly count
     local n_cohort = r(N)
-    quietly distinct `id'
-    local n_ids = r(ndistinct)
+    quietly levelsof `id'
+    local n_ids = r(numlevels)
 
     * =========================================================================
     * DISPLAY HEADER
@@ -207,8 +207,8 @@ program define tvpipeline, rclass
 
     * Store tvexpose results
     local n_after_expose = _N
-    quietly distinct `id'
-    local n_ids_after = r(ndistinct)
+    quietly levelsof `id'
+    local n_ids_after = r(numlevels)
 
     * Standardize variable names for pipeline
     * tvexpose preserves original variable names, but we need consistent names

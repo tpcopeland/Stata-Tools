@@ -59,8 +59,8 @@ program define tvreport, rclass
     quietly count
     local n_obs = r(N)
 
-    quietly distinct `id'
-    local n_ids = r(ndistinct)
+    quietly levelsof `id'
+    local n_ids = r(numlevels)
 
     display as text "Total observations:    " as result %12.0fc `n_obs'
     display as text "Unique individuals:    " as result %12.0fc `n_ids'

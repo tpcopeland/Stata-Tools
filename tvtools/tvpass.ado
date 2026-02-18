@@ -68,8 +68,8 @@ program define tvpass, rclass
     use `"`cohort'"', clear
     quietly count
     local n_cohort = r(N)
-    quietly distinct `id'
-    local n_ids = r(ndistinct)
+    quietly levelsof `id'
+    local n_ids = r(numlevels)
     display as text "Cohort:   " as result `n_cohort' " obs, " `n_ids' " individuals"
     restore
 

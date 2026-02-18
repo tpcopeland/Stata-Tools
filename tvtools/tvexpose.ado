@@ -893,6 +893,11 @@ program define tvexpose, rclass
     **# Step 1: Merge close periods of same exposure type
     * Rationale: Small gaps between same exposure type likely represent same episode
     * merge(120) means: if gap <= 120 days, treat as one continuous exposure
+    * NOTE: Skip for dose type - overlapping prescriptions with the same dose amount
+    *       must NOT be merged here; dose overlap handling (below) runs after this
+    *       block and uses daily rates computed per original prescription. Merging
+    *       first corrupts those rates and produces wrong cumulative doses.
+    if "`exp_type'" != "dose" {
     quietly use `exp_cleaned', clear
     
     sort id exp_start exp_stop exp_value
@@ -1048,6 +1053,13 @@ program define tvexpose, rclass
     }
 
     quietly drop contained
+
+    } // end non-dose merge/containment block
+    else {
+        * For dose type, skip merge/containment and load cleaned exposures directly.
+        * Dose overlap handling below will process prescriptions on original boundaries.
+        quietly use `exp_cleaned', clear
+    }
 
     **# Special overlap handling for dose option
     * For dose, overlapping periods require proportional dose allocation
@@ -3085,7 +3097,7 @@ program define tvexpose, rclass
                     
                     * Calculate threshold crossing date
                     quietly by id: gen double __thresh_date_`i' = ///
-                        exp_start + floor(`thresh_days' - cumul_days_start) ///
+                        exp_start + ceil(`thresh_days' - cumul_days_start) ///
                         if __exp_now_dur & cumul_days_start < `thresh_days' & cumul_days_end >= `thresh_days'
                     
                     * Ensure threshold date is within period bounds

@@ -44,30 +44,6 @@ display ""
 quietly adopath ++ "/home/tpcopeland/Stata-Tools/tvtools"
 
 * ============================================================================
-* INSTALL DEPENDENCIES
-* ============================================================================
-display _n _dup(60) "-"
-display "SETUP: Installing required dependencies"
-display _dup(60) "-"
-
-* tvreport, tvtrial, tvpass, tvpipeline require the 'distinct' SSC package
-capture which distinct
-if _rc != 0 {
-    display "  Installing 'distinct' from SSC..."
-    capture ssc install distinct, replace
-    if _rc == 0 {
-        display as result "  PASS [setup.distinct]: distinct package installed"
-    }
-    else {
-        display as error "  NOTE [setup.distinct]: could not install distinct (rc=`=_rc')"
-        display "  Tests for tvreport, tvtrial, tvpass, tvpipeline may fail"
-    }
-}
-else {
-    display as result "  PASS [setup.distinct]: distinct package already available"
-}
-
-* ============================================================================
 * CREATE SHARED TEST DATA
 * ============================================================================
 display _n _dup(60) "-"
