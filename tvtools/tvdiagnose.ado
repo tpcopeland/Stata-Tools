@@ -92,8 +92,8 @@ program define tvdiagnose, rclass
     * Basic data summary
     quietly count
     local n_obs = r(N)
-    quietly levelsof `id'
-    local n_persons = r(numlevels)
+    quietly tab `id'
+    local n_persons = r(r)
 
     display as text "Dataset summary:"
     display as text "  Observations: " as result %12.0fc `n_obs'

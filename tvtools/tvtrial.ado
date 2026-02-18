@@ -394,8 +394,8 @@ program define tvtrial, rclass
     display as text "  Total follow-up:  " as result %10.0fc `total_fu' " person-days"
 
     * Count actual trials with participants
-    quietly levelsof `generate'trial
-    local actual_trials = r(numlevels)
+    quietly tab `generate'trial
+    local actual_trials = r(r)
 
     display as text ""
     display as text "  Trials with participants: " as result `actual_trials'
