@@ -1,4 +1,4 @@
-*! setools Version 1.3.0  2025/12/17
+*! setools Version 1.4.0  2026/02/18
 *! Swedish Registry Toolkit for Epidemiological Cohort Studies
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet
@@ -38,7 +38,7 @@ program define setools, rclass
     }
 
     // Define commands by category
-    local cmd_codes "icdexpand procmatch"
+    local cmd_codes "icdexpand procmatch cci_se"
     local cmd_dates "dateparse covarclose"
     local cmd_migration "migrations"
     local cmd_ms "sustainedss cdp pira"
@@ -89,6 +89,7 @@ program define setools, rclass
             display as text "{bf:Registry Code Utilities}"
             display as result "  icdexpand  " as text "- ICD-10 code expansion and matching"
             display as result "  procmatch  " as text "- KVA procedure code matching"
+            display as result "  cci_se     " as text "- Swedish Charlson Comorbidity Index"
             display as text ""
         }
 
@@ -123,7 +124,7 @@ program define setools, rclass
     // Return results
     return local commands "`selected_cmds'"
     return scalar n_commands = `n_commands'
-    return local version "1.3.0"
+    return local version "1.4.0"
     return local categories "codes dates migration ms"
 end
 
@@ -144,6 +145,11 @@ program define _setools_detail
         display as text "               Matches KVA procedure codes in surgical and"
         display as text "               intervention registers. Supports wildcards"
         display as text "               and code ranges."
+        display as text ""
+        display as result "  cci_se" as text "       Swedish Charlson Comorbidity Index."
+        display as text "               Computes CCI from ICD-7 through ICD-10 codes"
+        display as text "               using the Ludvigsson et al. (2021) adaptation"
+        display as text "               for Swedish register-based research."
         display as text ""
     }
 

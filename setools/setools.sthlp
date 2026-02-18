@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.3.0  17dec2025}{...}
+{* *! version 1.4.0  18feb2026}{...}
 {viewerjumpto "Description" "setools##description"}{...}
 {viewerjumpto "Commands" "setools##commands"}{...}
 {viewerjumpto "Installation" "setools##installation"}{...}
@@ -30,6 +30,7 @@ and MS disability progression endpoints (EDSS, CDP, PIRA).
 {synoptset 16}{...}
 {synopt:{helpb icdexpand}}ICD-10 code utilities for Swedish registry research{p_end}
 {synopt:{helpb procmatch}}Procedure code matching for Swedish registry research{p_end}
+{synopt:{helpb cci_se}}Swedish Charlson Comorbidity Index (ICD-7 through ICD-10){p_end}
 
 {pstd}
 {bf:Date and Covariate Utilities}

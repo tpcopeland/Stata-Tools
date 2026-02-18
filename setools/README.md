@@ -11,6 +11,7 @@ Toolkit for managing Swedish registry data in epidemiological cohort studies.
 | Command | Description |
 |---------|-------------|
 | **icdexpand** | ICD-10 code utilities (expand wildcards, validate, match in data) |
+| **cci_se** | Swedish Charlson Comorbidity Index (ICD-7 through ICD-10) |
 | **dateparse** | Date parsing and window calculations for cohort studies |
 | **migrations** | Process Swedish migration registry data for cohort studies |
 | **procmatch** | KVÅ procedure code matching for Swedish registries |
@@ -84,6 +85,69 @@ icdexpand match, codes("C00-C43* C45-C97*") dxvars(dx1-dx30) generate(cancer)
 | `r(n_codes)` | Number of codes after expansion |
 | `r(varname)` | Name of generated indicator variable (match) |
 | `r(n_matches)` | Number of observations matching (match) |
+
+---
+
+## cci_se - Swedish Charlson Comorbidity Index
+
+**cci_se** computes the Swedish adaptation of the Charlson Comorbidity Index (CCI) from diagnosis-level registry data, using the algorithm from Ludvigsson et al. (2021). It supports ICD-7 through ICD-10 codes as used in Swedish national health registries, and handles ICD codes with or without dots automatically.
+
+### Syntax
+
+```stata
+cci_se [if] [in], id(varname) icd(varname) date(varname) [options]
+```
+
+### Options
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `id(varname)` | Patient identifier variable | Required |
+| `icd(varname)` | String variable with ICD codes | Required |
+| `date(varname)` | Date variable (Stata date or YYYYMMDD) | Required |
+| `generate(name)` | Name for Charlson score variable | charlson |
+| `components` | Generate binary indicators for each comorbidity | - |
+| `prefix(string)` | Prefix for component variables | cci_ |
+| `dateformat(string)` | Date format: stata, yyyymmdd, or ymd | auto |
+| `noisily` | Display summary | - |
+
+### Comorbidities and Weights
+
+| Component | Weight | Component | Weight |
+|-----------|--------|-----------|--------|
+| Myocardial infarction | 1 | Diabetes (uncomplicated) | 1 |
+| Congestive heart failure | 1 | Diabetes (complicated) | 2 |
+| Peripheral vascular disease | 1 | Renal disease | 2 |
+| Cerebrovascular disease | 1 | Mild liver disease | 1 |
+| COPD | 1 | Moderate/severe liver disease | 3 |
+| Other chronic pulmonary | 1 | Peptic ulcer disease | 1 |
+| Rheumatic disease | 1 | Cancer (non-metastatic) | 2 |
+| Dementia | 1 | Metastatic cancer | 6 |
+| Hemiplegia/paraplegia | 2 | AIDS/HIV | 6 |
+
+### Examples
+
+```stata
+* Basic usage
+use npr_diagnoses, clear
+cci_se, id(lopnr) icd(diagnos) date(utdatum) noisily
+
+* With YYYYMMDD dates and component indicators
+cci_se, id(lopnr) icd(diagnos) date(datum) dateformat(yyyymmdd) components noisily
+
+* Merge CCI back into analysis cohort
+use npr_long, clear
+cci_se, id(lopnr) icd(diagnos) date(utdatum)
+tempfile cci
+save `cci'
+use cohort, clear
+merge m:1 lopnr using `cci', nogenerate keep(master match)
+replace charlson = 0 if missing(charlson)
+```
+
+### Reference
+
+Ludvigsson JF, Appelros P, Askling J, et al. Adaptation of the Charlson comorbidity index for register-based research in Sweden. *Clinical Epidemiology*. 2021;13:21-41.
 
 ---
 
@@ -430,12 +494,6 @@ net install setools
 - Stata 16.0 or higher
 - No additional dependencies
 
-## Related Packages
-
-For comorbidity indices, consider:
-- `charlson` from SSC (`ssc install charlson`)
-- `elixhauser` from SSC
-
 ## Author
 
 Timothy P Copeland
@@ -448,4 +506,4 @@ MIT License
 
 ## Version
 
-Version 1.3.0, 2025-12-17
+Version 1.4.0, 2026-02-18

@@ -4,6 +4,7 @@ d
 d Provides utilities for working with Swedish health registries including:
 d - ICD-10 code expansion and matching
 d - KVA procedure code matching
+d - Swedish Charlson Comorbidity Index (ICD-7 through ICD-10)
 d - Date parsing and window calculations for cohort studies
 d - Migration registry processing for exclusions and censoring
 d - MS disability progression: sustained EDSS, CDP, and PIRA
@@ -11,7 +12,7 @@ d - Closest covariate extraction from longitudinal data
 d
 d Requires: Stata version 16+
 d
-d Distribution-Date: 20251217
+d Distribution-Date: 20260218
 d License: MIT
 d
 d Author: Tim Copeland
@@ -28,6 +29,8 @@ d KW: EDSS
 d KW: CDP
 d KW: PIRA
 d KW: date utilities
+d KW: Charlson
+d KW: comorbidity
 d
 f setools.ado
 f setools.sthlp
@@ -47,3 +50,5 @@ f procmatch.ado
 f procmatch.sthlp
 f covarclose.ado
 f covarclose.sthlp
+f cci_se.ado
+f cci_se.sthlp
