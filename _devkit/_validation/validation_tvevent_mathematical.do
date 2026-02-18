@@ -288,10 +288,11 @@ local post_days = mdy(4,10,2020) - `event_day'
 display "  INFO: total_days=`total_days', pre=`pre_days', post=`post_days'"
 
 * Event data
+* Note: type(recurring) requires wide-format event variables (event_date1, event_date2, ...)
 clear
 set obs 1
 gen id = 1
-gen event_date = mdy(1,1,2020) + 50    // day 50
+gen event_date1 = mdy(1,1,2020) + 50    // day 50 (wide format for type(recurring))
 save "/tmp/tve4c_event.dta", replace
 
 use "/tmp/tve4c_event.dta", clear

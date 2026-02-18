@@ -57,7 +57,7 @@ done
 readonly REPO_ROOT="$(get_repo_root)"
 readonly CLAUDE_DIR="$REPO_ROOT/.claude"
 readonly LIB_DIR="$CLAUDE_DIR/lib"
-readonly HOOKS_DIR="$CLAUDE_DIR/hooks"
+readonly HOOKS_DIR="$CLAUDE_DIR/validators"
 readonly SCRIPTS_DIR="$CLAUDE_DIR/scripts"
 
 # Test utilities

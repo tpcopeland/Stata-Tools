@@ -32,6 +32,21 @@
 
 ---
 
+## Mandatory Workflow
+
+After writing or modifying .ado code, follow this chain:
+
+```
+/develop → /review → /test → /package
+```
+
+1. Write/modify code with `/develop`
+2. Review code with `/review` (MANDATORY before commit)
+3. Write tests with `/test`
+4. Run tests and validate with `/package`
+
+---
+
 ## Development Resources
 
 | Directory | Contents |
@@ -54,13 +69,10 @@
 
 | Skill | Purpose |
 |-------|---------|
-| `/stata-develop` | Development guidance for creating/modifying commands |
-| `/stata-test` | Functional testing workflow |
-| `/stata-validate` | Known-answer validation guidance |
-| `/stata-audit` | Code review and error detection |
-| `/code-reviewer` | Detailed code review with scoring |
-| `/stata-code-generator` | Generate code from requirements |
-| `/package-tester` | Run tests and validate packages |
+| `/develop` | Create/modify commands, add features, fix bugs, generate code |
+| `/review` | Code review, audit, pattern detection, quality scoring |
+| `/test` | Write functional tests and validation tests |
+| `/package` | Run tests, validate structure, parse logs, check coverage |
 
 ### Automation
 
@@ -181,9 +193,10 @@ Run: `.claude/scripts/check-versions.sh [package]`
 
 Quality enforcement policies in `.claude/policies/`:
 
-- **mandatory-code-review.md** - Run `/code-reviewer` after code generation
+- **mandatory-code-review.md** - Run `/review` after code generation
 - **test-before-commit.md** - Tests must pass before committing
 - **version-consistency.md** - Versions must match across files
+- **no-subagents.md** - Never use Task tool for subagents
 
 ---
 

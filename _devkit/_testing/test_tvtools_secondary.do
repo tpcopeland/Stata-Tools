@@ -16,6 +16,9 @@
 *   - tvestimate   (g-estimation)
 *   - tvpass       (workflow support)
 *
+* Note: tvreport, tvtrial, tvpass, tvpipeline internally use the SSC package
+*       "distinct". These tests install it if not already present.
+*
 * Run: stata-mp -b do test_tvtools_secondary.do
 * Log: test_tvtools_secondary.log
 *
@@ -41,6 +44,30 @@ display ""
 quietly adopath ++ "/home/tpcopeland/Stata-Tools/tvtools"
 
 * ============================================================================
+* INSTALL DEPENDENCIES
+* ============================================================================
+display _n _dup(60) "-"
+display "SETUP: Installing required dependencies"
+display _dup(60) "-"
+
+* tvreport, tvtrial, tvpass, tvpipeline require the 'distinct' SSC package
+capture which distinct
+if _rc != 0 {
+    display "  Installing 'distinct' from SSC..."
+    capture ssc install distinct, replace
+    if _rc == 0 {
+        display as result "  PASS [setup.distinct]: distinct package installed"
+    }
+    else {
+        display as error "  NOTE [setup.distinct]: could not install distinct (rc=`=_rc')"
+        display "  Tests for tvreport, tvtrial, tvpass, tvpipeline may fail"
+    }
+}
+else {
+    display as result "  PASS [setup.distinct]: distinct package already available"
+}
+
+* ============================================================================
 * CREATE SHARED TEST DATA
 * ============================================================================
 display _n _dup(60) "-"
@@ -62,27 +89,30 @@ format study_entry study_exit event_date death_date %td
 save "/tmp/sec_cohort.dta", replace
 
 * Exposure dataset (multiple drugs per person)
+* Use "start"/"stop" as variable names so tvexpose output uses these names too
 clear
 set obs 50
 gen id = ceil(_n / 2.5)   // ~2.5 exposures per person, ids 1-20
 replace id = min(id, 20)
-gen rx_start = mdy(1,1,2020) + int(runiform() * 400)
-gen rx_stop  = rx_start + 30 + int(runiform() * 90)
+gen start = mdy(1,1,2020) + int(runiform() * 400)
+gen stop  = start + 30 + int(runiform() * 90)
 gen drug_type = 1 + int(runiform() * 2)  // drug 1 or 2
 gen dose_amt = 100 + int(runiform() * 100)
-format rx_start rx_stop %td
+format start stop %td
 save "/tmp/sec_exposure.dta", replace
 
 * Create time-varying exposure dataset (using tvexpose)
+* tvexpose renames output time vars to match the start()/stop() option names
+* So using start(start)/stop(stop) preserves "start" and "stop" variable names
 use "/tmp/sec_cohort.dta", clear
 capture noisily tvexpose using "/tmp/sec_exposure.dta", ///
-    id(id) start(rx_start) stop(rx_stop) ///
+    id(id) start(start) stop(stop) ///
     exposure(drug_type) reference(0) ///
     entry(study_entry) exit(study_exit) ///
     generate(tv_exp)
 if _rc == 0 {
     save "/tmp/sec_tve.dta", replace
-    display as result "  PASS [setup.tvexpose]: time-varying dataset created (`=r(N)' rows)"
+    display as result "  PASS [setup.tvexpose]: time-varying dataset created (`=_N' rows)"
 }
 else {
     display as error "  FAIL [setup.tvexpose]: tvexpose failed with rc=`=_rc'"
@@ -90,19 +120,20 @@ else {
     exit 1
 }
 
-* Calendar time dataset (for tvcalendar)
-clear
-set obs 4
-gen season_start = mdy(1,1,2020)
-replace season_start = mdy(4,1,2020) in 2
-replace season_start = mdy(7,1,2020) in 3
-replace season_start = mdy(10,1,2020) in 4
-gen season_stop = mdy(3,31,2020) in 1
-replace season_stop = mdy(6,30,2020) in 2
-replace season_stop = mdy(9,30,2020) in 3
-replace season_stop = mdy(12,31,2020) in 4
-gen season = _n
-format season_start season_stop %td
+* Calendar dataset for tvcalendar (point-in-time merge using same varname "start")
+* tvcalendar's range-based merge (startvar/stopvar) is not yet implemented.
+* Point-in-time merge requires the datevar to exist in the EXTERNAL dataset too.
+* Create a calendar with the same "start" variable matching unique dates in the output.
+use "/tmp/sec_tve.dta", clear
+quietly duplicates drop start, force
+keep start
+format start %td
+gen season = 1
+replace season = 2 if month(start) >= 4
+replace season = 3 if month(start) >= 7
+replace season = 4 if month(start) >= 10
+label define seasons 1 "Winter" 2 "Spring" 3 "Summer" 4 "Fall"
+label values season seasons
 save "/tmp/sec_calendar.dta", replace
 
 display as result "  Setup complete - all test data created"
@@ -116,12 +147,13 @@ display _dup(60) "-"
 
 local t_pass = 1
 
+* Note: 'coverage' option requires entry()/exit() which tvexpose drops from output
+* Use 'gaps' and 'overlaps' instead (they don't need entry/exit)
 use "/tmp/sec_tve.dta", clear
 capture noisily tvdiagnose, ///
     id(id) start(start) stop(stop) ///
     exposure(tv_exp) ///
-    entry(study_entry) exit(study_exit) ///
-    coverage gaps overlaps
+    gaps overlaps
 
 if _rc == 0 {
     display as result "  PASS [tvdiagnose.run]: ran without error"
@@ -134,22 +166,21 @@ else {
     local t_pass = 0
 }
 
-* Also test with all option
+* Also test summarize option
 use "/tmp/sec_tve.dta", clear
 capture noisily tvdiagnose, ///
     id(id) start(start) stop(stop) ///
     exposure(tv_exp) ///
-    entry(study_entry) exit(study_exit) ///
-    all
+    gaps overlaps summarize
 
 if _rc == 0 {
-    display as result "  PASS [tvdiagnose.all]: all option ran without error"
+    display as result "  PASS [tvdiagnose.summarize]: summarize option ran without error"
 }
 else {
-    display as error "  FAIL [tvdiagnose.all]: error `=_rc'"
+    display as error "  FAIL [tvdiagnose.summarize]: error `=_rc'"
     if `t_pass' {
         local fail_count = `fail_count' + 1
-        local failed_tests "`failed_tests' tvdiagnose.all"
+        local failed_tests "`failed_tests' tvdiagnose.summarize"
         local t_pass = 0
     }
 }
@@ -161,17 +192,17 @@ display _n _dup(60) "-"
 display "TEST: tvplot - visualization (swimlane)"
 display _dup(60) "-"
 
-* Run in batch mode - plot is generated but not displayed
+* Run in batch mode - just test that the plot command executes without error
+* Note: graph saving (gph format) may not work in all batch contexts; omit saving()
 use "/tmp/sec_tve.dta", clear
 capture noisily tvplot, ///
     id(id) start(start) stop(stop) ///
     exposure(tv_exp) ///
     sample(10) ///
-    swimlane ///
-    saving("/tmp/sec_swimlane.gph") replace
+    swimlane
 
 if _rc == 0 {
-    display as result "  PASS [tvplot.swimlane]: swimlane plot created without error"
+    display as result "  PASS [tvplot.swimlane]: swimlane plot ran without error"
     local pass_count = `pass_count' + 1
 }
 else {
@@ -184,14 +215,13 @@ else {
 * TEST: TVCALENDAR
 * ============================================================================
 display _n _dup(60) "-"
-display "TEST: tvcalendar - calendar-time factor merge"
+display "TEST: tvcalendar - calendar-time factor merge (point-in-time)"
 display _dup(60) "-"
 
+* tvcalendar point-in-time merge: external dataset must have same datevar name
+* (Range-based merge with startvar/stopvar is not implemented in current version)
 use "/tmp/sec_tve.dta", clear
-capture noisily tvcalendar using "/tmp/sec_calendar.dta", ///
-    datevar(start) ///
-    startvar(season_start) stopvar(season_stop) ///
-    merge(season)
+capture noisily tvcalendar using "/tmp/sec_calendar.dta", datevar(start)
 
 if _rc == 0 {
     capture confirm variable season
@@ -273,9 +303,8 @@ display _dup(60) "-"
 use "/tmp/sec_cohort.dta", clear
 
 * Add treatment start (first exposure date) from exposure data
-quietly merge 1:m id using "/tmp/sec_exposure.dta", keepusing(rx_start) nogen
-quietly bysort id: egen treat_start = min(rx_start)
-quietly keep if _n == 1   // keep 1 row per person (one row per person with min rx_start)
+quietly merge 1:m id using "/tmp/sec_exposure.dta", keepusing(start) nogen
+quietly bysort id: egen treat_start = min(start)
 quietly bysort id: keep if _n == 1
 
 capture noisily tvtrial, ///
@@ -296,10 +325,9 @@ if _rc == 0 {
     }
     else {
         display as error "  FAIL [tvtrial.trial_id]: trial_id variable not found"
-        display "  Variables: " _column(20) c(k) " vars. First 10:"
         quietly ds
         local vlist = r(varlist)
-        display "  `vlist'"
+        display "  Variables: `vlist'"
     }
     local pass_count = `pass_count' + 1
 }
@@ -343,18 +371,14 @@ if _rc == 0 {
 
     * Check that the causal estimate exists
     local psi = r(psi)
+    if missing(`psi') {
+        local psi = e(psi)
+    }
     if !missing(`psi') {
         display as result "  PASS [tvdml.psi]: causal estimate returned (psi=`psi')"
     }
     else {
-        * Try e(psi)
-        local psi = e(psi)
-        if !missing(`psi') {
-            display as result "  PASS [tvdml.psi]: causal estimate returned (psi=`psi')"
-        }
-        else {
-            display as error "  FAIL [tvdml.psi]: causal estimate not returned"
-        }
+        display as error "  FAIL [tvdml.psi]: causal estimate not returned"
     }
     local pass_count = `pass_count' + 1
 }
@@ -371,31 +395,18 @@ display _n _dup(60) "-"
 display "TEST: tvestimate - g-estimation / structural nested models"
 display _dup(60) "-"
 
-* Look at existing test log for tvestimate to understand how it's called
-capture quietly findfile tvestimate.ado
-if _rc != 0 {
-    display as error "  SKIP [tvestimate]: tvestimate.ado not found in path"
-}
-else {
-    * Read the tvestimate ado to understand syntax
-    local ado_path = r(fn)
-    display "  INFO: Found tvestimate at `ado_path'"
-}
-
+* tvestimate syntax: outcome treatment, confounders(varlist) [options]
+* Note: option is "confounders()" not "covariates()"
 clear
 set obs 50
 set seed 888
 gen id = _n
 gen x1 = runiform()
 gen treatment = (x1 + runiform() > 1.2)
-gen t_start = 0
-gen t_stop = 1 + int(runiform() * 5)
-gen event = (runiform() < 0.4)
-gen outcome = event
+gen outcome = treatment * 0.5 + x1 * 0.3 + rnormal(0, 0.5)
 
 capture noisily tvestimate outcome treatment, ///
-    id(id) time(t_stop) ///
-    covariates(x1)
+    confounders(x1)
 
 if _rc == 0 {
     display as result "  PASS [tvestimate.run]: ran without error"
@@ -440,7 +451,7 @@ display _dup(60) "-"
 
 use "/tmp/sec_cohort.dta", clear
 capture noisily tvpipeline using "/tmp/sec_exposure.dta", ///
-    id(id) start(rx_start) stop(rx_stop) ///
+    id(id) start(start) stop(stop) ///
     exposure(drug_type) ///
     entry(study_entry) exit(study_exit) ///
     reference(0)

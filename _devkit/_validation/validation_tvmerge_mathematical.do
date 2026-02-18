@@ -164,7 +164,7 @@ save "/tmp/tvm5b_dsetB.dta", replace
 capture noisily tvmerge ///
     "/tmp/tvm5b_dsetA.dta" "/tmp/tvm5b_dsetB.dta", ///
     id(id) start(startA startB) stop(stopA stopB) exposure(rate_A expB) ///
-    continuous(1) generate(rate_A_out exp_B_out)
+    continuous(rate_A) generate(rate_A_out exp_B_out)
 
 if _rc != 0 {
     display as error "  FAIL [5b.run]: tvmerge returned error `=_rc'"
@@ -175,25 +175,30 @@ else {
     quietly count
     local nrows = r(N)
     display "  INFO: `nrows' rows in merged output"
+    list id start stop rate_A_out exp_B_out, noobs
 
-    * In the overlapping period (Jul1-Dec31): rate_A should be proportioned
-    * The rate for this period should be approximately 1 unit/day
-    * over the 184-day overlap period = 184 units total
-    quietly sum rate_A_out if start == mdy(7,1,2020)
-    local rate_at_jul = r(mean)
-    display "  INFO: rate_A_out in Jul1-Dec31 period = `rate_at_jul'"
+    * Proportioning check:
+    * tvmerge outputs only the INTERSECTION where both datasets have coverage.
+    * Original: [Jan1/2020, Dec31/2020] = 366 days, rate_A = 366 (≈1/day)
+    * Intersection with B: [Jul1/2020, Dec31/2020] = 184 days
+    * Expected rate_A in intersection = 366 × (184/366) = 184.0
+    * (proportioning formula: rate_out = rate_in × intersection_days/original_days)
+    local orig_days = mdy(12,31,2020) - mdy(1,1,2020) + 1   // = 366
+    local intersect_days = mdy(12,31,2020) - mdy(7,1,2020) + 1  // = 184
+    local expected_rate = 366 * `intersect_days' / `orig_days'
+    display "  INFO: orig_days=`orig_days', intersect_days=`intersect_days'"
+    display "  INFO: Expected proportioned rate = `expected_rate' (= 366 × 184/366 = 184)"
 
-    * Key check: the total rate_A_out across all periods should conserve the original
     quietly sum rate_A_out
     local total_rate = r(sum)
-    display "  INFO: Total rate_A_out = `total_rate' (original = 366)"
+    display "  INFO: Total rate_A_out in output = `total_rate' (expected = `expected_rate')"
 
-    * Total should be close to 366 (original total)
-    if abs(`total_rate' - 366) < 5 {
-        display as result "  PASS [5b.conservation]: continuous exposure approximately conserved (total=`total_rate', original=366)"
+    * The total should equal the proportioned rate (≈184)
+    if abs(`total_rate' - `expected_rate') < 1 {
+        display as result "  PASS [5b.proportioning]: rate_A proportioned correctly (total=`total_rate', expected=`expected_rate')"
     }
     else {
-        display as error "  FAIL [5b.conservation]: total=`total_rate', original=366, diff=`=abs(`total_rate'-366)'"
+        display as error "  FAIL [5b.proportioning]: total=`total_rate', expected=`expected_rate', diff=`=abs(`total_rate'-`expected_rate')'"
         local test5b_pass = 0
     }
 }

@@ -94,8 +94,10 @@ if _rc != 0 {
     local test7a_pass = 0
 }
 else {
-    * Check stored results
-    local actual_smd = r(smd_1)
+    * Check stored results (SMD is in r(balance) matrix, column 3 = SMD_Unwt)
+    tempname bal
+    matrix `bal' = r(balance)
+    local actual_smd = `bal'[1, 3]
     local diff = abs(`actual_smd' - `expected_smd')
     display "  INFO: Reported SMD = `actual_smd', expected = `expected_smd'"
 
@@ -171,7 +173,9 @@ if _rc != 0 {
     local test7b_pass = 0
 }
 else {
-    local actual_smd = r(smd_1)
+    tempname bal
+    matrix `bal' = r(balance)
+    local actual_smd = `bal'[1, 3]
     local diff = abs(`actual_smd' - `expected_smd')
     display "  INFO: Reported SMD = `actual_smd', expected = `expected_smd'"
 
@@ -275,11 +279,14 @@ local test7d_pass = 1
 * Exposed has higher mean → SMD should be positive
 * Exposed has lower mean → SMD should be negative (if signed) or just verify sign
 
+* Exposed: ages 50-59 (mean=54.5), unexposed: ages 30-39 (mean=34.5)
+* Both groups have identical variance, SMD = 20/sqrt(9.1667) ≈ 6.604
 clear
 set obs 20
 gen id = _n
 gen exposed = (_n <= 10)
-gen age = 30 + exposed * 20    // exposed mean=50, unexposed mean=30
+gen age = 49 + id if exposed == 1        // 50,51,...,59 → mean=54.5
+replace age = 29 + (id - 10) if exposed == 0  // 30,31,...,39 → mean=34.5
 
 capture noisily tvbalance age, exposure(exposed)
 
@@ -288,7 +295,9 @@ if _rc != 0 {
     local test7d_pass = 0
 }
 else {
-    local actual_smd = r(smd_1)
+    tempname bal
+    matrix `bal' = r(balance)
+    local actual_smd = `bal'[1, 3]
     display "  INFO: SMD (exposed higher) = `actual_smd'"
 
     * SMD should be positive (exposed mean > reference mean)

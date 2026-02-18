@@ -57,7 +57,7 @@ PACKAGE_COUNT=$(find "$REPO_ROOT" -name "*.pkg" -type f 2>/dev/null | wc -l)
 ADO_COUNT=$(find "$REPO_ROOT" -name "*.ado" -type f 2>/dev/null | wc -l)
 
 # Compact footer
-echo "Skills:   .claude/skills/ for /stata-develop, /stata-test, code review, generation"
+echo "Skills:   /develop, /review, /test, /package"
 echo "Packages: $PACKAGE_COUNT | Commands: $ADO_COUNT"
 echo ""
 

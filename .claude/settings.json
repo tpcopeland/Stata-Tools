@@ -7,7 +7,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/scripts/session-context.sh"
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/scripts/session-context.sh"
           }
         ]
       }
@@ -18,29 +18,78 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/scripts/user-prompt-skill-router.sh"
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/scripts/user-prompt-skill-router.sh"
           }
         ]
       }
     ],
     "PreToolUse": [
       {
-        "matcher": "",
+        "matcher": "Task",
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/scripts/pre-tool-dispatcher.sh"
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/scripts/hooks/pre-block-task.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/scripts/hooks/pre-bash.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/scripts/hooks/pre-write-edit.sh"
           }
         ]
       }
     ],
     "PostToolUse": [
       {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/scripts/hooks/post-bash.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/scripts/hooks/post-write-edit.sh"
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
         "matcher": "",
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/scripts/post-tool-dispatcher.sh"
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/scripts/hooks/pre-compact.sh"
+          }
+        ]
+      }
+    ],
+    "PostToolUseFailure": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/scripts/hooks/post-bash-failure.sh"
           }
         ]
       }
@@ -51,7 +100,38 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/scripts/stop-hook-validation.sh"
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/scripts/stop-hook-validation.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "Check this session: (1) Was .ado code written? If yes, was code review done? (2) Were tests written? If yes, were they run? (3) Were package files modified? If yes, do versions match? If any mandatory step was missed, respond with what's still needed. If all steps were completed or not applicable, respond with nothing."
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "notify-send --app-name='Claude Code' --icon=dialog-information 'Claude Code' 'Waiting for input' 2>/dev/null || true"
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/scripts/hooks/session-end.sh"
           }
         ]
       }

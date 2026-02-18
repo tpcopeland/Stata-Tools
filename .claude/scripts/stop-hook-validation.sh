@@ -1,6 +1,6 @@
 #!/bin/bash
 # .claude/scripts/stop-hook-validation.sh
-# Stop hook - provides end-of-session validation and reminders
+# Stop hook - provides end-of-task validation and reminders
 # ADAPTED FOR: Stata package development
 
 # Get all git info in one call
@@ -31,7 +31,7 @@ if [ "$UNCOMMITTED_COUNT" -gt 0 ] && [ -n "$UNCOMMITTED" ]; then
         echo ""
         echo "Test Logs Modified:"
         echo "$NEW_LOGS" | while read -r file; do
-            if grep -qE "^r\([0-9]+" "$file" 2>/dev/null; then
+            if [ -f "$file" ] && grep -qE "^r\([0-9]+" "$file" 2>/dev/null; then
                 echo "  * $file (WARNING: has errors)"
             else
                 echo "  * $file"
@@ -42,19 +42,6 @@ else
     echo "All changes committed"
 fi
 
-# Check if development log should be created
-# Pattern ^r([0-9]\+) matches Stata error codes like r(111);
-RECENT_ERRORS=$(find . -name "*.log" -mmin -60 -exec grep -l '^r([0-9]\+)' {} \; 2>/dev/null | head -1)
-if [ -n "$RECENT_ERRORS" ]; then
-    echo ""
-    echo "[Log] Consider creating development log for recent test errors"
-    echo "   Template: _resources/templates/logs/development-log.md"
-fi
-
-# Reminder about workflow
-echo ""
-echo "-------------------------------------"
-echo "Next session: Review any failed tests and create development logs"
 echo ""
 
 exit 0

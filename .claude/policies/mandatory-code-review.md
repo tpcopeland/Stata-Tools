@@ -11,8 +11,8 @@ All generated or modified .ado code MUST be reviewed before commit.
 
 ## Workflow
 
-1. Generate/modify code using `/stata-develop` or `/stata-code-generator`
-2. Run `/code-reviewer` skill to review the code
+1. Generate/modify code using `/develop`
+2. Run `/review` skill to review the code
 3. Address all HIGH severity issues
 4. Only then proceed to commit
 
@@ -41,30 +41,8 @@ All generated or modified .ado code MUST be reviewed before commit.
 
 ## Enforcement
 
-The stop-hook-validation.sh script will remind you if .ado files were modified but the code-reviewer skill was not invoked during the session.
+The Stop hook prompt will check if .ado files were modified without code review during the session.
 
 ## Bypass
 
-In emergencies, you may skip code review by documenting the reason:
-
-```bash
-git commit -m "Emergency fix: [description]
-
-Skipped code review due to: [reason]
-Will review in follow-up commit.
-
-Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>"
-```
-
----
-
-## Rationale
-
-Code review catches:
-- 31-character macro name truncation bugs
-- Missing error handling
-- Batch mode incompatible commands (cls, pause, browse)
-- Undocumented options
-- Version synchronization issues
-
-These bugs are difficult to detect in testing but easy to catch in review.
+In emergencies, document the reason in the commit message and review in follow-up.

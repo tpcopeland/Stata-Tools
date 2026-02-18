@@ -270,21 +270,27 @@ local test9f_pass = 1
 * For RR > 1, E-value should be monotonically increasing
 * E-value(RR=3) > E-value(RR=2) > E-value(RR=1.5)
 
-local e_values ""
-foreach rr in 1.5 2.0 3.0 5.0 {
+* Use integer-indexed locals to avoid invalid names (e.g. e_1.5 is illegal in Stata)
+local rr_list "1.5 2.0 3.0 5.0"
+local n_list : word count `rr_list'
+forvalues i = 1/`n_list' {
+    local rr : word `i' of `rr_list'
     capture quietly tvsensitivity, rr(`rr')
     if _rc == 0 {
-        local e_`rr' = r(evalue)
+        local e_v`i' = r(evalue)
         local expected = `rr' + sqrt(`rr' * (`rr' - 1))
-        display "  INFO: RR=`rr', E-value=`e_`rr'' (expected=`expected')"
+        display "  INFO: RR=`rr', E-value=`e_v`i'' (expected=`expected')"
+    }
+    else {
+        local e_v`i' = .
     }
 }
 
-if `e_1.5' < `e_2.0' & `e_2.0' < `e_3.0' & `e_3.0' < `e_5.0' {
+if `e_v1' < `e_v2' & `e_v2' < `e_v3' & `e_v3' < `e_v4' {
     display as result "  PASS [9f.monotone]: E-values increase with RR (1.5<2.0<3.0<5.0)"
 }
 else {
-    display as error "  FAIL [9f.monotone]: E-values not monotone: `e_1.5', `e_2.0', `e_3.0', `e_5.0'"
+    display as error "  FAIL [9f.monotone]: E-values not monotone: `e_v1', `e_v2', `e_v3', `e_v4'"
     local test9f_pass = 0
 }
 

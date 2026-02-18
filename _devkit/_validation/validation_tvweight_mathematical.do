@@ -119,31 +119,47 @@ else {
 }
 
 * ============================================================================
-* TEST 8B: STABILIZED IPTW - MEAN ≈ 1.0 IN EACH GROUP
+* TEST 8B: STABILIZED IPTW - MEAN = 1.0 EXACTLY (DETERMINISTIC)
 * ============================================================================
 display _n _dup(60) "-"
-display "TEST 8B: Stabilized IPTW - mean ≈ 1.0 in each group"
+display "TEST 8B: Stabilized IPTW - mean = 1.0 in each group (deterministic)"
 display _dup(60) "-"
 
 local test8b_pass = 1
 
-* Stabilized IPTW has a known property:
-* E[IPTW_stab | A=1] ≈ 1 (marginal probability / conditional probability)
-* This follows from the Horvitz-Thompson theorem
+* Deterministic 4-cell balanced design (no random data → no convergence issues)
+* 70 obs: 25 (x1=1,trt=1), 10 (x1=1,trt=0), 10 (x1=0,trt=1), 25 (x1=0,trt=0)
+*
+* Logit model: logit(P) = alpha + beta*x1
+*   P(A=1|x1=1) = 25/35 = 5/7 ≈ 0.7143
+*   P(A=1|x1=0) = 10/35 = 2/7 ≈ 0.2857
+*   Marginal P(A=1) = 35/70 = 0.5
+*
+* Expected stabilized IPTW:
+*   x1=1, treated:   0.5 / (5/7) = 0.7
+*   x1=0, treated:   0.5 / (2/7) = 1.75
+*   x1=1, untreated: 0.5 / (2/7) = 1.75
+*   x1=0, untreated: 0.5 / (5/7) = 0.7
+*
+* Mean stab IPTW (treated)   = (25×0.7 + 10×1.75) / 35 = 35/35 = 1.0 exactly
+* Mean stab IPTW (untreated) = (10×1.75 + 25×0.7) / 35 = 35/35 = 1.0 exactly
 
 clear
-set obs 100
+set obs 70
 gen id = _n
-set seed 99999
+gen x1 = (_n <= 35)
+gen treatment = 0
+replace treatment = 1 if _n <= 25               // 25 with x1=1, treated
+replace treatment = 1 if _n > 35 & _n <= 45    // 10 with x1=0, treated
 
-* Confounded treatment: covariate x1 affects both treatment and outcome
-gen x1 = runiform() > 0.5
-gen x2 = runiform() > 0.4
-gen treatment = (x1 + x2 + runiform() > 1.5) * 1
-* ~25% treated
+* Verify cell counts
+quietly count if treatment == 1
+display "  INFO: n_treated = `r(N)' (expected 35)"
+quietly count if treatment == 0
+display "  INFO: n_untreated = `r(N)' (expected 35)"
 
 capture noisily tvweight treatment, ///
-    covariates(x1 x2) generate(iptw_stab) stabilized nolog replace
+    covariates(x1) generate(iptw_stab) stabilized nolog replace
 
 if _rc != 0 {
     display as error "  FAIL [8b.run]: tvweight returned error `=_rc'"
@@ -156,24 +172,23 @@ else {
     quietly sum iptw_stab if treatment == 0
     local mean_untreated = r(mean)
 
-    display "  INFO: Mean stabilized IPTW (treated) = `mean_treated'"
-    display "  INFO: Mean stabilized IPTW (untreated) = `mean_untreated'"
+    display "  INFO: Mean stabilized IPTW (treated) = `mean_treated' (expected 1.0)"
+    display "  INFO: Mean stabilized IPTW (untreated) = `mean_untreated' (expected 1.0)"
 
-    * For large samples, means should be close to 1
-    * We use a 20% tolerance since this is a random dataset
-    if abs(`mean_treated' - 1) < 0.2 {
-        display as result "  PASS [8b.treated]: mean stab IPTW (treated) ≈ 1 (=`mean_treated')"
+    * With deterministic data and balanced design, mean should be ≈1.0 (within 0.01)
+    if abs(`mean_treated' - 1) < 0.01 {
+        display as result "  PASS [8b.treated]: mean stab IPTW (treated) = `mean_treated' ≈ 1.0"
     }
     else {
-        display as error "  FAIL [8b.treated]: mean stab IPTW (treated) = `mean_treated', expected ≈ 1"
+        display as error "  FAIL [8b.treated]: mean stab IPTW (treated) = `mean_treated', expected 1.0"
         local test8b_pass = 0
     }
 
-    if abs(`mean_untreated' - 1) < 0.2 {
-        display as result "  PASS [8b.untreated]: mean stab IPTW (untreated) ≈ 1 (=`mean_untreated')"
+    if abs(`mean_untreated' - 1) < 0.01 {
+        display as result "  PASS [8b.untreated]: mean stab IPTW (untreated) = `mean_untreated' ≈ 1.0"
     }
     else {
-        display as error "  FAIL [8b.untreated]: mean stab IPTW (untreated) = `mean_untreated', expected ≈ 1"
+        display as error "  FAIL [8b.untreated]: mean stab IPTW (untreated) = `mean_untreated', expected 1.0"
         local test8b_pass = 0
     }
 
@@ -199,23 +214,30 @@ else {
 }
 
 * ============================================================================
-* TEST 8C: HORVITZ-THOMPSON IDENTITY (UNSTABILIZED IPTW)
+* TEST 8C: HORVITZ-THOMPSON IDENTITY (UNSTABILIZED IPTW) - EXACT VALUE
 * ============================================================================
 display _n _dup(60) "-"
-display "TEST 8C: Horvitz-Thompson: mean IPTW (treated) ≈ n_total/n_treated"
+display "TEST 8C: Horvitz-Thompson: mean IPTW (treated) = n_total/n_treated (exact)"
 display _dup(60) "-"
 
 local test8c_pass = 1
 
-* Horvitz-Thompson: E[1/PS | A=1] = n_total/n_treated in expectation
+* Reuse same 4-cell deterministic dataset as 8B:
+* n_total=70, n_treated=35, expected mean IPTW (treated) = 70/35 = 2.0 exactly
+*
+* Expected unstabilized IPTW:
+*   x1=1, treated (25 obs):   1 / (5/7) = 7/5 = 1.4
+*   x1=0, treated (10 obs):   1 / (2/7) = 7/2 = 3.5
+*   Mean IPTW (treated) = (25×1.4 + 10×3.5) / 35 = 70/35 = 2.0 exactly
+*   This equals n_total/n_treated = 70/35 = 2.0 (Horvitz-Thompson)
 
 clear
-set obs 200
+set obs 70
 gen id = _n
-set seed 54321
-
-gen x1 = runiform() > 0.6
-gen treatment = (x1 + runiform() > 1.2) * 1
+gen x1 = (_n <= 35)
+gen treatment = 0
+replace treatment = 1 if _n <= 25
+replace treatment = 1 if _n > 35 & _n <= 45
 
 quietly count
 local n_total = r(N)
@@ -223,7 +245,7 @@ quietly count if treatment == 1
 local n_treated = r(N)
 local ht_expected = `n_total' / `n_treated'
 
-display "  INFO: n_total=`n_total', n_treated=`n_treated', HT expected=`ht_expected'"
+display "  INFO: n_total=`n_total', n_treated=`n_treated', HT expected=`ht_expected' (expected 2.0)"
 
 capture noisily tvweight treatment, ///
     covariates(x1) generate(iptw) nolog replace
@@ -235,15 +257,15 @@ if _rc != 0 {
 else {
     quietly sum iptw if treatment == 1
     local mean_iptw_treated = r(mean)
-    display "  INFO: Mean unstabilized IPTW (treated) = `mean_iptw_treated', expected ≈ `ht_expected'"
+    display "  INFO: Mean unstabilized IPTW (treated) = `mean_iptw_treated', expected = `ht_expected'"
 
-    * Should be roughly equal (within 20% for random sample)
+    * With deterministic data, should match within 0.01
     local diff = abs(`mean_iptw_treated' - `ht_expected') / `ht_expected'
-    if `diff' < 0.3 {
-        display as result "  PASS [8c.ht]: IPTW mean ≈ n_total/n_treated (diff=`=100*`diff''%)"
+    if `diff' < 0.01 {
+        display as result "  PASS [8c.ht]: IPTW mean = `mean_iptw_treated' = n_total/n_treated (diff=`=100*`diff''%)"
     }
     else {
-        display as error "  FAIL [8c.ht]: IPTW mean=`mean_iptw_treated', expected≈`ht_expected' (diff=`=100*`diff''%)"
+        display as error "  FAIL [8c.ht]: IPTW mean=`mean_iptw_treated', expected=`ht_expected' (diff=`=100*`diff''%)"
         local test8c_pass = 0
     }
 }

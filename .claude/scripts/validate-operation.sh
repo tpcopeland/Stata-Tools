@@ -1,8 +1,10 @@
 #!/bin/bash
 # .claude/scripts/validate-operation.sh
-# PreToolUse hook - validates operations before execution
+# Shared validation logic - sourced by pre-bash.sh and pre-write-edit.sh
+# Validates operations before execution
 # ADAPTED FOR: Stata package development
 
+# These should already be set by the calling hook via _read-hook-input.sh
 TOOL_NAME="$CLAUDE_TOOL_NAME"
 FILE_PATH="$CLAUDE_TOOL_INPUT_FILE_PATH"
 COMMAND="$CLAUDE_TOOL_INPUT_COMMAND"
@@ -14,7 +16,6 @@ PROTECTED_PATTERNS=(
     "stata.toc"
     ".claude/settings.json"
     ".claude/skills/README.md"
-    "_resources/context/"
 )
 
 # Check if file matches protected patterns (for Write/Edit operations)
@@ -55,7 +56,7 @@ if [[ "$TOOL_NAME" == "Bash" ]] && [ -n "$COMMAND" ]; then
     if echo "$COMMAND" | grep -qE "rm\s+(-rf?|--force)\s+\.claude"; then
         echo "BLOCKED: Destructive command on .claude directory"
         echo "   Command: $COMMAND"
-        exit 2  # Block the operation
+        exit 2
     fi
 
     # Block rm -rf on root-level important files
@@ -67,13 +68,13 @@ if [[ "$TOOL_NAME" == "Bash" ]] && [ -n "$COMMAND" ]; then
     # Warn about git push --force
     if echo "$COMMAND" | grep -qE "git\s+push\s+.*--force"; then
         echo "WARNING: Force push detected - proceed with caution"
-        exit 0  # Warning only
+        exit 0
     fi
 
     # Warn about git reset --hard
     if echo "$COMMAND" | grep -qE "git\s+reset\s+--hard"; then
         echo "WARNING: Hard reset detected - this discards uncommitted changes"
-        exit 0  # Warning only
+        exit 0
     fi
 
     # Warn about branch deletion of main
@@ -85,7 +86,7 @@ if [[ "$TOOL_NAME" == "Bash" ]] && [ -n "$COMMAND" ]; then
     # Warn about running Stata without stata-mp
     if echo "$COMMAND" | grep -qE '\bstata\b|\bstata-se\b' && ! echo "$COMMAND" | grep -qE '\bstata-mp\b'; then
         echo "WARNING: Use stata-mp (multiprocessor) instead of stata or stata-se"
-        exit 0  # Warning only
+        exit 0
     fi
 fi
 
