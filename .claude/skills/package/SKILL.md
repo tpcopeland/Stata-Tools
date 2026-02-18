@@ -130,5 +130,5 @@ Required files per package:
 
 | When | Use |
 |------|-----|
-| Tests fail, code needs fixing | `/develop` then `/review` |
+| Tests fail, code needs fixing | `/develop` then `/reviewer` |
 | Writing new tests | `/test` |

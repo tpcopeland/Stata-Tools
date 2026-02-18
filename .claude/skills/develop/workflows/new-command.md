@@ -32,6 +32,6 @@ Or manually:
 ## Step 5: Validate
 1. Run validate-ado.sh
 2. Run check-versions.sh
-3. Invoke `/review`
+3. Invoke `/reviewer`
 4. Create tests with `/test`
 5. Run tests with stata-mp

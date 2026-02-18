@@ -11,24 +11,24 @@ Skills are "expertise hats" that provide domain-specific workflows, quality gate
 | Skill | Slash Command | Purpose |
 |-------|---------------|---------|
 | `develop` | `/develop` | Create/modify .ado commands, add features, fix bugs, generate code |
-| `review` | `/review` | Code review, audit, pattern detection, quality scoring |
+| `reviewer` | `/reviewer` | Code review, audit, pattern detection, quality scoring |
 | `test` | `/test` | Write functional tests and validation tests |
 | `package` | `/package` | Run tests, validate structure, parse logs, check coverage |
 
 ## Mandatory Workflow
 
 ```
-/develop → /review → /test → /package
+/develop → /reviewer → /test → /package
 ```
 
-After writing .ado code, you MUST run `/review`. After review approval, write tests with `/test` and run them with `/package`.
+After writing .ado code, you MUST run `/reviewer`. After review approval, write tests with `/test` and run them with `/package`.
 
 ## Invoking Skills
 
 ### Method 1: Slash Commands (User)
 ```
 /develop
-/review
+/reviewer
 /test
 /package
 ```
@@ -36,7 +36,7 @@ After writing .ado code, you MUST run `/review`. After review approval, write te
 ### Method 2: Skill Tool (Claude)
 ```
 Skill(skill="develop")
-Skill(skill="review")
+Skill(skill="reviewer")
 ```
 
 ### Method 3: Natural Language (Automatic)
@@ -79,8 +79,8 @@ The `user-prompt-skill-router.sh` hook detects keywords and suggests skills.
 | Add a feature to existing command | `/develop` |
 | Fix a bug in .ado file | `/develop` |
 | Generate code from requirements | `/develop` |
-| Review code for bugs/style | `/review` |
-| Audit .ado file | `/review` |
+| Review code for bugs/style | `/reviewer` |
+| Audit .ado file | `/reviewer` |
 | Write functional tests | `/test` |
 | Write validation tests | `/test` |
 | Run tests and check results | `/package` |

@@ -30,7 +30,7 @@
 - Update ALL files: .ado, .sthlp, .pkg, README.md
 
 ## Step 6: Validate
-1. Run `/review`
+1. Run `/reviewer`
 2. Update existing tests
 3. Add new tests for new features
 4. Run all tests

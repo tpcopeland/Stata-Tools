@@ -80,7 +80,7 @@ echo "Cross-Reference Tests"
 echo "---------------------"
 
 # Test: CLAUDE.md references all 4 new skills
-for skill in "develop" "review" "test" "package"; do
+for skill in "develop" "reviewer" "test" "package"; do
     test_start "CLAUDE.md references /$skill"
     if grep -q "/$skill" "$REPO_ROOT/CLAUDE.md" 2>/dev/null; then test_pass; else test_fail "CLAUDE.md missing /$skill"; fi
 done
@@ -93,14 +93,14 @@ for old in "${OLD_SKILLS[@]}"; do
 done
 
 # Test: Skills README references all skills
-for skill in "develop" "review" "test" "package"; do
+for skill in "develop" "reviewer" "test" "package"; do
     test_start "Skills README references $skill"
     if grep -q "$skill" "$CLAUDE_DIR/skills/README.md" 2>/dev/null; then test_pass; else test_fail "Skills README missing $skill"; fi
 done
 
 # Test: Router script references all new skill names
 ROUTER="$CLAUDE_DIR/scripts/user-prompt-skill-router.sh"
-for skill in "develop" "review" "test" "package"; do
+for skill in "develop" "reviewer" "test" "package"; do
     test_start "Router references $skill"
     if grep -q "\"$skill\"" "$ROUTER" 2>/dev/null; then test_pass; else test_fail "Router missing $skill"; fi
 done

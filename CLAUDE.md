@@ -37,11 +37,11 @@
 After writing or modifying .ado code, follow this chain:
 
 ```
-/develop → /review → /test → /package
+/develop → /reviewer → /test → /package
 ```
 
 1. Write/modify code with `/develop`
-2. Review code with `/review` (MANDATORY before commit)
+2. Review code with `/reviewer` (MANDATORY before commit)
 3. Write tests with `/test`
 4. Run tests and validate with `/package`
 
@@ -70,7 +70,7 @@ After writing or modifying .ado code, follow this chain:
 | Skill | Purpose |
 |-------|---------|
 | `/develop` | Create/modify commands, add features, fix bugs, generate code |
-| `/review` | Code review, audit, pattern detection, quality scoring |
+| `/reviewer` | Code review, audit, pattern detection, quality scoring |
 | `/test` | Write functional tests and validation tests |
 | `/package` | Run tests, validate structure, parse logs, check coverage |
 
@@ -193,7 +193,7 @@ Run: `.claude/scripts/check-versions.sh [package]`
 
 Quality enforcement policies in `.claude/policies/`:
 
-- **mandatory-code-review.md** - Run `/review` after code generation
+- **mandatory-code-review.md** - Run `/reviewer` after code generation
 - **test-before-commit.md** - Tests must pass before committing
 - **version-consistency.md** - Versions must match across files
 - **no-subagents.md** - Never use Task tool for subagents

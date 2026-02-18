@@ -40,7 +40,7 @@ test_fail() {
 }
 
 # Expected skills
-EXPECTED_SKILLS=("develop" "review" "test" "package")
+EXPECTED_SKILLS=("develop" "reviewer" "test" "package")
 
 echo "Skill Directory Tests"
 echo "---------------------"

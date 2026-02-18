@@ -3,10 +3,10 @@
 ## Mandatory Workflow Chain
 
 ```
-/develop → /review → /test → /package
+/develop → /reviewer → /test → /package
 ```
 
-1. After writing or modifying .ado code, ALWAYS invoke `/review`
+1. After writing or modifying .ado code, ALWAYS invoke `/reviewer`
 2. After review approval, write tests with `/test`
 3. Run tests and validate structure with `/package`
 
@@ -14,14 +14,14 @@
 
 | From | To | When |
 |------|----|----|
-| `/develop` | `/review` | After writing code (MANDATORY) |
+| `/develop` | `/reviewer` | After writing code (MANDATORY) |
 | `/develop` | `/test` | After review approval |
-| `/review` | `/develop` | When fixes are needed |
-| `/review` | `/test` | After review approval |
+| `/reviewer` | `/develop` | When fixes are needed |
+| `/reviewer` | `/test` | After review approval |
 | `/test` | `/develop` | When tests reveal bugs |
 | `/test` | `/package` | To run tests |
 | `/package` | `/develop` | When tests fail |
-| `/package` | `/review` | When code needs review |
+| `/package` | `/reviewer` | When code needs review |
 
 ## Which Skill for Which Task
 
@@ -31,9 +31,9 @@
 | Add feature to existing command | `/develop` |
 | Fix bug in .ado file | `/develop` |
 | Generate code from requirements | `/develop` |
-| Review code for bugs/style | `/review` |
-| Audit .ado file systematically | `/review` |
-| Score code quality | `/review` |
+| Review code for bugs/style | `/reviewer` |
+| Audit .ado file systematically | `/reviewer` |
+| Score code quality | `/reviewer` |
 | Write functional tests | `/test` |
 | Write validation/correctness tests | `/test` |
 | Run tests and parse results | `/package` |

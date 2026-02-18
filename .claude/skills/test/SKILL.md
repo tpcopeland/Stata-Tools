@@ -126,7 +126,7 @@ Run `.claude/scripts/check-test-coverage.sh` to see which packages are missing t
 | When | Use |
 |------|-----|
 | Fixing code bugs found by tests | `/develop` |
-| Reviewing test quality | `/review` |
+| Reviewing test quality | `/reviewer` |
 | Running tests and parsing results | `/package` |
 
 ## Reference Files

@@ -1,5 +1,5 @@
 ---
-name: review
+name: reviewer
 description: Code review and audit for Stata package code - bug detection, pattern analysis, scoring
 metadata:
   version: "2.0.0"

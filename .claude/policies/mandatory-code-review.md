@@ -12,7 +12,7 @@ All generated or modified .ado code MUST be reviewed before commit.
 ## Workflow
 
 1. Generate/modify code using `/develop`
-2. Run `/review` skill to review the code
+2. Run `/reviewer` skill to review the code
 3. Address all HIGH severity issues
 4. Only then proceed to commit
 

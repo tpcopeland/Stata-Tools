@@ -32,6 +32,6 @@ The `pre-block-task.sh` hook blocks all Task tool calls with a JSON deny respons
 ## Skills Available
 
 - `/develop` - Create/modify .ado commands
-- `/review` - Code review and audit
+- `/reviewer` - Code review and audit
 - `/test` - Write functional and validation tests
 - `/package` - Run tests and validate structure

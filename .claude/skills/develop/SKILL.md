@@ -90,7 +90,7 @@ Run: `.claude/scripts/check-versions.sh [package]`
 
 1. Run static validation: `.claude/validators/validate-ado.sh command/command.ado`
 2. Check versions: `.claude/scripts/check-versions.sh command`
-3. **Invoke `/review`** (MANDATORY for new/modified .ado code)
+3. **Invoke `/reviewer`** (MANDATORY for new/modified .ado code)
 4. Create tests with `/test`
 5. Run tests with `stata-mp -b do test_file.do`
 
@@ -98,7 +98,7 @@ Run: `.claude/scripts/check-versions.sh [package]`
 
 | When | Use |
 |------|-----|
-| After writing code | `/review` (MANDATORY) |
+| After writing code | `/reviewer` (MANDATORY) |
 | Writing tests | `/test` |
 | Running tests & validating package | `/package` |
 

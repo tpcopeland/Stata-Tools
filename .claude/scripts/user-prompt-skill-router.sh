@@ -19,8 +19,8 @@ declare -A SKILL_ROUTES=(
     # /develop - create/modify .ado commands, add features, fix bugs, generate code
     ["develop"]="create.*command|new.*command|fix.*bug|add.*feature|modify.*ado|develop.*ado|implement.*feature|write.*ado|scaffold.*command|generate.*code|generate.*ado|boilerplate|code.*from.*requirements|stata.*code"
 
-    # /review - code review, audit, pattern detection, scoring
-    ["review"]="review.*code|check.*ado|validate.*code|code.*review|review.*ado|check.*syntax|bug.*fix|debug|review.*command|style.*check|audit.*code|audit.*ado|mental.*execution|check.*error.*pattern"
+    # /reviewer - code review, audit, pattern detection, scoring
+    ["reviewer"]="review.*code|check.*ado|validate.*code|code.*review|review.*ado|check.*syntax|bug.*fix|debug|review.*command|style.*check|audit.*code|audit.*ado|mental.*execution|check.*error.*pattern"
 
     # /test - functional testing + validation testing
     ["test"]="write.*test|create.*test|functional.*test|test.*file|test_.*\.do|testing.*workflow|validation.*test|validate.*output|verify.*correct|known.*answer|correctness.*test|validation_.*\.do"

@@ -184,12 +184,12 @@ else
     test_fail "Expected /develop suggestion"
 fi
 
-test_start "skill router suggests /review for 'review code'"
+test_start "skill router suggests /reviewer for 'review code'"
 OUTPUT=$(echo '{"prompt":"review this ado code"}' | bash "$SCRIPTS_DIR/user-prompt-skill-router.sh" 2>/dev/null)
-if echo "$OUTPUT" | grep -q "/review"; then
+if echo "$OUTPUT" | grep -q "/reviewer"; then
     test_pass
 else
-    test_fail "Expected /review suggestion"
+    test_fail "Expected /reviewer suggestion"
 fi
 
 test_start "skill router suggests /test for 'write test'"
