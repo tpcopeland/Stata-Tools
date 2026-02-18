@@ -329,14 +329,14 @@ if _rc == 0 {
     local n_output = r(N)
     display as result "  PASS [tvtrial.run]: ran without error, `n_output' rows created"
 
-    * Check for expected trial variables
-    capture confirm variable trial_id
-    local has_trial_id = (_rc == 0)
-    if `has_trial_id' {
-        display as result "  PASS [tvtrial.trial_id]: trial_id variable created"
+    * Check for expected trial variables (tvtrial creates trial_trial, not trial_id)
+    capture confirm variable trial_trial
+    local has_trial_var = (_rc == 0)
+    if `has_trial_var' {
+        display as result "  PASS [tvtrial.trial_var]: trial_trial variable created"
     }
     else {
-        display as error "  FAIL [tvtrial.trial_id]: trial_id variable not found"
+        display as error "  FAIL [tvtrial.trial_var]: trial_trial variable not found"
         quietly ds
         local vlist = r(varlist)
         display "  Variables: `vlist'"

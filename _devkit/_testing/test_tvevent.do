@@ -90,7 +90,13 @@ else {
     }
 }
 
-global TESTING_DIR "${STATA_TOOLS_PATH}/_testing"
+* Validate path - if tvtools directory not found, try one more level up
+capture confirm file "${STATA_TOOLS_PATH}/tvtools/stata.toc"
+if _rc != 0 {
+    global STATA_TOOLS_PATH "${STATA_TOOLS_PATH}/.."
+}
+
+global TESTING_DIR "${STATA_TOOLS_PATH}/_devkit/_testing"
 global DATA_DIR "${TESTING_DIR}/data"
 cd "${DATA_DIR}"
 
