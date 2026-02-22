@@ -25,7 +25,7 @@ echo "To add to Claude Code settings, add this to mcpServers in settings.json:"
 echo ""
 echo '  "stata-library": {'
 echo '    "command": "'"$SCRIPT_DIR"'/.venv/bin/python",'
-echo '    "args": ["-m", "mcp.server.fastmcp", "'"$SCRIPT_DIR"'/server.py"]'
+echo '    "args": ["'"$SCRIPT_DIR"'/server.py"]'
 echo '  }'
 echo ""
 echo "Or run directly:"

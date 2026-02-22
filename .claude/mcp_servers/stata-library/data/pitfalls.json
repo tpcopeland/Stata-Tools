@@ -1,0 +1,83 @@
+[
+  {
+    "id": "macro_name_truncation",
+    "title": "Macro name > 31 chars causes silent truncation",
+    "category": "macro",
+    "keywords": ["macro", "local", "tempvar", "truncation", "collision", "31"],
+    "description": "Stata silently truncates macro names longer than 31 characters. Two macros whose first 31 characters match will collide. Use `substr(varname, 1, 30)` with a 1-char prefix when building names from variable names.",
+    "example_wrong": "local very_long_variable_name_that_exceeds_limit = 1",
+    "example_right": "local short_name = 1\n* Or: local pfx_`=substr(\"`var'\", 1, 27)' = 1"
+  },
+  {
+    "id": "display_n_vs_newline",
+    "title": "_n in display context is observation number, not newline",
+    "category": "display",
+    "keywords": ["display", "_n", "_newline", "newline", "observation"],
+    "description": "In `display` context, `_n` refers to the current observation number, not a newline. Use `_newline` (or an empty `display \"\"`) for line breaks.",
+    "example_wrong": "display \"Result: \" _n \"More text\"",
+    "example_right": "display \"Result: \" _newline \"More text\""
+  },
+  {
+    "id": "dup_not_string_multiply",
+    "title": "Use _dup(N) for character repetition, not \"str\" * N",
+    "category": "display",
+    "keywords": ["display", "_dup", "repeat", "string", "multiply"],
+    "description": "Stata does not support Python-style string multiplication. Use `_dup(N) \"char\"` to repeat characters in display output.",
+    "example_wrong": "display \"=\" * 60",
+    "example_right": "display _dup(60) \"=\""
+  },
+  {
+    "id": "preserve_restore_generate",
+    "title": "Variables created after preserve are lost on restore",
+    "category": "data",
+    "keywords": ["preserve", "restore", "generate", "variable", "lost"],
+    "description": "When using `preserve`/`restore`, any variables created with `generate()` after `preserve` are lost when `restore` runs. If your program has a generate() option, create the output variable before `preserve` or avoid using preserve/restore entirely.",
+    "example_wrong": "preserve\ngen double result = .\n* ... computation fills result ...\nrestore  // result is gone!",
+    "example_right": "gen double `generate' = .\npreserve\n* ... computation ...\nrestore  // `generate' survives"
+  },
+  {
+    "id": "local_no_dots",
+    "title": "Stata local names cannot contain dots",
+    "category": "macro",
+    "keywords": ["local", "macro", "dot", "period", "name", "illegal"],
+    "description": "Stata local macro names cannot contain dots. Names like `e_1.5` are illegal and will cause errors. Use integer indices or underscores instead.",
+    "example_wrong": "local e_1.5 = \"some value\"",
+    "example_right": "local e_1_5 = \"some value\"\n* Or use integer index: local e_`i' = \"some value\""
+  },
+  {
+    "id": "float_vs_double",
+    "title": "float precision loss — always use gen double",
+    "category": "precision",
+    "keywords": ["float", "double", "precision", "generate", "numeric"],
+    "description": "Stata's default `float` type has only ~7 digits of precision. Always use `gen double` for numeric variables to avoid precision loss, especially with dates, IDs, and monetary values.",
+    "example_wrong": "gen total_cost = price * quantity",
+    "example_right": "gen double total_cost = price * quantity"
+  },
+  {
+    "id": "undeclared_ssc_dependency",
+    "title": "SSC package dependencies must be declared",
+    "category": "dependencies",
+    "keywords": ["ssc", "dependency", "distinct", "package", "install"],
+    "description": "If your .ado command uses SSC packages (like `distinct`), users need them installed. Either declare the dependency clearly in help files and error messages, or avoid the dependency by using built-in alternatives like `tab` for unique counts.",
+    "example_wrong": "* Uses distinct without checking\ndistinct `idvar' if `touse'",
+    "example_right": "capture which distinct\nif _rc {\n    di as error \"distinct required: ssc install distinct\"\n    exit 199\n}"
+  },
+  {
+    "id": "levelsof_vs_tab",
+    "title": "levelsof vs tab for unique value counts",
+    "category": "performance",
+    "keywords": ["levelsof", "tab", "unique", "count", "levels", "distinct"],
+    "description": "`levelsof` returns actual values and can hit macro length limits with many levels. For just counting unique values, `tab var` with `r(r)` is more efficient and doesn't have the macro length problem.",
+    "example_wrong": "levelsof `idvar', local(ids)\nlocal n_ids: word count `ids'",
+    "example_right": "quietly tab `idvar'\nlocal n_ids = r(r)"
+  },
+  {
+    "id": "program_cache",
+    "title": "Stata caches program definitions — must drop and rerun",
+    "category": "development",
+    "keywords": ["program", "cache", "drop", "run", "reload", "define"],
+    "description": "Stata caches `program define` in memory. When editing .ado files during development, you must `capture program drop` and `run` the file to reload changes. Otherwise Stata uses the old cached version.",
+    "example_wrong": "* Edit mycommand.ado, then just call:\nmycommand args",
+    "example_right": "capture program drop mycommand\nrun mycommand.ado\nmycommand args"
+  }
+]

@@ -659,6 +659,49 @@
     "file": "setools/setools.sthlp"
   },
   {
+    "name": "cci_se",
+    "package": "setools",
+    "purpose": "}Swedish Charlson Comorbidity Index using ICD-7 through ICD-10",
+    "syntax": "{p 8 15 2} cci_se , {opt id(varname)} {opt icd(varname)} {opt date(varname)} [options] {synoptset 28 tabbed} Required {opt id(varname)}patient identifier variable {opt icd(varname)}string variable containing ICD diagnosis codes {opt date(varname)}date variable (Stata date, YYYYMMDD, or string) Optional {opt gen:erate(name)}name for Charlson score variable; default is charlson {opt comp:onents}generate binary indicator variables for each comorbidity {opt prefix(string)}prefix for component variable names; default is cci_ {opt datef:ormat(string)}date format: stata, yyyymmdd, or ymd {opt noi:sily}display summary of results {p2colreset}",
+    "options": {
+      "id(varname)": "patient identifier variable",
+      "icd(varname)": "string variable containing ICD diagnosis codes",
+      "date(varname)": "date variable (Stata date, YYYYMMDD, or string)",
+      "gen:erate(name)": "name for Charlson score variable; default is",
+      "comp:onents": "generate binary indicator variables for each comorbidity",
+      "prefix(string)": "prefix for component variable names; default is",
+      "datef:ormat(string)": "date format:",
+      "noi:sily": "display summary of results"
+    },
+    "results": {
+      "scalars": [
+        {
+          "name": "N_input",
+          "description": "number of input observations used"
+        },
+        {
+          "name": "N_patients",
+          "description": "number of unique patients in output"
+        },
+        {
+          "name": "N_any",
+          "description": "number of patients with CCI > 0"
+        },
+        {
+          "name": "mean_cci",
+          "description": "mean Charlson score"
+        },
+        {
+          "name": "max_cci",
+          "description": "maximum Charlson score"
+        }
+      ],
+      "macros": [],
+      "matrices": []
+    },
+    "file": "setools/cci_se.sthlp"
+  },
+  {
     "name": "migrations",
     "package": "setools",
     "purpose": "}Process Swedish migration registry data for cohort studies",
@@ -1085,7 +1128,7 @@
     "name": "synthdata",
     "package": "synthdata",
     "purpose": "Generate realistic synthetic datasets preserving statistical properties",
-    "syntax": "{p 8 17 2} synthdata [] , [options] {synoptset 28 tabbed} Output {opt n(#)}number of synthetic observations; default is same as original {opt sav:ing(filename)}save synthetic data to file {opt replace}replace current data with synthetic version {opt clear}clear current data and load synthetic {opt pre:fix(string)}prefix for synthetic variable names {opt mul:tiple(#)}generate # synthetic datasets Synthesis Method {opt smart}adaptive synthesis with automatic optimizations (recommended) {opt complex}smart + date ordering enforcement + frequency validation {opt para:metric}parametric synthesis via Cholesky decomposition (default) {opt seq:uential}sequential regression synthesis {opt boot:strap}bootstrap with perturbation {opt perm:ute}independent permutation (null/baseline) Method Modifiers {opt emp:irical}use empirical quantiles for marginals {opt autoemp:irical}auto-detect non-normal distributions {opt noise(#)}perturbation SD as fraction of variable SD; default 0.1 {opt smooth}kernel density estimation for continuous variables Variable Type {opt cat:egorical(varlist)}force treatment as categorical {opt cont:inuous(varlist)}force treatment as continuous {opt int:eger(varlist)}force treatment as integer (whole numbers) {opt skip(varlist)}exclude from synthesis {opt id(varlist)}ID variables; generate new sequential IDs {opt dat:es(varlist)}ensure date constraints Relationship Preservation {opt corr:elations}preserve correlation matrix structure {opt cond:itional}preserve conditional distributions for categoricals {opt const:raints(string)}user-specified constraints {opt autocons:traints}auto-detect logical constraints {opt autorel:ate}auto-detect derived variables (sums, ratios) {opt cond:itionalcat}preserve categorical associations Panel/Longitudinal {opt panel(id time)}preserve panel structure {opt preservevar(varlist)}variables constant within panel unit {opt autocorr(#)}preserve autocorrelation up to # lags {opt rowdist(method)}row-count distribution: empirical, parametric, or exact Realism Enhancements {opt cond:itionalcont}stratify continuous synthesis by categorical levels {opt rand:omeffects}add within-ID random effects for panel data {opt missp:attern}preserve missingness patterns (not just rates) {opt trends}preserve within-ID temporal trends {opt trans:form}auto-transform skewed variables (experimental) Privacy/Disclosure Control {opt mincell(#)}rare category protection; default 5 {opt trim(#)}trim extreme values at #th percentile {opt bounds(spec)}enforce min/max bounds {opt noext:reme}prevent values outside observed range {opt priv:acycheck}enable privacy distance check (experimental) {opt privacysample(#)}number of records to sample for privacy check; default 0 (off) {opt privacythresh(#)}minimum distance threshold; default 0.05 Validation/Diagnostics {opt com:pare}produce comparison report {opt val:idate(filename)}save validation statistics {opt util:ity}compute utility metrics {opt graph}produce overlay density plots {opt freq:check}validate categorical frequency distributions Technical {opt seed(#)}random seed for reproducibility {opt iter:ate(#)}max iterations for constraints; default 100 {opt tol:erance(#)}convergence tolerance; default 1e-6",
+    "syntax": "{p 8 17 2} synthdata [] , [options] {synoptset 28 tabbed} Output {opt n(#)}number of synthetic observations; default is same as original {opt sav:ing(filename)}save synthetic data to file {opt replace}replace current data with synthetic version {opt clear}clear current data and load synthetic {opt pre:fix(string)}prefix for synthetic variable names {opt mul:tiple(#)}generate # synthetic datasets Synthesis Method {opt smart}adaptive synthesis with automatic optimizations (recommended) {opt complex}smart + date ordering enforcement + frequency validation {opt para:metric}parametric synthesis via Cholesky decomposition (default) {opt seq:uential}sequential regression synthesis {opt boot:strap}bootstrap with perturbation {opt perm:ute}independent permutation (null/baseline) Method Modifiers {opt emp:irical}use empirical quantiles for marginals {opt autoemp:irical}auto-detect non-normal distributions {opt noise(#)}perturbation SD as fraction of variable SD; default 0.1 {opt smooth}kernel density estimation for continuous variables Variable Type {opt cat:egorical(varlist)}force treatment as categorical {opt cont:inuous(varlist)}force treatment as continuous {opt int:eger(varlist)}force treatment as integer (whole numbers) {opt skip(varlist)}exclude from synthesis {opt id(varlist)}ID variables; generate new sequential IDs {opt dat:es(varlist)}ensure date constraints Relationship Preservation {opt corr:elations}preserve correlation matrix structure {opt cond:itional}preserve conditional distributions for categoricals {opt const:raints(string)}user-specified constraints {opt autocons:traints}auto-detect logical constraints {opt autorel:ate}auto-detect derived variables (sums, ratios) {opt cond:itionalcat}preserve categorical associations Panel/Longitudinal {opt panel(id time)}preserve panel structure {opt preservevar(varlist)}variables constant within panel unit {opt autocorr(#)}preserve autocorrelation up to # lags {opt rowdist(method)}row-count distribution: empirical, parametric, or exact Realism Enhancements {opt cond:itionalcont}stratify continuous synthesis by categorical levels {opt rand:omeffects}add within-ID random effects for panel data {opt missp:attern}preserve missingness patterns (not just rates) {opt trends}preserve within-ID temporal trends {opt trans:form}auto-transform skewed variables (experimental) Index Date Anchoring {opt indexdate(varname)}anchor date variable for offset-based synthesis {opt indexfrom(spec)}merge index date from external file {opt datenoise(#)}SD of Gaussian noise added to date offsets; default 14 days Privacy/Disclosure Control {opt mincell(#)}rare category protection; default 5 {opt trim(#)}trim extreme values at #th percentile {opt bounds(spec)}enforce min/max bounds {opt noext:reme}prevent values outside observed range {opt priv:acycheck}enable privacy distance check (experimental) {opt privacysample(#)}number of records to sample for privacy check; default 0 (off) {opt privacythresh(#)}minimum distance threshold; default 0.05 Validation/Diagnostics {opt com:pare}produce comparison report {opt val:idate(filename)}save validation statistics {opt util:ity}compute utility metrics {opt graph}produce overlay density plots {opt freq:check}validate categorical frequency distributions Technical {opt seed(#)}random seed for reproducibility {opt iter:ate(#)}max iterations for constraints; default 100 {opt tol:erance(#)}convergence tolerance; default 1e-6",
     "options": {
       "n(#)": "number of synthetic observations; default is same as original",
       "sav:ing(filename)": "save synthetic data to file",
@@ -1124,6 +1167,9 @@
       "missp:attern": "preserve missingness patterns (not just rates)",
       "trends": "preserve within-ID temporal trends",
       "trans:form": "auto-transform skewed variables (experimental)",
+      "indexdate(varname)": "anchor date variable for offset-based synthesis",
+      "indexfrom(spec)": "merge index date from external file",
+      "datenoise(#)": "SD of Gaussian noise added to date offsets; default 14 days",
       "mincell(#)": "rare category protection; default 5",
       "trim(#)": "trim extreme values at #th percentile",
       "bounds(spec)": "enforce min/max bounds",
