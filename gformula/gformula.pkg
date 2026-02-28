@@ -1,0 +1,29 @@
+v 3
+d 'GFORMULA': G-computation formula via Monte Carlo simulation
+d
+d Implements Robins' parametric g-computation formula for estimating
+d causal effects in the presence of time-varying confounding and for
+d causal mediation analysis. Uses Monte Carlo simulation with
+d bootstrap inference.
+d
+d Forked from SSC gformula v1.16 beta (Rhian Daniel, 2021) with
+d bug fixes, modernization, and SSC dependency removal.
+d
+d Requires: Stata version 16+
+d
+d Distribution-Date: 20260228
+d License: MIT
+d
+d Author: Timothy P Copeland (fork)
+d Karolinska Institutet
+d
+d Original author: Rhian Daniel (LSHTM)
+d
+d KW: g-computation
+d KW: causal inference
+d KW: mediation
+d KW: time-varying confounding
+d KW: Monte Carlo simulation
+d
+f gformula.ado
+f gformula.sthlp

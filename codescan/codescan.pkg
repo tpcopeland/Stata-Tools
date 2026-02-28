@@ -1,0 +1,28 @@
+v 3
+d 'CODESCAN': Scan wide-format code variables for pattern matches
+d
+d Scans wide-format code variables (dx1-dx30, proc1-proc20, etc.)
+d for pattern matches using regex or prefix matching. Generates
+d binary indicators, applies time windows, and collapses to
+d patient-level summaries. Works with ICD, KVA, CPT, ATC, OPCS,
+d or any string code system.
+d
+d Requires: Stata version 16+
+d
+d Distribution-Date: 20260227
+d License: MIT
+d
+d Author: Timothy P Copeland
+d Department of Clinical Neuroscience
+d Karolinska Institutet
+d
+d KW: codescan
+d KW: ICD
+d KW: diagnosis codes
+d KW: procedure codes
+d KW: registry
+d KW: claims
+d KW: pattern matching
+d
+f codescan.ado
+f codescan.sthlp

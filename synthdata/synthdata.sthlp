@@ -1,0 +1,642 @@
+{smcl}
+{* *! version 1.8.0  27feb2026}{...}
+{viewerjumpto "Syntax" "synthdata##syntax"}{...}
+{viewerjumpto "Description" "synthdata##description"}{...}
+{viewerjumpto "Options" "synthdata##options"}{...}
+{viewerjumpto "Methods" "synthdata##methods"}{...}
+{viewerjumpto "Examples" "synthdata##examples"}{...}
+{viewerjumpto "Stored results" "synthdata##results"}{...}
+{viewerjumpto "Author" "synthdata##author"}{...}
+{title:Title}
+
+{phang}
+{bf:synthdata} {hline 2} Generate realistic synthetic datasets preserving statistical properties
+
+
+{marker syntax}{...}
+{title:Syntax}
+
+{p 8 17 2}
+{cmdab:synthdata}
+[{varlist}]
+{ifin}
+{cmd:,} [{it:options}]
+
+{synoptset 28 tabbed}{...}
+{synopthdr}
+{synoptline}
+{syntab:Output}
+{synopt:{opt n(#)}}number of synthetic observations; default is same as original{p_end}
+{synopt:{opt sav:ing(filename)}}save synthetic data to file{p_end}
+{synopt:{opt replace}}replace current data with synthetic version{p_end}
+{synopt:{opt clear}}clear current data and load synthetic{p_end}
+{synopt:{opt pre:fix(string)}}prefix for synthetic variable names{p_end}
+{synopt:{opt mul:tiple(#)}}generate # synthetic datasets{p_end}
+
+{syntab:Synthesis Method}
+{synopt:{opt smart}}adaptive synthesis with automatic optimizations (recommended){p_end}
+{synopt:{opt complex}}smart + date ordering enforcement + frequency validation{p_end}
+{synopt:{opt para:metric}}parametric synthesis via Cholesky decomposition (default){p_end}
+{synopt:{opt seq:uential}}sequential regression synthesis{p_end}
+{synopt:{opt boot:strap}}bootstrap with perturbation{p_end}
+{synopt:{opt perm:ute}}independent permutation (null/baseline){p_end}
+
+{syntab:Method Modifiers}
+{synopt:{opt emp:irical}}use empirical quantiles for marginals{p_end}
+{synopt:{opt autoemp:irical}}auto-detect non-normal distributions{p_end}
+{synopt:{opt noise(#)}}perturbation SD as fraction of variable SD; default 0.1{p_end}
+{synopt:{opt smooth}}kernel density estimation for continuous variables{p_end}
+
+{syntab:Variable Type}
+{synopt:{opt cat:egorical(varlist)}}force treatment as categorical{p_end}
+{synopt:{opt cont:inuous(varlist)}}force treatment as continuous{p_end}
+{synopt:{opt int:eger(varlist)}}force treatment as integer (whole numbers){p_end}
+{synopt:{opt skip(varlist)}}exclude from synthesis{p_end}
+{synopt:{opt id(varlist)}}ID variables; generate new sequential IDs{p_end}
+{synopt:{opt dat:es(varlist)}}ensure date constraints{p_end}
+
+{syntab:Relationship Preservation}
+{synopt:{opt corr:elations}}preserve correlation matrix structure{p_end}
+{synopt:{opt const:raints(string)}}user-specified constraints{p_end}
+{synopt:{opt autocons:traints}}auto-detect logical constraints{p_end}
+{synopt:{opt autorel:ate}}auto-detect derived variables (sums, ratios){p_end}
+{synopt:{opt condcat}}preserve categorical associations{p_end}
+
+{syntab:Panel/Longitudinal}
+{synopt:{opt panel(id time)}}preserve panel structure{p_end}
+{synopt:{opt preservevar(varlist)}}variables constant within panel unit{p_end}
+{synopt:{opt autocorr(#)}}preserve autocorrelation up to # lags{p_end}
+{synopt:{opt rowdist(method)}}row-count distribution: empirical, parametric, or exact{p_end}
+
+{syntab:Realism Enhancements}
+{synopt:{opt condcont}}stratify continuous synthesis by categorical levels{p_end}
+{synopt:{opt rand:omeffects}}add within-ID random effects for panel data{p_end}
+{synopt:{opt missp:attern}}preserve missingness patterns (not just rates){p_end}
+{synopt:{opt trends}}preserve within-ID temporal trends{p_end}
+{synopt:{opt trans:form}}auto-transform skewed variables (experimental){p_end}
+
+{syntab:Index Date Anchoring}
+{synopt:{opt indexdate(varname)}}anchor date variable for offset-based synthesis{p_end}
+{synopt:{opt indexfrom(spec)}}merge index date from external file{p_end}
+{synopt:{opt datenoise(#)}}SD of Gaussian noise added to date offsets; default 14 days{p_end}
+
+{syntab:Privacy/Disclosure Control}
+{synopt:{opt mincell(#)}}rare category protection; default 5{p_end}
+{synopt:{opt trim(#)}}trim extreme values at #th percentile{p_end}
+{synopt:{opt bounds(spec)}}enforce min/max bounds{p_end}
+{synopt:{opt noext:reme}}constrain values near observed range (5% privacy buffer){p_end}
+{synopt:{opt priv:acycheck}}enable privacy distance check (experimental){p_end}
+{synopt:{opt privacysample(#)}}number of records to sample for privacy check; default 0 (off){p_end}
+{synopt:{opt privacythresh(#)}}minimum distance threshold; default 0.05{p_end}
+
+{syntab:Validation/Diagnostics}
+{synopt:{opt com:pare}}produce comparison report{p_end}
+{synopt:{opt val:idate(filename)}}save validation statistics{p_end}
+{synopt:{opt util:ity}}compute utility metrics{p_end}
+{synopt:{opt graph}}produce overlay density plots{p_end}
+{synopt:{opt freq:check}}validate categorical frequency distributions{p_end}
+
+{syntab:Technical}
+{synopt:{opt seed(#)}}random seed for reproducibility{p_end}
+{synopt:{opt iter:ate(#)}}max iterations for constraints; default 100{p_end}
+{synopt:{opt tol:erance(#)}}convergence tolerance; default 1e-6{p_end}
+{synoptline}
+
+
+{marker description}{...}
+{title:Description}
+
+{pstd}
+{cmd:synthdata} generates synthetic datasets that preserve the statistical
+properties and variable relationships of the original data without containing
+real observations. This is useful for:
+
+{phang2}- Working with sensitive data in unsecured environments{p_end}
+{phang2}- Sharing data for collaboration while protecting privacy{p_end}
+{phang2}- Developing and testing code before accessing restricted data{p_end}
+{phang2}- Creating teaching datasets{p_end}
+{phang2}- Augmenting small samples for model development{p_end}
+
+{pstd}
+If {varlist} is omitted, all variables are synthesized.
+
+{pstd}
+{bf:Automatic preservation features:}
+
+{pstd}
+{cmd:synthdata} automatically preserves key properties from the original data:
+
+{phang2}{bf:Variable labels} - All variable labels from the original data are
+applied to the synthetic variables.{p_end}
+
+{phang2}{bf:Value labels} - Value label attachments for categorical variables
+are preserved.{p_end}
+
+{phang2}{bf:Variable order} - Variables in the synthetic data are ordered to
+match the original data.{p_end}
+
+{phang2}{bf:Missingness rates} - The proportion of missing values for each
+variable is preserved. If a variable has 10% missing values in the original
+data, approximately 10% of values will be randomly set to missing in the
+synthetic data.{p_end}
+
+{phang2}{bf:Integer detection} - Continuous variables that contain only whole
+numbers (integers) are automatically detected and synthesized values are
+rounded to integers.{p_end}
+
+{phang2}{bf:String variables} - String variables are automatically treated as
+categorical variables. Synthetic values are drawn from the observed
+frequency distribution of the original string values.{p_end}
+
+
+{marker options}{...}
+{title:Options}
+
+{dlgtab:Output}
+
+{phang}
+{opt n(#)} specifies the number of observations in the synthetic dataset.
+The default is the same as the original.
+
+{phang}
+{opt saving(filename)} saves the synthetic data to {it:filename}.dta.
+
+{phang}
+{opt replace} replaces the current data in memory with the synthetic version.
+
+{phang}
+{opt clear} clears the current data and loads the synthetic version (same as
+{opt replace}).
+
+{phang}
+{opt prefix(string)} adds {it:string} as a prefix to all synthetic variable
+names, keeping originals for comparison.
+
+{phang}
+{opt multiple(#)} generates # synthetic datasets, saved as 
+{it:filename}_1.dta, {it:filename}_2.dta, etc. Requires {opt saving()}.
+
+{dlgtab:Synthesis Method}
+
+{phang}
+{opt smart} is the recommended method for realistic synthesis. It automatically:
+{p_end}
+{pmore}(1) Detects non-normal distributions and uses empirical quantiles for them{p_end}
+{pmore}(2) Detects derived variables (sums, ratios) and reconstructs them{p_end}
+{pmore}(3) Detects strongly associated categorical variables and synthesizes jointly{p_end}
+{pmore}(4) Auto-detects logical constraints (non-negative values, etc.){p_end}
+{pmore}This method produces the most realistic synthetic data with minimal configuration.
+
+{phang}
+{opt complex} includes all {opt smart} features plus additional capabilities:
+{p_end}
+{pmore}(1) All smart features (auto-empirical, auto-relate, conditional categorical){p_end}
+{pmore}(2) Date relationship detection and ordering enforcement{p_end}
+{pmore}(3) Frequency distribution validation for categorical variables{p_end}
+{pmore}Use this when you have date variables that should maintain temporal ordering
+(e.g., admission_date < procedure_date < discharge_date) and want to verify
+that categorical frequencies are preserved.
+
+{phang}
+{opt parametric} (the default if smart is not specified) fits parametric
+distributions to continuous variables and preserves the correlation matrix
+via Cholesky decomposition. Categorical variables are drawn from observed
+frequencies.
+
+{phang}
+{opt sequential} models each variable conditional on previous variables using
+regression, then draws from the predictive distribution. Handles mixed types
+naturally and can capture complex dependencies.
+
+{phang}
+{opt bootstrap} resamples rows with replacement and adds random noise to
+continuous variables. Simple and fast but may not preserve all relationships.
+
+{phang}
+{opt permute} permutes each variable independently, breaking all relationships.
+Useful as a null/baseline comparison.
+
+{dlgtab:Method Modifiers}
+
+{phang}
+{opt empirical} uses empirical quantile mapping instead of normal distribution for
+continuous variables. This approach:
+{p_end}
+{pmore}(1) Guarantees synthetic values stay within original [min, max] bounds{p_end}
+{pmore}(2) Preserves the exact original distribution shape (skewness, kurtosis, etc.){p_end}
+{pmore}(3) Uses a Gaussian copula to maintain correlations between variables{p_end}
+{pmore}Recommended when distribution shape and bounds are important, or when the original
+data is not normally distributed.
+
+{phang}
+{opt autoempirical} automatically detects non-normal distributions and uses
+empirical quantile synthesis for them, while using parametric synthesis for
+normally-distributed variables. This is the best of both worlds: parametric
+efficiency where appropriate, and empirical accuracy for non-normal data.
+Non-normality is detected using skewness (|skewness| > 1) and kurtosis
+(|kurtosis - 3| > 2) thresholds.
+
+{phang}
+{opt noise(#)} specifies the standard deviation of random noise added to
+continuous variables, as a fraction of each variable's standard deviation.
+Default is 0.1 for the bootstrap method.
+
+{phang}
+{opt smooth} uses kernel density estimation instead of normal assumption for
+continuous variables.
+
+{dlgtab:Variable Type}
+
+{phang}
+{opt categorical(varlist)} forces specified numeric variables to be treated as
+categorical, overriding automatic detection. String variables are always
+treated as categorical automatically and do not need to be specified here;
+if a string variable is included in this option, it will be handled correctly
+as a string categorical variable.
+
+{phang}
+{opt continuous(varlist)} forces specified variables to be treated as
+continuous, overriding automatic detection.
+
+{phang}
+{opt integer(varlist)} forces specified variables to be treated as
+integer (whole number) continuous variables. These are synthesized as
+continuous variables but rounded to whole numbers after synthesis. Integer
+variables are also automatically detected: any numeric variable with more
+than 20 unique values where all non-missing values are whole numbers is
+treated as integer.
+
+{phang}
+{opt skip(varlist)} excludes specified variables from synthesis. They are
+set to missing in the synthetic data.
+
+{phang}
+{opt id(varlist)} specifies ID variables. Instead of synthesizing, new
+sequential IDs (1, 2, 3, ...) are generated. When multi-row ID structure
+is present, {cmd:synthdata} automatically detects variables that are constant
+within each ID in the original data (e.g., sex, birth_date, ethnicity) and
+enforces constancy within synthetic IDs. Row counts are also adjusted so
+the total output row count matches the target.
+
+{phang}
+{opt dates(varlist)} specifies date variables to ensure proper handling of
+date formats and constraints.
+
+{dlgtab:Relationship Preservation}
+
+{phang}
+{opt correlations} strictly preserves the correlation matrix structure. This
+is the default for the parametric method.
+
+{phang}
+{opt constraints(string)} specifies user constraints as quoted expressions,
+e.g., {cmd:constraints("age>=18" "start_date<end_date")}.
+
+{phang}
+{opt autoconstraints} automatically detects logical constraints such as
+non-negative values and applies them.
+
+{phang}
+{opt autorelate} automatically detects derived variables that are perfect or
+near-perfect functions of other variables (R² > 0.999). Examples include:
+{p_end}
+{pmore}- Sums: total = a + b + c{p_end}
+{pmore}- Differences: duration = end_date - start_date{p_end}
+{pmore}- Perfect linear combinations{p_end}
+{pmore}Detected derived variables are excluded from synthesis and reconstructed
+from their base variables afterward, perfectly preserving the relationship.
+
+{phang}
+{opt condcat} detects strongly associated categorical variables using
+Cramér's V (V > 0.5) and synthesizes them jointly to preserve their association.
+This is useful for preserving relationships like region-country,
+diagnosis-treatment, or department-job_title.
+
+{dlgtab:Panel/Longitudinal}
+
+{phang}
+{opt panel(id time)} specifies panel structure with {it:id} as the panel
+identifier and {it:time} as the time variable. Preserves the number of
+observations per unit and within-unit correlation.
+
+{phang}
+{opt preservevar(varlist)} specifies variables that should remain constant
+within panel units (e.g., sex, birth date). Note: when using {opt id()}
+without {opt panel()}, constant-within-ID variables are auto-detected and
+do not need to be listed here.
+
+{phang}
+{opt autocorr(#)} preserves autocorrelation structure up to # lags.
+
+{phang}
+{opt rowdist(method)} controls how the number of rows per ID is generated in
+synthetic data. This is critical for realistic panel/longitudinal synthesis:
+{p_end}
+{pmore}{bf:empirical} (default) - Bootstrap samples row counts from the observed
+distribution. Preserves the exact shape of the distribution.{p_end}
+{pmore}{bf:parametric} - Fits a negative binomial or Poisson distribution to the
+row counts and generates from the fitted model. Good when you want to allow
+row counts outside the observed range.{p_end}
+{pmore}{bf:exact} - Samples entire ID-rowcount pairs from the original data.
+Produces row counts identical to original IDs (with replacement if needed).{p_end}
+
+{dlgtab:Realism Enhancements}
+
+{phang}
+{opt condcont} stratifies continuous variable synthesis by categorical
+variable levels. This preserves relationships between categorical and continuous
+variables. For example, if males have different heights than females in the
+original data, this relationship is preserved in the synthetic data. The first
+categorical variable is used for stratification.
+
+{phang}
+{opt randomeffects} adds ID-level random effects for panel/longitudinal data.
+This preserves within-person correlation (intra-class correlation). In longitudinal
+data, if person A has high blood pressure at visit 1, they likely have high
+blood pressure at visits 2-3 too. Without this option, each row within an ID
+is generated independently. This option computes the ICC from the original data
+and applies appropriate random shifts to maintain within-ID correlation.
+
+{phang}
+{opt misspattern} preserves the pattern of missingness, not just the rate.
+Standard synthesis reintroduces missing values at the same rate per variable,
+but randomly. With {opt misspattern}, if variables A and B are often missing
+together in the original data (e.g., lab panels), this co-missingness structure
+is preserved in the synthetic data.
+
+{phang}
+{opt trends} preserves within-ID temporal trends for longitudinal data. If disease
+progresses over time in the original data (e.g., biomarkers increasing across
+visits), synthetic data will show similar within-person trends. Requires a time
+variable named "time", "visit", "wave", "period", "t", "year", or "date", or
+specified via the {opt panel()} option. Works best with {opt randomeffects}.
+
+{phang}
+{opt transform} automatically detects skewed distributions and applies
+transformations (log, sqrt) before synthesis, then back-transforms afterward.
+This can improve synthesis quality for non-normal variables like income or
+lab values. {bf:Note}: This feature is experimental and may not work correctly
+in all cases.
+
+{dlgtab:Index Date Anchoring}
+
+{phang}
+{opt indexdate(varname)} specifies an anchor date variable for offset-based
+date synthesis. Instead of synthesizing each date variable independently (which
+destroys temporal relationships), all other date variables are synthesized as
+offsets relative to this anchor date. This preserves the temporal structure
+within each person. For example, if prescriptions typically cluster 30 days
+after diagnosis and death occurs ~365 days after diagnosis, these relationships
+are preserved in the synthetic data.
+{p_end}
+{pmore}The index date itself is synthesized from its marginal distribution using
+the selected synthesis method. All other date variables are reconstructed
+by resampling from the empirical offset distribution and adding the offset
+to the synthetic index date.
+
+{phang}
+{opt indexfrom(spec)} merges an index date from an external file. The
+specification takes the form {it:filename} [{it:varname}], where {it:filename}
+is a Stata .dta file and {it:varname} (optional, default "indexdate") is the
+name of the date variable in that file. Requires {opt id()} for the merge key.
+{p_end}
+{pmore}Example: {cmd:indexfrom(case_control_dates.dta indexdate)} merges the
+variable "indexdate" from case_control_dates.dta using the first {opt id()}
+variable as the merge key.
+
+{phang}
+{opt datenoise(#)} specifies the standard deviation (in days) of Gaussian noise
+added to date offsets during synthesis. Default is 14 days. This noise prevents
+exact replication of original temporal patterns while preserving the overall
+structure. Set to 0 for no noise (exact offset replication).
+{p_end}
+{pmore}Larger values provide more privacy protection but may distort
+fine-grained temporal patterns. For registry data with GDPR requirements,
+the default of 14 days provides a reasonable balance.
+
+{dlgtab:Privacy/Disclosure Control}
+
+{phang}
+{opt mincell(#)} provides rare category protection. Categories with fewer
+than # observations are pooled or suppressed. Default is 5.
+
+{phang}
+{opt trim(#)} trims extreme values at the #th and (100-#)th percentiles
+before synthesis.
+
+{phang}
+{opt bounds(spec)} enforces minimum and maximum bounds on output. Specify
+as {it:varname min max}, e.g., {cmd:bounds("age 0 120")}.
+
+{phang}
+{opt noextreme} constrains synthetic values to stay near the observed
+range in the original data. A 5% privacy buffer is applied: the allowed range
+is [min + 5% of range, max - 5% of range]. This prevents exact data leakage
+of the most extreme original values while still constraining outliers.
+
+{phang}
+{opt privacycheck} enables a privacy distance check that computes the minimum
+Gower distance between each synthetic record and the original records. This
+helps identify synthetic records that may be too similar to real individuals.
+{bf:Note}: This feature is experimental.
+
+{phang}
+{opt privacysample(#)} specifies the number of synthetic records to sample for
+the privacy check. Computing distances for all records can be computationally
+expensive, so sampling is used. Default is 0 (privacy check disabled). Set to
+a positive number (e.g., 1000) to enable the check.
+
+{phang}
+{opt privacythresh(#)} specifies the distance threshold below which a synthetic
+record is considered "too close" to an original record. Default is 0.05.
+Records with distance below this threshold are flagged in the output.
+
+{dlgtab:Validation/Diagnostics}
+
+{phang}
+{opt compare} produces a comparison report showing means, standard deviations,
+and correlations for original versus synthetic data.
+
+{phang}
+{opt validate(filename)} saves detailed validation statistics to {it:filename}.
+
+{phang}
+{opt utility} computes utility metrics such as pMSE (propensity score mean
+squared error).
+
+{phang}
+{opt graph} produces overlay density plots comparing original and synthetic
+distributions for continuous variables.
+
+{phang}
+{opt freqcheck} validates categorical frequency distributions by comparing
+the original and synthetic data. Reports:
+{p_end}
+{pmore}- Maximum absolute difference in proportion for each category{p_end}
+{pmore}- Total Variation Distance (TVD) for each categorical variable{p_end}
+{pmore}- Average TVD across all categorical variables{p_end}
+{pmore}TVD below 0.1 indicates well-preserved frequencies. This option is
+automatically enabled with the {opt complex} method.
+
+{dlgtab:Technical}
+
+{phang}
+{opt seed(#)} sets the random number seed for reproducibility.
+
+{phang}
+{opt iterate(#)} specifies the maximum number of iterations for constraint
+satisfaction. Default is 100.
+
+{phang}
+{opt tolerance(#)} specifies the convergence tolerance for iterative
+procedures. Default is 1e-6.
+
+
+{marker methods}{...}
+{title:Methods and Formulas}
+
+{pstd}
+{bf:Parametric method}
+
+{pstd}
+The parametric method proceeds as follows:
+
+{phang2}1. Classify variables as continuous, categorical, or date.{p_end}
+{phang2}2. Estimate the mean vector and covariance matrix for continuous variables.{p_end}
+{phang2}3. Generate multivariate normal draws using Cholesky decomposition.{p_end}
+{phang2}4. Optionally transform marginals to match empirical distributions.{p_end}
+{phang2}5. Draw categorical values from observed frequencies.{p_end}
+{phang2}6. Apply constraints via rejection sampling or adjustment.{p_end}
+
+{pstd}
+{bf:Sequential method}
+
+{pstd}
+The sequential method:
+
+{phang2}1. Order variables (by missingness or user specification).{p_end}
+{phang2}2. For each variable, fit a regression on preceding variables.{p_end}
+{phang2}3. Draw from the predictive distribution (point estimate + random residual).{p_end}
+
+{pstd}
+{bf:Bootstrap method}
+
+{pstd}
+The bootstrap method:
+
+{phang2}1. Sample rows with replacement.{p_end}
+{phang2}2. Add Gaussian noise to continuous variables.{p_end}
+{phang2}3. Optionally perturb categorical values with small probability.{p_end}
+
+
+{marker examples}{...}
+{title:Examples}
+
+{pstd}Smart synthesis of the cohort (recommended){p_end}
+{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/_examples/cohort.dta", clear"':. use _examples/cohort.dta, clear}{p_end}
+{phang2}{stata "synthdata, smart saving(_examples/synth_cohort) compare":. synthdata, smart saving(_examples/synth_cohort) compare}{p_end}
+
+{pstd}Complex synthesis with date ordering and frequency validation{p_end}
+{phang2}{stata "synthdata, complex n(500) dates(admission_date procedure_date discharge_date) replace":. synthdata, complex n(500) dates(admission_date procedure_date discharge_date) replace}{p_end}
+
+{pstd}Basic usage: synthesize current dataset and save{p_end}
+{phang2}{stata "synthdata, saving(synthetic_patients)":. synthdata, saving(synthetic_patients)}{p_end}
+
+{pstd}Generate 10,000 synthetic observations, replacing current data{p_end}
+{phang2}{stata "synthdata, n(10000) replace":. synthdata, n(10000) replace}{p_end}
+
+{pstd}Parametric with auto-detection of non-normal distributions{p_end}
+{phang2}{stata "synthdata, autoempirical saving(synth_adaptive)":. synthdata, autoempirical saving(synth_adaptive)}{p_end}
+
+{pstd}Preserve derived variables and categorical associations{p_end}
+{phang2}{stata "synthdata, autorelate condcat saving(synth_relations)":. synthdata, autorelate condcat saving(synth_relations)}{p_end}
+
+{pstd}Panel data synthesis of LISA longitudinal data{p_end}
+{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/_examples/lisa.dta", clear"':. use _examples/lisa.dta, clear}{p_end}
+{phang2}{stata "synthdata, smart panel(id year) preservevar(education_level) saving(_examples/synth_lisa) compare":. synthdata, smart panel(id year) preservevar(education_level) saving(_examples/synth_lisa) compare}{p_end}
+
+{pstd}Synthesize cohort with privacy controls{p_end}
+{phang2}{stata "synthdata, smart id(id) dates(birth_date death_date study_entry study_exit) mincell(10) trim(5) noextreme saving(_examples/synth_cohort_safe) validate(_examples/synth_validation) compare":. synthdata, smart id(id) ///}{p_end}
+{phang2}{cmd:     dates(birth_date death_date study_entry study_exit) ///}{p_end}
+{phang2}{cmd:     mincell(10) trim(5) noextreme ///}{p_end}
+{phang2}{cmd:     saving(_examples/synth_cohort_safe) ///}{p_end}
+{phang2}{cmd:     validate(_examples/synth_validation) compare}{p_end}
+
+{pstd}Generate 5 synthetic datasets for multiple imputation-style analysis{p_end}
+{phang2}{stata "synthdata, multiple(5) saving(synth_m)":. synthdata, multiple(5) saving(synth_m)}{p_end}
+
+{pstd}Bootstrap with perturbation and comparison to original{p_end}
+{phang2}{stata "synthdata, bootstrap noise(0.15) compare":. synthdata, bootstrap noise(0.15) compare}{p_end}
+
+{pstd}Selective synthesis of sensitive financial variables only{p_end}
+{phang2}{stata "synthdata income assets debt, saving(synth_financial)":. synthdata income assets debt, saving(synth_financial)}{p_end}
+
+{pstd}Synthesis with explicit constraints{p_end}
+{phang2}{stata `"synthdata, constraints("age>=0" "age<=120" "hire_date<=term_date") saving(synth_hr)"':. synthdata, constraints("age>=0" "age<=120" "hire_date<=term_date") saving(synth_hr)}{p_end}
+
+{pstd}Reproducible synthesis with seed{p_end}
+{phang2}{stata "synthdata, n(5000) seed(12345) saving(synth_reproducible)":. synthdata, n(5000) seed(12345) saving(synth_reproducible)}{p_end}
+
+{pstd}Synthesize with validation output{p_end}
+{phang2}{stata "synthdata, saving(synth) validate(synth_validation) compare":. synthdata, saving(synth) validate(synth_validation) compare}{p_end}
+
+{pstd}{bf:Realism Enhancement Examples}{p_end}
+
+{pstd}Preserve categorical-continuous relationships (e.g., height by sex){p_end}
+{phang2}{stata "synthdata height weight sex, replace condcont categorical(sex)":. synthdata height weight sex, replace condcont categorical(sex)}{p_end}
+
+{pstd}Panel data with within-person correlation preserved{p_end}
+{phang2}{stata "synthdata bp_systolic bp_diastolic, id(patient_id) replace randomeffects":. synthdata bp_systolic bp_diastolic, id(patient_id) replace randomeffects}{p_end}
+
+{pstd}Preserve missingness patterns (co-missingness structure){p_end}
+{phang2}{stata "synthdata lab_a lab_b lab_c, replace misspattern":. synthdata lab_a lab_b lab_c, replace misspattern}{p_end}
+
+{pstd}Longitudinal data with trends and random effects{p_end}
+{phang2}{stata "synthdata biomarker visit, id(patient_id) replace randomeffects trends":. synthdata biomarker visit, id(patient_id) replace randomeffects trends}{p_end}
+
+{pstd}Full realism enhancement for panel data{p_end}
+{phang2}{cmd:. synthdata outcome treatment sex age, id(patient_id) replace condcont randomeffects misspattern categorical(sex treatment)}{p_end}
+
+{pstd}{bf:Index Date Anchoring Examples}{p_end}
+
+{pstd}Registry data with diagnosis as anchor date{p_end}
+{phang2}{cmd:. synthdata, id(patient_id) dates(diagnosis_date rx_date visit_date death_date) indexdate(diagnosis_date) datenoise(14) smart replace}{p_end}
+
+{pstd}Panel data with index date from external file{p_end}
+{phang2}{cmd:. synthdata visit_date procedure_date, id(patient_id) dates(visit_date procedure_date) indexfrom(case_control_ids.dta indexdate) smart replace}{p_end}
+
+{pstd}Exact offset reproduction (no noise) for testing{p_end}
+{phang2}{stata "synthdata, dates(index_date follow_up_date) indexdate(index_date) datenoise(0) smart replace":. synthdata, dates(index_date follow_up_date) indexdate(index_date) datenoise(0) smart replace}{p_end}
+
+
+{marker results}{...}
+{title:Stored results}
+
+{pstd}
+{cmd:synthdata} does not store results in {cmd:r()} or {cmd:e()}.
+
+
+{marker limitations}{...}
+{title:Limitations}
+
+{pstd}
+Users should be aware of the following limitations:
+
+{phang2}- High-dimensional categorical interactions are difficult to preserve perfectly.{p_end}
+{phang2}- Rare combinations may not appear in synthetic data.{p_end}
+{phang2}- Complex nonlinear relationships may be attenuated.{p_end}
+{phang2}- Synthetic data is {bf:not} a disclosure-proof guarantee; there is always
+a utility/privacy tradeoff.{p_end}
+{phang2}- The sequential method may be slow for datasets with many variables.{p_end}
+{phang2}- The {opt transform} and {opt privacycheck} options are experimental and
+may not work correctly in all cases.{p_end}
+{phang2}- {opt condcont} uses the first categorical variable for stratification;
+strata with few observations may have unreliable estimates.{p_end}
+
+
+{marker author}{...}
+{title:Author}
+
+{pstd}
+Synthetic data generation command for Stata.
+{p_end}

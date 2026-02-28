@@ -1,0 +1,5 @@
+v 3
+d Stata-Dev: tc_schemes
+d Timothy P Copeland, Karolinska Institutet
+d https://github.com/tpcopeland/Stata-Dev
+p tc_schemes Consolidated graph schemes (blindschemes + schemepack)

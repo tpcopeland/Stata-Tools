@@ -1,0 +1,24 @@
+v 3
+d 'CSTAT_SURV': Calculate C-statistic for survival models
+d
+d cstat_surv calculates Harrell's C-statistic (concordance statistic) for
+d survival models after fitting a Cox proportional hazards model.
+d The C-statistic measures the model's ability to discriminate between
+d subjects who experience the event and those who do not.
+d
+d Requires: Stata version 16+
+d Distribution-Date: 20251203
+d License: MIT
+d
+d Author: Timothy P. Copeland
+d Department of Clinical Neuroscience, Karolinska Institutet, Stockholm, Sweden
+d Email: timothy.copeland@ki.se
+d
+d KW: survival analysis
+d KW: Cox model
+d KW: C-statistic
+d KW: concordance
+d KW: discrimination
+d
+f cstat_surv.ado
+f cstat_surv.sthlp

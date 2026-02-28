@@ -1,0 +1,496 @@
+{smcl}
+{com}{sf}{ul off}{txt}
+{com}. 
+. * =====================================================================
+. * LOAD DATA
+. * =====================================================================
+. 
+. use tte/tte_example.dta, clear
+{txt}
+{com}. 
+. * Package overview
+. noisily tte, detail
+{txt}
+{hline 70}
+{res}tte{txt} - Target Trial Emulation for Stata
+Version 1.0.2
+{hline 70}
+
+{bf:Data Preparation}
+  {hline 60}
+{res}  tte_prepare{txt}   Map variable names, set estimand, validate
+              data structure. Entry point for the pipeline.
+              Stores metadata for downstream commands.
+
+{res}  tte_validate{txt}  Comprehensive data quality checks: person-
+              period format, gaps, treatment consistency,
+              positivity, and missing data patterns.
+
+{bf:Core Analysis}
+  {hline 60}
+{res}  tte_expand{txt}    Clone-censor-weight expansion into sequential
+              emulated trials. Handles ITT, PP, and AT
+              estimands with grace period support.
+
+{res}  tte_weight{txt}    Stabilized inverse probability weights for
+              treatment switching and informative censoring.
+              Logistic models with truncation support.
+
+{res}  tte_fit{txt}       Marginal structural model: pooled logistic
+              regression or weighted Cox model. Flexible
+              time specifications (linear/quadratic/ns).
+
+{res}  tte_predict{txt}   Monte Carlo predictions from coefficient
+              distribution. Cumulative incidence, survival,
+              and risk differences with confidence intervals.
+
+{bf:Diagnostics & Reporting}
+  {hline 60}
+{res}  tte_diagnose{txt}  Weight distribution, effective sample size,
+              covariate balance (SMD), and positivity checks.
+
+{res}  tte_plot{txt}      Visualization: KM curves, cumulative incidence,
+              weight distributions, and Love plots.
+
+{res}  tte_report{txt}    Publication-quality tables exportable to
+              Excel or CSV format.
+
+{res}  tte_protocol{txt}  Hernan 7-component protocol specification
+              table for the methods section.
+
+{hline 70}
+
+{com}. 
+. * =====================================================================
+. * ANALYSIS 1: Intention-to-Treat (ITT)
+. * =====================================================================
+. * ITT ignores treatment switching — everyone analyzed as initially assigned.
+. * No weights needed.
+. 
+. noisily display _newline
+{res}
+
+{txt}
+{com}. noisily display as text "ITT ANALYSIS"
+{res}{txt}ITT ANALYSIS
+
+{com}. 
+. tte_prepare, id(patid) period(period) treatment(treatment) ///
+>     outcome(outcome) eligible(eligible) ///
+>     covariates(age sex comorbidity biomarker) ///
+>     estimand(ITT)
+{txt}
+{hline 70}
+{res}tte_prepare{txt} - Data Preparation
+{hline 70}
+
+Variable mapping:
+  ID:          {res}patid
+{txt}  Period:      {res}period{txt} (range: 0 to 9)
+  Treatment:   {res}treatment
+{txt}  Outcome:     {res}outcome
+{txt}  Eligible:    {res}eligible
+{txt}  Covariates:  {res}age sex comorbidity biomarker
+{txt}
+Estimand:      {res}ITT
+{txt}
+Data summary:
+  Observations:     {res}     3,604
+{txt}  Individuals:      {res}       503
+{txt}  Period range:     {res}0 - 9
+{txt}  Eligible obs:     {res}     2,158
+{txt}  Treated obs:      {res}     1,742
+{txt}  Outcome events:   {res}       105
+{txt}
+Metadata stored. Next step: {cmd:tte_validate} or {cmd:tte_expand}
+{hline 70}
+
+{com}. 
+. tte_expand
+{txt}
+{hline 70}
+{res}tte_expand{txt} - Sequential Trial Expansion
+{hline 70}
+
+Estimand:        {res}ITT
+{txt}Trial periods:   {res}10
+{txt}Max follow-up:   {res}unlimited
+{txt}
+Expanding trials...
+  ... processed 10 of 10 trial periods
+Combining 10 trial datasets...
+
+Expansion complete:
+  Original obs:     {res}     3,604
+{txt}  Expanded obs:     {res}    11,027
+{txt}  Expansion ratio:  {res}       3.1x
+{txt}  Trials created:   {res}10
+{txt}  Treatment arm:    {res}     1,716
+{txt}  Control arm:      {res}     9,311
+{txt}  Censored:         {res}         0
+{txt}  Events:           {res}       286
+{txt}
+Variables created: {res}_tte_trial _tte_arm _tte_followup _tte_censored _tte_outcome_obs
+{txt}
+Next step: {cmd:tte_fit}
+{hline 70}
+
+{com}. 
+. tte_fit, outcome_cov(age sex comorbidity biomarker) ///
+>     followup_spec(quadratic) trial_period_spec(quadratic) nolog
+{txt}
+{hline 70}
+{res}tte_fit{txt} - Outcome Model
+{hline 70}
+
+Model type:       {res}logistic
+{txt}Estimand:         {res}ITT
+{txt}Outcome:          {res}_tte_outcome_obs
+{txt}Treatment var:    {res}_tte_arm
+{txt}Follow-up spec:   {res}quadratic
+{txt}Trial spec:       {res}quadratic
+{txt}Covariates:       {res}age sex comorbidity biomarker
+{txt}Cluster var:      {res}patid
+{txt}
+Fitting pooled logistic regression...
+
+{res}
+{txt}Generalized linear models{col 51}Number of obs{col 67}={col 69}{res}    11,027
+{txt}Optimization     : {res}ML{txt}{col 51}Residual df{col 67}={col 69}{res}    11,017
+{col 20}{txt}{col 51}Scale parameter{col 67}={col 70}{res}        1
+{txt}Deviance{col 18}={res}{col 20} 2610.018279{txt}{col 51}(1/df) Deviance{col 67}={res}{col 70} .2369083
+{txt}Pearson{col 18}={res}{col 20} 10826.85265{txt}{col 51}(1/df) Pearson{col 67}={res}{col 70} .9827406
+
+{txt}Variance function: {res}V(u) = {col 27}u*(1-u){col 51}{txt}[{res}Bernoulli{txt}]
+Link function    : {res}g(u) = {col 27}ln(u/(1-u)){col 51}{txt}[{res}Logit{txt}]
+
+{col 51}{help j_glmic##|_new:AIC}{col 67}={res}{col 70} .2385071
+{txt}Log pseudolikelihood{col 22}= {res} -1305.00914{txt}{col 51}{help j_glmic##|_new:BIC}{col 67}={res}{col 70}-99937.34
+
+{txt}{ralign 78:(Std. err. adjusted for {res:503} clusters in {res:patid})}
+{hline 13}{c TT}{hline 11}{hline 11}{hline 9}{hline 8}{hline 13}{hline 12}
+{col 14}{c |}{col 26}    Robust
+{col 1}_tte_outco~s{col 14}{c |} Coefficient{col 26}  std. err.{col 38}      z{col 46}   P>|z|{col 54}     [95% con{col 67}f. interval]
+{hline 13}{c +}{hline 11}{hline 11}{hline 9}{hline 8}{hline 13}{hline 12}
+{space 4}_tte_arm {c |}{col 14}{res}{space 2}-.2058403{col 26}{space 2} .1769915{col 37}{space 1}   -1.16{col 46}{space 3}0.245{col 54}{space 4}-.5527373{col 67}{space 3} .1410566
+{txt}_tte_follo~p {c |}{col 14}{res}{space 2} .4655554{col 26}{space 2} .1071952{col 37}{space 1}    4.34{col 46}{space 3}0.000{col 54}{space 4} .2554566{col 67}{space 3} .6756543
+{txt}_tte_follo~q {c |}{col 14}{res}{space 2}-.0513234{col 26}{space 2} .0181844{col 37}{space 1}   -2.82{col 46}{space 3}0.005{col 54}{space 4}-.0869642{col 67}{space 3}-.0156826
+{txt}{space 2}_tte_trial {c |}{col 14}{res}{space 2} .0023184{col 26}{space 2} .0827218{col 37}{space 1}    0.03{col 46}{space 3}0.978{col 54}{space 4}-.1598134{col 67}{space 3} .1644502
+{txt}_tte_trial~q {c |}{col 14}{res}{space 2}-.0063383{col 26}{space 2} .0135856{col 37}{space 1}   -0.47{col 46}{space 3}0.641{col 54}{space 4}-.0329656{col 67}{space 3}  .020289
+{txt}{space 9}age {c |}{col 14}{res}{space 2} .0031202{col 26}{space 2} .0099831{col 37}{space 1}    0.31{col 46}{space 3}0.755{col 54}{space 4}-.0164463{col 67}{space 3} .0226866
+{txt}{space 9}sex {c |}{col 14}{res}{space 2}-.2036493{col 26}{space 2} .2482529{col 37}{space 1}   -0.82{col 46}{space 3}0.412{col 54}{space 4} -.690216{col 67}{space 3} .2829175
+{txt}{space 1}comorbidity {c |}{col 14}{res}{space 2}   .05738{col 26}{space 2} .0936318{col 37}{space 1}    0.61{col 46}{space 3}0.540{col 54}{space 4}-.1261349{col 67}{space 3} .2408948
+{txt}{space 3}biomarker {c |}{col 14}{res}{space 2} .0140087{col 26}{space 2} .0566551{col 37}{space 1}    0.25{col 46}{space 3}0.805{col 54}{space 4}-.0970332{col 67}{space 3} .1250506
+{txt}{space 7}_cons {c |}{col 14}{res}{space 2}-4.546522{col 26}{space 2} .6771413{col 37}{space 1}   -6.71{col 46}{space 3}0.000{col 54}{space 4}-5.873695{col 67}{space 3} -3.21935
+{txt}{hline 13}{c BT}{hline 11}{hline 11}{hline 9}{hline 8}{hline 13}{hline 12}
+
+{hline 70}
+Treatment effect (assigned arm):
+  Log-odds:   {res}  -0.2058{txt} (SE: {res} 0.1770{txt})
+  Odds ratio: {res}   0.8140{txt} (95% CI: {res} 0.5754{txt} - {res} 1.1515{txt})
+  p-value:    {res}   0.2448
+{txt}
+Next step: {cmd:tte_predict} for marginal predictions
+{hline 70}
+
+{com}. 
+. tte_predict, times(0(1)8) type(cum_inc) difference samples(100) seed(12345)
+{txt}
+{hline 70}
+{res}tte_predict{txt} - Marginal Predictions
+{hline 70}
+
+Prediction type:  {res}cum_inc
+{txt}MC samples:       {res}100
+{txt}Confidence level: {res}95%
+{txt}Risk difference:  {res}Yes
+{txt}
+Computing predictions...
+(2,158 missing values generated)
+(2,158 missing values generated)
+Running 100 Monte Carlo simulations...
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+  ... 50 of 100 samples completed
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+(2,158 missing values generated)
+  ... 100 of 100 samples completed
+{res}{txt}
+{hline 70}
+Cumulative Incidence Estimates (95% CI)
+{hline 70}
+
+ Time     Control     Treated        Diff
+---------------------------------------------
+    0  {res}    0.0131      0.0107     -0.0024
+{txt}       (0.0103-0.0176)  (0.0078-0.0151)  (-0.0077-0.0014)
+    1  {res}    0.0325      0.0266     -0.0059
+{txt}       (0.0265-0.0429)  (0.0209-0.0370)  (-0.0193-0.0033)
+    2  {res}    0.0582      0.0478     -0.0105
+{txt}       (0.0479-0.0827)  (0.0388-0.0660)  (-0.0342-0.0058)
+    3  {res}    0.0889      0.0732     -0.0157
+{txt}       (0.0711-0.1237)  (0.0586-0.0990)  (-0.0522-0.0087)
+    4  {res}    0.1218      0.1006     -0.0212
+{txt}       (0.0940-0.1661)  (0.0801-0.1328)  (-0.0684-0.0117)
+    5  {res}    0.1535      0.1273     -0.0263
+{txt}       (0.1163-0.2064)  (0.1002-0.1712)  (-0.0815-0.0145)
+    6  {res}    0.1813      0.1507     -0.0306
+{txt}       (0.1379-0.2429)  (0.1181-0.2134)  (-0.0941-0.0170)
+    7  {res}    0.2034      0.1695     -0.0339
+{txt}       (0.1544-0.2723)  (0.1266-0.2451)  (-0.1067-0.0190)
+    8  {res}    0.2194      0.1831     -0.0363
+{txt}       (0.1662-0.3100)  (0.1311-0.2763)  (-0.1168-0.0205)
+
+{hline 70}
+
+{com}. 
+. * --- ITT cumulative incidence plot (must follow tte_predict immediately) ---
+. tte_plot, type(cumhaz) ci ///
+>     title("Cumulative Incidence (ITT)") ///
+>     scheme(plotplainblind)
+{txt}(9 missing values generated)
+(9 missing values generated)
+(9 missing values generated)
+(9 missing values generated)
+(9 missing values generated)
+(9 missing values generated)
+(9 missing values generated)
+{res}{txt}
+{com}. graph export "`pkg_dir'/cumulative_incidence_itt.png", replace width(1200)
+{res}{txt}(file {bf:tte/demo/cumulative_incidence_itt.png} not found)
+{res}{txt}file {bf:tte/demo/cumulative_incidence_itt.png} written in PNG format
+
+{com}. capture graph close _all
+{txt}
+{com}. 
+. noisily tte_report
+{txt}
+{hline 70}
+{res}Target Trial Emulation Results
+{txt}{hline 70}
+
+{bf:Analysis Summary}
+
+  Estimand:           {res}ITT
+{txt}  Total person-periods: {res}    11,027
+{txt}  Treatment arm:      {res}     1,716
+{txt}  Control arm:        {res}     9,311
+{txt}  Outcome events:     {res}       286
+{txt}  Emulated trials:    {res}10
+{txt}
+{bf:Outcome Model Coefficients}
+
+            Variable    Log-odds                 .% CI   p-value
+----------------------------------------------------------------
+            _tte_arm  {res}    -0.206  {txt}         . to          .  {res}  0.2448
+       {txt}_tte_followup  {res}     0.466  {txt}         . to          .  {res}  0.0000
+    {txt}_tte_followup_sq  {res}    -0.051  {txt}         . to          .  {res}  0.0048
+          {txt}_tte_trial  {res}     0.002  {txt}         . to          .  {res}  0.9776
+       {txt}_tte_trial_sq  {res}    -0.006  {txt}         . to          .  {res}  0.6408
+                 {txt}age  {res}     0.003  {txt}         . to          .  {res}  0.7546
+                 {txt}sex  {res}    -0.204  {txt}         . to          .  {res}  0.4120
+         {txt}comorbidity  {res}     0.057  {txt}         . to          .  {res}  0.5400
+           {txt}biomarker  {res}     0.014  {txt}         . to          .  {res}  0.8047
+{txt}
+{hline 70}
+
+{com}. 
+. log close demo
+{smcl}
+{com}{sf}{ul off}

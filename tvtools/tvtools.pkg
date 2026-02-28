@@ -1,0 +1,78 @@
+v 3
+d 'TVTOOLS': Commands for formatting and merging time-varying data
+d
+d Requires: Stata version 16+
+d
+d Distribution-Date: 20260226
+d License: MIT
+d
+d Author: Timothy P. Copeland
+d Department of Clinical Neuroscience, Karolinska Institutet, Stockholm, Sweden
+d Email: timothy.copeland@ki.se
+d
+d KW: stset
+d KW: time-varying
+d KW: longitudinal
+d KW: survival analysis
+d KW: epidemiology
+d
+d INSTALLATION COMPLETE!
+d
+d Access the dialogs immediately with:
+d     . db tvexpose
+d     . db tvmerge
+d     . db tvevent
+d
+d OPTIONAL: Add to Stata menus for dropdown access
+d Add these lines to your profile.do:
+d     capture window menu append submenu "stUser" "Time-varying exposures"
+d     window menu append item "Time-varying exposures" "Create exposure variables (tvexpose)" "db tvexpose"
+d     window menu append item "Time-varying exposures" "Merge TV datasets (tvmerge)" "db tvmerge"
+d     window menu append item "Time-varying exposures" "Add events to TV datasets (tvevent)" "db tvevent"
+d     window menu refresh
+d
+d For help: help tvexpose, help tvmerge, help tvevent, help tvage
+d
+f tvtools.ado
+f tvexpose.ado
+f tvexpose.dlg
+f tvexpose.sthlp
+f _tvexpose_mata.ado
+f _tvexpose_diagnose.ado
+f tvmerge.ado
+f tvmerge.dlg
+f tvmerge.sthlp
+f tvevent.ado
+f tvevent.dlg
+f tvevent.sthlp
+f tvdiagnose.ado
+f tvdiagnose.sthlp
+f tvplot.ado
+f tvplot.sthlp
+f tvbalance.ado
+f tvbalance.sthlp
+f tvweight.ado
+f tvweight.sthlp
+f tvpipeline.ado
+f tvpipeline.sthlp
+f tvestimate.ado
+f tvestimate.sthlp
+f tvtrial.ado
+f tvtrial.sthlp
+f tvdml.ado
+f tvdml.sthlp
+f tvsensitivity.ado
+f tvsensitivity.sthlp
+f tvcalendar.ado
+f tvcalendar.sthlp
+f tvtable.ado
+f tvtable.sthlp
+f tvpass.ado
+f tvpass.sthlp
+f tvreport.ado
+f tvreport.sthlp
+f tvtools_menu_setup.do
+f tvtools.sthlp
+f tvage.ado
+f tvage.sthlp
+g validation_example.do

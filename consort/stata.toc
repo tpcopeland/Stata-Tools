@@ -1,0 +1,5 @@
+v 3
+d Stata-Dev: consort
+d Timothy P Copeland, Karolinska Institutet
+d https://github.com/tpcopeland/Stata-Dev
+p consort Generate CONSORT-style exclusion flowcharts

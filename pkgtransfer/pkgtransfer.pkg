@@ -1,0 +1,23 @@
+v 3
+d 'PKGTRANSFER': Module to capture all currently installed packages via .do or .zip
+d
+d Requires: Stata (Any Version)
+d
+d KW: Stata
+d KW: pkg
+d KW: sec
+d KW: ado
+d
+d Distribution-Date: 20251205
+d
+d This  version: 17 Nov 2025
+d First version: 24 Mar 2024
+d License: MIT
+d
+d Author: Timothy P. Copeland
+d Department of Clinical Neuroscience, Karolinska Institutet, Stockholm, Sweden
+d Email: timothy.copeland@ki.se
+d
+f pkgtransfer.ado
+f pkgtransfer.sthlp
+d

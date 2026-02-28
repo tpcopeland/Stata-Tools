@@ -1,0 +1,59 @@
+v 3
+d 'NMA': Network Meta-Analysis suite for Stata
+d
+d Comprehensive network meta-analysis (mixed treatment comparisons)
+d with zero external dependencies. Supports binary, continuous, and
+d rate outcomes. Includes REML/ML estimation via Mata, treatment
+d rankings (SUCRA), network plots, forest plots, league tables,
+d inconsistency testing, and publication-quality reporting.
+d
+d Requires: Stata version 16+
+d
+d Distribution-Date: 20260228
+d License: MIT
+d
+d Author: Timothy P. Copeland
+d Department of Clinical Neuroscience, Karolinska Institutet, Stockholm, Sweden
+d Email: timothy.copeland@ki.se
+d
+d KW: network meta-analysis
+d KW: mixed treatment comparisons
+d KW: indirect comparisons
+d KW: SUCRA
+d KW: evidence synthesis
+d KW: meta-analysis
+d
+f nma.ado
+f nma.sthlp
+f nma_setup.ado
+f nma_setup.sthlp
+f nma_import.ado
+f nma_import.sthlp
+f nma_fit.ado
+f nma_fit.sthlp
+f nma_inconsistency.ado
+f nma_inconsistency.sthlp
+f nma_rank.ado
+f nma_rank.sthlp
+f nma_forest.ado
+f nma_forest.sthlp
+f nma_map.ado
+f nma_map.sthlp
+f nma_compare.ado
+f nma_compare.sthlp
+f nma_report.ado
+f nma_report.sthlp
+f _nma_check_setup.ado
+f _nma_check_fitted.ado
+f _nma_get_settings.ado
+f _nma_display_header.ado
+f _nma_validate_network.ado
+f _nma_classify_evidence.ado
+f _nma_reml.ado
+f _nma_contrast_binary.ado
+f _nma_contrast_continuous.ado
+f _nma_contrast_rate.ado
+f _nma_contrast_multiarm.ado
+f _nma_circular_layout.ado
+f _nma_node_sizes.ado
+f _nma_edge_weights.ado

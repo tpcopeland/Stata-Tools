@@ -1,0 +1,133 @@
+VERSION 16.0
+INCLUDE _std_large
+DEFINE _dlght 420
+DEFINE _dlgwd 640
+INCLUDE header
+
+HELP hlp1, view("help regtab")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	program parseMessage
+	script max_setOptionalOn
+END
+
+SCRIPT POSTINIT
+BEGIN
+	script max_setDefaultWidth
+END
+
+DIALOG main, label("regtab - Format and Export Regression Tables") tabtitle("Main")
+BEGIN
+  TEXT     tx_info       10  10  620  ., label("Format collected regression tables and export to Excel with professional formatting.")
+
+  GROUPBOX gb_required   10  +25 620  115, label("Required Options")
+  TEXT     tx_xlsx       20  +20 280  ., label("Excel filename (.xlsx):")
+  FILE     fi_xlsx       @   +20 @    ., error("Excel filename") label("Browse...") ///
+           filter("Excel Files (*.xlsx)|*.xlsx|All Files (*.*)|*.*") save defext("xlsx")
+
+  TEXT     tx_sheet      20  +25 280  ., label("Sheet name:")
+  EDIT     ed_sheet      @   +20 @    ., error("Sheet name") label("Sheet name")
+
+  GROUPBOX gb_optional   10  +30 620  250, label("Optional Formatting")
+  TEXT     tx_title      20  +20 280  ., label("Table title:")
+  EDIT     ed_title      @   +20 @    ., label("Title")
+
+  TEXT     tx_coef       20  +25 280  ., label("Coefficient label:")
+  EDIT     ed_coef       @   +20 @    ., label("Coefficient label")
+
+  TEXT     tx_models     20  +25 280  ., label("Model labels (separate with \):")
+  EDIT     ed_models     @   +20 @    ., label("Model labels")
+
+  TEXT     tx_sep        20  +25 140  ., label("CI separator:")
+  EDIT     ed_sep        @   +20 @    ., label("Separator") default(", ")
+
+  CHECKBOX ck_noint      20  +25 280  ., label("Drop intercept row")
+  CHECKBOX ck_nore       @   +20 @    ., label("Drop random effects rows")
+
+  TEXT     tx_note       10  +25 620  ., label("Note: Run your regression commands with -collect- before using regtab.")
+END
+
+DIALOG examples, tabtitle("Help/Examples")
+BEGIN
+  TEXT tx_help1    10  10  620  ., label("regtab - Format and Export Regression Tables")
+  TEXT tx_help2    10  +25 620  ., label("DESCRIPTION:")
+  TEXT tx_help3    10  +15 620  ., label("Formats collected regression tables, exports point estimate, 95% CI, and p-value to Excel, and applies Excel")
+  TEXT tx_help4    10  +15 620  ., label("formatting. The title appears in cell A1. The top left cell of the table is B2.")
+  TEXT tx_help5    10  +25 620  ., label("WORKFLOW:")
+  TEXT tx_help6    10  +15 620  ., label("1. Run your regression models using Stata's collect commands")
+  TEXT tx_help7    10  +15 620  ., label("2. Configure regtab options in this dialog")
+  TEXT tx_help8    10  +15 620  ., label("3. Click OK to export the formatted table to Excel")
+  TEXT tx_help9    10  +25 620  ., label("EXAMPLES:")
+  TEXT tx_ex1      10  +15 620  ., label("Example 1: Basic usage")
+  TEXT tx_ex1b     10  +15 620  ., label("   regtab, xlsx(results.xlsx) sheet(Table1)")
+  TEXT tx_ex2      10  +25 620  ., label("Example 2: With model labels and title")
+  TEXT tx_ex2b     10  +15 620  ., label("   regtab, xlsx(results.xlsx) sheet(Table1) ///")
+  TEXT tx_ex2c     10  +15 620  ., label("      models(Model 1 \ Model 2) coef(OR) ///")
+  TEXT tx_ex2d     10  +15 620  ., label("      title(Table 1. Regression Results)")
+  TEXT tx_ex3      10  +25 620  ., label("Example 3: Customize separator and drop intercept")
+  TEXT tx_ex3b     10  +15 620  ., label("   regtab, xlsx(results.xlsx) sheet(Table1) sep(' to ') noint")
+  TEXT tx_help10    10  +25 620  ., label("For complete documentation, click the help icon in the bottom left corner or type: help regtab")
+END
+
+PROGRAM parseMessage
+BEGIN
+END
+
+PROGRAM command
+BEGIN
+	put "regtab, "
+
+	require main.fi_xlsx
+	put "xlsx("
+	put `"""'
+	put main.fi_xlsx
+	put `"""'
+	put ") "
+
+	require main.ed_sheet
+	put "sheet("
+	put `"""'
+	put main.ed_sheet
+	put `"""'
+	put ") "
+
+	if main.ed_title {
+		put "title("
+		put `"""'
+		put main.ed_title
+		put `"""'
+		put ") "
+	}
+
+	if main.ed_coef {
+		put "coef("
+		put `"""'
+		put main.ed_coef
+		put `"""'
+		put ") "
+	}
+
+	if main.ed_models {
+		put "models("
+		put main.ed_models
+		put ") "
+	}
+
+	if main.ed_sep {
+		put "sep("
+		put `"""'
+		put main.ed_sep
+		put `"""'
+		put ") "
+	}
+
+	if main.ck_noint {
+		put "noint "
+	}
+
+	if main.ck_nore {
+		put "nore "
+	}
+END

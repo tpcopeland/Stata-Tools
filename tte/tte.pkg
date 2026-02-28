@@ -1,0 +1,54 @@
+v 3
+d 'TTE': Target Trial Emulation suite for Stata
+d
+d Implements the sequential trials framework (Hernan & Robins 2016) with
+d the clone-censor-weight approach for estimating per-protocol,
+d intention-to-treat, and as-treated effects from observational data.
+d
+d Requires: Stata version 16+
+d
+d Distribution-Date: 20260301
+d License: MIT
+d
+d Author: Timothy P. Copeland
+d Department of Clinical Neuroscience, Karolinska Institutet, Stockholm, Sweden
+d Email: timothy.copeland@ki.se
+d
+d KW: target trial emulation
+d KW: causal inference
+d KW: sequential trials
+d KW: inverse probability weighting
+d KW: marginal structural model
+d KW: epidemiology
+d
+f tte.ado
+f tte.sthlp
+f tte_prepare.ado
+f tte_prepare.sthlp
+f tte_validate.ado
+f tte_validate.sthlp
+f tte_expand.ado
+f tte_expand.sthlp
+f tte_weight.ado
+f tte_weight.sthlp
+f tte_fit.ado
+f tte_fit.sthlp
+f tte_predict.ado
+f tte_predict.sthlp
+f tte_diagnose.ado
+f tte_diagnose.sthlp
+f tte_plot.ado
+f tte_plot.sthlp
+f tte_report.ado
+f tte_report.sthlp
+f tte_protocol.ado
+f tte_protocol.sthlp
+f _tte_check_prepared.ado
+f _tte_check_expanded.ado
+f _tte_check_weighted.ado
+f _tte_check_fitted.ado
+f _tte_get_settings.ado
+f _tte_memory_estimate.ado
+f _tte_display_header.ado
+f _tte_natural_spline.ado
+f tte_example.dta
