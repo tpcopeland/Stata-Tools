@@ -1,0 +1,25 @@
+v 3
+d 'VALIDATE': Data validation rules - define and run validation suites
+d
+d Define expected ranges, patterns, and cross-variable checks. Run validation
+d suites and generate reports. Useful for registry data QC and ensuring
+d data integrity before analysis.
+d
+d Requires: Stata version 16+
+d
+d Distribution-Date: 20251221
+d License: MIT
+d
+d Author: Timothy P Copeland
+d Department of Clinical Neuroscience
+d Karolinska Institutet
+d
+d KW: validation
+d KW: data quality
+d KW: QC
+d KW: registry data
+d KW: range check
+d KW: pattern matching
+d
+f validate.ado
+f validate.sthlp

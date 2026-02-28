@@ -1,0 +1,342 @@
+Dataset Documentation
+Generated: 27 Feb 2026 14:47:58
+
+========================================
+DATASET: cohort.dta
+========================================
+
+METADATA
+--------
+Observations: 15000
+Variables: 12
+Label: Synthetic cohort: SSRI vs SNRI new users, 2006-2023
+Data Signature: 15000:12(82535):808294082:3091417633
+
+DESCRIPTION
+-----------
+This dataset contains cross-sectional data. It includes 15000 observations and 12 variables. The data spans from 28jun1922 to 31dec2023. Key variable categories include: identifiers, demographics, outcomes. 
+
+========================================
+VARIABLE SUMMARY
+========================================
+
+  id
+    Type: int
+    Format: %12.0g
+    Label: Person identifier
+    Missing: 0 (0%)
+    Classification: excluded
+
+  female
+    Type: byte
+    Format: %8.0g
+    Label: Female sex
+    Missing: 0 (0%)
+    Classification: categorical
+
+  study_entry
+    Type: int
+    Format: %td
+    Label: Cohort entry date
+    Missing: 0 (0%)
+    Classification: date
+
+  index_age
+    Type: double
+    Format: %10.0g
+    Label: Age at cohort entry (years)
+    Missing: 0 (0%)
+    Classification: continuous
+
+  birth_date
+    Type: int
+    Format: %td
+    Label: Date of birth
+    Missing: 0 (0%)
+    Classification: excluded
+
+  education
+    Type: byte
+    Format: %9.0g
+    Label: Education level
+    Missing: 0 (0%)
+    Classification: categorical
+
+  income_quintile
+    Type: byte
+    Format: %8.0g
+    Label: Disposable income quintile
+    Missing: 0 (0%)
+    Classification: categorical
+
+  born_abroad
+    Type: byte
+    Format: %8.0g
+    Label: Born outside Sweden
+    Missing: 0 (0%)
+    Classification: categorical
+
+  civil_status
+    Type: byte
+    Format: %8.0g
+    Label: Marital status
+    Missing: 0 (0%)
+    Classification: categorical
+
+  region
+    Type: byte
+    Format: %14.0g
+    Label: Healthcare region
+    Missing: 0 (0%)
+    Classification: categorical
+
+  death_date
+    Type: int
+    Format: %td
+    Label: Date of death
+    Missing: 13664 (91.10000000000001%)
+    Classification: excluded
+
+  study_exit
+    Type: int
+    Format: %td
+    Label: End of follow-up
+    Missing: 0 (0%)
+    Classification: date
+
+========================================
+CATEGORICAL VARIABLES
+========================================
+
+VARIABLE: female
+--------------------
+Position: 1
+Storage Type: byte
+Display Format: %8.0g
+Label: Female sex
+Value Label: yn_lbl
+Classification: categorical
+Missing: 0 obs (0%)
+Unique Values: 2
+
+  Frequencies:
+    0 = No: 6028 (40.2%)
+    1 = Yes: 8972 (59.8%)
+
+ANALYSIS GUIDANCE: Use as factor/categorical variable. This is a binary variable - suitable for binary outcome models. 
+
+VARIABLE: education
+--------------------
+Position: 2
+Storage Type: byte
+Display Format: %9.0g
+Label: Education level
+Value Label: edu_lbl
+Classification: categorical
+Missing: 0 obs (0%)
+Unique Values: 3
+
+  Frequencies:
+    1 = Primary: 3860 (25.7%)
+    2 = Secondary: 5884 (39.2%)
+    3 = Tertiary: 5256 (35%)
+
+ANALYSIS GUIDANCE: Use as factor/categorical variable. Low cardinality - suitable for stratification or interaction terms. 
+
+VARIABLE: income_quintile
+--------------------
+Position: 3
+Storage Type: byte
+Display Format: %8.0g
+Label: Disposable income quintile
+Classification: categorical
+Missing: 0 obs (0%)
+Unique Values: 5
+
+  Frequencies:
+    1 = 1: 2953 (19.7%)
+    2 = 2: 3032 (20.2%)
+    3 = 3: 2997 (20%)
+    4 = 4: 2995 (20%)
+    5 = 5: 3023 (20.2%)
+
+ANALYSIS GUIDANCE: Use as factor/categorical variable. Low cardinality - suitable for stratification or interaction terms. 
+
+VARIABLE: born_abroad
+--------------------
+Position: 4
+Storage Type: byte
+Display Format: %8.0g
+Label: Born outside Sweden
+Value Label: yn_lbl
+Classification: categorical
+Missing: 0 obs (0%)
+Unique Values: 2
+
+  Frequencies:
+    0 = No: 12741 (84.90000000000001%)
+    1 = Yes: 2259 (15.1%)
+
+ANALYSIS GUIDANCE: Use as factor/categorical variable. This is a binary variable - suitable for binary outcome models. 
+
+VARIABLE: civil_status
+--------------------
+Position: 5
+Storage Type: byte
+Display Format: %8.0g
+Label: Marital status
+Value Label: civil_lbl
+Classification: categorical
+Missing: 0 obs (0%)
+Unique Values: 4
+
+  Frequencies:
+    1 = Single: 4568 (30.5%)
+    2 = Married: 5236 (34.9%)
+    3 = Divorced: 2951 (19.7%)
+    4 = Widowed: 2245 (15%)
+
+ANALYSIS GUIDANCE: Use as factor/categorical variable. Low cardinality - suitable for stratification or interaction terms. 
+
+VARIABLE: region
+--------------------
+Position: 6
+Storage Type: byte
+Display Format: %14.0g
+Label: Healthcare region
+Value Label: region_lbl
+Classification: categorical
+Missing: 0 obs (0%)
+Unique Values: 6
+
+  Frequencies:
+    1 = Stockholm: 2613 (17.4%)
+    2 = Uppsala/Orebro: 2548 (17%)
+    3 = Southeast: 2501 (16.7%)
+    4 = South: 2474 (16.5%)
+    5 = West: 2385 (15.9%)
+    6 = North: 2479 (16.5%)
+
+ANALYSIS GUIDANCE: Use as factor/categorical variable. Consider reference category selection based on largest group or clinically meaningful baseline. 
+
+========================================
+CONTINUOUS VARIABLES
+========================================
+
+VARIABLE: index_age
+--------------------
+Position: 1
+Storage Type: double
+Display Format: %10.0g
+Label: Age at cohort entry (years)
+Classification: continuous
+Missing: 0 obs (0%)
+Unique Values: 26
+
+DISTRIBUTION:
+  Valid N: 15000
+  Mean: 58.36
+  SD: 13.35
+  Median: 59.29
+  IQR: 48.75-68.89
+  Range: 19.23 to 84.86
+
+ANALYSIS GUIDANCE: Use as continuous variable. Check normality assumption if using parametric tests.
+
+========================================
+DATE VARIABLES
+========================================
+
+VARIABLE: study_entry
+--------------------
+Position: 1
+Storage Type: int
+Display Format: %td
+Label: Cohort entry date
+Classification: date
+Missing: 0 obs (0%)
+
+DATE RANGE: 5477 day span (exact dates suppressed for privacy)
+
+ANALYSIS GUIDANCE: Can be used to calculate durations, create time-to-event variables, or generate time periods. Verify date ranges are plausible before analysis.
+
+VARIABLE: study_exit
+--------------------
+Position: 2
+Storage Type: int
+Display Format: %td
+Label: End of follow-up
+Classification: date
+Missing: 0 obs (0%)
+
+DATE RANGE: 6437 day span (exact dates suppressed for privacy)
+
+ANALYSIS GUIDANCE: Can be used to calculate durations, create time-to-event variables, or generate time periods. Verify date ranges are plausible before analysis.
+
+========================================
+EXCLUDED VARIABLES
+========================================
+
+VARIABLE: id
+--------------------
+Position: 1
+Storage Type: int
+Display Format: %12.0g
+Label: Person identifier
+Classification: excluded (privacy)
+Missing: 0 obs (0%)
+(values excluded from documentation)
+
+PRIVACY NOTE: This variable excluded to protect participant privacy. Do not attempt to re-identify individuals. Use for linkage only if authorized.
+
+VARIABLE: birth_date
+--------------------
+Position: 2
+Storage Type: int
+Display Format: %td
+Label: Date of birth
+Classification: excluded (privacy)
+Missing: 0 obs (0%)
+(values excluded from documentation)
+
+PRIVACY NOTE: This variable excluded to protect participant privacy. Do not attempt to re-identify individuals. Use for linkage only if authorized.
+
+VARIABLE: death_date
+--------------------
+Position: 3
+Storage Type: int
+Display Format: %td
+Label: Date of death
+Classification: excluded (privacy)
+Missing: 13664 obs (91.10000000000001%)
+(values excluded from documentation)
+
+PRIVACY NOTE: This variable excluded to protect participant privacy. Do not attempt to re-identify individuals. Use for linkage only if authorized.
+
+========================================
+VALUE LABEL DEFINITIONS
+========================================
+
+civil_lbl (used by: civil_status)
+  1 = Single
+  2 = Married
+  3 = Divorced
+  4 = Widowed
+
+edu_lbl (used by: education)
+  1 = Primary
+  2 = Secondary
+  3 = Tertiary
+
+region_lbl (used by: region)
+  1 = Stockholm
+  2 = Uppsala/Orebro
+  3 = Southeast
+  4 = South
+  5 = West
+  6 = North
+
+yn_lbl (used by: female born_abroad)
+  0 = No
+  1 = Yes
+

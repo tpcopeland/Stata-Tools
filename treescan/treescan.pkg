@@ -1,0 +1,44 @@
+v 3
+d 'TREESCAN': Tree-Based Scan Statistic for Signal Detection
+d
+d Implements the tree-based scan statistic (Kulldorff et al., 2003) for
+d detecting excess risk across nodes in a hierarchical tree structure.
+d Used for pharmacovigilance and vaccine safety signal detection with
+d ICD-10 diagnosis code hierarchies and ATC drug classification trees.
+d
+d Implements Bernoulli and Poisson models (unconditional and conditional)
+d with Monte Carlo inference. Supports temporal scan windows and
+d simulation-based power evaluation. Ships with built-in ICD-10-CM,
+d ICD-10-SE, and ATC tree hierarchies.
+d
+d Requires: Stata version 16+
+d
+d Distribution-Date: 20260228
+d License: MIT
+d
+d Author: Tim Copeland
+d Department of Clinical Neuroscience, Karolinska Institutet, Stockholm
+d
+d KW: tree scan statistic
+d KW: signal detection
+d KW: pharmacovigilance
+d KW: ICD-10
+d KW: ATC
+d KW: adverse events
+d KW: Monte Carlo
+d KW: Bernoulli
+d KW: Poisson
+d KW: Kulldorff
+d KW: conditional
+d KW: temporal scan
+d KW: power
+d
+f treescan.ado
+f treescan.sthlp
+f treescan_power.ado
+f treescan_power.sthlp
+f _treescan_cut_tree.ado
+f ltreescan.mlib
+f icd10cm_tree.dta
+f icd10se_tree.dta
+f atc_tree.dta

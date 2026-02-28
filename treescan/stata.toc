@@ -1,0 +1,5 @@
+v 3
+d Stata-Dev: treescan
+d Tim Copeland, Karolinska Institutet, Stockholm
+d https://github.com/tpcopeland/Stata-Dev
+p treescan Tree-based scan statistic for signal detection
