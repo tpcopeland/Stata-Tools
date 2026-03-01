@@ -1,4 +1,4 @@
-*! table1_tc Version 1.0.6  25feb2026 - Descriptive Statistics Table Generator
+*! table1_tc Version 1.1.0  01mar2026 - Descriptive Statistics Table Generator
 *! Author: Tim Copeland
 *! Fork of -table1_mc- version 3.5 (2024-12-19) by Mark Chatfield
 *! This program generates descriptive statistics tables with formatting options
@@ -44,6 +44,7 @@ program define table1_tc, sclass
         [varlabplus]            /// Add data type description to variable labels
         [HEADERPerc]            /// Add percentage of total to sample size row
         [BORDERStyle(string)]   /// Border style: "default" or "thin"
+        [wt(varname)]           /// Importance/probability weight variable (e.g., IPTW)
 
 **# Input Validation and Option Setup
 
@@ -124,7 +125,22 @@ program define table1_tc, sclass
     
     // Default border style if not specified
     if "`borderstyle'" == "" local borderstyle "default"
-        
+
+    /* Validate weight option */
+    if "`wt'" != "" {
+        confirm numeric variable `wt'
+        if "`weight'" == "fweight" {
+            display as error "wt() and fweight cannot be used together"
+            error 198
+        }
+        quietly count if `wt' < 0
+        if r(N) > 0 {
+            display as error "wt() variable must be non-negative"
+            error 498
+        }
+    }
+    local has_wt = "`wt'" != ""
+
     /* Apply gurmeet preset if specified */
     if "`gurmeet'" == "gurmeet" {
         // Preset combination of formatting options
@@ -182,6 +198,7 @@ program define table1_tc, sclass
 
     /* Mark observations to include in analysis */
     marksample touse  // Creates indicator variable for observations that satisfy if/in conditions
+    if `has_wt' markout `touse' `wt'  // Exclude observations with missing weights
 
     /* Validate that observations remain after if/in conditions */
     quietly count if `touse'
@@ -264,8 +281,9 @@ program define table1_tc, sclass
         qui replace `groupnum' = 919 if _copy == 1   // 919 as placeholder for total
     }
     
-    /* Get counts by group */
-    contract `groupnum' [`weight'`exp']  // Calculate frequencies by group
+    /* Get counts by group (unweighted N when using wt()) */
+    if `has_wt' contract `groupnum'
+    else contract `groupnum' [`weight'`exp']
     gen factor="N"  // Label for the row
     gen factor_sep="N" // For neat output formatting
     
@@ -314,38 +332,40 @@ program define table1_tc, sclass
                 // Count groups with non-missing values for this variable
                 qui levelsof `groupnum' if `varname'!=., local(glevels)
                 local nglevels: word count `glevels'
-                
-                /* Calculate significance test */
-                if `nglevels'>=2 {
-                    // ANOVA for >1 group
-                    qui anova `varname' `groupnum' [`weight'`exp']
-                    // Use Ftail() for numerical stability - equivalent to 1-F() but more robust
-                    local p = Ftail(e(df_m), e(df_r), e(F))
-                    local f : di %6.2f e(F)  // F statistic
-                    local df1 = e(df_m)  // Degrees of freedom (numerator)
-                    local df2 = e(df_r)  // Degrees of freedom (denominator)
-                }
-                if `nglevels'==2 {
-                    // t-test for exactly 2 groups
-                    qui regress `varname' ib(first).`groupnum' [`weight'`exp']
-                    tempname Tmat
-                    matrix `Tmat' = r(table)
-                    local tstat : di %6.2f -1*`Tmat'[3,2]  // t statistic
-                }
 
-                /* Calculate pairwise comparisons if requested */
-                if "`pairwise123'" == "pairwise123" & `nglevels' >= 3 {
-                    // Group 1 vs Group 2
-                    qui anova `varname' `groupnum' [`weight'`exp'] if `groupnum' == `level1' | `groupnum' == `level2'
-                    local p12 = Ftail(e(df_m), e(df_r), e(F))
+                /* Calculate significance test (suppressed when wt() specified) */
+                if !`has_wt' {
+                    if `nglevels'>=2 {
+                        // ANOVA for >1 group
+                        qui anova `varname' `groupnum' [`weight'`exp']
+                        // Use Ftail() for numerical stability - equivalent to 1-F() but more robust
+                        local p = Ftail(e(df_m), e(df_r), e(F))
+                        local f : di %6.2f e(F)  // F statistic
+                        local df1 = e(df_m)  // Degrees of freedom (numerator)
+                        local df2 = e(df_r)  // Degrees of freedom (denominator)
+                    }
+                    if `nglevels'==2 {
+                        // t-test for exactly 2 groups
+                        qui regress `varname' ib(first).`groupnum' [`weight'`exp']
+                        tempname Tmat
+                        matrix `Tmat' = r(table)
+                        local tstat : di %6.2f -1*`Tmat'[3,2]  // t statistic
+                    }
 
-                    // Group 2 vs Group 3
-                    qui anova `varname' `groupnum' [`weight'`exp'] if `groupnum' == `level2' | `groupnum' == `level3'
-                    local p23 = Ftail(e(df_m), e(df_r), e(F))
+                    /* Calculate pairwise comparisons if requested */
+                    if "`pairwise123'" == "pairwise123" & `nglevels' >= 3 {
+                        // Group 1 vs Group 2
+                        qui anova `varname' `groupnum' [`weight'`exp'] if `groupnum' == `level1' | `groupnum' == `level2'
+                        local p12 = Ftail(e(df_m), e(df_r), e(F))
 
-                    // Group 1 vs Group 3
-                    qui anova `varname' `groupnum' [`weight'`exp'] if `groupnum' == `level1' | `groupnum' == `level3'
-                    local p13 = Ftail(e(df_m), e(df_r), e(F))
+                        // Group 2 vs Group 3
+                        qui anova `varname' `groupnum' [`weight'`exp'] if `groupnum' == `level2' | `groupnum' == `level3'
+                        local p23 = Ftail(e(df_m), e(df_r), e(F))
+
+                        // Group 1 vs Group 3
+                        qui anova `varname' `groupnum' [`weight'`exp'] if `groupnum' == `level1' | `groupnum' == `level3'
+                        local p13 = Ftail(e(df_m), e(df_r), e(F))
+                    }
                 }
 
                 /* Set display format */
@@ -362,8 +382,14 @@ program define table1_tc, sclass
                 }
 
                 // Calculate mean, SD, and count by group
-                collapse (mean) mean=`varname' (sd) sd=`varname' (count) N_=`varname' ///
-                    [`weight'`exp'], by(`groupnum')
+                if `has_wt' {
+                    collapse (mean) mean=`varname' (sd) sd=`varname' (count) N_=`varname' ///
+                        [aw=`wt'], by(`groupnum')
+                }
+                else {
+                    collapse (mean) mean=`varname' (sd) sd=`varname' (count) N_=`varname' ///
+                        [`weight'`exp'], by(`groupnum')
+                }
                 format N_ %8.0g
 
                 /* Format results for display */
@@ -390,26 +416,26 @@ program define table1_tc, sclass
                 qui reshape wide mean_sd _columna_ _columnb_ N_, i(factor) j(`groupnum')
                 rename mean_sd* `groupnum'*  // Rename columns by group
                 
-                /* Add p-value, test type, and statistics */
-                if `nglevels'>1 qui {
+                /* Add p-value, test type, and statistics (skipped when weighted) */
+                if `nglevels'>1 & !`has_wt' qui {
                     gen p=`p'  // Add p-value
-                    
+
                     // Add pairwise p-values if requested
                     if "`pairwise123'" == "pairwise123" {
                         qui gen p12=`p12'  // Group 1 vs 2
-                        qui gen p23=`p23'  // Group 2 vs 3 
+                        qui gen p23=`p23'  // Group 2 vs 3
                         qui gen p13=`p13'  // Group 1 vs 3
-                    }    
+                    }
                 }
-                
+
                 // Add test type label based on number of groups
-                if "`test'"=="test" & `nglevels'==2 gen test="Ind. t test"  
-                if "`test'"=="test" & `nglevels'>2 gen test="ANOVA"
-                
+                if "`test'"=="test" & `nglevels'==2 & !`has_wt' gen test="Ind. t test"
+                if "`test'"=="test" & `nglevels'>2 & !`has_wt' gen test="ANOVA"
+
                 // Add test statistic details if requested
-                if "`statistic'"=="statistic" & `nglevels'==2 gen statistic="t(`df2')=`tstat'"
-                if "`statistic'"=="statistic" & `nglevels'>2 gen statistic="F(`df1',`df2')=`f'"    
-                
+                if "`statistic'"=="statistic" & `nglevels'==2 & !`has_wt' gen statistic="t(`df2')=`tstat'"
+                if "`statistic'"=="statistic" & `nglevels'>2 & !`has_wt' gen statistic="F(`df1',`df2')=`f'"
+
                 /* Add sort variable and append to results */
                 gen sort1=`sortorder++'  // Increment sort order
                 qui append using "`resultstable'"  // Add to results table
@@ -431,38 +457,40 @@ program define table1_tc, sclass
                 // Count groups with non-missing values
                 qui levelsof `groupnum' if `lvarname'!=., local(glevels)
                 local nglevels: word count `glevels'
-                
-                /* Calculate significance test */
-                if `nglevels'>=2 {
-                    // ANOVA on log-transformed values
-                    qui anova `lvarname' `groupnum' [`weight'`exp']
-                    // Use Ftail() for numerical stability - equivalent to 1-F() but more robust
-                    local p = Ftail(e(df_m), e(df_r), e(F))
-                    local f : di %6.2f e(F)  // F statistic
-                    local df1 = e(df_m)  // Degrees of freedom (numerator)
-                    local df2 = e(df_r)  // Degrees of freedom (denominator)
-                }
-                if `nglevels'==2 {
-                    // t-test for exactly 2 groups
-                    qui regress `lvarname' ib(first).`groupnum' [`weight'`exp']
-                    tempname Tmat
-                    matrix `Tmat' = r(table)
-                    local tstat : di %6.2f -1*`Tmat'[3,2]  // t statistic
-                }
 
-                /* Calculate pairwise comparisons if requested */
-                if "`pairwise123'" == "pairwise123" & `nglevels' >= 3 {
-                    // Group 1 vs Group 2
-                    qui anova `lvarname' `groupnum' [`weight'`exp'] if `groupnum' == `level1' | `groupnum' == `level2'
-                    local p12 = Ftail(e(df_m), e(df_r), e(F))
+                /* Calculate significance test (suppressed when wt() specified) */
+                if !`has_wt' {
+                    if `nglevels'>=2 {
+                        // ANOVA on log-transformed values
+                        qui anova `lvarname' `groupnum' [`weight'`exp']
+                        // Use Ftail() for numerical stability - equivalent to 1-F() but more robust
+                        local p = Ftail(e(df_m), e(df_r), e(F))
+                        local f : di %6.2f e(F)  // F statistic
+                        local df1 = e(df_m)  // Degrees of freedom (numerator)
+                        local df2 = e(df_r)  // Degrees of freedom (denominator)
+                    }
+                    if `nglevels'==2 {
+                        // t-test for exactly 2 groups
+                        qui regress `lvarname' ib(first).`groupnum' [`weight'`exp']
+                        tempname Tmat
+                        matrix `Tmat' = r(table)
+                        local tstat : di %6.2f -1*`Tmat'[3,2]  // t statistic
+                    }
 
-                    // Group 2 vs Group 3
-                    qui anova `lvarname' `groupnum' [`weight'`exp'] if `groupnum' == `level2' | `groupnum' == `level3'
-                    local p23 = Ftail(e(df_m), e(df_r), e(F))
+                    /* Calculate pairwise comparisons if requested */
+                    if "`pairwise123'" == "pairwise123" & `nglevels' >= 3 {
+                        // Group 1 vs Group 2
+                        qui anova `lvarname' `groupnum' [`weight'`exp'] if `groupnum' == `level1' | `groupnum' == `level2'
+                        local p12 = Ftail(e(df_m), e(df_r), e(F))
 
-                    // Group 1 vs Group 3
-                    qui anova `lvarname' `groupnum' [`weight'`exp'] if `groupnum' == `level1' | `groupnum' == `level3'
-                    local p13 = Ftail(e(df_m), e(df_r), e(F))
+                        // Group 2 vs Group 3
+                        qui anova `lvarname' `groupnum' [`weight'`exp'] if `groupnum' == `level2' | `groupnum' == `level3'
+                        local p23 = Ftail(e(df_m), e(df_r), e(F))
+
+                        // Group 1 vs Group 3
+                        qui anova `lvarname' `groupnum' [`weight'`exp'] if `groupnum' == `level1' | `groupnum' == `level3'
+                        local p13 = Ftail(e(df_m), e(df_r), e(F))
+                    }
                 }
 
                 /* Set display format */
@@ -479,9 +507,15 @@ program define table1_tc, sclass
                 }
                 
                 // Calculate mean, SD, and count of log-transformed values by group
-                collapse (mean) mean=`lvarname' (sd) sd=`lvarname' (count) N_=`lvarname' ///
-                    [`weight'`exp'], by(`groupnum')
-                format N_ %8.0g    
+                if `has_wt' {
+                    collapse (mean) mean=`lvarname' (sd) sd=`lvarname' (count) N_=`lvarname' ///
+                        [aw=`wt'], by(`groupnum')
+                }
+                else {
+                    collapse (mean) mean=`lvarname' (sd) sd=`lvarname' (count) N_=`lvarname' ///
+                        [`weight'`exp'], by(`groupnum')
+                }
+                format N_ %8.0g
                 
                 /* Back-transform from log scale and format results */
                 qui replace mean = exp(mean)  // Back-transform mean (geometric mean)
@@ -509,26 +543,26 @@ program define table1_tc, sclass
                 qui reshape wide mean_sd _columna_ _columnb_ N_, i(factor) j(`groupnum')
                 rename mean_sd* `groupnum'*  // Rename columns by group
                 
-                /* Add p-value, test type, and statistics */
-                if `nglevels'>1 qui {
+                /* Add p-value, test type, and statistics (skipped when weighted) */
+                if `nglevels'>1 & !`has_wt' qui {
                     gen p=`p'  // Add p-value
-                    
+
                     // Add pairwise p-values if requested
                     if "`pairwise123'" == "pairwise123" {
                         qui gen p12=`p12'  // Group 1 vs 2
-                        qui gen p23=`p23'  // Group 2 vs 3 
+                        qui gen p23=`p23'  // Group 2 vs 3
                         qui gen p13=`p13'  // Group 1 vs 3
                     }
                 }
-            
+
                 // Add test type label based on number of groups
-                if "`test'"=="test" & `nglevels'==2 gen test="Ind. t test, logged data"  
-                if "`test'"=="test" & `nglevels'>2 gen test="ANOVA, logged data"
-                
+                if "`test'"=="test" & `nglevels'==2 & !`has_wt' gen test="Ind. t test, logged data"
+                if "`test'"=="test" & `nglevels'>2 & !`has_wt' gen test="ANOVA, logged data"
+
                 // Add test statistic details if requested
-                if "`statistic'"=="statistic" & `nglevels'==2 gen statistic="t(`df2')=`tstat'"
-                if "`statistic'"=="statistic" & `nglevels'>2 gen statistic="F(`df1',`df2')=`f'"
-                
+                if "`statistic'"=="statistic" & `nglevels'==2 & !`has_wt' gen statistic="t(`df2')=`tstat'"
+                if "`statistic'"=="statistic" & `nglevels'>2 & !`has_wt' gen statistic="F(`df1',`df2')=`f'"
+
                 /* Add sort variable and append to results */
                 gen sort1=`sortorder++'  // Increment sort order
                 qui append using "`resultstable'"  // Add to results table
@@ -542,51 +576,53 @@ program define table1_tc, sclass
                 qui keep if `touse'  // Keep relevant observations
                 qui drop if missing(`groupnum')  // Drop observations with missing group values
 
-                /* Expand by frequency weight for rank-based tests */
-                if "`weight'"=="fweight" qui expand `exp'
-                
+                /* Expand by frequency weight for rank-based tests (not needed with wt()) */
+                if "`weight'"=="fweight" & !`has_wt' qui expand `exp'
+
                 // Count groups with non-missing values
                 qui levelsof `groupnum' if `varname'!=., local(glevels)
                 local nglevels: word count `glevels'
-                
-                /* Calculate significance test */
-                if `nglevels'>2 {
-                    /* Kruskal-Wallis for >2 groups */
-                    cap kwallis `varname', by(`groupnum')
-                    if _rc == 0 {
-                        qui kwallis `varname', by(`groupnum')
-                        local p=chi2tail(r(df), r(chi2_adj))  // p-value
-                        local chi2 :di %6.2f r(chi2_adj)  // Chi-square statistic
-                        local df = r(df)  // Degrees of freedom
-                    }
-                }
-                if `nglevels'==2 {
-                    /* Rank-sum for 2 groups */
-                    cap ranksum `varname', by(`groupnum')
-                    if _rc == 0 {
-                        qui ranksum `varname', by(`groupnum')
-                        local z = r(z)  // z statistic
-                        local p=2*normal(-abs(`z'))  // Two-sided p-value
-                        local z : di %6.2f `z'  // Format z statistic
-                    }
-                }
-                
-                /* Calculate pairwise comparisons if requested */
-                if "`pairwise123'" == "pairwise123" & `nglevels' >= 3 {
-                    // Group 1 vs Group 2
-                    cap ranksum `varname' if `groupnum' == `level1' | `groupnum' == `level2', by(`groupnum')
-                    if _rc == 0 qui ranksum `varname' if `groupnum' == `level1' | `groupnum' == `level2', by(`groupnum')
-                    local p12=2*normal(-abs(r(z)))
 
-                    // Group 2 vs Group 3
-                    cap ranksum `varname' if `groupnum' == `level2' | `groupnum' == `level3', by(`groupnum')
-                    if _rc == 0 qui ranksum `varname' if `groupnum' == `level2' | `groupnum' == `level3', by(`groupnum')
-                    local p23=2*normal(-abs(r(z)))
+                /* Calculate significance test (suppressed when wt() specified) */
+                if !`has_wt' {
+                    if `nglevels'>2 {
+                        /* Kruskal-Wallis for >2 groups */
+                        cap kwallis `varname', by(`groupnum')
+                        if _rc == 0 {
+                            qui kwallis `varname', by(`groupnum')
+                            local p=chi2tail(r(df), r(chi2_adj))  // p-value
+                            local chi2 :di %6.2f r(chi2_adj)  // Chi-square statistic
+                            local df = r(df)  // Degrees of freedom
+                        }
+                    }
+                    if `nglevels'==2 {
+                        /* Rank-sum for 2 groups */
+                        cap ranksum `varname', by(`groupnum')
+                        if _rc == 0 {
+                            qui ranksum `varname', by(`groupnum')
+                            local z = r(z)  // z statistic
+                            local p=2*normal(-abs(`z'))  // Two-sided p-value
+                            local z : di %6.2f `z'  // Format z statistic
+                        }
+                    }
 
-                    // Group 1 vs Group 3
-                    cap ranksum `varname' if `groupnum' == `level1' | `groupnum' == `level3', by(`groupnum')
-                    if _rc == 0 qui ranksum `varname' if `groupnum' == `level1' | `groupnum' == `level3', by(`groupnum')
-                    local p13=2*normal(-abs(r(z)))
+                    /* Calculate pairwise comparisons if requested */
+                    if "`pairwise123'" == "pairwise123" & `nglevels' >= 3 {
+                        // Group 1 vs Group 2
+                        cap ranksum `varname' if `groupnum' == `level1' | `groupnum' == `level2', by(`groupnum')
+                        if _rc == 0 qui ranksum `varname' if `groupnum' == `level1' | `groupnum' == `level2', by(`groupnum')
+                        local p12=2*normal(-abs(r(z)))
+
+                        // Group 2 vs Group 3
+                        cap ranksum `varname' if `groupnum' == `level2' | `groupnum' == `level3', by(`groupnum')
+                        if _rc == 0 qui ranksum `varname' if `groupnum' == `level2' | `groupnum' == `level3', by(`groupnum')
+                        local p23=2*normal(-abs(r(z)))
+
+                        // Group 1 vs Group 3
+                        cap ranksum `varname' if `groupnum' == `level1' | `groupnum' == `level3', by(`groupnum')
+                        if _rc == 0 qui ranksum `varname' if `groupnum' == `level1' | `groupnum' == `level3', by(`groupnum')
+                        local p13=2*normal(-abs(r(z)))
+                    }
                 }
                 
                 /* Set display format */
@@ -603,9 +639,15 @@ program define table1_tc, sclass
                 }                
                 
                 // Calculate median and IQR by group
-                collapse (p50) p50=`varname' (p25) p25=`varname' ///
-                    (p75) p75=`varname' (count) N_=`varname' , by(`groupnum')
-                format N_ %8.0g    
+                if `has_wt' {
+                    collapse (p50) p50=`varname' (p25) p25=`varname' ///
+                        (p75) p75=`varname' (count) N_=`varname' [aw=`wt'], by(`groupnum')
+                }
+                else {
+                    collapse (p50) p50=`varname' (p25) p25=`varname' ///
+                        (p75) p75=`varname' (count) N_=`varname' , by(`groupnum')
+                }
+                format N_ %8.0g
                 
                 /* Format results for display */
                 qui gen _columna_ = string(p50, "`varformat'")  // Format median
@@ -632,26 +674,26 @@ program define table1_tc, sclass
                 qui reshape wide median_iqr _columna_ _columnb_ N_, i(factor) j(`groupnum')
                 rename median_iqr* `groupnum'*  // Rename columns by group
 
-                /* Add p-value, test type, and statistics */
-                if `nglevels'>1 qui {
+                /* Add p-value, test type, and statistics (skipped when weighted) */
+                if `nglevels'>1 & !`has_wt' qui {
                     gen p=`p'  // Add p-value
-                    
+
                     // Add pairwise p-values if requested
                     if "`pairwise123'" == "pairwise123" {
                         qui gen p12=`p12'  // Group 1 vs 2
-                        qui gen p23=`p23'  // Group 2 vs 3 
+                        qui gen p23=`p23'  // Group 2 vs 3
                         qui gen p13=`p13'  // Group 1 vs 3
                     }
                 }
-                
+
                 // Add test type label based on number of groups
-                if "`test'"=="test" & `nglevels'==2 gen test="Wilcoxon rank-sum"  
-                if "`test'"=="test" & `nglevels'>2 gen test="Kruskal-Wallis"
-                
+                if "`test'"=="test" & `nglevels'==2 & !`has_wt' gen test="Wilcoxon rank-sum"
+                if "`test'"=="test" & `nglevels'>2 & !`has_wt' gen test="Kruskal-Wallis"
+
                 // Add test statistic details if requested
-                if "`statistic'"=="statistic" & `nglevels'==2 gen statistic="Z=`z'"
-                if "`statistic'"=="statistic" & `nglevels'>2 gen statistic="Chi2(`df')=`chi2'"
-                
+                if "`statistic'"=="statistic" & `nglevels'==2 & !`has_wt' gen statistic="Z=`z'"
+                if "`statistic'"=="statistic" & `nglevels'>2 & !`has_wt' gen statistic="Chi2(`df')=`chi2'"
+
                 /* Add sort variable and append to results */
                 gen sort1=`sortorder++'  // Increment sort order
                 qui append using "`resultstable'"  // Add to results table
@@ -691,15 +733,15 @@ program define table1_tc, sclass
                     if r(N)!=0 local nvlevels = `nvlevels'+1
                 }                
                 
-                /* Calculate significance test */
-                if `nglevels'>1 & `nvlevels'>1 {
+                /* Calculate significance test (suppressed when wt() specified) */
+                if `nglevels'>1 & `nvlevels'>1 & !`has_wt' {
                     if "`vartype'"=="cat" {
                         // Chi-square test for standard categorical
                         qui tab `varnum' `groupnum' [`weight'`exp'], chi2 m
                         local p=r(p)  // p-value
                         local chi2 : di %6.2f r(chi2)  // Chi-square statistic
                         local df = (r(r)-1)*(r(c)-1)  // Degrees of freedom
-                        
+
                         // Calculate pairwise chi-square tests if requested
                         if "`pairwise123'" == "pairwise123" & `nglevels' >= 3 {
                             qui tab `varnum' `groupnum' [`weight'`exp'] if `groupnum' == `level1' | `groupnum' == `level2', chi2 m
@@ -723,17 +765,30 @@ program define table1_tc, sclass
                             local p23=r(p_exact)
                             qui tab `varnum' `groupnum' [`weight'`exp'] if `groupnum' == `level1' | `groupnum' == `level3', exact m
                             local p13=r(p_exact)
-                        }                        
-                    }                
+                        }
+                    }
                 }
-                
+
                 /* Calculate frequencies by group */
                 if "`total'" != "" { 
                     qui expand 2, gen(_copy)  // Duplicate for total calculation
                     qui replace `groupnum' = 919 if _copy == 1  // Mark total rows
                 }                
-                qui contract `varnum' `groupnum' [`weight'`exp'], zero  // Get counts for each value and group combination
-                qui egen tot=total(_freq), by(`groupnum')  // Calculate total count per group
+                if `has_wt' {
+                    // Weighted frequencies: sum weights per cell, count observations
+                    gen double _wt_val = `wt'
+                    collapse (sum) _freq=_wt_val (count) _uwn=_wt_val, by(`varnum' `groupnum')
+                    fillin `varnum' `groupnum'
+                    qui replace _freq = 0 if _fillin
+                    qui replace _uwn = 0 if _fillin
+                    drop _fillin
+                    qui egen tot = total(_freq), by(`groupnum')
+                    qui egen _uwn_grp = total(_uwn), by(`groupnum')
+                }
+                else {
+                    qui contract `varnum' `groupnum' [`weight'`exp'], zero
+                    qui egen tot=total(_freq), by(`groupnum')
+                }
                 
                 /* Calculate row percentages if requested */
                 if "`catrowperc'" != "" {
@@ -769,34 +824,47 @@ program define table1_tc, sclass
                 }
                 
                 qui replace perc= perc + `percsign'  // Add percent sign
-                
-                qui gen n_ = string(_freq, "`nformat'")  // Format count
-                if `"`slashN'"' == "slashN" qui replace n_ = n_ + "/" + string(tot, "`nformat'")  // Show as n/N if requested
-                
+
+                // Format count: use unweighted n when wt() specified
+                if `has_wt' {
+                    qui gen n_ = string(_uwn, "`nformat'")
+                    if `"`slashN'"' == "slashN" qui replace n_ = n_ + "/" + string(_uwn_grp, "`nformat'")
+                }
+                else {
+                    qui gen n_ = string(_freq, "`nformat'")
+                    if `"`slashN'"' == "slashN" qui replace n_ = n_ + "/" + string(tot, "`nformat'")
+                }
+
                 /* Format display based on options */
                 if "`percent_n'"=="" & "`percent'"=="" {
                     // Standard format: n (%)
                     qui gen _columna_ = n_
-                    qui gen _columnb_ = "(" + perc + ")" 
-                }                
+                    qui gen _columnb_ = "(" + perc + ")"
+                }
                 else qui gen _columna_ = perc  // % first if percent_n specified
-                
+
                 if "`percent_n'"=="percent_n" & "`percent'"=="" qui gen _columnb_ = "(" + n_ + ")"  // Format as % (n)
                 if "`percent'"=="percent" qui gen _columnb_ = ""  // Show percentage only
-                
+
                 qui gen n_perc = _columna_ + " " + _columnb_  // Combine n and %
-                
+
                 label var _columna_ "columna"
                 label var _columnb_ "columnb"
-                
+
                 /* Restore total if using row percentages */
                 if "`catrowperc'" != "" {
                     qui replace tot = `coltot'  // Restore original column totals
                     drop `coltot'
-                }    
-                rename tot N_
+                }
+                if `has_wt' {
+                    drop tot _uwn
+                    rename _uwn_grp N_
+                }
+                else {
+                    rename tot N_
+                }
                 label var N_ "N"
-                
+
                 drop _freq perc n_
                 qui reshape wide n_perc _columna_ _columnb_ N_, i(`varnum') j(`groupnum')                
                 rename n_perc* `groupnum'*  // Rename columns by group
@@ -843,30 +911,30 @@ program define table1_tc, sclass
                     qui replace factor="   Missing" if `varnum'==. & _n!=1  // Label for missing values
                 }
 
-                /* Add p-value, test type, and statistics */
+                /* Add p-value, test type, and statistics (skipped when weighted) */
                 qui gen cat_not_top_row = 1 if _n!=1  // Flag for rows that aren't the first row
-                if `nglevels'>1 & `nvlevels'>1 {
+                if `nglevels'>1 & `nvlevels'>1 & !`has_wt' {
                     qui gen p=`p' if _n==1  // Add p-value to first row only
-                    
+
                     // Add pairwise p-values if requested
                     if "`pairwise123'" == "pairwise123" {
                         qui gen p12=`p12' if _n==1
                         qui gen p23=`p23' if _n==1
                         qui gen p13=`p13' if _n==1
-                    }                    
-                }    
-                
+                    }
+                }
+
                 // Show N only in first row
-                foreach v of var N_* {                    
+                foreach v of var N_* {
                     qui replace `v' = . if _n!=1
-                }                    
-                
+                }
+
                 // Add test type and statistic labels if requested
-                if "`test'"=="test" & `nglevels'>1 & `nvlevels'>1 {
-                    if "`vartype'"=="cat" qui gen test="Chi-square" if _n==1    
+                if "`test'"=="test" & `nglevels'>1 & `nvlevels'>1 & !`has_wt' {
+                    if "`vartype'"=="cat" qui gen test="Chi-square" if _n==1
                     else qui gen test="Fisher's exact" if _n==1
                 }
-                if "`statistic'"=="statistic" & `nglevels'>1 & `nvlevels'>1 {
+                if "`statistic'"=="statistic" & `nglevels'>1 & `nvlevels'>1 & !`has_wt' {
                     if "`vartype'"=="cat" qui gen statistic="Chi2(`df')=`chi2'" if _n==1
                     else qui gen statistic="N/A" if _n==1
                 }                
@@ -905,48 +973,63 @@ program define table1_tc, sclass
                 qui levelsof `varname', local(vlevels)
                 local nvlevels: word count `vlevels'
                 
-                /* Calculate significance test */
-                if "`vartype'"=="bin" & `nglevels'>1 & `nvlevels'>1 {
-                    // Chi-square test for standard binary
-                    qui tab `varname' `groupnum' [`weight'`exp'], chi2
-                    local p=r(p)  // p-value
-                    local chi2 : di %6.2f r(chi2)  // Chi-square statistic
-                    local df = (r(r)-1)*(r(c)-1)  // Degrees of freedom                      
-                    
-                    // Calculate pairwise chi-square tests if requested
-                    if "`pairwise123'" == "pairwise123" & `nglevels' >= 3 {
-                        qui tab `varname' `groupnum' [`weight'`exp'] if `groupnum' == `level1' | `groupnum' == `level2', chi2
-                        local p12=r(p)
-                        qui tab `varname' `groupnum' [`weight'`exp'] if `groupnum' == `level2' | `groupnum' == `level3', chi2
-                        local p23=r(p)
-                        qui tab `varname' `groupnum' [`weight'`exp'] if `groupnum' == `level1' | `groupnum' == `level3', chi2
-                        local p13=r(p)
+                /* Calculate significance test (suppressed when wt() specified) */
+                if !`has_wt' {
+                    if "`vartype'"=="bin" & `nglevels'>1 & `nvlevels'>1 {
+                        // Chi-square test for standard binary
+                        qui tab `varname' `groupnum' [`weight'`exp'], chi2
+                        local p=r(p)  // p-value
+                        local chi2 : di %6.2f r(chi2)  // Chi-square statistic
+                        local df = (r(r)-1)*(r(c)-1)  // Degrees of freedom
+
+                        // Calculate pairwise chi-square tests if requested
+                        if "`pairwise123'" == "pairwise123" & `nglevels' >= 3 {
+                            qui tab `varname' `groupnum' [`weight'`exp'] if `groupnum' == `level1' | `groupnum' == `level2', chi2
+                            local p12=r(p)
+                            qui tab `varname' `groupnum' [`weight'`exp'] if `groupnum' == `level2' | `groupnum' == `level3', chi2
+                            local p23=r(p)
+                            qui tab `varname' `groupnum' [`weight'`exp'] if `groupnum' == `level1' | `groupnum' == `level3', chi2
+                            local p13=r(p)
+                        }
+                    }
+                    if "`vartype'"=="bine" & `nglevels'>1 & `nvlevels'>1 {
+                        // Fisher's exact test for bine type
+                        qui tab `varname' `groupnum' [`weight'`exp'], exact
+                        local p=r(p_exact)  // p-value from Fisher's exact test
+
+                        // Calculate pairwise Fisher's exact tests if requested
+                        if "`pairwise123'" == "pairwise123" & `nglevels' >= 3 {
+                            qui tab `varname' `groupnum' [`weight'`exp'] if `groupnum' == `level1' | `groupnum' == `level2', exact
+                            local p12=r(p_exact)
+                            qui tab `varname' `groupnum' [`weight'`exp'] if `groupnum' == `level2' | `groupnum' == `level3', exact
+                            local p23=r(p_exact)
+                            qui tab `varname' `groupnum' [`weight'`exp'] if `groupnum' == `level1' | `groupnum' == `level3', exact
+                            local p13=r(p_exact)
+                        }
                     }
                 }
-                if "`vartype'"=="bine" & `nglevels'>1 & `nvlevels'>1 {
-                    // Fisher's exact test for bine type
-                    qui tab `varname' `groupnum' [`weight'`exp'], exact
-                    local p=r(p_exact)  // p-value from Fisher's exact test
-
-                    // Calculate pairwise Fisher's exact tests if requested
-                    if "`pairwise123'" == "pairwise123" & `nglevels' >= 3 {
-                        qui tab `varname' `groupnum' [`weight'`exp'] if `groupnum' == `level1' | `groupnum' == `level2', exact
-                        local p12=r(p_exact)
-                        qui tab `varname' `groupnum' [`weight'`exp'] if `groupnum' == `level2' | `groupnum' == `level3', exact
-                        local p23=r(p_exact)
-                        qui tab `varname' `groupnum' [`weight'`exp'] if `groupnum' == `level1' | `groupnum' == `level3', exact
-                        local p13=r(p_exact)
-                    }                        
-                }                
                                 
                 /* Calculate frequencies by group */
                 if "`total'" != "" { 
                     qui expand 2, gen(_copy)  // Duplicate for total calculation
                     qui replace `groupnum' = 919 if _copy == 1  // Mark total rows
                 }                
-                qui contract `varname' `groupnum' [`weight'`exp'], zero  // Get counts for each value and group
-                qui egen tot=total(_freq), by(`groupnum')  // Calculate total count per group
-                
+                if `has_wt' {
+                    // Weighted frequencies: sum weights per cell, count observations
+                    gen double _wt_val = `wt'
+                    collapse (sum) _freq=_wt_val (count) _uwn=_wt_val, by(`varname' `groupnum')
+                    fillin `varname' `groupnum'
+                    qui replace _freq = 0 if _fillin
+                    qui replace _uwn = 0 if _fillin
+                    drop _fillin
+                    qui egen tot = total(_freq), by(`groupnum')
+                    qui egen _uwn_grp = total(_uwn), by(`groupnum')
+                }
+                else {
+                    qui contract `varname' `groupnum' [`weight'`exp'], zero
+                    qui egen tot=total(_freq), by(`groupnum')
+                }
+
                 /* Set percentage format */
                 if "`varformat'"=="" {
                     if "`percformat'"=="" {
@@ -957,44 +1040,57 @@ program define table1_tc, sclass
                     }
                     else local varformat `percformat'  // Use specified format
                 }
-                
+
                 /* Keep only the positive (=1) category */
                 qui count if `varname'==1
                 if r(N) > 0 qui keep if `varname'==1  // Keep only positive cases
                 if r(N) == 0 qui replace _freq = 0 if _freq > 0  // Handle case where no positives exist
-                
+
                 /* Format results for display */
                 qui gen perc=string(100*_freq/tot, "`varformat'")  // Calculate and format percentage
-                
+
                 /* Add leading space for percentages <10% for alignment */
                 if "`nospacelowpercent'" == "" {
                     // Add space for single-digit percentages for alignment
                     qui replace perc= " " + perc if 100*_freq/tot < 10 & perc!="10" & perc!="10.0" & perc!="10.00"
                 }
-                
-                qui replace perc= perc + `percsign'  // Add percent sign                
-                
-                qui gen n_ = string(_freq, "`nformat'")  // Format count
-                if `"`slashN'"' == "slashN" qui replace n_ = n_ + "/" + string(tot, "`nformat'")  // Show as n/N if requested
-                
+
+                qui replace perc= perc + `percsign'  // Add percent sign
+
+                // Format count: use unweighted n when wt() specified
+                if `has_wt' {
+                    qui gen n_ = string(_uwn, "`nformat'")
+                    if `"`slashN'"' == "slashN" qui replace n_ = n_ + "/" + string(_uwn_grp, "`nformat'")
+                }
+                else {
+                    qui gen n_ = string(_freq, "`nformat'")
+                    if `"`slashN'"' == "slashN" qui replace n_ = n_ + "/" + string(tot, "`nformat'")
+                }
+
                 /* Format display based on options */
                 if "`percent_n'"=="" & "`percent'"=="" {
                     // Standard format: n (%)
                     qui gen _columna_ = n_
-                    qui gen _columnb_ = "(" + perc + ")" 
-                }                
+                    qui gen _columnb_ = "(" + perc + ")"
+                }
                 else qui gen _columna_ = perc  // % first if percent_n specified
-                
+
                 if "`percent_n'"=="percent_n" & "`percent'"=="" qui gen _columnb_ = "(" + n_ + ")"  // Format as % (n)
                 if "`percent'"=="percent" qui gen _columnb_ = ""  // Show percentage only
-                
+
                 qui gen n_perc = _columna_ + " " + _columnb_  // Combine n and %
-                
+
                 label var _columna_ "columna"
                 label var _columnb_ "columnb"
-                rename tot N_
+                if `has_wt' {
+                    drop tot _uwn
+                    rename _uwn_grp N_
+                }
+                else {
+                    rename tot N_
+                }
                 label var N_ "N"
-                
+
                 drop _freq perc n_
                 qui reshape wide n_perc _columna_ _columnb_ N_, i(`varname') j(`groupnum')
                 qui drop `varname'
@@ -1003,24 +1099,24 @@ program define table1_tc, sclass
                 qui clonevar factor_sep=factor  // Copy for formatting
                 rename n_perc* `groupnum'*  // Rename columns by group
 
-                /* Add p-value, test type, and statistics */
-                if `nglevels'>1 & `nvlevels'>1 {
+                /* Add p-value, test type, and statistics (skipped when weighted) */
+                if `nglevels'>1 & `nvlevels'>1 & !`has_wt' {
                     qui gen p=`p'  // Add p-value
-                    
+
                     // Add pairwise p-values if requested
                     if "`pairwise123'" == "pairwise123" {
                         qui gen p12=`p12'
                         qui gen p23=`p23'
                         qui gen p13=`p13'
-                    }    
+                    }
                 }
-                
+
                 // Add test type and statistic labels if requested
-                if "`test'"=="test" & `nglevels'>1 & `nvlevels'>1 {
-                    if "`vartype'"=="bin" qui gen test="Chi-square"     
-                    else qui gen test="Fisher's exact" 
+                if "`test'"=="test" & `nglevels'>1 & `nvlevels'>1 & !`has_wt' {
+                    if "`vartype'"=="bin" qui gen test="Chi-square"
+                    else qui gen test="Fisher's exact"
                 }
-                if "`statistic'"=="statistic" & `nglevels'>1 & `nvlevels'>1 {
+                if "`statistic'"=="statistic" & `nglevels'>1 & `nvlevels'>1 & !`has_wt' {
                     if "`vartype'"=="bin" qui gen statistic="Chi2(`df')=`chi2'"
                     else qui gen statistic="N/A"
                 }                
@@ -1094,8 +1190,8 @@ program define table1_tc, sclass
     capture lab var N_919 "T N_"
     capture lab var m_919 "T m_"
     
-    /* Format p-values */
-    if `groupcount'>1 {
+    /* Format p-values (skipped when wt() specified) */
+    if `groupcount'>1 & !`has_wt' {
         cap gen p = .  // Create p-value variable if it doesn't exist
         
         // Format p-values according to their magnitude and specified decimal places
@@ -1116,8 +1212,8 @@ program define table1_tc, sclass
         lab var pvalue "p-value"  // Label p-value column
     }
     
-    /* Format pairwise comparisons if requested */
-    if "`pairwise123'" == "pairwise123" {
+    /* Format pairwise comparisons if requested (skipped when weighted) */
+    if "`pairwise123'" == "pairwise123" & !`has_wt' {
         foreach p of var p12 p23 p13 {
             // Format each pairwise p-value with same logic as overall p-value
             qui gen `p's=string(`p', "%`=`highpdp'+2'.`highpdp'f") if !missing(`p')  // Standard format
@@ -1365,22 +1461,22 @@ program define table1_tc, sclass
         if "`ycontn'" == "1" & "`ycontln'" == "1" & "`yconts'" == "1" {
             local ycont "`meanSD', `gmeanSD', and median (Q1, Q3)"
         }
-        else if "`ycontn'" == "1" & "`ycontln'" == "1" & "`yconts'" == "" {
+        else if "`ycontn'" == "1" & "`ycontln'" == "1" & "`yconts'" != "1" {
             local ycont "`meanSD' or `gmeanSD'"
         }
-        else if "`ycontn'" == "1" & "`ycontln'" == "" & "`yconts'" == "1" {
+        else if "`ycontn'" == "1" & "`ycontln'" != "1" & "`yconts'" == "1" {
             local ycont "`meanSD' or median (Q1, Q3)"
         }
-        else if "`ycontn'" == "" & "`ycontln'" == "1" & "`yconts'" == "1" {
+        else if "`ycontn'" != "1" & "`ycontln'" == "1" & "`yconts'" == "1" {
             local ycont "`gmeanSD' or median (Q1, Q3)"
         }
-        else if "`ycontn'" == "1" & "`ycontln'" == "" & "`yconts'" == "" {
+        else if "`ycontn'" == "1" & "`ycontln'" != "1" & "`yconts'" != "1" {
             local ycont "`meanSD'"
         }
-        else if "`ycontn'" == "" & "`ycontln'" == "1" & "`yconts'" == "" {
+        else if "`ycontn'" != "1" & "`ycontln'" == "1" & "`yconts'" != "1" {
             local ycont "`gmeanSD'"
         }
-        else if "`ycontn'" == "" & "`ycontln'" == "" & "`yconts'" == "1" {
+        else if "`ycontn'" != "1" & "`ycontln'" != "1" & "`yconts'" == "1" {
             local ycont "median (Q1, Q3)"
         }
         
@@ -1402,7 +1498,12 @@ program define table1_tc, sclass
         
         /* Display data description if not using varlabplus */
         if `"`varlabplus'"' == "" {
-            local Dapa "Data are presented as `ymix'."
+            if `has_wt' {
+                local Dapa "Weighted data are presented as `ymix'. P-values suppressed."
+            }
+            else {
+                local Dapa "Data are presented as `ymix'."
+            }
             display "`Dapa'"
         }
         sreturn local Dapa "`Dapa'"  // Return the data description

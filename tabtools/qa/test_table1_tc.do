@@ -78,15 +78,25 @@ global TESTING_DIR "${STATA_TOOLS_PATH}/_devkit/_testing"
 global DATA_DIR "${TESTING_DIR}/data"
 
 * =============================================================================
-* SETUP: Change to data directory and install package from local repository
+* SETUP: Detect tabtools location and change to data directory
 * =============================================================================
+
+* Detect tabtools adopath before changing directories
+* Check if running from qa/ subdirectory within the tabtools package
+local init_pwd "`c(pwd)'"
+capture confirm file "`init_pwd'/../table1_tc.ado"
+if _rc == 0 {
+    * Running from qa/ subdirectory within the tabtools package
+    local tabtools_path "`init_pwd'/.."
+}
+else {
+    local tabtools_path "${STATA_TOOLS_PATH}/tabtools"
+}
+adopath ++ "`tabtools_path'"
+run "`tabtools_path'/_tabtools_common.ado"
 
 * Change to data directory
 cd "${DATA_DIR}"
-
-* Add tabtools package to adopath
-adopath ++ "${STATA_TOOLS_PATH}/tabtools"
-run "${STATA_TOOLS_PATH}/tabtools/_tabtools_common.ado"
 
 local testdir "${DATA_DIR}"
 
@@ -606,6 +616,249 @@ if _rc {
 }
 
 * =============================================================================
+* TEST 25: Weighted table - basic (contn + cat + conts)
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': Weighted table - basic"
+display as text "{hline 50}"
+
+capture noisily {
+    use "`testdir'/cohort.dta", clear
+    gen double iptw = 0.5 + runiform() * 2
+
+    table1_tc, by(female) vars(age contn \ mstype cat \ edss_baseline conts) wt(iptw)
+
+    * Verify Dapa footnote was generated
+    assert "`s(Dapa)'" != ""
+
+    display as result "  PASSED: Weighted basic table works"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 26: Weighted table - binary variables
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': Weighted table - binary"
+display as text "{hline 50}"
+
+capture noisily {
+    use "`testdir'/cohort.dta", clear
+    gen double iptw = 0.5 + runiform() * 2
+    gen byte high_edss = edss_baseline >= 4
+
+    table1_tc, by(female) vars(high_edss bin \ high_edss bine) wt(iptw)
+
+    display as result "  PASSED: Weighted binary table works"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 27: Weighted table - log-normal
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': Weighted table - log-normal"
+display as text "{hline 50}"
+
+capture noisily {
+    use "`testdir'/cohort.dta", clear
+    gen double iptw = 0.5 + runiform() * 2
+
+    table1_tc, by(female) vars(bmi contln \ age contn) wt(iptw)
+
+    display as result "  PASSED: Weighted log-normal table works"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 28: Weighted table - with total column
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': Weighted table - with total"
+display as text "{hline 50}"
+
+capture noisily {
+    use "`testdir'/cohort.dta", clear
+    gen double iptw = 0.5 + runiform() * 2
+
+    table1_tc, by(female) vars(age contn \ mstype cat) wt(iptw) total(after)
+
+    display as result "  PASSED: Weighted table with total works"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 29: Weighted table - Excel export
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': Weighted table - Excel export"
+display as text "{hline 50}"
+
+capture noisily {
+    use "`testdir'/cohort.dta", clear
+    gen double iptw = 0.5 + runiform() * 2
+
+    table1_tc, by(female) vars(age contn \ mstype cat \ edss_baseline conts) wt(iptw) ///
+        excel("`testdir'/_test_table1_wt.xlsx") sheet("Weighted") ///
+        title("Weighted Table 1")
+
+    confirm file "`testdir'/_test_table1_wt.xlsx"
+    display as result "  PASSED: Weighted Excel export works"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 30: Weighted table - clear option
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': Weighted table - clear"
+display as text "{hline 50}"
+
+capture noisily {
+    use "`testdir'/cohort.dta", clear
+    gen double iptw = 0.5 + runiform() * 2
+
+    table1_tc, by(female) vars(age contn \ mstype cat) wt(iptw) clear
+    assert _N > 0
+
+    display as result "  PASSED: Weighted clear option works"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 31: Weighted table - percent_n format
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': Weighted table - percent_n"
+display as text "{hline 50}"
+
+capture noisily {
+    use "`testdir'/cohort.dta", clear
+    gen double iptw = 0.5 + runiform() * 2
+
+    table1_tc, by(female) vars(mstype cat \ region cat) wt(iptw) percent_n
+
+    display as result "  PASSED: Weighted percent_n works"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 32: Weighted table - error on fweight + wt() combo
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': Error on fweight + wt() combo"
+display as text "{hline 50}"
+
+capture noisily {
+    use "`testdir'/cohort.dta", clear
+    gen double iptw = 0.5 + runiform() * 2
+
+    capture table1_tc [fw=region], by(female) vars(age contn) wt(iptw)
+    assert _rc == 198
+
+    display as result "  PASSED: fweight + wt() correctly errors"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 33: Weighted table - error on negative weights
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': Error on negative weights"
+display as text "{hline 50}"
+
+capture noisily {
+    use "`testdir'/cohort.dta", clear
+    gen double neg_wt = -1
+
+    capture table1_tc, by(female) vars(age contn) wt(neg_wt)
+    assert _rc == 498
+
+    display as result "  PASSED: Negative weights correctly error"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 34: Weighted table - Dapa footnote
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': Weighted Dapa footnote"
+display as text "{hline 50}"
+
+capture noisily {
+    use "`testdir'/cohort.dta", clear
+    gen double iptw = 0.5 + runiform() * 2
+
+    table1_tc, by(female) vars(age contn \ mstype cat) wt(iptw)
+    assert regexm("`s(Dapa)'", "Weighted")
+    assert regexm("`s(Dapa)'", "suppressed")
+
+    display as result "  PASSED: Weighted Dapa footnote correct"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 35: Weighted table - without by() (single group)
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': Weighted table - no by()"
+display as text "{hline 50}"
+
+capture noisily {
+    use "`testdir'/cohort.dta", clear
+    gen double iptw = 0.5 + runiform() * 2
+
+    table1_tc, vars(age contn \ mstype cat \ edss_baseline conts) wt(iptw)
+
+    display as result "  PASSED: Weighted table without by() works"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
 * CLEANUP: Remove temporary files
 * =============================================================================
 display as text _n "{hline 70}"
@@ -614,6 +867,7 @@ display as text "{hline 70}"
 
 capture erase "`testdir'/_test_table1.xlsx"
 capture erase "`testdir'/_test_table1_thin.xlsx"
+capture erase "`testdir'/_test_table1_wt.xlsx"
 
 * =============================================================================
 * SUMMARY

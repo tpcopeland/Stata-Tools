@@ -14,7 +14,7 @@ net install tabtools, from("https://raw.githubusercontent.com/tpcopeland/Stata-D
 
 | Command | Description | Stata Version |
 |---------|-------------|---------------|
-| `table1_tc` | Descriptive statistics table (Table 1) with automatic statistical tests | 16+ |
+| `table1_tc` | Descriptive statistics table (Table 1) with automatic tests and IPTW weighting | 16+ |
 | `regtab` | Format regression results from any model | 17+ |
 | `effecttab` | Format treatment effects and margins results | 17+ |
 | `stratetab` | Combine and format strate incidence rate outputs | 17+ |
