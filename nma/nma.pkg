@@ -9,7 +9,7 @@ d inconsistency testing, and publication-quality reporting.
 d
 d Requires: Stata version 16+
 d
-d Distribution-Date: 20260228
+d Distribution-Date: 20260301
 d License: MIT
 d
 d Author: Timothy P. Copeland
@@ -57,3 +57,4 @@ f _nma_contrast_multiarm.ado
 f _nma_circular_layout.ado
 f _nma_node_sizes.ado
 f _nma_edge_weights.ado
+f _nma_col_letter.ado

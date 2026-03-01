@@ -44,7 +44,7 @@ net install <package>, from("https://raw.githubusercontent.com/tpcopeland/Stata-
 |---------|-------------|-------|
 | **balancetab** | Propensity score balance diagnostics and Love plots | 16+ |
 | **cstat_surv** | C-statistic for Cox survival models | 16+ |
-| **gformula** | G-computation formula via Monte Carlo simulation | 16+ |
+| **gformula** | G-computation formula via Monte Carlo simulation (includes gformtab) | 16+ |
 | **iptw_diag** | IPTW weight diagnostics, ESS, trimming | 16+ |
 | **mvp** | Missing value pattern analysis with visualizations | 14+ |
 | **nma** | Network meta-analysis suite | 16+ |
@@ -65,7 +65,7 @@ net install <package>, from("https://raw.githubusercontent.com/tpcopeland/Stata-
 |---------|-------------|-------|
 | **consort** | CONSORT-style exclusion flowcharts (requires Python 3.7+) | 16+ |
 | **eplot** | Forest plots and coefficient plots from estimates or data | 16+ |
-| **tabtools** | Publication-ready Excel tables (table1_tc, regtab, effecttab, gformtab, stratetab, tablex) | 16+/17+ |
+| **tabtools** | Publication-ready Excel tables (table1_tc, regtab, effecttab, stratetab, tablex) | 16+/17+ |
 | **tc_schemes** | Graph schemes from blindschemes and schemepack | 16+ |
 
 ## Example Data

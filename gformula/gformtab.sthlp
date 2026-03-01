@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.1.1  28feb2026}{...}
+{* *! version 1.2.0  01mar2026}{...}
 {title:gformtab}
 
 {pstd}Format gformula mediation analysis results into a polished Excel table.{p_end}
@@ -20,7 +20,7 @@
 {p 8 12 2}- Proportion Mediated (PM){p_end}
 {p 8 12 2}- Controlled Direct Effect (CDE){p_end}
 
-{pstd}Each effect is displayed with its point estimate, 95% confidence interval, and standard error. The command applies professional Excel formatting consistent with {helpb regtab} and {helpb effecttab}.{p_end}
+{pstd}Each effect is displayed with its point estimate, 95% confidence interval, and standard error. The command applies professional Excel formatting.{p_end}
 
 {marker options}{title:Options}
 
@@ -75,20 +75,20 @@
 {phang3}{cmd:base_confs(index_age female) control(0) sim(1000) samples(500) all}{p_end}
 {phang2}{cmd:. }{p_end}
 {phang2}{cmd:. * Format results to Excel}{p_end}
-{phang2}{stata `"gformtab, xlsx(tabtools/examples/mediation.xlsx) sheet("Table 1") title("Causal Mediation: SNRI Effect via Adherence")"':. gformtab, xlsx(tabtools/examples/mediation.xlsx) sheet("Table 1") ///}{p_end}
+{phang2}{stata `"gformtab, xlsx(gformula/examples/mediation.xlsx) sheet("Table 1") title("Causal Mediation: SNRI Effect via Adherence")"':. gformtab, xlsx(gformula/examples/mediation.xlsx) sheet("Table 1") ///}{p_end}
 {phang3}{cmd:title("Causal Mediation: SNRI Effect via Adherence")}{p_end}
 
 {pstd}{bf:Example 2: Using percentile bootstrap CIs}{p_end}
-{phang2}{stata `"gformtab, xlsx(tabtools/examples/mediation.xlsx) sheet("Percentile CI") ci(percentile) title("Mediation Results (Percentile CI)")"':. gformtab, xlsx(tabtools/examples/mediation.xlsx) sheet("Percentile CI") ///}{p_end}
+{phang2}{stata `"gformtab, xlsx(gformula/examples/mediation.xlsx) sheet("Percentile CI") ci(percentile) title("Mediation Results (Percentile CI)")"':. gformtab, xlsx(gformula/examples/mediation.xlsx) sheet("Percentile CI") ///}{p_end}
 {phang3}{cmd:ci(percentile) title("Mediation Results (Percentile CI)")}{p_end}
 
 {pstd}{bf:Example 3: Custom effect labels}{p_end}
-{phang2}{cmd:. gformtab, xlsx(tabtools/examples/mediation.xlsx) sheet("Custom") ///}{p_end}
+{phang2}{cmd:. gformtab, xlsx(gformula/examples/mediation.xlsx) sheet("Custom") ///}{p_end}
 {phang3}{cmd:labels("Total Effect \ Direct Effect \ Indirect Effect \ % Mediated \ CDE") ///}{p_end}
 {phang3}{cmd:effect("RD") title("Risk Difference Decomposition")}{p_end}
 
 {pstd}{bf:Example 4: Higher precision output}{p_end}
-{phang2}{stata `"gformtab, xlsx(tabtools/examples/mediation.xlsx) sheet("Precise") decimal(4) title("Mediation Analysis (4 decimals)")"':. gformtab, xlsx(tabtools/examples/mediation.xlsx) sheet("Precise") ///}{p_end}
+{phang2}{stata `"gformtab, xlsx(gformula/examples/mediation.xlsx) sheet("Precise") decimal(4) title("Mediation Analysis (4 decimals)")"':. gformtab, xlsx(gformula/examples/mediation.xlsx) sheet("Precise") ///}{p_end}
 {phang3}{cmd:decimal(4) title("Mediation Analysis (4 decimals)")}{p_end}
 
 {marker output}{title:Output Format}
@@ -127,9 +127,9 @@
 
 {marker seealso}{title:Also see}
 
+{pstd}{helpb gformula} for parametric g-formula mediation analysis{p_end}
 {pstd}{helpb regtab} for formatting standard regression tables{p_end}
 {pstd}{helpb effecttab} for formatting teffects and margins results{p_end}
-{pstd}SSC package {cmd:gformula} for parametric g-formula mediation analysis{p_end}
 
 {marker author}{title:Author}
 
@@ -137,4 +137,4 @@
 {pstd}Department of Clinical Neuroscience{p_end}
 {pstd}Karolinska Institutet{p_end}
 
-{pstd}Version 1.1.0 - 2026-02-27{p_end}
+{pstd}Version 1.2.0 - 2026-03-01{p_end}

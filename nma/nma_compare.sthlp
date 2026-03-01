@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.2  28feb2026}{...}
+{* *! version 1.0.3  01mar2026}{...}
 {viewerjumpto "Syntax" "nma_compare##syntax"}{...}
 {viewerjumpto "Description" "nma_compare##description"}{...}
 {viewerjumpto "Options" "nma_compare##options"}{...}

@@ -52,7 +52,7 @@ The command applies consistent formatting including:
 
 {pstd}
 {cmd:tablex} is part of the {cmd:tabtools} suite of table export commands. See
-{helpb table1_tc}, {helpb regtab}, {helpb effecttab}, {helpb gformtab}, and
+{helpb table1_tc}, {helpb regtab}, {helpb effecttab}, and
 {helpb stratetab} for specialized table types.
 
 
@@ -145,5 +145,5 @@ Karolinska Institutet{break}
 
 {psee}
 {space 2}Help:  {helpb table1_tc}, {helpb regtab}, {helpb effecttab},
-{helpb gformtab}, {helpb stratetab}, {helpb table}, {helpb collect}
+{helpb stratetab}, {helpb table}, {helpb collect}
 {p_end}

@@ -1,4 +1,4 @@
-*! treescan Version 1.3.5  2026/02/28
+*! treescan Version 1.4.0  2026/03/01
 *! Tree-based scan statistic for signal detection
 *! Implements Kulldorff et al. (2003) Bernoulli and Poisson models (unconditional and conditional)
 *! Author: Tim Copeland, Karolinska Institutet
@@ -38,7 +38,8 @@ program define treescan, rclass
          CONDitional EVENTDate(varname) EXPDate(varname) ///
          WINDow(numlist) WINDOWScope(string) ///
          NSIM(integer 999) ALPHa(real 0.05) ///
-         SEED(integer -1) NOIsily]
+         SEED(integer -1) NOIsily ///
+         XLSX(string) SHEET(string) TITLe(string)]
 
     local diagvar `varlist'
     local treefile `"`using'"'
@@ -160,6 +161,26 @@ program define treescan, rclass
                 display as error "windowscope() must be {bf:exposed} or {bf:all}"
                 exit 198
             }
+        }
+    }
+
+    * Validate xlsx export options
+    if `"`xlsx'"' != "" {
+        _treescan_validate_path `"`xlsx'"' "xlsx()"
+        * Auto-append .xlsx if missing
+        if !regexm(`"`xlsx'"', "\.[Xx][Ll][Ss][Xx]$") {
+            local xlsx `"`xlsx'.xlsx"'
+        }
+        if `"`sheet'"' != "" {
+            _treescan_validate_path `"`sheet'"' "sheet()"
+        }
+        else {
+            local sheet "Results"
+        }
+        if `"`title'"' == "" {
+            local cond_lbl = cond("`conditional'" != "", ///
+                "Conditional", "Unconditional")
+            local title "Tree-Based Scan Statistic (`model' `cond_lbl')"
         }
     }
 
@@ -680,6 +701,209 @@ program define treescan, rclass
         display as text "No significant nodes at alpha = " as result `alpha'
     }
     display as text ""
+
+    * =====================================================================
+    * EXCEL EXPORT
+    * =====================================================================
+    if `"`xlsx'"' != "" {
+        preserve
+        quietly {
+            clear
+
+            * Build summary parameter list
+            local cond_label = cond("`conditional'" != "", ///
+                "Conditional", "Unconditional")
+            local summary_params `""Model" "`model' `cond_label'""'
+            local summary_params `"`summary_params' "Individuals" "`=string(`N_individuals', "%12.0fc")'"'
+            if "`model'" == "bernoulli" {
+                local summary_params `"`summary_params' "Exposed" "`=string(`N_exposed', "%12.0fc")'"'
+                local summary_params `"`summary_params' "Unexposed" "`=string(`N_unexposed', "%12.0fc")'"'
+            }
+            else {
+                local summary_params `"`summary_params' "Cases" "`=string(`C', "%12.0fc")'"'
+                local summary_params `"`summary_params' "Non-cases" "`=string(`N_individuals' - `C', "%12.0fc")'"'
+                local summary_params `"`summary_params' "Person-time" "`=string(`T_total', "%12.2f")'"'
+                local summary_params `"`summary_params' "Rate (C/T)" "`=string(`lambda', "%12.6f")'"'
+            }
+            if `has_temporal' {
+                local summary_params `"`summary_params' "Time window" "`=string(`window_lo', "%5.0f")' to `=string(`window_hi', "%5.0f")' days"'
+                local summary_params `"`summary_params' "Window scope" "`windowscope'"'
+            }
+            local summary_params `"`summary_params' "Tree nodes" "`=string(`N_nodes', "%12.0fc")'"'
+            local summary_params `"`summary_params' "Simulations" "`=string(`nsim', "%12.0fc")'"'
+            if `seed' >= 0 {
+                local summary_params `"`summary_params' "Seed" "`=string(`seed', "%12.0fc")'"'
+            }
+            local summary_params `"`summary_params' "Max LLR" "`=string(`obs_max_llr', "%12.4f")'"'
+            local summary_params `"`summary_params' "p-value (max)" "`=string(`p_max', "%12.4f")'"'
+
+            * Count summary rows
+            local n_summary : word count `summary_params'
+            local n_summary = `n_summary' / 2
+
+            * Determine result rows
+            if `n_sig' > 0 {
+                local nrows = rowsof(`results_mat')
+            }
+            else {
+                local nrows = 0
+            }
+
+            * Total rows: title + blank + summary + blank + header + data (or "no sig" row)
+            local data_rows = max(`nrows', 1)
+            local total_rows = 1 + 1 + `n_summary' + 1 + 1 + `data_rows'
+            set obs `total_rows'
+
+            * 6 columns: A=spacer, B-F=data
+            gen str1 spacer = ""
+            gen str200 col_b = ""
+            gen str30 col_c = ""
+            gen str30 col_d = ""
+            gen str20 col_e = ""
+            gen str20 col_f = ""
+
+            * Row 1: Title
+            replace col_b = `"`title'"' in 1
+
+            * Rows 3+: Summary stats
+            local row = 3
+            local pair = 1
+            forvalues i = 1(2)`=`n_summary' * 2' {
+                local param : word `i' of `summary_params'
+                local val : word `=`i'+1' of `summary_params'
+                replace col_b = strtrim("`param'") in `row'
+                replace col_c = strtrim("`val'") in `row'
+                local ++row
+            }
+
+            * Blank row before results header
+            local ++row
+
+            * Header row
+            local header_row = `row'
+            if "`model'" == "bernoulli" {
+                replace col_b = "Node" in `row'
+                replace col_c = "Unexposed" in `row'
+                replace col_d = "Exposed" in `row'
+                replace col_e = "LLR" in `row'
+                replace col_f = "p-value" in `row'
+            }
+            else {
+                replace col_b = "Node" in `row'
+                replace col_c = "Cases" in `row'
+                replace col_d = "Person-time" in `row'
+                replace col_e = "LLR" in `row'
+                replace col_f = "p-value" in `row'
+            }
+            local ++row
+
+            * Data rows
+            if `n_sig' > 0 {
+                forvalues i = 1/`nrows' {
+                    local nd : word `i' of `rnames'
+                    local c1_i = `results_mat'[`i', 1]
+                    local c2_i = `results_mat'[`i', 2]
+                    local llr_i = `results_mat'[`i', 3]
+                    local pv_i = `results_mat'[`i', 4]
+
+                    replace col_b = "`nd'" in `row'
+                    if "`model'" == "bernoulli" {
+                        replace col_c = string(`c1_i', "%12.0fc") in `row'
+                        replace col_d = string(`c2_i', "%12.0fc") in `row'
+                    }
+                    else {
+                        replace col_c = string(`c1_i', "%12.0fc") in `row'
+                        replace col_d = string(`c2_i', "%12.2f") in `row'
+                    }
+                    replace col_e = string(`llr_i', "%12.4f") in `row'
+                    replace col_f = string(`pv_i', "%12.4f") in `row'
+                    local ++row
+                }
+            }
+            else {
+                replace col_b = ///
+                    "No significant nodes at alpha = `=string(`alpha', "%4.2f")'" ///
+                    in `row'
+            }
+
+            local last_row = `row' - 1
+            if `n_sig' == 0 {
+                local last_row = `header_row' + 1
+            }
+        }
+
+        * Layer 1: export excel
+        capture export excel using `"`xlsx'"', ///
+            sheet("`sheet'") sheetreplace firstrow(variables)
+        if _rc {
+            display as error "Failed to export to `xlsx', sheet `sheet'"
+            display as error ///
+                "Check file permissions and that file is not open in Excel"
+            restore
+            exit _rc
+        }
+
+        quietly restore
+
+        * Layer 2: Mata xl() for dimensions
+        capture {
+            mata: b = xl()
+            mata: b.load_book(`"`xlsx'"')
+            mata: b.set_sheet("`sheet'")
+            mata: b.set_row_height(1, 1, 30)
+            mata: b.set_column_width(1, 1, 3)
+            mata: b.set_column_width(2, 2, 25)
+            mata: b.set_column_width(3, 3, 16)
+            mata: b.set_column_width(4, 4, 16)
+            mata: b.set_column_width(5, 5, 12)
+            mata: b.set_column_width(6, 6, 12)
+            mata: b.close_book()
+        }
+        if _rc {
+            local saved_rc = _rc
+            capture mata: b.close_book()
+            display as error "Excel formatting failed with error `saved_rc'"
+            exit `saved_rc'
+        }
+
+        * Layer 3: putexcel for styling
+        capture {
+            putexcel set `"`xlsx'"', sheet("`sheet'") modify
+
+            * Title: merge A1:F1, bold, wrap
+            putexcel (A1:F1), merge txtwrap left top bold
+
+            * Header row formatting
+            putexcel (B`header_row':F`header_row'), bold border(bottom, thin)
+            putexcel (B`header_row':F`header_row'), border(top, thin)
+
+            * Data borders
+            putexcel (B`header_row':F`last_row'), border(left, thin)
+            putexcel (B`header_row':F`last_row'), border(right, thin)
+            putexcel (B`last_row':F`last_row'), border(bottom, thin)
+
+            * Center data columns
+            local data_start = `header_row' + 1
+            putexcel (C`data_start':F`last_row'), hcenter
+            putexcel (C3:C`=`header_row'-2'), hcenter
+
+            * Font
+            putexcel (A1:F`last_row'), font(Arial, 10)
+
+            putexcel clear
+        }
+        if _rc {
+            local saved_rc = _rc
+            capture putexcel clear
+            display as error ///
+                "Excel cell formatting failed with error `saved_rc'"
+            exit `saved_rc'
+        }
+
+        display as text ///
+            "Results exported to {bf:`xlsx'}, sheet {bf:`sheet'}"
+        display as text ""
+    }
 
     * =====================================================================
     * RETURN RESULTS

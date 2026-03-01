@@ -24,73 +24,28 @@ version 16.0
 * =============================================================================
 * PATH CONFIGURATION
 * =============================================================================
-* Cross-platform path detection
-if "`c(os)'" == "MacOSX" {
-    global STATA_TOOLS_PATH "/Users/tcopeland/Documents/GitHub/Stata-Dev"
-}
-else if "`c(os)'" == "Unix" {
-    * Try to detect path from current working directory
-    capture confirm file "../../_devkit/_testing"
-    if _rc == 0 {
-        * Running from <pkg>/qa/ directory
-        global STATA_TOOLS_PATH "`c(pwd)'/../.."
-    }
-    else {
-    capture confirm file "_devkit/_testing"
-    if _rc == 0 {
-        global STATA_TOOLS_PATH "`c(pwd)'"
-    }
-    else {
-        capture confirm file "_devkit/_testing/data"
-        if _rc == 0 {
-            global STATA_TOOLS_PATH "`c(pwd)'/.."
-        }
-        else {
-            global STATA_TOOLS_PATH "/home/`c(username)'/Stata-Dev"
-        }
-    }
-    }
+* Detect Stata-Tools repo root
+capture confirm file "gformula/gformtab.ado"
+if _rc == 0 {
+    * Running from Stata-Tools root
+    global STATA_TOOLS_PATH "`c(pwd)'"
 }
 else {
-    * Windows or other - try to detect from current directory
-    capture confirm file "../../_devkit/_testing"
+    capture confirm file "../../gformula/gformtab.ado"
     if _rc == 0 {
-        * Running from <pkg>/qa/ directory
+        * Running from gformula/qa/ directory
         global STATA_TOOLS_PATH "`c(pwd)'/../.."
     }
     else {
-    capture confirm file "_devkit/_testing"
-    if _rc == 0 {
-        * Running from repo root
-        global STATA_TOOLS_PATH "`c(pwd)'"
-    }
-    else {
-        capture confirm file "_devkit/_testing/data"
-        if _rc == 0 {
-            * Running from _testing directory
-            global STATA_TOOLS_PATH "`c(pwd)'/.."
-        }
-        else {
-            * Assume running from _testing/data directory
-            global STATA_TOOLS_PATH "`c(pwd)'/../.."
-        }
-    }
+        global STATA_TOOLS_PATH "/home/`c(username)'/Stata-Tools"
     }
 }
 
-* Directory structure
-global TESTING_DIR "${STATA_TOOLS_PATH}/_devkit/_testing"
-global DATA_DIR "${TESTING_DIR}/data"
+* Add gformula package to adopath
+adopath ++ "${STATA_TOOLS_PATH}/gformula"
 
-* =============================================================================
-* SETUP: Install package from local repository
-* =============================================================================
-
-* Add tabtools package to adopath
-adopath ++ "${STATA_TOOLS_PATH}/tabtools"
-run "${STATA_TOOLS_PATH}/tabtools/_tabtools_common.ado"
-
-local testdir "${DATA_DIR}"
+* Test output directory
+local testdir "`c(tmpdir)'"
 
 display as text _n "{hline 70}"
 display as text "GFORMTAB COMMAND TESTING"

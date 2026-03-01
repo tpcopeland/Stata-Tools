@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.3  01mar2026}{...}
+{* *! version 1.0.4  01mar2026}{...}
 {viewerjumpto "Syntax" "tte##syntax"}{...}
 {viewerjumpto "Description" "tte##description"}{...}
 {viewerjumpto "Commands" "tte##commands"}{...}
@@ -26,6 +26,7 @@
 {synoptline}
 {synopt:{opt list}}display commands as simple list{p_end}
 {synopt:{opt detail}}show detailed command descriptions{p_end}
+{synopt:{opt pro:tocol}}show 7-component framework overview{p_end}
 {synoptline}
 
 

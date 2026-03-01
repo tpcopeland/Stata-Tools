@@ -12,21 +12,17 @@ clear all
 set more off
 version 17.0
 
-* Try to detect path from current working directory
-    capture confirm file "_devkit/_testing"
-    if _rc == 0 {
-        global STATA_TOOLS_PATH "`c(pwd)'"
-    }
-    else {
-        capture confirm file "../../_devkit/_testing/data"
-        if _rc == 0 {
-            global STATA_TOOLS_PATH "`c(pwd)'/.."
-        }
-        else {
-            global STATA_TOOLS_PATH "/home/`c(username)'/Stata-Dev"
-        }
-    }
-global TESTING_DIR "${STATA_TOOLS_PATH}/_devkit/_testing"
+* Detect Stata-Tools repo root
+capture confirm file "tabtools/tabtools.ado"
+if _rc == 0 {
+    global STATA_TOOLS_PATH "`c(pwd)'"
+}
+else {
+    global STATA_TOOLS_PATH "/home/`c(username)'/Stata-Tools"
+}
+
+* Test infrastructure lives in Stata-Dev
+global TESTING_DIR "/home/`c(username)'/Stata-Dev/_devkit/_testing"
 global AUDIT_DIR "${TESTING_DIR}/audit_output"
 
 * Create audit output directory
@@ -35,6 +31,9 @@ capture mkdir "${AUDIT_DIR}"
 * Reinstall package
 capture net uninstall regtab
 net install regtab, from("${STATA_TOOLS_PATH}/regtab")
+
+* Add gformula package to adopath (gformtab moved from tabtools to gformula)
+adopath ++ "${STATA_TOOLS_PATH}/gformula"
 
 display as text _n "{hline 70}"
 display as text "EXPERT AUDIT: effecttab and gformtab"

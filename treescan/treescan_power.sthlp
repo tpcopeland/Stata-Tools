@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.3.5  28feb2026}{...}
+{* *! version 1.4.0  01mar2026}{...}
 {viewerjumpto "Syntax" "treescan_power##syntax"}{...}
 {viewerjumpto "Description" "treescan_power##description"}{...}
 {viewerjumpto "Options" "treescan_power##options"}{...}
@@ -50,6 +50,11 @@
 {synopt:{opt alph:a(#)}}significance level; default is {cmd:alpha(0.05)}{p_end}
 {synopt:{opt seed(#)}}random number seed{p_end}
 {synopt:{opt noi:sily}}display progress{p_end}
+
+{syntab:Export}
+{synopt:{opt xlsx(filename)}}export results to Excel .xlsx file{p_end}
+{synopt:{opt sheet(name)}}sheet name; default {cmd:"Results"}{p_end}
+{synopt:{opt title(string)}}title for first row of spreadsheet{p_end}
 {synoptline}
 {p2colreset}{...}
 
@@ -123,6 +128,19 @@ loop). Default is {cmd:500}. More iterations give more precise power estimates.
 {phang}
 {opt noisily} displays progress messages during simulation.
 
+{dlgtab:Export}
+
+{phang}
+{opt xlsx(filename)} exports the power evaluation results to an Excel
+spreadsheet. The {cmd:.xlsx} extension is appended automatically if omitted.
+
+{phang}
+{opt sheet(name)} specifies the worksheet name. Default is {cmd:"Results"}.
+
+{phang}
+{opt title(string)} specifies the title placed in the first row. Default is
+{cmd:"Tree-Based Scan Power Evaluation"}.
+
 
 {marker remarks}{...}
 {title:Remarks}
@@ -179,6 +197,11 @@ for publication.
 
 {phang2}{cmd:. treescan_power diagcode, id(pid) exposed(case) persontime(pyears) model(poisson) conditional icdversion(cm) target(I21) rr(2) seed(42)}{p_end}
 
+{pstd}
+{bf:Example 4: Export power results to Excel}
+
+{phang2}{cmd:. treescan_power diagcode, id(pid) exposed(exp) icdversion(cm) target(A000) rr(3) seed(42) xlsx(power_results)}{p_end}
+
 
 {marker results}{...}
 {title:Stored results}
@@ -212,7 +235,7 @@ for publication.
 {pstd}Tim Copeland{p_end}
 {pstd}Department of Clinical Neuroscience{p_end}
 {pstd}Karolinska Institutet, Stockholm{p_end}
-{pstd}Version 1.3.5, 2026-02-28{p_end}
+{pstd}Version 1.4.0, 2026-03-01{p_end}
 
 
 {title:Also see}

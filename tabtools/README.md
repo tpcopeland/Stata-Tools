@@ -17,7 +17,6 @@ net install tabtools, from("https://raw.githubusercontent.com/tpcopeland/Stata-D
 | `table1_tc` | Descriptive statistics table (Table 1) with automatic statistical tests | 16+ |
 | `regtab` | Format regression results from any model | 17+ |
 | `effecttab` | Format treatment effects and margins results | 17+ |
-| `gformtab` | Format g-formula mediation analysis results | 16+ |
 | `stratetab` | Combine and format strate incidence rate outputs | 17+ |
 | `tablex` | General table export for any Stata table | 17+ |
 
@@ -128,4 +127,4 @@ MIT License
 
 ## Version
 
-Version 1.1.1, 2026-02-25
+Version 1.2.0, 2026-03-01

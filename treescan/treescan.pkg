@@ -13,7 +13,7 @@ d ICD-10-SE, and ATC tree hierarchies.
 d
 d Requires: Stata version 16+
 d
-d Distribution-Date: 20260228
+d Distribution-Date: 20260301
 d License: MIT
 d
 d Author: Tim Copeland
@@ -38,6 +38,7 @@ f treescan.sthlp
 f treescan_power.ado
 f treescan_power.sthlp
 f _treescan_cut_tree.ado
+f _treescan_excel.ado
 f ltreescan.mlib
 f icd10cm_tree.dta
 f icd10se_tree.dta

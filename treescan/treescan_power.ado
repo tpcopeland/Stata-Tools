@@ -1,4 +1,4 @@
-*! treescan_power Version 1.3.5  2026/02/28
+*! treescan_power Version 1.4.0  2026/03/01
 *! Power evaluation for tree-based scan statistic
 *! Simulation-based power to detect a signal at a target node
 *! Author: Tim Copeland, Karolinska Institutet
@@ -43,7 +43,8 @@ program define treescan_power, rclass
         ID(varname) EXPosed(varname) TARGet(string) RR(real) ///
         [ICDVersion(string) MODel(string) PERSONTime(varname) ///
          CONDitional NSIM(integer 999) NSIMPOWer(integer 500) ///
-         ALPHa(real 0.05) SEED(integer -1) NOIsily]
+         ALPHa(real 0.05) SEED(integer -1) NOIsily ///
+         XLSX(string) SHEET(string) TITLe(string)]
 
     local diagvar `varlist'
     local treefile `"`using'"'
@@ -139,6 +140,23 @@ program define treescan_power, rclass
         if _rc {
             display as error "persontime() must be positive"
             exit 198
+        }
+    }
+
+    * Validate xlsx export options
+    if `"`xlsx'"' != "" {
+        _treescan_validate_path `"`xlsx'"' "xlsx()"
+        if !regexm(`"`xlsx'"', "\.[Xx][Ll][Ss][Xx]$") {
+            local xlsx `"`xlsx'.xlsx"'
+        }
+        if `"`sheet'"' != "" {
+            _treescan_validate_path `"`sheet'"' "sheet()"
+        }
+        else {
+            local sheet "Results"
+        }
+        if `"`title'"' == "" {
+            local title "Tree-Based Scan Power Evaluation"
         }
     }
 
@@ -464,6 +482,153 @@ program define treescan_power, rclass
     display as text "Rejections:      " as result ///
         %10.0fc `n_reject' as text " / " as result `nsimpower'
     display as text ""
+
+    * =====================================================================
+    * EXCEL EXPORT
+    * =====================================================================
+    if `"`xlsx'"' != "" {
+        preserve
+        quietly {
+            clear
+
+            local cond_label = cond("`conditional'" != "", ///
+                "Conditional", "Unconditional")
+
+            * Summary + Power results: 3 columns (A=spacer, B=param, C=value)
+            * Layout: title, blank, summary rows, blank, power header, power rows
+            set obs 20
+
+            gen str1 spacer = ""
+            gen str200 col_b = ""
+            gen str30 col_c = ""
+
+            * Row 1: Title
+            replace col_b = `"`title'"' in 1
+
+            * Rows 3+: Summary stats
+            local row = 3
+            replace col_b = "Model" in `row'
+            replace col_c = "`model' `cond_label'" in `row'
+            local ++row
+            replace col_b = "Target node" in `row'
+            replace col_c = "`target'" in `row'
+            local ++row
+            replace col_b = "Relative risk" in `row'
+            replace col_c = string(`rr', "%12.2f") in `row'
+            local ++row
+            replace col_b = "Individuals" in `row'
+            replace col_c = string(`N_individuals', "%12.0fc") in `row'
+            local ++row
+            replace col_b = "Tree nodes" in `row'
+            replace col_c = string(`N_nodes', "%12.0fc") in `row'
+            local ++row
+            replace col_b = "Null simulations" in `row'
+            replace col_c = string(`nsim', "%12.0fc") in `row'
+            local ++row
+            replace col_b = "Power iterations" in `row'
+            replace col_c = string(`nsimpower', "%12.0fc") in `row'
+            local ++row
+            replace col_b = "Alpha" in `row'
+            replace col_c = string(`alpha', "%12.4f") in `row'
+            local ++row
+            replace col_b = "Critical LLR" in `row'
+            replace col_c = string(`crit_val', "%12.4f") in `row'
+
+            * Blank row
+            local row = `row' + 2
+            local power_header = `row'
+
+            * Power results header
+            replace col_b = "Result" in `row'
+            replace col_c = "Value" in `row'
+            local ++row
+            replace col_b = "Power" in `row'
+            replace col_c = string(`power', "%12.4f") in `row'
+            local ++row
+            replace col_b = "95% CI" in `row'
+            replace col_c = "[" + string(`power_ci_lo', "%6.4f") + ///
+                ", " + string(`power_ci_hi', "%6.4f") + "]" in `row'
+            local ++row
+            replace col_b = "Rejections" in `row'
+            replace col_c = string(`n_reject', "%12.0fc") + ///
+                " / " + string(`nsimpower', "%12.0fc") in `row'
+
+            local last_row = `row'
+
+            * Drop empty trailing rows
+            drop if col_b == "" & col_c == "" & _n > `last_row'
+        }
+
+        * Layer 1: export excel
+        capture export excel using `"`xlsx'"', ///
+            sheet("`sheet'") sheetreplace firstrow(variables)
+        if _rc {
+            display as error "Failed to export to `xlsx', sheet `sheet'"
+            display as error ///
+                "Check file permissions and that file is not open in Excel"
+            restore
+            exit _rc
+        }
+
+        quietly restore
+
+        * Layer 2: Mata xl() for dimensions
+        capture {
+            mata: b = xl()
+            mata: b.load_book(`"`xlsx'"')
+            mata: b.set_sheet("`sheet'")
+            mata: b.set_row_height(1, 1, 30)
+            mata: b.set_column_width(1, 1, 3)
+            mata: b.set_column_width(2, 2, 25)
+            mata: b.set_column_width(3, 3, 20)
+            mata: b.close_book()
+        }
+        if _rc {
+            local saved_rc = _rc
+            capture mata: b.close_book()
+            display as error "Excel formatting failed with error `saved_rc'"
+            exit `saved_rc'
+        }
+
+        * Layer 3: putexcel for styling
+        capture {
+            putexcel set `"`xlsx'"', sheet("`sheet'") modify
+
+            * Title: merge A1:C1, bold, wrap
+            putexcel (A1:C1), merge txtwrap left top bold
+
+            * Power results header
+            putexcel (B`power_header':C`power_header'), ///
+                bold border(bottom, thin)
+            putexcel (B`power_header':C`power_header'), border(top, thin)
+
+            * Data borders
+            putexcel (B`power_header':C`last_row'), border(left, thin)
+            putexcel (B`power_header':C`last_row'), border(right, thin)
+            putexcel (B`last_row':C`last_row'), border(bottom, thin)
+
+            * Center value column
+            local data_start = `power_header' + 1
+            putexcel (C`data_start':C`last_row'), hcenter
+            putexcel (C3:C`=`power_header'-2'), hcenter
+
+            * Font
+            putexcel (A1:C`last_row'), font(Arial, 10)
+
+            putexcel clear
+        }
+        if _rc {
+            local saved_rc = _rc
+            capture putexcel clear
+            display as error ///
+                "Excel cell formatting failed with error `saved_rc'"
+            exit `saved_rc'
+        }
+
+        display as text ///
+            "Results exported to {bf:`xlsx'}, sheet {bf:`sheet'}"
+        display as text ""
+    }
 
     * =====================================================================
     * RETURN RESULTS

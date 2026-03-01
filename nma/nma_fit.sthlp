@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.1  28feb2026}{...}
+{* *! version 1.0.2  01mar2026}{...}
 {viewerjumpto "Syntax" "nma_fit##syntax"}{...}
 {viewerjumpto "Description" "nma_fit##description"}{...}
 {viewerjumpto "Options" "nma_fit##options"}{...}
@@ -30,6 +30,7 @@
 {synopt:{opt tol:erance(#)}}convergence tolerance; default is {cmd:1e-8}{p_end}
 {synopt:{opt nolog}}suppress iteration log{p_end}
 {synopt:{opt eform}}display exponentiated coefficients{p_end}
+{synopt:{opt dig:its(#)}}decimal places in display; default is {cmd:4}{p_end}
 {synoptline}
 
 
@@ -79,6 +80,10 @@ heterogeneity. Equivalent to setting tau-squared to zero.
 {phang}
 {opt eform} displays exponentiated coefficients. Appropriate for log OR,
 log RR, log IRR, or log HR measures.
+
+{phang}
+{opt digits(#)} specifies the number of decimal places in the display.
+Default is 4. I-squared is always displayed with 1 decimal place.
 
 
 {marker examples}{...}

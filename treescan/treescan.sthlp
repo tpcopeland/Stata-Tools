@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.3.5  28feb2026}{...}
+{* *! version 1.4.0  01mar2026}{...}
 {viewerjumpto "Syntax" "treescan##syntax"}{...}
 {viewerjumpto "Description" "treescan##description"}{...}
 {viewerjumpto "Options" "treescan##options"}{...}
@@ -67,6 +67,11 @@ Using a custom tree:
 {synopt:{opt alph:a(#)}}significance level for display; default is {cmd:alpha(0.05)}{p_end}
 {synopt:{opt seed(#)}}random number seed for reproducibility{p_end}
 {synopt:{opt noi:sily}}display progress during simulation{p_end}
+
+{syntab:Export}
+{synopt:{opt xlsx(filename)}}export results to Excel .xlsx file{p_end}
+{synopt:{opt sheet(name)}}sheet name; default {cmd:"Results"}{p_end}
+{synopt:{opt title(string)}}title for first row of spreadsheet{p_end}
 {synoptline}
 {p2colreset}{...}
 
@@ -217,6 +222,21 @@ reproducibility.
 {phang}
 {opt noisily} displays progress messages during the Monte Carlo simulation,
 showing the current iteration number every 100 iterations.
+
+{dlgtab:Export}
+
+{phang}
+{opt xlsx(filename)} exports the summary statistics and significant node
+results to an Excel spreadsheet. The file is created (or overwritten) at the
+specified path. The {cmd:.xlsx} extension is appended automatically if omitted.
+
+{phang}
+{opt sheet(name)} specifies the worksheet name. Default is {cmd:"Results"}.
+
+{phang}
+{opt title(string)} specifies the title placed in the first row of the
+spreadsheet. Default is derived from the model specification
+(e.g., "Tree-Based Scan Statistic (bernoulli Unconditional)").
 
 
 {marker remarks}{...}
@@ -398,7 +418,17 @@ Use {cmd:icdversion(atc)} to scan across drug classes for adverse event signals.
 {phang2}{cmd:. treescan diagcode, id(patient_id) exposed(drug_exposed) icdversion(cm) eventdate(diag_date) expdate(rx_date) window(-7 90) windowscope(all)}{p_end}
 
 {pstd}
-{bf:Example 11: Monitor progress}
+{bf:Example 11: Export results to Excel}
+
+{phang2}{cmd:. treescan diagcode, id(patient_id) exposed(drug_exposed) icdversion(cm) nsim(999) seed(42) xlsx(treescan_results)}{p_end}
+
+{pstd}
+{bf:Example 12: Export with custom sheet and title}
+
+{phang2}{cmd:. treescan diagcode, id(patient_id) exposed(drug_exposed) icdversion(cm) nsim(999) seed(42) xlsx(output.xlsx) sheet("Scan Results") title("Vaccine Safety Analysis")}{p_end}
+
+{pstd}
+{bf:Example 13: Monitor progress}
 
 {phang2}{stata "treescan diagcode, id(pid) exposed(exposed) icdversion(cm) nsim(999) seed(42) noisily":. treescan diagcode, id(pid) exposed(exposed) icdversion(cm) nsim(999) seed(42) noisily}{p_end}
 
@@ -457,7 +487,7 @@ Benjaminsson C, Salomaa S. TreeMineR: Tree-Based Scan Statistics in R.
 {pstd}Tim Copeland{p_end}
 {pstd}Department of Clinical Neuroscience{p_end}
 {pstd}Karolinska Institutet, Stockholm{p_end}
-{pstd}Version 1.3.5, 2026-02-28{p_end}
+{pstd}Version 1.4.0, 2026-03-01{p_end}
 
 
 {title:Also see}

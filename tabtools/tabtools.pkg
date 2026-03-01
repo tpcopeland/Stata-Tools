@@ -7,7 +7,6 @@ d
 d   table1_tc  - Descriptive statistics (Table 1) with automatic tests
 d   regtab     - Regression results from any model
 d   effecttab  - Treatment effects and margins results
-d   gformtab   - G-formula mediation analysis results
 d   stratetab  - Incidence rates from strate output
 d   tablex     - General table export wrapper (NEW)
 d
@@ -16,7 +15,7 @@ d borders, fonts, merged headers, and professional styling.
 d
 d Requires: Stata version 16+ (17+ for regtab, effecttab, stratetab, tablex)
 d
-d Distribution-Date: 20260228
+d Distribution-Date: 20260301
 d License: MIT
 d
 d Author: Timothy P Copeland
@@ -33,8 +32,6 @@ f regtab.sthlp
 f regtab.dlg
 f effecttab.ado
 f effecttab.sthlp
-f gformtab.ado
-f gformtab.sthlp
 f stratetab.ado
 f stratetab.sthlp
 f tablex.ado

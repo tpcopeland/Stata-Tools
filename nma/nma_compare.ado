@@ -1,4 +1,4 @@
-*! nma_compare Version 1.0.2  2026/02/28
+*! nma_compare Version 1.0.3  2026/03/01
 *! League table of all pairwise comparisons
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet
@@ -229,7 +229,31 @@ program define nma_compare, rclass
         }
 
         if "`format'" == "excel" | "`format'" == "" {
-            export excel using "`saving'", firstrow(variables) `replace'
+            export excel using "`saving'", firstrow(variables) ///
+                sheet("League Table") `replace'
+
+            * Apply formatting (non-fatal)
+            local n_cols = `k' + 1
+            _nma_col_letter `n_cols'
+            local last_col "`result'"
+            local n_rows = `k' + 1
+
+            capture noisily {
+                mata: b = xl()
+                mata: b.load_book("`saving'")
+                mata: b.set_sheet("League Table")
+                mata: b.set_column_width(1, 1, 22)
+                mata: b.set_column_width(2, `n_cols', 24)
+                mata: b.close_book()
+
+                putexcel set "`saving'", sheet("League Table") modify
+                putexcel (A1:`last_col'1), bold hcenter
+                putexcel (A1:`last_col'1), border(top, thin)
+                putexcel (A1:`last_col'1), border(bottom, thin)
+                putexcel (A`n_rows':`last_col'`n_rows'), border(bottom, thin)
+                putexcel (A1:`last_col'`n_rows'), font(Arial, 10)
+                putexcel clear
+            }
         }
         else if "`format'" == "csv" {
             export delimited using "`saving'", `replace'

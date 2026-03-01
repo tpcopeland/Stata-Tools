@@ -21,127 +21,134 @@ version 16.0
 * =============================================================================
 * PATH CONFIGURATION
 * =============================================================================
-* Cross-platform path detection
-if "`c(os)'" == "MacOSX" {
-    global STATA_TOOLS_PATH "/Users/tcopeland/Documents/GitHub/Stata-Dev"
+* Detect Stata-Tools repo root
+capture confirm file "gformula/gformtab.ado"
+if _rc == 0 {
+    * Running from Stata-Tools root
+    global STATA_TOOLS_PATH "`c(pwd)'"
 }
-else if "`c(os)'" == "Unix" {
-    * Try to detect path from current working directory
-    capture confirm file "../../_devkit/_testing"
+else {
+    capture confirm file "../../gformula/gformtab.ado"
     if _rc == 0 {
-        * Running from <pkg>/qa/ directory
+        * Running from gformula/qa/ directory
         global STATA_TOOLS_PATH "`c(pwd)'/../.."
     }
     else {
-    capture confirm file "_validation"
-    if _rc == 0 {
-        global STATA_TOOLS_PATH "`c(pwd)'"
-    }
-    else {
-        capture confirm file "_devkit/_testing"
-        if _rc == 0 {
-            global STATA_TOOLS_PATH "`c(pwd)'"
-        }
-        else {
-            global STATA_TOOLS_PATH "/home/`c(username)'/Stata-Dev"
-        }
-    }
-    }
-}
-else {
-    * Windows or other - try to detect from current directory
-    capture confirm file "_validation"
-    if _rc == 0 {
-        * Running from repo root
-        global STATA_TOOLS_PATH "`c(pwd)'"
-    }
-    else {
-        * Assume running from _validation directory
-        global STATA_TOOLS_PATH "`c(pwd)'/.."
+        global STATA_TOOLS_PATH "/home/`c(username)'/Stata-Tools"
     }
 }
 
-local testdir "${STATA_TOOLS_PATH}/_devkit/_testing/data"
+* Add gformula package to adopath
+adopath ++ "${STATA_TOOLS_PATH}/gformula"
 
-* Add tabtools package to adopath
-adopath ++ "${STATA_TOOLS_PATH}/tabtools"
-run "${STATA_TOOLS_PATH}/tabtools/_tabtools_common.ado"
+* Test output directory
+local testdir "`c(tmpdir)'"
 
 * =============================================================================
 * HELPER: Mock gformula output (same as in test file)
 * =============================================================================
 capture program drop mock_gformula
-program define mock_gformula, rclass
+program define mock_gformula, eclass
     version 16.0
     syntax, tce(real) nde(real) nie(real) pm(real) cde(real) ///
             [se_tce(real 0.05) se_nde(real 0.04) se_nie(real 0.03) ///
              se_pm(real 0.02) se_cde(real 0.04)]
 
-    * Store point estimates in r()
-    return scalar tce = `tce'
-    return scalar nde = `nde'
-    return scalar nie = `nie'
-    return scalar pm = `pm'
-    return scalar cde = `cde'
+    * Build b vector and V matrix
+    tempname b V se_mat
+    matrix `b' = (`tce', `nde', `nie', `pm', `cde')
+    matrix colnames `b' = tce nde nie pm cde
+    matrix `V' = J(5, 5, 0)
+    matrix `V'[1,1] = `se_tce'^2
+    matrix `V'[2,2] = `se_nde'^2
+    matrix `V'[3,3] = `se_nie'^2
+    matrix `V'[4,4] = `se_pm'^2
+    matrix `V'[5,5] = `se_cde'^2
+    matrix colnames `V' = tce nde nie pm cde
+    matrix rownames `V' = tce nde nie pm cde
 
-    * Store standard errors
-    return scalar se_tce = `se_tce'
-    return scalar se_nde = `se_nde'
-    return scalar se_nie = `se_nie'
-    return scalar se_pm = `se_pm'
-    return scalar se_cde = `se_cde'
+    * Post to e()
+    ereturn post `b' `V'
+    ereturn local cmd "gformula"
+    ereturn local analysis_type "mediation"
 
-    * Create CI matrices (normal approximation: estimate +/- 1.96*SE)
-    matrix ci_normal = J(5, 2, .)
-    matrix ci_normal[1,1] = `tce' - 1.96*`se_tce'
-    matrix ci_normal[1,2] = `tce' + 1.96*`se_tce'
-    matrix ci_normal[2,1] = `nde' - 1.96*`se_nde'
-    matrix ci_normal[2,2] = `nde' + 1.96*`se_nde'
-    matrix ci_normal[3,1] = `nie' - 1.96*`se_nie'
-    matrix ci_normal[3,2] = `nie' + 1.96*`se_nie'
-    matrix ci_normal[4,1] = `pm' - 1.96*`se_pm'
-    matrix ci_normal[4,2] = `pm' + 1.96*`se_pm'
-    matrix ci_normal[5,1] = `cde' - 1.96*`se_cde'
-    matrix ci_normal[5,2] = `cde' + 1.96*`se_cde'
+    * Convenience scalars
+    ereturn scalar tce = `tce'
+    ereturn scalar nde = `nde'
+    ereturn scalar nie = `nie'
+    ereturn scalar pm = `pm'
+    ereturn scalar cde = `cde'
+    ereturn scalar se_tce = `se_tce'
+    ereturn scalar se_nde = `se_nde'
+    ereturn scalar se_nie = `se_nie'
+    ereturn scalar se_pm = `se_pm'
+    ereturn scalar se_cde = `se_cde'
+
+    * SE vector
+    matrix `se_mat' = (`se_tce', `se_nde', `se_nie', `se_pm', `se_cde')
+    matrix colnames `se_mat' = tce nde nie pm cde
+    ereturn matrix se = `se_mat'
+
+    * Create CI matrices matching real gformula layout: 2 rows x 5 cols
+    tempname cin cip cibc cibca
+    matrix `cin' = J(2, 5, .)
+    matrix `cin'[1,1] = `tce' - 1.96*`se_tce'
+    matrix `cin'[2,1] = `tce' + 1.96*`se_tce'
+    matrix `cin'[1,2] = `nde' - 1.96*`se_nde'
+    matrix `cin'[2,2] = `nde' + 1.96*`se_nde'
+    matrix `cin'[1,3] = `nie' - 1.96*`se_nie'
+    matrix `cin'[2,3] = `nie' + 1.96*`se_nie'
+    matrix `cin'[1,4] = `pm' - 1.96*`se_pm'
+    matrix `cin'[2,4] = `pm' + 1.96*`se_pm'
+    matrix `cin'[1,5] = `cde' - 1.96*`se_cde'
+    matrix `cin'[2,5] = `cde' + 1.96*`se_cde'
+    matrix colnames `cin' = tce nde nie pm cde
+    ereturn matrix ci_normal = `cin'
 
     * Create percentile CI
-    matrix ci_percentile = J(5, 2, .)
-    matrix ci_percentile[1,1] = `tce' - 2.0*`se_tce'
-    matrix ci_percentile[1,2] = `tce' + 1.9*`se_tce'
-    matrix ci_percentile[2,1] = `nde' - 2.0*`se_nde'
-    matrix ci_percentile[2,2] = `nde' + 1.9*`se_nde'
-    matrix ci_percentile[3,1] = `nie' - 2.0*`se_nie'
-    matrix ci_percentile[3,2] = `nie' + 1.9*`se_nie'
-    matrix ci_percentile[4,1] = `pm' - 2.0*`se_pm'
-    matrix ci_percentile[4,2] = `pm' + 1.9*`se_pm'
-    matrix ci_percentile[5,1] = `cde' - 2.0*`se_cde'
-    matrix ci_percentile[5,2] = `cde' + 1.9*`se_cde'
+    matrix `cip' = J(2, 5, .)
+    matrix `cip'[1,1] = `tce' - 2.0*`se_tce'
+    matrix `cip'[2,1] = `tce' + 1.9*`se_tce'
+    matrix `cip'[1,2] = `nde' - 2.0*`se_nde'
+    matrix `cip'[2,2] = `nde' + 1.9*`se_nde'
+    matrix `cip'[1,3] = `nie' - 2.0*`se_nie'
+    matrix `cip'[2,3] = `nie' + 1.9*`se_nie'
+    matrix `cip'[1,4] = `pm' - 2.0*`se_pm'
+    matrix `cip'[2,4] = `pm' + 1.9*`se_pm'
+    matrix `cip'[1,5] = `cde' - 2.0*`se_cde'
+    matrix `cip'[2,5] = `cde' + 1.9*`se_cde'
+    matrix colnames `cip' = tce nde nie pm cde
+    ereturn matrix ci_percentile = `cip'
 
     * Create bias-corrected CI
-    matrix ci_bc = J(5, 2, .)
-    matrix ci_bc[1,1] = `tce' - 2.05*`se_tce'
-    matrix ci_bc[1,2] = `tce' + 1.85*`se_tce'
-    matrix ci_bc[2,1] = `nde' - 2.05*`se_nde'
-    matrix ci_bc[2,2] = `nde' + 1.85*`se_nde'
-    matrix ci_bc[3,1] = `nie' - 2.05*`se_nie'
-    matrix ci_bc[3,2] = `nie' + 1.85*`se_nie'
-    matrix ci_bc[4,1] = `pm' - 2.05*`se_pm'
-    matrix ci_bc[4,2] = `pm' + 1.85*`se_pm'
-    matrix ci_bc[5,1] = `cde' - 2.05*`se_cde'
-    matrix ci_bc[5,2] = `cde' + 1.85*`se_cde'
+    matrix `cibc' = J(2, 5, .)
+    matrix `cibc'[1,1] = `tce' - 2.05*`se_tce'
+    matrix `cibc'[2,1] = `tce' + 1.85*`se_tce'
+    matrix `cibc'[1,2] = `nde' - 2.05*`se_nde'
+    matrix `cibc'[2,2] = `nde' + 1.85*`se_nde'
+    matrix `cibc'[1,3] = `nie' - 2.05*`se_nie'
+    matrix `cibc'[2,3] = `nie' + 1.85*`se_nie'
+    matrix `cibc'[1,4] = `pm' - 2.05*`se_pm'
+    matrix `cibc'[2,4] = `pm' + 1.85*`se_pm'
+    matrix `cibc'[1,5] = `cde' - 2.05*`se_cde'
+    matrix `cibc'[2,5] = `cde' + 1.85*`se_cde'
+    matrix colnames `cibc' = tce nde nie pm cde
+    ereturn matrix ci_bc = `cibc'
 
     * Create BCa CI
-    matrix ci_bca = J(5, 2, .)
-    matrix ci_bca[1,1] = `tce' - 2.1*`se_tce'
-    matrix ci_bca[1,2] = `tce' + 1.8*`se_tce'
-    matrix ci_bca[2,1] = `nde' - 2.1*`se_nde'
-    matrix ci_bca[2,2] = `nde' + 1.8*`se_nde'
-    matrix ci_bca[3,1] = `nie' - 2.1*`se_nie'
-    matrix ci_bca[3,2] = `nie' + 1.8*`se_nie'
-    matrix ci_bca[4,1] = `pm' - 2.1*`se_pm'
-    matrix ci_bca[4,2] = `pm' + 1.8*`se_pm'
-    matrix ci_bca[5,1] = `cde' - 2.1*`se_cde'
-    matrix ci_bca[5,2] = `cde' + 1.8*`se_cde'
+    matrix `cibca' = J(2, 5, .)
+    matrix `cibca'[1,1] = `tce' - 2.1*`se_tce'
+    matrix `cibca'[2,1] = `tce' + 1.8*`se_tce'
+    matrix `cibca'[1,2] = `nde' - 2.1*`se_nde'
+    matrix `cibca'[2,2] = `nde' + 1.8*`se_nde'
+    matrix `cibca'[1,3] = `nie' - 2.1*`se_nie'
+    matrix `cibca'[2,3] = `nie' + 1.8*`se_nie'
+    matrix `cibca'[1,4] = `pm' - 2.1*`se_pm'
+    matrix `cibca'[2,4] = `pm' + 1.8*`se_pm'
+    matrix `cibca'[1,5] = `cde' - 2.1*`se_cde'
+    matrix `cibca'[2,5] = `cde' + 1.8*`se_cde'
+    matrix colnames `cibca' = tce nde nie pm cde
+    ereturn matrix ci_bca = `cibca'
 
 end
 

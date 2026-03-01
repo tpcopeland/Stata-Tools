@@ -1,4 +1,4 @@
-*! _tte_check_weighted Version 1.0.2  2026/02/28
+*! _tte_check_weighted Version 1.0.3  2026/03/01
 *! Verify weight variable exists
 *! Author: Timothy P Copeland
 
@@ -13,7 +13,13 @@ program define _tte_check_weighted
 
     capture confirm variable `weight'
     if _rc != 0 {
-        display as error "weight variable `weight' not found; run {bf:tte_weight} first"
+        display as error "weight variable `weight' not found"
+        display as error ""
+        display as error "Run {bf:tte_weight} to estimate inverse probability weights."
+        display as error "Requires {bf:tte_expand} to have been run first."
+        display as error "Example:"
+        display as error "  {cmd:tte_weight, switch_d_cov(age sex comorbidity)}"
+        display as error "  {cmd:  stabilized truncate(1 99) nolog}"
         exit 111
     }
 end

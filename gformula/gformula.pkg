@@ -6,12 +6,14 @@ d causal effects in the presence of time-varying confounding and for
 d causal mediation analysis. Uses Monte Carlo simulation with
 d bootstrap inference.
 d
+d Includes gformtab for exporting mediation results to Excel.
+d
 d Forked from SSC gformula v1.16 beta (Rhian Daniel, 2021) with
 d bug fixes, modernization, and SSC dependency removal.
 d
 d Requires: Stata version 16+
 d
-d Distribution-Date: 20260228
+d Distribution-Date: 20260301
 d License: MIT
 d
 d Author: Timothy P Copeland (fork)
@@ -27,3 +29,5 @@ d KW: Monte Carlo simulation
 d
 f gformula.ado
 f gformula.sthlp
+f gformtab.ado
+f gformtab.sthlp

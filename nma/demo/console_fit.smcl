@@ -1,0 +1,36 @@
+{smcl}
+{com}{sf}{ul off}{txt}
+{com}. 
+. noisily nma_fit
+{txt}
+{hline 70}
+{res}nma{txt} - Network Meta-Analysis
+{hline 70}
+
+Command: {res}nma_fit
+{txt}Fitting consistency model
+
+{res}{txt}Iteration 0: log likelihood = {res}  -20.616779
+{txt}Iteration 1: log likelihood = {res}  -20.616779
+{txt}Method: {res}REML{txt} | Studies: {res}28{txt} | Treatments: {res}10{txt} | Comparisons: {res}15
+{txt}
+{hline 78}
+     Treatment      {col 22}   Coef   {col 33}   SE   {col 42}     [95% CI]     {col 62}P-value {col 72}Evidence
+{hline 78}
+{res}Acarbose vs Placebo {col 22}  -0.8842{col 33} 0.1728{col 42}[-1.2230, -0.5454]{col 62}  <0.001{col 72}{txt}Mixed
+{res}Benfluorex vs Placebo{col 22}  -0.8281{col 33} 0.2621{col 42}[-1.3418, -0.3143]{col 62}   0.002{col 72}{txt}Direct
+{res}Metformin vs Placebo{col 22}  -1.1253{col 33} 0.1281{col 42}[-1.3764, -0.8742]{col 62}  <0.001{col 72}{txt}Mixed
+{res}Miglitol vs Placebo {col 22}  -0.9149{col 33} 0.2371{col 42}[-1.3796, -0.4502]{col 62}  <0.001{col 72}{txt}Direct
+{res}Pioglitazone vs Placebo{col 22}  -1.1686{col 33} 0.2104{col 42}[-1.5810, -0.7562]{col 62}  <0.001{col 72}{txt}Mixed
+{res}Rosiglitazone vs Placebo{col 22}  -1.2325{col 33} 0.1115{col 42}[-1.4511, -1.0140]{col 62}  <0.001{col 72}{txt}Mixed
+{res}Sitagliptin vs Placebo{col 22}  -0.5700{col 33} 0.2940{col 42}[-1.1463,  0.0063]{col 62}   0.053{col 72}{txt}Direct
+{res}Sulfonylurea vs Placebo{col 22}  -0.4003{col 33} 0.2083{col 42}[-0.8085,  0.0079]{col 62}   0.055{col 72}{txt}Indirect
+{res}Vildagliptin vs Placebo{col 22}  -0.7000{col 33} 0.3087{col 42}[-1.3049, -0.0951]{col 62}   0.023{col 72}{txt}Direct
+{hline 78}
+
+Heterogeneity: tau2 = {res} 0.0086{txt}, I2 = {res} 27.8{txt}%
+
+{com}. 
+. log close demo2
+{smcl}
+{com}{sf}{ul off}

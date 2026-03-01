@@ -1,4 +1,4 @@
-*! tabtools Version 1.1.1  2026/02/25
+*! tabtools Version 1.2.0  2026/03/01
 *! Suite of table export commands for publication-ready Excel output
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet
@@ -40,7 +40,7 @@ program define tabtools, rclass
 
     // Define commands by category
     local cmd_descriptive "table1_tc"
-    local cmd_models "regtab effecttab gformtab"
+    local cmd_models "regtab effecttab"
     local cmd_rates "stratetab"
     local cmd_general "tablex"
 
@@ -96,7 +96,6 @@ program define tabtools, rclass
             display as text "{bf:Model Results}"
             display as result "  regtab     " as text "- Regression results from any estimation command"
             display as result "  effecttab  " as text "- Treatment effects and margins results"
-            display as result "  gformtab   " as text "- G-formula mediation analysis results"
             display as text ""
         }
 
@@ -122,7 +121,7 @@ program define tabtools, rclass
     // Return results
     return local commands "`selected_cmds'"
     return scalar n_commands = `n_commands'
-    return local version "1.1.1"
+    return local version "1.2.0"
     return local categories "descriptive models rates general"
 end
 
@@ -158,11 +157,6 @@ program define _tabtools_detail
         display as text "               Works with margins, contrast, and effect commands."
         display as text "               Formats average marginal effects, predictive"
         display as text "               margins, and interaction contrasts."
-        display as text ""
-        display as result "  gformtab" as text "     Export G-formula mediation analysis results."
-        display as text "               Presents total, direct, and indirect effects"
-        display as text "               with confidence intervals from gformula output."
-        display as text "               Useful for causal mediation analysis."
         display as text ""
     }
 

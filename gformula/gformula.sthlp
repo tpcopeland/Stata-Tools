@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.1.1  28feb2026}{...}
+{* *! version 1.2.0  01mar2026}{...}
 {viewerjumpto "Syntax" "gformula##syntax"}{...}
 {viewerjumpto "Description" "gformula##description"}{...}
 {viewerjumpto "Options" "gformula##options"}{...}
@@ -338,7 +338,7 @@ g-computation formula{it:. The Stata Journal} 11(4):479-517.
 
 {pstd}Original author: Rhian Daniel, London School of Hygiene and Tropical Medicine{p_end}
 {pstd}Fork maintainer: Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.1.0, 2026-02-27{p_end}
+{pstd}Version 1.2.0, 2026-03-01{p_end}
 
 {pstd}
 This is a maintained fork of SSC {cmd:gformula} v1.16 beta with bug fixes
@@ -348,6 +348,6 @@ and modernization. See the README for a full changelog.
 {title:Also see}
 
 {psee}
-Online: {helpb bootstrap}, {helpb logit}, {helpb regress}, {helpb mlogit}
+Online: {helpb gformtab}, {helpb bootstrap}, {helpb logit}, {helpb regress}, {helpb mlogit}
 
 {hline}

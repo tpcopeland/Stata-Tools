@@ -1,4 +1,4 @@
-*! tte_protocol Version 1.0.1  2026/02/27
+*! tte_protocol Version 1.0.2  2026/03/01
 *! Target trial protocol table (Hernan 7-component) for target trial emulation
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet
@@ -119,7 +119,7 @@ program define tte_protocol, rclass
         else if "`format'" == "excel" {
             quietly {
                 putexcel set "`export'", sheet("Protocol") `replace'
-                putexcel A1 = "`title'" A1:B1 = "`title'"
+                putexcel A1 = "`title'"
                 putexcel A3 = "Component" B3 = "Description"
                 putexcel A4 = "1. Eligibility criteria" B4 = "`eligibility'"
                 putexcel A5 = "2. Treatment strategies" B5 = "`treatment'"
@@ -129,6 +129,29 @@ program define tte_protocol, rclass
                 putexcel A9 = "6. Causal contrast" B9 = "`causal_contrast'"
                 putexcel A10 = "7. Statistical analysis" B10 = "`analysis'"
             }
+
+            * Apply formatting (non-fatal)
+            capture noisily {
+                mata: b = xl()
+                mata: b.load_book("`export'")
+                mata: b.set_sheet("Protocol")
+                mata: b.set_column_width(1, 1, 28)
+                mata: b.set_column_width(2, 2, 60)
+                mata: b.set_row_height(1, 1, 20)
+                mata: b.set_row_height(4, 10, 30)
+                mata: b.close_book()
+
+                putexcel set "`export'", sheet("Protocol") modify
+                putexcel (A1:B1), merge bold
+                putexcel (A3:B3), bold hcenter
+                putexcel (A3:B3), border(top, thin)
+                putexcel (A3:B3), border(bottom, thin)
+                putexcel (A10:B10), border(bottom, thin)
+                putexcel (A4:B10), txtwrap
+                putexcel (A1:B10), font(Arial, 10)
+                putexcel clear
+            }
+
             display as text "Protocol exported to: " as result "`export'"
         }
         else if "`format'" == "latex" {

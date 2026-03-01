@@ -1,7 +1,6 @@
 {smcl}
 {* *! version 1.4.4  25feb2026}{...}
 {vieweralsosee "effecttab" "help effecttab"}{...}
-{vieweralsosee "gformtab" "help gformtab"}{...}
 {viewerjumpto "Package overview" "regtab##package"}{...}
 {viewerjumpto "Syntax" "regtab##syntax"}{...}
 {viewerjumpto "Description" "regtab##description"}{...}
@@ -26,7 +25,6 @@ Stata's {helpb collect} framework and apply professional formatting.
 {synoptset 14}{...}
 {synopt:{helpb regtab}}Format collected regression tables (logit, regress, stcox, etc.){p_end}
 {synopt:{helpb effecttab}}Format treatment effects and margins tables (teffects, margins){p_end}
-{synopt:{helpb gformtab}}Format gformula mediation analysis tables (TCE, NDE, NIE, PM, CDE){p_end}
 
 {pstd}
 {bf:Installation}

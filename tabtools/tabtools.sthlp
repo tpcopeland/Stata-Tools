@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.1.1  25feb2026}{...}
+{* *! version 1.2.0  01mar2026}{...}
 {viewerjumpto "Description" "tabtools##description"}{...}
 {viewerjumpto "Commands" "tabtools##commands"}{...}
 {viewerjumpto "Installation" "tabtools##installation"}{...}
@@ -17,7 +17,7 @@
 {pstd}
 {cmd:tabtools} is a comprehensive suite of Stata commands for exporting tables to
 professionally formatted Excel files. The package includes tools for descriptive
-statistics (Table 1), regression results, treatment effects, mediation analysis,
+statistics (Table 1), regression results, treatment effects,
 incidence rates, and general-purpose table export.
 
 {pstd}
@@ -39,7 +39,6 @@ merged headers, and professional styling suitable for journal submissions.
 
 {synopt:{helpb regtab}}Regression results from any estimation command{p_end}
 {synopt:{helpb effecttab}}Treatment effects and margins results{p_end}
-{synopt:{helpb gformtab}}G-formula mediation analysis results{p_end}
 
 {pstd}
 {bf:Incidence Rates}

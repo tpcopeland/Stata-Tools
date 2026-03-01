@@ -1,0 +1,2287 @@
+
+  ___  ____  ____  ____  ____ ®
+ /__    /   ____/   /   ____/      17.0
+___/   /   /___/   /   /___/       MP—Parallel Edition
+
+ Statistics and Data Science       Copyright 1985-2021 StataCorp LLC
+                                   StataCorp
+                                   4905 Lakeway Drive
+                                   College Station, Texas 77845 USA
+                                   800-STATA-PC        https://www.stata.com
+                                   979-696-4600        stata@stata.com
+
+Stata license: Single-user 16-core  perpetual
+Serial number: 501706305188
+  Licensed to: Timothy Copeland
+               Karolinska Institutet
+
+Notes:
+      1. Stata is running in batch mode.
+      2. Unicode is supported; see help unicode_advice.
+      3. More than 2 billion observations are allowed; see help obs_advice.
+      4. Maximum number of variables is set to 5,000 but can be increased;
+          see help set_maxvar.
+
+. do tte/demo/demo_tte.do 
+
+. /*  demo_tte.do - Target Trial Emulation validation demo
+> 
+>     Benchmarks the tte suite against R TrialEmulation using the
+>     trial_example dataset (503 patients, 48,400 person-periods,
+>     11 variables). Demonstrates the full pipeline including the
+>     Hernan & Robins 7-component protocol specification.
+> 
+>     R TrialEmulation reference results (ITT, assigned_treatment):
+>       Coefficient: -0.273, Robust SE: 0.310
+>       95% CI: [-0.880, 0.335], p-value: 0.379
+> 
+>     Produces:
+>       - Console: protocol overview, ITT + PP results  -> .smcl
+>       - Excel:   protocol table                       -> .xlsx
+>       - Excel:   ITT report with predictions           -> .xlsx
+>       - Excel:   PP report                             -> .xlsx
+>       - Graph:   cumulative incidence (ITT)            -> .png
+>       - Graph:   cumulative incidence (PP)             -> .png
+>       - Graph:   weight distribution (PP)              -> .png
+> 
+>     Source: Maringe C, Benitez Majano S, et al. TrialEmulation: An R
+>     Package for Target Trial Emulation. arXiv. 2024;2402.12083.
+> */
+. 
+. version 16.0
+
+. set more off
+
+. set varabbrev off
+
+. 
+. * --- Paths ---
+. local pkg_dir "tte/demo"
+
+. capture mkdir "`pkg_dir'"
+
+. 
+. * --- Load and reload all commands ---
+. local tte_cmds tte tte_prepare tte_validate tte_expand tte_weight  ///
+>     tte_fit tte_predict tte_diagnose tte_plot tte_report tte_protocol ///
+>     _tte_check_expanded _tte_check_fitted _tte_check_prepared          ///
+>     _tte_check_weighted _tte_display_header _tte_get_settings          ///
+>     _tte_memory_estimate _tte_natural_spline _tte_col_letter
+
+. 
+. * Drop subprograms defined inside tte.ado before reloading
+. capture program drop _tte_protocol_overview
+
+. capture program drop _tte_overview_detail
+
+. 
+. foreach cmd of local tte_cmds {
+  2.     capture program drop `cmd'
+  3.     quietly run tte/`cmd'.ado
+  4. }
+
+. 
+. * --- Begin console log ---
+. log using "`pkg_dir'/console_output.smcl", replace smcl name(demo) nomsg
+
+. 
+. * =====================================================================
+. * STEP 0: Protocol specification (Hernan 7-component framework)
+. * =====================================================================
+. * The protocol should be defined BEFORE any analysis, following
+. * Hernan & Robins (2016). This is unique to the tte package.
+. 
+. noisily tte, protocol
+
+----------------------------------------------------------------------
+tte - Target Trial Emulation for Stata
+Version 1.0.4
+----------------------------------------------------------------------
+
+Hernan & Robins (2016) 7-Component Framework
+
+  Every target trial emulation must specify:
+
+  1. Eligibility criteria
+     Who is eligible to enter the trial at each time point?
+     Example: Age >= 18, no prior outcome event, >= 1 year follow-up
+
+  2. Treatment strategies
+     What treatments are being compared?
+     Example: Initiate drug A vs. do not initiate drug A
+
+  3. Treatment assignment
+     How is treatment assigned in the observational data?
+     Example: Patients assigned at each eligible period based on
+     physician decision (emulates randomization at baseline)
+
+  4. Start of follow-up (time zero)
+     When does follow-up begin for each emulated trial?
+     Example: Start of each eligible period (eligibility = assignment)
+
+  5. Outcome
+     What is the outcome of interest?
+     Example: All-cause mortality within 5 years
+
+  6. Causal contrast
+     ITT (intention-to-treat) or PP (per-protocol)?
+     ITT: analyze as initially assigned regardless of switching
+     PP: censor at deviation, reweight with IPTW
+
+  7. Statistical analysis
+     What model and estimation approach?
+     Example: Pooled logistic regression with robust SE,
+     clustered by individual, adjusted for confounders
+
+----------------------------------------------------------------------
+Document your protocol with tte_protocol:
+
+  tte_protocol, eligibility("Age >= 18, no prior event")
+      treatment("Initiate drug vs no drug")
+      assignment("At each eligible period")
+      followup_start("Start of eligible period")
+      outcome("All-cause mortality")
+      causal_contrast("Per-protocol effect")
+      analysis("Pooled logistic with IPCW")
+      export(protocol.xlsx) format(excel) replace
+
+----------------------------------------------------------------------
+
+. 
+. noisily tte_protocol, ///
+>     eligibility("Eligible at period start (eligible == 1); no prior outcome")
+>  ///
+>     treatment("Initiate treatment vs. do not initiate treatment") ///
+>     assignment("At each eligible period, based on observed treatment decision
+> ") ///
+>     followup_start("Start of the period when eligibility criteria are met") /
+> //
+>     outcome("Binary outcome event (outcome == 1)") ///
+>     causal_contrast("Intention-to-treat (ITT) and per-protocol (PP)") ///
+>     analysis("Pooled logistic regression with robust SE, clustered by id") //
+> /
+>     export("`pkg_dir'/protocol.xlsx") format(excel) replace
+
+----------------------------------------------------------------------
+Target Trial Protocol Specification
+(Hernan & Robins 7-component framework)
+----------------------------------------------------------------------
+
+1. Eligibility criteria
+   Eligible at period start (eligible == 1); no prior outcome
+
+2. Treatment strategies
+   Initiate treatment vs. do not initiate treatment
+
+3. Treatment assignment
+   At each eligible period, based on observed treatment decision
+
+4. Start of follow-up (time zero)
+   Start of the period when eligibility criteria are met
+
+5. Outcome
+   Binary outcome event (outcome == 1)
+
+6. Causal contrast
+   Intention-to-treat (ITT) and per-protocol (PP)
+
+7. Statistical analysis
+   Pooled logistic regression with robust SE, clustered by id
+
+----------------------------------------------------------------------
+file tte/demo/protocol.xlsx saved
+file tte/demo/protocol.xlsx saved
+file tte/demo/protocol.xlsx saved
+file tte/demo/protocol.xlsx saved
+file tte/demo/protocol.xlsx saved
+file tte/demo/protocol.xlsx saved
+file tte/demo/protocol.xlsx saved
+Protocol exported to: tte/demo/protocol.xlsx
+
+. 
+. * =====================================================================
+. * ANALYSIS 1: Intention-to-Treat (ITT)
+. * =====================================================================
+. * ITT ignores treatment switching — everyone analyzed as initially assigned.
+. * No weights needed. Compare results to R TrialEmulation reference.
+. 
+. noisily display _newline
+
+
+
+. noisily display as text "ITT ANALYSIS (R TrialEmulation benchmark)"
+ITT ANALYSIS (R TrialEmulation benchmark)
+
+. 
+. use tte/demo/data/trial_example.dta, clear
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+
+. 
+. tte_prepare, id(id) period(period) treatment(treatment) ///
+>     outcome(outcome) eligible(eligible) ///
+>     covariates(catvara catvarb catvarc nvara nvarb nvarc) ///
+>     estimand(ITT)
+
+----------------------------------------------------------------------
+tte_prepare - Data Preparation
+----------------------------------------------------------------------
+
+Variable mapping:
+  ID:          id
+  Period:      period (range: 1 to 396)
+  Treatment:   treatment
+  Outcome:     outcome
+  Eligible:    eligible
+  Covariates:  catvara catvarb catvarc nvara nvarb nvarc
+
+Estimand:      ITT
+
+Data summary:
+  Observations:         48,400
+  Individuals:             503
+  Period range:     1 - 396
+  Eligible obs:         22,710
+  Treated obs:          25,660
+  Outcome events:          253
+
+Metadata stored. Next step: tte_validate or tte_expand
+----------------------------------------------------------------------
+
+. 
+. noisily tte_validate
+
+----------------------------------------------------------------------
+tte_validate - Data Quality Checks
+----------------------------------------------------------------------
+
+Check 1: Person-period format
+  PASS
+Check 2: No gaps in period sequences
+  PASS
+Check 3: Outcome is terminal (no rows after event)
+  PASS
+Check 4: Treatment consistency
+  PASS (ITT: treatment switching is allowed)
+Check 5: Missing data
+  PASS (no missing values in core variables)
+Check 6: Eligibility consistency
+  PASS
+Check 7: Sufficient eligible observations per period
+  PASS (min eligible per period: 10)
+Check 8: Positivity (treatment variation among eligible)
+  PASS (treatment prevalence among eligible:  8.8%)
+Check 9: Period numbering
+  PASS (period range: 1 to 396)
+Check 10: Event rate
+  PASS (253 events, rate:  0.52%)
+
+----------------------------------------------------------------------
+Validation summary:
+  Checks run:   10
+  Errors:       0
+  Warnings:     0
+
+All checks passed.
+Next step: tte_expand
+----------------------------------------------------------------------
+
+. 
+. tte_expand
+
+----------------------------------------------------------------------
+tte_expand - Sequential Trial Expansion
+----------------------------------------------------------------------
+
+Estimand:        ITT
+Trial periods:   396
+Max follow-up:   unlimited
+
+Expanding trials...
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+  ... processed 10 of 396 trial periods
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+  ... processed 20 of 396 trial periods
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+  ... processed 30 of 396 trial periods
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+  ... processed 40 of 396 trial periods
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+  ... processed 50 of 396 trial periods
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+  ... processed 60 of 396 trial periods
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+  ... processed 70 of 396 trial periods
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+  ... processed 80 of 396 trial periods
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+  ... processed 90 of 396 trial periods
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+  ... processed 100 of 396 trial periods
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+  ... processed 110 of 396 trial periods
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+  ... processed 120 of 396 trial periods
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+  ... processed 130 of 396 trial periods
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+  ... processed 140 of 396 trial periods
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+  ... processed 150 of 396 trial periods
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+  ... processed 160 of 396 trial periods
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+  ... processed 170 of 396 trial periods
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+  ... processed 180 of 396 trial periods
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+  ... processed 190 of 396 trial periods
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+  ... processed 200 of 396 trial periods
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+  ... processed 210 of 396 trial periods
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+  ... processed 220 of 396 trial periods
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+  ... processed 230 of 396 trial periods
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+  ... processed 240 of 396 trial periods
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+  ... processed 250 of 396 trial periods
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+  ... processed 260 of 396 trial periods
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+  ... processed 270 of 396 trial periods
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+  ... processed 280 of 396 trial periods
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+  ... processed 290 of 396 trial periods
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+  ... processed 300 of 396 trial periods
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+  ... processed 310 of 396 trial periods
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+  ... processed 320 of 396 trial periods
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+  ... processed 330 of 396 trial periods
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+  ... processed 340 of 396 trial periods
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+  ... processed 350 of 396 trial periods
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+  ... processed 360 of 396 trial periods
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+  ... processed 370 of 396 trial periods
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+  ... processed 380 of 396 trial periods
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+  ... processed 390 of 396 trial periods
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+Combining 396 trial datasets...
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+
+Expansion complete:
+  Original obs:         48,400
+  Expanded obs:      1,939,053
+  Expansion ratio:        40.1x
+  Trials created:   396
+  Treatment arm:       114,909
+  Control arm:       1,824,144
+  Censored:                  0
+  Events:                8,661
+
+Variables created: _tte_trial _tte_arm _tte_followup _tte_censored _tte_outcome
+> _obs
+
+Next step: tte_fit
+----------------------------------------------------------------------
+
+. 
+. tte_fit, outcome_cov(catvara catvarb catvarc nvara nvarb nvarc) ///
+>     followup_spec(quadratic) trial_period_spec(quadratic) nolog
+
+----------------------------------------------------------------------
+tte_fit - Outcome Model
+----------------------------------------------------------------------
+
+Model type:       logistic
+Estimand:         ITT
+Outcome:          _tte_outcome_obs
+Treatment var:    _tte_arm
+Follow-up spec:   quadratic
+Trial spec:       quadratic
+Covariates:       catvara catvarb catvarc nvara nvarb nvarc
+Cluster var:      id
+
+Fitting pooled logistic regression...
+
+
+Generalized linear models                         Number of obs   =    1939053
+Optimization     : ML                             Residual df     =    1939041
+                                                  Scale parameter =          1
+Deviance         =  107846.6088                   (1/df) Deviance =   .0556185
+Pearson          =  1861958.822                   (1/df) Pearson  =   .9602473
+
+Variance function: V(u) = u*(1-u)                 [Bernoulli]
+Link function    : g(u) = ln(u/(1-u))             [Logit]
+
+                                                  AIC             =   .0556306
+Log pseudolikelihood =  -53923.3044               BIC             =  -2.80e+07
+
+                                   (Std. err. adjusted for 503 clusters in id)
+------------------------------------------------------------------------------
+             |               Robust
+_tte_outco~s | Coefficient  std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+    _tte_arm |  -.2816177    .312578    -0.90   0.368    -.8942593    .3310239
+_tte_follo~p |   .0028641   .0033938     0.84   0.399    -.0037877     .009516
+_tte_follo~q |  -6.89e-06   .0000162    -0.43   0.671    -.0000386    .0000249
+  _tte_trial |   .0015609   .0040273     0.39   0.698    -.0063325    .0094543
+_tte_trial~q |   9.38e-07   9.38e-06     0.10   0.920    -.0000174    .0000193
+     catvara |    .058577   .0313998     1.87   0.062    -.0029654    .1201195
+     catvarb |  -.0544457   .0296765    -1.83   0.067    -.1126106    .0037191
+     catvarc |  -.0207425   .0261236    -0.79   0.427    -.0719438    .0304589
+       nvara |  -.0795747   .0449135    -1.77   0.076    -.1676036    .0084542
+       nvarb |   .0048007   .0023345     2.06   0.040     .0002253    .0093762
+       nvarc |  -.0405408   .0067613    -6.00   0.000    -.0537927   -.0272888
+       _cons |    -3.4565   .6567073    -5.26   0.000    -4.743623   -2.169378
+------------------------------------------------------------------------------
+
+----------------------------------------------------------------------
+Treatment effect (assigned arm):
+  Log-odds:     -0.2816 (SE:  0.3126)
+  Odds ratio:    0.7546 (95% CI:  0.4089 -  1.3924)
+  p-value:       0.3676
+
+Next step: tte_predict for marginal predictions
+----------------------------------------------------------------------
+
+. 
+. tte_predict, times(0(1)8) type(cum_inc) difference samples(100) seed(12345)
+
+----------------------------------------------------------------------
+tte_predict - Marginal Predictions
+----------------------------------------------------------------------
+
+Prediction type:  cum_inc
+MC samples:       100
+Confidence level: 95%
+Risk difference:  Yes
+
+Computing predictions...
+(22,710 missing values generated)
+(22,710 missing values generated)
+Running 100 Monte Carlo simulations...
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+  ... 50 of 100 samples completed
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+  ... 100 of 100 samples completed
+
+----------------------------------------------------------------------
+Cumulative Incidence Estimates (95% CI)
+----------------------------------------------------------------------
+
+ Time     Control     Treated        Diff
+---------------------------------------------
+    0      0.0045      0.0034     -0.0011
+       (0.0036-0.0061)  (0.0019-0.0063)  (-0.0030-0.0019)
+    1      0.0090      0.0068     -0.0022
+       (0.0072-0.0121)  (0.0038-0.0125)  (-0.0060-0.0038)
+    2      0.0135      0.0102     -0.0033
+       (0.0109-0.0179)  (0.0057-0.0187)  (-0.0088-0.0057)
+    3      0.0179      0.0136     -0.0043
+       (0.0145-0.0236)  (0.0076-0.0249)  (-0.0116-0.0075)
+    4      0.0223      0.0169     -0.0054
+       (0.0181-0.0292)  (0.0096-0.0310)  (-0.0143-0.0093)
+    5      0.0267      0.0203     -0.0064
+       (0.0217-0.0348)  (0.0115-0.0371)  (-0.0170-0.0111)
+    6      0.0311      0.0237     -0.0075
+       (0.0253-0.0403)  (0.0134-0.0431)  (-0.0196-0.0128)
+    7      0.0355      0.0270     -0.0085
+       (0.0289-0.0457)  (0.0154-0.0491)  (-0.0222-0.0146)
+    8      0.0398      0.0303     -0.0095
+       (0.0325-0.0510)  (0.0174-0.0551)  (-0.0248-0.0163)
+
+----------------------------------------------------------------------
+
+. 
+. * Save predictions matrix for xlsx export
+. matrix pred_itt = r(predictions)
+
+. 
+. * --- ITT cumulative incidence plot ---
+. tte_plot, type(cumhaz) ci ///
+>     title("Cumulative Incidence (ITT)") ///
+>     scheme(plotplainblind)
+(9 missing values generated)
+(9 missing values generated)
+(9 missing values generated)
+(9 missing values generated)
+(9 missing values generated)
+(9 missing values generated)
+(9 missing values generated)
+
+. graph export "`pkg_dir'/cumulative_incidence_itt.png", replace width(1200)
+file tte/demo/cumulative_incidence_itt.png written in PNG format
+
+. capture graph close _all
+
+. 
+. noisily tte_report, format(excel) ///
+>     export("`pkg_dir'/tte_report_itt.xlsx") ///
+>     predictions(pred_itt) replace
+
+----------------------------------------------------------------------
+Target Trial Emulation Results
+----------------------------------------------------------------------
+
+Analysis Summary
+
+  Estimand:           ITT
+  Total person-periods:  1,939,053
+  Treatment arm:         114,909
+  Control arm:         1,824,144
+  Outcome events:          8,661
+  Emulated trials:    396
+
+Outcome Model Coefficients
+
+            Variable    Log-odds                 .% CI   p-value
+----------------------------------------------------------------
+            _tte_arm      -0.282           . to          .    0.3676
+       _tte_followup       0.003           . to          .    0.3987
+    _tte_followup_sq      -0.000           . to          .    0.6706
+          _tte_trial       0.002           . to          .    0.6983
+       _tte_trial_sq       0.000           . to          .    0.9204
+             catvara       0.059           . to          .    0.0621
+             catvarb      -0.054           . to          .    0.0666
+             catvarc      -0.021           . to          .    0.4272
+               nvara      -0.080           . to          .    0.0764
+               nvarb       0.005           . to          .    0.0397
+               nvarc      -0.041           . to          .    0.0000
+
+Exporting to: tte/demo/tte_report_itt.xlsx
+  Summary exported to sheet: Summary
+  Coefficients exported to sheet: Coefficients
+  Predictions exported to sheet: Predictions
+file tte/demo/tte_report_itt.xlsx saved
+file tte/demo/tte_report_itt.xlsx saved
+file tte/demo/tte_report_itt.xlsx saved
+file tte/demo/tte_report_itt.xlsx saved
+file tte/demo/tte_report_itt.xlsx saved
+file tte/demo/tte_report_itt.xlsx saved
+file tte/demo/tte_report_itt.xlsx saved
+file tte/demo/tte_report_itt.xlsx saved
+file tte/demo/tte_report_itt.xlsx saved
+file tte/demo/tte_report_itt.xlsx saved
+file tte/demo/tte_report_itt.xlsx saved
+file tte/demo/tte_report_itt.xlsx saved
+file tte/demo/tte_report_itt.xlsx saved
+file tte/demo/tte_report_itt.xlsx saved
+file tte/demo/tte_report_itt.xlsx saved
+file tte/demo/tte_report_itt.xlsx saved
+
+----------------------------------------------------------------------
+
+. 
+. * --- R benchmark comparison ---
+. noisily display _newline
+
+
+
+. noisily display as text "{hline 70}"
+----------------------------------------------------------------------
+
+. noisily display as text "{bf:R TrialEmulation Benchmark Comparison (ITT)}"
+R TrialEmulation Benchmark Comparison (ITT)
+
+. noisily display as text "{hline 70}"
+----------------------------------------------------------------------
+
+. 
+. tempname b_coef V_coef
+
+. matrix `b_coef' = e(b)
+
+. matrix `V_coef' = e(V)
+
+. 
+. * Treatment coefficient is the first non-constant
+. local coef_names: colnames `b_coef'
+
+. local trt_idx = 0
+
+. forvalues i = 1/`=colsof(`b_coef')' {
+  2.     local cname: word `i' of `coef_names'
+  3.     if "`cname'" != "_cons" & `trt_idx' == 0 {
+  4.         local trt_idx = `i'
+  5.     }
+  6. }
+
+. local stata_coef = `b_coef'[1, `trt_idx']
+
+. local stata_se = sqrt(`V_coef'[`trt_idx', `trt_idx'])
+
+. local stata_ci_lo = `stata_coef' - 1.96 * `stata_se'
+
+. local stata_ci_hi = `stata_coef' + 1.96 * `stata_se'
+
+. local stata_p = 2 * (1 - normal(abs(`stata_coef' / `stata_se')))
+
+. 
+. noisily display as text ""
+
+
+. noisily display as text %20s "" %12s "Coefficient" %12s "Robust SE" %22s "95%
+>  CI" %10s "p-value"
+                     Coefficient   Robust SE                95% CI   p-value
+
+. noisily display as text _dup(76) "-"
+----------------------------------------------------------------------------
+
+. noisily display as text %20s "R TrialEmulation" ///
+>     as result %12.3f -0.273 %12.3f 0.310 ///
+>     as text "  [" as result %7.3f -0.880 as text ", " as result %7.3f 0.335 a
+> s text "]" ///
+>     as result %10.3f 0.379
+    R TrialEmulation      -0.273       0.310  [ -0.880,   0.335]     0.379
+
+. noisily display as text %20s "Stata tte" ///
+>     as result %12.3f `stata_coef' %12.3f `stata_se' ///
+>     as text "  [" as result %7.3f `stata_ci_lo' as text ", " as result %7.3f 
+> `stata_ci_hi' as text "]" ///
+>     as result %10.3f `stata_p'
+           Stata tte      -0.282       0.313  [ -0.894,   0.331]     0.368
+
+. noisily display as text _dup(76) "-"
+----------------------------------------------------------------------------
+
+. 
+. log close demo
+
+. 
+. * =====================================================================
+. * ANALYSIS 2: Per-Protocol (PP) with IPTW
+. * =====================================================================
+. * PP censors treatment switchers and reweights via IPTW to adjust for
+. * informative censoring. This is the clone-censor-weight approach.
+. 
+. use tte/demo/data/trial_example.dta, clear
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+
+. 
+. tte_prepare, id(id) period(period) treatment(treatment) ///
+>     outcome(outcome) eligible(eligible) ///
+>     covariates(catvara catvarb catvarc nvara nvarb nvarc) ///
+>     estimand(PP)
+
+----------------------------------------------------------------------
+tte_prepare - Data Preparation
+----------------------------------------------------------------------
+
+Variable mapping:
+  ID:          id
+  Period:      period (range: 1 to 396)
+  Treatment:   treatment
+  Outcome:     outcome
+  Eligible:    eligible
+  Covariates:  catvara catvarb catvarc nvara nvarb nvarc
+
+Estimand:      PP
+
+Data summary:
+  Observations:         48,400
+  Individuals:             503
+  Period range:     1 - 396
+  Eligible obs:         22,710
+  Treated obs:          25,660
+  Outcome events:          253
+
+Metadata stored. Next step: tte_validate or tte_expand
+----------------------------------------------------------------------
+
+. 
+. tte_validate
+
+----------------------------------------------------------------------
+tte_validate - Data Quality Checks
+----------------------------------------------------------------------
+
+Check 1: Person-period format
+  PASS
+Check 2: No gaps in period sequences
+  PASS
+Check 3: Outcome is terminal (no rows after event)
+  PASS
+Check 4: Treatment consistency
+  NOTE: 497 treatment discontinuations found
+    (expected for PP; will be handled by censoring/weighting)
+Check 5: Missing data
+  PASS (no missing values in core variables)
+Check 6: Eligibility consistency
+  PASS
+Check 7: Sufficient eligible observations per period
+  PASS (min eligible per period: 10)
+Check 8: Positivity (treatment variation among eligible)
+  PASS (treatment prevalence among eligible:  8.8%)
+Check 9: Period numbering
+  PASS (period range: 1 to 396)
+Check 10: Event rate
+  PASS (253 events, rate:  0.52%)
+
+----------------------------------------------------------------------
+Validation summary:
+  Checks run:   10
+  Errors:       0
+  Warnings:     0
+
+All checks passed.
+Next step: tte_expand
+----------------------------------------------------------------------
+
+. 
+. tte_expand
+
+----------------------------------------------------------------------
+tte_expand - Sequential Trial Expansion
+----------------------------------------------------------------------
+
+Estimand:        PP
+Trial periods:   396
+Max follow-up:   unlimited
+Grace period:    0 periods
+
+Expanding trials...
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+  ... processed 10 of 396 trial periods
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+  ... processed 20 of 396 trial periods
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+  ... processed 30 of 396 trial periods
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+  ... processed 40 of 396 trial periods
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+  ... processed 50 of 396 trial periods
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+  ... processed 60 of 396 trial periods
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+  ... processed 70 of 396 trial periods
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+  ... processed 80 of 396 trial periods
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+  ... processed 90 of 396 trial periods
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+  ... processed 100 of 396 trial periods
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+  ... processed 110 of 396 trial periods
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+  ... processed 120 of 396 trial periods
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+  ... processed 130 of 396 trial periods
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+  ... processed 140 of 396 trial periods
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+  ... processed 150 of 396 trial periods
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+  ... processed 160 of 396 trial periods
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+  ... processed 170 of 396 trial periods
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+  ... processed 180 of 396 trial periods
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+  ... processed 190 of 396 trial periods
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+  ... processed 200 of 396 trial periods
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+  ... processed 210 of 396 trial periods
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+  ... processed 220 of 396 trial periods
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+  ... processed 230 of 396 trial periods
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+  ... processed 240 of 396 trial periods
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+  ... processed 250 of 396 trial periods
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+  ... processed 260 of 396 trial periods
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+  ... processed 270 of 396 trial periods
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+  ... processed 280 of 396 trial periods
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+  ... processed 290 of 396 trial periods
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+  ... processed 300 of 396 trial periods
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+  ... processed 310 of 396 trial periods
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+  ... processed 320 of 396 trial periods
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+  ... processed 330 of 396 trial periods
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+  ... processed 340 of 396 trial periods
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+  ... processed 350 of 396 trial periods
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+  ... processed 360 of 396 trial periods
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+  ... processed 370 of 396 trial periods
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+  ... processed 380 of 396 trial periods
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+  ... processed 390 of 396 trial periods
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+Combining 396 trial datasets...
+(R TrialEmulation trial_example (503 patients, 48400 obs))
+
+Expansion complete:
+  Original obs:         48,400
+  Expanded obs:        998,110
+  Expansion ratio:        20.6x
+  Trials created:   396
+  Treatment arm:       116,947
+  Control arm:         881,163
+  Censored:             34,227
+  Events:                4,082
+
+Variables created: _tte_trial _tte_arm _tte_followup _tte_censored _tte_outcome
+> _obs
+
+Next step: tte_weight
+----------------------------------------------------------------------
+
+. 
+. tte_weight, switch_d_cov(catvara catvarb catvarc nvara nvarb nvarc) ///
+>     switch_n_cov(catvara nvara) ///
+>     stabilized truncate(1 99) nolog
+
+----------------------------------------------------------------------
+tte_weight - Inverse Probability Weights
+----------------------------------------------------------------------
+
+Estimand:         PP
+Switch denom:     catvara catvarb catvarc nvara nvarb nvarc
+Switch numer:     catvara nvara
+Stabilized:       Yes
+Truncation:       1th - 99th percentile
+
+Fitting treatment switch models...
+  Switch model for arm 0...
+  Switch model for arm 1...
+
+Truncating weights at 1th and 99th percentiles...
+  Truncated 19962 observations (9981 low, 9981 high)
+
+Weight distribution:
+  Mean:        1.0130
+  SD:          0.1736
+  Min:         0.5080
+  Median:      1.0023
+  Max:         1.6216
+  P1:          0.5080
+  P99:         1.6216
+
+Effective sample size:  969623.5
+
+Next step: tte_diagnose or tte_fit
+----------------------------------------------------------------------
+
+. 
+. tte_fit, outcome_cov(catvara catvarb catvarc nvara nvarb nvarc) ///
+>     followup_spec(quadratic) trial_period_spec(quadratic) nolog
+
+----------------------------------------------------------------------
+tte_fit - Outcome Model
+----------------------------------------------------------------------
+
+Model type:       logistic
+Estimand:         PP
+Outcome:          _tte_outcome_obs
+Treatment var:    _tte_arm
+Follow-up spec:   quadratic
+Trial spec:       quadratic
+Covariates:       catvara catvarb catvarc nvara nvarb nvarc
+Weight var:       _tte_weight
+Cluster var:      id
+
+Fitting pooled logistic regression...
+
+
+Generalized linear models                         Number of obs   =    963,883
+Optimization     : ML                             Residual df     =    963,871
+                                                  Scale parameter =          1
+Deviance         =  54614.92683                   (1/df) Deviance =   .0566621
+Pearson          =  907236.6091                   (1/df) Pearson  =   .9412428
+
+Variance function: V(u) = u*(1-u)                 [Bernoulli]
+Link function    : g(u) = ln(u/(1-u))             [Logit]
+
+                                                  AIC             =   .0566863
+Log pseudolikelihood = -27307.46341               BIC             =  -1.32e+07
+
+                                   (Std. err. adjusted for 503 clusters in id)
+------------------------------------------------------------------------------
+             |               Robust
+_tte_outco~s | Coefficient  std. err.      z    P>|z|     [95% conf. interval]
+-------------+----------------------------------------------------------------
+    _tte_arm |  -.3925598   .4034637    -0.97   0.331    -1.183334    .3982145
+_tte_follo~p |   .0059645   .0055013     1.08   0.278    -.0048178    .0167468
+_tte_follo~q |  -.0000343    .000046    -0.74   0.457    -.0001245    .0000559
+  _tte_trial |  -.0031238    .005254    -0.59   0.552    -.0134215    .0071739
+_tte_trial~q |   .0000102   .0000115     0.89   0.372    -.0000123    .0000327
+     catvara |   .0718911   .0524173     1.37   0.170    -.0308448    .1746271
+     catvarb |  -.0839774   .0417265    -2.01   0.044    -.1657599   -.0021949
+     catvarc |  -.0738216   .0519564    -1.42   0.155    -.1756543    .0280111
+       nvara |  -.0136059   .0517753    -0.26   0.793    -.1150837    .0878719
+       nvarb |   .0027866   .0025413     1.10   0.273    -.0021943    .0077676
+       nvarc |  -.0458184   .0092928    -4.93   0.000     -.064032   -.0276048
+       _cons |  -2.436576   .8600272    -2.83   0.005    -4.122199    -.750954
+------------------------------------------------------------------------------
+
+----------------------------------------------------------------------
+Treatment effect (assigned arm):
+  Log-odds:     -0.3926 (SE:  0.4035)
+  Odds ratio:    0.6753 (95% CI:  0.3063 -  1.4892)
+  p-value:       0.3306
+
+Next step: tte_predict for marginal predictions
+----------------------------------------------------------------------
+
+. 
+. tte_predict, times(0(1)8) type(cum_inc) difference samples(100) seed(12345)
+
+----------------------------------------------------------------------
+tte_predict - Marginal Predictions
+----------------------------------------------------------------------
+
+Prediction type:  cum_inc
+MC samples:       100
+Confidence level: 95%
+Risk difference:  Yes
+
+Computing predictions...
+(22,710 missing values generated)
+(22,710 missing values generated)
+Running 100 Monte Carlo simulations...
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
+(22,710 missing values generated)
