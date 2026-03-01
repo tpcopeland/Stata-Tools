@@ -1,0 +1,36 @@
+{smcl}
+{com}{sf}{ul off}{txt}
+{com}. noisily treescan atc_code using treescan/atc_tree.dta, ///
+>     id(person_id) exposed(exposed) ///
+>     model(bernoulli) nsim(199) seed(20260226)
+{txt}
+{hline 70}
+Tree-Based Scan Statistic (Bernoulli Unconditional)
+{hline 70}
+
+Individuals:     {res}     2,000
+{txt}  Exposed:       {res}       992
+{txt}  Unexposed:     {res}     1,008
+{txt}p (exposed):     {res}  0.496000
+{txt}
+Tree nodes:      {res}        46
+{txt}Simulations:     {res}       199
+{txt}Seed:            {res}20,260,226
+{txt}
+Max observed LLR:{res}   11.2991
+{txt}p-value (max):   {res}    0.0100
+{txt}
+{hline 70}
+Significant nodes (alpha = {res}0.05{txt})
+{hline 70}
+   Node   {col 15}Unexposed {col 30} Exposed  {col 43}  LLR   {col 55} p-value  
+{hline 70}
+   N06AB04{col 15}{res}        44{col 30}        99{col 43} 11.2991{col 55}    0.0100
+     {txt}N06AB{col 15}{res}       148{col 30}       201{col 43}  4.4751{col 55}    0.0400
+{txt}{hline 70}
+
+
+{com}. 
+. log close demo
+{smcl}
+{com}{sf}{ul off}

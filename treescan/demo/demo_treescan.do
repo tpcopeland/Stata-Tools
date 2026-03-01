@@ -1,7 +1,8 @@
 /*  demo_treescan.do - Generate screenshots for treescan
 
-    Produces 1 output type:
+    Produces 2 output types:
       1. Console output (tree scan statistic results) -> .smcl
+      2. Excel export (results spreadsheet) -> .xlsx
 */
 
 version 16.0
@@ -13,12 +14,19 @@ local pkg_dir "treescan/demo"
 capture mkdir "`pkg_dir'"
 
 * --- Load and reload command ---
+adopath + "treescan"
 capture program drop treescan
 capture program drop _treescan_build_tree
 capture program drop _treescan_count_nodes
 capture program drop _treescan_cut_tree
 capture program drop _treescan_display
+capture program drop _treescan_col_letter
+capture program drop _treescan_build_col_letters
+capture program drop _treescan_validate_path
 quietly run treescan/treescan.ado
+quietly run treescan/_treescan_cut_tree.ado
+quietly run treescan/_treescan_excel.ado
+quietly mata: mata mlib index
 
 * --- Setup: synthetic pharmacovigilance data ---
 clear
@@ -54,6 +62,14 @@ noisily treescan atc_code using treescan/atc_tree.dta, ///
     model(bernoulli) nsim(199) seed(20260226)
 
 log close demo
+
+* --- 2. Excel export: results spreadsheet ---
+capture erase "`pkg_dir'/treescan_results.xlsx"
+treescan atc_code using treescan/atc_tree.dta, ///
+    id(person_id) exposed(exposed) ///
+    model(bernoulli) nsim(199) seed(20260226) ///
+    xlsx("`pkg_dir'/treescan_results.xlsx") ///
+    title("Treescan: ATC Drug Classification (Bernoulli Unconditional)")
 
 * --- Cleanup ---
 clear

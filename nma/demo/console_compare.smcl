@@ -28,12 +28,7 @@ Note: Some treatment labels truncated to 12 characters in display
 * = indirect evidence only (no direct head-to-head studies)
 Read: row treatment vs column treatment
 {res}{txt}file {bf:nma/demo/league_table.xlsx} saved
-{res}{txt}file {bf:nma/demo/league_table.xlsx} saved
-{res}{txt}file {bf:nma/demo/league_table.xlsx} saved
-{res}{txt}file {bf:nma/demo/league_table.xlsx} saved
-{res}{txt}file {bf:nma/demo/league_table.xlsx} saved
-{res}{txt}file {bf:nma/demo/league_table.xlsx} saved
-{res}{txt}League table exported to nma/demo/league_table.xlsx
+League table exported to nma/demo/league_table.xlsx
 
 {com}. 
 . noisily nma_inconsistency
