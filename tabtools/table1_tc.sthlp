@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.6  25feb2026}{...}
+{* *! version 1.1.0  01mar2026}{...}
 {hline}
 help for {cmd:table1_tc}
 {hline}
@@ -31,6 +31,9 @@ help for {cmd:table1_tc}
 {synoptset 22 tabbed}{...}
 {synopthdr}
 {synoptline}
+{syntab:Weighting}
+{synopt:{opt wt(varname)}}importance/probability weight variable (e.g., IPTW); shows weighted statistics with unweighted N; p-values are suppressed{p_end}
+
 {syntab:Columns/Rows}
 {synopt:{opt by(varname)}}group observations by {it:varname}, which must be either (i) string, or (ii) numeric and contain only non-negative integers, whether or not a value label is attached{p_end}
 {synopt:{opt total(before|after)}}include a total column before/after presenting by group{p_end}
@@ -119,8 +122,14 @@ column widths based on content and applies professional formatting with customiz
 The resulting Excel file can be used directly in reports or presentations without requiring further 
 formatting.{p_end}
 
-{pstd}The underlying results table can also be kept in memory, replacing the original dataset, using the 
+{pstd}The underlying results table can also be kept in memory, replacing the original dataset, using the
 {bf:clear} option.{p_end}
+
+{pstd}The {bf:wt()} option applies importance or probability weights (e.g., inverse probability of treatment
+weights) to all summary statistics. Weighted means, SDs, medians, IQRs, and proportions are computed
+using the specified weight variable. The sample size (N) row always shows the unweighted count. When
+{bf:wt()} is specified, p-values and test statistics are suppressed, as hypothesis tests are not
+meaningful for weighted pseudo-populations. Cannot be combined with {bf:fweight}.{p_end}
 
 
 {title:Remarks}
@@ -152,6 +161,13 @@ binary variables on one row, provide finer control of decimal places, and other 
 {phang3}{cmd:excel("tabtools/examples/table1.xlsx") sheet("Baseline") ///}{p_end}
 {phang3}{cmd:title("Table 1. Baseline Characteristics by Antidepressant Class")}{p_end}
 
+{pstd}{bf:IPTW-weighted Table 1:}{p_end}
+
+{phang2}{cmd:. * After computing propensity scores and IPTW weights:}{p_end}
+{phang2}{cmd:. table1_tc, by(treated) wt(iptw) ///}{p_end}
+{phang3}{cmd:vars(age contn \ female bin \ education cat \ bmi contn)}{p_end}
+
+
 {title:References}
 
 {phang}Kirkwood TBL. Geometric means and measures of dispersion. Biometrics 1979; 35: 908–909.{p_end} 
@@ -167,5 +183,5 @@ binary variables on one row, provide finer control of decimal places, and other 
 {pstd}Department of Clinical Neuroscience{p_end}
 {pstd}Karolinska Institutet{p_end}
 
-{pstd}Version 1.0.6 - 2026-02-25{p_end}
+{pstd}Version 1.1.0 - 2026-03-01{p_end}
 {pstd}Fork of table1_mc by Mark Chatfield, The University of Queensland, Australia{p_end}

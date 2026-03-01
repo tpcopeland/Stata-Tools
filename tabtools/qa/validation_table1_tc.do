@@ -15,15 +15,22 @@ version 16.0
 * PATH CONFIGURATION
 * =============================================================================
 local pwd "`c(pwd)'"
-if regexm("`pwd'", "_validation$") {
+if regexm("`pwd'", "qa$") {
+    * Running from tabtools/qa/ directory
     local base_path ".."
+    adopath ++ "`base_path'"
+    run "`base_path'/_tabtools_common.ado"
+}
+else if regexm("`pwd'", "_validation$") {
+    local base_path ".."
+    adopath ++ "`base_path'/tabtools"
+    run "`base_path'/tabtools/_tabtools_common.ado"
 }
 else {
     local base_path "."
+    adopath ++ "`base_path'/tabtools"
+    run "`base_path'/tabtools/_tabtools_common.ado"
 }
-
-adopath ++ "`base_path'/tabtools"
-run "`base_path'/tabtools/_tabtools_common.ado"
 
 * =============================================================================
 * HEADER
@@ -236,6 +243,240 @@ if _rc != 0 {
 }
 else {
     display as error "  FAIL: Should have errored"
+    local ++fail_count
+}
+
+* =============================================================================
+* SECTION 6: WEIGHT OPTION (wt())
+* =============================================================================
+display as text _n "SECTION 6: Weight Option (wt())" _n
+
+* Test 6.1: Weighted continuous normal
+local ++test_count
+display as text "Test 6.1: Weighted contn"
+capture {
+    sysuse auto, clear
+    gen double wt = 0.5 + runiform() * 2
+    table1_tc, vars(price contn \ mpg contn) by(foreign) wt(wt)
+}
+if _rc == 0 {
+    display as result "  PASS: Weighted contn works"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: Weighted contn failed with error `=_rc'"
+    local ++fail_count
+}
+
+* Test 6.2: Weighted continuous skewed
+local ++test_count
+display as text "Test 6.2: Weighted conts"
+capture {
+    sysuse auto, clear
+    gen double wt = 0.5 + runiform() * 2
+    table1_tc, vars(price conts) by(foreign) wt(wt)
+}
+if _rc == 0 {
+    display as result "  PASS: Weighted conts works"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: Weighted conts failed"
+    local ++fail_count
+}
+
+* Test 6.3: Weighted log-normal
+local ++test_count
+display as text "Test 6.3: Weighted contln"
+capture {
+    sysuse auto, clear
+    gen double wt = 0.5 + runiform() * 2
+    table1_tc, vars(price contln) by(foreign) wt(wt)
+}
+if _rc == 0 {
+    display as result "  PASS: Weighted contln works"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: Weighted contln failed"
+    local ++fail_count
+}
+
+* Test 6.4: Weighted categorical
+local ++test_count
+display as text "Test 6.4: Weighted cat"
+capture {
+    sysuse auto, clear
+    gen double wt = 0.5 + runiform() * 2
+    table1_tc, vars(rep78 cat) by(foreign) wt(wt)
+}
+if _rc == 0 {
+    display as result "  PASS: Weighted cat works"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: Weighted cat failed"
+    local ++fail_count
+}
+
+* Test 6.5: Weighted binary
+local ++test_count
+display as text "Test 6.5: Weighted bin"
+capture {
+    sysuse auto, clear
+    gen double wt = 0.5 + runiform() * 2
+    gen highmpg = (mpg > 20)
+    table1_tc, vars(highmpg bin) by(foreign) wt(wt)
+}
+if _rc == 0 {
+    display as result "  PASS: Weighted bin works"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: Weighted bin failed"
+    local ++fail_count
+}
+
+* Test 6.6: Weighted binary exact
+local ++test_count
+display as text "Test 6.6: Weighted bine"
+capture {
+    sysuse auto, clear
+    gen double wt = 0.5 + runiform() * 2
+    gen highmpg = (mpg > 20)
+    table1_tc, vars(highmpg bine) by(foreign) wt(wt)
+}
+if _rc == 0 {
+    display as result "  PASS: Weighted bine works"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: Weighted bine failed"
+    local ++fail_count
+}
+
+* Test 6.7: Weighted all types combined
+local ++test_count
+display as text "Test 6.7: Weighted all variable types"
+capture {
+    sysuse auto, clear
+    gen double wt = 0.5 + runiform() * 2
+    gen highmpg = (mpg > 20)
+    table1_tc, vars(price contn \ mpg conts \ weight contln \ rep78 cat \ highmpg bin) by(foreign) wt(wt)
+}
+if _rc == 0 {
+    display as result "  PASS: Weighted all types combined works"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: Weighted all types failed"
+    local ++fail_count
+}
+
+* Test 6.8: P-values suppressed with wt()
+local ++test_count
+display as text "Test 6.8: P-values suppressed with wt()"
+capture {
+    sysuse auto, clear
+    gen double wt = 0.5 + runiform() * 2
+    table1_tc, vars(price contn \ rep78 cat) by(foreign) wt(wt)
+    assert regexm("`s(Dapa)'", "Weighted")
+    assert regexm("`s(Dapa)'", "suppressed")
+}
+if _rc == 0 {
+    display as result "  PASS: P-values correctly suppressed"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: P-value suppression check failed"
+    local ++fail_count
+}
+
+* Test 6.9: fweight + wt() mutual exclusivity
+local ++test_count
+display as text "Test 6.9: fweight + wt() error"
+capture {
+    sysuse auto, clear
+    gen double wt = 0.5 + runiform() * 2
+    capture table1_tc [fw=rep78], vars(price contn) by(foreign) wt(wt)
+    assert _rc == 198
+}
+if _rc == 0 {
+    display as result "  PASS: fweight + wt() correctly rejected"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: fweight + wt() should error 198"
+    local ++fail_count
+}
+
+* Test 6.10: Negative weights error
+local ++test_count
+display as text "Test 6.10: Negative weights error"
+capture {
+    sysuse auto, clear
+    gen double neg_wt = -1
+    capture table1_tc, vars(price contn) by(foreign) wt(neg_wt)
+    assert _rc == 498
+}
+if _rc == 0 {
+    display as result "  PASS: Negative weights correctly rejected"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: Negative weights should error 498"
+    local ++fail_count
+}
+
+* Test 6.11: Weighted without by() (single group)
+local ++test_count
+display as text "Test 6.11: Weighted without by()"
+capture {
+    sysuse auto, clear
+    gen double wt = 0.5 + runiform() * 2
+    table1_tc, vars(price contn \ mpg conts \ rep78 cat) wt(wt)
+}
+if _rc == 0 {
+    display as result "  PASS: Weighted without by() works"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: Weighted without by() failed"
+    local ++fail_count
+}
+
+* Test 6.12: Weighted with total column
+local ++test_count
+display as text "Test 6.12: Weighted with total column"
+capture {
+    sysuse auto, clear
+    gen double wt = 0.5 + runiform() * 2
+    table1_tc, vars(price contn \ rep78 cat) by(foreign) wt(wt) total(after)
+}
+if _rc == 0 {
+    display as result "  PASS: Weighted with total column works"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: Weighted with total column failed"
+    local ++fail_count
+}
+
+* Test 6.13: Weighted with clear option
+local ++test_count
+display as text "Test 6.13: Weighted with clear option"
+capture {
+    sysuse auto, clear
+    gen double wt = 0.5 + runiform() * 2
+    table1_tc, vars(price contn \ rep78 cat) by(foreign) wt(wt) clear
+    assert _N > 0
+}
+if _rc == 0 {
+    display as result "  PASS: Weighted with clear option works"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: Weighted with clear option failed"
     local ++fail_count
 }
 
