@@ -1,4 +1,4 @@
-*! gformtab Version 1.1.1  28feb2026
+*! gformtab Version 1.2.0  01mar2026
 *! Format gformula mediation analysis results for Excel export
 *! Author: Timothy P Copeland
 *! Program class: rclass (returns results in r())
@@ -82,8 +82,8 @@ quietly {
 	}
 
 	* Check for dangerous characters in file path
-	_tabtools_validate_path "`xlsx'" "xlsx()"
-	_tabtools_validate_path "`sheet'" "sheet()"
+	_gformtab_validate_path "`xlsx'" "xlsx()"
+	_gformtab_validate_path "`sheet'" "sheet()"
 
 	* Set defaults
 	if "`ci'" == "" local ci "normal"
@@ -362,5 +362,22 @@ quietly {
 	}
 }
 
+end
+
+* =============================================================================
+* _gformtab_validate_path: Validate file path for security
+* =============================================================================
+
+program _gformtab_validate_path
+	version 16.0
+	set varabbrev off
+	set more off
+	args filepath option_name
+
+	* Check for shell metacharacters and command injection vectors
+	if regexm("`filepath'", "[;&|><\$\`]") {
+		display as error "`option_name' contains invalid characters"
+		exit 198
+	}
 end
 *

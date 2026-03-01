@@ -1,4 +1,4 @@
-*! nma_fit Version 1.0.1  2026/02/28
+*! nma_fit Version 1.0.2  2026/03/01
 *! Consistency model fitting for network meta-analysis
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet
@@ -28,7 +28,7 @@ program define nma_fit, eclass
 
     syntax [, METHod(string) COMMON Level(cilevel) ///
         ITERate(integer 200) TOLerance(real 1e-8) ///
-        noLOG EFORM]
+        noLOG EFORM DIGits(integer 4)]
 
     if "`method'" == "" local method "reml"
     if !inlist("`method'", "reml", "ml") {
@@ -299,9 +299,9 @@ program define nma_fit, eclass
         }
 
         display as result %-20s "`lbl' vs `ref'" ///
-            _col(22) %9.4f `disp_coef' ///
-            _col(33) %7.4f `se' ///
-            _col(42) "[" %7.4f `disp_lo' ", " %7.4f `disp_hi' "]" ///
+            _col(22) %9.`digits'f `disp_coef' ///
+            _col(33) %7.`digits'f `se' ///
+            _col(42) "[" %7.`digits'f `disp_lo' ", " %7.`digits'f `disp_hi' "]" ///
             _col(62) %8s "`pval_str'" ///
             _col(72) as text "`ev_label'"
     }
@@ -313,7 +313,7 @@ program define nma_fit, eclass
         display as text "Model: Common (fixed) effect"
     }
     else {
-        display as text "Heterogeneity: tau2 = " as result %7.4f `tau2' ///
+        display as text "Heterogeneity: tau2 = " as result %7.`digits'f `tau2' ///
             as text ", I2 = " as result %5.1f `I2' as text "%"
     }
 

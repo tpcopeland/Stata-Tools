@@ -1,4 +1,4 @@
-*! tte_report Version 1.0.2  2026/02/28
+*! tte_report Version 1.0.3  2026/03/01
 *! Publication-quality results tables for target trial emulation
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet
@@ -31,7 +31,8 @@ program define tte_report, rclass
     set more off
 
     syntax [, FORmat(string) EXPort(string) DECimals(integer 3) ///
-        EFORM CI_separator(string) TItle(string) REPLACE]
+        EFORM CI_separator(string) TItle(string) REPLACE ///
+        PREDictions(name)]
 
     * =========================================================================
     * DEFAULTS
@@ -201,21 +202,25 @@ program define tte_report, rclass
         display as text ""
         display as text "Exporting to: " as result "`export'"
 
+        local fmt "%10.`decimals'f"
+
         * Export summary to Excel
         quietly {
             putexcel set "`export'", sheet("Summary") `replace'
             putexcel A1 = "`title'"
-            putexcel A3 = "Estimand" B3 = "`estimand'"
-            putexcel A4 = "Total person-periods" B4 = `n_obs'
-            putexcel A5 = "Treatment arm" B5 = `n_treat'
-            putexcel A6 = "Control arm" B6 = `n_control'
-            putexcel A7 = "Events" B7 = `n_events'
-            putexcel A8 = "Trials" B8 = `n_trials'
+            putexcel A3 = "Parameter" B3 = "Value"
+            putexcel A4 = "Estimand" B4 = "`estimand'"
+            putexcel A5 = "Total person-periods" B5 = `n_obs'
+            putexcel A6 = "Treatment arm" B6 = `n_treat'
+            putexcel A7 = "Control arm" B7 = `n_control'
+            putexcel A8 = "Events" B8 = `n_events'
+            putexcel A9 = "Trials" B9 = `n_trials'
         }
 
         display as text "  Summary exported to sheet: Summary"
 
         * Export coefficients if fitted
+        local coef_last_row = 1
         if "`fitted'" == "1" {
             quietly {
                 putexcel set "`export'", sheet("Coefficients") modify
@@ -241,11 +246,119 @@ program define tte_report, rclass
                         local ci_hi = `b' + `z_crit' * `se'
                     }
 
-                    putexcel A`row' = "`cname'" B`row' = `est' C`row' = `ci_lo' D`row' = `ci_hi' E`row' = `p'
+                    * Use string() with format for clean values
+                    local est_s = string(`est', "`fmt'")
+                    local ci_lo_s = string(`ci_lo', "`fmt'")
+                    local ci_hi_s = string(`ci_hi', "`fmt'")
+                    local p_s = string(`p', "%8.`decimals'f")
+
+                    putexcel A`row' = "`cname'" B`row' = "`est_s'" C`row' = "`ci_lo_s'" D`row' = "`ci_hi_s'" E`row' = "`p_s'"
                     local ++row
                 }
+                local coef_last_row = `row' - 1
             }
             display as text "  Coefficients exported to sheet: Coefficients"
+        }
+
+        * Export predictions if provided
+        if "`predictions'" != "" {
+            capture confirm matrix `predictions'
+            if _rc == 0 {
+                quietly {
+                    local pred_rows = rowsof(`predictions')
+                    local pred_cols = colsof(`predictions')
+                    local pred_colnames: colnames `predictions'
+
+                    putexcel set "`export'", sheet("Predictions") modify
+
+                    * Write header
+                    local pcol = 1
+                    foreach pname of local pred_colnames {
+                        _tte_col_letter `pcol'
+                        local pletter "`result'"
+                        putexcel `pletter'1 = "`pname'"
+                        local ++pcol
+                    }
+
+                    * Write data rows using format
+                    forvalues pr = 1/`pred_rows' {
+                        local excel_row = `pr' + 1
+                        forvalues pc = 1/`pred_cols' {
+                            _tte_col_letter `pc'
+                            local pletter "`result'"
+                            local val = `predictions'[`pr', `pc']
+                            local val_s = string(`val', "`fmt'")
+                            putexcel `pletter'`excel_row' = "`val_s'"
+                        }
+                    }
+                }
+                display as text "  Predictions exported to sheet: Predictions"
+            }
+        }
+
+        * Apply formatting (non-fatal, each sheet independent)
+        capture noisily {
+            mata: b = xl()
+            mata: b.load_book("`export'")
+            mata: b.set_sheet("Summary")
+            mata: b.set_column_width(1, 1, 25)
+            mata: b.set_column_width(2, 2, 20)
+            mata: b.close_book()
+
+            putexcel set "`export'", sheet("Summary") modify
+            putexcel (A1:B1), merge bold
+            putexcel (A3:B3), bold hcenter
+            putexcel (A3:B3), border(top, thin)
+            putexcel (A3:B3), border(bottom, thin)
+            putexcel (A9:B9), border(bottom, thin)
+            putexcel (A1:B9), font(Arial, 10)
+            putexcel clear
+        }
+
+        if "`fitted'" == "1" {
+            capture noisily {
+                mata: b = xl()
+                mata: b.load_book("`export'")
+                mata: b.set_sheet("Coefficients")
+                mata: b.set_column_width(1, 1, 22)
+                mata: b.set_column_width(2, 5, 14)
+                mata: b.close_book()
+
+                putexcel set "`export'", sheet("Coefficients") modify
+                putexcel (A1:E1), bold hcenter
+                putexcel (A1:E1), border(top, thin)
+                putexcel (A1:E1), border(bottom, thin)
+                putexcel (A`coef_last_row':E`coef_last_row'), border(bottom, thin)
+                putexcel (A1:E`coef_last_row'), font(Arial, 10)
+                putexcel clear
+            }
+        }
+
+        if "`predictions'" != "" {
+            local has_pred_mat = 0
+            capture confirm matrix `predictions'
+            if _rc == 0 local has_pred_mat = 1
+            if `has_pred_mat' {
+                local pred_last_row = `pred_rows' + 1
+                _tte_col_letter `pred_cols'
+                local pred_last_col "`result'"
+
+                capture noisily {
+                    mata: b = xl()
+                    mata: b.load_book("`export'")
+                    mata: b.set_sheet("Predictions")
+                    mata: b.set_column_width(1, `pred_cols', 16)
+                    mata: b.close_book()
+
+                    putexcel set "`export'", sheet("Predictions") modify
+                    putexcel (A1:`pred_last_col'1), bold hcenter
+                    putexcel (A1:`pred_last_col'1), border(top, thin)
+                    putexcel (A1:`pred_last_col'1), border(bottom, thin)
+                    putexcel (A`pred_last_row':`pred_last_col'`pred_last_row'), border(bottom, thin)
+                    putexcel (A1:`pred_last_col'`pred_last_row'), font(Arial, 10)
+                    putexcel clear
+                }
+            }
         }
     }
     else if "`export'" != "" & "`format'" == "csv" {

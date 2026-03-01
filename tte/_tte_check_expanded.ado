@@ -1,4 +1,4 @@
-*! _tte_check_expanded Version 1.0.2  2026/02/28
+*! _tte_check_expanded Version 1.0.3  2026/03/01
 *! Verify data has been through tte_expand
 *! Author: Timothy P Copeland
 
@@ -9,7 +9,12 @@ program define _tte_check_expanded
 
     local expanded : char _dta[_tte_expanded]
     if "`expanded'" != "1" {
-        display as error "data has not been expanded; run {bf:tte_expand} first"
+        display as error "data has not been expanded"
+        display as error ""
+        display as error "Run {bf:tte_expand} to create sequential emulated trials."
+        display as error "This requires {bf:tte_prepare} to have been run first."
+        display as error "Example:"
+        display as error "  {cmd:tte_expand, maxfollowup(8)}"
         exit 198
     }
 end

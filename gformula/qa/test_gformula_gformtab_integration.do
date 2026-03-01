@@ -14,7 +14,7 @@
 *
 * Prerequisites:
 *   - gformula.ado in gformula/
-*   - gformtab.ado in tabtools/
+*   - gformtab.ado in gformula/
 *   - python3 with openpyxl
 *
 * Run: stata-mp -b do ../../_devkit/_testing/test_gformula_gformtab_integration.do
@@ -31,28 +31,30 @@ version 16.0
 * PATH CONFIGURATION
 * =============================================================================
 
-capture confirm file "_devkit/_testing"
+* Detect Stata-Tools repo root (where released packages live)
+capture confirm file "gformula/gformtab.ado"
 if _rc == 0 {
-	global REPO_ROOT "`c(pwd)'"
+	global STATA_TOOLS_ROOT "`c(pwd)'"
 }
 else {
-	global REPO_ROOT "/home/`c(username)'/Stata-Dev"
+	global STATA_TOOLS_ROOT "/home/`c(username)'/Stata-Tools"
 }
 
-global TESTING_DIR "${REPO_ROOT}/_devkit/_testing"
+* Stata-Dev repo root (for test infrastructure)
+global DEVKIT_ROOT "/home/`c(username)'/Stata-Dev"
+global TESTING_DIR "${DEVKIT_ROOT}/_devkit/_testing"
 global DATA_DIR "${TESTING_DIR}/data"
 global TOOLS_DIR "${TESTING_DIR}/tools"
 
-* Load packages
+* Load packages from Stata-Tools
 capture program drop gformula
 capture program drop _gformula_bootstrap
 capture program drop _gformula_detangle
 capture program drop _gformula_formatline
-run "${REPO_ROOT}/gformula/gformula.ado"
-adopath ++ "${REPO_ROOT}/tabtools"
-run "${REPO_ROOT}/tabtools/_tabtools_common.ado"
+run "${STATA_TOOLS_ROOT}/gformula/gformula.ado"
+adopath ++ "${STATA_TOOLS_ROOT}/gformula"
 capture program drop gformtab
-run "${REPO_ROOT}/tabtools/gformtab.ado"
+run "${STATA_TOOLS_ROOT}/gformula/gformtab.ado"
 
 * Ensure data directory exists
 capture mkdir "${DATA_DIR}"

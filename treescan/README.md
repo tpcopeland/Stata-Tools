@@ -2,7 +2,7 @@
 
 Tree-based scan statistic for signal detection in Stata.
 
-Version 1.3.5 | 2026-02-28
+Version 1.4.0 | 2026-03-01
 
 ## Screenshots
 
@@ -99,6 +99,9 @@ treescan_power diagvar, id(varname) exposed(varname) icdversion(cm|se|atc) ///
 | `alpha(#)` | 0.05 | Significance level for display |
 | `seed(#)` | — | Random seed for reproducibility |
 | `noisily` | — | Show progress during simulation |
+| `xlsx(filename)` | — | Export results to Excel .xlsx file |
+| `sheet(name)` | Results | Worksheet name |
+| `title(string)` | — | Title for first row of spreadsheet |
 
 ### Power Options (treescan_power only)
 
@@ -126,6 +129,10 @@ treescan diagcode, id(patient_id) exposed(case) persontime(pyears) ///
 * Temporal window: events within 30 days of exposure
 treescan diagcode, id(patient_id) exposed(drug_exposed) icdversion(cm) ///
     eventdate(diag_date) expdate(rx_date) window(0 30)
+
+* Export results to Excel
+treescan diagcode, id(patient_id) exposed(drug_exposed) icdversion(cm) ///
+    nsim(999) seed(12345) xlsx(treescan_results)
 
 * Power: estimate power to detect RR=3 at node A000
 treescan_power diagcode, id(patient_id) exposed(drug_exposed) ///

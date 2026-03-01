@@ -2,7 +2,7 @@
 
 G-computation formula via Monte Carlo simulation for causal inference.
 
-**Version**: 1.0.0
+**Version**: 1.2.0
 **Forked from**: SSC `gformula` v1.16 beta (Rhian Daniel, 2021)
 
 ## Overview
@@ -12,10 +12,17 @@ Implements Robins' parametric g-computation formula (Robins 1986) for:
 - **Time-varying confounding**: Estimates causal effects of time-varying exposures on outcomes in the presence of time-varying confounders affected by prior exposure
 - **Causal mediation**: Estimates total causal effects (TCE), natural direct effects (NDE), natural indirect effects (NIE), proportion mediated (PM), and controlled direct effects (CDE)
 
+## Commands
+
+| Command | Description |
+|---------|-------------|
+| `gformula` | G-computation formula for causal inference and mediation |
+| `gformtab` | Export gformula mediation results to publication-ready Excel |
+
 ## Installation
 
 ```stata
-net install gformula, from("https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/gformula/") replace
+net install gformula, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/gformula/") replace
 ```
 
 ## Changes from SSC v1.16

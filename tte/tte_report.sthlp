@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.2  28feb2026}{...}
+{* *! version 1.0.3  01mar2026}{...}
 {viewerjumpto "Syntax" "tte_report##syntax"}{...}
 {viewerjumpto "Description" "tte_report##description"}{...}
 {viewerjumpto "Examples" "tte_report##examples"}{...}
@@ -28,6 +28,7 @@
 {synopt:{opth ci_separator(string)}}CI separator; default is {cmd:" to "}{p_end}
 {synopt:{opth title(string)}}table title{p_end}
 {synopt:{opt replace}}replace existing file{p_end}
+{synopt:{opt pre:dictions(name)}}matrix of predictions from {cmd:tte_predict}{p_end}
 {synoptline}
 
 

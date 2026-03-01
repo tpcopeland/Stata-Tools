@@ -1,14 +1,25 @@
-/*  demo_tte.do - Target Trial Emulation workflow demo
+/*  demo_tte.do - Target Trial Emulation validation demo
 
-    Demonstrates the tte suite using tte_example.dta:
-      1. ITT analysis  (intention-to-treat, no weights)
-      2. PP analysis   (per-protocol with stabilized IPTW)
+    Benchmarks the tte suite against R TrialEmulation using the
+    trial_example dataset (503 patients, 48,400 person-periods,
+    11 variables). Demonstrates the full pipeline including the
+    Hernan & Robins 7-component protocol specification.
+
+    R TrialEmulation reference results (ITT, assigned_treatment):
+      Coefficient: -0.273, Robust SE: 0.310
+      95% CI: [-0.880, 0.335], p-value: 0.379
 
     Produces:
-      - Console output (workflow summary) -> .smcl
-      - Cumulative incidence plot (ITT)   -> .png
-      - Cumulative incidence plot (PP)    -> .png
-      - Weight distribution plot (PP)     -> .png
+      - Console: protocol overview, ITT + PP results  -> .smcl
+      - Excel:   protocol table                       -> .xlsx
+      - Excel:   ITT report with predictions           -> .xlsx
+      - Excel:   PP report                             -> .xlsx
+      - Graph:   cumulative incidence (ITT)            -> .png
+      - Graph:   cumulative incidence (PP)             -> .png
+      - Graph:   weight distribution (PP)              -> .png
+
+    Source: Maringe C, Benitez Majano S, et al. TrialEmulation: An R
+    Package for Target Trial Emulation. arXiv. 2024;2402.12083.
 */
 
 version 16.0
@@ -19,105 +30,119 @@ set varabbrev off
 local pkg_dir "tte/demo"
 capture mkdir "`pkg_dir'"
 
-* --- Load and reload commands ---
-capture program drop tte
-quietly run tte/tte.ado
+* --- Load and reload all commands ---
+local tte_cmds tte tte_prepare tte_validate tte_expand tte_weight  ///
+    tte_fit tte_predict tte_diagnose tte_plot tte_report tte_protocol ///
+    _tte_check_expanded _tte_check_fitted _tte_check_prepared          ///
+    _tte_check_weighted _tte_display_header _tte_get_settings          ///
+    _tte_memory_estimate _tte_natural_spline _tte_col_letter
 
-capture program drop tte_prepare
-quietly run tte/tte_prepare.ado
+* Drop subprograms defined inside tte.ado before reloading
+capture program drop _tte_protocol_overview
+capture program drop _tte_overview_detail
 
-capture program drop tte_validate
-quietly run tte/tte_validate.ado
-
-capture program drop tte_expand
-quietly run tte/tte_expand.ado
-
-capture program drop tte_weight
-quietly run tte/tte_weight.ado
-
-capture program drop tte_fit
-quietly run tte/tte_fit.ado
-
-capture program drop tte_predict
-quietly run tte/tte_predict.ado
-
-capture program drop tte_diagnose
-quietly run tte/tte_diagnose.ado
-
-capture program drop tte_plot
-quietly run tte/tte_plot.ado
-
-capture program drop tte_report
-quietly run tte/tte_report.ado
-
-capture program drop tte_protocol
-quietly run tte/tte_protocol.ado
-
-capture program drop _tte_check_expanded
-quietly run tte/_tte_check_expanded.ado
-
-capture program drop _tte_check_fitted
-quietly run tte/_tte_check_fitted.ado
-
-capture program drop _tte_check_prepared
-quietly run tte/_tte_check_prepared.ado
-
-capture program drop _tte_check_weighted
-quietly run tte/_tte_check_weighted.ado
-
-capture program drop _tte_display_header
-quietly run tte/_tte_display_header.ado
-
-capture program drop _tte_get_settings
-quietly run tte/_tte_get_settings.ado
-
-capture program drop _tte_memory_estimate
-quietly run tte/_tte_memory_estimate.ado
-
-capture program drop _tte_natural_spline
-quietly run tte/_tte_natural_spline.ado
+foreach cmd of local tte_cmds {
+    capture program drop `cmd'
+    quietly run tte/`cmd'.ado
+}
 
 * --- Begin console log ---
 log using "`pkg_dir'/console_output.smcl", replace smcl name(demo) nomsg
 
 * =====================================================================
-* LOAD DATA
+* STEP 0: Protocol specification (Hernan 7-component framework)
 * =====================================================================
+* The protocol should be defined BEFORE any analysis, following
+* Hernan & Robins (2016). This is unique to the tte package.
 
-use tte/tte_example.dta, clear
+noisily tte, protocol
 
-* Package overview
-noisily tte, detail
+noisily tte_protocol, ///
+    eligibility("Eligible at period start (eligible == 1); no prior outcome") ///
+    treatment("Initiate treatment vs. do not initiate treatment") ///
+    assignment("At each eligible period, based on observed treatment decision") ///
+    followup_start("Start of the period when eligibility criteria are met") ///
+    outcome("Binary outcome event (outcome == 1)") ///
+    causal_contrast("Intention-to-treat (ITT) and per-protocol (PP)") ///
+    analysis("Pooled logistic regression with robust SE, clustered by id") ///
+    export("`pkg_dir'/protocol.xlsx") format(excel) replace
 
 * =====================================================================
 * ANALYSIS 1: Intention-to-Treat (ITT)
 * =====================================================================
 * ITT ignores treatment switching — everyone analyzed as initially assigned.
-* No weights needed.
+* No weights needed. Compare results to R TrialEmulation reference.
 
 noisily display _newline
-noisily display as text "ITT ANALYSIS"
+noisily display as text "ITT ANALYSIS (R TrialEmulation benchmark)"
 
-tte_prepare, id(patid) period(period) treatment(treatment) ///
+use tte/demo/data/trial_example.dta, clear
+
+tte_prepare, id(id) period(period) treatment(treatment) ///
     outcome(outcome) eligible(eligible) ///
-    covariates(age sex comorbidity biomarker) ///
+    covariates(catvara catvarb catvarc nvara nvarb nvarc) ///
     estimand(ITT)
+
+noisily tte_validate
 
 tte_expand
 
-tte_fit, outcome_cov(age sex comorbidity biomarker) ///
+tte_fit, outcome_cov(catvara catvarb catvarc nvara nvarb nvarc) ///
     followup_spec(quadratic) trial_period_spec(quadratic) nolog
 
 tte_predict, times(0(1)8) type(cum_inc) difference samples(100) seed(12345)
 
-* --- ITT cumulative incidence plot (must follow tte_predict immediately) ---
+* Save predictions matrix for xlsx export
+matrix pred_itt = r(predictions)
+
+* --- ITT cumulative incidence plot ---
 tte_plot, type(cumhaz) ci ///
     title("Cumulative Incidence (ITT)") ///
     scheme(plotplainblind)
 graph export "`pkg_dir'/cumulative_incidence_itt.png", replace width(1200)
 capture graph close _all
 
-noisily tte_report
+noisily tte_report, format(excel) ///
+    export("`pkg_dir'/tte_report_itt.xlsx") ///
+    predictions(pred_itt) replace
+
+* --- R benchmark comparison ---
+noisily display _newline
+noisily display as text "{hline 70}"
+noisily display as text "{bf:R TrialEmulation Benchmark Comparison (ITT)}"
+noisily display as text "{hline 70}"
+
+tempname b_coef V_coef
+matrix `b_coef' = e(b)
+matrix `V_coef' = e(V)
+
+* Treatment coefficient is the first non-constant
+local coef_names: colnames `b_coef'
+local trt_idx = 0
+forvalues i = 1/`=colsof(`b_coef')' {
+    local cname: word `i' of `coef_names'
+    if "`cname'" != "_cons" & `trt_idx' == 0 {
+        local trt_idx = `i'
+    }
+}
+local stata_coef = `b_coef'[1, `trt_idx']
+local stata_se = sqrt(`V_coef'[`trt_idx', `trt_idx'])
+local stata_ci_lo = `stata_coef' - 1.96 * `stata_se'
+local stata_ci_hi = `stata_coef' + 1.96 * `stata_se'
+local stata_p = 2 * (1 - normal(abs(`stata_coef' / `stata_se')))
+
+noisily display as text ""
+noisily display as text %20s "" %12s "Coefficient" %12s "Robust SE" %22s "95% CI" %10s "p-value"
+noisily display as text _dup(76) "-"
+noisily display as text %20s "R TrialEmulation" ///
+    as result %12.3f -0.273 %12.3f 0.310 ///
+    as text "  [" as result %7.3f -0.880 as text ", " as result %7.3f 0.335 as text "]" ///
+    as result %10.3f 0.379
+noisily display as text %20s "Stata tte" ///
+    as result %12.3f `stata_coef' %12.3f `stata_se' ///
+    as text "  [" as result %7.3f `stata_ci_lo' as text ", " as result %7.3f `stata_ci_hi' as text "]" ///
+    as result %10.3f `stata_p'
+noisily display as text _dup(76) "-"
 
 log close demo
 
@@ -127,20 +152,22 @@ log close demo
 * PP censors treatment switchers and reweights via IPTW to adjust for
 * informative censoring. This is the clone-censor-weight approach.
 
-use tte/tte_example.dta, clear
+use tte/demo/data/trial_example.dta, clear
 
-tte_prepare, id(patid) period(period) treatment(treatment) ///
+tte_prepare, id(id) period(period) treatment(treatment) ///
     outcome(outcome) eligible(eligible) ///
-    covariates(age sex comorbidity biomarker) ///
+    covariates(catvara catvarb catvarc nvara nvarb nvarc) ///
     estimand(PP)
+
+tte_validate
 
 tte_expand
 
-tte_weight, switch_d_cov(age sex comorbidity biomarker) ///
-    switch_n_cov(age sex) ///
+tte_weight, switch_d_cov(catvara catvarb catvarc nvara nvarb nvarc) ///
+    switch_n_cov(catvara nvara) ///
     stabilized truncate(1 99) nolog
 
-tte_fit, outcome_cov(age sex comorbidity) ///
+tte_fit, outcome_cov(catvara catvarb catvarc nvara nvarb nvarc) ///
     followup_spec(quadratic) trial_period_spec(quadratic) nolog
 
 tte_predict, times(0(1)8) type(cum_inc) difference samples(100) seed(12345)
@@ -153,11 +180,17 @@ graph export "`pkg_dir'/cumulative_incidence_pp.png", replace width(1200)
 capture graph close _all
 
 * --- Weight distribution plot ---
+tte_diagnose
+
 tte_plot, type(weights) ///
     title("IPTW Distribution by Arm") ///
     scheme(plotplainblind)
 graph export "`pkg_dir'/weight_distribution.png", replace width(1200)
 capture graph close _all
 
+tte_report, format(excel) ///
+    export("`pkg_dir'/tte_report_pp.xlsx") replace
+
 * --- Cleanup ---
+capture graph close _all
 clear

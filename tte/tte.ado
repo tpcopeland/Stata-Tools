@@ -1,4 +1,4 @@
-*! tte Version 1.0.3  2026/03/01
+*! tte Version 1.0.4  2026/03/01
 *! Target Trial Emulation suite for Stata
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet
@@ -20,9 +20,9 @@ program define tte, rclass
     set varabbrev off
     set more off
 
-    syntax [, List Detail]
+    syntax [, List Detail PROTocol]
 
-    local version "1.0.2"
+    local version "1.0.4"
     local n_commands = 10
 
     * All user-facing commands
@@ -34,7 +34,10 @@ program define tte, rclass
     display as text "Version `version'"
     display as text "{hline 70}"
 
-    if "`detail'" != "" {
+    if "`protocol'" != "" {
+        _tte_protocol_overview
+    }
+    else if "`detail'" != "" {
         _tte_overview_detail
     }
     else if "`list'" != "" {
@@ -65,6 +68,7 @@ program define tte, rclass
         display as text "{hline 70}"
         display as text "{bf:Typical workflow:}"
         display as text ""
+        display as text "  0. {cmd:tte_protocol} " as text "Define target trial (Hernan 7-component)"
         display as text "  1. {cmd:tte_prepare}  " as text "Map variables, set estimand (ITT/PP/AT)"
         display as text "  2. {cmd:tte_validate}  " as text "Check data quality"
         display as text "  3. {cmd:tte_expand}   " as text "Create sequential emulated trials"
@@ -82,6 +86,61 @@ program define tte, rclass
     return local version "`version'"
     return local commands "`all_commands'"
     return scalar n_commands = `n_commands'
+end
+
+program define _tte_protocol_overview
+    version 16.0
+    set varabbrev off
+    set more off
+
+    display as text ""
+    display as text "{bf:Hernan & Robins (2016) 7-Component Framework}"
+    display as text ""
+    display as text "  Every target trial emulation must specify:"
+    display as text ""
+    display as text "  {result:1. Eligibility criteria}"
+    display as text "     Who is eligible to enter the trial at each time point?"
+    display as text "     Example: Age >= 18, no prior outcome event, >= 1 year follow-up"
+    display as text ""
+    display as text "  {result:2. Treatment strategies}"
+    display as text "     What treatments are being compared?"
+    display as text "     Example: Initiate drug A vs. do not initiate drug A"
+    display as text ""
+    display as text "  {result:3. Treatment assignment}"
+    display as text "     How is treatment assigned in the observational data?"
+    display as text "     Example: Patients assigned at each eligible period based on"
+    display as text "     physician decision (emulates randomization at baseline)"
+    display as text ""
+    display as text "  {result:4. Start of follow-up (time zero)}"
+    display as text "     When does follow-up begin for each emulated trial?"
+    display as text "     Example: Start of each eligible period (eligibility = assignment)"
+    display as text ""
+    display as text "  {result:5. Outcome}"
+    display as text "     What is the outcome of interest?"
+    display as text "     Example: All-cause mortality within 5 years"
+    display as text ""
+    display as text "  {result:6. Causal contrast}"
+    display as text "     ITT (intention-to-treat) or PP (per-protocol)?"
+    display as text "     ITT: analyze as initially assigned regardless of switching"
+    display as text "     PP: censor at deviation, reweight with IPTW"
+    display as text ""
+    display as text "  {result:7. Statistical analysis}"
+    display as text "     What model and estimation approach?"
+    display as text "     Example: Pooled logistic regression with robust SE,"
+    display as text "     clustered by individual, adjusted for confounders"
+    display as text ""
+    display as text "{hline 70}"
+    display as text "{bf:Document your protocol with} {cmd:tte_protocol}:"
+    display as text ""
+    display as text `"  {cmd:tte_protocol, eligibility("Age >= 18, no prior event")}"'
+    display as text `"      {cmd:treatment("Initiate drug vs no drug")}"'
+    display as text `"      {cmd:assignment("At each eligible period")}"'
+    display as text `"      {cmd:followup_start("Start of eligible period")}"'
+    display as text `"      {cmd:outcome("All-cause mortality")}"'
+    display as text `"      {cmd:causal_contrast("Per-protocol effect")}"'
+    display as text `"      {cmd:analysis("Pooled logistic with IPCW")}"'
+    display as text `"      {cmd:export(protocol.xlsx) format(excel) replace}"'
+    display as text ""
 end
 
 program define _tte_overview_detail

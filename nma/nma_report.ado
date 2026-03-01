@@ -1,4 +1,4 @@
-*! nma_report Version 1.0.4  2026/02/28
+*! nma_report Version 1.0.5  2026/03/01
 *! Publication-quality report export for network meta-analysis
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet
@@ -130,15 +130,12 @@ program define nma_report, rclass
             quietly replace evidence = "`ev_lbl'" in `col'
         }
 
-        * Round and convert to formatted strings for clean export
+        * Convert to formatted strings for clean export (format handles rounding)
         quietly {
-            local rnd = 10^(-`digits')
             foreach v in effect se ci_lower ci_upper {
-                replace `v' = round(`v', `rnd')
                 tostring `v', replace force format(%9.`digits'f)
                 replace `v' = strtrim(`v')
             }
-            replace pvalue = round(pvalue, `rnd')
             tostring pvalue, replace force format(%7.`digits'f)
             replace pvalue = strtrim(pvalue)
         }
@@ -206,11 +203,9 @@ program define nma_report, rclass
                 quietly replace mean_rank = _nma_meanrank[`i', 1] in `i'
             }
 
-            * Format for clean export
+            * Format for clean export (format handles rounding)
             quietly {
-                local rnd = 10^(-`digits')
                 foreach v in sucra mean_rank {
-                    replace `v' = round(`v', `rnd')
                     tostring `v', replace force format(%9.`digits'f)
                     replace `v' = strtrim(`v')
                 }
@@ -229,6 +224,79 @@ program define nma_report, rclass
         }
         else {
             display as text "  Rankings skipped (run {bf:nma_rank} first)"
+        }
+    }
+
+    * =======================================================================
+    * XLSX FORMATTING (non-fatal, each sheet independent)
+    * =======================================================================
+
+    if "`format'" == "excel" {
+        if `has_fit' {
+            capture noisily {
+                local n_rows = `p' + 1
+                mata: b = xl()
+                mata: b.load_book("`using'")
+                mata: b.set_sheet("Treatment Effects")
+                mata: b.set_column_width(1, 1, 22)
+                mata: b.set_column_width(2, 2, 12)
+                mata: b.set_column_width(3, 6, 14)
+                mata: b.set_column_width(7, 7, 12)
+                mata: b.set_column_width(8, 8, 12)
+                mata: b.close_book()
+
+                putexcel set "`using'", sheet("Treatment Effects") modify
+                putexcel (A1:H1), bold hcenter
+                putexcel (A1:H1), border(top, thin)
+                putexcel (A1:H1), border(bottom, thin)
+                putexcel (A`n_rows':H`n_rows'), border(bottom, thin)
+                putexcel (A1:H`n_rows'), font(Arial, 10)
+                putexcel clear
+            }
+        }
+
+        if `has_setup' {
+            capture noisily {
+                mata: b = xl()
+                mata: b.load_book("`using'")
+                mata: b.set_sheet("Network Summary")
+                mata: b.set_column_width(1, 1, 20)
+                mata: b.set_column_width(2, 2, 25)
+                mata: b.close_book()
+
+                putexcel set "`using'", sheet("Network Summary") modify
+                putexcel (A1:B1), bold hcenter
+                putexcel (A1:B1), border(top, thin)
+                putexcel (A1:B1), border(bottom, thin)
+                putexcel (A8:B8), border(bottom, thin)
+                putexcel (A1:B8), font(Arial, 10)
+                putexcel clear
+            }
+        }
+
+        if `has_rank' {
+            local has_sucra = 0
+            capture confirm matrix _nma_sucra
+            if _rc == 0 local has_sucra = 1
+            if `has_sucra' {
+                capture noisily {
+                    local rank_rows = `k' + 1
+                    mata: b = xl()
+                    mata: b.load_book("`using'")
+                    mata: b.set_sheet("Rankings")
+                    mata: b.set_column_width(1, 1, 22)
+                    mata: b.set_column_width(2, 3, 14)
+                    mata: b.close_book()
+
+                    putexcel set "`using'", sheet("Rankings") modify
+                    putexcel (A1:C1), bold hcenter
+                    putexcel (A1:C1), border(top, thin)
+                    putexcel (A1:C1), border(bottom, thin)
+                    putexcel (A`rank_rows':C`rank_rows'), border(bottom, thin)
+                    putexcel (A1:C`rank_rows'), font(Arial, 10)
+                    putexcel clear
+                }
+            }
         }
     }
 

@@ -1,4 +1,4 @@
-*! gformula Version 1.1.1  28feb2026
+*! gformula Version 1.2.0  01mar2026
 *! G-computation formula via Monte Carlo simulation
 *! Forked from SSC gformula v1.16 beta (Rhian Daniel, 2021)
 *! with bug fixes, modernization, and SSC dependency removal

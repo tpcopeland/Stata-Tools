@@ -33,7 +33,8 @@ local nma_cmds nma nma_setup nma_import nma_fit nma_rank nma_forest  ///
     _nma_display_header _nma_validate_network _nma_classify_evidence ///
     _nma_reml _nma_contrast_binary _nma_contrast_continuous          ///
     _nma_contrast_rate _nma_contrast_multiarm                        ///
-    _nma_circular_layout _nma_node_sizes _nma_edge_weights
+    _nma_circular_layout _nma_node_sizes _nma_edge_weights           ///
+    _nma_col_letter
 
 foreach cmd of local nma_cmds {
     capture program drop `cmd'
@@ -124,7 +125,7 @@ capture graph close _all
 * =====================================================================
 log using "`pkg_dir'/console_compare.smcl", replace smcl name(demo3) nomsg
 
-noisily nma_compare
+noisily nma_compare, saving("`pkg_dir'/league_table.xlsx") replace
 
 noisily nma_inconsistency
 

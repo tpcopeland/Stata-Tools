@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.2  28feb2026}{...}
+{* *! version 1.0.2  01mar2026}{...}
 {viewerjumpto "Syntax" "tte_protocol##syntax"}{...}
 {viewerjumpto "Description" "tte_protocol##description"}{...}
 {viewerjumpto "Examples" "tte_protocol##examples"}{...}
