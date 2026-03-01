@@ -1,4 +1,4 @@
-*! gcomptab Version 1.2.1  01mar2026
+*! gcomptab Version 1.3.0  01mar2026
 *! Format gcomp mediation analysis results for Excel export
 *! Author: Timothy P Copeland
 *! Program class: rclass (returns results in r())
@@ -28,11 +28,12 @@ SYNTAX:
 	decimal: Decimal places for estimates (default: 3)
 
 PREREQUISITES:
-	Run gcomp first. gcomptab reads from global matrices left by gcomp:
-	- b[1,N]          - point estimates (cols: TCE, NDE, NIE, PM, [CDE])
-	- se[1,N]         - standard errors
-	- ci_normal[2,N]  - normal CIs (row 1=lower, row 2=upper)
-	- ci_percentile, ci_bc, ci_bca - alternative CI matrices
+	Run gcomp first. gcomptab reads from e() results posted by gcomp:
+	- e(b)[1,N]          - point estimates (cols: tce, nde, nie, pm, [cde])
+	- e(se)[1,N]         - standard errors
+	- e(ci_normal)[2,N]  - normal CIs (row 1=lower, row 2=upper)
+	- e(ci_percentile), e(ci_bc), e(ci_bca) - alternative CI matrices
+	- e(cmd) == "gcomp", e(analysis_type) == "mediation"
 
 EXAMPLES:
 	* After running gcomp
@@ -61,27 +62,46 @@ quietly {
 	* VALIDATION
 	* =========================================================================
 
-	* Check if gcomp mediation results exist in global matrices
-	* gcomp posts to r() and global matrices (b, se, ci_normal, etc.)
-	* not to e(). Global matrices persist across program calls.
-	capture confirm matrix b
-	local has_b = (_rc == 0)
-	capture confirm matrix se
-	local has_se = (_rc == 0)
-	if !`has_b' | !`has_se' {
+	* Check that gcomp mediation e() results exist
+	if "`e(cmd)'" != "gcomp" {
 		noisily display as error "No gcomp mediation results found"
 		noisily display as error "Run {bf:gcomp} with {bf:mediation} option first"
 		exit 119
 	}
+	if "`e(analysis_type)'" != "mediation" {
+		noisily display as error "gcomp results are not from a mediation analysis"
+		noisily display as error "Run {bf:gcomp} with {bf:mediation} option"
+		exit 119
+	}
+	if "`e(mediation_type)'" == "oce" {
+		noisily display as error "gcomptab does not support oce mediation results"
+		noisily display as error "Use obe, linexp, or specific mediation type instead"
+		exit 198
+	}
 
-	* Validate matrix dimensions: mediation produces 5 cols (TCE NDE NIE PM CDE)
-	* or 4 cols without CDE
-	local n_cols = colsof(b)
+	* Verify e(b) matrix exists with expected dimensions
+	capture confirm matrix e(b)
+	if _rc != 0 {
+		noisily display as error "No gcomp mediation results found"
+		noisily display as error "Run {bf:gcomp} with {bf:mediation} option first"
+		exit 119
+	}
+	tempname _eb _ese
+	matrix `_eb' = e(b)
+	local n_cols = colsof(`_eb')
 	if `n_cols' < 4 | `n_cols' > 5 {
 		noisily display as error "Unexpected matrix dimensions from gcomp"
 		noisily display as error "Expected 4-5 columns, found `n_cols'"
 		exit 198
 	}
+
+	* Verify e(se) matrix exists
+	capture confirm matrix e(se)
+	if _rc != 0 {
+		noisily display as error "No standard error matrix found in gcomp results"
+		exit 119
+	}
+	matrix `_ese' = e(se)
 
 	* Check if file name has .xlsx extension
 	if !strmatch("`xlsx'", "*.xlsx") {
@@ -117,54 +137,51 @@ quietly {
 	* EXTRACT GCOMP RESULTS
 	* =========================================================================
 
-	* gcomp leaves global matrices with bootstrap column names (_bs_1, etc.)
-	* Column order: 1=TCE, 2=NDE, 3=NIE, 4=PM, 5=CDE (if present)
-
-	* Point estimates from global matrix b
-	local tce = b[1, 1]
-	local nde = b[1, 2]
-	local nie = b[1, 3]
-	local pm  = b[1, 4]
+	* Extract point estimates from e(b) using named column lookups
+	local tce = `_eb'[1, colnumb(`_eb', "tce")]
+	local nde = `_eb'[1, colnumb(`_eb', "nde")]
+	local nie = `_eb'[1, colnumb(`_eb', "nie")]
+	local pm  = `_eb'[1, colnumb(`_eb', "pm")]
 	if `n_cols' >= 5 {
-		local cde = b[1, 5]
+		local cde = `_eb'[1, colnumb(`_eb', "cde")]
 	}
 	else {
 		local cde = .
 	}
 
-	* Standard errors from global matrix se
-	local se_tce = se[1, 1]
-	local se_nde = se[1, 2]
-	local se_nie = se[1, 3]
-	local se_pm  = se[1, 4]
+	* Standard errors from e(se) matrix
+	local se_tce = `_ese'[1, colnumb(`_ese', "tce")]
+	local se_nde = `_ese'[1, colnumb(`_ese', "nde")]
+	local se_nie = `_ese'[1, colnumb(`_ese', "nie")]
+	local se_pm  = `_ese'[1, colnumb(`_ese', "pm")]
 	if `n_cols' >= 5 {
-		local se_cde = se[1, 5]
+		local se_cde = `_ese'[1, colnumb(`_ese', "cde")]
 	}
 	else {
 		local se_cde = .
 	}
 
-	* Get confidence intervals from global matrix ci_<type>
+	* Get confidence intervals from e(ci_<type>) matrix
 	* gcomp CI matrices are 2 x N: row 1 = lower, row 2 = upper
 	tempname ci_mat
-	capture matrix `ci_mat' = ci_`ci'
+	capture matrix `ci_mat' = e(ci_`ci')
 	if _rc != 0 {
 		noisily display as error "CI matrix ci_`ci' not found"
 		noisily display as error "Available CI types depend on gcomp bootstrap options"
 		exit 111
 	}
 
-	local ci_tce_lo = `ci_mat'[1, 1]
-	local ci_tce_hi = `ci_mat'[2, 1]
-	local ci_nde_lo = `ci_mat'[1, 2]
-	local ci_nde_hi = `ci_mat'[2, 2]
-	local ci_nie_lo = `ci_mat'[1, 3]
-	local ci_nie_hi = `ci_mat'[2, 3]
-	local ci_pm_lo  = `ci_mat'[1, 4]
-	local ci_pm_hi  = `ci_mat'[2, 4]
+	local ci_tce_lo = `ci_mat'[1, colnumb(`ci_mat', "tce")]
+	local ci_tce_hi = `ci_mat'[2, colnumb(`ci_mat', "tce")]
+	local ci_nde_lo = `ci_mat'[1, colnumb(`ci_mat', "nde")]
+	local ci_nde_hi = `ci_mat'[2, colnumb(`ci_mat', "nde")]
+	local ci_nie_lo = `ci_mat'[1, colnumb(`ci_mat', "nie")]
+	local ci_nie_hi = `ci_mat'[2, colnumb(`ci_mat', "nie")]
+	local ci_pm_lo  = `ci_mat'[1, colnumb(`ci_mat', "pm")]
+	local ci_pm_hi  = `ci_mat'[2, colnumb(`ci_mat', "pm")]
 	if `n_cols' >= 5 {
-		local ci_cde_lo = `ci_mat'[1, 5]
-		local ci_cde_hi = `ci_mat'[2, 5]
+		local ci_cde_lo = `ci_mat'[1, colnumb(`ci_mat', "cde")]
+		local ci_cde_hi = `ci_mat'[2, colnumb(`ci_mat', "cde")]
 	}
 	else {
 		local ci_cde_lo = .

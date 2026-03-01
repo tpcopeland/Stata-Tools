@@ -25,6 +25,13 @@ Implements Robins' parametric g-computation formula (Robins 1986) for:
 net install gcomp, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/gcomp/") replace
 ```
 
+## Changelog
+
+### v1.3.0 (2026-03-01)
+- **gcomptab: Fixed broken data pipeline** — gcomptab now reads from `e()` results instead of global matrices that gcomp drops before returning. This was the root cause of "No gcomp mediation results found" errors after running gcomp.
+- **gcomptab: Added validation** — Checks `e(cmd)`, `e(analysis_type)`, and `e(mediation_type)` before extracting results. Rejects `oce` mediation type (unsupported column layout).
+- **gcomptab: Named column lookups** — Uses `colnumb()` instead of positional indices for robustness.
+
 ## Changes from SSC v1.16
 
 ### Bug fixes
