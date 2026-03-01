@@ -110,7 +110,7 @@ Each command has comprehensive help documentation:
 help table1_tc
 help regtab
 help effecttab
-help gformtab
+help gcomptab
 help stratetab
 help tablex
 ```
