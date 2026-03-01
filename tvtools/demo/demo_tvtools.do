@@ -24,22 +24,42 @@ quietly run tvtools/tvbalance.ado
 capture program drop tvplot
 quietly run tvtools/tvplot.ado
 
-* --- Setup: load pre-processed time-varying data ---
-use _data/tv_merged.dta, clear
+* --- Generate synthetic time-varying exposure data ---
+* 200 patients, each with 3-8 time periods of varying drug exposure
+clear
+set seed 20260301
 
-* Merge in cohort covariates for balance assessment
-merge m:1 id using _data/cohort.dta, ///
-    keepusing(index_age female) nogen keep(match master)
+* Step 1: Create patient-level covariates
+set obs 200
+gen int id = _n
+gen byte female = rbinomial(1, 0.55)
+gen double index_age = 40 + int(runiform() * 30)
+gen int base_date = mdy(1, 1, 2015) + int(runiform() * 365)
+format base_date %td
+gen int n_periods = 3 + int(runiform() * 6)
 
-* Encode female for numeric balance check
-capture confirm numeric variable female
-if _rc {
-    encode female, gen(female_n)
-    drop female
-    rename female_n female
-}
+* Step 2: Expand to person-period panel
+expand n_periods
+bysort id: gen int period = _n
 
-* Create binary exposure indicator (any drug use vs unexposed)
+* Step 3: Create non-overlapping intervals with varying duration
+bysort id: gen int duration = 30 + int(runiform() * 150)
+bysort id: gen double start = base_date if period == 1
+bysort id: replace start = start[_n-1] + duration[_n-1] if period > 1
+gen double stop = start + duration
+format start stop %td
+drop base_date n_periods duration
+
+* Step 4: Assign drug classes (0=unexposed, 1-3=different drugs)
+* Higher-age patients more likely to be exposed
+gen double p_exposed = invlogit(-1.5 + 0.02 * index_age + 0.3 * female)
+gen byte drug_class = 0
+replace drug_class = 1 + int(runiform() * 3) if runiform() < p_exposed
+label define drug_lbl 0 "Unexposed" 1 "SSRI" 2 "SNRI" 3 "TCA"
+label values drug_class drug_lbl
+drop p_exposed period
+
+* Step 5: Create binary exposure indicator
 gen byte any_drug = (drug_class != 0) if !missing(drug_class)
 
 * --- 1. Console output: tvtools overview + balance diagnostics ---

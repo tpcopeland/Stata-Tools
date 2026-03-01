@@ -1,0 +1,5 @@
+v 3
+d Stata-Dev: gcomp
+d Timothy P Copeland, Karolinska Institutet
+d https://github.com/tpcopeland/Stata-Dev
+p gcomp

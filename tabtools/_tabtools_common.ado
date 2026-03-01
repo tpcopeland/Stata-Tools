@@ -14,7 +14,7 @@ PROGRAMS INCLUDED:
 
 USAGE:
     These programs are called internally by tabtools commands (table1_tc, regtab,
-    effecttab, gformtab, stratetab, tablex). They are not intended for direct use.
+    effecttab, gcomptab, stratetab, tablex). They are not intended for direct use.
 */
 
 * =============================================================================

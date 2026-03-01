@@ -5,14 +5,14 @@
     mean differences across 26 studies and 10 treatments. Our REML
     estimates match the R netmeta benchmarks to 3 decimal places.
 
-    Produces 8 outputs:
-      1. Console: nma_import summary          -> .png
-      2. Console: nma_fit model results       -> .png
-      3. Graph:   network map                 -> .png
-      4. Graph:   forest plot                 -> .png
-      5. Graph:   SUCRA rankogram             -> .png
-      6. Console: league table + inconsistency -> .png
-      7. Console: nma_report export summary   -> .png
+    Produces these outputs (capture.sh renders .smcl/.xlsx to .png):
+      1. Console: nma_import summary          -> .smcl
+      2. Console: nma_fit model results       -> .smcl
+      3. Graph:   network map                 -> .png (Stata graph export)
+      4. Graph:   forest plot                 -> .png (Stata graph export)
+      5. Graph:   SUCRA rankogram             -> .png (Stata graph export)
+      6. Console: league table + inconsistency -> .smcl
+      7. Console: nma_report export summary   -> .smcl
       8. Excel:   full NMA report             -> .xlsx
 
     Source: Senn S, Gavini F, Magrez D, Scheen A (2013). Issues in
@@ -141,24 +141,7 @@ noisily nma_report using "`pkg_dir'/nma_report.xlsx", replace
 
 log close demo4
 
-* =====================================================================
-* 8. Convert SMCL logs to PDF then PNG
-* =====================================================================
-* Stata translate creates PDFs from SMCL; pdftoppm converts to PNG
-
-local smcl_files "console_import console_fit console_compare console_report"
-
-foreach f of local smcl_files {
-    translate "`pkg_dir'/`f'.smcl" "`pkg_dir'/`f'.pdf", translator(smcl2pdf) replace
-    shell pdftoppm -png -r 200 -singlefile "`pkg_dir'/`f'.pdf" "`pkg_dir'/`f'"
-    capture erase "`pkg_dir'/`f'.pdf"
-}
-
-* Trim whitespace from console PNGs (smcl2pdf creates full-page PDFs)
-foreach f of local smcl_files {
-    shell python3 -c "from PIL import Image,ImageChops; img=Image.open('`pkg_dir'/`f'.png'); bg=Image.new(img.mode,img.size,(255,255,255)); b=ImageChops.difference(img,bg).getbbox(); img.crop((max(0,b[0]-20),max(0,b[1]-20),min(img.width,b[2]+20),min(img.height,b[3]+20))).save('`pkg_dir'/`f'.png') if b else None"
-}
-
 * --- Cleanup ---
+* .smcl and .xlsx files left for capture.sh to render via render_log.py/render_xlsx.py
 capture graph close _all
 clear

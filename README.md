@@ -44,7 +44,7 @@ net install <package>, from("https://raw.githubusercontent.com/tpcopeland/Stata-
 |---------|-------------|-------|
 | **balancetab** | Propensity score balance diagnostics and Love plots | 16+ |
 | **cstat_surv** | C-statistic for Cox survival models | 16+ |
-| **gformula** | G-computation formula via Monte Carlo simulation (includes gformtab) | 16+ |
+| **gcomp** | G-computation formula via Monte Carlo simulation (includes gcomptab) | 16+ |
 | **iptw_diag** | IPTW weight diagnostics, ESS, trimming | 16+ |
 | **mvp** | Missing value pattern analysis with visualizations | 14+ |
 | **nma** | Network meta-analysis suite | 16+ |
