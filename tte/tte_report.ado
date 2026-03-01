@@ -297,7 +297,7 @@ program define tte_report, rclass
         }
 
         * Apply formatting (non-fatal, each sheet independent)
-        capture noisily {
+        capture {
             mata: b = xl()
             mata: b.load_book("`export'")
             mata: b.set_sheet("Summary")
@@ -316,7 +316,7 @@ program define tte_report, rclass
         }
 
         if "`fitted'" == "1" {
-            capture noisily {
+            capture {
                 mata: b = xl()
                 mata: b.load_book("`export'")
                 mata: b.set_sheet("Coefficients")
@@ -343,7 +343,7 @@ program define tte_report, rclass
                 _tte_col_letter `pred_cols'
                 local pred_last_col "`result'"
 
-                capture noisily {
+                capture {
                     mata: b = xl()
                     mata: b.load_book("`export'")
                     mata: b.set_sheet("Predictions")

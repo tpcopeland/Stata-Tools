@@ -131,7 +131,7 @@ program define tte_protocol, rclass
             }
 
             * Apply formatting (non-fatal)
-            capture noisily {
+            capture {
                 mata: b = xl()
                 mata: b.load_book("`export'")
                 mata: b.set_sheet("Protocol")

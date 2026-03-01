@@ -238,7 +238,7 @@ program define nma_compare, rclass
             local last_col "`result'"
             local n_rows = `k' + 1
 
-            capture noisily {
+            capture {
                 mata: b = xl()
                 mata: b.load_book("`saving'")
                 mata: b.set_sheet("League Table")

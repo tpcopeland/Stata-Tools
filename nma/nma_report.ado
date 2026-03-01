@@ -233,7 +233,7 @@ program define nma_report, rclass
 
     if "`format'" == "excel" {
         if `has_fit' {
-            capture noisily {
+            capture {
                 local n_rows = `p' + 1
                 mata: b = xl()
                 mata: b.load_book("`using'")
@@ -256,7 +256,7 @@ program define nma_report, rclass
         }
 
         if `has_setup' {
-            capture noisily {
+            capture {
                 mata: b = xl()
                 mata: b.load_book("`using'")
                 mata: b.set_sheet("Network Summary")
@@ -279,7 +279,7 @@ program define nma_report, rclass
             capture confirm matrix _nma_sucra
             if _rc == 0 local has_sucra = 1
             if `has_sucra' {
-                capture noisily {
+                capture {
                     local rank_rows = `k' + 1
                     mata: b = xl()
                     mata: b.load_book("`using'")
