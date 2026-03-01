@@ -724,7 +724,9 @@ program define treescan, rclass
             * Count summary rows: model + individuals + 2 model-specific
             * + optional temporal(2) + nodes + sims + optional seed
             * + max_llr + pvalue
-            local n_summary = 7
+            * Bernoulli: model+indiv+exposed+unexposed+nodes+sims+llr+pv = 8
+            * Poisson adds: persontime + rate = +2
+            local n_summary = 8
             if "`model'" == "poisson" {
                 local n_summary = `n_summary' + 2
             }
