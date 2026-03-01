@@ -710,36 +710,8 @@ program define treescan, rclass
         quietly {
             clear
 
-            * Build summary parameter list
             local cond_label = cond("`conditional'" != "", ///
                 "Conditional", "Unconditional")
-            local summary_params `""Model" "`model' `cond_label'""'
-            local summary_params `"`summary_params' "Individuals" "`=string(`N_individuals', "%12.0fc")'"'
-            if "`model'" == "bernoulli" {
-                local summary_params `"`summary_params' "Exposed" "`=string(`N_exposed', "%12.0fc")'"'
-                local summary_params `"`summary_params' "Unexposed" "`=string(`N_unexposed', "%12.0fc")'"'
-            }
-            else {
-                local summary_params `"`summary_params' "Cases" "`=string(`C', "%12.0fc")'"'
-                local summary_params `"`summary_params' "Non-cases" "`=string(`N_individuals' - `C', "%12.0fc")'"'
-                local summary_params `"`summary_params' "Person-time" "`=string(`T_total', "%12.2f")'"'
-                local summary_params `"`summary_params' "Rate (C/T)" "`=string(`lambda', "%12.6f")'"'
-            }
-            if `has_temporal' {
-                local summary_params `"`summary_params' "Time window" "`=string(`window_lo', "%5.0f")' to `=string(`window_hi', "%5.0f")' days"'
-                local summary_params `"`summary_params' "Window scope" "`windowscope'"'
-            }
-            local summary_params `"`summary_params' "Tree nodes" "`=string(`N_nodes', "%12.0fc")'"'
-            local summary_params `"`summary_params' "Simulations" "`=string(`nsim', "%12.0fc")'"'
-            if `seed' >= 0 {
-                local summary_params `"`summary_params' "Seed" "`=string(`seed', "%12.0fc")'"'
-            }
-            local summary_params `"`summary_params' "Max LLR" "`=string(`obs_max_llr', "%12.4f")'"'
-            local summary_params `"`summary_params' "p-value (max)" "`=string(`p_max', "%12.4f")'"'
-
-            * Count summary rows
-            local n_summary : word count `summary_params'
-            local n_summary = `n_summary' / 2
 
             * Determine result rows
             if `n_sig' > 0 {
@@ -749,7 +721,22 @@ program define treescan, rclass
                 local nrows = 0
             }
 
-            * Total rows: title + blank + summary + blank + header + data (or "no sig" row)
+            * Count summary rows: model + individuals + 2 model-specific
+            * + optional temporal(2) + nodes + sims + optional seed
+            * + max_llr + pvalue
+            local n_summary = 7
+            if "`model'" == "poisson" {
+                local n_summary = `n_summary' + 2
+            }
+            if `has_temporal' {
+                local n_summary = `n_summary' + 2
+            }
+            if `seed' >= 0 {
+                local n_summary = `n_summary' + 1
+            }
+
+            * Total rows: title + blank + summary + blank + header
+            *   + data (or "no sig" row)
             local data_rows = max(`nrows', 1)
             local total_rows = 1 + 1 + `n_summary' + 1 + 1 + `data_rows'
             set obs `total_rows'
@@ -765,19 +752,83 @@ program define treescan, rclass
             * Row 1: Title
             replace col_b = `"`title'"' in 1
 
-            * Rows 3+: Summary stats
+            * Rows 3+: Summary stats (direct row assignment)
             local row = 3
-            local pair = 1
-            forvalues i = 1(2)`=`n_summary' * 2' {
-                local param : word `i' of `summary_params'
-                local val : word `=`i'+1' of `summary_params'
-                replace col_b = strtrim("`param'") in `row'
-                replace col_c = strtrim("`val'") in `row'
+            replace col_b = "Model" in `row'
+            replace col_c = "`model' `cond_label'" in `row'
+            local ++row
+
+            replace col_b = "Individuals" in `row'
+            replace col_c = ///
+                strtrim(string(`N_individuals', "%12.0fc")) in `row'
+            local ++row
+
+            if "`model'" == "bernoulli" {
+                replace col_b = "Exposed" in `row'
+                replace col_c = ///
+                    strtrim(string(`N_exposed', "%12.0fc")) in `row'
+                local ++row
+                replace col_b = "Unexposed" in `row'
+                replace col_c = ///
+                    strtrim(string(`N_unexposed', "%12.0fc")) in `row'
+                local ++row
+            }
+            else {
+                replace col_b = "Cases" in `row'
+                replace col_c = ///
+                    strtrim(string(`C', "%12.0fc")) in `row'
+                local ++row
+                replace col_b = "Non-cases" in `row'
+                replace col_c = ///
+                    strtrim(string(`N_individuals' - `C', "%12.0fc")) ///
+                    in `row'
+                local ++row
+                replace col_b = "Person-time" in `row'
+                replace col_c = ///
+                    strtrim(string(`T_total', "%12.2f")) in `row'
+                local ++row
+                replace col_b = "Rate (C/T)" in `row'
+                replace col_c = ///
+                    strtrim(string(`lambda', "%12.6f")) in `row'
                 local ++row
             }
 
-            * Blank row before results header
+            if `has_temporal' {
+                replace col_b = "Time window" in `row'
+                replace col_c = strtrim(string(`window_lo', "%5.0f")) ///
+                    + " to " ///
+                    + strtrim(string(`window_hi', "%5.0f")) ///
+                    + " days" in `row'
+                local ++row
+                replace col_b = "Window scope" in `row'
+                replace col_c = "`windowscope'" in `row'
+                local ++row
+            }
+
+            replace col_b = "Tree nodes" in `row'
+            replace col_c = ///
+                strtrim(string(`N_nodes', "%12.0fc")) in `row'
             local ++row
+            replace col_b = "Simulations" in `row'
+            replace col_c = ///
+                strtrim(string(`nsim', "%12.0fc")) in `row'
+            local ++row
+            if `seed' >= 0 {
+                replace col_b = "Seed" in `row'
+                replace col_c = ///
+                    strtrim(string(`seed', "%12.0fc")) in `row'
+                local ++row
+            }
+            replace col_b = "Max LLR" in `row'
+            replace col_c = ///
+                strtrim(string(`obs_max_llr', "%12.4f")) in `row'
+            local ++row
+            replace col_b = "p-value (max)" in `row'
+            replace col_c = ///
+                strtrim(string(`p_max', "%12.4f")) in `row'
+
+            * Blank row before results header
+            local row = `row' + 2
 
             * Header row
             local header_row = `row'
@@ -808,22 +859,27 @@ program define treescan, rclass
 
                     replace col_b = "`nd'" in `row'
                     if "`model'" == "bernoulli" {
-                        replace col_c = string(`c1_i', "%12.0fc") in `row'
-                        replace col_d = string(`c2_i', "%12.0fc") in `row'
+                        replace col_c = ///
+                            strtrim(string(`c1_i', "%12.0fc")) in `row'
+                        replace col_d = ///
+                            strtrim(string(`c2_i', "%12.0fc")) in `row'
                     }
                     else {
-                        replace col_c = string(`c1_i', "%12.0fc") in `row'
-                        replace col_d = string(`c2_i', "%12.2f") in `row'
+                        replace col_c = ///
+                            strtrim(string(`c1_i', "%12.0fc")) in `row'
+                        replace col_d = ///
+                            strtrim(string(`c2_i', "%12.2f")) in `row'
                     }
-                    replace col_e = string(`llr_i', "%12.4f") in `row'
-                    replace col_f = string(`pv_i', "%12.4f") in `row'
+                    replace col_e = ///
+                        strtrim(string(`llr_i', "%12.4f")) in `row'
+                    replace col_f = ///
+                        strtrim(string(`pv_i', "%12.4f")) in `row'
                     local ++row
                 }
             }
             else {
-                replace col_b = ///
-                    "No significant nodes at alpha = `=string(`alpha', "%4.2f")'" ///
-                    in `row'
+                replace col_b = "No significant nodes at alpha = " ///
+                    + string(`alpha', "%4.2f") in `row'
             }
 
             local last_row = `row' - 1
