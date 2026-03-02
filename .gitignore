@@ -1,0 +1,11 @@
+.DS_Store
+__pycache__/
+*.pyc
+# Stata artifacts (logs, temp files)
+*.smcl
+*.log
+*.tmp
+
+# Editor swap files
+*.stswp
+~*.stswp
