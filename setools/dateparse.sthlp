@@ -2,7 +2,6 @@
 {* *! version 1.0.5  28feb2026}{...}
 {vieweralsosee "[D] generate" "help generate"}{...}
 {vieweralsosee "[D] dates and times" "help datetime"}{...}
-{vieweralsosee "icdexpand" "help icdexpand"}{...}
 {vieweralsosee "migrations" "help migrations"}{...}
 {viewerjumpto "Syntax" "dateparse##syntax"}{...}
 {viewerjumpto "Description" "dateparse##description"}{...}
@@ -440,8 +439,6 @@ Part of the setools package for Swedish registry research.{p_end}
 {marker alsosee}{...}
 {title:Also see}
 
-{pstd}
-{help icdexpand:icdexpand} - ICD-10 code utilities for Swedish registry research{p_end}
 {pstd}
 {help migrations:migrations} - Process Swedish migration registry data{p_end}
 {pstd}

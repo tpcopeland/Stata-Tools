@@ -6,11 +6,10 @@ Toolkit for managing Swedish registry data in epidemiological cohort studies.
 
 ## Package Overview
 
-**setools** provides commands for processing Swedish registry data, with a focus on ICD code utilities, migration handling, and MS research:
+**setools** provides commands for processing Swedish registry data, with a focus on comorbidity scoring, migration handling, and MS research:
 
 | Command | Description |
 |---------|-------------|
-| **icdexpand** | ICD-10 code utilities (expand wildcards, validate, match in data) |
 | **cci_se** | Swedish Charlson Comorbidity Index (ICD-7 through ICD-10) |
 | **dateparse** | Date parsing and window calculations for cohort studies |
 | **migrations** | Process Swedish migration registry data for cohort studies |
@@ -24,73 +23,6 @@ Toolkit for managing Swedish registry data in epidemiological cohort studies.
 
 ### Console Output
 ![Console Output](demo/console_output.png)
-
----
-
-## icdexpand - ICD-10 Code Utilities
-
-**icdexpand** provides utilities for working with ICD-10 diagnosis codes in Swedish health registries. It supports wildcard expansion, range expansion, code validation, and direct matching against diagnosis variables.
-
-### Subcommands
-
-| Subcommand | Description |
-|------------|-------------|
-| `expand` | Expand ICD code patterns (wildcards, ranges) to full code list |
-| `validate` | Validate ICD-10 code format |
-| `match` | Create binary indicator for ICD code matches in diagnosis variables |
-
-### Syntax
-
-```stata
-* Expand patterns
-icdexpand expand, pattern(string) [maxcodes(#) noisily]
-
-* Validate codes
-icdexpand validate, pattern(string) [noisily]
-
-* Match in data
-icdexpand match, codes(string) dxvars(varlist) [generate(name) replace noisily]
-```
-
-### Pattern Syntax
-
-| Pattern | Description | Example |
-|---------|-------------|---------|
-| `I63*` | Wildcard - expands to all subcodes | I63, I63.0-I63.9, I630-I639, I63.00-I63.99 |
-| `E10-E14` | Range - all codes in range | E10, E11, E12, E13, E14 (+ subcodes) |
-| `I63*, G35` | Multiple patterns | Combine with commas or spaces |
-
-### Examples
-
-```stata
-* Expand stroke codes
-icdexpand expand, pattern("I63* I64*") noisily
-local stroke_codes "`r(codes)'"
-
-* Match in diagnosis data — find cardiovascular diagnoses
-use _examples/diagnoses.dta, clear
-icdexpand match, codes("I20-I25*") dxvars(icd) generate(cv_dx) noisily
-tab cv_dx
-
-* Find depression diagnoses
-use _examples/diagnoses.dta, clear
-icdexpand match, codes("F32* F33*") dxvars(icd) generate(depression) replace
-keep if depression == 1
-bysort id (visit_date): keep if _n == 1   // First depression visit
-
-* Cancer cohort (excluding non-melanoma skin)
-use _examples/diagnoses.dta, clear
-icdexpand match, codes("C00-C43* C45-C97*") dxvars(icd) generate(cancer)
-```
-
-### Stored Results
-
-| Return | Description |
-|--------|-------------|
-| `r(codes)` | Space-separated list of expanded codes |
-| `r(n_codes)` | Number of codes after expansion |
-| `r(varname)` | Name of generated indicator variable (match) |
-| `r(n_matches)` | Number of observations matching (match) |
 
 ---
 

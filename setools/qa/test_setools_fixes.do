@@ -20,13 +20,6 @@ capture program drop pira
 capture program drop procmatch
 capture program drop procmatch_match
 capture program drop procmatch_first
-capture program drop icdexpand
-capture program drop icdexpand_expand
-capture program drop icdexpand_validate
-capture program drop icdexpand_match
-capture program drop _icdexpand_single
-capture program drop _icdexpand_wildcard
-capture program drop _icdexpand_range
 capture program drop dateparse
 capture program drop dateparse_window
 capture program drop dateparse_parse
@@ -43,7 +36,6 @@ run "`basedir'/setools/setools.ado"
 run "`basedir'/setools/cdp.ado"
 run "`basedir'/setools/pira.ado"
 run "`basedir'/setools/procmatch.ado"
-run "`basedir'/setools/icdexpand.ado"
 run "`basedir'/setools/dateparse.ado"
 run "`basedir'/setools/cci_se.ado"
 run "`basedir'/setools/covarclose.ado"
@@ -78,14 +70,14 @@ else {
 display as text "TEST 2: setools basic display and categories"
 capture noisily {
     setools
-    assert r(n_commands) == 9
+    assert r(n_commands) == 8
     assert "`r(commands)'" != ""
     setools, list
     setools, detail
     setools, category(ms)
     assert r(n_commands) == 3
     setools, category(codes)
-    assert r(n_commands) == 3
+    assert r(n_commands) == 2
 }
 if _rc == 0 {
     display as result "  PASS"
@@ -273,54 +265,9 @@ else {
 }
 
 // =========================================================================
-// TEST 8: icdexpand expand, validate, match
+// TEST 8: procmatch match and first
 // =========================================================================
-display as text "TEST 8: icdexpand expand, validate, match"
-capture noisily {
-    * Expand
-    icdexpand expand, pattern("I63*") noisily
-    assert r(n_codes) > 100
-
-    icdexpand expand, pattern("E10-E14")
-    assert r(n_codes) > 50
-
-    * Validate
-    icdexpand validate, pattern("I63.4, E11.2") noisily
-    assert r(valid) == 1
-
-    icdexpand validate, pattern("123invalid") noisily
-    assert r(valid) == 0
-
-    * Match
-    clear
-    input str10 dx1 str10 dx2
-    "I63"  "G35"
-    "E11"  "I25"
-    "G35"  ""
-    "J44"  "E14"
-    ""     ""
-    end
-
-    icdexpand match, codes("G35") dxvars(dx1 dx2) generate(ms_match) noisily
-    assert r(n_matches) == 2
-
-    icdexpand match, codes("I63*") dxvars(dx1 dx2) generate(stroke) noisily
-    assert r(n_matches) == 1
-}
-if _rc == 0 {
-    display as result "  PASS"
-    local ++n_pass
-}
-else {
-    display as error "  FAIL"
-    local ++n_fail
-    local failures "`failures' T8"
-}
-
-// =========================================================================
-// TEST 9: procmatch match and first
-// =========================================================================
-display as text "TEST 9: procmatch match and first"
+display as text "TEST 8: procmatch match and first"
 capture noisily {
     clear
     input long id str10 proc1 str10 proc2 long admitdt
@@ -350,13 +297,13 @@ if _rc == 0 {
 else {
     display as error "  FAIL"
     local ++n_fail
-    local failures "`failures' T9"
+    local failures "`failures' T8"
 }
 
 // =========================================================================
-// TEST 10: cci_se with tempvar refactor (Fix #8)
+// TEST 9: cci_se with tempvar refactor (Fix #8)
 // =========================================================================
-display as text "TEST 10: cci_se with tempvar refactor"
+display as text "TEST 9: cci_se with tempvar refactor"
 capture noisily {
     clear
     input long id str6 diagnos long utdatum
@@ -384,13 +331,13 @@ if _rc == 0 {
 else {
     display as error "  FAIL"
     local ++n_fail
-    local failures "`failures' T10"
+    local failures "`failures' T9"
 }
 
 // =========================================================================
-// TEST 11: cci_se with pre-existing conflicting var names (Fix #8)
+// TEST 10: cci_se with pre-existing conflicting var names (Fix #8)
 // =========================================================================
-display as text "TEST 11: cci_se with conflicting variable names"
+display as text "TEST 10: cci_se with conflicting variable names"
 capture noisily {
     clear
     * Include variables that collided with old hardcoded names
@@ -411,13 +358,13 @@ if _rc == 0 {
 else {
     display as error "  FAIL: cci_se failed with pre-existing _yr variable"
     local ++n_fail
-    local failures "`failures' T11"
+    local failures "`failures' T10"
 }
 
 // =========================================================================
-// TEST 12: cci_se with YYYYMMDD dates
+// TEST 11: cci_se with YYYYMMDD dates
 // =========================================================================
-display as text "TEST 12: cci_se with YYYYMMDD dates"
+display as text "TEST 11: cci_se with YYYYMMDD dates"
 capture noisily {
     clear
     input long id str6 diagnos long datum
@@ -435,13 +382,13 @@ if _rc == 0 {
 else {
     display as error "  FAIL"
     local ++n_fail
-    local failures "`failures' T12"
+    local failures "`failures' T11"
 }
 
 // =========================================================================
-// TEST 13: covarclose with conflicting var names (Fix #3)
+// TEST 12: covarclose with conflicting var names (Fix #3)
 // =========================================================================
-display as text "TEST 13: covarclose with conflicting var names"
+display as text "TEST 12: covarclose with conflicting var names"
 capture noisily {
     clear
     input long id long indexdate
@@ -490,13 +437,13 @@ if _rc == 0 {
 else {
     display as error "  FAIL: covarclose with conflicting var names"
     local ++n_fail
-    local failures "`failures' T13"
+    local failures "`failures' T12"
 }
 
 // =========================================================================
-// TEST 14: sustainedss basic test
+// TEST 13: sustainedss basic test
 // =========================================================================
-display as text "TEST 14: sustainedss basic"
+display as text "TEST 13: sustainedss basic"
 capture noisily {
     clear
     set seed 12345
@@ -518,13 +465,13 @@ if _rc == 0 {
 else {
     display as error "  FAIL"
     local ++n_fail
-    local failures "`failures' T14"
+    local failures "`failures' T13"
 }
 
 // =========================================================================
-// TEST 15: pira basic test
+// TEST 14: pira basic test
 // =========================================================================
-display as text "TEST 15: pira basic test"
+display as text "TEST 14: pira basic test"
 capture noisily {
     clear
     input long id double edss long edss_date long dx_date
@@ -561,13 +508,13 @@ if _rc == 0 {
 else {
     display as error "  FAIL"
     local ++n_fail
-    local failures "`failures' T15"
+    local failures "`failures' T14"
 }
 
 // =========================================================================
-// TEST 16: pira rejects undocumented roving option (Fix #10)
+// TEST 15: pira rejects undocumented roving option (Fix #10)
 // =========================================================================
-display as text "TEST 16: pira rejects undocumented roving option"
+display as text "TEST 15: pira rejects undocumented roving option"
 capture noisily {
     clear
     input long id double edss long edss_date long dx_date
@@ -599,7 +546,7 @@ if _rc == 0 {
 else {
     display as error "  FAIL: pira accepted undocumented roving option"
     local ++n_fail
-    local failures "`failures' T16"
+    local failures "`failures' T15"
 }
 
 // =========================================================================

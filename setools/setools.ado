@@ -39,7 +39,7 @@ program define setools, rclass
     }
 
     // Define commands by category
-    local cmd_codes "icdexpand procmatch cci_se"
+    local cmd_codes "procmatch cci_se"
     local cmd_dates "dateparse covarclose"
     local cmd_migration "migrations"
     local cmd_ms "sustainedss cdp pira"
@@ -88,7 +88,6 @@ program define setools, rclass
         // Default: organized view
         if inlist("`category'", "all", "codes") {
             display as text "{bf:Registry Code Utilities}"
-            display as result "  icdexpand  " as text "- ICD-10 code expansion and matching"
             display as result "  procmatch  " as text "- KVA procedure code matching"
             display as result "  cci_se     " as text "- Swedish Charlson Comorbidity Index"
             display as text ""
@@ -136,12 +135,6 @@ program define _setools_detail
     if inlist("`category'", "all", "codes") {
         display as text "{bf:Registry Code Utilities}"
         display as text "  {hline 60}"
-        display as result "  icdexpand" as text "    ICD-10 code utilities for Swedish registry research."
-        display as text "               Expands code ranges (e.g., G35-G37), matches"
-        display as text "               diagnoses in patient/cause-of-death registers,"
-        display as text "               handles wildcards (G35*), and supports both"
-        display as text "               3-character and full codes."
-        display as text ""
         display as result "  procmatch" as text "    Procedure code matching for Swedish registries."
         display as text "               Matches KVA procedure codes in surgical and"
         display as text "               intervention registers. Supports wildcards"

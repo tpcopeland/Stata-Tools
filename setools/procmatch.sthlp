@@ -158,5 +158,5 @@ Stockholm, Sweden{p_end}
 {title:Also see}
 
 {psee}
-{space 2}Help:  {manhelp inlist FN}, {help icdexpand}
+{space 2}Help:  {manhelp inlist FN}
 {p_end}

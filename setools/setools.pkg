@@ -2,7 +2,6 @@ v 3
 d 'SETOOLS': Swedish Registry Toolkit for Epidemiological Cohort Studies
 d
 d Provides utilities for working with Swedish health registries including:
-d - ICD-10 code expansion and matching
 d - KVA procedure code matching
 d - Swedish Charlson Comorbidity Index (ICD-7 through ICD-10)
 d - Date parsing and window calculations for cohort studies
@@ -12,14 +11,13 @@ d - Closest covariate extraction from longitudinal data
 d
 d Requires: Stata version 16+
 d
-d Distribution-Date: 20260228
+d Distribution-Date: 20260302
 d License: MIT
 d
 d Author: Tim Copeland
 d Department of Clinical Neuroscience, Karolinska Institutet, Stockholm
 d
 d KW: Swedish registries
-d KW: ICD-10
 d KW: KVA procedures
 d KW: cohort studies
 d KW: epidemiology
@@ -34,8 +32,6 @@ d KW: comorbidity
 d
 f setools.ado
 f setools.sthlp
-f icdexpand.ado
-f icdexpand.sthlp
 f dateparse.ado
 f dateparse.sthlp
 f migrations.ado

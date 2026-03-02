@@ -1,7 +1,6 @@
 {smcl}
 {* *! version 1.0.3  28feb2026}{...}
 {vieweralsosee "[D] generate" "help generate"}{...}
-{vieweralsosee "icdexpand" "help icdexpand"}{...}
 {vieweralsosee "migrations" "help migrations"}{...}
 {viewerjumpto "Syntax" "cci_se##syntax"}{...}
 {viewerjumpto "Description" "cci_se##description"}{...}
@@ -319,8 +318,6 @@ Part of the {help setools:setools} package for Swedish registry research.{p_end}
 {marker alsosee}{...}
 {title:Also see}
 
-{pstd}
-{help icdexpand:icdexpand} - ICD-10 code expansion and matching utilities{p_end}
 {pstd}
 {help migrations:migrations} - Process Swedish migration registry data{p_end}
 {pstd}

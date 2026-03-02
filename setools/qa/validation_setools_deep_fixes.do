@@ -9,7 +9,7 @@ local failed = 0
 local test_num = 0
 
 capture log close _val_deep
-log using "../../_devkit/_validation/validation_setools_deep_fixes.log", replace name(_val_deep)
+log using "validation_setools_deep_fixes.log", replace name(_val_deep)
 
 display _dup(70) "="
 display "SETOOLS DEEP REVIEW FIXES - VALIDATION SUITE"
@@ -17,19 +17,17 @@ display _dup(70) "="
 display ""
 
 * Drop all programs first (main + subroutines)
-foreach prog in covarclose pira cdp dateparse icdexpand procmatch setools ///
+foreach prog in covarclose pira cdp dateparse procmatch setools ///
     sustainedss cci_se migrations _setools_detail ///
     dateparse_window dateparse_parse dateparse_validate ///
     dateparse_inwindow dateparse_filerange ///
-    icdexpand_expand icdexpand_validate icdexpand_match ///
-    _icdexpand_single _icdexpand_wildcard _icdexpand_range ///
     procmatch_match procmatch_first {
     capture program drop `prog'
 }
 
 * Reload all commands
-foreach cmd in covarclose pira cdp dateparse icdexpand procmatch setools sustainedss cci_se migrations {
-    quietly run "setools/`cmd'.ado"
+foreach cmd in covarclose pira cdp dateparse procmatch setools sustainedss cci_se migrations {
+    quietly run "../`cmd'.ado"
 }
 
 
@@ -226,29 +224,14 @@ else {
 
 
 * =========================================================================
-* FIX 3: set more off added to icdexpand, procmatch, setools
+* FIX 3: set more off added to procmatch, setools
 * =========================================================================
 display ""
 display _dup(60) "-"
-display as text "{bf:FIX 3: set more off in icdexpand, procmatch, setools}"
+display as text "{bf:FIX 3: set more off in procmatch, setools}"
 display ""
 
-* Test 3a: icdexpand loads and runs
-local ++test_num
-display "Test `test_num': icdexpand loads and runs after set more off added"
-
-capture noisily icdexpand expand, pattern("I63*")
-local rc = _rc
-if `rc' == 0 {
-    display as result "  PASS: icdexpand expand runs successfully"
-    local ++passed
-}
-else {
-    display as error "  FAIL: icdexpand expand errored, rc = `rc'"
-    local ++failed
-}
-
-* Test 3b: procmatch loads and runs
+* Test 3a: procmatch loads and runs
 local ++test_num
 display "Test `test_num': procmatch loads and runs after set more off added"
 
@@ -270,7 +253,7 @@ else {
     local ++failed
 }
 
-* Test 3c: setools catalog command runs
+* Test 3b: setools catalog command runs
 local ++test_num
 display "Test `test_num': setools catalog runs after set more off added"
 
@@ -567,37 +550,7 @@ else {
     local ++failed
 }
 
-* Regression 4: icdexpand match
-local ++test_num
-display "Test `test_num': icdexpand regression - match I63* in data"
-
-clear
-input str10 dx1 str10 dx2
-"I630" "G35"
-"E115" "I639"
-"G35"  "J44"
-end
-
-capture drop _icd_match
-capture noisily icdexpand match, codes("I63*") dxvars(dx1 dx2) generate(_icd_match)
-local rc = _rc
-if `rc' == 0 {
-    quietly count if _icd_match == 1
-    if r(N) == 2 {
-        display as result "  PASS: 2 rows matched I63* (correct)"
-        local ++passed
-    }
-    else {
-        display as error "  FAIL: `r(N)' rows matched, expected 2"
-        local ++failed
-    }
-}
-else {
-    display as error "  FAIL: icdexpand match errored, rc = `rc'"
-    local ++failed
-}
-
-* Regression 5: migrations basic run
+* Regression 4: migrations basic run
 local ++test_num
 display "Test `test_num': migrations regression - basic exclusion"
 
@@ -605,7 +558,7 @@ display "Test `test_num': migrations regression - basic exclusion"
 clear all
 set more off
 capture program drop migrations
-quietly run "setools/migrations.ado"
+quietly run "../migrations.ado"
 
 clear
 input long id double study_start

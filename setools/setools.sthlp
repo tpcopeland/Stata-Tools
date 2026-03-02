@@ -16,8 +16,8 @@
 
 {pstd}
 {cmd:setools} provides utilities for working with Swedish health registries and
-conducting epidemiological cohort studies. The package includes tools for ICD-10
-code expansion, procedure code matching, date parsing, migration processing,
+conducting epidemiological cohort studies. The package includes tools for
+procedure code matching, comorbidity scoring, date parsing, migration processing,
 and MS disability progression endpoints (EDSS, CDP, PIRA).
 
 
@@ -28,7 +28,6 @@ and MS disability progression endpoints (EDSS, CDP, PIRA).
 {bf:Registry Code Utilities}
 
 {synoptset 16}{...}
-{synopt:{helpb icdexpand}}ICD-10 code utilities for Swedish registry research{p_end}
 {synopt:{helpb procmatch}}Procedure code matching for Swedish registry research{p_end}
 {synopt:{helpb cci_se}}Swedish Charlson Comorbidity Index (ICD-7 through ICD-10){p_end}
 
