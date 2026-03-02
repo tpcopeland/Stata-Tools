@@ -19,12 +19,6 @@ quietly run setools/setools.ado
 capture program drop cci_se
 quietly run setools/cci_se.ado
 
-capture program drop icdexpand
-capture program drop icdexpand_expand
-capture program drop icdexpand_validate
-capture program drop icdexpand_match
-quietly run setools/icdexpand.ado
-
 capture program drop dateparse
 capture program drop dateparse_window
 capture program drop dateparse_parse
@@ -38,11 +32,6 @@ log using "`pkg_dir'/console_output.smcl", replace smcl name(demo) nomsg
 
 * Package overview
 noisily setools, detail
-
-* ICD code expansion
-noisily icdexpand expand, pattern("I20-I25")
-noisily icdexpand validate, pattern("G35")
-noisily icdexpand validate, pattern("ZZZ")
 
 * Charlson Comorbidity Index
 use _data/diagnoses.dta, clear
