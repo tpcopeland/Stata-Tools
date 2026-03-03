@@ -64,7 +64,7 @@ local pass_count = 0
 local fail_count = 0
 
 capture log close _all
-log using "${TESTING_DIR}/test_gcomp_gcomptab_integration.log", replace name(inttest)
+log using "${TESTING_DIR}/test_gcomp_gcomptab_integration.log", replace nomsg name(inttest)
 
 display as text "{hline 70}"
 display as text "GCOMP + GFORMTAB INTEGRATION TESTS"

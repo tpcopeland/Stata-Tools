@@ -107,7 +107,7 @@ capture graph close _all
 * =====================================================================
 * 4. Graph: Forest plot
 * =====================================================================
-nma_forest, scheme(plotplainblind) ///
+nma_forest, comparisons(mixed) textcol ///
     saving("`pkg_dir'/forest_plot.gph") replace
 graph export "`pkg_dir'/forest_plot.png", replace width(1200)
 capture graph close _all

@@ -25,7 +25,7 @@ else {
 adopath ++ "`test_dir'/eplot"
 
 capture log close _all
-log using "`test_dir'/eplot/qa/validation_eplot.log", replace text name(val_eplot)
+log using "`test_dir'/eplot/qa/validation_eplot.log", replace text nomsg name(val_eplot)
 
 display _n "{hline 70}"
 display "EPLOT VALIDATION TESTS"

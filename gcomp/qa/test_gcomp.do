@@ -6,7 +6,7 @@ clear all
 set more off
 
 capture log close _all
-log using "../../_devkit/_testing/test_gcomp.log", replace name(gftest)
+log using "../../_devkit/_testing/test_gcomp.log", replace nomsg name(gftest)
 
 local failures = 0
 local tests = 0

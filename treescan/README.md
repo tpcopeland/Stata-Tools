@@ -31,7 +31,7 @@ The method simultaneously tests all nodes in a hierarchical tree (e.g., ICD-10 d
 
 ```stata
 * From local path
-net install treescan, from("/path/to/treescan/") replace
+net install treescan, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/treescan/") replace
 ```
 
 ## Commands

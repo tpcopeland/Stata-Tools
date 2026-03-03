@@ -10,7 +10,7 @@ local failed = 0
 local test_num = 0
 
 capture log close _test_setools_review
-log using "../../_devkit/_testing/test_setools_review_fixes.log", replace name(_test_setools_review)
+log using "../../_devkit/_testing/test_setools_review_fixes.log", replace nomsg name(_test_setools_review)
 
 display _dup(70) "="
 display "SETOOLS REVIEW FIXES - TEST SUITE"
