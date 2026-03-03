@@ -1,0 +1,60 @@
+v 3
+d 'MSM': Marginal Structural Models suite for Stata
+d
+d Implements inverse probability of treatment weighted (IPTW) marginal
+d structural models for time-varying treatments and confounders. Provides
+d a complete pipeline: data preparation, weight calculation, diagnostics,
+d outcome modeling, counterfactual prediction, and sensitivity analysis.
+d Handles the key challenge of treatment-confounder feedback where standard
+d regression adjustment fails.
+d
+d Requires: Stata version 16+
+d
+d Distribution-Date: 20260303
+d License: MIT
+d
+d Author: Timothy P. Copeland
+d Department of Clinical Neuroscience, Karolinska Institutet, Stockholm, Sweden
+d Email: timothy.copeland@ki.se
+d
+d KW: marginal structural model
+d KW: causal inference
+d KW: inverse probability weighting
+d KW: IPTW
+d KW: time-varying treatment
+d KW: confounding
+d KW: epidemiology
+d
+f msm.ado
+f msm.sthlp
+f msm_prepare.ado
+f msm_prepare.sthlp
+f msm_validate.ado
+f msm_validate.sthlp
+f msm_weight.ado
+f msm_weight.sthlp
+f msm_fit.ado
+f msm_fit.sthlp
+f msm_predict.ado
+f msm_predict.sthlp
+f msm_diagnose.ado
+f msm_diagnose.sthlp
+f msm_plot.ado
+f msm_plot.sthlp
+f msm_report.ado
+f msm_report.sthlp
+f msm_protocol.ado
+f msm_protocol.sthlp
+f msm_sensitivity.ado
+f msm_sensitivity.sthlp
+f msm_table.ado
+f msm_table.sthlp
+f _msm_check_prepared.ado
+f _msm_check_weighted.ado
+f _msm_check_fitted.ado
+f _msm_get_settings.ado
+f _msm_natural_spline.ado
+f _msm_cumulative_weight.ado
+f _msm_smd.ado
+f _msm_col_letter.ado
+f msm_example.dta
