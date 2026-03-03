@@ -46,6 +46,7 @@ net install <package>, from("https://raw.githubusercontent.com/tpcopeland/Stata-
 | **cstat_surv** | C-statistic for Cox survival models | 16+ |
 | **gcomp** | G-computation formula via Monte Carlo simulation (includes gcomptab) | 16+ |
 | **iptw_diag** | IPTW weight diagnostics, ESS, trimming | 16+ |
+| **msm** | Marginal structural models via IPTW for time-varying treatments (12 commands) | 16+ |
 | **mvp** | Missing value pattern analysis with visualizations | 14+ |
 | **nma** | Network meta-analysis suite | 16+ |
 | **outlier** | Outlier detection (IQR, SD, Mahalanobis, influence) | 16+ |
