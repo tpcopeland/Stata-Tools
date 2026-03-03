@@ -12,7 +12,7 @@
 clear all
 set seed 12345
 capture log close
-log using "/tmp/validation_regtab_relabel.log", replace
+log using "/tmp/validation_regtab_relabel.log", replace nomsg
 
 display _newline(2)
 display _dup(70) "="

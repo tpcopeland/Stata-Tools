@@ -9,7 +9,7 @@ local failed = 0
 local test_num = 0
 
 capture log close _val_deep
-log using "validation_setools_deep_fixes.log", replace name(_val_deep)
+log using "validation_setools_deep_fixes.log", replace nomsg name(_val_deep)
 
 display _dup(70) "="
 display "SETOOLS DEEP REVIEW FIXES - VALIDATION SUITE"

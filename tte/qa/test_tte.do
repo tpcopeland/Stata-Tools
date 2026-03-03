@@ -10,7 +10,7 @@ set more off
 version 16.0
 
 capture log close
-log using "test_tte.log", replace
+log using "test_tte.log", replace nomsg
 
 display _dup(70) "="
 display "FUNCTIONAL TESTS: tte (Target Trial Emulation)"

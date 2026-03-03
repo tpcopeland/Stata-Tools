@@ -1,6 +1,6 @@
 # nma — Network Meta-Analysis for Stata
 
-Version 1.0.3 | 2026-02-28
+Version 1.0.4 | 2026-03-03
 
 ## Overview
 
@@ -55,10 +55,10 @@ nma_fit
 
 ![Model Results](demo/console_fit.png)
 
-### Forest plot
+### Forest plot (evidence decomposition)
 
 ```stata
-nma_forest, scheme(plotplainblind)
+nma_forest, comparisons(mixed) textcol
 ```
 
 ![Forest Plot](demo/forest_plot.png)

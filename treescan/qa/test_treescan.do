@@ -402,7 +402,7 @@ input long id str7 diag byte exposed
 end
 
 * Capture output to check for warning message
-log using "_test_mixed.log", text replace
+log using "_test_mixed.log", text replace nomsg
 treescan diag, id(id) exposed(exposed) icdversion(cm) nsim(19) seed(42)
 log close
 
