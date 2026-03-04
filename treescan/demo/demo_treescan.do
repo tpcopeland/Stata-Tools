@@ -1,8 +1,9 @@
 /*  demo_treescan.do - Generate screenshots for treescan
 
-    Produces 2 output types:
+    Produces 3 output types:
       1. Console output (tree scan statistic results) -> .smcl
       2. Excel export (results spreadsheet) -> .xlsx
+      3. Excel export (power analysis spreadsheet) -> .xlsx
 */
 
 version 16.0
@@ -23,7 +24,9 @@ capture program drop _treescan_display
 capture program drop _treescan_col_letter
 capture program drop _treescan_build_col_letters
 capture program drop _treescan_validate_path
+capture program drop treescan_power
 quietly run treescan/treescan.ado
+quietly run treescan/treescan_power.ado
 quietly run treescan/_treescan_cut_tree.ado
 quietly run treescan/_treescan_excel.ado
 quietly mata: mata mlib index
@@ -70,6 +73,14 @@ treescan atc_code using treescan/atc_tree.dta, ///
     model(bernoulli) nsim(199) seed(20260226) ///
     xlsx("`pkg_dir'/treescan_results.xlsx") ///
     title("Treescan: ATC Drug Classification (Bernoulli Unconditional)")
+
+* --- 3. Excel export: power analysis spreadsheet ---
+capture erase "`pkg_dir'/treescan_power.xlsx"
+treescan_power atc_code using treescan/atc_tree.dta, ///
+    id(person_id) exposed(exposed) target("N06AB04") rr(2.0) ///
+    model(bernoulli) nsim(199) nsimpower(100) seed(20260226) ///
+    xlsx("`pkg_dir'/treescan_power.xlsx") ///
+    title("Power Analysis: N06AB04 (RR=2.0)")
 
 * --- Cleanup ---
 clear

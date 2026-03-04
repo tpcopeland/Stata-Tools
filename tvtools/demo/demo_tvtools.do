@@ -1,9 +1,10 @@
 /*  demo_tvtools.do - Generate screenshots for tvtools
 
-    Produces 3 output types:
+    Produces 4 output types:
       1. Console output (tvtools overview + tvbalance) -> .smcl
       2. Graph (tvplot swimlane) -> .png
       3. Graph (tvplot person-time) -> .png
+      4. Graph (tvbalance loveplot) -> .png
 */
 
 version 16.0
@@ -82,6 +83,12 @@ tvplot, id(id) start(start) stop(stop) exposure(drug_class) ///
     persontime ///
     title("Person-Time by Drug Class") ///
     saving("`pkg_dir'/persontime_plot.png") replace ///
+    scheme(plotplainblind)
+capture graph close _all
+
+* --- 4. Graph: balance love plot ---
+tvbalance index_age female, exposure(any_drug) ///
+    loveplot saving("`pkg_dir'/balance_loveplot.png") replace ///
     scheme(plotplainblind)
 capture graph close _all
 
