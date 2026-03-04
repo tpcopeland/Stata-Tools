@@ -90,6 +90,14 @@ program define table1_tc, sclass
         error 498
     }
 
+    /* Validate Excel file path for security */
+    if `has_excel' {
+        _tabtools_validate_path "`excel'" "excel()"
+        if `has_sheet' {
+            _tabtools_validate_path "`sheet'" "sheet()"
+        }
+    }
+
     /* Validate pdp and highpdp options */
     if `pdp' < 0 | `pdp' > 10 {
         display as error "pdp() must be between 0 and 10"
