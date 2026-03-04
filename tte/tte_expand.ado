@@ -1,7 +1,9 @@
 *! tte_expand Version 1.0.3  2026/03/01
 *! Sequential trial expansion (clone-censor-weight) for target trial emulation
 *! Author: Timothy P Copeland
+*! Author: Tania F Reza
 *! Department of Clinical Neuroscience, Karolinska Institutet
+*! Department of Global Public Health, Karolinska Institutet
 *! Program class: rclass (returns results in r())
 
 /*
@@ -134,7 +136,7 @@ program define tte_expand, rclass
     * BUILD SEQUENTIAL TRIALS
     * =========================================================================
 
-    display as text "Expanding trials..."
+    display as text "Expanding trials... " _continue
 
     local n_saved = 0
     local total_expanded = 0
@@ -261,11 +263,12 @@ program define tte_expand, rclass
         tempfile _tf`n_saved'
         quietly save `_tf`n_saved'', replace
 
-        * Progress display every 10 trials
-        if mod(`trial_count', 10) == 0 {
-            display as text "  ... processed `trial_count' of `n_trial_periods' trial periods"
-        }
+        * Progress display
+        display as text _char(13) "Expanding trials... " ///
+            string(round(`trial_count'/`n_trial_periods'*100), "%3.0f") "%" _continue
     }
+
+    display as text _char(13) "Expanding trials... done" _newline
 
     if `n_saved' == 0 {
         display as error "no trials produced; check eligibility criteria"

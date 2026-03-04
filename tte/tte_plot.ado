@@ -1,7 +1,9 @@
 *! tte_plot Version 1.0.2  2026/02/28
 *! Visualization for target trial emulation
 *! Author: Timothy P Copeland
+*! Author: Tania F Reza
 *! Department of Clinical Neuroscience, Karolinska Institutet
+*! Department of Global Public Health, Karolinska Institutet
 *! Program class: rclass (returns results in r())
 
 /*
@@ -133,13 +135,13 @@ program define tte_plot, rclass
         clear
         quietly set obs `n_rows'
 
-        gen double time = .
-        gen double ci_0 = .
-        gen double ci_lo_0 = .
-        gen double ci_hi_0 = .
-        gen double ci_1 = .
-        gen double ci_lo_1 = .
-        gen double ci_hi_1 = .
+        quietly gen double time = .
+        quietly gen double ci_0 = .
+        quietly gen double ci_lo_0 = .
+        quietly gen double ci_hi_0 = .
+        quietly gen double ci_1 = .
+        quietly gen double ci_lo_1 = .
+        quietly gen double ci_hi_1 = .
 
         forvalues i = 1/`n_rows' {
             quietly replace time = `pred_mat'[`i', 1] in `i'
@@ -231,9 +233,9 @@ program define tte_plot, rclass
         clear
         quietly set obs `n_covs'
 
-        gen str40 covariate = ""
-        gen double smd_unwt = .
-        gen double smd_wt = .
+        quietly gen str40 covariate = ""
+        quietly gen double smd_unwt = .
+        quietly gen double smd_wt = .
         gen int ypos = .
 
         forvalues i = 1/`n_covs' {

@@ -1,7 +1,9 @@
 *! tte_fit Version 1.0.2  2026/02/28
 *! Outcome model fitting for target trial emulation
 *! Author: Timothy P Copeland
+*! Author: Tania F Reza
 *! Department of Clinical Neuroscience, Karolinska Institutet
+*! Department of Global Public Health, Karolinska Institutet
 *! Program class: eclass (returns results in e())
 
 /*
@@ -10,8 +12,8 @@ Basic syntax:
 
 Description:
   Fits the marginal structural model for the target trial emulation.
-  Supports pooled logistic regression (default, matching R TrialEmulation)
-  and weighted Cox proportional hazards model (Stata extension).
+  Supports pooled logistic regression (default) and weighted Cox
+  proportional hazards model.
 
 Options:
   outcome_cov(varlist)      - Covariates for outcome model

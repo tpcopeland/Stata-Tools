@@ -40,8 +40,7 @@
 {pstd}
 {cmd:tte_predict} generates marginal cumulative incidence or survival
 predictions with confidence intervals. It uses Monte Carlo simulation
-from the fitted model's coefficient distribution, matching the approach
-used by the R TrialEmulation package.
+from the fitted model's coefficient distribution.
 
 {pstd}
 For each MC sample, coefficient vectors are drawn from the multivariate
@@ -65,11 +64,8 @@ marginal estimates.
 {pstd}
 Marginal predictions are averaged over all observations at follow-up
 time 0 ({cmd:_tte_followup == 0}) in the estimation sample. This
-population includes baseline observations from all emulated trials. R's
-{cmd:TrialEmulation} filters to follow-up time 0 from a single specified
-trial. The difference affects individual predictions but not the
-marginal treatment effect (risk difference) in practice, since the
-baseline covariate distributions are similar across trials.
+population includes baseline observations from all emulated trials,
+yielding marginal estimates over the full eligible population.
 
 {dlgtab:Cumulative incidence computation}
 
@@ -117,3 +113,8 @@ Timothy P Copeland{break}
 Department of Clinical Neuroscience{break}
 Karolinska Institutet{break}
 Email: timothy.copeland@ki.se
+
+{pstd}
+Tania F Reza{break}
+Department of Global Public Health{break}
+Karolinska Institutet

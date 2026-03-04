@@ -1,7 +1,9 @@
 *! tte Version 1.0.4  2026/03/01
 *! Target Trial Emulation suite for Stata
 *! Author: Timothy P Copeland
+*! Author: Tania F Reza
 *! Department of Clinical Neuroscience, Karolinska Institutet
+*! Department of Global Public Health, Karolinska Institutet
 *! Program class: rclass (returns results in r())
 
 /*
@@ -76,6 +78,7 @@ program define tte, rclass
         display as text "  5. {cmd:tte_fit}      " as text "Fit marginal structural model"
         display as text "  6. {cmd:tte_predict}  " as text "Estimate cumulative incidence"
         display as text "  7. {cmd:tte_report}   " as text "Export publication tables"
+        display as text "     {cmd:tte_protocol, auto} " as text "Auto-generate protocol from metadata"
         display as text ""
         display as text "Help:  " as result "{help tte}" as text "  for documentation"
         display as text "       " as result "{help tte_prepare}" as text "  to get started"

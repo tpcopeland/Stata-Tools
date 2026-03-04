@@ -1,7 +1,9 @@
 *! tte_diagnose Version 1.0.2  2026/02/28
 *! Weight diagnostics and balance assessment for target trial emulation
 *! Author: Timothy P Copeland
+*! Author: Tania F Reza
 *! Department of Clinical Neuroscience, Karolinska Institutet
+*! Department of Global Public Health, Karolinska Institutet
 *! Program class: rclass (returns results in r())
 
 /*

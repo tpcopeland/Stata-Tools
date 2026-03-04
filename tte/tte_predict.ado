@@ -1,7 +1,9 @@
 *! tte_predict Version 1.0.2  2026/02/28
 *! Marginal predictions with confidence intervals for target trial emulation
 *! Author: Timothy P Copeland
+*! Author: Tania F Reza
 *! Department of Clinical Neuroscience, Karolinska Institutet
+*! Department of Global Public Health, Karolinska Institutet
 *! Program class: rclass (returns results in r())
 
 /*
@@ -11,7 +13,7 @@ Basic syntax:
 Description:
   Generates marginal cumulative incidence or survival predictions with
   confidence intervals from the fitted model. Uses Monte Carlo simulation
-  from the coefficient distribution (matching R TrialEmulation approach).
+  from the coefficient distribution.
 
   Computes individual-level survival curves first, then averages
   across the reference population (correct G-formula standardization).
@@ -170,8 +172,8 @@ program define tte_predict, rclass
     forvalues arm = 0/1 {
         * Initialize per-individual cumulative survival
         tempvar _cum_surv_i _prob_i
-        gen double `_cum_surv_i' = 1
-        gen double `_prob_i' = .
+        quietly gen double `_cum_surv_i' = 1
+        quietly gen double `_prob_i' = .
 
         * Iterate over ALL integer follow-up periods from 0 to max time
         forvalues s = 0/`last_time' {
@@ -223,7 +225,7 @@ program define tte_predict, rclass
     * MC CONFIDENCE INTERVALS
     * =====================================================================
 
-    display as text "Running `samples' Monte Carlo simulations..."
+    display as text "Running `samples' MC simulations... " _continue
 
     * Store MC results
     local n_times: word count `times'
@@ -328,8 +330,8 @@ program define tte_predict, rclass
         * Compute individual-level survival for arm=0 and arm=1
         forvalues arm = 0/1 {
             tempvar _cum_surv_mc _prob_mc
-            gen double `_cum_surv_mc' = 1
-            gen double `_prob_mc' = .
+            quietly gen double `_cum_surv_mc' = 1
+            quietly gen double `_prob_mc' = .
 
             forvalues ss = 0/`last_time' {
                 quietly _tte_predict_xb, time(`ss') arm(`arm') ///
@@ -376,11 +378,12 @@ program define tte_predict, rclass
             drop `_cum_surv_mc' `_prob_mc'
         }
 
-        * Progress
-        if mod(`s', 50) == 0 {
-            display as text "  ... `s' of `samples' samples completed"
-        }
+        * Progress display
+        display as text _char(13) "Running `samples' MC simulations... " ///
+            string(round(`s'/`samples'*100), "%3.0f") "%" _continue
     }
+
+    display as text _char(13) "Running `samples' MC simulations... done" _newline
 
     * =====================================================================
     * COMPUTE CIs FROM MC SAMPLES
