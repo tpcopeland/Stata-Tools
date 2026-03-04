@@ -27,7 +27,7 @@ Key features:
 ## Installation
 
 ```stata
-net install validate, from("https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/validate")
+net install validate, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/validate")
 ```
 
 ## Syntax

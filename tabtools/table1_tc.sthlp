@@ -147,9 +147,9 @@ binary variables on one row, provide finer control of decimal places, and other 
 
 {pstd}{bf:SSRI vs SNRI baseline characteristics:}{p_end}
 
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/_examples/cohort.dta", clear"':. use _examples/cohort.dta, clear}{p_end}
-{phang2}{stata `"merge 1:1 id using "https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/_examples/treatment.dta", nogen keep(match)"':. merge 1:1 id using _examples/treatment.dta, nogen keep(match)}{p_end}
-{phang2}{stata `"merge 1:1 id using "https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/_examples/comorbidities.dta", nogen keep(master match)"':. merge 1:1 id using _examples/comorbidities.dta, nogen keep(master match)}{p_end}
+{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
+{phang2}{stata `"merge 1:1 id using "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/treatment.dta", nogen keep(match)"':. merge 1:1 id using _data/treatment.dta, nogen keep(match)}{p_end}
+{phang2}{stata `"merge 1:1 id using "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/comorbidities.dta", nogen keep(master match)"':. merge 1:1 id using _data/comorbidities.dta, nogen keep(master match)}{p_end}
 {phang2}{stata "replace diabetes = 0 if missing(diabetes)":. replace diabetes = 0 if missing(diabetes)}{p_end}
 {phang2}{stata "replace hypertension = 0 if missing(hypertension)":. replace hypertension = 0 if missing(hypertension)}{p_end}
 {phang2}{stata "replace anxiety = 0 if missing(anxiety)":. replace anxiety = 0 if missing(anxiety)}{p_end}

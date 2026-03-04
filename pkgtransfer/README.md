@@ -26,7 +26,7 @@ The command works by reading the `stata.trk` file in your current PLUS directory
 ## Installation
 
 ```stata
-net install pkgtransfer, from("https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/pkgtransfer")
+net install pkgtransfer, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/pkgtransfer")
 ```
 
 ## Syntax

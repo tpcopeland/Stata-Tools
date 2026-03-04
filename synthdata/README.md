@@ -44,7 +44,7 @@ Generate realistic synthetic datasets that preserve statistical properties while
 ## Installation
 
 ```stata
-net install synthdata, from("https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/synthdata")
+net install synthdata, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/synthdata")
 ```
 
 ---

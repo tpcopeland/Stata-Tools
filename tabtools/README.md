@@ -7,7 +7,7 @@ A comprehensive suite of Stata commands for exporting publication-ready tables t
 ## Installation
 
 ```stata
-net install tabtools, from("https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/tabtools")
+net install tabtools, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/tabtools")
 ```
 
 ## Commands

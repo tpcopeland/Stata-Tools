@@ -111,23 +111,23 @@ be overwritten.
 {title:Examples}
 
 {pstd}
-{it:Note: These examples require _examples/migrations_wide.dta (run generate_examples.do first).}
+{it:Note: These examples require _data/migrations_wide.dta (run generate_examples.do first).}
 
 {pstd}Basic usage with default variable names:{p_end}
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/_examples/cohort.dta", clear"':. use _examples/cohort.dta, clear}{p_end}
-{phang2}{stata `"migrations, migfile("_examples/migrations_wide.dta") startvar(study_entry)"':. migrations, migfile("_examples/migrations_wide.dta") startvar(study_entry)}{p_end}
+{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
+{phang2}{stata `"migrations, migfile("_data/migrations_wide.dta") startvar(study_entry)"':. migrations, migfile("_data/migrations_wide.dta") startvar(study_entry)}{p_end}
 
 {pstd}With saving intermediate files:{p_end}
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/_examples/cohort.dta", clear"':. use _examples/cohort.dta, clear}{p_end}
-{phang2}{stata `"migrations, migfile("_examples/migrations_wide.dta") startvar(study_entry) saveexclude(excluded_migrations) savecensor(emigration_dates) replace"':. migrations, migfile("_examples/migrations_wide.dta") ///}{p_end}
+{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
+{phang2}{stata `"migrations, migfile("_data/migrations_wide.dta") startvar(study_entry) saveexclude(excluded_migrations) savecensor(emigration_dates) replace"':. migrations, migfile("_data/migrations_wide.dta") ///}{p_end}
 {phang3}{cmd:startvar(study_entry) ///}{p_end}
 {phang3}{cmd:saveexclude(excluded_migrations) savecensor(emigration_dates) replace}{p_end}
 
 {pstd}Typical workflow for a cohort study:{p_end}
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/_examples/cohort.dta", clear"':. use _examples/cohort.dta, clear}{p_end}
+{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
 {phang2}{cmd:. }{p_end}
 {phang2}{cmd:. * Apply migration exclusions and get censoring dates}{p_end}
-{phang2}{stata `"migrations, migfile("_examples/migrations_wide.dta") startvar(study_entry) verbose"':. migrations, migfile("_examples/migrations_wide.dta") startvar(study_entry) verbose}{p_end}
+{phang2}{stata `"migrations, migfile("_data/migrations_wide.dta") startvar(study_entry) verbose"':. migrations, migfile("_data/migrations_wide.dta") startvar(study_entry) verbose}{p_end}
 {phang2}{cmd:. }{p_end}
 {phang2}{cmd:. * Use migration_out_dt in survival analysis}{p_end}
 {phang2}{stata "gen double end_date = min(death_date, migration_out_dt, mdy(12,31,2023))":. gen double end_date = min(death_date, migration_out_dt, mdy(12,31,2023))}{p_end}
@@ -166,4 +166,4 @@ For use with Swedish registry data (migrations_wide.dta format).{p_end}
 {help sustainedss:sustainedss} - Compute sustained EDSS progression dates{p_end}
 
 {pstd}
-Online: {browse "https://github.com/tpcopeland/Stata-Dev":Stata-Dev on GitHub}{p_end}
+Online: {browse "https://github.com/tpcopeland/Stata-Tools":Stata-Tools on GitHub}{p_end}

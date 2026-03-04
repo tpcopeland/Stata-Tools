@@ -29,7 +29,7 @@ Key features:
 ## Installation
 
 ```stata
-net install balancetab, from("https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/balancetab")
+net install balancetab, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/balancetab")
 ```
 
 ## Syntax

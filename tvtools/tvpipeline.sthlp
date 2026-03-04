@@ -180,18 +180,18 @@ dataset. If not specified, the dataset remains in memory but is not saved.
 {title:Examples}
 
 {pstd}Setup: Load cohort data{p_end}
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/_examples/cohort.dta", clear"':. use _examples/cohort.dta, clear}{p_end}
+{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
 
 {pstd}Basic pipeline - create time-varying exposure dataset{p_end}
-{phang2}{cmd:. tvpipeline using _examples/tv_antidep_episodes.dta, id(id) start(rx_start) stop(rx_stop) exposure(drug_class) entry(study_entry) exit(study_exit)}{p_end}
+{phang2}{cmd:. tvpipeline using _data/tv_antidep_episodes.dta, id(id) start(rx_start) stop(rx_stop) exposure(drug_class) entry(study_entry) exit(study_exit)}{p_end}
 
 {pstd}Add events to the pipeline{p_end}
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/_examples/cohort.dta", clear"':. use _examples/cohort.dta, clear}{p_end}
-{phang2}{cmd:. tvpipeline using _examples/tv_antidep_episodes.dta, id(id) start(rx_start) stop(rx_stop) exposure(drug_class) entry(study_entry) exit(study_exit) event(outcome_date)}{p_end}
+{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
+{phang2}{cmd:. tvpipeline using _data/tv_antidep_episodes.dta, id(id) start(rx_start) stop(rx_stop) exposure(drug_class) entry(study_entry) exit(study_exit) event(outcome_date)}{p_end}
 
 {pstd}Complete pipeline with all diagnostics and output{p_end}
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/_examples/cohort.dta", clear"':. use _examples/cohort.dta, clear}{p_end}
-{phang2}{cmd:. tvpipeline using _examples/tv_antidep_episodes.dta, id(id) start(rx_start) stop(rx_stop) exposure(drug_class) reference(0) entry(study_entry) exit(study_exit) event(outcome_date) compete(death_date) diagnose balance(index_age female education) plot saveas(_examples/analysis.dta) replace}{p_end}
+{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
+{phang2}{cmd:. tvpipeline using _data/tv_antidep_episodes.dta, id(id) start(rx_start) stop(rx_stop) exposure(drug_class) reference(0) entry(study_entry) exit(study_exit) event(outcome_date) compete(death_date) diagnose balance(index_age female education) plot saveas(_data/analysis.dta) replace}{p_end}
 
 {pstd}After running tvpipeline, analyze with Cox regression{p_end}
 {phang2}{stata "stset stop, failure(_event) enter(start) id(id)":. stset stop, failure(_event) enter(start) id(id)}{p_end}

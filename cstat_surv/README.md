@@ -27,7 +27,7 @@ The C-statistic is equivalent to the area under the ROC curve (AUC) for binary o
 ## Installation
 
 ```stata
-net install cstat_surv, from("https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/cstat_surv")
+net install cstat_surv, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/cstat_surv")
 ```
 
 ## Syntax

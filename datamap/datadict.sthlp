@@ -206,7 +206,7 @@ many unique values, only a count is shown. Default is {bf:25}. Must be positive.
 {phang2}{cmd:. datadict, filelist(patients labs visits) missing stats title("Clinical Study Data") version("2.0") author("Research Team")}{p_end}
 
 {pstd}Create Markdown data dictionary for the synthetic cohort:{p_end}
-{phang2}{cmd:. datadict, single(_examples/cohort.dta) ///}{p_end}
+{phang2}{cmd:. datadict, single(_data/cohort.dta) ///}{p_end}
 {phang2}{cmd:     output(datamap/examples/cohort_dictionary.md) ///}{p_end}
 {phang2}{cmd:     title("Synthetic Cohort Data Dictionary") ///}{p_end}
 {phang2}{cmd:     version("1.0") ///}{p_end}

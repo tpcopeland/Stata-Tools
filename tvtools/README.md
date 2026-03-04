@@ -4,10 +4,42 @@
 
 Comprehensive toolkit for time-varying exposure analysis in survival studies.
 
+## Table of Contents
+
+- [Screenshots](#screenshots)
+- [Package Overview](#package-overview)
+- [Installation](#installation)
+- **Data Preparation**
+  - [tvexpose](#tvexpose---create-time-varying-exposure-variables) — Create time-varying exposure variables
+  - [tvmerge](#tvmerge---merge-multiple-time-varying-datasets) — Merge multiple time-varying datasets
+  - [tvevent](#tvevent---integrate-events-and-competing-risks) — Integrate events and competing risks
+  - tvcalendar — Merge calendar-time external factors
+  - [tvage](#tvage---time-varying-age-intervals) — Time-varying age intervals
+- **Diagnostics & Visualization**
+  - [tvdiagnose](#tvdiagnose---data-quality-diagnostics) — Data quality diagnostics
+  - [tvbalance](#tvbalance---covariate-balance-diagnostics) — Covariate balance
+  - [tvplot](#tvplot---exposure-visualization) — Exposure visualization
+- **Weighting & Estimation**
+  - tvweight — Inverse probability of treatment weights
+  - tvestimate — G-estimation for structural nested models
+  - tvdml — Double/Debiased Machine Learning
+- **Special Applications**
+  - tvtrial — Target trial emulation
+  - tvsensitivity — Sensitivity analysis (E-values)
+  - tvpass — Post-authorization safety/efficacy studies
+- **Reporting & Workflow**
+  - tvtable — Publication-ready summary tables
+  - tvreport — Automated report generation
+  - tvpipeline — Complete workflow automation
+- [Quick Start Example](#quick-start-example)
+- [Version](#version)
+
 ## Screenshots
 
 ### Console Output
 ![Console Output](demo/console_output.png)
+
+> Note: tvtools console output is intentionally compact. For detailed output from each subcommand, see the individual help files.
 
 ### Swimlane Plot
 ![Swimlane Plot](demo/swimlane_plot.png)
@@ -83,7 +115,7 @@ Raw exposure data
 ## Installation
 
 ```stata
-net install tvtools, from("https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/tvtools")
+net install tvtools, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/tvtools")
 ```
 
 ### Optional: Menu Setup Script
@@ -91,7 +123,7 @@ net install tvtools, from("https://raw.githubusercontent.com/tpcopeland/Stata-De
 To get the menu setup script (adds tvtools to Stata's User menu):
 
 ```stata
-net get tvtools, from("https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/tvtools")
+net get tvtools, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/tvtools")
 do tvtools_menu_setup.do
 ```
 
@@ -1378,7 +1410,3 @@ which tvplot
 
 - Stata help: `help stset`, `help stcox`, `help stcrreg`, `help stsplit`
 - Manual: [ST] stset, [ST] stcox, [ST] stcrreg
-
-## Version
-
-Version 1.4.1, 2026-02-26

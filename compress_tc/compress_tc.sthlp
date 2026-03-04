@@ -138,14 +138,14 @@ which variables were affected by the compression.
 {phang2}{stata "compress_tc, varsavings":. compress_tc, varsavings}{p_end}
 
 {pstd}Compress prescription data{p_end}
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/_examples/prescriptions.dta", clear"':. use _examples/prescriptions.dta, clear}{p_end}
+{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/prescriptions.dta", clear"':. use _data/prescriptions.dta, clear}{p_end}
 {phang2}{stata "compress_tc":. compress_tc}{p_end}
 
 {pstd}Compress specific string variables with detail{p_end}
 {phang2}{stata "compress_tc atc drug_name, detail":. compress_tc atc drug_name, detail}{p_end}
 
 {pstd}Compress procedures data{p_end}
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/_examples/procedures.dta", clear"':. use _examples/procedures.dta, clear}{p_end}
+{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/procedures.dta", clear"':. use _data/procedures.dta, clear}{p_end}
 {phang2}{stata "compress_tc kva_code proc_description, detail":. compress_tc kva_code proc_description, detail}{p_end}
 
 

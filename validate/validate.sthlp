@@ -229,7 +229,7 @@ The {opt pattern()} option uses Stata's regular expressions. Common patterns:
 {pstd}
 {bf:Example 9: Registry data validation suite}
 
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/_examples/cohort.dta", clear"':. use _examples/cohort.dta, clear}{p_end}
+{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
 {phang2}{stata "validate id, unique nomiss":. validate id, unique nomiss}{p_end}
 {phang2}{stata "validate index_age, range(18 100) nomiss":. validate index_age, range(18 100) nomiss}{p_end}
 {phang2}{stata "validate female, values(0 1)":. validate female, values(0 1)}{p_end}
@@ -240,7 +240,7 @@ The {opt pattern()} option uses Stata's regular expressions. Common patterns:
 {pstd}
 {bf:Example 10: Diagnosis data validation}
 
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/_examples/diagnoses.dta", clear"':. use _examples/diagnoses.dta, clear}{p_end}
+{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/diagnoses.dta", clear"':. use _data/diagnoses.dta, clear}{p_end}
 {phang2}{stata "validate visit_date discharge_date, cross(discharge_date >= visit_date)":. validate visit_date discharge_date, cross(discharge_date >= visit_date)}{p_end}
 {phang2}{stata "validate care_type, values(1 2)":. validate care_type, values(1 2)}{p_end}
 

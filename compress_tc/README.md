@@ -28,7 +28,7 @@ This command is particularly effective for:
 ## Installation
 
 ```stata
-net install compress_tc, from("https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/compress_tc")
+net install compress_tc, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/compress_tc")
 ```
 
 ## Syntax

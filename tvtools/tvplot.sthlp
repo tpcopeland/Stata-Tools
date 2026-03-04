@@ -156,8 +156,8 @@ to the graph command. Any valid twoway option may be specified, including
 {title:Examples}
 
 {pstd}Setup: Create time-varying exposure dataset (assumes tvexpose output in memory){p_end}
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/_examples/cohort.dta", clear"':. use _examples/cohort.dta, clear}{p_end}
-{phang2}{cmd:. tvexpose using _examples/tv_antidep_episodes.dta, id(id) start(rx_start) stop(rx_stop) exposure(drug_class) reference(0) entry(study_entry) exit(study_exit)}{p_end}
+{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
+{phang2}{cmd:. tvexpose using _data/tv_antidep_episodes.dta, id(id) start(rx_start) stop(rx_stop) exposure(drug_class) reference(0) entry(study_entry) exit(study_exit)}{p_end}
 
 {pstd}Basic swimlane plot with default settings{p_end}
 {phang2}{stata "tvplot, id(id) start(start) stop(stop) exposure(tv_exposure) scheme(plotplainblind)":. tvplot, id(id) start(start) stop(stop) exposure(tv_exposure) scheme(plotplainblind)}{p_end}

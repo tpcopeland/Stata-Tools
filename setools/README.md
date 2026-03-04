@@ -22,7 +22,8 @@ Toolkit for managing Swedish registry data in epidemiological cohort studies.
 ## Screenshots
 
 ### Console Output
-![Console Output](demo/console_output.png)
+![Console Output (1/2)](demo/console_output_part1.png)
+![Console Output (2/2)](demo/console_output_part2.png)
 
 ---
 
@@ -456,7 +457,7 @@ covarclose using _examples/lisa.dta, idvar(id) indexdate(study_entry) ///
 Install directly from GitHub:
 
 ```stata
-net from https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/setools
+net from https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/setools
 net install setools
 ```
 

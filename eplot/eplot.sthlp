@@ -248,9 +248,9 @@ and row labels on the y-axis. This is the default.
 {pstd}
 {bf:Example 6: Coefficient plot for propensity score model}
 
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/_examples/cohort.dta", clear"':. use _examples/cohort.dta, clear}{p_end}
-{phang2}{stata `"merge 1:1 id using "https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/_examples/treatment.dta", nogen keep(match)"':. merge 1:1 id using _examples/treatment.dta, nogen keep(match)}{p_end}
-{phang2}{stata `"merge 1:1 id using "https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/_examples/comorbidities.dta", nogen keep(match)"':. merge 1:1 id using _examples/comorbidities.dta, nogen keep(match)}{p_end}
+{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
+{phang2}{stata `"merge 1:1 id using "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/treatment.dta", nogen keep(match)"':. merge 1:1 id using _data/treatment.dta, nogen keep(match)}{p_end}
+{phang2}{stata `"merge 1:1 id using "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/comorbidities.dta", nogen keep(match)"':. merge 1:1 id using _data/comorbidities.dta, nogen keep(match)}{p_end}
 {phang2}{stata "logit treated index_age female i.education diabetes hypertension anxiety":. logit treated index_age female i.education diabetes hypertension anxiety}{p_end}
 {phang2}{cmd:. eplot ., drop(_cons) eform ///}{p_end}
 {phang2}{cmd:.     coeflabels(index_age = "Age at Entry" ///}{p_end}

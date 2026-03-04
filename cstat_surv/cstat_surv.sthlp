@@ -77,10 +77,10 @@ The C-statistic is equivalent to the area under the ROC curve (AUC) for binary o
 
 {pstd}More complex example with SSRI/SNRI cohort{p_end}
 
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/_examples/cohort.dta", clear"':. use _examples/cohort.dta, clear}{p_end}
-{phang2}{stata `"merge 1:1 id using "https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/_examples/treatment.dta", nogen keep(match)"':. merge 1:1 id using _examples/treatment.dta, nogen keep(match)}{p_end}
-{phang2}{stata `"merge 1:1 id using "https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/_examples/comorbidities.dta", nogen keep(match)"':. merge 1:1 id using _examples/comorbidities.dta, nogen keep(match)}{p_end}
-{phang2}{stata `"merge 1:1 id using "https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/_examples/outcomes.dta", nogen"':. merge 1:1 id using _examples/outcomes.dta, nogen}{p_end}
+{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
+{phang2}{stata `"merge 1:1 id using "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/treatment.dta", nogen keep(match)"':. merge 1:1 id using _data/treatment.dta, nogen keep(match)}{p_end}
+{phang2}{stata `"merge 1:1 id using "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/comorbidities.dta", nogen keep(match)"':. merge 1:1 id using _data/comorbidities.dta, nogen keep(match)}{p_end}
+{phang2}{stata `"merge 1:1 id using "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/outcomes.dta", nogen"':. merge 1:1 id using _data/outcomes.dta, nogen}{p_end}
 {phang2}{stata "gen byte cv_event = (cv_event_date < . & cv_event_date <= study_exit)":. gen byte cv_event = (cv_event_date < . & cv_event_date <= study_exit)}{p_end}
 {phang2}{stata "gen double fu_time = cond(cv_event, cv_event_date, study_exit) - study_entry":. gen double fu_time = cond(cv_event, cv_event_date, study_exit) - study_entry}{p_end}
 {phang2}{stata "replace fu_time = fu_time / 365.25":. replace fu_time = fu_time / 365.25}{p_end}

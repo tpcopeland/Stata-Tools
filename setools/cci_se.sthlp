@@ -221,14 +221,14 @@ automatically){p_end}
 {pstd}
 {bf:Example 1: Basic usage with diagnosis data}
 
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/_examples/diagnoses.dta", clear"':. use _examples/diagnoses.dta, clear}{p_end}
+{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/diagnoses.dta", clear"':. use _data/diagnoses.dta, clear}{p_end}
 {phang2}{stata "cci_se, id(id) icd(icd) date(visit_date) noisily":. cci_se, id(id) icd(icd) date(visit_date) noisily}{p_end}
 {phang2}{stata "summarize charlson":. summarize charlson}{p_end}
 
 {pstd}
 {bf:Example 2: With component indicators}
 
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/_examples/diagnoses.dta", clear"':. use _examples/diagnoses.dta, clear}{p_end}
+{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/diagnoses.dta", clear"':. use _data/diagnoses.dta, clear}{p_end}
 {phang2}{stata "cci_se, id(id) icd(icd) date(visit_date) components noisily":. cci_se, id(id) icd(icd) date(visit_date) components noisily}{p_end}
 {phang2}{stata "tab cci_mi":. tab cci_mi}{p_end}
 {phang2}{stata "tab cci_mets":. tab cci_mets}{p_end}
@@ -242,19 +242,19 @@ automatically){p_end}
 {bf:Example 4: Save CCI and merge into analysis cohort}
 
 {phang2}{cmd:. * Load diagnosis data and compute CCI}{p_end}
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/_examples/diagnoses.dta", clear"':. use _examples/diagnoses.dta, clear}{p_end}
+{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/diagnoses.dta", clear"':. use _data/diagnoses.dta, clear}{p_end}
 {phang2}{stata "cci_se, id(id) icd(icd) date(visit_date)":. cci_se, id(id) icd(icd) date(visit_date)}{p_end}
-{phang2}{stata `"save _examples/cci.dta, replace"':. save _examples/cci.dta, replace}{p_end}
+{phang2}{stata `"save _data/cci.dta, replace"':. save _data/cci.dta, replace}{p_end}
 {phang2}{cmd:. }{p_end}
 {phang2}{cmd:. * Merge into analysis cohort}{p_end}
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/_examples/cohort.dta", clear"':. use _examples/cohort.dta, clear}{p_end}
-{phang2}{stata `"merge 1:1 id using _examples/cci.dta, nogenerate keep(master match)"':. merge 1:1 id using _examples/cci.dta, nogenerate keep(master match)}{p_end}
+{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
+{phang2}{stata `"merge 1:1 id using _data/cci.dta, nogenerate keep(master match)"':. merge 1:1 id using _data/cci.dta, nogenerate keep(master match)}{p_end}
 {phang2}{stata "replace charlson = 0 if missing(charlson)":. replace charlson = 0 if missing(charlson)}{p_end}
 
 {pstd}
 {bf:Example 5: CCI categories for regression}
 
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/_examples/diagnoses.dta", clear"':. use _examples/diagnoses.dta, clear}{p_end}
+{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/diagnoses.dta", clear"':. use _data/diagnoses.dta, clear}{p_end}
 {phang2}{stata "cci_se, id(id) icd(icd) date(visit_date)":. cci_se, id(id) icd(icd) date(visit_date)}{p_end}
 {phang2}{stata "gen byte cci_cat = cond(charlson == 0, 0, cond(charlson <= 2, 1, cond(charlson <= 4, 2, 3)))":. gen byte cci_cat = cond(charlson == 0, 0, cond(charlson <= 2, 1, cond(charlson <= 4, 2, 3)))}{p_end}
 {phang2}{stata `"label define cci_cat 0 "0" 1 "1-2" 2 "3-4" 3 "5+""':. label define cci_cat 0 "0" 1 "1-2" 2 "3-4" 3 "5+"}{p_end}

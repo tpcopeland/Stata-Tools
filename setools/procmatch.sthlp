@@ -105,7 +105,7 @@ code "LAE" would match "LAE10", "LAE20", etc.
 {title:Examples}
 
 {pstd}Setup{p_end}
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/_examples/procedures.dta", clear"':. use _examples/procedures.dta, clear}{p_end}
+{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/procedures.dta", clear"':. use _data/procedures.dta, clear}{p_end}
 
 {pstd}Match coronary angiography or PCI procedures{p_end}
 {phang2}{stata `"procmatch match, codes("FNG02 FNG05") procvars(kva_code) generate(cardiac_proc) prefix noisily"':. procmatch match, codes("FNG02 FNG05") procvars(kva_code) generate(cardiac_proc) prefix noisily}{p_end}

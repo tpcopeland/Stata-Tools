@@ -533,8 +533,8 @@ The bootstrap method:
 {title:Examples}
 
 {pstd}Smart synthesis of the cohort (recommended){p_end}
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/_examples/cohort.dta", clear"':. use _examples/cohort.dta, clear}{p_end}
-{phang2}{stata "synthdata, smart saving(_examples/synth_cohort) compare":. synthdata, smart saving(_examples/synth_cohort) compare}{p_end}
+{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
+{phang2}{stata "synthdata, smart saving(_data/synth_cohort) compare":. synthdata, smart saving(_data/synth_cohort) compare}{p_end}
 
 {pstd}Complex synthesis with date ordering and frequency validation{p_end}
 {phang2}{stata "synthdata, complex n(500) dates(admission_date procedure_date discharge_date) replace":. synthdata, complex n(500) dates(admission_date procedure_date discharge_date) replace}{p_end}
@@ -552,15 +552,15 @@ The bootstrap method:
 {phang2}{stata "synthdata, autorelate condcat saving(synth_relations)":. synthdata, autorelate condcat saving(synth_relations)}{p_end}
 
 {pstd}Panel data synthesis of LISA longitudinal data{p_end}
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/_examples/lisa.dta", clear"':. use _examples/lisa.dta, clear}{p_end}
-{phang2}{stata "synthdata, smart panel(id year) preservevar(education_level) saving(_examples/synth_lisa) compare":. synthdata, smart panel(id year) preservevar(education_level) saving(_examples/synth_lisa) compare}{p_end}
+{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/lisa.dta", clear"':. use _data/lisa.dta, clear}{p_end}
+{phang2}{stata "synthdata, smart panel(id year) preservevar(education_level) saving(_data/synth_lisa) compare":. synthdata, smart panel(id year) preservevar(education_level) saving(_data/synth_lisa) compare}{p_end}
 
 {pstd}Synthesize cohort with privacy controls{p_end}
-{phang2}{stata "synthdata, smart id(id) dates(birth_date death_date study_entry study_exit) mincell(10) trim(5) noextreme saving(_examples/synth_cohort_safe) validate(_examples/synth_validation) compare":. synthdata, smart id(id) ///}{p_end}
+{phang2}{stata "synthdata, smart id(id) dates(birth_date death_date study_entry study_exit) mincell(10) trim(5) noextreme saving(_data/synth_cohort_safe) validate(_data/synth_validation) compare":. synthdata, smart id(id) ///}{p_end}
 {phang2}{cmd:     dates(birth_date death_date study_entry study_exit) ///}{p_end}
 {phang2}{cmd:     mincell(10) trim(5) noextreme ///}{p_end}
-{phang2}{cmd:     saving(_examples/synth_cohort_safe) ///}{p_end}
-{phang2}{cmd:     validate(_examples/synth_validation) compare}{p_end}
+{phang2}{cmd:     saving(_data/synth_cohort_safe) ///}{p_end}
+{phang2}{cmd:     validate(_data/synth_validation) compare}{p_end}
 
 {pstd}Generate 5 synthetic datasets for multiple imputation-style analysis{p_end}
 {phang2}{stata "synthdata, multiple(5) saving(synth_m)":. synthdata, multiple(5) saving(synth_m)}{p_end}

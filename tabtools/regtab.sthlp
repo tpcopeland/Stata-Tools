@@ -29,7 +29,7 @@ Stata's {helpb collect} framework and apply professional formatting.
 {pstd}
 {bf:Installation}
 
-{phang2}{cmd:. net install tabtools, from("https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/tabtools") replace}{p_end}
+{phang2}{cmd:. net install tabtools, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/tabtools") replace}{p_end}
 
 {hline}
 
@@ -82,9 +82,9 @@ Stata's {helpb collect} framework and apply professional formatting.
 {marker examples}{title:Examples}
 
 {pstd}Propensity score model for SNRI vs SSRI:{p_end}
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/_examples/cohort.dta", clear"':. use _examples/cohort.dta, clear}{p_end}
-{phang2}{stata `"merge 1:1 id using "https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/_examples/treatment.dta", nogen keep(match)"':. merge 1:1 id using _examples/treatment.dta, nogen keep(match)}{p_end}
-{phang2}{stata `"merge 1:1 id using "https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/_examples/comorbidities.dta", nogen keep(master match)"':. merge 1:1 id using _examples/comorbidities.dta, nogen keep(master match)}{p_end}
+{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
+{phang2}{stata `"merge 1:1 id using "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/treatment.dta", nogen keep(match)"':. merge 1:1 id using _data/treatment.dta, nogen keep(match)}{p_end}
+{phang2}{stata `"merge 1:1 id using "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/comorbidities.dta", nogen keep(master match)"':. merge 1:1 id using _data/comorbidities.dta, nogen keep(master match)}{p_end}
 {phang2}{stata "replace diabetes = 0 if missing(diabetes)":. replace diabetes = 0 if missing(diabetes)}{p_end}
 {phang2}{stata "collect clear":. collect clear}{p_end}
 {phang2}{stata "collect: logit treated index_age female i.education diabetes hypertension anxiety":. collect: logit treated index_age female i.education diabetes hypertension anxiety}{p_end}
