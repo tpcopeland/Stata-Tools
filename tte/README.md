@@ -91,11 +91,11 @@ Data flows through the commands in order. Each step stores metadata as dataset c
                           └────────┬─────────┘
                                    │
                           ┌────────▼─────────┐
-                    ┌─────│   tte_prepare     │  Map variables, set estimand
+                    ┌─────│   tte_prepare    │  Map variables, set estimand
                     │     └────────┬─────────┘
                     │              │
                     │     ┌────────▼─────────┐
-                    │     │   tte_validate    │  10 data quality checks
+                    │     │   tte_validate   │  10 data quality checks
                     │     └────────┬─────────┘
                     │              │
                     │     ┌────────▼─────────┐
@@ -103,21 +103,21 @@ Data flows through the commands in order. Each step stores metadata as dataset c
   (any time)        │     └────────┬─────────┘
                     │              │
                     │     ┌────────▼─────────┐
-                    │     │   tte_weight      │  Stabilized IPTW (PP/AT only)
+                    │     │   tte_weight     │  Stabilized IPTW (PP/AT only)
                     │     └────────┬─────────┘
                     │              │
                     │     ┌────────▼─────────┐
-                    │     │   tte_fit         │  Pooled logistic or Cox MSM
+                    │     │   tte_fit        │  Pooled logistic or Cox MSM
                     │     └────────┬─────────┘
                     │              │
                     │     ┌────────▼─────────┐
-                    │     │   tte_predict     │  Marginal cumulative incidence
+                    │     │   tte_predict    │  Marginal cumulative incidence
                     │     └────────┬─────────┘
                     │              │
                     │     ┌────────▼─────────┐
-                    └─────│   tte_report      │  Publication tables
-                          │   tte_diagnose    │  Weight/balance diagnostics
-                          │   tte_plot        │  Visualization
+                    └─────│   tte_report     │  Publication tables
+                          │   tte_diagnose   │  Weight/balance diagnostics
+                          │   tte_plot       │  Visualization
                           └──────────────────┘
 ```
 
