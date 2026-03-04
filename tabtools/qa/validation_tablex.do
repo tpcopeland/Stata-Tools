@@ -56,9 +56,17 @@ else {
 local testdir "${STATA_TOOLS_PATH}/_devkit/_testing/data"
 local tooldir "${STATA_TOOLS_PATH}/_devkit/_testing/tools"
 
-* Add tabtools package to adopath
-adopath ++ "${STATA_TOOLS_PATH}/tabtools"
-run "${STATA_TOOLS_PATH}/tabtools/_tabtools_common.ado"
+* Detect tabtools location (smart detection for qa/ subdirectory)
+local init_pwd "`c(pwd)'"
+capture confirm file "`init_pwd'/../tabtools.ado"
+if _rc == 0 {
+    local tabtools_path "`init_pwd'/.."
+}
+else {
+    local tabtools_path "${STATA_TOOLS_PATH}/tabtools"
+}
+adopath ++ "`tabtools_path'"
+run "`tabtools_path'/_tabtools_common.ado"
 
 * Verify check_xlsx.py is available
 capture confirm file "`tooldir'/check_xlsx.py"

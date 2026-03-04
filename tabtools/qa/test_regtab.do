@@ -78,15 +78,23 @@ global TESTING_DIR "${STATA_TOOLS_PATH}/_devkit/_testing"
 global DATA_DIR "${TESTING_DIR}/data"
 
 * =============================================================================
-* SETUP: Change to data directory and install package from local repository
+* SETUP: Detect tabtools location and change to data directory
 * =============================================================================
+
+* Detect tabtools adopath before changing directories
+local init_pwd "`c(pwd)'"
+capture confirm file "`init_pwd'/../tabtools.ado"
+if _rc == 0 {
+    local tabtools_path "`init_pwd'/.."
+}
+else {
+    local tabtools_path "${STATA_TOOLS_PATH}/tabtools"
+}
+adopath ++ "`tabtools_path'"
+run "`tabtools_path'/_tabtools_common.ado"
 
 * Change to data directory
 cd "${DATA_DIR}"
-
-* Add tabtools package to adopath
-adopath ++ "${STATA_TOOLS_PATH}/tabtools"
-run "${STATA_TOOLS_PATH}/tabtools/_tabtools_common.ado"
 
 local testdir "${DATA_DIR}"
 

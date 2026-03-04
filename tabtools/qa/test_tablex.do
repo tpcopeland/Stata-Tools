@@ -25,9 +25,20 @@ else {
 * Create output directory for test files
 capture mkdir "`base_path'/_devkit/_testing/output"
 
-* Install tabtools from local repository
-capture net uninstall tabtools
-net install tabtools, from("`base_path'/tabtools") replace
+* Detect tabtools location (smart detection for qa/ subdirectory)
+local init_pwd "`c(pwd)'"
+capture confirm file "`init_pwd'/../tabtools.ado"
+if _rc == 0 {
+    local tabtools_path "`init_pwd'/.."
+}
+else {
+    local tabtools_path "`base_path'/tabtools"
+}
+
+* Add tabtools to adopath and load helpers
+capture ado uninstall tabtools
+adopath ++ "`tabtools_path'"
+run "`tabtools_path'/_tabtools_common.ado"
 
 * Verify installation
 which tablex

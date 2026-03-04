@@ -185,8 +185,8 @@ program define covarclose, rclass
             replace `dist_from_index' = abs(`dist_from_index')
         }
 
-        * Keep observation closest to index for each person
-        bysort `idvar' (`dist_from_index'): keep if _n == 1
+        * Keep observation closest to index for each person (break ties by earlier date)
+        bysort `idvar' (`dist_from_index' `covar_date'): keep if _n == 1
 
         * Clean up and keep only needed variables
         keep `idvar' `vars'

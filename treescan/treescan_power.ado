@@ -20,6 +20,19 @@ program define treescan_power, rclass
     set varabbrev off
     set more off
 
+    * Auto-load shared helper programs if not already in memory
+    capture program list _treescan_validate_path
+    if _rc {
+        capture findfile _treescan_excel.ado
+        if _rc == 0 {
+            run "`r(fn)'"
+        }
+        else {
+            display as error "_treescan_excel.ado not found; reinstall treescan"
+            exit 111
+        }
+    }
+
     * =====================================================================
     * ENSURE MATA LIBRARY AVAILABLE
     * =====================================================================
