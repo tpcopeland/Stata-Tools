@@ -60,6 +60,19 @@ program define tablex, rclass
     set varabbrev off
     set more off
 
+    * Auto-load shared helper programs if not already in memory
+    capture program list _tabtools_validate_path
+    if _rc {
+        capture findfile _tabtools_common.ado
+        if _rc == 0 {
+            run "`r(fn)'"
+        }
+        else {
+            display as error "_tabtools_common.ado not found; reinstall tabtools"
+            exit 111
+        }
+    }
+
     syntax using/, sheet(string) [title(string) replace ///
            font(string) fontsize(integer 10) borderstyle(string) headerrows(integer 0)]
 

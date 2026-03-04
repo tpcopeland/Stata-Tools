@@ -9,6 +9,19 @@ program define table1_tc, sclass
     set varabbrev off
     set more off
 
+    * Auto-load shared helper programs if not already in memory
+    capture program list _tabtools_validate_path
+    if _rc {
+        capture findfile _tabtools_common.ado
+        if _rc == 0 {
+            run "`r(fn)'"
+        }
+        else {
+            display as error "_tabtools_common.ado not found; reinstall tabtools"
+            exit 111
+        }
+    }
+
 **# Syntax Definition
     syntax [if] [in] [fweight], ///
         [by(varname)]           /// Optional grouping variable

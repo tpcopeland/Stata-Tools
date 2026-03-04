@@ -32,6 +32,19 @@ program define regtab, rclass
 	set varabbrev off
 	set more off
 
+	* Auto-load shared helper programs if not already in memory
+	capture program list _tabtools_validate_path
+	if _rc {
+		capture findfile _tabtools_common.ado
+		if _rc == 0 {
+			run "`r(fn)'"
+		}
+		else {
+			display as error "_tabtools_common.ado not found; reinstall tabtools"
+			exit 111
+		}
+	}
+
 syntax, xlsx(string) sheet(string) [sep(string asis) models(string) coef(string) title(string) NOINTercept NOREeffects stats(string) RELABel]
 
 * Map option names for internal use
