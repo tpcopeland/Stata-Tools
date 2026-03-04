@@ -196,9 +196,9 @@ Stabilized weights have mean 1 and often smaller variance.
 {pstd}
 {bf:Example 1: Basic diagnostics}
 
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/_examples/cohort.dta", clear"':. use _examples/cohort.dta, clear}{p_end}
-{phang2}{stata `"merge 1:1 id using "https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/_examples/treatment.dta", nogen keep(match)"':. merge 1:1 id using _examples/treatment.dta, nogen keep(match)}{p_end}
-{phang2}{stata `"merge 1:1 id using "https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/_examples/comorbidities.dta", nogen keep(match)"':. merge 1:1 id using _examples/comorbidities.dta, nogen keep(match)}{p_end}
+{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
+{phang2}{stata `"merge 1:1 id using "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/treatment.dta", nogen keep(match)"':. merge 1:1 id using _data/treatment.dta, nogen keep(match)}{p_end}
+{phang2}{stata `"merge 1:1 id using "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/comorbidities.dta", nogen keep(match)"':. merge 1:1 id using _data/comorbidities.dta, nogen keep(match)}{p_end}
 {phang2}{stata "logit treated index_age female education diabetes hypertension":. logit treated index_age female education diabetes hypertension}{p_end}
 {phang2}{stata "predict double ps, pr":. predict double ps, pr}{p_end}
 {phang2}{stata "gen double ipw = cond(treated==1, 1/ps, 1/(1-ps))":. gen double ipw = cond(treated==1, 1/ps, 1/(1-ps))}{p_end}

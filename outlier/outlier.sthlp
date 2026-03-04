@@ -213,20 +213,20 @@ but avoiding arbitrary value replacement.
 {pstd}
 {bf:Example 9: Detect income outliers in LISA data}
 
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/_examples/lisa.dta", clear"':. use _examples/lisa.dta, clear}{p_end}
+{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/lisa.dta", clear"':. use _data/lisa.dta, clear}{p_end}
 {phang2}{stata "outlier disp_income, report":. outlier disp_income, report}{p_end}
 
 {pstd}
 {bf:Example 10: Detect age outliers within treatment groups}
 
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/_examples/cohort.dta", clear"':. use _examples/cohort.dta, clear}{p_end}
-{phang2}{stata `"merge 1:1 id using "https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/_examples/treatment.dta", nogen keep(match)"':. merge 1:1 id using _examples/treatment.dta, nogen keep(match)}{p_end}
+{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
+{phang2}{stata `"merge 1:1 id using "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/treatment.dta", nogen keep(match)"':. merge 1:1 id using _data/treatment.dta, nogen keep(match)}{p_end}
 {phang2}{stata "outlier index_age, by(treated) report":. outlier index_age, by(treated) report}{p_end}
 
 {pstd}
 {bf:Example 11: Winsorize income in LISA data}
 
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/_examples/lisa.dta", clear"':. use _examples/lisa.dta, clear}{p_end}
+{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/lisa.dta", clear"':. use _data/lisa.dta, clear}{p_end}
 {phang2}{stata `"outlier disp_income, action(winsorize) generate(w_)"':. outlier disp_income, action(winsorize) generate(w_)}{p_end}
 
 

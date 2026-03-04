@@ -26,7 +26,7 @@ Key features:
 ## Installation
 
 ```stata
-net install outlier, from("https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/outlier")
+net install outlier, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/outlier")
 ```
 
 ## Syntax

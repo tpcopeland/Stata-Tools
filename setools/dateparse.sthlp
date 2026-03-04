@@ -289,7 +289,7 @@ Required.
 {pstd}
 {bf:Example 3: Calculate 1-year lookback window for comorbidity assessment}
 
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/_examples/cohort.dta", clear"':. use _examples/cohort.dta, clear}{p_end}
+{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
 {phang2}{stata "dateparse window study_entry, lookback(365) generate(comorb_start comorb_end)":. dateparse window study_entry, lookback(365) generate(comorb_start comorb_end)}{p_end}
 {phang2}{stata "list id study_entry comorb_start comorb_end in 1/5":. list id study_entry comorb_start comorb_end in 1/5}{p_end}
 
@@ -335,7 +335,7 @@ Required.
 {pstd}
 {bf:Example 9: Typical workflow for cohort study with comorbidities}
 
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/_examples/cohort.dta", clear"':. use _examples/cohort.dta, clear}{p_end}
+{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
 {phang2}{cmd:. }{p_end}
 {phang2}{cmd:. * Create 1-year lookback window for comorbidity assessment}{p_end}
 {phang2}{stata "dateparse window study_entry, lookback(365) generate(comorb_start comorb_end)":. dateparse window study_entry, lookback(365) generate(comorb_start comorb_end)}{p_end}

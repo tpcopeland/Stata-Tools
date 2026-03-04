@@ -14,7 +14,7 @@ Unified effect plotting command for creating forest plots and coefficient plots 
 ## Installation
 
 ```stata
-net install eplot, from("https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/eplot")
+net install eplot, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/eplot")
 ```
 
 ## Syntax

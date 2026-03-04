@@ -28,7 +28,7 @@ Key features:
 ## Installation
 
 ```stata
-net install iptw_diag, from("https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/iptw_diag")
+net install iptw_diag, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/iptw_diag")
 ```
 
 ## Syntax

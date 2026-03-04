@@ -159,7 +159,7 @@ Events exactly on the start date are not flagged (risk begins at start, not befo
 {title:Examples}
 
 {pstd}
-The examples below use synthetic datasets from {bf:_examples/} modeling an SSRI vs SNRI
+The examples below use synthetic datasets from {bf:_data/} modeling an SSRI vs SNRI
 antidepressant study.
 
 {pstd}
@@ -175,16 +175,16 @@ is the TV interval data from tvexpose.
 {pstd}
 Study cardiovascular events with death as a competing risk:
 
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/_examples/cohort.dta", clear"':. use _examples/cohort.dta, clear}{p_end}
+{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
 
-{phang2}{cmd:. tvexpose using _examples/tv_antidep_episodes.dta, id(id) start(rx_start) stop(rx_stop) ///}{p_end}
+{phang2}{cmd:. tvexpose using _data/tv_antidep_episodes.dta, id(id) start(rx_start) stop(rx_stop) ///}{p_end}
 {phang3}{cmd:exposure(drug_class) reference(0) ///}{p_end}
 {phang3}{cmd:entry(study_entry) exit(study_exit) ///}{p_end}
-{phang3}{cmd:saveas(_examples/tv_antidep.dta) replace}{p_end}
+{phang3}{cmd:saveas(_data/tv_antidep.dta) replace}{p_end}
 
 {phang2}{cmd:. * Load event data as master, TV data as using}{p_end}
-{phang2}{stata "use _examples/tv_events.dta, clear":. use _examples/tv_events.dta, clear}{p_end}
-{phang2}{stata "tvevent using _examples/tv_antidep.dta, id(id) date(cv_event_date) compete(death_date) generate(outcome) startvar(rx_start) stopvar(rx_stop)":. tvevent using _examples/tv_antidep.dta, id(id) ///}{p_end}
+{phang2}{stata "use _data/tv_events.dta, clear":. use _data/tv_events.dta, clear}{p_end}
+{phang2}{stata "tvevent using _data/tv_antidep.dta, id(id) date(cv_event_date) compete(death_date) generate(outcome) startvar(rx_start) stopvar(rx_stop)":. tvevent using _data/tv_antidep.dta, id(id) ///}{p_end}
 {phang3}{cmd:date(cv_event_date) compete(death_date) generate(outcome) ///}{p_end}
 {phang3}{cmd:startvar(rx_start) stopvar(rx_stop)}{p_end}
 
@@ -202,15 +202,15 @@ The outcome variable is coded: 0=Censored, 1=Cardiovascular event, 2=Death.
 {pstd}
 Explicitly label censored, primary, and competing events for clearer output:
 
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/_examples/cohort.dta", clear"':. use _examples/cohort.dta, clear}{p_end}
+{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
 
-{phang2}{cmd:. tvexpose using _examples/tv_antidep_episodes.dta, id(id) start(rx_start) stop(rx_stop) ///}{p_end}
+{phang2}{cmd:. tvexpose using _data/tv_antidep_episodes.dta, id(id) start(rx_start) stop(rx_stop) ///}{p_end}
 {phang3}{cmd:exposure(drug_class) reference(0) ///}{p_end}
 {phang3}{cmd:entry(study_entry) exit(study_exit) ///}{p_end}
-{phang3}{cmd:saveas(_examples/tv_antidep_temp.dta) replace}{p_end}
+{phang3}{cmd:saveas(_data/tv_antidep_temp.dta) replace}{p_end}
 
-{phang2}{stata "use _examples/tv_events.dta, clear":. use _examples/tv_events.dta, clear}{p_end}
-{phang2}{cmd:. tvevent using _examples/tv_antidep_temp.dta, id(id) ///}{p_end}
+{phang2}{stata "use _data/tv_events.dta, clear":. use _data/tv_events.dta, clear}{p_end}
+{phang2}{cmd:. tvevent using _data/tv_antidep_temp.dta, id(id) ///}{p_end}
 {phang3}{cmd:date(cv_event_date) ///}{p_end}
 {phang3}{cmd:compete(death_date) ///}{p_end}
 {phang3}{cmd:eventlabel(0 "Censored" 1 "CV Event" 2 "Death") ///}{p_end}
@@ -228,16 +228,16 @@ The eventlabel() option overrides default labels derived from variable labels.
 When intervals contain cumulative exposure amounts, these should be
 proportionally reduced if an event splits the interval:
 
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/_examples/cohort.dta", clear"':. use _examples/cohort.dta, clear}{p_end}
+{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
 
-{phang2}{cmd:. tvexpose using _examples/tv_antidep_episodes.dta, id(id) start(rx_start) stop(rx_stop) ///}{p_end}
+{phang2}{cmd:. tvexpose using _data/tv_antidep_episodes.dta, id(id) start(rx_start) stop(rx_stop) ///}{p_end}
 {phang3}{cmd:exposure(drug_class) reference(0) ///}{p_end}
 {phang3}{cmd:entry(study_entry) exit(study_exit) ///}{p_end}
 {phang3}{cmd:continuousunit(years) ///}{p_end}
-{phang3}{cmd:saveas(_examples/tv_antidep_temp.dta) replace}{p_end}
+{phang3}{cmd:saveas(_data/tv_antidep_temp.dta) replace}{p_end}
 
-{phang2}{stata "use _examples/tv_events.dta, clear":. use _examples/tv_events.dta, clear}{p_end}
-{phang2}{stata "tvevent using _examples/tv_antidep_temp.dta, id(id) date(cv_event_date) type(single) continuous(tv_exposure) startvar(rx_start) stopvar(rx_stop)":. tvevent using _examples/tv_antidep_temp.dta, id(id) ///}{p_end}
+{phang2}{stata "use _data/tv_events.dta, clear":. use _data/tv_events.dta, clear}{p_end}
+{phang2}{stata "tvevent using _data/tv_antidep_temp.dta, id(id) date(cv_event_date) type(single) continuous(tv_exposure) startvar(rx_start) stopvar(rx_stop)":. tvevent using _data/tv_antidep_temp.dta, id(id) ///}{p_end}
 {phang3}{cmd:date(cv_event_date) type(single) continuous(tv_exposure) ///}{p_end}
 {phang3}{cmd:startvar(rx_start) stopvar(rx_stop)}{p_end}
 
@@ -258,18 +258,18 @@ The event dataset must have dates in {bf:wide format} with numbered suffixes (ho
 {phang2}{cmd:. * 1   2020-01-15  2020-06-20  .}{p_end}
 {phang2}{cmd:. * 2   2020-04-01  .           .}{p_end}
 
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/_examples/cohort.dta", clear"':. use _examples/cohort.dta, clear}{p_end}
+{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
 
-{phang2}{cmd:. tvexpose using _examples/tv_antidep_episodes.dta, id(id) start(rx_start) stop(rx_stop) ///}{p_end}
+{phang2}{cmd:. tvexpose using _data/tv_antidep_episodes.dta, id(id) start(rx_start) stop(rx_stop) ///}{p_end}
 {phang3}{cmd:exposure(drug_class) reference(0) ///}{p_end}
 {phang3}{cmd:entry(study_entry) exit(study_exit) ///}{p_end}
-{phang3}{cmd:saveas(_examples/tv_intervals.dta) replace}{p_end}
+{phang3}{cmd:saveas(_data/tv_intervals.dta) replace}{p_end}
 
 {phang2}{cmd:. * Load event data with wide-format recurring events}{p_end}
 {phang2}{cmd:. use hospitalizations, clear}{p_end}
 
 {phang2}{cmd:. * date(hosp) finds hosp1, hosp2, hosp3, etc.}{p_end}
-{phang2}{stata "tvevent using _examples/tv_intervals.dta, id(id) date(hosp) type(recurring) generate(hospitalized) startvar(rx_start) stopvar(rx_stop)":. tvevent using _examples/tv_intervals.dta, id(id) date(hosp) ///}{p_end}
+{phang2}{stata "tvevent using _data/tv_intervals.dta, id(id) date(hosp) type(recurring) generate(hospitalized) startvar(rx_start) stopvar(rx_stop)":. tvevent using _data/tv_intervals.dta, id(id) date(hosp) ///}{p_end}
 {phang3}{cmd:type(recurring) generate(hospitalized) ///}{p_end}
 {phang3}{cmd:startvar(rx_start) stopvar(rx_stop)}{p_end}
 
@@ -285,15 +285,15 @@ Note that {cmd:compete()} is not supported with recurring events.
 {pstd}
 Create a variable for interval duration, useful for Poisson regression offsets:
 
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/_examples/cohort.dta", clear"':. use _examples/cohort.dta, clear}{p_end}
+{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
 
-{phang2}{cmd:. tvexpose using _examples/tv_antidep_episodes.dta, id(id) start(rx_start) stop(rx_stop) ///}{p_end}
+{phang2}{cmd:. tvexpose using _data/tv_antidep_episodes.dta, id(id) start(rx_start) stop(rx_stop) ///}{p_end}
 {phang3}{cmd:exposure(drug_class) reference(0) ///}{p_end}
 {phang3}{cmd:entry(study_entry) exit(study_exit) ///}{p_end}
-{phang3}{cmd:saveas(_examples/tv_antidep_temp.dta) replace}{p_end}
+{phang3}{cmd:saveas(_data/tv_antidep_temp.dta) replace}{p_end}
 
-{phang2}{stata "use _examples/tv_events.dta, clear":. use _examples/tv_events.dta, clear}{p_end}
-{phang2}{stata "tvevent using _examples/tv_antidep_temp.dta, id(id) date(cv_event_date) timegen(interval_years) timeunit(years) startvar(rx_start) stopvar(rx_stop)":. tvevent using _examples/tv_antidep_temp.dta, id(id) ///}{p_end}
+{phang2}{stata "use _data/tv_events.dta, clear":. use _data/tv_events.dta, clear}{p_end}
+{phang2}{stata "tvevent using _data/tv_antidep_temp.dta, id(id) date(cv_event_date) timegen(interval_years) timeunit(years) startvar(rx_start) stopvar(rx_stop)":. tvevent using _data/tv_antidep_temp.dta, id(id) ///}{p_end}
 {phang3}{cmd:date(cv_event_date) ///}{p_end}
 {phang3}{cmd:timegen(interval_years) timeunit(years) ///}{p_end}
 {phang3}{cmd:startvar(rx_start) stopvar(rx_stop)}{p_end}
@@ -310,36 +310,36 @@ interval's stop date, in the specified unit (days, months, or years).
 Full pipeline showing tvexpose, tvmerge, and tvevent integration:
 
 {phang2}{cmd:. * Step 1: Create time-varying antidepressant dataset}{p_end}
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/_examples/cohort.dta", clear"':. use _examples/cohort.dta, clear}{p_end}
-{phang2}{cmd:. tvexpose using _examples/tv_antidep_episodes.dta, id(id) start(rx_start) stop(rx_stop) ///}{p_end}
+{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
+{phang2}{cmd:. tvexpose using _data/tv_antidep_episodes.dta, id(id) start(rx_start) stop(rx_stop) ///}{p_end}
 {phang3}{cmd:exposure(drug_class) reference(0) ///}{p_end}
 {phang3}{cmd:entry(study_entry) exit(study_exit) ///}{p_end}
-{phang3}{cmd:saveas(_examples/tv_antidep.dta) replace}{p_end}
+{phang3}{cmd:saveas(_data/tv_antidep.dta) replace}{p_end}
 
-{phang2}{stata "use _examples/tv_antidep.dta, clear":. use _examples/tv_antidep.dta, clear}{p_end}
+{phang2}{stata "use _data/tv_antidep.dta, clear":. use _data/tv_antidep.dta, clear}{p_end}
 {phang2}{stata "rename tv_exposure drug_class":. rename tv_exposure drug_class}{p_end}
-{phang2}{stata "save _examples/tv_antidep.dta, replace":. save _examples/tv_antidep.dta, replace}{p_end}
+{phang2}{stata "save _data/tv_antidep.dta, replace":. save _data/tv_antidep.dta, replace}{p_end}
 
 {phang2}{cmd:. * Step 2: Create time-varying benzodiazepine dataset}{p_end}
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/_examples/cohort.dta", clear"':. use _examples/cohort.dta, clear}{p_end}
-{phang2}{cmd:. tvexpose using _examples/tv_benzo_episodes.dta, id(id) start(rx_start) stop(rx_stop) ///}{p_end}
+{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
+{phang2}{cmd:. tvexpose using _data/tv_benzo_episodes.dta, id(id) start(rx_start) stop(rx_stop) ///}{p_end}
 {phang3}{cmd:exposure(benzo_use) reference(0) ///}{p_end}
 {phang3}{cmd:entry(study_entry) exit(study_exit) ///}{p_end}
-{phang3}{cmd:saveas(_examples/tv_benzo.dta) replace}{p_end}
+{phang3}{cmd:saveas(_data/tv_benzo.dta) replace}{p_end}
 
-{phang2}{stata "use _examples/tv_benzo.dta, clear":. use _examples/tv_benzo.dta, clear}{p_end}
+{phang2}{stata "use _data/tv_benzo.dta, clear":. use _data/tv_benzo.dta, clear}{p_end}
 {phang2}{stata "rename tv_exposure benzo":. rename tv_exposure benzo}{p_end}
-{phang2}{stata "save _examples/tv_benzo.dta, replace":. save _examples/tv_benzo.dta, replace}{p_end}
+{phang2}{stata "save _data/tv_benzo.dta, replace":. save _data/tv_benzo.dta, replace}{p_end}
 
 {phang2}{cmd:. * Step 3: Merge the two time-varying datasets}{p_end}
-{phang2}{stata "tvmerge _examples/tv_antidep _examples/tv_benzo, id(id) start(rx_start rx_start) stop(rx_stop rx_stop) exposure(drug_class benzo)":. tvmerge _examples/tv_antidep _examples/tv_benzo, id(id) ///}{p_end}
+{phang2}{stata "tvmerge _data/tv_antidep _data/tv_benzo, id(id) start(rx_start rx_start) stop(rx_stop rx_stop) exposure(drug_class benzo)":. tvmerge _data/tv_antidep _data/tv_benzo, id(id) ///}{p_end}
 {phang3}{cmd:start(rx_start rx_start) stop(rx_stop rx_stop) ///}{p_end}
 {phang3}{cmd:exposure(drug_class benzo)}{p_end}
 
 {phang2}{cmd:. * Step 4: Save merged TV data, then load event data as master}{p_end}
-{phang2}{stata "save _examples/tv_merged.dta, replace":. save _examples/tv_merged.dta, replace}{p_end}
-{phang2}{stata "use _examples/tv_events.dta, clear":. use _examples/tv_events.dta, clear}{p_end}
-{phang2}{stata "tvevent using _examples/tv_merged.dta, id(id) date(cv_event_date) compete(death_date) generate(outcome) type(single) startvar(start) stopvar(stop)":. tvevent using _examples/tv_merged.dta, id(id) ///}{p_end}
+{phang2}{stata "save _data/tv_merged.dta, replace":. save _data/tv_merged.dta, replace}{p_end}
+{phang2}{stata "use _data/tv_events.dta, clear":. use _data/tv_events.dta, clear}{p_end}
+{phang2}{stata "tvevent using _data/tv_merged.dta, id(id) date(cv_event_date) compete(death_date) generate(outcome) type(single) startvar(start) stopvar(stop)":. tvevent using _data/tv_merged.dta, id(id) ///}{p_end}
 {phang3}{cmd:date(cv_event_date) compete(death_date) ///}{p_end}
 {phang3}{cmd:generate(outcome) type(single) ///}{p_end}
 {phang3}{cmd:startvar(start) stopvar(stop)}{p_end}

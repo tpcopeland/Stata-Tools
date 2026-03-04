@@ -19,7 +19,7 @@ Works with any string code system: ICD, KVA, CPT, ATC, OPCS, or any other classi
 ## Installation
 
 ```stata
-net install codescan, from("https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/codescan")
+net install codescan, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/codescan")
 ```
 
 ## Syntax

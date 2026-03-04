@@ -56,7 +56,7 @@ and MS disability progression endpoints (EDSS, CDP, PIRA).
 {pstd}
 To install or update setools:
 
-{phang2}{cmd:. net install setools, from("https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/setools") replace}{p_end}
+{phang2}{cmd:. net install setools, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/setools") replace}{p_end}
 
 
 {marker author}{...}

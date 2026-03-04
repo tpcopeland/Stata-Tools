@@ -433,15 +433,15 @@ Example: {cmd:legendopts(rows(2) position(3))}
 {pstd}{bf:Registry data examples}{p_end}
 
 {pstd}Missing patterns in LISA data{p_end}
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/_examples/lisa.dta", clear"':. use _examples/lisa.dta, clear}{p_end}
+{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/lisa.dta", clear"':. use _data/lisa.dta, clear}{p_end}
 {phang2}{stata "mvp disp_income employment education_level, percent sort":. mvp disp_income employment education_level, percent sort}{p_end}
 
 {pstd}Missing data visualization for cohort{p_end}
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/_examples/cohort.dta", clear"':. use _examples/cohort.dta, clear}{p_end}
+{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
 {phang2}{stata "mvp death_date, graph(bar)":. mvp death_date, graph(bar)}{p_end}
 
 {pstd}Generate missingness indicators for imputation planning{p_end}
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/_examples/lisa.dta", clear"':. use _examples/lisa.dta, clear}{p_end}
+{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/lisa.dta", clear"':. use _data/lisa.dta, clear}{p_end}
 {phang2}{stata "mvp disp_income employment, generate(m) monotone":. mvp disp_income employment, generate(m) monotone}{p_end}
 
 

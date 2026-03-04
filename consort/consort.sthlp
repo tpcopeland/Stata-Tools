@@ -263,7 +263,7 @@ If matplotlib is not installed, you can install it with:
 {pstd}
 Generate a CONSORT diagram for an antidepressant cohort study:
 
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/_examples/cohort.dta", clear"':. use _examples/cohort.dta, clear}{p_end}
+{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
 {phang2}{stata `"consort init, initial("Persons with antidepressant dispensing (N=15,000)")"':. consort init, initial("Persons with antidepressant dispensing (N=15,000)")}{p_end}
 {phang2}{stata `"consort exclude if index_age < 18, label("Age < 18 years")"':. consort exclude if index_age < 18, label("Age < 18 years")}{p_end}
 {phang2}{stata `"consort exclude if study_exit <= study_entry + 30, label("Follow-up < 30 days")"':. consort exclude if study_exit <= study_entry + 30, label("Follow-up < 30 days")}{p_end}
@@ -277,7 +277,7 @@ Generate a CONSORT diagram for an antidepressant cohort study:
 {pstd}
 Mark intermediate milestones in the exclusion process:
 
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/_examples/cohort.dta", clear"':. use _examples/cohort.dta, clear}{p_end}
+{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
 {phang2}{stata `"consort init, initial("All persons dispensed antidepressants 2006-2020")"':. consort init, initial("All persons dispensed antidepressants 2006-2020")}{p_end}
 {phang2}{stata `"consort exclude if index_age < 18, label("Age < 18 years") remaining("Adult cohort")"':. consort exclude if index_age < 18, label("Age < 18 years") remaining("Adult cohort")}{p_end}
 {phang2}{cmd:. consort exclude if study_exit <= study_entry + 30, label("Follow-up < 30 days") remaining("Minimum follow-up")}{p_end}

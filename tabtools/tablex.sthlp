@@ -92,8 +92,8 @@ text and bottom border. Default is auto-detection based on content analysis.
 {title:Examples}
 
 {pstd}Setup{p_end}
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/_examples/cohort.dta", clear"':. use _examples/cohort.dta, clear}{p_end}
-{phang2}{stata `"merge 1:1 id using "https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/_examples/treatment.dta", nogen keep(match)"':. merge 1:1 id using _examples/treatment.dta, nogen keep(match)}{p_end}
+{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
+{phang2}{stata `"merge 1:1 id using "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/treatment.dta", nogen keep(match)"':. merge 1:1 id using _data/treatment.dta, nogen keep(match)}{p_end}
 
 {pstd}Education by treatment group{p_end}
 {phang2}{stata "table (education) (treated)":. table (education) (treated)}{p_end}

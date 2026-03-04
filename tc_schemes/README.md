@@ -29,7 +29,7 @@ With `tc_schemes`, you get:
 ## Installation
 
 ```stata
-net install tc_schemes, from("https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/tc_schemes")
+net install tc_schemes, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/tc_schemes")
 ```
 
 ## Usage
@@ -69,7 +69,7 @@ Check if installed (in do-file headers):
 ```stata
 capture which tc_schemes
 if _rc != 0 {
-    net install tc_schemes, from("https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/tc_schemes")
+    net install tc_schemes, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/tc_schemes")
 }
 ```
 

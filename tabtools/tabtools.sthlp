@@ -57,7 +57,7 @@ merged headers, and professional styling suitable for journal submissions.
 {pstd}
 To install or update tabtools:
 
-{phang2}{cmd:. net install tabtools, from("https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/tabtools") replace}{p_end}
+{phang2}{cmd:. net install tabtools, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/tabtools") replace}{p_end}
 
 
 {marker author}{...}

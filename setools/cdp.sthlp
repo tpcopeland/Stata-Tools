@@ -117,19 +117,19 @@ By default, only observations for patients who experience CDP are kept.
 {title:Examples}
 
 {pstd}Basic CDP with 6-month confirmation:{p_end}
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/_examples/relapses.dta", clear"':. use _examples/relapses.dta, clear}{p_end}
+{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/relapses.dta", clear"':. use _data/relapses.dta, clear}{p_end}
 {phang2}{stata "cdp id edss edss_date, dxdate(dx_date)":. cdp id edss edss_date, dxdate(dx_date)}{p_end}
 
 {pstd}Using 3-month confirmation window:{p_end}
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/_examples/relapses.dta", clear"':. use _examples/relapses.dta, clear}{p_end}
+{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/relapses.dta", clear"':. use _data/relapses.dta, clear}{p_end}
 {phang2}{stata "cdp id edss edss_date, dxdate(dx_date) confirmdays(90)":. cdp id edss edss_date, dxdate(dx_date) confirmdays(90)}{p_end}
 
 {pstd}Track multiple progression events with roving baseline:{p_end}
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/_examples/relapses.dta", clear"':. use _examples/relapses.dta, clear}{p_end}
+{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/relapses.dta", clear"':. use _data/relapses.dta, clear}{p_end}
 {phang2}{stata "cdp id edss edss_date, dxdate(dx_date) roving allevents":. cdp id edss edss_date, dxdate(dx_date) roving allevents}{p_end}
 
 {pstd}Keep all patients (including those without progression):{p_end}
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/_examples/relapses.dta", clear"':. use _examples/relapses.dta, clear}{p_end}
+{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/relapses.dta", clear"':. use _data/relapses.dta, clear}{p_end}
 {phang2}{stata "cdp id edss edss_date, dxdate(dx_date) keepall":. cdp id edss edss_date, dxdate(dx_date) keepall}{p_end}
 {phang2}{stata "gen had_cdp = !missing(cdp_date)":. gen had_cdp = !missing(cdp_date)}{p_end}
 {phang2}{stata "tab had_cdp":. tab had_cdp}{p_end}

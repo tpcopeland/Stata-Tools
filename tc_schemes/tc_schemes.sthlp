@@ -210,7 +210,7 @@ Web 3D inspired vibrant colors. High contrast for digital presentations.{p_end}
 {phang2}{stata "graph combine g1 g2":. graph combine g1 g2}{p_end}
 
 {pstd}Apply scheme to cohort visualization:{p_end}
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/_examples/cohort.dta", clear"':. use _examples/cohort.dta, clear}{p_end}
+{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
 {phang2}{stata `"scatter index_age study_entry, scheme(plotplain) title("Age at Entry Over Calendar Time") xtitle("Study Entry Date") ytitle("Age (years)")"':. scatter index_age study_entry, scheme(plotplain) ///}{p_end}
 {phang2}{cmd:     title("Age at Entry Over Calendar Time") ///}{p_end}
 {phang2}{cmd:     xtitle("Study Entry Date") ytitle("Age (years)")}{p_end}

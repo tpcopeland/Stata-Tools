@@ -160,23 +160,23 @@ only observations for patients with CDP (either PIRA or RAW) are kept.
 {title:Examples}
 
 {pstd}Prepare relapse dataset (one row per relapse):{p_end}
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/_examples/relapses.dta", clear"':. use _examples/relapses.dta, clear}{p_end}
+{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/relapses.dta", clear"':. use _data/relapses.dta, clear}{p_end}
 {phang2}{stata "keep if relapse_date < .":. keep if relapse_date < .}{p_end}
 {phang2}{stata "keep id relapse_date":. keep id relapse_date}{p_end}
-{phang2}{stata `"save _examples/relapses_only.dta, replace"':. save _examples/relapses_only.dta, replace}{p_end}
+{phang2}{stata `"save _data/relapses_only.dta, replace"':. save _data/relapses_only.dta, replace}{p_end}
 
 {pstd}Basic PIRA analysis:{p_end}
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/_examples/relapses.dta", clear"':. use _examples/relapses.dta, clear}{p_end}
-{phang2}{stata "pira id edss edss_date, dxdate(dx_date) relapses(_examples/relapses_only.dta)":. pira id edss edss_date, dxdate(dx_date) relapses(_examples/relapses_only.dta)}{p_end}
+{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/relapses.dta", clear"':. use _data/relapses.dta, clear}{p_end}
+{phang2}{stata "pira id edss edss_date, dxdate(dx_date) relapses(_data/relapses_only.dta)":. pira id edss edss_date, dxdate(dx_date) relapses(_data/relapses_only.dta)}{p_end}
 
 {pstd}Using Lublin 2014 definition (30 days after relapse only):{p_end}
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/_examples/relapses.dta", clear"':. use _examples/relapses.dta, clear}{p_end}
-{phang2}{stata "pira id edss edss_date, dxdate(dx_date) relapses(_examples/relapses_only.dta) windowbefore(0) windowafter(30)":. pira id edss edss_date, dxdate(dx_date) relapses(_examples/relapses_only.dta) ///}{p_end}
+{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/relapses.dta", clear"':. use _data/relapses.dta, clear}{p_end}
+{phang2}{stata "pira id edss edss_date, dxdate(dx_date) relapses(_data/relapses_only.dta) windowbefore(0) windowafter(30)":. pira id edss edss_date, dxdate(dx_date) relapses(_data/relapses_only.dta) ///}{p_end}
 {phang3}{cmd:windowbefore(0) windowafter(30)}{p_end}
 
 {pstd}Keep all patients and compare PIRA vs RAW:{p_end}
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/_examples/relapses.dta", clear"':. use _examples/relapses.dta, clear}{p_end}
-{phang2}{stata "pira id edss edss_date, dxdate(dx_date) relapses(_examples/relapses_only.dta) keepall":. pira id edss edss_date, dxdate(dx_date) relapses(_examples/relapses_only.dta) keepall}{p_end}
+{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/relapses.dta", clear"':. use _data/relapses.dta, clear}{p_end}
+{phang2}{stata "pira id edss edss_date, dxdate(dx_date) relapses(_data/relapses_only.dta) keepall":. pira id edss edss_date, dxdate(dx_date) relapses(_data/relapses_only.dta) keepall}{p_end}
 {phang2}{stata `"gen str4 progression_type = cond(!missing(pira_date), "PIRA", cond(!missing(raw_date), "RAW", "None"))"':. gen str4 progression_type = cond(!missing(pira_date), "PIRA", ///}{p_end}
 {phang3}{cmd:cond(!missing(raw_date), "RAW", "None"))}{p_end}
 {phang2}{stata "tab progression_type":. tab progression_type}{p_end}

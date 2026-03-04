@@ -354,7 +354,7 @@ You can document datasets in three ways:
 {phang2}{stata "datamap, single(demo_data) samples(5) exclude(id name)":. datamap, single(demo_data) samples(5) exclude(id name)}{p_end}
 
 {pstd}Document synthetic cohort with privacy controls{p_end}
-{phang2}{cmd:. datamap, single(_examples/cohort.dta) ///}{p_end}
+{phang2}{cmd:. datamap, single(_data/cohort.dta) ///}{p_end}
 {phang2}{cmd:     exclude(id birth_date death_date) ///}{p_end}
 {phang2}{cmd:     datesafe ///}{p_end}
 {phang2}{cmd:     output(datamap/examples/cohort_documentation.txt)}{p_end}

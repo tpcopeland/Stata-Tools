@@ -17,7 +17,7 @@ Fork of `mvpatterns` by Jeroen Weesie (STB-61: dm91)
 ## Installation
 
 ```stata
-net install mvp, from("https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/mvp")
+net install mvp, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/mvp")
 ```
 
 ## Syntax

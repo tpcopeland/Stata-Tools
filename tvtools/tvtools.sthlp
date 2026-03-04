@@ -95,7 +95,7 @@ For a streamlined approach, {helpb tvpipeline} can automate much of this workflo
 {pstd}
 To install or update tvtools:
 
-{phang2}{cmd:. net install tvtools, from("https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/tvtools") replace}{p_end}
+{phang2}{cmd:. net install tvtools, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/tvtools") replace}{p_end}
 
 
 {marker author}{...}

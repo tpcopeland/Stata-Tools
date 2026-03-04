@@ -19,7 +19,7 @@ The `consort` command creates publication-ready CONSORT (Consolidated Standards 
 ## Installation
 
 ```stata
-net install consort, from("https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/consort")
+net install consort, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/consort")
 ```
 
 ### Requirements

@@ -195,9 +195,9 @@ workflows. A typical workflow is:
 {pstd}
 {bf:Example 1: Unadjusted balance check}
 
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/_examples/cohort.dta", clear"':. use _examples/cohort.dta, clear}{p_end}
-{phang2}{stata `"merge 1:1 id using "https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/_examples/treatment.dta", nogen keep(match)"':. merge 1:1 id using _examples/treatment.dta, nogen keep(match)}{p_end}
-{phang2}{stata `"merge 1:1 id using "https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/_examples/comorbidities.dta", nogen keep(match)"':. merge 1:1 id using _examples/comorbidities.dta, nogen keep(match)}{p_end}
+{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
+{phang2}{stata `"merge 1:1 id using "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/treatment.dta", nogen keep(match)"':. merge 1:1 id using _data/treatment.dta, nogen keep(match)}{p_end}
+{phang2}{stata `"merge 1:1 id using "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/comorbidities.dta", nogen keep(match)"':. merge 1:1 id using _data/comorbidities.dta, nogen keep(match)}{p_end}
 {phang2}{stata "balancetab index_age female education diabetes hypertension, treatment(treated)":. balancetab index_age female education diabetes hypertension, treatment(treated)}{p_end}
 
 {pstd}

@@ -104,8 +104,8 @@ of non-missing values extracted for each variable.
 {title:Examples}
 
 {pstd}Extract income and education closest to study entry from LISA:{p_end}
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/_examples/cohort.dta", clear"':. use _examples/cohort.dta, clear}{p_end}
-{phang2}{cmd:. covarclose using _examples/lisa.dta, idvar(id) indexdate(study_entry) ///}{p_end}
+{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
+{phang2}{cmd:. covarclose using _data/lisa.dta, idvar(id) indexdate(study_entry) ///}{p_end}
 {phang3}{cmd:datevar(year) vars(disp_income employment education_level) ///}{p_end}
 {phang3}{cmd:yearformat impute prefer(closest) noisily}{p_end}
 

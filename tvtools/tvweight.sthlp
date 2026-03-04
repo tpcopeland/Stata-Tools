@@ -163,8 +163,8 @@ propensity score (predicted probability of observed treatment given covariates).
 {title:Examples}
 
 {pstd}Setup: Create time-varying exposure dataset (assumes tvexpose output in memory){p_end}
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/_examples/cohort.dta", clear"':. use _examples/cohort.dta, clear}{p_end}
-{phang2}{cmd:. tvexpose using _examples/tv_antidep_episodes.dta, id(id) start(rx_start) stop(rx_stop) exposure(drug_class) reference(0) entry(study_entry) exit(study_exit) keepvars(index_age female education)}{p_end}
+{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
+{phang2}{cmd:. tvexpose using _data/tv_antidep_episodes.dta, id(id) start(rx_start) stop(rx_stop) exposure(drug_class) reference(0) entry(study_entry) exit(study_exit) keepvars(index_age female education)}{p_end}
 
 {pstd}Basic IPTW for binary treatment{p_end}
 {phang2}{stata "tvweight tv_exposure, covariates(age sex comorbidity_score)":. tvweight tv_exposure, covariates(age sex comorbidity_score)}{p_end}

@@ -162,23 +162,23 @@ does not automatically exclude such patients.
 
 {pstd}{bf:Basic usage with synthetic MS data:}{p_end}
 
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/_examples/relapses.dta", clear"':. use _examples/relapses.dta, clear}{p_end}
+{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/relapses.dta", clear"':. use _data/relapses.dta, clear}{p_end}
 {phang2}{stata "sustainedss id edss edss_date, threshold(4)":. sustainedss id edss edss_date, threshold(4)}{p_end}
 {phang2}{stata "return list":. return list}{p_end}
 
 {pstd}{bf:Compute sustained EDSS >= 6 with custom variable name:}{p_end}
 
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/_examples/relapses.dta", clear"':. use _examples/relapses.dta, clear}{p_end}
+{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/relapses.dta", clear"':. use _data/relapses.dta, clear}{p_end}
 {phang2}{stata "sustainedss id edss edss_date, threshold(6) generate(edss6_sustained)":. sustainedss id edss edss_date, threshold(6) generate(edss6_sustained)}{p_end}
 
 {pstd}{bf:Use 3-month (90 day) confirmation window:}{p_end}
 
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/_examples/relapses.dta", clear"':. use _examples/relapses.dta, clear}{p_end}
+{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/relapses.dta", clear"':. use _data/relapses.dta, clear}{p_end}
 {phang2}{stata "sustainedss id edss edss_date, threshold(4) confirmwindow(90)":. sustainedss id edss edss_date, threshold(4) confirmwindow(90)}{p_end}
 
 {pstd}{bf:Keep all patients (including those without events):}{p_end}
 
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/_examples/relapses.dta", clear"':. use _examples/relapses.dta, clear}{p_end}
+{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/relapses.dta", clear"':. use _data/relapses.dta, clear}{p_end}
 {phang2}{stata "sustainedss id edss edss_date, threshold(4) keepall":. sustainedss id edss edss_date, threshold(4) keepall}{p_end}
 
 
@@ -228,4 +228,4 @@ Questions, comments, or bug reports: contact author{p_end}
 {help migrations:migrations} - Process Swedish migration registry data{p_end}
 
 {pstd}
-Online: {browse "https://github.com/tpcopeland/Stata-Dev":Stata-Dev on GitHub}{p_end}
+Online: {browse "https://github.com/tpcopeland/Stata-Tools":Stata-Tools on GitHub}{p_end}
