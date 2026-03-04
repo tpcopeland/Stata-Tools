@@ -34,9 +34,11 @@ from __future__ import annotations
 
 import matplotlib.pyplot as plt
 from matplotlib.patches import FancyBboxPatch, FancyArrowPatch
+from matplotlib.font_manager import FontProperties
 import argparse
 import csv
 import sys
+import textwrap
 from dataclasses import dataclass
 
 
@@ -80,26 +82,32 @@ class ConsortDiagram:
         self.shading = enabled
         return self
     
-    def _estimate_text_size(self, text: str, fontsize: int, tight: bool = False, medium: bool = False) -> tuple[float, float]:
-        """Estimate text dimensions based on character count."""
+    def _wrap_text(self, text: str, max_chars: int = 40) -> str:
+        """Wrap long text lines to fit in boxes."""
         lines = text.split('\n')
-        max_chars = max(len(line) for line in lines)
-        n_lines = len(lines)
-        
-        # Approximate character dimensions in data units
-        if tight:
-            char_width = fontsize * 0.0042
-            char_height = fontsize * 0.020
-        elif medium:
-            char_width = fontsize * 0.0052
-            char_height = fontsize * 0.022
-        else:
-            char_width = fontsize * 0.007
-            char_height = fontsize * 0.025
-        
-        width = max_chars * char_width
-        height = n_lines * char_height
-        return width, height
+        wrapped_lines = []
+        for line in lines:
+            if len(line) > max_chars:
+                wrapped_lines.extend(textwrap.wrap(line, width=max_chars))
+            else:
+                wrapped_lines.append(line)
+        return '\n'.join(wrapped_lines)
+
+    def _measure_text(self, text: str, fontsize: int) -> tuple[float, float]:
+        """Measure text dimensions using matplotlib's renderer.
+
+        Returns width and height in inches.
+        """
+        fig = plt.figure(figsize=(1, 1), dpi=100)
+        renderer = fig.canvas.get_renderer()
+        fp = FontProperties(size=fontsize)
+        t = fig.text(0, 0, text, fontproperties=fp)
+        bbox = t.get_window_extent(renderer=renderer)
+        # Small safety margin (8%) to absorb residual scale drift between passes
+        w_inches = bbox.width / 100.0 * 1.08
+        h_inches = bbox.height / 100.0 * 1.05
+        plt.close(fig)
+        return w_inches, h_inches
     
     def _format_box(self, label: str, n: int) -> str:
         return f"{label}\nn={n:,}"
@@ -107,39 +115,6 @@ class ConsortDiagram:
     def _format_remaining(self, n: int) -> str:
         """Format intermediate remaining boxes - just n value."""
         return f"n={n:,}"
-    
-    def _draw_box(self, ax, x: float, y: float, text: str, color: str, 
-                  fontsize: int = None, min_width: float = None, tight: bool = False, medium: bool = False) -> Box:
-        """Draw a rounded box with centered text."""
-        if fontsize is None:
-            fontsize = self.font_size
-        if min_width is None:
-            min_width = self.min_box_width
-        
-        if tight:
-            padding = self.tight_padding
-        elif medium:
-            padding = self.medium_padding
-        else:
-            padding = self.box_padding
-            
-        w, h = self._estimate_text_size(text, fontsize, tight=tight, medium=medium)
-        w = max(w + padding * 2, min_width)
-        h = h + padding * 2
-        
-        facecolor = color if self.shading else "white"
-        
-        rect = FancyBboxPatch(
-            (x - w/2, y - h/2), w, h,
-            boxstyle="round,pad=0.02,rounding_size=0.1",
-            facecolor=facecolor,
-            edgecolor=self.edge_color,
-            linewidth=1.5
-        )
-        ax.add_patch(rect)
-        ax.text(x, y, text, ha='center', va='center', fontsize=fontsize)
-        
-        return Box(text, x, y, w, h)
     
     def _draw_arrow(self, ax, start: tuple, end: tuple):
         """Draw an arrow between two points."""
@@ -152,107 +127,136 @@ class ConsortDiagram:
         )
         ax.add_patch(arrow)
     
-    def render(self, figsize: tuple = None, dpi: int = 150) -> tuple[plt.Figure, plt.Axes]:
-        """Render the diagram."""
-        n_steps = len(self.exclusions) + 1
-        if figsize is None:
-            figsize = (7, max(3, n_steps * 1.1))
-        
-        fig, ax = plt.subplots(figsize=figsize, dpi=dpi)
-        ax.axis('off')
-        
+    def _compute_box_size(self, text: str, fontsize: int, padding: float,
+                          min_width: float, is_exclusion: bool = False) -> tuple[str, float, float]:
+        """Wrap text and compute box dimensions in inches. Returns (wrapped_text, w, h)."""
+        max_chars = 35 if is_exclusion else 45
+        wrapped = self._wrap_text(text, max_chars=max_chars)
+        w_in, h_in = self._measure_text(wrapped, fontsize)
+        w = max(w_in + padding * 2, min_width)
+        h = h_in + padding * 2
+        return wrapped, w, h
+
+    def _layout(self) -> list[dict]:
+        """Compute box positions and sizes in inches. Returns layout specs."""
         main_x = 0
         current_y = 0
         current_n = self.initial_n
-        all_boxes = []
-        
-        # Draw initial box (medium tight)
+        items = []
+
+        # Initial box
         text = self._format_box(self.initial_label, current_n)
-        main_box = self._draw_box(ax, main_x, current_y, text, self.main_box_color,
-                                   self.title_font_size, medium=True)
-        all_boxes.append(main_box)
-        
-        # Fixed left edge for all exclusion boxes (based on initial box width)
+        wrapped, w, h = self._compute_box_size(text, self.title_font_size,
+                                                self.medium_padding, self.min_box_width)
+        main_box = Box(wrapped, main_x, current_y, w, h)
+        items.append({'type': 'main', 'box': main_box, 'fontsize': self.title_font_size,
+                       'medium': True, 'tight': False})
+
         excl_left_x = main_x + main_box.width/2 + self.horizontal_gap
-        
+
         for i, (label, n_excluded, remaining) in enumerate(self.exclusions):
             current_n -= n_excluded
             is_last = (i == len(self.exclusions) - 1)
-            
-            # Calculate positions
+
+            # Exclusion box
             excl_text = self._format_box(label, n_excluded)
-            
-            # Measure exclusion box (tight fit)
-            ew, eh = self._estimate_text_size(excl_text, self.font_size, tight=True)
-            ew = max(ew + self.tight_padding * 2, self.min_excl_width)
-            eh = eh + self.tight_padding * 2
-            
-            # Exclusion box y is between main boxes
+            wrapped_e, ew, eh = self._compute_box_size(excl_text, self.font_size,
+                                                        self.tight_padding, self.min_excl_width,
+                                                        is_exclusion=True)
             excl_y = main_box.y - main_box.height/2 - self.vertical_gap - eh/2
-            
-            # Exclusion box x: left edge aligned, center varies by width
             excl_x = excl_left_x + ew/2
-            
-            # Draw exclusion box
-            excl_box = self._draw_box(ax, excl_x, excl_y, excl_text, 
-                                       self.exclusion_box_color,
-                                       min_width=self.min_excl_width,
-                                       tight=True)
-            all_boxes.append(excl_box)
-            
-            # Next main box position
+            excl_box = Box(wrapped_e, excl_x, excl_y, ew, eh)
+            items.append({'type': 'excl', 'box': excl_box})
+
+            # Next main box
             next_y = excl_y - eh/2 - self.vertical_gap
-            
-            # Format next main box - use label only for last box or if custom remaining specified
             if remaining:
                 next_text = self._format_box(remaining, current_n)
-                use_medium = True  # custom label = medium
+                use_medium = True
             elif is_last:
                 next_text = self._format_box("Final Cohort", current_n)
-                use_medium = True  # final box = medium
+                use_medium = True
             else:
                 next_text = self._format_remaining(current_n)
-                use_medium = False  # intermediate = tight
-            
-            if use_medium:
-                nw, nh = self._estimate_text_size(next_text, self.font_size, medium=True)
-                nw = max(nw + self.medium_padding * 2, self.min_box_width)
-                nh = nh + self.medium_padding * 2
-            else:
-                nw, nh = self._estimate_text_size(next_text, self.font_size, tight=True)
-                nw = max(nw + self.tight_padding * 2, self.min_box_width)
-                nh = nh + self.tight_padding * 2
+                use_medium = False
+
+            pad = self.medium_padding if use_medium else self.tight_padding
+            wrapped_n, nw, nh = self._compute_box_size(next_text, self.font_size,
+                                                        pad, self.min_box_width)
             next_y = next_y - nh/2
-            
-            next_box = self._draw_box(ax, main_x, next_y, next_text, self.main_box_color,
-                                      tight=not use_medium, medium=use_medium)
-            all_boxes.append(next_box)
-            
-            # Draw arrows
-            # Vertical arrow first (drawn below horizontal)
-            self._draw_arrow(ax,
-                           (main_x, main_box.y - main_box.height/2),
-                           (main_x, next_box.y + next_box.height/2))
-            
-            # Horizontal arrow: starts slightly left of vertical line for overlap
-            arrow_y = excl_y
-            overlap = 0.01
-            self._draw_arrow(ax,
-                           (main_x - overlap, arrow_y),
-                           (excl_left_x, arrow_y))
-            
+            next_box = Box(wrapped_n, main_x, next_y, nw, nh)
+            items.append({'type': 'main', 'box': next_box, 'fontsize': self.font_size,
+                           'medium': use_medium, 'tight': not use_medium,
+                           'prev_main': main_box, 'excl_left_x': excl_left_x,
+                           'arrow_y': excl_y})
+
             main_box = next_box
-        
-        # Adjust view limits
-        if all_boxes:
-            min_x = min(b.x - b.width/2 for b in all_boxes) - 0.3
-            max_x = max(b.x + b.width/2 for b in all_boxes) + 0.3
-            min_y = min(b.y - b.height/2 for b in all_boxes) - 0.3
-            max_y = max(b.y + b.height/2 for b in all_boxes) + 0.3
-            
-            ax.set_xlim(min_x, max_x)
-            ax.set_ylim(min_y, max_y)
-        
+
+        return items
+
+    def render(self, figsize: tuple = None, dpi: int = 150) -> tuple[plt.Figure, plt.Axes]:
+        """Render the diagram. Layout is computed in inches for exact sizing."""
+        # Layout in inches (1 data unit = 1 inch)
+        items = self._layout()
+        all_boxes = [item['box'] for item in items]
+
+        # Compute bounding box of layout in inches
+        margin = 0.4
+        min_x = min(b.x - b.width/2 for b in all_boxes) - margin
+        max_x = max(b.x + b.width/2 for b in all_boxes) + margin
+        min_y = min(b.y - b.height/2 for b in all_boxes) - margin
+        max_y = max(b.y + b.height/2 for b in all_boxes) + margin
+
+        # Derive figure size from content (1 data unit = 1 inch)
+        content_w = max_x - min_x
+        content_h = max_y - min_y
+        if figsize is None:
+            figsize = (content_w, content_h)
+
+        fig, ax = plt.subplots(figsize=figsize, dpi=dpi)
+        ax.axis('off')
+        ax.set_xlim(min_x, max_x)
+        ax.set_ylim(min_y, max_y)
+
+        # Draw all elements
+        for item in items:
+            box = item['box']
+            if item['type'] == 'main':
+                fontsize = item.get('fontsize', self.font_size)
+                facecolor = self.main_box_color if self.shading else "white"
+
+                rounding = min(0.05, box.height * 0.3, box.width * 0.1)
+                rect = FancyBboxPatch(
+                    (box.x - box.width/2, box.y - box.height/2), box.width, box.height,
+                    boxstyle=f"round,pad=0.02,rounding_size={rounding:.3f}",
+                    facecolor=facecolor, edgecolor=self.edge_color, linewidth=1.5
+                )
+                ax.add_patch(rect)
+                ax.text(box.x, box.y, box.text, ha='center', va='center', fontsize=fontsize)
+
+                # Draw arrows from previous main box
+                if 'prev_main' in item:
+                    prev = item['prev_main']
+                    self._draw_arrow(ax,
+                                   (0, prev.y - prev.height/2),
+                                   (0, box.y + box.height/2))
+                    overlap = 0.01
+                    self._draw_arrow(ax,
+                                   (-overlap, item['arrow_y']),
+                                   (item['excl_left_x'], item['arrow_y']))
+
+            elif item['type'] == 'excl':
+                facecolor = self.exclusion_box_color if self.shading else "white"
+                rounding = min(0.05, box.height * 0.3, box.width * 0.1)
+                rect = FancyBboxPatch(
+                    (box.x - box.width/2, box.y - box.height/2), box.width, box.height,
+                    boxstyle=f"round,pad=0.02,rounding_size={rounding:.3f}",
+                    facecolor=facecolor, edgecolor=self.edge_color, linewidth=1.5
+                )
+                ax.add_patch(rect)
+                ax.text(box.x, box.y, box.text, ha='center', va='center',
+                        fontsize=self.font_size)
+
         plt.tight_layout()
         return fig, ax
     

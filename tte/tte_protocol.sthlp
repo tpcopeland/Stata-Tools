@@ -16,16 +16,24 @@
 
 {p 8 17 2}
 {cmdab:tte_protocol}
+{cmd:,} {opt auto}
+[{it:component_options} {it:export_options}]
+
+{p 8 17 2}
+{cmdab:tte_protocol}
 {cmd:,} {opth elig:ibility(string)} {opth treat:ment(string)}
 {opth ass:ignment(string)} {opth fol:lowup_start(string)}
 {opth out:come(string)} {opth caus:al_contrast(string)}
 {opth anal:ysis(string)}
-[{it:options}]
+[{it:export_options}]
 
 {synoptset 30 tabbed}{...}
 {synopthdr}
 {synoptline}
-{syntab:Required (7 components)}
+{syntab:Auto-fill}
+{synopt:{opt auto}}generate defaults from dataset metadata{p_end}
+
+{syntab:7 components (required without {opt auto})}
 {synopt:{opth elig:ibility(string)}}eligibility criteria{p_end}
 {synopt:{opth treat:ment(string)}}treatment strategies{p_end}
 {synopt:{opth ass:ignment(string)}}treatment assignment procedure{p_end}
@@ -48,20 +56,32 @@
 {pstd}
 {cmd:tte_protocol} generates a formatted target trial protocol
 specification table following the Hernan & Robins (2016) 7-component
-framework. This is unique to the {cmd:tte} package; the R
-{cmd:TrialEmulation} package does not provide this feature.
+framework.
 
 {pstd}
 The protocol table is a key element of the methods section when
 reporting target trial emulation studies.
 
+{pstd}
+With {opt auto}, the command reads dataset characteristics stored by
+{cmd:tte_prepare} and {cmd:tte_fit} to generate default text for each
+protocol component. User-supplied text overrides auto-generated defaults.
+This requires data that has been through at least {cmd:tte_prepare}.
+
 
 {marker examples}{...}
 {title:Examples}
 
+{pstd}Auto-generate protocol from metadata{p_end}
+{phang2}{cmd:. tte_protocol, auto}{p_end}
+
+{pstd}Auto-generate with custom eligibility text{p_end}
+{phang2}{cmd:. tte_protocol, auto eligibility("Age >= 18, no prior outcome, enrolled in registry")}{p_end}
+
+{pstd}Fully manual specification{p_end}
 {phang2}{cmd:. tte_protocol, eligibility("Age >= 18, no prior outcome") treatment("Initiate drug vs no drug") assignment("At each eligible period") followup_start("Start of eligible period") outcome("All-cause mortality") causal_contrast("Per-protocol effect") analysis("Pooled logistic with IPCW")}{p_end}
 
-{phang2}{cmd:. tte_protocol, eligibility("Adults with condition X") treatment("Drug A vs no treatment") assignment("Sequential") followup_start("Treatment eligibility") outcome("Composite endpoint") causal_contrast("ITT") analysis("Cox MSM") export(protocol.tex) format(latex)}{p_end}
+{phang2}{cmd:. tte_protocol, auto export(protocol.xlsx) format(excel) replace}{p_end}
 
 
 {marker author}{...}
@@ -72,3 +92,8 @@ Timothy P Copeland{break}
 Department of Clinical Neuroscience{break}
 Karolinska Institutet{break}
 Email: timothy.copeland@ki.se
+
+{pstd}
+Tania F Reza{break}
+Department of Global Public Health{break}
+Karolinska Institutet

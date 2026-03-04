@@ -1,7 +1,9 @@
 *! tte_report Version 1.0.3  2026/03/01
 *! Publication-quality results tables for target trial emulation
 *! Author: Timothy P Copeland
+*! Author: Tania F Reza
 *! Department of Clinical Neuroscience, Karolinska Institutet
+*! Department of Global Public Health, Karolinska Institutet
 *! Program class: rclass (returns results in r())
 
 /*
@@ -224,7 +226,7 @@ program define tte_report, rclass
         if "`fitted'" == "1" {
             quietly {
                 putexcel set "`export'", sheet("Coefficients") modify
-                putexcel A1 = "Variable" B1 = "`effect_label'" C1 = "CI Lower" D1 = "CI Upper" E1 = "p-value"
+                putexcel A1 = "Variable" B1 = "`effect_label'" C1 = "`ci_level'% CI Lower" D1 = "`ci_level'% CI Upper" E1 = "P-value"
 
                 local row = 2
                 forvalues i = 1/`n_coefs' {
@@ -271,12 +273,23 @@ program define tte_report, rclass
 
                     putexcel set "`export'", sheet("Predictions") modify
 
-                    * Write header
+                    * Write header with human-readable labels
                     local pcol = 1
                     foreach pname of local pred_colnames {
                         _tte_col_letter `pcol'
                         local pletter "`result'"
-                        putexcel `pletter'1 = "`pname'"
+                        local plabel "`pname'"
+                        if "`pname'" == "time"    local plabel "Follow-up Time"
+                        if "`pname'" == "est_0"   local plabel "Control"
+                        if "`pname'" == "ci_lo_0" local plabel "Control CI Lower"
+                        if "`pname'" == "ci_hi_0" local plabel "Control CI Upper"
+                        if "`pname'" == "est_1"   local plabel "Treatment"
+                        if "`pname'" == "ci_lo_1" local plabel "Treatment CI Lower"
+                        if "`pname'" == "ci_hi_1" local plabel "Treatment CI Upper"
+                        if "`pname'" == "diff"    local plabel "Difference"
+                        if "`pname'" == "diff_lo" local plabel "Difference CI Lower"
+                        if "`pname'" == "diff_hi" local plabel "Difference CI Upper"
+                        putexcel `pletter'1 = "`plabel'"
                         local ++pcol
                     }
 

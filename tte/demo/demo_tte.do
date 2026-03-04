@@ -53,7 +53,7 @@ log using "`pkg_dir'/console_output.smcl", replace smcl name(demo) nomsg
 * STEP 0: Protocol specification (Hernan 7-component framework)
 * =====================================================================
 * The protocol should be defined BEFORE any analysis, following
-* Hernan & Robins (2016). This is unique to the tte package.
+* Hernan & Robins (2016).
 
 noisily tte, protocol
 

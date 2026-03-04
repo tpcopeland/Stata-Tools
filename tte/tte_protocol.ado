@@ -1,34 +1,25 @@
 *! tte_protocol Version 1.0.2  2026/03/01
 *! Target trial protocol table (Hernan 7-component) for target trial emulation
 *! Author: Timothy P Copeland
+*! Author: Tania F Reza
 *! Department of Clinical Neuroscience, Karolinska Institutet
+*! Department of Global Public Health, Karolinska Institutet
 *! Program class: rclass (returns results in r())
 
 /*
 Basic syntax:
-  tte_protocol, eligibility(string) treatment(string)
-      assignment(string) followup_start(string)
-      outcome(string) causal_contrast(string)
+  tte_protocol, auto [eligibility(string) treatment(string) ...]
+  tte_protocol, eligibility(string) treatment(string) assignment(string)
+      followup_start(string) outcome(string) causal_contrast(string)
       analysis(string) [export(filename) format(string)]
 
 Description:
   Generates a formatted target trial protocol specification table
-  following Hernan & Robins (2016) 7-component framework. This is
-  unique to our package - the R TrialEmulation package does not
-  have this feature.
+  following Hernan & Robins (2016) 7-component framework.
 
-Options:
-  eligibility(string)       - Eligibility criteria (required)
-  treatment(string)         - Treatment strategies (required)
-  assignment(string)        - Treatment assignment procedure (required)
-  followup_start(string)    - Follow-up start / time zero (required)
-  outcome(string)           - Outcome of interest (required)
-  causal_contrast(string)   - Causal contrast (ITT/PP) (required)
-  analysis(string)          - Statistical analysis plan (required)
-  export(filename)          - Export to file
-  format(string)            - display (default) | csv | excel | latex
-  title(string)             - Custom title
-  replace                   - Replace existing file
+  With auto, reads dataset metadata from tte_prepare/tte_fit to
+  generate default text for each component. User-supplied text
+  overrides auto-generated defaults.
 
 See help tte_protocol for complete documentation
 */
@@ -38,11 +29,11 @@ program define tte_protocol, rclass
     set varabbrev off
     set more off
 
-    syntax , ELIGibility(string) TREATment(string) ///
+    syntax [, AUTO ELIGibility(string) TREATment(string) ///
         ASSignment(string) FOLLowup_start(string) ///
         OUTcome(string) CAUSal_contrast(string) ///
         ANALysis(string) ///
-        [EXPort(string) FORmat(string) TItle(string) REPLACE]
+        EXPort(string) FORmat(string) TItle(string) REPLACE]
 
     * =========================================================================
     * DEFAULTS
@@ -54,6 +45,93 @@ program define tte_protocol, rclass
     if !inlist("`format'", "display", "csv", "excel", "latex") {
         display as error "format() must be display, csv, excel, or latex"
         exit 198
+    }
+
+    * =========================================================================
+    * AUTO-FILL FROM METADATA
+    * =========================================================================
+
+    if "`auto'" != "" {
+        * Require at least tte_prepare metadata
+        local _prepared : char _dta[_tte_prepared]
+        if "`_prepared'" != "1" {
+            display as error "auto requires data prepared with tte_prepare"
+            exit 198
+        }
+
+        * Read metadata
+        local _id        : char _dta[_tte_id]
+        local _treatment : char _dta[_tte_treatment]
+        local _outcome   : char _dta[_tte_outcome]
+        local _eligible  : char _dta[_tte_eligible]
+        local _estimand  : char _dta[_tte_estimand]
+
+        * Read fit metadata if available
+        local _fitted    : char _dta[_tte_fitted]
+        local _model     : char _dta[_tte_model]
+        local _fu_spec   : char _dta[_tte_followup_spec]
+        local _cluster   : char _dta[_tte_cluster]
+
+        * Auto-fill components not supplied by user
+        if `"`eligibility'"' == "" {
+            local eligibility "Eligible at each period (`_eligible' == 1); `_id' as unit of analysis"
+        }
+        if `"`treatment'"' == "" {
+            local treatment "Initiate treatment (`_treatment' == 1) vs. do not initiate"
+        }
+        if `"`assignment'"' == "" {
+            local assignment "At each eligible period, based on observed `_treatment' values"
+        }
+        if `"`followup_start'"' == "" {
+            local followup_start "Start of the period when eligibility criteria are met"
+        }
+        if `"`outcome'"' == "" {
+            local outcome "Binary outcome event (`_outcome' == 1)"
+        }
+        if `"`causal_contrast'"' == "" {
+            if "`_estimand'" == "ITT" {
+                local causal_contrast "Intention-to-treat (ITT)"
+            }
+            else if "`_estimand'" == "PP" {
+                local causal_contrast "Per-protocol (PP)"
+            }
+            else if "`_estimand'" == "AT" {
+                local causal_contrast "As-treated (AT)"
+            }
+            else {
+                local causal_contrast "`_estimand'"
+            }
+        }
+        if `"`analysis'"' == "" {
+            if "`_fitted'" == "1" {
+                local _model_desc "Pooled logistic regression"
+                if "`_model'" == "cox" {
+                    local _model_desc "Cox proportional hazards"
+                }
+                local _se_desc "robust SE"
+                if "`_cluster'" != "" {
+                    local _se_desc "robust SE, clustered by `_cluster'"
+                }
+                local _fu_desc ""
+                if "`_fu_spec'" != "" {
+                    local _fu_desc ", follow-up modeled as `_fu_spec'"
+                }
+                local analysis "`_model_desc' with `_se_desc'`_fu_desc'"
+            }
+            else {
+                local analysis "To be specified after model fitting"
+            }
+        }
+    }
+    else {
+        * Without auto, all 7 components are required
+        if `"`eligibility'"' == "" | `"`treatment'"' == "" | ///
+           `"`assignment'"' == "" | `"`followup_start'"' == "" | ///
+           `"`outcome'"' == "" | `"`causal_contrast'"' == "" | ///
+           `"`analysis'"' == "" {
+            display as error "all 7 protocol components required, or specify auto"
+            exit 198
+        }
     }
 
     * =========================================================================

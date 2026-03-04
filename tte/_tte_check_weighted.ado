@@ -1,6 +1,7 @@
 *! _tte_check_weighted Version 1.0.3  2026/03/01
 *! Verify weight variable exists
 *! Author: Timothy P Copeland
+*! Author: Tania F Reza
 
 program define _tte_check_weighted
     version 16.0

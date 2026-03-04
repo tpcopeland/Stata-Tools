@@ -121,7 +121,7 @@ time-varying values throughout follow-up, since it defines arm assignment
 and censoring events.
 
 {pstd}
-This design matches R's {cmd:TrialEmulation} package and follows the MSM
+This design follows the MSM
 framework: the outcome model E[Y{sup:a} | L{sub:0}] conditions on baseline
 covariates L{sub:0} only. Time-varying confounders L{sub:t} are handled by
 inverse probability weights, not by regression adjustment. Conditioning on
@@ -173,3 +173,8 @@ Timothy P Copeland{break}
 Department of Clinical Neuroscience{break}
 Karolinska Institutet{break}
 Email: timothy.copeland@ki.se
+
+{pstd}
+Tania F Reza{break}
+Department of Global Public Health{break}
+Karolinska Institutet

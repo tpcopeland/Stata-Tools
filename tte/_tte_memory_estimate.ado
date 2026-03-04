@@ -1,6 +1,7 @@
 *! _tte_memory_estimate Version 1.0.2  2026/02/28
 *! Estimate memory for expansion
 *! Author: Timothy P Copeland
+*! Author: Tania F Reza
 
 * Returns via c_local: _tte_est_bytes, _tte_est_rows, _tte_use_chunked
 

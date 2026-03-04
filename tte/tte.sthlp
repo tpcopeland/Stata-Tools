@@ -41,9 +41,9 @@ estimating per-protocol and intention-to-treat effects.
 
 {pstd}
 This is the first Stata implementation of the complete target trial
-emulation workflow, going beyond the R {cmd:TrialEmulation} package by
-adding Cox model support, protocol table generation, and publication-ready
-reporting.
+emulation workflow, featuring pooled logistic and Cox marginal structural
+models, protocol table generation, weight/balance diagnostics, and
+publication-ready reporting.
 
 
 {marker commands}{...}
@@ -143,3 +143,8 @@ Timothy P Copeland{break}
 Department of Clinical Neuroscience{break}
 Karolinska Institutet{break}
 Email: timothy.copeland@ki.se
+
+{pstd}
+Tania F Reza{break}
+Department of Global Public Health{break}
+Karolinska Institutet

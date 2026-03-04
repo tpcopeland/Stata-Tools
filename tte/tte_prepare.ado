@@ -1,7 +1,9 @@
 *! tte_prepare Version 1.0.1  2026/02/27
 *! Data preparation and variable mapping for target trial emulation
 *! Author: Timothy P Copeland
+*! Author: Tania F Reza
 *! Department of Clinical Neuroscience, Karolinska Institutet
+*! Department of Global Public Health, Karolinska Institutet
 *! Program class: rclass (returns results in r())
 
 /*

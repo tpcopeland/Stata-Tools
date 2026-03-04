@@ -80,13 +80,13 @@ probability of treatment switching as a function of covariates and
 lagged treatment status.
 
 {pstd}
-This differs from R's {cmd:TrialEmulation}, which uses 4 strata
-(arm x lagged treatment) with intercept-only denominators within each
-stratum. Both are valid parameterizations of the inverse probability
-weight model (Hernán & Robins, 2020, Technical Point 12.2). The choice
-affects individual weight values and outcome model coefficients but
-not the target causal estimand (risk differences from {cmd:tte_predict})
-when both models are correctly specified.
+An alternative approach uses 4 strata (arm x lagged treatment) with
+intercept-only denominators within each stratum. Both are valid
+parameterizations of the inverse probability weight model
+(Hernán & Robins, 2020, Technical Point 12.2). The choice affects
+individual weight values and outcome model coefficients but not the
+target causal estimand (risk differences from {cmd:tte_predict}) when
+both models are correctly specified.
 
 {dlgtab:Stabilized weights}
 
@@ -147,3 +147,8 @@ Timothy P Copeland{break}
 Department of Clinical Neuroscience{break}
 Karolinska Institutet{break}
 Email: timothy.copeland@ki.se
+
+{pstd}
+Tania F Reza{break}
+Department of Global Public Health{break}
+Karolinska Institutet

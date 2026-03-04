@@ -1,6 +1,7 @@
 *! _tte_natural_spline Version 1.0.2  2026/02/28
 *! Generate natural spline basis variables
 *! Author: Timothy P Copeland
+*! Author: Tania F Reza
 
 * Creates basis variables for natural cubic splines using the Harrell
 * restricted cubic spline formulation.

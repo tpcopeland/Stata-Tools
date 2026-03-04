@@ -41,9 +41,8 @@
 
 {pstd}
 {cmd:tte_fit} fits the marginal structural model for the target trial
-emulation. It supports pooled logistic regression (default, matching the
-R TrialEmulation package) and weighted Cox proportional hazards (a Stata
-extension beyond the R package).
+emulation. It supports pooled logistic regression (default) and weighted
+Cox proportional hazards.
 
 {pstd}
 For pooled logistic regression, the model is fitted via {cmd:glm} with
@@ -143,3 +142,8 @@ Timothy P Copeland{break}
 Department of Clinical Neuroscience{break}
 Karolinska Institutet{break}
 Email: timothy.copeland@ki.se
+
+{pstd}
+Tania F Reza{break}
+Department of Global Public Health{break}
+Karolinska Institutet

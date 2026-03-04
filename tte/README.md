@@ -4,7 +4,7 @@
 
 The first Stata implementation of the complete target trial emulation workflow. Implements the sequential trials framework (Hernan & Robins, 2016) with the clone-censor-weight approach for estimating per-protocol, intention-to-treat, and as-treated effects from observational data.
 
-Goes beyond the R `TrialEmulation` package by adding Cox model support, a Hernan 7-component protocol table generator, weight/balance diagnostics, and publication-ready reporting — all in a single, integrated pipeline.
+Features include pooled logistic and Cox marginal structural models, a Hernan 7-component protocol table generator, weight/balance diagnostics, and publication-ready reporting — all in a single, integrated pipeline.
 
 ## Table of Contents
 
@@ -289,7 +289,7 @@ The numerator conditions on fewer covariates → weights are closer to 1 → red
 
 ### tte_fit
 
-Fits the marginal structural model. Supports pooled logistic regression (default, matching R TrialEmulation) and Cox proportional hazards (Stata extension).
+Fits the marginal structural model. Supports pooled logistic regression (default) and Cox proportional hazards.
 
 **Syntax:**
 ```stata
@@ -409,7 +409,7 @@ tte_report [, format(string) export(filename) decimals(#)
 
 ### tte_protocol
 
-Generates the Hernan & Robins 7-component target trial specification table. Unique to the Stata `tte` package — R TrialEmulation does not provide this.
+Generates the Hernan & Robins 7-component target trial specification table. Supports auto-fill from dataset metadata or fully manual specification.
 
 **Syntax:**
 ```stata
@@ -659,7 +659,6 @@ The demo runs both ITT and PP analyses on the `trial_example` dataset and benchm
 ![Console output 5](demo/console_output_5.png)
 ![Console output 6](demo/console_output_6.png)
 ![Console output 7](demo/console_output_7.png)
-![Console output 8](demo/console_output_8.png)
 
 </details>
 
@@ -671,10 +670,14 @@ The demo runs both ITT and PP analyses on the `trial_example` dataset and benchm
 - Hernan MA, Robins JM. *Causal Inference: What If*. Boca Raton: Chapman & Hall/CRC; 2020.
 - Maringe C, Benitez Majano S, et al. TrialEmulation: An R Package for Target Trial Emulation. *arXiv*. 2024;2402.12083.
 
-## Author
+## Authors
 
 Timothy P Copeland
 Department of Clinical Neuroscience
+Karolinska Institutet
+
+Tania F Reza
+Department of Global Public Health
 Karolinska Institutet
 
 ## License
