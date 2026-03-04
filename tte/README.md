@@ -85,7 +85,7 @@ tte_predict, times(0 2 4 6 8) type(cum_inc) difference samples(100) seed(12345)
 Data flows through the commands in order. Each step stores metadata as dataset characteristics so downstream commands know what has been done.
 
 ```
-                          ┌─────────────────┐
+                          ┌──────────────────┐
                           │   Person-period  │
                           │      data        │
                           └────────┬─────────┘
