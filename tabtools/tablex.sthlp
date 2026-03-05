@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.2  25feb2026}{...}
+{* *! version 1.1.0  05mar2026}{...}
 {viewerjumpto "Syntax" "tablex##syntax"}{...}
 {viewerjumpto "Description" "tablex##description"}{...}
 {viewerjumpto "Options" "tablex##options"}{...}
@@ -29,6 +29,7 @@
 {synopt:{opt fontsize(#)}}font size in points; default is {cmd:10}{p_end}
 {synopt:{opt borderstyle(style)}}border style: {cmd:thin} or {cmd:medium}; default is {cmd:thin}{p_end}
 {synopt:{opt headerrows(#)}}number of header rows; default is auto-detect{p_end}
+{synopt:{opt nformat(string)}}Excel number format for data cells; default is General{p_end}
 {synoptline}
 {p 4 6 2}* {opt sheet()} is required.{p_end}
 
@@ -86,6 +87,12 @@ Must be between 6 and 72.
 {phang}
 {opt headerrows(#)} specifies the number of header rows to format with bold
 text and bottom border. Default is auto-detection based on content analysis.
+
+{phang}
+{opt nformat(string)} specifies an Excel number format string to apply to numeric
+data cells. By default, numbers are written as Excel numeric values with "General"
+formatting, which auto-adapts precision. Specify a format like {cmd:"#,##0.0"} for
+one decimal with thousands separator or {cmd:"0.00"} for two decimal places.
 
 
 {marker examples}{...}

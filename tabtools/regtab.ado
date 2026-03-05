@@ -1,4 +1,4 @@
-*! regtab Version 1.6.0  2026/03/05
+*! regtab Version 1.7.0  2026/03/05
 *! Original Author: Tim Copeland
 
 /*
@@ -289,32 +289,108 @@ quietly{
             local n_stat_models = 1
         }
 
-        * ICC: extract from last model's e(b) variance components
-        local stat_icc = .
+        * ICC: extract variance components per model from collection
+        * Collection stores var(_cons) = random intercept variance,
+        * var(e) = residual variance (continuous), not log-SD values
+        local n_icc_models = 0
         if `want_icc' == 1 {
-            local var_re = ""
-            local var_resid = ""
-
-            capture {
-                matrix `temp_b' = e(b)
-                local colnames : colfullnames `temp_b'
-
-                local col = 1
-                foreach colname of local colnames {
-                    if strpos("`colname'", "lns1_1_1:") {
-                        local log_sd = `temp_b'[1,`col']
-                        local var_re = exp(2 * `log_sd')
-                    }
-                    if strpos("`colname'", "lnsig_e:") {
-                        local log_sd = `temp_b'[1,`col']
-                        local var_resid = exp(2 * `log_sd')
-                    }
-                    local col = `col' + 1
-                }
+            forvalues m = 1/`n_stat_models' {
+                local stat_icc_`m' = .
             }
 
-            if "`var_re'" != "" & "`var_resid'" != "" {
-                local stat_icc = `var_re' / (`var_re' + `var_resid')
+            tempfile icc_temp
+            local icc_xlsx_file "`icc_temp'.xlsx"
+
+            capture {
+                collect layout (cmdset) (colname[var(_cons) var(e)]#result[_r_b])
+                collect export "`icc_xlsx_file'", sheet(_icc, replace) modify
+            }
+
+            if _rc == 0 {
+                preserve
+                capture {
+                    import excel "`icc_xlsx_file'", sheet(_icc) clear allstring
+
+                    * Find first data row (column A has cmdset number)
+                    local _icc_hdr = 0
+                    forvalues _ir = 1/`=_N' {
+                        if real(A[`_ir']) != . {
+                            local _icc_hdr = `_ir' - 1
+                            continue, break
+                        }
+                    }
+                    local n_icc_models = _N - `_icc_hdr'
+
+                    * Find columns for each variance component
+                    ds
+                    local icc_allvars `r(varlist)'
+                    local icc_col_re ""
+                    local icc_col_resid ""
+                    foreach v of local icc_allvars {
+                        local hdr = `v'[1]
+                        if strpos("`hdr'", "var(_cons)") local icc_col_re "`v'"
+                        if strpos("`hdr'", "var(e)") local icc_col_resid "`v'"
+                    }
+
+                    forvalues m = 1/`n_icc_models' {
+                        local r = `m' + `_icc_hdr'
+                        local val_re = ""
+                        local val_resid = ""
+
+                        if "`icc_col_re'" != "" {
+                            local val = subinstr(`icc_col_re'[`r'], ",", "", .)
+                            if "`val'" != "" & "`val'" != "." {
+                                local val_re = real("`val'")
+                            }
+                        }
+                        if "`icc_col_resid'" != "" {
+                            local val = subinstr(`icc_col_resid'[`r'], ",", "", .)
+                            if "`val'" != "" & "`val'" != "." {
+                                local val_resid = real("`val'")
+                            }
+                        }
+
+                        if "`val_re'" != "" & "`val_resid'" != "" {
+                            local stat_icc_`m' = `val_re' / (`val_re' + `val_resid')
+                        }
+                        else if "`val_re'" != "" & "`val_resid'" == "" {
+                            * Binary outcome (melogit): use pi^2/3 for level-1 variance
+                            local stat_icc_`m' = `val_re' / (`val_re' + c(pi)^2/3)
+                        }
+                    }
+                }
+                if _rc local n_icc_models = 0
+                restore
+                capture erase "`icc_xlsx_file'"
+            }
+
+            * Fallback: e(b) for last model only (backward compat)
+            if `n_icc_models' == 0 {
+                local var_re = ""
+                local var_resid = ""
+                capture {
+                    matrix `temp_b' = e(b)
+                    local colnames : colfullnames `temp_b'
+                    local col = 1
+                    foreach colname of local colnames {
+                        if strpos("`colname'", "lns1_1_1:") {
+                            local log_sd = `temp_b'[1,`col']
+                            local var_re = exp(2 * `log_sd')
+                        }
+                        if strpos("`colname'", "lnsig_e:") {
+                            local log_sd = `temp_b'[1,`col']
+                            local var_resid = exp(2 * `log_sd')
+                        }
+                        local col = `col' + 1
+                    }
+                }
+                if "`var_re'" != "" & "`var_resid'" != "" {
+                    local stat_icc_`n_stat_models' = `var_re' / (`var_re' + `var_resid')
+                }
+                else if "`var_re'" != "" {
+                    local stat_icc_`n_stat_models' = `var_re' / (`var_re' + c(pi)^2/3)
+                }
+                local n_icc_models = `n_stat_models'
             }
         }
     }
@@ -714,14 +790,25 @@ if `add_stats' == 1 {
         }
     }
 
-    * Add ICC row (last model only)
-    if `want_icc' == 1 & `stat_icc' != . {
-        local curr_n = _N
-        set obs `=`curr_n'+1'
-        replace A = "ICC" in `=`curr_n'+1'
-        local icc_col = max((`n_models' - 1) * 3 + 1, 1)
-        replace c`icc_col' = string(`stat_icc', "%5.3f") in `=`curr_n'+1'
-        local stats_rows = "`stats_rows' `=`curr_n'+1'"
+    * Add ICC row (per model)
+    if `want_icc' == 1 {
+        local has_icc = 0
+        local use_icc_models = min(`n_icc_models', `n_models')
+        forvalues m = 1/`use_icc_models' {
+            if `stat_icc_`m'' != . local has_icc = 1
+        }
+        if `has_icc' {
+            local curr_n = _N
+            set obs `=`curr_n'+1'
+            replace A = "ICC" in `=`curr_n'+1'
+            forvalues m = 1/`use_icc_models' {
+                if `stat_icc_`m'' != . {
+                    local col = (`m' - 1) * 3 + 1
+                    replace c`col' = string(`stat_icc_`m'', "%5.3f") in `=`curr_n'+1'
+                }
+            }
+            local stats_rows = "`stats_rows' `=`curr_n'+1'"
+        }
     }
 
     local stats_rows = strtrim("`stats_rows'")

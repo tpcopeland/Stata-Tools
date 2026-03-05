@@ -1,4 +1,4 @@
-*! tablex Version 1.0.2  2026/02/25
+*! tablex Version 1.1.0  2026/03/05
 *! Export Stata tables to formatted Excel
 *! Author: Timothy P Copeland
 *! Program class: rclass (returns results in r())
@@ -74,7 +74,8 @@ program define tablex, rclass
     }
 
     syntax using/, sheet(string) [title(string) replace ///
-           font(string) fontsize(integer 10) borderstyle(string) headerrows(integer 0)]
+           font(string) fontsize(integer 10) borderstyle(string) headerrows(integer 0) ///
+           nformat(string)]
 
 quietly {
 
@@ -282,6 +283,28 @@ quietly {
         else {
             mata: b.set_column_width(1, 1, `col1_width')  // First column
             mata: b.set_column_width(2, `num_cols', `data_width')  // Remaining columns
+        }
+
+        * Overwrite string cells containing numbers with proper Excel numeric cells
+        local _data_start = `headerrows' + 1
+        local _col_start = cond("`title'" != "", 2, 1)
+
+        forvalues _r = `_data_start'/`num_rows' {
+            local _c_idx = 0
+            foreach _var of varlist * {
+                local _c_idx = `_c_idx' + 1
+                if `_c_idx' < `_col_start' continue
+                local _cellstr = `_var'[`_r']
+                if "`_cellstr'" == "" | "`_cellstr'" == "." continue
+                local _cellclean = subinstr("`_cellstr'", ",", "", .)
+                local _cellnum = real("`_cellclean'")
+                if `_cellnum' != . {
+                    mata: b.put_number(`_r', `_c_idx', `_cellnum')
+                    if `"`nformat'"' != "" {
+                        mata: b.set_number_format(`_r', `_c_idx', "`nformat'")
+                    }
+                }
+            }
         }
 
         mata: b.close_book()

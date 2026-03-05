@@ -412,17 +412,21 @@ capture {
     assert "`aic2'" != ""
     * AIC should differ (different covariates)
     assert "`aic1'" != "`aic2'"
-    * ICC should be present (last model column = F)
+    * ICC should be present for both models (columns C and F)
     levelsof _row if B == "ICC", local(icc_row)
     assert "`icc_row'" != ""
-    local icc_val = strtrim(F[`icc_row'])
-    assert "`icc_val'" != ""
-    assert real("`icc_val'") > 0
-    assert real("`icc_val'") < 1
+    local icc_val1 = strtrim(C[`icc_row'])
+    local icc_val2 = strtrim(F[`icc_row'])
+    assert "`icc_val1'" != ""
+    assert real("`icc_val1'") > 0
+    assert real("`icc_val1'") < 1
+    assert "`icc_val2'" != ""
+    assert real("`icc_val2'") > 0
+    assert real("`icc_val2'") < 1
     drop _row
 }
 if _rc == 0 {
-    display as result "  PASS: Two mixed models per-model N, AIC distinct, ICC valid"
+    display as result "  PASS: Two mixed models per-model N, AIC distinct, ICC in both columns"
     local ++pass_count
 }
 else {
