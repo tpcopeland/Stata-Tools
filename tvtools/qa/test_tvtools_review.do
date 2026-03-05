@@ -15,7 +15,7 @@ local n_fail = 0
 local failures ""
 
 capture log close _test
-log using "../../_devkit/_testing/test_tvtools_review.log", replace nomsg name(_test)
+log using "test_tvtools_review.log", replace nomsg name(_test)
 
 display as text _dup(70) "="
 display as result "tvtools Review Fix Validation Tests"

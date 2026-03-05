@@ -5,8 +5,8 @@ clear all
 set more off
 set seed 42
 
-capture program drop tvage
-quietly do "tvtools/tvage.ado"
+capture net uninstall tvtools
+quietly net install tvtools, from("`c(pwd)'/..") replace
 
 display as text _newline _dup(70) "="
 display as text "Testing tvage Version 1.1.0 fixes"

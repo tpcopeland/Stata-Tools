@@ -72,7 +72,8 @@ display "Date: $S_DATE $S_TIME"
 display ""
 
 * Add tvtools to path
-quietly adopath ++ "/home/tpcopeland/Stata-Dev/tvtools"
+capture net uninstall tvtools
+quietly net install tvtools, from("`c(pwd)'/..") replace
 
 * ============================================================================
 * TEST 3A: EVERTREATED MONOTONICITY AND EXACT SWITCH DATE

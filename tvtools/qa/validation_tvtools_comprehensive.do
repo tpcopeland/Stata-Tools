@@ -48,52 +48,11 @@ local quiet = $RUN_TEST_QUIET
 local machine = $RUN_TEST_MACHINE
 local run_only = $RUN_TEST_NUMBER
 
-* =============================================================================
-* PATH CONFIGURATION
-* =============================================================================
-if "`c(os)'" == "MacOSX" {
-    global STATA_TOOLS_PATH "/Users/tcopeland/Documents/GitHub/Stata-Dev"
-}
-else if "`c(os)'" == "Unix" {
-    * Try to detect path from current working directory
-    capture confirm file "../../_devkit/_testing"
-    if _rc == 0 {
-        * Running from <pkg>/qa/ directory
-        global STATA_TOOLS_PATH "`c(pwd)'/../.."
-    }
-    else {
-    capture confirm file "_validation"
-    if _rc == 0 {
-        global STATA_TOOLS_PATH "`c(pwd)'"
-    }
-    else {
-        capture confirm file "_devkit/_testing"
-        if _rc == 0 {
-            global STATA_TOOLS_PATH "`c(pwd)'"
-        }
-        else {
-            global STATA_TOOLS_PATH "/home/`c(username)'/Stata-Dev"
-        }
-    }
-    }
-}
-else {
-    capture confirm file "_validation"
-    if _rc == 0 {
-        global STATA_TOOLS_PATH "`c(pwd)'"
-    }
-    else {
-        global STATA_TOOLS_PATH "`c(pwd)'/.."
-    }
-}
-
-global VALIDATION_DIR "${STATA_TOOLS_PATH}/_devkit/_validation"
-global DATA_DIR "${VALIDATION_DIR}/data"
-capture mkdir "${DATA_DIR}"
-
-* Install packages
+* Install tvtools
 capture net uninstall tvtools
-quietly net install tvtools, from("${STATA_TOOLS_PATH}/tvtools")
+quietly net install tvtools, from("`c(pwd)'/..") replace
+global DATA_DIR "`c(pwd)'/data"
+capture mkdir "${DATA_DIR}"
 
 * =============================================================================
 * HEADER

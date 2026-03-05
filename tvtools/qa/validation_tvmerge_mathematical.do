@@ -32,7 +32,8 @@ display _dup(70) "="
 display "Date: $S_DATE $S_TIME"
 display ""
 
-quietly adopath ++ "/home/tpcopeland/Stata-Dev/tvtools"
+capture net uninstall tvtools
+quietly net install tvtools, from("`c(pwd)'/..") replace
 
 * ============================================================================
 * TEST 5A: INTERVAL INTERSECTION BOUNDARIES (EXACT DATES)

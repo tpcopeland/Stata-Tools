@@ -16,9 +16,8 @@ version 16.0
 set varabbrev off
 
 * Install tvtools
-local root_dir "`c(pwd)'"
 capture net uninstall tvtools
-quietly net install tvtools, from("`root_dir'/tvtools") replace
+quietly net install tvtools, from("`c(pwd)'/..") replace
 
 local pass_count = 0
 local fail_count = 0

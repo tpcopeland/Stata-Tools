@@ -47,83 +47,18 @@ local quiet = $RUN_TEST_QUIET
 local machine = $RUN_TEST_MACHINE
 local run_only = $RUN_TEST_NUMBER
 
-* =============================================================================
-* PATH CONFIGURATION
-* =============================================================================
-* Cross-platform path detection
-if "`c(os)'" == "MacOSX" {
-    global STATA_TOOLS_PATH "/Users/tcopeland/Documents/GitHub/Stata-Dev"
-}
-else if "`c(os)'" == "Unix" {
-    * Try to detect path from current working directory
-    capture confirm file "../../_devkit/_testing"
-    if _rc == 0 {
-        * Running from <pkg>/qa/ directory
-        global STATA_TOOLS_PATH "`c(pwd)'/../.."
-    }
-    else {
-    capture confirm file "_devkit/_testing"
-    if _rc == 0 {
-        global STATA_TOOLS_PATH "`c(pwd)'"
-    }
-    else {
-        capture confirm file "_devkit/_testing/data"
-        if _rc == 0 {
-            global STATA_TOOLS_PATH "`c(pwd)'/.."
-        }
-        else {
-            global STATA_TOOLS_PATH "/home/`c(username)'/Stata-Dev"
-        }
-    }
-    }
-}
-else {
-    * Windows or other - try to detect from current directory
-    capture confirm file "../../_devkit/_testing"
-    if _rc == 0 {
-        * Running from <pkg>/qa/ directory
-        global STATA_TOOLS_PATH "`c(pwd)'/../.."
-    }
-    else {
-    capture confirm file "_devkit/_testing"
-    if _rc == 0 {
-        * Running from repo root
-        global STATA_TOOLS_PATH "`c(pwd)'"
-    }
-    else {
-        capture confirm file "_devkit/_testing/data"
-        if _rc == 0 {
-            * Running from _testing directory
-            global STATA_TOOLS_PATH "`c(pwd)'/.."
-        }
-        else {
-            * Assume running from _testing/data directory
-            global STATA_TOOLS_PATH "`c(pwd)'/../.."
-        }
-    }
-    }
-}
-
-
-global TESTING_DIR "${STATA_TOOLS_PATH}/_devkit/_testing"
-global DATA_DIR "${TESTING_DIR}/data"
-cd "${DATA_DIR}"
-
-* Install tvtools package from local repository
+* Install tvtools and set data directory
 capture net uninstall tvtools
-quietly net install tvtools, from("${STATA_TOOLS_PATH}/tvtools")
-
-* Check for required test data
+quietly net install tvtools, from("`c(pwd)'/..") replace
+global DATA_DIR "`c(pwd)'/data"
+cd "${DATA_DIR}"
 capture confirm file "${DATA_DIR}/cohort.dta"
 if _rc {
-    if `machine' {
-        display "[ERROR] Test data not found"
-    }
-    else {
-        display as error "Test data not found. Run generate_test_data.do first."
-    }
+    display as error "Test data not found. Run: do generate_test_data.do"
     exit 601
 }
+
+
 
 * =============================================================================
 * HEADER (skip in quiet/machine mode)

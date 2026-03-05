@@ -7,29 +7,8 @@ set varabbrev off
 
 clear all
 
-// Reload modified programs
-foreach cmd in tvweight tvevent tvmerge tvplot tvbalance tvdiagnose ///
-    tvtools tvcalendar tvtrial tvestimate tvexpose tvage {
-    capture program drop `cmd'
-}
-capture program drop _tvevent_empty_output
-capture program drop _tvplot_swimlane
-capture program drop _tvplot_persontime
-
-quietly {
-    run "tvtools/tvweight.ado"
-    run "tvtools/tvevent.ado"
-    run "tvtools/tvmerge.ado"
-    run "tvtools/tvplot.ado"
-    run "tvtools/tvbalance.ado"
-    run "tvtools/tvdiagnose.ado"
-    run "tvtools/tvtools.ado"
-    run "tvtools/tvexpose.ado"
-    run "tvtools/tvestimate.ado"
-    run "tvtools/tvage.ado"
-    run "tvtools/tvcalendar.ado"
-    run "tvtools/tvtrial.ado"
-}
+capture net uninstall tvtools
+quietly net install tvtools, from("`c(pwd)'/..") replace
 
 local n_passed = 0
 local n_failed = 0
@@ -250,7 +229,7 @@ local n_tests = `n_tests' + 1
 display as text _newline "{bf:Test 4: tvmerge program loads correctly}"
 
 capture program drop tvmerge
-capture noisily quietly run "tvtools/tvmerge.ado"
+capture noisily quietly run "../tvmerge.ado"
 if _rc == 0 {
     display as result "  PASSED - tvmerge loads without error"
     local n_passed = `n_passed' + 1
@@ -313,7 +292,7 @@ foreach sub in _tvtools_detail _tvevent_empty_output ///
 foreach cmd in tvtools tvexpose tvmerge tvevent tvbalance tvdiagnose ///
     tvweight tvestimate tvtrial tvcalendar tvage tvplot {
     capture program drop `cmd'
-    capture noisily quietly run "tvtools/`cmd'.ado"
+    capture noisily quietly run "../`cmd'.ado"
     if _rc != 0 {
         display as error "    LOAD FAILED: `cmd'.ado (rc=" _rc ")"
         local load_fails = `load_fails' + 1

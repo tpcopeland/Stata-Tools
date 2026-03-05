@@ -6,6 +6,9 @@ __pycache__/
 *.log
 *.tmp
 
+# Generated test data
+tvtools/qa/data/*.dta
+
 # Editor swap files
 *.stswp
 ~*.stswp
