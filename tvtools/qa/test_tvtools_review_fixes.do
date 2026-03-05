@@ -7,8 +7,7 @@ set varabbrev off
 clear all
 
 // Reload all modified programs
-foreach cmd in tvtools tvdiagnose tvbalance tvreport tvsensitivity ///
-    tvtable tvcalendar tvtrial {
+foreach cmd in tvtools tvdiagnose tvbalance tvcalendar tvtrial {
     capture program drop `cmd'
 }
 capture program drop _tvtools_detail
@@ -21,9 +20,6 @@ capture program drop _tvexpose_validate
 quietly run "tvtools/tvtools.ado"
 quietly run "tvtools/tvdiagnose.ado"
 quietly run "tvtools/tvbalance.ado"
-quietly run "tvtools/tvreport.ado"
-quietly run "tvtools/tvsensitivity.ado"
-quietly run "tvtools/tvtable.ado"
 quietly run "tvtools/tvcalendar.ado"
 quietly run "tvtools/tvtrial.ado"
 
@@ -73,69 +69,7 @@ else {
 }
 
 // =========================================================================
-// TEST #4: tvsensitivity cilow() option
-// =========================================================================
-local n_tests = `n_tests' + 1
-display as text _newline "{bf:Test #4a: tvsensitivity with cilow()}"
-capture noisily tvsensitivity, rr(1.5) cilow(1.1)
-if _rc == 0 {
-    if r(evalue_ci) > 0 {
-        display as result "  PASSED - E-value for CI = " %5.3f r(evalue_ci)
-        local n_passed = `n_passed' + 1
-    }
-    else {
-        display as error "  FAILED - evalue_ci not returned"
-        local n_failed = `n_failed' + 1
-    }
-}
-else {
-    display as error "  FAILED - tvsensitivity errored: _rc = `=_rc'"
-    local n_failed = `n_failed' + 1
-}
-
-local n_tests = `n_tests' + 1
-display as text _newline "{bf:Test #4b: tvsensitivity without cilow() shows note}"
-capture noisily tvsensitivity, rr(2.0)
-if _rc == 0 {
-    display as result "  PASSED - tvsensitivity runs without cilow"
-    local n_passed = `n_passed' + 1
-}
-else {
-    display as error "  FAILED - tvsensitivity errored: _rc = `=_rc'"
-    local n_failed = `n_failed' + 1
-}
-
-local n_tests = `n_tests' + 1
-display as text _newline "{bf:Test #4c: tvsensitivity protective effect with cilow()}"
-capture noisily tvsensitivity, rr(0.7) cilow(0.5)
-if _rc == 0 {
-    display as result "  PASSED - protective effect handled correctly"
-    local n_passed = `n_passed' + 1
-}
-else {
-    display as error "  FAILED - tvsensitivity errored: _rc = `=_rc'"
-    local n_failed = `n_failed' + 1
-}
-
-// =========================================================================
-// TEST #8: tvreport numeric exposure check
-// =========================================================================
-local n_tests = `n_tests' + 1
-display as text _newline "{bf:Test #8: tvreport rejects string exposure}"
-gen str10 str_exp = "drug_A"
-capture tvreport, id(id) start(start) stop(stop) exposure(str_exp)
-if _rc == 109 {
-    display as result "  PASSED - correctly rejected string exposure (rc=109)"
-    local n_passed = `n_passed' + 1
-}
-else {
-    display as error "  FAILED - expected rc=109, got rc=`=_rc'"
-    local n_failed = `n_failed' + 1
-}
-drop str_exp
-
-// =========================================================================
-// TEST #9a: tvbalance with if/in
+// TEST #4: tvbalance with if/in
 // =========================================================================
 local n_tests = `n_tests' + 1
 display as text _newline "{bf:Test #9a: tvbalance with if condition}"
@@ -167,22 +101,7 @@ else {
 }
 
 // =========================================================================
-// TEST #9c: tvreport with if/in
-// =========================================================================
-local n_tests = `n_tests' + 1
-display as text _newline "{bf:Test #9c: tvreport with if condition}"
-capture noisily tvreport if id <= 20, id(id) start(start) stop(stop) exposure(tv_exposure) event(_event)
-if _rc == 0 {
-    display as result "  PASSED - tvreport with if/in works"
-    local n_passed = `n_passed' + 1
-}
-else {
-    display as error "  FAILED - tvreport errored: _rc = `=_rc'"
-    local n_failed = `n_failed' + 1
-}
-
-// =========================================================================
-// TEST #10: tvdiagnose tempvar cleanup
+// TEST #5: tvdiagnose tempvar cleanup
 // =========================================================================
 local n_tests = `n_tests' + 1
 display as text _newline "{bf:Test #10a: tvdiagnose coverage preserves data}"
@@ -292,79 +211,7 @@ else {
 }
 
 // =========================================================================
-// TEST #11: tvtable no export option
-// =========================================================================
-local n_tests = `n_tests' + 1
-display as text _newline "{bf:Test #11a: tvtable runs without export option}"
-capture noisily tvtable, exposure(tv_exposure) outcome(_event)
-if _rc == 0 {
-    display as result "  PASSED - tvtable runs cleanly"
-    local n_passed = `n_passed' + 1
-}
-else {
-    display as error "  FAILED - tvtable errored: _rc = `=_rc'"
-    local n_failed = `n_failed' + 1
-}
-
-// Verify export() is now rejected as unknown option
-local n_tests = `n_tests' + 1
-display as text _newline "{bf:Test #11b: tvtable rejects removed export option}"
-capture tvtable, exposure(tv_exposure) export(test.csv)
-if _rc != 0 {
-    display as result "  PASSED - export() correctly rejected (rc=`=_rc')"
-    local n_passed = `n_passed' + 1
-}
-else {
-    display as error "  FAILED - export() should have been rejected"
-    local n_failed = `n_failed' + 1
-}
-
-// =========================================================================
-// TEST #11c: tvtable with if/in support
-// =========================================================================
-local n_tests = `n_tests' + 1
-display as text _newline "{bf:Test #11c: tvtable with if condition}"
-capture noisily tvtable if id <= 25, exposure(tv_exposure)
-if _rc == 0 {
-    display as result "  PASSED - tvtable accepts if/in"
-    local n_passed = `n_passed' + 1
-}
-else {
-    display as error "  FAILED - tvtable with if errored: _rc = `=_rc'"
-    local n_failed = `n_failed' + 1
-}
-
-// Verify if restriction changes counts
-local n_tests = `n_tests' + 1
-display as text _newline "{bf:Test #11d: tvtable if restriction is effective}"
-capture noisily tvtable, exposure(tv_exposure)
-local full_n = r(total_n)
-capture noisily tvtable if id <= 10, exposure(tv_exposure)
-local sub_n = r(total_n)
-if `sub_n' < `full_n' {
-    display as result "  PASSED - subset (" `sub_n' ") < full (" `full_n' ")"
-    local n_passed = `n_passed' + 1
-}
-else {
-    display as error "  FAILED - subset not smaller than full"
-    local n_failed = `n_failed' + 1
-}
-
-// Verify no observations error
-local n_tests = `n_tests' + 1
-display as text _newline "{bf:Test #11e: tvtable no observations error}"
-capture tvtable if id == -999, exposure(tv_exposure)
-if _rc == 2000 {
-    display as result "  PASSED - correctly errors with rc=2000"
-    local n_passed = `n_passed' + 1
-}
-else {
-    display as error "  FAILED - expected rc=2000, got rc=`=_rc'"
-    local n_failed = `n_failed' + 1
-}
-
-// =========================================================================
-// TEST #5: tvtrial dead code removed
+// TEST #6: tvtrial dead code removed
 // =========================================================================
 local n_tests = `n_tests' + 1
 display as text _newline "{bf:Test #5: tvtrial runs without dead code}"

@@ -1,4 +1,4 @@
-*! tvtools Version 1.4.1  2026/02/26
+*! tvtools Version 1.5.0  2026/03/05
 *! A suite of commands for time-varying exposure analysis
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet
@@ -11,7 +11,7 @@ Basic syntax:
 Optional options:
   list            - Display commands as a simple list
   detail          - Show detailed information with descriptions
-  category(string) - Filter by category: prep, diag, weight, special, report, all
+  category(string) - Filter by category: prep, diag, weight, special, all
 
 Returns:
   r(commands)     - List of all command names
@@ -33,17 +33,16 @@ program define tvtools, rclass
 
     // Validate category option
     local category = lower("`category'")
-    if !inlist("`category'", "all", "prep", "diag", "weight", "special", "report") {
-        display as error "category() must be: all, prep, diag, weight, special, or report"
+    if !inlist("`category'", "all", "prep", "diag", "weight", "special") {
+        display as error "category() must be: all, prep, diag, weight, or special"
         exit 198
     }
 
     // Define commands by category
     local cmd_prep "tvexpose tvmerge tvevent tvcalendar tvage"
     local cmd_diag "tvdiagnose tvplot tvbalance"
-    local cmd_weight "tvweight tvestimate tvdml"
-    local cmd_special "tvtrial tvsensitivity tvpass"
-    local cmd_report "tvtable tvreport tvpipeline"
+    local cmd_weight "tvweight tvestimate"
+    local cmd_special "tvtrial"
 
     // Build selected list based on category
     if "`category'" == "prep" {
@@ -58,11 +57,8 @@ program define tvtools, rclass
     else if "`category'" == "special" {
         local selected_cmds "`cmd_special'"
     }
-    else if "`category'" == "report" {
-        local selected_cmds "`cmd_report'"
-    }
     else {
-        local selected_cmds "`cmd_prep' `cmd_diag' `cmd_weight' `cmd_special' `cmd_report'"
+        local selected_cmds "`cmd_prep' `cmd_diag' `cmd_weight' `cmd_special'"
     }
 
     // Count commands
@@ -112,23 +108,12 @@ program define tvtools, rclass
             display as text "{bf:Weighting & Estimation}"
             display as result "  tvweight   " as text "- Calculate IPTW weights"
             display as result "  tvestimate " as text "- G-estimation for structural models"
-            display as result "  tvdml      " as text "- Double/Debiased ML for causal inference"
             display as text ""
         }
 
         if inlist("`category'", "all", "special") {
             display as text "{bf:Special Applications}"
             display as result "  tvtrial    " as text "- Target trial emulation"
-            display as result "  tvsensitivity " as text "- Sensitivity analysis"
-            display as result "  tvpass     " as text "- PASS/PAES workflow support"
-            display as text ""
-        }
-
-        if inlist("`category'", "all", "report") {
-            display as text "{bf:Reporting & Workflow}"
-            display as result "  tvtable    " as text "- Publication-ready summary tables"
-            display as result "  tvreport   " as text "- Automated analysis reports"
-            display as result "  tvpipeline " as text "- Complete workflow automation"
             display as text ""
         }
 
@@ -142,8 +127,8 @@ program define tvtools, rclass
     // Return results
     return local commands "`selected_cmds'"
     return scalar n_commands = `n_commands'
-    return local version "1.4.0"
-    return local categories "prep diag weight special report"
+    return local version "1.5.0"
+    return local categories "prep diag weight special"
 end
 
 // Subroutine for detailed display
@@ -201,9 +186,6 @@ program define _tvtools_detail
         display as result "  tvestimate" as text "   G-estimation for structural nested models."
         display as text "               Handles time-varying treatments and confounders."
         display as text ""
-        display as result "  tvdml" as text "        Double/Debiased Machine Learning for causal"
-        display as text "               inference with high-dimensional confounders."
-        display as text ""
     }
 
     if inlist("`category'", "all", "special") {
@@ -211,26 +193,6 @@ program define _tvtools_detail
         display as text "  {hline 60}"
         display as result "  tvtrial" as text "      Target trial emulation for observational data."
         display as text "               Clone-censor-weight approach for per-protocol."
-        display as text ""
-        display as result "  tvsensitivity" as text " Sensitivity analysis for unmeasured confounding."
-        display as text "               E-values and bias-adjusted estimates."
-        display as text ""
-        display as result "  tvpass" as text "       Post-authorization study (PASS/PAES) workflow"
-        display as text "               support for regulatory submissions."
-        display as text ""
-    }
-
-    if inlist("`category'", "all", "report") {
-        display as text "{bf:Reporting & Workflow}"
-        display as text "  {hline 60}"
-        display as result "  tvtable" as text "      Publication-ready summary tables for TV analyses."
-        display as text "               Person-time, events, rates by exposure."
-        display as text ""
-        display as result "  tvreport" as text "     Automated analysis report generation."
-        display as text "               Comprehensive output for documentation."
-        display as text ""
-        display as result "  tvpipeline" as text "   Complete workflow automation. Chains multiple"
-        display as text "               tvtools commands for reproducible analysis."
         display as text ""
     }
 end

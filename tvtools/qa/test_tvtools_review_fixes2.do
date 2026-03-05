@@ -1,5 +1,5 @@
 *! Test file for tvtools review fixes round 2
-*! Tests: set more off, tvdml tempvars, tvweight tempvars, tvevent subroutine,
+*! Tests: set more off, tvweight tempvars, tvevent subroutine,
 *!        tvmerge capture cleanup, tvplot rbar fix
 version 16.0
 set more off
@@ -8,9 +8,8 @@ set varabbrev off
 clear all
 
 // Reload modified programs
-foreach cmd in tvdml tvweight tvevent tvmerge tvplot tvbalance tvdiagnose ///
-    tvtools tvreport tvsensitivity tvtable tvcalendar tvtrial tvpass ///
-    tvestimate tvexpose tvage tvpipeline {
+foreach cmd in tvweight tvevent tvmerge tvplot tvbalance tvdiagnose ///
+    tvtools tvcalendar tvtrial tvestimate tvexpose tvage {
     capture program drop `cmd'
 }
 capture program drop _tvevent_empty_output
@@ -18,7 +17,6 @@ capture program drop _tvplot_swimlane
 capture program drop _tvplot_persontime
 
 quietly {
-    run "tvtools/tvdml.ado"
     run "tvtools/tvweight.ado"
     run "tvtools/tvevent.ado"
     run "tvtools/tvmerge.ado"
@@ -29,13 +27,8 @@ quietly {
     run "tvtools/tvexpose.ado"
     run "tvtools/tvestimate.ado"
     run "tvtools/tvage.ado"
-    run "tvtools/tvsensitivity.ado"
-    run "tvtools/tvtable.ado"
-    run "tvtools/tvreport.ado"
     run "tvtools/tvcalendar.ado"
     run "tvtools/tvtrial.ado"
-    run "tvtools/tvpass.ado"
-    run "tvtools/tvpipeline.ado"
 }
 
 local n_passed = 0
@@ -47,42 +40,7 @@ display as text "{bf:TVTOOLS REVIEW FIXES ROUND 2 - TEST SUITE}"
 display as text "{hline 70}" _newline
 
 // =========================================================================
-// TEST 1: tvdml with proper tempvars (no variable collision)
-// =========================================================================
-local n_tests = `n_tests' + 1
-display as text "{bf:Test 1: tvdml tempvar safety}"
-
-clear
-set obs 500
-gen int id = _n
-gen byte treatment = (runiform() > 0.5)
-gen double y = 2 * treatment + rnormal(0, 3)
-gen double x1 = rnormal()
-gen double x2 = rnormal()
-// Create variables that would collide with old hardcoded names
-gen double _y_hat = 999
-gen double _d_hat = 999
-
-capture noisily tvdml y treatment, covariates(x1 x2) crossfit(2) seed(42)
-if _rc == 0 {
-    // Verify our pre-existing variables weren't overwritten
-    quietly sum _y_hat
-    if r(mean) == 999 {
-        display as result "  PASSED - tvdml did not overwrite _y_hat/_d_hat"
-        local n_passed = `n_passed' + 1
-    }
-    else {
-        display as error "  FAILED - _y_hat was overwritten (mean=" r(mean) ")"
-        local n_failed = `n_failed' + 1
-    }
-}
-else {
-    display as error "  FAILED - tvdml errored: _rc = `=_rc'"
-    local n_failed = `n_failed' + 1
-}
-
-// =========================================================================
-// TEST 2: tvweight binary IPTW (basic functionality)
+// TEST 1: tvweight binary IPTW (basic functionality)
 // =========================================================================
 local n_tests = `n_tests' + 1
 display as text _newline "{bf:Test 2a: tvweight binary IPTW}"
@@ -342,7 +300,7 @@ else {
 // TEST 6: All programs load without syntax errors
 // =========================================================================
 local n_tests = `n_tests' + 1
-display as text _newline "{bf:Test 6: All 18 tvtools programs load without error}"
+display as text _newline "{bf:Test 5: All 12 tvtools programs load without error}"
 
 local load_fails = 0
 // Drop subprograms that would cause "already defined" on reload
@@ -353,8 +311,7 @@ foreach sub in _tvtools_detail _tvevent_empty_output ///
     capture program drop `sub'
 }
 foreach cmd in tvtools tvexpose tvmerge tvevent tvbalance tvdiagnose ///
-    tvweight tvestimate tvdml tvtrial tvcalendar tvage tvsensitivity ///
-    tvpass tvtable tvreport tvplot tvpipeline {
+    tvweight tvestimate tvtrial tvcalendar tvage tvplot {
     capture program drop `cmd'
     capture noisily quietly run "tvtools/`cmd'.ado"
     if _rc != 0 {
@@ -364,7 +321,7 @@ foreach cmd in tvtools tvexpose tvmerge tvevent tvbalance tvdiagnose ///
 }
 
 if `load_fails' == 0 {
-    display as result "  PASSED - all 18 programs loaded successfully"
+    display as result "  PASSED - all 12 programs loaded successfully"
     local n_passed = `n_passed' + 1
 }
 else {

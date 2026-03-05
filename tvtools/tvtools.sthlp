@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.4.1  26feb2026}{...}
+{* *! version 1.5.0  05mar2026}{...}
 {viewerjumpto "Description" "tvtools##description"}{...}
 {viewerjumpto "Commands" "tvtools##commands"}{...}
 {viewerjumpto "Workflow" "tvtools##workflow"}{...}
@@ -48,25 +48,11 @@ and causal inference methods.
 
 {synopt:{helpb tvweight}}Calculate inverse probability of treatment weights (IPTW){p_end}
 {synopt:{helpb tvestimate}}G-estimation for structural nested models{p_end}
-{synopt:{helpb tvdml}}Double/Debiased Machine Learning for causal inference{p_end}
 
 {pstd}
 {bf:Special Applications}
 
 {synopt:{helpb tvtrial}}Target trial emulation for observational data{p_end}
-{synopt:{helpb tvsensitivity}}Sensitivity analysis for unmeasured confounding{p_end}
-{synopt:{helpb tvpass}}Post-authorization study (PASS/PAES) workflow support{p_end}
-
-{pstd}
-{bf:Reporting}
-
-{synopt:{helpb tvtable}}Publication-ready summary tables for time-varying analyses{p_end}
-{synopt:{helpb tvreport}}Automated analysis report generation{p_end}
-
-{pstd}
-{bf:Workflow}
-
-{synopt:{helpb tvpipeline}}Complete workflow for time-varying exposure analysis{p_end}
 
 
 {marker workflow}{...}
@@ -81,12 +67,7 @@ A typical time-varying exposure analysis follows these steps:
 {p 4 8 2}4. {bf:Diagnose}: Use {helpb tvdiagnose} and {helpb tvplot} to verify data structure{p_end}
 {p 4 8 2}5. {bf:Check balance}: Use {helpb tvbalance} to assess covariate balance{p_end}
 {p 4 8 2}6. {bf:Compute weights}: Use {helpb tvweight} for IPTW estimation{p_end}
-{p 4 8 2}7. {bf:Estimate effects}: Use Cox regression or {helpb tvestimate}/{helpb tvdml}{p_end}
-{p 4 8 2}8. {bf:Sensitivity}: Use {helpb tvsensitivity} to assess robustness{p_end}
-{p 4 8 2}9. {bf:Report}: Use {helpb tvtable} and {helpb tvreport} for output{p_end}
-
-{pstd}
-For a streamlined approach, {helpb tvpipeline} can automate much of this workflow.
+{p 4 8 2}7. {bf:Estimate effects}: Use Cox regression or {helpb tvestimate}{p_end}
 
 
 {marker installation}{...}

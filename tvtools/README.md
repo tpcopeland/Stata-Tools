@@ -22,15 +22,8 @@ Comprehensive toolkit for time-varying exposure analysis in survival studies.
 - **Weighting & Estimation**
   - tvweight — Inverse probability of treatment weights
   - tvestimate — G-estimation for structural nested models
-  - tvdml — Double/Debiased Machine Learning
 - **Special Applications**
   - tvtrial — Target trial emulation
-  - tvsensitivity — Sensitivity analysis (E-values)
-  - tvpass — Post-authorization safety/efficacy studies
-- **Reporting & Workflow**
-  - tvtable — Publication-ready summary tables
-  - tvreport — Automated report generation
-  - tvpipeline — Complete workflow automation
 - [Quick Start Example](#quick-start-example)
 - [Version](#version)
 
@@ -49,7 +42,7 @@ Comprehensive toolkit for time-varying exposure analysis in survival studies.
 
 ## Package Overview
 
-**tvtools** provides 17 integrated commands for creating, analyzing, and visualizing time-varying exposure data in survival analysis:
+**tvtools** provides 11 integrated commands for creating, analyzing, and visualizing time-varying exposure data in survival analysis:
 
 ### Data Preparation
 1. **tvexpose** - Create time-varying exposure variables from period-based exposure data
@@ -66,17 +59,9 @@ Comprehensive toolkit for time-varying exposure analysis in survival studies.
 ### Weighting and Estimation
 9. **tvweight** - Calculate inverse probability of treatment weights (IPTW)
 10. **tvestimate** - G-estimation for structural nested models
-11. **tvdml** - Double/Debiased Machine Learning for causal inference
 
 ### Special Applications
-12. **tvtrial** - Target trial emulation for observational data
-13. **tvsensitivity** - Sensitivity analysis for unmeasured confounding (E-values)
-14. **tvpass** - Post-authorization safety/efficacy study (PASS/PAES) workflow
-
-### Reporting and Workflow
-15. **tvtable** - Publication-ready summary tables for time-varying analyses
-16. **tvreport** - Automated analysis report generation
-17. **tvpipeline** - Complete workflow automation (chains tvexpose → tvevent → diagnostics)
+11. **tvtrial** - Target trial emulation for observational data
 
 ### Typical Workflow
 
@@ -1373,7 +1358,7 @@ MIT License
 
 | Command | Version | Date |
 |---------|---------|------|
-| tvtools | 1.4.1 | 2026-02-26 |
+| tvtools | 1.5.0 | 2026-03-05 |
 | tvexpose | 1.2.0 | 2025-12-14 |
 | tvmerge | 1.0.5 | 2025-12-18 |
 | tvevent | 1.4.0 | 2025-12-18 |
@@ -1384,15 +1369,9 @@ MIT License
 | tvplot | 1.0.1 | 2026-02-26 |
 | tvweight | 1.0.0 | 2025-12-29 |
 | tvestimate | 1.0.0 | 2025-12-29 |
-| tvdml | 1.0.0 | 2025-12-29 |
 | tvtrial | 1.0.0 | 2025-12-29 |
-| tvsensitivity | 1.0.1 | 2026-02-23 |
-| tvpass | 1.0.0 | 2025-12-29 |
-| tvtable | 1.0.1 | 2026-02-23 |
-| tvreport | 1.0.1 | 2026-02-23 |
-| tvpipeline | 1.0.2 | 2026-02-23 |
 
-Package Distribution-Date: 20260226
+Package Distribution-Date: 20260305
 
 ### Checking Installed Version
 

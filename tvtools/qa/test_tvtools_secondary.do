@@ -9,12 +9,7 @@
 *   - tvplot       (visualization - no display, just runs)
 *   - tvcalendar   (calendar-time factor merge)
 *   - tvtrial      (target trial emulation)
-*   - tvtable      (summary tables)
-*   - tvreport     (analysis report)
-*   - tvpipeline   (end-to-end pipeline)
-*   - tvdml        (double ML estimation)
 *   - tvestimate   (g-estimation)
-*   - tvpass       (workflow support)
 *
 * Note: No external SSC dependencies required.
 *
@@ -254,56 +249,6 @@ else {
 }
 
 * ============================================================================
-* TEST: TVTABLE
-* ============================================================================
-display _n _dup(60) "-"
-display "TEST: tvtable - summary table generation"
-display _dup(60) "-"
-
-use "/tmp/sec_tve.dta", clear
-* Add a person-time variable
-quietly gen pt_days = stop - start + 1
-* Add event variable from cohort
-quietly merge m:1 id using "/tmp/sec_cohort.dta", keepusing(event_date) nogen
-
-capture noisily tvtable, ///
-    exposure(tv_exp) ///
-    persontime(pt_days)
-
-if _rc == 0 {
-    display as result "  PASS [tvtable.run]: ran without error"
-    local pass_count = `pass_count' + 1
-}
-else {
-    display as error "  FAIL [tvtable.run]: error `=_rc'"
-    local fail_count = `fail_count' + 1
-    local failed_tests "`failed_tests' tvtable"
-}
-
-* ============================================================================
-* TEST: TVREPORT
-* ============================================================================
-display _n _dup(60) "-"
-display "TEST: tvreport - analysis report generation"
-display _dup(60) "-"
-
-use "/tmp/sec_tve.dta", clear
-
-capture noisily tvreport, ///
-    id(id) start(start) stop(stop) ///
-    exposure(tv_exp)
-
-if _rc == 0 {
-    display as result "  PASS [tvreport.run]: ran without error"
-    local pass_count = `pass_count' + 1
-}
-else {
-    display as error "  FAIL [tvreport.run]: error `=_rc'"
-    local fail_count = `fail_count' + 1
-    local failed_tests "`failed_tests' tvreport"
-}
-
-* ============================================================================
 * TEST: TVTRIAL
 * ============================================================================
 display _n _dup(60) "-"
@@ -350,57 +295,6 @@ else {
 }
 
 * ============================================================================
-* TEST: TVDML
-* ============================================================================
-display _n _dup(60) "-"
-display "TEST: tvdml - double ML estimation"
-display _dup(60) "-"
-
-* Create a dataset suitable for tvdml
-clear
-set obs 100
-set seed 777
-gen id = _n
-gen x1 = runiform()
-gen x2 = runiform() > 0.5
-gen x3 = rnormal(0, 1)
-gen treatment = (x1 + x2 + x3 + runiform() > 2.5)
-gen outcome = treatment * 0.5 + x1 * 0.3 + x3 * 0.2 + rnormal(0, 0.5)
-
-capture noisily tvdml outcome treatment, ///
-    covariates(x1 x2 x3) ///
-    seed(42)
-
-if _rc == 0 {
-    * Check that e(b) exists
-    capture mat list e(b)
-    if _rc == 0 {
-        display as result "  PASS [tvdml.results]: e(b) returned"
-    }
-    else {
-        display as error "  FAIL [tvdml.results]: e(b) not returned"
-    }
-
-    * Check that the causal estimate exists
-    local psi = r(psi)
-    if missing(`psi') {
-        local psi = e(psi)
-    }
-    if !missing(`psi') {
-        display as result "  PASS [tvdml.psi]: causal estimate returned (psi=`psi')"
-    }
-    else {
-        display as error "  FAIL [tvdml.psi]: causal estimate not returned"
-    }
-    local pass_count = `pass_count' + 1
-}
-else {
-    display as error "  FAIL [tvdml.run]: error `=_rc'"
-    local fail_count = `fail_count' + 1
-    local failed_tests "`failed_tests' tvdml"
-}
-
-* ============================================================================
 * TEST: TVESTIMATE
 * ============================================================================
 display _n _dup(60) "-"
@@ -428,67 +322,6 @@ else {
     display as error "  FAIL [tvestimate.run]: error `=_rc'"
     local fail_count = `fail_count' + 1
     local failed_tests "`failed_tests' tvestimate"
-}
-
-* ============================================================================
-* TEST: TVPASS
-* ============================================================================
-display _n _dup(60) "-"
-display "TEST: tvpass - post-authorization safety study workflow"
-display _dup(60) "-"
-
-* tvpass requires file paths for cohort, exposure, and outcomes files
-capture noisily tvpass, ///
-    cohort("/tmp/sec_cohort.dta") ///
-    exposure("/tmp/sec_exposure.dta") ///
-    outcomes("/tmp/sec_cohort.dta") ///
-    id(id)
-
-if _rc == 0 {
-    display as result "  PASS [tvpass.run]: ran without error"
-    local pass_count = `pass_count' + 1
-}
-else {
-    display as error "  FAIL [tvpass.run]: error `=_rc'"
-    local fail_count = `fail_count' + 1
-    local failed_tests "`failed_tests' tvpass"
-}
-
-* ============================================================================
-* TEST: TVPIPELINE
-* ============================================================================
-display _n _dup(60) "-"
-display "TEST: tvpipeline - end-to-end pipeline wrapper"
-display _dup(60) "-"
-
-use "/tmp/sec_cohort.dta", clear
-capture noisily tvpipeline using "/tmp/sec_exposure.dta", ///
-    id(id) start(start) stop(stop) ///
-    exposure(drug_type) ///
-    entry(study_entry) exit(study_exit) ///
-    reference(0)
-
-if _rc == 0 {
-    quietly count
-    local n_output = r(N)
-    display as result "  PASS [tvpipeline.run]: pipeline completed, `n_output' rows"
-    * Verify basic output structure
-    capture confirm variable start
-    local has_start = (_rc == 0)
-    capture confirm variable stop
-    local has_stop = (_rc == 0)
-    if `has_start' & `has_stop' {
-        display as result "  PASS [tvpipeline.structure]: start and stop variables present"
-    }
-    else {
-        display as error "  FAIL [tvpipeline.structure]: missing output variables (start=`has_start', stop=`has_stop')"
-    }
-    local pass_count = `pass_count' + 1
-}
-else {
-    display as error "  FAIL [tvpipeline.run]: error `=_rc'"
-    local fail_count = `fail_count' + 1
-    local failed_tests "`failed_tests' tvpipeline"
 }
 
 * ============================================================================
