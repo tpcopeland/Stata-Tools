@@ -1,4 +1,4 @@
-*! setools Version 1.4.3  2026/02/24
+*! setools Version 1.4.4  2026/03/05
 *! Swedish Registry Toolkit for Epidemiological Cohort Studies
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet
@@ -124,7 +124,7 @@ program define setools, rclass
     // Return results
     return local commands "`selected_cmds'"
     return scalar n_commands = `n_commands'
-    return local version "1.4.3"
+    return local version "1.4.4"
     return local categories "codes dates migration ms"
 end
 

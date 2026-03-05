@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.5  28feb2026}{...}
+{* *! version 1.0.6  05mar2026}{...}
 {vieweralsosee "[D] generate" "help generate"}{...}
 {vieweralsosee "[D] dates and times" "help datetime"}{...}
 {vieweralsosee "migrations" "help migrations"}{...}

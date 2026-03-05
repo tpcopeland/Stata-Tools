@@ -702,6 +702,14 @@ program define tvexpose, rclass
         noisily display as error "If it exists, use encode or recode to create numeric exposure categories."
         exit 109
     }
+
+    * Drop records with missing exposure values (would be silently misclassified)
+    quietly count if missing(`exposure')
+    if r(N) > 0 {
+        local n_miss_exp = r(N)
+        noisily display as text "Warning: `n_miss_exp' records with missing exposure values dropped"
+        quietly drop if missing(`exposure')
+    }
     
     * Store original exposure variable label for later use
     if "`label'" != "" {

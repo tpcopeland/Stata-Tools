@@ -139,9 +139,11 @@ sustained progression date.
 {bf:Edge cases:}
 
 {pstd}
-If a patient reaches the threshold but has no subsequent EDSS measurements 
-within the confirmation window, the event is considered sustained by default 
-(cannot be disproven).
+If a patient reaches the threshold but has no subsequent EDSS measurements
+within the confirmation window, the event is considered sustained by default
+(cannot be disproven). This differs from {help cdp}, which requires at least
+one confirming measurement after the confirmation period to declare
+progression confirmed.
 
 {pstd}
 If multiple EDSS measurements occur on the same date for the same patient, 

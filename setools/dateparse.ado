@@ -1,4 +1,4 @@
-*! dateparse Version 1.0.5  2026/02/28
+*! dateparse Version 1.0.6  2026/03/05
 *! Date window utilities for Swedish registry cohort studies
 *! Part of the setools package
 *
@@ -290,25 +290,25 @@ program define dateparse_parse, rclass
     }
 
     // Try to parse as Stata date
-    capture local stata_date = date("`datestring'", "`format'")
+    local stata_date = date("`datestring'", "`format'")
 
-    // If that fails, try alternative formats
-    if _rc | missing(`stata_date') {
+    // If primary format fails, try alternatives
+    if missing(`stata_date') {
         // Try YMD if we haven't already
         if "`format'" != "YMD" {
-            capture local stata_date = date("`datestring'", "YMD")
+            local stata_date = date("`datestring'", "YMD")
         }
         // Try DMY as fallback
         if missing(`stata_date') {
-            capture local stata_date = date("`datestring'", "DMY")
+            local stata_date = date("`datestring'", "DMY")
         }
         // Try MDY as last resort
         if missing(`stata_date') {
-            capture local stata_date = date("`datestring'", "MDY")
+            local stata_date = date("`datestring'", "MDY")
         }
     }
 
-    if _rc | missing(`stata_date') {
+    if missing(`stata_date') {
         display as error "Could not parse date: `datestring'"
         display as error "Tried formats: YMD (YYYY-MM-DD), DMY, MDY"
         display as error "Swedish registries typically use: YYYY-MM-DD or YYYYMMDD"

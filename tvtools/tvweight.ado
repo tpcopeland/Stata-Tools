@@ -47,7 +47,7 @@ program define tvweight, rclass
     set more off
 
     * Parse syntax
-    syntax varname(numeric), COVariates(varlist numeric) ///
+    syntax varname(numeric) [if] [in], COVariates(varlist numeric) ///
         [GENerate(name) MODEL(string) STABilized ///
          TRUNCate(numlist min=2 max=2) ///
          TVCovariates(varlist numeric) ID(varname) TIME(varname) ///
@@ -142,9 +142,8 @@ program define tvweight, rclass
     }
 
     * Count valid observations
-    tempvar touse
-    mark `touse'
-    markout `touse' `exposure' `covariates' `tvcovariates'
+    marksample touse
+    markout `touse' `covariates' `tvcovariates'
 
     quietly count if `touse'
     local n_obs = r(N)

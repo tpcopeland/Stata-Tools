@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.4.4  25feb2026}{...}
+{* *! version 1.5.0  05mar2026}{...}
 {vieweralsosee "effecttab" "help effecttab"}{...}
 {viewerjumpto "Package overview" "regtab##package"}{...}
 {viewerjumpto "Syntax" "regtab##syntax"}{...}
@@ -59,7 +59,7 @@ Stata's {helpb collect} framework and apply professional formatting.
 {synopt:{opt coef(string)}}Header label for the point estimate column (the {cmd:_r_b} result). If omitted, the collect default/blank label is used; set this to {cmd:"OR"}, {cmd:"RR"}, {cmd:"Coef."}, {cmd:"HR"}, etc., as desired.{p_end}
 {synopt:{opt title(string)}}Text written into {cmd:A1} and merged across the table width. If omitted, the title row is left blank.{p_end}
 {synopt:{opt noint}}Drop the intercept row. Matches {cmd:_cons}, {cmd:constant}, or {cmd:Intercept} (case-insensitive).{p_end}
-{synopt:{opt nore}}Drop rows whose variable name contains {cmd:var(}...{cmd:)} (common for random-effects variance components).{p_end}
+{synopt:{opt nore}}Drop all random-effects rows: variance components ({cmd:var(}...{cmd:)}), covariances ({cmd:cov(}...{cmd:)}), and standard deviations ({cmd:sd(}...{cmd:)}).{p_end}
 {synopt:{opt stats(string)}}Add model fit statistics at the bottom of the table. Space-separated list of: {cmd:n} (observations), {cmd:aic}, {cmd:bic}, {cmd:icc} (intraclass correlation), {cmd:ll} (log-likelihood), {cmd:groups} (for mixed models).{p_end}
 {synopt:{opt relabel}}Relabel random effects using variable labels from the grouping variable and random effects. For example, if the grouping variable {cmd:provider} has label "Healthcare Provider" and the model includes a random slope on {cmd:treatment} (labeled "Treatment Group"), the output will show "Healthcare Provider (Intercept)" for the random intercept variance, "Healthcare Provider (Treatment Group)" for the random slope variance, and "Healthcare Provider (Intercept, Treatment Group)" for the covariance. The residual variance is labeled "Residual Variance". If variable labels are not available, falls back to generic labels like {it:Variance (Intercept)}.{p_end}
 {synoptline}
@@ -75,7 +75,8 @@ Stata's {helpb collect} framework and apply professional formatting.
 
 {pstd}Notes on output shaping{p_end}
 {p 4 8 2}- Baseline/reference rows: if a point estimate is 0 or 1 and the adjacent CI cell is empty, {cmd:regtab} substitutes {it:Reference} in the estimate column.{p_end}
-{p 4 8 2}- Intercept and random-effects rows can be removed using {opt noint} and {opt nore}, respectively.{p_end}
+{p 4 8 2}- Random-effects variance components ({cmd:var()}, {cmd:cov()}, {cmd:sd()}) from {cmd:mixed}, {cmd:melogit}, {cmd:mepoisson}, and similar commands are automatically formatted with four decimal places for both the point estimate and confidence interval. Fixed-effects rows use two decimal places. Random-effects rows can be removed entirely with {opt nore}.{p_end}
+{p 4 8 2}- Intercept rows can be removed with {opt noint}.{p_end}
 {p 4 8 2}- Fonts are set to Arial 10. Borders are drawn around the table and model blocks. Column widths and row heights are adjusted heuristically to fit labels and contents.{p_end}
 {p 4 8 2}- The command writes the Excel output using {helpb putexcel}; a temporary workbook {cmd:temp.xlsx} is created and deleted during processing.{p_end}
 
@@ -120,5 +121,5 @@ Stata's {helpb collect} framework and apply professional formatting.
 {pstd}Department of Clinical Neuroscience{p_end}
 {pstd}Karolinska Institutet{p_end}
 
-{pstd}Version 1.4.4 - 2026-02-25{p_end}
+{pstd}Version 1.5.0 - 2026-03-05{p_end}
 

@@ -1,4 +1,4 @@
-*! regtab Version 1.4.4  2026/02/25
+*! regtab Version 1.5.0  2026/03/05
 *! Original Author: Tim Copeland
 
 /*
@@ -253,7 +253,7 @@ quietly{
 
 collect label levels result _r_b "`coef'", modify
 collect style cell result[_r_b], warn nformat(%4.2fc) halign(center) valign(center)
-collect style cell result[_r_ci], warn nformat(%4.2fc) sformat("(%s)") cidelimiter("`sep'") halign(center) valign(center)
+collect style cell result[_r_ci], warn nformat(%12.8f) sformat("(%s)") cidelimiter("`sep'") halign(center) valign(center)
 collect style cell result[_r_p], warn nformat(%5.4f) halign(center) valign(center)
 collect style column, dups(center)
 collect style row stack, nodelimiter nospacer indent length(.) wrapon(word) noabbreviate wrap(.) truncate(tail)
@@ -283,8 +283,13 @@ if "`noint'" != "" {
 }
 
 if "`nore'" != "" {
-	drop if strpos(A,"var(") > 0
+	drop if strpos(A,"var(") > 0 | strpos(A,"cov(") > 0 | strpos(A,"sd(") > 0
 }
+
+* Mark random effects row numbers for adaptive formatting
+gen _temp_re_row = _n if (strpos(A, "var(") > 0) | (strpos(A, "cov(") > 0) | (strpos(A, "sd(") > 0)
+levelsof _temp_re_row, local(re_row_nums)
+drop _temp_re_row
 
 * Relabel random effects if requested
 if "`relabel'" != "" {
@@ -419,18 +424,46 @@ if "`models'" != "" {
     }
 }
 local last = `n' - 2
+* Recreate RE row indicator from stored row numbers
+gen byte _is_re = 0
+foreach row of local re_row_nums {
+    replace _is_re = 1 in `row'
+}
 forvalues i = 1(3)`last'{
-destring c`i', gen(c`i'z) force 
-replace c`i'z = round(c`i'z, 0.01) 
-tostring c`i'z, replace force format(%9.2f)
+destring c`i', gen(c`i'z) force
 replace c`i' = "Reference" if inlist(c`i', "0", "1") & c`=`i'+1' == ""
-replace c`i' = c`i'z if c`i'z != "." & c`i' != "Reference" & _n >= 3
-drop c`i'z
+* Fixed effects: 2 decimal places
+gen str20 c`i'_fmt = string(round(c`i'z, 0.01), "%9.2f") if !_is_re & !missing(c`i'z)
+* Random effects: 4 decimal places
+replace c`i'_fmt = string(c`i'z, "%9.4f") if _is_re & !missing(c`i'z)
+replace c`i' = c`i'_fmt if c`i'_fmt != "" & c`i' != "Reference" & _n >= 3
+drop c`i'z c`i'_fmt
 capture confirm variable c`=`i'+1'
 if _rc == 0 replace c`=`i'+1' = "" if _n == 1
 capture confirm variable c`=`i'+2'
 if _rc == 0 replace c`=`i'+2' = "" if _n == 1
 }
+* Reformat CI columns with appropriate precision
+local sep_len = strlen(`"`sep'"')
+forvalues i = 2(3)`=`last'+1' {
+    capture confirm variable c`i'
+    if _rc continue
+    gen _ci_raw = strtrim(c`i') if _n >= 3
+    replace _ci_raw = subinstr(subinstr(_ci_raw, "(", "", 1), ")", "", 1)
+    gen int _ci_dpos = strpos(_ci_raw, `"`sep'"')
+    gen _ci_lo_s = strtrim(substr(_ci_raw, 1, _ci_dpos - 1)) if _ci_dpos > 0
+    gen _ci_hi_s = strtrim(substr(_ci_raw, _ci_dpos + `sep_len', .)) if _ci_dpos > 0
+    destring _ci_lo_s, gen(double _ci_lo) force
+    destring _ci_hi_s, gen(double _ci_hi) force
+    gen str50 _ci_fmt = ""
+    replace _ci_fmt = "(" + string(_ci_lo, "%4.2fc") + `"`sep'"' + string(_ci_hi, "%4.2fc") + ")" ///
+        if !_is_re & !missing(_ci_lo) & !missing(_ci_hi) & _n >= 3
+    replace _ci_fmt = "(" + string(_ci_lo, "%9.4f") + `"`sep'"' + string(_ci_hi, "%9.4f") + ")" ///
+        if _is_re & !missing(_ci_lo) & !missing(_ci_hi) & _n >= 3
+    replace c`i' = _ci_fmt if _ci_fmt != ""
+    drop _ci_raw _ci_dpos _ci_lo_s _ci_hi_s _ci_lo _ci_hi _ci_fmt
+}
+drop _is_re
 forvalues i = 3(3)`n'{
 * Store original string value to detect genuinely missing p-values
 gen str20 c`i'_orig = c`i'
