@@ -1,0 +1,30 @@
+v 3
+d 'IIVW': Inverse intensity of visit weighting
+d
+d Corrects for informative visit processes in longitudinal observational
+d studies. Implements IIW (Buzkova & Lumley 2007), IPTW, and FIPTIW
+d (Tompkins et al. 2025) via Andersen-Gill Cox and logistic models.
+d
+d Requires: Stata version 16+
+d
+d Distribution-Date: 20260306
+d License: MIT
+d
+d Author: Timothy P Copeland
+d Department of Clinical Neuroscience, Karolinska Institutet
+d
+d KW: inverse intensity weighting
+d KW: informative visit process
+d KW: longitudinal data
+d KW: IPTW
+d KW: FIPTIW
+d KW: causal inference
+d
+f iivw.ado
+f iivw.sthlp
+f iivw_weight.ado
+f iivw_weight.sthlp
+f iivw_fit.ado
+f iivw_fit.sthlp
+f _iivw_get_settings.ado
+f _iivw_check_weighted.ado

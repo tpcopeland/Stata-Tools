@@ -45,6 +45,7 @@ net install <package>, from("https://raw.githubusercontent.com/tpcopeland/Stata-
 | **balancetab** | Propensity score balance diagnostics and Love plots | 16+ |
 | **cstat_surv** | C-statistic for Cox survival models | 16+ |
 | **gcomp** | G-computation formula via Monte Carlo simulation (includes gcomptab) | 16+ |
+| **iivw** | Inverse intensity of visit weighting (IIW, IPTW, FIPTIW) for irregular longitudinal data | 16+ |
 | **iptw_diag** | IPTW weight diagnostics, ESS, trimming | 16+ |
 | **msm** | Marginal structural models via IPTW for time-varying treatments (12 commands) | 16+ |
 | **mvp** | Missing value pattern analysis with visualizations | 14+ |

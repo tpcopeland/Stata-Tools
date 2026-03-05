@@ -1,0 +1,5 @@
+v 3
+d Stata-Tools: iivw
+d Timothy P Copeland
+d https://github.com/tpcopeland/Stata-Tools
+p iivw
