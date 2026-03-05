@@ -232,6 +232,26 @@ gcomp y m x c, outcome(y) mediation oce ///
 - Added `version 16.0`, `set varabbrev off`, `set more off`
 - Namespaced internal variables to prevent collisions
 
+## Validation
+
+The `qa/` directory contains **38 tests** across 4 test files covering functional correctness and regression testing.
+
+### Functional tests (test_gcomp.do — 9 tests)
+
+- Verifies all internal programs load correctly (`_gcomp_detangle`, `_gcomp_formatline`)
+- Runs mediation analysis (OBE and OCE modes) and confirms `e()` stored results: `e(tce)`, `e(nde)`, `e(nie)`, `e(pm)`, `e(se_tce)`, `e(ci_normal)`
+- Regression test for SSC bug #2: OCE mode without `baseline()` correctly auto-detects baseline levels
+- Confirms no global macro pollution (SSC bug #3) and no deprecated `uniform()` calls
+
+### gcomptab validation (validation_gcomptab.do — 29 tests)
+
+- Tests Excel export pipeline with known mock results across 8 sections
+- Validates stored result accuracy (relative tolerance < 0.01%), Excel structure (7 rows × 5 columns), all 4 CI types (normal, percentile, BC, BCa), decimal precision, custom labels, and edge cases (negative effects, very small effects, large effects)
+
+### Cross-validation status
+
+No external cross-validation against R packages or published benchmarks is currently implemented. The g-computation engine inherits from SSC `gformula` v1.16 (Daniel et al. 2011), which was validated against the original Robins (1986) methodology by the original authors.
+
 ## References
 
 - Robins JM (1986). A new approach to causal inference in mortality studies with a sustained exposure period. *Mathematical Modelling* 7:1393-1512.

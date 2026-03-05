@@ -563,6 +563,34 @@ Standard `glm`/`regress`/`stcox` results, plus `e(cmd)` = `msm_fit`.
 
 ---
 
+## Validation
+
+The `qa/` directory contains **42 tests** across 6 validation modules, all passing. Run with `do run_all_validations.do`.
+
+### V1: Known DGP — time-varying confounding (8 tests)
+
+Simulates N=10,000 subjects over 10 periods with a true log-OR of −0.357 (OR=0.70) and treatment-confounder feedback (Cole & Hernan 2008). The MSM estimate recovers the true effect within ±0.15. A 30-replication Monte Carlo confirms coverage ≥80%. The naive (post-treatment conditioning) estimate is shown to be attenuated relative to the causal estimate. Stabilized weight means fall in [0.90, 1.10].
+
+### V2: R `ipw` package — HAART dataset (6 tests)
+
+Cross-validates against R `ipw` (van der Wal & Geskus 2011, JSS 43(13)) using 386 HIV-positive patients from the `haartdat` dataset. Stabilized weight means match R's `ipwtm()` output within 10% (R benchmark: 1.042). Treatment OR falls in the clinically plausible range [0.3, 3.0]. Truncation sensitivity confirms robustness.
+
+### V3: NHEFS — Hernan & Robins textbook (8 tests)
+
+Replicates Chapters 12 and 17 of *Causal Inference: What If* using the NHEFS dataset (N=1,566). Stabilized weight mean matches the published 0.999 (±0.01), weight SD matches 0.288 (±0.05), and the smoking cessation ATE matches the published 3.44 kg (±0.30). The 95% CI covers the textbook value. A person-period restructuring validates pooled logistic and Cox models.
+
+### V4: Fewell RA/Methotrexate DGP (7 tests)
+
+Replicates the Fewell et al. (2004, Stata Journal 4(4):402–420) simulation of N=5,000 subjects with disease activity as a time-varying confounder. The MSM estimate falls within 0.20 of the true log-OR (−0.50). Weighted SMDs are smaller than unweighted SMDs, confirming balance improvement. Weight SDs remain below 2.0.
+
+### V5: Null effect and reproducibility (6 tests)
+
+Tests type I error control under a null DGP (true log-OR = 0). Point estimates fall within ±0.20 of zero, 95% CIs cover the null, and the rejection rate across 100 Monte Carlo replications stays below 15%. Seed reproducibility is confirmed to relative precision < 1e-10 for coefficients and < 1e-8 for predictions.
+
+### V6: IPCW — informative censoring (7 tests)
+
+Simulates N=5,000 subjects with informative censoring (sicker patients censor more). IPTW+IPCW recovers the true effect (log-OR = −0.50) within ±0.30 and outperforms IPTW-only. Combined weight means fall in [0.85, 1.15] with ESS > 50%.
+
 ## References
 
 - Robins JM, Hernan MA, Brumback B. Marginal structural models and causal inference in epidemiology. *Epidemiology*. 2000;11(5):550-560.

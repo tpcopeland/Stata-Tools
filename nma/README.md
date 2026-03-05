@@ -463,6 +463,28 @@ nma_report using nma_report.xlsx, replace
 
 ---
 
+## Validation
+
+The `qa/` directory contains **66 tests** across 3 validation files, all passing.
+
+### R `netmeta` cross-validation (crossval_nma_vs_r.do — 18 comparisons)
+
+Cross-validates treatment effect estimates against R `netmeta` 3.3-1 using two published datasets:
+
+**Senn et al. (2013) — Glucose-lowering drugs (26 studies, 10 treatments, MD scale):**
+All 9 treatment effects (vs. Placebo) match R `netmeta` within a coefficient tolerance of 0.05 (e.g., Acarbose: 0.858, Metformin: 1.132, Rosiglitazone: 1.235). One treatment (Benfluorex, 0.096 difference) is flagged as tau²-sensitive due to having only 2 contributing studies. Heterogeneity estimates differ as expected — R uses graph-theoretical REML (Rücker 2012) while Stata uses multivariate REML — but treatment effects converge.
+
+**Dogliotti et al. (2014) — Oral anticoagulants in AF (20 RCTs, 8 treatments, logOR scale):**
+All 7 treatment effects match R within 0.05 tolerance (e.g., Apixaban: 1.103, Dab150: 1.322, Rivarox: 1.136). Very low heterogeneity (tau² ≈ 0.016).
+
+### Published dataset validation (test_nma_published.do — 26 tests)
+
+Validates the full pipeline on both Senn and Dogliotti datasets: setup counts, reference treatment selection, model fitting, effect direction (all treatments better than Placebo), coefficient ranges, tau² estimation, SUCRA rankings (Dab150 SUCRA > 0.7 in Dogliotti; Rosiglitazone SUCRA > 0.5 in Senn), league tables, inconsistency testing (Senn: significant at p = 0.002; Dogliotti: no inconsistency), and exponentiated display.
+
+### Functional tests (test_nma.do — 22 tests)
+
+Covers all commands: `nma_setup` (binary/continuous), `nma_import`, `nma_fit` (REML/ML/common-effect), `nma_rank` (SUCRA bounds), `nma_compare` (league table dimensions), `nma_inconsistency`, zero-cell correction, disconnected network handling, and error cases.
+
 ## Features
 
 - **Zero dependencies**: All computation in Mata — no R, no external packages

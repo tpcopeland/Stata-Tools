@@ -355,6 +355,29 @@ display "Power: " r(power) " (" r(power_ci_lo) ", " r(power_ci_hi) ")"
 
 ---
 
+## Validation
+
+The `qa/` directory contains **~15 tests** across 2 validation files, all passing.
+
+### Hand-computed LLR verification (V1, V2, V5 — 6 tests)
+
+Verifies log-likelihood ratio computation against hand-calculated values with tolerance < 0.001:
+- **Bernoulli minimal tree (V1):** Expected LLR = 1.6279 for a 4-exposed/3-unexposed split across 20 individuals
+- **Asymmetric tree (V2):** Expected LLR = 1.7193 for an internal node with 3 exposed at a 0.75 concentration
+- **Poisson model (V5):** Expected LLR = 2.5642 for 5 cases across 55 person-years with 4 cases concentrated at one node
+
+### R TreeMineR cross-validation (V3 — 3 tests)
+
+Cross-validates against R `TreeMineR` using its built-in ICD-10-SE diagnoses dataset (~969 exposed, ~8,865 unexposed). Both tools detect a strong signal (LLR > 5) at the same top node. TreeMineR benchmark: node "12" with LLR = 11.995, p = 0.001. The treescan p-value is significant at α = 0.05.
+
+### Null distribution (V4 — 1 test)
+
+Confirms that 200 random observations with no true signal produce a non-significant p-value (> 0.01), validating type I error control.
+
+### Conditional model equivalence (V6, V7 — 4 tests)
+
+Verifies that conditional and unconditional models produce identical observed LLR values (tolerance < 1e-10) for both Bernoulli and Poisson models, confirming that the permutation test implementation is consistent with the unconditional test.
+
 ## Performance
 
 Runtime scales linearly with `nsim` and the number of unique (individual, node) pairs. Rough guidelines:
