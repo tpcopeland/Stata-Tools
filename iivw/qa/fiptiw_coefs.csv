@@ -1,0 +1,8 @@
+"model","term","estimate"
+"marginal_cox","D",-0.700609242638407
+"conditional_cox","D",0.507634235301228
+"conditional_cox","Wt",-0.332959516714323
+"conditional_cox","Z",0.559255886907771
+"ps_intercept","(Intercept)",-0.836089094776243
+"ps_W","W",1.2991553264677
+"marginal_prD","prD",0.454545454545455
