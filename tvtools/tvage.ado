@@ -63,6 +63,14 @@ program define tvage, rclass
         replace `age_entry' = max(`age_entry', `minage')
         replace `age_exit' = min(`age_exit', `maxage')
 
+        * Drop persons with invalid age range (e.g., DOB after exit date)
+        count if `age_exit' < `age_entry'
+        if r(N) > 0 {
+            local n_invalid = r(N)
+            noisily display as text "Warning: `n_invalid' persons dropped (DOB after exit date)"
+            drop if `age_exit' < `age_entry'
+        }
+
         * Calculate number of periods needed per person
         gen int `n_periods' = `age_exit' - `age_entry' + 1
 

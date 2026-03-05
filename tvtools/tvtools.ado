@@ -132,6 +132,7 @@ program define tvtools, rclass
 end
 
 // Subroutine for detailed display
+capture program drop _tvtools_detail
 program define _tvtools_detail
     version 16.0
     set varabbrev off

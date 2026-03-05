@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.5  24feb2026}{...}
+{* *! version 1.0.6  05mar2026}{...}
 {vieweralsosee "[ST] stset" "help stset"}{...}
 {vieweralsosee "sustainedss" "help sustainedss"}{...}
 {viewerjumpto "Syntax" "migrations##syntax"}{...}

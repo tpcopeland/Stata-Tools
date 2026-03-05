@@ -478,4 +478,4 @@ MIT License
 
 ## Version
 
-Version 1.4.3, 2026-02-24
+Version 1.4.4, 2026-03-05

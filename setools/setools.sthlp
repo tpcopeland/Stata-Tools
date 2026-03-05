@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.4.3  24feb2026}{...}
+{* *! version 1.4.4  05mar2026}{...}
 {viewerjumpto "Description" "setools##description"}{...}
 {viewerjumpto "Commands" "setools##commands"}{...}
 {viewerjumpto "Installation" "setools##installation"}{...}

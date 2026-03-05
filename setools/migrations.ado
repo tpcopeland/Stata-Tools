@@ -1,4 +1,4 @@
-*! migrations Version 1.0.5  2026/02/24  Tim Copeland
+*! migrations Version 1.0.6  2026/03/05  Tim Copeland
 *! Handle Swedish migration data for registry-based cohort studies
 *! Part of the setools package
 
@@ -48,9 +48,17 @@ program define migrations, rclass
         exit 109
     }
     
+    * Validate ID uniqueness in master data
+    capture isid `idvar'
+    if _rc {
+        display as error "'`idvar'' does not uniquely identify observations in master data"
+        display as error "migrations requires one row per person"
+        exit 459
+    }
+
     * Preserve master data
     preserve
-    
+
     tempfile master
     qui save `master', replace
     

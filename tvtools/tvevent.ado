@@ -1,4 +1,4 @@
-*! tvevent Version 1.5.0  12jan2026
+*! tvevent Version 1.5.0  2026/01/12
 *! Add event/failure flags to time-varying datasets
 *! Author: Tim Copeland
 *!

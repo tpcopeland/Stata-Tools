@@ -68,6 +68,14 @@ still meet the progression threshold. This is more conservative than
 "confirmed at next visit" definitions, as it requires the progression to be
 maintained throughout the entire follow-up period.
 
+{pstd}
+{bf:Confirmation requirement:} At least one EDSS measurement must exist at or
+after {opt confirmdays()} days from the progression event. Patients whose last
+measurement occurs before this threshold will not have confirmed CDP, even
+if no regression was observed. This differs from {help sustainedss}, which
+treats events as sustained when no disconfirming evidence exists within the
+confirmation window.
+
 
 {marker options}{...}
 {title:Options}

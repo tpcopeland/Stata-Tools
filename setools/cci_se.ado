@@ -1,4 +1,4 @@
-*! cci_se Version 1.0.3  2026/02/28
+*! cci_se Version 1.0.4  2026/03/05
 *! Swedish Charlson Comorbidity Index using ICD-7 through ICD-10
 *! Based on Ludvigsson et al. Clinical Epidemiology 2021;13:21-41
 *! Part of the setools package
@@ -254,7 +254,7 @@ program define cci_se, rclass
     local c17_7c " 160| 161| 162| 163| 164| 165| 166| 167| 168| 169"
     local c17_7d " 170| 171| 172| 173| 174| 175| 176| 177| 178| 179"
     local c17_7e " 180| 181| 182| 183| 184| 185| 186| 187| 188| 189"
-    local c17_7f " 190| 192| 193| 194| 195| 196| 197| 200| 201| 202| 203| 204"
+    local c17_7f " 190| 191| 192| 193| 194| 195| 196| 197| 200| 201| 202| 203| 204"
     quietly replace _cci_17 = 1 if `v7' & regexm(`code', "`c17_7a'|`c17_7b'|`c17_7c'|`c17_7d'|`c17_7e'|`c17_7f'")
 
     * ICD-8

@@ -78,9 +78,11 @@ program define tvcalendar, rclass
 
     * Determine merge variables
     if "`merge'" == "" {
-        * Use all numeric variables except date vars
+        * Use all numeric variables from external dataset
         ds, has(type numeric)
         local merge "`r(varlist)'"
+        noisily display as text "  Note: merge() not specified; merging all numeric variables"
+        noisily display as text "        Use merge(varlist) to select specific variables"
     }
 
     display as text "  Variables to merge: " as result "`merge'"

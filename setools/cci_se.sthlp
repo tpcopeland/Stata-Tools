@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.3  28feb2026}{...}
+{* *! version 1.0.4  05mar2026}{...}
 {vieweralsosee "[D] generate" "help generate"}{...}
 {vieweralsosee "migrations" "help migrations"}{...}
 {viewerjumpto "Syntax" "cci_se##syntax"}{...}
