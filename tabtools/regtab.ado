@@ -1,4 +1,4 @@
-*! regtab Version 1.5.0  2026/03/05
+*! regtab Version 1.6.0  2026/03/05
 *! Original Author: Tim Copeland
 
 /*
@@ -106,90 +106,192 @@ quietly{
         if strpos("`stats_lower'", " ll ") local want_ll = 1
         if strpos("`stats_lower'", " groups ") | strpos("`stats_lower'", " group ") local want_groups = 1
 
-        * Store current e() values (from most recent estimation)
-        * For multi-model tables, we'd need to query collect, but for now
-        * we store what's available
-        local stat_N = .
-        local stat_aic = .
-        local stat_bic = .
-        local stat_ll = .
-        local stat_groups = .
-        local stat_k = .
+        * ================================================================
+        * EXTRACT PER-MODEL STATS FROM COLLECTION
+        * ================================================================
+        * The collect framework stores e() scalars per cmdset.
+        * Extract via temporary layout + export + import cycle.
+        local n_stat_models = 0
 
-        capture local stat_N = e(N)
-        capture local stat_ll = e(ll)
-
-        * For groups, try multiple possible e() scalar names
-        * Note: For mixed models, e(N_g) is a matrix (1x1), not a scalar
-        capture {
-            * Try as scalar first
-            local stat_groups = e(N_g)
+        * Build list of result levels needed
+        local result_levels ""
+        if `want_n' local result_levels "N"
+        if `want_ll' | `want_aic' | `want_bic' {
+            local result_levels "`result_levels' ll"
         }
-        if `stat_groups' == . {
-            * Try as matrix element (for mixed models)
+        if `want_aic' local result_levels "`result_levels' aic"
+        if `want_bic' local result_levels "`result_levels' bic"
+        if `want_aic' | `want_bic' {
+            local result_levels "`result_levels' rank"
+        }
+        if `want_groups' local result_levels "`result_levels' N_g"
+        local result_levels : list uniq result_levels
+
+        if "`result_levels'" != "" {
+            tempfile stats_temp
+            local stats_xlsx_file "`stats_temp'.xlsx"
+
+            * Save original labels, set short labels for export headers
+            foreach rlevel of local result_levels {
+                capture local _orig_lbl_`rlevel' : collect label levels result `rlevel'
+                capture collect label levels result `rlevel' "`rlevel'", modify
+            }
+
             capture {
-                tempname ng_mat
-                matrix `ng_mat' = e(N_g)
-                local stat_groups = `ng_mat'[1,1]
+                collect layout (cmdset) (result[`result_levels'])
+                collect export "`stats_xlsx_file'", sheet(_stats, replace) modify
             }
-        }
-        if `stat_groups' == . {
-            capture local stat_groups = e(k_g)
-        }
-        if `stat_groups' == . {
-            * Try getting from N_clust (for xtlogit etc.)
-            capture local stat_groups = e(N_clust)
-        }
-        if `stat_groups' == . {
-            * For nbreg, poisson etc.
-            capture local stat_groups = e(nrgroups)
-        }
 
-        * Try to get AIC/BIC directly first
-        capture local stat_aic = e(aic)
-        capture local stat_bic = e(bic)
-
-        * If AIC/BIC not available, calculate from log-likelihood
-        * AIC = -2*ll + 2*k
-        * BIC = -2*ll + k*ln(N)
-        if `stat_aic' == . & `stat_ll' != . {
-            * Get number of parameters (k) from e(rank) or e(k)
-            capture local stat_k = e(rank)
-            if `stat_k' == . {
-                capture local stat_k = e(k)
+            * Restore original labels
+            foreach rlevel of local result_levels {
+                if `"`_orig_lbl_`rlevel''"' != "" {
+                    capture collect label levels result `rlevel' `"`_orig_lbl_`rlevel''"', modify
+                }
             }
-            if `stat_k' == . {
-                * Try to get from coefficient matrix
+
+            if _rc == 0 {
+                preserve
                 capture {
-                    matrix `temp_b' = e(b)
-                    local stat_k = colsof(`temp_b')
+                    import excel "`stats_xlsx_file'", sheet(_stats) clear allstring
+
+                    * Map header row to column positions
+                    local stat_col_N ""
+                    local stat_col_ll ""
+                    local stat_col_aic ""
+                    local stat_col_bic ""
+                    local stat_col_rank ""
+                    local stat_col_N_g ""
+
+                    ds
+                    local stat_allvars `r(varlist)'
+                    foreach v of local stat_allvars {
+                        local hdr = `v'[1]
+                        if "`hdr'" == "N" local stat_col_N "`v'"
+                        if "`hdr'" == "ll" local stat_col_ll "`v'"
+                        if "`hdr'" == "aic" local stat_col_aic "`v'"
+                        if "`hdr'" == "bic" local stat_col_bic "`v'"
+                        if "`hdr'" == "rank" local stat_col_rank "`v'"
+                        if "`hdr'" == "N_g" local stat_col_N_g "`v'"
+                    }
+
+                    local n_stat_models = _N - 1
+
+                    forvalues m = 1/`n_stat_models' {
+                        local r = `m' + 1
+
+                        * Extract each result level
+                        foreach sname in N ll aic bic rank N_g {
+                            if "`sname'" == "N_g" local lname "groups"
+                            else local lname "`sname'"
+                            local stat_`lname'_`m' = .
+                            if "`stat_col_`sname''" != "" {
+                                local val = `stat_col_`sname''[`r']
+                                local val = subinstr("`val'", ",", "", .)
+                                if "`val'" != "" & "`val'" != "." {
+                                    local stat_`lname'_`m' = real("`val'")
+                                }
+                            }
+                        }
+
+                        * Compute AIC from ll + rank if not directly available
+                        if `stat_aic_`m'' == . & `stat_ll_`m'' != . & `stat_rank_`m'' != . {
+                            local stat_aic_`m' = -2 * `stat_ll_`m'' + 2 * `stat_rank_`m''
+                        }
+
+                        * Compute BIC from ll + rank + N if not directly available
+                        if `stat_bic_`m'' == . & `stat_ll_`m'' != . & `stat_rank_`m'' != . & `stat_N_`m'' != . {
+                            local stat_bic_`m' = -2 * `stat_ll_`m'' + `stat_rank_`m'' * ln(`stat_N_`m'')
+                        }
+                    }
                 }
-            }
-            if `stat_k' != . & `stat_ll' != . {
-                local stat_aic = -2 * `stat_ll' + 2 * `stat_k'
+                if _rc local n_stat_models = 0
+                restore
+                capture erase "`stats_xlsx_file'"
             }
         }
 
-        if `stat_bic' == . & `stat_ll' != . & `stat_N' != . {
-            if `stat_k' == . {
-                capture local stat_k = e(rank)
-                if `stat_k' == . {
-                    capture local stat_k = e(k)
-                }
+        * Backfill groups from e() when collection extraction found none
+        * (mixed stores N_g as matrix, not scalar — invisible to collect)
+        if `n_stat_models' > 0 & `want_groups' == 1 {
+            local _all_grp_miss = 1
+            forvalues m = 1/`n_stat_models' {
+                if `stat_groups_`m'' != . local _all_grp_miss = 0
             }
-            if `stat_k' != . {
-                local stat_bic = -2 * `stat_ll' + `stat_k' * ln(`stat_N')
+            if `_all_grp_miss' {
+                local _grp = .
+                capture local _grp = e(N_g)
+                if `_grp' == . {
+                    capture {
+                        tempname ng_mat
+                        matrix `ng_mat' = e(N_g)
+                        local _grp = `ng_mat'[1,1]
+                    }
+                }
+                if `_grp' == . capture local _grp = e(N_clust)
+                if `_grp' != . {
+                    local stat_groups_`n_stat_models' = `_grp'
+                }
             }
         }
 
-        * For ICC, calculate from variance components for mixed models
-        * ICC = var(random intercept) / (var(random intercept) + var(residual))
+        * Fallback: if collection extraction failed, use e() for c1 only
+        if `n_stat_models' == 0 {
+            local stat_N_1 = .
+            local stat_aic_1 = .
+            local stat_bic_1 = .
+            local stat_ll_1 = .
+            local stat_groups_1 = .
+            local stat_k_1 = .
+
+            capture local stat_N_1 = e(N)
+            capture local stat_ll_1 = e(ll)
+
+            capture {
+                local stat_groups_1 = e(N_g)
+            }
+            if `stat_groups_1' == . {
+                capture {
+                    tempname ng_mat
+                    matrix `ng_mat' = e(N_g)
+                    local stat_groups_1 = `ng_mat'[1,1]
+                }
+            }
+            if `stat_groups_1' == . {
+                capture local stat_groups_1 = e(N_clust)
+            }
+
+            capture local stat_aic_1 = e(aic)
+            capture local stat_bic_1 = e(bic)
+
+            if `stat_aic_1' == . & `stat_ll_1' != . {
+                capture local stat_k_1 = e(rank)
+                if `stat_k_1' == . {
+                    capture local stat_k_1 = e(k)
+                }
+                if `stat_k_1' != . {
+                    local stat_aic_1 = -2 * `stat_ll_1' + 2 * `stat_k_1'
+                }
+            }
+
+            if `stat_bic_1' == . & `stat_ll_1' != . & `stat_N_1' != . {
+                if `stat_k_1' == . {
+                    capture local stat_k_1 = e(rank)
+                    if `stat_k_1' == . {
+                        capture local stat_k_1 = e(k)
+                    }
+                }
+                if `stat_k_1' != . {
+                    local stat_bic_1 = -2 * `stat_ll_1' + `stat_k_1' * ln(`stat_N_1')
+                }
+            }
+
+            * Flag as single-model fallback
+            local n_stat_models = 1
+        }
+
+        * ICC: extract from last model's e(b) variance components
         local stat_icc = .
         if `want_icc' == 1 {
-            * Try to get ICC from stored e() matrices
-            * For mixed/melogit/mepoisson, variance components are in e(b)
-            * They are stored as log-std deviations that need to be exponentiated
-
             local var_re = ""
             local var_resid = ""
 
@@ -211,7 +313,6 @@ quietly{
                 }
             }
 
-            * Calculate ICC if we have both components
             if "`var_re'" != "" & "`var_resid'" != "" {
                 local stat_icc = `var_re' / (`var_re' + `var_resid')
             }
@@ -285,6 +386,14 @@ if "`noint'" != "" {
 if "`nore'" != "" {
 	drop if strpos(A,"var(") > 0 | strpos(A,"cov(") > 0 | strpos(A,"sd(") > 0
 }
+
+* Reorder: fixed effects first, then random effects (collect may interleave them)
+gen _orig_order = _n
+gen byte _is_re_sort = (strpos(A, "var(") > 0) | (strpos(A, "cov(") > 0) | (strpos(A, "sd(") > 0)
+* Row 1 is header — keep at top
+replace _is_re_sort = 0 if _n <= 2
+sort _is_re_sort _orig_order
+drop _orig_order _is_re_sort
 
 * Mark random effects row numbers for adaptive formatting
 gen _temp_re_row = _n if (strpos(A, "var(") > 0) | (strpos(A, "cov(") > 0) | (strpos(A, "sd(") > 0)
@@ -403,6 +512,8 @@ foreach var of local allvars {
 }
 local n2 `=`n'-3'
 local n `=`n'-1'
+* Model count (used by stats() and ICC placement)
+local n_models = `n' / 3
 
 if "`models'" != "" {
     * Split models string by backslashes
@@ -412,7 +523,7 @@ if "`models'" != "" {
     tokenize `"`models'"', parse("\")
     local model_idx = 1
     local col_idx = 1
-    
+
     * Loop through tokenized results
     while "``model_idx''" != "" {
         if "``model_idx''" != "\" {
@@ -500,63 +611,116 @@ drop c`i'z c`i'_fmt c`i'_orig
 local stats_start_row = 0
 local stats_rows = ""
 if `add_stats' == 1 {
-    * Get number of data columns (excluding A)
-    local data_cols = `n'
-
-    * Track the first stats row (will be current N + 1 after title row adjustment)
     local stats_start_row = _N + 1
+    local use_models = min(`n_stat_models', `n_models')
 
     * Add N row
-    if `want_n' == 1 & `stat_N' != . {
-        local curr_n = _N
-        set obs `=`curr_n'+1'
-        replace A = "Observations" in `=`curr_n'+1'
-        replace c1 = string(`stat_N', "%12.0fc") in `=`curr_n'+1'
-        local stats_rows = "`stats_rows' `=`curr_n'+1'"
+    if `want_n' == 1 {
+        local has_val = 0
+        forvalues m = 1/`use_models' {
+            if `stat_N_`m'' != . local has_val = 1
+        }
+        if `has_val' {
+            local curr_n = _N
+            set obs `=`curr_n'+1'
+            replace A = "Observations" in `=`curr_n'+1'
+            forvalues m = 1/`use_models' {
+                if `stat_N_`m'' != . {
+                    local col = (`m' - 1) * 3 + 1
+                    replace c`col' = string(`stat_N_`m'', "%12.0fc") in `=`curr_n'+1'
+                }
+            }
+            local stats_rows = "`stats_rows' `=`curr_n'+1'"
+        }
     }
 
     * Add Groups row
-    if `want_groups' == 1 & `stat_groups' != . {
-        local curr_n = _N
-        set obs `=`curr_n'+1'
-        replace A = "Groups" in `=`curr_n'+1'
-        replace c1 = string(`stat_groups', "%12.0fc") in `=`curr_n'+1'
-        local stats_rows = "`stats_rows' `=`curr_n'+1'"
+    if `want_groups' == 1 {
+        local has_val = 0
+        forvalues m = 1/`use_models' {
+            if `stat_groups_`m'' != . local has_val = 1
+        }
+        if `has_val' {
+            local curr_n = _N
+            set obs `=`curr_n'+1'
+            replace A = "Groups" in `=`curr_n'+1'
+            forvalues m = 1/`use_models' {
+                if `stat_groups_`m'' != . {
+                    local col = (`m' - 1) * 3 + 1
+                    replace c`col' = string(`stat_groups_`m'', "%12.0fc") in `=`curr_n'+1'
+                }
+            }
+            local stats_rows = "`stats_rows' `=`curr_n'+1'"
+        }
     }
 
     * Add AIC row
-    if `want_aic' == 1 & `stat_aic' != . {
-        local curr_n = _N
-        set obs `=`curr_n'+1'
-        replace A = "AIC" in `=`curr_n'+1'
-        replace c1 = string(`stat_aic', "%12.2f") in `=`curr_n'+1'
-        local stats_rows = "`stats_rows' `=`curr_n'+1'"
+    if `want_aic' == 1 {
+        local has_val = 0
+        forvalues m = 1/`use_models' {
+            if `stat_aic_`m'' != . local has_val = 1
+        }
+        if `has_val' {
+            local curr_n = _N
+            set obs `=`curr_n'+1'
+            replace A = "AIC" in `=`curr_n'+1'
+            forvalues m = 1/`use_models' {
+                if `stat_aic_`m'' != . {
+                    local col = (`m' - 1) * 3 + 1
+                    replace c`col' = string(`stat_aic_`m'', "%12.2f") in `=`curr_n'+1'
+                }
+            }
+            local stats_rows = "`stats_rows' `=`curr_n'+1'"
+        }
     }
 
     * Add BIC row
-    if `want_bic' == 1 & `stat_bic' != . {
-        local curr_n = _N
-        set obs `=`curr_n'+1'
-        replace A = "BIC" in `=`curr_n'+1'
-        replace c1 = string(`stat_bic', "%12.2f") in `=`curr_n'+1'
-        local stats_rows = "`stats_rows' `=`curr_n'+1'"
+    if `want_bic' == 1 {
+        local has_val = 0
+        forvalues m = 1/`use_models' {
+            if `stat_bic_`m'' != . local has_val = 1
+        }
+        if `has_val' {
+            local curr_n = _N
+            set obs `=`curr_n'+1'
+            replace A = "BIC" in `=`curr_n'+1'
+            forvalues m = 1/`use_models' {
+                if `stat_bic_`m'' != . {
+                    local col = (`m' - 1) * 3 + 1
+                    replace c`col' = string(`stat_bic_`m'', "%12.2f") in `=`curr_n'+1'
+                }
+            }
+            local stats_rows = "`stats_rows' `=`curr_n'+1'"
+        }
     }
 
     * Add Log-likelihood row
-    if `want_ll' == 1 & `stat_ll' != . {
-        local curr_n = _N
-        set obs `=`curr_n'+1'
-        replace A = "Log-likelihood" in `=`curr_n'+1'
-        replace c1 = string(`stat_ll', "%12.2f") in `=`curr_n'+1'
-        local stats_rows = "`stats_rows' `=`curr_n'+1'"
+    if `want_ll' == 1 {
+        local has_val = 0
+        forvalues m = 1/`use_models' {
+            if `stat_ll_`m'' != . local has_val = 1
+        }
+        if `has_val' {
+            local curr_n = _N
+            set obs `=`curr_n'+1'
+            replace A = "Log-likelihood" in `=`curr_n'+1'
+            forvalues m = 1/`use_models' {
+                if `stat_ll_`m'' != . {
+                    local col = (`m' - 1) * 3 + 1
+                    replace c`col' = string(`stat_ll_`m'', "%12.2f") in `=`curr_n'+1'
+                }
+            }
+            local stats_rows = "`stats_rows' `=`curr_n'+1'"
+        }
     }
 
-    * Add ICC row
+    * Add ICC row (last model only)
     if `want_icc' == 1 & `stat_icc' != . {
         local curr_n = _N
         set obs `=`curr_n'+1'
         replace A = "ICC" in `=`curr_n'+1'
-        replace c1 = string(`stat_icc', "%5.3f") in `=`curr_n'+1'
+        local icc_col = max((`n_models' - 1) * 3 + 1, 1)
+        replace c`icc_col' = string(`stat_icc', "%5.3f") in `=`curr_n'+1'
         local stats_rows = "`stats_rows' `=`curr_n'+1'"
     }
 
@@ -590,26 +754,26 @@ forvalues i = 1(1)`n'{
 gen c`i'_length = length(c`i')
 }
 egen label_length = rowmax(c*_length)
-sum label_length, d 
+sum label_length, d
 local max_header_length = `=`r(max)' - 0.5'
 drop label_length
 forvalues i = 1(1)`n'{
-replace c`i'_length = . if _n == 2 
+replace c`i'_length = . if _n == 2
 egen c`i'_max = max(c`i'_length)
 }
 forvalues i = 1(1)`=`n'-1'{
 replace c1_max = c`=`i'+1'_max if c`=`i'+1'_max > c1_max
 }
-sum c1_max, d 
+sum c1_max, d
 local max_length = (`r(max)' * 3 / 8) + 2
-    
+
     /* Ensure reasonable min/max bounds */
     if `max_length' < 8 local max_length = 8
     if `max_length' > 60 local max_length = 60
 
 gen A_length = length(A)
 egen factor_length = max(A_length)
-sum factor_length, d 
+sum factor_length, d
 local factor_length = `=ceil(`=`r(max)'*0.95')'
 
 drop A_length factor_length c*_max c*_length
@@ -719,6 +883,13 @@ capture {
 	putexcel (`tl1':`bl'), border(right, thin) // middle (right of variables)
 	putexcel (`bl':`br'), border(bottom, thin) // bottom
 	putexcel (`letterright'`n1':`letterright'`n2'), border(right, thin) // right of model "x"
+
+	* Add border above first random-effects row (separates FE from RE)
+	if "`re_row_nums'" != "" {
+	    local first_re : word 1 of `re_row_nums'
+	    local re_excel_row = `first_re' + 1
+	    putexcel (`letterleft'`re_excel_row':`letterright'`re_excel_row'), border(top, thin)
+	}
 
 	* Add borders for statistics rows (if any)
 	if "`stats_rows'" != "" {

@@ -1,12 +1,13 @@
 /*  demo_tabtools.do - Generate screenshots for tabtools
 
-    Produces 6 output types:
+    Produces 8 output types:
       1. Console output (table1 display) -> .smcl
       2. Excel table (table1_tc output) -> table1.xlsx
-      3. Excel table (regtab regression) -> regtab.xlsx
-      4. Excel table (effecttab treatment effects) -> effecttab.xlsx
-      5. Excel table (tablex collect table) -> tablex.xlsx
-      6. Excel table (stratetab incidence rates) -> stratetab.xlsx
+      3. Excel table (regtab multi-model regression) -> regtab.xlsx
+      4. Excel table (regtab mixed model with RE + ICC) -> regtab_mixed.xlsx
+      5. Excel table (effecttab treatment effects) -> effecttab.xlsx
+      6. Excel table (tablex collect table) -> tablex.xlsx
+      7. Excel table (stratetab incidence rates) -> stratetab.xlsx
 */
 
 version 16.0
@@ -57,19 +58,44 @@ table1_tc, by(foreign) ///
     title("Table 1. Characteristics by Vehicle Origin") ///
     excel("`pkg_dir'/table1.xlsx") sheet("Table 1")
 
-* --- 3. Excel: regtab regression table ---
+* --- 3. Excel: regtab multi-model regression ---
 collect clear
-collect: regress price mpg weight length foreign
-regtab, xlsx("`pkg_dir'/regtab.xlsx") sheet("OLS") ///
-    title("Table 2. OLS Regression") coef("Coef.") ///
-    stats(n)
+collect: logit foreign mpg weight
+collect: logit foreign mpg weight length
+regtab, xlsx("`pkg_dir'/regtab.xlsx") sheet("Logistic") ///
+    title("Table 2. Logistic Regression") coef("OR") ///
+    models("Unadjusted \ Adjusted") stats(n aic bic ll) noint
 
-* --- 4. Excel: effecttab treatment effects ---
+* --- 4. Excel: regtab mixed model with random slope, relabel, ICC ---
+preserve
+clear
+set seed 20260226
+set obs 500
+gen double cluster = ceil(_n/25)
+label variable cluster "Hospital"
+gen double age = rnormal(50, 10)
+label variable age "Age (years)"
+gen double bmi = rnormal(25, 4)
+label variable bmi "BMI"
+gen double u0 = rnormal() * 1.0 if cluster != cluster[_n-1]
+replace u0 = u0[_n-1] if u0 == .
+gen double u1 = rnormal() * 0.3 if cluster != cluster[_n-1]
+replace u1 = u1[_n-1] if u1 == .
+gen double y = 3 + 0.02*age + 0.1*bmi + u0 + u1*bmi + rnormal()*0.5
+label variable y "Outcome"
+collect clear
+collect: mixed y age bmi || cluster: bmi
+regtab, xlsx("`pkg_dir'/regtab_mixed.xlsx") sheet("Mixed") ///
+    title("Table 3. Mixed Effects Model") coef("Coef.") ///
+    stats(n groups aic bic icc) relabel
+restore
+
+* --- 5. Excel: effecttab treatment effects ---
 teffects ipw (price) (foreign mpg weight), ate
 effecttab, xlsx("`pkg_dir'/effecttab.xlsx") sheet("ATE") ///
     effect("ATE") title("Table 3. Treatment Effects") clean
 
-* --- 5. Excel: tablex collect table export ---
+* --- 6. Excel: tablex collect table export ---
 version 17
 collect clear
 table foreign, statistic(mean price mpg weight) nformat(%9.1f)
@@ -77,7 +103,7 @@ tablex using "`pkg_dir'/tablex.xlsx", sheet("Summary") ///
     title("Table 4. Summary by Origin") replace
 version 16
 
-* --- 6. Excel: stratetab incidence rate table ---
+* --- 7. Excel: stratetab incidence rate table ---
 * Create synthetic strate output files
 preserve
 clear
