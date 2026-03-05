@@ -6,22 +6,8 @@ set varabbrev off
 
 clear all
 
-// Reload all modified programs
-foreach cmd in tvtools tvdiagnose tvbalance tvcalendar tvtrial {
-    capture program drop `cmd'
-}
-capture program drop _tvtools_detail
-capture program drop _tvexpose_check
-capture program drop _tvexpose_gaps
-capture program drop _tvexpose_overlaps
-capture program drop _tvexpose_summarize
-capture program drop _tvexpose_validate
-
-quietly run "tvtools/tvtools.ado"
-quietly run "tvtools/tvdiagnose.ado"
-quietly run "tvtools/tvbalance.ado"
-quietly run "tvtools/tvcalendar.ado"
-quietly run "tvtools/tvtrial.ado"
+capture net uninstall tvtools
+quietly net install tvtools, from("`c(pwd)'/..") replace
 
 local n_passed = 0
 local n_failed = 0

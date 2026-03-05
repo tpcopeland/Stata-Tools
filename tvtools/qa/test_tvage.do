@@ -12,8 +12,8 @@ set more off
 version 16.0
 set varabbrev off
 
-capture program drop tvage
-quietly do "tvtools/tvage.ado"
+capture net uninstall tvtools
+quietly net install tvtools, from("`c(pwd)'/..") replace
 
 local pass_count = 0
 local fail_count = 0
