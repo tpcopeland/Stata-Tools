@@ -4,6 +4,7 @@
 {vieweralsosee "iivw_weight" "help iivw_weight"}{...}
 {vieweralsosee "[XT] xtgee" "help xtgee"}{...}
 {vieweralsosee "[ME] mixed" "help mixed"}{...}
+{vieweralsosee "regtab" "help regtab"}{...}
 {viewerjumpto "Syntax" "iivw_fit##syntax"}{...}
 {viewerjumpto "Description" "iivw_fit##description"}{...}
 {viewerjumpto "Options" "iivw_fit##options"}{...}
@@ -144,6 +145,28 @@ errors.  This structure is required by IIW theory.
 {cmd:iivw_weight} must be run before {cmd:iivw_fit}.  The weight variable and
 metadata are read from dataset characteristics set by {cmd:iivw_weight}.
 
+{pstd}
+{bf:Table export with collect and regtab}
+
+{pstd}
+{cmd:iivw_fit} is an {cmd:eclass} command and works with Stata's {cmd:collect}
+framework.  Use the {cmd:collect:} prefix to accumulate results across models,
+then export with {helpb regtab} (from {cmd:tabtools}).
+
+{phang2}{cmd:. collect clear}{p_end}
+{phang2}{cmd:. collect: iivw_fit score drug age severity_bl, model(gee)}{p_end}
+{phang2}{cmd:. regtab, xlsx(results.xlsx) sheet(IIW) coef(Coef.) title(IIW Model)}{p_end}
+
+{pstd}
+To compare multiple weighting strategies side by side:
+
+{phang2}{cmd:. collect clear}{p_end}
+{phang2}{cmd:. iivw_weight, id(id) time(t) visit_cov(x1) truncate(1 99) nolog}{p_end}
+{phang2}{cmd:. collect: iivw_fit y treated age, model(gee) nolog}{p_end}
+{phang2}{cmd:. iivw_weight, id(id) time(t) visit_cov(x1) treat(treated) treat_cov(age) truncate(1 99) replace nolog}{p_end}
+{phang2}{cmd:. collect: iivw_fit y treated age, model(gee) nolog}{p_end}
+{phang2}{cmd:. regtab, xlsx(results.xlsx) sheet(Compare) models(IIW \ FIPTIW) coef(Coef.) stats(n)}{p_end}
+
 
 {marker examples}{...}
 {title:Examples}
@@ -172,6 +195,23 @@ metadata are read from dataset characteristics set by {cmd:iivw_weight}.
 {bf:Example 5: Binomial family for binary outcome}
 
 {phang2}{cmd:. iivw_fit relapse treated edss_bl, family(binomial) link(logit)}{p_end}
+
+{pstd}
+{bf:Example 6: Export to Excel with regtab}
+
+{phang2}{cmd:. collect clear}{p_end}
+{phang2}{cmd:. collect: iivw_fit edss treated edss_bl, model(gee) nolog}{p_end}
+{phang2}{cmd:. regtab, xlsx(iivw_results.xlsx) sheet(Results) coef(Coef.) title(IIW Analysis) stats(n)}{p_end}
+
+{pstd}
+{bf:Example 7: Compare IIW vs FIPTIW in one table}
+
+{phang2}{cmd:. collect clear}{p_end}
+{phang2}{cmd:. iivw_weight, id(id) time(days) visit_cov(edss relapse) truncate(1 99) nolog}{p_end}
+{phang2}{cmd:. collect: iivw_fit edss treated edss_bl, model(gee) nolog}{p_end}
+{phang2}{cmd:. iivw_weight, id(id) time(days) visit_cov(edss relapse) treat(treated) treat_cov(age sex edss_bl) truncate(1 99) replace nolog}{p_end}
+{phang2}{cmd:. collect: iivw_fit edss treated edss_bl, model(gee) nolog}{p_end}
+{phang2}{cmd:. regtab, xlsx(iivw_results.xlsx) sheet(Comparison) models(IIW \ FIPTIW) coef(Coef.) title(IIW vs FIPTIW) stats(n) noint}{p_end}
 
 
 {marker results}{...}
@@ -202,6 +242,6 @@ metadata are read from dataset characteristics set by {cmd:iivw_weight}.
 {title:Also see}
 
 {psee}
-Online:  {helpb iivw}, {helpb iivw_weight}, {helpb glm}, {helpb xtgee}, {helpb mixed}
+Online:  {helpb iivw}, {helpb iivw_weight}, {helpb regtab}, {helpb glm}, {helpb xtgee}, {helpb mixed}
 
 {hline}
