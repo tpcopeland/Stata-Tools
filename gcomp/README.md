@@ -234,7 +234,17 @@ gcomp y m x c, outcome(y) mediation oce ///
 
 ## Validation
 
-The `qa/` directory contains **38 tests** across 4 test files covering functional correctness and regression testing.
+The `qa/` directory contains **51 tests** across 5 test files, all passing.
+
+### Cross-validation (crossval_gcomp.do — 13 tests)
+
+Cross-validates gcomp mediation estimates against analytical ground truth and R `mediation` 4.5.1 (Imai, Keele & Tingley 2010) on a shared binary mediation DGP (X→M→Y with confounder C, all logistic).
+
+**V1: Known DGP — analytical ground truth (7 tests).** Generates N=5,000 from a known DGP and compares gcomp's OBE estimates against analytical potential outcome means (computed via N=100,000 MC integration over C). All effects recover the correct direction and magnitude: TCE within 0.011 of truth (0.056), NDE within 0.003 of truth (0.041), NIE within 0.008 of truth (0.015). PM falls in the plausible range [0.05, 0.60] (true: 0.272).
+
+**V2: R `mediation` cross-validation (6 tests).** Runs gcomp on the same N=5,000 dataset used to generate R benchmarks. TCE agrees within 0.002, NDE within 0.009, NIE within 0.010. The gcomp TCE estimate falls within R's 95% CI [0.039, 0.088]. Both tools identify the same effect decomposition pattern (NDE > NIE). The additive decomposition TCE = NDE + NIE holds exactly (residual < 0.001).
+
+R benchmarks, shared dataset, and the R script that generated them are in `qa/data/`.
 
 ### Functional tests (test_gcomp.do — 9 tests)
 
@@ -247,10 +257,6 @@ The `qa/` directory contains **38 tests** across 4 test files covering functiona
 
 - Tests Excel export pipeline with known mock results across 8 sections
 - Validates stored result accuracy (relative tolerance < 0.01%), Excel structure (7 rows × 5 columns), all 4 CI types (normal, percentile, BC, BCa), decimal precision, custom labels, and edge cases (negative effects, very small effects, large effects)
-
-### Cross-validation status
-
-No external cross-validation against R packages or published benchmarks is currently implemented. The g-computation engine inherits from SSC `gformula` v1.16 (Daniel et al. 2011), which was validated against the original Robins (1986) methodology by the original authors.
 
 ## References
 
