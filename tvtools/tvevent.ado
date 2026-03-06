@@ -589,10 +589,12 @@ program define tvevent, rclass
 
             * Count splits (number of date1, date2, ... variables from reshape)
             local max_splits = 0
-            forvalues i = 1/. {
-                capture confirm variable `date'`i'
+            local _i = 1
+            while 1 {
+                capture confirm variable `date'`_i'
                 if _rc continue, break
-                local max_splits = `i'
+                local max_splits = `_i'
+                local _i = `_i' + 1
             }
 
             * Calculate how many segments each interval needs
