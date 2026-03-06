@@ -37,6 +37,7 @@ Description:
 
 program define tvevent, rclass
     version 16.0
+    local orig_varabbrev = c(varabbrev)
     set varabbrev off
     set more off
 
@@ -817,6 +818,8 @@ program define tvevent, rclass
         di as txt "    `v' = `l'"
     }
     di as txt "{hline 50}"
+
+    set varabbrev `orig_varabbrev'
 
 end
 
