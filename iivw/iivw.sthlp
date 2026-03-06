@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.0  5mar2026}{...}
+{* *! version 1.0.0  6mar2026}{...}
 {vieweralsosee "iivw_weight" "help iivw_weight"}{...}
 {vieweralsosee "iivw_fit" "help iivw_fit"}{...}
 {vieweralsosee "[XT] xtgee" "help xtgee"}{...}
@@ -124,7 +124,7 @@ Meeting the assumptions of inverse-intensity weighting.
 {pstd}Timothy P Copeland{p_end}
 {pstd}Department of Clinical Neuroscience{p_end}
 {pstd}Karolinska Institutet{p_end}
-{pstd}Version 1.0.0, 2026-03-05{p_end}
+{pstd}Version 1.0.0, 2026-03-06{p_end}
 
 
 {title:Also see}
