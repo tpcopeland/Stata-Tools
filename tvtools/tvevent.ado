@@ -668,7 +668,18 @@ program define tvevent, rclass
         drop _orig_dur _orig_interval_id
 
         **# 5. MERGE EVENT FLAGS
-        
+
+        * Save person-level covariates for id-only merge (not tied to event date)
+        if "`keepvars'" != "" {
+            tempfile _kv_merge
+            preserve
+            use `events', clear
+            keep `id' `keepvars'
+            duplicates drop `id', force
+            save `_kv_merge'
+            restore
+        }
+
         tempvar match_date
         gen double `match_date' = `stopvar'
         
@@ -696,14 +707,6 @@ program define tvevent, rclass
             * Splitting only occurs when start < date < stop (event strictly inside interval).
             * An event at the stop date ends that interval without needing to split it.
 
-            if "`keepvars'" != "" {
-                * Drop existing keepvars to avoid collision
-                foreach v of local keepvars {
-                    capture drop `v'
-                }
-                quietly frget `keepvars', from(`event_frame')
-            }
-
             * Import event date variable so it appears in output
             capture drop `date'
             quietly frget `date' = `match_date', from(`event_frame')
@@ -725,6 +728,14 @@ program define tvevent, rclass
         }
 
         drop `match_date' `imported_type' `event_frame'
+
+        * Merge person-level covariates by id (not tied to event date)
+        if "`keepvars'" != "" {
+            foreach v of local keepvars {
+                capture drop `v'
+            }
+            merge m:1 `id' using `_kv_merge', keep(master match) nogen
+        }
 
         **# 6. APPLY LABELS
         
