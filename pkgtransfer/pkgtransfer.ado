@@ -1,4 +1,4 @@
-*! pkgtransfer Version 1.0.2  2025/12/05
+*! pkgtransfer Version 1.0.3  2026/03/06
 *! Author: Tim Copeland
 
 /*
@@ -30,6 +30,7 @@
 
 program define pkgtransfer, rclass
 	version 16.0
+	local _varabbrev `c(varabbrev)'
 	set varabbrev off
 	syntax [, DOWNLOAD(string) LIMITED(string) SKIP(string) RESTORE OS(string) DOfile(string) ZIPfile(string)]
 
@@ -45,10 +46,25 @@ quietly {
 
 	/* Error if specified packages in limited() are not found */
 	if "`limited'" != "" {
+		tempname trkfh
+		tempfile trkpkgs
+		file open `trkfh' using "`c(sysdir_plus)'`c(dirsep)'stata.trk", read text
+		file read `trkfh' line
+		local trk_pkg_list ""
+		while r(eof) == 0 {
+			if substr(`"`macval(line)'"', 1, 2) == "N " {
+				local this_pkg = subinstr(substr(`"`macval(line)'"', 3, .), ".pkg", "", .)
+				local trk_pkg_list "`trk_pkg_list' `this_pkg'"
+			}
+			file read `trkfh' line
+		}
+		file close `trkfh'
 		foreach pkg of local limited {
-			* Check if package exists in stata.trk
-			capture ado describe `pkg'
-			if _rc {
+			local found 0
+			foreach trk_pkg of local trk_pkg_list {
+				if "`pkg'" == "`trk_pkg'" local found 1
+			}
+			if !`found' {
 				noisily display as error "Error: package '`pkg'' not found"
 				noisily display as error "Package must be installed before transfer"
 				exit 111
@@ -58,24 +74,24 @@ quietly {
     
 	/* Error if download() not specifid correctly */
 		if "`download'" != "local" & "`download'" != "online" &  "`download'" != "" {
-			noisily di in red "Error: Invalid download() specification. Either do not specify the download() option, specify download(local), or download(online)."
+			noisily display as error "Error: Invalid download() specification. Either do not specify the download() option, specify download(local), or download(online)."
 			exit 198
 		}
 
 	/* Error if os() not specified correctly */
 		if "`os'" != "" & "`os'" != "Windows" & "`os'" != "Unix" & "`os'" != "MacOSX" {
-			noisily di in red "Error: Invalid os() specification. Valid options are 'Windows', 'Unix', or 'MacOSX'."
+			noisily display as error "Error: Invalid os() specification. Valid options are 'Windows', 'Unix', or 'MacOSX'."
 			exit 198
 		}
 
 	/* Error if `dofile' not specified correctly */
 		if "`dofile'" != "" {
 			if regexm("`dofile'", "[;&|><\$\`]") {
-				noisily di in red "Error: dofile() contains invalid characters"
+				noisily display as error "Error: dofile() contains invalid characters"
 				exit 198
 			}
 			if substr("`dofile'", -3, .) != ".do" {
-				noisily di in red "Do file name must end with '.do' extension"
+				noisily display as error "Do file name must end with '.do' extension"
 				exit 198
 			}
 		}
@@ -83,18 +99,18 @@ quietly {
 	/* Error if `zipfile' not specified correctly */
 		if "`zipfile'" != "" {
 			if regexm("`zipfile'", "[;&|><\$\`]") {
-				noisily di in red "Error: zipfile() contains invalid characters"
+				noisily display as error "Error: zipfile() contains invalid characters"
 				exit 198
 			}
 			if substr("`zipfile'", -4, .) != ".zip" {
-				noisily di in red "ZIP file name must end with '.zip' extension"
+				noisily display as error "ZIP file name must end with '.zip' extension"
 				exit 198
 			}
 		}
 
 	/* Error if `zipfile' specified without 'download' option */
 		if "`zipfile'" != "" & "`download'" == "" {
-			noisily di in red "Only ZIP file name if downloading data"
+			noisily display as error "Only ZIP file name if downloading data"
 			exit 198
 		}
 
@@ -112,6 +128,9 @@ quietly {
 		/* If OS is not specified, use current OS */
 		if "`os'" == "" local os "`c(os)'"
 }
+
+/* Preserve user data */
+preserve
 
 /* Execute Program */
 quietly{
@@ -131,11 +150,11 @@ quietly{
 			if "`skip'" != ""{
 				local skiplist "`skip'"
 				foreach name of local skiplist{
-					drop if package == "N " + "`name'" + ".pkg"
+					drop if package == "`name'"
 				}
 			}
 			duplicates tag package, gen(tag)
-			sum tag, d 
+			summarize tag
 			if `r(max)' > 0{
 				drop if tag == 0 
 				duplicates drop package, force 
@@ -536,8 +555,7 @@ quietly{
 
 				use "`pkg_list'", clear					
 					
-				noisily display "Progress: `curr_pkg_num'/`total_pkgs' packages (`=round(`curr_pkg_num'/`total_pkgs'*100)'%)" 
-				if `curr_pkg_num' < `total_pkgs' noisily display _continue
+				noisily display "Progress: `curr_pkg_num'/`total_pkgs' packages (`=round(`curr_pkg_num'/`total_pkgs'*100)'%)"
 				local curr_pkg_num = `curr_pkg_num' + 1
 				
             }
@@ -588,9 +606,16 @@ quietly{
             // Create ZIP file
             zipfile "pkgtransfer_files", saving("`zipfile'", replace)
 
-            // Delete Directory using Stata's file commands (safer than shell)
-            // Note: Stata's rmdir only deletes empty directories, but we use
-            // a local recursive approach with Stata file commands
+            // Delete Directory using Stata's file commands
+            // First remove files in subdirectories, then subdirs, then top-level
+            local subdirs : dir "pkgtransfer_files" dirs "*", respectcase
+            foreach d of local subdirs {
+                local subfiles : dir "pkgtransfer_files/`d'" files "*", respectcase
+                foreach f of local subfiles {
+                    capture erase "pkgtransfer_files/`d'/`f'"
+                }
+                capture rmdir "pkgtransfer_files/`d'"
+            }
             local filelist : dir "pkgtransfer_files" files "*", respectcase
             foreach f of local filelist {
                 capture erase "pkgtransfer_files/`f'"
@@ -603,9 +628,18 @@ quietly{
                 * Backup stata.trk before modifying
                 copy "`c(sysdir_plus)'`c(dirsep)'stata.trk" "`c(sysdir_plus)'`c(dirsep)'stata.trk.backup", replace
                 import delimited using "`c(sysdir_plus)'`c(dirsep)'stata.trk", delim("$$$$$$$$$") stringcols(1) bindquote(strict) maxquotedrows(unlimited) clear
-                replace v1 = v1[_n+5] if substr(v1,1,2) == "S " &  substr(v1[_n+5],1,2) == "d S "
-                replace v1 = subinstr(v1,"d S ","S ",.) if substr(v1[_n+1],1,2) == "N "
+                gen row_id = _n
+                gen entry_id = sum(substr(v1,1,2) == "S ")
+                * Extract original URL from "d S " backup lines
+                gen orig_url = substr(v1, 5, .) if substr(v1,1,4) == "d S "
+                * Fill orig_url backward within each entry to reach the S line
+                gsort entry_id -row_id
+                by entry_id: replace orig_url = orig_url[_n-1] if missing(orig_url) & !missing(orig_url[_n-1])
+                sort row_id
+                * Replace S lines with original URL where backup exists
+                replace v1 = "S " + orig_url if substr(v1,1,2) == "S " & !missing(orig_url)
                 drop if substr(v1,1,4) == "d S "
+                drop row_id entry_id orig_url
                 outfile v1 using "`c(sysdir_plus)'`c(dirsep)'stata.trk", noquote replace
                 noisily display "Installation pathways restored!"
             }
@@ -616,6 +650,10 @@ quietly{
         }
 
 }
+
+/* Restore user data and settings */
+restore
+set varabbrev `_varabbrev'
 
 /* Return values */
 if "`pkg_list_for_do'" != "" {
