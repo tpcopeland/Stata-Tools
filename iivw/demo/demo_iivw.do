@@ -1,7 +1,8 @@
 /*  demo_iivw.do - Generate screenshots for iivw
 
-    Produces 1 output type:
+    Produces 2 output types:
       1. Console output (FIPTIW workflow: weighting + outcome model) -> .smcl
+      2. Excel table (IIW vs FIPTIW comparison via collect + regtab) -> .xlsx
 */
 
 version 16.0
@@ -23,6 +24,12 @@ capture program drop _iivw_check_weighted
 quietly run iivw/_iivw_check_weighted.ado
 capture program drop _iivw_get_settings
 quietly run iivw/_iivw_get_settings.ado
+capture program drop regtab
+quietly run tabtools/regtab.ado
+capture program drop _tabtools_validate_path
+capture program drop _tabtools_col_letter
+capture program drop _tabtools_build_col_letters
+quietly run tabtools/_tabtools_common.ado
 
 * --- Generate synthetic longitudinal data ---
 * 200 patients, 3-8 visits each, irregular timing
@@ -92,6 +99,28 @@ noisily iivw_fit score drug age female severity_bl, ///
     model(gee) timespec(linear) nolog
 
 log close demo
+
+* --- 2. Excel table: IIW vs FIPTIW comparison ---
+collect clear
+
+* Model 1: IIW only
+iivw_weight, id(patid) time(months) ///
+    visit_cov(severity relapse) truncate(1 99) replace nolog
+collect: iivw_fit score drug age female severity_bl, ///
+    model(gee) timespec(linear) nolog
+
+* Model 2: FIPTIW
+iivw_weight, id(patid) time(months) ///
+    visit_cov(severity relapse) ///
+    treat(drug) treat_cov(age female severity_bl) ///
+    truncate(1 99) replace nolog
+collect: iivw_fit score drug age female severity_bl, ///
+    model(gee) timespec(linear) nolog
+
+* Export formatted table
+regtab, xlsx(`pkg_dir'/iivw_results.xlsx) sheet(Comparison) ///
+    models(IIW \ FIPTIW) coef(Coef.) ///
+    title(IIW vs FIPTIW: Cognitive Score) stats(n) noint
 
 * --- Cleanup ---
 clear
