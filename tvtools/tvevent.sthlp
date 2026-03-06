@@ -34,7 +34,7 @@
 {synopt:{opt date(name)}}variable name or stubname for event date(s); for {cmd:type(recurring)}, specifies the stub for {it:stub}1, {it:stub}2, etc.{p_end}
 
 {syntab:Competing Risks}
-{synopt:{opt com:pete(varlist)}}list of date variables in using file representing competing risks{p_end}
+{synopt:{opt com:pete(varlist)}}list of date variables in the master (event) dataset representing competing risks{p_end}
 
 {syntab:Event definition}
 {synopt:{opt type(string)}}event type: {bf:single} (default) or {bf:recurring}{p_end}
@@ -100,7 +100,7 @@ If {cmd:type(single)} is used (default), all data after the first occurring even
 {title:Options}
 
 {phang}
-{opt compete(varlist)} specifies date variables in the using dataset that represent competing risks. If a competing date is earlier than the primary date, the status is set to 2 (for the first variable in the list), 3 (for the second), etc.
+{opt compete(varlist)} specifies date variables in the master (event) dataset that represent competing risks. If a competing date is earlier than the primary date, the status is set to 2 (for the first variable in the list), 3 (for the second), etc.
 
 {phang}
 {opt continuous(varlist)} specifies variables representing cumulative exposure amounts (e.g., total mg of drug, total days exposed) calculated for the *original* interval. When an interval is split, the values of these variables are multiplied by the ratio of (new duration / old duration), preserving the correct rate and total sum.

@@ -228,10 +228,10 @@ program define tvevent, rclass
             }
             else {
                 * Just check the primary date
-                tempvar has_event
+                tempvar has_event total_events
                 gen `has_event' = !missing(`date')
-                bysort `id': egen long _total_events = total(`has_event')
-                quietly count if _total_events > 1
+                bysort `id': egen long `total_events' = total(`has_event')
+                quietly count if `total_events' > 1
                 local v_multiple = r(N)
             }
             restore
@@ -327,7 +327,7 @@ program define tvevent, rclass
             noisily di as txt "Note: Event dataset is empty. All intervals will be marked as censored."
             _tvevent_empty_output, using("`using'") id(`id') startvar(`startvar') ///
                 stopvar(`stopvar') generate(`generate') timeunit(`timeunit') ///
-                timegen(`timegen') replace(`replace')
+                timegen(`timegen') `replace'
             exit 0
         }
 
@@ -410,7 +410,7 @@ program define tvevent, rclass
                 noisily di as txt "Note: All event dates are missing. All intervals will be marked as censored."
                 _tvevent_empty_output, using("`using'") id(`id') startvar(`startvar') ///
                     stopvar(`stopvar') generate(`generate') timeunit(`timeunit') ///
-                    timegen(`timegen') replace(`replace')
+                    timegen(`timegen') `replace'
                 exit 0
             }
 
@@ -500,8 +500,9 @@ program define tvevent, rclass
             }
         }
         if `stub_collisions' > 0 {
-            noisily di as txt "Warning: Using dataset contains `stub_collisions' variable(s) matching '`date'1', '`date'2', etc."
-            noisily di as txt "         These may conflict with internal split processing. Consider renaming."
+            noisily di as error "Using dataset contains `stub_collisions' variable(s) matching '`date'1', '`date'2', etc."
+            noisily di as error "These conflict with internal split processing. Rename these variables before running tvevent."
+            exit 110
         }
 
         * Save interval data for later
@@ -824,7 +825,7 @@ end
 program define _tvevent_empty_output, rclass
     version 16.0
     syntax , using(string) id(name) startvar(name) stopvar(name) ///
-        generate(name) timeunit(string) [timegen(name) replace(string)]
+        generate(name) timeunit(string) [timegen(name) REPlace]
 
     use "`using'", clear
 
@@ -843,7 +844,7 @@ program define _tvevent_empty_output, rclass
     }
 
     * Create outcome variable (all censored = 0)
-    if "`replace'" != "" {
+    if "`replace'" == "replace" {
         capture drop `generate'
         if "`timegen'" != "" capture drop `timegen'
     }
