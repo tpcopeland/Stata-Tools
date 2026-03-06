@@ -1,4 +1,4 @@
-*! tvexpose Version 1.4.1  2026/02/18
+*! tvexpose Version 1.4.2  2026/03/06
 *! Create time-varying exposure variables for survival analysis
 *! Author: Tim Copeland
 *! Program class: rclass (returns results in r())
@@ -114,15 +114,28 @@ See help tvexpose for complete documentation with examples
 program define tvexpose, rclass
     version 16.0
     set varabbrev off
+    local orig_more = c(more)
     set more off
 
     * Load helper libraries for modular architecture
     * - Mata library: O(n log n) overlap detection
     * - Diagnostic library: coverage, gaps, overlaps, summary, validation
-    findfile _tvexpose_mata.ado
-    quietly run "`r(fn)'"
-    findfile _tvexpose_diagnose.ado
-    quietly run "`r(fn)'"
+    capture findfile _tvexpose_mata.ado
+    if _rc == 0 {
+        quietly run "`r(fn)'"
+    }
+    else {
+        noisily display as error "_tvexpose_mata.ado not found; reinstall tvtools"
+        exit 111
+    }
+    capture findfile _tvexpose_diagnose.ado
+    if _rc == 0 {
+        quietly run "`r(fn)'"
+    }
+    else {
+        noisily display as error "_tvexpose_diagnose.ado not found; reinstall tvtools"
+        exit 111
+    }
 
     syntax using/ , ///
         id(name) ///
@@ -543,8 +556,8 @@ program define tvexpose, rclass
         exit 198
     }
 
-	quietly replace `entry' = floor(`entry')
-	quietly replace `exit' = ceil(`exit')
+    quietly replace `entry' = floor(`entry')
+    quietly replace `exit' = ceil(`exit')
     quietly save `_master_orig'
     
     **# DATA PREPARATION AND CLEANING
@@ -859,8 +872,8 @@ program define tvexpose, rclass
     * Restricts effect to specific time window around exposure
     * For example: window(1 7) measures days 1-7 after exposure (week-long window)
     if "`window'" != "" {
-        quietly replace exp_start = exp_start + `window_min'
         quietly replace exp_stop = min(exp_start + `window_max', exp_stop)
+        quietly replace exp_start = exp_start + `window_min'
         quietly drop if exp_start > exp_stop
     }
     
@@ -1423,7 +1436,7 @@ program define tvexpose, rclass
         }
 
         if `iter' >= `max_iter' {
-            noisily display in re "Warning: Simple overlap resolution reached iteration limit; some overlaps may remain"
+            noisily display as error "Warning: Simple overlap resolution reached iteration limit; some overlaps may remain"
         }
     }
     
@@ -1484,7 +1497,7 @@ program define tvexpose, rclass
         }
         
         if `iter' >= `max_iter' {
-            noisily display in re "Warning: Priority resolution reached iteration limit; some overlaps may remain"
+            noisily display as error "Warning: Priority resolution reached iteration limit; some overlaps may remain"
         }
         
         drop priority_rank
@@ -1606,7 +1619,7 @@ program define tvexpose, rclass
         }
         
         if `iter' >= `max_iter' {
-            noisily display in re "Warning: Layer resolution reached iteration limit; some overlaps may remain"
+            noisily display as error "Warning: Layer resolution reached iteration limit; some overlaps may remain"
         }
 
         * After layer resolution, merge overlapping same-type periods
@@ -2451,7 +2464,6 @@ program define tvexpose, rclass
             sort id exp_start
 
             * NEW: Post-expansion cleanup — remove overlaps and merge abutting same-value periods
-            tempvar __break __grp __ovl
             quietly bysort id (exp_start): gen double __ovl = (exp_start <= exp_stop[_n-1]) if _n>1 & id==id[_n-1]
             quietly count if __ovl==1
             if r(N)>0 {
@@ -2948,7 +2960,7 @@ program define tvexpose, rclass
                 }
                 else {
                     quietly replace `stub_name'`suffix' = 1 if __orig_exp_category == `exp_type_val' & ///
-                        __cumul_units_start_`suffix' >= 0
+                        __cumul_start_days_`suffix' >= 0
                 }
 
                 * Carry forward duration to all periods after first exposure (cumulative exposure)
@@ -3908,7 +3920,6 @@ program define tvexpose, rclass
     * For other bytype cases, use exp_value for this calculation
 
         * Calculate exposed person-time
-    capture drop __final_binary
 
     * Case 1: main single output variable exists (no bytype)
     if `skip_main_var' == 0 {
@@ -4379,27 +4390,8 @@ program define tvexpose, rclass
     * Detect bytype variables if bytype option was used
     local bytype_vars ""
     if "`bytype'" != "" {
-        * Collect all bytype variables that exist in the dataset
-        if "`exp_type'" == "evertreated" {
-            quietly ds `stub_name'*
-            local bytype_vars "`r(varlist)'"
-        }
-        else if "`exp_type'" == "currentformer" {
-            quietly ds `stub_name'*
-            local bytype_vars "`r(varlist)'"
-        }
-        else if "`exp_type'" == "duration" {
-            quietly ds `stub_name'*
-            local bytype_vars "`r(varlist)'"
-        }
-        else if "`exp_type'" == "continuous" {
-            quietly ds `stub_name'*
-            local bytype_vars "`r(varlist)'"
-        }
-        else if "`exp_type'" == "recency" {
-            quietly ds `stub_name'*
-            local bytype_vars "`r(varlist)'"
-        }
+        quietly ds `stub_name'*
+        local bytype_vars "`r(varlist)'"
     }
     
     * Time-varying format: id start stop exposure [bytype vars] [keepvars] [entry exit if keepdates]
@@ -4574,6 +4566,8 @@ program define tvexpose, rclass
     return scalar pct_exposed = `pct_exposed'
 
     * Note: overlap_ids already available via return local, no global needed
+
+    set more `orig_more'
 
 end
 *

@@ -1,4 +1,4 @@
-*! tvmerge Version 1.0.6  2025/12/26
+*! tvmerge Version 1.0.7  2026/03/06
 *! Merge multiple time-varying exposure datasets
 *! Author: Tim Copeland
 *! Program class: rclass (returns results in r())
@@ -59,6 +59,7 @@ EXPOSURE TYPES:
 program define tvmerge, rclass
 
     version 16.0
+    local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     set more off
 
@@ -779,18 +780,29 @@ program define tvmerge, rclass
 
             * If mismatches exist, report and either warn or error based on force option
             if `n_only_merged' > 0 | `n_only_dsk' > 0 {
+                * Sort so _merge_check==1 rows first, then ==2, for correct in/if listing
+                sort _merge_check id
+
                 if "`force'" == "" {
                     * No force option - error out (strict mode)
                     noisily di as error _newline "ID mismatch detected between datasets!"
 
                     if `n_only_merged' > 0 {
                         noisily di as error "  `n_only_merged' IDs exist in datasets 1-`=`k'-1' but not in dataset `k' (`ds_k'):"
-                        noisily list id if _merge_check == 1, noheader sep(0)
+                        local n_show = min(20, `n_only_merged')
+                        noisily list id if _merge_check == 1 in 1/`n_show', noheader sep(0)
+                        if `n_only_merged' > 20 {
+                            noisily di as error "  ... and `=`n_only_merged'-20' more"
+                        }
                     }
 
                     if `n_only_dsk' > 0 {
                         noisily di as error "  `n_only_dsk' IDs exist in dataset `k' (`ds_k') but not in datasets 1-`=`k'-1':"
-                        noisily list id if _merge_check == 2, noheader sep(0)
+                        local n_show = min(20, `n_only_dsk')
+                        noisily list id if _merge_check == 2 in 1/`n_show', noheader sep(0)
+                        if `n_only_dsk' > 20 {
+                            noisily di as error "  ... and `=`n_only_dsk'-20' more"
+                        }
                     }
 
                     noisily di as error _newline "All datasets must contain the same set of IDs."
@@ -999,7 +1011,12 @@ program define tvmerge, rclass
             if _rc != 0 {
                 use `merged_data', clear
                 keep if 1 == 0  // Keep structure but no observations
-                generate double `exp_k' = .
+                foreach _fallback_exp in `exp_k_list' {
+                    capture confirm variable `_fallback_exp'
+                    if _rc != 0 {
+                        generate double `_fallback_exp' = .
+                    }
+                }
                 save `cartesian', replace
             }
             
@@ -1066,14 +1083,13 @@ program define tvmerge, rclass
             egen long _tag = tag(id)
             quietly count if _tag == 1
             local n_persons = r(N)
-            drop _tag
 
             * Calculate average and max periods per person
             by id: generate long _nper = _N
-            quietly summarize _nper, meanonly
+            quietly summarize _nper if _tag == 1, meanonly
             local avg_periods = r(mean)
             local max_periods = r(max)
-            drop _nper
+            drop _tag _nper
         }
         else {
             local n_persons = 0
@@ -1108,11 +1124,11 @@ program define tvmerge, rclass
         * This diagnostic flags overlaps with IDENTICAL exposure values (likely errors)
         if "`validateoverlap'" != "" {
             * Check if any period starts before previous one ends
-            by id (`startname'): generate double _overlap = `startname'[_n] < `stopname'[_n-1] if _n > 1
-            
+            by id (`startname'): generate byte _overlap = `startname'[_n] < `stopname'[_n-1] if _n > 1
+
             * For overlaps, check if exposure values are identical (unexpected)
             * If exposure values differ, overlap is expected in cartesian merge
-            generate double _same_exposures = 1 if _overlap == 1
+            generate byte _same_exposures = 1 if _overlap == 1
             foreach exp_varname in `final_exps' {
                 capture confirm variable `exp_varname'
                 if _rc == 0 {
@@ -1162,13 +1178,12 @@ program define tvmerge, rclass
             drop _tag
 
             * Calculate and store periods per person statistics
-            by id: generate long _per = _n
             by id: generate long _per_max = _N
-            quietly summarize _per, meanonly
+            by id: generate byte _first = (_n == 1)
+            quietly summarize _per_max if _first == 1, meanonly
             return scalar mean_periods = r(mean)
-            quietly summarize _per_max, meanonly
             return scalar max_periods = r(max)
-            drop _per _per_max
+            drop _per_max _first
         }
         else {
             return scalar N_persons = 0
@@ -1226,18 +1241,18 @@ program define tvmerge, rclass
     
     * Display invalid period warnings if found
     if !missing("`invalid_ds1'") & `invalid_ds1' > 0 {
-        di in re "Found `invalid_ds1' rows in `first_ds' where start > stop (will skip)"
+        di as error "Found `invalid_ds1' rows in `first_ds' where start > stop (will skip)"
     }
     forvalues k = 2/`numds' {
         if !missing("`invalid_ds`k''") & `invalid_ds`k'' > 0 {
             local ds_k: word `k' of `datasets'
-            di in re "Found `invalid_ds`k'' rows in `ds_k' where start > stop (will skip)"
+            di as error "Found `invalid_ds`k'' rows in `ds_k' where start > stop (will skip)"
         }
     }
     
     * Display duplicates info if any were dropped
     if `n_dups' > 0 {
-        di in re "Dropped `n_dups' duplicate interval+exposure combinations"
+        di as error "Dropped `n_dups' duplicate interval+exposure combinations"
     }
     
     * Display coverage diagnostics if requested
@@ -1258,7 +1273,7 @@ program define tvmerge, rclass
         noisily display as text "{hline 50}"
         di as txt "{it:Validating coverage...}"
         if `n_gaps' > 0 {
-            di in re "Found `n_gaps' gaps in coverage (>1 day gaps)"
+            di as error "Found `n_gaps' gaps in coverage (>1 day gaps)"
             quietly use `gaps_data', clear
             noisily list id `startname' `stopname' _gap if _gap > 1 & !missing(_gap), sep(20)
             quietly use `current', clear
@@ -1276,7 +1291,7 @@ program define tvmerge, rclass
         noisily display as text "{hline 50}"
         di as txt "{it:Validating overlaps...}"
         if `n_overlaps' > 0 {
-            di in re "Found `n_overlaps' unexpected overlapping periods (same interval, same exposures)"
+            di as error "Found `n_overlaps' unexpected overlapping periods (same interval, same exposures)"
             quietly use `overlap_data', clear
             noisily list id `startname' `stopname' if _overlap == 1, sep(20)
             quietly use `current', clear
@@ -1309,5 +1324,7 @@ program define tvmerge, rclass
     di as txt "    Persons: " as result %14.0fc `npersons'
     di as txt "    Exposure variables: " as result "`exp_vars'"
     noisily display as text "{hline 50}"
+
+    set varabbrev `_orig_varabbrev'
 
 end

@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.6  2025/12/26}{...}
+{* *! version 1.0.7  2026/03/06}{...}
 {vieweralsosee "[D] merge" "help merge"}{...}
 {viewerjumpto "Syntax" "tvmerge##syntax"}{...}
 {viewerjumpto "Description" "tvmerge##description"}{...}
@@ -56,6 +56,9 @@
 {synopt:{opt validatecoverage}}verify all person-time accounted for (check for gaps){p_end}
 {synopt:{opt validateoverlap}}verify overlapping periods make sense{p_end}
 {synopt:{opt sum:marize}}display summary statistics of start/stop dates{p_end}
+
+{syntab:ID matching}
+{synopt:{opt force}}allow merging datasets with non-matching IDs (issues warning){p_end}
 
 {syntab:Performance}
 {synopt:{opt batch(#)}}process IDs in batches (default: 20 = 20% per batch; range: 1-100){p_end}
@@ -179,6 +182,18 @@ Default is %tdCCYY/NN/DD. Any valid Stata date format may be used.
 variables in the merged output dataset.
 
 
+{dlgtab:ID matching}
+
+{phang}
+{opt force} allows merging datasets where the set of IDs does not match exactly
+across all datasets. By default, {cmd:tvmerge} errors if any IDs appear in some
+datasets but not others, because {cmd:joinby} silently drops non-matching IDs.
+With {opt force}, mismatched IDs are dropped with a warning showing which IDs
+were affected and how many observations were removed. Only IDs present in ALL
+datasets appear in the output. This is useful when merging exposure data that
+covers a subset of a cohort.
+
+
 {dlgtab:Performance}
 
 {phang}
@@ -221,8 +236,8 @@ produce six output records representing all combinations.
 {bf:Time period validity}
 
 {pstd}
-All input datasets must have valid time periods where start < stop. Records with invalid periods 
-(start >= stop) are automatically excluded with a warning message. Point-in-time observations (where 
+All input datasets must have valid time periods where start <= stop. Records with invalid periods
+(start > stop) are automatically excluded with a warning message. Point-in-time observations (where
 start = stop) are valid; for example, lab measurements or clinic visits that occur on a single day.
 
 
@@ -584,7 +599,7 @@ Progress messages show batch processing status. For a dataset with 10,000 unique
 {pstd}Timothy P Copeland{p_end}
 {pstd}Department of Clinical Neuroscience{p_end}
 {pstd}Karolinska Institutet{p_end}
-{pstd}Version 1.0.4, 2025-12-14{p_end}
+{pstd}Version 1.0.7, 2026-03-06{p_end}
 
 
 {title:Also see}

@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.1.0  07jan2026}{...}
+{* *! version 1.1.1  06mar2026}{...}
 {viewerjumpto "Syntax" "tvage##syntax"}{...}
 {viewerjumpto "Description" "tvage##description"}{...}
 {viewerjumpto "Options" "tvage##options"}{...}
@@ -51,7 +51,13 @@ can be specified using the {opt groupwidth()} option.
 {pstd}
 Start and stop dates are calculated to begin at the later of study entry or
 the person's birthday at that age, and end at the earlier of study exit or
-the day before their next birthday.
+the day before their next birthday. Age is calculated using a 365.25-day
+year approximation, which may differ from exact birthdays by ±1 day.
+
+{pstd}
+All date variables must be non-missing. The command will exit with an error
+if any observation has missing values in {opt dobvar()}, {opt entryvar()},
+or {opt exitvar()}.
 
 
 {marker options}{...}
