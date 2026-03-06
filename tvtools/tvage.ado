@@ -1,4 +1,4 @@
-*! tvage Version 1.1.0  2025/01/07
+*! tvage Version 1.1.1  2026/03/06
 *! Generate time-varying age intervals for survival analysis
 *! Part of the tvtools package
 *!
@@ -37,10 +37,24 @@ program define tvage, rclass
     if "`startgen'" == "" local startgen "age_start"
     if "`stopgen'" == "" local stopgen "age_stop"
 
-    * Validate group width (only if grouping requested)
+    * Validate group width
     if `groupwidth' < 1 | `groupwidth' > 50 {
         display as error "groupwidth() must be between 1 and 50"
         exit 198
+    }
+
+    * Validate minage <= maxage
+    if `minage' > `maxage' {
+        display as error "minage() must be less than or equal to maxage()"
+        exit 198
+    }
+
+    * Validate no missing dates
+    quietly count if missing(`dobvar') | missing(`entryvar') | missing(`exitvar')
+    if r(N) > 0 {
+        display as error r(N) " observation(s) have missing dates in " ///
+            "`dobvar', `entryvar', or `exitvar'"
+        exit 416
     }
 
     * Preserve original data
@@ -54,7 +68,8 @@ program define tvage, rclass
         * Keep only essential variables
         keep `idvar' `dobvar' `entryvar' `exitvar'
 
-        * Calculate age at study entry and exit
+        * Calculate age at study entry and exit (365.25 approximation;
+        * may differ from exact birthday by ±1 day near birthdays)
         tempvar age_entry age_exit n_periods period
         gen int `age_entry' = floor((`entryvar' - `dobvar') / 365.25)
         gen int `age_exit' = floor((`exitvar' - `dobvar') / 365.25)
@@ -63,12 +78,24 @@ program define tvage, rclass
         replace `age_entry' = max(`age_entry', `minage')
         replace `age_exit' = min(`age_exit', `maxage')
 
-        * Drop persons with invalid age range (e.g., DOB after exit date)
+        * Drop persons with invalid age range after clamping
         count if `age_exit' < `age_entry'
         if r(N) > 0 {
             local n_invalid = r(N)
-            noisily display as text "Warning: `n_invalid' persons dropped (DOB after exit date)"
+            if "`noisily'" != "" {
+                noisily display as text ///
+                    "Warning: `n_invalid' observation(s) dropped" ///
+                    " (invalid age range after clamping)"
+            }
             drop if `age_exit' < `age_entry'
+        }
+
+        * Guard against empty dataset
+        count
+        if r(N) == 0 {
+            noisily display as error "no valid observations remain after age filtering"
+            restore
+            exit 2000
         }
 
         * Calculate number of periods needed per person
@@ -138,12 +165,20 @@ program define tvage, rclass
             local min_label = floor(`actual_min' / `groupwidth') * `groupwidth'
             local max_label = floor(`actual_max' / `groupwidth') * `groupwidth'
 
-            capture label drop `generate'_lbl
+            * Truncate label name if variable name > 28 chars
+            if length("`generate'") > 28 {
+                local lbl_name = substr("`generate'", 1, 28) + "_lbl"
+            }
+            else {
+                local lbl_name "`generate'_lbl"
+            }
+
+            capture label drop `lbl_name'
             forvalues age = `min_label'(`groupwidth')`max_label' {
                 local upper = `age' + `groupwidth' - 1
-                label define `generate'_lbl `age' "`age'-`upper'", add
+                label define `lbl_name' `age' "`age'-`upper'", add
             }
-            label values `generate' `generate'_lbl
+            label values `generate' `lbl_name'
         }
 
         label variable `generate' "Age (time-varying)"

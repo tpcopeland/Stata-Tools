@@ -1359,7 +1359,7 @@ MIT License
 | Command | Version | Date |
 |---------|---------|------|
 | tvtools | 1.5.0 | 2026-03-05 |
-| tvexpose | 1.2.0 | 2025-12-14 |
+| tvexpose | 1.4.2 | 2026-03-06 |
 | tvmerge | 1.0.5 | 2025-12-18 |
 | tvevent | 1.4.0 | 2025-12-18 |
 | tvcalendar | 1.1.0 | 2026-02-18 |
