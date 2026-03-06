@@ -374,7 +374,7 @@ When {cmd:validate} is specified, additional scalars are stored:
 {pstd}Timothy P Copeland{p_end}
 {pstd}Department of Clinical Neuroscience{p_end}
 {pstd}Karolinska Institutet{p_end}
-{pstd}Version 1.4.0, 2025-12-18{p_end}
+{pstd}Version 1.5.0, 2026-01-12{p_end}
 
 {title:Also see}
 

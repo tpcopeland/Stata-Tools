@@ -465,19 +465,16 @@ program define tvevent, rclass
             }
         }
 
-        * Check for variable name collision with date variable from master
-        capture confirm variable `date'
-        if _rc == 0 {
-            noisily di as error "Variable `date' exists in both master (event) and using (interval) datasets."
-            noisily di as error "Rename the date variable in one dataset to avoid collision."
-            exit 110
-        }
-
-        * Check replace option (generate/timegen will be created in interval data)
+        * Check replace option (generate/timegen/date will be created in interval data)
         if "`replace'" == "" {
             capture confirm variable `generate'
             if _rc == 0 {
                 noisily di as error "Variable `generate' already exists in using dataset. Use replace option."
+                exit 110
+            }
+            capture confirm variable `date'
+            if _rc == 0 {
+                noisily di as error "Variable `date' already exists in using dataset. Use replace option."
                 exit 110
             }
             if "`timegen'" != "" {
@@ -490,7 +487,21 @@ program define tvevent, rclass
         }
         else {
             capture drop `generate'
+            capture drop `date'
             if "`timegen'" != "" capture drop `timegen'
+        }
+
+        * Warn if interval data has variables matching the date stub pattern
+        local stub_collisions = 0
+        forvalues i = 1/20 {
+            capture confirm variable `date'`i'
+            if _rc == 0 {
+                local stub_collisions = `stub_collisions' + 1
+            }
+        }
+        if `stub_collisions' > 0 {
+            noisily di as txt "Warning: Using dataset contains `stub_collisions' variable(s) matching '`date'1', '`date'2', etc."
+            noisily di as txt "         These may conflict with internal split processing. Consider renaming."
         }
 
         * Save interval data for later
@@ -525,8 +536,6 @@ program define tvevent, rclass
         * Use regular variable names (not tempvars) for values that must persist across file saves
         gen double _orig_dur = `stopvar' - `startvar'
         gen long _orig_interval_id = _n
-        gen double _orig_stop = `stopvar'  // Track original stop to detect boundary events
-
         if `n_splits' > 0 {
             noisily di as txt "Splitting intervals for `n_splits' internal events..."
 
@@ -578,10 +587,12 @@ program define tvevent, rclass
             * Merge in split dates
             merge 1:1 _orig_interval_id using `split_dates', keep(match) nogen
 
-            * Count splits (number of date* variables that exist)
+            * Count splits (number of date1, date2, ... variables from reshape)
             local max_splits = 0
-            foreach v of varlist `date'* {
-                local max_splits = `max_splits' + 1
+            forvalues i = 1/. {
+                capture confirm variable `date'`i'
+                if _rc continue, break
+                local max_splits = `i'
             }
 
             * Calculate how many segments each interval needs
@@ -624,7 +635,9 @@ program define tvevent, rclass
 
             * Clean up temporary variables
             drop `new_start' `new_stop' _n_segments _seg_num
-            capture drop `date'*
+            forvalues i = 1/`max_splits' {
+                capture drop `date'`i'
+            }
 
             save `needs_splits'
 
@@ -684,6 +697,11 @@ program define tvevent, rclass
                 }
                 quietly frget `keepvars', from(`event_frame')
             }
+
+            * Import event date variable so it appears in output
+            capture drop `date'
+            quietly frget `date' = `match_date', from(`event_frame')
+            label var `date' "Event date"
         }
         local frame_rc = _rc
 
@@ -695,7 +713,7 @@ program define tvevent, rclass
             exit `frame_rc'
         }
 
-        drop `match_date' `imported_type' _orig_stop `event_frame'
+        drop `match_date' `imported_type' `event_frame'
 
         **# 6. APPLY LABELS
         
