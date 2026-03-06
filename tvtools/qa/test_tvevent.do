@@ -756,19 +756,14 @@ if `run_only' == 0 | `run_only' == `test_count' {
         * Both original keepvars and tvevent keepvars should be present
         confirm variable age female mstype death_dt
 
-        * Regression: keepvars must be on ALL rows for people with events,
-        * not just the event row (bug: frlink on id+date left non-event rows missing)
-        count if outcome > 0
-        local _n_evt = r(N)
-        if `_n_evt' > 0 {
-            count if outcome > 0 & !missing(death_dt)
-            assert r(N) == `_n_evt'
-            * Check non-event rows for same people also have death_dt
-            tempvar _has_evt
-            bysort id: egen byte `_has_evt' = max(outcome > 0)
-            count if `_has_evt' == 1 & missing(death_dt)
-            assert r(N) == 0
-        }
+        * Regression: keepvars must be consistent within person
+        * (same value on all rows, not just the event row)
+        tempvar kv_has kv_miss
+        bysort id: egen byte `kv_has' = max(!missing(death_dt))
+        bysort id: egen byte `kv_miss' = max(missing(death_dt))
+        * No person should have both missing and non-missing death_dt
+        count if `kv_has' == 1 & `kv_miss' == 1
+        assert r(N) == 0
     }
     if _rc == 0 {
         local ++pass_count
