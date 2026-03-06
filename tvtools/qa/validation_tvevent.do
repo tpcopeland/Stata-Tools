@@ -816,6 +816,30 @@ else {
     local failed_tests "`failed_tests' 4.9.2"
 }
 
+* Create cumulative time test datasets
+* Person 1: 3 intervals starting at 21915, event at 22150 (cumulative=235)
+* Person 2: 2 intervals starting at 21915, event at 22100 (cumulative=185)
+clear
+input long id double(start stop)
+    1 21915 22000
+    1 22000 22100
+    1 22100 22200
+    2 21915 22050
+    2 22050 22200
+end
+format %td start stop
+label data "Multi-interval cumulative time test"
+save "${DATA_DIR}/intervals_cumtime_test.dta", replace
+
+clear
+input long id double event_dt
+    1 22150
+    2 22100
+end
+format %td event_dt
+label data "Events for cumulative time test"
+save "${DATA_DIR}/events_cumtime_test.dta", replace
+
 * -----------------------------------------------------------------------------
 * Test 4.9.3: timegen Cumulative Time with Multi-Interval Data
 * Purpose: Verify timegen calculates stop - first_start (cumulative time)

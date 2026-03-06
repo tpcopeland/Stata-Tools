@@ -337,7 +337,8 @@ program define tvevent, rclass
 
             * Capture label from first event variable
             local first_evar : word 1 of `eventvars'
-            local lab_1 : variable label `first_evar'
+            local orig_date_label : variable label `first_evar'
+            local lab_1 "`orig_date_label'"
             if "`lab_1'" == "" local lab_1 "Event: `date'"
 
             * Note: competing risks not supported with recurring events
@@ -377,7 +378,8 @@ program define tvevent, rclass
             * --- SINGLE EVENTS: Original logic with competing risks ---
 
             * Capture labels from master (event) dataset before processing
-            local lab_1 : variable label `date'
+            local orig_date_label : variable label `date'
+            local lab_1 "`orig_date_label'"
             if "`lab_1'" == "" local lab_1 "Event: `date'"
 
             local num_compete : word count `compete'
@@ -705,7 +707,12 @@ program define tvevent, rclass
             * Import event date variable so it appears in output
             capture drop `date'
             quietly frget `date' = `match_date', from(`event_frame')
-            label var `date' "Event date"
+            if `"`orig_date_label'"' != "" {
+                label var `date' `"`orig_date_label'"'
+            }
+            else {
+                label var `date' "Event date"
+            }
         }
         local frame_rc = _rc
 
