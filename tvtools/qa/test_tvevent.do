@@ -600,41 +600,55 @@ if `run_only' == 0 | `run_only' == `test_count' {
 
 * =============================================================================
 * TEST 11: Recurring events in wide format (hosp_date1 hosp_date2 ...)
-* NOTE: This test is skipped - recurring events with multiple dates per person
-*       requires frlink m:1 instead of 1:1, which needs further development
 * =============================================================================
 local ++test_count
-local test_desc "Recurring events - wide format [SKIPPED]"
+local test_desc "Recurring events - wide format"
 _run_test `test_count' "`test_desc'"
 
 if `run_only' == 0 | `run_only' == `test_count' {
-    * Skip this test - known limitation with recurring events
-    local ++pass_count
-    if `machine' {
-        display "[SKIP] `test_count'"
-    }
-    else if `quiet' == 0 {
-        display as text "  SKIPPED (recurring events not yet supported)"
-    }
-}
-if 0 {  // Original test code preserved for future implementation
     capture {
         quietly use "${DATA_DIR}/hospitalizations_wide.dta", clear
 
-        * tvevent auto-detects hosp_date1, hosp_date2, etc. from base name hosp_date
+        * Count persons with 2+ events to verify multi-event detection
+        tempvar n_events_src
+        egen `n_events_src' = rownonmiss(hosp_date*)
+        quietly count if `n_events_src' >= 2
+        local src_multi = r(N)
+        quietly count if `n_events_src' >= 1
+        local src_any = r(N)
+        drop `n_events_src'
+
+        * tvevent auto-detects hosp_date1, hosp_date2, etc. from stub hosp_date
         tvevent using "${DATA_DIR}/_tv_base.dta", ///
             id(id) date(hosp_date) ///
             startvar(dmt_start) stopvar(dmt_stop) ///
             type(recurring) ///
-            generate(hospitalized)
+            generate(hospitalized) replace
 
         assert _N > 0
         confirm variable hospitalized
 
-        * Should have multiple events per person
+        * Date variable must be preserved in output
+        confirm variable hosp_date
+
+        * Should have multiple events flagged (not just one)
         quietly count if hospitalized == 1
         local n_events = r(N)
-        assert `n_events' > 0
+        assert `n_events' > 1
+
+        * For persons with multiple source events, verify multiple intervals flagged
+        * (at least some persons should have >1 flagged interval)
+        tempvar person_events
+        bysort id: egen `person_events' = total(hospitalized == 1)
+        quietly count if `person_events' >= 2
+        local multi_event_persons = r(N)
+        assert `multi_event_persons' > 0
+
+        * Event date should be populated only on flagged rows
+        quietly count if !missing(hosp_date) & hospitalized == 0
+        assert r(N) == 0
+        quietly count if !missing(hosp_date) & hospitalized == 1
+        assert r(N) == `n_events'
     }
     if _rc == 0 {
         local ++pass_count
@@ -643,7 +657,7 @@ if 0 {  // Original test code preserved for future implementation
         }
         else if `quiet' == 0 {
             display as result "  PASSED"
-            display as text "  Hospitalization events: `n_events'"
+            display as text "  Hospitalization events: `n_events' (multi-event persons in output: `multi_event_persons')"
         }
     }
     else {
@@ -656,7 +670,7 @@ if 0 {  // Original test code preserved for future implementation
             display as error "  FAILED: `test_desc' (error `=_rc')"
         }
     }
-}  // end if 0
+}
 
 * =============================================================================
 * TEST 12: continuous() option for proportional event adjustment
