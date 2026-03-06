@@ -113,6 +113,7 @@ See help tvexpose for complete documentation with examples
 
 program define tvexpose, rclass
     version 16.0
+    local orig_varabbrev = c(varabbrev)
     set varabbrev off
     local orig_more = c(more)
     set more off
@@ -696,10 +697,10 @@ program define tvexpose, rclass
         }
     }
 
-	quietly replace `start' = floor(`start')
-	quietly capture replace `stop' = ceil(`stop')
-    
-	quietly count 
+    quietly replace `start' = floor(`start')
+    quietly capture replace `stop' = ceil(`stop')
+
+    quietly count
     if r(N) == 0 {
         noisily display as error "Dataset must contain observations"
         exit 198
@@ -4530,18 +4531,18 @@ program define tvexpose, rclass
     }
     
     sort id start stop
-	* Rename id back to original name if different
-	if "`id'" != "id" {
-		capture quietly rename id `id'
-	}
+    * Rename id back to original name if different
+    if "`id'" != "id" {
+        capture quietly rename id `id'
+    }
 
-	* Rename start/stop back to original names if different
-	if "`start'" != "start" {
-		capture quietly rename start `start'
-	}
-	if "`stop'" != "" & "`stop'" != "stop" {
-		capture quietly rename stop `stop'
-	}
+    * Rename start/stop back to original names if different
+    if "`start'" != "start" {
+        capture quietly rename start `start'
+    }
+    if "`stop'" != "" & "`stop'" != "stop" {
+        capture quietly rename stop `stop'
+    }
     capture quietly label data "`using'"
 
     **# SAVE DATA IF REQUESTED
@@ -4568,6 +4569,7 @@ program define tvexpose, rclass
     * Note: overlap_ids already available via return local, no global needed
 
     set more `orig_more'
+    set varabbrev `orig_varabbrev'
 
 end
 *

@@ -844,7 +844,7 @@ Creates ddd_cat with categories: 0=no dose, 1=<100 DDD, 2=100-<500 DDD, 3=500-<1
 {pstd}Timothy P Copeland{p_end}
 {pstd}Department of Clinical Neuroscience{p_end}
 {pstd}Karolinska Institutet{p_end}
-{pstd}Version 1.0.0, 2025-12-02{p_end}
+{pstd}Version 1.4.2, 2026-03-06{p_end}
 
 
 {title:Also see}
