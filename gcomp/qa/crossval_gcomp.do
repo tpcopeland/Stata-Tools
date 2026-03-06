@@ -58,9 +58,9 @@ program define _crossval_check
     }
 end
 
-global _xval_total 0
-global _xval_pass 0
-global _xval_fail 0
+global _xval_total = 0
+global _xval_pass = 0
+global _xval_fail = 0
 
 * Force-load gcomp.ado (workaround: Stata auto-load doesn't always
 * define _gcomp_bootstrap when the program cache has stale entries)
