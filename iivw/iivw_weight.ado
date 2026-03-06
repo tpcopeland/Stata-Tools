@@ -1,4 +1,4 @@
-*! iivw_weight Version 1.0.0  2026/03/05
+*! iivw_weight Version 1.0.0  2026/03/06
 *! Compute inverse intensity of visit weights (IIW/IPTW/FIPTIW)
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet
@@ -63,7 +63,7 @@ program define iivw_weight, rclass
     local prefix "`generate'"
 
     local log_opt ""
-    if "`log'" == "nolog" local log_opt "quietly"
+    if "`log'" == "nolog" local log_opt "nolog"
 
     * =========================================================================
     * DETERMINE WEIGHT TYPE
@@ -302,7 +302,7 @@ program define iivw_weight, rclass
 
         * Fit Cox model (with or without log suppression)
         display as text "  Visit model: stcox `visit_covars'"
-        `log_opt' stcox `visit_covars'
+        stcox `visit_covars', `log_opt'
 
         quietly {
             * Get linear predictor
@@ -318,7 +318,7 @@ program define iivw_weight, rclass
             if "`stabcov'" != "" {
                 * Fit numerator model with stabilization covariates only
                 noisily display as text "  Stabilization model: stcox `stabcov'"
-                `log_opt' stcox `stabcov'
+                noisily stcox `stabcov', `log_opt'
 
                 tempvar _xb_stab
                 predict double `_xb_stab', xb
@@ -372,7 +372,7 @@ program define iivw_weight, rclass
 
         preserve
         quietly keep if `_first_obs'
-        `log_opt' logit `treat' `treat_covars'
+        logit `treat' `treat_covars', `log_opt'
         restore
 
         quietly {
@@ -380,11 +380,8 @@ program define iivw_weight, rclass
             predict double `_ps', pr
 
             * Stabilized IPTW: use cross-sectional prevalence
-            tempvar _first_obs2
-            bysort `id' (`time'): gen byte `_first_obs2' = (_n == 1)
-            summarize `treat' if `_first_obs2'
+            summarize `treat' if `_first_obs'
             local p_treat = r(mean)
-            drop `_first_obs2'
 
             gen double `prefix'tw = cond(`treat' == 1, ///
                 `p_treat' / `_ps', (1 - `p_treat') / (1 - `_ps'))

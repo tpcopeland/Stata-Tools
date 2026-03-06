@@ -1,4 +1,4 @@
-*! _iivw_check_weighted Version 1.0.0  2026/03/05
+*! _iivw_check_weighted Version 1.0.0  2026/03/06
 *! Verify weight variable exists before fitting
 *! Author: Timothy P Copeland
 
