@@ -1,4 +1,4 @@
-*! tvevent Version 1.5.0  2026/01/12
+*! tvevent Version 1.5.1  2026/03/07
 *! Add event/failure flags to time-varying datasets
 *! Author: Tim Copeland
 *!
@@ -330,6 +330,16 @@ program define tvevent, rclass
                 stopvar(`stopvar') generate(`generate') timeunit(`timeunit') ///
                 timegen(`timegen') `replace'
             exit 0
+        }
+
+        * Save keepvars for ALL people before filtering to events-only
+        if "`keepvars'" != "" {
+            tempfile _all_keepvars
+            preserve
+            keep `id' `keepvars'
+            duplicates drop `id', force
+            save `_all_keepvars'
+            restore
         }
 
         if "`type'" == "recurring" {
@@ -669,16 +679,7 @@ program define tvevent, rclass
 
         **# 5. MERGE EVENT FLAGS
 
-        * Save person-level covariates for id-only merge (not tied to event date)
-        if "`keepvars'" != "" {
-            tempfile _kv_merge
-            preserve
-            use `events', clear
-            keep `id' `keepvars'
-            duplicates drop `id', force
-            save `_kv_merge'
-            restore
-        }
+        * keepvars for all people already saved in _all_keepvars
 
         tempvar match_date
         gen double `match_date' = `stopvar'
@@ -734,7 +735,7 @@ program define tvevent, rclass
             foreach v of local keepvars {
                 capture drop `v'
             }
-            merge m:1 `id' using `_kv_merge', keep(master match) nogen
+            merge m:1 `id' using `_all_keepvars', keep(master match) nogen
         }
 
         **# 6. APPLY LABELS
