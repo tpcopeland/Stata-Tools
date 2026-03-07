@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.1.0  7mar2026}{...}
+{* *! version 1.2.0  7mar2026}{...}
 {vieweralsosee "iivw" "help iivw"}{...}
 {vieweralsosee "iivw_weight" "help iivw_weight"}{...}
 {vieweralsosee "[XT] xtgee" "help xtgee"}{...}
@@ -39,6 +39,8 @@
 {synopt:{opt lin:k(string)}}GEE link function (default: canonical){p_end}
 {synopt:{opt timespec(string)}}time specification: {cmd:linear} (default), {cmd:quadratic}, {cmd:cubic}, {cmd:ns(#)}, {cmd:none}{p_end}
 {synopt:{opt int:eraction(varlist)}}create time x covariate interaction terms{p_end}
+{synopt:{opt categ:orical(varlist)}}expand categorical predictors into labeled dummies{p_end}
+{synopt:{opt basec:at(#)}}reference category for {opt categorical()} (default: lowest value){p_end}
 
 {syntab:Standard errors}
 {synopt:{opt cl:uster(varname)}}clustering variable (default: id from metadata){p_end}
@@ -116,6 +118,31 @@ than 32 characters are truncated with a warning.
 {pmore}
 If a variable in {opt interaction()} is not included in {it:indepvars}, a note
 is displayed (its main effect is absent from the model).
+
+{phang}
+{opt categorical(varlist)} specifies variables in {it:indepvars} to expand into
+indicator (dummy) variables.  For each variable, one dummy is created per
+non-base level.  If the variable has value labels, dummies are named using
+sanitized labels (e.g., {cmd:_iivw_cat_highdose} for "High dose") and labeled
+with "High dose (vs. Placebo)".  Without value labels, numeric naming is used
+(e.g., {cmd:_iivw_cat_region_2} labeled "region=2 (vs. 1)").
+
+{pmore}
+The original variable is replaced by its dummies in the predictor list.  If the
+variable also appears in {opt interaction()}, its dummies are interacted with
+time variables.  Interaction names strip the {cmd:_iivw_cat_} prefix for
+readability (e.g., {cmd:_iivw_ix_highdose_time}).
+
+{pmore}
+Variables must have integer values and at least two unique levels.  If sanitized
+labels produce name collisions, all levels of that variable fall back to numeric
+naming.  Names longer than 32 characters are truncated with a note.
+
+{phang}
+{opt basecat(#)} specifies the reference (base) category for all variables in
+{opt categorical()}.  Must be an integer.  If the specified value is not found
+in a variable's levels, the lowest value is used with a note.  Requires
+{opt categorical()}.
 
 {dlgtab:Standard errors}
 
@@ -246,6 +273,23 @@ To compare multiple weighting strategies side by side:
 {phang2}{cmd:. collect: iivw_fit edss treated edss_bl, model(gee) nolog}{p_end}
 {phang2}{cmd:. regtab, xlsx(iivw_results.xlsx) sheet(Comparison) models(IIW \ FIPTIW) coef(Coef.) title(IIW vs FIPTIW) stats(n) noint}{p_end}
 
+{pstd}
+{bf:Example 11: Categorical predictor with value labels}
+
+{phang2}{cmd:. label define arm 0 "Placebo" 1 "Low dose" 2 "High dose"}{p_end}
+{phang2}{cmd:. label values treatment arm}{p_end}
+{phang2}{cmd:. iivw_fit edss treatment edss_bl, categorical(treatment)}{p_end}
+
+{pstd}
+{bf:Example 12: Custom base category}
+
+{phang2}{cmd:. iivw_fit edss treatment edss_bl, categorical(treatment) basecat(2)}{p_end}
+
+{pstd}
+{bf:Example 13: Categorical with interaction}
+
+{phang2}{cmd:. iivw_fit edss treatment edss_bl, timespec(ns(3)) categorical(treatment) interaction(treatment)}{p_end}
+
 
 {marker results}{...}
 {title:Stored results}
@@ -263,6 +307,8 @@ To compare multiple weighting strategies side by side:
 {synopt:{cmd:e(iivw_weight_var)}}weight variable name{p_end}
 {synopt:{cmd:e(iivw_interaction)}}variables specified in {opt interaction()}{p_end}
 {synopt:{cmd:e(iivw_ix_vars)}}interaction variables created{p_end}
+{synopt:{cmd:e(iivw_categorical)}}variables specified in {opt categorical()}{p_end}
+{synopt:{cmd:e(iivw_cat_vars)}}categorical dummy variables created{p_end}
 
 
 {marker author}{...}
@@ -271,7 +317,7 @@ To compare multiple weighting strategies side by side:
 {pstd}Timothy P Copeland{p_end}
 {pstd}Department of Clinical Neuroscience{p_end}
 {pstd}Karolinska Institutet{p_end}
-{pstd}Version 1.1.0, 2026-03-07{p_end}
+{pstd}Version 1.2.0, 2026-03-07{p_end}
 
 
 {title:Also see}

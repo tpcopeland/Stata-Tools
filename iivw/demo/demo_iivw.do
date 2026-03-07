@@ -82,6 +82,12 @@ label variable severity "Current severity (time-varying)"
 label variable relapse "Recent relapse (0/1)"
 label variable score "Cognitive score (outcome)"
 
+* 3-level treatment for categorical demonstration
+gen byte treatment = cond(drug == 0, 0, cond(severity_bl < 5, 1, 2))
+label define treat_lbl 0 "Placebo" 1 "Low dose" 2 "High dose", replace
+label values treatment treat_lbl
+label variable treatment "Treatment arm"
+
 * --- 1. Console output: Full FIPTIW workflow ---
 log using "`pkg_dir'/console_output.smcl", replace smcl name(demo)
 
@@ -125,9 +131,17 @@ iivw_weight, id(patid) time(months) ///
 collect: iivw_fit score drug age female severity_bl, ///
     model(gee) timespec(ns(3)) interaction(drug) nolog
 
+* Model 4: FIPTIW with categorical treatment
+iivw_weight, id(patid) time(months) ///
+    visit_cov(severity relapse) ///
+    treat(drug) treat_cov(age female severity_bl) ///
+    truncate(1 99) replace nolog
+collect: iivw_fit score treatment age female severity_bl, ///
+    model(gee) timespec(ns(3)) categorical(treatment) interaction(treatment) nolog
+
 * Export formatted table
 regtab, xlsx(`pkg_dir'/iivw_results.xlsx) sheet(Comparison) ///
-    models(IIW \ FIPTIW \ FIPTIW-IX) coef(Coef.) ///
+    models(IIW \ FIPTIW \ FIPTIW-IX \ FIPTIW-CAT) coef(Coef.) ///
     title(IIW vs FIPTIW: Cognitive Score) stats(n) noint
 
 * --- Cleanup ---

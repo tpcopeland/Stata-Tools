@@ -86,6 +86,18 @@ iivw_fit edss treated age sex edss_bl, ///
     model(gee) timespec(ns(3)) interaction(treated)
 ```
 
+### FIPTIW with categorical treatment (3 levels)
+
+```stata
+* Define a 3-level treatment with value labels
+label define arm 0 "Placebo" 1 "Low dose" 2 "High dose"
+label values treatment arm
+
+iivw_fit edss treatment age sex edss_bl, ///
+    model(gee) timespec(ns(3)) ///
+    categorical(treatment) interaction(treatment)
+```
+
 ### With lagged covariates and bootstrap SEs
 
 ```stata
@@ -127,6 +139,8 @@ iivw_fit edss relapse, bootstrap(500) nolog
 | `family(string)` | GLM family (default: `gaussian`) |
 | `link(string)` | GLM link function (default: canonical) |
 | `interaction(varlist)` | Create time x covariate interaction terms |
+| `categorical(varlist)` | Expand categorical predictors into labeled dummies |
+| `basecat(#)` | Reference category for `categorical()` (default: lowest) |
 | `bootstrap(#)` | Bootstrap replicates (0 = sandwich SE) |
 | `cluster(varname)` | Override clustering variable |
 
@@ -160,7 +174,7 @@ The small residual difference in FIPTIW correlation stems from the IIW component
 
 | Suite | Tests | Status |
 |-------|-------|--------|
-| Functional (`test_iivw.do`) | 34 | All pass |
+| Functional (`test_iivw.do`) | 49 | All pass |
 | Validation (`validation_iivw.do`) | 15 | All pass |
 | Cross-validation (`xval_iivw.do`) | 9 | All pass |
 
@@ -174,7 +188,7 @@ R reference data and scripts are included in `qa/` for reproducibility.
 
 ### `iivw_fit` (e-class)
 
-All results from the underlying `glm` or `mixed` command, plus: `e(iivw_cmd)`, `e(iivw_model)`, `e(iivw_weighttype)`, `e(iivw_timespec)`, `e(iivw_weight_var)`, `e(iivw_interaction)`, `e(iivw_ix_vars)`
+All results from the underlying `glm` or `mixed` command, plus: `e(iivw_cmd)`, `e(iivw_model)`, `e(iivw_weighttype)`, `e(iivw_timespec)`, `e(iivw_weight_var)`, `e(iivw_interaction)`, `e(iivw_ix_vars)`, `e(iivw_categorical)`, `e(iivw_cat_vars)`
 
 ## Requirements
 
@@ -182,6 +196,7 @@ All results from the underlying `glm` or `mixed` command, plus: `e(iivw_cmd)`, `
 
 ## Version
 
+- **1.2.0** (2026-03-07): Add `categorical()` and `basecat()` options to `iivw_fit` for automatic dummy expansion with value labels
 - **1.1.0** (2026-03-07): Add `interaction()` option to `iivw_fit` for time x covariate product terms
 - **1.0.0** (2026-03-06): Initial release
 

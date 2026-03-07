@@ -63,7 +63,7 @@ if `run_only' == 0 | `run_only' == 1 {
     capture noisily {
         iivw
         assert r(n_commands) == 2
-        assert "`r(version)'" == "1.1.0"
+        assert "`r(version)'" == "1.2.0"
     }
     if _rc == 0 {
         display as result "  PASS: Test 1 - iivw overview runs and returns metadata"
@@ -846,6 +846,403 @@ if `run_only' == 0 | `run_only' == 34 {
     }
     else {
         display as error "  FAIL: Test 34 - interaction characteristics (error `=_rc')"
+        local ++fail_count
+    }
+}
+
+* =============================================================================
+* TEST 35: Binary categorical with value labels
+* =============================================================================
+local ++test_count
+if `run_only' == 0 | `run_only' == 35 {
+    capture noisily {
+        _setup_relapses
+        bysort id (days): gen double edss_bl = edss[1]
+        label define treated_lbl 0 "Placebo" 1 "Drug", replace
+        label values treated treated_lbl
+        iivw_weight, id(id) time(days) visit_cov(edss relapse) ///
+            treat(treated) treat_cov(edss_bl) nolog
+        iivw_fit edss treated edss_bl, categorical(treated) nolog
+        confirm variable _iivw_cat_drug
+        local vlbl : variable label _iivw_cat_drug
+        assert `"`vlbl'"' == `"Drug (vs. Placebo)"'
+    }
+    if _rc == 0 {
+        display as result "  PASS: Test 35 - Binary categorical with value labels"
+        local ++pass_count
+    }
+    else {
+        display as error "  FAIL: Test 35 - binary categorical labels (error `=_rc')"
+        local ++fail_count
+    }
+}
+
+* =============================================================================
+* TEST 36: 3-level categorical with value labels
+* =============================================================================
+local ++test_count
+if `run_only' == 0 | `run_only' == 36 {
+    capture noisily {
+        _setup_relapses
+        gen byte arm = mod(id, 3)
+        label define arm_lbl 0 "Placebo" 1 "Low dose" 2 "High dose", replace
+        label values arm arm_lbl
+        iivw_weight, id(id) time(days) visit_cov(edss relapse) nolog
+        iivw_fit edss arm, categorical(arm) nolog
+        confirm variable _iivw_cat_low_dose
+        confirm variable _iivw_cat_high_dose
+        local vlbl1 : variable label _iivw_cat_low_dose
+        assert `"`vlbl1'"' == `"Low dose (vs. Placebo)"'
+        local vlbl2 : variable label _iivw_cat_high_dose
+        assert `"`vlbl2'"' == `"High dose (vs. Placebo)"'
+    }
+    if _rc == 0 {
+        display as result "  PASS: Test 36 - 3-level categorical with labels"
+        local ++pass_count
+    }
+    else {
+        display as error "  FAIL: Test 36 - 3-level categorical (error `=_rc')"
+        local ++fail_count
+    }
+}
+
+* =============================================================================
+* TEST 37: Categorical without value labels (numeric naming)
+* =============================================================================
+local ++test_count
+if `run_only' == 0 | `run_only' == 37 {
+    capture noisily {
+        _setup_relapses
+        gen byte arm = mod(id, 3)
+        iivw_weight, id(id) time(days) visit_cov(edss relapse) nolog
+        iivw_fit edss arm, categorical(arm) nolog
+        confirm variable _iivw_cat_arm_1
+        confirm variable _iivw_cat_arm_2
+        local vlbl : variable label _iivw_cat_arm_1
+        assert `"`vlbl'"' == "arm=1 (vs. 0)"
+    }
+    if _rc == 0 {
+        display as result "  PASS: Test 37 - Categorical without labels (numeric naming)"
+        local ++pass_count
+    }
+    else {
+        display as error "  FAIL: Test 37 - no labels naming (error `=_rc')"
+        local ++fail_count
+    }
+}
+
+* =============================================================================
+* TEST 38: Categorical + interaction
+* =============================================================================
+local ++test_count
+if `run_only' == 0 | `run_only' == 38 {
+    capture noisily {
+        _setup_relapses
+        bysort id (days): gen double edss_bl = edss[1]
+        label define treated_lbl 0 "Placebo" 1 "Drug", replace
+        label values treated treated_lbl
+        iivw_weight, id(id) time(days) visit_cov(edss relapse) ///
+            treat(treated) treat_cov(edss_bl) nolog
+        iivw_fit edss treated edss_bl, timespec(linear) ///
+            categorical(treated) interaction(treated) nolog
+        confirm variable _iivw_cat_drug
+        confirm variable _iivw_ix_drug_time
+        local ixlbl : variable label _iivw_ix_drug_time
+        assert `"`ixlbl'"' == `"Drug x time"'
+    }
+    if _rc == 0 {
+        display as result "  PASS: Test 38 - Categorical + interaction"
+        local ++pass_count
+    }
+    else {
+        display as error "  FAIL: Test 38 - categorical + interaction (error `=_rc')"
+        local ++fail_count
+    }
+}
+
+* =============================================================================
+* TEST 39: Multiple categorical variables
+* =============================================================================
+local ++test_count
+if `run_only' == 0 | `run_only' == 39 {
+    capture noisily {
+        _setup_relapses
+        gen byte arm = mod(id, 3)
+        label define arm_lbl 0 "Placebo" 1 "Low dose" 2 "High dose", replace
+        label values arm arm_lbl
+        gen byte site = mod(id, 2)
+        label define site_lbl 0 "Site A" 1 "Site B", replace
+        label values site site_lbl
+        iivw_weight, id(id) time(days) visit_cov(edss relapse) nolog
+        iivw_fit edss arm site, categorical(arm site) nolog
+        confirm variable _iivw_cat_low_dose
+        confirm variable _iivw_cat_high_dose
+        confirm variable _iivw_cat_site_b
+    }
+    if _rc == 0 {
+        display as result "  PASS: Test 39 - Multiple categorical variables"
+        local ++pass_count
+    }
+    else {
+        display as error "  FAIL: Test 39 - multiple categoricals (error `=_rc')"
+        local ++fail_count
+    }
+}
+
+* =============================================================================
+* TEST 40: Non-default basecat
+* =============================================================================
+local ++test_count
+if `run_only' == 0 | `run_only' == 40 {
+    capture noisily {
+        _setup_relapses
+        gen byte arm = mod(id, 3)
+        label define arm_lbl 0 "Placebo" 1 "Low dose" 2 "High dose", replace
+        label values arm arm_lbl
+        iivw_weight, id(id) time(days) visit_cov(edss relapse) nolog
+        iivw_fit edss arm, categorical(arm) basecat(2) nolog
+        confirm variable _iivw_cat_placebo
+        confirm variable _iivw_cat_low_dose
+        local vlbl : variable label _iivw_cat_placebo
+        assert `"`vlbl'"' == `"Placebo (vs. High dose)"'
+    }
+    if _rc == 0 {
+        display as result "  PASS: Test 40 - Non-default basecat"
+        local ++pass_count
+    }
+    else {
+        display as error "  FAIL: Test 40 - basecat (error `=_rc')"
+        local ++fail_count
+    }
+}
+
+* =============================================================================
+* TEST 41: basecat not found falls back to lowest
+* =============================================================================
+local ++test_count
+if `run_only' == 0 | `run_only' == 41 {
+    capture noisily {
+        _setup_relapses
+        gen byte arm = mod(id, 3)
+        label define arm_lbl 0 "Placebo" 1 "Low dose" 2 "High dose", replace
+        label values arm arm_lbl
+        iivw_weight, id(id) time(days) visit_cov(edss relapse) nolog
+        iivw_fit edss arm, categorical(arm) basecat(99) nolog
+        confirm variable _iivw_cat_low_dose
+        confirm variable _iivw_cat_high_dose
+        local vlbl : variable label _iivw_cat_low_dose
+        assert `"`vlbl'"' == `"Low dose (vs. Placebo)"'
+    }
+    if _rc == 0 {
+        display as result "  PASS: Test 41 - basecat not found falls back to lowest"
+        local ++pass_count
+    }
+    else {
+        display as error "  FAIL: Test 41 - basecat fallback (error `=_rc')"
+        local ++fail_count
+    }
+}
+
+* =============================================================================
+* TEST 42: Long value labels truncated at 32 chars
+* =============================================================================
+local ++test_count
+if `run_only' == 0 | `run_only' == 42 {
+    capture noisily {
+        _setup_relapses
+        gen byte arm = mod(id, 2)
+        label define long_lbl 0 "Placebo control" ///
+            1 "Very high dose experimental treatment arm", replace
+        label values arm long_lbl
+        iivw_weight, id(id) time(days) visit_cov(edss relapse) nolog
+        iivw_fit edss arm, categorical(arm) nolog
+        assert "`e(iivw_cat_vars)'" != ""
+        local catvar : word 1 of `e(iivw_cat_vars)'
+        assert strlen("`catvar'") <= 32
+    }
+    if _rc == 0 {
+        display as result "  PASS: Test 42 - Long value labels truncated"
+        local ++pass_count
+    }
+    else {
+        display as error "  FAIL: Test 42 - long labels (error `=_rc')"
+        local ++fail_count
+    }
+}
+
+* =============================================================================
+* TEST 43: Sanitized label collision -> numeric fallback
+* =============================================================================
+local ++test_count
+if `run_only' == 0 | `run_only' == 43 {
+    capture noisily {
+        _setup_relapses
+        gen byte arm = mod(id, 3)
+        label define coll_lbl 0 "Control" 1 "Low-dose" 2 "Low dose", replace
+        label values arm coll_lbl
+        iivw_weight, id(id) time(days) visit_cov(edss relapse) nolog
+        iivw_fit edss arm, categorical(arm) nolog
+        * Collision: both sanitize to "low_dose" -> numeric fallback
+        confirm variable _iivw_cat_arm_1
+        confirm variable _iivw_cat_arm_2
+        local vlbl : variable label _iivw_cat_arm_1
+        assert `"`vlbl'"' == `"arm=1 (vs. Control)"'
+    }
+    if _rc == 0 {
+        display as result "  PASS: Test 43 - Sanitized label collision (numeric fallback)"
+        local ++pass_count
+    }
+    else {
+        display as error "  FAIL: Test 43 - label collision (error `=_rc')"
+        local ++fail_count
+    }
+}
+
+* =============================================================================
+* TEST 44: Error - categorical var not in indepvars
+* =============================================================================
+local ++test_count
+if `run_only' == 0 | `run_only' == 44 {
+    capture noisily {
+        _setup_relapses
+        gen byte arm = mod(id, 3)
+        iivw_weight, id(id) time(days) visit_cov(edss relapse) nolog
+        capture iivw_fit edss relapse, categorical(arm)
+        assert _rc == 198
+    }
+    if _rc == 0 {
+        display as result "  PASS: Test 44 - Error: categorical var not in indepvars"
+        local ++pass_count
+    }
+    else {
+        display as error "  FAIL: Test 44 - categorical not in indepvars (error `=_rc')"
+        local ++fail_count
+    }
+}
+
+* =============================================================================
+* TEST 45: Error - non-integer values in categorical
+* =============================================================================
+local ++test_count
+if `run_only' == 0 | `run_only' == 45 {
+    capture noisily {
+        _setup_relapses
+        gen double frac = mod(id, 3) + 0.5
+        iivw_weight, id(id) time(days) visit_cov(edss relapse) nolog
+        capture iivw_fit edss frac, categorical(frac)
+        assert _rc == 198
+    }
+    if _rc == 0 {
+        display as result "  PASS: Test 45 - Error: non-integer categorical values"
+        local ++pass_count
+    }
+    else {
+        display as error "  FAIL: Test 45 - non-integer categorical (error `=_rc')"
+        local ++fail_count
+    }
+}
+
+* =============================================================================
+* TEST 46: Error - constant variable in categorical
+* =============================================================================
+local ++test_count
+if `run_only' == 0 | `run_only' == 46 {
+    capture noisily {
+        _setup_relapses
+        gen byte constvar = 1
+        iivw_weight, id(id) time(days) visit_cov(edss relapse) nolog
+        capture iivw_fit edss constvar, categorical(constvar)
+        assert _rc == 198
+    }
+    if _rc == 0 {
+        display as result "  PASS: Test 46 - Error: constant variable in categorical"
+        local ++pass_count
+    }
+    else {
+        display as error "  FAIL: Test 46 - constant categorical (error `=_rc')"
+        local ++fail_count
+    }
+}
+
+* =============================================================================
+* TEST 47: Categorical main effects only (no interaction)
+* =============================================================================
+local ++test_count
+if `run_only' == 0 | `run_only' == 47 {
+    capture noisily {
+        _setup_relapses
+        gen byte arm = mod(id, 3)
+        label define arm_lbl 0 "Placebo" 1 "Low dose" 2 "High dose", replace
+        label values arm arm_lbl
+        iivw_weight, id(id) time(days) visit_cov(edss relapse) nolog
+        iivw_fit edss arm, categorical(arm) nolog
+        confirm variable _iivw_cat_low_dose
+        confirm variable _iivw_cat_high_dose
+        * No interaction vars should exist
+        capture confirm variable _iivw_ix_low_dose_time
+        assert _rc != 0
+    }
+    if _rc == 0 {
+        display as result "  PASS: Test 47 - Categorical main effects only"
+        local ++pass_count
+    }
+    else {
+        display as error "  FAIL: Test 47 - main effects only (error `=_rc')"
+        local ++fail_count
+    }
+}
+
+* =============================================================================
+* TEST 48: Dummy values are correct
+* =============================================================================
+local ++test_count
+if `run_only' == 0 | `run_only' == 48 {
+    capture noisily {
+        _setup_relapses
+        gen byte arm = mod(id, 3)
+        label define arm_lbl 0 "Placebo" 1 "Low dose" 2 "High dose", replace
+        label values arm arm_lbl
+        iivw_weight, id(id) time(days) visit_cov(edss relapse) nolog
+        iivw_fit edss arm, categorical(arm) nolog
+        assert _iivw_cat_low_dose == (arm == 1) if !missing(_iivw_cat_low_dose)
+        assert _iivw_cat_high_dose == (arm == 2) if !missing(_iivw_cat_high_dose)
+    }
+    if _rc == 0 {
+        display as result "  PASS: Test 48 - Dummy values are correct"
+        local ++pass_count
+    }
+    else {
+        display as error "  FAIL: Test 48 - dummy values (error `=_rc')"
+        local ++fail_count
+    }
+}
+
+* =============================================================================
+* TEST 49: Metadata stored in e() and characteristics
+* =============================================================================
+local ++test_count
+if `run_only' == 0 | `run_only' == 49 {
+    capture noisily {
+        _setup_relapses
+        bysort id (days): gen double edss_bl = edss[1]
+        label define treated_lbl 0 "Placebo" 1 "Drug", replace
+        label values treated treated_lbl
+        iivw_weight, id(id) time(days) visit_cov(edss relapse) ///
+            treat(treated) treat_cov(edss_bl) nolog
+        iivw_fit edss treated edss_bl, categorical(treated) nolog
+        assert "`e(iivw_categorical)'" == "treated"
+        assert "`e(iivw_cat_vars)'" != ""
+        local cat_char : char _dta[_iivw_categorical]
+        assert "`cat_char'" == "treated"
+        local cat_vars_char : char _dta[_iivw_cat_vars]
+        assert "`cat_vars_char'" != ""
+    }
+    if _rc == 0 {
+        display as result "  PASS: Test 49 - Metadata stored"
+        local ++pass_count
+    }
+    else {
+        display as error "  FAIL: Test 49 - metadata (error `=_rc')"
         local ++fail_count
     }
 }
