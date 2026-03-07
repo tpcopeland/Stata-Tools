@@ -86,7 +86,7 @@ display _dup(60) "-"
 capture noisily {
     tte
     assert r(n_commands) == 10
-    assert "`r(version)'" == "1.0.2"
+    assert "`r(version)'" == "1.0.4"
 }
 if _rc == 0 {
     display as result "  PASS"
