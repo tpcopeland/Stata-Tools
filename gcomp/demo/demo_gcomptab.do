@@ -14,7 +14,13 @@ clear all
 set more off
 version 16.0
 
-* --- Reload gcomptab from local source ---
+* --- Reload gcomp and gcomptab from local source ---
+capture program drop gcomp
+capture program drop _gcomp_bootstrap
+capture program drop _gcomp_display_stats
+capture program drop _gcomp_detangle
+capture program drop _gcomp_formatline
+quietly run gcomp/gcomp.ado
 capture program drop gcomptab
 capture program drop _gcomptab_validate_path
 quietly run gcomp/gcomptab.ado
