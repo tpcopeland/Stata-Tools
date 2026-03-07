@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.0  6mar2026}{...}
+{* *! version 1.1.0  7mar2026}{...}
 {vieweralsosee "iivw" "help iivw"}{...}
 {vieweralsosee "iivw_weight" "help iivw_weight"}{...}
 {vieweralsosee "[XT] xtgee" "help xtgee"}{...}
@@ -38,6 +38,7 @@
 {synopt:{opt fam:ily(string)}}GEE family (default: {cmd:gaussian}){p_end}
 {synopt:{opt lin:k(string)}}GEE link function (default: canonical){p_end}
 {synopt:{opt timespec(string)}}time specification: {cmd:linear} (default), {cmd:quadratic}, {cmd:cubic}, {cmd:ns(#)}, {cmd:none}{p_end}
+{synopt:{opt int:eraction(varlist)}}create time x covariate interaction terms{p_end}
 
 {syntab:Standard errors}
 {synopt:{opt cl:uster(varname)}}clustering variable (default: id from metadata){p_end}
@@ -98,6 +99,23 @@ link for the specified family is used.
 {cmd:cubic} adds time, time-squared, and time-cubed.
 {cmd:ns(#)} uses a natural cubic spline with # degrees of freedom.
 {cmd:none} excludes time from the model.
+
+{phang}
+{opt interaction(varlist)} creates product terms between each specified covariate
+and every time variable from {opt timespec()}.  With {cmd:timespec(linear)}, one
+interaction variable is created per covariate (covariate x time).  With
+{cmd:timespec(quadratic)}, two are created (covariate x time, covariate x
+time-squared).  With {cmd:ns(#)}, {it:#} interaction variables are created per
+covariate.  Not compatible with {cmd:timespec(none)}.
+
+{pmore}
+Interaction variables are named {cmd:_iivw_ix_{it:covar}_{it:suffix}} where
+{it:suffix} is {cmd:time}, {cmd:tsq}, {cmd:tcu}, or {cmd:tnsN}.  Names longer
+than 32 characters are truncated with a warning.
+
+{pmore}
+If a variable in {opt interaction()} is not included in {it:indepvars}, a note
+is displayed (its main effect is absent from the model).
 
 {dlgtab:Standard errors}
 
@@ -204,7 +222,22 @@ To compare multiple weighting strategies side by side:
 {phang2}{cmd:. regtab, xlsx(iivw_results.xlsx) sheet(Results) coef(Coef.) title(IIW Analysis) stats(n)}{p_end}
 
 {pstd}
-{bf:Example 7: Compare IIW vs FIPTIW in one table}
+{bf:Example 7: Treatment x time interaction (linear)}
+
+{phang2}{cmd:. iivw_fit edss treated edss_bl, timespec(linear) interaction(treated)}{p_end}
+
+{pstd}
+{bf:Example 8: Treatment x time interaction with natural spline}
+
+{phang2}{cmd:. iivw_fit edss treated edss_bl, timespec(ns(3)) interaction(treated)}{p_end}
+
+{pstd}
+{bf:Example 9: Multiple covariate interactions}
+
+{phang2}{cmd:. iivw_fit edss treated age edss_bl, timespec(quadratic) interaction(treated age)}{p_end}
+
+{pstd}
+{bf:Example 10: Compare IIW vs FIPTIW in one table}
 
 {phang2}{cmd:. collect clear}{p_end}
 {phang2}{cmd:. iivw_weight, id(id) time(days) visit_cov(edss relapse) truncate(1 99) nolog}{p_end}
@@ -228,6 +261,8 @@ To compare multiple weighting strategies side by side:
 {synopt:{cmd:e(iivw_weighttype)}}weight type (iivw, iptw, or fiptiw){p_end}
 {synopt:{cmd:e(iivw_timespec)}}time specification used{p_end}
 {synopt:{cmd:e(iivw_weight_var)}}weight variable name{p_end}
+{synopt:{cmd:e(iivw_interaction)}}variables specified in {opt interaction()}{p_end}
+{synopt:{cmd:e(iivw_ix_vars)}}interaction variables created{p_end}
 
 
 {marker author}{...}
@@ -236,7 +271,7 @@ To compare multiple weighting strategies side by side:
 {pstd}Timothy P Copeland{p_end}
 {pstd}Department of Clinical Neuroscience{p_end}
 {pstd}Karolinska Institutet{p_end}
-{pstd}Version 1.0.0, 2026-03-06{p_end}
+{pstd}Version 1.1.0, 2026-03-07{p_end}
 
 
 {title:Also see}

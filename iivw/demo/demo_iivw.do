@@ -117,9 +117,17 @@ iivw_weight, id(patid) time(months) ///
 collect: iivw_fit score drug age female severity_bl, ///
     model(gee) timespec(linear) nolog
 
+* Model 3: FIPTIW with treatment-time interaction (ns(3))
+iivw_weight, id(patid) time(months) ///
+    visit_cov(severity relapse) ///
+    treat(drug) treat_cov(age female severity_bl) ///
+    truncate(1 99) replace nolog
+collect: iivw_fit score drug age female severity_bl, ///
+    model(gee) timespec(ns(3)) interaction(drug) nolog
+
 * Export formatted table
 regtab, xlsx(`pkg_dir'/iivw_results.xlsx) sheet(Comparison) ///
-    models(IIW \ FIPTIW) coef(Coef.) ///
+    models(IIW \ FIPTIW \ FIPTIW-IX) coef(Coef.) ///
     title(IIW vs FIPTIW: Cognitive Score) stats(n) noint
 
 * --- Cleanup ---

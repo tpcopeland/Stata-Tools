@@ -1,4 +1,4 @@
-*! iivw_fit Version 1.0.0  2026/03/06
+*! iivw_fit Version 1.1.0  2026/03/07
 *! Fit weighted outcome model for IIW/IPTW/FIPTIW analysis
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet
@@ -41,6 +41,7 @@ program define iivw_fit, eclass
         [MODel(string) ///
          FAMily(string) LINk(string) ///
          TIMEspec(string) ///
+         INTeraction(varlist numeric) ///
          CLuster(varname) ///
          BOOTstrap(integer 0) ///
          Level(cilevel) noLOG ///
@@ -100,6 +101,12 @@ program define iivw_fit, eclass
         exit 198
     }
 
+    * Validate interaction + timespec compatibility
+    if "`interaction'" != "" & "`timespec'" == "none" {
+        display as error "interaction() requires time variables; not compatible with timespec(none)"
+        exit 198
+    }
+
     * Mixed model requires Stata 17+
     if "`model'" == "mixed" {
         if c(stata_version) < 17 {
@@ -126,6 +133,9 @@ program define iivw_fit, eclass
     display as text "Outcome:          " as result "`depvar'"
     display as text "Predictors:       " as result "`indepvars'"
     display as text "Time spec:        " as result "`timespec'"
+    if "`interaction'" != "" {
+        display as text "Interactions:     " as result "`interaction'"
+    }
     if "`model'" == "gee" {
         display as text "Family:           " as result "`family'"
         if "`link'" != "" {
@@ -228,12 +238,73 @@ program define iivw_fit, eclass
     }
 
     * =========================================================================
+    * BUILD INTERACTION VARIABLES
+    * =========================================================================
+
+    local ix_vars ""
+    local ix_vars_created ""
+
+    if "`interaction'" != "" {
+
+        * Warn if interaction variable not in predictors (no main effect)
+        foreach ivar of local interaction {
+            local found_main = 0
+            foreach ipred of local indepvars {
+                if "`ivar'" == "`ipred'" local found_main = 1
+            }
+            if `found_main' == 0 {
+                display as text "note: `ivar' specified in interaction() but not in predictors"
+            }
+        }
+
+        foreach ivar of local interaction {
+            foreach tvar of local time_vars {
+
+                * Map time variable to suffix
+                if "`tvar'" == "`panel_time'" {
+                    local suffix "time"
+                }
+                else if "`tvar'" == "`prefix'time_sq" {
+                    local suffix "tsq"
+                }
+                else if "`tvar'" == "`prefix'time_cu" {
+                    local suffix "tcu"
+                }
+                else {
+                    * Spline basis: strip prefix to get tnsN
+                    local suffix = substr("`tvar'", strlen("`prefix'") + 1, .)
+                }
+
+                * Build variable name
+                local ix_name "`prefix'ix_`ivar'_`suffix'"
+
+                * Truncate covariate portion if name > 32 chars
+                if strlen("`ix_name'") > 32 {
+                    local max_covar = 32 - strlen("`prefix'ix_") - strlen("_`suffix'")
+                    local ivar_trunc = substr("`ivar'", 1, `max_covar')
+                    local ix_name "`prefix'ix_`ivar_trunc'_`suffix'"
+                    display as text "note: interaction variable name truncated to `ix_name'"
+                }
+
+                capture drop `ix_name'
+                gen double `ix_name' = `ivar' * `tvar'
+                label variable `ix_name' "`ivar' x `suffix'"
+                local ix_vars "`ix_vars' `ix_name'"
+                local ix_vars_created "`ix_vars_created' `ix_name'"
+            }
+        }
+    }
+
+    * =========================================================================
     * BUILD COVARIATE LIST
     * =========================================================================
 
     local all_covars "`indepvars'"
     if "`time_vars'" != "" {
         local all_covars "`all_covars' `time_vars'"
+    }
+    if "`ix_vars'" != "" {
+        local all_covars "`all_covars' `ix_vars'"
     }
 
     * =========================================================================
@@ -287,6 +358,9 @@ program define iivw_fit, eclass
         foreach v of local time_vars_created {
             capture drop `v'
         }
+        foreach v of local ix_vars_created {
+            capture drop `v'
+        }
         exit `fit_rc'
     }
 
@@ -299,6 +373,10 @@ program define iivw_fit, eclass
     char _dta[_iivw_timespec] "`timespec'"
     char _dta[_iivw_cluster] "`cluster'"
     char _dta[_iivw_time_vars] "`time_vars'"
+    if "`interaction'" != "" {
+        char _dta[_iivw_interaction] "`interaction'"
+        char _dta[_iivw_ix_vars] "`ix_vars'"
+    }
 
     * =========================================================================
     * DISPLAY SUMMARY
@@ -338,4 +416,8 @@ program define iivw_fit, eclass
     ereturn local iivw_weighttype "`weighttype'"
     ereturn local iivw_timespec "`timespec'"
     ereturn local iivw_weight_var "`weight_var'"
+    if "`interaction'" != "" {
+        ereturn local iivw_interaction "`interaction'"
+        ereturn local iivw_ix_vars "`ix_vars'"
+    }
 end

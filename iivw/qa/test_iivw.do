@@ -63,7 +63,7 @@ if `run_only' == 0 | `run_only' == 1 {
     capture noisily {
         iivw
         assert r(n_commands) == 2
-        assert "`r(version)'" == "1.0.0"
+        assert "`r(version)'" == "1.1.0"
     }
     if _rc == 0 {
         display as result "  PASS: Test 1 - iivw overview runs and returns metadata"
@@ -634,6 +634,218 @@ if `run_only' == 0 | `run_only' == 25 {
     }
     else {
         display as error "  FAIL: Test 25 - time-varying treat (error `=_rc')"
+        local ++fail_count
+    }
+}
+
+* =============================================================================
+* TEST 26: interaction() with linear time
+* =============================================================================
+local ++test_count
+if `run_only' == 0 | `run_only' == 26 {
+    capture noisily {
+        _setup_relapses
+        bysort id (days): gen double edss_bl = edss[1]
+        iivw_weight, id(id) time(days) visit_cov(edss relapse) ///
+            treat(treated) treat_cov(edss_bl) nolog
+        iivw_fit edss treated edss_bl, timespec(linear) interaction(treated) nolog
+        confirm variable _iivw_ix_treated_time
+        assert "`e(iivw_interaction)'" == "treated"
+        assert "`e(iivw_ix_vars)'" == " _iivw_ix_treated_time"
+    }
+    if _rc == 0 {
+        display as result "  PASS: Test 26 - interaction() with linear time"
+        local ++pass_count
+    }
+    else {
+        display as error "  FAIL: Test 26 - interaction linear (error `=_rc')"
+        local ++fail_count
+    }
+}
+
+* =============================================================================
+* TEST 27: interaction() with quadratic creates 2 vars per covariate
+* =============================================================================
+local ++test_count
+if `run_only' == 0 | `run_only' == 27 {
+    capture noisily {
+        _setup_relapses
+        iivw_weight, id(id) time(days) visit_cov(edss relapse) nolog
+        iivw_fit edss relapse, timespec(quadratic) interaction(relapse) nolog
+        confirm variable _iivw_ix_relapse_time
+        confirm variable _iivw_ix_relapse_tsq
+    }
+    if _rc == 0 {
+        display as result "  PASS: Test 27 - interaction() with quadratic (2 vars)"
+        local ++pass_count
+    }
+    else {
+        display as error "  FAIL: Test 27 - interaction quadratic (error `=_rc')"
+        local ++fail_count
+    }
+}
+
+* =============================================================================
+* TEST 28: interaction() with ns(3) creates 3 vars per covariate
+* =============================================================================
+local ++test_count
+if `run_only' == 0 | `run_only' == 28 {
+    capture noisily {
+        _setup_relapses
+        iivw_weight, id(id) time(days) visit_cov(edss relapse) nolog
+        iivw_fit edss relapse, timespec(ns(3)) interaction(relapse) nolog
+        confirm variable _iivw_ix_relapse_tns1
+        confirm variable _iivw_ix_relapse_tns2
+        confirm variable _iivw_ix_relapse_tns3
+    }
+    if _rc == 0 {
+        display as result "  PASS: Test 28 - interaction() with ns(3) (3 vars)"
+        local ++pass_count
+    }
+    else {
+        display as error "  FAIL: Test 28 - interaction ns(3) (error `=_rc')"
+        local ++fail_count
+    }
+}
+
+* =============================================================================
+* TEST 29: interaction() with multiple covariates
+* =============================================================================
+local ++test_count
+if `run_only' == 0 | `run_only' == 29 {
+    capture noisily {
+        _setup_relapses
+        bysort id (days): gen double edss_bl = edss[1]
+        iivw_weight, id(id) time(days) visit_cov(edss relapse) ///
+            treat(treated) treat_cov(edss_bl) nolog
+        iivw_fit edss treated edss_bl, timespec(linear) ///
+            interaction(treated edss_bl) nolog
+        confirm variable _iivw_ix_treated_time
+        confirm variable _iivw_ix_edss_bl_time
+    }
+    if _rc == 0 {
+        display as result "  PASS: Test 29 - interaction() with multiple covariates"
+        local ++pass_count
+    }
+    else {
+        display as error "  FAIL: Test 29 - interaction multiple covars (error `=_rc')"
+        local ++fail_count
+    }
+}
+
+* =============================================================================
+* TEST 30: interaction() + timespec(none) errors
+* =============================================================================
+local ++test_count
+if `run_only' == 0 | `run_only' == 30 {
+    capture noisily {
+        _setup_relapses
+        iivw_weight, id(id) time(days) visit_cov(edss relapse) nolog
+        capture iivw_fit edss relapse, timespec(none) interaction(relapse)
+        assert _rc == 198
+    }
+    if _rc == 0 {
+        display as result "  PASS: Test 30 - interaction() + timespec(none) errors"
+        local ++pass_count
+    }
+    else {
+        display as error "  FAIL: Test 30 - interaction+none error (error `=_rc')"
+        local ++fail_count
+    }
+}
+
+* =============================================================================
+* TEST 31: interaction vars cleaned up on model fit error
+* =============================================================================
+local ++test_count
+if `run_only' == 0 | `run_only' == 31 {
+    capture noisily {
+        _setup_relapses
+        iivw_weight, id(id) time(days) visit_cov(edss relapse) nolog
+        * Force a fit error by using a string variable as depvar
+        gen str5 badvar = "x"
+        capture iivw_fit edss badvar, timespec(linear) interaction(relapse) nolog
+        * The interaction var should have been cleaned up
+        capture confirm variable _iivw_ix_relapse_time
+        assert _rc != 0
+    }
+    if _rc == 0 {
+        display as result "  PASS: Test 31 - interaction vars cleaned on fit error"
+        local ++pass_count
+    }
+    else {
+        display as error "  FAIL: Test 31 - interaction cleanup (error `=_rc')"
+        local ++fail_count
+    }
+}
+
+* =============================================================================
+* TEST 32: interaction values are correct products
+* =============================================================================
+local ++test_count
+if `run_only' == 0 | `run_only' == 32 {
+    capture noisily {
+        _setup_relapses
+        iivw_weight, id(id) time(days) visit_cov(edss relapse) nolog
+        iivw_fit edss relapse, timespec(linear) interaction(relapse) nolog
+        * Verify the interaction is the product of relapse * days
+        gen double _check_ix = relapse * days
+        assert abs(_iivw_ix_relapse_time - _check_ix) < 1e-10
+        drop _check_ix
+    }
+    if _rc == 0 {
+        display as result "  PASS: Test 32 - interaction values are correct products"
+        local ++pass_count
+    }
+    else {
+        display as error "  FAIL: Test 32 - interaction products (error `=_rc')"
+        local ++fail_count
+    }
+}
+
+* =============================================================================
+* TEST 33: interaction() with cubic creates 3 vars
+* =============================================================================
+local ++test_count
+if `run_only' == 0 | `run_only' == 33 {
+    capture noisily {
+        _setup_relapses
+        iivw_weight, id(id) time(days) visit_cov(edss relapse) nolog
+        iivw_fit edss relapse, timespec(cubic) interaction(relapse) nolog
+        confirm variable _iivw_ix_relapse_time
+        confirm variable _iivw_ix_relapse_tsq
+        confirm variable _iivw_ix_relapse_tcu
+    }
+    if _rc == 0 {
+        display as result "  PASS: Test 33 - interaction() with cubic (3 vars)"
+        local ++pass_count
+    }
+    else {
+        display as error "  FAIL: Test 33 - interaction cubic (error `=_rc')"
+        local ++fail_count
+    }
+}
+
+* =============================================================================
+* TEST 34: interaction metadata stored in dataset characteristics
+* =============================================================================
+local ++test_count
+if `run_only' == 0 | `run_only' == 34 {
+    capture noisily {
+        _setup_relapses
+        iivw_weight, id(id) time(days) visit_cov(edss relapse) nolog
+        iivw_fit edss relapse, timespec(linear) interaction(relapse) nolog
+        local ix_char : char _dta[_iivw_interaction]
+        assert "`ix_char'" == "relapse"
+        local ix_vars_char : char _dta[_iivw_ix_vars]
+        assert "`ix_vars_char'" == " _iivw_ix_relapse_time"
+    }
+    if _rc == 0 {
+        display as result "  PASS: Test 34 - interaction metadata in characteristics"
+        local ++pass_count
+    }
+    else {
+        display as error "  FAIL: Test 34 - interaction characteristics (error `=_rc')"
         local ++fail_count
     }
 }
