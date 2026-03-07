@@ -11,7 +11,7 @@ set more off
 * Paths
 local tabtools_dir "/home/tpcopeland/Stata-Tools/tabtools"
 local output_dir "`tabtools_dir'/qa/output"
-local tools_dir "/home/tpcopeland/Stata-Dev/_devkit/_testing/tools"
+local tools_dir "/home/tpcopeland/Stata-Tools/_devkit/_testing/tools"
 capture mkdir "`output_dir'"
 
 * Load tabtools

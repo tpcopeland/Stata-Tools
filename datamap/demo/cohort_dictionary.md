@@ -50,6 +50,6 @@ Version 1.0
 
 **Document Version:** 1.0
 
-**Author:** Stata-Dev
+**Author:** Stata-Tools
 
 **Last Updated:** 27 Feb 2026

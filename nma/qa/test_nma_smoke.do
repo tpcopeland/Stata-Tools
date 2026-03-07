@@ -1,7 +1,7 @@
 * Quick smoke test for nma_setup
 clear all
 set more off
-adopath + "/home/tpcopeland/Stata-Dev/nma"
+adopath + "/home/tpcopeland/Stata-Tools/nma"
 
 * Create minimal test data
 clear

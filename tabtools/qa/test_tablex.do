@@ -10,7 +10,7 @@ set more off
 
 * Detect platform and set paths
 if "`c(os)'" == "Windows" {
-    local base_path "C:/Users/tpcop/Stata-Dev"
+    local base_path "C:/Users/tpcop/Stata-Tools"
 }
 else {
     capture confirm file "../../_devkit/_testing"
@@ -18,7 +18,7 @@ else {
         local base_path "`c(pwd)'/../.."
     }
     else {
-        local base_path "/home/tpcopeland/Stata-Dev"
+        local base_path "/home/tpcopeland/Stata-Tools"
     }
 }
 

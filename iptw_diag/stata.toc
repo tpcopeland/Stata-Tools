@@ -1,5 +1,5 @@
 v 3
-d Stata-Dev: iptw_diag
+d Stata-Tools: iptw_diag
 d Timothy P Copeland, Karolinska Institutet
-d https://github.com/tpcopeland/Stata-Dev
+d https://github.com/tpcopeland/Stata-Tools
 p iptw_diag

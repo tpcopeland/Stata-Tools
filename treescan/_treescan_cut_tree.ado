@@ -1,4 +1,4 @@
-*! _treescan_cut_tree Version 1.3.5  2026/02/28
+*! _treescan_cut_tree Version 1.4.0  2026/03/01
 *! Shared tree-cutting subroutine for treescan package
 *! Maps leaf diagnosis codes to all ancestor nodes in the tree hierarchy
 *! Author: Tim Copeland, Karolinska Institutet

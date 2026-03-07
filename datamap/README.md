@@ -991,7 +991,7 @@ datadict, single(_examples/cohort.dta) ///
     output(datamap/demo/cohort_dictionary.md) ///
     title("Synthetic Cohort Data Dictionary") ///
     version("1.0") ///
-    author("Stata-Dev") ///
+    author("Stata-Tools") ///
     missing stats
 ```
 

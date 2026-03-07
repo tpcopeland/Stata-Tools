@@ -41,10 +41,10 @@ local run_only = $RUN_TEST_NUMBER
 * PATH CONFIGURATION
 * =============================================================================
 if "`c(os)'" == "MacOSX" {
-    global STATA_TOOLS_PATH "/Users/tcopeland/Documents/GitHub/Stata-Dev"
+    global STATA_TOOLS_PATH "/Users/tcopeland/Documents/GitHub/Stata-Tools"
 }
 else if "`c(os)'" == "Unix" {
-    global STATA_TOOLS_PATH "/home/tpcopeland/Stata-Dev"
+    global STATA_TOOLS_PATH "/home/tpcopeland/Stata-Tools"
 }
 else {
     global STATA_TOOLS_PATH "`c(pwd)'"

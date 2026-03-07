@@ -6,8 +6,8 @@ version 16.0
 set more off
 set varabbrev off
 
-local qa_dir "/home/tpcopeland/Stata-Dev/msm/qa"
-adopath ++ "/home/tpcopeland/Stata-Dev/msm"
+local qa_dir "/home/tpcopeland/Stata-Tools/msm/qa"
+adopath ++ "/home/tpcopeland/Stata-Tools/msm"
 
 local test_count = 0
 local pass_count = 0
@@ -22,7 +22,7 @@ display ""
 * Setup: Run full pipeline on msm_example.dta
 * =========================================================================
 display "Setting up pipeline on msm_example.dta..."
-use "/home/tpcopeland/Stata-Dev/msm/msm_example.dta", clear
+use "/home/tpcopeland/Stata-Tools/msm/msm_example.dta", clear
 msm_prepare, id(id) period(period) treatment(treatment) ///
     outcome(outcome) censor(censored) ///
     covariates(biomarker comorbidity) ///

@@ -1,5 +1,5 @@
 v 3
-d Stata-Dev: codescan
+d Stata-Tools: codescan
 d Timothy P Copeland, Karolinska Institutet
-d https://github.com/tpcopeland/Stata-Dev
+d https://github.com/tpcopeland/Stata-Tools
 p codescan

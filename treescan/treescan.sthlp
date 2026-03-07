@@ -169,8 +169,9 @@ indicates case status and {opt persontime()} provides follow-up time.
 {phang}
 {opt persontime(varname)} specifies the person-time variable for the Poisson
 model. Required when {cmd:model(poisson)} is specified. Must be a positive
-numeric variable. Person-time is summed within each individual (if multiple
-records exist) before analysis.
+numeric variable. If an individual has multiple records, the maximum
+person-time value is used (person-time is assumed constant within each
+individual).
 
 {phang}
 {opt conditional} specifies that the conditional (permutation-based) test

@@ -17,7 +17,7 @@ clear all
 set more off
 version 16.0
 
-adopath + "/home/tpcopeland/Stata-Dev/treescan"
+adopath + "/home/tpcopeland/Stata-Tools/treescan"
 quietly mata: mata mlib index
 
 scalar n_tests = 0
@@ -229,7 +229,7 @@ display as text "Validation 3: Cross-validation with TreeMineR"
 display as text _dup(50) "-"
 
 * Import TreeMineR's diagnoses dataset
-capture confirm file "/home/tpcopeland/Stata-Dev/treescan/treeminer_diagnoses.csv"
+capture confirm file "/home/tpcopeland/Stata-Tools/treescan/treeminer_diagnoses.csv"
 if _rc {
     display as text "  Skipping: TreeMineR comparison data not found"
     display as text "  Run _get_treeminer_example.R first"
@@ -237,7 +237,7 @@ if _rc {
 else {
     quietly {
         import delimited using ///
-            "/home/tpcopeland/Stata-Dev/treescan/treeminer_diagnoses.csv", ///
+            "/home/tpcopeland/Stata-Tools/treescan/treeminer_diagnoses.csv", ///
             clear varnames(1) stringcols(2)
     }
 
@@ -267,7 +267,7 @@ else {
     quietly {
         preserve
         import delimited using ///
-            "/home/tpcopeland/Stata-Dev/treescan/treeminer_results.csv", ///
+            "/home/tpcopeland/Stata-Tools/treescan/treeminer_results.csv", ///
             clear varnames(1) stringcols(1)
 
         * Get top node from TreeMineR

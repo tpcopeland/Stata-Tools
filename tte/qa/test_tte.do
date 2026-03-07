@@ -26,7 +26,7 @@ local fail_count = 0
 capture ado uninstall tte
 
 * Load programs from local directory
-local tte_dir "/home/tpcopeland/Stata-Dev/tte"
+local tte_dir "/home/tpcopeland/Stata-Tools/tte"
 quietly {
     cap program drop tte
     cap program drop tte_prepare

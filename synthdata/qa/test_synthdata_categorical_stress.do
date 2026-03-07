@@ -28,7 +28,7 @@ version 16.0
 * PATH CONFIGURATION
 * =============================================================================
 if "`c(os)'" == "MacOSX" {
-    global STATA_TOOLS_PATH "/Users/tcopeland/Documents/GitHub/Stata-Dev"
+    global STATA_TOOLS_PATH "/Users/tcopeland/Documents/GitHub/Stata-Tools"
 }
 else if "`c(os)'" == "Unix" {
     capture confirm file "_devkit/_testing"
@@ -41,7 +41,7 @@ else if "`c(os)'" == "Unix" {
             global STATA_TOOLS_PATH "`c(pwd)'/.."
         }
         else {
-            global STATA_TOOLS_PATH "/home/`c(username)'/Stata-Dev"
+            global STATA_TOOLS_PATH "/home/`c(username)'/Stata-Tools"
         }
     }
 }

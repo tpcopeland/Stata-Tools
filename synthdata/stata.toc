@@ -1,5 +1,5 @@
 v 3
-d Stata-Dev: synthdata
+d Stata-Tools: synthdata
 d Timothy P. Copeland, Karolinska Institutet, Stockholm, Sweden
-d https://github.com/tpcopeland/Stata-Dev
+d https://github.com/tpcopeland/Stata-Tools
 p synthdata

@@ -4,7 +4,7 @@ set more off
 
 * Find repo root and source the ado file
 local repo_root "`c(pwd)'"
-if regexm("`repo_root'", "^(.*/Stata-Dev)") {
+if regexm("`repo_root'", "^(.*/Stata-Tools)") {
     local repo_root = regexs(1)
 }
 run "`repo_root'/synthdata/synthdata.ado"

@@ -20,7 +20,7 @@ clear all
 set more off
 
 capture ado uninstall nma
-adopath + "/home/tpcopeland/Stata-Dev/nma"
+adopath + "/home/tpcopeland/Stata-Tools/nma"
 
 * =====================================================================
 * Test harness

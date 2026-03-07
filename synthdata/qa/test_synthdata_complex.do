@@ -8,7 +8,7 @@ version 16.0
 
 * Find the repo root
 local repo_root "`c(pwd)'"
-if regexm("`repo_root'", "^(.*/Stata-Dev)") {
+if regexm("`repo_root'", "^(.*/Stata-Tools)") {
     local repo_root = regexs(1)
 }
 

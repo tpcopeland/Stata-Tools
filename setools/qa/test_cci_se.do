@@ -5,7 +5,7 @@ clear all
 set more off
 
 cap program drop cci_se
-run "/home/tpcopeland/Stata-Dev/setools/cci_se.ado"
+run "/home/tpcopeland/Stata-Tools/setools/cci_se.ado"
 
 local n_tests = 0
 local n_passed = 0
