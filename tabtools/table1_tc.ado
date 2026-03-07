@@ -1294,9 +1294,9 @@ program define table1_tc, sclass
         tokenize `levels'
         local first `1'
         cap order `by'_T, before(pvalue)  // Move total before p-value
-        order N_T, before(m_`first')  // Reorder N columns 
-        order m_T, before(_columna_`first')  // Reorder missing columns
-        order _columna_T _columnb_T, last  // Move column components to end
+        cap order N_T, before(m_`first')  // Reorder N columns
+        cap order m_T, before(_columna_`first')  // Reorder missing columns
+        cap order _columna_T _columnb_T, last  // Move column components to end
     }    
     
     /* Format N and missing counts */
@@ -1870,11 +1870,11 @@ program define table1_tc, sclass
 
                 /* Add border for total column if specified */
                 if "`total'" != "" {
-                    /* Find total column position */
+                    /* Find total column position by variable name */
                     local total_col_pos = 0
                     local i = 1
                     foreach var of varlist * {
-                        if substr("`var'", -2, 2) == "_T" {
+                        if "`var'" == "`by'_T" {
                             local total_col_pos = `i'
                             continue, break
                         }
@@ -1883,13 +1883,15 @@ program define table1_tc, sclass
 
                     if `total_col_pos' > 0 {
                         local total_letter: word `total_col_pos' of `col_letters'
-                        if "`borderstyle'" == "thin" {
-                            putexcel (`total_letter'2:`total_letter'`num_rows'), border(left, thin)
-                            putexcel (`total_letter'2:`total_letter'`num_rows'), border(right, thin)
-                        }
-                        else {
-                            putexcel (`total_letter'2:`total_letter'`num_rows'), border(left, medium)
-                            putexcel (`total_letter'2:`total_letter'`num_rows'), border(right, medium)
+                        if "`total_letter'" != "" {
+                            if "`borderstyle'" == "thin" {
+                                putexcel (`total_letter'2:`total_letter'`num_rows'), border(left, thin)
+                                putexcel (`total_letter'2:`total_letter'`num_rows'), border(right, thin)
+                            }
+                            else {
+                                putexcel (`total_letter'2:`total_letter'`num_rows'), border(left, medium)
+                                putexcel (`total_letter'2:`total_letter'`num_rows'), border(right, medium)
+                            }
                         }
                     }
                 }
