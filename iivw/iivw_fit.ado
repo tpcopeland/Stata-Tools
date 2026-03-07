@@ -1,4 +1,4 @@
-*! iivw_fit Version 1.1.0  2026/03/07
+*! iivw_fit Version 1.2.0  2026/03/07
 *! Fit weighted outcome model for IIW/IPTW/FIPTIW analysis
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet
@@ -18,6 +18,8 @@ Options:
   family(string)      - GEE family (default: gaussian)
   link(string)        - GEE link (default: canonical)
   timespec(string)    - Time specification: linear, quadratic, cubic, ns(#), none
+  categorical(varlist)- Variables in indepvars to expand into dummies
+  basecat(#)          - Reference category for categorical (default: lowest)
   cluster(varname)    - Cluster variable (default: id from metadata)
   bootstrap(#)        - Bootstrap replicates (0 = sandwich SE only)
   level(#)            - Confidence level (default: 95)
@@ -42,6 +44,8 @@ program define iivw_fit, eclass
          FAMily(string) LINk(string) ///
          TIMEspec(string) ///
          INTeraction(varlist numeric) ///
+         CATEGorical(varlist numeric) ///
+         BASEcat(string) ///
          CLuster(varname) ///
          BOOTstrap(integer 0) ///
          Level(cilevel) noLOG ///
@@ -107,6 +111,19 @@ program define iivw_fit, eclass
         exit 198
     }
 
+    * Validate categorical/basecat options
+    if "`basecat'" != "" & "`categorical'" == "" {
+        display as error "basecat() requires categorical()"
+        exit 198
+    }
+    if "`basecat'" != "" {
+        capture confirm integer number `basecat'
+        if _rc {
+            display as error "basecat() must be an integer"
+            exit 198
+        }
+    }
+
     * Mixed model requires Stata 17+
     if "`model'" == "mixed" {
         if c(stata_version) < 17 {
@@ -135,6 +152,12 @@ program define iivw_fit, eclass
     display as text "Time spec:        " as result "`timespec'"
     if "`interaction'" != "" {
         display as text "Interactions:     " as result "`interaction'"
+    }
+    if "`categorical'" != "" {
+        display as text "Categorical:      " as result "`categorical'"
+        if "`basecat'" != "" {
+            display as text "Base category:    " as result "`basecat'"
+        }
     }
     if "`model'" == "gee" {
         display as text "Family:           " as result "`family'"
@@ -238,18 +261,186 @@ program define iivw_fit, eclass
     }
 
     * =========================================================================
+    * EXPAND CATEGORICAL VARIABLES
+    * =========================================================================
+
+    local expanded_indepvars "`indepvars'"
+    local cat_vars_created ""
+    local expanded_interaction "`interaction'"
+
+    if "`categorical'" != "" {
+
+        * Validate all categorical vars are in indepvars
+        foreach cvar of local categorical {
+            local found_in_indep = 0
+            foreach ipred of local indepvars {
+                if "`cvar'" == "`ipred'" local found_in_indep = 1
+            }
+            if `found_in_indep' == 0 {
+                display as error "`cvar' in categorical() not found in predictor variables"
+                exit 198
+            }
+        }
+
+        foreach cvar of local categorical {
+
+            * Validate integer values
+            quietly count if `touse' & `cvar' != int(`cvar') & !missing(`cvar')
+            if r(N) > 0 {
+                display as error "`cvar' in categorical() contains non-integer values"
+                exit 198
+            }
+
+            * Get unique levels
+            quietly levelsof `cvar' if `touse', local(levels)
+            local n_levels : word count `levels'
+
+            if `n_levels' < 2 {
+                display as error "`cvar' in categorical() has fewer than 2 unique values"
+                exit 198
+            }
+
+            * Determine base category
+            local base_val : word 1 of `levels'
+            if "`basecat'" != "" {
+                local base_found = 0
+                foreach lev of local levels {
+                    if `lev' == `basecat' local base_found = 1
+                }
+                if `base_found' == 1 {
+                    local base_val = `basecat'
+                }
+                else {
+                    display as text "note: basecat(`basecat') not found in `cvar'; using lowest value"
+                }
+            }
+
+            * Get value label name and base label
+            local cvar_vallbl : value label `cvar'
+            local base_label ""
+            if "`cvar_vallbl'" != "" {
+                local base_label : label `cvar_vallbl' `base_val'
+            }
+
+            * First pass: build sanitized names and check for collisions
+            local collision = 0
+            local n_nonbase = 0
+
+            if "`cvar_vallbl'" != "" {
+                foreach lev of local levels {
+                    if `lev' == `base_val' continue
+                    local ++n_nonbase
+                    local lev_label : label `cvar_vallbl' `lev'
+
+                    * Sanitize: lowercase, common separators to underscores,
+                    * strip non-alphanumeric, collapse underscores
+                    local san = lower(`"`lev_label'"')
+                    local san = subinstr(`"`san'"', " ", "_", .)
+                    local san = subinstr(`"`san'"', "-", "_", .)
+                    local san = subinstr(`"`san'"', "/", "_", .)
+                    local san = subinstr(`"`san'"', ".", "_", .)
+                    local san = ustrregexra(`"`san'"', "[^a-z0-9_]", "")
+                    while strpos("`san'", "__") > 0 {
+                        local san = subinstr("`san'", "__", "_", .)
+                    }
+                    while substr("`san'", 1, 1) == "_" & strlen("`san'") > 1 {
+                        local san = substr("`san'", 2, .)
+                    }
+                    while substr("`san'", -1, 1) == "_" & strlen("`san'") > 1 {
+                        local san = substr("`san'", 1, strlen("`san'") - 1)
+                    }
+
+                    if strlen("`san'") == 0 local collision = 1
+                    local san_`n_nonbase' "`san'"
+                }
+
+                * Detect collisions between sanitized names
+                forvalues i = 1/`n_nonbase' {
+                    forvalues j = `=`i'+1'/`n_nonbase' {
+                        if "`san_`i''" == "`san_`j''" local collision = 1
+                    }
+                }
+            }
+
+            * Second pass: generate dummies
+            local dummy_list ""
+            local san_idx = 0
+
+            foreach lev of local levels {
+                if `lev' == `base_val' continue
+                local ++san_idx
+
+                if "`cvar_vallbl'" != "" & `collision' == 0 {
+                    * Label-based naming
+                    local vname "`prefix'cat_`san_`san_idx''"
+                    local lev_label : label `cvar_vallbl' `lev'
+                    local vlabel `"`lev_label' (vs. `base_label')"'
+                }
+                else {
+                    * Numeric naming fallback
+                    local vname "`prefix'cat_`cvar'_`lev'"
+                    if "`base_label'" != "" {
+                        local vlabel `"`cvar'=`lev' (vs. `base_label')"'
+                    }
+                    else {
+                        local vlabel "`cvar'=`lev' (vs. `base_val')"
+                    }
+                }
+
+                * Truncate if > 32 chars
+                if strlen("`vname'") > 32 {
+                    local vname = substr("`vname'", 1, 32)
+                    display as text "note: categorical variable name truncated to `vname'"
+                }
+
+                capture drop `vname'
+                quietly gen byte `vname' = (`cvar' == `lev') if `touse'
+                label variable `vname' `"`vlabel'"'
+                local dummy_list "`dummy_list' `vname'"
+                local cat_vars_created "`cat_vars_created' `vname'"
+            }
+
+            * Replace original var in expanded_indepvars with dummies
+            local new_indepvars ""
+            foreach v of local expanded_indepvars {
+                if "`v'" == "`cvar'" {
+                    local new_indepvars "`new_indepvars'`dummy_list'"
+                }
+                else {
+                    local new_indepvars "`new_indepvars' `v'"
+                }
+            }
+            local expanded_indepvars "`new_indepvars'"
+
+            * Replace in interaction if present
+            if "`expanded_interaction'" != "" {
+                local new_interaction ""
+                foreach v of local expanded_interaction {
+                    if "`v'" == "`cvar'" {
+                        local new_interaction "`new_interaction'`dummy_list'"
+                    }
+                    else {
+                        local new_interaction "`new_interaction' `v'"
+                    }
+                }
+                local expanded_interaction "`new_interaction'"
+            }
+        }
+    }
+
+    * =========================================================================
     * BUILD INTERACTION VARIABLES
     * =========================================================================
 
     local ix_vars ""
     local ix_vars_created ""
 
-    if "`interaction'" != "" {
+    if "`expanded_interaction'" != "" {
 
         * Warn if interaction variable not in predictors (no main effect)
-        foreach ivar of local interaction {
+        foreach ivar of local expanded_interaction {
             local found_main = 0
-            foreach ipred of local indepvars {
+            foreach ipred of local expanded_indepvars {
                 if "`ivar'" == "`ipred'" local found_main = 1
             }
             if `found_main' == 0 {
@@ -257,7 +448,7 @@ program define iivw_fit, eclass
             }
         }
 
-        foreach ivar of local interaction {
+        foreach ivar of local expanded_interaction {
             foreach tvar of local time_vars {
 
                 * Map time variable to suffix
@@ -275,20 +466,48 @@ program define iivw_fit, eclass
                     local suffix = substr("`tvar'", strlen("`prefix'") + 1, .)
                 }
 
+                * Determine covariate portion of name
+                * Strip _iivw_cat_ prefix from categorical dummies for clean naming
+                local cat_prefix_str "`prefix'cat_"
+                local cat_prefix_len = strlen("`cat_prefix_str'")
+                local is_cat_dummy = (substr("`ivar'", 1, `cat_prefix_len') == "`cat_prefix_str'")
+                if `is_cat_dummy' {
+                    local ivar_portion = substr("`ivar'", `cat_prefix_len' + 1, .)
+                }
+                else {
+                    local ivar_portion "`ivar'"
+                }
+
                 * Build variable name
-                local ix_name "`prefix'ix_`ivar'_`suffix'"
+                local ix_name "`prefix'ix_`ivar_portion'_`suffix'"
 
                 * Truncate covariate portion if name > 32 chars
                 if strlen("`ix_name'") > 32 {
                     local max_covar = 32 - strlen("`prefix'ix_") - strlen("_`suffix'")
-                    local ivar_trunc = substr("`ivar'", 1, `max_covar')
+                    local ivar_trunc = substr("`ivar_portion'", 1, `max_covar')
                     local ix_name "`prefix'ix_`ivar_trunc'_`suffix'"
                     display as text "note: interaction variable name truncated to `ix_name'"
                 }
 
                 capture drop `ix_name'
                 gen double `ix_name' = `ivar' * `tvar'
-                label variable `ix_name' "`ivar' x `suffix'"
+
+                * Build label: use clean label for categorical dummies
+                if `is_cat_dummy' {
+                    local ivar_label : variable label `ivar'
+                    local vs_pos = strpos(`"`ivar_label'"', " (vs.")
+                    if `vs_pos' > 0 {
+                        local ivar_clean = substr(`"`ivar_label'"', 1, `vs_pos' - 1)
+                    }
+                    else {
+                        local ivar_clean `"`ivar_label'"'
+                    }
+                    label variable `ix_name' `"`ivar_clean' x `suffix'"'
+                }
+                else {
+                    label variable `ix_name' "`ivar' x `suffix'"
+                }
+
                 local ix_vars "`ix_vars' `ix_name'"
                 local ix_vars_created "`ix_vars_created' `ix_name'"
             }
@@ -299,7 +518,7 @@ program define iivw_fit, eclass
     * BUILD COVARIATE LIST
     * =========================================================================
 
-    local all_covars "`indepvars'"
+    local all_covars "`expanded_indepvars'"
     if "`time_vars'" != "" {
         local all_covars "`all_covars' `time_vars'"
     }
@@ -361,6 +580,9 @@ program define iivw_fit, eclass
         foreach v of local ix_vars_created {
             capture drop `v'
         }
+        foreach v of local cat_vars_created {
+            capture drop `v'
+        }
         exit `fit_rc'
     }
 
@@ -377,6 +599,13 @@ program define iivw_fit, eclass
         char _dta[_iivw_interaction] "`interaction'"
         char _dta[_iivw_ix_vars] "`ix_vars'"
     }
+    if "`categorical'" != "" {
+        char _dta[_iivw_categorical] "`categorical'"
+        char _dta[_iivw_cat_vars] "`cat_vars_created'"
+        if "`basecat'" != "" {
+            char _dta[_iivw_basecat] "`basecat'"
+        }
+    }
 
     * =========================================================================
     * DISPLAY SUMMARY
@@ -386,7 +615,7 @@ program define iivw_fit, eclass
     display as text "{hline 70}"
 
     * Try to display the first predictor's treatment effect
-    local first_pred: word 1 of `indepvars'
+    local first_pred: word 1 of `expanded_indepvars'
     local b_pred = .
     local se_pred = 0
     capture {
@@ -419,5 +648,9 @@ program define iivw_fit, eclass
     if "`interaction'" != "" {
         ereturn local iivw_interaction "`interaction'"
         ereturn local iivw_ix_vars "`ix_vars'"
+    }
+    if "`categorical'" != "" {
+        ereturn local iivw_categorical "`categorical'"
+        ereturn local iivw_cat_vars "`cat_vars_created'"
     }
 end
