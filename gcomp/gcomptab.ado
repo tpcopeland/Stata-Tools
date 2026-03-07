@@ -332,9 +332,11 @@ quietly {
 		local saved_rc = _rc
 		* Ensure Excel file handle is closed on error
 		capture mata: b.close_book()
+		capture mata: mata drop b
 		noisily display as error "Excel formatting failed with error `saved_rc'"
 		exit `saved_rc'
 	}
+	capture mata: mata drop b
 
 	* =========================================================================
 	* APPLY PUTEXCEL FORMATTING

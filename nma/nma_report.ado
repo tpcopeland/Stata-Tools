@@ -233,8 +233,8 @@ program define nma_report, rclass
 
     if "`format'" == "excel" {
         if `has_fit' {
+            local n_rows = `p' + 1
             capture {
-                local n_rows = `p' + 1
                 mata: b = xl()
                 mata: b.load_book("`using'")
                 mata: b.set_sheet("Treatment Effects")
@@ -244,7 +244,17 @@ program define nma_report, rclass
                 mata: b.set_column_width(7, 7, 12)
                 mata: b.set_column_width(8, 8, 12)
                 mata: b.close_book()
+            }
+            if _rc {
+                local saved_rc = _rc
+                capture mata: b.close_book()
+                capture mata: mata drop b
+                noisily display as error ///
+                    "Excel formatting (Mata) failed with error `saved_rc'"
+            }
+            capture mata: mata drop b
 
+            capture {
                 putexcel set "`using'", sheet("Treatment Effects") modify
                 putexcel (A1:H1), bold hcenter
                 putexcel (A1:H1), border(top, thin)
@@ -252,6 +262,12 @@ program define nma_report, rclass
                 putexcel (A`n_rows':H`n_rows'), border(bottom, thin)
                 putexcel (A1:H`n_rows'), font(Arial, 10)
                 putexcel clear
+            }
+            if _rc {
+                local saved_rc = _rc
+                capture putexcel clear
+                noisily display as error ///
+                    "Excel cell formatting failed with error `saved_rc'"
             }
         }
 
@@ -263,7 +279,17 @@ program define nma_report, rclass
                 mata: b.set_column_width(1, 1, 20)
                 mata: b.set_column_width(2, 2, 25)
                 mata: b.close_book()
+            }
+            if _rc {
+                local saved_rc = _rc
+                capture mata: b.close_book()
+                capture mata: mata drop b
+                noisily display as error ///
+                    "Excel formatting (Mata) failed with error `saved_rc'"
+            }
+            capture mata: mata drop b
 
+            capture {
                 putexcel set "`using'", sheet("Network Summary") modify
                 putexcel (A1:B1), bold hcenter
                 putexcel (A1:B1), border(top, thin)
@@ -272,6 +298,12 @@ program define nma_report, rclass
                 putexcel (A1:B8), font(Arial, 10)
                 putexcel clear
             }
+            if _rc {
+                local saved_rc = _rc
+                capture putexcel clear
+                noisily display as error ///
+                    "Excel cell formatting failed with error `saved_rc'"
+            }
         }
 
         if `has_rank' {
@@ -279,15 +311,25 @@ program define nma_report, rclass
             capture confirm matrix _nma_sucra
             if _rc == 0 local has_sucra = 1
             if `has_sucra' {
+                local rank_rows = `k' + 1
                 capture {
-                    local rank_rows = `k' + 1
                     mata: b = xl()
                     mata: b.load_book("`using'")
                     mata: b.set_sheet("Rankings")
                     mata: b.set_column_width(1, 1, 22)
                     mata: b.set_column_width(2, 3, 14)
                     mata: b.close_book()
+                }
+                if _rc {
+                    local saved_rc = _rc
+                    capture mata: b.close_book()
+                    capture mata: mata drop b
+                    noisily display as error ///
+                        "Excel formatting (Mata) failed with error `saved_rc'"
+                }
+                capture mata: mata drop b
 
+                capture {
                     putexcel set "`using'", sheet("Rankings") modify
                     putexcel (A1:C1), bold hcenter
                     putexcel (A1:C1), border(top, thin)
@@ -295,6 +337,12 @@ program define nma_report, rclass
                     putexcel (A`rank_rows':C`rank_rows'), border(bottom, thin)
                     putexcel (A1:C`rank_rows'), font(Arial, 10)
                     putexcel clear
+                }
+                if _rc {
+                    local saved_rc = _rc
+                    capture putexcel clear
+                    noisily display as error ///
+                        "Excel cell formatting failed with error `saved_rc'"
                 }
             }
         }

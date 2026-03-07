@@ -317,7 +317,17 @@ program define tte_report, rclass
             mata: b.set_column_width(1, 1, 25)
             mata: b.set_column_width(2, 2, 20)
             mata: b.close_book()
+        }
+        if _rc {
+            local saved_rc = _rc
+            capture mata: b.close_book()
+            capture mata: mata drop b
+            noisily display as error ///
+                "Excel formatting (Mata) failed with error `saved_rc'"
+        }
+        capture mata: mata drop b
 
+        capture {
             putexcel set "`export'", sheet("Summary") modify
             putexcel (A1:B1), merge bold
             putexcel (A3:B3), bold hcenter
@@ -326,6 +336,12 @@ program define tte_report, rclass
             putexcel (A9:B9), border(bottom, thin)
             putexcel (A1:B9), font(Arial, 10)
             putexcel clear
+        }
+        if _rc {
+            local saved_rc = _rc
+            capture putexcel clear
+            noisily display as error ///
+                "Excel cell formatting failed with error `saved_rc'"
         }
 
         if "`fitted'" == "1" {
@@ -336,7 +352,17 @@ program define tte_report, rclass
                 mata: b.set_column_width(1, 1, 22)
                 mata: b.set_column_width(2, 5, 14)
                 mata: b.close_book()
+            }
+            if _rc {
+                local saved_rc = _rc
+                capture mata: b.close_book()
+                capture mata: mata drop b
+                noisily display as error ///
+                    "Excel formatting (Mata) failed with error `saved_rc'"
+            }
+            capture mata: mata drop b
 
+            capture {
                 putexcel set "`export'", sheet("Coefficients") modify
                 putexcel (A1:E1), bold hcenter
                 putexcel (A1:E1), border(top, thin)
@@ -344,6 +370,12 @@ program define tte_report, rclass
                 putexcel (A`coef_last_row':E`coef_last_row'), border(bottom, thin)
                 putexcel (A1:E`coef_last_row'), font(Arial, 10)
                 putexcel clear
+            }
+            if _rc {
+                local saved_rc = _rc
+                capture putexcel clear
+                noisily display as error ///
+                    "Excel cell formatting failed with error `saved_rc'"
             }
         }
 
@@ -362,7 +394,17 @@ program define tte_report, rclass
                     mata: b.set_sheet("Predictions")
                     mata: b.set_column_width(1, `pred_cols', 16)
                     mata: b.close_book()
+                }
+                if _rc {
+                    local saved_rc = _rc
+                    capture mata: b.close_book()
+                    capture mata: mata drop b
+                    noisily display as error ///
+                        "Excel formatting (Mata) failed with error `saved_rc'"
+                }
+                capture mata: mata drop b
 
+                capture {
                     putexcel set "`export'", sheet("Predictions") modify
                     putexcel (A1:`pred_last_col'1), bold hcenter
                     putexcel (A1:`pred_last_col'1), border(top, thin)
@@ -370,6 +412,12 @@ program define tte_report, rclass
                     putexcel (A`pred_last_row':`pred_last_col'`pred_last_row'), border(bottom, thin)
                     putexcel (A1:`pred_last_col'`pred_last_row'), font(Arial, 10)
                     putexcel clear
+                }
+                if _rc {
+                    local saved_rc = _rc
+                    capture putexcel clear
+                    noisily display as error ///
+                        "Excel cell formatting failed with error `saved_rc'"
                 }
             }
         }
