@@ -159,7 +159,7 @@ program today, rclass
             local date_td = "`day' `month_name' `year'"
         }
         else if lower("`date_format'") == "dmy" {
-            local date_td = "`day'/`=string(`month', "%02.0f")'/`year'"
+            local date_td = "`=string(`day', "%02.0f")'/`=string(`month', "%02.0f")'/`year'"
         }
         else if lower("`date_format'") == "mdy" {
             local date_td = "`=string(`month', "%02.0f")'/`=string(`day', "%02.0f")'/`year'"

@@ -183,8 +183,14 @@ program define synthdata
         // Check unique values - if <= 20, likely categorical
         qui count if !missing(`v')
         if r(N) > 0 {
-            qui levelsof `v', local(levels)
-            local nuniq: word count `levels'
+            capture qui levelsof `v', local(levels)
+            if _rc == 0 {
+                local nuniq: word count `levels'
+            }
+            else {
+                // levelsof failed (macro too long) — many unique values, not categorical
+                local nuniq = 21
+            }
             if `nuniq' <= 20 continue
         }
 
@@ -1658,8 +1664,14 @@ program define _synthdata_classify, rclass
             continue
         }
 
-        qui levelsof `v', local(levels)
-        local nuniq: word count `levels'
+        capture qui levelsof `v', local(levels)
+        if _rc == 0 {
+            local nuniq: word count `levels'
+        }
+        else {
+            // levelsof failed (macro too long) — use nobs as proxy for nuniq
+            local nuniq = `nobs'
+        }
 
         // 4b. Compute uniqueness ratio (proportion of values that are unique)
         local ratio = `nuniq' / `nobs'
