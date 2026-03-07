@@ -903,12 +903,14 @@ if _rc {
 	local saved_rc = _rc
 	* Ensure Excel file handle is closed on error
 	capture mata: b.close_book()
+	capture mata: mata drop b
 	noisily display as error "Excel formatting failed with error `saved_rc'"
 	* Clean up temporary file
 	capture erase "`temp_xlsx'"
 	restore
 	exit `saved_rc'
 }
+capture mata: mata drop b
 
 * Apply putexcel formatting with error handling
 _tabtools_col_letter `num_cols'

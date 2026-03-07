@@ -1812,10 +1812,12 @@ program define table1_tc, sclass
 			if _rc {
 				local saved_rc = _rc
 				capture mata: b.close_book()
+				capture mata: mata drop b
 				noisily display as error "Excel formatting (Mata) failed with error `saved_rc'"
 				restore
 				exit `saved_rc'
 			}
+			capture mata: mata drop b
 
             /*****************************************************************
             * Apply Excel formatting
