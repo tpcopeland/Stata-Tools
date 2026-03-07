@@ -312,11 +312,13 @@ quietly {
     if _rc {
         local saved_rc = _rc
         capture mata: b.close_book()
+        capture mata: mata drop b
         noisily display as error "Excel formatting (Mata) failed with error `saved_rc'"
         capture erase "`temp_xlsx'"
         restore
         exit `saved_rc'
     }
+    capture mata: mata drop b
 
     * =========================================================================
     * APPLY PUTEXCEL FORMATTING (Borders, fonts, merging)

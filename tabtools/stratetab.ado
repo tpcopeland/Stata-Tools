@@ -367,9 +367,11 @@ capture {
 if _rc {
 	local saved_rc = _rc
 	capture mata: b.close_book()
+	capture mata: mata drop b
 	noi di as err "Excel formatting (Mata) failed with error `saved_rc'"
 	exit `saved_rc'
 }
+capture mata: mata drop b
 
 * Apply borders and formatting with putexcel
 capture {
