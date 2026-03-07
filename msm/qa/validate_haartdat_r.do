@@ -10,9 +10,9 @@ version 16.0
 set more off
 set varabbrev off
 
-local qa_dir "/home/tpcopeland/Stata-Dev/msm/qa"
+local qa_dir "/home/tpcopeland/Stata-Tools/msm/qa"
 local data_dir "`qa_dir'/data"
-adopath ++ "/home/tpcopeland/Stata-Dev/msm"
+adopath ++ "/home/tpcopeland/Stata-Tools/msm"
 
 local test_count = 0
 local pass_count = 0

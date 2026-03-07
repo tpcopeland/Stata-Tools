@@ -508,8 +508,9 @@ program define treescan_power, rclass
                 "Conditional", "Unconditional")
 
             * Summary + Power results: 3 columns (A=spacer, B=param, C=value)
-            * Layout: title, blank, summary rows, blank, power header, power rows
-            set obs 20
+            * Layout: title(1) + blank(1) + summary(9) + blank(1) + header(1) + power(3) = 16
+            local total_obs = 16
+            set obs `total_obs'
 
             gen str1 spacer = ""
             gen str200 col_b = ""

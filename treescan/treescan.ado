@@ -594,9 +594,10 @@ program define treescan, rclass
                 }
 
                 * Add row and column names
+                * Truncate node names to 32 chars (Stata matrix name limit)
                 local rnames ""
                 forvalues i = 1/`nrows' {
-                    local nd = node[`i']
+                    local nd = substr(node[`i'], 1, 32)
                     local rnames `"`rnames' "`nd'""'
                 }
                 matrix rownames `results_mat' = `rnames'
@@ -617,7 +618,7 @@ program define treescan, rclass
 
                 local rnames ""
                 forvalues i = 1/`nrows' {
-                    local nd = node[`i']
+                    local nd = substr(node[`i'], 1, 32)
                     local rnames `"`rnames' "`nd'""'
                 }
                 matrix rownames `results_mat' = `rnames'

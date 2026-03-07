@@ -21,7 +21,7 @@ display _dup(70) "="
 display _newline
 
 * Install latest version
-net install tabtools, from("/home/tpcopeland/Stata-Dev/tabtools") replace force
+net install tabtools, from("/home/tpcopeland/Stata-Tools/tabtools") replace force
 
 * Output directory
 local outdir "/tmp/validation_output"

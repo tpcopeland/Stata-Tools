@@ -43,7 +43,7 @@ local run_only = $RUN_TEST_NUMBER
 * =============================================================================
 * Cross-platform path detection
 if "`c(os)'" == "MacOSX" {
-    global STATA_TOOLS_PATH "/Users/tcopeland/Documents/GitHub/Stata-Dev"
+    global STATA_TOOLS_PATH "/Users/tcopeland/Documents/GitHub/Stata-Tools"
 }
 else if "`c(os)'" == "Unix" {
     * Try to detect path from current working directory
@@ -63,7 +63,7 @@ else if "`c(os)'" == "Unix" {
             global STATA_TOOLS_PATH "`c(pwd)'/.."
         }
         else {
-            global STATA_TOOLS_PATH "/home/`c(username)'/Stata-Dev"
+            global STATA_TOOLS_PATH "/home/`c(username)'/Stata-Tools"
         }
     }
     }

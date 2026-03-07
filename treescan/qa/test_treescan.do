@@ -8,7 +8,8 @@ clear all
 set more off
 version 16.0
 
-adopath + "/home/tpcopeland/Stata-Dev/treescan"
+capture ado uninstall treescan
+adopath + "/home/tpcopeland/Stata-Tools/treescan"
 quietly mata: mata mlib index
 
 scalar n_tests = 0

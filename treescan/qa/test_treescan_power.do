@@ -7,9 +7,9 @@ set more off
 cap program drop treescan
 cap program drop treescan_power
 cap program drop _on_colon_parse
-adopath + "/home/tpcopeland/Stata-Dev/treescan"
-run "/home/tpcopeland/Stata-Dev/treescan/treescan.ado"
-run "/home/tpcopeland/Stata-Dev/treescan/treescan_power.ado"
+adopath + "/home/tpcopeland/Stata-Tools/treescan"
+run "/home/tpcopeland/Stata-Tools/treescan/treescan.ado"
+run "/home/tpcopeland/Stata-Tools/treescan/treescan_power.ado"
 
 scalar n_tests = 0
 scalar n_passed = 0

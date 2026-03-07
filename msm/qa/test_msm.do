@@ -6,7 +6,7 @@ clear all
 set more off
 
 capture ado uninstall msm
-net install msm, from("/home/tpcopeland/Stata-Dev/msm") replace
+net install msm, from("/home/tpcopeland/Stata-Tools/msm") replace
 
 local n_pass = 0
 local n_fail = 0
@@ -17,7 +17,7 @@ local n_tests = 0
 * =========================================================================
 display _newline "TEST 1: msm_prepare"
 
-use "/home/tpcopeland/Stata-Dev/msm/msm_example.dta", clear
+use "/home/tpcopeland/Stata-Tools/msm/msm_example.dta", clear
 msm_prepare, id(id) period(period) treatment(treatment) ///
     outcome(outcome) censor(censored) ///
     covariates(biomarker comorbidity) ///
@@ -50,7 +50,7 @@ local ++n_pass
 * =========================================================================
 display _newline "TEST 2: msm_prepare error handling"
 
-use "/home/tpcopeland/Stata-Dev/msm/msm_example.dta", clear
+use "/home/tpcopeland/Stata-Tools/msm/msm_example.dta", clear
 tempvar bad_treat
 gen double `bad_treat' = treatment * 2
 
@@ -65,7 +65,7 @@ local ++n_pass
 * =========================================================================
 display _newline "TEST 3: msm_validate"
 
-use "/home/tpcopeland/Stata-Dev/msm/msm_example.dta", clear
+use "/home/tpcopeland/Stata-Tools/msm/msm_example.dta", clear
 msm_prepare, id(id) period(period) treatment(treatment) ///
     outcome(outcome) censor(censored) ///
     covariates(biomarker comorbidity) ///
@@ -88,7 +88,7 @@ local ++n_pass
 * =========================================================================
 display _newline "TEST 4: msm_validate prerequisite"
 
-use "/home/tpcopeland/Stata-Dev/msm/msm_example.dta", clear
+use "/home/tpcopeland/Stata-Tools/msm/msm_example.dta", clear
 
 local ++n_tests
 capture msm_validate
@@ -101,7 +101,7 @@ local ++n_pass
 * =========================================================================
 display _newline "TEST 5: msm_weight (IPTW only)"
 
-use "/home/tpcopeland/Stata-Dev/msm/msm_example.dta", clear
+use "/home/tpcopeland/Stata-Tools/msm/msm_example.dta", clear
 msm_prepare, id(id) period(period) treatment(treatment) ///
     outcome(outcome) covariates(biomarker comorbidity) ///
     baseline_covariates(age sex)
@@ -134,7 +134,7 @@ local ++n_pass
 * =========================================================================
 display _newline "TEST 6: msm_weight (IPTW + IPCW + truncation)"
 
-use "/home/tpcopeland/Stata-Dev/msm/msm_example.dta", clear
+use "/home/tpcopeland/Stata-Tools/msm/msm_example.dta", clear
 msm_prepare, id(id) period(period) treatment(treatment) ///
     outcome(outcome) censor(censored) ///
     covariates(biomarker comorbidity) ///
@@ -161,7 +161,7 @@ local ++n_pass
 * =========================================================================
 display _newline "TEST 7: msm_weight prerequisite"
 
-use "/home/tpcopeland/Stata-Dev/msm/msm_example.dta", clear
+use "/home/tpcopeland/Stata-Tools/msm/msm_example.dta", clear
 
 local ++n_tests
 capture msm_weight, treat_d_cov(age sex) nolog
@@ -174,7 +174,7 @@ local ++n_pass
 * =========================================================================
 display _newline "TEST 8: msm_fit (pooled logistic, known-answer)"
 
-use "/home/tpcopeland/Stata-Dev/msm/msm_example.dta", clear
+use "/home/tpcopeland/Stata-Tools/msm/msm_example.dta", clear
 msm_prepare, id(id) period(period) treatment(treatment) ///
     outcome(outcome) censor(censored) ///
     covariates(biomarker comorbidity) ///
@@ -344,7 +344,7 @@ local ++n_pass
 * =========================================================================
 display _newline "TEST 16: msm_fit (linear model)"
 
-use "/home/tpcopeland/Stata-Dev/msm/msm_example.dta", clear
+use "/home/tpcopeland/Stata-Tools/msm/msm_example.dta", clear
 msm_prepare, id(id) period(period) treatment(treatment) ///
     outcome(outcome) covariates(biomarker comorbidity) ///
     baseline_covariates(age sex)
@@ -380,7 +380,7 @@ assert "`result'" == "AA"
 display as result "  PASS: col_letter(27) = AA"
 local ++n_pass
 
-use "/home/tpcopeland/Stata-Dev/msm/msm_example.dta", clear
+use "/home/tpcopeland/Stata-Tools/msm/msm_example.dta", clear
 _msm_smd age, treatment(treatment)
 local ++n_tests
 assert "`_msm_smd_value'" != ""

@@ -210,7 +210,7 @@ many unique values, only a count is shown. Default is {bf:25}. Must be positive.
 {phang2}{cmd:     output(datamap/examples/cohort_dictionary.md) ///}{p_end}
 {phang2}{cmd:     title("Synthetic Cohort Data Dictionary") ///}{p_end}
 {phang2}{cmd:     version("1.0") ///}{p_end}
-{phang2}{cmd:     author("Stata-Dev") ///}{p_end}
+{phang2}{cmd:     author("Stata-Tools") ///}{p_end}
 {phang2}{cmd:     missing stats}{p_end}
 
 

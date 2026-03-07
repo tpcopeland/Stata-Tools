@@ -2,7 +2,7 @@
 clear all
 set more off
 mata: mata clear
-adopath + "/home/tpcopeland/Stata-Dev/nma"
+adopath + "/home/tpcopeland/Stata-Tools/nma"
 
 * Create test data (3 treatments, 3 studies, fully connected)
 clear

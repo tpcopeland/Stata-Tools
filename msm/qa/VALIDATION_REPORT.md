@@ -23,7 +23,7 @@
 
 ```stata
 * Run all validations
-cd ~/Stata-Dev/msm/qa
+cd ~/Stata-Tools/msm/qa
 stata-mp -b do run_all_validations.do
 
 * Run selective validations

@@ -39,7 +39,7 @@ if "`c(os)'" == "Unix" {
             global STATA_TOOLS_PATH "`c(pwd)'/.."
         }
         else {
-            global STATA_TOOLS_PATH "/home/`c(username)'/Stata-Dev"
+            global STATA_TOOLS_PATH "/home/`c(username)'/Stata-Tools"
         }
     }
     }

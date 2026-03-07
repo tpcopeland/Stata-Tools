@@ -16,7 +16,7 @@ set more off
 version 16.0
 
 * Path setup
-local projroot "/home/tpcopeland/Stata-Dev"
+local projroot "/home/tpcopeland/Stata-Tools"
 local datadir "`projroot'/_devkit/_testing/data"
 local pkgdir "`projroot'/datamap"
 

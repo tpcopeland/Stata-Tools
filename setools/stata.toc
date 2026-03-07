@@ -1,5 +1,5 @@
 v 3
-d Stata-Dev: setools
+d Stata-Tools: setools
 d Tim Copeland, Karolinska Institutet, Stockholm
 d https://github.com/tpcopeland/Swedish-Cohorts
 p setools Swedish registry toolkit

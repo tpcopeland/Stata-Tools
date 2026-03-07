@@ -1,5 +1,5 @@
 v 3
-d Stata-Dev: massdesas
+d Stata-Tools: massdesas
 d Timothy P. Copeland, Karolinska Institutet, Stockholm, Sweden
-d https://github.com/tpcopeland/Stata-Dev
+d https://github.com/tpcopeland/Stata-Tools
 p massdesas

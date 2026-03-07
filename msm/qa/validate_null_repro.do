@@ -6,8 +6,8 @@ version 16.0
 set more off
 set varabbrev off
 
-local qa_dir "/home/tpcopeland/Stata-Dev/msm/qa"
-adopath ++ "/home/tpcopeland/Stata-Dev/msm"
+local qa_dir "/home/tpcopeland/Stata-Tools/msm/qa"
+adopath ++ "/home/tpcopeland/Stata-Tools/msm"
 
 local test_count = 0
 local pass_count = 0

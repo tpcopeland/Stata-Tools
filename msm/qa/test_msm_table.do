@@ -6,10 +6,10 @@ clear all
 set more off
 
 capture ado uninstall msm
-net install msm, from("/home/tpcopeland/Stata-Dev/msm") replace
+net install msm, from("/home/tpcopeland/Stata-Tools/msm") replace
 
 * Load example data
-use "/home/tpcopeland/Stata-Dev/msm/msm_example.dta", clear
+use "/home/tpcopeland/Stata-Tools/msm/msm_example.dta", clear
 
 local n_pass = 0
 local n_fail = 0

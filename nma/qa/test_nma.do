@@ -7,7 +7,7 @@ set more off
 capture ado uninstall nma
 
 * Add nma package to adopath so Stata finds all commands
-adopath + "/home/tpcopeland/Stata-Dev/nma"
+adopath + "/home/tpcopeland/Stata-Tools/nma"
 
 scalar _n_tests = 0
 scalar _n_passed = 0

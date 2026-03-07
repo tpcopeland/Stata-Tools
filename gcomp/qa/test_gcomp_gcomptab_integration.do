@@ -40,8 +40,8 @@ else {
 	global STATA_TOOLS_ROOT "/home/`c(username)'/Stata-Tools"
 }
 
-* Stata-Dev repo root (for test infrastructure)
-global DEVKIT_ROOT "/home/`c(username)'/Stata-Dev"
+* Stata-Tools repo root (for test infrastructure)
+global DEVKIT_ROOT "/home/`c(username)'/Stata-Tools"
 global TESTING_DIR "${DEVKIT_ROOT}/_devkit/_testing"
 global DATA_DIR "${TESTING_DIR}/data"
 global TOOLS_DIR "${TESTING_DIR}/tools"

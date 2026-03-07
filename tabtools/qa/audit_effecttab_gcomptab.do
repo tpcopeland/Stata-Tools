@@ -21,8 +21,8 @@ else {
     global STATA_TOOLS_PATH "/home/`c(username)'/Stata-Tools"
 }
 
-* Test infrastructure lives in Stata-Dev
-global TESTING_DIR "/home/`c(username)'/Stata-Dev/_devkit/_testing"
+* Test infrastructure lives in Stata-Tools
+global TESTING_DIR "/home/`c(username)'/Stata-Tools/_devkit/_testing"
 global AUDIT_DIR "${TESTING_DIR}/audit_output"
 
 * Create audit output directory
