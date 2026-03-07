@@ -132,7 +132,7 @@ not supported with recurring events.
 {opt generate(newvar)} names the new outcome variable. Default is {cmd:_failure}.
 
 {phang}
-{opt keepvars(varlist)} specifies additional variables to keep from the event dataset (e.g., diagnosis codes). These will be populated only on the rows where the event occurred. Note that all variables from the master dataset (in memory before {cmd:tvevent}) are kept by default.
+{opt keepvars(varlist)} specifies additional variables to keep from the event dataset (e.g., diagnosis codes, baseline covariates). These are merged by person ID so all rows for each person receive the same values. Note that all variables from the master dataset (in memory before {cmd:tvevent}) are kept by default.
 
 {phang}
 {opt startvar(varname)} specifies the name of the start date variable in the using (interval) dataset. Default is {cmd:start}.
