@@ -359,7 +359,7 @@ program define tvevent, rclass
             local num_compete = 0
 
             * Keep only needed variables for reshape
-            keep `id' `eventvars' `keepvars'
+            keep `id' `eventvars'
 
             * Reshape wide event dates to long format
             * eventvars are: date1 date2 date3 ...
@@ -431,7 +431,7 @@ program define tvevent, rclass
             rename _eff_date `date'
             rename _eff_type _event_type
 
-            keep `id' `date' _event_type `keepvars'
+            keep `id' `date' _event_type
             duplicates drop `id' `date', force
 
             tempfile events
