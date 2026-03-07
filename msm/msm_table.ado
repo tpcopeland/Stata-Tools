@@ -328,26 +328,46 @@ program define _msm_tbl_coef
     }
 
     * Mata: column widths
-    mata: b = xl()
-    mata: b.load_book("`xlsx'")
-    mata: b.set_sheet("`sheet'")
-    mata: b.set_row_height(1, 1, 30)
-    mata: b.set_column_width(1, 1, 22)
-    mata: b.set_column_width(2, 2, 12)
-    mata: b.set_column_width(3, 3, 24)
-    mata: b.set_column_width(4, 4, 12)
-    mata: b.close_book()
+    capture {
+        mata: b = xl()
+        mata: b.load_book("`xlsx'")
+        mata: b.set_sheet("`sheet'")
+        mata: b.set_row_height(1, 1, 30)
+        mata: b.set_column_width(1, 1, 22)
+        mata: b.set_column_width(2, 2, 12)
+        mata: b.set_column_width(3, 3, 24)
+        mata: b.set_column_width(4, 4, 12)
+        mata: b.close_book()
+    }
+    if _rc {
+        local saved_rc = _rc
+        capture mata: b.close_book()
+        capture mata: mata drop b
+        noisily display as error "Excel formatting (Mata) failed with error `saved_rc'"
+        restore
+        exit `saved_rc'
+    }
+    capture mata: mata drop b
 
     * putexcel: formatting
-    putexcel set "`xlsx'", sheet("`sheet'") modify
-    putexcel (A1:D1), merge txtwrap left top bold
-    putexcel (A2:D2), bold hcenter vcenter
-    putexcel (A2:D2), border(top, thin)
-    putexcel (A2:D2), border(bottom, thin)
-    putexcel (B3:D`nrows'), hcenter
-    putexcel (A`nrows':D`nrows'), border(bottom, thin)
-    putexcel (A1:D`nrows'), font(Arial, 10)
-    putexcel clear
+    capture {
+        putexcel set "`xlsx'", sheet("`sheet'") modify
+        putexcel (A1:D1), merge txtwrap left top bold
+        putexcel (A2:D2), bold hcenter vcenter
+        putexcel (A2:D2), border(top, thin)
+        putexcel (A2:D2), border(bottom, thin)
+        putexcel (B3:D`nrows'), hcenter
+        putexcel (A`nrows':D`nrows'), border(bottom, thin)
+        putexcel (A1:D`nrows'), font(Arial, 10)
+        putexcel clear
+    }
+    if _rc {
+        local saved_rc = _rc
+        capture putexcel clear
+        noisily display as error "Excel cell formatting failed with error `saved_rc'"
+        restore
+        exit `saved_rc'
+    }
 
     restore
     display as text "  Sheet: `sheet'"
@@ -511,53 +531,73 @@ program define _msm_tbl_pred
     _msm_col_letter `n_cols'
     local last_col "`result'"
 
-    mata: b = xl()
-    mata: b.load_book("`xlsx'")
-    mata: b.set_sheet("`sheet'")
-    mata: b.set_row_height(1, 1, 30)
-    mata: b.set_column_width(1, 1, 10)
-    forvalues c = 2/`n_cols' {
-        if mod(`c', 2) == 0 {
-            mata: b.set_column_width(`c', `c', 12)
+    capture {
+        mata: b = xl()
+        mata: b.load_book("`xlsx'")
+        mata: b.set_sheet("`sheet'")
+        mata: b.set_row_height(1, 1, 30)
+        mata: b.set_column_width(1, 1, 10)
+        forvalues c = 2/`n_cols' {
+            if mod(`c', 2) == 0 {
+                mata: b.set_column_width(`c', `c', 12)
+            }
+            else {
+                mata: b.set_column_width(`c', `c', 24)
+            }
         }
-        else {
-            mata: b.set_column_width(`c', `c', 24)
-        }
+        mata: b.close_book()
     }
-    mata: b.close_book()
+    if _rc {
+        local saved_rc = _rc
+        capture mata: b.close_book()
+        capture mata: mata drop b
+        noisily display as error "Excel formatting (Mata) failed with error `saved_rc'"
+        restore
+        exit `saved_rc'
+    }
+    capture mata: mata drop b
 
     * putexcel: formatting
-    putexcel set "`xlsx'", sheet("`sheet'") modify
+    capture {
+        putexcel set "`xlsx'", sheet("`sheet'") modify
 
-    * Title merge
-    putexcel (A1:`last_col'1), merge txtwrap left top bold
+        * Title merge
+        putexcel (A1:`last_col'1), merge txtwrap left top bold
 
-    * Group header row 2
-    putexcel (A2:`last_col'2), border(top, thin)
-    if "`strategy'" == "both" {
-        putexcel (B2:C2), merge hcenter vcenter bold
-        putexcel (D2:E2), merge hcenter vcenter bold
-        if `has_diff' {
-            putexcel (F2:G2), merge hcenter vcenter bold
+        * Group header row 2
+        putexcel (A2:`last_col'2), border(top, thin)
+        if "`strategy'" == "both" {
+            putexcel (B2:C2), merge hcenter vcenter bold
+            putexcel (D2:E2), merge hcenter vcenter bold
+            if `has_diff' {
+                putexcel (F2:G2), merge hcenter vcenter bold
+            }
         }
+        else {
+            putexcel (B2:C2), merge hcenter vcenter bold
+        }
+
+        * Column headers (row 3)
+        putexcel (A3:`last_col'3), bold hcenter vcenter
+        putexcel (A3:`last_col'3), border(bottom, thin)
+
+        * Data alignment
+        putexcel (A`data_start':`last_col'`total_rows'), hcenter
+
+        * Bottom border
+        putexcel (A`total_rows':`last_col'`total_rows'), border(bottom, thin)
+
+        * Font
+        putexcel (A1:`last_col'`total_rows'), font(Arial, 10)
+        putexcel clear
     }
-    else {
-        putexcel (B2:C2), merge hcenter vcenter bold
+    if _rc {
+        local saved_rc = _rc
+        capture putexcel clear
+        noisily display as error "Excel cell formatting failed with error `saved_rc'"
+        restore
+        exit `saved_rc'
     }
-
-    * Column headers (row 3)
-    putexcel (A3:`last_col'3), bold hcenter vcenter
-    putexcel (A3:`last_col'3), border(bottom, thin)
-
-    * Data alignment
-    putexcel (A`data_start':`last_col'`total_rows'), hcenter
-
-    * Bottom border
-    putexcel (A`total_rows':`last_col'`total_rows'), border(bottom, thin)
-
-    * Font
-    putexcel (A1:`last_col'`total_rows'), font(Arial, 10)
-    putexcel clear
 
     restore
     display as text "  Sheet: `sheet'"
@@ -648,29 +688,49 @@ program define _msm_tbl_bal
     }
 
     * Mata: widths
-    mata: b = xl()
-    mata: b.load_book("`xlsx'")
-    mata: b.set_sheet("`sheet'")
-    mata: b.set_row_height(1, 1, 30)
-    mata: b.set_column_width(1, 1, 22)
-    mata: b.set_column_width(2, 2, 14)
-    mata: b.set_column_width(3, 3, 16)
-    mata: b.set_column_width(4, 4, 12)
-    mata: b.set_column_width(5, 5, 12)
-    mata: b.close_book()
+    capture {
+        mata: b = xl()
+        mata: b.load_book("`xlsx'")
+        mata: b.set_sheet("`sheet'")
+        mata: b.set_row_height(1, 1, 30)
+        mata: b.set_column_width(1, 1, 22)
+        mata: b.set_column_width(2, 2, 14)
+        mata: b.set_column_width(3, 3, 16)
+        mata: b.set_column_width(4, 4, 12)
+        mata: b.set_column_width(5, 5, 12)
+        mata: b.close_book()
+    }
+    if _rc {
+        local saved_rc = _rc
+        capture mata: b.close_book()
+        capture mata: mata drop b
+        noisily display as error "Excel formatting (Mata) failed with error `saved_rc'"
+        restore
+        exit `saved_rc'
+    }
+    capture mata: mata drop b
 
     * putexcel formatting
     local last_data = `footer_row' - 1
-    putexcel set "`xlsx'", sheet("`sheet'") modify
-    putexcel (A1:E1), merge txtwrap left top bold
-    putexcel (A2:E2), bold hcenter vcenter
-    putexcel (A2:E2), border(top, thin)
-    putexcel (A2:E2), border(bottom, thin)
-    putexcel (B3:E`last_data'), hcenter
-    putexcel (A`last_data':E`last_data'), border(bottom, thin)
-    putexcel (A`footer_row':E`footer_row'), merge italic
-    putexcel (A1:E`total_rows'), font(Arial, 10)
-    putexcel clear
+    capture {
+        putexcel set "`xlsx'", sheet("`sheet'") modify
+        putexcel (A1:E1), merge txtwrap left top bold
+        putexcel (A2:E2), bold hcenter vcenter
+        putexcel (A2:E2), border(top, thin)
+        putexcel (A2:E2), border(bottom, thin)
+        putexcel (B3:E`last_data'), hcenter
+        putexcel (A`last_data':E`last_data'), border(bottom, thin)
+        putexcel (A`footer_row':E`footer_row'), merge italic
+        putexcel (A1:E`total_rows'), font(Arial, 10)
+        putexcel clear
+    }
+    if _rc {
+        local saved_rc = _rc
+        capture putexcel clear
+        noisily display as error "Excel cell formatting failed with error `saved_rc'"
+        restore
+        exit `saved_rc'
+    }
 
     restore
     display as text "  Sheet: `sheet'"
@@ -748,24 +808,44 @@ program define _msm_tbl_wt
     }
 
     * Mata: widths
-    mata: b = xl()
-    mata: b.load_book("`xlsx'")
-    mata: b.set_sheet("`sheet'")
-    mata: b.set_row_height(1, 1, 30)
-    mata: b.set_column_width(1, 1, 18)
-    mata: b.set_column_width(2, 2, 16)
-    mata: b.close_book()
+    capture {
+        mata: b = xl()
+        mata: b.load_book("`xlsx'")
+        mata: b.set_sheet("`sheet'")
+        mata: b.set_row_height(1, 1, 30)
+        mata: b.set_column_width(1, 1, 18)
+        mata: b.set_column_width(2, 2, 16)
+        mata: b.close_book()
+    }
+    if _rc {
+        local saved_rc = _rc
+        capture mata: b.close_book()
+        capture mata: mata drop b
+        noisily display as error "Excel formatting (Mata) failed with error `saved_rc'"
+        restore
+        exit `saved_rc'
+    }
+    capture mata: mata drop b
 
     * putexcel formatting
-    putexcel set "`xlsx'", sheet("`sheet'") modify
-    putexcel (A1:B1), merge txtwrap left top bold
-    putexcel (A2:B2), bold hcenter vcenter
-    putexcel (A2:B2), border(top, thin)
-    putexcel (A2:B2), border(bottom, thin)
-    putexcel (B3:B`total_rows'), hcenter
-    putexcel (A`total_rows':B`total_rows'), border(bottom, thin)
-    putexcel (A1:B`total_rows'), font(Arial, 10)
-    putexcel clear
+    capture {
+        putexcel set "`xlsx'", sheet("`sheet'") modify
+        putexcel (A1:B1), merge txtwrap left top bold
+        putexcel (A2:B2), bold hcenter vcenter
+        putexcel (A2:B2), border(top, thin)
+        putexcel (A2:B2), border(bottom, thin)
+        putexcel (B3:B`total_rows'), hcenter
+        putexcel (A`total_rows':B`total_rows'), border(bottom, thin)
+        putexcel (A1:B`total_rows'), font(Arial, 10)
+        putexcel clear
+    }
+    if _rc {
+        local saved_rc = _rc
+        capture putexcel clear
+        noisily display as error "Excel cell formatting failed with error `saved_rc'"
+        restore
+        exit `saved_rc'
+    }
 
     restore
     display as text "  Sheet: `sheet'"
@@ -843,24 +923,44 @@ program define _msm_tbl_sens
     }
 
     * Mata: widths
-    mata: b = xl()
-    mata: b.load_book("`xlsx'")
-    mata: b.set_sheet("`sheet'")
-    mata: b.set_row_height(1, 1, 30)
-    mata: b.set_column_width(1, 1, 30)
-    mata: b.set_column_width(2, 2, 18)
-    mata: b.close_book()
+    capture {
+        mata: b = xl()
+        mata: b.load_book("`xlsx'")
+        mata: b.set_sheet("`sheet'")
+        mata: b.set_row_height(1, 1, 30)
+        mata: b.set_column_width(1, 1, 30)
+        mata: b.set_column_width(2, 2, 18)
+        mata: b.close_book()
+    }
+    if _rc {
+        local saved_rc = _rc
+        capture mata: b.close_book()
+        capture mata: mata drop b
+        noisily display as error "Excel formatting (Mata) failed with error `saved_rc'"
+        restore
+        exit `saved_rc'
+    }
+    capture mata: mata drop b
 
     * putexcel formatting
-    putexcel set "`xlsx'", sheet("`sheet'") modify
-    putexcel (A1:B1), merge txtwrap left top bold
-    putexcel (A2:B2), bold hcenter vcenter
-    putexcel (A2:B2), border(top, thin)
-    putexcel (A2:B2), border(bottom, thin)
-    putexcel (B3:B`total_rows'), hcenter
-    putexcel (A`total_rows':B`total_rows'), border(bottom, thin)
-    putexcel (A1:B`total_rows'), font(Arial, 10)
-    putexcel clear
+    capture {
+        putexcel set "`xlsx'", sheet("`sheet'") modify
+        putexcel (A1:B1), merge txtwrap left top bold
+        putexcel (A2:B2), bold hcenter vcenter
+        putexcel (A2:B2), border(top, thin)
+        putexcel (A2:B2), border(bottom, thin)
+        putexcel (B3:B`total_rows'), hcenter
+        putexcel (A`total_rows':B`total_rows'), border(bottom, thin)
+        putexcel (A1:B`total_rows'), font(Arial, 10)
+        putexcel clear
+    }
+    if _rc {
+        local saved_rc = _rc
+        capture putexcel clear
+        noisily display as error "Excel cell formatting failed with error `saved_rc'"
+        restore
+        exit `saved_rc'
+    }
 
     restore
     display as text "  Sheet: `sheet'"

@@ -245,7 +245,17 @@ program define nma_compare, rclass
                 mata: b.set_column_width(1, 1, 22)
                 mata: b.set_column_width(2, `n_cols', 24)
                 mata: b.close_book()
+            }
+            if _rc {
+                local saved_rc = _rc
+                capture mata: b.close_book()
+                capture mata: mata drop b
+                noisily display as error ///
+                    "Excel formatting (Mata) failed with error `saved_rc'"
+            }
+            capture mata: mata drop b
 
+            capture {
                 putexcel set "`saving'", sheet("League Table") modify
                 putexcel (A1:`last_col'1), bold hcenter
                 putexcel (A1:`last_col'1), border(top, thin)
@@ -253,6 +263,12 @@ program define nma_compare, rclass
                 putexcel (A`n_rows':`last_col'`n_rows'), border(bottom, thin)
                 putexcel (A1:`last_col'`n_rows'), font(Arial, 10)
                 putexcel clear
+            }
+            if _rc {
+                local saved_rc = _rc
+                capture putexcel clear
+                noisily display as error ///
+                    "Excel cell formatting failed with error `saved_rc'"
             }
         }
         else if "`format'" == "csv" {

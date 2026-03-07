@@ -600,9 +600,11 @@ program define treescan_power, rclass
         if _rc {
             local saved_rc = _rc
             capture mata: b.close_book()
+            capture mata: mata drop b
             display as error "Excel formatting failed with error `saved_rc'"
             exit `saved_rc'
         }
+        capture mata: mata drop b
 
         * Layer 3: putexcel for styling
         capture {

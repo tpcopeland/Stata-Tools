@@ -218,7 +218,17 @@ program define tte_protocol, rclass
                 mata: b.set_row_height(1, 1, 20)
                 mata: b.set_row_height(4, 10, 30)
                 mata: b.close_book()
+            }
+            if _rc {
+                local saved_rc = _rc
+                capture mata: b.close_book()
+                capture mata: mata drop b
+                noisily display as error ///
+                    "Excel formatting (Mata) failed with error `saved_rc'"
+            }
+            capture mata: mata drop b
 
+            capture {
                 putexcel set "`export'", sheet("Protocol") modify
                 putexcel (A1:B1), merge bold
                 putexcel (A3:B3), bold hcenter
@@ -228,6 +238,12 @@ program define tte_protocol, rclass
                 putexcel (A4:B10), txtwrap
                 putexcel (A1:B10), font(Arial, 10)
                 putexcel clear
+            }
+            if _rc {
+                local saved_rc = _rc
+                capture putexcel clear
+                noisily display as error ///
+                    "Excel cell formatting failed with error `saved_rc'"
             }
 
             display as text "Protocol exported to: " as result "`export'"
