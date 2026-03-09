@@ -1,4 +1,4 @@
-*! tte_prepare Version 1.0.1  2026/02/27
+*! tte_prepare Version 1.0.2  2026/03/09
 *! Data preparation and variable mapping for target trial emulation
 *! Author: Timothy P Copeland
 *! Author: Tania F Reza
@@ -92,6 +92,11 @@ program define tte_prepare, rclass
         quietly summarize `censor'
         if r(min) < 0 | r(max) > 1 {
             display as error "`censor' must be binary (0/1)"
+            exit 198
+        }
+        quietly count if !inlist(`censor', 0, 1) & !missing(`censor')
+        if r(N) > 0 {
+            display as error "`censor' must be binary (0/1); found non-integer values"
             exit 198
         }
     }

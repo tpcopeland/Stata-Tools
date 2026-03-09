@@ -1,4 +1,4 @@
-*! tte_fit Version 1.0.2  2026/02/28
+*! tte_fit Version 1.0.3  2026/03/09
 *! Outcome model fitting for target trial emulation
 *! Author: Timothy P Copeland
 *! Author: Tania F Reza
@@ -181,6 +181,8 @@ program define tte_fit, eclass
         if regexm("`trial_period_spec'", "^ns\(([0-9]+)\)$") {
             local ns_df = regexs(1)
             _tte_natural_spline `trial_var', df(`ns_df') prefix(`prefix'tr_ns)
+            * Replace trial_var with spline basis (avoid collinearity)
+            local time_vars : subinstr local time_vars "`trial_var'" ""
             local time_vars "`time_vars' `_tte_spline_vars'"
             local time_vars_created "`time_vars_created' `_tte_spline_vars'"
             local tr_ns_knots "`_tte_spline_knots'"
