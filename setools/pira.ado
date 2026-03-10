@@ -1,4 +1,4 @@
-*! pira Version 1.0.6  2026/02/28
+*! pira Version 1.0.7  2026/03/10
 *! Progression Independent of Relapse Activity
 *! Author: Tim Copeland
 *! Program class: rclass
@@ -40,6 +40,7 @@ See help pira for complete documentation
 
 program define pira, rclass
     version 16.0
+    local varabbrev_orig = c(varabbrev)
     set varabbrev off
     set more off
 
@@ -47,12 +48,12 @@ program define pira, rclass
         DXdate(varname) ///
         RELapses(string) ///
         [ ///
-        RELapseidvar(string) ///
-        RELapsedatevar(string) ///
+        RELAPSEIdvar(string) ///
+        RELAPSEDatevar(string) ///
         WINDOWBefore(integer 90) ///
         WINDOWAfter(integer 30) ///
-        GENerate(string) ///
-        RAWgenerate(string) ///
+        GENerate(name) ///
+        RAWgenerate(name) ///
         CONFirmdays(integer 180) ///
         BASElinewindow(integer 730) ///
         REBASElinerelapse ///
@@ -155,6 +156,11 @@ program define pira, rclass
     // LOAD AND PREPARE RELAPSE DATA
     // =========================================================================
 
+    // Detect master ID type for cross-file validation
+    local id_is_str = 0
+    capture confirm string variable `idvar'
+    if !_rc local id_is_str = 1
+
     tempfile master_data relapse_data relapse_collapsed
 
     preserve
@@ -178,6 +184,18 @@ program define pira, rclass
         di as error "relapse file must contain variable `relapsedatevar'"
         restore
         exit 111
+    }
+
+    // Validate ID type matches master data
+    local rel_id_is_str = 0
+    capture confirm string variable `relapseidvar'
+    if !_rc local rel_id_is_str = 1
+    if `id_is_str' != `rel_id_is_str' {
+        di as error "`relapseidvar' type mismatch: " ///
+            cond(`id_is_str', "string in master, numeric in relapse file", ///
+            "numeric in master, string in relapse file")
+        restore
+        exit 109
     }
 
     // Keep only id and relapse date
@@ -249,22 +267,22 @@ program define pira, rclass
     qui egen long _pira_1st_win = min(cond(_pira_in_win, `datevar', .)), by(`idvar')
     qui replace _pira_bl_edss = `edssvar' if `datevar' == _pira_1st_win & !missing(_pira_1st_win)
     qui replace _pira_bl_date = _pira_1st_win if !missing(_pira_1st_win)
-    qui bysort `idvar' (`datevar'): replace _pira_bl_edss = _pira_bl_edss[1] ///
+    qui bysort `idvar' (`datevar' `edssvar'): replace _pira_bl_edss = _pira_bl_edss[1] ///
         if missing(_pira_bl_edss) & !missing(_pira_bl_edss[1])
-    qui bysort `idvar' (`datevar'): replace _pira_bl_date = _pira_bl_date[1] ///
+    qui bysort `idvar' (`datevar' `edssvar'): replace _pira_bl_date = _pira_bl_date[1] ///
         if missing(_pira_bl_date) & !missing(_pira_bl_date[1])
 
     qui drop _pira_in_win _pira_1st_win
 
-    // If no EDSS within window, use earliest available
-    qui bysort `idvar' (`datevar'): replace _pira_bl_edss = `edssvar'[1] ///
+    // If no EDSS within window, use earliest available (lowest EDSS on ties)
+    qui bysort `idvar' (`datevar' `edssvar'): replace _pira_bl_edss = `edssvar'[1] ///
         if missing(_pira_bl_edss)
-    qui bysort `idvar' (`datevar'): replace _pira_bl_date = `datevar'[1] ///
+    qui bysort `idvar' (`datevar' `edssvar'): replace _pira_bl_date = `datevar'[1] ///
         if missing(_pira_bl_date)
 
     // Propagate baseline
-    qui bysort `idvar' (`datevar'): replace _pira_bl_edss = _pira_bl_edss[1]
-    qui bysort `idvar' (`datevar'): replace _pira_bl_date = _pira_bl_date[1]
+    qui bysort `idvar' (`datevar' `edssvar'): replace _pira_bl_edss = _pira_bl_edss[1]
+    qui bysort `idvar' (`datevar' `edssvar'): replace _pira_bl_date = _pira_bl_date[1]
 
     // -------------------------------------------------------------------------
     // Re-baseline after relapse (if requested)
@@ -377,8 +395,9 @@ program define pira, rclass
         format `generate' `rawgenerate' %tdCCYY/NN/DD
     }
 
-    // Clean up internal variable
+    // Clean up internal variables (drop separately so one missing doesn't block the other)
     capture qui drop _pira_baseline
+    capture qui drop _pira_cdp_dt
 
     // Count results
     qui count if !missing(`generate')
@@ -425,6 +444,9 @@ program define pira, rclass
         di as text "  RAW events: `n_raw'"
         di as text _n "  Variables created: `generate', `rawgenerate'"
     }
+
+    // Restore varabbrev setting
+    set varabbrev `varabbrev_orig'
 
     // Return values
     return scalar N_cdp = `n_cdp'

@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.6  28feb2026}{...}
+{* *! version 1.0.7  10mar2026}{...}
 {viewerjumpto "Syntax" "pira##syntax"}{...}
 {viewerjumpto "Description" "pira##description"}{...}
 {viewerjumpto "Options" "pira##options"}{...}
@@ -32,8 +32,8 @@
 {synopt:{opt rel:apses(filename)}}path to relapse dataset{p_end}
 
 {syntab:Relapse file options}
-{synopt:{opt relapseid:var(varname)}}ID variable in relapse file; default is {it:idvar}{p_end}
-{synopt:{opt relapsedate:var(varname)}}relapse date variable; default is {cmd:relapse_date}{p_end}
+{synopt:{opt relapseidv:ar(varname)}}ID variable in relapse file; default is {it:idvar}{p_end}
+{synopt:{opt relapsedatev:ar(varname)}}relapse date variable; default is {cmd:relapse_date}{p_end}
 
 {syntab:Relapse window}
 {synopt:{opt windowb:efore(#)}}days before relapse to exclude; default is {cmd:90}{p_end}
@@ -151,6 +151,9 @@ new baseline. This accounts for residual disability from relapses.
 {phang}
 {opt keepall} specifies that all observations should be retained. By default,
 only observations for patients with CDP (either PIRA or RAW) are kept.
+Note that filtering is patient-level: without {opt keepall}, {bf:all}
+observations for patients without CDP are dropped, including any observations
+outside the {ifin} sample.
 
 {phang}
 {opt quietly} suppresses output messages.
