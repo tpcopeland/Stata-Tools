@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.1.4  28feb2026}{...}
+{* *! version 1.1.5  10mar2026}{...}
 {vieweralsosee "[ST] stset" "help stset"}{...}
 {vieweralsosee "migrations" "help migrations"}{...}
 {viewerjumpto "Syntax" "sustainedss##syntax"}{...}
@@ -146,9 +146,10 @@ one confirming measurement after the confirmation period to declare
 progression confirmed.
 
 {pstd}
-If multiple EDSS measurements occur on the same date for the same patient, 
-behavior may be unpredictable. Consider resolving duplicates before running 
-this command.
+If multiple EDSS measurements occur on the same date for the same patient,
+the lowest EDSS value on that date is used for confirmation checks. This is a
+conservative approach that reduces the chance of falsely declaring progression
+sustained. Consider resolving duplicates before running this command.
 
 {pstd}
 {bf:Exclusions:}

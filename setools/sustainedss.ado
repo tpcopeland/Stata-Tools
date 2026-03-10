@@ -1,4 +1,4 @@
-*! sustainedss Version 1.1.4  2026/02/28  Tim Copeland
+*! sustainedss Version 1.1.5  2026/03/10  Tim Copeland
 *! Compute sustained EDSS progression date
 *! Part of the setools package
 
@@ -48,8 +48,12 @@ program define sustainedss, rclass
     }
 
     // Default baselinethreshold to threshold if not specified
-    if `baselinethreshold' < 0 {
+    if `baselinethreshold' == -1 {
         local baselinethreshold = `threshold'
+    }
+    else if `baselinethreshold' < 0 {
+        di as error "baselinethreshold() must be non-negative"
+        exit 198
     }
 
     // Default generate name
@@ -78,9 +82,14 @@ program define sustainedss, rclass
         di as error "no valid observations"
         exit 2000
     }
+    qui count
+    local n_original = r(N)
 
     // Declare temporary variables
-    tempvar edss_work obs_id first_dt lowest_after lastdt_window last_window not_sustained sustained_dt
+    tempvar edss_work obs_id first_dt lowest_after lastdt_window last_window not_sustained sustained_dt sortorder
+
+    // Save original sort order
+    qui gen long `sortorder' = _n
 
     // Preserve original data
     preserve
@@ -139,8 +148,8 @@ program define sustainedss, rclass
             inrange(`datevar', `first_dt' + 1, `first_dt' + `confirmwindow'), ///
             `datevar', .)), by(`idvar')
 
-        // Find EDSS at last date in window
-        qui egen double `last_window' = max(cond( ///
+        // Find EDSS at last date in window (min: conservative with same-date duplicates)
+        qui egen double `last_window' = min(cond( ///
             `datevar' == `lastdt_window', ///
             `edss_work', .)), by(`idvar')
 
@@ -210,9 +219,17 @@ program define sustainedss, rclass
         qui merge m:1 `idvar' using `results', nogen
     }
     
+    // Restore original sort order
+    sort `sortorder'
+    qui drop `sortorder'
+
     // Label variable
     label var `generate' "Sustained EDSS >= `threshold' date"
     
+    // Count retained observations
+    qui count
+    local n_retained = r(N)
+
     // Display results
     if "`quietly'" == "" {
         di as text _n "Sustained EDSS >= `threshold' computation complete"
@@ -221,6 +238,10 @@ program define sustainedss, rclass
         di as text "  Events identified: `n_events'"
         di as text "  Iterations required: `iteration'"
         di as text "  Variable created: `generate'"
+        if "`keepall'" == "" & `n_retained' < `n_original' {
+            di as text "  Observations: `n_retained' of `n_original' retained" ///
+                " (use {bf:keepall} to keep all)"
+        }
     }
     
     // Return values
