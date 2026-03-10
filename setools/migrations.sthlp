@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.6  05mar2026}{...}
+{* *! version 1.0.7  10mar2026}{...}
 {vieweralsosee "[ST] stset" "help stset"}{...}
 {vieweralsosee "sustainedss" "help sustainedss"}{...}
 {viewerjumpto "Syntax" "migrations##syntax"}{...}
@@ -60,8 +60,11 @@ the following logic:
 {phang2}{bf:Type 1}: Last emigration occurred before study start AND last immigration occurred before 
 last emigration (i.e., person left Sweden and never returned before their study start).{p_end}
 
-{phang2}{bf:Type 2}: Only migration record is an immigration after study start (i.e., person was 
+{phang2}{bf:Type 2}: Only migration record is an immigration after study start (i.e., person was
 not in Sweden at their study start date).{p_end}
+
+{phang2}{bf:Type 3}: Person emigrated before study start and returned after study start (i.e.,
+person was abroad at their study start date but later re-entered Sweden).{p_end}
 
 {pstd}
 {bf:Censoring logic:}
@@ -144,6 +147,7 @@ be overwritten.
 {p2col 5 25 29 2: Scalars}{p_end}
 {synopt:{cmd:r(N_excluded_emigrated)}}number excluded due to emigration before study start{p_end}
 {synopt:{cmd:r(N_excluded_inmigration)}}number excluded due to immigration after study start{p_end}
+{synopt:{cmd:r(N_excluded_abroad)}}number excluded due to being abroad at baseline{p_end}
 {synopt:{cmd:r(N_excluded_total)}}total number excluded{p_end}
 {synopt:{cmd:r(N_censored)}}number with emigration censoring dates{p_end}
 {synopt:{cmd:r(N_final)}}final sample size after exclusions{p_end}

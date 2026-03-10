@@ -1,16 +1,16 @@
-*! sustainedss Version 1.1.5  2026/03/10  Tim Copeland
+*! sustainedss Version 1.1.6  2026/03/10  Tim Copeland
 *! Compute sustained EDSS progression date
 *! Part of the setools package
 
 program define sustainedss, rclass
     version 16.0
+    local _varabbrev `c(varabbrev)'
     set varabbrev off
-    set more off
 
     syntax varlist(min=3 max=3) [if] [in], ///
         THreshold(real) ///
         [ ///
-        GENerate(string) ///
+        GENerate(name) ///
         CONFirmwindow(integer 182) ///
         BASElinethreshold(real -1) ///
         KEEPall ///
@@ -65,7 +65,7 @@ program define sustainedss, rclass
             local generate "sustained`=subinstr(strtrim(strofreal(`threshold', "%9.1f")),".","_",.)'_dt"
         }
     }
-    
+
     // Check if generate variable already exists
     capture confirm variable `generate'
     if _rc == 0 {
@@ -125,11 +125,14 @@ program define sustainedss, rclass
     // Iterative algorithm
     local keep_going = 1
     local iteration = 1
-    
+    local converged = 1
+
     local max_iterations = 1000
     while `keep_going' == 1 {
         if `iteration' > `max_iterations' {
             di as error "Warning: sustainedss reached `max_iterations' iterations without converging"
+            local converged = 0
+            local iteration = `iteration' - 1
             local keep_going = 0
             continue
         }
@@ -247,8 +250,12 @@ program define sustainedss, rclass
     // Return values
     return scalar N_events = `n_events'
     return scalar iterations = `iteration'
+    return scalar converged = `converged'
     return scalar threshold = `threshold'
     return scalar confirmwindow = `confirmwindow'
     return local varname "`generate'"
-    
+
+    // Restore settings
+    set varabbrev `_varabbrev'
+
 end

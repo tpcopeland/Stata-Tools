@@ -1,15 +1,16 @@
-*! migrations Version 1.0.6  2026/03/05  Tim Copeland
+*! migrations Version 1.0.7  2026/03/10  Tim Copeland
 *! Handle Swedish migration data for registry-based cohort studies
 *! Part of the setools package
 
 program define migrations, rclass
     version 16.0
+    local vabbrev_save `c(varabbrev)'
     set varabbrev off
     set more off
     syntax , MIGfile(string) [IDvar(varname) STARTvar(varname) SAVEexclude(string) SAVEcensor(string) REPLACE VERBOSE]
 
     * Declare temporary variables
-    tempvar last_out last_in exclude_emigrated num total_migrations exclude_inmigration
+    tempvar last_out last_in exclude_emigrated exclude_abroad num total_migrations exclude_inmigration
 
     * Set defaults
     if "`idvar'" == "" local idvar "id"
@@ -74,6 +75,14 @@ program define migrations, rclass
         exit 111
     }
     
+    * Validate migration file has unique IDs
+    capture isid `idvar'
+    if _rc {
+        display as error "'`idvar'' is not unique in migration file"
+        display as error "Migration file must have one row per person (wide format)"
+        exit 459
+    }
+
     * Validate migration file has in_/out_ variables for reshape
     capture confirm variable in_1
     if _rc {
@@ -96,8 +105,10 @@ program define migrations, rclass
         display as text "Note: No cohort members found in migration file"
         display as text "No exclusions or censoring dates applied"
         restore
+        set varabbrev `vabbrev_save'
         return scalar N_excluded_emigrated = 0
         return scalar N_excluded_inmigration = 0
+        return scalar N_excluded_abroad = 0
         return scalar N_excluded_total = 0
         return scalar N_censored = 0
         return scalar N_final = _N
@@ -145,12 +156,15 @@ program define migrations, rclass
     if `n_remaining' == 0 {
         * All matched individuals were excluded - create empty files
         local n_exclude2 = 0
+        local n_exclude3 = 0
         local n_censor = 0
 
-        * Create empty exclude2 file
+        * Create empty exclude2 and exclude3 files
         qui keep `idvar'
         tempfile exclude2
         qui save `exclude2', replace emptyok
+        tempfile exclude3
+        qui save `exclude3', replace emptyok
 
         * Create empty censor file
         qui gen long migration_out_dt = .
@@ -161,6 +175,30 @@ program define migrations, rclass
     else {
         * Drop individuals who immigrated before study_start with no emigration record
         qui drop if `last_in' < `startvar' & `last_out' == .
+
+        * EXCLUSION 3: Emigrated before study_start and returned after (abroad at baseline)
+        qui gen `exclude_abroad' = 0
+        qui replace `exclude_abroad' = 1 if out_ < `startvar' & in_ > `startvar' & in_ != .
+
+        tempfile pre_exclude3
+        qui save `pre_exclude3', replace
+
+        * Save exclusions (type 3)
+        qui keep if `exclude_abroad' == 1
+        qui keep `idvar'
+        if _N > 0 {
+            qui duplicates drop `idvar', force
+            qui gen exclude_reason = "Abroad at baseline (emigrated before, returned after study start)"
+        }
+
+        tempfile exclude3
+        qui save `exclude3', replace emptyok
+        local n_exclude3 = _N
+
+        * Continue with remaining individuals
+        qui use `pre_exclude3', clear
+        qui drop if `exclude_abroad' == 1
+        qui drop `exclude_abroad'
 
         * Drop emigration records before study_start
         qui drop if out_ < `startvar'
@@ -256,6 +294,7 @@ program define migrations, rclass
     * Combine exclusion files
     qui use `exclude1', clear
     qui append using `exclude2'
+    qui append using `exclude3'
     if _N > 0 {
         qui duplicates drop `idvar', force
     }
@@ -283,36 +322,42 @@ program define migrations, rclass
     
     * Restore master and merge results
     qui use `master', clear
-    
+    cap drop migration_out_dt
+
     * Remove excluded individuals
     qui merge 1:1 `idvar' using `exclude_data', keep(1) nogen
-    
+
     * Merge censoring dates
     qui merge 1:1 `idvar' using `censor_data', keep(1 3) nogen
     
     * Commit changes (don't restore to original)
     restore, not
-    
+
+    * Restore varabbrev setting
+    set varabbrev `vabbrev_save'
+
     * Display summary
     display as text _n "Migration Processing Summary"
-    display as text "{hline 50}"
-    display as text "Excluded (emigrated before start, no return): " as result `n_exclude1'
-    display as text "Excluded (immigration after study start):      " as result `n_exclude2'
-    display as text "{hline 50}"
-    display as text "Total excluded:                                " as result `n_exclude_total'
-    display as text "Individuals with emigration censoring date:    " as result `n_censor'
-    display as text "Final sample size:                             " as result _N
-    display as text "{hline 50}"
-    
+    display as text "{hline 55}"
+    display as text "Excluded (emigrated before start, no return):    " as result `n_exclude1'
+    display as text "Excluded (immigration after study start):        " as result `n_exclude2'
+    display as text "Excluded (abroad at baseline, returned after):   " as result `n_exclude3'
+    display as text "{hline 55}"
+    display as text "Total excluded:                                  " as result `n_exclude_total'
+    display as text "Individuals with emigration censoring date:      " as result `n_censor'
+    display as text "Final sample size:                               " as result _N
+    display as text "{hline 55}"
+
     if _N == 0 {
         display as error "Warning: All observations were excluded by migration criteria"
     }
-    
+
     * Return values
     return scalar N_excluded_emigrated = `n_exclude1'
     return scalar N_excluded_inmigration = `n_exclude2'
+    return scalar N_excluded_abroad = `n_exclude3'
     return scalar N_excluded_total = `n_exclude_total'
     return scalar N_censored = `n_censor'
     return scalar N_final = _N
-    
+
 end

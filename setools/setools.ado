@@ -1,4 +1,4 @@
-*! setools Version 1.4.4  2026/03/05
+*! setools Version 1.4.4  2026/03/10
 *! Swedish Registry Toolkit for Epidemiological Cohort Studies
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet

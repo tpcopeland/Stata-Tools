@@ -1,10 +1,8 @@
 * test_sustainedss_fixes.do
-* Tests for sustainedss v1.1.5 fixes:
-*   1. confirmwindow <= 0 validation
-*   2. Dropped-observation warning (non-keepall)
-*   3. Sort order preserved after merge
-*   4. Same-date min() conservative confirmation
-*   5. baselinethreshold < 0 validation
+* Tests for sustainedss v1.1.5 and v1.1.6 fixes:
+*   1-5.   v1.1.5: confirmwindow, sort order, min(), baselinethreshold
+*   6-12.  v1.1.5: sort order, same-date, observation count, validation
+*   13-17. v1.1.6: generate(name), r(converged), varabbrev restore
 
 clear all
 set more off
@@ -362,6 +360,131 @@ if `run_only' == 0 | `run_only' == `test_count' {
     }
     else {
         display as error "  FAIL: Single obs sustained (rc `=_rc')"
+        local ++fail_count
+    }
+}
+
+* ============================================================================
+* TEST 13: generate(name) rejects invalid variable name at parse time
+* ============================================================================
+local ++test_count
+if `run_only' == 0 | `run_only' == `test_count' {
+    capture {
+        clear
+        input int id double edss int edss_dt
+        1 5 21915
+        1 5 22006
+        end
+        sustainedss id edss edss_dt, threshold(4) generate(123abc)
+    }
+    if _rc != 0 {
+        display as result "  PASS: generate(123abc) rejected (rc `=_rc')"
+        local ++pass_count
+    }
+    else {
+        display as error "  FAIL: generate(123abc) should have been rejected"
+        local ++fail_count
+    }
+}
+
+* ============================================================================
+* TEST 14: generate(name) accepts valid variable name
+* ============================================================================
+local ++test_count
+if `run_only' == 0 | `run_only' == `test_count' {
+    capture {
+        clear
+        input int id double edss int edss_dt
+        1 5 21915
+        1 5 22006
+        end
+        sustainedss id edss edss_dt, threshold(4) generate(my_sustained_dt) keepall
+        confirm variable my_sustained_dt
+    }
+    if _rc == 0 {
+        display as result "  PASS: generate(my_sustained_dt) accepted"
+        local ++pass_count
+    }
+    else {
+        display as error "  FAIL: generate(my_sustained_dt) error (rc `=_rc')"
+        local ++fail_count
+    }
+}
+
+* ============================================================================
+* TEST 15: r(converged) == 1 for normal convergence
+* ============================================================================
+local ++test_count
+if `run_only' == 0 | `run_only' == `test_count' {
+    capture {
+        clear
+        input int id double edss int edss_dt
+        1 5 21915
+        1 5 22006
+        end
+        sustainedss id edss edss_dt, threshold(4) keepall quietly
+        assert r(converged) == 1
+    }
+    if _rc == 0 {
+        display as result "  PASS: r(converged) == 1 for normal case"
+        local ++pass_count
+    }
+    else {
+        display as error "  FAIL: r(converged) check (rc `=_rc')"
+        local ++fail_count
+    }
+}
+
+* ============================================================================
+* TEST 16: r(converged) == 1 after multi-iteration convergence
+* ============================================================================
+local ++test_count
+if `run_only' == 0 | `run_only' == `test_count' {
+    capture {
+        clear
+        input int id double edss int edss_dt
+        1 2 0
+        1 5 30
+        1 2 90
+        1 2 180
+        1 5 365
+        1 5 450
+        end
+        sustainedss id edss edss_dt, threshold(4) keepall quietly
+        assert r(converged) == 1
+        assert r(iterations) == 2
+    }
+    if _rc == 0 {
+        display as result "  PASS: r(converged) == 1 after 2 iterations"
+        local ++pass_count
+    }
+    else {
+        display as error "  FAIL: multi-iteration converged check (rc `=_rc')"
+        local ++fail_count
+    }
+}
+
+* ============================================================================
+* TEST 17: set varabbrev restored after command
+* ============================================================================
+local ++test_count
+if `run_only' == 0 | `run_only' == `test_count' {
+    capture {
+        clear
+        input int id double edss int edss_dt
+        1 5 21915
+        1 5 22006
+        end
+        set varabbrev on
+        sustainedss id edss edss_dt, threshold(4) keepall quietly
+        assert "`c(varabbrev)'" == "on"
+    }
+    if _rc == 0 {
+        display as result "  PASS: set varabbrev restored to on"
+        local ++pass_count
+    }
+    else {
+        display as error "  FAIL: varabbrev not restored (rc `=_rc')"
         local ++fail_count
     }
 }

@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.1.5  10mar2026}{...}
+{* *! version 1.1.6  10mar2026}{...}
 {vieweralsosee "[ST] stset" "help stset"}{...}
 {vieweralsosee "migrations" "help migrations"}{...}
 {viewerjumpto "Syntax" "sustainedss##syntax"}{...}
@@ -195,6 +195,7 @@ does not automatically exclude such patients.
 {p2col 5 20 24 2: Scalars}{p_end}
 {synopt:{cmd:r(N_events)}}number of sustained events identified{p_end}
 {synopt:{cmd:r(iterations)}}number of iterations required{p_end}
+{synopt:{cmd:r(converged)}}{cmd:1} if algorithm converged, {cmd:0} if iteration limit reached{p_end}
 {synopt:{cmd:r(threshold)}}EDSS threshold used{p_end}
 {synopt:{cmd:r(confirmwindow)}}confirmation window in days{p_end}
 
