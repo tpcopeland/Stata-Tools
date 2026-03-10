@@ -41,6 +41,12 @@ program define sustainedss, rclass
         exit 198
     }
 
+    // Check confirmwindow value
+    if `confirmwindow' <= 0 {
+        di as error "confirmwindow() must be positive"
+        exit 198
+    }
+
     // Default baselinethreshold to threshold if not specified
     if `baselinethreshold' < 0 {
         local baselinethreshold = `threshold'
