@@ -19,6 +19,7 @@ PROGRAMS INCLUDED:
 * Converts 1 -> A, 2 -> B, ..., 26 -> Z, 27 -> AA, 28 -> AB, etc.
 * Returns result in c_local variable 'result'
 
+capture program drop _treescan_col_letter
 program _treescan_col_letter
     version 16.0
     set varabbrev off
@@ -42,6 +43,7 @@ end
 * =============================================================================
 * Returns result in c_local variable 'result'
 
+capture program drop _treescan_build_col_letters
 program _treescan_build_col_letters
     version 16.0
     set varabbrev off
@@ -65,6 +67,7 @@ end
 * =============================================================================
 * Checks for dangerous characters that could enable command injection.
 
+capture program drop _treescan_validate_path
 program _treescan_validate_path
     version 16.0
     set varabbrev off

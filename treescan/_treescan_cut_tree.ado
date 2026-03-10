@@ -5,6 +5,7 @@
 
 program define _treescan_cut_tree, nclass
     version 16.0
+    local _varabbrev_orig = c(varabbrev)
     set varabbrev off
     set more off
     syntax , INPUTdata(string) TREEfile(string) DIAGvar(string) ///
@@ -163,4 +164,5 @@ program define _treescan_cut_tree, nclass
         }
         merge m:1 `id' using `"`individuals'"', keep(match) nogenerate
     }
+    set varabbrev `_varabbrev_orig'
 end

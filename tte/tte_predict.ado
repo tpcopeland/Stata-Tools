@@ -1,4 +1,4 @@
-*! tte_predict Version 1.0.3  2026/03/10
+*! tte_predict Version 1.1.0  2026/03/10
 *! Marginal predictions with confidence intervals for target trial emulation
 *! Author: Timothy P Copeland
 *! Author: Tania F Reza
@@ -25,6 +25,8 @@ Options:
   seed(#)             - Random seed
   level(#)            - Confidence level (default: 95)
   difference          - Compute treatment contrast (risk difference)
+  ratio               - Compute risk ratio
+  att                 - Target ATT instead of ATE
 
 See help tte_predict for complete documentation
 */
@@ -40,7 +42,7 @@ program define tte_predict, rclass
 
     syntax , TIMEs(numlist sort) ///
         [TYPe(string) SAMPles(integer 100) SEED(integer -1) ///
-         Level(cilevel) DIFFerence]
+         Level(cilevel) DIFFerence RATio ATT]
 
     * =========================================================================
     * CHECK PREREQUISITES
@@ -52,6 +54,7 @@ program define tte_predict, rclass
     local prefix    "`_tte_prefix'"
     local id        "`_tte_id'"
     local estimand  "`_tte_estimand'"
+    local treatment "`_tte_treatment'"
 
     * Get model info from characteristics
     local model       : char _dta[_tte_model]
@@ -100,8 +103,17 @@ program define tte_predict, rclass
     display as text "Prediction type:  " as result "`type'"
     display as text "MC samples:       " as result "`samples'"
     display as text "Confidence level: " as result "`level'%"
+    if "`att'" != "" {
+        display as text "Target population: " as result "ATT (treated at baseline)"
+    }
+    else {
+        display as text "Target population: " as result "ATE (all eligible)"
+    }
     if "`difference'" != "" {
         display as text "Risk difference:  " as result "Yes"
+    }
+    if "`ratio'" != "" {
+        display as text "Risk ratio:       " as result "Yes"
     }
     display as text ""
 
@@ -134,15 +146,37 @@ program define tte_predict, rclass
     if _rc == 0 {
         quietly keep if `prefix'esample == 1
     }
+
+    * ATT: restrict reference population to treated at baseline
+    if "`att'" != "" {
+        quietly keep if `treatment' == 1
+    }
+
     quietly bysort `id' `prefix'trial: keep if _n == 1
+
+    if _N == 0 {
+        display as error "no observations in reference population"
+        if "`att'" != "" {
+            display as error "check that treated observations exist at baseline"
+        }
+        restore
+        exit 2000
+    }
 
     * Number of prediction times
     local n_times: word count `times'
 
     * Initialize results matrix
-    * Columns: time | est_0 | ci_lo_0 | ci_hi_0 | est_1 | ci_lo_1 | ci_hi_1 | [diff | diff_lo | diff_hi]
+    * Columns: time | est_0 | ci_lo_0 | ci_hi_0 | est_1 | ci_lo_1 | ci_hi_1
+    *          [| diff | diff_lo | diff_hi] [| rr | rr_lo | rr_hi]
     local n_cols = 7
-    if "`difference'" != "" local n_cols = 10
+    if "`difference'" != "" local n_cols = `n_cols' + 3
+    if "`ratio'" != "" local n_cols = `n_cols' + 3
+
+    * Column position for ratio (after base 7 or after diff 10)
+    local rr_col = 8
+    if "`difference'" != "" local rr_col = 11
+
     tempname results
     matrix `results' = J(`n_times', `n_cols', .)
 
@@ -219,6 +253,19 @@ program define tte_predict, rclass
             }
         }
         drop `_cum_surv_i' `_prob_i'
+    }
+
+    * Compute risk ratio point estimates
+    if "`ratio'" != "" {
+        local time_idx = 0
+        foreach t of local times {
+            local ++time_idx
+            local est_0_t = `results'[`time_idx', 2]
+            local est_1_t = `results'[`time_idx', 5]
+            if `est_0_t' > 0 {
+                matrix `results'[`time_idx', `rr_col'] = `est_1_t' / `est_0_t'
+            }
+        }
     }
 
     * =====================================================================
@@ -416,6 +463,14 @@ program define tte_predict, rclass
             matrix `results'[`time_idx', 9] = `rd_lo'
             matrix `results'[`time_idx', 10] = `rd_hi'
         }
+
+        * Risk ratio (skip if control CI is zero — RR undefined)
+        if "`ratio'" != "" & `results'[`time_idx', 2] > 0 {
+            mata: st_local("rr_lo", strofreal(_tte_ratio_pctile("`mc_1'", "`mc_0'", `time_idx', `lo_pct')))
+            mata: st_local("rr_hi", strofreal(_tte_ratio_pctile("`mc_1'", "`mc_0'", `time_idx', `hi_pct')))
+            matrix `results'[`time_idx', `rr_col' + 1] = `rr_lo'
+            matrix `results'[`time_idx', `rr_col' + 2] = `rr_hi'
+        }
     }
 
     restore
@@ -433,16 +488,18 @@ program define tte_predict, rclass
     display as text ""
 
     * Header
+    local hdr_w = 29
+    display as text %5s "Time" "  " %10s "Control" "  " %10s "Treated" _continue
     if "`difference'" != "" {
-        display as text %5s "Time" "  " ///
-            %10s "Control" "  " %10s "Treated" "  " %10s "Diff"
-        display as text _dup(45) "-"
+        display as text "  " %10s "Diff" _continue
+        local hdr_w = `hdr_w' + 12
     }
-    else {
-        display as text %5s "Time" "  " ///
-            %10s "Control" "  " %10s "Treated"
-        display as text _dup(30) "-"
+    if "`ratio'" != "" {
+        display as text "  " %10s "RR" _continue
+        local hdr_w = `hdr_w' + 12
     }
+    display as text ""
+    display as text _dup(`hdr_w') "-"
 
     local time_idx = 0
     foreach t of local times {
@@ -451,15 +508,17 @@ program define tte_predict, rclass
         local est_0 = `results'[`time_idx', 2]
         local est_1 = `results'[`time_idx', 5]
 
+        display as text %5.0f `t' "  " ///
+            as result %10.4f `est_0' "  " %10.4f `est_1' _continue
         if "`difference'" != "" {
             local rd_val = `results'[`time_idx', 8]
-            display as text %5.0f `t' "  " ///
-                as result %10.4f `est_0' "  " %10.4f `est_1' "  " %10.4f `rd_val'
+            display as result "  " %10.4f `rd_val' _continue
         }
-        else {
-            display as text %5.0f `t' "  " ///
-                as result %10.4f `est_0' "  " %10.4f `est_1'
+        if "`ratio'" != "" {
+            local rr_val = `results'[`time_idx', `rr_col']
+            display as result "  " %10.4f `rr_val' _continue
         }
+        display as text ""
 
         * Show CIs
         local lo_0 = `results'[`time_idx', 3]
@@ -467,19 +526,20 @@ program define tte_predict, rclass
         local lo_1 = `results'[`time_idx', 6]
         local hi_1 = `results'[`time_idx', 7]
 
+        display as text "     " "  " ///
+            as text "(" %5.4f `lo_0' "-" %5.4f `hi_0' ")" ///
+            "  (" %5.4f `lo_1' "-" %5.4f `hi_1' ")" _continue
         if "`difference'" != "" {
             local rd_lo_val = `results'[`time_idx', 9]
             local rd_hi_val = `results'[`time_idx', 10]
-            display as text "     " "  " ///
-                as text "(" %5.4f `lo_0' "-" %5.4f `hi_0' ")" ///
-                "  (" %5.4f `lo_1' "-" %5.4f `hi_1' ")" ///
-                "  (" %5.4f `rd_lo_val' "-" %5.4f `rd_hi_val' ")"
+            display as text "  (" %5.4f `rd_lo_val' "-" %5.4f `rd_hi_val' ")" _continue
         }
-        else {
-            display as text "     " "  " ///
-                as text "(" %5.4f `lo_0' "-" %5.4f `hi_0' ")" ///
-                "  (" %5.4f `lo_1' "-" %5.4f `hi_1' ")"
+        if "`ratio'" != "" {
+            local rr_lo_val = `results'[`time_idx', `rr_col' + 1]
+            local rr_hi_val = `results'[`time_idx', `rr_col' + 2]
+            display as text "  (" %5.4f `rr_lo_val' "-" %5.4f `rr_hi_val' ")" _continue
         }
+        display as text ""
     }
 
     display as text ""
@@ -489,12 +549,14 @@ program define tte_predict, rclass
     * STORE MATRIX COLUMN NAMES
     * =========================================================================
 
+    local colnames "time est_0 ci_lo_0 ci_hi_0 est_1 ci_lo_1 ci_hi_1"
     if "`difference'" != "" {
-        matrix colnames `results' = time est_0 ci_lo_0 ci_hi_0 est_1 ci_lo_1 ci_hi_1 diff diff_lo diff_hi
+        local colnames "`colnames' diff diff_lo diff_hi"
     }
-    else {
-        matrix colnames `results' = time est_0 ci_lo_0 ci_hi_0 est_1 ci_lo_1 ci_hi_1
+    if "`ratio'" != "" {
+        local colnames "`colnames' rr rr_lo rr_hi"
     }
+    matrix colnames `results' = `colnames'
 
     * =========================================================================
     * RETURN RESULTS
@@ -507,11 +569,15 @@ program define tte_predict, rclass
         if "`difference'" != "" {
             local _rd_`t' = `results'[`time_idx', 8]
         }
+        if "`ratio'" != "" {
+            local _rr_`t' = `results'[`time_idx', `rr_col']
+        }
     }
 
     return matrix predictions = `results'
     return local type "`type'"
     return local estimand "`estimand'"
+    return local target = cond("`att'" != "", "ATT", "ATE")
     return scalar n_times = `n_times'
     return scalar samples = `samples'
     return scalar level = `level'
@@ -521,6 +587,9 @@ program define tte_predict, rclass
         local ++time_idx
         if "`difference'" != "" {
             return scalar rd_`t' = `_rd_`t''
+        }
+        if "`ratio'" != "" {
+            return scalar rr_`t' = `_rr_`t''
         }
     }
 end
@@ -716,5 +785,20 @@ real scalar _tte_diff_pctile(string scalar mat1, string scalar mat0, real scalar
     idx = max((1, ceil(n * pct / 100)))
     idx = min((idx, n))
     return(d[idx])
+}
+
+real scalar _tte_ratio_pctile(string scalar mat1, string scalar mat0, real scalar col, real scalar pct)
+{
+    real matrix M1, M0
+    real colvector r
+    real scalar n, idx
+
+    M1 = st_matrix(mat1)
+    M0 = st_matrix(mat0)
+    r = sort(M1[., col] :/ M0[., col], 1)
+    n = rows(r)
+    idx = max((1, ceil(n * pct / 100)))
+    idx = min((idx, n))
+    return(r[idx])
 }
 end

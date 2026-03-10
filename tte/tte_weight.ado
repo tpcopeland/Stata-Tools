@@ -1,4 +1,4 @@
-*! tte_weight Version 1.0.3  2026/03/10
+*! tte_weight Version 1.1.0  2026/03/10
 *! Inverse probability weights for target trial emulation
 *! Author: Timothy P Copeland
 *! Author: Tania F Reza
@@ -23,10 +23,11 @@ Options:
   pool_switch             - Pool switch models across arms (vs stratified)
   pool_censor             - Pool censor models across arms
   truncate(# #)           - Truncate at percentiles (e.g., truncate(1 99))
-  stabilized              - Use stabilized weights (default)
   generate(name)          - Weight variable name (default: _tte_weight)
   replace                 - Replace existing weight variable
   nolog                   - Suppress model iteration log
+  save_ps                 - Save propensity scores as permanent variable
+  trim_ps(#)              - Trim observations with extreme PS (percentile from each tail)
 
 See help tte_weight for complete documentation
 */
@@ -44,7 +45,8 @@ program define tte_weight, rclass
         CENsor_d_cov(varlist numeric) CENsor_n_cov(varlist numeric) ///
         POOL_switch POOL_censor ///
         TRUNCate(numlist min=2 max=2) ///
-        GENerate(name) REPLACE noLOG]
+        GENerate(name) REPLACE noLOG ///
+        SAVE_ps TRIM_ps(real 0)]
 
     * =========================================================================
     * CHECK PREREQUISITES
@@ -115,6 +117,38 @@ program define tte_weight, rclass
         }
     }
 
+    * Validate PS trimming
+    if `trim_ps' < 0 | `trim_ps' >= 50 {
+        display as error "trim_ps() must be between 0 and 50"
+        exit 198
+    }
+
+    * =========================================================================
+    * PREPARE PS VARIABLE (if save_ps or trim_ps)
+    * =========================================================================
+
+    local need_ps = ("`save_ps'" != "" | `trim_ps' > 0)
+    local ps_var ""
+
+    if `need_ps' {
+        if "`save_ps'" != "" {
+            local ps_var "`prefix'pscore"
+            capture confirm variable `ps_var'
+            if _rc == 0 {
+                if "`replace'" == "" {
+                    display as error "variable `ps_var' already exists; use replace option"
+                    exit 110
+                }
+                quietly drop `ps_var'
+            }
+            gen double `ps_var' = .
+        }
+        else {
+            tempvar ps_var
+            gen double `ps_var' = .
+        }
+    }
+
     * =========================================================================
     * DISPLAY HEADER
     * =========================================================================
@@ -135,6 +169,12 @@ program define tte_weight, rclass
     if "`truncate'" != "" {
         display as text "Truncation:       " as result "`trunc_lo'th - `trunc_hi'th percentile"
     }
+    if "`save_ps'" != "" {
+        display as text "Save PS:          " as result "Yes (`ps_var')"
+    }
+    if `trim_ps' > 0 {
+        display as text "PS trimming:      " as result "`trim_ps'th percentile from each tail"
+    }
     display as text ""
 
     * =========================================================================
@@ -151,6 +191,9 @@ program define tte_weight, rclass
     local log_opt ""
     if "`log'" == "nolog" local log_opt "nolog"
 
+    local ps_opt ""
+    if `need_ps' local ps_opt "pscore(`ps_var')"
+
     * -----------------------------------------------------------------
     * TREATMENT SWITCH WEIGHTS
     * -----------------------------------------------------------------
@@ -163,7 +206,7 @@ program define tte_weight, rclass
             arm(`prefix'arm) followup(`prefix'followup) ///
             trial(`prefix'trial) censored(`prefix'censored) ///
             d_cov(`switch_d_cov') n_cov(`switch_n_cov') ///
-            weight(`generate') `log_opt'
+            weight(`generate') `log_opt' `ps_opt'
     }
     else {
         * Stratified models: separate for each arm
@@ -174,8 +217,42 @@ program define tte_weight, rclass
                 followup(`prefix'followup) trial(`prefix'trial) ///
                 censored(`prefix'censored) ///
                 d_cov(`switch_d_cov') n_cov(`switch_n_cov') ///
-                weight(`generate') `log_opt'
+                weight(`generate') `log_opt' `ps_opt'
         }
+    }
+
+    * -----------------------------------------------------------------
+    * PS TRIMMING (before censoring weights and truncation)
+    * -----------------------------------------------------------------
+
+    local n_ps_trimmed = 0
+    if `trim_ps' > 0 {
+        display as text ""
+        display as text "Trimming observations with extreme propensity scores..."
+
+        quietly {
+            local trim_hi = 100 - `trim_ps'
+            _pctile `ps_var' if !missing(`ps_var'), percentiles(`trim_ps' `trim_hi')
+            local ps_lo_cut = r(r1)
+            local ps_hi_cut = r(r2)
+
+            count if `ps_var' < `ps_lo_cut' & !missing(`ps_var')
+            local n_lo_trim = r(N)
+            count if `ps_var' > `ps_hi_cut' & !missing(`ps_var')
+            local n_hi_trim = r(N)
+            local n_ps_trimmed = `n_lo_trim' + `n_hi_trim'
+
+            drop if `ps_var' < `ps_lo_cut' & !missing(`ps_var')
+            drop if `ps_var' > `ps_hi_cut' & !missing(`ps_var')
+        }
+
+        display as text "  Trimmed `n_ps_trimmed' observations"
+        display as text "    Below " as result %7.4f `ps_lo_cut' as text " (`trim_ps'th pctile): " as result `n_lo_trim'
+        display as text "    Above " as result %7.4f `ps_hi_cut' as text " (`trim_hi'th pctile): " as result `n_hi_trim'
+        display as text ""
+        display as text "  {bf:Caution:} In sequential trials, PS trimming at person-period"
+        display as text "  level may introduce selection bias. Weight truncation"
+        display as text "  ({cmd:truncate()}) is generally preferred."
     }
 
     * -----------------------------------------------------------------
@@ -271,6 +348,12 @@ program define tte_weight, rclass
     char _dta[_tte_weighted] "1"
     char _dta[_tte_weight_var] "`generate'"
 
+    * Store PS metadata if saved
+    if "`save_ps'" != "" {
+        label variable `ps_var' "Propensity score (switch denominator model)"
+        char _dta[_tte_pscore_var] "`ps_var'"
+    }
+
     * =========================================================================
     * DISPLAY RESULTS
     * =========================================================================
@@ -286,6 +369,22 @@ program define tte_weight, rclass
     display as text "  P99:      " as result %9.4f `w_p99'
     display as text ""
     display as text "Effective sample size: " as result %9.1f `ess'
+
+    * PS summary if saved
+    if "`save_ps'" != "" {
+        quietly summarize `ps_var' if !missing(`ps_var')
+        local ps_mean = r(mean)
+        local ps_sd = r(sd)
+        local ps_min = r(min)
+        local ps_max = r(max)
+
+        display as text ""
+        display as text "Propensity score summary (`ps_var'):"
+        display as text "  Mean:     " as result %9.4f `ps_mean'
+        display as text "  SD:       " as result %9.4f `ps_sd'
+        display as text "  Range:    " as result %9.4f `ps_min' as text " - " as result %9.4f `ps_max'
+    }
+
     display as text ""
     display as text "Next step: {cmd:tte_diagnose} or {cmd:tte_fit}"
     display as text "{hline 70}"
@@ -302,6 +401,19 @@ program define tte_weight, rclass
     return scalar p99_weight = `w_p99'
     return scalar ess = `ess'
     return scalar n_truncated = `n_truncated'
+
+    if `trim_ps' > 0 {
+        return scalar n_ps_trimmed = `n_ps_trimmed'
+        return scalar ps_lo_cut = `ps_lo_cut'
+        return scalar ps_hi_cut = `ps_hi_cut'
+    }
+
+    if "`save_ps'" != "" {
+        return scalar mean_ps = `ps_mean'
+        return scalar sd_ps = `ps_sd'
+        return scalar min_ps = `ps_min'
+        return scalar max_ps = `ps_max'
+    }
 
     return local generate "`generate'"
     return local estimand "`estimand'"
@@ -321,7 +433,7 @@ program define _tte_weight_switch_arm
         followup(varname) trial(varname) ///
         censored(varname) ///
         d_cov(varlist) [n_cov(varlist)] ///
-        weight(varname) [nolog]
+        weight(varname) [nolog pscore(varname)]
 
     local log_opt ""
     if "`nolog'" != "" local log_opt "nolog"
@@ -348,6 +460,11 @@ program define _tte_weight_switch_arm
         }
         else {
             predict double `_denom_pr' if `_in_arm' & !missing(`_lag_treat'), pr
+        }
+
+        * Save propensity score if requested
+        if "`pscore'" != "" {
+            replace `pscore' = `_denom_pr' if `_in_arm' & !missing(`_denom_pr')
         }
 
         * Numerator model: P(A_t | A_{t-1}) or P(A_t | A_{t-1}, baseline)
@@ -416,7 +533,7 @@ program define _tte_weight_switch_pooled
         arm(varname) followup(varname) trial(varname) ///
         censored(varname) ///
         d_cov(varlist) [n_cov(varlist)] ///
-        weight(varname) [nolog]
+        weight(varname) [nolog pscore(varname)]
 
     * Pooled: include arm as covariate in the model
     local log_opt ""
@@ -434,6 +551,11 @@ program define _tte_weight_switch_pooled
         }
         else {
             predict double `_denom_pr' if !missing(`_lag_treat'), pr
+        }
+
+        * Save propensity score if requested
+        if "`pscore'" != "" {
+            replace `pscore' = `_denom_pr' if !missing(`_denom_pr')
         }
 
         * Numerator: P(A_t | A_{t-1}, arm)

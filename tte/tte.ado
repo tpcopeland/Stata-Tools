@@ -1,4 +1,4 @@
-*! tte Version 1.0.4  2026/03/01
+*! tte Version 1.1.0  2026/03/10
 *! Target Trial Emulation suite for Stata
 *! Author: Timothy P Copeland
 *! Author: Tania F Reza
@@ -24,11 +24,11 @@ program define tte, rclass
 
     syntax [, List Detail PROTocol]
 
-    local version "1.0.4"
-    local n_commands = 10
+    local version "1.1.0"
+    local n_commands = 11
 
     * All user-facing commands
-    local all_commands "tte_prepare tte_validate tte_expand tte_weight tte_fit tte_predict tte_diagnose tte_plot tte_report tte_protocol"
+    local all_commands "tte_prepare tte_validate tte_expand tte_weight tte_fit tte_predict tte_diagnose tte_plot tte_report tte_protocol tte_calibrate"
 
     display as text ""
     display as text "{hline 70}"
@@ -66,6 +66,7 @@ program define tte, rclass
         display as result "  tte_plot     " as text "- KM curves, cumulative incidence, weight plots"
         display as result "  tte_report   " as text "- Publication-quality results tables"
         display as result "  tte_protocol " as text "- Target trial protocol table (Hernan 7-component)"
+        display as result "  tte_calibrate" as text "- Negative control outcome calibration"
         display as text ""
         display as text "{hline 70}"
         display as text "{bf:Typical workflow:}"
@@ -195,5 +196,8 @@ program define _tte_overview_detail
     display as text ""
     display as result "  tte_protocol" as text "  Hernan 7-component protocol specification"
     display as text "              table for the methods section."
+    display as text ""
+    display as result "  tte_calibrate" as text " Negative control outcome calibration using"
+    display as text "              empirical null distribution (Schuemie 2014)."
     display as text ""
 end

@@ -9,7 +9,8 @@
 Syntax:
   treescan_power diagvar [using treefile.dta], id(varname) exposed(varname)
       target(string) rr(real) [icdversion(string) model(string)
-      persontime(varname) CONDitional nsim(integer 999)
+      persontime(varname) CONDitional EVENTDate(varname) EXPDate(varname)
+      WINDow(numlist) WINDOWScope(string) nsim(integer 999)
       nsimpower(integer 500) alpha(real 0.05) seed(integer) noisily]
 
 See help treescan_power for complete documentation.
@@ -17,6 +18,7 @@ See help treescan_power for complete documentation.
 
 program define treescan_power, rclass
     version 16.0
+    local _varabbrev_orig = c(varabbrev)
     set varabbrev off
     set more off
 
@@ -55,7 +57,9 @@ program define treescan_power, rclass
     syntax varlist(min=1 max=1 string) [using/], ///
         ID(varname) EXPosed(varname) TARGet(string) RR(real) ///
         [ICDVersion(string) MODel(string) PERSONTime(varname) ///
-         CONDitional NSIM(integer 999) NSIMPOWer(integer 500) ///
+         CONDitional EVENTDate(varname) EXPDate(varname) ///
+         WINDow(numlist) WINDOWScope(string) ///
+         NSIM(integer 999) NSIMPOWer(integer 500) ///
          ALPHa(real 0.05) SEED(integer -1) NOIsily ///
          XLSX(string) SHEET(string) TITLe(string)]
 
@@ -156,6 +160,42 @@ program define treescan_power, rclass
         }
     }
 
+    * Validate temporal scan window options
+    local has_temporal = 0
+    if "`eventdate'" != "" | "`expdate'" != "" | "`window'" != "" {
+        local has_temporal = 1
+        if "`eventdate'" == "" | "`expdate'" == "" | "`window'" == "" {
+            display as error ///
+                "eventdate(), expdate(), and window() must all be specified together"
+            exit 198
+        }
+
+        * Parse window numlist: exactly 2 values
+        local nwindow : word count `window'
+        if `nwindow' != 2 {
+            display as error "window() requires exactly 2 values (lower upper)"
+            exit 198
+        }
+        local window_lo : word 1 of `window'
+        local window_hi : word 2 of `window'
+        if `window_lo' > `window_hi' {
+            display as error "window() lower bound must be <= upper bound"
+            exit 198
+        }
+
+        * Validate windowscope
+        if "`windowscope'" == "" {
+            local windowscope "exposed"
+        }
+        else {
+            local windowscope = lower("`windowscope'")
+            if !inlist("`windowscope'", "exposed", "all") {
+                display as error "windowscope() must be {bf:exposed} or {bf:all}"
+                exit 198
+            }
+        }
+    }
+
     * Validate xlsx export options
     if `"`xlsx'"' != "" {
         _treescan_validate_path `"`xlsx'"' "xlsx()"
@@ -228,13 +268,52 @@ program define treescan_power, rclass
 
     quietly {
         if "`model'" == "poisson" {
-            keep `diagvar' `id' `exposed' `persontime'
-            drop if missing(`diagvar') | missing(`id') | ///
-                missing(`exposed') | missing(`persontime')
+            if `has_temporal' {
+                keep `diagvar' `id' `exposed' `persontime' `eventdate' `expdate'
+                drop if missing(`diagvar') | missing(`id') | ///
+                    missing(`exposed') | missing(`persontime') | ///
+                    missing(`eventdate') | missing(`expdate')
+            }
+            else {
+                keep `diagvar' `id' `exposed' `persontime'
+                drop if missing(`diagvar') | missing(`id') | ///
+                    missing(`exposed') | missing(`persontime')
+            }
         }
         else {
-            keep `diagvar' `id' `exposed'
-            drop if missing(`diagvar') | missing(`id') | missing(`exposed')
+            if `has_temporal' {
+                keep `diagvar' `id' `exposed' `eventdate' `expdate'
+                drop if missing(`diagvar') | missing(`id') | ///
+                    missing(`exposed') | missing(`eventdate') | ///
+                    missing(`expdate')
+            }
+            else {
+                keep `diagvar' `id' `exposed'
+                drop if missing(`diagvar') | missing(`id') | missing(`exposed')
+            }
+        }
+
+        * Apply temporal scan window filter
+        if `has_temporal' {
+            tempvar _days
+            gen double `_days' = `eventdate' - `expdate'
+
+            if "`windowscope'" == "exposed" {
+                drop if `exposed' == 1 & ///
+                    (`_days' < `window_lo' | `_days' > `window_hi')
+            }
+            else {
+                drop if `_days' < `window_lo' | `_days' > `window_hi'
+            }
+            drop `_days'
+
+            count
+            if r(N) == 0 {
+                noisily display as error ///
+                    "no observations within the specified time window"
+                exit 2000
+            }
+            drop `eventdate' `expdate'
         }
 
         * Save input data
@@ -480,6 +559,11 @@ program define treescan_power, rclass
     display as text "Relative risk:   " as result %10.2f `rr'
     display as text "Individuals:     " as result %10.0fc `N_individuals'
     display as text "Tree nodes:      " as result %10.0fc `N_nodes'
+    if `has_temporal' {
+        display as text "Time window:     " as result ///
+            %5.0f `window_lo' as text " to " as result %5.0f `window_hi' as text " days"
+        display as text "Window scope:    " as result "`windowscope'"
+    }
     display as text ""
     display as text "Null simulations:" as result %10.0fc `nsim'
     display as text "Power iterations:" as result %10.0fc `nsimpower'
@@ -497,6 +581,31 @@ program define treescan_power, rclass
     display as text ""
 
     * =====================================================================
+    * RETURN RESULTS (before Excel export so r() is available even if
+    * export fails)
+    * =====================================================================
+    return scalar power       = `power'
+    return scalar power_ci_lo = `power_ci_lo'
+    return scalar power_ci_hi = `power_ci_hi'
+    return scalar crit_val    = `crit_val'
+    return scalar rr          = `rr'
+    return scalar nsim        = `nsim'
+    return scalar nsim_power  = `nsimpower'
+    return scalar alpha       = `alpha'
+    return scalar n_reject    = `n_reject'
+    return scalar n_individuals = `N_individuals'
+    return scalar n_nodes     = `N_nodes'
+    return local target       "`target'"
+    return local model        "`model'"
+    return local conditional  "`conditional'"
+
+    if `has_temporal' {
+        return scalar window_lo  = `window_lo'
+        return scalar window_hi  = `window_hi'
+        return local windowscope "`windowscope'"
+    }
+
+    * =====================================================================
     * EXCEL EXPORT
     * =====================================================================
     if `"`xlsx'"' != "" {
@@ -508,8 +617,8 @@ program define treescan_power, rclass
                 "Conditional", "Unconditional")
 
             * Summary + Power results: 3 columns (A=spacer, B=param, C=value)
-            * Layout: title(1) + blank(1) + summary(9) + blank(1) + header(1) + power(3) = 16
-            local total_obs = 16
+            * Layout: title(1) + blank(1) + summary(9+temporal) + blank(1) + header(1) + power(3)
+            local total_obs = 16 + cond(`has_temporal', 2, 0)
             set obs `total_obs'
 
             gen str1 spacer = ""
@@ -536,6 +645,17 @@ program define treescan_power, rclass
             replace col_b = "Tree nodes" in `row'
             replace col_c = string(`N_nodes', "%12.0fc") in `row'
             local ++row
+            if `has_temporal' {
+                replace col_b = "Time window" in `row'
+                replace col_c = strtrim(string(`window_lo', "%5.0f")) ///
+                    + " to " ///
+                    + strtrim(string(`window_hi', "%5.0f")) ///
+                    + " days" in `row'
+                local ++row
+                replace col_b = "Window scope" in `row'
+                replace col_c = "`windowscope'" in `row'
+                local ++row
+            }
             replace col_b = "Null simulations" in `row'
             replace col_c = string(`nsim', "%12.0fc") in `row'
             local ++row
@@ -598,15 +718,16 @@ program define treescan_power, rclass
             mata: b.close_book()
         }
         if _rc {
-            local saved_rc = _rc
             capture mata: b.close_book()
             capture mata: mata drop b
-            display as error "Excel formatting failed with error `saved_rc'"
-            exit `saved_rc'
+            display as text ///
+                "(note: Excel column/row formatting skipped)"
         }
-        capture mata: mata drop b
+        else {
+            capture mata: mata drop b
+        }
 
-        * Layer 3: putexcel for styling
+        * Layer 3: putexcel for styling (non-fatal)
         capture {
             putexcel set `"`xlsx'"', sheet("`sheet'") modify
 
@@ -634,11 +755,9 @@ program define treescan_power, rclass
             putexcel clear
         }
         if _rc {
-            local saved_rc = _rc
             capture putexcel clear
-            display as error ///
-                "Excel cell formatting failed with error `saved_rc'"
-            exit `saved_rc'
+            display as text ///
+                "(note: Excel cell styling skipped)"
         }
 
         display as text ///
@@ -646,22 +765,6 @@ program define treescan_power, rclass
         display as text ""
     }
 
-    * =====================================================================
-    * RETURN RESULTS
-    * =====================================================================
-    return scalar power       = `power'
-    return scalar power_ci_lo = `power_ci_lo'
-    return scalar power_ci_hi = `power_ci_hi'
-    return scalar crit_val    = `crit_val'
-    return scalar rr          = `rr'
-    return scalar nsim        = `nsim'
-    return scalar nsim_power  = `nsimpower'
-    return scalar alpha       = `alpha'
-    return scalar n_reject    = `n_reject'
-    return scalar n_individuals = `N_individuals'
-    return scalar n_nodes     = `N_nodes'
-    return local target       "`target'"
-    return local model        "`model'"
-    return local conditional  "`conditional'"
+    set varabbrev `_varabbrev_orig'
 
 end

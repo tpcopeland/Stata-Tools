@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.3  10mar2026}{...}
+{* *! version 1.1.0  10mar2026}{...}
 {viewerjumpto "Syntax" "tte_weight##syntax"}{...}
 {viewerjumpto "Description" "tte_weight##description"}{...}
 {viewerjumpto "Options" "tte_weight##options"}{...}
@@ -41,6 +41,10 @@
 {synopt:{opth gen:erate(name)}}weight variable name; default is {cmd:_tte_weight}{p_end}
 {synopt:{opt replace}}replace existing weight variable{p_end}
 {synopt:{opt nolog}}suppress model iteration log{p_end}
+
+{syntab:Propensity score}
+{synopt:{opt save_ps}}save propensity scores as permanent variable{p_end}
+{synopt:{opt trim_ps(#)}}trim observations at #th percentile from each PS tail{p_end}
 {synoptline}
 
 
@@ -57,6 +61,32 @@ in per-protocol and as-treated analyses.
 For ITT analyses, all weights are set to 1 (no artificial censoring occurs).
 
 
+{marker options}{...}
+{title:Options}
+
+{dlgtab:Propensity score}
+
+{phang}
+{opt save_ps} saves the propensity score (predicted probability from the
+switch denominator model) as a permanent variable named
+{cmd:_tte_pscore}. This enables downstream diagnostics with
+{helpb tte_diagnose:tte_diagnose, equipoise} and overlap plots with
+{helpb tte_plot:tte_plot, type(pscore)}.
+
+{phang}
+{opt trim_ps(#)} trims observations with extreme propensity scores by
+dropping those below the #th and above the (100-#)th percentile. For
+example, {cmd:trim_ps(5)} drops observations below the 5th and above
+the 95th percentile of the PS distribution. Trimming is applied after
+weight computation.
+
+{pmore}
+{bf:Caution:} In sequential trials, PS trimming at the person-period
+level may introduce selection bias by differentially removing observations
+across trial periods. Weight truncation ({opt truncate()}) is generally
+preferred as it modifies extreme weights without dropping observations.
+
+
 {marker examples}{...}
 {title:Examples}
 
@@ -65,6 +95,13 @@ For ITT analyses, all weights are set to 1 (no artificial censoring occurs).
 
 {pstd}With censoring weights{p_end}
 {phang2}{cmd:. tte_weight, switch_d_cov(age sex comorbidity) censor_d_cov(age sex) truncate(1 99) nolog}{p_end}
+
+{pstd}Save propensity scores for diagnostics{p_end}
+{phang2}{cmd:. tte_weight, switch_d_cov(age sex comorbidity) save_ps truncate(1 99) nolog}{p_end}
+{phang2}{cmd:. tte_plot, type(pscore)}{p_end}
+
+{pstd}PS trimming (5th/95th percentile){p_end}
+{phang2}{cmd:. tte_weight, switch_d_cov(age sex comorbidity) trim_ps(5) nolog}{p_end}
 
 
 {marker technical}{...}
@@ -82,7 +119,7 @@ lagged treatment status.
 An alternative approach uses 4 strata (arm x lagged treatment) with
 intercept-only denominators within each stratum. Both are valid
 parameterizations of the inverse probability weight model
-(Hernán & Robins, 2020, Technical Point 12.2). The choice affects
+(Hernan & Robins, 2020, Technical Point 12.2). The choice affects
 individual weight values and outcome model coefficients but not the
 target causal estimand (risk differences from {cmd:tte_predict}) when
 both models are correctly specified.
@@ -104,12 +141,21 @@ model covariates passed via {opt switch_d_cov()} and {opt switch_n_cov()}
 therefore use baseline values. This is theoretically justified: the IP
 weight model can condition on baseline covariates L{sub:0} and still
 produce consistent estimates of the causal effect, provided the model is
-correctly specified (Hernán & Robins, 2020, Technical Point 12.2).
+correctly specified (Hernan & Robins, 2020, Technical Point 12.2).
 
 {pstd}
 If time-varying covariates are needed in the weight model, users must
 construct them manually before calling {cmd:tte_weight} (e.g., by merging
 from the original data using {cmd:id}, {cmd:period}).
+
+{dlgtab:Propensity score}
+
+{pstd}
+The saved propensity score is the predicted probability from the switch
+denominator model: P(A_t | A_{t-1}, L, t). This is a time-varying
+quantity available at follow-up period 1 onwards (no prediction at
+period 0 because there is no lagged treatment). For PS overlap
+diagnostics, consider restricting to follow-up period 1.
 
 {dlgtab:Model failure fallbacks}
 
@@ -148,6 +194,13 @@ truncated weights is reported in {cmd:r(n_truncated)}.
 {synopt:{cmd:r(p99_weight)}}99th percentile{p_end}
 {synopt:{cmd:r(ess)}}effective sample size{p_end}
 {synopt:{cmd:r(n_truncated)}}number of truncated weights{p_end}
+{synopt:{cmd:r(mean_ps)}}mean propensity score (if {cmd:save_ps}){p_end}
+{synopt:{cmd:r(sd_ps)}}SD of propensity scores (if {cmd:save_ps}){p_end}
+{synopt:{cmd:r(min_ps)}}minimum propensity score (if {cmd:save_ps}){p_end}
+{synopt:{cmd:r(max_ps)}}maximum propensity score (if {cmd:save_ps}){p_end}
+{synopt:{cmd:r(n_ps_trimmed)}}observations dropped by PS trimming (if {cmd:trim_ps()}){p_end}
+{synopt:{cmd:r(ps_lo_cut)}}lower PS cutoff (if {cmd:trim_ps()}){p_end}
+{synopt:{cmd:r(ps_hi_cut)}}upper PS cutoff (if {cmd:trim_ps()}){p_end}
 
 
 {marker author}{...}

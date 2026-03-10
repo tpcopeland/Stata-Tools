@@ -26,6 +26,7 @@ See help treescan for complete documentation.
 
 program define treescan, rclass
     version 16.0
+    local _varabbrev_orig = c(varabbrev)
     set varabbrev off
     set more off
 
@@ -600,11 +601,15 @@ program define treescan, rclass
                 forvalues i = 1/`nrows' {
                     local nd = substr(node[`i'], 1, 32)
                     * Check for duplicate truncated names
-                    forvalues j = 1/`=`i'-1' {
-                        local prev : word `j' of `rnames'
-                        if "`prev'" == "`nd'" {
-                            * Append row number to disambiguate
-                            local nd = substr("`nd'", 1, 29) + "_`i'"
+                    local _collision = 1
+                    while `_collision' {
+                        local _collision = 0
+                        forvalues j = 1/`=`i'-1' {
+                            local prev : word `j' of `rnames'
+                            if "`prev'" == "`nd'" {
+                                local nd = substr("`nd'", 1, 29) + "_`i'"
+                                local _collision = 1
+                            }
                         }
                     }
                     local rnames `"`rnames' "`nd'""'
@@ -628,10 +633,15 @@ program define treescan, rclass
                 local rnames ""
                 forvalues i = 1/`nrows' {
                     local nd = substr(node[`i'], 1, 32)
-                    forvalues j = 1/`=`i'-1' {
-                        local prev : word `j' of `rnames'
-                        if "`prev'" == "`nd'" {
-                            local nd = substr("`nd'", 1, 29) + "_`i'"
+                    local _collision = 1
+                    while `_collision' {
+                        local _collision = 0
+                        forvalues j = 1/`=`i'-1' {
+                            local prev : word `j' of `rnames'
+                            if "`prev'" == "`nd'" {
+                                local nd = substr("`nd'", 1, 29) + "_`i'"
+                                local _collision = 1
+                            }
                         }
                     }
                     local rnames `"`rnames' "`nd'""'
@@ -730,6 +740,36 @@ program define treescan, rclass
         display as text "No significant nodes at alpha = " as result `alpha'
     }
     display as text ""
+
+    * =====================================================================
+    * RETURN RESULTS (before Excel export so r() is available even if
+    * export fails)
+    * =====================================================================
+    return scalar max_llr     = `obs_max_llr'
+    return scalar p_value     = `p_max'
+    return scalar n_nodes     = `N_nodes'
+    return scalar n_obs       = `N_obs'
+    return scalar n_exposed   = `N_exposed'
+    return scalar n_unexposed = `N_unexposed'
+    return scalar nsim        = `nsim'
+    return scalar alpha       = `alpha'
+    return local model        "`model'"
+    return local conditional  "`conditional'"
+
+    if "`model'" == "poisson" {
+        return scalar total_persontime = `T_total'
+        return scalar total_cases      = `C'
+    }
+
+    if `has_temporal' {
+        return scalar window_lo  = `window_lo'
+        return scalar window_hi  = `window_hi'
+        return local windowscope "`windowscope'"
+    }
+
+    if `n_sig' > 0 {
+        return matrix results = `results_mat'
+    }
 
     * =====================================================================
     * EXCEL EXPORT
@@ -947,15 +987,16 @@ program define treescan, rclass
             mata: b.close_book()
         }
         if _rc {
-            local saved_rc = _rc
             capture mata: b.close_book()
             capture mata: mata drop b
-            display as error "Excel formatting failed with error `saved_rc'"
-            exit `saved_rc'
+            display as text ///
+                "(note: Excel column/row formatting skipped)"
         }
-        capture mata: mata drop b
+        else {
+            capture mata: mata drop b
+        }
 
-        * Layer 3: putexcel for styling
+        * Layer 3: putexcel for styling (non-fatal)
         capture {
             putexcel set `"`xlsx'"', sheet("`sheet'") modify
 
@@ -982,11 +1023,9 @@ program define treescan, rclass
             putexcel clear
         }
         if _rc {
-            local saved_rc = _rc
             capture putexcel clear
-            display as error ///
-                "Excel cell formatting failed with error `saved_rc'"
-            exit `saved_rc'
+            display as text ///
+                "(note: Excel cell styling skipped)"
         }
 
         display as text ///
@@ -994,33 +1033,6 @@ program define treescan, rclass
         display as text ""
     }
 
-    * =====================================================================
-    * RETURN RESULTS
-    * =====================================================================
-    return scalar max_llr     = `obs_max_llr'
-    return scalar p_value     = `p_max'
-    return scalar n_nodes     = `N_nodes'
-    return scalar n_obs       = `N_obs'
-    return scalar n_exposed   = `N_exposed'
-    return scalar n_unexposed = `N_unexposed'
-    return scalar nsim        = `nsim'
-    return scalar alpha       = `alpha'
-    return local model        "`model'"
-    return local conditional  "`conditional'"
-
-    if "`model'" == "poisson" {
-        return scalar total_persontime = `T_total'
-        return scalar total_cases      = `C'
-    }
-
-    if `has_temporal' {
-        return scalar window_lo  = `window_lo'
-        return scalar window_hi  = `window_hi'
-        return local windowscope "`windowscope'"
-    }
-
-    if `n_sig' > 0 {
-        return matrix results = `results_mat'
-    }
+    set varabbrev `_varabbrev_orig'
 
 end

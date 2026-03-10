@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.4  01mar2026}{...}
+{* *! version 1.1.0  10mar2026}{...}
 {viewerjumpto "Syntax" "tte##syntax"}{...}
 {viewerjumpto "Description" "tte##description"}{...}
 {viewerjumpto "Commands" "tte##commands"}{...}
@@ -85,6 +85,9 @@ publication-ready reporting.
 {phang}
 {helpb tte_protocol} {hline 2} Target trial protocol table (Hernan 7-component)
 
+{phang}
+{helpb tte_calibrate} {hline 2} Negative control outcome calibration
+
 
 {marker workflow}{...}
 {title:Typical Workflow}
@@ -109,7 +112,7 @@ publication-ready reporting.
 {phang2}{cmd:. tte_prepare, id(patid) period(period) treatment(treatment) outcome(outcome) eligible(eligible) censor(censored) covariates(age sex comorbidity biomarker) estimand(PP)}{p_end}
 {phang2}{cmd:. tte_validate}{p_end}
 {phang2}{cmd:. tte_expand, maxfollowup(8) grace(1)}{p_end}
-{phang2}{cmd:. tte_weight, switch_d_cov(age sex comorbidity biomarker) stabilized truncate(1 99) nolog}{p_end}
+{phang2}{cmd:. tte_weight, switch_d_cov(age sex comorbidity biomarker) truncate(1 99) nolog}{p_end}
 {phang2}{cmd:. tte_fit, outcome_cov(age sex comorbidity) model(logistic) nolog}{p_end}
 {phang2}{cmd:. tte_predict, times(0 2 4 6 8) type(cum_inc) difference samples(100) seed(12345)}{p_end}
 

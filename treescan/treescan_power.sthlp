@@ -44,6 +44,12 @@
 {synopt:{opt persont:ime(varname)}}person-time variable; required with {cmd:model(poisson)}{p_end}
 {synopt:{opt cond:itional}}use conditional (permutation) test{p_end}
 
+{syntab:Temporal scan window}
+{synopt:{opt eventd:ate(varname)}}date of diagnosis event{p_end}
+{synopt:{opt expd:ate(varname)}}date of exposure onset{p_end}
+{synopt:{opt wind:ow(# #)}}risk window in days (lower upper){p_end}
+{synopt:{opt windows:cope(string)}}apply window to {bf:exposed} (default) or {bf:all}{p_end}
+
 {syntab:Simulation}
 {synopt:{opt nsim(#)}}number of null simulations per treescan run; default is {cmd:nsim(999)}{p_end}
 {synopt:{opt nsimpow:er(#)}}number of power iterations (outer loop); default is {cmd:nsimpower(500)}{p_end}
@@ -108,6 +114,29 @@ See {help treescan} for model details.
 
 {phang}
 {opt conditional} uses conditional (permutation) test. See {help treescan}.
+
+{dlgtab:Temporal scan window}
+
+{phang}
+{opt eventdate(varname)} specifies a numeric (date) variable containing the
+date of each diagnosis event. Required with {opt expdate()} and {opt window()}.
+
+{phang}
+{opt expdate(varname)} specifies a numeric (date) variable containing the date
+of exposure onset. Required with {opt eventdate()} and {opt window()}.
+
+{phang}
+{opt window(# #)} specifies the risk window as two numbers: the lower and upper
+bounds in days relative to exposure onset. For example, {cmd:window(0 30)}
+restricts analysis to events occurring 0 to 30 days after exposure.
+Negative values allow pre-exposure events (e.g., {cmd:window(-7 30)}).
+
+{phang}
+{opt windowscope(string)} specifies whether the temporal window filter applies
+to {bf:exposed} individuals only (default) or to {bf:all} individuals.
+When {cmd:windowscope(exposed)}, unexposed individuals' events are kept
+regardless of timing. When {cmd:windowscope(all)}, all events outside the
+window are dropped.
 
 {dlgtab:Simulation}
 
@@ -179,14 +208,15 @@ For large trees, this can take substantial time. Start with small values
 for publication.
 
 {pstd}
-{bf:Limitations}
+{bf:Temporal scan windows}
 
 {pstd}
-{cmd:treescan_power} does not support temporal scan windows ({opt eventdate()},
-{opt expdate()}, {opt window()}). Power evaluation is performed on the full
-dataset without temporal filtering. To approximate power with temporal
-restrictions, subset your data to the relevant time window before calling
-{cmd:treescan_power}.
+{cmd:treescan_power} supports the same temporal scan window options as
+{cmd:treescan}. When {opt eventdate()}, {opt expdate()}, and {opt window()}
+are specified, the data is filtered to events within the time window before
+computing the null distribution and running the power loop. This ensures
+that power estimates reflect the temporally-restricted analysis. See
+{help treescan} for details on temporal scan windows.
 
 
 {marker examples}{...}
@@ -212,6 +242,11 @@ restrictions, subset your data to the relevant time window before calling
 
 {phang2}{cmd:. treescan_power diagcode, id(pid) exposed(exp) icdversion(cm) target(A000) rr(3) seed(42) xlsx(power_results)}{p_end}
 
+{pstd}
+{bf:Example 5: Power with temporal scan window}
+
+{phang2}{cmd:. treescan_power diagcode, id(pid) exposed(drug_exp) icdversion(cm) target(A000) rr(3) eventdate(diag_date) expdate(rx_date) window(0 30) seed(42)}{p_end}
+
 
 {marker results}{...}
 {title:Stored results}
@@ -232,11 +267,14 @@ restrictions, subset your data to the relevant time window before calling
 {synopt:{cmd:r(n_reject)}}number of rejections{p_end}
 {synopt:{cmd:r(n_individuals)}}number of unique individuals{p_end}
 {synopt:{cmd:r(n_nodes)}}number of tree nodes evaluated{p_end}
+{synopt:{cmd:r(window_lo)}}temporal window lower bound (when specified){p_end}
+{synopt:{cmd:r(window_hi)}}temporal window upper bound (when specified){p_end}
 
 {p2col 5 25 29 2: Macros}{p_end}
 {synopt:{cmd:r(target)}}target node{p_end}
 {synopt:{cmd:r(model)}}model used{p_end}
 {synopt:{cmd:r(conditional)}}contains {bf:conditional} if conditional test used{p_end}
+{synopt:{cmd:r(windowscope)}}window scope: {bf:exposed} or {bf:all} (when specified){p_end}
 
 
 {marker author}{...}

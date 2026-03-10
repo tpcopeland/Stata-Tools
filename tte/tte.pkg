@@ -46,6 +46,8 @@ f tte_report.ado
 f tte_report.sthlp
 f tte_protocol.ado
 f tte_protocol.sthlp
+f tte_calibrate.ado
+f tte_calibrate.sthlp
 f _tte_check_prepared.ado
 f _tte_check_expanded.ado
 f _tte_check_weighted.ado

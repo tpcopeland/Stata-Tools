@@ -240,6 +240,123 @@ local t9b = ("`r(target)'" == "A")
 run_test "T9b: Internal target stored correctly" `t9b'
 
 * =============================================================
+* Create shared temporal test data
+* =============================================================
+clear
+set obs 80
+gen long id = _n
+gen byte exposed = (_n <= 20)
+gen str7 diag = ""
+set seed 1000
+replace diag = "A1" if exposed == 1 & runiform() < 0.7
+replace diag = "B1" if diag == ""
+drop if diag == ""
+* Add date variables: exposed get events 5-25 days post-exposure
+gen double expdt = 22000
+gen double eventdt = expdt + 10 if exposed == 1
+replace eventdt = expdt + 50 if exposed == 0 & runiform() < 0.5
+replace eventdt = expdt + 15 if eventdt == .
+tempfile temporal_power_data
+save `temporal_power_data'
+
+* =============================================================
+* TEST 10: Basic temporal power execution
+* =============================================================
+use `temporal_power_data', clear
+
+treescan_power diag using `test_tree', id(id) exposed(exposed) ///
+    target(A1) rr(3) eventdate(eventdt) expdate(expdt) ///
+    window(0 30) nsim(29) nsimpower(10) seed(42)
+
+local t10a = (r(power) >= 0 & r(power) <= 1)
+run_test "T10a: Temporal power in [0, 1]" `t10a'
+
+local t10b = (r(window_lo) == 0)
+run_test "T10b: r(window_lo) = 0" `t10b'
+
+local t10c = (r(window_hi) == 30)
+run_test "T10c: r(window_hi) = 30" `t10c'
+
+local t10d = ("`r(windowscope)'" == "exposed")
+run_test "T10d: r(windowscope) = exposed (default)" `t10d'
+
+* =============================================================
+* TEST 11: windowscope(all)
+* =============================================================
+use `temporal_power_data', clear
+
+treescan_power diag using `test_tree', id(id) exposed(exposed) ///
+    target(A1) rr(3) eventdate(eventdt) expdate(expdt) ///
+    window(0 30) windowscope(all) nsim(29) nsimpower(10) seed(42)
+
+local t11a = ("`r(windowscope)'" == "all")
+run_test "T11a: windowscope(all) stored" `t11a'
+
+local t11b = (r(power) >= 0 & r(power) <= 1)
+run_test "T11b: windowscope(all) power valid" `t11b'
+
+* =============================================================
+* TEST 12: Partial temporal specification error
+* =============================================================
+use `temporal_power_data', clear
+
+capture treescan_power diag using `test_tree', id(id) exposed(exposed) ///
+    target(A1) rr(3) eventdate(eventdt) window(0 30) ///
+    nsim(29) nsimpower(10) seed(42)
+
+local t12 = (_rc == 198)
+run_test "T12: Error on partial temporal specification" `t12'
+
+* =============================================================
+* TEST 13: All events filtered out by window
+* =============================================================
+clear
+set obs 40
+gen long id = _n
+gen byte exposed = (_n <= 10)
+gen str7 diag = "A1" if exposed == 1
+replace diag = "B1" if diag == ""
+gen double expdt = 22000
+gen double eventdt = expdt + 500
+
+capture treescan_power diag using `test_tree', id(id) exposed(exposed) ///
+    target(A1) rr(3) eventdate(eventdt) expdate(expdt) ///
+    window(0 30) nsim(19) nsimpower(5) seed(42)
+
+local t13 = (_rc == 2000)
+run_test "T13: Error when window filters all events" `t13'
+
+* =============================================================
+* TEST 14: Invalid windowscope
+* =============================================================
+use `temporal_power_data', clear
+
+capture treescan_power diag using `test_tree', id(id) exposed(exposed) ///
+    target(A1) rr(3) eventdate(eventdt) expdate(expdt) ///
+    window(0 30) windowscope(bogus) nsim(29) nsimpower(10) seed(42)
+
+local t14 = (_rc == 198)
+run_test "T14: Error on invalid windowscope" `t14'
+
+* =============================================================
+* TEST 15: Data preservation with temporal options
+* =============================================================
+use `temporal_power_data', clear
+gen double extra = runiform()
+local orig_N = _N
+
+treescan_power diag using `test_tree', id(id) exposed(exposed) ///
+    target(A1) rr(3) eventdate(eventdt) expdate(expdt) ///
+    window(0 30) nsim(29) nsimpower(10) seed(42)
+
+local t15a = (_N == `orig_N')
+run_test "T15a: Obs count preserved with temporal" `t15a'
+
+capture confirm variable extra
+local t15b = (_rc == 0)
+run_test "T15b: Extra variable preserved with temporal" `t15b'
+
+* =============================================================
 * SUMMARY
 * =============================================================
 display as text ""

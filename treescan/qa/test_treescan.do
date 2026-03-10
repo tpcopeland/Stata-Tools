@@ -1083,6 +1083,52 @@ local t45 = (abs(`pow1' - `pow2') < 1e-10)
 run_test "T45: Power same seed -> same result" `t45'
 
 * =============================================================
+* TEST 46: treescan_power + temporal combined execution
+* =============================================================
+clear
+set seed 4600
+set obs 80
+gen long id = _n
+gen byte exposed = (_n <= 20)
+gen str7 diag = ""
+replace diag = "A1" if exposed == 1 & runiform() < 0.7
+replace diag = "B1" if diag == ""
+drop if diag == ""
+gen double expdt = 22000
+gen double eventdt = expdt + 10 if exposed == 1
+replace eventdt = expdt + 15 if eventdt == .
+
+treescan_power diag using `power_tree', id(id) exposed(exposed) ///
+    target(A1) rr(3) eventdate(eventdt) expdate(expdt) ///
+    window(0 30) nsim(29) nsimpower(10) seed(42)
+
+local t46a = (r(power) >= 0 & r(power) <= 1)
+run_test "T46a: Power + temporal: power in [0,1]" `t46a'
+
+local t46b = (r(window_lo) == 0 & r(window_hi) == 30)
+run_test "T46b: Power + temporal: window returns" `t46b'
+
+* =============================================================
+* TEST 47: treescan_power + temporal + windowscope(all)
+* =============================================================
+treescan_power diag using `power_tree', id(id) exposed(exposed) ///
+    target(A1) rr(3) eventdate(eventdt) expdate(expdt) ///
+    window(0 30) windowscope(all) nsim(29) nsimpower(10) seed(42)
+
+local t47 = ("`r(windowscope)'" == "all")
+run_test "T47: Power + temporal: windowscope(all) stored" `t47'
+
+* =============================================================
+* TEST 48: treescan_power + temporal partial spec error
+* =============================================================
+capture treescan_power diag using `power_tree', id(id) exposed(exposed) ///
+    target(A1) rr(3) eventdate(eventdt) window(0 30) ///
+    nsim(29) nsimpower(10) seed(42)
+
+local t48 = (_rc == 198)
+run_test "T48: Power + temporal: partial spec error" `t48'
+
+* =============================================================
 * SUMMARY
 * =============================================================
 display as text ""

@@ -1,4 +1,4 @@
-*! tte_plot Version 1.0.2  2026/02/28
+*! tte_plot Version 1.1.0  2026/03/10
 *! Visualization for target trial emulation
 *! Author: Timothy P Copeland
 *! Author: Tania F Reza
@@ -8,24 +8,26 @@
 
 /*
 Basic syntax:
-  tte_plot [, type(km|cumhaz|weights|balance) options]
+  tte_plot [, type(km|cumhaz|weights|balance|pscore|equipoise) options]
 
 Description:
   Produces diagnostic and results plots for target trial emulation.
 
 Plot types:
-  km       - Kaplan-Meier curves by treatment arm (weighted)
-  cumhaz   - Cumulative incidence with CIs from tte_predict
-  weights  - Weight distribution histograms by arm
-  balance  - Love plot (SMD before/after weighting)
+  km        - Kaplan-Meier curves by treatment arm (weighted)
+  cumhaz    - Cumulative incidence with CIs from tte_predict
+  weights   - Weight distribution histograms by arm
+  balance   - Love plot (SMD before/after weighting)
+  pscore    - Propensity score overlap density plot
+  equipoise - Preference score density plot with equipoise zone
 
 Options:
-  by(varname)         - Stratify plots
   ci                  - Show confidence intervals
   scheme(string)      - Graph scheme (default: plotplainblind)
   title(string)       - Graph title
   export(filename)    - Export graph to file
   replace             - Replace existing file
+  top(#)              - Show top N covariates in balance plot (by |SMD|)
 
 See help tte_plot for complete documentation
 */
@@ -38,7 +40,8 @@ program define tte_plot, rclass
     syntax [, TYPe(string) CI ///
         SCHeme(string) TItle(string) ///
         EXPort(string) REPLACE ///
-        BALance_covariates(varlist numeric)]
+        BALance_covariates(varlist numeric) ///
+        TOP(integer 0)]
 
     * =========================================================================
     * DEFAULTS
@@ -47,8 +50,8 @@ program define tte_plot, rclass
     if "`type'" == "" local type "km"
     if "`scheme'" == "" local scheme "plotplainblind"
 
-    if !inlist("`type'", "km", "cumhaz", "weights", "balance") {
-        display as error "type() must be km, cumhaz, weights, or balance"
+    if !inlist("`type'", "km", "cumhaz", "weights", "balance", "pscore", "equipoise") {
+        display as error "type() must be km, cumhaz, weights, balance, pscore, or equipoise"
         exit 198
     }
 
@@ -229,6 +232,12 @@ program define tte_plot, rclass
         local n_covs = rowsof(`bal_mat')
         local cov_names: rownames `bal_mat'
 
+        * Top-N filtering: sort by |unweighted SMD| and keep top N
+        local n_show = `n_covs'
+        if `top' > 0 & `top' < `n_covs' {
+            local n_show = `top'
+        }
+
         preserve
         clear
         quietly set obs `n_covs'
@@ -236,20 +245,32 @@ program define tte_plot, rclass
         quietly gen str40 covariate = ""
         quietly gen double smd_unwt = .
         quietly gen double smd_wt = .
-        gen int ypos = .
+        gen int orig_order = .
 
         forvalues i = 1/`n_covs' {
             local cname: word `i' of `cov_names'
             quietly replace covariate = "`cname'" in `i'
             quietly replace smd_unwt = `bal_mat'[`i', 1] in `i'
             quietly replace smd_wt = `bal_mat'[`i', 2] in `i'
-            quietly replace ypos = `n_covs' - `i' + 1 in `i'
+            quietly replace orig_order = `i' in `i'
+        }
+
+        * Sort by absolute unweighted SMD (descending) and keep top N
+        if `top' > 0 & `top' < `n_covs' {
+            gsort -smd_unwt
+            quietly keep in 1/`n_show'
+        }
+
+        * Create y-positions
+        gen int ypos = .
+        forvalues i = 1/`n_show' {
+            quietly replace ypos = `n_show' - `i' + 1 in `i'
         }
 
         * Label y-axis with covariate names
-        forvalues i = 1/`n_covs' {
-            local yval = `n_covs' - `i' + 1
-            local cname: word `i' of `cov_names'
+        forvalues i = 1/`n_show' {
+            local yval = `n_show' - `i' + 1
+            local cname = covariate[`i']
             label define ypos_lbl `yval' "`cname'", add
         }
         label values ypos ypos_lbl
@@ -259,9 +280,98 @@ program define tte_plot, rclass
             title("`title'") ///
             xtitle("Absolute Standardized Mean Difference") ///
             ytitle("") ///
-            ylabel(1(1)`n_covs', valuelabel angle(0) labsize(small)) ///
+            ylabel(1(1)`n_show', valuelabel angle(0) labsize(small)) ///
             xline(0.1, lpattern(dash) lcolor(gs8)) ///
             legend(order(1 "Unweighted" 2 "Weighted") rows(1)) ///
+            scheme(`scheme')
+
+        if "`export'" != "" {
+            graph export "`export'", `replace'
+            display as text "Graph saved to: " as result "`export'"
+        }
+
+        restore
+    }
+
+    * =========================================================================
+    * PROPENSITY SCORE OVERLAP
+    * =========================================================================
+
+    else if "`type'" == "pscore" {
+        if "`title'" == "" local title "Propensity Score Distribution by Treatment Arm"
+
+        * Check for PS variable
+        local ps_var : char _dta[_tte_pscore_var]
+        if "`ps_var'" == "" {
+            display as error "no propensity score variable found"
+            display as error "run {cmd:tte_weight, save_ps} first"
+            exit 198
+        }
+
+        capture confirm variable `ps_var'
+        if _rc != 0 {
+            display as error "propensity score variable `ps_var' not found in dataset"
+            exit 111
+        }
+
+        twoway (kdensity `ps_var' if `prefix'arm == 0 & !missing(`ps_var'), ///
+                    lcolor(navy) lwidth(medthick)) ///
+               (kdensity `ps_var' if `prefix'arm == 1 & !missing(`ps_var'), ///
+                    lcolor(cranberry) lwidth(medthick)), ///
+            title("`title'") ///
+            xtitle("Propensity Score") ///
+            ytitle("Density") ///
+            xline(0.1 0.9, lpattern(dash) lcolor(gs10)) ///
+            legend(order(1 "Control" 2 "Treated") rows(1)) ///
+            scheme(`scheme')
+
+        if "`export'" != "" {
+            graph export "`export'", `replace'
+            display as text "Graph saved to: " as result "`export'"
+        }
+    }
+
+    * =========================================================================
+    * EQUIPOISE (Preference Score) PLOT
+    * =========================================================================
+
+    else if "`type'" == "equipoise" {
+        if "`title'" == "" local title "Preference Score Distribution (Equipoise)"
+
+        * Check for PS variable
+        local ps_var : char _dta[_tte_pscore_var]
+        if "`ps_var'" == "" {
+            display as error "no propensity score variable found"
+            display as error "run {cmd:tte_weight, save_ps} first"
+            exit 198
+        }
+
+        capture confirm variable `ps_var'
+        if _rc != 0 {
+            display as error "propensity score variable `ps_var' not found in dataset"
+            exit 111
+        }
+
+        * Compute treatment prevalence
+        quietly summarize `prefix'arm if `prefix'followup == 0
+        local prevalence = r(mean)
+        local logit_prev = ln(`prevalence' / (1 - `prevalence'))
+
+        * Compute preference scores
+        preserve
+        quietly keep if !missing(`ps_var') & `ps_var' > 0.001 & `ps_var' < 0.999
+        tempvar _pref
+        quietly gen double `_pref' = invlogit(ln(`ps_var' / (1 - `ps_var')) - `logit_prev')
+
+        twoway (kdensity `_pref' if `prefix'arm == 0, lcolor(navy) lwidth(medthick)) ///
+               (kdensity `_pref' if `prefix'arm == 1, lcolor(cranberry) lwidth(medthick)), ///
+            title("`title'") ///
+            xtitle("Preference Score") ///
+            ytitle("Density") ///
+            xlabel(0(0.1)1) ///
+            xline(0.3 0.7, lpattern(dash) lcolor(gs10)) ///
+            legend(order(1 "Control" 2 "Treated") rows(1)) ///
+            note("Equipoise zone: [0.3, 0.7]") ///
             scheme(`scheme')
 
         if "`export'" != "" {

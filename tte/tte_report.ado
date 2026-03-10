@@ -1,4 +1,4 @@
-*! tte_report Version 1.0.4  2026/03/10
+*! tte_report Version 1.1.0  2026/03/10
 *! Publication-quality results tables for target trial emulation
 *! Author: Timothy P Copeland
 *! Author: Tania F Reza
@@ -299,6 +299,9 @@ program define tte_report, rclass
                         if "`pname'" == "diff"    local plabel "Difference"
                         if "`pname'" == "diff_lo" local plabel "Difference CI Lower"
                         if "`pname'" == "diff_hi" local plabel "Difference CI Upper"
+                        if "`pname'" == "rr"      local plabel "Risk Ratio"
+                        if "`pname'" == "rr_lo"   local plabel "RR CI Lower"
+                        if "`pname'" == "rr_hi"   local plabel "RR CI Upper"
                         putexcel `pletter'1 = "`plabel'"
                         local ++pcol
                     }

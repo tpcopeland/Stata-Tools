@@ -194,6 +194,17 @@ treescan_power diagvar, id(varname) exposed(varname) icdversion(cm|se|atc)
 
 Plus all model options from `treescan` (`model`, `conditional`, `persontime`).
 
+#### Temporal Scan Window
+
+| Option | Description |
+|--------|-------------|
+| `eventdate(varname)` | Date of diagnosis event |
+| `expdate(varname)` | Date of exposure onset |
+| `window(# #)` | Risk window in days (lower upper) |
+| `windowscope(string)` | Apply window to `exposed` (default) or `all` |
+
+All three (`eventdate`, `expdate`, `window`) must be specified together. See [Temporal Scan Windows](#temporal-scan-windows).
+
 ---
 
 ## Built-in Trees
@@ -305,6 +316,19 @@ treescan_power diagcode, id(patient_id) exposed(drug_exposed) ///
 display "Power: " r(power) " (" r(power_ci_lo) ", " r(power_ci_hi) ")"
 ```
 
+### Power evaluation with temporal window
+
+```stata
+* Power to detect a 3-fold risk within 30 days of drug exposure
+treescan_power diagcode, id(patient_id) exposed(drug_exposed) ///
+    icdversion(cm) target(A000) rr(3) ///
+    eventdate(diag_date) expdate(rx_date) window(0 30) ///
+    nsim(999) nsimpower(500) seed(42)
+
+display "Power: " r(power)
+display "Window: " r(window_lo) " to " r(window_hi) " days"
+```
+
 ---
 
 ## Stored Results
@@ -344,6 +368,8 @@ display "Power: " r(power) " (" r(power_ci_lo) ", " r(power_ci_hi) ")"
 | `r(n_individuals)` | Unique individuals |
 | `r(n_nodes)` | Tree nodes evaluated |
 | `r(model)` | Model used |
+| `r(window_lo)` / `r(window_hi)` | Temporal window bounds (when specified) |
+| `r(windowscope)` | Window scope (when specified) |
 
 ---
 

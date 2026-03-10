@@ -1,4 +1,4 @@
-*! tte_diagnose Version 1.0.2  2026/02/28
+*! tte_diagnose Version 1.1.0  2026/03/10
 *! Weight diagnostics and balance assessment for target trial emulation
 *! Author: Timothy P Copeland
 *! Author: Tania F Reza
@@ -23,7 +23,7 @@ program define tte_diagnose, rclass
     set more off
 
     syntax [, BALance_covariates(varlist numeric) ///
-        BY_trial]
+        BY_trial EQUIPoise]
 
     * =========================================================================
     * CHECK PREREQUISITES
@@ -273,6 +273,75 @@ program define tte_diagnose, rclass
         if `has_weights' {
             return scalar max_smd_wt = `max_smd_wt'
         }
+    }
+
+    * =========================================================================
+    * EQUIPOISE ASSESSMENT (preference scores)
+    * =========================================================================
+
+    if "`equipoise'" != "" {
+        display as text ""
+        display as text "{bf:Equipoise Assessment (Preference Scores)}"
+        display as text ""
+
+        * Check for PS variable
+        local ps_var : char _dta[_tte_pscore_var]
+        if "`ps_var'" == "" {
+            display as error "no propensity score variable found"
+            display as error "run {cmd:tte_weight, save_ps} first"
+            exit 198
+        }
+
+        capture confirm variable `ps_var'
+        if _rc != 0 {
+            display as error "propensity score variable `ps_var' not found in dataset"
+            exit 111
+        }
+
+        * Compute treatment prevalence at baseline (followup==0)
+        quietly summarize `prefix'arm if `prefix'followup == 0
+        local prevalence = r(mean)
+
+        * Compute preference score: pref = invlogit(logit(ps) - logit(prevalence))
+        * logit(x) = ln(x/(1-x))
+        tempvar _pref_score
+        local logit_prev = ln(`prevalence' / (1 - `prevalence'))
+        quietly gen double `_pref_score' = invlogit(ln(`ps_var' / (1 - `ps_var')) - `logit_prev') ///
+            if !missing(`ps_var') & `ps_var' > 0.001 & `ps_var' < 0.999
+
+        * Percentage in equipoise zone [0.3, 0.7]
+        quietly count if `_pref_score' >= 0.3 & `_pref_score' <= 0.7 & !missing(`_pref_score')
+        local n_equip = r(N)
+        quietly count if !missing(`_pref_score')
+        local n_ps_total = r(N)
+        local pct_equipoise = 100 * `n_equip' / `n_ps_total'
+
+        * Mean preference score by arm
+        quietly summarize `_pref_score' if `prefix'arm == 1 & !missing(`_pref_score')
+        local mean_pref_treat = r(mean)
+        quietly summarize `_pref_score' if `prefix'arm == 0 & !missing(`_pref_score')
+        local mean_pref_control = r(mean)
+
+        display as text "  Treatment prevalence:     " as result %7.4f `prevalence'
+        display as text "  Mean pref score (treated):" as result %7.4f `mean_pref_treat'
+        display as text "  Mean pref score (control):" as result %7.4f `mean_pref_control'
+        display as text "  % in equipoise [0.3,0.7]: " as result %7.1f `pct_equipoise' as text "%"
+        display as text ""
+
+        if `pct_equipoise' >= 50 {
+            display as result "  Good overlap: majority of observations in equipoise zone"
+        }
+        else {
+            display as text "  Limited overlap: " as result string(100 - `pct_equipoise', "%4.1f") ///
+                as text "% of observations outside equipoise zone"
+        }
+
+        drop `_pref_score'
+
+        return scalar prevalence = `prevalence'
+        return scalar pct_equipoise = `pct_equipoise'
+        return scalar mean_pref_treat = `mean_pref_treat'
+        return scalar mean_pref_control = `mean_pref_control'
     }
 
     display as text ""
