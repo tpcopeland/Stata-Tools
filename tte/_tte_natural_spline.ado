@@ -1,4 +1,4 @@
-*! _tte_natural_spline Version 1.0.2  2026/02/28
+*! _tte_natural_spline Version 1.0.3  2026/03/10
 *! Generate natural spline basis variables
 *! Author: Timothy P Copeland
 *! Author: Tania F Reza
@@ -73,21 +73,20 @@ program define _tte_natural_spline
         local basisvars "`prefix'1"
 
         * Additional basis columns using Harrell restricted cubic spline
-        * formulation. For k knots (t_0, ..., t_{k-1}), the nonlinear
+        * formulation. For K knots (t_0, ..., t_{K-1}), the nonlinear
         * basis functions are:
-        *   h_j(x) = d_j(x) - d_{k-2}(x)   for j = 1, ..., k-3
+        *   h_j(x) = d_j(x) - d_{K-2}(x)   for j = 0, ..., K-3
         * where:
-        *   d_j(x) = ((x - t_j)_+^3 - (x - t_{k-1})_+^3) / (t_{k-1} - t_j)
+        *   d_j(x) = ((x - t_j)_+^3 - (x - t_{K-1})_+^3) / (t_{K-1} - t_j)
         *
-        * Here k = n_knots = df+1, so:
-        *   boundary knots: knot0 (t_0) and knot`df' (t_{k-1})
-        *   last internal knot: knot`n_internal' (t_{k-2})
-        *   loop j = 1, ..., n_internal-1 (= k-3 nonlinear bases)
+        * Here K = n_knots = df+1, so:
+        *   boundary knots: knot0 (t_0) and knot`df' (t_{K-1})
+        *   penultimate knot: knot`n_internal' (t_{K-2})
+        *   loop j = 0, ..., n_internal-1 (= K-2 nonlinear bases)
         *   Plus the linear basis = df total basis functions.
         *
-        * For df=2: 1 internal knot, 0 nonlinear bases → just linear + 1 from
-        *   the single internal knot using the simpler formula below
-        * For df>=3: n_internal-1 nonlinear bases via Harrell formula
+        * For df=2: 1 internal knot, 1 nonlinear basis via simpler formula
+        * For df>=3: n_internal nonlinear bases via Harrell formula
 
         local t_last = `knot`df''
         local t_pen  = `knot`n_internal''
@@ -104,10 +103,10 @@ program define _tte_natural_spline
         }
         else {
             * df>=3: Harrell RCS formula
-            * h_j(x) = d_j(x) - d_{n_internal}(x)
-            local n_nonlinear = `n_internal' - 1
-            forvalues j = 1/`n_nonlinear' {
-                local jj = `j' + 1
+            * h_j(x) = d_j(x) - d_pen(x) for j = 0, ..., n_internal-1
+            local n_nonlinear = `n_internal'
+            forvalues j = 0/`=`n_nonlinear' - 1' {
+                local jj = `j' + 2
                 * d_j(x) = ((x-knot_j)_+^3 - (x-t_last)_+^3) / (t_last-knot_j)
                 * d_pen(x) = ((x-t_pen)_+^3 - (x-t_last)_+^3) / (t_last-t_pen)
                 * h_j(x) = d_j(x) - d_pen(x)

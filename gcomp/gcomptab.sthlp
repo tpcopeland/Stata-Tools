@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.3.0  01mar2026}{...}
+{* *! version 1.3.1  09mar2026}{...}
 {title:gcomptab}
 
 {pstd}Format gcomp mediation analysis results into a polished Excel table.{p_end}
@@ -137,4 +137,4 @@
 {pstd}Department of Clinical Neuroscience{p_end}
 {pstd}Karolinska Institutet{p_end}
 
-{pstd}Version 1.3.0 - 2026-03-01{p_end}
+{pstd}Version 1.3.1 - 2026-03-09{p_end}

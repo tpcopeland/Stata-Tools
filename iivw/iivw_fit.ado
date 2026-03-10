@@ -267,6 +267,7 @@ program define iivw_fit, eclass
     local expanded_indepvars "`indepvars'"
     local cat_vars_created ""
     local expanded_interaction "`interaction'"
+    local all_cat_names ""
 
     if "`categorical'" != "" {
 
@@ -362,6 +363,16 @@ program define iivw_fit, eclass
                 }
             }
 
+            * Check for cross-variable collisions with previously created names
+            if "`cvar_vallbl'" != "" & `collision' == 0 {
+                forvalues i = 1/`n_nonbase' {
+                    local test_name "`prefix'cat_`san_`i''"
+                    foreach prev of local all_cat_names {
+                        if "`test_name'" == "`prev'" local collision = 1
+                    }
+                }
+            }
+
             * Second pass: generate dummies
             local dummy_list ""
             local san_idx = 0
@@ -398,6 +409,7 @@ program define iivw_fit, eclass
                 label variable `vname' `"`vlabel'"'
                 local dummy_list "`dummy_list' `vname'"
                 local cat_vars_created "`cat_vars_created' `vname'"
+                local all_cat_names "`all_cat_names' `vname'"
             }
 
             * Replace original var in expanded_indepvars with dummies
@@ -622,7 +634,7 @@ program define iivw_fit, eclass
         local b_pred = _b[`first_pred']
         local se_pred = _se[`first_pred']
     }
-    if _rc == 0 & `se_pred' > 0 {
+    if _rc == 0 & `se_pred' > 0 & `se_pred' < . {
         local z_pred = `b_pred' / `se_pred'
         local p_pred = 2 * normal(-abs(`z_pred'))
         local ci_lo = `b_pred' - invnormal((100+`level')/200) * `se_pred'

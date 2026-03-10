@@ -118,6 +118,8 @@ program define tvexpose, rclass
     local orig_more = c(more)
     set more off
 
+    capture noisily {
+
     * Load helper libraries for modular architecture
     * - Mata library: O(n log n) overlap detection
     * - Diagnostic library: coverage, gaps, overlaps, summary, validation
@@ -1344,6 +1346,17 @@ program define tvexpose, rclass
         * COMBINE OVERLAPPING: Creates combined exposure category for overlaps
         * Assigns new value to combinations (encodes as val1*100 + val2)
         * Allows analysis of synergistic or interactive effects
+
+        * Validate exposure values won't collide with encoding scheme
+        quietly summarize exp_value
+        if r(max) >= 100 {
+            noisily display as error "combine() cannot be used when exposure values >= 100"
+            noisily display as error "The encoding scheme (val1*100 + val2) produces ambiguous values"
+            noisily display as error "when either value is >= 100. Maximum exposure value: " r(max)
+            noisily display as error "Consider recoding exposure values to smaller integers before using combine()"
+            exit 198
+        }
+
         sort id exp_start exp_stop exp_value
         
         * Detect true overlaps: next period starts before current ends
@@ -3911,7 +3924,7 @@ program define tvexpose, rclass
     drop tag
     
     * Calculate total person-time
-    quietly gen time = stop - start + 1
+    quietly gen double time = stop - start + 1
     quietly sum time
     local total_time = r(sum)
     
@@ -4377,8 +4390,34 @@ program define tvexpose, rclass
     
     * Clean up any remaining temporary variables before final output
     quietly {
-        * Drop any temporary variables with __ prefix that might remain
-        capture drop __*
+        * Drop internal __ prefixed variables, but protect user keepvars
+        * Check if any keepvars start with __ before wildcard drop
+        local safe_to_wildcard = 1
+        if "`keepvars'" != "" {
+            foreach var of local keepvars {
+                if substr("`var'", 1, 2) == "__" {
+                    local safe_to_wildcard = 0
+                }
+            }
+        }
+        if `safe_to_wildcard' {
+            capture drop __*
+        }
+        else {
+            * Selective drop of known internal variables
+            foreach __internal in __orig_exp_binary __orig_exp_category ///
+                __orig_exp_value __exp_now_cont __exp_now_dur __exp_now_rec ///
+                __final_binary __period_id __period_start __same_evers ///
+                __same_cf __same_cumuls __same_durs __same_dur __same_rec ///
+                __same_recencies __same_dose __grp __grp_et __grp_cf ///
+                __new_et __new_cf __unitized __ovl __break ///
+                __first_exp __first_exp_any __first_exp_temp ///
+                __last_exp_temp __last_exp_any __state_change __state_group ///
+                __switched __needs_expansion __needs_split ///
+                __has_conflict __has_next_overlap __still_overlap {
+                capture drop `__internal'
+            }
+        }
 
         * Drop other internal processing variables that shouldn't be in output
         capture drop has_overlap exp_combined
@@ -4568,8 +4607,15 @@ program define tvexpose, rclass
 
     * Note: overlap_ids already available via return local, no global needed
 
+    } // end capture noisily
+    local rc = _rc
+
     set more `orig_more'
     set varabbrev `orig_varabbrev'
+
+    if `rc' {
+        exit `rc'
+    }
 
 end
 *

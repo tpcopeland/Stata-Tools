@@ -1,4 +1,4 @@
-*! tte_weight Version 1.0.2  2026/02/28
+*! tte_weight Version 1.0.3  2026/03/10
 *! Inverse probability weights for target trial emulation
 *! Author: Timothy P Copeland
 *! Author: Tania F Reza
@@ -43,7 +43,7 @@ program define tte_weight, rclass
     syntax , [SWITCH_d_cov(varlist numeric) SWITCH_n_cov(varlist numeric) ///
         CENsor_d_cov(varlist numeric) CENsor_n_cov(varlist numeric) ///
         POOL_switch POOL_censor ///
-        TRUNCate(numlist min=2 max=2) STABilized ///
+        TRUNCate(numlist min=2 max=2) ///
         GENerate(name) REPLACE noLOG]
 
     * =========================================================================
@@ -65,7 +65,6 @@ program define tte_weight, rclass
     * =========================================================================
 
     if "`generate'" == "" local generate "`prefix'weight"
-    if "`stabilized'" == "" local stabilized "stabilized"
 
     * For ITT, weights are not needed (all weights = 1)
     if "`estimand'" == "ITT" {
@@ -133,7 +132,6 @@ program define tte_weight, rclass
     if "`censor_d_cov'" != "" {
         display as text "Censor denom:     " as result "`censor_d_cov'"
     }
-    display as text "Stabilized:       " as result "Yes"
     if "`truncate'" != "" {
         display as text "Truncation:       " as result "`trunc_lo'th - `trunc_hi'th percentile"
     }
@@ -343,7 +341,7 @@ program define _tte_weight_switch_arm
 
         * Skip first follow-up period (no prior treatment to condition on)
         * Denominator model: P(A_t | A_{t-1}, L)
-        capture `log_opt' logit `treatment' `_lag_treat' `d_cov' `followup' if `_in_arm' & !missing(`_lag_treat')
+        capture logit `treatment' `_lag_treat' `d_cov' `followup' if `_in_arm' & !missing(`_lag_treat'), `log_opt'
         if _rc != 0 {
             * Model failed - set weights to 1
             gen double `_denom_pr' = 0.5 if `_in_arm'
@@ -354,10 +352,10 @@ program define _tte_weight_switch_arm
 
         * Numerator model: P(A_t | A_{t-1}) or P(A_t | A_{t-1}, baseline)
         if "`n_cov'" != "" {
-            capture `log_opt' logit `treatment' `_lag_treat' `n_cov' if `_in_arm' & !missing(`_lag_treat')
+            capture logit `treatment' `_lag_treat' `n_cov' if `_in_arm' & !missing(`_lag_treat'), `log_opt'
         }
         else {
-            capture `log_opt' logit `treatment' `_lag_treat' if `_in_arm' & !missing(`_lag_treat')
+            capture logit `treatment' `_lag_treat' if `_in_arm' & !missing(`_lag_treat'), `log_opt'
         }
         if _rc != 0 {
             gen double `_numer_pr' = 0.5 if `_in_arm'
@@ -386,18 +384,23 @@ program define _tte_weight_switch_arm
 
         * Cumulative product within person-trial
         * Use log-sum approach to avoid numerical issues
-        * Only set log=0 for first follow-up (no prior treatment); let
-        * truly missing predictions propagate as missing weights
-        tempvar _log_sw _cum_log_sw
+        * Only set log=0 for first follow-up (no prior treatment)
+        tempvar _log_sw _cum_log_sw _any_miss_sw
         gen double `_log_sw' = ln(`_sw_t') if `_in_arm' & !missing(`_sw_t') & `_sw_t' > 0
         replace `_log_sw' = 0 if missing(`_log_sw') & `_in_arm' & missing(`_lag_treat')
 
         bysort `id' `trial' `arm_var' (`followup'): gen double `_cum_log_sw' = sum(`_log_sw') if `_in_arm'
 
+        * Propagate missing: if any non-first-period log_sw is missing,
+        * the cumulative weight is undefined — set to missing
+        bysort `id' `trial' `arm_var' (`followup'): gen byte `_any_miss_sw' = ///
+            sum(missing(`_log_sw') & !missing(`_lag_treat')) if `_in_arm'
+        replace `_cum_log_sw' = . if `_any_miss_sw' > 0 & `_in_arm'
+
         * Update weight
         replace `weight' = `weight' * exp(`_cum_log_sw') if `_in_arm' & !missing(`_cum_log_sw')
 
-        drop `_in_arm' `_lag_treat' `_denom_pr' `_numer_pr' `_sw_t' `_log_sw' `_cum_log_sw'
+        drop `_in_arm' `_lag_treat' `_denom_pr' `_numer_pr' `_sw_t' `_log_sw' `_cum_log_sw' `_any_miss_sw'
     }
 end
 
@@ -425,7 +428,7 @@ program define _tte_weight_switch_pooled
         bysort `id' `trial' `arm' (`followup'): gen byte `_lag_treat' = `treatment'[_n-1]
 
         * Denominator: P(A_t | A_{t-1}, L, arm)
-        capture `log_opt' logit `treatment' `_lag_treat' `arm' `d_cov' `followup' if !missing(`_lag_treat')
+        capture logit `treatment' `_lag_treat' `arm' `d_cov' `followup' if !missing(`_lag_treat'), `log_opt'
         if _rc != 0 {
             gen double `_denom_pr' = 0.5
         }
@@ -435,10 +438,10 @@ program define _tte_weight_switch_pooled
 
         * Numerator: P(A_t | A_{t-1}, arm)
         if "`n_cov'" != "" {
-            capture `log_opt' logit `treatment' `_lag_treat' `arm' `n_cov' if !missing(`_lag_treat')
+            capture logit `treatment' `_lag_treat' `arm' `n_cov' if !missing(`_lag_treat'), `log_opt'
         }
         else {
-            capture `log_opt' logit `treatment' `_lag_treat' `arm' if !missing(`_lag_treat')
+            capture logit `treatment' `_lag_treat' `arm' if !missing(`_lag_treat'), `log_opt'
         }
         if _rc != 0 {
             gen double `_numer_pr' = 0.5
@@ -460,14 +463,20 @@ program define _tte_weight_switch_pooled
                 " obs have missing switch weight covariates (pooled model)"
         }
 
-        tempvar _log_sw _cum_log_sw
+        tempvar _log_sw _cum_log_sw _any_miss_sw
         gen double `_log_sw' = ln(`_sw_t') if !missing(`_sw_t') & `_sw_t' > 0
         replace `_log_sw' = 0 if missing(`_log_sw') & missing(`_lag_treat')
 
         bysort `id' `trial' `arm' (`followup'): gen double `_cum_log_sw' = sum(`_log_sw')
+
+        * Propagate missing weights
+        bysort `id' `trial' `arm' (`followup'): gen byte `_any_miss_sw' = ///
+            sum(missing(`_log_sw') & !missing(`_lag_treat'))
+        replace `_cum_log_sw' = . if `_any_miss_sw' > 0
+
         replace `weight' = `weight' * exp(`_cum_log_sw') if !missing(`_cum_log_sw')
 
-        drop `_lag_treat' `_denom_pr' `_numer_pr' `_sw_t' `_log_sw' `_cum_log_sw'
+        drop `_lag_treat' `_denom_pr' `_numer_pr' `_sw_t' `_log_sw' `_cum_log_sw' `_any_miss_sw'
     }
 end
 
@@ -493,7 +502,7 @@ program define _tte_weight_censor_arm
         gen byte `_in_arm' = (`arm_var' == `arm_val')
 
         * Denominator: P(C_t=0 | L)
-        capture `log_opt' logit `censor' `d_cov' `followup' if `_in_arm'
+        capture logit `censor' `d_cov' `followup' if `_in_arm', `log_opt'
         if _rc != 0 {
             gen double `_denom_pr' = 0.05 if `_in_arm'
         }
@@ -503,10 +512,10 @@ program define _tte_weight_censor_arm
 
         * Numerator
         if "`n_cov'" != "" {
-            capture `log_opt' logit `censor' `n_cov' if `_in_arm'
+            capture logit `censor' `n_cov' if `_in_arm', `log_opt'
         }
         else {
-            capture `log_opt' logit `censor' if `_in_arm'
+            capture logit `censor' if `_in_arm', `log_opt'
         }
         if _rc != 0 {
             gen double `_numer_pr' = 0.05 if `_in_arm'
@@ -527,14 +536,19 @@ program define _tte_weight_censor_arm
         * Only default to 1 when denom_pr >= 0.999 (near-certain censoring)
         replace `_cw_t' = 1 if `_in_arm' & `_denom_pr' >= 0.999 & !missing(`_denom_pr')
 
-        tempvar _log_cw _cum_log_cw
+        tempvar _log_cw _cum_log_cw _any_miss_cw
         gen double `_log_cw' = ln(`_cw_t') if `_in_arm' & !missing(`_cw_t')
         replace `_log_cw' = 0 if missing(`_log_cw') & `_in_arm' & missing(`_denom_pr')
         bysort `id' `trial' `arm_var' (`followup'): gen double `_cum_log_cw' = sum(`_log_cw') if `_in_arm'
 
+        * Propagate missing censor weights
+        bysort `id' `trial' `arm_var' (`followup'): gen byte `_any_miss_cw' = ///
+            sum(missing(`_log_cw') & !missing(`_denom_pr')) if `_in_arm'
+        replace `_cum_log_cw' = . if `_any_miss_cw' > 0 & `_in_arm'
+
         replace `weight' = `weight' * exp(`_cum_log_cw') if `_in_arm' & !missing(`_cum_log_cw')
 
-        drop `_in_arm' `_denom_pr' `_numer_pr' `_cw_t' `_log_cw' `_cum_log_cw'
+        drop `_in_arm' `_denom_pr' `_numer_pr' `_cw_t' `_log_cw' `_cum_log_cw' `_any_miss_cw'
     }
 end
 
@@ -557,7 +571,7 @@ program define _tte_weight_censor_pooled
     quietly {
         tempvar _denom_pr _numer_pr _cw_t
 
-        capture `log_opt' logit `censor' `arm' `d_cov' `followup'
+        capture logit `censor' `arm' `d_cov' `followup', `log_opt'
         if _rc != 0 {
             gen double `_denom_pr' = 0.05
         }
@@ -566,10 +580,10 @@ program define _tte_weight_censor_pooled
         }
 
         if "`n_cov'" != "" {
-            capture `log_opt' logit `censor' `arm' `n_cov'
+            capture logit `censor' `arm' `n_cov', `log_opt'
         }
         else {
-            capture `log_opt' logit `censor' `arm'
+            capture logit `censor' `arm', `log_opt'
         }
         if _rc != 0 {
             gen double `_numer_pr' = 0.05
@@ -589,13 +603,18 @@ program define _tte_weight_censor_pooled
         * Only default to 1 when denom_pr >= 0.999 (near-certain censoring)
         replace `_cw_t' = 1 if `_denom_pr' >= 0.999 & !missing(`_denom_pr')
 
-        tempvar _log_cw _cum_log_cw
+        tempvar _log_cw _cum_log_cw _any_miss_cw
         gen double `_log_cw' = ln(`_cw_t') if !missing(`_cw_t')
         replace `_log_cw' = 0 if missing(`_log_cw') & missing(`_denom_pr')
         bysort `id' `trial' `arm' (`followup'): gen double `_cum_log_cw' = sum(`_log_cw')
 
+        * Propagate missing censor weights
+        bysort `id' `trial' `arm' (`followup'): gen byte `_any_miss_cw' = ///
+            sum(missing(`_log_cw') & !missing(`_denom_pr'))
+        replace `_cum_log_cw' = . if `_any_miss_cw' > 0
+
         replace `weight' = `weight' * exp(`_cum_log_cw') if !missing(`_cum_log_cw')
 
-        drop `_denom_pr' `_numer_pr' `_cw_t' `_log_cw' `_cum_log_cw'
+        drop `_denom_pr' `_numer_pr' `_cw_t' `_log_cw' `_cum_log_cw' `_any_miss_cw'
     }
 end

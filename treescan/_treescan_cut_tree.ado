@@ -144,9 +144,9 @@ program define _treescan_cut_tree, nclass
             }
 
             if `iter' > 20 {
-                noisily display as text ///
-                    "Warning: tree depth exceeds 20 levels; stopping expansion"
-                local done = 1
+                noisily display as error ///
+                    "tree depth exceeds 20 levels; check tree structure"
+                exit 198
             }
         }
 

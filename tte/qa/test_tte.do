@@ -298,7 +298,7 @@ capture noisily {
     tte_expand, maxfollowup(5) grace(1)
 
     tte_weight, switch_d_cov(age sex comorbidity) ///
-        stabilized truncate(1 99) nolog
+        truncate(1 99) nolog
 
     * Check weight variable created
     confirm variable _tte_weight

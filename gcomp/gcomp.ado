@@ -3082,7 +3082,7 @@ if `_gc_chk_prt'==0 {
     local nump=`oldN'
 	capture qui set obs `newN'
 	if _rc!=0 {
-		noi di as err "Insufficient memory. Increase using -set memory-."
+		noi di as err "Insufficient memory to create simulation dataset."
 		exit 198
 	}
 	*idvar and tvar

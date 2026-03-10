@@ -7,7 +7,7 @@ d intention-to-treat, and as-treated effects from observational data.
 d
 d Requires: Stata version 16+
 d
-d Distribution-Date: 20260309
+d Distribution-Date: 20260310
 d License: MIT
 d
 d Author: Timothy P. Copeland
@@ -51,8 +51,6 @@ f _tte_check_expanded.ado
 f _tte_check_weighted.ado
 f _tte_check_fitted.ado
 f _tte_get_settings.ado
-f _tte_memory_estimate.ado
-f _tte_display_header.ado
 f _tte_natural_spline.ado
 f _tte_col_letter.ado
 f tte_example.dta

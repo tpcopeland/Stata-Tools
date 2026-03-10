@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.2  28feb2026}{...}
+{* *! version 1.0.3  10mar2026}{...}
 {viewerjumpto "Syntax" "tte_predict##syntax"}{...}
 {viewerjumpto "Description" "tte_predict##description"}{...}
 {viewerjumpto "Options" "tte_predict##options"}{...}
@@ -86,6 +86,17 @@ model. For each draw, the full prediction is recomputed. Pointwise
 percentile CIs are taken at (alpha/2, 1-alpha/2) across the MC samples.
 This is a parametric bootstrap on the coefficient uncertainty and does
 not account for uncertainty in the IP weights.
+
+
+{dlgtab:Covariate limitations}
+
+{pstd}
+Marginal predictions require that the linear predictor can be reconstructed
+from the stored coefficients. Factor variable notation ({cmd:i.sex}) and
+interaction operators ({cmd:c.age#c.age}) used in {cmd:tte_fit} will produce
+incorrect predictions because {cmd:tte_predict} rebuilds Xb manually.
+Create dummy variables before calling {cmd:tte_fit} if categorical or
+interaction terms are needed.
 
 
 {marker results}{...}

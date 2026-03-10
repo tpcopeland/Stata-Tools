@@ -1,4 +1,4 @@
-*! tte_report Version 1.0.3  2026/03/01
+*! tte_report Version 1.0.4  2026/03/10
 *! Publication-quality results tables for target trial emulation
 *! Author: Timothy P Copeland
 *! Author: Tania F Reza
@@ -135,6 +135,16 @@ program define tte_report, rclass
     * =========================================================================
     * TABLE 3: Outcome Model (if fitted)
     * =========================================================================
+
+    if "`fitted'" == "1" {
+        * Verify e() results are from tte_fit
+        if "`e(tte_cmd)'" != "tte_fit" {
+            display as text ""
+            display as text "{bf:Warning:} e() results are not from tte_fit."
+            display as text "Re-run {cmd:tte_fit} before {cmd:tte_report} for coefficient table."
+            local fitted ""
+        }
+    }
 
     if "`fitted'" == "1" {
         display as text ""

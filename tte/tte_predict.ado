@@ -1,4 +1,4 @@
-*! tte_predict Version 1.0.2  2026/02/28
+*! tte_predict Version 1.0.3  2026/03/10
 *! Marginal predictions with confidence intervals for target trial emulation
 *! Author: Timothy P Copeland
 *! Author: Tania F Reza
@@ -646,9 +646,9 @@ program define _tte_predict_xb
             }
             else {
                 * df>=3: Harrell RCS nonlinear bases
-                local _n_nonlin = `_n_int' - 1
-                forvalues j = 1/`_n_nonlin' {
-                    local jj = `j' + 1
+                local _n_nonlin = `_n_int'
+                forvalues j = 0/`=`_n_nonlin' - 1' {
+                    local jj = `j' + 2
                     local _d_j = (max(0, `time' - `_fk`j'')^3 - ///
                         max(0, `time' - `_t_last')^3) / ///
                         (`_t_last' - `_fk`j'')

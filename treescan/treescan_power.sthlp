@@ -178,6 +178,16 @@ For large trees, this can take substantial time. Start with small values
 (e.g., {cmd:nsim(99) nsimpower(100)}) to get a rough estimate, then increase
 for publication.
 
+{pstd}
+{bf:Limitations}
+
+{pstd}
+{cmd:treescan_power} does not support temporal scan windows ({opt eventdate()},
+{opt expdate()}, {opt window()}). Power evaluation is performed on the full
+dataset without temporal filtering. To approximate power with temporal
+restrictions, subset your data to the relevant time window before calling
+{cmd:treescan_power}.
+
 
 {marker examples}{...}
 {title:Examples}

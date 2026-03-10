@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.2  28feb2026}{...}
+{* *! version 1.0.3  10mar2026}{...}
 {viewerjumpto "Syntax" "tte_weight##syntax"}{...}
 {viewerjumpto "Description" "tte_weight##description"}{...}
 {viewerjumpto "Options" "tte_weight##options"}{...}
@@ -38,7 +38,6 @@
 
 {syntab:Options}
 {synopt:{opth trunc:ate(numlist)}}truncate at percentiles (e.g., {cmd:truncate(1 99)}){p_end}
-{synopt:{opt stab:ilized}}use stabilized weights (default){p_end}
 {synopt:{opth gen:erate(name)}}weight variable name; default is {cmd:_tte_weight}{p_end}
 {synopt:{opt replace}}replace existing weight variable{p_end}
 {synopt:{opt nolog}}suppress model iteration log{p_end}
@@ -61,8 +60,8 @@ For ITT analyses, all weights are set to 1 (no artificial censoring occurs).
 {marker examples}{...}
 {title:Examples}
 
-{pstd}Basic stabilized weights with truncation{p_end}
-{phang2}{cmd:. tte_weight, switch_d_cov(age sex comorbidity biomarker) stabilized truncate(1 99) nolog}{p_end}
+{pstd}Stabilized weights with truncation{p_end}
+{phang2}{cmd:. tte_weight, switch_d_cov(age sex comorbidity biomarker) truncate(1 99) nolog}{p_end}
 
 {pstd}With censoring weights{p_end}
 {phang2}{cmd:. tte_weight, switch_d_cov(age sex comorbidity) censor_d_cov(age sex) truncate(1 99) nolog}{p_end}
@@ -111,6 +110,18 @@ correctly specified (Hernán & Robins, 2020, Technical Point 12.2).
 If time-varying covariates are needed in the weight model, users must
 construct them manually before calling {cmd:tte_weight} (e.g., by merging
 from the original data using {cmd:id}, {cmd:period}).
+
+{dlgtab:Model failure fallbacks}
+
+{pstd}
+If a weight model fails to converge (e.g., due to separation or
+insufficient variation), {cmd:tte_weight} falls back to default
+probabilities: 0.5 for treatment switch models and 0.05 for
+censoring models. These defaults produce neutral weight contributions
+(approximately 1.0) for the affected periods. A warning is displayed
+when predictions are missing due to covariate issues, but model
+convergence failures are silent. Inspect weight distributions
+({cmd:tte_diagnose}) to detect potential model failures.
 
 {dlgtab:Truncation}
 

@@ -1,4 +1,4 @@
-*! tte_fit Version 1.0.3  2026/03/09
+*! tte_fit Version 1.0.4  2026/03/10
 *! Outcome model fitting for target trial emulation
 *! Author: Timothy P Copeland
 *! Author: Tania F Reza
@@ -277,20 +277,22 @@ program define tte_fit, eclass
         * Keep trial period terms (including NS) as covariates
         local cox_covars "`model_var'"
         if "`trial_period_spec'" != "none" {
-            local cox_covars "`cox_covars' `trial_var'"
-            if inlist("`trial_period_spec'", "quadratic", "cubic") {
-                local cox_covars "`cox_covars' `prefix'trial_sq"
-            }
-            if "`trial_period_spec'" == "cubic" {
-                local cox_covars "`cox_covars' `prefix'trial_cu"
-            }
             if regexm("`trial_period_spec'", "^ns\(([0-9]+)\)$") {
-                * Include trial period NS basis variables
-                local _tr_ns_df : char _dta[_tte_tr_ns_df]
-                if "`_tr_ns_df'" != "" {
-                    forvalues _j = 1/`_tr_ns_df' {
+                * NS: use spline basis (includes linear), skip trial_var
+                * to avoid collinearity (mirrors logistic fix at line 185)
+                if "`tr_ns_df'" != "" {
+                    forvalues _j = 1/`tr_ns_df' {
                         local cox_covars "`cox_covars' `prefix'tr_ns`_j'"
                     }
+                }
+            }
+            else {
+                local cox_covars "`cox_covars' `trial_var'"
+                if inlist("`trial_period_spec'", "quadratic", "cubic") {
+                    local cox_covars "`cox_covars' `prefix'trial_sq"
+                }
+                if "`trial_period_spec'" == "cubic" {
+                    local cox_covars "`cox_covars' `prefix'trial_cu"
                 }
             }
         }

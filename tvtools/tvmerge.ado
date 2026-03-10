@@ -60,11 +60,14 @@ program define tvmerge, rclass
 
     version 16.0
     local _orig_varabbrev = c(varabbrev)
+    local _orig_more = c(more)
     set varabbrev off
     set more off
 
+    capture noisily {
+
     **# SYNTAX DECLARATION
-    
+
     syntax anything(name=datasets), ///
         id(name) ///
         STart(namelist) STOP(namelist) EXPosure(namelist) ///
@@ -450,6 +453,22 @@ program define tvmerge, rclass
         rename `start1' `startname'
         rename `stop1' `stopname'
         
+        * Check for datetime formats (%tc, %tC) - these will silently corrupt results
+        local _start_fmt : format `startname'
+        local _stop_fmt : format `stopname'
+        if substr("`_start_fmt'", 1, 3) == "%tc" | substr("`_start_fmt'", 1, 3) == "%tC" {
+            noisily display as error "CRITICAL ERROR: Start variable `start1' is a datetime (%tc/%tC format)."
+            noisily display as error "tvmerge requires daily dates (integer days). Datetimes are milliseconds"
+            noisily display as error "and will break all interval logic. Convert using: gen date_var = dofc(`start1')"
+            exit 198
+        }
+        if substr("`_stop_fmt'", 1, 3) == "%tc" | substr("`_stop_fmt'", 1, 3) == "%tC" {
+            noisily display as error "CRITICAL ERROR: Stop variable `stop1' is a datetime (%tc/%tC format)."
+            noisily display as error "tvmerge requires daily dates (integer days). Datetimes are milliseconds"
+            noisily display as error "and will break all interval logic. Convert using: gen date_var = dofc(`stop1')"
+            exit 198
+        }
+
         * Floor start dates and ceil stop dates to handle fractional date values
         replace `startname' = floor(`startname')
         replace `stopname' = ceil(`stopname')
@@ -624,6 +643,20 @@ program define tvmerge, rclass
             rename `id' id
             rename `start_k_varname' start_k
             rename `stop_k_varname' stop_k
+
+            * Check for datetime formats (%tc, %tC)
+            local _start_k_fmt : format start_k
+            local _stop_k_fmt : format stop_k
+            if substr("`_start_k_fmt'", 1, 3) == "%tc" | substr("`_start_k_fmt'", 1, 3) == "%tC" {
+                noisily display as error "CRITICAL ERROR: Start variable `start_k_varname' in dataset `k' is a datetime (%tc/%tC format)."
+                noisily display as error "tvmerge requires daily dates. Convert using: gen date_var = dofc(`start_k_varname')"
+                exit 198
+            }
+            if substr("`_stop_k_fmt'", 1, 3) == "%tc" | substr("`_stop_k_fmt'", 1, 3) == "%tC" {
+                noisily display as error "CRITICAL ERROR: Stop variable `stop_k_varname' in dataset `k' is a datetime (%tc/%tC format)."
+                noisily display as error "tvmerge requires daily dates. Convert using: gen date_var = dofc(`stop_k_varname')"
+                exit 198
+            }
 
             * Floor start dates and ceil stop dates to handle fractional date values
             replace start_k = floor(start_k)
@@ -1325,6 +1358,14 @@ program define tvmerge, rclass
     di as txt "    Exposure variables: " as result "`exp_vars'"
     noisily display as text "{hline 50}"
 
+    } // end capture noisily
+    local rc = _rc
+
     set varabbrev `_orig_varabbrev'
+    set more `_orig_more'
+
+    if `rc' {
+        exit `rc'
+    }
 
 end

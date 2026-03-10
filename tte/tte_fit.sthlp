@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.3  09mar2026}{...}
+{* *! version 1.0.4  10mar2026}{...}
 {viewerjumpto "Syntax" "tte_fit##syntax"}{...}
 {viewerjumpto "Description" "tte_fit##description"}{...}
 {viewerjumpto "Options" "tte_fit##options"}{...}
@@ -105,6 +105,15 @@ quantiles. The two formulations span the same function space but use
 different basis representations, so individual coefficients are not
 directly comparable. Marginal predictions (from {cmd:tte_predict}) are
 comparable.
+
+{dlgtab:Covariate limitations}
+
+{pstd}
+Variables in {opt outcome_cov()} must be simple numeric variables.
+Factor variable notation ({cmd:i.sex}) and interaction operators
+({cmd:c.age#c.age}) are not supported and will produce incorrect
+marginal predictions from {cmd:tte_predict}. If you need categorical
+indicators, create dummy variables manually before calling {cmd:tte_fit}.
 
 {dlgtab:Covariate handling}
 

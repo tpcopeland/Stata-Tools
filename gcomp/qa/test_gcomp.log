@@ -22,7 +22,7 @@ Notes:
       4. Maximum number of variables is set to 5,000 but can be increased;
           see help set_maxvar.
 
-. do "test_gcomp.do" 
+. do test_gcomp.do 
 
 . * test_gcomp.do - Phase 1 verification tests for gcomp refactoring
 . * Tests: load, basic mediation, bug regressions, no globals
@@ -35,7 +35,7 @@ Notes:
 . 
 . capture log close _all
 
-. log using "../../_devkit/_testing/test_gcomp.log", replace name(gftest)
+. log using "../../_devkit/_testing/test_gcomp.log", replace nomsg name(gftest)
 (file
     /home/tpcopeland/Stata-Tools/gcomp/qa/../../_devkit/_testing/test_gcomp.l
     > og not found)

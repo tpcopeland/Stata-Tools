@@ -1,4 +1,4 @@
-*! tte_validate Version 1.0.1  2026/02/27
+*! tte_validate Version 1.0.2  2026/03/10
 *! Data quality checks for target trial emulation
 *! Author: Timothy P Copeland
 *! Author: Tania F Reza
@@ -91,7 +91,7 @@ program define tte_validate, rclass
         }
         if "`verbose'" != "" {
             tempvar _gaptag
-            quietly bysort `id': gen byte `_gaptag' = (_gap == 1)
+            quietly bysort `id': gen byte `_gaptag' = (`_gap' == 1)
             quietly count if `_gaptag'
             display as text "    Individuals with gaps: " r(N)
             drop `_gaptag'

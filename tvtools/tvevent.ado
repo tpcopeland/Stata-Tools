@@ -38,8 +38,11 @@ Description:
 program define tvevent, rclass
     version 16.0
     local orig_varabbrev = c(varabbrev)
+    local orig_more = c(more)
     set varabbrev off
     set more off
+
+    capture noisily {
 
     syntax using/ , ///
         id(varname) ///
@@ -548,7 +551,7 @@ program define tvevent, rclass
         * intervals data is still in memory
 
         * Use regular variable names (not tempvars) for values that must persist across file saves
-        gen double _orig_dur = `stopvar' - `startvar'
+        gen double _orig_dur = `stopvar' - `startvar' + 1
         gen long _orig_interval_id = _n
         if `n_splits' > 0 {
             noisily di as txt "Splitting intervals for `n_splits' internal events..."
@@ -596,7 +599,7 @@ program define tvevent, rclass
             * Go back to get one row per original interval with all its data
             use `intervals', clear
             gen long _orig_interval_id = _n
-            gen double _orig_dur = `stopvar' - `startvar'
+            gen double _orig_dur = `stopvar' - `startvar' + 1
 
             * Merge in split dates
             merge 1:1 _orig_interval_id using `split_dates', keep(match) nogen
@@ -641,8 +644,8 @@ program define tvevent, rclass
                 if _rc == 0 {
                     * Segment i ends at split point i (if it exists)
                     replace `new_stop' = `date'`i' if _seg_num == `i' & !missing(`date'`i')
-                    * Segment i+1 starts at split point i (if segment i+1 exists)
-                    replace `new_start' = `date'`i' if _seg_num == `i' + 1 & !missing(`date'`i')
+                    * Segment i+1 starts day after split point i (if segment i+1 exists)
+                    replace `new_start' = `date'`i' + 1 if _seg_num == `i' + 1 & !missing(`date'`i')
                 }
             }
 
@@ -668,7 +671,7 @@ program define tvevent, rclass
         * Adjust Continuous Variables
         if "`continuous'" != "" {
             tempvar new_dur ratio
-            gen double `new_dur' = `stopvar' - `startvar'
+            gen double `new_dur' = `stopvar' - `startvar' + 1
             gen double `ratio' = cond(_orig_dur == 0 | `new_dur' == 0, 1, `new_dur' / _orig_dur)
             foreach v of local continuous {
                 replace `v' = `v' * `ratio'
@@ -728,7 +731,7 @@ program define tvevent, rclass
             exit `frame_rc'
         }
 
-        drop `match_date' `imported_type' `event_frame'
+        drop `match_date' `imported_type'
 
         * Merge person-level covariates by id (not tied to event date)
         if "`keepvars'" != "" {
@@ -838,7 +841,15 @@ program define tvevent, rclass
     }
     di as txt "{hline 50}"
 
+    } // end capture noisily
+    local rc = _rc
+
     set varabbrev `orig_varabbrev'
+    set more `orig_more'
+
+    if `rc' {
+        exit `rc'
+    }
 
 end
 

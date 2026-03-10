@@ -370,24 +370,38 @@ program define iivw_weight, rclass
             bysort `id' (`time'): gen byte `_first_obs' = (_n == 1)
         }
 
-        preserve
-        quietly keep if `_first_obs'
-        logit `treat' `treat_covars', `log_opt'
-        restore
+        capture noisily {
+            preserve
+            quietly keep if `_first_obs'
+            logit `treat' `treat_covars', `log_opt'
+            restore
 
-        quietly {
-            tempvar _ps
-            predict double `_ps', pr
+            quietly {
+                tempvar _ps
+                predict double `_ps', pr
 
-            * Stabilized IPTW: use cross-sectional prevalence
-            summarize `treat' if `_first_obs'
-            local p_treat = r(mean)
+                * Stabilized IPTW: use cross-sectional prevalence
+                summarize `treat' if `_first_obs'
+                local p_treat = r(mean)
 
-            gen double `prefix'tw = cond(`treat' == 1, ///
-                `p_treat' / `_ps', (1 - `p_treat') / (1 - `_ps'))
+                gen double `prefix'tw = cond(`treat' == 1, ///
+                    `p_treat' / `_ps', (1 - `p_treat') / (1 - `_ps'))
 
-            drop `_ps'
-            label variable `prefix'tw "Inverse probability of treatment weight"
+                drop `_ps'
+                label variable `prefix'tw "Inverse probability of treatment weight"
+            }
+        }
+        if _rc != 0 {
+            local iptw_rc = _rc
+            * Clean up IIW variables if they were created before IPTW failed
+            if inlist("`wtype'", "fiptiw") {
+                capture drop `prefix'iw
+            }
+            foreach v of local lag_created {
+                capture drop `v'
+            }
+            display as error "treatment model failed; no weights created"
+            exit `iptw_rc'
         }
     }
 

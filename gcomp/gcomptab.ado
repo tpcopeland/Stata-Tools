@@ -1,4 +1,4 @@
-*! gcomptab Version 1.3.0  01mar2026
+*! gcomptab Version 1.3.1  09mar2026
 *! Format gcomp mediation analysis results for Excel export
 *! Author: Timothy P Copeland
 *! Program class: rclass (returns results in r())
@@ -138,6 +138,14 @@ quietly {
 	* =========================================================================
 
 	* Extract point estimates from e(b) using named column lookups
+	* Guard: verify expected columns exist
+	foreach _col in tce nde nie pm {
+		if colnumb(`_eb', "`_col'") == . {
+			noisily display as error "e(b) matrix missing expected column '`_col''"
+			noisily display as error "gcomp results may be from an incompatible version"
+			exit 198
+		}
+	}
 	local tce = `_eb'[1, colnumb(`_eb', "tce")]
 	local nde = `_eb'[1, colnumb(`_eb', "nde")]
 	local nie = `_eb'[1, colnumb(`_eb', "nie")]
@@ -239,7 +247,7 @@ quietly {
 	gen str20 se = ""
 
 	* Row 1: Title
-	replace title_col = "`title'" in 1
+	replace title_col = `"`title'"' in 1
 
 	* Row 2: Headers
 	replace effect_label = "Effect" in 2
@@ -368,6 +376,7 @@ quietly {
 	}
 	if _rc {
 		local saved_rc = _rc
+		capture putexcel clear
 		noisily display as error "Excel cell formatting failed with error `saved_rc'"
 		exit `saved_rc'
 	}
@@ -401,7 +410,8 @@ program _gcomptab_validate_path
 	args filepath option_name
 
 	* Check for shell metacharacters and command injection vectors
-	if regexm("`filepath'", "[;&|><\$\`]") {
+	* Note: & is allowed (common in sheet names like "NDE & NIE")
+	if regexm("`filepath'", "[;|><\$\`]") {
 		display as error "`option_name' contains invalid characters"
 		exit 198
 	}
