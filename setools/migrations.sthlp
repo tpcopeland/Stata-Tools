@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.7  10mar2026}{...}
+{* *! version 1.0.8  11mar2026}{...}
 {vieweralsosee "[ST] stset" "help stset"}{...}
 {vieweralsosee "sustainedss" "help sustainedss"}{...}
 {viewerjumpto "Syntax" "migrations##syntax"}{...}
@@ -69,9 +69,10 @@ person was abroad at their study start date but later re-entered Sweden).{p_end}
 {pstd}
 {bf:Censoring logic:}
 
-{phang2}For individuals not excluded, the command identifies the first emigration date occurring 
-after study start as the {it:migration_out_dt} variable, which represents when the person 
-left Sweden and should be censored from follow-up.{p_end}
+{phang2}For individuals not excluded, the command identifies the first {it:permanent} emigration date
+occurring after study start as the {it:migration_out_dt} variable, which represents when the
+person left Sweden and should be censored from follow-up. Temporary emigrations (where the
+person subsequently returned to Sweden) are ignored for censoring purposes.{p_end}
 
 
 {marker options}{...}

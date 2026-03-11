@@ -1,4 +1,4 @@
-*! migrations Version 1.0.7  2026/03/10  Tim Copeland
+*! migrations Version 1.0.8  2026/03/11  Tim Copeland
 *! Handle Swedish migration data for registry-based cohort studies
 *! Part of the setools package
 
@@ -216,28 +216,27 @@ program define migrations, rclass
 
         * EXCLUSION 2: Only migration is immigration after study_start (not in Sweden at baseline)
         qui gen `exclude_inmigration' = 0
-        qui replace `exclude_inmigration' = 1 if in_ > `startvar' & `total_migrations' == 1 & in_ != .
+        qui replace `exclude_inmigration' = 1 if in_ > `startvar' & out_ == . & `total_migrations' == 1 & in_ != .
 
         * Calculate emigration censoring date
-        * Use last emigration after study_start as initial censoring date
-        qui gen long migration_out_dt = `last_out' if `startvar' < `last_out' & `last_out' != .
+        * Only permanent emigrations (no subsequent return) generate censoring dates
+        tempvar is_perm_emig
+        qui gen byte `is_perm_emig' = (`exclude_inmigration' == 0 & out_ != . & out_ > `startvar' & (in_ == . | in_ <= out_))
 
-        * Handle complex migration patterns:
-        * - Drop records where immigration occurred after the censoring emigration
-        qui drop if in_ > migration_out_dt & in_ != .
-        * - Drop immigration records after study_start except the first (handles re-entries)
-        qui drop if in_ > `startvar' & `num' != 1
-        * - Drop if last immigration was before study_start with no emigration (already in Sweden)
-        qui drop if `last_in' < `startvar' & `last_out' == .
+        * Earliest permanent emigration per person
+        tempvar min_perm_out
+        qui egen long `min_perm_out' = min(out_) if `is_perm_emig' == 1, by(`idvar')
 
+        * Propagate to all rows for each person
+        tempvar person_censor
+        qui egen long `person_censor' = min(`min_perm_out'), by(`idvar')
+        qui gen long migration_out_dt = `person_censor'
         qui format migration_out_dt %tdCCYY/NN/DD
+
+        * Collapse to one row per person
         qui drop `total_migrations' `num'
         qui bysort `idvar' (out_ in_): gen `num' = _n
-        qui egen `total_migrations' = max(`num'), by(`idvar')
-        * Clear pre-study immigrations (not relevant for censoring)
-        qui replace in_ = . if in_ < `startvar'
-        * Update censoring date to earliest emigration if multiple exist
-        qui replace migration_out_dt = out_ if `exclude_inmigration' == 0 & out_ < migration_out_dt
+        qui drop if `num' > 1
 
         * Save current state before extracting exclusions type 2
         tempfile pre_exclude2

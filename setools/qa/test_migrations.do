@@ -364,7 +364,7 @@ capture noisily {
     assert r(N_final) > 0
 
     * Verify consistency
-    assert r(N_excluded_total) == r(N_excluded_emigrated) + r(N_excluded_inmigration)
+    assert r(N_excluded_total) == r(N_excluded_emigrated) + r(N_excluded_inmigration) + r(N_excluded_abroad)
 
     display as text "  N_excluded_emigrated: " r(N_excluded_emigrated)
     display as text "  N_excluded_inmigration: " r(N_excluded_inmigration)
@@ -468,13 +468,209 @@ if _rc {
 }
 
 * =============================================================================
+* TEST 13: Bug 1 regression - emigration+return not Type 2 excluded
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': Bug 1 - emigration+return not excluded"
+display as text "{hline 50}"
+
+capture noisily {
+    * Person emigrated 2012, returned 2013 (both after study_start=2010)
+    * Has out_ record -> should NOT be Type 2 excluded
+    clear
+    set obs 1
+    gen long id = 1
+    gen long study_start = mdy(1,1,2010)
+    format study_start %tdCCYY/NN/DD
+    save "`testdir'/_test_t13_cohort.dta", replace
+
+    clear
+    set obs 1
+    gen long id = 1
+    gen long out_1 = mdy(6,15,2012)
+    gen long in_1 = mdy(3,1,2013)
+    format out_1 in_1 %tdCCYY/NN/DD
+    save "`testdir'/_test_t13_mig.dta", replace
+
+    use "`testdir'/_test_t13_cohort.dta", clear
+    migrations, migfile("`testdir'/_test_t13_mig.dta")
+
+    assert r(N_excluded_inmigration) == 0
+    assert r(N_final) == 1
+    display as result "  PASSED: Emigration+return not wrongly excluded"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 14: Bug 1 guard - immigration only still excluded
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': Bug 1 guard - immigration only still excluded"
+display as text "{hline 50}"
+
+capture noisily {
+    * Person has only immigration record after study_start (no emigration)
+    * Should be Type 2 excluded -- was not in Sweden at baseline
+    clear
+    set obs 1
+    gen long id = 1
+    gen long study_start = mdy(1,1,2010)
+    format study_start %tdCCYY/NN/DD
+    save "`testdir'/_test_t14_cohort.dta", replace
+
+    clear
+    set obs 1
+    gen long id = 1
+    gen long out_1 = .
+    gen long in_1 = mdy(3,1,2013)
+    format out_1 in_1 %tdCCYY/NN/DD
+    save "`testdir'/_test_t14_mig.dta", replace
+
+    use "`testdir'/_test_t14_cohort.dta", clear
+    migrations, migfile("`testdir'/_test_t14_mig.dta")
+
+    assert r(N_excluded_inmigration) == 1
+    assert r(N_final) == 0
+    display as result "  PASSED: Immigration-only still correctly excluded"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 15: Bug 2 regression - temp+permanent emigration censored at permanent
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': Bug 2 - censored at permanent emigration date"
+display as text "{hline 50}"
+
+capture noisily {
+    * Person: emigrated 2012, returned 2013, emigrated permanently 2015
+    * Should be censored at 2015 (permanent), NOT 2012 (temporary)
+    clear
+    set obs 1
+    gen long id = 1
+    gen long study_start = mdy(1,1,2010)
+    format study_start %tdCCYY/NN/DD
+    save "`testdir'/_test_t15_cohort.dta", replace
+
+    clear
+    set obs 1
+    gen long id = 1
+    gen long out_1 = mdy(6,15,2012)
+    gen long in_1 = mdy(3,1,2013)
+    gen long out_2 = mdy(9,1,2015)
+    gen long in_2 = .
+    format out_1 in_1 out_2 in_2 %tdCCYY/NN/DD
+    save "`testdir'/_test_t15_mig.dta", replace
+
+    use "`testdir'/_test_t15_cohort.dta", clear
+    migrations, migfile("`testdir'/_test_t15_mig.dta")
+
+    assert r(N_final) == 1
+    assert r(N_censored) == 1
+    * Verify censoring date is 2015-09-01 (permanent emigration)
+    assert migration_out_dt == mdy(9,1,2015)
+    display as result "  PASSED: Censored at permanent emigration date"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 16: Bug 2 edge - temporary only, no censoring date
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': Bug 2 edge - temporary only, no censoring"
+display as text "{hline 50}"
+
+capture noisily {
+    * Person: emigrated 2012, returned 2013 (temporary only)
+    * No permanent emigration -> no censoring date
+    clear
+    set obs 1
+    gen long id = 1
+    gen long study_start = mdy(1,1,2010)
+    format study_start %tdCCYY/NN/DD
+    save "`testdir'/_test_t16_cohort.dta", replace
+
+    clear
+    set obs 1
+    gen long id = 1
+    gen long out_1 = mdy(6,15,2012)
+    gen long in_1 = mdy(3,1,2013)
+    format out_1 in_1 %tdCCYY/NN/DD
+    save "`testdir'/_test_t16_mig.dta", replace
+
+    use "`testdir'/_test_t16_cohort.dta", clear
+    migrations, migfile("`testdir'/_test_t16_mig.dta")
+
+    assert r(N_final) == 1
+    assert r(N_censored) == 0
+    assert missing(migration_out_dt)
+    display as result "  PASSED: Temporary-only emigration has no censoring date"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 17: Bug 2 guard - single permanent emigration censored correctly
+* =============================================================================
+local ++test_count
+display as text _n "TEST `test_count': Bug 2 guard - single permanent emigration"
+display as text "{hline 50}"
+
+capture noisily {
+    * Person: emigrated permanently 2015 (no return)
+    * Should be censored at 2015
+    clear
+    set obs 1
+    gen long id = 1
+    gen long study_start = mdy(1,1,2010)
+    format study_start %tdCCYY/NN/DD
+    save "`testdir'/_test_t17_cohort.dta", replace
+
+    clear
+    set obs 1
+    gen long id = 1
+    gen long out_1 = mdy(9,1,2015)
+    gen long in_1 = .
+    format out_1 in_1 %tdCCYY/NN/DD
+    save "`testdir'/_test_t17_mig.dta", replace
+
+    use "`testdir'/_test_t17_cohort.dta", clear
+    migrations, migfile("`testdir'/_test_t17_mig.dta")
+
+    assert r(N_final) == 1
+    assert r(N_censored) == 1
+    assert migration_out_dt == mdy(9,1,2015)
+    display as result "  PASSED: Single permanent emigration censored correctly"
+    local ++pass_count
+}
+if _rc {
+    display as error "  FAILED: Error code " _rc
+    local ++fail_count
+}
+
+* =============================================================================
 * CLEANUP: Remove temporary files
 * =============================================================================
 display as text _n "{hline 70}"
 display as text "Cleaning up temporary files..."
 display as text "{hline 70}"
 
-local output_files "_test_cohort_mig.dta _test_excluded.dta _test_censor.dta _test_excluded2.dta _test_censor2.dta _test_exc_all.dta _test_cen_all.dta _test_replace.dta"
+local output_files "_test_cohort_mig.dta _test_excluded.dta _test_censor.dta _test_excluded2.dta _test_censor2.dta _test_exc_all.dta _test_cen_all.dta _test_replace.dta _test_t13_cohort.dta _test_t13_mig.dta _test_t14_cohort.dta _test_t14_mig.dta _test_t15_cohort.dta _test_t15_mig.dta _test_t16_cohort.dta _test_t16_mig.dta _test_t17_cohort.dta _test_t17_mig.dta"
 foreach f of local output_files {
     capture erase "`testdir'/`f'"
 }
