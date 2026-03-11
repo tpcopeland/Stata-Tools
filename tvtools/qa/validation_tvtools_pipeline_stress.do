@@ -375,12 +375,12 @@ local test6_pass = 1
 capture {
     use `tvevent_result', clear
 
-    * Create analysis time variable
-    gen double _t0 = start - mdy(1,1,2020)
-    gen double _t  = stop  - mdy(1,1,2020) + 1
+    * Create analysis time variables (avoid _t/_t0 which stset reserves)
+    gen double atime0 = start - mdy(1,1,2020)
+    gen double atime  = stop  - mdy(1,1,2020) + 1
 
     * stset with time-varying data
-    stset _t, failure(_failure) enter(_t0) id(id)
+    stset atime, failure(_failure) enter(atime0) id(id)
 
     * All observations should be valid (_st==1)
     quietly count if _st != 1
@@ -437,12 +437,12 @@ local test7_pass = 1
 capture {
     use `tvevent_result', clear
 
-    * Create analysis time and exposure indicator
-    gen double _t0 = start - mdy(1,1,2020)
-    gen double _t  = stop  - mdy(1,1,2020) + 1
+    * Create analysis time and exposure indicator (avoid _t/_t0 which stset reserves)
+    gen double atime0 = start - mdy(1,1,2020)
+    gen double atime  = stop  - mdy(1,1,2020) + 1
     gen byte exposed = (exp_val != 0)
 
-    stset _t, failure(_failure) enter(_t0) id(id)
+    stset atime, failure(_failure) enter(atime0) id(id)
     stcox exposed, nolog
 
     * Check convergence: HR should be finite and non-missing
@@ -715,15 +715,15 @@ local test12_pass = 1
 capture {
     use `multi_tvevent', clear
 
-    * Create analysis time
-    gen double _t0 = start - mdy(1,1,2020)
-    gen double _t  = stop  - mdy(1,1,2020) + 1
+    * Create analysis time (avoid _t/_t0 which stset reserves)
+    gen double atime0 = start - mdy(1,1,2020)
+    gen double atime  = stop  - mdy(1,1,2020) + 1
 
     * Create drug indicators
     gen byte drug1 = (exp_val == 1)
     gen byte drug2 = (exp_val == 2)
 
-    stset _t, failure(_failure) enter(_t0) id(id)
+    stset atime, failure(_failure) enter(atime0) id(id)
     stcox drug1 drug2, nolog
 
     * Check convergence

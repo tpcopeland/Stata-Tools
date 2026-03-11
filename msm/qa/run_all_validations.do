@@ -2,13 +2,14 @@
 * run_all_validations.do
 *
 * Master runner for msm package tests and validation exercises.
-* Runs functional tests (T1-T2) and 8 validation suites (V1-V8).
+* Runs functional tests (T1-T2), 8 validation suites (V1-V8), and
+* cross-language validation (V9).
 *
 * Usage:
 *   stata-mp -b do run_all_validations.do              // runs all
 *   stata-mp -b do run_all_validations.do 1 5 8        // runs T1/T2, V1, V5, V8
 *   stata-mp -b do run_all_validations.do tests        // runs T1 + T2 only
-*   stata-mp -b do run_all_validations.do validations   // runs V1-V8 only
+*   stata-mp -b do run_all_validations.do validations   // runs V1-V9 only
 *
 * Tests:
 *   T1. Functional tests (test_msm.do)
@@ -23,6 +24,7 @@
 *   V6. IPCW / Informative censoring
 *   V7. Diagnostics, reporting, sensitivity
 *   V8. Pipeline guards & edge cases
+*   V9. Cross-language validation (Stata vs R vs Python vs teffects)
 *******************************************************************************/
 
 version 16.0
@@ -58,7 +60,7 @@ else if "`run_list'" == "tests" {
 }
 else if "`run_list'" == "validations" {
     local do_validations = 1
-    display "Running validation suites only (V1-V8)"
+    display "Running validation suites only (V1-V9)"
 }
 else {
     local do_tests = 1
@@ -90,6 +92,8 @@ local vfile_7  "validate_diagnostics.do"
 local vname_7  "Diagnostics, Reporting, Sensitivity"
 local vfile_8  "validate_edge_cases.do"
 local vname_8  "Pipeline Guards & Edge Cases"
+local vfile_9  "crossval_msm_vs_all.do"
+local vname_9  "Cross-Language (Stata vs R vs Python vs teffects)"
 
 * --- Run functional tests ---
 if `do_tests' {
@@ -105,7 +109,7 @@ if `do_tests' {
 * --- Run selected validations ---
 if `do_validations' {
     if "`run_list'" == "" | "`run_list'" == "validations" {
-        numlist "1/8"
+        numlist "1/9"
         local vrun_list "`r(numlist)'"
     }
     else {

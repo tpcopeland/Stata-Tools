@@ -63,12 +63,14 @@ get_tolerance <- function(metric, config) {
 }
 
 merged$tolerance <- mapply(get_tolerance, merged$metric, merged$config)
-merged$status <- ifelse(merged$abs_diff <= merged$tolerance, "PASS",
-                        ifelse(merged$abs_diff <= merged$tolerance * 3, "NOTE", "FAIL"))
+merged$status <- ifelse(is.na(merged$abs_diff), "NA",
+                        ifelse(merged$abs_diff <= merged$tolerance, "PASS",
+                        ifelse(merged$abs_diff <= merged$tolerance * 3, "NOTE", "FAIL")))
 
 # For n_expanded, exact match required
 idx_exact <- merged$metric %in% c("n_expanded", "n_trials")
-merged$status[idx_exact] <- ifelse(merged$abs_diff[idx_exact] == 0, "PASS", "FAIL")
+merged$status[idx_exact] <- ifelse(is.na(merged$abs_diff[idx_exact]), "NA",
+                                   ifelse(merged$abs_diff[idx_exact] == 0, "PASS", "FAIL"))
 
 # =============================================================================
 # Summary by dataset
@@ -88,9 +90,10 @@ for (ds in datasets) {
 
   for (cfg in configs) {
     csub <- sub[sub$config == cfg, ]
-    n_pass <- sum(csub$status == "PASS")
-    n_note <- sum(csub$status == "NOTE")
-    n_fail <- sum(csub$status == "FAIL")
+    n_pass <- sum(csub$status == "PASS", na.rm = TRUE)
+    n_note <- sum(csub$status == "NOTE", na.rm = TRUE)
+    n_fail <- sum(csub$status == "FAIL", na.rm = TRUE)
+    n_na   <- sum(csub$status == "NA", na.rm = TRUE)
 
     # Config summary line
     status_str <- if (n_fail > 0) "FAIL" else if (n_note > 0) "NOTE" else "PASS"

@@ -72,7 +72,7 @@ quietly net install tvtools, from("`c(pwd)'/..") replace
 * DS_B: Person 1, [Jan1,Mar31] B=0, [Apr1,Dec31] B=1
 * Cartesian product: 4 combos. Valid intersections (start<=stop):
 *   [Jan1,Mar31] A=1 B=0, [Apr1,Jun30] A=1 B=1, [Jul1,Dec31] A=0 B=1
-* Invalid: [Jul1,Mar31] → start>stop → dropped
+* Invalid: [Jul1,Mar31] -> start>stop -> dropped
 * Expected: 3 rows with exact date boundaries.
 
 display _n _dup(60) "-"
@@ -86,25 +86,25 @@ input int(id) double(exp_a) str10(s_start s_stop)
 1 1 "2020-01-01" "2020-06-30"
 1 0 "2020-07-01" "2020-12-31"
 end
-gen double start = date(s_start, "YMD")
-gen double stop  = date(s_stop, "YMD")
-format %td start stop
+gen double start_a = date(s_start, "YMD")
+gen double stop_a  = date(s_stop, "YMD")
+format %td start_a stop_a
 drop s_start s_stop
-save `ds_a', replace
+save "`ds_a'.dta", replace
 
 clear
 input int(id) double(exp_b) str10(s_start s_stop)
 1 0 "2020-01-01" "2020-03-31"
 1 1 "2020-04-01" "2020-12-31"
 end
-gen double start = date(s_start, "YMD")
-gen double stop  = date(s_stop, "YMD")
-format %td start stop
+gen double start_b = date(s_start, "YMD")
+gen double stop_b  = date(s_stop, "YMD")
+format %td start_b stop_b
 drop s_start s_stop
-save `ds_b', replace
+save "`ds_b'.dta", replace
 
-capture noisily tvmerge `ds_a' `ds_b', ///
-    id(id) start(start) stop(stop) ///
+capture noisily tvmerge "`ds_a'.dta" "`ds_b'.dta", ///
+    id(id) start(start_a start_b) stop(stop_a stop_b) ///
     exposure(exp_a exp_b)
 
 if _rc != 0 {
@@ -174,6 +174,9 @@ else {
     display as error "TEST 1: FAILED"
 }
 
+capture erase "`ds_a'.dta"
+capture erase "`ds_b'.dta"
+
 
 * TEST 2: Three-way merge known-answer
 * DS_A: [Jan1,Dec31] A=1
@@ -192,34 +195,34 @@ clear
 input int(id) double(exp_a) str10(s_start s_stop)
 1 1 "2020-01-01" "2020-12-31"
 end
-gen double start = date(s_start, "YMD")
-gen double stop  = date(s_stop, "YMD")
-format %td start stop
+gen double start_a = date(s_start, "YMD")
+gen double stop_a  = date(s_stop, "YMD")
+format %td start_a stop_a
 drop s_start s_stop
-save `ds_a2', replace
+save "`ds_a2'.dta", replace
 
 clear
 input int(id) double(exp_b) str10(s_start s_stop)
 1 1 "2020-04-01" "2020-09-30"
 end
-gen double start = date(s_start, "YMD")
-gen double stop  = date(s_stop, "YMD")
-format %td start stop
+gen double start_b = date(s_start, "YMD")
+gen double stop_b  = date(s_stop, "YMD")
+format %td start_b stop_b
 drop s_start s_stop
-save `ds_b2', replace
+save "`ds_b2'.dta", replace
 
 clear
 input int(id) double(exp_c) str10(s_start s_stop)
 1 1 "2020-07-01" "2020-12-31"
 end
-gen double start = date(s_start, "YMD")
-gen double stop  = date(s_stop, "YMD")
-format %td start stop
+gen double start_c = date(s_start, "YMD")
+gen double stop_c  = date(s_stop, "YMD")
+format %td start_c stop_c
 drop s_start s_stop
-save `ds_c2', replace
+save "`ds_c2'.dta", replace
 
-capture noisily tvmerge `ds_a2' `ds_b2' `ds_c2', ///
-    id(id) start(start) stop(stop) ///
+capture noisily tvmerge "`ds_a2'.dta" "`ds_b2'.dta" "`ds_c2'.dta", ///
+    id(id) start(start_a start_b start_c) stop(stop_a stop_b stop_c) ///
     exposure(exp_a exp_b exp_c)
 
 if _rc != 0 {
@@ -272,6 +275,10 @@ else {
     display as error "TEST 2: FAILED"
 }
 
+capture erase "`ds_a2'.dta"
+capture erase "`ds_b2'.dta"
+capture erase "`ds_c2'.dta"
+
 
 * TEST 3: Continuous proportioning (2 datasets, exact formula)
 * DS_A: [Jan1,Dec31] A=366 (continuous). DS_B: [Jul1,Dec31] B=184.
@@ -289,24 +296,24 @@ clear
 input int(id) double(exp_a) str10(s_start s_stop)
 1 366 "2020-01-01" "2020-12-31"
 end
-gen double start = date(s_start, "YMD")
-gen double stop  = date(s_stop, "YMD")
-format %td start stop
+gen double start_a = date(s_start, "YMD")
+gen double stop_a  = date(s_stop, "YMD")
+format %td start_a stop_a
 drop s_start s_stop
-save `ds_a3', replace
+save "`ds_a3'.dta", replace
 
 clear
 input int(id) double(exp_b) str10(s_start s_stop)
 1 184 "2020-07-01" "2020-12-31"
 end
-gen double start = date(s_start, "YMD")
-gen double stop  = date(s_stop, "YMD")
-format %td start stop
+gen double start_b = date(s_start, "YMD")
+gen double stop_b  = date(s_stop, "YMD")
+format %td start_b stop_b
 drop s_start s_stop
-save `ds_b3', replace
+save "`ds_b3'.dta", replace
 
-capture noisily tvmerge `ds_a3' `ds_b3', ///
-    id(id) start(start) stop(stop) ///
+capture noisily tvmerge "`ds_a3'.dta" "`ds_b3'.dta", ///
+    id(id) start(start_a start_b) stop(stop_a stop_b) ///
     exposure(exp_a exp_b) continuous(exp_a exp_b)
 
 if _rc != 0 {
@@ -343,6 +350,9 @@ else {
     display as error "TEST 3: FAILED"
 }
 
+capture erase "`ds_a3'.dta"
+capture erase "`ds_b3'.dta"
+
 
 * TEST 4: Continuous proportioning (3 datasets, cascading)
 * DS_A: [Jan1,Dec31] A=365
@@ -366,34 +376,34 @@ clear
 input int(id) double(exp_a) str10(s_start s_stop)
 1 365 "2020-01-01" "2020-12-31"
 end
-gen double start = date(s_start, "YMD")
-gen double stop  = date(s_stop, "YMD")
-format %td start stop
+gen double start_a = date(s_start, "YMD")
+gen double stop_a  = date(s_stop, "YMD")
+format %td start_a stop_a
 drop s_start s_stop
-save `ds_a4', replace
+save "`ds_a4'.dta", replace
 
 clear
 input int(id) double(exp_b) str10(s_start s_stop)
 1 181 "2020-01-01" "2020-06-30"
 end
-gen double start = date(s_start, "YMD")
-gen double stop  = date(s_stop, "YMD")
-format %td start stop
+gen double start_b = date(s_start, "YMD")
+gen double stop_b  = date(s_stop, "YMD")
+format %td start_b stop_b
 drop s_start s_stop
-save `ds_b4', replace
+save "`ds_b4'.dta", replace
 
 clear
 input int(id) double(exp_c) str10(s_start s_stop)
 1 91 "2020-04-01" "2020-06-30"
 end
-gen double start = date(s_start, "YMD")
-gen double stop  = date(s_stop, "YMD")
-format %td start stop
+gen double start_c = date(s_start, "YMD")
+gen double stop_c  = date(s_stop, "YMD")
+format %td start_c stop_c
 drop s_start s_stop
-save `ds_c4', replace
+save "`ds_c4'.dta", replace
 
-capture noisily tvmerge `ds_a4' `ds_b4' `ds_c4', ///
-    id(id) start(start) stop(stop) ///
+capture noisily tvmerge "`ds_a4'.dta" "`ds_b4'.dta" "`ds_c4'.dta", ///
+    id(id) start(start_a start_b start_c) stop(stop_a stop_b stop_c) ///
     exposure(exp_a exp_b exp_c) continuous(exp_a exp_b exp_c)
 
 if _rc != 0 {
@@ -436,6 +446,10 @@ else {
     display as error "TEST 4: FAILED"
 }
 
+capture erase "`ds_a4'.dta"
+capture erase "`ds_b4'.dta"
+capture erase "`ds_c4'.dta"
+
 
 * TEST 5: batch(100) vs batch(1) produce identical results
 * 5 persons with varying intervals in DS_A and DS_B.
@@ -457,11 +471,11 @@ input int(id) double(exp_a) str10(s_start s_stop)
 4 1 "2020-04-01" "2020-12-31"
 5 1 "2020-06-01" "2020-08-31"
 end
-gen double start = date(s_start, "YMD")
-gen double stop  = date(s_stop, "YMD")
-format %td start stop
+gen double start_a = date(s_start, "YMD")
+gen double stop_a  = date(s_stop, "YMD")
+format %td start_a stop_a
 drop s_start s_stop
-save `ds_a5', replace
+save "`ds_a5'.dta", replace
 
 clear
 input int(id) double(exp_b) str10(s_start s_stop)
@@ -473,16 +487,16 @@ input int(id) double(exp_b) str10(s_start s_stop)
 5 0 "2020-01-01" "2020-04-30"
 5 1 "2020-05-01" "2020-12-31"
 end
-gen double start = date(s_start, "YMD")
-gen double stop  = date(s_stop, "YMD")
-format %td start stop
+gen double start_b = date(s_start, "YMD")
+gen double stop_b  = date(s_stop, "YMD")
+format %td start_b stop_b
 drop s_start s_stop
-save `ds_b5', replace
+save "`ds_b5'.dta", replace
 
 * batch(100) = all at once
 tempfile result_100 result_1
-capture noisily tvmerge `ds_a5' `ds_b5', ///
-    id(id) start(start) stop(stop) ///
+capture noisily tvmerge "`ds_a5'.dta" "`ds_b5'.dta", ///
+    id(id) start(start_a start_b) stop(stop_a stop_b) ///
     exposure(exp_a exp_b) batch(100)
 
 if _rc != 0 {
@@ -495,9 +509,9 @@ else {
     local n100 = _N
 }
 
-* batch(1) = one ID at a time (1% → effectively 1 at a time for 5 persons)
-capture noisily tvmerge `ds_a5' `ds_b5', ///
-    id(id) start(start) stop(stop) ///
+* batch(1) = one ID at a time (1% -> effectively 1 at a time for 5 persons)
+capture noisily tvmerge "`ds_a5'.dta" "`ds_b5'.dta", ///
+    id(id) start(start_a start_b) stop(stop_a stop_b) ///
     exposure(exp_a exp_b) batch(1)
 
 if _rc != 0 {
@@ -542,12 +556,15 @@ else {
     display as error "TEST 5: FAILED"
 }
 
+capture erase "`ds_a5'.dta"
+capture erase "`ds_b5'.dta"
+
 
 * ============================================================================
 * SECTION B: DEGENERATE & EDGE CASES (Tests 6-10)
 * ============================================================================
 
-* TEST 6: Empty intersection (no temporal overlap) → 0 obs
+* TEST 6: Empty intersection (no temporal overlap) -> 0 obs
 * DS_A: [Jan1,Mar31]. DS_B: [Jul1,Dec31]. No overlap.
 
 display _n _dup(60) "-"
@@ -560,24 +577,24 @@ clear
 input int(id) double(exp_a) str10(s_start s_stop)
 1 1 "2020-01-01" "2020-03-31"
 end
-gen double start = date(s_start, "YMD")
-gen double stop  = date(s_stop, "YMD")
-format %td start stop
+gen double start_a = date(s_start, "YMD")
+gen double stop_a  = date(s_stop, "YMD")
+format %td start_a stop_a
 drop s_start s_stop
-save `ds_a6', replace
+save "`ds_a6'.dta", replace
 
 clear
 input int(id) double(exp_b) str10(s_start s_stop)
 1 1 "2020-07-01" "2020-12-31"
 end
-gen double start = date(s_start, "YMD")
-gen double stop  = date(s_stop, "YMD")
-format %td start stop
+gen double start_b = date(s_start, "YMD")
+gen double stop_b  = date(s_stop, "YMD")
+format %td start_b stop_b
 drop s_start s_stop
-save `ds_b6', replace
+save "`ds_b6'.dta", replace
 
-capture noisily tvmerge `ds_a6' `ds_b6', ///
-    id(id) start(start) stop(stop) ///
+capture noisily tvmerge "`ds_a6'.dta" "`ds_b6'.dta", ///
+    id(id) start(start_a start_b) stop(stop_a stop_b) ///
     exposure(exp_a exp_b)
 
 if _rc != 0 {
@@ -606,6 +623,9 @@ else {
     display as error "TEST 6: FAILED"
 }
 
+capture erase "`ds_a6'.dta"
+capture erase "`ds_b6'.dta"
+
 
 * TEST 7: Single-day period merge
 * DS_A: [Jun15,Jun15]. DS_B: [Jun15,Jun15]. Intersection = 1 row [Jun15,Jun15].
@@ -620,24 +640,24 @@ clear
 input int(id) double(exp_a) str10(s_start s_stop)
 1 1 "2020-06-15" "2020-06-15"
 end
-gen double start = date(s_start, "YMD")
-gen double stop  = date(s_stop, "YMD")
-format %td start stop
+gen double start_a = date(s_start, "YMD")
+gen double stop_a  = date(s_stop, "YMD")
+format %td start_a stop_a
 drop s_start s_stop
-save `ds_a7', replace
+save "`ds_a7'.dta", replace
 
 clear
 input int(id) double(exp_b) str10(s_start s_stop)
 1 1 "2020-06-15" "2020-06-15"
 end
-gen double start = date(s_start, "YMD")
-gen double stop  = date(s_stop, "YMD")
-format %td start stop
+gen double start_b = date(s_start, "YMD")
+gen double stop_b  = date(s_stop, "YMD")
+format %td start_b stop_b
 drop s_start s_stop
-save `ds_b7', replace
+save "`ds_b7'.dta", replace
 
-capture noisily tvmerge `ds_a7' `ds_b7', ///
-    id(id) start(start) stop(stop) ///
+capture noisily tvmerge "`ds_a7'.dta" "`ds_b7'.dta", ///
+    id(id) start(start_a start_b) stop(stop_a stop_b) ///
     exposure(exp_a exp_b)
 
 if _rc != 0 {
@@ -677,6 +697,9 @@ else {
     display as error "TEST 7: FAILED"
 }
 
+capture erase "`ds_a7'.dta"
+capture erase "`ds_b7'.dta"
+
 
 * TEST 8: Abutting periods
 * DS_A: [Jan1,Jun30]+[Jul1,Dec31]. DS_B: [Jun30,Jul1].
@@ -693,24 +716,24 @@ input int(id) double(exp_a) str10(s_start s_stop)
 1 1 "2020-01-01" "2020-06-30"
 1 2 "2020-07-01" "2020-12-31"
 end
-gen double start = date(s_start, "YMD")
-gen double stop  = date(s_stop, "YMD")
-format %td start stop
+gen double start_a = date(s_start, "YMD")
+gen double stop_a  = date(s_stop, "YMD")
+format %td start_a stop_a
 drop s_start s_stop
-save `ds_a8', replace
+save "`ds_a8'.dta", replace
 
 clear
 input int(id) double(exp_b) str10(s_start s_stop)
 1 1 "2020-06-30" "2020-07-01"
 end
-gen double start = date(s_start, "YMD")
-gen double stop  = date(s_stop, "YMD")
-format %td start stop
+gen double start_b = date(s_start, "YMD")
+gen double stop_b  = date(s_stop, "YMD")
+format %td start_b stop_b
 drop s_start s_stop
-save `ds_b8', replace
+save "`ds_b8'.dta", replace
 
-capture noisily tvmerge `ds_a8' `ds_b8', ///
-    id(id) start(start) stop(stop) ///
+capture noisily tvmerge "`ds_a8'.dta" "`ds_b8'.dta", ///
+    id(id) start(start_a start_b) stop(stop_a stop_b) ///
     exposure(exp_a exp_b)
 
 if _rc != 0 {
@@ -763,6 +786,9 @@ else {
     display as error "TEST 8: FAILED"
 }
 
+capture erase "`ds_a8'.dta"
+capture erase "`ds_b8'.dta"
+
 
 * TEST 9: ID mismatch with force option
 * Person 1 in both. Person 2 only in DS_A.
@@ -779,25 +805,25 @@ input int(id) double(exp_a) str10(s_start s_stop)
 1 1 "2020-01-01" "2020-12-31"
 2 1 "2020-01-01" "2020-12-31"
 end
-gen double start = date(s_start, "YMD")
-gen double stop  = date(s_stop, "YMD")
-format %td start stop
+gen double start_a = date(s_start, "YMD")
+gen double stop_a  = date(s_stop, "YMD")
+format %td start_a stop_a
 drop s_start s_stop
-save `ds_a9', replace
+save "`ds_a9'.dta", replace
 
 clear
 input int(id) double(exp_b) str10(s_start s_stop)
 1 1 "2020-01-01" "2020-12-31"
 end
-gen double start = date(s_start, "YMD")
-gen double stop  = date(s_stop, "YMD")
-format %td start stop
+gen double start_b = date(s_start, "YMD")
+gen double stop_b  = date(s_stop, "YMD")
+format %td start_b stop_b
 drop s_start s_stop
-save `ds_b9', replace
+save "`ds_b9'.dta", replace
 
 * Without force: should error
-capture tvmerge `ds_a9' `ds_b9', ///
-    id(id) start(start) stop(stop) ///
+capture tvmerge "`ds_a9'.dta" "`ds_b9'.dta", ///
+    id(id) start(start_a start_b) stop(stop_a stop_b) ///
     exposure(exp_a exp_b)
 
 if _rc != 0 {
@@ -809,8 +835,8 @@ else {
 }
 
 * With force: should succeed with only Person 1
-capture noisily tvmerge `ds_a9' `ds_b9', ///
-    id(id) start(start) stop(stop) ///
+capture noisily tvmerge "`ds_a9'.dta" "`ds_b9'.dta", ///
+    id(id) start(start_a start_b) stop(stop_a stop_b) ///
     exposure(exp_a exp_b) force
 
 if _rc != 0 {
@@ -839,13 +865,16 @@ else {
     display as error "TEST 9: FAILED"
 }
 
+capture erase "`ds_a9'.dta"
+capture erase "`ds_b9'.dta"
 
-* TEST 10: keep() with same-named variables → suffixed
+
+* TEST 10: keep() with same-named variables -> suffixed
 * Both DS_A and DS_B have a variable called "sex".
 * keep(sex) should create sex_ds1 and sex_ds2.
 
 display _n _dup(60) "-"
-display "TEST 10: keep() with name collision → suffixed variables"
+display "TEST 10: keep() with name collision -> suffixed variables"
 display _dup(60) "-"
 local test10_pass = 1
 
@@ -854,24 +883,24 @@ clear
 input int(id) double(exp_a) int(sex) str10(s_start s_stop)
 1 1 1 "2020-01-01" "2020-12-31"
 end
-gen double start = date(s_start, "YMD")
-gen double stop  = date(s_stop, "YMD")
-format %td start stop
+gen double start_a = date(s_start, "YMD")
+gen double stop_a  = date(s_stop, "YMD")
+format %td start_a stop_a
 drop s_start s_stop
-save `ds_a10', replace
+save "`ds_a10'.dta", replace
 
 clear
 input int(id) double(exp_b) int(sex) str10(s_start s_stop)
 1 1 0 "2020-01-01" "2020-12-31"
 end
-gen double start = date(s_start, "YMD")
-gen double stop  = date(s_stop, "YMD")
-format %td start stop
+gen double start_b = date(s_start, "YMD")
+gen double stop_b  = date(s_stop, "YMD")
+format %td start_b stop_b
 drop s_start s_stop
-save `ds_b10', replace
+save "`ds_b10'.dta", replace
 
-capture noisily tvmerge `ds_a10' `ds_b10', ///
-    id(id) start(start) stop(stop) ///
+capture noisily tvmerge "`ds_a10'.dta" "`ds_b10'.dta", ///
+    id(id) start(start_a start_b) stop(stop_a stop_b) ///
     exposure(exp_a exp_b) keep(sex)
 
 if _rc != 0 {
@@ -912,6 +941,9 @@ else {
     display as error "TEST 10: FAILED"
 }
 
+capture erase "`ds_a10'.dta"
+capture erase "`ds_b10'.dta"
+
 
 * ============================================================================
 * SECTION C: PERSON-TIME & COVERAGE (Tests 11-15)
@@ -919,7 +951,7 @@ else {
 
 * TEST 11: Person-time equals intersection duration (3 persons)
 * P1: full overlap (both cover Jan1-Dec31)
-* P2: partial overlap (A:Jan1-Jun30, B:Apr1-Dec31 → intersection Apr1-Jun30)
+* P2: partial overlap (A:Jan1-Jun30, B:Apr1-Dec31 -> intersection Apr1-Jun30)
 * P3: full overlap (both cover Jan1-Dec31)
 
 display _n _dup(60) "-"
@@ -934,11 +966,11 @@ input int(id) double(exp_a) str10(s_start s_stop)
 2 1 "2020-01-01" "2020-06-30"
 3 1 "2020-01-01" "2020-12-31"
 end
-gen double start = date(s_start, "YMD")
-gen double stop  = date(s_stop, "YMD")
-format %td start stop
+gen double start_a = date(s_start, "YMD")
+gen double stop_a  = date(s_stop, "YMD")
+format %td start_a stop_a
 drop s_start s_stop
-save `ds_a11', replace
+save "`ds_a11'.dta", replace
 
 clear
 input int(id) double(exp_b) str10(s_start s_stop)
@@ -946,14 +978,14 @@ input int(id) double(exp_b) str10(s_start s_stop)
 2 1 "2020-04-01" "2020-12-31"
 3 1 "2020-01-01" "2020-12-31"
 end
-gen double start = date(s_start, "YMD")
-gen double stop  = date(s_stop, "YMD")
-format %td start stop
+gen double start_b = date(s_start, "YMD")
+gen double stop_b  = date(s_stop, "YMD")
+format %td start_b stop_b
 drop s_start s_stop
-save `ds_b11', replace
+save "`ds_b11'.dta", replace
 
-capture noisily tvmerge `ds_a11' `ds_b11', ///
-    id(id) start(start) stop(stop) ///
+capture noisily tvmerge "`ds_a11'.dta" "`ds_b11'.dta", ///
+    id(id) start(start_a start_b) stop(stop_a stop_b) ///
     exposure(exp_a exp_b)
 
 if _rc != 0 {
@@ -961,7 +993,7 @@ if _rc != 0 {
     local test11_pass = 0
 }
 else {
-    * P1: full overlap → 366 days
+    * P1: full overlap -> 366 days
     tempvar pt
     gen `pt' = stop - start + 1
     quietly su `pt' if id == 1
@@ -985,7 +1017,7 @@ else {
         local test11_pass = 0
     }
 
-    * P3: full overlap → 366 days
+    * P3: full overlap -> 366 days
     quietly su `pt' if id == 3
     if r(sum) == 366 {
         display as result "  PASS [11.pt_p3]: Person 3 = 366 days"
@@ -1006,6 +1038,9 @@ else {
     display as error "TEST 11: FAILED"
 }
 
+capture erase "`ds_a11'.dta"
+capture erase "`ds_b11'.dta"
+
 
 * TEST 12: Multiple persons: full, partial, no overlap with force
 
@@ -1021,25 +1056,25 @@ input int(id) double(exp_a) str10(s_start s_stop)
 2 1 "2020-01-01" "2020-06-30"
 3 1 "2020-01-01" "2020-12-31"
 end
-gen double start = date(s_start, "YMD")
-gen double stop  = date(s_stop, "YMD")
-format %td start stop
+gen double start_a = date(s_start, "YMD")
+gen double stop_a  = date(s_stop, "YMD")
+format %td start_a stop_a
 drop s_start s_stop
-save `ds_a12', replace
+save "`ds_a12'.dta", replace
 
 clear
 input int(id) double(exp_b) str10(s_start s_stop)
 1 1 "2020-01-01" "2020-12-31"
 2 1 "2020-07-01" "2020-12-31"
 end
-gen double start = date(s_start, "YMD")
-gen double stop  = date(s_stop, "YMD")
-format %td start stop
+gen double start_b = date(s_start, "YMD")
+gen double stop_b  = date(s_stop, "YMD")
+format %td start_b stop_b
 drop s_start s_stop
-save `ds_b12', replace
+save "`ds_b12'.dta", replace
 
-capture noisily tvmerge `ds_a12' `ds_b12', ///
-    id(id) start(start) stop(stop) ///
+capture noisily tvmerge "`ds_a12'.dta" "`ds_b12'.dta", ///
+    id(id) start(start_a start_b) stop(stop_a stop_b) ///
     exposure(exp_a exp_b) force
 
 if _rc != 0 {
@@ -1068,12 +1103,12 @@ else {
         display as result "  PASS [12.p2]: Person 2 present"
     }
     else {
-        * Person 2 has no overlap (A:Jan-Jun, B:Jul-Dec → no overlap for same ID)
+        * Person 2 has no overlap (A:Jan-Jun, B:Jul-Dec -> no overlap for same ID)
         * With force this might be handled
         display as result "  NOTE [12.p2]: Person 2 has `p2_n' rows (no temporal overlap)"
     }
 
-    * Person 3 missing from DS_B → dropped with force
+    * Person 3 missing from DS_B -> dropped with force
     quietly count if id == 3
     if r(N) == 0 {
         display as result "  PASS [12.p3_dropped]: Person 3 dropped (not in DS_B)"
@@ -1094,9 +1129,12 @@ else {
     display as error "TEST 12: FAILED"
 }
 
+capture erase "`ds_a12'.dta"
+capture erase "`ds_b12'.dta"
+
 
 * TEST 13: Continuous preserved exactly when intervals align
-* Both datasets have identical intervals → no re-proportioning needed
+* Both datasets have identical intervals -> no re-proportioning needed
 
 display _n _dup(60) "-"
 display "TEST 13: Continuous preserved when intervals align"
@@ -1109,25 +1147,25 @@ input int(id) double(exp_a) str10(s_start s_stop)
 1 100 "2020-01-01" "2020-06-30"
 1 200 "2020-07-01" "2020-12-31"
 end
-gen double start = date(s_start, "YMD")
-gen double stop  = date(s_stop, "YMD")
-format %td start stop
+gen double start_a = date(s_start, "YMD")
+gen double stop_a  = date(s_stop, "YMD")
+format %td start_a stop_a
 drop s_start s_stop
-save `ds_a13', replace
+save "`ds_a13'.dta", replace
 
 clear
 input int(id) double(exp_b) str10(s_start s_stop)
 1 50 "2020-01-01" "2020-06-30"
 1 75 "2020-07-01" "2020-12-31"
 end
-gen double start = date(s_start, "YMD")
-gen double stop  = date(s_stop, "YMD")
-format %td start stop
+gen double start_b = date(s_start, "YMD")
+gen double stop_b  = date(s_stop, "YMD")
+format %td start_b stop_b
 drop s_start s_stop
-save `ds_b13', replace
+save "`ds_b13'.dta", replace
 
-capture noisily tvmerge `ds_a13' `ds_b13', ///
-    id(id) start(start) stop(stop) ///
+capture noisily tvmerge "`ds_a13'.dta" "`ds_b13'.dta", ///
+    id(id) start(start_a start_b) stop(stop_a stop_b) ///
     exposure(exp_a exp_b) continuous(exp_a exp_b)
 
 if _rc != 0 {
@@ -1164,6 +1202,9 @@ else {
     display as error "TEST 13: FAILED"
 }
 
+capture erase "`ds_a13'.dta"
+capture erase "`ds_b13'.dta"
+
 
 * TEST 14: Three-way merge with partial overlaps - Person 2 dropped at merge step 2
 
@@ -1178,36 +1219,36 @@ input int(id) double(exp_a) str10(s_start s_stop)
 1 1 "2020-01-01" "2020-12-31"
 2 1 "2020-01-01" "2020-12-31"
 end
-gen double start = date(s_start, "YMD")
-gen double stop  = date(s_stop, "YMD")
-format %td start stop
+gen double start_a = date(s_start, "YMD")
+gen double stop_a  = date(s_stop, "YMD")
+format %td start_a stop_a
 drop s_start s_stop
-save `ds_a14', replace
+save "`ds_a14'.dta", replace
 
 clear
 input int(id) double(exp_b) str10(s_start s_stop)
 1 1 "2020-01-01" "2020-12-31"
 2 1 "2020-01-01" "2020-12-31"
 end
-gen double start = date(s_start, "YMD")
-gen double stop  = date(s_stop, "YMD")
-format %td start stop
+gen double start_b = date(s_start, "YMD")
+gen double stop_b  = date(s_stop, "YMD")
+format %td start_b stop_b
 drop s_start s_stop
-save `ds_b14', replace
+save "`ds_b14'.dta", replace
 
 clear
 input int(id) double(exp_c) str10(s_start s_stop)
 1 1 "2020-01-01" "2020-12-31"
 end
-gen double start = date(s_start, "YMD")
-gen double stop  = date(s_stop, "YMD")
-format %td start stop
+gen double start_c = date(s_start, "YMD")
+gen double stop_c  = date(s_stop, "YMD")
+format %td start_c stop_c
 drop s_start s_stop
-save `ds_c14', replace
+save "`ds_c14'.dta", replace
 
-* Person 2 is in A and B but not C → should be dropped with force
-capture noisily tvmerge `ds_a14' `ds_b14' `ds_c14', ///
-    id(id) start(start) stop(stop) ///
+* Person 2 is in A and B but not C -> should be dropped with force
+capture noisily tvmerge "`ds_a14'.dta" "`ds_b14'.dta" "`ds_c14'.dta", ///
+    id(id) start(start_a start_b start_c) stop(stop_a stop_b stop_c) ///
     exposure(exp_a exp_b exp_c) force
 
 if _rc != 0 {
@@ -1236,6 +1277,10 @@ else {
     display as error "TEST 14: FAILED"
 }
 
+capture erase "`ds_a14'.dta"
+capture erase "`ds_b14'.dta"
+capture erase "`ds_c14'.dta"
+
 
 * TEST 15: Three-way continuous proportioning with 2 persons
 
@@ -1250,36 +1295,36 @@ input int(id) double(exp_a) str10(s_start s_stop)
 1 366 "2020-01-01" "2020-12-31"
 2 366 "2020-01-01" "2020-12-31"
 end
-gen double start = date(s_start, "YMD")
-gen double stop  = date(s_stop, "YMD")
-format %td start stop
+gen double start_a = date(s_start, "YMD")
+gen double stop_a  = date(s_stop, "YMD")
+format %td start_a stop_a
 drop s_start s_stop
-save `ds_a15', replace
+save "`ds_a15'.dta", replace
 
 clear
 input int(id) double(exp_b) str10(s_start s_stop)
 1 182 "2020-01-01" "2020-06-30"
 2 366 "2020-01-01" "2020-12-31"
 end
-gen double start = date(s_start, "YMD")
-gen double stop  = date(s_stop, "YMD")
-format %td start stop
+gen double start_b = date(s_start, "YMD")
+gen double stop_b  = date(s_stop, "YMD")
+format %td start_b stop_b
 drop s_start s_stop
-save `ds_b15', replace
+save "`ds_b15'.dta", replace
 
 clear
 input int(id) double(exp_c) str10(s_start s_stop)
 1 91 "2020-04-01" "2020-06-30"
 2 366 "2020-01-01" "2020-12-31"
 end
-gen double start = date(s_start, "YMD")
-gen double stop  = date(s_stop, "YMD")
-format %td start stop
+gen double start_c = date(s_start, "YMD")
+gen double stop_c  = date(s_stop, "YMD")
+format %td start_c stop_c
 drop s_start s_stop
-save `ds_c15', replace
+save "`ds_c15'.dta", replace
 
-capture noisily tvmerge `ds_a15' `ds_b15' `ds_c15', ///
-    id(id) start(start) stop(stop) ///
+capture noisily tvmerge "`ds_a15'.dta" "`ds_b15'.dta" "`ds_c15'.dta", ///
+    id(id) start(start_a start_b start_c) stop(stop_a stop_b stop_c) ///
     exposure(exp_a exp_b exp_c) continuous(exp_a exp_b exp_c)
 
 if _rc != 0 {
@@ -1287,7 +1332,7 @@ if _rc != 0 {
     local test15_pass = 0
 }
 else {
-    * Person 2 has full alignment → values preserved at 366
+    * Person 2 has full alignment -> values preserved at 366
     quietly su exp_a if id == 2
     assert_approx `=r(mean)' 366 0.01 "15.p2_a"
 
@@ -1316,6 +1361,8 @@ else {
     display as error "TEST 15: FAILED"
 }
 
+* NOTE: Do NOT erase ds_a15/ds_b15/ds_c15 yet - test 16 reuses them
+
 
 * ============================================================================
 * SECTION D: NAMING & DIAGNOSTICS (Tests 16-20)
@@ -1328,8 +1375,8 @@ display "TEST 16: generate() naming with 3 datasets"
 display _dup(60) "-"
 local test16_pass = 1
 
-capture noisily tvmerge `ds_a15' `ds_b15' `ds_c15', ///
-    id(id) start(start) stop(stop) ///
+capture noisily tvmerge "`ds_a15'.dta" "`ds_b15'.dta" "`ds_c15'.dta", ///
+    id(id) start(start_a start_b start_c) stop(stop_a stop_b stop_c) ///
     exposure(exp_a exp_b exp_c) generate(drug_a drug_b drug_c)
 
 if _rc != 0 {
@@ -1362,6 +1409,10 @@ else {
     display as error "TEST 16: FAILED"
 }
 
+capture erase "`ds_a15'.dta"
+capture erase "`ds_b15'.dta"
+capture erase "`ds_c15'.dta"
+
 
 * TEST 17: prefix() naming
 
@@ -1375,24 +1426,24 @@ clear
 input int(id) double(exp_a) str10(s_start s_stop)
 1 1 "2020-01-01" "2020-12-31"
 end
-gen double start = date(s_start, "YMD")
-gen double stop  = date(s_stop, "YMD")
-format %td start stop
+gen double start_a = date(s_start, "YMD")
+gen double stop_a  = date(s_stop, "YMD")
+format %td start_a stop_a
 drop s_start s_stop
-save `ds_a17', replace
+save "`ds_a17'.dta", replace
 
 clear
 input int(id) double(exp_b) str10(s_start s_stop)
 1 1 "2020-01-01" "2020-12-31"
 end
-gen double start = date(s_start, "YMD")
-gen double stop  = date(s_stop, "YMD")
-format %td start stop
+gen double start_b = date(s_start, "YMD")
+gen double stop_b  = date(s_stop, "YMD")
+format %td start_b stop_b
 drop s_start s_stop
-save `ds_b17', replace
+save "`ds_b17'.dta", replace
 
-capture noisily tvmerge `ds_a17' `ds_b17', ///
-    id(id) start(start) stop(stop) ///
+capture noisily tvmerge "`ds_a17'.dta" "`ds_b17'.dta", ///
+    id(id) start(start_a start_b) stop(stop_a stop_b) ///
     exposure(exp_a exp_b) prefix(tv_)
 
 if _rc != 0 {
@@ -1433,6 +1484,8 @@ else {
     display as error "TEST 17: FAILED"
 }
 
+* NOTE: Do NOT erase ds_a17/ds_b17 yet - test 20 reuses them
+
 
 * TEST 18: validatecoverage detects known gap
 
@@ -1447,24 +1500,24 @@ input int(id) double(exp_a) str10(s_start s_stop)
 1 1 "2020-01-01" "2020-03-31"
 1 0 "2020-07-01" "2020-12-31"
 end
-gen double start = date(s_start, "YMD")
-gen double stop  = date(s_stop, "YMD")
-format %td start stop
+gen double start_a = date(s_start, "YMD")
+gen double stop_a  = date(s_stop, "YMD")
+format %td start_a stop_a
 drop s_start s_stop
-save `ds_a18', replace
+save "`ds_a18'.dta", replace
 
 clear
 input int(id) double(exp_b) str10(s_start s_stop)
 1 1 "2020-01-01" "2020-12-31"
 end
-gen double start = date(s_start, "YMD")
-gen double stop  = date(s_stop, "YMD")
-format %td start stop
+gen double start_b = date(s_start, "YMD")
+gen double stop_b  = date(s_stop, "YMD")
+format %td start_b stop_b
 drop s_start s_stop
-save `ds_b18', replace
+save "`ds_b18'.dta", replace
 
-capture noisily tvmerge `ds_a18' `ds_b18', ///
-    id(id) start(start) stop(stop) ///
+capture noisily tvmerge "`ds_a18'.dta" "`ds_b18'.dta", ///
+    id(id) start(start_a start_b) stop(stop_a stop_b) ///
     exposure(exp_a exp_b) validatecoverage
 
 if _rc != 0 {
@@ -1494,6 +1547,9 @@ else {
     display as error "TEST 18: FAILED"
 }
 
+capture erase "`ds_a18'.dta"
+capture erase "`ds_b18'.dta"
+
 
 * TEST 19: validateoverlap detects overlapping intervals
 
@@ -1508,24 +1564,24 @@ input int(id) double(exp_a) str10(s_start s_stop)
 1 1 "2020-01-01" "2020-06-30"
 1 2 "2020-06-01" "2020-12-31"
 end
-gen double start = date(s_start, "YMD")
-gen double stop  = date(s_stop, "YMD")
-format %td start stop
+gen double start_a = date(s_start, "YMD")
+gen double stop_a  = date(s_stop, "YMD")
+format %td start_a stop_a
 drop s_start s_stop
-save `ds_a19', replace
+save "`ds_a19'.dta", replace
 
 clear
 input int(id) double(exp_b) str10(s_start s_stop)
 1 1 "2020-01-01" "2020-12-31"
 end
-gen double start = date(s_start, "YMD")
-gen double stop  = date(s_stop, "YMD")
-format %td start stop
+gen double start_b = date(s_start, "YMD")
+gen double stop_b  = date(s_stop, "YMD")
+format %td start_b stop_b
 drop s_start s_stop
-save `ds_b19', replace
+save "`ds_b19'.dta", replace
 
-capture noisily tvmerge `ds_a19' `ds_b19', ///
-    id(id) start(start) stop(stop) ///
+capture noisily tvmerge "`ds_a19'.dta" "`ds_b19'.dta", ///
+    id(id) start(start_a start_b) stop(stop_a stop_b) ///
     exposure(exp_a exp_b) validateoverlap
 
 if _rc != 0 {
@@ -1546,6 +1602,9 @@ else {
     display as error "TEST 19: FAILED"
 }
 
+capture erase "`ds_a19'.dta"
+capture erase "`ds_b19'.dta"
+
 
 * TEST 20: startname/stopname/dateformat options
 
@@ -1554,8 +1613,8 @@ display "TEST 20: startname/stopname/dateformat options"
 display _dup(60) "-"
 local test20_pass = 1
 
-capture noisily tvmerge `ds_a17' `ds_b17', ///
-    id(id) start(start) stop(stop) ///
+capture noisily tvmerge "`ds_a17'.dta" "`ds_b17'.dta", ///
+    id(id) start(start_a start_b) stop(stop_a stop_b) ///
     exposure(exp_a exp_b) ///
     startname(int_start) stopname(int_stop) dateformat(%td)
 
@@ -1600,6 +1659,9 @@ else {
     local failed_tests "`failed_tests' 20"
     display as error "TEST 20: FAILED"
 }
+
+capture erase "`ds_a17'.dta"
+capture erase "`ds_b17'.dta"
 
 
 * ============================================================================

@@ -1,13 +1,15 @@
 # MSM Package Validation Report
 
 **Package**: msm v1.0.0
-**Date**: 2026-03-03
-**Suite**: 8 validations, ~60 tests
+**Date**: 2026-03-11
+**Suite**: 9 validations + 2 functional tests, ~76 tests
 
 ## Summary
 
 | # | Validation | Tests | Source | Status |
 |---|-----------|-------|--------|--------|
+| T1 | Functional Tests | 48+ | msm_example.dta | PASS |
+| T2 | Table Export Tests | 13 | msm_example.dta | PASS |
 | V1 | Known DGP (Cole & Hernan) | 8 | Simulated (N=10K, T=10) | PASS |
 | V2 | R ipw Cross-Validation | 6 | haartdat (386 HIV+ patients) | PASS |
 | V3 | NHEFS Benchmarks | 8 | Harvard CDN (N=1,629) | PASS |
@@ -16,8 +18,9 @@
 | V6 | IPCW / Informative Censoring | 7 | Simulated (N=5K, T=12) | PASS |
 | V7 | Diagnostics & Reporting | 10 | msm_example.dta | PASS |
 | V8 | Pipeline Guards & Edge Cases | 8 | Synthetic | PASS |
+| V9 | Cross-Language Validation | 16 | Stata vs R vs Python vs teffects | PASS |
 
-**Total: 60 tests, all PASS**
+**Total: ~76 tests, all PASS**
 
 ## Running the Suite
 
@@ -28,6 +31,9 @@ stata-mp -b do run_all_validations.do
 
 * Run selective validations
 stata-mp -b do run_all_validations.do 1 5 8
+
+* Run cross-validation only
+stata-mp -b do crossval_msm_vs_all.do
 ```
 
 ## External Sources
@@ -56,6 +62,18 @@ stata-mp -b do run_all_validations.do 1 5 8
 - **Reference**: Fewell Z et al. "Controlling for Time-dependent Confounding using MSMs." Stata Journal 4(4):402-420
 - **DGP**: RA patients, methotrexate as time-varying treatment, disease activity as confounder affected by prior treatment
 - **Validates**: Naive bias demonstration, balance improvement, full pipeline
+
+### Source 6: R `ipw` + `survey` packages — V9
+- **Packages**: `ipw` (ipwtm), `survey` (svyglm), `sandwich`
+- **Validates**: Live cross-language weight and coefficient agreement on shared DGP data
+
+### Source 7: Python `statsmodels` — V9
+- **Packages**: `statsmodels` (GLM, WLS), `numpy`, `pandas`, `scipy`
+- **Validates**: Live cross-language weight and coefficient agreement on shared DGP data
+
+### Source 8: Stata `teffects ipw` — V9
+- **Built-in**: Stata's `teffects ipw` command for point-treatment IPTW
+- **Validates**: msm manual IPTW agrees with Stata's official implementation
 
 ## Validation Details
 
@@ -92,6 +110,57 @@ stata-mp -b do run_all_validations.do 1 5 8
 ### V8: Pipeline Guards & Edge Cases
 - **Tests**: validate/weight/fit/predict prerequisite failures, non-binary treatment rejection, duplicate id-period rejection, weight replace behavior, diagnose prerequisite
 
+### V9: Cross-Language Validation (NEW — 2026-03-11)
+- **DGP1**: N=2,000, T=8, true conditional log-OR = -0.357. Time-varying treatment with confounder feedback.
+- **DGP2**: N=3,000, point treatment. True ATE = 2.0 (exactly).
+- **DGP3**: N=10,000 true counterfactual simulation (always vs never treated).
+- **Languages**: Stata msm, R (`ipw`/`survey`/`sandwich`), Python (`statsmodels`)
+- **Comparisons**: Individual-level weight correlations, propensity score correlations, coefficient agreement, Stata `teffects ipw` benchmark
+
+#### V9 Cross-Validation Results (2026-03-11)
+
+**DGP1: Time-Varying Treatment** (truth: log-OR = -0.357)
+
+| Source | Weight Mean | Weight SD | Log-OR | SE |
+|--------|------------|-----------|--------|------|
+| Stata msm | 0.9973 | 0.4070 | -0.2102 | 0.1069 |
+| R (manual IPTW) | 0.9976 | 0.4083 | -0.2150 | 0.1064 |
+| Python (manual) | 0.9976 | 0.4083 | -0.2150 | 0.1064 |
+
+**DGP2: Point Treatment** (truth: ATE = 2.000)
+
+| Source | Weight Mean | ATE | SE |
+|--------|------------|------|------|
+| Stata IPTW | 0.9989 | 1.9945 | 0.0993 |
+| teffects ipw | — | 1.9945 | 0.0792 |
+| R IPTW | 0.9989 | 1.9945 | 0.0993 |
+| Python IPTW | 0.9989 | 1.9945 | 0.0993 |
+
+#### V9 Tests
+
+| Test | Description | Tolerance | Status |
+|------|-------------|-----------|--------|
+| C1 | Stata vs R weight mean (DGP1) | < 0.05 | PASS |
+| C2 | Stata vs Python weight mean (DGP1) | < 0.05 | PASS |
+| C3 | Stata vs R treatment effect (DGP1) | < 0.10 | PASS |
+| C4 | Stata vs Python treatment effect (DGP1) | < 0.10 | PASS |
+| C5 | R vs Python treatment effect (DGP1) | < 0.05 | PASS |
+| C6 | All three direction correct (DGP1) | negative | PASS |
+| C7 | msm within 0.20 of truth (DGP1) | < 0.20 | PASS |
+| C8 | All weight means near 1.0 | < 0.10 | PASS |
+| C9 | Manual IPTW vs teffects (DGP2) | < 0.20 | PASS |
+| C10 | All three ATEs agree (DGP2) | < 0.10 | PASS |
+| C11 | All ATEs near truth 2.0 (DGP2) | < 0.50 | PASS |
+| C12 | Stata-R weight correlation (DGP1) | > 0.95 | PASS |
+| C13 | Stata-Python weight correlation (DGP1) | > 0.95 | PASS |
+| C14 | PS correlations (DGP2) | > 0.999 | PASS |
+| C15 | DGP3 counterfactual validity | valid | PASS |
+| C16 | msm 95% CI covers true log-OR | covered | PASS |
+
+#### Key Finding: Sustained-Strategy vs Per-Period Effects
+
+DGP3 reveals an important educational point: the sustained-strategy counterfactual (always vs never treated) can have a different sign from the MSM per-period coefficient. In this DGP, treatment is protective per-period (log-OR = -0.357) but the treatment-confounder feedback (A→L↑→Y↑) makes sustained treatment net neutral-to-harmful. This is well-documented in the MSM literature — the coefficient is the per-period marginal effect, not the sustained strategy effect. `msm_predict` (not the coefficient) should be used for sustained-strategy comparisons.
+
 ## Data Files
 
 | File | Source | Size |
@@ -99,10 +168,23 @@ stata-mp -b do run_all_validations.do 1 5 8
 | `data/nhefs.dta` | Harvard T.H. Chan SPH | 825 KB |
 | `data/nhefs_personperiod.dta` | Generated from nhefs.dta | ~7 MB |
 | `data/haartdat.dta` | R `ipw` package | ~1.9 MB |
+| `crossval_data/dgp1_panel.dta` | Simulated (N=2K, T=8) | ~500 KB |
+| `crossval_data/dgp2_point.dta` | Simulated (N=3K) | ~100 KB |
+| `crossval_data/dgp3_true_counterfactual.dta` | Simulated (N=10K) | ~1 KB |
+
+## Cross-Validation Scripts
+
+| File | Language | Purpose |
+|------|----------|---------|
+| `crossval_dgp_generate.do` | Stata | Generate shared DGP datasets |
+| `crossval_r.R` | R | IPTW + svyglm cross-validation |
+| `crossval_python.py` | Python | statsmodels cross-validation |
+| `crossval_msm_vs_all.do` | Stata | Master comparison + formal tests |
 
 ## Machine-Parseable Output
 
 Each validation emits a RESULT line:
 ```
 RESULT: V# tests=N pass=P fail=F status=PASS/FAIL
+RESULT: CROSSVAL tests=16 pass=16 fail=0 status=PASS
 ```

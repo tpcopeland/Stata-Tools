@@ -780,7 +780,7 @@ program define tvevent, rclass
             gen double `censor_time' = `stopvar' if `generate' > 0 & _event_rank == 1
             bysort `id': egen double _first_fail = min(`censor_time')
 
-            drop if !missing(_first_fail) & `startvar' >= _first_fail
+            drop if !missing(_first_fail) & `startvar' > _first_fail
             replace `generate' = 0 if _event_rank > 1
 
             drop _event_rank `censor_time' _first_fail

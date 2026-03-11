@@ -282,13 +282,15 @@ else {
 }
 
 
-* TEST 4: Event one day before stop → split
+* TEST 4: Event one day before stop → split + type(single) censoring
 * Interval [Jan1, Jun30]. Event Jun29.
 * Split: Jun29 > Jan1 & Jun29 < Jun30 → TRUE.
 * Creates: [Jan1,Jun29] _failure=1, [Jun30,Jun30] _failure=0.
+* type(single) censoring: _first_fail=Jun29, post-event row start=Jun30 > Jun29 → dropped.
+* Result: 1 row [Jan1,Jun29] _failure=1.
 
 display _n _dup(60) "-"
-display "TEST 4: Event one day before stop - split"
+display "TEST 4: Event one day before stop - split + single censoring"
 display _dup(60) "-"
 local test4_pass = 1
 
@@ -324,13 +326,13 @@ if _rc != 0 {
 else {
     sort id start
 
-    * Should have 2 rows after split
+    * type(single) censors post-event rows → 1 row remains
     quietly count
-    if r(N) == 2 {
-        display as result "  PASS [4.split]: 2 rows after split"
+    if r(N) == 1 {
+        display as result "  PASS [4.rows]: 1 row (post-event row censored by type(single))"
     }
     else {
-        display as error "  FAIL [4.split]: `=r(N)' rows, expected 2"
+        display as error "  FAIL [4.rows]: `=r(N)' rows, expected 1"
         local test4_pass = 0
     }
 
@@ -341,19 +343,6 @@ else {
     else {
         display as error "  FAIL [4.r1]: stop=`=string(stop[1],"%td")', _failure=`=_failure[1]'"
         local test4_pass = 0
-    }
-
-    * Row 2: [Jun30, Jun30] _failure=0
-    * Note: with type(single), post-event rows might be dropped
-    * If kept, should be _failure=0
-    if _N >= 2 {
-        if start[2] == mdy(6,30,2020) & _failure[2] == 0 {
-            display as result "  PASS [4.r2]: [Jun30,Jun30] _failure=0"
-        }
-        else {
-            display as error "  FAIL [4.r2]: start=`=string(start[2],"%td")', _failure=`=_failure[2]'"
-            local test4_pass = 0
-        }
     }
 }
 
@@ -758,14 +747,12 @@ else {
 * SECTION C: SPLITTING & CONTINUOUS (Tests 11-14)
 * ============================================================================
 
-* TEST 11: Continuous adjustment exact math
-* Interval [Jan1, Jun30] (181 days for 2020). tv_dose=181.
+* TEST 11: Continuous adjustment exact math with type(recurring)
+* Interval [Jan1, Jun30] (182 days: 31+29+31+30+31+30). tv_dose=182.
 * Event Mar15. Split → [Jan1,Mar15] (75 days), [Mar16,Jun30] (107 days).
-* Wait: Jan1 to Jun30 = 182 days (31+29+31+30+31+30).
-* Jan1 to Mar15 = 75 days (31+29+15). [Mar16,Jun30] = 107 days.
-* tv_dose adjusted: 181*(75/182)=74.59..., 181*(107/182)=106.41...
-* Actually, event at Mar15 means split at Mar15. The event row has stop=Mar15.
-* Since event is inside the interval (Mar15 > Jan1 & Mar15 < Jun30), split occurs.
+* tv_dose adjusted proportionally: 182*(75/182)=75, 182*(107/182)=107.
+* Using type(recurring) to see both split rows (type(single) would censor
+* the post-event row).
 
 display _n _dup(60) "-"
 display "TEST 11: Continuous adjustment exact math"
@@ -784,18 +771,16 @@ drop s_start s_stop
 save `intervals11', replace
 
 clear
-input int(id) str10(s_event)
-1 "2020-03-15"
-end
-gen double event_date = date(s_event, "YMD")
-format %td event_date
-drop s_event
+set obs 1
+gen id = 1
+gen double event_date1 = mdy(3,15,2020)
+format %td event_date1
 save `events11', replace
 
 use `events11', clear
 capture noisily tvevent using `intervals11', ///
     id(id) start(start) stop(stop) ///
-    date(event_date) type(single) ///
+    date(event_date) type(recurring) ///
     continuous(tv_dose)
 
 if _rc != 0 {
@@ -821,11 +806,11 @@ else {
     local r2_dur = stop[2] - start[2] + 1
     local orig_dur = 182
 
-    * tv_dose for row 1: 182 * (75/182) ≈ 75.0
+    * tv_dose for row 1: 182 * (75/182) = 75.0
     local expected_dose1 = 182 * (`r1_dur' / `orig_dur')
     assert_approx `=tv_dose[1]' `expected_dose1' 0.1 "11.dose1"
 
-    * tv_dose for row 2: 182 * (107/182) ≈ 107.0
+    * tv_dose for row 2: 182 * (107/182) = 107.0
     local expected_dose2 = 182 * (`r2_dur' / `orig_dur')
     assert_approx `=tv_dose[2]' `expected_dose2' 0.1 "11.dose2"
 
@@ -1422,15 +1407,16 @@ else {
 
 
 * TEST 20: replace option
-* Run tvevent twice. First creates _failure. Second with replace overwrites.
-* Without replace → error.
+* The replace option handles pre-existing _failure/event_date in the USING
+* (interval) dataset. Test: add _failure to interval data, then verify
+* tvevent errors without replace and succeeds with replace.
 
 display _n _dup(60) "-"
 display "TEST 20: replace option"
 display _dup(60) "-"
 local test20_pass = 1
 
-tempfile intervals20 events20
+tempfile intervals20 intervals20_with_fail events20
 clear
 input int(id) str10(s_start s_stop)
 1 "2020-01-01" "2020-12-31"
@@ -1441,6 +1427,11 @@ format %td start stop
 drop s_start s_stop
 save `intervals20', replace
 
+* Create interval data with pre-existing _failure (simulating a previous run)
+gen byte _failure = 0
+gen double event_date = .
+save `intervals20_with_fail', replace
+
 clear
 input int(id) str10(s_event)
 1 "2020-06-15"
@@ -1450,30 +1441,12 @@ format %td event_date
 drop s_event
 save `events20', replace
 
-* First run: creates _failure
+* Run without replace against intervals that already have _failure → should error
 use `events20', clear
-capture noisily tvevent using `intervals20', ///
+capture noisily tvevent using `intervals20_with_fail', ///
     id(id) start(start) stop(stop) ///
     date(event_date) type(single)
 
-if _rc != 0 {
-    display as error "  FAIL [20a.run]: first run error `=_rc'"
-    local test20_pass = 0
-}
-
-* Save result and try again
-tempfile result20
-capture save `result20', replace
-
-* Second run without replace: should error (variable exists)
-use `events20', clear
-* Merge in the _failure from first run to simulate existing variable
-capture {
-    gen _failure = 0
-    capture noisily tvevent using `intervals20', ///
-        id(id) start(start) stop(stop) ///
-        date(event_date) type(single)
-}
 if _rc != 0 {
     display as result "  PASS [20.no_replace]: error without replace (rc=`=_rc')"
 }
@@ -1481,10 +1454,9 @@ else {
     display as result "  NOTE [20.no_replace]: no error (command may handle differently)"
 }
 
-* Third run with replace: should succeed
+* Run with replace against intervals that already have _failure → should succeed
 use `events20', clear
-gen _failure = 0
-capture noisily tvevent using `intervals20', ///
+capture noisily tvevent using `intervals20_with_fail', ///
     id(id) start(start) stop(stop) ///
     date(event_date) type(single) replace
 
@@ -1493,7 +1465,7 @@ if _rc != 0 {
     local test20_pass = 0
 }
 else {
-    * _failure should now be 1 (overwritten)
+    * _failure should be 1 (event at Jun15 flagged)
     quietly count if _failure == 1
     if r(N) >= 1 {
         display as result "  PASS [20.replace]: replace successfully overwrites"
