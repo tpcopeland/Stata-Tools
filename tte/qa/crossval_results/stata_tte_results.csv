@@ -1,0 +1,7 @@
+dataset,config,metric,value
+trial_example,1A_ITT_logistic_linear,coef,-.23841983
+trial_example,1A_ITT_logistic_linear,se,.30318456
+trial_example,1A_ITT_logistic_linear,or_hr,.78787185
+trial_example,1A_ITT_logistic_linear,n_trials,396
+trial_example,1A_ITT_logistic_linear,n_expanded,1939053
+trial_example,1A_ITT_logistic_linear,pred_arm0_t0,
