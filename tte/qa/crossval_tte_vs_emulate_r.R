@@ -396,7 +396,7 @@ dgp_ccw <- function(n = 2000, n_periods = 24, seed = 20260311) {
       if (!alive) break
       treat <- as.integer(t >= surg_period)
       event <- as.integer(t == death_period & death_period < n_periods)
-      elig  <- as.integer(t < surg_period | will_get == 0L)
+      elig  <- as.integer(t <= surg_period)
       idx <- idx + 1L
       rows[[idx]] <- data.frame(
         id = i, period = t, treatment = treat, outcome = event,
