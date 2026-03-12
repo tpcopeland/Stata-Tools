@@ -1,14 +1,12 @@
-/*******************************************************************************
 * run_all_validations.do
 *
 * Master runner for msm package QA suite.
-* Runs test_msm.do (functional tests) and validate_msm.do (validation suites).
+* Runs test_msm.do (functional tests) and validation_msm.do (validation suites).
 *
 * Usage:
 *   stata-mp -b do run_all_validations.do              // runs all
 *   stata-mp -b do run_all_validations.do tests         // runs tests only
 *   stata-mp -b do run_all_validations.do validations   // runs validations only
-*******************************************************************************/
 
 version 16.0
 set more off
@@ -19,14 +17,10 @@ local qa_dir "/home/tpcopeland/Stata-Tools/msm/qa"
 capture log close _all
 log using "`qa_dir'/run_all_validations.log", replace name(master)
 
-display "MSM PACKAGE QA SUITE"
-display "Date: $S_DATE $S_TIME"
-display ""
-
 timer clear
 timer on 99
 
-* --- Determine what to run ---
+* Determine what to run
 local run_list "`0'"
 
 local do_tests = 0
@@ -35,47 +29,33 @@ local do_validations = 0
 if "`run_list'" == "" {
     local do_tests = 1
     local do_validations = 1
-    display "Running ALL tests and validations"
 }
 else if "`run_list'" == "tests" {
     local do_tests = 1
-    display "Running tests only"
 }
 else if "`run_list'" == "validations" {
     local do_validations = 1
-    display "Running validations only"
 }
 else {
     local do_tests = 1
     local do_validations = 1
-    display "Running ALL tests and validations"
 }
-display ""
 
-* --- Run functional tests ---
+* Run functional tests
 if `do_tests' {
-    display "Running test_msm.do..."
     timer on 1
     do "`qa_dir'/test_msm.do"
     timer off 1
-    display ""
 }
 
-* --- Run validation suites ---
+* Run validation suites
 if `do_validations' {
-    display "Running validate_msm.do..."
     timer on 2
-    do "`qa_dir'/validate_msm.do"
+    do "`qa_dir'/validation_msm.do"
     timer off 2
-    display ""
 }
 
 timer off 99
-
-* --- Summary ---
-display ""
-display "QA SUITE COMPLETE"
-display ""
-timer list
+quietly timer list
 
 log close master

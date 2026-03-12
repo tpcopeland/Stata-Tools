@@ -74,6 +74,7 @@ quietly {
     run "`tte_dir'/tte_plot.ado"
     run "`tte_dir'/tte_report.ado"
     run "`tte_dir'/tte_protocol.ado"
+    cap run "`tte_dir'/_tte_col_letter.ado"
     cap run "`tte_dir'/tte_calibrate.ado"
 }
 
@@ -88,7 +89,7 @@ display _dup(60) "-"
 capture noisily {
     tte
     assert r(n_commands) == 11
-    assert "`r(version)'" == "1.0.4"
+    assert "`r(version)'" == "1.1.0"
 }
 if _rc == 0 {
     display as result "  PASS"
@@ -1155,6 +1156,931 @@ capture noisily {
     assert colsof(pred) == 13
     assert r(rr_4) != .
     assert r(rd_4) != .
+}
+if _rc == 0 {
+    display as result "  PASS"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL (rc=" _rc ")"
+    local ++fail_count
+}
+
+* ============================================================================
+* TEST 34: tte_weight with switch numerator covariates (stabilized weights)
+* ============================================================================
+local ++test_count
+display _dup(60) "-"
+display "Test `test_count': tte_weight switch_n_cov + stabilized"
+display _dup(60) "-"
+
+capture noisily {
+    use "`tte_dir'/tte_example.dta", clear
+    tte_prepare, id(patid) period(period) treatment(treatment) ///
+        outcome(outcome) eligible(eligible) ///
+        covariates(age sex comorbidity) estimand(PP)
+    tte_expand, maxfollowup(5) grace(1)
+
+    tte_weight, switch_d_cov(age sex comorbidity) ///
+        switch_n_cov(age sex) truncate(1 99) nolog
+
+    confirm variable _tte_weight
+    quietly summarize _tte_weight
+    assert r(min) > 0
+    assert r(mean) > 0
+    assert r(ess) > 0
+}
+if _rc == 0 {
+    display as result "  PASS"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL (rc=" _rc ")"
+    local ++fail_count
+}
+
+* ============================================================================
+* TEST 35: tte_weight with IPCW censoring weights
+* ============================================================================
+local ++test_count
+display _dup(60) "-"
+display "Test `test_count': tte_weight censor_d_cov and censor_n_cov"
+display _dup(60) "-"
+
+capture noisily {
+    use "`tte_dir'/tte_example.dta", clear
+    tte_prepare, id(patid) period(period) treatment(treatment) ///
+        outcome(outcome) eligible(eligible) censor(censored) ///
+        covariates(age sex comorbidity) estimand(PP)
+    tte_expand, maxfollowup(5) grace(1)
+
+    tte_weight, switch_d_cov(age sex comorbidity) ///
+        censor_d_cov(age sex) censor_n_cov(age) ///
+        truncate(1 99) nolog
+
+    confirm variable _tte_weight
+    quietly summarize _tte_weight
+    assert r(min) > 0
+    assert r(mean) > 0
+}
+if _rc == 0 {
+    display as result "  PASS"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL (rc=" _rc ")"
+    local ++fail_count
+}
+
+* ============================================================================
+* TEST 36: tte_weight with pool_switch and pool_censor
+* ============================================================================
+local ++test_count
+display _dup(60) "-"
+display "Test `test_count': tte_weight pool_switch and pool_censor"
+display _dup(60) "-"
+
+capture noisily {
+    use "`tte_dir'/tte_example.dta", clear
+    tte_prepare, id(patid) period(period) treatment(treatment) ///
+        outcome(outcome) eligible(eligible) censor(censored) ///
+        covariates(age sex comorbidity) estimand(PP)
+    tte_expand, maxfollowup(5) grace(1)
+
+    tte_weight, switch_d_cov(age sex comorbidity) ///
+        censor_d_cov(age sex) ///
+        pool_switch pool_censor truncate(1 99) nolog
+
+    confirm variable _tte_weight
+    quietly summarize _tte_weight
+    assert r(min) > 0
+}
+if _rc == 0 {
+    display as result "  PASS"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL (rc=" _rc ")"
+    local ++fail_count
+}
+
+* ============================================================================
+* TEST 37: tte_weight with custom generate name
+* ============================================================================
+local ++test_count
+display _dup(60) "-"
+display "Test `test_count': tte_weight generate(custom_wt)"
+display _dup(60) "-"
+
+capture noisily {
+    use "`tte_dir'/tte_example.dta", clear
+    tte_prepare, id(patid) period(period) treatment(treatment) ///
+        outcome(outcome) eligible(eligible) ///
+        covariates(age sex comorbidity) estimand(PP)
+    tte_expand, maxfollowup(5) grace(1)
+
+    tte_weight, switch_d_cov(age sex comorbidity) ///
+        generate(custom_wt) truncate(1 99) nolog
+
+    confirm variable custom_wt
+    quietly summarize custom_wt
+    assert r(min) > 0
+}
+if _rc == 0 {
+    display as result "  PASS"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL (rc=" _rc ")"
+    local ++fail_count
+}
+
+* ============================================================================
+* TEST 38: tte_fit with natural spline ns(3) specs
+* ============================================================================
+local ++test_count
+display _dup(60) "-"
+display "Test `test_count': tte_fit followup_spec(ns(3)) trial_period_spec(ns(3))"
+display _dup(60) "-"
+
+capture noisily {
+    use "`tte_dir'/tte_example.dta", clear
+    tte_prepare, id(patid) period(period) treatment(treatment) ///
+        outcome(outcome) eligible(eligible) ///
+        covariates(age sex comorbidity) estimand(ITT)
+    tte_expand, maxfollowup(5)
+    tte_weight, nolog
+
+    tte_fit, outcome_cov(age sex) followup_spec(ns(3)) ///
+        trial_period_spec(ns(3)) nolog
+
+    assert e(N) > 0
+    assert "`e(tte_followup_spec)'" == "ns(3)"
+    assert "`e(tte_trial_spec)'" == "ns(3)"
+}
+if _rc == 0 {
+    display as result "  PASS"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL (rc=" _rc ")"
+    local ++fail_count
+}
+
+* ============================================================================
+* TEST 39: tte_fit with cubic and none specs
+* ============================================================================
+local ++test_count
+display _dup(60) "-"
+display "Test `test_count': tte_fit followup_spec(cubic) trial_period_spec(none)"
+display _dup(60) "-"
+
+capture noisily {
+    use "`tte_dir'/tte_example.dta", clear
+    tte_prepare, id(patid) period(period) treatment(treatment) ///
+        outcome(outcome) eligible(eligible) ///
+        covariates(age sex comorbidity) estimand(ITT)
+    tte_expand, maxfollowup(5)
+    tte_weight, nolog
+
+    tte_fit, outcome_cov(age sex) followup_spec(cubic) ///
+        trial_period_spec(none) nolog
+
+    assert e(N) > 0
+    assert "`e(tte_followup_spec)'" == "cubic"
+    assert "`e(tte_trial_spec)'" == "none"
+}
+if _rc == 0 {
+    display as result "  PASS"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL (rc=" _rc ")"
+    local ++fail_count
+}
+
+* ============================================================================
+* TEST 40: tte_fit with level() option
+* ============================================================================
+local ++test_count
+display _dup(60) "-"
+display "Test `test_count': tte_fit level(90)"
+display _dup(60) "-"
+
+capture noisily {
+    use "`tte_dir'/tte_example.dta", clear
+    tte_prepare, id(patid) period(period) treatment(treatment) ///
+        outcome(outcome) eligible(eligible) estimand(ITT)
+    tte_expand, maxfollowup(5)
+    tte_weight, nolog
+
+    tte_fit, outcome_cov(age sex) level(90) nolog
+
+    assert e(N) > 0
+}
+if _rc == 0 {
+    display as result "  PASS"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL (rc=" _rc ")"
+    local ++fail_count
+}
+
+* ============================================================================
+* TEST 41: tte_predict type(survival)
+* ============================================================================
+local ++test_count
+display _dup(60) "-"
+display "Test `test_count': tte_predict type(survival)"
+display _dup(60) "-"
+
+capture noisily {
+    use "`tte_dir'/tte_example.dta", clear
+    tte_prepare, id(patid) period(period) treatment(treatment) ///
+        outcome(outcome) eligible(eligible) ///
+        covariates(age sex comorbidity) estimand(PP)
+    tte_expand, maxfollowup(5) grace(1)
+    tte_weight, switch_d_cov(age sex comorbidity) truncate(1 99) nolog
+    tte_fit, outcome_cov(age sex comorbidity) nolog
+
+    tte_predict, times(0 2 4) type(survival) samples(30) seed(42)
+
+    matrix pred = r(predictions)
+    assert rowsof(pred) == 3
+    assert "`r(type)'" == "survival"
+
+    * Survival should be in [0, 1]
+    forvalues i = 1/3 {
+        assert pred[`i', 2] >= 0 & pred[`i', 2] <= 1
+        assert pred[`i', 5] >= 0 & pred[`i', 5] <= 1
+    }
+
+    * Survival should decrease over time (or stay same)
+    assert pred[1, 2] >= pred[3, 2]
+}
+if _rc == 0 {
+    display as result "  PASS"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL (rc=" _rc ")"
+    local ++fail_count
+}
+
+* ============================================================================
+* TEST 42: tte_predict type(survival) + type(cum_inc) complement to ~1
+* ============================================================================
+local ++test_count
+display _dup(60) "-"
+display "Test `test_count': survival + cum_inc complement to ~1"
+display _dup(60) "-"
+
+capture noisily {
+    use "`tte_dir'/tte_example.dta", clear
+    tte_prepare, id(patid) period(period) treatment(treatment) ///
+        outcome(outcome) eligible(eligible) ///
+        covariates(age sex comorbidity) estimand(PP)
+    tte_expand, maxfollowup(5) grace(1)
+    tte_weight, switch_d_cov(age sex comorbidity) truncate(1 99) nolog
+    tte_fit, outcome_cov(age sex comorbidity) nolog
+
+    tte_predict, times(0 2 4) type(survival) samples(30) seed(42)
+    matrix surv = r(predictions)
+
+    tte_predict, times(0 2 4) type(cum_inc) samples(30) seed(42)
+    matrix cinc = r(predictions)
+
+    * survival + cumulative incidence should sum to ~1 for each arm/time
+    forvalues i = 1/3 {
+        local s0 = surv[`i', 2]
+        local c0 = cinc[`i', 2]
+        assert abs(`s0' + `c0' - 1) < 0.01
+
+        local s1 = surv[`i', 5]
+        local c1 = cinc[`i', 5]
+        assert abs(`s1' + `c1' - 1) < 0.01
+    }
+}
+if _rc == 0 {
+    display as result "  PASS"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL (rc=" _rc ")"
+    local ++fail_count
+}
+
+* ============================================================================
+* TEST 43: tte_predict with level() option
+* ============================================================================
+local ++test_count
+display _dup(60) "-"
+display "Test `test_count': tte_predict level(90) narrower than level(99)"
+display _dup(60) "-"
+
+capture noisily {
+    use "`tte_dir'/tte_example.dta", clear
+    tte_prepare, id(patid) period(period) treatment(treatment) ///
+        outcome(outcome) eligible(eligible) ///
+        covariates(age sex comorbidity) estimand(PP)
+    tte_expand, maxfollowup(5) grace(1)
+    tte_weight, switch_d_cov(age sex comorbidity) truncate(1 99) nolog
+    tte_fit, outcome_cov(age sex comorbidity) nolog
+
+    tte_predict, times(0 2 4) type(cum_inc) level(90) samples(50) seed(42)
+    matrix pred90 = r(predictions)
+
+    tte_predict, times(0 2 4) type(cum_inc) level(99) samples(50) seed(42)
+    matrix pred99 = r(predictions)
+
+    * 90% CI should be narrower than 99% CI at time 4
+    local w90 = pred90[3, 4] - pred90[3, 3]
+    local w99 = pred99[3, 4] - pred99[3, 3]
+    assert `w90' < `w99'
+}
+if _rc == 0 {
+    display as result "  PASS"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL (rc=" _rc ")"
+    local ++fail_count
+}
+
+* ============================================================================
+* TEST 44: tte_report CSV export
+* ============================================================================
+local ++test_count
+display _dup(60) "-"
+display "Test `test_count': tte_report format(csv) export"
+display _dup(60) "-"
+
+capture noisily {
+    use "`tte_dir'/tte_example.dta", clear
+    tte_prepare, id(patid) period(period) treatment(treatment) ///
+        outcome(outcome) eligible(eligible) ///
+        covariates(age sex comorbidity) estimand(PP)
+    tte_expand, maxfollowup(5) grace(1)
+    tte_weight, switch_d_cov(age sex comorbidity) truncate(1 99) nolog
+    tte_fit, outcome_cov(age sex comorbidity) nolog
+
+    tempfile csv_out
+    tte_report, format(csv) export("`csv_out'") decimals(4) replace
+
+    confirm file "`csv_out'"
+}
+if _rc == 0 {
+    display as result "  PASS"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL (rc=" _rc ")"
+    local ++fail_count
+}
+
+* ============================================================================
+* TEST 45: tte_report Excel export with predictions
+* ============================================================================
+local ++test_count
+display _dup(60) "-"
+display "Test `test_count': tte_report format(excel) with predictions"
+display _dup(60) "-"
+
+capture noisily {
+    use "`tte_dir'/tte_example.dta", clear
+    tte_prepare, id(patid) period(period) treatment(treatment) ///
+        outcome(outcome) eligible(eligible) ///
+        covariates(age sex comorbidity) estimand(PP)
+    tte_expand, maxfollowup(5) grace(1)
+    tte_weight, switch_d_cov(age sex comorbidity) truncate(1 99) nolog
+    tte_fit, outcome_cov(age sex comorbidity) nolog
+    tte_predict, times(0 2 4) difference samples(30) seed(42)
+
+    matrix preds = r(predictions)
+    tempfile xlsx_out
+    tte_report, format(excel) export("`xlsx_out'") ///
+        predictions(preds) eform replace
+
+    confirm file "`xlsx_out'"
+}
+if _rc == 0 {
+    display as result "  PASS"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL (rc=" _rc ")"
+    local ++fail_count
+}
+
+* ============================================================================
+* TEST 46: tte_plot type(km) and type(weights)
+* ============================================================================
+local ++test_count
+display _dup(60) "-"
+display "Test `test_count': tte_plot type(km) and type(weights)"
+display _dup(60) "-"
+
+capture noisily {
+    use "`tte_dir'/tte_example.dta", clear
+    tte_prepare, id(patid) period(period) treatment(treatment) ///
+        outcome(outcome) eligible(eligible) ///
+        covariates(age sex comorbidity) estimand(PP)
+    tte_expand, maxfollowup(5) grace(1)
+    tte_weight, switch_d_cov(age sex comorbidity) truncate(1 99) nolog
+    tte_fit, outcome_cov(age sex comorbidity) nolog
+    tte_predict, times(0 1 2 3 4 5) samples(30) seed(42)
+
+    * ci option not allowed with pweighted KM — test without ci
+    tte_plot, type(km)
+    assert "`r(type)'" == "km"
+
+    tte_plot, type(weights)
+    assert "`r(type)'" == "weights"
+}
+if _rc == 0 {
+    display as result "  PASS"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL (rc=" _rc ")"
+    local ++fail_count
+}
+
+* ============================================================================
+* TEST 47: tte_plot export to file
+* ============================================================================
+local ++test_count
+display _dup(60) "-"
+display "Test `test_count': tte_plot export() creates file"
+display _dup(60) "-"
+
+capture noisily {
+    use "`tte_dir'/tte_example.dta", clear
+    tte_prepare, id(patid) period(period) treatment(treatment) ///
+        outcome(outcome) eligible(eligible) ///
+        covariates(age sex comorbidity) estimand(PP)
+    tte_expand, maxfollowup(5) grace(1)
+    tte_weight, switch_d_cov(age sex comorbidity) truncate(1 99) nolog
+    tte_fit, outcome_cov(age sex comorbidity) nolog
+    tte_predict, times(0 1 2 3 4 5) samples(30) seed(42)
+
+    tempfile plot_out
+    tte_plot, type(km) export("`plot_out'.png") replace
+
+    confirm file "`plot_out'.png"
+}
+if _rc == 0 {
+    display as result "  PASS"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL (rc=" _rc ")"
+    local ++fail_count
+}
+
+* ============================================================================
+* TEST 48: tte_protocol auto and export
+* ============================================================================
+local ++test_count
+display _dup(60) "-"
+display "Test `test_count': tte_protocol auto and export"
+display _dup(60) "-"
+
+capture noisily {
+    use "`tte_dir'/tte_example.dta", clear
+    tte_prepare, id(patid) period(period) treatment(treatment) ///
+        outcome(outcome) eligible(eligible) ///
+        covariates(age sex comorbidity) estimand(PP)
+    tte_expand, maxfollowup(5) grace(1)
+    tte_weight, switch_d_cov(age sex comorbidity) truncate(1 99) nolog
+    tte_fit, outcome_cov(age sex comorbidity) nolog
+
+    * Auto-generate from metadata
+    tte_protocol, auto
+
+    * Export to CSV
+    tempfile proto_out
+    tte_protocol, auto format(csv) export("`proto_out'") replace
+
+    confirm file "`proto_out'"
+}
+if _rc == 0 {
+    display as result "  PASS"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL (rc=" _rc ")"
+    local ++fail_count
+}
+
+* ============================================================================
+* TEST 49: tte_validate strict and verbose options
+* ============================================================================
+local ++test_count
+display _dup(60) "-"
+display "Test `test_count': tte_validate strict and verbose"
+display _dup(60) "-"
+
+capture noisily {
+    use "`tte_dir'/tte_example.dta", clear
+    tte_prepare, id(patid) period(period) treatment(treatment) ///
+        outcome(outcome) eligible(eligible) estimand(PP)
+
+    tte_validate, strict verbose
+
+    assert r(n_errors) == 0
+    assert "`r(validation)'" == "passed"
+    assert r(n_checks) > 0
+}
+if _rc == 0 {
+    display as result "  PASS"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL (rc=" _rc ")"
+    local ++fail_count
+}
+
+* ============================================================================
+* TEST 50: tte_expand save() and keepvars()
+* ============================================================================
+local ++test_count
+display _dup(60) "-"
+display "Test `test_count': tte_expand save() replace and keepvars()"
+display _dup(60) "-"
+
+capture noisily {
+    use "`tte_dir'/tte_example.dta", clear
+    tte_prepare, id(patid) period(period) treatment(treatment) ///
+        outcome(outcome) eligible(eligible) ///
+        covariates(age sex comorbidity biomarker) estimand(ITT)
+
+    tempfile saved_expand
+    tte_expand, maxfollowup(3) save("`saved_expand'") replace ///
+        keepvars(biomarker)
+
+    * Saved file should exist
+    confirm file "`saved_expand'"
+
+    * biomarker should be in the expanded data
+    confirm variable biomarker
+}
+if _rc == 0 {
+    display as result "  PASS"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL (rc=" _rc ")"
+    local ++fail_count
+}
+
+* ============================================================================
+* TEST 51: tte_prepare with AT estimand
+* ============================================================================
+local ++test_count
+display _dup(60) "-"
+display "Test `test_count': tte_prepare with AT estimand"
+display _dup(60) "-"
+
+capture noisily {
+    use "`tte_dir'/tte_example.dta", clear
+    tte_prepare, id(patid) period(period) treatment(treatment) ///
+        outcome(outcome) eligible(eligible) ///
+        covariates(age sex comorbidity) estimand(AT)
+    assert "`r(estimand)'" == "AT"
+    local est : char _dta[_tte_estimand]
+    assert "`est'" == "AT"
+}
+if _rc == 0 {
+    display as result "  PASS"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL (rc=" _rc ")"
+    local ++fail_count
+}
+
+* ============================================================================
+* TEST 52: tte overview with list, detail, protocol options
+* ============================================================================
+local ++test_count
+display _dup(60) "-"
+display "Test `test_count': tte list, detail, protocol options"
+display _dup(60) "-"
+
+capture noisily {
+    tte, list
+    assert r(n_commands) > 0
+
+    tte, detail
+    assert r(n_commands) > 0
+
+    tte, protocol
+}
+if _rc == 0 {
+    display as result "  PASS"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL (rc=" _rc ")"
+    local ++fail_count
+}
+
+* ============================================================================
+* TEST 53: tte_diagnose by_trial option
+* ============================================================================
+local ++test_count
+display _dup(60) "-"
+display "Test `test_count': tte_diagnose by_trial"
+display _dup(60) "-"
+
+capture noisily {
+    use "`tte_dir'/tte_example.dta", clear
+    tte_prepare, id(patid) period(period) treatment(treatment) ///
+        outcome(outcome) eligible(eligible) ///
+        covariates(age sex comorbidity) estimand(PP)
+    tte_expand, maxfollowup(5) grace(1)
+    tte_weight, switch_d_cov(age sex comorbidity) truncate(1 99) nolog
+
+    tte_diagnose, by_trial
+}
+if _rc == 0 {
+    display as result "  PASS"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL (rc=" _rc ")"
+    local ++fail_count
+}
+
+* ============================================================================
+* TEST 54: Data preservation — _N unchanged after predict/diagnose/report
+* ============================================================================
+local ++test_count
+display _dup(60) "-"
+display "Test `test_count': Data preservation through pipeline"
+display _dup(60) "-"
+
+capture noisily {
+    use "`tte_dir'/tte_example.dta", clear
+    tte_prepare, id(patid) period(period) treatment(treatment) ///
+        outcome(outcome) eligible(eligible) ///
+        covariates(age sex comorbidity) estimand(PP)
+    tte_expand, maxfollowup(5) grace(1)
+
+    * Record N after expand
+    local n_expanded = _N
+
+    tte_weight, switch_d_cov(age sex comorbidity) truncate(1 99) nolog
+    assert _N == `n_expanded'
+
+    tte_fit, outcome_cov(age sex comorbidity) nolog
+    assert _N == `n_expanded'
+
+    tte_predict, times(0 2 4) samples(30) seed(42)
+    assert _N == `n_expanded'
+
+    tte_diagnose, balance_covariates(age sex comorbidity)
+    assert _N == `n_expanded'
+
+    tte_report, eform
+    assert _N == `n_expanded'
+}
+if _rc == 0 {
+    display as result "  PASS"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL (rc=" _rc ")"
+    local ++fail_count
+}
+
+* ============================================================================
+* TEST 55: tte_prepare rejects non-binary treatment/outcome
+* ============================================================================
+local ++test_count
+display _dup(60) "-"
+display "Test `test_count': tte_prepare rejects non-binary variables"
+display _dup(60) "-"
+
+capture noisily {
+    * Non-binary treatment
+    use "`tte_dir'/tte_example.dta", clear
+    replace treatment = 2 in 1
+    capture tte_prepare, id(patid) period(period) treatment(treatment) ///
+        outcome(outcome) eligible(eligible) estimand(ITT)
+    assert _rc != 0
+
+    * Non-binary outcome
+    use "`tte_dir'/tte_example.dta", clear
+    replace outcome = 3 in 1
+    capture tte_prepare, id(patid) period(period) treatment(treatment) ///
+        outcome(outcome) eligible(eligible) estimand(ITT)
+    assert _rc != 0
+}
+if _rc == 0 {
+    display as result "  PASS"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL (rc=" _rc ")"
+    local ++fail_count
+}
+
+* ============================================================================
+* TEST 56: tte_prepare rejects missing required variables
+* ============================================================================
+local ++test_count
+display _dup(60) "-"
+display "Test `test_count': tte_prepare rejects missing required args"
+display _dup(60) "-"
+
+capture noisily {
+    use "`tte_dir'/tte_example.dta", clear
+
+    * Missing id
+    capture tte_prepare, period(period) treatment(treatment) ///
+        outcome(outcome) eligible(eligible) estimand(ITT)
+    assert _rc != 0
+
+    * Missing outcome
+    capture tte_prepare, id(patid) period(period) treatment(treatment) ///
+        eligible(eligible) estimand(ITT)
+    assert _rc != 0
+}
+if _rc == 0 {
+    display as result "  PASS"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL (rc=" _rc ")"
+    local ++fail_count
+}
+
+* ============================================================================
+* TEST 57: tte_expand without replace errors on existing save file
+* ============================================================================
+local ++test_count
+display _dup(60) "-"
+display "Test `test_count': tte_expand save() without replace errors"
+display _dup(60) "-"
+
+capture noisily {
+    use "`tte_dir'/tte_example.dta", clear
+    tte_prepare, id(patid) period(period) treatment(treatment) ///
+        outcome(outcome) eligible(eligible) estimand(ITT)
+
+    tempfile saved_exp2
+    tte_expand, maxfollowup(3) save("`saved_exp2'") replace
+
+    * Re-run without replace should fail
+    use "`tte_dir'/tte_example.dta", clear
+    tte_prepare, id(patid) period(period) treatment(treatment) ///
+        outcome(outcome) eligible(eligible) estimand(ITT)
+    capture tte_expand, maxfollowup(3) save("`saved_exp2'")
+    assert _rc != 0
+}
+if _rc == 0 {
+    display as result "  PASS"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL (rc=" _rc ")"
+    local ++fail_count
+}
+
+* ============================================================================
+* TEST 58: tte_plot type(cumhaz)
+* ============================================================================
+local ++test_count
+display _dup(60) "-"
+display "Test `test_count': tte_plot type(cumhaz)"
+display _dup(60) "-"
+
+capture noisily {
+    use "`tte_dir'/tte_example.dta", clear
+    tte_prepare, id(patid) period(period) treatment(treatment) ///
+        outcome(outcome) eligible(eligible) ///
+        covariates(age sex comorbidity) estimand(PP)
+    tte_expand, maxfollowup(5) grace(1)
+    tte_weight, switch_d_cov(age sex comorbidity) truncate(1 99) nolog
+    tte_fit, outcome_cov(age sex comorbidity) nolog
+    tte_predict, times(0 1 2 3 4 5) samples(30) seed(42)
+
+    tte_plot, type(cumhaz)
+    assert "`r(type)'" == "cumhaz"
+}
+if _rc == 0 {
+    display as result "  PASS"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL (rc=" _rc ")"
+    local ++fail_count
+}
+
+* ============================================================================
+* TEST 59: Return value exhaustiveness — tte_expand
+* ============================================================================
+local ++test_count
+display _dup(60) "-"
+display "Test `test_count': tte_expand return value exhaustiveness"
+display _dup(60) "-"
+
+capture noisily {
+    use "`tte_dir'/tte_example.dta", clear
+    tte_prepare, id(patid) period(period) treatment(treatment) ///
+        outcome(outcome) eligible(eligible) ///
+        covariates(age sex comorbidity) estimand(PP)
+    tte_expand, maxfollowup(5) grace(1)
+
+    assert r(n_trials) > 0
+    assert r(n_expanded) > 0
+    assert r(n_treat) > 0
+    assert r(n_control) > 0
+    assert r(expansion_ratio) > 1
+    assert "`r(estimand)'" == "PP"
+}
+if _rc == 0 {
+    display as result "  PASS"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL (rc=" _rc ")"
+    local ++fail_count
+}
+
+* ============================================================================
+* TEST 60: Return value exhaustiveness — tte_weight
+* ============================================================================
+local ++test_count
+display _dup(60) "-"
+display "Test `test_count': tte_weight return value exhaustiveness"
+display _dup(60) "-"
+
+capture noisily {
+    use "`tte_dir'/tte_example.dta", clear
+    tte_prepare, id(patid) period(period) treatment(treatment) ///
+        outcome(outcome) eligible(eligible) ///
+        covariates(age sex comorbidity) estimand(PP)
+    tte_expand, maxfollowup(5) grace(1)
+    tte_weight, switch_d_cov(age sex comorbidity) truncate(1 99) nolog
+
+    assert r(mean_weight) > 0
+    assert r(sd_weight) >= 0
+    assert r(min_weight) > 0
+    assert r(max_weight) > 0
+    assert r(p1_weight) != .
+    assert r(p99_weight) != .
+    assert r(ess) > 0
+    assert r(n_truncated) >= 0
+    assert "`r(generate)'" == "_tte_weight"
+    assert "`r(estimand)'" == "PP"
+}
+if _rc == 0 {
+    display as result "  PASS"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL (rc=" _rc ")"
+    local ++fail_count
+}
+
+* ============================================================================
+* TEST 61: Return value exhaustiveness — tte_predict
+* ============================================================================
+local ++test_count
+display _dup(60) "-"
+display "Test `test_count': tte_predict return value exhaustiveness"
+display _dup(60) "-"
+
+capture noisily {
+    use "`tte_dir'/tte_example.dta", clear
+    tte_prepare, id(patid) period(period) treatment(treatment) ///
+        outcome(outcome) eligible(eligible) ///
+        covariates(age sex comorbidity) estimand(PP)
+    tte_expand, maxfollowup(5) grace(1)
+    tte_weight, switch_d_cov(age sex comorbidity) truncate(1 99) nolog
+    tte_fit, outcome_cov(age sex comorbidity) nolog
+
+    tte_predict, times(0 2 4) difference ratio samples(30) seed(42)
+
+    assert r(n_times) == 3
+    assert r(samples) == 30
+    assert r(level) == 95
+    assert "`r(type)'" == "cum_inc"
+    assert "`r(estimand)'" == "PP"
+    assert "`r(target)'" == "ATE"
+    assert r(rd_0) != .
+    assert r(rd_2) != .
+    assert r(rd_4) != .
+    assert r(rr_0) != .
+    assert r(rr_2) != .
+    assert r(rr_4) != .
+    matrix pred = r(predictions)
+    assert rowsof(pred) == 3
+    assert colsof(pred) == 13
 }
 if _rc == 0 {
     display as result "  PASS"

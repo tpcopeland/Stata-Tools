@@ -2,7 +2,7 @@
 
 **Package**: msm v1.0.0
 **Date**: 2026-03-12
-**Suite**: 223 tests in 2 files (test_msm.do + validate_msm.do)
+**Suite**: 223 tests in 2 files (test_msm.do + validation_msm.do)
 
 ## Summary
 
@@ -40,7 +40,7 @@ stata-mp -b do run_all_validations.do validations
 
 * Individual files
 stata-mp -b do test_msm.do
-stata-mp -b do validate_msm.do
+stata-mp -b do validation_msm.do
 ```
 
 ## External Sources
@@ -199,7 +199,7 @@ DGP3 reveals an important educational point: the sustained-strategy counterfactu
 | `crossval_dgp_generate.do` | Stata | Generate shared DGP datasets |
 | `crossval_r.R` | R | IPTW + svyglm cross-validation |
 | `crossval_python.py` | Python | statsmodels cross-validation |
-| `crossval_msm_vs_all.do` | Stata | Master comparison + formal tests |
+| `crossval_msm.do` | Stata | Master comparison + formal tests |
 
 ## Bugs Found and Fixed
 

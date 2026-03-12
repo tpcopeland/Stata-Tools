@@ -1,5 +1,6 @@
-* crossval_gcomp.do -- Cross-validation of gcomp mediation against known DGP
-*   and R mediation package (Imai, Keele, Tingley 2010)
+* crossval_gcomp.do - Cross-validation of gcomp mediation vs known DGP and R mediation
+* Tests: 13 total (V1: 7 known DGP, V2: 6 R cross-validation)
+* Runtime: ~5 minutes
 *
 * DGP: Binary exposure mediation with one confounder
 *   C ~ Normal(50, 10)
@@ -28,39 +29,37 @@
 * - Both estimate marginal effects on the risk difference scale
 * - Both rely on sequential ignorability
 * - PM estimates are inherently noisy (ratio of two MC estimates)
-*
-* Tests: 13 total (V1: 7 known DGP, V2: 6 R cross-validation)
-*
-* Runtime: ~5 minutes
 
-capture log close
+clear all
 set more off
 version 16.0
 
-local xvtotal = 0
-local xvpass  = 0
-local xvfail  = 0
+local test_count = 0
+local pass_count = 0
+local fail_count = 0
 
-* Force-load gcomp.ado (workaround: Stata auto-load doesn't always
-* define _gcomp_bootstrap when the program cache has stale entries)
+* ============================================================
+* Setup
+* ============================================================
+
 capture ado uninstall gcomp
 quietly net install gcomp, from("/home/tpcopeland/Stata-Tools/gcomp/") replace
 discard
 capture findfile gcomp.ado
 quietly run "`r(fn)'"
 
-* =====================================================================
-* V1: Known DGP - analytical ground truth
-* =====================================================================
-
-di _n as text "V1: Known DGP - analytical ground truth"
-di as text "    DGP: X->M->Y with confounder C, all binary logistic"
-
 * Analytical truth (from N=100,000 MC integration in R)
 local true_tce = 0.05577
 local true_nde = 0.04062
 local true_nie = 0.01516
 local true_pm  = 0.272
+
+* ============================================================
+* V1: Known DGP - analytical ground truth
+* ============================================================
+
+display as text "V1: Known DGP - analytical ground truth"
+display as text "    DGP: X->M->Y with confounder C, all binary logistic"
 
 * Generate dataset with known DGP
 clear
@@ -83,99 +82,98 @@ local gc_nde = e(nde)
 local gc_nie = e(nie)
 local gc_pm  = e(pm)
 
-di _n as text "    Analytical truth: TCE=" %7.4f `true_tce' ///
+display as text "    Analytical truth: TCE=" %7.4f `true_tce' ///
     " NDE=" %7.4f `true_nde' " NIE=" %7.4f `true_nie' " PM=" %6.3f `true_pm'
-di as text "    gcomp estimate:  TCE=" %7.4f `gc_tce' ///
+display as text "    gcomp estimate:  TCE=" %7.4f `gc_tce' ///
     " NDE=" %7.4f `gc_nde' " NIE=" %7.4f `gc_nie' " PM=" %6.3f `gc_pm'
 
 * V1.1: TCE direction correct (positive: exposure increases outcome risk)
-local xvtotal = `xvtotal' + 1
+local ++test_count
 if `gc_tce' > 0 {
-    local xvpass = `xvpass' + 1
-    di as result "  PASS" as text " V1.1: TCE positive (exposure increases outcome risk)"
+    display as result "  PASS: V1.1 TCE positive (exposure increases outcome risk)"
+    local ++pass_count
 }
 else {
-    local xvfail = `xvfail' + 1
-    di as error "  FAIL" as text " V1.1: TCE positive (exposure increases outcome risk)"
+    display as error "  FAIL: V1.1 TCE should be positive"
+    local ++fail_count
 }
 
 * V1.2: NDE direction correct
-local xvtotal = `xvtotal' + 1
+local ++test_count
 if `gc_nde' > 0 {
-    local xvpass = `xvpass' + 1
-    di as result "  PASS" as text " V1.2: NDE positive (direct effect of exposure)"
+    display as result "  PASS: V1.2 NDE positive (direct effect of exposure)"
+    local ++pass_count
 }
 else {
-    local xvfail = `xvfail' + 1
-    di as error "  FAIL" as text " V1.2: NDE positive (direct effect of exposure)"
+    display as error "  FAIL: V1.2 NDE should be positive"
+    local ++fail_count
 }
 
 * V1.3: NIE direction correct
-local xvtotal = `xvtotal' + 1
+local ++test_count
 if `gc_nie' > 0 {
-    local xvpass = `xvpass' + 1
-    di as result "  PASS" as text " V1.3: NIE positive (indirect effect through mediator)"
+    display as result "  PASS: V1.3 NIE positive (indirect effect through mediator)"
+    local ++pass_count
 }
 else {
-    local xvfail = `xvfail' + 1
-    di as error "  FAIL" as text " V1.3: NIE positive (indirect effect through mediator)"
+    display as error "  FAIL: V1.3 NIE should be positive"
+    local ++fail_count
 }
 
 * V1.4: TCE within 0.03 of analytical truth
 local tce_diff = abs(`gc_tce' - `true_tce')
-local xvtotal = `xvtotal' + 1
+local ++test_count
 if `tce_diff' < 0.03 {
-    local xvpass = `xvpass' + 1
-    di as result "  PASS" as text " V1.4: TCE within 0.03 of truth (diff=" %6.4f `tce_diff' ")"
+    display as result "  PASS: V1.4 TCE within 0.03 of truth (diff=" %6.4f `tce_diff' ")"
+    local ++pass_count
 }
 else {
-    local xvfail = `xvfail' + 1
-    di as error "  FAIL" as text " V1.4: TCE within 0.03 of truth (diff=" %6.4f `tce_diff' ")"
+    display as error "  FAIL: V1.4 TCE diff=" %6.4f `tce_diff' " (> 0.03)"
+    local ++fail_count
 }
 
 * V1.5: NDE within 0.03 of analytical truth
 local nde_diff = abs(`gc_nde' - `true_nde')
-local xvtotal = `xvtotal' + 1
+local ++test_count
 if `nde_diff' < 0.03 {
-    local xvpass = `xvpass' + 1
-    di as result "  PASS" as text " V1.5: NDE within 0.03 of truth (diff=" %6.4f `nde_diff' ")"
+    display as result "  PASS: V1.5 NDE within 0.03 of truth (diff=" %6.4f `nde_diff' ")"
+    local ++pass_count
 }
 else {
-    local xvfail = `xvfail' + 1
-    di as error "  FAIL" as text " V1.5: NDE within 0.03 of truth (diff=" %6.4f `nde_diff' ")"
+    display as error "  FAIL: V1.5 NDE diff=" %6.4f `nde_diff' " (> 0.03)"
+    local ++fail_count
 }
 
 * V1.6: NIE within 0.02 of analytical truth
 local nie_diff = abs(`gc_nie' - `true_nie')
-local xvtotal = `xvtotal' + 1
+local ++test_count
 if `nie_diff' < 0.02 {
-    local xvpass = `xvpass' + 1
-    di as result "  PASS" as text " V1.6: NIE within 0.02 of truth (diff=" %6.4f `nie_diff' ")"
+    display as result "  PASS: V1.6 NIE within 0.02 of truth (diff=" %6.4f `nie_diff' ")"
+    local ++pass_count
 }
 else {
-    local xvfail = `xvfail' + 1
-    di as error "  FAIL" as text " V1.6: NIE within 0.02 of truth (diff=" %6.4f `nie_diff' ")"
+    display as error "  FAIL: V1.6 NIE diff=" %6.4f `nie_diff' " (> 0.02)"
+    local ++fail_count
 }
 
 * V1.7: PM in plausible range (0.05 to 0.60) -- true is 0.272
-local xvtotal = `xvtotal' + 1
+local ++test_count
 if `gc_pm' > 0.05 & `gc_pm' < 0.60 {
-    local xvpass = `xvpass' + 1
-    di as result "  PASS" as text " V1.7: PM in plausible range [0.05, 0.60] (PM=" %6.3f `gc_pm' ")"
+    display as result "  PASS: V1.7 PM in plausible range [0.05, 0.60] (PM=" %6.3f `gc_pm' ")"
+    local ++pass_count
 }
 else {
-    local xvfail = `xvfail' + 1
-    di as error "  FAIL" as text " V1.7: PM in plausible range [0.05, 0.60] (PM=" %6.3f `gc_pm' ")"
+    display as error "  FAIL: V1.7 PM=" %6.3f `gc_pm' " outside [0.05, 0.60]"
+    local ++fail_count
 }
 
-di _n as text "    V1 complete."
-
-* =====================================================================
+* ============================================================
 * V2: R mediation cross-validation (shared dataset)
-* =====================================================================
+* ============================================================
 
-di _n as text "V2: R mediation cross-validation"
-di as text "    R mediation 4.5.1 (Imai, Keele, Tingley 2010)"
+display as text ""
+display as text "V2: R mediation cross-validation"
+display as text "    R mediation 4.5.1 (Imai, Keele, Tingley 2010)"
 
 * R benchmarks on shared dataset (N=5000, seed=42)
 local r_tce = 0.06282
@@ -201,96 +199,93 @@ local gc_tce = e(tce)
 local gc_nde = e(nde)
 local gc_nie = e(nie)
 local gc_pm  = e(pm)
-local gc_se_tce = e(se_tce)
 
-di _n as text "    R mediation:  TCE=" %7.4f `r_tce' ///
+display as text "    R mediation:  TCE=" %7.4f `r_tce' ///
     " NDE=" %7.4f `r_nde' " NIE=" %7.4f `r_nie' " PM=" %6.3f `r_pm'
-di as text "    gcomp:        TCE=" %7.4f `gc_tce' ///
+display as text "    gcomp:        TCE=" %7.4f `gc_tce' ///
     " NDE=" %7.4f `gc_nde' " NIE=" %7.4f `gc_nie' " PM=" %6.3f `gc_pm'
 
 * V2.1: TCE agrees with R within 0.03
 local tce_diff = abs(`gc_tce' - `r_tce')
-local xvtotal = `xvtotal' + 1
+local ++test_count
 if `tce_diff' < 0.03 {
-    local xvpass = `xvpass' + 1
-    di as result "  PASS" as text " V2.1: TCE agrees with R mediation within 0.03 (diff=" %6.4f `tce_diff' ")"
+    display as result "  PASS: V2.1 TCE agrees with R within 0.03 (diff=" %6.4f `tce_diff' ")"
+    local ++pass_count
 }
 else {
-    local xvfail = `xvfail' + 1
-    di as error "  FAIL" as text " V2.1: TCE agrees with R mediation within 0.03 (diff=" %6.4f `tce_diff' ")"
+    display as error "  FAIL: V2.1 TCE diff=" %6.4f `tce_diff' " (> 0.03)"
+    local ++fail_count
 }
 
 * V2.2: NDE agrees with R within 0.03
 local nde_diff = abs(`gc_nde' - `r_nde')
-local xvtotal = `xvtotal' + 1
+local ++test_count
 if `nde_diff' < 0.03 {
-    local xvpass = `xvpass' + 1
-    di as result "  PASS" as text " V2.2: NDE agrees with R mediation within 0.03 (diff=" %6.4f `nde_diff' ")"
+    display as result "  PASS: V2.2 NDE agrees with R within 0.03 (diff=" %6.4f `nde_diff' ")"
+    local ++pass_count
 }
 else {
-    local xvfail = `xvfail' + 1
-    di as error "  FAIL" as text " V2.2: NDE agrees with R mediation within 0.03 (diff=" %6.4f `nde_diff' ")"
+    display as error "  FAIL: V2.2 NDE diff=" %6.4f `nde_diff' " (> 0.03)"
+    local ++fail_count
 }
 
 * V2.3: NIE agrees with R within 0.02
 local nie_diff = abs(`gc_nie' - `r_nie')
-local xvtotal = `xvtotal' + 1
+local ++test_count
 if `nie_diff' < 0.02 {
-    local xvpass = `xvpass' + 1
-    di as result "  PASS" as text " V2.3: NIE agrees with R mediation within 0.02 (diff=" %6.4f `nie_diff' ")"
+    display as result "  PASS: V2.3 NIE agrees with R within 0.02 (diff=" %6.4f `nie_diff' ")"
+    local ++pass_count
 }
 else {
-    local xvfail = `xvfail' + 1
-    di as error "  FAIL" as text " V2.3: NIE agrees with R mediation within 0.02 (diff=" %6.4f `nie_diff' ")"
+    display as error "  FAIL: V2.3 NIE diff=" %6.4f `nie_diff' " (> 0.02)"
+    local ++fail_count
 }
 
 * V2.4: gcomp TCE falls within R's 95% CI
-local xvtotal = `xvtotal' + 1
+local ++test_count
 if `gc_tce' >= `r_tce_ci_lo' & `gc_tce' <= `r_tce_ci_hi' {
-    local xvpass = `xvpass' + 1
-    di as result "  PASS" as text " V2.4: gcomp TCE within R 95% CI [" %6.4f `r_tce_ci_lo' ", " %6.4f `r_tce_ci_hi' "]"
+    display as result "  PASS: V2.4 gcomp TCE within R 95% CI [" %6.4f `r_tce_ci_lo' ", " %6.4f `r_tce_ci_hi' "]"
+    local ++pass_count
 }
 else {
-    local xvfail = `xvfail' + 1
-    di as error "  FAIL" as text " V2.4: gcomp TCE within R 95% CI [" %6.4f `r_tce_ci_lo' ", " %6.4f `r_tce_ci_hi' "]"
+    display as error "  FAIL: V2.4 gcomp TCE=" %6.4f `gc_tce' " outside R CI"
+    local ++fail_count
 }
 
 * V2.5: Same directional pattern (NDE > NIE in this DGP)
-local xvtotal = `xvtotal' + 1
+local ++test_count
 if `gc_nde' > `gc_nie' & `r_nde' > `r_nie' {
-    local xvpass = `xvpass' + 1
-    di as result "  PASS" as text " V2.5: Both find NDE > NIE (direct > indirect)"
+    display as result "  PASS: V2.5 Both find NDE > NIE (direct > indirect)"
+    local ++pass_count
 }
 else {
-    local xvfail = `xvfail' + 1
-    di as error "  FAIL" as text " V2.5: Both find NDE > NIE (direct > indirect)"
+    display as error "  FAIL: V2.5 NDE vs NIE ordering mismatch"
+    local ++fail_count
 }
 
 * V2.6: Decomposition holds (TCE = NDE + NIE within rounding)
 local decomp = abs(`gc_tce' - (`gc_nde' + `gc_nie'))
-local xvtotal = `xvtotal' + 1
+local ++test_count
 if `decomp' < 0.001 {
-    local xvpass = `xvpass' + 1
-    di as result "  PASS" as text " V2.6: Decomposition TCE = NDE + NIE (residual=" %9.6f `decomp' ")"
+    display as result "  PASS: V2.6 Decomposition TCE = NDE + NIE (residual=" %9.6f `decomp' ")"
+    local ++pass_count
 }
 else {
-    local xvfail = `xvfail' + 1
-    di as error "  FAIL" as text " V2.6: Decomposition TCE = NDE + NIE (residual=" %9.6f `decomp' ")"
+    display as error "  FAIL: V2.6 Decomposition residual=" %9.6f `decomp' " (> 0.001)"
+    local ++fail_count
 }
 
-di _n as text "    V2 complete."
-
-* =====================================================================
+* ============================================================
 * Summary
-* =====================================================================
+* ============================================================
 
-di _n as text "{hline 60}"
-di as text "CROSSVAL SUMMARY: `xvpass'/`xvtotal' passed, `xvfail' failed"
-di as text "{hline 60}"
-
-local status "PASS"
-if `xvfail' > 0 {
-    local status "FAIL"
+display ""
+display as result "Crossval Results: `pass_count'/`test_count' passed, `fail_count' failed"
+display "RESULT: crossval_gcomp tests=`test_count' pass=`pass_count' fail=`fail_count' status=" _continue
+if `fail_count' > 0 {
+    display as error "FAIL"
+    exit 1
 }
-
-di "RESULT: crossval_gcomp tests=`xvtotal' pass=`xvpass' fail=`xvfail' status=`status'"
+else {
+    display as result "PASS"
+}
