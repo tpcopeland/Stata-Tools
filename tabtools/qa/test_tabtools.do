@@ -1810,22 +1810,21 @@ else {
     local ++fail_count
 }
 
-* Test: Using collect prefix
+* Test: Table with three-way classification
 local ++test_count
 capture noisily {
     sysuse auto, clear
-    collect clear
-    collect: summarize price mpg weight length
-    tablex using "`output_dir'/_test_tablex_collect.xlsx", ///
-        sheet("Summarize") title("Variable Summary") replace
-    confirm file "`output_dir'/_test_tablex_collect.xlsx"
+    table foreign, statistic(median price) statistic(min price) statistic(max price)
+    tablex using "`output_dir'/_test_tablex_threeway.xlsx", ///
+        sheet("MultiStat") title("Price Statistics") replace
+    confirm file "`output_dir'/_test_tablex_threeway.xlsx"
 }
 if _rc == 0 {
-    display as result "  PASS: tablex - collect prefix"
+    display as result "  PASS: tablex - three-way table"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: tablex - collect prefix (error `=_rc')"
+    display as error "  FAIL: tablex - three-way table (error `=_rc')"
     local ++fail_count
 }
 
