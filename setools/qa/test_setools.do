@@ -1,6 +1,6 @@
 /*******************************************************************************
-* test_setools_goldstandard.do
-* Gold-standard comprehensive functional test suite for setools package
+* test_setools.do
+* Comprehensive functional test suite for setools package
 *
 * Coverage: ALL 9 commands, ALL options, error handling, edge cases,
 *           return values, data integrity, cross-command integration
@@ -17,7 +17,7 @@
 *   9. sustainedss (sustained EDSS progression)
 *
 * Run from setools/qa/ directory:
-*   stata-mp -b do test_setools_goldstandard.do
+*   stata-mp -b do test_setools.do
 *
 * Author: Claude Code (gold-standard test generation)
 * Date: 2026-03-12
@@ -287,6 +287,15 @@ dateparse window indexdt, lookback(36500) generate(wstart wend)
 local stype: type wstart
 local t = ("`stype'" == "long")
 run_test "T2.22: window var is long type" `t'
+
+* T2.22b: Window long type handles distant future dates (no int overflow)
+clear
+set obs 5
+gen double indexdate = mdy(1, 1, 2040) + (_n - 1) * 365
+format indexdate %td
+dateparse window indexdate, followup(18262) generate(fu_start fu_end)
+local t = (fu_end[5] > mdy(1, 1, 2090))
+run_test "T2.22b: window long type handles year 2090+" `t'
 
 * T2.23: Replace option
 clear
@@ -856,6 +865,39 @@ covarclose using "`data_dir'/_test_covar.dta", idvar(id) indexdate(indexdt) date
 local t = (_N == 3)
 run_test "T4.17: duplicate IDs handled (N preserved)" `t'
 
+* T4.18: m:1 merge with duplicate IDs in panel data (CRITICAL)
+clear
+input long id double study_start str10 visit_type
+1 21000 "baseline"
+1 21180 "followup1"
+1 21365 "followup2"
+2 21500 "baseline"
+2 21700 "followup1"
+3 21000 "baseline"
+end
+format study_start %td
+
+preserve
+clear
+input long id int year double income
+1 2017 350000
+1 2018 370000
+2 2017 420000
+2 2018 440000
+3 2017 280000
+3 2018 295000
+end
+save "`data_dir'/_test_covar_panel.dta", replace
+restore
+
+covarclose using "`data_dir'/_test_covar_panel.dta", idvar(id) indexdate(study_start) datevar(year) vars(income) yearformat prefer(closest)
+quietly count
+local n_rows = r(N)
+quietly count if !missing(income)
+local n_inc = r(N)
+local t = (`n_rows' == 6 & `n_inc' == 6)
+run_test "T4.18: m:1 merge preserves all 6 panel rows + income" `t'
+
 * ============================================================================
 * SECTION 5: cdp COMMAND
 * ============================================================================
@@ -1058,7 +1100,41 @@ capture noisily cdp id edss edss_dt, dxdate(dx_date) keepall allevents generate(
 local t = (_rc == 0)
 run_test "T5.23: allevents without roving runs" `t'
 
-* T5.24: String ID variable works
+* T5.24: Allevents creates event_num and baseline_edss_at_event
+clear
+input long id double edss long edss_dt long dx_date
+1 2.0 21915 21550
+1 3.5 22100 21550
+1 3.5 22300 21550
+1 4.0 22500 21550
+1 5.0 22700 21550
+1 5.0 22900 21550
+end
+format edss_dt dx_date %td
+cdp id edss edss_dt, dxdate(dx_date) roving allevents keepall generate(cdp_ae)
+capture confirm variable event_num
+local rc1 = _rc
+capture confirm variable baseline_edss_at_event
+local rc2 = _rc
+local t = (`rc1' == 0 & `rc2' == 0 & r(N_events) >= 2)
+run_test "T5.24: allevents creates event_num + baseline_edss" `t'
+
+* T5.25: Allevents preserves user variables
+clear
+input long id double edss double edss_dt double dx_date double age_at_dx
+1 2.0 20000 19500 35
+1 3.5 20200 19500 35
+1 4.0 20400 19500 35
+1 5.0 20700 19500 35
+1 6.0 21000 19500 35
+end
+format edss_dt dx_date %td
+cdp id edss edss_dt, dxdate(dx_date) roving allevents keepall generate(cdp_pv)
+capture confirm variable age_at_dx
+local t = (_rc == 0)
+run_test "T5.25: allevents preserves user variables" `t'
+
+* T5.26: String ID variable works
 clear
 input str5 id double edss double edss_dt double dx_date
 "A001" 2.0 21185 21000
@@ -1208,6 +1284,46 @@ local fmt: format pira_fmt
 local t = (substr("`fmt'", 1, 2) == "%t")
 run_test "T6.16: PIRA var is date-formatted" `t'
 
+* T6.17: No internal variables leak into output
+use "`data_dir'/_test_cdp.dta", clear
+pira id edss edss_dt, dxdate(dx_date) relapses("`data_dir'/_test_relapses.dta") keepall generate(pira_leak) rawgenerate(raw_leak)
+capture confirm variable _pira_cdp_dt
+local l1 = (_rc != 0)
+capture confirm variable _pira_bl_edss
+local l2 = (_rc != 0)
+capture confirm variable _pira_baseline
+local l3 = (_rc != 0)
+capture confirm variable _pira_obs_id
+local l4 = (_rc != 0)
+capture confirm variable _relapse_dt
+local l5 = (_rc != 0)
+local t = (`l1' & `l2' & `l3' & `l4' & `l5')
+run_test "T6.17: no internal _pira_* vars leak" `t'
+
+* T6.18: No internal vars leak with rebaselinerelapse
+use "`data_dir'/_test_cdp.dta", clear
+pira id edss edss_dt, dxdate(dx_date) relapses("`data_dir'/_test_relapses.dta") rebaselinerelapse keepall generate(pira_rbl) rawgenerate(raw_rbl)
+capture confirm variable _has_relapse
+local l1 = (_rc != 0)
+capture confirm variable _last_relapse_dt
+local l2 = (_rc != 0)
+capture confirm variable _post_relapse
+local l3 = (_rc != 0)
+capture confirm variable _new_baseline
+local l4 = (_rc != 0)
+capture confirm variable _new_baseline_dt
+local l5 = (_rc != 0)
+local t = (`l1' & `l2' & `l3' & `l4' & `l5')
+run_test "T6.18: no internal rebaseline vars leak" `t'
+
+* T6.19: varabbrev setting restored after pira
+set varabbrev on
+use "`data_dir'/_test_cdp.dta", clear
+pira id edss edss_dt, dxdate(dx_date) relapses("`data_dir'/_test_relapses_empty.dta") keepall generate(pira_va) rawgenerate(raw_va) quietly
+local t = ("`c(varabbrev)'" == "on")
+set varabbrev off
+run_test "T6.19: varabbrev restored after pira" `t'
+
 * ============================================================================
 * SECTION 7: migrations COMMAND
 * ============================================================================
@@ -1338,7 +1454,62 @@ capture noisily migrations, migfile("`data_dir'/_test_mig_wide.dta") startvar(no
 local t = (_rc == 111)
 run_test "T7.15: missing startvar -> rc 111" `t'
 
-* T7.16: Custom variable names
+* T7.16: migration_out_dt is long type
+use "`data_dir'/_test_mig_master.dta", clear
+migrations, migfile("`data_dir'/_test_mig_wide.dta")
+capture confirm variable migration_out_dt
+if _rc == 0 {
+    local vtype: type migration_out_dt
+    local t = ("`vtype'" == "long")
+}
+else {
+    local t = 0
+}
+run_test "T7.16: migration_out_dt is long type" `t'
+
+* T7.17: Emigration+return not wrongly excluded as Type 2
+clear
+set obs 1
+gen long id = 1
+gen long study_start = mdy(1,1,2010)
+format study_start %td
+save "`data_dir'/_test_mig_t13.dta", replace
+
+clear
+set obs 1
+gen long id = 1
+gen long out_1 = mdy(6,15,2012)
+gen long in_1 = mdy(3,1,2013)
+format out_1 in_1 %td
+save "`data_dir'/_test_mig_t13_wide.dta", replace
+
+use "`data_dir'/_test_mig_t13.dta", clear
+migrations, migfile("`data_dir'/_test_mig_t13_wide.dta")
+local t = (r(N_excluded_inmigration) == 0 & r(N_final) == 1)
+run_test "T7.17: emigration+return not wrongly excluded" `t'
+
+* T7.18: Immigration-only still correctly excluded
+clear
+set obs 1
+gen long id = 1
+gen long study_start = mdy(1,1,2010)
+format study_start %td
+save "`data_dir'/_test_mig_t14.dta", replace
+
+clear
+set obs 1
+gen long id = 1
+gen long out_1 = .
+gen long in_1 = mdy(3,1,2013)
+format out_1 in_1 %td
+save "`data_dir'/_test_mig_t14_wide.dta", replace
+
+use "`data_dir'/_test_mig_t14.dta", clear
+migrations, migfile("`data_dir'/_test_mig_t14_wide.dta")
+local t = (r(N_excluded_inmigration) == 1 & r(N_final) == 0)
+run_test "T7.18: immigration-only still excluded" `t'
+
+* T7.19: Custom variable names
 use "`data_dir'/_test_mig_master.dta", clear
 rename id patient_id
 rename study_start baseline_dt
@@ -1487,6 +1658,84 @@ capture noisily sustainedss id edss edss_dt if id <= 3, threshold(6) keepall gen
 local t = (_rc == 0)
 run_test "T8.17: if qualifier works" `t'
 
+* T8.18: Sort order preserved (keepall)
+clear
+input int id double edss int edss_dt
+2 6 22100
+2 3 22000
+1 5 21950
+1 5 21800
+3 2 21700
+end
+gen long orig_order = _n
+sustainedss id edss edss_dt, threshold(4) keepall quietly generate(sust_so)
+local t = (orig_order[1] == 1 & orig_order[2] == 2 & orig_order[5] == 5)
+run_test "T8.18: sort order preserved (keepall)" `t'
+
+* T8.19: Non-keepall drops patients without events
+clear
+input int id double edss int edss_dt
+1 5 21800
+1 5 21900
+1 5 22000
+2 1 21800
+2 2 21900
+2 3 22000
+end
+local N_before = _N
+sustainedss id edss edss_dt, threshold(4) generate(sust_drop)
+local t = (_N == 3 & _N < `N_before')
+run_test "T8.19: non-keepall drops no-event patients" `t'
+
+* T8.20: Same-date duplicates use min() (conservative)
+clear
+input int id double edss int edss_dt
+1 5 100
+1 2 200
+1 5 200
+end
+sustainedss id edss edss_dt, threshold(4) keepall quietly generate(sust_min)
+local t = (r(N_events) == 1)
+run_test "T8.20: same-date uses min() for conservative check" `t'
+
+* T8.21: varabbrev restored after sustainedss
+clear
+input int id double edss int edss_dt
+1 5 21915
+1 5 22006
+end
+set varabbrev on
+sustainedss id edss edss_dt, threshold(4) keepall quietly generate(sust_va)
+local t = ("`c(varabbrev)'" == "on")
+set varabbrev off
+run_test "T8.21: varabbrev restored after sustainedss" `t'
+
+* T8.22: generate(name) rejects invalid variable name
+clear
+input int id double edss int edss_dt
+1 5 21915
+1 5 22006
+end
+capture noisily sustainedss id edss edss_dt, threshold(4) generate(123abc)
+local t = (_rc != 0)
+run_test "T8.22: generate(123abc) rejected" `t'
+
+* T8.23: Max iteration guard (converges below 1000)
+clear
+input long id double edss double edss_dt
+1 2.0 20000
+1 3.0 20100
+1 4.0 20200
+1 4.5 20400
+2 1.0 20000
+2 5.0 20100
+2 5.5 20300
+end
+format edss_dt %td
+sustainedss id edss edss_dt, threshold(4) keepall quietly generate(sust_guard)
+local t = (r(iterations) < 1000)
+run_test "T8.23: iterations below guard limit" `t'
+
 * ============================================================================
 * SECTION 9: cci_se ADDITIONAL TESTS
 * ============================================================================
@@ -1596,6 +1845,94 @@ cci_se, id(lopnr) icd(diagnos) date(datum)
 local t = (r(max_cci) == 6)
 run_test "T9.8: r(max_cci) = 6" `t'
 
+* T9.9: 18 component variables created
+clear
+input long lopnr str10 diagnos double datum
+1 "I21" 21915
+end
+format datum %td
+cci_se, id(lopnr) icd(diagnos) date(datum) components
+local n_comps = 0
+foreach v of varlist cci_* {
+    local ++n_comps
+}
+local t = (`n_comps' == 18)
+run_test "T9.9: components creates 18 cci_* vars" `t'
+
+* T9.10: Custom generate + prefix names
+clear
+input long lopnr str10 diagnos double datum
+1 "I21" 21915
+end
+format datum %td
+cci_se, id(lopnr) icd(diagnos) date(datum) generate(my_cci) components prefix(ch_)
+capture confirm variable my_cci
+local rc1 = _rc
+capture confirm variable ch_mi
+local rc2 = _rc
+local t = (`rc1' == 0 & `rc2' == 0)
+run_test "T9.10: custom generate + prefix work" `t'
+
+* T9.11: if qualifier restricts input
+clear
+input long lopnr str10 diagnos double datum byte include
+1 "I21" 21915 1
+1 "C50" 21915 0
+end
+format datum %td
+cci_se if include == 1, id(lopnr) icd(diagnos) date(datum)
+local t = (charlson == 1)
+run_test "T9.11: if qualifier restricts to MI only" `t'
+
+* T9.12: String date YYYYMMDD
+clear
+input long lopnr str10 diagnos str10 datum
+1 "I21" "20200115"
+end
+cci_se, id(lopnr) icd(diagnos) date(datum)
+local t = (charlson == 1)
+run_test "T9.12: string YYYYMMDD date works" `t'
+
+* T9.13: String date YYYY-MM-DD with dashes auto-stripped
+clear
+input long lopnr str12 diagnos str12 datum
+1 "I21" "2020-01-15"
+end
+cci_se, id(lopnr) icd(diagnos) date(datum)
+local t = (charlson == 1)
+run_test "T9.13: string date with dashes auto-stripped" `t'
+
+* T9.14: String date YYYY-MM-DD with dateformat(ymd)
+clear
+input long lopnr str10 diagnos str12 datum
+1 "I50" "2020-03-15"
+end
+cci_se, id(lopnr) icd(diagnos) date(datum) dateformat(ymd)
+local t = (charlson == 1)
+run_test "T9.14: string YYYY-MM-DD with dateformat(ymd)" `t'
+
+* T9.15: Pre-existing conflicting variable names (_yr)
+clear
+input long lopnr str6 diagnos long datum byte _yr
+1 "I252" 22000 1
+2 "G350" 22000 2
+end
+format datum %td
+capture noisily cci_se, id(lopnr) icd(diagnos) date(datum) noisily
+local t = (_rc == 0 & r(N_patients) == 2)
+run_test "T9.15: pre-existing _yr var no conflict" `t'
+
+* T9.16: Multi-ICD-version spanning data
+clear
+input long lopnr str10 diagnos long datum
+1 "420,1" 19650101
+1 "I21" 20200101
+2 "290" 19800601
+end
+cci_se, id(lopnr) icd(diagnos) date(datum) dateformat(yyyymmdd) components
+local t = (charlson[1] == 1 & cci_dem[2] == 1)
+run_test "T9.16: multi-ICD-version spanning data" `t'
+
 * ============================================================================
 * SECTION 10: CROSS-COMMAND INTEGRATION
 * ============================================================================
@@ -1660,7 +1997,7 @@ display as text _n _dup(70) "="
 display as text "Cleaning up test files"
 display as text _dup(70) "="
 
-local cleanup_files "_test_covar.dta _test_covar_impute.dta _test_covar_miss.dta _test_covar_dateformat.dta _test_cdp.dta _test_relapses.dta _test_relapses_empty.dta _test_relapses_strid.dta _test_mig_master.dta _test_mig_wide.dta _test_mig_wide_renamed.dta _test_excluded.dta _test_censor.dta"
+local cleanup_files "_test_covar.dta _test_covar_impute.dta _test_covar_miss.dta _test_covar_dateformat.dta _test_covar_panel.dta _test_cdp.dta _test_relapses.dta _test_relapses_empty.dta _test_relapses_strid.dta _test_mig_master.dta _test_mig_wide.dta _test_mig_wide_renamed.dta _test_excluded.dta _test_censor.dta _test_mig_t13.dta _test_mig_t13_wide.dta _test_mig_t14.dta _test_mig_t14_wide.dta"
 foreach f of local cleanup_files {
     capture erase "`data_dir'/`f'"
 }
@@ -1669,7 +2006,7 @@ foreach f of local cleanup_files {
 * FINAL SUMMARY
 * ============================================================================
 display as text _n _dup(70) "="
-display as text "GOLD STANDARD FUNCTIONAL TEST RESULTS"
+display as text "FUNCTIONAL TEST RESULTS"
 display as text _dup(70) "="
 display as text "Total tests:  " scalar(gs_ntest)
 display as result "Passed:       " scalar(gs_npass)
@@ -1684,12 +2021,12 @@ display as text _dup(70) "="
 
 if scalar(gs_nfail) > 0 {
     display as error "SOME TESTS FAILED"
-    scalar drop _test_count _pass_count _fail_count
+    scalar drop gs_ntest gs_npass gs_nfail
     global gs_failures
     exit 1
 }
 else {
     display as result "ALL TESTS PASSED"
-    scalar drop _test_count _pass_count _fail_count
+    scalar drop gs_ntest gs_npass gs_nfail
     global gs_failures
 }

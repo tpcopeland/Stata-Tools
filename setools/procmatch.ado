@@ -1,4 +1,4 @@
-*! procmatch Version 2.0.3  2026/02/28
+*! procmatch Version 2.0.4  2026/03/12
 *! Procedure code matching for Swedish registry research
 *! Part of the setools package
 *!
@@ -110,13 +110,13 @@ program define procmatch_match, rclass
             }
         }
         else {
-            * Exact matching - use inlist() in chunks of 10
+            * Exact matching - use inlist() in chunks of 9
+            * (string inlist allows max 10 args: 1 base + 9 comparisons)
             local remaining "`codes_upper'"
             while "`remaining'" != "" {
-                * Get up to 10 codes for inlist
                 local chunk ""
                 local chunk_count = 0
-                while `chunk_count' < 10 & "`remaining'" != "" {
+                while `chunk_count' < 9 & "`remaining'" != "" {
                     gettoken code remaining : remaining
                     if `chunk_count' == 0 {
                         local chunk `""`code'""'
@@ -208,13 +208,13 @@ program define procmatch_first, rclass
             }
         }
         else {
-            * Exact matching - use inlist() in chunks of 10
+            * Exact matching - use inlist() in chunks of 9
+            * (string inlist allows max 10 args: 1 base + 9 comparisons)
             local remaining "`codes_upper'"
             while "`remaining'" != "" {
-                * Get up to 10 codes for inlist
                 local chunk ""
                 local chunk_count = 0
-                while `chunk_count' < 10 & "`remaining'" != "" {
+                while `chunk_count' < 9 & "`remaining'" != "" {
                     gettoken code remaining : remaining
                     if `chunk_count' == 0 {
                         local chunk `""`code'""'
