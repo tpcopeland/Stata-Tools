@@ -1269,9 +1269,8 @@ if `run_only' == 0 | `run_only' == 50 {
 
 * =============================================================================
 * TEST 51: Bootstrap standard errors
-* Known limitation: bootstrap + pw weights produces r(101) "weights not
-* allowed" because Stata's bootstrap prefix strips pw. This test documents
-* the expected error so it does not silently regress if fixed later.
+* Bootstrap calls _iivw_bs_estimate wrapper which applies pw internally,
+* avoiding Stata's bootstrap prefix stripping pweights.
 * =============================================================================
 local ++test_count
 if `run_only' == 0 | `run_only' == 51 {
@@ -1285,13 +1284,13 @@ if `run_only' == 0 | `run_only' == 51 {
         gen double severity = rnormal(3, 1)
         gen double outcome = 50 - 0.1 * months - severity + rnormal(0, 2)
         iivw_weight, id(id) time(months) visit_cov(severity) nolog
-        * bootstrap + pw currently errors (r(101)) - document expected behavior
-        capture iivw_fit outcome severity, model(gee) timespec(linear) ///
+        iivw_fit outcome severity, model(gee) timespec(linear) ///
             bootstrap(10) nolog
-        assert inlist(_rc, 0, 101)
+        assert e(N_reps) == 10
+        assert "`e(vce)'" == "bootstrap"
     }
     if _rc == 0 {
-        display as result "  PASS: Test 51 - Bootstrap option accepted (known pw limitation)"
+        display as result "  PASS: Test 51 - Bootstrap with pweights via wrapper"
         local ++pass_count
     }
     else {
@@ -1555,6 +1554,190 @@ if `run_only' == 0 | `run_only' == 61 {
     }
     else {
         display as error "  FAIL: Test 61 - nolog (error `=_rc')"
+        local ++fail_count
+    }
+}
+
+* =============================================================================
+* TEST 62: Bootstrap with mixed model
+* =============================================================================
+local ++test_count
+if `run_only' == 0 | `run_only' == 62 {
+    capture noisily {
+        clear
+        set seed 20260312
+        set obs 200
+        gen long id = ceil(_n / 5)
+        bysort id: gen int visit_n = _n
+        gen double months = (visit_n - 1) * 6
+        gen double severity = rnormal(3, 1)
+        gen double outcome = 50 - 0.1 * months - severity + rnormal(0, 2)
+        iivw_weight, id(id) time(months) visit_cov(severity) nolog
+        iivw_fit outcome severity, model(mixed) timespec(linear) ///
+            bootstrap(10) nolog
+        assert e(N_reps) == 10
+        assert "`e(vce)'" == "bootstrap"
+    }
+    if _rc == 0 {
+        display as result "  PASS: Test 62 - Bootstrap with mixed model"
+        local ++pass_count
+    }
+    else {
+        display as error "  FAIL: Test 62 - bootstrap mixed (error `=_rc')"
+        local ++fail_count
+    }
+}
+
+* =============================================================================
+* TEST 63: Bootstrap with quadratic timespec
+* =============================================================================
+local ++test_count
+if `run_only' == 0 | `run_only' == 63 {
+    capture noisily {
+        clear
+        set seed 20260312
+        set obs 100
+        gen long id = ceil(_n / 5)
+        bysort id: gen int visit_n = _n
+        gen double months = (visit_n - 1) * 6
+        gen double severity = rnormal(3, 1)
+        gen double outcome = 50 - 0.1 * months - severity + rnormal(0, 2)
+        iivw_weight, id(id) time(months) visit_cov(severity) nolog
+        iivw_fit outcome severity, model(gee) timespec(quadratic) ///
+            bootstrap(10) nolog
+        assert e(N_reps) == 10
+        assert "`e(vce)'" == "bootstrap"
+    }
+    if _rc == 0 {
+        display as result "  PASS: Test 63 - Bootstrap with quadratic timespec"
+        local ++pass_count
+    }
+    else {
+        display as error "  FAIL: Test 63 - bootstrap quadratic (error `=_rc')"
+        local ++fail_count
+    }
+}
+
+* =============================================================================
+* TEST 64: Bootstrap with categorical variables
+* =============================================================================
+local ++test_count
+if `run_only' == 0 | `run_only' == 64 {
+    capture noisily {
+        clear
+        set seed 20260312
+        set obs 150
+        gen long id = ceil(_n / 5)
+        bysort id: gen int visit_n = _n
+        gen double months = (visit_n - 1) * 6
+        gen double severity = rnormal(3, 1)
+        gen int group = mod(id, 3)
+        gen double outcome = 50 - 0.1 * months - severity + group + rnormal(0, 2)
+        iivw_weight, id(id) time(months) visit_cov(severity) nolog
+        iivw_fit outcome severity group, model(gee) timespec(linear) ///
+            categorical(group) bootstrap(10) nolog
+        assert e(N_reps) == 10
+        assert "`e(vce)'" == "bootstrap"
+    }
+    if _rc == 0 {
+        display as result "  PASS: Test 64 - Bootstrap with categorical"
+        local ++pass_count
+    }
+    else {
+        display as error "  FAIL: Test 64 - bootstrap categorical (error `=_rc')"
+        local ++fail_count
+    }
+}
+
+* =============================================================================
+* TEST 65: Bootstrap with interaction
+* =============================================================================
+local ++test_count
+if `run_only' == 0 | `run_only' == 65 {
+    capture noisily {
+        clear
+        set seed 20260312
+        set obs 100
+        gen long id = ceil(_n / 5)
+        bysort id: gen int visit_n = _n
+        gen double months = (visit_n - 1) * 6
+        gen double severity = rnormal(3, 1)
+        gen double outcome = 50 - 0.1 * months - severity + rnormal(0, 2)
+        iivw_weight, id(id) time(months) visit_cov(severity) nolog
+        iivw_fit outcome severity, model(gee) timespec(linear) ///
+            interaction(severity) bootstrap(10) nolog
+        assert e(N_reps) == 10
+        assert "`e(vce)'" == "bootstrap"
+    }
+    if _rc == 0 {
+        display as result "  PASS: Test 65 - Bootstrap with interaction"
+        local ++pass_count
+    }
+    else {
+        display as error "  FAIL: Test 65 - bootstrap interaction (error `=_rc')"
+        local ++fail_count
+    }
+}
+
+* =============================================================================
+* TEST 66: Bootstrap with geeopts passthrough
+* =============================================================================
+local ++test_count
+if `run_only' == 0 | `run_only' == 66 {
+    capture noisily {
+        clear
+        set seed 20260312
+        set obs 100
+        gen long id = ceil(_n / 5)
+        bysort id: gen int visit_n = _n
+        gen double months = (visit_n - 1) * 6
+        gen double severity = rnormal(3, 1)
+        gen double outcome = 50 - 0.1 * months - severity + rnormal(0, 2)
+        iivw_weight, id(id) time(months) visit_cov(severity) nolog
+        iivw_fit outcome severity, model(gee) timespec(linear) ///
+            geeopts(iterate(50)) bootstrap(10) nolog
+        assert e(N_reps) == 10
+        assert "`e(vce)'" == "bootstrap"
+    }
+    if _rc == 0 {
+        display as result "  PASS: Test 66 - Bootstrap with geeopts passthrough"
+        local ++pass_count
+    }
+    else {
+        display as error "  FAIL: Test 66 - bootstrap geeopts (error `=_rc')"
+        local ++fail_count
+    }
+}
+
+* =============================================================================
+* TEST 67: Bootstrap with multiple covariates
+* =============================================================================
+local ++test_count
+if `run_only' == 0 | `run_only' == 67 {
+    capture noisily {
+        clear
+        set seed 20260312
+        set obs 100
+        gen long id = ceil(_n / 5)
+        bysort id: gen int visit_n = _n
+        gen double months = (visit_n - 1) * 6
+        gen double severity = rnormal(3, 1)
+        gen double age = 40 + rnormal(0, 10)
+        gen byte female = runiform() > 0.5
+        gen double outcome = 50 - 0.1 * months - severity + ///
+            0.2 * age + female + rnormal(0, 2)
+        iivw_weight, id(id) time(months) visit_cov(severity) nolog
+        iivw_fit outcome severity age female, model(gee) ///
+            timespec(linear) bootstrap(10) nolog
+        assert e(N_reps) == 10
+        assert "`e(vce)'" == "bootstrap"
+    }
+    if _rc == 0 {
+        display as result "  PASS: Test 67 - Bootstrap with multiple covariates"
+        local ++pass_count
+    }
+    else {
+        display as error "  FAIL: Test 67 - bootstrap multi-covar (error `=_rc')"
         local ++fail_count
     }
 }

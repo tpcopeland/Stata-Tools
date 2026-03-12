@@ -7,7 +7,6 @@
 program define _iivw_get_settings
     version 16.0
     set varabbrev off
-    set more off
 
     local id         : char _dta[_iivw_id]
     local time       : char _dta[_iivw_time]

@@ -798,6 +798,95 @@ if `run_only' == 0 | `run_only' == 20 {
     }
 }
 
+* =============================================================================
+* V21: Bootstrap SEs are wider than sandwich SEs
+* Bootstrap accounts for weight estimation uncertainty, so SEs should
+* generally be larger than the model-based sandwich SEs.
+* =============================================================================
+local ++test_count
+if `run_only' == 0 | `run_only' == 21 {
+    capture noisily {
+        clear
+        set seed 20260312
+        set obs 500
+        gen long id = ceil(_n / 10)
+        bysort id: gen int visit_n = _n
+        gen double months = (visit_n - 1) * 3
+        gen double severity = rnormal(3, 1)
+        gen double outcome = 50 - 0.1 * months - 2 * severity + rnormal(0, 3)
+        iivw_weight, id(id) time(months) visit_cov(severity) nolog
+
+        * Sandwich SEs
+        iivw_fit outcome severity, model(gee) timespec(linear) nolog
+        local se_sandwich = _se[severity]
+
+        * Re-weight (iivw_fit clears some metadata)
+        iivw_weight, id(id) time(months) visit_cov(severity) replace nolog
+
+        * Bootstrap SEs (50 reps for stability)
+        iivw_fit outcome severity, model(gee) timespec(linear) ///
+            bootstrap(50) nolog
+        local se_bootstrap = _se[severity]
+
+        * Bootstrap SE should be positive and at least 80% of sandwich
+        * (not strictly larger every time due to sampling, but should not
+        * be dramatically smaller)
+        assert `se_bootstrap' > 0
+        assert `se_bootstrap' > `se_sandwich' * 0.8
+    }
+    if _rc == 0 {
+        display as result "  PASS: V21 - Bootstrap SEs reasonable vs sandwich"
+        local ++pass_count
+    }
+    else {
+        display as error "  FAIL: V21 - bootstrap SE comparison (error `=_rc')"
+        local ++fail_count
+    }
+}
+
+* =============================================================================
+* V22: Bootstrap point estimates match non-bootstrap
+* The bootstrap wrapper should produce the same point estimates as the
+* direct estimation path (both apply pweights to glm).
+* =============================================================================
+local ++test_count
+if `run_only' == 0 | `run_only' == 22 {
+    capture noisily {
+        clear
+        set seed 20260312
+        set obs 200
+        gen long id = ceil(_n / 5)
+        bysort id: gen int visit_n = _n
+        gen double months = (visit_n - 1) * 6
+        gen double severity = rnormal(3, 1)
+        gen double outcome = 50 - 0.1 * months - severity + rnormal(0, 2)
+        iivw_weight, id(id) time(months) visit_cov(severity) nolog
+
+        * Non-bootstrap estimate
+        iivw_fit outcome severity, model(gee) timespec(linear) nolog
+        local b_direct = _b[severity]
+
+        * Re-weight
+        iivw_weight, id(id) time(months) visit_cov(severity) replace nolog
+
+        * Bootstrap estimate (point estimate should match)
+        iivw_fit outcome severity, model(gee) timespec(linear) ///
+            bootstrap(10) nolog
+        local b_bootstrap = _b[severity]
+
+        * Point estimates should be identical (same data, same model)
+        assert reldif(`b_direct', `b_bootstrap') < 1e-6
+    }
+    if _rc == 0 {
+        display as result "  PASS: V22 - Bootstrap point estimates match direct"
+        local ++pass_count
+    }
+    else {
+        display as error "  FAIL: V22 - bootstrap point estimate match (error `=_rc')"
+        local ++fail_count
+    }
+}
+
 * ============================================================
 * Summary
 * ============================================================

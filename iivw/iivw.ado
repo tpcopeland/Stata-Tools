@@ -19,7 +19,6 @@ See help iivw for complete documentation
 program define iivw, rclass
     version 16.0
     set varabbrev off
-    set more off
 
     syntax
 

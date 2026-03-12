@@ -7,7 +7,7 @@ d (Tompkins et al. 2025) via Andersen-Gill Cox and logistic models.
 d
 d Requires: Stata version 16+
 d
-d Distribution-Date: 20260307
+d Distribution-Date: 20260312
 d License: MIT
 d
 d Author: Timothy P Copeland
@@ -28,3 +28,4 @@ f iivw_fit.ado
 f iivw_fit.sthlp
 f _iivw_get_settings.ado
 f _iivw_check_weighted.ado
+f _iivw_bs_estimate.ado

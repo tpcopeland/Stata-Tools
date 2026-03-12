@@ -33,7 +33,6 @@ See help iivw_fit for complete documentation
 program define iivw_fit, eclass
     version 16.0
     set varabbrev off
-    set more off
 
     * =========================================================================
     * SYNTAX PARSING
@@ -558,9 +557,11 @@ program define iivw_fit, eclass
             display as text ""
 
             if `bootstrap' > 0 {
-                bootstrap, reps(`bootstrap') cluster(`cluster') `log_opt': ///
-                    glm `depvar' `all_covars' [pw=`weight_var'] if `touse', ///
-                    `glm_family' `glm_link'
+                bootstrap, reps(`bootstrap') cluster(`cluster') nodots: ///
+                    _iivw_bs_estimate `depvar' `all_covars' if `touse', ///
+                    weightvar(`weight_var') model(gee) ///
+                    family(`family') link(`link') `log_opt' ///
+                    geeopts(`geeopts')
             }
             else {
                 glm `depvar' `all_covars' [pw=`weight_var'] if `touse', ///
@@ -574,9 +575,11 @@ program define iivw_fit, eclass
             display as text ""
 
             if `bootstrap' > 0 {
-                bootstrap, reps(`bootstrap') cluster(`cluster') `log_opt': ///
-                    mixed `depvar' `all_covars' [pw=`weight_var'] if `touse' ///
-                    || `panel_id':
+                bootstrap, reps(`bootstrap') cluster(`cluster') nodots: ///
+                    _iivw_bs_estimate `depvar' `all_covars' if `touse', ///
+                    weightvar(`weight_var') model(mixed) ///
+                    panelid(`panel_id') `log_opt' ///
+                    mixedopts(`mixedopts')
             }
             else {
                 mixed `depvar' `all_covars' [pw=`weight_var'] if `touse' ///
@@ -584,6 +587,7 @@ program define iivw_fit, eclass
             }
         }
     }
+    * fit_rc saved before cleanup; exit uses fit_rc not _rc
     local fit_rc = _rc
     if `fit_rc' != 0 {
         foreach v of local time_vars_created {
@@ -628,6 +632,7 @@ program define iivw_fit, eclass
 
     * Try to display the first predictor's treatment effect
     local first_pred: word 1 of `expanded_indepvars'
+    * b_pred and se_pred assigned inside same capture block
     local b_pred = .
     local se_pred = 0
     capture {

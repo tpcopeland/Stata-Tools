@@ -1,4 +1,4 @@
-*! iivw_weight Version 1.0.0  2026/03/06
+*! iivw_weight Version 1.2.0  2026/03/12
 *! Compute inverse intensity of visit weights (IIW/IPTW/FIPTIW)
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet
@@ -39,7 +39,8 @@ See help iivw_weight for complete documentation
 program define iivw_weight, rclass
     version 16.0
     set varabbrev off
-    set more off
+
+    * No marksample: IIW requires full panel, no [if] [in] by design
 
     * =========================================================================
     * SYNTAX PARSING
@@ -336,7 +337,7 @@ program define iivw_weight, rclass
 
             drop `_xb_full' `_start' `_stop' `_event'
 
-            * Cleanup stset
+            * stset vars may or may not exist; capture drop is intentional
             capture drop _st _d _t _t0
             capture stset, clear
 
@@ -361,6 +362,7 @@ program define iivw_weight, rclass
             }
         }
 
+        * preserve/restore: logit on cross-section, predict on full panel
         * Fit propensity score model on cross-sectional data (one row per subject)
         * Using full panel would over-represent subjects with more visits
         display as text "  Treatment model: logit `treat' `treat_covars'"
@@ -391,6 +393,7 @@ program define iivw_weight, rclass
                 label variable `prefix'tw "Inverse probability of treatment weight"
             }
         }
+        * iptw_rc saved before cleanup; exit uses iptw_rc not _rc
         if _rc != 0 {
             local iptw_rc = _rc
             * Clean up IIW variables if they were created before IPTW failed

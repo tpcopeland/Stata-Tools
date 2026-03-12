@@ -2,10 +2,9 @@
 *! Verify weight variable exists before fitting
 *! Author: Timothy P Copeland
 
-program define _iivw_check_weighted
+program define _iivw_check_weighted, rclass
     version 16.0
     set varabbrev off
-    set more off
 
     local weighted : char _dta[_iivw_weighted]
     if "`weighted'" != "1" {
