@@ -768,7 +768,7 @@ program define treescan, rclass
     }
 
     if `n_sig' > 0 {
-        return matrix results = `results_mat'
+        return matrix results = `results_mat', copy
     }
 
     * =====================================================================

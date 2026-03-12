@@ -103,7 +103,17 @@ program define msm_plot, rclass
 
         local n_covs : word count `covariates'
 
-        * Compute SMDs
+        * Compute SMDs on original data (no preserve needed)
+        local i = 0
+        foreach var of local covariates {
+            local ++i
+            _msm_smd `var', treatment(`treatment')
+            local uw_`i' = `_msm_smd_value'
+            _msm_smd `var', treatment(`treatment') weight(_msm_weight)
+            local w_`i' = `_msm_smd_value'
+        }
+
+        * Build plotting dataset
         preserve
         quietly {
             clear
@@ -114,22 +124,13 @@ program define msm_plot, rclass
             gen int plot_order = _N - _n + 1
         }
 
-        local i = 0
-        foreach var of local covariates {
-            local ++i
-            restore, preserve
-            _msm_smd `var', treatment(`treatment')
-            local uw = `_msm_smd_value'
-            _msm_smd `var', treatment(`treatment') weight(_msm_weight)
-            local w = `_msm_smd_value'
-
-            preserve
+        forvalues i = 1/`n_covs' {
+            local var : word `i' of `covariates'
             local abbrev_var = abbrev("`var'", 20)
             quietly {
-                restore, not
                 replace covariate = "`abbrev_var'" in `i'
-                replace smd_uw = abs(`uw') in `i'
-                replace smd_w = abs(`w') in `i'
+                replace smd_uw = abs(`uw_`i'') in `i'
+                replace smd_w = abs(`w_`i'') in `i'
             }
         }
 

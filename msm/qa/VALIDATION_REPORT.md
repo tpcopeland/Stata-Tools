@@ -1,8 +1,8 @@
 # MSM Package Validation Report
 
 **Package**: msm v1.0.0
-**Date**: 2026-03-11
-**Suite**: 9 validations + 2 functional tests, ~76 tests
+**Date**: 2026-03-12
+**Suite**: 11 validations + 3 functional tests, ~172 tests
 
 ## Summary
 
@@ -10,6 +10,7 @@
 |---|-----------|-------|--------|--------|
 | T1 | Functional Tests | 48+ | msm_example.dta | PASS |
 | T2 | Table Export Tests | 13 | msm_example.dta | PASS |
+| T3 | Complete Option Path Coverage | 67 | msm_example.dta + synthetic | PASS |
 | V1 | Known DGP (Cole & Hernan) | 8 | Simulated (N=10K, T=10) | PASS |
 | V2 | R ipw Cross-Validation | 6 | haartdat (386 HIV+ patients) | PASS |
 | V3 | NHEFS Benchmarks | 8 | Harvard CDN (N=1,629) | PASS |
@@ -19,8 +20,10 @@
 | V7 | Diagnostics & Reporting | 10 | msm_example.dta | PASS |
 | V8 | Pipeline Guards & Edge Cases | 8 | Synthetic | PASS |
 | V9 | Cross-Language Validation | 16 | Stata vs R vs Python vs teffects | PASS |
+| V10 | Mathematical Verification | 15 | Hand-calculated + synthetic | PASS |
+| V11 | Stress & Boundary Testing | 14 | Simulated edge cases | PASS |
 
-**Total: ~76 tests, all PASS**
+**Total: ~172 tests, all PASS**
 
 ## Running the Suite
 
@@ -110,7 +113,7 @@ stata-mp -b do crossval_msm_vs_all.do
 ### V8: Pipeline Guards & Edge Cases
 - **Tests**: validate/weight/fit/predict prerequisite failures, non-binary treatment rejection, duplicate id-period rejection, weight replace behavior, diagnose prerequisite
 
-### V9: Cross-Language Validation (NEW — 2026-03-11)
+### V9: Cross-Language Validation
 - **DGP1**: N=2,000, T=8, true conditional log-OR = -0.357. Time-varying treatment with confounder feedback.
 - **DGP2**: N=3,000, point treatment. True ATE = 2.0 (exactly).
 - **DGP3**: N=10,000 true counterfactual simulation (always vs never treated).
@@ -161,6 +164,19 @@ stata-mp -b do crossval_msm_vs_all.do
 
 DGP3 reveals an important educational point: the sustained-strategy counterfactual (always vs never treated) can have a different sign from the MSM per-period coefficient. In this DGP, treatment is protective per-period (log-OR = -0.357) but the treatment-confounder feedback (A→L↑→Y↑) makes sustained treatment net neutral-to-harmful. This is well-documented in the MSM literature — the coefficient is the per-period marginal effect, not the sustained strategy effect. `msm_predict` (not the coefficient) should be used for sustained-strategy comparisons.
 
+### T3: Complete Option Path Coverage (NEW — 2026-03-12)
+- **Sections**: A (msm_prepare: 6), B (msm_validate: 4), C (msm_weight: 5), D (msm_fit: 12), E (msm_predict: 9), F (msm_diagnose: 4), G (msm_plot: 5), H (msm_report: 5), I (msm_protocol: 5), J (msm_sensitivity: 4), K (helpers: 6), L (metadata: 2)
+- **Tests**: Every untested option combination, return value, error path, and edge case across all 12 subcommands
+- **Notable**: D12 documents known limitation — Stata `bootstrap` prefix does not allow `pweight` in estimation command (rc=101)
+
+### V10: Mathematical Verification (NEW — 2026-03-12)
+- **Tests**: Hand-calculated ESS, SMD, E-value, bias factor, cumulative weight log-sum stability, hand-calculated IPTW on tiny dataset, natural spline basis properties, prediction probability monotonicity, weight product identity (tw * cw = combined), truncation clipping, E-value for protective effects, weighted SMD reduction, logistic/linear direction agreement, period spec robustness, E-value CI null-crossing
+- **Key property**: ESS formula (sum w)^2/(sum w^2) verified exactly; E-value = RR + sqrt(RR*(RR-1)) verified to <0.001
+
+### V11: Stress & Boundary Testing (NEW — 2026-03-12)
+- **Tests**: Near-positivity (~5% treatment), strong confounding (coeff 2.0), many covariates (10), unbalanced panels (varying T=2-10), large N (100K obs), very rare events (<1%), high events (~20%), short panel (T=2), long panel (T=50), treatment switching mix, heavy censoring (~40%), stress predictions (10 time points), identical num/denom (weights ~1), aggressive truncation (10th/90th)
+- **Key finding**: All 14 stress scenarios complete without errors; weights remain valid across extreme conditions
+
 ## Data Files
 
 | File | Source | Size |
@@ -180,6 +196,13 @@ DGP3 reveals an important educational point: the sustained-strategy counterfactu
 | `crossval_r.R` | R | IPTW + svyglm cross-validation |
 | `crossval_python.py` | Python | statsmodels cross-validation |
 | `crossval_msm_vs_all.do` | Stata | Master comparison + formal tests |
+
+## Bugs Found and Fixed
+
+| Bug | File | Description | Fix |
+|-----|------|-------------|-----|
+| Nested preserve | `msm_plot.ado` | Balance plot used nested `preserve`/`restore, preserve`/`preserve` which fails with "already preserved" (rc=621) | Compute SMDs first on original data, then `preserve` once for plot dataset |
+| Bootstrap pweight | `msm_fit.ado` | `bootstrap` prefix does not allow `pweight` in GLM/regress (rc=101) | Known limitation, documented in T3-D12 |
 
 ## Machine-Parseable Output
 

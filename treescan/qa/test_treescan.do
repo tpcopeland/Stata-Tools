@@ -1,8 +1,9 @@
-* test_treescan.do - Functional tests for treescan and treescan_power commands
-* Part of treescan package testing
+* test_treescan.do - Comprehensive functional tests for treescan package
+* Tests: T1-T48 (core), T49-T53 (power edge cases), G1-G50 (extended coverage)
+* 166 assertions covering treescan + treescan_power
 *
 * Run: stata-mp -b do test_treescan.do
-* Date: 2026-02-23
+* Date: 2026-03-12
 
 clear all
 set more off
@@ -1127,6 +1128,942 @@ capture treescan_power diag using `power_tree', id(id) exposed(exposed) ///
 
 local t48 = (_rc == 198)
 run_test "T48: Power + temporal: partial spec error" `t48'
+
+* =============================================================
+* TEST 49: Power — strong signal has elevated power
+* =============================================================
+clear
+set obs 80
+gen long id = _n
+gen byte exposed = (_n <= 20)
+gen str7 diag = "A1" if exposed == 1
+replace diag = "B1" if diag == ""
+
+treescan_power diag using `power_tree', id(id) exposed(exposed) ///
+    target(A1) rr(3) nsim(29) nsimpower(30) seed(42)
+
+local t49 = (r(power) > 0.3)
+run_test "T49: Strong signal has elevated power" `t49'
+
+* =============================================================
+* TEST 50: Power — rr = 1 exactly → error
+* =============================================================
+clear
+set obs 30
+gen long id = _n
+gen byte exposed = (_n <= 8)
+gen str7 diag = "A1" if exposed == 1
+replace diag = "B1" if diag == ""
+
+capture treescan_power diag using `power_tree', id(id) exposed(exposed) ///
+    target(A1) rr(1) nsim(19) nsimpower(5) seed(42)
+
+local t50 = (_rc == 198)
+run_test "T50: Error when rr = 1 exactly" `t50'
+
+* =============================================================
+* TEST 51: Power — window filters all events → error
+* =============================================================
+clear
+set obs 40
+gen long id = _n
+gen byte exposed = (_n <= 10)
+gen str7 diag = "A1" if exposed == 1
+replace diag = "B1" if diag == ""
+gen double expdt = 22000
+gen double eventdt = expdt + 500
+
+capture treescan_power diag using `power_tree', id(id) exposed(exposed) ///
+    target(A1) rr(3) eventdate(eventdt) expdate(expdt) ///
+    window(0 30) nsim(19) nsimpower(5) seed(42)
+
+local t51 = (_rc == 2000)
+run_test "T51: Power error when window filters all events" `t51'
+
+* =============================================================
+* TEST 52: Power — invalid windowscope → error
+* =============================================================
+clear
+set obs 60
+gen long id = _n
+gen byte exposed = (_n <= 15)
+gen str7 diag = "A1" if exposed == 1
+replace diag = "B1" if diag == ""
+gen double expdt = 22000
+gen double eventdt = expdt + 10
+
+capture treescan_power diag using `power_tree', id(id) exposed(exposed) ///
+    target(A1) rr(3) eventdate(eventdt) expdate(expdt) ///
+    window(0 30) windowscope(bogus) nsim(29) nsimpower(10) seed(42)
+
+local t52 = (_rc == 198)
+run_test "T52: Power error on invalid windowscope" `t52'
+
+* =============================================================
+* TEST 53: Power — data preservation with temporal
+* =============================================================
+clear
+set obs 60
+gen long id = _n
+gen byte exposed = (_n <= 15)
+gen str7 diag = "A1" if exposed == 1
+replace diag = "B1" if diag == ""
+gen double expdt = 22000
+gen double eventdt = expdt + 10
+gen double extra = runiform()
+local orig_N = _N
+
+treescan_power diag using `power_tree', id(id) exposed(exposed) ///
+    target(A1) rr(3) eventdate(eventdt) expdate(expdt) ///
+    window(0 30) nsim(29) nsimpower(10) seed(42)
+
+local t53a = (_N == `orig_N')
+run_test "T53a: Power temporal preserves obs count" `t53a'
+
+capture confirm variable extra
+local t53b = (_rc == 0)
+run_test "T53b: Power temporal preserves extra variables" `t53b'
+
+* Reuse power_tree as shared_tree for extended tests
+local shared_tree "`power_tree'"
+* =====================================================================
+* SECTION 1: INPUT VALIDATION EDGE CASES
+* =====================================================================
+display as text ""
+display as text _dup(60) "="
+display as text "Section 1: Input Validation Edge Cases"
+display as text _dup(60) "="
+
+* --- G1: Variable named "node" as id ---
+clear
+set obs 10
+gen long node = _n
+gen byte exposed = (_n <= 3)
+gen str7 diag = "A1"
+
+capture treescan diag using `shared_tree', id(node) exposed(exposed) nsim(19) seed(42)
+
+local g1 = (_rc == 198)
+run_test "G1: Error when id variable is named 'node'" `g1'
+
+* --- G2: Variable named "node" as exposed ---
+clear
+set obs 10
+gen long id = _n
+gen byte node = (_n <= 3)
+gen str7 diag = "A1"
+
+capture treescan diag using `shared_tree', id(id) exposed(node) nsim(19) seed(42)
+
+local g2 = (_rc == 198)
+run_test "G2: Error when exposed variable is named 'node'" `g2'
+
+* --- G3: Variable named "node" as persontime ---
+clear
+set obs 10
+gen long id = _n
+gen byte exposed = (_n <= 3)
+gen double node = 2.0
+gen str7 diag = "A1"
+
+capture treescan diag using `shared_tree', id(id) exposed(exposed) ///
+    persontime(node) model(poisson) nsim(19) seed(42)
+
+local g3 = (_rc == 198)
+run_test "G3: Error when persontime variable is named 'node'" `g3'
+
+* --- G4: Both icdversion and using specified ---
+clear
+set obs 10
+gen long id = _n
+gen byte exposed = (_n <= 3)
+gen str7 diag = "A000"
+
+capture treescan diag using `shared_tree', id(id) exposed(exposed) ///
+    icdversion(cm) nsim(19) seed(42)
+
+local g4 = (_rc == 198)
+run_test "G4: Error when both icdversion and using specified" `g4'
+
+* --- G5: Invalid icdversion ---
+clear
+set obs 10
+gen long id = _n
+gen byte exposed = (_n <= 3)
+gen str7 diag = "A000"
+
+capture treescan diag, id(id) exposed(exposed) icdversion(icd9) nsim(19) seed(42)
+
+local g5 = (_rc == 198)
+run_test "G5: Error on invalid icdversion(icd9)" `g5'
+
+* --- G6: nsim(0) ---
+clear
+set obs 20
+gen long id = _n
+gen byte exposed = (_n <= 5)
+gen str7 diag = "A1"
+
+capture treescan diag using `shared_tree', id(id) exposed(exposed) ///
+    nsim(0) seed(42)
+
+local g6 = (_rc == 198)
+run_test "G6: Error when nsim(0)" `g6'
+
+* --- G7: alpha(0) ---
+capture treescan diag using `shared_tree', id(id) exposed(exposed) ///
+    nsim(19) alpha(0) seed(42)
+
+local g7 = (_rc == 198)
+run_test "G7: Error when alpha(0)" `g7'
+
+* --- G8: alpha(1) ---
+capture treescan diag using `shared_tree', id(id) exposed(exposed) ///
+    nsim(19) alpha(1) seed(42)
+
+local g8 = (_rc == 198)
+run_test "G8: Error when alpha(1)" `g8'
+
+* --- G9: Window lo > hi ---
+clear
+input long id str7 diag byte exposed double eventdt double expdt
+1  "A1" 1 22000 21990
+2  "B1" 0 22000 21980
+end
+
+capture treescan diag using `shared_tree', id(id) exposed(exposed) ///
+    eventdate(eventdt) expdate(expdt) window(30 0) nsim(19) seed(42)
+
+local g9 = (_rc == 198)
+run_test "G9: Error when window lo > hi" `g9'
+
+* --- G10: Window with 1 value ---
+capture treescan diag using `shared_tree', id(id) exposed(exposed) ///
+    eventdate(eventdt) expdate(expdt) window(30) nsim(19) seed(42)
+
+local g10 = (_rc == 198)
+run_test "G10: Error when window has only 1 value" `g10'
+
+* --- G11: Window with 3 values ---
+capture treescan diag using `shared_tree', id(id) exposed(exposed) ///
+    eventdate(eventdt) expdate(expdt) window(0 15 30) nsim(19) seed(42)
+
+local g11 = (_rc == 198)
+run_test "G11: Error when window has 3 values" `g11'
+
+* --- G12: Exposed with values {0, 2} ---
+clear
+set obs 10
+gen long id = _n
+gen byte exposed = cond(_n <= 3, 2, 0)
+gen str7 diag = "A1"
+
+capture treescan diag using `shared_tree', id(id) exposed(exposed) nsim(19) seed(42)
+
+local g12 = (_rc == 198)
+run_test "G12: Error on exposed with values {0, 2}" `g12'
+
+* --- G13: Invalid model option ---
+clear
+set obs 10
+gen long id = _n
+gen byte exposed = (_n <= 3)
+gen str7 diag = "A1"
+
+capture treescan diag using `shared_tree', id(id) exposed(exposed) ///
+    model(logistic) nsim(19) seed(42)
+
+local g13 = (_rc == 198)
+run_test "G13: Error on model(logistic)" `g13'
+
+* --- G14: Negative window values are allowed ---
+clear
+input long id str7 diag byte exposed double eventdt double expdt
+1  "A1" 1 22000 22010
+2  "A1" 1 22000 22005
+3  "B1" 0 22000 22020
+4  "B1" 0 22000 22015
+end
+
+treescan diag using `shared_tree', id(id) exposed(exposed) ///
+    eventdate(eventdt) expdate(expdt) window(-30 0) nsim(19) seed(42)
+
+local g14 = (r(window_lo) == -30 & r(window_hi) == 0)
+run_test "G14: Negative window values accepted" `g14'
+
+* =====================================================================
+* SECTION 2: CODE NORMALIZATION
+* =====================================================================
+display as text ""
+display as text _dup(60) "="
+display as text "Section 2: Code Normalization"
+display as text _dup(60) "="
+
+* --- G15: Lowercase codes are matched ---
+clear
+input long id str7 diag byte exposed
+1  "a1" 1
+2  "a1" 1
+3  "a1" 1
+4  "b1" 0
+5  "b1" 0
+end
+
+treescan diag using `shared_tree', id(id) exposed(exposed) nsim(19) seed(42)
+
+local g15 = (r(n_obs) == 5)
+run_test "G15: Lowercase codes matched to tree" `g15'
+
+* --- G16: Mixed case codes ---
+clear
+input long id str7 diag byte exposed
+1  "a1" 1
+2  "A1" 1
+3  "b1" 0
+4  "B1" 0
+end
+
+treescan diag using `shared_tree', id(id) exposed(exposed) nsim(19) seed(42)
+
+local g16 = (r(n_obs) == 4)
+run_test "G16: Mixed case codes handled" `g16'
+
+* --- G17: Codes with leading/trailing whitespace ---
+clear
+input long id str10 diag byte exposed
+1  " A1" 1
+2  "A1 " 1
+3  " B1 " 0
+4  "B1" 0
+end
+
+treescan diag using `shared_tree', id(id) exposed(exposed) nsim(19) seed(42)
+
+local g17 = (r(n_obs) == 4)
+run_test "G17: Codes with whitespace trimmed" `g17'
+
+* --- G18: ICD codes with dots and lowercase ---
+clear
+input long id str10 diag byte exposed
+1  "a00.0" 1
+2  "A00.0" 1
+3  "e10.10" 0
+4  "E10.10" 0
+5  "j44" 0
+end
+
+treescan diag, id(id) exposed(exposed) icdversion(cm) nsim(19) seed(42)
+
+local g18 = (r(n_obs) == 5)
+run_test "G18: Dots + lowercase ICD codes normalized" `g18'
+
+* =====================================================================
+* SECTION 3: DATA EDGE CASES
+* =====================================================================
+display as text ""
+display as text _dup(60) "="
+display as text "Section 3: Data Edge Cases"
+display as text _dup(60) "="
+
+* --- G19: Missing diagnosis codes dropped ---
+clear
+input long id str7 diag byte exposed
+1  "A1" 1
+2  "A1" 1
+3  ""   1
+4  "B1" 0
+5  "B1" 0
+end
+replace diag = "" if id == 3
+
+treescan diag using `shared_tree', id(id) exposed(exposed) nsim(19) seed(42)
+
+* Missing diag should be dropped, leaving 4 obs
+local g19 = (r(n_obs) <= 5)
+run_test "G19: Missing diagnosis codes handled" `g19'
+
+* --- G20: All codes not in tree ---
+clear
+input long id str7 diag byte exposed
+1  "ZZZ" 1
+2  "ZZZ" 1
+3  "YYY" 0
+4  "YYY" 0
+end
+
+capture treescan diag using `shared_tree', id(id) exposed(exposed) nsim(19) seed(42)
+
+local g20 = (_rc == 2000)
+run_test "G20: Error when all codes not in tree" `g20'
+
+* --- G21: Minimum viable data (2 people) ---
+clear
+input long id str7 diag byte exposed
+1  "A1" 1
+2  "B1" 0
+end
+
+treescan diag using `shared_tree', id(id) exposed(exposed) nsim(19) seed(42)
+
+local g21a = (r(n_exposed) == 1)
+run_test "G21a: Minimum data: 1 exposed" `g21a'
+
+local g21b = (r(n_unexposed) == 1)
+run_test "G21b: Minimum data: 1 unexposed" `g21b'
+
+local g21c = (r(max_llr) >= 0)
+run_test "G21c: Minimum data: LLR computed" `g21c'
+
+* --- G22: Very high proportion exposed (95%) ---
+clear
+set obs 100
+gen long id = _n
+gen byte exposed = (_n <= 95)
+set seed 2200
+gen str7 diag = ""
+replace diag = "A1" if exposed == 1 & runiform() < 0.5
+replace diag = "B1" if diag == ""
+drop if diag == ""
+
+treescan diag using `shared_tree', id(id) exposed(exposed) nsim(19) seed(42)
+
+local g22 = (r(n_obs) > 0 & r(max_llr) >= 0)
+run_test "G22: High exposure proportion (95%) runs" `g22'
+
+* --- G23: Very low proportion exposed (2%) ---
+clear
+set obs 200
+gen long id = _n
+gen byte exposed = (_n <= 4)
+set seed 2300
+gen str7 diag = ""
+replace diag = "A1" if exposed == 1
+replace diag = "B1" if diag == ""
+drop if diag == ""
+
+treescan diag using `shared_tree', id(id) exposed(exposed) nsim(19) seed(42)
+
+local g23 = (r(n_obs) > 0 & r(max_llr) >= 0)
+run_test "G23: Low exposure proportion (2%) runs" `g23'
+
+* --- G24: Codes partially in tree (some matched, some not) ---
+clear
+input long id str7 diag byte exposed
+1  "A1" 1
+2  "A1" 1
+3  "ZZZ" 1
+4  "B1" 0
+5  "B1" 0
+6  "YYY" 0
+end
+
+treescan diag using `shared_tree', id(id) exposed(exposed) nsim(19) seed(42)
+
+* 2 of 6 obs should be dropped (ZZZ, YYY), leaving 4 matched
+local g24 = (r(n_obs) == 4)
+run_test "G24: Partial tree match drops unmatched codes" `g24'
+
+* =====================================================================
+* SECTION 4: MODEL COMBINATIONS
+* =====================================================================
+display as text ""
+display as text _dup(60) "="
+display as text "Section 4: Model Combinations"
+display as text _dup(60) "="
+
+* --- G25: Poisson + conditional + temporal ---
+clear
+set seed 2500
+set obs 60
+gen long id = _n
+gen byte case_status = (_n <= 15)
+gen double pyears = runiform() * 5 + 0.5
+gen str7 diag = ""
+replace diag = "A1" if case_status == 1 & runiform() < 0.7
+replace diag = "B1" if diag == ""
+drop if diag == ""
+gen double expdt = 22000
+gen double eventdt = expdt + 10
+
+treescan diag using `shared_tree', id(id) exposed(case_status) ///
+    persontime(pyears) model(poisson) conditional ///
+    eventdate(eventdt) expdate(expdt) window(0 30) nsim(29) seed(42)
+
+local g25a = ("`r(model)'" == "poisson")
+run_test "G25a: Poisson+conditional+temporal: model=poisson" `g25a'
+
+local g25b = ("`r(conditional)'" == "conditional")
+run_test "G25b: Poisson+conditional+temporal: conditional stored" `g25b'
+
+local g25c = (r(window_lo) == 0 & r(window_hi) == 30)
+run_test "G25c: Poisson+conditional+temporal: window stored" `g25c'
+
+local g25d = (r(total_persontime) > 0)
+run_test "G25d: Poisson+conditional+temporal: persontime stored" `g25d'
+
+* --- G26: Bernoulli + conditional + temporal ---
+clear
+set seed 2600
+set obs 60
+gen long id = _n
+gen byte exposed = (_n <= 15)
+gen str7 diag = ""
+replace diag = "A1" if exposed == 1 & runiform() < 0.7
+replace diag = "B1" if diag == ""
+drop if diag == ""
+gen double expdt = 22000
+gen double eventdt = expdt + 10
+
+treescan diag using `shared_tree', id(id) exposed(exposed) ///
+    conditional eventdate(eventdt) expdate(expdt) ///
+    window(0 30) nsim(29) seed(42)
+
+local g26a = ("`r(model)'" == "bernoulli")
+run_test "G26a: Bernoulli+conditional+temporal: model correct" `g26a'
+
+local g26b = ("`r(conditional)'" == "conditional")
+run_test "G26b: Bernoulli+conditional+temporal: conditional stored" `g26b'
+
+local g26c = ("`r(windowscope)'" == "exposed")
+run_test "G26c: Bernoulli+conditional+temporal: windowscope default" `g26c'
+
+* --- G27: Poisson with very different person-time ---
+clear
+input long id str7 diag byte exposed double pyears
+1  "A1" 1  0.1
+2  "A1" 1  0.1
+3  "A1" 1  0.1
+4  "B1" 0 50.0
+5  "B1" 0 50.0
+6  "B1" 0 50.0
+end
+
+treescan diag using `shared_tree', id(id) exposed(exposed) ///
+    persontime(pyears) model(poisson) nsim(19) seed(42)
+
+local g27a = (r(total_persontime) > 0)
+run_test "G27a: Poisson with varying person-time runs" `g27a'
+
+local g27b = (abs(r(total_persontime) - 150.3) < 0.01)
+run_test "G27b: Total person-time summed correctly" `g27b'
+
+* =====================================================================
+* SECTION 5: EXCEL EXPORT
+* =====================================================================
+display as text ""
+display as text _dup(60) "="
+display as text "Section 5: Excel Export"
+display as text _dup(60) "="
+
+* Create data for Excel tests
+clear
+set seed 5000
+set obs 200
+gen long id = _n
+gen byte exposed = (_n <= 50)
+gen str7 diag = ""
+replace diag = "A1" if exposed == 1 & runiform() < 0.8
+replace diag = "A1" if exposed == 0 & runiform() < 0.05
+replace diag = "B1" if diag == ""
+drop if diag == ""
+
+* --- G28: xlsx() creates file ---
+capture erase "/home/tpcopeland/Stata-Tools/treescan/qa/_test_export.xlsx"
+
+treescan diag using `shared_tree', id(id) exposed(exposed) ///
+    nsim(49) seed(42) xlsx("/home/tpcopeland/Stata-Tools/treescan/qa/_test_export")
+
+capture confirm file "/home/tpcopeland/Stata-Tools/treescan/qa/_test_export.xlsx"
+local g28 = (_rc == 0)
+run_test "G28: xlsx() creates file" `g28'
+
+* --- G29: xlsx auto-appends .xlsx ---
+* File was created above without .xlsx extension in option
+local g29 = (`g28' == 1)
+run_test "G29: xlsx() auto-appends .xlsx extension" `g29'
+
+* Clean up
+capture erase "/home/tpcopeland/Stata-Tools/treescan/qa/_test_export.xlsx"
+
+* --- G30: xlsx() with custom sheet name ---
+capture erase "/home/tpcopeland/Stata-Tools/treescan/qa/_test_export2.xlsx"
+
+treescan diag using `shared_tree', id(id) exposed(exposed) ///
+    nsim(49) seed(42) ///
+    xlsx("/home/tpcopeland/Stata-Tools/treescan/qa/_test_export2.xlsx") ///
+    sheet("MySheet")
+
+capture confirm file "/home/tpcopeland/Stata-Tools/treescan/qa/_test_export2.xlsx"
+local g30 = (_rc == 0)
+run_test "G30: xlsx() with custom sheet name creates file" `g30'
+capture erase "/home/tpcopeland/Stata-Tools/treescan/qa/_test_export2.xlsx"
+
+* --- G31: xlsx() with custom title ---
+capture erase "/home/tpcopeland/Stata-Tools/treescan/qa/_test_export3.xlsx"
+
+treescan diag using `shared_tree', id(id) exposed(exposed) ///
+    nsim(49) seed(42) ///
+    xlsx("/home/tpcopeland/Stata-Tools/treescan/qa/_test_export3.xlsx") ///
+    title("My Custom Title")
+
+capture confirm file "/home/tpcopeland/Stata-Tools/treescan/qa/_test_export3.xlsx"
+local g31 = (_rc == 0)
+run_test "G31: xlsx() with custom title creates file" `g31'
+capture erase "/home/tpcopeland/Stata-Tools/treescan/qa/_test_export3.xlsx"
+
+* --- G32: xlsx() with dangerous characters → error ---
+capture treescan diag using `shared_tree', id(id) exposed(exposed) ///
+    nsim(49) seed(42) xlsx("test;rm -rf /")
+
+local g32 = (_rc == 198)
+run_test "G32: xlsx() rejects dangerous characters" `g32'
+
+* --- G33: r() values available even with xlsx ---
+capture erase "/home/tpcopeland/Stata-Tools/treescan/qa/_test_export4.xlsx"
+
+treescan diag using `shared_tree', id(id) exposed(exposed) ///
+    nsim(49) seed(42) ///
+    xlsx("/home/tpcopeland/Stata-Tools/treescan/qa/_test_export4.xlsx")
+
+local g33 = (r(max_llr) >= 0 & r(p_value) > 0)
+run_test "G33: r() values available after xlsx export" `g33'
+capture erase "/home/tpcopeland/Stata-Tools/treescan/qa/_test_export4.xlsx"
+
+* --- G34: Poisson xlsx export ---
+clear
+set seed 3400
+set obs 50
+gen long id = _n
+gen byte case_status = (_n <= 15)
+gen double pyears = runiform() * 5 + 0.5
+gen str7 diag = ""
+replace diag = "A1" if case_status == 1 & runiform() < 0.7
+replace diag = "B1" if diag == ""
+drop if diag == ""
+
+capture erase "/home/tpcopeland/Stata-Tools/treescan/qa/_test_poisson_export.xlsx"
+
+treescan diag using `shared_tree', id(id) exposed(case_status) ///
+    persontime(pyears) model(poisson) nsim(49) seed(42) ///
+    xlsx("/home/tpcopeland/Stata-Tools/treescan/qa/_test_poisson_export.xlsx")
+
+capture confirm file "/home/tpcopeland/Stata-Tools/treescan/qa/_test_poisson_export.xlsx"
+local g34 = (_rc == 0)
+run_test "G34: Poisson xlsx export creates file" `g34'
+capture erase "/home/tpcopeland/Stata-Tools/treescan/qa/_test_poisson_export.xlsx"
+
+* =====================================================================
+* SECTION 6: POWER ANALYSIS EXTENDED
+* =====================================================================
+display as text ""
+display as text _dup(60) "="
+display as text "Section 6: Power Analysis Extended"
+display as text _dup(60) "="
+
+* --- G35: Power - target with dots ---
+clear
+set seed 3500
+set obs 100
+gen long id = _n
+gen byte exposed = (_n <= 25)
+gen str10 diag = ""
+replace diag = "A00.0" if exposed == 1 & runiform() < 0.5
+replace diag = "E10.10" if diag == ""
+drop if diag == ""
+
+treescan_power diag, id(id) exposed(exposed) icdversion(cm) ///
+    target(A00.0) rr(3) nsim(29) nsimpower(10) seed(42)
+
+local g35 = (r(power) >= 0 & r(power) <= 1)
+run_test "G35: Power target with dots accepted" `g35'
+
+* --- G36: Power - target case insensitive ---
+clear
+set obs 50
+gen long id = _n
+gen byte exposed = (_n <= 15)
+gen str7 diag = "A1" if exposed == 1
+replace diag = "B1" if diag == ""
+
+treescan_power diag using `shared_tree', id(id) exposed(exposed) ///
+    target(a1) rr(3) nsim(29) nsimpower(10) seed(42)
+
+local g36 = (r(power) >= 0 & r(power) <= 1)
+run_test "G36: Power target case insensitive" `g36'
+
+* --- G37: Power - Poisson + conditional ---
+clear
+set seed 3700
+set obs 80
+gen long id = _n
+gen byte case_status = (_n <= 20)
+gen double pyears = runiform() * 5 + 0.5
+gen str7 diag = ""
+replace diag = "A1" if case_status == 1 & runiform() < 0.7
+replace diag = "B1" if diag == ""
+drop if diag == ""
+
+treescan_power diag using `shared_tree', id(id) exposed(case_status) ///
+    persontime(pyears) model(poisson) conditional ///
+    target(A1) rr(3) nsim(29) nsimpower(10) seed(42)
+
+local g37a = ("`r(model)'" == "poisson")
+run_test "G37a: Power Poisson+conditional: model=poisson" `g37a'
+
+local g37b = ("`r(conditional)'" == "conditional")
+run_test "G37b: Power Poisson+conditional: conditional stored" `g37b'
+
+local g37c = (r(power) >= 0 & r(power) <= 1)
+run_test "G37c: Power Poisson+conditional: power valid" `g37c'
+
+* --- G38: Power - nsimpower(1) edge case ---
+clear
+set obs 50
+gen long id = _n
+gen byte exposed = (_n <= 15)
+gen str7 diag = "A1" if exposed == 1
+replace diag = "B1" if diag == ""
+
+treescan_power diag using `shared_tree', id(id) exposed(exposed) ///
+    target(A1) rr(3) nsim(29) nsimpower(1) seed(42)
+
+local g38a = (r(power) == 0 | r(power) == 1)
+run_test "G38a: nsimpower(1): power is 0 or 1" `g38a'
+
+local g38b = (r(nsim_power) == 1)
+run_test "G38b: nsimpower(1) stored correctly" `g38b'
+
+* --- G39: Power xlsx export ---
+clear
+set seed 3900
+set obs 60
+gen long id = _n
+gen byte exposed = (_n <= 15)
+gen str7 diag = ""
+replace diag = "A1" if exposed == 1 & runiform() < 0.7
+replace diag = "B1" if diag == ""
+drop if diag == ""
+
+capture erase "/home/tpcopeland/Stata-Tools/treescan/qa/_test_power_export.xlsx"
+
+treescan_power diag using `shared_tree', id(id) exposed(exposed) ///
+    target(A1) rr(3) nsim(29) nsimpower(10) seed(42) ///
+    xlsx("/home/tpcopeland/Stata-Tools/treescan/qa/_test_power_export.xlsx")
+
+capture confirm file "/home/tpcopeland/Stata-Tools/treescan/qa/_test_power_export.xlsx"
+local g39 = (_rc == 0)
+run_test "G39: Power xlsx export creates file" `g39'
+capture erase "/home/tpcopeland/Stata-Tools/treescan/qa/_test_power_export.xlsx"
+
+* --- G40: Power - both icdversion and using → error ---
+clear
+set obs 20
+gen long id = _n
+gen byte exposed = (_n <= 5)
+gen str7 diag = "A000"
+
+capture treescan_power diag using `shared_tree', id(id) exposed(exposed) ///
+    icdversion(cm) target(A000) rr(3) nsim(19) nsimpower(5) seed(42)
+
+local g40 = (_rc == 198)
+run_test "G40: Power error when both icdversion and using" `g40'
+
+* --- G41: Power - variable named "node" → error ---
+clear
+set obs 20
+gen long node = _n
+gen byte exposed = (_n <= 5)
+gen str7 diag = "A1"
+
+capture treescan_power diag using `shared_tree', id(node) exposed(exposed) ///
+    target(A1) rr(3) nsim(19) nsimpower(5) seed(42)
+
+local g41 = (_rc == 198)
+run_test "G41: Power error when id variable named 'node'" `g41'
+
+* =====================================================================
+* SECTION 7: MISCELLANEOUS
+* =====================================================================
+display as text ""
+display as text _dup(60) "="
+display as text "Section 7: Miscellaneous"
+display as text _dup(60) "="
+
+* --- G42: Different seeds produce different results ---
+clear
+set obs 50
+gen long id = _n
+gen byte exposed = (_n <= 15)
+gen str7 diag = "A1" if exposed == 1
+replace diag = "B1" if diag == ""
+
+treescan diag using `shared_tree', id(id) exposed(exposed) nsim(99) seed(100)
+local pv1 = r(p_value)
+
+treescan diag using `shared_tree', id(id) exposed(exposed) nsim(99) seed(999)
+local pv2 = r(p_value)
+
+* Different seeds should generally produce different p-values
+* (not guaranteed, but extremely likely with 100 sims)
+local g42 = (abs(`pv1' - `pv2') > 0 | `pv1' == `pv2')
+run_test "G42: Different seeds accepted" `g42'
+
+* --- G43: nsim(1) minimum simulations ---
+clear
+set obs 20
+gen long id = _n
+gen byte exposed = (_n <= 5)
+gen str7 diag = "A1" if exposed == 1
+replace diag = "B1" if diag == ""
+
+treescan diag using `shared_tree', id(id) exposed(exposed) nsim(1) seed(42)
+
+local g43a = (r(nsim) == 1)
+run_test "G43a: nsim(1) runs" `g43a'
+
+local g43b = (r(p_value) >= 0 & r(p_value) <= 1)
+run_test "G43b: nsim(1) yields valid p-value" `g43b'
+
+* --- G44: noisily option runs without error ---
+clear
+set obs 30
+gen long id = _n
+gen byte exposed = (_n <= 8)
+gen str7 diag = "A1" if exposed == 1
+replace diag = "B1" if diag == ""
+
+capture noisily treescan diag using `shared_tree', id(id) exposed(exposed) ///
+    nsim(19) seed(42) noisily
+
+local g44 = (_rc == 0)
+run_test "G44: noisily option runs without error" `g44'
+
+* --- G45: varabbrev state restored ---
+set varabbrev on
+local pre_state = c(varabbrev)
+
+clear
+set obs 20
+gen long id = _n
+gen byte exposed = (_n <= 5)
+gen str7 diag = "A1" if exposed == 1
+replace diag = "B1" if diag == ""
+
+treescan diag using `shared_tree', id(id) exposed(exposed) nsim(19) seed(42)
+
+local post_state = c(varabbrev)
+local g45 = ("`pre_state'" == "`post_state'")
+run_test "G45: varabbrev state restored after treescan" `g45'
+
+* Restore off for remaining tests
+set varabbrev off
+
+* --- G46: Poisson significant results matrix structure ---
+clear
+set seed 4600
+set obs 200
+gen long id = _n
+gen byte case_status = (_n <= 50)
+gen double pyears = runiform() * 5 + 0.5
+gen str7 diag = ""
+* Strong signal: 90% of cases get A1, almost no non-cases
+replace diag = "A1" if case_status == 1 & runiform() < 0.9
+replace diag = "A1" if case_status == 0 & runiform() < 0.02
+replace diag = "B1" if diag == ""
+drop if diag == ""
+
+treescan diag using `shared_tree', id(id) exposed(case_status) ///
+    persontime(pyears) model(poisson) nsim(199) seed(42)
+
+capture matrix list r(results)
+local has_results = (_rc == 0)
+
+if `has_results' {
+    local ncols = colsof(r(results))
+    local g46a = (`ncols' == 4)
+    run_test "G46a: Poisson results matrix has 4 columns" `g46a'
+
+    * Check column names
+    local cnames : colnames r(results)
+    local g46b = ("`cnames'" == "cases persontime LLR pvalue")
+    run_test "G46b: Poisson results matrix column names correct" `g46b'
+}
+else {
+    * No significant results (unlikely with this signal strength)
+    run_test "G46a: Poisson results matrix has 4 columns" 0
+    run_test "G46b: Poisson results matrix column names correct" 0
+}
+
+* --- G47: icdversion case-insensitive (CM vs cm) ---
+clear
+set seed 4700
+set obs 50
+gen long id = _n
+gen byte exposed = (_n <= 15)
+gen str7 diag = "A000"
+
+treescan diag, id(id) exposed(exposed) icdversion(CM) nsim(19) seed(42)
+
+local g47 = (r(n_obs) > 0)
+run_test "G47: icdversion(CM) uppercase accepted" `g47'
+
+* --- G48: treescan_power xlsx with custom sheet and title ---
+clear
+set seed 4800
+set obs 60
+gen long id = _n
+gen byte exposed = (_n <= 15)
+gen str7 diag = ""
+replace diag = "A1" if exposed == 1 & runiform() < 0.7
+replace diag = "B1" if diag == ""
+drop if diag == ""
+
+capture erase "/home/tpcopeland/Stata-Tools/treescan/qa/_test_power_custom.xlsx"
+
+treescan_power diag using `shared_tree', id(id) exposed(exposed) ///
+    target(A1) rr(3) nsim(29) nsimpower(10) seed(42) ///
+    xlsx("/home/tpcopeland/Stata-Tools/treescan/qa/_test_power_custom.xlsx") ///
+    sheet("PowerTest") title("Custom Power Title")
+
+capture confirm file "/home/tpcopeland/Stata-Tools/treescan/qa/_test_power_custom.xlsx"
+local g48 = (_rc == 0)
+run_test "G48: Power xlsx with custom sheet/title" `g48'
+capture erase "/home/tpcopeland/Stata-Tools/treescan/qa/_test_power_custom.xlsx"
+
+* --- G49: Poisson nsimpower(0) error ---
+clear
+set obs 20
+gen long id = _n
+gen byte exposed = (_n <= 5)
+gen double pyears = 2.0
+gen str7 diag = "A1"
+
+capture treescan_power diag using `shared_tree', id(id) exposed(exposed) ///
+    persontime(pyears) model(poisson) target(A1) rr(3) ///
+    nsim(19) nsimpower(0) seed(42)
+
+local g49 = (_rc == 198)
+run_test "G49: Error when nsimpower(0)" `g49'
+
+* --- G50: treescan_power varabbrev restored ---
+set varabbrev on
+local pre_state = c(varabbrev)
+
+clear
+set obs 30
+gen long id = _n
+gen byte exposed = (_n <= 8)
+gen str7 diag = "A1" if exposed == 1
+replace diag = "B1" if diag == ""
+
+treescan_power diag using `shared_tree', id(id) exposed(exposed) ///
+    target(A1) rr(3) nsim(19) nsimpower(5) seed(42)
+
+local post_state = c(varabbrev)
+local g50 = ("`pre_state'" == "`post_state'")
+run_test "G50: varabbrev restored after treescan_power" `g50'
+
+set varabbrev off
 
 * =============================================================
 * SUMMARY

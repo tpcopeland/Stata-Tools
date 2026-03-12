@@ -2,18 +2,19 @@
 * run_all_validations.do
 *
 * Master runner for msm package tests and validation exercises.
-* Runs functional tests (T1-T2), 8 validation suites (V1-V8), and
+* Runs functional tests (T1-T3), 11 validation suites (V1-V11), and
 * cross-language validation (V9).
 *
 * Usage:
 *   stata-mp -b do run_all_validations.do              // runs all
-*   stata-mp -b do run_all_validations.do 1 5 8        // runs T1/T2, V1, V5, V8
-*   stata-mp -b do run_all_validations.do tests        // runs T1 + T2 only
-*   stata-mp -b do run_all_validations.do validations   // runs V1-V9 only
+*   stata-mp -b do run_all_validations.do 1 5 8        // runs T1-T3, V1, V5, V8
+*   stata-mp -b do run_all_validations.do tests        // runs T1-T3 only
+*   stata-mp -b do run_all_validations.do validations   // runs V1-V11 only
 *
 * Tests:
 *   T1. Functional tests (test_msm.do)
 *   T2. Table export tests (test_msm_table.do)
+*   T3. Complete option path coverage (test_msm_options.do)
 *
 * Validations:
 *   V1. Known DGP with time-varying confounding (N=10,000, T=10)
@@ -25,6 +26,8 @@
 *   V7. Diagnostics, reporting, sensitivity
 *   V8. Pipeline guards & edge cases
 *   V9. Cross-language validation (Stata vs R vs Python vs teffects)
+*   V10. Mathematical verification (hand-calculated weights, SMD, E-value, ESS)
+*   V11. Stress and boundary testing (rare treatment, many covariates, etc.)
 *******************************************************************************/
 
 version 16.0
@@ -56,11 +59,11 @@ if "`run_list'" == "" {
 }
 else if "`run_list'" == "tests" {
     local do_tests = 1
-    display "Running functional tests only (T1-T2)"
+    display "Running functional tests only (T1-T3)"
 }
 else if "`run_list'" == "validations" {
     local do_validations = 1
-    display "Running validation suites only (V1-V9)"
+    display "Running validation suites only (V1-V11)"
 }
 else {
     local do_tests = 1
@@ -74,6 +77,8 @@ local tfile_1  "test_msm.do"
 local tname_1  "Functional Tests"
 local tfile_2  "test_msm_table.do"
 local tname_2  "Table Export Tests"
+local tfile_3  "test_msm_options.do"
+local tname_3  "Complete Option Path Coverage"
 
 * --- Validation file map ---
 local vfile_1  "validate_known_dgp.do"
@@ -94,10 +99,14 @@ local vfile_8  "validate_edge_cases.do"
 local vname_8  "Pipeline Guards & Edge Cases"
 local vfile_9  "crossval_msm_vs_all.do"
 local vname_9  "Cross-Language (Stata vs R vs Python vs teffects)"
+local vfile_10 "validate_mathematical.do"
+local vname_10 "Mathematical Verification (weights, SMD, E-value, ESS)"
+local vfile_11 "validate_stress.do"
+local vname_11 "Stress & Boundary Testing"
 
 * --- Run functional tests ---
 if `do_tests' {
-    forvalues t = 1/2 {
+    forvalues t = 1/3 {
         display "Running Test `t': `tname_`t''..."
         timer on 1`t'
         do "`qa_dir'/`tfile_`t''"
@@ -109,7 +118,7 @@ if `do_tests' {
 * --- Run selected validations ---
 if `do_validations' {
     if "`run_list'" == "" | "`run_list'" == "validations" {
-        numlist "1/9"
+        numlist "1/11"
         local vrun_list "`r(numlist)'"
     }
     else {

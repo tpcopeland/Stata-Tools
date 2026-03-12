@@ -2,10 +2,10 @@
 * run_all_validations.do
 *
 * Master runner for all tte package validation exercises.
-* Runs 17 independent validations and compiles a summary report.
+* Runs 20 independent validations and compiles a summary report.
 *
 * Usage:
-*   stata-mp -b do run_all_validations.do           // runs all V1-V17
+*   stata-mp -b do run_all_validations.do           // runs all V1-V20
 *   stata-mp -b do run_all_validations.do 1 5 13    // runs V1, V5, V13 only
 *
 * Validations:
@@ -26,6 +26,9 @@
 *  15. tte_predict options
 *  16. tte_diagnose and tte_report
 *  17. Pipeline guards (out-of-order execution)
+*  18. Three-way cross-validation (tte vs emulate vs TrialEmulation)
+*  19. Formal equivalence testing (TOST)
+*  20. Cox PH gold-standard cross-validation
 *******************************************************************************/
 
 version 16.0
@@ -51,9 +54,9 @@ timer on 99
 local run_list "`0'"
 
 if "`run_list'" == "" {
-    numlist "1/17"
+    numlist "1/20"
     local run_list "`r(numlist)'"
-    display "Running ALL validations (V1-V17)"
+    display "Running ALL validations (V1-V20)"
 }
 else {
     display "Running selective validations: `run_list'"
@@ -95,6 +98,12 @@ local vfile_16 "validate_diagnose_report.do"
 local vname_16 "tte_diagnose and tte_report"
 local vfile_17 "validate_pipeline_guards.do"
 local vname_17 "Pipeline Guards"
+local vfile_18 "validate_three_way.do"
+local vname_18 "Three-Way Cross-Validation"
+local vfile_19 "validate_equivalence.do"
+local vname_19 "Formal Equivalence (TOST)"
+local vfile_20 "validate_cox_crossval.do"
+local vname_20 "Cox PH Gold-Standard"
 
 * --- Run selected validations ---
 foreach v of local run_list {

@@ -89,7 +89,7 @@ display as text _dup(70) "="
 capture {
     cap program drop tvtools
     cap program drop _tvtools_detail
-    run tvtools/tvtools.ado
+    run ../tvtools.ado
 
     tvtools
     assert r(n_commands) == 11
@@ -131,7 +131,7 @@ gen double iptw = 1 + runiform()
 gen byte subset = (_n <= 300)
 
 cap program drop tvbalance
-run tvtools/tvbalance.ado
+run ../tvbalance.ado
 
 * Test 2a: Basic usage
 capture {
@@ -239,7 +239,7 @@ local n_before = _N
 local vars_before : char _dta[__obs]
 
 cap program drop tvdiagnose
-run tvtools/tvdiagnose.ado
+run ../tvdiagnose.ado
 
 * Test 3a: Coverage
 capture {
@@ -379,7 +379,7 @@ format %td date
 gen double value = rnormal(100, 15)
 
 cap program drop tvcalendar
-run tvtools/tvcalendar.ado
+run ../tvcalendar.ado
 
 * Test 7a: Range merge
 capture {
@@ -424,7 +424,7 @@ display as text _dup(70) "="
 use `cohort_data', clear
 
 cap program drop tvtrial
-run tvtools/tvtrial.ado
+run ../tvtrial.ado
 
 * Test 8a: Basic target trial (no cloning)
 capture {
@@ -506,7 +506,7 @@ local n_before_plot = _N
 cap program drop tvplot
 cap program drop _tvplot_swimlane
 cap program drop _tvplot_persontime
-run tvtools/tvplot.ado
+run ../tvplot.ado
 
 * Test 9a: Swimlane plot (verify no __ vars leak to data)
 capture {

@@ -1,4 +1,4 @@
-*! tvevent Version 1.5.1  2026/03/07
+*! tvevent Version 1.5.2  2026/03/12
 *! Add event/failure flags to time-varying datasets
 *! Author: Tim Copeland
 *!
@@ -628,11 +628,15 @@ program define tvevent, rclass
             expand _n_segments
             bysort _orig_interval_id: gen long _seg_num = _n
 
-            * Set segment boundaries
+            * Set segment boundaries using (start, stop] convention
             * Segment 1: [original_start, split1]
-            * Segment 2: [split1, split2]
+            * Segment 2: [split1, split2]     (start = split1, not split1+1)
             * ...
             * Segment N: [split(N-1), original_stop]
+            *
+            * Under (start, stop] intervals, person-time = stop - start.
+            * Consecutive segments [S, D] and [D, E] do not overlap because
+            * the first covers (S, D] and the second covers (D, E].
 
             tempvar new_start new_stop
             gen double `new_start' = `startvar'
@@ -644,8 +648,8 @@ program define tvevent, rclass
                 if _rc == 0 {
                     * Segment i ends at split point i (if it exists)
                     replace `new_stop' = `date'`i' if _seg_num == `i' & !missing(`date'`i')
-                    * Segment i+1 starts day after split point i (if segment i+1 exists)
-                    replace `new_start' = `date'`i' + 1 if _seg_num == `i' + 1 & !missing(`date'`i')
+                    * Segment i+1 starts at split point i (not +1; (start,stop] convention)
+                    replace `new_start' = `date'`i' if _seg_num == `i' + 1 & !missing(`date'`i')
                 }
             }
 
