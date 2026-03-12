@@ -58,23 +58,23 @@ local qa_dir "`pkg_dir'/qa"
 local data_dir "`qa_dir'/data"
 capture mkdir "`data_dir'"
 
-scalar _test_count = 0
-scalar _pass_count = 0
-scalar _fail_count = 0
-global _failures
+scalar gs_ntest = 0
+scalar gs_npass = 0
+scalar gs_nfail = 0
+global gs_failures
 
 capture program drop run_val
 program define run_val
     args test_name result
-    scalar _test_count = scalar(_test_count) + 1
+    scalar gs_ntest = scalar(gs_ntest) + 1
     if `result' {
         display as result "  [PASS] `test_name'"
-        scalar _pass_count = scalar(_pass_count) + 1
+        scalar gs_npass = scalar(gs_npass) + 1
     }
     else {
         display as error "  [FAIL] `test_name'"
-        scalar _fail_count = scalar(_fail_count) + 1
-        global _failures `"${_failures} `test_name'"'
+        scalar gs_nfail = scalar(gs_nfail) + 1
+        global gs_failures `"${gs_failures} `test_name'"'
     }
 end
 
@@ -1212,25 +1212,25 @@ foreach f of local cleanup_files {
 display as text _n _dup(70) "="
 display as text "GOLD STANDARD VALIDATION RESULTS"
 display as text _dup(70) "="
-display as text "Total tests:  " scalar(_test_count)
-display as result "Passed:       " scalar(_pass_count)
-if scalar(_fail_count) > 0 {
-    display as error "Failed:       " scalar(_fail_count)
-    display as error "Failed tests: ${_failures}"
+display as text "Total tests:  " scalar(gs_ntest)
+display as result "Passed:       " scalar(gs_npass)
+if scalar(gs_nfail) > 0 {
+    display as error "Failed:       " scalar(gs_nfail)
+    display as error "Failed tests: ${gs_failures}"
 }
 else {
-    display as text "Failed:       " scalar(_fail_count)
+    display as text "Failed:       " scalar(gs_nfail)
 }
 display as text _dup(70) "="
 
-if scalar(_fail_count) > 0 {
+if scalar(gs_nfail) > 0 {
     display as error "SOME TESTS FAILED"
     scalar drop _test_count _pass_count _fail_count
-    global _failures
+    global gs_failures
     exit 1
 }
 else {
     display as result "ALL TESTS PASSED"
     scalar drop _test_count _pass_count _fail_count
-    global _failures
+    global gs_failures
 }
