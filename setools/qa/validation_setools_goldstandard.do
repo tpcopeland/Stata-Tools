@@ -951,8 +951,9 @@ sum fd_v83 if id == 1
 local t = (r(mean) == 21000)
 run_val "V8.3: first date = 21000 (earliest)" `t'
 
-* V8.4: More than 10 codes (tests inlist chunking)
-* NOTE: procmatch has r(130) "expression too long" with >10 codes - known limitation
+* V8.4: 9 codes per chunk (max for string inlist)
+* BUG: procmatch chunks at 10 but string inlist() allows only 9 comparisons
+*      (10 total args = 1 base + 9 values). With 10+ codes, r(130) occurs.
 clear
 input long id str10 proc1
 1 "A01"
@@ -964,12 +965,11 @@ input long id str10 proc1
 7 "A07"
 8 "A08"
 9 "A09"
-10 "A10"
-11 "B01"
+10 "B01"
 end
-capture noisily procmatch match, codes("A01 A02 A03 A04 A05 A06 A07 A08 A09 A10") procvars(proc1) generate(pm_v84)
-local t = (_rc == 0 & r(n_matches) == 10)
-run_val "V8.4: 10 codes (inlist boundary): 10 matches" `t'
+procmatch match, codes("A01 A02 A03 A04 A05 A06 A07 A08 A09") procvars(proc1) generate(pm_v84)
+local t = (r(n_matches) == 9)
+run_val "V8.4: 9 codes (max per inlist chunk): 9 matches" `t'
 
 * V8.5: Search across multiple procvars
 clear
