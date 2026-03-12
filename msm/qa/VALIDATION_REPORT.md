@@ -2,7 +2,7 @@
 
 **Package**: msm v1.0.0
 **Date**: 2026-03-12
-**Suite**: 11 validations + 3 functional tests, ~172 tests
+**Suite**: 223 tests in 2 files (test_msm.do + validate_msm.do)
 
 ## Summary
 
@@ -23,20 +23,24 @@
 | V10 | Mathematical Verification | 15 | Hand-calculated + synthetic | PASS |
 | V11 | Stress & Boundary Testing | 14 | Simulated edge cases | PASS |
 
-**Total: ~172 tests, all PASS**
+**Total: 223 tests (118 functional + 105 validation), all PASS**
 
 ## Running the Suite
 
 ```stata
-* Run all validations
+* Run everything
 cd ~/Stata-Tools/msm/qa
 stata-mp -b do run_all_validations.do
 
-* Run selective validations
-stata-mp -b do run_all_validations.do 1 5 8
+* Tests only
+stata-mp -b do run_all_validations.do tests
 
-* Run cross-validation only
-stata-mp -b do crossval_msm_vs_all.do
+* Validations only
+stata-mp -b do run_all_validations.do validations
+
+* Individual files
+stata-mp -b do test_msm.do
+stata-mp -b do validate_msm.do
 ```
 
 ## External Sources

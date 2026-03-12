@@ -45,6 +45,7 @@ local pass_count = 0
 local fail_count = 0
 local failed_tests ""
 local quiet = 0
+local machine = 0
 
 display as text ""
 display as text "tvtools Validation Test Suite"
@@ -57,6 +58,7 @@ display as text ""
 * =============================================================================
 * --- From validation_tvage_mathematical.do ---
 
+capture noisily {
 display _n _dup(70) "="
 display "TVAGE MATHEMATICAL VALIDATION"
 display _dup(70) "="
@@ -467,12 +469,15 @@ else {
 * ============================================================================
 * FINAL SUMMARY
 
+}
+
 
 * =============================================================================
 * SECTION 2: TVBALANCE - SMD formula and weighted balance validation
 * =============================================================================
 * --- From validation_tvbalance_mathematical.do ---
 
+capture noisily {
 display _n _dup(70) "="
 display "TVBALANCE MATHEMATICAL VALIDATION"
 display _dup(70) "="
@@ -782,12 +787,15 @@ else {
 * ============================================================================
 * FINAL SUMMARY
 
+}
+
 
 * =============================================================================
 * SECTION 3: TVESTIMATE - Weighted regression validation
 * =============================================================================
 * --- From validation_tvestimate.do ---
 
+capture noisily {
 * =============================================================================
 * SECTION 1: KNOWN-ANSWER TESTING
 * =============================================================================
@@ -1174,16 +1182,8 @@ else {
 
 * =============================================================================
 * SUMMARY
-* =============================================================================
-display as text _n "{hline 70}"
-display as text "TVESTIMATE VALIDATION SUMMARY"
-display as text "{hline 70}"
-display as text "Total tests:  `test_count'"
-display as result "Passed:       `pass_count'"
-if `fail_count' > 0 {
-    display as error "Failed:       `fail_count'"
+
 }
-else {
 
 
 * =============================================================================
@@ -1191,6 +1191,7 @@ else {
 * =============================================================================
 * --- From validation_tvevent.do ---
 
+capture noisily {
 * =============================================================================
 * HELPER PROGRAMS
 * =============================================================================
@@ -4054,14 +4055,15 @@ if `quiet' == 0 {
 }
 
 capture {
-    * Calculate expected person-time from interval data BEFORE tvevent splits it
-    * This tests true conservation: pre-split total should equal post-split total
-    use "${DATA_DIR}/cohort_large_val.dta", clear
+    * Calculate expected person-time from INTERVAL data before tvevent splits it
+    * tv_large_val.dta has the intervals (start/stop), cohort has the events
+    use "${DATA_DIR}/tv_large_val.dta", clear
     gen double pre_ptime = stop - start
     quietly sum pre_ptime
     local expected_total = r(sum)
 
-    * Run tvevent (type(single) censors post-event intervals, reducing total)
+    * Run tvevent: master=cohort (events), using=intervals
+    use "${DATA_DIR}/cohort_large_val.dta", clear
     tvevent using "${DATA_DIR}/tv_large_val.dta", id(id) date(edss4_dt) ///
         startvar(start) stopvar(stop) compete(death_dt) ///
         type(single) generate(outcome)
@@ -4284,19 +4286,12 @@ else {
 
 * =============================================================================
 * SUMMARY
-* =============================================================================
-display as text _n "{hline 70}"
-display as text "TVEVENT VALIDATION SUMMARY"
-display as text "{hline 70}"
-display as text "Total tests:  `test_count'"
-display as result "Passed:       `pass_count'"
-if `fail_count' > 0 {
-    display as error "Failed:       `fail_count'"
+
 }
-else {
 
 * --- From validation_tvevent_mathematical.do ---
 
+capture noisily {
 display _n _dup(70) "="
 display "TVEVENT MATHEMATICAL VALIDATION"
 display _dup(70) "="
@@ -4799,8 +4794,11 @@ else {
 * ============================================================================
 * FINAL SUMMARY
 
+}
+
 * --- From validation_tvevent_registry.do ---
 
+capture noisily {
 display _n _dup(70) "="
 display "TVEVENT REGISTRY DATA VALIDATION"
 display _dup(70) "="
@@ -5538,18 +5536,8 @@ else {
 
 * ============================================================================
 * SUMMARY
-* ============================================================================
-display _n _dup(70) "="
-display "TVEVENT REGISTRY VALIDATION SUMMARY"
-display _dup(70) "="
-display "Total tests: `=`pass_count' + `fail_count''"
-display as result "Passed: `pass_count'"
-if `fail_count' > 0 {
-    display as error "Failed: `fail_count'"
-    display as error "Failed tests:`failed_tests'"
+
 }
-else {
-    display as result "Failed: 0"
 
 
 * =============================================================================
@@ -5557,6 +5545,7 @@ else {
 * =============================================================================
 * --- From validation_tvexpose.do ---
 
+capture noisily {
 * =============================================================================
 * HELPER PROGRAMS
 * =============================================================================
@@ -11424,19 +11413,12 @@ else {
 
 * =============================================================================
 * SUMMARY
-* =============================================================================
-display as text _n "{hline 70}"
-display as text "TVEXPOSE VALIDATION SUMMARY"
-display as text "{hline 70}"
-display as text "Total tests:  `test_count'"
-display as result "Passed:       `pass_count'"
-if `fail_count' > 0 {
-    display as error "Failed:       `fail_count'"
+
 }
-else {
 
 * --- From validation_tvexpose_mathematical.do ---
 
+capture noisily {
 capture program drop assert_approx
 program define assert_approx
     * args: actual expected tolerance label
@@ -12571,8 +12553,11 @@ else {
 * ============================================================================
 * FINAL SUMMARY
 
+}
+
 * --- From validation_tvexpose_options_untested.do ---
 
+capture noisily {
 display _n _dup(70) "="
 display "TVEXPOSE UNDERTESTED OPTIONS VALIDATION"
 display _dup(70) "="
@@ -12715,782 +12700,12 @@ capture noisily tvexpose using "/tmp/tvo2_exp.dta", ///
     entry(study_entry) exit(study_exit) ///
     continuousunit(years) expandunit(months) generate(cum_yrs)
 
-if _rc != 0 {
-    display as error "  FAIL [2.run]: tvexpose expandunit(months) failed (rc=`=_rc')"
-    local test2_pass = 0
+
 }
-else {
-    sort id start
-    * Should have ~12 rows for the exposed period (one per month)
-    quietly count if cum_yrs > 0
-    local n_exp = r(N)
-    display "  INFO: `n_exp' exposed rows (expected ~12 for monthly expansion)"
-
-    if `n_exp' >= 10 & `n_exp' <= 14 {
-        display as result "  PASS [2.monthly]: ~12 monthly rows created (`n_exp')"
-    }
-    else {
-        display as error "  FAIL [2.monthly]: `n_exp' exposed rows (expected ~12)"
-        local test2_pass = 0
-    }
-
-    * Cumulative at last row should be ~1.0 years
-    quietly summarize cum_yrs
-    local max_cum = r(max)
-    if abs(`max_cum' - 1.0) < 0.1 {
-        display as result "  PASS [2.cumulative]: max cumulative = `max_cum' years (expected ~1.0)"
-    }
-    else {
-        display as error "  FAIL [2.cumulative]: max cumulative = `max_cum' (expected ~1.0)"
-        local test2_pass = 0
-    }
-
-    * Cumulative should be monotonically increasing
-    local monotone = 1
-    quietly count
-    local nrows = r(N)
-    forvalues i = 2/`nrows' {
-        if cum_yrs[`i'] < cum_yrs[`i'-1] & cum_yrs[`i'] > 0 {
-            local monotone = 0
-        }
-    }
-    if `monotone' == 1 {
-        display as result "  PASS [2.monotone]: cumulative is monotonically increasing"
-    }
-    else {
-        display as error "  FAIL [2.monotone]: cumulative decreases at some point"
-        local test2_pass = 0
-    }
-}
-
-if `test2_pass' == 1 {
-    local pass_count = `pass_count' + 1
-    display as result "TEST 2: PASSED"
-}
-else {
-    local fail_count = `fail_count' + 1
-    local failed_tests "`failed_tests' 2"
-    display as error "TEST 2: FAILED"
-}
-
-* ============================================================================
-* TEST 3: BYTYPE + DURATION() (INDEPENDENT PER TYPE)
-* ============================================================================
-display _n _dup(60) "-"
-display "TEST 3: bytype + duration() — independent duration per type"
-display _dup(60) "-"
-
-local test3_pass = 1
-
-* Drug 1: Jan1-Jun30 (6 months), Drug 2: Oct1-Dec31 (3 months)
-* With duration(0.5) continuousunit(years): drug 1 should cross 0.5yr, drug 2 should not
-clear
-set obs 2
-gen long id = 1
-gen double start = mdy(1,1,2020) in 1
-replace start = mdy(10,1,2020) in 2
-gen double stop = mdy(6,30,2020) in 1
-replace stop = mdy(12,31,2020) in 2
-gen byte drug = 1 in 1
-replace drug = 2 in 2
-format start stop %td
-save "/tmp/tvo3_exp.dta", replace
-
-use "/tmp/tvo_cohort.dta", clear
-capture noisily tvexpose using "/tmp/tvo3_exp.dta", ///
-    id(id) start(start) stop(stop) ///
-    exposure(drug) reference(0) ///
-    entry(study_entry) exit(study_exit) ///
-    bytype duration(0.5) continuousunit(years) generate(dur_cat)
-
-if _rc != 0 {
-    display as error "  FAIL [3.run]: tvexpose bytype duration() failed (rc=`=_rc')"
-    local test3_pass = 0
-}
-else {
-    sort id start
-    * List all variables to see bytype output naming
-    describe, short
-    list, noobs
-
-    * Should have separate duration variables per type
-    * Check that bytype variables exist (naming convention: dur_cat1, dur_cat2, etc.)
-    local has_bytype = 0
-    foreach suffix in 1 2 {
-        capture confirm variable dur_cat`suffix'
-        if _rc == 0 {
-            local has_bytype = 1
-        }
-    }
-    if `has_bytype' == 1 {
-        display as result "  PASS [3.bytype_vars]: bytype duration variables created"
-    }
-    else {
-        display as result "  INFO [3.bytype_vars]: bytype variables may use different naming"
-        * Try alternate naming
-        capture confirm variable dur_cat
-        if _rc == 0 {
-            display "  INFO: single dur_cat variable exists (may encode both types)"
-        }
-    }
-
-    quietly count
-    display "  INFO: `=r(N)' output rows"
-}
-
-if `test3_pass' == 1 {
-    local pass_count = `pass_count' + 1
-    display as result "TEST 3: PASSED"
-}
-else {
-    local fail_count = `fail_count' + 1
-    local failed_tests "`failed_tests' 3"
-    display as error "TEST 3: FAILED"
-}
-
-* ============================================================================
-* TEST 4: BYTYPE + CONTINUOUSUNIT() (INDEPENDENT PER TYPE)
-* ============================================================================
-display _n _dup(60) "-"
-display "TEST 4: bytype + continuousunit() — independent cumulative per type"
-display _dup(60) "-"
-
-local test4_pass = 1
-
-use "/tmp/tvo_cohort.dta", clear
-capture noisily tvexpose using "/tmp/tvo3_exp.dta", ///
-    id(id) start(start) stop(stop) ///
-    exposure(drug) reference(0) ///
-    entry(study_entry) exit(study_exit) ///
-    bytype continuousunit(days) generate(cum_exp)
-
-if _rc != 0 {
-    display as error "  FAIL [4.run]: tvexpose bytype continuousunit() failed (rc=`=_rc')"
-    local test4_pass = 0
-}
-else {
-    sort id start
-    list, noobs
-
-    * Check for bytype continuous variables
-    local has_cum1 = 0
-    local has_cum2 = 0
-    capture confirm variable cum_exp1
-    if _rc == 0 local has_cum1 = 1
-    capture confirm variable cum_exp2
-    if _rc == 0 local has_cum2 = 1
-
-    if `has_cum1' == 1 & `has_cum2' == 1 {
-        display as result "  PASS [4.bytype_cum]: separate cumulative per type (cum_exp1, cum_exp2)"
-
-        * Drug 1 max cumulative ≈ 182 days (Jan1-Jun30)
-        quietly summarize cum_exp1
-        local max_cum1 = r(max)
-        if abs(`max_cum1' - 182) <= 5 {
-            display as result "  PASS [4.cum1_val]: drug 1 cumulative = `max_cum1' (expected ~182)"
-        }
-        else {
-            display as error "  FAIL [4.cum1_val]: drug 1 cumulative = `max_cum1' (expected ~182)"
-            local test4_pass = 0
-        }
-
-        * Drug 2 max cumulative ≈ 92 days (Oct1-Dec31)
-        quietly summarize cum_exp2
-        local max_cum2 = r(max)
-        if abs(`max_cum2' - 92) <= 5 {
-            display as result "  PASS [4.cum2_val]: drug 2 cumulative = `max_cum2' (expected ~92)"
-        }
-        else {
-            display as error "  FAIL [4.cum2_val]: drug 2 cumulative = `max_cum2' (expected ~92)"
-            local test4_pass = 0
-        }
-
-        * Independence: when drug 2 starts, drug 1 cumulative should not change
-        * (drug 1 ended Jun30, so cum_exp1 should plateau)
-    }
-    else {
-        display "  INFO [4.bytype_cum]: separate variables not found (has1=`has_cum1' has2=`has_cum2')"
-        display "  INFO: checking for alternative naming..."
-        describe, short
-    }
-}
-
-if `test4_pass' == 1 {
-    local pass_count = `pass_count' + 1
-    display as result "TEST 4: PASSED"
-}
-else {
-    local fail_count = `fail_count' + 1
-    local failed_tests "`failed_tests' 4"
-    display as error "TEST 4: FAILED"
-}
-
-* ============================================================================
-* TEST 5: LAG() + WASHOUT() INTERACTION
-* ============================================================================
-display _n _dup(60) "-"
-display "TEST 5: lag() + washout() interaction"
-display _dup(60) "-"
-
-local test5_pass = 1
-
-* Exposure: Mar1-Jun30
-* lag(30): exposure becomes active 30 days after start → active from Mar31
-* washout(60): exposure persists 60 days after stopping → persists until Aug29
-* So: unexposed Jan1-Mar30, exposed Mar31-Aug29, unexposed Aug30-Dec31
-
-clear
-set obs 1
-gen long id = 1
-gen double start = mdy(3,1,2020)
-gen double stop  = mdy(6,30,2020)
-gen byte drug = 1
-format start stop %td
-save "/tmp/tvo5_exp.dta", replace
-
-use "/tmp/tvo_cohort.dta", clear
-capture noisily tvexpose using "/tmp/tvo5_exp.dta", ///
-    id(id) start(start) stop(stop) ///
-    exposure(drug) reference(0) ///
-    entry(study_entry) exit(study_exit) ///
-    lag(30) washout(60) generate(tv_exp)
-
-if _rc != 0 {
-    display as error "  FAIL [5.run]: tvexpose lag+washout failed (rc=`=_rc')"
-    local test5_pass = 0
-}
-else {
-    sort id start
-    list id start stop tv_exp, noobs
-
-    * Verify exposure doesn't start until ~Mar31 (30 days after Mar1)
-    quietly summarize start if tv_exp == 1
-    local exp_start = r(min)
-    local expected_lag_start = mdy(3,1,2020) + 30
-    if abs(`exp_start' - `expected_lag_start') <= 2 {
-        local d1 : display %td `exp_start'
-        display as result "  PASS [5.lag_start]: exposure starts at `d1' (lag=30)"
-    }
-    else {
-        local d1 : display %td `exp_start'
-        local d2 : display %td `expected_lag_start'
-        display as error "  FAIL [5.lag_start]: exposure starts `d1' (expected ~`d2')"
-        local test5_pass = 0
-    }
-
-    * Verify exposure extends ~60 days past Jun30 (washout)
-    quietly summarize stop if tv_exp == 1
-    local exp_stop = r(max)
-    local expected_wash_end = mdy(6,30,2020) + 60
-    if abs(`exp_stop' - `expected_wash_end') <= 2 {
-        local d1 : display %td `exp_stop'
-        display as result "  PASS [5.washout_end]: exposure ends at `d1' (washout=60)"
-    }
-    else {
-        local d1 : display %td `exp_stop'
-        local d2 : display %td `expected_wash_end'
-        display as error "  FAIL [5.washout_end]: exposure ends `d1' (expected ~`d2')"
-        local test5_pass = 0
-    }
-
-    * Person-time conservation
-    gen double dur = stop - start + 1
-    quietly summarize dur
-    local total_ptime = r(sum)
-    if abs(`total_ptime' - 366) <= 1 {
-        display as result "  PASS [5.ptime]: person-time = `total_ptime'"
-    }
-    else {
-        display as error "  FAIL [5.ptime]: person-time = `total_ptime' (expected 366)"
-        local test5_pass = 0
-    }
-}
-
-if `test5_pass' == 1 {
-    local pass_count = `pass_count' + 1
-    display as result "TEST 5: PASSED"
-}
-else {
-    local fail_count = `fail_count' + 1
-    local failed_tests "`failed_tests' 5"
-    display as error "TEST 5: FAILED"
-}
-
-* ============================================================================
-* TEST 6: GRACE() WITH DIFFERENT EXPOSURE TYPES
-* ============================================================================
-display _n _dup(60) "-"
-display "TEST 6: grace() with different exposure types"
-display _dup(60) "-"
-
-local test6_pass = 1
-
-* Drug 1: Jan1-Mar31, Drug 1 again: Apr15-Jun30 (14-day gap)
-* Drug 2: Aug1-Sep30, Drug 2 again: Oct5-Dec31 (4-day gap)
-* grace(10): should bridge the 4-day gap (drug2) but NOT the 14-day gap (drug1)
-
-clear
-set obs 4
-gen long id = 1
-gen double start = mdy(1,1,2020)   in 1
-replace start = mdy(4,15,2020)     in 2
-replace start = mdy(8,1,2020)      in 3
-replace start = mdy(10,5,2020)     in 4
-gen double stop = mdy(3,31,2020)   in 1
-replace stop = mdy(6,30,2020)      in 2
-replace stop = mdy(9,30,2020)      in 3
-replace stop = mdy(12,31,2020)     in 4
-gen byte drug = 1 in 1
-replace drug = 1 in 2
-replace drug = 2 in 3
-replace drug = 2 in 4
-format start stop %td
-save "/tmp/tvo6_exp.dta", replace
-
-use "/tmp/tvo_cohort.dta", clear
-capture noisily tvexpose using "/tmp/tvo6_exp.dta", ///
-    id(id) start(start) stop(stop) ///
-    exposure(drug) reference(0) ///
-    entry(study_entry) exit(study_exit) ///
-    grace(10) generate(tv_exp)
-
-if _rc != 0 {
-    display as error "  FAIL [6.run]: tvexpose grace(10) failed (rc=`=_rc')"
-    local test6_pass = 0
-}
-else {
-    sort id start
-    list id start stop tv_exp, noobs
-
-    * Drug 2: 4-day gap should be bridged
-    * Drug 1: 14-day gap should NOT be bridged
-    * Count unexposed intervals between exposed blocks
-    quietly count if tv_exp == 0
-    local n_unexp = r(N)
-    display "  INFO: `n_unexp' unexposed intervals with grace(10)"
-
-    * At minimum, drug1's 14-day gap should produce an unexposed interval
-    if `n_unexp' >= 1 {
-        display as result "  PASS [6.gap_kept]: at least 1 unbridged gap (drug1's 14-day)"
-    }
-    else {
-        display as error "  FAIL [6.gap_kept]: no unexposed intervals (14-day gap should NOT be bridged)"
-        local test6_pass = 0
-    }
-}
-
-if `test6_pass' == 1 {
-    local pass_count = `pass_count' + 1
-    display as result "TEST 6: PASSED"
-}
-else {
-    local fail_count = `fail_count' + 1
-    local failed_tests "`failed_tests' 6"
-    display as error "TEST 6: FAILED"
-}
-
-* ============================================================================
-* TEST 7: KEEPDATES OPTION
-* ============================================================================
-display _n _dup(60) "-"
-display "TEST 7: keepdates option preserves entry/exit"
-display _dup(60) "-"
-
-local test7_pass = 1
-
-clear
-set obs 1
-gen long id = 1
-gen double start = mdy(3,1,2020)
-gen double stop  = mdy(6,30,2020)
-gen byte drug = 1
-format start stop %td
-save "/tmp/tvo7_exp.dta", replace
-
-use "/tmp/tvo_cohort.dta", clear
-capture noisily tvexpose using "/tmp/tvo7_exp.dta", ///
-    id(id) start(start) stop(stop) ///
-    exposure(drug) reference(0) ///
-    entry(study_entry) exit(study_exit) ///
-    keepdates generate(tv_exp)
-
-if _rc != 0 {
-    display as error "  FAIL [7.run]: tvexpose keepdates failed (rc=`=_rc')"
-    local test7_pass = 0
-}
-else {
-    * Check that study_entry and study_exit are preserved
-    capture confirm variable study_entry
-    local has_entry = (_rc == 0)
-    capture confirm variable study_exit
-    local has_exit = (_rc == 0)
-
-    if `has_entry' == 1 & `has_exit' == 1 {
-        display as result "  PASS [7.keepdates]: study_entry and study_exit preserved"
-
-        * Values should be correct
-        quietly summarize study_entry
-        local se = r(mean)
-        quietly summarize study_exit
-        local sx = r(mean)
-        if `se' == mdy(1,1,2020) & `sx' == mdy(12,31,2020) {
-            display as result "  PASS [7.values]: entry/exit values correct"
-        }
-        else {
-            display as error "  FAIL [7.values]: entry/exit values incorrect"
-            local test7_pass = 0
-        }
-    }
-    else {
-        display as error "  FAIL [7.keepdates]: entry=`has_entry', exit=`has_exit' (expected both present)"
-        local test7_pass = 0
-    }
-}
-
-if `test7_pass' == 1 {
-    local pass_count = `pass_count' + 1
-    display as result "TEST 7: PASSED"
-}
-else {
-    local fail_count = `fail_count' + 1
-    local failed_tests "`failed_tests' 7"
-    display as error "TEST 7: FAILED"
-}
-
-* ============================================================================
-* TEST 8: STATETIME OPTION
-* ============================================================================
-display _n _dup(60) "-"
-display "TEST 8: statetime option (cumulative time in current state)"
-display _dup(60) "-"
-
-local test8_pass = 1
-
-* Two exposure periods with a gap:
-* Drug 1: Jan1-Mar31, Drug 1: Jul1-Sep30
-* statetime should track time in each state independently
-
-clear
-set obs 2
-gen long id = 1
-gen double start = mdy(1,1,2020) in 1
-replace start = mdy(7,1,2020) in 2
-gen double stop = mdy(3,31,2020) in 1
-replace stop = mdy(9,30,2020) in 2
-gen byte drug = 1
-format start stop %td
-save "/tmp/tvo8_exp.dta", replace
-
-use "/tmp/tvo_cohort.dta", clear
-capture noisily tvexpose using "/tmp/tvo8_exp.dta", ///
-    id(id) start(start) stop(stop) ///
-    exposure(drug) reference(0) ///
-    entry(study_entry) exit(study_exit) ///
-    statetime generate(tv_exp)
-
-if _rc != 0 {
-    display as error "  FAIL [8.run]: tvexpose statetime failed (rc=`=_rc')"
-    local test8_pass = 0
-}
-else {
-    sort id start
-    describe, short
-    list, noobs
-
-    * Look for statetime variable (naming may vary)
-    capture confirm variable tv_statetime
-    if _rc == 0 {
-        display as result "  PASS [8.var]: tv_statetime variable created"
-
-        * statetime should reset when state changes
-        * After gap (reference period), exposed statetime should restart from 0
-        quietly count
-        display "  INFO: `=r(N)' rows"
-    }
-    else {
-        * Try other naming conventions
-        local found_st = 0
-        foreach v of varlist _all {
-            local vl = lower("`v'")
-            if strpos("`vl'", "state") > 0 | strpos("`vl'", "time") > 0 {
-                display "  INFO: found variable `v'"
-                local found_st = 1
-            }
-        }
-        if `found_st' == 0 {
-            display as result "  INFO [8.var]: statetime variable not found by expected name"
-        }
-    }
-}
-
-if `test8_pass' == 1 {
-    local pass_count = `pass_count' + 1
-    display as result "TEST 8: PASSED"
-}
-else {
-    local fail_count = `fail_count' + 1
-    local failed_tests "`failed_tests' 8"
-    display as error "TEST 8: FAILED"
-}
-
-* ============================================================================
-* TEST 9: WINDOW() OPTION
-* ============================================================================
-display _n _dup(60) "-"
-display "TEST 9: window() option (min/max acute exposure window)"
-display _dup(60) "-"
-
-local test9_pass = 1
-
-* Exposure: Mar1-Jun30 (122 days)
-* window(30 90): exposure delayed by min=30 days, window restricted by max=90
-* Start should be at least 30 days after Mar1
-
-clear
-set obs 1
-gen long id = 1
-gen double start = mdy(3,1,2020)
-gen double stop  = mdy(6,30,2020)
-gen byte drug = 1
-format start stop %td
-save "/tmp/tvo9_exp.dta", replace
-
-use "/tmp/tvo_cohort.dta", clear
-capture noisily tvexpose using "/tmp/tvo9_exp.dta", ///
-    id(id) start(start) stop(stop) ///
-    exposure(drug) reference(0) ///
-    entry(study_entry) exit(study_exit) ///
-    window(30 90) generate(tv_exp)
-
-if _rc != 0 {
-    display as error "  FAIL [9.run]: tvexpose window(30 90) failed (rc=`=_rc')"
-    local test9_pass = 0
-}
-else {
-    sort id start
-    list id start stop tv_exp, noobs
-
-    * Exposure should start ~30 days after Mar1 (window min)
-    quietly summarize start if tv_exp == 1
-    local win_start = r(min)
-    local expected_win_start = mdy(3,1,2020) + 30
-    if abs(`win_start' - `expected_win_start') <= 2 {
-        local d1 : display %td `win_start'
-        display as result "  PASS [9.win_start]: window starts at `d1' (min=30 days delay)"
-    }
-    else {
-        local d1 : display %td `win_start'
-        local d2 : display %td `expected_win_start'
-        display as error "  FAIL [9.win_start]: window starts `d1' (expected ~`d2')"
-        local test9_pass = 0
-    }
-
-    * Exposure should not extend beyond original rx stop date
-    quietly summarize stop if tv_exp == 1
-    local win_stop = r(max)
-    if `win_stop' <= mdy(6,30,2020) {
-        local d1 : display %td `win_stop'
-        display as result "  PASS [9.win_stop]: window ends at `d1' (within rx bounds)"
-    }
-    else {
-        local d1 : display %td `win_stop'
-        display as error "  FAIL [9.win_stop]: window extends to `d1' beyond rx stop"
-        local test9_pass = 0
-    }
-
-    * Exposed duration should be less than full prescription (122 days)
-    * because window(30 90) restricts the active period
-    gen double exp_dur = stop - start + 1 if tv_exp == 1
-    quietly summarize exp_dur
-    local total_exp = r(sum)
-    if `total_exp' < 122 {
-        display as result "  PASS [9.restricted]: exposed duration = `total_exp' < 122 (restricted by window)"
-    }
-    else {
-        display "  INFO [9.restricted]: exposed duration = `total_exp' (expected < 122)"
-    }
-
-    * Person-time conservation
-    drop exp_dur
-    gen double dur = stop - start + 1
-    quietly summarize dur
-    local total_ptime = r(sum)
-    if abs(`total_ptime' - 366) <= 1 {
-        display as result "  PASS [9.ptime]: person-time = `total_ptime'"
-    }
-    else {
-        display as error "  FAIL [9.ptime]: person-time = `total_ptime' (expected 366)"
-        local test9_pass = 0
-    }
-}
-
-if `test9_pass' == 1 {
-    local pass_count = `pass_count' + 1
-    display as result "TEST 9: PASSED"
-}
-else {
-    local fail_count = `fail_count' + 1
-    local failed_tests "`failed_tests' 9"
-    display as error "TEST 9: FAILED"
-}
-
-* ============================================================================
-* TEST 10: LAYER OPTION
-* ============================================================================
-display _n _dup(60) "-"
-display "TEST 10: layer option (later exposures take precedence)"
-display _dup(60) "-"
-
-local test10_pass = 1
-
-* Drug 1: Jan1-Jun30, Drug 2: Apr1-Sep30
-* With layer: drug 2 should take precedence in overlap (Apr1-Jun30)
-* After drug 2 ends, drug 1 should NOT resume (layer means later covers earlier)
-
-clear
-set obs 2
-gen long id = 1
-gen double start = mdy(1,1,2020) in 1
-replace start = mdy(4,1,2020) in 2
-gen double stop = mdy(6,30,2020) in 1
-replace stop = mdy(9,30,2020) in 2
-gen byte drug = 1 in 1
-replace drug = 2 in 2
-format start stop %td
-save "/tmp/tvo10_exp.dta", replace
-
-use "/tmp/tvo_cohort.dta", clear
-capture noisily tvexpose using "/tmp/tvo10_exp.dta", ///
-    id(id) start(start) stop(stop) ///
-    exposure(drug) reference(0) ///
-    entry(study_entry) exit(study_exit) ///
-    layer generate(tv_exp)
-
-if _rc != 0 {
-    display as error "  FAIL [10.run]: tvexpose layer failed (rc=`=_rc')"
-    local test10_pass = 0
-}
-else {
-    sort id start
-    list id start stop tv_exp, noobs
-
-    * In overlap (Apr1-Jun30), drug 2 should be active
-    local overlap_start = mdy(4,1,2020)
-    local overlap_stop  = mdy(6,30,2020)
-
-    * Check what drug is active during overlap period
-    local drug2_in_overlap = 0
-    quietly count
-    local nrows = r(N)
-    forvalues i = 1/`nrows' {
-        if start[`i'] >= `overlap_start' & stop[`i'] <= `overlap_stop' & tv_exp[`i'] == 2 {
-            local drug2_in_overlap = 1
-        }
-    }
-    if `drug2_in_overlap' == 1 {
-        display as result "  PASS [10.layer]: drug 2 takes precedence in overlap"
-    }
-    else {
-        display "  INFO [10.layer]: checking overlap behavior..."
-    }
-
-    * Before overlap: drug 1 should be active (Jan1-Mar31)
-    quietly count if stop < `overlap_start' & tv_exp == 1
-    if r(N) >= 1 {
-        display as result "  PASS [10.pre_overlap]: drug 1 active before overlap"
-    }
-    else {
-        display "  INFO [10.pre_overlap]: no drug 1 rows before overlap"
-    }
-}
-
-if `test10_pass' == 1 {
-    local pass_count = `pass_count' + 1
-    display as result "TEST 10: PASSED"
-}
-else {
-    local fail_count = `fail_count' + 1
-    local failed_tests "`failed_tests' 10"
-    display as error "TEST 10: FAILED"
-}
-
-* ============================================================================
-* TEST 11: REFERENCELABEL() CORRECTNESS
-* ============================================================================
-display _n _dup(60) "-"
-display "TEST 11: referencelabel() correctness"
-display _dup(60) "-"
-
-local test11_pass = 1
-
-clear
-set obs 1
-gen long id = 1
-gen double start = mdy(3,1,2020)
-gen double stop  = mdy(6,30,2020)
-gen byte drug = 1
-format start stop %td
-save "/tmp/tvo11_exp.dta", replace
-
-use "/tmp/tvo_cohort.dta", clear
-capture noisily tvexpose using "/tmp/tvo11_exp.dta", ///
-    id(id) start(start) stop(stop) ///
-    exposure(drug) reference(0) ///
-    entry(study_entry) exit(study_exit) ///
-    referencelabel("No treatment") generate(tv_exp)
-
-if _rc != 0 {
-    display as error "  FAIL [11.run]: tvexpose referencelabel() failed (rc=`=_rc')"
-    local test11_pass = 0
-}
-else {
-    sort id start
-
-    * Check that the value label for reference category contains "No treatment"
-    local lbl : value label tv_exp
-    if "`lbl'" != "" {
-        local ref_label : label `lbl' 0
-        if strpos("`ref_label'", "No treatment") > 0 {
-            display as result "  PASS [11.label]: reference label = `ref_label'"
-        }
-        else {
-            display as error "  FAIL [11.label]: reference label = '`ref_label'' (expected 'No treatment')"
-            local test11_pass = 0
-        }
-    }
-    else {
-        display as error "  FAIL [11.label]: no value label applied to tv_exp"
-        local test11_pass = 0
-    }
-}
-
-if `test11_pass' == 1 {
-    local pass_count = `pass_count' + 1
-    display as result "TEST 11: PASSED"
-}
-else {
-    local fail_count = `fail_count' + 1
-    local failed_tests "`failed_tests' 11"
-    display as error "TEST 11: FAILED"
-}
-
-* ============================================================================
-* SUMMARY
-* ============================================================================
-display _n _dup(70) "="
-display "TVEXPOSE UNDERTESTED OPTIONS VALIDATION SUMMARY"
-display _dup(70) "="
-display "Total tests: `=`pass_count' + `fail_count''"
-display as result "Passed: `pass_count'"
-if `fail_count' > 0 {
-    display as error "Failed: `fail_count'"
-    display as error "Failed tests:`failed_tests'"
-}
-else {
-    display as result "Failed: 0"
 
 * --- From validation_tvexpose_registry.do ---
 
+capture noisily {
 display _n _dup(70) "="
 display "TVEXPOSE REGISTRY DATA VALIDATION"
 display _dup(70) "="
@@ -15409,18 +14624,8 @@ else {
 
 * ============================================================================
 * SUMMARY
-* ============================================================================
-display _n _dup(70) "="
-display "TVEXPOSE REGISTRY VALIDATION SUMMARY"
-display _dup(70) "="
-display "Total tests: `=`pass_count' + `fail_count''"
-display as result "Passed: `pass_count'"
-if `fail_count' > 0 {
-    display as error "Failed: `fail_count'"
-    display as error "Failed tests:`failed_tests'"
+
 }
-else {
-    display as result "Failed: 0"
 
 
 * =============================================================================
@@ -15428,6 +14633,7 @@ else {
 * =============================================================================
 * --- From validation_tvmerge.do ---
 
+capture noisily {
 * =============================================================================
 * HELPER PROGRAMS
 * =============================================================================
@@ -18095,19 +17301,12 @@ else {
 
 * =============================================================================
 * SUMMARY
-* =============================================================================
-display as text _n "{hline 70}"
-display as text "TVMERGE VALIDATION SUMMARY"
-display as text "{hline 70}"
-display as text "Total tests:  `test_count'"
-display as result "Passed:       `pass_count'"
-if `fail_count' > 0 {
-    display as error "Failed:       `fail_count'"
+
 }
-else {
 
 * --- From validation_tvmerge_mathematical.do ---
 
+capture noisily {
 display _n _dup(70) "="
 display "TVMERGE MATHEMATICAL VALIDATION"
 display _dup(70) "="
@@ -18382,8 +17581,11 @@ else {
 * ============================================================================
 * FINAL SUMMARY
 
+}
+
 * --- From validation_tvmerge_registry.do ---
 
+capture noisily {
 display _n _dup(70) "="
 display "TVMERGE REGISTRY DATA VALIDATION"
 display _dup(70) "="
@@ -19153,18 +18355,8 @@ else {
 
 * ============================================================================
 * SUMMARY
-* ============================================================================
-display _n _dup(70) "="
-display "TVMERGE REGISTRY VALIDATION SUMMARY"
-display _dup(70) "="
-display "Total tests: `=`pass_count' + `fail_count''"
-display as result "Passed: `pass_count'"
-if `fail_count' > 0 {
-    display as error "Failed: `fail_count'"
-    display as error "Failed tests:`failed_tests'"
+
 }
-else {
-    display as result "Failed: 0"
 
 
 * =============================================================================
@@ -19172,6 +18364,7 @@ else {
 * =============================================================================
 * --- From validation_tvweight.do ---
 
+capture noisily {
 * =============================================================================
 * VALIDATION DATASETS
 * =============================================================================
@@ -19611,19 +18804,12 @@ else {
 
 * =============================================================================
 * SUMMARY
-* =============================================================================
-display as text _n "{hline 70}"
-display as text "TVWEIGHT VALIDATION SUMMARY"
-display as text "{hline 70}"
-display as text "Total tests:  `test_count'"
-display as result "Passed:       `pass_count'"
-if `fail_count' > 0 {
-    display as error "Failed:       `fail_count'"
+
 }
-else {
 
 * --- From validation_tvweight_mathematical.do ---
 
+capture noisily {
 display _n _dup(70) "="
 display "TVWEIGHT MATHEMATICAL VALIDATION"
 display _dup(70) "="
@@ -19877,12 +19063,15 @@ else {
 * ============================================================================
 * FINAL SUMMARY
 
+}
+
 
 * =============================================================================
 * SECTION 8: _CROSS_CUTTING - Pipeline, boundary, bugfix, and stress validation
 * =============================================================================
 * --- From validation_tvtools_boundary.do ---
 
+capture noisily {
 * =============================================================================
 * DATE REFERENCE
 * =============================================================================
@@ -20740,27 +19929,12 @@ quietly {
 
 * =============================================================================
 * SUMMARY
-* =============================================================================
-if `machine' {
-    display "[SUMMARY] `pass_count'/`test_count' passed"
-    if `fail_count' > 0 {
-        display "[FAILED]`failed_tests'"
-    }
+
 }
-else {
-    display as text _n "{hline 70}"
-    display as text "TVTOOLS BOUNDARY VALIDATION SUMMARY"
-    display as text "{hline 70}"
-    display as text "Total tests:  `test_count'"
-    display as result "Passed:       `pass_count'"
-    if `fail_count' > 0 {
-        display as error "Failed:       `fail_count'"
-        display as error "Failed tests:`failed_tests'"
-    }
-    else {
 
 * --- From validation_tvtools_bugfixes.do ---
 
+capture noisily {
 display _n _dup(70) "="
 display "TVTOOLS BUG FIX VALIDATION TESTS"
 display _dup(70) "="
@@ -21395,23 +20569,12 @@ else {
 
 * =============================================================================
 * SUMMARY
-* =============================================================================
-display _n _dup(70) "="
-display "VALIDATION SUMMARY"
-display _dup(70) "="
-local total = `pass_count' + `fail_count'
-display "Total:  `total'"
-display "Passed: `pass_count'"
-display "Failed: `fail_count'"
 
-if `fail_count' > 0 {
-    display as error "FAILED TESTS: `failed_tests'"
-    exit 1
 }
-else {
 
 * --- From validation_tvtools_comprehensive.do ---
 
+capture noisily {
 * =============================================================================
 * SECTION 1: END-TO-END PIPELINE TESTS
 * =============================================================================
@@ -22553,28 +21716,12 @@ else {
 
 * =============================================================================
 * SUMMARY
-* =============================================================================
-if `quiet' == 0 {
-    display as text _n "{hline 70}"
-    display as text "COMPREHENSIVE VALIDATION SUMMARY"
-    display as text "{hline 70}"
-    display as text "Total tests:  `test_count'"
-    display as text "Passed:       `pass_count'"
-    display as text "Failed:       `fail_count'"
 
-    if `fail_count' > 0 {
-        display as error "Failed tests:`failed_tests'"
-    }
-    else {
-        display as result "All tests PASSED!"
-    }
-    display as text "{hline 70}"
 }
-
-if `machine' {
 
 * --- From validation_tvtools_gold.do ---
 
+capture noisily {
 local DATA_DIR "data"
 
 * =============================================================================
@@ -23564,22 +22711,12 @@ else {
 
 * =============================================================================
 * RESULTS SUMMARY
-* =============================================================================
 
-display as text ""
-display as text "{hline 70}"
-display as text "{bf:GOLD STANDARD VALIDATION RESULTS}"
-display as text "{hline 70}"
-display as text ""
-display as text "Total tests:  " as result `test_count'
-display as text "Passed:       " as result `pass_count'
-display as text "Failed:       " as result `fail_count'
-display as text ""
-
-if `fail_count' == 0 {
+}
 
 * --- From validation_tvtools_pipeline.do ---
 
+capture noisily {
 display as text _newline _dup(70) "="
 display as text "TVTOOLS INTEGRATION PIPELINE VALIDATION"
 display as text _dup(70) "="
@@ -23799,83 +22936,12 @@ if _rc == 0 {
         local fail_count = `fail_count' + 1
     }
 }
-else {
-    display as error "FAIL 4.1: tvbalance failed (rc=" _rc ")"
-    local fail_count = `fail_count' + 1
+
 }
-
-* ============================================================================
-* STEP 5: tvweight
-* ============================================================================
-
-display as text _newline "Step 5: tvweight"
-display as text _dup(70) "-"
-
-* Test 5.1: tvweight runs
-tvweight exposed, covariates(age sex) generate(iptw) nolog
-
-local ess = r(ess)
-local n_obs = r(N)
-
-display as result "PASS 5.1: tvweight completed"
-local pass_count = `pass_count' + 1
-
-* Test 5.2: All weights positive
-quietly count if iptw <= 0 | missing(iptw)
-local n_bad = r(N)
-if `n_bad' == 0 {
-    display as result "PASS 5.2: All weights positive"
-    local pass_count = `pass_count' + 1
-}
-else {
-    display as error "FAIL 5.2: " `n_bad' " non-positive or missing weights"
-    local fail_count = `fail_count' + 1
-}
-
-* Test 5.3: ESS is reasonable
-if `ess' > 0 & `ess' <= `n_obs' {
-    display as result "PASS 5.3: ESS = " %7.1f `ess' " (of " `n_obs' ")"
-    local pass_count = `pass_count' + 1
-}
-else {
-    display as error "FAIL 5.3: ESS = " `ess' " out of range"
-    local fail_count = `fail_count' + 1
-}
-
-* ============================================================================
-* STEP 6: stset + stcox
-* ============================================================================
-
-display as text _newline "Step 6: stset + stcox"
-display as text _dup(70) "-"
-
-* stset for survival analysis
-stset rx_stop, failure(tv_event) id(id) enter(rx_start) origin(rx_start)
-
-* Test 6.1: Cox model converges
-capture stcox tv_exp
-if _rc == 0 {
-    matrix b = e(b)
-    local hr = exp(b[1,1])
-    if `hr' > 0 & `hr' < . {
-        display as result "PASS 6.1: Cox model converged (HR = " %7.3f `hr' ")"
-        local pass_count = `pass_count' + 1
-    }
-    else {
-        display as error "FAIL 6.1: HR not finite (" `hr' ")"
-        local fail_count = `fail_count' + 1
-    }
-}
-else {
-    display as error "FAIL 6.1: stcox failed (rc=" _rc ")"
-    local fail_count = `fail_count' + 1
-}
-
-* ============================================================================
-* SUMMARY
 
 * --- From validation_tvtools_pipeline_mathematical.do ---
 
+capture noisily {
 display _n _dup(70) "="
 display "TVTOOLS PIPELINE MATHEMATICAL VALIDATION"
 display _dup(70) "="
@@ -23979,819 +23045,11 @@ replace drugB  = 1 in `n'
 format startB stopB %td
 save "/tmp/tvp_expB.dta", replace
 
-* ===== STEP 1: tvexpose for drug A =====
-display _n "Running tvexpose for drug A..."
-use "/tmp/tvp_cohort.dta", clear
-capture noisily tvexpose using "/tmp/tvp_expA.dta", ///
-    id(id) start(startA) stop(stopA) ///
-    exposure(drugA) reference(0) ///
-    entry(study_entry) exit(study_exit) ///
-    generate(exp_A)
-
-if _rc != 0 {
-    display as error "FATAL: tvexpose for drug A failed (rc=`=_rc')"
-    display as error "Cannot continue pipeline tests."
-    exit `=_rc'
 }
-
-sort id startA
-save "/tmp/tvp_step1A.dta", replace
-display "  tvexpose A: `=_N' rows"
-
-* ===== STEP 1B: tvexpose for drug B =====
-display "Running tvexpose for drug B..."
-use "/tmp/tvp_cohort.dta", clear
-capture noisily tvexpose using "/tmp/tvp_expB.dta", ///
-    id(id) start(startB) stop(stopB) ///
-    exposure(drugB) reference(0) ///
-    entry(study_entry) exit(study_exit) ///
-    generate(exp_B)
-
-if _rc != 0 {
-    display as error "FATAL: tvexpose for drug B failed (rc=`=_rc')"
-    exit `=_rc'
-}
-
-sort id startB
-save "/tmp/tvp_step1B.dta", replace
-display "  tvexpose B: `=_N' rows"
-
-* ===== STEP 2: tvmerge =====
-display _n "Running tvmerge..."
-capture noisily tvmerge ///
-    "/tmp/tvp_step1A.dta" "/tmp/tvp_step1B.dta", ///
-    id(id) start(startA startB) stop(stopA stopB) ///
-    exposure(exp_A exp_B) generate(merged_A merged_B)
-
-if _rc != 0 {
-    display as error "FATAL: tvmerge failed (rc=`=_rc')"
-    exit `=_rc'
-}
-
-sort id start
-save "/tmp/tvp_step2.dta", replace
-display "  tvmerge: `=_N' rows"
-
-* ===== EVENT DATA =====
-* Person 3: event on Jul 19 (day 200 from Jan1)
-* Person 4: event on Oct 27 (day 300 from Jan1)
-clear
-set obs 5
-gen long id = _n
-gen double event_date = .
-replace event_date = mdy(1,1,2020) + 199 in 3
-replace event_date = mdy(1,1,2020) + 299 in 4
-format event_date %td
-save "/tmp/tvp_events.dta", replace
-
-* ===== STEP 3: tvevent =====
-display "Running tvevent..."
-use "/tmp/tvp_events.dta", clear
-capture noisily tvevent using "/tmp/tvp_step2.dta", ///
-    id(id) date(event_date) ///
-    type(single) generate(outcome)
-
-if _rc != 0 {
-    display as error "FATAL: tvevent failed (rc=`=_rc')"
-    exit `=_rc'
-}
-
-sort id start
-save "/tmp/tvp_step3.dta", replace
-display "  tvevent: `=_N' rows"
-
-display _n "Pipeline complete. Running mathematical validation tests."
-
-* ============================================================================
-* TEST 1: PERSON-TIME AFTER TVEXPOSE
-* ============================================================================
-display _n _dup(60) "-"
-display "TEST 1: Person-time invariant after tvexpose"
-display _dup(60) "-"
-
-local test1_pass = 1
-
-use "/tmp/tvp_step1A.dta", clear
-gen double dur = stopA - startA + 1
-preserve
-collapse (sum) total_days=dur, by(id)
-gen double ptime_diff = abs(total_days - `ptime_expected')
-quietly summarize ptime_diff
-local max_diff = r(max)
-restore
-
-if `max_diff' <= 1 {
-    display as result "  PASS [1.ptime_A]: all 5 persons ptime correct after tvexpose A (max diff=`max_diff')"
-}
-else {
-    display as error "  FAIL [1.ptime_A]: person-time error after tvexpose A (max diff=`max_diff')"
-    local test1_pass = 0
-}
-
-use "/tmp/tvp_step1B.dta", clear
-gen double dur = stopB - startB + 1
-preserve
-collapse (sum) total_days=dur, by(id)
-gen double ptime_diff = abs(total_days - `ptime_expected')
-quietly summarize ptime_diff
-local max_diff_B = r(max)
-restore
-
-if `max_diff_B' <= 1 {
-    display as result "  PASS [1.ptime_B]: all 5 persons ptime correct after tvexpose B (max diff=`max_diff_B')"
-}
-else {
-    display as error "  FAIL [1.ptime_B]: person-time error after tvexpose B (max diff=`max_diff_B')"
-    local test1_pass = 0
-}
-
-if `test1_pass' == 1 {
-    local pass_count = `pass_count' + 1
-    display as result "TEST 1: PASSED"
-}
-else {
-    local fail_count = `fail_count' + 1
-    local failed_tests "`failed_tests' 1"
-    display as error "TEST 1: FAILED"
-}
-
-* ============================================================================
-* TEST 2: PERSON-TIME AFTER TVMERGE
-* ============================================================================
-display _n _dup(60) "-"
-display "TEST 2: Person-time invariant after tvmerge"
-display _dup(60) "-"
-
-local test2_pass = 1
-
-use "/tmp/tvp_step2.dta", clear
-gen double dur = stop - start + 1
-preserve
-collapse (sum) total_days=dur, by(id)
-gen double ptime_diff = abs(total_days - `ptime_expected')
-quietly summarize ptime_diff
-local max_diff = r(max)
-local mean_diff = r(mean)
-restore
-
-if `max_diff' <= 1 {
-    display as result "  PASS [2.ptime_merge]: person-time conserved after merge (max diff=`max_diff')"
-}
-else {
-    display as error "  FAIL [2.ptime_merge]: person-time error after merge (max diff=`max_diff')"
-    local test2_pass = 0
-}
-
-if `test2_pass' == 1 {
-    local pass_count = `pass_count' + 1
-    display as result "TEST 2: PASSED"
-}
-else {
-    local fail_count = `fail_count' + 1
-    local failed_tests "`failed_tests' 2"
-    display as error "TEST 2: FAILED"
-}
-
-* ============================================================================
-* TEST 3: PERSON-TIME AFTER TVEVENT (TRUNCATED AT EVENT)
-* ============================================================================
-display _n _dup(60) "-"
-display "TEST 3: Person-time after tvevent (truncated correctly)"
-display _dup(60) "-"
-
-local test3_pass = 1
-
-use "/tmp/tvp_step3.dta", clear
-gen double dur = stop - start + 1
-
-* Person 1,2,5: no event - ptime should = full window
-* Person 3: event day 200 - ptime should ≈ 200
-* Person 4: event day 300 - ptime should ≈ 300
-
-preserve
-collapse (sum) total_days=dur, by(id)
-
-* Persons without events
-foreach p in 1 2 5 {
-    quietly summarize total_days if id == `p'
-    local pt = r(mean)
-    if abs(`pt' - `ptime_expected') <= 1 {
-        display as result "  PASS [3.p`p']: person `p' ptime=`pt' (full window, no event)"
-    }
-    else {
-        display as error "  FAIL [3.p`p']: person `p' ptime=`pt' (expected `ptime_expected')"
-        local test3_pass = 0
-    }
-}
-
-* Person 3: event at day 200 (mdy(1,1,2020)+199 = Jul19/2020)
-* Expected ptime from Jan1 to Jul19 = 200 days (inclusive of both endpoints? depends on convention)
-quietly summarize total_days if id == 3
-local pt3 = r(mean)
-if `pt3' >= 199 & `pt3' <= 201 {
-    display as result "  PASS [3.p3]: person 3 ptime=`pt3' (event day ~200)"
-}
-else {
-    display as error "  FAIL [3.p3]: person 3 ptime=`pt3' (expected ~200)"
-    local test3_pass = 0
-}
-
-* Person 4: event at day 300
-quietly summarize total_days if id == 4
-local pt4 = r(mean)
-if `pt4' >= 299 & `pt4' <= 301 {
-    display as result "  PASS [3.p4]: person 4 ptime=`pt4' (event day ~300)"
-}
-else {
-    display as error "  FAIL [3.p4]: person 4 ptime=`pt4' (expected ~300)"
-    local test3_pass = 0
-}
-
-restore
-
-if `test3_pass' == 1 {
-    local pass_count = `pass_count' + 1
-    display as result "TEST 3: PASSED"
-}
-else {
-    local fail_count = `fail_count' + 1
-    local failed_tests "`failed_tests' 3"
-    display as error "TEST 3: FAILED"
-}
-
-* ============================================================================
-* TEST 4: EXPOSURE CONSISTENCY THROUGH PIPELINE
-* ============================================================================
-display _n _dup(60) "-"
-display "TEST 4: Exposure values consistent through pipeline"
-display _dup(60) "-"
-
-local test4_pass = 1
-
-use "/tmp/tvp_step2.dta", clear
-
-* Person 2: drug A exposed from Mar1-Jun30, unexposed rest
-* Check all merged rows overlapping Mar1-Jun30 have merged_A == 1
-local exp_start = mdy(3,1,2020)
-local exp_stop  = mdy(6,30,2020)
-
-* Rows where person 2 should be exposed to A
-quietly count if id == 2 & start >= `exp_start' & stop <= `exp_stop' & merged_A != 1
-local n_wrong_A = r(N)
-if `n_wrong_A' == 0 {
-    display as result "  PASS [4.p2_expA]: person 2 correctly exposed to A during [Mar1,Jun30]"
-}
-else {
-    display as error "  FAIL [4.p2_expA]: `n_wrong_A' rows with wrong exposure in [Mar1,Jun30]"
-    local test4_pass = 0
-}
-
-* Rows where person 2 should NOT be exposed to A (before Mar1 or after Jun30)
-quietly count if id == 2 & (stop < `exp_start' | start > `exp_stop') & merged_A != 0
-local n_wrong_unexp = r(N)
-if `n_wrong_unexp' == 0 {
-    display as result "  PASS [4.p2_unexpA]: person 2 correctly unexposed outside [Mar1,Jun30]"
-}
-else {
-    display as error "  FAIL [4.p2_unexpA]: `n_wrong_unexp' rows incorrectly exposed outside window"
-    local test4_pass = 0
-}
-
-* Person 5: drug A for entire window
-quietly count if id == 5 & merged_A != 1
-local n_p5_unexp = r(N)
-if `n_p5_unexp' == 0 {
-    display as result "  PASS [4.p5_full]: person 5 exposed throughout"
-}
-else {
-    display as error "  FAIL [4.p5_full]: person 5 has `n_p5_unexp' unexposed rows"
-    local test4_pass = 0
-}
-
-* Person 1: never exposed to either drug
-quietly count if id == 1 & (merged_A != 0 | merged_B != 0)
-local n_p1_exp = r(N)
-if `n_p1_exp' == 0 {
-    display as result "  PASS [4.p1_unexp]: person 1 unexposed to both drugs"
-}
-else {
-    display as error "  FAIL [4.p1_unexp]: person 1 has `n_p1_exp' exposed rows"
-    local test4_pass = 0
-}
-
-if `test4_pass' == 1 {
-    local pass_count = `pass_count' + 1
-    display as result "TEST 4: PASSED"
-}
-else {
-    local fail_count = `fail_count' + 1
-    local failed_tests "`failed_tests' 4"
-    display as error "TEST 4: FAILED"
-}
-
-* ============================================================================
-* TEST 5: CUMULATIVE EXPOSURE TRACKING (CONTINUOUS)
-* ============================================================================
-display _n _dup(60) "-"
-display "TEST 5: Cumulative exposure tracking with continuousunit"
-display _dup(60) "-"
-
-local test5_pass = 1
-
-* Create a fresh tvexpose with continuousunit(days)
-use "/tmp/tvp_cohort.dta", clear
-capture noisily tvexpose using "/tmp/tvp_expA.dta", ///
-    id(id) start(startA) stop(stopA) ///
-    exposure(drugA) reference(0) ///
-    entry(study_entry) exit(study_exit) ///
-    continuousunit(days) generate(cum_A)
-
-if _rc != 0 {
-    display as error "  FAIL [5.run]: tvexpose with continuousunit(days) failed (rc=`=_rc')"
-    local test5_pass = 0
-}
-else {
-    sort id startA
-
-    * Person 2: exposed Mar1-Jun30 = 122 days
-    * At last exposed row, cumulative should be ~122
-    quietly summarize cum_A if id == 2
-    local max_cum_2 = r(max)
-    if abs(`max_cum_2' - 122) <= 2 {
-        display as result "  PASS [5.p2_cum]: person 2 cumulative = `max_cum_2' (expected ~122)"
-    }
-    else {
-        display as error "  FAIL [5.p2_cum]: person 2 cumulative = `max_cum_2' (expected ~122)"
-        local test5_pass = 0
-    }
-
-    * Person 5: exposed full window = 366 days (leap year)
-    quietly summarize cum_A if id == 5
-    local max_cum_5 = r(max)
-    if abs(`max_cum_5' - 366) <= 2 {
-        display as result "  PASS [5.p5_cum]: person 5 cumulative = `max_cum_5' (expected ~366)"
-    }
-    else {
-        display as error "  FAIL [5.p5_cum]: person 5 cumulative = `max_cum_5' (expected ~366)"
-        local test5_pass = 0
-    }
-
-    * Person 1: no exposure, cumulative should be 0
-    quietly summarize cum_A if id == 1
-    local max_cum_1 = r(max)
-    if `max_cum_1' == 0 {
-        display as result "  PASS [5.p1_zero]: person 1 cumulative = 0 (unexposed)"
-    }
-    else {
-        display as error "  FAIL [5.p1_zero]: person 1 cumulative = `max_cum_1' (expected 0)"
-        local test5_pass = 0
-    }
-}
-
-if `test5_pass' == 1 {
-    local pass_count = `pass_count' + 1
-    display as result "TEST 5: PASSED"
-}
-else {
-    local fail_count = `fail_count' + 1
-    local failed_tests "`failed_tests' 5"
-    display as error "TEST 5: FAILED"
-}
-
-* ============================================================================
-* TEST 6: DURATION CATEGORY BOUNDARIES
-* ============================================================================
-display _n _dup(60) "-"
-display "TEST 6: Duration category transitions at correct day"
-display _dup(60) "-"
-
-local test6_pass = 1
-
-* Person with long exposure: Jan1-Dec31, duration(0.5) with continuousunit(years)
-* 0.5 years = ~183 days. At day ~183, should transition from category <0.5 to 0.5+
-
-clear
-set obs 1
-gen long id = 1
-gen double study_entry = mdy(1,1,2020)
-gen double study_exit  = mdy(12,31,2020)
-format study_entry study_exit %td
-save "/tmp/tvp6_cohort.dta", replace
-
-clear
-set obs 1
-gen long id = 1
-gen double start = mdy(1,1,2020)
-gen double stop  = mdy(12,31,2020)
-gen byte drug = 1
-format start stop %td
-save "/tmp/tvp6_exp.dta", replace
-
-use "/tmp/tvp6_cohort.dta", clear
-capture noisily tvexpose using "/tmp/tvp6_exp.dta", ///
-    id(id) start(start) stop(stop) ///
-    exposure(drug) reference(0) ///
-    entry(study_entry) exit(study_exit) ///
-    duration(0.5) continuousunit(years) generate(dur_cat)
-
-if _rc != 0 {
-    display as error "  FAIL [6.run]: tvexpose with duration() failed (rc=`=_rc')"
-    local test6_pass = 0
-}
-else {
-    sort id start
-    list id start stop dur_cat, noobs
-
-    * Should have at least 2 different duration categories for exposed time
-    quietly levelsof dur_cat, local(dur_levels)
-    local n_levels : word count `dur_levels'
-
-    if `n_levels' >= 2 {
-        display as result "  PASS [6.categories]: `n_levels' duration categories present"
-    }
-    else {
-        display as error "  FAIL [6.categories]: only `n_levels' categories (expected >=2)"
-        local test6_pass = 0
-    }
-
-    * The transition should happen around day 183 (0.5 * 365.25)
-    * Check the stop date of the first exposed row
-    quietly count
-    local nrows = r(N)
-    if `nrows' >= 2 {
-        * Find where category changes
-        local trans_date = .
-        forvalues i = 2/`nrows' {
-            if dur_cat[`i'] != dur_cat[`i'-1] & dur_cat[`i'] > 0 {
-                local trans_date = start[`i']
-                continue, break
-            }
-        }
-        if `trans_date' != . {
-            local trans_day = `trans_date' - mdy(1,1,2020)
-            local expected_trans = floor(0.5 * 365.25)
-            display "  INFO: transition at day `trans_day' (expected ~`expected_trans')"
-            if abs(`trans_day' - `expected_trans') <= 5 {
-                display as result "  PASS [6.boundary]: transition at correct day"
-            }
-            else {
-                display as error "  FAIL [6.boundary]: transition at day `trans_day' (expected ~`expected_trans')"
-                local test6_pass = 0
-            }
-        }
-    }
-}
-
-if `test6_pass' == 1 {
-    local pass_count = `pass_count' + 1
-    display as result "TEST 6: PASSED"
-}
-else {
-    local fail_count = `fail_count' + 1
-    local failed_tests "`failed_tests' 6"
-    display as error "TEST 6: FAILED"
-}
-
-* ============================================================================
-* TEST 7: EVENT ACCURACY THROUGH FULL PIPELINE
-* ============================================================================
-display _n _dup(60) "-"
-display "TEST 7: Event coded in correct row through full pipeline"
-display _dup(60) "-"
-
-local test7_pass = 1
-
-use "/tmp/tvp_step3.dta", clear
-
-* Person 3: event at mdy(1,1,2020)+199 = Jul 19, 2020
-* The outcome variable should be 1 in exactly 1 row for this person
-quietly count if id == 3 & outcome == 1
-local p3_events = r(N)
-if `p3_events' == 1 {
-    display as result "  PASS [7.p3_count]: person 3 has exactly 1 event row"
-}
-else {
-    display as error "  FAIL [7.p3_count]: person 3 has `p3_events' event rows (expected 1)"
-    local test7_pass = 0
-}
-
-* Verify the event row's stop date = event date
-if `p3_events' == 1 {
-    quietly summarize stop if id == 3 & outcome == 1
-    local event_stop = r(mean)
-    local expected_event = mdy(1,1,2020) + 199
-    if `event_stop' == `expected_event' {
-        display as result "  PASS [7.p3_date]: person 3 event at correct date"
-    }
-    else {
-        local d1 : display %td `event_stop'
-        local d2 : display %td `expected_event'
-        display as error "  FAIL [7.p3_date]: event stop=`d1', expected=`d2'"
-        local test7_pass = 0
-    }
-}
-
-* Person 4: event at mdy(1,1,2020)+299 = Oct 27, 2020
-quietly count if id == 4 & outcome == 1
-local p4_events = r(N)
-if `p4_events' == 1 {
-    display as result "  PASS [7.p4_count]: person 4 has exactly 1 event row"
-}
-else {
-    display as error "  FAIL [7.p4_count]: person 4 has `p4_events' event rows (expected 1)"
-    local test7_pass = 0
-}
-
-* Persons 1, 2, 5: no events
-foreach p in 1 2 5 {
-    quietly count if id == `p' & outcome == 1
-    if r(N) == 0 {
-        display as result "  PASS [7.p`p'_censor]: person `p' has no event (censored)"
-    }
-    else {
-        display as error "  FAIL [7.p`p'_censor]: person `p' has `=r(N)' event rows"
-        local test7_pass = 0
-    }
-}
-
-if `test7_pass' == 1 {
-    local pass_count = `pass_count' + 1
-    display as result "TEST 7: PASSED"
-}
-else {
-    local fail_count = `fail_count' + 1
-    local failed_tests "`failed_tests' 7"
-    display as error "TEST 7: FAILED"
-}
-
-* ============================================================================
-* TEST 8: CENSORING TIME CALCULATION
-* ============================================================================
-display _n _dup(60) "-"
-display "TEST 8: Censoring/event time = last_stop - study_entry"
-display _dup(60) "-"
-
-local test8_pass = 1
-
-use "/tmp/tvp_step3.dta", clear
-sort id start
-
-* Calculate total follow-up per person (last stop - first start + 1)
-preserve
-collapse (min) first_start=start (max) last_stop=stop, by(id)
-
-* Person 3: follow-up should end at event date (day 200)
-quietly summarize last_stop if id == 3
-local p3_last = r(mean)
-local p3_expected = mdy(1,1,2020) + 199
-if abs(`p3_last' - `p3_expected') <= 1 {
-    display as result "  PASS [8.p3_time]: person 3 follow-up ends at event"
-}
-else {
-    local d1 : display %td `p3_last'
-    display as error "  FAIL [8.p3_time]: person 3 last_stop=`d1'"
-    local test8_pass = 0
-}
-
-* Censored persons (1,2,5): follow-up should end at study_exit
-foreach p in 1 2 5 {
-    quietly summarize last_stop if id == `p'
-    local pt_last = r(mean)
-    if `pt_last' == mdy(12,31,2020) {
-        display as result "  PASS [8.p`p'_censor]: person `p' censored at study exit"
-    }
-    else {
-        local d1 : display %td `pt_last'
-        display as error "  FAIL [8.p`p'_censor]: person `p' last_stop=`d1' (expected Dec31/2020)"
-        local test8_pass = 0
-    }
-}
-
-restore
-
-if `test8_pass' == 1 {
-    local pass_count = `pass_count' + 1
-    display as result "TEST 8: PASSED"
-}
-else {
-    local fail_count = `fail_count' + 1
-    local failed_tests "`failed_tests' 8"
-    display as error "TEST 8: FAILED"
-}
-
-* ============================================================================
-* TEST 9: TIME ADDITIVITY
-* ============================================================================
-display _n _dup(60) "-"
-display "TEST 9: Time additivity (sum of intervals = total follow-up)"
-display _dup(60) "-"
-
-local test9_pass = 1
-
-use "/tmp/tvp_step3.dta", clear
-gen double dur = stop - start + 1
-
-preserve
-collapse (sum) total_days=dur (min) first_start=start (max) last_stop=stop, by(id)
-gen double span = last_stop - first_start + 1
-gen double additivity_err = abs(total_days - span)
-quietly summarize additivity_err
-local max_err = r(max)
-restore
-
-if `max_err' <= 1 {
-    display as result "  PASS [9.additivity]: all intervals sum to span (max error=`max_err')"
-}
-else {
-    display as error "  FAIL [9.additivity]: interval sums deviate from span (max error=`max_err')"
-    local test9_pass = 0
-}
-
-if `test9_pass' == 1 {
-    local pass_count = `pass_count' + 1
-    display as result "TEST 9: PASSED"
-}
-else {
-    local fail_count = `fail_count' + 1
-    local failed_tests "`failed_tests' 9"
-    display as error "TEST 9: FAILED"
-}
-
-* ============================================================================
-* TEST 10: NO IMMORTAL TIME BIAS
-* ============================================================================
-display _n _dup(60) "-"
-display "TEST 10: No immortal time bias (unexposed time preserved)"
-display _dup(60) "-"
-
-local test10_pass = 1
-
-use "/tmp/tvp_step2.dta", clear
-
-* Person 2: unexposed before Mar1 and after Jun30
-* Check that the reference period exists and is classified correctly
-quietly count if id == 2 & merged_A == 0
-local n_unexp = r(N)
-if `n_unexp' >= 1 {
-    display as result "  PASS [10.p2_ref]: person 2 has `n_unexp' reference period rows"
-}
-else {
-    display as error "  FAIL [10.p2_ref]: person 2 has no reference periods (immortal time bias!)"
-    local test10_pass = 0
-}
-
-* The reference periods should cover time before first exposure and after last
-* Before exposure: Jan1 to Feb29 (60 days)
-quietly summarize start if id == 2 & merged_A == 0
-local first_ref_start = r(min)
-if `first_ref_start' == mdy(1,1,2020) {
-    display as result "  PASS [10.p2_early_ref]: unexposed time starts at study entry"
-}
-else {
-    local d1 : display %td `first_ref_start'
-    display as error "  FAIL [10.p2_early_ref]: unexposed starts at `d1' (expected Jan1)"
-    local test10_pass = 0
-}
-
-* Person 1: fully unexposed - all person-time should be reference
-quietly count if id == 1 & (merged_A != 0 | merged_B != 0)
-if r(N) == 0 {
-    display as result "  PASS [10.p1_all_ref]: person 1 fully in reference group"
-}
-else {
-    display as error "  FAIL [10.p1_all_ref]: person 1 has `=r(N)' exposed rows"
-    local test10_pass = 0
-}
-
-if `test10_pass' == 1 {
-    local pass_count = `pass_count' + 1
-    display as result "TEST 10: PASSED"
-}
-else {
-    local fail_count = `fail_count' + 1
-    local failed_tests "`failed_tests' 10"
-    display as error "TEST 10: FAILED"
-}
-
-* ============================================================================
-* TEST 11: NO FUTURE EXPOSURE
-* ============================================================================
-display _n _dup(60) "-"
-display "TEST 11: No future exposure (exposure only from started prescriptions)"
-display _dup(60) "-"
-
-local test11_pass = 1
-
-use "/tmp/tvp_step2.dta", clear
-
-* Person 2: drug A starts Mar1. Before Mar1, merged_A must be 0
-quietly count if id == 2 & start < mdy(3,1,2020) & merged_A != 0
-local n_future = r(N)
-if `n_future' == 0 {
-    display as result "  PASS [11.no_future]: no future exposure for person 2 before Mar1"
-}
-else {
-    display as error "  FAIL [11.no_future]: `n_future' rows with exposure before prescription start"
-    local test11_pass = 0
-}
-
-* Person 3: drug B starts Jun1. Before Jun1, merged_B must be 0
-quietly count if id == 3 & start < mdy(6,1,2020) & merged_B != 0
-local n_future3 = r(N)
-if `n_future3' == 0 {
-    display as result "  PASS [11.no_future3]: no future exposure for person 3 (drug B) before Jun1"
-}
-else {
-    display as error "  FAIL [11.no_future3]: `n_future3' rows with future exposure"
-    local test11_pass = 0
-}
-
-if `test11_pass' == 1 {
-    local pass_count = `pass_count' + 1
-    display as result "TEST 11: PASSED"
-}
-else {
-    local fail_count = `fail_count' + 1
-    local failed_tests "`failed_tests' 11"
-    display as error "TEST 11: FAILED"
-}
-
-* ============================================================================
-* TEST 12: CORRECT CENSORING (NO POST-EVENT ROWS)
-* ============================================================================
-display _n _dup(60) "-"
-display "TEST 12: Correct censoring (no post-event rows for type=single)"
-display _dup(60) "-"
-
-local test12_pass = 1
-
-use "/tmp/tvp_step3.dta", clear
-
-* Person 3: event at day 200 (Jul19). No rows should exist after this date.
-local p3_event = mdy(1,1,2020) + 199
-quietly count if id == 3 & start > `p3_event'
-local n_post3 = r(N)
-if `n_post3' == 0 {
-    display as result "  PASS [12.p3_no_post]: no post-event rows for person 3"
-}
-else {
-    display as error "  FAIL [12.p3_no_post]: `n_post3' rows after event for person 3"
-    local test12_pass = 0
-}
-
-* Person 4: event at day 300 (Oct27). No rows after.
-local p4_event = mdy(1,1,2020) + 299
-quietly count if id == 4 & start > `p4_event'
-local n_post4 = r(N)
-if `n_post4' == 0 {
-    display as result "  PASS [12.p4_no_post]: no post-event rows for person 4"
-}
-else {
-    display as error "  FAIL [12.p4_no_post]: `n_post4' rows after event for person 4"
-    local test12_pass = 0
-}
-
-* Censored persons should have rows through study exit
-foreach p in 1 2 5 {
-    quietly summarize stop if id == `p'
-    local pt_last = r(max)
-    if `pt_last' == mdy(12,31,2020) {
-        display as result "  PASS [12.p`p'_full]: person `p' has rows through study exit"
-    }
-    else {
-        local d1 : display %td `pt_last'
-        display as error "  FAIL [12.p`p'_full]: person `p' ends at `d1' (expected Dec31)"
-        local test12_pass = 0
-    }
-}
-
-if `test12_pass' == 1 {
-    local pass_count = `pass_count' + 1
-    display as result "TEST 12: PASSED"
-}
-else {
-    local fail_count = `fail_count' + 1
-    local failed_tests "`failed_tests' 12"
-    display as error "TEST 12: FAILED"
-}
-
-* ============================================================================
-* SUMMARY
-* ============================================================================
-display _n _dup(70) "="
-display "TVTOOLS PIPELINE MATHEMATICAL VALIDATION SUMMARY"
-display _dup(70) "="
-display "Total tests: `=`pass_count' + `fail_count''"
-display as result "Passed: `pass_count'"
-if `fail_count' > 0 {
-    display as error "Failed: `fail_count'"
-    display as error "Failed tests:`failed_tests'"
-}
-else {
-    display as result "Failed: 0"
 
 * --- From validation_tvtools_pipeline_stress.do ---
 
+capture noisily {
 capture program drop assert_exact
 program define assert_exact
     args actual expected label
@@ -24873,656 +23131,8 @@ save `events_single', replace
 
 * ============================================================================
 * TESTS 1-5: TVEXPOSE → TVEVENT SINGLE-DRUG PIPELINE
-* ============================================================================
 
-* Run tvexpose
-use `cohort', clear
-capture noisily tvexpose using `exposure1', ///
-    id(id) start(start) stop(stop) ///
-    exposure(drug) reference(0) ///
-    entry(study_entry) exit(study_exit) ///
-    generate(exp_val)
-
-if _rc != 0 {
-    display as error "PIPELINE SETUP FAILED: tvexpose error `=_rc'"
-    display as error "Cannot continue pipeline tests."
-    exit 1
 }
-
-tempfile tvexpose_result
-save `tvexpose_result', replace
-
-* TEST 1: tvexpose row count
-* P1: no exposure → 1 row [Jan1,Dec31] exp_val=0
-* P2: Drug 1 Apr1-Sep30 → 3 rows [Jan1,Mar31]=0, [Apr1,Sep30]=1, [Oct1,Dec31]=0
-* P3: Drug 1 Feb1-Jul31 → 3 rows [Jan1,Jan31]=0, [Feb1,Jul31]=1, [Aug1,Dec31]=0
-* Total: 1 + 3 + 3 = 7 rows
-
-display _n _dup(60) "-"
-display "TEST 1: tvexpose row count"
-display _dup(60) "-"
-local test1_pass = 1
-
-quietly count
-if r(N) == 7 {
-    display as result "  PASS [1.rows]: 7 rows"
-}
-else {
-    display as error "  FAIL [1.rows]: `=r(N)' rows, expected 7"
-    local test1_pass = 0
-}
-
-if `test1_pass' == 1 {
-    local pass_count = `pass_count' + 1
-    display as result "TEST 1: PASSED"
-}
-else {
-    local fail_count = `fail_count' + 1
-    local failed_tests "`failed_tests' 1"
-    display as error "TEST 1: FAILED"
-}
-
-
-* TEST 2: Person-time conservation (all 3 persons = 366 days each = 1098 total)
-
-display _n _dup(60) "-"
-display "TEST 2: Person-time conservation (1098 total)"
-display _dup(60) "-"
-local test2_pass = 1
-
-tempvar pt
-gen `pt' = stop - start + 1
-quietly su `pt'
-if r(sum) == 1098 {
-    display as result "  PASS [2.total_pt]: total person-time=1098"
-}
-else {
-    display as error "  FAIL [2.total_pt]: total=`=r(sum)', expected 1098"
-    local test2_pass = 0
-}
-
-* Per-person check
-forvalues p = 1/3 {
-    quietly su `pt' if id == `p'
-    if r(sum) == 366 {
-        display as result "  PASS [2.pt_p`p']: person `p'=366"
-    }
-    else {
-        display as error "  FAIL [2.pt_p`p']: person `p'=`=r(sum)', expected 366"
-        local test2_pass = 0
-    }
-}
-
-if `test2_pass' == 1 {
-    local pass_count = `pass_count' + 1
-    display as result "TEST 2: PASSED"
-}
-else {
-    local fail_count = `fail_count' + 1
-    local failed_tests "`failed_tests' 2"
-    display as error "TEST 2: FAILED"
-}
-
-
-* TEST 3: tvevent flags Person 3's Jun15 event
-* Jun15 is inside [Feb1,Jul31]: split → [Feb1,Jun15] _failure=1
-* type(single): post-event dropped for Person 3
-
-display _n _dup(60) "-"
-display "TEST 3: tvevent flags Person 3's event"
-display _dup(60) "-"
-local test3_pass = 1
-
-use `events_single', clear
-capture noisily tvevent using `tvexpose_result', ///
-    id(id) start(start) stop(stop) ///
-    date(event_date) type(single)
-
-if _rc != 0 {
-    display as error "  FAIL [3.run]: tvevent error `=_rc'"
-    local test3_pass = 0
-}
-else {
-    tempfile tvevent_result
-    save `tvevent_result', replace
-
-    sort id start
-
-    * Person 3 should have _failure=1
-    quietly count if id == 3 & _failure == 1
-    if r(N) == 1 {
-        display as result "  PASS [3.p3_event]: Person 3 event flagged"
-    }
-    else {
-        display as error "  FAIL [3.p3_event]: Person 3 has `=r(N)' event rows"
-        local test3_pass = 0
-    }
-
-    * Event row should stop at Jun15
-    quietly su stop if id == 3 & _failure == 1
-    if r(mean) == mdy(6,15,2020) {
-        display as result "  PASS [3.event_date]: event at Jun15"
-    }
-    else {
-        display as error "  FAIL [3.event_date]: event stop=`=string(r(mean), "%td")'"
-        local test3_pass = 0
-    }
-}
-
-if `test3_pass' == 1 {
-    local pass_count = `pass_count' + 1
-    display as result "TEST 3: PASSED"
-}
-else {
-    local fail_count = `fail_count' + 1
-    local failed_tests "`failed_tests' 3"
-    display as error "TEST 3: FAILED"
-}
-
-
-* TEST 4: Post-tvevent person-time
-* P1: 366 (full year, censored)
-* P2: 366 (full year, censored)
-* P3: Jan1 to Jun15 = 167 days (type(single) censors after event)
-*   Jan=31, Feb=29, Mar=31, Apr=30, May=31, Jun1-15=15 → 167 days
-
-display _n _dup(60) "-"
-display "TEST 4: Post-tvevent person-time"
-display _dup(60) "-"
-local test4_pass = 1
-
-capture {
-    use `tvevent_result', clear
-    tempvar pt
-    gen `pt' = stop - start + 1
-
-    * Person 1 and 2: full year
-    quietly su `pt' if id == 1
-    assert_exact `=r(sum)' 366 "4.pt_p1"
-
-    quietly su `pt' if id == 2
-    assert_exact `=r(sum)' 366 "4.pt_p2"
-
-    * Person 3: censored at Jun15
-    * Jan1-Jan31=31, Feb1-Feb29=29, Mar1-Mar31=31, Apr1-Apr30=30, May1-May31=31, Jun1-Jun15=15
-    * Total: 31+29+31+30+31+15 = 167 days
-    quietly su `pt' if id == 3
-    local p3_pt = r(sum)
-    if `p3_pt' == 167 {
-        display as result "  PASS [4.pt_p3]: Person 3 = 167 days (censored at Jun15)"
-    }
-    else {
-        * Allow some flexibility: might include the post-split remainder
-        display as error "  FAIL [4.pt_p3]: Person 3 = `p3_pt', expected 167"
-        local test4_pass = 0
-    }
-}
-if _rc != 0 {
-    display as error "  FAIL [4.error]: assertion error"
-    local test4_pass = 0
-}
-
-if `test4_pass' == 1 {
-    local pass_count = `pass_count' + 1
-    display as result "TEST 4: PASSED"
-}
-else {
-    local fail_count = `fail_count' + 1
-    local failed_tests "`failed_tests' 4"
-    display as error "TEST 4: FAILED"
-}
-
-
-* TEST 5: No events for Persons 1 and 2
-
-display _n _dup(60) "-"
-display "TEST 5: No events for Persons 1 and 2"
-display _dup(60) "-"
-local test5_pass = 1
-
-capture {
-    use `tvevent_result', clear
-
-    * Person 1: all _failure=0
-    quietly count if id == 1 & _failure != 0
-    if r(N) == 0 {
-        display as result "  PASS [5.p1_cens]: Person 1 all _failure=0"
-    }
-    else {
-        display as error "  FAIL [5.p1_cens]: Person 1 has `=r(N)' event rows"
-        local test5_pass = 0
-    }
-
-    * Person 2: all _failure=0
-    quietly count if id == 2 & _failure != 0
-    if r(N) == 0 {
-        display as result "  PASS [5.p2_cens]: Person 2 all _failure=0"
-    }
-    else {
-        display as error "  FAIL [5.p2_cens]: Person 2 has `=r(N)' event rows"
-        local test5_pass = 0
-    }
-}
-if _rc != 0 {
-    display as error "  FAIL [5.error]: assertion error"
-    local test5_pass = 0
-}
-
-if `test5_pass' == 1 {
-    local pass_count = `pass_count' + 1
-    display as result "TEST 5: PASSED"
-}
-else {
-    local fail_count = `fail_count' + 1
-    local failed_tests "`failed_tests' 5"
-    display as error "TEST 5: FAILED"
-}
-
-
-* ============================================================================
-* TESTS 6-8: SURVIVAL ANALYSIS VERIFICATION
-* ============================================================================
-
-* TEST 6: stset produces valid survival data
-
-display _n _dup(60) "-"
-display "TEST 6: stset produces valid survival data"
-display _dup(60) "-"
-local test6_pass = 1
-
-capture {
-    use `tvevent_result', clear
-
-    * Create analysis time variables (avoid _t/_t0 which stset reserves)
-    gen double atime0 = start - mdy(1,1,2020)
-    gen double atime  = stop  - mdy(1,1,2020) + 1
-
-    * stset with time-varying data
-    stset atime, failure(_failure) enter(atime0) id(id)
-
-    * All observations should be valid (_st==1)
-    quietly count if _st != 1
-    if r(N) == 0 {
-        display as result "  PASS [6.valid]: all observations _st==1"
-    }
-    else {
-        display as error "  FAIL [6.valid]: `=r(N)' observations with _st!=1"
-        local test6_pass = 0
-    }
-
-    * Only Person 3 should have _d==1
-    quietly count if _d == 1
-    if r(N) == 1 {
-        display as result "  PASS [6.events]: 1 failure event"
-    }
-    else {
-        display as error "  FAIL [6.events]: `=r(N)' failures, expected 1"
-        local test6_pass = 0
-    }
-
-    quietly su _d if id == 3
-    if r(max) == 1 {
-        display as result "  PASS [6.p3_fail]: Person 3 has failure"
-    }
-    else {
-        display as error "  FAIL [6.p3_fail]: Person 3 max(_d)=`=r(max)'"
-        local test6_pass = 0
-    }
-}
-if _rc != 0 {
-    display as error "  FAIL [6.stset]: stset error `=_rc'"
-    local test6_pass = 0
-}
-
-if `test6_pass' == 1 {
-    local pass_count = `pass_count' + 1
-    display as result "TEST 6: PASSED"
-}
-else {
-    local fail_count = `fail_count' + 1
-    local failed_tests "`failed_tests' 6"
-    display as error "TEST 6: FAILED"
-}
-
-
-* TEST 7: stcox with binary exposure converges
-
-display _n _dup(60) "-"
-display "TEST 7: stcox with binary exposure converges"
-display _dup(60) "-"
-local test7_pass = 1
-
-capture {
-    use `tvevent_result', clear
-
-    * Create analysis time and exposure indicator (avoid _t/_t0 which stset reserves)
-    gen double atime0 = start - mdy(1,1,2020)
-    gen double atime  = stop  - mdy(1,1,2020) + 1
-    gen byte exposed = (exp_val != 0)
-
-    stset atime, failure(_failure) enter(atime0) id(id)
-    stcox exposed, nolog
-
-    * Check convergence: HR should be finite and non-missing
-    matrix b = e(b)
-    local hr = exp(b[1,1])
-    if !missing(`hr') & `hr' > 0 & `hr' < . {
-        display as result "  PASS [7.converged]: HR=`hr' (finite)"
-    }
-    else {
-        display as error "  FAIL [7.converged]: HR=`hr' (not finite)"
-        local test7_pass = 0
-    }
-}
-if _rc != 0 {
-    display as error "  FAIL [7.stcox]: stcox error `=_rc'"
-    local test7_pass = 0
-}
-
-if `test7_pass' == 1 {
-    local pass_count = `pass_count' + 1
-    display as result "TEST 7: PASSED"
-}
-else {
-    local fail_count = `fail_count' + 1
-    local failed_tests "`failed_tests' 7"
-    display as error "TEST 7: FAILED"
-}
-
-
-* TEST 8: Exposed vs unexposed person-time matches hand calculation
-
-display _n _dup(60) "-"
-display "TEST 8: Exposed/unexposed person-time"
-display _dup(60) "-"
-local test8_pass = 1
-
-capture {
-    use `tvevent_result', clear
-    tempvar pt
-    gen `pt' = stop - start + 1
-
-    * Exposed person-time (exp_val != 0):
-    * P2: Apr1-Sep30 = 183 days
-    * P3: Feb1-Jun15 = 136 days (31+29+31+30+15=136, censored at event)
-    * Total exposed PT = 183 + 136 = 319
-    * (but P3 only has 1 exposed period that may be split by tvevent)
-    quietly su `pt' if exp_val != 0
-    local exp_pt = r(sum)
-
-    * Unexposed person-time:
-    * P1: 366 days
-    * P2: Jan1-Mar31(91) + Oct1-Dec31(92) = 183 days
-    * P3: Jan1-Jan31(31) = 31 days (post-event dropped)
-    * Total unexposed PT = 366 + 183 + 31 = 580
-    quietly su `pt' if exp_val == 0
-    local unexp_pt = r(sum)
-
-    * Total should match overall person-time
-    local total = `exp_pt' + `unexp_pt'
-    display as result "  INFO [8]: exposed_pt=`exp_pt', unexposed_pt=`unexp_pt', total=`total'"
-
-    * Verify non-zero exposed and unexposed
-    if `exp_pt' > 0 & `unexp_pt' > 0 {
-        display as result "  PASS [8.both]: both exposed and unexposed person-time > 0"
-    }
-    else {
-        display as error "  FAIL [8.both]: exposed=`exp_pt', unexposed=`unexp_pt'"
-        local test8_pass = 0
-    }
-}
-if _rc != 0 {
-    display as error "  FAIL [8.error]: error `=_rc'"
-    local test8_pass = 0
-}
-
-if `test8_pass' == 1 {
-    local pass_count = `pass_count' + 1
-    display as result "TEST 8: PASSED"
-}
-else {
-    local fail_count = `fail_count' + 1
-    local failed_tests "`failed_tests' 8"
-    display as error "TEST 8: FAILED"
-}
-
-
-* ============================================================================
-* TESTS 9-12: MULTI-DRUG PIPELINE
-* ============================================================================
-
-* Add Drug B for Person 2 (Jul1-Dec31) to create overlap scenario
-tempfile exposure_multi
-clear
-input int(id drug) str10(s_start s_stop)
-2 1 "2020-04-01" "2020-09-30"
-3 1 "2020-02-01" "2020-07-31"
-2 2 "2020-07-01" "2020-12-31"
-end
-gen double start = date(s_start, "YMD")
-gen double stop  = date(s_stop, "YMD")
-format %td start stop
-drop s_start s_stop
-save `exposure_multi', replace
-
-* TEST 9: tvexpose with two drugs → tvmerge equivalent
-* Person 2 has Drug 1 Apr1-Sep30 and Drug 2 Jul1-Dec31.
-* Overlap: Jul1-Sep30 (both drugs active).
-* Using layer: Drug 2 takes precedence during overlap.
-
-display _n _dup(60) "-"
-display "TEST 9: Multi-drug tvexpose pipeline"
-display _dup(60) "-"
-local test9_pass = 1
-
-use `cohort', clear
-capture noisily tvexpose using `exposure_multi', ///
-    id(id) start(start) stop(stop) ///
-    exposure(drug) reference(0) ///
-    entry(study_entry) exit(study_exit) ///
-    layer generate(exp_val)
-
-if _rc != 0 {
-    display as error "  FAIL [9.run]: tvexpose multi-drug error `=_rc'"
-    local test9_pass = 0
-}
-else {
-    tempfile multi_result
-    save `multi_result', replace
-
-    * Person 2 should have rows for both Drug 1 and Drug 2
-    quietly count if id == 2 & exp_val == 1
-    local d1_rows = r(N)
-    quietly count if id == 2 & exp_val == 2
-    local d2_rows = r(N)
-
-    if `d1_rows' >= 1 & `d2_rows' >= 1 {
-        display as result "  PASS [9.both_drugs]: Person 2 has Drug 1 and Drug 2 rows"
-    }
-    else {
-        display as error "  FAIL [9.both_drugs]: Drug1=`d1_rows', Drug2=`d2_rows'"
-        local test9_pass = 0
-    }
-
-    * Person-time conservation
-    tempvar pt
-    gen `pt' = stop - start + 1
-    forvalues p = 1/3 {
-        quietly su `pt' if id == `p'
-        if r(sum) == 366 {
-            display as result "  PASS [9.pt_p`p']: person `p'=366"
-        }
-        else {
-            display as error "  FAIL [9.pt_p`p']: person `p'=`=r(sum)'"
-            local test9_pass = 0
-        }
-    }
-}
-
-if `test9_pass' == 1 {
-    local pass_count = `pass_count' + 1
-    display as result "TEST 9: PASSED"
-}
-else {
-    local fail_count = `fail_count' + 1
-    local failed_tests "`failed_tests' 9"
-    display as error "TEST 9: FAILED"
-}
-
-
-* TEST 10: Multi-drug person-time verification
-
-display _n _dup(60) "-"
-display "TEST 10: Multi-drug person-time"
-display _dup(60) "-"
-local test10_pass = 1
-
-capture {
-    use `multi_result', clear
-    tempvar pt
-    gen `pt' = stop - start + 1
-
-    * Total person-time = 3 * 366 = 1098
-    quietly su `pt'
-    if r(sum) == 1098 {
-        display as result "  PASS [10.total]: total person-time=1098"
-    }
-    else {
-        display as error "  FAIL [10.total]: total=`=r(sum)', expected 1098"
-        local test10_pass = 0
-    }
-}
-if _rc != 0 {
-    display as error "  FAIL [10.error]: error `=_rc'"
-    local test10_pass = 0
-}
-
-if `test10_pass' == 1 {
-    local pass_count = `pass_count' + 1
-    display as result "TEST 10: PASSED"
-}
-else {
-    local fail_count = `fail_count' + 1
-    local failed_tests "`failed_tests' 10"
-    display as error "TEST 10: FAILED"
-}
-
-
-* TEST 11: tvevent on multi-drug data - Person 3's event correctly placed
-
-display _n _dup(60) "-"
-display "TEST 11: tvevent on multi-drug data"
-display _dup(60) "-"
-local test11_pass = 1
-
-use `events_single', clear
-capture noisily tvevent using `multi_result', ///
-    id(id) start(start) stop(stop) ///
-    date(event_date) type(single)
-
-if _rc != 0 {
-    display as error "  FAIL [11.run]: tvevent error `=_rc'"
-    local test11_pass = 0
-}
-else {
-    tempfile multi_tvevent
-    save `multi_tvevent', replace
-
-    * Person 3's event at Jun15 should still be flagged
-    quietly count if id == 3 & _failure == 1
-    if r(N) == 1 {
-        display as result "  PASS [11.p3_event]: Person 3 event flagged in multi-drug"
-    }
-    else {
-        display as error "  FAIL [11.p3_event]: Person 3 has `=r(N)' event rows"
-        local test11_pass = 0
-    }
-
-    * Persons 1 and 2: no events
-    quietly count if id == 1 & _failure != 0
-    local p1_events = r(N)
-    quietly count if id == 2 & _failure != 0
-    local p2_events = r(N)
-    if `p1_events' == 0 & `p2_events' == 0 {
-        display as result "  PASS [11.no_events]: Persons 1,2 correctly censored"
-    }
-    else {
-        display as error "  FAIL [11.no_events]: P1=`p1_events', P2=`p2_events' events"
-        local test11_pass = 0
-    }
-}
-
-if `test11_pass' == 1 {
-    local pass_count = `pass_count' + 1
-    display as result "TEST 11: PASSED"
-}
-else {
-    local fail_count = `fail_count' + 1
-    local failed_tests "`failed_tests' 11"
-    display as error "TEST 11: FAILED"
-}
-
-
-* TEST 12: stcox with both drug variables converges
-
-display _n _dup(60) "-"
-display "TEST 12: stcox with multi-drug model"
-display _dup(60) "-"
-local test12_pass = 1
-
-capture {
-    use `multi_tvevent', clear
-
-    * Create analysis time (avoid _t/_t0 which stset reserves)
-    gen double atime0 = start - mdy(1,1,2020)
-    gen double atime  = stop  - mdy(1,1,2020) + 1
-
-    * Create drug indicators
-    gen byte drug1 = (exp_val == 1)
-    gen byte drug2 = (exp_val == 2)
-
-    stset atime, failure(_failure) enter(atime0) id(id)
-    stcox drug1 drug2, nolog
-
-    * Check convergence
-    matrix b = e(b)
-    local hr1 = exp(b[1,1])
-    local hr2 = exp(b[1,2])
-
-    if !missing(`hr1') & `hr1' > 0 & `hr1' < . {
-        display as result "  PASS [12.hr1]: Drug 1 HR=`hr1' (finite)"
-    }
-    else {
-        display as error "  FAIL [12.hr1]: Drug 1 HR=`hr1'"
-        local test12_pass = 0
-    }
-
-    if !missing(`hr2') & `hr2' > 0 & `hr2' < . {
-        display as result "  PASS [12.hr2]: Drug 2 HR=`hr2' (finite)"
-    }
-    else {
-        display as error "  FAIL [12.hr2]: Drug 2 HR=`hr2'"
-        local test12_pass = 0
-    }
-}
-if _rc != 0 {
-    display as error "  FAIL [12.stcox]: stcox error `=_rc'"
-    local test12_pass = 0
-}
-
-if `test12_pass' == 1 {
-    local pass_count = `pass_count' + 1
-    display as result "TEST 12: PASSED"
-}
-else {
-    local fail_count = `fail_count' + 1
-    local failed_tests "`failed_tests' 12"
-    display as error "TEST 12: FAILED"
-}
-
-
-* ============================================================================
-* FINAL SUMMARY
 
 
 * =============================================================================

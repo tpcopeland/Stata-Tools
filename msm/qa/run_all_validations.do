@@ -1,33 +1,13 @@
 /*******************************************************************************
 * run_all_validations.do
 *
-* Master runner for msm package tests and validation exercises.
-* Runs functional tests (T1-T3), 11 validation suites (V1-V11), and
-* cross-language validation (V9).
+* Master runner for msm package QA suite.
+* Runs test_msm.do (functional tests) and validate_msm.do (validation suites).
 *
 * Usage:
 *   stata-mp -b do run_all_validations.do              // runs all
-*   stata-mp -b do run_all_validations.do 1 5 8        // runs T1-T3, V1, V5, V8
-*   stata-mp -b do run_all_validations.do tests        // runs T1-T3 only
-*   stata-mp -b do run_all_validations.do validations   // runs V1-V11 only
-*
-* Tests:
-*   T1. Functional tests (test_msm.do)
-*   T2. Table export tests (test_msm_table.do)
-*   T3. Complete option path coverage (test_msm_options.do)
-*
-* Validations:
-*   V1. Known DGP with time-varying confounding (N=10,000, T=10)
-*   V2. R ipw cross-validation (haartdat, HIV/HAART)
-*   V3. NHEFS benchmarks (Ch12 point treatment + Ch17 person-period)
-*   V4. Fewell RA/Methotrexate DGP (treatment-confounder feedback)
-*   V5. Null effect & reproducibility (true effect = 0, 100 MC reps)
-*   V6. IPCW / Informative censoring
-*   V7. Diagnostics, reporting, sensitivity
-*   V8. Pipeline guards & edge cases
-*   V9. Cross-language validation (Stata vs R vs Python vs teffects)
-*   V10. Mathematical verification (hand-calculated weights, SMD, E-value, ESS)
-*   V11. Stress and boundary testing (rare treatment, many covariates, etc.)
+*   stata-mp -b do run_all_validations.do tests         // runs tests only
+*   stata-mp -b do run_all_validations.do validations   // runs validations only
 *******************************************************************************/
 
 version 16.0
@@ -59,84 +39,35 @@ if "`run_list'" == "" {
 }
 else if "`run_list'" == "tests" {
     local do_tests = 1
-    display "Running functional tests only (T1-T3)"
+    display "Running tests only"
 }
 else if "`run_list'" == "validations" {
     local do_validations = 1
-    display "Running validation suites only (V1-V11)"
+    display "Running validations only"
 }
 else {
     local do_tests = 1
     local do_validations = 1
-    display "Running selective: `run_list'"
+    display "Running ALL tests and validations"
 }
 display ""
 
-* --- Test file map ---
-local tfile_1  "test_msm.do"
-local tname_1  "Functional Tests"
-local tfile_2  "test_msm_table.do"
-local tname_2  "Table Export Tests"
-local tfile_3  "test_msm_options.do"
-local tname_3  "Complete Option Path Coverage"
-
-* --- Validation file map ---
-local vfile_1  "validate_known_dgp.do"
-local vname_1  "Known DGP (Cole & Hernan)"
-local vfile_2  "validate_haartdat_r.do"
-local vname_2  "R ipw Cross-Validation (haartdat)"
-local vfile_3  "validate_nhefs.do"
-local vname_3  "NHEFS Benchmarks (Ch12 + Ch17)"
-local vfile_4  "validate_fewell_ra.do"
-local vname_4  "Fewell RA/Methotrexate DGP"
-local vfile_5  "validate_null_repro.do"
-local vname_5  "Null Effect & Reproducibility"
-local vfile_6  "validate_ipcw.do"
-local vname_6  "IPCW / Informative Censoring"
-local vfile_7  "validate_diagnostics.do"
-local vname_7  "Diagnostics, Reporting, Sensitivity"
-local vfile_8  "validate_edge_cases.do"
-local vname_8  "Pipeline Guards & Edge Cases"
-local vfile_9  "crossval_msm_vs_all.do"
-local vname_9  "Cross-Language (Stata vs R vs Python vs teffects)"
-local vfile_10 "validate_mathematical.do"
-local vname_10 "Mathematical Verification (weights, SMD, E-value, ESS)"
-local vfile_11 "validate_stress.do"
-local vname_11 "Stress & Boundary Testing"
-
 * --- Run functional tests ---
 if `do_tests' {
-    forvalues t = 1/3 {
-        display "Running Test `t': `tname_`t''..."
-        timer on 1`t'
-        do "`qa_dir'/`tfile_`t''"
-        timer off 1`t'
-        display ""
-    }
+    display "Running test_msm.do..."
+    timer on 1
+    do "`qa_dir'/test_msm.do"
+    timer off 1
+    display ""
 }
 
-* --- Run selected validations ---
+* --- Run validation suites ---
 if `do_validations' {
-    if "`run_list'" == "" | "`run_list'" == "validations" {
-        numlist "1/11"
-        local vrun_list "`r(numlist)'"
-    }
-    else {
-        local vrun_list "`run_list'"
-    }
-
-    foreach v of local vrun_list {
-        if "`vfile_`v''" != "" {
-            display "Running Validation `v': `vname_`v''..."
-            timer on `v'
-            do "`qa_dir'/`vfile_`v''"
-            timer off `v'
-            display ""
-        }
-        else {
-            display as error "Unknown validation number: `v'"
-        }
-    }
+    display "Running validate_msm.do..."
+    timer on 2
+    do "`qa_dir'/validate_msm.do"
+    timer off 2
+    display ""
 }
 
 timer off 99

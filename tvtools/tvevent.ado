@@ -551,7 +551,8 @@ program define tvevent, rclass
         * intervals data is still in memory
 
         * Use regular variable names (not tempvars) for values that must persist across file saves
-        gen double _orig_dur = `stopvar' - `startvar' + 1
+        * Duration under (start, stop] convention = stop - start
+        gen double _orig_dur = `stopvar' - `startvar'
         gen long _orig_interval_id = _n
         if `n_splits' > 0 {
             noisily di as txt "Splitting intervals for `n_splits' internal events..."
@@ -599,7 +600,7 @@ program define tvevent, rclass
             * Go back to get one row per original interval with all its data
             use `intervals', clear
             gen long _orig_interval_id = _n
-            gen double _orig_dur = `stopvar' - `startvar' + 1
+            gen double _orig_dur = `stopvar' - `startvar'
 
             * Merge in split dates
             merge 1:1 _orig_interval_id using `split_dates', keep(match) nogen
@@ -675,7 +676,7 @@ program define tvevent, rclass
         * Adjust Continuous Variables
         if "`continuous'" != "" {
             tempvar new_dur ratio
-            gen double `new_dur' = `stopvar' - `startvar' + 1
+            gen double `new_dur' = `stopvar' - `startvar'
             gen double `ratio' = cond(_orig_dur == 0 | `new_dur' == 0, 1, `new_dur' / _orig_dur)
             foreach v of local continuous {
                 replace `v' = `v' * `ratio'
@@ -784,7 +785,11 @@ program define tvevent, rclass
             gen double `censor_time' = `stopvar' if `generate' > 0 & _event_rank == 1
             bysort `id': egen double _first_fail = min(`censor_time')
 
-            drop if !missing(_first_fail) & `startvar' > _first_fail
+            * Under (start, stop] convention, post-event intervals have
+            * start >= event_date. Keep the first event row itself (which may
+            * have start == _first_fail for single-day intervals).
+            drop if !missing(_first_fail) & `startvar' >= _first_fail ///
+                & !(`generate' > 0 & _event_rank == 1)
             replace `generate' = 0 if _event_rank > 1
 
             drop _event_rank `censor_time' _first_fail
