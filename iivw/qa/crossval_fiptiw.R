@@ -1,5 +1,5 @@
 #!/usr/bin/env Rscript
-# xval_fiptiw.R - Generate FIPTIW reference weights for cross-validation
+# crossval_fiptiw.R - Generate FIPTIW reference weights for cross-validation
 #
 # Implements the Tompkins et al. (2025) DGP and computes IIW, IPTW, and
 # FIPTIW weights for comparison with the Stata iivw package.

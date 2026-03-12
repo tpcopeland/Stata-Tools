@@ -1,35 +1,35 @@
-* xval_iivw.do - Cross-validation of iivw against R IrregLong and FIPTIW
+clear all
+set more off
+version 16.0
+set varabbrev off
+
+* crossval_iivw.do - Cross-validation of iivw against R IrregLong and FIPTIW
 *
 * Compares iivw_weight output to reference weights computed by:
 *   1. IrregLong (Pullenayegum) - Phenobarb dataset, IIW weights
 *   2. FIPTIW (Tompkins et al.) - Simulated data, FIPTIW weights
 *
-* Prerequisites:
-*   Rscript iivw/qa/xval_irreglong.R
-*   Rscript iivw/qa/xval_fiptiw.R
+* Companion R scripts (run first to generate reference data):
+*   Rscript iivw/qa/crossval_irreglong.R
+*   Rscript iivw/qa/crossval_fiptiw.R
+*
+* Equivalences:
+*   iivw_weight (IIW)   ≈ IrregLong::iiw.weights() (CRAN)
+*   iivw_weight (FIPTIW) ≈ Tompkins et al. (2025) R implementation
 *
 * Usage:
-*   do iivw/qa/xval_iivw.do          Run all tests
-*   do iivw/qa/xval_iivw.do 3        Run only test 3
-
-version 16.0
-set more off
-set varabbrev off
+*   do iivw/qa/crossval_iivw.do          Run all tests
+*   do iivw/qa/crossval_iivw.do 3        Run only test 3
 
 args run_only
 if "`run_only'" == "" local run_only = 0
 
-* --- Load commands ---
-capture program drop iivw
-quietly run iivw/iivw.ado
-capture program drop iivw_weight
-quietly run iivw/iivw_weight.ado
-capture program drop iivw_fit
-quietly run iivw/iivw_fit.ado
-capture program drop _iivw_check_weighted
-quietly run iivw/_iivw_check_weighted.ado
-capture program drop _iivw_get_settings
-quietly run iivw/_iivw_get_settings.ado
+* ============================================================
+* Setup
+* ============================================================
+
+capture ado uninstall iivw
+quietly net install iivw, from("/home/tpcopeland/Stata-Tools/iivw") replace
 
 local test_count = 0
 local pass_count = 0
@@ -39,19 +39,14 @@ local fail_count = 0
 capture confirm file "iivw/qa/phenobarb_prepared.csv"
 if _rc != 0 {
     display as error "Reference data not found. Run R scripts first:"
-    display as error "  Rscript iivw/qa/xval_irreglong.R"
-    display as error "  Rscript iivw/qa/xval_fiptiw.R"
+    display as error "  Rscript iivw/qa/crossval_irreglong.R"
+    display as error "  Rscript iivw/qa/crossval_fiptiw.R"
     exit 601
 }
 
-* #############################################################################
+* ============================================================
 * PART A: IrregLong / Phenobarb Cross-Validation
-* #############################################################################
-
-display as text ""
-display as text "============================================================"
-display as text "PART A: IrregLong Phenobarb Cross-Validation"
-display as text "============================================================"
+* ============================================================
 
 * =============================================================================
 * XV1: Cox model coefficients match IrregLong
@@ -95,6 +90,7 @@ if `run_only' == 0 | `run_only' == 1 {
         display as text "  R coefs:     " %9.6f `r_coef1' "  " %9.6f `r_coef2' "  " %9.6f `r_coef3'
         display as text "  Stata coefs: " %9.6f `s_coef1' "  " %9.6f `s_coef2' "  " %9.6f `s_coef3'
 
+        * Tolerance: 0.001 for cross-implementation Cox coefficients
         assert abs(`s_coef1' - `r_coef1') < 0.001
         assert abs(`s_coef2' - `r_coef2') < 0.001
         assert abs(`s_coef3' - `r_coef3') < 0.001
@@ -158,6 +154,7 @@ if `run_only' == 0 | `run_only' == 2 {
         display as text "  Max weight difference:  " %12.8f `max_diff'
         display as text "  Mean weight difference: " %12.8f `mean_diff'
 
+        * Tolerance: 0.01 for cross-implementation IIW weights
         assert `max_diff' < 0.01
     }
     if _rc == 0 {
@@ -249,7 +246,7 @@ if `run_only' == 0 | `run_only' == 4 {
         local rho = r(rho)
         display as text "  Correlation(iivw, IrregLong): " %6.4f `rho'
 
-        * Weights should be strongly correlated
+        * Tolerance: correlation > 0.9 (both model same visit process)
         assert `rho' > 0.9
     }
     if _rc == 0 {
@@ -262,14 +259,9 @@ if `run_only' == 0 | `run_only' == 4 {
     }
 }
 
-* #############################################################################
+* ============================================================
 * PART B: FIPTIW Simulation Cross-Validation (Tompkins et al. 2025)
-* #############################################################################
-
-display as text ""
-display as text "============================================================"
-display as text "PART B: FIPTIW Simulation Cross-Validation"
-display as text "============================================================"
+* ============================================================
 
 * =============================================================================
 * Helper: load FIPTIW simulated data
@@ -323,7 +315,7 @@ if `run_only' == 0 | `run_only' == 5 {
         display as text "    Mean: " %12.8f `mean_diff'
         display as text "    P99:  " %12.8f `p99_diff'
 
-        * Small diffs from counting-process construction
+        * Tolerance: P99 < 0.05 (small diffs from counting-process construction)
         assert `p99_diff' < 0.05
     }
     if _rc == 0 {
@@ -368,7 +360,7 @@ if `run_only' == 0 | `run_only' == 6 {
         display as text "    Max:  " %12.8f `max_diff'
         display as text "    Mean: " %12.8f `mean_diff'
 
-        * Both fit on cross-sectional data, so weights should match closely
+        * Tolerance: 0.001 (both fit logit on cross-sectional data)
         assert `max_diff' < 0.001
     }
     if _rc == 0 {
@@ -408,6 +400,7 @@ if `run_only' == 0 | `run_only' == 7 {
         display as text "    R:     D=" %8.4f `r_d' "  Wt=" %8.4f `r_wt' "  Z=" %8.4f `r_z'
         display as text "    Stata: D=" %8.4f `s_d' "  Wt=" %8.4f `s_wt' "  Z=" %8.4f `s_z'
 
+        * Tolerance: 0.01 for cross-implementation Cox coefficients
         assert abs(`s_d' - `r_d') < 0.01
         assert abs(`s_wt' - `r_wt') < 0.01
         assert abs(`s_z' - `r_z') < 0.01
@@ -459,7 +452,7 @@ if `run_only' == 0 | `run_only' == 8 {
         display as text "  FIPTIW product property: verified (max diff < 1e-10)"
         display as text "  Correlation(Stata FIPTIW, R FIPTIW): " %6.4f `rho'
 
-        * Should be strongly correlated (same DGP, cross-sectional logit)
+        * Tolerance: correlation > 0.75 (same DGP, cross-sectional logit)
         assert `rho' > 0.75
     }
     if _rc == 0 {
@@ -506,7 +499,7 @@ if `run_only' == 0 | `run_only' == 9 {
         display as text "  Unweighted: " %8.4f `b_unwt' "  (bias = " %6.4f `bias_unwt' ")"
         display as text "  FIPTIW:     " %8.4f `b_fiptiw' "  (bias = " %6.4f `bias_fiptiw' ")"
 
-        * Single simulation — allow wide tolerance
+        * Tolerance: within 1.0 of truth (single simulation, wide tolerance)
         assert abs(`b_fiptiw' - 0.5) < 1.0
     }
     if _rc == 0 {
@@ -519,31 +512,20 @@ if `run_only' == 0 | `run_only' == 9 {
     }
 }
 
-* =============================================================================
-* SUMMARY
-* =============================================================================
-display ""
-display as text "{hline 60}"
-display as result "RESULT: xval_iivw (cross-validation)"
-display as text "  Tests:  `test_count'"
-display as text "  Passed: " as result "`pass_count'"
-display as text "  Failed: " _continue
-if `fail_count' > 0 {
-    display as error "`fail_count'"
-}
-else {
-    display as result "`fail_count'"
-}
+* ============================================================
+* Summary
+* ============================================================
 display as text ""
+display as result "Cross-Validation: `pass_count'/`test_count' passed, `fail_count' failed"
 display as text "  Part A (IrregLong/Phenobarb):  XV1-XV4"
-display as text "  Part B (FIPTIW simulation):     XV5-XV9"
-display as text "{hline 60}"
+display as text "  Part B (FIPTIW simulation):    XV5-XV9"
 
-if `fail_count' == 0 {
-    display as result "RESULT: ALL `pass_count' CROSS-VALIDATION TESTS PASSED"
+if `fail_count' > 0 {
+    display as error "RESULT: `fail_count' CROSS-VALIDATION TESTS FAILED"
+    exit 1
 }
 else {
-    display as error "RESULT: `fail_count' CROSS-VALIDATION TESTS FAILED"
+    display as result "RESULT: ALL `pass_count' CROSS-VALIDATION TESTS PASSED"
 }
 
 clear

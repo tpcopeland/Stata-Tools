@@ -1,28 +1,24 @@
-* validation_iivw.do - Validation tests for iivw package
-* Known-answer tests with hand-crafted data and cross-checks
+clear all
+set more off
+version 16.0
+set varabbrev off
+
+* validation_iivw.do - Correctness validation for iivw package
+* Known-answer tests, hand-crafted data, formula verification, invariants
 *
 * Usage:
 *   do iivw/qa/validation_iivw.do          Run all tests
 *   do iivw/qa/validation_iivw.do 3        Run only test 3
 
-version 16.0
-set more off
-set varabbrev off
-
 args run_only
 if "`run_only'" == "" local run_only = 0
 
-* --- Load commands ---
-capture program drop iivw
-quietly run iivw/iivw.ado
-capture program drop iivw_weight
-quietly run iivw/iivw_weight.ado
-capture program drop iivw_fit
-quietly run iivw/iivw_fit.ado
-capture program drop _iivw_check_weighted
-quietly run iivw/_iivw_check_weighted.ado
-capture program drop _iivw_get_settings
-quietly run iivw/_iivw_get_settings.ado
+* ============================================================
+* Setup
+* ============================================================
+
+capture ado uninstall iivw
+quietly net install iivw, from("/home/tpcopeland/Stata-Tools/iivw") replace
 
 local test_count = 0
 local pass_count = 0
@@ -608,27 +604,212 @@ if `run_only' == 0 | `run_only' == 15 {
 }
 
 * =============================================================================
-* SUMMARY
+* V16: Quadratic timespec creates correct squared values
 * =============================================================================
-display ""
-display as text "{hline 50}"
-display as result "RESULT: validation_iivw"
-display as text "  Tests:  `test_count'"
-display as text "  Passed: " as result "`pass_count'"
-display as text "  Failed: " _continue
-if `fail_count' > 0 {
-    display as error "`fail_count'"
-}
-else {
-    display as result "`fail_count'"
-}
-display as text "{hline 50}"
+local ++test_count
+if `run_only' == 0 | `run_only' == 16 {
+    capture noisily {
+        clear
+        set seed 20260305
+        set obs 60
+        gen long id = ceil(_n / 3)
+        bysort id: gen int visit_n = _n
+        gen double months = (visit_n - 1) * 6
+        gen double severity = rnormal(3, 1)
+        gen double outcome = 50 - 0.1 * months + rnormal(0, 2)
 
-if `fail_count' == 0 {
-    display as result "RESULT: ALL `pass_count' TESTS PASSED"
+        iivw_weight, id(id) time(months) visit_cov(severity) nolog
+        iivw_fit outcome severity, timespec(quadratic) nolog
+
+        confirm variable _iivw_time_sq
+        * Verify values: time_sq should be months^2
+        assert abs(_iivw_time_sq - months^2) < 1e-6
+    }
+    if _rc == 0 {
+        display as result "  PASS: V16 - Quadratic timespec creates correct squared values"
+        local ++pass_count
+    }
+    else {
+        display as error "  FAIL: V16 - quadratic values (error `=_rc')"
+        local ++fail_count
+    }
+}
+
+* =============================================================================
+* V17: ns(1) spline basis is identity (scaled time)
+* =============================================================================
+local ++test_count
+if `run_only' == 0 | `run_only' == 17 {
+    capture noisily {
+        clear
+        set obs 40
+        gen long id = ceil(_n / 4)
+        bysort id: gen int visit_n = _n
+        gen double months = (visit_n - 1) * 3
+        gen double severity = rnormal(3, 1)
+        gen double outcome = rnormal(5, 1)
+
+        iivw_weight, id(id) time(months) visit_cov(severity) nolog
+        iivw_fit outcome severity, timespec(ns(1)) nolog
+
+        * ns(1) = 1 df = just linear in time
+        confirm variable _iivw_tns1
+        * Should be equivalent to time (or a linear function of time)
+        correlate _iivw_tns1 months
+        assert abs(r(rho)) > 0.999
+    }
+    if _rc == 0 {
+        display as result "  PASS: V17 - ns(1) basis is linear function of time"
+        local ++pass_count
+    }
+    else {
+        display as error "  FAIL: V17 - ns(1) basis (error `=_rc')"
+        local ++fail_count
+    }
+}
+
+* =============================================================================
+* V18: Entry option adjusts counting process start time
+* =============================================================================
+local ++test_count
+if `run_only' == 0 | `run_only' == 18 {
+    capture noisily {
+        * Hand-crafted: 3 subjects, entry at different times
+        * Entry should affect the first interval's risk set
+        clear
+        input long id double(months severity entry_t)
+            1 2    2.0  0.5
+            1 6    3.0  0.5
+            1 12   4.0  0.5
+            2 3    1.0  1.0
+            2 8    1.5  1.0
+            2 15   2.0  1.0
+            3 1    5.0  0.0
+            3 5    6.0  0.0
+            3 11   7.0  0.0
+        end
+
+        * With entry: first interval starts at entry_t
+        iivw_weight, id(id) time(months) visit_cov(severity) ///
+            entry(entry_t) nolog
+        local n_entry = r(N)
+
+        * Without entry: first interval starts at 0
+        iivw_weight, id(id) time(months) visit_cov(severity) ///
+            replace nolog
+        local n_noentry = r(N)
+
+        * Both should produce valid weights
+        assert `n_entry' == `n_noentry'
+        assert `n_entry' == 9
+        * First obs still gets weight = 1
+        bysort id (months): assert _iivw_iw == 1 if _n == 1
+    }
+    if _rc == 0 {
+        display as result "  PASS: V18 - Entry option works, first obs weight=1"
+        local ++pass_count
+    }
+    else {
+        display as error "  FAIL: V18 - entry option (error `=_rc')"
+        local ++fail_count
+    }
+}
+
+* =============================================================================
+* V19: Weight sum invariant - unstabilized IIW weights
+* =============================================================================
+* For well-specified models, the mean of unstabilized IIW weights
+* should be close to 1 (not exact, but within reasonable bounds)
+local ++test_count
+if `run_only' == 0 | `run_only' == 19 {
+    capture noisily {
+        clear
+        set seed 20260305
+        set obs 200
+        gen long id = ceil(_n / 5)
+        bysort id: gen int visit_n = _n
+        gen double months = (visit_n - 1) * 6
+        gen double severity = rnormal(3, 0.5)
+
+        iivw_weight, id(id) time(months) visit_cov(severity) nolog
+
+        * Mean weight should be in reasonable range (0.5 to 2.0)
+        assert r(mean_weight) > 0.5 & r(mean_weight) < 2.0
+        * All weights strictly positive
+        quietly count if _iivw_weight <= 0 & !missing(_iivw_weight)
+        assert r(N) == 0
+    }
+    if _rc == 0 {
+        display as result "  PASS: V19 - Weight mean in reasonable range"
+        local ++pass_count
+    }
+    else {
+        display as error "  FAIL: V19 - weight mean bounds (error `=_rc')"
+        local ++fail_count
+    }
+}
+
+* =============================================================================
+* V20: Categorical dummies are mutually exclusive and exhaustive
+* =============================================================================
+local ++test_count
+if `run_only' == 0 | `run_only' == 20 {
+    capture noisily {
+        clear
+        set seed 20260305
+        set obs 60
+        gen long id = ceil(_n / 3)
+        bysort id: gen int visit_n = _n
+        gen double months = (visit_n - 1) * 6
+        gen double severity = rnormal(3, 1)
+        gen double outcome = 50 + rnormal(0, 2)
+        gen byte arm = mod(id, 3)
+        label define arm_lbl 0 "Placebo" 1 "Low dose" 2 "High dose", replace
+        label values arm arm_lbl
+
+        iivw_weight, id(id) time(months) visit_cov(severity) nolog
+        iivw_fit outcome arm, categorical(arm) nolog
+
+        * Base category (0=Placebo) has no dummy
+        * Dummies for levels 1 and 2 should be mutually exclusive
+        * Row sum of dummies should be 0 or 1 (never both 1)
+        gen byte dsum = _iivw_cat_low_dose + _iivw_cat_high_dose
+        assert dsum <= 1
+
+        * For arm==0 (base): both dummies should be 0
+        assert _iivw_cat_low_dose == 0 if arm == 0
+        assert _iivw_cat_high_dose == 0 if arm == 0
+
+        * For arm==1: low_dose=1, high_dose=0
+        assert _iivw_cat_low_dose == 1 if arm == 1
+        assert _iivw_cat_high_dose == 0 if arm == 1
+
+        * For arm==2: low_dose=0, high_dose=1
+        assert _iivw_cat_low_dose == 0 if arm == 2
+        assert _iivw_cat_high_dose == 1 if arm == 2
+    }
+    if _rc == 0 {
+        display as result "  PASS: V20 - Categorical dummies mutually exclusive/exhaustive"
+        local ++pass_count
+    }
+    else {
+        display as error "  FAIL: V20 - categorical exhaustiveness (error `=_rc')"
+        local ++fail_count
+    }
+}
+
+* ============================================================
+* Summary
+* ============================================================
+display as text ""
+display as result "Validation Results: `pass_count'/`test_count' passed, `fail_count' failed"
+
+if `fail_count' > 0 {
+    display as error "RESULT: `fail_count' VALIDATIONS FAILED"
+    exit 1
 }
 else {
-    display as error "RESULT: `fail_count' TESTS FAILED"
+    display as result "RESULT: ALL `pass_count' VALIDATIONS PASSED"
 }
 
 clear

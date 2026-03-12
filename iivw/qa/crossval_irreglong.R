@@ -1,5 +1,5 @@
 #!/usr/bin/env Rscript
-# xval_irreglong.R - Generate IrregLong reference weights for cross-validation
+# crossval_irreglong.R - Generate IrregLong reference weights for cross-validation
 #
 # Replicates the IrregLong Phenobarb vignette and exports:
 #   1. Prepared dataset (phenobarb_prepared.csv)
