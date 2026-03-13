@@ -21,9 +21,6 @@ Comprehensive toolkit for time-varying exposure analysis in survival studies.
   - [tvplot](#tvplot---exposure-visualization) — Exposure visualization
 - **Weighting & Estimation**
   - tvweight — Inverse probability of treatment weights
-  - tvestimate — G-estimation for structural nested models
-- **Special Applications**
-  - tvtrial — Target trial emulation
 - [Quick Start Example](#quick-start-example)
 - [Version](#version)
 
@@ -42,7 +39,7 @@ Comprehensive toolkit for time-varying exposure analysis in survival studies.
 
 ## Package Overview
 
-**tvtools** provides 11 integrated commands for creating, analyzing, and visualizing time-varying exposure data in survival analysis:
+**tvtools** provides 9 integrated commands for creating, analyzing, and visualizing time-varying exposure data in survival analysis:
 
 ### Data Preparation
 1. **tvexpose** - Create time-varying exposure variables from period-based exposure data
@@ -58,10 +55,6 @@ Comprehensive toolkit for time-varying exposure analysis in survival studies.
 
 ### Weighting and Estimation
 9. **tvweight** - Calculate inverse probability of treatment weights (IPTW)
-10. **tvestimate** - G-estimation for structural nested models
-
-### Special Applications
-11. **tvtrial** - Target trial emulation for observational data
 
 ### Typical Workflow
 
@@ -1368,8 +1361,6 @@ MIT License
 | tvbalance | 1.0.2 | 2026-02-26 |
 | tvplot | 1.0.1 | 2026-02-26 |
 | tvweight | 1.0.0 | 2025-12-29 |
-| tvestimate | 1.0.0 | 2025-12-29 |
-| tvtrial | 1.0.0 | 2025-12-29 |
 
 Package Distribution-Date: 20260305
 

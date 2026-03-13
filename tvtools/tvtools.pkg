@@ -53,10 +53,6 @@ f tvbalance.ado
 f tvbalance.sthlp
 f tvweight.ado
 f tvweight.sthlp
-f tvestimate.ado
-f tvestimate.sthlp
-f tvtrial.ado
-f tvtrial.sthlp
 f tvcalendar.ado
 f tvcalendar.sthlp
 f tvtools_menu_setup.do

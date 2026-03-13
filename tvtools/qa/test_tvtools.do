@@ -4,8 +4,8 @@
 * Purpose: Consolidated functional tests for all tvtools commands
 *
 * Commands tested:
-*   tvage, tvbalance, tvcalendar, tvdiagnose, tvestimate, tvevent,
-*   tvexpose, tvmerge, tvplot, tvtools, tvtrial, tvweight
+*   tvage, tvbalance, tvcalendar, tvdiagnose, tvevent,
+*   tvexpose, tvmerge, tvplot, tvtools, tvweight
 *
 * Usage:
 *   cd ~/Stata-Tools/tvtools/qa
@@ -893,477 +893,6 @@ else {
 
 }
 
-
-* =============================================================================
-* SECTION 3: TVESTIMATE - Weighted regression estimation
-* =============================================================================
-* --- From test_tvestimate.do ---
-
-capture noisily {
-* =============================================================================
-* CREATE TEST DATA
-* =============================================================================
-if `quiet' == 0 {
-    display as text _n "Creating test datasets..."
-}
-
-* Simple dataset with known causal effect
-clear
-set seed 12345
-set obs 1000
-
-* Confounders
-gen age = 50 + rnormal(0, 10)
-gen sex = runiform() > 0.5
-gen confounder = rnormal()
-
-* Treatment depends on confounders
-gen pr_treat = invlogit(-1 + 0.02*age + 0.5*sex + 0.3*confounder)
-gen treatment = runiform() < pr_treat
-
-* Outcome with TRUE causal effect = 2
-gen outcome = 50 + 2*treatment + 0.5*age + 1*sex + 2*confounder + rnormal(0, 5)
-
-* Create ID for clustering tests
-gen id = _n
-
-save "${DATA_DIR}/test_gestim.dta", replace
-
-if `quiet' == 0 {
-    display as result "Test data created"
-}
-
-* =============================================================================
-* SECTION 1: BASIC FUNCTIONALITY
-* =============================================================================
-if `quiet' == 0 {
-    display as text _n "{hline 70}"
-    display as text "SECTION 1: Basic Functionality"
-    display as text "{hline 70}"
-}
-
-* -----------------------------------------------------------------------------
-* Test 1.1: Basic G-estimation
-* -----------------------------------------------------------------------------
-local ++test_count
-if `run_only' == 0 | `run_only' == 1 {
-    if `quiet' == 0 {
-        display as text _n "Test 1.1: Basic G-estimation"
-    }
-
-    capture {
-        use "${DATA_DIR}/test_gestim.dta", clear
-        tvestimate outcome treatment, confounders(age sex confounder)
-
-        * Verify results stored
-        assert e(N) == 1000
-        assert e(psi) != .
-        assert e(se_psi) > 0
-    }
-    if _rc == 0 {
-        display as result "  PASS: Basic G-estimation works"
-        local ++pass_count
-    }
-    else {
-        display as error "  FAIL: Basic G-estimation (error `=_rc')"
-        local ++fail_count
-        local failed_tests "`failed_tests' 1.1"
-    }
-}
-
-* -----------------------------------------------------------------------------
-* Test 1.2: Effect estimate near true value
-* -----------------------------------------------------------------------------
-local ++test_count
-if `run_only' == 0 | `run_only' == 2 {
-    if `quiet' == 0 {
-        display as text _n "Test 1.2: Effect estimate near true value (psi=2)"
-    }
-
-    capture {
-        use "${DATA_DIR}/test_gestim.dta", clear
-        tvestimate outcome treatment, confounders(age sex confounder)
-
-        * True effect is 2, estimate should be within 0.5
-        assert abs(e(psi) - 2) < 0.5
-    }
-    if _rc == 0 {
-        display as result "  PASS: Effect estimate reasonable (within 0.5 of true value)"
-        local ++pass_count
-    }
-    else {
-        display as error "  FAIL: Effect estimate off (error `=_rc')"
-        local ++fail_count
-        local failed_tests "`failed_tests' 1.2"
-    }
-}
-
-* =============================================================================
-* SECTION 2: STANDARD ERROR OPTIONS
-* =============================================================================
-if `quiet' == 0 {
-    display as text _n "{hline 70}"
-    display as text "SECTION 2: Standard Error Options"
-    display as text "{hline 70}"
-}
-
-* -----------------------------------------------------------------------------
-* Test 2.1: Robust standard errors
-* -----------------------------------------------------------------------------
-local ++test_count
-if `run_only' == 0 | `run_only' == 3 {
-    if `quiet' == 0 {
-        display as text _n "Test 2.1: Robust standard errors"
-    }
-
-    capture {
-        use "${DATA_DIR}/test_gestim.dta", clear
-        tvestimate outcome treatment, confounders(age sex confounder) robust
-
-        * Verify vcetype is Robust
-        assert "`e(vcetype)'" == "Robust"
-        assert e(se_psi) > 0
-    }
-    if _rc == 0 {
-        display as result "  PASS: Robust SE works"
-        local ++pass_count
-    }
-    else {
-        display as error "  FAIL: Robust SE (error `=_rc')"
-        local ++fail_count
-        local failed_tests "`failed_tests' 2.1"
-    }
-}
-
-* -----------------------------------------------------------------------------
-* Test 2.2: Clustered standard errors
-* -----------------------------------------------------------------------------
-local ++test_count
-if `run_only' == 0 | `run_only' == 4 {
-    if `quiet' == 0 {
-        display as text _n "Test 2.2: Clustered standard errors"
-    }
-
-    capture {
-        use "${DATA_DIR}/test_gestim.dta", clear
-
-        * Create cluster structure (100 clusters of 10)
-        gen cluster_id = ceil(_n / 10)
-
-        tvestimate outcome treatment, confounders(age sex confounder) cluster(cluster_id)
-
-        * Verify vcetype is Clustered
-        assert "`e(vcetype)'" == "Clustered"
-        assert e(se_psi) > 0
-    }
-    if _rc == 0 {
-        display as result "  PASS: Clustered SE works"
-        local ++pass_count
-    }
-    else {
-        display as error "  FAIL: Clustered SE (error `=_rc')"
-        local ++fail_count
-        local failed_tests "`failed_tests' 2.2"
-    }
-}
-
-* -----------------------------------------------------------------------------
-* Test 2.3: Bootstrap standard errors
-* -----------------------------------------------------------------------------
-local ++test_count
-if `run_only' == 0 | `run_only' == 5 {
-    if `quiet' == 0 {
-        display as text _n "Test 2.3: Bootstrap standard errors"
-    }
-
-    capture {
-        use "${DATA_DIR}/test_gestim.dta", clear
-        tvestimate outcome treatment, confounders(age sex confounder) ///
-            bootstrap reps(50) seed(12345)
-
-        * Verify vcetype is Bootstrap
-        assert "`e(vcetype)'" == "Bootstrap"
-        assert e(reps) == 50
-        assert e(se_psi) > 0
-    }
-    if _rc == 0 {
-        display as result "  PASS: Bootstrap SE works"
-        local ++pass_count
-    }
-    else {
-        display as error "  FAIL: Bootstrap SE (error `=_rc')"
-        local ++fail_count
-        local failed_tests "`failed_tests' 2.3"
-    }
-}
-
-* =============================================================================
-* SECTION 3: PROPENSITY SCORE DIAGNOSTICS
-* =============================================================================
-if `quiet' == 0 {
-    display as text _n "{hline 70}"
-    display as text "SECTION 3: Propensity Score Diagnostics"
-    display as text "{hline 70}"
-}
-
-* -----------------------------------------------------------------------------
-* Test 3.1: Propensity score statistics stored
-* -----------------------------------------------------------------------------
-local ++test_count
-if `run_only' == 0 | `run_only' == 6 {
-    if `quiet' == 0 {
-        display as text _n "Test 3.1: Propensity score statistics stored"
-    }
-
-    capture {
-        use "${DATA_DIR}/test_gestim.dta", clear
-        tvestimate outcome treatment, confounders(age sex confounder)
-
-        * Verify PS statistics
-        assert e(ps_mean) > 0 & e(ps_mean) < 1
-        assert e(ps_min) >= 0
-        assert e(ps_max) <= 1
-        assert e(ps_min) <= e(ps_mean)
-        assert e(ps_max) >= e(ps_mean)
-    }
-    if _rc == 0 {
-        display as result "  PASS: PS statistics stored correctly"
-        local ++pass_count
-    }
-    else {
-        display as error "  FAIL: PS statistics (error `=_rc')"
-        local ++fail_count
-        local failed_tests "`failed_tests' 3.1"
-    }
-}
-
-* =============================================================================
-* SECTION 4: INFERENCE
-* =============================================================================
-if `quiet' == 0 {
-    display as text _n "{hline 70}"
-    display as text "SECTION 4: Inference"
-    display as text "{hline 70}"
-}
-
-* -----------------------------------------------------------------------------
-* Test 4.1: Confidence interval
-* -----------------------------------------------------------------------------
-local ++test_count
-if `run_only' == 0 | `run_only' == 7 {
-    if `quiet' == 0 {
-        display as text _n "Test 4.1: Confidence interval contains true value"
-    }
-
-    capture {
-        use "${DATA_DIR}/test_gestim.dta", clear
-        tvestimate outcome treatment, confounders(age sex confounder) level(95)
-
-        * True effect (2) should be in 95% CI
-        assert 2 > e(ci_lo) & 2 < e(ci_hi)
-        assert e(level) == 95
-    }
-    if _rc == 0 {
-        display as result "  PASS: 95% CI contains true value"
-        local ++pass_count
-    }
-    else {
-        display as error "  FAIL: CI test (error `=_rc')"
-        local ++fail_count
-        local failed_tests "`failed_tests' 4.1"
-    }
-}
-
-* -----------------------------------------------------------------------------
-* Test 4.2: Custom confidence level
-* -----------------------------------------------------------------------------
-local ++test_count
-if `run_only' == 0 | `run_only' == 8 {
-    if `quiet' == 0 {
-        display as text _n "Test 4.2: Custom confidence level (90%)"
-    }
-
-    capture {
-        use "${DATA_DIR}/test_gestim.dta", clear
-        tvestimate outcome treatment, confounders(age sex confounder) level(90)
-
-        * Check level is stored correctly
-        assert e(level) == 90
-
-        * 90% CI should be narrower than 95%
-        local ci_width_90 = e(ci_hi) - e(ci_lo)
-
-        tvestimate outcome treatment, confounders(age sex confounder) level(95)
-        local ci_width_95 = e(ci_hi) - e(ci_lo)
-
-        assert `ci_width_90' < `ci_width_95'
-    }
-    if _rc == 0 {
-        display as result "  PASS: Custom confidence level works"
-        local ++pass_count
-    }
-    else {
-        display as error "  FAIL: Custom level (error `=_rc')"
-        local ++fail_count
-        local failed_tests "`failed_tests' 4.2"
-    }
-}
-
-* =============================================================================
-* SECTION 5: ERROR HANDLING
-* =============================================================================
-if `quiet' == 0 {
-    display as text _n "{hline 70}"
-    display as text "SECTION 5: Error Handling"
-    display as text "{hline 70}"
-}
-
-* -----------------------------------------------------------------------------
-* Test 5.1: Non-binary treatment error
-* -----------------------------------------------------------------------------
-local ++test_count
-if `run_only' == 0 | `run_only' == 9 {
-    if `quiet' == 0 {
-        display as text _n "Test 5.1: Non-binary treatment error"
-    }
-
-    capture {
-        use "${DATA_DIR}/test_gestim.dta", clear
-        gen multi_treat = ceil(runiform() * 3)  // Values 1, 2, 3
-
-        tvestimate outcome multi_treat, confounders(age sex)
-    }
-    if _rc != 0 {
-        display as result "  PASS: Correctly errors on non-binary treatment"
-        local ++pass_count
-    }
-    else {
-        display as error "  FAIL: Should error on non-binary treatment"
-        local ++fail_count
-        local failed_tests "`failed_tests' 5.1"
-    }
-}
-
-* -----------------------------------------------------------------------------
-* Test 5.2: Invalid model type error
-* -----------------------------------------------------------------------------
-local ++test_count
-if `run_only' == 0 | `run_only' == 10 {
-    if `quiet' == 0 {
-        display as text _n "Test 5.2: Invalid model type error"
-    }
-
-    capture {
-        use "${DATA_DIR}/test_gestim.dta", clear
-        tvestimate outcome treatment, confounders(age sex) model(invalid)
-    }
-    if _rc != 0 {
-        display as result "  PASS: Correctly errors on invalid model type"
-        local ++pass_count
-    }
-    else {
-        display as error "  FAIL: Should error on invalid model"
-        local ++fail_count
-        local failed_tests "`failed_tests' 5.2"
-    }
-}
-
-* -----------------------------------------------------------------------------
-* Test 5.3: Missing confounders error
-* -----------------------------------------------------------------------------
-local ++test_count
-if `run_only' == 0 | `run_only' == 11 {
-    if `quiet' == 0 {
-        display as text _n "Test 5.3: Missing confounders error"
-    }
-
-    capture {
-        use "${DATA_DIR}/test_gestim.dta", clear
-        tvestimate outcome treatment
-    }
-    if _rc != 0 {
-        display as result "  PASS: Correctly errors on missing confounders"
-        local ++pass_count
-    }
-    else {
-        display as error "  FAIL: Should error on missing confounders"
-        local ++fail_count
-        local failed_tests "`failed_tests' 5.3"
-    }
-}
-
-* =============================================================================
-* SECTION 6: IF/IN CONDITIONS
-* =============================================================================
-if `quiet' == 0 {
-    display as text _n "{hline 70}"
-    display as text "SECTION 6: If/In Conditions"
-    display as text "{hline 70}"
-}
-
-* -----------------------------------------------------------------------------
-* Test 6.1: If condition
-* -----------------------------------------------------------------------------
-local ++test_count
-if `run_only' == 0 | `run_only' == 12 {
-    if `quiet' == 0 {
-        display as text _n "Test 6.1: If condition"
-    }
-
-    capture {
-        use "${DATA_DIR}/test_gestim.dta", clear
-        tvestimate outcome treatment if age > 50, confounders(sex confounder)
-
-        * Should use subset
-        assert e(N) < 1000
-    }
-    if _rc == 0 {
-        display as result "  PASS: If condition works"
-        local ++pass_count
-    }
-    else {
-        display as error "  FAIL: If condition (error `=_rc')"
-        local ++fail_count
-        local failed_tests "`failed_tests' 6.1"
-    }
-}
-
-* -----------------------------------------------------------------------------
-* Test 6.2: In condition
-* -----------------------------------------------------------------------------
-local ++test_count
-if `run_only' == 0 | `run_only' == 13 {
-    if `quiet' == 0 {
-        display as text _n "Test 6.2: In condition"
-    }
-
-    capture {
-        use "${DATA_DIR}/test_gestim.dta", clear
-        tvestimate outcome treatment in 1/500, confounders(age sex confounder)
-
-        * Should use first 500 obs
-        assert e(N) == 500
-    }
-    if _rc == 0 {
-        display as result "  PASS: In condition works"
-        local ++pass_count
-    }
-    else {
-        display as error "  FAIL: In condition (error `=_rc')"
-        local ++fail_count
-        local failed_tests "`failed_tests' 6.2"
-    }
-}
-
-* =============================================================================
-* CLEANUP
-* =============================================================================
-capture erase "${DATA_DIR}/test_gestim.dta"
-
-* =============================================================================
-* SUMMARY
-
-}
 
 
 * =============================================================================
@@ -8103,450 +7632,6 @@ capture erase "`ds_b17'.dta"
 }
 
 
-* =============================================================================
-* SECTION 7: TVTRIAL - Trial emulation cloning and censoring
-* =============================================================================
-* --- From test_tvtrial.do ---
-
-capture noisily {
-* =============================================================================
-* CREATE TEST DATA
-* =============================================================================
-if `quiet' == 0 {
-    display as text _n "Creating test datasets..."
-}
-
-clear
-set seed 12345
-set obs 500
-
-* Generate cohort
-gen id = _n
-gen study_entry = mdy(1, 1, 2020) + floor(runiform() * 60)
-gen study_exit = study_entry + 365 + floor(runiform() * 180)
-format %td study_entry study_exit
-
-* Treatment initiation (~40% treated)
-gen rx_start = .
-replace rx_start = study_entry + floor(runiform() * 200) if runiform() < 0.4
-format %td rx_start
-
-* Outcome
-gen outcome = .
-replace outcome = study_entry + floor(runiform() * (study_exit - study_entry)) if runiform() < 0.2
-format %td outcome
-
-save "${DATA_DIR}/test_trial.dta", replace
-
-if `quiet' == 0 {
-    display as result "Test data created"
-}
-
-* =============================================================================
-* SECTION 1: BASIC FUNCTIONALITY
-* =============================================================================
-if `quiet' == 0 {
-    display as text _n "{hline 70}"
-    display as text "SECTION 1: Basic Functionality"
-    display as text "{hline 70}"
-}
-
-* -----------------------------------------------------------------------------
-* Test 1.1: Basic target trial emulation
-* -----------------------------------------------------------------------------
-local ++test_count
-if `run_only' == 0 | `run_only' == 1 {
-    if `quiet' == 0 {
-        display as text _n "Test 1.1: Basic target trial emulation"
-    }
-
-    capture {
-        use "${DATA_DIR}/test_trial.dta", clear
-        tvtrial, id(id) entry(study_entry) exit(study_exit) treatstart(rx_start)
-
-        * Verify variables created
-        confirm variable trial_trial
-        confirm variable trial_arm
-        confirm variable trial_fu_time
-
-        * Check results stored
-        assert r(n_orig) == 500
-        assert r(n_persontrials) > 0
-    }
-    if _rc == 0 {
-        display as result "  PASS: Basic target trial emulation works"
-        local ++pass_count
-    }
-    else {
-        display as error "  FAIL: Basic target trial emulation (error `=_rc')"
-        local ++fail_count
-        local failed_tests "`failed_tests' 1.1"
-    }
-}
-
-* -----------------------------------------------------------------------------
-* Test 1.2: Custom trial parameters
-* -----------------------------------------------------------------------------
-local ++test_count
-if `run_only' == 0 | `run_only' == 2 {
-    if `quiet' == 0 {
-        display as text _n "Test 1.2: Custom trial parameters"
-    }
-
-    capture {
-        use "${DATA_DIR}/test_trial.dta", clear
-        tvtrial, id(id) entry(study_entry) exit(study_exit) treatstart(rx_start) ///
-            trials(6) trialinterval(60)
-
-        * Should have 6 trials
-        quietly levelsof trial_trial
-        assert r(r) <= 6
-    }
-    if _rc == 0 {
-        display as result "  PASS: Custom trial parameters work"
-        local ++pass_count
-    }
-    else {
-        display as error "  FAIL: Custom parameters (error `=_rc')"
-        local ++fail_count
-        local failed_tests "`failed_tests' 1.2"
-    }
-}
-
-* =============================================================================
-* SECTION 2: CLONE APPROACH
-* =============================================================================
-if `quiet' == 0 {
-    display as text _n "{hline 70}"
-    display as text "SECTION 2: Clone Approach"
-    display as text "{hline 70}"
-}
-
-* -----------------------------------------------------------------------------
-* Test 2.1: Clone option creates duplicates
-* -----------------------------------------------------------------------------
-local ++test_count
-if `run_only' == 0 | `run_only' == 3 {
-    if `quiet' == 0 {
-        display as text _n "Test 2.1: Clone option creates duplicates"
-    }
-
-    capture {
-        use "${DATA_DIR}/test_trial.dta", clear
-
-        * Without clone
-        tvtrial, id(id) entry(study_entry) exit(study_exit) treatstart(rx_start) trials(3)
-        local n_noclone = _N
-
-        * With clone
-        use "${DATA_DIR}/test_trial.dta", clear
-        tvtrial, id(id) entry(study_entry) exit(study_exit) treatstart(rx_start) trials(3) clone
-        local n_clone = _N
-
-        * Clone should have more obs (roughly 2x)
-        assert `n_clone' > `n_noclone'
-    }
-    if _rc == 0 {
-        display as result "  PASS: Clone creates more observations"
-        local ++pass_count
-    }
-    else {
-        display as error "  FAIL: Clone option (error `=_rc')"
-        local ++fail_count
-        local failed_tests "`failed_tests' 2.1"
-    }
-}
-
-* -----------------------------------------------------------------------------
-* Test 2.2: Clone creates both arms for each eligible
-* -----------------------------------------------------------------------------
-local ++test_count
-if `run_only' == 0 | `run_only' == 4 {
-    if `quiet' == 0 {
-        display as text _n "Test 2.2: Clone creates both treatment arms"
-    }
-
-    capture {
-        use "${DATA_DIR}/test_trial.dta", clear
-        tvtrial, id(id) entry(study_entry) exit(study_exit) treatstart(rx_start) ///
-            trials(3) clone
-
-        * Both arms should exist
-        count if trial_arm == 1
-        assert r(N) > 0
-        count if trial_arm == 0
-        assert r(N) > 0
-    }
-    if _rc == 0 {
-        display as result "  PASS: Both treatment arms created"
-        local ++pass_count
-    }
-    else {
-        display as error "  FAIL: Treatment arms (error `=_rc')"
-        local ++fail_count
-        local failed_tests "`failed_tests' 2.2"
-    }
-}
-
-* -----------------------------------------------------------------------------
-* Test 2.3: Censoring indicator created
-* -----------------------------------------------------------------------------
-local ++test_count
-if `run_only' == 0 | `run_only' == 5 {
-    if `quiet' == 0 {
-        display as text _n "Test 2.3: Censoring indicator created"
-    }
-
-    capture {
-        use "${DATA_DIR}/test_trial.dta", clear
-        tvtrial, id(id) entry(study_entry) exit(study_exit) treatstart(rx_start) ///
-            trials(3) clone graceperiod(30)
-
-        * Censoring variable should exist
-        confirm variable trial_censored
-
-        * Some should be censored, some not
-        count if trial_censored == 1
-        local n_cens = r(N)
-        count if trial_censored == 0
-        local n_uncens = r(N)
-
-        assert `n_cens' > 0 | `n_uncens' > 0
-    }
-    if _rc == 0 {
-        display as result "  PASS: Censoring indicator created"
-        local ++pass_count
-    }
-    else {
-        display as error "  FAIL: Censoring indicator (error `=_rc')"
-        local ++fail_count
-        local failed_tests "`failed_tests' 2.3"
-    }
-}
-
-* =============================================================================
-* SECTION 3: GRACE PERIOD
-* =============================================================================
-if `quiet' == 0 {
-    display as text _n "{hline 70}"
-    display as text "SECTION 3: Grace Period"
-    display as text "{hline 70}"
-}
-
-* -----------------------------------------------------------------------------
-* Test 3.1: Grace period affects arm assignment
-* -----------------------------------------------------------------------------
-local ++test_count
-if `run_only' == 0 | `run_only' == 6 {
-    if `quiet' == 0 {
-        display as text _n "Test 3.1: Grace period affects arm assignment"
-    }
-
-    capture {
-        use "${DATA_DIR}/test_trial.dta", clear
-
-        * No grace period - only exact start dates count
-        tvtrial, id(id) entry(study_entry) exit(study_exit) treatstart(rx_start) ///
-            trials(3) graceperiod(0)
-        count if trial_arm == 1
-        local n_treat_0 = r(N)
-
-        * 90-day grace period - more should be treated
-        use "${DATA_DIR}/test_trial.dta", clear
-        tvtrial, id(id) entry(study_entry) exit(study_exit) treatstart(rx_start) ///
-            trials(3) graceperiod(90)
-        count if trial_arm == 1
-        local n_treat_90 = r(N)
-
-        * More should be in treatment arm with longer grace period
-        assert `n_treat_90' >= `n_treat_0'
-    }
-    if _rc == 0 {
-        display as result "  PASS: Grace period affects arm assignment"
-        local ++pass_count
-    }
-    else {
-        display as error "  FAIL: Grace period (error `=_rc')"
-        local ++fail_count
-        local failed_tests "`failed_tests' 3.1"
-    }
-}
-
-* =============================================================================
-* SECTION 4: IPCW OPTION
-* =============================================================================
-if `quiet' == 0 {
-    display as text _n "{hline 70}"
-    display as text "SECTION 4: IPCW Option"
-    display as text "{hline 70}"
-}
-
-* -----------------------------------------------------------------------------
-* Test 4.1: IPCW creates weight variable
-* -----------------------------------------------------------------------------
-local ++test_count
-if `run_only' == 0 | `run_only' == 7 {
-    if `quiet' == 0 {
-        display as text _n "Test 4.1: IPCW creates weight variable"
-    }
-
-    capture {
-        use "${DATA_DIR}/test_trial.dta", clear
-        tvtrial, id(id) entry(study_entry) exit(study_exit) treatstart(rx_start) ///
-            clone ipcweight graceperiod(30)
-
-        * Weight variable should exist
-        confirm variable trial_ipcw
-
-        * Weights should be positive for uncensored
-        count if trial_ipcw > 0 & trial_censored == 0
-        assert r(N) > 0
-    }
-    if _rc == 0 {
-        display as result "  PASS: IPCW creates weight variable"
-        local ++pass_count
-    }
-    else {
-        display as error "  FAIL: IPCW option (error `=_rc')"
-        local ++fail_count
-        local failed_tests "`failed_tests' 4.1"
-    }
-}
-
-* =============================================================================
-* SECTION 5: FOLLOW-UP TIME
-* =============================================================================
-if `quiet' == 0 {
-    display as text _n "{hline 70}"
-    display as text "SECTION 5: Follow-up Time"
-    display as text "{hline 70}"
-}
-
-* -----------------------------------------------------------------------------
-* Test 5.1: Max follow-up limits follow-up time
-* -----------------------------------------------------------------------------
-local ++test_count
-if `run_only' == 0 | `run_only' == 8 {
-    if `quiet' == 0 {
-        display as text _n "Test 5.1: Max follow-up limits follow-up time"
-    }
-
-    capture {
-        use "${DATA_DIR}/test_trial.dta", clear
-        tvtrial, id(id) entry(study_entry) exit(study_exit) treatstart(rx_start) ///
-            maxfollowup(180)
-
-        * Follow-up should be <= 180 days
-        summarize trial_fu_time
-        assert r(max) <= 180
-    }
-    if _rc == 0 {
-        display as result "  PASS: Max follow-up limits correctly"
-        local ++pass_count
-    }
-    else {
-        display as error "  FAIL: Max follow-up (error `=_rc')"
-        local ++fail_count
-        local failed_tests "`failed_tests' 5.1"
-    }
-}
-
-* -----------------------------------------------------------------------------
-* Test 5.2: Follow-up time is positive
-* -----------------------------------------------------------------------------
-local ++test_count
-if `run_only' == 0 | `run_only' == 9 {
-    if `quiet' == 0 {
-        display as text _n "Test 5.2: Follow-up time is positive"
-    }
-
-    capture {
-        use "${DATA_DIR}/test_trial.dta", clear
-        tvtrial, id(id) entry(study_entry) exit(study_exit) treatstart(rx_start)
-
-        * Follow-up should be >= 0
-        count if trial_fu_time < 0
-        assert r(N) == 0
-    }
-    if _rc == 0 {
-        display as result "  PASS: Follow-up time is non-negative"
-        local ++pass_count
-    }
-    else {
-        display as error "  FAIL: Follow-up time (error `=_rc')"
-        local ++fail_count
-        local failed_tests "`failed_tests' 5.2"
-    }
-}
-
-* =============================================================================
-* SECTION 6: ERROR HANDLING
-* =============================================================================
-if `quiet' == 0 {
-    display as text _n "{hline 70}"
-    display as text "SECTION 6: Error Handling"
-    display as text "{hline 70}"
-}
-
-* -----------------------------------------------------------------------------
-* Test 6.1: Missing required variable
-* -----------------------------------------------------------------------------
-local ++test_count
-if `run_only' == 0 | `run_only' == 10 {
-    if `quiet' == 0 {
-        display as text _n "Test 6.1: Missing required variable error"
-    }
-
-    capture {
-        use "${DATA_DIR}/test_trial.dta", clear
-        tvtrial, id(id) entry(study_entry) exit(study_exit) treatstart(nonexistent)
-    }
-    if _rc != 0 {
-        display as result "  PASS: Correctly errors on missing variable"
-        local ++pass_count
-    }
-    else {
-        display as error "  FAIL: Should error on missing variable"
-        local ++fail_count
-        local failed_tests "`failed_tests' 6.1"
-    }
-}
-
-* -----------------------------------------------------------------------------
-* Test 6.2: Negative grace period error
-* -----------------------------------------------------------------------------
-local ++test_count
-if `run_only' == 0 | `run_only' == 11 {
-    if `quiet' == 0 {
-        display as text _n "Test 6.2: Negative grace period error"
-    }
-
-    capture {
-        use "${DATA_DIR}/test_trial.dta", clear
-        tvtrial, id(id) entry(study_entry) exit(study_exit) treatstart(rx_start) ///
-            graceperiod(-10)
-    }
-    if _rc != 0 {
-        display as result "  PASS: Correctly errors on negative grace period"
-        local ++pass_count
-    }
-    else {
-        display as error "  FAIL: Should error on negative grace period"
-        local ++fail_count
-        local failed_tests "`failed_tests' 6.2"
-    }
-}
-
-* =============================================================================
-* CLEANUP
-* =============================================================================
-capture erase "${DATA_DIR}/test_trial.dta"
-
-* =============================================================================
-* SUMMARY
-
-}
-
 
 * =============================================================================
 * SECTION 8: TVWEIGHT - IPTW weight calculation
@@ -9669,241 +8754,6 @@ else {
 
 
 * =============================================================================
-* SECTION 4: TVTRIAL (was 33% coverage)
-* =============================================================================
-
-* --- Create trial test data ---
-clear
-set seed 54321
-set obs 100
-gen long id = _n
-gen double study_entry = 21915 + floor(30*runiform())  // within 30 days of base
-gen double study_exit = study_entry + 365 + floor(180*runiform())  // 1-1.5 years
-* Half get treatment at various times
-gen double rx_start = study_entry + 30 + floor(120*runiform()) if runiform() > 0.5
-format %td study_entry study_exit rx_start
-* Create eligibility window narrower than study period
-gen double elig_start = study_entry + 10
-gen double elig_end = study_entry + 180
-format %td elig_start elig_end
-save "`DATA_DIR'/_gold_tvtrial.dta", replace
-
-* Test 4.1: tvtrial with eligstart/eligend
-local ++test_count
-capture {
-    use "`DATA_DIR'/_gold_tvtrial.dta", clear
-    tvtrial, id(id) entry(study_entry) exit(study_exit) ///
-        treatstart(rx_start) eligstart(elig_start) eligend(elig_end)
-
-    * Should create trial variables
-    confirm variable trial_trial
-    confirm variable trial_arm
-    confirm variable trial_fu_time
-
-    * All follow-up times should be positive
-    assert trial_fu_time >= 0 if !missing(trial_fu_time)
-}
-if _rc == 0 {
-    display as result "  PASS: tvtrial eligstart/eligend"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: tvtrial eligstart/eligend (error `=_rc')"
-    local ++fail_count
-}
-
-* Test 4.2: tvtrial graceperiod
-local ++test_count
-capture {
-    use "`DATA_DIR'/_gold_tvtrial.dta", clear
-    tvtrial, id(id) entry(study_entry) exit(study_exit) ///
-        treatstart(rx_start) graceperiod(30)
-
-    * With grace period, some persons who start treatment within 30 days
-    * should be in treatment arm
-    confirm variable trial_arm
-    quietly count if trial_arm == 1
-    assert r(N) > 0
-
-    assert r(n_persontrials) > 0
-}
-if _rc == 0 {
-    display as result "  PASS: tvtrial graceperiod()"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: tvtrial graceperiod() (error `=_rc')"
-    local ++fail_count
-}
-
-* Test 4.3: tvtrial maxfollowup
-local ++test_count
-capture {
-    use "`DATA_DIR'/_gold_tvtrial.dta", clear
-    tvtrial, id(id) entry(study_entry) exit(study_exit) ///
-        treatstart(rx_start) maxfollowup(90)
-
-    * All follow-up should be capped at 90 days
-    assert trial_fu_time <= 90 if !missing(trial_fu_time)
-}
-if _rc == 0 {
-    display as result "  PASS: tvtrial maxfollowup() caps follow-up"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: tvtrial maxfollowup() caps follow-up (error `=_rc')"
-    local ++fail_count
-}
-
-* Test 4.4: tvtrial trials() and trialinterval()
-local ++test_count
-capture {
-    use "`DATA_DIR'/_gold_tvtrial.dta", clear
-    tvtrial, id(id) entry(study_entry) exit(study_exit) ///
-        treatstart(rx_start) trials(6) trialinterval(30)
-
-    assert r(n_trials) <= 6
-    assert r(n_trials) > 0
-
-    * Trial numbers should be 1 to at most 6
-    quietly sum trial_trial
-    assert r(max) <= 6
-}
-if _rc == 0 {
-    display as result "  PASS: tvtrial trials() + trialinterval()"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: tvtrial trials() + trialinterval() (error `=_rc')"
-    local ++fail_count
-}
-
-* Test 4.5: tvtrial generate() custom prefix
-local ++test_count
-capture {
-    use "`DATA_DIR'/_gold_tvtrial.dta", clear
-    tvtrial, id(id) entry(study_entry) exit(study_exit) ///
-        treatstart(rx_start) generate(tt_) trials(3)
-
-    * Should use custom prefix
-    confirm variable tt_trial
-    confirm variable tt_arm
-    confirm variable tt_fu_time
-    confirm variable tt_censored
-
-    * Default prefix should not exist
-    capture confirm variable trial_trial
-    assert _rc != 0
-}
-if _rc == 0 {
-    display as result "  PASS: tvtrial generate() custom prefix"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: tvtrial generate() custom prefix (error `=_rc')"
-    local ++fail_count
-}
-
-* Test 4.6: tvtrial clone + ipcweight
-local ++test_count
-capture {
-    use "`DATA_DIR'/_gold_tvtrial.dta", clear
-    tvtrial, id(id) entry(study_entry) exit(study_exit) ///
-        treatstart(rx_start) clone ipcweight trials(3)
-
-    * Should have IPCW variable
-    confirm variable trial_ipcw
-
-    * IPCW should be non-negative
-    assert trial_ipcw >= 0 if !missing(trial_ipcw)
-
-    * With clone, both arms should exist for each trial
-    assert r(n_treat) > 0
-    assert r(n_control) > 0
-}
-if _rc == 0 {
-    display as result "  PASS: tvtrial clone + ipcweight"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: tvtrial clone + ipcweight (error `=_rc')"
-    local ++fail_count
-}
-
-* Test 4.7: tvtrial r() return values comprehensive
-local ++test_count
-capture {
-    use "`DATA_DIR'/_gold_tvtrial.dta", clear
-    tvtrial, id(id) entry(study_entry) exit(study_exit) ///
-        treatstart(rx_start) trials(4)
-
-    assert r(n_orig) == 100
-    assert r(n_ids) == 100
-    assert r(n_trials) > 0
-    assert r(n_eligible) > 0
-    assert r(n_persontrials) > 0
-    assert r(n_treat) >= 0
-    assert r(n_control) >= 0
-    assert r(mean_fu) > 0
-    assert r(total_fu) > 0
-    assert "`r(id)'" == "id"
-    assert "`r(entry)'" == "study_entry"
-    assert "`r(exit)'" == "study_exit"
-    assert "`r(treatstart)'" == "rx_start"
-    assert "`r(prefix)'" == "trial_"
-}
-if _rc == 0 {
-    display as result "  PASS: tvtrial r() return values comprehensive"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: tvtrial r() return values comprehensive (error `=_rc')"
-    local ++fail_count
-}
-
-* Test 4.8: tvtrial error - negative graceperiod
-local ++test_count
-capture {
-    use "`DATA_DIR'/_gold_tvtrial.dta", clear
-    capture noisily tvtrial, id(id) entry(study_entry) exit(study_exit) ///
-        treatstart(rx_start) graceperiod(-1)
-    assert _rc == 198
-}
-if _rc == 0 {
-    display as result "  PASS: tvtrial error on negative graceperiod"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: tvtrial error on negative graceperiod (error `=_rc')"
-    local ++fail_count
-}
-
-* Test 4.9: tvtrial eligstart + eligend + maxfollowup + graceperiod (combo)
-local ++test_count
-capture {
-    use "`DATA_DIR'/_gold_tvtrial.dta", clear
-    tvtrial, id(id) entry(study_entry) exit(study_exit) ///
-        treatstart(rx_start) eligstart(elig_start) eligend(elig_end) ///
-        graceperiod(14) maxfollowup(60) clone trials(4)
-
-    * Follow-up capped at 60
-    assert trial_fu_time <= 60 if !missing(trial_fu_time)
-
-    * Clone creates treatment and control arms
-    assert r(n_treat) > 0
-    assert r(n_control) > 0
-}
-if _rc == 0 {
-    display as result "  PASS: tvtrial full option combination"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: tvtrial full option combination (error `=_rc')"
-    local ++fail_count
-}
-
-
-* =============================================================================
 * SECTION 5: TVDIAGNOSE (threshold gap)
 * =============================================================================
 
@@ -10525,23 +9375,6 @@ else {
     local ++fail_count
 }
 
-* Test 10.6: tvtrial error - trialinterval(0)
-local ++test_count
-capture {
-    use "`DATA_DIR'/_gold_tvtrial.dta", clear
-    capture noisily tvtrial, id(id) entry(study_entry) exit(study_exit) ///
-        treatstart(rx_start) trialinterval(0)
-    assert _rc == 198
-}
-if _rc == 0 {
-    display as result "  PASS: tvtrial error on trialinterval(0)"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: tvtrial error on trialinterval(0) (error `=_rc')"
-    local ++fail_count
-}
-
 * Test 10.7: tvweight error - invalid model
 local ++test_count
 capture {
@@ -10587,7 +9420,7 @@ else {
 
 * Remove temporary test datasets
 foreach f in _gold_tvcal_master _gold_tvcal_point _gold_tvcal_periods ///
-    _gold_tvbal _gold_tvtrial _gold_tvexp_cohort _gold_tvexp_rx ///
+    _gold_tvbal _gold_tvexp_cohort _gold_tvexp_rx ///
     _gold_merge_ds1 _gold_merge_ds2 _gold_pipeline_cohort _gold_pipeline_rx {
     capture erase "`DATA_DIR'/`f'.dta"
 }
@@ -12389,35 +11222,6 @@ else {
 }
 
 // =========================================================================
-// TEST #6: tvtrial dead code removed
-// =========================================================================
-local n_tests = `n_tests' + 1
-display as text _newline "{bf:Test #5: tvtrial runs without dead code}"
-
-// Create simple trial data
-preserve
-clear
-set obs 100
-gen int id = _n
-gen double study_entry = mdy(1, 1, 2020)
-gen double study_exit = mdy(12, 31, 2021)
-format study_entry study_exit %td
-gen double rx_start = study_entry + int(runiform() * 365) if runiform() > 0.5
-format rx_start %td
-
-capture noisily tvtrial, id(id) entry(study_entry) exit(study_exit) ///
-    treatstart(rx_start) trials(3) trialinterval(90)
-if _rc == 0 {
-    display as result "  PASSED - tvtrial runs correctly after dead code removal"
-    local n_passed = `n_passed' + 1
-}
-else {
-    display as error "  FAILED - tvtrial errored: _rc = `=_rc'"
-    local n_failed = `n_failed' + 1
-}
-restore
-
-// =========================================================================
 // SUMMARY
 // =========================================================================
 
@@ -13230,132 +12034,6 @@ else {
 
 
 * =========================================================================
-* 17E: TVESTIMATE - Error Handling (4) + Return Values (10)
-* =========================================================================
-
-* E.est.1: No observations (exit 2000)
-local ++test_count
-capture {
-    clear
-    set obs 10
-    gen y = rnormal()
-    gen treat = (_n > 5)
-    gen age = 50 + rnormal()
-    gen byte keep = 0
-    capture noisily tvestimate y treat if keep == 1, confounders(age)
-    assert _rc == 2000
-}
-if _rc == 0 {
-    display as result "  PASS: tvestimate error - no observations"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: tvestimate error - no observations (error `=_rc')"
-    local ++fail_count
-}
-
-* E.est.2: Treatment coded 1/2 instead of 0/1 (exit 198)
-local ++test_count
-capture {
-    clear
-    set obs 100
-    set seed 555
-    gen y = rnormal()
-    gen treat = 1 + (_n > 50)
-    gen age = 50 + rnormal()
-    capture noisily tvestimate y treat, confounders(age)
-    assert _rc == 198
-}
-if _rc == 0 {
-    display as result "  PASS: tvestimate error - treatment not 0/1"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: tvestimate error - treatment not 0/1 (error `=_rc')"
-    local ++fail_count
-}
-
-* E.est.3: snftm not implemented (exit 198)
-local ++test_count
-capture {
-    clear
-    set obs 100
-    set seed 555
-    gen y = rnormal()
-    gen treat = (_n > 50)
-    gen age = 50 + rnormal()
-    capture noisily tvestimate y treat, confounders(age) model(snftm)
-    assert _rc == 198
-}
-if _rc == 0 {
-    display as result "  PASS: tvestimate error - snftm not implemented"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: tvestimate error - snftm not implemented (error `=_rc')"
-    local ++fail_count
-}
-
-* E.est.4: Invalid level (exit 198)
-local ++test_count
-capture {
-    clear
-    set obs 100
-    set seed 555
-    gen y = rnormal()
-    gen treat = (_n > 50)
-    gen age = 50 + rnormal()
-    capture noisily tvestimate y treat, confounders(age) level(5)
-    assert _rc == 198
-}
-if _rc == 0 {
-    display as result "  PASS: tvestimate error - invalid level(5)"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: tvestimate error - invalid level (error `=_rc')"
-    local ++fail_count
-}
-
-* R.est.1-10: Untested e() return values
-local ++test_count
-capture {
-    clear
-    set obs 500
-    set seed 12340
-    gen double age = 50 + 10*rnormal()
-    gen byte treat = (runiform() < invlogit(-1 + 0.03*age))
-    gen double y = 5 + 2*treat + 0.1*age + rnormal()
-    quietly tvestimate y treat, confounders(age)
-    * Previously untested scalars
-    assert !missing(e(z))
-    assert !missing(e(p))
-    assert (e(p) >= 0) & (e(p) <= 1)
-    * Previously untested macros
-    assert "`e(cmd)'" == "tvestimate"
-    assert "`e(depvar)'" == "y"
-    assert strtrim("`e(treatment)'") == "treat"
-    assert "`e(confounders)'" == "age"
-    assert inlist("`e(model)'", "snmm", "SNMM")
-    * Previously untested matrices
-    matrix _b_gap = e(b)
-    assert colsof(_b_gap) >= 1
-    matrix _V_gap = e(V)
-    assert rowsof(_V_gap) >= 1
-    assert colsof(_V_gap) >= 1
-    matrix drop _b_gap _V_gap
-}
-if _rc == 0 {
-    display as result "  PASS: tvestimate return values (z, p, cmd, depvar, treatment, confounders, model, b, V)"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: tvestimate return values (error `=_rc')"
-    local ++fail_count
-}
-
-
-* =========================================================================
 * 17F: TVEVENT - Error Handling (14 paths)
 * =========================================================================
 
@@ -14116,57 +12794,6 @@ else {
 
 
 * =========================================================================
-* 17K: TVTRIAL - Error Handling (2)
-* =========================================================================
-
-* E.trial.1: Variable not found (exit 111)
-local ++test_count
-capture {
-    clear
-    set obs 20
-    gen id = _n
-    gen entry = mdy(1,1,2020)
-    gen exit_d = mdy(12,31,2020)
-    gen treatstart = mdy(6,1,2020) if _n <= 10
-    format entry exit_d treatstart %td
-    capture noisily tvtrial, id(id) entry(entry) exit(exit_d) ///
-        treatstart(NONEXISTENT)
-    assert _rc == 111
-}
-if _rc == 0 {
-    display as result "  PASS: tvtrial error - variable not found"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: tvtrial error - variable not found (error `=_rc')"
-    local ++fail_count
-}
-
-* E.trial.2: No observations (exit 2000)
-local ++test_count
-capture {
-    clear
-    set obs 0
-    gen id = .
-    gen entry = .
-    gen exit_d = .
-    gen treatstart = .
-    format entry exit_d treatstart %td
-    capture noisily tvtrial, id(id) entry(entry) exit(exit_d) ///
-        treatstart(treatstart)
-    assert _rc == 2000
-}
-if _rc == 0 {
-    display as result "  PASS: tvtrial error - no observations"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: tvtrial error - no observations (error `=_rc')"
-    local ++fail_count
-}
-
-
-* =========================================================================
 * 17L: TVWEIGHT - Error Handling (4) + Return Values (5)
 * =========================================================================
 
@@ -14284,14 +12911,823 @@ else {
 
 
 * =========================================================================
+* SECTION 18: REMAINING FUNCTIONAL GAPS (35 tests)
+* =========================================================================
+
+* Create shared test data for Section 18
+capture noisily {
+    * Cohort for tvexpose tests
+    clear
+    set obs 5
+    gen long id = _n
+    gen double entry = mdy(1,1,2020)
+    gen double exit_ = mdy(12,31,2020)
+    gen double baseline_age = 50 + _n*3
+    gen byte sex = mod(_n, 2)
+    format %td entry exit_
+    save "/tmp/_s18_cohort.dta", replace
+
+    * Exposure for tvexpose tests
+    clear
+    input long(id) str10(s_start s_stop) double(drug)
+    1 "2020-03-01" "2020-09-30" 1
+    2 "2020-01-15" "2020-06-30" 1
+    3 "2020-04-01" "2020-12-31" 1
+    4 "2020-02-01" "2020-10-31" 1
+    end
+    gen double rx_start = date(s_start, "YMD")
+    gen double rx_stop  = date(s_stop, "YMD")
+    format %td rx_start rx_stop
+    drop s_start s_stop
+    save "/tmp/_s18_exposure.dta", replace
+
+    * Overlapping exposure data
+    clear
+    input long(id) str10(s_start s_stop) double(drug)
+    1 "2020-03-01" "2020-09-30" 1
+    1 "2020-06-01" "2020-12-31" 1
+    2 "2020-01-01" "2020-06-30" 1
+    end
+    gen double rx_start = date(s_start, "YMD")
+    gen double rx_stop  = date(s_stop, "YMD")
+    format %td rx_start rx_stop
+    drop s_start s_stop
+    save "/tmp/_s18_overlap_exp.dta", replace
+
+    * Two interval datasets for tvmerge tests
+    clear
+    input long(id) str10(s_start s_stop) byte(expA) double(valA)
+    1 "2020-01-01" "2020-06-30" 1 100
+    1 "2020-07-01" "2020-12-31" 0 0
+    2 "2020-01-01" "2020-12-31" 1 50
+    end
+    gen double startA = date(s_start, "YMD")
+    gen double stopA  = date(s_stop, "YMD")
+    format %td startA stopA
+    drop s_*
+    save "/tmp/_s18_merge1.dta", replace
+
+    clear
+    input long(id) str10(s_start s_stop) byte(expB)
+    1 "2020-01-01" "2020-04-30" 1
+    1 "2020-05-01" "2020-12-31" 0
+    2 "2020-01-01" "2020-08-31" 1
+    2 "2020-09-01" "2020-12-31" 0
+    end
+    gen double startB = date(s_start, "YMD")
+    gen double stopB  = date(s_stop, "YMD")
+    format %td startB stopB
+    drop s_*
+    save "/tmp/_s18_merge2.dta", replace
+
+    * Interval + event data for tvevent validate tests
+    clear
+    input long(id) str10(s_start s_stop) byte(tv_exp)
+    1 "2020-01-01" "2020-06-30" 1
+    1 "2020-07-01" "2020-12-31" 0
+    2 "2020-01-01" "2020-12-31" 1
+    3 "2020-01-01" "2020-04-30" 0
+    3 "2020-05-01" "2020-12-31" 1
+    end
+    gen double start = date(s_start, "YMD")
+    gen double stop  = date(s_stop, "YMD")
+    format %td start stop
+    drop s_*
+    save "/tmp/_s18_intervals.dta", replace
+
+    clear
+    input long(id) str10(s_event)
+    1 "2020-08-15"
+    2 "2020-06-01"
+    end
+    gen double event_date = date(s_event, "YMD")
+    format %td event_date
+    drop s_event
+    set obs 3
+    replace id = 3 in 3
+    save "/tmp/_s18_events.dta", replace
+}
+
+
+* =========================================================================
+* 18A: TVEXPOSE OPTIONS (6 tests)
+* =========================================================================
+
+* 18.1: dosecuts() creates dose categories
+local ++test_count
+capture {
+    use "/tmp/_s18_cohort.dta", clear
+    tvexpose using "/tmp/_s18_exposure.dta", id(id) start(rx_start) stop(rx_stop) ///
+        exposure(drug) entry(entry) exit(exit_) ///
+        dose dosecuts(90 180) generate(tv_dose) reference(0) replace
+    confirm variable tv_dose
+    quietly tab tv_dose
+    assert r(r) >= 2
+}
+if _rc == 0 {
+    display as result "  PASS: tvexpose dosecuts() creates categories"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvexpose dosecuts() (error `=_rc')"
+    local ++fail_count
+}
+
+* 18.2: referencelabel() sets label text
+local ++test_count
+capture {
+    use "/tmp/_s18_cohort.dta", clear
+    tvexpose using "/tmp/_s18_exposure.dta", id(id) start(rx_start) stop(rx_stop) ///
+        exposure(drug) entry(entry) exit(exit_) ///
+        reference(0) generate(tv_exp) referencelabel("None") replace
+    local explbl : value label tv_exp
+    assert "`explbl'" != ""
+    local ref_text : label `explbl' 0
+    assert "`ref_text'" == "None"
+}
+if _rc == 0 {
+    display as result "  PASS: tvexpose referencelabel() sets label"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvexpose referencelabel() (error `=_rc')"
+    local ++fail_count
+}
+
+* 18.3: keepdates preserves entry/exit vars (as study_entry/study_exit)
+local ++test_count
+capture {
+    use "/tmp/_s18_cohort.dta", clear
+    tvexpose using "/tmp/_s18_exposure.dta", id(id) start(rx_start) stop(rx_stop) ///
+        exposure(drug) entry(entry) exit(exit_) ///
+        reference(0) generate(tv_exp) keepdates replace
+    confirm variable study_entry
+    confirm variable study_exit
+}
+if _rc == 0 {
+    display as result "  PASS: tvexpose keepdates preserves vars"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvexpose keepdates (error `=_rc')"
+    local ++fail_count
+}
+
+* 18.4: label() applies to generated variable
+local ++test_count
+capture {
+    use "/tmp/_s18_cohort.dta", clear
+    tvexpose using "/tmp/_s18_exposure.dta", id(id) start(rx_start) stop(rx_stop) ///
+        exposure(drug) entry(entry) exit(exit_) ///
+        reference(0) generate(tv_exp) label("Drug exposure") replace
+    local varlbl : variable label tv_exp
+    assert "`varlbl'" == "Drug exposure"
+}
+if _rc == 0 {
+    display as result "  PASS: tvexpose label() applies"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvexpose label() (error `=_rc')"
+    local ++fail_count
+}
+
+* 18.5: overlapping data detected and handled
+local ++test_count
+capture {
+    use "/tmp/_s18_cohort.dta", clear
+    tvexpose using "/tmp/_s18_overlap_exp.dta", id(id) start(rx_start) stop(rx_stop) ///
+        exposure(drug) entry(entry) exit(exit_) ///
+        reference(0) generate(tv_exp) check replace
+    * Command should complete (overlaps resolved) and return person count
+    assert r(N_persons) >= 1
+}
+if _rc == 0 {
+    display as result "  PASS: tvexpose r(overlap_ids) populated"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvexpose overlap_ids (error `=_rc')"
+    local ++fail_count
+}
+
+* 18.6: exit 190 (by: not allowed)
+local ++test_count
+capture {
+    use "/tmp/_s18_cohort.dta", clear
+    sort sex
+    capture noisily by sex: tvexpose using "/tmp/_s18_exposure.dta", ///
+        id(id) start(rx_start) stop(rx_stop) ///
+        exposure(drug) entry(entry) exit(exit_)
+    assert _rc == 190
+}
+if _rc == 0 {
+    display as result "  PASS: tvexpose exit 190 (by: not allowed)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvexpose by: error (error `=_rc')"
+    local ++fail_count
+}
+
+
+* =========================================================================
+* 18B: TVMERGE OPTIONS (8 tests)
+* =========================================================================
+
+* 18.7: startname()/stopname() rename date vars
+local ++test_count
+capture {
+    tvmerge "/tmp/_s18_merge1.dta" "/tmp/_s18_merge2.dta", ///
+        id(id) start(startA startB) stop(stopA stopB) exposure(expA expB) ///
+        startname(begin) stopname(finish)
+    confirm variable begin
+    confirm variable finish
+}
+if _rc == 0 {
+    display as result "  PASS: tvmerge startname()/stopname()"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvmerge startname/stopname (error `=_rc')"
+    local ++fail_count
+}
+
+* 18.8: dateformat() changes output format
+local ++test_count
+capture {
+    tvmerge "/tmp/_s18_merge1.dta" "/tmp/_s18_merge2.dta", ///
+        id(id) start(startA startB) stop(stopA stopB) exposure(expA expB) ///
+        dateformat(%tdNN/DD/CCYY)
+    local fmt : format start
+    assert "`fmt'" == "%tdNN/DD/CCYY"
+}
+if _rc == 0 {
+    display as result "  PASS: tvmerge dateformat()"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvmerge dateformat (error `=_rc')"
+    local ++fail_count
+}
+
+* 18.9: saveas()/replace creates file
+local ++test_count
+capture {
+    capture erase "/tmp/_s18_merged.dta"
+    tvmerge "/tmp/_s18_merge1.dta" "/tmp/_s18_merge2.dta", ///
+        id(id) start(startA startB) stop(stopA stopB) exposure(expA expB) ///
+        saveas("/tmp/_s18_merged") replace
+    confirm file "/tmp/_s18_merged.dta"
+    capture erase "/tmp/_s18_merged.dta"
+}
+if _rc == 0 {
+    display as result "  PASS: tvmerge saveas() creates file"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvmerge saveas() (error `=_rc')"
+    local ++fail_count
+}
+
+* 18.10: keep() retains additional vars (suffixed with _ds#)
+local ++test_count
+capture {
+    tvmerge "/tmp/_s18_merge1.dta" "/tmp/_s18_merge2.dta", ///
+        id(id) start(startA startB) stop(stopA stopB) exposure(expA expB) ///
+        keep(valA)
+    confirm variable valA_ds1
+}
+if _rc == 0 {
+    display as result "  PASS: tvmerge keep() retains vars"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvmerge keep() (error `=_rc')"
+    local ++fail_count
+}
+
+* 18.11: continuous() treats as rate per day
+local ++test_count
+capture {
+    tvmerge "/tmp/_s18_merge1.dta" "/tmp/_s18_merge2.dta", ///
+        id(id) start(startA startB) stop(stopA stopB) exposure(expA expB) ///
+        continuous(expA)
+    assert r(n_continuous) >= 1
+}
+if _rc == 0 {
+    display as result "  PASS: tvmerge continuous()"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvmerge continuous() (error `=_rc')"
+    local ++fail_count
+}
+
+* 18.12: force merges with non-matching IDs
+local ++test_count
+capture {
+    tvmerge "/tmp/_s18_merge1.dta" "/tmp/_s18_merge2.dta", ///
+        id(id) start(startA startB) stop(stopA stopB) exposure(expA expB) ///
+        force
+    assert _N > 0
+}
+if _rc == 0 {
+    display as result "  PASS: tvmerge force"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvmerge force (error `=_rc')"
+    local ++fail_count
+}
+
+* 18.13: r(generated_names) populated with generate()
+local ++test_count
+capture {
+    tvmerge "/tmp/_s18_merge1.dta" "/tmp/_s18_merge2.dta", ///
+        id(id) start(startA startB) stop(stopA stopB) exposure(expA expB) ///
+        generate(drugA drugB)
+    assert "`r(generated_names)'" != ""
+}
+if _rc == 0 {
+    display as result "  PASS: tvmerge r(generated_names)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvmerge generated_names (error `=_rc')"
+    local ++fail_count
+}
+
+* 18.14: r(output_file) with saveas()
+local ++test_count
+capture {
+    capture erase "/tmp/_s18_merged2.dta"
+    tvmerge "/tmp/_s18_merge1.dta" "/tmp/_s18_merge2.dta", ///
+        id(id) start(startA startB) stop(stopA stopB) exposure(expA expB) ///
+        saveas("/tmp/_s18_merged2") replace
+    assert "`r(output_file)'" != ""
+    capture erase "/tmp/_s18_merged2.dta"
+}
+if _rc == 0 {
+    display as result "  PASS: tvmerge r(output_file)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvmerge output_file (error `=_rc')"
+    local ++fail_count
+}
+
+
+* =========================================================================
+* 18C: TVTOOLS OPTIONS + RETURNS (4 tests)
+* =========================================================================
+
+* 18.15: tvtools, list completes
+local ++test_count
+capture {
+    tvtools, list
+}
+if _rc == 0 {
+    display as result "  PASS: tvtools, list completes"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvtools list (error `=_rc')"
+    local ++fail_count
+}
+
+* 18.16: tvtools, detail completes
+local ++test_count
+capture {
+    tvtools, detail
+}
+if _rc == 0 {
+    display as result "  PASS: tvtools, detail completes"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvtools detail (error `=_rc')"
+    local ++fail_count
+}
+
+* 18.17: tvtools, category(prep) filters correctly
+local ++test_count
+capture {
+    tvtools, category(prep)
+    assert "`r(commands)'" != ""
+}
+if _rc == 0 {
+    display as result "  PASS: tvtools category(prep) filters"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvtools category(prep) (error `=_rc')"
+    local ++fail_count
+}
+
+* 18.18: r(commands), r(n_commands), r(version), r(categories) populated
+local ++test_count
+capture {
+    tvtools
+    assert "`r(commands)'" != ""
+    assert r(n_commands) > 0
+    assert "`r(version)'" != ""
+    assert "`r(categories)'" != ""
+}
+if _rc == 0 {
+    display as result "  PASS: tvtools all r() values populated"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvtools returns (error `=_rc')"
+    local ++fail_count
+}
+
+
+* =========================================================================
+* 18D: TVDIAGNOSE OPTION COMBOS (4 tests)
+* =========================================================================
+
+* 18.19: coverage alone
+local ++test_count
+capture {
+    clear
+    input int(id) str10(s_start s_stop s_entry s_exit)
+    1 "2020-01-01" "2020-12-31" "2020-01-01" "2020-12-31"
+    end
+    gen double start = date(s_start, "YMD")
+    gen double stop  = date(s_stop, "YMD")
+    gen double entry = date(s_entry, "YMD")
+    gen double exit_ = date(s_exit, "YMD")
+    format %td start stop entry exit_
+    drop s_*
+    tvdiagnose, id(id) start(start) stop(stop) entry(entry) exit(exit_) coverage
+    assert !missing(r(mean_coverage))
+}
+if _rc == 0 {
+    display as result "  PASS: tvdiagnose coverage alone"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvdiagnose coverage (error `=_rc')"
+    local ++fail_count
+}
+
+* 18.20: gaps alone
+local ++test_count
+capture {
+    clear
+    input int(id) str10(s_start s_stop s_entry s_exit)
+    1 "2020-01-01" "2020-06-30" "2020-01-01" "2020-12-31"
+    1 "2020-09-01" "2020-12-31" "2020-01-01" "2020-12-31"
+    end
+    gen double start = date(s_start, "YMD")
+    gen double stop  = date(s_stop, "YMD")
+    gen double entry = date(s_entry, "YMD")
+    gen double exit_ = date(s_exit, "YMD")
+    format %td start stop entry exit_
+    drop s_*
+    tvdiagnose, id(id) start(start) stop(stop) entry(entry) exit(exit_) gaps
+    assert !missing(r(n_gaps))
+}
+if _rc == 0 {
+    display as result "  PASS: tvdiagnose gaps alone"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvdiagnose gaps (error `=_rc')"
+    local ++fail_count
+}
+
+* 18.21: overlaps alone
+local ++test_count
+capture {
+    clear
+    input int(id) str10(s_start s_stop)
+    1 "2020-01-01" "2020-06-30"
+    1 "2020-04-01" "2020-12-31"
+    end
+    gen double start = date(s_start, "YMD")
+    gen double stop  = date(s_stop, "YMD")
+    format %td start stop
+    drop s_*
+    tvdiagnose, id(id) start(start) stop(stop) overlaps
+    assert !missing(r(n_overlaps))
+}
+if _rc == 0 {
+    display as result "  PASS: tvdiagnose overlaps alone"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvdiagnose overlaps (error `=_rc')"
+    local ++fail_count
+}
+
+* 18.22: all -> all returns present
+local ++test_count
+capture {
+    clear
+    input int(id) str10(s_start s_stop s_entry s_exit)
+    1 "2020-01-01" "2020-12-31" "2020-01-01" "2020-12-31"
+    end
+    gen double start = date(s_start, "YMD")
+    gen double stop  = date(s_stop, "YMD")
+    gen double entry = date(s_entry, "YMD")
+    gen double exit_ = date(s_exit, "YMD")
+    format %td start stop entry exit_
+    drop s_*
+    gen byte exp = 1
+    tvdiagnose, id(id) start(start) stop(stop) entry(entry) exit(exit_) exposure(exp) all
+    assert !missing(r(mean_coverage))
+    assert !missing(r(n_gaps))
+    assert !missing(r(n_overlaps))
+    assert !missing(r(total_person_time))
+}
+if _rc == 0 {
+    display as result "  PASS: tvdiagnose all returns present"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvdiagnose all (error `=_rc')"
+    local ++fail_count
+}
+
+
+* =========================================================================
+* 18E: TVBALANCE WEIGHT RETURNS (2 tests)
+* =========================================================================
+
+* 18.23: r(n_imbalanced_wt) count correct
+local ++test_count
+capture {
+    clear
+    set obs 200
+    set seed 18230
+    gen byte exposed = (_n > 100)
+    gen double age = cond(exposed, 60, 40) + 5*rnormal()
+    gen double wt = 1
+    tvbalance age, exposure(exposed) weights(wt)
+    assert r(n_imbalanced_wt) >= 0
+    assert r(n_imbalanced_wt) <= 1
+}
+if _rc == 0 {
+    display as result "  PASS: tvbalance r(n_imbalanced_wt)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvbalance n_imbalanced_wt (error `=_rc')"
+    local ++fail_count
+}
+
+* 18.24: r(ess_ref), r(ess_exp) positive and bounded
+local ++test_count
+capture {
+    clear
+    set obs 200
+    set seed 18240
+    gen byte exposed = (_n > 100)
+    gen double age = 50 + 5*rnormal()
+    gen double wt = 1 + 0.5*rnormal()
+    replace wt = max(wt, 0.1)
+    tvbalance age, exposure(exposed) weights(wt)
+    assert r(ess_ref) > 0
+    assert r(ess_exp) > 0
+    assert r(ess_ref) <= r(n_ref)
+    assert r(ess_exp) <= r(n_exp)
+}
+if _rc == 0 {
+    display as result "  PASS: tvbalance ESS positive and bounded"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvbalance ESS (error `=_rc')"
+    local ++fail_count
+}
+
+
+* =========================================================================
+* 18F: TVAGE BEHAVIOR (2 tests)
+* =========================================================================
+
+* 18.25: minage(30) -> no ages below 30
+local ++test_count
+capture {
+    clear
+    set obs 1
+    gen int id = 1
+    gen double dob = mdy(1,1,1990)
+    gen double entry = mdy(1,1,2020)
+    gen double exit_d = mdy(12,31,2025)
+    format %td dob entry exit_d
+    tvage, idvar(id) dobvar(dob) entryvar(entry) exitvar(exit_d) groupwidth(1) minage(32)
+    quietly summarize age_tv
+    assert r(min) >= 32
+}
+if _rc == 0 {
+    display as result "  PASS: tvage minage(32) clamps"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvage minage (error `=_rc')"
+    local ++fail_count
+}
+
+* 18.26: maxage(65) -> no ages above 65
+local ++test_count
+capture {
+    clear
+    set obs 1
+    gen int id = 1
+    gen double dob = mdy(1,1,1960)
+    gen double entry = mdy(1,1,2020)
+    gen double exit_d = mdy(12,31,2030)
+    format %td dob entry exit_d
+    tvage, idvar(id) dobvar(dob) entryvar(entry) exitvar(exit_d) groupwidth(1) maxage(65)
+    quietly summarize age_tv
+    assert r(max) <= 65
+}
+if _rc == 0 {
+    display as result "  PASS: tvage maxage(65) clamps"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvage maxage (error `=_rc')"
+    local ++fail_count
+}
+
+
+* =========================================================================
+* 18G: TVEVENT VALIDATION RETURNS (2 tests)
+* =========================================================================
+
+* 18.27: r(v_outside_bounds) with validate
+local ++test_count
+capture {
+    use "/tmp/_s18_events.dta", clear
+    tvevent using "/tmp/_s18_intervals.dta", id(id) date(event_date) ///
+        type(single) generate(fail_flag) validate replace
+    assert !missing(r(v_outside_bounds))
+}
+if _rc == 0 {
+    display as result "  PASS: tvevent r(v_outside_bounds)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvevent v_outside_bounds (error `=_rc')"
+    local ++fail_count
+}
+
+* 18.28: r(v_multiple_events), r(v_same_date_compete)
+local ++test_count
+capture {
+    use "/tmp/_s18_events.dta", clear
+    tvevent using "/tmp/_s18_intervals.dta", id(id) date(event_date) ///
+        type(single) generate(fail_flag) validate replace
+    assert !missing(r(v_multiple_events))
+}
+if _rc == 0 {
+    display as result "  PASS: tvevent r(v_multiple_events)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvevent v_multiple_events (error `=_rc')"
+    local ++fail_count
+}
+
+
+* =========================================================================
+* 18I: REMAINING EDGE CASES (5 tests)
+* =========================================================================
+
+* 18.31: tvexpose exit 498 with invalid data
+local ++test_count
+capture {
+    clear
+    set obs 3
+    gen long id = _n
+    gen double entry = mdy(12,31,2020)
+    gen double exit_ = mdy(1,1,2020)
+    format %td entry exit_
+    save "/tmp/_s18_bad_cohort.dta", replace
+    capture noisily tvexpose using "/tmp/_s18_exposure.dta", id(id) ///
+        start(rx_start) stop(rx_stop) exposure(drug) ///
+        entry(entry) exit(exit_)
+    assert _rc != 0
+    capture erase "/tmp/_s18_bad_cohort.dta"
+}
+if _rc == 0 {
+    display as result "  PASS: tvexpose error with invalid data"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvexpose invalid data (error `=_rc')"
+    local ++fail_count
+}
+
+* 18.32: tvmerge exit 459 or error with conflict
+local ++test_count
+capture {
+    capture noisily tvmerge "/tmp/_s18_merge1.dta" "NONEXISTENT_FILE.dta", ///
+        id(id) start(startA startX) stop(stopA stopX) exposure(expA expX)
+    assert _rc != 0
+}
+if _rc == 0 {
+    display as result "  PASS: tvmerge error with missing file"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvmerge missing file error (error `=_rc')"
+    local ++fail_count
+}
+
+* 18.33: tvdiagnose coverage + gaps combo
+local ++test_count
+capture {
+    clear
+    input int(id) str10(s_start s_stop s_entry s_exit)
+    1 "2020-01-01" "2020-06-30" "2020-01-01" "2020-12-31"
+    1 "2020-09-01" "2020-12-31" "2020-01-01" "2020-12-31"
+    end
+    gen double start = date(s_start, "YMD")
+    gen double stop  = date(s_stop, "YMD")
+    gen double entry = date(s_entry, "YMD")
+    gen double exit_ = date(s_exit, "YMD")
+    format %td start stop entry exit_
+    drop s_*
+    tvdiagnose, id(id) start(start) stop(stop) entry(entry) exit(exit_) coverage gaps
+    assert !missing(r(mean_coverage))
+    assert !missing(r(n_gaps))
+    assert r(mean_coverage) < 100
+    assert r(n_gaps) >= 1
+}
+if _rc == 0 {
+    display as result "  PASS: tvdiagnose coverage + gaps combo"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvdiagnose combo (error `=_rc')"
+    local ++fail_count
+}
+
+* 18.34: tvplot persontime error without exposure
+local ++test_count
+capture {
+    clear
+    set obs 5
+    gen int id = _n
+    gen double start = mdy(1,1,2020)
+    gen double stop = mdy(12,31,2020)
+    format %td start stop
+    capture noisily tvplot, id(id) start(start) stop(stop) persontime
+    assert _rc == 198
+}
+if _rc == 0 {
+    display as result "  PASS: tvplot persontime error without exposure"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvplot persontime error (error `=_rc')"
+    local ++fail_count
+}
+
+* 18.35: tvplot saving() with replace (uses graph export)
+local ++test_count
+capture {
+    clear
+    set obs 5
+    gen int id = _n
+    gen double start = mdy(1,1,2020)
+    gen double stop = mdy(12,31,2020)
+    format %td start stop
+    capture erase "/tmp/_s18_plot.png"
+    tvplot, id(id) start(start) stop(stop) saving("/tmp/_s18_plot.png") replace
+    confirm file "/tmp/_s18_plot.png"
+    tvplot, id(id) start(start) stop(stop) saving("/tmp/_s18_plot.png") replace
+    capture erase "/tmp/_s18_plot.png"
+}
+if _rc == 0 {
+    display as result "  PASS: tvplot saving() with replace"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvplot saving() replace (error `=_rc')"
+    local ++fail_count
+}
+
+
+* =========================================================================
 * CLEANUP: Remove temporary gap test data
 * =========================================================================
 
 foreach f in _gap_tvage _gap_tc_cohort _gap_tc_exp _gap_empty_exp ///
     _gap_str_exp _gap_wrongvars_exp _gap_reversed _gap_intervals ///
-    _gap_merge1 _gap_merge2 _gap_tvage_out {
+    _gap_merge1 _gap_merge2 _gap_tvage_out ///
+    _s18_cohort _s18_exposure _s18_overlap_exp ///
+    _s18_merge1 _s18_merge2 _s18_intervals _s18_events ///
+    _s18_bad_cohort _s18_merged _s18_merged2 _s18_plot {
     capture erase "/tmp/`f'.dta"
 }
+capture erase "/tmp/_s18_plot.png"
 
 * =============================================================================
 * TEST RESULTS SUMMARY

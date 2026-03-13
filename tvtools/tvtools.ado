@@ -33,16 +33,15 @@ program define tvtools, rclass
 
     // Validate category option
     local category = lower("`category'")
-    if !inlist("`category'", "all", "prep", "diag", "weight", "special") {
-        display as error "category() must be: all, prep, diag, weight, or special"
+    if !inlist("`category'", "all", "prep", "diag", "weight") {
+        display as error "category() must be: all, prep, diag, or weight"
         exit 198
     }
 
     // Define commands by category
     local cmd_prep "tvexpose tvmerge tvevent tvcalendar tvage"
     local cmd_diag "tvdiagnose tvplot tvbalance"
-    local cmd_weight "tvweight tvestimate"
-    local cmd_special "tvtrial"
+    local cmd_weight "tvweight"
 
     // Build selected list based on category
     if "`category'" == "prep" {
@@ -54,11 +53,8 @@ program define tvtools, rclass
     else if "`category'" == "weight" {
         local selected_cmds "`cmd_weight'"
     }
-    else if "`category'" == "special" {
-        local selected_cmds "`cmd_special'"
-    }
     else {
-        local selected_cmds "`cmd_prep' `cmd_diag' `cmd_weight' `cmd_special'"
+        local selected_cmds "`cmd_prep' `cmd_diag' `cmd_weight'"
     }
 
     // Count commands
@@ -107,13 +103,6 @@ program define tvtools, rclass
         if inlist("`category'", "all", "weight") {
             display as text "{bf:Weighting & Estimation}"
             display as result "  tvweight   " as text "- Calculate IPTW weights"
-            display as result "  tvestimate " as text "- G-estimation for structural models"
-            display as text ""
-        }
-
-        if inlist("`category'", "all", "special") {
-            display as text "{bf:Special Applications}"
-            display as result "  tvtrial    " as text "- Target trial emulation"
             display as text ""
         }
 
@@ -128,7 +117,7 @@ program define tvtools, rclass
     return local commands "`selected_cmds'"
     return scalar n_commands = `n_commands'
     return local version "1.5.0"
-    return local categories "prep diag weight special"
+    return local categories "prep diag weight"
 end
 
 // Subroutine for detailed display
@@ -183,17 +172,6 @@ program define _tvtools_detail
         display as text "  {hline 60}"
         display as result "  tvweight" as text "     Calculate inverse probability of treatment"
         display as text "               weights (IPTW) for time-varying confounding."
-        display as text ""
-        display as result "  tvestimate" as text "   G-estimation for structural nested models."
-        display as text "               Handles time-varying treatments and confounders."
-        display as text ""
-    }
-
-    if inlist("`category'", "all", "special") {
-        display as text "{bf:Special Applications}"
-        display as text "  {hline 60}"
-        display as result "  tvtrial" as text "      Target trial emulation for observational data."
-        display as text "               Clone-censor-weight approach for per-protocol."
         display as text ""
     }
 end

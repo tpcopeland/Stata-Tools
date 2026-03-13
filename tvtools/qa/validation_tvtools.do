@@ -5,7 +5,7 @@
 *          Mathematical correctness, known-answer tests, registry scenarios
 *
 * Commands validated:
-*   tvage, tvbalance, tvestimate, tvevent, tvexpose, tvmerge, tvweight
+*   tvage, tvbalance, tvevent, tvexpose, tvmerge, tvweight
 *   Plus pipeline integration and boundary condition validation
 *
 * Usage:
@@ -786,402 +786,6 @@ else {
 
 * ============================================================================
 * FINAL SUMMARY
-
-}
-
-
-* =============================================================================
-* SECTION 3: TVESTIMATE - Weighted regression validation
-* =============================================================================
-* --- From validation_tvestimate.do ---
-
-capture noisily {
-* =============================================================================
-* SECTION 1: KNOWN-ANSWER TESTING
-* =============================================================================
-if `quiet' == 0 {
-    display as text _n "{hline 70}"
-    display as text "SECTION 1: Known-Answer Testing"
-    display as text "{hline 70}"
-}
-
-* -----------------------------------------------------------------------------
-* Test 1.1: Randomized experiment (treatment independent of confounders)
-* -----------------------------------------------------------------------------
-local ++test_count
-if `quiet' == 0 {
-    display as text _n "Test 1.1: Randomized experiment"
-}
-
-capture {
-    clear
-    set seed 99999
-    set obs 2000
-
-    * In randomized experiment, treatment is independent of confounders
-    gen confounder = rnormal()
-    gen treatment = runiform() > 0.5  // Random assignment
-
-    * Outcome with true effect = 3
-    gen outcome = 10 + 3*treatment + 2*confounder + rnormal(0, 1)
-
-    * G-estimation should recover true effect even though confounders
-    * don't predict treatment
-    tvestimate outcome treatment, confounders(confounder)
-
-    * Effect should be close to 3 (within 0.3 for large N)
-    assert abs(e(psi) - 3) < 0.3
-}
-if _rc == 0 {
-    display as result "  PASS: Recovers effect in randomized experiment"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: Randomized experiment (error `=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' 1.1"
-}
-
-* -----------------------------------------------------------------------------
-* Test 1.2: No confounding case matches OLS
-* -----------------------------------------------------------------------------
-local ++test_count
-if `quiet' == 0 {
-    display as text _n "Test 1.2: No confounding matches OLS"
-}
-
-capture {
-    clear
-    set seed 88888
-    set obs 1000
-
-    * No confounding - treatment is random, confounder doesn't affect outcome
-    gen x = rnormal()
-    gen treatment = runiform() > 0.5
-
-    * Outcome with true effect = 5
-    gen outcome = 20 + 5*treatment + rnormal(0, 2)
-
-    * G-estimation
-    tvestimate outcome treatment, confounders(x)
-    local psi_g = e(psi)
-
-    * OLS
-    regress outcome treatment
-    local beta_ols = _b[treatment]
-
-    * Should be very close since no confounding
-    assert abs(`psi_g' - `beta_ols') < 0.5
-}
-if _rc == 0 {
-    display as result "  PASS: No confounding matches OLS"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: No confounding test (error `=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' 1.2"
-}
-
-* -----------------------------------------------------------------------------
-* Test 1.3: G-estimation corrects confounding bias
-* -----------------------------------------------------------------------------
-local ++test_count
-if `quiet' == 0 {
-    display as text _n "Test 1.3: G-estimation corrects confounding bias"
-}
-
-capture {
-    clear
-    set seed 77777
-    set obs 2000
-
-    * Strong confounding
-    gen confounder = rnormal()
-    gen pr_treat = invlogit(-0.5 + 1.5*confounder)  // Strong confounding
-    gen treatment = runiform() < pr_treat
-
-    * True effect = 2, but confounder has strong effect on both
-    gen outcome = 10 + 2*treatment + 3*confounder + rnormal(0, 1)
-
-    * Naive OLS is biased
-    regress outcome treatment
-    local beta_naive = _b[treatment]
-
-    * G-estimation should be closer to true value
-    tvestimate outcome treatment, confounders(confounder)
-    local psi_g = e(psi)
-
-    * OLS should be biased away from 2 due to confounding
-    * G-estimation should be closer to true value
-    assert abs(`psi_g' - 2) < abs(`beta_naive' - 2)
-}
-if _rc == 0 {
-    display as result "  PASS: G-estimation corrects confounding bias"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: Bias correction (error `=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' 1.3"
-}
-
-* =============================================================================
-* SECTION 2: ESTIMATION EQUATION VERIFICATION
-* =============================================================================
-if `quiet' == 0 {
-    display as text _n "{hline 70}"
-    display as text "SECTION 2: Estimation Equation Verification"
-    display as text "{hline 70}"
-}
-
-* -----------------------------------------------------------------------------
-* Test 2.1: Estimating equation equals zero at estimate
-* -----------------------------------------------------------------------------
-local ++test_count
-if `quiet' == 0 {
-    display as text _n "Test 2.1: Estimating equation equals zero"
-}
-
-capture {
-    clear
-    set seed 66666
-    set obs 500
-
-    gen confounder = rnormal()
-    gen pr_treat = invlogit(-0.5 + 0.5*confounder)
-    gen treatment = runiform() < pr_treat
-    gen outcome = 5 + 1.5*treatment + confounder + rnormal(0, 1)
-
-    * Get G-estimate
-    tvestimate outcome treatment, confounders(confounder)
-    local psi = e(psi)
-
-    * Manually compute propensity score
-    logit treatment confounder
-    predict pscore, pr
-
-    * Blipped-down outcome
-    gen y_blipped = outcome - `psi' * treatment
-
-    * Residual
-    gen resid = treatment - pscore
-
-    * Estimating equation should sum to ~0
-    gen ee = y_blipped * resid
-    summarize ee
-    local ee_sum = r(sum)
-
-    * Sum should be very close to zero (numerical tolerance)
-    assert abs(`ee_sum') < 1
-}
-if _rc == 0 {
-    display as result "  PASS: Estimating equation sums to ~0"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: Estimating equation (error `=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' 2.1"
-}
-
-* =============================================================================
-* SECTION 3: BLIPPED-DOWN OUTCOME
-* =============================================================================
-if `quiet' == 0 {
-    display as text _n "{hline 70}"
-    display as text "SECTION 3: Blipped-Down Outcome Properties"
-    display as text "{hline 70}"
-}
-
-* -----------------------------------------------------------------------------
-* Test 3.1: Blipped-down outcome mean stored
-* -----------------------------------------------------------------------------
-local ++test_count
-if `quiet' == 0 {
-    display as text _n "Test 3.1: Mean potential outcome under no treatment"
-}
-
-capture {
-    clear
-    set seed 55555
-    set obs 500
-
-    gen confounder = rnormal()
-    gen pr_treat = invlogit(-0.5 + 0.5*confounder)
-    gen treatment = runiform() < pr_treat
-    gen outcome = 10 + 2*treatment + confounder + rnormal(0, 1)
-
-    tvestimate outcome treatment, confounders(confounder)
-
-    * Mean Y(0) should be stored
-    assert e(mean_y0) != .
-
-    * Mean Y(0) should be roughly equal to mean outcome for untreated
-    * (under correct model specification)
-    summarize outcome if treatment == 0
-    local mean_untreated = r(mean)
-
-    * Should be in similar ballpark (within 2 SD)
-    assert abs(e(mean_y0) - `mean_untreated') < 2
-}
-if _rc == 0 {
-    display as result "  PASS: Mean Y(0) stored correctly"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: Mean Y(0) (error `=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' 3.1"
-}
-
-* =============================================================================
-* SECTION 4: BOOTSTRAP VALIDATION
-* =============================================================================
-if `quiet' == 0 {
-    display as text _n "{hline 70}"
-    display as text "SECTION 4: Bootstrap Validation"
-    display as text "{hline 70}"
-}
-
-* -----------------------------------------------------------------------------
-* Test 4.1: Bootstrap reproducibility with seed
-* -----------------------------------------------------------------------------
-local ++test_count
-if `quiet' == 0 {
-    display as text _n "Test 4.1: Bootstrap reproducibility"
-}
-
-capture {
-    clear
-    set seed 44444
-    set obs 300
-
-    gen confounder = rnormal()
-    gen pr_treat = invlogit(-0.5 + 0.5*confounder)
-    gen treatment = runiform() < pr_treat
-    gen outcome = 5 + 2*treatment + confounder + rnormal(0, 1)
-
-    * First run with seed
-    tvestimate outcome treatment, confounders(confounder) bootstrap reps(50) seed(12345)
-    local se1 = e(se_psi)
-
-    * Second run with same seed
-    tvestimate outcome treatment, confounders(confounder) bootstrap reps(50) seed(12345)
-    local se2 = e(se_psi)
-
-    * Should be identical
-    assert abs(`se1' - `se2') < 0.0001
-}
-if _rc == 0 {
-    display as result "  PASS: Bootstrap reproducible with seed"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: Bootstrap reproducibility (error `=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' 4.1"
-}
-
-* =============================================================================
-* SECTION 5: INVARIANTS
-* =============================================================================
-if `quiet' == 0 {
-    display as text _n "{hline 70}"
-    display as text "SECTION 5: Invariants"
-    display as text "{hline 70}"
-}
-
-* -----------------------------------------------------------------------------
-* Test 5.1: Location shift invariance
-* -----------------------------------------------------------------------------
-local ++test_count
-if `quiet' == 0 {
-    display as text _n "Test 5.1: Location shift invariance"
-}
-
-capture {
-    clear
-    set seed 33333
-    set obs 500
-
-    gen confounder = rnormal()
-    gen pr_treat = invlogit(-0.5 + 0.5*confounder)
-    gen treatment = runiform() < pr_treat
-    gen outcome = 5 + 2*treatment + confounder + rnormal(0, 1)
-
-    * Original estimate
-    tvestimate outcome treatment, confounders(confounder)
-    local psi_orig = e(psi)
-
-    * Shift outcome by constant
-    replace outcome = outcome + 100
-
-    * Re-estimate
-    tvestimate outcome treatment, confounders(confounder)
-    local psi_shifted = e(psi)
-
-    * Causal effect should be unchanged
-    assert abs(`psi_orig' - `psi_shifted') < 0.001
-}
-if _rc == 0 {
-    display as result "  PASS: Invariant to outcome location shift"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: Location shift invariance (error `=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' 5.1"
-}
-
-* -----------------------------------------------------------------------------
-* Test 5.2: Scale invariance
-* -----------------------------------------------------------------------------
-local ++test_count
-if `quiet' == 0 {
-    display as text _n "Test 5.2: Scale transformation"
-}
-
-capture {
-    clear
-    set seed 22222
-    set obs 500
-
-    gen confounder = rnormal()
-    gen pr_treat = invlogit(-0.5 + 0.5*confounder)
-    gen treatment = runiform() < pr_treat
-    gen outcome = 5 + 2*treatment + confounder + rnormal(0, 1)
-
-    * Original estimate
-    tvestimate outcome treatment, confounders(confounder)
-    local psi_orig = e(psi)
-
-    * Scale outcome
-    replace outcome = outcome * 10
-
-    * Re-estimate
-    tvestimate outcome treatment, confounders(confounder)
-    local psi_scaled = e(psi)
-
-    * Causal effect should scale by same factor
-    assert abs(`psi_scaled' - 10 * `psi_orig') < 0.01
-}
-if _rc == 0 {
-    display as result "  PASS: Scale transformation correct"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: Scale transformation (error `=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' 5.2"
-}
-
-* =============================================================================
-* CLEANUP
-* =============================================================================
-
-* =============================================================================
-* SUMMARY
 
 }
 
@@ -22117,137 +21721,6 @@ else {
 
 
 * =============================================================================
-* SECTION 4: TVTRIAL MATHEMATICAL VALIDATION
-* =============================================================================
-
-* Test 4.1: Clone approach creates exactly 2× person-trials
-local ++test_count
-capture {
-    clear
-    input long id double(entry exit rx_start)
-        1 22006 22371 22036
-        2 22006 22371 .
-        3 22006 22371 22066
-    end
-    format %td entry exit rx_start
-
-    tvtrial, id(id) entry(entry) exit(exit) treatstart(rx_start) ///
-        clone trials(1) trialinterval(30)
-
-    * With clone and 1 trial, each eligible person appears twice (arm=0 and arm=1)
-    * All 3 are eligible at trial start (all entered on 22006)
-    local n_obs = _N
-    * Should be 2 * number of eligible persons
-    assert mod(`n_obs', 2) == 0
-
-    * Each person should have arm=0 and arm=1
-    forvalues i = 1/3 {
-        quietly count if id == `i' & trial_arm == 0
-        local a0 = r(N)
-        quietly count if id == `i' & trial_arm == 1
-        local a1 = r(N)
-        assert `a0' == `a1'
-    }
-}
-if _rc == 0 {
-    display as result "  PASS 4.1: Clone creates balanced arm assignment"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL 4.1: Clone creates balanced arm assignment (error `=_rc')"
-    local ++fail_count
-}
-
-* Test 4.2: Censoring logic in clone approach
-local ++test_count
-capture {
-    clear
-    input long id double(entry exit rx_start)
-        1 22006 22371 22036
-        2 22006 22371 .
-    end
-    format %td entry exit rx_start
-
-    tvtrial, id(id) entry(entry) exit(exit) treatstart(rx_start) ///
-        clone graceperiod(0) trials(1) trialinterval(30)
-
-    * Person 1 starts treatment on 22036 (30 days after trial start 22006)
-    * With graceperiod=0: not within grace → treatment arm censored
-    * Person 1, arm=1 (treatment): censored=1 (didn't start within grace)
-    * Person 1, arm=0 (control): censored=0 (never started ≠ deviation from control)
-
-    * Person 2 never treated
-    * Person 2, arm=1: censored=1 (didn't start treatment)
-    * Person 2, arm=0: censored=0 (consistent with control strategy)
-
-    quietly count if id == 2 & trial_arm == 0 & trial_censored == 0
-    assert r(N) == 1
-}
-if _rc == 0 {
-    display as result "  PASS 4.2: Censoring logic correct"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL 4.2: Censoring logic (error `=_rc')"
-    local ++fail_count
-}
-
-* Test 4.3: maxfollowup precisely caps duration
-local ++test_count
-capture {
-    clear
-    input long id double(entry exit rx_start)
-        1 22006 22371 .
-        2 22006 22371 .
-    end
-    format %td entry exit rx_start
-
-    tvtrial, id(id) entry(entry) exit(exit) treatstart(rx_start) ///
-        maxfollowup(60) trials(1) trialinterval(30)
-
-    * All follow-up times should be exactly 60 (since exit is far away)
-    assert trial_fu_time == 60 if !missing(trial_fu_time)
-}
-if _rc == 0 {
-    display as result "  PASS 4.3: maxfollowup precise capping"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL 4.3: maxfollowup precise capping (error `=_rc')"
-    local ++fail_count
-}
-
-* Test 4.4: Sequential trials create staggered start dates
-local ++test_count
-capture {
-    clear
-    input long id double(entry exit rx_start)
-        1 22006 22400 .
-    end
-    format %td entry exit rx_start
-
-    tvtrial, id(id) entry(entry) exit(exit) treatstart(rx_start) ///
-        trials(3) trialinterval(30)
-
-    * Should have 3 trial records
-    assert _N == 3
-
-    * Trial start dates should be 30 days apart
-    sort trial_trial
-    assert trial_start[2] - trial_start[1] == 30
-    assert trial_start[3] - trial_start[2] == 30
-}
-if _rc == 0 {
-    display as result "  PASS 4.4: Sequential trial staggered starts"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL 4.4: Sequential trial staggered starts (error `=_rc')"
-    local ++fail_count
-}
-
-
-* =============================================================================
 * SECTION 5: TVDIAGNOSE MATHEMATICAL VALIDATION
 * =============================================================================
 
@@ -22633,41 +22106,6 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL 8.2: tvweight r() values (error `=_rc')"
-    local ++fail_count
-}
-
-* Test 8.3: tvtrial returns all documented r() scalars
-local ++test_count
-capture {
-    clear
-    input long id double(entry exit rx_start)
-        1 22006 22371 22036
-        2 22006 22371 .
-        3 22006 22371 22066
-    end
-    format %td entry exit rx_start
-
-    tvtrial, id(id) entry(entry) exit(exit) treatstart(rx_start) ///
-        clone ipcweight trials(2)
-
-    assert !missing(r(n_orig))
-    assert !missing(r(n_ids))
-    assert !missing(r(n_trials))
-    assert !missing(r(n_eligible))
-    assert !missing(r(n_persontrials))
-    assert !missing(r(n_treat))
-    assert !missing(r(n_control))
-    assert !missing(r(mean_fu))
-    assert !missing(r(total_fu))
-    assert "`r(id)'" == "id"
-    assert "`r(prefix)'" == "trial_"
-}
-if _rc == 0 {
-    display as result "  PASS 8.3: tvtrial all r() values present"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL 8.3: tvtrial r() values (error `=_rc')"
     local ++fail_count
 }
 
@@ -23131,6 +22569,1539 @@ save `events_single', replace
 
 * ============================================================================
 * TESTS 1-5: TVEXPOSE → TVEVENT SINGLE-DRUG PIPELINE
+
+}
+
+
+* =============================================================================
+* SECTION 9: TVPLOT VALIDATION (8 tests)
+* =============================================================================
+
+capture noisily {
+display _n _dup(70) "="
+display "TVPLOT VALIDATION"
+display _dup(70) "="
+
+* Create test data: 5 persons with intervals and exposure
+tempfile tvp_plotdata
+clear
+input int(id) str10(s_start s_stop) byte(tv_exp)
+1 "2020-01-01" "2020-06-30" 1
+1 "2020-07-01" "2020-12-31" 0
+2 "2020-03-01" "2020-09-30" 1
+3 "2020-01-01" "2020-04-30" 0
+3 "2020-05-01" "2020-12-31" 1
+4 "2020-02-01" "2020-08-31" 1
+5 "2020-01-01" "2020-12-31" 0
+end
+gen double start = date(s_start, "YMD")
+gen double stop  = date(s_stop, "YMD")
+format %td start stop
+drop s_start s_stop
+save `tvp_plotdata', replace
+
+* Test 9.1: swimlane returns
+local ++test_count
+capture {
+    use `tvp_plotdata', clear
+    tvplot, id(id) start(start) stop(stop)
+    assert "`r(plottype)'" == "swimlane"
+    assert "`r(id)'" == "id"
+    assert "`r(start)'" == "start"
+    assert "`r(stop)'" == "stop"
+}
+if _rc == 0 {
+    display as result "  PASS: tvplot swimlane returns"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvplot swimlane returns (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 9.1"
+}
+
+* Test 9.2: persontime returns
+local ++test_count
+capture {
+    use `tvp_plotdata', clear
+    tvplot, id(id) start(start) stop(stop) exposure(tv_exp) persontime
+    assert "`r(plottype)'" == "persontime"
+}
+if _rc == 0 {
+    display as result "  PASS: tvplot persontime returns"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvplot persontime returns (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 9.2"
+}
+
+* Test 9.3: saving() creates file (tvplot uses graph export)
+local ++test_count
+capture {
+    use `tvp_plotdata', clear
+    capture erase "/tmp/_tvplot_test.png"
+    tvplot, id(id) start(start) stop(stop) saving("/tmp/_tvplot_test.png") replace
+    confirm file "/tmp/_tvplot_test.png"
+    erase "/tmp/_tvplot_test.png"
+}
+if _rc == 0 {
+    display as result "  PASS: tvplot saving() creates file"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvplot saving() creates file (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 9.3"
+}
+
+* Test 9.4: sample(2) limits output
+local ++test_count
+capture {
+    use `tvp_plotdata', clear
+    tvplot, id(id) start(start) stop(stop) sample(2)
+}
+if _rc == 0 {
+    display as result "  PASS: tvplot sample(2) completes"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvplot sample(2) (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 9.4"
+}
+
+* Test 9.5: sortby(entry) completes
+local ++test_count
+capture {
+    use `tvp_plotdata', clear
+    tvplot, id(id) start(start) stop(stop) sortby(entry)
+}
+if _rc == 0 {
+    display as result "  PASS: tvplot sortby(entry)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvplot sortby(entry) (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 9.5"
+}
+
+* Test 9.6: sortby(exit) completes
+local ++test_count
+capture {
+    use `tvp_plotdata', clear
+    tvplot, id(id) start(start) stop(stop) sortby(exit)
+}
+if _rc == 0 {
+    display as result "  PASS: tvplot sortby(exit)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvplot sortby(exit) (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 9.6"
+}
+
+* Test 9.7: sortby(persontime) with exposure
+local ++test_count
+capture {
+    use `tvp_plotdata', clear
+    tvplot, id(id) start(start) stop(stop) exposure(tv_exp) sortby(persontime)
+}
+if _rc == 0 {
+    display as result "  PASS: tvplot sortby(persontime)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvplot sortby(persontime) (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 9.7"
+}
+
+* Test 9.8: persontime without exposure() -> error
+local ++test_count
+capture {
+    use `tvp_plotdata', clear
+    capture noisily tvplot, id(id) start(start) stop(stop) persontime
+    assert _rc == 198
+}
+if _rc == 0 {
+    display as result "  PASS: tvplot persontime error without exposure"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvplot persontime error without exposure (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 9.8"
+}
+
+}
+
+
+* =============================================================================
+* SECTION 10: TVDIAGNOSE DEEP VALIDATION (8 tests)
+* =============================================================================
+
+capture noisily {
+display _n _dup(70) "="
+display "TVDIAGNOSE DEEP VALIDATION"
+display _dup(70) "="
+
+* Test 10.1: 100% coverage
+local ++test_count
+capture {
+    clear
+    input int(id) str10(s_start s_stop s_entry s_exit)
+    1 "2020-01-01" "2020-12-31" "2020-01-01" "2020-12-31"
+    2 "2020-01-01" "2020-12-31" "2020-01-01" "2020-12-31"
+    end
+    gen double start = date(s_start, "YMD")
+    gen double stop  = date(s_stop, "YMD")
+    gen double entry = date(s_entry, "YMD")
+    gen double exit_ = date(s_exit, "YMD")
+    format %td start stop entry exit_
+    drop s_*
+    tvdiagnose, id(id) start(start) stop(stop) entry(entry) exit(exit_) coverage
+    assert r(mean_coverage) == 100
+    assert r(n_with_gaps) == 0
+}
+if _rc == 0 {
+    display as result "  PASS: tvdiagnose 100% coverage"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvdiagnose 100% coverage (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 10.1"
+}
+
+* Test 10.2: ~50% known gap
+local ++test_count
+capture {
+    clear
+    input int(id) str10(s_start s_stop s_entry s_exit)
+    1 "2020-01-01" "2020-07-01" "2020-01-01" "2021-01-01"
+    end
+    gen double start = date(s_start, "YMD")
+    gen double stop  = date(s_stop, "YMD")
+    gen double entry = date(s_entry, "YMD")
+    gen double exit_ = date(s_exit, "YMD")
+    format %td start stop entry exit_
+    drop s_*
+    tvdiagnose, id(id) start(start) stop(stop) entry(entry) exit(exit_) coverage
+    assert r(mean_coverage) > 45 & r(mean_coverage) < 55
+    assert r(n_with_gaps) == 1
+}
+if _rc == 0 {
+    display as result "  PASS: tvdiagnose ~50% coverage"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvdiagnose ~50% coverage (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 10.2"
+}
+
+* Test 10.3: Gap size precision
+local ++test_count
+capture {
+    clear
+    input int(id) str10(s_start s_stop s_entry s_exit)
+    1 "2020-01-01" "2020-03-31" "2020-01-01" "2020-12-31"
+    1 "2020-05-01" "2020-12-31" "2020-01-01" "2020-12-31"
+    end
+    gen double start = date(s_start, "YMD")
+    gen double stop  = date(s_stop, "YMD")
+    gen double entry = date(s_entry, "YMD")
+    gen double exit_ = date(s_exit, "YMD")
+    format %td start stop entry exit_
+    drop s_*
+    * Gap: Apr 1 to Apr 30 = ~31 days
+    tvdiagnose, id(id) start(start) stop(stop) entry(entry) exit(exit_) gaps
+    assert r(n_gaps) == 1
+    assert r(mean_gap) >= 28 & r(mean_gap) <= 35
+    assert r(max_gap) >= 28 & r(max_gap) <= 35
+}
+if _rc == 0 {
+    display as result "  PASS: tvdiagnose gap size precision"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvdiagnose gap size precision (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 10.3"
+}
+
+* Test 10.4: threshold() filtering
+local ++test_count
+capture {
+    clear
+    input int(id) str10(s_start s_stop s_entry s_exit)
+    1 "2020-01-01" "2020-02-28" "2020-01-01" "2020-12-31"
+    1 "2020-03-05" "2020-05-31" "2020-01-01" "2020-12-31"
+    1 "2020-08-01" "2020-12-31" "2020-01-01" "2020-12-31"
+    end
+    gen double start = date(s_start, "YMD")
+    gen double stop  = date(s_stop, "YMD")
+    gen double entry = date(s_entry, "YMD")
+    gen double exit_ = date(s_exit, "YMD")
+    format %td start stop entry exit_
+    drop s_*
+    * Gap 1: Mar 1-4 = ~5 days (small), Gap 2: Jun 1-Jul 31 = ~61 days (large)
+    tvdiagnose, id(id) start(start) stop(stop) entry(entry) exit(exit_) gaps threshold(30)
+    assert r(n_large_gaps) == 1
+    assert r(n_gaps) == 2
+}
+if _rc == 0 {
+    display as result "  PASS: tvdiagnose threshold() filtering"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvdiagnose threshold() filtering (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 10.4"
+}
+
+* Test 10.5: Overlap count
+local ++test_count
+capture {
+    clear
+    input int(id) str10(s_start s_stop)
+    1 "2020-01-01" "2020-06-30"
+    1 "2020-04-01" "2020-12-31"
+    2 "2020-01-01" "2020-12-31"
+    end
+    gen double start = date(s_start, "YMD")
+    gen double stop  = date(s_stop, "YMD")
+    format %td start stop
+    drop s_*
+    tvdiagnose, id(id) start(start) stop(stop) overlaps
+    assert r(n_overlaps) >= 1
+    assert r(n_ids_affected) == 1
+}
+if _rc == 0 {
+    display as result "  PASS: tvdiagnose overlap count"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvdiagnose overlap count (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 10.5"
+}
+
+* Test 10.6: Person-time by exposure
+local ++test_count
+capture {
+    clear
+    input int(id) str10(s_start s_stop)
+    1 "2020-01-01" "2020-12-31"
+    2 "2020-01-01" "2020-12-31"
+    3 "2020-01-01" "2020-12-31"
+    end
+    gen double start = date(s_start, "YMD")
+    gen double stop  = date(s_stop, "YMD")
+    format %td start stop
+    drop s_*
+    gen byte exp = 1
+    tvdiagnose, id(id) start(start) stop(stop) exposure(exp) summarize
+    assert r(total_person_time) >= 1090 & r(total_person_time) <= 1100
+}
+if _rc == 0 {
+    display as result "  PASS: tvdiagnose person-time"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvdiagnose person-time (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 10.6"
+}
+
+* Test 10.7: all option populates all returns
+local ++test_count
+capture {
+    clear
+    input int(id) str10(s_start s_stop s_entry s_exit)
+    1 "2020-01-01" "2020-06-30" "2020-01-01" "2020-12-31"
+    1 "2020-07-01" "2020-12-31" "2020-01-01" "2020-12-31"
+    2 "2020-01-01" "2020-12-31" "2020-01-01" "2020-12-31"
+    end
+    gen double start = date(s_start, "YMD")
+    gen double stop  = date(s_stop, "YMD")
+    gen double entry = date(s_entry, "YMD")
+    gen double exit_ = date(s_exit, "YMD")
+    format %td start stop entry exit_
+    drop s_*
+    gen byte exp = 1
+    tvdiagnose, id(id) start(start) stop(stop) entry(entry) exit(exit_) exposure(exp) all
+    assert !missing(r(mean_coverage))
+    assert !missing(r(n_gaps))
+    assert !missing(r(n_overlaps))
+    assert !missing(r(total_person_time))
+}
+if _rc == 0 {
+    display as result "  PASS: tvdiagnose all option"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvdiagnose all option (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 10.7"
+}
+
+* Test 10.8: Multi-person n_persons
+local ++test_count
+capture {
+    clear
+    input int(id) str10(s_start s_stop)
+    1 "2020-01-01" "2020-06-30"
+    2 "2020-01-01" "2020-06-30"
+    3 "2020-01-01" "2020-06-30"
+    4 "2020-01-01" "2020-06-30"
+    5 "2020-01-01" "2020-06-30"
+    end
+    gen double start = date(s_start, "YMD")
+    gen double stop  = date(s_stop, "YMD")
+    format %td start stop
+    drop s_*
+    tvdiagnose, id(id) start(start) stop(stop) overlaps
+    assert r(n_persons) == 5
+    assert r(n_observations) == 5
+}
+if _rc == 0 {
+    display as result "  PASS: tvdiagnose n_persons"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvdiagnose n_persons (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 10.8"
+}
+
+}
+
+
+* =============================================================================
+* SECTION 12: TVAGE EXPANDED VALIDATION (8 tests)
+* =============================================================================
+
+capture noisily {
+display _n _dup(70) "="
+display "TVAGE EXPANDED VALIDATION"
+display _dup(70) "="
+
+* Test 12.1: Multi-person correctness
+local ++test_count
+capture {
+    clear
+    input int(id) str10(s_dob s_entry s_exit)
+    1 "1970-01-01" "2020-01-01" "2020-12-31"
+    2 "1980-06-15" "2020-01-01" "2020-12-31"
+    3 "1990-12-31" "2020-01-01" "2020-12-31"
+    end
+    gen double dob   = date(s_dob, "YMD")
+    gen double entry = date(s_entry, "YMD")
+    gen double exit_ = date(s_exit, "YMD")
+    format %td dob entry exit_
+    drop s_*
+    tvage, idvar(id) dobvar(dob) entryvar(entry) exitvar(exit_) groupwidth(1)
+    assert r(n_persons) == 3
+    quietly summarize age_tv if id == 3
+    assert r(min) == 29
+}
+if _rc == 0 {
+    display as result "  PASS: tvage multi-person correctness"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvage multi-person correctness (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 12.1"
+}
+
+* Test 12.2: No gaps/overlaps invariant
+local ++test_count
+capture {
+    clear
+    set obs 1
+    gen int id = 1
+    gen double dob = mdy(6,15,1970)
+    gen double entry = mdy(1,1,2020)
+    gen double exit_ = mdy(12,31,2023)
+    format %td dob entry exit_
+    tvage, idvar(id) dobvar(dob) entryvar(entry) exitvar(exit_) groupwidth(1)
+    sort id age_start
+    local n = _N
+    forvalues i = 2/`n' {
+        local prev = `i' - 1
+        local prev_stop = age_stop[`prev']
+        local curr_start = age_start[`i']
+        assert `curr_start' - `prev_stop' <= 1
+    }
+}
+if _rc == 0 {
+    display as result "  PASS: tvage no gaps invariant"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvage no gaps invariant (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 12.2"
+}
+
+* Test 12.3: groupwidth(5) binning
+local ++test_count
+capture {
+    clear
+    set obs 1
+    gen int id = 1
+    gen double dob = mdy(1,1,1970)
+    gen double entry = mdy(1,1,2020)
+    gen double exit_ = mdy(12,31,2030)
+    format %td dob entry exit_
+    tvage, idvar(id) dobvar(dob) entryvar(entry) exitvar(exit_) groupwidth(5)
+    assert r(groupwidth) == 5
+    quietly levelsof age_tv, local(ages)
+    local n_groups : word count `ages'
+    assert `n_groups' >= 2 & `n_groups' <= 4
+}
+if _rc == 0 {
+    display as result "  PASS: tvage groupwidth(5) binning"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvage groupwidth(5) binning (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 12.3"
+}
+
+* Test 12.4: minage clamping
+local ++test_count
+capture {
+    clear
+    set obs 1
+    gen int id = 1
+    gen double dob = mdy(1,1,1990)
+    gen double entry = mdy(1,1,2020)
+    gen double exit_ = mdy(12,31,2025)
+    format %td dob entry exit_
+    tvage, idvar(id) dobvar(dob) entryvar(entry) exitvar(exit_) groupwidth(1) minage(32)
+    quietly summarize age_tv
+    assert r(min) >= 32
+}
+if _rc == 0 {
+    display as result "  PASS: tvage minage clamping"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvage minage clamping (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 12.4"
+}
+
+* Test 12.5: maxage clamping
+local ++test_count
+capture {
+    clear
+    set obs 1
+    gen int id = 1
+    gen double dob = mdy(1,1,1960)
+    gen double entry = mdy(1,1,2020)
+    gen double exit_ = mdy(12,31,2030)
+    format %td dob entry exit_
+    tvage, idvar(id) dobvar(dob) entryvar(entry) exitvar(exit_) groupwidth(1) maxage(65)
+    quietly summarize age_tv
+    assert r(max) <= 65
+}
+if _rc == 0 {
+    display as result "  PASS: tvage maxage clamping"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvage maxage clamping (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 12.5"
+}
+
+* Test 12.6: saveas() produces loadable file
+local ++test_count
+capture {
+    clear
+    set obs 1
+    gen int id = 1
+    gen double dob = mdy(1,1,1980)
+    gen double entry = mdy(1,1,2020)
+    gen double exit_ = mdy(12,31,2022)
+    format %td dob entry exit_
+    capture erase "/tmp/_tvage_saveas_test.dta"
+    tvage, idvar(id) dobvar(dob) entryvar(entry) exitvar(exit_) groupwidth(1) ///
+        saveas("/tmp/_tvage_saveas_test")
+    use "/tmp/_tvage_saveas_test.dta", clear
+    confirm variable age_tv
+    confirm variable age_start
+    confirm variable age_stop
+    capture erase "/tmp/_tvage_saveas_test.dta"
+}
+if _rc == 0 {
+    display as result "  PASS: tvage saveas() loadable"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvage saveas() loadable (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 12.6"
+}
+
+* Test 12.7: Single-day follow-up
+local ++test_count
+capture {
+    clear
+    set obs 1
+    gen int id = 1
+    gen double dob = mdy(1,1,1980)
+    gen double entry = mdy(6,15,2020)
+    gen double exit_ = mdy(6,15,2020)
+    format %td dob entry exit_
+    tvage, idvar(id) dobvar(dob) entryvar(entry) exitvar(exit_) groupwidth(1)
+    assert _N == 1
+}
+if _rc == 0 {
+    display as result "  PASS: tvage single-day follow-up"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvage single-day follow-up (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 12.7"
+}
+
+* Test 12.8: r() values match data
+local ++test_count
+capture {
+    clear
+    input int(id) str10(s_dob s_entry s_exit)
+    1 "1970-01-01" "2020-01-01" "2020-12-31"
+    2 "1980-06-15" "2020-01-01" "2020-12-31"
+    3 "1990-12-31" "2020-01-01" "2020-12-31"
+    end
+    gen double dob   = date(s_dob, "YMD")
+    gen double entry = date(s_entry, "YMD")
+    gen double exit_ = date(s_exit, "YMD")
+    format %td dob entry exit_
+    drop s_*
+    tvage, idvar(id) dobvar(dob) entryvar(entry) exitvar(exit_) groupwidth(1)
+    assert r(n_persons) == 3
+    assert r(n_observations) == _N
+}
+if _rc == 0 {
+    display as result "  PASS: tvage r() values match data"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvage r() values match data (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 12.8"
+}
+
+}
+
+
+* =============================================================================
+* SECTION 13: TVBALANCE EXPANDED VALIDATION (7 tests)
+* =============================================================================
+
+capture noisily {
+display _n _dup(70) "="
+display "TVBALANCE EXPANDED VALIDATION"
+display _dup(70) "="
+
+* Test 13.1: Known imbalance produces large SMD
+local ++test_count
+capture {
+    clear
+    set obs 200
+    gen byte exposed = (_n > 100)
+    gen double age = cond(exposed == 1, 60, 40) + (_n - 100*exposed) * 0.01
+    tvbalance age, exposure(exposed) threshold(0.1)
+    matrix b = r(balance)
+    local smd = b[1, 3]
+    assert abs(`smd') > 1
+    assert r(n_imbalanced) == 1
+}
+if _rc == 0 {
+    display as result "  PASS: tvbalance large SMD with known imbalance"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvbalance large SMD (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 13.1"
+}
+
+* Test 13.2: 3-level exposure
+local ++test_count
+capture {
+    clear
+    set obs 150
+    gen byte exposed = cond(_n <= 50, 0, cond(_n <= 100, 1, 2))
+    gen double age = 50 + exposed * 5 + (_n - 50*exposed) * 0.01
+    tvbalance age, exposure(exposed) threshold(0.1)
+    matrix b = r(balance)
+    assert rowsof(b) == 1
+}
+if _rc == 0 {
+    display as result "  PASS: tvbalance 3-level exposure"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvbalance 3-level exposure (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 13.2"
+}
+
+* Test 13.3: Missing data exclusion
+local ++test_count
+capture {
+    clear
+    set obs 100
+    set seed 13300
+    gen byte exposed = (_n > 50)
+    gen double age = 50 + 5 * rnormal()
+    replace age = . in 1/10
+    tvbalance age, exposure(exposed)
+    local total = r(n_ref) + r(n_exp)
+    assert `total' == 90
+}
+if _rc == 0 {
+    display as result "  PASS: tvbalance missing data exclusion"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvbalance missing data exclusion (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 13.3"
+}
+
+* Test 13.4: Equal weights -> ESS == N
+local ++test_count
+capture {
+    clear
+    set obs 100
+    set seed 13400
+    gen byte exposed = (_n > 50)
+    gen double age = 50 + 5 * rnormal()
+    gen double wt = 1
+    tvbalance age, exposure(exposed) weights(wt)
+    assert reldif(r(ess_ref), r(n_ref)) < 0.01
+    assert reldif(r(ess_exp), r(n_exp)) < 0.01
+}
+if _rc == 0 {
+    display as result "  PASS: tvbalance ESS == N with unit weights"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvbalance ESS == N (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 13.4"
+}
+
+* Test 13.5: Matrix dimensions match covariates
+local ++test_count
+capture {
+    clear
+    set obs 100
+    set seed 13500
+    gen byte exposed = (_n > 50)
+    gen double age = 50 + 5 * rnormal()
+    gen double bmi = 25 + 3 * rnormal()
+    gen double sbp = 120 + 10 * rnormal()
+    tvbalance age bmi sbp, exposure(exposed)
+    matrix b = r(balance)
+    assert rowsof(b) == 3
+    assert r(n_covariates) == 3
+}
+if _rc == 0 {
+    display as result "  PASS: tvbalance matrix dimensions"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvbalance matrix dimensions (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 13.5"
+}
+
+* Test 13.6: n_imbalanced_wt count bounded
+local ++test_count
+capture {
+    clear
+    set obs 200
+    set seed 13600
+    gen byte exposed = (_n > 100)
+    gen double age = cond(exposed, 60, 40) + 5*rnormal()
+    gen double bmi = 25 + 3*rnormal()
+    gen double wt = 1
+    tvbalance age bmi, exposure(exposed) weights(wt)
+    assert r(n_imbalanced_wt) >= 0
+    assert r(n_imbalanced_wt) <= 2
+}
+if _rc == 0 {
+    display as result "  PASS: tvbalance n_imbalanced_wt bounded"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvbalance n_imbalanced_wt (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 13.6"
+}
+
+* Test 13.7: Balanced data below threshold
+local ++test_count
+capture {
+    clear
+    set obs 2000
+    set seed 13700
+    gen byte exposed = (_n > 1000)
+    gen double age = 50 + 5*rnormal()
+    tvbalance age, exposure(exposed) threshold(0.1)
+    assert r(n_imbalanced) == 0
+}
+if _rc == 0 {
+    display as result "  PASS: tvbalance balanced data below threshold"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvbalance threshold (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 13.7"
+}
+
+}
+
+
+* =============================================================================
+* SECTION 14: TVWEIGHT EXPANDED VALIDATION (7 tests)
+* =============================================================================
+
+capture noisily {
+display _n _dup(70) "="
+display "TVWEIGHT EXPANDED VALIDATION"
+display _dup(70) "="
+
+* Test 14.1: Weight = 1/PS relationship
+local ++test_count
+capture {
+    clear
+    set obs 500
+    set seed 14100
+    gen double x = rnormal()
+    gen byte treat = (x + rnormal() > 0)
+    tvweight treat, covariates(x) generate(w) denominator(ps)
+    gen double expected_w = cond(treat, 1/ps, 1/(1-ps))
+    gen double diff = abs(w - expected_w)
+    quietly summarize diff
+    assert r(max) < 0.001
+    drop w ps expected_w diff
+}
+if _rc == 0 {
+    display as result "  PASS: tvweight 1/PS relationship"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvweight 1/PS relationship (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 14.1"
+}
+
+* Test 14.2: Unstabilized weight sum reasonable
+local ++test_count
+capture {
+    clear
+    set obs 500
+    set seed 14200
+    gen double x = rnormal()
+    gen byte treat = (x + rnormal() > 0)
+    tvweight treat, covariates(x)
+    quietly summarize iptw
+    local wsum = r(sum)
+    assert `wsum' > 700 & `wsum' < 1500
+}
+if _rc == 0 {
+    display as result "  PASS: tvweight unstabilized weight sum"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvweight weight sum (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 14.2"
+}
+
+* Test 14.3: Stabilized weight mean near 1
+local ++test_count
+capture {
+    clear
+    set obs 500
+    set seed 14300
+    gen double x = rnormal()
+    gen byte treat = (x + rnormal() > 0)
+    tvweight treat, covariates(x) stabilized
+    quietly summarize iptw
+    assert abs(r(mean) - 1) < 0.15
+}
+if _rc == 0 {
+    display as result "  PASS: tvweight stabilized mean near 1"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvweight stabilized mean (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 14.3"
+}
+
+* Test 14.4: 3-level multinomial weights all positive
+local ++test_count
+capture {
+    clear
+    set obs 1500
+    set seed 14401
+    gen double x = rnormal()
+    gen double x2 = rnormal()
+    * Use well-separated groups for convergence
+    gen byte treat = cond(_n <= 500, 0, cond(_n <= 1000, 1, 2))
+    tvweight treat, covariates(x x2)
+    local saved_nlevels = r(n_levels)
+    quietly count if iptw <= 0
+    assert r(N) == 0
+    assert `saved_nlevels' == 3
+}
+if _rc == 0 {
+    display as result "  PASS: tvweight 3-level multinomial"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvweight 3-level multinomial (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 14.4"
+}
+
+* Test 14.5: Denominator PS bounded in (0,1)
+local ++test_count
+capture {
+    clear
+    set obs 500
+    set seed 14500
+    gen double x = rnormal()
+    gen byte treat = (x + rnormal() > 0)
+    tvweight treat, covariates(x) denominator(ps)
+    quietly summarize ps
+    assert r(min) > 0
+    assert r(max) < 1
+    drop ps
+}
+if _rc == 0 {
+    display as result "  PASS: tvweight PS bounded"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvweight PS bounded (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 14.5"
+}
+
+* Test 14.6: Truncation enforcement
+local ++test_count
+capture {
+    clear
+    set obs 500
+    set seed 14600
+    gen double x = 3*rnormal()
+    gen byte treat = (x + rnormal() > 0)
+    tvweight treat, covariates(x) truncate(5 95)
+    assert r(n_truncated) >= 0
+    assert r(w_min) > 0
+}
+if _rc == 0 {
+    display as result "  PASS: tvweight truncation enforcement"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvweight truncation (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 14.6"
+}
+
+* Test 14.7: ESS formula verification
+local ++test_count
+capture {
+    clear
+    set obs 500
+    set seed 14700
+    gen double x = rnormal()
+    gen byte treat = (x + rnormal() > 0)
+    tvweight treat, covariates(x)
+    local reported_ess = r(ess)
+    quietly summarize iptw
+    local sum_w = r(sum)
+    quietly gen double w2 = iptw^2
+    quietly summarize w2
+    local sum_w2 = r(sum)
+    local manual_ess = (`sum_w')^2 / `sum_w2'
+    assert reldif(`reported_ess', `manual_ess') < 0.01
+    drop w2
+}
+if _rc == 0 {
+    display as result "  PASS: tvweight ESS formula"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvweight ESS formula (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 14.7"
+}
+
+}
+
+
+* =============================================================================
+* SECTION 15: TVCALENDAR EXPANDED VALIDATION (6 tests)
+* =============================================================================
+
+capture noisily {
+display _n _dup(70) "="
+display "TVCALENDAR EXPANDED VALIDATION"
+display _dup(70) "="
+
+* Create calendar data files
+tempfile cal_data cal_range
+
+* Point-in-time calendar data
+clear
+input str10(s_date) double(rate temp)
+"2020-01-15" 1.5 32
+"2020-02-15" 1.8 35
+"2020-03-15" 2.0 42
+"2020-04-15" 2.3 55
+"2020-05-15" 2.1 68
+"2020-06-15" 1.9 78
+end
+gen double date = date(s_date, "YMD")
+format %td date
+drop s_date
+save `cal_data', replace
+
+* Range-based calendar data (seasonal periods)
+clear
+input str10(s_start s_stop) str10(season) double(risk)
+"2020-01-01" "2020-03-31" "winter" 1.5
+"2020-04-01" "2020-06-30" "spring" 1.0
+"2020-07-01" "2020-09-30" "summer" 0.8
+"2020-10-01" "2020-12-31" "fall"   1.2
+end
+gen double cal_start = date(s_start, "YMD")
+gen double cal_stop  = date(s_stop, "YMD")
+format %td cal_start cal_stop
+drop s_start s_stop
+save `cal_range', replace
+
+* Test 15.1: merge() specifies variables to merge
+local ++test_count
+capture {
+    clear
+    input int(id) str10(s_date)
+    1 "2020-01-15"
+    2 "2020-03-15"
+    end
+    gen double date = date(s_date, "YMD")
+    format %td date
+    drop s_date
+    tvcalendar using `cal_data', datevar(date) merge(rate)
+    * Rate should be merged and have non-missing values
+    confirm variable rate
+    quietly count if !missing(rate)
+    assert r(N) == 2
+}
+if _rc == 0 {
+    display as result "  PASS: tvcalendar merge() specifies variables"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvcalendar merge() (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 15.1"
+}
+
+* Test 15.2: Unmatched dates get missing
+local ++test_count
+capture {
+    clear
+    input int(id) str10(s_date)
+    1 "2020-01-15"
+    2 "2020-07-15"
+    end
+    gen double date = date(s_date, "YMD")
+    format %td date
+    drop s_date
+    tvcalendar using `cal_data', datevar(date) merge(rate)
+    assert _N == 2
+    quietly summarize rate if id == 2
+    assert r(N) == 0
+}
+if _rc == 0 {
+    display as result "  PASS: tvcalendar unmatched dates get missing"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvcalendar unmatched (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 15.2"
+}
+
+* Test 15.3: Overlapping periods handled
+local ++test_count
+capture {
+    tempfile cal_overlap
+    clear
+    input str10(s_start s_stop) double(era)
+    "2020-01-01" "2020-06-30" 1
+    "2020-04-01" "2020-12-31" 2
+    end
+    gen double cal_start = date(s_start, "YMD")
+    gen double cal_stop  = date(s_stop, "YMD")
+    format %td cal_start cal_stop
+    drop s_*
+    save `cal_overlap', replace
+    clear
+    input int(id) str10(s_date)
+    1 "2020-05-15"
+    end
+    gen double mydate = date(s_date, "YMD")
+    format %td mydate
+    drop s_date
+    tvcalendar using `cal_overlap', datevar(mydate) startvar(cal_start) stopvar(cal_stop)
+    assert _N >= 1
+}
+if _rc == 0 {
+    display as result "  PASS: tvcalendar overlapping periods"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvcalendar overlapping periods (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 15.3"
+}
+
+* Test 15.4: N-preservation
+local ++test_count
+capture {
+    clear
+    set obs 20
+    gen int id = _n
+    gen double mydate = mdy(1,1,2020) + _n * 15
+    format %td mydate
+    local n_before = _N
+    tvcalendar using `cal_range', datevar(mydate) startvar(cal_start) stopvar(cal_stop)
+    assert _N == `n_before'
+}
+if _rc == 0 {
+    display as result "  PASS: tvcalendar N-preservation"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvcalendar N-preservation (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 15.4"
+}
+
+* Test 15.5: Auto-merge without merge() merges all numeric vars
+local ++test_count
+capture {
+    clear
+    input int(id) str10(s_date)
+    1 "2020-01-15"
+    2 "2020-03-15"
+    end
+    gen double date = date(s_date, "YMD")
+    format %td date
+    drop s_date
+    tvcalendar using `cal_data', datevar(date)
+    confirm variable rate
+    confirm variable temp
+}
+if _rc == 0 {
+    display as result "  PASS: tvcalendar auto-merge all numeric vars"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvcalendar auto-merge (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 15.5"
+}
+
+* Test 15.6: Range merge with abutting periods covers full year
+local ++test_count
+capture {
+    clear
+    set obs 12
+    gen int id = 1
+    gen double mydate = mdy(_n, 15, 2020)
+    format %td mydate
+    tvcalendar using `cal_range', datevar(mydate) startvar(cal_start) stopvar(cal_stop)
+    confirm variable risk
+    quietly count if missing(risk)
+    assert r(N) == 0
+}
+if _rc == 0 {
+    display as result "  PASS: tvcalendar abutting period merge"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvcalendar abutting periods (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 15.6"
+}
+
+}
+
+
+* =============================================================================
+* SECTION 16: INVARIANT AND CONSERVATION TESTS (15 tests)
+* =============================================================================
+
+* --- 16a: tvevent invariants (4 tests) ---
+
+capture noisily {
+display _n _dup(70) "="
+display "INVARIANT TESTS: TVEVENT"
+display _dup(70) "="
+
+* Create interval data
+tempfile inv_intervals inv_events
+clear
+input int(id) str10(s_start s_stop) byte(tv_exp)
+1 "2020-01-01" "2020-04-30" 0
+1 "2020-05-01" "2020-08-31" 1
+1 "2020-09-01" "2020-12-31" 0
+2 "2020-01-01" "2020-06-30" 1
+2 "2020-07-01" "2020-12-31" 0
+3 "2020-01-01" "2020-12-31" 1
+end
+gen double start = date(s_start, "YMD")
+gen double stop  = date(s_stop, "YMD")
+format %td start stop
+drop s_*
+save `inv_intervals', replace
+
+* Compute person-time before tvevent
+quietly gen double pt = stop - start
+quietly summarize pt
+local ptime_before = r(sum)
+
+* Events
+clear
+input int(id) str10(s_event)
+1 "2020-06-15"
+3 "2020-09-15"
+end
+gen double event_date = date(s_event, "YMD")
+format %td event_date
+drop s_event
+set obs 3
+replace id = 2 in 3
+save `inv_events', replace
+
+* Run tvevent
+use `inv_events', clear
+tvevent using `inv_intervals', id(id) date(event_date) ///
+    type(single) generate(fail_flag) replace
+
+* Test 16.1: Person-time within expected range after merge
+local ++test_count
+capture {
+    quietly gen double pt = stop - start
+    quietly summarize pt
+    local ptime_after = r(sum)
+    * Person-time may differ if tvevent truncates at event dates
+    * but should be in the same order of magnitude
+    assert `ptime_after' > 0
+    assert `ptime_after' <= `ptime_before' * 1.01
+}
+if _rc == 0 {
+    display as result "  PASS: tvevent person-time reasonable"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvevent person-time (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 16.1"
+}
+
+* Test 16.2: Interval continuity (no gaps)
+local ++test_count
+capture {
+    sort id start
+    quietly by id: gen double gap = start - stop[_n-1] if _n > 1
+    quietly summarize gap
+    assert r(max) <= 1
+    drop gap
+}
+if _rc == 0 {
+    display as result "  PASS: tvevent interval continuity"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvevent interval continuity (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 16.2"
+}
+
+* Test 16.3: Correct event count
+local ++test_count
+capture {
+    quietly count if fail_flag == 1
+    local n_events = r(N)
+    assert `n_events' == 2
+}
+if _rc == 0 {
+    display as result "  PASS: tvevent correct event count"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvevent event count (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 16.3"
+}
+
+* Test 16.4: Failure indicator binary (0 or 1)
+local ++test_count
+capture {
+    quietly count if fail_flag != 0 & fail_flag != 1 & !missing(fail_flag)
+    assert r(N) == 0
+}
+if _rc == 0 {
+    display as result "  PASS: tvevent failure indicator binary"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvevent indicator binary (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 16.4"
+}
+
+}
+
+* --- 16b: tvmerge invariants (4 tests) ---
+
+capture noisily {
+display _n _dup(70) "="
+display "INVARIANT TESTS: TVMERGE"
+display _dup(70) "="
+
+* Create two interval datasets
+clear
+input int(id) str10(s_start s_stop) byte(expA)
+1 "2020-01-01" "2020-06-30" 1
+1 "2020-07-01" "2020-12-31" 0
+2 "2020-01-01" "2020-12-31" 1
+end
+gen double startA = date(s_start, "YMD")
+gen double stopA  = date(s_stop, "YMD")
+format %td startA stopA
+drop s_*
+save "/tmp/_v16_merge1.dta", replace
+
+clear
+input int(id) str10(s_start s_stop) byte(expB)
+1 "2020-01-01" "2020-04-30" 1
+1 "2020-05-01" "2020-12-31" 0
+2 "2020-01-01" "2020-08-31" 1
+2 "2020-09-01" "2020-12-31" 0
+end
+gen double startB = date(s_start, "YMD")
+gen double stopB  = date(s_stop, "YMD")
+format %td startB stopB
+drop s_*
+save "/tmp/_v16_merge2.dta", replace
+
+tvmerge "/tmp/_v16_merge1.dta" "/tmp/_v16_merge2.dta", ///
+    id(id) start(startA startB) stop(stopA stopB) exposure(expA expB)
+
+* Save r() values before they get overwritten by summarize
+local merge_N_persons = r(N_persons)
+
+* Test 16.5: Output intervals are subsets of both inputs
+local ++test_count
+capture {
+    quietly summarize start
+    local out_min = r(min)
+    assert `out_min' >= mdy(1,1,2020)
+    quietly summarize stop
+    local out_max = r(max)
+    assert `out_max' <= mdy(12,31,2020)
+}
+if _rc == 0 {
+    display as result "  PASS: tvmerge output intervals bounded"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvmerge intervals bounded (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 16.5"
+}
+
+* Test 16.6: Both exposure values present
+local ++test_count
+capture {
+    confirm variable expA
+    confirm variable expB
+    quietly count if missing(expA) | missing(expB)
+    assert r(N) == 0
+}
+if _rc == 0 {
+    display as result "  PASS: tvmerge exposure values carried"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvmerge exposure values (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 16.6"
+}
+
+* Test 16.7: N_persons matches input
+local ++test_count
+capture {
+    assert `merge_N_persons' == 2
+}
+if _rc == 0 {
+    display as result "  PASS: tvmerge N_persons correct"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvmerge N_persons (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 16.7"
+}
+
+* Test 16.8: Person-time conservation
+local ++test_count
+capture {
+    * Total person-time: each person has Jan1-Dec31 = 365 days
+    * Two persons = 730 days
+    quietly gen double pt = stop - start
+    quietly summarize pt
+    local merged_pt = r(sum)
+    assert `merged_pt' >= 725 & `merged_pt' <= 735
+    drop pt
+}
+if _rc == 0 {
+    display as result "  PASS: tvmerge person-time conservation"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvmerge person-time (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 16.8"
+}
+
+capture erase "/tmp/_v16_merge1.dta"
+capture erase "/tmp/_v16_merge2.dta"
+
+}
+
+* --- 16c: tvexpose preservation (3 tests) ---
+
+capture noisily {
+display _n _dup(70) "="
+display "INVARIANT TESTS: TVEXPOSE PRESERVATION"
+display _dup(70) "="
+
+* Create cohort with value labels
+tempfile expo_cohort expo_rx
+clear
+input int(id) str10(s_entry s_exit) double(baseline_age) byte(sex)
+1 "2020-01-01" "2020-12-31" 55 1
+2 "2020-01-01" "2020-12-31" 62 0
+3 "2020-01-01" "2020-12-31" 48 1
+end
+gen double entry = date(s_entry, "YMD")
+gen double exit_ = date(s_exit, "YMD")
+format %td entry exit_
+drop s_*
+label define sex_lbl 0 "Female" 1 "Male"
+label values sex sex_lbl
+save `expo_cohort', replace
+
+* Exposure data
+clear
+input int(id) str10(s_start s_stop) byte(drug)
+1 "2020-03-01" "2020-09-30" 1
+2 "2020-05-01" "2020-12-31" 1
+end
+gen double rx_start = date(s_start, "YMD")
+gen double rx_stop  = date(s_stop, "YMD")
+format %td rx_start rx_stop
+drop s_*
+save `expo_rx', replace
+
+use `expo_cohort', clear
+tvexpose using `expo_rx', id(id) start(rx_start) stop(rx_stop) ///
+    exposure(drug) entry(entry) exit(exit_) ///
+    reference(0) generate(tv_exp) keepvars(baseline_age sex) ///
+    referencelabel("Unexposed") keepdates
+
+* Test 16.9: keepvars values preserved
+local ++test_count
+capture {
+    confirm variable baseline_age
+    confirm variable sex
+    * Person 1 should still have baseline_age == 55
+    quietly summarize baseline_age if id == 1
+    assert r(mean) == 55
+}
+if _rc == 0 {
+    display as result "  PASS: tvexpose keepvars preserved"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvexpose keepvars (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 16.9"
+}
+
+* Test 16.10: Value labels preserved
+local ++test_count
+capture {
+    local lbl : value label sex
+    assert "`lbl'" != ""
+    local male_text : label `lbl' 1
+    assert "`male_text'" == "Male"
+}
+if _rc == 0 {
+    display as result "  PASS: tvexpose value labels preserved"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvexpose value labels (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 16.10"
+}
+
+* Test 16.11: referencelabel in value label
+local ++test_count
+capture {
+    local explbl : value label tv_exp
+    assert "`explbl'" != ""
+    local ref_text : label `explbl' 0
+    assert "`ref_text'" == "Unexposed"
+}
+if _rc == 0 {
+    display as result "  PASS: tvexpose referencelabel applied"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tvexpose referencelabel (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 16.11"
+}
 
 }
 
