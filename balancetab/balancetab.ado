@@ -58,6 +58,8 @@ STORED RESULTS:
 
 program define balancetab, rclass
     version 16.0
+    local _vabbrev = c(varabbrev)
+    local _more = c(more)
     set varabbrev off
     set more off
 
@@ -309,7 +311,7 @@ program define balancetab, rclass
     }
     display as text "Threshold:     " as result %6.3f `threshold'
     display as text "{hline 75}"
-    display ""
+    display _newline
 
     * Display balance table header
     if `has_adj' {
@@ -378,7 +380,7 @@ program define balancetab, rclass
     }
 
     * Summary
-    display ""
+    display _newline
     if `has_adj' {
         display as text "Maximum |SMD| (raw):      " as result `format' `max_smd_raw'
         display as text "Maximum |SMD| (adjusted): " as result `format' `max_smd_adj'
@@ -554,4 +556,6 @@ program define balancetab, rclass
     return local varlist "`varlist'"
     if "`wvar'" != "" return local wvar "`wvar'"
 
+    set varabbrev `_vabbrev'
+    set more `_more'
 end

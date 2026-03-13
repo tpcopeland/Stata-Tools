@@ -50,7 +50,8 @@ balancetab varlist [if] [in], treatment(varname) [options]
 | **sheet(name)** | "Balance" | Excel sheet name |
 | **loveplot** | off | Generate Love plot |
 | **saving(filename)** | - | Save Love plot to file |
-| **graphoptions(string)** | - | Additional twoway options for Love plot (e.g., `scheme(plotplain)`) |
+| **scheme(schemename)** | - | Graph scheme for Love plot (e.g., `plotplainblind`) |
+| **graphoptions(string)** | - | Additional twoway options for Love plot (e.g., `note("Source: RCT")`) |
 | **format(fmt)** | %6.3f | Display format for SMD |
 | **title(string)** | - | Title for output/plot |
 

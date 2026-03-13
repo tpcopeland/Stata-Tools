@@ -172,6 +172,7 @@ Stabilized weights typically have mean 1 and smaller variance, often providing m
 
 ## Version
 
+- **Version 1.0.3** (13 March 2026): Fixed varabbrev restoration, added generate==wvar guard
 - **Version 1.0.2** (26 February 2026): Added `scheme()` and `graphoptions()` for graph customization
 - **Version 1.0.1** (25 February 2026): Validation and option conflict fixes
 - **Version 1.0.0** (21 December 2025): Initial release

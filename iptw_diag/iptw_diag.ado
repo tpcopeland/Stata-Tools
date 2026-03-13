@@ -1,4 +1,4 @@
-*! iptw_diag Version 1.0.2  2026/02/26
+*! iptw_diag Version 1.0.3  2026/03/13
 *! IPTW weight diagnostics - distribution, ESS, extreme weights, trimming
 *! Author: Timothy P Copeland
 *! Program class: rclass (returns results in r())
@@ -62,8 +62,8 @@ STORED RESULTS:
 
 program define iptw_diag, rclass
     version 16.0
+    local _varabbrev `c(varabbrev)'
     set varabbrev off
-    set more off
 
     * =========================================================================
     * SYNTAX PARSING
@@ -151,6 +151,18 @@ program define iptw_diag, rclass
     if (`trim' != 0 | `truncate' != 0 | "`stabilize'" != "") & "`generate'" == "" {
         display as error "generate() required with trim(), truncate(), or stabilize"
         exit 198
+    }
+
+    * Prevent generate from overwriting input variables
+    if "`generate'" != "" & (`trim' != 0 | `truncate' != 0 | "`stabilize'" != "") {
+        if "`generate'" == "`wvar'" {
+            display as error "generate() cannot be the same as the weight variable"
+            exit 198
+        }
+        if "`generate'" == "`treatment'" {
+            display as error "generate() cannot be the same as the treatment variable"
+            exit 198
+        }
     }
 
     * Validate generate variable name
@@ -260,7 +272,7 @@ program define iptw_diag, rclass
     display as text "{hline 70}"
     display as text "Weight Distribution Summary"
     display as text "{hline 70}"
-    display as text %25s "" "Overall" %15s "Treated" %15s "Control"
+    display as text %25s "" %15s "Overall" %15s "Treated" %15s "Control"
     display as text "{hline 70}"
     display as text %25s "N" ///
         as result %15.0fc `N' %15.0fc `n_treated' %15.0fc `n_control'
@@ -299,7 +311,7 @@ program define iptw_diag, rclass
     display as text "{hline 70}"
     display as text "Effective Sample Size (ESS)"
     display as text "{hline 70}"
-    display as text %25s "" "Overall" %15s "Treated" %15s "Control"
+    display as text %25s "" %15s "Overall" %15s "Treated" %15s "Control"
     display as text "{hline 70}"
     display as text %25s "ESS" ///
         as result %15.1f `ess' %15.1f `ess_t' %15.1f `ess_c'
@@ -336,6 +348,10 @@ program define iptw_diag, rclass
     * =========================================================================
     * WEIGHT TRIMMING/STABILIZATION
     * =========================================================================
+    if "`generate'" != "" & `trim' == 0 & `truncate' == 0 & "`stabilize'" == "" {
+        display as text "note: generate() ignored without trim(), truncate(), or stabilize"
+    }
+
     if `trim' != 0 | `truncate' != 0 | "`stabilize'" != "" {
         quietly {
             if "`replace'" != "" {
@@ -439,10 +455,12 @@ program define iptw_diag, rclass
                 local scheme_opt "scheme(`scheme')"
             }
 
+            local bw = (`max_wt' - `min_wt') / min(20, ceil(sqrt(`N')))
+
             twoway (histogram `wvar' if `touse' & `treatment' == 1, ///
-                       fcolor(navy%50) lcolor(navy) width(0.5)) ///
+                       fcolor(navy%50) lcolor(navy) width(`bw')) ///
                    (histogram `wvar' if `touse' & `treatment' == 0, ///
-                       fcolor(cranberry%50) lcolor(cranberry) width(0.5)), ///
+                       fcolor(cranberry%50) lcolor(cranberry) width(`bw')), ///
                    legend(order(1 "Treated" 2 "Control") rows(1)) ///
                    xtitle("IPTW Weight") ytitle("Frequency") ///
                    title("IPTW Weight Distribution") ///
@@ -480,5 +498,7 @@ program define iptw_diag, rclass
     return scalar p99 = `p99'
     return local wvar "`wvar'"
     return local treatment "`treatment'"
+
+    set varabbrev `_varabbrev'
 
 end

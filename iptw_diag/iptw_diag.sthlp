@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.2  26feb2026}{...}
+{* *! version 1.0.3  13mar2026}{...}
 {vieweralsosee "[TE] teffects" "help teffects"}{...}
 {vieweralsosee "[R] logit" "help logit"}{...}
 {viewerjumpto "Syntax" "iptw_diag##syntax"}{...}
@@ -273,7 +273,7 @@ When {opt generate()} is used:
 {pstd}Timothy P Copeland{p_end}
 {pstd}Department of Clinical Neuroscience{p_end}
 {pstd}Karolinska Institutet{p_end}
-{pstd}Version 1.0.2, 2026-02-26{p_end}
+{pstd}Version 1.0.3, 2026-03-13{p_end}
 
 
 {title:Also see}

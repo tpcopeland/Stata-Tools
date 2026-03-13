@@ -11,20 +11,27 @@
 *   Standalone: do test_balancetab.do
 *   Via runner: do run_test.do test_balancetab [testnumber] [quiet] [machine]
 *
-* Author: Claude (automated testing)
-* Date: 2025-12-21
+* Author: Timothy Copeland
+* Date: 2026-03-13
 *******************************************************************************/
 
 clear all
 set more off
+set seed 12345
 version 16.0
 
 * =============================================================================
 * CONFIGURATION
 * =============================================================================
-if "$RUN_TEST_QUIET" == "" global RUN_TEST_QUIET = 0
-if "$RUN_TEST_MACHINE" == "" global RUN_TEST_MACHINE = 0
-if "$RUN_TEST_NUMBER" == "" global RUN_TEST_NUMBER = 0
+if "$RUN_TEST_QUIET" == "" {
+    global RUN_TEST_QUIET = 0
+}
+if "$RUN_TEST_MACHINE" == "" {
+    global RUN_TEST_MACHINE = 0
+}
+if "$RUN_TEST_NUMBER" == "" {
+    global RUN_TEST_NUMBER = 0
+}
 
 local quiet = $RUN_TEST_QUIET
 local machine = $RUN_TEST_MACHINE
@@ -37,43 +44,22 @@ if "`c(os)'" == "MacOSX" {
     global STATA_TOOLS_PATH "/Users/tcopeland/Documents/GitHub/Stata-Tools"
 }
 else if "`c(os)'" == "Unix" {
-    * Try to detect path from current working directory
-    capture confirm file "../../_devkit/_testing"
-    if _rc == 0 {
-        * Running from <pkg>/qa/ directory
-        global STATA_TOOLS_PATH "`c(pwd)'/../.."
-    }
-    else {
-    capture confirm file "_devkit/_testing"
-    if _rc == 0 {
-        global STATA_TOOLS_PATH "`c(pwd)'"
-    }
-    else {
-        capture confirm file "_devkit/_testing/data"
-        if _rc == 0 {
-            global STATA_TOOLS_PATH "`c(pwd)'/.."
-        }
-        else {
-            global STATA_TOOLS_PATH "/home/`c(username)'/Stata-Tools"
-        }
-    }
-    }
+    global STATA_TOOLS_PATH "/home/tpcopeland/Stata-Tools"
 }
 else {
     global STATA_TOOLS_PATH "`c(pwd)'"
 }
 
-global TESTING_DIR "${STATA_TOOLS_PATH}/_devkit/_testing"
-global DATA_DIR "${TESTING_DIR}/data"
-global FIGURES_DIR "${TESTING_DIR}/figures/balancetab"
+global QA_DIR "${STATA_TOOLS_PATH}/balancetab/qa"
+global OUTPUT_DIR "${QA_DIR}/output"
 
-capture mkdir "${DATA_DIR}"
-capture mkdir "${TESTING_DIR}/figures"
-capture mkdir "${FIGURES_DIR}"
+capture mkdir "${OUTPUT_DIR}"
 
-* Install package
-capture net uninstall balancetab
-quietly net install balancetab, from("${STATA_TOOLS_PATH}/balancetab")
+adopath ++ "${STATA_TOOLS_PATH}/balancetab"
+
+* Reload to pick up latest changes
+capture program drop balancetab
+run "${STATA_TOOLS_PATH}/balancetab/balancetab.ado"
 
 * =============================================================================
 * HEADER
@@ -90,27 +76,30 @@ if `quiet' == 0 {
 local test_count = 0
 local pass_count = 0
 local fail_count = 0
-local skip_count = 0
 local failed_tests ""
 
-* =============================================================================
-* SECTION 1: BASIC FUNCTIONALITY TESTS
-* =============================================================================
-if `quiet' == 0 {
-    display as text _n "{hline 70}"
-    display as text "SECTION 1: Basic Functionality Tests"
-    display as text "{hline 70}"
-}
+capture program drop _run_test
+program define _run_test
+    args test_num test_desc
+    if $RUN_TEST_NUMBER > 0 & $RUN_TEST_NUMBER != `test_num' {
+        exit 0
+    }
+    if $RUN_TEST_QUIET == 0 {
+        display as text _n "TEST `test_num': `test_desc'"
+        display as text "{hline 50}"
+    }
+end
 
-* -----------------------------------------------------------------------------
-* Test 1: Basic execution with sysuse auto data
-* -----------------------------------------------------------------------------
+* =============================================================================
+* SECTION 1: BASIC FUNCTIONALITY
+* =============================================================================
+
+* TEST 1: Basic execution - unadjusted SMD
 local ++test_count
 local test_desc "Basic execution - unadjusted SMD"
+_run_test `test_count' "`test_desc'"
 
 if `run_only' == 0 | `run_only' == `test_count' {
-    if `quiet' == 0 display as text _n "Test `test_count': `test_desc'"
-
     capture {
         sysuse auto, clear
         balancetab price mpg weight, treatment(foreign)
@@ -120,31 +109,28 @@ if `run_only' == 0 | `run_only' == `test_count' {
     }
     if _rc == 0 {
         local ++pass_count
-        if `quiet' == 0 display as result "  PASSED"
+        if `machine' display "[OK] `test_count'"
+        else if `quiet' == 0 display as result "  PASSED"
     }
     else {
         local ++fail_count
         local failed_tests "`failed_tests' `test_count'"
-        if `quiet' == 0 display as error "  FAILED (error `=_rc')"
+        if `machine' display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        else display as error "  FAILED: `test_desc' (error `=_rc')"
     }
 }
 
-* -----------------------------------------------------------------------------
-* Test 2: With IPTW weights
-* -----------------------------------------------------------------------------
+* TEST 2: With IPTW weights
 local ++test_count
 local test_desc "With IPTW weights"
+_run_test `test_count' "`test_desc'"
 
 if `run_only' == 0 | `run_only' == `test_count' {
-    if `quiet' == 0 display as text _n "Test `test_count': `test_desc'"
-
     capture {
         sysuse auto, clear
-        * Create simple propensity score and weights
         logit foreign price mpg
         predict ps, pr
         gen ipw = cond(foreign==1, 1/ps, 1/(1-ps))
-
         balancetab price mpg, treatment(foreign) wvar(ipw)
         assert r(N) > 0
         assert r(max_smd_raw) != .
@@ -152,51 +138,48 @@ if `run_only' == 0 | `run_only' == `test_count' {
     }
     if _rc == 0 {
         local ++pass_count
-        if `quiet' == 0 display as result "  PASSED"
+        if `machine' display "[OK] `test_count'"
+        else if `quiet' == 0 display as result "  PASSED"
     }
     else {
         local ++fail_count
         local failed_tests "`failed_tests' `test_count'"
-        if `quiet' == 0 display as error "  FAILED (error `=_rc')"
+        if `machine' display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        else display as error "  FAILED: `test_desc' (error `=_rc')"
     }
 }
 
-* -----------------------------------------------------------------------------
-* Test 3: With matched option
-* -----------------------------------------------------------------------------
+* TEST 3: With matched option
 local ++test_count
 local test_desc "With matched option"
+_run_test `test_count' "`test_desc'"
 
 if `run_only' == 0 | `run_only' == `test_count' {
-    if `quiet' == 0 display as text _n "Test `test_count': `test_desc'"
-
     capture {
         sysuse auto, clear
         balancetab price mpg weight, treatment(foreign) matched
         assert r(N) > 0
-        * matched-only should NOT return r(max_smd_adj) — single column display
         assert r(max_smd_raw) != .
     }
     if _rc == 0 {
         local ++pass_count
-        if `quiet' == 0 display as result "  PASSED"
+        if `machine' display "[OK] `test_count'"
+        else if `quiet' == 0 display as result "  PASSED"
     }
     else {
         local ++fail_count
         local failed_tests "`failed_tests' `test_count'"
-        if `quiet' == 0 display as error "  FAILED (error `=_rc')"
+        if `machine' display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        else display as error "  FAILED: `test_desc' (error `=_rc')"
     }
 }
 
-* -----------------------------------------------------------------------------
-* Test 4: Custom threshold
-* -----------------------------------------------------------------------------
+* TEST 4: Custom threshold
 local ++test_count
 local test_desc "Custom threshold option"
+_run_test `test_count' "`test_desc'"
 
 if `run_only' == 0 | `run_only' == `test_count' {
-    if `quiet' == 0 display as text _n "Test `test_count': `test_desc'"
-
     capture {
         sysuse auto, clear
         balancetab price mpg, treatment(foreign) threshold(0.2)
@@ -204,24 +187,23 @@ if `run_only' == 0 | `run_only' == `test_count' {
     }
     if _rc == 0 {
         local ++pass_count
-        if `quiet' == 0 display as result "  PASSED"
+        if `machine' display "[OK] `test_count'"
+        else if `quiet' == 0 display as result "  PASSED"
     }
     else {
         local ++fail_count
         local failed_tests "`failed_tests' `test_count'"
-        if `quiet' == 0 display as error "  FAILED (error `=_rc')"
+        if `machine' display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        else display as error "  FAILED: `test_desc' (error `=_rc')"
     }
 }
 
-* -----------------------------------------------------------------------------
-* Test 5: Custom title option
-* -----------------------------------------------------------------------------
+* TEST 5: Custom title
 local ++test_count
 local test_desc "Custom title option"
+_run_test `test_count' "`test_desc'"
 
 if `run_only' == 0 | `run_only' == `test_count' {
-    if `quiet' == 0 display as text _n "Test `test_count': `test_desc'"
-
     capture {
         sysuse auto, clear
         balancetab price mpg, treatment(foreign) title("My Custom Title")
@@ -229,24 +211,23 @@ if `run_only' == 0 | `run_only' == `test_count' {
     }
     if _rc == 0 {
         local ++pass_count
-        if `quiet' == 0 display as result "  PASSED"
+        if `machine' display "[OK] `test_count'"
+        else if `quiet' == 0 display as result "  PASSED"
     }
     else {
         local ++fail_count
         local failed_tests "`failed_tests' `test_count'"
-        if `quiet' == 0 display as error "  FAILED (error `=_rc')"
+        if `machine' display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        else display as error "  FAILED: `test_desc' (error `=_rc')"
     }
 }
 
-* -----------------------------------------------------------------------------
-* Test 6: Custom format option
-* -----------------------------------------------------------------------------
+* TEST 6: Custom format
 local ++test_count
 local test_desc "Custom format option"
+_run_test `test_count' "`test_desc'"
 
 if `run_only' == 0 | `run_only' == `test_count' {
-    if `quiet' == 0 display as text _n "Test `test_count': `test_desc'"
-
     capture {
         sysuse auto, clear
         balancetab price mpg, treatment(foreign) format(%8.4f)
@@ -254,134 +235,216 @@ if `run_only' == 0 | `run_only' == `test_count' {
     }
     if _rc == 0 {
         local ++pass_count
-        if `quiet' == 0 display as result "  PASSED"
+        if `machine' display "[OK] `test_count'"
+        else if `quiet' == 0 display as result "  PASSED"
     }
     else {
         local ++fail_count
         local failed_tests "`failed_tests' `test_count'"
-        if `quiet' == 0 display as error "  FAILED (error `=_rc')"
+        if `machine' display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        else display as error "  FAILED: `test_desc' (error `=_rc')"
     }
 }
 
 * =============================================================================
 * SECTION 2: OUTPUT TESTS
 * =============================================================================
-if `quiet' == 0 {
-    display as text _n "{hline 70}"
-    display as text "SECTION 2: Output Tests"
-    display as text "{hline 70}"
-}
 
-* -----------------------------------------------------------------------------
-* Test 7: Love plot generation
-* -----------------------------------------------------------------------------
+* TEST 7: Love plot (weighted, with saving)
 local ++test_count
-local test_desc "Love plot generation"
+local test_desc "Love plot with weights and saving"
+_run_test `test_count' "`test_desc'"
 
 if `run_only' == 0 | `run_only' == `test_count' {
-    if `quiet' == 0 display as text _n "Test `test_count': `test_desc'"
-
     capture {
         sysuse auto, clear
         logit foreign price mpg
         predict ps, pr
         gen ipw = cond(foreign==1, 1/ps, 1/(1-ps))
-
         balancetab price mpg weight, treatment(foreign) wvar(ipw) ///
-            loveplot saving("${FIGURES_DIR}/loveplot_test.png")
-
-        confirm file "${FIGURES_DIR}/loveplot_test.png"
+            loveplot saving("${OUTPUT_DIR}/loveplot_test.png")
+        confirm file "${OUTPUT_DIR}/loveplot_test.png"
     }
     if _rc == 0 {
         local ++pass_count
-        if `quiet' == 0 display as result "  PASSED"
+        if `machine' display "[OK] `test_count'"
+        else if `quiet' == 0 display as result "  PASSED"
     }
     else {
         local ++fail_count
         local failed_tests "`failed_tests' `test_count'"
-        if `quiet' == 0 display as error "  FAILED (error `=_rc')"
+        if `machine' display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        else display as error "  FAILED: `test_desc' (error `=_rc')"
     }
-    capture erase "${FIGURES_DIR}/loveplot_test.png"
+    capture erase "${OUTPUT_DIR}/loveplot_test.png"
 }
 
-* -----------------------------------------------------------------------------
-* Test 8: Excel export
-* -----------------------------------------------------------------------------
+* TEST 8: Love plot (unadjusted, no weights)
 local ++test_count
-local test_desc "Excel export"
+local test_desc "Love plot unadjusted"
+_run_test `test_count' "`test_desc'"
 
 if `run_only' == 0 | `run_only' == `test_count' {
-    if `quiet' == 0 display as text _n "Test `test_count': `test_desc'"
-
     capture {
         sysuse auto, clear
-        balancetab price mpg weight, treatment(foreign) ///
-            xlsx("${DATA_DIR}/balance_test.xlsx")
-
-        confirm file "${DATA_DIR}/balance_test.xlsx"
+        balancetab price mpg weight, treatment(foreign) loveplot
+        assert r(N) > 0
     }
     if _rc == 0 {
         local ++pass_count
-        if `quiet' == 0 display as result "  PASSED"
+        if `machine' display "[OK] `test_count'"
+        else if `quiet' == 0 display as result "  PASSED"
     }
     else {
         local ++fail_count
         local failed_tests "`failed_tests' `test_count'"
-        if `quiet' == 0 display as error "  FAILED (error `=_rc')"
+        if `machine' display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        else display as error "  FAILED: `test_desc' (error `=_rc')"
     }
-    capture erase "${DATA_DIR}/balance_test.xlsx"
 }
 
-* -----------------------------------------------------------------------------
-* Test 9: Excel export with custom sheet name
-* -----------------------------------------------------------------------------
+* TEST 9: Love plot with scheme()
 local ++test_count
-local test_desc "Excel export with custom sheet"
+local test_desc "Love plot with scheme option"
+_run_test `test_count' "`test_desc'"
 
 if `run_only' == 0 | `run_only' == `test_count' {
-    if `quiet' == 0 display as text _n "Test `test_count': `test_desc'"
-
     capture {
         sysuse auto, clear
         balancetab price mpg, treatment(foreign) ///
-            xlsx("${DATA_DIR}/balance_sheet.xlsx") sheet("MyBalance")
-
-        confirm file "${DATA_DIR}/balance_sheet.xlsx"
+            loveplot scheme(plotplainblind)
+        assert r(N) > 0
     }
     if _rc == 0 {
         local ++pass_count
-        if `quiet' == 0 display as result "  PASSED"
+        if `machine' display "[OK] `test_count'"
+        else if `quiet' == 0 display as result "  PASSED"
     }
     else {
         local ++fail_count
         local failed_tests "`failed_tests' `test_count'"
-        if `quiet' == 0 display as error "  FAILED (error `=_rc')"
+        if `machine' display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        else display as error "  FAILED: `test_desc' (error `=_rc')"
     }
-    capture erase "${DATA_DIR}/balance_sheet.xlsx"
 }
 
-* =============================================================================
-* SECTION 3: RETURN VALUES TESTS
-* =============================================================================
-if `quiet' == 0 {
-    display as text _n "{hline 70}"
-    display as text "SECTION 3: Return Values Tests"
-    display as text "{hline 70}"
-}
-
-* -----------------------------------------------------------------------------
-* Test 10: Return scalars exist
-* -----------------------------------------------------------------------------
+* TEST 10: Love plot with graphoptions()
 local ++test_count
-local test_desc "Return scalars exist"
+local test_desc "Love plot with graphoptions"
+_run_test `test_count' "`test_desc'"
 
 if `run_only' == 0 | `run_only' == `test_count' {
-    if `quiet' == 0 display as text _n "Test `test_count': `test_desc'"
+    capture {
+        sysuse auto, clear
+        balancetab price mpg, treatment(foreign) ///
+            loveplot graphoptions(note("Test note"))
+        assert r(N) > 0
+    }
+    if _rc == 0 {
+        local ++pass_count
+        if `machine' display "[OK] `test_count'"
+        else if `quiet' == 0 display as result "  PASSED"
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        else display as error "  FAILED: `test_desc' (error `=_rc')"
+    }
+}
 
+* TEST 11: Excel export
+local ++test_count
+local test_desc "Excel export"
+_run_test `test_count' "`test_desc'"
+
+if `run_only' == 0 | `run_only' == `test_count' {
+    capture {
+        sysuse auto, clear
+        balancetab price mpg weight, treatment(foreign) ///
+            xlsx("${OUTPUT_DIR}/balance_test.xlsx")
+        confirm file "${OUTPUT_DIR}/balance_test.xlsx"
+    }
+    if _rc == 0 {
+        local ++pass_count
+        if `machine' display "[OK] `test_count'"
+        else if `quiet' == 0 display as result "  PASSED"
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        else display as error "  FAILED: `test_desc' (error `=_rc')"
+    }
+    capture erase "${OUTPUT_DIR}/balance_test.xlsx"
+}
+
+* TEST 12: Excel export with custom sheet
+local ++test_count
+local test_desc "Excel export with custom sheet"
+_run_test `test_count' "`test_desc'"
+
+if `run_only' == 0 | `run_only' == `test_count' {
+    capture {
+        sysuse auto, clear
+        balancetab price mpg, treatment(foreign) ///
+            xlsx("${OUTPUT_DIR}/balance_sheet.xlsx") sheet("MyBalance")
+        confirm file "${OUTPUT_DIR}/balance_sheet.xlsx"
+    }
+    if _rc == 0 {
+        local ++pass_count
+        if `machine' display "[OK] `test_count'"
+        else if `quiet' == 0 display as result "  PASSED"
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        else display as error "  FAILED: `test_desc' (error `=_rc')"
+    }
+    capture erase "${OUTPUT_DIR}/balance_sheet.xlsx"
+}
+
+* TEST 13: Excel export with weights (7-column output)
+local ++test_count
+local test_desc "Excel export with weighted columns"
+_run_test `test_count' "`test_desc'"
+
+if `run_only' == 0 | `run_only' == `test_count' {
+    capture {
+        sysuse auto, clear
+        gen wgt = 1 + uniform()
+        balancetab price mpg, treatment(foreign) wvar(wgt) ///
+            xlsx("${OUTPUT_DIR}/balance_wgt.xlsx")
+        confirm file "${OUTPUT_DIR}/balance_wgt.xlsx"
+    }
+    if _rc == 0 {
+        local ++pass_count
+        if `machine' display "[OK] `test_count'"
+        else if `quiet' == 0 display as result "  PASSED"
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        else display as error "  FAILED: `test_desc' (error `=_rc')"
+    }
+    capture erase "${OUTPUT_DIR}/balance_wgt.xlsx"
+}
+
+* =============================================================================
+* SECTION 3: RETURN VALUES
+* =============================================================================
+
+* TEST 14: Return scalars exist
+local ++test_count
+local test_desc "Return scalars exist"
+_run_test `test_count' "`test_desc'"
+
+if `run_only' == 0 | `run_only' == `test_count' {
     capture {
         sysuse auto, clear
         balancetab price mpg, treatment(foreign)
-
         assert r(N) != .
         assert r(N_treated) != .
         assert r(N_control) != .
@@ -391,88 +454,103 @@ if `run_only' == 0 | `run_only' == `test_count' {
     }
     if _rc == 0 {
         local ++pass_count
-        if `quiet' == 0 display as result "  PASSED"
+        if `machine' display "[OK] `test_count'"
+        else if `quiet' == 0 display as result "  PASSED"
     }
     else {
         local ++fail_count
         local failed_tests "`failed_tests' `test_count'"
-        if `quiet' == 0 display as error "  FAILED (error `=_rc')"
+        if `machine' display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        else display as error "  FAILED: `test_desc' (error `=_rc')"
     }
 }
 
-* -----------------------------------------------------------------------------
-* Test 11: Return locals exist
-* -----------------------------------------------------------------------------
+* TEST 15: Return macros exist
 local ++test_count
-local test_desc "Return locals exist"
+local test_desc "Return macros exist"
+_run_test `test_count' "`test_desc'"
 
 if `run_only' == 0 | `run_only' == `test_count' {
-    if `quiet' == 0 display as text _n "Test `test_count': `test_desc'"
-
     capture {
         sysuse auto, clear
         balancetab price mpg, treatment(foreign)
-
         assert "`r(treatment)'" != ""
         assert "`r(varlist)'" != ""
     }
     if _rc == 0 {
         local ++pass_count
-        if `quiet' == 0 display as result "  PASSED"
+        if `machine' display "[OK] `test_count'"
+        else if `quiet' == 0 display as result "  PASSED"
     }
     else {
         local ++fail_count
         local failed_tests "`failed_tests' `test_count'"
-        if `quiet' == 0 display as error "  FAILED (error `=_rc')"
+        if `machine' display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        else display as error "  FAILED: `test_desc' (error `=_rc')"
     }
 }
 
-* -----------------------------------------------------------------------------
-* Test 12: Return matrix exists
-* -----------------------------------------------------------------------------
+* TEST 16: Return matrix exists with correct dimensions
 local ++test_count
-local test_desc "Return matrix exists"
+local test_desc "Return matrix 3x6"
+_run_test `test_count' "`test_desc'"
 
 if `run_only' == 0 | `run_only' == `test_count' {
-    if `quiet' == 0 display as text _n "Test `test_count': `test_desc'"
-
     capture {
         sysuse auto, clear
         balancetab price mpg weight, treatment(foreign)
-
         matrix M = r(balance)
         assert rowsof(M) == 3
         assert colsof(M) == 6
     }
     if _rc == 0 {
         local ++pass_count
-        if `quiet' == 0 display as result "  PASSED"
+        if `machine' display "[OK] `test_count'"
+        else if `quiet' == 0 display as result "  PASSED"
     }
     else {
         local ++fail_count
         local failed_tests "`failed_tests' `test_count'"
-        if `quiet' == 0 display as error "  FAILED (error `=_rc')"
+        if `machine' display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        else display as error "  FAILED: `test_desc' (error `=_rc')"
+    }
+}
+
+* TEST 17: r(wvar) returned when weights specified
+local ++test_count
+local test_desc "r(wvar) returned with weights"
+_run_test `test_count' "`test_desc'"
+
+if `run_only' == 0 | `run_only' == `test_count' {
+    capture {
+        sysuse auto, clear
+        gen wgt = 1 + uniform()
+        balancetab price mpg, treatment(foreign) wvar(wgt)
+        assert "`r(wvar)'" == "wgt"
+    }
+    if _rc == 0 {
+        local ++pass_count
+        if `machine' display "[OK] `test_count'"
+        else if `quiet' == 0 display as result "  PASSED"
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        else display as error "  FAILED: `test_desc' (error `=_rc')"
     }
 }
 
 * =============================================================================
-* SECTION 4: ERROR HANDLING TESTS
+* SECTION 4: ERROR HANDLING
 * =============================================================================
-if `quiet' == 0 {
-    display as text _n "{hline 70}"
-    display as text "SECTION 4: Error Handling Tests"
-    display as text "{hline 70}"
-}
 
-* -----------------------------------------------------------------------------
-* Test 13: Error on non-binary treatment
-* -----------------------------------------------------------------------------
+* TEST 18: Error on non-binary treatment
 local ++test_count
 local test_desc "Error on non-binary treatment"
+_run_test `test_count' "`test_desc'"
 
 if `run_only' == 0 | `run_only' == `test_count' {
-    if `quiet' == 0 display as text _n "Test `test_count': `test_desc'"
-
     capture {
         sysuse auto, clear
         capture balancetab price mpg, treatment(rep78)
@@ -480,24 +558,23 @@ if `run_only' == 0 | `run_only' == `test_count' {
     }
     if _rc == 0 {
         local ++pass_count
-        if `quiet' == 0 display as result "  PASSED (correctly rejected)"
+        if `machine' display "[OK] `test_count'"
+        else if `quiet' == 0 display as result "  PASSED (correctly rejected)"
     }
     else {
         local ++fail_count
         local failed_tests "`failed_tests' `test_count'"
-        if `quiet' == 0 display as error "  FAILED (error `=_rc')"
+        if `machine' display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        else display as error "  FAILED: `test_desc' (error `=_rc')"
     }
 }
 
-* -----------------------------------------------------------------------------
-* Test 14: Error on empty dataset
-* -----------------------------------------------------------------------------
+* TEST 19: Error on empty dataset
 local ++test_count
 local test_desc "Error on empty dataset"
+_run_test `test_count' "`test_desc'"
 
 if `run_only' == 0 | `run_only' == `test_count' {
-    if `quiet' == 0 display as text _n "Test `test_count': `test_desc'"
-
     capture {
         clear
         set obs 0
@@ -508,24 +585,23 @@ if `run_only' == 0 | `run_only' == `test_count' {
     }
     if _rc == 0 {
         local ++pass_count
-        if `quiet' == 0 display as result "  PASSED (correctly rejected)"
+        if `machine' display "[OK] `test_count'"
+        else if `quiet' == 0 display as result "  PASSED (correctly rejected)"
     }
     else {
         local ++fail_count
         local failed_tests "`failed_tests' `test_count'"
-        if `quiet' == 0 display as error "  FAILED (error `=_rc')"
+        if `machine' display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        else display as error "  FAILED: `test_desc' (error `=_rc')"
     }
 }
 
-* -----------------------------------------------------------------------------
-* Test 15: Error on negative weights
-* -----------------------------------------------------------------------------
+* TEST 20: Error on negative weights
 local ++test_count
 local test_desc "Error on negative weights"
+_run_test `test_count' "`test_desc'"
 
 if `run_only' == 0 | `run_only' == `test_count' {
-    if `quiet' == 0 display as text _n "Test `test_count': `test_desc'"
-
     capture {
         sysuse auto, clear
         gen negwgt = -1
@@ -534,24 +610,23 @@ if `run_only' == 0 | `run_only' == `test_count' {
     }
     if _rc == 0 {
         local ++pass_count
-        if `quiet' == 0 display as result "  PASSED (correctly rejected)"
+        if `machine' display "[OK] `test_count'"
+        else if `quiet' == 0 display as result "  PASSED (correctly rejected)"
     }
     else {
         local ++fail_count
         local failed_tests "`failed_tests' `test_count'"
-        if `quiet' == 0 display as error "  FAILED (error `=_rc')"
+        if `machine' display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        else display as error "  FAILED: `test_desc' (error `=_rc')"
     }
 }
 
-* -----------------------------------------------------------------------------
-* Test 16: Error on invalid threshold
-* -----------------------------------------------------------------------------
+* TEST 21: Error on invalid threshold
 local ++test_count
 local test_desc "Error on invalid threshold"
+_run_test `test_count' "`test_desc'"
 
 if `run_only' == 0 | `run_only' == `test_count' {
-    if `quiet' == 0 display as text _n "Test `test_count': `test_desc'"
-
     capture {
         sysuse auto, clear
         capture balancetab price mpg, treatment(foreign) threshold(-0.1)
@@ -559,24 +634,23 @@ if `run_only' == 0 | `run_only' == `test_count' {
     }
     if _rc == 0 {
         local ++pass_count
-        if `quiet' == 0 display as result "  PASSED (correctly rejected)"
+        if `machine' display "[OK] `test_count'"
+        else if `quiet' == 0 display as result "  PASSED (correctly rejected)"
     }
     else {
         local ++fail_count
         local failed_tests "`failed_tests' `test_count'"
-        if `quiet' == 0 display as error "  FAILED (error `=_rc')"
+        if `machine' display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        else display as error "  FAILED: `test_desc' (error `=_rc')"
     }
 }
 
-* -----------------------------------------------------------------------------
-* Test 17: Error on invalid xlsx filename
-* -----------------------------------------------------------------------------
+* TEST 22: Error on invalid xlsx filename
 local ++test_count
 local test_desc "Error on invalid xlsx filename"
+_run_test `test_count' "`test_desc'"
 
 if `run_only' == 0 | `run_only' == `test_count' {
-    if `quiet' == 0 display as text _n "Test `test_count': `test_desc'"
-
     capture {
         sysuse auto, clear
         capture balancetab price mpg, treatment(foreign) xlsx("test.csv")
@@ -584,33 +658,77 @@ if `run_only' == 0 | `run_only' == `test_count' {
     }
     if _rc == 0 {
         local ++pass_count
-        if `quiet' == 0 display as result "  PASSED (correctly rejected)"
+        if `machine' display "[OK] `test_count'"
+        else if `quiet' == 0 display as result "  PASSED (correctly rejected)"
     }
     else {
         local ++fail_count
         local failed_tests "`failed_tests' `test_count'"
-        if `quiet' == 0 display as error "  FAILED (error `=_rc')"
+        if `machine' display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        else display as error "  FAILED: `test_desc' (error `=_rc')"
+    }
+}
+
+* TEST 23: wvar() and matched mutually exclusive
+local ++test_count
+local test_desc "wvar() and matched mutually exclusive"
+_run_test `test_count' "`test_desc'"
+
+if `run_only' == 0 | `run_only' == `test_count' {
+    capture {
+        sysuse auto, clear
+        gen double w = abs(1 + 0.5*rnormal())
+        capture balancetab price mpg, treatment(foreign) wvar(w) matched
+        assert _rc == 198
+    }
+    if _rc == 0 {
+        local ++pass_count
+        if `machine' display "[OK] `test_count'"
+        else if `quiet' == 0 display as result "  PASSED (correctly rejected)"
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        else display as error "  FAILED: `test_desc' (error `=_rc')"
+    }
+}
+
+* TEST 24: strata() option rejected
+local ++test_count
+local test_desc "strata() option no longer accepted"
+_run_test `test_count' "`test_desc'"
+
+if `run_only' == 0 | `run_only' == `test_count' {
+    capture {
+        sysuse auto, clear
+        gen byte strat = (_n > 37)
+        capture balancetab price mpg, treatment(foreign) strata(strat)
+        assert _rc != 0
+    }
+    if _rc == 0 {
+        local ++pass_count
+        if `machine' display "[OK] `test_count'"
+        else if `quiet' == 0 display as result "  PASSED (correctly rejected)"
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        else display as error "  FAILED: `test_desc' (error `=_rc')"
     }
 }
 
 * =============================================================================
 * SECTION 5: EDGE CASES
 * =============================================================================
-if `quiet' == 0 {
-    display as text _n "{hline 70}"
-    display as text "SECTION 5: Edge Cases"
-    display as text "{hline 70}"
-}
 
-* -----------------------------------------------------------------------------
-* Test 18: Single covariate
-* -----------------------------------------------------------------------------
+* TEST 25: Single covariate
 local ++test_count
 local test_desc "Single covariate"
+_run_test `test_count' "`test_desc'"
 
 if `run_only' == 0 | `run_only' == `test_count' {
-    if `quiet' == 0 display as text _n "Test `test_count': `test_desc'"
-
     capture {
         sysuse auto, clear
         balancetab price, treatment(foreign)
@@ -620,24 +738,23 @@ if `run_only' == 0 | `run_only' == `test_count' {
     }
     if _rc == 0 {
         local ++pass_count
-        if `quiet' == 0 display as result "  PASSED"
+        if `machine' display "[OK] `test_count'"
+        else if `quiet' == 0 display as result "  PASSED"
     }
     else {
         local ++fail_count
         local failed_tests "`failed_tests' `test_count'"
-        if `quiet' == 0 display as error "  FAILED (error `=_rc')"
+        if `machine' display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        else display as error "  FAILED: `test_desc' (error `=_rc')"
     }
 }
 
-* -----------------------------------------------------------------------------
-* Test 19: Many covariates
-* -----------------------------------------------------------------------------
+* TEST 26: Many covariates
 local ++test_count
-local test_desc "Many covariates"
+local test_desc "Many covariates (9)"
+_run_test `test_count' "`test_desc'"
 
 if `run_only' == 0 | `run_only' == `test_count' {
-    if `quiet' == 0 display as text _n "Test `test_count': `test_desc'"
-
     capture {
         sysuse auto, clear
         balancetab price mpg weight length turn displacement gear_ratio headroom trunk, ///
@@ -648,24 +765,23 @@ if `run_only' == 0 | `run_only' == `test_count' {
     }
     if _rc == 0 {
         local ++pass_count
-        if `quiet' == 0 display as result "  PASSED"
+        if `machine' display "[OK] `test_count'"
+        else if `quiet' == 0 display as result "  PASSED"
     }
     else {
         local ++fail_count
         local failed_tests "`failed_tests' `test_count'"
-        if `quiet' == 0 display as error "  FAILED (error `=_rc')"
+        if `machine' display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        else display as error "  FAILED: `test_desc' (error `=_rc')"
     }
 }
 
-* -----------------------------------------------------------------------------
-* Test 20: With if condition
-* -----------------------------------------------------------------------------
+* TEST 27: if condition
 local ++test_count
-local test_desc "With if condition"
+local test_desc "if condition restricts sample"
+_run_test `test_count' "`test_desc'"
 
 if `run_only' == 0 | `run_only' == `test_count' {
-    if `quiet' == 0 display as text _n "Test `test_count': `test_desc'"
-
     capture {
         sysuse auto, clear
         balancetab price mpg if rep78 != ., treatment(foreign)
@@ -673,86 +789,78 @@ if `run_only' == 0 | `run_only' == `test_count' {
     }
     if _rc == 0 {
         local ++pass_count
-        if `quiet' == 0 display as result "  PASSED"
+        if `machine' display "[OK] `test_count'"
+        else if `quiet' == 0 display as result "  PASSED"
     }
     else {
         local ++fail_count
         local failed_tests "`failed_tests' `test_count'"
-        if `quiet' == 0 display as error "  FAILED (error `=_rc')"
+        if `machine' display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        else display as error "  FAILED: `test_desc' (error `=_rc')"
     }
 }
 
-* =============================================================================
-* SECTION 6: BUG FIX REGRESSION TESTS (v1.0.1)
-* =============================================================================
-if `quiet' == 0 {
-    display as text _n "{hline 70}"
-    display as text "SECTION 6: Bug Fix Regression Tests (v1.0.1)"
-    display as text "{hline 70}"
-}
-
-* -----------------------------------------------------------------------------
-* Test 21: strata() option removed (Task #1)
-* -----------------------------------------------------------------------------
+* TEST 28: in condition
 local ++test_count
-local test_desc "strata() option no longer accepted"
+local test_desc "in condition restricts sample"
+_run_test `test_count' "`test_desc'"
 
 if `run_only' == 0 | `run_only' == `test_count' {
-    if `quiet' == 0 display as text _n "Test `test_count': `test_desc'"
-
     capture {
-        sysuse auto, clear
-        gen byte strat = (_n > 37)
-        capture balancetab price mpg, treatment(foreign) strata(strat)
-        assert _rc != 0
+        clear
+        set obs 100
+        gen byte treat = (_n > 50)
+        gen double x = rnormal()
+        balancetab x in 1/80, treatment(treat)
+        assert r(N) == 80
     }
     if _rc == 0 {
         local ++pass_count
-        if `quiet' == 0 display as result "  PASSED (strata correctly rejected)"
+        if `machine' display "[OK] `test_count'"
+        else if `quiet' == 0 display as result "  PASSED"
     }
     else {
         local ++fail_count
         local failed_tests "`failed_tests' `test_count'"
-        if `quiet' == 0 display as error "  FAILED (error `=_rc')"
+        if `machine' display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        else display as error "  FAILED: `test_desc' (error `=_rc')"
     }
 }
 
-* -----------------------------------------------------------------------------
-* Test 22: wvar() and matched mutually exclusive (Task #6)
-* -----------------------------------------------------------------------------
+* TEST 29: Missing values in covariates (excluded via markout)
 local ++test_count
-local test_desc "wvar() and matched mutually exclusive"
+local test_desc "Missing values in covariates handled"
+_run_test `test_count' "`test_desc'"
 
 if `run_only' == 0 | `run_only' == `test_count' {
-    if `quiet' == 0 display as text _n "Test `test_count': `test_desc'"
-
     capture {
-        sysuse auto, clear
-        gen double w = 1 + 0.5*rnormal()
-        replace w = abs(w)
-        capture balancetab price mpg, treatment(foreign) wvar(w) matched
-        assert _rc == 198
+        clear
+        set obs 100
+        gen byte treat = (_n > 50)
+        gen double x1 = rnormal()
+        replace x1 = . in 1/5
+        balancetab x1, treatment(treat)
+        assert r(N) == 95
     }
     if _rc == 0 {
         local ++pass_count
-        if `quiet' == 0 display as result "  PASSED (correctly rejected)"
+        if `machine' display "[OK] `test_count'"
+        else if `quiet' == 0 display as result "  PASSED"
     }
     else {
         local ++fail_count
         local failed_tests "`failed_tests' `test_count'"
-        if `quiet' == 0 display as error "  FAILED (error `=_rc')"
+        if `machine' display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        else display as error "  FAILED: `test_desc' (error `=_rc')"
     }
 }
 
-* -----------------------------------------------------------------------------
-* Test 23: Zero-variance equal means -> SMD = 0 (Task #3)
-* -----------------------------------------------------------------------------
+* TEST 30: Zero-variance equal means -> SMD = 0
 local ++test_count
 local test_desc "Zero-variance equal means gives SMD = 0"
+_run_test `test_count' "`test_desc'"
 
 if `run_only' == 0 | `run_only' == `test_count' {
-    if `quiet' == 0 display as text _n "Test `test_count': `test_desc'"
-
     capture {
         clear
         set obs 100
@@ -764,24 +872,23 @@ if `run_only' == 0 | `run_only' == `test_count' {
     }
     if _rc == 0 {
         local ++pass_count
-        if `quiet' == 0 display as result "  PASSED (SMD = 0)"
+        if `machine' display "[OK] `test_count'"
+        else if `quiet' == 0 display as result "  PASSED"
     }
     else {
         local ++fail_count
         local failed_tests "`failed_tests' `test_count'"
-        if `quiet' == 0 display as error "  FAILED (error `=_rc')"
+        if `machine' display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        else display as error "  FAILED: `test_desc' (error `=_rc')"
     }
 }
 
-* -----------------------------------------------------------------------------
-* Test 24: Zero-variance different means -> SMD = . (Task #3)
-* -----------------------------------------------------------------------------
+* TEST 31: Zero-variance different means -> SMD = .
 local ++test_count
 local test_desc "Zero-variance different means gives SMD = ."
+_run_test `test_count' "`test_desc'"
 
 if `run_only' == 0 | `run_only' == `test_count' {
-    if `quiet' == 0 display as text _n "Test `test_count': `test_desc'"
-
     capture {
         clear
         set obs 100
@@ -789,115 +896,28 @@ if `run_only' == 0 | `run_only' == `test_count' {
         gen double diff_const = cond(treat == 1, 5, 3)
         balancetab diff_const, treatment(treat)
         matrix B = r(balance)
-        * SMD should be missing when means differ but sd_pooled=0
         assert missing(B[1,3])
-        * Should count as imbalanced
         assert r(n_imbalanced) == 1
     }
     if _rc == 0 {
         local ++pass_count
-        if `quiet' == 0 display as result "  PASSED (SMD = . and flagged imbalanced)"
+        if `machine' display "[OK] `test_count'"
+        else if `quiet' == 0 display as result "  PASSED"
     }
     else {
         local ++fail_count
         local failed_tests "`failed_tests' `test_count'"
-        if `quiet' == 0 display as error "  FAILED (error `=_rc')"
+        if `machine' display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        else display as error "  FAILED: `test_desc' (error `=_rc')"
     }
 }
 
-* -----------------------------------------------------------------------------
-* Test 25: matched-only does NOT return r(max_smd_adj) (Task #5)
-* -----------------------------------------------------------------------------
-local ++test_count
-local test_desc "matched-only does not return r(max_smd_adj)"
-
-if `run_only' == 0 | `run_only' == `test_count' {
-    if `quiet' == 0 display as text _n "Test `test_count': `test_desc'"
-
-    capture {
-        sysuse auto, clear
-        balancetab price mpg, treatment(foreign) matched
-        * max_smd_adj should NOT be stored
-        capture confirm scalar r(max_smd_adj)
-        assert _rc != 0
-    }
-    if _rc == 0 {
-        local ++pass_count
-        if `quiet' == 0 display as result "  PASSED (no r(max_smd_adj))"
-    }
-    else {
-        local ++fail_count
-        local failed_tests "`failed_tests' `test_count'"
-        if `quiet' == 0 display as error "  FAILED (error `=_rc')"
-    }
-}
-
-* -----------------------------------------------------------------------------
-* Test 26: wvar returns r(max_smd_adj) (Task #5 contrast)
-* -----------------------------------------------------------------------------
-local ++test_count
-local test_desc "wvar returns r(max_smd_adj)"
-
-if `run_only' == 0 | `run_only' == `test_count' {
-    if `quiet' == 0 display as text _n "Test `test_count': `test_desc'"
-
-    capture {
-        sysuse auto, clear
-        logit foreign price mpg
-        predict ps, pr
-        gen double ipw2 = cond(foreign==1, 1/ps, 1/(1-ps))
-        balancetab price mpg, treatment(foreign) wvar(ipw2)
-        * max_smd_adj SHOULD be stored
-        assert r(max_smd_adj) != .
-    }
-    if _rc == 0 {
-        local ++pass_count
-        if `quiet' == 0 display as result "  PASSED"
-    }
-    else {
-        local ++fail_count
-        local failed_tests "`failed_tests' `test_count'"
-        if `quiet' == 0 display as error "  FAILED (error `=_rc')"
-    }
-}
-
-* -----------------------------------------------------------------------------
-* Test 27: Data preserved after all operations
-* -----------------------------------------------------------------------------
-local ++test_count
-local test_desc "Data preserved after command"
-
-if `run_only' == 0 | `run_only' == `test_count' {
-    if `quiet' == 0 display as text _n "Test `test_count': `test_desc'"
-
-    capture {
-        sysuse auto, clear
-        local orig_N = _N
-        balancetab price mpg, treatment(foreign)
-        assert _N == `orig_N'
-        * Verify original variables still exist
-        confirm variable price mpg foreign make
-    }
-    if _rc == 0 {
-        local ++pass_count
-        if `quiet' == 0 display as result "  PASSED"
-    }
-    else {
-        local ++fail_count
-        local failed_tests "`failed_tests' `test_count'"
-        if `quiet' == 0 display as error "  FAILED (error `=_rc')"
-    }
-}
-
-* -----------------------------------------------------------------------------
-* Test 28: Mixed covariates - normal + zero-variance
-* -----------------------------------------------------------------------------
+* TEST 32: Mixed normal + zero-variance covariates
 local ++test_count
 local test_desc "Mixed normal and zero-variance covariates"
+_run_test `test_count' "`test_desc'"
 
 if `run_only' == 0 | `run_only' == `test_count' {
-    if `quiet' == 0 display as text _n "Test `test_count': `test_desc'"
-
     capture {
         clear
         set obs 100
@@ -905,57 +925,221 @@ if `run_only' == 0 | `run_only' == `test_count' {
         gen double age = 40 + 5*rnormal() + 3*treat
         gen double diff_const = cond(treat == 1, 5, 3)
         gen double same_const = 7
-
         balancetab age diff_const same_const, treatment(treat)
         matrix B = r(balance)
-        * age: should have valid SMD
         assert !missing(B[1,3])
-        * diff_const: zero var, diff means -> missing
         assert missing(B[2,3])
-        * same_const: zero var, same means -> 0
         assert B[3,3] == 0
     }
     if _rc == 0 {
         local ++pass_count
-        if `quiet' == 0 display as result "  PASSED"
+        if `machine' display "[OK] `test_count'"
+        else if `quiet' == 0 display as result "  PASSED"
     }
     else {
         local ++fail_count
         local failed_tests "`failed_tests' `test_count'"
-        if `quiet' == 0 display as error "  FAILED (error `=_rc')"
+        if `machine' display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        else display as error "  FAILED: `test_desc' (error `=_rc')"
     }
+}
+
+* =============================================================================
+* SECTION 6: REGRESSION TESTS
+* =============================================================================
+
+* TEST 33: matched does NOT return r(max_smd_adj)
+local ++test_count
+local test_desc "matched does not return r(max_smd_adj)"
+_run_test `test_count' "`test_desc'"
+
+if `run_only' == 0 | `run_only' == `test_count' {
+    capture {
+        sysuse auto, clear
+        balancetab price mpg, treatment(foreign) matched
+        capture confirm scalar r(max_smd_adj)
+        assert _rc != 0
+    }
+    if _rc == 0 {
+        local ++pass_count
+        if `machine' display "[OK] `test_count'"
+        else if `quiet' == 0 display as result "  PASSED"
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        else display as error "  FAILED: `test_desc' (error `=_rc')"
+    }
+}
+
+* TEST 34: wvar returns r(max_smd_adj)
+local ++test_count
+local test_desc "wvar returns r(max_smd_adj)"
+_run_test `test_count' "`test_desc'"
+
+if `run_only' == 0 | `run_only' == `test_count' {
+    capture {
+        sysuse auto, clear
+        logit foreign price mpg
+        predict ps, pr
+        gen double ipw2 = cond(foreign==1, 1/ps, 1/(1-ps))
+        balancetab price mpg, treatment(foreign) wvar(ipw2)
+        assert r(max_smd_adj) != .
+    }
+    if _rc == 0 {
+        local ++pass_count
+        if `machine' display "[OK] `test_count'"
+        else if `quiet' == 0 display as result "  PASSED"
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        else display as error "  FAILED: `test_desc' (error `=_rc')"
+    }
+}
+
+* TEST 35: Data preserved after command
+local ++test_count
+local test_desc "Data preserved after command"
+_run_test `test_count' "`test_desc'"
+
+if `run_only' == 0 | `run_only' == `test_count' {
+    capture {
+        sysuse auto, clear
+        local orig_N = _N
+        balancetab price mpg, treatment(foreign)
+        assert _N == `orig_N'
+        confirm variable price mpg foreign make
+    }
+    if _rc == 0 {
+        local ++pass_count
+        if `machine' display "[OK] `test_count'"
+        else if `quiet' == 0 display as result "  PASSED"
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        else display as error "  FAILED: `test_desc' (error `=_rc')"
+    }
+}
+
+* TEST 36: Large dataset performance
+local ++test_count
+local test_desc "Performance: large dataset (100k obs)"
+_run_test `test_count' "`test_desc'"
+
+if `run_only' == 0 | `run_only' == `test_count' {
+    capture {
+        clear
+        set obs 100000
+        gen byte treat = (_n > 50000)
+        gen double x1 = rnormal() + 0.5*treat
+        gen double x2 = rnormal() + 0.3*treat
+        gen double x3 = rnormal()
+
+        timer clear 1
+        timer on 1
+        balancetab x1 x2 x3, treatment(treat)
+        timer off 1
+
+        quietly timer list 1
+        assert r(t1) < 60
+        assert r(N) == 100000
+    }
+    if _rc == 0 {
+        local ++pass_count
+        if `machine' display "[OK] `test_count'"
+        else if `quiet' == 0 display as result "  PASSED"
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        else display as error "  FAILED: `test_desc' (error `=_rc')"
+    }
+}
+
+* TEST 37: All options combined
+local ++test_count
+local test_desc "All options combined"
+_run_test `test_count' "`test_desc'"
+
+if `run_only' == 0 | `run_only' == `test_count' {
+    capture {
+        sysuse auto, clear
+        logit foreign price mpg weight
+        predict ps, pr
+        gen double ipw = cond(foreign==1, 1/ps, 1/(1-ps))
+        replace ipw = min(ipw, 10)
+
+        balancetab price mpg weight, treatment(foreign) wvar(ipw) ///
+            threshold(0.15) format(%8.4f) title("Full Options Test") ///
+            loveplot saving("${OUTPUT_DIR}/full_test.png") ///
+            scheme(plotplainblind) ///
+            xlsx("${OUTPUT_DIR}/full_test.xlsx") sheet("FullTest")
+
+        confirm file "${OUTPUT_DIR}/full_test.png"
+        confirm file "${OUTPUT_DIR}/full_test.xlsx"
+        assert r(N) > 0
+        assert r(threshold) == 0.15
+    }
+    if _rc == 0 {
+        local ++pass_count
+        if `machine' display "[OK] `test_count'"
+        else if `quiet' == 0 display as result "  PASSED"
+    }
+    else {
+        local ++fail_count
+        local failed_tests "`failed_tests' `test_count'"
+        if `machine' display "[FAIL] `test_count'|`=_rc'|`test_desc'"
+        else display as error "  FAILED: `test_desc' (error `=_rc')"
+    }
+    capture erase "${OUTPUT_DIR}/full_test.png"
+    capture erase "${OUTPUT_DIR}/full_test.xlsx"
 }
 
 * =============================================================================
 * CLEANUP
 * =============================================================================
-capture erase "${DATA_DIR}/balance_test.xlsx"
-capture erase "${DATA_DIR}/balance_sheet.xlsx"
-capture erase "${FIGURES_DIR}/loveplot_test.png"
+capture graph drop _all
 
 * =============================================================================
 * SUMMARY
 * =============================================================================
-display as text _n "{hline 70}"
-display as text "BALANCETAB FUNCTIONAL TEST SUMMARY"
-display as text "{hline 70}"
-display as text "Total tests:  `test_count'"
-display as result "Passed:       `pass_count'"
-if `fail_count' > 0 {
-    display as error "Failed:       `fail_count'"
-    display as error "Failed tests:`failed_tests'"
+if `machine' {
+    display "[SUMMARY] `pass_count'/`test_count' passed"
+    if `fail_count' > 0 {
+        display "[FAILED]`failed_tests'"
+    }
 }
 else {
-    display as text "Failed:       `fail_count'"
-}
-display as text "{hline 70}"
+    display as text _n "{hline 70}"
+    display as text "BALANCETAB FUNCTIONAL TEST SUMMARY"
+    display as text "{hline 70}"
+    display as text "Total tests:  `test_count'"
+    display as result "Passed:       `pass_count'"
+    if `fail_count' > 0 {
+        display as error "Failed:       `fail_count'"
+        display as error "Failed tests:`failed_tests'"
+    }
+    else {
+        display as text "Failed:       `fail_count'"
+    }
+    display as text "{hline 70}"
 
-if `fail_count' > 0 {
-    display as error "Some tests FAILED."
-    exit 1
-}
-else {
-    display as result "All tests PASSED!"
+    if `fail_count' > 0 {
+        display as error "Some tests FAILED. Review output above."
+        exit 1
+    }
+    else {
+        display as result "ALL TESTS PASSED!"
+    }
 }
 
-display as text _n "Testing completed: `c(current_date)' `c(current_time)'"
+* Clear global flags
+global RUN_TEST_QUIET
+global RUN_TEST_MACHINE
+global RUN_TEST_NUMBER

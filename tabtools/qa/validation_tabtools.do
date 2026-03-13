@@ -14,7 +14,7 @@ set seed 20260312
 
 local tabtools_dir "`c(pwd)'/.."
 local output_dir "`c(pwd)'/output"
-local tools_dir "/home/tpcopeland/Stata-Tools/_devkit/_testing/tools"
+local tools_dir "/home/tpcopeland/Stata-Dev/.claude/skills/qa/tools"
 capture mkdir "`output_dir'"
 
 * Load tabtools from parent directory
