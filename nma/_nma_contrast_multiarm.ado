@@ -4,7 +4,6 @@
 program define _nma_contrast_multiarm
     version 16.0
     set varabbrev off
-    set more off
 
     * Get study list and dimensions
     tempvar study_id

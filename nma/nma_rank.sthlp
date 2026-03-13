@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.1  28feb2026}{...}
+{* *! version 1.0.2  13mar2026}{...}
 {viewerjumpto "Syntax" "nma_rank##syntax"}{...}
 {viewerjumpto "Description" "nma_rank##description"}{...}
 {viewerjumpto "Options" "nma_rank##options"}{...}
@@ -28,7 +28,7 @@
 {synopt:{opt seed(#)}}random number seed{p_end}
 {synopt:{opt plot}}draw rankogram{p_end}
 {synopt:{opt cumulative}}cumulative rankogram (requires {opt plot}){p_end}
-{synopt:{opt scheme(string)}}graph scheme; default is plotplainblind{p_end}
+{synopt:{opt scheme(string)}}graph scheme; default is {cmd:white_tableau}{p_end}
 {synopt:{opt saving(filename)}}save graph{p_end}
 {synopt:{opt replace}}overwrite existing file{p_end}
 {synoptline}

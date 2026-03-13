@@ -4,7 +4,6 @@
 program define _nma_node_sizes
     version 16.0
     set varabbrev off
-    set more off
 
     syntax , k(integer) adj_matrix(string) [sizeby(string)]
 

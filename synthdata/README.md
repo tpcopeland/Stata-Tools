@@ -596,7 +596,7 @@ MIT License
 
 ## Version
 
-Version 1.8.0, 2026-02-27
+Version 1.8.1, 2026-03-13
 
 ## See Also
 

@@ -4,11 +4,8 @@
 program define _nma_validate_network
     version 16.0
     set varabbrev off
-    set more off
 
-    syntax , treatments(string) adj_matrix(string)
-
-    local k : word count `treatments'
+    syntax , k(integer) adj_matrix(string)
 
     mata: _nma_bfs_components("`adj_matrix'", `k')
 
@@ -21,7 +18,7 @@ program define _nma_validate_network
             local members ""
             local idx_list "`_nma_component_`c''"
             foreach idx of local idx_list {
-                local trt : word `idx' of `treatments'
+                local trt : char _dta[_nma_trt_`idx']
                 local members "`members' `trt'"
             }
             local members = strtrim("`members'")

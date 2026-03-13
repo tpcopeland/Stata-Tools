@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.8.0  27feb2026}{...}
+{* *! version 1.8.1  13mar2026}{...}
 {viewerjumpto "Syntax" "synthdata##syntax"}{...}
 {viewerjumpto "Description" "synthdata##description"}{...}
 {viewerjumpto "Options" "synthdata##options"}{...}

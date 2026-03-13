@@ -19,8 +19,8 @@ See help nma_compare for complete documentation
 
 program define nma_compare, rclass
     version 16.0
+    local _varabbrev = c(varabbrev)
     set varabbrev off
-    set more off
 
     syntax [, EFORM DIGits(integer 2) SAVing(string) ///
         FORmat(string) REPLACE Level(cilevel)]
@@ -135,7 +135,7 @@ program define nma_compare, rclass
     * Shortened treatment labels (max 12 chars)
     local any_truncated = 0
     forvalues i = 1/`k' {
-        local lbl : word `i' of `treatments'
+        local lbl : char _dta[_nma_trt_`i']
         local short_`i' = substr("`lbl'", 1, 12)
         if length("`lbl'") > 12 local any_truncated = 1
     }
@@ -190,6 +190,10 @@ program define nma_compare, rclass
     * =======================================================================
 
     if "`saving'" != "" {
+        * Save labels to locals before preserve (clear wipes _dta chars)
+        forvalues _t = 1/`k' {
+            local _trtlbl_`_t' : char _dta[_nma_trt_`_t']
+        }
         preserve
 
         quietly {
@@ -197,20 +201,20 @@ program define nma_compare, rclass
             set obs `k'
             gen str80 treatment = ""
             forvalues j = 1/`k' {
-                local lbl : word `j' of `treatments'
+                local lbl "`_trtlbl_`j''"
                 local safe_lbl = subinstr("`lbl'", " ", "_", .)
                 gen str40 vs_`safe_lbl' = ""
                 label variable vs_`safe_lbl' "vs `lbl'"
             }
 
             forvalues i = 1/`k' {
-                local lbl_i : word `i' of `treatments'
-                replace treatment = "`lbl_i'" in `i'
+                local lbl_i "`_trtlbl_`i''"
+                replace treatment = `"`lbl_i'"' in `i'
                 forvalues j = 1/`k' {
-                    local lbl_j : word `j' of `treatments'
+                    local lbl_j "`_trtlbl_`j''"
                     local safe_j = subinstr("`lbl_j'", " ", "_", .)
                     if `i' == `j' {
-                        replace vs_`safe_j' = "`lbl_i'" in `i'
+                        replace vs_`safe_j' = `"`lbl_i'"' in `i'
                     }
                     else {
                         local d = `eff_mat'[`i', `j']
@@ -296,4 +300,6 @@ program define nma_compare, rclass
     return scalar k = `k'
     return local treatments "`treatments'"
     return local ref "`ref'"
+
+    set varabbrev `_varabbrev'
 end

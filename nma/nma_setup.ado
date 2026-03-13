@@ -26,8 +26,8 @@ See help nma_setup for complete documentation
 
 program define nma_setup, rclass
     version 16.0
+    local _varabbrev = c(varabbrev)
     set varabbrev off
-    set more off
 
     * Clean up global matrices from any previous nma run
     foreach mat in _nma_adj _nma_evidence _nma_sucra _nma_meanrank ///
@@ -213,6 +213,7 @@ program define nma_setup, rclass
         local ++k
         local lbl : label (`trt_num') `lev'
         local treatments "`treatments' `lbl'"
+        char _dta[_nma_trt_`k'] "`lbl'"
     }
     local treatments = strtrim("`treatments'")
 
@@ -305,7 +306,7 @@ program define nma_setup, rclass
     }
     matrix _nma_adj = `adj_bin'
 
-    _nma_validate_network, treatments("`treatments'") adj_matrix("_nma_adj")
+    _nma_validate_network, k(`k') adj_matrix("_nma_adj")
 
     local connected = `_nma_connected'
     local n_components = `_nma_n_components'
@@ -327,7 +328,7 @@ program define nma_setup, rclass
     * CLASSIFY EVIDENCE
     * =======================================================================
 
-    _nma_classify_evidence, treatments("`treatments'") adj_matrix("_nma_adj")
+    _nma_classify_evidence, k(`k') adj_matrix("_nma_adj")
 
     * Count evidence types
     local n_direct = 0
@@ -393,11 +394,7 @@ program define nma_setup, rclass
     char _dta[_nma_n_indirect] "`n_indirect'"
     char _dta[_nma_n_mixed] "`n_mixed'"
 
-    * Store treatment encoding for downstream commands
-    forvalues i = 1/`k' {
-        local lbl : word `i' of `treatments'
-        char _dta[_nma_trt_`i'] "`lbl'"
-    }
+    * Treatment labels already stored in _dta[_nma_trt_*] during encoding
     char _dta[_nma_ref_code] "`ref_code'"
 
     * Measure description for display
@@ -455,4 +452,6 @@ program define nma_setup, rclass
     matrix `adj_copy' = _nma_adj
     return matrix evidence = `ev_copy'
     return matrix adjacency = `adj_copy'
+
+    set varabbrev `_varabbrev'
 end

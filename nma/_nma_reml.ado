@@ -23,7 +23,6 @@ Where:
 program define _nma_reml
     version 16.0
     set varabbrev off
-    set more off
 
     syntax , y_matrix(string) x_matrix(string) v_prefix(string) ///
         n_studies(integer) dim(integer) ///
@@ -422,7 +421,8 @@ real colvector _nma_sigma_to_theta(real matrix Sigma, real scalar dim)
     real colvector theta
     real scalar i, j, idx, n_params
 
-    L = cholesky(Sigma + 0.0001 * I(dim))
+    L = cholesky(Sigma)
+    if (hasmissing(L)) L = cholesky(Sigma + 0.0001 * I(dim))
 
     /* theta = vech(L) = lower triangle elements */
     n_params = dim * (dim + 1) / 2

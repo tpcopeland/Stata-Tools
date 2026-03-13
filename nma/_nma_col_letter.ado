@@ -11,7 +11,6 @@
 program _nma_col_letter
     version 16.0
     set varabbrev off
-    set more off
     args col_num
 
     local col_letter = ""

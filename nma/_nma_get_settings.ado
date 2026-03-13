@@ -4,7 +4,6 @@
 program define _nma_get_settings
     version 16.0
     set varabbrev off
-    set more off
 
     c_local _nma_format       `: char _dta[_nma_format]'
     c_local _nma_measure      `: char _dta[_nma_measure]'

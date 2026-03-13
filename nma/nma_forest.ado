@@ -28,8 +28,8 @@ See help nma_forest for complete documentation
 
 program define nma_forest, rclass
     version 16.0
+    local _varabbrev = c(varabbrev)
     set varabbrev off
-    set more off
 
     syntax [, EFORM Level(cilevel) COMParisons(string) ///
         XLAbel(numlist) XTItle(string) TItle(string) ///
@@ -110,9 +110,9 @@ program define nma_forest, rclass
         }
     }
 
-    * Save treatment labels before preserve
+    * Save treatment labels before preserve (clear wipes _dta chars)
     forvalues t = 1/`k' {
-        local trtlbl_`t' : word `t' of `treatments'
+        local trtlbl_`t' : char _dta[_nma_trt_`t']
     }
 
     * ==================================================================
@@ -572,4 +572,6 @@ program define nma_forest, rclass
     return scalar n_indirect = `n_ct_indirect'
     return scalar n_mixed = `n_ct_mixed'
     return local ref "`ref'"
+
+    set varabbrev `_varabbrev'
 end

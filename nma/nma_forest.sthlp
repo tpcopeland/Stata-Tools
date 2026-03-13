@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.5  04mar2026}{...}
+{* *! version 1.0.6  13mar2026}{...}
 {viewerjumpto "Syntax" "nma_forest##syntax"}{...}
 {viewerjumpto "Description" "nma_forest##description"}{...}
 {viewerjumpto "Options" "nma_forest##options"}{...}
@@ -39,7 +39,7 @@
 {synopt:{opt xla:bel(numlist)}}custom x-axis tick values{p_end}
 {synopt:{opt xti:tle(string)}}custom x-axis title{p_end}
 {synopt:{opt ti:tle(string)}}custom graph title{p_end}
-{synopt:{opt scheme(string)}}graph scheme; default is {cmd:plotplainblind}{p_end}
+{synopt:{opt scheme(string)}}graph scheme; default is {cmd:white_tableau}{p_end}
 {synopt:{opt saving(filename)}}save graph to file{p_end}
 {synopt:{opt replace}}overwrite existing file{p_end}
 {synopt:{opt name(string)}}name the graph window{p_end}
@@ -142,7 +142,7 @@ title is derived from the outcome measure (e.g., "Mean Difference",
 
 {phang}
 {opt scheme(string)} specifies the graph scheme. Default is
-{cmd:plotplainblind}.
+{cmd:white_tableau}.
 
 {phang}
 {opt saving(filename)} saves the graph to {it:filename}.

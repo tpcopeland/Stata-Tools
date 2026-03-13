@@ -19,8 +19,8 @@ See help nma_map for complete documentation
 
 program define nma_map, rclass
     version 16.0
+    local _varabbrev = c(varabbrev)
     set varabbrev off
-    set more off
 
     syntax [, NODESize(string) EDGESize(string) ///
         noLABels SCHeme(string) SAVing(string) REPLACE ///
@@ -41,6 +41,15 @@ program define nma_map, rclass
     if "`nodesize'" == "" local nodesize "studies"
     if "`edgesize'" == "" local edgesize "studies"
     if "`title'" == "" local title ""
+
+    if "`nodesize'" != "studies" {
+        display as error "nodesize() must be studies"
+        exit 198
+    }
+    if "`edgesize'" != "studies" {
+        display as error "edgesize() must be studies"
+        exit 198
+    }
 
     _nma_display_header, command("nma_map") ///
         description("Network geometry plot")
@@ -63,6 +72,11 @@ program define nma_map, rclass
     * =======================================================================
     * BUILD PLOT DATA
     * =======================================================================
+
+    * Save labels before preserve (clear wipes _dta chars)
+    forvalues _t = 1/`k' {
+        local _trtlbl_`_t' : char _dta[_nma_trt_`_t']
+    }
 
     preserve
 
@@ -95,7 +109,7 @@ program define nma_map, rclass
         quietly replace _node_x = _nma_node_x[`i', 1] in `i'
         quietly replace _node_y = _nma_node_y[`i', 1] in `i'
         quietly replace _node_size = _nma_node_sizes[`i', 1] in `i'
-        local lbl : word `i' of `treatments'
+        local lbl "`_trtlbl_`i''"
         quietly replace _node_label = "`lbl'" in `i'
         quietly replace _is_node = 1 in `i'
     }
@@ -145,7 +159,7 @@ program define nma_map, rclass
     local label_plot ""
     if "`labels'" != "nolabels" {
         forvalues i = 1/`k' {
-            local lbl : word `i' of `treatments'
+            local lbl "`_trtlbl_`i''"
             local nx = _nma_node_x[`i', 1]
             local ny = _nma_node_y[`i', 1]
             local sz = _nma_node_sizes[`i', 1]
@@ -188,4 +202,6 @@ program define nma_map, rclass
 
     return scalar n_treatments = `k'
     return scalar n_edges = `n_edges'
+
+    set varabbrev `_varabbrev'
 end

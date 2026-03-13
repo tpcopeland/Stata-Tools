@@ -4,7 +4,6 @@
 program define _nma_check_setup
     version 16.0
     set varabbrev off
-    set more off
 
     local setup : char _dta[_nma_setup]
     if "`setup'" != "1" {

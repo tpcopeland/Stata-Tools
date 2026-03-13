@@ -4,11 +4,9 @@
 program define _nma_classify_evidence
     version 16.0
     set varabbrev off
-    set more off
 
-    syntax , treatments(string) adj_matrix(string)
+    syntax , k(integer) adj_matrix(string)
 
-    local k : word count `treatments'
     mata: _nma_classify_evidence_mata("`adj_matrix'", `k')
 end
 

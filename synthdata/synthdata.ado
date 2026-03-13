@@ -1,4 +1,4 @@
-*! synthdata Version 1.8.0  27feb2026  Synthetic data generation with smart realism
+*! synthdata Version 1.8.1  13mar2026  Synthetic data generation with smart realism
 program define synthdata
     version 16.0
     set varabbrev off
@@ -2028,7 +2028,9 @@ program define _synthdata_detect_catassoc, rclass
         local v1_paired: list v1 in paired
         if `v1_paired' continue
 
+        local v1_matched = 0
         forvalues j = `=`i'+1'/`ncats' {
+            if `v1_matched' continue
             local v2: word `j' of `varlist'
             local v2_paired: list v2 in paired
             if `v2_paired' continue
@@ -2053,6 +2055,7 @@ program define _synthdata_detect_catassoc, rclass
                 local catgroups `"`catgroups' "`v1' `v2'""'
                 local paired `paired' `v1' `v2'
                 local joint_catvars `joint_catvars' `v1' `v2'
+                local v1_matched = 1
             }
         }
     }
@@ -2749,9 +2752,11 @@ program define _synthdata_smart
 
                     restore
 
-                    // Generate both variables jointly
-                    qui gen double `v1' = .
-                    qui gen double `v2' = .
+                    // Generate both variables jointly (guard against prior group)
+                    capture confirm variable `v1'
+                    if _rc qui gen double `v1' = .
+                    capture confirm variable `v2'
+                    if _rc qui gen double `v2' = .
 
                     // Draw from joint distribution
                     mata: _synthdata_drawjoint("`v1'", "`v2'", st_matrix("`jointfreq'"), `n')

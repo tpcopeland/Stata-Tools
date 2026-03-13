@@ -4,7 +4,6 @@
 program define _nma_check_fitted
     version 16.0
     set varabbrev off
-    set more off
 
     local fitted : char _dta[_nma_fitted]
     if "`fitted'" != "1" {

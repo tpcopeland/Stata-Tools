@@ -19,8 +19,8 @@ See help nma_import for complete documentation
 
 program define nma_import, rclass
     version 16.0
+    local _varabbrev = c(varabbrev)
     set varabbrev off
-    set more off
 
     * Clean up global matrices from any previous nma run
     foreach mat in _nma_adj _nma_evidence _nma_sucra _nma_meanrank ///
@@ -134,15 +134,19 @@ program define nma_import, rclass
 
     local k : word count `all_trts'
     local treatments ""
+    local _i = 0
     foreach t of local all_trts {
+        local ++_i
         if `trt_is_string' {
             local treatments "`treatments' `t'"
+            char _dta[_nma_trt_`_i'] "`t'"
         }
         else {
             * Check for value labels
             local lbl : label (`treat1') `t', strict
             if "`lbl'" == "" local lbl "`t'"
             local treatments "`treatments' `lbl'"
+            char _dta[_nma_trt_`_i'] "`lbl'"
         }
     }
     local treatments = strtrim("`treatments'")
@@ -185,7 +189,7 @@ program define nma_import, rclass
                 local ref_code = `i'
             }
         }
-        local ref : word `ref_code' of `treatments'
+        local ref : char _dta[_nma_trt_`ref_code']
         local ref_auto "auto-selected: most connected"
     }
     else {
@@ -193,7 +197,7 @@ program define nma_import, rclass
         local i = 0
         foreach t of local all_trts {
             local ++i
-            local lbl : word `i' of `treatments'
+            local lbl : char _dta[_nma_trt_`i']
             if "`lbl'" == "`ref'" local ref_code = `i'
         }
         if `ref_code' == 0 {
@@ -253,7 +257,7 @@ program define nma_import, rclass
     }
     matrix _nma_adj = `adj_bin'
 
-    _nma_validate_network, treatments("`treatments'") adj_matrix("_nma_adj")
+    _nma_validate_network, k(`k') adj_matrix("_nma_adj")
 
     local connected = `_nma_connected'
     if !`connected' & "`force'" == "" {
@@ -273,7 +277,7 @@ program define nma_import, rclass
     local n_possible = `k' * (`k' - 1) / 2
 
     * Classify evidence
-    _nma_classify_evidence, treatments("`treatments'") adj_matrix("_nma_adj")
+    _nma_classify_evidence, k(`k') adj_matrix("_nma_adj")
 
     local n_direct = 0
     local n_indirect = 0
@@ -318,10 +322,7 @@ program define nma_import, rclass
     char _dta[_nma_n_indirect] "`n_indirect'"
     char _dta[_nma_n_mixed] "`n_mixed'"
 
-    forvalues i = 1/`k' {
-        local lbl : word `i' of `treatments'
-        char _dta[_nma_trt_`i'] "`lbl'"
-    }
+    * Treatment labels already stored in _dta[_nma_trt_*] during encoding
     char _dta[_nma_ref_code] "`ref_code'"
 
     * Measure description
@@ -370,4 +371,6 @@ program define nma_import, rclass
     matrix `adj_copy' = _nma_adj
     return matrix evidence = `ev_copy'
     return matrix adjacency = `adj_copy'
+
+    set varabbrev `_varabbrev'
 end

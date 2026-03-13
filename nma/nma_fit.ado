@@ -19,8 +19,8 @@ See help nma_fit for complete documentation
 
 program define nma_fit, eclass
     version 16.0
+    local _varabbrev = c(varabbrev)
     set varabbrev off
-    set more off
 
     * =======================================================================
     * SYNTAX PARSING
@@ -324,4 +324,6 @@ program define nma_fit, eclass
     if "`eform'" != "" & inlist("`measure'", "or", "rr", "irr", "hr") {
         display as text "Note: Results displayed on exponentiated scale."
     }
+
+    set varabbrev `_varabbrev'
 end

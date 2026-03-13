@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.1  28feb2026}{...}
+{* *! version 1.0.3  13mar2026}{...}
 {viewerjumpto "Syntax" "nma_inconsistency##syntax"}{...}
 {viewerjumpto "Description" "nma_inconsistency##description"}{...}
 {viewerjumpto "Options" "nma_inconsistency##options"}{...}
@@ -36,7 +36,9 @@
 meta-analysis using two approaches:
 
 {phang2}{bf:Global test:} Compares the consistency model against an
-inconsistency model using a chi-squared test. A significant result
+inconsistency model using an approximate chi-squared test. The
+inconsistency model log-likelihood is approximated using fixed-effect
+meta-analysis within each comparison pair. A significant result
 suggests that the consistency assumption may be violated.{p_end}
 
 {phang2}{bf:Node-splitting:} For each comparison with {bf:mixed evidence}

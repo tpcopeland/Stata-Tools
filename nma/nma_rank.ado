@@ -19,8 +19,8 @@ See help nma_rank for complete documentation
 
 program define nma_rank, rclass
     version 16.0
+    local _varabbrev = c(varabbrev)
     set varabbrev off
-    set more off
 
     syntax [, BEST(string) REPS(integer 10000) SEED(integer -1) ///
         PLOT CUMulative SCHeme(string) SAVing(string) REPLACE ///
@@ -80,7 +80,7 @@ program define nma_rank, rclass
     display as text "{hline 50}"
 
     forvalues i = 1/`k' {
-        local lbl : word `i' of `treatments'
+        local lbl : char _dta[_nma_trt_`i']
         local sucra = _nma_sucra[`i', 1]
         local mrank = _nma_meanrank[`i', 1]
         display as result %-20s "`lbl'" ///
@@ -102,6 +102,10 @@ program define nma_rank, rclass
     * =======================================================================
 
     if "`plot'" != "" {
+        * Save labels before preserve (clear wipes _dta chars)
+        forvalues _t = 1/`k' {
+            local _trtlbl_`_t' : char _dta[_nma_trt_`_t']
+        }
         preserve
 
         quietly {
@@ -115,7 +119,7 @@ program define nma_rank, rclass
 
         local row = 0
         forvalues i = 1/`k' {
-            local lbl : word `i' of `treatments'
+            local lbl "`_trtlbl_`i''"
             local cumul = 0
             forvalues r = 1/`k' {
                 local ++row
@@ -153,7 +157,7 @@ program define nma_rank, rclass
         * Legend labels
         local legend_labels ""
         forvalues i = 1/`k' {
-            local lbl : word `i' of `treatments'
+            local lbl "`_trtlbl_`i''"
             local legend_labels `"`legend_labels' `i' "`lbl'""'
         }
 
@@ -188,6 +192,8 @@ program define nma_rank, rclass
     return matrix rankprob = `rprob_copy'
     return scalar reps = `reps'
     return local best "`best'"
+
+    set varabbrev `_varabbrev'
 end
 
 * =========================================================================
@@ -212,7 +218,8 @@ void _nma_rank_simulate(
     p = cols(b)
 
     /* Generate multivariate normal draws */
-    L = cholesky(V + 0.0001 * I(p))
+    L = cholesky(V)
+    if (hasmissing(L)) L = cholesky(V + 0.0001 * I(p))
 
     draws = J(reps, p, 0)
     for (i = 1; i <= reps; i++) {

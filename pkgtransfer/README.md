@@ -190,6 +190,19 @@ Creates an installation script for all packages except gtools and ftools.
 
 ## Version History
 
+- **Version 1.0.4** (13 March 2026): Deep review fixes
+  - Fixed plugin line filtering using substr prefix match instead of strpos substring match
+  - Made restore option functional by embedding backup URLs in generated .pkg files
+  - Fixed varabbrev setting leak on error paths via capture noisily wrapper
+  - Tightened URL filtering to avoid false matches on substrings like "com" or "org"
+  - Replaced fragile delimiter with safe pipe characters for import delimited
+  - Fixed double directory separator in PLUS path construction
+  - Changed haghish package detection from hardcoded list to URL-based matching
+  - Fixed directory creation to handle paths with spaces using while loop
+  - Added trailing-slash check before appending separators to URLs
+  - Extended cleanup to handle 3 levels of nested directories
+  - Fixed file count display to show actual file count instead of total trk lines
+  - Improved sthlp documentation for restore option
 - **Version 1.0.3** (6 March 2026): Bug fixes and documentation
   - Fixed skip() option not filtering packages in default mode
   - Added preserve/restore to protect user data in memory

@@ -18,8 +18,8 @@ See help nma_report for complete documentation
 
 program define nma_report, rclass
     version 16.0
+    local _varabbrev = c(varabbrev)
     set varabbrev off
-    set more off
 
     syntax using/ [, FORmat(string) EFORM REPLACE ///
         SECTions(string) Level(cilevel) DIGits(integer 4)]
@@ -60,6 +60,11 @@ program define nma_report, rclass
     * BUILD REPORT DATASET
     * =======================================================================
 
+    * Save labels before preserve (clear wipes _dta chars)
+    forvalues _t = 1/`k' {
+        local _trtlbl_`_t' : char _dta[_nma_trt_`_t']
+    }
+
     preserve
 
     local z_crit = invnormal(1 - (1 - `level'/100) / 2)
@@ -72,7 +77,7 @@ program define nma_report, rclass
             local ++col
             local param_trts "`param_trts' `t'"
             local pcol_`t' = `col'
-            local trtlbl_`t' : word `t' of `treatments'
+            local trtlbl_`t' "`_trtlbl_`t''"
         }
     }
 
@@ -197,7 +202,7 @@ program define nma_report, rclass
             }
 
             forvalues i = 1/`k' {
-                local lbl : word `i' of `treatments'
+                local lbl "`_trtlbl_`i''"
                 quietly replace treatment = "`lbl'" in `i'
                 quietly replace sucra = _nma_sucra[`i', 1] in `i'
                 quietly replace mean_rank = _nma_meanrank[`i', 1] in `i'
@@ -355,4 +360,6 @@ program define nma_report, rclass
 
     return local filename "`using'"
     return local format "`format'"
+
+    set varabbrev `_varabbrev'
 end

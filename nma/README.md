@@ -2,7 +2,7 @@
 
 ![Stata 16+](https://img.shields.io/badge/Stata-16%2B-brightgreen) ![MIT License](https://img.shields.io/badge/License-MIT-blue)
 
-**Version 1.0.4** | 2026-03-03
+**Version 1.0.3** | 2026-03-13
 
 A comprehensive Stata package for network meta-analysis (mixed treatment comparisons) with **zero external dependencies**. All statistical computation is built-in using Mata, including the multivariate REML engine.
 
@@ -513,7 +513,8 @@ Cross-validates treatment effect estimates against R `netmeta` 3.3-1 using both 
 
 ## References
 
-- Kulldorff M, Fang Z, Walsh SJ. A tree-based scan statistic for database disease surveillance. *Biometrics*. 2003;59(2):323-331.
+- Lu G, Ades A. Combination of direct and indirect evidence in mixed treatment comparisons. *Statistics in Medicine*. 2004;23:3105-3124.
+- Dias S, Welton N, Sutton A, Ades A. Evidence synthesis for decision making 2: A generalized linear modeling framework for pairwise and network meta-analysis. *Medical Decision Making*. 2013;33:607-617.
 - Rücker G. Network meta-analysis, electrical networks and graph theory. *Research Synthesis Methods*. 2012;3:312-324.
 - Senn S, Gavini F, Magrez D, Bretz F. Issues in performing a network meta-analysis. *Statistical Methods in Medical Research*. 2013;22(2):169-189.
 
@@ -529,4 +530,4 @@ MIT
 
 ## Version
 
-Version 1.0.4, 2026-03-03
+Version 1.0.3, 2026-03-13

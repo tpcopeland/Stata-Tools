@@ -50,6 +50,18 @@ sections to Excel or CSV format.
 {phang2}{cmd:. nma_report using results.xlsx, sections(fit rank) eform replace}{p_end}
 
 
+{marker results}{...}
+{title:Stored results}
+
+{pstd}
+{cmd:nma_report} stores the following in {cmd:r()}:
+
+{synoptset 20 tabbed}{...}
+{p2col 5 20 24 2: Macros}{p_end}
+{synopt:{cmd:r(filename)}}output file path{p_end}
+{synopt:{cmd:r(format)}}output format (excel or csv){p_end}
+
+
 {marker author}{...}
 {title:Author}
 

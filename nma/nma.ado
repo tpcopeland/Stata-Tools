@@ -17,13 +17,13 @@ See help nma for complete documentation
 
 program define nma, rclass
     version 16.0
+    local _varabbrev = c(varabbrev)
     set varabbrev off
-    set more off
 
     syntax [, List Detail]
 
-    local version "1.0.1"
-    local n_commands = 9
+    local version "1.0.3"
+    local n_commands : word count `all_commands'
 
     local all_commands "nma_setup nma_import nma_fit nma_inconsistency nma_rank nma_forest nma_map nma_compare nma_report"
 
@@ -83,12 +83,12 @@ program define nma, rclass
     return local version "`version'"
     return local commands "`all_commands'"
     return scalar n_commands = `n_commands'
+
+    set varabbrev `_varabbrev'
 end
 
 program define _nma_overview_detail
     version 16.0
-    set varabbrev off
-    set more off
 
     display as text ""
     display as text "{bf:Data Setup}"

@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.4  28feb2026}{...}
+{* *! version 1.0.5  13mar2026}{...}
 {viewerjumpto "Syntax" "nma_map##syntax"}{...}
 {viewerjumpto "Description" "nma_map##description"}{...}
 {viewerjumpto "Options" "nma_map##options"}{...}
@@ -25,7 +25,7 @@
 {synopt:{opt nodes:ize(string)}}size nodes by: studies (default){p_end}
 {synopt:{opt edges:ize(string)}}weight edges by: studies (default){p_end}
 {synopt:{opt nola:bels}}suppress treatment labels{p_end}
-{synopt:{opt scheme(string)}}graph scheme; default is plotplainblind{p_end}
+{synopt:{opt scheme(string)}}graph scheme; default is {cmd:white_tableau}{p_end}
 {synopt:{opt saving(filename)}}save graph{p_end}
 {synopt:{opt replace}}overwrite existing file{p_end}
 {synopt:{opt title(string)}}custom title{p_end}
@@ -54,6 +54,18 @@ fitted model.
 
 {pstd}Without labels{p_end}
 {phang2}{cmd:. nma_map, nolabels}{p_end}
+
+
+{marker results}{...}
+{title:Stored results}
+
+{pstd}
+{cmd:nma_map} stores the following in {cmd:r()}:
+
+{synoptset 20 tabbed}{...}
+{p2col 5 20 24 2: Scalars}{p_end}
+{synopt:{cmd:r(n_treatments)}}number of treatments{p_end}
+{synopt:{cmd:r(n_edges)}}number of direct comparisons{p_end}
 
 
 {marker author}{...}

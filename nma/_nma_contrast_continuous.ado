@@ -4,7 +4,6 @@
 program define _nma_contrast_continuous
     version 16.0
     set varabbrev off
-    set more off
 
     syntax , measure(string) ref_code(integer)
 

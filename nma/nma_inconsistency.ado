@@ -18,8 +18,8 @@ See help nma_inconsistency for complete documentation
 
 program define nma_inconsistency, rclass
     version 16.0
+    local _varabbrev = c(varabbrev)
     set varabbrev off
-    set more off
 
     syntax [, METHod(string) Level(cilevel)]
 
@@ -157,10 +157,11 @@ program define nma_inconsistency, rclass
             local chi2_df = 0
         }
 
-        display as text "Global inconsistency test:"
+        display as text "Global inconsistency test (approximate):"
         display as text "  chi2(" as result "`chi2_df'" as text ") = " ///
             as result %7.2f `chi2' ///
             as text ", p = " as result %6.3f `chi2_p'
+        display as text "  Note: uses fixed-effect per-comparison LL approximation"
         display as text ""
 
         return scalar chi2 = `chi2'
@@ -205,8 +206,8 @@ program define nma_inconsistency, rclass
         forvalues i = 1/`k' {
             forvalues j = `=`i'+1'/`k' {
                 local ev = _nma_evidence[`i', `j']
-                local lbl_i : word `i' of `treatments'
-                local lbl_j : word `j' of `treatments'
+                local lbl_i : char _dta[_nma_trt_`i']
+                local lbl_j : char _dta[_nma_trt_`j']
 
                 if `ev' == 1 {
                     local skip_direct "`skip_direct' `lbl_i' vs `lbl_j',"
@@ -327,4 +328,6 @@ program define nma_inconsistency, rclass
 
         return scalar n_nodesplit = `n_split'
     }
+
+    set varabbrev `_varabbrev'
 end

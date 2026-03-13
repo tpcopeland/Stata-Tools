@@ -4,7 +4,6 @@
 program define _nma_contrast_rate
     version 16.0
     set varabbrev off
-    set more off
 
     syntax , ref_code(integer)
 

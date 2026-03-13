@@ -4,7 +4,6 @@
 program define _nma_display_header
     version 16.0
     set varabbrev off
-    set more off
 
     syntax , command(string) [description(string)]
 
