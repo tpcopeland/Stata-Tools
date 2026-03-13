@@ -113,7 +113,6 @@ program define datamap, rclass
 	if "`output'" == "" {
 		local output "datamap.txt"
 	}
-	noisily di as text "Output file: `output'"
 	
 	// Validate numeric parameters
 	if `maxfreq' <= 0 {
@@ -292,7 +291,7 @@ program define CollectFromFilelistOption
 	args filelist tmpfile
 
 	tempname fh_out
-	file open `fh_out' using "`tmpfile'", write text replace
+	quietly file open `fh_out' using "`tmpfile'", write text replace
 
 	// Parse the space-separated list
 	local remaining `"`filelist'"'
@@ -326,7 +325,7 @@ program define CollectFromDir
 	args directory recursive tmpfile
 
 	tempname fh
-	file open `fh' using "`tmpfile'", write text replace
+	quietly file open `fh' using "`tmpfile'", write text replace
 
 	if "`recursive'" == "" {
 		// Non-recursive: simple directory scan
@@ -395,17 +394,13 @@ program define ProcessCombined
 		survivalvars(string) quality_level(string) samples(integer 0) ///
 		missing_detail(integer 0) missing_pattern(integer 0)]
 
-	noisily di as text "Opening output file: `output'"
-
 	// Open output file (append or replace mode)
 	tempname fh
 	if "`append'" != "" {
-		noisily di as text "Appending to existing file"
 		file open `fh' using "`output'", write text append
 	}
 	else {
-		noisily di as text "Creating new file"
-		file open `fh' using "`output'", write text replace
+		quietly file open `fh' using "`output'", write text replace
 
 		// Write header for text format
 		local cdate = c(current_date)
@@ -415,11 +410,9 @@ program define ProcessCombined
 	}
 
 	// Process each file in list
-	noisily di as text "Processing files..."
 
 	if "`single'" != "" {
 		// Single file mode
-		noisily di as text "  Processing single file: `single'"
 		ProcessDataset `fh' "`single'" "`format'" "`nostats'" "`nofreq'" ///
 			"`nolabels'" "`nonotes'" `maxfreq' `maxcat' "`exclude'" "`datesafe'" 1 1 ///
 			`detect_panel' `detect_binary' `detect_survival' `detect_survey' `detect_common' ///
@@ -434,7 +427,6 @@ program define ProcessCombined
 		file read `fh_list' thisfile
 		while r(eof) == 0 {
 			local ++i
-			noisily di as text "  Processing file `i' of `nfiles': `thisfile'"
 			ProcessDataset `fh' "`thisfile'" "`format'" "`nostats'" "`nofreq'" ///
 				"`nolabels'" "`nonotes'" `maxfreq' `maxcat' "`exclude'" "`datesafe'" `i' `nfiles' ///
 				`detect_panel' `detect_binary' `detect_survival' `detect_survey' `detect_common' ///
@@ -446,7 +438,6 @@ program define ProcessCombined
 	}
 
 	// Always close file handle
-	noisily di as text "Closing file handle"
 	file close `fh'
 	noisily di as result `"Output written to: `output'"'
 end
@@ -480,11 +471,9 @@ program define ProcessSeparate
 		}
 		local outfile "`basename'_map.txt"
 
-		noisily di as text "Creating separate output: `outfile'"
-
 		// Open output file for this dataset
 		tempname fh
-		file open `fh' using "`outfile'", write text replace
+		quietly file open `fh' using "`outfile'", write text replace
 
 		// Process with error handling
 		capture {
@@ -533,10 +522,8 @@ program define ProcessDataset
 	     detect_panel detect_binary detect_survival detect_survey detect_common ///
 	     panelid survivalvars quality_level samples missing_detail missing_pattern
 
-	noisily di as text "  Reading metadata for: `filepath'"
-
 	// Get dataset metadata from describe
-	capture describe using "`filepath'", short
+	capture quietly describe using "`filepath'", short
 	if _rc != 0 {
 		noisily di as error "    ERROR: Could not describe file `filepath' (rc=`=_rc')"
 		exit _rc
@@ -544,8 +531,6 @@ program define ProcessDataset
 	local obs = r(N)
 	local nvars = r(k)
 	local sortorder "`r(sortlist)'"
-
-	noisily di as text "    Observations: `obs', Variables: `nvars'"
 
 	// Load dataset to get label and datasignature
 	quietly {
@@ -628,7 +613,6 @@ program define ProcessDataset
 	}
 
 	// Process all variables in the dataset
-	noisily di as text "    Processing variables..."
 	ProcessVariables `fh' "`filepath'" "`format'" "`nostats'" "`nofreq'" ///
 		"`nolabels'" "`nonotes'" `maxfreq' `maxcat' "`exclude'" "`datesafe'" `obs' ///
 		`detect_panel' `detect_binary' `detect_survival' `detect_survey' `detect_common' ///
@@ -646,8 +630,6 @@ program define ProcessVariables
 	     detect_panel detect_binary detect_survival detect_survey detect_common ///
 	     panelid survivalvars quality_level samples missing_detail missing_pattern
 
-	noisily di as text "    Classifying variables..."
-
 	// Get variable metadata using describe
 	tempfile varinfo
 	capture use "`filepath'", clear
@@ -655,26 +637,28 @@ program define ProcessVariables
 		noisily di as error "      ERROR: Could not load `filepath' (rc=`=_rc')"
 		exit _rc
 	}
-	describe, replace clear
+	quietly {
+		describe, replace clear
 
-	// Describe output has: name, type, isnumeric, format, vallab, varlab
-	// Rename to more intuitive names and add our tracking columns
-	rename name varname
-	rename type vartype
-	rename format varformat
-	rename varlab varlabel_orig
-	rename vallab valuelabel_orig
+		// Describe output has: name, type, isnumeric, format, vallab, varlab
+		// Rename to more intuitive names and add our tracking columns
+		rename name varname
+		rename type vartype
+		rename format varformat
+		rename varlab varlabel_orig
+		rename vallab valuelabel_orig
 
-	gen varlabel = varlabel_orig
-	gen valuelabel = valuelabel_orig
-	gen double missing_n = .
-	gen double missing_pct = .
-	gen classification = ""
-	gen double unique_vals = .
-	gen is_binary = 0
-	gen quality_flag = ""
+		gen varlabel = varlabel_orig
+		gen valuelabel = valuelabel_orig
+		gen double missing_n = .
+		gen double missing_pct = .
+		gen classification = ""
+		gen double unique_vals = .
+		gen is_binary = 0
+		gen quality_flag = ""
 
-	save "`varinfo'", replace
+		save "`varinfo'", replace
+	}
 
 	local nvars = _N
 
@@ -709,7 +693,7 @@ program define ProcessVariables
 	}
 
 	// Now load the user dataset ONCE for all statistics calculations
-	use "`filepath'", clear
+	quietly use "`filepath'", clear
 
 	// Initialize matrices to store results
 	tempname miss_n miss_pct uniq_vals is_bin
@@ -761,7 +745,7 @@ program define ProcessVariables
 			if "`valab'" != "" {
 				local class_`i' "categorical"
 				// Still need unique count for reporting, but use faster method
-				capture tab `vname'
+				capture quietly tab `vname'
 				if _rc == 0 {
 					matrix `uniq_vals'[`i', 1] = r(r)
 					if `detect_binary' & r(r) == 2 {
@@ -771,7 +755,7 @@ program define ProcessVariables
 			}
 			else {
 				// No value label - need to check cardinality
-				capture tab `vname'
+				capture quietly tab `vname'
 				if _rc == 0 {
 					local nuniq = r(r)
 					matrix `uniq_vals'[`i', 1] = `nuniq'
@@ -833,31 +817,33 @@ program define ProcessVariables
 	}
 
 	// Now load varinfo ONCE and update all values from matrices
-	use "`varinfo'", clear
+	quietly {
+		use "`varinfo'", clear
 
-	forvalues i = 1/`nvars' {
-		replace missing_n = `miss_n'[`i', 1] in `i'
-		replace missing_pct = `miss_pct'[`i', 1] in `i'
+		forvalues i = 1/`nvars' {
+			replace missing_n = `miss_n'[`i', 1] in `i'
+			replace missing_pct = `miss_pct'[`i', 1] in `i'
 
-		if `uniq_vals'[`i', 1] != . {
-			replace unique_vals = `uniq_vals'[`i', 1] in `i'
+			if `uniq_vals'[`i', 1] != . {
+				replace unique_vals = `uniq_vals'[`i', 1] in `i'
+			}
+
+			replace is_binary = `is_bin'[`i', 1] in `i'
+
+			if "`class_`i''" != "" {
+				replace classification = "`class_`i''" in `i'
+			}
+
+			if "`qflag_`i''" != "" {
+				replace quality_flag = "`qflag_`i''" in `i'
+			}
 		}
 
-		replace is_binary = `is_bin'[`i', 1] in `i'
+		// Save varinfo ONCE at the end
+		save "`varinfo'", replace
 
-		if "`class_`i''" != "" {
-			replace classification = "`class_`i''" in `i'
-		}
-
-		if "`qflag_`i''" != "" {
-			replace quality_flag = "`qflag_`i''" in `i'
-		}
+		save "`classifications'", replace
 	}
-
-	// Save varinfo ONCE at the end
-	save "`varinfo'", replace
-
-	save "`classifications'", replace
 
 	// Write summary table
 	assert _N == `nvars'  // Verify expected row count
@@ -891,38 +877,29 @@ program define ProcessVariables
 	}
 	
 	// Detailed variable sections
-	noisily di as text "    Processing categorical variables..."
 	ProcessCategorical `fh' "`filepath'" "`classifications'" "`format'" "`nofreq'" `maxfreq' `obs'
-	noisily di as text "    Processing continuous variables..."
 	ProcessContinuous `fh' "`filepath'" "`classifications'" "`format'" "`nostats'" `obs'
-	noisily di as text "    Processing date variables..."
 	ProcessDate `fh' "`filepath'" "`classifications'" "`format'" "`datesafe'"
-	noisily di as text "    Processing string variables..."
 	ProcessString `fh' "`filepath'" "`classifications'" "`format'"
-	noisily di as text "    Processing excluded variables..."
 	ProcessExcluded `fh' "`filepath'" "`classifications'" "`format'"
 
 	// Binary variables section (if detect_binary enabled)
 	if `detect_binary' {
-		noisily di as text "    Processing binary variables..."
 		ProcessBinary `fh' "`filepath'" "`classifications'" "`format'" `obs'
 	}
 
 	// Data quality flags (if quality checks enabled)
 	if "`quality_level'" != "" {
-		noisily di as text "    Processing quality flags..."
 		ProcessQuality `fh' "`filepath'" "`classifications'" "`format'"
 	}
 
 	// Sample observations (if requested)
 	if `samples' > 0 {
-		noisily di as text "    Including sample observations..."
 		ProcessSamples `fh' "`filepath'" "`classifications'" "`format'" `samples' "`exclude'"
 	}
 
 	// Value label definitions
 	if "`nolabels'" == "" {
-		noisily di as text "    Processing value labels..."
 		ProcessValueLabels `fh' "`filepath'" "`classifications'" "`format'"
 	}
 end
@@ -932,8 +909,8 @@ program define ProcessCategorical
 	args fh filepath classifications format nofreq maxfreq obs
 
 	tempfile catdata
-	use "`classifications'", clear
-	count if classification == "categorical"
+	quietly use "`classifications'", clear
+	quietly count if classification == "categorical"
 	if r(N) == 0 {
 		exit
 	}
@@ -943,9 +920,9 @@ program define ProcessCategorical
 	file write `fh' "CATEGORICAL VARIABLES" _n
 	file write `fh' "========================================" _n _n
 	
-	use "`classifications'", clear
-	keep if classification == "categorical"
-	save `catdata', replace
+	quietly use "`classifications'", clear
+	quietly keep if classification == "categorical"
+	quietly save `catdata', replace
 	local nvars = _N
 	
 	assert _N == `nvars'  // Verify expected row count
@@ -989,10 +966,10 @@ program define ProcessCategorical
 		
 		// Frequency table
 		if "`nofreq'" == "" & `nuniq' <= `maxfreq' {
-			use "`filepath'", clear
+			quietly use "`filepath'", clear
 			
 			file write `fh' "  Frequencies:" _n
-			capture tab `vname', matrow(vals) matcell(freqs)
+			capture quietly tab `vname', matrow(vals) matcell(freqs)
 			if _rc == 0 {
 				local nvals = r(r)
 				forvalues j = 1/`nvals' {
@@ -1013,7 +990,7 @@ program define ProcessCategorical
 			}
 			file write `fh' _n
 
-			use "`catdata'", clear
+			quietly use "`catdata'", clear
 		}
 
 		// Add analysis guidance
@@ -1038,8 +1015,8 @@ program define ProcessContinuous
 	args fh filepath classifications format nostats obs
 
 	tempfile contdata
-	use "`classifications'", clear
-	count if classification == "continuous"
+	quietly use "`classifications'", clear
+	quietly count if classification == "continuous"
 	if r(N) == 0 {
 		exit
 	}
@@ -1048,9 +1025,9 @@ program define ProcessContinuous
 	file write `fh' "CONTINUOUS VARIABLES" _n
 	file write `fh' "========================================" _n _n
 	
-	use "`classifications'", clear
-	keep if classification == "continuous"
-	save `contdata', replace
+	quietly use "`classifications'", clear
+	quietly keep if classification == "continuous"
+	quietly save `contdata', replace
 	local nvars = _N
 	
 	assert _N == `nvars'  // Verify expected row count
@@ -1092,8 +1069,8 @@ program define ProcessContinuous
 
 		// Summary statistics
 		if "`nostats'" == "" {
-			use "`filepath'", clear
-			summarize `vname', detail
+			quietly use "`filepath'", clear
+			quietly summarize `vname', detail
 			local n = r(N)
 
 			// Check if all values are missing
@@ -1144,7 +1121,7 @@ program define ProcessContinuous
 				file write `fh' "DISTRIBUTION: (all values missing)" _n _n
 			}
 
-			use "`contdata'", clear
+			quietly use "`contdata'", clear
 		}
 	}
 end
@@ -1154,8 +1131,8 @@ program define ProcessDate
 	args fh filepath classifications format datesafe
 
 	tempfile datedata
-	use "`classifications'", clear
-	count if classification == "date"
+	quietly use "`classifications'", clear
+	quietly count if classification == "date"
 	if r(N) == 0 {
 		exit
 	}
@@ -1164,9 +1141,9 @@ program define ProcessDate
 	file write `fh' "DATE VARIABLES" _n
 	file write `fh' "========================================" _n _n
 	
-	use "`classifications'", clear
-	keep if classification == "date"
-	save `datedata', replace
+	quietly use "`classifications'", clear
+	quietly keep if classification == "date"
+	quietly save `datedata', replace
 	local nvars = _N
 	
 	assert _N == `nvars'  // Verify expected row count
@@ -1200,8 +1177,8 @@ program define ProcessDate
 		file write `fh' "Missing: `nmiss' obs (`pctmiss'%)" _n _n
 
 		// Date range
-		use "`filepath'", clear
-		summarize `vname'
+		quietly use "`filepath'", clear
+		quietly summarize `vname'
 		local minval = r(min)
 		local maxval = r(max)
 
@@ -1237,7 +1214,7 @@ program define ProcessDate
 		file write `fh' "or generate time periods. Verify date ranges are plausible before analysis."
 		file write `fh' _n _n
 
-		use "`datedata'", clear
+		quietly use "`datedata'", clear
 	}
 end
 
@@ -1246,8 +1223,8 @@ program define ProcessString
 	args fh filepath classifications format
 
 	tempfile stringdata
-	use "`classifications'", clear
-	count if classification == "string"
+	quietly use "`classifications'", clear
+	quietly count if classification == "string"
 	if r(N) == 0 {
 		exit
 	}
@@ -1256,9 +1233,9 @@ program define ProcessString
 	file write `fh' "STRING VARIABLES" _n
 	file write `fh' "========================================" _n _n
 	
-	use "`classifications'", clear
-	keep if classification == "string"
-	save `stringdata', replace
+	quietly use "`classifications'", clear
+	quietly keep if classification == "string"
+	quietly save `stringdata', replace
 	local nvars = _N
 	
 	assert _N == `nvars'  // Verify expected row count
@@ -1281,13 +1258,15 @@ program define ProcessString
 			local pctmiss = missing_pct[`i']
 		}
 
-		use "`filepath'", clear
-		gen double _len = length(`vname')
-		summarize _len
+		quietly {
+			use "`filepath'", clear
+			gen double _len = length(`vname')
+			summarize _len
+		}
 		local maxlen = r(max)
 		if missing(`maxlen') local maxlen = 0
-		drop _len
-		capture tab `vname'
+		quietly drop _len
+		capture quietly tab `vname'
 		if _rc == 0 {
 			local nuniq = r(r)
 		}
@@ -1317,7 +1296,7 @@ program define ProcessString
 		file write `fh' "Verify encoding if contains non-ASCII characters."
 		file write `fh' _n _n
 
-		use "`stringdata'", clear
+		quietly use "`stringdata'", clear
 	}
 end
 
@@ -1326,8 +1305,8 @@ program define ProcessExcluded
 	args fh filepath classifications format
 
 	tempfile excludedata
-	use "`classifications'", clear
-	count if classification == "excluded"
+	quietly use "`classifications'", clear
+	quietly count if classification == "excluded"
 	if r(N) == 0 {
 		exit
 	}
@@ -1336,9 +1315,9 @@ program define ProcessExcluded
 	file write `fh' "EXCLUDED VARIABLES" _n
 	file write `fh' "========================================" _n _n
 	
-	use "`classifications'", clear
-	keep if classification == "excluded"
-	save `excludedata', replace
+	quietly use "`classifications'", clear
+	quietly keep if classification == "excluded"
+	quietly save `excludedata', replace
 	local nvars = _N
 	
 	assert _N == `nvars'  // Verify expected row count
@@ -1385,15 +1364,15 @@ program define ProcessValueLabels
 
 	// Get all value labels used
 	tempfile labdata
-	use "`classifications'", clear
-	keep if valuelabel != ""
+	quietly use "`classifications'", clear
+	quietly keep if valuelabel != ""
 	if _N == 0 {
 		exit
 	}
 	
 	// Get unique value labels
-	levelsof valuelabel, local(vallabs)
-	save `labdata', replace
+	quietly levelsof valuelabel, local(vallabs)
+	quietly save `labdata', replace
 	
 	if "`vallabs'" == "" exit
 	
@@ -1404,8 +1383,8 @@ program define ProcessValueLabels
 	// Process each value label
 	foreach vl of local vallabs {
 		// Get variables using this label
-		use `labdata', clear
-		keep if valuelabel == "`vl'"
+		quietly use `labdata', clear
+		quietly keep if valuelabel == "`vl'"
 		local nvars = _N
 		assert _N == `nvars'  // Verify expected row count
 		local varlist ""
@@ -1417,19 +1396,19 @@ program define ProcessValueLabels
 		local varlist = strtrim("`varlist'")
 		
 		// Get label mappings by loading dataset
-		use "`filepath'", clear
+		quietly use "`filepath'", clear
 
 		file write `fh' "`vl' (used by: `varlist')" _n
 
 		// Check if the label is actually defined
-		capture label list `vl'
+		capture quietly label list `vl'
 		if _rc == 0 {
 			// Label exists - extract values by iterating through them
 			local labname "`vl'"
 
 			// Use extended macro to get label range
 			local firstvar : word 1 of `varlist'
-			levelsof `firstvar', local(levels)
+			quietly levelsof `firstvar', local(levels)
 			foreach lev of local levels {
 				local labtext : label `labname' `lev'
 				file write `fh' "  `lev' = `labtext'" _n
@@ -1452,17 +1431,17 @@ program define ProcessBinary
 	args fh filepath classifications format obs
 
 	tempfile bindata
-	use "`classifications'", clear
-	count if is_binary == 1
+	quietly use "`classifications'", clear
+	quietly count if is_binary == 1
 	if r(N) == 0 {
 		exit
 	}
 
 	file write `fh' "Binary Variables (potential outcomes/indicators)" _n _n
 
-	use "`classifications'", clear
-	keep if is_binary == 1
-	save `bindata', replace
+	quietly use "`classifications'", clear
+	quietly keep if is_binary == 1
+	quietly save `bindata', replace
 	local nvars = _N
 
 	assert _N == `nvars'
@@ -1491,7 +1470,7 @@ program define ProcessBinary
 		file write `fh' "  Missing: `nmiss' obs (`pctmiss'%)" _n
 
 		// Show frequency distribution
-		use "`filepath'", clear
+		quietly use "`filepath'", clear
 		quietly tab `vname', matrow(vals) matcell(freqs)
 		local nvals = r(r)
 
@@ -1515,7 +1494,7 @@ program define ProcessBinary
 		}
 		file write `fh' _n
 
-		use "`bindata'", clear
+		quietly use "`bindata'", clear
 	}
 end
 
@@ -1527,8 +1506,8 @@ program define ProcessQuality
 	version 16.0
 	args fh filepath classifications format
 
-	use "`classifications'", clear
-	count if quality_flag != ""
+	quietly use "`classifications'", clear
+	quietly count if quality_flag != ""
 	if r(N) == 0 {
 		exit
 	}
@@ -1537,7 +1516,7 @@ program define ProcessQuality
 	file write `fh' "DATA QUALITY FLAGS" _n
 	file write `fh' "========================================" _n _n
 
-	keep if quality_flag != ""
+	quietly keep if quality_flag != ""
 	local nvars = _N
 
 	forvalues i = 1/`nvars' {
@@ -1556,7 +1535,7 @@ program define ProcessSamples
 	version 16.0
 	args fh filepath classifications format nsamples exclude
 
-	use "`filepath'", clear
+	quietly use "`filepath'", clear
 
 	file write `fh' "========================================" _n
 	file write `fh' "SAMPLE OBSERVATIONS" _n
@@ -1564,7 +1543,7 @@ program define ProcessSamples
 	file write `fh' "First `nsamples' observations (excluded variables masked):" _n _n
 
 	// Get variable list
-	describe, varlist
+	quietly describe, varlist
 	local allvars `r(varlist)'
 
 	// Print header
@@ -1637,7 +1616,7 @@ program define DetectPanel
 	version 16.0
 	args fh filepath panelid format
 
-	use "`filepath'", clear
+	quietly use "`filepath'", clear
 
 	// If panelid specified, use it; otherwise try to detect
 	if "`panelid'" != "" {
@@ -1685,7 +1664,7 @@ program define DetectSurvival
 	version 16.0
 	args fh filepath survivalvars format
 
-	use "`filepath'", clear
+	quietly use "`filepath'", clear
 
 	quietly describe, varlist
 	local allvars `r(varlist)'
@@ -1745,7 +1724,7 @@ program define DetectSurvey
 	version 16.0
 	args fh filepath format
 
-	use "`filepath'", clear
+	quietly use "`filepath'", clear
 
 	quietly describe, varlist
 	local allvars `r(varlist)'
@@ -1811,7 +1790,7 @@ program define DetectCommon
 	version 16.0
 	args fh filepath format
 
-	use "`filepath'", clear
+	quietly use "`filepath'", clear
 
 	quietly describe, varlist
 	local allvars `r(varlist)'
@@ -1880,7 +1859,7 @@ program define SummarizeMissing
 	version 16.0
 	args fh filepath format pattern_check obs
 
-	use "`filepath'", clear
+	quietly use "`filepath'", clear
 
 	quietly describe, varlist
 	local allvars `r(varlist)'
@@ -1892,7 +1871,7 @@ program define SummarizeMissing
 	local n_gt10 = 0
 
 	tempvar complete
-	gen `complete' = 1
+	quietly gen `complete' = 1
 
 	foreach vn of local allvars {
 		quietly count if missing(`vn')
@@ -1947,7 +1926,7 @@ program define GenerateDatasetSummary
 	version 16.0
 	args fh filepath obs nvars label detect_panel detect_survival panelid
 
-	use "`filepath'", clear
+	quietly use "`filepath'", clear
 
 	file write `fh' "DESCRIPTION" _n
 	file write `fh' "-----------" _n

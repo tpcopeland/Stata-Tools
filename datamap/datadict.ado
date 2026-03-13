@@ -48,7 +48,7 @@ program define datadict, rclass
 		confirm file `"`single'"'
 		local nfiles 1
 		tempname fh_tmp
-		file open `fh_tmp' using `"`filelist_tmp'"', write text replace
+		quietly file open `fh_tmp' using `"`filelist_tmp'"', write text replace
 		file write `fh_tmp' `"`single'"' _n
 		file close `fh_tmp'
 	}
@@ -115,7 +115,7 @@ program define CollectFromFilelistOption
 	args filelist tmpfile
 
 	tempname fh_out
-	file open `fh_out' using `"`tmpfile'"', write text replace
+	quietly file open `fh_out' using `"`tmpfile'"', write text replace
 
 	// Parse the space-separated list
 	local remaining `"`filelist'"'
@@ -125,7 +125,7 @@ program define CollectFromFilelistOption
 			// Add .dta extension if not present
 			local dsname = cond(regexm(`"`dsname'"', "\.dta$"), `"`dsname'"', `"`dsname'.dta"')
 			// Check file exists
-			capture confirm file `"`dsname'"'
+			capture quietly confirm file `"`dsname'"'
 			if _rc != 0 {
 				di as error `"file `dsname' not found"'
 				file close `fh_out'
@@ -145,7 +145,7 @@ program define CollectFromDir
 	args directory recursive tmpfile
 
 	tempname fh
-	file open `fh' using `"`tmpfile'"', write text replace
+	quietly file open `fh' using `"`tmpfile'"', write text replace
 
 	if "`recursive'" == "" {
 		local files : dir `"`directory'"' files "*.dta"
@@ -221,7 +221,7 @@ program define CollectDatasetNames
 
 	tempname fh_in fh_out
 	file open `fh_in' using `"`filelist'"', read text
-	file open `fh_out' using `"`namesfile'"', write text replace
+	quietly file open `fh_out' using `"`namesfile'"', write text replace
 
 	file read `fh_in' filepath
 	while r(eof) == 0 {
@@ -291,10 +291,8 @@ program define ProcessCombined
 	version 16.0
 	args filelist namesfile output title subtitle version author date notes changelog nfiles showmissing showstats maxcat maxfreq
 
-	di as text `"Creating Markdown dictionary: `output'"'
-
 	tempname fh
-	file open `fh' using `"`output'"', write text replace
+	quietly file open `fh' using `"`output'"', write text replace
 
 	// Write document header
 	file write `fh' `"# `macval(title)'"' _n _n
@@ -368,8 +366,6 @@ program define ProcessCombined
 			local dslabel ""
 		}
 
-		di as text "  Processing `i' of `nfiles': `dsname'"
-
 		ProcessOneDataset `fh' `"`macval(filepath)'"' `"`dsname'"' `"`macval(dslabel)'"' `i' "`showmissing'" "`showstats'" `maxcat' `maxfreq'
 
 		file read `fh_list' filepath
@@ -382,7 +378,7 @@ program define ProcessCombined
 	file write `fh' "## Notes" _n _n
 	if `"`notes'"' != "" {
 		// Read notes from file
-		capture confirm file `"`notes'"'
+		capture quietly confirm file `"`notes'"'
 		if _rc == 0 {
 			tempname fh_notes
 			file open `fh_notes' using `"`notes'"', read text
@@ -407,7 +403,7 @@ program define ProcessCombined
 	// Change Log section
 	file write `fh' "## Change Log" _n _n
 	if `"`changelog'"' != "" {
-		capture confirm file `"`changelog'"'
+		capture quietly confirm file `"`changelog'"'
 		if _rc == 0 {
 			tempname fh_clog
 			file open `fh_clog' using `"`changelog'"', read text
@@ -466,10 +462,9 @@ program define ProcessSeparate
 		}
 
 		local outfile `"`dsname'_dictionary.md"'
-		di as text `"Creating: `outfile'"'
 
 		tempname fh
-		file open `fh' using `"`outfile'"', write text replace
+		quietly file open `fh' using `"`outfile'"', write text replace
 
 		// Header
 		file write `fh' `"# `macval(title)': `dsname'"' _n _n
