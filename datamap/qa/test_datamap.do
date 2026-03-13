@@ -1,725 +1,1257 @@
-/*******************************************************************************
-* test_datamap.do
-*
-* Purpose: Comprehensive testing of datamap command
-*          Tests all options and common combinations
-*
-* Prerequisites:
-*   - Run generate_test_data.do first to create synthetic datasets
-*   - datamap.ado must be installed/accessible
-*
-* Author: Timothy P Copeland
-* Date: 2025-12-05
-*******************************************************************************/
-
 clear all
 set more off
 version 16.0
 
-* =============================================================================
-* PATH CONFIGURATION
-* =============================================================================
-* Cross-platform path detection
-if "`c(os)'" == "MacOSX" {
-    global STATA_TOOLS_PATH "/Users/tcopeland/Documents/GitHub/Stata-Tools"
-}
-else if "`c(os)'" == "Unix" {
-    * Try to detect path from current working directory
-    capture confirm file "../../_devkit/_testing"
-    if _rc == 0 {
-        * Running from <pkg>/qa/ directory
-        global STATA_TOOLS_PATH "`c(pwd)'/../.."
-    }
-    else {
-    capture confirm file "_devkit/_testing"
-    if _rc == 0 {
-        global STATA_TOOLS_PATH "`c(pwd)'"
-    }
-    else {
-        capture confirm file "_devkit/_testing/data"
-        if _rc == 0 {
-            global STATA_TOOLS_PATH "`c(pwd)'/.."
-        }
-        else {
-            global STATA_TOOLS_PATH "/home/`c(username)'/Stata-Tools"
-        }
-    }
-    }
-}
-else {
-    * Windows or other - try to detect from current directory
-    capture confirm file "../../_devkit/_testing"
-    if _rc == 0 {
-        * Running from <pkg>/qa/ directory
-        global STATA_TOOLS_PATH "`c(pwd)'/../.."
-    }
-    else {
-    capture confirm file "_devkit/_testing"
-    if _rc == 0 {
-        * Running from repo root
-        global STATA_TOOLS_PATH "`c(pwd)'"
-    }
-    else {
-        capture confirm file "_devkit/_testing/data"
-        if _rc == 0 {
-            * Running from _testing directory
-            global STATA_TOOLS_PATH "`c(pwd)'/.."
-        }
-        else {
-            * Assume running from _testing/data directory
-            global STATA_TOOLS_PATH "`c(pwd)'/../.."
-        }
-    }
-    }
-}
+* test_datamap.do - Functional tests for datamap package (datamap + datadict)
+* Generated: 2026-03-13
+* Tests: 65
 
-* Directory structure
-global TESTING_DIR "${STATA_TOOLS_PATH}/_devkit/_testing"
-global DATA_DIR "${TESTING_DIR}/data"
-
-* =============================================================================
-* SETUP: Change to data directory and install package from local repository
-* =============================================================================
-
-* Change to data directory
-cd "${DATA_DIR}"
-
-* Install datamap package from local repository
-capture net uninstall datamap
-net install datamap, from("${STATA_TOOLS_PATH}/datamap") force
-
-local testdir "${DATA_DIR}"
-
-* Check for required test data
-capture confirm file "`testdir'/cohort.dta"
-if _rc {
-    display as error "Test data not found. Run generate_test_data.do first."
-    exit 601
-}
-
-display as text _n "{hline 70}"
-display as text "DATAMAP COMMAND TESTING"
-display as text "{hline 70}"
-display as text "Test directory: `testdir'"
-display as text "{hline 70}"
+* ============================================================
+* Setup
+* ============================================================
 
 local test_count = 0
 local pass_count = 0
 local fail_count = 0
 
-* =============================================================================
-* TEST 1: Single dataset documentation
-* =============================================================================
+local pkg_dir "/home/tpcopeland/Stata-Tools/datamap"
+local qa_dir  "`pkg_dir'/qa"
+local tmp_dir "`qa_dir'/data"
+
+* Create data directory for test outputs
+capture mkdir "`tmp_dir'"
+
+* Uninstall any existing version
+capture ado uninstall datamap
+
+* Install from local directory
+quietly net install datamap, from("`pkg_dir'") force
+
+* ============================================================
+* Create Test Datasets
+* ============================================================
+
+* Dataset 1: Mixed variable types (cohort-like)
+clear
+set seed 12345
+set obs 100
+gen double id = _n
+gen double age = 20 + int(60*runiform())
+gen byte sex = cond(runiform() > 0.5, 1, 0)
+label define sexlbl 0 "Female" 1 "Male"
+label values sex sexlbl
+gen double bmi = 18 + 15*runiform()
+gen byte region = 1 + int(4*runiform())
+label define reglbl 1 "North" 2 "South" 3 "East" 4 "West"
+label values region reglbl
+gen double entry_date = td(01jan2020) + int(365*runiform())
+format entry_date %td
+gen double exit_date = entry_date + 30 + int(335*runiform())
+format exit_date %td
+gen str20 name = "Person" + string(_n)
+label data "Test cohort dataset"
+label variable id "Unique identifier"
+label variable age "Age in years"
+label variable sex "Sex of participant"
+label variable bmi "Body mass index"
+label variable region "Geographic region"
+label variable entry_date "Study entry date"
+label variable exit_date "Study exit date"
+label variable name "Participant name"
+note: This is a synthetic test dataset
+save "`tmp_dir'/test_cohort.dta", replace
+
+* Dataset 2: With missing values
+replace age = . in 1/10
+replace bmi = . in 5/15
+replace region = . in 20/25
+save "`tmp_dir'/test_cohort_miss.dta", replace
+
+* Dataset 3: Panel data
+clear
+set seed 54321
+set obs 200
+gen patient_id = 1 + int((_n - 1) / 4)
+bysort patient_id: gen visit = _n
+gen outcome = runiform()
+gen double visit_date = td(01jan2020) + (visit - 1) * 90
+format visit_date %td
+label data "Panel test dataset"
+save "`tmp_dir'/test_panel.dta", replace
+
+* Dataset 4: Small dataset for edge cases
+clear
+set obs 5
+gen x = _n
+gen y = _n * 2
+label data "Small test dataset"
+save "`tmp_dir'/test_small.dta", replace
+
+* Dataset 5: Single observation
+clear
+set obs 1
+gen x = 42
+save "`tmp_dir'/test_single.dta", replace
+
+* ============================================================
+* datamap: Basic Functionality
+* ============================================================
+
+* Test: datamap single dataset
 local ++test_count
-display as text _n "TEST `test_count': Single dataset documentation"
-display as text "{hline 50}"
-
 capture noisily {
-    datamap, single("`testdir'/cohort") output("`testdir'/_test_datamap.txt")
-
-    * Check output file exists
-    confirm file "`testdir'/_test_datamap.txt"
-    display as result "  PASSED: Single dataset documentation works"
+    datamap, single("`tmp_dir'/test_cohort") output("`tmp_dir'/_out.txt")
+    confirm file "`tmp_dir'/_out.txt"
+}
+if _rc == 0 {
+    display as result "  PASS: datamap - single dataset"
     local ++pass_count
-}
-if _rc {
-    display as error "  FAILED: Error code " _rc
-    local ++fail_count
-}
-
-* =============================================================================
-* TEST 2: Custom output filename
-* =============================================================================
-local ++test_count
-display as text _n "TEST `test_count': Custom output filename"
-display as text "{hline 50}"
-
-capture noisily {
-    datamap, single("`testdir'/cohort") output("`testdir'/_test_cohort_map.txt")
-
-    confirm file "`testdir'/_test_cohort_map.txt"
-    display as result "  PASSED: Custom output filename works"
-    local ++pass_count
-}
-if _rc {
-    display as error "  FAILED: Error code " _rc
-    local ++fail_count
-}
-
-* =============================================================================
-* TEST 3: Exclude variables (privacy)
-* =============================================================================
-local ++test_count
-display as text _n "TEST `test_count': Exclude variables"
-display as text "{hline 50}"
-
-capture noisily {
-    datamap, single("`testdir'/cohort") exclude(id study_entry study_exit) ///
-        output("`testdir'/_test_datamap_exclude.txt")
-
-    confirm file "`testdir'/_test_datamap_exclude.txt"
-    display as result "  PASSED: Exclude option works"
-    local ++pass_count
-}
-if _rc {
-    display as error "  FAILED: Error code " _rc
-    local ++fail_count
-}
-
-* =============================================================================
-* TEST 4: Date-safe mode
-* =============================================================================
-local ++test_count
-display as text _n "TEST `test_count': Date-safe mode"
-display as text "{hline 50}"
-
-capture noisily {
-    datamap, single("`testdir'/cohort") datesafe ///
-        output("`testdir'/_test_datamap_datesafe.txt")
-
-    confirm file "`testdir'/_test_datamap_datesafe.txt"
-    display as result "  PASSED: Date-safe mode works"
-    local ++pass_count
-}
-if _rc {
-    display as error "  FAILED: Error code " _rc
-    local ++fail_count
-}
-
-* =============================================================================
-* TEST 5: No statistics
-* =============================================================================
-local ++test_count
-display as text _n "TEST `test_count': No statistics"
-display as text "{hline 50}"
-
-capture noisily {
-    datamap, single("`testdir'/cohort") nostats ///
-        output("`testdir'/_test_datamap_nostats.txt")
-
-    confirm file "`testdir'/_test_datamap_nostats.txt"
-    display as result "  PASSED: nostats option works"
-    local ++pass_count
-}
-if _rc {
-    display as error "  FAILED: Error code " _rc
-    local ++fail_count
-}
-
-* =============================================================================
-* TEST 6: No frequencies
-* =============================================================================
-local ++test_count
-display as text _n "TEST `test_count': No frequencies"
-display as text "{hline 50}"
-
-capture noisily {
-    datamap, single("`testdir'/cohort") nofreq ///
-        output("`testdir'/_test_datamap_nofreq.txt")
-
-    confirm file "`testdir'/_test_datamap_nofreq.txt"
-    display as result "  PASSED: nofreq option works"
-    local ++pass_count
-}
-if _rc {
-    display as error "  FAILED: Error code " _rc
-    local ++fail_count
-}
-
-* =============================================================================
-* TEST 7: Filelist mode (multiple datasets)
-* =============================================================================
-local ++test_count
-display as text _n "TEST `test_count': Filelist mode"
-display as text "{hline 50}"
-
-capture noisily {
-    datamap, filelist("`testdir'/cohort" "`testdir'/hrt" "`testdir'/dmt") ///
-        output("`testdir'/_test_datamap_multi.txt")
-
-    confirm file "`testdir'/_test_datamap_multi.txt"
-    display as result "  PASSED: Filelist mode works"
-    local ++pass_count
-}
-if _rc {
-    display as error "  FAILED: Error code " _rc
-    local ++fail_count
-}
-
-* =============================================================================
-* TEST 8: Custom maxcat and maxfreq
-* =============================================================================
-local ++test_count
-display as text _n "TEST `test_count': Custom maxcat and maxfreq"
-display as text "{hline 50}"
-
-capture noisily {
-    datamap, single("`testdir'/cohort") maxcat(10) maxfreq(10) ///
-        output("`testdir'/_test_datamap_maxcat.txt")
-
-    confirm file "`testdir'/_test_datamap_maxcat.txt"
-    display as result "  PASSED: maxcat/maxfreq options work"
-    local ++pass_count
-}
-if _rc {
-    display as error "  FAILED: Error code " _rc
-    local ++fail_count
-}
-
-* =============================================================================
-* TEST 9: Quality checks
-* =============================================================================
-local ++test_count
-display as text _n "TEST `test_count': Quality checks"
-display as text "{hline 50}"
-
-capture noisily {
-    datamap, single("`testdir'/cohort") quality ///
-        output("`testdir'/_test_datamap_quality.txt")
-
-    confirm file "`testdir'/_test_datamap_quality.txt"
-    display as result "  PASSED: Quality checks work"
-    local ++pass_count
-}
-if _rc {
-    display as error "  FAILED: Error code " _rc
-    local ++fail_count
-}
-
-* =============================================================================
-* TEST 10: Missing data analysis (detail)
-* =============================================================================
-local ++test_count
-display as text _n "TEST `test_count': Missing data analysis"
-display as text "{hline 50}"
-
-capture noisily {
-    datamap, single("`testdir'/cohort_miss") missing(detail) ///
-        output("`testdir'/_test_datamap_missing.txt")
-
-    confirm file "`testdir'/_test_datamap_missing.txt"
-    display as result "  PASSED: Missing data analysis works"
-    local ++pass_count
-}
-if _rc {
-    display as error "  FAILED: Error code " _rc
-    local ++fail_count
-}
-
-* =============================================================================
-* TEST 11: Sample observations
-* =============================================================================
-local ++test_count
-display as text _n "TEST `test_count': Sample observations"
-display as text "{hline 50}"
-
-capture noisily {
-    datamap, single("`testdir'/cohort") samples(5) exclude(id) ///
-        output("`testdir'/_test_datamap_samples.txt")
-
-    confirm file "`testdir'/_test_datamap_samples.txt"
-    display as result "  PASSED: Sample observations option works"
-    local ++pass_count
-}
-if _rc {
-    display as error "  FAILED: Error code " _rc
-    local ++fail_count
-}
-
-* =============================================================================
-* TEST 12: Autodetect features
-* =============================================================================
-local ++test_count
-display as text _n "TEST `test_count': Autodetect features"
-display as text "{hline 50}"
-
-capture noisily {
-    datamap, single("`testdir'/cohort") autodetect ///
-        output("`testdir'/_test_datamap_autodetect.txt")
-
-    confirm file "`testdir'/_test_datamap_autodetect.txt"
-    display as result "  PASSED: Autodetect features work"
-    local ++pass_count
-}
-if _rc {
-    display as error "  FAILED: Error code " _rc
-    local ++fail_count
-}
-
-* =============================================================================
-* TEST 13: Panel detection
-* =============================================================================
-local ++test_count
-display as text _n "TEST `test_count': Panel detection"
-display as text "{hline 50}"
-
-capture noisily {
-    datamap, single("`testdir'/edss_long") detect(panel) panelid(id) ///
-        output("`testdir'/_test_datamap_panel.txt")
-
-    confirm file "`testdir'/_test_datamap_panel.txt"
-    display as result "  PASSED: Panel detection works"
-    local ++pass_count
-}
-if _rc {
-    display as error "  FAILED: Error code " _rc
-    local ++fail_count
-}
-
-* =============================================================================
-* TEST 14: Combined privacy settings
-* =============================================================================
-local ++test_count
-display as text _n "TEST `test_count': Combined privacy settings"
-display as text "{hline 50}"
-
-capture noisily {
-    datamap, single("`testdir'/cohort") exclude(id) datesafe nostats ///
-        output("`testdir'/_test_datamap_privacy.txt")
-
-    confirm file "`testdir'/_test_datamap_privacy.txt"
-    display as result "  PASSED: Combined privacy settings work"
-    local ++pass_count
-}
-if _rc {
-    display as error "  FAILED: Error code " _rc
-    local ++fail_count
-}
-
-* =============================================================================
-* TEST 15: HRT dataset
-* =============================================================================
-local ++test_count
-display as text _n "TEST `test_count': HRT dataset"
-display as text "{hline 50}"
-
-capture noisily {
-    datamap, single("`testdir'/hrt") output("`testdir'/_test_datamap_hrt.txt")
-
-    confirm file "`testdir'/_test_datamap_hrt.txt"
-    display as result "  PASSED: HRT dataset works"
-    local ++pass_count
-}
-if _rc {
-    display as error "  FAILED: Error code " _rc
-    local ++fail_count
-}
-
-* =============================================================================
-* TEST 16: Directory mode
-* =============================================================================
-local ++test_count
-display as text _n "TEST `test_count': Directory mode"
-display as text "{hline 50}"
-
-capture noisily {
-    datamap, directory("`testdir'") output("`testdir'/_test_datamap_dir.txt")
-
-    confirm file "`testdir'/_test_datamap_dir.txt"
-    display as result "  PASSED: Directory mode works"
-    local ++pass_count
-}
-if _rc {
-    display as error "  FAILED: Error code " _rc
-    local ++fail_count
-}
-
-* =============================================================================
-* TEST 17: Directory with recursive option
-* =============================================================================
-local ++test_count
-display as text _n "TEST `test_count': Directory with recursive"
-display as text "{hline 50}"
-
-capture noisily {
-    * Create a subdirectory with a test file
-    capture mkdir "`testdir'/_subdir_dm"
-    use "`testdir'/cohort.dta", clear
-    keep in 1/10
-    save "`testdir'/_subdir_dm/_subtest.dta", replace
-
-    datamap, directory("`testdir'") output("`testdir'/_test_datamap_recursive.txt") recursive
-
-    confirm file "`testdir'/_test_datamap_recursive.txt"
-
-    * Cleanup subdirectory
-    capture erase "`testdir'/_subdir_dm/_subtest.dta"
-    capture rmdir "`testdir'/_subdir_dm"
-
-    display as result "  PASSED: Recursive option works"
-    local ++pass_count
-}
-if _rc {
-    display as error "  FAILED: Error code " _rc
-    local ++fail_count
-}
-
-* =============================================================================
-* TEST 18: Separate output files
-* =============================================================================
-local ++test_count
-display as text _n "TEST `test_count': Separate output files"
-display as text "{hline 50}"
-
-capture noisily {
-    datamap, filelist("`testdir'/cohort" "`testdir'/hrt") ///
-        output("`testdir'/_test_datamap_sep.txt") separate
-
-    * Check that separate files were created
-    * Note: separate creates <basename>_map.txt files, not using output() prefix
-    confirm file "`testdir'/cohort_map.txt"
-    confirm file "`testdir'/hrt_map.txt"
-
-    display as result "  PASSED: Separate output works"
-    local ++pass_count
-}
-if _rc {
-    display as error "  FAILED: Error code " _rc
-    local ++fail_count
-}
-
-* =============================================================================
-* TEST 19: Append mode
-* =============================================================================
-local ++test_count
-display as text _n "TEST `test_count': Append mode"
-display as text "{hline 50}"
-
-capture noisily {
-    * First create initial file
-    datamap, single("`testdir'/cohort") output("`testdir'/_test_datamap_append.txt")
-
-    * Then append another dataset
-    datamap, single("`testdir'/hrt") output("`testdir'/_test_datamap_append.txt") append
-
-    confirm file "`testdir'/_test_datamap_append.txt"
-    display as result "  PASSED: Append mode works"
-    local ++pass_count
-}
-if _rc {
-    display as error "  FAILED: Error code " _rc
-    local ++fail_count
-}
-
-* =============================================================================
-* TEST 20: No labels option
-* =============================================================================
-local ++test_count
-display as text _n "TEST `test_count': No labels option"
-display as text "{hline 50}"
-
-capture noisily {
-    datamap, single("`testdir'/cohort") nolabels ///
-        output("`testdir'/_test_datamap_nolabels.txt")
-
-    confirm file "`testdir'/_test_datamap_nolabels.txt"
-    display as result "  PASSED: nolabels option works"
-    local ++pass_count
-}
-if _rc {
-    display as error "  FAILED: Error code " _rc
-    local ++fail_count
-}
-
-* =============================================================================
-* TEST 21: No notes option
-* =============================================================================
-local ++test_count
-display as text _n "TEST `test_count': No notes option"
-display as text "{hline 50}"
-
-capture noisily {
-    datamap, single("`testdir'/cohort") nonotes ///
-        output("`testdir'/_test_datamap_nonotes.txt")
-
-    confirm file "`testdir'/_test_datamap_nonotes.txt"
-    display as result "  PASSED: nonotes option works"
-    local ++pass_count
-}
-if _rc {
-    display as error "  FAILED: Error code " _rc
-    local ++fail_count
-}
-
-* =============================================================================
-* TEST 22: Quality2 strict mode
-* =============================================================================
-local ++test_count
-display as text _n "TEST `test_count': Quality2 strict mode"
-display as text "{hline 50}"
-
-capture noisily {
-    datamap, single("`testdir'/cohort") quality2(strict) ///
-        output("`testdir'/_test_datamap_quality2.txt")
-
-    confirm file "`testdir'/_test_datamap_quality2.txt"
-    display as result "  PASSED: quality2(strict) works"
-    local ++pass_count
-}
-if _rc {
-    display as error "  FAILED: Error code " _rc
-    local ++fail_count
-}
-
-* =============================================================================
-* TEST 23: Missing pattern analysis
-* =============================================================================
-local ++test_count
-display as text _n "TEST `test_count': Missing pattern analysis"
-display as text "{hline 50}"
-
-capture noisily {
-    datamap, single("`testdir'/cohort_miss") missing(pattern) ///
-        output("`testdir'/_test_datamap_misspattern.txt")
-
-    confirm file "`testdir'/_test_datamap_misspattern.txt"
-    display as result "  PASSED: missing(pattern) works"
-    local ++pass_count
-}
-if _rc {
-    display as error "  FAILED: Error code " _rc
-    local ++fail_count
-}
-
-* =============================================================================
-* TEST 24: Survival variables detection
-* =============================================================================
-local ++test_count
-display as text _n "TEST `test_count': Survival variables detection"
-display as text "{hline 50}"
-
-capture noisily {
-    datamap, single("`testdir'/cohort") survivalvars(study_entry study_exit edss4_dt) ///
-        output("`testdir'/_test_datamap_survival.txt")
-
-    confirm file "`testdir'/_test_datamap_survival.txt"
-    display as result "  PASSED: survivalvars() works"
-    local ++pass_count
-}
-if _rc {
-    display as error "  FAILED: Error code " _rc
-    local ++fail_count
-}
-
-* =============================================================================
-* TEST 25: Detect binary variables
-* =============================================================================
-local ++test_count
-display as text _n "TEST `test_count': Detect binary variables"
-display as text "{hline 50}"
-
-capture noisily {
-    datamap, single("`testdir'/cohort") detect(binary) ///
-        output("`testdir'/_test_datamap_binary.txt")
-
-    confirm file "`testdir'/_test_datamap_binary.txt"
-    display as result "  PASSED: detect(binary) works"
-    local ++pass_count
-}
-if _rc {
-    display as error "  FAILED: Error code " _rc
-    local ++fail_count
-}
-
-* =============================================================================
-* TEST 26: Detect survival structure
-* =============================================================================
-local ++test_count
-display as text _n "TEST `test_count': Detect survival structure"
-display as text "{hline 50}"
-
-capture noisily {
-    datamap, single("`testdir'/cohort") detect(survival) ///
-        output("`testdir'/_test_datamap_detectsurv.txt")
-
-    confirm file "`testdir'/_test_datamap_detectsurv.txt"
-    display as result "  PASSED: detect(survival) works"
-    local ++pass_count
-}
-if _rc {
-    display as error "  FAILED: Error code " _rc
-    local ++fail_count
-}
-
-* =============================================================================
-* TEST 27: Detect common issues
-* =============================================================================
-local ++test_count
-display as text _n "TEST `test_count': Detect common issues"
-display as text "{hline 50}"
-
-capture noisily {
-    datamap, single("`testdir'/cohort") detect(common) ///
-        output("`testdir'/_test_datamap_common.txt")
-
-    confirm file "`testdir'/_test_datamap_common.txt"
-    display as result "  PASSED: detect(common) works"
-    local ++pass_count
-}
-if _rc {
-    display as error "  FAILED: Error code " _rc
-    local ++fail_count
-}
-
-* =============================================================================
-* TEST 28: Full comprehensive analysis
-* =============================================================================
-local ++test_count
-display as text _n "TEST `test_count': Full comprehensive analysis"
-display as text "{hline 50}"
-
-capture noisily {
-    datamap, single("`testdir'/cohort_miss") ///
-        output("`testdir'/_test_datamap_complete.txt") ///
-        exclude(id) datesafe quality missing(detail) ///
-        samples(3) autodetect maxcat(15) maxfreq(20)
-
-    confirm file "`testdir'/_test_datamap_complete.txt"
-    display as result "  PASSED: Full comprehensive analysis works"
-    local ++pass_count
-}
-if _rc {
-    display as error "  FAILED: Error code " _rc
-    local ++fail_count
-}
-
-* =============================================================================
-* CLEANUP: Remove temporary files
-* =============================================================================
-display as text _n "{hline 70}"
-display as text "Cleaning up temporary files..."
-display as text "{hline 70}"
-
-local temp_files "_test_datamap _test_cohort_map _test_datamap_exclude _test_datamap_datesafe _test_datamap_nostats _test_datamap_nofreq _test_datamap_multi _test_datamap_maxcat _test_datamap_quality _test_datamap_missing _test_datamap_samples _test_datamap_autodetect _test_datamap_panel _test_datamap_privacy _test_datamap_hrt _test_datamap_dir _test_datamap_recursive _test_datamap_sep _test_datamap_sep_cohort _test_datamap_sep_hrt _test_datamap_append _test_datamap_nolabels _test_datamap_nonotes _test_datamap_quality2 _test_datamap_misspattern _test_datamap_survival _test_datamap_binary _test_datamap_detectsurv _test_datamap_common _test_datamap_complete"
-
-foreach f of local temp_files {
-    capture erase "`testdir'/`f'.txt"
-}
-
-* Also cleanup any leftover subdirectory from recursive test
-capture erase "`testdir'/_subdir_dm/_subtest.dta"
-capture rmdir "`testdir'/_subdir_dm"
-
-* =============================================================================
-* SUMMARY
-* =============================================================================
-display as text _n "{hline 70}"
-display as text "DATAMAP TEST SUMMARY"
-display as text "{hline 70}"
-display as text "Total tests:  `test_count'"
-display as result "Passed:       `pass_count'"
-if `fail_count' > 0 {
-    display as error "Failed:       `fail_count'"
 }
 else {
-    display as text "Failed:       `fail_count'"
+    display as error "  FAIL: datamap - single dataset (error `=_rc')"
+    local ++fail_count
 }
-display as text "{hline 70}"
+
+* Test: datamap with .dta extension
+local ++test_count
+capture noisily {
+    datamap, single("`tmp_dir'/test_cohort.dta") output("`tmp_dir'/_out2.txt")
+    confirm file "`tmp_dir'/_out2.txt"
+}
+if _rc == 0 {
+    display as result "  PASS: datamap - .dta extension"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: datamap - .dta extension (error `=_rc')"
+    local ++fail_count
+}
+
+* Test: datamap return values
+local ++test_count
+capture noisily {
+    datamap, single("`tmp_dir'/test_cohort") output("`tmp_dir'/_out_rv.txt")
+    assert r(nfiles) == 1
+    assert "`r(format)'" == "text"
+    assert regexm("`r(output)'", "_out_rv\.txt")
+}
+if _rc == 0 {
+    display as result "  PASS: datamap - return values r(nfiles) r(format) r(output)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: datamap - return values (error `=_rc')"
+    local ++fail_count
+}
+
+* Test: datamap custom output filename
+local ++test_count
+capture noisily {
+    datamap, single("`tmp_dir'/test_cohort") output("`tmp_dir'/_custom_name.txt")
+    confirm file "`tmp_dir'/_custom_name.txt"
+}
+if _rc == 0 {
+    display as result "  PASS: datamap - custom output filename"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: datamap - custom output filename (error `=_rc')"
+    local ++fail_count
+}
+
+* ============================================================
+* datamap: Privacy Options
+* ============================================================
+
+* Test: exclude variables
+local ++test_count
+capture noisily {
+    datamap, single("`tmp_dir'/test_cohort") exclude(id name) ///
+        output("`tmp_dir'/_out_excl.txt")
+    confirm file "`tmp_dir'/_out_excl.txt"
+}
+if _rc == 0 {
+    display as result "  PASS: datamap - exclude(id name)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: datamap - exclude (error `=_rc')"
+    local ++fail_count
+}
+
+* Test: datesafe mode
+local ++test_count
+capture noisily {
+    datamap, single("`tmp_dir'/test_cohort") datesafe ///
+        output("`tmp_dir'/_out_ds.txt")
+    confirm file "`tmp_dir'/_out_ds.txt"
+}
+if _rc == 0 {
+    display as result "  PASS: datamap - datesafe"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: datamap - datesafe (error `=_rc')"
+    local ++fail_count
+}
+
+* Test: combined privacy (exclude + datesafe)
+local ++test_count
+capture noisily {
+    datamap, single("`tmp_dir'/test_cohort") exclude(id name) datesafe ///
+        output("`tmp_dir'/_out_priv.txt")
+    confirm file "`tmp_dir'/_out_priv.txt"
+}
+if _rc == 0 {
+    display as result "  PASS: datamap - combined privacy (exclude + datesafe)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: datamap - combined privacy (error `=_rc')"
+    local ++fail_count
+}
+
+* ============================================================
+* datamap: Content Control Options
+* ============================================================
+
+* Test: nostats
+local ++test_count
+capture noisily {
+    datamap, single("`tmp_dir'/test_cohort") nostats ///
+        output("`tmp_dir'/_out_ns.txt")
+    confirm file "`tmp_dir'/_out_ns.txt"
+}
+if _rc == 0 {
+    display as result "  PASS: datamap - nostats"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: datamap - nostats (error `=_rc')"
+    local ++fail_count
+}
+
+* Test: nofreq
+local ++test_count
+capture noisily {
+    datamap, single("`tmp_dir'/test_cohort") nofreq ///
+        output("`tmp_dir'/_out_nf.txt")
+    confirm file "`tmp_dir'/_out_nf.txt"
+}
+if _rc == 0 {
+    display as result "  PASS: datamap - nofreq"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: datamap - nofreq (error `=_rc')"
+    local ++fail_count
+}
+
+* Test: nolabels
+local ++test_count
+capture noisily {
+    datamap, single("`tmp_dir'/test_cohort") nolabels ///
+        output("`tmp_dir'/_out_nl.txt")
+    confirm file "`tmp_dir'/_out_nl.txt"
+}
+if _rc == 0 {
+    display as result "  PASS: datamap - nolabels"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: datamap - nolabels (error `=_rc')"
+    local ++fail_count
+}
+
+* Test: nonotes
+local ++test_count
+capture noisily {
+    datamap, single("`tmp_dir'/test_cohort") nonotes ///
+        output("`tmp_dir'/_out_nn.txt")
+    confirm file "`tmp_dir'/_out_nn.txt"
+}
+if _rc == 0 {
+    display as result "  PASS: datamap - nonotes"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: datamap - nonotes (error `=_rc')"
+    local ++fail_count
+}
+
+* Test: all content suppression combined
+local ++test_count
+capture noisily {
+    datamap, single("`tmp_dir'/test_cohort") nostats nofreq nolabels nonotes ///
+        output("`tmp_dir'/_out_allsup.txt")
+    confirm file "`tmp_dir'/_out_allsup.txt"
+}
+if _rc == 0 {
+    display as result "  PASS: datamap - all content suppression combined"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: datamap - all content suppression (error `=_rc')"
+    local ++fail_count
+}
+
+* Test: custom maxcat
+local ++test_count
+capture noisily {
+    datamap, single("`tmp_dir'/test_cohort") maxcat(10) ///
+        output("`tmp_dir'/_out_mc.txt")
+    confirm file "`tmp_dir'/_out_mc.txt"
+}
+if _rc == 0 {
+    display as result "  PASS: datamap - maxcat(10)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: datamap - maxcat(10) (error `=_rc')"
+    local ++fail_count
+}
+
+* Test: custom maxfreq
+local ++test_count
+capture noisily {
+    datamap, single("`tmp_dir'/test_cohort") maxfreq(5) ///
+        output("`tmp_dir'/_out_mf.txt")
+    confirm file "`tmp_dir'/_out_mf.txt"
+}
+if _rc == 0 {
+    display as result "  PASS: datamap - maxfreq(5)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: datamap - maxfreq(5) (error `=_rc')"
+    local ++fail_count
+}
+
+* ============================================================
+* datamap: Detection Features
+* ============================================================
+
+* Test: autodetect
+local ++test_count
+capture noisily {
+    datamap, single("`tmp_dir'/test_cohort") autodetect ///
+        output("`tmp_dir'/_out_ad.txt")
+    confirm file "`tmp_dir'/_out_ad.txt"
+}
+if _rc == 0 {
+    display as result "  PASS: datamap - autodetect"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: datamap - autodetect (error `=_rc')"
+    local ++fail_count
+}
+
+* Test: detect(panel) with panelid
+local ++test_count
+capture noisily {
+    datamap, single("`tmp_dir'/test_panel") detect(panel) panelid(patient_id) ///
+        output("`tmp_dir'/_out_panel.txt")
+    confirm file "`tmp_dir'/_out_panel.txt"
+}
+if _rc == 0 {
+    display as result "  PASS: datamap - detect(panel) + panelid"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: datamap - detect(panel) (error `=_rc')"
+    local ++fail_count
+}
+
+* Test: detect(binary)
+local ++test_count
+capture noisily {
+    datamap, single("`tmp_dir'/test_cohort") detect(binary) ///
+        output("`tmp_dir'/_out_bin.txt")
+    confirm file "`tmp_dir'/_out_bin.txt"
+}
+if _rc == 0 {
+    display as result "  PASS: datamap - detect(binary)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: datamap - detect(binary) (error `=_rc')"
+    local ++fail_count
+}
+
+* Test: detect(survival)
+local ++test_count
+capture noisily {
+    datamap, single("`tmp_dir'/test_cohort") detect(survival) ///
+        output("`tmp_dir'/_out_surv.txt")
+    confirm file "`tmp_dir'/_out_surv.txt"
+}
+if _rc == 0 {
+    display as result "  PASS: datamap - detect(survival)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: datamap - detect(survival) (error `=_rc')"
+    local ++fail_count
+}
+
+* Test: detect(common)
+local ++test_count
+capture noisily {
+    datamap, single("`tmp_dir'/test_cohort") detect(common) ///
+        output("`tmp_dir'/_out_com.txt")
+    confirm file "`tmp_dir'/_out_com.txt"
+}
+if _rc == 0 {
+    display as result "  PASS: datamap - detect(common)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: datamap - detect(common) (error `=_rc')"
+    local ++fail_count
+}
+
+* Test: survivalvars
+local ++test_count
+capture noisily {
+    datamap, single("`tmp_dir'/test_cohort") survivalvars(entry_date exit_date) ///
+        output("`tmp_dir'/_out_sv.txt")
+    confirm file "`tmp_dir'/_out_sv.txt"
+}
+if _rc == 0 {
+    display as result "  PASS: datamap - survivalvars()"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: datamap - survivalvars() (error `=_rc')"
+    local ++fail_count
+}
+
+* ============================================================
+* datamap: Quality and Missing Options
+* ============================================================
+
+* Test: quality
+local ++test_count
+capture noisily {
+    datamap, single("`tmp_dir'/test_cohort") quality ///
+        output("`tmp_dir'/_out_q.txt")
+    confirm file "`tmp_dir'/_out_q.txt"
+}
+if _rc == 0 {
+    display as result "  PASS: datamap - quality"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: datamap - quality (error `=_rc')"
+    local ++fail_count
+}
+
+* Test: quality2(strict)
+local ++test_count
+capture noisily {
+    datamap, single("`tmp_dir'/test_cohort") quality2(strict) ///
+        output("`tmp_dir'/_out_q2.txt")
+    confirm file "`tmp_dir'/_out_q2.txt"
+}
+if _rc == 0 {
+    display as result "  PASS: datamap - quality2(strict)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: datamap - quality2(strict) (error `=_rc')"
+    local ++fail_count
+}
+
+* Test: missing(detail)
+local ++test_count
+capture noisily {
+    datamap, single("`tmp_dir'/test_cohort_miss") missing(detail) ///
+        output("`tmp_dir'/_out_md.txt")
+    confirm file "`tmp_dir'/_out_md.txt"
+}
+if _rc == 0 {
+    display as result "  PASS: datamap - missing(detail)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: datamap - missing(detail) (error `=_rc')"
+    local ++fail_count
+}
+
+* Test: missing(pattern)
+local ++test_count
+capture noisily {
+    datamap, single("`tmp_dir'/test_cohort_miss") missing(pattern) ///
+        output("`tmp_dir'/_out_mp.txt")
+    confirm file "`tmp_dir'/_out_mp.txt"
+}
+if _rc == 0 {
+    display as result "  PASS: datamap - missing(pattern)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: datamap - missing(pattern) (error `=_rc')"
+    local ++fail_count
+}
+
+* Test: samples
+local ++test_count
+capture noisily {
+    datamap, single("`tmp_dir'/test_cohort") samples(5) ///
+        output("`tmp_dir'/_out_samp.txt")
+    confirm file "`tmp_dir'/_out_samp.txt"
+}
+if _rc == 0 {
+    display as result "  PASS: datamap - samples(5)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: datamap - samples(5) (error `=_rc')"
+    local ++fail_count
+}
+
+* ============================================================
+* datamap: Multi-file and Directory Modes
+* ============================================================
+
+* Test: filelist mode
+local ++test_count
+capture noisily {
+    datamap, filelist("`tmp_dir'/test_cohort" "`tmp_dir'/test_small") ///
+        output("`tmp_dir'/_out_fl.txt")
+    confirm file "`tmp_dir'/_out_fl.txt"
+    assert r(nfiles) == 2
+}
+if _rc == 0 {
+    display as result "  PASS: datamap - filelist mode (2 files)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: datamap - filelist mode (error `=_rc')"
+    local ++fail_count
+}
+
+* Test: directory mode
+local ++test_count
+capture noisily {
+    datamap, directory("`tmp_dir'") output("`tmp_dir'/_out_dir.txt")
+    confirm file "`tmp_dir'/_out_dir.txt"
+    assert r(nfiles) >= 1
+}
+if _rc == 0 {
+    display as result "  PASS: datamap - directory mode"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: datamap - directory mode (error `=_rc')"
+    local ++fail_count
+}
+
+* Test: directory with recursive
+local ++test_count
+capture noisily {
+    capture mkdir "`tmp_dir'/_subdir"
+    use "`tmp_dir'/test_small.dta", clear
+    save "`tmp_dir'/_subdir/_sub.dta", replace
+
+    datamap, directory("`tmp_dir'") recursive output("`tmp_dir'/_out_rec.txt")
+    confirm file "`tmp_dir'/_out_rec.txt"
+
+    capture erase "`tmp_dir'/_subdir/_sub.dta"
+    capture rmdir "`tmp_dir'/_subdir"
+}
+if _rc == 0 {
+    display as result "  PASS: datamap - directory + recursive"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: datamap - directory + recursive (error `=_rc')"
+    local ++fail_count
+    capture erase "`tmp_dir'/_subdir/_sub.dta"
+    capture rmdir "`tmp_dir'/_subdir"
+}
+
+* Test: separate output files
+local ++test_count
+capture noisily {
+    datamap, filelist("`tmp_dir'/test_cohort" "`tmp_dir'/test_small") ///
+        output("`tmp_dir'/_out_sep.txt") separate
+    * separate creates <basename>_map.txt files
+    confirm file "`tmp_dir'/test_cohort_map.txt"
+    confirm file "`tmp_dir'/test_small_map.txt"
+}
+if _rc == 0 {
+    display as result "  PASS: datamap - separate output files"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: datamap - separate output (error `=_rc')"
+    local ++fail_count
+}
+
+* Test: append mode
+local ++test_count
+capture noisily {
+    datamap, single("`tmp_dir'/test_cohort") output("`tmp_dir'/_out_app.txt")
+    datamap, single("`tmp_dir'/test_small") output("`tmp_dir'/_out_app.txt") append
+    confirm file "`tmp_dir'/_out_app.txt"
+}
+if _rc == 0 {
+    display as result "  PASS: datamap - append mode"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: datamap - append mode (error `=_rc')"
+    local ++fail_count
+}
+
+* ============================================================
+* datamap: Comprehensive Combination
+* ============================================================
+
+* Test: full comprehensive analysis
+local ++test_count
+capture noisily {
+    datamap, single("`tmp_dir'/test_cohort_miss") ///
+        output("`tmp_dir'/_out_full.txt") ///
+        exclude(id) datesafe quality missing(detail) ///
+        samples(3) autodetect maxcat(15) maxfreq(20)
+    confirm file "`tmp_dir'/_out_full.txt"
+}
+if _rc == 0 {
+    display as result "  PASS: datamap - full comprehensive analysis"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: datamap - full comprehensive (error `=_rc')"
+    local ++fail_count
+}
+
+* ============================================================
+* datamap: Edge Cases
+* ============================================================
+
+* Test: single observation dataset
+local ++test_count
+capture noisily {
+    datamap, single("`tmp_dir'/test_single") output("`tmp_dir'/_out_1obs.txt")
+    confirm file "`tmp_dir'/_out_1obs.txt"
+}
+if _rc == 0 {
+    display as result "  PASS: datamap - single observation dataset"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: datamap - single observation (error `=_rc')"
+    local ++fail_count
+}
+
+* Test: small dataset (5 obs)
+local ++test_count
+capture noisily {
+    datamap, single("`tmp_dir'/test_small") output("`tmp_dir'/_out_5obs.txt")
+    confirm file "`tmp_dir'/_out_5obs.txt"
+}
+if _rc == 0 {
+    display as result "  PASS: datamap - small dataset (5 obs)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: datamap - small dataset (error `=_rc')"
+    local ++fail_count
+}
+
+* ============================================================
+* datamap: Data Preservation
+* ============================================================
+
+* Test: user data preserved after datamap
+local ++test_count
+capture noisily {
+    sysuse auto, clear
+    local N_before = _N
+    local k_before = c(k)
+    datasignature
+    local sig_before "`r(datasignature)'"
+
+    datamap, single("`tmp_dir'/test_cohort") output("`tmp_dir'/_out_pres.txt")
+
+    assert _N == `N_before'
+    assert c(k) == `k_before'
+    datasignature
+    assert "`r(datasignature)'" == "`sig_before'"
+}
+if _rc == 0 {
+    display as result "  PASS: datamap - data preservation (N, k, signature)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: datamap - data preservation (error `=_rc')"
+    local ++fail_count
+}
+
+* ============================================================
+* datamap: Error Handling
+* ============================================================
+
+* Test: no input specified
+local ++test_count
+capture noisily {
+    capture datamap, output("`tmp_dir'/_err.txt")
+    assert _rc == 198
+}
+if _rc == 0 {
+    display as result "  PASS: datamap - error on no input (rc 198)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: datamap - error on no input (error `=_rc')"
+    local ++fail_count
+}
+
+* Test: multiple input options
+local ++test_count
+capture noisily {
+    capture datamap, single("`tmp_dir'/test_cohort") directory("`tmp_dir'")
+    assert _rc == 198
+}
+if _rc == 0 {
+    display as result "  PASS: datamap - error on multiple inputs (rc 198)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: datamap - error on multiple inputs (error `=_rc')"
+    local ++fail_count
+}
+
+* Test: invalid maxcat (negative)
+local ++test_count
+capture noisily {
+    capture datamap, single("`tmp_dir'/test_cohort") maxcat(-1)
+    assert _rc == 198
+}
+if _rc == 0 {
+    display as result "  PASS: datamap - error on maxcat(-1)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: datamap - error on maxcat(-1) (error `=_rc')"
+    local ++fail_count
+}
+
+* Test: invalid maxfreq (zero)
+local ++test_count
+capture noisily {
+    capture datamap, single("`tmp_dir'/test_cohort") maxfreq(0)
+    assert _rc == 198
+}
+if _rc == 0 {
+    display as result "  PASS: datamap - error on maxfreq(0)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: datamap - error on maxfreq(0) (error `=_rc')"
+    local ++fail_count
+}
+
+* Test: nonexistent file
+local ++test_count
+capture noisily {
+    capture datamap, single("`tmp_dir'/nonexistent_file")
+    assert _rc != 0
+}
+if _rc == 0 {
+    display as result "  PASS: datamap - error on nonexistent file"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: datamap - error on nonexistent file (error `=_rc')"
+    local ++fail_count
+}
+
+* ============================================================
+* datadict: Basic Functionality
+* ============================================================
+
+* Test: datadict single dataset
+local ++test_count
+capture noisily {
+    datadict, single("`tmp_dir'/test_cohort") output("`tmp_dir'/_dd_out.md")
+    confirm file "`tmp_dir'/_dd_out.md"
+}
+if _rc == 0 {
+    display as result "  PASS: datadict - single dataset"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: datadict - single dataset (error `=_rc')"
+    local ++fail_count
+}
+
+* Test: datadict return values
+local ++test_count
+capture noisily {
+    datadict, single("`tmp_dir'/test_cohort") output("`tmp_dir'/_dd_rv.md")
+    assert r(nfiles) == 1
+    assert regexm("`r(output)'", "_dd_rv\.md")
+}
+if _rc == 0 {
+    display as result "  PASS: datadict - return values r(nfiles) r(output)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: datadict - return values (error `=_rc')"
+    local ++fail_count
+}
+
+* ============================================================
+* datadict: Metadata Options
+* ============================================================
+
+* Test: title
+local ++test_count
+capture noisily {
+    datadict, single("`tmp_dir'/test_cohort") output("`tmp_dir'/_dd_title.md") ///
+        title("Custom Title")
+    confirm file "`tmp_dir'/_dd_title.md"
+}
+if _rc == 0 {
+    display as result "  PASS: datadict - title()"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: datadict - title() (error `=_rc')"
+    local ++fail_count
+}
+
+* Test: subtitle
+local ++test_count
+capture noisily {
+    datadict, single("`tmp_dir'/test_cohort") output("`tmp_dir'/_dd_sub.md") ///
+        title("Test") subtitle("A subtitle")
+    confirm file "`tmp_dir'/_dd_sub.md"
+}
+if _rc == 0 {
+    display as result "  PASS: datadict - subtitle()"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: datadict - subtitle() (error `=_rc')"
+    local ++fail_count
+}
+
+* Test: version
+local ++test_count
+capture noisily {
+    datadict, single("`tmp_dir'/test_cohort") output("`tmp_dir'/_dd_ver.md") ///
+        version("1.0")
+    confirm file "`tmp_dir'/_dd_ver.md"
+}
+if _rc == 0 {
+    display as result "  PASS: datadict - version()"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: datadict - version() (error `=_rc')"
+    local ++fail_count
+}
+
+* Test: author
+local ++test_count
+capture noisily {
+    datadict, single("`tmp_dir'/test_cohort") output("`tmp_dir'/_dd_auth.md") ///
+        author("Test Author")
+    confirm file "`tmp_dir'/_dd_auth.md"
+}
+if _rc == 0 {
+    display as result "  PASS: datadict - author()"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: datadict - author() (error `=_rc')"
+    local ++fail_count
+}
+
+* Test: date
+local ++test_count
+capture noisily {
+    datadict, single("`tmp_dir'/test_cohort") output("`tmp_dir'/_dd_date.md") ///
+        date("2026-01-01")
+    confirm file "`tmp_dir'/_dd_date.md"
+}
+if _rc == 0 {
+    display as result "  PASS: datadict - date()"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: datadict - date() (error `=_rc')"
+    local ++fail_count
+}
+
+* Test: notes
+local ++test_count
+capture noisily {
+    datadict, single("`tmp_dir'/test_cohort") output("`tmp_dir'/_dd_notes.md") ///
+        notes("Test notes for the data dictionary.")
+    confirm file "`tmp_dir'/_dd_notes.md"
+}
+if _rc == 0 {
+    display as result "  PASS: datadict - notes()"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: datadict - notes() (error `=_rc')"
+    local ++fail_count
+}
+
+* Test: changelog
+local ++test_count
+capture noisily {
+    datadict, single("`tmp_dir'/test_cohort") output("`tmp_dir'/_dd_cl.md") ///
+        changelog("v1.0: Initial release")
+    confirm file "`tmp_dir'/_dd_cl.md"
+}
+if _rc == 0 {
+    display as result "  PASS: datadict - changelog()"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: datadict - changelog() (error `=_rc')"
+    local ++fail_count
+}
+
+* Test: full metadata combination
+local ++test_count
+capture noisily {
+    datadict, single("`tmp_dir'/test_cohort") output("`tmp_dir'/_dd_fullmeta.md") ///
+        title("MS Cohort") subtitle("Data Dictionary") ///
+        version("2.0") author("Test Author") date("2026-01-01") ///
+        notes("Comprehensive dataset.") changelog("v2.0: Added outcomes")
+    confirm file "`tmp_dir'/_dd_fullmeta.md"
+}
+if _rc == 0 {
+    display as result "  PASS: datadict - full metadata combination"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: datadict - full metadata (error `=_rc')"
+    local ++fail_count
+}
+
+* ============================================================
+* datadict: Content Options
+* ============================================================
+
+* Test: missing column
+local ++test_count
+capture noisily {
+    datadict, single("`tmp_dir'/test_cohort_miss") output("`tmp_dir'/_dd_miss.md") ///
+        missing
+    confirm file "`tmp_dir'/_dd_miss.md"
+}
+if _rc == 0 {
+    display as result "  PASS: datadict - missing"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: datadict - missing (error `=_rc')"
+    local ++fail_count
+}
+
+* Test: stats column
+local ++test_count
+capture noisily {
+    datadict, single("`tmp_dir'/test_cohort") output("`tmp_dir'/_dd_stats.md") ///
+        stats
+    confirm file "`tmp_dir'/_dd_stats.md"
+}
+if _rc == 0 {
+    display as result "  PASS: datadict - stats"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: datadict - stats (error `=_rc')"
+    local ++fail_count
+}
+
+* Test: missing + stats combined
+local ++test_count
+capture noisily {
+    datadict, single("`tmp_dir'/test_cohort_miss") output("`tmp_dir'/_dd_both.md") ///
+        missing stats
+    confirm file "`tmp_dir'/_dd_both.md"
+}
+if _rc == 0 {
+    display as result "  PASS: datadict - missing + stats combined"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: datadict - missing + stats (error `=_rc')"
+    local ++fail_count
+}
+
+* Test: custom maxcat
+local ++test_count
+capture noisily {
+    datadict, single("`tmp_dir'/test_cohort") output("`tmp_dir'/_dd_mc.md") ///
+        maxcat(10)
+    confirm file "`tmp_dir'/_dd_mc.md"
+}
+if _rc == 0 {
+    display as result "  PASS: datadict - maxcat(10)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: datadict - maxcat(10) (error `=_rc')"
+    local ++fail_count
+}
+
+* Test: custom maxfreq
+local ++test_count
+capture noisily {
+    datadict, single("`tmp_dir'/test_cohort") output("`tmp_dir'/_dd_mf.md") ///
+        maxfreq(5)
+    confirm file "`tmp_dir'/_dd_mf.md"
+}
+if _rc == 0 {
+    display as result "  PASS: datadict - maxfreq(5)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: datadict - maxfreq(5) (error `=_rc')"
+    local ++fail_count
+}
+
+* ============================================================
+* datadict: Multi-file and Directory Modes
+* ============================================================
+
+* Test: filelist mode
+local ++test_count
+capture noisily {
+    datadict, filelist("`tmp_dir'/test_cohort" "`tmp_dir'/test_small") ///
+        output("`tmp_dir'/_dd_fl.md")
+    confirm file "`tmp_dir'/_dd_fl.md"
+    assert r(nfiles) == 2
+}
+if _rc == 0 {
+    display as result "  PASS: datadict - filelist mode (2 files)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: datadict - filelist mode (error `=_rc')"
+    local ++fail_count
+}
+
+* Test: directory mode
+local ++test_count
+capture noisily {
+    datadict, directory("`tmp_dir'") output("`tmp_dir'/_dd_dir.md")
+    confirm file "`tmp_dir'/_dd_dir.md"
+    assert r(nfiles) >= 1
+}
+if _rc == 0 {
+    display as result "  PASS: datadict - directory mode"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: datadict - directory mode (error `=_rc')"
+    local ++fail_count
+}
+
+* Test: directory with recursive
+local ++test_count
+capture noisily {
+    capture mkdir "`tmp_dir'/_subdir2"
+    use "`tmp_dir'/test_small.dta", clear
+    save "`tmp_dir'/_subdir2/_sub.dta", replace
+
+    datadict, directory("`tmp_dir'") recursive output("`tmp_dir'/_dd_rec.md")
+    confirm file "`tmp_dir'/_dd_rec.md"
+
+    capture erase "`tmp_dir'/_subdir2/_sub.dta"
+    capture rmdir "`tmp_dir'/_subdir2"
+}
+if _rc == 0 {
+    display as result "  PASS: datadict - directory + recursive"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: datadict - directory + recursive (error `=_rc')"
+    local ++fail_count
+    capture erase "`tmp_dir'/_subdir2/_sub.dta"
+    capture rmdir "`tmp_dir'/_subdir2"
+}
+
+* Test: separate output files
+local ++test_count
+capture noisily {
+    datadict, filelist("`tmp_dir'/test_cohort" "`tmp_dir'/test_small") ///
+        output("`tmp_dir'/_dd_sep.md") separate
+    * separate creates <basename>_dictionary.md files
+    confirm file "`tmp_dir'/test_cohort_dictionary.md"
+    confirm file "`tmp_dir'/test_small_dictionary.md"
+}
+if _rc == 0 {
+    display as result "  PASS: datadict - separate output files"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: datadict - separate output (error `=_rc')"
+    local ++fail_count
+}
+
+* ============================================================
+* datadict: Data Preservation
+* ============================================================
+
+* Test: user data preserved after datadict
+local ++test_count
+capture noisily {
+    sysuse auto, clear
+    local N_before = _N
+    local k_before = c(k)
+    datasignature
+    local sig_before "`r(datasignature)'"
+
+    datadict, single("`tmp_dir'/test_cohort") output("`tmp_dir'/_dd_pres.md")
+
+    assert _N == `N_before'
+    assert c(k) == `k_before'
+    datasignature
+    assert "`r(datasignature)'" == "`sig_before'"
+}
+if _rc == 0 {
+    display as result "  PASS: datadict - data preservation (N, k, signature)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: datadict - data preservation (error `=_rc')"
+    local ++fail_count
+}
+
+* ============================================================
+* datadict: Error Handling
+* ============================================================
+
+* Test: no input specified
+local ++test_count
+capture noisily {
+    capture datadict, output("`tmp_dir'/_err.md")
+    assert _rc == 198
+}
+if _rc == 0 {
+    display as result "  PASS: datadict - error on no input (rc 198)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: datadict - error on no input (error `=_rc')"
+    local ++fail_count
+}
+
+* Test: multiple input options
+local ++test_count
+capture noisily {
+    capture datadict, single("`tmp_dir'/test_cohort") directory("`tmp_dir'")
+    assert _rc == 198
+}
+if _rc == 0 {
+    display as result "  PASS: datadict - error on multiple inputs (rc 198)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: datadict - error on multiple inputs (error `=_rc')"
+    local ++fail_count
+}
+
+* Test: invalid maxcat (zero)
+local ++test_count
+capture noisily {
+    capture datadict, single("`tmp_dir'/test_cohort") maxcat(0)
+    assert _rc == 198
+}
+if _rc == 0 {
+    display as result "  PASS: datadict - error on maxcat(0)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: datadict - error on maxcat(0) (error `=_rc')"
+    local ++fail_count
+}
+
+* Test: nonexistent file
+local ++test_count
+capture noisily {
+    capture datadict, single("`tmp_dir'/nonexistent_file")
+    assert _rc != 0
+}
+if _rc == 0 {
+    display as result "  PASS: datadict - error on nonexistent file"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: datadict - error on nonexistent file (error `=_rc')"
+    local ++fail_count
+}
+
+* ============================================================
+* datadict: Full Comprehensive
+* ============================================================
+
+* Test: datadict with all options
+local ++test_count
+capture noisily {
+    datadict, single("`tmp_dir'/test_cohort_miss") ///
+        output("`tmp_dir'/_dd_complete.md") ///
+        title("Complete Test") subtitle("All Options") ///
+        version("1.0") author("Test") date("2026-01-01") ///
+        notes("Full test.") changelog("v1.0: Init") ///
+        missing stats maxcat(15) maxfreq(20)
+    confirm file "`tmp_dir'/_dd_complete.md"
+}
+if _rc == 0 {
+    display as result "  PASS: datadict - full comprehensive"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: datadict - full comprehensive (error `=_rc')"
+    local ++fail_count
+}
+
+* ============================================================
+* Cleanup
+* ============================================================
+
+* Remove all temp output files
+local txt_files : dir "`tmp_dir'" files "_out*.txt"
+foreach f of local txt_files {
+    capture erase "`tmp_dir'/`f'"
+}
+local txt_files : dir "`tmp_dir'" files "_custom*.txt"
+foreach f of local txt_files {
+    capture erase "`tmp_dir'/`f'"
+}
+local md_files : dir "`tmp_dir'" files "_dd_*.md"
+foreach f of local md_files {
+    capture erase "`tmp_dir'/`f'"
+}
+capture erase "`tmp_dir'/test_cohort_map.txt"
+capture erase "`tmp_dir'/test_small_map.txt"
+capture erase "`tmp_dir'/test_cohort_dictionary.md"
+capture erase "`tmp_dir'/test_small_dictionary.md"
+
+* ============================================================
+* Summary
+* ============================================================
+
+display as text ""
+display as result "Test Results: `pass_count'/`test_count' passed, `fail_count' failed"
 
 if `fail_count' > 0 {
-    display as error "Some tests FAILED. Review output above."
+    display as error "SOME TESTS FAILED"
     exit 1
 }
 else {
-    display as result "All tests PASSED!"
+    display as result "ALL TESTS PASSED"
 }
