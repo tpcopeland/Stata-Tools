@@ -80,7 +80,6 @@ eplot es lci uci, labels(study) weights(weight) type(type) ///
     values vformat(%4.2f) nonull ///
     effect("Hazard Ratio (95% CI)") ///
     title("Treatment Effect on Organ-Specific Outcomes") ///
-    note("Diamonds represent pooled estimates. Boxes proportional to study weight.") ///
     scheme(plotplainblind)
 
 graph export "`pkg_dir'/forest_values.png", replace width(1400)

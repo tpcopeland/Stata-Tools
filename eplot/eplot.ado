@@ -536,12 +536,20 @@ program define _eplot_data, rclass
     local ypad_hi = _N + 1
     if "`horizontal'" != "" {
         local graphcmd `"`graphcmd', ylabel(`ylabels', angle(0) labsize(small) nogrid valuelabel)"'
-        local graphcmd `"`graphcmd' yscale(reverse range(`ypad_lo' `ypad_hi'))"'
         local graphcmd `"`graphcmd' ytitle("")"'
-        local graphcmd `"`graphcmd' xtitle(`"`effect'"')"'
         if "`values'" != "" {
+            // Center effect label on data range, not extended range
+            local xmid = (`xmin' + `xmax') / 2
+            local ytext_pos = _N + 2
+            local ypad_hi = _N + 2.5
+            local graphcmd `"`graphcmd' xtitle("")"'
+            local graphcmd `"`graphcmd' text(`ytext_pos' `xmid' `"`effect'"', size(medsmall) placement(c))"'
             local graphcmd `"`graphcmd' xscale(range(`xmin_pad' `xmax_pad'))"'
         }
+        else {
+            local graphcmd `"`graphcmd' xtitle(`"`effect'"')"'
+        }
+        local graphcmd `"`graphcmd' yscale(reverse range(`ypad_lo' `ypad_hi'))"'
     }
     else {
         local graphcmd `"`graphcmd', xlabel(`ylabels', angle(45) labsize(small) nogrid valuelabel)"'
@@ -567,6 +575,9 @@ program define _eplot_data, rclass
     }
     if `"`note'"' != "" {
         local graphcmd `"`graphcmd' note(`note')"'
+    }
+    else if "`nodiamonds'" == "" & "`diamond_cmd'" != "" {
+        local graphcmd `"`graphcmd' note("Diamonds represent pooled estimates. Boxes proportional to study weight.", size(vsmall) position(5))"'
     }
 
     // Scheme
@@ -651,7 +662,7 @@ program define _eplot_estimates, rclass
         ORDer(string asis) ///
         /// Multi-model
         MODELLabels(string asis) ///
-        OFFset(real 0.15) ///
+        OFFset(real 0.2) ///
         PALette(string) ///
         LEGendopts(string asis) ///
         /// Marker options
@@ -1110,8 +1121,8 @@ program define _eplot_estimates, rclass
     local ypad_hi = `n_items' + 1
 
     if "`horizontal'" != "" {
-        local graphcmd `"`graphcmd', ylabel(`ylabels', angle(0) labsize(small) nogrid)"'
-        local graphcmd `"`graphcmd' yscale(reverse range(`ypad_lo' `ypad_hi'))"'
+        local graphcmd `"`graphcmd', ylabel(`ylabels', angle(0) labsize(small) nogrid noticks)"'
+        local graphcmd `"`graphcmd' yscale(reverse noline range(`ypad_lo' `ypad_hi'))"'
         local graphcmd `"`graphcmd' ytitle("") xtitle(`"`effect'"')"'
         if "`values'" != "" & `n_models' == 1 {
             local graphcmd `"`graphcmd' xscale(range(`xmin_pad' `xmax_pad'))"'
