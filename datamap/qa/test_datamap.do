@@ -1089,9 +1089,9 @@ local ++test_count
 capture noisily {
     datadict, filelist("`tmp_dir'/test_cohort" "`tmp_dir'/test_small") ///
         output("`tmp_dir'/_dd_sep.md") separate
-    * separate creates <basename>_dictionary.md files
-    confirm file "`tmp_dir'/test_cohort_dictionary.md"
-    confirm file "`tmp_dir'/test_small_dictionary.md"
+    * separate creates <basename>_dictionary.md in cwd, not in data/
+    confirm file "`qa_dir'/test_cohort_dictionary.md"
+    confirm file "`qa_dir'/test_small_dictionary.md"
 }
 if _rc == 0 {
     display as result "  PASS: datadict - separate output files"
@@ -1238,8 +1238,8 @@ foreach f of local md_files {
 }
 capture erase "`tmp_dir'/test_cohort_map.txt"
 capture erase "`tmp_dir'/test_small_map.txt"
-capture erase "`tmp_dir'/test_cohort_dictionary.md"
-capture erase "`tmp_dir'/test_small_dictionary.md"
+capture erase "`qa_dir'/test_cohort_dictionary.md"
+capture erase "`qa_dir'/test_small_dictionary.md"
 
 * ============================================================
 * Summary

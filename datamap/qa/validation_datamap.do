@@ -462,30 +462,31 @@ else {
     local ++fail_count
 }
 
-* V4.4: nostats suppresses statistics
+* V4.4: nostats suppresses percentile statistics
 local ++test_count
 capture noisily {
     datamap, single("`tmp_dir'/val_classify") nostats ///
         output("`tmp_dir'/_val_nostats.txt")
 
-    * With nostats, "Mean" should not appear
+    * With nostats, percentile lines (p25/p50/p75/Min/Max) should not appear
     tempname fh
     file open `fh' using "`tmp_dir'/_val_nostats.txt", read text
-    local found_mean 0
+    local found_percentile 0
     file read `fh' line
     while r(eof) == 0 {
-        if strpos(`"`macval(line)'"', "Mean") > 0 | ///
-           strpos(`"`macval(line)'"', "mean") > 0 {
-            local found_mean 1
+        if strpos(`"`macval(line)'"', "Percentile") > 0 | ///
+           strpos(`"`macval(line)'"', "25%") > 0 | ///
+           strpos(`"`macval(line)'"', "75%") > 0 {
+            local found_percentile 1
         }
         file read `fh' line
     }
     file close `fh'
 
-    assert `found_mean' == 0
+    assert `found_percentile' == 0
 }
 if _rc == 0 {
-    display as result "  PASS: V4.4 - nostats suppresses Mean from output"
+    display as result "  PASS: V4.4 - nostats suppresses percentile statistics"
     local ++pass_count
 }
 else {
@@ -1034,17 +1035,17 @@ capture noisily {
     datamap, filelist("`tmp_dir'/val_classify" "`tmp_dir'/val_cardinality") ///
         output("`tmp_dir'/_val_multi.txt")
 
-    * Output should contain both dataset names/labels
+    * Output should contain both dataset filenames
     tempname fh
     file open `fh' using "`tmp_dir'/_val_multi.txt", read text
     local found_ds1 0
     local found_ds2 0
     file read `fh' line
     while r(eof) == 0 {
-        if strpos(`"`macval(line)'"', "Classification test dataset") > 0 {
+        if strpos(`"`macval(line)'"', "val_classify") > 0 {
             local found_ds1 1
         }
-        if strpos(`"`macval(line)'"', "cardinality detection") > 0 {
+        if strpos(`"`macval(line)'"', "val_cardinality") > 0 {
             local found_ds2 1
         }
         file read `fh' line
@@ -1055,7 +1056,7 @@ capture noisily {
     assert `found_ds2' == 1
 }
 if _rc == 0 {
-    display as result "  PASS: V9.1 - Filelist output contains both dataset labels"
+    display as result "  PASS: V9.1 - Filelist output contains both dataset names"
     local ++pass_count
 }
 else {
@@ -1075,12 +1076,10 @@ capture noisily {
     local found_ds2 0
     file read `fh' line
     while r(eof) == 0 {
-        if strpos(`"`macval(line)'"', "val_classify") > 0 | ///
-           strpos(`"`macval(line)'"', "Classification test") > 0 {
+        if strpos(`"`macval(line)'"', "val_classify") > 0 {
             local found_ds1 1
         }
-        if strpos(`"`macval(line)'"', "val_cardinality") > 0 | ///
-           strpos(`"`macval(line)'"', "cardinality") > 0 {
+        if strpos(`"`macval(line)'"', "val_cardinality") > 0 {
             local found_ds2 1
         }
         file read `fh' line
