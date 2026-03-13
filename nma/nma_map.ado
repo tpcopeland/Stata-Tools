@@ -1,4 +1,4 @@
-*! nma_map Version 1.0.4  2026/02/28
+*! nma_map Version 1.0.5  2026/03/13
 *! Network geometry visualization for network meta-analysis
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet
@@ -37,7 +37,7 @@ program define nma_map, rclass
     local n_treatments = `_nma_n_treatments'
     local k = `n_treatments'
 
-    if "`scheme'" == "" local scheme "plotplainblind"
+    if "`scheme'" == "" local scheme "white_tableau"
     if "`nodesize'" == "" local nodesize "studies"
     if "`edgesize'" == "" local edgesize "studies"
     if "`title'" == "" local title ""
@@ -173,10 +173,11 @@ program define nma_map, rclass
     * Combine
     twoway `edge_plots' `node_plots' `label_plot', ///
         legend(off) ///
-        xscale(range(-1.4 1.4)) yscale(range(-1.4 1.4)) ///
+        xscale(range(-1.4 1.4) off) yscale(range(-1.4 1.4) off) ///
         aspectratio(1) ///
         xtitle("") ytitle("") ///
         xlabel(none) ylabel(none) ///
+        plotregion(margin(zero)) ///
         title("`title'") ///
         scheme(`scheme') ///
         `save_opt'

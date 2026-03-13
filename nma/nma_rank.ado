@@ -1,4 +1,4 @@
-*! nma_rank Version 1.0.1  2026/02/28
+*! nma_rank Version 1.0.2  2026/03/13
 *! Treatment rankings (SUCRA) for network meta-analysis
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet
@@ -45,7 +45,7 @@ program define nma_rank, rclass
         display as error "best() must be min or max"
         exit 198
     }
-    if "`scheme'" == "" local scheme "plotplainblind"
+    if "`scheme'" == "" local scheme "white_tableau"
 
     _nma_display_header, command("nma_rank") ///
         description("Treatment rankings (SUCRA)")

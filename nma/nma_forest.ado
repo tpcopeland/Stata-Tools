@@ -1,4 +1,4 @@
-*! nma_forest Version 1.0.5  2026/03/04
+*! nma_forest Version 1.0.6  2026/03/13
 *! Evidence decomposition forest plot for network meta-analysis
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet
@@ -52,7 +52,7 @@ program define nma_forest, rclass
     local measure     "`_nma_measure'"
     local ref_code    : char _dta[_nma_ref_code]
 
-    if "`scheme'" == "" local scheme "plotplainblind"
+    if "`scheme'" == "" local scheme "white_tableau"
     if "`level'" == "" local level 95
     if "`comparisons'" == "" local comparisons "all"
     if !inlist("`comparisons'", "all", "mixed") {
@@ -407,7 +407,7 @@ program define nma_forest, rclass
             summarize ci_lo if inlist(rowtype, 1, 2, 3)
             local x_lo = r(min)
             local x_range = `x_hi' - `x_lo'
-            local text_x = `x_hi' + `x_range' * 0.12
+            local text_x = `x_hi' + `x_range' * 0.18
             replace text_xpos = `text_x' if text_col != ""
         }
     }
@@ -464,6 +464,11 @@ program define nma_forest, rclass
 
     * Adaptive graph height: scale with number of rows
     local ysize = max(4, `total_rows' * 0.22)
+    * Keep width proportional so title/content don't truncate
+    local xsize = max(5.5, `ysize' * 0.55)
+    * Shrink title for tall plots so it doesn't truncate on export
+    local title_size "medsmall"
+    if `ysize' > 8 local title_size "small"
 
     * Extend x-axis to accommodate text column without overlapping data
     local xscale_opt ""
@@ -510,10 +515,10 @@ program define nma_forest, rclass
             xtitle(`"`xtitle'"') ///
             `xlabel_opt' ///
             xline(`null_val', lcolor(gs10) lpattern(dash)) ///
-            title(`"`title'"') ///
+            title(`"`title'"', size(`title_size')) ///
             legend(order(`legend_order') rows(1) position(6) size(small)) ///
             scheme(`scheme') ///
-            ysize(`ysize') ///
+            xsize(`xsize') ysize(`ysize') ///
             graphregion(margin(l+12 r+6)) ///
             `save_opt' ///
             `name_opt'
@@ -544,10 +549,10 @@ program define nma_forest, rclass
             xtitle(`"`xtitle'"') ///
             `xlabel_opt' ///
             xline(`null_val', lcolor(gs10) lpattern(dash)) ///
-            title(`"`title'"') ///
+            title(`"`title'"', size(`title_size')) ///
             legend(order(`legend_order') rows(1) position(6) size(small)) ///
             scheme(`scheme') ///
-            ysize(`ysize') ///
+            xsize(`xsize') ysize(`ysize') ///
             graphregion(margin(l+12 r+6)) ///
             `save_opt' ///
             `name_opt'

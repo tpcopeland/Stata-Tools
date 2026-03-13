@@ -99,7 +99,7 @@ log close demo2
 * =====================================================================
 * 3. Graph: Network map
 * =====================================================================
-nma_map, scheme(plotplainblind) ///
+nma_map, scheme(white_tableau) ///
     saving("`pkg_dir'/network_map.gph") replace
 graph export "`pkg_dir'/network_map.png", replace width(1200)
 capture graph close _all
@@ -116,7 +116,7 @@ capture graph close _all
 * 5. Graph: SUCRA rankogram
 * =====================================================================
 nma_rank, best(min) seed(20130101) plot cumulative ///
-    scheme(plotplainblind) ///
+    scheme(white_tableau) ///
     saving("`pkg_dir'/rankogram.gph") replace
 graph export "`pkg_dir'/rankogram.png", replace width(1200)
 capture graph close _all
