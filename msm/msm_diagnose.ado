@@ -22,6 +22,8 @@ See help msm_diagnose for complete documentation
 
 program define msm_diagnose, rclass
     version 16.0
+    local _varabbrev = c(varabbrev)
+    local _more = c(more)
     set varabbrev off
     set more off
 
@@ -263,4 +265,7 @@ program define msm_diagnose, rclass
     char _dta[_msm_diag_ess] "`ess'"
     char _dta[_msm_diag_ess_pct] "`ess_pct'"
     char _dta[_msm_diag_saved] "1"
+
+    set varabbrev `_varabbrev'
+    set more `_more'
 end

@@ -27,6 +27,8 @@ See help msm_sensitivity for complete documentation
 
 program define msm_sensitivity, rclass
     version 16.0
+    local _varabbrev = c(varabbrev)
+    local _more = c(more)
     set varabbrev off
     set more off
 
@@ -239,4 +241,7 @@ program define msm_sensitivity, rclass
         char _dta[_msm_sens_evalue_ci] "`evalue_ci'"
     }
     char _dta[_msm_sens_saved] "1"
+
+    set varabbrev `_varabbrev'
+    set more `_more'
 end

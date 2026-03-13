@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.0  2026/03/04}{...}
+{* *! version 1.0.0  03mar2026}{...}
 {vieweralsosee "msm" "help msm"}{...}
 {vieweralsosee "msm_fit" "help msm_fit"}{...}
 {vieweralsosee "msm_predict" "help msm_predict"}{...}

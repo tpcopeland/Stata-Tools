@@ -134,6 +134,11 @@ percentile CIs are taken at (alpha/2, 1-alpha/2) across the MC samples.
 This is a parametric bootstrap on the coefficient uncertainty and does
 not account for uncertainty in the IP weights.
 
+{pstd}
+The default of 100 samples is adequate for exploratory analysis.
+For publication-quality results, use {cmd:samples(500)} or higher to
+reduce Monte Carlo error in the CI bounds.
+
 
 {dlgtab:Covariate limitations}
 

@@ -21,6 +21,8 @@ See help msm_validate for complete documentation
 
 program define msm_validate, rclass
     version 16.0
+    local _varabbrev = c(varabbrev)
+    local _more = c(more)
     set varabbrev off
     set more off
 
@@ -389,15 +391,11 @@ program define msm_validate, rclass
     else {
         * Show treatment prevalence range across periods
         tempvar _p_pct
-        quietly gen double `_p_pct' = 100 * `_p_t1' / (_N) if `_p_tag'
-        * Recompute properly per period
-        drop `_p_pct'
-        tempvar _p_pct2
-        quietly bysort `period': gen double `_p_pct2' = 100 * `_p_t1' / _N if `_p_tag'
-        quietly summarize `_p_pct2' if `_p_tag'
+        quietly bysort `period': gen double `_p_pct' = 100 * `_p_t1' / _N if `_p_tag'
+        quietly summarize `_p_pct' if `_p_tag'
         local min_prev = r(min)
         local max_prev = r(max)
-        drop `_p_pct2'
+        drop `_p_pct'
 
         display as result "  PASS" as text " (treatment prevalence range: " ///
             as result %4.1f `min_prev' "%" as text " - " ///
@@ -457,4 +455,7 @@ program define msm_validate, rclass
     return scalar n_errors = `n_errors'
     return scalar n_warnings = `n_warnings'
     return local validation = cond(`n_errors' == 0, "passed", "failed")
+
+    set varabbrev `_varabbrev'
+    set more `_more'
 end

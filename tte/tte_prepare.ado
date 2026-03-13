@@ -30,6 +30,7 @@ See help tte_prepare for complete documentation
 
 program define tte_prepare, rclass
     version 16.0
+    local _vaset = c(varabbrev)
     set varabbrev off
     set more off
 
@@ -238,4 +239,6 @@ program define tte_prepare, rclass
     return local covariates "`covariates'"
     return local baseline_covariates "`baseline_covariates'"
     return local prefix "`generate'"
+
+    set varabbrev `_vaset'
 end

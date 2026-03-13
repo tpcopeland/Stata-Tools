@@ -34,6 +34,7 @@ See help tte_weight for complete documentation
 
 program define tte_weight, rclass
     version 16.0
+    local _vaset = c(varabbrev)
     set varabbrev off
     set more off
 
@@ -88,6 +89,7 @@ program define tte_weight, rclass
         return scalar max_weight = 1
         return scalar ess = _N
         return local generate "`generate'"
+        set varabbrev `_vaset'
         exit
     }
 
@@ -417,6 +419,8 @@ program define tte_weight, rclass
 
     return local generate "`generate'"
     return local estimand "`estimand'"
+
+    set varabbrev `_vaset'
 end
 
 * =========================================================================
@@ -456,6 +460,7 @@ program define _tte_weight_switch_arm
         capture logit `treatment' `_lag_treat' `d_cov' `followup' if `_in_arm' & !missing(`_lag_treat'), `log_opt'
         if _rc != 0 {
             * Model failed - set weights to 1
+            noisily display as text "  Warning: switch denominator model for arm `arm_val' did not converge; weights set to 1"
             gen double `_denom_pr' = 0.5 if `_in_arm'
         }
         else {
@@ -475,6 +480,7 @@ program define _tte_weight_switch_arm
             capture logit `treatment' `_lag_treat' if `_in_arm' & !missing(`_lag_treat'), `log_opt'
         }
         if _rc != 0 {
+            noisily display as text "  Warning: switch numerator model for arm `arm_val' did not converge; weights set to 1"
             gen double `_numer_pr' = 0.5 if `_in_arm'
         }
         else {
@@ -547,6 +553,7 @@ program define _tte_weight_switch_pooled
         * Denominator: P(A_t | A_{t-1}, L, arm)
         capture logit `treatment' `_lag_treat' `arm' `d_cov' `followup' if !missing(`_lag_treat'), `log_opt'
         if _rc != 0 {
+            noisily display as text "  Warning: pooled switch denominator model did not converge; weights set to 1"
             gen double `_denom_pr' = 0.5
         }
         else {
@@ -566,6 +573,7 @@ program define _tte_weight_switch_pooled
             capture logit `treatment' `_lag_treat' `arm' if !missing(`_lag_treat'), `log_opt'
         }
         if _rc != 0 {
+            noisily display as text "  Warning: pooled switch numerator model did not converge; weights set to 1"
             gen double `_numer_pr' = 0.5
         }
         else {
@@ -626,6 +634,7 @@ program define _tte_weight_censor_arm
         * Denominator: P(C_t=0 | L)
         capture logit `censor' `d_cov' `followup' if `_in_arm', `log_opt'
         if _rc != 0 {
+            noisily display as text "  Warning: censor denominator model for arm `arm_val' did not converge; weights set to 1"
             gen double `_denom_pr' = 0.05 if `_in_arm'
         }
         else {
@@ -640,6 +649,7 @@ program define _tte_weight_censor_arm
             capture logit `censor' if `_in_arm', `log_opt'
         }
         if _rc != 0 {
+            noisily display as text "  Warning: censor numerator model for arm `arm_val' did not converge; weights set to 1"
             gen double `_numer_pr' = 0.05 if `_in_arm'
         }
         else {
@@ -695,6 +705,7 @@ program define _tte_weight_censor_pooled
 
         capture logit `censor' `arm' `d_cov' `followup', `log_opt'
         if _rc != 0 {
+            noisily display as text "  Warning: pooled censor denominator model did not converge; weights set to 1"
             gen double `_denom_pr' = 0.05
         }
         else {
@@ -708,6 +719,7 @@ program define _tte_weight_censor_pooled
             capture logit `censor' `arm', `log_opt'
         }
         if _rc != 0 {
+            noisily display as text "  Warning: pooled censor numerator model did not converge; weights set to 1"
             gen double `_numer_pr' = 0.05
         }
         else {

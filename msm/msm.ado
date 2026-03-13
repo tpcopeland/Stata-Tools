@@ -17,6 +17,8 @@ See help msm for complete documentation
 
 program define msm, rclass
     version 16.0
+    local _varabbrev = c(varabbrev)
+    local _more = c(more)
     set varabbrev off
     set more off
 
@@ -87,6 +89,9 @@ program define msm, rclass
     return local version "`version'"
     return local commands "`all_commands'"
     return scalar n_commands = `n_commands'
+
+    set varabbrev `_varabbrev'
+    set more `_more'
 end
 
 program define _msm_protocol_overview

@@ -34,6 +34,7 @@ See help tte_plot for complete documentation
 
 program define tte_plot, rclass
     version 16.0
+    local _vaset = c(varabbrev)
     set varabbrev off
     set more off
 
@@ -384,4 +385,6 @@ program define tte_plot, rclass
 
     return local type "`type'"
     return local scheme "`scheme'"
+
+    set varabbrev `_vaset'
 end

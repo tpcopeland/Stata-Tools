@@ -19,6 +19,7 @@ See help tte_diagnose for complete documentation
 
 program define tte_diagnose, rclass
     version 16.0
+    local _vaset = c(varabbrev)
     set varabbrev off
     set more off
 
@@ -348,4 +349,6 @@ program define tte_diagnose, rclass
     display as text "{hline 70}"
 
     return local weight_var "`weight_var'"
+
+    set varabbrev `_vaset'
 end

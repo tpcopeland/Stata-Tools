@@ -33,6 +33,7 @@ See help tte_predict for complete documentation
 
 program define tte_predict, rclass
     version 16.0
+    local _vaset = c(varabbrev)
     set varabbrev off
     set more off
 
@@ -592,6 +593,8 @@ program define tte_predict, rclass
             return scalar rr_`t' = `_rr_`t''
         }
     }
+
+    set varabbrev `_vaset'
 end
 
 * =========================================================================
@@ -790,12 +793,17 @@ real scalar _tte_diff_pctile(string scalar mat1, string scalar mat0, real scalar
 real scalar _tte_ratio_pctile(string scalar mat1, string scalar mat0, real scalar col, real scalar pct)
 {
     real matrix M1, M0
-    real colvector r
+    real colvector r, v0, v1, keep
     real scalar n, idx
 
     M1 = st_matrix(mat1)
     M0 = st_matrix(mat0)
-    r = sort(M1[., col] :/ M0[., col], 1)
+    v0 = M0[., col]
+    v1 = M1[., col]
+    // Exclude draws where control arm is zero (ratio undefined)
+    keep = (v0 :!= 0) :& (v0 :< .)
+    if (sum(keep) == 0) return(.)
+    r = sort(select(v1, keep) :/ select(v0, keep), 1)
     n = rows(r)
     idx = max((1, ceil(n * pct / 100)))
     idx = min((idx, n))

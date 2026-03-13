@@ -23,6 +23,7 @@ See help tte_validate for complete documentation
 
 program define tte_validate, rclass
     version 16.0
+    local _vaset = c(varabbrev)
     set varabbrev off
     set more off
 
@@ -376,4 +377,6 @@ program define tte_validate, rclass
     return scalar n_events = `n_events'
     return scalar event_rate = `event_rate'
     return local validation = cond(`n_errors' == 0, "passed", "failed")
+
+    set varabbrev `_vaset'
 end

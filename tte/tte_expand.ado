@@ -9,7 +9,7 @@
 /*
 Basic syntax:
   tte_expand [, trials(numlist) maxfollowup(#) grace(#)
-      chunk_size(#) save(string) replace keepvars(varlist)]
+      save(string) replace]
 
 Description:
   Expands person-period data into a sequence of emulated trials using
@@ -29,6 +29,7 @@ See help tte_expand for complete documentation
 
 program define tte_expand, rclass
     version 16.0
+    local _vaset = c(varabbrev)
     set varabbrev off
     set more off
 
@@ -384,6 +385,8 @@ program define tte_expand, rclass
     return scalar expansion_ratio = `expansion_ratio'
     return local method "memory"
     return local estimand "`estimand'"
+
+    set varabbrev `_vaset'
 end
 
 * =========================================================================

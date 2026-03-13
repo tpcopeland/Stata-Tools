@@ -30,6 +30,7 @@ See help tte_calibrate for complete documentation
 
 program define tte_calibrate, rclass
     version 16.0
+    local _vaset = c(varabbrev)
     set varabbrev off
     set more off
 
@@ -181,6 +182,8 @@ program define tte_calibrate, rclass
     return scalar cal_ci_hi = `cal_ci_hi'
     return scalar cal_pvalue = `cal_pvalue'
     return local method "`method'"
+
+    set varabbrev `_vaset'
 end
 
 * =========================================================================

@@ -24,6 +24,8 @@ See help msm_report for complete documentation
 
 program define msm_report, rclass
     version 16.0
+    local _varabbrev = c(varabbrev)
+    local _more = c(more)
     set varabbrev off
     set more off
 
@@ -376,4 +378,7 @@ program define msm_report, rclass
 
     return local format "`format'"
     if "`export'" != "" return local export "`export'"
+
+    set varabbrev `_varabbrev'
+    set more `_more'
 end

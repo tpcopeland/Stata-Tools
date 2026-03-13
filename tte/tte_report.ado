@@ -29,6 +29,7 @@ See help tte_report for complete documentation
 
 program define tte_report, rclass
     version 16.0
+    local _vaset = c(varabbrev)
     set varabbrev off
     set more off
 
@@ -458,4 +459,6 @@ program define tte_report, rclass
     return scalar n_obs = `n_obs'
     return scalar n_events = `n_events'
     return scalar n_trials = `n_trials'
+
+    set varabbrev `_vaset'
 end

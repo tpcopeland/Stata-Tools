@@ -724,4 +724,4 @@ MIT License
 
 ## Version
 
-Version 1.0.3, 2026-03-01
+Version 1.1.0, 2026-03-10

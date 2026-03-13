@@ -31,6 +31,8 @@ See help msm_predict for complete documentation
 
 program define msm_predict, rclass
     version 16.0
+    local _varabbrev = c(varabbrev)
+    local _more = c(more)
     set varabbrev off
     set more off
 
@@ -129,8 +131,7 @@ program define msm_predict, rclass
     quietly keep if `period' == `min_period'
     capture confirm variable _msm_esample
     if _rc == 0 {
-        * Keep only those who were in estimation sample
-        * (use baseline obs from individuals in the analysis)
+        quietly keep if _msm_esample == 1
     }
     quietly bysort `id': keep if _n == 1
 
@@ -520,6 +521,9 @@ program define msm_predict, rclass
             return scalar rd_`t' = `_rd_`t''
         }
     }
+
+    set varabbrev `_varabbrev'
+    set more `_more'
 end
 
 * =========================================================================

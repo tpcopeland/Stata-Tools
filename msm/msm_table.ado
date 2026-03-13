@@ -1,4 +1,4 @@
-*! msm_table Version 1.0.0  2026/03/04
+*! msm_table Version 1.0.0  2026/03/03
 *! Publication-quality Excel tables for MSM pipeline results
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet
@@ -34,6 +34,8 @@ See help msm_table for complete documentation
 
 program define msm_table
     version 16.0
+    local _varabbrev = c(varabbrev)
+    local _more = c(more)
     set varabbrev off
     set more off
 
@@ -202,6 +204,9 @@ program define msm_table
     display as text ""
     display as result "`n_sheets'" as text " table(s) exported to " ///
         as result "`xlsx'"
+
+    set varabbrev `_varabbrev'
+    set more `_more'
 end
 
 * =========================================================================

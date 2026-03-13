@@ -29,6 +29,8 @@ See help msm_fit for complete documentation
 
 program define msm_fit, eclass
     version 16.0
+    local _varabbrev = c(varabbrev)
+    local _more = c(more)
     set varabbrev off
     set more off
 
@@ -305,4 +307,7 @@ program define msm_fit, eclass
     ereturn local msm_model "`model'"
     ereturn local msm_treatment "`treatment'"
     ereturn local msm_period_spec "`period_spec'"
+
+    set varabbrev `_varabbrev'
+    set more `_more'
 end

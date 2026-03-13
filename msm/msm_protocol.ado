@@ -31,6 +31,8 @@ See help msm_protocol for complete documentation
 
 program define msm_protocol, rclass
     version 16.0
+    local _varabbrev = c(varabbrev)
+    local _more = c(more)
     set varabbrev off
     set more off
 
@@ -194,4 +196,7 @@ program define msm_protocol, rclass
     return local weight_spec "`weight_spec'"
     return local analysis "`analysis'"
     return local format "`format'"
+
+    set varabbrev `_varabbrev'
+    set more `_more'
 end

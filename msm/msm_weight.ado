@@ -34,6 +34,8 @@ See help msm_weight for complete documentation
 
 program define msm_weight, rclass
     version 16.0
+    local _varabbrev = c(varabbrev)
+    local _more = c(more)
     set varabbrev off
     set more off
 
@@ -275,6 +277,9 @@ program define msm_weight, rclass
     return scalar n_truncated = `n_truncated'
 
     return local weight_var "_msm_weight"
+
+    set varabbrev `_varabbrev'
+    set more `_more'
 end
 
 * =========================================================================
@@ -328,8 +333,8 @@ program define _msm_weight_treatment
         tempvar _denom_pr
 
         noisily display as text "  Denominator model: `treatment' ~ `lag_treat' `d_cov' `period'"
-        capture `log_opt' logit `treatment' `_lag_treat' `d_cov' `period' ///
-            if `_at_risk' & !missing(`_lag_treat')
+        capture logit `treatment' `_lag_treat' `d_cov' `period' ///
+            if `_at_risk' & !missing(`_lag_treat'), `log_opt'
         if _rc != 0 {
             noisily display as text "  Warning: denominator model failed; using marginal probability"
             * Fallback: marginal probability
@@ -342,7 +347,7 @@ program define _msm_weight_treatment
 
         * For first period (no lag), use a separate simpler model
         tempvar _denom_pr0
-        capture `log_opt' logit `treatment' `d_cov' if `_at_risk' & missing(`_lag_treat')
+        capture logit `treatment' `d_cov' if `_at_risk' & missing(`_lag_treat'), `log_opt'
         if _rc != 0 {
             summarize `treatment' if `_at_risk' & missing(`_lag_treat')
             gen double `_denom_pr0' = r(mean) if `_at_risk' & missing(`_lag_treat')
@@ -361,13 +366,13 @@ program define _msm_weight_treatment
 
         if "`n_cov'" != "" {
             noisily display as text "  Numerator model:   `treatment' ~ `lag_treat' `n_cov'"
-            capture `log_opt' logit `treatment' `_lag_treat' `n_cov' ///
-                if `_at_risk' & !missing(`_lag_treat')
+            capture logit `treatment' `_lag_treat' `n_cov' ///
+                if `_at_risk' & !missing(`_lag_treat'), `log_opt'
         }
         else {
             noisily display as text "  Numerator model:   `treatment' ~ `lag_treat'"
-            capture `log_opt' logit `treatment' `_lag_treat' ///
-                if `_at_risk' & !missing(`_lag_treat')
+            capture logit `treatment' `_lag_treat' ///
+                if `_at_risk' & !missing(`_lag_treat'), `log_opt'
         }
         if _rc != 0 {
             summarize `treatment' if `_at_risk' & !missing(`_lag_treat')
@@ -380,10 +385,10 @@ program define _msm_weight_treatment
         * First period numerator
         tempvar _numer_pr0
         if "`n_cov'" != "" {
-            capture `log_opt' logit `treatment' `n_cov' if `_at_risk' & missing(`_lag_treat')
+            capture logit `treatment' `n_cov' if `_at_risk' & missing(`_lag_treat'), `log_opt'
         }
         else {
-            capture `log_opt' logit `treatment' if `_at_risk' & missing(`_lag_treat')
+            capture logit `treatment' if `_at_risk' & missing(`_lag_treat'), `log_opt'
         }
         if _rc != 0 {
             summarize `treatment' if `_at_risk' & missing(`_lag_treat')
@@ -471,8 +476,8 @@ program define _msm_weight_censor
         tempvar _denom_pr
 
         noisily display as text "  Denominator model: `censor' ~ `treatment' `d_cov' `period'"
-        capture `log_opt' logit `censor' `treatment' `d_cov' `period' ///
-            if `_at_risk' & `outcome' == 0
+        capture logit `censor' `treatment' `d_cov' `period' ///
+            if `_at_risk' & `outcome' == 0, `log_opt'
         if _rc != 0 {
             noisily display as text "  Warning: censoring denominator model failed; using marginal"
             summarize `censor' if `_at_risk' & `outcome' == 0
@@ -489,13 +494,13 @@ program define _msm_weight_censor
 
         if "`n_cov'" != "" {
             noisily display as text "  Numerator model:   `censor' ~ `treatment' `n_cov'"
-            capture `log_opt' logit `censor' `treatment' `n_cov' ///
-                if `_at_risk' & `outcome' == 0
+            capture logit `censor' `treatment' `n_cov' ///
+                if `_at_risk' & `outcome' == 0, `log_opt'
         }
         else {
             noisily display as text "  Numerator model:   `censor' ~ `treatment'"
-            capture `log_opt' logit `censor' `treatment' ///
-                if `_at_risk' & `outcome' == 0
+            capture logit `censor' `treatment' ///
+                if `_at_risk' & `outcome' == 0, `log_opt'
         }
         if _rc != 0 {
             summarize `censor' if `_at_risk' & `outcome' == 0

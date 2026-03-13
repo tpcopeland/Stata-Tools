@@ -19,6 +19,7 @@ See help tte for complete documentation
 
 program define tte, rclass
     version 16.0
+    local _vaset = c(varabbrev)
     set varabbrev off
     set more off
 
@@ -90,6 +91,8 @@ program define tte, rclass
     return local version "`version'"
     return local commands "`all_commands'"
     return scalar n_commands = `n_commands'
+
+    set varabbrev `_vaset'
 end
 
 program define _tte_protocol_overview

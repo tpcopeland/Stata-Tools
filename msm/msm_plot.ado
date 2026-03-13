@@ -31,6 +31,8 @@ See help msm_plot for complete documentation
 
 program define msm_plot, rclass
     version 16.0
+    local _varabbrev = c(varabbrev)
+    local _more = c(more)
     set varabbrev off
     set more off
 
@@ -134,18 +136,7 @@ program define msm_plot, rclass
             }
         }
 
-        twoway (scatter plot_order smd_uw, msymbol(Oh) mcolor(navy) msize(medium)) ///
-               (scatter plot_order smd_w, msymbol(Sh) mcolor(cranberry) msize(medium)), ///
-            xline(`threshold', lcolor(gs10) lpattern(dash)) ///
-            ylabel(1(1)`n_covs', valuelabel angle(0) labsize(small)) ///
-            xlabel(0(0.1)0.5) ///
-            legend(order(1 "Unweighted" 2 "Weighted") position(4) ring(0)) ///
-            xtitle("Absolute Standardized Mean Difference") ///
-            ytitle("") ///
-            title("`title'") ///
-            scheme(plotplainblind) `save_opts'
-
-        * Label y-axis with covariate names
+        * Build y-axis labels with covariate names
         local ylabels ""
         forvalues j = 1/`n_covs' {
             local cname : word `j' of `covariates'
@@ -293,4 +284,7 @@ program define msm_plot, rclass
     }
 
     return local plot_type "`type'"
+
+    set varabbrev `_varabbrev'
+    set more `_more'
 end

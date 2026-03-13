@@ -26,6 +26,8 @@ See help msm_prepare for complete documentation
 
 program define msm_prepare, rclass
     version 16.0
+    local _varabbrev = c(varabbrev)
+    local _more = c(more)
     set varabbrev off
     set more off
 
@@ -212,4 +214,7 @@ program define msm_prepare, rclass
     return local covariates "`covariates'"
     return local baseline_covariates "`baseline_covariates'"
     return local prefix "`generate'"
+
+    set varabbrev `_varabbrev'
+    set more `_more'
 end

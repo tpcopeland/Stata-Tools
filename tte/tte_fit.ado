@@ -31,6 +31,7 @@ See help tte_fit for complete documentation
 
 program define tte_fit, eclass
     version 16.0
+    local _vaset = c(varabbrev)
     set varabbrev off
     set more off
 
@@ -373,4 +374,6 @@ program define tte_fit, eclass
     ereturn local tte_model_var "`model_var'"
     ereturn local tte_followup_spec "`followup_spec'"
     ereturn local tte_trial_spec "`trial_period_spec'"
+
+    set varabbrev `_vaset'
 end

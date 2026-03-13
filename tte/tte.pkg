@@ -50,7 +50,6 @@ f tte_calibrate.ado
 f tte_calibrate.sthlp
 f _tte_check_prepared.ado
 f _tte_check_expanded.ado
-f _tte_check_weighted.ado
 f _tte_check_fitted.ado
 f _tte_get_settings.ado
 f _tte_natural_spline.ado

@@ -54,7 +54,6 @@ f _msm_check_weighted.ado
 f _msm_check_fitted.ado
 f _msm_get_settings.ado
 f _msm_natural_spline.ado
-f _msm_cumulative_weight.ado
 f _msm_smd.ado
 f _msm_col_letter.ado
 f msm_example.dta

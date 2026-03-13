@@ -26,6 +26,7 @@ See help tte_protocol for complete documentation
 
 program define tte_protocol, rclass
     version 16.0
+    local _vaset = c(varabbrev)
     set varabbrev off
     set more off
 
@@ -285,4 +286,6 @@ program define tte_protocol, rclass
     return local causal_contrast "`causal_contrast'"
     return local analysis "`analysis'"
     return local format "`format'"
+
+    set varabbrev `_vaset'
 end
