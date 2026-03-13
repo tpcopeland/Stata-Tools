@@ -185,10 +185,10 @@ capture {
 
     eplot es lci uci, labels(study) type(type) name(val5, replace)
 
-    // Note: Current implementation excludes rows with missing effect sizes
-    // (headers, missing, blank rows). Only data rows are counted.
-    // Rows with valid data: Study 1, Study 2, Subgroup, Overall = 4 rows
-    assert r(N) == 4
+    // v2.0.0: Non-data rows (headers, blanks, missing) are preserved
+    // for display. r(N) counts all plotted rows including non-data.
+    // All 7 rows: Header, Study 1, Study 2, Missing, Subgroup, Blank, Overall
+    assert r(N) == 7
 }
 
 if _rc == 0 {

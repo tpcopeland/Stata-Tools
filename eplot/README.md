@@ -9,13 +9,40 @@ Unified effect plotting command for creating forest plots and coefficient plots 
 `eplot` provides a single, intuitive interface for visualizing effect sizes with confidence intervals from:
 
 - **Data in memory** - Variables containing effect sizes and confidence limits (e.g., meta-analysis results)
-- **Stored estimates** - Coefficients from regression models
+- **Stored estimates** - Coefficients from regression models, with multi-model comparison
+- **Matrices** - Stata matrices with (b, se) or (b, lci, uci) columns
 
 ## Installation
 
 ```stata
 net install eplot, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/eplot")
 ```
+
+## Key Features
+
+- **Multi-model comparison** - Plot coefficients from 2+ models side by side with automatic coloring and legend
+- **Values annotation** - Display formatted effect text (e.g., "0.80 (0.72, 0.88)") beside each row
+- **Unified syntax** for data, estimates, and matrix modes
+- **Group labeling** with bold section headers via `groups()` and `headers()`
+- **Eform transformation** for odds ratios, hazard ratios, etc.
+- **Weighted markers** that scale with study/observation weights
+- **Diamond rendering** for pooled effects (subgroup and overall)
+- **Sort/order** coefficients by effect size or explicit ordering
+- **Capped CI lines** with the `cicap` option
+- **Color palette** for multi-model with full marker/CI customization
+- **Matrix mode** for plotting from pre-computed matrices
+- **Full customization** via standard Stata graph options
+
+## Screenshots
+
+### Multi-Model Comparison
+![Multi-Model Comparison](demo/multi_model.png)
+
+### Forest Plot with Values Annotation
+![Forest Plot](demo/forest_values.png)
+
+### Grouped Coefficient Plot
+![Grouped Coefficient Plot](demo/grouped_coefplot.png)
 
 ## Syntax
 
@@ -25,7 +52,7 @@ net install eplot, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tool
 eplot esvar lcivar ucivar [if] [in], [options]
 ```
 
-### From stored estimates
+### From stored estimates (single or multi-model)
 
 ```stata
 eplot [namelist], [options]
@@ -33,115 +60,82 @@ eplot [namelist], [options]
 
 Use `.` to refer to active estimation results.
 
-## Key Features
+### From matrix
 
-- **Unified syntax** for both data and estimates modes
-- **Group labeling** with `groups()` option
-- **Section headers** with `headers()` option
-- **Eform transformation** for odds ratios, hazard ratios, etc.
-- **Weighted markers** that scale with study/observation weights
-- **Diamond rendering** for pooled effects (subgroup and overall)
-- **Horizontal or vertical** layout options
-- **Full customization** via standard Stata graph options
+```stata
+eplot, matrix(matname) [options]
+```
 
-## Screenshots
-
-### Coefficient Plot
-![Coefficient Plot](demo/coefficient_plot.png)
-
-### Forest Plot
-![Forest Plot](demo/forest_plot.png)
+Matrix must have 2 columns (b, se) or 3 columns (b, lci, uci).
 
 ## Examples
 
-### Basic Forest Plot
+### Multi-Model Coefficient Comparison
 
 ```stata
-// Create sample data
+sysuse auto, clear
+
+quietly regress price mpg weight foreign
+estimates store base
+
+quietly regress price mpg weight length headroom foreign
+estimates store extended
+
+eplot base extended, drop(_cons) ///
+    modellabels("Base" "Extended") ///
+    coeflabels(mpg = "Miles per Gallon" ///
+               weight = "Vehicle Weight" ///
+               length = "Body Length" ///
+               headroom = "Headroom" ///
+               foreign = "Foreign Make") ///
+    cicap scheme(plotplainblind)
+```
+
+### Forest Plot with Values Annotation
+
+```stata
 clear
 input str20 study es lci uci weight
-"Smith 2020"    -0.16  -0.36  0.03  15.2
-"Jones 2021"    -0.33  -0.54 -0.12  18.4
-"Brown 2022"    -0.09  -0.25  0.06  22.1
-"Wilson 2023"   -0.39  -0.65 -0.12  12.8
-"Overall"       -0.24  -0.34 -0.13   .
+"Smith 2020"    0.72  0.55  0.94  15.2
+"Jones 2021"    0.85  0.71  1.02  18.4
+"Brown 2022"    0.68  0.49  0.94  22.1
+"Overall"       0.76  0.65  0.89   .
 end
 
 gen byte type = cond(study=="Overall", 5, 1)
 
-eplot es lci uci, labels(study) weights(weight) type(type)
-```
-
-### Odds Ratio Forest Plot
-
-```stata
 eplot es lci uci, labels(study) weights(weight) type(type) ///
-    eform effect("Odds Ratio") ///
-    title("Meta-analysis of Treatment Effect")
+    values vformat(%4.2f) nonull ///
+    effect("Hazard Ratio (95% CI)") ///
+    scheme(plotplainblind)
 ```
 
-### Coefficient Plot from Regression
+### Grouped Coefficient Plot
 
 ```stata
 sysuse auto, clear
-regress price mpg weight length foreign
+logit foreign mpg weight length headroom trunk turn
 
-eplot ., drop(_cons) ///
+eplot ., drop(_cons) eform ///
     coeflabels(mpg = "Miles per Gallon" ///
-               weight = "Vehicle Weight (lbs)" ///
-               length = "Length (inches)" ///
-               foreign = "Foreign Make") ///
-    xline(0) ///
-    title("Determinants of Car Price")
+               weight = "Vehicle Weight" ///
+               length = "Body Length" ///
+               headroom = "Headroom" ///
+               trunk = "Trunk Space" ///
+               turn = "Turning Circle") ///
+    groups(mpg weight = "Efficiency & Mass" ///
+           length headroom trunk = "Dimensions" ///
+           turn = "Handling") ///
+    cicap mcolor(forest_green) ///
+    effect("Odds Ratio") scheme(plotplainblind)
 ```
 
-### Grouped Effects
+### Matrix Mode
 
 ```stata
-regress price mpg weight length turn foreign rep78
-
-eplot ., drop(_cons) ///
-    groups(mpg weight length turn = "Vehicle Specs" ///
-           foreign rep78 = "Other Factors") ///
-    title("Grouped Coefficient Plot")
-```
-
-### Coefficient Plot for Propensity Score Model
-
-```stata
-* After deriving treatment (Prep 1A) and comorbidities (Prep 1E)
-use _examples/cohort.dta, clear
-merge 1:1 id using _examples/treatment.dta, nogen keep(match)
-merge 1:1 id using _examples/comorbidities.dta, nogen keep(match)
-
-logit treated index_age female i.education diabetes hypertension anxiety
-
-eplot ., drop(_cons) eform ///
-    coeflabels(index_age = "Age at Entry" ///
-               1.female = "Female" ///
-               2.education = "Secondary Education" ///
-               3.education = "Tertiary Education" ///
-               1.diabetes = "Diabetes" ///
-               1.hypertension = "Hypertension" ///
-               1.anxiety = "Anxiety Disorder") ///
-    xline(1) effect("Odds Ratio") ///
-    title("Propensity Score Model: SNRI vs SSRI")
-```
-
-### Hazard Ratio Forest Plot from Cox Model
-
-```stata
-* After stset survival data (see cstat_surv workflow)
-stcox treated index_age i.female i.education
-
-eplot ., drop(_cons) eform ///
-    coeflabels(1.treated = "SNRI vs SSRI" ///
-               index_age = "Age" ///
-               1.female = "Female" ///
-               2.education = "Secondary" ///
-               3.education = "Tertiary") ///
-    effect("Hazard Ratio") ///
-    title("Cox Model: Antidepressant Class and CV Risk")
+matrix R = (1.5, 1.1, 2.0 \ 0.8, 0.6, 1.2 \ 1.2, 0.9, 1.6)
+matrix rownames R = "Treatment_A" "Treatment_B" "Treatment_C"
+eplot, matrix(R) effect("Odds Ratio") scheme(plotplainblind)
 ```
 
 ## Options
@@ -167,7 +161,7 @@ eplot ., drop(_cons) eform ///
 | Option | Description |
 |--------|-------------|
 | `coeflabels(spec)` | Custom labels for coefficients/effects |
-| `groups(spec)` | Define groups with headers |
+| `groups(spec)` | Define groups with bold headers |
 | `headers(spec)` | Insert section headers |
 
 ### Transform
@@ -177,6 +171,41 @@ eplot ., drop(_cons) eform ///
 | `eform` | Exponentiate (OR, HR, RR) |
 | `rescale(#)` | Multiply estimates by # |
 
+### Display
+
+| Option | Description |
+|--------|-------------|
+| `values` | Annotate rows with formatted effect text |
+| `vformat(fmt)` | Format for values (default: %5.2f) |
+| `sort` | Sort coefficients by effect size |
+| `order(coeflist)` | Explicit coefficient ordering |
+| `cicap` | Capped CI lines |
+| `effect(string)` | X-axis title for effects |
+| `level(#)` | Confidence level (default: 95) |
+| `noci` | Suppress confidence intervals |
+
+### Multi-Model
+
+| Option | Description |
+|--------|-------------|
+| `modellabels(strlist)` | Custom legend labels for each model |
+| `offset(#)` | Vertical spacing between models (default: 0.15) |
+| `palette(colorlist)` | Color palette for models |
+| `legendopts(string)` | Additional legend options |
+
+### Markers & CI
+
+| Option | Description |
+|--------|-------------|
+| `mcolor(color)` | Marker color |
+| `msymbol(symbol)` | Marker symbol (default: O) |
+| `msize(size)` | Marker size |
+| `cicolor(color)` | CI line color |
+| `ciwidth(lwstyle)` | CI line width |
+| `boxscale(#)` | Box size scaling (percentage) |
+| `nobox` | Suppress weighted boxes |
+| `nodiamonds` | Use markers instead of diamonds for pooled effects |
+
 ### Reference Lines
 
 | Option | Description |
@@ -185,30 +214,6 @@ eplot ., drop(_cons) eform ///
 | `null(#)` | Null line position (default: 0, or 1 if eform) |
 | `nonull` | Suppress null line |
 
-### Layout & Display
-
-| Option | Description |
-|--------|-------------|
-| `horizontal` | Horizontal layout (default) |
-| `vertical` | Vertical layout |
-| `effect(string)` | X-axis title for effects |
-| `level(#)` | Confidence level (default: 95) |
-| `noci` | Suppress confidence intervals |
-| `dp(#)` | Decimal places (default: 2) |
-
-## Type Variable Values
-
-When using `type(varname)`:
-
-| Value | Meaning | Display |
-|-------|---------|---------|
-| 1 | Effect/Study | Marker + CI |
-| 2 | Missing | Text "(Insufficient data)" |
-| 3 | Subgroup total | Diamond |
-| 5 | Overall total | Diamond |
-| 0 | Header | Bold text |
-| 6 | Blank | Spacing |
-
 ## Stored Results
 
 `eplot` stores the following in `r()`:
@@ -216,6 +221,7 @@ When using `type(varname)`:
 | Result | Description |
 |--------|-------------|
 | `r(N)` | Number of effects plotted |
+| `r(n_models)` | Number of models (estimates mode) |
 | `r(cmd)` | Graph command executed |
 
 ## Author
@@ -230,10 +236,4 @@ MIT License
 
 ## Version
 
-Version 1.0.2, 2026-02-25
-
-## Acknowledgments
-
-Inspired by:
-- `forestplot` by David Fisher (UCL)
-- `coefplot` by Ben Jann (University of Bern)
+Version 2.0.0, 2026-03-13

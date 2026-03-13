@@ -1,4 +1,4 @@
-*! eplot Version 1.0.2  2026/02/25
+*! eplot Version 2.0.0  2026/03/13
 *! Unified effect plotting command for forest plots and coefficient plots
 *! Author: Timothy Copeland (Karolinska Institutet)
 *! Program class: rclass
@@ -9,35 +9,30 @@ Unified syntax for effect visualization:
   From data in memory:
     eplot esvar lcivar ucivar [if] [in], [options]
 
-  From stored estimates:
+  From stored estimates (single or multi-model):
     eplot [namelist], [options]
 
   From matrix:
     eplot matrix(matname), [options]
 
-Required (data mode):
-  esvar     - Variable containing effect sizes (point estimates)
-  lcivar    - Variable containing lower confidence limits
-  ucivar    - Variable containing upper confidence limits
-
-Key options:
-  labels(varname)     - Variable containing row labels
-  weights(varname)    - Variable for marker sizing
-  type(varname)       - Row type (1=effect, 3=subgroup, 5=overall, etc.)
-  groups(spec)        - Group effects with labels
-  headers(spec)       - Insert section headers
-  eform               - Exponentiate (OR, HR, RR)
+v2.0.0 additions:
+  - Multi-model comparison (estimates mode)
+  - Values annotation (formatted effect text)
+  - Sort/order options
+  - Capped CI lines (cicap)
+  - Color palette and marker customization
+  - Matrix mode implementation
 
 See help eplot for complete documentation
 */
 
-program define eplot, rclass sortpreserve
+program define eplot, rclass
     version 16.0
+    local _varabbrev = c(varabbrev)
     set varabbrev off
     set more off
 
     // Determine mode: data, estimates, or matrix
-    // Check if first token looks like a varlist or estimate name
     _eplot_parse_mode `0'
     local mode "`s(mode)'"
 
@@ -49,15 +44,21 @@ program define eplot, rclass sortpreserve
     else if "`mode'" == "estimates" {
         _eplot_estimates `0'
         return scalar N = r(N)
+        return scalar n_models = r(n_models)
         return local cmd `"`r(cmd)'"'
     }
     else if "`mode'" == "matrix" {
         _eplot_matrix `0'
+        return scalar N = r(N)
+        return local cmd `"`r(cmd)'"'
     }
     else {
+        set varabbrev `_varabbrev'
         display as error "Could not determine eplot mode"
         exit 198
     }
+
+    set varabbrev `_varabbrev'
 end
 
 // =============================================================================
@@ -65,8 +66,6 @@ end
 // =============================================================================
 
 program define _eplot_parse_mode, sclass
-    // Try to figure out if user is providing data variables or estimate names
-
     syntax [anything] [if] [in] [, Matrix(name) *]
 
     // Matrix mode is explicit
@@ -97,7 +96,7 @@ program define _eplot_parse_mode, sclass
         }
     }
 
-    // Check if it looks like estimate names (contains stored estimates)
+    // Check if it looks like estimate names
     if `nwords' == 1 & "`anything'" == "." {
         sreturn local mode "estimates"
         exit
@@ -153,18 +152,27 @@ program define _eplot_data, rclass
         NULL(real -999) ///
         NONULL ///
         /// Confidence intervals
-        LEVel(cilevel) ///
         NOCI ///
+        CICap ///
         /// Display
         DP(integer 2) ///
         EFFect(string) ///
+        VALues ///
+        VFormat(string) ///
         /// Layout
         HORizontal ///
         VERTical ///
+        SORT ///
+        ORDer(string asis) ///
         /// Box/marker options
         BOXScale(real 100) ///
         NOBOX ///
         NODIamonds ///
+        MColor(string) ///
+        MSymbol(string) ///
+        MSize(string) ///
+        CIColor(string) ///
+        CIWidth(string) ///
         /// Graph options
         TItle(string asis) ///
         SUBtitle(string asis) ///
@@ -172,6 +180,9 @@ program define _eplot_data, rclass
         NAME(string) ///
         SAVing(string asis) ///
         SCHEME(string) ///
+        PLOTRegion(string asis) ///
+        GRAPHRegion(string asis) ///
+        ASPect(string) ///
         * ///
         ]
 
@@ -184,6 +195,18 @@ program define _eplot_data, rclass
     // Mark sample
     marksample touse
     markout `touse' `es_var' `lci_var' `uci_var'
+
+    // Preserve non-data rows (headers, blanks, etc.) when type() is given
+    if "`type'" != "" {
+        capture confirm numeric variable `type'
+        if _rc == 0 {
+            quietly replace `touse' = 1 if inlist(`type', 0, 2, 4, 6)
+        }
+        else {
+            quietly replace `touse' = 1 ///
+                if inlist(`type', "header", "missing", "hetinfo", "blank")
+        }
+    }
 
     quietly count if `touse'
     if r(N) == 0 {
@@ -199,13 +222,9 @@ program define _eplot_data, rclass
     if `"`headings'"' != "" & `"`headers'"' == "" {
         local headers `"`headings'"'
     }
-
-    // Null line default
     if `null' == -999 {
         local null = cond("`eform'" != "", 1, 0)
     }
-
-    // Effect label default
     if `"`effect'"' == "" {
         if "`eform'" != "" {
             local effect "Effect (95% CI)"
@@ -214,6 +233,14 @@ program define _eplot_data, rclass
             local effect "Estimate (95% CI)"
         }
     }
+    if "`vformat'" == "" local vformat "%5.`dp'f"
+
+    // Color defaults
+    if "`mcolor'" == "" local mcolor "navy"
+    if "`cicolor'" == "" local cicolor "`mcolor'"
+    if "`ciwidth'" == "" local ciwidth "medium"
+    if "`msymbol'" == "" local msymbol "O"
+    if "`msize'" == "" local msize "medium"
 
     // Preserve and work on data
     preserve
@@ -231,18 +258,18 @@ program define _eplot_data, rclass
     quietly gen double `lci' = `lci_var'
     quietly gen double `uci' = `uci_var'
 
-    // Apply rescale
-    if `rescale' != 1 {
-        quietly replace `es' = `es' * `rescale'
-        quietly replace `lci' = `lci' * `rescale'
-        quietly replace `uci' = `uci' * `rescale'
-    }
-
     // Apply eform transformation
     if "`eform'" != "" {
         quietly replace `es' = exp(`es')
         quietly replace `lci' = exp(`lci')
         quietly replace `uci' = exp(`uci')
+    }
+
+    // Apply rescale
+    if `rescale' != 1 {
+        quietly replace `es' = `es' * `rescale'
+        quietly replace `lci' = `lci' * `rescale'
+        quietly replace `uci' = `uci' * `rescale'
     }
 
     // Weights
@@ -255,13 +282,11 @@ program define _eplot_data, rclass
 
     // Row type
     if "`type'" != "" {
-        // Check if numeric or string
         capture confirm numeric variable `type'
         if _rc == 0 {
             quietly gen int `rowtype' = `type'
         }
         else {
-            // String type - convert
             quietly gen int `rowtype' = 1
             quietly replace `rowtype' = 0 if `type' == "header"
             quietly replace `rowtype' = 2 if `type' == "missing"
@@ -272,7 +297,6 @@ program define _eplot_data, rclass
         }
     }
     else {
-        // Default: all are regular effects
         quietly gen int `rowtype' = 1
     }
 
@@ -281,13 +305,32 @@ program define _eplot_data, rclass
         quietly gen str244 `label_str' = `labels'
     }
     else {
-        // Generate default labels
         quietly gen str244 `label_str' = "Row " + string(`id')
     }
 
     // Apply custom coefficient labels
     if `"`coeflabels'"' != "" {
         _eplot_apply_coeflabels `label_str', coeflabels(`coeflabels')
+    }
+
+    // Sort by effect size if requested
+    if "`sort'" != "" {
+        // Only sort effect rows, keep headers/overall in place
+        tempvar sort_val
+        quietly gen double `sort_val' = `es' if `rowtype' == 1
+        sort `sort_val' `id'
+    }
+    else if `"`order'"' != "" {
+        // Apply explicit ordering
+        tempvar order_rank
+        quietly gen long `order_rank' = .
+        local o 0
+        foreach coef of local order {
+            local `++o'
+            quietly replace `order_rank' = `o' if `label_str' == "`coef'"
+        }
+        quietly replace `order_rank' = 1000 + `id' if missing(`order_rank')
+        sort `order_rank'
     }
 
     // Calculate positions (reverse order so first obs is at top)
@@ -322,55 +365,76 @@ program define _eplot_data, rclass
     quietly summarize `uci' if inlist(`rowtype', 1, 3, 5), meanonly
     local xmax = r(max)
 
-    // Handle edge case where all values are identical
     local xrange = `xmax' - `xmin'
     if `xrange' == 0 {
         local xrange = abs(`xmax') * 0.1
         if `xrange' == 0 local xrange = 1
     }
-    local xmin = `xmin' - 0.05 * `xrange'
-    local xmax = `xmax' + 0.05 * `xrange'
+    local xmin_pad = `xmin' - 0.05 * `xrange'
+    local xmax_pad = `xmax' + 0.05 * `xrange'
 
-    // Build graph command
-    local graphcmd ""
+    // --- Values annotation ---
+    local val_cmd ""
+    if "`values'" != "" & "`horizontal'" == "" {
+        display as text "(note: values annotation requires horizontal layout)"
+    }
+    if "`values'" != "" & "`horizontal'" != "" {
+        tempvar val_text val_x
+        quietly gen str `val_text' = string(`es', "`vformat'") ///
+            + " (" + string(`lci', "`vformat'") ///
+            + ", " + string(`uci', "`vformat'") + ")" ///
+            if inlist(`rowtype', 1, 3, 5) & !missing(`es')
 
-    // Orientation is used directly in conditionals below
+        local val_xpos = `xmax' + `xrange' * 0.12
+        quietly gen double `val_x' = `val_xpos' if !missing(`val_text')
+
+        local xmax_pad = `val_xpos' + `xrange' * 0.55
+        local val_cmd `"(scatter `pos' `val_x' if !missing(`val_text'), msymbol(none) mlabel(`val_text') mlabpos(3) mlabsize(vsmall) mlabcolor(gs4))"'
+    }
+
+    // --- Build graph command ---
+    local graphcmd "twoway"
 
     // --- Confidence interval spikes for regular effects ---
-    local ci_cmd ""
     quietly count if `rowtype' == 1 & !missing(`es')
     if r(N) > 0 & "`noci'" == "" {
         if "`horizontal'" != "" {
-            local ci_cmd `"(rspike `lci' `uci' `pos' if `rowtype' == 1, horizontal lcolor(navy) lwidth(medium))"'
+            if "`cicap'" != "" {
+                local graphcmd `"`graphcmd' (rcap `lci' `uci' `pos' if `rowtype' == 1, horizontal lcolor(`cicolor') lwidth(`ciwidth'))"'
+            }
+            else {
+                local graphcmd `"`graphcmd' (rspike `lci' `uci' `pos' if `rowtype' == 1, horizontal lcolor(`cicolor') lwidth(`ciwidth'))"'
+            }
         }
         else {
-            local ci_cmd `"(rspike `lci' `uci' `pos' if `rowtype' == 1, lcolor(navy) lwidth(medium))"'
+            if "`cicap'" != "" {
+                local graphcmd `"`graphcmd' (rcap `lci' `uci' `pos' if `rowtype' == 1, lcolor(`cicolor') lwidth(`ciwidth'))"'
+            }
+            else {
+                local graphcmd `"`graphcmd' (rspike `lci' `uci' `pos' if `rowtype' == 1, lcolor(`cicolor') lwidth(`ciwidth'))"'
+            }
         }
     }
 
     // --- Markers for regular effects ---
-    local marker_cmd ""
     quietly count if `rowtype' == 1 & !missing(`es')
     if r(N) > 0 {
         if "`nobox'" == "" & "`weights'" != "" {
-            // Weighted boxes
-            tempvar boxsize
-            quietly summarize `wt' if `rowtype' == 1, meanonly
-            quietly gen double `boxsize' = sqrt(`wt'/r(max)) * 0.5 * (`boxscale'/100)
+            // Weighted boxes (scale by boxscale percentage)
+            local bscale = `boxscale' / 100
             if "`horizontal'" != "" {
-                local marker_cmd `"(scatter `pos' `es' if `rowtype' == 1 [aw=`wt'], msymbol(square) mcolor(navy) msize(*0.8))"'
+                local graphcmd `"`graphcmd' (scatter `pos' `es' if `rowtype' == 1 [aw=`wt'], msymbol(square) mcolor(`mcolor') msize(*`bscale'))"'
             }
             else {
-                local marker_cmd `"(scatter `es' `pos' if `rowtype' == 1 [aw=`wt'], msymbol(square) mcolor(navy) msize(*0.8))"'
+                local graphcmd `"`graphcmd' (scatter `es' `pos' if `rowtype' == 1 [aw=`wt'], msymbol(square) mcolor(`mcolor') msize(*`bscale'))"'
             }
         }
         else {
-            // Unweighted markers
             if "`horizontal'" != "" {
-                local marker_cmd `"(scatter `pos' `es' if `rowtype' == 1, msymbol(O) mcolor(navy) msize(medium))"'
+                local graphcmd `"`graphcmd' (scatter `pos' `es' if `rowtype' == 1, msymbol(`msymbol') mcolor(`mcolor') msize(`msize'))"'
             }
             else {
-                local marker_cmd `"(scatter `es' `pos' if `rowtype' == 1, msymbol(O) mcolor(navy) msize(medium))"'
+                local graphcmd `"`graphcmd' (scatter `es' `pos' if `rowtype' == 1, msymbol(`msymbol') mcolor(`mcolor') msize(`msize'))"'
             }
         }
     }
@@ -378,23 +442,18 @@ program define _eplot_data, rclass
     // --- Diamonds for pooled effects (subgroup and overall) ---
     local diamond_cmd ""
     if "`nodiamonds'" == "" {
-        // Create diamond coordinates for pooled effects
         quietly count if inlist(`rowtype', 3, 5) & !missing(`es')
         if r(N) > 0 {
             local diam_height = 0.3
 
-            // Create diamond line coordinates
             tempvar diam_ly2 diam_ly3
-
             quietly {
                 gen double `diam_ly2' = `pos' + `diam_height' if inlist(`rowtype', 3, 5)
                 gen double `diam_ly3' = `pos' - `diam_height' if inlist(`rowtype', 3, 5)
             }
 
-            // Draw diamonds using pcspike
             if "`horizontal'" != "" {
-                // For horizontal: x is effect, y is position
-                // Overall diamond (black) - 4 lines to form diamond
+                // Overall diamond (black)
                 local diamond_cmd `"`diamond_cmd' (pcspike `pos' `lci' `diam_ly2' `es' if `rowtype' == 5, lcolor(black) lwidth(medthick))"'
                 local diamond_cmd `"`diamond_cmd' (pcspike `diam_ly2' `es' `pos' `uci' if `rowtype' == 5, lcolor(black) lwidth(medthick))"'
                 local diamond_cmd `"`diamond_cmd' (pcspike `pos' `uci' `diam_ly3' `es' if `rowtype' == 5, lcolor(black) lwidth(medthick))"'
@@ -407,7 +466,7 @@ program define _eplot_data, rclass
                 local diamond_cmd `"`diamond_cmd' (pcspike `diam_ly3' `es' `pos' `lci' if `rowtype' == 3, lcolor(maroon) lwidth(medthick))"'
             }
             else {
-                // For vertical: y is effect, x is position
+                // Overall diamond (black) - vertical
                 local diamond_cmd `"`diamond_cmd' (pcspike `lci' `pos' `es' `diam_ly2' if `rowtype' == 5, lcolor(black) lwidth(medthick))"'
                 local diamond_cmd `"`diamond_cmd' (pcspike `es' `diam_ly2' `uci' `pos' if `rowtype' == 5, lcolor(black) lwidth(medthick))"'
                 local diamond_cmd `"`diamond_cmd' (pcspike `uci' `pos' `es' `diam_ly3' if `rowtype' == 5, lcolor(black) lwidth(medthick))"'
@@ -422,6 +481,16 @@ program define _eplot_data, rclass
         }
     }
 
+    // Add diamonds to graph command
+    if "`diamond_cmd'" != "" {
+        local graphcmd `"`graphcmd' `diamond_cmd'"'
+    }
+
+    // Add values annotation
+    if "`val_cmd'" != "" {
+        local graphcmd `"`graphcmd' `val_cmd'"'
+    }
+
     // --- Reference/null line ---
     local refline_cmd ""
     if "`nonull'" == "" {
@@ -433,7 +502,7 @@ program define _eplot_data, rclass
         }
     }
 
-    // --- Additional reference lines ---
+    // Additional reference lines
     if "`xline'" != "" {
         foreach val of numlist `xline' {
             if "`horizontal'" != "" {
@@ -452,10 +521,8 @@ program define _eplot_data, rclass
         local this_label = `label_str'[`i']
         local this_type = `rowtype'[`i']
 
-        // Skip blank rows
         if `this_type' == 6 continue
 
-        // Format: position "label"
         // Bold for headers and overall
         if inlist(`this_type', 0, 5) {
             local this_label `"{bf:`this_label'}"'
@@ -464,21 +531,7 @@ program define _eplot_data, rclass
         local ylabels `"`ylabels' `this_pos' `"`this_label'"'"'
     }
 
-    // --- Build final graph command ---
-    local graphcmd `"twoway"'
-
-    // Add plot elements
-    if "`ci_cmd'" != "" {
-        local graphcmd `"`graphcmd' `ci_cmd'"'
-    }
-    if "`marker_cmd'" != "" {
-        local graphcmd `"`graphcmd' `marker_cmd'"'
-    }
-    if "`diamond_cmd'" != "" {
-        local graphcmd `"`graphcmd' `diamond_cmd'"'
-    }
-
-    // Graph options — add padding above/below first and last rows
+    // --- Graph options ---
     local ypad_lo 0
     local ypad_hi = _N + 1
     if "`horizontal'" != "" {
@@ -486,6 +539,9 @@ program define _eplot_data, rclass
         local graphcmd `"`graphcmd' yscale(reverse range(`ypad_lo' `ypad_hi'))"'
         local graphcmd `"`graphcmd' ytitle("")"'
         local graphcmd `"`graphcmd' xtitle(`"`effect'"')"'
+        if "`values'" != "" {
+            local graphcmd `"`graphcmd' xscale(range(`xmin_pad' `xmax_pad'))"'
+        }
     }
     else {
         local graphcmd `"`graphcmd', xlabel(`ylabels', angle(45) labsize(small) nogrid valuelabel)"'
@@ -518,6 +574,19 @@ program define _eplot_data, rclass
         local graphcmd `"`graphcmd' scheme(`scheme')"'
     }
 
+    // Plotregion / graphregion
+    if `"`plotregion'"' != "" {
+        local graphcmd `"`graphcmd' plotregion(`plotregion')"'
+    }
+    if `"`graphregion'"' != "" {
+        local graphcmd `"`graphcmd' graphregion(`graphregion')"'
+    }
+
+    // Aspect
+    if "`aspect'" != "" {
+        local graphcmd `"`graphcmd' aspect(`aspect')"'
+    }
+
     // Name and saving
     if "`name'" != "" {
         local graphcmd `"`graphcmd' name(`name')"'
@@ -542,7 +611,7 @@ program define _eplot_data, rclass
 end
 
 // =============================================================================
-// Estimates Mode: Plot from stored estimates
+// Estimates Mode: Plot from stored estimates (single or multi-model)
 // =============================================================================
 
 program define _eplot_estimates, rclass
@@ -569,12 +638,28 @@ program define _eplot_estimates, rclass
         /// Confidence intervals
         LEVel(cilevel) ///
         NOCI ///
+        CICap ///
         /// Display
         DP(integer 2) ///
         EFFect(string) ///
+        VALues ///
+        VFormat(string) ///
         /// Layout
         HORizontal ///
         VERTical ///
+        SORT ///
+        ORDer(string asis) ///
+        /// Multi-model
+        MODELLabels(string asis) ///
+        OFFset(real 0.15) ///
+        PALette(string) ///
+        LEGendopts(string asis) ///
+        /// Marker options
+        MColor(string) ///
+        MSymbol(string) ///
+        MSize(string) ///
+        CIColor(string) ///
+        CIWidth(string) ///
         /// Graph options
         TItle(string asis) ///
         SUBtitle(string asis) ///
@@ -582,15 +667,22 @@ program define _eplot_estimates, rclass
         NAME(string) ///
         SAVing(string asis) ///
         SCHEME(string) ///
+        PLOTRegion(string asis) ///
+        GRAPHRegion(string asis) ///
+        ASPect(string) ///
         * ///
         ]
 
-    // Default to current estimates
+    // ====== Parse estimate list ======
     if `"`anything'"' == "" | `"`anything'"' == "." {
-        local anything "."
+        local estlist "."
     }
+    else {
+        local estlist `"`anything'"'
+    }
+    local n_models : word count `estlist'
 
-    // Set defaults
+    // ====== Set defaults ======
     if "`horizontal'" == "" & "`vertical'" == "" {
         local horizontal "horizontal"
     }
@@ -600,13 +692,9 @@ program define _eplot_estimates, rclass
     if "`level'" == "" {
         local level = c(level)
     }
-
-    // Null line default
     if `null' == -999 {
         local null = cond("`eform'" != "", 1, 0)
     }
-
-    // Effect label default
     if `"`effect'"' == "" {
         if "`eform'" != "" {
             local effect "Effect (`level'% CI)"
@@ -615,147 +703,436 @@ program define _eplot_estimates, rclass
             local effect "Coefficient (`level'% CI)"
         }
     }
+    if "`vformat'" == "" local vformat "%5.`dp'f"
 
-    // Get estimates
-    if "`anything'" == "." {
-        // Use current estimates - verify they exist
+    // Default palette for multi-model
+    if "`palette'" == "" {
+        local palette "navy cranberry forest_green dkorange purple teal maroon olive_teal"
+    }
+
+    // Single-model color defaults
+    if "`ciwidth'" == "" local ciwidth "medium"
+    if "`msymbol'" == "" local msymbol "O"
+    if "`msize'" == "" {
+        if `n_models' > 1 {
+            local msize "medsmall"
+        }
+        else {
+            local msize "medium"
+        }
+    }
+
+    // CI critical value
+    local crit = invnormal(1 - (1 - `level'/100)/2)
+
+    // ====== Identify "." model (current estimates) ======
+    local dot_idx 0
+    forvalues m = 1/`n_models' {
+        if "`: word `m' of `estlist''" == "." {
+            local dot_idx `m'
+        }
+    }
+
+    // Validate current estimates if needed
+    if `dot_idx' > 0 {
         if "`e(cmd)'" == "" {
             display as error "no estimation results found"
             display as error "run a regression command first, or specify stored estimate names"
             exit 301
         }
-        tempname b V
-        matrix `b' = e(b)
-        matrix `V' = e(V)
-    }
-    else {
-        // Use stored estimates
-        tempname ecurrent
-        _est hold `ecurrent', restore nullok
-
-        capture estimates restore `anything'
-        if _rc {
-            display as error `"estimation results '`anything'' not found"'
-            _est unhold `ecurrent'
-            exit 111
-        }
-
-        tempname b V
-        matrix `b' = e(b)
-        matrix `V' = e(V)
-
-        _est unhold `ecurrent'
     }
 
-    // Get coefficient names
-    local names : colnames `b'
-    local eqs : coleq `b'
-    local k = colsof(`b')
+    // ====== Save and extract current estimates before any restore ======
+    local had_est = ("`e(cmd)'" != "")
+    if `had_est' {
+        tempname __est_save
+        _est hold `__est_save', copy
+    }
 
-    // Calculate confidence intervals
-    local crit = invnormal(1 - (1 - `level'/100)/2)
+    // Extract "." matrices before any estimates restore
+    if `dot_idx' > 0 {
+        tempname b_dot V_dot
+        matrix `b_dot' = e(b)
+        matrix `V_dot' = e(V)
+    }
 
-    // Create temporary dataset
+    // ====== Build combined dataset via postfile ======
     preserve
     clear
-    quietly set obs `k'
 
-    tempvar id coef se lci uci pos label_str rowtype
+    tempname posthn
+    tempfile postfn
+    postfile `posthn' str244 coef_name double(es se lci uci) byte model_id ///
+        using `postfn', replace
 
-    quietly gen long `id' = _n
-    quietly gen str244 `label_str' = ""
-    quietly gen double `coef' = .
-    quietly gen double `se' = .
-    quietly gen double `lci' = .
-    quietly gen double `uci' = .
-    quietly gen int `rowtype' = 1
+    forvalues m = 1/`n_models' {
+        local est_name : word `m' of `estlist'
 
-    // Fill in data
-    forvalues i = 1/`k' {
-        local nm : word `i' of `names'
-        local eq : word `i' of `eqs'
+        if `m' == `dot_idx' {
+            // Current estimates (already extracted)
+            local k = colsof(`b_dot')
+            local names : colnames `b_dot'
 
-        quietly replace `label_str' = "`nm'" in `i'
-        quietly replace `coef' = `b'[1, `i'] in `i'
-        quietly replace `se' = sqrt(`V'[`i', `i']) in `i'
-        quietly replace `lci' = `coef' - `crit' * `se' in `i'
-        quietly replace `uci' = `coef' + `crit' * `se' in `i'
+            forvalues i = 1/`k' {
+                local nm : word `i' of `names'
+                local this_se = sqrt(`V_dot'[`i', `i'])
+                if `this_se' < 1e-15 continue
+
+                local this_b = `b_dot'[1, `i']
+                local this_lci = `this_b' - `crit' * `this_se'
+                local this_uci = `this_b' + `crit' * `this_se'
+
+                post `posthn' ("`nm'") (`this_b') (`this_se') ///
+                    (`this_lci') (`this_uci') (`m')
+            }
+        }
+        else {
+            // Named estimate
+            capture estimates restore `est_name'
+            if _rc {
+                postclose `posthn'
+                restore
+                if "`__est_save'" != "" {
+                    capture _est unhold `__est_save'
+                }
+                display as error `"estimation results '`est_name'' not found"'
+                exit 111
+            }
+
+            tempname bm Vm
+            matrix `bm' = e(b)
+            matrix `Vm' = e(V)
+
+            local k = colsof(`bm')
+            local names : colnames `bm'
+
+            forvalues i = 1/`k' {
+                local nm : word `i' of `names'
+                local this_se = sqrt(`Vm'[`i', `i'])
+                if `this_se' < 1e-15 continue
+
+                local this_b = `bm'[1, `i']
+                local this_lci = `this_b' - `crit' * `this_se'
+                local this_uci = `this_b' + `crit' * `this_se'
+
+                post `posthn' ("`nm'") (`this_b') (`this_se') ///
+                    (`this_lci') (`this_uci') (`m')
+            }
+        }
     }
 
-    // Drop base/omitted coefficients (zero variance = base or omitted level)
-    quietly drop if `se' == 0
+    postclose `posthn'
+    use `postfn', clear
+
+    // Restore original estimation state
+    if "`__est_save'" != "" {
+        capture _est unhold `__est_save'
+    }
+
+    // ====== Transform data ======
 
     // Apply keep/drop
     if `"`keep'"' != "" {
-        _eplot_apply_keep `label_str', keep(`keep')
+        _eplot_apply_keep coef_name, keep(`keep')
     }
     if `"`drop'"' != "" {
-        _eplot_apply_drop `label_str', drop(`drop')
+        _eplot_apply_drop coef_name, drop(`drop')
     }
 
-    // Check we have observations left
+    // Check we have data
     quietly count
     if r(N) == 0 {
         display as error "no coefficients to plot after keep/drop"
+        restore
         exit 2000
     }
 
-    // Apply rename
+    // Apply rename (before groups/headers so group specs match renamed names)
     if `"`rename'"' != "" {
-        _eplot_apply_rename `label_str', rename(`rename')
+        _eplot_apply_rename coef_name, rename(`rename')
     }
 
-    // Apply custom labels
-    if `"`coeflabels'"' != "" {
-        _eplot_apply_coeflabels `label_str', coeflabels(`coeflabels')
+    // Apply eform
+    if "`eform'" != "" {
+        quietly {
+            replace es = exp(es)
+            replace lci = exp(lci)
+            replace uci = exp(uci)
+        }
     }
 
     // Apply rescale
     if `rescale' != 1 {
-        quietly replace `coef' = `coef' * `rescale'
-        quietly replace `lci' = `lci' * `rescale'
-        quietly replace `uci' = `uci' * `rescale'
+        quietly {
+            replace es = es * `rescale'
+            replace lci = lci * `rescale'
+            replace uci = uci * `rescale'
+        }
     }
 
-    // Apply eform transformation
-    if "`eform'" != "" {
-        quietly replace `coef' = exp(`coef')
-        quietly replace `lci' = exp(`lci')
-        quietly replace `uci' = exp(`uci')
+    // ====== Determine coefficient order ======
+    gen long _orig_row = _n
+    bysort coef_name (_orig_row) : gen long _first_seen = _orig_row[1]
+
+    if "`sort'" != "" {
+        // Sort by effect size (first model's value)
+        bysort coef_name (_orig_row) : gen double _sort_es = es[1]
+        sort _sort_es _first_seen model_id
+        drop _sort_es
+    }
+    else if `"`order'"' != "" {
+        gen long _order_rank = .
+        local o 0
+        foreach coef of local order {
+            local `++o'
+            quietly replace _order_rank = `o' if coef_name == "`coef'"
+        }
+        quietly replace _order_rank = 1000 + _first_seen if missing(_order_rank)
+        sort _order_rank model_id
+        drop _order_rank
+    }
+    else {
+        sort _first_seen model_id
     }
 
-    // Calculate positions
-    quietly gen double `pos' = _N - _n + 1
+    // ====== Assign base positions ======
+    // Tag first occurrence of each coefficient
+    bysort coef_name (_orig_row) : gen byte _coef_tag = (_n == 1)
 
-    // Process groups
-    if `"`groups'"' != "" {
-        _eplot_process_groups `pos' `label_str' `rowtype', groups(`groups')
+    // Count unique coefficients
+    quietly count if _coef_tag
+    local n_coefs = r(N)
+
+    // Create position mapping (avoid nested preserve)
+    tempfile fulldata posmap
+    quietly save `fulldata'
+
+    keep if _coef_tag
+    gen long _base_pos = _N - _n + 1
+    keep coef_name _base_pos
+    quietly save `posmap'
+
+    use `fulldata', clear
+    quietly merge m:1 coef_name using `posmap', nogen
+
+    // Calculate plot positions with model offsets
+    if `n_models' > 1 {
+        gen double _plot_pos = _base_pos ///
+            + (model_id - (`n_models' + 1) / 2) * `offset'
+    }
+    else {
+        gen double _plot_pos = _base_pos
     }
 
-    // Process headers
-    if `"`headers'"' != "" {
-        _eplot_process_headers `pos' `label_str' `rowtype', headers(`headers')
+    // ====== Process groups/headers (single-model only) ======
+    // NOTE: groups/headers run BEFORE coeflabels so specs match original names
+    if `n_models' == 1 {
+        gen byte _rowtype = 1
+
+        if `"`groups'"' != "" {
+            _eplot_process_groups _base_pos coef_name _rowtype, ///
+                groups(`groups')
+        }
+        if `"`headers'"' != "" {
+            _eplot_process_headers _base_pos coef_name _rowtype, ///
+                headers(`headers')
+        }
+
+        // Recalculate positions after insertions
+        sort _base_pos
+        quietly replace _base_pos = _N - _n + 1
+        quietly replace _plot_pos = _base_pos
+
+        // Update coef count to include headers
+        local n_items = _N
+    }
+    else {
+        gen byte _rowtype = 1
+        local n_items = `n_coefs'
+
+        // Warn if groups/headers specified in multi-model mode
+        if `"`groups'"' != "" | `"`headers'"' != "" {
+            display as text "(note: groups() and headers() are ignored " ///
+                "in multi-model mode)"
+        }
     }
 
-    // Recalculate positions
-    sort `pos'
-    quietly replace `pos' = _N - _n + 1
+    // ====== Apply coefficient labels (AFTER groups/headers) ======
+    if `"`coeflabels'"' != "" {
+        _eplot_apply_coeflabels coef_name, coeflabels(`coeflabels')
+    }
 
-    // Build graph
-    local N = _N
+    // ====== Determine axis range ======
+    quietly summarize lci if _rowtype == 1
+    local data_xmin = r(min)
+    quietly summarize uci if _rowtype == 1
+    local data_xmax = r(max)
+
+    local data_range = `data_xmax' - `data_xmin'
+    if `data_range' == 0 {
+        local data_range = abs(`data_xmax') * 0.1
+        if `data_range' == 0 local data_range = 1
+    }
+    local xmin_pad = `data_xmin' - 0.05 * `data_range'
+    local xmax_pad = `data_xmax' + 0.05 * `data_range'
+
+    // ====== Values annotation (single-model only) ======
+    local val_cmd ""
+    if "`values'" != "" & "`horizontal'" == "" {
+        display as text "(note: values annotation requires horizontal layout)"
+    }
+    if "`values'" != "" & `n_models' == 1 & "`horizontal'" != "" {
+        gen str _val_text = string(es, "`vformat'") ///
+            + " (" + string(lci, "`vformat'") ///
+            + ", " + string(uci, "`vformat'") + ")" ///
+            if _rowtype == 1 & !missing(es)
+
+        local val_xpos = `data_xmax' + `data_range' * 0.12
+        gen double _val_x = `val_xpos' if !missing(_val_text)
+
+        local xmax_pad = `val_xpos' + `data_range' * 0.55
+        local val_cmd `"(scatter _plot_pos _val_x if !missing(_val_text), msymbol(none) mlabel(_val_text) mlabpos(3) mlabsize(vsmall) mlabcolor(gs4))"'
+    }
+
+    // ====== Build graph command ======
+    local graphcmd "twoway"
+
+    if `n_models' > 1 {
+        // --- Multi-model graph ---
+        forvalues m = 1/`n_models' {
+            local mc : word `m' of `palette'
+            if "`mc'" == "" local mc "navy"
+
+            // CI lines
+            if "`noci'" == "" {
+                if "`horizontal'" != "" {
+                    if "`cicap'" != "" {
+                        local graphcmd `"`graphcmd' (rcap lci uci _plot_pos if model_id == `m' & _rowtype == 1, horizontal lcolor(`mc') lwidth(`ciwidth'))"'
+                    }
+                    else {
+                        local graphcmd `"`graphcmd' (rspike lci uci _plot_pos if model_id == `m' & _rowtype == 1, horizontal lcolor(`mc') lwidth(`ciwidth'))"'
+                    }
+                }
+                else {
+                    if "`cicap'" != "" {
+                        local graphcmd `"`graphcmd' (rcap lci uci _plot_pos if model_id == `m' & _rowtype == 1, lcolor(`mc') lwidth(`ciwidth'))"'
+                    }
+                    else {
+                        local graphcmd `"`graphcmd' (rspike lci uci _plot_pos if model_id == `m' & _rowtype == 1, lcolor(`mc') lwidth(`ciwidth'))"'
+                    }
+                }
+            }
+            else {
+                // Need placeholder for legend numbering
+                local graphcmd `"`graphcmd' (scatteri -999 -999, msymbol(none))"'
+            }
+
+            // Markers
+            if "`horizontal'" != "" {
+                local graphcmd `"`graphcmd' (scatter _plot_pos es if model_id == `m' & _rowtype == 1, msymbol(`msymbol') mcolor(`mc') msize(`msize'))"'
+            }
+            else {
+                local graphcmd `"`graphcmd' (scatter es _plot_pos if model_id == `m' & _rowtype == 1, msymbol(`msymbol') mcolor(`mc') msize(`msize'))"'
+            }
+        }
+    }
+    else {
+        // --- Single-model graph ---
+        local mc = cond("`mcolor'" != "", "`mcolor'", "navy")
+        local cc = cond("`cicolor'" != "", "`cicolor'", "`mc'")
+
+        // CI lines
+        if "`noci'" == "" {
+            if "`horizontal'" != "" {
+                if "`cicap'" != "" {
+                    local graphcmd `"`graphcmd' (rcap lci uci _plot_pos if _rowtype == 1, horizontal lcolor(`cc') lwidth(`ciwidth'))"'
+                }
+                else {
+                    local graphcmd `"`graphcmd' (rspike lci uci _plot_pos if _rowtype == 1, horizontal lcolor(`cc') lwidth(`ciwidth'))"'
+                }
+            }
+            else {
+                if "`cicap'" != "" {
+                    local graphcmd `"`graphcmd' (rcap lci uci _plot_pos if _rowtype == 1, lcolor(`cc') lwidth(`ciwidth'))"'
+                }
+                else {
+                    local graphcmd `"`graphcmd' (rspike lci uci _plot_pos if _rowtype == 1, lcolor(`cc') lwidth(`ciwidth'))"'
+                }
+            }
+        }
+
+        // Markers
+        if "`horizontal'" != "" {
+            local graphcmd `"`graphcmd' (scatter _plot_pos es if _rowtype == 1, msymbol(`msymbol') mcolor(`mc') msize(`msize'))"'
+        }
+        else {
+            local graphcmd `"`graphcmd' (scatter es _plot_pos if _rowtype == 1, msymbol(`msymbol') mcolor(`mc') msize(`msize'))"'
+        }
+    }
+
+    // Values annotation
+    if "`val_cmd'" != "" {
+        local graphcmd `"`graphcmd' `val_cmd'"'
+    }
+
+    // ====== Build y-axis labels ======
+    local ylabels ""
+    if `n_models' == 1 {
+        // Single model: use all rows (including headers from groups)
+        forvalues i = 1/`=_N' {
+            local this_pos = _base_pos[`i']
+            local this_label = coef_name[`i']
+            local this_type = _rowtype[`i']
+
+            if `this_type' == 6 continue
+
+            // Bold for headers
+            if `this_type' == 0 {
+                local this_label `"{bf:`this_label'}"'
+            }
+
+            local ylabels `"`ylabels' `this_pos' `"`this_label'"'"'
+        }
+    }
+    else {
+        // Multi-model: use unique coefficient tags only
+        forvalues i = 1/`=_N' {
+            if _coef_tag[`i'] == 0 continue
+            local this_pos = _base_pos[`i']
+            local this_label = coef_name[`i']
+            local ylabels `"`ylabels' `this_pos' `"`this_label'"'"'
+        }
+    }
+
+    // ====== Graph options ======
+    local ypad_lo = cond(`n_models' > 1, ///
+        0.5 - `offset' * `n_models' / 2, 0)
+    local ypad_hi = `n_items' + 1
+
+    if "`horizontal'" != "" {
+        local graphcmd `"`graphcmd', ylabel(`ylabels', angle(0) labsize(small) nogrid)"'
+        local graphcmd `"`graphcmd' yscale(reverse range(`ypad_lo' `ypad_hi'))"'
+        local graphcmd `"`graphcmd' ytitle("") xtitle(`"`effect'"')"'
+        if "`values'" != "" & `n_models' == 1 {
+            local graphcmd `"`graphcmd' xscale(range(`xmin_pad' `xmax_pad'))"'
+        }
+    }
+    else {
+        local graphcmd `"`graphcmd', xlabel(`ylabels', angle(45) labsize(small) nogrid)"'
+        local graphcmd `"`graphcmd' xscale(range(`ypad_lo' `ypad_hi'))"'
+        local graphcmd `"`graphcmd' xtitle("") ytitle(`"`effect'"')"'
+    }
 
     // Reference line
     local refline_cmd ""
     if "`nonull'" == "" {
         if "`horizontal'" != "" {
-            local refline_cmd `"xline(`null', lcolor(gs8) lpattern(dash))"'
+            local refline_cmd `"xline(`null', lcolor(gs8) lpattern(dash) lwidth(thin))"'
         }
         else {
-            local refline_cmd `"yline(`null', lcolor(gs8) lpattern(dash))"'
+            local refline_cmd `"yline(`null', lcolor(gs8) lpattern(dash) lwidth(thin))"'
         }
     }
-
-    // Additional reference lines
     if "`xline'" != "" {
         foreach val of numlist `xline' {
             if "`horizontal'" != "" {
@@ -766,56 +1143,32 @@ program define _eplot_estimates, rclass
             }
         }
     }
-
-    // Y-axis labels
-    local ylabels ""
-    forvalues i = 1/`N' {
-        local this_pos = `pos'[`i']
-        local this_label = `label_str'[`i']
-        local this_type = `rowtype'[`i']
-
-        if `this_type' == 6 continue
-
-        if inlist(`this_type', 0, 5) {
-            local this_label `"{bf:`this_label'}"'
-        }
-
-        local ylabels `"`ylabels' `this_pos' `"`this_label'"'"'
-    }
-
-    // Build graph command — add padding above/below first and last rows
-    local ypad_lo 0
-    local ypad_hi = _N + 1
-    if "`horizontal'" != "" {
-        if "`noci'" == "" {
-            local graphcmd `"twoway (rspike `lci' `uci' `pos' if `rowtype' == 1, horizontal lcolor(navy) lwidth(medium))"'
-            local graphcmd `"`graphcmd' (scatter `pos' `coef' if `rowtype' == 1, msymbol(O) mcolor(navy) msize(medium))"'
-        }
-        else {
-            local graphcmd `"twoway (scatter `pos' `coef' if `rowtype' == 1, msymbol(O) mcolor(navy) msize(medium))"'
-        }
-        local graphcmd `"`graphcmd', ylabel(`ylabels', angle(0) labsize(small) nogrid)"'
-        local graphcmd `"`graphcmd' yscale(reverse range(`ypad_lo' `ypad_hi')) ytitle("") xtitle(`"`effect'"')"'
-    }
-    else {
-        if "`noci'" == "" {
-            local graphcmd `"twoway (rspike `lci' `uci' `pos' if `rowtype' == 1, lcolor(navy) lwidth(medium))"'
-            local graphcmd `"`graphcmd' (scatter `coef' `pos' if `rowtype' == 1, msymbol(O) mcolor(navy) msize(medium))"'
-        }
-        else {
-            local graphcmd `"twoway (scatter `coef' `pos' if `rowtype' == 1, msymbol(O) mcolor(navy) msize(medium))"'
-        }
-        local graphcmd `"`graphcmd', xlabel(`ylabels', angle(45) labsize(small) nogrid)"'
-        local graphcmd `"`graphcmd' xscale(range(`ypad_lo' `ypad_hi')) xtitle("") ytitle(`"`effect'"')"'
-    }
-
-    // Reference lines
     if "`refline_cmd'" != "" {
         local graphcmd `"`graphcmd' `refline_cmd'"'
     }
 
-    // Legend off
-    local graphcmd `"`graphcmd' legend(off)"'
+    // Legend
+    if `n_models' > 1 {
+        local leg_order ""
+        forvalues m = 1/`n_models' {
+            local ml : word `m' of `modellabels'
+            if `"`ml'"' == "" {
+                local ml : word `m' of `estlist'
+            }
+            // Marker is at plot element 2*m
+            local leg_idx = 2 * `m'
+            local leg_order `"`leg_order' `leg_idx' `"`ml'"'"'
+        }
+        if `"`legendopts'"' != "" {
+            local graphcmd `"`graphcmd' legend(order(`leg_order') `legendopts')"'
+        }
+        else {
+            local graphcmd `"`graphcmd' legend(order(`leg_order') rows(1) pos(6) size(small))"'
+        }
+    }
+    else {
+        local graphcmd `"`graphcmd' legend(off)"'
+    }
 
     // Titles
     if `"`title'"' != "" {
@@ -833,6 +1186,19 @@ program define _eplot_estimates, rclass
         local graphcmd `"`graphcmd' scheme(`scheme')"'
     }
 
+    // Plotregion / graphregion
+    if `"`plotregion'"' != "" {
+        local graphcmd `"`graphcmd' plotregion(`plotregion')"'
+    }
+    if `"`graphregion'"' != "" {
+        local graphcmd `"`graphcmd' graphregion(`graphregion')"'
+    }
+
+    // Aspect
+    if "`aspect'" != "" {
+        local graphcmd `"`graphcmd' aspect(`aspect')"'
+    }
+
     // Name and saving
     if "`name'" != "" {
         local graphcmd `"`graphcmd' name(`name')"'
@@ -846,11 +1212,12 @@ program define _eplot_estimates, rclass
         local graphcmd `"`graphcmd' `options'"'
     }
 
-    // Execute
+    // ====== Execute graph ======
     `graphcmd'
 
-    // Return
-    return scalar N = `N'
+    // ====== Return results ======
+    return scalar N = `n_items'
+    return scalar n_models = `n_models'
     return local cmd `"`graphcmd'"'
 
     restore
@@ -862,12 +1229,306 @@ end
 
 program define _eplot_matrix, rclass
     version 16.0
+    set more off
 
-    syntax , Matrix(name) [ * ]
+    syntax , Matrix(name) ///
+        [ ///
+        LEVel(cilevel) ///
+        EFORM ///
+        REScale(real 1) ///
+        /// Coefficient selection
+        KEEP(string asis) ///
+        DROP(string asis) ///
+        COEFLabels(string asis) ///
+        /// Reference lines
+        XLine(numlist) ///
+        NULL(real -999) ///
+        NONULL ///
+        NOCI ///
+        CICap ///
+        /// Display
+        EFFect(string) ///
+        VALues ///
+        VFormat(string) ///
+        SORT ///
+        ORDer(string asis) ///
+        /// Layout
+        HORizontal ///
+        VERTical ///
+        /// Markers
+        MColor(string) ///
+        MSymbol(string) ///
+        MSize(string) ///
+        CIColor(string) ///
+        CIWidth(string) ///
+        /// Graph options
+        TItle(string asis) ///
+        SUBtitle(string asis) ///
+        NOTE(string asis) ///
+        NAME(string) ///
+        SAVing(string asis) ///
+        SCHEME(string) ///
+        PLOTRegion(string asis) ///
+        GRAPHRegion(string asis) ///
+        ASPect(string) ///
+        * ///
+        ]
 
-    display as error "Matrix mode not yet implemented in version 1.0"
-    display as text "Please use data mode or estimates mode"
-    exit 199
+    // Validate matrix dimensions
+    local nrows = rowsof(`matrix')
+    local ncols = colsof(`matrix')
+
+    if `ncols' != 2 & `ncols' != 3 {
+        display as error "matrix must have 2 columns (b, se) or 3 columns (b, lci, uci)"
+        exit 198
+    }
+
+    // Set defaults
+    if "`horizontal'" == "" & "`vertical'" == "" {
+        local horizontal "horizontal"
+    }
+    if "`level'" == "" local level = c(level)
+    local crit = invnormal(1 - (1 - `level'/100)/2)
+    if `null' == -999 {
+        local null = cond("`eform'" != "", 1, 0)
+    }
+    if `"`effect'"' == "" {
+        if "`eform'" != "" {
+            local effect "Effect (`level'% CI)"
+        }
+        else {
+            local effect "Estimate (`level'% CI)"
+        }
+    }
+    if "`vformat'" == "" local vformat "%5.2f"
+    if "`mcolor'" == "" local mcolor "navy"
+    if "`cicolor'" == "" local cicolor "`mcolor'"
+    if "`ciwidth'" == "" local ciwidth "medium"
+    if "`msymbol'" == "" local msymbol "O"
+    if "`msize'" == "" local msize "medium"
+
+    // Get row names
+    local rownames : rownames `matrix'
+
+    // Build dataset
+    preserve
+    clear
+    quietly set obs `nrows'
+
+    quietly gen str244 coef_name = ""
+    quietly gen double es = .
+    quietly gen double lci = .
+    quietly gen double uci = .
+
+    forvalues i = 1/`nrows' {
+        local nm : word `i' of `rownames'
+        quietly replace coef_name = "`nm'" in `i'
+        quietly replace es = `matrix'[`i', 1] in `i'
+
+        if `ncols' == 3 {
+            quietly replace lci = `matrix'[`i', 2] in `i'
+            quietly replace uci = `matrix'[`i', 3] in `i'
+        }
+        else {
+            local this_se = `matrix'[`i', 2]
+            quietly replace lci = `matrix'[`i', 1] - `crit' * `this_se' in `i'
+            quietly replace uci = `matrix'[`i', 1] + `crit' * `this_se' in `i'
+        }
+    }
+
+    // Apply keep/drop
+    if `"`keep'"' != "" {
+        _eplot_apply_keep coef_name, keep(`keep')
+    }
+    if `"`drop'"' != "" {
+        _eplot_apply_drop coef_name, drop(`drop')
+    }
+
+    quietly count
+    if r(N) == 0 {
+        display as error "no rows to plot after keep/drop"
+        restore
+        exit 2000
+    }
+    local n_coefs = r(N)
+
+    // Apply labels
+    if `"`coeflabels'"' != "" {
+        _eplot_apply_coeflabels coef_name, coeflabels(`coeflabels')
+    }
+
+    // Apply eform
+    if "`eform'" != "" {
+        quietly {
+            replace es = exp(es)
+            replace lci = exp(lci)
+            replace uci = exp(uci)
+        }
+    }
+
+    // Apply rescale
+    if `rescale' != 1 {
+        quietly {
+            replace es = es * `rescale'
+            replace lci = lci * `rescale'
+            replace uci = uci * `rescale'
+        }
+    }
+
+    // Sort/order
+    gen long _orig = _n
+    if "`sort'" != "" {
+        sort es _orig
+    }
+    else if `"`order'"' != "" {
+        gen long _order_rank = .
+        local o 0
+        foreach coef of local order {
+            local `++o'
+            quietly replace _order_rank = `o' if coef_name == "`coef'"
+        }
+        quietly replace _order_rank = 1000 + _orig if missing(_order_rank)
+        sort _order_rank
+        drop _order_rank
+    }
+
+    // Positions
+    gen double _plot_pos = _N - _n + 1
+
+    // Axis range
+    quietly summarize lci
+    local data_xmin = r(min)
+    quietly summarize uci
+    local data_xmax = r(max)
+    local data_range = `data_xmax' - `data_xmin'
+    if `data_range' == 0 {
+        local data_range = abs(`data_xmax') * 0.1
+        if `data_range' == 0 local data_range = 1
+    }
+    local xmin_pad = `data_xmin' - 0.05 * `data_range'
+    local xmax_pad = `data_xmax' + 0.05 * `data_range'
+
+    // Values annotation
+    local val_cmd ""
+    if "`values'" != "" & "`horizontal'" == "" {
+        display as text "(note: values annotation requires horizontal layout)"
+    }
+    if "`values'" != "" & "`horizontal'" != "" {
+        gen str _val_text = string(es, "`vformat'") ///
+            + " (" + string(lci, "`vformat'") ///
+            + ", " + string(uci, "`vformat'") + ")"
+
+        local val_xpos = `data_xmax' + `data_range' * 0.12
+        gen double _val_x = `val_xpos'
+
+        local xmax_pad = `val_xpos' + `data_range' * 0.55
+        local val_cmd `"(scatter _plot_pos _val_x, msymbol(none) mlabel(_val_text) mlabpos(3) mlabsize(vsmall) mlabcolor(gs4))"'
+    }
+
+    // Build graph
+    local graphcmd "twoway"
+
+    // CI lines
+    if "`noci'" == "" {
+        if "`horizontal'" != "" {
+            if "`cicap'" != "" {
+                local graphcmd `"`graphcmd' (rcap lci uci _plot_pos, horizontal lcolor(`cicolor') lwidth(`ciwidth'))"'
+            }
+            else {
+                local graphcmd `"`graphcmd' (rspike lci uci _plot_pos, horizontal lcolor(`cicolor') lwidth(`ciwidth'))"'
+            }
+        }
+        else {
+            if "`cicap'" != "" {
+                local graphcmd `"`graphcmd' (rcap lci uci _plot_pos, lcolor(`cicolor') lwidth(`ciwidth'))"'
+            }
+            else {
+                local graphcmd `"`graphcmd' (rspike lci uci _plot_pos, lcolor(`cicolor') lwidth(`ciwidth'))"'
+            }
+        }
+    }
+
+    // Markers
+    if "`horizontal'" != "" {
+        local graphcmd `"`graphcmd' (scatter _plot_pos es, msymbol(`msymbol') mcolor(`mcolor') msize(`msize'))"'
+    }
+    else {
+        local graphcmd `"`graphcmd' (scatter es _plot_pos, msymbol(`msymbol') mcolor(`mcolor') msize(`msize'))"'
+    }
+
+    // Values
+    if "`val_cmd'" != "" {
+        local graphcmd `"`graphcmd' `val_cmd'"'
+    }
+
+    // Y-axis labels
+    local ylabels ""
+    forvalues i = 1/`=_N' {
+        local this_pos = _plot_pos[`i']
+        local this_label = coef_name[`i']
+        local ylabels `"`ylabels' `this_pos' `"`this_label'"'"'
+    }
+
+    // Graph options
+    local ypad_lo 0
+    local ypad_hi = `n_coefs' + 1
+    if "`horizontal'" != "" {
+        local graphcmd `"`graphcmd', ylabel(`ylabels', angle(0) labsize(small) nogrid)"'
+        local graphcmd `"`graphcmd' yscale(reverse range(`ypad_lo' `ypad_hi'))"'
+        local graphcmd `"`graphcmd' ytitle("") xtitle(`"`effect'"')"'
+        if "`values'" != "" {
+            local graphcmd `"`graphcmd' xscale(range(`xmin_pad' `xmax_pad'))"'
+        }
+    }
+    else {
+        local graphcmd `"`graphcmd', xlabel(`ylabels', angle(45) labsize(small) nogrid)"'
+        local graphcmd `"`graphcmd' xscale(range(`ypad_lo' `ypad_hi'))"'
+        local graphcmd `"`graphcmd' xtitle("") ytitle(`"`effect'"')"'
+    }
+
+    // Reference line
+    if "`nonull'" == "" {
+        if "`horizontal'" != "" {
+            local graphcmd `"`graphcmd' xline(`null', lcolor(gs8) lpattern(dash) lwidth(thin))"'
+        }
+        else {
+            local graphcmd `"`graphcmd' yline(`null', lcolor(gs8) lpattern(dash) lwidth(thin))"'
+        }
+    }
+    if "`xline'" != "" {
+        foreach val of numlist `xline' {
+            if "`horizontal'" != "" {
+                local graphcmd `"`graphcmd' xline(`val', lcolor(gs10) lpattern(shortdash))"'
+            }
+            else {
+                local graphcmd `"`graphcmd' yline(`val', lcolor(gs10) lpattern(shortdash))"'
+            }
+        }
+    }
+
+    // Legend off
+    local graphcmd `"`graphcmd' legend(off)"'
+
+    // Titles
+    if `"`title'"' != "" local graphcmd `"`graphcmd' title(`title')"'
+    if `"`subtitle'"' != "" local graphcmd `"`graphcmd' subtitle(`subtitle')"'
+    if `"`note'"' != "" local graphcmd `"`graphcmd' note(`note')"'
+    if "`scheme'" != "" local graphcmd `"`graphcmd' scheme(`scheme')"'
+    if `"`plotregion'"' != "" local graphcmd `"`graphcmd' plotregion(`plotregion')"'
+    if `"`graphregion'"' != "" local graphcmd `"`graphcmd' graphregion(`graphregion')"'
+    if "`aspect'" != "" local graphcmd `"`graphcmd' aspect(`aspect')"'
+    if "`name'" != "" local graphcmd `"`graphcmd' name(`name')"'
+    if `"`saving'"' != "" local graphcmd `"`graphcmd' saving(`saving')"'
+    if `"`options'"' != "" local graphcmd `"`graphcmd' `options'"'
+
+    // Execute
+    `graphcmd'
+
+    // Return
+    return scalar N = `n_coefs'
+    return local cmd `"`graphcmd'"'
+
+    restore
 end
 
 // =============================================================================
@@ -916,9 +1577,7 @@ program define _eplot_apply_keep
     tempvar tokeep
     quietly gen byte `tokeep' = 0
 
-    // Parse keep list
     foreach pattern of local keep {
-        // Handle wildcards
         if strpos("`pattern'", "*") > 0 | strpos("`pattern'", "?") > 0 {
             quietly replace `tokeep' = 1 if strmatch(`labelvar', "`pattern'")
         }
@@ -939,9 +1598,7 @@ program define _eplot_apply_drop
 
     local labelvar `varlist'
 
-    // Parse drop list
     foreach pattern of local drop {
-        // Handle wildcards
         if strpos("`pattern'", "*") > 0 | strpos("`pattern'", "?") > 0 {
             quietly drop if strmatch(`labelvar', "`pattern'")
         }
@@ -960,27 +1617,21 @@ program define _eplot_apply_rename
 
     local labelvar `varlist'
 
-    // Parse rename: old1 = new1 old2 = new2 ...
     local remaining `"`rename'"'
 
     while `"`remaining'"' != "" {
-        // Get old name
         gettoken oldname remaining : remaining, parse("=")
         local oldname = trim("`oldname'")
 
-        // Remove the = sign
         gettoken eq remaining : remaining, parse("=")
 
-        // Get new name
         gettoken newname remaining : remaining, parse(" ") bind
         local newname = trim(`"`newname'"')
 
-        // Remove quotes if present
         if substr(`"`newname'"', 1, 1) == `"""' {
             local newname = substr(`"`newname'"', 2, length(`"`newname'"') - 2)
         }
 
-        // Apply
         quietly replace `labelvar' = `"`newname'"' if `labelvar' == "`oldname'"
     }
 end
@@ -997,14 +1648,11 @@ program define _eplot_process_groups, rclass
     local labelvar `2'
     local typevar `3'
 
-    // Parse groups: coef1 coef2 = "Group Label" coef3 coef4 = "Group 2" ...
-    // Strategy: parse word by word, collect coefs until "=", then get quoted label
     local remaining `"`groups'"'
     local n_groups 0
     local group_coefs ""
 
     while `"`remaining'"' != "" {
-        // Get next token - use bind to keep quoted strings together
         gettoken token remaining : remaining, bind
         local token = trim(`"`token'"')
 
@@ -1012,31 +1660,24 @@ program define _eplot_process_groups, rclass
             continue
         }
 
-        // Check if this is the equals sign
         if `"`token'"' == "=" {
-            // Next token should be the label
             gettoken label remaining : remaining, bind
             local label = trim(`"`label'"')
 
-            // Remove surrounding quotes if present
             if substr(`"`label'"', 1, 1) == `"""' {
                 local labellen = length(`"`label'"')
                 local label = substr(`"`label'"', 2, `labellen' - 2)
             }
 
-            // Now we have a complete group
             local `++n_groups'
 
-            // Find position for group header (before first coefficient in group)
             local first_coef : word 1 of `group_coefs'
 
-            // Look for this coefficient in the label variable
             quietly count if `labelvar' == `"`first_coef'"'
             if r(N) > 0 {
                 quietly summarize `posvar' if `labelvar' == `"`first_coef'"', meanonly
                 local header_pos = r(mean) + 0.5
 
-                // Insert header row
                 local newN = _N + 1
                 quietly set obs `newN'
                 quietly replace `posvar' = `header_pos' in `newN'
@@ -1044,11 +1685,9 @@ program define _eplot_process_groups, rclass
                 quietly replace `typevar' = 0 in `newN'
             }
 
-            // Reset for next group
             local group_coefs ""
         }
         else {
-            // This is a coefficient name - add to current group
             local group_coefs `"`group_coefs' `token'"'
         }
     }
@@ -1068,39 +1707,30 @@ program define _eplot_process_headers, rclass
     local labelvar `2'
     local typevar `3'
 
-    // Parse headers: before(coef1) = "Header" before(coef2) = "Header 2" ...
-    // Or simpler: coef1 = "Header" (header appears before coef1)
     local remaining `"`headers'"'
 
     while `"`remaining'"' != "" {
-        // Get coefficient reference
         gettoken ref remaining : remaining, parse("=") bind
         local ref = trim("`ref'")
 
-        // Check for before() syntax
         if substr("`ref'", 1, 7) == "before(" {
             local ref = substr("`ref'", 8, length("`ref'") - 8)
         }
 
-        // Remove = sign
         gettoken eq remaining : remaining, parse("=")
 
-        // Get label
         gettoken label remaining : remaining, parse(" ") bind
         local label = trim(`"`label'"')
 
-        // Remove quotes
         if substr(`"`label'"', 1, 1) == `"""' {
             local label = substr(`"`label'"', 2, length(`"`label'"') - 2)
         }
 
-        // Find position
         quietly count if `labelvar' == `"`ref'"'
         if r(N) > 0 {
             quietly summarize `posvar' if `labelvar' == `"`ref'"', meanonly
             local header_pos = r(mean) + 0.5
 
-            // Insert header row
             local newN = _N + 1
             quietly set obs `newN'
             quietly replace `posvar' = `header_pos' in `newN'

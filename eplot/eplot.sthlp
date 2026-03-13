@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.2  26feb2026}{...}
+{* *! version 2.0.0  13mar2026}{...}
 {viewerjumpto "Syntax" "eplot##syntax"}{...}
 {viewerjumpto "Description" "eplot##description"}{...}
 {viewerjumpto "Options" "eplot##options"}{...}
@@ -24,13 +24,20 @@ Plot effects from data in memory:
 
 
 {pstd}
-Plot coefficients from stored estimates:
+Plot coefficients from stored estimates (single or multiple models):
 
 {p 8 16 2}
 {cmd:eplot} [{it:namelist}] [{cmd:,} {it:options}]
 
 
-{synoptset 28 tabbed}{...}
+{pstd}
+Plot from matrix:
+
+{p 8 16 2}
+{cmd:eplot} {cmd:,} {opt matrix(matname)} [{it:options}]
+
+
+{synoptset 32 tabbed}{...}
 {synopthdr}
 {synoptline}
 {syntab:Data specification}
@@ -61,19 +68,35 @@ Plot coefficients from stored estimates:
 {syntab:Confidence intervals}
 {synopt:{opt level(#)}}confidence level; default is {cmd:level(95)}{p_end}
 {synopt:{opt noci}}suppress confidence intervals{p_end}
+{synopt:{opt cicap}}draw capped CI lines (rcap instead of rspike){p_end}
 
 {syntab:Display}
 {synopt:{opt dp(#)}}decimal places; default is 2{p_end}
 {synopt:{opt eff:ect(string)}}x-axis title for effect sizes{p_end}
+{synopt:{opt val:ues}}annotate each row with formatted effect text{p_end}
+{synopt:{opt vformat(fmt)}}format for values; default is {cmd:%5.2f}{p_end}
 
 {syntab:Layout}
 {synopt:{opt hor:izontal}}horizontal layout (default){p_end}
 {synopt:{opt vert:ical}}vertical layout{p_end}
+{synopt:{opt sort}}sort coefficients by effect size{p_end}
+{synopt:{opt order(coeflist)}}explicit coefficient ordering{p_end}
+
+{syntab:Multi-model (estimates mode)}
+{synopt:{opt modell:abels(strlist)}}custom legend labels for each model{p_end}
+{synopt:{opt off:set(#)}}vertical spacing between models; default is 0.15{p_end}
+{synopt:{opt pal:ette(colorlist)}}color palette for models{p_end}
+{synopt:{opt legendopts(string)}}additional legend options{p_end}
 
 {syntab:Markers}
+{synopt:{opt mc:olor(color)}}marker color{p_end}
+{synopt:{opt ms:ymbol(symbol)}}marker symbol; default is {cmd:O}{p_end}
+{synopt:{opt msi:ze(size)}}marker size; default is {cmd:medium}{p_end}
 {synopt:{opt boxscale(#)}}box size scaling (percentage){p_end}
 {synopt:{opt nobox}}suppress weighted boxes{p_end}
 {synopt:{opt nodiamonds}}use markers instead of diamonds for pooled effects{p_end}
+{synopt:{opt cicolor(color)}}CI line color{p_end}
+{synopt:{opt ciwidth(lwstyle)}}CI line width{p_end}
 
 {syntab:Graph options}
 {synopt:{opt ti:tle(string)}}graph title{p_end}
@@ -82,6 +105,9 @@ Plot coefficients from stored estimates:
 {synopt:{opt name(string)}}graph name{p_end}
 {synopt:{opt saving(filename)}}save graph to file{p_end}
 {synopt:{opt scheme(schemename)}}graph scheme{p_end}
+{synopt:{opt plotregion(options)}}plot region options{p_end}
+{synopt:{opt graphregion(options)}}graph region options{p_end}
+{synopt:{opt aspect(#)}}aspect ratio{p_end}
 {synopt:{it:twoway_options}}other {help twoway} options{p_end}
 {synoptline}
 
@@ -90,12 +116,12 @@ Plot coefficients from stored estimates:
 {title:Description}
 
 {pstd}
-{cmd:eplot} creates effect plots (forest plots and coefficient plots) from either
-data in memory or stored estimation results. It provides a unified, intuitive
-interface for visualizing effect sizes with confidence intervals.
+{cmd:eplot} creates effect plots (forest plots and coefficient plots) from
+data in memory, stored estimation results, or matrices. It provides a unified,
+intuitive interface for visualizing effect sizes with confidence intervals.
 
 {pstd}
-{cmd:eplot} supports two main modes:
+{cmd:eplot} supports three modes:
 
 {phang2}
 {it:Data mode}: When three numeric variables are specified ({it:esvar lcivar ucivar}),
@@ -104,9 +130,15 @@ This is useful for meta-analysis results, pre-computed estimates, or any tabular
 effect data.
 
 {phang2}
-{it:Estimates mode}: When no variables are specified or a list of stored estimate
-names is provided, {cmd:eplot} extracts coefficients from the estimation results.
-Use {cmd:.} to refer to the active estimation results.
+{it:Estimates mode}: When no variables are specified, a single {cmd:.} (active
+estimates), or a list of stored estimate names is provided, {cmd:eplot} extracts
+coefficients from the estimation results. Multiple stored estimates can be
+plotted side by side for model comparison.
+
+{phang2}
+{it:Matrix mode}: When {opt matrix(matname)} is specified, {cmd:eplot} plots
+from a Stata matrix with 2 columns ({it:b}, {it:se}) or 3 columns ({it:b},
+{it:lci}, {it:uci}). Row names are used as labels.
 
 
 {marker options}{...}
@@ -166,7 +198,8 @@ Syntax: {cmd:coeflabels(coef1 = "Label 1" coef2 = "Label 2")}
 Syntax: {cmd:groups(coef1 coef2 = "Group Label" coef3 coef4 = "Another Group")}
 
 {pmore}
-Group headers appear above the first coefficient in each group.
+Group headers appear above the first coefficient in each group. Available in
+single-model mode only.
 
 {phang}
 {opt headers(spec)} inserts section headers before specified coefficients.
@@ -183,17 +216,22 @@ The null line is automatically set to 1 instead of 0.
 {phang}
 {opt rescale(#)} multiplies all estimates by {it:#}. Useful for rescaling units.
 
-{dlgtab:Reference lines}
+{dlgtab:Confidence intervals}
 
 {phang}
-{opt xline(numlist)} adds vertical reference lines at the specified values.
+{opt cicap} draws capped confidence interval lines using {cmd:rcap} instead of
+{cmd:rspike}. Adds horizontal end caps to CI whiskers.
+
+{dlgtab:Display}
 
 {phang}
-{opt null(#)} specifies the position of the null hypothesis line. Default is 0,
-or 1 if {opt eform} is specified.
+{opt values} annotates each row with formatted text showing the point estimate
+and confidence interval (e.g., "0.85 (0.72, 0.99)"). Available in horizontal
+mode with single-model estimates, data mode, and matrix mode.
 
 {phang}
-{opt nonull} suppresses the null hypothesis line.
+{opt vformat(fmt)} specifies the numeric format for values annotation. Default
+is {cmd:%5.2f}.
 
 {dlgtab:Layout}
 
@@ -203,6 +241,54 @@ and row labels on the y-axis. This is the default.
 
 {phang}
 {opt vertical} creates a vertical plot with effect sizes on the y-axis.
+
+{phang}
+{opt sort} sorts coefficients by effect size magnitude, smallest at top.
+
+{phang}
+{opt order(coeflist)} specifies an explicit ordering of coefficients. List the
+coefficient names in the desired display order.
+
+{dlgtab:Multi-model}
+
+{phang}
+{opt modellabels(strlist)} specifies custom legend labels for each model in
+multi-model mode. Provide one label per model, separated by spaces. Quoted
+strings are supported.
+
+{phang}
+{opt offset(#)} controls the vertical spacing between models in multi-model
+plots. Default is 0.15. Increase for more separation; decrease for tighter
+grouping.
+
+{phang}
+{opt palette(colorlist)} specifies the color palette for multi-model plots.
+Default is {cmd:navy cranberry forest_green dkorange purple teal maroon olive_teal}.
+Provide one Stata color name per model.
+
+{phang}
+{opt legendopts(string)} specifies additional legend options passed directly to
+the legend. Default is {cmd:rows(1) pos(6) size(small)}.
+
+{dlgtab:Markers}
+
+{phang}
+{opt mcolor(color)} specifies the marker color. Default is {cmd:navy}. In
+multi-model mode, colors are determined by {opt palette()} instead.
+
+{phang}
+{opt msymbol(symbol)} specifies the marker symbol. Default is {cmd:O} (circle).
+
+{phang}
+{opt msize(size)} specifies the marker size. Default is {cmd:medium} for
+single-model and {cmd:medsmall} for multi-model.
+
+{phang}
+{opt cicolor(color)} specifies the CI line color. Default matches the marker
+color.
+
+{phang}
+{opt ciwidth(lwstyle)} specifies the CI line width. Default is {cmd:medium}.
 
 
 {marker examples}{...}
@@ -220,62 +306,55 @@ and row labels on the y-axis. This is the default.
 {phang2}{cmd:. "Overall"       -0.24  -0.34 -0.13   .}{p_end}
 {phang2}{cmd:. end}{p_end}
 {phang2}{stata `"gen byte type = cond(study=="Overall", 5, 1)"':. gen byte type = cond(study=="Overall", 5, 1)}{p_end}
-{phang2}{stata "eplot es lci uci, labels(study) weights(weight) type(type)":. eplot es lci uci, labels(study) weights(weight) type(type)}{p_end}
+{phang2}{stata "eplot es lci uci, labels(study) weights(weight) type(type) scheme(plotplainblind)":. eplot es lci uci, labels(study) weights(weight) type(type) scheme(plotplainblind)}{p_end}
 
 {pstd}
-{bf:Example 2: Forest plot with exponentiated effects (odds ratios)}
+{bf:Example 2: Forest plot with values annotation}
 
-{phang2}{stata `"eplot es lci uci, labels(study) weights(weight) type(type) eform effect("Odds Ratio")"':. eplot es lci uci, labels(study) weights(weight) type(type) eform effect("Odds Ratio")}{p_end}
+{phang2}{cmd:. eplot es lci uci, labels(study) weights(weight) type(type) values scheme(plotplainblind)}{p_end}
 
 {pstd}
 {bf:Example 3: Coefficient plot from regression}
 
 {phang2}{stata "sysuse auto, clear":. sysuse auto, clear}{p_end}
+{phang2}{stata "regress price mpg weight foreign":. regress price mpg weight foreign}{p_end}
+{phang2}{cmd:. eplot ., drop(_cons) coeflabels(mpg = "Miles per Gallon" weight = "Vehicle Weight" foreign = "Foreign Make") cicap scheme(plotplainblind)}{p_end}
+
+{pstd}
+{bf:Example 4: Multi-model comparison}
+
+{phang2}{stata "sysuse auto, clear":. sysuse auto, clear}{p_end}
+{phang2}{stata "quietly regress price mpg weight foreign":. quietly regress price mpg weight foreign}{p_end}
+{phang2}{stata "estimates store base":. estimates store base}{p_end}
+{phang2}{stata "quietly regress price mpg weight length foreign headroom":. quietly regress price mpg weight length foreign headroom}{p_end}
+{phang2}{stata "estimates store extended":. estimates store extended}{p_end}
+{phang2}{cmd:. eplot base extended, drop(_cons) modellabels("Base" "Extended") scheme(plotplainblind)}{p_end}
+
+{pstd}
+{bf:Example 5: Sorted coefficients with custom colors}
+
 {phang2}{stata "regress price mpg weight length foreign":. regress price mpg weight length foreign}{p_end}
-{phang2}{stata `"eplot ., drop(_cons) title("Price Determinants") scheme(plotplainblind)"':. eplot ., drop(_cons) title("Price Determinants") scheme(plotplainblind)}{p_end}
+{phang2}{cmd:. eplot ., drop(_cons) sort cicap mcolor(cranberry) scheme(plotplainblind)}{p_end}
 
 {pstd}
-{bf:Example 4: With custom labels}
-
-{phang2}{cmd:. eplot ., drop(_cons) coeflabels(mpg = "Miles per Gallon" weight = "Vehicle Weight" length = "Length" foreign = "Foreign Make")}{p_end}
-
-{pstd}
-{bf:Example 5: Using groups}
+{bf:Example 6: Using groups}
 
 {phang2}{stata "regress price mpg weight length turn foreign rep78":. regress price mpg weight length turn foreign rep78}{p_end}
-{phang2}{cmd:. eplot ., drop(_cons) groups(mpg weight length turn = "Vehicle Characteristics" foreign rep78 = "Other Factors")}{p_end}
+{phang2}{cmd:. eplot ., drop(_cons) groups(mpg weight length turn = "Vehicle Characteristics" foreign rep78 = "Other Factors") scheme(plotplainblind)}{p_end}
 
 {pstd}
-{bf:Example 6: Coefficient plot for propensity score model}
+{bf:Example 7: Matrix mode}
 
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
-{phang2}{stata `"merge 1:1 id using "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/treatment.dta", nogen keep(match)"':. merge 1:1 id using _data/treatment.dta, nogen keep(match)}{p_end}
-{phang2}{stata `"merge 1:1 id using "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/comorbidities.dta", nogen keep(match)"':. merge 1:1 id using _data/comorbidities.dta, nogen keep(match)}{p_end}
-{phang2}{stata "logit treated index_age female i.education diabetes hypertension anxiety":. logit treated index_age female i.education diabetes hypertension anxiety}{p_end}
-{phang2}{cmd:. eplot ., drop(_cons) eform ///}{p_end}
-{phang2}{cmd:.     coeflabels(index_age = "Age at Entry" ///}{p_end}
-{phang2}{cmd:.                1.female = "Female" ///}{p_end}
-{phang2}{cmd:.                2.education = "Secondary Education" ///}{p_end}
-{phang2}{cmd:.                3.education = "Tertiary Education" ///}{p_end}
-{phang2}{cmd:.                1.diabetes = "Diabetes" ///}{p_end}
-{phang2}{cmd:.                1.hypertension = "Hypertension" ///}{p_end}
-{phang2}{cmd:.                1.anxiety = "Anxiety Disorder") ///}{p_end}
-{phang2}{cmd:.     xline(1) effect("Odds Ratio") ///}{p_end}
-{phang2}{cmd:.     title("Propensity Score Model: SNRI vs SSRI") scheme(plotplainblind)}{p_end}
+{phang2}{cmd:. matrix R = (1.5, 1.1, 2.0 \ 0.8, 0.6, 1.2 \ 1.2, 0.9, 1.6)}{p_end}
+{phang2}{cmd:. matrix rownames R = "Treatment_A" "Treatment_B" "Treatment_C"}{p_end}
+{phang2}{cmd:. eplot, matrix(R) eform effect("Odds Ratio") scheme(plotplainblind)}{p_end}
 
 {pstd}
-{bf:Example 7: Hazard ratio forest plot from Cox model}
+{bf:Example 8: Logistic regression with eform}
 
-{phang2}{cmd:. * After stset survival data (see cstat_surv workflow)}{p_end}
-{phang2}{stata "stcox treated index_age i.female i.education":. stcox treated index_age i.female i.education}{p_end}
-{phang2}{cmd:. eplot ., drop(_cons) eform ///}{p_end}
-{phang2}{cmd:.     coeflabels(1.treated = "SNRI vs SSRI" ///}{p_end}
-{phang2}{cmd:.                index_age = "Age" ///}{p_end}
-{phang2}{cmd:.                1.female = "Female" ///}{p_end}
-{phang2}{cmd:.                2.education = "Secondary" ///}{p_end}
-{phang2}{cmd:.                3.education = "Tertiary") ///}{p_end}
-{phang2}{cmd:.     effect("Hazard Ratio") ///}{p_end}
-{phang2}{cmd:.     title("Cox Model: Antidepressant Class and CV Risk")}{p_end}
+{phang2}{stata "sysuse auto, clear":. sysuse auto, clear}{p_end}
+{phang2}{stata "logit foreign mpg weight length":. logit foreign mpg weight length}{p_end}
+{phang2}{cmd:. eplot ., drop(_cons) eform values effect("Odds Ratio") scheme(plotplainblind)}{p_end}
 
 
 {marker results}{...}
@@ -287,6 +366,7 @@ and row labels on the y-axis. This is the default.
 {synoptset 15 tabbed}{...}
 {p2col 5 15 19 2: Scalars}{p_end}
 {synopt:{cmd:r(N)}}number of effects plotted{p_end}
+{synopt:{cmd:r(n_models)}}number of models plotted (estimates mode){p_end}
 
 {p2col 5 15 19 2: Macros}{p_end}
 {synopt:{cmd:r(cmd)}}graph command executed{p_end}
@@ -305,5 +385,5 @@ Stockholm, Sweden
 {title:Also see}
 
 {psee}
-Help: {help twoway}, {help graph}
+Help: {help twoway}, {help graph}, {help estimates store}
 {p_end}
