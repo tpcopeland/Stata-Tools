@@ -673,7 +673,7 @@ tte_prepare, id(id) period(period) treatment(treatment) ///
     covariates(`switch_covs') estimand(PP)
 tte_expand
 tte_weight, switch_d_cov(`switch_covs') switch_n_cov(`switch_covs') ///
-    stabilized nolog
+    nolog
 tte_fit, outcome_cov(`outcome_covs') ///
     followup_spec(quadratic) trial_period_spec(quadratic) nolog
 
@@ -695,7 +695,7 @@ tte_prepare, id(id) period(period) treatment(treatment) ///
     covariates(`switch_covs') estimand(PP)
 tte_expand
 tte_weight, switch_d_cov(`switch_covs') switch_n_cov(`switch_covs') ///
-    stabilized truncate(1 99) nolog
+    truncate(1 99) nolog
 tte_fit, outcome_cov(`outcome_covs') ///
     followup_spec(quadratic) trial_period_spec(quadratic) nolog
 

@@ -587,7 +587,8 @@ capture noisily {
     _make_test_data
     codescan dx1-dx3, define(dm2 "E11" | obesity "E66") ///
         date(visit_dt) refdate(index_dt) lookback(365)
-    assert r(N) == 20
+    * r(N) = in-window obs (2019-06-15 and 2019-12-01 dates = 10 rows)
+    assert r(N) == 10
     assert r(n_conditions) == 2
     assert "`r(conditions)'" == "dm2 obesity"
     assert "`r(varlist)'" == "dx1 dx2 dx3"
