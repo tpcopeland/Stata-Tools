@@ -584,7 +584,7 @@ else {
 * table1_tc Sparkline Tests
 * ============================================================
 
-* Test: Sparklines - basic with by() and continuous vars
+* Test: sparkline(group) - basic with by() and continuous vars
 local ++test_count
 capture noisily {
     sysuse auto, clear
@@ -592,39 +592,38 @@ capture noisily {
     table1_tc, by(foreign) ///
         vars(price contn \ mpg conts \ weight contn) ///
         excel("`output_dir'/_test_spark_basic.xlsx") sheet("T1") ///
-        title("T1") sparklines
+        title("T1") sparkline(group)
     confirm file "`output_dir'/_test_spark_basic.xlsx"
 }
 if _rc == 0 {
-    display as result "  PASS: table1_tc sparklines - basic with by()"
+    display as result "  PASS: table1_tc sparkline(group) - basic with by()"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: table1_tc sparklines - basic with by() (error `=_rc')"
+    display as error "  FAIL: table1_tc sparkline(group) - basic with by() (error `=_rc')"
     local ++fail_count
 }
 
-* Test: Sparklines - without by() (single group)
+* Test: sparkline() - without by() should error
 local ++test_count
 capture noisily {
     sysuse auto, clear
-    capture erase "`output_dir'/_test_spark_noby.xlsx"
-    table1_tc, ///
+    capture table1_tc, ///
         vars(price contn \ mpg conts \ weight contn) ///
         excel("`output_dir'/_test_spark_noby.xlsx") sheet("T1") ///
-        title("T1") sparklines
-    confirm file "`output_dir'/_test_spark_noby.xlsx"
+        title("T1") sparkline(group)
+    assert _rc == 198
 }
 if _rc == 0 {
-    display as result "  PASS: table1_tc sparklines - without by()"
+    display as result "  PASS: table1_tc sparkline() - without by() errors"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: table1_tc sparklines - without by() (error `=_rc')"
+    display as error "  FAIL: table1_tc sparkline() - without by() (error `=_rc')"
     local ++fail_count
 }
 
-* Test: Sparklines - all variable types (contn, contln, conts, cat, cate, bin, bine)
+* Test: sparkline(group) - all variable types (contn, contln, conts, cat, cate, bin, bine)
 local ++test_count
 capture noisily {
     sysuse auto, clear
@@ -638,114 +637,114 @@ capture noisily {
              rep78 cat \ rep78 cate \ expensive bin \ highmpg bine \ ///
              headroom contn) ///
         excel("`output_dir'/_test_spark_allvars.xlsx") sheet("T1") ///
-        title("T1") sparklines
+        title("T1") sparkline(group)
     confirm file "`output_dir'/_test_spark_allvars.xlsx"
 }
 if _rc == 0 {
-    display as result "  PASS: table1_tc sparklines - all variable types"
+    display as result "  PASS: table1_tc sparkline(group) - all variable types"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: table1_tc sparklines - all variable types (error `=_rc')"
+    display as error "  FAIL: table1_tc sparkline(group) - all variable types (error `=_rc')"
     local ++fail_count
 }
 
-* Test: Sparklines - sparksize(small) (default)
+* Test: sparkline(group) - sparksize(small) (default)
 local ++test_count
 capture noisily {
     sysuse auto, clear
     capture erase "`output_dir'/_test_spark_small.xlsx"
     table1_tc, by(foreign) vars(price contn \ mpg conts) ///
         excel("`output_dir'/_test_spark_small.xlsx") sheet("T1") ///
-        title("T1") sparklines sparksize(small)
+        title("T1") sparkline(group) sparksize(small)
     confirm file "`output_dir'/_test_spark_small.xlsx"
 }
 if _rc == 0 {
-    display as result "  PASS: table1_tc sparklines - sparksize(small)"
+    display as result "  PASS: table1_tc sparkline(group) - sparksize(small)"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: table1_tc sparklines - sparksize(small) (error `=_rc')"
+    display as error "  FAIL: table1_tc sparkline(group) - sparksize(small) (error `=_rc')"
     local ++fail_count
 }
 
-* Test: Sparklines - sparksize(medium)
+* Test: sparkline(group) - sparksize(medium)
 local ++test_count
 capture noisily {
     sysuse auto, clear
     capture erase "`output_dir'/_test_spark_medium.xlsx"
     table1_tc, by(foreign) vars(price contn \ mpg conts) ///
         excel("`output_dir'/_test_spark_medium.xlsx") sheet("T1") ///
-        title("T1") sparklines sparksize(medium)
+        title("T1") sparkline(group) sparksize(medium)
     confirm file "`output_dir'/_test_spark_medium.xlsx"
 }
 if _rc == 0 {
-    display as result "  PASS: table1_tc sparklines - sparksize(medium)"
+    display as result "  PASS: table1_tc sparkline(group) - sparksize(medium)"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: table1_tc sparklines - sparksize(medium) (error `=_rc')"
+    display as error "  FAIL: table1_tc sparkline(group) - sparksize(medium) (error `=_rc')"
     local ++fail_count
 }
 
-* Test: Sparklines - sparksize(large)
+* Test: sparkline(group) - sparksize(large)
 local ++test_count
 capture noisily {
     sysuse auto, clear
     capture erase "`output_dir'/_test_spark_large.xlsx"
     table1_tc, by(foreign) vars(price contn \ mpg conts) ///
         excel("`output_dir'/_test_spark_large.xlsx") sheet("T1") ///
-        title("T1") sparklines sparksize(large)
+        title("T1") sparkline(group) sparksize(large)
     confirm file "`output_dir'/_test_spark_large.xlsx"
 }
 if _rc == 0 {
-    display as result "  PASS: table1_tc sparklines - sparksize(large)"
+    display as result "  PASS: table1_tc sparkline(group) - sparksize(large)"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: table1_tc sparklines - sparksize(large) (error `=_rc')"
+    display as error "  FAIL: table1_tc sparkline(group) - sparksize(large) (error `=_rc')"
     local ++fail_count
 }
 
-* Test: Sparklines - sparktype(histogram)
+* Test: sparkline(group) - sparktype(histogram)
 local ++test_count
 capture noisily {
     sysuse auto, clear
     capture erase "`output_dir'/_test_spark_hist.xlsx"
     table1_tc, by(foreign) vars(price contn \ mpg conts \ weight contn) ///
         excel("`output_dir'/_test_spark_hist.xlsx") sheet("T1") ///
-        title("T1") sparklines sparktype(histogram)
+        title("T1") sparkline(group) sparktype(histogram)
     confirm file "`output_dir'/_test_spark_hist.xlsx"
 }
 if _rc == 0 {
-    display as result "  PASS: table1_tc sparklines - sparktype(histogram)"
+    display as result "  PASS: table1_tc sparkline(group) - sparktype(histogram)"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: table1_tc sparklines - sparktype(histogram) (error `=_rc')"
+    display as error "  FAIL: table1_tc sparkline(group) - sparktype(histogram) (error `=_rc')"
     local ++fail_count
 }
 
-* Test: Sparklines - sparktype(kdensity) explicit
+* Test: sparkline(group) - sparktype(kdensity) explicit
 local ++test_count
 capture noisily {
     sysuse auto, clear
     capture erase "`output_dir'/_test_spark_kde.xlsx"
     table1_tc, by(foreign) vars(price contn \ mpg conts) ///
         excel("`output_dir'/_test_spark_kde.xlsx") sheet("T1") ///
-        title("T1") sparklines sparktype(kdensity)
+        title("T1") sparkline(group) sparktype(kdensity)
     confirm file "`output_dir'/_test_spark_kde.xlsx"
 }
 if _rc == 0 {
-    display as result "  PASS: table1_tc sparklines - sparktype(kdensity)"
+    display as result "  PASS: table1_tc sparkline(group) - sparktype(kdensity)"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: table1_tc sparklines - sparktype(kdensity) (error `=_rc')"
+    display as error "  FAIL: table1_tc sparkline(group) - sparktype(kdensity) (error `=_rc')"
     local ++fail_count
 }
 
-* Test: Sparklines - with total(after)
+* Test: sparkline(all) - with total(after)
 local ++test_count
 capture noisily {
     sysuse auto, clear
@@ -753,19 +752,19 @@ capture noisily {
     table1_tc, by(foreign) total(after) ///
         vars(price contn \ mpg conts \ rep78 cat) ///
         excel("`output_dir'/_test_spark_total.xlsx") sheet("T1") ///
-        title("T1") sparklines
+        title("T1") sparkline(all)
     confirm file "`output_dir'/_test_spark_total.xlsx"
 }
 if _rc == 0 {
-    display as result "  PASS: table1_tc sparklines - with total(after)"
+    display as result "  PASS: table1_tc sparkline(all) - with total(after)"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: table1_tc sparklines - with total(after) (error `=_rc')"
+    display as error "  FAIL: table1_tc sparkline(all) - with total(after) (error `=_rc')"
     local ++fail_count
 }
 
-* Test: Sparklines - with total(before)
+* Test: sparkline(all) - with total(before)
 local ++test_count
 capture noisily {
     sysuse auto, clear
@@ -773,72 +772,72 @@ capture noisily {
     table1_tc, by(foreign) total(before) ///
         vars(price contn \ mpg conts) ///
         excel("`output_dir'/_test_spark_totbf.xlsx") sheet("T1") ///
-        title("T1") sparklines
+        title("T1") sparkline(all)
     confirm file "`output_dir'/_test_spark_totbf.xlsx"
 }
 if _rc == 0 {
-    display as result "  PASS: table1_tc sparklines - with total(before)"
+    display as result "  PASS: table1_tc sparkline(all) - with total(before)"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: table1_tc sparklines - with total(before) (error `=_rc')"
+    display as error "  FAIL: table1_tc sparkline(all) - with total(before) (error `=_rc')"
     local ++fail_count
 }
 
-* Test: Sparklines - without excel() (graceful note, no error)
+* Test: sparkline() - without excel() (graceful note, no error)
 local ++test_count
 capture noisily {
     sysuse auto, clear
     table1_tc, by(foreign) ///
         vars(price contn \ mpg conts) ///
-        sparklines
+        sparkline(group)
 }
 if _rc == 0 {
-    display as result "  PASS: table1_tc sparklines - without excel() (graceful)"
+    display as result "  PASS: table1_tc sparkline() - without excel() (graceful)"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: table1_tc sparklines - without excel() (error `=_rc')"
+    display as error "  FAIL: table1_tc sparkline() - without excel() (error `=_rc')"
     local ++fail_count
 }
 
-* Test: Sparklines - invalid sparksize
+* Test: sparkline() - invalid sparksize
 local ++test_count
 capture noisily {
     sysuse auto, clear
     capture table1_tc, by(foreign) vars(price contn) ///
         excel("`output_dir'/_test_spark_bad.xlsx") sheet("T1") ///
-        title("T1") sparklines sparksize(huge)
+        title("T1") sparkline(group) sparksize(huge)
     assert _rc == 198
 }
 if _rc == 0 {
-    display as result "  PASS: table1_tc sparklines - invalid sparksize rejected"
+    display as result "  PASS: table1_tc sparkline() - invalid sparksize rejected"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: table1_tc sparklines - invalid sparksize (error `=_rc')"
+    display as error "  FAIL: table1_tc sparkline() - invalid sparksize (error `=_rc')"
     local ++fail_count
 }
 
-* Test: Sparklines - invalid sparktype
+* Test: sparkline() - invalid sparktype
 local ++test_count
 capture noisily {
     sysuse auto, clear
     capture table1_tc, by(foreign) vars(price contn) ///
         excel("`output_dir'/_test_spark_bad.xlsx") sheet("T1") ///
-        title("T1") sparklines sparktype(boxplot)
+        title("T1") sparkline(group) sparktype(boxplot)
     assert _rc == 198
 }
 if _rc == 0 {
-    display as result "  PASS: table1_tc sparklines - invalid sparktype rejected"
+    display as result "  PASS: table1_tc sparkline() - invalid sparktype rejected"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: table1_tc sparklines - invalid sparktype (error `=_rc')"
+    display as error "  FAIL: table1_tc sparkline() - invalid sparktype (error `=_rc')"
     local ++fail_count
 }
 
-* Test: Sparklines - with clear option (table stays in memory)
+* Test: sparkline(group) - with clear option (table stays in memory)
 local ++test_count
 capture noisily {
     sysuse auto, clear
@@ -846,21 +845,22 @@ capture noisily {
     table1_tc, by(foreign) ///
         vars(price contn \ mpg conts) ///
         excel("`output_dir'/_test_spark_clear.xlsx") sheet("T1") ///
-        title("T1") sparklines clear
+        title("T1") sparkline(group) clear
     confirm file "`output_dir'/_test_spark_clear.xlsx"
-    * Verify sparkline column exists in the in-memory table
-    confirm variable sparkline
+    * Verify per-column sparkline columns exist in the in-memory table
+    confirm variable _spark_0
+    confirm variable _spark_1
 }
 if _rc == 0 {
-    display as result "  PASS: table1_tc sparklines - with clear option"
+    display as result "  PASS: table1_tc sparkline(group) - with clear option"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: table1_tc sparklines - with clear option (error `=_rc')"
+    display as error "  FAIL: table1_tc sparkline(group) - with clear option (error `=_rc')"
     local ++fail_count
 }
 
-* Test: Sparklines - data preservation (original data restored)
+* Test: sparkline(group) - data preservation (original data restored)
 local ++test_count
 capture noisily {
     sysuse auto, clear
@@ -869,19 +869,19 @@ capture noisily {
     table1_tc, by(foreign) ///
         vars(price contn \ mpg conts) ///
         excel("`output_dir'/_test_spark_pres.xlsx") sheet("T1") ///
-        title("T1") sparklines
+        title("T1") sparkline(group)
     assert _N == `orig_N'
 }
 if _rc == 0 {
-    display as result "  PASS: table1_tc sparklines - data preservation"
+    display as result "  PASS: table1_tc sparkline(group) - data preservation"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: table1_tc sparklines - data preservation (error `=_rc')"
+    display as error "  FAIL: table1_tc sparkline(group) - data preservation (error `=_rc')"
     local ++fail_count
 }
 
-* Test: Sparklines - combined with histogram + medium size
+* Test: sparkline(group) - combined with histogram + medium size
 local ++test_count
 capture noisily {
     sysuse auto, clear
@@ -889,38 +889,55 @@ capture noisily {
     table1_tc, by(foreign) ///
         vars(price contn \ mpg conts \ rep78 cat) ///
         excel("`output_dir'/_test_spark_combo.xlsx") sheet("T1") ///
-        title("T1") sparklines sparktype(histogram) sparksize(medium)
+        title("T1") sparkline(group) sparktype(histogram) sparksize(medium)
     confirm file "`output_dir'/_test_spark_combo.xlsx"
 }
 if _rc == 0 {
-    display as result "  PASS: table1_tc sparklines - histogram + medium combo"
+    display as result "  PASS: table1_tc sparkline(group) - histogram + medium combo"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: table1_tc sparklines - histogram + medium combo (error `=_rc')"
+    display as error "  FAIL: table1_tc sparkline(group) - histogram + medium combo (error `=_rc')"
     local ++fail_count
 }
 
-* Test: Sparklines - abbreviation (spark instead of sparklines)
+* Test: sparkline(total) - requires total() option
 local ++test_count
 capture noisily {
     sysuse auto, clear
-    capture erase "`output_dir'/_test_spark_abbrev.xlsx"
-    table1_tc, by(foreign) vars(price contn \ mpg conts) ///
-        excel("`output_dir'/_test_spark_abbrev.xlsx") sheet("T1") ///
-        title("T1") spark
-    confirm file "`output_dir'/_test_spark_abbrev.xlsx"
+    capture table1_tc, by(foreign) vars(price contn \ mpg conts) ///
+        excel("`output_dir'/_test_spark_bad.xlsx") sheet("T1") ///
+        title("T1") sparkline(total)
+    assert _rc == 198
 }
 if _rc == 0 {
-    display as result "  PASS: table1_tc sparklines - abbreviation"
+    display as result "  PASS: table1_tc sparkline(total) - requires total()"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: table1_tc sparklines - abbreviation (error `=_rc')"
+    display as error "  FAIL: table1_tc sparkline(total) - requires total() (error `=_rc')"
     local ++fail_count
 }
 
-* Test: Sparklines - with pairwise123 and test options
+* Test: sparkline() - invalid value rejected
+local ++test_count
+capture noisily {
+    sysuse auto, clear
+    capture table1_tc, by(foreign) vars(price contn) ///
+        excel("`output_dir'/_test_spark_bad.xlsx") sheet("T1") ///
+        title("T1") sparkline(invalid)
+    assert _rc == 198
+}
+if _rc == 0 {
+    display as result "  PASS: table1_tc sparkline() - invalid value rejected"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: table1_tc sparkline() - invalid value (error `=_rc')"
+    local ++fail_count
+}
+
+* Test: sparkline(group) - with pairwise123 and test options
 local ++test_count
 capture noisily {
     sysuse auto, clear
@@ -932,34 +949,54 @@ capture noisily {
     table1_tc, by(group3) ///
         vars(price contn \ mpg conts) ///
         excel("`output_dir'/_test_spark_pair.xlsx") sheet("T1") ///
-        title("T1") sparklines test pairwise123
+        title("T1") sparkline(group) test pairwise123
     confirm file "`output_dir'/_test_spark_pair.xlsx"
 }
 if _rc == 0 {
-    display as result "  PASS: table1_tc sparklines - with pairwise123 + test"
+    display as result "  PASS: table1_tc sparkline(group) - with pairwise123 + test"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: table1_tc sparklines - with pairwise123 + test (error `=_rc')"
+    display as error "  FAIL: table1_tc sparkline(group) - with pairwise123 + test (error `=_rc')"
     local ++fail_count
 }
 
-* Test: Sparklines - with borderstyle(thin)
+* Test: sparkline(group) - with borderstyle(thin)
 local ++test_count
 capture noisily {
     sysuse auto, clear
     capture erase "`output_dir'/_test_spark_thin.xlsx"
     table1_tc, by(foreign) vars(price contn \ mpg conts) ///
         excel("`output_dir'/_test_spark_thin.xlsx") sheet("T1") ///
-        title("T1") sparklines borderstyle(thin)
+        title("T1") sparkline(group) borderstyle(thin)
     confirm file "`output_dir'/_test_spark_thin.xlsx"
 }
 if _rc == 0 {
-    display as result "  PASS: table1_tc sparklines - with borderstyle(thin)"
+    display as result "  PASS: table1_tc sparkline(group) - with borderstyle(thin)"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: table1_tc sparklines - with borderstyle(thin) (error `=_rc')"
+    display as error "  FAIL: table1_tc sparkline(group) - with borderstyle(thin) (error `=_rc')"
+    local ++fail_count
+}
+
+* Test: sparkline(total) - sparkline only on total column
+local ++test_count
+capture noisily {
+    sysuse auto, clear
+    capture erase "`output_dir'/_test_spark_totalonly.xlsx"
+    table1_tc, by(foreign) total(after) ///
+        vars(price contn \ mpg conts) ///
+        excel("`output_dir'/_test_spark_totalonly.xlsx") sheet("T1") ///
+        title("T1") sparkline(total)
+    confirm file "`output_dir'/_test_spark_totalonly.xlsx"
+}
+if _rc == 0 {
+    display as result "  PASS: table1_tc sparkline(total) - total column only"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: table1_tc sparkline(total) - total column only (error `=_rc')"
     local ++fail_count
 }
 

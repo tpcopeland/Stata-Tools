@@ -25,6 +25,11 @@ SYNTAX:
 	        - groups: Number of groups (for mixed models)
 	relabel: Relabel random effects nicely (e.g., "var(_cons)" -> "Variance (Intercept)")
 
+	Automatic MOR/MHR: For melogit models, random intercept variance is
+	        automatically converted to Median Odds Ratio (MOR). For mestreg
+	        and mecloglog, it becomes Median Hazard Ratio (MHR). CI bounds
+	        are transformed on the same scale. Use nore to suppress.
+
 */
 
 program define regtab, rclass
@@ -402,16 +407,18 @@ quietly{
     * mestreg / mecloglog -> Median Hazard Ratio (MHR)
     * Note: melogit stores e(cmd)="meglm", mestreg stores e(cmd)="gsem"
     * The original command name is in e(cmd2)
+    * For multi-model tables, e(cmd2) reflects the last model only.
+    * RE rows only exist for mixed-effects models, so if the last model
+    * is melogit/mestreg, MOR/MHR applies to its RE rows. Mixing
+    * different mixed-effects model types (e.g., mixed + melogit) in one
+    * table is not supported for MOR/MHR — use separate tables instead.
     local re_transform = "none"
     local model_cmd2 = ""
     capture local model_cmd2 = e(cmd2)
     if "`model_cmd2'" == "melogit" {
         local re_transform = "mor"
     }
-    else if "`model_cmd2'" == "mecloglog" {
-        local re_transform = "mhr"
-    }
-    else if "`model_cmd2'" == "mestreg" {
+    else if inlist("`model_cmd2'", "mecloglog", "mestreg") {
         local re_transform = "mhr"
     }
 
