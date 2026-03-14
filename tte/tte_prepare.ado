@@ -1,4 +1,4 @@
-*! tte_prepare Version 1.0.2  2026/03/09
+*! tte_prepare Version 1.0.3  2026/03/14
 *! Data preparation and variable mapping for target trial emulation
 *! Author: Timothy P Copeland
 *! Author: Tania F Reza
@@ -175,6 +175,8 @@ program define tte_prepare, rclass
     char _dta[_tte_expanded]
     char _dta[_tte_weighted]
     char _dta[_tte_fitted]
+    char _dta[_tte_weight_var]
+    char _dta[_tte_pscore_var]
 
     * =========================================================================
     * DISPLAY

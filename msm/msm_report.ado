@@ -1,4 +1,4 @@
-*! msm_report Version 1.0.0  2026/03/03
+*! msm_report Version 1.0.1  2026/03/14
 *! Publication-quality results tables for MSM
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet
@@ -28,6 +28,8 @@ program define msm_report, rclass
     local _more = c(more)
     set varabbrev off
     set more off
+
+    capture noisily {
 
     syntax [, EXPort(string) FORmat(string) DECimals(integer 4) ///
         EFORM REPLACE]
@@ -104,6 +106,8 @@ program define msm_report, rclass
     * Model info
     local has_model = 0
     local model : char _dta[_msm_model]
+    local fit_level : char _dta[_msm_fit_level]
+    if "`fit_level'" == "" local fit_level "95"
     if "`model'" != "" {
         local has_model = 1
         local period_spec : char _dta[_msm_period_spec]
@@ -154,9 +158,13 @@ program define msm_report, rclass
             }
             display as text ""
 
-            * Coefficient table
-            local coef_names: colnames e(b)
+            * Use saved fit matrices instead of live e()
+            tempname _rpt_b _rpt_V
+            matrix `_rpt_b' = _msm_fit_b
+            matrix `_rpt_V' = _msm_fit_V
+            local coef_names: colnames `_rpt_b'
             local n_coefs: word count `coef_names'
+            local _z_crit = invnormal((100 + `fit_level') / 200)
 
             if "`eform'" != "" {
                 local transform_label = cond("`model'" == "cox", "HR", "OR")
@@ -172,8 +180,10 @@ program define msm_report, rclass
 
             forvalues i = 1/`n_coefs' {
                 local cname: word `i' of `coef_names'
-                local b = _b[`cname']
-                local se = _se[`cname']
+                local b = `_rpt_b'[1, `i']
+                local v_ii = `_rpt_V'[`i', `i']
+                if `v_ii' <= 0 continue
+                local se = sqrt(`v_ii')
                 local z = `b' / `se'
                 local p = 2 * normal(-abs(`z'))
 
@@ -181,8 +191,8 @@ program define msm_report, rclass
 
                 if "`eform'" != "" {
                     local ef = exp(`b')
-                    local ef_lo = exp(`b' - 1.96 * `se')
-                    local ef_hi = exp(`b' + 1.96 * `se')
+                    local ef_lo = exp(`b' - `_z_crit' * `se')
+                    local ef_hi = exp(`b' + `_z_crit' * `se')
                     display as text %20s "`abbrev_name'" "  " ///
                         as result %10.`decimals'f `ef' "  " ///
                         %10.`decimals'f `ef_lo' "  " ///
@@ -251,18 +261,24 @@ program define msm_report, rclass
                 file write `fh' "Variable,Coefficient,SE,p-value" _n
             }
 
-            local coef_names: colnames e(b)
+            tempname _csv_b _csv_V
+            matrix `_csv_b' = _msm_fit_b
+            matrix `_csv_V' = _msm_fit_V
+            local coef_names: colnames `_csv_b'
             local n_coefs: word count `coef_names'
+            local _z_crit = invnormal((100 + `fit_level') / 200)
             forvalues i = 1/`n_coefs' {
                 local cname: word `i' of `coef_names'
-                local b = _b[`cname']
-                local se = _se[`cname']
+                local b = `_csv_b'[1, `i']
+                local v_ii = `_csv_V'[`i', `i']
+                if `v_ii' <= 0 continue
+                local se = sqrt(`v_ii')
                 local p = 2 * normal(-abs(`b'/`se'))
 
                 if "`eform'" != "" {
                     local ef = exp(`b')
-                    local ef_lo = exp(`b' - 1.96 * `se')
-                    local ef_hi = exp(`b' + 1.96 * `se')
+                    local ef_lo = exp(`b' - `_z_crit' * `se')
+                    local ef_hi = exp(`b' + `_z_crit' * `se')
                     file write `fh' "`cname'," ///
                         "`=string(`ef', "%9.`decimals'f")'," ///
                         "`=string(`ef_lo', "%9.`decimals'f")'," ///
@@ -336,8 +352,12 @@ program define msm_report, rclass
         * Sheet 2: Coefficients
         if `has_model' {
             quietly {
-                local coef_names: colnames e(b)
+                tempname _xl_b _xl_V
+                matrix `_xl_b' = _msm_fit_b
+                matrix `_xl_V' = _msm_fit_V
+                local coef_names: colnames `_xl_b'
                 local n_coefs: word count `coef_names'
+                local _z_crit = invnormal((100 + `fit_level') / 200)
 
                 preserve
                 clear
@@ -355,15 +375,19 @@ program define msm_report, rclass
 
                 forvalues i = 1/`n_coefs' {
                     local cname: word `i' of `coef_names'
+                    local _b_i = `_xl_b'[1, `i']
+                    local _v_ii = `_xl_V'[`i', `i']
+                    if `_v_ii' <= 0 continue
+                    local _se_i = sqrt(`_v_ii')
                     replace variable = "`cname'" in `i'
-                    replace coefficient = _b[`cname'] in `i'
-                    replace se = _se[`cname'] in `i'
-                    replace p_value = 2 * normal(-abs(_b[`cname']/_se[`cname'])) in `i'
+                    replace coefficient = `_b_i' in `i'
+                    replace se = `_se_i' in `i'
+                    replace p_value = 2 * normal(-abs(`_b_i'/`_se_i')) in `i'
 
                     if "`eform'" != "" {
-                        replace or_hr = exp(_b[`cname']) in `i'
-                        replace ci_low = exp(_b[`cname'] - 1.96 * _se[`cname']) in `i'
-                        replace ci_high = exp(_b[`cname'] + 1.96 * _se[`cname']) in `i'
+                        replace or_hr = exp(`_b_i') in `i'
+                        replace ci_low = exp(`_b_i' - `_z_crit' * `_se_i') in `i'
+                        replace ci_high = exp(`_b_i' + `_z_crit' * `_se_i') in `i'
                     }
                 }
 
@@ -379,6 +403,11 @@ program define msm_report, rclass
     return local format "`format'"
     if "`export'" != "" return local export "`export'"
 
+    } /* end capture noisily */
+    local _rc = _rc
+
     set varabbrev `_varabbrev'
     set more `_more'
+
+    if `_rc' exit `_rc'
 end

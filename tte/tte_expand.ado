@@ -1,4 +1,4 @@
-*! tte_expand Version 1.0.3  2026/03/01
+*! tte_expand Version 1.0.4  2026/03/14
 *! Sequential trial expansion (clone-censor-weight) for target trial emulation
 *! Author: Timothy P Copeland
 *! Author: Tania F Reza
@@ -196,6 +196,18 @@ program define tte_expand, rclass
         * Apply max follow-up
         if `maxfollowup' > 0 {
             quietly drop if `prefix'followup > `maxfollowup'
+        }
+
+        * Apply natural/administrative censoring if censor variable provided
+        if "`censor_var'" != "" {
+            tempvar _nat_cens_fu _min_nat_cens
+            quietly gen int `_nat_cens_fu' = `prefix'followup if `censor_var' == 1
+            quietly bysort `id': egen int `_min_nat_cens' = min(`_nat_cens_fu')
+
+            * Drop rows after first natural censoring event
+            quietly drop if `prefix'followup > `_min_nat_cens' & !missing(`_min_nat_cens')
+
+            drop `_nat_cens_fu' `_min_nat_cens'
         }
 
         * Trial identifier

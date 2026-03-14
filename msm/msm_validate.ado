@@ -1,4 +1,4 @@
-*! msm_validate Version 1.0.0  2026/03/03
+*! msm_validate Version 1.0.1  2026/03/14
 *! Data quality checks for marginal structural models
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet
@@ -25,6 +25,8 @@ program define msm_validate, rclass
     local _more = c(more)
     set varabbrev off
     set more off
+
+    capture noisily {
 
     syntax [, STRict VERbose]
 
@@ -456,6 +458,11 @@ program define msm_validate, rclass
     return scalar n_warnings = `n_warnings'
     return local validation = cond(`n_errors' == 0, "passed", "failed")
 
+    } /* end capture noisily */
+    local _rc = _rc
+
     set varabbrev `_varabbrev'
     set more `_more'
+
+    if `_rc' exit `_rc'
 end

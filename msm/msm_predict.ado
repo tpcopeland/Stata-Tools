@@ -1,4 +1,4 @@
-*! msm_predict Version 1.0.0  2026/03/03
+*! msm_predict Version 1.0.1  2026/03/14
 *! Counterfactual predictions from marginal structural models
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet
@@ -35,6 +35,8 @@ program define msm_predict, rclass
     local _more = c(more)
     set varabbrev off
     set more off
+
+    capture noisily {
 
     * =========================================================================
     * SYNTAX PARSING
@@ -113,8 +115,8 @@ program define msm_predict, rclass
     * =========================================================================
 
     tempname b_hat V_hat
-    matrix `b_hat' = e(b)
-    matrix `V_hat' = e(V)
+    matrix `b_hat' = _msm_fit_b
+    matrix `V_hat' = _msm_fit_V
     local n_coefs = colsof(`b_hat')
 
     * =========================================================================
@@ -522,8 +524,13 @@ program define msm_predict, rclass
         }
     }
 
+    } /* end capture noisily */
+    local _rc = _rc
+
     set varabbrev `_varabbrev'
     set more `_more'
+
+    if `_rc' exit `_rc'
 end
 
 * =========================================================================

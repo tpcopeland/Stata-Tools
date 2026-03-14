@@ -1,4 +1,4 @@
-*! msm_prepare Version 1.0.0  2026/03/03
+*! msm_prepare Version 1.0.1  2026/03/14
 *! Data preparation and variable mapping for marginal structural models
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet
@@ -30,6 +30,8 @@ program define msm_prepare, rclass
     local _more = c(more)
     set varabbrev off
     set more off
+
+    capture noisily {
 
     * =========================================================================
     * SYNTAX PARSING
@@ -154,9 +156,47 @@ program define msm_prepare, rclass
     char _dta[_msm_bl_covariates] "`baseline_covariates'"
     char _dta[_msm_prefix] "`generate'"
 
-    * Clear any weight/fit flags from prior runs
+    * Clear all downstream artifacts from prior runs
     char _dta[_msm_weighted]
     char _dta[_msm_fitted]
+    char _dta[_msm_model]
+    char _dta[_msm_period_spec]
+    char _dta[_msm_outcome_cov]
+    char _dta[_msm_per_ns_knots]
+    char _dta[_msm_per_ns_df]
+    char _dta[_msm_cluster]
+    char _dta[_msm_time_vars]
+    char _dta[_msm_fit_level]
+    char _dta[_msm_weight_var]
+    char _dta[_msm_pred_saved]
+    char _dta[_msm_pred_type]
+    char _dta[_msm_pred_strategy]
+    char _dta[_msm_pred_level]
+    char _dta[_msm_bal_saved]
+    char _dta[_msm_bal_threshold]
+    char _dta[_msm_diag_saved]
+    char _dta[_msm_diag_mean]
+    char _dta[_msm_diag_sd]
+    char _dta[_msm_diag_min]
+    char _dta[_msm_diag_max]
+    char _dta[_msm_diag_p1]
+    char _dta[_msm_diag_p50]
+    char _dta[_msm_diag_p99]
+    char _dta[_msm_diag_ess]
+    char _dta[_msm_diag_ess_pct]
+    char _dta[_msm_sens_saved]
+    char _dta[_msm_sens_effect]
+    char _dta[_msm_sens_effect_lo]
+    char _dta[_msm_sens_effect_hi]
+    char _dta[_msm_sens_effect_label]
+    char _dta[_msm_sens_model]
+    char _dta[_msm_sens_evalue_point]
+    char _dta[_msm_sens_evalue_ci]
+    char _dta[_msm_sens_level]
+    capture matrix drop _msm_fit_b
+    capture matrix drop _msm_fit_V
+    capture matrix drop _msm_pred_matrix
+    capture matrix drop _msm_bal_matrix
 
     * =========================================================================
     * DISPLAY
@@ -215,6 +255,11 @@ program define msm_prepare, rclass
     return local baseline_covariates "`baseline_covariates'"
     return local prefix "`generate'"
 
+    } /* end capture noisily */
+    local _rc = _rc
+
     set varabbrev `_varabbrev'
     set more `_more'
+
+    if `_rc' exit `_rc'
 end

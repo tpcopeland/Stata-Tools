@@ -1,4 +1,4 @@
-*! msm_table Version 1.0.0  2026/03/03
+*! msm_table Version 1.0.1  2026/03/14
 *! Publication-quality Excel tables for MSM pipeline results
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet
@@ -38,6 +38,8 @@ program define msm_table
     local _more = c(more)
     set varabbrev off
     set more off
+
+    capture noisily {
 
     syntax , XLSX(string) [COEFficients PREDictions BALance WEIGHTs ///
         SENSitivity ALL EForm DECimals(integer 3) SEP(string) ///
@@ -94,11 +96,11 @@ program define msm_table
             }
         }
         else {
-            capture matrix list e(b)
+            capture matrix list _msm_fit_b
             if _rc {
                 if `auto' local do_coef = 0
                 else {
-                    display as error "e(b) not found; re-run msm_fit"
+                    display as error "saved model coefficients not found; re-run msm_fit"
                     exit 301
                 }
             }
@@ -205,8 +207,13 @@ program define msm_table
     display as result "`n_sheets'" as text " table(s) exported to " ///
         as result "`xlsx'"
 
+    } /* end capture noisily */
+    local _rc = _rc
+
     set varabbrev `_varabbrev'
     set more `_more'
+
+    if `_rc' exit `_rc'
 end
 
 * =========================================================================
@@ -235,12 +242,16 @@ program define _msm_tbl_coef
         local eff_label "Coef."
     }
 
-    * Get coefficients
+    * Get coefficients from saved fit matrices
     tempname b V
-    matrix `b' = e(b)
-    matrix `V' = e(V)
+    matrix `b' = _msm_fit_b
+    matrix `V' = _msm_fit_V
     local k = colsof(`b')
     local coef_names : colnames `b'
+
+    * Read fit level BEFORE preserve/clear (chars lost on clear)
+    local _fit_level : char _dta[_msm_fit_level]
+    if "`_fit_level'" == "" local _fit_level "95"
 
     * Total rows: title + header + k data rows
     local nrows = `k' + 2
@@ -262,11 +273,9 @@ program define _msm_tbl_coef
         else {
             replace A = "`sheet'" in 1
         }
-
-        * Row 2: headers
         replace A = "Variable" in 2
         replace B = "`eff_label'" in 2
-        replace C = "95% CI" in 2
+        replace C = "`_fit_level'% CI" in 2
         replace D = "p-value" in 2
 
         * Data rows
@@ -285,7 +294,7 @@ program define _msm_tbl_coef
             }
 
             local se = sqrt(`v_ii')
-            local z = invnormal(0.975)
+            local z = invnormal((100 + `_fit_level') / 200)
             local lo = `coef' - `z' * `se'
             local hi = `coef' + `z' * `se'
             local p = 2 * normal(-abs(`coef' / `se'))
@@ -870,13 +879,15 @@ program define _msm_tbl_sens
     local sheet "Sensitivity"
     local fmt "%9.`decimals'f"
 
-    * Read from chars
+    * Read from chars (BEFORE preserve/clear)
     local effect    : char _dta[_msm_sens_effect]
     local effect_lo : char _dta[_msm_sens_effect_lo]
     local effect_hi : char _dta[_msm_sens_effect_hi]
     local eff_label : char _dta[_msm_sens_effect_label]
     local evalue_pt : char _dta[_msm_sens_evalue_point]
     local evalue_ci : char _dta[_msm_sens_evalue_ci]
+    local _sens_level : char _dta[_msm_sens_level]
+    if "`_sens_level'" == "" local _sens_level "95"
 
     * Count rows: title + header + effect + CI [+ evalue_point + evalue_ci]
     local n_data = 2
@@ -913,7 +924,7 @@ program define _msm_tbl_sens
         * CI
         local ci_lo_s = strtrim(string(`effect_lo', "`fmt'"))
         local ci_hi_s = strtrim(string(`effect_hi', "`fmt'"))
-        replace A = "95% CI" in 4
+        replace A = "`_sens_level'% CI" in 4
         replace B = "`ci_lo_s' - `ci_hi_s'" in 4
 
         * E-values

@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.4  10mar2026}{...}
+{* *! version 1.0.5  14mar2026}{...}
 {viewerjumpto "Syntax" "tte_fit##syntax"}{...}
 {viewerjumpto "Description" "tte_fit##description"}{...}
 {viewerjumpto "Options" "tte_fit##options"}{...}
@@ -29,7 +29,6 @@
 {synopt:{opth model_var(string)}}treatment variable; default is assigned arm{p_end}
 {synopt:{opth trial_period_spec(string)}}trial period: linear, quadratic, cubic, ns(#), none{p_end}
 {synopt:{opth fol:lowup_spec(string)}}follow-up: linear, quadratic (default), cubic, ns(#), none{p_end}
-{synopt:{opt rob:ust}}robust/sandwich SEs (on by default){p_end}
 {synopt:{opth cl:uster(varname)}}cluster variable; default is patient ID{p_end}
 {synopt:{opt level(#)}}confidence level; default is {cmd:95}{p_end}
 {synopt:{opt nolog}}suppress iteration log{p_end}

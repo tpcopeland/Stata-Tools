@@ -1,4 +1,4 @@
-*! msm_weight Version 1.0.0  2026/03/03
+*! msm_weight Version 1.0.1  2026/03/14
 *! Inverse probability of treatment weights for marginal structural models
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet
@@ -38,6 +38,8 @@ program define msm_weight, rclass
     local _more = c(more)
     set varabbrev off
     set more off
+
+    capture noisily {
 
     * =========================================================================
     * SYNTAX PARSING
@@ -92,6 +94,13 @@ program define msm_weight, rclass
     if "`censor_d_cov'" != "" & "`censor'" == "" {
         display as error "censor_d_cov() specified but no censoring variable was mapped in msm_prepare"
         display as error "Re-run {bf:msm_prepare} with the {bf:censor()} option."
+        exit 198
+    }
+
+    * censor_n_cov without censor_d_cov is a misspecification
+    if "`censor_n_cov'" != "" & "`censor_d_cov'" == "" {
+        display as error "censor_n_cov() requires censor_d_cov()"
+        display as error "The censoring numerator model only applies when a denominator model is also specified."
         exit 198
     }
 
@@ -278,8 +287,13 @@ program define msm_weight, rclass
 
     return local weight_var "_msm_weight"
 
+    } /* end capture noisily */
+    local _rc = _rc
+
     set varabbrev `_varabbrev'
     set more `_more'
+
+    if `_rc' exit `_rc'
 end
 
 * =========================================================================
@@ -298,6 +312,10 @@ program define _msm_weight_treatment
 
     local log_opt ""
     if "`nolog'" != "" local log_opt "nolog"
+
+    * Probability truncation bounds for numerical stability
+    local _pr_lo = 0.001
+    local _pr_hi = 0.999
 
     quietly {
         * Create analysis sample marker: not yet had outcome or been censored
@@ -405,25 +423,30 @@ program define _msm_weight_treatment
         * ---------------------------------------------------------------
         tempvar _tw_t
 
+        * Truncate extreme probabilities to avoid division by zero
+        * and ensure all at-risk observations get proper weights
+        count if (`_denom_pr' < `_pr_lo' | `_denom_pr' > `_pr_hi') & `_at_risk' & !missing(`_denom_pr')
+        local _n_extreme_d = r(N)
+        replace `_denom_pr' = max(`_denom_pr', `_pr_lo') if `_at_risk' & !missing(`_denom_pr')
+        replace `_denom_pr' = min(`_denom_pr', `_pr_hi') if `_at_risk' & !missing(`_denom_pr')
+        replace `_numer_pr' = max(`_numer_pr', `_pr_lo') if `_at_risk' & !missing(`_numer_pr')
+        replace `_numer_pr' = min(`_numer_pr', `_pr_hi') if `_at_risk' & !missing(`_numer_pr')
+
+        if `_n_extreme_d' > 0 {
+            noisily display as text "  Warning: " as result `_n_extreme_d' as text ///
+                " obs with near-deterministic treatment probability (truncated)"
+        }
+
         * w_t = numer / denom if treated, (1-numer)/(1-denom) if untreated
         gen double `_tw_t' = 1
 
         * Treated observations
         replace `_tw_t' = `_numer_pr' / `_denom_pr' ///
-            if `treatment' == 1 & `_at_risk' ///
-            & !missing(`_denom_pr') & `_denom_pr' > 0.001
+            if `treatment' == 1 & `_at_risk' & !missing(`_denom_pr')
 
         * Untreated observations
         replace `_tw_t' = (1 - `_numer_pr') / (1 - `_denom_pr') ///
-            if `treatment' == 0 & `_at_risk' ///
-            & !missing(`_denom_pr') & `_denom_pr' < 0.999
-
-        * Warn about extreme probabilities
-        count if (`_denom_pr' < 0.001 | `_denom_pr' > 0.999) & `_at_risk' & !missing(`_denom_pr')
-        if r(N) > 0 {
-            noisily display as text "  Warning: " as result r(N) as text ///
-                " obs with near-deterministic treatment probability"
-        }
+            if `treatment' == 0 & `_at_risk' & !missing(`_denom_pr')
 
         * ---------------------------------------------------------------
         * CUMULATIVE PRODUCT VIA LOG-SUM
@@ -458,6 +481,10 @@ program define _msm_weight_censor
 
     local log_opt ""
     if "`nolog'" != "" local log_opt "nolog"
+
+    * Probability truncation bounds for numerical stability
+    local _pr_lo = 0.001
+    local _pr_hi = 0.999
 
     quietly {
         * At-risk: not yet had outcome or been censored (prior periods)
@@ -516,10 +543,15 @@ program define _msm_weight_censor
         * ---------------------------------------------------------------
         tempvar _cw_t
 
+        * Truncate extreme censoring probabilities
+        replace `_denom_pr' = max(`_denom_pr', `_pr_lo') if `_at_risk' & `outcome' == 0 & !missing(`_denom_pr')
+        replace `_denom_pr' = min(`_denom_pr', `_pr_hi') if `_at_risk' & `outcome' == 0 & !missing(`_denom_pr')
+        replace `_numer_pr' = max(`_numer_pr', `_pr_lo') if `_at_risk' & `outcome' == 0 & !missing(`_numer_pr')
+        replace `_numer_pr' = min(`_numer_pr', `_pr_hi') if `_at_risk' & `outcome' == 0 & !missing(`_numer_pr')
+
         gen double `_cw_t' = 1
         replace `_cw_t' = (1 - `_numer_pr') / (1 - `_denom_pr') ///
-            if `_at_risk' & `outcome' == 0 ///
-            & !missing(`_denom_pr') & `_denom_pr' < 0.999
+            if `_at_risk' & `outcome' == 0 & !missing(`_denom_pr')
 
         * Cumulative product
         tempvar _log_cw _cum_log_cw

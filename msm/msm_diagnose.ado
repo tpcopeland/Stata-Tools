@@ -1,4 +1,4 @@
-*! msm_diagnose Version 1.0.0  2026/03/03
+*! msm_diagnose Version 1.0.1  2026/03/14
 *! Weight diagnostics and covariate balance for MSM
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet
@@ -26,6 +26,8 @@ program define msm_diagnose, rclass
     local _more = c(more)
     set varabbrev off
     set more off
+
+    capture noisily {
 
     syntax [, BALance_covariates(varlist numeric) BY_period THReshold(real 0.1)]
 
@@ -266,6 +268,11 @@ program define msm_diagnose, rclass
     char _dta[_msm_diag_ess_pct] "`ess_pct'"
     char _dta[_msm_diag_saved] "1"
 
+    } /* end capture noisily */
+    local _rc = _rc
+
     set varabbrev `_varabbrev'
     set more `_more'
+
+    if `_rc' exit `_rc'
 end

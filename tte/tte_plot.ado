@@ -1,4 +1,4 @@
-*! tte_plot Version 1.1.0  2026/03/10
+*! tte_plot Version 1.1.1  2026/03/14
 *! Visualization for target trial emulation
 *! Author: Timothy P Copeland
 *! Author: Tania F Reza
@@ -69,11 +69,20 @@ program define tte_plot, rclass
     if "`type'" == "km" {
         if "`title'" == "" local title "Kaplan-Meier Curves by Treatment Arm"
 
-        * Check for weight variable
+        * Check for weight variable (resolve custom name, fall back to default)
         local weight_var ""
-        capture confirm variable `prefix'weight
-        if _rc == 0 {
-            local weight_var "`prefix'weight"
+        local _wvar_meta : char _dta[_tte_weight_var]
+        if "`_wvar_meta'" != "" {
+            capture confirm variable `_wvar_meta'
+            if _rc == 0 {
+                local weight_var "`_wvar_meta'"
+            }
+        }
+        if "`weight_var'" == "" {
+            capture confirm variable `prefix'weight
+            if _rc == 0 {
+                local weight_var "`prefix'weight"
+            }
         }
 
         preserve
@@ -193,11 +202,22 @@ program define tte_plot, rclass
     else if "`type'" == "weights" {
         if "`title'" == "" local title "Weight Distribution by Treatment Arm"
 
-        local weight_var "`prefix'weight"
-        capture confirm variable `weight_var'
-        if _rc != 0 {
-            display as error "no weight variable found; run tte_weight first"
-            exit 111
+        * Resolve weight variable (custom name, then default)
+        local weight_var ""
+        local _wvar_meta : char _dta[_tte_weight_var]
+        if "`_wvar_meta'" != "" {
+            capture confirm variable `_wvar_meta'
+            if _rc == 0 {
+                local weight_var "`_wvar_meta'"
+            }
+        }
+        if "`weight_var'" == "" {
+            local weight_var "`prefix'weight"
+            capture confirm variable `weight_var'
+            if _rc != 0 {
+                display as error "no weight variable found; run tte_weight first"
+                exit 111
+            }
         }
 
         twoway (kdensity `weight_var' if `prefix'arm == 0, lcolor(navy) lwidth(medthick)) ///

@@ -1,4 +1,4 @@
-*! tte_fit Version 1.0.4  2026/03/10
+*! tte_fit Version 1.0.5  2026/03/14
 *! Outcome model fitting for target trial emulation
 *! Author: Timothy P Copeland
 *! Author: Tania F Reza
@@ -101,13 +101,22 @@ program define tte_fit, eclass
         }
     }
 
-    * Check weight variable
+    * Check weight variable (resolve custom name from metadata, fall back to default)
     local weight_var ""
-    capture confirm variable `prefix'weight
-    if _rc == 0 {
-        local weight_var "`prefix'weight"
+    local _wvar_meta : char _dta[_tte_weight_var]
+    if "`_wvar_meta'" != "" {
+        capture confirm variable `_wvar_meta'
+        if _rc == 0 {
+            local weight_var "`_wvar_meta'"
+        }
     }
-    else {
+    if "`weight_var'" == "" {
+        capture confirm variable `prefix'weight
+        if _rc == 0 {
+            local weight_var "`prefix'weight"
+        }
+    }
+    if "`weight_var'" == "" {
         * Check if ITT (weights not needed)
         if "`estimand'" != "ITT" {
             display as text "{p}"

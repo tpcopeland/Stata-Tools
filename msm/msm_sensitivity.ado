@@ -1,4 +1,4 @@
-*! msm_sensitivity Version 1.0.0  2026/03/03
+*! msm_sensitivity Version 1.0.1  2026/03/14
 *! Sensitivity analysis for unmeasured confounding in MSM
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet
@@ -32,6 +32,8 @@ program define msm_sensitivity, rclass
     set varabbrev off
     set more off
 
+    capture noisily {
+
     syntax [, EVAlue BOUND(numlist) ///
         CONFounding_strength(numlist min=2 max=2) ///
         Level(cilevel)]
@@ -49,9 +51,25 @@ program define msm_sensitivity, rclass
         local evalue "evalue"
     }
 
-    * Get treatment effect
-    local b_treat = _b[`treatment']
-    local se_treat = _se[`treatment']
+    * Get treatment effect from saved fit matrices
+    tempname _fit_b _fit_V
+    matrix `_fit_b' = _msm_fit_b
+    matrix `_fit_V' = _msm_fit_V
+    local coef_names : colnames `_fit_b'
+    local _treat_idx = 0
+    local _idx = 0
+    foreach _cname of local coef_names {
+        local ++_idx
+        if "`_cname'" == "`treatment'" {
+            local _treat_idx = `_idx'
+        }
+    }
+    if `_treat_idx' == 0 {
+        display as error "treatment variable `treatment' not found in saved model"
+        exit 111
+    }
+    local b_treat = `_fit_b'[1, `_treat_idx']
+    local se_treat = sqrt(`_fit_V'[`_treat_idx', `_treat_idx'])
 
     * Convert to risk ratio scale for E-value
     * For logistic model: OR -> approximate RR using Zhang & Yu (1998) or
@@ -240,8 +258,14 @@ program define msm_sensitivity, rclass
         char _dta[_msm_sens_evalue_point] "`evalue_point'"
         char _dta[_msm_sens_evalue_ci] "`evalue_ci'"
     }
+    char _dta[_msm_sens_level] "`level'"
     char _dta[_msm_sens_saved] "1"
+
+    } /* end capture noisily */
+    local _rc = _rc
 
     set varabbrev `_varabbrev'
     set more `_more'
+
+    if `_rc' exit `_rc'
 end

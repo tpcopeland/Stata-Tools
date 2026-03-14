@@ -1,4 +1,4 @@
-*! msm_fit Version 1.0.0  2026/03/03
+*! msm_fit Version 1.0.1  2026/03/14
 *! Weighted outcome model for marginal structural models
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet
@@ -33,6 +33,8 @@ program define msm_fit, eclass
     local _more = c(more)
     set varabbrev off
     set more off
+
+    capture noisily {
 
     * =========================================================================
     * SYNTAX PARSING
@@ -112,6 +114,7 @@ program define msm_fit, eclass
         }
         if regexm("`period_spec'", "^ns\(([0-9]+)\)$") {
             local ns_df = regexs(1)
+            capture drop _msm_per_ns*
             _msm_natural_spline `period', df(`ns_df') prefix(_msm_per_ns)
             local time_vars "`_msm_spline_vars'"
             local time_vars_created "`time_vars_created' `_msm_spline_vars'"
@@ -170,33 +173,27 @@ program define msm_fit, eclass
     * FIT MODEL
     * =========================================================================
 
+    * Block bootstrap — not yet implemented with pweights
+    if `bootstrap' > 0 {
+        display as error "bootstrap() is not yet supported with IP-weighted models"
+        display as error "Use vce(cluster) (the default) for robust standard errors."
+        exit 198
+    }
+
     if "`model'" == "logistic" {
         display as text "Fitting pooled logistic regression..."
         display as text ""
 
-        if `bootstrap' > 0 {
-            bootstrap, reps(`bootstrap') cluster(`cluster') `log_opt': ///
-                glm `outcome' `all_covars' [pw=_msm_weight] if `_esample', ///
-                family(binomial) link(logit)
-        }
-        else {
-            glm `outcome' `all_covars' [pw=_msm_weight] if `_esample', ///
-                family(binomial) link(logit) ///
-                vce(cluster `cluster') level(`level') `log_opt'
-        }
+        glm `outcome' `all_covars' [pw=_msm_weight] if `_esample', ///
+            family(binomial) link(logit) ///
+            vce(cluster `cluster') level(`level') `log_opt'
     }
     else if "`model'" == "linear" {
         display as text "Fitting weighted linear regression..."
         display as text ""
 
-        if `bootstrap' > 0 {
-            bootstrap, reps(`bootstrap') cluster(`cluster') `log_opt': ///
-                regress `outcome' `all_covars' [pw=_msm_weight] if `_esample'
-        }
-        else {
-            regress `outcome' `all_covars' [pw=_msm_weight] if `_esample', ///
-                vce(cluster `cluster') level(`level')
-        }
+        regress `outcome' `all_covars' [pw=_msm_weight] if `_esample', ///
+            vce(cluster `cluster') level(`level')
     }
     else if "`model'" == "cox" {
         display as text "Setting up survival data..."
@@ -207,6 +204,10 @@ program define msm_fit, eclass
         gen double `_time_exit' = `period' + 1
         gen byte `_failure' = `outcome'
 
+        * Standard MSM pooled Cox: pweights in stset, clustered SEs by id.
+        * id() is omitted because Stata requires weights constant within
+        * subject, but IPTW weights vary by period. The vce(cluster) handles
+        * the within-subject correlation (Hernan & Robins standard approach).
         stset `_time_exit' [pw=_msm_weight] if `_esample', ///
             enter(`_time_enter') failure(`_failure')
 
@@ -220,14 +221,8 @@ program define msm_fit, eclass
             local cox_covars "`cox_covars' `outcome_cov'"
         }
 
-        if `bootstrap' > 0 {
-            bootstrap, reps(`bootstrap') cluster(`cluster') `log_opt': ///
-                stcox `cox_covars'
-        }
-        else {
-            stcox `cox_covars', ///
-                vce(cluster `cluster') level(`level') `log_opt'
-        }
+        stcox `cox_covars', ///
+            vce(cluster `cluster') level(`level') `log_opt'
     }
 
     * =========================================================================
@@ -246,6 +241,14 @@ program define msm_fit, eclass
     char _dta[_msm_per_ns_df] "`per_ns_df'"
     char _dta[_msm_cluster] "`cluster'"
     char _dta[_msm_time_vars] "`time_vars'"
+    char _dta[_msm_fit_level] "`level'"
+
+    * Persist coefficients so downstream commands survive intervening
+    * estimation commands (Finding 1)
+    capture matrix drop _msm_fit_b
+    capture matrix drop _msm_fit_V
+    matrix _msm_fit_b = e(b)
+    matrix _msm_fit_V = e(V)
 
     * =========================================================================
     * DISPLAY SUMMARY
@@ -254,9 +257,16 @@ program define msm_fit, eclass
     display as text ""
     display as text "{hline 70}"
 
-    * Treatment effect
-    local b_treat = _b[`treatment']
-    local se_treat = _se[`treatment']
+    * Treatment effect from saved matrices
+    local _coef_names : colnames _msm_fit_b
+    local _tidx = 0
+    local _ii = 0
+    foreach _cn of local _coef_names {
+        local ++_ii
+        if "`_cn'" == "`treatment'" local _tidx = `_ii'
+    }
+    local b_treat = _msm_fit_b[1, `_tidx']
+    local se_treat = sqrt(_msm_fit_V[`_tidx', `_tidx'])
     local z_treat = `b_treat' / `se_treat'
     local p_treat = 2 * normal(-abs(`z_treat'))
 
@@ -308,6 +318,11 @@ program define msm_fit, eclass
     ereturn local msm_treatment "`treatment'"
     ereturn local msm_period_spec "`period_spec'"
 
+    } /* end capture noisily */
+    local _rc = _rc
+
     set varabbrev `_varabbrev'
     set more `_more'
+
+    if `_rc' exit `_rc'
 end

@@ -1,4 +1,4 @@
-*! tte_validate Version 1.0.2  2026/03/10
+*! tte_validate Version 1.0.3  2026/03/14
 *! Data quality checks for target trial emulation
 *! Author: Timothy P Copeland
 *! Author: Tania F Reza
@@ -255,8 +255,14 @@ program define tte_validate, rclass
         drop `_elig_count'
 
         if `min_elig' < 10 {
-            display as text "  WARNING: some periods have fewer than 10 eligible individuals (min: `min_elig')"
-            local ++n_warnings
+            if "`strict'" != "" {
+                display as error "  FAIL: some periods have fewer than 10 eligible individuals (min: `min_elig')"
+                local ++n_errors
+            }
+            else {
+                display as text "  WARNING: some periods have fewer than 10 eligible individuals (min: `min_elig')"
+                local ++n_warnings
+            }
         }
         else {
             display as result "  PASS (min eligible per period: `min_elig')"
@@ -269,7 +275,7 @@ program define tte_validate, rclass
     local ++n_checks
     display as text "Check 8: Positivity (treatment variation among eligible)"
 
-    * Check that both treatment values exist among eligible
+    * Check that both treatment values exist among eligible, per period
     quietly count if `eligible' == 1 & `treatment' == 1
     local n_elig_treat = r(N)
     quietly count if `eligible' == 1 & `treatment' == 0
@@ -280,9 +286,36 @@ program define tte_validate, rclass
         local ++n_errors
     }
     else {
-        local treat_pct = 100 * `n_elig_treat' / (`n_elig_treat' + `n_elig_untreat')
-        display as result "  PASS" as text " (treatment prevalence among eligible: " ///
-            as result %4.1f `treat_pct' "%" as text ")"
+        * Per-period positivity check
+        local pos_fail = 0
+        local pos_fail_periods ""
+        quietly levelsof `period' if `eligible' == 1, local(elig_periods)
+        foreach p of local elig_periods {
+            quietly count if `eligible' == 1 & `treatment' == 1 & `period' == `p'
+            local _pt = r(N)
+            quietly count if `eligible' == 1 & `treatment' == 0 & `period' == `p'
+            local _pu = r(N)
+            if `_pt' == 0 | `_pu' == 0 {
+                local ++pos_fail
+                local pos_fail_periods "`pos_fail_periods' `p'"
+            }
+        }
+
+        if `pos_fail' > 0 {
+            if "`strict'" != "" {
+                display as error "  FAIL: positivity violated in `pos_fail' period(s):`pos_fail_periods'"
+                local ++n_errors
+            }
+            else {
+                display as text "  WARNING: positivity violated in `pos_fail' period(s):`pos_fail_periods'"
+                local ++n_warnings
+            }
+        }
+        else {
+            local treat_pct = 100 * `n_elig_treat' / (`n_elig_treat' + `n_elig_untreat')
+            display as result "  PASS" as text " (treatment prevalence among eligible: " ///
+                as result %4.1f `treat_pct' "%" as text ")"
+        }
     }
 
     * =========================================================================
@@ -315,8 +348,14 @@ program define tte_validate, rclass
     local event_rate = 100 * `n_events' / `n_total'
 
     if `n_events' < 5 {
-        display as text "  WARNING: very few events (`n_events'); estimates may be unreliable"
-        local ++n_warnings
+        if "`strict'" != "" {
+            display as error "  FAIL: very few events (`n_events'); estimates may be unreliable"
+            local ++n_errors
+        }
+        else {
+            display as text "  WARNING: very few events (`n_events'); estimates may be unreliable"
+            local ++n_warnings
+        }
     }
     else {
         display as result "  PASS" as text " (`n_events' events, rate: " ///

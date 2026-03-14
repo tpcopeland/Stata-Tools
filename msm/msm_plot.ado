@@ -1,4 +1,4 @@
-*! msm_plot Version 1.0.0  2026/03/03
+*! msm_plot Version 1.0.1  2026/03/14
 *! Visualization for marginal structural models
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet
@@ -35,6 +35,8 @@ program define msm_plot, rclass
     local _more = c(more)
     set varabbrev off
     set more off
+
+    capture noisily {
 
     syntax , TYPe(string) ///
         [COVariates(varlist numeric) THReshold(real 0.1) ///
@@ -176,13 +178,33 @@ program define msm_plot, rclass
         local seed_opt ""
         if `seed' >= 0 local seed_opt "seed(`seed')"
 
-        * Run predictions
+        * Save existing prediction state so plotting is non-destructive
+        local _save_pred_saved : char _dta[_msm_pred_saved]
+        local _save_pred_type : char _dta[_msm_pred_type]
+        local _save_pred_strategy : char _dta[_msm_pred_strategy]
+        local _save_pred_level : char _dta[_msm_pred_level]
+        tempname _save_pred_mat
+        local _had_pred_mat = 0
+        capture matrix `_save_pred_mat' = _msm_pred_matrix
+        if _rc == 0 local _had_pred_mat = 1
+
+        * Run predictions for plotting
         msm_predict, times(`times') type(cum_inc) ///
             samples(`samples') `seed_opt'
 
         * Extract results from r(predictions)
         tempname pred_mat
         matrix `pred_mat' = r(predictions)
+
+        * Restore prior prediction state
+        char _dta[_msm_pred_saved] "`_save_pred_saved'"
+        char _dta[_msm_pred_type] "`_save_pred_type'"
+        char _dta[_msm_pred_strategy] "`_save_pred_strategy'"
+        char _dta[_msm_pred_level] "`_save_pred_level'"
+        capture matrix drop _msm_pred_matrix
+        if `_had_pred_mat' {
+            matrix _msm_pred_matrix = `_save_pred_mat'
+        }
         local n_times = r(n_times)
 
         * Build plot data
@@ -285,6 +307,11 @@ program define msm_plot, rclass
 
     return local plot_type "`type'"
 
+    } /* end capture noisily */
+    local _rc = _rc
+
     set varabbrev `_varabbrev'
     set more `_more'
+
+    if `_rc' exit `_rc'
 end

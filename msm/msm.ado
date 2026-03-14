@@ -1,4 +1,4 @@
-*! msm Version 1.0.0  2026/03/03
+*! msm Version 1.0.1  2026/03/14
 *! Marginal Structural Models suite for Stata
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet
@@ -22,13 +22,15 @@ program define msm, rclass
     set varabbrev off
     set more off
 
+    capture noisily {
+
     syntax [, List Detail PROTocol]
 
     local version "1.0.0"
-    local n_commands = 10
+    local n_commands = 11
 
     * All user-facing commands
-    local all_commands "msm_prepare msm_validate msm_weight msm_diagnose msm_fit msm_predict msm_plot msm_report msm_protocol msm_sensitivity"
+    local all_commands "msm_prepare msm_validate msm_weight msm_diagnose msm_fit msm_predict msm_plot msm_table msm_report msm_protocol msm_sensitivity"
 
     display as text ""
     display as text "{hline 70}"
@@ -63,6 +65,7 @@ program define msm, rclass
         display as text "{bf:Diagnostics & Reporting}"
         display as result "  msm_diagnose    " as text "- Weight distribution and covariate balance"
         display as result "  msm_plot        " as text "- Weights, balance, survival, trajectory plots"
+        display as result "  msm_table       " as text "- Publication-quality Excel tables"
         display as result "  msm_report      " as text "- Publication-quality results tables"
         display as result "  msm_protocol    " as text "- MSM study protocol (7 components)"
         display as result "  msm_sensitivity " as text "- E-value and confounding bounds"
@@ -77,8 +80,9 @@ program define msm, rclass
         display as text "  4. {cmd:msm_diagnose}    " as text "Assess weight distribution and balance"
         display as text "  5. {cmd:msm_fit}         " as text "Fit weighted outcome model"
         display as text "  6. {cmd:msm_predict}     " as text "Estimate counterfactual outcomes"
-        display as text "  7. {cmd:msm_report}      " as text "Export publication tables"
-        display as text "  8. {cmd:msm_sensitivity} " as text "Sensitivity analysis"
+        display as text "  7. {cmd:msm_table}       " as text "Export Excel tables"
+        display as text "  8. {cmd:msm_report}      " as text "Export publication tables"
+        display as text "  9. {cmd:msm_sensitivity} " as text "Sensitivity analysis"
         display as text ""
         display as text "Help:  " as result "{help msm}" as text "  for documentation"
         display as text "       " as result "{help msm_prepare}" as text "  to get started"
@@ -90,8 +94,13 @@ program define msm, rclass
     return local commands "`all_commands'"
     return scalar n_commands = `n_commands'
 
+    } /* end capture noisily */
+    local _rc = _rc
+
     set varabbrev `_varabbrev'
     set more `_more'
+
+    if `_rc' exit `_rc'
 end
 
 program define _msm_protocol_overview

@@ -1,4 +1,4 @@
-*! msm_protocol Version 1.0.0  2026/03/03
+*! msm_protocol Version 1.0.1  2026/03/14
 *! MSM study protocol specification
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet
@@ -35,6 +35,8 @@ program define msm_protocol, rclass
     local _more = c(more)
     set varabbrev off
     set more off
+
+    capture noisily {
 
     syntax , POPulation(string) TREATment(string) ///
         CONFounders(string) OUTcome(string) ///
@@ -197,6 +199,11 @@ program define msm_protocol, rclass
     return local analysis "`analysis'"
     return local format "`format'"
 
+    } /* end capture noisily */
+    local _rc = _rc
+
     set varabbrev `_varabbrev'
     set more `_more'
+
+    if `_rc' exit `_rc'
 end

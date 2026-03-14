@@ -1,4 +1,4 @@
-*! tte_diagnose Version 1.1.0  2026/03/10
+*! tte_diagnose Version 1.1.1  2026/03/14
 *! Weight diagnostics and balance assessment for target trial emulation
 *! Author: Timothy P Copeland
 *! Author: Tania F Reza
@@ -36,14 +36,25 @@ program define tte_diagnose, rclass
     local id      "`_tte_id'"
     local prefix  "`_tte_prefix'"
 
-    * Check for weight variable
-    local weight_var "`prefix'weight"
-    capture confirm variable `weight_var'
-    local has_weights = (_rc == 0)
+    * Check for weight variable (resolve custom name, fall back to default)
+    local weight_var ""
+    local _wvar_meta : char _dta[_tte_weight_var]
+    if "`_wvar_meta'" != "" {
+        capture confirm variable `_wvar_meta'
+        if _rc == 0 {
+            local weight_var "`_wvar_meta'"
+        }
+    }
+    if "`weight_var'" == "" {
+        capture confirm variable `prefix'weight
+        if _rc == 0 {
+            local weight_var "`prefix'weight"
+        }
+    }
+    local has_weights = ("`weight_var'" != "")
 
     if !`has_weights' {
         display as text "Note: no weight variable found; showing unweighted diagnostics only"
-        local weight_var ""
     }
 
     * =========================================================================
@@ -163,7 +174,7 @@ program define tte_diagnose, rclass
 
     if "`balance_covariates'" != "" {
         display as text ""
-        display as text "{bf:Covariate Balance (Standardized Mean Differences)}"
+        display as text "{bf:Covariate Balance at Baseline (Standardized Mean Differences)}"
         display as text ""
 
         local n_covs: word count `balance_covariates'
@@ -190,11 +201,11 @@ program define tte_diagnose, rclass
                 local varlabel = substr("`varlabel'", 1, 20)
             }
 
-            * Unweighted SMD
-            quietly summarize `var' if `prefix'arm == 1
+            * Unweighted SMD at trial entry (one row per id-trial at baseline)
+            quietly summarize `var' if `prefix'arm == 1 & `prefix'followup == 0
             local mean1 = r(mean)
             local var1 = r(Var)
-            quietly summarize `var' if `prefix'arm == 0
+            quietly summarize `var' if `prefix'arm == 0 & `prefix'followup == 0
             local mean0 = r(mean)
             local var0 = r(Var)
 
@@ -213,12 +224,12 @@ program define tte_diagnose, rclass
             }
 
             if `has_weights' {
-                * Weighted SMD (summarize [aw=] gives weighted mean and variance)
-                quietly summarize `var' [aw=`weight_var'] if `prefix'arm == 1
+                * Weighted SMD at trial entry
+                quietly summarize `var' [aw=`weight_var'] if `prefix'arm == 1 & `prefix'followup == 0
                 local wmean1 = r(mean)
                 local wvar1 = r(Var)
 
-                quietly summarize `var' [aw=`weight_var'] if `prefix'arm == 0
+                quietly summarize `var' [aw=`weight_var'] if `prefix'arm == 0 & `prefix'followup == 0
                 local wmean0 = r(mean)
                 local wvar0 = r(Var)
 

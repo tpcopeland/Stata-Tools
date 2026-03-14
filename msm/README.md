@@ -2,7 +2,7 @@
 
 ![Stata 16+](https://img.shields.io/badge/Stata-16%2B-brightgreen) ![MIT License](https://img.shields.io/badge/License-MIT-blue)
 
-**Version 1.0.0** | 2026-03-03
+**Version 1.0.1** | 2026-03-14
 
 A comprehensive suite for estimating marginal structural models (MSM) using inverse probability of treatment weighting (IPTW) for time-varying treatments and confounders. Implements the complete pipeline from Robins, Hernan & Brumback (2000).
 

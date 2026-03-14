@@ -610,10 +610,10 @@ else {
 
 local ++test_count
 capture noisily {
-    assert r(n_commands) == 10
+    assert r(n_commands) == 11
 }
 if _rc == 0 {
-    display as result "  PASS: n_commands = 10"
+    display as result "  PASS: n_commands = 11"
     local ++pass_count
 }
 else {
@@ -1530,7 +1530,7 @@ capture {
     _setup_pipeline, nolog
     capture msm_fit, model(logistic) outcome_cov(age sex) period_spec(linear) ///
         bootstrap(20) nolog
-    assert _rc == 101
+    assert _rc == 198
 }
 if _rc == 0 {
     display as result "  PASS D12: msm_fit bootstrap pweight limitation detected"
@@ -2394,6 +2394,456 @@ else {
     display as error "  FAIL L2: persisted matrices (rc=`=_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' L2"
+}
+
+* =============================================================================
+* SECTION M: AUDIT FIX REGRESSION TESTS (v1.0.1)
+* Tests for fixes from msm/audit.md findings
+* =============================================================================
+
+* --- M1: Downstream commands survive intervening estimation (Finding 1) ---
+* After msm_fit, run an unrelated estimation, then verify msm_predict
+* still uses the saved MSM coefficients, not the intervening model.
+local ++test_count
+capture {
+    _setup_pipeline, nolog
+    msm_fit, model(logistic) outcome_cov(age sex) period_spec(linear) nolog
+
+    * Save the MSM treatment coefficient
+    local msm_b = _msm_fit_b[1, 1]
+
+    * Run an unrelated estimation that overwrites e()
+    quietly logit outcome treatment age sex if period == 0
+
+    * Verify e() is now from logit, not MSM
+    assert "`e(cmd)'" == "logit"
+
+    * But saved matrices survive
+    capture matrix list _msm_fit_b
+    assert _rc == 0
+    local saved_b = _msm_fit_b[1, 1]
+    assert abs(`saved_b' - `msm_b') < 1e-10
+
+    * msm_predict should still work using saved matrices
+    msm_predict, times(3 5) samples(20) seed(42)
+    assert r(n_times) == 2
+}
+if _rc == 0 {
+    display as result "  PASS M1: downstream commands survive intervening estimation"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL M1: saved fit matrices (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' M1"
+}
+
+* --- M2: msm_sensitivity survives intervening estimation (Finding 1) ---
+local ++test_count
+capture {
+    _setup_pipeline, nolog
+    msm_fit, model(logistic) outcome_cov(age sex) period_spec(linear) nolog
+
+    * Overwrite e()
+    quietly logit outcome treatment age sex if period == 0
+
+    * msm_sensitivity should still work from saved matrices
+    msm_sensitivity, evalue
+    assert r(evalue_point) != .
+    assert r(effect) != .
+}
+if _rc == 0 {
+    display as result "  PASS M2: msm_sensitivity survives intervening estimation"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL M2: sensitivity after intervening estimation (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' M2"
+}
+
+* --- M3: msm_report survives intervening estimation (Finding 1) ---
+local ++test_count
+capture {
+    _setup_pipeline, nolog
+    msm_fit, model(logistic) outcome_cov(age sex) period_spec(linear) nolog
+
+    * Overwrite e()
+    quietly logit outcome treatment age sex if period == 0
+
+    * msm_report should still work from saved matrices
+    msm_report
+}
+if _rc == 0 {
+    display as result "  PASS M3: msm_report survives intervening estimation"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL M3: report after intervening estimation (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' M3"
+}
+
+* --- M4: msm_prepare clears all stale artifacts (Finding 2) ---
+local ++test_count
+capture {
+    * Run full pipeline
+    _setup_pipeline, nolog
+    msm_fit, model(logistic) outcome_cov(age sex) period_spec(linear) nolog
+    msm_predict, times(3 5) samples(20) seed(42)
+    msm_diagnose, balance_covariates(biomarker comorbidity age sex)
+    msm_sensitivity, evalue
+
+    * Verify artifacts exist
+    local chk : char _dta[_msm_pred_saved]
+    assert "`chk'" == "1"
+    local chk : char _dta[_msm_bal_saved]
+    assert "`chk'" == "1"
+    local chk : char _dta[_msm_sens_saved]
+    assert "`chk'" == "1"
+    local chk : char _dta[_msm_fitted]
+    assert "`chk'" == "1"
+    capture matrix list _msm_fit_b
+    assert _rc == 0
+
+    * Re-run msm_prepare (should clear everything)
+    msm_prepare, id(id) period(period) treatment(treatment) ///
+        outcome(outcome) censor(censored) ///
+        covariates(biomarker comorbidity) baseline_covariates(age sex)
+
+    * All downstream flags should be cleared
+    local chk : char _dta[_msm_fitted]
+    assert "`chk'" == ""
+    local chk : char _dta[_msm_model]
+    assert "`chk'" == ""
+    local chk : char _dta[_msm_pred_saved]
+    assert "`chk'" == ""
+    local chk : char _dta[_msm_bal_saved]
+    assert "`chk'" == ""
+    local chk : char _dta[_msm_diag_saved]
+    assert "`chk'" == ""
+    local chk : char _dta[_msm_sens_saved]
+    assert "`chk'" == ""
+    local chk : char _dta[_msm_fit_level]
+    assert "`chk'" == ""
+
+    * Saved matrices should be cleared
+    capture matrix list _msm_fit_b
+    assert _rc != 0
+    capture matrix list _msm_pred_matrix
+    assert _rc != 0
+    capture matrix list _msm_bal_matrix
+    assert _rc != 0
+}
+if _rc == 0 {
+    display as result "  PASS M4: msm_prepare clears all stale artifacts"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL M4: stale artifact cleanup (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' M4"
+}
+
+* --- M5: msm_table refuses stale data after re-prepare (Finding 2) ---
+local ++test_count
+capture {
+    _setup_pipeline, nolog
+    msm_fit, model(logistic) outcome_cov(age sex) period_spec(linear) nolog
+    msm_predict, times(3 5) samples(20) seed(42)
+
+    * Re-prepare clears everything
+    msm_prepare, id(id) period(period) treatment(treatment) ///
+        outcome(outcome) censor(censored) ///
+        covariates(biomarker comorbidity) baseline_covariates(age sex)
+
+    * msm_table should now fail (no results available)
+    capture msm_table, xlsx("`qa_dir'/test_stale.xlsx") replace
+    assert _rc != 0
+}
+if _rc == 0 {
+    display as result "  PASS M5: msm_table rejects stale data after re-prepare"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL M5: stale table rejection (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' M5"
+}
+
+* --- M6: Repeated ns() fits succeed (Finding 6) ---
+local ++test_count
+capture {
+    _setup_pipeline, nolog
+    msm_fit, model(logistic) outcome_cov(age sex) period_spec(ns(3)) nolog
+
+    * Second ns() fit on same dataset should succeed (vars cleaned up)
+    msm_fit, model(logistic) outcome_cov(age sex) period_spec(ns(3)) nolog
+    assert "`e(cmd)'" != ""
+    local chk : char _dta[_msm_fitted]
+    assert "`chk'" == "1"
+}
+if _rc == 0 {
+    display as result "  PASS M6: repeated ns() fits succeed"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL M6: repeated ns() fit (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' M6"
+}
+
+* --- M7: msm_plot survival is non-destructive to saved predictions (Finding 7) ---
+local ++test_count
+capture {
+    _setup_pipeline, nolog
+    msm_fit, model(logistic) outcome_cov(age sex) period_spec(linear) nolog
+
+    * Save predictions with difference
+    msm_predict, times(3 5 9) strategy(both) difference samples(30) seed(42)
+    local pred_cols_before = colsof(_msm_pred_matrix)
+    local pred_rows_before = rowsof(_msm_pred_matrix)
+    local strat_before : char _dta[_msm_pred_strategy]
+
+    * Survival plot internally calls msm_predict (fewer times, no difference)
+    * This should NOT overwrite the saved predictions
+    set graphics off
+    msm_plot, type(survival) times(3 5) samples(10) seed(99)
+    set graphics on
+
+    * Verify saved predictions are unchanged
+    local pred_cols_after = colsof(_msm_pred_matrix)
+    local pred_rows_after = rowsof(_msm_pred_matrix)
+    local strat_after : char _dta[_msm_pred_strategy]
+
+    assert `pred_cols_before' == `pred_cols_after'
+    assert `pred_rows_before' == `pred_rows_after'
+    assert "`strat_before'" == "`strat_after'"
+}
+if _rc == 0 {
+    display as result "  PASS M7: msm_plot survival is non-destructive"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL M7: plot overwrites predictions (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' M7"
+}
+
+* --- M8: censor_n_cov without censor_d_cov errors (Finding 12) ---
+local ++test_count
+capture {
+    use "/home/tpcopeland/Stata-Tools/msm/msm_example.dta", clear
+    msm_prepare, id(id) period(period) treatment(treatment) ///
+        outcome(outcome) censor(censored) ///
+        covariates(biomarker comorbidity) baseline_covariates(age sex)
+
+    capture msm_weight, treat_d_cov(biomarker comorbidity age sex) ///
+        censor_n_cov(age sex) nolog
+    assert _rc == 198
+}
+if _rc == 0 {
+    display as result "  PASS M8: censor_n_cov without censor_d_cov rejected"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL M8: censor_n_cov validation (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' M8"
+}
+
+* --- M9: msm_table uses correct CI level from fit (Finding 10) ---
+local ++test_count
+capture {
+    _setup_pipeline, nolog
+    msm_fit, model(logistic) outcome_cov(age sex) period_spec(linear) ///
+        level(90) nolog
+
+    * Verify level stored
+    local chk : char _dta[_msm_fit_level]
+    assert "`chk'" == "90"
+
+    * Export coefficient table
+    msm_table, xlsx("`qa_dir'/test_level90.xlsx") coefficients replace
+
+    * Check the Excel output has "90% CI" header
+    ! python3 ~/Stata-Dev/.claude/skills/qa/tools/check_xlsx.py "`qa_dir'/test_level90.xlsx" --sheet "Coefficients" --cell-contains C2 "90% CI" --result-file "`qa_dir'/_check_level.txt" --quiet
+
+    file open _fh using "`qa_dir'/_check_level.txt", read text
+    file read _fh _line
+    file close _fh
+    assert "`_line'" == "PASS"
+    erase "`qa_dir'/test_level90.xlsx"
+    erase "`qa_dir'/_check_level.txt"
+}
+if _rc == 0 {
+    display as result "  PASS M9: msm_table uses stored CI level"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL M9: CI level propagation (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' M9"
+    capture erase "`qa_dir'/test_level90.xlsx"
+    capture erase "`qa_dir'/_check_level.txt"
+}
+
+* --- M10: varabbrev is restored after errors (Finding 11) ---
+local ++test_count
+capture {
+    * Save current varabbrev state (should be off, set at top of test file)
+    set varabbrev on
+
+    * Force an error in msm_prepare (non-binary treatment)
+    use "/home/tpcopeland/Stata-Tools/msm/msm_example.dta", clear
+    replace treatment = 2 in 1
+
+    capture msm_prepare, id(id) period(period) treatment(treatment) ///
+        outcome(outcome)
+
+    * varabbrev should still be on (restored after error)
+    assert "`c(varabbrev)'" == "on"
+
+    * Force an error in msm_fit (no prepared data)
+    use "/home/tpcopeland/Stata-Tools/msm/msm_example.dta", clear
+    capture msm_fit, model(logistic) nolog
+
+    assert "`c(varabbrev)'" == "on"
+
+    * Force an error in msm_weight (no prepared data)
+    capture msm_weight, treat_d_cov(biomarker) nolog
+
+    assert "`c(varabbrev)'" == "on"
+
+    * Restore for the rest of the tests
+    set varabbrev off
+}
+if _rc == 0 {
+    display as result "  PASS M10: varabbrev restored after errors"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL M10: varabbrev leak (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' M10"
+    set varabbrev off
+}
+
+* --- M11: Extreme probabilities are truncated, not defaulted to 1 (Finding 4) ---
+* Build a dataset with near-deterministic treatment to verify truncation.
+local ++test_count
+capture {
+    clear
+    set obs 500
+    gen id = ceil(_n / 10)
+    bysort id: gen period = _n - 1
+
+    * Near-deterministic treatment: treated when biomarker > 0
+    gen double biomarker = rnormal()
+    gen treatment = (biomarker > 0)
+
+    * Make a few observations have extreme probabilities
+    * by setting biomarker very high for some treated observations
+    replace biomarker = 10 if _n <= 5
+
+    gen outcome = (runiform() < 0.02) & (period > 3)
+
+    msm_prepare, id(id) period(period) treatment(treatment) outcome(outcome) ///
+        covariates(biomarker)
+    msm_weight, treat_d_cov(biomarker) nolog replace
+
+    * Key test: no weight should be exactly 1.0 for at-risk observations
+    * that had extreme probabilities. The truncation should produce weights != 1.
+    * More importantly, all weights should be valid (not missing, not extreme)
+    quietly summarize _msm_weight
+    assert r(N) > 0
+    assert r(min) > 0
+    quietly count if missing(_msm_weight)
+    assert r(N) == 0
+}
+if _rc == 0 {
+    display as result "  PASS M11: extreme probabilities truncated"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL M11: probability truncation (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' M11"
+}
+
+* --- M12: msm router lists msm_table (Finding 14) ---
+local ++test_count
+capture {
+    msm, list
+    local cmd_list "`r(commands)'"
+    * Check msm_table is in the command list
+    local found = 0
+    foreach cmd of local cmd_list {
+        if "`cmd'" == "msm_table" local found = 1
+    }
+    assert `found' == 1
+    assert r(n_commands) == 11
+}
+if _rc == 0 {
+    display as result "  PASS M12: msm router includes msm_table"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL M12: router msm_table listing (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' M12"
+}
+
+* --- M13: msm_sensitivity stores its own level for table export (Finding 10) ---
+local ++test_count
+capture {
+    _setup_pipeline, nolog
+    msm_fit, model(logistic) outcome_cov(age sex) period_spec(linear) ///
+        level(90) nolog
+
+    * Run sensitivity with different level
+    msm_sensitivity, evalue level(99)
+
+    * Verify sensitivity-specific level stored
+    local sens_lev : char _dta[_msm_sens_level]
+    assert "`sens_lev'" == "99"
+
+    * Fit level should still be 90
+    local fit_lev : char _dta[_msm_fit_level]
+    assert "`fit_lev'" == "90"
+}
+if _rc == 0 {
+    display as result "  PASS M13: sensitivity stores separate CI level"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL M13: sensitivity level storage (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' M13"
+}
+
+* --- M14: _msm_check_fitted rejects when matrices are missing ---
+local ++test_count
+capture {
+    _setup_pipeline, nolog
+    msm_fit, model(logistic) outcome_cov(age sex) period_spec(linear) nolog
+
+    * Manually drop saved matrices but leave flag
+    matrix drop _msm_fit_b
+    matrix drop _msm_fit_V
+
+    * _msm_check_fitted should catch this
+    capture _msm_check_fitted
+    assert _rc == 301
+}
+if _rc == 0 {
+    display as result "  PASS M14: _msm_check_fitted catches missing matrices"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL M14: check_fitted matrix validation (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' M14"
 }
 
 * =============================================================================

@@ -1,4 +1,4 @@
-*! tte_weight Version 1.1.0  2026/03/10
+*! tte_weight Version 1.1.1  2026/03/14
 *! Inverse probability weights for target trial emulation
 *! Author: Timothy P Copeland
 *! Author: Tania F Reza
@@ -82,6 +82,9 @@ program define tte_weight, rclass
         }
         gen double `generate' = 1
         label variable `generate' "Weight (ITT = 1)"
+
+        char _dta[_tte_weighted] "1"
+        char _dta[_tte_weight_var] "`generate'"
 
         return scalar mean_weight = 1
         return scalar sd_weight = 0

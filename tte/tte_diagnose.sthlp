@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.1.0  10mar2026}{...}
+{* *! version 1.1.1  14mar2026}{...}
 {viewerjumpto "Syntax" "tte_diagnose##syntax"}{...}
 {viewerjumpto "Description" "tte_diagnose##description"}{...}
 {viewerjumpto "Options" "tte_diagnose##options"}{...}
@@ -24,11 +24,8 @@
 {synopthdr}
 {synoptline}
 {synopt:{opth bal:ance_covariates(varlist)}}covariates for balance assessment{p_end}
-{synopt:{opt weight_summary}}show weight summary (default if weights exist){p_end}
 {synopt:{opt by_trial}}weight distribution by trial period{p_end}
-{synopt:{opt by_period}}weight distribution by follow-up period{p_end}
 {synopt:{opt equi:poise}}compute preference scores and equipoise assessment{p_end}
-{synopt:{opth export(filename)}}export diagnostics to file{p_end}
 {synoptline}
 
 

@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.0  03mar2026}{...}
+{* *! version 1.0.1  14mar2026}{...}
 {viewerjumpto "Syntax" "msm_predict##syntax"}{...}
 {viewerjumpto "Description" "msm_predict##description"}{...}
 {viewerjumpto "Examples" "msm_predict##examples"}{...}

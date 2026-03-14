@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.1.0  10mar2026}{...}
+{* *! version 1.1.1  14mar2026}{...}
 {viewerjumpto "Syntax" "tte_weight##syntax"}{...}
 {viewerjumpto "Description" "tte_weight##description"}{...}
 {viewerjumpto "Options" "tte_weight##options"}{...}

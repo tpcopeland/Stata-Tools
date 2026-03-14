@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.3  01mar2026}{...}
+{* *! version 1.0.4  14mar2026}{...}
 {viewerjumpto "Syntax" "tte_expand##syntax"}{...}
 {viewerjumpto "Description" "tte_expand##description"}{...}
 {viewerjumpto "Options" "tte_expand##options"}{...}
@@ -27,10 +27,8 @@
 {synopt:{opth trial:s(numlist)}}trial periods to emulate{p_end}
 {synopt:{opt maxf:ollowup(#)}}maximum follow-up periods; default is unlimited{p_end}
 {synopt:{opt grace(#)}}grace period for non-adherence; default is {cmd:0}{p_end}
-{synopt:{opt chunk_size(#)}}IDs per processing chunk; default is {cmd:0} (in-memory){p_end}
 {synopt:{opth save(filename)}}save expanded data to file{p_end}
 {synopt:{opt replace}}replace existing file{p_end}
-{synopt:{opth keep:vars(varlist)}}additional variables to retain{p_end}
 {synoptline}
 
 
@@ -79,10 +77,6 @@ assigned treatment do not trigger censoring.
 
 {phang}
 {opth save(filename)} saves the expanded dataset to disk.
-
-{phang}
-{opth keepvars(varlist)} specifies additional variables to carry through
-the expansion (beyond those already mapped in {cmd:tte_prepare}).
 
 
 {marker examples}{...}

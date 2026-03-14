@@ -1,4 +1,4 @@
-*! tte_report Version 1.1.0  2026/03/10
+*! tte_report Version 1.1.1  2026/03/14
 *! Publication-quality results tables for target trial emulation
 *! Author: Timothy P Copeland
 *! Author: Tania F Reza
@@ -104,13 +104,28 @@ program define tte_report, rclass
     * TABLE 2: Weight Summary (if available)
     * =========================================================================
 
-    capture confirm variable `prefix'weight
-    if _rc == 0 {
+    * Resolve weight variable (custom name, then default)
+    local weight_var ""
+    local _wvar_meta : char _dta[_tte_weight_var]
+    if "`_wvar_meta'" != "" {
+        capture confirm variable `_wvar_meta'
+        if _rc == 0 {
+            local weight_var "`_wvar_meta'"
+        }
+    }
+    if "`weight_var'" == "" {
+        capture confirm variable `prefix'weight
+        if _rc == 0 {
+            local weight_var "`prefix'weight"
+        }
+    }
+
+    if "`weight_var'" != "" {
         display as text ""
         display as text "{bf:IP Weight Summary}"
         display as text ""
 
-        quietly summarize `prefix'weight, detail
+        quietly summarize `weight_var', detail
 
         local fmt "%10.`decimals'f"
 
@@ -121,10 +136,10 @@ program define tte_report, rclass
 
         * ESS
         quietly {
-            summarize `prefix'weight
+            summarize `weight_var'
             local sum_w = r(sum)
             tempvar _w2
-            gen double `_w2' = `prefix'weight^2
+            gen double `_w2' = `weight_var'^2
             summarize `_w2'
             local sum_w2 = r(sum)
             drop `_w2'
