@@ -1,0 +1,28 @@
+v 3
+d 'raincloud': Raincloud plots combining density, scatter, and box elements
+d
+d Produces raincloud plots (Allen et al. 2019) that combine a
+d half-violin kernel density (cloud), jittered raw data points
+d (rain), and box-and-whisker summary into a single figure.
+d Supports group stratification, horizontal/vertical orientation,
+d and extensive customization of all elements.
+d
+d Requires: Stata version 16+
+d
+d Distribution-Date: 20260314
+d License: MIT
+d
+d Author: Timothy P Copeland
+d Department of Clinical Neuroscience
+d Karolinska Institutet
+d
+d KW: raincloud plot
+d KW: visualization
+d KW: distribution
+d KW: kernel density
+d KW: violin plot
+d KW: jitter
+d KW: box plot
+d
+f raincloud.ado
+f raincloud.sthlp

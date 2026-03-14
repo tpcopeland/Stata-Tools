@@ -109,3 +109,4 @@ Department of Clinical Neuroscience, Karolinska Institutet
 ## License
 
 MIT
+| `raincloud` | Raincloud plots combining density, scatter, and box elements |

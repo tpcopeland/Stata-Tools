@@ -2105,6 +2105,9 @@ program define table1_tc, sclass
 
                     putexcel clear
                 }
+
+                * Center sparkline images within their cells
+                capture _tabtools_center_sparklines "`excel'" `spark_col_width' `spark_row_height'
             }
         }
     }

@@ -202,4 +202,68 @@ program _tabtools_sparkline
     restore
 end
 
+* =============================================================================
+* _tabtools_center_sparklines: Center sparkline images within their cells
+* =============================================================================
+* Post-processes an Excel file to add horizontal and vertical offsets to
+* sparkline images so they appear centered in their cells rather than
+* anchored at the top-left corner.
+*
+* Uses Python (stdlib only: zipfile, xml.etree) to modify the drawing XML
+* inside the xlsx archive. Requires Python 3 on PATH.
+*
+* Usage: _tabtools_center_sparklines "filepath.xlsx" col_width_chars row_height_pts
+
+program _tabtools_center_sparklines
+    version 16.0
+    set varabbrev off
+    set more off
+    args filepath col_width row_height
+
+    * Build Python script as a temp file
+    tempfile pyscript
+    tempname fh
+
+    file open `fh' using "`pyscript'", write text replace
+    file write `fh' `"import zipfile, shutil, os, sys"' _newline
+    file write `fh' `"from xml.etree import ElementTree as ET"' _newline
+    file write `fh' `"xlsx = sys.argv[1]"' _newline
+    file write `fh' `"col_w = float(sys.argv[2])"' _newline
+    file write `fh' `"row_h = float(sys.argv[3])"' _newline
+    file write `fh' `"col_emu = col_w * 7.5 * 9525"' _newline
+    file write `fh' `"row_emu = row_h * 12700"' _newline
+    file write `fh' `"ns = {'xdr': 'http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing'}"' _newline
+    file write `fh' `"ET.register_namespace('', ns['xdr'])"' _newline
+    file write `fh' `"ET.register_namespace('a', 'http://schemas.openxmlformats.org/drawingml/2006/main')"' _newline
+    file write `fh' `"ET.register_namespace('r', 'http://schemas.openxmlformats.org/officeDocument/2006/relationships')"' _newline
+    file write `fh' `"tmp = xlsx + '.tmp'"' _newline
+    file write `fh' `"with zipfile.ZipFile(xlsx, 'r') as zin, zipfile.ZipFile(tmp, 'w') as zout:"' _newline
+    file write `fh' `"    for item in zin.infolist():"' _newline
+    file write `fh' `"        data = zin.read(item.filename)"' _newline
+    file write `fh' `"        if item.filename.startswith('xl/drawings/drawing') and item.filename.endswith('.xml'):"' _newline
+    file write `fh' `"            root = ET.fromstring(data)"' _newline
+    file write `fh' `"            for anchor in root.findall('.//xdr:twoCellAnchor', ns):"' _newline
+    file write `fh' `"                fr = anchor.find('xdr:from', ns)"' _newline
+    file write `fh' `"                to = anchor.find('xdr:to', ns)"' _newline
+    file write `fh' `"                if fr is None or to is None: continue"' _newline
+    file write `fh' `"                f_coff = int(fr.find('xdr:colOff', ns).text)"' _newline
+    file write `fh' `"                f_roff = int(fr.find('xdr:rowOff', ns).text)"' _newline
+    file write `fh' `"                t_coff = int(to.find('xdr:colOff', ns).text)"' _newline
+    file write `fh' `"                t_roff = int(to.find('xdr:rowOff', ns).text)"' _newline
+    file write `fh' `"                img_w = t_coff - f_coff"' _newline
+    file write `fh' `"                img_h = t_roff - f_roff"' _newline
+    file write `fh' `"                dx = max(0, int((col_emu - img_w) / 2))"' _newline
+    file write `fh' `"                dy = max(0, int((row_emu - img_h) / 2))"' _newline
+    file write `fh' `"                fr.find('xdr:colOff', ns).text = str(f_coff + dx)"' _newline
+    file write `fh' `"                fr.find('xdr:rowOff', ns).text = str(f_roff + dy)"' _newline
+    file write `fh' `"                to.find('xdr:colOff', ns).text = str(t_coff + dx)"' _newline
+    file write `fh' `"                to.find('xdr:rowOff', ns).text = str(t_roff + dy)"' _newline
+    file write `fh' `"            data = ET.tostring(root, xml_declaration=True, encoding='UTF-8')"' _newline
+    file write `fh' `"        zout.writestr(item, data)"' _newline
+    file write `fh' `"shutil.move(tmp, xlsx)"' _newline
+    file close `fh'
+
+    shell python3 "`pyscript'" "`filepath'" `col_width' `row_height'
+end
+
 * End of file
