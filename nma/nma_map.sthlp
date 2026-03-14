@@ -46,6 +46,37 @@ This command only requires {cmd:nma_setup}; it does not require a
 fitted model.
 
 
+{marker options}{...}
+{title:Options}
+
+{phang}
+{opt nodesize(string)} determines how node sizes are scaled. Default is
+{cmd:studies}, which sizes each node proportional to the number of studies
+involving that treatment.
+
+{phang}
+{opt edgesize(string)} determines how edge widths are scaled. Default is
+{cmd:studies}, which scales each edge proportional to the number of studies
+directly comparing that pair of treatments.
+
+{phang}
+{opt nolabels} suppresses treatment name labels on the network plot. Useful
+for large networks where labels overlap.
+
+{phang}
+{opt scheme(string)} specifies the graph scheme. Default is {cmd:white_tableau}.
+
+{phang}
+{opt saving(filename)} saves the graph to {it:filename}.
+
+{phang}
+{opt replace} allows {opt saving()} to overwrite an existing file.
+
+{phang}
+{opt title(string)} specifies a custom graph title. Default is
+"Network Map".
+
+
 {marker examples}{...}
 {title:Examples}
 

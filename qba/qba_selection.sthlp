@@ -76,9 +76,40 @@ association.
 {dlgtab:Required}
 
 {phang}
+{opt a(#)} {opt b(#)} {opt c(#)} {opt d(#)} specify the four cells of the
+observed 2x2 table. All values must be non-negative.
+
+{phang}
 {opt sela(#)} through {opt seld(#)} specify selection probabilities for each
 cell of the 2x2 table. Values must be in (0, 1]. When all four are equal,
 there is no selection bias.
+
+{dlgtab:Measure}
+
+{phang}
+{opt measure(OR|RR)} specifies the measure of association. Default is
+{cmd:OR} (odds ratio). Use {cmd:RR} for risk ratio.
+
+{dlgtab:Probabilistic}
+
+{phang}
+{opt reps(#)} specifies the number of Monte Carlo replications. Minimum 100.
+Enables probabilistic mode.
+
+{phang}
+{opt dist_sela(distribution)} through {opt dist_seld(distribution)} specify
+distributions for each selection probability. See {helpb qba} for
+distribution syntax.
+
+{phang}
+{opt seed(#)} sets the random number seed for reproducibility.
+
+{phang}
+{opt level(#)} specifies the confidence level. Default is 95.
+
+{phang}
+{opt saving(filename, replace)} saves the Monte Carlo dataset to a Stata
+file for further analysis or use with {cmd:qba_plot}.
 
 
 {marker examples}{...}

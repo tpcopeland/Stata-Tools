@@ -19,7 +19,7 @@ All commands support both simple (fixed parameter) and probabilistic (Monte Carl
 ## Installation
 
 ```stata
-net install qba, from("https://raw.githubusercontent.com/tpcopeland/Stata-Dev/main/qba")
+net install qba, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/qba")
 ```
 
 ## Commands
@@ -97,7 +97,44 @@ For probabilistic analysis, parameters can be drawn from:
 
 ## Stored Results
 
-All commands are `rclass` and store comprehensive results in `r()`. See individual help files for details.
+All commands are `rclass` and store results in `r()`:
+
+### Simple mode (all commands)
+
+| Result | Description |
+|--------|-------------|
+| `r(observed)` | Observed measure of association |
+| `r(corrected)` | Corrected measure of association |
+| `r(ratio)` | Corrected / observed |
+| `r(measure)` | Measure type (OR or RR) |
+| `r(method)` | "simple" or "probabilistic" |
+
+### Probabilistic mode (when `reps()` specified)
+
+| Result | Description |
+|--------|-------------|
+| `r(corrected)` | Median corrected measure |
+| `r(mean)` | Mean of MC distribution |
+| `r(sd)` | Standard deviation |
+| `r(ci_lower)` / `r(ci_upper)` | Percentile CI bounds |
+| `r(reps)` | Number of replications |
+| `r(n_valid)` | Valid (non-missing) replications |
+
+### Command-specific results
+
+- **qba_misclass**: `r(corrected_a)` through `r(corrected_d)` (corrected cells), `r(type)` (exposure/outcome)
+- **qba_selection**: `r(bias_factor)` (selection bias factor), `r(corrected_a)` through `r(corrected_d)`
+- **qba_confound**: `r(bias_factor)`, `r(evalue)`, `r(evalue_ci)`, `r(p1)`, `r(p0)`
+- **qba_multi**: `r(n_biases)`, `r(order)` (correction order)
+
+See individual help files (`help qba_misclass`, etc.) for full details.
+
+## Validation
+
+The `qa/` directory contains tests across 2 test files:
+
+- **test_qba.do** — Functional tests for all commands (simple and probabilistic modes, all three bias types, multi-bias chaining, plotting)
+- **validation_qba.do** — Validates corrected estimates against hand-computed values and published examples from Lash, Fox, and Fink (2021)
 
 ## Requirements
 

@@ -42,6 +42,34 @@ shows the effect of treatment i versus treatment j. Indirect-only
 comparisons are marked with *.
 
 
+{marker options}{...}
+{title:Options}
+
+{phang}
+{opt eform} displays results on the exponentiated scale (e.g., odds ratios,
+risk ratios). Appropriate when the effect measure is log OR, log RR, log IRR,
+or log HR.
+
+{phang}
+{opt digits(#)} specifies the number of decimal places in the league table
+display. Default is 2.
+
+{phang}
+{opt level(#)} specifies the confidence level for confidence intervals.
+Default is 95.
+
+{phang}
+{opt saving(filename)} exports the league table to {it:filename}. The format
+is determined by {opt format()}.
+
+{phang}
+{opt format(string)} specifies the export format: {cmd:excel} (default) or
+{cmd:csv}. Only relevant with {opt saving()}.
+
+{phang}
+{opt replace} allows {opt saving()} to overwrite an existing file.
+
+
 {marker examples}{...}
 {title:Examples}
 

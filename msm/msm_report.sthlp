@@ -37,6 +37,29 @@
 data summary, IP weight diagnostics, and model coefficients.
 
 
+{marker options}{...}
+{title:Options}
+
+{phang}
+{opt export(string)} specifies the file path for export. Required when
+{opt format()} is {cmd:csv} or {cmd:excel}.
+
+{phang}
+{opt format(string)} specifies the output format: {cmd:display} (default)
+prints to the console, {cmd:csv} exports comma-separated values, and
+{cmd:excel} exports a formatted Excel file.
+
+{phang}
+{opt decimals(#)} specifies the number of decimal places. Default is 4.
+
+{phang}
+{opt eform} displays exponentiated coefficients (odds ratios for logistic,
+hazard ratios for Cox).
+
+{phang}
+{opt replace} allows overwriting an existing export file.
+
+
 {marker examples}{...}
 {title:Examples}
 

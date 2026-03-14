@@ -172,6 +172,50 @@ Supported commands: {cmd:logit}, {cmd:regress}, {cmd:mlogit}, {cmd:ologit}.
 {opt equations(string)} specifies the prediction equation for each simulated
 variable. Syntax: {cmd:equations(}{it:var1}{cmd:: }{it:rhs1}{cmd:, }{it:var2}{cmd:: }{it:rhs2}{cmd:)}.
 
+{dlgtab:Required (time-varying)}
+
+{phang}
+{opt idvar(varname)} specifies the subject identifier variable. Required for
+time-varying confounding analyses where data are in long format with multiple
+rows per subject.
+
+{phang}
+{opt tvar(varname)} specifies the time variable identifying the period or
+visit within each subject.
+
+{phang}
+{opt varyingcovariates(varlist)} specifies the time-varying covariates that
+are both confounders and affected by prior exposure. These variables are
+modeled and re-simulated at each time point.
+
+{phang}
+{opt intvars(varlist)} specifies the variables on which interventions are
+applied (typically the time-varying exposure).
+
+{phang}
+{opt interventions(string)} specifies the intervention rules. Each
+intervention defines how {opt intvars()} are set at each time point, e.g.,
+{cmd:interventions(t: 0)} sets the exposure to 0 at every time point.
+Multiple interventions can be specified for comparison.
+
+{dlgtab:Required (mediation)}
+
+{phang}
+{opt mediation} activates mediation analysis mode. Requires {opt exposure()},
+{opt mediator()}, {opt base_confs()}, and an effect type.
+
+{phang}
+{opt exposure(varlist)} specifies the exposure variable(s) for mediation
+analysis.
+
+{phang}
+{opt mediator(varlist)} specifies the mediator variable(s) that lie on the
+causal pathway between exposure and outcome.
+
+{phang}
+{opt base_confs(varlist)} specifies baseline confounders of the
+exposure-outcome and mediator-outcome relationships.
+
 {dlgtab:Mediation effect types}
 
 {phang}
@@ -189,6 +233,100 @@ the minimum exposure level is used as the baseline.
 {phang}
 {opt specific} specifies user-defined exposure comparisons via
 {opt baseline()} and {opt alternative()}.
+
+{phang}
+{opt baseline(string)} specifies the baseline (reference) exposure level
+for {opt specific} or {opt oce} effect types.
+
+{phang}
+{opt alternative(string)} specifies the alternative exposure level for
+{opt specific} effect type comparisons.
+
+{dlgtab:Time-varying options}
+
+{phang}
+{opt eofu} specifies that the outcome is measured at end of follow-up
+rather than at each time point.
+
+{phang}
+{opt pooled} specifies pooled logistic regression across all visits rather
+than separate models at each time point.
+
+{phang}
+{opt monotreat} imposes a monotone treatment assumption, where once
+treatment is initiated it cannot be discontinued.
+
+{phang}
+{opt dynamic} specifies a dynamic treatment regime where treatment assignment
+at each time point depends on the subject's covariate history.
+
+{phang}
+{opt death(varname)} specifies a competing death/censoring variable. Subjects
+who die are removed from the risk set in subsequent time periods.
+
+{phang}
+{opt msm(string)} specifies a marginal structural model (MSM) to summarize
+the causal effect. The MSM is fit to the simulated potential outcomes.
+
+{phang}
+{opt fixedcovariates(varlist)} specifies time-invariant covariates included
+in the models but not re-simulated during Monte Carlo.
+
+{phang}
+{opt laggedvars(varlist)} specifies variables whose lagged values enter the
+models. Lags are computed within subjects by time.
+
+{phang}
+{opt lagrules(string)} specifies custom lag rules for {opt laggedvars()}.
+
+{phang}
+{opt derived(varlist)} specifies variables deterministically derived from
+other variables (e.g., BMI from height and weight).
+
+{phang}
+{opt derrules(string)} specifies the derivation rules for {opt derived()}.
+
+{dlgtab:Mediation options}
+
+{phang}
+{opt control(string)} specifies the mediator level(s) for the controlled
+direct effect (CDE). When specified, the CDE is computed by setting the
+mediator to the control value for all subjects.
+
+{phang}
+{opt post_confs(varlist)} specifies post-treatment confounders of the
+mediator-outcome relationship.
+
+{phang}
+{opt boceam} specifies BOCE-AM (baseline odds conditional on exposure and
+all mediators) estimation for multi-mediator settings.
+
+{phang}
+{opt logOR} reports results on the log odds ratio scale instead of the
+default risk difference scale.
+
+{phang}
+{opt logRR} reports results on the log risk ratio scale instead of the
+default risk difference scale.
+
+{dlgtab:Imputation}
+
+{phang}
+{opt impute(varlist)} specifies variables with missing values to be imputed
+using single stochastic imputation before the g-computation. This handles
+missing data under a missing-at-random (MAR) assumption.
+
+{phang}
+{opt imp_eq(string)} specifies the prediction equations for imputation,
+using the same {it:var}{cmd::} {it:rhs} syntax as {opt equations()}.
+
+{phang}
+{opt imp_cmd(string)} specifies the model commands for imputation, using the
+same {it:var}{cmd::} {it:cmd} syntax as {opt commands()}.
+
+{phang}
+{opt imp_cycles(#)} specifies the number of chained-equation imputation
+cycles. Default is {cmd:10}.
 
 {dlgtab:Simulation}
 
@@ -208,6 +346,28 @@ Default is {cmd:1000}.
 {opt minsim} uses expected values (predicted probabilities) instead of
 random draws for binary outcomes. Reduces MC variability but may introduce
 bias.
+
+{phang}
+{opt moreMC} allows the Monte Carlo sample size ({opt simulations()}) to
+exceed the observed dataset sample size.
+
+{dlgtab:Output}
+
+{phang}
+{opt all} reports all four confidence interval types: normal, percentile,
+bias-corrected, and bias-corrected accelerated (BCa). By default, only
+normal CIs are reported.
+
+{phang}
+{opt graph} produces graphs of potential outcome distributions under
+different intervention or mediation scenarios.
+
+{phang}
+{opt saving(filename)} saves the bootstrap replicate dataset to
+{it:filename} for further analysis.
+
+{phang}
+{opt replace} allows {opt saving()} to overwrite an existing file.
 
 
 {marker examples}{...}

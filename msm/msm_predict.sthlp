@@ -43,6 +43,53 @@ Predictions are based on G-formula standardization across the reference
 population at baseline.
 
 
+{marker options}{...}
+{title:Options}
+
+{phang}
+{opth times(numlist)} specifies the time periods at which to predict
+counterfactual outcomes. Required. Values must be non-negative integers
+corresponding to period values in the data.
+
+{phang}
+{opt strategy(string)} specifies which treatment strategy to predict.
+{cmd:always} predicts under always-treated, {cmd:never} under never-treated,
+and {cmd:both} (the default) predicts under both strategies.
+
+{phang}
+{opt type(string)} specifies the prediction type. {cmd:cum_inc} (default)
+computes cumulative incidence (risk). {cmd:survival} computes 1 minus
+cumulative incidence.
+
+{phang}
+{opt samples(#)} specifies the number of Monte Carlo draws from the
+coefficient distribution for confidence interval estimation. Default is 100.
+
+{phang}
+{opt seed(#)} sets the random number seed for reproducibility.
+
+{phang}
+{opt level(#)} specifies the confidence level. Default is 95.
+
+{phang}
+{opt difference} computes risk differences between always-treated and
+never-treated strategies at each time point.
+
+
+{marker stored}{...}
+{title:Stored results}
+
+{pstd}
+{cmd:msm_predict} stores the following in {cmd:r()}:
+
+{synoptset 20 tabbed}{...}
+{p2col 5 20 24 2: Matrices}{p_end}
+{synopt:{cmd:r(predictions)}}predictions per strategy and time{p_end}
+
+{p2col 5 20 24 2: Scalars}{p_end}
+{synopt:{cmd:r(rd_#)}}risk difference at time # (with {cmd:difference}){p_end}
+
+
 {marker examples}{...}
 {title:Examples}
 

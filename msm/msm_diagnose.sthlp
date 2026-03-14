@@ -36,6 +36,38 @@ percentiles, effective sample size) and covariate balance using
 standardized mean differences (SMD) before and after weighting.
 
 
+{marker options}{...}
+{title:Options}
+
+{phang}
+{opth balance_covariates(varlist)} specifies covariates for SMD balance
+assessment. Defaults to all covariates mapped in {cmd:msm_prepare}.
+
+{phang}
+{opt by_period} displays weight distribution statistics separately for
+each time period, useful for identifying periods with extreme weights.
+
+{phang}
+{opt threshold(#)} sets the SMD threshold for acceptable balance. Default
+is 0.1. Covariates with weighted SMD exceeding this threshold are flagged.
+
+
+{marker stored}{...}
+{title:Stored results}
+
+{pstd}
+{cmd:msm_diagnose} stores the following in {cmd:r()}:
+
+{synoptset 20 tabbed}{...}
+{p2col 5 20 24 2: Scalars}{p_end}
+{synopt:{cmd:r(ess)}}effective sample size{p_end}
+{synopt:{cmd:r(max_smd_unwt)}}max unweighted SMD{p_end}
+{synopt:{cmd:r(max_smd_wt)}}max weighted SMD{p_end}
+
+{p2col 5 20 24 2: Matrices}{p_end}
+{synopt:{cmd:r(balance)}}covariate balance matrix{p_end}
+
+
 {marker examples}{...}
 {title:Examples}
 

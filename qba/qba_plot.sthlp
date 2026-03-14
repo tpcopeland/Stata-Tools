@@ -82,6 +82,89 @@ are colored by whether the corrected estimate crosses the null, helping
 identify which parameter combinations would change the study conclusion.
 
 
+{marker options}{...}
+{title:Options}
+
+{dlgtab:Plot type}
+
+{phang}
+{opt tornado} creates a tornado sensitivity plot showing how the corrected
+estimate changes as each parameter varies across its range.
+
+{phang}
+{opt distribution} creates a histogram and kernel density of corrected
+estimates from probabilistic bias analysis. Requires {opt using()}.
+
+{phang}
+{opt tipping} creates a tipping point heatmap colored by whether the
+corrected estimate crosses the null.
+
+{dlgtab:Data (tornado and tipping)}
+
+{phang}
+{opt a(#)} {opt b(#)} {opt c(#)} {opt d(#)} specify the 2x2 table cells.
+Required for tornado and tipping plots.
+
+{phang}
+{opt type(exposure|outcome)} specifies the misclassification type for
+computing corrected estimates. Default is {cmd:exposure}.
+
+{phang}
+{opt measure(OR|RR)} specifies the measure of association. Default is
+{cmd:OR}.
+
+{dlgtab:Parameters to sweep}
+
+{phang}
+{opt param1(name)} and {opt range1(# #)} specify the first parameter name
+and its sweep range. Parameter names include {cmd:se}, {cmd:sp},
+{cmd:seca}, {cmd:spca}, {cmd:sela}, {cmd:selb}, {cmd:selc}, {cmd:seld},
+{cmd:p1}, {cmd:p0}, {cmd:rrcd}.
+
+{phang}
+{opt param2(name)} and {opt range2(# #)} specify the second parameter.
+Required for tornado and tipping plots.
+
+{phang}
+{opt param3(name)} and {opt range3(# #)} specify an optional third
+parameter (tornado only).
+
+{phang}
+{opt steps(#)} specifies the number of grid steps per parameter. Default
+is 20.
+
+{dlgtab:Distribution plot}
+
+{phang}
+{opt using(filename)} specifies the dataset of Monte Carlo results
+saved by a previous {cmd:saving()} option.
+
+{phang}
+{opt observed(#)} specifies the observed measure value, shown as a
+reference line.
+
+{phang}
+{opt null(#)} specifies the null value for the reference line. Default is 1.
+
+{dlgtab:Graph options}
+
+{phang}
+{opt scheme(name)} specifies the graph scheme. Default is
+{cmd:plotplainblind}.
+
+{phang}
+{opt title(string)} specifies a custom graph title.
+
+{phang}
+{opt saving(filename)} saves the graph to file.
+
+{phang}
+{opt name(name)} assigns a name to the graph window.
+
+{phang}
+{opt replace} allows overwriting an existing file or graph.
+
+
 {marker examples}{...}
 {title:Examples}
 

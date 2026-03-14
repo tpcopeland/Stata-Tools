@@ -76,8 +76,19 @@ numerator model (stabilization). Typically baseline covariates only.
 denominator model. Requires {opt censor()} in {cmd:msm_prepare}.
 
 {phang}
+{opth censor_n_cov(varlist)} specifies covariates for the censoring
+numerator model (stabilization). Typically baseline covariates only.
+
+{phang}
 {opth tru:ncate(numlist)} truncates weights at specified percentiles.
 Common choice: {cmd:truncate(1 99)}.
+
+{phang}
+{opt replace} allows overwriting existing weight variables from a previous
+run of {cmd:msm_weight}.
+
+{phang}
+{opt nolog} suppresses the iteration log from the logistic models.
 
 
 {marker examples}{...}

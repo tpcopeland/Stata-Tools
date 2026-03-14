@@ -47,6 +47,47 @@
 {phang2}{cmd:positivity} - Treatment probability by period{p_end}
 
 
+{marker options}{...}
+{title:Options}
+
+{phang}
+{opt type(string)} specifies the plot type. Required. Options are
+{cmd:weights}, {cmd:balance}, {cmd:survival}, {cmd:trajectory}, or
+{cmd:positivity}.
+
+{phang}
+{opth covariates(varlist)} specifies covariates for the balance (Love)
+plot. Defaults to all covariates mapped in {cmd:msm_prepare}.
+
+{phang}
+{opt threshold(#)} sets the SMD threshold displayed as a reference line
+on the balance plot. Default is 0.1.
+
+{phang}
+{opth times(numlist)} specifies time periods for the survival plot.
+Required when {cmd:type(survival)} is specified.
+
+{phang}
+{opt samples(#)} specifies Monte Carlo samples for survival curve
+confidence bands. Default is 50.
+
+{phang}
+{opt seed(#)} sets the random number seed for survival curves.
+
+{phang}
+{opt n_sample(#)} specifies the number of randomly sampled individuals
+to display on the trajectory plot. Default is 50.
+
+{phang}
+{opt title(string)} specifies a custom graph title.
+
+{phang}
+{opt saving(string)} saves the graph to the specified file.
+
+{phang}
+{opt replace} allows {opt saving()} to overwrite an existing file.
+
+
 {marker examples}{...}
 {title:Examples}
 

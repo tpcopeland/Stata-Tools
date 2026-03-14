@@ -60,8 +60,26 @@ the outcome model: {cmd:linear}, {cmd:quadratic} (default), {cmd:cubic},
 {cmd:ns(#)} (natural splines with # df), or {cmd:none}.
 
 {phang}
+{opth cluster(varname)} specifies the clustering variable for robust
+sandwich standard errors. Default is the patient ID from {cmd:msm_prepare}.
+
+{phang}
 {opt boot:strap(#)} requests bootstrap variance estimation with the
 specified number of replicates. Default is 0 (no bootstrap).
+
+{phang}
+{opt level(#)} specifies the confidence level. Default is 95.
+
+{phang}
+{opt nolog} suppresses the iteration log.
+
+
+{marker stored}{...}
+{title:Stored results}
+
+{pstd}
+{cmd:msm_fit} stores standard {cmd:glm}/{cmd:regress}/{cmd:stcox} results
+in {cmd:e()}, plus {cmd:e(cmd)} = {cmd:"msm_fit"}.
 
 
 {marker examples}{...}

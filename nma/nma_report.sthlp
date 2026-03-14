@@ -37,7 +37,40 @@
 
 {pstd}
 {cmd:nma_report} exports a structured report with selected analysis
-sections to Excel or CSV format.
+sections to Excel or CSV format. The report includes network summary
+statistics, treatment effect estimates, rankings (SUCRA), and league tables
+as appropriate.
+
+
+{marker options}{...}
+{title:Options}
+
+{phang}
+{opt format(string)} specifies the output format: {cmd:excel} (default)
+produces a formatted .xlsx file with headers, borders, and column widths;
+{cmd:csv} produces a plain-text comma-separated file.
+
+{phang}
+{opt eform} exports exponentiated treatment effects (e.g., odds ratios
+instead of log odds ratios). Appropriate when the effect measure is on
+the log scale.
+
+{phang}
+{opt replace} allows overwriting an existing output file.
+
+{phang}
+{opt sections(string)} specifies which sections to include in the report.
+Options are {cmd:setup} (network summary), {cmd:fit} (model estimates), and
+{cmd:rank} (SUCRA rankings). Multiple sections can be specified, e.g.,
+{cmd:sections(fit rank)}. By default, all sections are included.
+
+{phang}
+{opt level(#)} specifies the confidence level for confidence intervals in
+the report. Default is 95.
+
+{phang}
+{opt digits(#)} specifies the number of decimal places in the report.
+Default is 4.
 
 
 {marker examples}{...}

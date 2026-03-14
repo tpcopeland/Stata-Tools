@@ -46,7 +46,50 @@
 
 {pstd}
 {cmd:msm_protocol} documents the MSM study protocol using 7 components
-adapted from the Hernan framework for MSM/IPTW analyses.
+adapted from the Hernan framework for MSM/IPTW analyses. All 7 components
+are required to ensure complete study documentation.
+
+
+{marker options}{...}
+{title:Options}
+
+{dlgtab:Required (7 components)}
+
+{phang}
+{opt population(string)} describes the target population.
+
+{phang}
+{opt treatment(string)} describes the treatment strategies being compared.
+
+{phang}
+{opt confounders(string)} lists the measured confounders. Mark time-varying
+confounders with "(TV)".
+
+{phang}
+{opt outcome(string)} defines the outcome of interest.
+
+{phang}
+{opt causal_contrast(string)} specifies the causal contrast (e.g., "always
+treated vs never treated").
+
+{phang}
+{opt weight_spec(string)} documents the weight specification (e.g.,
+"stabilized IPTW, 1/99 truncation").
+
+{phang}
+{opt analysis(string)} describes the statistical analysis plan.
+
+{dlgtab:Export}
+
+{phang}
+{opt export(string)} specifies the file path for export.
+
+{phang}
+{opt format(string)} specifies output format: {cmd:display} (default),
+{cmd:csv}, {cmd:excel}, or {cmd:latex}.
+
+{phang}
+{opt replace} allows overwriting an existing file.
 
 
 {marker examples}{...}

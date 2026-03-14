@@ -610,4 +610,4 @@ MIT
 
 ## Version
 
-Version 1.0.0, 2026-03-03
+Version 1.0.1, 2026-03-14

@@ -44,6 +44,36 @@ need with both treatment and outcome to explain away the observed effect.
 confounder-treatment (RR_UD) and confounder-outcome (RR_UY) associations.
 
 
+{marker options}{...}
+{title:Options}
+
+{phang}
+{opt evalue} computes the E-value for the point estimate and (if available)
+the confidence interval bound closest to the null. This is the default
+if no other option is specified.
+
+{phang}
+{opt confounding_strength(# #)} specifies hypothetical RR(U,D) and RR(U,Y)
+values for a specific bias factor computation. The first number is the
+confounder-treatment association and the second is the confounder-outcome
+association.
+
+{phang}
+{opt level(#)} specifies the confidence level. Default is 95.
+
+
+{marker stored}{...}
+{title:Stored results}
+
+{pstd}
+{cmd:msm_sensitivity} stores the following in {cmd:r()}:
+
+{synoptset 20 tabbed}{...}
+{p2col 5 20 24 2: Scalars}{p_end}
+{synopt:{cmd:r(evalue)}}E-value for point estimate{p_end}
+{synopt:{cmd:r(evalue_ci)}}E-value for CI bound{p_end}
+
+
 {marker examples}{...}
 {title:Examples}
 

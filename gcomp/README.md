@@ -62,6 +62,16 @@ gcomptab, xlsx(filename) sheet(string) [ci(string) effect(string)
 | `commands(string)` | Model type for each variable, e.g., `commands(m: logit, y: logit)` |
 | `equations(string)` | Prediction equations, e.g., `equations(m: x c, y: m x c)` |
 
+### Required (time-varying)
+
+| Option | Description |
+|--------|-------------|
+| `idvar(varname)` | Subject identifier |
+| `tvar(varname)` | Time variable |
+| `varyingcovariates(varlist)` | Time-varying confounders affected by prior exposure |
+| `intvars(varlist)` | Variables to intervene on |
+| `interventions(string)` | Intervention rules, e.g., `interventions(t: 0)` |
+
 ### Mediation options
 
 | Option | Description |
@@ -71,7 +81,34 @@ gcomptab, xlsx(filename) sheet(string) [ci(string) effect(string)
 | `mediator(varlist)` | Mediator variable(s) |
 | `base_confs(varlist)` | Baseline confounders |
 | `control(string)` | Controlled direct effect level(s) |
+| `post_confs(varlist)` | Post-treatment confounders of mediator-outcome |
 | `logOR` / `logRR` | Report log odds ratio or log risk ratio |
+| `boceam` | BOCE-AM estimation for multi-mediator settings |
+
+### Time-varying options
+
+| Option | Description |
+|--------|-------------|
+| `eofu` | Outcome measured at end of follow-up |
+| `pooled` | Pooled logistic regression across visits |
+| `monotreat` | Monotone treatment assumption |
+| `dynamic` | Dynamic treatment regime |
+| `death(varname)` | Competing death/censoring variable |
+| `msm(string)` | Marginal structural model specification |
+| `fixedcovariates(varlist)` | Time-invariant covariates |
+| `laggedvars(varlist)` | Variables with lagged effects |
+| `lagrules(string)` | Custom lag specification rules |
+| `derived(varlist)` | Deterministically derived variables |
+| `derrules(string)` | Derivation rules |
+
+### Imputation
+
+| Option | Description |
+|--------|-------------|
+| `impute(varlist)` | Variables to impute (MAR assumption) |
+| `imp_eq(string)` | Imputation prediction equations |
+| `imp_cmd(string)` | Imputation model commands |
+| `imp_cycles(#)` | Chained-equation cycles (default: 10) |
 
 ### Simulation
 
@@ -80,7 +117,17 @@ gcomptab, xlsx(filename) sheet(string) [ci(string) effect(string)
 | `simulations(#)` | Monte Carlo sample size (default: sample size) |
 | `samples(#)` | Bootstrap replications (default: 1000) |
 | `seed(#)` | Random number seed |
+| `minsim` | Use expected values instead of random draws |
+| `moreMC` | Allow MC sample size larger than N |
+
+### Output
+
+| Option | Description |
+|--------|-------------|
 | `all` | Report all four CI types (normal, percentile, BC, BCa) |
+| `graph` | Graph potential outcomes |
+| `saving(filename)` | Save bootstrap dataset |
+| `replace` | Overwrite existing saved file |
 
 ### gcomptab options
 
@@ -115,7 +162,23 @@ gcomp y m x c, outcome(y) mediation obe ///
     base_confs(c) sim(500) samples(200) seed(42)
 ```
 
-### Example 2: Export results to Excel
+### Example 2: Time-varying confounding
+
+What is the causal effect of sustained treatment on a binary outcome, adjusting for time-varying confounders?
+
+```stata
+* Panel data: 500 subjects, 5 time points
+* Confounder L is affected by prior treatment A
+gcomp outcome L A, outcome(outcome) ///
+    idvar(id) tvar(time) ///
+    varyingcovariates(L) ///
+    commands(L: logit, outcome: logit) ///
+    equations(L: A, outcome: L A) ///
+    intvars(A) interventions(always: 1, never: 0) ///
+    sim(500) samples(200) seed(42)
+```
+
+### Example 3: Export results to Excel
 
 ```stata
 * After running gcomp, export to Excel
@@ -123,7 +186,7 @@ gcomptab, xlsx(mediation_results.xlsx) sheet("Table 1") ///
     title("Causal Mediation: Smoking → Inflammation → Lung Function")
 ```
 
-### Example 3: Categorical exposure mediation (OCE)
+### Example 4: Categorical exposure mediation (OCE)
 
 ```stata
 * Physical activity level (0=none, 1=moderate, 2=high) → depression,
