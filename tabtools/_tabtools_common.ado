@@ -1,4 +1,4 @@
-*! _tabtools_common Version 1.0.3  2026/02/25
+*! _tabtools_common Version 1.0.4  2026/03/14
 *! Shared utility programs for tabtools package
 *! Author: Timothy P Copeland
 
@@ -92,6 +92,114 @@ program _tabtools_build_col_letters
     local col_letters = strtrim("`col_letters'")
 
     c_local result "`col_letters'"
+end
+
+* =============================================================================
+* _tabtools_sparkline: Generate a sparkline PNG for a variable
+* =============================================================================
+* Creates a small distribution plot (kdensity, histogram, or bar chart)
+* saved as a PNG file for embedding in Excel via putexcel picture().
+*
+* Usage: _tabtools_sparkline varname [if], type(contn) savepath("path.png")
+*        [width(120) height(35) sparktype(kdensity)]
+
+program _tabtools_sparkline
+    version 16.0
+    set varabbrev off
+    set more off
+
+    syntax varname [if], type(string) savepath(string) ///
+        [width(integer 75) height(integer 20) sparktype(string)]
+
+    if "`sparktype'" == "" local sparktype "kdensity"
+
+    * preserve/restore wraps all data modifications; the outer capture block
+    * ensures restore always runs even if graph generation fails
+    preserve
+
+    if `"`if'"' != "" qui keep `if'
+    qui drop if missing(`varlist')
+
+    qui count
+    if r(N) < 2 {
+        restore
+        exit
+    }
+
+    capture {
+        if inlist("`type'", "contn", "contln", "conts") {
+            if "`type'" == "contln" {
+                qui replace `varlist' = ln(`varlist')
+                qui drop if missing(`varlist')
+            }
+
+            if "`sparktype'" == "histogram" {
+                twoway histogram `varlist', ///
+                    color(navy%60) lcolor(navy%80) lwidth(vthin) ///
+                    scheme(plotplainblind) ///
+                    xscale(off noline) yscale(off noline) ///
+                    xlabel(none) ylabel(none) ///
+                    legend(off) ///
+                    graphregion(margin(zero) color(white)) ///
+                    plotregion(margin(zero) style(none)) ///
+                    title("") subtitle("") note("") caption("")
+            }
+            else {
+                twoway kdensity `varlist', ///
+                    color(navy%60) lcolor(navy) lwidth(medthin) ///
+                    recast(area) ///
+                    scheme(plotplainblind) ///
+                    xscale(off noline) yscale(off noline) ///
+                    xlabel(none) ylabel(none) ///
+                    legend(off) ///
+                    graphregion(margin(zero) color(white)) ///
+                    plotregion(margin(zero) style(none)) ///
+                    title("") subtitle("") note("") caption("")
+            }
+        }
+        else if inlist("`type'", "cat", "cate") {
+            tempvar catvar
+            capture confirm numeric variable `varlist'
+            if !_rc qui clonevar `catvar' = `varlist'
+            else qui encode `varlist', gen(`catvar')
+
+            contract `catvar'
+            qui egen _total = total(_freq)
+            qui gen _prop = _freq / _total
+
+            twoway bar _prop `catvar', ///
+                color(navy%60) lcolor(navy%80) lwidth(vthin) ///
+                barwidth(0.7) ///
+                scheme(plotplainblind) ///
+                xscale(off noline) yscale(off noline) ///
+                xlabel(none) ylabel(none) ///
+                legend(off) ///
+                graphregion(margin(zero) color(white)) ///
+                plotregion(margin(zero) style(none)) ///
+                title("") subtitle("") note("") caption("")
+        }
+        else if inlist("`type'", "bin", "bine") {
+            contract `varlist'
+            qui egen _total = total(_freq)
+            qui gen _prop = _freq / _total
+
+            twoway bar _prop `varlist', ///
+                color(navy%60) lcolor(navy%80) lwidth(vthin) ///
+                barwidth(0.7) ///
+                scheme(plotplainblind) ///
+                xscale(off noline) yscale(off noline) ///
+                xlabel(none) ylabel(none) ///
+                legend(off) ///
+                graphregion(margin(zero) color(white)) ///
+                plotregion(margin(zero) style(none)) ///
+                title("") subtitle("") note("") caption("")
+        }
+
+        qui graph export "`savepath'", width(`width') height(`height') replace
+        capture graph drop _all
+    }
+
+    restore
 end
 
 * End of file

@@ -1,4 +1,4 @@
-*! tvevent Version 1.5.2  2026/03/12
+*! tvevent Version 1.5.3  2026/03/14
 *! Add event/failure flags to time-varying datasets
 *! Author: Tim Copeland
 *!
@@ -534,7 +534,10 @@ program define tvevent, rclass
 
         joinby `id' using `events'
 
-        keep if `date' > `startvar' & `date' < `stopvar'
+        * Under [start, stop] inclusive convention, events at start or strictly
+        * inside the interval need splitting. Events at stop don't need splitting
+        * (they're matched directly by date == stop).
+        keep if `date' >= `startvar' & `date' < `stopvar'
 
         keep `id' `date'
         if _N > 0 {
@@ -551,8 +554,8 @@ program define tvevent, rclass
         * intervals data is still in memory
 
         * Use regular variable names (not tempvars) for values that must persist across file saves
-        * Duration under (start, stop] convention = stop - start
-        gen double _orig_dur = `stopvar' - `startvar'
+        * Duration under [start, stop] inclusive convention = stop - start + 1
+        gen double _orig_dur = `stopvar' - `startvar' + 1
         gen long _orig_interval_id = _n
         if `n_splits' > 0 {
             noisily di as txt "Splitting intervals for `n_splits' internal events..."
@@ -561,8 +564,9 @@ program define tvevent, rclass
             joinby `id' using `splits', unmatched(master)
             drop _merge
 
-            * Mark valid splits (date falls strictly within this specific interval)
-            gen byte _valid_split = (`date' > `startvar' & `date' < `stopvar') & !missing(`date')
+            * Mark valid splits (date falls at start or strictly within this interval)
+            * Under [start, stop] inclusive convention, events at start need splitting too
+            gen byte _valid_split = (`date' >= `startvar' & `date' < `stopvar') & !missing(`date')
 
             * For intervals with multiple split points, we need to:
             * 1. Collect all split points for each original interval
@@ -600,7 +604,7 @@ program define tvevent, rclass
             * Go back to get one row per original interval with all its data
             use `intervals', clear
             gen long _orig_interval_id = _n
-            gen double _orig_dur = `stopvar' - `startvar'
+            gen double _orig_dur = `stopvar' - `startvar' + 1
 
             * Merge in split dates
             merge 1:1 _orig_interval_id using `split_dates', keep(match) nogen
@@ -629,15 +633,15 @@ program define tvevent, rclass
             expand _n_segments
             bysort _orig_interval_id: gen long _seg_num = _n
 
-            * Set segment boundaries using (start, stop] convention
+            * Set segment boundaries using [start, stop] inclusive convention
             * Segment 1: [original_start, split1]
-            * Segment 2: [split1, split2]     (start = split1, not split1+1)
+            * Segment 2: [split1 + 1, split2]
             * ...
-            * Segment N: [split(N-1), original_stop]
+            * Segment N: [split(N-1) + 1, original_stop]
             *
-            * Under (start, stop] intervals, person-time = stop - start.
-            * Consecutive segments [S, D] and [D, E] do not overlap because
-            * the first covers (S, D] and the second covers (D, E].
+            * Under [start, stop] inclusive intervals, person-time = stop - start + 1.
+            * Consecutive segments [S, D] and [D+1, E] do not overlap because
+            * the first covers days S..D and the second covers days D+1..E.
 
             tempvar new_start new_stop
             gen double `new_start' = `startvar'
@@ -649,8 +653,8 @@ program define tvevent, rclass
                 if _rc == 0 {
                     * Segment i ends at split point i (if it exists)
                     replace `new_stop' = `date'`i' if _seg_num == `i' & !missing(`date'`i')
-                    * Segment i+1 starts at split point i (not +1; (start,stop] convention)
-                    replace `new_start' = `date'`i' if _seg_num == `i' + 1 & !missing(`date'`i')
+                    * Segment i+1 starts at split point i + 1 ([start,stop] inclusive convention)
+                    replace `new_start' = `date'`i' + 1 if _seg_num == `i' + 1 & !missing(`date'`i')
                 }
             }
 
@@ -676,7 +680,7 @@ program define tvevent, rclass
         * Adjust Continuous Variables
         if "`continuous'" != "" {
             tempvar new_dur ratio
-            gen double `new_dur' = `stopvar' - `startvar'
+            gen double `new_dur' = `stopvar' - `startvar' + 1
             gen double `ratio' = cond(_orig_dur == 0 | `new_dur' == 0, 1, `new_dur' / _orig_dur)
             foreach v of local continuous {
                 replace `v' = `v' * `ratio'
@@ -713,7 +717,7 @@ program define tvevent, rclass
             quietly replace `generate' = 0 if missing(`generate')
 
             * Note: Boundary events (date == stop) are flagged but not split.
-            * Splitting only occurs when start < date < stop (event strictly inside interval).
+            * Splitting occurs when start <= date < stop (event at start or inside interval).
             * An event at the stop date ends that interval without needing to split it.
 
             * Import event date variable so it appears in output
@@ -785,8 +789,8 @@ program define tvevent, rclass
             gen double `censor_time' = `stopvar' if `generate' > 0 & _event_rank == 1
             bysort `id': egen double _first_fail = min(`censor_time')
 
-            * Under (start, stop] convention, post-event intervals have
-            * start >= event_date. Keep the first event row itself (which may
+            * Under [start, stop] inclusive convention, post-event intervals have
+            * start > event_date. Keep the first event row itself (which may
             * have start == _first_fail for single-day intervals).
             drop if !missing(_first_fail) & `startvar' >= _first_fail ///
                 & !(`generate' > 0 & _event_rank == 1)

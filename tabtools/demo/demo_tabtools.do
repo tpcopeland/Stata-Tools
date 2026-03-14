@@ -1,13 +1,14 @@
 /*  demo_tabtools.do - Generate screenshots for tabtools
 
-    Produces 8 output types:
+    Produces 9 output types:
       1. Console output (table1 display) -> .smcl
       2. Excel table (table1_tc output) -> table1.xlsx
-      3. Excel table (regtab multi-model regression) -> regtab.xlsx
-      4. Excel table (regtab mixed model with RE + ICC) -> regtab_mixed.xlsx
-      5. Excel table (effecttab treatment effects) -> effecttab.xlsx
-      6. Excel table (tablex collect table) -> tablex.xlsx
-      7. Excel table (stratetab incidence rates) -> stratetab.xlsx
+      3. Excel table (table1_tc with sparklines) -> table1_sparklines.xlsx
+      4. Excel table (regtab multi-model regression) -> regtab.xlsx
+      5. Excel table (regtab mixed model with RE + ICC) -> regtab_mixed.xlsx
+      6. Excel table (effecttab treatment effects) -> effecttab.xlsx
+      7. Excel table (tablex collect table) -> tablex.xlsx
+      8. Excel table (stratetab incidence rates) -> stratetab.xlsx
 */
 
 version 16.0
@@ -28,6 +29,7 @@ capture program drop _tabtools_common
 capture program drop _tabtools_validate_path
 capture program drop _tabtools_col_letter
 capture program drop _tabtools_build_col_letters
+capture program drop _tabtools_sparkline
 quietly run tabtools/_tabtools_common.ado
 quietly run tabtools/table1_tc.ado
 quietly run tabtools/tablex.ado
@@ -58,7 +60,15 @@ table1_tc, by(foreign) ///
     title("Table 1. Characteristics by Vehicle Origin") ///
     excel("`pkg_dir'/table1.xlsx") sheet("Table 1")
 
-* --- 3. Excel: regtab multi-model regression ---
+* --- 3. Excel: table1_tc with sparklines ---
+table1_tc, by(foreign) ///
+    vars(price contn %9.0fc \ mpg contn %5.1f \ weight contn %9.0fc \ ///
+         length contn %5.1f \ rep78 cat) ///
+    title("Table 1. Characteristics by Vehicle Origin") ///
+    excel("`pkg_dir'/table1_sparklines.xlsx") sheet("Table 1") ///
+    sparklines sparksize(medium)
+
+* --- 4. Excel: regtab multi-model regression ---
 collect clear
 collect: logit foreign mpg weight
 collect: logit foreign mpg weight length
@@ -66,7 +76,7 @@ regtab, xlsx("`pkg_dir'/regtab.xlsx") sheet("Logistic") ///
     title("Table 2. Logistic Regression") coef("OR") ///
     models("Unadjusted \ Adjusted") stats(n aic bic ll) noint
 
-* --- 4. Excel: regtab mixed model with random slope, relabel, ICC ---
+* --- 5. Excel: regtab mixed model with random slope, relabel, ICC ---
 preserve
 clear
 set seed 20260226
@@ -90,12 +100,12 @@ regtab, xlsx("`pkg_dir'/regtab_mixed.xlsx") sheet("Mixed") ///
     stats(n groups aic bic icc) relabel
 restore
 
-* --- 5. Excel: effecttab treatment effects ---
+* --- 6. Excel: effecttab treatment effects ---
 teffects ipw (price) (foreign mpg weight), ate
 effecttab, xlsx("`pkg_dir'/effecttab.xlsx") sheet("ATE") ///
     effect("ATE") title("Table 3. Treatment Effects") clean
 
-* --- 6. Excel: tablex collect table export ---
+* --- 7. Excel: tablex collect table export ---
 version 17
 collect clear
 table foreign, statistic(mean price mpg weight) nformat(%9.1f)
@@ -103,7 +113,7 @@ tablex using "`pkg_dir'/tablex.xlsx", sheet("Summary") ///
     title("Table 4. Summary by Origin") replace
 version 16
 
-* --- 7. Excel: stratetab incidence rate table ---
+* --- 8. Excel: stratetab incidence rate table ---
 * Create synthetic strate output files
 preserve
 clear

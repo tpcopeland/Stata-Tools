@@ -1,4 +1,4 @@
-*! table1_tc Version 1.1.0  01mar2026 - Descriptive Statistics Table Generator
+*! table1_tc Version 1.2.0  14mar2026 - Descriptive Statistics Table Generator
 *! Author: Tim Copeland
 *! Fork of -table1_mc- version 3.5 (2024-12-19) by Mark Chatfield
 *! This program generates descriptive statistics tables with formatting options
@@ -58,6 +58,9 @@ program define table1_tc, sclass
         [HEADERPerc]            /// Add percentage of total to sample size row
         [BORDERStyle(string)]   /// Border style: "default" or "thin"
         [wt(varname)]           /// Importance/probability weight variable (e.g., IPTW)
+        [SPARKlines]            /// Add sparkline distribution plots in Excel output
+        [sparksize(string)]     /// Sparkline size: small (default), medium, large
+        [sparktype(string)]     /// Sparkline type for continuous vars: kdensity (default), histogram
 
 **# Input Validation and Option Setup
 
@@ -153,6 +156,47 @@ program define table1_tc, sclass
         }
     }
     local has_wt = "`wt'" != ""
+
+    /* Validate sparkline options */
+    if "`sparklines'" == "sparklines" & !`has_excel' {
+        display as text "note: sparklines ignored without excel() option"
+        local sparklines ""
+    }
+    if "`sparksize'" != "" & !inlist("`sparksize'", "small", "medium", "large") {
+        display as error "sparksize() must be small, medium, or large"
+        exit 198
+    }
+    if "`sparktype'" != "" & !inlist("`sparktype'", "kdensity", "histogram") {
+        display as error "sparktype() must be kdensity or histogram"
+        exit 198
+    }
+    if "`sparksize'" == "" local sparksize "small"
+    if "`sparktype'" == "" local sparktype "kdensity"
+
+    * Set sparkline dimensions based on size
+    * putexcel picture() inserts at native pixel size mapped to Excel units.
+    * At 96 DPI: 1 inch = 96 pixels; Excel col width 1 char ≈ 7px.
+    * Keep export pixels small so images fit within cell boundaries.
+    if "`sparklines'" == "sparklines" {
+        if "`sparksize'" == "small" {
+            local spark_width  60
+            local spark_height  16
+            local spark_col_width  10
+            local spark_row_height  15
+        }
+        else if "`sparksize'" == "medium" {
+            local spark_width  75
+            local spark_height  20
+            local spark_col_width  12
+            local spark_row_height  18
+        }
+        else if "`sparksize'" == "large" {
+            local spark_width  90
+            local spark_height  25
+            local spark_col_width  15
+            local spark_row_height  22
+        }
+    }
 
     /* Apply gurmeet preset if specified */
     if "`gurmeet'" == "gurmeet" {
@@ -283,6 +327,10 @@ program define table1_tc, sclass
     /* Create placeholder group variable if not specified */
     if "`by'"=="" local group `groupnum'
 
+    /* Initialize sparkline tracking */
+    local spark_count 0
+    local sparkdir "`c(tmpdir)'"
+
 **# Generate Sample Size Row (N)
     preserve
     qui keep if `touse'  // Keep only observations that satisfy if/in conditions
@@ -386,6 +434,17 @@ program define table1_tc, sclass
                     // If no custom format, use either the format option or the variable's own format
                     if "`format'"=="" local varformat: format `varname'
                     else local varformat `format'
+                }
+
+                /* Generate sparkline before collapse destroys raw data */
+                if "`sparklines'" == "sparklines" & "`excel'" != "" {
+                    local spark_count = `spark_count' + 1
+                    local spark_sort`spark_count' = `sortorder'
+                    _tabtools_sparkline `varname', type(contn) ///
+                        savepath("`sparkdir'/spark_`sortorder'.png") ///
+                        width(`spark_width') height(`spark_height') ///
+                        sparktype(`sparktype')
+                    local spark_file`spark_count' "`sparkdir'/spark_`sortorder'.png"
                 }
 
                 /* Calculate statistics by group */
@@ -512,13 +571,24 @@ program define table1_tc, sclass
                     if "`format'"=="" local varformat: format `varname'
                     else local varformat `format'
                 }
-                
+
+                /* Generate sparkline before collapse destroys raw data */
+                if "`sparklines'" == "sparklines" & "`excel'" != "" {
+                    local spark_count = `spark_count' + 1
+                    local spark_sort`spark_count' = `sortorder'
+                    _tabtools_sparkline `varname', type(contln) ///
+                        savepath("`sparkdir'/spark_`sortorder'.png") ///
+                        width(`spark_width') height(`spark_height') ///
+                        sparktype(`sparktype')
+                    local spark_file`spark_count' "`sparkdir'/spark_`sortorder'.png"
+                }
+
                 /* Calculate statistics by group */
-                if "`total'" != "" { 
+                if "`total'" != "" {
                     qui expand 2, gen(_copy)  // Duplicate for total calculation
                     qui replace `groupnum' = 919 if _copy == 1  // Mark total rows
                 }
-                
+
                 // Calculate mean, SD, and count of log-transformed values by group
                 if `has_wt' {
                     collapse (mean) mean=`lvarname' (sd) sd=`lvarname' (count) N_=`lvarname' ///
@@ -645,12 +715,23 @@ program define table1_tc, sclass
                     else local varformat `format'
                 }
 
+                /* Generate sparkline before collapse destroys raw data */
+                if "`sparklines'" == "sparklines" & "`excel'" != "" {
+                    local spark_count = `spark_count' + 1
+                    local spark_sort`spark_count' = `sortorder'
+                    _tabtools_sparkline `varname', type(conts) ///
+                        savepath("`sparkdir'/spark_`sortorder'.png") ///
+                        width(`spark_width') height(`spark_height') ///
+                        sparktype(`sparktype')
+                    local spark_file`spark_count' "`sparkdir'/spark_`sortorder'.png"
+                }
+
                 /* Calculate statistics by group */
-                if "`total'" != "" { 
+                if "`total'" != "" {
                     qui expand 2, gen(_copy)  // Duplicate for total calculation
                     qui replace `groupnum' = 919 if _copy == 1  // Mark total rows
-                }                
-                
+                }
+
                 // Calculate median and IQR by group
                 if `has_wt' {
                     collapse (p50) p50=`varname' (p25) p25=`varname' ///
@@ -782,11 +863,21 @@ program define table1_tc, sclass
                     }
                 }
 
+                /* Generate sparkline before contract destroys raw data */
+                if "`sparklines'" == "sparklines" & "`excel'" != "" {
+                    local spark_count = `spark_count' + 1
+                    local spark_sort`spark_count' = `sortorder'
+                    _tabtools_sparkline `varname', type(`vartype') ///
+                        savepath("`sparkdir'/spark_`sortorder'.png") ///
+                        width(`spark_width') height(`spark_height')
+                    local spark_file`spark_count' "`sparkdir'/spark_`sortorder'.png"
+                }
+
                 /* Calculate frequencies by group */
-                if "`total'" != "" { 
+                if "`total'" != "" {
                     qui expand 2, gen(_copy)  // Duplicate for total calculation
                     qui replace `groupnum' = 919 if _copy == 1  // Mark total rows
-                }                
+                }
                 if `has_wt' {
                     // Weighted frequencies: sum weights per cell, count observations
                     gen double _wt_val = `wt'
@@ -1022,11 +1113,21 @@ program define table1_tc, sclass
                     }
                 }
                                 
+                /* Generate sparkline before contract destroys raw data */
+                if "`sparklines'" == "sparklines" & "`excel'" != "" {
+                    local spark_count = `spark_count' + 1
+                    local spark_sort`spark_count' = `sortorder'
+                    _tabtools_sparkline `varname', type(`vartype') ///
+                        savepath("`sparkdir'/spark_`sortorder'.png") ///
+                        width(`spark_width') height(`spark_height')
+                    local spark_file`spark_count' "`sparkdir'/spark_`sortorder'.png"
+                }
+
                 /* Calculate frequencies by group */
-                if "`total'" != "" { 
+                if "`total'" != "" {
                     qui expand 2, gen(_copy)  // Duplicate for total calculation
                     qui replace `groupnum' = 919 if _copy == 1  // Mark total rows
-                }                
+                }
                 if `has_wt' {
                     // Weighted frequencies: sum weights per cell, count observations
                     gen double _wt_val = `wt'
@@ -1251,6 +1352,24 @@ program define table1_tc, sclass
 
     /* Sort rows and drop unneeded variables */
     sort sort*  // Sort by primary and secondary sort variables
+
+    /* Map sparkline sort values to row positions */
+    if "`sparklines'" == "sparklines" & "`excel'" != "" {
+        qui gen _spark_n = _n
+        capture confirm variable sort2
+        local _has_sort2 = (_rc == 0)
+        forvalues i = 1/`spark_count' {
+            if `_has_sort2' {
+                qui sum _spark_n if sort1 == `spark_sort`i'' & (sort2 == . | sort2 == 1), meanonly
+            }
+            else {
+                qui sum _spark_n if sort1 == `spark_sort`i'', meanonly
+            }
+            local spark_row`i' = r(min)
+        }
+        drop _spark_n
+    }
+
     drop sort*  // Remove sort variables
     capture drop p  // Drop raw p-value variables
     capture drop p12 p23 p13  // Drop raw pairwise p-value variables
@@ -1271,6 +1390,14 @@ program define table1_tc, sclass
     capture order statistic, before(pvalue)  // Add statistic column if exists
     capture order p12s p23s p13s, after(pvalue)  // Add pairwise p-values if they exist
     capture order level, after(factor)  // Add level column for categorical variables
+
+    /* Add sparkline placeholder column */
+    if "`sparklines'" == "sparklines" & "`excel'" != "" {
+        qui gen sparkline = ""
+        qui replace sparkline = "Distribution" if _n == 1
+        capture order sparkline, before(pvalue)
+        if _rc capture order sparkline, last
+    }
 
     /* Rename placeholder group variable or add group prefix */
     if `groupcount'==1 rename `groupnum'1 Total  // Simplify single group name
@@ -1455,7 +1582,9 @@ program define table1_tc, sclass
     }
 
     /* Display the table */
-    qui ds factor_sep _* N_* m_*, not  // Get variables to display (exclude internal ones)
+    capture confirm variable sparkline
+    if !_rc qui ds factor_sep _* N_* m_* sparkline, not
+    else qui ds factor_sep _* N_* m_*, not
     list `r(varlist)', sepby(factor_sep) noobs noheader table  // Show table with separators between variables
     drop factor_sep  // Clean up
     
@@ -1792,6 +1921,22 @@ program define table1_tc, sclass
                 local pvalue_letter: word `pvalue_pos' of `col_letters'  // p-value column letter
             }
 
+            /* Find sparkline column position if it exists */
+            local spark_col_pos = 0
+            if "`sparklines'" == "sparklines" {
+                local i = 1
+                foreach var of varlist * {
+                    if "`var'" == "sparkline" {
+                        local spark_col_pos = `i'
+                        continue, break
+                    }
+                    local i = `i' + 1
+                }
+                if `spark_col_pos' > 0 {
+                    local spark_letter: word `spark_col_pos' of `col_letters'
+                }
+            }
+
             /*****************************************************************
             * Apply column width calculations
             *****************************************************************/
@@ -1806,6 +1951,13 @@ program define table1_tc, sclass
 				mata: b.set_column_width(3, `num_cols', `datawidth')  // Data column width
 				if `pvalue_pos' > 0 {
 					mata: b.set_column_width(`pvalue_pos', `pvalue_pos',10)  // p-value column width
+				}
+				if "`sparklines'" == "sparklines" & `spark_col_pos' > 0 {
+					mata: b.set_column_width(`spark_col_pos', `spark_col_pos', `spark_col_width')
+					forvalues i = 1/`spark_count' {
+						local erow = `spark_row`i'' + 1
+						mata: b.set_row_height(`erow', `erow', `spark_row_height')
+					}
 				}
 				mata: b.close_book()
 			}
@@ -1838,7 +1990,7 @@ program define table1_tc, sclass
                 /* Format group headers */
                 local data_col = `data_start_pos'
                 while `data_col' <= `num_cols' {
-                    if `data_col' != `pvalue_pos' {
+                    if `data_col' != `pvalue_pos' & `data_col' != `spark_col_pos' {
                         local col_letter: word `data_col' of `col_letters'
                         putexcel (`col_letter'2:`col_letter'3), hcenter vcenter txtwrap bold
                     }
@@ -1848,6 +2000,11 @@ program define table1_tc, sclass
                 /* Format p-value column if it exists */
                 if `pvalue_pos' > 0 {
                     putexcel (`pvalue_letter'2:`pvalue_letter'3), merge hcenter vcenter txtwrap bold
+                }
+
+                /* Format sparkline column header if it exists */
+                if "`sparklines'" == "sparklines" & `spark_col_pos' > 0 {
+                    putexcel (`spark_letter'2:`spark_letter'3), merge hcenter vcenter txtwrap bold
                 }
 
                 /* Apply borders based on selected style */
@@ -1908,6 +2065,18 @@ program define table1_tc, sclass
                     }
                 }
 
+                /* Add border for sparkline column if it exists */
+                if "`sparklines'" == "sparklines" & `spark_col_pos' > 0 {
+                    if "`borderstyle'" == "thin" {
+                        putexcel (`spark_letter'2:`spark_letter'`num_rows'), border(left, thin)
+                        putexcel (`spark_letter'2:`spark_letter'`num_rows'), border(right, thin)
+                    }
+                    else {
+                        putexcel (`spark_letter'2:`spark_letter'`num_rows'), border(left, medium)
+                        putexcel (`spark_letter'2:`spark_letter'`num_rows'), border(right, medium)
+                    }
+                }
+
                 /* Apply font to entire table */
                 putexcel (A1:`lastcol_letter'`num_rows'), font(Arial, 10)
 
@@ -1920,6 +2089,30 @@ program define table1_tc, sclass
                 restore
                 exit `saved_rc'
             }
+
+            /* Insert sparkline images into Excel */
+            if "`sparklines'" == "sparklines" & `spark_col_pos' > 0 {
+                capture {
+                    putexcel set "`excel'", sheet("`sheet'") modify
+
+                    forvalues i = 1/`spark_count' {
+                        local erow = `spark_row`i'' + 1
+                        capture confirm file "`spark_file`i''"
+                        if !_rc {
+                            putexcel `spark_letter'`erow' = picture("`spark_file`i''")
+                        }
+                    }
+
+                    putexcel clear
+                }
+            }
+        }
+    }
+
+    /* Clean up sparkline temp files */
+    if "`sparklines'" == "sparklines" {
+        forvalues i = 1/`spark_count' {
+            capture erase "`spark_file`i''"
         }
     }
 

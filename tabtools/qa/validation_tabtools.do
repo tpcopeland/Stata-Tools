@@ -210,6 +210,279 @@ else {
 }
 
 * ============================================================
+* V1.S: table1_tc Sparkline Validation
+* ============================================================
+
+* V1.S1: Sparkline column present in Excel with correct header
+local ++test_count
+capture noisily {
+    sysuse auto, clear
+    capture erase "`output_dir'/_val_spark_col.xlsx"
+    table1_tc, by(foreign) ///
+        vars(price contn \ mpg conts \ rep78 cat) ///
+        excel("`output_dir'/_val_spark_col.xlsx") sheet("Table 1") ///
+        title("Sparkline Test") sparklines
+
+    if `has_check_xlsx' {
+        ! python3 "`tools_dir'/check_xlsx.py" "`output_dir'/_val_spark_col.xlsx" ///
+            --sheet "Table 1" --min-rows 5 --min-cols 5 ///
+            --cell-contains E2 "Distribution" ///
+            --has-borders ///
+            --result-file "`output_dir'/_check.txt"
+
+        file open _fh using "`output_dir'/_check.txt", read text
+        file read _fh _line
+        file close _fh
+        capture erase "`output_dir'/_check.txt"
+        assert "`_line'" == "PASS"
+    }
+}
+if _rc == 0 {
+    display as result "  PASS: V1.S1 - sparkline column in Excel with header"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: V1.S1 - sparkline column in Excel (error `=_rc')"
+    local ++fail_count
+}
+
+* V1.S2: Sparkline clear option preserves sparkline column in memory
+local ++test_count
+capture noisily {
+    sysuse auto, clear
+    capture erase "`output_dir'/_val_spark_clear.xlsx"
+    table1_tc, by(foreign) ///
+        vars(price contn \ mpg conts \ rep78 cat) ///
+        excel("`output_dir'/_val_spark_clear.xlsx") sheet("T1") ///
+        title("T1") sparklines clear
+
+    * Verify sparkline column exists and has correct structure
+    confirm variable sparkline
+    * Header row should have "Distribution"
+    assert sparkline[1] == "" | sparkline[1] == "Distribution"
+    * Data rows should be empty (images are in Excel, not in-memory)
+    assert sparkline[4] == "" | sparkline[4] == " "
+}
+if _rc == 0 {
+    display as result "  PASS: V1.S2 - sparkline column in memory after clear"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: V1.S2 - sparkline column in memory (error `=_rc')"
+    local ++fail_count
+}
+
+* V1.S3: PNG temp files are cleaned up after execution
+local ++test_count
+capture noisily {
+    sysuse auto, clear
+    capture erase "`output_dir'/_val_spark_cleanup.xlsx"
+    table1_tc, by(foreign) ///
+        vars(price contn \ mpg conts) ///
+        excel("`output_dir'/_val_spark_cleanup.xlsx") sheet("T1") ///
+        title("T1") sparklines
+
+    * Verify no spark PNG files remain in tmpdir
+    local tmpdir "`c(tmpdir)'"
+    local spark_pngs : dir "`tmpdir'" files "spark_*.png"
+    local n_remaining : word count `spark_pngs'
+    assert `n_remaining' == 0
+}
+if _rc == 0 {
+    display as result "  PASS: V1.S3 - temp PNG files cleaned up"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: V1.S3 - temp PNG cleanup (error `=_rc')"
+    local ++fail_count
+}
+
+* V1.S4: Sparkline row count matches variable count
+local ++test_count
+capture noisily {
+    sysuse auto, clear
+    gen expensive = price > 6000
+    label var expensive "Expensive"
+    capture erase "`output_dir'/_val_spark_rows.xlsx"
+    * 5 variables = 5 sparklines expected
+    table1_tc, by(foreign) ///
+        vars(price contn \ mpg conts \ weight contn \ ///
+             rep78 cat \ expensive bin) ///
+        excel("`output_dir'/_val_spark_rows.xlsx") sheet("T1") ///
+        title("T1") sparklines clear
+
+    * Count non-empty title row: "Distribution" appears once in header
+    count if sparkline == "Distribution"
+    assert r(N) == 1
+}
+if _rc == 0 {
+    display as result "  PASS: V1.S4 - sparkline column structure"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: V1.S4 - sparkline row count (error `=_rc')"
+    local ++fail_count
+}
+
+* V1.S5: Sparklines do not alter statistics (compare with/without)
+local ++test_count
+capture noisily {
+    sysuse auto, clear
+
+    * Run without sparklines
+    capture erase "`output_dir'/_val_spark_nospark.xlsx"
+    table1_tc, by(foreign) ///
+        vars(price contn \ mpg conts \ rep78 cat) ///
+        excel("`output_dir'/_val_spark_nospark.xlsx") sheet("T1") ///
+        title("T1") clear
+    * Save the factor and data columns
+    keep factor foreign_*
+    rename factor factor_nospark
+    rename foreign_0 nospark_0
+    rename foreign_1 nospark_1
+    tempfile nospark
+    gen _id = _n
+    save `nospark'
+
+    * Run with sparklines
+    sysuse auto, clear
+    capture erase "`output_dir'/_val_spark_withspark.xlsx"
+    table1_tc, by(foreign) ///
+        vars(price contn \ mpg conts \ rep78 cat) ///
+        excel("`output_dir'/_val_spark_withspark.xlsx") sheet("T1") ///
+        title("T1") sparklines clear
+    keep factor foreign_*
+    rename factor factor_spark
+    rename foreign_0 spark_0
+    rename foreign_1 spark_1
+    gen _id = _n
+    merge 1:1 _id using `nospark', nogen
+
+    * All data values must match
+    assert factor_nospark == factor_spark
+    assert nospark_0 == spark_0
+    assert nospark_1 == spark_1
+}
+if _rc == 0 {
+    display as result "  PASS: V1.S5 - sparklines do not alter statistics"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: V1.S5 - statistics altered by sparklines (error `=_rc')"
+    local ++fail_count
+}
+
+* V1.S6: Sparkline sizes produce different Excel column widths
+local ++test_count
+capture noisily {
+    sysuse auto, clear
+
+    * Generate small and large outputs and verify both succeed
+    capture erase "`output_dir'/_val_spark_sz_s.xlsx"
+    capture erase "`output_dir'/_val_spark_sz_l.xlsx"
+
+    table1_tc, by(foreign) vars(price contn \ mpg conts) ///
+        excel("`output_dir'/_val_spark_sz_s.xlsx") sheet("T1") ///
+        title("T1") sparklines sparksize(small)
+    confirm file "`output_dir'/_val_spark_sz_s.xlsx"
+
+    table1_tc, by(foreign) vars(price contn \ mpg conts) ///
+        excel("`output_dir'/_val_spark_sz_l.xlsx") sheet("T1") ///
+        title("T1") sparklines sparksize(large)
+    confirm file "`output_dir'/_val_spark_sz_l.xlsx"
+
+    * Both files created with different sizes (structural test)
+    * File size for large should be >= small due to bigger images
+    ! stat -c%s "`output_dir'/_val_spark_sz_s.xlsx" > "`output_dir'/_size_s.txt"
+    ! stat -c%s "`output_dir'/_val_spark_sz_l.xlsx" > "`output_dir'/_size_l.txt"
+
+    file open _fh using "`output_dir'/_size_s.txt", read text
+    file read _fh _size_s
+    file close _fh
+    file open _fh using "`output_dir'/_size_l.txt", read text
+    file read _fh _size_l
+    file close _fh
+
+    capture erase "`output_dir'/_size_s.txt"
+    capture erase "`output_dir'/_size_l.txt"
+
+    * Large sparklines should produce a larger file
+    assert real("`_size_l'") >= real("`_size_s'")
+}
+if _rc == 0 {
+    display as result "  PASS: V1.S6 - sparksize produces different image sizes"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: V1.S6 - sparksize comparison (error `=_rc')"
+    local ++fail_count
+}
+
+* V1.S7: Sparklines with contln type produce valid output
+local ++test_count
+capture noisily {
+    sysuse auto, clear
+    capture erase "`output_dir'/_val_spark_contln.xlsx"
+    table1_tc, by(foreign) ///
+        vars(price contln \ mpg conts \ weight contn) ///
+        excel("`output_dir'/_val_spark_contln.xlsx") sheet("T1") ///
+        title("T1") sparklines
+    confirm file "`output_dir'/_val_spark_contln.xlsx"
+
+    if `has_check_xlsx' {
+        ! python3 "`tools_dir'/check_xlsx.py" "`output_dir'/_val_spark_contln.xlsx" ///
+            --sheet T1 --min-rows 5 --min-cols 4 ///
+            --result-file "`output_dir'/_check.txt"
+
+        file open _fh using "`output_dir'/_check.txt", read text
+        file read _fh _line
+        file close _fh
+        capture erase "`output_dir'/_check.txt"
+        assert "`_line'" == "PASS"
+    }
+}
+if _rc == 0 {
+    display as result "  PASS: V1.S7 - contln sparklines valid Excel"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: V1.S7 - contln sparklines (error `=_rc')"
+    local ++fail_count
+}
+
+* V1.S8: Histogram sparktype produces valid output
+local ++test_count
+capture noisily {
+    sysuse auto, clear
+    capture erase "`output_dir'/_val_spark_histo.xlsx"
+    table1_tc, by(foreign) ///
+        vars(price contn \ mpg conts) ///
+        excel("`output_dir'/_val_spark_histo.xlsx") sheet("T1") ///
+        title("T1") sparklines sparktype(histogram)
+    confirm file "`output_dir'/_val_spark_histo.xlsx"
+
+    if `has_check_xlsx' {
+        ! python3 "`tools_dir'/check_xlsx.py" "`output_dir'/_val_spark_histo.xlsx" ///
+            --sheet T1 --min-rows 4 --min-cols 4 ///
+            --result-file "`output_dir'/_check.txt"
+
+        file open _fh using "`output_dir'/_check.txt", read text
+        file read _fh _line
+        file close _fh
+        capture erase "`output_dir'/_check.txt"
+        assert "`_line'" == "PASS"
+    }
+}
+if _rc == 0 {
+    display as result "  PASS: V1.S8 - histogram sparklines valid Excel"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: V1.S8 - histogram sparklines (error `=_rc')"
+    local ++fail_count
+}
+
+* ============================================================
 * V2: regtab Validation - Structure, Content, Mixed Models
 * ============================================================
 

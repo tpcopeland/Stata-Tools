@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.1.0  01mar2026}{...}
+{* *! version 1.2.0  14mar2026}{...}
 {hline}
 help for {cmd:table1_tc}
 {hline}
@@ -69,6 +69,9 @@ help for {cmd:table1_tc}
 {synopt:{opt sheet("string")}}name of Excel sheet for output, e.g., sheet("Table 1") {p_end}
 {synopt:{opt title("string")}}title for the Excel table, e.g., title("Table 1. Patient Characteristics"){p_end}
 {synopt:{opt borders:tyle(default|thin)}}Excel border style; default creates mixed borders, thin creates uniform thin borders{p_end}
+{synopt:{opt spark:lines}}add inline distribution plots (sparklines) to Excel output{p_end}
+{synopt:{opt sparksize(small|medium|large)}}sparkline image size; default is {bf:small}{p_end}
+{synopt:{opt sparktype(kdensity|histogram)}}sparkline style for continuous variables; default is {bf:kdensity}{p_end}
 
 {syntab:Other Output}
 {synopt:{opt clear}}replace the dataset in memory with the table{p_end}
@@ -121,6 +124,13 @@ is very similar to that proposed by Limpert & Stahel (2011).{p_end}
 column widths based on content and applies professional formatting with customizable border styles. 
 The resulting Excel file can be used directly in reports or presentations without requiring further 
 formatting.{p_end}
+
+{pstd}The {bf:sparklines} option adds small inline distribution plots alongside each variable's row
+in the Excel output. Continuous variables display kernel density curves (or histograms if
+{bf:sparktype(histogram)} is specified), while categorical and binary variables display bar charts
+of category proportions. The {bf:sparksize()} option controls the image dimensions. When {bf:by()}
+is specified, sparklines show the overall combined distribution across all groups. Sparklines
+require the {bf:excel()} option; they are silently ignored otherwise.{p_end}
 
 {pstd}The underlying results table can also be kept in memory, replacing the original dataset, using the
 {bf:clear} option.{p_end}
@@ -183,5 +193,5 @@ binary variables on one row, provide finer control of decimal places, and other 
 {pstd}Department of Clinical Neuroscience{p_end}
 {pstd}Karolinska Institutet{p_end}
 
-{pstd}Version 1.1.0 - 2026-03-01{p_end}
+{pstd}Version 1.2.0 - 2026-03-14{p_end}
 {pstd}Fork of table1_mc by Mark Chatfield, The University of Queensland, Australia{p_end}

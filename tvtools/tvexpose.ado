@@ -1,4 +1,4 @@
-*! tvexpose Version 1.4.2  2026/03/06
+*! tvexpose Version 1.4.3  2026/03/14
 *! Create time-varying exposure variables for survival analysis
 *! Author: Tim Copeland
 *! Program class: rclass (returns results in r())
@@ -313,10 +313,8 @@ program define tvexpose, rclass
         exit 198
     }
     
-    * Default to layer if no overlap handling option specified
-    if `n_overlap' == 0 {
-        local layer "layer"
-    }
+    * NOTE: Default to layer is set AFTER overlap detection/warning block
+    * so the warning can fire when no overlap option is specified
     
     * Additional validation: split requires non-reference exposure categories
     if "`split'" != "" {
@@ -1226,7 +1224,9 @@ program define tvexpose, rclass
     * Default (none specified): Later exposures take precedence (simple truncation)
 
     * Skip standard overlap handling for dose (already handled above)
-    if "`exp_type'" != "dose" & "`split'" != "" {
+    * Split logic runs for both split and combine options
+    * For combine, splitting ensures proper interval boundaries before merging overlapping values
+    if "`exp_type'" != "dose" & ("`split'" != "" | "`combine'" != "") {
         * SPLIT OVERLAPPING: Creates separate periods for each boundary
         * Useful when analyzing how different exposures interact
         * Result: Every exposure combination gets its own time period
@@ -1266,16 +1266,16 @@ program define tvexpose, rclass
         * For each original period, split at internal boundaries
         quietly use `split_data', clear
         quietly gen double __period_id = _n
-        
+
         tempfile original_periods
         quietly save `original_periods', replace
-        
+
         * Merge boundaries for same person
         joinby id using `all_boundaries'
-        
-        * Keep only boundaries that fall within period (not at edges)
+
+        * Keep only boundaries that fall strictly within period
         quietly keep if boundary > exp_start & boundary < exp_stop
-        
+
         * If no splits needed, restore original
         quietly count
         if r(N) == 0 {
@@ -1283,11 +1283,27 @@ program define tvexpose, rclass
             drop __period_id
         }
         else {
-            * Create split periods
+            * Add end-of-period marker (stop+1) for each period that has splits
+            * This ensures we get N+1 segments from N internal boundaries
+            preserve
+            if "`keepvars'" != "" {
+                keep __period_id id exp_start exp_stop exp_value `keepvars'
+            }
+            else {
+                keep __period_id id exp_start exp_stop exp_value
+            }
+            quietly bysort __period_id: keep if _n == 1
+            quietly gen double boundary = exp_stop + 1
+            tempfile end_bounds
+            quietly save `end_bounds', replace
+            restore
+            quietly append using `end_bounds'
+
+            * Create segments from consecutive boundary pairs
             sort id __period_id boundary
-            quietly by id __period_id: generate double new_start = cond(_n == 1, exp_start, boundary)
-            quietly by id __period_id: generate double new_stop = cond(_n < _N, boundary - 1, exp_stop)
-            
+            quietly by id __period_id: gen double new_start = cond(_n == 1, exp_start, boundary[_n-1])
+            quietly gen double new_stop = boundary - 1
+
             * Keep valid splits and essential vars
             quietly keep if new_start <= new_stop
             if "`keepvars'" != "" {
@@ -1297,26 +1313,26 @@ program define tvexpose, rclass
                 keep id new_start new_stop exp_value __period_id
             }
             rename (new_start new_stop) (exp_start exp_stop)
-            
+
             * Mark split periods
             quietly gen double __is_split = 1
-            
+
             * Add back periods that had no internal boundaries
             quietly append using `original_periods'
-            
-            * Mark which period IDs were split (appeared multiple times in split data)
+
+            * Mark which period IDs were split
             quietly bysort __period_id: gen double __split_count = _N
-            
+
             * Drop original unsplit versions of periods that were split
             quietly drop if __split_count > 1 & exp_start < . & exp_stop < . & ///
                     missing(__is_split)
-            
+
             drop __period_id __split_count __is_split
             quietly duplicates drop id exp_start exp_stop exp_value, force
         }
         sort id exp_start exp_stop exp_value
     }
-    
+
     **# Save all exposure types per person BEFORE overlap resolution
     * CRITICAL FIX: For bytype option, we need to know ALL exposure types each person
     * was ever exposed to, even if those exposure periods get eliminated during overlap
@@ -1332,20 +1348,23 @@ program define tvexpose, rclass
         quietly save `all_person_exp_types', replace
         restore
         
-        * Also save original exposure type for each period before overlap resolution
-        * This preserves the type-to-period mapping needed for bytype calculations
+        * Save first exposure start date per person per type before overlap resolution
+        * This ensures evertreated bytype can find the correct first exposure date
+        * even if overlap resolution eliminates some exposure periods entirely
         preserve
-        keep id exp_start exp_stop exp_value
+        keep id exp_start exp_value
         quietly keep if exp_value != `reference'
-        tempfile period_exp_types
-        quietly save `period_exp_types', replace
+        collapse (min) __pre_first_start = exp_start, by(id exp_value)
+        tempfile first_exp_by_type
+        quietly save `first_exp_by_type', replace
         restore
     }
     
     if "`exp_type'" != "dose" & "`combine'" != "" {
-        * COMBINE OVERLAPPING: Creates combined exposure category for overlaps
-        * Assigns new value to combinations (encodes as val1*100 + val2)
-        * Allows analysis of synergistic or interactive effects
+        * COMBINE OVERLAPPING: After split, merge overlapping segments and assign combined values
+        * The split block above has already created non-overlapping sub-periods
+        * Segments that were in overlap regions now have multiple rows (one per exposure)
+        * Encode overlaps as val1*100 + val2
 
         * Validate exposure values won't collide with encoding scheme
         quietly summarize exp_value
@@ -1358,24 +1377,35 @@ program define tvexpose, rclass
         }
 
         sort id exp_start exp_stop exp_value
-        
-        * Detect true overlaps: next period starts before current ends
-        quietly by id: gen double has_overlap = (exp_start[_n+1] <= exp_stop) if _n < _N & id == id[_n+1]
-        
-        * For overlapping periods with different exposure values, create combination
-        * Example: exposure 1 overlapping with 2 = 1*100 + 2 = 102
-        quietly gen double exp_combined = exp_value
-        quietly by id: replace exp_combined = exp_value * 100 + exp_value[_n+1] ///
-            if has_overlap == 1 & exp_value != exp_value[_n+1] & _n < _N & id == id[_n+1]
-        
-        * Also mark the overlapped period (second period) with same combined value
-        quietly by id: replace exp_combined = exp_value[_n-1] * 100 + exp_value ///
-            if _n > 1 & exp_start <= exp_stop[_n-1] & ///
-            exp_value != exp_value[_n-1] & missing(has_overlap[_n-1]) & id == id[_n-1]
-        
-        * Create the named combined variable for user's analysis
-        quietly gen double `combine' = exp_combined
-        drop has_overlap exp_combined
+
+        * Count how many exposure values exist for each sub-period
+        quietly by id exp_start exp_stop: gen double __n_vals = _N
+
+        * Validate: combine() only supports 2-way overlaps
+        quietly summarize __n_vals
+        if r(max) > 2 {
+            noisily display as error "combine() does not support 3+ overlapping exposure types"
+            noisily display as error "Found periods with `=r(max)' simultaneous exposures"
+            noisily display as error "Consider using split or priority() instead"
+            drop __n_vals
+            exit 198
+        }
+
+        * For non-overlapping segments (1 value), combined = exp_value
+        quietly gen double `combine' = exp_value if __n_vals == 1
+
+        * For overlapping segments (2 values), compute combined value
+        * Sort ensures smaller value * 100 + larger value
+        quietly by id exp_start exp_stop (exp_value): ///
+            replace `combine' = exp_value[1] * 100 + exp_value[2] if __n_vals == 2
+
+        * Update exp_value for overlap segments to the combined value
+        quietly replace exp_value = `combine' if __n_vals > 1
+
+        * Keep only one row per sub-period (collapse overlapping rows)
+        quietly by id exp_start exp_stop: keep if _n == 1
+
+        drop __n_vals
     }
   
     **# Check for overlapping exposures and warn if no strategy specified
@@ -1412,12 +1442,19 @@ program define tvexpose, rclass
     }
     drop __has_conflict
 
+    * Default to layer if no overlap handling option was specified
+    * Set here (after warning block) so the warning can fire in the default case
+    if "`priority'" == "" & "`split'" == "" & "`combine'" == "" & "`layer'" == "" {
+        local layer "layer"
+    }
+
     * Adjust for overlapping different exposure types (simple truncation)
     * When different exposure types overlap, later one takes precedence
     * (Assumes data recording order reflects most recent exposure status)
     * Use iterative resolution to handle cascading overlaps
-    * ONLY run when NOT in layer mode - layer mode handles overlaps with resumption
-    if "`layer'" == "" {
+    * ONLY run as fallback when no overlap strategy is specified
+    * priority/split/combine/layer each handle overlaps in their own blocks
+    if "`layer'" == "" & "`priority'" == "" & "`split'" == "" & "`combine'" == "" {
         sort id exp_start exp_stop exp_value
 
         local iter = 0
@@ -2025,22 +2062,9 @@ program define tvexpose, rclass
     * Must be saved before any exposure type transformations that change exp_value
     quietly gen double __orig_exp_category = exp_value
     
-    * For bytype processing, merge back the pre-overlap exposure types
-    * This ensures we can identify which periods belonged to which exposure type
-    * even if overlap resolution eliminated some types
-    if "`bytype'" != "" {
-        * Merge back original exposure types from before overlap resolution
-        preserve
-        quietly use `period_exp_types', clear
-        isid id exp_start exp_stop exp_value
-        restore
-        quietly merge m:1 id exp_start exp_stop exp_value using `period_exp_types', ///
-            nogen keep(1 3)
-        
-        * exp_value matched from using data represents the pre-overlap type
-        * Use it as the original exposure category for bytype calculations
-        quietly replace __orig_exp_category = exp_value
-    }
+    * Note: For bytype evertreated processing, first exposure dates per type
+    * are retrieved from `first_exp_by_type' (saved before overlap resolution)
+    * rather than from __orig_exp_category, which only reflects surviving rows
     
     **# EXPOSURE TYPE TRANSFORMATIONS
     * Different exposure types require different transformations of the exposure variable
@@ -2089,14 +2113,27 @@ program define tvexpose, rclass
             }
 
             * For each type, find first exposure date and mark all subsequent periods
+            * Uses pre-overlap first exposure dates to capture types eliminated by overlap resolution
             foreach exp_type_val of local exp_types {
                 * Sanitize suffix for variable names (handles negative/decimal values)
                 local suffix = subinstr("`exp_type_val'", "-", "neg", .)
                 local suffix = subinstr("`suffix'", ".", "p", .)
-                quietly gen double __first_exp_`suffix' = exp_start if __orig_exp_category == `exp_type_val'
-                quietly bysort id (exp_start): egen double __first_any_`suffix' = min(__first_exp_`suffix')
+
+                * Get first exposure date from pre-overlap saved data
+                * This correctly captures the first exposure even if overlap resolution
+                * eliminated that exposure type entirely
+                preserve
+                quietly use `first_exp_by_type', clear
+                quietly keep if exp_value == `exp_type_val'
+                keep id __pre_first_start
+                tempfile __temp_first
+                quietly save `__temp_first', replace
+                restore
+                quietly merge m:1 id using `__temp_first', nogen keep(1 3)
+
                 * Mark ALL rows as "ever treated" if they occur at or after first exposure to this type
-                quietly replace `stub_name'`suffix' = 1 if exp_start >= __first_any_`suffix' & !missing(__first_any_`suffix')
+                quietly replace `stub_name'`suffix' = 1 if exp_start >= __pre_first_start & !missing(__pre_first_start)
+                drop __pre_first_start
 
                 * Get label from original exposure variable for this type
                 if "`exp_value_label'" != "" {
@@ -2113,8 +2150,6 @@ program define tvexpose, rclass
                 * Define and apply value labels
                 label define `stub_name'labels_`suffix' 0 "Never `vallab'" 1 "Ever `vallab'", replace
                 label values `stub_name'`suffix' `stub_name'labels_`suffix'
-
-                drop __first_exp_`suffix' __first_any_`suffix'
             }
             
             * Collapse consecutive periods with identical ever_X values

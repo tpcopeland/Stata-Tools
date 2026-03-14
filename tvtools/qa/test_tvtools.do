@@ -1199,7 +1199,8 @@ if _rc != 0 {
     local test1_pass = 0
 }
 else {
-    * All _failure should be 0 (event at start, not matched)
+    * Under [start, stop] inclusive convention, event at start IS flagged
+    * Interval is split into [start, start] (event) and [start+1, stop]
     capture confirm variable _failure
     if _rc != 0 {
         display as error "  FAIL [1.var]: _failure not found"
@@ -1207,19 +1208,20 @@ else {
     }
     else {
         quietly count if _failure != 0
-        if r(N) == 0 {
-            display as result "  PASS [1.no_flag]: event at start not flagged"
+        if r(N) == 1 {
+            display as result "  PASS [1.flagged]: event at start correctly flagged"
         }
         else {
-            display as error "  FAIL [1.no_flag]: `=r(N)' rows with _failure!=0"
+            display as error "  FAIL [1.flagged]: `=r(N)' rows with _failure!=0, expected 1"
             local test1_pass = 0
         }
     }
 
-    * Row count unchanged (no split)
+    * Row count = 1: split creates [start,start] and [start+1,stop],
+    * but type(single) censors the post-event interval, leaving 1 row
     quietly count
     if r(N) == 1 {
-        display as result "  PASS [1.rows]: 1 row (no split)"
+        display as result "  PASS [1.rows]: 1 row (split + single-event censor)"
     }
     else {
         display as error "  FAIL [1.rows]: `=r(N)' rows, expected 1"
@@ -1890,10 +1892,10 @@ else {
         local test11_pass = 0
     }
 
-    * Row durations under (start, stop] convention = stop - start
-    local r1_dur = stop[1] - start[1]
-    local r2_dur = stop[2] - start[2]
-    local orig_dur = stop[1] - start[1] + stop[2] - start[2]
+    * Row durations under [start, stop] inclusive convention = stop - start + 1
+    local r1_dur = stop[1] - start[1] + 1
+    local r2_dur = stop[2] - start[2] + 1
+    local orig_dur = `r1_dur' + `r2_dur'
 
     * tv_dose for each row: original_dose * (row_duration / total_duration)
     local expected_dose1 = 182 * (`r1_dur' / `orig_dur')
@@ -3196,9 +3198,9 @@ else {
 }
 
 * (c) priority(1 2): priority behaves like layer but the original drug does
-* NOT resume after the interrupting drug ends. The later-starting drug
-* always interrupts regardless of priority order.
-* Actual: [Jan1,Feb29]=1, [Mar1,Apr30]=2, [May1,Dec31]=Unexposed
+* With priority(1 2), Drug A (type 1) has highest priority.
+* Drug A [Jan1,Jun30] fully contains Drug B [Mar1,Apr30], so Drug B is eliminated.
+* Result: [Jan1,Jun30]=1, [Jul1,Dec31]=0
 use `cohort5', clear
 capture noisily tvexpose using `exp5', ///
     id(id) start(start) stop(stop) ///
@@ -3213,17 +3215,17 @@ if _rc != 0 {
 else {
     sort id start
 
-    * Drug B still appears during its active period (priority does not suppress it)
+    * Drug B is eliminated (Drug A has higher priority and fully covers Drug B)
     quietly count if exp_val == 2
-    if r(N) == 1 {
-        display as result "  PASS [5c.drug_b]: 1 Drug B row (priority does not suppress)"
+    if r(N) == 0 {
+        display as result "  PASS [5c.no_drug_b]: Drug B correctly eliminated by higher-priority Drug A"
     }
     else {
-        display as error "  FAIL [5c.drug_b]: `=r(N)' Drug B rows, expected 1"
+        display as error "  FAIL [5c.no_drug_b]: `=r(N)' Drug B rows, expected 0"
         local test5_pass = 0
     }
 
-    * Drug A has 1 row (Jan1-Feb29, before Drug B starts)
+    * Drug A has 1 row [Jan1,Jun30]
     quietly count if exp_val == 1
     if r(N) == 1 {
         display as result "  PASS [5c.single_a]: single Drug A row"
@@ -5293,14 +5295,14 @@ else {
         local test28_pass = 0
     }
 
-    * Combo=102 is assigned to the period [Jan1,Mar31] (the first drug's initial
-    * period). This is tvexpose's actual combine() encoding behavior.
+    * Combo=102 covers the actual overlap period [Apr1,Jun30]
+    * Drug 1 [Jan1,Jun30] and Drug 2 [Apr1,Sep30] overlap from Apr1 to Jun30
     quietly su start if combo == 102
     local combo_start = r(mean)
     quietly su stop if combo == 102
     local combo_stop = r(mean)
-    if `combo_start' == mdy(1,1,2020) & `combo_stop' == mdy(3,31,2020) {
-        display as result "  PASS [28.dates]: combo=102 period is [Jan1,Mar31]"
+    if `combo_start' == mdy(4,1,2020) & `combo_stop' == mdy(6,30,2020) {
+        display as result "  PASS [28.dates]: combo=102 period is [Apr1,Jun30]"
     }
     else {
         display as error "  FAIL [28.dates]: combo=102 period start=`=string(`combo_start',"%td")', stop=`=string(`combo_stop',"%td")'"

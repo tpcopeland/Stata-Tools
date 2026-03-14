@@ -1,4 +1,4 @@
-*! tvmerge Version 1.0.7  2026/03/06
+*! tvmerge Version 1.0.8  2026/03/14
 *! Merge multiple time-varying exposure datasets
 *! Author: Tim Copeland
 *! Program class: rclass (returns results in r())
@@ -279,28 +279,31 @@ program define tvmerge, rclass
     }
     
     * Check for duplicate exposure variable names in the specification
+    * Skip this check when generate() is provided, since generate() renames the variables
     local exposures_raw "`exposure'"
     local numexp_raw: word count `exposures_raw'
 
-    * Check if user specified same variable name multiple times
-    local seen_names ""
-    local has_dup = 0
-    local dup_name ""
-    foreach exp_name in `exposures_raw' {
-        local already_seen: list exp_name in seen_names
-        if `already_seen' {
-            local has_dup = 1
-            local dup_name "`exp_name'"
-            continue, break
+    if "`generate'" == "" {
+        * Check if user specified same variable name multiple times
+        local seen_names ""
+        local has_dup = 0
+        local dup_name ""
+        foreach exp_name in `exposures_raw' {
+            local already_seen: list exp_name in seen_names
+            if `already_seen' {
+                local has_dup = 1
+                local dup_name "`exp_name'"
+                continue, break
+            }
+            local seen_names "`seen_names' `exp_name'"
         }
-        local seen_names "`seen_names' `exp_name'"
-    }
 
-    if `has_dup' {
-        di as error "Duplicate exposure variable name '`dup_name'' specified multiple times."
-        di as error "Each position in exposure() must have a unique name."
-        di as error "Use the generate() option to rename exposures if datasets have same variable names."
-        exit 198
+        if `has_dup' {
+            di as error "Duplicate exposure variable name '`dup_name'' specified multiple times."
+            di as error "Each position in exposure() must have a unique name."
+            di as error "Use the generate() option to rename exposures if datasets have same variable names."
+            exit 198
+        }
     }
 
     local exposures "`exposures_raw'"
@@ -525,8 +528,10 @@ program define tvmerge, rclass
         sort id `startname' `stopname'
 
         * Check for overlapping intervals in first dataset
+        * Use <= to catch one-day overlaps where start == previous stop
+        * (consistent with [start, stop] inclusive interval convention)
         tempvar _overlap_check
-        by id: gen byte `_overlap_check' = (`startname' < `stopname'[_n-1]) if _n > 1
+        by id: gen byte `_overlap_check' = (`startname' <= `stopname'[_n-1]) if _n > 1
         quietly count if `_overlap_check' == 1
         local n_overlaps_ds1 = r(N)
         if `n_overlaps_ds1' > 0 {
@@ -745,8 +750,9 @@ program define tvmerge, rclass
             sort id start_k stop_k
 
             * Check for overlapping intervals in this dataset
+            * Use <= to catch one-day overlaps (consistent with [start, stop] inclusive intervals)
             tempvar _overlap_check_k
-            by id: gen byte `_overlap_check_k' = (start_k < stop_k[_n-1]) if _n > 1
+            by id: gen byte `_overlap_check_k' = (start_k <= stop_k[_n-1]) if _n > 1
             quietly count if `_overlap_check_k' == 1
             local n_overlaps_dsk = r(N)
             if `n_overlaps_dsk' > 0 {
@@ -1156,8 +1162,9 @@ program define tvmerge, rclass
         * Note: In cartesian merges, overlaps are expected when exposure combinations differ
         * This diagnostic flags overlaps with IDENTICAL exposure values (likely errors)
         if "`validateoverlap'" != "" {
-            * Check if any period starts before previous one ends
-            by id (`startname'): generate byte _overlap = `startname'[_n] < `stopname'[_n-1] if _n > 1
+            * Check if any period starts before or on the day previous one ends
+            * Uses <= to catch one-day overlaps (consistent with [start, stop] inclusive intervals)
+            by id (`startname'): generate byte _overlap = `startname'[_n] <= `stopname'[_n-1] if _n > 1
 
             * For overlaps, check if exposure values are identical (unexpected)
             * If exposure values differ, overlap is expected in cartesian merge

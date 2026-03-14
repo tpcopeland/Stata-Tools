@@ -1211,7 +1211,7 @@ if `quiet' == 0 {
 
 * -----------------------------------------------------------------------------
 * Test 4.6.1: Event Exactly at Interval Start
-* Purpose: Verify event at start boundary is NOT captured
+* Purpose: Under [start, stop] inclusive convention, event at start IS captured
 * -----------------------------------------------------------------------------
 local ++test_count
 if `quiet' == 0 {
@@ -1223,12 +1223,12 @@ capture {
     tvevent using "${DATA_DIR}/intervals_fullyear.dta", id(id) date(event_dt) ///
         startvar(start) stopvar(stop) type(single) generate(outcome)
 
-    * Event should NOT be captured (date not > start)
+    * Under [start, stop] inclusive convention, event at start IS captured
     quietly count if outcome == 1
-    assert r(N) == 0
+    assert r(N) == 1
 }
 if _rc == 0 {
-    display as result "  PASS: Event at exact start NOT captured (strict inequality)"
+    display as result "  PASS: Event at exact start correctly captured ([start,stop] inclusive)"
     local ++pass_count
 }
 else {
@@ -2752,7 +2752,7 @@ save "${DATA_DIR}/events_at_stop.dta", replace
 
 * -----------------------------------------------------------------------------
 * Test 4.25.1: Event Exactly at Interval Start
-* Purpose: Verify event at first day of interval is NOT captured (strict inequality)
+* Purpose: Under [start, stop] inclusive convention, event at start IS captured
 * Note: This test confirms the same behavior as Test 4.6.1
 * -----------------------------------------------------------------------------
 local ++test_count
@@ -2765,16 +2765,15 @@ capture {
     tvevent using "${DATA_DIR}/intervals_fullyear.dta", id(id) date(event_dt) ///
         startvar(start) stopvar(stop) type(single) generate(outcome)
 
-    * Event at exact start should NOT be captured (strict inequality: start < date < stop)
-    * This is consistent with survival analysis where start is inclusive, stop is exclusive
+    * Under [start, stop] inclusive convention, event at start IS captured
     quietly count if outcome == 1
-    assert r(N) == 0
+    assert r(N) == 1
 
     * Data should have at least one row
     assert _N >= 1
 }
 if _rc == 0 {
-    display as result "  PASS: Event at interval start boundary NOT captured (correct)"
+    display as result "  PASS: Event at interval start boundary correctly captured"
     local ++pass_count
 }
 else {
@@ -2814,14 +2813,14 @@ else {
 * -----------------------------------------------------------------------------
 * Test 4.25.3: Very Short Interval (1 day)
 * Purpose: Verify handling of minimal duration intervals
-* Note: Event at start of 1-day interval won't be captured (strict inequality)
+* Note: Under [start, stop] inclusive, event at start of 1-day interval IS captured
 * -----------------------------------------------------------------------------
 local ++test_count
 if `quiet' == 0 {
     display as text _n "Test 4.25.3: Very Short Interval (1 Day)"
 }
 
-* Create 1-day interval
+* Create 1-day interval [22006, 22007] = 2 days under inclusive convention
 clear
 input long id double(start stop) byte tv_exp
     1 22006 22007 1
@@ -2829,7 +2828,7 @@ end
 format %td start stop
 save "${DATA_DIR}/intervals_oneday.dta", replace
 
-* Event within that day (at start - will NOT be captured due to strict inequality)
+* Event at start date - captured under [start, stop] inclusive convention
 clear
 input long id double event_dt
     1 22006
@@ -2842,15 +2841,13 @@ capture {
     tvevent using "${DATA_DIR}/intervals_oneday.dta", id(id) date(event_dt) ///
         startvar(start) stopvar(stop) type(single) generate(outcome)
 
-    * 1-day interval handled correctly
-    * Event at start=22006 not captured (strict inequality: start < date < stop)
-    * This is expected behavior - no room for events in 1-day interval with strict inequality
+    * Under [start, stop] inclusive convention, event at start IS captured
     assert _N >= 1
     quietly count if outcome == 1
-    assert r(N) == 0  // Event at exact start is NOT captured
+    assert r(N) == 1
 }
 if _rc == 0 {
-    display as result "  PASS: 1-day interval handled correctly (event at start not captured)"
+    display as result "  PASS: 1-day interval - event at start captured ([start,stop] inclusive)"
     local ++pass_count
 }
 else {
@@ -3067,8 +3064,9 @@ capture {
     * Should create multiple micro-intervals
     assert _N >= 3
 
-    * All intervals should have valid duration (stop > start)
-    quietly count if stop <= start
+    * All intervals should have valid duration (stop >= start under [start,stop] inclusive)
+    * Single-day intervals have stop == start, which is valid
+    quietly count if stop < start
     assert r(N) == 0
 
     * Multiple events should be recorded
@@ -3418,9 +3416,9 @@ if `quiet' == 0 {
 }
 
 capture {
-    * Calculate original person-time
+    * Calculate original person-time under [start, stop] inclusive convention
     use "${DATA_DIR}/intervals_fullyear.dta", clear
-    gen double dur = stop - start
+    gen double dur = stop - start + 1
     quietly sum dur
     local original_pt = r(sum)
 
@@ -3429,8 +3427,8 @@ capture {
     tvevent using "${DATA_DIR}/intervals_fullyear.dta", id(id) date(hosp) ///
         startvar(start) stopvar(stop) type(recurring) generate(outcome)
 
-    * Calculate output person-time
-    gen double dur = stop - start
+    * Calculate output person-time under [start, stop] inclusive convention
+    gen double dur = stop - start + 1
     quietly sum dur
     local output_pt = r(sum)
 
@@ -20951,14 +20949,14 @@ if `quiet' == 0 {
 }
 
 * -----------------------------------------------------------------------------
-* Test 5.1: Event exactly at interval start (should NOT flag in that interval)
-* This tests the survival analysis convention: risk begins at start
+* Test 5.1: Event exactly at interval start (IS flagged under [start,stop] inclusive)
+* Under [start, stop] inclusive convention, events at start ARE captured
 * -----------------------------------------------------------------------------
 local ++test_count
 if `quiet' == 0 {
     display as text _n "Test 5.1: Event at interval start date"
     display as text "  Interval [21915, 22015], Event at 21915"
-    display as text "  Expected: Event NOT flagged (risk starts at, not before, start)"
+    display as text "  Expected: Event IS flagged ([start,stop] inclusive convention)"
 }
 
 capture {
@@ -20981,13 +20979,11 @@ capture {
         startvar(start) stopvar(stop) ///
         generate(outcome)
 
-    * Event at start should NOT cause a split (date > start is strict)
-    * The event should NOT be flagged in this interval
+    * Under [start, stop] inclusive convention, event at start IS flagged
     quietly count if outcome == 1
     local n_events = r(N)
 
-    * Per survival analysis convention, event at t=start is before risk begins
-    assert `n_events' == 0
+    assert `n_events' == 1
 }
 if _rc == 0 {
     local ++pass_count
@@ -20995,7 +20991,7 @@ if _rc == 0 {
         display "[OK] 5.1"
     }
     else if `quiet' == 0 {
-        display as result "  PASS: Event at start not flagged (correct per survival convention)"
+        display as result "  PASS: Event at start correctly flagged ([start,stop] inclusive)"
     }
 }
 else {
