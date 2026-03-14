@@ -1,0 +1,4 @@
+v 3
+d Stata packages by Timothy P Copeland
+d Department of Clinical Neuroscience, Karolinska Institutet
+p qba Quantitative Bias Analysis for epidemiologic data

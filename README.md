@@ -1,6 +1,6 @@
 # Stata-Tools
 
-Production distribution repository for Stata packages (26 packages, 128 commands). All packages require Stata 16+, except where noted. Install any package directly from here using `net install`.
+Production distribution repository for Stata packages (28 packages, 135 commands). All packages require Stata 16+, except where noted. Install any package directly from here using `net install`.
 
 ## Installation
 
@@ -51,6 +51,7 @@ net install <package>, from("https://raw.githubusercontent.com/tpcopeland/Stata-
 | **mvp** | Missing value pattern analysis with visualizations | 14+ |
 | **nma** | Network meta-analysis suite | 16+ |
 | **outlier** | Outlier detection (IQR, SD, Mahalanobis, influence) | 16+ |
+| **qba** | Quantitative bias analysis (confounding, misclassification, selection) | 16+ |
 | **treescan** | Tree-based scan statistic for signal detection | 16+ |
 | **tte** | Target trial emulation suite | 16+ |
 
@@ -67,6 +68,7 @@ net install <package>, from("https://raw.githubusercontent.com/tpcopeland/Stata-
 |---------|-------------|-------|
 | **consort** | CONSORT-style exclusion flowcharts (requires Python 3.7+) | 16+ |
 | **eplot** | Forest plots and coefficient plots from estimates or data | 16+ |
+| **raincloud** | Raincloud plots: density, scatter, and box elements | 16+ |
 | **tabtools** | Publication-ready Excel tables (table1_tc, regtab, effecttab, stratetab, tablex) | 16+ (17+ for regtab, effecttab, stratetab, tablex) |
 | **tc_schemes** | Graph schemes from blindschemes and schemepack | 16+ |
 
@@ -109,4 +111,3 @@ Department of Clinical Neuroscience, Karolinska Institutet
 ## License
 
 MIT
-| `raincloud` | Raincloud plots combining density, scatter, and box elements |
