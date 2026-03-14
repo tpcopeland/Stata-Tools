@@ -47,6 +47,12 @@ and causal inference methods.
 {bf:Weighting and Estimation}
 
 {synopt:{helpb tvweight}}Calculate inverse probability of treatment weights (IPTW){p_end}
+{synopt:{helpb tvestimate}}G-estimation for structural nested models{p_end}
+
+{pstd}
+{bf:Target Trial Emulation}
+
+{synopt:{helpb tvtrial}}Target trial emulation for observational data{p_end}
 
 
 {marker workflow}{...}
@@ -61,7 +67,8 @@ A typical time-varying exposure analysis follows these steps:
 {p 4 8 2}4. {bf:Diagnose}: Use {helpb tvdiagnose} and {helpb tvplot} to verify data structure{p_end}
 {p 4 8 2}5. {bf:Check balance}: Use {helpb tvbalance} to assess covariate balance{p_end}
 {p 4 8 2}6. {bf:Compute weights}: Use {helpb tvweight} for IPTW estimation{p_end}
-{p 4 8 2}7. {bf:Estimate effects}: Use Cox regression with weighted data{p_end}
+{p 4 8 2}7. {bf:Estimate effects}: Use {helpb tvestimate} for G-estimation or Cox regression with weighted data{p_end}
+{p 4 8 2}8. {bf:Emulate trials}: Use {helpb tvtrial} for target trial emulation{p_end}
 
 
 {marker installation}{...}
