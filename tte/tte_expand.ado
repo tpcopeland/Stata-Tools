@@ -1,4 +1,4 @@
-*! tte_expand Version 1.0.4  2026/03/14
+*! tte_expand Version 1.0.5  2026/03/14
 *! Sequential trial expansion (clone-censor-weight) for target trial emulation
 *! Author: Timothy P Copeland
 *! Author: Tania F Reza
@@ -102,23 +102,10 @@ program define tte_expand, rclass
     * DISPLAY HEADER
     * =========================================================================
 
-    display as text ""
-    display as text "{hline 70}"
-    display as result "tte_expand" as text " - Sequential Trial Expansion"
-    display as text "{hline 70}"
-    display as text ""
-    display as text "Estimand:        " as result "`estimand'"
-    display as text "Trial periods:   " as result "`n_trial_periods'"
-    if `maxfollowup' > 0 {
-        display as text "Max follow-up:   " as result "`maxfollowup' periods"
-    }
-    else {
-        display as text "Max follow-up:   " as result "unlimited"
-    }
-    if "`estimand'" != "ITT" {
-        display as text "Grace period:    " as result "`grace' periods"
-    }
-    display as text ""
+    local _mfu_disp = cond(`maxfollowup' > 0, "`maxfollowup'", "unlimited")
+    display as text "(expanding `n_trial_periods' trial periods, " ///
+        "estimand " as result "`estimand'" as text ///
+        ", max follow-up " as result "`_mfu_disp'" as text ")"
 
     * =========================================================================
     * PRESERVE AND PROCESS
@@ -136,8 +123,6 @@ program define tte_expand, rclass
     * =========================================================================
     * BUILD SEQUENTIAL TRIALS
     * =========================================================================
-
-    display as text "Expanding trials... " _continue
 
     local n_saved = 0
     local total_expanded = 0
@@ -276,12 +261,7 @@ program define tte_expand, rclass
         tempfile _tf`n_saved'
         quietly save `_tf`n_saved'', replace
 
-        * Progress display
-        display as text _char(13) "Expanding trials... " ///
-            string(round(`trial_count'/`n_trial_periods'*100), "%3.0f") "%" _continue
     }
-
-    display as text _char(13) "Expanding trials... done" _newline
 
     if `n_saved' == 0 {
         display as error "no trials produced; check eligibility criteria"
@@ -297,8 +277,6 @@ program define tte_expand, rclass
     * =========================================================================
     * COMBINE ALL TRIALS
     * =========================================================================
-
-    display as text "Combining `n_saved' trial datasets..."
 
     use `_tf1', clear
     forvalues i = 2/`n_saved' {
@@ -363,26 +341,15 @@ program define tte_expand, rclass
     * =========================================================================
 
     display as text ""
-    display as text "Expansion complete:"
-    display as text "  Original obs:     " as result %10.0fc `n_orig'
-    display as text "  Expanded obs:     " as result %10.0fc `n_expanded'
-    display as text "  Expansion ratio:  " as result %10.1f `expansion_ratio' "x"
-    display as text "  Trials created:   " as result `trial_count'
-    display as text "  Treatment arm:    " as result %10.0fc `n_treat'
-    display as text "  Control arm:      " as result %10.0fc `n_control'
-    display as text "  Censored:         " as result %10.0fc `n_cens_final'
-    display as text "  Events:           " as result %10.0fc `n_events'
+    display as text "  Trials: " as result `trial_count' ///
+        as text "  |  Obs: " as result %10.0fc `n_orig' ///
+        as text " -> " as result %10.0fc `n_expanded' ///
+        as text " (" as result %3.1f `expansion_ratio' "x" as text ")"
+    display as text "  Arms:  " as result %10.0fc `n_treat' ///
+        as text " treated, " as result %10.0fc `n_control' ///
+        as text " control  |  Censored: " as result %10.0fc `n_cens_final' ///
+        as text "  Events: " as result %10.0fc `n_events'
     display as text ""
-    display as text "Variables created: " as result ///
-        "`prefix'trial `prefix'arm `prefix'followup `prefix'censored `prefix'outcome_obs"
-    display as text ""
-    if "`estimand'" != "ITT" {
-        display as text "Next step: {cmd:tte_weight}"
-    }
-    else {
-        display as text "Next step: {cmd:tte_fit}"
-    }
-    display as text "{hline 70}"
 
     * =========================================================================
     * RETURN RESULTS

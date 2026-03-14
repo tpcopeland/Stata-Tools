@@ -165,7 +165,7 @@ tte_expand
 
 tte_weight, switch_d_cov(catvara catvarb catvarc nvara nvarb nvarc) ///
     switch_n_cov(catvara nvara) ///
-    stabilized truncate(1 99) nolog
+    truncate(1 99) nolog
 
 tte_fit, outcome_cov(catvara catvarb catvarc nvara nvarb nvarc) ///
     followup_spec(quadratic) trial_period_spec(quadratic) nolog
