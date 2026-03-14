@@ -2,7 +2,7 @@
 
 ![Stata 16+](https://img.shields.io/badge/Stata-16%2B-brightgreen) ![MIT License](https://img.shields.io/badge/License-MIT-blue)
 
-**Version**: 1.3.0 (2026-03-01)
+**Version**: gcomp 1.2.1 / gcomptab 1.3.1 (2026-03-09)
 **Forked from**: SSC `gformula` v1.16 beta (Rhian Daniel, 2021)
 
 ## Overview
@@ -275,7 +275,7 @@ gcomp y m x c, outcome(y) mediation oce ///
 
 ## Changelog
 
-### v1.3.0 (2026-03-01)
+### v1.3.1 / gcomptab (2026-03-09)
 - **gcomptab: Fixed broken data pipeline** — gcomptab now reads from `e()` results instead of global matrices that gcomp drops before returning. This was the root cause of "No gcomp mediation results found" errors after running gcomp.
 - **gcomptab: Added validation** — Checks `e(cmd)`, `e(analysis_type)`, and `e(mediation_type)` before extracting results. Rejects `oce` mediation type (unsupported column layout).
 - **gcomptab: Named column lookups** — Uses `colnumb()` instead of positional indices for robustness.
