@@ -1423,6 +1423,274 @@ else {
     local ++fail_count
 }
 
+* Test: melogit MOR automatic transformation
+local ++test_count
+capture noisily {
+    clear
+    set seed 12345
+    set obs 500
+    gen cluster = ceil(_n/25)
+    label variable cluster "Hospital"
+    gen x = rnormal()
+    label variable x "Treatment"
+    gen u0 = rnormal() * 0.8 if cluster != cluster[_n-1]
+    replace u0 = u0[_n-1] if u0 == .
+    gen p = invlogit(-1 + 0.5*x + u0)
+    gen y = runiform() < p
+    collect clear
+    collect: melogit y x || cluster:
+    regtab, xlsx("`output_dir'/_test_regtab_mor.xlsx") sheet("MOR") ///
+        coef("OR") title("MOR Test") relabel
+    confirm file "`output_dir'/_test_regtab_mor.xlsx"
+    * Verify MOR label appears in output
+    import excel "`output_dir'/_test_regtab_mor.xlsx", sheet("MOR") clear allstring
+    count if strpos(B, "Median Odds Ratio") > 0
+    assert r(N) == 1
+    * Verify MOR value is reasonable (>= 1.0)
+    levelsof C if strpos(B, "Median Odds Ratio") > 0, local(mor_val)
+    local mor_val : word 1 of `mor_val'
+    assert real("`mor_val'") >= 1.0
+}
+if _rc == 0 {
+    display as result "  PASS: regtab - melogit MOR transformation"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: regtab - melogit MOR transformation (error `=_rc')"
+    local ++fail_count
+}
+
+* Test: melogit MOR without relabel
+local ++test_count
+capture noisily {
+    clear
+    set seed 12345
+    set obs 500
+    gen cluster = ceil(_n/25)
+    gen x = rnormal()
+    gen u0 = rnormal() * 0.8 if cluster != cluster[_n-1]
+    replace u0 = u0[_n-1] if u0 == .
+    gen p = invlogit(-1 + 0.5*x + u0)
+    gen y = runiform() < p
+    collect clear
+    collect: melogit y x || cluster:
+    regtab, xlsx("`output_dir'/_test_regtab_mor_norelabel.xlsx") sheet("MOR") ///
+        coef("OR") title("MOR No Relabel")
+    confirm file "`output_dir'/_test_regtab_mor_norelabel.xlsx"
+    * Verify MOR label still appears even without relabel
+    import excel "`output_dir'/_test_regtab_mor_norelabel.xlsx", sheet("MOR") clear allstring
+    count if strpos(B, "Median Odds Ratio") > 0
+    assert r(N) == 1
+}
+if _rc == 0 {
+    display as result "  PASS: regtab - MOR without relabel"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: regtab - MOR without relabel (error `=_rc')"
+    local ++fail_count
+}
+
+* Test: melogit MOR value correctness
+local ++test_count
+capture noisily {
+    * MOR = exp(sqrt(2 * var) * invnormal(0.75))
+    * With known variance, verify the transformation
+    clear
+    set seed 99999
+    set obs 1000
+    gen cluster = ceil(_n/50)
+    label variable cluster "Site"
+    gen x = rnormal()
+    gen u0 = rnormal() * 1.0 if cluster != cluster[_n-1]
+    replace u0 = u0[_n-1] if u0 == .
+    gen p = invlogit(-0.5 + 0.3*x + u0)
+    gen y = runiform() < p
+    collect clear
+    collect: melogit y x || cluster:
+    * Capture the variance from e(b)
+    tempname bmat
+    matrix `bmat' = e(b)
+    local colnames : colfullnames `bmat'
+    local var_est = .
+    local col = 1
+    foreach cn of local colnames {
+        if strpos("`cn'", "lns1_1_1:") {
+            local var_est = exp(2 * `bmat'[1,`col'])
+        }
+        local col = `col' + 1
+    }
+    local expected_mor = exp(sqrt(2 * `var_est') * invnormal(0.75))
+    regtab, xlsx("`output_dir'/_test_regtab_mor_correct.xlsx") sheet("MOR") ///
+        coef("OR") title("MOR Correctness")
+    import excel "`output_dir'/_test_regtab_mor_correct.xlsx", sheet("MOR") clear allstring
+    levelsof C if strpos(B, "Median Odds Ratio") > 0, local(mor_val)
+    local mor_val : word 1 of `mor_val'
+    * Verify MOR matches expected within rounding
+    assert abs(real("`mor_val'") - round(`expected_mor', 0.01)) < 0.02
+}
+if _rc == 0 {
+    display as result "  PASS: regtab - MOR value correctness"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: regtab - MOR value correctness (error `=_rc')"
+    local ++fail_count
+}
+
+* Test: melogit MOR with nore suppresses MOR row
+local ++test_count
+capture noisily {
+    clear
+    set seed 12345
+    set obs 500
+    gen cluster = ceil(_n/25)
+    gen x = rnormal()
+    gen u0 = rnormal() * 0.8 if cluster != cluster[_n-1]
+    replace u0 = u0[_n-1] if u0 == .
+    gen p = invlogit(-1 + 0.5*x + u0)
+    gen y = runiform() < p
+    collect clear
+    collect: melogit y x || cluster:
+    regtab, xlsx("`output_dir'/_test_regtab_mor_nore.xlsx") sheet("MOR") ///
+        coef("OR") title("MOR + nore") nore
+    import excel "`output_dir'/_test_regtab_mor_nore.xlsx", sheet("MOR") clear allstring
+    count if strpos(B, "Median Odds Ratio") > 0
+    assert r(N) == 0
+}
+if _rc == 0 {
+    display as result "  PASS: regtab - MOR with nore"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: regtab - MOR with nore (error `=_rc')"
+    local ++fail_count
+}
+
+* Test: melogit MOR with group label
+local ++test_count
+capture noisily {
+    clear
+    set seed 12345
+    set obs 500
+    gen hospital = ceil(_n/25)
+    label variable hospital "Healthcare Facility"
+    gen x = rnormal()
+    gen u0 = rnormal() * 0.8 if hospital != hospital[_n-1]
+    replace u0 = u0[_n-1] if u0 == .
+    gen p = invlogit(-1 + 0.5*x + u0)
+    gen y = runiform() < p
+    collect clear
+    collect: melogit y x || hospital:
+    regtab, xlsx("`output_dir'/_test_regtab_mor_grplbl.xlsx") sheet("MOR") ///
+        coef("OR") title("MOR Group Label") relabel
+    import excel "`output_dir'/_test_regtab_mor_grplbl.xlsx", sheet("MOR") clear allstring
+    * Verify group label is included
+    count if strpos(B, "Median Odds Ratio (Healthcare Facility)") > 0
+    assert r(N) == 1
+}
+if _rc == 0 {
+    display as result "  PASS: regtab - MOR with group label"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: regtab - MOR with group label (error `=_rc')"
+    local ++fail_count
+}
+
+* Test: mixed model (linear) does NOT get MOR transformation
+local ++test_count
+capture noisily {
+    clear
+    set seed 12345
+    set obs 200
+    gen cluster = ceil(_n/20)
+    gen x = rnormal()
+    gen u0 = rnormal() * 0.5 if cluster != cluster[_n-1]
+    replace u0 = u0[_n-1] if u0 == .
+    gen y = 1 + 0.5*x + u0 + rnormal()*0.3
+    collect clear
+    collect: mixed y x || cluster:
+    regtab, xlsx("`output_dir'/_test_regtab_no_mor.xlsx") sheet("NoMOR") ///
+        coef("Coef.") title("No MOR for linear") relabel
+    import excel "`output_dir'/_test_regtab_no_mor.xlsx", sheet("NoMOR") clear allstring
+    * Should NOT have MOR label
+    count if strpos(B, "Median Odds Ratio") > 0
+    assert r(N) == 0
+    * Should have variance label instead
+    count if strpos(B, "Intercept") > 0 | strpos(B, "Variance") > 0 | strpos(B, "Residual") > 0
+    assert r(N) > 0
+}
+if _rc == 0 {
+    display as result "  PASS: regtab - linear mixed no MOR"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: regtab - linear mixed no MOR (error `=_rc')"
+    local ++fail_count
+}
+
+* Test: melogit MOR CI transformation
+local ++test_count
+capture noisily {
+    clear
+    set seed 12345
+    set obs 500
+    gen cluster = ceil(_n/25)
+    gen x = rnormal()
+    gen u0 = rnormal() * 0.8 if cluster != cluster[_n-1]
+    replace u0 = u0[_n-1] if u0 == .
+    gen p = invlogit(-1 + 0.5*x + u0)
+    gen y = runiform() < p
+    collect clear
+    collect: melogit y x || cluster:
+    regtab, xlsx("`output_dir'/_test_regtab_mor_ci.xlsx") sheet("MOR") ///
+        coef("OR") title("MOR CI")
+    import excel "`output_dir'/_test_regtab_mor_ci.xlsx", sheet("MOR") clear allstring
+    * Find the MOR row and check CI column
+    levelsof D if strpos(B, "Median Odds Ratio") > 0, local(mor_ci)
+    local mor_ci : word 1 of `mor_ci'
+    * CI should contain parentheses and comma (formatted CI)
+    assert strpos(`"`mor_ci'"', "(") > 0
+    assert strpos(`"`mor_ci'"', ")") > 0
+}
+if _rc == 0 {
+    display as result "  PASS: regtab - MOR CI transformation"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: regtab - MOR CI transformation (error `=_rc')"
+    local ++fail_count
+}
+
+* Test: melogit MOR with stats
+local ++test_count
+capture noisily {
+    clear
+    set seed 12345
+    set obs 500
+    gen cluster = ceil(_n/25)
+    label variable cluster "Site"
+    gen x = rnormal()
+    gen u0 = rnormal() * 0.8 if cluster != cluster[_n-1]
+    replace u0 = u0[_n-1] if u0 == .
+    gen p = invlogit(-1 + 0.5*x + u0)
+    gen y = runiform() < p
+    collect clear
+    collect: melogit y x || cluster:
+    regtab, xlsx("`output_dir'/_test_regtab_mor_stats.xlsx") sheet("MOR") ///
+        coef("OR") title("MOR + Stats") stats(n groups icc) relabel
+    confirm file "`output_dir'/_test_regtab_mor_stats.xlsx"
+}
+if _rc == 0 {
+    display as result "  PASS: regtab - MOR with stats"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: regtab - MOR with stats (error `=_rc')"
+    local ++fail_count
+}
+
 * ============================================================
 * effecttab Tests
 * ============================================================

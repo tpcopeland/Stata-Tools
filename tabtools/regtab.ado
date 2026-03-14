@@ -1,4 +1,4 @@
-*! regtab Version 1.7.0  2026/03/05
+*! regtab Version 1.8.0  2026/03/14
 *! Original Author: Tim Copeland
 
 /*
@@ -396,33 +396,51 @@ quietly{
     }
 
     * =========================================================================
+    * DETECT MODEL TYPE FOR RANDOM EFFECTS TRANSFORMATION
+    * =========================================================================
+    * melogit -> Median Odds Ratio (MOR)
+    * mestreg / mecloglog -> Median Hazard Ratio (MHR)
+    * Note: melogit stores e(cmd)="meglm", mestreg stores e(cmd)="gsem"
+    * The original command name is in e(cmd2)
+    local re_transform = "none"
+    local model_cmd2 = ""
+    capture local model_cmd2 = e(cmd2)
+    if "`model_cmd2'" == "melogit" {
+        local re_transform = "mor"
+    }
+    else if "`model_cmd2'" == "mecloglog" {
+        local re_transform = "mhr"
+    }
+    else if "`model_cmd2'" == "mestreg" {
+        local re_transform = "mhr"
+    }
+
+    * =========================================================================
     * STORE RANDOM EFFECTS LABELS BEFORE COLLECT EXPORT (for relabel option)
     * =========================================================================
     local re_groupvar = ""
     local re_grouplbl = ""
     local re_vars = ""
 
-    if "`relabel'" != "" {
-        * Get grouping variable(s) and label(s) from e(ivars)
-        capture local re_groupvar = e(ivars)
-        * Check for empty string AND "." (missing value returned by OLS models)
-        if "`re_groupvar'" != "" & "`re_groupvar'" != "." {
-            * For single-level models, get the label
-            local re_grouplbl : variable label `re_groupvar'
-            if "`re_grouplbl'" == "" local re_grouplbl "`re_groupvar'"
+    * Always capture grouping variable info (needed for relabel AND MOR/MHR)
+    capture local re_groupvar = e(ivars)
+    * Check for empty string AND "." (missing value returned by OLS models)
+    if "`re_groupvar'" != "" & "`re_groupvar'" != "." {
+        * For single-level models, get the label
+        local re_grouplbl : variable label `re_groupvar'
+        if "`re_grouplbl'" == "" local re_grouplbl "`re_groupvar'"
 
-            * Get random effects variables
-            capture local re_vars = e(revars)
-            if "`re_vars'" != "" {
-                * Store labels for each random effect variable
-                foreach revar of local re_vars {
-                    if "`revar'" == "_cons" {
-                        local lbl_`revar' "Intercept"
-                    }
-                    else {
-                        local lbl_`revar' : variable label `revar'
-                        if "`lbl_`revar''" == "" local lbl_`revar' "`revar'"
-                    }
+        * Get random effects variables
+        capture local re_vars = e(revars)
+        if "`re_vars'" != "" {
+            * Store labels for each random effect variable
+            foreach revar of local re_vars {
+                if "`revar'" == "_cons" {
+                    local lbl_`revar' "Intercept"
+                }
+                else {
+                    local lbl_`revar' : variable label `revar'
+                    if "`lbl_`revar''" == "" local lbl_`revar' "`revar'"
                 }
             }
         }
@@ -475,6 +493,16 @@ drop _orig_order _is_re_sort
 gen _temp_re_row = _n if (strpos(A, "var(") > 0) | (strpos(A, "cov(") > 0) | (strpos(A, "sd(") > 0)
 levelsof _temp_re_row, local(re_row_nums)
 drop _temp_re_row
+
+* Mark random intercept row numbers for MOR/MHR (before relabel changes names)
+* Note: melogit uses var(_cons[groupvar]) format, not var(_cons)
+* Search for "var(_cons" without closing paren to match both formats
+local re_int_row_nums ""
+if "`re_transform'" != "none" & "`nore'" == "" {
+    gen _temp_re_int = _n if strpos(A, "var(_cons") > 0
+    levelsof _temp_re_int, local(re_int_row_nums)
+    drop _temp_re_int
+}
 
 * Relabel random effects if requested
 if "`relabel'" != "" {
@@ -567,6 +595,28 @@ if "`relabel'" != "" {
     replace A = subinstr(A, "_cons", "Intercept", .)
 }
 
+* Apply MOR/MHR labels to random intercept rows (using stored row numbers)
+if "`re_transform'" == "mor" & "`nore'" == "" {
+    foreach row of local re_int_row_nums {
+        if "`re_grouplbl'" != "" {
+            replace A = "Median Odds Ratio (`re_grouplbl')" in `row'
+        }
+        else {
+            replace A = "Median Odds Ratio" in `row'
+        }
+    }
+}
+else if "`re_transform'" == "mhr" & "`nore'" == "" {
+    foreach row of local re_int_row_nums {
+        if "`re_grouplbl'" != "" {
+            replace A = "Median Hazard Ratio (`re_grouplbl')" in `row'
+        }
+        else {
+            replace A = "Median Hazard Ratio" in `row'
+        }
+    }
+}
+
 * Get all variables - first variable is row labels, rest are data columns
 ds
 local allvars `r(varlist)'
@@ -616,13 +666,27 @@ gen byte _is_re = 0
 foreach row of local re_row_nums {
     replace _is_re = 1 in `row'
 }
+* Recreate random intercept indicator for MOR/MHR formatting
+gen byte _is_re_intercept = 0
+foreach row of local re_int_row_nums {
+    replace _is_re_intercept = 1 in `row'
+}
 forvalues i = 1(3)`last'{
-destring c`i', gen(c`i'z) force
+destring c`i', gen(double c`i'z) force
 replace c`i' = "Reference" if inlist(c`i', "0", "1") & c`=`i'+1' == ""
+* MOR/MHR transformation: variance -> exp(sqrt(2*var) * invnormal(0.75))
+if "`re_transform'" != "none" {
+    replace c`i'z = exp(sqrt(2 * c`i'z) * invnormal(0.75)) ///
+        if _is_re_intercept == 1 & !missing(c`i'z) & c`i'z >= 0
+}
 * Fixed effects: 2 decimal places
 gen str20 c`i'_fmt = string(round(c`i'z, 0.01), "%9.2f") if !_is_re & !missing(c`i'z)
-* Random effects: 4 decimal places
-replace c`i'_fmt = string(c`i'z, "%9.4f") if _is_re & !missing(c`i'z)
+* Transformed random intercept (MOR/MHR): 2 decimal places
+replace c`i'_fmt = string(round(c`i'z, 0.01), "%9.2f") ///
+    if _is_re_intercept == 1 & "`re_transform'" != "none" & !missing(c`i'z)
+* Other random effects: 4 decimal places
+replace c`i'_fmt = string(c`i'z, "%9.4f") ///
+    if _is_re & _is_re_intercept == 0 & !missing(c`i'z)
 replace c`i' = c`i'_fmt if c`i'_fmt != "" & c`i' != "Reference" & _n >= 3
 drop c`i'z c`i'_fmt
 capture confirm variable c`=`i'+1'
@@ -642,15 +706,27 @@ forvalues i = 2(3)`=`last'+1' {
     gen _ci_hi_s = strtrim(substr(_ci_raw, _ci_dpos + `sep_len', .)) if _ci_dpos > 0
     destring _ci_lo_s, gen(double _ci_lo) force
     destring _ci_hi_s, gen(double _ci_hi) force
+    * MOR/MHR transformation of CI bounds
+    if "`re_transform'" != "none" {
+        replace _ci_lo = exp(sqrt(2 * _ci_lo) * invnormal(0.75)) ///
+            if _is_re_intercept == 1 & !missing(_ci_lo) & _ci_lo >= 0
+        replace _ci_hi = exp(sqrt(2 * _ci_hi) * invnormal(0.75)) ///
+            if _is_re_intercept == 1 & !missing(_ci_hi) & _ci_hi >= 0
+    }
     gen str50 _ci_fmt = ""
+    * Fixed effects: 2 decimal places
     replace _ci_fmt = "(" + string(_ci_lo, "%4.2fc") + `"`sep'"' + string(_ci_hi, "%4.2fc") + ")" ///
         if !_is_re & !missing(_ci_lo) & !missing(_ci_hi) & _n >= 3
+    * Transformed random intercept (MOR/MHR): 2 decimal places
+    replace _ci_fmt = "(" + string(_ci_lo, "%4.2fc") + `"`sep'"' + string(_ci_hi, "%4.2fc") + ")" ///
+        if _is_re_intercept == 1 & "`re_transform'" != "none" & !missing(_ci_lo) & !missing(_ci_hi) & _n >= 3
+    * Other random effects: 4 decimal places
     replace _ci_fmt = "(" + string(_ci_lo, "%9.4f") + `"`sep'"' + string(_ci_hi, "%9.4f") + ")" ///
-        if _is_re & !missing(_ci_lo) & !missing(_ci_hi) & _n >= 3
+        if _is_re & _is_re_intercept == 0 & !missing(_ci_lo) & !missing(_ci_hi) & _n >= 3
     replace c`i' = _ci_fmt if _ci_fmt != ""
     drop _ci_raw _ci_dpos _ci_lo_s _ci_hi_s _ci_lo _ci_hi _ci_fmt
 }
-drop _is_re
+drop _is_re _is_re_intercept
 forvalues i = 3(3)`n'{
 * Store original string value to detect genuinely missing p-values
 gen str20 c`i'_orig = c`i'

@@ -69,7 +69,7 @@ help for {cmd:table1_tc}
 {synopt:{opt sheet("string")}}name of Excel sheet for output, e.g., sheet("Table 1") {p_end}
 {synopt:{opt title("string")}}title for the Excel table, e.g., title("Table 1. Patient Characteristics"){p_end}
 {synopt:{opt borders:tyle(default|thin)}}Excel border style; default creates mixed borders, thin creates uniform thin borders{p_end}
-{synopt:{opt spark:lines}}add inline distribution plots (sparklines) to Excel output{p_end}
+{synopt:{opt sparkline(group|total|all)}}add per-column sparkline distribution plots to Excel output; requires {bf:by()}{p_end}
 {synopt:{opt sparksize(small|medium|large)}}sparkline image size; default is {bf:small}{p_end}
 {synopt:{opt sparktype(kdensity|histogram)}}sparkline style for continuous variables; default is {bf:kdensity}{p_end}
 
@@ -125,12 +125,15 @@ column widths based on content and applies professional formatting with customiz
 The resulting Excel file can be used directly in reports or presentations without requiring further 
 formatting.{p_end}
 
-{pstd}The {bf:sparklines} option adds small inline distribution plots alongside each variable's row
-in the Excel output. Continuous variables display kernel density curves (or histograms if
-{bf:sparktype(histogram)} is specified), while categorical and binary variables display bar charts
-of category proportions. The {bf:sparksize()} option controls the image dimensions. When {bf:by()}
-is specified, sparklines show the overall combined distribution across all groups. Sparklines
-require the {bf:excel()} option; they are silently ignored otherwise.{p_end}
+{pstd}The {bf:sparkline()} option adds small per-column distribution plots to Excel output.
+{bf:sparkline(group)} adds a narrow sparkline column after each group's data column.
+{bf:sparkline(total)} adds a sparkline column after the total column only (requires {bf:total()}).
+{bf:sparkline(all)} adds sparkline columns after each group and the total column (requires {bf:total()}).
+Group headers merge across the data and sparkline column pair. Continuous variables display
+kernel density curves (or histograms if {bf:sparktype(histogram)} is specified), while
+categorical and binary variables display bar charts of category proportions. The {bf:sparksize()}
+option controls the image dimensions. Sparklines require the {bf:by()} and {bf:excel()} options;
+they are silently ignored without {bf:excel()}.{p_end}
 
 {pstd}The underlying results table can also be kept in memory, replacing the original dataset, using the
 {bf:clear} option.{p_end}

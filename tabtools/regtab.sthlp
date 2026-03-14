@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.7.0  05mar2026}{...}
+{* *! version 1.8.0  14mar2026}{...}
 {vieweralsosee "effecttab" "help effecttab"}{...}
 {viewerjumpto "Package overview" "regtab##package"}{...}
 {viewerjumpto "Syntax" "regtab##syntax"}{...}
@@ -64,6 +64,19 @@ Stata's {helpb collect} framework and apply professional formatting.
 {synopt:{opt relabel}}Relabel random effects using variable labels from the grouping variable and random effects. For example, if the grouping variable {cmd:provider} has label "Healthcare Provider" and the model includes a random slope on {cmd:treatment} (labeled "Treatment Group"), the output will show "Healthcare Provider (Intercept)" for the random intercept variance, "Healthcare Provider (Treatment Group)" for the random slope variance, and "Healthcare Provider (Intercept, Treatment Group)" for the covariance. The residual variance is labeled "Residual Variance". If variable labels are not available, falls back to generic labels like {it:Variance (Intercept)}.{p_end}
 {synoptline}
 
+{pstd}{bf:Automatic Median Odds Ratio / Median Hazard Ratio}{p_end}
+
+{pstd}When the model type is {cmd:melogit}, {cmd:regtab} automatically converts the
+random intercept variance to a {bf:Median Odds Ratio (MOR)} using the formula
+MOR = exp(sqrt(2 * {it:sigma}^2) * invnormal(0.75)). For {cmd:mestreg} and
+{cmd:mecloglog}, the conversion produces a {bf:Median Hazard Ratio (MHR)}.
+The 95% CI bounds are transformed on the same scale. The row is labeled
+"Median Odds Ratio" or "Median Hazard Ratio" (with the grouping variable
+label in parentheses if available). MOR/MHR values are formatted with 2
+decimal places. Other random effects (slopes, covariances, residual) remain
+as variance components with 4 decimal places. Use {opt nore} to suppress all
+random-effects rows if desired.{p_end}
+
 {marker remarks}{title:Remarks}
 
 {pstd}Prerequisites and expectations{p_end}
@@ -122,5 +135,5 @@ Stata's {helpb collect} framework and apply professional formatting.
 {pstd}Department of Clinical Neuroscience{p_end}
 {pstd}Karolinska Institutet{p_end}
 
-{pstd}Version 1.7.0 - 2026-03-05{p_end}
+{pstd}Version 1.8.0 - 2026-03-14{p_end}
 

@@ -109,7 +109,7 @@ program _tabtools_sparkline
     set more off
 
     syntax varname [if], type(string) savepath(string) ///
-        [width(integer 75) height(integer 20) sparktype(string)]
+        [width(integer 40) height(integer 12) sparktype(string)]
 
     if "`sparktype'" == "" local sparktype "kdensity"
 
