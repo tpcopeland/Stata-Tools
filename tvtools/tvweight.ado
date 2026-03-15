@@ -43,8 +43,12 @@ See help tvweight for complete documentation
 
 program define tvweight, rclass
     version 16.0
+    local orig_varabbrev = c(varabbrev)
+    local orig_more = c(more)
     set varabbrev off
     set more off
+
+    capture noisily {
 
     * Parse syntax
     syntax varname(numeric) [if] [in], COVariates(varlist numeric) ///
@@ -470,5 +474,15 @@ program define tvweight, rclass
     }
     if "`denominator'" != "" {
         return local denominator "`denominator'"
+    }
+
+    } // end capture noisily
+    local rc = _rc
+
+    set varabbrev `orig_varabbrev'
+    set more `orig_more'
+
+    if `rc' {
+        exit `rc'
     }
 end

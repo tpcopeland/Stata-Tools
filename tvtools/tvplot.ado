@@ -40,8 +40,12 @@ See help tvplot for complete documentation
 
 program define tvplot, rclass
     version 16.0
+    local orig_varabbrev = c(varabbrev)
+    local orig_more = c(more)
     set varabbrev off
     set more off
+
+    capture noisily {
 
     syntax , ID(varname) START(varname) STOP(varname) ///
         [EXPosure(varname) SAMple(integer 30) ///
@@ -104,6 +108,16 @@ program define tvplot, rclass
     return local id "`id'"
     return local start "`start'"
     return local stop "`stop'"
+
+    } // end capture noisily
+    local rc = _rc
+
+    set varabbrev `orig_varabbrev'
+    set more `orig_more'
+
+    if `rc' {
+        exit `rc'
+    }
 end
 
 **************************************************************************

@@ -38,8 +38,12 @@ See help tvdiagnose for complete documentation
 
 program define tvdiagnose, rclass
     version 16.0
+    local orig_varabbrev = c(varabbrev)
+    local orig_more = c(more)
     set varabbrev off
     set more off
+
+    capture noisily {
 
     syntax , ID(varname) START(varname) STOP(varname) ///
         [EXPosure(varname) ENTRY(varname) EXIT(varname) ///
@@ -74,7 +78,8 @@ program define tvdiagnose, rclass
         exit 198
     }
 
-    * Ensure data is sorted
+    * Ensure data is sorted (preserve original order)
+    preserve
     sort `id' `start' `stop'
 
     * Initialize return values
@@ -331,4 +336,15 @@ program define tvdiagnose, rclass
     return local start "`start'"
     return local stop "`stop'"
 
+    restore
+
+    } // end capture noisily
+    local rc = _rc
+
+    set varabbrev `orig_varabbrev'
+    set more `orig_more'
+
+    if `rc' {
+        exit `rc'
+    }
 end

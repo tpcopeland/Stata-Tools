@@ -1,4 +1,4 @@
-*! tte_weight Version 1.1.0  2026/03/15
+*! tte_weight Version 1.2.0  2026/03/15
 *! Inverse probability weights for target trial emulation
 *! Author: Timothy P Copeland
 *! Author: Tania F Reza
@@ -45,6 +45,7 @@ program define tte_weight, rclass
     syntax , [SWITCH_d_cov(varlist numeric) SWITCH_n_cov(varlist numeric) ///
         CENsor_d_cov(varlist numeric) CENsor_n_cov(varlist numeric) ///
         POOL_switch POOL_censor ///
+        STRata(string) ///
         TRUNCate(numlist min=2 max=2) ///
         GENerate(name) REPLACE noLOG ///
         SAVE_ps TRIM_ps(real 0)]
@@ -128,6 +129,19 @@ program define tte_weight, rclass
         exit 198
     }
 
+    * Validate strata
+    if "`strata'" == "" local strata "arm"
+    if !inlist("`strata'", "arm", "arm_lag") {
+        display as error "strata() must be arm (default) or arm_lag"
+        exit 198
+    }
+
+    * strata(arm_lag) and pool_switch are contradictory
+    if "`strata'" == "arm_lag" & "`pool_switch'" != "" {
+        display as error "strata(arm_lag) and pool_switch cannot be combined"
+        exit 198
+    }
+
     * =========================================================================
     * PREPARE PS VARIABLE (if save_ps or trim_ps)
     * =========================================================================
@@ -164,6 +178,12 @@ program define tte_weight, rclass
     display as text "{hline 70}"
     display as text ""
     display as text "Estimand:         " as result "`estimand'"
+    if "`strata'" == "arm_lag" {
+        display as text "Strata:           " as result "arm x lagged treatment (4 models)"
+    }
+    else {
+        display as text "Strata:           " as result "arm (2 models)"
+    }
     display as text "Switch denom:     " as result "`switch_d_cov'"
     if "`switch_n_cov'" != "" {
         display as text "Switch numer:     " as result "`switch_n_cov'"
@@ -212,6 +232,51 @@ program define tte_weight, rclass
             trial(`prefix'trial) censored(`prefix'censored) ///
             d_cov(`switch_d_cov') n_cov(`switch_n_cov') ///
             weight(`generate') `log_opt' `ps_opt'
+    }
+    else if "`strata'" == "arm_lag" {
+        * 4-stratum models: separate for each (arm, lagged treatment) combination
+        * Create lagged treatment variable once
+        tempvar _lag_treat_strat
+        quietly bysort `id' `prefix'trial `prefix'arm (`prefix'followup): ///
+            gen byte `_lag_treat_strat' = `treatment'[_n-1]
+
+        forvalues a = 0/1 {
+            forvalues l = 0/1 {
+                display as text "  Switch model for arm `a', lag `l'..."
+                _tte_weight_switch_stratum, id(`id') treatment(`treatment') ///
+                    arm_var(`prefix'arm) arm_val(`a') ///
+                    lag_var(`_lag_treat_strat') lag_val(`l') ///
+                    followup(`prefix'followup) trial(`prefix'trial) ///
+                    d_cov(`switch_d_cov') n_cov(`switch_n_cov') ///
+                    weight(`generate') `log_opt' `ps_opt'
+            }
+        }
+
+        * Convert per-period weights to cumulative product across all strata.
+        * Each observation currently holds its per-period factor from its stratum.
+        * Compute running product within each person-trial-arm.
+        quietly {
+            tempvar _log_ppw _cum_log_ppw _miss_ppw
+            gen double `_log_ppw' = ln(`generate') if !missing(`generate')
+            * First period (missing lag): weight=1, ln(1)=0
+            replace `_log_ppw' = 0 if missing(`_lag_treat_strat') & missing(`_log_ppw')
+
+            bysort `id' `prefix'trial `prefix'arm (`prefix'followup): ///
+                gen double `_cum_log_ppw' = sum(`_log_ppw')
+
+            * Propagate missing: if any non-first-period weight is missing,
+            * all subsequent cumulative weights are undefined
+            bysort `id' `prefix'trial `prefix'arm (`prefix'followup): ///
+                gen byte `_miss_ppw' = sum(missing(`_log_ppw') & !missing(`_lag_treat_strat'))
+            replace `_cum_log_ppw' = . if `_miss_ppw' > 0
+
+            replace `generate' = exp(`_cum_log_ppw') if !missing(`_cum_log_ppw')
+            replace `generate' = . if missing(`_cum_log_ppw') & !missing(`_lag_treat_strat')
+
+            drop `_log_ppw' `_cum_log_ppw' `_miss_ppw'
+        }
+
+        drop `_lag_treat_strat'
     }
     else {
         * Stratified models: separate for each arm
@@ -352,6 +417,7 @@ program define tte_weight, rclass
     * Store metadata
     char _dta[_tte_weighted] "1"
     char _dta[_tte_weight_var] "`generate'"
+    char _dta[_tte_weight_strata] "`strata'"
 
     * Store PS metadata if saved
     if "`save_ps'" != "" {
@@ -422,6 +488,7 @@ program define tte_weight, rclass
 
     return local generate "`generate'"
     return local estimand "`estimand'"
+    return local strata "`strata'"
 
     set varabbrev `_vaset'
 end
@@ -527,6 +594,97 @@ program define _tte_weight_switch_arm
         replace `weight' = `weight' * exp(`_cum_log_sw') if `_in_arm' & !missing(`_cum_log_sw')
 
         drop `_in_arm' `_lag_treat' `_denom_pr' `_numer_pr' `_sw_t' `_log_sw' `_cum_log_sw' `_any_miss_sw'
+    }
+end
+
+* =========================================================================
+* _tte_weight_switch_stratum: Fit switch weight model for one (arm, lag) stratum
+*   4-stratum approach matching R TrialEmulation. Within each stratum,
+*   lagged treatment is constant, so the logistic model omits it.
+* =========================================================================
+program define _tte_weight_switch_stratum
+    version 16.0
+    set varabbrev off
+    set more off
+
+    syntax , id(varname) treatment(varname) ///
+        arm_var(varname) arm_val(integer) ///
+        lag_var(varname) lag_val(integer) ///
+        followup(varname) trial(varname) ///
+        d_cov(varlist) [n_cov(varlist)] ///
+        weight(varname) [nolog pscore(varname)]
+
+    local log_opt ""
+    if "`nolog'" != "" local log_opt "nolog"
+
+    quietly {
+        tempvar _in_stratum _denom_pr _numer_pr _sw_t
+
+        * Flag rows in this (arm, lagged treatment) stratum
+        gen byte `_in_stratum' = (`arm_var' == `arm_val' & `lag_var' == `lag_val')
+
+        * Check for empty stratum
+        count if `_in_stratum'
+        if r(N) == 0 {
+            noisily display as text "  Note: stratum (arm=`arm_val', lag=`lag_val') is empty; skipping"
+            drop `_in_stratum'
+            exit
+        }
+
+        * Denominator model: P(A_t | L) — no lagged treatment (constant within stratum)
+        capture logit `treatment' `d_cov' `followup' if `_in_stratum', `log_opt'
+        if _rc != 0 {
+            noisily display as text "  Warning: switch denominator for (arm=`arm_val', lag=`lag_val') did not converge; weights set to 1"
+            gen double `_denom_pr' = 0.5 if `_in_stratum'
+        }
+        else {
+            predict double `_denom_pr' if `_in_stratum', pr
+        }
+
+        * Save propensity score if requested
+        if "`pscore'" != "" {
+            replace `pscore' = `_denom_pr' if `_in_stratum' & !missing(`_denom_pr')
+        }
+
+        * Numerator model
+        if "`n_cov'" != "" {
+            capture logit `treatment' `n_cov' if `_in_stratum', `log_opt'
+        }
+        else {
+            capture logit `treatment' if `_in_stratum', `log_opt'
+        }
+        if _rc != 0 {
+            noisily display as text "  Warning: switch numerator for (arm=`arm_val', lag=`lag_val') did not converge; weights set to 1"
+            gen double `_numer_pr' = 0.5 if `_in_stratum'
+        }
+        else {
+            predict double `_numer_pr' if `_in_stratum', pr
+        }
+
+        * Stabilized weight contribution at each time:
+        gen double `_sw_t' = 1 if `_in_stratum'
+
+        replace `_sw_t' = `_numer_pr' / `_denom_pr' ///
+            if `treatment' == 1 & `_in_stratum' & !missing(`_denom_pr') & `_denom_pr' > 0.001
+
+        replace `_sw_t' = (1 - `_numer_pr') / (1 - `_denom_pr') ///
+            if `treatment' == 0 & `_in_stratum' & !missing(`_denom_pr') & `_denom_pr' < 0.999
+
+        * Warn about missing predictions
+        count if missing(`_sw_t') & `_in_stratum'
+        if r(N) > 0 {
+            noisily display as text "  Warning: " as result r(N) as text ///
+                " obs in (arm=`arm_val', lag=`lag_val') have missing switch weight covariates"
+        }
+
+        * Store per-period weight contribution
+        * (Cumulative product computed by caller after all strata are done)
+        replace `weight' = `weight' * `_sw_t' if `_in_stratum' & !missing(`_sw_t')
+
+        * Propagate missing: mark weight for downstream cumulation
+        replace `weight' = . if `_in_stratum' & missing(`_sw_t')
+
+        drop `_in_stratum' `_denom_pr' `_numer_pr' `_sw_t'
     }
 end
 

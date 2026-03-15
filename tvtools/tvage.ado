@@ -10,8 +10,12 @@
 
 program define tvage, rclass
     version 16.0
+    local orig_varabbrev = c(varabbrev)
+    local orig_more = c(more)
     set varabbrev off
     set more off
+
+    capture noisily {
 
     syntax , IDvar(varname) DOBvar(varname) ENTRYvar(varname) EXITvar(varname) ///
         [GENerate(name) STARTgen(name) STOPgen(name) ///
@@ -244,4 +248,14 @@ program define tvage, rclass
     return local varname "`generate'"
     return local startvar "`startgen'"
     return local stopvar "`stopgen'"
+
+    } // end capture noisily
+    local rc = _rc
+
+    set varabbrev `orig_varabbrev'
+    set more `orig_more'
+
+    if `rc' {
+        exit `rc'
+    }
 end

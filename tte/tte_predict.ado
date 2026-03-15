@@ -1,4 +1,4 @@
-*! tte_predict Version 1.1.0  2026/03/15
+*! tte_predict Version 1.2.0  2026/03/15
 *! Marginal predictions with confidence intervals for target trial emulation
 *! Author: Timothy P Copeland
 *! Author: Tania F Reza
@@ -79,6 +79,15 @@ program define tte_predict, rclass
     if `samples' < 10 {
         display as error "samples() must be at least 10"
         exit 198
+    }
+
+    * Validate times are integer-valued (discrete follow-up periods)
+    foreach _t of local times {
+        if `_t' != int(`_t') {
+            display as error "times() must be integer-valued (discrete follow-up periods)"
+            set varabbrev `_vaset'
+            exit 198
+        }
     }
 
     if `seed' >= 0 {

@@ -39,9 +39,10 @@ mata set matastrict on
 // Detects overlapping intervals where a lower-priority interval overlaps
 // with a higher-priority interval within the same ID group.
 //
-// Algorithm: O(n) per ID group, O(n log n) overall due to sorting
-// For each row, scan backwards until ID changes to find overlapping higher-priority rows.
-// Since data is sorted by (id, priority_rank, start), this is efficient.
+// Algorithm: O(k) per row within an ID group where k is group size.
+// Overall O(n*k) where k is the max group size; O(n^2) worst case if all rows
+// share one ID. Efficient in practice since groups are typically small.
+// Data must be sorted by (id, priority_rank, start) before calling.
 //
 // Arguments:
 //   data         - Matrix with columns: [id, start, stop, priority_rank]

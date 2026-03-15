@@ -1,4 +1,4 @@
-*! tte Version 1.1.0  2026/03/15
+*! tte Version 1.2.0  2026/03/15
 *! Target Trial Emulation suite for Stata
 *! Author: Timothy P Copeland
 *! Author: Tania F Reza
@@ -25,11 +25,11 @@ program define tte, rclass
 
     syntax [, List Detail PROTocol]
 
-    local version "1.1.0"
-    local n_commands = 11
+    local version "1.2.0"
 
     * All user-facing commands
     local all_commands "tte_prepare tte_validate tte_expand tte_weight tte_fit tte_predict tte_diagnose tte_plot tte_report tte_protocol tte_calibrate"
+    local n_commands: word count `all_commands'
 
     display as text ""
     display as text "{hline 70}"

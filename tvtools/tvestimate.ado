@@ -55,8 +55,12 @@ See help tvestimate for complete documentation
 
 program define tvestimate, eclass
     version 16.0
+    local orig_varabbrev = c(varabbrev)
+    local orig_more = c(more)
     set varabbrev off
     set more off
+
+    capture noisily {
 
     * Parse syntax
     syntax varlist(min=2 max=2 numeric) [if] [in], ///
@@ -219,18 +223,16 @@ program define tvestimate, eclass
                     continue
                 }
 
-                tempvar ps_b resid_b
-                predict double `ps_b', pr
-                gen double `resid_b' = `treatment' - `ps_b'
+                predict double __ps_b, pr
+                gen double __resid_b = `treatment' - __ps_b
 
                 * Re-estimate psi
-                tempvar ya_b aa_b
-                gen double `ya_b' = `depvar' * `resid_b'
-                gen double `aa_b' = `treatment' * `resid_b'
+                gen double __ya_b = `depvar' * __resid_b
+                gen double __aa_b = `treatment' * __resid_b
 
-                summarize `ya_b'
+                summarize __ya_b
                 local sum_ya_b = r(sum)
-                summarize `aa_b'
+                summarize __aa_b
                 local sum_aa_b = r(sum)
 
                 if `sum_aa_b' != 0 {
@@ -391,4 +393,13 @@ program define tvestimate, eclass
 
     display as text "{hline 70}"
 
+    } // end capture noisily
+    local rc = _rc
+
+    set varabbrev `orig_varabbrev'
+    set more `orig_more'
+
+    if `rc' {
+        exit `rc'
+    }
 end

@@ -1351,18 +1351,20 @@ MIT License
 
 | Command | Version | Date |
 |---------|---------|------|
-| tvtools | 1.5.0 | 2026-03-05 |
-| tvexpose | 1.4.2 | 2026-03-06 |
-| tvmerge | 1.0.7 | 2026-03-06 |
-| tvevent | 1.5.1 | 2026-03-07 |
+| tvtools | 1.5.0 | 2026-03-07 |
+| tvexpose | 1.4.3 | 2026-03-14 |
+| tvmerge | 1.0.8 | 2026-03-14 |
+| tvevent | 1.5.3 | 2026-03-14 |
 | tvcalendar | 1.1.0 | 2026-02-18 |
-| tvage | 1.1.0 | 2025-01-07 |
+| tvage | 1.1.1 | 2026-03-06 |
 | tvdiagnose | 1.0.1 | 2026-02-23 |
 | tvbalance | 1.0.2 | 2026-02-26 |
 | tvplot | 1.0.1 | 2026-02-26 |
 | tvweight | 1.0.0 | 2025-12-29 |
+| tvestimate | 1.0.0 | 2025-12-29 |
+| tvtrial | 1.0.0 | 2025-12-29 |
 
-Package Distribution-Date: 20260305
+Package Distribution-Date: 20260314
 
 ### Checking Installed Version
 

@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.1.0  15mar2026}{...}
+{* *! version 1.2.0  15mar2026}{...}
 {viewerjumpto "Syntax" "tte_fit##syntax"}{...}
 {viewerjumpto "Description" "tte_fit##description"}{...}
 {viewerjumpto "Options" "tte_fit##options"}{...}
@@ -24,7 +24,7 @@
 {synoptset 30 tabbed}{...}
 {synopthdr}
 {synoptline}
-{synopt:{opth outcome_cov(varlist)}}covariates for outcome model{p_end}
+{synopt:{opth outcome_cov(string)}}covariates for outcome model (supports {cmd:i.var} factor notation){p_end}
 {synopt:{opth mod:el(string)}}logistic (default) or cox{p_end}
 {synopt:{opth model_var(string)}}treatment variable; default is assigned arm{p_end}
 {synopt:{opth trial_period_spec(string)}}trial period: linear, quadratic, cubic, ns(#), none{p_end}
@@ -58,8 +58,9 @@ values. If data was expanded with {cmd:tte_expand}, covariates specified in
 {title:Options}
 
 {phang}
-{opth outcome_cov(varlist)} specifies covariates to include in the outcome
-model. These should be baseline (trial-entry) values. After expansion by
+{opth outcome_cov(string)} specifies covariates to include in the outcome
+model. Accepts numeric variable names and factor variable notation
+({cmd:i.var}, {cmd:ib#.var}, {cmd:ibn.var}). These should be baseline (trial-entry) values. After expansion by
 {helpb tte_expand}, covariates from {cmd:tte_prepare} are automatically
 frozen at baseline.
 
@@ -72,15 +73,23 @@ hazards via {cmd:stcox}.
 {opt model_var(string)} specifies the treatment variable to use in the
 outcome model. The default is the assigned arm variable ({cmd:_tte_arm}).
 
+{pmore}
+{bf:Warning:} Overriding {opt model_var()} changes the treatment variable
+in the outcome model, but IP weights from {cmd:tte_weight} are estimated
+for {cmd:_tte_arm}. Using a different variable invalidates the causal
+interpretation of the weights. Only override this if you know the
+weight model still applies (e.g., using a recoded version of the same
+variable).
+
 {phang}
 {opt followup_spec(string)} specifies the functional form for follow-up
 time. Options are {cmd:linear}, {cmd:quadratic} (default), {cmd:cubic},
-{cmd:ns(#)} (natural splines with # interior knots), or {cmd:none}.
+{cmd:ns(#)} (natural splines with # degrees of freedom), or {cmd:none}.
 
 {phang}
 {opt trial_period_spec(string)} specifies the functional form for trial
 period. Options are {cmd:linear}, {cmd:quadratic}, {cmd:cubic},
-{cmd:ns(#)}, or {cmd:none}.
+{cmd:ns(#)} (# degrees of freedom), or {cmd:none}.
 
 {phang}
 {opth cluster(varname)} specifies the clustering variable for robust
@@ -146,14 +155,25 @@ different basis representations, so individual coefficients are not
 directly comparable. Marginal predictions (from {cmd:tte_predict}) are
 comparable.
 
-{dlgtab:Covariate limitations}
+{dlgtab:Factor variable support}
 
 {pstd}
-Variables in {opt outcome_cov()} must be simple numeric variables.
-Factor variable notation ({cmd:i.sex}) and interaction operators
-({cmd:c.age#c.age}) are not supported and will produce incorrect
-marginal predictions from {cmd:tte_predict}. If you need categorical
-indicators, create dummy variables manually before calling {cmd:tte_fit}.
+{opt outcome_cov()} accepts factor variable notation: {cmd:i.var} (default
+base = lowest level), {cmd:ib#.var} (explicit base at level #),
+{cmd:ibn.var} (no base, all levels get dummies), and {cmd:i(list).var}
+(only listed levels). Factor terms are auto-expanded into named dummy
+variables ({cmd:_tte_fv_VARNAME_LEVEL}) before model fitting.
+
+{pstd}
+When value labels exist, dummy variable labels include them (e.g.,
+"education: Secondary (vs Primary)"). The expanded names are stored in
+the dataset characteristics and flow through to {cmd:tte_predict}
+automatically.
+
+{pstd}
+Interaction operators ({cmd:c.age#c.age}) remain unsupported and will
+produce incorrect marginal predictions from {cmd:tte_predict}. Create
+interaction terms manually before calling {cmd:tte_fit} if needed.
 
 {dlgtab:Covariate handling}
 

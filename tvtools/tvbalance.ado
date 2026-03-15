@@ -36,8 +36,12 @@ See help tvbalance for complete documentation
 
 program define tvbalance, rclass
     version 16.0
+    local orig_varabbrev = c(varabbrev)
+    local orig_more = c(more)
     set varabbrev off
     set more off
+
+    capture noisily {
 
     syntax varlist(numeric) [if] [in], EXPosure(varname) ///
         [WEights(varname) THReshold(real 0.1) ///
@@ -298,7 +302,9 @@ program define tvbalance, rclass
             if "`weights'" != "" {
                 quietly replace smd_wt = `results_mat'[`i', 4] in `i'
             }
+            label define ypos_lbl `i' "`var'", add
         }
+        label values ypos ypos_lbl
 
         * Build scheme option
         local scheme_opt ""
@@ -360,5 +366,15 @@ program define tvbalance, rclass
         return scalar ess_ref = `ess_ref'
         return scalar ess_exp = `ess_exp'
         return local weights "`weights'"
+    }
+
+    } // end capture noisily
+    local rc = _rc
+
+    set varabbrev `orig_varabbrev'
+    set more `orig_more'
+
+    if `rc' {
+        exit `rc'
     }
 end

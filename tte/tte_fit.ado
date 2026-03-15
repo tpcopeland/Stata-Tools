@@ -1,4 +1,4 @@
-*! tte_fit Version 1.1.0  2026/03/15
+*! tte_fit Version 1.2.0  2026/03/15
 *! Outcome model fitting for target trial emulation
 *! Author: Timothy P Copeland
 *! Author: Tania F Reza
@@ -39,7 +39,7 @@ program define tte_fit, eclass
     * SYNTAX PARSING
     * =========================================================================
 
-    syntax , [OUTcome_cov(varlist numeric) ///
+    syntax , [OUTcome_cov(string) ///
         MODel(string) MODel_var(string) ///
         TRIal_period_spec(string) FOLLowup_spec(string) ///
         CLuster(varname) ///
@@ -65,6 +65,17 @@ program define tte_fit, eclass
 
     if "`model'" == "" local model "logistic"
     if "`model_var'" == "" local model_var "`prefix'arm"
+
+    * Warn if model_var overrides the default treatment variable
+    if "`model_var'" != "`prefix'arm" {
+        display as error "{bf:Warning:} model_var(`model_var') overrides the"
+        display as error "default treatment variable ({cmd:`prefix'arm})."
+        display as error "IP weights from {cmd:tte_weight} were estimated for"
+        display as error "{cmd:`prefix'arm}. Using a different variable"
+        display as error "invalidates the causal interpretation of the weights."
+        display as text ""
+    }
+
     if "`trial_period_spec'" == "" local trial_period_spec "quadratic"
     if "`followup_spec'" == "" local followup_spec "quadratic"
     if "`cluster'" == "" local cluster "`id'"
@@ -86,6 +97,50 @@ program define tte_fit, eclass
         else if !inlist("`spec_val'", "linear", "quadratic", "cubic", "none") {
             display as error "`spec_name'() must be linear, quadratic, cubic, ns(#), or none"
             exit 198
+        }
+    }
+
+    * =========================================================================
+    * FACTOR VARIABLE EXPANSION
+    * =========================================================================
+
+    if "`outcome_cov'" != "" {
+        * Check if any token uses factor notation
+        * Matches: i.var, ib#.var, ibn.var, i(list).var
+        local has_factors = 0
+        foreach _tok of local outcome_cov {
+            if regexm("`_tok'", "^i(\.|\(|b[0-9]*\.|bn\.)") {
+                local has_factors = 1
+            }
+        }
+
+        if `has_factors' {
+            * Auto-load _tte_expand_factors
+            capture program list _tte_expand_factors
+            if _rc {
+                capture findfile _tte_expand_factors.ado
+                if _rc == 0 {
+                    run "`r(fn)'"
+                }
+                else {
+                    display as error "_tte_expand_factors.ado not found; reinstall tte"
+                    exit 111
+                }
+            }
+
+            _tte_expand_factors, input(`outcome_cov') expanded(outcome_cov)
+            display as text "Factor variables expanded: " as result "`outcome_cov'"
+        }
+        else {
+            * Validate as numeric varlist
+            foreach _v of local outcome_cov {
+                capture confirm numeric variable `_v'
+                if _rc != 0 {
+                    display as error "variable `_v' not found or not numeric"
+                    set varabbrev `_vaset'
+                    exit 111
+                }
+            }
         }
     }
 

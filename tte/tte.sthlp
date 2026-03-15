@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.1.0  15mar2026}{...}
+{* *! version 1.2.0  15mar2026}{...}
 {viewerjumpto "Syntax" "tte##syntax"}{...}
 {viewerjumpto "Description" "tte##description"}{...}
 {viewerjumpto "Commands" "tte##commands"}{...}
@@ -85,8 +85,10 @@ publication-ready reporting.
 {phang}
 {helpb tte_protocol} {hline 2} Target trial protocol table (Hernán 7-component)
 
+{dlgtab:Sensitivity Analysis}
+
 {phang}
-{helpb tte_calibrate} {hline 2} Negative control outcome calibration
+{helpb tte_calibrate} {hline 2} Negative control outcome calibration (optional)
 
 
 {marker workflow}{...}

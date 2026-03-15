@@ -279,6 +279,7 @@ tte_weight [, switch_d_cov(varlist) switch_n_cov(varlist)
 | `stabilized` | Stabilized weights (default; recommended) |
 | `truncate(numlist)` | Truncate at percentiles, e.g., `truncate(1 99)` |
 | `pool_switch` | Pool switch models across arms |
+| `strata(string)` | `arm` (default, 2 models) or `arm_lag` (4 models, matches R TrialEmulation) |
 | `nolog` | Suppress logistic model iteration logs |
 
 **Weight formula (stabilized):**
@@ -304,7 +305,7 @@ tte_fit [, outcome_cov(varlist) model(string)
 
 | Option | Description |
 |--------|-------------|
-| `outcome_cov(varlist)` | Covariates for the outcome model |
+| `outcome_cov(string)` | Covariates for the outcome model (supports `i.var` factor notation) |
 | `model(string)` | `logistic` (default) or `cox` |
 | `followup_spec(string)` | `linear`, `quadratic` (default), `cubic`, `ns(#)`, or `none` |
 | `trial_period_spec(string)` | `linear`, `quadratic`, `cubic`, `ns(#)`, or `none` |
@@ -442,7 +443,7 @@ Export formats: `display` (console), `csv`, `excel`, `latex`.
 
 ### tte_calibrate
 
-Calibrates a treatment effect estimate using negative control outcomes (NCOs). Implements the empirical calibration algorithm from Schuemie et al. (2014), as used in the OHDSI EmpiricalCalibration R package. Standalone — does not require expanded data.
+Optional sensitivity analysis tool from the OHDSI tradition. Calibrates a treatment effect estimate using negative control outcomes (NCOs). Implements the empirical calibration algorithm from Schuemie et al. (2014), as used in the OHDSI EmpiricalCalibration R package. Most useful for administrative/claims database studies with 30+ NCOs. In prospective cohort studies, standard sensitivity analyses (varying weight model specifications, truncation, grace periods) are typically sufficient. Standalone — does not require expanded data.
 
 **Syntax:**
 ```stata
@@ -615,7 +616,7 @@ After `tte_expand`, all covariates from `tte_prepare` carry their trial-entry va
 
 ### Weight model stratification
 
-Switch models are fitted separately by arm (2 strata). R TrialEmulation uses 4 strata (arm x lagged treatment). Both are valid and produce the same causal estimand when correctly specified.
+Switch models default to `strata(arm)` (2 strata, separate model per arm). Specify `strata(arm_lag)` for 4 strata (arm x lagged treatment), matching R TrialEmulation's default. Both are valid and produce the same causal estimand when correctly specified.
 
 ### Robust SE differences vs. R
 
@@ -627,7 +628,7 @@ Stata's `vce(cluster)` uses a G/(G-1) finite-sample correction. R's `sandwich::v
 
 ### Monte Carlo predictions
 
-CIs from `tte_predict` capture coefficient uncertainty only (parametric bootstrap on the MSM coefficients). They do not propagate uncertainty from the weight estimation step. This matches R TrialEmulation's approach.
+CIs from `tte_predict` capture coefficient uncertainty only (parametric bootstrap on the MSM coefficients). They do not propagate uncertainty from the weight estimation step. This matches R TrialEmulation's approach. As a sensitivity analysis, compare results across different `switch_d_cov()` specifications to assess how weight model choices affect estimated risk differences.
 
 ---
 
@@ -645,6 +646,8 @@ CIs from `tte_predict` capture coefficient uncertainty only (parametric bootstra
 | Grace period handling | Limited | Full (integer grace periods) |
 | Natural spline support | Via R formula | Built-in `ns(#)` option |
 | Chunked processing for large data | No | Yes (`chunk_size()`) |
+| Factor variable auto-expansion | Via R formula | Yes (`i.var`, `ib#.var`, `ibn.var`) |
+| 4-stratum weight model option | Default | Yes (`strata(arm_lag)`) |
 
 ---
 
@@ -831,4 +834,4 @@ MIT License
 
 ## Version
 
-Version 1.1.0, 2026-03-15
+Version 1.2.0, 2026-03-15

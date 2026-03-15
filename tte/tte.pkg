@@ -53,6 +53,7 @@ f _tte_check_expanded.ado
 f _tte_check_fitted.ado
 f _tte_get_settings.ado
 f _tte_natural_spline.ado
+f _tte_expand_factors.ado
 f _tte_col_letter.ado
 f tte_example.dta
 f demo/data/trial_example.dta

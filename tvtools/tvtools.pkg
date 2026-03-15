@@ -59,4 +59,8 @@ f tvtools_menu_setup.do
 f tvtools.sthlp
 f tvage.ado
 f tvage.sthlp
+f tvestimate.ado
+f tvestimate.sthlp
+f tvtrial.ado
+f tvtrial.sthlp
 g validation_example.do

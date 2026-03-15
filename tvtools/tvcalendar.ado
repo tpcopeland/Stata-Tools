@@ -25,8 +25,12 @@ See help tvcalendar for complete documentation
 
 program define tvcalendar, rclass
     version 16.0
+    local orig_varabbrev = c(varabbrev)
+    local orig_more = c(more)
     set varabbrev off
     set more off
+
+    capture noisily {
 
     syntax using/, DATEvar(varname) [MERGE(string) STARTvar(name) STOPvar(name)]
 
@@ -228,4 +232,13 @@ program define tvcalendar, rclass
     return local datevar "`datevar'"
     return local merge "`merge'"
 
+    } // end capture noisily
+    local rc = _rc
+
+    set varabbrev `orig_varabbrev'
+    set more `orig_more'
+
+    if `rc' {
+        exit `rc'
+    }
 end

@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.1.0  15mar2026}{...}
+{* *! version 1.2.0  15mar2026}{...}
 {viewerjumpto "Syntax" "tte_predict##syntax"}{...}
 {viewerjumpto "Description" "tte_predict##description"}{...}
 {viewerjumpto "Options" "tte_predict##options"}{...}
@@ -71,6 +71,13 @@ for cumulative incidence or {cmd:survival} for survival probability
 {opt samples(#)} specifies the number of Monte Carlo samples for confidence
 intervals. The default is {cmd:100}. Use 500+ for publication-quality
 results.
+
+{pmore}
+{bf:Caveat:} MC confidence intervals capture coefficient uncertainty only;
+they do not propagate uncertainty from the IP weight estimation step.
+As a sensitivity analysis, compare results across different
+{opt switch_d_cov()} specifications in {cmd:tte_weight} to assess
+how weight model choices affect the estimated risk differences.
 
 {phang}
 {opt seed(#)} sets the random seed for reproducibility of Monte Carlo
@@ -166,15 +173,18 @@ For publication-quality results, use {cmd:samples(500)} or higher to
 reduce Monte Carlo error in the CI bounds.
 
 
-{dlgtab:Covariate limitations}
+{dlgtab:Factor variables and covariates}
 
 {pstd}
 Marginal predictions require that the linear predictor can be reconstructed
-from the stored coefficients. Factor variable notation ({cmd:i.sex}) and
-interaction operators ({cmd:c.age#c.age}) used in {cmd:tte_fit} will produce
-incorrect predictions because {cmd:tte_predict} rebuilds Xb manually.
-Create dummy variables before calling {cmd:tte_fit} if categorical or
-interaction terms are needed.
+from the stored coefficients. {cmd:tte_fit} supports factor variable notation
+({cmd:i.var}, {cmd:ib#.var}, {cmd:ibn.var}) via automatic expansion into named
+dummy variables. See {helpb tte_fit:tte_fit} for details.
+
+{pstd}
+Interaction operators ({cmd:c.age#c.age}) remain unsupported and will produce
+incorrect predictions. Create interaction terms manually before calling
+{cmd:tte_fit} if needed.
 
 
 {marker results}{...}

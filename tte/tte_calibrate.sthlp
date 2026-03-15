@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.1.0  15mar2026}{...}
+{* *! version 1.2.0  15mar2026}{...}
 {viewerjumpto "Syntax" "tte_calibrate##syntax"}{...}
 {viewerjumpto "Description" "tte_calibrate##description"}{...}
 {viewerjumpto "Options" "tte_calibrate##options"}{...}
@@ -186,6 +186,23 @@ the calibrated estimate will be shifted and the confidence interval widened.
 At least 3 NCOs are required for identifiability. In practice, 30 or more
 NCOs provide more stable estimates. The NCOs should span the range of
 potential confounding structures present in the study.
+
+{dlgtab:When to use NCO calibration}
+
+{pstd}
+NCO calibration is an {bf:optional sensitivity analysis} from the OHDSI
+(Observational Health Data Sciences and Informatics) tradition. It is most
+applicable to studies using administrative claims or EHR databases where 30+
+plausible negative control outcomes can be identified.
+
+{pstd}
+In prospective cohort studies, standard sensitivity analyses are usually
+sufficient: varying {opt switch_d_cov()} specifications in {cmd:tte_weight},
+adjusting weight truncation thresholds, or varying grace period length.
+
+{pstd}
+With fewer than 10 NCOs, the systematic error distribution is poorly
+identified and calibrated results should be interpreted with caution.
 
 
 {marker results}{...}

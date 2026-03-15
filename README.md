@@ -1,6 +1,6 @@
 # Stata-Tools
 
-Production distribution repository for Stata packages (30 packages, 145+ commands). All packages require Stata 16+, except where noted. Install any package directly from here using `net install`.
+Production distribution repository for Stata packages (32 packages, 147+ commands). All packages require Stata 16+, except where noted. Install any package directly from here using `net install`.
 
 ## Installation
 
@@ -69,8 +69,10 @@ net install <package>, from("https://raw.githubusercontent.com/tpcopeland/Stata-
 |---------|-------------|-------|
 | **consort** | CONSORT-style exclusion flowcharts (requires Python 3.7+) | 16+ |
 | **eplot** | Forest plots and coefficient plots from estimates or data | 16+ |
+| **kmplot** | Publication-ready Kaplan-Meier survival curves with risk tables, CI bands, and median lines | 16+ |
 | **logdoc** | Convert Stata log files to HTML or Markdown documents (requires Python 3.6+) | 16+ |
 | **raincloud** | Raincloud plots: density, scatter, and box elements | 16+ |
+| **spaghetti** | Longitudinal trajectory plots with group mean overlays | 16+ |
 | **tabtools** | Publication-ready Excel tables (table1_tc, regtab, effecttab, stratetab, tablex) | 16+ (17+ for regtab, effecttab, stratetab, tablex) |
 | **tc_schemes** | Graph schemes from blindschemes and schemepack | 16+ |
 

@@ -55,8 +55,12 @@ See help tvtrial for complete documentation
 
 program define tvtrial, rclass
     version 16.0
+    local orig_varabbrev = c(varabbrev)
+    local orig_more = c(more)
     set varabbrev off
     set more off
+
+    capture noisily {
 
     * Parse syntax
     syntax , ID(varname) ENTry(varname) EXIT(varname) ///
@@ -448,4 +452,13 @@ program define tvtrial, rclass
     return local treatstart "`treatstart'"
     return local prefix "`generate'"
 
+    } // end capture noisily
+    local rc = _rc
+
+    set varabbrev `orig_varabbrev'
+    set more `orig_more'
+
+    if `rc' {
+        exit `rc'
+    }
 end

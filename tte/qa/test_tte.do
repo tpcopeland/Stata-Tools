@@ -2,7 +2,7 @@
 * test_tte.do
 *
 * Consolidated functional tests for the tte (Target Trial Emulation) package.
-* 163 tests across 18 sections.
+* 174 tests across 27 sections.
 *
 * Sections:
 *   1. tte overview and options (7 tests)
@@ -80,6 +80,8 @@ quietly {
     cap program drop _tte_weight_switch_pooled
     cap program drop _tte_weight_censor_arm
     cap program drop _tte_weight_censor_pooled
+    cap program drop _tte_weight_switch_stratum
+    cap program drop _tte_expand_factors
     cap program drop _tte_predict_xb
     cap program drop _tte_overview_detail
     cap program drop _tte_protocol_overview
@@ -91,8 +93,8 @@ quietly {
     run "`tte_dir'/_tte_check_expanded.ado"
     run "`tte_dir'/_tte_check_fitted.ado"
     run "`tte_dir'/_tte_get_settings.ado"
-    run "`tte_dir'/_tte_memory_estimate.ado"
-    run "`tte_dir'/_tte_display_header.ado"
+    cap run "`tte_dir'/_tte_memory_estimate.ado"
+    cap run "`tte_dir'/_tte_display_header.ado"
     run "`tte_dir'/_tte_natural_spline.ado"
     cap run "`tte_dir'/_tte_col_letter.ado"
     run "`tte_dir'/tte.ado"
@@ -107,6 +109,7 @@ quietly {
     run "`tte_dir'/tte_report.ado"
     run "`tte_dir'/tte_protocol.ado"
     run "`tte_dir'/tte_calibrate.ado"
+    run "`tte_dir'/_tte_expand_factors.ado"
 }
 
 
@@ -126,7 +129,7 @@ display _dup(60) "-"
 capture noisily {
     tte
     assert r(n_commands) == 11
-    assert "`r(version)'" == "1.1.0"
+    assert "`r(version)'" == "1.2.0"
 }
 if _rc == 0 {
     display as result "  PASS"
@@ -5021,6 +5024,288 @@ else {
 }
 
 
+
+
+* =============================================================================
+* SECTION 27: tte v1.2.0 — strata(arm_lag), model_var warning, factor expansion
+* =============================================================================
+
+* --- S1: strata(arm_lag) runs without error ---
+local ++test_count
+capture noisily {
+    use "`tte_dir'/tte_example.dta", clear
+    tte_prepare, id(patid) period(period) treatment(treatment) ///
+        outcome(outcome) eligible(eligible) ///
+        covariates(age sex comorbidity biomarker) estimand(PP)
+    tte_expand, maxfollowup(8) grace(1)
+    tte_weight, switch_d_cov(age sex comorbidity biomarker) ///
+        strata(arm_lag) truncate(1 99) nolog replace
+    assert r(strata) == "arm_lag"
+}
+if _rc == 0 {
+    display as result "  PASS: S1 strata(arm_lag) runs without error"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: S1 strata(arm_lag) (rc=" _rc ")"
+    local ++fail_count
+}
+
+* --- S2: strata(arm_lag) weights are positive ---
+local ++test_count
+capture noisily {
+    quietly summarize _tte_weight
+    assert r(min) > 0
+    assert r(N) > 0
+}
+if _rc == 0 {
+    display as result "  PASS: S2 strata(arm_lag) weights are positive"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: S2 positive weights (rc=" _rc ")"
+    local ++fail_count
+}
+
+* --- S3: invalid strata value → error 198 ---
+local ++test_count
+capture noisily {
+    use "`tte_dir'/tte_example.dta", clear
+    tte_prepare, id(patid) period(period) treatment(treatment) ///
+        outcome(outcome) eligible(eligible) estimand(PP)
+    tte_expand, maxfollowup(8)
+    tte_weight, switch_d_cov(age sex) strata(bad_value) nolog
+}
+if _rc == 198 {
+    display as result "  PASS: S3 invalid strata → error 198"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: S3 expected rc=198, got rc=" _rc
+    local ++fail_count
+}
+
+* --- S4: strata(arm) vs strata(arm_lag) → predictions agree within tolerance ---
+local ++test_count
+capture noisily {
+    * Run with strata(arm)
+    use "`tte_dir'/tte_example.dta", clear
+    tte_prepare, id(patid) period(period) treatment(treatment) ///
+        outcome(outcome) eligible(eligible) ///
+        covariates(age sex comorbidity biomarker) estimand(PP)
+    tte_expand, maxfollowup(8) grace(1)
+    tte_weight, switch_d_cov(age sex comorbidity biomarker) ///
+        strata(arm) truncate(1 99) nolog
+    tte_fit, outcome_cov(age sex comorbidity) nolog
+    tte_predict, times(0 4 8) difference samples(50) seed(12345)
+    local rd_arm_8 = r(rd_8)
+
+    * Run with strata(arm_lag)
+    use "`tte_dir'/tte_example.dta", clear
+    tte_prepare, id(patid) period(period) treatment(treatment) ///
+        outcome(outcome) eligible(eligible) ///
+        covariates(age sex comorbidity biomarker) estimand(PP)
+    tte_expand, maxfollowup(8) grace(1)
+    tte_weight, switch_d_cov(age sex comorbidity biomarker) ///
+        strata(arm_lag) truncate(1 99) nolog
+    tte_fit, outcome_cov(age sex comorbidity) nolog
+    tte_predict, times(0 4 8) difference samples(50) seed(12345)
+    local rd_armlag_8 = r(rd_8)
+
+    * Both should agree within 0.02
+    local diff = abs(`rd_arm_8' - `rd_armlag_8')
+    assert `diff' < 0.02
+}
+if _rc == 0 {
+    display as result "  PASS: S4 strata(arm) vs strata(arm_lag) agree within 0.02"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: S4 strata comparison (rc=" _rc ")"
+    local ++fail_count
+}
+
+* --- S5: model_var() warning is displayed ---
+local ++test_count
+capture noisily {
+    use "`tte_dir'/tte_example.dta", clear
+    tte_prepare, id(patid) period(period) treatment(treatment) ///
+        outcome(outcome) eligible(eligible) estimand(ITT)
+    tte_expand, maxfollowup(8)
+
+    * Create an alternative treatment var
+    gen byte alt_treat = _tte_arm
+
+    * Fit with model_var override — should warn but not error
+    tte_fit, outcome_cov(age sex) model_var(alt_treat) nolog
+}
+if _rc == 0 {
+    display as result "  PASS: S5 model_var() warning displayed (no error)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: S5 model_var warning (rc=" _rc ")"
+    local ++fail_count
+}
+
+* --- S6: factor variable expansion with i.var ---
+local ++test_count
+capture noisily {
+    use "`tte_dir'/tte_example.dta", clear
+
+    * Create a 3-level categorical from comorbidity
+    gen byte comorb_cat = cond(comorbidity < 1, 0, cond(comorbidity < 3, 1, 2))
+    label define comorb_lbl 0 "Low" 1 "Medium" 2 "High"
+    label values comorb_cat comorb_lbl
+
+    tte_prepare, id(patid) period(period) treatment(treatment) ///
+        outcome(outcome) eligible(eligible) ///
+        covariates(age sex comorb_cat biomarker) estimand(ITT)
+    tte_expand, maxfollowup(8)
+
+    * Fit with factor notation
+    tte_fit, outcome_cov(i.comorb_cat age) nolog
+
+    * Verify dummy variables were created (base=0, so 1 and 2 get dummies)
+    confirm variable _tte_fv_comorb_cat_1
+    confirm variable _tte_fv_comorb_cat_2
+}
+if _rc == 0 {
+    display as result "  PASS: S6 factor variable i.var creates dummies"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: S6 factor expansion (rc=" _rc ")"
+    local ++fail_count
+}
+
+* --- S7: ib#.var sets correct base ---
+local ++test_count
+capture noisily {
+    use "`tte_dir'/tte_example.dta", clear
+
+    * Create a 3-level categorical
+    gen byte comorb_cat = cond(comorbidity < 1, 0, cond(comorbidity < 3, 1, 2))
+
+    tte_prepare, id(patid) period(period) treatment(treatment) ///
+        outcome(outcome) eligible(eligible) ///
+        covariates(age sex comorb_cat biomarker) estimand(ITT)
+    tte_expand, maxfollowup(8)
+
+    * Use ib1 → base at level 1, so level 0 and 2 get dummies
+    tte_fit, outcome_cov(ib1.comorb_cat age) nolog
+
+    * _tte_fv_comorb_cat_0 should exist (0 is not the base)
+    confirm variable _tte_fv_comorb_cat_0
+    * _tte_fv_comorb_cat_1 should NOT exist (1 is the base)
+    capture confirm variable _tte_fv_comorb_cat_1
+    assert _rc != 0
+}
+if _rc == 0 {
+    display as result "  PASS: S7 ib#.var sets correct base"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: S7 ib# base (rc=" _rc ")"
+    local ++fail_count
+}
+
+* --- S8: full pipeline with factor vars → tte_predict succeeds ---
+local ++test_count
+capture noisily {
+    use "`tte_dir'/tte_example.dta", clear
+
+    * Create categorical
+    gen byte comorb_cat = cond(comorbidity < 1, 0, cond(comorbidity < 3, 1, 2))
+
+    tte_prepare, id(patid) period(period) treatment(treatment) ///
+        outcome(outcome) eligible(eligible) ///
+        covariates(age sex comorb_cat biomarker) estimand(ITT)
+    tte_expand, maxfollowup(8)
+
+    tte_fit, outcome_cov(i.comorb_cat age sex) nolog
+    tte_predict, times(0 4 8) difference samples(30) seed(42)
+    assert r(n_times) == 3
+}
+if _rc == 0 {
+    display as result "  PASS: S8 full pipeline with factor vars through tte_predict"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: S8 factor pipeline (rc=" _rc ")"
+    local ++fail_count
+}
+
+* --- S9: non-existent factor var → error ---
+local ++test_count
+capture noisily {
+    use "`tte_dir'/tte_example.dta", clear
+    tte_prepare, id(patid) period(period) treatment(treatment) ///
+        outcome(outcome) eligible(eligible) estimand(ITT)
+    tte_expand, maxfollowup(8)
+
+    tte_fit, outcome_cov(i.nonexistent_var age) nolog
+}
+if _rc == 111 {
+    display as result "  PASS: S9 non-existent factor var → error 111"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: S9 expected rc=111, got rc=" _rc
+    local ++fail_count
+}
+
+* --- S10: strata(arm) default behavior unchanged ---
+local ++test_count
+capture noisily {
+    use "`tte_dir'/tte_example.dta", clear
+    tte_prepare, id(patid) period(period) treatment(treatment) ///
+        outcome(outcome) eligible(eligible) ///
+        covariates(age sex comorbidity biomarker) estimand(PP)
+    tte_expand, maxfollowup(8) grace(1)
+    * Default (no strata option) should use arm
+    tte_weight, switch_d_cov(age sex comorbidity biomarker) ///
+        truncate(1 99) nolog replace
+    assert r(strata) == "arm"
+}
+if _rc == 0 {
+    display as result "  PASS: S10 default strata is arm"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: S10 default strata (rc=" _rc ")"
+    local ++fail_count
+}
+
+* --- S11: ibn.var creates dummies for all levels ---
+local ++test_count
+capture noisily {
+    use "`tte_dir'/tte_example.dta", clear
+
+    * Create a 3-level categorical
+    gen byte comorb_cat = cond(comorbidity < 1, 0, cond(comorbidity < 3, 1, 2))
+
+    tte_prepare, id(patid) period(period) treatment(treatment) ///
+        outcome(outcome) eligible(eligible) ///
+        covariates(age sex comorb_cat biomarker) estimand(ITT)
+    tte_expand, maxfollowup(8)
+
+    * ibn = no base → dummies for ALL levels
+    tte_fit, outcome_cov(ibn.comorb_cat age) nolog
+
+    * All 3 levels should have dummies
+    confirm variable _tte_fv_comorb_cat_0
+    confirm variable _tte_fv_comorb_cat_1
+    confirm variable _tte_fv_comorb_cat_2
+}
+if _rc == 0 {
+    display as result "  PASS: S11 ibn.var creates all-level dummies"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: S11 ibn expansion (rc=" _rc ")"
+    local ++fail_count
+}
 
 
 * =============================================================================

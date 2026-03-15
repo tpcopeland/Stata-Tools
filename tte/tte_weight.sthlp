@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.1.0  15mar2026}{...}
+{* *! version 1.2.0  15mar2026}{...}
 {viewerjumpto "Syntax" "tte_weight##syntax"}{...}
 {viewerjumpto "Description" "tte_weight##description"}{...}
 {viewerjumpto "Options" "tte_weight##options"}{...}
@@ -35,6 +35,7 @@
 {syntab:Model specification}
 {synopt:{opt pool_switch}}pool switch models across arms{p_end}
 {synopt:{opt pool_censor}}pool censoring models across arms{p_end}
+{synopt:{opth strata(string)}}stratification: {cmd:arm} (default, 2 models) or {cmd:arm_lag} (4 models){p_end}
 
 {syntab:Options}
 {synopt:{opth trunc:ate(numlist)}}truncate at percentiles (e.g., {cmd:truncate(1 99)}){p_end}
@@ -98,6 +99,15 @@ separation or small samples.
 
 {phang}
 {opt pool_censor} pools the censoring models across treatment arms.
+
+{phang}
+{opt strata(string)} specifies the stratification for the switch weight
+models. {cmd:arm} (default) fits 2 models (one per arm), where lagged
+treatment enters as a covariate. {cmd:arm_lag} fits 4 models
+(one per arm x lagged treatment combination), omitting lagged treatment
+from the model (it is constant within each stratum). The 4-stratum
+approach matches R TrialEmulation. Both are valid parameterizations that
+target the same causal estimand when correctly specified.
 
 {dlgtab:Options}
 
@@ -164,15 +174,19 @@ preferred as it modifies extreme weights without dropping observations.
 {dlgtab:Weight model stratification}
 
 {pstd}
-Switch models are fitted separately by treatment arm (2 strata: arm=0
-and arm=1). Within each stratum, a logistic regression models the
-probability of treatment switching as a function of covariates and
-lagged treatment status.
+With {cmd:strata(arm)} (default), switch models are fitted separately by
+treatment arm (2 strata: arm=0 and arm=1). Within each stratum, a logistic
+regression models the probability of treatment switching as a function of
+covariates and lagged treatment status.
 
 {pstd}
-An alternative approach uses 4 strata (arm x lagged treatment) with
-intercept-only denominators within each stratum. Both are valid
-parameterizations of the inverse probability weight model
+With {cmd:strata(arm_lag)}, models are fitted separately for each
+(arm, lagged treatment) combination (4 strata). Within each stratum,
+lagged treatment is constant and omitted from the model. This matches
+the R TrialEmulation default stratification.
+
+{pstd}
+Both are valid parameterizations of the inverse probability weight model
 (Hernán & Robins, 2020, Technical Point 12.2). The choice affects
 individual weight values and outcome model coefficients but not the
 target causal estimand (risk differences from {cmd:tte_predict}) when
@@ -219,9 +233,9 @@ insufficient variation), {cmd:tte_weight} falls back to default
 probabilities: 0.5 for treatment switch models and 0.05 for
 censoring models. These defaults produce neutral weight contributions
 (approximately 1.0) for the affected periods. A warning is displayed
-when predictions are missing due to covariate issues, but model
-convergence failures are silent. Inspect weight distributions
-({cmd:tte_diagnose}) to detect potential model failures.
+when a model fails to converge or when predictions are missing due to
+covariate issues. Inspect weight distributions ({cmd:tte_diagnose})
+to verify weight quality.
 
 {dlgtab:Truncation}
 
@@ -255,6 +269,11 @@ truncated weights is reported in {cmd:r(n_truncated)}.
 {synopt:{cmd:r(n_ps_trimmed)}}observations dropped by PS trimming (if {cmd:trim_ps()}){p_end}
 {synopt:{cmd:r(ps_lo_cut)}}lower PS cutoff (if {cmd:trim_ps()}){p_end}
 {synopt:{cmd:r(ps_hi_cut)}}upper PS cutoff (if {cmd:trim_ps()}){p_end}
+
+{p2col 5 20 24 2: Macros}{p_end}
+{synopt:{cmd:r(generate)}}weight variable name{p_end}
+{synopt:{cmd:r(estimand)}}estimand{p_end}
+{synopt:{cmd:r(strata)}}stratification (arm or arm_lag){p_end}
 
 
 {marker author}{...}

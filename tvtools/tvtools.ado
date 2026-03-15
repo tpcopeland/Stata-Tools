@@ -23,8 +23,12 @@ See help tvtools for complete documentation
 
 program define tvtools, rclass
     version 16.0
+    local orig_varabbrev = c(varabbrev)
+    local orig_more = c(more)
     set varabbrev off
     set more off
+
+    capture noisily {
 
     syntax [, List Detail Category(string)]
 
@@ -33,15 +37,16 @@ program define tvtools, rclass
 
     // Validate category option
     local category = lower("`category'")
-    if !inlist("`category'", "all", "prep", "diag", "weight") {
-        display as error "category() must be: all, prep, diag, or weight"
+    if !inlist("`category'", "all", "prep", "diag", "weight", "special") {
+        display as error "category() must be: all, prep, diag, weight, or special"
         exit 198
     }
 
     // Define commands by category
     local cmd_prep "tvexpose tvmerge tvevent tvcalendar tvage"
     local cmd_diag "tvdiagnose tvplot tvbalance"
-    local cmd_weight "tvweight"
+    local cmd_weight "tvweight tvestimate"
+    local cmd_special "tvtrial"
 
     // Build selected list based on category
     if "`category'" == "prep" {
@@ -53,8 +58,11 @@ program define tvtools, rclass
     else if "`category'" == "weight" {
         local selected_cmds "`cmd_weight'"
     }
+    else if "`category'" == "special" {
+        local selected_cmds "`cmd_special'"
+    }
     else {
-        local selected_cmds "`cmd_prep' `cmd_diag' `cmd_weight'"
+        local selected_cmds "`cmd_prep' `cmd_diag' `cmd_weight' `cmd_special'"
     }
 
     // Count commands
@@ -103,6 +111,13 @@ program define tvtools, rclass
         if inlist("`category'", "all", "weight") {
             display as text "{bf:Weighting & Estimation}"
             display as result "  tvweight   " as text "- Calculate IPTW weights"
+            display as result "  tvestimate " as text "- G-estimation for structural nested models"
+            display as text ""
+        }
+
+        if inlist("`category'", "all", "special") {
+            display as text "{bf:Special Designs}"
+            display as result "  tvtrial    " as text "- Target trial emulation"
             display as text ""
         }
 
@@ -117,15 +132,23 @@ program define tvtools, rclass
     return local commands "`selected_cmds'"
     return scalar n_commands = `n_commands'
     return local version "1.5.0"
-    return local categories "prep diag weight"
+    return local categories "prep diag weight special"
+
+    } // end capture noisily
+    local rc = _rc
+
+    set varabbrev `orig_varabbrev'
+    set more `orig_more'
+
+    if `rc' {
+        exit `rc'
+    }
 end
 
 // Subroutine for detailed display
 capture program drop _tvtools_detail
 program define _tvtools_detail
     version 16.0
-    set varabbrev off
-    set more off
     syntax , Category(string)
 
     if inlist("`category'", "all", "prep") {
@@ -172,6 +195,19 @@ program define _tvtools_detail
         display as text "  {hline 60}"
         display as result "  tvweight" as text "     Calculate inverse probability of treatment"
         display as text "               weights (IPTW) for time-varying confounding."
+        display as text ""
+        display as result "  tvestimate" as text "   G-estimation for structural nested mean"
+        display as text "               models (SNMM). Estimates causal effects of"
+        display as text "               time-varying treatments."
+        display as text ""
+    }
+
+    if inlist("`category'", "all", "special") {
+        display as text "{bf:Special Designs}"
+        display as text "  {hline 60}"
+        display as result "  tvtrial" as text "      Target trial emulation using sequential"
+        display as text "               trial design with cloning and artificial"
+        display as text "               censoring for observational data."
         display as text ""
     }
 end

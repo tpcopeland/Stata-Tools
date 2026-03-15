@@ -1,0 +1,21 @@
+v 3
+d 'spaghetti': Longitudinal trajectory visualization with group mean overlays
+d
+d Requires: Stata version 16+
+d
+d Distribution-Date: 20260315
+d License: MIT
+d
+d Author: Timothy P Copeland
+d Department of Clinical Neuroscience, Karolinska Institutet
+d
+d KW: spaghetti
+d KW: longitudinal
+d KW: trajectory
+d KW: panel
+d KW: repeated measures
+d
+f spaghetti.ado
+f spaghetti.sthlp
+f _spaghetti_sample.ado
+f _spaghetti_mean.ado
