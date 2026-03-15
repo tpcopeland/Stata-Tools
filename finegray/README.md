@@ -36,6 +36,12 @@ finegray_predict cif_hat, cif
 - Stata 16+
 - `stcrprep` (SSC) for wrapper mode only; not needed for default Mata engine
 
+## Paper
+
+Copeland, T. P. (2026). finegray: Fast Fine-Gray competing risks regression for Stata. *Stata Journal* (submitted).
+
+The manuscript and benchmark code are in `studies/Methods/finegray/` in the Plans-and-Proposals repository.
+
 ## Author
 
 Timothy P Copeland
