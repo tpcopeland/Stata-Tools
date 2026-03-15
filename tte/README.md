@@ -2,9 +2,9 @@
 
 ![Stata 16+](https://img.shields.io/badge/Stata-16%2B-brightgreen) ![MIT License](https://img.shields.io/badge/License-MIT-blue)
 
-The first Stata implementation of the complete target trial emulation workflow. Implements the sequential trials framework (Hernan & Robins, 2016) with the clone-censor-weight approach for estimating per-protocol, intention-to-treat, and as-treated effects from observational data.
+The first Stata implementation of the complete target trial emulation workflow. Implements the sequential trials framework (Hernán & Robins, 2016) with the clone-censor-weight approach for estimating per-protocol, intention-to-treat, and as-treated effects from observational data.
 
-Features include pooled logistic and Cox marginal structural models, a Hernan 7-component protocol table generator, weight/balance diagnostics, and publication-ready reporting — all in a single, integrated pipeline.
+Features include pooled logistic and Cox marginal structural models, a Hernán 7-component protocol table generator, weight/balance diagnostics, and publication-ready reporting — all in a single, integrated pipeline.
 
 ## Table of Contents
 
@@ -78,7 +78,7 @@ tte_predict, times(0 2 4 6 8) type(cum_inc) difference samples(100) seed(12345)
 | `tte_diagnose` | Weight diagnostics and covariate balance |
 | `tte_plot` | KM curves, cumulative incidence, weight distributions |
 | `tte_report` | Publication-quality results tables (display/Excel/CSV) |
-| `tte_protocol` | Hernan & Robins 7-component protocol table |
+| `tte_protocol` | Hernán & Robins 7-component protocol table |
 
 ---
 
@@ -411,7 +411,7 @@ tte_report [, format(string) export(filename) decimals(#)
 
 ### tte_protocol
 
-Generates the Hernan & Robins 7-component target trial specification table. Supports auto-fill from dataset metadata or fully manual specification.
+Generates the Hernán & Robins 7-component target trial specification table. Supports auto-fill from dataset metadata or fully manual specification.
 
 **Syntax:**
 ```stata
@@ -530,7 +530,7 @@ tte_report, format(excel) export(tte_results.xlsx) replace
 
 ## Worked Example: NHEFS Smoking Cessation (What If)
 
-Replicates the analysis from Hernan & Robins, *Causal Inference: What If* (2020), Chapters 12 and 17. The NHEFS dataset (1,629 smokers from NHANES I, 1971–1975) asks: does smoking cessation reduce mortality over 10 years?
+Replicates the analysis from Hernán & Robins, *Causal Inference: What If* (2020), Chapters 12 and 17. The NHEFS dataset (1,629 smokers from NHANES I, 1971–1975) asks: does smoking cessation reduce mortality over 10 years?
 
 This is a point-treatment analysis (everyone eligible at baseline), so it demonstrates the TTE framework applied to a single-enrollment cohort. Companion R scripts in `demo/` replicate the same analysis with R `TrialEmulation` and R `emulate` for cross-platform benchmarking.
 
@@ -605,7 +605,7 @@ CIs from `tte_predict` capture coefficient uncertainty only (parametric bootstra
 |---------|-----------------|-------------|
 | Pooled logistic regression | Yes | Yes |
 | Cox / parametric survival MSM | No | Yes |
-| Protocol table (Hernan 7-component) | No | Yes |
+| Protocol table (Hernán 7-component) | No | Yes |
 | Data validation command | No | Yes (`tte_validate`, 10 checks) |
 | Publication report generation | No | Yes (display/Excel/CSV/LaTeX) |
 | Love plot / balance diagnostics | No | Yes (`tte_diagnose`) |
@@ -739,7 +739,7 @@ Run with `stata-mp -b do validation_tte.do` (supports selective execution: `do v
 #### V1–V5: External benchmarks (27 tests)
 
 - **V1 — R TrialEmulation cross-validation:** Cross-validates against R `TrialEmulation` (Maringe et al. 2024) using the shared trial_example dataset (503 patients, 48,400 person-periods). ITT treatment coefficients agree within 3.2% (R: −0.273, Stata: −0.282), robust SEs within 1%.
-- **V2 — NHEFS smoking cessation:** Replicates the Hernan & Robins *Causal Inference: What If* NHEFS analysis (N=1,629). Smoking cessation correctly shows a protective effect on mortality. Both pooled logistic and Cox models agree on direction, with ORs in the plausible range [0.3, 1.5].
+- **V2 — NHEFS smoking cessation:** Replicates the Hernán & Robins *Causal Inference: What If* NHEFS analysis (N=1,629). Smoking cessation correctly shows a protective effect on mortality. Both pooled logistic and Cox models agree on direction, with ORs in the plausible range [0.3, 1.5].
 - **V3 — Clone-censor-weight / immortal-time bias:** Simulates 2,000 lung cancer surgery patients over 24 periods (true HR = 0.60, based on Maringe et al. 2020 IJE). The clone-censor-weight estimate recovers the true effect while the naive analysis demonstrates residual immortal-time bias.
 - **V4 — G-formula / time-varying confounding:** Simulates 5,000 HIV/ART patients with CD4 as a time-varying confounder (true OR = 0.449, based on Daniel et al. 2011 Stata Journal). The unadjusted estimate shows confounding by indication; the ITT estimate reverses this, recovering the true protective effect.
 - **V5 — Known DGP Monte Carlo:** Large-sample (N=10,000) and 50-replication Monte Carlo with true log-OR = −0.50. Empirical 95% CI coverage is 94%. All time specifications (quadratic, cubic, natural splines) produce consistent estimates.
@@ -774,8 +774,8 @@ Benchmarks Stata `tte` against R `emulate` and R `TrialEmulation` across 30+ con
 
 ## References
 
-- Hernan MA, Robins JM. Using Big Data to Emulate a Target Trial When a Randomized Trial Is Not Available. *Am J Epidemiol*. 2016;183(8):758-764.
-- Hernan MA, Robins JM. *Causal Inference: What If*. Boca Raton: Chapman & Hall/CRC; 2020.
+- Hernán MA, Robins JM. Using Big Data to Emulate a Target Trial When a Randomized Trial Is Not Available. *Am J Epidemiol*. 2016;183(8):758-764.
+- Hernán MA, Robins JM. *Causal Inference: What If*. Boca Raton: Chapman & Hall/CRC; 2020.
 - Maringe C, Benitez Majano S, et al. TrialEmulation: An R Package for Target Trial Emulation. *arXiv*. 2024;2402.12083.
 
 ## Authors
@@ -794,4 +794,4 @@ MIT License
 
 ## Version
 
-Version 1.1.0, 2026-03-10
+Version 1.1.0, 2026-03-15

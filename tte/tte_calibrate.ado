@@ -1,4 +1,4 @@
-*! tte_calibrate Version 1.0.0  2026/03/10
+*! tte_calibrate Version 1.1.0  2026/03/15
 *! Negative control outcome calibration for target trial emulation
 *! Author: Timothy P Copeland
 *! Author: Tania F Reza
@@ -50,11 +50,13 @@ program define tte_calibrate, rclass
 
     if "`method'" != "normal" {
         display as error "method() must be normal"
+        set varabbrev `_vaset'
         exit 198
     }
 
     if `se' <= 0 {
         display as error "se() must be positive"
+        set varabbrev `_vaset'
         exit 198
     }
 
@@ -62,6 +64,7 @@ program define tte_calibrate, rclass
     capture confirm matrix `nco_estimates'
     if _rc != 0 {
         display as error "matrix `nco_estimates' not found"
+        set varabbrev `_vaset'
         exit 111
     }
 
@@ -71,11 +74,13 @@ program define tte_calibrate, rclass
 
     if `n_cols' != 2 {
         display as error "nco_estimates() must be an Nx2 matrix (columns: log-estimate, SE)"
+        set varabbrev `_vaset'
         exit 503
     }
 
     if `n_nco' < 3 {
         display as error "nco_estimates() must have at least 3 rows (negative control outcomes)"
+        set varabbrev `_vaset'
         exit 198
     }
 
@@ -84,6 +89,7 @@ program define tte_calibrate, rclass
         local se_k = `nco_estimates'[`k', 2]
         if `se_k' <= 0 {
             display as error "nco_estimates() row `k': SE must be positive (found `se_k')"
+            set varabbrev `_vaset'
             exit 198
         }
     }

@@ -1,4 +1,4 @@
-*! tte_validate Version 1.0.3  2026/03/14
+*! tte_validate Version 1.1.0  2026/03/15
 *! Data quality checks for target trial emulation
 *! Author: Timothy P Copeland
 *! Author: Tania F Reza

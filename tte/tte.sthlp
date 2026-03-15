@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.1.0  10mar2026}{...}
+{* *! version 1.1.0  15mar2026}{...}
 {viewerjumpto "Syntax" "tte##syntax"}{...}
 {viewerjumpto "Description" "tte##description"}{...}
 {viewerjumpto "Commands" "tte##commands"}{...}
@@ -36,7 +36,7 @@
 {pstd}
 {cmd:tte} is a comprehensive suite for target trial emulation using
 observational data. It implements the sequential trials framework
-(Hernan & Robins, 2016) with the clone-censor-weight approach for
+(Hernán & Robins, 2016) with the clone-censor-weight approach for
 estimating per-protocol and intention-to-treat effects.
 
 {pstd}
@@ -83,7 +83,7 @@ publication-ready reporting.
 {helpb tte_report} {hline 2} Publication-quality results tables
 
 {phang}
-{helpb tte_protocol} {hline 2} Target trial protocol table (Hernan 7-component)
+{helpb tte_protocol} {hline 2} Target trial protocol table (Hernán 7-component)
 
 {phang}
 {helpb tte_calibrate} {hline 2} Negative control outcome calibration
@@ -127,11 +127,11 @@ publication-ready reporting.
 {title:References}
 
 {pstd}
-Hernan MA, Robins JM. Using Big Data to Emulate a Target Trial When a
+Hernán MA, Robins JM. Using Big Data to Emulate a Target Trial When a
 Randomized Trial Is Not Available. {it:Am J Epidemiol}. 2016;183(8):758-764.
 
 {pstd}
-Hernan MA, Robins JM. {it:Causal Inference: What If}. Boca Raton: Chapman & Hall/CRC; 2020.
+Hernán MA, Robins JM. {it:Causal Inference: What If}. Boca Raton: Chapman & Hall/CRC; 2020.
 
 {pstd}
 Maringe C, Benitez Majano S, et al. TrialEmulation: An R Package for Target

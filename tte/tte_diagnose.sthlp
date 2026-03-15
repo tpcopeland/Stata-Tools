@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.1.1  14mar2026}{...}
+{* *! version 1.1.0  15mar2026}{...}
 {viewerjumpto "Syntax" "tte_diagnose##syntax"}{...}
 {viewerjumpto "Description" "tte_diagnose##description"}{...}
 {viewerjumpto "Options" "tte_diagnose##options"}{...}

@@ -1,9 +1,10 @@
 {smcl}
-{* *! version 1.1.1  14mar2026}{...}
+{* *! version 1.1.0  15mar2026}{...}
 {viewerjumpto "Syntax" "tte_plot##syntax"}{...}
 {viewerjumpto "Description" "tte_plot##description"}{...}
 {viewerjumpto "Options" "tte_plot##options"}{...}
 {viewerjumpto "Examples" "tte_plot##examples"}{...}
+{viewerjumpto "Stored results" "tte_plot##results"}{...}
 {viewerjumpto "Author" "tte_plot##author"}{...}
 
 {title:Title}
@@ -94,6 +95,19 @@ make the full plot hard to read.
 {pstd}Top-10 Love plot{p_end}
 {phang2}{cmd:. tte_diagnose, balance_covariates(age sex comorbidity biomarker bmi smoking)}{p_end}
 {phang2}{cmd:. tte_plot, type(balance) top(10)}{p_end}
+
+
+{marker results}{...}
+{title:Stored results}
+
+{pstd}
+{cmd:tte_plot} stores the following in {cmd:r()}:
+
+{synoptset 20 tabbed}{...}
+{p2col 5 20 24 2: Macros}{p_end}
+{synopt:{cmd:r(type)}}plot type used{p_end}
+{synopt:{cmd:r(scheme)}}graph scheme used{p_end}
+{p2colreset}{...}
 
 
 {marker author}{...}

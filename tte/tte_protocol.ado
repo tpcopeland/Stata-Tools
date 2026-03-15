@@ -1,5 +1,5 @@
-*! tte_protocol Version 1.0.2  2026/03/01
-*! Target trial protocol table (Hernan 7-component) for target trial emulation
+*! tte_protocol Version 1.1.0  2026/03/15
+*! Target trial protocol table (Hernán 7-component) for target trial emulation
 *! Author: Timothy P Copeland
 *! Author: Tania F Reza
 *! Department of Clinical Neuroscience, Karolinska Institutet
@@ -15,7 +15,7 @@ Basic syntax:
 
 Description:
   Generates a formatted target trial protocol specification table
-  following Hernan & Robins (2016) 7-component framework.
+  following Hernán & Robins (2016) 7-component framework.
 
   With auto, reads dataset metadata from tte_prepare/tte_fit to
   generate default text for each component. User-supplied text
@@ -45,6 +45,7 @@ program define tte_protocol, rclass
 
     if !inlist("`format'", "display", "csv", "excel", "latex") {
         display as error "format() must be display, csv, excel, or latex"
+        set varabbrev `_vaset'
         exit 198
     }
 
@@ -57,6 +58,7 @@ program define tte_protocol, rclass
         local _prepared : char _dta[_tte_prepared]
         if "`_prepared'" != "1" {
             display as error "auto requires data prepared with tte_prepare"
+            set varabbrev `_vaset'
             exit 198
         }
 
@@ -131,6 +133,7 @@ program define tte_protocol, rclass
            `"`outcome'"' == "" | `"`causal_contrast'"' == "" | ///
            `"`analysis'"' == "" {
             display as error "all 7 protocol components required, or specify auto"
+            set varabbrev `_vaset'
             exit 198
         }
     }
@@ -142,7 +145,7 @@ program define tte_protocol, rclass
     display as text ""
     display as text "{hline 70}"
     display as result "`title'"
-    display as text "(Hernan & Robins 7-component framework)"
+    display as text "(Hernán & Robins 7-component framework)"
     display as text "{hline 70}"
     display as text ""
 

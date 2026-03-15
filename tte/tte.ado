@@ -1,4 +1,4 @@
-*! tte Version 1.1.0  2026/03/10
+*! tte Version 1.1.0  2026/03/15
 *! Target Trial Emulation suite for Stata
 *! Author: Timothy P Copeland
 *! Author: Tania F Reza
@@ -66,13 +66,13 @@ program define tte, rclass
         display as result "  tte_diagnose " as text "- Weight diagnostics and balance assessment"
         display as result "  tte_plot     " as text "- KM curves, cumulative incidence, weight plots"
         display as result "  tte_report   " as text "- Publication-quality results tables"
-        display as result "  tte_protocol " as text "- Target trial protocol table (Hernan 7-component)"
+        display as result "  tte_protocol " as text "- Target trial protocol table (Hernán 7-component)"
         display as result "  tte_calibrate" as text "- Negative control outcome calibration"
         display as text ""
         display as text "{hline 70}"
         display as text "{bf:Typical workflow:}"
         display as text ""
-        display as text "  0. {cmd:tte_protocol} " as text "Define target trial (Hernan 7-component)"
+        display as text "  0. {cmd:tte_protocol} " as text "Define target trial (Hernán 7-component)"
         display as text "  1. {cmd:tte_prepare}  " as text "Map variables, set estimand (ITT/PP/AT)"
         display as text "  2. {cmd:tte_validate}  " as text "Check data quality"
         display as text "  3. {cmd:tte_expand}   " as text "Create sequential emulated trials"
@@ -101,7 +101,7 @@ program define _tte_protocol_overview
     set more off
 
     display as text ""
-    display as text "{bf:Hernan & Robins (2016) 7-Component Framework}"
+    display as text "{bf:Hernán & Robins (2016) 7-Component Framework}"
     display as text ""
     display as text "  Every target trial emulation must specify:"
     display as text ""
@@ -197,7 +197,7 @@ program define _tte_overview_detail
     display as result "  tte_report" as text "    Publication-quality tables exportable to"
     display as text "              Excel or CSV format."
     display as text ""
-    display as result "  tte_protocol" as text "  Hernan 7-component protocol specification"
+    display as result "  tte_protocol" as text "  Hernán 7-component protocol specification"
     display as text "              table for the methods section."
     display as text ""
     display as result "  tte_calibrate" as text " Negative control outcome calibration using"

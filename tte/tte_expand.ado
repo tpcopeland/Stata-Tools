@@ -1,4 +1,4 @@
-*! tte_expand Version 1.0.5  2026/03/14
+*! tte_expand Version 1.1.0  2026/03/15
 *! Sequential trial expansion (clone-censor-weight) for target trial emulation
 *! Author: Timothy P Copeland
 *! Author: Tania F Reza

@@ -1,14 +1,15 @@
 {smcl}
-{* *! version 1.0.2  01mar2026}{...}
+{* *! version 1.1.0  15mar2026}{...}
 {viewerjumpto "Syntax" "tte_protocol##syntax"}{...}
 {viewerjumpto "Description" "tte_protocol##description"}{...}
 {viewerjumpto "Examples" "tte_protocol##examples"}{...}
+{viewerjumpto "Stored results" "tte_protocol##results"}{...}
 {viewerjumpto "Author" "tte_protocol##author"}{...}
 
 {title:Title}
 
 {phang}
-{bf:tte_protocol} {hline 2} Target trial protocol table (Hernan 7-component)
+{bf:tte_protocol} {hline 2} Target trial protocol table (Hernán 7-component)
 
 
 {marker syntax}{...}
@@ -55,7 +56,7 @@
 
 {pstd}
 {cmd:tte_protocol} generates a formatted target trial protocol
-specification table following the Hernan & Robins (2016) 7-component
+specification table following the Hernán & Robins (2016) 7-component
 framework.
 
 {pstd}
@@ -82,6 +83,25 @@ This requires data that has been through at least {cmd:tte_prepare}.
 {phang2}{cmd:. tte_protocol, eligibility("Age >= 18, no prior outcome") treatment("Initiate drug vs no drug") assignment("At each eligible period") followup_start("Start of eligible period") outcome("All-cause mortality") causal_contrast("Per-protocol effect") analysis("Pooled logistic with IPCW")}{p_end}
 
 {phang2}{cmd:. tte_protocol, auto export(protocol.xlsx) format(excel) replace}{p_end}
+
+
+{marker results}{...}
+{title:Stored results}
+
+{pstd}
+{cmd:tte_protocol} stores the following in {cmd:r()}:
+
+{synoptset 20 tabbed}{...}
+{p2col 5 20 24 2: Macros}{p_end}
+{synopt:{cmd:r(eligibility)}}eligibility criteria text{p_end}
+{synopt:{cmd:r(treatment)}}treatment strategies text{p_end}
+{synopt:{cmd:r(assignment)}}treatment assignment text{p_end}
+{synopt:{cmd:r(followup_start)}}start of follow-up text{p_end}
+{synopt:{cmd:r(outcome)}}outcome definition text{p_end}
+{synopt:{cmd:r(causal_contrast)}}causal contrast text{p_end}
+{synopt:{cmd:r(analysis)}}statistical analysis text{p_end}
+{synopt:{cmd:r(format)}}export format used{p_end}
+{p2colreset}{...}
 
 
 {marker author}{...}

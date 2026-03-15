@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.1.1  14mar2026}{...}
+{* *! version 1.1.0  15mar2026}{...}
 {viewerjumpto "Syntax" "tte_weight##syntax"}{...}
 {viewerjumpto "Description" "tte_weight##description"}{...}
 {viewerjumpto "Options" "tte_weight##options"}{...}
@@ -119,7 +119,7 @@ lagged treatment status.
 An alternative approach uses 4 strata (arm x lagged treatment) with
 intercept-only denominators within each stratum. Both are valid
 parameterizations of the inverse probability weight model
-(Hernan & Robins, 2020, Technical Point 12.2). The choice affects
+(Hernán & Robins, 2020, Technical Point 12.2). The choice affects
 individual weight values and outcome model coefficients but not the
 target causal estimand (risk differences from {cmd:tte_predict}) when
 both models are correctly specified.
@@ -141,7 +141,7 @@ model covariates passed via {opt switch_d_cov()} and {opt switch_n_cov()}
 therefore use baseline values. This is theoretically justified: the IP
 weight model can condition on baseline covariates L{sub:0} and still
 produce consistent estimates of the causal effect, provided the model is
-correctly specified (Hernan & Robins, 2020, Technical Point 12.2).
+correctly specified (Hernán & Robins, 2020, Technical Point 12.2).
 
 {pstd}
 If time-varying covariates are needed in the weight model, users must

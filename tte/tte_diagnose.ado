@@ -1,4 +1,4 @@
-*! tte_diagnose Version 1.1.1  2026/03/14
+*! tte_diagnose Version 1.1.0  2026/03/15
 *! Weight diagnostics and balance assessment for target trial emulation
 *! Author: Timothy P Copeland
 *! Author: Tania F Reza

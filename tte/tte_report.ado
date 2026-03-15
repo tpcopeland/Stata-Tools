@@ -1,4 +1,4 @@
-*! tte_report Version 1.1.1  2026/03/14
+*! tte_report Version 1.1.0  2026/03/15
 *! Publication-quality results tables for target trial emulation
 *! Author: Timothy P Copeland
 *! Author: Tania F Reza

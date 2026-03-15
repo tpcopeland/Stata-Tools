@@ -1,4 +1,4 @@
-*! tte_fit Version 1.0.5  2026/03/14
+*! tte_fit Version 1.1.0  2026/03/15
 *! Outcome model fitting for target trial emulation
 *! Author: Timothy P Copeland
 *! Author: Tania F Reza

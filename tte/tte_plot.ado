@@ -1,4 +1,4 @@
-*! tte_plot Version 1.1.1  2026/03/14
+*! tte_plot Version 1.1.0  2026/03/15
 *! Visualization for target trial emulation
 *! Author: Timothy P Copeland
 *! Author: Tania F Reza
@@ -53,6 +53,7 @@ program define tte_plot, rclass
 
     if !inlist("`type'", "km", "cumhaz", "weights", "balance", "pscore", "equipoise") {
         display as error "type() must be km, cumhaz, weights, balance, pscore, or equipoise"
+        set varabbrev `_vaset'
         exit 198
     }
 
@@ -134,6 +135,7 @@ program define tte_plot, rclass
         capture matrix list r(predictions)
         if _rc != 0 {
             display as error "no predictions found; run tte_predict first"
+            set varabbrev `_vaset'
             exit 198
         }
 
@@ -216,6 +218,7 @@ program define tte_plot, rclass
             capture confirm variable `weight_var'
             if _rc != 0 {
                 display as error "no weight variable found; run tte_weight first"
+                set varabbrev `_vaset'
                 exit 111
             }
         }
@@ -245,6 +248,7 @@ program define tte_plot, rclass
         capture matrix list r(balance)
         if _rc != 0 {
             display as error "no balance matrix found; run tte_diagnose with balance_covariates() first"
+            set varabbrev `_vaset'
             exit 198
         }
 
@@ -326,12 +330,14 @@ program define tte_plot, rclass
         if "`ps_var'" == "" {
             display as error "no propensity score variable found"
             display as error "run {cmd:tte_weight, save_ps} first"
+            set varabbrev `_vaset'
             exit 198
         }
 
         capture confirm variable `ps_var'
         if _rc != 0 {
             display as error "propensity score variable `ps_var' not found in dataset"
+            set varabbrev `_vaset'
             exit 111
         }
 
@@ -364,12 +370,14 @@ program define tte_plot, rclass
         if "`ps_var'" == "" {
             display as error "no propensity score variable found"
             display as error "run {cmd:tte_weight, save_ps} first"
+            set varabbrev `_vaset'
             exit 198
         }
 
         capture confirm variable `ps_var'
         if _rc != 0 {
             display as error "propensity score variable `ps_var' not found in dataset"
+            set varabbrev `_vaset'
             exit 111
         }
 

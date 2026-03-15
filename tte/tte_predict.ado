@@ -1,4 +1,4 @@
-*! tte_predict Version 1.1.0  2026/03/10
+*! tte_predict Version 1.1.0  2026/03/15
 *! Marginal predictions with confidence intervals for target trial emulation
 *! Author: Timothy P Copeland
 *! Author: Tania F Reza
