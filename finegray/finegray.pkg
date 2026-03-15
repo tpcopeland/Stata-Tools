@@ -1,0 +1,28 @@
+v 3
+d 'finegray': Fine-Gray Competing Risks Regression for Stata
+d
+d Fast Fine-Gray subdistribution hazard models for competing risks.
+d Uses a native Mata forward-backward scan estimator by default,
+d with optional stcrprep + stcox wrapper mode for tvc()/strata().
+d Supports SHR estimation, CIF prediction, robust/clustered SEs,
+d and time-varying coefficients.
+d
+d Requires: Stata version 16+
+d Requires: stcrprep (SSC) for wrapper mode only
+d
+d Distribution-Date: 20260315
+d License: MIT
+d
+d Author: Timothy P Copeland
+d Department of Clinical Neuroscience, Karolinska Institutet
+d
+d KW: competing risks
+d KW: Fine-Gray
+d KW: subdistribution hazard
+d KW: cumulative incidence
+d KW: survival analysis
+d
+f finegray.ado
+f finegray.sthlp
+f _finegray_mata.ado
+f finegray_predict.ado

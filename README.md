@@ -115,3 +115,4 @@ Department of Clinical Neuroscience, Karolinska Institutet
 ## License
 
 MIT
+| `finegray` | Fine-Gray Competing Risks Regression for Stata |
