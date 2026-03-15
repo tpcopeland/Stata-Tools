@@ -4622,11 +4622,18 @@ display "PART B: Stress Tests"
 display ""
 
 * =============================================================================
-* TEST 4: _tte_memory_estimate accuracy
+* TEST 4: _tte_memory_estimate accuracy (skipped if program not installed)
 * =============================================================================
 local ++test_count
 display ""
 display "Test `test_count': _tte_memory_estimate accuracy"
+
+capture program list _tte_memory_estimate
+if _rc != 0 {
+    display as text "  SKIP - _tte_memory_estimate not installed"
+    local --test_count
+}
+else {
 
 * Generate known-size dataset
 _dgp_sens, n(1000) periods(10) effect(-0.50) seed(20261204)
@@ -4665,6 +4672,8 @@ else {
     display as error "  FAIL - Memory estimate out of range (ratio=" %5.2f `ratio' ", expected 0.5-5.0)"
     local ++fail_count
 }
+
+} /* end _tte_memory_estimate check */
 
 * =============================================================================
 * TEST 5: N=50,000 ITT pipeline completes

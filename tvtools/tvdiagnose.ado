@@ -78,8 +78,7 @@ program define tvdiagnose, rclass
         exit 198
     }
 
-    * Ensure data is sorted (preserve original order)
-    preserve
+    * Ensure data is sorted
     sort `id' `start' `stop'
 
     * Initialize return values
@@ -335,8 +334,6 @@ program define tvdiagnose, rclass
     return local id "`id'"
     return local start "`start'"
     return local stop "`stop'"
-
-    restore
 
     } // end capture noisily
     local rc = _rc
