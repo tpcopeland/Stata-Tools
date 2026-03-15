@@ -201,6 +201,72 @@ program define tte_weight, rclass
     display as text ""
 
     * =========================================================================
+    * MAP COVARIATES TO TIME-VARYING VERSIONS
+    * =========================================================================
+    * tte_expand saves original (unfrozen) values as {prefix}tv_{varname}.
+    * Weight models should condition on time-varying L_t, not frozen L_0.
+    * Map each covariate to its tv_ version if available, otherwise keep as-is.
+
+    local switch_d_cov_w ""
+    foreach var of local switch_d_cov {
+        capture confirm variable `prefix'tv_`var'
+        if _rc == 0 {
+            local switch_d_cov_w "`switch_d_cov_w' `prefix'tv_`var'"
+        }
+        else {
+            local switch_d_cov_w "`switch_d_cov_w' `var'"
+        }
+    }
+    local switch_d_cov_w = strtrim("`switch_d_cov_w'")
+
+    local switch_n_cov_w ""
+    if "`switch_n_cov'" != "" {
+        foreach var of local switch_n_cov {
+            capture confirm variable `prefix'tv_`var'
+            if _rc == 0 {
+                local switch_n_cov_w "`switch_n_cov_w' `prefix'tv_`var'"
+            }
+            else {
+                local switch_n_cov_w "`switch_n_cov_w' `var'"
+            }
+        }
+        local switch_n_cov_w = strtrim("`switch_n_cov_w'")
+    }
+
+    local censor_d_cov_w ""
+    if "`censor_d_cov'" != "" {
+        foreach var of local censor_d_cov {
+            capture confirm variable `prefix'tv_`var'
+            if _rc == 0 {
+                local censor_d_cov_w "`censor_d_cov_w' `prefix'tv_`var'"
+            }
+            else {
+                local censor_d_cov_w "`censor_d_cov_w' `var'"
+            }
+        }
+        local censor_d_cov_w = strtrim("`censor_d_cov_w'")
+    }
+
+    local censor_n_cov_w ""
+    if "`censor_n_cov'" != "" {
+        foreach var of local censor_n_cov {
+            capture confirm variable `prefix'tv_`var'
+            if _rc == 0 {
+                local censor_n_cov_w "`censor_n_cov_w' `prefix'tv_`var'"
+            }
+            else {
+                local censor_n_cov_w "`censor_n_cov_w' `var'"
+            }
+        }
+        local censor_n_cov_w = strtrim("`censor_n_cov_w'")
+    }
+
+    * Report time-varying mapping
+    if "`switch_d_cov_w'" != "`switch_d_cov'" {
+        display as text "  Using time-varying values for weight covariates"
+    }
+
+    * =========================================================================
     * WEIGHT CALCULATION
     * =========================================================================
 

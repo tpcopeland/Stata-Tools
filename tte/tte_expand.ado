@@ -154,6 +154,16 @@ program define tte_expand, rclass
         quietly keep if `_is_elig_id' == 1 & `period' >= `t'
         drop `_elig_at_t' `_is_elig_id'
 
+        * Save time-varying covariate values BEFORE freezing.
+        * Weight models need L_t (time-varying) to model treatment
+        * switching; outcome models need frozen L₀ (baseline).
+        * Time-varying copies are stored as {prefix}tv_{varname}.
+        if "`covariates'" != "" {
+            foreach var of local covariates {
+                quietly gen double `prefix'tv_`var' = `var'
+            }
+        }
+
         * Freeze covariates at baseline (trial-entry) values
         * Per Hernán & Robins: MSM conditions on L₀ only; IP weights handle L_t
         if "`covariates'" != "" {
