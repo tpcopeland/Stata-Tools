@@ -111,3 +111,5 @@ Department of Clinical Neuroscience, Karolinska Institutet
 ## License
 
 MIT
+| `logdoc` | Convert Stata log files to HTML or Markdown documents |
+| `aft` | Accelerated Failure Time model selection and diagnostics |

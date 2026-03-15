@@ -1,0 +1,5 @@
+v 3
+d Stata-Dev: aft
+d Timothy P Copeland
+d https://github.com/tpcopeland/Stata-Dev
+p aft

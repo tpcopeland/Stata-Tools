@@ -1,0 +1,4 @@
+v 3
+d Stata packages by Timothy P Copeland
+d Karolinska Institutet
+p logdoc Convert Stata log files to HTML or Markdown documents

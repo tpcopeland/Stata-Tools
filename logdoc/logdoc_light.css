@@ -1,0 +1,266 @@
+/* logdoc_light.css — Quarto-inspired light theme for logdoc */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    background: #ffffff;
+    color: #212529;
+    font-family: "Source Sans Pro", -apple-system, BlinkMacSystemFont,
+                 "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+}
+
+/* Layout */
+.logdoc {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem;
+}
+
+/* Header */
+.logdoc-header {
+    margin-bottom: 2rem;
+    padding-bottom: 1rem;
+    border-bottom: 2px solid #dee2e6;
+}
+
+.logdoc-header h1 {
+    font-size: 1.75rem;
+    font-weight: 600;
+    color: #212529;
+    margin: 0;
+}
+
+/* Code blocks (Stata commands) */
+.code-block {
+    margin: 1rem 0 0.25rem 0;
+    padding: 0.75rem 1rem;
+    background: #f8f9fa;
+    border-left: 3px solid #4582ec;
+    border-radius: 0 4px 4px 0;
+    overflow-x: auto;
+}
+
+.code-block pre {
+    margin: 0;
+    font-family: "JetBrains Mono", "Fira Code", "SFMono-Regular",
+                 Menlo, Consolas, "Liberation Mono", monospace;
+    font-size: 0.875rem;
+    line-height: 1.5;
+    white-space: pre;
+    color: #212529;
+}
+
+/* Output blocks */
+.output-block {
+    margin: 0 0 1rem 0;
+    padding: 0.5rem 1rem;
+    overflow-x: auto;
+}
+
+.output-block pre {
+    margin: 0;
+    font-family: "JetBrains Mono", "Fira Code", "SFMono-Regular",
+                 Menlo, Consolas, "Liberation Mono", monospace;
+    font-size: 0.8125rem;
+    line-height: 1.45;
+    white-space: pre;
+    color: #495057;
+}
+
+/* Comment blocks */
+.comment-block {
+    margin: 0.5rem 0;
+    padding: 0.25rem 1rem;
+    color: #6c757d;
+    font-style: italic;
+    font-size: 0.875rem;
+}
+
+/* Error blocks */
+.error-block {
+    margin: 0.5rem 0 1rem 0;
+    padding: 0.75rem 1rem;
+    background: #fff5f5;
+    border-left: 3px solid #e74c3c;
+    border-radius: 0 4px 4px 0;
+    overflow-x: auto;
+}
+
+.error-block pre {
+    margin: 0;
+    font-family: "JetBrains Mono", "Fira Code", "SFMono-Regular",
+                 Menlo, Consolas, "Liberation Mono", monospace;
+    font-size: 0.8125rem;
+    line-height: 1.45;
+    white-space: pre;
+    color: #c0392b;
+}
+
+/* Stata tables */
+.table-block {
+    margin: 0.5rem 0 1.5rem 0;
+    overflow-x: auto;
+}
+
+table.stata-table {
+    border-collapse: collapse;
+    font-family: "JetBrains Mono", "Fira Code", "SFMono-Regular",
+                 Menlo, Consolas, "Liberation Mono", monospace;
+    font-size: 0.8125rem;
+    color: #212529;
+    width: 100%;
+}
+
+table.stata-table th,
+table.stata-table td {
+    padding: 0.35rem 0.75rem;
+    text-align: left;
+    vertical-align: top;
+    border-bottom: 1px solid #dee2e6;
+}
+
+table.stata-table th {
+    font-weight: 600;
+    color: #495057;
+    border-bottom: 2px solid #adb5bd;
+    white-space: nowrap;
+}
+
+table.stata-table tbody tr:hover {
+    background: #f8f9fa;
+}
+
+table.stata-table td.numeric {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Collapsible sections */
+.fold-block {
+    margin: 0 0 1rem 0;
+    border: 1px solid #e9ecef;
+    border-radius: 4px;
+}
+
+.fold-block summary {
+    padding: 0.5rem 1rem;
+    cursor: pointer;
+    font-size: 0.8125rem;
+    color: #6c757d;
+    background: #f8f9fa;
+    border-radius: 4px;
+    user-select: none;
+}
+
+.fold-block summary:hover {
+    background: #e9ecef;
+}
+
+.fold-block[open] summary {
+    border-bottom: 1px solid #e9ecef;
+    border-radius: 4px 4px 0 0;
+}
+
+.fold-block .output-block {
+    margin: 0;
+}
+
+/* Graph figures */
+.graph-figure {
+    margin: 1rem 0 1.5rem 0;
+    text-align: center;
+}
+
+.graph-figure img {
+    max-width: 100%;
+    height: auto;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+}
+
+.graph-missing {
+    margin: 0.5rem 0;
+    padding: 0.75rem 1rem;
+    background: #fff3cd;
+    border-left: 3px solid #ffc107;
+    border-radius: 0 4px 4px 0;
+    color: #856404;
+    font-size: 0.875rem;
+}
+
+/* SMCL style spans */
+.cmd { color: #212529; font-weight: 600; }
+.res { color: #212529; }
+.err { color: #c0392b; }
+.help-link {
+    color: #4582ec;
+    text-decoration: none;
+}
+.help-link:hover {
+    text-decoration: underline;
+}
+
+/* Header subtitle */
+.logdoc-header .subtitle {
+    font-size: 0.9375rem;
+    color: #6c757d;
+    margin-top: 0.25rem;
+}
+
+/* Footer */
+.logdoc-footer {
+    margin-top: 3rem;
+    padding-top: 1rem;
+    border-top: 1px solid #dee2e6;
+    font-size: 0.75rem;
+    color: #adb5bd;
+    text-align: center;
+}
+
+/* Copy button */
+.copy-btn {
+    position: absolute;
+    top: 0.4rem;
+    right: 0.5rem;
+    padding: 0.15rem 0.5rem;
+    font-size: 0.7rem;
+    border: 1px solid #dee2e6;
+    border-radius: 3px;
+    background: #fff;
+    color: #6c757d;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.15s;
+}
+.code-block:hover .copy-btn { opacity: 1; }
+.copy-btn:hover { background: #e9ecef; }
+
+/* Responsive */
+@media (max-width: 768px) {
+    .logdoc {
+        padding: 1rem;
+    }
+    .logdoc-header h1 {
+        font-size: 1.25rem;
+    }
+}
+
+/* Print */
+@media print {
+    body { font-size: 11pt; }
+    .logdoc { max-width: 100%; padding: 0; }
+    .code-block { break-inside: avoid; border-left-color: #999; }
+    .table-block { break-inside: avoid; }
+    .copy-btn { display: none; }
+    .fold-block { border: none; }
+    .fold-block > * { display: block !important; }
+    .fold-block summary { display: none; }
+    .logdoc-footer { color: #999; }
+}

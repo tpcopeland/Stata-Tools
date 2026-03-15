@@ -1,0 +1,29 @@
+v 3
+d 'LOGDOC': Convert Stata log files to HTML or Markdown documents
+d
+d Converts Stata .smcl, .log, or .do files into self-contained HTML
+d or Markdown documents with syntax-highlighted commands, formatted
+d tables, collapsible output sections, and embedded graphs. Styled
+d with Quarto-inspired light and Catppuccin dark themes. Requires
+d Python 3.6+ (standard library only).
+d
+d Requires: Stata version 16+, Python 3.6+
+d
+d Distribution-Date: 20260315
+d License: MIT
+d
+d Author: Timothy P Copeland
+d Department of Clinical Neuroscience, Karolinska Institutet
+d
+d KW: log
+d KW: SMCL
+d KW: HTML
+d KW: Markdown
+d KW: document
+d KW: reproducibility
+d
+f logdoc.ado
+f logdoc.sthlp
+f logdoc_render.py
+f logdoc_light.css
+f logdoc_dark.css

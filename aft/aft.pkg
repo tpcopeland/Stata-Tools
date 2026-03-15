@@ -1,0 +1,47 @@
+v 3
+d 'AFT': Accelerated Failure Time model selection and diagnostics
+d
+d Automates the AFT workflow: distribution comparison, model fitting,
+d diagnostics, Cox PH comparison, piecewise AFT for time-varying effects,
+d and RPSFTM g-estimation for treatment switching adjustment.
+d
+d Requires: Stata version 16+
+d
+d Distribution-Date: 20260315
+d License: MIT
+d
+d Author: Timothy P Copeland
+d Department of Clinical Neuroscience, Karolinska Institutet
+d
+d KW: survival analysis
+d KW: accelerated failure time
+d KW: AFT
+d KW: distribution selection
+d KW: time ratio
+d
+f aft.ado
+f aft.sthlp
+f aft_select.ado
+f aft_select.sthlp
+f aft_fit.ado
+f aft_fit.sthlp
+f aft_diagnose.ado
+f aft_diagnose.sthlp
+f aft_compare.ado
+f aft_compare.sthlp
+f aft_split.ado
+f aft_split.sthlp
+f aft_pool.ado
+f aft_pool.sthlp
+f aft_rpsftm.ado
+f aft_rpsftm.sthlp
+f aft_counterfactual.ado
+f aft_counterfactual.sthlp
+f _aft_check_stset.ado
+f _aft_check_selected.ado
+f _aft_check_fitted.ado
+f _aft_check_piecewise.ado
+f _aft_check_rpsftm.ado
+f _aft_rpsftm_utime.ado
+f _aft_get_settings.ado
+f _aft_display_header.ado
