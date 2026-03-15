@@ -26,10 +26,12 @@ Features include pooled logistic and Cox marginal structural models, a Hernan 7-
   - [tte_protocol](#tte_protocol)
 - [Worked Example: ITT Analysis](#worked-example-itt-analysis)
 - [Worked Example: Per-Protocol Analysis with IPTW](#worked-example-per-protocol-analysis-with-iptw)
+- [Worked Example: NHEFS Smoking Cessation (What If)](#worked-example-nhefs-smoking-cessation-what-if)
 - [Technical Notes](#technical-notes)
 - [Features Beyond R TrialEmulation](#features-beyond-r-trialemulation)
 - [Stored Results](#stored-results)
 - [Demo Output](#demo-output)
+- [Testing](#testing)
 - [References](#references)
 - [Version](#version)
 
@@ -526,6 +528,53 @@ tte_report, format(excel) export(tte_results.xlsx) replace
 
 ---
 
+## Worked Example: NHEFS Smoking Cessation (What If)
+
+Replicates the analysis from Hernan & Robins, *Causal Inference: What If* (2020), Chapters 12 and 17. The NHEFS dataset (1,629 smokers from NHANES I, 1971–1975) asks: does smoking cessation reduce mortality over 10 years?
+
+This is a point-treatment analysis (everyone eligible at baseline), so it demonstrates the TTE framework applied to a single-enrollment cohort. Companion R scripts in `demo/` replicate the same analysis with R `TrialEmulation` and R `emulate` for cross-platform benchmarking.
+
+```stata
+* Load NHEFS (restructured to person-period format)
+use tte/qa/data/nhefs_personperiod, clear
+
+* Step 1: Define the target trial protocol
+tte_protocol, ///
+    eligibility("Smokers aged 25-74 in NHANES I with complete confounders") ///
+    treatment("Quit smoking vs. continue smoking, sustained through 1982") ///
+    assignment("Baseline observed smoking cessation behavior") ///
+    followup_start("1983 (after treatment assessment)") ///
+    outcome("All-cause mortality through 1992") ///
+    causal_contrast("ITT and per-protocol") ///
+    analysis("Pooled logistic MSM, robust SE clustered by individual")
+
+* Step 2: ITT analysis
+tte_prepare, id(seqn) period(period) treatment(treatment) ///
+    outcome(outcome) eligible(eligible) ///
+    covariates(age_std sex race smoke_cat wt71_std ///
+        smokeyrs_std exercise active education) estimand(ITT)
+tte_validate
+tte_expand
+tte_fit, outcome_cov(age_std sex race smoke_cat wt71_std ///
+    smokeyrs_std exercise active education) ///
+    followup_spec(quadratic) trial_period_spec(none) nolog
+tte_predict, times(0(1)9) type(cum_inc) difference samples(200) seed(20200101)
+
+* Step 3: Visualize
+tte_plot, type(cumhaz) ci title("NHEFS: Mortality by Smoking Status (ITT)")
+tte_report, eform
+```
+
+**Cross-platform comparison scripts:**
+
+| Script | Package | Language |
+|--------|---------|----------|
+| `demo/demo_whatif.do` | `tte` | Stata |
+| `demo/demo_whatif_trialemulation.R` | `TrialEmulation` | R |
+| `demo/demo_whatif_emulate.R` | `emulate` | R |
+
+---
+
 ## Technical Notes
 
 ### Covariate freezing
@@ -664,43 +713,64 @@ The demo runs both ITT and PP analyses on the `trial_example` dataset and benchm
 
 ---
 
-## Validation
+## Testing
 
-The `qa/` directory contains **103 tests** across 17 validation modules (V1–V17), all passing. Run with `do run_all_validations.do` (supports selective execution: `do run_all_validations.do 1 3 5`).
+The `qa/` directory contains **226 tests** across 4 test suites, all passing.
 
-### V1: R TrialEmulation cross-validation (7 tests)
+| Suite | Tests | Focus |
+|-------|------:|-------|
+| `test_tte.do` | 61 | Functional tests — every command, option, and error path |
+| `test_tte_audit_fixes.do` | 22 | Targeted regression tests for 6 audit fixes |
+| `validation_tte.do` | 143 | 24 validation modules (V1–V24) |
+| `crossval_tte.do` | — | Cross-validation configurations (Stata vs R emulate vs R TrialEmulation) |
 
-Cross-validates against R `TrialEmulation` (Maringe et al. 2024) using the shared trial_example dataset (503 patients, 48,400 person-periods). ITT treatment coefficients agree within 3.2% (R: −0.273, Stata: −0.282), robust SEs within 1%. PP results show expected differences due to algorithmic divergence (R samples trial subsets; Stata expands all eligible trials).
+### Functional tests (61 tests)
 
-### V2: NHEFS smoking cessation (4 tests)
+End-to-end coverage of all 11 commands: `tte_prepare`, `tte_validate`, `tte_expand`, `tte_weight`, `tte_fit`, `tte_predict`, `tte_diagnose`, `tte_report`, `tte_protocol`, `tte_plot`, and the `tte` overview. Covers ITT/PP/AT estimands, pooled logistic and Cox models, natural spline specifications, error handling, and full pipeline integration.
 
-Replicates the Hernan & Robins *Causal Inference: What If* NHEFS analysis (N=1,629). Smoking cessation correctly shows a protective effect on mortality. Both pooled logistic and Cox models agree on direction, with ORs in the plausible range [0.3, 1.5].
+### Audit fix tests (22 tests)
 
-### V3: Clone-censor-weight / immortal-time bias (5 tests)
+Regression tests for 6 critical fixes: natural censoring truncation in `tte_expand`, weight variable resolver with custom `generate()` names, baseline-only balance SMDs, per-period positivity checks, `strict` option promotion, and ITT metadata after `tte_weight`.
 
-Simulates 2,000 lung cancer surgery patients over 24 periods (true HR = 0.60, based on Maringe et al. 2020 IJE). The tte clone-censor-weight estimate (OR = 0.57) recovers the true effect, while the naive analysis (OR = 0.61) demonstrates residual immortal-time bias.
+### Validation suite (143 tests across 24 modules)
 
-### V4: G-formula / time-varying confounding (5 tests)
+Run with `stata-mp -b do validation_tte.do` (supports selective execution: `do validation_tte.do 1 5 13`).
 
-Simulates 5,000 HIV/ART patients with CD4 as a time-varying confounder (true OR = 0.449, based on Daniel et al. 2011 Stata Journal). The unadjusted estimate (OR = 2.42) shows confounding by indication — sicker patients receive ART and have worse outcomes. The tte ITT estimate (OR = 0.43) reverses this, recovering the true protective effect within 0.054.
+#### V1–V5: External benchmarks (27 tests)
 
-### V5: Known DGP with Monte Carlo coverage (6 tests)
+- **V1 — R TrialEmulation cross-validation:** Cross-validates against R `TrialEmulation` (Maringe et al. 2024) using the shared trial_example dataset (503 patients, 48,400 person-periods). ITT treatment coefficients agree within 3.2% (R: −0.273, Stata: −0.282), robust SEs within 1%.
+- **V2 — NHEFS smoking cessation:** Replicates the Hernan & Robins *Causal Inference: What If* NHEFS analysis (N=1,629). Smoking cessation correctly shows a protective effect on mortality. Both pooled logistic and Cox models agree on direction, with ORs in the plausible range [0.3, 1.5].
+- **V3 — Clone-censor-weight / immortal-time bias:** Simulates 2,000 lung cancer surgery patients over 24 periods (true HR = 0.60, based on Maringe et al. 2020 IJE). The clone-censor-weight estimate recovers the true effect while the naive analysis demonstrates residual immortal-time bias.
+- **V4 — G-formula / time-varying confounding:** Simulates 5,000 HIV/ART patients with CD4 as a time-varying confounder (true OR = 0.449, based on Daniel et al. 2011 Stata Journal). The unadjusted estimate shows confounding by indication; the ITT estimate reverses this, recovering the true protective effect.
+- **V5 — Known DGP Monte Carlo:** Large-sample (N=10,000) and 50-replication Monte Carlo with true log-OR = −0.50. Empirical 95% CI coverage is 94%. All time specifications (quadratic, cubic, natural splines) produce consistent estimates.
 
-Large-sample (N=10,000) and 50-replication Monte Carlo with true log-OR = −0.50. Empirical 95% CI coverage is 94%, confirming proper statistical calibration. All time specifications (quadratic, cubic, natural splines) produce consistent estimates. MC bias is 8.1%.
-
-### V6–V12: Extended validation (43 tests)
+#### V6–V12: Statistical properties (43 tests)
 
 - **V6 — Null effect / reproducibility:** Type I error ≤ 15% at α = 0.05; seed reproducibility to reldiff < 1e-10
 - **V7 — IPCW:** Informative censoring correction improves estimates toward truth
 - **V8 — Grace periods:** Monotonic censoring reduction with increasing grace period
 - **V9 — Edge cases:** Small samples, single-period eligibility, all-treated scenarios
-- **V10 — AT estimand:** AS-treated approximates per-protocol within 0.5
+- **V10 — AT estimand:** As-treated approximates per-protocol within 0.5
 - **V11 — RCT benchmarks:** Validates against `teffects ra` on randomized data
 - **V12 — Sensitivity/stress:** Truncation robustness, N=50,000 stress test
 
-### V13–V17: Code path validation (33 tests)
+#### V13–V17: Code path validation (33 tests)
 
 Cox model ground truth (V13), `tte_expand` options (V14), `tte_predict` reproducibility (V15), `tte_diagnose`/`tte_report` output (V16), and pipeline guard enforcement (V17).
+
+#### V18–V24: Advanced validation (40 tests)
+
+- **V18 — Three-way cross-validation:** Stata tte vs R emulate vs R TrialEmulation
+- **V19 — Formal equivalence (TOST):** Two one-sided tests for parameter equivalence
+- **V20 — Cox PH gold-standard:** Ground truth validation for Cox models
+- **V21 — Row-level pipeline conservation:** Data conservation through expansion pipeline
+- **V22 — Row-level trajectory validation:** Per-individual trajectory correctness
+- **V23 — Spline specification equivalence:** Boundary knot behavior (RCS vs ns)
+- **V24 — Boundary and zero-event edge cases:** Zero events, boundary conditions, extreme data
+
+### Cross-validation suite
+
+Benchmarks Stata `tte` against R `emulate` and R `TrialEmulation` across 30+ configurations (ITT/PP/AT, logistic/Cox, linear/quadratic/cubic/ns(3)) on 6 datasets. Outputs comparison tables to `crossval_results/` for automated regression detection.
 
 ## References
 
