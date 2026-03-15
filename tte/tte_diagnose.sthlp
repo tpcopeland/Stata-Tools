@@ -50,6 +50,15 @@ run first.
 {title:Options}
 
 {phang}
+{opth balance_covariates(varlist)} specifies covariates for standardized
+mean difference (SMD) balance assessment. Reports unweighted and weighted
+SMDs for each covariate, comparing treatment and control arms.
+
+{phang}
+{opt by_trial} breaks down weight summary statistics by trial period,
+showing mean, SD, min, and max weights for each emulated trial.
+
+{phang}
 {opt equipoise} computes preference scores and reports the proportion of
 observations in the clinical equipoise zone [0.3, 0.7]. A preference
 score of 0.5 indicates equal "preference" for treatment and control

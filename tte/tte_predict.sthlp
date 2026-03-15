@@ -54,6 +54,32 @@ marginal estimates.
 {marker options}{...}
 {title:Options}
 
+{dlgtab:Required}
+
+{phang}
+{opth times(numlist)} specifies the follow-up times at which to compute
+predictions. For example, {cmd:times(0 2 4 6 8)} or {cmd:times(0(1)8)}.
+
+{dlgtab:Prediction}
+
+{phang}
+{opt type(string)} specifies the prediction type: {cmd:cum_inc} (default)
+for cumulative incidence or {cmd:survival} for survival probability
+(1 - cumulative incidence).
+
+{phang}
+{opt samples(#)} specifies the number of Monte Carlo samples for confidence
+intervals. The default is {cmd:100}. Use 500+ for publication-quality
+results.
+
+{phang}
+{opt seed(#)} sets the random seed for reproducibility of Monte Carlo
+draws.
+
+{phang}
+{opt level(#)} sets the confidence level for prediction intervals.
+The default is {cmd:95}.
+
 {dlgtab:Contrasts}
 
 {phang}

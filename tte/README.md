@@ -24,6 +24,7 @@ Features include pooled logistic and Cox marginal structural models, a Hernán 7
   - [tte_plot](#tte_plot)
   - [tte_report](#tte_report)
   - [tte_protocol](#tte_protocol)
+  - [tte_calibrate](#tte_calibrate)
 - [Worked Example: ITT Analysis](#worked-example-itt-analysis)
 - [Worked Example: Per-Protocol Analysis with IPTW](#worked-example-per-protocol-analysis-with-iptw)
 - [Worked Example: NHEFS Smoking Cessation (What If)](#worked-example-nhefs-smoking-cessation-what-if)
@@ -79,6 +80,7 @@ tte_predict, times(0 2 4 6 8) type(cum_inc) difference samples(100) seed(12345)
 | `tte_plot` | KM curves, cumulative incidence, weight distributions |
 | `tte_report` | Publication-quality results tables (display/Excel/CSV) |
 | `tte_protocol` | Hernán & Robins 7-component protocol table |
+| `tte_calibrate` | Negative control outcome calibration |
 
 ---
 
@@ -438,6 +440,36 @@ Export formats: `display` (console), `csv`, `excel`, `latex`.
 
 ---
 
+### tte_calibrate
+
+Calibrates a treatment effect estimate using negative control outcomes (NCOs). Implements the empirical calibration algorithm from Schuemie et al. (2014), as used in the OHDSI EmpiricalCalibration R package. Standalone — does not require expanded data.
+
+**Syntax:**
+```stata
+tte_calibrate, estimate(#) se(#) nco_estimates(matname)
+    [method(string) level(#) null(#)]
+```
+
+**Required:**
+
+| Option | Description |
+|--------|-------------|
+| `estimate(#)` | Primary log-effect estimate (e.g., log-OR or log-HR) |
+| `se(#)` | Standard error of primary estimate |
+| `nco_estimates(matname)` | Nx2 matrix of NCO estimates (col 1 = log-effect, col 2 = SE); minimum 3 NCOs |
+
+**Optional:**
+
+| Option | Description |
+|--------|-------------|
+| `method(string)` | Systematic error distribution; default `normal` |
+| `level(#)` | Confidence level; default `95` |
+| `null(#)` | Null hypothesis value; default `0` |
+
+**How it works:** NCO estimates are modeled as draws from N(bias, se_k² + σ²). The bias and σ² are estimated by maximum likelihood (profile likelihood over σ², closed-form for bias). The calibrated estimate subtracts the estimated bias, and the calibrated SE inflates the original SE by the excess variance: calibrated SE = sqrt(SE² + σ²).
+
+---
+
 ## Worked Example: ITT Analysis
 
 Intention-to-treat: everyone analyzed as initially assigned, regardless of subsequent treatment changes. No weights needed.
@@ -692,22 +724,32 @@ Standard `glm` or `stcox` results, plus:
 | `r(max_smd_wt)` | Max weighted SMD |
 | `r(balance)` | Covariate balance matrix |
 
+### tte_calibrate → r()
+
+| Result | Description |
+|--------|-------------|
+| `r(estimate)` | Primary estimate (uncalibrated) |
+| `r(se)` | Primary SE (uncalibrated) |
+| `r(ci_lo)` / `r(ci_hi)` | Uncalibrated CI bounds |
+| `r(pvalue)` | Uncalibrated p-value |
+| `r(bias)` | Estimated systematic bias |
+| `r(sigma)` | Estimated systematic error SD |
+| `r(n_nco)` | Number of negative control outcomes |
+| `r(cal_estimate)` | Calibrated estimate |
+| `r(cal_se)` | Calibrated SE |
+| `r(cal_ci_lo)` / `r(cal_ci_hi)` | Calibrated CI bounds |
+| `r(cal_pvalue)` | Calibrated p-value |
+
 ---
 
 ## Demo Output
 
-The demo runs both ITT and PP analyses on the `trial_example` dataset and benchmarks against R TrialEmulation reference results.
+The demo runs both ITT and PP analyses on the `tte_example` dataset and benchmarks against R TrialEmulation reference results.
 
 <details>
 <summary>Console output (click to expand)</summary>
 
-![Console output 1](demo/console_output_1.png)
-![Console output 2](demo/console_output_2.png)
-![Console output 3](demo/console_output_3.png)
-![Console output 4](demo/console_output_4.png)
-![Console output 5](demo/console_output_5.png)
-![Console output 6](demo/console_output_6.png)
-![Console output 7](demo/console_output_7.png)
+![Console output](demo/console_output.png)
 
 </details>
 
@@ -715,22 +757,17 @@ The demo runs both ITT and PP analyses on the `trial_example` dataset and benchm
 
 ## Testing
 
-The `qa/` directory contains **226 tests** across 4 test suites, all passing.
+The `qa/` directory contains **306+ tests** across 3 test suites, all passing.
 
 | Suite | Tests | Focus |
 |-------|------:|-------|
-| `test_tte.do` | 61 | Functional tests — every command, option, and error path |
-| `test_tte_audit_fixes.do` | 22 | Targeted regression tests for 6 audit fixes |
+| `test_tte.do` | 163 | Functional tests — every command, option, and error path |
 | `validation_tte.do` | 143 | 24 validation modules (V1–V24) |
 | `crossval_tte.do` | — | Cross-validation configurations (Stata vs R emulate vs R TrialEmulation) |
 
-### Functional tests (61 tests)
+### Functional tests (163 tests)
 
-End-to-end coverage of all 11 commands: `tte_prepare`, `tte_validate`, `tte_expand`, `tte_weight`, `tte_fit`, `tte_predict`, `tte_diagnose`, `tte_report`, `tte_protocol`, `tte_plot`, and the `tte` overview. Covers ITT/PP/AT estimands, pooled logistic and Cox models, natural spline specifications, error handling, and full pipeline integration.
-
-### Audit fix tests (22 tests)
-
-Regression tests for 6 critical fixes: natural censoring truncation in `tte_expand`, weight variable resolver with custom `generate()` names, baseline-only balance SMDs, per-period positivity checks, `strict` option promotion, and ITT metadata after `tte_weight`.
+End-to-end coverage of all 12 commands: `tte_prepare`, `tte_validate`, `tte_expand`, `tte_weight`, `tte_fit`, `tte_predict`, `tte_diagnose`, `tte_report`, `tte_protocol`, `tte_plot`, `tte_calibrate`, and the `tte` overview. Covers ITT/PP/AT estimands, pooled logistic and Cox models, natural spline specifications, error handling, and full pipeline integration.
 
 ### Validation suite (143 tests across 24 modules)
 

@@ -73,6 +73,30 @@ equal preference for treatment and control.
 {title:Options}
 
 {phang}
+{opt type(string)} specifies the plot type: {cmd:km}, {cmd:cumhaz},
+{cmd:weights}, {cmd:balance}, {cmd:pscore}, or {cmd:equipoise}.
+See Description above for details on each type.
+
+{phang}
+{opt ci} adds confidence bands to cumulative incidence ({cmd:cumhaz})
+plots. CIs are taken from the Monte Carlo simulation in
+{helpb tte_predict}.
+
+{phang}
+{opth scheme(string)} specifies the Stata graph scheme. The default is
+{cmd:plotplainblind}.
+
+{phang}
+{opth title(string)} specifies the graph title.
+
+{phang}
+{opth export(filename)} exports the graph to the specified file. The
+format is determined by the file extension (e.g., {cmd:.png}, {cmd:.pdf}).
+
+{phang}
+{opt replace} replaces an existing file when exporting.
+
+{phang}
 {opt top(#)} restricts the balance (Love) plot to the # covariates
 with the largest absolute unweighted SMD. Useful when many covariates
 make the full plot hard to read.

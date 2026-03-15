@@ -64,6 +64,60 @@ For ITT analyses, all weights are set to 1 (no artificial censoring occurs).
 {marker options}{...}
 {title:Options}
 
+{dlgtab:Switch models}
+
+{phang}
+{opth switch_d_cov(varlist)} specifies covariates for the switch denominator
+model. This is the main confounding adjustment model — include all
+covariates that predict both treatment switching and the outcome. More
+variables reduce confounding bias.
+
+{phang}
+{opth switch_n_cov(varlist)} specifies covariates for the switch numerator
+model. Fewer covariates than the denominator model produce weights closer
+to 1, reducing variance. Omit to use an intercept-only numerator
+(unstabilized weights).
+
+{dlgtab:Censoring models}
+
+{phang}
+{opth censor_d_cov(varlist)} specifies covariates for the censoring
+denominator model. Used when informative censoring (beyond the artificial
+censoring from cloning) is present in the data.
+
+{phang}
+{opth censor_n_cov(varlist)} specifies covariates for the censoring
+numerator model.
+
+{dlgtab:Model specification}
+
+{phang}
+{opt pool_switch} pools the switch models across treatment arms instead of
+fitting separately by arm. Use when arm-specific models suffer from
+separation or small samples.
+
+{phang}
+{opt pool_censor} pools the censoring models across treatment arms.
+
+{dlgtab:Options}
+
+{phang}
+{opth truncate(numlist)} truncates weights at the specified percentiles.
+For example, {cmd:truncate(1 99)} sets weights below the 1st percentile
+to the 1st percentile value and weights above the 99th to the 99th.
+Truncation reduces the influence of extreme weights.
+
+{phang}
+{opth generate(name)} specifies the name for the weight variable. The
+default is {cmd:_tte_weight}.
+
+{phang}
+{opt replace} replaces an existing weight variable of the same name.
+
+{phang}
+{opt nolog} suppresses the iteration log of the logistic regression
+models.
+
 {dlgtab:Propensity score}
 
 {phang}

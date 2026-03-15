@@ -54,6 +54,47 @@ values. If data was expanded with {cmd:tte_expand}, covariates specified in
 {cmd:tte_prepare} are automatically frozen at baseline.
 
 
+{marker options}{...}
+{title:Options}
+
+{phang}
+{opth outcome_cov(varlist)} specifies covariates to include in the outcome
+model. These should be baseline (trial-entry) values. After expansion by
+{helpb tte_expand}, covariates from {cmd:tte_prepare} are automatically
+frozen at baseline.
+
+{phang}
+{opt model(string)} specifies the model type: {cmd:logistic} (default) for
+pooled logistic regression via {cmd:glm}, or {cmd:cox} for Cox proportional
+hazards via {cmd:stcox}.
+
+{phang}
+{opt model_var(string)} specifies the treatment variable to use in the
+outcome model. The default is the assigned arm variable ({cmd:_tte_arm}).
+
+{phang}
+{opt followup_spec(string)} specifies the functional form for follow-up
+time. Options are {cmd:linear}, {cmd:quadratic} (default), {cmd:cubic},
+{cmd:ns(#)} (natural splines with # interior knots), or {cmd:none}.
+
+{phang}
+{opt trial_period_spec(string)} specifies the functional form for trial
+period. Options are {cmd:linear}, {cmd:quadratic}, {cmd:cubic},
+{cmd:ns(#)}, or {cmd:none}.
+
+{phang}
+{opth cluster(varname)} specifies the clustering variable for robust
+standard errors. The default is the patient ID variable.
+
+{phang}
+{opt level(#)} sets the confidence level for coefficient intervals.
+The default is {cmd:95}.
+
+{phang}
+{opt nolog} suppresses the iteration log of the underlying estimation
+command.
+
+
 {marker examples}{...}
 {title:Examples}
 
