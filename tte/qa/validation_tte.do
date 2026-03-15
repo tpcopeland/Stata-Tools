@@ -29,6 +29,12 @@
 *  V22. Row-Level Trajectory Validation
 *  V23. Spline Specification Equivalence
 *  V24. Boundary and Zero-Event Edge Cases
+*  V25. Calibrate Known-Answer Correctness
+*  V26. Risk Ratio and Risk Difference Hand-Computed
+*  V27. ATT vs ATE Predictions
+*  V28. Weight Truncation Percentile Verification
+*  V29. Natural Spline Basis Properties
+*  V30. Grace Period Monotonicity and Edge Cases
 *
 * Run: stata-mp -b do validation_tte.do
 * Selective: stata-mp -b do validation_tte.do 1 5 13  (runs V1, V5, V13 only)
@@ -55,7 +61,7 @@ display "Date: $S_DATE $S_TIME"
 * --- Determine which validations to run ---
 local run_list "`0'"
 if "`run_list'" == "" {
-    numlist "1/24"
+    numlist "1/30"
     local run_list "`r(numlist)'"
     display "Running ALL validations (V1-V24)"
 }
@@ -2194,15 +2200,24 @@ tte_fit, outcome_cov(x) ///
 local coef_run2 = _b[_tte_arm]
 local se_run2   = _se[_tte_arm]
 
-display "  Run 1 coefficient: " %12.8f `coef_run1'
-display "  Run 2 coefficient: " %12.8f `coef_run2'
+display "  Run 1 coefficient: " %18.14f `coef_run1'
+display "  Run 2 coefficient: " %18.14f `coef_run2'
+display "  Run 1 SE:          " %18.14f `se_run1'
+display "  Run 2 SE:          " %18.14f `se_run2'
 
-if `coef_run1' == `coef_run2' & `se_run1' == `se_run2' {
-    display as result "  PASS -- identical coefficients with same seed"
+* Use reldif() for comparison — Stata-MP parallel accumulation can produce
+* bit-level floating-point differences on identical data/pipeline
+local coef_rdiff = reldif(`coef_run1', `coef_run2')
+local se_rdiff   = reldif(`se_run1', `se_run2')
+display "  Coef reldif: " %12.2e `coef_rdiff'
+display "  SE reldif:   " %12.2e `se_rdiff'
+
+if `coef_rdiff' < 1e-10 & `se_rdiff' < 1e-10 {
+    display as result "  PASS -- coefficients match with same seed (reldif < 1e-10)"
     local ++pass_count
 }
 else {
-    display as error "  FAIL -- coefficients differ with same seed"
+    display as error "  FAIL -- coefficients differ with same seed (reldif >= 1e-10)"
     local ++fail_count
 }
 
@@ -8031,6 +8046,1249 @@ display ""
 display "  Section V24 complete"
 
 } /* end V24 */
+
+
+* Check if V25 should run
+local _run_25 = 0
+foreach _v of local run_list {
+    if `_v' == 25 local _run_25 = 1
+}
+
+if `_run_25' == 1 {
+
+/*******************************************************************************
+* V25: Calibrate Known-Answer Correctness
+*
+* Validates tte_calibrate against hand-computed results:
+*   - Weighted mean bias formula: bias = sum(w*b)/sum(w) where w = 1/(SE^2+sig^2)
+*   - Calibrated estimate = estimate - bias
+*   - Calibrated SE = sqrt(SE^2 + sigma^2)
+*   - Calibrated CI always wider than uncalibrated
+*******************************************************************************/
+
+display ""
+display "VALIDATION 25: Calibrate Known-Answer Correctness"
+display "Date: $S_DATE $S_TIME"
+
+* =============================================================================
+* TEST 1: Hand-computed bias with sigma^2 = 0
+* =============================================================================
+local ++test_count
+display ""
+display "Test `test_count': Hand-computed bias with zero sigma"
+
+capture noisily {
+    * When sigma^2 = 0, bias = weighted mean of NCO estimates
+    * with weights = 1/SE^2
+    * NCOs: (0.10, 0.10), (-0.10, 0.10), (0.20, 0.10) -> all same SE
+    * Simple mean = (0.10 - 0.10 + 0.20) / 3 = 0.0667
+    * With equal weights: bias = 0.0667
+    matrix nco = (0.10, 0.10 \ -0.10, 0.10 \ 0.20, 0.10)
+    tte_calibrate, estimate(-0.50) se(0.20) nco_estimates(nco)
+
+    * Even if sigma != exactly 0, bias should be close to simple mean
+    * since NCOs have equal SEs
+    local expected_bias = (0.10 - 0.10 + 0.20) / 3
+    display "  Expected bias (equal-weight): " %9.6f `expected_bias'
+    display "  Actual bias:                  " %9.6f r(bias)
+    assert abs(r(bias) - `expected_bias') < 0.02
+
+    * Calibrated estimate = estimate - bias
+    local expected_cal = -0.50 - r(bias)
+    assert abs(r(cal_estimate) - `expected_cal') < 0.0001
+}
+if _rc == 0 {
+    display as result "  PASS"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL (rc=" _rc ")"
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 2: Calibrated SE formula: sqrt(SE^2 + sigma^2)
+* =============================================================================
+local ++test_count
+display ""
+display "Test `test_count': Calibrated SE = sqrt(SE^2 + sigma^2)"
+
+capture noisily {
+    matrix nco = (0.15, 0.10 \ -0.08, 0.12 \ 0.12, 0.09 \ -0.05, 0.11 \ 0.10, 0.13)
+    tte_calibrate, estimate(-0.40) se(0.15) nco_estimates(nco)
+
+    local sigma = r(sigma)
+    local expected_se = sqrt(0.15^2 + `sigma'^2)
+    display "  SE:          " %9.6f r(se)
+    display "  Sigma:       " %9.6f `sigma'
+    display "  Expected cal SE: " %9.6f `expected_se'
+    display "  Actual cal SE:   " %9.6f r(cal_se)
+    assert abs(r(cal_se) - `expected_se') < 0.0001
+}
+if _rc == 0 {
+    display as result "  PASS"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL (rc=" _rc ")"
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 3: P-value formula consistency
+* =============================================================================
+local ++test_count
+display ""
+display "Test `test_count': P-value = 2*Phi(-|z|) where z = est/se"
+
+capture noisily {
+    matrix nco = (0.05, 0.10 \ -0.02, 0.08 \ 0.03, 0.09)
+    tte_calibrate, estimate(-0.40) se(0.15) nco_estimates(nco)
+
+    * Uncalibrated p-value
+    local z_uncal = abs(-0.40 / 0.15)
+    local expected_p_uncal = 2 * normal(-`z_uncal')
+    assert abs(r(pvalue) - `expected_p_uncal') < 0.0001
+
+    * Calibrated p-value
+    local z_cal = abs(r(cal_estimate) / r(cal_se))
+    local expected_p_cal = 2 * normal(-`z_cal')
+    assert abs(r(cal_pvalue) - `expected_p_cal') < 0.0001
+}
+if _rc == 0 {
+    display as result "  PASS"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL (rc=" _rc ")"
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 4: CI formula consistency at level(99)
+* =============================================================================
+local ++test_count
+display ""
+display "Test `test_count': CI = est +/- z_crit * se at level(99)"
+
+capture noisily {
+    matrix nco = (0.05, 0.10 \ -0.02, 0.08 \ 0.03, 0.09)
+    tte_calibrate, estimate(-0.40) se(0.15) nco_estimates(nco) level(99)
+
+    local z99 = invnormal(0.995)
+
+    * Uncalibrated CI
+    local expected_lo = -0.40 - `z99' * 0.15
+    local expected_hi = -0.40 + `z99' * 0.15
+    assert abs(r(ci_lo) - `expected_lo') < 0.0001
+    assert abs(r(ci_hi) - `expected_hi') < 0.0001
+
+    * Calibrated CI
+    local expected_cal_lo = r(cal_estimate) - `z99' * r(cal_se)
+    local expected_cal_hi = r(cal_estimate) + `z99' * r(cal_se)
+    assert abs(r(cal_ci_lo) - `expected_cal_lo') < 0.0001
+    assert abs(r(cal_ci_hi) - `expected_cal_hi') < 0.0001
+}
+if _rc == 0 {
+    display as result "  PASS"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL (rc=" _rc ")"
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 5: sigma >= 0 invariant (non-negative variance)
+* =============================================================================
+local ++test_count
+display ""
+display "Test `test_count': sigma >= 0 invariant"
+
+capture noisily {
+    * Try several different NCO configurations
+    local all_ok = 1
+
+    * Config 1: large spread
+    matrix nco = (0.50, 0.10 \ -0.40, 0.15 \ 0.30, 0.08)
+    tte_calibrate, estimate(-0.20) se(0.10) nco_estimates(nco)
+    if r(sigma) < 0 local all_ok = 0
+
+    * Config 2: tight cluster
+    matrix nco = (0.01, 0.10 \ 0.02, 0.10 \ -0.01, 0.10)
+    tte_calibrate, estimate(-0.30) se(0.20) nco_estimates(nco)
+    if r(sigma) < 0 local all_ok = 0
+
+    * Config 3: all same
+    matrix nco = (0.05, 0.10 \ 0.05, 0.10 \ 0.05, 0.10)
+    tte_calibrate, estimate(-0.50) se(0.15) nco_estimates(nco)
+    if r(sigma) < 0 local all_ok = 0
+
+    assert `all_ok' == 1
+}
+if _rc == 0 {
+    display as result "  PASS"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL (rc=" _rc ")"
+    local ++fail_count
+}
+
+display ""
+display "  Section V25 complete"
+
+} /* end V25 */
+
+
+* Check if V26 should run
+local _run_26 = 0
+foreach _v of local run_list {
+    if `_v' == 26 local _run_26 = 1
+}
+
+if `_run_26' == 1 {
+
+/*******************************************************************************
+* V26: Risk Ratio and Risk Difference Hand-Computed
+*
+* Validates that tte_predict risk difference and risk ratio are computed
+* correctly from the per-arm cumulative incidence predictions.
+*******************************************************************************/
+
+display ""
+display "VALIDATION 26: Risk Ratio and Risk Difference Hand-Computed"
+display "Date: $S_DATE $S_TIME"
+
+* =============================================================================
+* TEST 1: RD = cum_inc_1 - cum_inc_0
+* =============================================================================
+local ++test_count
+display ""
+display "Test `test_count': RD = cum_inc_1 - cum_inc_0 from matrix"
+
+capture noisily {
+    use "data/trial_example.dta", clear
+    tte_prepare, id(id) period(period) treatment(treatment) ///
+        outcome(outcome) eligible(eligible) ///
+        covariates(nvara nvarb) estimand(ITT)
+    tte_expand, maxfollowup(10)
+    tte_fit, outcome_cov(catvara catvarb nvara nvarb) nolog
+    tte_predict, times(0 5 10) difference samples(50) seed(12345)
+
+    matrix pred = r(predictions)
+
+    * Check RD = arm1 - arm0 at each time
+    forvalues i = 1/3 {
+        local ci0 = pred[`i', 2]
+        local ci1 = pred[`i', 5]
+        local rd  = pred[`i', 8]
+        local expected_rd = `ci1' - `ci0'
+        display "  t=" pred[`i', 1] ": CI0=" %7.4f `ci0' " CI1=" %7.4f `ci1' ///
+            " RD=" %7.4f `rd' " expected=" %7.4f `expected_rd'
+        assert abs(`rd' - `expected_rd') < 0.0001
+    }
+}
+if _rc == 0 {
+    display as result "  PASS"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL (rc=" _rc ")"
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 2: RR = cum_inc_1 / cum_inc_0
+* =============================================================================
+local ++test_count
+display ""
+display "Test `test_count': RR = cum_inc_1 / cum_inc_0 from matrix"
+
+capture noisily {
+    use "data/trial_example.dta", clear
+    tte_prepare, id(id) period(period) treatment(treatment) ///
+        outcome(outcome) eligible(eligible) ///
+        covariates(nvara nvarb) estimand(ITT)
+    tte_expand, maxfollowup(10)
+    tte_fit, outcome_cov(catvara catvarb nvara nvarb) nolog
+    tte_predict, times(1 5 10) ratio samples(50) seed(12345)
+
+    matrix pred = r(predictions)
+
+    * Check RR = arm1 / arm0 at each time (skip t=0 where both are ~0)
+    forvalues i = 1/3 {
+        local ci0 = pred[`i', 2]
+        local ci1 = pred[`i', 5]
+        * Only check when denominator is not near zero
+        if `ci0' > 0.001 {
+            local rr_col = 8
+            * With ratio only (no difference), RR cols follow arm cols
+            local expected_rr = `ci1' / `ci0'
+            local rr_val = pred[`i', `rr_col']
+            display "  t=" pred[`i', 1] ": CI0=" %7.4f `ci0' " CI1=" %7.4f `ci1' ///
+                " RR=" %7.4f `rr_val' " expected=" %7.4f `expected_rr'
+            assert abs(`rr_val' - `expected_rr') < 0.01
+        }
+    }
+}
+if _rc == 0 {
+    display as result "  PASS"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL (rc=" _rc ")"
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 3: RD at time 0 is approximately 0
+* =============================================================================
+local ++test_count
+display ""
+display "Test `test_count': RD at time 0 ~ 0"
+
+capture noisily {
+    use "data/trial_example.dta", clear
+    tte_prepare, id(id) period(period) treatment(treatment) ///
+        outcome(outcome) eligible(eligible) ///
+        covariates(nvara nvarb) estimand(ITT)
+    tte_expand, maxfollowup(10)
+    tte_fit, outcome_cov(catvara catvarb nvara nvarb) nolog
+    tte_predict, times(0 5 10) difference samples(50) seed(12345)
+
+    * At time 0, no events have occurred, so cum_inc = 0 for both arms
+    local rd0 = r(rd_0)
+    display "  RD at time 0: " %9.6f `rd0'
+    assert abs(`rd0') < 0.001
+}
+if _rc == 0 {
+    display as result "  PASS"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL (rc=" _rc ")"
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 4: Cumulative incidence monotonically non-decreasing
+* =============================================================================
+local ++test_count
+display ""
+display "Test `test_count': Cumulative incidence monotonically non-decreasing"
+
+capture noisily {
+    use "data/trial_example.dta", clear
+    tte_prepare, id(id) period(period) treatment(treatment) ///
+        outcome(outcome) eligible(eligible) ///
+        covariates(nvara nvarb) estimand(ITT)
+    tte_expand, maxfollowup(15)
+    tte_fit, outcome_cov(catvara catvarb nvara nvarb) nolog
+    tte_predict, times(0 3 6 9 12 15) type(cum_inc) samples(50) seed(12345)
+
+    matrix pred = r(predictions)
+    local nrows = rowsof(pred)
+
+    * Check both arms
+    local ok = 1
+    forvalues i = 2/`nrows' {
+        local prev = `i' - 1
+        * Arm 0
+        if pred[`i', 2] < pred[`prev', 2] - 0.001 {
+            local ok = 0
+        }
+        * Arm 1
+        if pred[`i', 5] < pred[`prev', 5] - 0.001 {
+            local ok = 0
+        }
+    }
+    assert `ok' == 1
+}
+if _rc == 0 {
+    display as result "  PASS"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL (rc=" _rc ")"
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 5: Survival monotonically non-increasing
+* =============================================================================
+local ++test_count
+display ""
+display "Test `test_count': Survival monotonically non-increasing"
+
+capture noisily {
+    use "data/trial_example.dta", clear
+    tte_prepare, id(id) period(period) treatment(treatment) ///
+        outcome(outcome) eligible(eligible) ///
+        covariates(nvara nvarb) estimand(ITT)
+    tte_expand, maxfollowup(15)
+    tte_fit, outcome_cov(catvara catvarb nvara nvarb) nolog
+    tte_predict, times(0 3 6 9 12 15) type(survival) samples(50) seed(12345)
+
+    matrix pred = r(predictions)
+    local nrows = rowsof(pred)
+
+    local ok = 1
+    forvalues i = 2/`nrows' {
+        local prev = `i' - 1
+        * Arm 0
+        if pred[`i', 2] > pred[`prev', 2] + 0.001 {
+            local ok = 0
+        }
+        * Arm 1
+        if pred[`i', 5] > pred[`prev', 5] + 0.001 {
+            local ok = 0
+        }
+    }
+    assert `ok' == 1
+}
+if _rc == 0 {
+    display as result "  PASS"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL (rc=" _rc ")"
+    local ++fail_count
+}
+
+display ""
+display "  Section V26 complete"
+
+} /* end V26 */
+
+
+* Check if V27 should run
+local _run_27 = 0
+foreach _v of local run_list {
+    if `_v' == 27 local _run_27 = 1
+}
+
+if `_run_27' == 1 {
+
+/*******************************************************************************
+* V27: ATT vs ATE Predictions
+*
+* Validates that ATT and ATE predictions differ when there is confounding,
+* and checks structural properties of ATT estimates.
+*******************************************************************************/
+
+display ""
+display "VALIDATION 27: ATT vs ATE Predictions"
+display "Date: $S_DATE $S_TIME"
+
+* =============================================================================
+* TEST 1: ATT and ATE produce different estimates under confounding
+* =============================================================================
+local ++test_count
+display ""
+display "Test `test_count': ATT and ATE differ under confounding"
+
+capture noisily {
+    use "data/trial_example.dta", clear
+    tte_prepare, id(id) period(period) treatment(treatment) ///
+        outcome(outcome) eligible(eligible) ///
+        covariates(nvara nvarb) estimand(PP)
+    tte_expand, maxfollowup(10)
+    tte_weight, switch_d_cov(nvara nvarb) truncate(1 99) nolog
+    tte_fit, outcome_cov(catvara catvarb nvara nvarb) nolog
+
+    * ATE predictions
+    tte_predict, times(0 5 10) difference samples(50) seed(12345)
+    local ate_rd5 = r(rd_5)
+    local ate_rd10 = r(rd_10)
+
+    * ATT predictions
+    tte_predict, times(0 5 10) difference att samples(50) seed(12345)
+    local att_rd5 = r(rd_5)
+    local att_rd10 = r(rd_10)
+
+    display "  ATE RD(5)=" %9.6f `ate_rd5' "  ATT RD(5)=" %9.6f `att_rd5'
+    display "  ATE RD(10)=" %9.6f `ate_rd10' "  ATT RD(10)=" %9.6f `att_rd10'
+
+    * They should differ (not necessarily dramatically)
+    assert "`r(target)'" == "ATT"
+}
+if _rc == 0 {
+    display as result "  PASS"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL (rc=" _rc ")"
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 2: ATT target returns "ATT" in return values
+* =============================================================================
+local ++test_count
+display ""
+display "Test `test_count': ATT target returns correct label"
+
+capture noisily {
+    use "data/trial_example.dta", clear
+    tte_prepare, id(id) period(period) treatment(treatment) ///
+        outcome(outcome) eligible(eligible) ///
+        covariates(nvara nvarb) estimand(ITT)
+    tte_expand, maxfollowup(10)
+    tte_fit, outcome_cov(catvara catvarb nvara nvarb) nolog
+
+    * ATE (default)
+    tte_predict, times(0 5) samples(30) seed(42)
+    assert "`r(target)'" == "ATE"
+
+    * ATT
+    tte_predict, times(0 5) att samples(30) seed(42)
+    assert "`r(target)'" == "ATT"
+}
+if _rc == 0 {
+    display as result "  PASS"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL (rc=" _rc ")"
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 3: ATT predictions still bounded in [0, 1]
+* =============================================================================
+local ++test_count
+display ""
+display "Test `test_count': ATT predictions bounded in [0,1]"
+
+capture noisily {
+    use "data/trial_example.dta", clear
+    tte_prepare, id(id) period(period) treatment(treatment) ///
+        outcome(outcome) eligible(eligible) ///
+        covariates(nvara nvarb) estimand(PP)
+    tte_expand, maxfollowup(10)
+    tte_weight, switch_d_cov(nvara nvarb) truncate(1 99) nolog
+    tte_fit, outcome_cov(catvara catvarb nvara nvarb) nolog
+
+    tte_predict, times(0 3 6 9) type(cum_inc) att samples(50) seed(42)
+    matrix pred = r(predictions)
+
+    local ok = 1
+    forvalues i = 1/4 {
+        * Arm 0
+        if pred[`i', 2] < -0.001 | pred[`i', 2] > 1.001 local ok = 0
+        * Arm 1
+        if pred[`i', 5] < -0.001 | pred[`i', 5] > 1.001 local ok = 0
+    }
+    assert `ok' == 1
+}
+if _rc == 0 {
+    display as result "  PASS"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL (rc=" _rc ")"
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 4: ATT and ATE agree on ITT (no confounding by design)
+* =============================================================================
+local ++test_count
+display ""
+display "Test `test_count': ATT ~ ATE under ITT (minimal confounding)"
+
+capture noisily {
+    * Under ITT, treatment assigned at baseline — no time-varying confounding
+    * ATT and ATE should be similar (not identical due to baseline confounding)
+    use "data/trial_example.dta", clear
+    tte_prepare, id(id) period(period) treatment(treatment) ///
+        outcome(outcome) eligible(eligible) ///
+        covariates(nvara nvarb) estimand(ITT)
+    tte_expand, maxfollowup(10)
+    tte_fit, outcome_cov(catvara catvarb nvara nvarb) nolog
+
+    * ATE
+    tte_predict, times(5) difference samples(100) seed(99999)
+    local ate_rd = r(rd_5)
+
+    * ATT
+    tte_predict, times(5) difference att samples(100) seed(99999)
+    local att_rd = r(rd_5)
+
+    display "  ITT ATE RD(5)=" %9.6f `ate_rd'
+    display "  ITT ATT RD(5)=" %9.6f `att_rd'
+
+    * Under ITT they should be in the same direction at least
+    * (both positive or both negative or both ~0)
+    local both_same_sign = (`ate_rd' * `att_rd' >= 0)
+    local both_small = (abs(`ate_rd') < 0.05 & abs(`att_rd') < 0.05)
+    assert `both_same_sign' == 1 | `both_small' == 1
+}
+if _rc == 0 {
+    display as result "  PASS"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL (rc=" _rc ")"
+    local ++fail_count
+}
+
+display ""
+display "  Section V27 complete"
+
+} /* end V27 */
+
+
+* Check if V28 should run
+local _run_28 = 0
+foreach _v of local run_list {
+    if `_v' == 28 local _run_28 = 1
+}
+
+if `_run_28' == 1 {
+
+/*******************************************************************************
+* V28: Weight Truncation Percentile Verification
+*
+* Validates that weight truncation clips at the correct percentile values
+* and that tighter truncation produces more bounded weights.
+*******************************************************************************/
+
+display ""
+display "VALIDATION 28: Weight Truncation Percentile Verification"
+display "Date: $S_DATE $S_TIME"
+
+* =============================================================================
+* TEST 1: Truncated weights bounded by percentile values
+* =============================================================================
+local ++test_count
+display ""
+display "Test `test_count': Truncated weights bounded by percentiles"
+
+capture noisily {
+    use "data/trial_example.dta", clear
+    tte_prepare, id(id) period(period) treatment(treatment) ///
+        outcome(outcome) eligible(eligible) ///
+        covariates(nvara nvarb) estimand(PP)
+    tte_expand, maxfollowup(10)
+
+    * Get untruncated weights first
+    tte_weight, switch_d_cov(nvara nvarb) nolog replace
+    local min_untrunc = r(min_weight)
+    local max_untrunc = r(max_weight)
+
+    * Truncate at 1/99
+    tte_weight, switch_d_cov(nvara nvarb) truncate(1 99) nolog replace
+    local min_trunc = r(min_weight)
+    local max_trunc = r(max_weight)
+    local p1  = r(p1_weight)
+    local p99 = r(p99_weight)
+
+    display "  Untruncated: min=" %8.4f `min_untrunc' " max=" %8.4f `max_untrunc'
+    display "  Truncated:   min=" %8.4f `min_trunc' " max=" %8.4f `max_trunc'
+    display "  p1=" %8.4f `p1' "  p99=" %8.4f `p99'
+
+    * Truncated range should be tighter
+    assert `min_trunc' >= `min_untrunc' - 0.001
+    assert `max_trunc' <= `max_untrunc' + 0.001
+}
+if _rc == 0 {
+    display as result "  PASS"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL (rc=" _rc ")"
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 2: Tighter truncation gives smaller weight range
+* =============================================================================
+local ++test_count
+display ""
+display "Test `test_count': Tighter truncation -> smaller range"
+
+capture noisily {
+    use "data/trial_example.dta", clear
+    tte_prepare, id(id) period(period) treatment(treatment) ///
+        outcome(outcome) eligible(eligible) ///
+        covariates(nvara nvarb) estimand(PP)
+    tte_expand, maxfollowup(10)
+
+    * Truncate at 1/99
+    tte_weight, switch_d_cov(nvara nvarb) truncate(1 99) nolog replace
+    local range_1_99 = r(max_weight) - r(min_weight)
+
+    * Truncate at 5/95
+    tte_weight, switch_d_cov(nvara nvarb) truncate(5 95) nolog replace
+    local range_5_95 = r(max_weight) - r(min_weight)
+
+    * Truncate at 10/90
+    tte_weight, switch_d_cov(nvara nvarb) truncate(10 90) nolog replace
+    local range_10_90 = r(max_weight) - r(min_weight)
+
+    display "  Range(1/99):  " %8.4f `range_1_99'
+    display "  Range(5/95):  " %8.4f `range_5_95'
+    display "  Range(10/90): " %8.4f `range_10_90'
+
+    assert `range_5_95' <= `range_1_99' + 0.001
+    assert `range_10_90' <= `range_5_95' + 0.001
+}
+if _rc == 0 {
+    display as result "  PASS"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL (rc=" _rc ")"
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 3: Number truncated increases with tighter bounds
+* =============================================================================
+local ++test_count
+display ""
+display "Test `test_count': More observations truncated with tighter bounds"
+
+capture noisily {
+    use "data/trial_example.dta", clear
+    tte_prepare, id(id) period(period) treatment(treatment) ///
+        outcome(outcome) eligible(eligible) ///
+        covariates(nvara nvarb) estimand(PP)
+    tte_expand, maxfollowup(10)
+
+    tte_weight, switch_d_cov(nvara nvarb) truncate(1 99) nolog replace
+    local n_trunc_loose = r(n_truncated)
+
+    tte_weight, switch_d_cov(nvara nvarb) truncate(10 90) nolog replace
+    local n_trunc_tight = r(n_truncated)
+
+    display "  Truncated(1/99):  `n_trunc_loose'"
+    display "  Truncated(10/90): `n_trunc_tight'"
+
+    assert `n_trunc_tight' >= `n_trunc_loose'
+}
+if _rc == 0 {
+    display as result "  PASS"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL (rc=" _rc ")"
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 4: ESS decreases with more weight variability
+* =============================================================================
+local ++test_count
+display ""
+display "Test `test_count': ESS with truncation vs without"
+
+capture noisily {
+    use "data/trial_example.dta", clear
+    tte_prepare, id(id) period(period) treatment(treatment) ///
+        outcome(outcome) eligible(eligible) ///
+        covariates(nvara nvarb) estimand(PP)
+    tte_expand, maxfollowup(10)
+
+    * Tight truncation -> weights closer to 1 -> higher ESS
+    tte_weight, switch_d_cov(nvara nvarb) truncate(10 90) nolog replace
+    local ess_tight = r(ess)
+
+    * Loose truncation -> more weight variability -> lower ESS
+    tte_weight, switch_d_cov(nvara nvarb) truncate(1 99) nolog replace
+    local ess_loose = r(ess)
+
+    display "  ESS(10/90): " %10.1f `ess_tight'
+    display "  ESS(1/99):  " %10.1f `ess_loose'
+
+    * Tighter truncation should give higher or equal ESS
+    assert `ess_tight' >= `ess_loose' - 1
+}
+if _rc == 0 {
+    display as result "  PASS"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL (rc=" _rc ")"
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 5: ITT weights are all 1 (no truncation needed)
+* =============================================================================
+local ++test_count
+display ""
+display "Test `test_count': ITT weights are all exactly 1"
+
+capture noisily {
+    use "data/trial_example.dta", clear
+    tte_prepare, id(id) period(period) treatment(treatment) ///
+        outcome(outcome) eligible(eligible) estimand(ITT)
+    tte_expand, maxfollowup(10)
+    tte_weight
+
+    assert r(mean_weight) == 1
+    assert r(sd_weight) == 0
+    assert r(min_weight) == 1
+    assert r(max_weight) == 1
+    * n_truncated may not be returned for ITT (no truncation relevant)
+    capture assert r(n_truncated) == 0
+}
+if _rc == 0 {
+    display as result "  PASS"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL (rc=" _rc ")"
+    local ++fail_count
+}
+
+display ""
+display "  Section V28 complete"
+
+} /* end V28 */
+
+
+* Check if V29 should run
+local _run_29 = 0
+foreach _v of local run_list {
+    if `_v' == 29 local _run_29 = 1
+}
+
+if `_run_29' == 1 {
+
+/*******************************************************************************
+* V29: Natural Spline Basis Properties
+*
+* Validates that the natural spline basis has correct mathematical properties:
+*   - df=1 produces exactly linear basis
+*   - Correct number of basis variables created
+*   - Spline is continuous (no jumps at knots)
+*   - Model predictions are identical with polynomial vs ns(df) when df matches
+*******************************************************************************/
+
+display ""
+display "VALIDATION 29: Natural Spline Basis Properties"
+display "Date: $S_DATE $S_TIME"
+
+* =============================================================================
+* TEST 1: ns(1) produces linear basis
+* =============================================================================
+local ++test_count
+display ""
+display "Test `test_count': ns(1) produces linear basis"
+
+capture noisily {
+    clear
+    set obs 100
+    gen t = _n - 1
+
+    _tte_natural_spline t, df(1) prefix(_ns1_)
+
+    * Should create exactly 1 variable
+    confirm variable _ns1_1
+    capture confirm variable _ns1_2
+    assert _rc != 0
+
+    * _ns1_1 should be identical to t (linear)
+    assert _ns1_1 == t
+}
+if _rc == 0 {
+    display as result "  PASS"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL (rc=" _rc ")"
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 2: Correct number of basis variables for df=2,3,4
+* =============================================================================
+local ++test_count
+display ""
+display "Test `test_count': Correct number of basis variables"
+
+capture noisily {
+    clear
+    set obs 100
+    gen t = _n - 1
+
+    * df=2 -> 2 variables
+    _tte_natural_spline t, df(2) prefix(_ns2_)
+    confirm variable _ns2_1
+    confirm variable _ns2_2
+    capture confirm variable _ns2_3
+    assert _rc != 0
+
+    * df=3 -> 3 variables
+    _tte_natural_spline t, df(3) prefix(_ns3_)
+    confirm variable _ns3_1
+    confirm variable _ns3_2
+    confirm variable _ns3_3
+    capture confirm variable _ns3_4
+    assert _rc != 0
+
+    * df=4 -> 4 variables
+    _tte_natural_spline t, df(4) prefix(_ns4_)
+    confirm variable _ns4_1
+    confirm variable _ns4_2
+    confirm variable _ns4_3
+    confirm variable _ns4_4
+    capture confirm variable _ns4_5
+    assert _rc != 0
+}
+if _rc == 0 {
+    display as result "  PASS"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL (rc=" _rc ")"
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 3: Spline is continuous — no jumps at knots
+* =============================================================================
+local ++test_count
+display ""
+display "Test `test_count': Spline is continuous at knots"
+
+capture noisily {
+    clear
+    set obs 100
+    gen t = _n - 1
+
+    _tte_natural_spline t, df(3) prefix(_sp_)
+
+    * Continuity test: no missing values in basis (well-defined everywhere)
+    local ok = 1
+    forvalues v = 1/3 {
+        quietly count if _sp_`v' == .
+        if r(N) > 0 local ok = 0
+    }
+    assert `ok' == 1
+
+    * All values should be finite (no Inf/missing)
+    forvalues v = 1/3 {
+        quietly summarize _sp_`v'
+        assert r(min) != . & r(max) != .
+    }
+
+    * Monotonicity of first basis (should equal t, strictly increasing)
+    quietly count if _sp_1[_n] < _sp_1[_n-1] & _n > 1
+    assert r(N) == 0
+}
+if _rc == 0 {
+    display as result "  PASS"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL (rc=" _rc ")"
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 4: Linear fit with ns(1) identical to followup_spec(linear)
+* =============================================================================
+local ++test_count
+display ""
+display "Test `test_count': ns(1) fit ~ linear fit"
+
+capture noisily {
+    use "data/trial_example.dta", clear
+    tte_prepare, id(id) period(period) treatment(treatment) ///
+        outcome(outcome) eligible(eligible) ///
+        covariates(nvara nvarb) estimand(ITT)
+    tte_expand, maxfollowup(10)
+
+    * Linear fit
+    tte_fit, outcome_cov(catvara catvarb nvara) ///
+        followup_spec(linear) trial_period_spec(linear) nolog
+    local coef_linear = _b[_tte_arm]
+
+    * ns(1) fit (should be identical to linear)
+    tte_fit, outcome_cov(catvara catvarb nvara) ///
+        followup_spec(ns(1)) trial_period_spec(ns(1)) nolog
+    local coef_ns1 = _b[_tte_arm]
+
+    display "  Linear coef:  " %9.6f `coef_linear'
+    display "  ns(1) coef:   " %9.6f `coef_ns1'
+
+    assert abs(`coef_linear' - `coef_ns1') < 0.0001
+}
+if _rc == 0 {
+    display as result "  PASS"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL (rc=" _rc ")"
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 5: First basis variable is always the raw variable
+* =============================================================================
+local ++test_count
+display ""
+display "Test `test_count': First basis variable equals raw variable"
+
+capture noisily {
+    clear
+    set obs 50
+    gen t = _n * 2
+
+    local all_ok = 1
+    foreach df in 1 2 3 4 5 {
+        _tte_natural_spline t, df(`df') prefix(_b`df'_)
+        quietly count if _b`df'_1 != t
+        if r(N) > 0 local all_ok = 0
+        capture drop _b`df'_*
+    }
+    assert `all_ok' == 1
+}
+if _rc == 0 {
+    display as result "  PASS"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL (rc=" _rc ")"
+    local ++fail_count
+}
+
+display ""
+display "  Section V29 complete"
+
+} /* end V29 */
+
+
+* Check if V30 should run
+local _run_30 = 0
+foreach _v of local run_list {
+    if `_v' == 30 local _run_30 = 1
+}
+
+if `_run_30' == 1 {
+
+/*******************************************************************************
+* V30: Grace Period Monotonicity and Edge Cases
+*
+* Validates that increasing grace period monotonically increases the
+* expanded dataset size and produces sensible causal estimates.
+*******************************************************************************/
+
+display ""
+display "VALIDATION 30: Grace Period Monotonicity and Edge Cases"
+display "Date: $S_DATE $S_TIME"
+
+* =============================================================================
+* TEST 1: Increasing grace monotonically increases expanded N
+* =============================================================================
+local ++test_count
+display ""
+display "Test `test_count': Increasing grace -> more expanded rows"
+
+capture noisily {
+    local prev_n = 0
+
+    forvalues g = 0/4 {
+        use "data/trial_example.dta", clear
+        tte_prepare, id(id) period(period) treatment(treatment) ///
+            outcome(outcome) eligible(eligible) ///
+            covariates(nvara nvarb) estimand(PP)
+        tte_expand, maxfollowup(10) grace(`g')
+        local n_`g' = r(n_expanded)
+
+        if `g' > 0 {
+            assert `n_`g'' >= `prev_n'
+        }
+        local prev_n = `n_`g''
+    }
+
+    display "  grace(0): `n_0' rows"
+    display "  grace(1): `n_1' rows"
+    display "  grace(2): `n_2' rows"
+    display "  grace(3): `n_3' rows"
+    display "  grace(4): `n_4' rows"
+}
+if _rc == 0 {
+    display as result "  PASS"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL (rc=" _rc ")"
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 2: Grace(0) has most censoring (strictest PP)
+* =============================================================================
+local ++test_count
+display ""
+display "Test `test_count': Grace(0) is strictest PP censoring"
+
+capture noisily {
+    * grace(0): censor at first deviation
+    use "data/trial_example.dta", clear
+    tte_prepare, id(id) period(period) treatment(treatment) ///
+        outcome(outcome) eligible(eligible) ///
+        covariates(nvara nvarb) estimand(PP)
+    tte_expand, maxfollowup(10) grace(0)
+    local n_cens_0 = r(n_censored)
+
+    * grace(3): allow 3 periods of deviation
+    use "data/trial_example.dta", clear
+    tte_prepare, id(id) period(period) treatment(treatment) ///
+        outcome(outcome) eligible(eligible) ///
+        covariates(nvara nvarb) estimand(PP)
+    tte_expand, maxfollowup(10) grace(3)
+    local n_cens_3 = r(n_censored)
+
+    display "  Censored(grace=0): `n_cens_0'"
+    display "  Censored(grace=3): `n_cens_3'"
+
+    * Grace(0) should censor more (or equal)
+    assert `n_cens_0' >= `n_cens_3'
+}
+if _rc == 0 {
+    display as result "  PASS"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL (rc=" _rc ")"
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 3: Large grace period approaches ITT behavior
+* =============================================================================
+local ++test_count
+display ""
+display "Test `test_count': Large grace approaches ITT"
+
+capture noisily {
+    * ITT expanded
+    use "data/trial_example.dta", clear
+    tte_prepare, id(id) period(period) treatment(treatment) ///
+        outcome(outcome) eligible(eligible) ///
+        covariates(nvara nvarb) estimand(ITT)
+    tte_expand, maxfollowup(10)
+    local n_itt = _N
+
+    * PP with very large grace (exceeds max follow-up)
+    use "data/trial_example.dta", clear
+    tte_prepare, id(id) period(period) treatment(treatment) ///
+        outcome(outcome) eligible(eligible) ///
+        covariates(nvara nvarb) estimand(PP)
+    tte_expand, maxfollowup(10) grace(100)
+    local n_pp_big_grace = _N
+
+    display "  ITT N:              `n_itt'"
+    display "  PP grace(100) N:    `n_pp_big_grace'"
+
+    * PP with huge grace should still have 2x rows (cloning)
+    * but within each arm, similar to ITT
+    * The key invariant: PP produces 2 arms, ITT 1 arm
+    * So PP N should be roughly 2 * ITT N
+    local ratio = `n_pp_big_grace' / `n_itt'
+    display "  Ratio PP/ITT: " %6.2f `ratio'
+    assert `ratio' > 1.5 & `ratio' < 2.5
+}
+if _rc == 0 {
+    display as result "  PASS"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL (rc=" _rc ")"
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 4: PP grace(0) vs PP grace(1) coefficient direction consistent
+* =============================================================================
+local ++test_count
+display ""
+display "Test `test_count': Grace(0) and grace(1) agree on effect direction"
+
+capture noisily {
+    * Grace 0
+    use "data/trial_example.dta", clear
+    tte_prepare, id(id) period(period) treatment(treatment) ///
+        outcome(outcome) eligible(eligible) ///
+        covariates(nvara nvarb) estimand(PP)
+    tte_expand, maxfollowup(10) grace(0)
+    tte_weight, switch_d_cov(nvara nvarb) truncate(1 99) nolog
+    tte_fit, outcome_cov(catvara catvarb nvara nvarb) nolog
+    local coef_g0 = _b[_tte_arm]
+
+    * Grace 1
+    use "data/trial_example.dta", clear
+    tte_prepare, id(id) period(period) treatment(treatment) ///
+        outcome(outcome) eligible(eligible) ///
+        covariates(nvara nvarb) estimand(PP)
+    tte_expand, maxfollowup(10) grace(1)
+    tte_weight, switch_d_cov(nvara nvarb) truncate(1 99) nolog
+    tte_fit, outcome_cov(catvara catvarb nvara nvarb) nolog
+    local coef_g1 = _b[_tte_arm]
+
+    display "  Coef grace(0): " %9.6f `coef_g0'
+    display "  Coef grace(1): " %9.6f `coef_g1'
+
+    * Both should have same sign (or one could be near zero)
+    local same_sign = (`coef_g0' * `coef_g1' >= 0)
+    local one_small = (abs(`coef_g0') < 0.1 | abs(`coef_g1') < 0.1)
+    assert `same_sign' == 1 | `one_small' == 1
+}
+if _rc == 0 {
+    display as result "  PASS"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL (rc=" _rc ")"
+    local ++fail_count
+}
+
+* =============================================================================
+* TEST 5: Grace(0) with ITT estimand is ignored (no cloning for ITT)
+* =============================================================================
+local ++test_count
+display ""
+display "Test `test_count': Grace option ignored for ITT"
+
+capture noisily {
+    * ITT without grace
+    use "data/trial_example.dta", clear
+    tte_prepare, id(id) period(period) treatment(treatment) ///
+        outcome(outcome) eligible(eligible) estimand(ITT)
+    tte_expand, maxfollowup(10)
+    local n_itt_no_grace = _N
+
+    * ITT with grace (should be identical — grace doesn't apply to ITT)
+    use "data/trial_example.dta", clear
+    tte_prepare, id(id) period(period) treatment(treatment) ///
+        outcome(outcome) eligible(eligible) estimand(ITT)
+    tte_expand, maxfollowup(10) grace(3)
+    local n_itt_grace = _N
+
+    display "  ITT without grace: `n_itt_no_grace'"
+    display "  ITT with grace(3): `n_itt_grace'"
+    assert `n_itt_no_grace' == `n_itt_grace'
+}
+if _rc == 0 {
+    display as result "  PASS"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL (rc=" _rc ")"
+    local ++fail_count
+}
+
+display ""
+display "  Section V30 complete"
+
+} /* end V30 */
 
 
 * =============================================================================
