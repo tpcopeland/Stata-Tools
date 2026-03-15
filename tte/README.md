@@ -824,10 +824,6 @@ Timothy P Copeland
 Department of Clinical Neuroscience
 Karolinska Institutet
 
-Tania F Reza
-Department of Global Public Health
-Karolinska Institutet
-
 ## License
 
 MIT License

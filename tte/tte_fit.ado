@@ -1,9 +1,7 @@
 *! tte_fit Version 1.2.0  2026/03/15
 *! Outcome model fitting for target trial emulation
 *! Author: Timothy P Copeland
-*! Author: Tania F Reza
 *! Department of Clinical Neuroscience, Karolinska Institutet
-*! Department of Global Public Health, Karolinska Institutet
 *! Program class: eclass (returns results in e())
 
 /*

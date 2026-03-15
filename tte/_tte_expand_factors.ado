@@ -1,9 +1,7 @@
 *! _tte_expand_factors Version 1.2.0  2026/03/15
 *! Factor variable expansion for tte_fit
 *! Author: Timothy P Copeland
-*! Author: Tania F Reza
 *! Department of Clinical Neuroscience, Karolinska Institutet
-*! Department of Global Public Health, Karolinska Institutet
 
 /*
 Description:

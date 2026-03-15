@@ -181,8 +181,3 @@ Timothy P Copeland{break}
 Department of Clinical Neuroscience{break}
 Karolinska Institutet{break}
 Email: timothy.copeland@ki.se
-
-{pstd}
-Tania F Reza{break}
-Department of Global Public Health{break}
-Karolinska Institutet

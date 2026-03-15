@@ -1,7 +1,6 @@
 *! _tte_check_fitted Version 1.0.3  2026/03/01
 *! Verify model has been fitted
 *! Author: Timothy P Copeland
-*! Author: Tania F Reza
 
 program define _tte_check_fitted
     version 16.0

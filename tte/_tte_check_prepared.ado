@@ -1,7 +1,6 @@
 *! _tte_check_prepared Version 1.0.3  2026/03/01
 *! Verify data has been through tte_prepare
 *! Author: Timothy P Copeland
-*! Author: Tania F Reza
 
 program define _tte_check_prepared
     version 16.0

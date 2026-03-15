@@ -1,7 +1,6 @@
 *! _tte_check_expanded Version 1.0.3  2026/03/01
 *! Verify data has been through tte_expand
 *! Author: Timothy P Copeland
-*! Author: Tania F Reza
 
 program define _tte_check_expanded
     version 16.0

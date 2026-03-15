@@ -1,9 +1,7 @@
 *! tte_plot Version 1.1.0  2026/03/15
 *! Visualization for target trial emulation
 *! Author: Timothy P Copeland
-*! Author: Tania F Reza
 *! Department of Clinical Neuroscience, Karolinska Institutet
-*! Department of Global Public Health, Karolinska Institutet
 *! Program class: rclass (returns results in r())
 
 /*

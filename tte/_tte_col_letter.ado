@@ -1,7 +1,6 @@
 *! _tte_col_letter Version 1.0.0  2026/03/01
 *! Convert column number to Excel letter reference
 *! Author: Timothy P Copeland
-*! Author: Tania F Reza
 
 * Converts 1 -> A, 2 -> B, ..., 26 -> Z, 27 -> AA, 28 -> AB, etc.
 * Returns result in c_local variable 'result'

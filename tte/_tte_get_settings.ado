@@ -1,7 +1,6 @@
 *! _tte_get_settings Version 1.0.2  2026/02/28
 *! Retrieve stored metadata from characteristics
 *! Author: Timothy P Copeland
-*! Author: Tania F Reza
 
 * Returns via c_local: id, period, treatment, outcome, eligible, censor,
 *   covariates, baseline_covariates, estimand, prefix
