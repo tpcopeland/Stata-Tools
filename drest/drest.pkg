@@ -1,0 +1,58 @@
+v 3
+d 'drest': Doubly Robust Estimation for Stata
+d
+d Augmented inverse probability weighting (AIPW), TMLE, and
+d related doubly robust estimators for causal inference.
+d Supports ATE, ATT, ATC with flexible outcome and treatment
+d model specifications, influence-function inference,
+d diagnostics, and method comparison.
+d
+d Requires: Stata version 16+
+d
+d Distribution-Date: 20260315
+d License: MIT
+d
+d Author: Timothy P Copeland
+d Department of Clinical Neuroscience, Karolinska Institutet
+d
+d KW: doubly robust
+d KW: AIPW
+d KW: causal inference
+d KW: treatment effects
+d KW: TMLE
+d
+f drest.ado
+f drest.sthlp
+f drest_estimate.ado
+f drest_estimate.sthlp
+f drest_diagnose.ado
+f drest_diagnose.sthlp
+f drest_compare.ado
+f drest_compare.sthlp
+f drest_predict.ado
+f drest_predict.sthlp
+f drest_bootstrap.ado
+f drest_bootstrap.sthlp
+f drest_plot.ado
+f drest_plot.sthlp
+f drest_report.ado
+f drest_report.sthlp
+f drest_sensitivity.ado
+f drest_sensitivity.sthlp
+f drest_crossfit.ado
+f drest_crossfit.sthlp
+f drest_tmle.ado
+f drest_tmle.sthlp
+f drest_ltmle.ado
+f drest_ltmle.sthlp
+f _drest_get_settings.ado
+f _drest_check_estimated.ado
+f _drest_check_compared.ado
+f _drest_check_crossfit.ado
+f _drest_display_header.ado
+f _drest_propensity.ado
+f _drest_outcome_model.ado
+f _drest_aipw_core.ado
+f _drest_influence.ado
+f _drest_trim_ps.ado
+f _drest_tmle_fluctuate.ado

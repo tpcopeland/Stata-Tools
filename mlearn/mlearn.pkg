@@ -1,0 +1,52 @@
+v 3
+d 'mlearn': Machine Learning for Stata
+d
+d Unified machine learning interface wrapping Python's scikit-learn,
+d XGBoost, and LightGBM via Stata 16+'s python: directive. Provides
+d idiomatic Stata syntax with ereturn, predict, and estimates store
+d integration.
+d
+d Requires: Stata version 16+, Python 3.8+, scikit-learn, numpy
+d
+d Distribution-Date: 20260315
+d License: MIT
+d
+d Author: Timothy P Copeland
+d Department of Clinical Neuroscience, Karolinska Institutet
+d
+d KW: machine learning
+d KW: random forest
+d KW: XGBoost
+d KW: scikit-learn
+d KW: prediction
+d
+f mlearn.ado
+f mlearn.sthlp
+f mlearn_train.ado
+f mlearn_train.sthlp
+f mlearn_predict.ado
+f mlearn_predict.sthlp
+f mlearn_cv.ado
+f mlearn_cv.sthlp
+f mlearn_importance.ado
+f mlearn_importance.sthlp
+f mlearn_tune.ado
+f mlearn_tune.sthlp
+f mlearn_shap.ado
+f mlearn_shap.sthlp
+f mlearn_compare.ado
+f mlearn_compare.sthlp
+f mlearn_setup.ado
+f mlearn_setup.sthlp
+f _mlearn_validate_method.ado
+f _mlearn_auto_detect.ado
+f _mlearn_check_trained.ado
+f _mlearn_get_settings.ado
+f _mlearn_display.ado
+f _mlearn_python_bridge.ado
+f _mlearn_engine.py
+f _mlearn_sklearn.py
+f _mlearn_xgboost.py
+f _mlearn_lightgbm.py
+f _mlearn_shap_engine.py
+f _mlearn_setup_check.py

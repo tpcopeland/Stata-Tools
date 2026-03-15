@@ -1,6 +1,6 @@
 # Stata-Tools
 
-Production distribution repository for Stata packages (32 packages, 147+ commands). All packages require Stata 16+, except where noted. Install any package directly from here using `net install`.
+Production distribution repository for Stata packages (35 packages, 172+ commands). All packages require Stata 16+, except where noted. Install any package directly from here using `net install`.
 
 ## Installation
 
@@ -45,9 +45,12 @@ net install <package>, from("https://raw.githubusercontent.com/tpcopeland/Stata-
 | **aft** | Accelerated failure time model selection, diagnostics, and RPSFTM g-estimation | 16+ |
 | **balancetab** | Propensity score balance diagnostics and Love plots | 16+ |
 | **cstat_surv** | C-statistic for Cox survival models | 16+ |
+| **drest** | Doubly robust estimation (AIPW, TMLE, crossfit, LTMLE) | 16+ |
+| **finegray** | Fine-Gray competing risks regression | 16+ |
 | **gcomp** | G-computation formula via Monte Carlo simulation (includes gcomptab) | 16+ |
 | **iivw** | Inverse intensity of visit weighting (IIW, IPTW, FIPTIW) for irregular longitudinal data | 16+ |
 | **iptw_diag** | IPTW weight diagnostics, ESS, trimming | 16+ |
+| **mlearn** | Machine learning interface (scikit-learn, XGBoost, LightGBM, SHAP) | 16+ (Python 3.8+) |
 | **msm** | Marginal structural models via IPTW for time-varying treatments | 16+ |
 | **mvp** | Missing value pattern analysis with visualizations | 14+ |
 | **nma** | Network meta-analysis suite | 16+ |
@@ -115,4 +118,3 @@ Department of Clinical Neuroscience, Karolinska Institutet
 ## License
 
 MIT
-| `finegray` | Fine-Gray Competing Risks Regression for Stata |

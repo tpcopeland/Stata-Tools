@@ -1,0 +1,4 @@
+v 3
+d Machine Learning for Stata
+d Packages available:
+p mlearn Machine Learning for Stata
