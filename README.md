@@ -1,6 +1,6 @@
 # Stata-Tools
 
-Production distribution repository for Stata packages (28 packages, 135 commands). All packages require Stata 16+, except where noted. Install any package directly from here using `net install`.
+Production distribution repository for Stata packages (30 packages, 145+ commands). All packages require Stata 16+, except where noted. Install any package directly from here using `net install`.
 
 ## Installation
 
@@ -42,6 +42,7 @@ net install <package>, from("https://raw.githubusercontent.com/tpcopeland/Stata-
 
 | Package | Description | Stata |
 |---------|-------------|-------|
+| **aft** | Accelerated failure time model selection, diagnostics, and RPSFTM g-estimation | 16+ |
 | **balancetab** | Propensity score balance diagnostics and Love plots | 16+ |
 | **cstat_surv** | C-statistic for Cox survival models | 16+ |
 | **gcomp** | G-computation formula via Monte Carlo simulation (includes gcomptab) | 16+ |
@@ -68,6 +69,7 @@ net install <package>, from("https://raw.githubusercontent.com/tpcopeland/Stata-
 |---------|-------------|-------|
 | **consort** | CONSORT-style exclusion flowcharts (requires Python 3.7+) | 16+ |
 | **eplot** | Forest plots and coefficient plots from estimates or data | 16+ |
+| **logdoc** | Convert Stata log files to HTML or Markdown documents (requires Python 3.6+) | 16+ |
 | **raincloud** | Raincloud plots: density, scatter, and box elements | 16+ |
 | **tabtools** | Publication-ready Excel tables (table1_tc, regtab, effecttab, stratetab, tablex) | 16+ (17+ for regtab, effecttab, stratetab, tablex) |
 | **tc_schemes** | Graph schemes from blindschemes and schemepack | 16+ |
@@ -111,5 +113,3 @@ Department of Clinical Neuroscience, Karolinska Institutet
 ## License
 
 MIT
-| `logdoc` | Convert Stata log files to HTML or Markdown documents |
-| `aft` | Accelerated Failure Time model selection and diagnostics |
