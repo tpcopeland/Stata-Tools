@@ -1344,8 +1344,10 @@ display "  True OR:         " %8.4f exp(`true_art_effect')
 * PP should be more negative than ITT (closer to true effect)
 local pp_dist  = abs(`pp_coef' - `true_art_effect')
 local itt_dist = abs(`itt_final' - `true_art_effect')
+local pp_rel_bias = `pp_dist' / abs(`true_art_effect') * 100
 
 display "  Distance to truth — ITT: " %8.4f `itt_dist' "  PP: " %8.4f `pp_dist'
+display "  PP relative bias:  " %5.1f `pp_rel_bias' "%"
 
 if `pp_coef' < 0 {
     display as result "  PASS — PP shows protective effect"
@@ -1353,6 +1355,54 @@ if `pp_coef' < 0 {
 }
 else {
     display as error "  FAIL — PP direction unexpected"
+    local ++fail_count
+}
+
+* TEST 2b: PP should be at least as protective as ITT
+* (This catches the covariate-freezing bug where PP moved the wrong way)
+local ++test_count
+display ""
+display "Test `test_count': PP at least as protective as ITT"
+display "  PP: " %8.4f `pp_coef' "  ITT: " %8.4f `itt_final'
+
+if abs(`pp_coef') >= abs(`itt_final') * 0.8 {
+    display as result "  PASS — PP not less protective than ITT"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL — PP less protective than ITT (wrong direction)"
+    local ++fail_count
+}
+
+* TEST 2c: PP quantitative bias from truth < 35%
+local ++test_count
+display ""
+display "Test `test_count': PP relative bias from truth < 35%"
+display "  Relative bias: " %5.1f `pp_rel_bias' "%"
+
+if `pp_rel_bias' < 35 {
+    display as result "  PASS — PP bias within tolerance"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL — PP bias too large (" %5.1f `pp_rel_bias' "%)"
+    local ++fail_count
+}
+
+* TEST 2d: Weight distribution has non-trivial variance
+local ++test_count
+display ""
+display "Test `test_count': Weight variance non-trivial"
+quietly summarize `prefix'weight
+local w_sd = r(sd)
+display "  Weight SD: " %8.4f `w_sd'
+
+if `w_sd' > 0.01 {
+    display as result "  PASS — Weights have meaningful variance"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL — Weights near-constant (SD=" %8.4f `w_sd' "); IPTW not adjusting"
     local ++fail_count
 }
 

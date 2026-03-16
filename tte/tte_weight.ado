@@ -294,7 +294,7 @@ program define tte_weight, rclass
         _tte_weight_switch_pooled, id(`id') treatment(`treatment') ///
             arm(`prefix'arm) followup(`prefix'followup) ///
             trial(`prefix'trial) censored(`prefix'censored) ///
-            d_cov(`switch_d_cov') n_cov(`switch_n_cov') ///
+            d_cov(`switch_d_cov_w') n_cov(`switch_n_cov_w') ///
             weight(`generate') `log_opt' `ps_opt'
     }
     else if "`strata'" == "arm_lag" {
@@ -311,7 +311,7 @@ program define tte_weight, rclass
                     arm_var(`prefix'arm) arm_val(`a') ///
                     lag_var(`_lag_treat_strat') lag_val(`l') ///
                     followup(`prefix'followup) trial(`prefix'trial) ///
-                    d_cov(`switch_d_cov') n_cov(`switch_n_cov') ///
+                    d_cov(`switch_d_cov_w') n_cov(`switch_n_cov_w') ///
                     weight(`generate') `log_opt' `ps_opt'
             }
         }
@@ -350,7 +350,7 @@ program define tte_weight, rclass
                 arm_var(`prefix'arm) arm_val(`a') ///
                 followup(`prefix'followup) trial(`prefix'trial) ///
                 censored(`prefix'censored) ///
-                d_cov(`switch_d_cov') n_cov(`switch_n_cov') ///
+                d_cov(`switch_d_cov_w') n_cov(`switch_n_cov_w') ///
                 weight(`generate') `log_opt' `ps_opt'
         }
     }
@@ -408,7 +408,7 @@ program define tte_weight, rclass
                 censor(`censor_indicator') ///
                 arm(`prefix'arm) followup(`prefix'followup) ///
                 trial(`prefix'trial) ///
-                d_cov(`censor_d_cov') n_cov(`censor_n_cov') ///
+                d_cov(`censor_d_cov_w') n_cov(`censor_n_cov_w') ///
                 weight(`generate') `log_opt'
         }
         else {
@@ -418,7 +418,7 @@ program define tte_weight, rclass
                     censor(`censor_indicator') ///
                     arm_var(`prefix'arm) arm_val(`a') ///
                     followup(`prefix'followup) trial(`prefix'trial) ///
-                    d_cov(`censor_d_cov') n_cov(`censor_n_cov') ///
+                    d_cov(`censor_d_cov_w') n_cov(`censor_n_cov_w') ///
                     weight(`generate') `log_opt'
             }
         }
