@@ -1,0 +1,5 @@
+v 3
+d Stata-Tools: compress_tc
+d Timothy P Copeland, Karolinska Institutet
+d https://github.com/tpcopeland/Stata-Tools
+p compress_tc

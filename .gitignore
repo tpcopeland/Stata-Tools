@@ -1,0 +1,20 @@
+# OS artifacts
+.DS_Store
+
+# Stata session artifacts
+*.log
+*.smcl
+*.swp
+*~
+*.tmp
+
+# QA test outputs (generated, not source)
+**/qa/output/
+**/qa/crossval_results/*.csv
+**/qa/crossval_results/*.log
+**/qa/crossval_data/
+
+
+# codescan QA test artifacts
+codescan/qa/cs_test_*.dta
+codescan/qa/codescan_ci_*.csv

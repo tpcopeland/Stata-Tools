@@ -1,0 +1,146 @@
+{smcl}
+{* *! version 1.0.0  08apr2026}{...}
+{title:Title}
+
+{p 4 2}
+{hi:pkgtransfer} {hline 2} Transfer installed packages between Stata installations
+
+
+{title:Syntax}
+
+{p 8 17 2}
+{cmd:pkgtransfer}
+[{cmd:,} {it:options}]
+
+
+{synoptset 26 tabbed}{...}
+{synopthdr}
+{synoptline}
+{syntab:Main}
+{synopt:{cmdab:down:load(}{it:string}{cmd:)}}download mode: {bf:local} or {bf:online}{p_end}
+{synopt:{cmdab:lim:ited}({it:pkglist})}restrict to specified packages{p_end}
+{synopt:{opt skip(pkglist)}}exclude specified packages{p_end}
+{synopt:{cmdab:res:tore}}restore online source URLs in stata.trk after local install{p_end}
+
+{syntab:Advanced}
+{synopt:{opt os(string)}}target OS: {bf:Windows}, {bf:Unix}, or {bf:MacOSX}{p_end}
+{synopt:{cmdab:do:file(}{it:filename}{cmd:)}}custom name for generated do-file{p_end}
+{synopt:{cmdab:zip:file(}{it:filename}{cmd:)}}custom name for generated ZIP file{p_end}
+
+{synoptline}
+{p 4 4 2}
+
+{title:Description}
+
+{p 4 4 2}
+{cmd:pkgtransfer} facilitates transferring installed packages from one Stata installation to another. It can generate a do-file with the necessary {cmd:net install}, {cmd:ssc install}, or {cmd:github install} commands for online installation on a new machine. Alternatively, it can download all the package files and create a local installation script and a ZIP archive for offline installation.
+
+{p 4 4 2}
+The command works by reading the {cmd:stata.trk} file in your current PLUS directory to identify installed packages and their sources. It can handle packages installed from various sources, including SSC, personal websites, and GitHub (using the {browse "https://github.com/haghish/github":github} command).
+
+{p 4 4 2}
+{cmd:NOTE}: It is strongly suggested that when using the {opt download()} option, first {cmd:pkgtransfer} is run without options to save all the original package installation commands for online installation and the resulting {cmd:pkgtransfer.do} is moved to a separate folder.
+
+{title:Options}
+
+{dlgtab:Main}
+
+{phang}
+{opt download(string)} specifies the download mode for creating offline installation packages.
+{opt download(online)} downloads all package files from the internet and creates a ZIP archive and local installation do-file.
+{opt download(local)} copies package files from your local PLUS directory instead of downloading them.
+Note: platform-specific plugin files ({bf:.plugin}) are always downloaded from the internet even with {opt download(local)}, because the local PLUS directory only contains the current platform's version.
+When {opt download()} is not specified, {cmd:pkgtransfer} generates a do-file ({cmd:pkgtransfer.do}) with online installation commands only (no ZIP archive).
+
+{phang}
+{opt limited(pkglist)} restricts the operation to a specific set of packages.  {it:pkglist} should be a space-separated list of package names, exactly as they appear in the {cmd:stata.trk} file. For example, {cmd:limited(estout outreg2)}. When {opt limited()} is not specified, {cmd:pkgtransfer} processes all packages listed in the {cmd:stata.trk} file.
+
+{phang}
+{opt skip(pkglist)} excludes the specified packages from the transfer.  {it:pkglist} should be a space-separated list of package names to skip. For example, {cmd:skip(estout outreg2)} would transfer all packages except estout and outreg2.
+
+{phang}
+{opt restore} restores installation pathways in {cmd:stata.trk} to point to original online sources after a local installation. Can be used as a standalone option ({cmd:pkgtransfer, restore}) or combined with {opt download()}. This works only for packages installed from {cmd:pkgtransfer}-generated ZIP archives, which embed the original source URL as backup metadata. A backup of {cmd:stata.trk} is created before modification. If no backup URLs are found, a warning is displayed.
+
+{dlgtab:Advanced}
+
+{phang}
+{opt os(string)} specifies the target operating system for the installation script cleanup commands. Valid options are {bf:Windows}, {bf:Unix}, or {bf:MacOSX}. By default, uses the current OS.
+
+{phang}
+{opt dofile(filename)} specifies a custom name for the generated do-file. The filename must end with {bf:.do}. Default is {cmd:pkgtransfer.do}.
+
+{phang}
+{opt zipfile(filename)} specifies a custom name for the generated ZIP file. The filename must end with {bf:.zip}. Default is {cmd:pkgtransfer_files.zip}. Only valid with {opt download()}.
+
+{title:Examples}
+
+{p 4 4 2}
+{cmd:. pkgtransfer}
+{break}
+Generates a do-file ({cmd:pkgtransfer.do}) for online installation of all packages listed in your {cmd:stata.trk} file.
+
+{p 4 4 2}
+{cmd:. pkgtransfer, download(online)}
+{break}
+Downloads all packages from the internet and creates a local installation script ({cmd:pkgtransfer.do}) and a ZIP archive ({cmd:pkgtransfer_files.zip}).
+
+{p 4 4 2}
+{cmd:. pkgtransfer, download(local)}
+{break}
+Copies all packages from your local PLUS directory and creates a local installation script and ZIP archive.
+
+{p 4 4 2}
+{cmd:. pkgtransfer, limited(estout outreg2)}
+{break}
+Generates a do-file for online installation of only the "estout" and "outreg2" packages.
+
+{p 4 4 2}
+{cmd:. pkgtransfer, download(online) limited(estout outreg2)}
+{break}
+Downloads only the "estout" and "outreg2" packages and creates a local installation script and ZIP archive.
+
+{p 4 4 2}
+{cmd:. pkgtransfer, skip(gtools)}
+{break}
+Generates a do-file for all packages except "gtools".
+
+{p 4 4 2}
+{cmd:. pkgtransfer, download(online) dofile(my_install.do) zipfile(my_packages.zip)}
+{break}
+Downloads packages with custom output file names.
+
+{p 4 4 2}
+{cmd:. pkgtransfer, restore}
+{break}
+Restores online source URLs in {cmd:stata.trk} for packages previously installed via pkgtransfer ZIP archive.
+
+{p 4 4 2}
+
+{marker results}{...}
+{title:Stored results}
+
+{pstd}
+{cmd:pkgtransfer} stores the following in {cmd:r()}:
+
+{synoptset 20 tabbed}{...}
+{p2col 5 20 24 2: Scalars}{p_end}
+{synopt:{cmd:r(N_packages)}}number of packages processed{p_end}
+
+{p2col 5 20 24 2: Macros}{p_end}
+{synopt:{cmd:r(package_list)}}list of packages processed{p_end}
+{synopt:{cmd:r(download_mode)}}download mode ("local", "online", "script_only", or "restore"){p_end}
+{synopt:{cmd:r(os)}}target operating system{p_end}
+{synopt:{cmd:r(dofile)}}path to generated do-file{p_end}
+{synopt:{cmd:r(zipfile)}}path to ZIP file (if download mode specified){p_end}
+{p2colreset}{...}
+
+{marker author}{...}
+{title:Author}
+
+{pstd}Timothy P Copeland{p_end}
+{pstd}Department of Clinical Neuroscience{p_end}
+{pstd}Karolinska Institutet{p_end}
+
+{pstd}Version 1.0.0 - 2026-04-08{p_end}
+
+{hline}

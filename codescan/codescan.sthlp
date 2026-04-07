@@ -1,0 +1,587 @@
+{smcl}
+{* *! version 1.0.0  08apr2026}{...}
+{vieweralsosee "codescan_describe" "help codescan_describe"}{...}
+{vieweralsosee "[D] collapse" "help collapse"}{...}
+{vieweralsosee "[D] merge" "help merge"}{...}
+{vieweralsosee "[D] tostring" "help tostring"}{...}
+{viewerjumpto "Syntax" "codescan##syntax"}{...}
+{viewerjumpto "Description" "codescan##description"}{...}
+{viewerjumpto "Typical workflow" "codescan##workflow"}{...}
+{viewerjumpto "Options" "codescan##options"}{...}
+{viewerjumpto "Time windows" "codescan##windows"}{...}
+{viewerjumpto "Remarks" "codescan##remarks"}{...}
+{viewerjumpto "Examples" "codescan##examples"}{...}
+{viewerjumpto "Stored results" "codescan##results"}{...}
+{viewerjumpto "References" "codescan##references"}{...}
+{viewerjumpto "Author" "codescan##author"}{...}
+
+
+{title:Title}
+
+{p2colset 5 20 22 2}{...}
+{p2col:{cmd:codescan} {hline 2}}Scan wide-format code variables with regex or prefix rules{p_end}
+{p2colreset}{...}
+
+
+{marker syntax}{...}
+{title:Syntax}
+
+{p 8 17 2}
+{cmd:codescan}
+{varlist}
+{ifin}
+{cmd:,}
+{opt def:ine(string asis)} | {opt codef:ile(string)}
+[{it:options}]
+
+
+{synoptset 34 tabbed}{...}
+{synopthdr}
+{synoptline}
+{syntab:Definition source}
+{synopt:{opt def:ine(string asis)}}inline condition definitions{p_end}
+{synopt:{opt codef:ile(string)}}CSV or {cmd:.dta} code dictionary{p_end}
+{synopt:{opt lab:el(string asis)}}condition labels specified inline{p_end}
+{synopt:{opt save(filename)}}write parsed {cmd:define()} rules to a CSV codefile{p_end}
+
+{syntab:Identifiers and windows}
+{synopt:{opt id(varname)}}patient or entity identifier; required with {cmd:collapse} or {cmd:merge}{p_end}
+{synopt:{opt date(varname)}}row-level event date; required for windowing and date summaries{p_end}
+{synopt:{opt refd:ate(varname)}}reference date for windowing{p_end}
+{synopt:{opt lookb:ack(#|numlist)}}days before {cmd:refdate}; multiple values return sensitivity results{p_end}
+{synopt:{opt lookf:orward(#)}}days after {cmd:refdate}{p_end}
+{synopt:{opt incl:usive}}include {cmd:refdate} in single-direction windows{p_end}
+
+{syntab:Result dataset}
+{synopt:{opt coll:apse}}reduce to one row per {cmd:id()}{p_end}
+{synopt:{opt mer:ge}}attach patient-level results back to row-level data{p_end}
+{synopt:{opt earliest:date}}create {it:name}_first variables{p_end}
+{synopt:{opt latest:date}}create {it:name}_last variables{p_end}
+{synopt:{opt countd:ate}}create {it:name}_count variables (unique dates){p_end}
+{synopt:{opt countr:ows}}create {it:name}_nrows variables (row counts){p_end}
+{synopt:{opt alld:ates}}shorthand for all three date-summary options{p_end}
+{synopt:{opt pre:serve}}restore the original data after producing results{p_end}
+{synopt:{opt frame(name)}}store the final result dataset in a named frame{p_end}
+{synopt:{opt sav:ing(filename [, replace])}}save the final result dataset to disk{p_end}
+
+{syntab:Scoring, diagnostics, and reporting}
+{synopt:{opt det:ail}}return per-variable match counts{p_end}
+{synopt:{opt cooc:currence}}return pairwise co-occurrence counts{p_end}
+{synopt:{opt score(string)}}Charlson, Elixhauser, or custom weighted score{p_end}
+{synopt:{opt hier:archy(string)}}apply superior > inferior condition rules before scoring{p_end}
+{synopt:{opt unm:atched(name)}}row-level flag for observations with no matches{p_end}
+{synopt:{opt match:ed_code(name)}}row-level variable holding the first code that survived matching{p_end}
+{synopt:{opt gr:aph}}draw a prevalence bar chart{p_end}
+{synopt:{opt exp:ort(filename)}}export the summary table to {cmd:.csv} or {cmd:.xlsx}{p_end}
+{synopt:{opt for:mat(%fmt)}}display and export format for prevalence and CI columns{p_end}
+
+{syntab:Matching behavior and naming}
+{synopt:{opt mod:e(string)}}{cmd:regex} (default) or {cmd:prefix}{p_end}
+{synopt:{opt lev:el(#)}}truncate each prefix token to {it:#} characters in prefix mode{p_end}
+{synopt:{opt noc:ase}}case-insensitive matching{p_end}
+{synopt:{opt nod:ots}}strip dots during matching{p_end}
+{synopt:{opt tostr:ing}}convert numeric code variables to string before scanning{p_end}
+{synopt:{opt countm:ode}}store counts rather than binary indicators{p_end}
+{synopt:{opt gen:erate(prefix)}}prefix all created variable names, including the score variable{p_end}
+{synopt:{opt rep:lace}}allow overwriting existing output variables or frames{p_end}
+{synopt:{opt noi:sily}}display per-condition progress notes{p_end}
+
+{synoptline}
+{p2colreset}{...}
+
+
+{marker description}{...}
+{title:Description}
+
+{pstd}
+{cmd:codescan} scans wide-format code slots such as diagnosis, procedure, or
+medication variables and creates condition indicators or counts from a single
+declarative rule set.  It is designed for administrative data, registry data,
+claims data, and other datasets where each observation stores multiple code
+fields side by side.
+
+{pstd}
+Rules can be supplied inline through {cmd:define()} or read from a reusable
+CSV/{cmd:.dta} code dictionary via {cmd:codefile()}.  Matching is anchored at
+the start of each code value.  The default {cmd:regex} mode supports character
+classes and alternation; {cmd:prefix} mode is faster when simple startswith
+logic is sufficient.
+
+{pstd}
+The command can leave row-level outputs in memory, {cmd:collapse} to one row per
+{cmd:id()}, or {cmd:merge} patient-level results back onto the original row
+structure.  Optional time windows, date summaries, co-occurrence counts, and
+Charlson/Elixhauser/custom scores support common clinical and health-services
+research workflows.
+
+{pstd}
+Use {helpb codescan_describe} first when you need to inspect the raw code
+distribution before writing scan rules.
+
+
+{marker workflow}{...}
+{title:Typical workflow}
+
+{pstd}
+Most users will learn {cmd:codescan} fastest by treating it as a four-step
+workflow rather than as a menu of unrelated options:
+
+{phang2}1. {bf:Inspect the code inventory.}  Start with
+{helpb codescan_describe} to see which codes and chapter prefixes actually occur
+in your data.{p_end}
+
+{phang2}2. {bf:Draft and test simple rules.}  Write an initial
+{cmd:define()} specification and check the row-level results before adding
+windows, dates, or scores.{p_end}
+
+{phang2}3. {bf:Choose the output shape.}  Stay row-level for auditing, use
+{cmd:collapse} for one row per {cmd:id()}, or use {cmd:merge} when you need
+patient-level results attached back to the original encounters.{p_end}
+
+{phang2}4. {bf:Add advanced features last.}  Once the basic matches look right,
+layer on {cmd:lookback()}, {cmd:lookforward()}, date summaries,
+{cmd:hierarchy()}, scoring, and export/save options.{p_end}
+
+{pstd}
+In practice, a common sequence is
+{cmd:codescan_describe} {hline 1} {cmd:codescan, define(...)} at the row level
+{hline 1} {cmd:codescan, collapse} or {cmd:merge} {hline 1}
+{cmd:score()}, {cmd:export()}, or {cmd:saving()} for the final deliverable.
+
+
+{marker options}{...}
+{title:Options}
+
+{dlgtab:Definition source}
+
+{phang}
+{opt define(string)} specifies one or more condition definitions separated by
+{cmd:|}.  Each definition has the form
+{cmd:name "pattern" [~ "exclusion" [~ "exclusion2" ...]]}.  Example:
+{cmd:define(dm2 "E11" | htn "I1[0-35]" | dm_comp "E10[2-7]")}.
+
+{pmore}
+In {cmd:regex} mode, each inclusion and exclusion pattern is automatically
+anchored at the start of the code value.  For example, {cmd:"E11"} is treated
+as {cmd:^(E11)}.
+
+{pmore}
+In {cmd:prefix} mode, pipe-separated tokens are treated as alternative prefixes:
+{cmd:define(mammo "XF001|XF002" | colectomy "JFB|JFH")}.
+
+{pmore}
+Exclusions are checked inline for each code value.  An excluded value is ignored,
+but it does {it:not} cancel a valid match found in another variable on the same
+observation.  In {cmd:countmode}, excluded values simply contribute zero to the
+count.
+
+{pmore}
+Condition names must be valid Stata names, unique, and no longer than 26
+characters so that {cmd:_first}, {cmd:_last}, {cmd:_count}, and {cmd:_nrows} suffixes still
+fit inside Stata's 32-character variable-name limit.
+
+{phang}
+{opt codefile(string)} reads definitions from a CSV or {cmd:.dta} dataset.  The
+file must contain string variables {bf:name} and {bf:pattern}.  Optional columns
+are {bf:label}, {bf:exclusion}, and {bf:weight}.  Column names are matched
+case-insensitively.
+
+{pmore}
+Two bundled example codefiles are shipped with the package and can be requested
+directly by basename:
+{cmd:codefile(charlson_icd10_example.csv)} and
+{cmd:codefile(elixhauser_icd10_example.csv)}.
+
+{pmore}
+Use a codefile when definitions should be version-controlled, reused across
+projects, or shared with collaborators.
+
+{phang}
+{opt label(string)} assigns labels to named conditions.  Entries are separated by
+{cmd:\}.  Example:
+{cmd:label(dm2 "Type 2 diabetes" \ htn "Hypertension")}.
+Labels apply to the main indicator/count variable and any date-summary variables.
+If labels were supplied in {cmd:codefile()}, {cmd:label()} overrides them.
+
+{phang}
+{opt save(filename)} writes the parsed {cmd:define()} rules to a CSV with columns
+{cmd:name}, {cmd:pattern}, {cmd:exclusion}, and {cmd:label}.  The filename must
+end in {cmd:.csv}.  This option is not allowed with {cmd:codefile()} because a
+file-based definition source already exists.
+
+{dlgtab:Identifiers and windows}
+
+{phang}
+{opt id(varname)} specifies the patient or entity identifier.  It is required
+with {cmd:collapse} and {cmd:merge}.  Observations with missing {cmd:id()} are
+excluded from patient-level outputs.
+
+{phang}
+{opt date(varname)} specifies the row-level event date.  It must be numeric and
+stored on Stata's daily date scale.  It is required for windowing and for
+{cmd:earliestdate}, {cmd:latestdate}, and {cmd:countdate}.
+
+{phang}
+{opt refdate(varname)} specifies the reference date used by
+{cmd:lookback()} and {cmd:lookforward()}.  It must also be a numeric daily date.
+
+{phang}
+{opt lookback(#|numlist)} limits matches to observations within a backward window
+relative to {cmd:refdate}.  A single value such as {cmd:lookback(365)} scans one
+window.  A numlist such as {cmd:lookback(90 365 1825)} or {cmd:lookback(30(30)90)}
+performs a multi-window sensitivity analysis and returns {cmd:r(sensitivity)}.
+Multi-window use requires {cmd:collapse} or {cmd:merge}.
+
+{phang}
+{opt lookforward(#)} limits matches to observations within a forward window
+relative to {cmd:refdate}.  The argument must be a nonnegative integer.
+
+{phang}
+{opt inclusive} includes {cmd:refdate} in a single-direction window.  When both
+{cmd:lookback()} and {cmd:lookforward()} are specified, {cmd:refdate} is always
+included and {cmd:inclusive} is unnecessary.
+
+{pmore}
+Rows with missing {cmd:date()} or {cmd:refdate()} are excluded whenever
+windowing is used.
+
+{dlgtab:Result dataset}
+
+{phang}
+{opt collapse} reduces the data to one row per {cmd:id()}.  By default the
+condition variables are collapsed with {cmd:(max)} so that any qualifying row
+sets the patient-level indicator to 1.  With {cmd:countmode}, condition variables
+are collapsed with {cmd:(sum)} instead.
+
+{phang}
+{opt merge} computes patient-level results exactly as {cmd:collapse} would, then
+merges them back onto the original row structure.  Every row for a given
+{cmd:id()} receives the same patient-level values.
+
+{phang}
+{opt earliestdate}, {opt latestdate}, and {opt countdate} create
+{it:name}_first, {it:name}_last, and {it:name}_count variables, respectively.
+These require {cmd:date()} plus either {cmd:collapse} or {cmd:merge}.
+{cmd:countdate} counts unique dates with at least one qualifying match.
+
+{phang}
+{opt countrows} creates {it:name}_nrows variables containing the number of
+rows (observations) with a qualifying match for each condition.  Unlike
+{cmd:countdate}, which counts unique dates, {cmd:countrows} counts raw rows.
+This requires {cmd:collapse} or {cmd:merge} but does not require {cmd:date()}.
+With {cmd:countmode}, {cmd:_nrows} sums the per-row match counts rather than
+simply counting rows with any match.
+
+{phang}
+{opt alldates} is shorthand for specifying {cmd:earliestdate latestdate countdate}.
+It does not include {cmd:countrows}.
+
+{phang}
+{opt preserve} wraps the destructive part of {cmd:collapse} or {cmd:merge} in
+{cmd:preserve}/{cmd:restore}.  Summary output and returned results remain
+available, but the created variables are not left in the active dataset.  On that
+path, {cmd:r(newvars)} is empty because nothing remains in memory.
+
+{phang}
+{opt frame(name)} stores the final result dataset in a named frame and implies
+{cmd:preserve}.  With {cmd:collapse}, the frame receives the collapsed patient-
+level dataset.  With {cmd:merge}, the frame receives the merged row-level result.
+If the frame already exists, add {cmd:replace}.
+
+{phang}
+{opt saving(filename [, replace])} saves the final result dataset to disk after
+{cmd:collapse} or {cmd:merge}.  The only supported suboption is {cmd:replace}.
+
+{dlgtab:Scoring, diagnostics, and reporting}
+
+{phang}
+{opt detail} displays and returns a per-variable contribution table in
+{cmd:r(varcounts)}.  Counts reflect effective matches after exclusions and after
+binary short-circuiting.
+
+{phang}
+{opt cooccurrence} computes and returns {cmd:r(cooccurrence)}, a symmetric matrix
+of pairwise counts.  In row-level mode it counts observations.  After
+{cmd:collapse} or {cmd:merge}, it counts unique {cmd:id()} values.
+
+{phang}
+{opt score(string)} creates a weighted score variable named {cmd:_score}, or
+{cmd:{it:prefix}_score} when {cmd:generate()} is used.
+
+{pmore}
+{cmd:score(charlson)} applies the bundled Charlson mapping.  Standard aliases such
+as {cmd:mi}, {cmd:chf}, {cmd:renal}, {cmd:dm_uncomp}, {cmd:dm_comp},
+{cmd:liver_mild}, {cmd:liver_severe}, {cmd:cancer}, and {cmd:metastatic} are
+recognized.  Unrecognized names receive weight 0 and generate a note.
+
+{pmore}
+{cmd:score(elixhauser)} applies the bundled van Walraven Elixhauser weights.
+Again, unrecognized names receive weight 0 and generate a note.
+
+{pmore}
+{cmd:score(custom)} reads weights from the {bf:weight} column in {cmd:codefile()}.
+
+{pmore}
+For {cmd:charlson} and {cmd:elixhauser}, scoring uses binary presence even when
+{cmd:countmode} is specified.  Use {cmd:hierarchy()} when the score should respect
+superior/inferior condition pairs.
+
+{phang}
+{opt hierarchy(string)} applies condition supersession rules after patient-level
+aggregation and before scoring.  Rules are written as
+{cmd:superior > inferior} and separated by {cmd:\}.  Example:
+{cmd:hierarchy(dm_comp > dm_uncomp \ metastatic > cancer)}.
+This option requires {cmd:collapse} or {cmd:merge}.
+
+{pmore}
+If {cmd:generate()} is used, hierarchy rules may be written with bare condition
+names; {cmd:codescan} resolves the prefix automatically.
+
+{phang}
+{opt unmatched(name)} creates a row-level 0/1 flag equal to 1 when an observation
+matched no condition.  It is useful for auditing leftover codes.  The flag is not
+retained after {cmd:collapse}, but it is retained in row-level or {cmd:merge}
+output.
+
+{phang}
+{opt matched_code(name)} creates a row-level string variable containing the first
+code value that survived inclusion and exclusion checks for any condition.  It is
+empty when nothing matched.  Like {cmd:unmatched()}, it is not retained after
+{cmd:collapse}.
+
+{phang}
+{opt graph} draws a horizontal bar chart of condition prevalence.
+
+{phang}
+{opt export(filename)} writes the summary table to {cmd:.csv} or {cmd:.xlsx}.
+Exported columns are {cmd:condition}, {cmd:matches}, {cmd:prevalence},
+{cmd:ci_low}, {cmd:ci_high}, {cmd:pattern}, and {cmd:exclusion}.  When both
+{cmd:cooccurrence} and {cmd:export(.xlsx)} are used, the workbook receives a
+second sheet named {cmd:cooccurrence}.
+
+{phang}
+{opt format(%fmt)} controls the displayed and exported format of prevalence and
+confidence-interval columns.  The default prevalence format is {cmd:%9.1f}.
+
+{dlgtab:Matching behavior and naming}
+
+{phang}
+{opt mode(string)} chooses the matching engine.  {cmd:regex} is the default and
+anchors each pattern at the start of the code.  {cmd:prefix} compares simple
+pipe-separated prefixes and is usually faster on large datasets.
+
+{phang}
+{opt level(#)} truncates each prefix token to {it:#} characters before scanning.
+It is meaningful only in {cmd:mode(prefix)} and must be between 1 and 10.
+
+{phang}
+{opt nocase} uppercases both patterns and code values internally so matching is
+case-insensitive.
+
+{phang}
+{opt nodots} strips periods from each code value during matching.  The original
+data are unchanged.
+
+{phang}
+{opt tostring} converts numeric variables in {varlist} to string before scanning.
+This is helpful when code variables were imported as numeric rather than text.
+
+{phang}
+{opt countmode} stores integer counts rather than 0/1 indicators.  At the row
+level, each count is the number of code slots in {varlist} that matched the
+condition.  Under {cmd:collapse} or {cmd:merge}, patient-level counts are sums
+across qualifying rows.  Prevalence is still based on the proportion of
+observations or patients with a count greater than zero.
+
+{phang}
+{opt generate(prefix)} prefixes all created variable names, including date-summary
+variables and the score variable.  This is useful when diagnosis, procedure, and
+medication scans should coexist in the same dataset.
+
+{phang}
+{opt replace} allows overwriting existing output variables and existing frames
+named in {cmd:frame()}.
+
+{phang}
+{opt noisily} prints progress notes during execution, including per-condition
+match totals and hierarchy notes.
+
+
+{marker windows}{...}
+{title:Time windows}
+
+{pstd}
+The window rules implemented by {cmd:codescan} are:
+
+{phang2}{cmd:lookback(#)} only: date in [{cmd:refdate} - #, {cmd:refdate}){p_end}
+
+{phang2}{cmd:lookback(#)} with {cmd:inclusive}: date in [{cmd:refdate} - #, {cmd:refdate}]{p_end}
+
+{phang2}{cmd:lookforward(#)} only: date in ({cmd:refdate}, {cmd:refdate} + #]{p_end}
+
+{phang2}{cmd:lookforward(#)} with {cmd:inclusive}: date in [{cmd:refdate}, {cmd:refdate} + #]{p_end}
+
+{phang2}{cmd:lookback(#)} plus {cmd:lookforward(#)}: date in
+[{cmd:refdate} - lookback, {cmd:refdate} + lookforward]{p_end}
+
+{pstd}
+When a window is active, {cmd:r(N)} refers to the analyzed sample after {cmd:if},
+{cmd:in}, missing-date filtering, and window restrictions.  After
+{cmd:collapse}/{cmd:merge}, {cmd:r(N)} instead reports the number of unique
+patient IDs represented in the final summary.
+
+
+{marker remarks}{...}
+{title:Remarks}
+
+{pstd}
+{bf:Pattern choice.}  Use {cmd:regex} when you need character classes,
+alternation, or more complicated anchored expressions.  Use {cmd:prefix} when the
+rule is a simple startswith comparison and performance matters.
+
+{pstd}
+{bf:Reusable workflows.}  Many projects start with
+{helpb codescan_describe}, then write a first pass with {cmd:define()}, and
+finally freeze those rules with {cmd:save()} for future runs through
+{cmd:codefile()}.
+
+{pstd}
+{bf:Scores and hierarchy.}  Charlson and Elixhauser scoring are most defensible
+after aggregation to the patient level.  In practice that means using either
+{cmd:collapse} or {cmd:merge}, plus {cmd:hierarchy()} where severe conditions
+should supersede milder variants.
+
+{pstd}
+{bf:Frames and restore behavior.}  If you need a non-destructive workflow,
+{cmd:preserve} keeps the active dataset untouched and {cmd:frame()} gives you a
+named copy of the finished result dataset.  That is the recommended pattern when
+you want both the original encounter-level data and a patient-level summary in
+the same session.
+
+{pstd}
+{bf:Performance.}  {cmd:codescan} uses a Mata scanning engine.  The payoff is most
+visible when scanning many variables, when using {cmd:detail}, or when repeatedly
+applying the same rule set to large administrative datasets.
+
+
+{marker examples}{...}
+{title:Examples}
+
+{pstd}
+The following setup block is copy-paste runnable after {cmd:net install}.  Rerun
+it before examples that change the data in memory.
+
+{phang2}{cmd:. clear}{p_end}
+{phang2}{cmd:. input long pid str6 dx1 str6 dx2 str6 proc1 double visit_dt double index_dt}{p_end}
+{phang2}{cmd:      1 "E110" "I10"  "XF001" 21914 21915}{p_end}
+{phang2}{cmd:      1 "Z00"  "E119" ""      21880 21915}{p_end}
+{phang2}{cmd:      2 "I50"  ""     "JFB10" 21900 21915}{p_end}
+{phang2}{cmd:      2 "E102" ""     ""      22020 21915}{p_end}
+{phang2}{cmd:      3 "Z00"  ""     ""      21910 21915}{p_end}
+{phang2}{cmd:. end}{p_end}
+{phang2}{cmd:. format visit_dt index_dt %td}{p_end}
+
+{pstd}
+{bf:Example 1: Row-level indicators}
+
+{phang2}{cmd:. codescan dx1 dx2, define(dm2 "E11" | htn "I1[0-35]")}{p_end}
+
+{pstd}
+{bf:Example 2: Patient-level collapse with a lookback window and date summaries}
+
+{phang2}{cmd:. codescan dx1 dx2, id(pid) date(visit_dt) refdate(index_dt) ///}{p_end}
+{phang2}{cmd:    define(dm2 "E11" | htn "I1[0-35]" | chf "I50") ///}{p_end}
+{phang2}{cmd:    lookback(365) inclusive collapse alldates}{p_end}
+
+{pstd}
+{bf:Example 3: Prefix matching for procedure codes}
+
+{phang2}{cmd:. codescan proc1, define(mammo "XF001|XF002" | colectomy "JFB|JFH") mode(prefix)}{p_end}
+
+{pstd}
+{bf:Example 4: Save an inline rule set, then reuse it as a codefile}
+
+{phang2}{cmd:. codescan dx1 dx2, define(dm2 "E11" | htn "I1[0-35]") save(dm_rules.csv)}{p_end}
+{phang2}{cmd:. codescan dx1 dx2, codefile(dm_rules.csv)}{p_end}
+
+{pstd}
+{bf:Example 5: Charlson scoring with the bundled codefile}
+
+{phang2}{cmd:. codescan dx1 dx2, codefile(charlson_icd10_example.csv) id(pid) collapse ///}{p_end}
+{phang2}{cmd:    score(charlson) hierarchy(dm_comp > dm_uncomp \ liver_severe > liver_mild \ metastatic > cancer)}{p_end}
+
+{pstd}
+{bf:Example 6: Export a formatted summary and save the final dataset}
+
+{phang2}{cmd:. codescan dx1 dx2, define(dm2 "E11" | htn "I1[0-35]") id(pid) collapse ///}{p_end}
+{phang2}{cmd:    export(codescan_results.xlsx) saving(codescan_results.dta, replace) format(%9.2f)}{p_end}
+
+
+{marker results}{...}
+{title:Stored results}
+
+{pstd}
+{cmd:codescan} stores the following in {cmd:r()}:
+
+{synoptset 26 tabbed}{...}
+{p2col 5 26 30 2: Scalars}{p_end}
+{synopt:{cmd:r(N)}}analyzed observations, or unique {cmd:id()} values after {cmd:collapse}/{cmd:merge}{p_end}
+{synopt:{cmd:r(n_conditions)}}number of conditions defined{p_end}
+{synopt:{cmd:r(collapsed)}}1 if {cmd:collapse} was used, otherwise 0{p_end}
+{synopt:{cmd:r(merged)}}1 if {cmd:merge} was used, otherwise 0{p_end}
+{synopt:{cmd:r(mode_count)}}1 if {cmd:countmode} was used, otherwise 0{p_end}
+{synopt:{cmd:r(lookback)}}single lookback window when only one value was requested{p_end}
+{synopt:{cmd:r(lookforward)}}lookforward window when specified{p_end}
+{synopt:{cmd:r(ci_level)}}confidence level used for Wilson intervals{p_end}
+
+{p2col 5 26 30 2: Macros}{p_end}
+{synopt:{cmd:r(conditions)}}space-separated condition names in output order{p_end}
+{synopt:{cmd:r(newvars)}}variables left in memory on exit; empty after {cmd:preserve}/{cmd:restore}{p_end}
+{synopt:{cmd:r(varlist)}}scanned variables{p_end}
+{synopt:{cmd:r(mode)}}matching mode, {cmd:regex} or {cmd:prefix}{p_end}
+{synopt:{cmd:r(nocase)}}{cmd:nocase} when case-insensitive matching was used{p_end}
+{synopt:{cmd:r(generate)}}prefix supplied in {cmd:generate()}{p_end}
+{synopt:{cmd:r(define)}}full {cmd:define()} string when used{p_end}
+{synopt:{cmd:r(codefile)}}codefile path when used{p_end}
+{synopt:{cmd:r(id)}}identifier variable when specified{p_end}
+{synopt:{cmd:r(refdate)}}reference-date variable when windowing was used{p_end}
+{synopt:{cmd:r(frame)}}frame name when {cmd:frame()} was used{p_end}
+{synopt:{cmd:r(score)}}score type when {cmd:score()} was used{p_end}
+{synopt:{cmd:r(lookback)}}space-separated lookback values when multiple windows were requested{p_end}
+
+{p2col 5 26 30 2: Matrices}{p_end}
+{synopt:{cmd:r(summary)}}count, prevalence, ci_low, ci_high by condition{p_end}
+{synopt:{cmd:r(codelist)}}two-column subset of {cmd:r(summary)} with count and prevalence{p_end}
+{synopt:{cmd:r(varcounts)}}per-variable contribution counts when {cmd:detail} was used{p_end}
+{synopt:{cmd:r(cooccurrence)}}pairwise co-occurrence matrix when {cmd:cooccurrence} was used{p_end}
+{synopt:{cmd:r(sensitivity)}}multi-window prevalence matrix when multiple lookbacks were requested{p_end}
+
+
+{marker references}{...}
+{title:References}
+
+{pstd}
+Quan H, Sundararajan V, Halfon P, et al. (2005). ICD-9-CM and ICD-10 coding
+algorithms for defining comorbidities in administrative data.
+
+{pstd}
+Quan H, Li B, Couris CM, et al. (2011). Updated Charlson comorbidity weights for
+risk adjustment.
+
+{pstd}
+van Walraven C, Austin PC, Jennings A, Quan H, Forster AJ. (2009). A point-system
+adaptation of the Elixhauser comorbidity measure for hospital mortality.
+
+
+{marker author}{...}
+{title:Author}
+
+{pstd}Timothy P Copeland, Karolinska Institutet{p_end}
+
+
+{title:Also see}
+
+{psee}
+Online: {helpb codescan_describe}, {helpb collapse}, {helpb merge}, {helpb tostring}
+
+{hline}

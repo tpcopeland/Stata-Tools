@@ -1,0 +1,141 @@
+VERSION 16.0
+INCLUDE _std_large
+DEFINE _dlght 480
+DEFINE _dlgwd 640
+INCLUDE header
+
+HELP hlp1, view("help tvevent")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	program parseMessage
+	script max_setOptionalOn
+END
+
+SCRIPT POSTINIT
+BEGIN
+	script max_setDefaultWidth
+END
+
+DIALOG main, label("tvevent - Integrate events into time-varying data") tabtitle("Main")
+BEGIN
+  TEXT     tx_using      20  10  620  ., label("Event dataset:")
+  FILE     fi_using      20  +20 610  ., error("Event dataset") ///
+           label("Browse...") filter("Stata datasets|*.dta|All files|*.*")
+
+  GROUPBOX gb_required   10  60  620  115, label("Required variables")
+  TEXT     tx_id         20  +15 280  ., label("Person ID variable:")
+  VARNAME  vn_id         @   +20 @    ., label("ID variable")
+
+  TEXT     tx_date       330 -20 280  ., label("Event date variable (in using):")
+  EDIT     ed_date       @   +20 @    ., label("Event date")
+
+  TEXT     tx_gen        20  +25 280  ., label("Generate indicator variable:")
+  EDIT     ed_gen        @   +20 @    ., label("Generate") option(generate)
+
+  GROUPBOX gb_type       10  185 620  70, label("Event type")
+  RADIO    rb_single     20  +20 590  ., label("Single (terminal) - drops post-event time (e.g., death)") first
+  RADIO    rb_recur      @   +20 @    ., label("Recurring - keeps all time (e.g., hospitalization)") last
+
+  CHECKBOX ck_replace    20  +45 590  ., label("Replace output variables if they already exist") ///
+           option(replace)
+END
+
+DIALOG compete, tabtitle("Competing Risks")
+BEGIN
+  GROUPBOX gb_compete    10  10  620  100, label("Competing risk events")
+  TEXT     tx_compete    20  +20 590  ., label("Competing risk date variables (in event dataset):")
+  EDIT     ed_compete    @   +20 @    ., label("Competing risks") option(compete)
+  TEXT     tx_note1      @   +25 @    ., label("Note: Earliest date wins. Outcome coded 2, 3... in order listed.")
+
+  GROUPBOX gb_labels     10  115 620  140, label("Event labels (optional)")
+  TEXT     tx_labels     20  +20 590  ., label("Custom value labels:")
+  EDIT     ed_labels     @   +20 @    ., label("Event labels") option(eventlabel)
+  TEXT     tx_syntax     @   +25 @    ., label(`"Syntax: value1 "Label1" value2 "Label2" ..."')
+  TEXT     tx_ex1        @   +20 @    ., label(`"Example: 0 "Censored" 1 "Heart Failure" 2 "Death""')
+  TEXT     tx_note2      @   +20 @    ., label("Default: 0=Censored, 1=Primary event, 2+=Competing events")
+END
+
+DIALOG advanced, tabtitle("Advanced")
+BEGIN
+  GROUPBOX gb_cont       10  10  620  75, label("Continuous adjustment")
+  TEXT     tx_cont       20  +20 590  ., label("Cumulative exposure variables to adjust (in master):")
+  VARLIST  vl_cont       @   +20 @    ., label("Continuous") option(continuous)
+
+  GROUPBOX gb_time       10  95  620  100, label("Time generation")
+  CHECKBOX ck_time       20  +20 280  ., label("Generate duration variable") ///
+           onclickon(script time_on) onclickoff(script time_off)
+  TEXT     tx_timegen    20  +25 180  ., label("Variable name:")
+  EDIT     ed_timegen    @   +20 180  ., label("Time variable") option(timegen)
+  TEXT     tx_timeunit   330 -20 180  ., label("Unit:")
+  COMBOBOX cb_timeunit   @   +20 180  ., dropdownlist contents(units) ///
+           option(timeunit)
+
+  GROUPBOX gb_keep       10  220 620  75, label("Additional data")
+  TEXT     tx_keep       20  +20 590  ., label("Keep variables from event dataset:")
+  EDIT     ed_keep       @   +20 @    ., label("Keep variables") option(keepvars)
+END
+
+LIST units
+BEGIN
+	days
+	months
+	years
+END
+
+SCRIPT time_on
+BEGIN
+	advanced.ed_timegen.enable
+	advanced.tx_timegen.enable
+	advanced.cb_timeunit.enable
+	advanced.tx_timeunit.enable
+END
+
+SCRIPT time_off
+BEGIN
+	advanced.ed_timegen.disable
+	advanced.tx_timegen.disable
+	advanced.cb_timeunit.disable
+	advanced.tx_timeunit.disable
+END
+
+PROGRAM command
+BEGIN
+	put "tvevent using "
+	put `"""'
+	require main.fi_using
+	put main.fi_using
+	put `"""'
+	put ", "
+
+	require main.vn_id
+	put "id(" main.vn_id ") "
+
+	require main.ed_date
+	put "date(" main.ed_date ") "
+
+	optionarg main.ed_gen
+
+	if main.rb_single {
+		put "type(single) "
+	}
+	if main.rb_recur {
+		put "type(recurring) "
+	}
+
+	option main.ck_replace
+
+	optionarg compete.ed_compete
+	optionarg compete.ed_labels
+
+	optionarg advanced.vl_cont
+
+	if advanced.ck_time {
+		require advanced.ed_timegen
+		optionarg advanced.ed_timegen
+		optionarg advanced.cb_timeunit
+	}
+
+	optionarg advanced.ed_keep
+END

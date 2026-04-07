@@ -1,0 +1,555 @@
+*! tvweight Version 1.0.0  2026/04/08
+*! Calculate inverse probability of treatment weights (IPTW) for time-varying exposures
+*! Author: Tim Copeland
+*! Program class: rclass (returns results in r())
+
+/*
+Basic syntax:
+  tvweight exposure, covariates(varlist) [options]
+
+Required:
+  exposure            - Binary or categorical exposure variable
+  covariates(varlist) - Covariates for propensity score model
+
+Options:
+  generate(name)      - Name for weight variable (default: iptw)
+  model(string)       - Model type: logit (binary) or mlogit (categorical)
+  stabilized          - Calculate stabilized weights
+  truncate(# #)       - Truncate at lower/upper percentiles
+  tvcovariates(varlist) - Time-varying covariates (requires id and time)
+  id(varname)         - Person identifier for clustering
+  time(varname)       - Time variable for time-varying model
+  replace             - Replace existing weight variable
+  denominator(name)   - Also generate propensity score variable
+  nolog               - Suppress model iteration log
+
+Output:
+  Weight variable created with IPTW values
+  Diagnostic output showing weight distribution
+  Stored results with ESS and weight statistics
+
+Examples:
+  * Basic IPTW for binary treatment
+  tvweight treatment, covariates(age sex comorbidity) generate(iptw)
+
+  * Stabilized weights with truncation
+  tvweight treatment, covariates(age sex) stabilized truncate(1 99)
+
+  * Multinomial for 3+ category exposure
+  tvweight drug_type, covariates(age sex) model(mlogit) generate(mw)
+
+See help tvweight for complete documentation
+*/
+
+program define tvweight, rclass
+    version 16.0
+    local orig_varabbrev = c(varabbrev)
+    local orig_more = c(more)
+    set varabbrev off
+    set more off
+
+    capture noisily {
+
+    * Parse syntax
+    syntax varname(numeric) [if] [in], COVariates(varlist numeric) ///
+        [GENerate(name) MODEL(string) STABilized ///
+         TRUNCate(numlist min=2 max=2) ///
+         TVCovariates(varlist numeric) ID(varname) TIME(varname) ///
+         REPLACE DENominator(name) noLOG]
+
+    local exposure `varlist'
+
+    * =========================================================================
+    * VALIDATION
+    * =========================================================================
+
+    * Set defaults
+    if "`generate'" == "" local generate "iptw"
+    if "`model'" == "" local model "logit"
+
+    * Validate model type
+    if !inlist("`model'", "logit", "mlogit") {
+        display as error "model() must be logit or mlogit"
+        exit 198
+    }
+
+    * Validate truncation percentiles
+    if "`truncate'" != "" {
+        local trunc_lo: word 1 of `truncate'
+        local trunc_hi: word 2 of `truncate'
+
+        if `trunc_lo' < 0 | `trunc_lo' > 100 {
+            display as error "truncate() lower bound must be between 0 and 100"
+            exit 198
+        }
+        if `trunc_hi' < 0 | `trunc_hi' > 100 {
+            display as error "truncate() upper bound must be between 0 and 100"
+            exit 198
+        }
+        if `trunc_lo' >= `trunc_hi' {
+            display as error "truncate() lower bound must be less than upper bound"
+            exit 198
+        }
+    }
+
+    * Time-varying covariates require id and time
+    if "`tvcovariates'" != "" {
+        if "`id'" == "" | "`time'" == "" {
+            display as error "tvcovariates() requires id() and time() options"
+            exit 198
+        }
+    }
+
+    * Check if generate variable already exists
+    capture confirm variable `generate'
+    if _rc == 0 {
+        if "`replace'" == "" {
+            display as error "variable `generate' already exists; use replace option"
+            exit 110
+        }
+        else {
+            quietly drop `generate'
+        }
+    }
+
+    * Check if denominator variable already exists
+    if "`denominator'" != "" {
+        capture confirm variable `denominator'
+        if _rc == 0 {
+            if "`replace'" == "" {
+                display as error "variable `denominator' already exists; use replace option"
+                exit 110
+            }
+            else {
+                quietly drop `denominator'
+            }
+        }
+    }
+
+    * Mark estimation sample BEFORE level checks
+    marksample touse
+    markout `touse' `covariates' `tvcovariates'
+    if "`id'" != "" markout `touse' `id'
+    if "`time'" != "" markout `touse' `time'
+
+    quietly count if `touse'
+    local n_obs = r(N)
+    if `n_obs' == 0 {
+        display as error "no valid observations"
+        exit 2000
+    }
+
+    * Check exposure levels within estimation sample
+    quietly tab `exposure' if `touse'
+    local n_levels = r(r)
+
+    if `n_levels' < 2 {
+        display as error "exposure variable must have at least 2 levels in the estimation sample"
+        exit 198
+    }
+
+    if `n_levels' > 2 & "`model'" == "logit" {
+        display as text "Note: exposure has `n_levels' levels; switching to mlogit model"
+        local model "mlogit"
+    }
+
+    if `n_levels' == 2 & "`model'" == "mlogit" {
+        display as text "Note: binary exposure; using logit model instead of mlogit"
+        local model "logit"
+    }
+
+    * For binary logit: verify exposure is coded 0/1
+    if "`model'" == "logit" {
+        quietly summarize `exposure' if `touse'
+        if r(min) != 0 | r(max) != 1 {
+            display as error "binary exposure must be coded 0/1 for logit model"
+            display as error "`exposure' has values `=r(min)' and `=r(max)'"
+            display as error "Recode with: recode `exposure' (`=r(min)'=0) (`=r(max)'=1)"
+            exit 198
+        }
+    }
+
+    * =========================================================================
+    * PROPENSITY SCORE MODEL
+    * =========================================================================
+
+    * Get reference level (lowest value)
+    quietly sum `exposure' if `touse'
+    local ref_level = r(min)
+
+    * Build full covariate list
+    local all_covars "`covariates'"
+    if "`tvcovariates'" != "" {
+        local all_covars "`all_covars' `tvcovariates'"
+    }
+
+    * Panel-aware: include time fixed effects when id()/time() specified
+    local panel_mode = 0
+    if "`id'" != "" & "`time'" != "" {
+        local panel_mode = 1
+        local all_covars "`all_covars' i.`time'"
+
+        * Report panel structure
+        tempvar _nobs_per_id _id_tag
+        quietly bysort `id': gen long `_nobs_per_id' = sum(`touse') if `touse'
+        quietly bysort `id': replace `_nobs_per_id' = `_nobs_per_id'[_N] if `touse'
+        quietly gen byte `_id_tag' = 0
+        quietly bysort `id': replace `_id_tag' = 1 if _n == 1 & `touse'
+        quietly count if `_id_tag' == 1
+        local n_clusters = r(N)
+        quietly summarize `_nobs_per_id' if `_id_tag' == 1, meanonly
+        local mean_obs = r(mean)
+        local min_obs = r(min)
+        local max_obs = r(max)
+        drop `_nobs_per_id' `_id_tag'
+    }
+
+    display as text "{hline 70}"
+    display as text "{bf:IPTW Weight Calculation}"
+    display as text "{hline 70}"
+    display as text ""
+    display as text "Exposure variable: " as result "`exposure'"
+    display as text "Number of levels:  " as result "`n_levels'"
+    display as text "Model type:        " as result "`model'"
+    display as text "Covariates:        " as result "`covariates'"
+    if "`tvcovariates'" != "" {
+        display as text "TV Covariates:     " as result "`tvcovariates'"
+    }
+    display as text "Observations:      " as result "`n_obs'"
+    if `panel_mode' {
+        display as text "Panel structure:   " as result "`n_clusters' clusters"
+        display as text "Obs per cluster:   " as result %4.1f `mean_obs' ///
+            " (range: `min_obs'-`max_obs')"
+        display as text "Time FE:           " as result "i.`time'"
+    }
+    display as text ""
+
+    * Fit propensity score model
+    display as text "Fitting propensity score model..."
+
+    tempvar ps
+
+    if "`model'" == "logit" {
+        * Binary logistic regression
+        local vce_opt ""
+        if `panel_mode' {
+            local vce_opt "vce(cluster `id')"
+        }
+        if "`log'" == "nolog" {
+            capture quietly logit `exposure' `all_covars' if `touse', nolog `vce_opt'
+        }
+        else {
+            capture noisily logit `exposure' `all_covars' if `touse' `vce_opt'
+        }
+        if _rc {
+            display as error "Propensity score logit model failed to converge"
+            display as error "Check that exposure is binary and covariates have sufficient variation"
+            exit _rc
+        }
+
+        * Predict propensity score (probability of being treated)
+        quietly predict double `ps' if `touse', pr
+    }
+    else {
+        * Multinomial logistic regression
+        local vce_opt ""
+        if `panel_mode' {
+            local vce_opt "vce(cluster `id')"
+        }
+        if "`log'" == "nolog" {
+            capture quietly mlogit `exposure' `all_covars' if `touse', baseoutcome(`ref_level') nolog `vce_opt'
+        }
+        else {
+            capture noisily mlogit `exposure' `all_covars' if `touse', baseoutcome(`ref_level') `vce_opt'
+        }
+        if _rc {
+            display as error "Propensity score multinomial logit model failed to converge"
+            display as error "Check that exposure levels have sufficient observations and covariates have variation"
+            exit _rc
+        }
+
+        * For mlogit: populate ps with probability of observed treatment
+        * so the PS boundary check below works for both logit and mlogit
+        quietly {
+            gen double `ps' = .
+            levelsof `exposure' if `touse', local(levels)
+            local k = 0
+            foreach lev of local levels {
+                local k = `k' + 1
+                tempvar _ps_k`k'
+                predict double `_ps_k`k'' if `touse', pr outcome(`lev')
+                replace `ps' = `_ps_k`k'' if `exposure' == `lev' & `touse'
+            }
+        }
+    }
+
+    * =========================================================================
+    * WEIGHT CALCULATION
+    * =========================================================================
+
+    display as text ""
+
+    * Check for extreme propensity scores and warn
+    quietly summarize `ps' if `touse'
+    if r(min) < 0.001 | r(max) > 0.999 {
+        quietly count if (`ps' < 0.001 | `ps' > 0.999) & `touse'
+        local n_extreme = r(N)
+        display as text "{bf:Warning:} `n_extreme' observations with extreme propensity scores (< 0.001 or > 0.999)"
+        display as text "  Propensity scores capped at [0.001, 0.999] to prevent infinite weights"
+        display as text "  Consider truncate() option or reviewing model specification"
+        quietly replace `ps' = max(0.001, min(0.999, `ps')) if `touse'
+    }
+
+    display as text "Calculating weights..."
+
+    quietly {
+        if "`model'" == "logit" {
+            * Binary IPTW: 1/PS for treated, 1/(1-PS) for untreated
+            * Treated is the NON-reference level (higher value)
+            gen double `generate' = .
+
+            * For treated (exposure = max level, not reference)
+            replace `generate' = 1 / `ps' if `exposure' != `ref_level' & `touse'
+
+            * For untreated (reference level)
+            replace `generate' = 1 / (1 - `ps') if `exposure' == `ref_level' & `touse'
+
+            * Save denominator (propensity score) if requested
+            if "`denominator'" != "" {
+                gen double `denominator' = `ps' if `touse'
+                label variable `denominator' "Propensity score P(exposure=1|X)"
+            }
+        }
+        else {
+            * Multinomial IPTW: 1/P(A=a|X) for each category
+            * Use capped ps (probability of observed treatment) for weights
+            gen double `generate' = 1 / `ps' if `touse'
+
+            * Save denominator if requested (probability of observed treatment)
+            if "`denominator'" != "" {
+                gen double `denominator' = `ps' if `touse'
+                label variable `denominator' "Propensity score P(exposure=a|X)"
+            }
+        }
+    }
+
+    * =========================================================================
+    * STABILIZED WEIGHTS (optional)
+    * =========================================================================
+
+    if "`stabilized'" != "" {
+        display as text "Calculating stabilized weights..."
+
+        quietly {
+            if "`model'" == "logit" {
+                * Marginal probability of treatment
+                sum `exposure' if `touse'
+                local marg_prob = r(mean)
+
+                * Stabilized weight = marginal prob / PS for treated
+                * Stabilized weight = (1 - marginal prob) / (1 - PS) for untreated
+                replace `generate' = `marg_prob' / `ps' if `exposure' != `ref_level' & `touse'
+                replace `generate' = (1 - `marg_prob') / (1 - `ps') if `exposure' == `ref_level' & `touse'
+            }
+            else {
+                * For multinomial: multiply by marginal probability of each level
+                levelsof `exposure' if `touse', local(levels)
+                foreach lev of local levels {
+                    count if `exposure' == `lev' & `touse'
+                    local n_lev = r(N)
+                    local marg_prob_lev = `n_lev' / `n_obs'
+                    replace `generate' = `generate' * `marg_prob_lev' if `exposure' == `lev' & `touse'
+                }
+            }
+        }
+    }
+
+    * =========================================================================
+    * TRUNCATION (optional)
+    * =========================================================================
+
+    local n_truncated = 0
+    if "`truncate'" != "" {
+        display as text "Truncating weights at `trunc_lo'th and `trunc_hi'th percentiles..."
+
+        quietly {
+            * Get percentile values
+            _pctile `generate' if `touse', percentiles(`trunc_lo' `trunc_hi')
+            local lo_val = r(r1)
+            local hi_val = r(r2)
+
+            * Count truncated
+            count if `generate' < `lo_val' & `touse' & !missing(`generate')
+            local n_lo = r(N)
+            count if `generate' > `hi_val' & `touse' & !missing(`generate')
+            local n_hi = r(N)
+            local n_truncated = `n_lo' + `n_hi'
+
+            * Truncate
+            replace `generate' = `lo_val' if `generate' < `lo_val' & `touse' & !missing(`generate')
+            replace `generate' = `hi_val' if `generate' > `hi_val' & `touse' & !missing(`generate')
+        }
+
+        display as text "  Truncated `n_truncated' observations (`n_lo' low, `n_hi' high)"
+    }
+
+    * =========================================================================
+    * DIAGNOSTICS
+    * =========================================================================
+
+    display as text ""
+    display as text "{hline 70}"
+    display as text "Weight Diagnostics"
+    display as text "{hline 70}"
+
+    * Weight summary statistics
+    quietly sum `generate' if `touse', detail
+    local w_mean = r(mean)
+    local w_sd = r(sd)
+    local w_min = r(min)
+    local w_max = r(max)
+    local w_p1 = r(p1)
+    local w_p5 = r(p5)
+    local w_p25 = r(p25)
+    local w_p50 = r(p50)
+    local w_p75 = r(p75)
+    local w_p95 = r(p95)
+    local w_p99 = r(p99)
+
+    display as text ""
+    display as text "Weight distribution:"
+    display as text "  Mean:     " as result %9.4f `w_mean'
+    display as text "  SD:       " as result %9.4f `w_sd'
+    display as text "  Min:      " as result %9.4f `w_min'
+    display as text "  Max:      " as result %9.4f `w_max'
+    display as text ""
+    display as text "Percentiles:"
+    display as text "  1%:       " as result %9.4f `w_p1'
+    display as text "  5%:       " as result %9.4f `w_p5'
+    display as text "  25%:      " as result %9.4f `w_p25'
+    display as text "  50%:      " as result %9.4f `w_p50'
+    display as text "  75%:      " as result %9.4f `w_p75'
+    display as text "  95%:      " as result %9.4f `w_p95'
+    display as text "  99%:      " as result %9.4f `w_p99'
+
+    * Effective sample size calculation
+    quietly {
+        * ESS = (sum of weights)^2 / sum of squared weights
+        sum `generate' if `touse'
+        local sum_w = r(sum)
+
+        tempvar w2
+        gen double `w2' = `generate'^2 if `touse'
+        sum `w2' if `touse'
+        local sum_w2 = r(sum)
+        drop `w2'
+    }
+
+    local ess = (`sum_w'^2) / `sum_w2'
+    local ess_pct = 100 * `ess' / `n_obs'
+
+    display as text ""
+    display as text "Effective sample size:"
+    display as text "  ESS:      " as result %9.1f `ess' as text " (of `n_obs' observations)"
+    display as text "  ESS %:    " as result %9.1f `ess_pct' "%"
+
+    * Warning for extreme weights
+    if `w_max' / `w_min' > 100 {
+        display as text ""
+        display as error "Warning: Weight ratio (max/min) > 100. Consider truncation."
+    }
+
+    * Weight distribution by exposure group
+    display as text ""
+    display as text "Weights by exposure group:"
+    display as text "{hline 50}"
+
+    if "`model'" == "logit" {
+        quietly sum `generate' if `exposure' == `ref_level' & `touse'
+        local n0 = r(N)
+        local mean0 = r(mean)
+        local sd0 = r(sd)
+
+        quietly sum `generate' if `exposure' != `ref_level' & `touse'
+        local n1 = r(N)
+        local mean1 = r(mean)
+        local sd1 = r(sd)
+
+        display as text "  Reference (`exposure'=`ref_level'): N=" as result `n0' ///
+            as text ", Mean=" as result %7.3f `mean0' as text ", SD=" as result %7.3f `sd0'
+        display as text "  Exposed (`exposure'!=`ref_level'):  N=" as result `n1' ///
+            as text ", Mean=" as result %7.3f `mean1' as text ", SD=" as result %7.3f `sd1'
+    }
+    else {
+        levelsof `exposure' if `touse', local(levels)
+        foreach lev of local levels {
+            quietly sum `generate' if `exposure' == `lev' & `touse'
+            local n_lev = r(N)
+            local mean_lev = r(mean)
+            local sd_lev = r(sd)
+            display as text "  Level `lev': N=" as result `n_lev' ///
+                as text ", Mean=" as result %7.3f `mean_lev' as text ", SD=" as result %7.3f `sd_lev'
+        }
+    }
+
+    display as text "{hline 70}"
+
+    * Add variable label
+    if "`stabilized'" != "" {
+        label variable `generate' "Stabilized IPTW for `exposure'"
+    }
+    else {
+        label variable `generate' "IPTW for `exposure'"
+    }
+
+    display as text ""
+    display as result "Weight variable `generate' created successfully."
+    display as text "{hline 70}"
+
+    * =========================================================================
+    * RETURN VALUES
+    * =========================================================================
+
+    return scalar N = `n_obs'
+    return scalar n_levels = `n_levels'
+    return scalar ess = `ess'
+    return scalar ess_pct = `ess_pct'
+    return scalar w_mean = `w_mean'
+    return scalar w_sd = `w_sd'
+    return scalar w_min = `w_min'
+    return scalar w_max = `w_max'
+    return scalar w_p1 = `w_p1'
+    return scalar w_p5 = `w_p5'
+    return scalar w_p25 = `w_p25'
+    return scalar w_p50 = `w_p50'
+    return scalar w_p75 = `w_p75'
+    return scalar w_p95 = `w_p95'
+    return scalar w_p99 = `w_p99'
+
+    if "`truncate'" != "" {
+        return scalar n_truncated = `n_truncated'
+        return scalar trunc_lo = `trunc_lo'
+        return scalar trunc_hi = `trunc_hi'
+    }
+
+    return local exposure "`exposure'"
+    return local covariates "`covariates'"
+    return local model "`model'"
+    return local generate "`generate'"
+    if "`stabilized'" != "" {
+        return local stabilized "stabilized"
+    }
+    if "`denominator'" != "" {
+        return local denominator "`denominator'"
+    }
+
+    } // end capture noisily
+    local rc = _rc
+
+    set varabbrev `orig_varabbrev'
+    set more `orig_more'
+
+    if `rc' {
+        exit `rc'
+    }
+end

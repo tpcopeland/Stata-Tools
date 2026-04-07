@@ -1,0 +1,25 @@
+v 3
+d 'SPAGHETTI': Longitudinal trajectory visualization with group mean overlays
+d
+d Longitudinal trajectory visualization with individual spaghetti lines
+d and optional group mean overlays. Produces publication-ready graphs
+d showing individual-level change over time, with flexible options for
+d grouping, coloring, and smoothing.
+d
+d Requires: Stata version 16+
+d
+d Distribution-Date: 20260408
+d License: MIT
+d
+d Author: Timothy P Copeland, Karolinska Institutet
+d
+d KW: spaghetti
+d KW: longitudinal
+d KW: trajectory
+d KW: panel
+d KW: repeated measures
+d
+f spaghetti.ado
+f spaghetti.sthlp
+f _spaghetti_sample.ado
+f _spaghetti_mean.ado

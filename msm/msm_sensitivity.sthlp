@@ -1,0 +1,116 @@
+{smcl}
+{* *! version 1.0.0  08apr2026}{...}
+{vieweralsosee "msm" "help msm"}{...}
+{vieweralsosee "msm_fit" "help msm_fit"}{...}
+{vieweralsosee "msm_table" "help msm_table"}{...}
+{viewerjumpto "Syntax" "msm_sensitivity##syntax"}{...}
+{viewerjumpto "Description" "msm_sensitivity##description"}{...}
+{viewerjumpto "Options" "msm_sensitivity##options"}{...}
+{viewerjumpto "Stored results" "msm_sensitivity##stored"}{...}
+{viewerjumpto "Examples" "msm_sensitivity##examples"}{...}
+{viewerjumpto "References" "msm_sensitivity##references"}{...}
+{viewerjumpto "Author" "msm_sensitivity##author"}{...}
+
+{title:Title}
+
+{phang}
+{bf:msm_sensitivity} {hline 2} Sensitivity analysis for unmeasured confounding
+
+
+{marker syntax}{...}
+{title:Syntax}
+
+{p 8 17 2}
+{cmdab:msm_sensitivity}
+[{cmd:,} {it:options}]
+
+{synoptset 30 tabbed}{...}
+{synopthdr}
+{synoptline}
+{synopt:{opt eva:lue}}compute E-value (default){p_end}
+{synopt:{opt conf:ounding_strength(# #)}}RR(U,D) and RR(U,Y) for bias factor{p_end}
+{synopt:{opt level(#)}}confidence level; default 95{p_end}
+{synoptline}
+
+
+{marker description}{...}
+{title:Description}
+
+{pstd}
+{cmd:msm_sensitivity} assesses sensitivity to unmeasured confounding.
+
+{pstd}
+The {bf:E-value} (VanderWeele & Ding 2017) is the minimum strength of
+association on the risk ratio scale that an unmeasured confounder would
+need with both treatment and outcome to explain away the observed effect.
+
+{pstd}
+{bf:Confounding strength bounds} compute the bias factor given hypothetical
+confounder-treatment (RR_UD) and confounder-outcome (RR_UY) associations.
+
+
+{marker options}{...}
+{title:Options}
+
+{phang}
+{opt evalue} computes the E-value for the point estimate and (if available)
+the confidence interval bound closest to the null. This is the default
+if no other option is specified.
+
+{phang}
+{opt confounding_strength(# #)} specifies hypothetical RR(U,D) and RR(U,Y)
+values for a specific bias factor computation. The first number is the
+confounder-treatment association and the second is the confounder-outcome
+association.
+
+{phang}
+{opt level(#)} specifies the confidence level. Default is 95.
+
+
+{marker stored}{...}
+{title:Stored results}
+
+{pstd}
+{cmd:msm_sensitivity} stores the following in {cmd:r()}:
+
+{synoptset 20 tabbed}{...}
+{p2col 5 20 24 2: Scalars}{p_end}
+{synopt:{cmd:r(evalue_point)}}E-value for point estimate{p_end}
+{synopt:{cmd:r(evalue_ci)}}E-value for CI bound{p_end}
+{synopt:{cmd:r(effect)}}treatment effect estimate{p_end}
+{synopt:{cmd:r(effect_lo)}}lower CI bound{p_end}
+{synopt:{cmd:r(effect_hi)}}upper CI bound{p_end}
+{synopt:{cmd:r(bias_factor)}}bias factor (when {opt confounding_strength()} specified){p_end}
+{synopt:{cmd:r(corrected_effect)}}corrected effect estimate{p_end}
+{synopt:{cmd:r(rr_ud)}}hypothetical RR(U,D){p_end}
+{synopt:{cmd:r(rr_uy)}}hypothetical RR(U,Y){p_end}
+
+{p2col 5 20 24 2: Macros}{p_end}
+{synopt:{cmd:r(effect_label)}}effect measure label{p_end}
+{synopt:{cmd:r(model)}}model type{p_end}
+
+
+{marker examples}{...}
+{title:Examples}
+
+{phang2}{cmd:. msm_sensitivity, evalue}{p_end}
+{phang2}{cmd:. msm_sensitivity, confounding_strength(1.5 2.0)}{p_end}
+
+
+{marker references}{...}
+{title:References}
+
+{phang}
+VanderWeele TJ, Ding P. Sensitivity analysis in observational research:
+introducing the E-value. {it:Annals of Internal Medicine}. 2017;167(4):268-274.
+
+
+{marker author}{...}
+{title:Author}
+
+{pstd}
+Timothy P Copeland, Karolinska Institutet{break}
+timothy.copeland@ki.se
+{p_end}
+
+{hline}

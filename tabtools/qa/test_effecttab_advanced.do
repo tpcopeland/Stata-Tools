@@ -1,0 +1,323 @@
+* Advanced effecttab tests: from() matrix, multi-model, edge cases
+clear all
+set more off
+capture ado uninstall tabtools
+net install tabtools, from("/home/tpcopeland/Stata-Tools/tabtools") replace
+
+local n_pass = 0
+local n_fail = 0
+
+* ============================================================
+* Test 1: from() matrix path (should be unaffected by IPTW changes)
+* ============================================================
+sysuse auto, clear
+matrix mymat = (1.5, 0.8, 2.2, 0.04 \ 2.3, 1.1, 3.5, 0.001 \ -0.5, -1.2, 0.2, 0.15)
+matrix rownames mymat = Age Sex BMI
+
+capture noisily {
+    effecttab, from(mymat) display title("From Matrix Test") effect("OR")
+    assert r(N_rows) > 0
+    * from() with no prior teffects defaults to margins type
+    assert r(type) == "margins"
+}
+if _rc == 0 {
+    display as result "PASS: T1 — from() matrix works"
+    local ++n_pass
+}
+else {
+    display as error "FAIL: T1 — from() matrix failed (rc=`=_rc')"
+    local ++n_fail
+}
+
+* ============================================================
+* Test 2: from() matrix with Excel export
+* ============================================================
+capture noisily {
+    effecttab, from(mymat) xlsx("/tmp/test_from_matrix.xlsx") sheet("Matrix") ///
+        title("Matrix Results") effect("OR") digits(2)
+    confirm file "/tmp/test_from_matrix.xlsx"
+}
+if _rc == 0 {
+    display as result "PASS: T2 — from() matrix Excel export works"
+    local ++n_pass
+}
+else {
+    display as error "FAIL: T2 — from() matrix Excel export failed (rc=`=_rc')"
+    local ++n_fail
+}
+
+* ============================================================
+* Test 3: Multi-model effecttab (two teffects collected)
+* ============================================================
+webuse cattaneo2, clear
+label define smokelbl 0 "Non-smoker" 1 "Smoker"
+label values mbsmoke smokelbl
+
+capture noisily {
+    collect clear
+    collect: teffects ra (bweight mage prenatal1 mmarried fbaby) (mbsmoke), ate
+    collect: teffects ipw (bweight) (mbsmoke mage prenatal1 mmarried fbaby), ate
+    effecttab, display title("Multi-Model") effect("ATE") ///
+        models("RA \ IPW") clean
+    assert r(N_rows) > 0
+}
+if _rc == 0 {
+    display as result "PASS: T3 — multi-model effecttab works"
+    local ++n_pass
+}
+else {
+    display as error "FAIL: T3 — multi-model effecttab failed (rc=`=_rc')"
+    local ++n_fail
+}
+
+* ============================================================
+* Test 4: effecttab with psmatch
+* ============================================================
+capture noisily {
+    collect clear
+    collect: teffects psmatch (bweight) (mbsmoke mage prenatal1 mmarried fbaby), ate
+    effecttab, display title("PSMatch") effect("ATE")
+    local _nrows = r(N_rows)
+    * Should be filtered (no PS model coefficients)
+    assert `_nrows' <= 8
+}
+if _rc == 0 {
+    display as result "PASS: T4 — psmatch effecttab filtered (`_nrows' rows)"
+    local ++n_pass
+}
+else {
+    display as error "FAIL: T4 — psmatch effecttab failed (rc=`=_rc')"
+    local ++n_fail
+}
+
+* ============================================================
+* Test 5: effecttab with nnmatch
+* ============================================================
+capture noisily {
+    collect clear
+    collect: teffects nnmatch (bweight mage prenatal1 mmarried fbaby) (mbsmoke), ate nneighbor(1)
+    effecttab, display title("NNMatch") effect("ATE")
+    local _nrows = r(N_rows)
+    assert `_nrows' <= 8
+}
+if _rc == 0 {
+    display as result "PASS: T5 — nnmatch effecttab filtered (`_nrows' rows)"
+    local ++n_pass
+}
+else {
+    display as error "FAIL: T5 — nnmatch effecttab failed (rc=`=_rc')"
+    local ++n_fail
+}
+
+* ============================================================
+* Test 6: effecttab with addrow()
+* ============================================================
+capture noisily {
+    collect clear
+    collect: teffects ipw (bweight) (mbsmoke mage prenatal1 mmarried fbaby), ate
+    effecttab, display title("IPTW + AddRow") effect("ATE") clean ///
+        addrow("N" 4642)
+    assert r(N_rows) > 5
+}
+if _rc == 0 {
+    display as result "PASS: T6 — addrow() with IPTW works"
+    local ++n_pass
+}
+else {
+    display as error "FAIL: T6 — addrow() with IPTW failed (rc=`=_rc')"
+    local ++n_fail
+}
+
+* ============================================================
+* Test 7: effecttab frame() + display combined
+* ============================================================
+capture frame drop _eff_frame
+capture noisily {
+    collect clear
+    collect: teffects ipw (bweight) (mbsmoke mage prenatal1 mmarried fbaby), ate
+    effecttab, display title("IPTW Frame") effect("ATE") clean frame(_eff_frame)
+    assert r(frame) == "_eff_frame"
+    frame _eff_frame: assert _N > 0
+}
+if _rc == 0 {
+    display as result "PASS: T7 — frame() + display with IPTW works"
+    local ++n_pass
+}
+else {
+    display as error "FAIL: T7 — frame() + display with IPTW failed (rc=`=_rc')"
+    local ++n_fail
+}
+capture frame drop _eff_frame
+
+* ============================================================
+* Test 8: effecttab CSV export
+* ============================================================
+capture noisily {
+    collect clear
+    collect: teffects ipw (bweight) (mbsmoke mage prenatal1 mmarried fbaby), ate
+    effecttab, csv("/tmp/test_iptw.csv") title("IPTW CSV") effect("ATE") clean
+    confirm file "/tmp/test_iptw.csv"
+}
+if _rc == 0 {
+    display as result "PASS: T8 — CSV export with IPTW works"
+    local ++n_pass
+}
+else {
+    display as error "FAIL: T8 — CSV export with IPTW failed (rc=`=_rc')"
+    local ++n_fail
+}
+
+* ============================================================
+* Test 9: effecttab r(table) matrix correctness
+* ============================================================
+capture noisily {
+    collect clear
+    collect: teffects ipw (bweight) (mbsmoke mage prenatal1 mmarried fbaby), ate
+    effecttab, display title("IPTW r(table)") effect("ATE") clean
+    matrix list r(table)
+    * r(table) should have estimate and p-value columns
+    local _ncols = colsof(r(table))
+    assert `_ncols' == 2
+    * Row 1 may be a section header (missing); row 2 has the ATE value
+    local _nrtable = rowsof(r(table))
+    assert `_nrtable' >= 2
+}
+if _rc == 0 {
+    display as result "PASS: T9 — r(table) matrix correct for IPTW"
+    local ++n_pass
+}
+else {
+    display as error "FAIL: T9 — r(table) matrix wrong for IPTW (rc=`=_rc')"
+    local ++n_fail
+}
+
+* ============================================================
+* Test 10: Data preservation after effecttab
+* ============================================================
+capture noisily {
+    webuse cattaneo2, clear
+    local orig_n = _N
+    collect clear
+    collect: teffects ipw (bweight) (mbsmoke mage prenatal1 mmarried fbaby), ate
+    effecttab, display effect("ATE")
+    assert _N == `orig_n'
+}
+if _rc == 0 {
+    display as result "PASS: T10 — data preserved after effecttab"
+    local ++n_pass
+}
+else {
+    display as error "FAIL: T10 — data not preserved (rc=`=_rc')"
+    local ++n_fail
+}
+
+* ============================================================
+* Test 11: effecttab with subtitle and footnote
+* ============================================================
+capture noisily {
+    webuse cattaneo2, clear
+    collect clear
+    collect: teffects ipw (bweight) (mbsmoke mage prenatal1 mmarried fbaby), ate
+    effecttab, xlsx("/tmp/test_iptw_subtitle.xlsx") sheet("Sub") ///
+        title("IPTW Effect") subtitle("Adjusted for confounders") ///
+        footnote("Source: Cattaneo 2010") effect("ATE")
+    confirm file "/tmp/test_iptw_subtitle.xlsx"
+}
+if _rc == 0 {
+    display as result "PASS: T11 — subtitle + footnote with IPTW works"
+    local ++n_pass
+}
+else {
+    display as error "FAIL: T11 — subtitle + footnote failed (rc=`=_rc')"
+    local ++n_fail
+}
+
+* ============================================================
+* Test 12: effecttab with theme
+* ============================================================
+capture noisily {
+    webuse cattaneo2, clear
+    collect clear
+    collect: teffects ipw (bweight) (mbsmoke mage prenatal1 mmarried fbaby), ate
+    effecttab, xlsx("/tmp/test_iptw_theme.xlsx") sheet("Lancet") ///
+        title("IPTW Lancet") effect("ATE") theme(lancet)
+    confirm file "/tmp/test_iptw_theme.xlsx"
+}
+if _rc == 0 {
+    display as result "PASS: T12 — theme with IPTW works"
+    local ++n_pass
+}
+else {
+    display as error "FAIL: T12 — theme with IPTW failed (rc=`=_rc')"
+    local ++n_fail
+}
+
+* ============================================================
+* Test 13: effecttab with boldp + highlight
+* ============================================================
+capture noisily {
+    webuse cattaneo2, clear
+    collect clear
+    collect: teffects ipw (bweight) (mbsmoke mage prenatal1 mmarried fbaby), ate
+    effecttab, xlsx("/tmp/test_iptw_boldp.xlsx") sheet("Bold") ///
+        title("IPTW Bold") effect("ATE") boldp(0.05) highlight(0.01)
+    confirm file "/tmp/test_iptw_boldp.xlsx"
+}
+if _rc == 0 {
+    display as result "PASS: T13 — boldp + highlight with IPTW works"
+    local ++n_pass
+}
+else {
+    display as error "FAIL: T13 — boldp + highlight failed (rc=`=_rc')"
+    local ++n_fail
+}
+
+* ============================================================
+* Test 14: margins dydx (should be unaffected by IPTW changes)
+* ============================================================
+capture noisily {
+    webuse cattaneo2, clear
+    gen byte low_bw = bweight < 2500
+    logit low_bw i.mbsmoke mage prenatal1 mmarried fbaby
+    collect clear
+    collect: margins, dydx(mbsmoke)
+    effecttab, display title("AME") effect("AME")
+    assert r(type) == "margins"
+    assert r(N_rows) >= 4
+}
+if _rc == 0 {
+    display as result "PASS: T14 — margins dydx works"
+    local ++n_pass
+}
+else {
+    display as error "FAIL: T14 — margins dydx failed (rc=`=_rc')"
+    local ++n_fail
+}
+
+* ============================================================
+* Test 15: margins at() (should be unaffected)
+* ============================================================
+capture noisily {
+    webuse cattaneo2, clear
+    gen byte low_bw = bweight < 2500
+    logit low_bw i.mbsmoke mage prenatal1 mmarried fbaby
+    collect clear
+    collect: margins, at(mage=(20 25 30 35 40))
+    effecttab, display title("Predicted at ages") effect("Pr(Y)")
+    assert r(N_rows) >= 7
+}
+if _rc == 0 {
+    display as result "PASS: T15 — margins at() works"
+    local ++n_pass
+}
+else {
+    display as error "FAIL: T15 — margins at() failed (rc=`=_rc')"
+    local ++n_fail
+}
+
+* Summary
+display _newline
+display "============================="
+display "  Results: `n_pass' passed, `n_fail' failed"
+display "============================="
+assert `n_fail' == 0

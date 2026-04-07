@@ -1,0 +1,413 @@
+Dataset Documentation
+Generated:  2 Apr 2026 01:19:05
+
+========================================
+DATASET: St1359235.000002
+========================================
+
+METADATA
+--------
+Observations: 74
+Variables: 12
+Label: 1978 automobile data
+Data Signature: 74:12(71728):3831085005:1395876116
+
+DESCRIPTION
+-----------
+This dataset contains cross-sectional data. It includes 74 observations and 12 variables. 
+
+========================================
+VARIABLE SUMMARY
+========================================
+
+QUICK REFERENCE
+----------------------------------------
+  Variable                Type      Class          Miss%  Unique
+  make                    str18     string          0.0%       .
+  price                   int       continuous      0.0%      74
+  mpg                     int       categorical     0.0%      21
+  rep78                   int       categorical     6.8%       5
+  headroom                float     categorical     0.0%       8
+  trunk                   int       categorical     0.0%      18
+  weight                  int       continuous      0.0%      64
+  length                  int       continuous      0.0%      47
+  turn                    int       categorical     0.0%      18
+  displacement            int       continuous      0.0%      31
+  gear_ratio              float     continuous      0.0%      36
+  foreign                 byte      categorical     0.0%       2
+----------------------------------------
+
+  make
+    Type: str18
+    Format: %-18s
+    Label: Make and model
+    Missing: 0 (0%)
+    Classification: string
+
+  price
+    Type: int
+    Format: %8.0gc
+    Label: Price
+    Missing: 0 (0%)
+    Classification: continuous
+
+  mpg
+    Type: int
+    Format: %8.0g
+    Label: Mileage (mpg)
+    Missing: 0 (0%)
+    Classification: categorical
+
+  rep78
+    Type: int
+    Format: %8.0g
+    Label: Repair record 1978
+    Missing: 5 (6.800000000000001%)
+    Classification: categorical
+
+  headroom
+    Type: float
+    Format: %6.1f
+    Label: Headroom (in.)
+    Missing: 0 (0%)
+    Classification: categorical
+
+  trunk
+    Type: int
+    Format: %8.0g
+    Label: Trunk space (cu. ft.)
+    Missing: 0 (0%)
+    Classification: categorical
+
+  weight
+    Type: int
+    Format: %8.0gc
+    Label: Weight (lbs.)
+    Missing: 0 (0%)
+    Classification: continuous
+
+  length
+    Type: int
+    Format: %8.0g
+    Label: Length (in.)
+    Missing: 0 (0%)
+    Classification: continuous
+
+  turn
+    Type: int
+    Format: %8.0g
+    Label: Turn circle (ft.)
+    Missing: 0 (0%)
+    Classification: categorical
+
+  displacement
+    Type: int
+    Format: %8.0g
+    Label: Displacement (cu. in.)
+    Missing: 0 (0%)
+    Classification: continuous
+
+  gear_ratio
+    Type: float
+    Format: %6.2f
+    Label: Gear ratio
+    Missing: 0 (0%)
+    Classification: continuous
+
+  foreign
+    Type: byte
+    Format: %8.0g
+    Label: Car origin
+    Missing: 0 (0%)
+    Classification: categorical
+
+========================================
+CATEGORICAL VARIABLES
+========================================
+
+VARIABLE: mpg
+--------------------
+Position: 3
+Storage Type: int
+Display Format: %8.0g
+Label: Mileage (mpg)
+Classification: categorical
+Missing: 0 obs (0%)
+Unique Values: 21
+
+  Frequencies:
+    12 = 12: 2 (2.7%)
+    14 = 14: 6 (8.1%)
+    15 = 15: 2 (2.7%)
+    16 = 16: 4 (5.4%)
+    17 = 17: 4 (5.4%)
+    18 = 18: 9 (12.2%)
+    19 = 19: 8 (10.8%)
+    20 = 20: 3 (4.100000000000001%)
+    21 = 21: 5 (6.800000000000001%)
+    22 = 22: 5 (6.800000000000001%)
+    23 = 23: 3 (4.100000000000001%)
+    24 = 24: 4 (5.4%)
+    25 = 25: 5 (6.800000000000001%)
+    26 = 26: 3 (4.100000000000001%)
+    28 = 28: 3 (4.100000000000001%)
+    29 = 29: 1 (1.4%)
+    30 = 30: 2 (2.7%)
+    31 = 31: 1 (1.4%)
+    34 = 34: 1 (1.4%)
+    35 = 35: 2 (2.7%)
+    41 = 41: 1 (1.4%)
+
+ANALYSIS GUIDANCE: Use as factor/categorical variable. Consider reference category selection based on largest group or clinically meaningful baseline. 
+
+VARIABLE: rep78
+--------------------
+Position: 4
+Storage Type: int
+Display Format: %8.0g
+Label: Repair record 1978
+Classification: categorical
+Missing: 5 obs (6.800000000000001%)
+Unique Values: 5
+
+  Frequencies:
+    1 = 1: 2 (2.7%)
+    2 = 2: 8 (10.8%)
+    3 = 3: 30 (40.5%)
+    4 = 4: 18 (24.3%)
+    5 = 5: 11 (14.9%)
+
+ANALYSIS GUIDANCE: Use as factor/categorical variable. Low cardinality - suitable for stratification or interaction terms. 
+
+VARIABLE: headroom
+--------------------
+Position: 5
+Storage Type: float
+Display Format: %6.1f
+Label: Headroom (in.)
+Classification: categorical
+Missing: 0 obs (0%)
+Unique Values: 8
+
+  Frequencies:
+    1.5 = 1.5: 4 (5.4%)
+    2 = 2: 13 (17.6%)
+    2.5 = 2.5: 14 (18.9%)
+    3 = 3: 13 (17.6%)
+    3.5 = 3.5: 15 (20.3%)
+    4 = 4: 10 (13.5%)
+    4.5 = 4.5: 4 (5.4%)
+    5 = 5: 1 (1.4%)
+
+ANALYSIS GUIDANCE: Use as factor/categorical variable. Consider reference category selection based on largest group or clinically meaningful baseline. 
+
+VARIABLE: trunk
+--------------------
+Position: 6
+Storage Type: int
+Display Format: %8.0g
+Label: Trunk space (cu. ft.)
+Classification: categorical
+Missing: 0 obs (0%)
+Unique Values: 18
+
+  Frequencies:
+    5 = 5: 1 (1.4%)
+    6 = 6: 1 (1.4%)
+    7 = 7: 3 (4.100000000000001%)
+    8 = 8: 5 (6.800000000000001%)
+    9 = 9: 4 (5.4%)
+    10 = 10: 5 (6.800000000000001%)
+    11 = 11: 8 (10.8%)
+    12 = 12: 3 (4.100000000000001%)
+    13 = 13: 4 (5.4%)
+    14 = 14: 4 (5.4%)
+    15 = 15: 5 (6.800000000000001%)
+    16 = 16: 12 (16.2%)
+    17 = 17: 8 (10.8%)
+    18 = 18: 1 (1.4%)
+    20 = 20: 6 (8.1%)
+    21 = 21: 2 (2.7%)
+    22 = 22: 1 (1.4%)
+    23 = 23: 1 (1.4%)
+
+ANALYSIS GUIDANCE: Use as factor/categorical variable. Consider reference category selection based on largest group or clinically meaningful baseline. 
+
+VARIABLE: turn
+--------------------
+Position: 9
+Storage Type: int
+Display Format: %8.0g
+Label: Turn circle (ft.)
+Classification: categorical
+Missing: 0 obs (0%)
+Unique Values: 18
+
+  Frequencies:
+    31 = 31: 1 (1.4%)
+    32 = 32: 1 (1.4%)
+    33 = 33: 2 (2.7%)
+    34 = 34: 6 (8.1%)
+    35 = 35: 6 (8.1%)
+    36 = 36: 9 (12.2%)
+    37 = 37: 4 (5.4%)
+    38 = 38: 3 (4.100000000000001%)
+    39 = 39: 1 (1.4%)
+    40 = 40: 6 (8.1%)
+    41 = 41: 4 (5.4%)
+    42 = 42: 7 (9.5%)
+    43 = 43: 12 (16.2%)
+    44 = 44: 3 (4.100000000000001%)
+    45 = 45: 3 (4.100000000000001%)
+    46 = 46: 3 (4.100000000000001%)
+    48 = 48: 2 (2.7%)
+    51 = 51: 1 (1.4%)
+
+ANALYSIS GUIDANCE: Use as factor/categorical variable. Consider reference category selection based on largest group or clinically meaningful baseline. 
+
+VARIABLE: foreign
+--------------------
+Position: 12
+Storage Type: byte
+Display Format: %8.0g
+Label: Car origin
+Value Label: origin
+Classification: categorical
+Missing: 0 obs (0%)
+Unique Values: 2
+
+  Frequencies:
+    0 = Domestic: 52 (70.3%)
+    1 = Foreign: 22 (29.7%)
+
+ANALYSIS GUIDANCE: Use as factor/categorical variable. This is a binary variable - suitable for binary outcome models. 
+
+========================================
+CONTINUOUS VARIABLES
+========================================
+
+VARIABLE: price
+--------------------
+Position: 2
+Storage Type: int
+Display Format: %8.0gc
+Label: Price
+Classification: continuous
+Missing: 0 obs (0%)
+Unique Values: 74
+
+DISTRIBUTION:
+  Valid N: 74
+  Mean: 6165.26
+  SD: 2949.5
+  Median: 5006.5
+  IQR: 4195-6342
+  Range: 3291 to 15906
+
+ANALYSIS GUIDANCE: Use as continuous variable. Potential outliers detected (values beyond 3*IQR) - verify data quality. 
+
+VARIABLE: weight
+--------------------
+Position: 7
+Storage Type: int
+Display Format: %8.0gc
+Label: Weight (lbs.)
+Classification: continuous
+Missing: 0 obs (0%)
+Unique Values: 64
+
+DISTRIBUTION:
+  Valid N: 74
+  Mean: 3019.46
+  SD: 777.1900000000001
+  Median: 3190
+  IQR: 2240-3600
+  Range: 1760 to 4840
+
+ANALYSIS GUIDANCE: Use as continuous variable. 
+
+VARIABLE: length
+--------------------
+Position: 8
+Storage Type: int
+Display Format: %8.0g
+Label: Length (in.)
+Classification: continuous
+Missing: 0 obs (0%)
+Unique Values: 47
+
+DISTRIBUTION:
+  Valid N: 74
+  Mean: 187.93
+  SD: 22.27
+  Median: 192.5
+  IQR: 170-204
+  Range: 142 to 233
+
+ANALYSIS GUIDANCE: Use as continuous variable. 
+
+VARIABLE: displacement
+--------------------
+Position: 10
+Storage Type: int
+Display Format: %8.0g
+Label: Displacement (cu. in.)
+Classification: continuous
+Missing: 0 obs (0%)
+Unique Values: 31
+
+DISTRIBUTION:
+  Valid N: 74
+  Mean: 197.3
+  SD: 91.84
+  Median: 196
+  IQR: 119-250
+  Range: 79 to 425
+
+ANALYSIS GUIDANCE: Use as continuous variable. 
+
+VARIABLE: gear_ratio
+--------------------
+Position: 11
+Storage Type: float
+Display Format: %6.2f
+Label: Gear ratio
+Classification: continuous
+Missing: 0 obs (0%)
+Unique Values: 36
+
+DISTRIBUTION:
+  Valid N: 74
+  Mean: 3.01
+  SD: .46
+  Median: 2.96
+  IQR: 2.73-3.37
+  Range: 2.19 to 3.89
+
+ANALYSIS GUIDANCE: Use as continuous variable. 
+
+========================================
+STRING VARIABLES
+========================================
+
+VARIABLE: make
+--------------------
+Position: 1
+Storage Type: str18
+Label: Make and model
+Classification: string
+Max Length: 17 characters
+Missing: 0 obs (0%)
+Unique Values: 74
+(exact values suppressed)
+
+ANALYSIS GUIDANCE: String variable - may contain free text, codes, or identifiers. Verify encoding if contains non-ASCII characters.
+
+========================================
+VALUE LABEL DEFINITIONS
+========================================
+
+origin (used by: foreign)
+  0 = Domestic
+  1 = Foreign
+

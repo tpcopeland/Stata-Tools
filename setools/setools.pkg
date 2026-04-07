@@ -1,0 +1,42 @@
+v 3
+d 'SETOOLS': Swedish Registry Toolkit for Epidemiological Cohort Studies
+d
+d Provides utilities for working with Swedish health registries including:
+d - KVA procedure code matching
+d - Swedish Charlson Comorbidity Index (ICD-7 through ICD-10)
+d - Migration registry processing for exclusions and censoring
+d - MS disability progression: sustained EDSS, CDP, and PIRA
+d
+d Requires: Stata version 16+
+d
+d Distribution-Date: 20260408
+d License: MIT
+d
+d Author: Timothy P Copeland, Karolinska Institutet
+d
+d KW: Swedish registries
+d KW: KVA procedures
+d KW: cohort studies
+d KW: epidemiology
+d KW: migration
+d KW: multiple sclerosis
+d KW: EDSS
+d KW: CDP
+d KW: PIRA
+d KW: Charlson
+d KW: comorbidity
+d
+f setools.ado
+f setools.sthlp
+f migrations.ado
+f migrations.sthlp
+f sustainedss.ado
+f sustainedss.sthlp
+f cdp.ado
+f cdp.sthlp
+f pira.ado
+f pira.sthlp
+f procmatch.ado
+f procmatch.sthlp
+f cci_se.ado
+f cci_se.sthlp

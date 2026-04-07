@@ -1,0 +1,213 @@
+Dataset Documentation
+Generated:  2 Apr 2026 01:12:16
+
+========================================
+DATASET: _demo_missing.dta
+========================================
+
+METADATA
+--------
+Observations: 80
+Variables: 6
+Label: Biomarker Study with Missing Data Patterns
+Data Signature: 80:6(26080):3233229532:551577311
+
+DESCRIPTION
+-----------
+This dataset contains cross-sectional data. It includes 80 observations and 6 variables. Key variable categories include: identifiers, outcomes. 
+
+Missing Data Summary
+  Variables with >50% missing: 0
+  Variables with >10% missing: 4
+  Observations with complete data: 38 (47.5%)
+
+========================================
+VARIABLE SUMMARY
+========================================
+
+QUICK REFERENCE
+----------------------------------------
+  Variable                Type      Class          Miss%  Unique
+  id                      int       continuous      0.0%      80
+  x1                      double    continuous     25.0%      60
+  x2                      double    continuous     25.0%      60
+  x3                      double    continuous     35.0%      52
+  x4                      double    continuous     12.5%      70
+  outcome                 byte      categorical     0.0%       2
+----------------------------------------
+
+  id
+    Type: int
+    Format: %8.0g
+    Label: Subject ID
+    Missing: 0 (0%)
+    Classification: continuous
+
+  x1
+    Type: double
+    Format: %10.0g
+    Label: Biomarker A
+    Missing: 20 (25%)
+    Classification: continuous
+
+  x2
+    Type: double
+    Format: %10.0g
+    Label: Biomarker B
+    Missing: 20 (25%)
+    Classification: continuous
+
+  x3
+    Type: double
+    Format: %10.0g
+    Label: Biomarker C
+    Missing: 28 (35%)
+    Classification: continuous
+
+  x4
+    Type: double
+    Format: %10.0g
+    Label: Biomarker D
+    Missing: 10 (12.5%)
+    Classification: continuous
+
+  outcome
+    Type: byte
+    Format: %8.0g
+    Label: Binary outcome
+    Missing: 0 (0%)
+    Classification: categorical
+
+========================================
+CATEGORICAL VARIABLES
+========================================
+
+VARIABLE: outcome
+--------------------
+Position: 6
+Storage Type: byte
+Display Format: %8.0g
+Label: Binary outcome
+Value Label: yn
+Classification: categorical
+Missing: 0 obs (0%)
+Unique Values: 2
+
+  Frequencies:
+    0 = No: 50 (62.5%)
+    1 = Yes: 30 (37.5%)
+
+ANALYSIS GUIDANCE: Use as factor/categorical variable. This is a binary variable - suitable for binary outcome models. 
+
+========================================
+CONTINUOUS VARIABLES
+========================================
+
+VARIABLE: id
+--------------------
+Position: 1
+Storage Type: int
+Display Format: %8.0g
+Label: Subject ID
+Classification: continuous
+Missing: 0 obs (0%)
+Unique Values: 80
+
+DISTRIBUTION:
+  Valid N: 80
+  Mean: 40.5
+  SD: 23.24
+  Median: 40.5
+  IQR: 20.5-60.5
+  Range: 1 to 80
+
+ANALYSIS GUIDANCE: Use as continuous variable. 
+
+VARIABLE: x1
+--------------------
+Position: 2
+Storage Type: double
+Display Format: %10.0g
+Label: Biomarker A
+Classification: continuous
+Missing: 20 obs (25%)
+Unique Values: 60
+
+DISTRIBUTION:
+  Valid N: 60
+  Mean: -.1
+  SD: 1.13
+  Median: -.03
+  IQR: -.66-.36
+  Range: -3.15 to 3.33
+
+ANALYSIS GUIDANCE: Use as continuous variable. 25% missing - verify missingness mechanism before analysis. 
+
+VARIABLE: x2
+--------------------
+Position: 3
+Storage Type: double
+Display Format: %10.0g
+Label: Biomarker B
+Classification: continuous
+Missing: 20 obs (25%)
+Unique Values: 60
+
+DISTRIBUTION:
+  Valid N: 60
+  Mean: .05
+  SD: 1.19
+  Median: .13
+  IQR: -.79-.86
+  Range: -2.79 to 2.81
+
+ANALYSIS GUIDANCE: Use as continuous variable. 25% missing - verify missingness mechanism before analysis. 
+
+VARIABLE: x3
+--------------------
+Position: 4
+Storage Type: double
+Display Format: %10.0g
+Label: Biomarker C
+Classification: continuous
+Missing: 28 obs (35%)
+Unique Values: 52
+
+DISTRIBUTION:
+  Valid N: 52
+  Mean: .01
+  SD: 1.02
+  Median: .02
+  IQR: -.71-.8200000000000001
+  Range: -2.16 to 2.37
+
+ANALYSIS GUIDANCE: Use as continuous variable. 35% missing - verify missingness mechanism before analysis. 
+
+VARIABLE: x4
+--------------------
+Position: 5
+Storage Type: double
+Display Format: %10.0g
+Label: Biomarker D
+Classification: continuous
+Missing: 10 obs (12.5%)
+Unique Values: 70
+
+DISTRIBUTION:
+  Valid N: 70
+  Mean: -.01
+  SD: 1.03
+  Median: 0
+  IQR: -.68-.43
+  Range: -2 to 4.66
+
+ANALYSIS GUIDANCE: Use as continuous variable. Potential outliers detected (values beyond 3*IQR) - verify data quality. 
+
+========================================
+VALUE LABEL DEFINITIONS
+========================================
+
+yn (used by: outcome)
+  0 = No
+  1 = Yes
+

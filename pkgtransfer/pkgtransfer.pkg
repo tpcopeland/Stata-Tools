@@ -1,0 +1,24 @@
+v 3
+d 'PKGTRANSFER': Module to capture all currently installed packages via .do or .zip
+d
+d Transfers Stata packages between machines or user profiles.
+d Exports the current list of installed ado packages and reimports them
+d on another system, preserving installation paths and metadata.
+d
+d Requires: Stata version 16
+d
+d KW: Stata
+d KW: pkg
+d KW: ssc
+d KW: ado
+d
+d Distribution-Date: 20260408
+d
+d First version: 24 Mar 2024
+d License: MIT
+d
+d Author: Timothy P Copeland, Karolinska Institutet
+d
+f pkgtransfer.ado
+f pkgtransfer.sthlp
+d

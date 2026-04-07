@@ -1,0 +1,130 @@
+{smcl}
+{* *! version 1.0.0  08apr2026}{...}
+{viewerjumpto "Syntax" "diagtab##syntax"}{...}
+{viewerjumpto "Description" "diagtab##description"}{...}
+{viewerjumpto "Options" "diagtab##options"}{...}
+{viewerjumpto "Examples" "diagtab##examples"}{...}
+{viewerjumpto "Stored results" "diagtab##stored"}{...}
+{viewerjumpto "Author" "diagtab##author"}{...}
+{vieweralsosee "tabtools" "help tabtools"}{...}
+{vieweralsosee "corrtab" "help corrtab"}{...}
+{vieweralsosee "crosstab" "help crosstab"}{...}
+{vieweralsosee "roctab" "help roctab"}{...}
+{vieweralsosee "diagt" "help diagt"}{...}
+{title:diagtab}
+
+{pstd}Diagnostic accuracy table with sensitivity, specificity, and predictive values.{p_end}
+
+{marker syntax}{title:Syntax}
+
+{p 4 8 2}{cmd:diagtab} {it:test_var} {it:gold_var} [{it:if}] [{it:in}],
+[{opt xlsx(filename)} {opt cut:off(#)} {cmdab:cutof:fs(}{it:numlist}{cmd:)} {opt prev:alence(#)}
+{opt ex:act} {opt wil:son} {opt auc} {opt opt:imal} {opt dig:its(#)}
+{opt sheet(string)} {opt title(string)} {opt sub:title(string)}
+{opt foot:note(string)} {opt the:me(string)} {opt borders:tyle(string)}
+{opt csv(filename)} {opt fra:me(name)} {opt dis:play} {opt open}]{p_end}
+
+{marker description}{title:Description}
+
+{pstd}{cmd:diagtab} computes diagnostic accuracy measures from a 2x2
+classification table: sensitivity, specificity, PPV, NPV, accuracy,
+likelihood ratios, diagnostic odds ratio, and optionally AUC. Confidence
+intervals use Wilson score (default) or Clopper-Pearson exact method.{p_end}
+
+{marker options}{title:Options}
+
+{dlgtab:Diagnostic}
+
+{phang}{opt cut:off(#)} dichotomize a continuous test variable at this threshold.
+Values >= cutoff are classified as test-positive.{p_end}
+
+{phang}{cmdab:cutof:fs(}{it:numlist}{cmd:)} evaluate diagnostic accuracy at multiple cutoff
+values. Produces one row per cutoff showing all metrics. Cannot be combined with
+{opt cutoff()}.{p_end}
+
+{phang}{opt prev:alence(#)} adjust PPV and NPV for a specified prevalence using
+Bayes' theorem. Useful when the study sample prevalence differs from the target population.{p_end}
+
+{phang}{opt ex:act} use Clopper-Pearson exact confidence intervals instead of Wilson score.{p_end}
+
+{phang}{opt wil:son} use Wilson score confidence intervals (this is the default).{p_end}
+
+{phang}{opt auc} report area under the ROC curve with 95% CI.{p_end}
+
+{phang}{opt opt:imal} find the optimal cutoff that maximizes Youden's J index
+(sensitivity + specificity - 1). Requires a continuous test variable.{p_end}
+
+{phang}{opt dig:its(#)} decimal places for diagnostic measures and CIs
+(default 1, range 0-6).{p_end}
+
+{dlgtab:Export}
+
+{phang}{opt xlsx(filename)} export to Excel with professional formatting.{p_end}
+
+{phang}{opt csv(filename)} export as CSV file.{p_end}
+
+{phang}{opt fra:me(name)} store the output dataset in a named frame.{p_end}
+
+{phang}{opt dis:play} show console output (automatic when {opt xlsx()} not specified).{p_end}
+
+{marker examples}{title:Examples}
+
+{pstd}{bf:Example 1: Basic diagnostic accuracy table}{p_end}
+{phang2}{stata "webuse lbw, clear":. webuse lbw, clear}{p_end}
+{phang2}{stata "logit low age lwt smoke":. logit low age lwt smoke}{p_end}
+{phang2}{stata "predict phat":. predict phat}{p_end}
+{phang2}{stata "gen byte pred_low = (phat > 0.3)":. gen byte pred_low = (phat > 0.3)}{p_end}
+{phang2}{cmd:. diagtab pred_low low, xlsx(diag.xlsx) ///}{p_end}
+{phang3}{cmd:title("Diagnostic Accuracy: Low Birth Weight Prediction")}{p_end}
+
+{pstd}{bf:Example 2: Continuous test with cutoff and AUC}{p_end}
+{phang2}{stata "webuse lbw, clear":. webuse lbw, clear}{p_end}
+{phang2}{stata "logit low age lwt smoke":. logit low age lwt smoke}{p_end}
+{phang2}{stata "predict phat":. predict phat}{p_end}
+{phang2}{cmd:. diagtab phat low, cutoff(0.4) auc ///}{p_end}
+{phang3}{cmd:xlsx(diag_auc.xlsx) title("LBW Prediction") ///}{p_end}
+{phang3}{cmd:theme(nejm) display}{p_end}
+
+{pstd}{bf:Example 3: Prevalence-adjusted predictive values}{p_end}
+{phang2}{stata "webuse lbw, clear":. webuse lbw, clear}{p_end}
+{phang2}{stata "logit low age lwt smoke":. logit low age lwt smoke}{p_end}
+{phang2}{stata "predict phat":. predict phat}{p_end}
+{phang2}{stata "gen byte pred_low = (phat > 0.3)":. gen byte pred_low = (phat > 0.3)}{p_end}
+{phang2}{cmd:. diagtab pred_low low, prevalence(0.07) exact ///}{p_end}
+{phang3}{cmd:title("PPV/NPV Adjusted for 7% Population Prevalence") ///}{p_end}
+{phang3}{cmd:display}{p_end}
+
+{marker stored}{title:Stored results}
+
+{synoptset 18 tabbed}{...}
+{p2col 5 18 22 2: Scalars}{p_end}
+{synopt:{cmd:r(sensitivity)}}sensitivity{p_end}
+{synopt:{cmd:r(specificity)}}specificity{p_end}
+{synopt:{cmd:r(ppv)}}positive predictive value{p_end}
+{synopt:{cmd:r(npv)}}negative predictive value{p_end}
+{synopt:{cmd:r(accuracy)}}overall accuracy{p_end}
+{synopt:{cmd:r(lr_pos)}}positive likelihood ratio{p_end}
+{synopt:{cmd:r(lr_neg)}}negative likelihood ratio{p_end}
+{synopt:{cmd:r(dor)}}diagnostic odds ratio{p_end}
+{synopt:{cmd:r(youden)}}Youden's index{p_end}
+{synopt:{cmd:r(auc)}}area under ROC curve{p_end}
+{synopt:{cmd:r(optimal_cutoff)}}optimal cutoff (Youden's J){p_end}
+
+{p2col 5 18 22 2: Matrices}{p_end}
+{synopt:{cmd:r(cutoff_table)}}cutoff analysis results (when {cmd:cutoffs()} specified){p_end}
+
+{p2col 5 18 22 2: Macros}{p_end}
+{synopt:{cmd:r(cutoffs)}}cutoff values used (when {cmd:cutoffs()} specified){p_end}
+{synopt:{cmd:r(xlsx)}}Excel filename (if exported){p_end}
+{synopt:{cmd:r(sheet)}}sheet name{p_end}
+{synopt:{cmd:r(frame)}}frame name (if saved){p_end}
+{synopt:{cmd:r(methods)}}methods paragraph{p_end}
+
+{marker author}{title:Author}
+
+{pstd}Timothy P Copeland{p_end}
+{pstd}Department of Clinical Neuroscience, Karolinska Institutet{p_end}
+{pstd}timothy.copeland@ki.se{p_end}
+{pstd}Version 1.0.0{p_end}
+
+{hline}

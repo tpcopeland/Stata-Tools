@@ -1,0 +1,23 @@
+v 3
+d 'MASSDESAS': module to mass destring and encode string variables to numeric
+d
+d Mass destring and encode for Stata variables.
+d Converts multiple string variables to numeric simultaneously, with
+d options for labeling, error handling, and selective conversion.
+d Designed for large datasets with many string-coded categorical variables.
+d
+d KW: destring
+d KW: encode
+d KW: numeric conversion
+d KW: batch
+d
+d Distribution-Date: 20260408
+d
+d First version: 24 July 2020
+d License: MIT
+d
+d Author: Timothy P Copeland, Karolinska Institutet
+d
+f massdesas.ado
+f massdesas.sthlp
+d
