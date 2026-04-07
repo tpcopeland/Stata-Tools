@@ -7,7 +7,7 @@
 
 ---
 
-Production distribution repository for Stata packages (20 packages). All packages require Stata 16+, except where noted. Install any package directly from here using `net install`.
+Production distribution repository for Stata packages (21 packages). All packages require Stata 16+, except where noted. Install any package directly from here using `net install`.
 
 ## Installation
 
@@ -47,6 +47,7 @@ net install <package>, from("https://raw.githubusercontent.com/tpcopeland/Stata-
 | Package | Version | Updated | Description |
 | --- | --- | --- | --- |
 | [cstat_surv](https://github.com/tpcopeland/Stata-Tools/tree/main/cstat_surv) | ![version](https://img.shields.io/badge/version-1.0.0-blue) | ![updated](https://img.shields.io/badge/updated-2026--04--08-brightgreen) | C-statistic for Cox survival models |
+| [finegray](https://github.com/tpcopeland/Stata-Tools/tree/main/finegray) | ![version](https://img.shields.io/badge/version-1.0.0-blue) | ![updated](https://img.shields.io/badge/updated-2026--04--08-brightgreen) | Fast Fine-Gray competing risks regression |
 | [gcomp](https://github.com/tpcopeland/Stata-Tools/tree/main/gcomp) | ![version](https://img.shields.io/badge/version-1.0.0-blue) | ![updated](https://img.shields.io/badge/updated-2026--04--08-brightgreen) | G-computation formula via Monte Carlo simulation (includes gcomptab) |
 | [iivw](https://github.com/tpcopeland/Stata-Tools/tree/main/iivw) | ![version](https://img.shields.io/badge/version-1.0.0-blue) | ![updated](https://img.shields.io/badge/updated-2026--04--08-brightgreen) | Inverse intensity of visit weighting (IIW, IPTW, FIPTIW) for irregular longitudinal data |
 | [msm](https://github.com/tpcopeland/Stata-Tools/tree/main/msm) | ![version](https://img.shields.io/badge/version-1.0.0-blue) | ![updated](https://img.shields.io/badge/updated-2026--04--08-brightgreen) | Marginal structural models via IPTW for time-varying treatments |
