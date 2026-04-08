@@ -240,6 +240,7 @@ capture noisily {
         **# Build Output Dataset (multi-cutoff)
         preserve
         clear
+        local _is_multicut 1
 
         local out_ncols 3
         forvalues c = 1/`out_ncols' {
@@ -252,7 +253,16 @@ capture noisily {
         qui set obs 1
         qui replace title = "`title'" in 1
 
+        * Row 2: Column headers
+        local row = `row' + 1
+        qui set obs `row'
+        qui replace c1 = "Cutoff" in `row'
+        qui replace c2 = "Estimate" in `row'
+        qui replace c3 = "(95% CI)" in `row'
+        local _header_row = `row'
+
         * Build output rows from stored locals
+        local _section_rows ""
         local _cuti 0
         foreach _cv of local cutoffs {
             local _cuti = `_cuti' + 1
@@ -263,6 +273,7 @@ capture noisily {
             local _cv_fmt : display %9.0g `_cv'
             local _cv_fmt = strtrim("`_cv_fmt'")
             qui replace c1 = "Cutoff >= `_cv_fmt'" in `row'
+            local _section_rows "`_section_rows' `row'"
 
             * Measure rows (indented)
             foreach _m in Se Sp PPV NPV Acc {
@@ -468,6 +479,7 @@ capture noisily {
 **# Build Output Dataset
     preserve
     clear
+    local _is_multicut 0
 
     local out_ncols 3
     forvalues c = 1/`out_ncols' {
@@ -608,8 +620,16 @@ capture noisily {
 
             putexcel (A1:`lastcol'1), merge bold txtwrap left vcenter font("`_font'", `=`_fontsize'+2')
             putexcel (B2:`lastcol'`num_rows'), font("`_font'", `_fontsize')
-            putexcel (B2:`lastcol'2), bold hcenter
-            putexcel (B6:`lastcol'6), bold
+            if `_is_multicut' {
+                putexcel (B`_header_row':`lastcol'`_header_row'), bold hcenter border(bottom, `_hborder')
+                foreach _sr of local _section_rows {
+                    putexcel (B`_sr':`lastcol'`_sr'), bold
+                }
+            }
+            else {
+                putexcel (B2:`lastcol'2), bold hcenter
+                putexcel (B6:`lastcol'6), bold
+            }
             putexcel (B`num_rows':`lastcol'`num_rows'), border(bottom, `_hborder')
 
             if `"`footnote'"' != "" {

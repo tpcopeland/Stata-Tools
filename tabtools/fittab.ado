@@ -96,6 +96,7 @@ capture noisily {
 **# Extract Statistics from Stored Estimates
     local best_aic = .
     local best_bic = .
+    local best_cstat = 0
 
     forvalues m = 1/`n_models' {
         local _mname : word `m' of `namelist'
@@ -169,9 +170,10 @@ capture noisily {
             }
         }
 
-        * Track best AIC/BIC
+        * Track best AIC/BIC/C-stat
         if !missing(`_aic_`m'') & `_aic_`m'' < `best_aic' local best_aic = `_aic_`m''
         if !missing(`_bic_`m'') & `_bic_`m'' < `best_bic' local best_bic = `_bic_`m''
+        if !missing(`_cstat_`m'') & `_cstat_`m'' > `best_cstat' local best_cstat = `_cstat_`m''
     }
 
     return scalar best_aic = `best_aic'
@@ -201,11 +203,13 @@ capture noisily {
         qui replace c`_col' = "`mlabel_`m''" in `row'
     }
 
-    * Track best AIC/BIC row/col for bold formatting
+    * Track best AIC/BIC/C-stat row/col for bold formatting
     local _aic_row = 0
     local _bic_row = 0
+    local _cstat_row = 0
     local _best_aic_col = 0
     local _best_bic_col = 0
+    local _best_cstat_col = 0
 
     * Statistics rows
     foreach stat of local stats {
@@ -254,10 +258,13 @@ capture noisily {
         }
         else if "`stat'" == "cstat" {
             qui replace c1 = "C-statistic" in `row'
+            local _cstat_row = `row'
+            local _best_cstat_col = 0
             forvalues m = 1/`n_models' {
                 local _col = `m' + 1
                 if !missing(`_cstat_`m'') {
                     qui replace c`_col' = string(`_cstat_`m'', "%6.4f") in `row'
+                    if `_cstat_`m'' == `best_cstat' local _best_cstat_col = `_col'
                 }
             }
         }
@@ -380,7 +387,7 @@ capture noisily {
                 }
             }
 
-            * Bold the best AIC/BIC cells
+            * Bold the best AIC/BIC/C-stat cells
             if `_best_aic_col' > 0 {
                 _tabtools_col_letter `_best_aic_col'
                 local _aic_letter "`result'"
@@ -390,6 +397,11 @@ capture noisily {
                 _tabtools_col_letter `_best_bic_col'
                 local _bic_letter "`result'"
                 putexcel `_bic_letter'`_bic_row', bold
+            }
+            if `_best_cstat_col' > 0 {
+                _tabtools_col_letter `_best_cstat_col'
+                local _cstat_letter "`result'"
+                putexcel `_cstat_letter'`_cstat_row', bold
             }
 
             if `"`footnote'"' != "" {

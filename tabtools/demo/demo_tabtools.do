@@ -87,7 +87,7 @@ capture mkdir "`pkg_dir'"
 
 * Install tc_schemes for consistent graph appearance
 capture ado uninstall tc_schemes
-quietly net install tc_schemes, from("~/Stata-Tools/tc_schemes")
+quietly net install tc_schemes, from("~/Stata-Tools/tc_schemes") replace
 set scheme plotplainblind
 
 * Load tabtools from parent directory
@@ -144,6 +144,12 @@ foreach v in diabetes hypertension anxiety prior_cvd {
 * Derive binary outcome
 gen byte cv_event = (cv_event_date < .)
 label variable cv_event "Cardiovascular event"
+label define cv_event_lbl 0 "No" 1 "Yes"
+label values cv_event cv_event_lbl
+
+* Add readable labels for female (cohort data uses yn_lbl 0=No/1=Yes)
+label define female_lbl 0 "Male" 1 "Female"
+label values female female_lbl
 
 * Survival time for Cox models
 gen double follow_up = study_exit - study_entry
