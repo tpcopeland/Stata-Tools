@@ -1,10 +1,5 @@
 # Stata-Tools
 
-[<img align="left" alt="GitHub" width="25px" src="https://cdn.simpleicons.org/github" />](https://github.com/tpcopeland/Stata-Tools)
-[<img align="left" alt="Google Scholar" width="25px" src="https://cdn.simpleicons.org/googlescholar" />](https://scholar.google.com/citations?user=oWGGVpYAAAAJ)
-
-<br />
-
 ---
 
 Production distribution repository for Stata packages (21 packages). All packages require Stata 16+, except where noted. Install any package directly from here using `net install`.
