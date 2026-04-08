@@ -17,6 +17,7 @@
 {vieweralsosee "stratetab" "help stratetab"}{...}
 {vieweralsosee "diagtab" "help diagtab"}{...}
 {vieweralsosee "fittab" "help fittab"}{...}
+{vieweralsosee "hrtab" "help hrtab"}{...}
 {vieweralsosee "tablex" "help tablex"}{...}
 {vieweralsosee "tabtools cheatsheet" "help tabtools_cheatsheet"}{...}
 {vieweralsosee "tabtools cookbook" "help tabtools_cookbook"}{...}
@@ -70,6 +71,7 @@ worked examples.
 {bf:Clinical}
 
 {synopt:{helpb survtab}}Kaplan-Meier estimates, medians, and RMST{p_end}
+{synopt:{helpb hrtab}}Multi-panel hazard ratio table (stcox/stcrreg/finegray){p_end}
 {synopt:{helpb stratetab}}Incidence rates from strate output{p_end}
 {synopt:{helpb diagtab}}Sensitivity, specificity, PPV, NPV, ROC{p_end}
 {synopt:{helpb fittab}}Model comparison table (AIC, BIC, C-statistic){p_end}

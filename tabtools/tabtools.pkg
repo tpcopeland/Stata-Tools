@@ -15,6 +15,7 @@ d   crosstab       - Cross-tabulation with association measures
 d   fittab         - Model comparison table (AIC, BIC, C-stat)
 d   diagtab        - Diagnostic accuracy (Se, Sp, PPV, NPV, ROC)
 d   corrtab        - Correlation matrix with significance stars
+d   hrtab          - Multi-panel hazard ratio table (stcox/stcrreg/finegray)
 d
 d All commands apply consistent Excel formatting: column widths,
 d borders, fonts, merged headers, and professional styling.
@@ -51,5 +52,7 @@ f diagtab.ado
 f diagtab.sthlp
 f corrtab.ado
 f corrtab.sthlp
+f hrtab.ado
+f hrtab.sthlp
 f tabtools_cheatsheet.sthlp
 f tabtools_cookbook.sthlp
