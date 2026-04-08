@@ -367,6 +367,92 @@ else {
 capture graph drop val10a val10b
 
 // =============================================================================
+// VALIDATION 11: r(table) contains correct numerical values
+// =============================================================================
+display _n "{bf:VALIDATION 11: r(table) numerical correctness}"
+local ++n_tests
+
+capture {
+    sysuse auto, clear
+    quietly regress price mpg weight foreign
+    matrix B = e(b)
+
+    eplot ., drop(_cons) name(val11, replace)
+    matrix T = r(table)
+
+    // r(table) rows use display labels and may reorder vs e(b).
+    // Verify that all e(b) coefficient values appear in r(table) column 1.
+    local n_coefs = rowsof(T)
+    assert `n_coefs' == 3
+
+    // Collect all b values from r(table) into a set and verify each matches
+    // one of the e(b) values (mpg, weight, foreign)
+    local b_mpg = B[1, colnumb(B, "mpg")]
+    local b_wt  = B[1, colnumb(B, "weight")]
+    local b_for = B[1, colnumb(B, "foreign")]
+
+    local matched 0
+    forvalues i = 1/`n_coefs' {
+        local ti = T[`i', 1]
+        if abs(`ti' - `b_mpg') < 1e-4 | ///
+           abs(`ti' - `b_wt')  < 1e-4 | ///
+           abs(`ti' - `b_for') < 1e-4 {
+            local ++matched
+        }
+    }
+    assert `matched' == 3
+}
+
+if _rc == 0 {
+    display as result "  PASSED: r(table) matches e(b) for all coefficients"
+    local ++n_passed
+}
+else {
+    display as error "  FAILED: r(table) numerical mismatch (error `=_rc')"
+    local ++n_failed
+}
+capture graph drop val11
+
+// =============================================================================
+// VALIDATION 12: r(table) with eform contains exponentiated values
+// =============================================================================
+display _n "{bf:VALIDATION 12: r(table) eform transformation}"
+local ++n_tests
+
+capture {
+    sysuse auto, clear
+    quietly logit foreign mpg weight
+    matrix B = e(b)
+
+    eplot ., drop(_cons) eform name(val12, replace)
+    matrix T = r(table)
+
+    // With eform, r(table) should contain exp(b), not raw b
+    local b_mpg = B[1, colnumb(B, "mpg")]
+    local b_wt  = B[1, colnumb(B, "weight")]
+
+    local matched 0
+    forvalues i = 1/`=rowsof(T)' {
+        local ti = T[`i', 1]
+        if abs(`ti' - exp(`b_mpg')) < 1e-4 | ///
+           abs(`ti' - exp(`b_wt'))  < 1e-4 {
+            local ++matched
+        }
+    }
+    assert `matched' == 2
+}
+
+if _rc == 0 {
+    display as result "  PASSED: r(table) contains exp(b) with eform"
+    local ++n_passed
+}
+else {
+    display as error "  FAILED: r(table) eform mismatch (error `=_rc')"
+    local ++n_failed
+}
+capture graph drop val12
+
+// =============================================================================
 // SUMMARY
 // =============================================================================
 display _n "{hline 70}"

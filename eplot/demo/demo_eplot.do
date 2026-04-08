@@ -1,18 +1,26 @@
-/*  demo_eplot.do - Generate screenshots for eplot v2.0.0
+/*  demo_eplot.do - Generate screenshots for eplot
 
-    Produces 3 graphs:
-      1. Multi-model coefficient comparison -> multi_model.png
-      2. Forest plot with values annotation  -> forest_values.png
-      3. Grouped coefficient plot            -> grouped_coefplot.png
+    Produces 7 graphs:
+      1. Multi-model coefficient comparison     -> multi_model.png
+      2. Forest plot with values annotation      -> forest_values.png
+      3. Grouped coefficient plot                -> grouped_coefplot.png
+      4. Lancet style preset                     -> lancet_style.png
+      5. Significance coloring                   -> sigcolors.png
+      6. Matrix mode                             -> matrix_mode.png
+      7. Meta-analysis with heterogeneity        -> meta_heterogeneity.png
 */
 
 version 16.0
 set more off
 set varabbrev off
+set linesize 250
 
 * --- Paths ---
 local pkg_dir "eplot/demo"
 capture mkdir "`pkg_dir'"
+
+* --- Set default scheme ---
+set scheme plotplainblind
 
 * --- Load and reload command ---
 capture program drop eplot _eplot_parse_mode _eplot_estimates _eplot_data
@@ -49,8 +57,7 @@ eplot base extended full, drop(_cons) ///
                rep78 = "Repair Record") ///
     cicap ///
     title("Determinants of Car Price") ///
-    subtitle("Three model specifications compared") ///
-    scheme(plotplainblind)
+    subtitle("Three model specifications compared")
 
 graph export "`pkg_dir'/multi_model.png", replace width(1400)
 capture graph close _all
@@ -79,8 +86,7 @@ end
 eplot es lci uci, labels(study) weights(weight) type(type) ///
     values vformat(%4.2f) nonull ///
     effect("Hazard Ratio (95% CI)") ///
-    title("Treatment Effect on Organ-Specific Outcomes") ///
-    scheme(plotplainblind)
+    title("Treatment Effect on Organ-Specific Outcomes")
 
 graph export "`pkg_dir'/forest_values.png", replace width(1400)
 capture graph close _all
@@ -105,10 +111,94 @@ eplot ., drop(_cons) eform ///
            turn = "Handling") ///
     cicap mcolor(forest_green) ///
     effect("Odds Ratio") ///
-    title("Predictors of Foreign Manufacture") ///
-    scheme(plotplainblind)
+    title("Predictors of Foreign Manufacture")
 
 graph export "`pkg_dir'/grouped_coefplot.png", replace width(1400)
+capture graph close _all
+
+* ============================================================
+* 4. Lancet style preset
+* ============================================================
+
+sysuse auto, clear
+
+quietly logit foreign mpg weight length
+
+eplot ., noconstant eform ///
+    style(lancet) ///
+    coeflabels(mpg = "Miles per Gallon" ///
+               weight = "Vehicle Weight" ///
+               length = "Body Length") ///
+    title("Lancet Style Preset")
+
+graph export "`pkg_dir'/lancet_style.png", replace width(1400)
+capture graph close _all
+
+* ============================================================
+* 5. Significance coloring
+* ============================================================
+
+sysuse auto, clear
+
+quietly regress price mpg weight length turn headroom foreign
+
+eplot ., noconstant ///
+    sigcolors sigcolor(navy) ///
+    cicap values stars ///
+    coeflabels(mpg = "Miles per Gallon" ///
+               weight = "Vehicle Weight" ///
+               length = "Body Length" ///
+               turn = "Turning Circle" ///
+               headroom = "Headroom" ///
+               foreign = "Foreign Make") ///
+    title("Significance-Coded Coefficients")
+
+graph export "`pkg_dir'/sigcolors.png", replace width(1400)
+capture graph close _all
+
+* ============================================================
+* 6. Matrix mode
+* ============================================================
+
+matrix R = (1.82, 1.21, 2.74 \ 0.73, 0.54, 0.99 \ 1.45, 1.08, 1.95 \ 1.12, 0.78, 1.61)
+matrix rownames R = "Drug_A" "Drug_B" "Drug_C" "Drug_D"
+
+eplot, matrix(R) eform ///
+    effect("Odds Ratio (95% CI)") ///
+    coeflabels(Drug_A = "Drug A (experimental)" ///
+               Drug_B = "Drug B (standard)" ///
+               Drug_C = "Drug C (combination)" ///
+               Drug_D = "Drug D (low-dose)") ///
+    values cicap ///
+    title("Treatment Odds Ratios from Matrix Input")
+
+graph export "`pkg_dir'/matrix_mode.png", replace width(1400)
+capture graph close _all
+
+* ============================================================
+* 7. Meta-analysis with heterogeneity and prediction intervals
+* ============================================================
+
+clear
+input str20 study double(es lci uci pi_lci pi_uci weight) byte type
+"Smith 2018"   -0.42  -0.78  -0.06  -1.15   0.31  12.3  1
+"Jones 2019"   -0.31  -0.58  -0.04  -1.04   0.42  16.8  1
+"Brown 2020"   -0.18  -0.41   0.05  -0.91   0.55  21.5  1
+"Lee 2021"     -0.55  -0.93  -0.17  -1.28   0.18  10.2  1
+"Garcia 2022"  -0.27  -0.49  -0.05  -1.00   0.46  19.1  1
+"Patel 2023"   -0.09  -0.35   0.17  -0.82   0.64  20.1  1
+"Overall"      -0.28  -0.41  -0.15   .       .      .    5
+end
+
+eplot es lci uci, labels(study) weights(weight) type(type) ///
+    values vformat(%4.2f) ///
+    pi(pi_lci pi_uci) ///
+    i2("42.1%") tau2("0.021") qstat("8.63, df=5, p=0.125") ///
+    effect("Mean Difference (95% CI)") ///
+    favors("Favors Treatment" "Favors Control") ///
+    title("Meta-Analysis with Prediction Intervals")
+
+graph export "`pkg_dir'/meta_heterogeneity.png", replace width(1400)
 capture graph close _all
 
 * --- Cleanup ---

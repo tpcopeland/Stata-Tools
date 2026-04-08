@@ -82,7 +82,6 @@ Plot from matrix:
 {synopt:{opt sigcolor(color)}}color for significant effects; default is {cmd:cranberry}{p_end}
 {synopt:{opt insigncolor(color)}}color for non-significant effects; default is {cmd:gs10}{p_end}
 {synopt:{opt sty:le(name)}}style preset: {cmd:forest}, {cmd:coef}, {cmd:lancet}, {cmd:jama}, {cmd:nejm}, or {cmd:bmj}{p_end}
-{synopt:{opt cirange(# #)}}truncate CIs to range; arrows mark truncated ends{p_end}
 {synopt:{opt favors(left right)}}directional annotation text below x-axis (horizontal mode){p_end}
 
 {syntab:Prediction intervals (data mode)}
@@ -296,12 +295,6 @@ use cases. User-specified options override preset defaults.
 {p2colreset}{...}
 
 {phang}
-{opt cirange(# #)} truncates confidence intervals to the specified range.
-CIs that extend beyond the range are clipped and marked with arrows to
-indicate continuation. Useful when one or two extreme CIs would otherwise
-compress the entire plot.
-
-{phang}
 {opt favors(left right)} adds directional annotation text below the x-axis.
 Provide two strings indicating the interpretation of each direction, e.g.,
 {cmd:favors("Favors Treatment" "Favors Control")}. Available in horizontal
@@ -458,19 +451,14 @@ color.
 {phang2}{cmd:. eplot ., noconstant style(lancet) scheme(plotplainblind)}{p_end}
 
 {pstd}
-{bf:Example 12: CI truncation with arrows}
-
-{phang2}{cmd:. eplot ., noconstant cirange(-200 6000) scheme(plotplainblind)}{p_end}
-
-{pstd}
-{bf:Example 13: Factor variable labels}
+{bf:Example 12: Factor variable labels}
 
 {phang2}{stata "sysuse auto, clear":. sysuse auto, clear}{p_end}
 {phang2}{stata "logit foreign mpg weight i.rep78":. logit foreign mpg weight i.rep78}{p_end}
 {phang2}{cmd:. eplot ., noconstant eform cicap scheme(plotplainblind)}{p_end}
 
 {pstd}
-{bf:Example 14: Meta-analysis forest plot with heterogeneity}
+{bf:Example 13: Meta-analysis forest plot with heterogeneity}
 
 {phang2}{stata "clear":. clear}{p_end}
 {phang2}{cmd:. input str20 study es lci uci weight byte type}{p_end}
@@ -483,6 +471,37 @@ color.
 {phang2}{cmd:. "Overall"      -0.28  -0.41  -0.15   .    5}{p_end}
 {phang2}{cmd:. end}{p_end}
 {phang2}{cmd:. eplot es lci uci, labels(study) weights(weight) type(type) values vformat(%4.2f) i2("42.1") tau2("0.021") qstat("8.63, df=5, p=0.125") effect("Mean Difference (95% CI)") scheme(plotplainblind)}{p_end}
+
+
+{marker remarks}{...}
+{title:Remarks}
+
+{pstd}
+{bf:Choosing a mode.}
+Use {it:data mode} when you have pre-computed effect sizes in variables
+(e.g., from {cmd:metan}, {cmd:meta summarize}, or another meta-analysis package).
+Use {it:estimates mode} for the fastest path from regression to plot: run a
+model, then {cmd:eplot .} to see the coefficients immediately.
+Use {it:matrix mode} when results live in a Stata matrix from post-estimation
+commands or custom calculations.
+
+{pstd}
+{bf:Journal presets.}
+The {opt style()} option provides ready-made looks:
+{cmd:lancet} (cranberry diamonds, capped CIs),
+{cmd:jama} (black squares, values),
+{cmd:nejm} (dark navy circles, capped CIs, values), and
+{cmd:bmj} (black squares, capped CIs, values).
+User-specified options always override preset defaults.
+
+{pstd}
+{bf:Eform and auto-labels.}
+When {opt eform} is specified in estimates mode, {cmd:eplot} automatically
+detects the estimation command and sets the x-axis label:
+"Odds Ratio" after {cmd:logit}/{cmd:logistic},
+"Hazard Ratio" after {cmd:stcox},
+"IRR" after {cmd:poisson}/{cmd:nbreg}.
+Override with {opt effect(string)}.
 
 
 {marker results}{...}
@@ -523,4 +542,6 @@ Help: {help twoway}, {help graph}, {help estimates store}, {help graph combine}
 
 {psee}
 Stata 18+: {help meta forestplot} (official meta-analysis forest plots)
-{p_end}
+
+{psee}
+User-written: {cmd:coefplot} (Ben Jann, SSC), {cmd:metan} (SSC){p_end}

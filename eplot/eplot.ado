@@ -195,8 +195,6 @@ program define _eplot_data, rclass
         ORDer(string asis) ///
         /// Prediction intervals
         PI(varlist numeric min=2 max=2) ///
-        /// CI truncation
-        CIRange(numlist min=2 max=2) ///
         /// Favors annotation
         Favors(string asis) ///
         /// Heterogeneity stats
@@ -472,20 +470,6 @@ program define _eplot_data, rclass
         quietly gen byte `_dm_sig' = .
     }
 
-    // CI truncation (data mode)
-    tempvar _dm_lci_trunc _dm_uci_trunc
-    if "`cirange'" != "" {
-        local _cirange_lo : word 1 of `cirange'
-        local _cirange_hi : word 2 of `cirange'
-        quietly gen byte `_dm_lci_trunc' = (`lci' < `_cirange_lo') if !missing(`lci')
-        quietly gen byte `_dm_uci_trunc' = (`uci' > `_cirange_hi') if !missing(`uci')
-        quietly replace `lci' = `_cirange_lo' if `lci' < `_cirange_lo' & !missing(`lci')
-        quietly replace `uci' = `_cirange_hi' if `uci' > `_cirange_hi' & !missing(`uci')
-    }
-    else {
-        quietly gen byte `_dm_lci_trunc' = 0
-        quietly gen byte `_dm_uci_trunc' = 0
-    }
 
     // Prediction intervals (data mode)
     tempvar pi_lci pi_uci
@@ -501,12 +485,7 @@ program define _eplot_data, rclass
             quietly replace `pi_lci' = `pi_lci' * `rescale'
             quietly replace `pi_uci' = `pi_uci' * `rescale'
         }
-        // Truncate PI if cirange specified
-        if "`cirange'" != "" {
-            quietly replace `pi_lci' = `_cirange_lo' if `pi_lci' < `_cirange_lo' & !missing(`pi_lci')
-            quietly replace `pi_uci' = `_cirange_hi' if `pi_uci' > `_cirange_hi' & !missing(`pi_uci')
-        }
-    }
+}
     else {
         quietly gen double `pi_lci' = .
         quietly gen double `pi_uci' = .
@@ -537,6 +516,10 @@ program define _eplot_data, rclass
     }
     local xmin_pad = `xmin' - 0.05 * `xrange'
     local xmax_pad = `xmax' + 0.05 * `xrange'
+
+    // Effect-axis grid ticks (data range only, so gridlines don't enter values column)
+    _natscale `xmin' `xmax' 5
+    local _xtick_spec "`r(min)'(`r(delta)')`r(max)'"
 
     // --- Values annotation ---
     local val_cmd ""
@@ -593,28 +576,6 @@ program define _eplot_data, rclass
             }
             else {
                 local graphcmd `"`graphcmd' (`_ci_type' `lci' `uci' `pos' if `rowtype' == 1, lcolor(`cicolor') lwidth(`ciwidth'))"'
-            }
-        }
-    }
-
-    // --- CI truncation arrows (data mode) ---
-    if "`cirange'" != "" {
-        quietly count if `_dm_lci_trunc' == 1
-        if r(N) > 0 {
-            if "`horizontal'" != "" {
-                local graphcmd `"`graphcmd' (pcarrow `pos' `lci' `pos' `lci' if `_dm_lci_trunc' == 1, msize(small) mcolor(gs6) lcolor(gs6) barbsize(2))"'
-            }
-            else {
-                local graphcmd `"`graphcmd' (pcarrow `lci' `pos' `lci' `pos' if `_dm_lci_trunc' == 1, msize(small) mcolor(gs6) lcolor(gs6) barbsize(2))"'
-            }
-        }
-        quietly count if `_dm_uci_trunc' == 1
-        if r(N) > 0 {
-            if "`horizontal'" != "" {
-                local graphcmd `"`graphcmd' (pcarrow `pos' `uci' `pos' `uci' if `_dm_uci_trunc' == 1, msize(small) mcolor(gs6) lcolor(gs6) barbsize(2))"'
-            }
-            else {
-                local graphcmd `"`graphcmd' (pcarrow `uci' `pos' `uci' `pos' if `_dm_uci_trunc' == 1, msize(small) mcolor(gs6) lcolor(gs6) barbsize(2))"'
             }
         }
     }
@@ -795,18 +756,21 @@ program define _eplot_data, rclass
         local graphcmd `"`graphcmd', ylabel(`ylabels', angle(0) labsize(small) nogrid valuelabel)"'
         local graphcmd `"`graphcmd' ytitle("")"'
         if "`values'" != "" {
-            // Center effect label on data range, not extended range
-            local xmid = (`xmin' + `xmax') / 2
-            local ytext_pos = _N + 2
-            local ypad_hi = _N + 2.5
-            local graphcmd `"`graphcmd' xtitle("")"'
-            local graphcmd `"`graphcmd' text(`ytext_pos' `xmid' `"`effect'"', size(medsmall) placement(c))"'
-            // Column header above values annotation
-            local graphcmd `"`graphcmd' text(`ytext_pos' `val_xpos' `"{bf:`effect'}"', size(vsmall) placement(e))"'
+            // Column header just above first row
+            local _val_hdr_y = 0.3
+            local ypad_lo = -0.2
+            local graphcmd `"`graphcmd' xtitle(`"`effect'"', size(medsmall))"'
+            local graphcmd `"`graphcmd' text(`_val_hdr_y' `val_xpos' `"{bf:`effect'}"', size(vsmall) placement(e))"'
             local graphcmd `"`graphcmd' xscale(range(`xmin_pad' `xmax_pad'))"'
+            local graphcmd `"`graphcmd' xlabel(`_xtick_spec', grid glcolor(gs12) glwidth(vthin))"'
         }
         else {
             local graphcmd `"`graphcmd' xtitle(`"`effect'"')"'
+            local graphcmd `"`graphcmd' xlabel(, grid glcolor(gs12) glwidth(vthin))"'
+        }
+        // Extend range for favors text if specified
+        if `"`favors'"' != "" {
+            local ypad_hi = _N + 2
         }
         local graphcmd `"`graphcmd' yscale(reverse range(`ypad_lo' `ypad_hi'))"'
     }
@@ -815,6 +779,7 @@ program define _eplot_data, rclass
         local graphcmd `"`graphcmd' xscale(range(`ypad_lo' `ypad_hi'))"'
         local graphcmd `"`graphcmd' xtitle("")"'
         local graphcmd `"`graphcmd' ytitle(`"`effect'"')"'
+        local graphcmd `"`graphcmd' ylabel(, grid glcolor(gs12) glwidth(vthin))"'
     }
 
     // Reference lines
@@ -903,10 +868,13 @@ program define _eplot_data, rclass
 
     // Favors annotation (horizontal mode only)
     if `"`favors'"' != "" & "`horizontal'" != "" {
-        gettoken _fav_left _fav_right : favors, bind
-        local _fav_right = trim(`"`_fav_right'"')
-        local _fav_cap `""`_fav_left'"                    "`_fav_right'""'
-        local graphcmd `"`graphcmd' caption(`_fav_cap', size(vsmall) color(gs5))"'
+        gettoken _fav_left favors : favors, bind
+        gettoken _fav_right : favors, bind
+        local _fav_y = _N + 1.5
+        local _fav_x_left = (`xmin' + `null') / 2
+        local _fav_x_right = (`null' + `xmax') / 2
+        local graphcmd `"`graphcmd' text(`_fav_y' `_fav_x_left' `"`_fav_left'"', size(vsmall) color(gs5) placement(c))"'
+        local graphcmd `"`graphcmd' text(`_fav_y' `_fav_x_right' `"`_fav_right'"', size(vsmall) color(gs5) placement(c))"'
     }
 
     // Execute graph
@@ -981,8 +949,6 @@ program define _eplot_estimates, rclass
         SIGColors ///
         SIGColor(string) ///
         INSIGColor(string) ///
-        /// CI truncation
-        CIRange(numlist min=2 max=2) ///
         /// Favors annotation
         Favors(string asis) ///
         /// Style presets
@@ -1518,16 +1484,6 @@ program define _eplot_estimates, rclass
             ((lci > `null' & !missing(lci)) | (uci < `null' & !missing(uci)))
     }
 
-    // ====== CI truncation ======
-    if "`cirange'" != "" {
-        local _cirange_lo : word 1 of `cirange'
-        local _cirange_hi : word 2 of `cirange'
-        quietly gen byte _lci_trunc = (lci < `_cirange_lo') if !missing(lci)
-        quietly gen byte _uci_trunc = (uci > `_cirange_hi') if !missing(uci)
-        quietly replace lci = `_cirange_lo' if lci < `_cirange_lo' & !missing(lci)
-        quietly replace uci = `_cirange_hi' if uci > `_cirange_hi' & !missing(uci)
-    }
-
     // ====== Determine axis range ======
     quietly summarize lci if _rowtype == 1
     local data_xmin = r(min)
@@ -1541,6 +1497,10 @@ program define _eplot_estimates, rclass
     }
     local xmin_pad = `data_xmin' - 0.05 * `data_range'
     local xmax_pad = `data_xmax' + 0.05 * `data_range'
+
+    // Effect-axis grid ticks (data range only)
+    _natscale `data_xmin' `data_xmax' 5
+    local _xtick_spec "`r(min)'(`r(delta)')`r(max)'"
 
     // ====== Values annotation (single-model only) ======
     local val_cmd ""
@@ -1671,28 +1631,6 @@ program define _eplot_estimates, rclass
         }
     }
 
-    // CI truncation arrows
-    if "`cirange'" != "" {
-        quietly count if _lci_trunc == 1
-        if r(N) > 0 {
-            if "`horizontal'" != "" {
-                local graphcmd `"`graphcmd' (pcarrow _plot_pos lci _plot_pos lci if _lci_trunc == 1, msize(small) mcolor(gs6) lcolor(gs6) barbsize(2))"'
-            }
-            else {
-                local graphcmd `"`graphcmd' (pcarrow lci _plot_pos lci _plot_pos if _lci_trunc == 1, msize(small) mcolor(gs6) lcolor(gs6) barbsize(2))"'
-            }
-        }
-        quietly count if _uci_trunc == 1
-        if r(N) > 0 {
-            if "`horizontal'" != "" {
-                local graphcmd `"`graphcmd' (pcarrow _plot_pos uci _plot_pos uci if _uci_trunc == 1, msize(small) mcolor(gs6) lcolor(gs6) barbsize(2))"'
-            }
-            else {
-                local graphcmd `"`graphcmd' (pcarrow uci _plot_pos uci _plot_pos if _uci_trunc == 1, msize(small) mcolor(gs6) lcolor(gs6) barbsize(2))"'
-            }
-        }
-    }
-
     // Values annotation
     if "`val_cmd'" != "" {
         local graphcmd `"`graphcmd' `val_cmd'"'
@@ -1734,19 +1672,29 @@ program define _eplot_estimates, rclass
 
     if "`horizontal'" != "" {
         local graphcmd `"`graphcmd', ylabel(`ylabels', angle(0) labsize(small) nogrid noticks)"'
-        local graphcmd `"`graphcmd' yscale(reverse noline range(`ypad_lo' `ypad_hi'))"'
         local graphcmd `"`graphcmd' ytitle("") xtitle(`"`effect'"')"'
         if "`values'" != "" & `n_models' == 1 {
+            // Column header just above first row
+            local _val_hdr_y = 0.3
+            local ypad_lo = cond(`ypad_lo' < -0.2, `ypad_lo', -0.2)
             local graphcmd `"`graphcmd' xscale(range(`xmin_pad' `xmax_pad'))"'
-            // Column header above values annotation
-            local _val_hdr_y = `n_items' + 0.8
             local graphcmd `"`graphcmd' text(`_val_hdr_y' `val_xpos' `"{bf:`effect'}"', size(vsmall) placement(e))"'
+            local graphcmd `"`graphcmd' xlabel(`_xtick_spec', grid glcolor(gs12) glwidth(vthin))"'
         }
+        else {
+            local graphcmd `"`graphcmd' xlabel(, grid glcolor(gs12) glwidth(vthin))"'
+        }
+        // Extend range for favors text if specified
+        if `"`favors'"' != "" {
+            local ypad_hi = `n_items' + 2
+        }
+        local graphcmd `"`graphcmd' yscale(reverse noline range(`ypad_lo' `ypad_hi'))"'
     }
     else {
         local graphcmd `"`graphcmd', xlabel(`ylabels', angle(45) labsize(small) nogrid)"'
         local graphcmd `"`graphcmd' xscale(range(`ypad_lo' `ypad_hi'))"'
         local graphcmd `"`graphcmd' xtitle("") ytitle(`"`effect'"')"'
+        local graphcmd `"`graphcmd' ylabel(, grid glcolor(gs12) glwidth(vthin))"'
     }
 
     // Reference line
@@ -1839,10 +1787,13 @@ program define _eplot_estimates, rclass
 
     // Favors annotation (horizontal mode only)
     if `"`favors'"' != "" & "`horizontal'" != "" {
-        gettoken _fav_left _fav_right : favors, bind
-        local _fav_right = trim(`"`_fav_right'"')
-        local _fav_cap `""`_fav_left'"                    "`_fav_right'""'
-        local graphcmd `"`graphcmd' caption(`_fav_cap', size(vsmall) color(gs5))"'
+        gettoken _fav_left favors : favors, bind
+        gettoken _fav_right : favors, bind
+        local _fav_y = `n_items' + 1.5
+        local _fav_x_left = (`data_xmin' + `null') / 2
+        local _fav_x_right = (`null' + `data_xmax') / 2
+        local graphcmd `"`graphcmd' text(`_fav_y' `_fav_x_left' `"`_fav_left'"', size(vsmall) color(gs5) placement(c))"'
+        local graphcmd `"`graphcmd' text(`_fav_y' `_fav_x_right' `"`_fav_right'"', size(vsmall) color(gs5) placement(c))"'
     }
 
     // ====== Execute graph ======
@@ -1980,7 +1931,6 @@ program define _eplot_matrix, rclass
         SIGColor(string) ///
         INSIGColor(string) ///
         STARS ///
-        CIRange(numlist min=2 max=2) ///
         Favors(string asis) ///
         /// Layout
         HORizontal ///
@@ -2218,20 +2168,6 @@ program define _eplot_matrix, rclass
     // Positions
     gen double _plot_pos = _N - _n + 1
 
-    // CI truncation
-    if "`cirange'" != "" {
-        local _cirange_lo : word 1 of `cirange'
-        local _cirange_hi : word 2 of `cirange'
-        quietly gen byte _lci_trunc = (lci < `_cirange_lo') if !missing(lci)
-        quietly gen byte _uci_trunc = (uci > `_cirange_hi') if !missing(uci)
-        quietly replace lci = `_cirange_lo' if lci < `_cirange_lo' & !missing(lci)
-        quietly replace uci = `_cirange_hi' if uci > `_cirange_hi' & !missing(uci)
-    }
-    else {
-        quietly gen byte _lci_trunc = 0
-        quietly gen byte _uci_trunc = 0
-    }
-
     // Stars string generation (from pre-eform p-values)
     if "`stars'" != "" {
         quietly gen str _star = ""
@@ -2252,6 +2188,10 @@ program define _eplot_matrix, rclass
     }
     local xmin_pad = `data_xmin' - 0.05 * `data_range'
     local xmax_pad = `data_xmax' + 0.05 * `data_range'
+
+    // Effect-axis grid ticks (data range only)
+    _natscale `data_xmin' `data_xmax' 5
+    local _xtick_spec "`r(min)'(`r(delta)')`r(max)'"
 
     // Values annotation
     local val_cmd ""
@@ -2334,19 +2274,29 @@ program define _eplot_matrix, rclass
     local ypad_hi = `n_coefs' + 1
     if "`horizontal'" != "" {
         local graphcmd `"`graphcmd', ylabel(`ylabels', angle(0) labsize(small) nogrid)"'
-        local graphcmd `"`graphcmd' yscale(reverse range(`ypad_lo' `ypad_hi'))"'
         local graphcmd `"`graphcmd' ytitle("") xtitle(`"`effect'"')"'
         if "`values'" != "" {
+            // Column header just above first row
+            local _val_hdr_y = 0.3
+            local ypad_lo = -0.2
             local graphcmd `"`graphcmd' xscale(range(`xmin_pad' `xmax_pad'))"'
-            // Column header above values annotation
-            local _val_hdr_y = `n_coefs' + 0.8
             local graphcmd `"`graphcmd' text(`_val_hdr_y' `val_xpos' `"{bf:`effect'}"', size(vsmall) placement(e))"'
+            local graphcmd `"`graphcmd' xlabel(`_xtick_spec', grid glcolor(gs12) glwidth(vthin))"'
         }
+        else {
+            local graphcmd `"`graphcmd' xlabel(, grid glcolor(gs12) glwidth(vthin))"'
+        }
+        // Extend range for favors text if specified
+        if `"`favors'"' != "" {
+            local ypad_hi = `n_coefs' + 2
+        }
+        local graphcmd `"`graphcmd' yscale(reverse range(`ypad_lo' `ypad_hi'))"'
     }
     else {
         local graphcmd `"`graphcmd', xlabel(`ylabels', angle(45) labsize(small) nogrid)"'
         local graphcmd `"`graphcmd' xscale(range(`ypad_lo' `ypad_hi'))"'
         local graphcmd `"`graphcmd' xtitle("") ytitle(`"`effect'"')"'
+        local graphcmd `"`graphcmd' ylabel(, grid glcolor(gs12) glwidth(vthin))"'
     }
 
     // Reference line
@@ -2386,10 +2336,13 @@ program define _eplot_matrix, rclass
 
     // Favors annotation (horizontal mode only)
     if `"`favors'"' != "" & "`horizontal'" != "" {
-        gettoken _fav_left _fav_right : favors, bind
-        local _fav_right = trim(`"`_fav_right'"')
-        local _fav_cap `""`_fav_left'"                    "`_fav_right'""'
-        local graphcmd `"`graphcmd' caption(`_fav_cap', size(vsmall) color(gs5))"'
+        gettoken _fav_left favors : favors, bind
+        gettoken _fav_right : favors, bind
+        local _fav_y = `n_coefs' + 1.5
+        local _fav_x_left = (`data_xmin' + `null') / 2
+        local _fav_x_right = (`null' + `data_xmax') / 2
+        local graphcmd `"`graphcmd' text(`_fav_y' `_fav_x_left' `"`_fav_left'"', size(vsmall) color(gs5) placement(c))"'
+        local graphcmd `"`graphcmd' text(`_fav_y' `_fav_x_right' `"`_fav_right'"', size(vsmall) color(gs5) placement(c))"'
     }
 
     // Execute

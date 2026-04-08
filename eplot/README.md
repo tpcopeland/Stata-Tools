@@ -32,25 +32,15 @@ net install eplot, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tool
 - **Color palette** for multi-model with full marker/CI customization
 - **Matrix mode** for plotting from pre-computed matrices
 - **Auto variable labels** with factor value label expansion in estimates mode
-- **Style presets** (`forest`, `coef`, `lancet`, `jama`) for quick publication-ready styling
+- **Style presets** (`forest`, `coef`, `lancet`, `jama`, `nejm`, `bmj`) for quick publication-ready styling
 - **Significance stars** (*, **, ***) and **color-coded significance** (sig vs non-sig)
-- **CI truncation** with arrow indicators for extreme confidence intervals
+- **Favors annotation** (`favors("Favors Treatment" "Favors Control")`) below x-axis
+- **Auto-detect effect labels** from `e(cmd)` (Odds Ratio after logit, Hazard Ratio after stcox, IRR after poisson)
 - **Prediction intervals** (dashed whiskers behind CIs) for meta-analysis
 - **Heterogeneity statistics** (I², τ², Q) in automatic graph notes
 - **r(table) matrix** of plotted effects for downstream programmatic use
 - **`noconstant`** shorthand for `drop(_cons)`
 - **Full customization** via standard Stata graph options
-
-## Screenshots
-
-### Multi-Model Comparison
-![Multi-Model Comparison](demo/multi_model.png)
-
-### Forest Plot with Values Annotation
-![Forest Plot](demo/forest_values.png)
-
-### Grouped Coefficient Plot
-![Grouped Coefficient Plot](demo/grouped_coefplot.png)
 
 ## Syntax
 
@@ -80,6 +70,8 @@ Matrix must have 2 columns (b, se) or 3 columns (b, lci, uci).
 
 ### Multi-Model Coefficient Comparison
 
+![Multi-Model Comparison](demo/multi_model.png)
+
 ```stata
 sysuse auto, clear
 
@@ -101,6 +93,8 @@ eplot base extended, drop(_cons) ///
 
 ### Forest Plot with Values Annotation
 
+![Forest Plot](demo/forest_values.png)
+
 ```stata
 clear
 input str20 study es lci uci weight
@@ -119,6 +113,8 @@ eplot es lci uci, labels(study) weights(weight) type(type) ///
 ```
 
 ### Grouped Coefficient Plot
+
+![Grouped Coefficient Plot](demo/grouped_coefplot.png)
 
 ```stata
 sysuse auto, clear
@@ -140,10 +136,71 @@ eplot ., drop(_cons) eform ///
 
 ### Matrix Mode
 
+![Matrix Mode](demo/matrix_mode.png)
+
 ```stata
-matrix R = (1.5, 1.1, 2.0 \ 0.8, 0.6, 1.2 \ 1.2, 0.9, 1.6)
-matrix rownames R = "Treatment_A" "Treatment_B" "Treatment_C"
-eplot, matrix(R) effect("Odds Ratio") scheme(plotplainblind)
+matrix R = (1.82, 1.21, 2.74 \ 0.73, 0.54, 0.99 \ 1.45, 1.08, 1.95 \ 1.12, 0.78, 1.61)
+matrix rownames R = "Drug_A" "Drug_B" "Drug_C" "Drug_D"
+
+eplot, matrix(R) eform ///
+    effect("Odds Ratio (95% CI)") ///
+    coeflabels(Drug_A = "Drug A (experimental)" ///
+               Drug_B = "Drug B (standard)" ///
+               Drug_C = "Drug C (combination)" ///
+               Drug_D = "Drug D (low-dose)") ///
+    values cicap scheme(plotplainblind)
+```
+
+### Lancet Style Preset
+
+![Lancet Style](demo/lancet_style.png)
+
+```stata
+sysuse auto, clear
+logit foreign mpg weight length
+
+eplot ., noconstant eform ///
+    style(lancet) ///
+    scheme(plotplainblind)
+```
+
+### Significance Coloring with Stars
+
+![Significance Coloring](demo/sigcolors.png)
+
+```stata
+sysuse auto, clear
+regress price mpg weight length turn headroom foreign
+
+eplot ., noconstant ///
+    sigcolors sigcolor(navy) ///
+    cicap values stars ///
+    scheme(plotplainblind)
+```
+
+### Meta-Analysis with Prediction Intervals and Heterogeneity
+
+![Meta-Analysis](demo/meta_heterogeneity.png)
+
+```stata
+clear
+input str20 study double(es lci uci pi_lci pi_uci weight) byte type
+"Smith 2018"   -0.42  -0.78  -0.06  -1.15   0.31  12.3  1
+"Jones 2019"   -0.31  -0.58  -0.04  -1.04   0.42  16.8  1
+"Brown 2020"   -0.18  -0.41   0.05  -0.91   0.55  21.5  1
+"Lee 2021"     -0.55  -0.93  -0.17  -1.28   0.18  10.2  1
+"Garcia 2022"  -0.27  -0.49  -0.05  -1.00   0.46  19.1  1
+"Patel 2023"   -0.09  -0.35   0.17  -0.82   0.64  20.1  1
+"Overall"      -0.28  -0.41  -0.15   .       .      .    5
+end
+
+eplot es lci uci, labels(study) weights(weight) type(type) ///
+    values vformat(%4.2f) ///
+    pi(pi_lci pi_uci) ///
+    i2("42.1%") tau2("0.021") qstat("8.63, df=5, p=0.125") ///
+    effect("Mean Difference (95% CI)") ///
+    favors("Favors Treatment" "Favors Control") ///
+    scheme(plotplainblind)
 ```
 
 ## Options
@@ -196,8 +253,8 @@ eplot, matrix(R) effect("Odds Ratio") scheme(plotplainblind)
 | `sigcolors` | Color markers by significance (CI vs null) |
 | `sigcolor(color)` | Significant effect color (default: cranberry) |
 | `insigncolor(color)` | Non-significant effect color (default: gs10) |
-| `style(name)` | Preset: forest, coef, lancet, or jama |
-| `cirange(# #)` | Truncate CIs with arrow indicators |
+| `style(name)` | Preset: forest, coef, lancet, jama, nejm, or bmj |
+| `favors(left right)` | Directional annotation below x-axis (horizontal mode) |
 | `pi(lci_var uci_var)` | Prediction interval whiskers (data mode) |
 | `i2(string)` | Display I-squared in note (data mode) |
 | `tau2(string)` | Display tau-squared in note (data mode) |
@@ -240,9 +297,11 @@ eplot, matrix(R) effect("Odds Ratio") scheme(plotplainblind)
 | Result | Description |
 |--------|-------------|
 | `r(N)` | Number of effects plotted |
-| `r(n_models)` | Number of models (estimates mode) |
+| `r(k)` | Number of coefficients (excluding headers/diamonds) |
+| `r(n_models)` | Number of models (estimates mode only) |
 | `r(cmd)` | Graph command executed |
-| `r(table)` | k x 3 matrix of plotted effects (b, ll, ul) |
+| `r(table)` | k x 3 matrix of plotted effects (b, ll, ul); k x (3*m) for multi-model |
+| `r(pvalues)` | P-value matrix (estimates mode, single-model only) |
 
 ## Author
 
