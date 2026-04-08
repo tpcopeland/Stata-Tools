@@ -2,7 +2,7 @@
 
 ![Stata 16+](https://img.shields.io/badge/Stata-16%2B-brightgreen) ![MIT License](https://img.shields.io/badge/License-MIT-blue) ![Version 1.0.0](https://img.shields.io/badge/Version-1.0.0-blue)
 
-A comprehensive suite of Stata commands for exporting publication-ready tables to Excel. Designed for epidemiological and clinical research workflows, tabtools handles descriptive statistics, regression results, treatment effects, survival analysis, diagnostic accuracy, and general-purpose table export with consistent professional formatting.
+A comprehensive suite of Stata commands for exporting publication-ready tables to Excel. Designed for epidemiological and clinical research workflows, tabtools handles descriptive statistics, regression results, treatment effects, survival analysis, diagnostic accuracy, and general-purpose table export with consistent professional formatting. `table1_tc` is a fork of `table1_mc` version 3.5 (2024-12-19) by Mark Chatfield, though I have taken some liberties with removing and changing some existing options, the `table1_mc` options are generally intact. See [demo_tabtools.xlsx](https://github.com/tpcopeland/Stata-Tools/raw/refs/heads/main/tabtools/demo/demo_tabtools.xlsx) for examples of the various commands and [demo_tabtools.do](https://github.com/tpcopeland/Stata-Tools/raw/refs/heads/main/tabtools/demo/demo_tabtools.do) for the .do file that created it. 
 
 ## Installation
 
