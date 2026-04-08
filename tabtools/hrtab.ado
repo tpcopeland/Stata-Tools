@@ -412,7 +412,9 @@ program define hrtab, rclass
 			* Extract variable name after i. or ib#.
 			if strmatch("`_es'", "ib*.*") {
 				* ib#.varname — extract after the dot
-				local _exp_var`_p' = regexs(1) if regexm("`_es'", "ib[0-9]+\.(.+)")
+				if regexm("`_es'", "ib[0-9]+\.(.+)") {
+					local _exp_var`_p' = regexs(1)
+				}
 			}
 			else {
 				local _exp_var`_p' = substr("`_es'", 3, .)
@@ -438,6 +440,12 @@ program define hrtab, rclass
 		else {
 			local _panel_label`_p' : variable label `_exp_var`_p''
 			if "`_panel_label`_p''" == "" local _panel_label`_p' "`_exp_var`_p''"
+		}
+
+		* Save continuous variable label now (data cleared later for output)
+		if "`_exp_type`_p''" == "continuous" {
+			local _cont_label_p`_p' : variable label `_exp_var`_p''
+			if "`_cont_label_p`_p''" == "" local _cont_label_p`_p' "`_exp_var`_p'' (per unit)"
 		}
 	}
 
@@ -519,7 +527,8 @@ program define hrtab, rclass
 					quietly stset `_tvar', failure(`_cr_outcome' == `_fv') `stsetopts'
 				}
 				else if "`model'" == "finegray" {
-					quietly stset `_tvar', failure(`_cr_outcome' != `censvalue') `stsetopts'
+					* finegray needs failure = any event; it handles cause internally
+					quietly stset `_tvar', failure(`_cr_outcome') `stsetopts'
 				}
 				else {
 					* stcox with competing risks: censor at competing event
@@ -608,7 +617,9 @@ program define hrtab, rclass
 				local _base_level_p`_p' = 0
 				if strmatch("`_espec'", "ib*.*") {
 					* Explicit base from ib#.
-					local _base_level_p`_p' = regexs(1) if regexm("`_espec'", "ib([0-9]+)\.")
+					if regexm("`_espec'", "ib([0-9]+)\.") {
+						local _base_level_p`_p' = regexs(1)
+					}
 				}
 				else {
 					* Default base = lowest level
@@ -983,10 +994,8 @@ program define hrtab, rclass
 			local _row = `_row' + 1
 			quietly set obs `_row'
 
-			* Use variable label as row label
-			local _cont_label : variable label `_exp_var`_p''
-			if "`_cont_label'" == "" local _cont_label "`_exp_var`_p'' (per unit)"
-			quietly replace c1 = "   `_cont_label'" in `_row'
+			* Use pre-saved variable label as row label
+			quietly replace c1 = "   `_cont_label_p`_p''" in `_row'
 
 			local _col = 2
 			forvalues _o = 1/`n_outcomes' {
@@ -1086,7 +1095,7 @@ program define hrtab, rclass
 	* =========================================================================
 
 	if "`display'" != "" | !`_has_xlsx' {
-		_tabtools_console_display `_total_cols', title("`title'") ///
+		_tabtools_console_display `_total_cols' `"`title'"', ///
 			labelvar(labelvar) datastart(`_data_start') headerstart(`_header_row')
 	}
 

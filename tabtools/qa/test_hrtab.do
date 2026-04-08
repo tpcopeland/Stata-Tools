@@ -164,7 +164,7 @@ capture noisily {
 	hrtab, exposure(i.treatment \ c.dose) model(stcox) ///
 		covars(age) display
 	assert r(panels) == 2
-	assert r(models) == 2
+	assert r(models) == 4
 }
 if _rc == 0 {
 	display as result "  PASS: 1.6 Mixed categorical + continuous exposures"
