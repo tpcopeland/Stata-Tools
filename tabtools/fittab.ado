@@ -1,4 +1,4 @@
-*! fittab Version 1.0.0  2026/04/08
+*! fittab Version 1.0.1  2026/04/09
 *! Model comparison table
 *! Author: Timothy P Copeland
 *! Program class: rclass

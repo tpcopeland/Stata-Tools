@@ -624,7 +624,8 @@ capture erase "`output_dir'/_va_sv1.txt"
 local ++n_total
 capture noisily {
     webuse drugtr, clear
-    stset studytime, failure(died)
+    gen id = _n
+    stset studytime, failure(died) id(id)
 
     * Reference HR from direct stcox
     quietly stcox i.drug, nolog

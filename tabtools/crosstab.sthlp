@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.0  08apr2026}{...}
+{* *! version 1.0.1  09apr2026}{...}
 {viewerjumpto "Syntax" "crosstab##syntax"}{...}
 {viewerjumpto "Description" "crosstab##description"}{...}
 {viewerjumpto "Options" "crosstab##options"}{...}
@@ -19,7 +19,7 @@
 {p 4 8 2}{cmd:crosstab} {it:rowvar} {it:colvar} [{it:if}] [{it:in}] [{it:weight}],
 [{opt xlsx(filename)} {opt col:pct} {opt row:pct} {opt total:pct}
 {opt or} {opt rr} {opt rd} {opt tr:end} {opt ex:act} {opt fi:sher}
-{opt lab:el} {opt mis:sing} {opt by(varname)} {opt dig:its(#)}
+{opt lab:el} {opt mis:sing} {opt dig:its(#)}
 {opt sheet(string)} {opt title(string)} {opt sub:title(string)} {opt foot:note(string)}
 {opt the:me(string)} {opt borders:tyle(string)} {opt boldp(#)} {opt zebra}
 {opt csv(filename)} {opt fra:me(name)} {opt dis:play} {opt open}]{p_end}
@@ -29,7 +29,7 @@
 {pstd}{cmd:crosstab} generates a formatted cross-tabulation table with
 frequencies, percentages, and association measures (OR, RR, RD). Supports
 Chi-squared test, Fisher's exact test (auto-selected when expected cells < 5),
-and Cochran-Armitage trend test.{p_end}
+and a Spearman rank-correlation trend test.{p_end}
 
 {marker options}{title:Options}
 
@@ -40,12 +40,11 @@ and Cochran-Armitage trend test.{p_end}
 {synopt:{opt or}}odds ratio with 95% CI (2x2 tables){p_end}
 {synopt:{opt rr}}risk ratio with 95% CI (2x2 tables){p_end}
 {synopt:{opt rd}}risk difference with 95% CI (2x2 tables){p_end}
-{synopt:{opt tr:end}}Cochran-Armitage trend test{p_end}
-{synopt:{opt ex:act}}exact confidence intervals{p_end}
-{synopt:{opt fi:sher}}force Fisher's exact test{p_end}
+{synopt:{opt tr:end}}test for trend using Spearman rank correlation{p_end}
+{synopt:{opt ex:act}}force Fisher's exact test{p_end}
+{synopt:{opt fi:sher}}force Fisher's exact test (synonym for {opt exact}){p_end}
 {synopt:{opt lab:el}}use value labels for headers{p_end}
 {synopt:{opt mis:sing}}include missing values{p_end}
-{synopt:{opt by(varname)}}stratified tables with Mantel-Haenszel adjusted OR{p_end}
 {synopt:{opt dig:its(#)}}decimal places for percentages and association measures (default 1, range 0-6){p_end}
 {synopt:{opt sub:title(string)}}subtitle text displayed below the title{p_end}
 
@@ -86,6 +85,6 @@ and Cochran-Armitage trend test.{p_end}
 {pstd}Timothy P Copeland{p_end}
 {pstd}Department of Clinical Neuroscience, Karolinska Institutet{p_end}
 {pstd}timothy.copeland@ki.se{p_end}
-{pstd}Version 1.0.0{p_end}
+{pstd}Version 1.0.1{p_end}
 
 {hline}

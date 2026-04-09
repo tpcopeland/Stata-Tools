@@ -1083,18 +1083,19 @@ else {
     local ++fail_count
 }
 
-* Test: crosstab by() stratified with MH-OR
+* Test: crosstab exact forces Fisher's exact test
 local ++test_count
 capture noisily {
     use `crossdata', clear
-    crosstab exposure outcome, by(strata) or display
+    crosstab exposure outcome, exact or display
+    assert r(p) < .
 }
 if _rc == 0 {
-    display as result "  PASS: crosstab by() stratified"
+    display as result "  PASS: crosstab exact forces Fisher's"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: crosstab by() stratified (rc=`=_rc')"
+    display as error "  FAIL: crosstab exact forces Fisher's (rc=`=_rc')"
     local ++fail_count
 }
 

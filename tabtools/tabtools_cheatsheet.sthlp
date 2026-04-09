@@ -1,6 +1,6 @@
 {smcl}
-{* *! version 1.0.0  08apr2026}{...}
-{title:tabtools Quick Reference (v1.0.0)}
+{* *! version 1.0.1  09apr2026}{...}
+{title:tabtools Quick Reference (v1.0.1)}
 
 {pstd}Common option combinations for each command.{p_end}
 
@@ -63,7 +63,7 @@
 
 {phang2}{cmd:crosstab exposure outcome, or label xlsx(cross.xlsx) title("Exposure vs Outcome")}{p_end}
 {phang2}{cmd:crosstab smoking cancer, rr rd trend display} {it:// risk ratio, risk diff, trend test}{p_end}
-{phang2}{cmd:crosstab exposure outcome, by(strata) or display} {it:// stratified with MH-adjusted OR}{p_end}
+{phang2}{cmd:crosstab exposure outcome, exact or display} {it:// force Fisher's exact test}{p_end}
 
 {hline}
 {title:diagtab}
@@ -100,6 +100,6 @@
 {pstd}Timothy P Copeland{p_end}
 {pstd}Department of Clinical Neuroscience, Karolinska Institutet{p_end}
 {pstd}timothy.copeland@ki.se{p_end}
-{pstd}Version 1.0.0{p_end}
+{pstd}Version 1.0.1{p_end}
 
 {hline}

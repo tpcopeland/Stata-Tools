@@ -1,5 +1,5 @@
 *! test_comptab.do — Functional tests for comptab
-*! Package: tabtools v1.6.0
+*! Package: tabtools v1.0.1
 *! Date: 2026-03-29
 
 capture log close _test_comptab

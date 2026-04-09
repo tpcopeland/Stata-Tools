@@ -109,6 +109,12 @@ else {
 * Helper Utility Tests (_tabtools_common)
 * ============================================================
 
+* Load internal helpers (not auto-loaded unless a public command runs first)
+capture findfile _tabtools_common.ado
+if _rc == 0 {
+    run "`r(fn)'"
+}
+
 * Test: _tabtools_col_letter basic conversions
 local ++test_count
 capture noisily {

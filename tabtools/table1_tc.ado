@@ -1,5 +1,5 @@
-*! table1_tc Version 1.0.0  2026/04/08 - Descriptive Statistics Table Generator
-*! Author: Tim Copeland
+*! table1_tc Version 1.0.1  2026/04/09 - Descriptive Statistics Table Generator
+*! Author: Timothy P Copeland
 *! Fork of -table1_mc- version 3.5 (2024-12-19) by Mark Chatfield
 *! This program generates descriptive statistics tables with formatting options
 *! and can export them to Excel with automatic column width calculation

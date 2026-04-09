@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.0  08apr2026}{...}
+{* *! version 1.0.1  09apr2026}{...}
 {vieweralsosee "effecttab" "help effecttab"}{...}
 {viewerjumpto "Package overview" "regtab##package"}{...}
 {viewerjumpto "Syntax" "regtab##syntax"}{...}
@@ -116,21 +116,18 @@ random-effects rows if desired.{p_end}
 
 {marker examples}{title:Examples}
 
-{pstd}Propensity score model for SNRI vs SSRI:{p_end}
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
-{phang2}{stata `"merge 1:1 id using "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/treatment.dta", nogen keep(match)"':. merge 1:1 id using _data/treatment.dta, nogen keep(match)}{p_end}
-{phang2}{stata `"merge 1:1 id using "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/comorbidities.dta", nogen keep(master match)"':. merge 1:1 id using _data/comorbidities.dta, nogen keep(master match)}{p_end}
-{phang2}{stata "replace diabetes = 0 if missing(diabetes)":. replace diabetes = 0 if missing(diabetes)}{p_end}
+{pstd}Logistic regression with odds ratios:{p_end}
+{phang2}{stata "webuse nhanes2, clear":. webuse nhanes2, clear}{p_end}
 {phang2}{stata "collect clear":. collect clear}{p_end}
-{phang2}{stata "collect: logit treated index_age female i.education diabetes hypertension anxiety":. collect: logit treated index_age female i.education diabetes hypertension anxiety}{p_end}
-{phang2}{stata `"regtab, xlsx(tabtools/examples/regression.xlsx) sheet("PS_Model") title("Propensity Score Model: SNRI vs SSRI") coef(OR)"':. regtab, xlsx(tabtools/examples/regression.xlsx) sheet("PS_Model") ///}{p_end}
-{phang3}{cmd:title("Propensity Score Model: SNRI vs SSRI") coef(OR)}{p_end}
+{phang2}{stata "collect: logit diabetes age female i.race bmi highbp":. collect: logit diabetes age female i.race bmi highbp}{p_end}
+{phang2}{stata `"regtab, xlsx(regression.xlsx) sheet("Diabetes") title("Odds Ratios for Diabetes") coef(OR)"':. regtab, xlsx(regression.xlsx) sheet("Diabetes") ///}{p_end}
+{phang3}{cmd:title("Odds Ratios for Diabetes") coef(OR)}{p_end}
 
 {pstd}Two models with merged headers, dropping the intercept row:{p_end}
 {phang2}{stata "collect clear":. collect clear}{p_end}
-{phang2}{stata "collect: logit treated index_age female":. collect: logit treated index_age female}{p_end}
-{phang2}{stata "collect: logit treated index_age female i.education diabetes hypertension anxiety":. collect: logit treated index_age female i.education diabetes hypertension anxiety}{p_end}
-{phang2}{stata `"regtab, xlsx(tabtools/examples/regression.xlsx) sheet("Table 2") models("Unadj \ Adj") coef("OR") title("Table 2. Odds ratios") noint"':. regtab, xlsx(tabtools/examples/regression.xlsx) sheet("Table 2") ///}{p_end}
+{phang2}{stata "collect: logit diabetes age female":. collect: logit diabetes age female}{p_end}
+{phang2}{stata "collect: logit diabetes age female i.race bmi highbp":. collect: logit diabetes age female i.race bmi highbp}{p_end}
+{phang2}{stata `"regtab, xlsx(regression.xlsx) sheet("Table 2") models("Unadj \ Adj") coef("OR") title("Table 2. Odds ratios") noint"':. regtab, xlsx(regression.xlsx) sheet("Table 2") ///}{p_end}
 {phang3}{cmd:models("Unadj \ Adj") coef("OR") title("Table 2. Odds ratios") noint}{p_end}
 
 {pstd}Mixed-effects logistic model with Median Odds Ratio and ICC:{p_end}
@@ -212,6 +209,6 @@ the threshold, and {opt highlight()} applies yellow fill to entire rows.{p_end}
 {pstd}Timothy P Copeland{p_end}
 {pstd}Department of Clinical Neuroscience, Karolinska Institutet{p_end}
 {pstd}timothy.copeland@ki.se{p_end}
-{pstd}Version 1.0.0{p_end}
+{pstd}Version 1.0.1{p_end}
 
 {hline}

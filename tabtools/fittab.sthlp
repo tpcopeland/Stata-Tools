@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.0  08apr2026}{...}
+{* *! version 1.0.1  09apr2026}{...}
 {viewerjumpto "Syntax" "fittab##syntax"}{...}
 {viewerjumpto "Description" "fittab##description"}{...}
 {viewerjumpto "Options" "fittab##options"}{...}
@@ -96,6 +96,6 @@ Available: {cmd:n aic bic ll cstat r2 adjr2 rmse}{p_end}
 {pstd}Timothy P Copeland{p_end}
 {pstd}Department of Clinical Neuroscience, Karolinska Institutet{p_end}
 {pstd}timothy.copeland@ki.se{p_end}
-{pstd}Version 1.0.0{p_end}
+{pstd}Version 1.0.1{p_end}
 
 {hline}

@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.0  08apr2026}{...}
+{* *! version 1.0.1  09apr2026}{...}
 {viewerjumpto "Syntax" "diagtab##syntax"}{...}
 {viewerjumpto "Description" "diagtab##description"}{...}
 {viewerjumpto "Options" "diagtab##options"}{...}
@@ -125,6 +125,6 @@ Bayes' theorem. Useful when the study sample prevalence differs from the target 
 {pstd}Timothy P Copeland{p_end}
 {pstd}Department of Clinical Neuroscience, Karolinska Institutet{p_end}
 {pstd}timothy.copeland@ki.se{p_end}
-{pstd}Version 1.0.0{p_end}
+{pstd}Version 1.0.1{p_end}
 
 {hline}

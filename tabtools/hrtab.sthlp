@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.0  08apr2026}{...}
+{* *! version 1.0.1  09apr2026}{...}
 {vieweralsosee "tabtools" "help tabtools"}{...}
 {vieweralsosee "regtab" "help regtab"}{...}
 {vieweralsosee "effecttab" "help effecttab"}{...}
@@ -169,7 +169,7 @@ If omitted, {cmd:hrtab} uses the existing stset (single-outcome mode, no column 
 {opt censv:alue(#)} specifies the value representing censoring in the outcome variable when using {cmd:failvalue()}. Default is 0. The command treats all values other than {cmd:censvalue} and the current {cmd:failvalue} as competing events.
 
 {phang}
-{opt stsetopts(string)} specifies options passed to every {cmd:stset} call: {cmd:id()}, {cmd:origin()}, {cmd:enter()}, {cmd:scale()}, {cmd:exit()}. For {cmd:model(finegray)}, {cmd:id()} is required.
+{opt stsetopts(string)} specifies options passed to every {cmd:stset} call: {cmd:id()}, {cmd:origin()}, {cmd:enter()}, {cmd:scale()}, {cmd:exit()}. {cmd:id()} is required for all models because person-time is computed via {cmd:stptime}.
 
 {dlgtab:Model specification}
 
@@ -456,6 +456,6 @@ Karolinska Institutet, Stockholm, Sweden
 {p_end}
 
 {pstd}
-{bf:Version} 1.0.0
+{bf:Version} 1.0.1
 
 {hline}

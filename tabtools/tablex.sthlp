@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.0  08apr2026}{...}
+{* *! version 1.0.1  09apr2026}{...}
 {viewerjumpto "Syntax" "tablex##syntax"}{...}
 {viewerjumpto "Description" "tablex##description"}{...}
 {viewerjumpto "Options" "tablex##options"}{...}
@@ -109,28 +109,22 @@ one decimal with thousands separator or {cmd:"0.00"} for two decimal places.
 {title:Examples}
 
 {pstd}Setup{p_end}
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
-{phang2}{stata `"merge 1:1 id using "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/treatment.dta", nogen keep(match)"':. merge 1:1 id using _data/treatment.dta, nogen keep(match)}{p_end}
+{phang2}{stata "sysuse auto, clear":. sysuse auto, clear}{p_end}
 
-{pstd}Education by treatment group{p_end}
-{phang2}{stata "table (education) (treated)":. table (education) (treated)}{p_end}
-{phang2}{stata `"tablex using tabtools/examples/summary.xlsx, sheet("Summary") title("Education by Treatment Group")"':. tablex using tabtools/examples/summary.xlsx, sheet("Summary") ///}{p_end}
-{phang3}{cmd:title("Education by Treatment Group")}{p_end}
-
-{pstd}Summary statistics by treatment{p_end}
-{phang2}{stata "table (treated), statistic(mean index_age) statistic(sd index_age)":. table (treated), statistic(mean index_age) statistic(sd index_age)}{p_end}
-{phang2}{stata `"tablex using tabtools/examples/summary.xlsx, sheet("Age") title("Age by Antidepressant Class")"':. tablex using tabtools/examples/summary.xlsx, sheet("Age") ///}{p_end}
-{phang3}{cmd:title("Age by Antidepressant Class")}{p_end}
+{pstd}Summary statistics by origin{p_end}
+{phang2}{stata "table (foreign) (), statistic(mean price mpg weight) statistic(sd price mpg weight)":. table (foreign) (), statistic(mean price mpg weight) statistic(sd price mpg weight)}{p_end}
+{phang2}{stata `"tablex using summary.xlsx, sheet("Summary") title("Summary Statistics by Origin")"':. tablex using summary.xlsx, sheet("Summary") ///}{p_end}
+{phang3}{cmd:title("Summary Statistics by Origin")}{p_end}
 
 {pstd}Custom formatting{p_end}
-{phang2}{stata "table (education), statistic(mean index_age) statistic(count index_age)":. table (education), statistic(mean index_age) statistic(count index_age)}{p_end}
-{phang2}{stata `"tablex using tabtools/examples/summary.xlsx, sheet("ByEduc") title("Age by Education") font(Calibri) fontsize(11) borderstyle(medium)"':. tablex using tabtools/examples/summary.xlsx, sheet("ByEduc") ///}{p_end}
-{phang3}{cmd:title("Age by Education") font(Calibri) fontsize(11) borderstyle(medium)}{p_end}
+{phang2}{stata "table (rep78), statistic(mean price) statistic(count price)":. table (rep78), statistic(mean price) statistic(count price)}{p_end}
+{phang2}{stata `"tablex using summary.xlsx, sheet("ByRep") title("Price by Repair Record") font(Calibri) fontsize(11) borderstyle(medium)"':. tablex using summary.xlsx, sheet("ByRep") ///}{p_end}
+{phang3}{cmd:title("Price by Repair Record") font(Calibri) fontsize(11) borderstyle(medium)}{p_end}
 
 {pstd}Cross-tabulation{p_end}
-{phang2}{stata "table (education) (treated), statistic(frequency) statistic(percent)":. table (education) (treated), statistic(frequency) statistic(percent)}{p_end}
-{phang2}{stata `"tablex using tabtools/examples/summary.xlsx, sheet("CrossTab") title("Education x Treatment Group")"':. tablex using tabtools/examples/summary.xlsx, sheet("CrossTab") ///}{p_end}
-{phang3}{cmd:title("Education x Treatment Group")}{p_end}
+{phang2}{stata "table (rep78) (foreign), statistic(frequency) statistic(percent)":. table (rep78) (foreign), statistic(frequency) statistic(percent)}{p_end}
+{phang2}{stata `"tablex using summary.xlsx, sheet("CrossTab") title("Repair Record x Origin")"':. tablex using summary.xlsx, sheet("CrossTab") ///}{p_end}
+{phang3}{cmd:title("Repair Record x Origin")}{p_end}
 
 
 {marker results}{...}
@@ -157,7 +151,7 @@ one decimal with thousands separator or {cmd:"0.00"} for two decimal places.
 {pstd}Timothy P Copeland{p_end}
 {pstd}Department of Clinical Neuroscience, Karolinska Institutet{p_end}
 {pstd}timothy.copeland@ki.se{p_end}
-{pstd}Version 1.0.0{p_end}
+{pstd}Version 1.0.1{p_end}
 
 {title:Also see}
 

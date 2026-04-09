@@ -1,4 +1,4 @@
-*! crosstab Version 1.0.0  2026/04/08
+*! crosstab Version 1.0.1  2026/04/09
 *! Cross-tabulation with association measures
 *! Author: Timothy P Copeland
 *! Program class: rclass
@@ -6,14 +6,12 @@
 /*
 DESCRIPTION:
     Cross-tabulation table with association measures (OR, RR, RD),
-    Chi-squared or Fisher's exact tests, and trend tests. Supports
-    stratified analysis with Mantel-Haenszel adjusted OR.
+    Chi-squared or Fisher's exact tests, and trend tests.
 
 SYNTAX:
     crosstab rowvar colvar [if] [in] [weight], xlsx(filename)
         [colpct rowpct totalpct exact fisher
         or rr rd trend label missing
-        by(varname)
         sheet(string) title(string) subtitle(string)
         footnote(string) theme(string) borderstyle(string)
         boldp(real) zebra
@@ -46,7 +44,7 @@ capture noisily {
         [xlsx(string) excel(string) sheet(string) ///
         COLPct ROWPct TOTALPct EXact FIsher ///
         OR RR RD TREnd LABel MISsing ///
-        by(varname) DIGits(integer -1) ///
+        DIGits(integer -1) ///
         title(string) SUBTitle(string) ///
         FOOTnote(string) THEme(string) BORDERStyle(string) ///
         BOLDp(real -1) zebra ///
@@ -80,7 +78,6 @@ capture noisily {
 
     marksample touse
     if "`missing'" == "" markout `touse' `rowvar' `colvar'
-    if "`by'" != "" markout `touse' `by'
 
     quietly count if `touse'
     if r(N) == 0 {
@@ -154,7 +151,7 @@ capture noisily {
         }
     }
 
-    if "`fisher'" != "" | `_min_expected' < 5 {
+    if "`fisher'" != "" | "`exact'" != "" | `_min_expected' < 5 {
         qui tab `rowvar' `colvar' if `touse' [`weight'`exp'], exact
         local _p = r(p_exact)
         local _test_name "Fisher's exact test"
@@ -197,11 +194,10 @@ capture noisily {
         }
     }
 
-    * Trend test (Cuzick's test for trend using rank sum)
+    * Trend test (Spearman rank correlation)
     local _p_trend .
     if "`trend'" != "" {
-        * Use Stata's built-in signrank approach: assign ordinal scores to groups
-        * and test correlation of row variable with group rank
+        * Assign ordinal scores to column levels and test rank correlation
         tempvar _trend_score
         qui egen `_trend_score' = group(`colvar')
         capture qui spearman `rowvar' `_trend_score'

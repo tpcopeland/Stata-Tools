@@ -1,6 +1,6 @@
 # tabtools
 
-![Stata 16+](https://img.shields.io/badge/Stata-16%2B-brightgreen) ![MIT License](https://img.shields.io/badge/License-MIT-blue) ![Version 1.0.0](https://img.shields.io/badge/Version-1.0.0-blue)
+![Stata 16+](https://img.shields.io/badge/Stata-16%2B-brightgreen) ![MIT License](https://img.shields.io/badge/License-MIT-blue) ![Version 1.0.1](https://img.shields.io/badge/Version-1.0.1-blue)
 
 A comprehensive suite of Stata commands for exporting publication-ready tables to Excel. Designed for epidemiological and clinical research workflows, tabtools handles descriptive statistics, regression results, treatment effects, survival analysis, diagnostic accuracy, and general-purpose table export with consistent professional formatting. `table1_tc` is a fork of `table1_mc` version 3.5 (2024-12-19) by Mark Chatfield, though I have taken some liberties with removing and changing some existing options, the `table1_mc` options are generally intact. See [demo_tabtools.xlsx](https://github.com/tpcopeland/Stata-Tools/raw/refs/heads/main/tabtools/demo/demo_tabtools.xlsx) for examples of the various commands and [demo_tabtools.do](https://github.com/tpcopeland/Stata-Tools/raw/refs/heads/main/tabtools/demo/demo_tabtools.do) for the .do file that created it. 
 
@@ -24,7 +24,7 @@ net install tabtools, from("https://raw.githubusercontent.com/tpcopeland/Stata-T
 | Command | Description | Stata |
 |---------|-------------|-------|
 | `table1_tc` | Baseline characteristics table (Table 1) with automatic significance tests, IPTW weighting, and standardized mean differences | 16+ |
-| `crosstab` | Cross-tabulation with association measures (OR, RR, RD), Chi-squared/Fisher's exact tests, and Mantel-Haenszel stratification | 17+ |
+| `crosstab` | Cross-tabulation with association measures (OR, RR, RD), Chi-squared/Fisher's exact tests, and trend test | 17+ |
 | `corrtab` | Correlation matrix with significance stars, Pearson or Spearman, lower/upper/full triangle export | 17+ |
 
 ### Regression
@@ -164,9 +164,10 @@ survtab, times(5 10 15 20) by(drug) ///
 
 ```stata
 webuse drugtr, clear
+gen id = _n
 
 hrtab, exposure(i.drug) model(stcox) ///
-    outcome(died) time(studytime) ///
+    outcome(died) time(studytime) stsetopts(id(id)) ///
     covars(age) ///
     xlsx("hazard_ratios.xlsx") sheet("HR") ///
     title("Table 5. Hazard Ratios by Treatment Group") ///
@@ -353,4 +354,4 @@ MIT License. See [LICENSE](LICENSE) for details.
 
 ## Version
 
-Version 1.0.0, 2026-04-08
+Version 1.0.1, 2026-04-09

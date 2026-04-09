@@ -25,10 +25,10 @@ net install tabtools, from("`pkg_dir'") replace
 local ++n_total
 capture noisily {
     tabtools
-    assert r(version) == "1.0.0"
+    assert r(version) == "1.0.1"
 }
 if _rc == 0 {
-    display as result "  PASS: 1.1 — r(version) = 1.0.0"
+    display as result "  PASS: 1.1 — r(version) = 1.0.1"
     local ++n_pass
 }
 else {

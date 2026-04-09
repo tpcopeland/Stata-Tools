@@ -1,4 +1,4 @@
-*! survtab Version 1.0.0  2026/04/08
+*! survtab Version 1.0.1  2026/04/09
 *! Survival summary table with Kaplan-Meier estimates, medians, and RMST
 *! Author: Timothy P Copeland
 *! Program class: rclass
@@ -222,9 +222,9 @@ capture noisily {
             local surv_g`g'_t`t' = `_surv'
             local se_g`g'_t`t' = `_se'
 
-            * Number at risk
+            * Number at risk (accounts for delayed entry via _t0)
             if "`riskset'" != "" {
-                qui count if _t >= `_time' & `groupvar' == `_glv' & _st
+                qui count if _t >= `_time' & _t0 < `_time' & `groupvar' == `_glv' & _st
                 local nrisk_g`g'_t`t' = r(N)
             }
         }

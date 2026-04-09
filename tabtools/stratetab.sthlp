@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.0  08apr2026}{...}
+{* *! version 1.0.1  09apr2026}{...}
 {viewerjumpto "Syntax" "stratetab##syntax"}{...}
 {viewerjumpto "Description" "stratetab##description"}{...}
 {viewerjumpto "Options" "stratetab##options"}{...}
@@ -114,8 +114,8 @@ The command reads multiple .dta files produced by {helpb strate}, organized by e
 {pstd}
 Combine strate output for cardiovascular events and self-harm by SSRI/SNRI exposure:
 
-{phang2}{stata `"stratetab, using(rate_ssri rate_snri) xlsx(tabtools/examples/rates.xlsx) outcomes(2) outlabels(CV Event \ Self-Harm) title("Incidence Rates per 1,000 Person-Years")"':. stratetab, using(rate_ssri rate_snri) ///}{p_end}
-{phang3}{cmd:xlsx(tabtools/examples/rates.xlsx) outcomes(2) ///}{p_end}
+{phang2}{stata `"stratetab, using(rate_ssri rate_snri) xlsx(rates.xlsx) outcomes(2) outlabels(CV Event \ Self-Harm) title("Incidence Rates per 1,000 Person-Years")"':. stratetab, using(rate_ssri rate_snri) ///}{p_end}
+{phang3}{cmd:xlsx(rates.xlsx) outcomes(2) ///}{p_end}
 {phang3}{cmd:outlabels(CV Event \ Self-Harm) ///}{p_end}
 {phang3}{cmd:title("Incidence Rates per 1,000 Person-Years")}{p_end}
 
@@ -127,7 +127,7 @@ Full table comparing time-varying and cumulative dose exposures:
 
 {phang2}{cmd:. stratetab, using(cv_tv selfharm_tv ///}{p_end}
 {phang3}{cmd:cv_dose selfharm_dose) ///}{p_end}
-{phang3}{cmd:xlsx(tabtools/examples/rates.xlsx) outcomes(2) sheet(Rates) ///}{p_end}
+{phang3}{cmd:xlsx(rates.xlsx) outcomes(2) sheet(Rates) ///}{p_end}
 {phang3}{cmd:title(Table 2. Unadjusted rates by antidepressant exposure) ///}{p_end}
 {phang3}{cmd:outlabels(CV Event \ Self-Harm) ///}{p_end}
 {phang3}{cmd:explabels(Time-Varying Class \ Cumulative Dose)}{p_end}
@@ -138,15 +138,15 @@ Full table comparing time-varying and cumulative dose exposures:
 {pstd}
 Display rates per 100 person-years with person-years in 1000s:
 
-{phang2}{stata "stratetab, using(rate_ssri rate_snri) xlsx(tabtools/examples/rates.xlsx) outcomes(2) ratescale(100) unitlabel(100) pyscale(1000)":. stratetab, using(rate_ssri rate_snri) ///}{p_end}
-{phang3}{cmd:xlsx(tabtools/examples/rates.xlsx) outcomes(2) ///}{p_end}
+{phang2}{stata "stratetab, using(rate_ssri rate_snri) xlsx(rates.xlsx) outcomes(2) ratescale(100) unitlabel(100) pyscale(1000)":. stratetab, using(rate_ssri rate_snri) ///}{p_end}
+{phang3}{cmd:xlsx(rates.xlsx) outcomes(2) ///}{p_end}
 {phang3}{cmd:ratescale(100) unitlabel(100) pyscale(1000)}{p_end}
 
 {pstd}
 {bf:Example 4: Two decimal places for rates}
 
-{phang2}{stata "stratetab, using(rate_ssri rate_snri) xlsx(tabtools/examples/rates.xlsx) outcomes(2) outlabels(CV Event \ Self-Harm) digits(2)":. stratetab, using(rate_ssri rate_snri) ///}{p_end}
-{phang3}{cmd:xlsx(tabtools/examples/rates.xlsx) outcomes(2) ///}{p_end}
+{phang2}{stata "stratetab, using(rate_ssri rate_snri) xlsx(rates.xlsx) outcomes(2) outlabels(CV Event \ Self-Harm) digits(2)":. stratetab, using(rate_ssri rate_snri) ///}{p_end}
+{phang3}{cmd:xlsx(rates.xlsx) outcomes(2) ///}{p_end}
 {phang3}{cmd:outlabels(CV Event \ Self-Harm) digits(2)}{p_end}
 
 
@@ -201,7 +201,7 @@ If {opt explabels()} is specified, the number of labels must match the number of
 {pstd}Timothy P Copeland{p_end}
 {pstd}Department of Clinical Neuroscience, Karolinska Institutet{p_end}
 {pstd}timothy.copeland@ki.se{p_end}
-{pstd}Version 1.0.0{p_end}
+{pstd}Version 1.0.1{p_end}
 
 {title:Also see}
 

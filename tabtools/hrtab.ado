@@ -1,4 +1,4 @@
-*! hrtab Version 1.0.0  2026/04/08
+*! hrtab Version 1.0.1  2026/04/09
 *! Multi-panel hazard ratio table for publication
 *! Author: Timothy P Copeland
 *! Program class: rclass
@@ -388,12 +388,20 @@ program define hrtab, rclass
 			noisily display as error "Either specify outcome() and time(), or stset your data first"
 			exit 119
 		}
-		* Check finegray with existing stset has id
-		if "`model'" == "finegray" {
-			if "`_dta[st_id]'" == "" {
-				noisily display as error "model(finegray) requires stset with id(); current stset has no id()"
-				exit 198
-			}
+		* stptime requires id() in stset for all models
+		if "`_dta[st_id]'" == "" {
+			noisily display as error "hrtab requires stset with id(); current stset has no id()"
+			noisily display as error "Hint: re-stset with id(), e.g. stset time, failure(event) id(patient_id)"
+			exit 198
+		}
+	}
+
+	* When outcome()/time() specified, stsetopts must include id() for stptime
+	if !`_single_outcome' {
+		if "`stsetopts'" == "" | !strmatch("`stsetopts'", "*id(*") {
+			noisily display as error "hrtab requires stsetopts() with id() for person-time computation"
+			noisily display as error "Example: stsetopts(id(patient_id))"
+			exit 198
 		}
 	}
 

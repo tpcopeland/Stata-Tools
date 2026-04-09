@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.0  08apr2026}{...}
+{* *! version 1.0.1  09apr2026}{...}
 {viewerjumpto "Syntax" "effecttab##syntax"}{...}
 {viewerjumpto "Description" "effecttab##description"}{...}
 {viewerjumpto "Options" "effecttab##options"}{...}
@@ -110,58 +110,55 @@ are not defined or you want different wording. {cmd:tlabels()} implies {cmd:clea
 
 {marker examples}{title:Examples}
 
-{pstd}{bf:Example 1: IPTW estimation of SNRI vs SSRI treatment effect}{p_end}
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
-{phang2}{stata `"merge 1:1 id using "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/treatment.dta", nogen keep(match)"':. merge 1:1 id using _data/treatment.dta, nogen keep(match)}{p_end}
-{phang2}{stata `"merge 1:1 id using "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/comorbidities.dta", nogen keep(master match)"':. merge 1:1 id using _data/comorbidities.dta, nogen keep(master match)}{p_end}
-{phang2}{stata "replace diabetes = 0 if missing(diabetes)":. replace diabetes = 0 if missing(diabetes)}{p_end}
-{phang2}{stata "gen byte cv_event = (cv_event_date < .)":. gen byte cv_event = (cv_event_date < .)}{p_end}
+{pstd}{bf:Example 1: IPTW estimation of maternal smoking on birth weight}{p_end}
+{phang2}{stata "webuse cattaneo2, clear":. webuse cattaneo2, clear}{p_end}
 {phang2}{stata "collect clear":. collect clear}{p_end}
-{phang2}{stata "collect: teffects ipw (cv_event) (treated index_age female i.education), ate":. collect: teffects ipw (cv_event) (treated index_age female i.education), ate}{p_end}
-{phang2}{cmd:. effecttab, xlsx(tabtools/examples/effects.xlsx) sheet("ATE") effect("ATE") ///}{p_end}
-{phang3}{cmd:title("ATE of SNRI vs SSRI on Cardiovascular Events") ///}{p_end}
-{phang3}{cmd:tlabels(0 "SSRI" 1 "SNRI")}{p_end}
+{phang2}{stata "collect: teffects ipw (bweight) (mbsmoke mage medu, logit), ate":. collect: teffects ipw (bweight) (mbsmoke mage medu, logit), ate}{p_end}
+{phang2}{cmd:. effecttab, xlsx(effects.xlsx) sheet("ATE") effect("ATE") ///}{p_end}
+{phang3}{cmd:title("ATE of Maternal Smoking on Birth Weight") ///}{p_end}
+{phang3}{cmd:tlabels(0 "Non-smoker" 1 "Smoker")}{p_end}
 
 {pstd}{bf:Example 2: Comparing IPTW and doubly robust estimators}{p_end}
 {phang2}{stata "collect clear":. collect clear}{p_end}
-{phang2}{stata "collect: teffects ipw (cv_event) (treated index_age female i.education), ate":. collect: teffects ipw (cv_event) (treated index_age female i.education), ate}{p_end}
-{phang2}{stata "collect: teffects aipw (cv_event index_age female) (treated index_age female i.education), ate":. collect: teffects aipw (cv_event index_age female) (treated index_age female i.education), ate}{p_end}
-{phang2}{stata `"effecttab, xlsx(tabtools/examples/effects.xlsx) sheet("Comparison") models("IPTW \ AIPW") effect("ATE") clean"':. effecttab, xlsx(tabtools/examples/effects.xlsx) sheet("Comparison") ///}{p_end}
+{phang2}{stata "collect: teffects ipw (bweight) (mbsmoke mage medu, logit), ate":. collect: teffects ipw (bweight) (mbsmoke mage medu, logit), ate}{p_end}
+{phang2}{stata "collect: teffects aipw (bweight mage medu) (mbsmoke mage medu, logit), ate":. collect: teffects aipw (bweight mage medu) (mbsmoke mage medu, logit), ate}{p_end}
+{phang2}{stata `"effecttab, xlsx(effects.xlsx) sheet("Comparison") models("IPTW \ AIPW") effect("ATE") clean"':. effecttab, xlsx(effects.xlsx) sheet("Comparison") ///}{p_end}
 {phang3}{cmd:models("IPTW \ AIPW") effect("ATE") clean}{p_end}
 
 {pstd}{bf:Example 3: Potential outcome means}{p_end}
 {phang2}{stata "collect clear":. collect clear}{p_end}
-{phang2}{stata "collect: teffects ipw (cv_event) (treated index_age female i.education), pomeans":. collect: teffects ipw (cv_event) (treated index_age female i.education), pomeans}{p_end}
-{phang2}{stata `"effecttab, xlsx(tabtools/examples/effects.xlsx) sheet("PO Means") effect("Pr(CV Event)") title("Potential Outcome Means") clean"':. effecttab, xlsx(tabtools/examples/effects.xlsx) sheet("PO Means") ///}{p_end}
-{phang3}{cmd:effect("Pr(CV Event)") title("Potential Outcome Means") clean}{p_end}
+{phang2}{stata "collect: teffects ipw (bweight) (mbsmoke mage medu, logit), pomeans":. collect: teffects ipw (bweight) (mbsmoke mage medu, logit), pomeans}{p_end}
+{phang2}{stata `"effecttab, xlsx(effects.xlsx) sheet("PO Means") effect("Birth Weight") title("Potential Outcome Means") clean"':. effecttab, xlsx(effects.xlsx) sheet("PO Means") ///}{p_end}
+{phang3}{cmd:effect("Birth Weight") title("Potential Outcome Means") clean}{p_end}
 
-{pstd}{bf:Example 4: Marginal effects from propensity score model}{p_end}
-{phang2}{stata "logit treated index_age female i.education diabetes hypertension anxiety":. logit treated index_age female i.education diabetes hypertension anxiety}{p_end}
+{pstd}{bf:Example 4: Marginal effects}{p_end}
+{phang2}{stata "webuse nhanes2, clear":. webuse nhanes2, clear}{p_end}
+{phang2}{stata "logit diabetes age female i.race bmi highbp":. logit diabetes age female i.race bmi highbp}{p_end}
 {phang2}{stata "collect clear":. collect clear}{p_end}
-{phang2}{stata "collect: margins, dydx(index_age female diabetes)":. collect: margins, dydx(index_age female diabetes)}{p_end}
-{phang2}{stata `"effecttab, xlsx(tabtools/examples/effects.xlsx) sheet("AME") effect("AME") title("Average Marginal Effects on Treatment Selection")"':. effecttab, xlsx(tabtools/examples/effects.xlsx) sheet("AME") effect("AME") ///}{p_end}
-{phang3}{cmd:title("Average Marginal Effects on Treatment Selection")}{p_end}
+{phang2}{stata "collect: margins, dydx(age female bmi)":. collect: margins, dydx(age female bmi)}{p_end}
+{phang2}{stata `"effecttab, xlsx(effects.xlsx) sheet("AME") effect("AME") title("Average Marginal Effects on Diabetes")"':. effecttab, xlsx(effects.xlsx) sheet("AME") effect("AME") ///}{p_end}
+{phang3}{cmd:title("Average Marginal Effects on Diabetes")}{p_end}
 
 {pstd}{bf:Example 5: Marginal effects at specific covariate values}{p_end}
-{phang2}{stata "logit cv_event treated index_age female i.education":. logit cv_event treated index_age female i.education}{p_end}
+{phang2}{stata "logit diabetes age female bmi highbp":. logit diabetes age female bmi highbp}{p_end}
 {phang2}{stata "collect clear":. collect clear}{p_end}
-{phang2}{stata "collect: margins, at(index_age=(40(10)70))":. collect: margins, at(index_age=(40(10)70))}{p_end}
-{phang2}{cmd:. effecttab, xlsx(effects.xlsx) sheet("Predictions") effect("Pr(CV Event)") ///}{p_end}
+{phang2}{stata "collect: margins, at(age=(40(10)70))":. collect: margins, at(age=(40(10)70))}{p_end}
+{phang2}{cmd:. effecttab, xlsx(effects.xlsx) sheet("Predictions") effect("Pr(Diabetes)") ///}{p_end}
 {phang3}{cmd:title("Predicted Probability at Different Ages")}{p_end}
 
 {pstd}{bf:Example 6: Stratified marginal effects with over()}{p_end}
-{phang2}{stata "logit cv_event treated##female index_age i.education":. logit cv_event treated##female index_age i.education}{p_end}
+{phang2}{stata "logit diabetes highbp##female age bmi":. logit diabetes highbp##female age bmi}{p_end}
 {phang2}{stata "collect clear":. collect clear}{p_end}
-{phang2}{stata "collect: margins treated, over(female)":. collect: margins treated, over(female)}{p_end}
-{phang2}{cmd:. effecttab, xlsx(effects.xlsx) sheet("Stratified") effect("Pr(CV Event)") ///}{p_end}
-{phang3}{cmd:title("Predicted Probability by Sex and Treatment")}{p_end}
+{phang2}{stata "collect: margins highbp, over(female)":. collect: margins highbp, over(female)}{p_end}
+{phang2}{cmd:. effecttab, xlsx(effects.xlsx) sheet("Stratified") effect("Pr(Diabetes)") ///}{p_end}
+{phang3}{cmd:title("Predicted Probability by Sex and Hypertension")}{p_end}
 
 {pstd}{bf:Example 7: Average marginal effects (dydx) for all covariates}{p_end}
-{phang2}{stata "logit cv_event treated index_age female diabetes hypertension":. logit cv_event treated index_age female diabetes hypertension}{p_end}
+{phang2}{stata "logit diabetes age female bmi highbp":. logit diabetes age female bmi highbp}{p_end}
 {phang2}{stata "collect clear":. collect clear}{p_end}
 {phang2}{stata "collect: margins, dydx(*)":. collect: margins, dydx(*)}{p_end}
 {phang2}{cmd:. effecttab, xlsx(effects.xlsx) sheet("All AME") effect("AME") ///}{p_end}
-{phang3}{cmd:title("Average Marginal Effects on CV Events")}{p_end}
+{phang3}{cmd:title("Average Marginal Effects on Diabetes")}{p_end}
 
 {marker stored}{title:Stored results}
 
@@ -195,6 +192,6 @@ are not defined or you want different wording. {cmd:tlabels()} implies {cmd:clea
 {pstd}Timothy P Copeland{p_end}
 {pstd}Department of Clinical Neuroscience, Karolinska Institutet{p_end}
 {pstd}timothy.copeland@ki.se{p_end}
-{pstd}Version 1.0.0{p_end}
+{pstd}Version 1.0.1{p_end}
 
 {hline}
