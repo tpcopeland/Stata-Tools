@@ -40,6 +40,7 @@ net install tabtools, from("https://raw.githubusercontent.com/tpcopeland/Stata-T
 | Command | Description | Stata |
 |---------|-------------|-------|
 | `survtab` | Survival summary table with Kaplan-Meier estimates, median survival, RMST, number at risk, and cumulative incidence | 17+ |
+| `hrtab` | Multi-panel hazard ratio table for stcox, stcrreg, and finegray with person-years and event counts | 17+ |
 | `stratetab` | Combine and format `strate` incidence rate outputs with optional rate ratios and log-normal CIs | 17+ |
 | `diagtab` | Diagnostic accuracy table (sensitivity, specificity, PPV, NPV, LR+, LR-, DOR, AUC) from a 2x2 classification | 17+ |
 | `fittab` | Model comparison table with fit statistics (N, AIC, BIC, log-likelihood, C-statistic, R-squared) across stored estimates | 17+ |
@@ -49,7 +50,7 @@ net install tabtools, from("https://raw.githubusercontent.com/tpcopeland/Stata-T
 | Command | Description | Stata |
 |---------|-------------|-------|
 | `tablex` | General-purpose table export for any Stata `table`/`collect` output | 17+ |
-| `tabtools` | Suite controller: persistent formatting defaults (`set`/`get`), command listing, and batch `manuscript` mode | 17+ |
+| `tabtools` | Suite controller: persistent formatting defaults (`set`/`get`) and command listing | 17+ |
 
 ## Quick Examples
 
@@ -159,6 +160,19 @@ survtab, times(5 10 15 20) by(drug) ///
     timeunit("months")
 ```
 
+### Hazard Ratios
+
+```stata
+webuse drugtr, clear
+
+hrtab, exposure(i.drug) model(stcox) ///
+    outcome(died) time(studytime) ///
+    covars(age) ///
+    xlsx("hazard_ratios.xlsx") sheet("HR") ///
+    title("Table 5. Hazard Ratios by Treatment Group") ///
+    pvalue display
+```
+
 ### Incidence Rates
 
 ```stata
@@ -266,16 +280,6 @@ All commands in the tabtools suite share a consistent set of formatting options:
 - **Model comparison** across stored estimates with AIC, BIC, log-likelihood, C-statistic, and likelihood ratio tests
 - **Incidence rate ratios** with log-normal 95% CI
 
-### Batch Manuscript Mode
-
-Export all tables for a manuscript to a single workbook:
-
-```stata
-tabtools manuscript begin, xlsx("manuscript_tables.xlsx")
-* ... run your table commands without xlsx() ...
-tabtools manuscript end
-```
-
 ## Persistent Defaults
 
 Set formatting defaults that apply across all tabtools commands within a session:
@@ -311,6 +315,7 @@ help comptab              * composite tables from frames
 help crosstab             * cross-tabulation
 help corrtab              * correlation matrix
 help survtab              * survival summary
+help hrtab                * hazard ratio tables
 help stratetab            * incidence rates
 help diagtab              * diagnostic accuracy
 help fittab               * model comparison

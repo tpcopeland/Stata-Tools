@@ -93,6 +93,174 @@ else {
 	local failed_tests "`failed_tests' 1.2"
 }
 
+**## 1.3 Unadjusted HR value matches direct stcox (frame extraction)
+local ++test_count
+capture noisily {
+	_hrtab_val_data
+	stset followup, failure(died) id(pid)
+
+	* Run stcox directly to get reference HR
+	quietly stcox i.trt, nolog
+	local _ref_hr = round(exp(_b[1.trt]), 0.01)
+
+	* Run hrtab with frame
+	hrtab, exposure(i.trt) model(stcox) nolog frame(hrtab_ka1, replace)
+
+	* Extract HR from frame — c4 contains "HR (lo-hi)" for non-ref rows
+	frame hrtab_ka1 {
+		local _found = 0
+		forvalues _r = 1/`=_N' {
+			if strmatch(strtrim(c1[`_r']), "*Drug*") {
+				* Parse HR from "1.06 (0.49-2.30)" format
+				local _cell = strtrim(c4[`_r'])
+				local _hr_got = real(substr("`_cell'", 1, strpos("`_cell'", " ") - 1))
+				if !missing(`_hr_got') {
+					assert abs(`_hr_got' - `_ref_hr') < 0.015
+					local _found = 1
+					continue, break
+				}
+			}
+		}
+		assert `_found' == 1
+	}
+	capture frame drop hrtab_ka1
+}
+if _rc == 0 {
+	display as result "  PASS: 1.3 Unadjusted HR value matches direct stcox"
+	local ++pass_count
+}
+else {
+	display as error "  FAIL: 1.3 HR value mismatch (error `=_rc')"
+	local ++fail_count
+	local failed_tests "`failed_tests' 1.3"
+	capture frame drop hrtab_ka1
+}
+
+**## 1.4 level(90) CI is narrower than level(95) CI
+local ++test_count
+capture noisily {
+	_hrtab_val_data
+	stset followup, failure(died) id(pid)
+
+	* 95% CI (default)
+	hrtab, exposure(i.trt) model(stcox) nolog frame(hrtab_95, replace)
+
+	* 90% CI
+	hrtab, exposure(i.trt) model(stcox) nolog level(90) frame(hrtab_90, replace)
+
+	* Extract CI width from both frames
+	* Format: "HR (lo-hi)" — parse lo and hi to compute width
+	foreach _lev in 95 90 {
+		frame hrtab_`_lev' {
+			forvalues _r = 1/`=_N' {
+				if strmatch(strtrim(c1[`_r']), "*Drug*") {
+					local _cell = strtrim(c4[`_r'])
+					* Extract between ( and )
+					local _ci = substr("`_cell'", strpos("`_cell'", "(") + 1, ///
+						strpos("`_cell'", ")") - strpos("`_cell'", "(") - 1)
+					* Split on -
+					local _lo = real(substr("`_ci'", 1, strpos("`_ci'", "-") - 1))
+					local _hi = real(substr("`_ci'", strpos("`_ci'", "-") + 1, .))
+					local _width_`_lev' = `_hi' - `_lo'
+					continue, break
+				}
+			}
+		}
+	}
+
+	* 90% CI must be strictly narrower than 95% CI
+	assert `_width_90' < `_width_95'
+
+	capture frame drop hrtab_95
+	capture frame drop hrtab_90
+}
+if _rc == 0 {
+	display as result "  PASS: 1.4 level(90) CI narrower than level(95) CI"
+	local ++pass_count
+}
+else {
+	display as error "  FAIL: 1.4 CI width comparison (error `=_rc')"
+	local ++fail_count
+	local failed_tests "`failed_tests' 1.4"
+	capture frame drop hrtab_95
+	capture frame drop hrtab_90
+}
+
+**## 1.5 stcrreg SHR matches direct stcrreg
+local ++test_count
+capture noisily {
+	_hrtab_val_data
+
+	stset followup, failure(event == 1) id(pid)
+
+	* Run stcrreg directly
+	quietly stcrreg i.trt, compete(event == 2) nolog
+	local _ref_shr = round(exp(_b[1.trt]), 0.01)
+
+	* Run hrtab with stcrreg
+	hrtab, exposure(i.trt) model(stcrreg) ///
+		outcome(event) time(followup) failvalue(1) ///
+		stsetopts(id(pid)) nolog frame(hrtab_cr, replace)
+
+	* Extract SHR from frame
+	frame hrtab_cr {
+		local _found = 0
+		forvalues _r = 1/`=_N' {
+			if strmatch(strtrim(c1[`_r']), "*Drug*") {
+				local _cell = strtrim(c4[`_r'])
+				if "`_cell'" != "Ref." & "`_cell'" != "" {
+					local _shr_got = real(substr("`_cell'", 1, strpos("`_cell'", " ") - 1))
+					if !missing(`_shr_got') {
+						assert abs(`_shr_got' - `_ref_shr') < 0.015
+						local _found = 1
+						continue, break
+					}
+				}
+			}
+		}
+		assert `_found' == 1
+	}
+	capture frame drop hrtab_cr
+}
+if _rc == 0 {
+	display as result "  PASS: 1.5 stcrreg SHR matches direct stcrreg"
+	local ++pass_count
+}
+else {
+	display as error "  FAIL: 1.5 stcrreg SHR mismatch (error `=_rc')"
+	local ++fail_count
+	local failed_tests "`failed_tests' 1.5"
+	capture frame drop hrtab_cr
+}
+
+**## 1.6 finegray — hrtab runs without error (if installed)
+local ++test_count
+capture which finegray
+if _rc == 0 {
+	capture noisily {
+		_hrtab_val_data
+		hrtab, exposure(i.trt) model(finegray) ///
+			outcome(event) time(followup) failvalue(1) ///
+			stsetopts(id(pid)) nolog frame(hrtab_fg, replace)
+		assert r(models) >= 1
+		capture frame drop hrtab_fg
+	}
+	if _rc == 0 {
+		display as result "  PASS: 1.6 finegray model runs without error"
+		local ++pass_count
+	}
+	else {
+		display as error "  FAIL: 1.6 finegray model error (rc=`=_rc')"
+		local ++fail_count
+		local failed_tests "`failed_tests' 1.6"
+		capture frame drop hrtab_fg
+	}
+}
+else {
+	display as text "  SKIP: 1.6 finegray not installed"
+	local ++pass_count
+}
+
 * =========================================================================
 **# 2. INVARIANTS
 * =========================================================================

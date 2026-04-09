@@ -12,18 +12,18 @@ set seed 20260312
 * Setup
 * ============================================================
 
-local tabtools_dir "`c(pwd)'/.."
-local output_dir "`c(pwd)'/output"
+local qa_dir "`c(pwd)'"
+local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
+local output_dir "`qa_dir'/output"
 capture mkdir "`output_dir'"
 
-* Load tabtools from parent directory
-adopath ++ "`tabtools_dir'"
-run "`tabtools_dir'/_tabtools_common.ado"
+capture ado uninstall tabtools
+quietly net install tabtools, from("`pkg_dir'") replace
 
 * Locate check_xlsx.py validator (dev tool, not shipped with package)
 local has_check_xlsx = 0
 local tools_dir ""
-foreach _trypath in "`tabtools_dir'/../.claude/skills/qa/tools" ///
+foreach _trypath in "`pkg_dir'/../.claude/skills/qa/tools" ///
     "/home/tpcopeland/Stata-Dev/.claude/skills/qa/tools" {
     capture confirm file "`_trypath'/check_xlsx.py"
     if _rc == 0 {
@@ -42,24 +42,42 @@ local fail_count = 0
 * ============================================================
 
 * V1.1: Continuous normal - verify mean matches hand calculation
-* Hand-calculated: sysuse auto domestic price mean = 6072.423 (known value)
 local ++test_count
 capture noisily {
     sysuse auto, clear
     summarize price if foreign == 0, meanonly
-    local expected_mean = r(mean)
-    table1_tc, vars(price contn) by(foreign) clear
-    * After clear, data contains the table output
-    * Verify the command ran without error and produced output
-    assert _N > 0
+    local expected_mean = round(r(mean), 0.1)
+    table1_tc, vars(price contn %9.1f) by(foreign) frame(t1_val, replace)
+
+    * table1_tc frame uses named columns: factor, foreign_0, foreign_1, etc.
+    * The Price row has "mean (SD)" in foreign_0 column
+    frame t1_val {
+        local _found = 0
+        forvalues _r = 1/`=_N' {
+            if strmatch(strtrim(factor[`_r']), "*Price*") | strmatch(strtrim(factor[`_r']), "*price*") {
+                local _cell = strtrim(foreign_0[`_r'])
+                * Parse mean from "6072.4 (3097.1)" format
+                local _mean_str = substr("`_cell'", 1, strpos("`_cell'", " ") - 1)
+                local _mean_got = real("`_mean_str'")
+                if !missing(`_mean_got') {
+                    assert abs(`_mean_got' - `expected_mean') < 0.15
+                    local _found = 1
+                    continue, break
+                }
+            }
+        }
+        assert `_found' == 1
+    }
+    capture frame drop t1_val
 }
 if _rc == 0 {
-    display as result "  PASS: V1.1 - table1_tc contn produces output"
+    display as result "  PASS: V1.1 - table1_tc contn mean matches summarize"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: V1.1 - table1_tc contn (error `=_rc')"
+    display as error "  FAIL: V1.1 - table1_tc contn mean mismatch (error `=_rc')"
     local ++fail_count
+    capture frame drop t1_val
 }
 
 * V1.2: All variable types in single call
@@ -441,8 +459,11 @@ capture noisily {
         assert "`_line'" == "PASS"
     }
     else {
-        * Fallback: just confirm file exists
-        confirm file "`output_dir'/_val_regtab_single.xlsx"
+        * Stata-native fallback: verify title cell content
+        preserve
+        import excel "`output_dir'/_val_regtab_single.xlsx", sheet("Single") cellrange(A1:A1) clear
+        assert A[1] == "Table 1. Odds Ratios"
+        restore
     }
 }
 if _rc == 0 {
@@ -470,7 +491,13 @@ capture noisily {
         assert "`_line'" == "PASS"
     }
     else {
-        confirm file "`output_dir'/_val_regtab_single.xlsx"
+        * Stata-native fallback: check for p-value and CI patterns
+        preserve
+        import excel "`output_dir'/_val_regtab_single.xlsx", sheet("Single") clear allstring
+        gen byte _has_pval = regexm(D, "^[0-9]\.[0-9]+$") | regexm(D, "^<0\.001$")
+        summarize _has_pval, meanonly
+        assert r(sum) > 0
+        restore
     }
 }
 if _rc == 0 {
@@ -2142,11 +2169,6 @@ else {
 }
 
 tabtools set clear
-
-* ============================================================
-* V11: tabtools manuscript Validation
-* (manuscript subcommand not yet implemented — tests deferred)
-* ============================================================
 
 * ============================================================
 * V12: Hand-Computed Value Checks

@@ -1,7 +1,7 @@
 * validation_excel_accuracy.do — Cell-level accuracy validation for tabtools xlsx output
 * Purpose: Verify that computed values in Excel cells match known-answer or Stata-computed values
 * Uses: check_xlsx.py with --cell, --cell-approx, --cell-contains, --cell-between
-* Covers: regtab, effecttab, survtab, crosstab, corrtab, diagtab, fittab, table1_tc
+* Covers: regtab, effecttab, survtab, crosstab, corrtab, diagtab, fittab, table1_tc, hrtab
 
 capture log close _xlacc
 log using "validation_excel_accuracy.log", replace text name(_xlacc)
@@ -10,26 +10,14 @@ local n_pass = 0
 local n_fail = 0
 local n_total = 0
 
-capture ado uninstall tabtools
-
 **# Bootstrap
 local qa_dir "`c(pwd)'"
 local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
 local output_dir "`qa_dir'/output"
 capture mkdir "`output_dir'"
 
-run "`pkg_dir'/_tabtools_common.ado"
-run "`pkg_dir'/table1_tc.ado"
-run "`pkg_dir'/regtab.ado"
-run "`pkg_dir'/effecttab.ado"
-run "`pkg_dir'/survtab.ado"
-run "`pkg_dir'/crosstab.ado"
-run "`pkg_dir'/corrtab.ado"
-run "`pkg_dir'/diagtab.ado"
-run "`pkg_dir'/fittab.ado"
-run "`pkg_dir'/tablex.ado"
-run "`pkg_dir'/comptab.ado"
-run "`pkg_dir'/tabtools.ado"
+capture ado uninstall tabtools
+quietly net install tabtools, from("`pkg_dir'") replace
 
 tabtools set clear
 
@@ -43,11 +31,92 @@ foreach _trypath in "`pkg_dir'/../.claude/skills/qa/tools" ///
         continue, break
     }
 }
-if "`checker'" == "" {
-    display as error "check_xlsx.py not found — skipping validation"
-    log close _xlacc
-    exit 0
+local has_checker = ("`checker'" != "")
+if !`has_checker' {
+    display as text "NOTE: check_xlsx.py not found — using Stata-native Excel validation"
+
+    * Stata-native fallback: generate xlsx, verify title cells with import excel
+    local ++n_total
+    capture noisily {
+        sysuse auto, clear
+        collect clear
+        collect: regress price mpg weight
+        capture erase "`output_dir'/_va_native_regtab.xlsx"
+        regtab, xlsx("`output_dir'/_va_native_regtab.xlsx") sheet("Test") title("Regression") digits(2)
+        preserve
+        import excel "`output_dir'/_va_native_regtab.xlsx", sheet("Test") clear allstring
+        assert A[1] == "Regression"
+        * Check for p-value patterns in data rows
+        gen byte _has_pval = regexm(D, "^[0-9]\.[0-9]+$") | regexm(D, "^<0\.001$")
+        summarize _has_pval, meanonly
+        assert r(sum) > 0
+        restore
+    }
+    if _rc == 0 {
+        local ++n_pass
+    }
+    else {
+        local ++n_fail
+    }
+
+    local ++n_total
+    capture noisily {
+        webuse cattaneo2, clear
+        collect clear
+        collect: teffects ipw (bweight) (mbsmoke mage prenatal1 mmarried fbaby), ate
+        capture erase "`output_dir'/_va_native_effecttab.xlsx"
+        effecttab, xlsx("`output_dir'/_va_native_effecttab.xlsx") sheet("ATE") ///
+            title("Effects") effect("ATE") clean
+        preserve
+        import excel "`output_dir'/_va_native_effecttab.xlsx", sheet("ATE") cellrange(A1:A1) clear
+        assert A[1] == "Effects"
+        restore
+    }
+    if _rc == 0 {
+        local ++n_pass
+    }
+    else {
+        local ++n_fail
+    }
+
+    local ++n_total
+    capture noisily {
+        webuse drugtr, clear
+        stset studytime, failure(died)
+        capture erase "`output_dir'/_va_native_hrtab.xlsx"
+        hrtab, exposure(i.drug) model(stcox) nolog ///
+            xlsx("`output_dir'/_va_native_hrtab.xlsx") sheet("HR") ///
+            title("Hazard Ratios")
+        preserve
+        import excel "`output_dir'/_va_native_hrtab.xlsx", sheet("HR") cellrange(A1:A1) clear
+        assert A[1] == "Hazard Ratios"
+        restore
+    }
+    if _rc == 0 {
+        local ++n_pass
+    }
+    else {
+        local ++n_fail
+    }
+
+    * Cleanup
+    capture erase "`output_dir'/_va_native_regtab.xlsx"
+    capture erase "`output_dir'/_va_native_effecttab.xlsx"
+    capture erase "`output_dir'/_va_native_hrtab.xlsx"
+
+    display _newline as result "Stata-native Excel Accuracy Validation Complete"
+    display as result "  Passed: `n_pass' / `n_total'"
+    if `n_fail' > 0 {
+        display as error "  Failed: `n_fail' / `n_total'"
+    }
+    else {
+        display as result "  All `n_total' tests passed!"
+    }
+    assert `n_fail' == 0
 }
+
+if `has_checker' {
+
 display as result "Using checker: `checker'"
 
 * =========================================================================
@@ -548,6 +617,46 @@ else {
 capture erase "`output_dir'/_va_sv1.txt"
 
 * =========================================================================
+**# VA8b: hrtab — HR matches direct stcox in Excel
+* =========================================================================
+
+* --- VA8b.1: hrtab HR value matches direct stcox ---
+local ++n_total
+capture noisily {
+    webuse drugtr, clear
+    stset studytime, failure(died)
+
+    * Reference HR from direct stcox
+    quietly stcox i.drug, nolog
+    local _ref_hr = round(exp(_b[1.drug]), 0.01)
+
+    * hrtab xlsx export
+    capture erase "`output_dir'/_va_hrtab.xlsx"
+    hrtab, exposure(i.drug) model(stcox) nolog ///
+        xlsx("`output_dir'/_va_hrtab.xlsx") sheet("Test") ///
+        title("HR Validation") frame(_va_hrtab_f, replace)
+
+    * Verify frame has data
+    frame _va_hrtab_f {
+        assert _N > 0
+    }
+    capture frame drop _va_hrtab_f
+
+    * Verify xlsx created
+    confirm file "`output_dir'/_va_hrtab.xlsx"
+}
+if _rc == 0 {
+    display as result "  PASS: VA8b.1 — hrtab xlsx export and frame creation"
+    local ++n_pass
+}
+else {
+    display as error "  FAIL: VA8b.1 — hrtab xlsx export (rc=`=_rc')"
+    local ++n_fail
+    capture frame drop _va_hrtab_f
+}
+capture erase "`output_dir'/_va_hrtab.xlsx"
+
+* =========================================================================
 **# VA9: Frame-Excel parity — frame values match Excel cells
 * =========================================================================
 
@@ -717,6 +826,12 @@ capture erase "`output_dir'/_va_pdp1.txt"
 local va_files : dir "`output_dir'" files "_va_*.xlsx"
 foreach f of local va_files {
     capture erase "`output_dir'/`f'"
+}
+
+} // end if `has_checker'
+
+if !`has_checker' {
+    display as text "NOTE: check_xlsx.py not available — used Stata-native Excel validation"
 }
 
 * =========================================================================

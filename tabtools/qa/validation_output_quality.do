@@ -10,12 +10,13 @@ set varabbrev off
 capture log close _valout
 log using "validation_output_quality.log", replace text name(_valout)
 
-local tabtools_dir "`c(pwd)'/.."
-local output_dir "`c(pwd)'/output"
+local qa_dir "`c(pwd)'"
+local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
+local output_dir "`qa_dir'/output"
 capture mkdir "`output_dir'"
 
-adopath ++ "`tabtools_dir'"
-run "`tabtools_dir'/_tabtools_common.ado"
+capture ado uninstall tabtools
+quietly net install tabtools, from("`pkg_dir'") replace
 
 local test_count = 0
 local pass_count = 0

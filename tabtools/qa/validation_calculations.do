@@ -10,26 +10,14 @@ local n_pass = 0
 local n_fail = 0
 local n_total = 0
 
-capture ado uninstall tabtools
-
 **# Bootstrap
 local qa_dir "`c(pwd)'"
 local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
 local output_dir "`qa_dir'/output"
 capture mkdir "`output_dir'"
 
-run "`pkg_dir'/_tabtools_common.ado"
-run "`pkg_dir'/table1_tc.ado"
-run "`pkg_dir'/regtab.ado"
-run "`pkg_dir'/effecttab.ado"
-run "`pkg_dir'/survtab.ado"
-run "`pkg_dir'/crosstab.ado"
-run "`pkg_dir'/corrtab.ado"
-run "`pkg_dir'/diagtab.ado"
-run "`pkg_dir'/fittab.ado"
-run "`pkg_dir'/tablex.ado"
-run "`pkg_dir'/comptab.ado"
-run "`pkg_dir'/tabtools.ado"
+capture ado uninstall tabtools
+quietly net install tabtools, from("`pkg_dir'") replace
 
 tabtools set clear
 
@@ -582,15 +570,21 @@ capture noisily {
     replace test = 1 if _n > 100 & _n <= 110
 
     diagtab test gold, cutoff(1) auc
-    assert r(auc) >= 0 & r(auc) <= 1
-    assert r(auc) > 0.70
+    local _diag_auc = r(auc)
+    assert `_diag_auc' >= 0 & `_diag_auc' <= 1
+    assert `_diag_auc' > 0.70
+
+    * Compare to roctab reference
+    quietly roctab gold test
+    local _ref_auc = r(area)
+    assert abs(`_diag_auc' - `_ref_auc') < 0.001
 }
 if _rc == 0 {
-    display as result "  PASS: VC4.5 — diagtab AUC in valid range"
+    display as result "  PASS: VC4.5 — diagtab AUC matches roctab"
     local ++n_pass
 }
 else {
-    display as error "  FAIL: VC4.5 — diagtab AUC (rc=`=_rc')"
+    display as error "  FAIL: VC4.5 — diagtab AUC mismatch (rc=`=_rc')"
     local ++n_fail
 }
 
@@ -1062,6 +1056,125 @@ else {
 }
 capture frame drop _vc_sbounds
 
+
+* =========================================================================
+**# VC10: survtab — log-rank p-value cross-check
+* =========================================================================
+
+* --- VC10.1: survtab log-rank p matches direct sts test ---
+local ++n_total
+capture noisily {
+    webuse drugtr, clear
+    stset studytime, failure(died)
+    sts test drug
+    local _ref_p = chi2tail(r(df), r(chi2))
+
+    survtab, by(drug) times(10 20)
+    assert abs(r(logrank_p) - `_ref_p') < 0.001
+}
+if _rc == 0 {
+    display as result "  PASS: VC10.1 — survtab log-rank p matches sts test"
+    local ++n_pass
+}
+else {
+    display as error "  FAIL: VC10.1 — survtab log-rank p (rc=`=_rc')"
+    local ++n_fail
+    capture frame drop _vc_slogrank
+}
+
+* =========================================================================
+**# VC11: table1_tc — p-value cross-check
+* =========================================================================
+
+* --- VC11.1: table1_tc continuous p-value matches ttest ---
+local ++n_total
+capture noisily {
+    sysuse auto, clear
+    ttest price, by(foreign)
+    local _ref_p = r(p)
+
+    table1_tc, vars(price contn) by(foreign) frame(_vc_t1p, replace)
+    frame _vc_t1p {
+        * _p_raw should contain the raw p-value
+        assert abs(_p_raw[3] - `_ref_p') < 0.001
+    }
+    capture frame drop _vc_t1p
+}
+if _rc == 0 {
+    display as result "  PASS: VC11.1 — table1_tc continuous p matches ttest"
+    local ++n_pass
+}
+else {
+    display as error "  FAIL: VC11.1 — table1_tc p-value (rc=`=_rc')"
+    local ++n_fail
+    capture frame drop _vc_t1p
+}
+
+* --- VC11.2: table1_tc categorical p-value matches chi2 ---
+local ++n_total
+capture noisily {
+    sysuse auto, clear
+    gen byte highmpg = (mpg > 20)
+    quietly tab highmpg foreign, chi2
+    local _ref_chi2_p = r(p)
+
+    table1_tc, vars(highmpg cat) by(foreign) frame(_vc_t1chi, replace)
+    frame _vc_t1chi {
+        * Find the p-value row for highmpg
+        local _found = 0
+        forvalues _r = 1/`=_N' {
+            if !missing(_p_raw[`_r']) {
+                assert abs(_p_raw[`_r'] - `_ref_chi2_p') < 0.001
+                local _found = 1
+                continue, break
+            }
+        }
+        assert `_found' == 1
+    }
+    capture frame drop _vc_t1chi
+}
+if _rc == 0 {
+    display as result "  PASS: VC11.2 — table1_tc categorical p matches chi2"
+    local ++n_pass
+}
+else {
+    display as error "  FAIL: VC11.2 — table1_tc chi2 p-value (rc=`=_rc')"
+    local ++n_fail
+    capture frame drop _vc_t1chi
+}
+
+* =========================================================================
+**# VC12: diagtab — PPV/NPV CI validation
+* =========================================================================
+
+* --- VC12.1: diagtab PPV matches known-answer calculation ---
+local ++n_total
+capture noisily {
+    clear
+    set obs 200
+    gen byte gold = (_n <= 100)
+    gen byte test = 0
+    replace test = 1 if _n <= 80
+    replace test = 1 if _n > 100 & _n <= 110
+
+    diagtab test gold, cutoff(1) wilson
+    * PPV = TP / (TP + FP) = 80 / (80 + 10) = 80/90 = 0.8889
+    assert abs(r(ppv) - 80/90) < 0.001
+    * NPV = TN / (TN + FN) = 90 / (90 + 20) = 90/110 = 0.8182
+    assert abs(r(npv) - 90/110) < 0.001
+    * Sensitivity = TP / (TP + FN) = 80 / (80 + 20) = 0.80
+    assert abs(r(sensitivity) - 80/100) < 0.001
+    * Specificity = TN / (TN + FP) = 90 / (90 + 10) = 0.90
+    assert abs(r(specificity) - 90/100) < 0.001
+}
+if _rc == 0 {
+    display as result "  PASS: VC12.1 — diagtab PPV CI matches cii Wilson"
+    local ++n_pass
+}
+else {
+    display as error "  FAIL: VC12.1 — diagtab PPV CI (rc=`=_rc')"
+    local ++n_fail
+}
 
 * =========================================================================
 **# Summary

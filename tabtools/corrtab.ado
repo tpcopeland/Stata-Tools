@@ -46,6 +46,7 @@ capture noisily {
         STAR(numlist sort) PVALues DIGits(integer -1) ///
         title(string) SUBTitle(string) ///
         FOOTnote(string) THEme(string) BORDERStyle(string) ///
+        HEADERColor(string) ZEBRAColor(string) ZEBra HEADERShade ///
         csv(string) FRAme(string) DISPlay open]
 
     if "`xlsx'" == "" & "`excel'" != "" local xlsx "`excel'"
@@ -82,7 +83,16 @@ capture noisily {
     }
 
     * Resolve formatting
-    _tabtools_resolve_format, theme(`theme') borderstyle(`borderstyle')
+    _tabtools_resolve_format, theme(`theme') borderstyle(`borderstyle') ///
+        headershade(`headershade') zebra(`zebra')
+
+    * Resolve header/zebra colors
+    local _headercolor "219 229 241"
+    local _zebracolor "237 242 249"
+    if "$TABTOOLS_HEADERCOLOR" != "" local _headercolor "$TABTOOLS_HEADERCOLOR"
+    if "$TABTOOLS_ZEBRACOLOR" != "" local _zebracolor "$TABTOOLS_ZEBRACOLOR"
+    if "`headercolor'" != "" local _headercolor "`headercolor'"
+    if "`zebracolor'" != "" local _zebracolor "`zebracolor'"
 
 **# Compute Correlations
     local nvars : word count `varlist'
@@ -307,6 +317,18 @@ capture noisily {
             putexcel (A3:`lastcol'`_xl_rows'), font("`_font'", `_fontsize')
             putexcel (C3:`lastcol'`_xl_rows'), hcenter
             putexcel (B`_xl_rows':`lastcol'`_xl_rows'), border(bottom, `_hborder')
+
+            * Header background fill
+            if "`headershade'" != "" {
+                putexcel (A2:`lastcol'2), fpattern(solid, "`_headercolor'")
+            }
+
+            * Zebra striping
+            if "`zebra'" != "" {
+                forvalues _zr = 4(2)`_xl_rows' {
+                    putexcel (A`_zr':`lastcol'`_zr'), fpattern(solid, "`_zebracolor'")
+                }
+            }
 
             * Star legend via _tabtools_footnote
             local _fn_row = `_xl_rows'

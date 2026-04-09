@@ -10,12 +10,13 @@ set varabbrev off
 capture log close _v101
 log using "test_tabtools_v101.log", replace text name(_v101)
 
-local tabtools_dir "`c(pwd)'/.."
-local output_dir "`c(pwd)'/output"
+local qa_dir "`c(pwd)'"
+local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
+local output_dir "`qa_dir'/output"
 capture mkdir "`output_dir'"
 
-adopath ++ "`tabtools_dir'"
-run "`tabtools_dir'/_tabtools_common.ado"
+capture ado uninstall tabtools
+quietly net install tabtools, from("`pkg_dir'") replace
 
 local test_count = 0
 local pass_count = 0
@@ -504,20 +505,6 @@ else {
 * ============================================================
 **# FIX 2: _tabtools_validate_path rejects quote characters
 * ============================================================
-
-* Reload helpers to pick up validate_path fix
-capture program drop _tabtools_validate_path
-capture program drop _tabtools_detect_vartype
-capture program drop _tabtools_col_letter
-capture program drop _tabtools_build_col_letters
-capture program drop _tabtools_footnote
-capture program drop _tabtools_open_file
-capture program drop _tabtools_validate_sheet
-capture program drop _tabtools_apply_theme
-capture program drop _tabtools_resolve_format
-capture program drop _tabtools_console_display
-capture program drop _tabtools_frame_put
-run "`tabtools_dir'/_tabtools_common.ado"
 
 * --- 2.1 Double quote rejected ---
 local ++test_count

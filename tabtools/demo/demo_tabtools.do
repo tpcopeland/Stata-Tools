@@ -82,59 +82,29 @@ set linesize 250
 
 **# Setup
 
+* Derive repo root from current working directory
+local repo_root "`c(pwd)'"
 local pkg_dir "tabtools/demo"
 capture mkdir "`pkg_dir'"
 
 * Install tc_schemes for consistent graph appearance
 capture ado uninstall tc_schemes
-quietly net install tc_schemes, from("~/Stata-Tools/tc_schemes") replace
+quietly net install tc_schemes, from("`repo_root'/tc_schemes") replace
 set scheme plotplainblind
 
-* Load tabtools from parent directory
-capture program drop table1_tc
-capture program drop tablex
-capture program drop regtab
-capture program drop effecttab
-capture program drop stratetab
-capture program drop comptab
-capture program drop tabtools
-capture program drop corrtab
-capture program drop crosstab
-capture program drop diagtab
-capture program drop fittab
-capture program drop survtab
-capture program drop _tabtools_common
-capture program drop _tabtools_validate_path
-capture program drop _tabtools_col_letter
-capture program drop _tabtools_build_col_letters
-capture program drop _tabtools_detect_vartype
-capture program drop _tabtools_validate_sheet
-capture program drop _tabtools_apply_theme
-capture program drop _tabtools_footnote
-capture program drop _tabtools_open_file
-quietly run tabtools/_tabtools_common.ado
-quietly run tabtools/table1_tc.ado
-quietly run tabtools/tablex.ado
-quietly run tabtools/regtab.ado
-quietly run tabtools/effecttab.ado
-quietly run tabtools/stratetab.ado
-quietly run tabtools/comptab.ado
-quietly run tabtools/corrtab.ado
-quietly run tabtools/crosstab.ado
-quietly run tabtools/diagtab.ado
-quietly run tabtools/fittab.ado
-quietly run tabtools/survtab.ado
-quietly run tabtools/tabtools.ado
+* Install tabtools from local repo
+capture ado uninstall tabtools
+quietly net install tabtools, from("`repo_root'/tabtools") replace
 
 local main_xlsx "`pkg_dir'/demo_tabtools.xlsx"
 capture erase "`main_xlsx'"
 
 **# Build analysis dataset
 * Merge cohort, treatment, comorbidities, and outcomes
-use ~/Stata-Tools/_data/cohort.dta, clear
-merge 1:1 id using ~/Stata-Tools/_data/treatment.dta, nogen keep(match)
-merge 1:1 id using ~/Stata-Tools/_data/comorbidities.dta, nogen keep(master match)
-merge 1:1 id using ~/Stata-Tools/_data/outcomes.dta, nogen keep(master match)
+use `repo_root'/_data/cohort.dta, clear
+merge 1:1 id using `repo_root'/_data/treatment.dta, nogen keep(match)
+merge 1:1 id using `repo_root'/_data/comorbidities.dta, nogen keep(master match)
+merge 1:1 id using `repo_root'/_data/outcomes.dta, nogen keep(master match)
 
 * Fill missing comorbidities with 0
 foreach v in diabetes hypertension anxiety prior_cvd {

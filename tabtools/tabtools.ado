@@ -130,6 +130,8 @@ program define tabtools, rclass
                     exit 198
                 }
                 global TABTOOLS_THEME "`_theme_name'"
+                global TABTOOLS_HEADERCOLOR ""
+                global TABTOOLS_ZEBRACOLOR ""
                 display as text "tabtools: default theme set to " as result "`_theme_name'"
                 return local theme "`_theme_name'"
             }
@@ -269,7 +271,7 @@ program define tabtools, rclass
         local cmd_descriptive "table1_tc crosstab"
         local cmd_models "regtab effecttab fittab"
         local cmd_rates "stratetab"
-        local cmd_survival "survtab"
+        local cmd_survival "survtab hrtab"
         local cmd_diagnostics "diagtab"
         local cmd_composite "comptab"
         local cmd_general "tablex corrtab"
@@ -349,6 +351,7 @@ program define tabtools, rclass
             if inlist("`category'", "all", "survival") {
                 display as text "{bf:Survival Analysis}"
                 display as result "  survtab      " as text "- Kaplan-Meier estimates, medians, and RMST"
+                display as result "  hrtab        " as text "- Multi-panel hazard ratio table (stcox/stcrreg/finegray)"
                 display as text ""
             }
 
@@ -383,7 +386,7 @@ program define tabtools, rclass
         // Return results
         return local commands "`selected_cmds'"
         return scalar n_commands = `n_commands'
-        return local version "1.1.0"
+        return local version "1.0.0"
         return local categories "descriptive models rates survival diagnostics composite general"
     }
 
@@ -451,6 +454,10 @@ program define _tabtools_detail
         display as result "  survtab" as text "      Export Kaplan-Meier estimates, median survival,"
         display as text "               and restricted mean survival time (RMST) to"
         display as text "               Excel. Supports multiple groups and time points."
+        display as text ""
+        display as result "  hrtab" as text "        Multi-panel hazard ratio table for stcox,"
+        display as text "               stcrreg, and finegray with person-years and"
+        display as text "               event counts."
         display as text ""
     }
 

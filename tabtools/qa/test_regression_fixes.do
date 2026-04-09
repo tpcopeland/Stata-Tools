@@ -9,22 +9,13 @@ set varabbrev off
 capture log close _regfix
 log using "test_regression_fixes.log", replace text name(_regfix)
 
-local tabtools_dir "`c(pwd)'/.."
-local output_dir "`c(pwd)'/output"
+local qa_dir "`c(pwd)'"
+local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
+local output_dir "`qa_dir'/output"
 capture mkdir "`output_dir'"
 
-* Load tabtools from parent directory — force reload all modified commands
-adopath ++ "`tabtools_dir'"
-
-* Drop all tabtools programs to ensure source versions are loaded
-foreach prog in tabtools _tabtools_detail corrtab regtab effecttab ///
-    comptab table1_tc tablex fittab crosstab stratetab survtab diagtab ///
-    _tabtools_validate_path _tabtools_validate_sheet _tabtools_build_col_letters ///
-    _tabtools_col_letter _tabtools_resolve_format _tabtools_apply_theme ///
-    _tabtools_console_display _tabtools_footnote _tabtools_open_file {
-    capture program drop `prog'
-}
-run "`tabtools_dir'/_tabtools_common.ado"
+capture ado uninstall tabtools
+quietly net install tabtools, from("`pkg_dir'") replace
 
 local test_count = 0
 local pass_count = 0
@@ -253,6 +244,49 @@ else {
 }
 
 
+**## 2c. corrtab respects custom theme colors
+local ++test_count
+capture noisily {
+    tabtools set theme custom, headercolor("255 0 0") zebracolor("255 255 0")
+    sysuse auto, clear
+    capture erase "`output_dir'/_regfix_corrtab_custom.xlsx"
+    corrtab price mpg weight, xlsx("`output_dir'/_regfix_corrtab_custom.xlsx") ///
+        headershade zebra star(0.05)
+    confirm file "`output_dir'/_regfix_corrtab_custom.xlsx"
+}
+if _rc == 0 {
+    display as result "  PASS: corrtab accepts custom headercolor/zebracolor"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: corrtab custom theme colors (error `=_rc')"
+    local ++fail_count
+}
+tabtools set clear
+
+**## 2d. diagtab respects custom theme colors
+local ++test_count
+capture noisily {
+    tabtools set theme custom, headercolor("0 0 255") zebracolor("200 200 255")
+    sysuse auto, clear
+    gen byte highprice = (price > 6000) if !missing(price)
+    gen byte mpg_test = (mpg < 20) if !missing(mpg)
+    capture erase "`output_dir'/_regfix_diagtab_custom.xlsx"
+    diagtab mpg_test highprice, xlsx("`output_dir'/_regfix_diagtab_custom.xlsx") ///
+        headershade zebra
+    confirm file "`output_dir'/_regfix_diagtab_custom.xlsx"
+}
+if _rc == 0 {
+    display as result "  PASS: diagtab accepts custom headercolor/zebracolor"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: diagtab custom theme colors (error `=_rc')"
+    local ++fail_count
+}
+tabtools set clear
+
+
 **# 3. stratetab sheet() validation — must use sheet validator, not path validator
 
 **## 3a. Invalid sheet name with / rejected early (r(198))
@@ -456,18 +490,18 @@ else {
 
 **# 5. tabtools detail listing — all commands and categories
 
-**## 5a. tabtools returns 11 commands
+**## 5a. tabtools returns 12 commands
 local ++test_count
 capture noisily {
     tabtools
-    assert r(n_commands) == 11
+    assert r(n_commands) == 12
 }
 if _rc == 0 {
-    display as result "  PASS: tabtools returns n_commands = 11"
+    display as result "  PASS: tabtools returns n_commands = 12"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: tabtools n_commands != 11 (error `=_rc')"
+    display as error "  FAIL: tabtools n_commands != 12 (error `=_rc')"
     local ++fail_count
 }
 
@@ -539,7 +573,7 @@ else {
     local ++fail_count
 }
 
-**## 5e. r(commands) contains all 11 command names
+**## 5e. r(commands) contains all 12 command names
 local ++test_count
 local t5e_pass = 1
 capture noisily {
@@ -551,7 +585,7 @@ if _rc != 0 {
     local t5e_pass = 0
 }
 else {
-    foreach cmd in table1_tc crosstab regtab effecttab fittab stratetab survtab diagtab comptab tablex corrtab {
+    foreach cmd in table1_tc crosstab regtab effecttab fittab stratetab survtab hrtab diagtab comptab tablex corrtab {
         if strpos("`cmds'", "`cmd'") > 0 {
             display as result "  PASS [5e.`cmd']: `cmd' in r(commands)"
         }
@@ -562,7 +596,7 @@ else {
     }
 }
 if `t5e_pass' == 1 {
-    display as result "  PASS: all 11 commands in r(commands)"
+    display as result "  PASS: all 12 commands in r(commands)"
     local ++pass_count
 }
 else {

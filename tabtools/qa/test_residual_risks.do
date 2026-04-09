@@ -12,18 +12,14 @@ local n_pass = 0
 local n_fail = 0
 local n_total = 0
 
-capture ado uninstall tabtools
-
-**# Load package
+**# Bootstrap
 local qa_dir "`c(pwd)'"
 local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
-run "`pkg_dir'/_tabtools_common.ado"
-run "`pkg_dir'/tabtools.ado"
-run "`pkg_dir'/regtab.ado"
-run "`pkg_dir'/effecttab.ado"
-run "`pkg_dir'/survtab.ado"
-run "`pkg_dir'/tablex.ado"
-run "`pkg_dir'/stratetab.ado"
+local output_dir "`qa_dir'/output"
+capture mkdir "`output_dir'"
+
+capture ado uninstall tabtools
+quietly net install tabtools, from("`pkg_dir'") replace
 
 * Clean persistent settings
 tabtools set clear

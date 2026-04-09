@@ -48,6 +48,7 @@ capture noisily {
         DIGits(integer -1) ///
         title(string) SUBTitle(string) ///
         FOOTnote(string) THEme(string) BORDERStyle(string) ///
+        HEADERColor(string) ZEBRAColor(string) ZEBra HEADERShade ///
         csv(string) FRAme(string) DISPlay open]
 
     gettoken testvar goldvar : varlist
@@ -102,7 +103,16 @@ capture noisily {
     }
 
     * Resolve formatting
-    _tabtools_resolve_format, theme(`theme') borderstyle(`borderstyle')
+    _tabtools_resolve_format, theme(`theme') borderstyle(`borderstyle') ///
+        headershade(`headershade') zebra(`zebra')
+
+    * Resolve header/zebra colors
+    local _headercolor "219 229 241"
+    local _zebracolor "237 242 249"
+    if "$TABTOOLS_HEADERCOLOR" != "" local _headercolor "$TABTOOLS_HEADERCOLOR"
+    if "$TABTOOLS_ZEBRACOLOR" != "" local _zebracolor "$TABTOOLS_ZEBRACOLOR"
+    if "`headercolor'" != "" local _headercolor "`headercolor'"
+    if "`zebracolor'" != "" local _zebracolor "`zebracolor'"
 
     local _ci_method = cond("`exact'" != "", "exact", "wilson")
 
@@ -631,6 +641,24 @@ capture noisily {
                 putexcel (B6:`lastcol'6), bold
             }
             putexcel (B`num_rows':`lastcol'`num_rows'), border(bottom, `_hborder')
+
+            * Header background fill
+            if "`headershade'" != "" {
+                if `_is_multicut' {
+                    putexcel (A`_header_row':`lastcol'`_header_row'), fpattern(solid, "`_headercolor'")
+                }
+                else {
+                    putexcel (A2:`lastcol'2), fpattern(solid, "`_headercolor'")
+                }
+            }
+
+            * Zebra striping
+            if "`zebra'" != "" {
+                local _data_start = cond(`_is_multicut', `_header_row' + 1, 3)
+                forvalues _zr = `=`_data_start'+1'(2)`num_rows' {
+                    putexcel (A`_zr':`lastcol'`_zr'), fpattern(solid, "`_zebracolor'")
+                }
+            }
 
             if `"`footnote'"' != "" {
                 _tabtools_footnote `"`footnote'"' "`lastcol'" `num_rows' "`_font'" `_fontsize'

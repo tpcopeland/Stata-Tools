@@ -98,6 +98,10 @@ capture noisily {
     local best_bic = .
     local best_cstat = 0
 
+    tempname _fittab_orig
+    capture _estimates hold `_fittab_orig', copy
+    local _held_ok = (_rc == 0)
+
     forvalues m = 1/`n_models' {
         local _mname : word `m' of `namelist'
         capture estimates restore `_mname'
@@ -174,6 +178,10 @@ capture noisily {
         if !missing(`_aic_`m'') & `_aic_`m'' < `best_aic' local best_aic = `_aic_`m''
         if !missing(`_bic_`m'') & `_bic_`m'' < `best_bic' local best_bic = `_bic_`m''
         if !missing(`_cstat_`m'') & `_cstat_`m'' > `best_cstat' local best_cstat = `_cstat_`m''
+    }
+
+    if `_held_ok' {
+        _estimates unhold `_fittab_orig'
     }
 
     return scalar best_aic = `best_aic'

@@ -2,8 +2,8 @@
 * Coverage: Structure, formatting, headers, content patterns, cell values, themes,
 *           zebra striping, bold-p highlighting, merged cells, borders, fills
 * Uses: check_xlsx.py and excel_analyzer.py from Stata-Dev QA tools
-* All 11 xlsx-producing commands: table1_tc, regtab, effecttab, survtab, crosstab,
-*   corrtab, diagtab, fittab, stratetab, tablex, comptab
+* All 12 xlsx-producing commands: table1_tc, regtab, effecttab, survtab, crosstab,
+*   corrtab, diagtab, fittab, stratetab, tablex, comptab, hrtab
 
 capture log close _xlval
 log using "test_excel_validation.log", replace text name(_xlval)
@@ -12,27 +12,14 @@ local n_pass = 0
 local n_fail = 0
 local n_total = 0
 
-capture ado uninstall tabtools
-
 **# Bootstrap
 local qa_dir "`c(pwd)'"
 local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
 local output_dir "`qa_dir'/output"
 capture mkdir "`output_dir'"
 
-run "`pkg_dir'/_tabtools_common.ado"
-run "`pkg_dir'/table1_tc.ado"
-run "`pkg_dir'/regtab.ado"
-run "`pkg_dir'/effecttab.ado"
-run "`pkg_dir'/survtab.ado"
-run "`pkg_dir'/crosstab.ado"
-run "`pkg_dir'/corrtab.ado"
-run "`pkg_dir'/diagtab.ado"
-run "`pkg_dir'/fittab.ado"
-run "`pkg_dir'/stratetab.ado"
-run "`pkg_dir'/tablex.ado"
-run "`pkg_dir'/comptab.ado"
-run "`pkg_dir'/tabtools.ado"
+capture ado uninstall tabtools
+quietly net install tabtools, from("`pkg_dir'") replace
 
 tabtools set clear
 
@@ -46,11 +33,282 @@ foreach _trypath in "`pkg_dir'/../.claude/skills/qa/tools" ///
         continue, break
     }
 }
-if "`checker'" == "" {
-    display as error "check_xlsx.py not found — skipping Excel validation tests"
-    log close _xlval
-    exit 0
+local has_checker = ("`checker'" != "")
+if !`has_checker' {
+    display as text "NOTE: check_xlsx.py not found — using Stata-native Excel validation"
+    * Run Stata-native fallback: generate xlsx from all 12 commands, validate with import excel
+    local _native_pass = 0
+    local _native_fail = 0
+
+    * regtab
+    local ++n_total
+    capture noisily {
+        sysuse auto, clear
+        collect clear
+        collect: regress price mpg weight i.foreign
+        capture erase "`output_dir'/_xl_native_regtab.xlsx"
+        regtab, xlsx("`output_dir'/_xl_native_regtab.xlsx") sheet("Test") title("Regression")
+        preserve
+        import excel "`output_dir'/_xl_native_regtab.xlsx", sheet("Test") cellrange(A1:A1) clear
+        assert A[1] == "Regression"
+        restore
+    }
+    if _rc == 0 {
+        local ++n_pass
+    }
+    else {
+        local ++n_fail
+    }
+
+    * table1_tc
+    local ++n_total
+    capture noisily {
+        sysuse auto, clear
+        capture erase "`output_dir'/_xl_native_table1.xlsx"
+        table1_tc, vars(price contn \ mpg contn \ foreign bin) by(rep78 >= 4) ///
+            xlsx("`output_dir'/_xl_native_table1.xlsx") sheet("T1") title("Table 1")
+        preserve
+        import excel "`output_dir'/_xl_native_table1.xlsx", sheet("T1") cellrange(A1:A1) clear
+        assert A[1] == "Table 1"
+        restore
+    }
+    if _rc == 0 {
+        local ++n_pass
+    }
+    else {
+        local ++n_fail
+    }
+
+    * effecttab
+    local ++n_total
+    capture noisily {
+        webuse cattaneo2, clear
+        collect clear
+        collect: teffects ipw (bweight) (mbsmoke mage prenatal1 mmarried fbaby), ate
+        capture erase "`output_dir'/_xl_native_effecttab.xlsx"
+        effecttab, xlsx("`output_dir'/_xl_native_effecttab.xlsx") sheet("ATE") ///
+            title("Treatment Effects") effect("ATE")
+        preserve
+        import excel "`output_dir'/_xl_native_effecttab.xlsx", sheet("ATE") cellrange(A1:A1) clear
+        assert A[1] == "Treatment Effects"
+        restore
+    }
+    if _rc == 0 {
+        local ++n_pass
+    }
+    else {
+        local ++n_fail
+    }
+
+    * survtab
+    local ++n_total
+    capture noisily {
+        webuse drugtr, clear
+        stset studytime, failure(died)
+        capture erase "`output_dir'/_xl_native_survtab.xlsx"
+        survtab, times(5 10 15 20) by(drug) ///
+            xlsx("`output_dir'/_xl_native_survtab.xlsx") sheet("KM") title("Survival")
+        preserve
+        import excel "`output_dir'/_xl_native_survtab.xlsx", sheet("KM") cellrange(A1:A1) clear
+        assert A[1] == "Survival"
+        restore
+    }
+    if _rc == 0 {
+        local ++n_pass
+    }
+    else {
+        local ++n_fail
+    }
+
+    * crosstab
+    local ++n_total
+    capture noisily {
+        sysuse auto, clear
+        gen byte highmpg = (mpg > 20)
+        capture erase "`output_dir'/_xl_native_crosstab.xlsx"
+        crosstab highmpg foreign, xlsx("`output_dir'/_xl_native_crosstab.xlsx") ///
+            sheet("XT") title("Cross-tab")
+        preserve
+        import excel "`output_dir'/_xl_native_crosstab.xlsx", sheet("XT") cellrange(A1:A1) clear
+        assert A[1] == "Cross-tab"
+        restore
+    }
+    if _rc == 0 {
+        local ++n_pass
+    }
+    else {
+        local ++n_fail
+    }
+
+    * corrtab
+    local ++n_total
+    capture noisily {
+        sysuse auto, clear
+        capture erase "`output_dir'/_xl_native_corrtab.xlsx"
+        corrtab price mpg weight, xlsx("`output_dir'/_xl_native_corrtab.xlsx") ///
+            sheet("Corr") title("Correlations")
+        preserve
+        import excel "`output_dir'/_xl_native_corrtab.xlsx", sheet("Corr") cellrange(A1:A1) clear
+        assert A[1] == "Correlations"
+        restore
+    }
+    if _rc == 0 {
+        local ++n_pass
+    }
+    else {
+        local ++n_fail
+    }
+
+    * diagtab
+    local ++n_total
+    capture noisily {
+        webuse nhanes2, clear
+        gen byte bmi_high = (bmi >= 30) if !missing(bmi)
+        capture erase "`output_dir'/_xl_native_diagtab.xlsx"
+        diagtab bmi_high diabetes, xlsx("`output_dir'/_xl_native_diagtab.xlsx") ///
+            sheet("Diag") title("Diagnostic")
+        preserve
+        import excel "`output_dir'/_xl_native_diagtab.xlsx", sheet("Diag") cellrange(A1:A1) clear
+        assert A[1] == "Diagnostic"
+        restore
+    }
+    if _rc == 0 {
+        local ++n_pass
+    }
+    else {
+        local ++n_fail
+    }
+
+    * fittab
+    local ++n_total
+    capture noisily {
+        sysuse auto, clear
+        quietly regress price mpg
+        estimates store _m1
+        quietly regress price mpg weight
+        estimates store _m2
+        capture erase "`output_dir'/_xl_native_fittab.xlsx"
+        fittab _m1 _m2, xlsx("`output_dir'/_xl_native_fittab.xlsx") ///
+            sheet("Fit") title("Model Fit")
+        preserve
+        import excel "`output_dir'/_xl_native_fittab.xlsx", sheet("Fit") cellrange(A1:A1) clear
+        assert A[1] == "Model Fit"
+        restore
+    }
+    if _rc == 0 {
+        local ++n_pass
+    }
+    else {
+        local ++n_fail
+    }
+
+    * tablex
+    local ++n_total
+    capture noisily {
+        sysuse auto, clear
+        table (foreign) (), statistic(mean price mpg)
+        capture erase "`output_dir'/_xl_native_tablex.xlsx"
+        tablex using "`output_dir'/_xl_native_tablex.xlsx", sheet("Tab") title("General Table")
+        preserve
+        import excel "`output_dir'/_xl_native_tablex.xlsx", sheet("Tab") cellrange(A1:A1) clear
+        assert A[1] == "General Table"
+        restore
+    }
+    if _rc == 0 {
+        local ++n_pass
+    }
+    else {
+        local ++n_fail
+    }
+
+    * comptab
+    local ++n_total
+    capture noisily {
+        sysuse auto, clear
+        collect clear
+        collect: regress price mpg weight
+        regtab, frame(_comp_m1, replace) noint
+        collect clear
+        collect: regress price mpg weight length
+        regtab, frame(_comp_m2, replace) noint
+        capture erase "`output_dir'/_xl_native_comptab.xlsx"
+        comptab _comp_m1 _comp_m2, rows(1/2 \ 1/3) ///
+            xlsx("`output_dir'/_xl_native_comptab.xlsx") sheet("Comp") title("Composite")
+        preserve
+        import excel "`output_dir'/_xl_native_comptab.xlsx", sheet("Comp") cellrange(A1:A1) clear
+        assert A[1] == "Composite"
+        restore
+        capture frame drop _comp_m1
+        capture frame drop _comp_m2
+    }
+    if _rc == 0 {
+        local ++n_pass
+    }
+    else {
+        local ++n_fail
+    }
+
+    * stratetab
+    local ++n_total
+    capture noisily {
+        webuse drugtr, clear
+        stset studytime, failure(died)
+        strate drug, per(1000) output("`output_dir'/_rate1", replace)
+        capture erase "`output_dir'/_xl_native_stratetab.xlsx"
+        stratetab, using("`output_dir'/_rate1") ///
+            xlsx("`output_dir'/_xl_native_stratetab.xlsx") sheet("Rate") title("Rates")
+        preserve
+        import excel "`output_dir'/_xl_native_stratetab.xlsx", sheet("Rate") cellrange(A1:A1) clear
+        assert A[1] == "Rates"
+        restore
+        capture erase "`output_dir'/_rate1.dta"
+    }
+    if _rc == 0 {
+        local ++n_pass
+    }
+    else {
+        local ++n_fail
+    }
+
+    * hrtab
+    local ++n_total
+    capture noisily {
+        webuse drugtr, clear
+        stset studytime, failure(died)
+        capture erase "`output_dir'/_xl_native_hrtab.xlsx"
+        hrtab, exposure(i.drug) model(stcox) nolog ///
+            xlsx("`output_dir'/_xl_native_hrtab.xlsx") sheet("HR") title("Hazard Ratios")
+        preserve
+        import excel "`output_dir'/_xl_native_hrtab.xlsx", sheet("HR") cellrange(A1:A1) clear
+        assert A[1] == "Hazard Ratios"
+        restore
+    }
+    if _rc == 0 {
+        local ++n_pass
+    }
+    else {
+        local ++n_fail
+    }
+
+    * Cleanup native test files
+    local xl_native : dir "`output_dir'" files "_xl_native_*.xlsx"
+    foreach f of local xl_native {
+        capture erase "`output_dir'/`f'"
+    }
+
+    display _newline as result "Stata-native Excel Validation Complete"
+    display as result "  Passed: `n_pass' / `n_total'"
+    if `n_fail' > 0 {
+        display as error "  Failed: `n_fail' / `n_total'"
+    }
+    else {
+        display as result "  All `n_total' tests passed!"
+    }
+    assert `n_fail' == 0
 }
+
+if `has_checker' {
+
 display as result "Using checker: `checker'"
 
 * Helper program: run check_xlsx.py and assert PASS
@@ -1367,6 +1625,12 @@ foreach f of local xl_files {
 local xl_dta : dir "`output_dir'" files "_xl_*.dta"
 foreach f of local xl_dta {
     capture erase "`output_dir'/`f'"
+}
+
+} // end if `has_checker'
+
+if !`has_checker' {
+    display as text "NOTE: check_xlsx.py not available — used Stata-native Excel validation"
 }
 
 * =========================================================================

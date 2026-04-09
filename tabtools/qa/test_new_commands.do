@@ -11,12 +11,13 @@ set varabbrev off
 capture log close _newcmd
 log using "test_new_commands.log", replace text name(_newcmd)
 
-local tabtools_dir "`c(pwd)'/.."
-local output_dir "`c(pwd)'/output"
+local qa_dir "`c(pwd)'"
+local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
+local output_dir "`qa_dir'/output"
 capture mkdir "`output_dir'"
 
-adopath ++ "`tabtools_dir'"
-run "`tabtools_dir'/_tabtools_common.ado"
+capture ado uninstall tabtools
+quietly net install tabtools, from("`pkg_dir'") replace
 
 local test_count = 0
 local pass_count = 0
@@ -376,24 +377,32 @@ else {
     local ++fail_count
 }
 
-* Test: fittab r(table) matrix
+* Test: fittab r(table) AIC matches direct estat ic
 local ++test_count
 capture noisily {
     sysuse auto, clear
     quietly regress price mpg
     estimates store t1
+    quietly estat ic
+    local _aic1 = r(S)[1,5]
     quietly regress price mpg weight
     estimates store t2
-    fittab t1 t2, display
-    matrix list r(table)
-    assert rowsof(r(table)) > 0
+    quietly estat ic
+    local _aic2 = r(S)[1,5]
+
+    fittab t1 t2, display stats(aic)
+    * r(table) has row "aic" and columns c1, c2
+    local _row_aic = rownumb(r(table), "aic")
+    assert `_row_aic' != .
+    assert abs(r(table)[`_row_aic', 1] - `_aic1') < 0.01
+    assert abs(r(table)[`_row_aic', 2] - `_aic2') < 0.01
 }
 if _rc == 0 {
-    display as result "  PASS: fittab r(table) matrix"
+    display as result "  PASS: fittab r(table) AIC matches estat ic"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: fittab r(table) (rc=`=_rc')"
+    display as error "  FAIL: fittab r(table) AIC (rc=`=_rc')"
     local ++fail_count
 }
 
@@ -554,6 +563,29 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL: fittab theme(nejm) (rc=`=_rc')"
+    local ++fail_count
+}
+
+* Test: fittab must not clobber active estimates
+local ++test_count
+capture noisily {
+    sysuse auto, clear
+    regress price weight
+    estimates store _ft_m1
+    regress price mpg weight
+    estimates store _ft_m2
+    estimates restore _ft_m1
+    local _pre_cmd "`e(cmdline)'"
+    fittab _ft_m1 _ft_m2, display
+    assert "`e(cmdline)'" == "`_pre_cmd'"
+    estimates drop _ft_m1 _ft_m2
+}
+if _rc == 0 {
+    display as result "  PASS: fittab preserves active estimates"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: fittab clobbers active estimates (rc=`=_rc')"
     local ++fail_count
 }
 

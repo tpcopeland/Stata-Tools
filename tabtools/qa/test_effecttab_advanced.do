@@ -1,8 +1,14 @@
 * Advanced effecttab tests: from() matrix, multi-model, edge cases
 clear all
 set more off
+
+local qa_dir "`c(pwd)'"
+local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
+local output_dir "`qa_dir'/output"
+capture mkdir "`output_dir'"
+
 capture ado uninstall tabtools
-net install tabtools, from("/home/tpcopeland/Stata-Tools/tabtools") replace
+quietly net install tabtools, from("`pkg_dir'") replace
 
 local n_pass = 0
 local n_fail = 0
@@ -313,6 +319,45 @@ if _rc == 0 {
 else {
     display as error "FAIL: T15 — margins at() failed (rc=`=_rc')"
     local ++n_fail
+}
+
+* ============================================================
+* Test 16: ATE value in frame matches direct teffects r(table)
+* ============================================================
+capture noisily {
+    webuse cattaneo2, clear
+    collect clear
+    collect: teffects ipw (bweight) (mbsmoke mage prenatal1 mmarried fbaby), ate
+    matrix _te = r(table)
+    local _ref_ate = _te[1,1]
+    local _ref_pval = _te[4,1]
+
+    effecttab, frame(eff_adv, replace) effect("ATE") clean display
+
+    * c1 contains the estimate, A contains the row label
+    frame eff_adv {
+        local _found = 0
+        forvalues _r = 1/`=_N' {
+            local _val = real(strtrim(c1[`_r']))
+            if !missing(`_val') {
+                * First numeric c1 value is the ATE
+                assert abs(`_val' - round(`_ref_ate', 0.01)) < 0.015
+                local _found = 1
+                continue, break
+            }
+        }
+        assert `_found' == 1
+    }
+    capture frame drop eff_adv
+}
+if _rc == 0 {
+    display as result "PASS: T16 — ATE frame value matches direct teffects"
+    local ++n_pass
+}
+else {
+    display as error "FAIL: T16 — ATE value mismatch (rc=`=_rc')"
+    local ++n_fail
+    capture frame drop eff_adv
 }
 
 * Summary
