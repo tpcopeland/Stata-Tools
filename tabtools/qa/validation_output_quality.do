@@ -227,6 +227,49 @@ else {
     local ++fail_count
 }
 
+* V8b: diagtab CSV and frame exports preserve displayed values
+local ++test_count
+capture noisily {
+    clear
+    set obs 200
+    gen byte gold = (_n <= 100)
+    gen byte test = 0
+    replace test = 1 if gold == 1 & _n <= 80
+    replace test = 1 if gold == 0 & _n > 100 & _n <= 110
+
+    capture frame drop _val_diagpar
+    capture erase "`output_dir'/_val_diagtab_par.csv"
+    diagtab test gold, xlsx("`output_dir'/_val_diagtab_par.xlsx") ///
+        sheet("parity") csv("`output_dir'/_val_diagtab_par.csv") ///
+        frame(_val_diagpar, replace)
+    confirm file "`output_dir'/_val_diagtab_par.csv"
+    assert "`r(frame)'" == "_val_diagpar"
+    assert "`r(sheet)'" == "parity"
+
+    frame _val_diagpar {
+        local _se_label = c1[7]
+        local _se_est = c2[7]
+        local _se_ci = c3[7]
+    }
+
+    preserve
+    import delimited "`output_dir'/_val_diagtab_par.csv", clear varnames(1)
+    assert c1[7] == "`_se_label'"
+    assert c2[7] == "`_se_est'"
+    assert c3[7] == "`_se_ci'"
+    restore
+    capture frame drop _val_diagpar
+}
+if _rc == 0 {
+    display as result "  PASS: V8b diagtab CSV/frame exports preserve displayed values"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: V8b diagtab CSV/frame parity (error `=_rc')"
+    local ++fail_count
+    capture frame drop _val_diagpar
+}
+
 * ============================================================
 **# SECTION 4: fittab — validate model comparison statistics
 * ============================================================
@@ -563,9 +606,9 @@ capture noisily {
 
         clear
         set obs 3
-        gen exposure = _n - 1
-        gen _D = cond(_n==1, 25, cond(_n==2, 15, 40))
-        gen _Y = cond(_n==1, 10000, cond(_n==2, 8000, 12000))
+        gen exposure = cond(_n==1, 2, cond(_n==2, 1, 0))
+        gen _D = cond(_n==1, 40, cond(_n==2, 15, 25))
+        gen _Y = cond(_n==1, 12000, cond(_n==2, 8000, 10000))
         gen _Rate = _D / _Y
         gen _Lower = _Rate * 0.65
         gen _Upper = _Rate * 1.35
@@ -579,14 +622,22 @@ capture noisily {
     stratetab, using("`output_dir'/_val_strate_o1" "`output_dir'/_val_strate_o2") ///
         xlsx("`output_dir'/_val_stratetab.xlsx") outcomes(2)
 
+    local row_low = rownumb(r(rates), "Low")
+    local row_med = rownumb(r(rates), "Med")
+    local row_high = rownumb(r(rates), "High")
     assert rowsof(r(rates)) == 3
     assert colsof(r(rates)) == 2
-    assert abs(r(rates)[1,1] - 5.0) < 1e-6
-    assert abs(r(rates)[1,2] - 2.5) < 1e-6
-    assert abs(r(rates)[2,1] - 3.75) < 1e-6
-    assert abs(r(rates)[2,2] - 1.875) < 1e-6
-    assert abs(r(rates)[3,1] - 70/12) < 1e-6
-    assert abs(r(rates)[3,2] - 10/3) < 1e-6
+    assert `row_low' > 0
+    assert `row_med' > 0
+    assert `row_high' > 0
+    assert abs(r(rates)[`row_low',1] - 5.0) < 1e-6
+    assert abs(r(rates)[`row_low',2] - 2.5) < 1e-6
+    assert abs(r(rates)[`row_med',1] - 3.75) < 1e-6
+    assert abs(r(rates)[`row_med',2] - 1.875) < 1e-6
+    assert abs(r(rates)[`row_high',1] - 70/12) < 1e-6
+    assert abs(r(rates)[`row_high',2] - 10/3) < 1e-6
+    local rate_cols : colnames r(rates)
+    assert "`rate_cols'" == "Outcome_1 Outcome_2"
 }
 if _rc == 0 {
     display as result "  PASS: V18 stratetab rates matrix exact values"
@@ -603,9 +654,11 @@ capture noisily {
     sysuse auto, clear
     stratetab, using("`output_dir'/_val_strate_o1" "`output_dir'/_val_strate_o2") ///
         xlsx("`output_dir'/_val_stratetab_scale.xlsx") outcomes(2)
-    assert abs(r(rates)[1,1] - ((50/10000) * 1000)) < 1e-6
-    assert abs(r(rates)[1,2] - ((25/10000) * 1000)) < 1e-6
-    assert abs(r(rates)[1,1] - (50/10000)) > 1
+    local row_low = rownumb(r(rates), "Low")
+    assert `row_low' > 0
+    assert abs(r(rates)[`row_low',1] - ((50/10000) * 1000)) < 1e-6
+    assert abs(r(rates)[`row_low',2] - ((25/10000) * 1000)) < 1e-6
+    assert abs(r(rates)[`row_low',1] - (50/10000)) > 1
 }
 if _rc == 0 {
     display as result "  PASS: V19 stratetab rate correctly scaled (5.0 per 1000)"
@@ -613,6 +666,90 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL: V19 stratetab rate scaling (error `=_rc')"
+    local ++fail_count
+}
+
+* V19b: stratetab aligns rate ratios by category label and exports matching CSV
+local ++test_count
+capture noisily {
+    quietly {
+        clear
+        set obs 3
+        gen exposure = _n - 1
+        gen _D = cond(_n==1, 250, cond(_n==2, 180, 320))
+        gen _Y = cond(_n==1, 50000, cond(_n==2, 45000, 52000))
+        gen _Rate = _D / _Y
+        gen _Lower = _Rate * 0.65
+        gen _Upper = _Rate * 1.35
+        label define _val_exp_rr 0 "Low" 1 "Med" 2 "High"
+        label values exposure _val_exp_rr
+        save "`output_dir'/_val_strate_rr_ref.dta", replace
+
+        clear
+        set obs 3
+        gen exposure = cond(_n==1, 2, cond(_n==2, 1, 0))
+        gen _D = cond(_n==1, 220, cond(_n==2, 140, 80))
+        gen _Y = cond(_n==1, 20000, cond(_n==2, 12000, 8000))
+        gen _Rate = _D / _Y
+        gen _Lower = _Rate * 0.65
+        gen _Upper = _Rate * 1.35
+        label define _val_exp_rr 0 "Low" 1 "Med" 2 "High", replace
+        label values exposure _val_exp_rr
+        save "`output_dir'/_val_strate_rr_exp.dta", replace
+
+        sysuse auto, clear
+    }
+
+    local irr_low = (80/8000) / ((250/50000))
+    local se_ln_low = sqrt(1/80 + 1/250)
+    local irr_low_lo = exp(ln(`irr_low') - 1.96 * `se_ln_low')
+    local irr_low_hi = exp(ln(`irr_low') + 1.96 * `se_ln_low')
+    local irr_low_fmt = ///
+        strtrim(string(round(`irr_low', 0.01), "%11.2f")) + ///
+        " (" + strtrim(string(round(`irr_low_lo', 0.01), "%11.2f")) + ///
+        "-" + strtrim(string(round(`irr_low_hi', 0.01), "%11.2f")) + ")"
+
+    stratetab, using("`output_dir'/_val_strate_rr_ref" "`output_dir'/_val_strate_rr_exp") ///
+        xlsx("`output_dir'/_val_stratetab_rr.xlsx") ///
+        csv("`output_dir'/_val_stratetab_rr.csv") ///
+        outcomes(1) rateratio sheet("aligned")
+
+    assert "`r(xlsx)'" == "`output_dir'/_val_stratetab_rr.xlsx"
+    assert "`r(sheet)'" == "aligned"
+    assert rowsof(r(ratios)) == 3
+    assert colsof(r(ratios)) == 1
+    local row_high = rownumb(r(ratios), "High")
+    local row_low = rownumb(r(ratios), "Low")
+    local row_med = rownumb(r(ratios), "Med")
+    assert `row_high' > 0
+    assert `row_low' > 0
+    assert `row_med' > 0
+    assert abs(r(ratios)[`row_high',1] - ((220/20000) / ((320/52000)))) < 1e-6
+    assert abs(r(ratios)[`row_low',1] - 2) < 1e-6
+    assert abs(r(ratios)[`row_med',1] - ((140/12000) / ((180/45000)))) < 1e-6
+    local ratio_cols : colnames r(ratios)
+    assert "`ratio_cols'" == "Outcome_1"
+
+    preserve
+    import delimited "`output_dir'/_val_stratetab_rr.csv", clear varnames(1)
+    local _irr_found = 0
+    forvalues _r = 1/`=_N' {
+        local _lbl = strtrim(c1[`_r'])
+        local _irr = strtrim(c5[`_r'])
+        if "`_lbl'" == "Low" & "`_irr'" == "`irr_low_fmt'" {
+            local _irr_found = 1
+            continue, break
+        }
+    }
+    assert `_irr_found' == 1
+    restore
+}
+if _rc == 0 {
+    display as result "  PASS: V19b stratetab rateratio aligns labels and CSV values"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: V19b stratetab aligned rateratio/CSV (error `=_rc')"
     local ++fail_count
 }
 
@@ -642,6 +779,46 @@ else {
     local ++fail_count
 }
 
+* V21: tablex CSV export matches frame output
+local ++test_count
+capture noisily {
+    sysuse auto, clear
+    table foreign, statistic(mean price mpg) statistic(sd price mpg)
+    capture frame drop _val_tablex_csv
+    capture erase "`output_dir'/_val_tablex.csv"
+    tablex using "`output_dir'/_val_tablex_csv.xlsx", sheet("csv") ///
+        csv("`output_dir'/_val_tablex.csv") frame(_val_tablex_csv, replace) replace
+    confirm file "`output_dir'/_val_tablex.csv"
+    assert "`r(frame)'" == "_val_tablex_csv"
+
+    frame _val_tablex_csv {
+        local _frame_a = A[4]
+        local _frame_b = B[4]
+        local _frame_c = C[4]
+        local _frame_d = D[4]
+        local _frame_e = E[4]
+    }
+
+    preserve
+    import delimited "`output_dir'/_val_tablex.csv", clear varnames(1)
+    assert a[4] == "`_frame_a'"
+    assert b[4] == "`_frame_b'"
+    assert c[4] == "`_frame_c'"
+    assert d[4] == "`_frame_d'"
+    assert e[4] == "`_frame_e'"
+    restore
+    capture frame drop _val_tablex_csv
+}
+if _rc == 0 {
+    display as result "  PASS: V21 tablex CSV matches frame output"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: V21 tablex CSV/frame parity (error `=_rc')"
+    local ++fail_count
+    capture frame drop _val_tablex_csv
+}
+
 * ============================================================
 **# Cleanup
 * ============================================================
@@ -652,6 +829,10 @@ foreach f of local val_files {
 }
 local val_dta : dir "`output_dir'" files "_val_*.dta"
 foreach f of local val_dta {
+    capture erase "`output_dir'/`f'"
+}
+local val_csv : dir "`output_dir'" files "_val_*.csv"
+foreach f of local val_csv {
     capture erase "`output_dir'/`f'"
 }
 

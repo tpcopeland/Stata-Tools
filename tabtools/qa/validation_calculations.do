@@ -435,6 +435,31 @@ else {
 }
 capture frame drop _vc_marg
 
+* --- VC3.3: effecttab r(table) preserves raw estimate and p-value ---
+local ++n_total
+capture noisily {
+    sysuse auto, clear
+    collect clear
+    collect: teffects ra (price mpg weight) (foreign), ate
+    matrix _te = r(table)
+    local ref_ate = _te[1, 1]
+    local ref_p = _te[4, 1]
+
+    effecttab, display digits(4)
+    assert rowsof(r(table)) >= 1
+    assert colsof(r(table)) == 2
+    assert abs(r(table)[1, 1] - `ref_ate') < 1e-10
+    assert abs(r(table)[1, 2] - `ref_p') < 1e-12
+}
+if _rc == 0 {
+    display as result "  PASS: VC3.3 — effecttab r(table) preserves raw values"
+    local ++n_pass
+}
+else {
+    display as error "  FAIL: VC3.3 — effecttab r(table) raw-value accuracy (rc=`=_rc')"
+    local ++n_fail
+}
+
 
 * =========================================================================
 **# VC4: diagtab — Se/Sp/PPV/NPV, cutoffs(), AUC
@@ -592,6 +617,54 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL: VC4.5 — diagtab AUC mismatch (rc=`=_rc')"
+    local ++n_fail
+}
+
+* --- VC4.6: diagtab binary AUC without cutoff matches roctab ---
+local ++n_total
+capture noisily {
+    clear
+    set obs 200
+    gen byte gold = (_n <= 100)
+    gen byte test = 0
+    replace test = 1 if _n <= 80
+    replace test = 1 if _n > 100 & _n <= 110
+
+    diagtab test gold, auc
+    local _diag_auc = r(auc)
+
+    quietly roctab gold test
+    local _ref_auc = r(area)
+    assert abs(`_diag_auc' - `_ref_auc') < 0.001
+}
+if _rc == 0 {
+    display as result "  PASS: VC4.6 — diagtab binary AUC without cutoff matches roctab"
+    local ++n_pass
+}
+else {
+    display as error "  FAIL: VC4.6 — diagtab binary AUC without cutoff (rc=`=_rc')"
+    local ++n_fail
+}
+
+* --- VC4.7: diagtab rejects auc with cutoffs() ---
+local ++n_total
+capture noisily {
+    clear
+    set obs 200
+    set seed 12345
+    gen byte gold = (_n <= 100)
+    gen score = runiform() * 50 + (gold == 1) * 50
+
+    capture diagtab score gold, cutoffs(25 50 75) auc
+    local cmdrc = _rc
+    assert `cmdrc' == 198
+}
+if _rc == 0 {
+    display as result "  PASS: VC4.7 — diagtab rejects auc with cutoffs()"
+    local ++n_pass
+}
+else {
+    display as error "  FAIL: VC4.7 — diagtab auc+cutoffs() rejection (rc=`=_rc')"
     local ++n_fail
 }
 

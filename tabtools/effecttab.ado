@@ -602,8 +602,76 @@ quietly {
 		}
 	}
 
-	* Format numeric columns
+	* Build raw r(table) before display formatting changes values
 	local last = `n' - 2
+	local _mat_nrows = 0
+	local _keep_obs ""
+	local _n_models = 0
+	forvalues _mi = 1(3)`last' {
+		local _n_models = `_n_models' + 1
+	}
+	forvalues _obs = 3/`=_N' {
+		local _row_has_data = 0
+		forvalues _ci = 1(3)`last' {
+			capture {
+				local _cell = strtrim(c`_ci'[`_obs'])
+				local _cicell = strtrim(c`=`_ci'+1'[`_obs'])
+				local _pcell = strtrim(c`=`_ci'+2'[`_obs'])
+				local _numval = real("`_cell'")
+				local _pnum = real("`_pcell'")
+				if `_numval' < . {
+					if !(inlist("`_cell'", "0", "0.0", "0.00", ".00") & "`_cicell'" == "") {
+						local _row_has_data = 1
+					}
+				}
+				if `_pnum' < . local _row_has_data = 1
+			}
+		}
+		if `_row_has_data' {
+			local _mat_nrows = `_mat_nrows' + 1
+			local _keep_obs "`_keep_obs' `_obs'"
+		}
+	}
+	tempname _rtable
+	if `_mat_nrows' > 0 & `_mat_nrows' <= 100 {
+		matrix `_rtable' = J(`_mat_nrows', `_n_models' * 2, .)
+		local _rnames ""
+		local _mr = 0
+		foreach _obs of local _keep_obs {
+			local _mr = `_mr' + 1
+			local _mc = 0
+			forvalues _ci = 1(3)`last' {
+				local _mc = `_mc' + 1
+				capture {
+					local _cell = strtrim(c`_ci'[`_obs'])
+					local _cicell = strtrim(c`=`_ci'+1'[`_obs'])
+					local _numval = real("`_cell'")
+					if `_numval' < . {
+						if !(inlist("`_cell'", "0", "0.0", "0.00", ".00") & "`_cicell'" == "") {
+							matrix `_rtable'[`_mr', `_mc'] = `_numval'
+						}
+					}
+				}
+				local _mc = `_mc' + 1
+				local _pcol = `_ci' + 2
+				capture {
+					local _cell = strtrim(c`_pcol'[`_obs'])
+					local _numval = real("`_cell'")
+					if `_numval' < . matrix `_rtable'[`_mr', `_mc'] = `_numval'
+				}
+			}
+			local _rname = A[`_obs']
+			local _rname = subinstr("`_rname'", ".", "_", .)
+			local _rname = subinstr("`_rname'", " ", "_", .)
+			local _rname = subinstr("`_rname'", ",", "", .)
+			local _rname = substr("`_rname'", 1, 32)
+			if "`_rname'" == "" local _rname "row`_mr'"
+			local _rnames "`_rnames' `_rname'"
+		}
+		capture matrix rownames `_rtable' = `_rnames'
+	}
+
+	* Format numeric columns
 	forvalues i = 1(3)`last' {
 		destring c`i', gen(c`i'z) force
 		replace c`i'z = round(c`i'z, `coef_round')
@@ -780,53 +848,6 @@ quietly {
 	}
 
 	drop A_length factor_length c*_max c*_length
-
-	* Build r(table) return matrix from coefficient, CI, and p-value columns
-	local _mat_nrows = _N - 2
-	local _n_models = 0
-	forvalues _mi = 1(3)`last' {
-		local _n_models = `_n_models' + 1
-	}
-	tempname _rtable
-	if `_mat_nrows' > 0 & `_mat_nrows' <= 100 {
-		* Columns: for each model, estimate + p-value = 2 cols per model
-		matrix `_rtable' = J(`_mat_nrows', `_n_models' * 2, .)
-		local _rnames ""
-		forvalues _mr = 1/`_mat_nrows' {
-			local _obs = `_mr' + 2
-			local _mc = 0
-			forvalues _ci = 1(3)`last' {
-				* Estimate column
-				local _mc = `_mc' + 1
-				capture {
-					local _cell = c`_ci'[`_obs']
-					if "`_cell'" != "Reference" & "`_cell'" != "" {
-						local _numval = real("`_cell'")
-						if `_numval' < . matrix `_rtable'[`_mr', `_mc'] = `_numval'
-					}
-				}
-				* P-value column
-				local _mc = `_mc' + 1
-				local _pcol = `_ci' + 2
-				capture {
-					local _cell = c`_pcol'[`_obs']
-					if "`_cell'" != "" {
-						local _cell = subinstr("`_cell'", "<", "", .)
-						local _numval = real("`_cell'")
-						if `_numval' < . matrix `_rtable'[`_mr', `_mc'] = `_numval'
-					}
-				}
-			}
-			local _rname = A[`_obs']
-			local _rname = subinstr("`_rname'", ".", "_", .)
-			local _rname = subinstr("`_rname'", " ", "_", .)
-			local _rname = subinstr("`_rname'", ",", "", .)
-			local _rname = substr("`_rname'", 1, 32)
-			if "`_rname'" == "" local _rname "row`_mr'"
-			local _rnames "`_rnames' `_rname'"
-		}
-		capture matrix rownames `_rtable' = `_rnames'
-	}
 
 	* CSV export (F2) — must happen before clear
 	if "`csv'" != "" {
@@ -1048,16 +1069,24 @@ quietly {
 
 	* Build methods description (I2)
 	local _methods ""
-	if "`type'" == "teffects" {
-		local _te_subcmd "`e(subcmd)'"
-		if "`_te_subcmd'" == "ipw" local _methods "Average treatment effects estimated using inverse probability weighting"
-		else if "`_te_subcmd'" == "ra" local _methods "Average treatment effects estimated using regression adjustment"
-		else if "`_te_subcmd'" == "aipw" local _methods "Average treatment effects estimated using augmented inverse probability weighting"
-		else if "`_te_subcmd'" == "ipwra" local _methods "Average treatment effects estimated using inverse probability weighted regression adjustment"
-		else if "`_te_subcmd'" == "psmatch" local _methods "Average treatment effects estimated using propensity score matching"
-		else if "`_te_subcmd'" == "nnmatch" local _methods "Average treatment effects estimated using nearest-neighbor matching"
-		else local _methods "Average treatment effects estimated using `_te_subcmd'"
-		local _methods "`_methods' with 95% confidence intervals."
+	if `_from_matrix' {
+		local _methods "Effect estimates were formatted from the supplied matrix with 95% confidence intervals and p-values."
+	}
+	else if `_n_models' > 1 {
+		local _methods "Effect estimates from multiple collected models were formatted with 95% confidence intervals."
+	}
+	else if "`type'" == "teffects" {
+		if `_n_models' == 1 {
+			local _te_subcmd "`e(subcmd)'"
+			if "`_te_subcmd'" == "ipw" local _methods "Average treatment effects estimated using inverse probability weighting"
+			else if "`_te_subcmd'" == "ra" local _methods "Average treatment effects estimated using regression adjustment"
+			else if "`_te_subcmd'" == "aipw" local _methods "Average treatment effects estimated using augmented inverse probability weighting"
+			else if "`_te_subcmd'" == "ipwra" local _methods "Average treatment effects estimated using inverse probability weighted regression adjustment"
+			else if "`_te_subcmd'" == "psmatch" local _methods "Average treatment effects estimated using propensity score matching"
+			else if "`_te_subcmd'" == "nnmatch" local _methods "Average treatment effects estimated using nearest-neighbor matching"
+			else local _methods "Average treatment effects estimated using teffects"
+			local _methods "`_methods' with 95% confidence intervals."
+		}
 	}
 	else {
 		local _methods "Marginal effects estimated using the margins command with 95% confidence intervals."

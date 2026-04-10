@@ -161,6 +161,16 @@ Files must be listed with all outcomes for exposure 1 first, then all outcomes f
 The order of outcomes within each exposure group determines the column order in the output.
 
 {pstd}
+Within each exposure group, all outcome files must have the same category labels. {cmd:stratetab}
+aligns later outcomes to the category labels from the first outcome file for that exposure and
+rejects files with missing, duplicated, or unmatched category labels.
+
+{pstd}
+When {opt rateratio} is specified, categories in exposures 2, 3, ... are matched to exposure 1
+by category label before IRRs are computed. If the category sets do not match uniquely, the
+command exits with an error rather than comparing rows by position.
+
+{pstd}
 For example, with 3 outcomes (O1, O2, O3) and 2 exposures (E1, E2), list files as:
 
 {phang2}O1_E1 O2_E1 O3_E1 O1_E2 O2_E2 O3_E2{p_end}

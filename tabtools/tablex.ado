@@ -117,6 +117,7 @@ quietly {
     * Validate paths for dangerous characters
     _tabtools_validate_path "`xlsx'" "using"
     _tabtools_validate_path "`sheet'" "sheet()"
+    if "`csv'" != "" _tabtools_validate_path "`csv'" "csv()"
 
     * Set defaults (W4: check globals first)
     if "`font'" == "" {
@@ -294,6 +295,11 @@ quietly {
         local num_rows = `num_rows' + 1
         local num_cols = `num_cols' + 1
         local headerrows = `headerrows' + 1
+    }
+
+    * Optional CSV export from the finalized table dataset
+    if "`csv'" != "" {
+        export delimited using "`csv'", replace
     }
 
     * =========================================================================

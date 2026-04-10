@@ -255,51 +255,102 @@ forvalues e = 1/`n_exposures' {
 				* No value label - convert to string directly
 				gen catvar_str = string(`catvar')
 			}
-		}
-		else {
-			gen catvar_str = `catvar'
-		}
-		
-		* Scale and format rate
-		gen double _Rate_scaled = _Rate * `ratescale'
-		gen double _Lower_scaled = _Lower * `ratescale'
-		gen double _Upper_scaled = _Upper * `ratescale'
-		
-		* Store and validate number of categories for this exposure
-		if `o' == 1 {
-			local ncat_e`e' = _N
-		}
-		else {
-			if _N != `ncat_e`e'' {
-				noi di as err "Category count mismatch for exposure `e': outcome 1 has `ncat_e`e'' categories but outcome `o' has `=_N'"
-				noi di as err "All outcome files for the same exposure must have identical categories"
+			}
+			else {
+				gen catvar_str = `catvar'
+			}
+			replace catvar_str = strtrim(catvar_str)
+			qui count if catvar_str == ""
+			if r(N) > 0 {
+				noi di as err "Blank category labels are not allowed in `file'.dta"
 				restore
 				exit 198
 			}
+			tempvar _dup_cat
+			qui bysort catvar_str: gen byte `_dup_cat' = (_N > 1)
+			qui count if `_dup_cat'
+			if r(N) > 0 {
+				noi di as err "Duplicate category labels found in `file'.dta"
+				noi di as err "Each strate file must have unique category labels"
+				restore
+				exit 198
+			}
+			
+			* Scale and format rate
+			gen double _Rate_scaled = _Rate * `ratescale'
+			gen double _Lower_scaled = _Lower * `ratescale'
+			gen double _Upper_scaled = _Upper * `ratescale'
+			
+			* Store and validate canonical categories for this exposure
+			if `o' == 1 {
+				local ncat_e`e' = _N
+				forvalues i = 1/`=_N' {
+					local cat_e`e'_`i' = catvar_str[`i']
+					local D_o`o'_e`e'_`i' = _D[`i']
+					local Y_o`o'_e`e'_`i' = _Y[`i'] / `pyscale'
+					local Rate_o`o'_e`e'_`i' = _Rate_scaled[`i']
+					local Lower_o`o'_e`e'_`i' = _Lower_scaled[`i']
+					local Upper_o`o'_e`e'_`i' = _Upper_scaled[`i']
+				}
+			}
+			else {
+				if _N != `ncat_e`e'' {
+					noi di as err "Category count mismatch for exposure `e': outcome 1 has `ncat_e`e'' categories but outcome `o' has `=_N'"
+					noi di as err "All outcome files for the same exposure must have identical categories"
+					restore
+					exit 198
+				}
+				forvalues i = 1/`ncat_e`e'' {
+					local _target_cat `"`cat_e`e'_`i''"'
+					local _match_row = 0
+					local _match_count = 0
+					forvalues _j = 1/`=_N' {
+						local _current_cat = catvar_str[`_j']
+						if `"`_current_cat'"' == `"`_target_cat'"' {
+							local _match_row = `_j'
+							local _match_count = `_match_count' + 1
+						}
+					}
+					if `_match_count' != 1 {
+						noi di as err "Category label mismatch for exposure `e', outcome `o' in `file'.dta"
+						noi di as err `"Expected category `"_target_cat'" from outcome 1"'
+						restore
+						exit 198
+					}
+					local D_o`o'_e`e'_`i' = _D[`_match_row']
+					local Y_o`o'_e`e'_`i' = _Y[`_match_row'] / `pyscale'
+					local Rate_o`o'_e`e'_`i' = _Rate_scaled[`_match_row']
+					local Lower_o`o'_e`e'_`i' = _Lower_scaled[`_match_row']
+					local Upper_o`o'_e`e'_`i' = _Upper_scaled[`_match_row']
+				}
+			}
+			
+			restore
 		}
-
-		* Store data
-		forvalues i = 1/`=_N' {
-			local cat_e`e'_`i' = catvar_str[`i']
-			local D_o`o'_e`e'_`i' = _D[`i']
-			local Y_o`o'_e`e'_`i' = _Y[`i'] / `pyscale'
-			local Rate_o`o'_e`e'_`i' = _Rate_scaled[`i']
-			local Lower_o`o'_e`e'_`i' = _Lower_scaled[`i']
-			local Upper_o`o'_e`e'_`i' = _Upper_scaled[`i']
-		}
-		
-		restore
 	}
-}
 
 * Compute rate ratios if requested (F4)
 if "`rateratio'" != "" & `n_exposures' >= 2 {
 	forvalues e = 2/`n_exposures' {
 		forvalues o = 1/`outcomes' {
 			forvalues i = 1/`ncat_e`e'' {
-				local _d_ref = `D_o`o'_e1_`i''
+				local _target_cat `"`cat_e`e'_`i''"'
+				local _ref_i = 0
+				local _ref_count = 0
+				forvalues _j = 1/`ncat_e1' {
+					if `"`cat_e1_`_j''"' == `"`_target_cat'"' {
+						local _ref_i = `_j'
+						local _ref_count = `_ref_count' + 1
+					}
+				}
+				if `_ref_count' != 1 {
+					noi di as err "rateratio requires exposure `e' categories to match exposure 1"
+					noi di as err `"No unique match for category `"_target_cat'" in exposure 1"'
+					exit 198
+				}
+				local _d_ref = `D_o`o'_e1_`_ref_i''
 				local _d_exp = `D_o`o'_e`e'_`i''
-				local _r_ref = `Rate_o`o'_e1_`i''
+				local _r_ref = `Rate_o`o'_e1_`_ref_i''
 				local _r_exp = `Rate_o`o'_e`e'_`i''
 				if `_d_ref' > 0 & `_d_exp' > 0 & `_r_ref' > 0 {
 					local _irr = `_r_exp' / `_r_ref'
@@ -589,14 +640,19 @@ if `_total_cats' > 0 & `_total_cats' <= 200 {
 			if "`_rname'" == "" local _rname "row`_rr'"
 			local _rnames "`_rnames' `_rname'"
 		}
+		}
+		local _cnames ""
+		forvalues o = 1/`outcomes' {
+			local _cname = subinstr(`"`outlab`o''"', " ", "_", .)
+			local _cname = subinstr("`_cname'", ".", "_", .)
+			local _cname = subinstr("`_cname'", ",", "", .)
+			local _cname = substr("`_cname'", 1, 32)
+			if "`_cname'" == "" local _cname "outcome`o'"
+			local _cnames "`_cnames' `_cname'"
+		}
+		capture matrix rownames `_rrates' = `_rnames'
+		capture matrix colnames `_rrates' = `_cnames'
 	}
-	local _cnames ""
-	forvalues o = 1/`outcomes' {
-		local _cnames "`_cnames' `outlab`o''"
-	}
-	capture matrix rownames `_rrates' = `_rnames'
-	capture matrix colnames `_rrates' = `_cnames'
-}
 
 * Build r(ratios) matrix if rate ratios were computed
 tempname _rratios
@@ -621,9 +677,19 @@ if "`rateratio'" != "" & `n_exposures' >= 2 {
 				local _rnames "`_rnames' `_rname'"
 			}
 		}
-		capture matrix rownames `_rratios' = `_rnames'
+			local _cnames ""
+			forvalues o = 1/`outcomes' {
+				local _cname = subinstr(`"`outlab`o''"', " ", "_", .)
+				local _cname = subinstr("`_cname'", ".", "_", .)
+				local _cname = subinstr("`_cname'", ",", "", .)
+				local _cname = substr("`_cname'", 1, 32)
+				if "`_cname'" == "" local _cname "outcome`o'"
+				local _cnames "`_cnames' `_cname'"
+			}
+			capture matrix rownames `_rratios' = `_rnames'
+			capture matrix colnames `_rratios' = `_cnames'
+		}
 	}
-}
 
 * Return results
 if `_total_cats' > 0 & `_total_cats' <= 200 {

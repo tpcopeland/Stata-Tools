@@ -29,7 +29,9 @@
 {pstd}{cmd:diagtab} computes diagnostic accuracy measures from a 2x2
 classification table: sensitivity, specificity, PPV, NPV, accuracy,
 likelihood ratios, diagnostic odds ratio, and optionally AUC. Confidence
-intervals use Wilson score (default) or Clopper-Pearson exact method.{p_end}
+intervals use Wilson score (default) or Clopper-Pearson exact method. If
+{opt cutoff()}, {opt cutoffs()}, and {opt optimal} are all omitted, {it:test_var}
+must already be coded 0/1.{p_end}
 
 {marker options}{title:Options}
 
@@ -49,10 +51,13 @@ Bayes' theorem. Useful when the study sample prevalence differs from the target 
 
 {phang}{opt wil:son} use Wilson score confidence intervals (this is the default).{p_end}
 
-{phang}{opt auc} report area under the ROC curve with 95% CI.{p_end}
+{phang}{opt auc} report area under the ROC curve with 95% CI. Cannot be combined
+with {opt cutoffs()}.{p_end}
 
 {phang}{opt opt:imal} find the optimal cutoff that maximizes Youden's J index
-(sensitivity + specificity - 1). Requires a continuous test variable.{p_end}
+(sensitivity + specificity - 1). Requires a continuous test variable. If
+{opt cutoff()} is omitted, the displayed 2x2 table is evaluated at the optimal cutoff.
+Cannot be combined with {opt cutoffs()}.{p_end}
 
 {phang}{opt dig:its(#)} decimal places for diagnostic measures and CIs
 (default 1, range 0-6).{p_end}
@@ -63,7 +68,8 @@ Bayes' theorem. Useful when the study sample prevalence differs from the target 
 
 {phang}{opt csv(filename)} export as CSV file.{p_end}
 
-{phang}{opt fra:me(name)} store the output dataset in a named frame.{p_end}
+{phang}{opt fra:me(name)} store the output dataset in a named frame. Specify
+{cmd:frame(name, replace)} to replace an existing frame.{p_end}
 
 {phang}{opt dis:play} show console output (automatic when {opt xlsx()} not specified).{p_end}
 

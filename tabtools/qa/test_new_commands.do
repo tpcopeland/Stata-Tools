@@ -658,6 +658,21 @@ else {
     local ++fail_count
 }
 
+* Test: diagtab rejects continuous test without cutoff
+local ++test_count
+capture noisily {
+    use `diagdata', clear
+    diagtab test_score gold, display
+}
+if _rc == 198 {
+    display as result "  PASS: diagtab rejects continuous test without cutoff"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: diagtab continuous-without-cutoff expected rc=198, got `=_rc'"
+    local ++fail_count
+}
+
 * Test: diagtab exact CIs
 local ++test_count
 capture noisily {
@@ -745,6 +760,7 @@ capture noisily {
     diagtab test_binary gold, xlsx("`output_dir'/test_diagtab.xlsx") ///
         sheet("Dx") auc
     confirm file "`output_dir'/test_diagtab.xlsx"
+    assert !missing(r(auc))
 }
 if _rc == 0 {
     display as result "  PASS: diagtab xlsx export"
@@ -752,6 +768,21 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL: diagtab xlsx export (rc=`=_rc')"
+    local ++fail_count
+}
+
+* Test: diagtab rejects auc with cutoffs()
+local ++test_count
+capture noisily {
+    use `diagdata', clear
+    diagtab test_score gold, cutoffs(0.25 0.5) auc display
+}
+if _rc == 198 {
+    display as result "  PASS: diagtab rejects auc with cutoffs()"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: diagtab auc+cutoffs() expected rc=198, got `=_rc'"
     local ++fail_count
 }
 

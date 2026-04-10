@@ -76,6 +76,14 @@ capture noisily {
         noisily display as error "cutoff() and cutoffs() are mutually exclusive"
         exit 198
     }
+    if "`auc'" != "" & "`cutoffs'" != "" {
+        noisily display as error "auc cannot be combined with cutoffs(); use cutoff() or omit auc"
+        exit 198
+    }
+    if "`optimal'" != "" & "`cutoffs'" != "" {
+        noisily display as error "optimal cannot be combined with cutoffs(); use cutoff() or omit optimal"
+        exit 198
+    }
 
     * Default CI method is Wilson
     if "`exact'" == "" & "`wilson'" == "" local wilson "wilson"
@@ -99,6 +107,21 @@ capture noisily {
         if !inlist(`_gl', 0, 1) {
             noisily display as error "`goldvar' must be coded 0/1; found value `_gl'"
             exit 198
+        }
+    }
+    if `cutoff' == -999 & "`cutoffs'" == "" & "`optimal'" == "" {
+        qui levelsof `testvar' if `touse', local(_testlevels)
+        local _ntest : word count `_testlevels'
+        if `_ntest' > 2 {
+            noisily display as error "`testvar' must be coded 0/1 unless cutoff() or cutoffs() is specified"
+            exit 198
+        }
+        foreach _tv of local _testlevels {
+            if !inlist(`_tv', 0, 1) {
+                noisily display as error "`testvar' must be coded 0/1 unless cutoff() or cutoffs() is specified"
+                noisily display as error "Hint: use cutoff() for a single threshold or cutoffs() for multiple thresholds"
+                exit 198
+            }
         }
     }
 
@@ -311,6 +334,39 @@ capture noisily {
         * Single-cutoff path (original logic)
         * ============================================================
 
+    * Optimal cutoff (Youden's J = Se + Sp - 1)
+    local _opt_cutoff = .
+    if "`optimal'" != "" {
+        qui levelsof `testvar' if `touse', local(_opt_candidates)
+        local _best_j = -1
+        foreach _c of local _opt_candidates {
+            qui count if `testvar' >= `_c' & `goldvar' == 1 & `touse'
+            local _tp_c = r(N)
+            qui count if `goldvar' == 1 & `touse'
+            local _pos_c = r(N)
+            qui count if `testvar' < `_c' & `goldvar' == 0 & `touse'
+            local _tn_c = r(N)
+            qui count if `goldvar' == 0 & `touse'
+            local _neg_c = r(N)
+            if `_pos_c' > 0 & `_neg_c' > 0 {
+                local _se_c = `_tp_c' / `_pos_c'
+                local _sp_c = `_tn_c' / `_neg_c'
+                local _j_c = `_se_c' + `_sp_c' - 1
+                if `_j_c' > `_best_j' {
+                    local _best_j = `_j_c'
+                    local _opt_cutoff = `_c'
+                }
+            }
+        }
+        if `cutoff' == -999 {
+            if missing(`_opt_cutoff') {
+                noisily display as error "Could not determine an optimal cutoff from `testvar'"
+                exit 498
+            }
+            local cutoff = `_opt_cutoff'
+        }
+    }
+
 **# Dichotomize if Cutoff Specified
     tempvar _test_bin
     if `cutoff' != -999 {
@@ -413,41 +469,12 @@ capture noisily {
     local _auc = .
     local _auc_lo = .
     local _auc_hi = .
-    if "`auc'" != "" & `cutoff' == -999 & "`cutoffs'" != "" {
-        noisily display as text "Note: auc option requires cutoff(), not cutoffs()"
-    }
-    if "`auc'" != "" & `cutoff' != -999 {
+    if "`auc'" != "" {
         capture qui roctab `goldvar' `testvar' if `touse'
         if !_rc {
             local _auc = r(area)
             local _auc_lo = r(lb)
             local _auc_hi = r(ub)
-        }
-    }
-
-    * Optimal cutoff (Youden's J = Se + Sp - 1)
-    local _opt_cutoff = .
-    if "`optimal'" != "" {
-        qui levelsof `testvar' if `touse', local(_cutoffs)
-        local _best_j = -1
-        foreach _c of local _cutoffs {
-            qui count if `testvar' >= `_c' & `goldvar' == 1 & `touse'
-            local _tp_c = r(N)
-            qui count if `goldvar' == 1 & `touse'
-            local _pos_c = r(N)
-            qui count if `testvar' < `_c' & `goldvar' == 0 & `touse'
-            local _tn_c = r(N)
-            qui count if `goldvar' == 0 & `touse'
-            local _neg_c = r(N)
-            if `_pos_c' > 0 & `_neg_c' > 0 {
-                local _se_c = `_tp_c' / `_pos_c'
-                local _sp_c = `_tn_c' / `_neg_c'
-                local _j_c = `_se_c' + `_sp_c' - 1
-                if `_j_c' > `_best_j' {
-                    local _best_j = `_j_c'
-                    local _opt_cutoff = `_c'
-                }
-            }
         }
     }
 

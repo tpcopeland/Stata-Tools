@@ -865,8 +865,8 @@ quietly {
     clear
     set obs 3
     gen exposure = _n - 1
-    gen _D = cond(_n==1, 80, cond(_n==2, 140, 220))
-    gen _Y = cond(_n==1, 8000, cond(_n==2, 12000, 20000))
+    gen _D = cond(_n==1, 220, cond(_n==2, 140, 80))
+    gen _Y = cond(_n==1, 20000, cond(_n==2, 12000, 8000))
     gen _Rate = _D / _Y
     gen _Lower = _Rate * 0.65
     gen _Upper = _Rate * 1.35
@@ -885,6 +885,18 @@ quietly {
     label define exp_cov 0 "Never" 1 "Former" 2 "Current", replace
     label values exposure exp_cov
     save "`output_dir'/_cov_strate_o2e2.dta", replace
+
+    clear
+    set obs 3
+    gen exposure = cond(_n==1, 2, cond(_n==2, 1, 0))
+    gen _D = cond(_n==1, 80, cond(_n==2, 140, 220))
+    gen _Y = cond(_n==1, 8000, cond(_n==2, 12000, 20000))
+    gen _Rate = _D / _Y
+    gen _Lower = _Rate * 0.65
+    gen _Upper = _Rate * 1.35
+    label define exp_cov 0 "Never" 1 "Former" 2 "Current", replace
+    label values exposure exp_cov
+    save "`output_dir'/_cov_strate_o1e2_rev.dta", replace
 
     * Reload some data to have in memory for stratetab (it saves/restores)
     sysuse auto, clear
@@ -1063,6 +1075,59 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL: stratetab ratiodigits() (error `=_rc')"
+    local ++fail_count
+}
+
+* Test: rateratio handles reordered categories across exposures
+local ++test_count
+capture noisily {
+    quietly {
+        clear
+        set obs 3
+        gen exposure = _n - 1
+        gen _D = cond(_n==1, 250, cond(_n==2, 180, 320))
+        gen _Y = cond(_n==1, 50000, cond(_n==2, 45000, 52000))
+        gen _Rate = _D / _Y
+        gen _Lower = _Rate * 0.65
+        gen _Upper = _Rate * 1.35
+        label define exp_cov_rr 0 "Never" 1 "Former" 2 "Current"
+        label values exposure exp_cov_rr
+        save "`output_dir'/_cov_strate_rr_ref.dta", replace
+
+        clear
+        set obs 3
+        gen exposure = cond(_n==1, 2, cond(_n==2, 1, 0))
+        gen _D = cond(_n==1, 220, cond(_n==2, 140, 80))
+        gen _Y = cond(_n==1, 20000, cond(_n==2, 12000, 8000))
+        gen _Rate = _D / _Y
+        gen _Lower = _Rate * 0.65
+        gen _Upper = _Rate * 1.35
+        label define exp_cov_rr 0 "Never" 1 "Former" 2 "Current", replace
+        label values exposure exp_cov_rr
+        save "`output_dir'/_cov_strate_rr_rev.dta", replace
+
+        sysuse auto, clear
+    }
+
+    stratetab, using("`output_dir'/_cov_strate_rr_ref" "`output_dir'/_cov_strate_rr_rev") ///
+        xlsx("`output_dir'/_cov_strate_rateratio_reordered.xlsx") outcomes(1) rateratio
+    assert rowsof(r(ratios)) == 3
+    local row_current = rownumb(r(ratios), "Current")
+    local row_never = rownumb(r(ratios), "Never")
+    local row_former = rownumb(r(ratios), "Former")
+    assert `row_current' > 0
+    assert `row_never' > 0
+    assert `row_former' > 0
+    assert abs(r(ratios)[`row_current',1] - ((220/20000) / (320/52000))) < 1e-6
+    assert abs(r(ratios)[`row_former',1] - ((140/12000) / (180/45000))) < 1e-6
+    assert abs(r(ratios)[`row_never',1] - 2) < 1e-6
+}
+if _rc == 0 {
+    display as result "  PASS: stratetab rateratio aligns reordered categories by label"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: stratetab reordered-category rateratio (error `=_rc')"
     local ++fail_count
 }
 

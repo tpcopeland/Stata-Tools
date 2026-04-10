@@ -25,6 +25,7 @@ capture noisily {
     assert r(N_rows) > 0
     * from() with no prior teffects defaults to margins type
     assert r(type) == "margins"
+    assert strpos(lower(`"`r(methods)'"'), "supplied matrix") > 0
 }
 if _rc == 0 {
     display as result "PASS: T1 — from() matrix works"
@@ -66,6 +67,9 @@ capture noisily {
     effecttab, display title("Multi-Model") effect("ATE") ///
         models("RA \ IPW") clean
     assert r(N_rows) > 0
+    assert strpos(lower(`"`r(methods)'"'), "multiple collected models") > 0
+    assert strpos(lower(`"`r(methods)'"'), "inverse probability weighting") == 0
+    assert strpos(lower(`"`r(methods)'"'), "regression adjustment") == 0
 }
 if _rc == 0 {
     display as result "PASS: T3 — multi-model effecttab works"
@@ -161,8 +165,42 @@ capture frame drop _eff_frame
 capture noisily {
     collect clear
     collect: teffects ipw (bweight) (mbsmoke mage prenatal1 mmarried fbaby), ate
-    effecttab, csv("/tmp/test_iptw.csv") title("IPTW CSV") effect("ATE") clean
+    capture frame drop _eff_csv
+    capture erase "/tmp/test_iptw.csv"
+    effecttab, csv("/tmp/test_iptw.csv") title("IPTW CSV") effect("ATE") clean ///
+        frame(_eff_csv, replace)
     confirm file "/tmp/test_iptw.csv"
+    assert r(frame) == "_eff_csv"
+    frame _eff_csv {
+        local _csv_found = 0
+        forvalues _r = 1/`=_N' {
+            local _lbl = strtrim(A[`_r'])
+            local _est = strtrim(c1[`_r'])
+            local _p = strtrim(c3[`_r'])
+            if "`_lbl'" != "" & "`_est'" != "" {
+                local _frame_label "`_lbl'"
+                local _frame_est "`_est'"
+                local _frame_p "`_p'"
+                local _csv_found = 1
+                continue, break
+            }
+        }
+        assert `_csv_found' == 1
+    }
+    preserve
+    import delimited "/tmp/test_iptw.csv", clear varnames(1)
+    local _csv_match = 0
+    forvalues _r = 1/`=_N' {
+        local _lbl = strtrim(a[`_r'])
+        if "`_lbl'" == "`_frame_label'" {
+            assert strtrim(c1[`_r']) == "`_frame_est'"
+            assert strtrim(c3[`_r']) == "`_frame_p'"
+            local _csv_match = 1
+            continue, break
+        }
+    }
+    assert `_csv_match' == 1
+    restore
 }
 if _rc == 0 {
     display as result "PASS: T8 — CSV export with IPTW works"
@@ -172,6 +210,7 @@ else {
     display as error "FAIL: T8 — CSV export with IPTW failed (rc=`=_rc')"
     local ++n_fail
 }
+capture frame drop _eff_csv
 
 * ============================================================
 * Test 9: effecttab r(table) matrix correctness
