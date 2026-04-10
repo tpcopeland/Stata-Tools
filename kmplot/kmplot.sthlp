@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.0  08apr2026}{...}
+{* *! version 1.0.1  10apr2026}{...}
 {vieweralsosee "sts graph" "help sts graph"}{...}
 {vieweralsosee "stci" "help stci"}{...}
 {vieweralsosee "sts test" "help sts test"}{...}
@@ -65,9 +65,9 @@
 {syntab:Labels}
 {synopt:{opt ti:tle(string)}}graph title{p_end}
 {synopt:{opt sub:title(string)}}graph subtitle{p_end}
-{synopt:{opt xti:tle(string)}}x-axis title; default "Analysis time"{p_end}
+{synopt:{opt xti:tle(string)}}x-axis title; default "Analysis time"; used on the bottom axis with {opt risktable}{p_end}
 {synopt:{opt yti:tle(string)}}y-axis title; auto from model{p_end}
-{synopt:{opt xla:bel(string)}}x-axis labels{p_end}
+{synopt:{opt xla:bel(string)}}x-axis labels; with {opt risktable}, numeric positions also drive default risk-table columns when {opt timepoints()} is omitted{p_end}
 {synopt:{opt yla:bel(string)}}y-axis labels; default 0(0.25)1{p_end}
 {synopt:{opt leg:end(string)}}custom legend specification{p_end}
 {synopt:{opt note(string)}}graph note{p_end}
@@ -157,6 +157,14 @@ line color.{p_end}
 table. Default: approximately 6 evenly spaced timepoints from 0 to the
 maximum observed time.{p_end}
 
+{phang}{opt xtitle(string)} sets the x-axis title. With {opt risktable},
+this is applied to the bottom axis of the combined graph. Default is
+"Analysis time".{p_end}
+
+{phang}{opt xlabel(string)} sets x-axis labels. With {opt risktable},
+numeric positions are also used for the risk-table columns when
+{opt timepoints()} is omitted.{p_end}
+
 {dlgtab:Censoring}
 
 {phang}{opt censor} displays tick marks at censoring times on the
@@ -179,6 +187,8 @@ the plot. Requires {opt by()}.{p_end}
 auto-detected from the extension (.pdf, .png, .eps, .svg).  Sub-options
 (e.g., {it:replace}, {it:width(#)}) are passed to {cmd:graph export}.
 Example: {cmd:export(figure1.pdf, replace)}.{p_end}
+Quoted paths with spaces are supported, for example
+{cmd:export("figure 1.pdf", replace)}.{p_end}
 
 {dlgtab:Graph passthrough}
 
@@ -243,6 +253,6 @@ underlying {cmd:twoway} call.{p_end}
 Timothy P Copeland{break}
 Department of Clinical Neuroscience{break}
 Karolinska Institutet{break}
-Version 1.0.0, 2026-04-08{p_end}
+Version 1.0.1, 2026-04-10{p_end}
 
 {hline}

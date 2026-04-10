@@ -1,5 +1,5 @@
 * validation_kmplot.do
-* Numerical validation suite for kmplot v1.2.0
+* Numerical validation suite for kmplot v1.0.1
 * Author: Timothy P Copeland
 * Created: 2026-03-15
 *
@@ -20,6 +20,44 @@ net install kmplot, from("`pkg_dir'") replace
 local test_count = 0
 local pass_count = 0
 local fail_count = 0
+
+capture program drop _kmplot_assert_file_contains
+program define _kmplot_assert_file_contains
+    syntax using/, PATTERN(string)
+    tempname fh
+    local found 0
+
+    file open `fh' using `"`using'"', read text
+    file read `fh' line
+    while r(eof) == 0 {
+        if strpos(`"`line'"', `"`pattern'"') > 0 {
+            local found 1
+        }
+        file read `fh' line
+    }
+    file close `fh'
+
+    assert `found' == 1
+end
+
+capture program drop _kmplot_assert_file_not_contains
+program define _kmplot_assert_file_not_contains
+    syntax using/, PATTERN(string)
+    tempname fh
+    local found 0
+
+    file open `fh' using `"`using'"', read text
+    file read `fh' line
+    while r(eof) == 0 {
+        if strpos(`"`line'"', `"`pattern'"') > 0 {
+            local found 1
+        }
+        file read `fh' line
+    }
+    file close `fh'
+
+    assert `found' == 0
+end
 
 * =============================================================================
 * V1: S(t) matches sts generate exactly
@@ -776,6 +814,73 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL: V24 KM monotonicity (rc=`=_rc')"
+    local ++fail_count
+}
+
+* =============================================================================
+* V25: Quoted export path writes to the requested filename
+* =============================================================================
+
+local ++test_count
+capture noisily {
+    sysuse cancer, clear
+    stset studytime, failure(died)
+
+    local svgfile `c(tmpdir)'/kmplot_v25.svg
+    mata: st_local("badsvgfile", st_local("svgfile") + char(34))
+
+    capture erase "`svgfile'"
+    capture erase `"`badsvgfile'"'
+
+    kmplot, by(drug) export("`svgfile'", replace) name(v25, replace)
+
+    confirm file "`svgfile'"
+    capture confirm file `"`badsvgfile'"'
+    assert _rc != 0
+    quietly checksum "`svgfile'"
+    assert r(filelen) > 0
+
+    erase "`svgfile'"
+}
+if _rc == 0 {
+    display as result "  PASS: V25 Quoted export path writes correctly"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: V25 Quoted export path (rc=`=_rc')"
+    local ++fail_count
+}
+
+* =============================================================================
+* V26: Risktable respects explicit bottom-axis title and labels
+* =============================================================================
+
+local ++test_count
+capture noisily {
+    sysuse cancer, clear
+    stset studytime, failure(died)
+
+    local svgfile `c(tmpdir)'/kmplot_v26.svg
+    capture erase "`svgfile'"
+
+    kmplot, by(drug) risktable ///
+        xtitle("Years from study entry") ///
+        xlabel(0(7)21, format(%4.1f)) ///
+        export("`svgfile'", replace) name(v26, replace)
+
+    confirm file "`svgfile'"
+    _kmplot_assert_file_contains using "`svgfile'", pattern("Years from study entry")
+    _kmplot_assert_file_not_contains using "`svgfile'", pattern("Analysis time")
+    _kmplot_assert_file_contains using "`svgfile'", pattern(">21.0</text>")
+
+    erase "`svgfile'"
+}
+if _rc == 0 {
+    display as result "  PASS: V26 Risktable respects explicit bottom axis"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: V26 Risktable explicit bottom axis (rc=`=_rc')"
     local ++fail_count
 }
 

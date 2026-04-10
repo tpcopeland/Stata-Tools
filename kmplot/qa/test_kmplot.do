@@ -1,5 +1,5 @@
 * test_kmplot.do
-* Functional test suite for kmplot v1.2.0
+* Functional test suite for kmplot v1.0.1
 * Author: Timothy P Copeland
 * Created: 2026-03-15
 

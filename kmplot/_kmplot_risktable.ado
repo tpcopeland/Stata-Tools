@@ -1,4 +1,4 @@
-*! _kmplot_risktable Version 1.0.0  2026/04/08
+*! _kmplot_risktable Version 1.0.1  2026/04/10
 *! Risk table helper for kmplot
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet
@@ -22,11 +22,20 @@ program define _kmplot_risktable
     syntax , GRPvar(varname) NGRoups(integer) ///
         [TIMEpoints(numlist sort) ///
          COLors(string asis) SCHeme(string) XMax(real -1) ///
+         XTItle(string asis) XLAbel(string asis) ///
          EVents MONO]
 
     capture noisily {
 
     if "`scheme'" == "" local scheme "plotplainblind"
+    if `"`xtitle'"' == "" local xtitle "Analysis time"
+    local _xt_len = strlen(`"`xtitle'"')
+    while `_xt_len' >= 2 & ///
+        substr(`"`xtitle'"', 1, 1) == char(34) & ///
+        substr(`"`xtitle'"', `_xt_len', 1) == char(34) {
+        local xtitle = substr(`"`xtitle'"', 2, `_xt_len' - 2)
+        local _xt_len = strlen(`"`xtitle'"')
+    }
 
     * Read group labels from dataset characteristics (set by kmplot)
     forvalues g = 1/`ngroups' {
@@ -191,12 +200,20 @@ program define _kmplot_risktable
     * Offset xscale start to separate ylabel from first data point
     local xstart = `tp_first' - (`xmax' - `tp_first') * 0.02
 
+    local xlabel_cmd ""
+    if `"`xlabel'"' != "" {
+        local xlabel_cmd xlabel(`xlabel')
+    }
+    else {
+        local xlabel_cmd xlabel(`timepoints', labsize(vsmall) noticks)
+    }
+
     twoway `scatcmd', ///
         ylabel(`ylabels', angle(0) labsize(vsmall) noticks nogrid) ///
-        xlabel(`timepoints', labsize(vsmall) noticks) ///
+        `xlabel_cmd' ///
         yscale(range(`ymin' `ymax') noline) ///
         xscale(range(`xstart' `xmax') noline) ///
-        xtitle("Analysis time", size(vsmall)) ///
+        xtitle(`"`xtitle'"', size(vsmall)) ///
         ytitle("`ytitle_rt'", size(vsmall)) ///
         title("") subtitle("") ///
         scheme(`scheme') ///

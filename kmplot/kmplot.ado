@@ -1,4 +1,4 @@
-*! kmplot Version 1.0.0  2026/04/08
+*! kmplot Version 1.0.1  2026/04/10
 *! Publication-ready Kaplan-Meier and cumulative incidence plots
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet
@@ -327,9 +327,31 @@ program define kmplot, rclass
             char _dta[_kmplot_grplbl`g'] `"`grplbl`g''"'
         }
 
+        * If the user supplies explicit x-axis positions with risktable(),
+        * use them as the default risk-table timepoints so counts and labels align.
+        if "`timepoints'" == "" & `"`xlabel'"' != "" {
+            local _rt_posspec `"`xlabel'"'
+            local _comma = strpos(`"`_rt_posspec'"', ",")
+            if `_comma' > 0 {
+                local _rt_posspec = strtrim(substr(`"`_rt_posspec'"', 1, `_comma' - 1))
+            }
+            capture numlist `"`_rt_posspec'"', sort
+            if _rc == 0 {
+                local timepoints `r(numlist)'
+            }
+        }
+
         local tp_opt ""
         if "`timepoints'" != "" {
             local tp_opt "timepoints(`timepoints')"
+        }
+        local rt_xtitle_opt ""
+        if `"`xtitle'"' != "" {
+            local rt_xtitle_opt xtitle("`xtitle'")
+        }
+        local rt_xlabel_opt ""
+        if `"`xlabel'"' != "" {
+            local rt_xlabel_opt xlabel(`xlabel')
         }
 
         * Load helper if needed
@@ -353,7 +375,8 @@ program define kmplot, rclass
         if "`riskmono'" != "" local rt_flags "`rt_flags' mono"
 
         _kmplot_risktable, grpvar(_kmplot_grpid) ngroups(`ngroups') ///
-            colors(`colors') scheme(`scheme') xmax(`tmax') `tp_opt' `rt_flags'
+            colors(`colors') scheme(`scheme') xmax(`tmax') `tp_opt' ///
+            `rt_xtitle_opt' `rt_xlabel_opt' `rt_flags'
     }
 
     * =========================================================================
@@ -640,6 +663,12 @@ program define kmplot, rclass
         if `cpos' > 0 {
             local export_file = strtrim(substr(`"`export'"', 1, `cpos' - 1))
             local export_opts = strtrim(substr(`"`export'"', `cpos' + 1, .))
+        }
+        local _ef_len = strlen(`"`export_file'"')
+        if `_ef_len' >= 2 & ///
+            substr(`"`export_file'"', 1, 1) == char(34) & ///
+            substr(`"`export_file'"', `_ef_len', 1) == char(34) {
+            local export_file = substr(`"`export_file'"', 2, `_ef_len' - 2)
         }
         graph export `"`export_file'"', `export_opts'
         display as text "Graph saved to: " as result `"`export_file'"'

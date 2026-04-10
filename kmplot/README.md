@@ -1,4 +1,4 @@
-# kmplot v1.0.0
+# kmplot v1.0.1
 
 Publication-ready Kaplan-Meier and cumulative incidence plots for Stata.
 
@@ -24,7 +24,7 @@ kmplot, by(drug) ci risktable median medianannotate pvalue censor
 ## Features
 
 - **Confidence intervals**: Shaded bands or dashed lines with log-log, log, or plain transforms
-- **Number-at-risk table**: Aligned below the plot with matching group colors
+- **Number-at-risk table**: Aligned below the plot with matching group colors and explicit bottom-axis titles/ticks
 - **Median survival lines**: Horizontal + vertical reference lines at median
 - **Censoring marks**: Tick marks at censoring times with optional thinning
 - **Log-rank p-value**: Displayed on the plot with configurable position
