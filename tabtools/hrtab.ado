@@ -754,6 +754,12 @@ program define hrtab, rclass
 
 						* Find coefficient position
 						local _coef_name "`_lv'.`_evar'"
+						if "`model'" == "finegray" {
+							local _coef_name "_fg_`_evar'_`_lv'"
+							if length("`_coef_name'") > 32 {
+								local _coef_name = substr("`_coef_name'", 1, 32)
+							}
+						}
 						local _coef_pos = 0
 						local _cn = 0
 						foreach _bn of local _b_names {

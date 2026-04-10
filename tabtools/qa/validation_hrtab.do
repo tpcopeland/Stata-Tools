@@ -233,24 +233,44 @@ else {
 	capture frame drop hrtab_cr
 }
 
-**## 1.6 finegray — hrtab runs without error (if installed)
+**## 1.6 finegray — hrtab SHR matches direct finegray (if installed)
 local ++test_count
 capture which finegray
 if _rc == 0 {
 	capture noisily {
 		_hrtab_val_data
+		quietly stset followup, failure(event) id(pid)
+		quietly finegray i.trt, compete(event) cause(1) nolog
+		local _ref_shr = exp(_b[_fg_trt_1])
+
 		hrtab, exposure(i.trt) model(finegray) ///
 			outcome(event) time(followup) failvalue(1) ///
-			stsetopts(id(pid)) nolog frame(hrtab_fg, replace)
-		assert r(models) >= 1
+			stsetopts(id(pid)) nolog digits(4) frame(hrtab_fg, replace)
+		assert r(models) == 1
+
+		frame hrtab_fg {
+			local _found = 0
+			forvalues _r = 1/`=_N' {
+				local _lbl = strtrim(c1[`_r'])
+				if "`_lbl'" == "Drug" {
+					local _cell = strtrim(c4[`_r'])
+					assert "`_cell'" != "–"
+					local _shr = real(word("`_cell'", 1))
+					assert abs(`_shr' - `_ref_shr') < 0.001
+					local _found = 1
+					continue, break
+				}
+			}
+			assert `_found' == 1
+		}
 		capture frame drop hrtab_fg
 	}
 	if _rc == 0 {
-		display as result "  PASS: 1.6 finegray model runs without error"
+		display as result "  PASS: 1.6 finegray SHR matches direct finegray"
 		local ++pass_count
 	}
 	else {
-		display as error "  FAIL: 1.6 finegray model error (rc=`=_rc')"
+		display as error "  FAIL: 1.6 finegray SHR mismatch (rc=`=_rc')"
 		local ++fail_count
 		local failed_tests "`failed_tests' 1.6"
 		capture frame drop hrtab_fg

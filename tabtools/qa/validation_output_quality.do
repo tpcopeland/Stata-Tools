@@ -103,14 +103,16 @@ else {
 local ++test_count
 capture noisily {
     sysuse auto, clear
-    quietly tab foreign rep78
-    local n_dom_3 = r(N) - r(N)
-    quietly count if foreign == 0 & rep78 == 3
-    local expected_dom3 = r(N)
+    quietly tab rep78 foreign, matcell(_freq)
 
     crosstab rep78 foreign, xlsx("`output_dir'/_val_crosstab.xlsx") sheet("counts")
-    * Check returned table exists
-    assert rowsof(r(table)) > 0
+    assert rowsof(r(table)) == rowsof(_freq)
+    assert colsof(r(table)) == colsof(_freq)
+    forvalues i = 1/`=rowsof(_freq)' {
+        forvalues j = 1/`=colsof(_freq)' {
+            assert r(table)[`i',`j'] == _freq[`i',`j']
+        }
+    }
     assert r(N) == 69
 }
 if _rc == 0 {
@@ -205,7 +207,13 @@ else {
 * V8: diagtab accuracy = (TP+TN)/N
 local ++test_count
 capture noisily {
-    * From V7 data still in memory
+    clear
+    set obs 200
+    gen byte gold = (_n <= 100)
+    gen byte test = 0
+    replace test = 1 if gold == 1 & _n <= 80
+    replace test = 1 if gold == 0 & _n > 100 & _n <= 110
+
     diagtab test gold, xlsx("`output_dir'/_val_diagtab_acc.xlsx") sheet("accuracy")
     * Accuracy = (80+90)/200 = 0.85
     assert abs(r(accuracy) - 0.85) < 0.001
@@ -289,81 +297,115 @@ else {
 **# SECTION 5: survtab — validate survival estimates
 * ============================================================
 
-* V11: survtab produces output and returns N_rows
+* V11: survtab exact KM and log-rank values
 local ++test_count
 capture noisily {
     sysuse cancer, clear
     stset studytime, failure(died)
+    quietly sts test drug
+    local chi2_ref = r(chi2)
+    local p_ref = chi2tail(r(df), r(chi2))
 
     survtab, times(10 20 30) by(drug) ///
         xlsx("`output_dir'/_val_survtab.xlsx") sheet("surv")
 
-    * Check returned values exist
-    assert r(N_rows) > 0
-    assert !missing(r(logrank_p))
-    assert r(logrank_chi2) > 0
+    assert r(N_rows) == 9
+    assert rowsof(r(table)) == 3
+    assert colsof(r(table)) == 3
+    assert abs(r(table)[1,1] - 0.45) < 1e-10
+    assert abs(r(table)[1,2] - 0.85119048) < 1e-8
+    assert abs(r(table)[1,3] - 0.85714286) < 1e-8
+    assert abs(r(table)[2,1] - 0.1125) < 1e-10
+    assert abs(r(table)[2,2] - 0.62065972) < 1e-8
+    assert abs(r(table)[2,3] - 0.85714286) < 1e-8
+    assert abs(r(table)[3,1] - 0) < 1e-10
+    assert abs(r(table)[3,2] - 0.20688657) < 1e-8
+    assert abs(r(table)[3,3] - 0.5877551) < 1e-7
+    assert abs(r(logrank_chi2) - `chi2_ref') < 1e-10
+    assert abs(r(logrank_p) - `p_ref') < 1e-12
 }
 if _rc == 0 {
-    display as result "  PASS: V11 survtab survival estimate at time 20"
+    display as result "  PASS: V11 survtab exact KM and log-rank values"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: V11 survtab survival estimate at time 20 (error `=_rc')"
+    display as error "  FAIL: V11 survtab exact KM and log-rank values (error `=_rc')"
     local ++fail_count
 }
 
-* V12: survtab median CI now populated (bug fix verification)
+* V12: survtab median/CI matches stci
 local ++test_count
 capture noisily {
     sysuse cancer, clear
     stset studytime, failure(died)
+    quietly stci if drug == 1
+    local med_1 = r(p50)
+    local med_lb_1 = r(lb)
+    local med_ub_1 = r(ub)
+    quietly stci if drug == 2
+    local med_2 = r(p50)
+    local med_lb_2 = r(lb)
+    local med_ub_2 = r(ub)
+
     survtab, times(10 20 30) by(drug) median ///
         xlsx("`output_dir'/_val_survtab_med.xlsx") sheet("median") ///
         frame(_val_survmed)
 
-    * Check median is in the frame content
+    local ci_1 `"(`=string(`med_lb_1', "%5.1f")', `=string(`med_ub_1', "%5.1f")')"'
+    local med_1_fmt : display %5.1f `med_1'
+    local med_2_fmt : display %5.1f `med_2'
+    local med_1_fmt = strtrim("`med_1_fmt'")
+    local med_2_fmt = strtrim("`med_2_fmt'")
     frame _val_survmed {
-        * The median row should have non-empty values
-        assert _N > 0
-        * Check that the CI row (row 4) has content (was blank before bug fix)
-        local ci_val = c2[4]
-        assert "`ci_val'" != ""
+        assert c1[3] == "Median survival, yr"
+        assert c2[3] == "`med_1_fmt'"
+        assert c3[3] == "`med_2_fmt'"
+        assert c1[4] == "  (95% CI)"
+        assert c2[4] == "`ci_1'"
+        assert c3[4] == ""
     }
+    assert r(median_1) == `med_1'
+    assert r(median_2) == `med_2'
     frame drop _val_survmed
 }
 if _rc == 0 {
-    display as result "  PASS: V12 survtab median CI populated (bug fix)"
+    display as result "  PASS: V12 survtab median/CI matches stci"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: V12 survtab median CI populated (error `=_rc')"
+    display as error "  FAIL: V12 survtab median/CI matches stci (error `=_rc')"
     local ++fail_count
 }
 
-* V13: survtab with reverse (cumulative incidence) — values complement survival
+* V13: survtab reverse is exact complement of forward KM
 local ++test_count
 capture noisily {
     sysuse cancer, clear
     stset studytime, failure(died)
-    * Get survival at time 20
     survtab, times(20) frame(_val_surv_fwd) ///
         xlsx("`output_dir'/_val_survtab_fwd.xlsx") sheet("fwd")
+    matrix _fwd = r(table)
     * Get cumulative incidence at time 20
     survtab, times(20) reverse frame(_val_surv_rev) ///
         xlsx("`output_dir'/_val_survtab_rev.xlsx") sheet("rev")
+    matrix _rev = r(table)
 
-    * Both should exist
-    frame _val_surv_fwd: assert _N > 0
-    frame _val_surv_rev: assert _N > 0
+    assert rowsof(_fwd) == rowsof(_rev)
+    assert colsof(_fwd) == colsof(_rev)
+    forvalues i = 1/`=rowsof(_fwd)' {
+        forvalues j = 1/`=colsof(_fwd)' {
+            assert abs(_fwd[`i',`j'] + _rev[`i',`j'] - 1) < 1e-10
+        }
+    }
     frame drop _val_surv_fwd
     frame drop _val_surv_rev
 }
 if _rc == 0 {
-    display as result "  PASS: V13 survtab reverse (cumulative incidence) runs"
+    display as result "  PASS: V13 survtab reverse is exact complement"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: V13 survtab reverse (cumulative incidence) (error `=_rc')"
+    display as error "  FAIL: V13 survtab reverse is exact complement (error `=_rc')"
     local ++fail_count
 }
 
@@ -375,27 +417,54 @@ else {
 local ++test_count
 capture noisily {
     sysuse auto, clear
-    * Get mean/sd for Domestic
-    summarize price if foreign == 0, detail
+    summarize price if foreign == 0
     local mean_dom = r(mean)
     local sd_dom = r(sd)
+    local mean_dom_fmt : display %12.4f `mean_dom'
+    local sd_dom_fmt : display %12.4f `sd_dom'
+    local mean_dom_fmt = strtrim("`mean_dom_fmt'")
+    local sd_dom_fmt = strtrim("`sd_dom_fmt'")
+
+    summarize price if foreign == 1
+    local mean_for = r(mean)
+    local sd_for = r(sd)
+    local mean_for_fmt : display %12.4f `mean_for'
+    local sd_for_fmt : display %12.4f `sd_for'
+    local mean_for_fmt = strtrim("`mean_for_fmt'")
+    local sd_for_fmt = strtrim("`sd_for_fmt'")
 
     table1_tc, by(foreign) vars(price contn %12.4f) ///
         xlsx("`output_dir'/_val_t1_stats.xlsx") sheet("stats") frame(_val_t1)
 
-    * Verify via frame content
     frame _val_t1 {
-        * The frame should contain the table data
-        assert _N > 0
+        assert factor[4] == "Price"
+        local dom_stats = foreign_0[4]
+        local for_stats = foreign_1[4]
     }
+    local dom_open = strpos(`"`dom_stats'"', "(")
+    local dom_close = strpos(`"`dom_stats'"', ")")
+    local for_open = strpos(`"`for_stats'"', "(")
+    local for_close = strpos(`"`for_stats'"', ")")
+    assert `dom_open' > 0
+    assert `dom_close' > `dom_open'
+    assert `for_open' > 0
+    assert `for_close' > `for_open'
+    local mean_dom_t1 = real(word(`"`dom_stats'"', 1))
+    local sd_dom_t1 = real(substr(`"`dom_stats'"', `dom_open' + 1, `dom_close' - `dom_open' - 1))
+    local mean_for_t1 = real(word(`"`for_stats'"', 1))
+    local sd_for_t1 = real(substr(`"`for_stats'"', `for_open' + 1, `for_close' - `for_open' - 1))
+    assert abs(`mean_dom_t1' - `mean_dom') < 0.001
+    assert abs(`sd_dom_t1' - `sd_dom') < 0.001
+    assert abs(`mean_for_t1' - `mean_for') < 0.001
+    assert abs(`sd_for_t1' - `sd_for') < 0.001
     frame drop _val_t1
 }
 if _rc == 0 {
-    display as result "  PASS: V14 table1_tc produces valid frame output"
+    display as result "  PASS: V14 table1_tc mean/SD matches summarize"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: V14 table1_tc produces valid frame output (error `=_rc')"
+    display as error "  FAIL: V14 table1_tc mean/SD matches summarize (error `=_rc')"
     local ++fail_count
 }
 
@@ -475,7 +544,7 @@ else {
 **# SECTION 8: stratetab — validate return values
 * ============================================================
 
-* V18: stratetab rates matrix dimensions
+* V18: stratetab rates matrix exact values
 local ++test_count
 capture noisily {
     * Create synthetic strate data
@@ -510,22 +579,21 @@ capture noisily {
     stratetab, using("`output_dir'/_val_strate_o1" "`output_dir'/_val_strate_o2") ///
         xlsx("`output_dir'/_val_stratetab.xlsx") outcomes(2)
 
-    * Rates matrix: 3 categories × 2 outcomes
     assert rowsof(r(rates)) == 3
     assert colsof(r(rates)) == 2
-    * All rates should be positive
-    forvalues i = 1/3 {
-        forvalues j = 1/2 {
-            assert r(rates)[`i',`j'] > 0
-        }
-    }
+    assert abs(r(rates)[1,1] - 5.0) < 1e-6
+    assert abs(r(rates)[1,2] - 2.5) < 1e-6
+    assert abs(r(rates)[2,1] - 3.75) < 1e-6
+    assert abs(r(rates)[2,2] - 1.875) < 1e-6
+    assert abs(r(rates)[3,1] - 70/12) < 1e-6
+    assert abs(r(rates)[3,2] - 10/3) < 1e-6
 }
 if _rc == 0 {
-    display as result "  PASS: V18 stratetab rates matrix dimensions and values"
+    display as result "  PASS: V18 stratetab rates matrix exact values"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: V18 stratetab rates matrix (error `=_rc')"
+    display as error "  FAIL: V18 stratetab rates matrix exact values (error `=_rc')"
     local ++fail_count
 }
 
@@ -533,12 +601,11 @@ else {
 local ++test_count
 capture noisily {
     sysuse auto, clear
-    * Rate for Low exposure, outcome 1: 50/10000 * 1000 = 5.0
     stratetab, using("`output_dir'/_val_strate_o1" "`output_dir'/_val_strate_o2") ///
         xlsx("`output_dir'/_val_stratetab_scale.xlsx") outcomes(2)
-    local rate_1_1 = r(rates)[1,1]
-    * Expected: (50/10000) * 1000 = 5.0
-    assert abs(`rate_1_1' - 5.0) < 0.01
+    assert abs(r(rates)[1,1] - ((50/10000) * 1000)) < 1e-6
+    assert abs(r(rates)[1,2] - ((25/10000) * 1000)) < 1e-6
+    assert abs(r(rates)[1,1] - (50/10000)) > 1
 }
 if _rc == 0 {
     display as result "  PASS: V19 stratetab rate correctly scaled (5.0 per 1000)"
@@ -560,6 +627,8 @@ capture noisily {
     table foreign, statistic(mean price mpg) statistic(sd price mpg)
     tablex using "`output_dir'/_val_tablex.xlsx", sheet("test") ///
         title("Test Table") replace
+    assert "`r(using)'" == "`output_dir'/_val_tablex.xlsx"
+    assert "`r(sheet)'" == "test"
     assert r(N_rows) > 0
     assert r(N_cols) > 0
     assert r(header_rows) > 0

@@ -123,6 +123,13 @@ capture noisily {
         local dom_n = real(word("`dom_cell'", 1))
         local ref_n = `n3_dom'
         assert `dom_n' == `ref_n'
+
+        local pct_start = strpos("`dom_cell'", "(")
+        local pct_end = strpos("`dom_cell'", "%")
+        assert `pct_start' > 0
+        assert `pct_end' > `pct_start'
+        local dom_pct = real(substr("`dom_cell'", `pct_start' + 1, `pct_end' - `pct_start' - 1))
+        assert abs(`dom_pct' - `ref_pct') < 0.6
     }
 }
 if _rc == 0 {
@@ -638,7 +645,30 @@ else {
     local ++n_fail
 }
 
-* --- VC5.3: total N matches dataset ---
+* --- VC5.3: RR and RD match cs ---
+local ++n_total
+capture noisily {
+    sysuse auto, clear
+    gen byte highmpg = (mpg > 20)
+
+    quietly cs highmpg foreign
+    local ref_rr = r(rr)
+    local ref_rd = r(rd)
+
+    crosstab highmpg foreign, rr rd
+    assert abs(r(rr) - `ref_rr') < 0.001
+    assert abs(r(rd) - `ref_rd') < 0.001
+}
+if _rc == 0 {
+    display as result "  PASS: VC5.3 — crosstab RR/RD match cs"
+    local ++n_pass
+}
+else {
+    display as error "  FAIL: VC5.3 — crosstab RR/RD accuracy (rc=`=_rc')"
+    local ++n_fail
+}
+
+* --- VC5.4: total N matches dataset ---
 local ++n_total
 capture noisily {
     sysuse auto, clear
@@ -650,11 +680,11 @@ capture noisily {
     assert r(N) == `ref_N'
 }
 if _rc == 0 {
-    display as result "  PASS: VC5.3 — crosstab total N matches dataset count"
+    display as result "  PASS: VC5.4 — crosstab total N matches dataset count"
     local ++n_pass
 }
 else {
-    display as error "  FAIL: VC5.3 — crosstab N conservation (rc=`=_rc')"
+    display as error "  FAIL: VC5.4 — crosstab N conservation (rc=`=_rc')"
     local ++n_fail
 }
 
@@ -799,12 +829,15 @@ capture noisily {
 
     sts test drug
     local ref_chi2 = r(chi2)
+    local ref_df = r(df)
+    local ref_p = chi2tail(`ref_df', `ref_chi2')
 
     capture frame drop _vc_surv2
     survtab, times(10 20 30) by(drug) frame(_vc_surv2)
 
     * survtab returns r(logrank_chi2) and r(logrank_p)
     assert abs(r(logrank_chi2) - `ref_chi2') < 0.01
+    assert abs(r(logrank_p) - `ref_p') < 1e-10
 }
 if _rc == 0 {
     display as result "  PASS: VC7.2 — survtab log-rank p matches sts test"
@@ -821,23 +854,32 @@ local ++n_total
 capture noisily {
     sysuse cancer, clear
     stset studytime, failure(died)
+    tempvar _ref_surv
+    tempname _km_ref
+    qui sts generate `_ref_surv' = s
+    matrix `_km_ref' = J(3, 1, .)
+    local _times "10 20 30"
+    forvalues _i = 1/3 {
+        local _time : word `_i' of `_times'
+        qui su _t if _t <= `_time' & _st & !missing(`_ref_surv'), meanonly
+        if r(N) > 0 {
+            local _max_t = r(max)
+            qui su `_ref_surv' if _t == `_max_t' & _st, meanonly
+            matrix `_km_ref'[`_i', 1] = r(min)
+        }
+        else {
+            matrix `_km_ref'[`_i', 1] = 1
+        }
+    }
 
     capture frame drop _vc_surv3
     survtab, times(10 20 30) frame(_vc_surv3)
 
-    * r(table) should have survival probabilities
-    assert rowsof(r(table)) >= 3
-    * All values in [0, 1]
-    forvalues i = 1/`=rowsof(r(table))' {
-        local s_val = r(table)[`i', 1]
-        if `s_val' < . {
-            assert `s_val' >= 0 & `s_val' <= 1
-        }
+    assert rowsof(r(table)) == 3
+    assert colsof(r(table)) == 1
+    forvalues i = 1/3 {
+        assert abs(r(table)[`i', 1] - `_km_ref'[`i', 1]) < 1e-10
     }
-    * Survival should be monotonically decreasing
-    local s1 = r(table)[1, 1]
-    local s3 = r(table)[3, 1]
-    assert `s1' >= `s3'
 }
 if _rc == 0 {
     display as result "  PASS: VC7.3 — survtab S(20) matches KM estimate"

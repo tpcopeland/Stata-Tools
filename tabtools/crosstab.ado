@@ -178,7 +178,7 @@ capture noisily {
             return scalar or = `_or'
         }
         if "`rr'" != "" | "`rd'" != "" {
-            qui cs `colvar' `rowvar' if `touse' [`weight'`exp']
+            qui cs `rowvar' `colvar' if `touse' [`weight'`exp']
             if "`rr'" != "" {
                 local _rr = r(rr)
                 local _rr_lo = r(lb_rr)
