@@ -1,4 +1,4 @@
-*! gcomp Version 1.0.0  2026/04/08
+*! gcomp Version 1.0.1  2026/04/11
 *! G-computation formula via Monte Carlo simulation
 *! Forked from SSC gformula v1.16 beta (Rhian Daniel, 2021)
 *! with bug fixes, modernization, and SSC dependency removal
@@ -239,7 +239,12 @@ if "`mediation'"=="" {
 			noi di as err "Error: the monotreat option can only be used with one binary intervention variable." 
 			exit 198
 		}
-		local varlist2="`death'"+" "+"`outcome'"+" "+"`varyingcovariates'"+" "+"`intvars'"
+		if "`death'"=="" {
+			local varlist2="`varyingcovariates'"+" "+"`intvars'"+" "+"`outcome'"
+		}
+		else {
+			local varlist2="`death'"+" "+"`outcome'"+" "+"`varyingcovariates'"+" "+"`intvars'"
+		}
 		local nvar: word count `varlist2'
 		_gcomp_detangle "`commands'" command "`varlist2'"
 		forvalues i=1/`nvar' {
@@ -637,7 +642,12 @@ noi di as result "`samples'"
 noi di
 * Display in a table the parametric models that have been specified (for simulation under different interventions)
 if "`mediation'"=="" {
-	local varlist2="`death'"+" "+"`outcome'"+" "+"`varyingcovariates'"+" "+"`intvars'"
+	if "`death'"=="" {
+		local varlist2="`varyingcovariates'"+" "+"`intvars'"+" "+"`outcome'"
+	}
+	else {
+		local varlist2="`death'"+" "+"`outcome'"+" "+"`varyingcovariates'"+" "+"`intvars'"
+	}
 }
 else {
 	local varlist2="`post_confs'"+" "+"`mediator'"+" "+"`outcome'"
@@ -2590,7 +2600,12 @@ if "`mediation'"=="" {
 				noi di
 			}
 			else {
-				local varlist2="`death'"+" "+"`outcome'"+" "+"`varyingcovariates'"+" "+"`intvars'"
+				if "`death'"=="" {
+					local varlist2="`varyingcovariates'"+" "+"`intvars'"+" "+"`outcome'"
+				}
+				else {
+					local varlist2="`death'"+" "+"`outcome'"+" "+"`varyingcovariates'"+" "+"`intvars'"
+				}
 				local nvar: word count `varlist2'
 				_gcomp_detangle "`equations'" equation "`varlist2'"
 				forvalues i=1/`nvar' {
@@ -2994,7 +3009,12 @@ tempvar int_no
 gen long `int_no'=0
 * It will be useful to have a list of the variables for which models will be specified
 if "`mediation'"=="" {
-	local varlist2="`death'"+" "+"`outcome'"+" "+"`varyingcovariates'"+" "+"`intvars'"
+	if "`death'"=="" {
+		local varlist2="`varyingcovariates'"+" "+"`intvars'"+" "+"`outcome'"
+	}
+	else {
+		local varlist2="`death'"+" "+"`outcome'"+" "+"`varyingcovariates'"+" "+"`intvars'"
+	}
 }
 else {
 	local varlist2="`post_confs'"+" "+"`mediator'"+" "+"`outcome'"

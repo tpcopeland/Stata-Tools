@@ -71,7 +71,7 @@ gcomptab, xlsx(filename) sheet(string) [ci(string) effect(string)
 | `tvar(varname)` | Time variable |
 | `varyingcovariates(varlist)` | Time-varying confounders affected by prior exposure |
 | `intvars(varlist)` | Variables to intervene on |
-| `interventions(string)` | Intervention rules, e.g., `interventions(t: 0)` |
+| `interventions(string)` | Intervention rules, e.g., `interventions(A=0)` |
 
 ### Mediation options
 
@@ -175,9 +175,13 @@ gcomp outcome L A, outcome(outcome) ///
     varyingcovariates(L) ///
     commands(L: logit, outcome: logit) ///
     equations(L: A, outcome: L A) ///
-    intvars(A) interventions(always: 1, never: 0) ///
+    intvars(A) interventions(A=1, A=0) ///
     sim(500) samples(200) seed(42)
 ```
+
+`interventions()` is executed as literal Stata replacement syntax on the
+variables named in `intvars()`. For static regimes, use expressions such as
+`A=1` and `A=0`.
 
 ### Example 3: Export results to Excel
 

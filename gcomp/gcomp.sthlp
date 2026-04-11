@@ -196,7 +196,7 @@ applied (typically the time-varying exposure).
 {phang}
 {opt interventions(string)} specifies the intervention rules. Each
 intervention defines how {opt intvars()} are set at each time point, e.g.,
-{cmd:interventions(t: 0)} sets the exposure to 0 at every time point.
+{cmd:interventions(A=0)} sets the exposure to 0 at every time point.
 Multiple interventions can be specified for comparison.
 
 {dlgtab:Required (mediation)}
@@ -416,7 +416,7 @@ different intervention or mediation scenarios.
 {phang2}{cmd:      varyingcovariates(L) ///}{p_end}
 {phang2}{cmd:      commands(L: logit, outcome: logit) ///}{p_end}
 {phang2}{cmd:      equations(L: A, outcome: L A) ///}{p_end}
-{phang2}{cmd:      intvars(A) interventions(always: 1, never: 0) ///}{p_end}
+{phang2}{cmd:      intvars(A) interventions(A=1, A=0) ///}{p_end}
 {phang2}{cmd:      sim(500) samples(200) seed(42)}{p_end}
 
 {pstd}

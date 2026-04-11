@@ -1,4 +1,4 @@
-*! gcomptab Version 1.0.0  2026/04/08
+*! gcomptab Version 1.0.1  2026/04/11
 *! Format gcomp mediation analysis results for Excel export
 *! Author: Timothy P Copeland
 *! Program class: rclass (returns results in r())
@@ -55,6 +55,12 @@ program define gcomptab, rclass
 	version 16.0
 	local _gc_varabbrev = c(varabbrev)
 	set varabbrev off
+
+	capture which _gcomp_validate_path
+	if _rc {
+		quietly findfile _gcomp_xl_common.ado
+		run "`r(fn)'"
+	}
 
 capture noisily {
 
