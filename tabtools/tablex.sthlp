@@ -35,7 +35,7 @@
 {synopt:{opt foot:note(string)}}Add a footnote row below the table in smaller italic font{p_end}
 {synopt:{opt open}}Open the Excel file in the default application after export{p_end}
 {synopt:{opt zebra}}Apply alternating light gray row shading for readability{p_end}
-{synopt:{cmdab:the:me(}{it:string}{cmd:)}}journal-style formatting theme: {cmd:lancet}, {cmd:nejm}, {cmd:bmj}, or {cmd:apa}{p_end}
+{synopt:{cmdab:the:me(}{it:string}{cmd:)}}journal-style formatting theme: {cmd:lancet}, {cmd:nejm}, {cmd:bmj}, {cmd:apa}, {cmd:jama}, {cmd:plos}, {cmd:nature}, {cmd:cell}, {cmd:annals}, or {cmd:custom}{p_end}
 {synopt:{cmdab:headerc:olor(}{it:string}{cmd:)}}custom header background color (R G B){p_end}
 {synopt:{cmdab:zebrac:olor(}{it:string}{cmd:)}}custom zebra stripe color (R G B){p_end}
 {synopt:{opt csv(filename)}}also export as CSV file{p_end}

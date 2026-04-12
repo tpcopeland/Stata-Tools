@@ -86,7 +86,7 @@
 {synopt:{opt title(string)}}title in cell A1, merged across table width{p_end}
 {synopt:{opt sub:title(string)}}subtitle below title{p_end}
 {synopt:{opt foot:note(string)}}footnote below table{p_end}
-{synopt:{opt the:me(string)}}{cmd:lancet}, {cmd:nejm}, {cmd:bmj}, or {cmd:apa}{p_end}
+{synopt:{opt the:me(string)}}{cmd:lancet}, {cmd:nejm}, {cmd:bmj}, {cmd:apa}, {cmd:jama}, {cmd:plos}, {cmd:nature}, {cmd:cell}, {cmd:annals}, or {cmd:custom}{p_end}
 {synopt:{opt border:style(string)}}{cmd:thin}, {cmd:medium}, or {cmd:academic}{p_end}
 {synopt:{opt open}}open file after export{p_end}
 {synopt:{opt zebra}}alternating row shading{p_end}
@@ -250,7 +250,7 @@ If omitted, {cmd:hrtab} uses the existing stset (single-outcome mode, no column 
 {opt foot:note(string)} specifies a footnote below the table. Tip: use this to describe adjustment sets and stset specifications.
 
 {phang}
-{opt the:me(string)} specifies a formatting theme: {cmd:lancet}, {cmd:nejm}, {cmd:bmj}, or {cmd:apa}.
+{opt the:me(string)} specifies a formatting theme: {cmd:lancet}, {cmd:nejm}, {cmd:bmj}, {cmd:apa}, {cmd:jama}, {cmd:plos}, {cmd:nature}, {cmd:cell}, {cmd:annals}, or {cmd:custom}.
 
 {phang}
 {opt border:style(string)} specifies border style: {cmd:thin}, {cmd:medium}, or {cmd:academic}.

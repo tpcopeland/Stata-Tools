@@ -79,6 +79,7 @@ worked examples.
 {pstd}
 {bf:Utility}
 
+{synopt:{helpb tabtools}}Suite controller and persistent defaults manager{p_end}
 {synopt:{helpb tablex}}Flexible table export wrapper{p_end}
 {synoptline}
 

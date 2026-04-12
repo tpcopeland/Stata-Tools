@@ -1,5 +1,10 @@
 /*  demo_tabtools.do - Generate demo output for tabtools
 
+    Maintainer note:
+      This rebuild script is intended for repository use. It reads repo-local
+      datasets and sibling packages that are not available to an installed-only
+      user.
+
     Produces:
       Console (7 SMCL files):
         1. console_output.smcl      - table1_tc display

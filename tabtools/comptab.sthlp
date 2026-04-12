@@ -51,7 +51,7 @@
 {synopt:{cmdab:sep:arator(}{it:numlist}{cmd:)}}add horizontal borders above specified data rows{p_end}
 
 {syntab:Formatting}
-{synopt:{cmdab:the:me(}{it:string}{cmd:)}}journal theme: {it:lancet}, {it:nejm}, {it:bmj}, {it:apa}{p_end}
+{synopt:{cmdab:the:me(}{it:string}{cmd:)}}journal theme: {it:lancet}, {it:nejm}, {it:bmj}, {it:apa}, {it:jama}, {it:plos}, {it:nature}, {it:cell}, {it:annals}, or {it:custom}{p_end}
 {synopt:{cmdab:borders:tyle(}{it:string}{cmd:)}}border style: {it:thin}, {it:medium}, {it:academic}{p_end}
 {synopt:{opt zebra}}alternating row shading{p_end}
 {synopt:{opt boldp(#)}}bold p-values below threshold{p_end}

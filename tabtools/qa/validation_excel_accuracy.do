@@ -21,10 +21,9 @@ quietly net install tabtools, from("`pkg_dir'") replace
 
 tabtools set clear
 
-* Locate check_xlsx.py
+* Locate optional package-local check_xlsx.py
 local checker ""
-foreach _trypath in "`pkg_dir'/../.claude/skills/qa/tools" ///
-    "/home/tpcopeland/Stata-Dev/.claude/skills/qa/tools" {
+foreach _trypath in "`qa_dir'/tools" {
     capture confirm file "`_trypath'/check_xlsx.py"
     if _rc == 0 {
         local checker "`_trypath'/check_xlsx.py"
@@ -43,14 +42,19 @@ if !`has_checker' {
         collect: regress price mpg weight
         capture erase "`output_dir'/_va_native_regtab.xlsx"
         regtab, xlsx("`output_dir'/_va_native_regtab.xlsx") sheet("Test") title("Regression") digits(2)
-        preserve
         import excel "`output_dir'/_va_native_regtab.xlsx", sheet("Test") clear allstring
         assert A[1] == "Regression"
         * Check for p-value patterns in data rows
-        gen byte _has_pval = regexm(D, "^[0-9]\.[0-9]+$") | regexm(D, "^<0\.001$")
-        summarize _has_pval, meanonly
-        assert r(sum) > 0
-        restore
+        local _has_pval = 0
+        foreach _v of varlist * {
+            forvalues _r = 1/`=_N' {
+                local _cell = strtrim(`_v'[`_r'])
+                if regexm(`"`_cell'"', "^[0-9]\.[0-9]+$") | regexm(`"`_cell'"', "^<0\.[0-9]+$") {
+                    local _has_pval = 1
+                }
+            }
+        }
+        assert `_has_pval' == 1
     }
     if _rc == 0 {
         local ++n_pass
@@ -67,10 +71,8 @@ if !`has_checker' {
         capture erase "`output_dir'/_va_native_effecttab.xlsx"
         effecttab, xlsx("`output_dir'/_va_native_effecttab.xlsx") sheet("ATE") ///
             title("Effects") effect("ATE") clean
-        preserve
         import excel "`output_dir'/_va_native_effecttab.xlsx", sheet("ATE") cellrange(A1:A1) clear
         assert A[1] == "Effects"
-        restore
     }
     if _rc == 0 {
         local ++n_pass
@@ -82,15 +84,14 @@ if !`has_checker' {
     local ++n_total
     capture noisily {
         webuse drugtr, clear
-        stset studytime, failure(died)
+        gen id = _n
+        stset studytime, failure(died) id(id)
         capture erase "`output_dir'/_va_native_hrtab.xlsx"
         hrtab, exposure(i.drug) model(stcox) nolog ///
             xlsx("`output_dir'/_va_native_hrtab.xlsx") sheet("HR") ///
             title("Hazard Ratios")
-        preserve
         import excel "`output_dir'/_va_native_hrtab.xlsx", sheet("HR") cellrange(A1:A1) clear
         assert A[1] == "Hazard Ratios"
-        restore
     }
     if _rc == 0 {
         local ++n_pass

@@ -1,6 +1,6 @@
 * test_regtab_mixed_stats.do — End-to-end value accuracy tests for regtab mixed model stats
 * Tests: MOR, ICC (binary + continuous + two-level), AIC, BIC, mepoisson guard, mestreg MHR
-* Run from: ~/Stata-Tools/tabtools/qa/
+* Run from the package qa/ directory.
 
 * === Bootstrap ===
 local qa_dir  "`c(pwd)'"

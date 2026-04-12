@@ -79,7 +79,9 @@ else {
 local ++test_count
 capture noisily {
     tabtools, category(descriptive)
-    assert r(n_commands) >= 1
+    assert r(n_commands) == 3
+    assert strpos("`r(commands)'", "corrtab") > 0
+    assert strpos("`r(commands)'", "tablex") == 0
 }
 if _rc == 0 {
     display as result "  PASS: tabtools - category filter"
@@ -87,6 +89,24 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL: tabtools - category filter (error `=_rc')"
+    local ++fail_count
+}
+
+* Test: tabtools general category excludes corrtab
+local ++test_count
+capture noisily {
+    tabtools, category(general)
+    assert r(n_commands) == 2
+    assert strpos("`r(commands)'", "tabtools") > 0
+    assert strpos("`r(commands)'", "tablex") > 0
+    assert strpos("`r(commands)'", "corrtab") == 0
+}
+if _rc == 0 {
+    display as result "  PASS: tabtools - general category inventory"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tabtools - general category inventory (error `=_rc')"
     local ++fail_count
 }
 

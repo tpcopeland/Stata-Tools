@@ -1,7 +1,7 @@
 * test_excel_validation.do — Comprehensive Excel output validation for all tabtools commands
 * Coverage: Structure, formatting, headers, content patterns, cell values, themes,
 *           zebra striping, bold-p highlighting, merged cells, borders, fills
-* Uses: check_xlsx.py and excel_analyzer.py from Stata-Dev QA tools
+* Uses: optional package-local check_xlsx.py validator when available
 * All 12 xlsx-producing commands: table1_tc, regtab, effecttab, survtab, crosstab,
 *   corrtab, diagtab, fittab, stratetab, tablex, comptab, hrtab
 
@@ -23,10 +23,9 @@ quietly net install tabtools, from("`pkg_dir'") replace
 
 tabtools set clear
 
-* Locate check_xlsx.py validator
+* Locate optional package-local check_xlsx.py validator
 local checker ""
-foreach _trypath in "`pkg_dir'/../.claude/skills/qa/tools" ///
-    "/home/tpcopeland/Stata-Dev/.claude/skills/qa/tools" {
+foreach _trypath in "`qa_dir'/tools" {
     capture confirm file "`_trypath'/check_xlsx.py"
     if _rc == 0 {
         local checker "`_trypath'/check_xlsx.py"
@@ -64,8 +63,9 @@ if !`has_checker' {
     local ++n_total
     capture noisily {
         sysuse auto, clear
+        gen byte highrep = (rep78 >= 4) if !missing(rep78)
         capture erase "`output_dir'/_xl_native_table1.xlsx"
-        table1_tc, vars(price contn \ mpg contn \ foreign bin) by(rep78 >= 4) ///
+        table1_tc, vars(price contn \ mpg contn \ foreign bin) by(highrep) ///
             xlsx("`output_dir'/_xl_native_table1.xlsx") sheet("T1") title("Table 1")
         preserve
         import excel "`output_dir'/_xl_native_table1.xlsx", sheet("T1") cellrange(A1:A1) clear
@@ -256,7 +256,7 @@ if !`has_checker' {
         strate drug, per(1000) output("`output_dir'/_rate1", replace)
         capture erase "`output_dir'/_xl_native_stratetab.xlsx"
         stratetab, using("`output_dir'/_rate1") ///
-            xlsx("`output_dir'/_xl_native_stratetab.xlsx") sheet("Rate") title("Rates")
+            xlsx("`output_dir'/_xl_native_stratetab.xlsx") sheet("Rate") title("Rates") outcomes(1)
         preserve
         import excel "`output_dir'/_xl_native_stratetab.xlsx", sheet("Rate") cellrange(A1:A1) clear
         assert A[1] == "Rates"
@@ -274,7 +274,8 @@ if !`has_checker' {
     local ++n_total
     capture noisily {
         webuse drugtr, clear
-        stset studytime, failure(died)
+        gen id = _n
+        stset studytime, failure(died) id(id)
         capture erase "`output_dir'/_xl_native_hrtab.xlsx"
         hrtab, exposure(i.drug) model(stcox) nolog ///
             xlsx("`output_dir'/_xl_native_hrtab.xlsx") sheet("HR") title("Hazard Ratios")

@@ -94,7 +94,7 @@ The command reads multiple .dta files produced by {helpb strate}, organized by e
 
 {phang2}{opt borders:tyle(string)} specifies the border style: {cmd:thin} (default), {cmd:medium}, or {cmd:academic}.{p_end}
 
-{phang2}{opt the:me(string)} applies a journal-style formatting theme: {cmd:lancet}, {cmd:nejm}, {cmd:bmj}, or {cmd:apa}.{p_end}
+{phang2}{opt the:me(string)} applies a journal-style formatting theme: {cmd:lancet}, {cmd:nejm}, {cmd:bmj}, {cmd:apa}, {cmd:jama}, {cmd:plos}, {cmd:nature}, {cmd:cell}, {cmd:annals}, or {cmd:custom}.{p_end}
 
 {phang2}{opt headers:hade} applies a background fill to the header rows.{p_end}
 

@@ -88,7 +88,7 @@ detected using the Shapiro-Wilk test. This is the simplest way to use {cmd:table
 {synopt:{opt sheet("string")}}Excel sheet name; default is "Table 1"{p_end}
 {synopt:{opt title("string")}}title for the Excel table{p_end}
 {synopt:{cmdab:borders:tyle(}{it:string}{cmd:)}}border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or {cmd:academic}{p_end}
-{synopt:{cmdab:the:me(}{it:string}{cmd:)}}journal-style formatting preset: {cmd:lancet}, {cmd:nejm}, {cmd:bmj}, or {cmd:apa}{p_end}
+{synopt:{cmdab:the:me(}{it:string}{cmd:)}}journal-style formatting preset: {cmd:lancet}, {cmd:nejm}, {cmd:bmj}, {cmd:apa}, {cmd:jama}, {cmd:plos}, {cmd:nature}, {cmd:cell}, {cmd:annals}, or {cmd:custom}{p_end}
 {synopt:{opt boldp(#)}}bold p-value cells below threshold{p_end}
 {synopt:{cmdab:foot:note(}{it:string}{cmd:)}}add footnote row below table{p_end}
 {synopt:{opt open}}open Excel file after export{p_end}

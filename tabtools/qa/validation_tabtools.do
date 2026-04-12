@@ -20,11 +20,10 @@ capture mkdir "`output_dir'"
 capture ado uninstall tabtools
 quietly net install tabtools, from("`pkg_dir'") replace
 
-* Locate check_xlsx.py validator (dev tool, not shipped with package)
+* Locate optional package-local check_xlsx.py validator
 local has_check_xlsx = 0
 local tools_dir ""
-foreach _trypath in "`pkg_dir'/../.claude/skills/qa/tools" ///
-    "/home/tpcopeland/Stata-Dev/.claude/skills/qa/tools" {
+foreach _trypath in "`qa_dir'/tools" {
     capture confirm file "`_trypath'/check_xlsx.py"
     if _rc == 0 {
         local has_check_xlsx = 1
@@ -492,12 +491,22 @@ capture noisily {
     }
     else {
         * Stata-native fallback: check for p-value and CI patterns
-        preserve
         import excel "`output_dir'/_val_regtab_single.xlsx", sheet("Single") clear allstring
-        gen byte _has_pval = regexm(D, "^[0-9]\.[0-9]+$") | regexm(D, "^<0\.001$")
-        summarize _has_pval, meanonly
-        assert r(sum) > 0
-        restore
+        local _has_pval = 0
+        local _has_ci = 0
+        foreach _v of varlist * {
+            forvalues _r = 1/`=_N' {
+                local _cell = strtrim(`_v'[`_r'])
+                if regexm(`"`_cell'"', "^[0-9]\.[0-9]+$") | regexm(`"`_cell'"', "^<0\.[0-9]+$") {
+                    local _has_pval = 1
+                }
+                if strpos(`"`_cell'"', "(") > 0 & strpos(`"`_cell'"', ")") > 0 {
+                    local _has_ci = 1
+                }
+            }
+        }
+        assert `_has_pval' == 1
+        assert `_has_ci' == 1
     }
 }
 if _rc == 0 {
@@ -1314,13 +1323,11 @@ save "`output_dir'/_val_strate_o2e1.dta", replace
 * V4.1: Basic structure and formatting
 local ++test_count
 capture noisily {
-    preserve
     capture erase "`output_dir'/_val_stratetab_basic.xlsx"
     stratetab, using("`output_dir'/_val_strate_o1e1" "`output_dir'/_val_strate_o2e1") ///
         xlsx("`output_dir'/_val_stratetab_basic.xlsx") outcomes(2) ///
         sheet("Basic") title("Table. Incidence Rates") ///
         outlabels("Outcome A \ Outcome B")
-    restore
 
     confirm file "`output_dir'/_val_stratetab_basic.xlsx"
 
@@ -1430,12 +1437,10 @@ else {
 * V4.5: PY and rate scaling options
 local ++test_count
 capture noisily {
-    preserve
     capture erase "`output_dir'/_val_stratetab_scale.xlsx"
     stratetab, using("`output_dir'/_val_strate_o1e1" "`output_dir'/_val_strate_o2e1") ///
         xlsx("`output_dir'/_val_stratetab_scale.xlsx") outcomes(2) ///
         sheet("Scale") pyscale(1000) ratescale(1000)
-    restore
 
     if `has_check_xlsx' {
         ! python3 "`tools_dir'/check_xlsx.py" "`output_dir'/_val_stratetab_scale.xlsx" ///
@@ -1464,12 +1469,10 @@ else {
 * V4.6: Custom decimal places
 local ++test_count
 capture noisily {
-    preserve
     capture erase "`output_dir'/_val_stratetab_digits.xlsx"
     stratetab, using("`output_dir'/_val_strate_o1e1" "`output_dir'/_val_strate_o2e1") ///
         xlsx("`output_dir'/_val_stratetab_digits.xlsx") outcomes(2) ///
         sheet("Digits") digits(2) eventdigits(0) pydigits(1)
-    restore
 
     confirm file "`output_dir'/_val_stratetab_digits.xlsx"
 }
@@ -1485,12 +1488,10 @@ else {
 * V4.7: Single outcome
 local ++test_count
 capture noisily {
-    preserve
     capture erase "`output_dir'/_val_stratetab_single.xlsx"
     stratetab, using("`output_dir'/_val_strate_o1e1") ///
         xlsx("`output_dir'/_val_stratetab_single.xlsx") outcomes(1) ///
         sheet("Single") title("Single Outcome Table")
-    restore
 
     if `has_check_xlsx' {
         ! python3 "`tools_dir'/check_xlsx.py" "`output_dir'/_val_stratetab_single.xlsx" ///
@@ -1520,11 +1521,9 @@ else {
 * V4.8: Error - missing .xlsx extension
 local ++test_count
 capture noisily {
-    preserve
     capture noisily stratetab, using("`output_dir'/_val_strate_o1e1") ///
         xlsx("`output_dir'/bad.csv") outcomes(1) sheet("T")
     local rc_val = _rc
-    restore
     assert `rc_val' == 198
 }
 if _rc == 0 {

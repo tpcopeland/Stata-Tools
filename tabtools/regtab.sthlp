@@ -67,7 +67,7 @@ for treatment effects and margins tables.
 {synopt:{opt relab:el}}Relabel random effects using variable labels. For single-level models, {cmd:var(_cons)} becomes {it:GroupLabel} {cmd:(Intercept)}. For multi-level models ({cmd:mixed ... || district: || school:}), each level is labeled separately: {it:District} {cmd:(Intercept)}, {it:School} {cmd:(Intercept)}, etc.{p_end}
 {synopt:{opt stars}}Add significance stars to coefficients (*, **, ***).{p_end}
 {synopt:{cmdab:starsl:evels(}{it:numlist}{cmd:)}}Custom p-value thresholds for stars; exactly 3 values (default: 0.05 0.01 0.001).{p_end}
-{synopt:{cmdab:the:me(}{it:string}{cmd:)}}Formatting theme: {cmd:lancet}, {cmd:nejm}, {cmd:bmj}, {cmd:apa}, or {cmd:custom}.{p_end}
+{synopt:{cmdab:the:me(}{it:string}{cmd:)}}Formatting theme: {cmd:lancet}, {cmd:nejm}, {cmd:bmj}, {cmd:apa}, {cmd:jama}, {cmd:plos}, {cmd:nature}, {cmd:cell}, {cmd:annals}, or {cmd:custom}.{p_end}
 {synopt:{cmdab:headerc:olor(}{it:string}{cmd:)}}Custom header color as "R G B" (default: "219 229 241").{p_end}
 {synopt:{cmdab:zebrac:olor(}{it:string}{cmd:)}}Custom zebra color as "R G B" (default: "237 242 249").{p_end}
 {synopt:{opt csv("filename")}}Also export as CSV.{p_end}

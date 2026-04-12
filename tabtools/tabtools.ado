@@ -15,9 +15,10 @@ Subcommands:
   get              - Display current persistent defaults
 
 Optional options (display mode):
-  list            - Display commands as a simple list
-  detail          - Show detailed information with descriptions
-  category(string) - Filter by category: descriptive, models, rates, general, all
+  list             - Display commands as a simple list
+  detail           - Show detailed information with descriptions
+  category(string) - Filter by category: descriptive, models, rates,
+                     survival, diagnostics, composite, general, all
 
 Returns:
   r(commands)     - List of all command names
@@ -268,13 +269,13 @@ program define tabtools, rclass
         }
 
         // Define commands by category
-        local cmd_descriptive "table1_tc crosstab"
+        local cmd_descriptive "table1_tc crosstab corrtab"
         local cmd_models "regtab effecttab fittab"
         local cmd_rates "stratetab"
         local cmd_survival "survtab hrtab"
         local cmd_diagnostics "diagtab"
         local cmd_composite "comptab"
-        local cmd_general "tablex corrtab"
+        local cmd_general "tabtools tablex"
 
         // Build selected list based on category
         if "`category'" == "descriptive" {
@@ -331,6 +332,7 @@ program define tabtools, rclass
                 display as text "{bf:Descriptive Statistics}"
                 display as result "  table1_tc    " as text "- Table 1 with automatic statistical tests"
                 display as result "  crosstab     " as text "- Cross-tabulation with association measures"
+                display as result "  corrtab      " as text "- Correlation matrix with significance"
                 display as text ""
             }
 
@@ -369,8 +371,8 @@ program define tabtools, rclass
 
             if inlist("`category'", "all", "general") {
                 display as text "{bf:General Purpose}"
+                display as result "  tabtools     " as text "- Suite controller and persistent defaults"
                 display as result "  tablex       " as text "- Flexible table export wrapper"
-                display as result "  corrtab      " as text "- Correlation matrix with significance"
                 display as text ""
             }
 
@@ -414,6 +416,10 @@ program define _tabtools_detail
         display as result "  crosstab" as text "     Cross-tabulation with row/column percentages"
         display as text "               and association measures. Supports chi-square,"
         display as text "               Fisher's exact, odds ratios, and risk ratios."
+        display as text ""
+        display as result "  corrtab" as text "      Correlation matrix with significance stars or"
+        display as text "               p-values. Supports Pearson and Spearman. Exports"
+        display as text "               lower, upper, or full triangle to Excel."
         display as text ""
     }
 
@@ -482,15 +488,15 @@ program define _tabtools_detail
     if inlist("`category'", "all", "general") {
         display as text "{bf:General Purpose}"
         display as text "  {hline 60}"
+        display as result "  tabtools" as text "     Suite controller for listing commands and"
+        display as text "               managing persistent formatting defaults with"
+        display as text "               {cmd:set} and {cmd:get}."
+        display as text ""
         display as result "  tablex" as text "       Flexible wrapper for exporting any Stata table"
         display as text "               to Excel. Applies consistent professional"
         display as text "               formatting: column widths, borders, fonts,"
         display as text "               merged headers, and styling. Works with"
         display as text "               matrices and stored results."
-        display as text ""
-        display as result "  corrtab" as text "      Correlation matrix with significance stars or"
-        display as text "               p-values. Supports Pearson and Spearman. Exports"
-        display as text "               lower, upper, or full triangle to Excel."
         display as text ""
     }
 
