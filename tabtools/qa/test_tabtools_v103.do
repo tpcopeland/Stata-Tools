@@ -243,6 +243,30 @@ else {
     local failed_tests "`failed_tests' T10"
 }
 
+* T11: diagtab single-cutoff zebra + headershade. Pre-1.0.3 the measures
+*      header was hardcoded to row 6 and zebra started at the Test- row,
+*      shading the confusion-matrix block instead of the measures section.
+*      The smoke test here is just that the export still succeeds end-to-end
+*      with both options enabled (no out-of-bounds putexcel).
+sysuse auto, clear
+gen byte _gold = foreign
+gen byte _test = (mpg >= 25)
+local ++test_count
+capture noisily diagtab _test _gold, ///
+    xlsx("`output_dir'/_v103_diagtab.xlsx") sheet("Test") ///
+    zebra headershade border(thin)
+if _rc == 0 {
+    display as result "  PASS T11: diagtab single-cutoff zebra/headershade"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL T11: diagtab zebra (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' T11"
+}
+drop _gold _test
+capture erase "`output_dir'/_v103_diagtab.xlsx"
+
 * ============================================================
 * Summary
 * ============================================================

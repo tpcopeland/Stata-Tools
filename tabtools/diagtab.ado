@@ -670,7 +670,7 @@ capture noisily {
             }
             else {
                 putexcel (B2:`lastcol'2), bold hcenter
-                putexcel (B6:`lastcol'6), bold
+                putexcel (B`_measures_row':`lastcol'`_measures_row'), bold
             }
             putexcel (B`num_rows':`lastcol'`num_rows'), border(bottom, `_hborder')
 
@@ -686,9 +686,18 @@ capture noisily {
 
             * Zebra striping
             if "`zebra'" != "" {
-                local _data_start = cond(`_is_multicut', `_header_row' + 1, 3)
-                forvalues _zr = `=`_data_start'+1'(2)`num_rows' {
-                    putexcel (A`_zr':`lastcol'`_zr'), fpattern(solid, "`_zebracolor'")
+                if `_is_multicut' {
+                    forvalues _zr = `=`_header_row'+2'(2)`num_rows' {
+                        putexcel (A`_zr':`lastcol'`_zr'), fpattern(solid, "`_zebracolor'")
+                    }
+                }
+                else {
+                    * Single-cutoff: shade alternating measure rows only,
+                    * starting with the first measure (Sensitivity) just below
+                    * the bolded measures header. Skip the confusion-matrix block.
+                    forvalues _zr = `=`_measures_row'+1'(2)`num_rows' {
+                        putexcel (A`_zr':`lastcol'`_zr'), fpattern(solid, "`_zebracolor'")
+                    }
                 }
             }
 
