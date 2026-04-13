@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.1  09apr2026}{...}
+{* *! version 1.0.2  12apr2026}{...}
 {viewerjumpto "Syntax" "diagtab##syntax"}{...}
 {viewerjumpto "Description" "diagtab##description"}{...}
 {viewerjumpto "Options" "diagtab##options"}{...}
@@ -45,7 +45,8 @@ values. Produces one row per cutoff showing all metrics. Cannot be combined with
 {opt cutoff()}.{p_end}
 
 {phang}{opt prev:alence(#)} adjust PPV and NPV for a specified prevalence using
-Bayes' theorem. Useful when the study sample prevalence differs from the target population.{p_end}
+Bayes' theorem. Useful when the study sample prevalence differs from the target population.
+Specify a proportion strictly between 0 and 1.{p_end}
 
 {phang}{opt ex:act} use Clopper-Pearson exact confidence intervals instead of Wilson score.{p_end}
 
@@ -131,6 +132,6 @@ Cannot be combined with {opt cutoffs()}.{p_end}
 {pstd}Timothy P Copeland{p_end}
 {pstd}Department of Clinical Neuroscience, Karolinska Institutet{p_end}
 {pstd}timothy.copeland@ki.se{p_end}
-{pstd}Version 1.0.1{p_end}
+{pstd}Version 1.0.2{p_end}
 
 {hline}

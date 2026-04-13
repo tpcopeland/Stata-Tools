@@ -1,4 +1,4 @@
-*! diagtab Version 1.0.1  2026/04/09
+*! diagtab Version 1.0.2  2026/04/12
 *! Diagnostic accuracy table
 *! Author: Timothy P Copeland
 *! Program class: rclass
@@ -70,6 +70,10 @@ capture noisily {
     _tabtools_validate_sheet "`sheet'" "sheet()"
     if `_has_xlsx' _tabtools_validate_path "`xlsx'" "xlsx()"
     if "`csv'" != "" _tabtools_validate_path "`csv'" "csv()"
+    if `prevalence' != -1 & (`prevalence' <= 0 | `prevalence' >= 1) {
+        noisily display as error "prevalence() must be between 0 and 1"
+        exit 198
+    }
 
     * Conflict check: cutoff() and cutoffs() are mutually exclusive
     if `cutoff' != -999 & "`cutoffs'" != "" {

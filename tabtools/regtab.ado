@@ -1,4 +1,4 @@
-*! regtab Version 1.0.1  2026/04/09
+*! regtab Version 1.0.2  2026/04/12
 *! Author: Timothy P Copeland
 
 /*

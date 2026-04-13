@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.1  09apr2026}{...}
+{* *! version 1.0.2  12apr2026}{...}
 {viewerjumpto "Syntax" "comptab##syntax"}{...}
 {viewerjumpto "Description" "comptab##description"}{...}
 {viewerjumpto "Options" "comptab##options"}{...}
@@ -239,7 +239,7 @@ smaller than the specified threshold.
 {pstd}Timothy P Copeland{p_end}
 {pstd}Department of Clinical Neuroscience, Karolinska Institutet{p_end}
 {pstd}timothy.copeland@ki.se{p_end}
-{pstd}Version 1.0.1{p_end}
+{pstd}Version 1.0.2{p_end}
 
 
 {marker alsosee}{...}

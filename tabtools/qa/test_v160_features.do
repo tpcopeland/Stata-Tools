@@ -24,11 +24,17 @@ net install tabtools, from("`pkg_dir'") replace
 
 local ++n_total
 capture noisily {
+    file open _fh using "`pkg_dir'/tabtools.ado", read text
+    file read _fh _line
+    file close _fh
+    assert regexm(`"`_line'"', "Version ([0-9]+\.[0-9]+\.[0-9]+)")
+    local expected_version = regexs(1)
+
     tabtools
-    assert r(version) == "1.0.1"
+    assert r(version) == "`expected_version'"
 }
 if _rc == 0 {
-    display as result "  PASS: 1.1 — r(version) = 1.0.1"
+    display as result "  PASS: 1.1 — r(version) matches tabtools.ado"
     local ++n_pass
 }
 else {

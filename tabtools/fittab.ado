@@ -1,4 +1,4 @@
-*! fittab Version 1.0.1  2026/04/09
+*! fittab Version 1.0.2  2026/04/12
 *! Model comparison table
 *! Author: Timothy P Copeland
 *! Program class: rclass
@@ -97,10 +97,12 @@ capture noisily {
     local best_aic = .
     local best_bic = .
     local best_cstat = 0
+    local _held_active = 0
 
     tempname _fittab_orig
     capture _estimates hold `_fittab_orig', copy
     local _held_ok = (_rc == 0)
+    if `_held_ok' local _held_active = 1
 
     forvalues m = 1/`n_models' {
         local _mname : word `m' of `namelist'
@@ -180,8 +182,9 @@ capture noisily {
         if !missing(`_cstat_`m'') & `_cstat_`m'' > `best_cstat' local best_cstat = `_cstat_`m''
     }
 
-    if `_held_ok' {
+    if `_held_active' {
         _estimates unhold `_fittab_orig'
+        local _held_active = 0
     }
 
     return scalar best_aic = `best_aic'
@@ -446,6 +449,9 @@ capture noisily {
 
 } // end capture noisily
     local rc = _rc
+    if `rc' & `_held_active' {
+        capture _estimates unhold `_fittab_orig'
+    }
     set varabbrev `_prev_varabbrev'
     if `rc' exit `rc'
 end

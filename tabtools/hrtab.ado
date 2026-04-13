@@ -1,4 +1,4 @@
-*! hrtab Version 1.0.1  2026/04/09
+*! hrtab Version 1.0.2  2026/04/12
 *! Multi-panel hazard ratio table for publication
 *! Author: Timothy P Copeland
 *! Program class: rclass

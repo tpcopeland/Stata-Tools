@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.1  09apr2026}{...}
+{* *! version 1.0.2  12apr2026}{...}
 {viewerjumpto "Description" "tabtools##description"}{...}
 {viewerjumpto "Commands" "tabtools##commands"}{...}
 {viewerjumpto "Syntax" "tabtools##syntax"}{...}
@@ -260,6 +260,6 @@ Karolinska Institutet, Stockholm, Sweden{break}
 {p_end}
 
 {pstd}
-{bf:Version} 1.0.1
+{bf:Version} 1.0.2
 
 {hline}

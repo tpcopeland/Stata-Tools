@@ -1,4 +1,4 @@
-*! crosstab Version 1.0.1  2026/04/09
+*! crosstab Version 1.0.2  2026/04/12
 *! Cross-tabulation with association measures
 *! Author: Timothy P Copeland
 *! Program class: rclass

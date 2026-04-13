@@ -589,6 +589,30 @@ else {
     local ++fail_count
 }
 
+* Regression: fittab must restore active estimates on error paths
+local ++test_count
+capture noisily {
+    sysuse auto, clear
+    regress price mpg
+    estimates store _ft_err1
+    regress price mpg weight
+    estimates store _ft_err2
+    logit foreign mpg weight
+    local _pre_cmd "`e(cmdline)'"
+    capture fittab _ft_err2 _ft_missing, display
+    assert _rc == 111
+    assert "`e(cmdline)'" == "`_pre_cmd'"
+    estimates drop _ft_err1 _ft_err2
+}
+if _rc == 0 {
+    display as result "  PASS: fittab preserves active estimates on error"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: fittab error-path estimate preservation (rc=`=_rc')"
+    local ++fail_count
+}
+
 * ============================================================
 **# SECTION 4: diagtab
 * ============================================================
@@ -749,6 +773,21 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL: diagtab prevalence() (rc=`=_rc')"
+    local ++fail_count
+}
+
+* Regression: diagtab must reject invalid prevalence values
+local ++test_count
+capture noisily {
+    use `diagdata', clear
+    diagtab test_binary gold, prevalence(1.2) display
+}
+if _rc == 198 {
+    display as result "  PASS: diagtab rejects prevalence() outside (0,1)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: diagtab invalid prevalence() expected rc=198, got `=_rc'"
     local ++fail_count
 }
 
