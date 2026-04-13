@@ -266,8 +266,10 @@ forvalues e = 1/`n_exposures' {
 				restore
 				exit 198
 			}
-			tempvar _dup_cat
+			tempvar _dup_cat _obs_id
+			gen long `_obs_id' = _n
 			qui bysort catvar_str: gen byte `_dup_cat' = (_N > 1)
+			sort `_obs_id'
 			qui count if `_dup_cat'
 			if r(N) > 0 {
 				noi di as err "Duplicate category labels found in `file'.dta"
