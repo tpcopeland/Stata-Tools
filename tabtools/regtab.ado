@@ -271,7 +271,8 @@ quietly{
         * Note: N is always collected when BIC is requested — BIC requires N
         * even if the user didn't ask for the N row in the output.
         local result_levels ""
-        if `want_n' | `want_bic' local result_levels "N"
+        local _any_N_sub = 0
+        if `want_n' | `want_bic' local result_levels "N N_sub"
         if `want_ll' | `want_aic' | `want_bic' {
             local result_levels "`result_levels' ll"
         }
@@ -314,6 +315,7 @@ quietly{
 
                     * Map header row to column positions
                     local stat_col_N ""
+                    local stat_col_N_sub ""
                     local stat_col_ll ""
                     local stat_col_aic ""
                     local stat_col_bic ""
@@ -328,6 +330,7 @@ quietly{
                     foreach v of local stat_allvars {
                         local hdr = `v'[1]
                         if "`hdr'" == "N" local stat_col_N "`v'"
+                        if "`hdr'" == "N_sub" local stat_col_N_sub "`v'"
                         if "`hdr'" == "ll" local stat_col_ll "`v'"
                         if "`hdr'" == "aic" local stat_col_aic "`v'"
                         if "`hdr'" == "bic" local stat_col_bic "`v'"
@@ -344,7 +347,7 @@ quietly{
                         local r = `m' + 1
 
                         * Extract each result level
-                        foreach sname in N ll aic bic rank N_g r2 r2_p r2_a {
+                        foreach sname in N N_sub ll aic bic rank N_g r2 r2_p r2_a {
                             if "`sname'" == "N_g" local lname "groups"
                             else local lname "`sname'"
                             local stat_`lname'_`m' = .
@@ -365,6 +368,12 @@ quietly{
                         * Compute BIC from ll + rank + N if not directly available
                         if `stat_bic_`m'' == . & `stat_ll_`m'' != . & `stat_rank_`m'' != . & `stat_N_`m'' != . {
                             local stat_bic_`m' = -2 * `stat_ll_`m'' + `stat_rank_`m'' * ln(`stat_N_`m'')
+                        }
+
+                        * Prefer N_sub (subjects) over N (rows) for survival models
+                        if `stat_N_sub_`m'' != . {
+                            local stat_N_`m' = `stat_N_sub_`m''
+                            local _any_N_sub = 1
                         }
                     }
                 }
@@ -411,6 +420,13 @@ quietly{
             local stat_r2_a_1 = .
 
             capture local stat_N_1 = e(N)
+            capture {
+                local _nsub = e(N_sub)
+                if `_nsub' != . {
+                    local stat_N_1 = `_nsub'
+                    local _any_N_sub = 1
+                }
+            }
             capture local stat_ll_1 = e(ll)
 
             capture {
@@ -1236,7 +1252,8 @@ if `add_stats' == 1 {
         if `has_val' {
             local curr_n = _N
             set obs `=`curr_n'+1'
-            replace A = "Observations" in `=`curr_n'+1'
+            local _n_label = cond(`_any_N_sub', "Subjects", "Observations")
+            replace A = "`_n_label'" in `=`curr_n'+1'
             forvalues m = 1/`use_models' {
                 if `stat_N_`m'' != . {
                     local col = (`m' - 1) * 3 + 1
