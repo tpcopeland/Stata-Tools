@@ -43,6 +43,7 @@ foreach f in ///
     validation_hrtab.do ///
     validation_excel_accuracy.do ///
     validation_output_quality.do ///
+    validation_known_answers.do ///
     crossval_tabtools.do ///
 {
     local ++n_files
