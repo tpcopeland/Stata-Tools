@@ -1,4 +1,4 @@
-*! effecttab Version 1.0.2  2026/04/12
+*! effecttab Version 1.0.3  2026/04/13
 *! Format treatment effects and margins results for Excel export
 *! Author: Timothy P Copeland
 *! Program class: rclass (returns results in r())
@@ -71,10 +71,10 @@ program define effecttab, rclass
 	capture noisily {
 
 	syntax, [xlsx(string) excel(string) sheet(string)] [sep(string asis) type(string) effect(string) ///
-	        models(string) title(string) SUBTitle(string) clean TLABels(string asis) ///
+	        models(string) title(string) SUBtitle(string) clean TLABels(string asis) ///
 	        FOOTnote(string) open zebra HIGHlight(real -1) BOLDp(real -1) ///
-	        BORDERStyle(string) full THEme(string) digits(integer -1) ///
-	        HEADERColor(string) ZEBRAColor(string) csv(string) FRAme(string) DISPlay ///
+	        BORDERstyle(string) full THEme(string) digits(integer -1) ///
+	        HEADERColor(string) ZEBRAColor(string) csv(string) FRAme(string) DISplay ///
 	        FROM(name) ADDRow(string asis) pdp(integer -1) highpdp(integer -1)]
 
 	* Accept excel() as synonym for xlsx()

@@ -1,4 +1,4 @@
-*! tabtools Version 1.0.2  2026/04/12
+*! tabtools Version 1.0.3  2026/04/13
 *! Suite of table export commands for publication-ready Excel output
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet
@@ -37,7 +37,7 @@ program define tabtools, rclass
     * Parse anything (subcommand) separately from options
     syntax [anything(everything)] [, List Detail Category(string) ///
         font(string) fontsize(integer 0) HEADERColor(string) ///
-        ZEBRAColor(string) BORDERStyle(string)]
+        ZEBRAColor(string) BORDERstyle(string)]
 
     * Extract first token to check for subcommands
     local subcmd ""
@@ -388,7 +388,7 @@ program define tabtools, rclass
         // Return results
         return local commands "`selected_cmds'"
         return scalar n_commands = `n_commands'
-        return local version "1.0.2"
+        return local version "1.0.3"
         return local categories "descriptive models rates survival diagnostics composite general"
     }
 
@@ -399,6 +399,7 @@ program define tabtools, rclass
 end
 
 * Subroutine for detailed display
+capture program drop _tabtools_detail
 program define _tabtools_detail
     version 16.0
     syntax , Category(string)

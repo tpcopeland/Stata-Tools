@@ -1,4 +1,4 @@
-*! comptab Version 1.0.2  2026/04/12
+*! comptab Version 1.0.3  2026/04/13
 *! Compose publication tables from regtab/effecttab output frames
 *! Author: Timothy P Copeland
 *! Program class: rclass (returns results in r())
@@ -109,13 +109,13 @@ program define comptab, rclass
 
     syntax anything(name=framelist), [rows(string) ROWNames(string)] ///
         [xlsx(string) excel(string) sheet(string)] ///
-        [title(string) SUBTitle(string) FOOTnote(string asis) COMPact ///
+        [title(string) SUBtitle(string) FOOTnote(string asis) COMPact ///
         SEParator(numlist >0 integer sort) SECTion(string asis) ///
         RELAbel(string asis) ///
-        THEme(string) BORDERStyle(string) open zebra ///
+        THEme(string) BORDERstyle(string) open zebra ///
         HIGHlight(real -1) BOLDp(real -1) ///
         HEADERColor(string) ZEBRAColor(string) ///
-        csv(string) FRAme(string) DISPlay]
+        csv(string) FRAme(string) DISplay]
 
     * Validate: exactly one of rows() or rownames() must be specified
     if `"`rows'"' == "" & `"`rownames'"' == "" {

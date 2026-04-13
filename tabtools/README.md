@@ -1,6 +1,6 @@
 # tabtools
 
-![Stata 17+*](https://img.shields.io/badge/Stata-17%2B*-brightgreen) ![MIT License](https://img.shields.io/badge/License-MIT-blue) ![Version 1.0.2](https://img.shields.io/badge/Version-1.0.2-blue)
+![Stata 17+*](https://img.shields.io/badge/Stata-17%2B*-brightgreen) ![MIT License](https://img.shields.io/badge/License-MIT-blue) ![Version 1.0.3](https://img.shields.io/badge/Version-1.0.3-blue)
 
 A comprehensive suite of Stata commands for exporting publication-ready tables to Excel. Designed for epidemiological and clinical research workflows, tabtools handles descriptive statistics, regression results, treatment effects, survival analysis, diagnostic accuracy, and general-purpose table export with consistent professional formatting. Most commands require Stata 17; `tabtools` and `table1_tc` also support Stata 16. `table1_tc` is a fork of `table1_mc` version 3.5 (2024-12-19) by Mark Chatfield, though I have taken some liberties with removing and changing some existing options, the `table1_mc` options are generally intact. See [demo_tabtools.xlsx](https://github.com/tpcopeland/Stata-Tools/raw/refs/heads/main/tabtools/demo/demo_tabtools.xlsx) for examples of the various commands. [demo_tabtools.do](https://github.com/tpcopeland/Stata-Tools/raw/refs/heads/main/tabtools/demo/demo_tabtools.do) is the maintainer-side script that rebuilds that workbook from repository data and sibling packages.
 
@@ -354,4 +354,13 @@ MIT License. See [LICENSE](LICENSE) for details.
 
 ## Version
 
-Version 1.0.2, 2026-04-12
+Version 1.0.3, 2026-04-13
+
+### Changelog
+
+- **1.0.3** (2026-04-13)
+  - Documentation/abbreviation fixes: relax syntax minima so user-typed abbreviations match what the help files document. `subtitle`, `display`, and `borderstyle` now accept the shorter forms (`sub`, `dis`, `border`) that the synopsis lines advertised. Also `crosstab`'s `trend` (now `tr`), `survtab`'s `events` (now `ev`), and `stratetab`'s `ratiodigits` (now `ratio`).
+  - `survtab` RMST: replace hard-coded auxiliary variable names (`_dt`, `_area`, `_n_at_risk`, `_d_count`, `_last_in_t`, `_n_risk_first`, `_tail_area`, `_gw_term`) with `tempvar`s so the RMST/Greenwood-variance pass can never collide with same-named columns in the user dataset.
+  - `tabtools.ado`: add defensive `capture program drop _tabtools_detail` before the subprogram definition (matches the pattern used elsewhere in the package).
+- **1.0.2** (2026-04-12)
+  - `regtab`: ICC fixes for mixed/multilevel models (skip ICC for count models, multi-level fallback accumulator, melogit direct-variance fallback, BIC always collects N, all-missing primary path falls back).

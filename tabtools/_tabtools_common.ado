@@ -1,4 +1,4 @@
-*! _tabtools_common Version 1.0.2  2026/04/12
+*! _tabtools_common Version 1.0.3  2026/04/13
 *! Shared utility programs for tabtools package
 *! Author: Timothy P Copeland
 
@@ -435,7 +435,7 @@ end
 
 program _tabtools_resolve_format
     version 16.0
-    syntax , [THEme(string) BORDERStyle(string) HEADERShade(string) ZEBra(string)]
+    syntax , [THEme(string) BORDERstyle(string) HEADERShade(string) ZEBra(string)]
 
     * Font defaults: global -> default
     local _font "Arial"

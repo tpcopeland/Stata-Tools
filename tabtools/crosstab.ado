@@ -1,4 +1,4 @@
-*! crosstab Version 1.0.2  2026/04/12
+*! crosstab Version 1.0.3  2026/04/13
 *! Cross-tabulation with association measures
 *! Author: Timothy P Copeland
 *! Program class: rclass
@@ -43,12 +43,12 @@ capture noisily {
     syntax varlist(min=2 max=2) [if] [in] [fweight], ///
         [xlsx(string) excel(string) sheet(string) ///
         COLPct ROWPct TOTALPct EXact FIsher ///
-        OR RR RD TREnd LABel MISsing ///
+        OR RR RD TRend LABel MISsing ///
         DIGits(integer -1) ///
-        title(string) SUBTitle(string) ///
-        FOOTnote(string) THEme(string) BORDERStyle(string) ///
+        title(string) SUBtitle(string) ///
+        FOOTnote(string) THEme(string) BORDERstyle(string) ///
         BOLDp(real -1) zebra ///
-        csv(string) FRAme(string) DISPlay open]
+        csv(string) FRAme(string) DISplay open]
 
     gettoken rowvar colvar : varlist
 

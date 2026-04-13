@@ -1,4 +1,4 @@
-*! survtab Version 1.0.2  2026/04/12
+*! survtab Version 1.0.3  2026/04/13
 *! Survival summary table with Kaplan-Meier estimates, medians, and RMST
 *! Author: Timothy P Copeland
 *! Program class: rclass
@@ -51,11 +51,11 @@ capture noisily {
 
 **# Syntax and Validation
     syntax, times(numlist >0) [by(varname) RMST(real 0) MEDian RISKset ///
-        TIMEUnit(string) REVerse DIFFerence EVENTs ///
-        xlsx(string) excel(string) sheet(string) title(string) SUBTitle(string) ///
-        FOOTnote(string) THEme(string) BORDERStyle(string) ///
+        TIMEUnit(string) REVerse DIFFerence EVents ///
+        xlsx(string) excel(string) sheet(string) title(string) SUBtitle(string) ///
+        FOOTnote(string) THEme(string) BORDERstyle(string) ///
         BOLDp(real -1) zebra HIGHlight(real -1) DIGits(integer -1) ///
-        csv(string) FRAme(string) DISPlay open pdp(integer -1) highpdp(integer -1) ///
+        csv(string) FRAme(string) DISplay open pdp(integer -1) highpdp(integer -1) ///
         ADDRow(string asis)]
 
     * Accept excel() as synonym for xlsx()
@@ -270,7 +270,7 @@ capture noisily {
             preserve
             qui keep if `groupvar' == `_glv' & _st
             qui sort _t
-            tempvar _rmst_surv
+            tempvar _rmst_surv _dt _area _n_at_risk _d_count _last_in_t _n_risk_first _tail_area _gw_term
             qui sts generate `_rmst_surv' = s
 
             * Area from time 0 to first event time (S=1 in this interval)
@@ -279,14 +279,14 @@ capture noisily {
             local _area_0 = min(`_t_first', `rmst')
 
             * Left-rectangle areas from each event time to the next (or tau)
-            qui gen double _dt = _t[_n+1] - _t if _n < _N & _t < `rmst' & !missing(`_rmst_surv')
+            qui gen double `_dt' = _t[_n+1] - _t if _n < _N & _t < `rmst' & !missing(`_rmst_surv')
             * Clamp last interval at truncation time
-            qui replace _dt = `rmst' - _t ///
+            qui replace `_dt' = `rmst' - _t ///
                 if !missing(`_rmst_surv') & (_t[_n+1] > `rmst' | _n == _N) ///
-                & _t < `rmst' & missing(_dt)
-            qui gen double _area = _dt * `_rmst_surv' if !missing(_dt)
+                & _t < `rmst' & missing(`_dt')
+            qui gen double `_area' = `_dt' * `_rmst_surv' if !missing(`_dt')
 
-            qui su _area, meanonly
+            qui su `_area', meanonly
             if r(N) > 0 {
                 local rmst_g`g' = r(sum) + `_area_0'
             }
@@ -298,26 +298,26 @@ capture noisily {
             * Greenwood variance for RMST
             * Var(RMST) = sum over event times t_j <= tau of:
             *   [d_j / (n_j * (n_j - d_j))] * [integral from t_j to tau of S(u) du]^2
-            qui gen double _n_at_risk = _N - _n + 1
-            qui bysort _t: egen double _d_count = total(_d)
-            qui bysort _t: gen byte _last_in_t = (_n == _N)
-            qui bysort _t: gen double _n_risk_first = _n_at_risk[1]
+            qui gen double `_n_at_risk' = _N - _n + 1
+            qui bysort _t: egen double `_d_count' = total(_d)
+            qui bysort _t: gen byte `_last_in_t' = (_n == _N)
+            qui bysort _t: gen double `_n_risk_first' = `_n_at_risk'[1]
 
             * Keep unique event times within tau for variance computation
-            qui keep if _last_in_t == 1 & _t <= `rmst'
+            qui keep if `_last_in_t' == 1 & _t <= `rmst'
 
             * Reverse cumulative sum of areas = tail area from t_j to tau
             qui gsort -_t
-            qui gen double _tail_area = sum(_area) if !missing(_area)
+            qui gen double `_tail_area' = sum(`_area') if !missing(`_area')
             qui gsort _t
 
             * Greenwood variance terms (only at event times where n_j > d_j)
-            qui gen double _gw_term = ///
-                (_d_count / (_n_risk_first * (_n_risk_first - _d_count))) ///
-                * _tail_area^2 ///
-                if _d_count > 0 & _n_risk_first > _d_count & !missing(_tail_area)
+            qui gen double `_gw_term' = ///
+                (`_d_count' / (`_n_risk_first' * (`_n_risk_first' - `_d_count'))) ///
+                * `_tail_area'^2 ///
+                if `_d_count' > 0 & `_n_risk_first' > `_d_count' & !missing(`_tail_area')
 
-            qui su _gw_term, meanonly
+            qui su `_gw_term', meanonly
             if r(N) > 0 {
                 local rmst_se_g`g' = sqrt(r(sum))
             }

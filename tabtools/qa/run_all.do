@@ -21,6 +21,7 @@ log using "run_all.log", replace text name(_run_all)
 foreach f in ///
     test_tabtools.do ///
     test_tabtools_v101.do ///
+    test_tabtools_v103.do ///
     test_regression_fixes.do ///
     test_new_commands.do ///
     test_coverage_gaps.do ///

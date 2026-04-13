@@ -1,4 +1,4 @@
-*! diagtab Version 1.0.2  2026/04/12
+*! diagtab Version 1.0.3  2026/04/13
 *! Diagnostic accuracy table
 *! Author: Timothy P Copeland
 *! Program class: rclass
@@ -46,10 +46,10 @@ capture noisily {
         PREValence(real -1) EXact WILson ///
         AUC OPTimal ///
         DIGits(integer -1) ///
-        title(string) SUBTitle(string) ///
-        FOOTnote(string) THEme(string) BORDERStyle(string) ///
+        title(string) SUBtitle(string) ///
+        FOOTnote(string) THEme(string) BORDERstyle(string) ///
         HEADERColor(string) ZEBRAColor(string) ZEBra HEADERShade ///
-        csv(string) FRAme(string) DISPlay open]
+        csv(string) FRAme(string) DISplay open]
 
     gettoken testvar goldvar : varlist
 
@@ -564,6 +564,7 @@ capture noisily {
     qui replace c1 = "Measure" in `row'
     qui replace c2 = "Estimate" in `row'
     qui replace c3 = "(95% CI)" in `row'
+    local _measures_row = `row'
 
     * Helper to add a measure row
     foreach _m in Se Sp PPV NPV Acc {

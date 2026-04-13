@@ -1,4 +1,4 @@
-*! table1_tc Version 1.0.2  2026/04/12 - Descriptive Statistics Table Generator
+*! table1_tc Version 1.0.3  2026/04/13 - Descriptive Statistics Table Generator
 *! Author: Timothy P Copeland
 *! Fork of -table1_mc- version 3.5 (2024-12-19) by Mark Chatfield
 *! This program generates descriptive statistics tables with formatting options
@@ -57,7 +57,7 @@ program define table1_tc, rclass
         [catrowperc]            /// Report row % rather than column % for categorical vars
         [varlabplus]            /// Add data type description to variable labels
         [HEADERPerc]            /// Add percentage of total to sample size row
-        [BORDERStyle(string)]   /// Border style: "default" or "thin"
+        [BORDERstyle(string)]   /// Border style: "default" or "thin"
         [wt(varname)]           /// Importance/probability weight variable (e.g., IPTW)
         [smd]                   /// Standardized mean differences column
         [FOOTnote(string)]      /// Footnote text below table

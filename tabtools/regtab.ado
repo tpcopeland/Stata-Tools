@@ -1,4 +1,4 @@
-*! regtab Version 1.0.2  2026/04/12
+*! regtab Version 1.0.3  2026/04/13
 *! Author: Timothy P Copeland
 
 /*
@@ -57,11 +57,11 @@ program define regtab, rclass
 capture noisily {
 
 syntax, [xlsx(string) excel(string) sheet(string)] [sep(string asis) models(string) coef(string) ///
-	title(string) SUBTitle(string) NOINTercept KEEPIntercept NOREeffects stats(string) RELABel ///
+	title(string) SUBtitle(string) NOINTercept KEEPIntercept NOREeffects stats(string) RELABel ///
 	digits(integer -1) FOOTnote(string) open zebra HIGHlight(real -1) ///
-	BOLDp(real -1) cdisc BORDERStyle(string) stars THEme(string) ///
+	BOLDp(real -1) cdisc BORDERstyle(string) stars THEme(string) ///
 	STARSLevels(numlist) HEADERColor(string) ZEBRAColor(string) csv(string) ///
-	FRAme(string) DISPlay keep(string) drop(string) DIMNONsig FACTORLabel ///
+	FRAme(string) DISplay keep(string) drop(string) DIMNONsig FACTORLabel ///
 	REFcat(string) ADDRow(string asis) COMPact pdp(integer -1) highpdp(integer -1)]
 
 * Accept excel() as synonym for xlsx()

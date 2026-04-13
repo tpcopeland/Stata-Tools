@@ -1,4 +1,4 @@
-*! corrtab Version 1.0.2  2026/04/12
+*! corrtab Version 1.0.3  2026/04/13
 *! Correlation matrix table
 *! Author: Timothy P Copeland
 *! Program class: rclass
@@ -44,10 +44,10 @@ capture noisily {
         [xlsx(string) excel(string) sheet(string) ///
         SPEarman LOWer UPPer FULL ///
         STAR(numlist sort) PVALues DIGits(integer -1) ///
-        title(string) SUBTitle(string) ///
-        FOOTnote(string) THEme(string) BORDERStyle(string) ///
+        title(string) SUBtitle(string) ///
+        FOOTnote(string) THEme(string) BORDERstyle(string) ///
         HEADERColor(string) ZEBRAColor(string) ZEBra HEADERShade ///
-        csv(string) FRAme(string) DISPlay open]
+        csv(string) FRAme(string) DISplay open]
 
     if "`xlsx'" == "" & "`excel'" != "" local xlsx "`excel'"
     local _has_xlsx = "`xlsx'" != ""

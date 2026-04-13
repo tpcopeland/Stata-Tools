@@ -1,4 +1,4 @@
-*! fittab Version 1.0.2  2026/04/12
+*! fittab Version 1.0.3  2026/04/13
 *! Model comparison table
 *! Author: Timothy P Copeland
 *! Program class: rclass
@@ -41,9 +41,9 @@ capture noisily {
 **# Syntax and Validation
     syntax anything(name=namelist), [xlsx(string) excel(string) sheet(string) ///
         stats(string) LABels(string) LRTest(name) ///
-        title(string) SUBTitle(string) ///
-        FOOTnote(string) THEme(string) BORDERStyle(string) ///
-        zebra csv(string) FRAme(string) DISPlay open]
+        title(string) SUBtitle(string) ///
+        FOOTnote(string) THEme(string) BORDERstyle(string) ///
+        zebra csv(string) FRAme(string) DISplay open]
 
     * Accept excel() as synonym
     if "`xlsx'" == "" & "`excel'" != "" local xlsx "`excel'"

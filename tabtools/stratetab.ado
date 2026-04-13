@@ -1,4 +1,4 @@
-*! stratetab Version 1.0.2  2026/04/12
+*! stratetab Version 1.0.3  2026/04/13
 *! Author: Timothy P Copeland
 
 /*
@@ -68,8 +68,8 @@ syntax, using(string asis) [xlsx(string) excel(string)] outcomes(integer) ///
 	[sheet(string) title(string) outlabels(string) explabels(string) ///
 	digits(integer 1) eventdigits(integer 0) pydigits(integer 0) ///
 	unitlabel(string) pyscale(real 1) ratescale(real 1000) ///
-	rateratio RATIODigits(integer 2) FOOTnote(string) open zebra ///
-	BORDERStyle(string) THEme(string) HEADERShade ///
+	rateratio RATIOdigits(integer 2) FOOTnote(string) open zebra ///
+	BORDERstyle(string) THEme(string) HEADERShade ///
 	HEADERColor(string) ZEBRAColor(string) csv(string)]
 
 * Accept excel() as synonym for xlsx()

@@ -1,4 +1,4 @@
-*! tablex Version 1.0.2  2026/04/12
+*! tablex Version 1.0.3  2026/04/13
 *! Export Stata tables to formatted Excel
 *! Author: Timothy P Copeland
 *! Program class: rclass (returns results in r())

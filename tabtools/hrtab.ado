@@ -1,4 +1,4 @@
-*! hrtab Version 1.0.2  2026/04/12
+*! hrtab Version 1.0.3  2026/04/13
 *! Multi-panel hazard ratio table for publication
 *! Author: Timothy P Copeland
 *! Program class: rclass
@@ -46,11 +46,11 @@ program define hrtab, rclass
 		EFFect(string) NOPYtime NOEVents PValue DIGits(integer -1) ///
 		PYDigits(integer -1) PYSCale(real 1) Level(cilevel) NOLog DOTS ///
 		OUTLabels(string) EXPLabels(string) MODELLabels(string) REFLabel(string) ///
-		xlsx(string) excel(string) sheet(string) title(string) SUBTitle(string) ///
-		FOOTnote(string) THEme(string) BORDERStyle(string) open zebra ///
+		xlsx(string) excel(string) sheet(string) title(string) SUBtitle(string) ///
+		FOOTnote(string) THEme(string) BORDERstyle(string) open zebra ///
 		HEADERShade HEADERColor(string) ZEBRAColor(string) ///
 		BOLDp(real -1) HIGHlight(real -1) csv(string) FRAme(string) ///
-		DISPlay ADDRow(string asis)]
+		DISplay ADDRow(string asis)]
 
 	* =========================================================================
 	* OPTION RESOLUTION

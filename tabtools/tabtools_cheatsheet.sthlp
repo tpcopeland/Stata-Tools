@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.2  12apr2026}{...}
+{* *! version 1.0.3  13apr2026}{...}
 {title:tabtools Quick Reference (v1.0.2)}
 
 {pstd}Common option combinations for each command.{p_end}
@@ -100,6 +100,6 @@
 {pstd}Timothy P Copeland{p_end}
 {pstd}Department of Clinical Neuroscience, Karolinska Institutet{p_end}
 {pstd}timothy.copeland@ki.se{p_end}
-{pstd}Version 1.0.2{p_end}
+{pstd}Version 1.0.3{p_end}
 
 {hline}
