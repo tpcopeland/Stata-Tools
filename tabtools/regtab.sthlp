@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.3  13apr2026}{...}
+{* *! version 1.0.4  16apr2026}{...}
 {vieweralsosee "effecttab" "help effecttab"}{...}
 {viewerjumpto "Package overview" "regtab##package"}{...}
 {viewerjumpto "Syntax" "regtab##syntax"}{...}
@@ -110,7 +110,7 @@ random-effects rows if desired.{p_end}
 {p 4 8 2}- Baseline/reference rows: if a point estimate is 0 or 1 and the adjacent CI cell is empty, {cmd:regtab} substitutes {it:Reference} in the estimate column.{p_end}
 {p 4 8 2}- Random-effects variance components ({cmd:var()}, {cmd:cov()}, {cmd:sd()}) from {cmd:mixed}, {cmd:melogit}, {cmd:mepoisson}, and similar commands are automatically formatted with four decimal places for both the point estimate and confidence interval. Fixed-effects rows use two decimal places. Random-effects rows can be removed entirely with {opt nore}.{p_end}
 {p 4 8 2}- Intercept rows can be removed with {opt noint}.{p_end}
-{p 4 8 2}- Fonts are set to Arial 10. Borders are drawn around the table and model blocks. Column widths and row heights are adjusted heuristically to fit labels and contents.{p_end}
+{p 4 8 2}- By default, fonts are set to Arial 10, but this can be overridden by {opt theme()}, session defaults set with {helpb tabtools:set font} / {helpb tabtools:set fontsize}, or both. Borders are drawn around the table and model blocks. Column widths and row heights are adjusted heuristically to fit labels and contents.{p_end}
 {p 4 8 2}- The command writes the Excel output using {helpb putexcel}; a temporary workbook {cmd:temp.xlsx} is created and deleted during processing.{p_end}
 {p 4 8 2}- Model statistics ({opt stats()}): For multi-model tables, N, AIC, BIC, log-likelihood, and groups are extracted per model from the {helpb collect} framework and placed in each model's column. If extraction fails, statistics fall back to the last model's {cmd:e()} values in the first column only. ICC is computed per model from each model's variance components in the collection. If extraction fails, ICC falls back to the last model's {cmd:e(b)} matrix.{p_end}
 
@@ -209,6 +209,6 @@ the threshold, and {opt highlight()} applies yellow fill to entire rows.{p_end}
 {pstd}Timothy P Copeland{p_end}
 {pstd}Department of Clinical Neuroscience, Karolinska Institutet{p_end}
 {pstd}timothy.copeland@ki.se{p_end}
-{pstd}Version 1.0.3{p_end}
+{pstd}Version 1.0.4{p_end}
 
 {hline}

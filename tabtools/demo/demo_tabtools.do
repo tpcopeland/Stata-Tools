@@ -59,7 +59,7 @@
         CROSS-TABULATION (5 sheets):
          35.  "Cross-Tabulation"   - crosstab 2x2 with Fisher's exact + OR
          36.  "Cross-Tab Measures" - crosstab RR + RD for 2x2 table
-         37.  "Cross-Tab Stratif"  - crosstab by() Mantel-Haenszel adjusted OR
+         37.  "Cross-Tab Styled"   - crosstab subtitle() + boldp() + zebra
          38.  "Cross-Tab Trend"    - crosstab Cochran-Armitage trend test
          39.  "Cross-Tab Row Pct"  - crosstab with row percentages
         DIAGNOSTIC (3 sheets):
@@ -684,12 +684,31 @@ crosstab treated cv_event, ///
     rr rd label ///
     footnote("RR = risk ratio; RD = risk difference with 95% CI.")
 
-**# Sheet 37: Cross-Tab Stratified -- Mantel-Haenszel adjusted OR
-* Demonstrates: crosstab by() for stratified analysis with MH adjustment
-crosstab treated cv_event, by(female) ///
-    xlsx("`main_xlsx'") sheet("Cross-Tab Stratif") ///
-    title("Table X. Treatment-Outcome by Sex (Mantel-Haenszel)") ///
-    or exact label
+**# Sheet 37: Cross-Tab Styled -- subtitle + boldp() + zebra
+* Demonstrates: crosstab subtitle(), boldp(), zebra, and trend on a valid ordinal table
+preserve
+clear
+input byte outcome byte exposure int freq
+0 0 25
+1 0 5
+0 1 15
+1 1 15
+0 2 5
+1 2 25
+end
+expand freq
+label define demo_outcome 0 "No event" 1 "Event", replace
+label values outcome demo_outcome
+label define demo_exposure 0 "Low" 1 "Medium" 2 "High", replace
+label values exposure demo_exposure
+
+crosstab outcome exposure, ///
+    xlsx("`main_xlsx'") sheet("Cross-Tab Styled") ///
+    title("Table X. Outcome by Ordinal Exposure") ///
+    subtitle("Demonstrates subtitle() and boldp()") ///
+    trend label boldp(0.05) zebra ///
+    footnote("Significant chi-squared and trend rows are bolded when p < 0.05.")
+restore
 
 **# Sheet 38: Cross-Tab Trend -- Cochran-Armitage trend test
 * Demonstrates: crosstab trend for ordinal exposure variable

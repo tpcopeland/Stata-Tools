@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.3  13apr2026}{...}
+{* *! version 1.0.4  16apr2026}{...}
 {vieweralsosee "tabtools" "help tabtools"}{...}
 {vieweralsosee "regtab" "help regtab"}{...}
 {vieweralsosee "effecttab" "help effecttab"}{...}
@@ -201,7 +201,7 @@ If omitted, {cmd:hrtab} uses the existing stset (single-outcome mode, no column 
 {opt pv:alue} adds a p-value column for each model. Off by default -- standard epi practice favors CIs over p-values in results tables.
 
 {phang}
-{opt dig:its(#)} specifies decimal places for effect estimates and CIs. Default 2. Range 1-4.
+{opt dig:its(#)} specifies decimal places for effect estimates and CIs. Default 2. Range 0-6.
 
 {phang}
 {opt pyd:igits(#)} specifies decimal places for person-years. Default 0.
@@ -456,6 +456,6 @@ Karolinska Institutet, Stockholm, Sweden
 {p_end}
 
 {pstd}
-{bf:Version} 1.0.3
+{bf:Version} 1.0.4
 
 {hline}

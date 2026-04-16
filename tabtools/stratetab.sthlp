@@ -1,12 +1,12 @@
 {smcl}
-{* *! version 1.0.3  13apr2026}{...}
+{* *! version 1.0.4  16apr2026}{...}
 {viewerjumpto "Syntax" "stratetab##syntax"}{...}
 {viewerjumpto "Description" "stratetab##description"}{...}
 {viewerjumpto "Options" "stratetab##options"}{...}
 {viewerjumpto "Examples" "stratetab##examples"}{...}
 {viewerjumpto "Remarks" "stratetab##remarks"}{...}
 {viewerjumpto "Author" "stratetab##author"}{...}
-{viewerjumpto "Stored results" "stratetab##results"}{...}
+{viewerjumpto "Stored results" "stratetab##stored"}{...}
 {vieweralsosee "tabtools" "help tabtools"}{...}
 {vieweralsosee "strate" "help strate"}{...}
 {title:Title}
@@ -20,14 +20,14 @@
 {title:Syntax}
 
 {p 8 17 2}
-{cmd:stratetab}{cmd:,} {opt using(string asis)} {opt xlsx(string)} {opt outcomes(integer)} [{opt sheet(string)} {opt title(string)} {opt outlabels(string)} {opt explabels(string)} {opt digits(integer 1)} {opt eventdigits(integer 0)} {opt pydigits(integer 0)} {opt unitlabel(string)} {opt pyscale(real 1)} {opt ratescale(real 1000)} {opt rateratio} {opt ratio:digits(#)} {opt foot:note(string)} {opt open} {opt zebra} {opt borders:tyle(string)} {opt the:me(string)} {opt headers:hade} {opt headerc:olor(string)} {opt zebrac:olor(string)} {opt csv(string)}]
+{cmd:stratetab}{cmd:,} {opt using(string asis)} {opt outcomes(integer)} [{opt xlsx(string)} {opt sheet(string)} {opt title(string)} {opt outlabels(string)} {opt explabels(string)} {opt digits(integer 1)} {opt eventdigits(integer 0)} {opt pydigits(integer 0)} {opt unitlabel(string)} {opt pyscale(real 1)} {opt ratescale(real 1000)} {opt rateratio} {opt ratio:digits(#)} {opt foot:note(string)} {opt open} {opt zebra} {opt borders:tyle(string)} {opt the:me(string)} {opt headers:hade} {opt headerc:olor(string)} {opt zebrac:olor(string)} {opt csv(string)} {opt fra:me(name)} {opt dis:play}]
 
 
 {marker description}{...}
 {title:Description}
 
 {pstd}
-{cmd:stratetab} combines pre-computed {helpb strate} output files and exports them to Excel with outcomes as column groups and exposure variables as rows. Each outcome spans three columns: Events, Person-Years, and Rate (95% CI).
+{cmd:stratetab} combines pre-computed {helpb strate} output files and formats them with outcomes as column groups and exposure variables as rows. Output can be exported to Excel, displayed in the Results window, saved as CSV, or stored in a Stata frame. Each outcome spans three columns: Events, Person-Years, and Rate (95% CI).
 
 {pstd}
 The command reads multiple .dta files produced by {helpb strate}, organized by exposure type. Files should be listed in order: all outcomes for exposure 1, then all outcomes for exposure 2, etc. For example, with 3 outcomes and 2 exposure types: {it:out1_exp1 out2_exp1 out3_exp1 out1_exp2 out2_exp2 out3_exp2}.
@@ -45,12 +45,12 @@ The command reads multiple .dta files produced by {helpb strate}, organized by e
 {opt using(namelist)} specifies the list of strate output files to combine. File names should be space-separated without the .dta extension. Files must be ordered: all outcomes for exposure 1, all outcomes for exposure 2, etc.
 
 {phang}
-{opt xlsx(string)} specifies the Excel output file name. Must include the .xlsx extension. {opt excel()} is accepted as a synonym.
-
-{phang}
 {opt outcomes(integer)} specifies the number of distinct outcomes. The total number of files must be divisible by this number.
 
 {dlgtab:Optional}
+
+{phang}
+{opt xlsx(string)} specifies the Excel output file name. Must include the .xlsx extension. {opt excel()} is accepted as a synonym. If omitted, {cmd:stratetab} can still display the table, write {opt csv()}, or populate {opt frame()}.
 
 {phang}
 {opt sheet(string)} specifies the Excel sheet name. Default is {bf:Results}.
@@ -88,7 +88,7 @@ The command reads multiple .dta files produced by {helpb strate}, organized by e
 
 {phang2}{opt foot:note(string)} adds a footnote row below the table in smaller italic font.{p_end}
 
-{phang2}{opt open} opens the Excel file in the default application after export.{p_end}
+{phang2}{opt open} opens the Excel file in the default application after export. Requires {opt xlsx()} or {opt excel()}.{p_end}
 
 {phang2}{opt zebra} applies alternating light gray row shading for readability.{p_end}
 
@@ -103,6 +103,10 @@ The command reads multiple .dta files produced by {helpb strate}, organized by e
 {phang2}{opt zebrac:olor(string)} specifies a custom RGB zebra stripe color (e.g., "245 245 255").{p_end}
 
 {phang2}{opt csv(string)} exports the table data as a CSV file in addition to the Excel output.{p_end}
+
+{phang2}{opt fra:me(name)} stores the output dataset in a named frame. Specify {cmd:frame(name, replace)} to replace an existing frame.{p_end}
+
+{phang2}{opt dis:play} displays the table in the Results window (automatic when {opt xlsx()} is omitted).{p_end}
 
 
 {marker examples}{...}
@@ -184,7 +188,7 @@ If {opt explabels()} is specified, the number of labels must match the number of
 (total files / outcomes).
 
 
-{marker results}{...}
+{marker stored}{...}
 {title:Stored results}
 
 {pstd}
@@ -203,6 +207,7 @@ If {opt explabels()} is specified, the number of labels must match the number of
 {p2col 5 18 22 2: Macros}{p_end}
 {synopt:{cmd:r(xlsx)}}Excel filename{p_end}
 {synopt:{cmd:r(sheet)}}sheet name{p_end}
+{synopt:{cmd:r(frame)}}frame name (when {cmd:frame()} specified){p_end}
 
 
 {marker author}{...}
@@ -211,7 +216,7 @@ If {opt explabels()} is specified, the number of labels must match the number of
 {pstd}Timothy P Copeland{p_end}
 {pstd}Department of Clinical Neuroscience, Karolinska Institutet{p_end}
 {pstd}timothy.copeland@ki.se{p_end}
-{pstd}Version 1.0.3{p_end}
+{pstd}Version 1.0.4{p_end}
 
 {title:Also see}
 

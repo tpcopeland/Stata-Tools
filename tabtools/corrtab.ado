@@ -1,4 +1,4 @@
-*! corrtab Version 1.0.3  2026/04/13
+*! corrtab Version 1.0.4  2026/04/16
 *! Correlation matrix table
 *! Author: Timothy P Copeland
 *! Program class: rclass
@@ -20,8 +20,10 @@ SYNTAX:
 
 program define corrtab, rclass
     version 17.0
-    local _prev_varabbrev = c(varabbrev)
+    local _orig_varabbrev = c(varabbrev)
     set varabbrev off
+
+capture noisily {
 
     * Auto-load shared helper programs
     capture program list _tabtools_validate_path
@@ -32,12 +34,9 @@ program define corrtab, rclass
         }
         else {
             display as error "_tabtools_common.ado not found; reinstall tabtools"
-            set varabbrev `_prev_varabbrev'
             exit 111
         }
     }
-
-capture noisily {
 
 **# Syntax and Validation
     syntax varlist(min=2 numeric) [if] [in], ///
@@ -273,12 +272,42 @@ capture noisily {
         qui replace c1 = "`_star_note'" in `row'
     }
 
+    local _has_subtitle = (`"`subtitle'"' != "")
+    if `_has_subtitle' {
+        tempvar _row_order
+        qui gen long `_row_order' = _n
+        qui replace `_row_order' = `_row_order' + 1 if `_row_order' >= 2
+        qui set obs `=_N+1'
+        qui replace `_row_order' = 2 if missing(`_row_order')
+        qui sort `_row_order'
+        qui replace title = `"`subtitle'"' in 2
+        forvalues _c = 1/`out_ncols' {
+            qui replace c`_c' = "" in 2
+        }
+        qui drop `_row_order'
+        local _data_end_row = `_data_end_row' + 1
+    }
+
     local num_rows = _N
     local num_cols = `out_ncols' + 1
+    local _header_row = 2 + `_has_subtitle'
+    local _data_start = `_header_row' + 1
 
 **# Console Display
     if !`_has_xlsx' | "`display'" != "" {
-        noisily _tabtools_console_display `out_ncols' `"`title'"'
+        if `_has_subtitle' {
+            noisily {
+                if `"`title'"' != "" {
+                    display as text ""
+                    display as result `"`title'"'
+                }
+                display as text `"`subtitle'"'
+            }
+            noisily _tabtools_console_display `out_ncols' "", headerstart(`_header_row') datastart(`_data_start')
+        }
+        else {
+            noisily _tabtools_console_display `out_ncols' `"`title'"'
+        }
     }
 
 **# CSV/Frame/Excel Export
@@ -312,20 +341,23 @@ capture noisily {
             local lastcol : word `num_cols' of `letters'
 
             putexcel (A1:`lastcol'1), merge bold txtwrap left vcenter font("`_font'", `=`_fontsize'+2')
-            putexcel (A2:`lastcol'2), border(top, `_hborder') bold hcenter font("`_font'", `_fontsize')
-            putexcel (A2:`lastcol'2), border(bottom, `_hborder')
-            putexcel (A3:`lastcol'`_xl_rows'), font("`_font'", `_fontsize')
-            putexcel (C3:`lastcol'`_xl_rows'), hcenter
+            if `_has_subtitle' {
+                putexcel (A2:`lastcol'2), merge left vcenter italic font("`_font'", `_fontsize')
+            }
+            putexcel (A`_header_row':`lastcol'`_header_row'), border(top, `_hborder') bold hcenter font("`_font'", `_fontsize')
+            putexcel (A`_header_row':`lastcol'`_header_row'), border(bottom, `_hborder')
+            putexcel (A`_data_start':`lastcol'`_xl_rows'), font("`_font'", `_fontsize')
+            putexcel (C`_data_start':`lastcol'`_xl_rows'), hcenter
             putexcel (B`_xl_rows':`lastcol'`_xl_rows'), border(bottom, `_hborder')
 
             * Header background fill
             if "`headershade'" != "" {
-                putexcel (A2:`lastcol'2), fpattern(solid, "`_headercolor'")
+                putexcel (A`_header_row':`lastcol'`_header_row'), fpattern(solid, "`_headercolor'")
             }
 
             * Zebra striping
             if "`zebra'" != "" {
-                forvalues _zr = 4(2)`_xl_rows' {
+                forvalues _zr = `=`_data_start'+1'(2)`_xl_rows' {
                     putexcel (A`_zr':`lastcol'`_zr'), fpattern(solid, "`_zebracolor'")
                 }
             }
@@ -369,7 +401,11 @@ capture noisily {
             capture mata: mata drop b
         }
         capture mata: mata drop b
-
+        capture confirm file "`xlsx'"
+        if _rc {
+            noisily display as error "Export command succeeded but file not found"
+            exit 601
+        }
         noisily display as text "Exported to " as result `"`xlsx'"' as text ", sheet " as result `"`sheet'"'
     }
 
@@ -395,6 +431,6 @@ capture noisily {
 
 } // end capture noisily
     local rc = _rc
-    set varabbrev `_prev_varabbrev'
+    set varabbrev `_orig_varabbrev'
     if `rc' exit `rc'
 end

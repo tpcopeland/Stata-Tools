@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.3  13apr2026}{...}
+{* *! version 1.0.4  16apr2026}{...}
 {viewerjumpto "Syntax" "crosstab##syntax"}{...}
 {viewerjumpto "Description" "crosstab##description"}{...}
 {viewerjumpto "Options" "crosstab##options"}{...}
@@ -46,6 +46,7 @@ and a Spearman rank-correlation trend test.{p_end}
 {synopt:{opt lab:el}}use value labels for headers{p_end}
 {synopt:{opt mis:sing}}include missing values{p_end}
 {synopt:{opt dig:its(#)}}decimal places for percentages and association measures (default 1, range 0-6){p_end}
+{synopt:{opt boldp(#)}}bold test and trend rows when p-values fall below the threshold; must be between 0 and 1{p_end}
 {synopt:{opt sub:title(string)}}subtitle text displayed below the title{p_end}
 
 {marker examples}{title:Examples}
@@ -85,6 +86,6 @@ and a Spearman rank-correlation trend test.{p_end}
 {pstd}Timothy P Copeland{p_end}
 {pstd}Department of Clinical Neuroscience, Karolinska Institutet{p_end}
 {pstd}timothy.copeland@ki.se{p_end}
-{pstd}Version 1.0.3{p_end}
+{pstd}Version 1.0.4{p_end}
 
 {hline}

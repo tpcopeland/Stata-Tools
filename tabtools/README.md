@@ -1,6 +1,6 @@
 # tabtools
 
-![Stata 17+*](https://img.shields.io/badge/Stata-17%2B*-brightgreen) ![MIT License](https://img.shields.io/badge/License-MIT-blue) ![Version 1.0.3](https://img.shields.io/badge/Version-1.0.3-blue)
+![Stata 17+*](https://img.shields.io/badge/Stata-17%2B*-brightgreen) ![MIT License](https://img.shields.io/badge/License-MIT-blue) ![Version 1.0.4](https://img.shields.io/badge/Version-1.0.4-blue)
 
 A comprehensive suite of Stata commands for exporting publication-ready tables to Excel. Designed for epidemiological and clinical research workflows, tabtools handles descriptive statistics, regression results, treatment effects, survival analysis, diagnostic accuracy, and general-purpose table export with consistent professional formatting. Most commands require Stata 17; `tabtools` and `table1_tc` also support Stata 16. `table1_tc` is a fork of `table1_mc` version 3.5 (2024-12-19) by Mark Chatfield, though I have taken some liberties with removing and changing some existing options, the `table1_mc` options are generally intact. See [demo_tabtools.xlsx](https://github.com/tpcopeland/Stata-Tools/raw/refs/heads/main/tabtools/demo/demo_tabtools.xlsx) for examples of the various commands. [demo_tabtools.do](https://github.com/tpcopeland/Stata-Tools/raw/refs/heads/main/tabtools/demo/demo_tabtools.do) is the maintainer-side script that rebuilds that workbook from repository data and sibling packages.
 
@@ -211,7 +211,7 @@ estimates store m3
 
 fittab m1 m2 m3, xlsx("fit.xlsx") ///
     stats(N aic bic r2) ///
-    labels("Base" "Extended" "Full") ///
+    labels("Base \ Extended \ Full") ///
     title("Model Comparison: Vehicle Price") lrtest(m1)
 ```
 
@@ -272,7 +272,7 @@ All commands in the tabtools suite share a consistent set of formatting options:
 - **IPTW-weighted statistics** with `wt()` for pseudo-population tables
 - **Standardized mean differences** column via `smd` with configurable threshold (`smdthreshold()`)
 - **Variable type support**: continuous normal (`contn`), continuous non-normal (`conts`), binary (`bin`), categorical (`cat`)
-- **Returned results**: `r(Dapa)` data frame for pipeline workflows
+- **Returned results**: `r(Dapa)` local macro describing the table's data-presentation style for downstream methods text
 
 ### Clinical Features
 
@@ -350,14 +350,16 @@ timothy.copeland@ki.se
 
 ## License
 
-MIT License. See [LICENSE](LICENSE) for details.
+MIT License. See the repository [LICENSE](../LICENSE) for details.
 
 ## Version
 
-Version 1.0.3, 2026-04-13
+Version 1.0.4, 2026-04-16
 
 ### Changelog
 
+- **1.0.4** (2026-04-16)
+  - Documentation and package-hygiene refresh: corrected stale or invalid `fittab`/`comptab` examples in the README, cheatsheet, and cookbook; clarified that `r(Dapa)` is a returned local macro rather than a data frame; documented the supported cosmetic options in `corrtab`/`diagtab`; standardized stored-results anchors in the affected help files; qualified the `regtab` font remark; fixed the package-local license reference; and removed tracked debug scripts/logs from the package root.
 - **1.0.3** (2026-04-13)
   - Documentation/abbreviation fixes: relax syntax minima so user-typed abbreviations match what the help files document. `subtitle`, `display`, and `borderstyle` now accept the shorter forms (`sub`, `dis`, `border`) that the synopsis lines advertised. Also `crosstab`'s `trend` (now `tr`), `survtab`'s `events` (now `ev`), and `stratetab`'s `ratiodigits` (now `ratio`).
   - `survtab` RMST: replace hard-coded auxiliary variable names (`_dt`, `_area`, `_n_at_risk`, `_d_count`, `_last_in_t`, `_n_risk_first`, `_tail_area`, `_gw_term`) with `tempvar`s so the RMST/Greenwood-variance pass can never collide with same-named columns in the user dataset.

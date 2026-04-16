@@ -765,16 +765,17 @@ else {
 	local failed_tests "`failed_tests' 5.11"
 }
 
-**## 5.12 Invalid digits range
+**## 5.12 digits(0) is allowed; digits(7) is rejected
 local ++test_count
 capture noisily {
 	_hrtab_make_data
 	stset followup, failure(died) id(pid)
-	capture hrtab, exposure(i.treatment) model(stcox) digits(0) display
+	hrtab, exposure(i.treatment) model(stcox) digits(0) display
+	capture hrtab, exposure(i.treatment) model(stcox) digits(7) display
 	assert _rc == 198
 }
 if _rc == 0 {
-	display as result "  PASS: 5.12 Error: digits(0) out of range"
+	display as result "  PASS: 5.12 digits range accepts 0 and rejects 7"
 	local ++pass_count
 }
 else {

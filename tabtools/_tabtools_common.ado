@@ -1,4 +1,4 @@
-*! _tabtools_common Version 1.0.3  2026/04/13
+*! _tabtools_common Version 1.0.4  2026/04/16
 *! Shared utility programs for tabtools package
 *! Author: Timothy P Copeland
 

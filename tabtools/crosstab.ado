@@ -1,4 +1,4 @@
-*! crosstab Version 1.0.3  2026/04/13
+*! crosstab Version 1.0.4  2026/04/16
 *! Cross-tabulation with association measures
 *! Author: Timothy P Copeland
 *! Program class: rclass
@@ -20,8 +20,10 @@ SYNTAX:
 
 program define crosstab, rclass
     version 17.0
-    local _prev_varabbrev = c(varabbrev)
+    local _orig_varabbrev = c(varabbrev)
     set varabbrev off
+
+capture noisily {
 
     * Auto-load shared helper programs
     capture program list _tabtools_validate_path
@@ -32,12 +34,9 @@ program define crosstab, rclass
         }
         else {
             display as error "_tabtools_common.ado not found; reinstall tabtools"
-            set varabbrev `_prev_varabbrev'
             exit 111
         }
     }
-
-capture noisily {
 
 **# Syntax and Validation
     syntax varlist(min=2 max=2) [if] [in] [fweight], ///
@@ -64,6 +63,10 @@ capture noisily {
     }
     if `digits' < 0 | `digits' > 6 {
         noisily display as error "digits() must be between 0 and 6"
+        exit 198
+    }
+    if `boldp' != -1 & (`boldp' <= 0 | `boldp' >= 1) {
+        noisily display as error "boldp() must be between 0 and 1"
         exit 198
     }
 
@@ -275,6 +278,8 @@ capture noisily {
     * Test result row
     local row = `row' + 1
     qui set obs `row'
+    local _p_row = `row'
+    local _trend_row = 0
     local _p_str = cond(`_p' < 0.001, "<0.001", string(`_p', "%5.3f"))
     if "`_test_name'" == "Fisher's exact test" {
         qui replace c1 = "`_test_name': p = `_p_str'" in `row'
@@ -303,12 +308,34 @@ capture noisily {
     if !missing(`_p_trend') {
         local row = `row' + 1
         qui set obs `row'
+        local _trend_row = `row'
         local _pt_str = cond(`_p_trend' < 0.001, "<0.001", string(`_p_trend', "%5.3f"))
         qui replace c1 = "P for trend = `_pt_str'" in `row'
     }
 
+    local _has_subtitle = (`"`subtitle'"' != "")
+    if `_has_subtitle' {
+        tempvar _row_order
+        qui gen long `_row_order' = _n
+        qui replace `_row_order' = `_row_order' + 1 if `_row_order' >= 2
+        qui set obs `=_N+1'
+        qui replace `_row_order' = 2 if missing(`_row_order')
+        qui sort `_row_order'
+        qui replace title = `"`subtitle'"' in 2
+        forvalues _c = 1/`out_ncols' {
+            qui replace c`_c' = "" in 2
+        }
+        qui drop `_row_order'
+        if `_p_row' > 0 local _p_row = `_p_row' + 1
+        if `_trend_row' > 0 local _trend_row = `_trend_row' + 1
+    }
+
     local num_rows = _N
     local num_cols = `out_ncols' + 1
+    local _header_row = 2 + `_has_subtitle'
+    local _data_start = `_header_row' + 1
+    local _total_row = `_data_start' + `n_rows'
+    local _first_measure_row = `_total_row' + 1
 
     * Build return matrix
     tempname _rtable
@@ -318,7 +345,19 @@ capture noisily {
 
 **# Console Display
     if !`_has_xlsx' | "`display'" != "" {
-        noisily _tabtools_console_display `out_ncols' `"`title'"'
+        if `_has_subtitle' {
+            noisily {
+                if `"`title'"' != "" {
+                    display as text ""
+                    display as result `"`title'"'
+                }
+                display as text `"`subtitle'"'
+            }
+            noisily _tabtools_console_display `out_ncols' "", headerstart(`_header_row') datastart(`_data_start')
+        }
+        else {
+            noisily _tabtools_console_display `out_ncols' `"`title'"'
+        }
     }
 
 **# CSV Export
@@ -353,13 +392,15 @@ capture noisily {
             local lastcol : word `num_cols' of `letters'
 
             putexcel (A1:`lastcol'1), merge bold txtwrap left vcenter font("`_font'", `=`_fontsize'+2')
-            putexcel (B2:`lastcol'2), border(top, `_hborder') bold hcenter font("`_font'", `_fontsize')
-            putexcel (B2:`lastcol'2), border(bottom, `_hborder')
-            putexcel (A3:`lastcol'`num_rows'), font("`_font'", `_fontsize')
-            putexcel (C3:`lastcol'`num_rows'), hcenter
+            if `_has_subtitle' {
+                putexcel (A2:`lastcol'2), merge left vcenter italic font("`_font'", `_fontsize')
+            }
+            putexcel (B`_header_row':`lastcol'`_header_row'), border(top, `_hborder') bold hcenter font("`_font'", `_fontsize')
+            putexcel (B`_header_row':`lastcol'`_header_row'), border(bottom, `_hborder')
+            putexcel (A`_data_start':`lastcol'`num_rows'), font("`_font'", `_fontsize')
+            putexcel (C`_data_start':`lastcol'`num_rows'), hcenter
 
             * Border above total row and below it
-            local _total_row = `n_rows' + 3
             putexcel (B`_total_row':`lastcol'`_total_row'), border(top, `_hborder')
             putexcel (B`_total_row':`lastcol'`_total_row'), border(bottom, `_hborder')
 
@@ -371,6 +412,13 @@ capture noisily {
                     putexcel (B`_mr':`lastcol'`_mr'), merge left vcenter
                 }
                 putexcel (B`num_rows':`lastcol'`num_rows'), border(bottom, `_hborder')
+            }
+
+            if `boldp' != -1 & !missing(`_p') & `_p' < `boldp' {
+                putexcel (B`_p_row':`lastcol'`_p_row'), bold
+            }
+            if `boldp' != -1 & !missing(`_p_trend') & `_p_trend' < `boldp' & `_trend_row' > 0 {
+                putexcel (B`_trend_row':`lastcol'`_trend_row'), bold
             }
 
             * Column widths via Mata
@@ -394,7 +442,7 @@ capture noisily {
             if "`zebra'" != "" {
                 local _zebracolor "237 242 249"
                 if "$TABTOOLS_ZEBRACOLOR" != "" local _zebracolor "$TABTOOLS_ZEBRACOLOR"
-                forvalues _zr = 4(2)`_total_row' {
+                forvalues _zr = `=`_data_start'+1'(2)`_total_row' {
                     putexcel (B`_zr':`lastcol'`_zr'), fpattern(solid, "`_zebracolor'")
                 }
             }
@@ -406,10 +454,16 @@ capture noisily {
             putexcel clear
         }
         if _rc {
+            local _format_rc = _rc
             capture putexcel clear
-            noisily display as error "Excel formatting failed"
+            noisily display as error "Excel formatting failed with error `_format_rc'"
+            exit `_format_rc'
         }
-
+        capture confirm file "`xlsx'"
+        if _rc {
+            noisily display as error "Export command succeeded but file not found"
+            exit 601
+        }
         noisily display as text "Exported to " as result `"`xlsx'"' as text ", sheet " as result `"`sheet'"'
     }
 
@@ -435,6 +489,6 @@ capture noisily {
 
 } // end capture noisily
     local rc = _rc
-    set varabbrev `_prev_varabbrev'
+    set varabbrev `_orig_varabbrev'
     if `rc' exit `rc'
 end

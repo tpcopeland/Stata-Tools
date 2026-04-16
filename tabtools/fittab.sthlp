@@ -1,5 +1,6 @@
 {smcl}
-{* *! version 1.0.3  13apr2026}{...}
+{* *! version 1.0.4  16apr2026}{...}
+{viewerjumpto "Package overview" "fittab##package"}{...}
 {viewerjumpto "Syntax" "fittab##syntax"}{...}
 {viewerjumpto "Description" "fittab##description"}{...}
 {viewerjumpto "Options" "fittab##options"}{...}
@@ -15,13 +16,22 @@
 
 {pstd}Model comparison table with fit statistics.{p_end}
 
+{marker package}{title:Package}
+
+{pstd}{cmd:fittab} is part of the {helpb tabtools} suite. Use {helpb estimates store}
+to save models first, then compare them with {cmd:fittab}. See {helpb regtab}
+and {helpb effecttab} for related table-formatting commands based on active
+{helpb collect} results.{p_end}
+
+{hline}
+
 {marker syntax}{title:Syntax}
 
 {p 4 8 2}{cmd:fittab} {it:namelist}, [{opt xlsx(filename)} {opt stats(string)}
-{opt lab:els(string)} {opt lr:test(name)}
-{opt sheet(string)} {opt title(string)} {opt sub:title(string)} {opt foot:note(string)}
-{opt the:me(string)} {opt borders:tyle(string)} {opt zebra}
-{opt csv(filename)} {opt fra:me(name)} {opt dis:play} {opt open}]{p_end}
+{opt labels(string)} {opt lrtest(name)} {opt sheet(string)} {opt title(string)}
+{opt subtitle(string)} {opt footnote(string)} {opt theme(string)}
+{opt borderstyle(string)} {opt zebra} {opt csv(filename)} {opt frame(name)}
+{opt display} {opt open}]{p_end}
 
 {pstd}{it:namelist} is a list of stored estimate names (from {helpb estimates store}).{p_end}
 
@@ -33,12 +43,25 @@ and exports them in a formatted table.{p_end}
 
 {marker options}{title:Options}
 
-{synoptset 20 tabbed}{...}
+{synoptset 22 tabbed}{...}
+{synoptline}
+{synopt:{opt xlsx(filename)}}export to Excel; if omitted, results are shown in the Results window only{p_end}
 {synopt:{opt stats(string)}}statistics to report. Default: {cmd:n aic bic ll}.
 Available: {cmd:n aic bic ll cstat r2 adjr2 rmse}{p_end}
-{synopt:{opt lab:els(string)}}model labels separated by backslash{p_end}
-{synopt:{opt lr:test(name)}}LR test each model against this reference{p_end}
-{synopt:{opt sub:title(string)}}subtitle text displayed below the title{p_end}
+{synopt:{opt labels(string)}}model labels separated by backslash ({cmd:\}); otherwise stored estimate names are used{p_end}
+{synopt:{opt lrtest(name)}}likelihood-ratio test each model against this reference model{p_end}
+{synopt:{opt sheet(string)}}Excel sheet name; default is {cmd:"Model Comparison"}{p_end}
+{synopt:{opt title(string)}}table title written above the comparison matrix{p_end}
+{synopt:{opt subtitle(string)}}subtitle text displayed below the title{p_end}
+{synopt:{opt footnote(string)}}footnote text below the table{p_end}
+{synopt:{opt theme(string)}}journal-style formatting theme such as {cmd:lancet}, {cmd:nejm}, {cmd:bmj}, or {cmd:apa}{p_end}
+{synopt:{opt borderstyle(string)}}border style: {cmd:thin}, {cmd:medium}, or {cmd:academic}{p_end}
+{synopt:{opt zebra}}alternating row shading{p_end}
+{synopt:{opt csv(filename)}}also export the comparison table as CSV{p_end}
+{synopt:{opt frame(name)}}store the output dataset in a named Stata frame{p_end}
+{synopt:{opt display}}show the formatted table in the Results window{p_end}
+{synopt:{opt open}}open the Excel file after export{p_end}
+{synoptline}
 
 {marker examples}{title:Examples}
 
@@ -96,6 +119,6 @@ Available: {cmd:n aic bic ll cstat r2 adjr2 rmse}{p_end}
 {pstd}Timothy P Copeland{p_end}
 {pstd}Department of Clinical Neuroscience, Karolinska Institutet{p_end}
 {pstd}timothy.copeland@ki.se{p_end}
-{pstd}Version 1.0.3{p_end}
+{pstd}Version 1.0.4{p_end}
 
 {hline}

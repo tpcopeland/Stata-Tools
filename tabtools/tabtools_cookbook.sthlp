@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.3  13apr2026}{...}
+{* *! version 1.0.4  16apr2026}{...}
 {viewerjumpto "Recipe 1" "tabtools_cookbook##r1"}{...}
 {viewerjumpto "Recipe 2" "tabtools_cookbook##r2"}{...}
 {viewerjumpto "Recipe 3" "tabtools_cookbook##r3"}{...}
@@ -186,7 +186,7 @@ table with custom row ordering.{p_end}
 {phang2}{cmd:regtab, frame(m2) noint}{p_end}
 {phang2}{cmd:}{p_end}
 {phang2}{cmd:* Combine into composite table}{p_end}
-{phang2}{cmd:comptab m1 m2, rows("foreign") ///}{p_end}
+{phang2}{cmd:comptab m1 m2, rownames("foreign \ foreign") ///}{p_end}
 {phang3}{cmd:xlsx(composite.xlsx) sheet("Models") ///}{p_end}
 {phang3}{cmd:title("Table 4. Association with Price (OR, 95% CI)") ///}{p_end}
 {phang3}{cmd:zebra}{p_end}

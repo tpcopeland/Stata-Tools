@@ -1,6 +1,6 @@
 {smcl}
-{* *! version 1.0.3  13apr2026}{...}
-{title:tabtools Quick Reference (v1.0.2)}
+{* *! version 1.0.4  16apr2026}{...}
+{title:tabtools Quick Reference (v1.0.4)}
 
 {pstd}Common option combinations for each command.{p_end}
 
@@ -92,7 +92,7 @@
 
 {phang2}{cmd:regtab, xlsx(comp.xlsx) sheet("S1") frame(f1)}{p_end}
 {phang2}{cmd:regtab, xlsx(comp.xlsx) sheet("S2") frame(f2)}{p_end}
-{phang2}{cmd:comptab f1 f2, xlsx(comp.xlsx) sheet("Combined") labels("Model 1 \ Model 2")}{p_end}
+{phang2}{cmd:comptab f1 f2, rows(1 \ 1) xlsx(comp.xlsx) sheet("Combined")}{p_end}
 
 {hline}
 {title:Author}
@@ -100,6 +100,6 @@
 {pstd}Timothy P Copeland{p_end}
 {pstd}Department of Clinical Neuroscience, Karolinska Institutet{p_end}
 {pstd}timothy.copeland@ki.se{p_end}
-{pstd}Version 1.0.3{p_end}
+{pstd}Version 1.0.4{p_end}
 
 {hline}

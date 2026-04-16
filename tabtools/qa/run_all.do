@@ -23,6 +23,11 @@ foreach f in ///
     test_tabtools_v101.do ///
     test_tabtools_v103.do ///
     test_regression_fixes.do ///
+    test_tabtools_issue_regressions.do ///
+    test_corrtab.do ///
+    test_crosstab.do ///
+    test_diagtab.do ///
+    test_stratetab.do ///
     test_new_commands.do ///
     test_coverage_gaps.do ///
     test_hrtab.do ///
@@ -44,6 +49,7 @@ foreach f in ///
     validation_excel_accuracy.do ///
     validation_output_quality.do ///
     validation_known_answers.do ///
+    validation_tabtools_issue_rendering.do ///
     crossval_tabtools.do ///
 {
     local ++n_files

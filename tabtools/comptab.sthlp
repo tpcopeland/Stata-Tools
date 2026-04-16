@@ -1,10 +1,10 @@
 {smcl}
-{* *! version 1.0.3  13apr2026}{...}
+{* *! version 1.0.4  16apr2026}{...}
 {viewerjumpto "Syntax" "comptab##syntax"}{...}
 {viewerjumpto "Description" "comptab##description"}{...}
 {viewerjumpto "Options" "comptab##options"}{...}
 {viewerjumpto "Examples" "comptab##examples"}{...}
-{viewerjumpto "Stored results" "comptab##results"}{...}
+{viewerjumpto "Stored results" "comptab##stored"}{...}
 {viewerjumpto "Also see" "comptab##alsosee"}{...}
 {vieweralsosee "regtab" "help regtab"}{...}
 {vieweralsosee "effecttab" "help effecttab"}{...}
@@ -214,7 +214,7 @@ smaller than the specified threshold.
 {phang2}{cmd:    theme(lancet)}{p_end}
 
 
-{marker results}{...}
+{marker stored}{...}
 {title:Stored results}
 
 {pstd}
@@ -239,7 +239,7 @@ smaller than the specified threshold.
 {pstd}Timothy P Copeland{p_end}
 {pstd}Department of Clinical Neuroscience, Karolinska Institutet{p_end}
 {pstd}timothy.copeland@ki.se{p_end}
-{pstd}Version 1.0.3{p_end}
+{pstd}Version 1.0.4{p_end}
 
 
 {marker alsosee}{...}

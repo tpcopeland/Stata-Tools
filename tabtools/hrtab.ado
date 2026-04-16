@@ -1,4 +1,4 @@
-*! hrtab Version 1.0.3  2026/04/13
+*! hrtab Version 1.0.4  2026/04/16
 *! Multi-panel hazard ratio table for publication
 *! Author: Timothy P Copeland
 *! Program class: rclass
@@ -20,8 +20,10 @@ SYNTAX:
 
 program define hrtab, rclass
 	version 17.0
-	local _prev_varabbrev = c(varabbrev)
+	local _orig_varabbrev = c(varabbrev)
 	set varabbrev off
+
+	capture noisily {
 
 	* Auto-load shared helper programs if not already in memory
 	capture program list _tabtools_validate_path
@@ -32,12 +34,9 @@ program define hrtab, rclass
 		}
 		else {
 			display as error "_tabtools_common.ado not found; reinstall tabtools"
-			set varabbrev `_prev_varabbrev'
 			exit 111
 		}
 	}
-
-	capture noisily {
 
 	syntax [if] [in] , EXPosure(string) MODel(string) ///
 		[OUTcome(string) TIME(string) FAILValue(string) CENSvalue(integer 0) ///
@@ -82,8 +81,8 @@ program define hrtab, rclass
 		if "$TABTOOLS_DIGITS" != "" local digits = $TABTOOLS_DIGITS
 		else local digits = 2
 	}
-	if `digits' < 1 | `digits' > 4 {
-		noisily display as error "digits() must be between 1 and 4"
+	if `digits' < 0 | `digits' > 6 {
+		noisily display as error "digits() must be between 0 and 6"
 		exit 198
 	}
 
@@ -1361,6 +1360,6 @@ program define hrtab, rclass
 
 	} // end capture noisily
 	local rc = _rc
-	set varabbrev `_prev_varabbrev'
+	set varabbrev `_orig_varabbrev'
 	if `rc' exit `rc'
 end

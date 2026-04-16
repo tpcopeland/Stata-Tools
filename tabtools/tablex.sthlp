@@ -1,10 +1,10 @@
 {smcl}
-{* *! version 1.0.3  13apr2026}{...}
+{* *! version 1.0.4  16apr2026}{...}
 {viewerjumpto "Syntax" "tablex##syntax"}{...}
 {viewerjumpto "Description" "tablex##description"}{...}
 {viewerjumpto "Options" "tablex##options"}{...}
 {viewerjumpto "Examples" "tablex##examples"}{...}
-{viewerjumpto "Stored results" "tablex##results"}{...}
+{viewerjumpto "Stored results" "tablex##stored"}{...}
 {viewerjumpto "Author" "tablex##author"}{...}
 {vieweralsosee "tabtools" "help tabtools"}{...}
 {vieweralsosee "table1_tc" "help table1_tc"}{...}
@@ -127,7 +127,7 @@ one decimal with thousands separator or {cmd:"0.00"} for two decimal places.
 {phang3}{cmd:title("Repair Record x Origin")}{p_end}
 
 
-{marker results}{...}
+{marker stored}{...}
 {title:Stored results}
 
 {pstd}
@@ -151,7 +151,7 @@ one decimal with thousands separator or {cmd:"0.00"} for two decimal places.
 {pstd}Timothy P Copeland{p_end}
 {pstd}Department of Clinical Neuroscience, Karolinska Institutet{p_end}
 {pstd}timothy.copeland@ki.se{p_end}
-{pstd}Version 1.0.3{p_end}
+{pstd}Version 1.0.4{p_end}
 
 {title:Also see}
 

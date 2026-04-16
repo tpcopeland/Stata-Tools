@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.3  13apr2026}{...}
+{* *! version 1.0.4  16apr2026}{...}
 {viewerjumpto "Syntax" "survtab##syntax"}{...}
 {viewerjumpto "Description" "survtab##description"}{...}
 {viewerjumpto "Options" "survtab##options"}{...}
@@ -104,11 +104,11 @@ total at risk for each group at each timepoint (e.g., "12 / 98").{p_end}
 {phang}{opt borders:tyle(string)} border style: {cmd:thin}, {cmd:medium},
 or {cmd:academic}.{p_end}
 
-{phang}{opt boldp(#)} bolds p-values below the specified threshold.{p_end}
+{phang}{opt boldp(#)} bolds the log-rank p-value and log-rank summary row when the log-rank p-value is below the specified threshold. Must be between 0 and 1.{p_end}
 
 {phang}{opt zebra} applies alternating row shading.{p_end}
 
-{phang}{opt high:light(#)} highlights rows where p < threshold.{p_end}
+{phang}{opt high:light(#)} highlights the log-rank summary row when the log-rank p-value is below the specified threshold. Must be between 0 and 1.{p_end}
 
 {phang}{opt dig:its(#)} number of decimal places for survival estimates and
 CIs (default 1, range 0-6).{p_end}
@@ -172,6 +172,6 @@ multiple rows.{p_end}
 {pstd}Timothy P Copeland{p_end}
 {pstd}Department of Clinical Neuroscience, Karolinska Institutet{p_end}
 {pstd}timothy.copeland@ki.se{p_end}
-{pstd}Version 1.0.3{p_end}
+{pstd}Version 1.0.4{p_end}
 
 {hline}

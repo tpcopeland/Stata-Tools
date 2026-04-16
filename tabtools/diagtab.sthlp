@@ -1,5 +1,6 @@
 {smcl}
-{* *! version 1.0.3  13apr2026}{...}
+{* *! version 1.0.4  16apr2026}{...}
+{viewerjumpto "Package overview" "diagtab##package"}{...}
 {viewerjumpto "Syntax" "diagtab##syntax"}{...}
 {viewerjumpto "Description" "diagtab##description"}{...}
 {viewerjumpto "Options" "diagtab##options"}{...}
@@ -15,14 +16,23 @@
 
 {pstd}Diagnostic accuracy table with sensitivity, specificity, and predictive values.{p_end}
 
+{marker package}{title:Package}
+
+{pstd}{cmd:diagtab} is part of the {helpb tabtools} suite. See {helpb crosstab}
+for general 2x2 tables and {helpb corrtab} for matrix-style correlation output.{p_end}
+
+{hline}
+
 {marker syntax}{title:Syntax}
 
 {p 4 8 2}{cmd:diagtab} {it:test_var} {it:gold_var} [{it:if}] [{it:in}],
-[{opt xlsx(filename)} {opt cut:off(#)} {cmdab:cutof:fs(}{it:numlist}{cmd:)} {opt prev:alence(#)}
-{opt ex:act} {opt wil:son} {opt auc} {opt opt:imal} {opt dig:its(#)}
-{opt sheet(string)} {opt title(string)} {opt sub:title(string)}
-{opt foot:note(string)} {opt the:me(string)} {opt borders:tyle(string)}
-{opt csv(filename)} {opt fra:me(name)} {opt dis:play} {opt open}]{p_end}
+[{opt xlsx(filename)} {opt cutoff(#)} {opt cutoffs(numlist)}
+{opt prevalence(#)} {opt exact} {opt wilson} {opt auc} {opt optimal}
+{opt digits(#)} {opt sheet(string)} {opt title(string)} {opt subtitle(string)}
+{opt footnote(string)} {opt theme(string)} {opt borderstyle(string)}
+{opt headercolor(string)} {opt zebracolor(string)} {opt zebra}
+{opt headershade} {opt csv(filename)} {opt frame(name)} {opt display}
+{opt open}]{p_end}
 
 {marker description}{title:Description}
 
@@ -35,44 +45,63 @@ must already be coded 0/1.{p_end}
 
 {marker options}{title:Options}
 
-{dlgtab:Diagnostic}
+{synoptset 24 tabbed}{...}
+{synoptline}
+{syntab:Diagnostic}
+{synopt:{opt cutoff(#)}}dichotomize a continuous test variable at a single threshold{p_end}
+{synopt:{opt cutoffs(numlist)}}evaluate diagnostic accuracy over multiple cutoff values; cannot be combined with {opt cutoff()}, {opt auc}, or {opt optimal}{p_end}
+{synopt:{opt prevalence(#)}}adjust PPV and NPV for a target prevalence between 0 and 1{p_end}
+{synopt:{opt exact}}use Clopper-Pearson exact confidence intervals{p_end}
+{synopt:{opt wilson}}use Wilson score confidence intervals (default){p_end}
+{synopt:{opt auc}}report AUC with 95% CI{p_end}
+{synopt:{opt optimal}}choose the cutoff that maximizes Youden's J index{p_end}
+{synopt:{opt digits(#)}}decimal places for diagnostic measures and confidence intervals; default 1, range 0-6{p_end}
+{syntab:Output}
+{synopt:{opt xlsx(filename)}}export to Excel; if omitted, output is displayed in the Results window only{p_end}
+{synopt:{opt sheet(string)}}Excel sheet name; default is {cmd:"Diagnostics"}{p_end}
+{synopt:{opt csv(filename)}}also export the output dataset as CSV{p_end}
+{synopt:{opt frame(name)}}store the output dataset in a named Stata frame{p_end}
+{synopt:{opt display}}show console output in addition to any file export{p_end}
+{synopt:{opt open}}open the Excel file after export{p_end}
+{syntab:Formatting}
+{synopt:{opt title(string)}}table title{p_end}
+{synopt:{opt subtitle(string)}}subtitle text displayed below the title{p_end}
+{synopt:{opt footnote(string)}}footnote text below the table{p_end}
+{synopt:{opt theme(string)}}journal-style formatting theme such as {cmd:lancet}, {cmd:nejm}, {cmd:bmj}, or {cmd:apa}{p_end}
+{synopt:{opt borderstyle(string)}}border style: {cmd:thin}, {cmd:medium}, or {cmd:academic}{p_end}
+{synopt:{opt headershade}}apply background fill to the header rows{p_end}
+{synopt:{opt headercolor(string)}}custom RGB header color (for example, {cmd:"200 220 240"}){p_end}
+{synopt:{opt zebracolor(string)}}custom RGB zebra stripe color{p_end}
+{synopt:{opt zebra}}alternating row shading{p_end}
+{synoptline}
 
-{phang}{opt cut:off(#)} dichotomize a continuous test variable at this threshold.
+{dlgtab:Diagnostic details}
+
+{phang}{opt cutoff(#)} dichotomize a continuous test variable at this threshold.
 Values >= cutoff are classified as test-positive.{p_end}
 
-{phang}{cmdab:cutof:fs(}{it:numlist}{cmd:)} evaluate diagnostic accuracy at multiple cutoff
+{phang}{opt cutoffs(numlist)} evaluate diagnostic accuracy at multiple cutoff
 values. Produces one row per cutoff showing all metrics. Cannot be combined with
 {opt cutoff()}.{p_end}
 
-{phang}{opt prev:alence(#)} adjust PPV and NPV for a specified prevalence using
+{phang}{opt prevalence(#)} adjust PPV and NPV for a specified prevalence using
 Bayes' theorem. Useful when the study sample prevalence differs from the target population.
 Specify a proportion strictly between 0 and 1.{p_end}
 
-{phang}{opt ex:act} use Clopper-Pearson exact confidence intervals instead of Wilson score.{p_end}
+{phang}{opt exact} use Clopper-Pearson exact confidence intervals instead of Wilson score.{p_end}
 
-{phang}{opt wil:son} use Wilson score confidence intervals (this is the default).{p_end}
+{phang}{opt wilson} use Wilson score confidence intervals (this is the default).{p_end}
 
 {phang}{opt auc} report area under the ROC curve with 95% CI. Cannot be combined
 with {opt cutoffs()}.{p_end}
 
-{phang}{opt opt:imal} find the optimal cutoff that maximizes Youden's J index
+{phang}{opt optimal} find the optimal cutoff that maximizes Youden's J index
 (sensitivity + specificity - 1). Requires a continuous test variable. If
 {opt cutoff()} is omitted, the displayed 2x2 table is evaluated at the optimal cutoff.
 Cannot be combined with {opt cutoffs()}.{p_end}
 
-{phang}{opt dig:its(#)} decimal places for diagnostic measures and CIs
+{phang}{opt digits(#)} decimal places for diagnostic measures and CIs
 (default 1, range 0-6).{p_end}
-
-{dlgtab:Export}
-
-{phang}{opt xlsx(filename)} export to Excel with professional formatting.{p_end}
-
-{phang}{opt csv(filename)} export as CSV file.{p_end}
-
-{phang}{opt fra:me(name)} store the output dataset in a named frame. Specify
-{cmd:frame(name, replace)} to replace an existing frame.{p_end}
-
-{phang}{opt dis:play} show console output (automatic when {opt xlsx()} not specified).{p_end}
 
 {marker examples}{title:Examples}
 
@@ -132,6 +161,6 @@ Cannot be combined with {opt cutoffs()}.{p_end}
 {pstd}Timothy P Copeland{p_end}
 {pstd}Department of Clinical Neuroscience, Karolinska Institutet{p_end}
 {pstd}timothy.copeland@ki.se{p_end}
-{pstd}Version 1.0.3{p_end}
+{pstd}Version 1.0.4{p_end}
 
 {hline}

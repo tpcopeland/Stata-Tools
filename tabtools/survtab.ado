@@ -1,4 +1,4 @@
-*! survtab Version 1.0.3  2026/04/13
+*! survtab Version 1.0.4  2026/04/16
 *! Survival summary table with Kaplan-Meier estimates, medians, and RMST
 *! Author: Timothy P Copeland
 *! Program class: rclass
@@ -30,8 +30,10 @@ SYNTAX:
 
 program define survtab, rclass
     version 17.0
-    local _prev_varabbrev = c(varabbrev)
+    local _orig_varabbrev = c(varabbrev)
     set varabbrev off
+
+capture noisily {
 
     * Auto-load shared helper programs if not already in memory
     capture program list _tabtools_validate_path
@@ -42,12 +44,9 @@ program define survtab, rclass
         }
         else {
             display as error "_tabtools_common.ado not found; reinstall tabtools"
-            set varabbrev `_prev_varabbrev'
             exit 111
         }
     }
-
-capture noisily {
 
 **# Syntax and Validation
     syntax, times(numlist >0) [by(varname) RMST(real 0) MEDian RISKset ///
@@ -114,6 +113,10 @@ capture noisily {
         exit 198
     }
     local has_highlight = `highlight' != -1
+    if `has_highlight' & (`highlight' <= 0 | `highlight' >= 1) {
+        noisily display as error "highlight() must be between 0 and 1"
+        exit 198
+    }
 
     * Difference requires by()
     if "`difference'" != "" & "`by'" == "" {
@@ -253,6 +256,7 @@ capture noisily {
     local logrank_p .
     local logrank_chi2 .
     local logrank_df .
+    local _logrank_row = 0
     if `has_by' {
         qui sts test `groupvar' if _st
         local logrank_chi2 = r(chi2)
@@ -529,6 +533,7 @@ capture noisily {
     if `has_by' & !missing(`logrank_p') {
         local row = `row' + 1
         qui set obs `row'
+        local _logrank_row = `row'
         local _lr_chi2_str = string(`logrank_chi2', "%6.2f")
         local _pmin = 10^(-`pdp')
         local _pfmt_lo = "%`=`pdp'+2'.`pdp'f"
@@ -588,6 +593,25 @@ capture noisily {
     }
 
     local num_rows = _N
+    local _has_subtitle = (`"`subtitle'"' != "")
+    if `_has_subtitle' {
+        tempvar _row_order
+        qui gen long `_row_order' = _n
+        qui replace `_row_order' = `_row_order' + 1 if `_row_order' >= 2
+        qui set obs `=_N+1'
+        qui replace `_row_order' = 2 if missing(`_row_order')
+        qui sort `_row_order'
+        qui replace title = `"`subtitle'"' in 2
+        forvalues _c = 1/`ncols' {
+            qui replace c`_c' = "" in 2
+        }
+        qui drop `_row_order'
+        if `_logrank_row' > 0 local _logrank_row = `_logrank_row' + 1
+        local num_rows = _N
+    }
+    local _header_row = 2 + `_has_subtitle'
+    local _data_start = `_header_row' + 1
+    local _p_value_row = 3 + `_has_subtitle'
 
 **# Build Return Matrix
     * Build r(table): rows = timepoints, cols = groups (survival estimates)
@@ -616,21 +640,21 @@ capture noisily {
 
 **# Console Display
     if !`_has_xlsx' | "`display'" != "" {
-        noisily {
-            if "`subtitle'" != "" {
-                if "`title'" != "" {
+        if `_has_subtitle' {
+            noisily {
+                if `"`title'"' != "" {
                     display as text ""
-                    display as result "`title'"
+                    display as result `"`title'"'
                 }
-                display as text "`subtitle'"
-                _tabtools_console_display `ncols' ""
+                display as text `"`subtitle'"'
             }
-            else {
-                _tabtools_console_display `ncols' `"`title'"'
-            }
-            if "`reverse'" != "" {
-                display as text "Note: 1-KM is shown. For competing risks, use stcrreg-based CIF."
-            }
+            noisily _tabtools_console_display `ncols' "", headerstart(`_header_row') datastart(`_data_start')
+        }
+        else {
+            noisily _tabtools_console_display `ncols' `"`title'"'
+        }
+        if "`reverse'" != "" {
+            noisily display as text "Note: 1-KM is shown. For competing risks, use stcrreg-based CIF."
         }
     }
 
@@ -670,23 +694,26 @@ capture noisily {
 
             * Title row - merge and format
             putexcel (A1:`lastcol'1), merge bold txtwrap left vcenter font("`_font'", `=`_fontsize'+2')
+            if `_has_subtitle' {
+                putexcel (A2:`lastcol'2), merge left vcenter italic font("`_font'", `_fontsize')
+            }
 
             * Header row
-            putexcel (B2:`lastcol'2), border(top, `_hborder') bold hcenter font("`_font'", `_fontsize')
-            putexcel (B2:`lastcol'2), border(bottom, `_hborder')
+            putexcel (B`_header_row':`lastcol'`_header_row'), border(top, `_hborder') bold hcenter font("`_font'", `_fontsize')
+            putexcel (B`_header_row':`lastcol'`_header_row'), border(bottom, `_hborder')
 
             * Header background
             if "`_headershade'" == "1" {
                 local _hdrcolor "219 229 241"
                 if "$TABTOOLS_HEADERCOLOR" != "" local _hdrcolor "$TABTOOLS_HEADERCOLOR"
-                putexcel (B2:`lastcol'2), fpattern(solid, "`_hdrcolor'")
+                putexcel (B`_header_row':`lastcol'`_header_row'), fpattern(solid, "`_hdrcolor'")
             }
 
             * Data font
-            putexcel (A3:`lastcol'`num_rows'), font("`_font'", `_fontsize')
+            putexcel (A`_data_start':`lastcol'`num_rows'), font("`_font'", `_fontsize')
 
             * Center-align data columns (skip first)
-            putexcel (C3:`lastcol'`num_rows'), hcenter
+            putexcel (C`_data_start':`lastcol'`num_rows'), hcenter
 
             * Column widths
             mata: b = xl()
@@ -707,9 +734,22 @@ capture noisily {
             if "`zebra'" != "" {
                 local _zebracolor "237 242 249"
                 if "$TABTOOLS_ZEBRACOLOR" != "" local _zebracolor "$TABTOOLS_ZEBRACOLOR"
-                forvalues _zr = 4(2)`num_rows' {
+                forvalues _zr = `=`_data_start'+1'(2)`num_rows' {
                     putexcel (B`_zr':`lastcol'`_zr'), fpattern(solid, "`_zebracolor'")
                 }
+            }
+
+            if `has_boldp' & `has_by' & !missing(`logrank_p') & `logrank_p' < `boldp' {
+                if `_p_col' > 0 {
+                    local _excel_p_col : word `=`_p_col' + 1' of `letters'
+                    putexcel `_excel_p_col'`_p_value_row', bold
+                }
+                if `_logrank_row' > 0 {
+                    putexcel (B`_logrank_row':`lastcol'`_logrank_row'), bold
+                }
+            }
+            if `has_highlight' & `has_by' & !missing(`logrank_p') & `logrank_p' < `highlight' & `_logrank_row' > 0 {
+                putexcel (B`_logrank_row':`lastcol'`_logrank_row'), fpattern(solid, "255 255 204")
             }
 
             * Footnote
@@ -729,7 +769,8 @@ capture noisily {
 
         capture confirm file "`xlsx'"
         if _rc {
-            noisily display as error "Warning: expected output file not found"
+            noisily display as error "Export command succeeded but file not found"
+            exit 601
         }
         else {
             noisily display as text "Exported to " as result `"`xlsx'"' as text ", sheet " as result `"`sheet'"'
@@ -798,6 +839,6 @@ capture noisily {
 
 } // end capture noisily
     local rc = _rc
-    set varabbrev `_prev_varabbrev'
+    set varabbrev `_orig_varabbrev'
     if `rc' exit `rc'
 end

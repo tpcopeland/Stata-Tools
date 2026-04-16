@@ -1,16 +1,17 @@
-*! stratetab Version 1.0.3  2026/04/13
+*! stratetab Version 1.0.4  2026/04/16
 *! Author: Timothy P Copeland
 
 /*
 DESCRIPTION:
-	Combines pre-computed strate output files, exports to Excel with outcomes 
-	as column groups and exposure variables as rows.
+		Combines pre-computed strate output files and formats them with outcomes
+		as column groups and exposure variables as rows. Output can be displayed,
+		stored in a frame, exported to CSV, or exported to Excel.
 
-SYNTAX:
-	stratetab, using(filelist) xlsx(string) outcomes(integer) [sheet(string) ///
-	  title(string) outlabels(string) explabels(string) digits(integer 1) ///
-	  eventdigits(integer 0) pydigits(integer 0) unitlabel(string) ///
-	  pyscale(real 1) ratescale(real 1000)]
+	SYNTAX:
+		stratetab, using(filelist) [xlsx(string)] outcomes(integer) [sheet(string) ///
+		  title(string) outlabels(string) explabels(string) digits(integer 1) ///
+		  eventdigits(integer 0) pydigits(integer 0) unitlabel(string) ///
+		  pyscale(real 1) ratescale(real 1000) frame(name) display]
 
 	using:       Space-separated list of strate output files (.dta extension added automatically)
 	             Format: out1_exp1 out2_exp1 out3_exp1 out1_exp2 out2_exp2 out3_exp2 ...
@@ -31,22 +32,8 @@ SYNTAX:
 
 program define stratetab, rclass
 	version 17.0
-	local _prev_varabbrev = c(varabbrev)
+	local _orig_varabbrev = c(varabbrev)
 	set varabbrev off
-
-* Auto-load shared helper programs if not already in memory
-capture program list _tabtools_validate_path
-if _rc {
-	capture findfile _tabtools_common.ado
-	if _rc == 0 {
-		run "`r(fn)'"
-	}
-	else {
-		display as error "_tabtools_common.ado not found; reinstall tabtools"
-		set varabbrev `_prev_varabbrev'
-		exit 111
-	}
-}
 
 tempfile _userdata_outer
 local _userdata_path "`_userdata_outer'"
@@ -59,6 +46,19 @@ if !_rc {
 
 capture noisily {
 
+* Auto-load shared helper programs if not already in memory
+capture program list _tabtools_validate_path
+if _rc {
+	capture findfile _tabtools_common.ado
+	if _rc == 0 {
+		run "`r(fn)'"
+	}
+	else {
+		display as error "_tabtools_common.ado not found; reinstall tabtools"
+		exit 111
+	}
+}
+
 if "`_byvars'" != "" {
 	di as err "stratetab may not be combined with by:"
 	exit 190
@@ -70,23 +70,27 @@ syntax, using(string asis) [xlsx(string) excel(string)] outcomes(integer) ///
 	unitlabel(string) pyscale(real 1) ratescale(real 1000) ///
 	rateratio RATIOdigits(integer 2) FOOTnote(string) open zebra ///
 	BORDERstyle(string) THEme(string) HEADERShade ///
-	HEADERColor(string) ZEBRAColor(string) csv(string)]
+	HEADERColor(string) ZEBRAColor(string) csv(string) FRAme(string) DISplay]
 
 * Accept excel() as synonym for xlsx()
 if "`xlsx'" == "" & "`excel'" != "" local xlsx "`excel'"
-if "`xlsx'" == "" {
-	di as err "xlsx() or excel() is required"
-	di as err "Hint: specify {bf:xlsx(myfile.xlsx)} to set the output file"
+local _has_xlsx = "`xlsx'" != ""
+if !`_has_xlsx' & "`csv'" == "" & `"`frame'"' == "" & "`display'" == "" {
+	local display "display"
+}
+if "`open'" != "" & !`_has_xlsx' {
+	di as err "open requires xlsx() or excel()"
 	exit 198
 }
 
-if !strmatch("`xlsx'", "*.xlsx") {
+if `_has_xlsx' & !strmatch("`xlsx'", "*.xlsx") {
 	di as err "xlsx must have .xlsx extension"
 	exit 198
 }
 
 * Sanitize file path and sheet name to prevent injection
-_tabtools_validate_path "`xlsx'" "xlsx()"
+if `_has_xlsx' _tabtools_validate_path "`xlsx'" "xlsx()"
+if "`csv'" != "" _tabtools_validate_path "`csv'" "csv()"
 if "`sheet'" != "" {
 	_tabtools_validate_sheet "`sheet'" "sheet()"
 }
@@ -494,127 +498,146 @@ if "`csv'" != "" {
 	export delimited using "`csv'", replace
 }
 
-* Export to Excel
 local sht = cond("`sheet'" != "", "`sheet'", "Results")
 _tabtools_validate_sheet "`sht'" "sheet()"
-order title c*
-export excel using "`xlsx'", sheet("`sht'") sheetreplace
-
-* Apply formatting with mata
-clear
-capture {
-	mata: b = xl()
-	mata: b.load_book("`xlsx'")
-	mata: b.set_sheet("`sht'")
-	mata: b.set_row_height(1,1,30)
-	mata: b.set_column_width(1,1,1)
-	mata: b.set_column_width(2,2,18)
-
-	* Set data column widths based on row 3 header content
-	forvalues col = 3/`=`ncols'+1' {
-		mata: st_local("_hdr", b.get_string(3, `col'))
-		local _hdrlen = strlen("`_hdr'")
-		local _cw = max(8, `_hdrlen' + 2)
-		mata: b.set_column_width(`col', `col', `_cw')
-	}
-	mata: b.close_book()
+* Console display
+if !`_has_xlsx' | "`display'" != "" {
+	noisily _tabtools_console_display `ncols' `"`title'"', datastart(4)
 }
-if _rc {
-	local saved_rc = _rc
-	capture mata: b.close_book()
-	capture mata: mata drop b
-	noi di as err "Excel formatting (Mata) failed with error `saved_rc'"
-	noi di as err "Hint: ensure the xlsx file is not open in another application"
-	exit `saved_rc'
+
+* Frame output
+if `"`frame'"' != "" {
+	_tabtools_frame_put `"`frame'"'
+	local frame "`_frame_name'"
 }
-capture mata: mata drop b
 
-* Apply borders and formatting with putexcel
-capture {
-	putexcel set "`xlsx'", sheet("`sht'") modify
-
-	* Column letters
-	_tabtools_build_col_letters `=`ncols'+1'
-	local letters "`result'"
-	local lastcol : word `=`ncols'+1' of `letters'
-
-	* Title row - merge and format
-	putexcel (A1:`lastcol'1), merge bold txtwrap left vcenter font("`_font'",`=`_fontsize'+2')
-
-	* Header rows
-	putexcel (B2:`lastcol'2), border(top,`_hborder')
-	putexcel (B3:`lastcol'3), border(bottom,`_hborder')
-
-	* Merge outcome headers
-	local col = 3
-	forvalues o = 1/`outcomes' {
-		local col1 : word `col' of `letters'
-		local col_end : word `=`col'+`_cols_per_outcome'-1' of `letters'
-		putexcel (`col1'2:`col_end'2), merge bold hcenter top border(bottom,`_hborder')
-		local col = `col' + `_cols_per_outcome'
+* Export to Excel
+if `_has_xlsx' {
+	order title c*
+	capture export excel using "`xlsx'", sheet("`sht'") sheetreplace
+	if _rc {
+		local saved_rc = _rc
+		noi di as err "Failed to export to `xlsx'"
+		noi di as err "Hint: ensure the xlsx file is not open in another application"
+		exit `saved_rc'
 	}
 
-	* Merge Exposure cell across rows 2-3
-	putexcel (B2:B3), merge bold hcenter vcenter border(bottom,`_hborder')
+	* Apply formatting with mata
+	clear
+	capture {
+		mata: b = xl()
+		mata: b.load_book("`xlsx'")
+		mata: b.set_sheet("`sht'")
+		mata: b.set_row_height(1,1,30)
+		mata: b.set_column_width(1,1,1)
+		mata: b.set_column_width(2,2,18)
 
-	* Row 3 formatting
-	putexcel (C3:`lastcol'3), bold hcenter vcenter
-
-	* Header background
-	if "`headershade'" != "" {
-		putexcel (B2:`lastcol'3), fpattern(solid, "`_headercolor'")
-	}
-
-	* Zebra striping (O3)
-	if "`zebra'" != "" {
-		forvalues _zr = 5(2)`lastrow' {
-			putexcel (B`_zr':`lastcol'`_zr'), fpattern(solid, "`_zebracolor'")
+		* Set data column widths based on row 3 header content
+		forvalues col = 3/`=`ncols'+1' {
+			mata: st_local("_hdr", b.get_string(3, `col'))
+			local _hdrlen = strlen("`_hdr'")
+			local _cw = max(8, `_hdrlen' + 2)
+			mata: b.set_column_width(`col', `col', `_cw')
 		}
+		mata: b.close_book()
 	}
+	if _rc {
+		local saved_rc = _rc
+		capture mata: b.close_book()
+		capture mata: mata drop b
+		noi di as err "Excel formatting (Mata) failed with error `saved_rc'"
+		noi di as err "Hint: ensure the xlsx file is not open in another application"
+		exit `saved_rc'
+	}
+	capture mata: mata drop b
 
-	* Font for all data (W4 integration)
-	putexcel (B2:`lastcol'`lastrow'), font("`_font'",`_fontsize')
+	* Apply borders and formatting with putexcel
+	capture {
+		putexcel set "`xlsx'", sheet("`sht'") modify
 
-	* Center-align data columns
-	putexcel (C4:`lastcol'`lastrow'), hcenter
+		* Column letters
+		_tabtools_build_col_letters `=`ncols'+1'
+		local letters "`result'"
+		local lastcol : word `=`ncols'+1' of `letters'
 
-	* Vertical borders between outcome groups
-	if "`borderstyle'" != "academic" {
-		putexcel (B2:B`lastrow'), border(left,`borderstyle')
-		putexcel (B2:B`lastrow'), border(right,`borderstyle')
+		* Title row - merge and format
+		putexcel (A1:`lastcol'1), merge bold txtwrap left vcenter font("`_font'",`=`_fontsize'+2')
 
+		* Header rows
+		putexcel (B2:`lastcol'2), border(top,`_hborder')
+		putexcel (B3:`lastcol'3), border(bottom,`_hborder')
+
+		* Merge outcome headers
 		local col = 3
 		forvalues o = 1/`outcomes' {
+			local col1 : word `col' of `letters'
 			local col_end : word `=`col'+`_cols_per_outcome'-1' of `letters'
-			putexcel (`col_end'2:`col_end'`lastrow'), border(right,`borderstyle')
+			putexcel (`col1'2:`col_end'2), merge bold hcenter top border(bottom,`_hborder')
 			local col = `col' + `_cols_per_outcome'
 		}
-	}
 
-	* Horizontal borders between exposure groups (at bottom of each group)
-	foreach r of local exp_rows {
-		local border_row = `r' - 1
-		if `border_row' > 3 {
-			putexcel (B`border_row':`lastcol'`border_row'), border(bottom,`_hborder')
+		* Merge Exposure cell across rows 2-3
+		putexcel (B2:B3), merge bold hcenter vcenter border(bottom,`_hborder')
+
+		* Row 3 formatting
+		putexcel (C3:`lastcol'3), bold hcenter vcenter
+
+		* Header background
+		if "`headershade'" != "" {
+			putexcel (B2:`lastcol'3), fpattern(solid, "`_headercolor'")
 		}
+
+		* Zebra striping (O3)
+		if "`zebra'" != "" {
+			forvalues _zr = 5(2)`lastrow' {
+				putexcel (B`_zr':`lastcol'`_zr'), fpattern(solid, "`_zebracolor'")
+			}
+		}
+
+		* Font for all data (W4 integration)
+		putexcel (B2:`lastcol'`lastrow'), font("`_font'",`_fontsize')
+
+		* Center-align data columns
+		putexcel (C4:`lastcol'`lastrow'), hcenter
+
+		* Vertical borders between outcome groups
+		if "`borderstyle'" != "academic" {
+			putexcel (B2:B`lastrow'), border(left,`borderstyle')
+			putexcel (B2:B`lastrow'), border(right,`borderstyle')
+
+			local col = 3
+			forvalues o = 1/`outcomes' {
+				local col_end : word `=`col'+`_cols_per_outcome'-1' of `letters'
+				putexcel (`col_end'2:`col_end'`lastrow'), border(right,`borderstyle')
+				local col = `col' + `_cols_per_outcome'
+			}
+		}
+
+		* Horizontal borders between exposure groups (at bottom of each group)
+		foreach r of local exp_rows {
+			local border_row = `r' - 1
+			if `border_row' > 3 {
+				putexcel (B`border_row':`lastcol'`border_row'), border(bottom,`_hborder')
+			}
+		}
+
+		* Bottom border
+		putexcel (B`lastrow':`lastcol'`lastrow'), border(bottom,`_hborder')
+
+		* Footnote (F2)
+		if `"`footnote'"' != "" {
+			_tabtools_footnote `"`footnote'"' "`lastcol'" `lastrow' "`_font'" `_fontsize'
+		}
+
+		putexcel clear
 	}
-
-	* Bottom border
-	putexcel (B`lastrow':`lastcol'`lastrow'), border(bottom,`_hborder')
-
-	* Footnote (F2)
-	if `"`footnote'"' != "" {
-		_tabtools_footnote `"`footnote'"' "`lastcol'" `lastrow' "`_font'" `_fontsize'
+	if _rc {
+		local saved_rc = _rc
+		capture putexcel clear
+		noi di as err "Excel cell formatting failed with error `saved_rc'"
+		noi di as err "Hint: ensure the xlsx file is not open in another application"
+		exit `saved_rc'
 	}
-
-	putexcel clear
-}
-if _rc {
-	local saved_rc = _rc
-	capture putexcel clear
-	noi di as err "Excel cell formatting failed with error `saved_rc'"
-	noi di as err "Hint: ensure the xlsx file is not open in another application"
-	exit `saved_rc'
 }
 
 * Restore user data
@@ -700,30 +723,36 @@ if `_total_cats' > 0 & `_total_cats' <= 200 {
 if "`rateratio'" != "" & `n_exposures' >= 2 {
 	capture return matrix ratios = `_rratios'
 }
-return local xlsx "`xlsx'"
-return local sheet "`sht'"
+if `_has_xlsx' {
+	return local xlsx "`xlsx'"
+	return local sheet "`sht'"
+}
+if "`frame'" != "" return local frame "`frame'"
 return scalar N_rows = `lastrow'
 return scalar N_exposures = `n_exposures'
 return scalar N_outcomes = `outcomes'
 
 }
 
-capture confirm file "`xlsx'"
-if _rc {
-    noisily display as error "Warning: expected output file not found"
-}
-else {
-    di as txt "Exported to `xlsx'"
+if `_has_xlsx' {
+	capture confirm file "`xlsx'"
+	if _rc {
+	    noisily display as error "Export command succeeded but file not found"
+	    exit 601
+	}
+	else {
+	    di as txt "Exported to `xlsx'"
+	}
 }
 
 * Open file if requested (W3)
-if "`open'" != "" _tabtools_open_file "`xlsx'"
+if "`open'" != "" & `_has_xlsx' _tabtools_open_file "`xlsx'"
 
 } // end capture noisily
 local _rc = _rc
 if `_rc' {
     capture qui use "`_userdata_path'", clear
 }
-set varabbrev `_prev_varabbrev'
+set varabbrev `_orig_varabbrev'
 if `_rc' exit `_rc'
 end
