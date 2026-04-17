@@ -35,6 +35,7 @@ capture noisily {
     sysuse auto, clear
     stratetab, using("`rate1'") outcomes(1) display
     assert r(N_rows) >= 6
+    capture erase "`rate1'.dta"
 }
 if _rc == 0 {
     display as result "  PASS: stratetab display without xlsx()"
@@ -67,6 +68,7 @@ capture noisily {
     stratetab, using("`rate1'") outcomes(1) frame(issue_rates, replace)
     assert r(frame) == "issue_rates"
     frame issue_rates: assert _N >= 6
+    capture erase "`rate1'.dta"
 }
 if _rc == 0 {
     display as result "  PASS: stratetab frame() without xlsx()"
@@ -100,6 +102,7 @@ capture noisily {
     stratetab, using("`rate1'") outcomes(1) frame(issue_rates2, replace) display
     assert r(frame) == "issue_rates2"
     frame issue_rates2: assert _N >= 6
+    capture erase "`rate1'.dta"
 }
 if _rc == 0 {
     display as result "  PASS: stratetab display + frame() without xlsx()"
@@ -131,6 +134,7 @@ capture noisily {
     sysuse auto, clear
     capture stratetab, using("`rate1'") outcomes(1) open
     assert _rc == 198
+    capture erase "`rate1'.dta"
 }
 if _rc == 0 {
     display as result "  PASS: stratetab open requires xlsx()"

@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.4  16apr2026}{...}
+{* *! version 1.0.5  17apr2026}{...}
 {viewerjumpto "Package overview" "fittab##package"}{...}
 {viewerjumpto "Syntax" "fittab##syntax"}{...}
 {viewerjumpto "Description" "fittab##description"}{...}
@@ -29,7 +29,7 @@ and {helpb effecttab} for related table-formatting commands based on active
 
 {p 4 8 2}{cmd:fittab} {it:namelist}, [{opt xlsx(filename)} {opt stats(string)}
 {opt labels(string)} {opt lrtest(name)} {opt sheet(string)} {opt title(string)}
-{opt subtitle(string)} {opt footnote(string)} {opt theme(string)}
+{opt footnote(string)} {opt theme(string)}
 {opt borderstyle(string)} {opt zebra} {opt csv(filename)} {opt frame(name)}
 {opt display} {opt open}]{p_end}
 
@@ -52,7 +52,6 @@ Available: {cmd:n aic bic ll cstat r2 adjr2 rmse}{p_end}
 {synopt:{opt lrtest(name)}}likelihood-ratio test each model against this reference model{p_end}
 {synopt:{opt sheet(string)}}Excel sheet name; default is {cmd:"Model Comparison"}{p_end}
 {synopt:{opt title(string)}}table title written above the comparison matrix{p_end}
-{synopt:{opt subtitle(string)}}subtitle text displayed below the title{p_end}
 {synopt:{opt footnote(string)}}footnote text below the table{p_end}
 {synopt:{opt theme(string)}}journal-style formatting theme such as {cmd:lancet}, {cmd:nejm}, {cmd:bmj}, or {cmd:apa}{p_end}
 {synopt:{opt borderstyle(string)}}border style: {cmd:thin}, {cmd:medium}, or {cmd:academic}{p_end}
@@ -119,6 +118,6 @@ Available: {cmd:n aic bic ll cstat r2 adjr2 rmse}{p_end}
 {pstd}Timothy P Copeland{p_end}
 {pstd}Department of Clinical Neuroscience, Karolinska Institutet{p_end}
 {pstd}timothy.copeland@ki.se{p_end}
-{pstd}Version 1.0.4{p_end}
+{pstd}Version 1.0.5{p_end}
 
 {hline}

@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.4  16apr2026}{...}
+{* *! version 1.0.5  17apr2026}{...}
 {viewerjumpto "Syntax" "table1_tc##syntax"}{...}
 {viewerjumpto "Description" "table1_tc##description"}{...}
 {viewerjumpto "Examples" "table1_tc##examples"}{...}
@@ -237,7 +237,7 @@ classifications for publishable tables.{p_end}
 {pstd}Timothy P Copeland{p_end}
 {pstd}Department of Clinical Neuroscience, Karolinska Institutet{p_end}
 {pstd}timothy.copeland@ki.se{p_end}
-{pstd}Version 1.0.4{p_end}
+{pstd}Version 1.0.5{p_end}
 
 {title:Also see}
 

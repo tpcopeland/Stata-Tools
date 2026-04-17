@@ -1,4 +1,4 @@
-*! survtab Version 1.0.4  2026/04/16
+*! survtab Version 1.0.5  2026/04/17
 *! Survival summary table with Kaplan-Meier estimates, medians, and RMST
 *! Author: Timothy P Copeland
 *! Program class: rclass
@@ -13,7 +13,7 @@ DESCRIPTION:
 SYNTAX:
     survtab, times(numlist) [by(varname) rmst(real) median riskset
         timeunit(string) reverse difference
-        xlsx(filename) sheet(string) title(string) subtitle(string)
+        xlsx(filename) sheet(string) title(string)
         footnote(string) theme(string) borderstyle(string)
         boldp(real) zebra highlight(real)
         csv(filename) frame(name) display open]
@@ -51,7 +51,7 @@ capture noisily {
 **# Syntax and Validation
     syntax, times(numlist >0) [by(varname) RMST(real 0) MEDian RISKset ///
         TIMEUnit(string) REVerse DIFFerence EVents ///
-        xlsx(string) excel(string) sheet(string) title(string) SUBtitle(string) ///
+        xlsx(string) excel(string) sheet(string) title(string) ///
         FOOTnote(string) THEme(string) BORDERstyle(string) ///
         BOLDp(real -1) zebra HIGHlight(real -1) DIGits(integer -1) ///
         csv(string) FRAme(string) DISplay open pdp(integer -1) highpdp(integer -1) ///
@@ -593,25 +593,9 @@ capture noisily {
     }
 
     local num_rows = _N
-    local _has_subtitle = (`"`subtitle'"' != "")
-    if `_has_subtitle' {
-        tempvar _row_order
-        qui gen long `_row_order' = _n
-        qui replace `_row_order' = `_row_order' + 1 if `_row_order' >= 2
-        qui set obs `=_N+1'
-        qui replace `_row_order' = 2 if missing(`_row_order')
-        qui sort `_row_order'
-        qui replace title = `"`subtitle'"' in 2
-        forvalues _c = 1/`ncols' {
-            qui replace c`_c' = "" in 2
-        }
-        qui drop `_row_order'
-        if `_logrank_row' > 0 local _logrank_row = `_logrank_row' + 1
-        local num_rows = _N
-    }
-    local _header_row = 2 + `_has_subtitle'
+    local _header_row = 2
     local _data_start = `_header_row' + 1
-    local _p_value_row = 3 + `_has_subtitle'
+    local _p_value_row = 3
 
 **# Build Return Matrix
     * Build r(table): rows = timepoints, cols = groups (survival estimates)
@@ -640,19 +624,7 @@ capture noisily {
 
 **# Console Display
     if !`_has_xlsx' | "`display'" != "" {
-        if `_has_subtitle' {
-            noisily {
-                if `"`title'"' != "" {
-                    display as text ""
-                    display as result `"`title'"'
-                }
-                display as text `"`subtitle'"'
-            }
-            noisily _tabtools_console_display `ncols' "", headerstart(`_header_row') datastart(`_data_start')
-        }
-        else {
-            noisily _tabtools_console_display `ncols' `"`title'"'
-        }
+        noisily _tabtools_console_display `ncols' `"`title'"'
         if "`reverse'" != "" {
             noisily display as text "Note: 1-KM is shown. For competing risks, use stcrreg-based CIF."
         }
@@ -694,9 +666,6 @@ capture noisily {
 
             * Title row - merge and format
             putexcel (A1:`lastcol'1), merge bold txtwrap left vcenter font("`_font'", `=`_fontsize'+2')
-            if `_has_subtitle' {
-                putexcel (A2:`lastcol'2), merge left vcenter italic font("`_font'", `_fontsize')
-            }
 
             * Header row
             putexcel (B`_header_row':`lastcol'`_header_row'), border(top, `_hborder') bold hcenter font("`_font'", `_fontsize')

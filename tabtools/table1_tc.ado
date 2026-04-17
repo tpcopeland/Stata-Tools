@@ -1,4 +1,4 @@
-*! table1_tc Version 1.0.4  2026/04/16 - Descriptive Statistics Table Generator
+*! table1_tc Version 1.0.5  2026/04/17 - Descriptive Statistics Table Generator
 *! Author: Timothy P Copeland
 *! Fork of -table1_mc- version 3.5 (2024-12-19) by Mark Chatfield
 *! This program generates descriptive statistics tables with formatting options
@@ -6,7 +6,7 @@
 
 program define table1_tc, rclass
     version 16.0
-    local _prev_varabbrev = c(varabbrev)
+    local _orig_varabbrev = c(varabbrev)
     set varabbrev off
 
     * Auto-load shared helper programs if not already in memory
@@ -18,7 +18,7 @@ program define table1_tc, rclass
         }
         else {
             display as error "_tabtools_common.ado not found; reinstall tabtools"
-            set varabbrev `_prev_varabbrev'
+            set varabbrev `_orig_varabbrev'
             exit 111
         }
     }
@@ -2647,6 +2647,6 @@ program define table1_tc, rclass
 
     } // end capture noisily
     local _rc = _rc
-    set varabbrev `_prev_varabbrev'
+    set varabbrev `_orig_varabbrev'
     if `_rc' exit `_rc'
 end

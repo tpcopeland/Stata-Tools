@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.4  16apr2026}{...}
+{* *! version 1.0.5  17apr2026}{...}
 {viewerjumpto "Syntax" "crosstab##syntax"}{...}
 {viewerjumpto "Description" "crosstab##description"}{...}
 {viewerjumpto "Options" "crosstab##options"}{...}
@@ -20,7 +20,7 @@
 [{opt xlsx(filename)} {opt col:pct} {opt row:pct} {opt total:pct}
 {opt or} {opt rr} {opt rd} {opt tr:end} {opt ex:act} {opt fi:sher}
 {opt lab:el} {opt mis:sing} {opt dig:its(#)}
-{opt sheet(string)} {opt title(string)} {opt sub:title(string)} {opt foot:note(string)}
+{opt sheet(string)} {opt title(string)} {opt foot:note(string)}
 {opt the:me(string)} {opt borders:tyle(string)} {opt boldp(#)} {opt zebra}
 {opt csv(filename)} {opt fra:me(name)} {opt dis:play} {opt open}]{p_end}
 
@@ -47,7 +47,6 @@ and a Spearman rank-correlation trend test.{p_end}
 {synopt:{opt mis:sing}}include missing values{p_end}
 {synopt:{opt dig:its(#)}}decimal places for percentages and association measures (default 1, range 0-6){p_end}
 {synopt:{opt boldp(#)}}bold test and trend rows when p-values fall below the threshold; must be between 0 and 1{p_end}
-{synopt:{opt sub:title(string)}}subtitle text displayed below the title{p_end}
 
 {marker examples}{title:Examples}
 
@@ -86,6 +85,6 @@ and a Spearman rank-correlation trend test.{p_end}
 {pstd}Timothy P Copeland{p_end}
 {pstd}Department of Clinical Neuroscience, Karolinska Institutet{p_end}
 {pstd}timothy.copeland@ki.se{p_end}
-{pstd}Version 1.0.4{p_end}
+{pstd}Version 1.0.5{p_end}
 
 {hline}

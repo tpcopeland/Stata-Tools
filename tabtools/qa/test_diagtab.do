@@ -114,7 +114,7 @@ capture noisily {
     replace test = 1 in 51/70
 
     capture frame drop diag_frame
-    diagtab test gold, frame(diag_frame, replace) display subtitle("Validation sample")
+    diagtab test gold, frame(diag_frame, replace) display
     assert "`r(frame)'" == "diag_frame"
     frame diag_frame: assert _N >= 10
 }

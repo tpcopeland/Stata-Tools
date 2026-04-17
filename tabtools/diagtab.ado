@@ -1,4 +1,4 @@
-*! diagtab Version 1.0.4  2026/04/16
+*! diagtab Version 1.0.5  2026/04/17
 *! Diagnostic accuracy table
 *! Author: Timothy P Copeland
 *! Program class: rclass
@@ -13,7 +13,7 @@ SYNTAX:
     diagtab test_var gold_var [if] [in], xlsx(filename)
         [cutoff(real) cutoffs(numlist) prevalence(real) exact wilson
         auc optimal
-        sheet(string) title(string) subtitle(string)
+        sheet(string) title(string)
         footnote(string) theme(string) borderstyle(string)
         csv(filename) frame(name) display open]
 */
@@ -45,7 +45,7 @@ capture noisily {
         PREValence(real -1) EXact WILson ///
         AUC OPTimal ///
         DIGits(integer -1) ///
-        title(string) SUBtitle(string) ///
+        title(string) ///
         FOOTnote(string) THEme(string) BORDERstyle(string) ///
         HEADERColor(string) ZEBRAColor(string) ZEBra HEADERShade ///
         csv(string) FRAme(string) DISplay open]
@@ -628,51 +628,13 @@ capture noisily {
     local num_cols = `out_ncols' + 1
     } // end single-cutoff else
 
-    local _has_subtitle = (`"`subtitle'"' != "")
-    if `_has_subtitle' {
-        tempvar _row_order
-        qui gen long `_row_order' = _n
-        qui replace `_row_order' = `_row_order' + 1 if `_row_order' >= 2
-        qui set obs `=_N+1'
-        qui replace `_row_order' = 2 if missing(`_row_order')
-        qui sort `_row_order'
-        qui replace title = `"`subtitle'"' in 2
-        forvalues _c = 1/`out_ncols' {
-            qui replace c`_c' = "" in 2
-        }
-        qui drop `_row_order'
-        if `_is_multicut' {
-            local _header_row = `_header_row' + 1
-            local _section_rows_shift ""
-            foreach _sr of local _section_rows {
-                local _section_rows_shift "`_section_rows_shift' `=`_sr'+1'"
-            }
-            local _section_rows "`_section_rows_shift'"
-        }
-        else {
-            local _measures_row = `_measures_row' + 1
-        }
-        local num_rows = _N
-    }
-    local _console_header_row = 2 + `_has_subtitle'
-    local _console_data_start = 3 + `_has_subtitle'
-    local _top_header_row = 2 + `_has_subtitle'
+    local _console_header_row = 2
+    local _console_data_start = 3
+    local _top_header_row = 2
 
 **# Console Display
     if !`_has_xlsx' | "`display'" != "" {
-        if `_has_subtitle' {
-            noisily {
-                if `"`title'"' != "" {
-                    display as text ""
-                    display as result `"`title'"'
-                }
-                display as text `"`subtitle'"'
-            }
-            noisily _tabtools_console_display `out_ncols' "", headerstart(`_console_header_row') datastart(`_console_data_start')
-        }
-        else {
-            noisily _tabtools_console_display `out_ncols' `"`title'"'
-        }
+        noisily _tabtools_console_display `out_ncols' `"`title'"'
     }
 
 **# CSV/Frame/Excel Export
@@ -703,9 +665,6 @@ capture noisily {
             local lastcol : word `num_cols' of `letters'
 
             putexcel (A1:`lastcol'1), merge bold txtwrap left vcenter font("`_font'", `=`_fontsize'+2')
-            if `_has_subtitle' {
-                putexcel (A2:`lastcol'2), merge left vcenter italic font("`_font'", `_fontsize')
-            }
             putexcel (B`_top_header_row':`lastcol'`num_rows'), font("`_font'", `_fontsize')
             if `_is_multicut' {
                 putexcel (B`_header_row':`lastcol'`_header_row'), bold hcenter border(bottom, `_hborder')
@@ -763,8 +722,11 @@ capture noisily {
             mata: mata drop b
         }
         if _rc {
+            local _format_rc = _rc
             capture putexcel clear
             capture mata: mata drop b
+            noisily display as error "Excel formatting failed with error `_format_rc'"
+            exit `_format_rc'
         }
         capture confirm file "`xlsx'"
         if _rc {

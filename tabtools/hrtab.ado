@@ -1,4 +1,4 @@
-*! hrtab Version 1.0.4  2026/04/16
+*! hrtab Version 1.0.5  2026/04/17
 *! Multi-panel hazard ratio table for publication
 *! Author: Timothy P Copeland
 *! Program class: rclass
@@ -45,7 +45,7 @@ program define hrtab, rclass
 		EFFect(string) NOPYtime NOEVents PValue DIGits(integer -1) ///
 		PYDigits(integer -1) PYSCale(real 1) Level(cilevel) NOLog DOTS ///
 		OUTLabels(string) EXPLabels(string) MODELLabels(string) REFLabel(string) ///
-		xlsx(string) excel(string) sheet(string) title(string) SUBtitle(string) ///
+		xlsx(string) excel(string) sheet(string) title(string) ///
 		FOOTnote(string) THEme(string) BORDERstyle(string) open zebra ///
 		HEADERShade HEADERColor(string) ZEBRAColor(string) ///
 		BOLDp(real -1) HIGHlight(real -1) csv(string) FRAme(string) ///
@@ -867,15 +867,8 @@ program define hrtab, rclass
 		quietly replace labelvar = "`title'" in 1
 	}
 
-	* --- Row 2: Subtitle (or blank) ---
+	* --- Row 2: Outcome group headers ---
 	local _row = 2
-	if "`subtitle'" != "" {
-		quietly set obs `_row'
-		quietly replace labelvar = "`subtitle'" in `_row'
-	}
-
-	* --- Row 3 (or 2): Outcome group headers ---
-	local _row = `_row' + 1
 	quietly set obs `_row'
 	local _header_row = `_row'
 	quietly replace c1 = "" in `_row'
@@ -1175,11 +1168,6 @@ program define hrtab, rclass
 
 			* Title row
 			putexcel (A1:`lastcol'1), merge bold txtwrap left vcenter font("`_font'", `=`_fontsize' + 2')
-
-			* Subtitle row
-			if "`subtitle'" != "" {
-				putexcel (A2:`lastcol'2), merge left vcenter font("`_font'", `=`_fontsize' + 1')
-			}
 
 			* Header rows
 			putexcel (B`_header_row':`lastcol'`_header_row'), border(top, `_hborder')

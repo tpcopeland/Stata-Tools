@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.4  16apr2026}{...}
+{* *! version 1.0.5  17apr2026}{...}
 {viewerjumpto "Syntax" "effecttab##syntax"}{...}
 {viewerjumpto "Description" "effecttab##description"}{...}
 {viewerjumpto "Options" "effecttab##options"}{...}
@@ -16,7 +16,7 @@
 
 {marker syntax}{title:Syntax}
 
-{p 4 8 2}{cmd:effecttab}, [{opt xlsx(string)} {opt sheet(string)} {opt type(string)} {opt effect(string)} {opt sep(string asis)} {opt models(string)} {opt title(string)} {opt sub:title(string)} {opt clean} {opt tlab:els(string asis)} {opt foot:note(string)} {opt open} {opt zebra} {opt high:light(#)} {opt boldp(#)} {opt borders:tyle(string)} {opt the:me(string)} {opt full} {opt digits(#)} {opt fra:me(name)} {opt dis:play} {opt from(name)} {opt headerc:olor(string)} {opt zebrac:olor(string)} {opt csv(string)} {cmdab:addr:ow(}{it:string asis}{cmd:)} {opt pdp(#)} {opt highpdp(#)}]{p_end}
+{p 4 8 2}{cmd:effecttab}, [{opt xlsx(string)} {opt sheet(string)} {opt type(string)} {opt effect(string)} {opt sep(string asis)} {opt models(string)} {opt title(string)} {opt clean} {opt tlab:els(string asis)} {opt foot:note(string)} {opt open} {opt zebra} {opt high:light(#)} {opt boldp(#)} {opt borders:tyle(string)} {opt the:me(string)} {opt full} {opt digits(#)} {opt fra:me(name)} {opt dis:play} {opt from(name)} {opt headerc:olor(string)} {opt zebrac:olor(string)} {opt csv(string)} {cmdab:addr:ow(}{it:string asis}{cmd:)} {opt pdp(#)} {opt highpdp(#)}]{p_end}
 
 {pstd}Required: an active {helpb collect} containing results from {helpb teffects} or {helpb margins}.{p_end}
 
@@ -43,7 +43,6 @@
 {synopt:{opt sep(string asis)}}Delimiter between CI endpoints. Default is {cmd:", "}.{p_end}
 {synopt:{opt models(string)}}Labels for multiple models, separated by backslash. Example: {cmd:"IPTW \ AIPW"}.{p_end}
 {synopt:{opt title(string)}}Text written into cell {cmd:A1} and merged across the table width.{p_end}
-{synopt:{opt sub:title(string)}}Subtitle text displayed below the title row.{p_end}
 {synopt:{opt clean}}Clean up teffects row labels. When the treatment variable has value labels,
 uses them automatically (e.g., {cmd:"r1vs0.treated"} becomes {cmd:"SNRI vs SSRI"}).
 Falls back to basic cleanup if no value labels exist (e.g., {cmd:"Treated (1 vs 0)"}).{p_end}
@@ -192,6 +191,6 @@ are not defined or you want different wording. {cmd:tlabels()} implies {cmd:clea
 {pstd}Timothy P Copeland{p_end}
 {pstd}Department of Clinical Neuroscience, Karolinska Institutet{p_end}
 {pstd}timothy.copeland@ki.se{p_end}
-{pstd}Version 1.0.4{p_end}
+{pstd}Version 1.0.5{p_end}
 
 {hline}

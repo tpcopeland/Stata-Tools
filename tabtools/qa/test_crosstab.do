@@ -194,7 +194,7 @@ capture noisily {
     expand freq
 
     capture frame drop cross_disp
-    crosstab outcome exposure, display frame(cross_disp, replace) subtitle("ITT Population")
+    crosstab outcome exposure, display frame(cross_disp, replace)
     assert "`r(frame)'" == "cross_disp"
     frame cross_disp: assert _N >= 6
 }

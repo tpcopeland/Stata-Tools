@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.4  16apr2026}{...}
+{* *! version 1.0.5  17apr2026}{...}
 {viewerjumpto "Syntax" "comptab##syntax"}{...}
 {viewerjumpto "Description" "comptab##description"}{...}
 {viewerjumpto "Options" "comptab##options"}{...}
@@ -43,7 +43,6 @@
 
 {syntab:Content}
 {synopt:{opt title(string)}}table title for cell A1{p_end}
-{synopt:{opt sub:title(string)}}subtitle text displayed below the title{p_end}
 {synopt:{cmdab:foot:note(}{it:string}{cmd:)}}footnote text below the table{p_end}
 {synopt:{cmdab:comp:act}}merge estimate and CI into one column per model{p_end}
 {synopt:{cmdab:sec:tion(}{it:string}{cmd:)}}backslash-separated section labels, one per frame{p_end}
@@ -239,7 +238,7 @@ smaller than the specified threshold.
 {pstd}Timothy P Copeland{p_end}
 {pstd}Department of Clinical Neuroscience, Karolinska Institutet{p_end}
 {pstd}timothy.copeland@ki.se{p_end}
-{pstd}Version 1.0.4{p_end}
+{pstd}Version 1.0.5{p_end}
 
 
 {marker alsosee}{...}

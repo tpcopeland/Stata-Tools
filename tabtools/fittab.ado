@@ -1,4 +1,4 @@
-*! fittab Version 1.0.4  2026/04/16
+*! fittab Version 1.0.5  2026/04/17
 *! Model comparison table
 *! Author: Timothy P Copeland
 *! Program class: rclass
@@ -12,7 +12,7 @@ DESCRIPTION:
 SYNTAX:
     fittab namelist, xlsx(filename)
         [stats(string) labels(string) lrtest(name)
-        sheet(string) title(string) subtitle(string)
+        sheet(string) title(string)
         footnote(string) theme(string) borderstyle(string)
         zebra csv(filename) frame(name) display open]
 */
@@ -40,7 +40,7 @@ capture noisily {
 **# Syntax and Validation
     syntax anything(name=namelist), [xlsx(string) excel(string) sheet(string) ///
         stats(string) LABels(string) LRTest(name) ///
-        title(string) SUBtitle(string) ///
+        title(string) ///
         FOOTnote(string) THEme(string) BORDERstyle(string) ///
         zebra csv(string) FRAme(string) DISplay open]
 
@@ -325,27 +325,9 @@ capture noisily {
         }
     }
 
-    local _has_subtitle = (`"`subtitle'"' != "")
-    if `_has_subtitle' {
-        tempvar _row_order
-        qui gen long `_row_order' = _n
-        qui replace `_row_order' = `_row_order' + 1 if `_row_order' >= 2
-        qui set obs `=_N+1'
-        qui replace `_row_order' = 2 if missing(`_row_order')
-        qui sort `_row_order'
-        qui replace title = `"`subtitle'"' in 2
-        forvalues _c = 1/`out_ncols' {
-            qui replace c`_c' = "" in 2
-        }
-        qui drop `_row_order'
-        if `_aic_row' > 0 local _aic_row = `_aic_row' + 1
-        if `_bic_row' > 0 local _bic_row = `_bic_row' + 1
-        if `_cstat_row' > 0 local _cstat_row = `_cstat_row' + 1
-    }
-
     local num_rows = _N
     local num_cols = `out_ncols' + 1
-    local _header_row = 2 + `_has_subtitle'
+    local _header_row = 2
     local _data_start = `_header_row' + 1
 
     * Return matrix
@@ -370,19 +352,7 @@ capture noisily {
 
 **# Console Display
     if !`_has_xlsx' | "`display'" != "" {
-        if `_has_subtitle' {
-            noisily {
-                if `"`title'"' != "" {
-                    display as text ""
-                    display as result `"`title'"'
-                }
-                display as text `"`subtitle'"'
-            }
-            noisily _tabtools_console_display `out_ncols' "", headerstart(`_header_row') datastart(`_data_start')
-        }
-        else {
-            noisily _tabtools_console_display `out_ncols' `"`title'"'
-        }
+        noisily _tabtools_console_display `out_ncols' `"`title'"'
     }
 
 **# CSV Export
@@ -415,9 +385,6 @@ capture noisily {
             local lastcol : word `num_cols' of `letters'
 
             putexcel (A1:`lastcol'1), merge bold txtwrap left vcenter font("`_font'", `=`_fontsize'+2')
-            if `_has_subtitle' {
-                putexcel (A2:`lastcol'2), merge left vcenter italic font("`_font'", `_fontsize')
-            }
             putexcel (B`_header_row':`lastcol'`_header_row'), border(top, `_hborder') bold hcenter font("`_font'", `_fontsize')
             putexcel (B`_header_row':`lastcol'`_header_row'), border(bottom, `_hborder')
             putexcel (A`_data_start':`lastcol'`num_rows'), font("`_font'", `_fontsize')

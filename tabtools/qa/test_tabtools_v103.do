@@ -36,13 +36,12 @@ local failed_tests ""
 
 sysuse auto, clear
 
-* T1: crosstab `sub`, `dis`, `border`, `tr`
+* T1: crosstab `dis`, `border`, `tr`
 local ++test_count
 capture noisily crosstab foreign rep78, ///
-    sub("Subtitle via short form") ///
     border(thin) tr dis
 if _rc == 0 {
-    display as result "  PASS T1: crosstab sub/dis/border/tr abbreviations"
+    display as result "  PASS T1: crosstab dis/border/tr abbreviations"
     local ++pass_count
 }
 else {
@@ -51,12 +50,12 @@ else {
     local failed_tests "`failed_tests' T1"
 }
 
-* T2: corrtab `sub`, `dis`, `border`
+* T2: corrtab `dis`, `border`
 local ++test_count
 capture noisily corrtab price mpg weight length, ///
-    sub("Subtitle") border(thin) dis
+    border(thin) dis
 if _rc == 0 {
-    display as result "  PASS T2: corrtab sub/dis/border abbreviations"
+    display as result "  PASS T2: corrtab dis/border abbreviations"
     local ++pass_count
 }
 else {
@@ -65,15 +64,15 @@ else {
     local failed_tests "`failed_tests' T2"
 }
 
-* T3: diagtab `sub`, `dis`, `border`
+* T3: diagtab `dis`, `border`
 local ++test_count
 gen byte _gold = foreign
 gen byte _test = (mpg >= 25)
 capture noisily diagtab _test _gold, ///
-    sub("Subtitle") border(thin) dis
+    border(thin) dis
 drop _gold _test
 if _rc == 0 {
-    display as result "  PASS T3: diagtab sub/dis/border abbreviations"
+    display as result "  PASS T3: diagtab dis/border abbreviations"
     local ++pass_count
 }
 else {
@@ -82,16 +81,16 @@ else {
     local failed_tests "`failed_tests' T3"
 }
 
-* T4: fittab `sub`, `dis`, `border`
+* T4: fittab `dis`, `border`
 local ++test_count
 quietly regress price mpg weight
 estimates store fit_a
 quietly regress price mpg weight length
 estimates store fit_b
 capture noisily fittab fit_a fit_b, ///
-    sub("Subtitle") border(thin) dis
+    border(thin) dis
 if _rc == 0 {
-    display as result "  PASS T4: fittab sub/dis/border abbreviations"
+    display as result "  PASS T4: fittab dis/border abbreviations"
     local ++pass_count
 }
 else {
@@ -117,7 +116,7 @@ else {
 }
 collect clear
 
-* T6: comptab uses regtab frames; just exercise sub/dis/border on the
+* T6: comptab uses regtab frames; just exercise dis/border on the
 *     downstream call. Build a small regtab frame first.
 local ++test_count
 collect clear
@@ -125,10 +124,10 @@ quietly collect: regress price mpg weight
 capture noisily regtab, frame(_v103_fr1, replace)
 if _rc == 0 {
     capture noisily comptab _v103_fr1, ///
-        rows("1 2") sub("Subtitle") border(thin) dis
+        rows("1 2") border(thin) dis
 }
 if _rc == 0 {
-    display as result "  PASS T6: comptab sub/dis/border abbreviations"
+    display as result "  PASS T6: comptab dis/border abbreviations"
     local ++pass_count
 }
 else {

@@ -257,23 +257,23 @@ else {
 }
 
 * ============================================================
-* Test 11: effecttab with subtitle and footnote
+* Test 11: effecttab with footnote
 * ============================================================
 capture noisily {
     webuse cattaneo2, clear
     collect clear
     collect: teffects ipw (bweight) (mbsmoke mage prenatal1 mmarried fbaby), ate
-    effecttab, xlsx("/tmp/test_iptw_subtitle.xlsx") sheet("Sub") ///
-        title("IPTW Effect") subtitle("Adjusted for confounders") ///
+    effecttab, xlsx("/tmp/test_iptw_footnote.xlsx") sheet("Foot") ///
+        title("IPTW Effect") ///
         footnote("Source: Cattaneo 2010") effect("ATE")
-    confirm file "/tmp/test_iptw_subtitle.xlsx"
+    confirm file "/tmp/test_iptw_footnote.xlsx"
 }
 if _rc == 0 {
-    display as result "PASS: T11 — subtitle + footnote with IPTW works"
+    display as result "PASS: T11 — footnote with IPTW works"
     local ++n_pass
 }
 else {
-    display as error "FAIL: T11 — subtitle + footnote failed (rc=`=_rc')"
+    display as error "FAIL: T11 — footnote failed (rc=`=_rc')"
     local ++n_fail
 }
 

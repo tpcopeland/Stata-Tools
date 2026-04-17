@@ -1,4 +1,4 @@
-*! tablex Version 1.0.4  2026/04/16
+*! tablex Version 1.0.5  2026/04/17
 *! Export Stata tables to formatted Excel
 *! Author: Timothy P Copeland
 *! Program class: rclass (returns results in r())
@@ -57,7 +57,7 @@ EXAMPLES:
 
 program define tablex, rclass
     version 17.0
-    local _prev_varabbrev = c(varabbrev)
+    local _orig_varabbrev = c(varabbrev)
     set varabbrev off
 
     * Auto-load shared helper programs if not already in memory
@@ -69,7 +69,7 @@ program define tablex, rclass
         }
         else {
             display as error "_tabtools_common.ado not found; reinstall tabtools"
-            set varabbrev `_prev_varabbrev'
+            set varabbrev `_orig_varabbrev'
             exit 111
         }
     }
@@ -488,7 +488,7 @@ quietly {
 
     } // end capture noisily
     local _rc = _rc
-    set varabbrev `_prev_varabbrev'
+    set varabbrev `_orig_varabbrev'
     if `_rc' exit `_rc'
 end
 

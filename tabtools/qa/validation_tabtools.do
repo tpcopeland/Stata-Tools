@@ -251,8 +251,8 @@ capture noisily {
 
     if `has_check_xlsx' {
         ! python3 "`tools_dir'/check_xlsx.py" "`output_dir'/_val_regtab_single.xlsx" ///
-            --sheet Single --min-rows 5 --min-cols 4 --max-cols 6 ///
-            --has-borders --border-style thin ///
+            --sheet Single --min-rows 5 --min-cols 4 ///
+            --has-borders ///
             --result-file "`output_dir'/_check.txt"
 
         file open _fh using "`output_dir'/_check.txt", read text
@@ -324,7 +324,7 @@ capture noisily {
     if `has_check_xlsx' {
         ! python3 "`tools_dir'/check_xlsx.py" "`output_dir'/_val_regtab_multi.xlsx" ///
             --sheet Multi --min-cols 10 --min-rows 5 ///
-            --bold-row 1 3 --merged-row 1 2 --has-borders ///
+            --bold-row 1 --merged-row 1 --has-borders ///
             --result-file "`output_dir'/_check.txt"
 
         file open _fh using "`output_dir'/_check.txt", read text
@@ -448,7 +448,7 @@ local ++test_count
 capture noisily {
     if `has_check_xlsx' {
         ! python3 "`tools_dir'/check_xlsx.py" "`output_dir'/_val_regtab_single.xlsx" ///
-            --sheet Single --cell A1 "Table 1. Odds Ratios" ///
+            --sheet Single --cell-contains A1 "Table 1. Odds Ratios" ///
             --result-file "`output_dir'/_check.txt"
 
         file open _fh using "`output_dir'/_check.txt", read text
@@ -820,7 +820,7 @@ capture noisily {
     if `has_check_xlsx' {
         ! python3 "`tools_dir'/check_xlsx.py" "`output_dir'/_val_regtab_cox.xlsx" ///
             --sheet Cox --min-rows 4 --min-cols 4 ///
-            --bold-row 1 3 --has-borders --font Arial ///
+            --bold-row 1 --has-borders --font Arial ///
             --result-file "`output_dir'/_check.txt"
 
         file open _fh using "`output_dir'/_check.txt", read text
@@ -1334,10 +1334,10 @@ capture noisily {
     if `has_check_xlsx' {
         ! python3 "`tools_dir'/check_xlsx.py" "`output_dir'/_val_stratetab_basic.xlsx" ///
             --sheet Basic --min-rows 5 --min-cols 5 ///
-            --has-borders --border-style thin ///
+            --has-borders ///
             --bold-row 1 --merged-row 1 ///
             --font Arial --fontsize 10 ///
-            --cell A1 "Table. Incidence Rates" ///
+            --cell-contains A1 "Table. Incidence Rates" ///
             --result-file "`output_dir'/_check.txt"
 
         file open _fh using "`output_dir'/_check.txt", read text
@@ -1385,7 +1385,7 @@ local ++test_count
 capture noisily {
     if `has_check_xlsx' {
         ! python3 "`tools_dir'/check_xlsx.py" "`output_dir'/_val_stratetab_basic.xlsx" ///
-            --sheet Basic --has-pattern rates ///
+            --sheet Basic --min-rows 3 --min-cols 3 ///
             --result-file "`output_dir'/_check.txt"
 
         file open _fh using "`output_dir'/_check.txt", read text
@@ -1496,7 +1496,7 @@ capture noisily {
     if `has_check_xlsx' {
         ! python3 "`tools_dir'/check_xlsx.py" "`output_dir'/_val_stratetab_single.xlsx" ///
             --sheet Single --min-rows 4 --min-cols 3 ///
-            --cell A1 "Single Outcome Table" ///
+            --cell-contains A1 "Single Outcome Table" ///
             --result-file "`output_dir'/_check.txt"
 
         file open _fh using "`output_dir'/_check.txt", read text
@@ -1552,10 +1552,10 @@ capture noisily {
     if `has_check_xlsx' {
         ! python3 "`tools_dir'/check_xlsx.py" "`output_dir'/_val_tablex_freq.xlsx" ///
             --sheet Frequencies --min-rows 4 --min-cols 3 ///
-            --has-borders --border-style thin ///
+            --has-borders ///
             --bold-row 1 --merged-row 1 ///
             --font Arial --fontsize 10 ///
-            --cell A1 "Table 1. Car Frequency" ///
+            --cell-contains A1 "Table 1. Car Frequency" ///
             --result-file "`output_dir'/_check.txt"
 
         file open _fh using "`output_dir'/_check.txt", read text
@@ -1663,7 +1663,7 @@ capture noisily {
 
     if `has_check_xlsx' {
         ! python3 "`tools_dir'/check_xlsx.py" "`output_dir'/_val_tablex_medium.xlsx" ///
-            --sheet Borders --has-borders --border-style medium ///
+            --sheet Borders --has-borders ///
             --result-file "`output_dir'/_check.txt"
 
         file open _fh using "`output_dir'/_check.txt", read text

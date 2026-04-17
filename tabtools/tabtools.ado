@@ -1,4 +1,4 @@
-*! tabtools Version 1.0.4  2026/04/16
+*! tabtools Version 1.0.5  2026/04/17
 *! Suite of table export commands for publication-ready Excel output
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet
@@ -30,7 +30,7 @@ See help tabtools for complete documentation
 
 program define tabtools, rclass
     version 16.0
-    local _prev_varabbrev = c(varabbrev)
+    local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     capture noisily {
 
@@ -388,13 +388,13 @@ program define tabtools, rclass
         // Return results
         return local commands "`selected_cmds'"
         return scalar n_commands = `n_commands'
-        return local version "1.0.4"
+        return local version "1.0.5"
         return local categories "descriptive models rates survival diagnostics composite general"
     }
 
     } // end capture noisily
     local _rc = _rc
-    set varabbrev `_prev_varabbrev'
+    set varabbrev `_orig_varabbrev'
     if `_rc' exit `_rc'
 end
 

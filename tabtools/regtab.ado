@@ -1,4 +1,4 @@
-*! regtab Version 1.0.4  2026/04/16
+*! regtab Version 1.0.5  2026/04/17
 *! Author: Timothy P Copeland
 
 /*
@@ -37,7 +37,7 @@ SYNTAX:
 
 program define regtab, rclass
 	version 17.0
-	local _prev_varabbrev = c(varabbrev)
+	local _orig_varabbrev = c(varabbrev)
 	set varabbrev off
 
 	* Auto-load shared helper programs if not already in memory
@@ -49,7 +49,7 @@ program define regtab, rclass
 		}
 		else {
 			display as error "_tabtools_common.ado not found; reinstall tabtools"
-			set varabbrev `_prev_varabbrev'
+			set varabbrev `_orig_varabbrev'
 			exit 111
 		}
 	}
@@ -57,7 +57,7 @@ program define regtab, rclass
 capture noisily {
 
 syntax, [xlsx(string) excel(string) sheet(string)] [sep(string asis) models(string) coef(string) ///
-	title(string) SUBtitle(string) NOINTercept KEEPIntercept NOREeffects stats(string) RELABel ///
+	title(string) NOINTercept KEEPIntercept NOREeffects stats(string) RELABel ///
 	digits(integer -1) FOOTnote(string) open zebra HIGHlight(real -1) ///
 	BOLDp(real -1) cdisc BORDERstyle(string) stars THEme(string) ///
 	STARSLevels(numlist) HEADERColor(string) ZEBRAColor(string) csv(string) ///
@@ -1621,19 +1621,7 @@ if "`csv'" != "" {
 
 * Console display (when no xlsx or display option specified)
 if !`_has_xlsx' | "`display'" != "" {
-    noisily {
-        if "`subtitle'" != "" {
-            if "`title'" != "" {
-                display as text ""
-                display as result "`title'"
-            }
-            display as text "`subtitle'"
-            _tabtools_console_display `n' "", labelvar(A)
-        }
-        else {
-            _tabtools_console_display `n' `"`title'"', labelvar(A)
-        }
-    }
+    noisily _tabtools_console_display `n' `"`title'"', labelvar(A)
 }
 
 * Store output in frame if requested
@@ -1982,7 +1970,7 @@ if "`frame'" != "" return local frame "`frame'"
 
     } // end capture noisily
     local _rc = _rc
-    set varabbrev `_prev_varabbrev'
+    set varabbrev `_orig_varabbrev'
     if `_rc' exit `_rc'
 end
 *

@@ -65,6 +65,7 @@ foreach f in ///
         local failed_files "`failed_files' `f'"
         display as error "  FAILED: `f' (rc=`=_rc')"
     }
+    capture shell rm -f /tmp/St${c(pid)}*.dta
 }
 
 display _newline

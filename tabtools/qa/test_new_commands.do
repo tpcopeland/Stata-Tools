@@ -1560,7 +1560,7 @@ else {
 }
 capture frame drop survframe
 
-* Test: survtab title/subtitle/footnote
+* Test: survtab title/footnote
 local ++test_count
 capture noisily {
     use `survdata', clear
@@ -1569,16 +1569,15 @@ capture noisily {
     survtab, times(1 3 5) by(treatment) ///
         xlsx("`output_dir'/test_survtab_titled.xlsx") ///
         title("Table 2. Survival Analysis") ///
-        subtitle("ITT Population") ///
         footnote("Kaplan-Meier estimates")
     confirm file "`output_dir'/test_survtab_titled.xlsx"
 }
 if _rc == 0 {
-    display as result "  PASS: survtab title/subtitle/footnote"
+    display as result "  PASS: survtab title/footnote"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: survtab title/subtitle/footnote (rc=`=_rc')"
+    display as error "  FAIL: survtab title/footnote (rc=`=_rc')"
     local ++fail_count
 }
 

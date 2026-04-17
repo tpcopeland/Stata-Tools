@@ -760,7 +760,7 @@ capture noisily {
         --cell-contains A1 "Treatment Effects" ///
         --header-row 3 Effect "95% CI" p-value ///
         --has-borders --has-pattern p-values ci ///
-        --has-fill 2 --fill-color 2 "219 229 241" ///
+        --has-fill 3 --fill-color 3 "219 229 241" ///
         --merged-row 1 ///
         --result-file "`output_dir'/_xl_e1.txt" --quiet
     file open _fh using "`output_dir'/_xl_e1.txt", read text
@@ -1514,40 +1514,6 @@ else {
     local ++n_fail
 }
 capture erase "`output_dir'/_xl_bp2.txt"
-
-* =========================================================================
-**# SECTION 16: subtitle() in Excel
-* =========================================================================
-
-* --- XL16.1: subtitle appears in Excel ---
-local ++n_total
-capture noisily {
-    sysuse auto, clear
-    collect clear
-    collect: regress price mpg weight
-    capture erase "`output_dir'/_xl_subtitle.xlsx"
-    regtab, xlsx("`output_dir'/_xl_subtitle.xlsx") sheet("Sub") ///
-        title("Main Title") subtitle("Adjusted for covariates")
-
-    * Subtitle may be in A2 or merged into title row
-    shell python3 "`checker'" "`output_dir'/_xl_subtitle.xlsx" --sheet "Sub" ///
-        --cell-contains A1 "Main Title" ///
-        --min-rows 6 ///
-        --result-file "`output_dir'/_xl_su1.txt" --quiet
-    file open _fh using "`output_dir'/_xl_su1.txt", read text
-    file read _fh _line
-    file close _fh
-    assert "`_line'" == "PASS"
-}
-if _rc == 0 {
-    display as result "  PASS: XL16.1 — subtitle text appears in Excel output"
-    local ++n_pass
-}
-else {
-    display as error "  FAIL: XL16.1 — subtitle in Excel (rc=`=_rc')"
-    local ++n_fail
-}
-capture erase "`output_dir'/_xl_su1.txt"
 
 * =========================================================================
 **# SECTION 17: addrow() in Excel

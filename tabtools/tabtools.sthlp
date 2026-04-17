@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.4  16apr2026}{...}
+{* *! version 1.0.5  17apr2026}{...}
 {viewerjumpto "Description" "tabtools##description"}{...}
 {viewerjumpto "Commands" "tabtools##commands"}{...}
 {viewerjumpto "Syntax" "tabtools##syntax"}{...}

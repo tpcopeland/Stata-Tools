@@ -1,4 +1,4 @@
-*! crosstab Version 1.0.4  2026/04/16
+*! crosstab Version 1.0.5  2026/04/17
 *! Cross-tabulation with association measures
 *! Author: Timothy P Copeland
 *! Program class: rclass
@@ -12,7 +12,7 @@ SYNTAX:
     crosstab rowvar colvar [if] [in] [weight], xlsx(filename)
         [colpct rowpct totalpct exact fisher
         or rr rd trend label missing
-        sheet(string) title(string) subtitle(string)
+        sheet(string) title(string)
         footnote(string) theme(string) borderstyle(string)
         boldp(real) zebra
         csv(filename) frame(name) display open]
@@ -44,7 +44,7 @@ capture noisily {
         COLPct ROWPct TOTALPct EXact FIsher ///
         OR RR RD TRend LABel MISsing ///
         DIGits(integer -1) ///
-        title(string) SUBtitle(string) ///
+        title(string) ///
         FOOTnote(string) THEme(string) BORDERstyle(string) ///
         BOLDp(real -1) zebra ///
         csv(string) FRAme(string) DISplay open]
@@ -313,26 +313,9 @@ capture noisily {
         qui replace c1 = "P for trend = `_pt_str'" in `row'
     }
 
-    local _has_subtitle = (`"`subtitle'"' != "")
-    if `_has_subtitle' {
-        tempvar _row_order
-        qui gen long `_row_order' = _n
-        qui replace `_row_order' = `_row_order' + 1 if `_row_order' >= 2
-        qui set obs `=_N+1'
-        qui replace `_row_order' = 2 if missing(`_row_order')
-        qui sort `_row_order'
-        qui replace title = `"`subtitle'"' in 2
-        forvalues _c = 1/`out_ncols' {
-            qui replace c`_c' = "" in 2
-        }
-        qui drop `_row_order'
-        if `_p_row' > 0 local _p_row = `_p_row' + 1
-        if `_trend_row' > 0 local _trend_row = `_trend_row' + 1
-    }
-
     local num_rows = _N
     local num_cols = `out_ncols' + 1
-    local _header_row = 2 + `_has_subtitle'
+    local _header_row = 2
     local _data_start = `_header_row' + 1
     local _total_row = `_data_start' + `n_rows'
     local _first_measure_row = `_total_row' + 1
@@ -345,19 +328,7 @@ capture noisily {
 
 **# Console Display
     if !`_has_xlsx' | "`display'" != "" {
-        if `_has_subtitle' {
-            noisily {
-                if `"`title'"' != "" {
-                    display as text ""
-                    display as result `"`title'"'
-                }
-                display as text `"`subtitle'"'
-            }
-            noisily _tabtools_console_display `out_ncols' "", headerstart(`_header_row') datastart(`_data_start')
-        }
-        else {
-            noisily _tabtools_console_display `out_ncols' `"`title'"'
-        }
+        noisily _tabtools_console_display `out_ncols' `"`title'"'
     }
 
 **# CSV Export
@@ -392,9 +363,6 @@ capture noisily {
             local lastcol : word `num_cols' of `letters'
 
             putexcel (A1:`lastcol'1), merge bold txtwrap left vcenter font("`_font'", `=`_fontsize'+2')
-            if `_has_subtitle' {
-                putexcel (A2:`lastcol'2), merge left vcenter italic font("`_font'", `_fontsize')
-            }
             putexcel (B`_header_row':`lastcol'`_header_row'), border(top, `_hborder') bold hcenter font("`_font'", `_fontsize')
             putexcel (B`_header_row':`lastcol'`_header_row'), border(bottom, `_hborder')
             putexcel (A`_data_start':`lastcol'`num_rows'), font("`_font'", `_fontsize')

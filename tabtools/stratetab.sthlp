@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.4  16apr2026}{...}
+{* *! version 1.0.5  17apr2026}{...}
 {viewerjumpto "Syntax" "stratetab##syntax"}{...}
 {viewerjumpto "Description" "stratetab##description"}{...}
 {viewerjumpto "Options" "stratetab##options"}{...}
@@ -216,7 +216,7 @@ If {opt explabels()} is specified, the number of labels must match the number of
 {pstd}Timothy P Copeland{p_end}
 {pstd}Department of Clinical Neuroscience, Karolinska Institutet{p_end}
 {pstd}timothy.copeland@ki.se{p_end}
-{pstd}Version 1.0.4{p_end}
+{pstd}Version 1.0.5{p_end}
 
 {title:Also see}
 

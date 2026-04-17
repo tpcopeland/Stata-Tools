@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.4  16apr2026}{...}
+{* *! version 1.0.5  17apr2026}{...}
 {viewerjumpto "Syntax" "survtab##syntax"}{...}
 {viewerjumpto "Description" "survtab##description"}{...}
 {viewerjumpto "Options" "survtab##options"}{...}
@@ -21,7 +21,7 @@ and restricted mean survival time.{p_end}
 {p 4 8 2}{cmd:survtab}, {opt times(numlist)} [{opt by(varname)} {opt rmst(#)}
 {opt med:ian} {opt risk:set} {opt timeu:nit(string)} {opt rev:erse} {opt diff:erence}
 {opt ev:ents} {opt dig:its(#)}
-{opt xlsx(filename)} {opt sheet(string)} {opt title(string)} {opt sub:title(string)}
+{opt xlsx(filename)} {opt sheet(string)} {opt title(string)}
 {opt foot:note(string)} {opt the:me(string)} {opt borders:tyle(string)}
 {opt boldp(#)} {opt zebra} {opt high:light(#)} {opt pdp(#)} {opt highpdp(#)}
 {opt csv(filename)} {opt fra:me(name)} {opt dis:play} {opt open}
@@ -81,8 +81,6 @@ total at risk for each group at each timepoint (e.g., "12 / 98").{p_end}
 "Survival".{p_end}
 
 {phang}{opt title(string)} specifies the table title in row 1.{p_end}
-
-{phang}{opt sub:title(string)} specifies a subtitle below the title.{p_end}
 
 {phang}{opt foot:note(string)} adds a footnote below the table.{p_end}
 
@@ -172,6 +170,6 @@ multiple rows.{p_end}
 {pstd}Timothy P Copeland{p_end}
 {pstd}Department of Clinical Neuroscience, Karolinska Institutet{p_end}
 {pstd}timothy.copeland@ki.se{p_end}
-{pstd}Version 1.0.4{p_end}
+{pstd}Version 1.0.5{p_end}
 
 {hline}

@@ -1,4 +1,4 @@
-*! comptab Version 1.0.4  2026/04/16
+*! comptab Version 1.0.5  2026/04/17
 *! Compose publication tables from regtab/effecttab output frames
 *! Author: Timothy P Copeland
 *! Program class: rclass (returns results in r())
@@ -88,7 +88,7 @@ EXAMPLES:
 
 program define comptab, rclass
     version 17.0
-    local _prev_varabbrev = c(varabbrev)
+    local _orig_varabbrev = c(varabbrev)
     set varabbrev off
 
     * Auto-load shared helper programs if not already in memory
@@ -100,7 +100,7 @@ program define comptab, rclass
         }
         else {
             display as error "_tabtools_common.ado not found; reinstall tabtools"
-            set varabbrev `_prev_varabbrev'
+            set varabbrev `_orig_varabbrev'
             exit 111
         }
     }
@@ -109,7 +109,7 @@ program define comptab, rclass
 
     syntax anything(name=framelist), [rows(string) ROWNames(string)] ///
         [xlsx(string) excel(string) sheet(string)] ///
-        [title(string) SUBtitle(string) FOOTnote(string asis) COMPact ///
+        [title(string) FOOTnote(string asis) COMPact ///
         SEParator(numlist >0 integer sort) SECTion(string asis) ///
         RELAbel(string asis) ///
         THEme(string) BORDERstyle(string) open zebra ///
@@ -508,9 +508,6 @@ program define comptab, rclass
     gen str244 title = ""
     order title
     qui replace title = "`title'" in 1
-    if "`subtitle'" != "" {
-        qui replace title = "`title'" + char(10) + "`subtitle'" in 1
-    }
 
     * =====================================================================
     * DETECT REFERENCE ROWS (after title insertion — row numbers = Excel rows)
@@ -577,19 +574,7 @@ program define comptab, rclass
     * CONSOLE DISPLAY
     * =====================================================================
     if !`_has_xlsx' | "`display'" != "" {
-        noisily {
-            if "`subtitle'" != "" {
-                if "`title'" != "" {
-                    display as text ""
-                    display as result "`title'"
-                }
-                display as text "`subtitle'"
-                _tabtools_console_display `n' "", labelvar(A) datastart(4)
-            }
-            else {
-                _tabtools_console_display `n' `"`title'"', labelvar(A) datastart(4)
-            }
-        }
+        noisily _tabtools_console_display `n' `"`title'"', labelvar(A) datastart(4)
     }
 
     * =====================================================================
@@ -864,6 +849,6 @@ program define comptab, rclass
 
     } // end capture noisily
     local _rc = _rc
-    set varabbrev `_prev_varabbrev'
+    set varabbrev `_orig_varabbrev'
     if `_rc' exit `_rc'
 end

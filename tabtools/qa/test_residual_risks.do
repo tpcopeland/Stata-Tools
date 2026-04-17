@@ -786,11 +786,13 @@ capture noisily {
     }
     if "`bold_rows'" != "" {
         if `has_checker' {
-            shell python3 "`checker'" "output/_rr_boldp_effecttab.xlsx" --sheet "Test" --bold-row `bold_rows' --result-file "output/_rr_r4_3.txt" --quiet
-            file open _fh using "output/_rr_r4_3.txt", read text
-            file read _fh _line
-            file close _fh
-            assert "`_line'" == "PASS"
+            foreach _br of local bold_rows {
+                shell python3 "`checker'" "output/_rr_boldp_effecttab.xlsx" --sheet "Test" --bold-row `_br' --result-file "output/_rr_r4_3.txt" --quiet
+                file open _fh using "output/_rr_r4_3.txt", read text
+                file read _fh _line
+                file close _fh
+                assert "`_line'" == "PASS"
+            }
         }
         else {
             confirm file "output/_rr_boldp_effecttab.xlsx"

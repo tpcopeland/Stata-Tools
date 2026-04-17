@@ -269,44 +269,6 @@ else {
     local ++fail_count
 }
 
-**## subtitle is rendered in exported Excel
-local ++test_count
-capture noisily {
-    capture confirm file "`checker'"
-    assert _rc == 0
-
-    capture erase "`output_dir'/corrtab_subtitle.xlsx"
-    clear
-    set obs 8
-    gen double x = _n
-    gen double y = _n
-    gen double z = 9 - _n
-
-    corrtab x y z, xlsx("`output_dir'/corrtab_subtitle.xlsx") sheet("Corr") ///
-        title("Correlation Matrix") subtitle("Pairwise-complete observations")
-
-    shell python3 "`checker'" "`output_dir'/corrtab_subtitle.xlsx" --sheet "Corr" ///
-        --cell-contains A1 "Correlation Matrix" ///
-        --contains "Pairwise-complete observations" ///
-        --result-file "`output_dir'/corrtab_subtitle.txt" --quiet
-
-    tempname fh
-    local line ""
-    file open `fh' using "`output_dir'/corrtab_subtitle.txt", read text
-    file read `fh' line
-    file close `fh'
-    assert "`line'" == "PASS"
-}
-if _rc == 0 {
-    display as result "  PASS: corrtab subtitle is rendered in Excel export"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: corrtab subtitle is rendered in Excel export (rc=`=_rc')"
-    local ++fail_count
-}
-capture erase "`output_dir'/corrtab_subtitle.txt"
-
 **# Summary
 display as result "corrtab QA summary: `pass_count' passed, `fail_count' failed"
 if `fail_count' > 0 exit 1

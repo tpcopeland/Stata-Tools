@@ -482,7 +482,7 @@ capture noisily {
 	capture erase "`tmpxlsx'"
 	hrtab, exposure(i.treatment) model(stcox) ///
 		covars(age) xlsx("`tmpxlsx'") ///
-		title("Table 2") subtitle("Cox regression") ///
+		title("Table 2") ///
 		footnote("Adjusted for age") ///
 		theme(lancet) zebra headershade nolog
 	confirm file "`tmpxlsx'"

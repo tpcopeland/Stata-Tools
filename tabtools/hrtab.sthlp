@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.4  16apr2026}{...}
+{* *! version 1.0.5  17apr2026}{...}
 {vieweralsosee "tabtools" "help tabtools"}{...}
 {vieweralsosee "regtab" "help regtab"}{...}
 {vieweralsosee "effecttab" "help effecttab"}{...}
@@ -84,7 +84,6 @@
 {synopt:{opt xlsx(filename)}}Excel output file ({cmd:.xlsx}); existing sheets preserved{p_end}
 {synopt:{opt sheet(string)}}sheet name; default {cmd:Results}{p_end}
 {synopt:{opt title(string)}}title in cell A1, merged across table width{p_end}
-{synopt:{opt sub:title(string)}}subtitle below title{p_end}
 {synopt:{opt foot:note(string)}}footnote below table{p_end}
 {synopt:{opt the:me(string)}}{cmd:lancet}, {cmd:nejm}, {cmd:bmj}, {cmd:apa}, {cmd:jama}, {cmd:plos}, {cmd:nature}, {cmd:cell}, {cmd:annals}, or {cmd:custom}{p_end}
 {synopt:{opt border:style(string)}}{cmd:thin}, {cmd:medium}, or {cmd:academic}{p_end}
@@ -242,9 +241,6 @@ If omitted, {cmd:hrtab} uses the existing stset (single-outcome mode, no column 
 
 {phang}
 {opt title(string)} specifies a title in cell A1, merged across the table width.
-
-{phang}
-{opt sub:title(string)} specifies a subtitle below the title.
 
 {phang}
 {opt foot:note(string)} specifies a footnote below the table. Tip: use this to describe adjustment sets and stset specifications.

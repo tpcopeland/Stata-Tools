@@ -4,7 +4,6 @@
 *   F5: survtab events option (Events/N row)
 *   F1: digits() for crosstab, survtab, diagtab, corrtab
 *   W1/W2: Persistent digits/boldp via tabtools set
-*   O7: subtitle() for regtab, effecttab, comptab
 *   U2: frame(name, replace) for all 10 frame-capable commands
 *   O5: refcat() for regtab
 *   I3: addrow() for effecttab, survtab
@@ -549,91 +548,6 @@ else {
 tabtools set clear
 
 * =========================================================================
-**# O7: subtitle() for regtab, effecttab, comptab
-* =========================================================================
-
-* --- O7.1: regtab subtitle ---
-local ++n_total
-capture noisily {
-    sysuse auto, clear
-    collect clear
-    collect: regress price mpg weight
-    regtab, title("Main Results") subtitle("Adjusted for all covariates")
-}
-if _rc == 0 {
-    display as result "  PASS: O7.1 — regtab subtitle() accepted"
-    local ++n_pass
-}
-else {
-    display as error "  FAIL: O7.1 — regtab subtitle() failed (rc=`=_rc')"
-    local ++n_fail
-}
-
-* --- O7.2: effecttab subtitle ---
-local ++n_total
-capture noisily {
-    sysuse auto, clear
-    collect clear
-    collect: teffects ra (price mpg weight) (foreign), ate
-    effecttab, title("Treatment Effects") subtitle("Inverse probability weighting")
-}
-if _rc == 0 {
-    display as result "  PASS: O7.2 — effecttab subtitle() accepted"
-    local ++n_pass
-}
-else {
-    display as error "  FAIL: O7.2 — effecttab subtitle() failed (rc=`=_rc')"
-    local ++n_fail
-}
-
-* --- O7.3: comptab subtitle ---
-local ++n_total
-capture noisily {
-    sysuse auto, clear
-    collect clear
-    collect: regress price mpg weight
-    capture frame drop _comp_a
-    capture frame drop _comp_b
-    regtab, frame(_comp_a) title("A")
-    sysuse auto, clear
-    collect clear
-    collect: regress price mpg weight i.foreign
-    regtab, frame(_comp_b) title("B")
-    comptab _comp_a _comp_b, rownames(Mileage Weight \ Mileage Weight) ///
-        title("Comparison") subtitle("Models A vs B")
-}
-if _rc == 0 {
-    display as result "  PASS: O7.3 — comptab subtitle() accepted"
-    local ++n_pass
-}
-else {
-    display as error "  FAIL: O7.3 — comptab subtitle() failed (rc=`=_rc')"
-    local ++n_fail
-}
-capture frame drop _comp_a
-capture frame drop _comp_b
-
-* --- O7.4: regtab subtitle with Excel ---
-local ++n_total
-capture noisily {
-    sysuse auto, clear
-    collect clear
-    collect: regress price mpg weight
-    capture erase "output/test_v170_subtitle.xlsx"
-    regtab, xlsx("output/test_v170_subtitle.xlsx") sheet("Test") ///
-        title("Main") subtitle("Sub")
-    confirm file "output/test_v170_subtitle.xlsx"
-}
-if _rc == 0 {
-    display as result "  PASS: O7.4 — regtab subtitle with Excel export"
-    local ++n_pass
-}
-else {
-    display as error "  FAIL: O7.4 — regtab subtitle Excel failed (rc=`=_rc')"
-    local ++n_fail
-}
-
-* =========================================================================
 **# U2: frame(name, replace) for all frame-capable commands
 * =========================================================================
 
@@ -1111,14 +1025,14 @@ capture frame drop _o1_4
 **# Combined feature interaction tests
 * =========================================================================
 
-* --- COMBO.1: compact + subtitle + refcat ---
+* --- COMBO.1: compact + refcat ---
 local ++n_total
 capture noisily {
     sysuse auto, clear
     collect clear
     collect: regress price mpg weight i.foreign
     capture frame drop _combo1
-    regtab, frame(_combo1) compact subtitle("Sensitivity analysis") refcat("--")
+    regtab, frame(_combo1) compact refcat("--")
     frame _combo1 {
         * Verify compact (2 c-columns per model)
         quietly ds c*
@@ -1131,11 +1045,11 @@ capture noisily {
     }
 }
 if _rc == 0 {
-    display as result "  PASS: COMBO.1 — compact + subtitle + refcat together"
+    display as result "  PASS: COMBO.1 — compact + refcat together"
     local ++n_pass
 }
 else {
-    display as error "  FAIL: COMBO.1 — compact + subtitle + refcat failed (rc=`=_rc')"
+    display as error "  FAIL: COMBO.1 — compact + refcat failed (rc=`=_rc')"
     local ++n_fail
 }
 capture frame drop _combo1

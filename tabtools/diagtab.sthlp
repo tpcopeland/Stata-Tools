@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.4  16apr2026}{...}
+{* *! version 1.0.5  17apr2026}{...}
 {viewerjumpto "Package overview" "diagtab##package"}{...}
 {viewerjumpto "Syntax" "diagtab##syntax"}{...}
 {viewerjumpto "Description" "diagtab##description"}{...}
@@ -28,7 +28,7 @@ for general 2x2 tables and {helpb corrtab} for matrix-style correlation output.{
 {p 4 8 2}{cmd:diagtab} {it:test_var} {it:gold_var} [{it:if}] [{it:in}],
 [{opt xlsx(filename)} {opt cutoff(#)} {opt cutoffs(numlist)}
 {opt prevalence(#)} {opt exact} {opt wilson} {opt auc} {opt optimal}
-{opt digits(#)} {opt sheet(string)} {opt title(string)} {opt subtitle(string)}
+{opt digits(#)} {opt sheet(string)} {opt title(string)}
 {opt footnote(string)} {opt theme(string)} {opt borderstyle(string)}
 {opt headercolor(string)} {opt zebracolor(string)} {opt zebra}
 {opt headershade} {opt csv(filename)} {opt frame(name)} {opt display}
@@ -65,7 +65,6 @@ must already be coded 0/1.{p_end}
 {synopt:{opt open}}open the Excel file after export{p_end}
 {syntab:Formatting}
 {synopt:{opt title(string)}}table title{p_end}
-{synopt:{opt subtitle(string)}}subtitle text displayed below the title{p_end}
 {synopt:{opt footnote(string)}}footnote text below the table{p_end}
 {synopt:{opt theme(string)}}journal-style formatting theme such as {cmd:lancet}, {cmd:nejm}, {cmd:bmj}, or {cmd:apa}{p_end}
 {synopt:{opt borderstyle(string)}}border style: {cmd:thin}, {cmd:medium}, or {cmd:academic}{p_end}
@@ -161,6 +160,6 @@ Cannot be combined with {opt cutoffs()}.{p_end}
 {pstd}Timothy P Copeland{p_end}
 {pstd}Department of Clinical Neuroscience, Karolinska Institutet{p_end}
 {pstd}timothy.copeland@ki.se{p_end}
-{pstd}Version 1.0.4{p_end}
+{pstd}Version 1.0.5{p_end}
 
 {hline}

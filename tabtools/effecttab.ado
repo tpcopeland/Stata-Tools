@@ -1,4 +1,4 @@
-*! effecttab Version 1.0.4  2026/04/16
+*! effecttab Version 1.0.5  2026/04/17
 *! Format treatment effects and margins results for Excel export
 *! Author: Timothy P Copeland
 *! Program class: rclass (returns results in r())
@@ -51,7 +51,7 @@ EXAMPLES:
 
 program define effecttab, rclass
 	version 17.0
-	local _prev_varabbrev = c(varabbrev)
+	local _orig_varabbrev = c(varabbrev)
 	set varabbrev off
 
 	* Auto-load shared helper programs if not already in memory
@@ -63,7 +63,7 @@ program define effecttab, rclass
 		}
 		else {
 			display as error "_tabtools_common.ado not found; reinstall tabtools"
-			set varabbrev `_prev_varabbrev'
+			set varabbrev `_orig_varabbrev'
 			exit 111
 		}
 	}
@@ -71,7 +71,7 @@ program define effecttab, rclass
 	capture noisily {
 
 	syntax, [xlsx(string) excel(string) sheet(string)] [sep(string asis) type(string) effect(string) ///
-	        models(string) title(string) SUBtitle(string) clean TLABels(string asis) ///
+	        models(string) title(string) clean TLABels(string asis) ///
 	        FOOTnote(string) open zebra HIGHlight(real -1) BOLDp(real -1) ///
 	        BORDERstyle(string) full THEme(string) digits(integer -1) ///
 	        HEADERColor(string) ZEBRAColor(string) csv(string) FRAme(string) DISplay ///
@@ -771,9 +771,6 @@ quietly {
 	gen title = ""
 	order title
 	replace title = "`title'" if _n == 1
-	if "`subtitle'" != "" {
-		replace title = "`title'" + char(10) + "`subtitle'" if _n == 1
-	}
 
 	* Track Reference rows for merged cell formatting (after title row added)
 	local ref_rows ""
@@ -857,19 +854,7 @@ quietly {
 
 	* Console display (when no xlsx or display option specified)
 	if !`_has_xlsx' | "`display'" != "" {
-		noisily {
-			if "`subtitle'" != "" {
-				if "`title'" != "" {
-					display as text ""
-					display as result "`title'"
-				}
-				display as text "`subtitle'"
-				_tabtools_console_display `n' "", labelvar(A)
-			}
-			else {
-				_tabtools_console_display `n' `"`title'"', labelvar(A)
-			}
-		}
+		noisily _tabtools_console_display `n' `"`title'"', labelvar(A)
 	}
 
 	* Store output in frame if requested
@@ -1109,7 +1094,7 @@ quietly {
 
 	} // end capture noisily
 	local _rc = _rc
-	set varabbrev `_prev_varabbrev'
+	set varabbrev `_orig_varabbrev'
 	if `_rc' exit `_rc'
 end
 *

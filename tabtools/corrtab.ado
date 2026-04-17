@@ -1,4 +1,4 @@
-*! corrtab Version 1.0.4  2026/04/16
+*! corrtab Version 1.0.5  2026/04/17
 *! Correlation matrix table
 *! Author: Timothy P Copeland
 *! Program class: rclass
@@ -13,7 +13,7 @@ SYNTAX:
     corrtab varlist [if] [in], xlsx(filename)
         [spearman lower upper full
         star(numlist) pvalues digits(int)
-        sheet(string) title(string) subtitle(string)
+        sheet(string) title(string)
         footnote(string) theme(string) borderstyle(string)
         csv(filename) frame(name) display open]
 */
@@ -43,7 +43,7 @@ capture noisily {
         [xlsx(string) excel(string) sheet(string) ///
         SPEarman LOWer UPPer FULL ///
         STAR(numlist sort) PVALues DIGits(integer -1) ///
-        title(string) SUBtitle(string) ///
+        title(string) ///
         FOOTnote(string) THEme(string) BORDERstyle(string) ///
         HEADERColor(string) ZEBRAColor(string) ZEBra HEADERShade ///
         csv(string) FRAme(string) DISplay open]
@@ -272,42 +272,14 @@ capture noisily {
         qui replace c1 = "`_star_note'" in `row'
     }
 
-    local _has_subtitle = (`"`subtitle'"' != "")
-    if `_has_subtitle' {
-        tempvar _row_order
-        qui gen long `_row_order' = _n
-        qui replace `_row_order' = `_row_order' + 1 if `_row_order' >= 2
-        qui set obs `=_N+1'
-        qui replace `_row_order' = 2 if missing(`_row_order')
-        qui sort `_row_order'
-        qui replace title = `"`subtitle'"' in 2
-        forvalues _c = 1/`out_ncols' {
-            qui replace c`_c' = "" in 2
-        }
-        qui drop `_row_order'
-        local _data_end_row = `_data_end_row' + 1
-    }
-
     local num_rows = _N
     local num_cols = `out_ncols' + 1
-    local _header_row = 2 + `_has_subtitle'
+    local _header_row = 2
     local _data_start = `_header_row' + 1
 
 **# Console Display
     if !`_has_xlsx' | "`display'" != "" {
-        if `_has_subtitle' {
-            noisily {
-                if `"`title'"' != "" {
-                    display as text ""
-                    display as result `"`title'"'
-                }
-                display as text `"`subtitle'"'
-            }
-            noisily _tabtools_console_display `out_ncols' "", headerstart(`_header_row') datastart(`_data_start')
-        }
-        else {
-            noisily _tabtools_console_display `out_ncols' `"`title'"'
-        }
+        noisily _tabtools_console_display `out_ncols' `"`title'"'
     }
 
 **# CSV/Frame/Excel Export
@@ -341,9 +313,6 @@ capture noisily {
             local lastcol : word `num_cols' of `letters'
 
             putexcel (A1:`lastcol'1), merge bold txtwrap left vcenter font("`_font'", `=`_fontsize'+2')
-            if `_has_subtitle' {
-                putexcel (A2:`lastcol'2), merge left vcenter italic font("`_font'", `_fontsize')
-            }
             putexcel (A`_header_row':`lastcol'`_header_row'), border(top, `_hborder') bold hcenter font("`_font'", `_fontsize')
             putexcel (A`_header_row':`lastcol'`_header_row'), border(bottom, `_hborder')
             putexcel (A`_data_start':`lastcol'`_xl_rows'), font("`_font'", `_fontsize')
@@ -374,7 +343,10 @@ capture noisily {
             putexcel clear
         }
         if _rc {
+            local _format_rc = _rc
             capture putexcel clear
+            noisily display as error "Excel formatting failed with error `_format_rc'"
+            exit `_format_rc'
         }
 
         * Set column widths via Mata
@@ -397,8 +369,11 @@ capture noisily {
             mata: b.close_book()
         }
         if _rc {
+            local _format_rc = _rc
             capture mata: b.close_book()
             capture mata: mata drop b
+            noisily display as error "Excel formatting failed with error `_format_rc'"
+            exit `_format_rc'
         }
         capture mata: mata drop b
         capture confirm file "`xlsx'"

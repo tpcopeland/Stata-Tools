@@ -1,6 +1,6 @@
 # tabtools
 
-![Stata 17+*](https://img.shields.io/badge/Stata-17%2B*-brightgreen) ![MIT License](https://img.shields.io/badge/License-MIT-blue) ![Version 1.0.4](https://img.shields.io/badge/Version-1.0.4-blue)
+![Stata 17+*](https://img.shields.io/badge/Stata-17%2B*-brightgreen) ![MIT License](https://img.shields.io/badge/License-MIT-blue) ![Version 1.0.5](https://img.shields.io/badge/Version-1.0.5-blue)
 
 A comprehensive suite of Stata commands for exporting publication-ready tables to Excel. Designed for epidemiological and clinical research workflows, tabtools handles descriptive statistics, regression results, treatment effects, survival analysis, diagnostic accuracy, and general-purpose table export with consistent professional formatting. Most commands require Stata 17; `tabtools` and `table1_tc` also support Stata 16. `table1_tc` is a fork of `table1_mc` version 3.5 (2024-12-19) by Mark Chatfield, though I have taken some liberties with removing and changing some existing options, the `table1_mc` options are generally intact. See [demo_tabtools.xlsx](https://github.com/tpcopeland/Stata-Tools/raw/refs/heads/main/tabtools/demo/demo_tabtools.xlsx) for examples of the various commands. [demo_tabtools.do](https://github.com/tpcopeland/Stata-Tools/raw/refs/heads/main/tabtools/demo/demo_tabtools.do) is the maintainer-side script that rebuilds that workbook from repository data and sibling packages.
 
@@ -354,10 +354,16 @@ MIT License. See the repository [LICENSE](../LICENSE) for details.
 
 ## Version
 
-Version 1.0.4, 2026-04-16
+Version 1.0.5, 2026-04-17
 
 ### Changelog
 
+- **1.0.5** (2026-04-17)
+  - Removed `subtitle()` option from all commands (`comptab`, `corrtab`, `crosstab`, `diagtab`, `effecttab`, `fittab`, `hrtab`, `regtab`, `survtab`): the feature is nuked from `.ado` and `.sthlp`. Layouts now start the header row directly after the title row.
+  - `corrtab` and `diagtab` Excel-formatting error paths now `exit _format_rc` on failure instead of silently printing "Exported to ..." with broken formatting (matches the crosstab/fittab/survtab/effecttab/hrtab/regtab/stratetab/comptab pattern).
+  - QA: `test_tabtools_issue_regressions.do` now `capture erase`s the `rate1-rate4.dta` tempfiles before exiting so subsequent test files' tempname allocations don't collide with leftovers; `run_all.do` also scrubs `/tmp/St${c(pid)}*.dta` between files as a belt-and-suspenders.
+  - Standardized `_orig_varabbrev` as the local name across all commands (was `_prev_varabbrev` in `regtab`, `comptab`, `effecttab`, `table1_tc`, `tablex`, `tabtools`).
+  - Removed tracked developer debug logs (`qa/dbg_pois.log`, `qa/debug_hrtab.log`) from the working tree.
 - **1.0.4** (2026-04-16)
   - Documentation and package-hygiene refresh: corrected stale or invalid `fittab`/`comptab` examples in the README, cheatsheet, and cookbook; clarified that `r(Dapa)` is a returned local macro rather than a data frame; documented the supported cosmetic options in `corrtab`/`diagtab`; standardized stored-results anchors in the affected help files; qualified the `regtab` font remark; fixed the package-local license reference; and removed tracked debug scripts/logs from the package root.
 - **1.0.3** (2026-04-13)

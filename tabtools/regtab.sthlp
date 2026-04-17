@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.4  16apr2026}{...}
+{* *! version 1.0.5  17apr2026}{...}
 {vieweralsosee "effecttab" "help effecttab"}{...}
 {viewerjumpto "Package overview" "regtab##package"}{...}
 {viewerjumpto "Syntax" "regtab##syntax"}{...}
@@ -33,7 +33,7 @@ for treatment effects and margins tables.
 
 {marker syntax}{title:Syntax}
 
-{p 4 8 2}{cmd:regtab}, [{opt xlsx(filename)} {opt sheet(string)} {opt sep(string asis)} {opt models(string)} {opt coef(string)} {opt title(string)} {opt sub:title(string)} {opt noint:ercept} {opt keepi:ntercept} {opt nore:effects} {opt stats(string)} {opt relab:el} {opt digits(#)} {opt foot:note(string)} {opt open} {opt zebra} {opt high:light(#)} {opt bold:p(#)} {opt border:style(string)} {opt the:me(string)} {opt headerc:olor(string)} {opt zebrac:olor(string)} {opt csv(string)} {opt fra:me(name)} {opt dis:play} {opt keep(varlist)} {opt drop(varlist)} {opt dimnon:sig} {opt factorl:abel} {opt ref:cat(string)} {opt comp:act} {opt stars} {cmdab:starsl:evels(}{it:numlist}{cmd:)} {cmdab:addr:ow(}{it:string asis}{cmd:)} {opt pdp(#)} {opt highpdp(#)} {opt cdisc}]{p_end}
+{p 4 8 2}{cmd:regtab}, [{opt xlsx(filename)} {opt sheet(string)} {opt sep(string asis)} {opt models(string)} {opt coef(string)} {opt title(string)} {opt noint:ercept} {opt keepi:ntercept} {opt nore:effects} {opt stats(string)} {opt relab:el} {opt digits(#)} {opt foot:note(string)} {opt open} {opt zebra} {opt high:light(#)} {opt bold:p(#)} {opt border:style(string)} {opt the:me(string)} {opt headerc:olor(string)} {opt zebrac:olor(string)} {opt csv(string)} {opt fra:me(name)} {opt dis:play} {opt keep(varlist)} {opt drop(varlist)} {opt dimnon:sig} {opt factorl:abel} {opt ref:cat(string)} {opt comp:act} {opt stars} {cmdab:starsl:evels(}{it:numlist}{cmd:)} {cmdab:addr:ow(}{it:string asis}{cmd:)} {opt pdp(#)} {opt highpdp(#)} {opt cdisc}]{p_end}
 
 {pstd}Required: an active {helpb collect} with items {cmd:_r_b}, {cmd:_r_ci}, and {cmd:_r_p} and dimensions including {cmd:colname} and {cmd:cmdset}.{p_end}
 
@@ -51,7 +51,6 @@ for treatment effects and margins tables.
 {synopt:{opt models(string)}}Labels to merge above each model's three columns. Separate labels with a backslash, e.g., {cmd:"Model 1 \ Model 2"}. If omitted, model label is not included.{p_end}
 {synopt:{opt coef(string)}}Header label for the point estimate column. If omitted, auto-detected from the model type: {cmd:logit}{it:->}OR, {cmd:stcox}{it:->}HR, {cmd:poisson}{it:->}IRR, {cmd:stcrreg}{it:->}SHR, {cmd:streg}{it:->}TR/AF, {cmd:regress}{it:->}Coef. Set explicitly to override (e.g., {cmd:coef("RR")}).{p_end}
 {synopt:{opt title(string)}}Text written into {cmd:A1} and merged across the table width. If omitted, the title row is left blank.{p_end}
-{synopt:{opt sub:title(string)}}Subtitle text displayed below the title row.{p_end}
 {synopt:{opt noint:ercept}}Drop the intercept row. Auto-enabled for OR/HR/IRR models; use {opt keepintercept} to override.{p_end}
 {synopt:{opt keepi:ntercept}}Force display of intercept row even for exponentiated models.{p_end}
 {synopt:{opt nore:effects}}Drop all random-effects rows: variance components ({cmd:var(}...{cmd:)}), covariances ({cmd:cov(}...{cmd:)}), and standard deviations ({cmd:sd(}...{cmd:)}).{p_end}
@@ -209,6 +208,6 @@ the threshold, and {opt highlight()} applies yellow fill to entire rows.{p_end}
 {pstd}Timothy P Copeland{p_end}
 {pstd}Department of Clinical Neuroscience, Karolinska Institutet{p_end}
 {pstd}timothy.copeland@ki.se{p_end}
-{pstd}Version 1.0.4{p_end}
+{pstd}Version 1.0.5{p_end}
 
 {hline}
