@@ -198,14 +198,27 @@ if `run_only' == 0 | `run_only' == 3 {
 local ++test_count
 if `run_only' == 0 | `run_only' == 4 {
     capture noisily {
-        * Directly from iivw.sthlp lines 83-88
-        use "`repo_dir'/_data/relapses.dta", clear
-        sort id edss_date
-        gen double days = edss_date - dx_date
-        gen byte relapse = !missing(relapse_date)
-        * Break ties (relapses.dta has month-rounded ties; sthlp assumes clean data)
-        bysort id (edss_date): replace days = days + (_n - 1) * 0.001 ///
-            if _n > 1 & days == days[_n-1]
+        * Directly from the shared setup block in iivw.sthlp / README.md
+        clear
+        set seed 20260417
+        set obs 320
+        gen long id = ceil(_n/4)
+        bysort id: gen byte visit = _n
+        gen double days = (visit - 1) * 90 + runiform() * 20
+        replace days = 0 if visit == 1
+        gen double edss_bl = 2 + 3 * runiform()
+        bysort id: replace edss_bl = edss_bl[1]
+        gen double age = 35 + 15 * runiform()
+        bysort id: replace age = age[1]
+        gen byte sex = runiform() > 0.5
+        bysort id: replace sex = sex[1]
+        gen byte treated = (runiform() < invlogit(-0.8 + 0.5 * edss_bl))
+        bysort id: replace treated = treated[1]
+        gen double edss = edss_bl + 0.012 * days - 0.7 * treated + rnormal(0, 0.45)
+        gen byte relapse = (runiform() < invlogit(-2 + 0.4 * edss))
+        gen byte treatment = cond(treated == 0, 0, cond(edss_bl < 3.5, 1, 2))
+        label define arm 0 "Placebo" 1 "Low dose" 2 "High dose"
+        label values treatment arm
         iivw_weight, id(id) time(days) visit_cov(edss relapse) nolog
         iivw_fit edss relapse, model(gee) timespec(linear)
         assert e(converged) == 1
@@ -226,7 +239,27 @@ if `run_only' == 0 | `run_only' == 4 {
 local ++test_count
 if `run_only' == 0 | `run_only' == 5 {
     capture noisily {
-        _setup_relapses_ext `"`repo_dir'"'
+        * Directly from the shared setup block in iivw.sthlp / README.md
+        clear
+        set seed 20260417
+        set obs 320
+        gen long id = ceil(_n/4)
+        bysort id: gen byte visit = _n
+        gen double days = (visit - 1) * 90 + runiform() * 20
+        replace days = 0 if visit == 1
+        gen double edss_bl = 2 + 3 * runiform()
+        bysort id: replace edss_bl = edss_bl[1]
+        gen double age = 35 + 15 * runiform()
+        bysort id: replace age = age[1]
+        gen byte sex = runiform() > 0.5
+        bysort id: replace sex = sex[1]
+        gen byte treated = (runiform() < invlogit(-0.8 + 0.5 * edss_bl))
+        bysort id: replace treated = treated[1]
+        gen double edss = edss_bl + 0.012 * days - 0.7 * treated + rnormal(0, 0.45)
+        gen byte relapse = (runiform() < invlogit(-2 + 0.4 * edss))
+        gen byte treatment = cond(treated == 0, 0, cond(edss_bl < 3.5, 1, 2))
+        label define arm 0 "Placebo" 1 "Low dose" 2 "High dose"
+        label values treatment arm
         iivw_weight, id(id) time(days) visit_cov(edss relapse) ///
             treat(treated) treat_cov(age sex edss_bl) ///
             truncate(1 99) replace nolog
@@ -798,6 +831,68 @@ if `run_only' == 0 | `run_only' == 25 {
     }
     else {
         display as error "  FAIL: E25 - installation completeness (error `=_rc')"
+        local ++fail_count
+    }
+}
+
+* =============================================================================
+* E26: Failed reweight invalidates stored metadata and blocks stale fit reuse
+* =============================================================================
+local ++test_count
+if `run_only' == 0 | `run_only' == 26 {
+    capture noisily {
+        _setup_panel
+        iivw_weight, id(id) time(months) visit_cov(severity) nolog
+
+        gen byte bad_treat = 2
+        capture iivw_weight, id(id) time(months) visit_cov(severity) ///
+            treat(bad_treat) generate(wx_) nolog
+        assert _rc == 198
+
+        local weighted : char _dta[_iivw_weighted]
+        local wvar : char _dta[_iivw_weight_var]
+        local wtype : char _dta[_iivw_weighttype]
+        assert "`weighted'" == ""
+        assert "`wvar'" == ""
+        assert "`wtype'" == ""
+
+        capture iivw_fit event severity, model(gee) timespec(linear) nolog
+        assert _rc == 198
+    }
+    if _rc == 0 {
+        display as result "  PASS: E26 - Failed reweight invalidates stale metadata"
+        local ++pass_count
+    }
+    else {
+        display as error "  FAIL: E26 - stale metadata invalidation (error `=_rc')"
+        local ++fail_count
+    }
+}
+
+* =============================================================================
+* E27: mixed + cluster() uses cluster-robust SEs and stores cluster metadata
+* =============================================================================
+local ++test_count
+if `run_only' == 0 | `run_only' == 27 {
+    capture noisily {
+        _setup_panel
+        gen long site = mod(id, 8)
+        iivw_weight, id(id) time(months) visit_cov(severity) nolog
+        iivw_fit event severity, model(mixed) timespec(linear) ///
+            cluster(site) nolog
+
+        assert e(N) > 0
+        assert "`e(iivw_cluster)'" == "site"
+        assert "`e(vce)'" == "cluster"
+        assert "`e(clustvar)'" == "site"
+        assert e(N_clust) <= 8
+    }
+    if _rc == 0 {
+        display as result "  PASS: E27 - mixed cluster() path honored"
+        local ++pass_count
+    }
+    else {
+        display as error "  FAIL: E27 - mixed cluster() path (error `=_rc')"
         local ++fail_count
     }
 }

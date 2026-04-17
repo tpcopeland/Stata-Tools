@@ -1,4 +1,4 @@
-*! iivw_fit Version 1.0.0  2026/04/08
+*! iivw_fit Version 1.0.1  2026/04/17
 *! Fit weighted outcome model for IIW/IPTW/FIPTIW analysis
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet
@@ -57,6 +57,14 @@ program define iivw_fit, eclass
     * =========================================================================
     * CHECK PREREQUISITES
     * =========================================================================
+
+    * Clear prior fit metadata before validation. A failed refit should not
+    * leave stale model settings behind.
+    foreach ch in _iivw_fitted _iivw_model _iivw_timespec _iivw_cluster ///
+        _iivw_time_vars _iivw_interaction _iivw_ix_vars ///
+        _iivw_categorical _iivw_cat_vars _iivw_basecat {
+        char _dta[`ch'] ""
+    }
 
     _iivw_check_weighted
     _iivw_get_settings
@@ -686,7 +694,8 @@ program define iivw_fit, eclass
         }
         else {
             mixed `depvar' `all_covars' [pw=`weight_var'] if `touse' ///
-                || `panel_id':, level(`level') `log_opt' `mixedopts'
+                || `panel_id':, vce(cluster `cluster') level(`level') ///
+                `log_opt' `mixedopts'
         }
 
         if `bootstrap' == 0 & e(converged) == 0 {
@@ -738,7 +747,8 @@ program define iivw_fit, eclass
             local b_val = _b[`pred']
             local se_val = _se[`pred']
         }
-        if _rc == 0 & `se_val' > 0 & `se_val' < . {
+        local coef_rc = _rc
+        if `coef_rc' == 0 & `se_val' > 0 & `se_val' < . {
             local z_val = `b_val' / `se_val'
             local p_val = 2 * normal(-abs(`z_val'))
             local ci_lo = `b_val' - invnormal((100+`level')/200) * `se_val'

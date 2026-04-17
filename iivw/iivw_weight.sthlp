@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.0  08apr2026}{...}
+{* *! version 1.0.1  17apr2026}{...}
 {vieweralsosee "iivw" "help iivw"}{...}
 {vieweralsosee "iivw_fit" "help iivw_fit"}{...}
 {vieweralsosee "[ST] stcox" "help stcox"}{...}
@@ -238,12 +238,29 @@ highly variable weights that may reduce statistical power.
 {title:Examples}
 
 {pstd}
+{bf:Setup example data}
+
+{phang2}{cmd:. clear}{p_end}
+{phang2}{cmd:. set seed 20260417}{p_end}
+{phang2}{cmd:. set obs 320}{p_end}
+{phang2}{cmd:. gen long id = ceil(_n/4)}{p_end}
+{phang2}{cmd:. bysort id: gen byte visit = _n}{p_end}
+{phang2}{cmd:. gen double days = (visit - 1) * 90 + runiform() * 20}{p_end}
+{phang2}{cmd:. replace days = 0 if visit == 1}{p_end}
+{phang2}{cmd:. gen double edss_bl = 2 + 3 * runiform()}{p_end}
+{phang2}{cmd:. bysort id: replace edss_bl = edss_bl[1]}{p_end}
+{phang2}{cmd:. gen double age = 35 + 15 * runiform()}{p_end}
+{phang2}{cmd:. bysort id: replace age = age[1]}{p_end}
+{phang2}{cmd:. gen byte sex = runiform() > 0.5}{p_end}
+{phang2}{cmd:. bysort id: replace sex = sex[1]}{p_end}
+{phang2}{cmd:. gen byte treated = (runiform() < invlogit(-0.8 + 0.5 * edss_bl))}{p_end}
+{phang2}{cmd:. bysort id: replace treated = treated[1]}{p_end}
+{phang2}{cmd:. gen double edss = edss_bl + 0.012 * days - 0.7 * treated + rnormal(0, 0.45)}{p_end}
+{phang2}{cmd:. gen byte relapse = (runiform() < invlogit(-2 + 0.4 * edss))}{p_end}
+
+{pstd}
 {bf:Example 1: IIW only}
 
-{phang2}{cmd:. use relapses.dta, clear}{p_end}
-{phang2}{cmd:. sort id edss_date}{p_end}
-{phang2}{cmd:. gen double days = edss_date - dx_date}{p_end}
-{phang2}{cmd:. gen byte relapse = !missing(relapse_date)}{p_end}
 {phang2}{cmd:. iivw_weight, id(id) time(days) visit_cov(edss relapse) nolog}{p_end}
 {phang2}{cmd:. summarize _iivw_weight, detail}{p_end}
 
@@ -294,7 +311,7 @@ highly variable weights that may reduce statistical power.
 {pstd}Timothy P Copeland{p_end}
 {pstd}Department of Clinical Neuroscience{p_end}
 {pstd}Karolinska Institutet{p_end}
-{pstd}Version 1.0.0, 2026-04-08{p_end}
+{pstd}Version 1.0.1, 2026-04-17{p_end}
 
 
 {title:Also see}

@@ -1,4 +1,4 @@
-*! iivw_weight Version 1.0.0  2026/04/08
+*! iivw_weight Version 1.0.1  2026/04/17
 *! Compute inverse intensity of visit weights (IIW/IPTW/FIPTIW)
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet
@@ -67,6 +67,16 @@ program define iivw_weight, rclass sortpreserve
 
     local log_opt ""
     if "`log'" == "nolog" local log_opt "nolog"
+
+    * Invalidate stored weighting/fitting state before any failure path.
+    * A failed rerun must not leave prior weights looking current.
+    foreach ch in _iivw_weighted _iivw_id _iivw_time _iivw_weighttype ///
+        _iivw_weight_var _iivw_prefix _iivw_treat _iivw_fitted ///
+        _iivw_model _iivw_timespec _iivw_cluster _iivw_time_vars ///
+        _iivw_interaction _iivw_ix_vars _iivw_categorical ///
+        _iivw_cat_vars _iivw_basecat {
+        char _dta[`ch'] ""
+    }
 
     * =========================================================================
     * DETERMINE WEIGHT TYPE

@@ -5,8 +5,8 @@ set varabbrev off
 
 * test_iivw.do - Functional tests for iivw package
 * Tests: 115 (basic functionality, options, error handling, return values,
-*        edge cases, data preservation, v1.2.2 bug fixes, v1.2.4 expanded,
-*        v1.2.5 regtab integration + console summary + install/settings)
+*        edge cases, data preservation, expanded coverage,
+*        regtab integration + console summary + install/settings)
 *
 * Usage:
 *   do iivw/qa/test_iivw.do          Run all tests
@@ -72,7 +72,7 @@ if `run_only' == 0 | `run_only' == 1 {
     capture noisily {
         iivw
         assert r(n_commands) == 2
-        assert "`r(version)'" == "1.2.5"
+        assert "`r(version)'" == "1.0.1"
     }
     if _rc == 0 {
         display as result "  PASS: Test 1 - iivw overview runs and returns metadata"
@@ -2604,7 +2604,7 @@ else {
 }
 
 * =============================================================================
-* v1.2.5 - regtab integration + console summary table
+* v1.0.1 - regtab integration + console summary table
 * =============================================================================
 
 * Install tabtools for regtab integration tests (108-110)

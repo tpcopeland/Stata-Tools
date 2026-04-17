@@ -35,7 +35,7 @@ Stabilized IIW weights are also supported via `stabcov()`, fitting a marginal in
 
 `iivw_weight` handles the full weight pipeline: counting-process construction, Cox model fitting, propensity score estimation, weight computation, optional truncation, and diagnostic reporting. It stores metadata in dataset characteristics so that `iivw_fit` can automatically retrieve the weight variable, panel structure, and weight type.
 
-`iivw_fit` fits the weighted outcome model using either GEE-equivalent estimation (GLM with clustered sandwich SEs, as required by IIW theory) or mixed-effects models. Time can enter the model as linear, polynomial, or natural cubic spline terms. Bootstrap SEs are available for inference that accounts for the weight estimation step.
+`iivw_fit` fits the weighted outcome model using either GEE-equivalent estimation (GLM with clustered sandwich SEs, as required by IIW theory) or mixed-effects models. Time can enter the model as linear, polynomial, or natural cubic spline terms. Bootstrap SEs are available for outcome-model uncertainty with fixed weights; the weights are not re-estimated inside each bootstrap draw.
 
 ## Installation
 
@@ -46,14 +46,27 @@ net install iivw, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools
 ## Quick Start
 
 ```stata
-* Load longitudinal MS visit data (500 patients, ~4,400 irregular visits)
-use relapses.dta, clear
-
-* Prepare time variable and event indicator
-sort id edss_date
-gen double days = edss_date - dx_date
-gen byte relapse = !missing(relapse_date)
-bysort id (days): gen double edss_bl = edss[1]
+* Self-contained synthetic panel with irregular visits
+clear
+set seed 20260417
+set obs 320
+gen long id = ceil(_n/4)
+bysort id: gen byte visit = _n
+gen double days = (visit - 1) * 90 + runiform() * 20
+replace days = 0 if visit == 1
+gen double edss_bl = 2 + 3 * runiform()
+bysort id: replace edss_bl = edss_bl[1]
+gen double age = 35 + 15 * runiform()
+bysort id: replace age = age[1]
+gen byte sex = runiform() > 0.5
+bysort id: replace sex = sex[1]
+gen byte treated = (runiform() < invlogit(-0.8 + 0.5 * edss_bl))
+bysort id: replace treated = treated[1]
+gen double edss = edss_bl + 0.012 * days - 0.7 * treated + rnormal(0, 0.45)
+gen byte relapse = (runiform() < invlogit(-2 + 0.4 * edss))
+gen byte treatment = cond(treated == 0, 0, cond(edss_bl < 3.5, 1, 2))
+label define arm 0 "Placebo" 1 "Low dose" 2 "High dose"
+label values treatment arm
 ```
 
 ### IIW only (correct for visit timing)
@@ -89,10 +102,6 @@ iivw_fit edss treated age sex edss_bl, ///
 ### FIPTIW with categorical treatment (3 levels)
 
 ```stata
-* Define a 3-level treatment with value labels
-label define arm 0 "Placebo" 1 "Low dose" 2 "High dose"
-label values treatment arm
-
 iivw_fit edss treatment age sex edss_bl, ///
     model(gee) timespec(ns(3)) ///
     categorical(treatment) interaction(treatment)
@@ -153,7 +162,7 @@ iivw_fit edss relapse, bootstrap(500) nolog
 
 ## Cross-Validation
 
-The package includes a QA suite (`qa/`) with 98 tests, including cross-validation against two independent R implementations.
+The package includes 199 QA checks across four local suites plus cross-validation against two independent R implementations.
 
 ### Part A: IrregLong (Phenobarb dataset)
 
@@ -181,11 +190,14 @@ The small residual difference in FIPTIW correlation stems from the IIW component
 
 | Suite | Tests | Status |
 |-------|-------|--------|
-| Functional (`test_iivw.do`) | 67 | All pass |
-| Validation (`validation_iivw.do`) | 22 | All pass |
+| Functional (`test_iivw.do`) | 115 | All pass |
+| Expanded functional (`test_iivw_expanded.do`) | 27 | All pass |
+| Validation (`validation_iivw.do`) | 28 | All pass |
+| Expanded validation (`validation_iivw_expanded.do`) | 20 | All pass |
 | Cross-validation (`crossval_iivw.do`) | 9 | All pass |
+| Total | 199 | All pass |
 
-R reference data and scripts are included in `qa/` for reproducibility.
+`run_all.do` executes the first four suites; `crossval_iivw.do` is run separately after staging the R reference files in `qa/`.
 
 ## Stored Results
 
@@ -203,7 +215,8 @@ All results from the underlying `glm` or `mixed` command, plus: `e(iivw_cmd)`, `
 
 ## Version
 
-- **1.0.0** (2026-04-08): Initial release
+- Version 1.0.1 (2026-04-17): Fixed stale-weight metadata after failed reruns, applied `cluster()` to non-bootstrap mixed models, and replaced broken examples with self-contained runnable ones.
+- Version 1.0.0 (2026-04-08): Initial release
 
 ## Author
 

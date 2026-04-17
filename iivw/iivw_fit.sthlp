@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.0  08apr2026}{...}
+{* *! version 1.0.1  17apr2026}{...}
 {vieweralsosee "iivw" "help iivw"}{...}
 {vieweralsosee "iivw_weight" "help iivw_weight"}{...}
 {vieweralsosee "[XT] xtgee" "help xtgee"}{...}
@@ -150,6 +150,9 @@ in a variable's levels, the lowest value is used with a note.  Requires
 {phang}
 {opt cluster(varname)} specifies the clustering variable for sandwich standard
 errors.  Default is the panel ID variable from {cmd:iivw_weight} metadata.
+With {cmd:model(gee)} and {cmd:bootstrap(0)}, this is passed to
+{cmd:vce(cluster ...)} in {cmd:glm}.  With {cmd:model(mixed)} and
+{cmd:bootstrap(0)}, it is passed to {cmd:vce(cluster ...)} in {cmd:mixed}.
 
 {phang}
 {opt bootstrap(#)} specifies the number of bootstrap replicates.  When
@@ -235,6 +238,31 @@ To compare multiple weighting strategies side by side:
 
 {marker examples}{...}
 {title:Examples}
+
+{pstd}
+{bf:Setup example data and weights}
+
+{phang2}{cmd:. clear}{p_end}
+{phang2}{cmd:. set seed 20260417}{p_end}
+{phang2}{cmd:. set obs 320}{p_end}
+{phang2}{cmd:. gen long id = ceil(_n/4)}{p_end}
+{phang2}{cmd:. bysort id: gen byte visit = _n}{p_end}
+{phang2}{cmd:. gen double days = (visit - 1) * 90 + runiform() * 20}{p_end}
+{phang2}{cmd:. replace days = 0 if visit == 1}{p_end}
+{phang2}{cmd:. gen double edss_bl = 2 + 3 * runiform()}{p_end}
+{phang2}{cmd:. bysort id: replace edss_bl = edss_bl[1]}{p_end}
+{phang2}{cmd:. gen double age = 35 + 15 * runiform()}{p_end}
+{phang2}{cmd:. bysort id: replace age = age[1]}{p_end}
+{phang2}{cmd:. gen byte sex = runiform() > 0.5}{p_end}
+{phang2}{cmd:. bysort id: replace sex = sex[1]}{p_end}
+{phang2}{cmd:. gen byte treated = (runiform() < invlogit(-0.8 + 0.5 * edss_bl))}{p_end}
+{phang2}{cmd:. bysort id: replace treated = treated[1]}{p_end}
+{phang2}{cmd:. gen double edss = edss_bl + 0.012 * days - 0.7 * treated + rnormal(0, 0.45)}{p_end}
+{phang2}{cmd:. gen byte relapse = (runiform() < invlogit(-2 + 0.4 * edss))}{p_end}
+{phang2}{cmd:. gen byte treatment = cond(treated == 0, 0, cond(edss_bl < 3.5, 1, 2))}{p_end}
+{phang2}{cmd:. label define arm 0 "Placebo" 1 "Low dose" 2 "High dose"}{p_end}
+{phang2}{cmd:. label values treatment arm}{p_end}
+{phang2}{cmd:. iivw_weight, id(id) time(days) visit_cov(edss relapse) nolog}{p_end}
 
 {pstd}
 {bf:Example 1: Basic GEE model}
@@ -338,7 +366,7 @@ To compare multiple weighting strategies side by side:
 {pstd}Timothy P Copeland{p_end}
 {pstd}Department of Clinical Neuroscience{p_end}
 {pstd}Karolinska Institutet{p_end}
-{pstd}Version 1.0.0, 2026-04-08{p_end}
+{pstd}Version 1.0.1, 2026-04-17{p_end}
 
 
 {title:Also see}

@@ -1,4 +1,4 @@
-/*  demo_iivw.do - Generate screenshots for iivw v1.2.1
+/*  demo_iivw.do - Generate screenshots for iivw v1.0.1
 
     Produces 2 output types:
       1. Console output (FIPTIW workflow: weighting + outcome model) -> .smcl
