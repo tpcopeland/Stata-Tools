@@ -179,9 +179,33 @@ capture noisily {
         commands(m: logit, y: logit) ///
         equations(m: x c, y: m x c) ///
         base_confs(c) sim(100) samples(20) seed(43)
-    * OCE decomposition must still hold
-    local decomp = abs(e(tce) - e(nde) - e(nie))
-    assert `decomp' < 0.05
+    * OCE with 3-level exposure: TCE/NDE/NIE are vector-valued (one per contrast).
+    * Decomposition must hold element-wise from e(b).
+    tempname _boce
+    matrix `_boce' = e(b)
+    local K = colsof(`_boce')
+    * Find tce/nde/nie contrasts and verify TCE_k = NDE_k + NIE_k
+    local cnames : colnames `_boce'
+    forvalues k = 1/2 {
+        local tname "tce_`k'"
+        local dname "nde_`k'"
+        local iname "nie_`k'"
+        local ti = 0
+        local di = 0
+        local ii = 0
+        forvalues j = 1/`K' {
+            local nm : word `j' of `cnames'
+            if "`nm'" == "`tname'" local ti = `j'
+            if "`nm'" == "`dname'" local di = `j'
+            if "`nm'" == "`iname'" local ii = `j'
+        }
+        if `ti' > 0 & `di' > 0 & `ii' > 0 {
+            local tv = `_boce'[1, `ti']
+            local dv = `_boce'[1, `di']
+            local iv = `_boce'[1, `ii']
+            assert abs(`tv' - `dv' - `iv') < 0.05
+        }
+    }
 }
 if _rc == 0 {
     display as result "  PASS: VX6 OCE decomposition TCE = NDE + NIE"
@@ -193,17 +217,26 @@ else {
 }
 
 * ============================================================
-* VX7: linexp TCE = NDE + NIE (linear expansion scale)
+* VX7: linexp TCE = NDE + NIE (linear expansion — continuous exposure)
 * ============================================================
+* linexp requires non-binary exposure. Build a continuous-exposure DGP.
 
 local ++test_count
 capture noisily {
-    use `dgp', clear
-    gcomp y m x c, outcome(y) mediation obe ///
+    clear
+    set seed 44
+    set obs 500
+    gen double c = rnormal()
+    gen double x = rnormal(0, 1)                           // continuous
+    gen double m = rbinomial(1, invlogit(-0.5 + 0.4*x + 0.2*c))
+    gen double y = rbinomial(1, invlogit(-1 + 0.5*m + 0.3*x + 0.1*c))
+    * linexp replaces obe for continuous exposure; baseline() is also invalid
+    gcomp y m x c, outcome(y) mediation ///
         exposure(x) mediator(m) ///
         commands(m: logit, y: logit) ///
         equations(m: x c, y: m x c) ///
-        base_confs(c) sim(100) samples(20) seed(44) linexp
+        base_confs(c) ///
+        sim(100) samples(20) seed(44) linexp
     local decomp = abs(e(tce) - e(nde) - e(nie))
     assert `decomp' < 0.05
 }

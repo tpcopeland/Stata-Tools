@@ -240,7 +240,7 @@ if "`mediation'"=="" {
 			exit 198
 		}
 		if "`death'"=="" {
-			local varlist2="`varyingcovariates'"+" "+"`intvars'"+" "+"`outcome'"
+			local varlist2="`outcome'"+" "+"`varyingcovariates'"+" "+"`intvars'"
 		}
 		else {
 			local varlist2="`death'"+" "+"`outcome'"+" "+"`varyingcovariates'"+" "+"`intvars'"
@@ -643,7 +643,7 @@ noi di
 * Display in a table the parametric models that have been specified (for simulation under different interventions)
 if "`mediation'"=="" {
 	if "`death'"=="" {
-		local varlist2="`varyingcovariates'"+" "+"`intvars'"+" "+"`outcome'"
+		local varlist2="`outcome'"+" "+"`varyingcovariates'"+" "+"`intvars'"
 	}
 	else {
 		local varlist2="`death'"+" "+"`outcome'"+" "+"`varyingcovariates'"+" "+"`intvars'"
@@ -2601,7 +2601,7 @@ if "`mediation'"=="" {
 			}
 			else {
 				if "`death'"=="" {
-					local varlist2="`varyingcovariates'"+" "+"`intvars'"+" "+"`outcome'"
+					local varlist2="`outcome'"+" "+"`varyingcovariates'"+" "+"`intvars'"
 				}
 				else {
 					local varlist2="`death'"+" "+"`outcome'"+" "+"`varyingcovariates'"+" "+"`intvars'"
@@ -3010,7 +3010,7 @@ gen long `int_no'=0
 * It will be useful to have a list of the variables for which models will be specified
 if "`mediation'"=="" {
 	if "`death'"=="" {
-		local varlist2="`varyingcovariates'"+" "+"`intvars'"+" "+"`outcome'"
+		local varlist2="`outcome'"+" "+"`varyingcovariates'"+" "+"`intvars'"
 	}
 	else {
 		local varlist2="`death'"+" "+"`outcome'"+" "+"`varyingcovariates'"+" "+"`intvars'"

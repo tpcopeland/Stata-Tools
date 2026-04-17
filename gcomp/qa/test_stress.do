@@ -187,7 +187,7 @@ else {
 }
 
 * ============================================================
-* S6: Time-varying — monotreat option (treatment monotonic)
+* S6: Time-varying — pooled option (pools across time for model fit)
 * ============================================================
 
 local ++test_count
@@ -198,24 +198,59 @@ capture noisily {
     gen long id = ceil(_n / 3)
     bysort id: gen int time = _n
     gen double L = rnormal()
-    * Monotonic treatment: once A=1, stays A=1
     gen double A = rbinomial(1, invlogit(-1 + 0.3*L))
-    bysort id (time): replace A = 1 if _n > 1 & A[_n-1] == 1
     gen double Y = rbinomial(1, invlogit(-2 + 0.5*L + 0.4*A))
     gcomp Y L A id time, outcome(Y) ///
         idvar(id) tvar(time) varyingcovariates(L) ///
         commands(L: regress, Y: logit, A: logit) ///
         equations(L: A, Y: L A, A: L) ///
         intvars(A) interventions(A_: A_=1, A_: A_=0) ///
-        monotreat sim(50) samples(5) seed(6) eofu
-    assert "`e(cmd)'" == "gcomp"
+        pooled sim(50) samples(5) seed(6) eofu
+    assert "`e(analysis_type)'" == "time_varying"
+    confirm matrix e(b)
 }
 if _rc == 0 {
-    display as result "  PASS: S6 time-varying + monotreat + eofu"
+    display as result "  PASS: S6 time-varying + pooled + eofu"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: S6 monotreat (error `=_rc')"
+    display as error "  FAIL: S6 pooled (error `=_rc')"
+    local ++fail_count
+}
+
+* ============================================================
+* S11: Regression — monotreat without death (v1.0.2 fix)
+* ============================================================
+* v1.0.1 reordered varlist2 to `varyingcov intvars outcome` when death was
+* omitted, breaking the monotreat MC loop's invariant that intvars sit at
+* positions nvar_untilmono+1..nvar. That caused rc=2000 "no observations"
+* during MC simulation. Restored to `outcome varyingcov intvars`.
+
+local ++test_count
+capture noisily {
+    clear
+    set seed 41
+    set obs 300
+    gen long id = ceil(_n / 3)
+    bysort id: gen int time = _n
+    gen double L = rnormal()
+    gen double A = rbinomial(1, invlogit(-1 + 0.3*L))
+    gen double Y = rbinomial(1, invlogit(-2 + 0.5*L + 0.4*A))
+    gcomp Y L A id time, outcome(Y) ///
+        idvar(id) tvar(time) varyingcovariates(L) ///
+        commands(L: regress, Y: logit, A: logit) ///
+        equations(L: A, Y: L A, A: L) ///
+        intvars(A) interventions(A_: A_=1, A_: A_=0) ///
+        monotreat sim(50) samples(5) seed(11) eofu
+    assert "`e(analysis_type)'" == "time_varying"
+    confirm matrix e(b)
+}
+if _rc == 0 {
+    display as result "  PASS: S11 monotreat regression (no death, outcome-first varlist2)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: S11 monotreat regression (error `=_rc')"
     local ++fail_count
 }
 
