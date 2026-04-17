@@ -411,13 +411,13 @@ different intervention or mediation scenarios.
 
 {phang2}{cmd:. * Panel data: 500 subjects, 5 time points}{p_end}
 {phang2}{cmd:. * Confounder L is affected by prior treatment A}{p_end}
-{phang2}{cmd:. gcomp outcome L A, outcome(outcome) ///}{p_end}
+{phang2}{cmd:. gcomp outcome L A id time, outcome(outcome) ///}{p_end}
 {phang2}{cmd:      idvar(id) tvar(time) ///}{p_end}
 {phang2}{cmd:      varyingcovariates(L) ///}{p_end}
-{phang2}{cmd:      commands(L: logit, outcome: logit) ///}{p_end}
-{phang2}{cmd:      equations(L: A, outcome: L A) ///}{p_end}
-{phang2}{cmd:      intvars(A) interventions(A=1, A=0) ///}{p_end}
-{phang2}{cmd:      sim(500) samples(200) seed(42)}{p_end}
+{phang2}{cmd:      commands(L: regress, outcome: logit, A: logit) ///}{p_end}
+{phang2}{cmd:      equations(L: A, outcome: L A, A: L) ///}{p_end}
+{phang2}{cmd:      intvars(A) interventions(A_: A_=1, A_: A_=0) ///}{p_end}
+{phang2}{cmd:      sim(500) samples(200) seed(42) eofu}{p_end}
 
 {pstd}
 {bf:Example 4: Export mediation results to Excel}

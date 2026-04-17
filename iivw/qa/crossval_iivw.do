@@ -31,7 +31,8 @@ if "`run_only'" == "" local run_only = 0
 
 * === Bootstrap ===
 local qa_dir  "`c(pwd)'"
-local pkg_dir "`qa_dir'/.."  
+local pkg_dir "`qa_dir'/.."
+global IIVW_QA_DIR "`qa_dir'"
 
 capture ado uninstall iivw
 quietly net install iivw, from("`pkg_dir'") replace
@@ -41,7 +42,7 @@ local pass_count = 0
 local fail_count = 0
 
 * --- Check reference data exists ---
-capture confirm file "iivw/qa/phenobarb_prepared.csv"
+capture confirm file "`qa_dir'/phenobarb_prepared.csv"
 if _rc != 0 {
     display as error "Reference data not found. Run R scripts first:"
     display as error "  Rscript iivw/qa/crossval_irreglong.R"
@@ -63,7 +64,7 @@ if _rc != 0 {
 local ++test_count
 if `run_only' == 0 | `run_only' == 1 {
     capture noisily {
-        import delimited "iivw/qa/phenobarb_cox_data.csv", clear
+        import delimited "`qa_dir'/phenobarb_cox_data.csv", clear
         * CSV has "time.lag" which Stata imports as "timelag"
         capture rename timelag time_lag
         * If import already cleaned it:
@@ -82,7 +83,7 @@ if `run_only' == 0 | `run_only' == 1 {
 
         * Load R reference coefficients
         preserve
-        import delimited "iivw/qa/phenobarb_cox_coefs.csv", clear
+        import delimited "`qa_dir'/phenobarb_cox_coefs.csv", clear
         local r_coef1 = estimate[1]
         local r_coef2 = estimate[2]
         local r_coef3 = estimate[3]
@@ -120,7 +121,7 @@ if `run_only' == 0 | `run_only' == 1 {
 local ++test_count
 if `run_only' == 0 | `run_only' == 2 {
     capture noisily {
-        import delimited "iivw/qa/phenobarb_cox_data.csv", clear
+        import delimited "`qa_dir'/phenobarb_cox_data.csv", clear
         capture rename timelag time_lag
         rename subject id
         rename conclag conc_lag
@@ -142,7 +143,7 @@ if `run_only' == 0 | `run_only' == 2 {
 
         * Load R reference weights
         preserve
-        import delimited "iivw/qa/phenobarb_prepared.csv", clear
+        import delimited "`qa_dir'/phenobarb_prepared.csv", clear
         sort id time
         keep id time iiw_weight
         tempfile r_weights
@@ -182,7 +183,7 @@ if `run_only' == 0 | `run_only' == 2 {
 local ++test_count
 if `run_only' == 0 | `run_only' == 3 {
     capture noisily {
-        import delimited "iivw/qa/phenobarb_prepared.csv", clear
+        import delimited "`qa_dir'/phenobarb_prepared.csv", clear
         sort id time
 
         gen byte conc_low = (conc_lag > 0 & conc_lag <= 20)
@@ -229,7 +230,7 @@ if `run_only' == 0 | `run_only' == 3 {
 local ++test_count
 if `run_only' == 0 | `run_only' == 4 {
     capture noisily {
-        import delimited "iivw/qa/phenobarb_prepared.csv", clear
+        import delimited "`qa_dir'/phenobarb_prepared.csv", clear
         sort id time
 
         gen byte conc_low = (conc_lag > 0 & conc_lag <= 20)
@@ -275,7 +276,7 @@ capture program drop _load_fiptiw
 program define _load_fiptiw
     version 16.0
     set varabbrev off
-    import delimited "iivw/qa/fiptiw_simdata.csv", clear
+    import delimited "${IIVW_QA_DIR}/fiptiw_simdata.csv", clear
     sort id time
 
     * Break any duplicate id-time pairs
@@ -394,7 +395,7 @@ if `run_only' == 0 | `run_only' == 7 {
         local s_z = _b[z]
 
         preserve
-        import delimited "iivw/qa/fiptiw_coefs.csv", clear
+        import delimited "`qa_dir'/fiptiw_coefs.csv", clear
         keep if model == "conditional_cox"
         local r_d = estimate[1]
         local r_wt = estimate[2]

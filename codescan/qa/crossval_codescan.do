@@ -15,7 +15,7 @@ local fail_count = 0
 
 * === Bootstrap ===
 local qa_dir  "`c(pwd)'"
-local pkg_dir "`qa_dir'/.."  
+local pkg_dir "`qa_dir'/.."
 
 capture ado uninstall codescan
 quietly net install codescan, from("`pkg_dir'") replace

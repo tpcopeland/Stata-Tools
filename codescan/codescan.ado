@@ -1,4 +1,4 @@
-*! codescan Version 1.0.0  2026/04/08
+*! codescan Version 1.0.1  2026/04/17
 *! Scan wide-format code variables for pattern matches and collapse to patient-level
 *! Author: Timothy P Copeland
 *! Program class: rclass (returns results in r())
@@ -1352,10 +1352,13 @@ program define codescan, rclass
             }
         }
 
-        * C1: Unmatched code report — flag rows with no condition matches
+        * C1: Unmatched code report — flag rows with no condition matches.
+        * Strict 0/1 at row level: filtered rows (if/in, missing id for
+        * collapse/merge) get 0, not missing, matching the sthlp contract.
         if "`unmatched'" != "" {
             if "`replace'" != "" capture drop `unmatched'
-            gen byte `unmatched' = 1 if `touse'
+            gen byte `unmatched' = 0
+            replace `unmatched' = 1 if `touse'
             forvalues i = 1/`n_conditions' {
                 replace `unmatched' = 0 if `def_name_`i'' > 0 & `touse'
             }
@@ -1718,6 +1721,7 @@ program define codescan, rclass
     * =========================================================================
     if "`cooccurrence'" != "" {
         tempname cooc
+        local _mata_cooc_matname "`cooc'"
         local _mata_cooc_names "`all_names'"
         local _mata_cooc_countmode "`countmode'"
         if "`collapse'" != "" {
@@ -2051,63 +2055,7 @@ program define codescan, rclass
     }
 
     * =========================================================================
-    * EXPORT — save results to file (O2)
-    * =========================================================================
-    if `"`export'"' != "" {
-        local _exp_ext = lower(substr(`"`export'"', -4, .))
-        tempfile _export_save
-        quietly save `_export_save'
-        quietly {
-            clear
-            set obs `n_conditions'
-            gen str32 condition = ""
-            gen long matches = .
-            gen double prevalence = .
-            gen double ci_low = .
-            gen double ci_high = .
-            gen str80 pattern = ""
-            gen str80 exclusion = ""
-            forvalues i = 1/`n_conditions' {
-                replace condition = "`def_name_`i''" in `i'
-                replace matches = `summary'[`i', 1] in `i'
-                replace prevalence = `summary'[`i', 2] in `i'
-                replace ci_low  = `summary'[`i', 3] in `i'
-                replace ci_high = `summary'[`i', 4] in `i'
-                replace pattern = `"`def_pattern_`i''"' in `i'
-                replace exclusion = `"`def_excl_`i''"' in `i'
-            }
-            format prevalence ci_low ci_high `_prev_fmt'
-            if "`_exp_ext'" == ".csv" {
-                export delimited using `"`export'"', replace
-            }
-            else {
-                export excel using `"`export'"', firstrow(variables) replace
-                * Add co-occurrence as second sheet if available
-                if "`cooccurrence'" != "" {
-                    clear
-                    local _ncond = `n_conditions'
-                    set obs `_ncond'
-                    gen str32 condition = ""
-                    forvalues i = 1/`_ncond' {
-                        replace condition = "`def_name_`i''" in `i'
-                    }
-                    forvalues j = 1/`_ncond' {
-                        gen double `def_name_`j'' = .
-                        forvalues i = 1/`_ncond' {
-                            replace `def_name_`j'' = el(`cooc', `i', `j') in `i'
-                        }
-                    }
-                    export excel using `"`export'"', firstrow(variables) ///
-                        sheet("cooccurrence") sheetmodify
-                }
-            }
-        }
-        quietly use `_export_save', clear
-        display as text _n `"  Results exported to `export'"'
-    }
-
-    * =========================================================================
-    * RETURN RESULTS
+    * RETURN RESULTS (posted before export/saving so r() survives side-effect failures)
     * =========================================================================
 
     * Build list of created variables
@@ -2168,11 +2116,68 @@ program define codescan, rclass
     if "`frame'" != ""                 return local frame "`frame'"
     if "`score'" != ""                 return local score "`_score_type'"
     return scalar ci_level = c(level)
-    return matrix summary = `summary'
-    return matrix codelist = `codelist'
-    if "`detail'" != ""                return matrix varcounts = `varcounts'
-    if "`cooccurrence'" != ""          return matrix cooccurrence = `cooc'
-    if `_has_sensitivity'              return matrix sensitivity = `sensitivity'
+    * , copy — keep local tempname matrices alive for the export block below.
+    return matrix summary = `summary', copy
+    return matrix codelist = `codelist', copy
+    if "`detail'" != ""                return matrix varcounts = `varcounts', copy
+    if "`cooccurrence'" != ""          return matrix cooccurrence = `cooc', copy
+    if `_has_sensitivity'              return matrix sensitivity = `sensitivity', copy
+
+    * =========================================================================
+    * EXPORT — save results to file (O2)
+    * =========================================================================
+    if `"`export'"' != "" {
+        local _exp_ext = lower(substr(`"`export'"', -4, .))
+        tempfile _export_save
+        quietly save `_export_save'
+        quietly {
+            clear
+            set obs `n_conditions'
+            gen str32 condition = ""
+            gen long matches = .
+            gen double prevalence = .
+            gen double ci_low = .
+            gen double ci_high = .
+            gen str80 pattern = ""
+            gen str80 exclusion = ""
+            forvalues i = 1/`n_conditions' {
+                replace condition = "`def_name_`i''" in `i'
+                replace matches = `summary'[`i', 1] in `i'
+                replace prevalence = `summary'[`i', 2] in `i'
+                replace ci_low  = `summary'[`i', 3] in `i'
+                replace ci_high = `summary'[`i', 4] in `i'
+                replace pattern = `"`def_pattern_`i''"' in `i'
+                replace exclusion = `"`def_excl_`i''"' in `i'
+            }
+            format prevalence ci_low ci_high `_prev_fmt'
+            if "`_exp_ext'" == ".csv" {
+                export delimited using `"`export'"', replace
+            }
+            else {
+                export excel using `"`export'"', firstrow(variables) replace
+                * Add co-occurrence as second sheet if available
+                if "`cooccurrence'" != "" {
+                    clear
+                    local _ncond = `n_conditions'
+                    set obs `_ncond'
+                    gen str32 condition = ""
+                    forvalues i = 1/`_ncond' {
+                        replace condition = "`def_name_`i''" in `i'
+                    }
+                    forvalues j = 1/`_ncond' {
+                        gen double `def_name_`j'' = .
+                        forvalues i = 1/`_ncond' {
+                            replace `def_name_`j'' = el(`cooc', `i', `j') in `i'
+                        }
+                    }
+                    export excel using `"`export'"', firstrow(variables) ///
+                        sheet("cooccurrence") sheetmodify
+                }
+            }
+        }
+        quietly use `_export_save', clear
+        display as text _n `"  Results exported to `export'"'
+    }
 
     * =========================================================================
     * SAVING() — save result dataset to file (before restore)
@@ -2572,12 +2577,13 @@ void _codescan_mata_cooccurrence()
     string scalar    touse_name, coocname
     real scalar      ncond, N, i, j, is_count
     real matrix      ind, cooc, mask
+    real colvector   touse
 
-    names     = tokens(st_local("_mata_cooc_names"))
-    ncond     = cols(names)
+    names      = tokens(st_local("_mata_cooc_names"))
+    ncond      = cols(names)
     touse_name = st_local("_mata_cooc_touse")
-    coocname  = st_local("cooc")
-    is_count  = (st_local("_mata_cooc_countmode") != "")
+    coocname   = st_local("_mata_cooc_matname")
+    is_count   = (st_local("_mata_cooc_countmode") != "")
 
     st_view(ind, ., names)
     N = rows(ind)

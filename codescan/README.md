@@ -232,6 +232,19 @@ When `codescan_describe` sees observations but every scanned code slot is empty,
 - Stata 16 or newer
 - No external package dependencies
 
+## Version
+
+Current version: **1.0.1** (2026-04-17)
+
+### Changelog
+
+- **1.0.1** (2026-04-17)
+  - `r()` scalars/locals/matrices are now posted before `export()` and `saving()`, so programmatic callers retain `r(summary)`, `r(codelist)`, `r(cooccurrence)`, `r(sensitivity)`, `r(varcounts)`, and all scalars when an export target fails (disk full, locked file, permission error).
+  - `unmatched(name)` is now a strict 0/1 flag at row level. Rows filtered by `if`/`in`, or rows with missing `id()` when `collapse`/`merge` is active, now receive 0 instead of missing, matching the help-file contract.
+  - Internal: declared the previously implicit Mata `touse` colvector in `_codescan_mata_cooccurrence`; the co-occurrence matrix target is now passed through a named `_mata_cooc_matname` local for symmetry with the other `_mata_*` interop locals.
+- **1.0.0** (2026-04-08)
+  - Initial release.
+
 ## Author
 
 Timothy P Copeland, Karolinska Institutet

@@ -56,7 +56,7 @@ program define gcomptab, rclass
 	local _gc_varabbrev = c(varabbrev)
 	set varabbrev off
 
-	capture which _gcomp_validate_path
+	capture program list _gcomp_validate_path
 	if _rc {
 		quietly findfile _gcomp_xl_common.ado
 		run "`r(fn)'"

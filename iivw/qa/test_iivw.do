@@ -22,8 +22,11 @@ if "`run_only'" == "" local run_only = 0
 
 * === Bootstrap ===
 local qa_dir  "`c(pwd)'"
-local pkg_dir "`qa_dir'/.."  
+local pkg_dir "`qa_dir'/.."
 local repo_dir "`qa_dir'/../.."
+
+* Expose repo root to programs defined below (locals are not visible in programs)
+global IIVW_QA_REPO_DIR "`repo_dir'"
 
 capture ado uninstall iivw
 quietly net install iivw, from("`pkg_dir'") replace
@@ -39,7 +42,9 @@ capture program drop _setup_relapses
 program define _setup_relapses
     version 16.0
     set varabbrev off
-    use "`repo_dir'/_data/relapses.dta", clear
+    * Resolve repo root from global (set in the caller's bootstrap)
+    local rd "$IIVW_QA_REPO_DIR"
+    use "`rd'/_data/relapses.dta", clear
     sort id edss_date
     * Use days since diagnosis as time variable (avoids month-rounding ties)
     gen double days = edss_date - dx_date

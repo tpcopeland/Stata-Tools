@@ -25,6 +25,7 @@ USAGE:
 * Converts 1 -> A, 2 -> B, ..., 26 -> Z, 27 -> AA, 28 -> AB, etc.
 * Returns result in c_local variable 'result'
 
+capture program drop _gcomp_col_letter
 program _gcomp_col_letter
     version 16.0
     args col_num
@@ -46,6 +47,7 @@ end
 * =============================================================================
 * Checks for dangerous characters that could enable command injection.
 
+capture program drop _gcomp_validate_path
 program _gcomp_validate_path
     version 16.0
     args filepath option_name
@@ -66,6 +68,7 @@ end
 * =============================================================================
 * Requires putexcel to already be open. Uses smaller italic font.
 
+capture program drop _gcomp_xl_footnote
 program _gcomp_xl_footnote
     version 16.0
     args footnote lastcol_letter row fontname fontsize
@@ -87,6 +90,7 @@ end
 * _gcomp_xl_open: Open an xlsx file in the OS default application
 * =============================================================================
 
+capture program drop _gcomp_xl_open
 program _gcomp_xl_open
     version 16.0
     args filepath
@@ -108,6 +112,7 @@ end
 * _gcomp_xl_validate_sheet: Validate Excel sheet name
 * =============================================================================
 
+capture program drop _gcomp_xl_validate_sheet
 program _gcomp_xl_validate_sheet
     version 16.0
     args sheet option_name
