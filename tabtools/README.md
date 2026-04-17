@@ -176,6 +176,8 @@ hrtab, exposure(i.drug) model(stcox) ///
 
 ### Incidence Rates
 
+`stratetab` reads the saved `strate` output files directly, so no dataset needs to be in memory before you run it.
+
 ```stata
 * After running strate commands and saving results:
 stratetab, using(rate_control rate_treated) xlsx("rates.xlsx") ///

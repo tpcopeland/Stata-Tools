@@ -18,7 +18,7 @@
 
 {p 4 8 2}{cmd:effecttab}, [{opt xlsx(string)} {opt sheet(string)} {opt type(string)} {opt effect(string)} {opt sep(string asis)} {opt models(string)} {opt title(string)} {opt clean} {opt tlab:els(string asis)} {opt foot:note(string)} {opt open} {opt zebra} {opt high:light(#)} {opt boldp(#)} {opt borders:tyle(string)} {opt the:me(string)} {opt full} {opt digits(#)} {opt fra:me(name)} {opt dis:play} {opt from(name)} {opt headerc:olor(string)} {opt zebrac:olor(string)} {opt csv(string)} {cmdab:addr:ow(}{it:string asis}{cmd:)} {opt pdp(#)} {opt highpdp(#)}]{p_end}
 
-{pstd}Required: an active {helpb collect} containing results from {helpb teffects} or {helpb margins}.{p_end}
+{pstd}Required: either an active {helpb collect} containing results from {helpb teffects} or {helpb margins}, or {opt from(name)} with a matrix of estimates, confidence limits, and p-values.{p_end}
 
 {marker description}{title:Description}
 
@@ -30,7 +30,7 @@
 {p 8 12 2}- Propensity score matching ({cmd:teffects psmatch}){p_end}
 {p 8 12 2}- Marginal effects and predicted probabilities ({cmd:margins}){p_end}
 
-{pstd}{cmd:effecttab} reads the current {helpb collect} table and writes an Excel sheet with columns for point estimate, 95% CI, and p-value. It applies the same professional formatting as {helpb regtab}.{p_end}
+{pstd}{cmd:effecttab} reads either the current {helpb collect} table or a named matrix supplied through {opt from(name)}, then writes an Excel sheet with columns for point estimate, 95% CI, and p-value. It applies the same professional formatting as {helpb regtab}.{p_end}
 
 {marker options}{title:Options}
 

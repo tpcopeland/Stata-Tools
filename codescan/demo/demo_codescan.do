@@ -7,7 +7,6 @@
 */
 
 version 16.0
-set more off
 set varabbrev off
 
 * --- Paths (work from demo/ or repo root) ---

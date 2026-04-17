@@ -54,6 +54,29 @@ else {
 }
 
 * ============================================================
+* Test 2b: invalid from() matrix preserves user data on error
+* ============================================================
+capture noisily {
+    sysuse auto, clear
+    local orig_n = _N
+    local orig_price = price[1]
+    matrix shortmat = (1.5, 0.8, 2.2 \ 2.3, 1.1, 3.5)
+    capture noisily effecttab, from(shortmat) display
+    assert _rc == 198
+    assert _N == `orig_n'
+    assert price[1] == `orig_price'
+}
+if _rc == 0 {
+    display as result "PASS: T2b — invalid from() matrix restores user data"
+    local ++n_pass
+}
+else {
+    display as error "FAIL: T2b — invalid from() matrix leaked user data (rc=`=_rc')"
+    local ++n_fail
+}
+capture matrix drop shortmat
+
+* ============================================================
 * Test 3: Multi-model effecttab (two teffects collected)
 * ============================================================
 webuse cattaneo2, clear

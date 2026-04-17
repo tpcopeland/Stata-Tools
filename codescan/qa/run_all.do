@@ -2,7 +2,6 @@
 * Usage: cd codescan/qa && stata-mp -b do run_all.do
 
 clear all
-set more off
 version 16.0
 
 local qa_dir "`c(pwd)'"

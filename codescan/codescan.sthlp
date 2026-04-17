@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.1  17apr2026}{...}
+{* *! version 1.0.2  17apr2026}{...}
 {vieweralsosee "codescan_describe" "help codescan_describe"}{...}
 {vieweralsosee "[D] collapse" "help collapse"}{...}
 {vieweralsosee "[D] merge" "help merge"}{...}
@@ -335,7 +335,8 @@ This option requires {cmd:collapse} or {cmd:merge}.
 
 {pmore}
 If {cmd:generate()} is used, hierarchy rules may be written with bare condition
-names; {cmd:codescan} resolves the prefix automatically.
+names or with their generated names.  Bare names are resolved against the
+defined condition list before the generate-prefix fallback is applied.
 
 {phang}
 {opt unmatched(name)} creates a row-level 0/1 flag equal to 1 when an observation
@@ -400,7 +401,8 @@ medication scans should coexist in the same dataset.
 
 {phang}
 {opt replace} allows overwriting existing output variables and existing frames
-named in {cmd:frame()}.
+named in {cmd:frame()}, but scan variables named in {varlist} are never valid
+output targets.
 
 {phang}
 {opt noisily} prints progress notes during execution, including per-condition

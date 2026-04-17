@@ -2,7 +2,6 @@
 * Date: 2026-04-17
 
 clear all
-set more off
 set seed 86420
 version 16.0
 

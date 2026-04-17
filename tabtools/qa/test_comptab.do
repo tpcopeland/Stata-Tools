@@ -607,6 +607,23 @@ else {
     local ++fail_count
     local failed_tests "`failed_tests' 3.13"
 }
+
+**## 3.14 malformed source frame returns rc 198 instead of restore error
+local ++test_count
+capture frame drop badcomp
+frame copy f1 badcomp
+frame badcomp: gen str1 c4 = ""
+capture noisily comptab badcomp, rows(1) display
+if _rc == 198 {
+    display as result "  PASS: 3.14 malformed source frame → rc 198"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: 3.14 malformed source frame (expected 198, got `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 3.14"
+}
+capture frame drop badcomp
 }
 
 * =========================================================================
@@ -754,6 +771,50 @@ else {
     display as error "  FAIL: 5.2 Data preservation on error (error `=_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' 5.2"
+}
+
+**## 5.3 User data preserved on relabel() out-of-range error
+local ++test_count
+capture noisily {
+    sysuse auto, clear
+    local orig_N = _N
+    local orig_make = make[1]
+
+    capture noisily comptab f1, rows(1) relabel(99 "Bad") display
+    assert _rc == 198
+    assert _N == `orig_N'
+    assert make[1] == "`orig_make'"
+}
+if _rc == 0 {
+    display as result "  PASS: 5.3 Data preserved on relabel() out-of-range error"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: 5.3 Data preserved on relabel() out-of-range error (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 5.3"
+}
+
+**## 5.4 User data preserved on relabel() unpaired error
+local ++test_count
+capture noisily {
+    sysuse auto, clear
+    local orig_N = _N
+    local orig_make = make[1]
+
+    capture noisily comptab f1, rows(1) relabel(1) display
+    assert _rc == 198
+    assert _N == `orig_N'
+    assert make[1] == "`orig_make'"
+}
+if _rc == 0 {
+    display as result "  PASS: 5.4 Data preserved on relabel() unpaired error"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: 5.4 Data preserved on relabel() unpaired error (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 5.4"
 }
 }
 

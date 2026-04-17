@@ -169,7 +169,7 @@ codescan_describe dx1 dx2, save(chapter_rules.csv)
 - `nodots`: strip periods during matching
 - `tostring`: convert numeric code variables to string before scanning
 - `generate(prefix)`: prefix all created variable names, including the score variable
-- `replace`: overwrite existing output variables or frames
+- `replace`: overwrite existing output variables or frames, but never a scan variable listed in `varlist`
 - `noisily`: display progress notes
 
 ### Diagnostics and reporting
@@ -234,10 +234,14 @@ When `codescan_describe` sees observations but every scanned code slot is empty,
 
 ## Version
 
-Current version: **1.0.1** (2026-04-17)
+Current version: **1.0.2** (2026-04-17)
 
 ### Changelog
 
+- **1.0.2** (2026-04-17)
+  - `replace` now refuses any output name that matches a scan variable in `varlist`, including `matched_code()`, `unmatched()`, score variables, and derived `_first`/`_last`/`_count`/`_nrows` outputs, preventing silent input-variable clobbering.
+  - `hierarchy()` now resolves bare names under `generate()` by checking the defined condition list first and only then trying the generated prefix fallback, so cases like `generate(c)` with `hierarchy(cancer > copd)` behave as documented.
+  - Internal/docs cleanup: the `r(codelist)` header now matches the returned two-column matrix, and release-side demo/QA files no longer set `more` in the user session.
 - **1.0.1** (2026-04-17)
   - `r()` scalars/locals/matrices are now posted before `export()` and `saving()`, so programmatic callers retain `r(summary)`, `r(codelist)`, `r(cooccurrence)`, `r(sensitivity)`, `r(varcounts)`, and all scalars when an export target fails (disk full, locked file, permission error).
   - `unmatched(name)` is now a strict 0/1 flag at row level. Rows filtered by `if`/`in`, or rows with missing `id()` when `collapse`/`merge` is active, now receive 0 instead of missing, matching the help-file contract.

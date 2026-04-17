@@ -28,6 +28,7 @@ foreach f in ///
     test_crosstab.do ///
     test_diagtab.do ///
     test_stratetab.do ///
+    test_stratetab_order.do ///
     test_new_commands.do ///
     test_coverage_gaps.do ///
     test_hrtab.do ///
@@ -36,6 +37,7 @@ foreach f in ///
     test_effecttab_advanced.do ///
     test_regtab_mixed_stats.do ///
     test_regtab_multilevel.do ///
+    test_regtab_nsub.do ///
     test_v140_features.do ///
     test_v150_features.do ///
     test_v160_features.do ///

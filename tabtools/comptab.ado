@@ -321,7 +321,6 @@ program define comptab, rclass
 
     if mod(`ncols', 3) != 0 {
         noisily display as error "comptab: source frame columns not in multiples of 3"
-        restore
         exit 198
     }
 
@@ -481,6 +480,7 @@ program define comptab, rclass
             local _ri = `_ri' + 1
             if `"``_ri''"' == "" {
                 noisily display as error `"relabel() requires pairs: row_number "new label""'
+                restore
                 exit 198
             }
             local _rlbl `"``_ri''"'
@@ -490,6 +490,7 @@ program define comptab, rclass
             local _actual_row = `_rrow' + 2
             if `_actual_row' > _N | `_actual_row' < 3 {
                 noisily display as error "relabel() row `_rrow' out of range (valid: 1-`=_N-2')"
+                restore
                 exit 198
             }
             qui replace A = `"`_rlbl'"' in `_actual_row'

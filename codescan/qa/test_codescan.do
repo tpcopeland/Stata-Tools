@@ -1,9 +1,8 @@
 * test_codescan.do - Functional tests for codescan
-* Tests: 333
+* Tests: 344
 * Date: 2026-04-05
 
 clear all
-set more off
 set seed 12345
 version 16.0
 
@@ -3268,6 +3267,77 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL: Error — matched_code collision with condition name (error `=_rc')"
+    local ++fail_count
+}
+
+**## Error — matched_code() cannot overwrite a scan variable even with replace
+local ++test_count
+capture noisily {
+    _make_test_data
+    capture codescan dx1 dx2, define(dm2 "E11") matched_code(dx1) replace
+    assert _rc == 198
+    assert dx1[1] == "E110"
+}
+if _rc == 0 {
+    display as result "  PASS: Error — matched_code() rejects scan-var collision under replace"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: Error — matched_code() scan-var collision under replace (error `=_rc')"
+    local ++fail_count
+}
+
+**## Error — unmatched() cannot overwrite a scan variable even with replace
+local ++test_count
+capture noisily {
+    _make_test_data
+    capture codescan dx1 dx2, define(dm2 "E11") unmatched(dx1) replace
+    assert _rc == 198
+    assert dx1[1] == "E110"
+}
+if _rc == 0 {
+    display as result "  PASS: Error — unmatched() rejects scan-var collision under replace"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: Error — unmatched() scan-var collision under replace (error `=_rc')"
+    local ++fail_count
+}
+
+**## Error — score() cannot overwrite a scan variable even with replace
+local ++test_count
+capture noisily {
+    _make_test_data
+    gen str10 _score = dx1
+    capture codescan _score, define(dm2 "E11") score(charlson) replace
+    assert _rc == 198
+    assert _score[1] == "E110"
+}
+if _rc == 0 {
+    display as result "  PASS: Error — score output rejects scan-var collision under replace"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: Error — score output scan-var collision under replace (error `=_rc')"
+    local ++fail_count
+}
+
+**## Error — derived collapse output cannot overwrite a scan variable even with replace
+local ++test_count
+capture noisily {
+    _make_test_data
+    gen str10 dm2_count = dx1
+    capture codescan dx1 dm2_count, define(dm2 "E11") id(pid) date(visit_dt) ///
+        collapse countdate replace
+    assert _rc == 198
+    assert dm2_count[1] == "E110"
+}
+if _rc == 0 {
+    display as result "  PASS: Error — derived collapse output rejects scan-var collision under replace"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: Error — derived collapse output scan-var collision under replace (error `=_rc')"
     local ++fail_count
 }
 
@@ -6633,6 +6703,34 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL: hierarchy() basic binary supersession (error `=_rc')"
+    local ++fail_count
+}
+
+**## hierarchy() + generate() — bare names resolved by membership before prefix fallback
+local ++test_count
+capture noisily {
+    clear
+    set obs 3
+    gen str8 dx1 = ""
+    replace dx1 = "C500" in 1
+    replace dx1 = "J440" in 2
+    replace dx1 = "J440" in 3
+    gen pid = cond(_n <= 2, 1, 2)
+    codescan dx1, define(cancer "C50" | copd "J44") id(pid) collapse ///
+        generate(c) hierarchy(cancer > copd)
+    confirm variable ccancer
+    confirm variable ccopd
+    assert ccancer[1] == 1
+    assert ccopd[1] == 0
+    assert ccancer[2] == 0
+    assert ccopd[2] == 1
+}
+if _rc == 0 {
+    display as result "  PASS: hierarchy() + generate() resolves bare names safely"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: hierarchy() + generate() bare-name resolution (error `=_rc')"
     local ++fail_count
 }
 

@@ -5,8 +5,11 @@
 clear all
 set more off
 
+local qa_dir "`c(pwd)'"
+local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
+
 capture ado uninstall tabtools
-net install tabtools, from("~/Stata-Tools/tabtools") replace
+quietly net install tabtools, from("`pkg_dir'") replace
 
 local failures = 0
 

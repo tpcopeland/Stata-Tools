@@ -1,4 +1,4 @@
-*! codescan Version 1.0.1  2026/04/17
+*! codescan Version 1.0.2  2026/04/17
 *! Scan wide-format code variables for pattern matches and collapse to patient-level
 *! Author: Timothy P Copeland
 *! Program class: rclass (returns results in r())
@@ -56,7 +56,7 @@ STORED RESULTS:
     r(score)          - Score type (if score() specified)
     r(mode_count)     - 1 if countmode specified, 0 otherwise
     r(summary)        - Matrix of counts, prevalences, and Wilson 95% CIs
-    r(codelist)       - Matrix: pattern, exclusion, count, prevalence per condition
+    r(codelist)       - Matrix: count, prevalence per condition
     r(varcounts)      - Per-variable match counts (if detail specified)
     r(cooccurrence)   - Pairwise co-occurrence matrix (if cooccurrence specified)
     r(sensitivity)    - Multi-window comparison matrix (if multi-window lookback)
@@ -196,32 +196,6 @@ program define codescan, rclass
         if `level' < 1 | `level' > 10 {
             display as error "level() must be between 1 and 10"
             exit 198
-        }
-    }
-
-    * Unmatched validation
-    if "`unmatched'" != "" {
-        if "`id'" != "" & "`unmatched'" == "`id'" {
-            display as error "unmatched() cannot use the same name as id()"
-            exit 198
-        }
-        if "`replace'" == "" {
-            capture confirm new variable `unmatched'
-            if _rc {
-                display as error "variable `unmatched' already exists; use replace option"
-                exit 110
-            }
-        }
-    }
-
-    * matched_code validation
-    if "`matched_code'" != "" {
-        if "`replace'" == "" {
-            capture confirm new variable `matched_code'
-            if _rc {
-                display as error "variable `matched_code' already exists; use replace option"
-                exit 110
-            }
         }
     }
 
@@ -935,6 +909,8 @@ program define codescan, rclass
         local _scorename "`generate'_score"
     }
 
+    * Validate every created output up front so replace cannot clobber scan
+    * inputs before the row scanner runs.
     local _n_outputs = 0
     forvalues i = 1/`n_conditions' {
         local ++_n_outputs
@@ -973,6 +949,12 @@ program define codescan, rclass
 
     forvalues i = 1/`_n_outputs' {
         local _out_nm "`_output_`i''"
+        foreach v of local varlist {
+            if "`_out_nm'" == "`v'" {
+                display as error "output name `_out_nm' conflicts with a varlist variable"
+                exit 198
+            }
+        }
         if "`_out_nm'" == "`id'" | "`_out_nm'" == "`date'" | "`_out_nm'" == "`refdate'" {
             display as error "output name `_out_nm' conflicts with id(), date(), or refdate() variable"
             exit 198
@@ -983,46 +965,11 @@ program define codescan, rclass
                 exit 198
             }
         }
-    }
-
-    * Check output variable names don't already exist (unless replace)
-    if "`replace'" == "" {
-        forvalues i = 1/`n_conditions' {
-            local nm "`def_name_`i''"
-            capture confirm new variable `nm'
+        if "`replace'" == "" {
+            capture confirm new variable `_out_nm'
             if _rc {
-                display as error "variable `nm' already exists; use replace option"
+                display as error "variable `_out_nm' already exists; use replace option"
                 exit 110
-            }
-            if "`collapse'" != "" | "`merge'" != "" {
-                if "`earliestdate'" != "" {
-                    capture confirm new variable `nm'_first
-                    if _rc {
-                        display as error "variable `nm'_first already exists; use replace option"
-                        exit 110
-                    }
-                }
-                if "`latestdate'" != "" {
-                    capture confirm new variable `nm'_last
-                    if _rc {
-                        display as error "variable `nm'_last already exists; use replace option"
-                        exit 110
-                    }
-                }
-                if "`countdate'" != "" {
-                    capture confirm new variable `nm'_count
-                    if _rc {
-                        display as error "variable `nm'_count already exists; use replace option"
-                        exit 110
-                    }
-                }
-                if "`countrows'" != "" {
-                    capture confirm new variable `nm'_nrows
-                    if _rc {
-                        display as error "variable `nm'_nrows already exists; use replace option"
-                        exit 110
-                    }
-                }
             }
         }
     }
@@ -1043,24 +990,35 @@ program define codescan, rclass
             local _hsup = strtrim(`"`_hsup'"')
             local _hinf = strtrim(subinstr(`"`_hinf'"', ">", "", 1))
 
-            * Resolve generate() prefix: if bare name given, prepend prefix
+            * Resolve hierarchy names by membership: exact match first, then
+            * generated-prefix fallback for bare names.
             local _hsup_full "`_hsup'"
             local _hinf_full "`_hinf'"
-            if "`generate'" != "" {
-                if substr("`_hsup'", 1, strlen("`generate'")) != "`generate'" {
-                    local _hsup_full "`generate'`_hsup'"
-                }
-                if substr("`_hinf'", 1, strlen("`generate'")) != "`generate'" {
-                    local _hinf_full "`generate'`_hinf'"
-                }
-            }
-
-            * Validate both names exist in condition list
             local _hfound_sup = 0
             local _hfound_inf = 0
             forvalues i = 1/`n_conditions' {
                 if "`def_name_`i''" == "`_hsup_full'" local _hfound_sup = 1
                 if "`def_name_`i''" == "`_hinf_full'" local _hfound_inf = 1
+            }
+            if "`generate'" != "" {
+                if !`_hfound_sup' {
+                    local _hsup_pref "`generate'`_hsup'"
+                    forvalues i = 1/`n_conditions' {
+                        if "`def_name_`i''" == "`_hsup_pref'" {
+                            local _hfound_sup = 1
+                            local _hsup_full "`_hsup_pref'"
+                        }
+                    }
+                }
+                if !`_hfound_inf' {
+                    local _hinf_pref "`generate'`_hinf'"
+                    forvalues i = 1/`n_conditions' {
+                        if "`def_name_`i''" == "`_hinf_pref'" {
+                            local _hfound_inf = 1
+                            local _hinf_full "`_hinf_pref'"
+                        }
+                    }
+                }
             }
             if !`_hfound_sup' {
                 display as error "hierarchy(): `_hsup' is not a defined condition name"
@@ -2212,17 +2170,19 @@ program define codescan, rclass
     if `rc' {
         * Clean up: restore any active user preserve, drop partial indicator variables.
         capture restore
-        foreach nm of local all_names {
-            capture drop `nm'
-            capture drop `nm'_first
-            capture drop `nm'_last
-            capture drop `nm'_count
-            capture drop `nm'_nrows
+        if "`_n_outputs'" != "" {
+            forvalues i = 1/`_n_outputs' {
+                local _drop_nm "`_output_`i''"
+                local _drop_protected = 0
+                foreach v of local varlist {
+                    if "`_drop_nm'" == "`v'" local _drop_protected = 1
+                }
+                if "`_drop_nm'" == "`id'" | "`_drop_nm'" == "`date'" | "`_drop_nm'" == "`refdate'" {
+                    local _drop_protected = 1
+                }
+                if !`_drop_protected' capture drop `_drop_nm'
+            }
         }
-        capture drop _score
-        if "`generate'" != "" capture drop `generate'_score
-        if "`unmatched'" != "" capture drop `unmatched'
-        if "`matched_code'" != "" capture drop `matched_code'
     }
     set varabbrev `_orig_varabbrev'
     if `rc' exit `rc'

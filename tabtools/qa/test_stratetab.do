@@ -36,21 +36,23 @@ program define _make_issue_strate
 end
 
 **# Output Modes
-**## console-only mode works without xlsx()
+**## console-only mode works without xlsx() or a preloaded dataset
 local ++test_count
 capture noisily {
     tempfile rate1
     _make_issue_strate, basename("`rate1'")
-    sysuse auto, clear
+    clear
     stratetab, using("`rate1'") outcomes(1) display
     assert r(N_rows) >= 6
+    assert _N == 0
+    assert c(k) == 0
 }
 if _rc == 0 {
-    display as result "  PASS: stratetab display without xlsx()"
+    display as result "  PASS: stratetab display without xlsx() from empty workspace"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: stratetab display without xlsx() (rc=`=_rc')"
+    display as error "  FAIL: stratetab display without xlsx() from empty workspace (rc=`=_rc')"
     local ++fail_count
 }
 
@@ -59,7 +61,7 @@ local ++test_count
 capture noisily {
     tempfile rate1
     _make_issue_strate, basename("`rate1'")
-    sysuse auto, clear
+    clear
     capture frame drop issue_rates
     stratetab, using("`rate1'") outcomes(1) frame(issue_rates, replace)
     assert "`r(frame)'" == "issue_rates"
@@ -80,7 +82,7 @@ local ++test_count
 capture noisily {
     tempfile rate1
     _make_issue_strate, basename("`rate1'")
-    sysuse auto, clear
+    clear
     capture frame drop issue_rates2
     stratetab, using("`rate1'") outcomes(1) frame(issue_rates2, replace) display
     assert "`r(frame)'" == "issue_rates2"
@@ -103,7 +105,7 @@ capture noisily {
     _make_issue_strate, basename("`rate1'")
     local xlsx "`output_dir'/stratetab_issue.xlsx"
     capture erase "`xlsx'"
-    sysuse auto, clear
+    clear
     capture frame drop issue_rates3
     stratetab, using("`rate1'") outcomes(1) xlsx("`xlsx'") sheet("Rates") ///
         title("Issue Rates") frame(issue_rates3, replace) display

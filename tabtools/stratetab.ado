@@ -38,11 +38,8 @@ program define stratetab, rclass
 tempfile _userdata_outer
 local _userdata_path "`_userdata_outer'"
 
-* Save user data immediately on entry so restore always works
-capture qui count
-if !_rc {
-	qui save "`_userdata_path'"
-}
+* Save user data immediately on entry so restore always works, even if memory is empty
+qui save "`_userdata_path'", emptyok
 
 capture noisily {
 
@@ -142,15 +139,8 @@ if mod(`n_files', `outcomes') != 0 {
 
 local n_exposures = `n_files' / `outcomes'
 
-* Verify data is in memory
-capture qui count
-if _rc {
-	noi di as err "no data in memory; stratetab saves and restores your dataset"
-	exit 2000
-}
-
-* Sanitize file paths in using()
-foreach file of local using {
+	* Sanitize file paths in using()
+	foreach file of local using {
 	if regexm("`file'", "[;&|><\$\`]") {
 		di as err "using() contains invalid characters: `file'"
 		exit 198

@@ -2,8 +2,14 @@
 *! stratetab must preserve the original row order from strate output files
 *! Bug: bysort in duplicate-label check re-sorted rows alphabetically
 
+clear all
+set more off
+
+local qa_dir "`c(pwd)'"
+local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
+
 capture ado uninstall tabtools
-net install tabtools, from("/home/tpcopeland/Stata-Tools/tabtools") replace
+quietly net install tabtools, from("`pkg_dir'") replace
 
 **# Setup: create strate-style output files with non-alphabetical order
 * Categories deliberately NOT in alphabetical order: Zebra, Apple, Mango
@@ -25,8 +31,7 @@ input str10 category _D _Y _Rate _Lower _Upper
 end
 save "/tmp/strate_order_test_o2_e1.dta", replace
 
-* Need data in memory for stratetab
-sysuse auto, clear
+clear
 
 **# Test: verify original order is preserved
 stratetab, using(/tmp/strate_order_test_o1_e1 /tmp/strate_order_test_o2_e1) ///

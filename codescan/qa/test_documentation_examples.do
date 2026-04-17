@@ -2,7 +2,6 @@
 * Date: 2026-04-17
 
 clear all
-set more off
 set seed 24680
 version 16.0
 
@@ -163,6 +162,30 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL: README Charlson example (error `=_rc')"
+    local ++fail_count
+}
+
+local ++test_count
+capture noisily {
+    clear
+    input long pid str6 dx1
+    1 "C500"
+    1 "J440"
+    2 "J440"
+    end
+    codescan dx1, define(cancer "C50" | copd "J44") id(pid) collapse ///
+        generate(c) hierarchy(cancer > copd)
+    assert ccancer[1] == 1
+    assert ccopd[1] == 0
+    assert ccancer[2] == 0
+    assert ccopd[2] == 1
+}
+if _rc == 0 {
+    display as result "  PASS: help hierarchy bare-name example"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: help hierarchy bare-name example (error `=_rc')"
     local ++fail_count
 }
 

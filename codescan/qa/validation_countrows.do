@@ -2,7 +2,6 @@
 * Date: 2026-04-07
 
 clear all
-set more off
 set seed 12345
 version 16.0
 

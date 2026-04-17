@@ -64,7 +64,7 @@ if _rc != 0 {
     display as error "R results not found. Run crossval_tabtools_companion.R first."
     display "RESULT: crossval_tabtools tests=0 pass=0 fail=0 skipped=prereq_missing"
     log close _crossval
-    exit 0
+    exit 601
 }
 
 * Load all R results into local macros: r_<metric_name>

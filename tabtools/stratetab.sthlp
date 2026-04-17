@@ -33,6 +33,9 @@
 The command reads multiple .dta files produced by {helpb strate}, organized by exposure type. Files should be listed in order: all outcomes for exposure 1, then all outcomes for exposure 2, etc. For example, with 3 outcomes and 2 exposure types: {it:out1_exp1 out2_exp1 out3_exp1 out1_exp2 out2_exp2 out3_exp2}.
 
 {pstd}
+No dataset needs to be loaded before running {cmd:stratetab}; it reads the saved {helpb strate} output files directly and restores the caller's data, including an empty workspace, on exit.
+
+{pstd}
 {cmd:stratetab} cannot be combined with {cmd:by:}.
 
 

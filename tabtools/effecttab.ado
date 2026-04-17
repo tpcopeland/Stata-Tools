@@ -426,6 +426,7 @@ quietly {
 		local _ncols = colsof(`from')
 		if `_ncols' < 4 {
 			noisily display as error "from() matrix must have at least 4 columns (estimate, ci_lower, ci_upper, pvalue)"
+			restore
 			exit 198
 		}
 		clear
@@ -514,6 +515,7 @@ quietly {
 		noisily display as error "Insufficient columns in collect export"
 		noisily display as error "Expected at least 2 columns, found `nvars'"
 		capture erase "`temp_xlsx'"
+		restore
 		exit 198
 	}
 
