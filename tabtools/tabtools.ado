@@ -50,9 +50,16 @@ program define tabtools, rclass
     * SUBCOMMAND: set
     * =========================================================================
     if "`subcmd'" == "set" {
-        gettoken setkey setval : rest
+        gettoken setkey setrest : rest, quotes
         local setkey = lower(strtrim("`setkey'"))
-        local setval = strtrim("`setval'")
+        local setval = strtrim(`"`setrest'"')
+
+        * Allow quoted multiword values in user-facing examples such as:
+        * tabtools set font "Times New Roman"
+        if "`setkey'" == "font" {
+            local setval = subinstr(`"`setval'"', `"""', "", .)
+            local setval = strtrim(`"`setval'"')
+        }
 
         if "`setkey'" == "clear" {
             global TABTOOLS_FONT
