@@ -1,8 +1,8 @@
 * test_coverage_gaps.do - Comprehensive tests for untested options across all tabtools commands
 * Generated: 2026-03-30
 * Purpose: Fill coverage gaps identified by audit — every untested option gets exercised
-* Commands covered: table1_tc, regtab, effecttab, stratetab, tablex, corrtab,
-*                   crosstab, diagtab, fittab, survtab, comptab
+* Commands covered: table1_tc, regtab, effecttab, stratetab, corrtab,
+*                   crosstab, diagtab, survtab, comptab
 
 clear all
 set more off
@@ -1325,177 +1325,7 @@ else {
 }
 
 * ============================================================
-**# SECTION 5: tablex — untested options
-* ============================================================
-
-* Test: font option
-local ++test_count
-capture noisily {
-    sysuse auto, clear
-    table foreign, statistic(mean price mpg) statistic(sd price mpg)
-    tablex using "`output_dir'/_cov_tablex_font.xlsx", sheet("font") ///
-        font(Calibri) replace
-    confirm file "`output_dir'/_cov_tablex_font.xlsx"
-}
-if _rc == 0 {
-    display as result "  PASS: tablex font()"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: tablex font() (error `=_rc')"
-    local ++fail_count
-}
-
-* Test: fontsize option
-local ++test_count
-capture noisily {
-    sysuse auto, clear
-    table foreign, statistic(mean price mpg) statistic(sd price mpg)
-    tablex using "`output_dir'/_cov_tablex_fontsize.xlsx", sheet("fontsize") ///
-        fontsize(12) replace
-    confirm file "`output_dir'/_cov_tablex_fontsize.xlsx"
-}
-if _rc == 0 {
-    display as result "  PASS: tablex fontsize()"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: tablex fontsize() (error `=_rc')"
-    local ++fail_count
-}
-
-* Test: headerrows option
-local ++test_count
-capture noisily {
-    sysuse auto, clear
-    table foreign rep78, statistic(mean price)
-    tablex using "`output_dir'/_cov_tablex_headerrows.xlsx", sheet("headerrows") ///
-        headerrows(3) replace
-    confirm file "`output_dir'/_cov_tablex_headerrows.xlsx"
-}
-if _rc == 0 {
-    display as result "  PASS: tablex headerrows()"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: tablex headerrows() (error `=_rc')"
-    local ++fail_count
-}
-
-* Test: nformat option
-local ++test_count
-capture noisily {
-    sysuse auto, clear
-    table foreign, statistic(mean price mpg) statistic(sd price mpg)
-    tablex using "`output_dir'/_cov_tablex_nformat.xlsx", sheet("nformat") ///
-        nformat("#,##0.00") replace
-    confirm file "`output_dir'/_cov_tablex_nformat.xlsx"
-}
-if _rc == 0 {
-    display as result "  PASS: tablex nformat()"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: tablex nformat() (error `=_rc')"
-    local ++fail_count
-}
-
-* Test: footnote option
-local ++test_count
-capture noisily {
-    sysuse auto, clear
-    table foreign, statistic(mean price mpg) statistic(sd price mpg)
-    tablex using "`output_dir'/_cov_tablex_footnote.xlsx", sheet("footnote") ///
-        footnote("Source: 1978 Automobile Data") replace
-    confirm file "`output_dir'/_cov_tablex_footnote.xlsx"
-}
-if _rc == 0 {
-    display as result "  PASS: tablex footnote()"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: tablex footnote() (error `=_rc')"
-    local ++fail_count
-}
-
-* Test: zebra option
-local ++test_count
-capture noisily {
-    sysuse auto, clear
-    table foreign, statistic(mean price mpg) statistic(sd price mpg)
-    tablex using "`output_dir'/_cov_tablex_zebra.xlsx", sheet("zebra") ///
-        zebra replace
-    confirm file "`output_dir'/_cov_tablex_zebra.xlsx"
-}
-if _rc == 0 {
-    display as result "  PASS: tablex zebra"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: tablex zebra (error `=_rc')"
-    local ++fail_count
-}
-
-* Test: headercolor/zebracolor options
-local ++test_count
-capture noisily {
-    sysuse auto, clear
-    table foreign, statistic(mean price mpg) statistic(sd price mpg)
-    tablex using "`output_dir'/_cov_tablex_colors.xlsx", sheet("colors") ///
-        zebra headercolor("200 220 240") zebracolor("245 245 255") replace
-    confirm file "`output_dir'/_cov_tablex_colors.xlsx"
-}
-if _rc == 0 {
-    display as result "  PASS: tablex headercolor()/zebracolor()"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: tablex headercolor()/zebracolor() (error `=_rc')"
-    local ++fail_count
-}
-
-* Test: theme option
-local ++test_count
-capture noisily {
-    sysuse auto, clear
-    table foreign, statistic(mean price mpg) statistic(sd price mpg)
-    tablex using "`output_dir'/_cov_tablex_theme.xlsx", sheet("lancet") ///
-        theme(lancet) replace
-    confirm file "`output_dir'/_cov_tablex_theme.xlsx"
-}
-if _rc == 0 {
-    display as result "  PASS: tablex theme(lancet)"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: tablex theme(lancet) (error `=_rc')"
-    local ++fail_count
-}
-
-* Test: combined tablex stress test
-local ++test_count
-capture noisily {
-    sysuse auto, clear
-    table foreign, statistic(mean price mpg weight) statistic(sd price mpg weight)
-    tablex using "`output_dir'/_cov_tablex_stress.xlsx", sheet("stress") ///
-        title("Summary Statistics by Origin") font(Calibri) fontsize(11) ///
-        borderstyle(academic) headerrows(2) ///
-        footnote("1978 Automobile Data") zebra ///
-        headercolor("180 200 230") zebracolor("240 240 255") ///
-        theme(nejm) replace
-    confirm file "`output_dir'/_cov_tablex_stress.xlsx"
-}
-if _rc == 0 {
-    display as result "  PASS: tablex combined stress test"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: tablex combined stress test (error `=_rc')"
-    local ++fail_count
-}
-
-* ============================================================
-**# SECTION 6: corrtab/fittab — minor gaps
+**# SECTION 6: corrtab/comptab — minor gaps
 * ============================================================
 
 * Test: corrtab footnote
@@ -1512,32 +1342,6 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL: corrtab footnote() (error `=_rc')"
-    local ++fail_count
-}
-
-* Test: fittab footnote
-local ++test_count
-capture noisily {
-    sysuse auto, clear
-    collect clear
-    collect: regress price mpg
-    estimates store _cov_m1
-    regress price mpg weight
-    estimates store _cov_m2
-    regress price mpg weight length
-    estimates store _cov_m3
-    fittab _cov_m1 _cov_m2 _cov_m3, ///
-        xlsx("`output_dir'/_cov_fittab_footnote.xlsx") sheet("footnote") ///
-        footnote("Lower AIC/BIC indicates better fit")
-    confirm file "`output_dir'/_cov_fittab_footnote.xlsx"
-    estimates drop _cov_m1 _cov_m2 _cov_m3
-}
-if _rc == 0 {
-    display as result "  PASS: fittab footnote()"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: fittab footnote() (error `=_rc')"
     local ++fail_count
 }
 
@@ -1644,28 +1448,6 @@ else {
     local ++fail_count
 }
 
-* Test: fittab excel() synonym
-local ++test_count
-capture noisily {
-    sysuse auto, clear
-    collect clear
-    collect: regress price mpg
-    estimates store _cov_ex_m1
-    regress price mpg weight
-    estimates store _cov_ex_m2
-    fittab _cov_ex_m1 _cov_ex_m2, excel("`output_dir'/_cov_excel_fit.xlsx") sheet("excel")
-    confirm file "`output_dir'/_cov_excel_fit.xlsx"
-    estimates drop _cov_ex_m1 _cov_ex_m2
-}
-if _rc == 0 {
-    display as result "  PASS: fittab excel() synonym"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: fittab excel() synonym (error `=_rc')"
-    local ++fail_count
-}
-
 * ============================================================
 **# SECTION 8: Error handling tests
 * ============================================================
@@ -1766,38 +1548,6 @@ else {
     local ++fail_count
 }
 
-* Test: tablex rejects invalid fontsize
-local ++test_count
-capture noisily {
-    sysuse auto, clear
-    table foreign, statistic(mean price)
-    tablex using "`output_dir'/_cov_tablex_err.xlsx", sheet("err") fontsize(100) replace
-}
-if _rc == 198 {
-    display as result "  PASS: tablex rejects fontsize(100) (rc=198)"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: tablex fontsize(100) expected rc=198, got `=_rc'"
-    local ++fail_count
-}
-
-* Test: tablex rejects invalid borderstyle
-local ++test_count
-capture noisily {
-    sysuse auto, clear
-    table foreign, statistic(mean price)
-    tablex using "`output_dir'/_cov_tablex_err2.xlsx", sheet("err") borderstyle(dotted) replace
-}
-if _rc == 198 {
-    display as result "  PASS: tablex rejects invalid borderstyle (rc=198)"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: tablex invalid borderstyle expected rc=198, got `=_rc'"
-    local ++fail_count
-}
-
 * ============================================================
 **# SECTION 9: varabbrev restore tests
 * ============================================================
@@ -1835,24 +1585,6 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL: stratetab restores varabbrev on error (error `=_rc')"
-    local ++fail_count
-}
-
-* Test: tablex restores varabbrev on success
-local ++test_count
-capture noisily {
-    set varabbrev on
-    sysuse auto, clear
-    table foreign, statistic(mean price)
-    tablex using "`output_dir'/_cov_tablex_va.xlsx", sheet("va") replace
-    assert "`c(varabbrev)'" == "on"
-}
-if _rc == 0 {
-    display as result "  PASS: tablex restores varabbrev on success"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: tablex restores varabbrev on success (error `=_rc')"
     local ++fail_count
 }
 
@@ -1920,26 +1652,6 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL: corrtab data preservation (error `=_rc')"
-    local ++fail_count
-}
-
-* Test: tablex data preservation
-local ++test_count
-capture noisily {
-    sysuse auto, clear
-    local _n1 = _N
-    local _k1 = c(k)
-    table foreign, statistic(mean price mpg)
-    tablex using "`output_dir'/_cov_tablex_preserve.xlsx", sheet("preserve") replace
-    assert _N == `_n1'
-    assert c(k) == `_k1'
-}
-if _rc == 0 {
-    display as result "  PASS: tablex data preservation"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: tablex data preservation (error `=_rc')"
     local ++fail_count
 }
 

@@ -1,4 +1,4 @@
-*! crosstab Version 1.0.5  2026/04/17
+*! crosstab Version 1.0.7  2026/04/18
 *! Cross-tabulation with association measures
 *! Author: Timothy P Copeland
 *! Program class: rclass
@@ -373,7 +373,7 @@ capture noisily {
             putexcel (B`_total_row':`lastcol'`_total_row'), border(bottom, `_hborder')
 
             * Merge and format measure rows (chi-sq, OR, RR, etc.)
-            local _fm = `_first_measure_row' + 1
+            local _fm = `_first_measure_row'
             if `_fm' <= `num_rows' {
                 putexcel (B`_fm':`lastcol'`_fm'), border(top, `_hborder')
                 forvalues _mr = `_fm'/`num_rows' {

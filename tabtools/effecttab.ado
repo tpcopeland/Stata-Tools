@@ -1,4 +1,4 @@
-*! effecttab Version 1.0.5  2026/04/17
+*! effecttab Version 1.0.7  2026/04/18
 *! Format treatment effects and margins results for Excel export
 *! Author: Timothy P Copeland
 *! Program class: rclass (returns results in r())
@@ -821,25 +821,37 @@ quietly {
 		local _hdr_len = c`i'_length[3]
 		if !missing(`_hdr_len') & `_hdr_len' > `est_max' local est_max = `_hdr_len'
 	}
-	local est_min_width = (`est_max' * 3 / 8) + 2
+	local ci_max = 0
+	local p_max = 0
 	forvalues i = 1(1)`n' {
 		replace c`i'_length = . if _n == 2
 		egen c`i'_max = max(c`i'_length)
 	}
-	forvalues i = 1(1)`=`n'-1' {
-		replace c1_max = c`=`i'+1'_max if c`=`i'+1'_max > c1_max
+	forvalues i = 2(3)`n' {
+		sum c`i'_max, meanonly
+		if `r(max)' > `ci_max' local ci_max = `r(max)'
 	}
-	sum c1_max, d
-	local max_length = (`r(max)' * 3 / 8) + 2
+	forvalues i = 3(3)`n' {
+		sum c`i'_max, meanonly
+		if `r(max)' > `p_max' local p_max = `r(max)'
+	}
 
-	/* Ensure reasonable min/max bounds */
-	if `max_length' < 8 local max_length = 8
-	if `max_length' > 60 local max_length = 60
+	local est_width = ceil(`est_max' * 0.85) + 2
+	if `est_width' < 8 local est_width = 8
+	if `est_width' > 22 local est_width = 22
+
+	local ci_width = ceil(`ci_max' * 0.85) + 2
+	if `ci_width' < 16 local ci_width = 16
+	if `ci_width' > 34 local ci_width = 34
+
+	local p_width = ceil(`p_max' * 0.85) + 2
+	if `p_width' < 8 local p_width = 8
+	if `p_width' > 12 local p_width = 12
 
 	gen A_length = length(A)
 	egen factor_length = max(A_length)
 	sum factor_length, d
-	local factor_length = `=ceil(`=`r(max)'*0.95')'
+	local factor_length = ceil(r(max) * 0.95) + 2
 	* Include effect label length in factor_length calculation
 	local _effect_len = strlen(`"`effect'"')
 	if ceil(`_effect_len' * 0.85) + 2 > `factor_length' {
@@ -877,18 +889,18 @@ quietly {
 		mata: b.set_row_height(1,1,30)
 		mata: b.set_column_width(1,1,1)
 		mata: b.set_column_width(2,2,`factor_length')
-		local est_width = max(`=`max_length'*.55', `est_min_width')
 		forvalues i = 3(3)`=`num_cols'-2' {
 			mata: b.set_column_width(`i',`i',`est_width')
 		}
 		forvalues i = 4(3)`=`num_cols'-1' {
-			mata: b.set_column_width(`i',`i',`=`max_length'*1.3')
+			mata: b.set_column_width(`i',`i',`ci_width')
 		}
 		forvalues i = 5(3)`num_cols' {
-			mata: b.set_column_width(`i',`i',`=`max_length'*.875')
+			mata: b.set_column_width(`i',`i',`p_width')
 		}
-		if `=`max_header_length'*.9' > `=(`max_length'*.55)+(`max_length'*1.3)+(`max_length'*.875)' {
-			local headerheight = ceil(`=`max_header_length'*.9'/`=(`max_length'*.55)+(`max_length'*1.3)+(`max_length'*.875)')
+		local _total_model_width = `est_width' + `ci_width' + `p_width'
+		if `=`max_header_length'*.9' > `_total_model_width' {
+			local headerheight = ceil(`=`max_header_length'*.9'/`_total_model_width')
 			mata: b.set_row_height(2,2,`=`headerheight'*15')
 		}
 		mata: b.close_book()

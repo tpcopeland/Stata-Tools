@@ -1,0 +1,718 @@
+*! hrcomptab Version 1.0.7  2026/04/18
+*! Compose stratetab and regtab frames into Table 2-style survival tables
+*! Author: Timothy P Copeland
+*! Program class: rclass
+
+program define hrcomptab, rclass
+    version 17.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+
+    tempfile _userdata_outer
+    local _userdata_path "`_userdata_outer'"
+
+    quietly save "`_userdata_path'", emptyok
+
+    capture noisily {
+
+        * Auto-load shared helper programs
+        capture program list _tabtools_validate_path
+        if _rc {
+            capture findfile _tabtools_common.ado
+            if _rc == 0 {
+                run "`r(fn)'"
+            }
+            else {
+                display as error "_tabtools_common.ado not found; reinstall tabtools"
+                exit 111
+            }
+        }
+
+        if "`_byvars'" != "" {
+            display as error "hrcomptab may not be combined with by:"
+            exit 190
+        }
+
+        syntax anything(name=rateframe) , MODELFRAMES(string asis) ///
+            [rows(string asis) ROWNAMES(string asis) ///
+            XLSX(string) EXCEL(string) SHEET(string) ///
+            TITLE(string) FOOTnote(string asis) ///
+            EFFect(string) REFLabel(string) ///
+            BORDERstyle(string) THEme(string) ///
+            open zebra HEADERShade ///
+            HEADERColor(string) ZEBRAColor(string) ///
+            CSV(string) FRAme(string) DISplay]
+
+        * rows() xor rownames()
+        if `"`rows'"' == "" & `"`rownames'"' == "" {
+            display as error "One of rows() or rownames() is required"
+            exit 198
+        }
+        if `"`rows'"' != "" & `"`rownames'"' != "" {
+            display as error "rows() and rownames() may not be combined"
+            exit 198
+        }
+        local _use_rownames = (`"`rownames'"' != "")
+
+        * Resolve core options
+        if "`xlsx'" == "" & "`excel'" != "" local xlsx "`excel'"
+        local _has_xlsx = (`"`xlsx'"' != "")
+        if "`sheet'" == "" local sheet "Composite"
+        if "`effect'" == "" local effect "aHR"
+        if "`reflabel'" == "" local reflabel "Reference"
+        if !`_has_xlsx' & "`csv'" == "" & `"`frame'"' == "" & "`display'" == "" {
+            local display "display"
+        }
+
+        if "`open'" != "" & !`_has_xlsx' {
+            display as error "open requires xlsx() or excel()"
+            exit 198
+        }
+
+        if `_has_xlsx' {
+            if !strmatch("`xlsx'", "*.xlsx") {
+                display as error "xlsx() must have .xlsx extension"
+                exit 198
+            }
+            _tabtools_validate_path "`xlsx'" "xlsx()"
+        }
+        if "`csv'" != "" _tabtools_validate_path "`csv'" "csv()"
+        _tabtools_validate_sheet "`sheet'" "sheet()"
+
+        * Resolve formatting
+        _tabtools_resolve_format, theme(`theme') borderstyle(`borderstyle') ///
+            headershade(`headershade') zebra(`zebra')
+        if !inlist("`borderstyle'", "thin", "medium", "academic") {
+            display as error "borderstyle() must be thin, medium, or academic"
+            exit 198
+        }
+
+        local _font "$TABTOOLS_RS_FONT"
+        local _fontsize = real("$TABTOOLS_RS_FONTSIZE")
+        local _hborder "$TABTOOLS_RS_HBORDER"
+        if "`_font'" == "" local _font "Arial"
+        if missing(`_fontsize') local _fontsize = 10
+        if "`_hborder'" == "" local _hborder "thin"
+
+        local _headercolor "219 229 241"
+        local _zebracolor "237 242 249"
+        if "`headercolor'" != "" local _headercolor "`headercolor'"
+        if "`zebracolor'" != "" local _zebracolor "`zebracolor'"
+
+        * Validate rate frame
+        capture frame `rateframe': quietly count
+        if _rc {
+            display as error "Rate frame '`rateframe'' not found"
+            display as error "Hint: create it with stratetab, frame(name)"
+            exit 111
+        }
+
+        frame `rateframe' {
+            quietly ds c*
+            local _rate_cvars `r(varlist)'
+            local _rate_cols : word count `r(varlist)'
+            local _rate_rows = _N
+            capture confirm variable title
+            local _rate_has_title = (_rc == 0)
+            if `_rate_has_title' {
+                local _rate_title = title[1]
+            }
+            else {
+                local _rate_title ""
+            }
+        }
+
+        if `_rate_cols' < 4 {
+            display as error "Rate frame '`rateframe'' is too narrow to be stratetab output"
+            exit 198
+        }
+        if mod(`_rate_cols' - 1, 3) != 0 {
+            display as error "Rate frame '`rateframe'' must come from stratetab without rateratio"
+            display as error "Expected 1 label column plus 3 columns per outcome"
+            exit 198
+        }
+
+        local outcomes = (`_rate_cols' - 1) / 3
+        if `outcomes' < 1 {
+            display as error "Rate frame '`rateframe'' contains no outcome columns"
+            exit 198
+        }
+        if `_rate_rows' < 5 {
+            display as error "Rate frame '`rateframe'' has too few rows"
+            exit 198
+        }
+
+        * Detect section rows and infer reference rows from the stratetab scaffold
+        local section_rows ""
+        local ref_rows ""
+        local nonref_rows ""
+        local _seen_ref = 0
+
+        forvalues _r = 4/`_rate_rows' {
+            frame `rateframe' {
+                local _rate_lab = c1[`_r']
+                local _rate_c2 = c2[`_r']
+            }
+
+            local _rate_lab_trim = strtrim(`"`_rate_lab'"')
+            if `"`_rate_lab_trim'"' == "" continue
+
+            if !strmatch(`"`_rate_lab'"', "   *") & `"`_rate_c2'"' == "" {
+                local section_rows "`section_rows' `_r'"
+                local _seen_ref = 0
+                continue
+            }
+
+            if strmatch(`"`_rate_lab'"', "   *") {
+                if !`_seen_ref' {
+                    local ref_rows "`ref_rows' `_r'"
+                    local _seen_ref = 1
+                }
+                else {
+                    local nonref_rows "`nonref_rows' `_r'"
+                }
+            }
+        }
+
+        local n_sections : word count `section_rows'
+        local n_nonref : word count `nonref_rows'
+        if `n_sections' == 0 {
+            display as error "Rate frame '`rateframe'' has no section header rows"
+            exit 198
+        }
+        if `n_nonref' == 0 {
+            display as error "Rate frame '`rateframe'' has no non-reference rows to fill"
+            exit 198
+        }
+
+        * Validate model frames
+        local n_frames : word count `modelframes'
+        if `n_frames' == 0 {
+            display as error "modelframes() requires at least one frame"
+            exit 198
+        }
+
+        forvalues _f = 1/`n_frames' {
+            local _fname : word `_f' of `modelframes'
+            capture frame `_fname': quietly count
+            if _rc {
+                display as error "Model frame '`_fname'' not found"
+                display as error "Hint: create it with regtab, frame(name)"
+                exit 111
+            }
+            capture frame `_fname': confirm variable A
+            if _rc {
+                display as error "Model frame '`_fname'' is missing variable A"
+                display as error "Hint: source frames must come from regtab"
+                exit 111
+            }
+        }
+
+        local _fname1 : word 1 of `modelframes'
+        frame `_fname1' {
+            quietly ds c*
+            local _model_cvars `r(varlist)'
+            local _model_cols : word count `r(varlist)'
+            local _model_rows = _N
+        }
+
+        local model_mode ""
+        local _cols_per_model = .
+        local n_models = .
+        if mod(`_model_cols', 3) == 0 {
+            local model_mode "standard"
+            local _cols_per_model = 3
+            local n_models = `_model_cols' / 3
+        }
+        else if mod(`_model_cols', 2) == 0 {
+            local model_mode "compact"
+            local _cols_per_model = 2
+            local n_models = `_model_cols' / 2
+        }
+        else {
+            display as error "Model frame '`_fname1'' has unsupported column structure"
+            display as error "Expected 2 or 3 columns per model block from regtab"
+            exit 198
+        }
+
+        if `n_models' != `outcomes' {
+            display as error "Model columns (`n_models') must match rate outcomes (`outcomes')"
+            exit 198
+        }
+
+        forvalues _f = 2/`n_frames' {
+            local _fname : word `_f' of `modelframes'
+            frame `_fname' {
+                quietly ds c*
+                local _model_cvars_f `r(varlist)'
+                local _model_cols_f : word count `r(varlist)'
+            }
+            if `_model_cols_f' != `_model_cols' {
+                display as error "All model frames must have the same number of columns"
+                display as error "Frame '`_fname1'' has `_model_cols'; '`_fname'' has `_model_cols_f'"
+                exit 198
+            }
+        }
+
+        * Parse rows() or rownames() for model frames
+        if `_use_rownames' {
+            local rownames : subinstr local rownames " \ " "\", all
+            local rownames : subinstr local rownames "\  " "\", all
+            local rownames : subinstr local rownames "  \" "\", all
+            tokenize `"`rownames'"', parse("\")
+
+            local _ridx = 1
+            local _fidx = 0
+            while `"``_ridx''"' != "" {
+                if `"``_ridx''"' != "\" {
+                    local _fidx = `_fidx' + 1
+                    local _rnspec`_fidx' `"``_ridx''"'
+                }
+                local _ridx = `_ridx' + 1
+            }
+
+            if `_fidx' != `n_frames' {
+                display as error "rownames() requires `n_frames' specifications separated by \"
+                exit 198
+            }
+
+            forvalues _f = 1/`n_frames' {
+                local _fname : word `_f' of `modelframes'
+                frame `_fname' {
+                    local _fn = _N
+                }
+                local _max_dr = `_fn' - 3
+                if `_max_dr' < 1 {
+                    display as error "Model frame '`_fname'' has no data rows"
+                    exit 198
+                }
+
+                local expanded`_f' ""
+                local _patterns `"`_rnspec`_f''"'
+                foreach _pat of local _patterns {
+                    local _pat = strtrim(`"`_pat'"')
+                    local _matched = 0
+                    frame `_fname' {
+                        forvalues _row = 1/`_max_dr' {
+                            local _frame_row = `_row' + 3
+                            local _cell_text = A[`_frame_row']
+                            local _cell_lower = lower(`"`_cell_text'"')
+                            local _pat_lower = lower(`"`_pat'"')
+                            if strmatch(`"`_cell_lower'"', `"*`_pat_lower'*"') {
+                                local expanded`_f' "`expanded`_f'' `_row'"
+                                local _matched = 1
+                            }
+                        }
+                    }
+                    if !`_matched' {
+                        display as error `"rownames(): pattern "`_pat'" not found in frame '`_fname''"'
+                        exit 198
+                    }
+                }
+                local expanded`_f' : list clean expanded`_f'
+            }
+        }
+        else {
+            local rows : subinstr local rows " \ " "\", all
+            local rows : subinstr local rows "\  " "\", all
+            local rows : subinstr local rows "  \" "\", all
+            tokenize `"`rows'"', parse("\")
+
+            local _ridx = 1
+            local _fidx = 0
+            while `"``_ridx''"' != "" {
+                if `"``_ridx''"' != "\" {
+                    local _fidx = `_fidx' + 1
+                    local _rowspec`_fidx' `"``_ridx''"'
+                }
+                local _ridx = `_ridx' + 1
+            }
+
+            if `_fidx' != `n_frames' {
+                display as error "rows() requires `n_frames' specifications separated by \"
+                exit 198
+            }
+
+            forvalues _f = 1/`n_frames' {
+                local _fname : word `_f' of `modelframes'
+                numlist `"`_rowspec`_f''"'
+                local expanded`_f' `r(numlist)'
+
+                frame `_fname' {
+                    local _fn = _N
+                }
+                local _max_dr = `_fn' - 3
+                if `_max_dr' < 1 {
+                    display as error "Model frame '`_fname'' has no data rows"
+                    exit 198
+                }
+
+                foreach _rr of local expanded`_f' {
+                    if `_rr' < 1 | `_rr' > `_max_dr' {
+                        display as error "Row `_rr' out of range for frame '`_fname'' (valid: 1-`_max_dr')"
+                        exit 198
+                    }
+                }
+            }
+        }
+
+        local _selected_total = 0
+        local _map_i = 0
+        forvalues _f = 1/`n_frames' {
+            local _fname : word `_f' of `modelframes'
+            local _spec_rows `"`expanded`_f''"'
+            foreach _rr of local _spec_rows {
+                local ++_selected_total
+                local ++_map_i
+                local _map_frame`_map_i' "`_fname'"
+                local _map_row`_map_i' = `_rr' + 3
+            }
+        }
+
+        if `_selected_total' != `n_nonref' {
+            display as error "Selected model rows (`_selected_total') must match non-reference scaffold rows (`n_nonref')"
+            display as error "Hint: select one model row for each non-reference row in the stratetab frame"
+            exit 198
+        }
+
+        * Build output table
+        local ncols = 1 + 5 * `outcomes'
+        local _out_title `"`title'"'
+        if `"`_out_title'"' == "" local _out_title `"`_rate_title'"'
+
+        clear
+        quietly set obs `_rate_rows'
+        quietly gen str244 title = ""
+        forvalues _c = 1/`ncols' {
+            quietly gen str244 c`_c' = ""
+        }
+        quietly replace title = `"`_out_title'"' in 1
+
+        * Header rows
+        frame `rateframe' {
+            local _exp_header = c1[2]
+        }
+        quietly replace c1 = `"`_exp_header'"' in 2
+        quietly replace c1 = "" in 3
+
+        forvalues _o = 1/`outcomes' {
+            local _rate_s = 2 + (`_o' - 1) * 3
+            local _out_s = 2 + (`_o' - 1) * 5
+            local _rate_s2 = `_rate_s' + 1
+            local _rate_s3 = `_rate_s' + 2
+            local _out_s2 = `_out_s' + 1
+            local _out_s3 = `_out_s' + 2
+            local _out_s4 = `_out_s' + 3
+
+            frame `rateframe' {
+                local _outcome_header = c`_rate_s'[2]
+                local _hdr_events = c`_rate_s'[3]
+                local _hdr_py = c`_rate_s2'[3]
+                local _hdr_rate = c`_rate_s3'[3]
+            }
+
+            quietly replace c`_out_s' = `"`_outcome_header'"' in 2
+            quietly replace c`_out_s' = `"`_hdr_events'"' in 3
+            quietly replace c`_out_s2' = `"`_hdr_py'"' in 3
+            quietly replace c`_out_s3' = `"`_hdr_rate'"' in 3
+            quietly replace c`_out_s4' = `"`effect' (95% CI)"' in 3
+            quietly replace c`=`_out_s4'+1' = "p-value" in 3
+        }
+
+        * Data rows follow the stratetab scaffold exactly
+        local _section_rows_sp " `section_rows' "
+        local _ref_rows_sp " `ref_rows' "
+        local _next_model = 0
+
+        forvalues _r = 4/`_rate_rows' {
+            frame `rateframe' {
+                local _rate_lab = c1[`_r']
+            }
+            quietly replace c1 = `"`_rate_lab'"' in `_r'
+
+            forvalues _o = 1/`outcomes' {
+                local _rate_s = 2 + (`_o' - 1) * 3
+                local _out_s = 2 + (`_o' - 1) * 5
+                local _rate_s2 = `_rate_s' + 1
+                local _rate_s3 = `_rate_s' + 2
+                local _out_s2 = `_out_s' + 1
+                local _out_s3 = `_out_s' + 2
+                local _out_s4 = `_out_s' + 3
+
+                frame `rateframe' {
+                    local _rate_events = c`_rate_s'[`_r']
+                    local _rate_py = c`_rate_s2'[`_r']
+                    local _rate_rate = c`_rate_s3'[`_r']
+                }
+
+                quietly replace c`_out_s' = `"`_rate_events'"' in `_r'
+                quietly replace c`_out_s2' = `"`_rate_py'"' in `_r'
+                quietly replace c`_out_s3' = `"`_rate_rate'"' in `_r'
+            }
+
+            if strpos("`_section_rows_sp'", " `_r' ") {
+                continue
+            }
+
+            if strpos("`_ref_rows_sp'", " `_r' ") {
+                forvalues _o = 1/`outcomes' {
+                    local _out_s = 2 + (`_o' - 1) * 5
+                    local _out_s4 = `_out_s' + 3
+                    quietly replace c`_out_s4' = `"`reflabel'"' in `_r'
+                    quietly replace c`=`_out_s4'+1' = "" in `_r'
+                }
+                continue
+            }
+
+            local ++_next_model
+            local _mfname "`_map_frame`_next_model''"
+            local _mrow = `_map_row`_next_model''
+
+            forvalues _o = 1/`outcomes' {
+                local _out_s = 2 + (`_o' - 1) * 5
+                local _out_s4 = `_out_s' + 3
+
+                if "`model_mode'" == "standard" {
+                    local _model_s = 1 + (`_o' - 1) * 3
+                    frame `_mfname' {
+                        local _eff_main = c`_model_s'[`_mrow']
+                        local _eff_ci = c`=`_model_s'+1'[`_mrow']
+                        local _eff_p = c`=`_model_s'+2'[`_mrow']
+                    }
+                    local _eff_main = strtrim(`"`_eff_main'"')
+                    local _eff_ci = strtrim(`"`_eff_ci'"')
+                    if `"`_eff_main'"' == "" {
+                        local _eff_text `"`_eff_ci'"'
+                    }
+                    else if `"`_eff_ci'"' == "" {
+                        local _eff_text `"`_eff_main'"'
+                    }
+                    else {
+                        local _eff_text `"`_eff_main' `_eff_ci'"'
+                    }
+                }
+                else {
+                    local _model_s = 1 + (`_o' - 1) * 2
+                    frame `_mfname' {
+                        local _eff_text = c`_model_s'[`_mrow']
+                        local _eff_p = c`=`_model_s'+1'[`_mrow']
+                    }
+                    local _eff_text = strtrim(`"`_eff_text'"')
+                }
+
+                local _eff_p = strtrim(`"`_eff_p'"')
+                if lower(`"`_eff_text'"') == "reference" local _eff_text `"`reflabel'"'
+
+                quietly replace c`_out_s4' = `"`_eff_text'"' in `_r'
+                quietly replace c`=`_out_s4'+1' = `"`_eff_p'"' in `_r'
+            }
+        }
+
+        local lastrow = _N
+        local exp_rows "`section_rows'"
+
+        * Console display
+        if !`_has_xlsx' | "`display'" != "" {
+            noisily _tabtools_console_display `ncols' `"`_out_title'"', datastart(4) headerstart(2)
+            if `"`footnote'"' != "" {
+                noisily display as text `"`footnote'"'
+                noisily display as text ""
+            }
+        }
+
+        * CSV export
+        if "`csv'" != "" {
+            order title c*
+            export delimited using "`csv'", replace
+            capture confirm file "`csv'"
+            if _rc {
+                display as error "CSV export completed but file was not created"
+                exit 601
+            }
+        }
+
+        * Frame output
+        if `"`frame'"' != "" {
+            _tabtools_frame_put `"`frame'"'
+            local frame "`_frame_name'"
+        }
+
+        * Excel export
+        if `_has_xlsx' {
+            * Compute column widths before export
+            tempvar _hrc_len
+            quietly generate long `_hrc_len' = length(c1)
+            quietly summarize `_hrc_len' if _n >= 4, meanonly
+            local _label_width = ceil(r(max) * 0.90)
+            if `_label_width' < 14 local _label_width = 14
+            if `_label_width' > 30 local _label_width = 30
+            drop `_hrc_len'
+
+            forvalues _c = 2/`ncols' {
+                local _block_pos = mod(`_c' - 2, 5)
+                tempvar _hrc_len
+                quietly generate long `_hrc_len' = length(c`_c')
+                * Row 2 holds merged outcome headers; size each display column from
+                * its own subheader/data content instead of the merged label text.
+                quietly summarize `_hrc_len' if _n >= 3, meanonly
+
+                if `_block_pos' == 0 {
+                    local _cw`_c' = ceil(r(max))
+                    if `_cw`_c'' < 7 local _cw`_c' = 7
+                    if `_cw`_c'' > 10 local _cw`_c' = 10
+                }
+                else if `_block_pos' == 1 {
+                    local _cw`_c' = ceil(r(max) * 0.90)
+                    if `_cw`_c'' < 12 local _cw`_c' = 12
+                    if `_cw`_c'' > 18 local _cw`_c' = 18
+                }
+                else if `_block_pos' == 2 {
+                    local _cw`_c' = ceil(r(max) * 0.88)
+                    if `_cw`_c'' < 14 local _cw`_c' = 14
+                    if `_cw`_c'' > 22 local _cw`_c' = 22
+                }
+                else if `_block_pos' == 3 {
+                    local _cw`_c' = ceil(r(max) * 0.88)
+                    if `_cw`_c'' < 13 local _cw`_c' = 13
+                    if `_cw`_c'' > 20 local _cw`_c' = 20
+                }
+                else {
+                    local _cw`_c' = ceil(r(max))
+                    if `_cw`_c'' < 7 local _cw`_c' = 7
+                    if `_cw`_c'' > 10 local _cw`_c' = 10
+                }
+                drop `_hrc_len'
+            }
+
+            order title c*
+            capture export excel using "`xlsx'", sheet("`sheet'") sheetreplace
+            if _rc {
+                local _export_rc = _rc
+                display as error "Failed to export to `xlsx'"
+                display as error "Hint: ensure the xlsx file is not open in another application"
+                exit `_export_rc'
+            }
+            capture confirm file "`xlsx'"
+            if _rc {
+                display as error "Excel export completed but file was not created"
+                exit 601
+            }
+
+            capture {
+                mata: b = xl()
+                mata: b.load_book("`xlsx'")
+                mata: b.set_sheet("`sheet'")
+                mata: b.set_row_height(1, 1, 30)
+                mata: b.set_column_width(1, 1, 1)
+                mata: b.set_column_width(2, 2, `_label_width')
+                forvalues _c = 2/`ncols' {
+                    local _excel_col = `_c' + 1
+                    mata: b.set_column_width(`_excel_col', `_excel_col', `_cw`_c'')
+                }
+                mata: b.close_book()
+            }
+            if _rc {
+                local _mata_rc = _rc
+                capture mata: b.close_book()
+                capture mata: mata drop b
+                display as error "Excel formatting (Mata) failed with error `_mata_rc'"
+                exit `_mata_rc'
+            }
+            capture mata: mata drop b
+
+            capture {
+                putexcel set "`xlsx'", sheet("`sheet'") modify
+
+                _tabtools_build_col_letters `=`ncols'+1'
+                local _letters "`result'"
+                local lastcol : word `=`ncols'+1' of `_letters'
+
+                putexcel (A1:`lastcol'1), merge bold txtwrap left vcenter ///
+                    font("`_font'", `=`_fontsize' + 2')
+                putexcel (B2:`lastcol'2), border(top, `_hborder')
+                putexcel (B3:`lastcol'3), border(bottom, `_hborder')
+
+                * Merge outcome headers
+                local _merge_col = 3
+                forvalues _o = 1/`outcomes' {
+                    local _col1 : word `_merge_col' of `_letters'
+                    local _col_end : word `=`_merge_col'+4' of `_letters'
+                    putexcel (`_col1'2:`_col_end'2), merge bold hcenter top ///
+                        border(bottom, `_hborder')
+                    local _merge_col = `_merge_col' + 5
+                }
+
+                putexcel (B2:B3), merge bold hcenter vcenter border(bottom, `_hborder')
+                putexcel (C3:`lastcol'3), bold hcenter vcenter
+
+                if "`headershade'" != "" {
+                    putexcel (B2:`lastcol'3), fpattern(solid, "`_headercolor'")
+                }
+
+                if "`zebra'" != "" {
+                    forvalues _zr = 5(2)`lastrow' {
+                        putexcel (B`_zr':`lastcol'`_zr'), fpattern(solid, "`_zebracolor'")
+                    }
+                }
+
+                putexcel (B2:`lastcol'`lastrow'), font("`_font'", `_fontsize')
+                putexcel (C4:`lastcol'`lastrow'), hcenter
+
+                if "`borderstyle'" != "academic" {
+                    putexcel (B2:B`lastrow'), border(left, `borderstyle')
+                    putexcel (B2:B`lastrow'), border(right, `borderstyle')
+
+                    local _vcol = 3
+                    forvalues _o = 1/`outcomes' {
+                        local _col_end : word `=`_vcol'+4' of `_letters'
+                        putexcel (`_col_end'2:`_col_end'`lastrow'), border(right, `borderstyle')
+                        local _vcol = `_vcol' + 5
+                    }
+                }
+
+                foreach _sr of local exp_rows {
+                    local _border_row = `_sr' - 1
+                    if `_border_row' > 3 {
+                        putexcel (B`_border_row':`lastcol'`_border_row'), border(bottom, `_hborder')
+                    }
+                }
+
+                putexcel (B`lastrow':`lastcol'`lastrow'), border(bottom, `_hborder')
+
+                if `"`footnote'"' != "" {
+                    _tabtools_footnote `"`footnote'"' "`lastcol'" `lastrow' "`_font'" `_fontsize'
+                }
+
+                putexcel clear
+            }
+            if _rc {
+                local _fmt_rc = _rc
+                capture putexcel clear
+                display as error "Excel cell formatting failed with error `_fmt_rc'"
+                exit `_fmt_rc'
+            }
+        }
+
+        if `_has_xlsx' & "`open'" != "" _tabtools_open_file "`xlsx'"
+
+        return scalar N_rows = `lastrow'
+        return scalar N_outcomes = `outcomes'
+        return scalar N_sections = `n_sections'
+        return scalar N_modelrows = `_selected_total'
+        return scalar N_modelframes = `n_frames'
+        return local rateframe "`rateframe'"
+        return local modelframes "`modelframes'"
+        return local effect "`effect'"
+        if `_has_xlsx' {
+            return local xlsx "`xlsx'"
+            return local sheet "`sheet'"
+        }
+        if "`csv'" != "" return local csv "`csv'"
+        if `"`frame'"' != "" return local frame "`frame'"
+    }
+
+    local rc = _rc
+    quietly use "`_userdata_path'", clear
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
+end

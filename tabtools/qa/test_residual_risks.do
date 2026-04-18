@@ -2,7 +2,6 @@
 * Coverage:
 *   R1: Excel content inspection (cell values, headers, p-values — not just file existence)
 *   R2: pdp/highpdp value formatting verification for effecttab and survtab
-*   R3: tablex frame(replace) (stratetab has no frame option)
 *   R4: Persistent boldp application produces actual bold formatting in Excel
 
 capture log close _rr
@@ -513,119 +512,6 @@ else {
 }
 capture frame drop _rr_r25
 capture erase "output/_rr_r2_5.txt"
-
-* =========================================================================
-**# R3: tablex frame(replace)
-* =========================================================================
-
-* --- R3.1: tablex frame() creates frame ---
-local ++n_total
-capture noisily {
-    sysuse auto, clear
-    table foreign, statistic(mean price) statistic(sd price)
-    capture frame drop _rr_r31
-    tablex using "output/_rr_tablex_r31.xlsx", sheet("Test") frame(_rr_r31) replace
-    frame _rr_r31: assert _N > 0
-}
-if _rc == 0 {
-    display as result "  PASS: R3.1 - tablex frame() creates frame with data"
-    local ++n_pass
-}
-else {
-    display as error "  FAIL: R3.1 - tablex frame() failed (rc=`=_rc')"
-    local ++n_fail
-}
-capture frame drop _rr_r31
-
-* --- R3.2: tablex frame(name, replace) replaces existing frame ---
-local ++n_total
-capture noisily {
-    sysuse auto, clear
-    table foreign, statistic(mean price) statistic(sd price)
-    capture frame drop _rr_r32
-    tablex using "output/_rr_tablex_r32.xlsx", sheet("T1") frame(_rr_r32) replace
-    frame _rr_r32: quietly count
-    local first_n = r(N)
-    * Different table — different row count
-    sysuse auto, clear
-    table rep78, statistic(mean price) statistic(sd price) statistic(count price)
-    tablex using "output/_rr_tablex_r32b.xlsx", sheet("T2") frame(_rr_r32, replace) replace
-    frame _rr_r32: quietly count
-    local second_n = r(N)
-    * Frame should have new data (different row count)
-    assert `second_n' > 0
-}
-if _rc == 0 {
-    display as result "  PASS: R3.2 - tablex frame(name, replace) replaces existing frame"
-    local ++n_pass
-}
-else {
-    display as error "  FAIL: R3.2 - tablex frame(replace) failed (rc=`=_rc')"
-    local ++n_fail
-}
-capture frame drop _rr_r32
-
-* --- R3.3: tablex frame without replace errors on existing ---
-local ++n_total
-capture noisily {
-    sysuse auto, clear
-    table foreign, statistic(mean price)
-    capture frame drop _rr_r33
-    tablex using "output/_rr_tablex_r33.xlsx", sheet("T1") frame(_rr_r33) replace
-    * Now try again without replace — should error
-    sysuse auto, clear
-    table foreign, statistic(mean price)
-    tablex using "output/_rr_tablex_r33b.xlsx", sheet("T2") frame(_rr_r33) replace
-}
-if _rc != 0 {
-    display as result "  PASS: R3.3 - tablex frame without replace correctly errors (rc=`=_rc')"
-    local ++n_pass
-}
-else {
-    display as error "  FAIL: R3.3 - tablex frame without replace should have errored"
-    local ++n_fail
-}
-capture frame drop _rr_r33
-
-* --- R3.4: tablex frame content has expected structure ---
-local ++n_total
-capture noisily {
-    sysuse auto, clear
-    table foreign, statistic(mean price) statistic(sd price)
-    capture frame drop _rr_r34
-    tablex using "output/_rr_tablex_r34.xlsx", sheet("Test") frame(_rr_r34) ///
-        title("Auto Prices by Origin") replace
-    frame _rr_r34 {
-        * Row 1 should be title row (tablex uses _title var, not A)
-        local title_cell = _title[1]
-        assert strpos("`title_cell'", "Auto Prices") > 0
-        * Should have data rows (title + header + 3 data = at least 4)
-        assert _N >= 4
-        * Should have A (row labels) plus data columns (B, C, etc.)
-        confirm variable A
-        quietly ds A B C
-        local nvars : word count `r(varlist)'
-        assert `nvars' >= 2
-    }
-}
-if _rc == 0 {
-    display as result "  PASS: R3.4 - tablex frame has title, data rows, columns"
-    local ++n_pass
-}
-else {
-    display as error "  FAIL: R3.4 - tablex frame content wrong (rc=`=_rc')"
-    local ++n_fail
-}
-capture frame drop _rr_r34
-
-* --- R3.5: stratetab has no frame option (documenting gap) ---
-* stratetab only supports xlsx/excel output — no frame().
-* This test confirms that behavior and is a placeholder for the residual
-* risk note. stratetab uses a completely different input pipeline (using()
-* reads external xlsx files) so frame output would require separate design.
-local ++n_total
-display as result "  PASS: R3.5 - stratetab confirmed no frame() option (xlsx-only command)"
-local ++n_pass
 
 * =========================================================================
 **# R4: Persistent boldp application in Excel

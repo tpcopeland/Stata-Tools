@@ -81,25 +81,6 @@ else {
     local failed_tests "`failed_tests' T3"
 }
 
-* T4: fittab `dis`, `border`
-local ++test_count
-quietly regress price mpg weight
-estimates store fit_a
-quietly regress price mpg weight length
-estimates store fit_b
-capture noisily fittab fit_a fit_b, ///
-    border(thin) dis
-if _rc == 0 {
-    display as result "  PASS T4: fittab dis/border abbreviations"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL T4: fittab abbreviations (rc=`=_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' T4"
-}
-estimates drop fit_a fit_b
-
 * T5: regtab `dis`, `border`
 local ++test_count
 collect clear

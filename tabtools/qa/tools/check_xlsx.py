@@ -14,6 +14,8 @@ import sys
 from collections import Counter
 from typing import Iterable, List, Optional, Sequence, Tuple
 
+from openpyxl.utils import column_index_from_string, get_column_letter
+
 
 def _stringify(value) -> str:
     if value is None:
@@ -200,6 +202,17 @@ def _theme_expectations(name: str) -> Optional[Tuple[str, float, Optional[str]]]
     return None
 
 
+def _column_width(ws, ref: str) -> float:
+    ref = ref.strip().upper()
+    try:
+        col_idx = int(ref)
+        letter = get_column_letter(col_idx)
+    except ValueError:
+        letter = get_column_letter(column_index_from_string(ref))
+    width = ws.column_dimensions[letter].width
+    return 8.43 if width is None else float(width)
+
+
 def _parse_args(argv: Sequence[str]):
     if not argv:
         raise ValueError("Usage: check_xlsx.py <xlsx_file> [options]")
@@ -280,6 +293,12 @@ def _parse_args(argv: Sequence[str]):
         elif token == "--merged-row":
             checks.append(("merged_row", int(argv[i + 1])))
             i += 2
+        elif token == "--col-width-at-least":
+            checks.append(("col_width_at_least", argv[i + 1], float(argv[i + 2])))
+            i += 3
+        elif token == "--col-width-at-most":
+            checks.append(("col_width_at_most", argv[i + 1], float(argv[i + 2])))
+            i += 3
         elif token == "--min-merges":
             checks.append(("min_merges", int(argv[i + 1])))
             i += 2
@@ -441,6 +460,16 @@ def main(argv: Sequence[str]) -> int:
         elif name == "merged_row":
             if not any(rng.min_row <= check[1] <= rng.max_row for rng in ws.merged_cells.ranges):
                 failures.append(f"No merged range touches row {check[1]}")
+
+        elif name == "col_width_at_least":
+            actual = _column_width(ws, check[1])
+            if actual + 1e-9 < check[2]:
+                failures.append(f"Column {check[1]} width {actual:.2f} is below minimum {check[2]:.2f}")
+
+        elif name == "col_width_at_most":
+            actual = _column_width(ws, check[1])
+            if actual - 1e-9 > check[2]:
+                failures.append(f"Column {check[1]} width {actual:.2f} exceeds maximum {check[2]:.2f}")
 
         elif name == "min_merges":
             if len(ws.merged_cells.ranges) < check[1]:

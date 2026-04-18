@@ -1,4 +1,4 @@
-*! tabtools Version 1.0.5  2026/04/17
+*! tabtools Version 1.0.7  2026/04/18
 *! Suite of table export commands for publication-ready Excel output
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet
@@ -270,12 +270,12 @@ program define tabtools, rclass
 
         // Define commands by category
         local cmd_descriptive "table1_tc crosstab corrtab"
-        local cmd_models "regtab effecttab fittab"
+        local cmd_models "regtab effecttab"
         local cmd_rates "stratetab"
-        local cmd_survival "survtab hrtab"
+        local cmd_survival "survtab"
         local cmd_diagnostics "diagtab"
-        local cmd_composite "comptab"
-        local cmd_general "tabtools tablex"
+        local cmd_composite "comptab hrcomptab"
+        local cmd_general "tabtools"
 
         // Build selected list based on category
         if "`category'" == "descriptive" {
@@ -340,7 +340,6 @@ program define tabtools, rclass
                 display as text "{bf:Model Results}"
                 display as result "  regtab       " as text "- Regression results from any estimation command"
                 display as result "  effecttab    " as text "- Treatment effects and margins results"
-                display as result "  fittab       " as text "- Model comparison table (AIC, BIC, C-stat)"
                 display as text ""
             }
 
@@ -353,7 +352,6 @@ program define tabtools, rclass
             if inlist("`category'", "all", "survival") {
                 display as text "{bf:Survival Analysis}"
                 display as result "  survtab      " as text "- Kaplan-Meier estimates, medians, and RMST"
-                display as result "  hrtab        " as text "- Multi-panel hazard ratio table (stcox/stcrreg/finegray)"
                 display as text ""
             }
 
@@ -366,13 +364,13 @@ program define tabtools, rclass
             if inlist("`category'", "all", "composite") {
                 display as text "{bf:Composite}"
                 display as result "  comptab      " as text "- Combine regtab/effecttab frames into one table"
+                display as result "  hrcomptab    " as text "- Attach regtab frames to a stratetab scaffold"
                 display as text ""
             }
 
             if inlist("`category'", "all", "general") {
                 display as text "{bf:General Purpose}"
                 display as result "  tabtools     " as text "- Suite controller and persistent defaults"
-                display as result "  tablex       " as text "- Flexible table export wrapper"
                 display as text ""
             }
 
@@ -388,7 +386,7 @@ program define tabtools, rclass
         // Return results
         return local commands "`selected_cmds'"
         return scalar n_commands = `n_commands'
-        return local version "1.0.5"
+        return local version "1.0.7"
         return local categories "descriptive models rates survival diagnostics composite general"
     }
 
@@ -438,11 +436,6 @@ program define _tabtools_detail
         display as text "               Formats average marginal effects, predictive"
         display as text "               margins, and interaction contrasts."
         display as text ""
-        display as result "  fittab" as text "       Compare stored estimation results side-by-side"
-        display as text "               with fit statistics (N, AIC, BIC, log-likelihood,"
-        display as text "               C-statistic, R-squared). Highlights best-fitting"
-        display as text "               model."
-        display as text ""
     }
 
     if inlist("`category'", "all", "rates") {
@@ -462,10 +455,6 @@ program define _tabtools_detail
         display as text "               and restricted mean survival time (RMST) to"
         display as text "               Excel. Supports multiple groups and time points."
         display as text ""
-        display as result "  hrtab" as text "        Multi-panel hazard ratio table for stcox,"
-        display as text "               stcrreg, and finegray with person-years and"
-        display as text "               event counts."
-        display as text ""
     }
 
     if inlist("`category'", "all", "diagnostics") {
@@ -484,6 +473,10 @@ program define _tabtools_detail
         display as text "               into a single publication-ready table. Supports"
         display as text "               side-by-side and stacked layouts."
         display as text ""
+        display as result "  hrcomptab" as text "    Build a final Table 2-style sheet by using"
+        display as text "               a stratetab frame as the scaffold and injecting"
+        display as text "               selected rows from one or more regtab frames."
+        display as text ""
     }
 
     if inlist("`category'", "all", "general") {
@@ -492,12 +485,6 @@ program define _tabtools_detail
         display as result "  tabtools" as text "     Suite controller for listing commands and"
         display as text "               managing persistent formatting defaults with"
         display as text "               {cmd:set} and {cmd:get}."
-        display as text ""
-        display as result "  tablex" as text "       Flexible wrapper for exporting any Stata table"
-        display as text "               to Excel. Applies consistent professional"
-        display as text "               formatting: column widths, borders, fonts,"
-        display as text "               merged headers, and styling. Works with"
-        display as text "               matrices and stored results."
         display as text ""
     }
 

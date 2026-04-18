@@ -1,8 +1,8 @@
 # tabtools
 
-![Stata 17+*](https://img.shields.io/badge/Stata-17%2B*-brightgreen) ![MIT License](https://img.shields.io/badge/License-MIT-blue) ![Version 1.0.5](https://img.shields.io/badge/Version-1.0.5-blue)
+![Stata 17+*](https://img.shields.io/badge/Stata-17%2B*-brightgreen) ![MIT License](https://img.shields.io/badge/License-MIT-blue) ![Version 1.0.7](https://img.shields.io/badge/Version-1.0.7-blue)
 
-A comprehensive suite of Stata commands for exporting publication-ready tables to Excel. Designed for epidemiological and clinical research workflows, tabtools handles descriptive statistics, regression results, treatment effects, survival analysis, diagnostic accuracy, and general-purpose table export with consistent professional formatting. Most commands require Stata 17; `tabtools` and `table1_tc` also support Stata 16. `table1_tc` is a fork of `table1_mc` version 3.5 (2024-12-19) by Mark Chatfield, though I have taken some liberties with removing and changing some existing options, the `table1_mc` options are generally intact. See [demo_tabtools.xlsx](https://github.com/tpcopeland/Stata-Tools/raw/refs/heads/main/tabtools/demo/demo_tabtools.xlsx) for examples of the various commands. [demo_tabtools.do](https://github.com/tpcopeland/Stata-Tools/raw/refs/heads/main/tabtools/demo/demo_tabtools.do) is the maintainer-side script that rebuilds that workbook from repository data and sibling packages.
+A comprehensive suite of Stata commands for exporting publication-ready tables to Excel. Designed for epidemiological and clinical research workflows, tabtools handles descriptive statistics, regression results, treatment effects, survival analysis, diagnostic accuracy, incidence rates, and composite manuscript tables with consistent professional formatting. Most commands require Stata 17; `tabtools` and `table1_tc` also support Stata 16. `table1_tc` is derived from `table1_mc` version 3.5 (2024-12-19) by Mark Chatfield, with selected option changes while keeping the core workflow familiar. See [demo_tabtools.xlsx](https://github.com/tpcopeland/Stata-Tools/raw/refs/heads/main/tabtools/demo/demo_tabtools.xlsx) for examples of the various commands. [demo_tabtools.do](https://github.com/tpcopeland/Stata-Tools/raw/refs/heads/main/tabtools/demo/demo_tabtools.do) rebuilds that workbook from repository data and sibling packages.
 
 ## Installation
 
@@ -34,22 +34,20 @@ net install tabtools, from("https://raw.githubusercontent.com/tpcopeland/Stata-T
 | `regtab` | Format regression results from any estimation command (`logit`, `stcox`, `regress`, `melogit`, etc.) with auto-detected coefficient labels (OR, HR, IRR, Coef.) | 17+ |
 | `effecttab` | Format treatment effects (`teffects`) and marginal effects (`margins`) results | 17+ |
 | `comptab` | Compose publication tables by selecting rows from multiple `regtab`/`effecttab` output frames into a single composite table | 17+ |
+| `hrcomptab` | Compose a final Table 2-style sheet by combining a `stratetab` frame with selected rows from one or more `regtab` frames | 17+ |
 
 ### Clinical
 
 | Command | Description | Stata |
 |---------|-------------|-------|
 | `survtab` | Survival summary table with Kaplan-Meier estimates, median survival, RMST, number at risk, and cumulative incidence | 17+ |
-| `hrtab` | Multi-panel hazard ratio table for stcox, stcrreg, and finegray with person-years and event counts | 17+ |
 | `stratetab` | Combine and format `strate` incidence rate outputs with optional rate ratios and log-normal CIs | 17+ |
 | `diagtab` | Diagnostic accuracy table (sensitivity, specificity, PPV, NPV, LR+, LR-, DOR, AUC) from a 2x2 classification | 17+ |
-| `fittab` | Model comparison table with fit statistics (N, AIC, BIC, log-likelihood, C-statistic, R-squared) across stored estimates | 17+ |
 
 ### Utility
 
 | Command | Description | Stata |
 |---------|-------------|-------|
-| `tablex` | General-purpose table export for any Stata `table`/`collect` output | 17+ |
 | `tabtools` | Suite controller: persistent formatting defaults (`set`/`get`) and command listing | 16+ |
 
 ## Quick Examples
@@ -160,20 +158,6 @@ survtab, times(5 10 15 20) by(drug) ///
     timeunit("months")
 ```
 
-### Hazard Ratios
-
-```stata
-webuse drugtr, clear
-gen id = _n
-
-hrtab, exposure(i.drug) model(stcox) ///
-    outcome(died) time(studytime) stsetopts(id(id)) ///
-    covars(age) ///
-    xlsx("hazard_ratios.xlsx") sheet("HR") ///
-    title("Table 5. Hazard Ratios by Treatment Group") ///
-    pvalue display
-```
-
 ### Incidence Rates
 
 `stratetab` reads the saved `strate` output files directly, so no dataset needs to be in memory before you run it.
@@ -186,6 +170,36 @@ stratetab, using(rate_control rate_treated) xlsx("rates.xlsx") ///
     rateratio ratiodigits(2)
 ```
 
+### Table 2 Composite
+
+```stata
+* Step 1: build the descriptive scaffold
+stratetab, using(edss4_tv edss6_tv recurring_tv ///
+    edss4_dose edss6_dose recurring_dose) ///
+    outcomes(3) frame(hrt_rates, replace) ///
+    outlabels("Sustained EDSS 4" \ "Sustained EDSS 6" \ "Recurring Relapse") ///
+    explabels("Binary HRT" \ "Estrogen Dose Category")
+
+* Step 2: build adjusted model frames with regtab
+collect clear
+collect: stcox hrt_tv ...
+collect: stcox hrt_tv ...
+collect: stcox hrt_tv ...
+regtab, frame(hrt_bin, replace) noint coef("HR")
+
+collect clear
+collect: stcox i.hrt_dosecat ...
+collect: stcox i.hrt_dosecat ...
+collect: stcox i.hrt_dosecat ...
+regtab, frame(hrt_dose, replace) noint coef("HR")
+
+* Step 3: compose the final Table 2 sheet
+hrcomptab hrt_rates, modelframes(hrt_bin hrt_dose) ///
+    rows(1 \ 3/5) effect("aHR") ///
+    xlsx("HRT.xlsx") sheet("Table 2") ///
+    title("Table 2. Hormone Replacement Therapy Events, Events per Person Year, and Adjusted Hazard Ratios")
+```
+
 ### Diagnostic Accuracy
 
 ```stata
@@ -195,37 +209,6 @@ generate byte bmi_high = (bmi >= 30) if !missing(bmi)
 diagtab bmi_high diabetes, xlsx("diagnostic.xlsx") ///
     wilson ///
     title("Diagnostic Accuracy: Obesity as Predictor of Diabetes")
-```
-
-### Model Comparison
-
-```stata
-sysuse auto, clear
-
-regress price mpg weight
-estimates store m1
-
-regress price mpg weight length
-estimates store m2
-
-regress price mpg weight length i.foreign
-estimates store m3
-
-fittab m1 m2 m3, xlsx("fit.xlsx") ///
-    stats(N aic bic r2) ///
-    labels("Base \ Extended \ Full") ///
-    title("Model Comparison: Vehicle Price") lrtest(m1)
-```
-
-### General Table Export
-
-```stata
-sysuse auto, clear
-
-table (foreign) (), statistic(mean price mpg weight) ///
-    statistic(sd price mpg weight)
-tablex using "summary.xlsx", sheet("Summary") ///
-    title("Summary Statistics by Origin")
 ```
 
 ### Console Preview
@@ -315,14 +298,14 @@ help table1_tc            * descriptive statistics (Table 1)
 help regtab               * regression results
 help effecttab            * treatment effects and margins
 help comptab              * composite tables from frames
+help hrcomptab            * Table 2-style composite from stratetab + regtab frames
 help crosstab             * cross-tabulation
 help corrtab              * correlation matrix
 help survtab              * survival summary
-help hrtab                * hazard ratio tables
 help stratetab            * incidence rates
 help diagtab              * diagnostic accuracy
-help fittab               * model comparison
-help tablex               * general table export
+help tabtools_cheatsheet  * quick option reference
+help tabtools_cookbook    * worked examples
 ```
 
 ## Citation
@@ -352,22 +335,29 @@ timothy.copeland@ki.se
 
 ## License
 
-MIT License. See the repository [LICENSE](../LICENSE) for details.
+MIT License. See the repository [LICENSE](../LICENSE) file for details.
 
 ## Version
 
-Version 1.0.5, 2026-04-17
+Version 1.0.7, 2026-04-18
 
 ### Changelog
 
+- **1.0.7** (2026-04-18)
+  - Removed `fittab`, `hrtab`, and `tablex` from the package to reduce maintenance burden and concentrate the suite on the workflows actually in use.
+  - Folded the `hrcomptab` demo directly into `demo_tabtools.do` and removed the one-off helper script.
+  - Synchronized package metadata and package-facing documentation for the `1.0.7` release.
+- **1.0.6** (2026-04-17)
+  - Added `hrcomptab`, a second-stage Table 2 builder that uses a `stratetab` frame as the scaffold and injects selected rows from one or more `regtab` frames into compact effect/p-value columns. This replaces the ad hoc Excel import/merge/export workflow for rate + adjusted hazard-ratio tables.
+  - Added dedicated QA for `hrcomptab`, covering row-based selection, rowname-based selection, frame output, and `.xlsx` export.
 - **1.0.5** (2026-04-17)
-  - Removed `subtitle()` option from all commands (`comptab`, `corrtab`, `crosstab`, `diagtab`, `effecttab`, `fittab`, `hrtab`, `regtab`, `survtab`): the feature is nuked from `.ado` and `.sthlp`. Layouts now start the header row directly after the title row.
-  - `corrtab` and `diagtab` Excel-formatting error paths now `exit _format_rc` on failure instead of silently printing "Exported to ..." with broken formatting (matches the crosstab/fittab/survtab/effecttab/hrtab/regtab/stratetab/comptab pattern).
+  - Removed `subtitle()` from the export commands so layouts now start the header row directly after the title row.
+  - `corrtab` and `diagtab` now stop on Excel-formatting failures instead of printing a misleading success message.
   - QA: `test_tabtools_issue_regressions.do` now `capture erase`s the `rate1-rate4.dta` tempfiles before exiting so subsequent test files' tempname allocations don't collide with leftovers; `run_all.do` also scrubs `/tmp/St${c(pid)}*.dta` between files as a belt-and-suspenders.
-  - Standardized `_orig_varabbrev` as the local name across all commands (was `_prev_varabbrev` in `regtab`, `comptab`, `effecttab`, `table1_tc`, `tablex`, `tabtools`).
+  - Standardized `_orig_varabbrev` local naming across the codebase.
   - Removed tracked developer debug logs (`qa/dbg_pois.log`, `qa/debug_hrtab.log`) from the working tree.
 - **1.0.4** (2026-04-16)
-  - Documentation and package-hygiene refresh: corrected stale or invalid `fittab`/`comptab` examples in the README, cheatsheet, and cookbook; clarified that `r(Dapa)` is a returned local macro rather than a data frame; documented the supported cosmetic options in `corrtab`/`diagtab`; standardized stored-results anchors in the affected help files; qualified the `regtab` font remark; fixed the package-local license reference; and removed tracked debug scripts/logs from the package root.
+  - Documentation and package-hygiene refresh: corrected stale examples in the README, cheatsheet, and cookbook; clarified that `r(Dapa)` is a returned local macro rather than a data frame; documented the supported cosmetic options in `corrtab`/`diagtab`; standardized stored-results anchors in the affected help files; qualified the `regtab` font remark; fixed the package-local license reference; and removed tracked debug scripts/logs from the package root.
 - **1.0.3** (2026-04-13)
   - Documentation/abbreviation fixes: relax syntax minima so user-typed abbreviations match what the help files document. `subtitle`, `display`, and `borderstyle` now accept the shorter forms (`sub`, `dis`, `border`) that the synopsis lines advertised. Also `crosstab`'s `trend` (now `tr`), `survtab`'s `events` (now `ev`), and `stratetab`'s `ratiodigits` (now `ratio`).
   - `survtab` RMST: replace hard-coded auxiliary variable names (`_dt`, `_area`, `_n_at_risk`, `_d_count`, `_last_in_t`, `_n_risk_first`, `_tail_area`, `_gw_term`) with `tempvar`s so the RMST/Greenwood-variance pass can never collide with same-named columns in the user dataset.

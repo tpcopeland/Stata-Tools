@@ -350,58 +350,6 @@ else {
     local failed_tests "`failed_tests' 1.14"
 }
 
-* --- 1.15 fittab: frame() rejects existing frame ---
-local ++test_count
-capture noisily {
-    sysuse auto, clear
-    quietly regress price mpg
-    estimates store _ft_m1
-    quietly regress price mpg weight
-    estimates store _ft_m2
-    capture frame drop victim
-    frame create victim
-    capture fittab _ft_m1 _ft_m2, frame(victim)
-    assert _rc == 110
-}
-local _test_rc = _rc
-capture frame drop victim
-capture estimates drop _ft_m1 _ft_m2
-if `_test_rc' == 0 {
-    display as result "  PASS: 1.15 fittab frame() rejects existing frame"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: 1.15 fittab frame() rejects existing frame (rc=`_test_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' 1.15"
-}
-
-* --- 1.16 fittab: frame() succeeds when frame does not exist ---
-local ++test_count
-capture noisily {
-    sysuse auto, clear
-    quietly regress price mpg
-    estimates store _ft_m3
-    quietly regress price mpg weight
-    estimates store _ft_m4
-    capture frame drop fresh_fit
-    fittab _ft_m3 _ft_m4, frame(fresh_fit)
-    capture confirm frame fresh_fit
-    assert _rc == 0
-}
-local _test_rc = _rc
-capture frame drop fresh_fit
-capture estimates drop _ft_m3 _ft_m4
-if `_test_rc' == 0 {
-    display as result "  PASS: 1.16 fittab frame() works for new frame"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: 1.16 fittab frame() works for new frame (rc=`_test_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' 1.16"
-}
-
 * --- 1.17 survtab: frame() rejects existing frame ---
 local ++test_count
 capture noisily {
@@ -454,52 +402,6 @@ else {
     display as error "  FAIL: 1.18 survtab frame() works for new frame (rc=`_test_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' 1.18"
-}
-
-* --- 1.19 tablex: frame() rejects existing frame ---
-local ++test_count
-capture noisily {
-    sysuse auto, clear
-    table foreign rep78
-    capture frame drop victim
-    frame create victim
-    capture tablex using "`output_dir'/_test_tablex_frame.xlsx", ///
-        frame(victim) title("Test") replace
-    assert _rc == 110
-}
-local _test_rc = _rc
-capture frame drop victim
-if `_test_rc' == 0 {
-    display as result "  PASS: 1.19 tablex frame() rejects existing frame"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: 1.19 tablex frame() rejects existing frame (rc=`_test_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' 1.19"
-}
-
-* --- 1.20 tablex: frame() succeeds when frame does not exist ---
-local ++test_count
-capture noisily {
-    sysuse auto, clear
-    table foreign rep78
-    capture frame drop fresh_tx
-    tablex using "`output_dir'/_test_tablex_frame2.xlsx", ///
-        frame(fresh_tx) title("Test") replace
-    capture confirm frame fresh_tx
-    assert _rc == 0
-}
-local _test_rc = _rc
-capture frame drop fresh_tx
-if `_test_rc' == 0 {
-    display as result "  PASS: 1.20 tablex frame() works for new frame"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: 1.20 tablex frame() works for new frame (rc=`_test_rc')"
-    local ++fail_count
-    local failed_tests "`failed_tests' 1.20"
 }
 
 * ============================================================

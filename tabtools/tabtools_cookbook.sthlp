@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.5  17apr2026}{...}
+{* *! version 1.0.7  18apr2026}{...}
 {viewerjumpto "Recipe 1" "tabtools_cookbook##r1"}{...}
 {viewerjumpto "Recipe 2" "tabtools_cookbook##r2"}{...}
 {viewerjumpto "Recipe 3" "tabtools_cookbook##r3"}{...}
@@ -14,7 +14,6 @@
 {viewerjumpto "Recipe 12" "tabtools_cookbook##r12"}{...}
 {viewerjumpto "Recipe 13" "tabtools_cookbook##r13"}{...}
 {viewerjumpto "Recipe 14" "tabtools_cookbook##r14"}{...}
-{viewerjumpto "Recipe 15" "tabtools_cookbook##r15"}{...}
 {viewerjumpto "Recipe 16" "tabtools_cookbook##r16"}{...}
 {viewerjumpto "Recipe 17" "tabtools_cookbook##r17"}{...}
 {viewerjumpto "Recipe 18" "tabtools_cookbook##r18"}{...}
@@ -212,19 +211,41 @@ table with custom row ordering.{p_end}
 
 {hline}
 {marker r9}{...}
-{title:Recipe 9. General-purpose table with tablex}
+{title:Recipe 9. Table 2 workflow with hrcomptab}
 
-{pstd}Export any Stata {cmd:table} or {cmd:collect} output to Excel using
-{cmd:tablex} as a pass-through wrapper.{p_end}
+{pstd}Build a final Table 2-style worksheet by using {cmd:stratetab} as the
+rates scaffold and injecting selected rows from one or more {cmd:regtab}
+frames.{p_end}
 
-{phang2}{cmd:sysuse auto, clear}{p_end}
-{phang2}{cmd:table foreign, statistic(mean price mpg weight) ///}{p_end}
-{phang3}{cmd:statistic(sd price mpg weight) nformat(%9.1f)}{p_end}
-{phang2}{cmd:collect export summary.xlsx, sheet(temp) replace}{p_end}
+{phang2}{cmd:* Step 1: build the incidence-rate scaffold}{p_end}
+{phang2}{cmd:stratetab, using(edss4_tv edss6_tv recurring_tv ///}{p_end}
+{phang3}{cmd:edss4_dose edss6_dose recurring_dose) ///}{p_end}
+{phang3}{cmd:outcomes(3) frame(hrt_rates, replace) ///}{p_end}
+{phang3}{cmd:outlabels("Sustained EDSS 4" \ "Sustained EDSS 6" \ "Recurring Relapse") ///}{p_end}
+{phang3}{cmd:explabels("Binary HRT" \ "Estrogen Dose Category")}{p_end}
 {phang2}{cmd:}{p_end}
-{phang2}{cmd:tablex using summary.xlsx, sheet("Summary Stats") ///}{p_end}
-{phang3}{cmd:title("Vehicle Summary by Origin") ///}{p_end}
-{phang3}{cmd:replace zebra open}{p_end}
+{phang2}{cmd:* Step 2: store adjusted models in regtab frames}{p_end}
+{phang2}{cmd:collect clear}{p_end}
+{phang2}{cmd:collect: stcox hrt_tv ...}{p_end}
+{phang2}{cmd:collect: stcox hrt_tv ...}{p_end}
+{phang2}{cmd:collect: stcox hrt_tv ...}{p_end}
+{phang2}{cmd:regtab, frame(hrt_bin, replace) noint coef("HR")}{p_end}
+{phang2}{cmd:}{p_end}
+{phang2}{cmd:collect clear}{p_end}
+{phang2}{cmd:collect: stcox i.hrt_dosecat ...}{p_end}
+{phang2}{cmd:collect: stcox i.hrt_dosecat ...}{p_end}
+{phang2}{cmd:collect: stcox i.hrt_dosecat ...}{p_end}
+{phang2}{cmd:regtab, frame(hrt_dose, replace) noint coef("HR")}{p_end}
+{phang2}{cmd:}{p_end}
+{phang2}{cmd:* Step 3: compose the final sheet}{p_end}
+{phang2}{cmd:hrcomptab hrt_rates, modelframes(hrt_bin hrt_dose) ///}{p_end}
+{phang3}{cmd:rows(1 \ 3/5) effect("aHR") ///}{p_end}
+{phang3}{cmd:xlsx(HRT.xlsx) sheet("Table 2") ///}{p_end}
+{phang3}{cmd:title("Table 2. HRT Events, Rates, and Adjusted Hazard Ratios")}{p_end}
+
+{pstd}Use {cmd:rows()} to pick the model rows that should be inserted for each
+exposure block, or switch to {cmd:rownames()} when you prefer name-based
+matching across model frames.{p_end}
 
 {hline}
 {marker r10}{...}
@@ -287,7 +308,7 @@ output. All tabtools commands that accept {cmd:xlsx()} also accept
 {phang2}{cmd:frame change default}{p_end}
 
 {pstd}The {cmd:frame()} option is available on {cmd:regtab}, {cmd:effecttab},
-{cmd:table1_tc}, and {cmd:tablex}.{p_end}
+and {cmd:table1_tc}.{p_end}
 
 {hline}
 {marker r13}{...}
@@ -339,36 +360,6 @@ in a regression table.{p_end}
 
 {pstd}The {cmd:factorlabel} option replaces labels like "2.price_cat" with
 the value label "4000-5999".{p_end}
-
-{hline}
-{marker r15}{...}
-{title:Recipe 15. Sample flow table via tablex}
-
-{pstd}Build a sample flow (CONSORT-style exclusion table) using {cmd:tablex}.{p_end}
-
-{phang2}{cmd:sysuse auto, clear}{p_end}
-{phang2}{cmd:}{p_end}
-{phang2}{cmd:* Build a flow table using collect}{p_end}
-{phang2}{cmd:collect clear}{p_end}
-{phang2}{cmd:count}{p_end}
-{phang2}{cmd:local total = r(N)}{p_end}
-{phang2}{cmd:collect get step = "Total records", n = `total'}{p_end}
-{phang2}{cmd:}{p_end}
-{phang2}{cmd:drop if missing(rep78)}{p_end}
-{phang2}{cmd:local n1 = _N}{p_end}
-{phang2}{cmd:local exc1 = `total' - `n1'}{p_end}
-{phang2}{cmd:collect get step = "  Excluded: missing rep78", n = -`exc1'}{p_end}
-{phang2}{cmd:collect get step = "After exclusion 1", n = `n1'}{p_end}
-{phang2}{cmd:}{p_end}
-{phang2}{cmd:drop if price > 15000}{p_end}
-{phang2}{cmd:local n2 = _N}{p_end}
-{phang2}{cmd:local exc2 = `n1' - `n2'}{p_end}
-{phang2}{cmd:collect get step = "  Excluded: price > 15000", n = -`exc2'}{p_end}
-{phang2}{cmd:collect get step = "Final analytic sample", n = `n2'}{p_end}
-{phang2}{cmd:}{p_end}
-{phang2}{cmd:collect export flow.xlsx, sheet(temp) replace}{p_end}
-{phang2}{cmd:tablex using flow.xlsx, sheet("Sample Flow") ///}{p_end}
-{phang3}{cmd:title("Figure 1. Sample Selection") replace}{p_end}
 
 {hline}
 {marker r16}{...}
@@ -429,7 +420,7 @@ significance stars, and Spearman method for non-normal data.
 {pstd}{helpb tabtools} — overview and settings{p_end}
 {pstd}{helpb tabtools_cheatsheet} — quick option reference{p_end}
 {pstd}{helpb table1_tc}, {helpb regtab}, {helpb effecttab}, {helpb stratetab},
-{helpb survtab}, {helpb crosstab}, {helpb diagtab}, {helpb fittab},
-{helpb corrtab}, {helpb comptab}, {helpb tablex} — individual command help{p_end}
+{helpb survtab}, {helpb crosstab}, {helpb diagtab},
+{helpb corrtab}, {helpb comptab}, {helpb hrcomptab} — individual command help{p_end}
 
 {hline}

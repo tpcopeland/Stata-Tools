@@ -1,6 +1,6 @@
 * test_v160_features.do — Tests for tabtools v1.6.0 new features
 * Tests: 1.1 (r(version) fix), 1.2 (cheatsheet version), 1.3 (academic border doc),
-*        2.1 (effecttab digits), 2.2-2.4 (frame for regtab/effecttab/tablex),
+*        2.1 (effecttab digits), 2.2-2.3 (frame for regtab/effecttab),
 *        2.5 (persistent theme), 2.6 (r(table) matrix),
 *        3.1 (regtab console display), 3.2 (effecttab console display),
 *        3.4 (keep/drop for regtab)
@@ -148,31 +148,6 @@ else {
     local ++n_fail
 }
 capture frame drop myeff
-
-* =========================================================================
-**# 2.4: frame() for tablex
-* =========================================================================
-
-local ++n_total
-capture noisily {
-    sysuse auto, clear
-    table foreign rep78
-    capture frame drop mytab
-    capture erase "output/test_v160_frame_tablex.xlsx"
-    tablex using "output/test_v160_frame_tablex.xlsx", sheet("Test") frame(mytab)
-    assert r(frame) == "mytab"
-    frame mytab: describe
-    frame mytab: assert _N > 0
-}
-if _rc == 0 {
-    display as result "  PASS: 2.4 — tablex frame() stores data"
-    local ++n_pass
-}
-else {
-    display as error "  FAIL: 2.4 — tablex frame() failed (rc=`=_rc')"
-    local ++n_fail
-}
-capture frame drop mytab
 
 * =========================================================================
 **# 2.5: Persistent theme

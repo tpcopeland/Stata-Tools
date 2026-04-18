@@ -361,38 +361,6 @@ else {
     local ++fail_count
 }
 
-* S18: fittab with many models (5+)
-local ++test_count
-capture noisily {
-    sysuse auto, clear
-    regress price mpg
-    estimates store _s_m1
-    regress price mpg weight
-    estimates store _s_m2
-    regress price mpg weight length
-    estimates store _s_m3
-    regress price mpg weight length displacement
-    estimates store _s_m4
-    regress price mpg weight length displacement headroom
-    estimates store _s_m5
-
-    fittab _s_m1 _s_m2 _s_m3 _s_m4 _s_m5, ///
-        xlsx("`output_dir'/_stress_fittab_many.xlsx") sheet("many") ///
-        labels(M1 \ M2 \ M3 \ M4 \ M5) ///
-        stats(n aic bic ll r2 adjr2)
-    assert r(N_models) == 5
-
-    estimates drop _s_m1 _s_m2 _s_m3 _s_m4 _s_m5
-}
-if _rc == 0 {
-    display as result "  PASS: S18 fittab with 5 models and 6 stats"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: S18 fittab with 5 models (error `=_rc')"
-    local ++fail_count
-}
-
 * S19: table1_tc display output without xlsx (console only)
 local ++test_count
 capture noisily {
@@ -420,26 +388,6 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL: S20 corrtab console-only display (error `=_rc')"
-    local ++fail_count
-}
-
-* S21: fittab display output without xlsx (console only)
-local ++test_count
-capture noisily {
-    sysuse auto, clear
-    regress price mpg
-    estimates store _s_d1
-    regress price mpg weight
-    estimates store _s_d2
-    fittab _s_d1 _s_d2, display
-    estimates drop _s_d1 _s_d2
-}
-if _rc == 0 {
-    display as result "  PASS: S21 fittab console-only display"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: S21 fittab console-only display (error `=_rc')"
     local ++fail_count
 }
 

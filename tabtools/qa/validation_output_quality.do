@@ -1,7 +1,7 @@
 * validation_output_quality.do - Validates computed values and output correctness
 * Generated: 2026-03-30
 * Purpose: Check actual values, not just that commands run
-* Covers: corrtab, crosstab, diagtab, fittab, survtab, table1_tc, regtab return values
+* Covers: corrtab, crosstab, diagtab, survtab, table1_tc, regtab return values
 
 clear all
 set more off
@@ -268,72 +268,6 @@ else {
     display as error "  FAIL: V8b diagtab CSV/frame parity (error `=_rc')"
     local ++fail_count
     capture frame drop _val_diagpar
-}
-
-* ============================================================
-**# SECTION 4: fittab — validate model comparison statistics
-* ============================================================
-
-* V9: fittab AIC matches estat ic
-local ++test_count
-capture noisily {
-    sysuse auto, clear
-    regress price mpg
-    estimates store _val_m1
-    quietly estat ic
-    tempname ic1
-    matrix `ic1' = r(S)
-    local aic1 = `ic1'[1,5]
-    local bic1 = `ic1'[1,6]
-
-    regress price mpg weight
-    estimates store _val_m2
-    quietly estat ic
-    tempname ic2
-    matrix `ic2' = r(S)
-    local aic2 = `ic2'[1,5]
-
-    fittab _val_m1 _val_m2, xlsx("`output_dir'/_val_fittab.xlsx") sheet("fit") ///
-        stats(n aic bic ll)
-
-    * Check best_aic matches the lower AIC
-    local expected_best = min(`aic1', `aic2')
-    assert abs(r(best_aic) - `expected_best') < 0.1
-
-    estimates drop _val_m1 _val_m2
-}
-if _rc == 0 {
-    display as result "  PASS: V9 fittab best_aic matches estat ic"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: V9 fittab best_aic matches estat ic (error `=_rc')"
-    local ++fail_count
-}
-
-* V10: fittab N_models return value
-local ++test_count
-capture noisily {
-    sysuse auto, clear
-    regress price mpg
-    estimates store _val_m1
-    regress price mpg weight
-    estimates store _val_m2
-    regress price mpg weight length
-    estimates store _val_m3
-
-    fittab _val_m1 _val_m2 _val_m3, xlsx("`output_dir'/_val_fittab_n.xlsx") sheet("n")
-    assert r(N_models) == 3
-
-    estimates drop _val_m1 _val_m2 _val_m3
-}
-if _rc == 0 {
-    display as result "  PASS: V10 fittab N_models = 3"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: V10 fittab N_models = 3 (error `=_rc')"
-    local ++fail_count
 }
 
 * ============================================================
@@ -751,72 +685,6 @@ if _rc == 0 {
 else {
     display as error "  FAIL: V19b stratetab aligned rateratio/CSV (error `=_rc')"
     local ++fail_count
-}
-
-* ============================================================
-**# SECTION 9: tablex — validate output dimensions
-* ============================================================
-
-* V20: tablex return values
-local ++test_count
-capture noisily {
-    sysuse auto, clear
-    table foreign, statistic(mean price mpg) statistic(sd price mpg)
-    tablex using "`output_dir'/_val_tablex.xlsx", sheet("test") ///
-        title("Test Table") replace
-    assert "`r(using)'" == "`output_dir'/_val_tablex.xlsx"
-    assert "`r(sheet)'" == "test"
-    assert r(N_rows) > 0
-    assert r(N_cols) > 0
-    assert r(header_rows) > 0
-}
-if _rc == 0 {
-    display as result "  PASS: V20 tablex return values (N_rows, N_cols, header_rows)"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: V20 tablex return values (error `=_rc')"
-    local ++fail_count
-}
-
-* V21: tablex CSV export matches frame output
-local ++test_count
-capture noisily {
-    sysuse auto, clear
-    table foreign, statistic(mean price mpg) statistic(sd price mpg)
-    capture frame drop _val_tablex_csv
-    capture erase "`output_dir'/_val_tablex.csv"
-    tablex using "`output_dir'/_val_tablex_csv.xlsx", sheet("csv") ///
-        csv("`output_dir'/_val_tablex.csv") frame(_val_tablex_csv, replace) replace
-    confirm file "`output_dir'/_val_tablex.csv"
-    assert "`r(frame)'" == "_val_tablex_csv"
-
-    frame _val_tablex_csv {
-        local _frame_a = A[4]
-        local _frame_b = B[4]
-        local _frame_c = C[4]
-        local _frame_d = D[4]
-        local _frame_e = E[4]
-    }
-
-    preserve
-    import delimited "`output_dir'/_val_tablex.csv", clear varnames(1)
-    assert a[4] == "`_frame_a'"
-    assert b[4] == "`_frame_b'"
-    assert c[4] == "`_frame_c'"
-    assert d[4] == "`_frame_d'"
-    assert e[4] == "`_frame_e'"
-    restore
-    capture frame drop _val_tablex_csv
-}
-if _rc == 0 {
-    display as result "  PASS: V21 tablex CSV matches frame output"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: V21 tablex CSV/frame parity (error `=_rc')"
-    local ++fail_count
-    capture frame drop _val_tablex_csv
 }
 
 * ============================================================

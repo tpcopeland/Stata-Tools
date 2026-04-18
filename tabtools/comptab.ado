@@ -1,4 +1,4 @@
-*! comptab Version 1.0.5  2026/04/17
+*! comptab Version 1.0.7  2026/04/18
 *! Compose publication tables from regtab/effecttab output frames
 *! Author: Timothy P Copeland
 *! Program class: rclass (returns results in r())
@@ -540,26 +540,60 @@ program define comptab, rclass
         egen c`i'_max = max(c`i'_length)
     }
 
-    * Compute minimum estimate column width
+    * Compute direct widths from exported text length by column role
     local est_max = 0
-    forvalues i = 1(`n_cols_per_model')`n' {
-        qui sum c`i'_max, meanonly
-        if `r(max)' > `est_max' local est_max = `r(max)'
+    local ci_max = 0
+    local p_max = 0
+    if "`compact'" != "" {
+        forvalues i = 1(2)`n' {
+            qui sum c`i'_max, meanonly
+            if `r(max)' > `est_max' local est_max = `r(max)'
+        }
+        forvalues i = 2(2)`n' {
+            qui sum c`i'_max, meanonly
+            if `r(max)' > `p_max' local p_max = `r(max)'
+        }
     }
-    local est_min_width = (`est_max' * 3 / 8) + 2
+    else {
+        forvalues i = 1(3)`n' {
+            qui sum c`i'_max, meanonly
+            if `r(max)' > `est_max' local est_max = `r(max)'
+        }
+        forvalues i = 2(3)`n' {
+            qui sum c`i'_max, meanonly
+            if `r(max)' > `ci_max' local ci_max = `r(max)'
+        }
+        forvalues i = 3(3)`n' {
+            qui sum c`i'_max, meanonly
+            if `r(max)' > `p_max' local p_max = `r(max)'
+        }
+    }
 
-    forvalues i = 1/`=`n'-1' {
-        replace c1_max = c`=`i'+1'_max if c`=`i'+1'_max > c1_max
+    local est_width = ceil(`est_max' * 0.85) + 2
+    if "`compact'" != "" {
+        if `est_width' < 16 local est_width = 16
+        if `est_width' > 34 local est_width = 34
     }
-    qui sum c1_max, d
-    local max_length = (`r(max)' * 3 / 8) + 2
-    if `max_length' < 8 local max_length = 8
-    if `max_length' > 60 local max_length = 60
+    else {
+        if `est_width' < 8 local est_width = 8
+        if `est_width' > 22 local est_width = 22
+    }
+
+    local ci_width = 0
+    if "`compact'" == "" {
+        local ci_width = ceil(`ci_max' * 0.85) + 2
+        if `ci_width' < 16 local ci_width = 16
+        if `ci_width' > 34 local ci_width = 34
+    }
+
+    local p_width = ceil(`p_max' * 0.85) + 2
+    if `p_width' < 8 local p_width = 8
+    if `p_width' > 12 local p_width = 12
 
     gen A_length = length(A)
     egen factor_length = max(A_length)
     qui sum factor_length, d
-    local factor_length = ceil(`r(max)' * 0.95)
+    local factor_length = ceil(r(max) * 0.95) + 2
 
     drop A_length factor_length c*_max c*_length
 
@@ -617,36 +651,34 @@ program define comptab, rclass
         mata: b.set_column_width(2,2,`factor_length')
 
         if "`compact'" != "" {
-            * Compact: 2 cols per model — est+CI (wider) and p-value
-            local _est_width = max(`max_length' * 1.5, `est_min_width')
+            * Compact: 2 cols per model — est+CI and p-value
             forvalues i = 3(2)`=`num_cols'-1' {
-                mata: b.set_column_width(`i',`i',`_est_width')
+                mata: b.set_column_width(`i',`i',`est_width')
             }
             forvalues i = 4(2)`num_cols' {
-                mata: b.set_column_width(`i',`i',`=`max_length'*.875')
+                mata: b.set_column_width(`i',`i',`p_width')
             }
         }
         else {
             * Normal: 3 cols per model — estimate, CI, p-value
-            local _est_width = max(`max_length' * .55, `est_min_width')
             forvalues i = 3(3)`=`num_cols'-2' {
-                mata: b.set_column_width(`i',`i',`_est_width')
+                mata: b.set_column_width(`i',`i',`est_width')
             }
             forvalues i = 4(3)`=`num_cols'-1' {
-                mata: b.set_column_width(`i',`i',`=`max_length'*1.3')
+                mata: b.set_column_width(`i',`i',`ci_width')
             }
             forvalues i = 5(3)`num_cols' {
-                mata: b.set_column_width(`i',`i',`=`max_length'*.875')
+                mata: b.set_column_width(`i',`i',`p_width')
             }
         }
 
         * Auto-adjust header row height for long model names
         local _data_width = 0
         if "`compact'" != "" {
-            local _data_width = `n_models' * (`max_length' * 1.5 + `max_length' * 0.875)
+            local _data_width = `n_models' * (`est_width' + `p_width')
         }
         else {
-            local _data_width = `n_models' * (`max_length' * 0.55 + `max_length' * 1.3 + `max_length' * 0.875)
+            local _data_width = `n_models' * (`est_width' + `ci_width' + `p_width')
         }
         if `_data_width' > 0 & `max_header_length' * 0.9 > `_data_width' {
             local _headerht = ceil(`max_header_length' * 0.9 / `_data_width')

@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.5  17apr2026}{...}
+{* *! version 1.0.7  18apr2026}{...}
 {viewerjumpto "Description" "tabtools##description"}{...}
 {viewerjumpto "Commands" "tabtools##commands"}{...}
 {viewerjumpto "Syntax" "tabtools##syntax"}{...}
@@ -13,12 +13,10 @@
 {vieweralsosee "regtab" "help regtab"}{...}
 {vieweralsosee "effecttab" "help effecttab"}{...}
 {vieweralsosee "comptab" "help comptab"}{...}
+{vieweralsosee "hrcomptab" "help hrcomptab"}{...}
 {vieweralsosee "survtab" "help survtab"}{...}
 {vieweralsosee "stratetab" "help stratetab"}{...}
 {vieweralsosee "diagtab" "help diagtab"}{...}
-{vieweralsosee "fittab" "help fittab"}{...}
-{vieweralsosee "hrtab" "help hrtab"}{...}
-{vieweralsosee "tablex" "help tablex"}{...}
 {vieweralsosee "tabtools cheatsheet" "help tabtools_cheatsheet"}{...}
 {vieweralsosee "tabtools cookbook" "help tabtools_cookbook"}{...}
 {title:Title}
@@ -35,13 +33,17 @@
 {cmd:tabtools} is a suite of Stata commands for exporting tables to professionally
 formatted Excel files. It covers descriptive statistics, regression results,
 treatment effects, survival analysis, diagnostic accuracy, incidence rates,
-model comparison, and general-purpose table export.
+and composite manuscript tables.
 
 {pstd}
 All commands apply consistent Excel formatting: column widths, borders, fonts,
 merged headers, and professional styling suitable for journal submissions. Use
 {cmd:tabtools set} to configure session-wide formatting defaults that every
 command respects.
+
+{pstd}
+Most commands require Stata 17. The suite controller {cmd:tabtools} and
+{helpb table1_tc} also support Stata 16.
 
 {pstd}
 See {helpb tabtools_cheatsheet:tabtools cheatsheet} for a quick-reference
@@ -66,21 +68,19 @@ worked examples.
 {synopt:{helpb regtab}}Regression results from any estimation command{p_end}
 {synopt:{helpb effecttab}}Treatment effects and margins results{p_end}
 {synopt:{helpb comptab}}Combine regtab/effecttab frames into one table{p_end}
+{synopt:{helpb hrcomptab}}Combine stratetab and regtab frames into a Table 2-style sheet{p_end}
 
 {pstd}
 {bf:Clinical}
 
 {synopt:{helpb survtab}}Kaplan-Meier estimates, medians, and RMST{p_end}
-{synopt:{helpb hrtab}}Multi-panel hazard ratio table (stcox/stcrreg/finegray){p_end}
 {synopt:{helpb stratetab}}Incidence rates from strate output{p_end}
 {synopt:{helpb diagtab}}Sensitivity, specificity, PPV, NPV, ROC{p_end}
-{synopt:{helpb fittab}}Model comparison table (AIC, BIC, C-statistic){p_end}
 
 {pstd}
 {bf:Utility}
 
 {synopt:{helpb tabtools}}Suite controller and persistent defaults manager{p_end}
-{synopt:{helpb tablex}}Flexible table export wrapper{p_end}
 {synoptline}
 
 
@@ -260,6 +260,6 @@ Karolinska Institutet, Stockholm, Sweden{break}
 {p_end}
 
 {pstd}
-{bf:Version} 1.0.4
+{bf:Version} 1.0.7
 
 {hline}

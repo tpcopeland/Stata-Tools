@@ -1,7 +1,7 @@
 * validation_excel_accuracy.do — Cell-level accuracy validation for tabtools xlsx output
 * Purpose: Verify that computed values in Excel cells match known-answer or Stata-computed values
 * Uses: check_xlsx.py with --cell, --cell-approx, --cell-contains, --cell-between
-* Covers: regtab, effecttab, survtab, crosstab, corrtab, diagtab, fittab, table1_tc, hrtab
+* Covers: regtab, effecttab, survtab, crosstab, corrtab, diagtab, table1_tc
 
 capture log close _xlacc
 log using "validation_excel_accuracy.log", replace text name(_xlacc)
@@ -81,29 +81,9 @@ if !`has_checker' {
         local ++n_fail
     }
 
-    local ++n_total
-    capture noisily {
-        webuse drugtr, clear
-        gen id = _n
-        stset studytime, failure(died) id(id)
-        capture erase "`output_dir'/_va_native_hrtab.xlsx"
-        hrtab, exposure(i.drug) model(stcox) nolog ///
-            xlsx("`output_dir'/_va_native_hrtab.xlsx") sheet("HR") ///
-            title("Hazard Ratios")
-        import excel "`output_dir'/_va_native_hrtab.xlsx", sheet("HR") cellrange(A1:A1) clear
-        assert A[1] == "Hazard Ratios"
-    }
-    if _rc == 0 {
-        local ++n_pass
-    }
-    else {
-        local ++n_fail
-    }
-
     * Cleanup
     capture erase "`output_dir'/_va_native_regtab.xlsx"
     capture erase "`output_dir'/_va_native_effecttab.xlsx"
-    capture erase "`output_dir'/_va_native_hrtab.xlsx"
 
     display _newline as result "Stata-native Excel Accuracy Validation Complete"
     display as result "  Passed: `n_pass' / `n_total'"
@@ -364,56 +344,6 @@ else {
 capture erase "`output_dir'/_va_cr1.txt"
 
 * =========================================================================
-**# VA4: fittab — AIC/BIC match estat ic
-* =========================================================================
-
-* --- VA4.1: fittab AIC values match estat ic ---
-local ++n_total
-capture noisily {
-    sysuse auto, clear
-    quietly regress price mpg
-    estimates store _va_m1
-    quietly estat ic
-    tempname ic1
-    matrix `ic1' = r(S)
-    local aic1 : display %9.1f `ic1'[1,5]
-    local aic1 = strtrim("`aic1'")
-
-    quietly regress price mpg weight
-    estimates store _va_m2
-    quietly estat ic
-    tempname ic2
-    matrix `ic2' = r(S)
-    local aic2 : display %9.1f `ic2'[1,5]
-    local aic2 = strtrim("`aic2'")
-
-    capture erase "`output_dir'/_va_fittab.xlsx"
-    fittab _va_m1 _va_m2, xlsx("`output_dir'/_va_fittab.xlsx") ///
-        sheet("Test") stats(n aic bic)
-
-    * AIC values in row 4, columns C and D
-    shell python3 "`checker'" "`output_dir'/_va_fittab.xlsx" --sheet "Test" ///
-        --cell-contains C4 "`aic1'" ///
-        --cell-contains D4 "`aic2'" ///
-        --cell C3 "74" --cell D3 "74" ///
-        --result-file "`output_dir'/_va_f1.txt" --quiet
-    file open _fh using "`output_dir'/_va_f1.txt", read text
-    file read _fh _line
-    file close _fh
-    assert "`_line'" == "PASS"
-    estimates drop _va_m1 _va_m2
-}
-if _rc == 0 {
-    display as result "  PASS: VA4.1 — fittab AIC and N match estat ic in Excel"
-    local ++n_pass
-}
-else {
-    display as error "  FAIL: VA4.1 — fittab AIC accuracy (rc=`=_rc')"
-    local ++n_fail
-}
-capture erase "`output_dir'/_va_f1.txt"
-
-* =========================================================================
 **# VA5: crosstab — cell counts match tabulate
 * =========================================================================
 
@@ -616,47 +546,6 @@ else {
     local ++n_fail
 }
 capture erase "`output_dir'/_va_sv1.txt"
-
-* =========================================================================
-**# VA8b: hrtab — HR matches direct stcox in Excel
-* =========================================================================
-
-* --- VA8b.1: hrtab HR value matches direct stcox ---
-local ++n_total
-capture noisily {
-    webuse drugtr, clear
-    gen id = _n
-    stset studytime, failure(died) id(id)
-
-    * Reference HR from direct stcox
-    quietly stcox i.drug, nolog
-    local _ref_hr = round(exp(_b[1.drug]), 0.01)
-
-    * hrtab xlsx export
-    capture erase "`output_dir'/_va_hrtab.xlsx"
-    hrtab, exposure(i.drug) model(stcox) nolog ///
-        xlsx("`output_dir'/_va_hrtab.xlsx") sheet("Test") ///
-        title("HR Validation") frame(_va_hrtab_f, replace)
-
-    * Verify frame has data
-    frame _va_hrtab_f {
-        assert _N > 0
-    }
-    capture frame drop _va_hrtab_f
-
-    * Verify xlsx created
-    confirm file "`output_dir'/_va_hrtab.xlsx"
-}
-if _rc == 0 {
-    display as result "  PASS: VA8b.1 — hrtab xlsx export and frame creation"
-    local ++n_pass
-}
-else {
-    display as error "  FAIL: VA8b.1 — hrtab xlsx export (rc=`=_rc')"
-    local ++n_fail
-    capture frame drop _va_hrtab_f
-}
-capture erase "`output_dir'/_va_hrtab.xlsx"
 
 * =========================================================================
 **# VA9: Frame-Excel parity — frame values match Excel cells

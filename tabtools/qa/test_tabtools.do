@@ -1,6 +1,6 @@
 * test_tabtools.do - Functional tests for tabtools package
 * Generated: 2026-03-12
-* Covers: tabtools, table1_tc, regtab, effecttab, stratetab, tablex
+* Covers: tabtools, table1_tc, regtab, effecttab, stratetab
 * Tests: ~130
 
 clear all
@@ -81,7 +81,7 @@ capture noisily {
     tabtools, category(descriptive)
     assert r(n_commands) == 3
     assert strpos("`r(commands)'", "corrtab") > 0
-    assert strpos("`r(commands)'", "tablex") == 0
+    assert strpos("`r(commands)'", "hrcomptab") == 0
 }
 if _rc == 0 {
     display as result "  PASS: tabtools - category filter"
@@ -96,9 +96,9 @@ else {
 local ++test_count
 capture noisily {
     tabtools, category(general)
-    assert r(n_commands) == 2
+    assert r(n_commands) == 1
     assert strpos("`r(commands)'", "tabtools") > 0
-    assert strpos("`r(commands)'", "tablex") > 0
+    assert strpos("`r(commands)'", "hrcomptab") == 0
     assert strpos("`r(commands)'", "corrtab") == 0
 }
 if _rc == 0 {
@@ -1966,216 +1966,6 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL: stratetab - full options (error `=_rc')"
-    local ++fail_count
-}
-
-* ============================================================
-* tablex Tests
-* ============================================================
-
-* Test: Basic frequency table
-local ++test_count
-capture noisily {
-    sysuse auto, clear
-    table foreign rep78
-    tablex using "`output_dir'/_test_tablex.xlsx", ///
-        sheet("Freq") title("Frequency Table") replace
-    confirm file "`output_dir'/_test_tablex.xlsx"
-}
-if _rc == 0 {
-    display as result "  PASS: tablex - basic frequency table"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: tablex - basic frequency table (error `=_rc')"
-    local ++fail_count
-}
-
-* Test: Summary statistics table
-local ++test_count
-capture noisily {
-    sysuse auto, clear
-    table foreign, statistic(mean price mpg weight) statistic(sd price mpg weight)
-    tablex using "`output_dir'/_test_tablex_sum.xlsx", ///
-        sheet("Summary") title("Summary Stats") replace
-    confirm file "`output_dir'/_test_tablex_sum.xlsx"
-}
-if _rc == 0 {
-    display as result "  PASS: tablex - summary statistics"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: tablex - summary statistics (error `=_rc')"
-    local ++fail_count
-}
-
-* Test: Cross-tabulation
-local ++test_count
-capture noisily {
-    sysuse auto, clear
-    table foreign rep78, statistic(frequency) statistic(percent)
-    tablex using "`output_dir'/_test_tablex_cross.xlsx", ///
-        sheet("CrossTab") title("Cross Tab") replace
-    confirm file "`output_dir'/_test_tablex_cross.xlsx"
-}
-if _rc == 0 {
-    display as result "  PASS: tablex - cross-tabulation"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: tablex - cross-tabulation (error `=_rc')"
-    local ++fail_count
-}
-
-* Test: Custom font and border
-local ++test_count
-capture noisily {
-    sysuse auto, clear
-    table rep78, statistic(mean price) statistic(count price)
-    tablex using "`output_dir'/_test_tablex_custom.xlsx", ///
-        sheet("Custom") title("Custom Formatting") ///
-        font(Calibri) fontsize(11) borderstyle(medium) replace
-    confirm file "`output_dir'/_test_tablex_custom.xlsx"
-}
-if _rc == 0 {
-    display as result "  PASS: tablex - custom font/border"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: tablex - custom font/border (error `=_rc')"
-    local ++fail_count
-}
-
-* Test: Without title
-local ++test_count
-capture noisily {
-    sysuse auto, clear
-    table foreign, statistic(mean price)
-    tablex using "`output_dir'/_test_tablex_notitle.xlsx", ///
-        sheet("NoTitle") replace
-    confirm file "`output_dir'/_test_tablex_notitle.xlsx"
-}
-if _rc == 0 {
-    display as result "  PASS: tablex - without title"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: tablex - without title (error `=_rc')"
-    local ++fail_count
-}
-
-* Test: Table with three-way classification
-local ++test_count
-capture noisily {
-    sysuse auto, clear
-    table foreign, statistic(median price) statistic(min price) statistic(max price)
-    tablex using "`output_dir'/_test_tablex_threeway.xlsx", ///
-        sheet("MultiStat") title("Price Statistics") replace
-    confirm file "`output_dir'/_test_tablex_threeway.xlsx"
-}
-if _rc == 0 {
-    display as result "  PASS: tablex - three-way table"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: tablex - three-way table (error `=_rc')"
-    local ++fail_count
-}
-
-* Test: Multiple sheets in same file
-local ++test_count
-capture noisily {
-    sysuse auto, clear
-    table foreign, statistic(mean price)
-    tablex using "`output_dir'/_test_tablex_sheets.xlsx", ///
-        sheet("Sheet1") title("First Table") replace
-    sysuse auto, clear
-    table rep78, statistic(mean mpg)
-    tablex using "`output_dir'/_test_tablex_sheets.xlsx", ///
-        sheet("Sheet2") title("Second Table")
-    confirm file "`output_dir'/_test_tablex_sheets.xlsx"
-}
-if _rc == 0 {
-    display as result "  PASS: tablex - multiple sheets"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: tablex - multiple sheets (error `=_rc')"
-    local ++fail_count
-}
-
-* Test: nformat option
-local ++test_count
-capture noisily {
-    sysuse auto, clear
-    table foreign, statistic(mean price mpg weight)
-    tablex using "`output_dir'/_test_tablex_nfmt.xlsx", sheet("Test") ///
-        title("Table") replace nformat("#,##0.0")
-    assert r(N_rows) > 0
-}
-if _rc == 0 {
-    display as result "  PASS: tablex - nformat option"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: tablex - nformat option (error `=_rc')"
-    local ++fail_count
-}
-
-* Test: Return values
-local ++test_count
-capture noisily {
-    sysuse auto, clear
-    table foreign, statistic(mean price mpg)
-    tablex using "`output_dir'/_test_tablex_ret.xlsx", sheet("T") ///
-        title("Table") replace
-    assert r(N_rows) > 0
-    assert r(N_cols) > 0
-}
-if _rc == 0 {
-    display as result "  PASS: tablex - return values"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: tablex - return values (error `=_rc')"
-    local ++fail_count
-}
-
-* Test: Error handling - no collect table
-local ++test_count
-capture noisily {
-    collect clear
-    capture tablex using "`output_dir'/_test_error.xlsx", sheet("Error") replace
-    assert _rc != 0
-}
-if _rc == 0 {
-    display as result "  PASS: tablex - error on no collect"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: tablex - error on no collect (error `=_rc')"
-    local ++fail_count
-}
-
-* Test: Data preservation after tablex
-local ++test_count
-capture noisily {
-    sysuse auto, clear
-    local orig_N = _N
-    local orig_k = c(k)
-    table foreign rep78
-    tablex using "`output_dir'/_test_tablex_pres.xlsx", sheet("T") ///
-        title("Test") replace
-    assert _N == `orig_N'
-    assert c(k) == `orig_k'
-    confirm variable price mpg weight foreign
-}
-if _rc == 0 {
-    display as result "  PASS: tablex - data preservation"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: tablex - data preservation (error `=_rc')"
     local ++fail_count
 }
 

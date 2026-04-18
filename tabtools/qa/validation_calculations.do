@@ -1,7 +1,7 @@
 * validation_calculations.do — Calculation accuracy validation for all tabtools commands
 * Purpose: Verify frame/r() values match independently computed reference values
 * Covers: table1_tc, regtab, effecttab, diagtab (incl. cutoffs), crosstab,
-*         corrtab, survtab, fittab
+*         corrtab, survtab
 
 capture log close _vcalc
 log using "validation_calculations.log", replace text name(_vcalc)
@@ -965,114 +965,6 @@ else {
 capture frame drop _vc_surv3
 
 
-* =========================================================================
-**# VC8: fittab — AIC/BIC/C-stat
-* =========================================================================
-
-* Frame variables: c1 (labels), c2 (model 1), c3 (model 2), title
-
-* --- VC8.1: AIC/BIC for 2 linear models ---
-local ++n_total
-capture noisily {
-    sysuse auto, clear
-
-    quietly regress price mpg
-    estimates store _vc_m1
-    quietly estat ic
-    tempname ic1
-    matrix `ic1' = r(S)
-    local ref_aic1 = `ic1'[1, 5]
-    local ref_bic1 = `ic1'[1, 6]
-
-    quietly regress price mpg weight
-    estimates store _vc_m2
-    quietly estat ic
-    tempname ic2
-    matrix `ic2' = r(S)
-    local ref_aic2 = `ic2'[1, 5]
-
-    capture frame drop _vc_fit
-    fittab _vc_m1 _vc_m2, frame(_vc_fit) stats(n aic bic)
-
-    frame _vc_fit {
-        * c1=labels, c2=model1, c3=model2
-        local found_aic = 0
-        local found_bic = 0
-        forvalues i = 1/`=_N' {
-            local label = strtrim(c1[`i'])
-            if strpos("`label'", "AIC") > 0 {
-                local f_aic1 = real(strtrim(c2[`i']))
-                local f_aic2 = real(strtrim(c3[`i']))
-                assert abs(`f_aic1' - `ref_aic1') < 0.2
-                assert abs(`f_aic2' - `ref_aic2') < 0.2
-                local found_aic = 1
-            }
-            if strpos("`label'", "BIC") > 0 {
-                local f_bic1 = real(strtrim(c2[`i']))
-                assert abs(`f_bic1' - `ref_bic1') < 0.2
-                local found_bic = 1
-            }
-        }
-        assert `found_aic' == 1
-        assert `found_bic' == 1
-    }
-    estimates drop _vc_m1 _vc_m2
-}
-if _rc == 0 {
-    display as result "  PASS: VC8.1 — fittab AIC/BIC match estat ic"
-    local ++n_pass
-}
-else {
-    display as error "  FAIL: VC8.1 — fittab AIC/BIC accuracy (rc=`=_rc')"
-    local ++n_fail
-}
-capture frame drop _vc_fit
-capture estimates drop _vc_m1
-capture estimates drop _vc_m2
-
-* --- VC8.2: fittab C-statistic matches lroc ---
-local ++n_total
-capture noisily {
-    sysuse auto, clear
-
-    quietly logistic foreign price mpg
-    estimates store _vc_cs1
-    quietly lroc, nograph
-    local ref_auc1 = r(area)
-
-    quietly logistic foreign price weight
-    estimates store _vc_cs2
-    quietly lroc, nograph
-    local ref_auc2 = r(area)
-
-    capture frame drop _vc_fit2
-    fittab _vc_cs1 _vc_cs2, frame(_vc_fit2) stats(n aic cstat)
-
-    frame _vc_fit2 {
-        local found = 0
-        forvalues i = 1/`=_N' {
-            local label = strtrim(c1[`i'])
-            if strpos(strlower("`label'"), "c-stat") > 0 | strpos(strlower("`label'"), "concordance") > 0 {
-                local f_cstat1 = real(strtrim(c2[`i']))
-                assert abs(`f_cstat1' - `ref_auc1') < 0.01
-                local found = 1
-            }
-        }
-        assert `found' == 1
-    }
-    estimates drop _vc_cs1 _vc_cs2
-}
-if _rc == 0 {
-    display as result "  PASS: VC8.2 — fittab C-statistic matches lroc"
-    local ++n_pass
-}
-else {
-    display as error "  FAIL: VC8.2 — fittab C-stat accuracy (rc=`=_rc')"
-    local ++n_fail
-}
-capture frame drop _vc_fit2
-capture estimates drop _vc_cs1
-capture estimates drop _vc_cs2
 
 
 * =========================================================================

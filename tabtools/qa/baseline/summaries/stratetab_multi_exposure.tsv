@@ -1,0 +1,2 @@
+status	sheet	title	max_row	max_col	n_merges	merged_ranges	n_bold_cells	n_filled_cells	n_border_cells	dominant_font	dominant_font_size	fill_palette
+PASS	Rates	Refactor Baseline: stratetab	12	8	4	C2:E2;F2:H2;B2:B3;A1:H1	10	0	40	Arial	10.0	

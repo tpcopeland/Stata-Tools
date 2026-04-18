@@ -1,7 +1,7 @@
 * test_regression_fixes.do — Regression tests for tabtools bug fixes
 * Date: 2026-04-03
 * Covers: corrtab pairwise N, custom theme colors, stratetab sheet
-*         validation, zebra in fittab/crosstab, tabtools detail listing
+*         validation, zebra in crosstab, tabtools detail listing
 
 clear all
 set varabbrev off
@@ -368,65 +368,18 @@ else {
 }
 
 
-**# 4. Zebra formatting in fittab and crosstab
+**# 4. Zebra formatting in crosstab
 
-**## 4a. fittab zebra produces fills in xlsx
+**## 4a. crosstab zebra produces fills in xlsx
 local ++test_count
 local t4a_pass = 1
-capture noisily {
-    sysuse auto, clear
-    qui regress price mpg
-    estimates store _rf_m1
-    qui regress price mpg weight
-    estimates store _rf_m2
-
-    fittab _rf_m1 _rf_m2, xlsx("`output_dir'/_regfix_fittab_zebra.xlsx") sheet("fit") zebra
-}
-if _rc != 0 {
-    display as error "  FAIL [4a.run]: fittab zebra error `=_rc'"
-    local t4a_pass = 0
-}
-else {
-    * Check for fill colors in the xlsx file via shell
-    capture noisily {
-        tempfile _zipout
-        ! cd "`output_dir'" && unzip -o _regfix_fittab_zebra.xlsx xl/styles.xml -d _regfix_fit_inspect > /dev/null 2>&1
-        ! grep -c 'EDF2F9\|edf2f9' "`output_dir'/_regfix_fit_inspect/xl/styles.xml" > "`output_dir'/_regfix_fit_fill_count.txt" 2>&1
-
-        file open _fh using "`output_dir'/_regfix_fit_fill_count.txt", read text
-        file read _fh _line
-        file close _fh
-
-        local fill_count = real(strtrim("`_line'"))
-        assert `fill_count' > 0
-    }
-    if _rc == 0 {
-        display as result "  PASS [4a.fill]: fittab zebra fill present in xlsx"
-    }
-    else {
-        display as error "  FAIL [4a.fill]: fittab zebra fill NOT found in xlsx"
-        local t4a_pass = 0
-    }
-}
-if `t4a_pass' == 1 {
-    display as result "  PASS: fittab zebra produces fills"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: fittab zebra produces fills"
-    local ++fail_count
-}
-
-**## 4b. crosstab zebra produces fills in xlsx
-local ++test_count
-local t4b_pass = 1
 capture noisily {
     sysuse auto, clear
     crosstab foreign rep78, xlsx("`output_dir'/_regfix_crosstab_zebra.xlsx") sheet("cross") zebra
 }
 if _rc != 0 {
-    display as error "  FAIL [4b.run]: crosstab zebra error `=_rc'"
-    local t4b_pass = 0
+    display as error "  FAIL [4a.run]: crosstab zebra error `=_rc'"
+    local t4a_pass = 0
 }
 else {
     capture noisily {
@@ -441,14 +394,14 @@ else {
         assert `fill_count' > 0
     }
     if _rc == 0 {
-        display as result "  PASS [4b.fill]: crosstab zebra fill present in xlsx"
+        display as result "  PASS [4a.fill]: crosstab zebra fill present in xlsx"
     }
     else {
-        display as error "  FAIL [4b.fill]: crosstab zebra fill NOT found in xlsx"
-        local t4b_pass = 0
+        display as error "  FAIL [4a.fill]: crosstab zebra fill NOT found in xlsx"
+        local t4a_pass = 0
     }
 }
-if `t4b_pass' == 1 {
+if `t4a_pass' == 1 {
     display as result "  PASS: crosstab zebra produces fills"
     local ++pass_count
 }
@@ -457,51 +410,21 @@ else {
     local ++fail_count
 }
 
-**## 4c. fittab without zebra has no fills (control)
-local ++test_count
-capture noisily {
-    sysuse auto, clear
-    qui regress price mpg
-    estimates store _rf_m3
-    qui regress price mpg weight
-    estimates store _rf_m4
-
-    fittab _rf_m3 _rf_m4, xlsx("`output_dir'/_regfix_fittab_nozebra.xlsx") sheet("fit")
-
-    ! cd "`output_dir'" && unzip -o _regfix_fittab_nozebra.xlsx xl/styles.xml -d _regfix_fit_nz_inspect > /dev/null 2>&1
-    ! grep -c 'EDF2F9\|edf2f9' "`output_dir'/_regfix_fit_nz_inspect/xl/styles.xml" > "`output_dir'/_regfix_fit_nz_count.txt" 2>&1
-
-    file open _fh using "`output_dir'/_regfix_fit_nz_count.txt", read text
-    file read _fh _line
-    file close _fh
-
-    local fill_count = real(strtrim("`_line'"))
-    assert `fill_count' == 0
-}
-if _rc == 0 {
-    display as result "  PASS: fittab without zebra has no fills (control)"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: fittab without zebra control (error `=_rc')"
-    local ++fail_count
-}
-
 
 **# 5. tabtools detail listing — all commands and categories
 
-**## 5a. tabtools returns 13 commands
+**## 5a. tabtools returns 11 commands
 local ++test_count
 capture noisily {
     tabtools
-    assert r(n_commands) == 13
+    assert r(n_commands) == 11
 }
 if _rc == 0 {
-    display as result "  PASS: tabtools returns n_commands = 13"
+    display as result "  PASS: tabtools returns n_commands = 11"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: tabtools n_commands != 13 (error `=_rc')"
+    display as error "  FAIL: tabtools n_commands != 11 (error `=_rc')"
     local ++fail_count
 }
 
@@ -573,7 +496,7 @@ else {
     local ++fail_count
 }
 
-**## 5e. r(commands) contains all 13 command names
+**## 5e. r(commands) contains all 11 command names
 local ++test_count
 local t5e_pass = 1
 capture noisily {
@@ -585,7 +508,7 @@ if _rc != 0 {
     local t5e_pass = 0
 }
 else {
-    foreach cmd in table1_tc crosstab corrtab regtab effecttab fittab stratetab survtab hrtab diagtab comptab tabtools tablex {
+    foreach cmd in table1_tc crosstab corrtab regtab effecttab stratetab survtab diagtab comptab hrcomptab tabtools {
         if strpos("`cmds'", "`cmd'") > 0 {
             display as result "  PASS [5e.`cmd']: `cmd' in r(commands)"
         }
@@ -596,7 +519,7 @@ else {
     }
 }
 if `t5e_pass' == 1 {
-    display as result "  PASS: all 13 commands in r(commands)"
+    display as result "  PASS: all 11 commands in r(commands)"
     local ++pass_count
 }
 else {
@@ -617,16 +540,10 @@ capture erase "`output_dir'/_regfix_stratetab_long.xlsx"
 capture erase "`output_dir'/_regfix_strate_data.dta"
 capture erase "`output_dir'/_regfix_strate_data2.dta"
 capture erase "`output_dir'/_regfix_strate_data3.dta"
-capture erase "`output_dir'/_regfix_fittab_zebra.xlsx"
-capture erase "`output_dir'/_regfix_fittab_nozebra.xlsx"
 capture erase "`output_dir'/_regfix_crosstab_zebra.xlsx"
-capture erase "`output_dir'/_regfix_fit_fill_count.txt"
 capture erase "`output_dir'/_regfix_cross_fill_count.txt"
-capture erase "`output_dir'/_regfix_fit_nz_count.txt"
 capture {
-    shell rm -rf "`output_dir'/_regfix_fit_inspect"
     shell rm -rf "`output_dir'/_regfix_cross_inspect"
-    shell rm -rf "`output_dir'/_regfix_fit_nz_inspect"
 }
 
 display _newline as result "Test Results: `pass_count'/`test_count' passed, `fail_count' failed"

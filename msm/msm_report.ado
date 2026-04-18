@@ -522,6 +522,13 @@ program define msm_report, rclass
                 local coef_names: colnames `_xl_b'
                 local n_coefs: word count `coef_names'
                 local _z_crit = invnormal((100 + `fit_level') / 200)
+                local _coef_xfmt "0"
+                if `decimals' > 0 {
+                    local _coef_xfmt "0."
+                    forvalues _di = 1/`decimals' {
+                        local _coef_xfmt "`_coef_xfmt'0"
+                    }
+                }
 
                 preserve
                 clear
@@ -547,7 +554,19 @@ program define msm_report, rclass
                         local cname: word `i' of `coef_names'
                         local _b_i = `_xl_b'[1, `i']
                         local _v_ii = `_xl_V'[`i', `i']
-                        replace A = "`cname'" in `_row'
+                        local _display_name "`cname'"
+                        if "`cname'" == "_cons" local _display_name "Constant"
+                        else if "`cname'" == "_msm_period_sq" local _display_name "Period^2"
+                        else if "`cname'" == "period" local _display_name "Period"
+                        else if "`cname'" == "treatment" local _display_name "Treatment"
+                        else {
+                            capture confirm variable `cname'
+                            if !_rc {
+                                local _vlabel : variable label `cname'
+                                if `"`_vlabel'"' != "" local _display_name `"`_vlabel'"'
+                            }
+                        }
+                        replace A = `"`_display_name'"' in `_row'
                         if `_v_ii' <= 0 {
                             replace B = "(omitted)" in `_row'
                             continue
@@ -556,7 +575,9 @@ program define msm_report, rclass
                         local _lo = `_b_i' - `_z_crit' * `_se_i'
                         local _hi = `_b_i' + `_z_crit' * `_se_i'
                         local _p = 2 * normal(-abs(`_b_i'/`_se_i'))
-                        replace B = strtrim(string(exp(`_b_i'), "%9.`decimals'f")) in `_row'
+                        local _disp_b = exp(`_b_i')
+                        local _coef_num_`_row' = `_disp_b'
+                        replace B = strtrim(string(`_disp_b', "%9.`decimals'f")) in `_row'
                         local _ci_lo = strtrim(string(exp(`_lo'), "%9.`decimals'f"))
                         local _ci_hi = strtrim(string(exp(`_hi'), "%9.`decimals'f"))
                         replace C = "(" + "`_ci_lo'" + ", " + "`_ci_hi'" + ")" in `_row'
@@ -598,13 +619,26 @@ program define msm_report, rclass
                         local cname: word `i' of `coef_names'
                         local _b_i = `_xl_b'[1, `i']
                         local _v_ii = `_xl_V'[`i', `i']
-                        replace A = "`cname'" in `_row'
+                        local _display_name "`cname'"
+                        if "`cname'" == "_cons" local _display_name "Constant"
+                        else if "`cname'" == "_msm_period_sq" local _display_name "Period^2"
+                        else if "`cname'" == "period" local _display_name "Period"
+                        else if "`cname'" == "treatment" local _display_name "Treatment"
+                        else {
+                            capture confirm variable `cname'
+                            if !_rc {
+                                local _vlabel : variable label `cname'
+                                if `"`_vlabel'"' != "" local _display_name `"`_vlabel'"'
+                            }
+                        }
+                        replace A = `"`_display_name'"' in `_row'
                         if `_v_ii' <= 0 {
                             replace B = "(omitted)" in `_row'
                             continue
                         }
                         local _se_i = sqrt(`_v_ii')
                         local _p = 2 * normal(-abs(`_b_i'/`_se_i'))
+                        local _coef_num_`_row' = `_b_i'
                         replace B = strtrim(string(`_b_i', "%9.`decimals'f")) in `_row'
                         replace C = strtrim(string(`_se_i', "%9.`decimals'f")) in `_row'
 
@@ -644,21 +678,15 @@ program define msm_report, rclass
                     mata: _msm_xl.set_column_width(3, 3, 20)
                     mata: _msm_xl.set_column_width(4, 4, 12)
 
-                    * Convert numeric cells
-                    forvalues _r = 3/`_coef_total' {
-                        forvalues _c = 2/`_coef_ncols' {
-                            local _cellstr = `: word `_c' of A B C D'
-                            local _cellstr = `_cellstr'[`_r']
-                            if `"`_cellstr'"' == "" | `"`_cellstr'"' == "." continue
-                            if strpos(`"`_cellstr'"', "(") > 0 continue
-                            if strpos(`"`_cellstr'"', "<") > 0 continue
-                            if `"`_cellstr'"' == "(omitted)" continue
-                            local _cellclean = subinstr(`"`_cellstr'"', ",", "", .)
-                            local _cellnum = real("`_cellclean'")
-                            if `_cellnum' != . {
-                                mata: _msm_xl.put_number(`_r', `_c', `_cellnum')
-                            }
-                        }
+                    * Write coefficient estimates as proper Excel numerics
+                    forvalues _i = 1/`n_coefs' {
+                        local _r = `_i' + 2
+                        local _v_ii = `_xl_V'[`_i', `_i']
+                        if `_v_ii' <= 0 continue
+                        local _coef_val = `_xl_b'[1, `_i']
+                        if "`eform'" != "" local _coef_val = exp(`_coef_val')
+                        mata: _msm_xl.put_number(`_r', 2, `_coef_val')
+                        mata: _msm_xl.set_number_format(`_r', 2, "`_coef_xfmt'")
                     }
 
                     mata: _msm_xl.close_book()

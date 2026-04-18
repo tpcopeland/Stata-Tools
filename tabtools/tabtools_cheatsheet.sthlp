@@ -1,6 +1,6 @@
 {smcl}
-{* *! version 1.0.5  17apr2026}{...}
-{title:tabtools Quick Reference (v1.0.4)}
+{* *! version 1.0.7  18apr2026}{...}
+{title:tabtools Quick Reference (v1.0.7)}
 
 {pstd}Common option combinations for each command.{p_end}
 
@@ -35,11 +35,12 @@
 {phang2}{cmd:stratetab, ... footnote("Rates per 1,000 PY") zebra}{p_end}
 
 {hline}
-{title:tablex}
+{title:hrcomptab}
 
-{phang2}{cmd:table foreign, statistic(mean price mpg) statistic(sd price mpg)}{p_end}
-{phang2}{cmd:tablex using results.xlsx, sheet("Summary") title("Summary Statistics")}{p_end}
-{phang2}{cmd:tablex using results.xlsx, sheet("Summary") font(Calibri) fontsize(11) zebra}{p_end}
+{phang2}{cmd:stratetab, using(edss4_tv edss6_tv recurring_tv edss4_dose edss6_dose recurring_dose) outcomes(3) frame(rates, replace)}{p_end}
+{phang2}{cmd:regtab, frame(bin_models, replace) noint coef("HR")} {it:// after collect: stcox ... for the binary exposure models}{p_end}
+{phang2}{cmd:regtab, frame(dose_models, replace) noint coef("HR")} {it:// after collect: stcox ... for the dose-category models}{p_end}
+{phang2}{cmd:hrcomptab rates, modelframes(bin_models dose_models) rows(1 \ 3/5) xlsx(table2.xlsx) sheet("Table 2") effect("aHR")}{p_end}
 
 {hline}
 {title:tabtools set/get}
@@ -73,14 +74,6 @@
 {phang2}{cmd:diagtab test gold, exact prevalence(0.05)} {it:// exact CIs, prevalence-adjusted PPV/NPV}{p_end}
 
 {hline}
-{title:fittab}
-
-{phang2}{cmd:estimates store m1} {it:// after each model}{p_end}
-{phang2}{cmd:estimates store m2}{p_end}
-{phang2}{cmd:fittab m1 m2, xlsx(fit.xlsx) labels("Unadjusted \ Adjusted") display}{p_end}
-{phang2}{cmd:fittab m1 m2 m3, stats(n aic bic ll cstat) lrtest(m1)} {it:// with C-stat and LR test}{p_end}
-
-{hline}
 {title:corrtab}
 
 {phang2}{cmd:corrtab age bmi sbp dbp, xlsx(corr.xlsx) title("Correlations") lower}{p_end}
@@ -100,6 +93,6 @@
 {pstd}Timothy P Copeland{p_end}
 {pstd}Department of Clinical Neuroscience, Karolinska Institutet{p_end}
 {pstd}timothy.copeland@ki.se{p_end}
-{pstd}Version 1.0.5{p_end}
+{pstd}Version 1.0.7{p_end}
 
 {hline}

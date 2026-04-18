@@ -752,8 +752,23 @@ capture noisily msm_table, xlsx("/tmp/test_msm_all.xlsx") all eform replace
 if _rc == 0 {
     capture confirm file "/tmp/test_msm_all.xlsx"
     if _rc == 0 {
-        display as result "  PASS: all tables exported"
-        local ++pass_count
+        local _all_sheets_ok 1
+        preserve
+        foreach _sheet in Coefficients Predictions Balance Weights Sensitivity {
+            capture import excel "/tmp/test_msm_all.xlsx", sheet("`_sheet'") clear
+            if _rc local _all_sheets_ok 0
+        }
+        restore
+
+        if `_all_sheets_ok' {
+            display as result "  PASS: all tables exported"
+            local ++pass_count
+        }
+        else {
+            display as error "  FAIL: all-workbook missing expected sheets"
+            local ++fail_count
+            local failed_tests "`failed_tests' Table1"
+        }
     }
     else {
         display as error "  FAIL: file not created (error `=_rc')"
@@ -837,8 +852,10 @@ local ++test_count
 preserve
 import excel "/tmp/test_msm_coef.xlsx", sheet("Coefficients") clear
 * Row 1 = title, Row 2 = headers, Row 3+ = data
-* Check that row 3 (first data row) has content
-capture assert A[3] != "" & B[3] != ""
+local _expected_or = exp(_msm_fit_b[1, 1])
+* Check that row 3 reflects the fitted treatment effect, not row indices
+capture assert A[3] != "" & abs(real(B[3]) - `_expected_or') < 0.01 & ///
+    strpos(C[3], "(") > 0 & D[3] != "3"
 if _rc == 0 {
     display as result "  PASS: coefficients data verified"
     local ++pass_count
@@ -1922,6 +1939,12 @@ capture {
     capture erase "`xlsx_file'"
     msm_report, export("`xlsx_file'") format(excel) eform replace
     confirm file "`xlsx_file'"
+    preserve
+    import excel "`xlsx_file'", sheet("Coefficients") clear
+    local _expected_or = exp(_msm_fit_b[1, 1])
+    assert abs(real(B[3]) - `_expected_or') < 0.01
+    assert D[3] != "3"
+    restore
     capture erase "`xlsx_file'"
 }
 if _rc == 0 {

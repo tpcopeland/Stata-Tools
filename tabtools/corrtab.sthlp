@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.5  17apr2026}{...}
+{* *! version 1.0.7  18apr2026}{...}
 {viewerjumpto "Package overview" "corrtab##package"}{...}
 {viewerjumpto "Syntax" "corrtab##syntax"}{...}
 {viewerjumpto "Description" "corrtab##description"}{...}
@@ -100,6 +100,6 @@ or the full matrix.{p_end}
 {pstd}Timothy P Copeland{p_end}
 {pstd}Department of Clinical Neuroscience, Karolinska Institutet{p_end}
 {pstd}timothy.copeland@ki.se{p_end}
-{pstd}Version 1.0.5{p_end}
+{pstd}Version 1.0.7{p_end}
 
 {hline}

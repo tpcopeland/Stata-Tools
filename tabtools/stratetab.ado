@@ -1,4 +1,4 @@
-*! stratetab Version 1.0.5  2026/04/17
+*! stratetab Version 1.0.7  2026/04/18
 *! Author: Timothy P Copeland
 
 /*

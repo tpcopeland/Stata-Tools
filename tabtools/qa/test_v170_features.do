@@ -704,31 +704,6 @@ else {
 }
 capture frame drop _u2_7
 
-* --- U2.8: frame(name, replace) for fittab ---
-local ++n_total
-capture noisily {
-    sysuse auto, clear
-    estimates clear
-    quietly regress price mpg weight
-    estimates store m1
-    quietly regress price mpg weight i.foreign
-    estimates store m2
-    capture frame drop _u2_8
-    fittab m1 m2, frame(_u2_8)
-    fittab m1 m2, frame(_u2_8, replace)
-    frame _u2_8: assert _N > 0
-}
-if _rc == 0 {
-    display as result "  PASS: U2.8 — fittab frame(name, replace) works"
-    local ++n_pass
-}
-else {
-    display as error "  FAIL: U2.8 — fittab frame(name, replace) failed (rc=`=_rc')"
-    local ++n_fail
-}
-capture frame drop _u2_8
-estimates clear
-
 * --- U2.9: frame(name, replace) for table1_tc ---
 local ++n_total
 capture noisily {

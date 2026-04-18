@@ -300,6 +300,16 @@ program define _msm_tbl_coef
     if "`borderstyle'" == "academic" local _hborder "medium"
     local model : char _dta[_msm_model]
     local fmt "%9.`decimals'f"
+    local coef_xfmt "`nformat'"
+    if `"`coef_xfmt'"' == "" {
+        local coef_xfmt "0"
+        if `decimals' > 0 {
+            local coef_xfmt "0."
+            forvalues _di = 1/`decimals' {
+                local coef_xfmt "`coef_xfmt'0"
+            }
+        }
+    }
 
     * Effect measure label
     if "`eform'" != "" {
@@ -344,7 +354,7 @@ program define _msm_tbl_coef
             replace A = "`title'" in 1
         }
         else {
-            replace A = "`sheet'" in 1
+            replace A = "Outcome Model (`model')" in 1
         }
         replace A = "Variable" in 2
         replace B = "`eff_label'" in 2
@@ -357,8 +367,20 @@ program define _msm_tbl_coef
             local cname : word `i' of `coef_names'
             local coef = `b'[1, `i']
             local v_ii = `V'[`i', `i']
+            local display_name "`cname'"
+            if "`cname'" == "_cons" local display_name "Constant"
+            else if "`cname'" == "_msm_period_sq" local display_name "Period^2"
+            else if "`cname'" == "period" local display_name "Period"
+            else if "`cname'" == "treatment" local display_name "Treatment"
+            else {
+                capture confirm variable `cname'
+                if !_rc {
+                    local vlabel : variable label `cname'
+                    if `"`vlabel'"' != "" local display_name `"`vlabel'"'
+                }
+            }
 
-            replace A = "`cname'" in `row'
+            replace A = `"`display_name'"' in `row'
 
             * Skip omitted/base variables
             if `v_ii' <= 0 {
@@ -383,6 +405,8 @@ program define _msm_tbl_coef
                 local d_lo = `lo'
                 local d_hi = `hi'
             }
+
+            local _coef_num_`row' = `d_coef'
 
             replace B = strtrim(string(`d_coef', "`fmt'")) in `row'
 
@@ -447,25 +471,15 @@ program define _msm_tbl_coef
         mata: _msm_xl.set_column_width(3, 3, `_w_3')
         mata: _msm_xl.set_column_width(4, 4, `_w_4')
 
-        * Convert string cells to proper Excel numbers
-        forvalues _r = 3/`nrows' {
-            forvalues _c = 2/`n_cols' {
-                local _cellstr = `: word `_c' of A B C D'
-                local _cellstr = `_cellstr'[`_r']
-                if `"`_cellstr'"' == "" | `"`_cellstr'"' == "." continue
-                if strpos(`"`_cellstr'"', "(") > 0 continue
-                if strpos(`"`_cellstr'"', "%") > 0 continue
-                if strpos(`"`_cellstr'"', "<") > 0 continue
-                if `"`_cellstr'"' == "(omitted)" continue
-                local _cellclean = subinstr(`"`_cellstr'"', ",", "", .)
-                local _cellnum = real("`_cellclean'")
-                if `_cellnum' != . {
-                    mata: _msm_xl.put_number(`_r', `_c', `_cellnum')
-                    if `"`nformat'"' != "" {
-                        mata: _msm_xl.set_number_format(`_r', `_c', "`nformat'")
-                    }
-                }
-            }
+        * Write coefficient estimates as proper Excel numerics
+        forvalues _i = 1/`k' {
+            local _r = `_i' + 2
+            local _v_ii = `V'[`_i', `_i']
+            if `_v_ii' <= 0 continue
+            local _coef_val = `b'[1, `_i']
+            if "`eform'" != "" local _coef_val = exp(`_coef_val')
+            mata: _msm_xl.put_number(`_r', 2, `_coef_val')
+            mata: _msm_xl.set_number_format(`_r', 2, "`coef_xfmt'")
         }
 
         mata: _msm_xl.close_book()
@@ -551,6 +565,7 @@ program define _msm_tbl_coef
 
         * Font
         putexcel (A1:D`nrows'), font(`font', `fontsize')
+        putexcel (A1:D1), font(`font', `=`fontsize'+2')
 
         * Footnote
         if `_has_footnote' {
@@ -639,37 +654,37 @@ program define _msm_tbl_pred
             replace A = "`title'" in 1
         }
         else {
-            replace A = "`type_label' Predictions" in 1
+            replace A = "Counterfactual `type_label'" in 1
         }
 
         * Row 2: group headers
         if "`strategy'" == "both" {
-            replace c1 = "Never-Treat" in 2
-            replace c3 = "Always-Treat" in 2
+            replace c1 = "Never treated" in 2
+            replace c3 = "Always treated" in 2
             if `has_diff' {
-                replace c5 = "Risk Difference" in 2
+                replace c5 = "Risk difference" in 2
             }
         }
         else {
             local strat_label = cond("`strategy'" == "always", ///
-                "Always-Treat", "Never-Treat")
+                "Always treated", "Never treated")
             replace c1 = "`strat_label'" in 2
         }
 
         * Row 3: column headers
         replace A = "Period" in 3
         if "`strategy'" == "both" {
-            replace c1 = "Est." in 3
+            replace c1 = "Estimate" in 3
             replace c2 = "`level'% CI" in 3
-            replace c3 = "Est." in 3
+            replace c3 = "Estimate" in 3
             replace c4 = "`level'% CI" in 3
             if `has_diff' {
-                replace c5 = "RD" in 3
+                replace c5 = "Estimate" in 3
                 replace c6 = "`level'% CI" in 3
             }
         }
         else {
-            replace c1 = "Est." in 3
+            replace c1 = "Estimate" in 3
             replace c2 = "`level'% CI" in 3
         }
 
@@ -867,6 +882,7 @@ program define _msm_tbl_pred
 
         * Font
         putexcel (A1:`last_col'`total_rows'), font(`font', `fontsize')
+        putexcel (A1:`last_col'1), font(`font', `=`fontsize'+2')
 
         * Footnote
         if `_has_footnote' {
@@ -1081,6 +1097,7 @@ program define _msm_tbl_bal
 
         * Font
         putexcel (A1:E`total_rows'), font(`font', `fontsize')
+        putexcel (A1:E1), font(`font', `=`fontsize'+2')
 
         * Footnote
         if `_has_footnote' {
@@ -1267,6 +1284,7 @@ program define _msm_tbl_wt
 
         * Font
         putexcel (A1:B`total_rows'), font(`font', `fontsize')
+        putexcel (A1:B1), font(`font', `=`fontsize'+2')
 
         * Footnote
         if `_has_footnote' {
@@ -1455,6 +1473,7 @@ program define _msm_tbl_sens
 
         * Font
         putexcel (A1:B`total_rows'), font(`font', `fontsize')
+        putexcel (A1:B1), font(`font', `=`fontsize'+2')
 
         * Footnote
         if `_has_footnote' {

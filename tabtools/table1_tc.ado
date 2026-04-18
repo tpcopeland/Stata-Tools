@@ -1,4 +1,4 @@
-*! table1_tc Version 1.0.5  2026/04/17 - Descriptive Statistics Table Generator
+*! table1_tc Version 1.0.7  2026/04/18 - Descriptive Statistics Table Generator
 *! Author: Timothy P Copeland
 *! Fork of -table1_mc- version 3.5 (2024-12-19) by Mark Chatfield
 *! This program generates descriptive statistics tables with formatting options
@@ -2224,9 +2224,9 @@ program define table1_tc, rclass
 			egen max_factor_length = max(factor_length) if !inrange(_n,2,3)
 			egen max_factor2_length = max(factor_length) if inrange(_n,2,3)
 			sum max_factor_length, d
-			local factorwidth = `=ceil(`r(max)'*0.80)'  // Factor column width based on content
+			local factorwidth = `=ceil(`r(max)'*0.85)+2'  // Factor column width based on content
 			sum max_factor2_length, d
-			local factor2width = `=ceil(`r(max)'*0.80)'  // Factor column width based on content
+			local factor2width = `=ceil(`r(max)'*0.85)+2'  // Factor column width based on content
 			if `factor2width' > `=`factorwidth'*2' local factorwidth = `=`factorwidth'+((`factor2width'-`factorwidth')/2.5)'
 			
 			/* Ensure reasonable min/max bounds */
@@ -2257,7 +2257,7 @@ program define table1_tc, rclass
 				sum `var'_max, d
 				if `r(max)' > `datawidth' local datawidth = `r(max)'
 			}
-			local datawidth = `=ceil(`datawidth'*0.82)'  // Data column width with adjustment factor
+			local datawidth = `=ceil(`datawidth'*0.85)+2'  // Data column width with adjustment factor
 
 			/* Ensure reasonable min/max bounds */
 			if `datawidth' < 12 local datawidth = 12  // Minimum width
@@ -2385,7 +2385,9 @@ program define table1_tc, rclass
 				}
 				mata: b.set_column_width(1, 1, 1)  // Make first column (title) narrow
 				mata: b.set_column_width(2, 2, `factorwidth')  // Factor column width
-				mata: b.set_column_width(3, `num_cols', `datawidth')  // Data column width
+				forvalues _dw = 3/`num_cols' {
+					mata: b.set_column_width(`_dw', `_dw', `datawidth')
+				}
 				if `pvalue_pos' > 0 {
 					mata: b.set_column_width(`pvalue_pos', `pvalue_pos',10)  // p-value column width
 				}

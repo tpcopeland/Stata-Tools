@@ -14,7 +14,7 @@
         5. console_corrtab.smcl     - corrtab display preview
         6. console_crosstab.smcl    - crosstab display preview
         7. console_diagtab.smcl     - diagtab display preview
-      Main workbook (demo_tabtools.xlsx) with 51 sheets:
+      Main workbook (demo_tabtools.xlsx) with 46 sheets:
         TABLE 1 FAMILY (9 sheets):
           1.  "Table 1"            - table1_tc baseline characteristics
           2.  "Table 1 Total"      - table1_tc with total column
@@ -47,37 +47,31 @@
          26.  "ATE Comparison"     - effecttab multi-estimator (IPW vs AIPW)
          27.  "Margins"            - effecttab margins predictions
          28.  "Margins AME"        - effecttab average marginal effects
-        GENERAL TABLE (2 sheets):
-         29.  "Summary"            - tablex summary statistics
-         30.  "Cross-Tab"          - tablex cross-tabulation with zebra
         RATES (1 sheet):
-         31.  "Rates"              - stratetab rate ratios + multiple exposures
+         29.  "Rates"              - stratetab rate ratios + multiple exposures
         CORRELATION (3 sheets):
-         32.  "Correlation"        - corrtab Pearson with stars (lower triangle)
-         33.  "Correlation Spear"  - corrtab Spearman with p-values
-         34.  "Correlation Full"   - corrtab Pearson full matrix
+         30.  "Correlation"        - corrtab Pearson with stars (lower triangle)
+         31.  "Correlation Spear"  - corrtab Spearman with p-values
+         32.  "Correlation Full"   - corrtab Pearson full matrix
         CROSS-TABULATION (5 sheets):
-         35.  "Cross-Tabulation"   - crosstab 2x2 with Fisher's exact + OR
-         36.  "Cross-Tab Measures" - crosstab RR + RD for 2x2 table
-         37.  "Cross-Tab Styled"   - crosstab subtitle() + boldp() + zebra
-         38.  "Cross-Tab Trend"    - crosstab Cochran-Armitage trend test
-         39.  "Cross-Tab Row Pct"  - crosstab with row percentages
+         33.  "Cross-Tabulation"   - crosstab 2x2 with Fisher's exact + OR
+         34.  "Cross-Tab Measures" - crosstab RR + RD for 2x2 table
+         35.  "Cross-Tab Styled"   - crosstab boldp() + zebra
+         36.  "Cross-Tab Trend"    - crosstab Cochran-Armitage trend test
+         37.  "Cross-Tab Row Pct"  - crosstab with row percentages
         DIAGNOSTIC (3 sheets):
-         40.  "Diagnostic"         - diagtab sensitivity/specificity/PPV/NPV
-         41.  "Diag Prevalence"    - diagtab prevalence-adjusted PPV/NPV
-         42.  "Diag Multi-Cut"     - diagtab cutoffs() multiple thresholds
+         38.  "Diagnostic"         - diagtab sensitivity/specificity/PPV/NPV
+         39.  "Diag Prevalence"    - diagtab prevalence-adjusted PPV/NPV
+         40.  "Diag Multi-Cut"     - diagtab cutoffs() multiple thresholds
         SURVIVAL (3 sheets):
-         43.  "Survival"           - survtab Kaplan-Meier with median
-         44.  "Survival RMST"      - survtab RMST + riskset + difference
-         45.  "Cumul Incidence"    - survtab reverse (cumulative incidence)
-        MODEL FIT (4 sheets):
-         46.  "Model Comparison"   - fittab side-by-side fit statistics
-         47.  "Fit LR Test"        - fittab with LR test comparison
-         48.  "Fit Extended"       - fittab r2 + adjr2 + rmse + theme
-         49.  "Fit C-Stat"         - fittab C-statistic for logistic models
+         41.  "Survival"           - survtab Kaplan-Meier with median
+         42.  "Survival RMST"      - survtab RMST + riskset + difference
+         43.  "Cumul Incidence"    - survtab reverse (cumulative incidence)
         THEMES (2 sheets):
-         50.  "Theme BMJ"          - table1_tc with theme(bmj)
-         51.  "Theme APA"          - table1_tc with theme(apa)
+         44.  "Theme BMJ"          - table1_tc with theme(bmj)
+         45.  "Theme APA"          - table1_tc with theme(apa)
+        HR COMPOSITE (1 sheet):
+         46.  "HR Composite"       - hrcomptab final Table 2-style composite from stratetab + regtab frames
 */
 
 version 16.0
@@ -93,8 +87,18 @@ local pkg_dir "tabtools/demo"
 capture mkdir "`pkg_dir'"
 
 * Install tc_schemes for consistent graph appearance
+local tc_schemes_dir "`repo_root'/tc_schemes"
+capture confirm file "`tc_schemes_dir'/stata.toc"
+if _rc {
+    local tc_schemes_dir = subinstr("`repo_root'", "/Stata-Dev", "/Stata-Tools", 1) + "/tc_schemes"
+    capture confirm file "`tc_schemes_dir'/stata.toc"
+    if _rc {
+        display as error "tc_schemes package not found in repo or sibling Stata-Tools checkout"
+        exit 601
+    }
+}
 capture ado uninstall tc_schemes
-quietly net install tc_schemes, from("`repo_root'/tc_schemes") replace
+quietly net install tc_schemes, from("`tc_schemes_dir'") replace
 set scheme plotplainblind
 
 * Install tabtools from local repo
@@ -576,30 +580,7 @@ effecttab, xlsx("`main_xlsx'") sheet("Margins AME") ///
     footnote("AME = average marginal effect. Change in Pr(CV event) per unit change in covariate.")
 
 
-**# Sheet 29: Summary -- General table export
-use `analysis', clear
-version 17
-collect clear
-table (treated), ///
-    statistic(mean index_age) statistic(sd index_age) ///
-    statistic(mean female) ///
-    statistic(mean diabetes) statistic(mean hypertension) ///
-    nformat(%5.1f mean) nformat(%5.1f sd)
-tablex using "`main_xlsx'", sheet("Summary") ///
-    title("Table 10. Selected Means by Treatment Group") replace
-version 16
-
-**# Sheet 30: Cross-Tab -- Cross-tabulation with zebra striping
-* Demonstrates: tablex zebra
-version 17
-collect clear
-table (education) (treated), statistic(frequency) statistic(percent)
-tablex using "`main_xlsx'", sheet("Cross-Tab") ///
-    title("Table 11. Education Level by Treatment Group") replace zebra
-version 16
-
-
-**# Sheet 31: Rates -- Incidence rates with rate ratios + multiple exposure strata
+**# Sheet 29: Rates -- Incidence rates with rate ratios + multiple exposure strata
 * Demonstrates: stratetab rateratio, ratiodigits(), explabels(), multiple strata
 * Create synthetic strate output: 2 outcomes x 2 strata = 4 files
 
@@ -649,20 +630,20 @@ capture erase "`pkg_dir'/_strate_cv_f.dta"
 capture erase "`pkg_dir'/_strate_sh_f.dta"
 
 
-**# Sheet 32: Correlation -- Pearson with stars (lower triangle)
+**# Sheet 30: Correlation -- Pearson with stars (lower triangle)
 use `analysis', clear
 corrtab index_age crp prior_hosp, ///
     xlsx("`main_xlsx'") sheet("Correlation") ///
     title("Table 13. Pearson Correlation Matrix") ///
     star(0.05 0.01 0.001)
 
-**# Sheet 33: Correlation Spearman -- Spearman with p-values
+**# Sheet 31: Correlation Spearman -- Spearman with p-values
 corrtab index_age crp prior_hosp, ///
     xlsx("`main_xlsx'") sheet("Correlation Spear") ///
     title("Table 14. Spearman Rank Correlation Matrix") ///
     spearman pvalues
 
-**# Sheet 34: Correlation Full -- Pearson full matrix (all cells)
+**# Sheet 32: Correlation Full -- Pearson full matrix (all cells)
 * Demonstrates: corrtab full option showing complete matrix instead of triangle
 corrtab index_age crp prior_hosp, ///
     xlsx("`main_xlsx'") sheet("Correlation Full") ///
@@ -670,13 +651,13 @@ corrtab index_age crp prior_hosp, ///
     full star(0.05 0.01 0.001)
 
 
-**# Sheet 35: Cross-Tabulation -- 2x2 with Fisher's exact + OR
+**# Sheet 33: Cross-Tabulation -- 2x2 with Fisher's exact + OR
 crosstab treated female, ///
     xlsx("`main_xlsx'") sheet("Cross-Tabulation") ///
     title("Table 16. Treatment by Sex") ///
     exact or label
 
-**# Sheet 36: Cross-Tab Measures -- Risk ratio and risk difference
+**# Sheet 34: Cross-Tab Measures -- Risk ratio and risk difference
 * Demonstrates: crosstab rr, rd for 2x2 table
 crosstab treated cv_event, ///
     xlsx("`main_xlsx'") sheet("Cross-Tab Measures") ///
@@ -684,8 +665,8 @@ crosstab treated cv_event, ///
     rr rd label ///
     footnote("RR = risk ratio; RD = risk difference with 95% CI.")
 
-**# Sheet 37: Cross-Tab Styled -- subtitle + boldp() + zebra
-* Demonstrates: crosstab subtitle(), boldp(), zebra, and trend on a valid ordinal table
+**# Sheet 35: Cross-Tab Styled -- boldp() + zebra
+* Demonstrates: crosstab boldp(), zebra, and trend on a valid ordinal table
 preserve
 clear
 input byte outcome byte exposure int freq
@@ -705,19 +686,18 @@ label values exposure demo_exposure
 crosstab outcome exposure, ///
     xlsx("`main_xlsx'") sheet("Cross-Tab Styled") ///
     title("Table X. Outcome by Ordinal Exposure") ///
-    subtitle("Demonstrates subtitle() and boldp()") ///
     trend label boldp(0.05) zebra ///
     footnote("Significant chi-squared and trend rows are bolded when p < 0.05.")
 restore
 
-**# Sheet 38: Cross-Tab Trend -- Cochran-Armitage trend test
+**# Sheet 36: Cross-Tab Trend -- Cochran-Armitage trend test
 * Demonstrates: crosstab trend for ordinal exposure variable
 crosstab education cv_event, ///
     xlsx("`main_xlsx'") sheet("Cross-Tab Trend") ///
     title("Table X. CV Events by Education Level (Trend Test)") ///
     trend label zebra
 
-**# Sheet 39: Cross-Tab Row Pct -- Row percentages instead of column
+**# Sheet 37: Cross-Tab Row Pct -- Row percentages instead of column
 * Demonstrates: crosstab rowpct for row-based percentage display
 crosstab treated cv_event, ///
     xlsx("`main_xlsx'") sheet("Cross-Tab Row Pct") ///
@@ -726,7 +706,7 @@ crosstab treated cv_event, ///
     footnote("Percentages are row percentages within each treatment group.")
 
 
-**# Sheet 40: Diagnostic -- Sensitivity/specificity from propensity model
+**# Sheet 38: Diagnostic -- Sensitivity/specificity from propensity model
 quietly logit cv_event treated index_age female diabetes hypertension
 predict double phat, pr
 label variable phat "Predicted CV risk"
@@ -736,7 +716,7 @@ diagtab phat cv_event, cutoff(0.35) ///
     title("Table 17. Diagnostic Accuracy of Risk Prediction Model") ///
     auc optimal wilson
 
-**# Sheet 41: Diagnostic Prevalence -- Prevalence-adjusted PPV/NPV
+**# Sheet 39: Diagnostic Prevalence -- Prevalence-adjusted PPV/NPV
 * Demonstrates: diagtab prevalence() for population-level PPV/NPV adjustment
 diagtab phat cv_event, cutoff(0.35) ///
     xlsx("`main_xlsx'") sheet("Diag Prevalence") ///
@@ -744,7 +724,7 @@ diagtab phat cv_event, cutoff(0.35) ///
     prevalence(0.15) auc wilson ///
     footnote("PPV and NPV adjusted to population prevalence of 15%.")
 
-**# Sheet 42: Diagnostic Multi-Cut -- Multiple cutoff thresholds
+**# Sheet 40: Diagnostic Multi-Cut -- Multiple cutoff thresholds
 * Demonstrates: diagtab cutoffs() for comparing sensitivity/specificity across thresholds
 diagtab phat cv_event, cutoffs(0.30 0.32 0.34 0.36 0.38 0.40) ///
     xlsx("`main_xlsx'") sheet("Diag Multi-Cut") ///
@@ -754,7 +734,7 @@ diagtab phat cv_event, cutoffs(0.30 0.32 0.34 0.36 0.38 0.40) ///
 
 drop phat
 
-**# Sheet 43: Survival -- Kaplan-Meier table with median
+**# Sheet 41: Survival -- Kaplan-Meier table with median
 stset follow_up, failure(cv_event)
 survtab, times(365 730 1095 1460) by(treated) ///
     xlsx("`main_xlsx'") sheet("Survival") ///
@@ -762,7 +742,7 @@ survtab, times(365 730 1095 1460) by(treated) ///
     median timeunit(days) ///
     footnote("Survival probabilities estimated by Kaplan-Meier method.")
 
-**# Sheet 44: Survival RMST -- RMST + risk set + between-group difference
+**# Sheet 42: Survival RMST -- RMST + risk set + between-group difference
 * Demonstrates: survtab rmst(), riskset, difference
 survtab, times(365 730 1095 1460) by(treated) ///
     rmst(1460) riskset difference ///
@@ -771,7 +751,7 @@ survtab, times(365 730 1095 1460) by(treated) ///
     median timeunit(days) ///
     footnote("RMST = restricted mean survival time truncated at 1460 days.")
 
-**# Sheet 45: Cumulative Incidence -- Reverse survival function
+**# Sheet 43: Cumulative Incidence -- Reverse survival function
 * Demonstrates: survtab reverse (1 - S(t)) + theme(apa)
 survtab, times(365 730 1095 1460) by(treated) ///
     reverse ///
@@ -780,55 +760,7 @@ survtab, times(365 730 1095 1460) by(treated) ///
     timeunit(days) theme(apa)
 
 
-**# Sheet 46: Model Comparison -- Side-by-side fit statistics
-use `analysis', clear
-regress crp index_age female
-estimates store fit1
-regress crp index_age female diabetes hypertension
-estimates store fit2
-regress crp index_age female diabetes hypertension anxiety prior_cvd
-estimates store fit3
-
-fittab fit1 fit2 fit3, ///
-    xlsx("`main_xlsx'") sheet("Model Comparison") ///
-    title("Table 19. Model Comparison -- CRP Predictors") ///
-    labels(Demographics \ + Comorbidities \ Full)
-
-**# Sheet 47: Fit LR Test -- Model comparison with LR test
-fittab fit1 fit2 fit3, ///
-    xlsx("`main_xlsx'") sheet("Fit LR Test") ///
-    title("Table 20. Nested Model Comparison with LR Test") ///
-    labels(Model 1 \ Model 2 \ Model 3) ///
-    lrtest(fit1) zebra
-
-**# Sheet 48: Fit Extended -- Full fit statistics with R2 and RMSE
-* Demonstrates: fittab stats(r2 adjr2 rmse), footnote(), theme(lancet)
-fittab fit1 fit2 fit3, ///
-    xlsx("`main_xlsx'") sheet("Fit Extended") ///
-    title("Table 21. Extended Model Comparison -- CRP Predictors") ///
-    labels(Demographics \ + Comorbidities \ Full) ///
-    stats(n r2 adjr2 rmse aic bic) ///
-    footnote("R-squared = coefficient of determination; RMSE = root mean squared error.") ///
-    theme(lancet)
-
-**# Sheet 49: Fit C-Stat -- C-statistic for logistic models
-* Demonstrates: fittab stats(c) for discrimination in logistic regression
-quietly logistic cv_event index_age female
-estimates store cfit1
-quietly logistic cv_event index_age female diabetes hypertension
-estimates store cfit2
-quietly logistic cv_event index_age female diabetes hypertension anxiety prior_cvd
-estimates store cfit3
-
-fittab cfit1 cfit2 cfit3, ///
-    xlsx("`main_xlsx'") sheet("Fit C-Stat") ///
-    title("Table X. Logistic Model Discrimination (C-Statistic)") ///
-    labels(Demographics \ + Comorbidities \ Full) ///
-    stats(n aic bic c) ///
-    footnote("C-statistic (concordance) equivalent to area under ROC curve.")
-
-
-**# Sheet 50: Theme BMJ -- BMJ journal formatting
+**# Sheet 44: Theme BMJ -- BMJ journal formatting
 * Demonstrates: theme(bmj) applied to table1_tc
 use `analysis', clear
 table1_tc, by(treated) ///
@@ -840,7 +772,7 @@ table1_tc, by(treated) ///
     title("Table 1. Baseline Characteristics (BMJ Style)") ///
     excel("`main_xlsx'") sheet("Theme BMJ")
 
-**# Sheet 51: Theme APA -- APA formatting
+**# Sheet 45: Theme APA -- APA formatting
 * Demonstrates: theme(apa) applied to table1_tc
 table1_tc, by(treated) ///
     vars(index_age contn %5.1f \ female bin \ ///
@@ -850,6 +782,132 @@ table1_tc, by(treated) ///
     theme(apa) ///
     title("Table 1. Baseline Characteristics (APA Style)") ///
     excel("`main_xlsx'") sheet("Theme APA")
+
+**# Sheet 46: HR Composite -- hrcomptab final Table 2-style survival composite
+tempfile rate11 rate12 rate13 rate21 rate22 rate23
+
+* Binary HRT scaffold rows
+clear
+input byte exposure double(_D _Y _Rate _Lower _Upper)
+0 42 5200 0.00808 0.00610 0.01069
+1 31 4980 0.00622 0.00436 0.00887
+end
+label define _hrc_bin 0 "No HRT" 1 "Any HRT", replace
+label values exposure _hrc_bin
+save "`rate11'.dta", replace
+
+clear
+input byte exposure double(_D _Y _Rate _Lower _Upper)
+0 19 5310 0.00358 0.00228 0.00563
+1 12 5040 0.00238 0.00135 0.00419
+end
+label define _hrc_bin2 0 "No HRT" 1 "Any HRT", replace
+label values exposure _hrc_bin2
+save "`rate12'.dta", replace
+
+clear
+input byte exposure double(_D _Y _Rate _Lower _Upper)
+0 88 5150 0.01709 0.01384 0.02110
+1 67 4895 0.01369 0.01062 0.01763
+end
+label define _hrc_bin3 0 "No HRT" 1 "Any HRT", replace
+label values exposure _hrc_bin3
+save "`rate13'.dta", replace
+
+* Dose category scaffold rows
+clear
+input byte exposure double(_D _Y _Rate _Lower _Upper)
+0 42 5200 0.00808 0.00610 0.01069
+1 16 1760 0.00909 0.00557 0.01484
+2 9 1510 0.00596 0.00310 0.01145
+3 6 1710 0.00351 0.00158 0.00781
+end
+label define _hrc_dose 0 "No HRT" 1 "Low dose" 2 "Medium dose" 3 "High dose", replace
+label values exposure _hrc_dose
+save "`rate21'.dta", replace
+
+clear
+input byte exposure double(_D _Y _Rate _Lower _Upper)
+0 19 5310 0.00358 0.00228 0.00563
+1 7 1805 0.00388 0.00185 0.00814
+2 3 1535 0.00195 0.00063 0.00603
+3 2 1700 0.00118 0.00029 0.00471
+end
+label define _hrc_dose2 0 "No HRT" 1 "Low dose" 2 "Medium dose" 3 "High dose", replace
+label values exposure _hrc_dose2
+save "`rate22'.dta", replace
+
+clear
+input byte exposure double(_D _Y _Rate _Lower _Upper)
+0 88 5150 0.01709 0.01384 0.02110
+1 31 1740 0.01782 0.01253 0.02533
+2 21 1495 0.01405 0.00917 0.02154
+3 15 1660 0.00904 0.00545 0.01499
+end
+label define _hrc_dose3 0 "No HRT" 1 "Low dose" 2 "Medium dose" 3 "High dose", replace
+label values exposure _hrc_dose3
+save "`rate23'.dta", replace
+
+stratetab, using(`rate11' `rate12' `rate13' `rate21' `rate22' `rate23') ///
+    outcomes(3) frame(_demo_hr_rates, replace) ///
+    outlabels("Sustained EDSS 4" \ "Sustained EDSS 6" \ "Recurring Relapse") ///
+    explabels("Any HRT" \ "Estrogen Dose")
+
+* Binary HRT model frame: one non-reference row
+clear
+set seed 20260417
+set obs 360
+gen int id = _n
+gen byte hrt = runiform() < 0.38
+gen double age = rnormal(57, 8)
+gen byte female = runiform() < 0.78
+gen byte education = ceil(runiform() * 3)
+gen double time = ceil(runiform() * 1825)
+gen byte edss4 = runiform() < invlogit(-2.7 - 0.35 * hrt + 0.02 * (age - 55))
+gen byte edss6 = runiform() < invlogit(-3.4 - 0.40 * hrt + 0.02 * (age - 55))
+gen byte relapse = runiform() < invlogit(-1.6 - 0.28 * hrt + 0.01 * (age - 55))
+
+collect clear
+stset time, failure(edss4) id(id)
+collect: stcox hrt c.age i.female i.education, nolog
+stset time, failure(edss6) id(id)
+collect: stcox hrt c.age i.female i.education, nolog
+stset time, failure(relapse) id(id)
+collect: stcox hrt c.age i.female i.education, nolog
+regtab, frame(_demo_hr_bin, replace) noint coef("HR")
+
+* Dose category model frame: three non-reference rows after header + reference
+clear
+set obs 420
+gen int id = _n
+gen byte dosecat = floor(runiform() * 4)
+gen double age = rnormal(57, 8)
+gen byte female = runiform() < 0.78
+gen byte education = ceil(runiform() * 3)
+gen double time = ceil(runiform() * 1825)
+gen byte edss4 = runiform() < invlogit(-2.7 - 0.12 * (dosecat == 1) - 0.30 * (dosecat == 2) - 0.48 * (dosecat == 3) + 0.02 * (age - 55))
+gen byte edss6 = runiform() < invlogit(-3.5 - 0.10 * (dosecat == 1) - 0.26 * (dosecat == 2) - 0.44 * (dosecat == 3) + 0.02 * (age - 55))
+gen byte relapse = runiform() < invlogit(-1.6 - 0.08 * (dosecat == 1) - 0.20 * (dosecat == 2) - 0.34 * (dosecat == 3) + 0.01 * (age - 55))
+
+collect clear
+stset time, failure(edss4) id(id)
+collect: stcox i.dosecat c.age i.female i.education, nolog
+stset time, failure(edss6) id(id)
+collect: stcox i.dosecat c.age i.female i.education, nolog
+stset time, failure(relapse) id(id)
+collect: stcox i.dosecat c.age i.female i.education, nolog
+regtab, frame(_demo_hr_dose, replace) noint coef("HR")
+
+hrcomptab _demo_hr_rates, modelframes(_demo_hr_bin _demo_hr_dose) ///
+    rows(1 \ 3/5) ///
+    xlsx("`main_xlsx'") sheet("HR Composite") ///
+    effect("aHR") zebra headershade ///
+    title("Table X. Hormone Therapy Events, Person-Years, and Adjusted Hazard Ratios") ///
+    footnote("Demo of hrcomptab. The stratetab frame supplies events, person-years, and rates; selected regtab rows supply adjusted hazard ratios and p-values.")
+
+capture frame drop _demo_hr_rates
+capture frame drop _demo_hr_bin
+capture frame drop _demo_hr_dose
 
 **# Cleanup
 clear
@@ -861,4 +919,4 @@ display as result "  `pkg_dir'/console_regtab.smcl"
 display as result "  `pkg_dir'/console_corrtab.smcl"
 display as result "  `pkg_dir'/console_crosstab.smcl"
 display as result "  `pkg_dir'/console_diagtab.smcl"
-display as result "  `pkg_dir'/demo_tabtools.xlsx (51 sheets)"
+display as result "  `pkg_dir'/demo_tabtools.xlsx (46 sheets)"

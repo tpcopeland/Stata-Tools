@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.5  17apr2026}{...}
+{* *! version 1.0.7  18apr2026}{...}
 {viewerjumpto "Package overview" "diagtab##package"}{...}
 {viewerjumpto "Syntax" "diagtab##syntax"}{...}
 {viewerjumpto "Description" "diagtab##description"}{...}
@@ -160,6 +160,6 @@ Cannot be combined with {opt cutoffs()}.{p_end}
 {pstd}Timothy P Copeland{p_end}
 {pstd}Department of Clinical Neuroscience, Karolinska Institutet{p_end}
 {pstd}timothy.copeland@ki.se{p_end}
-{pstd}Version 1.0.5{p_end}
+{pstd}Version 1.0.7{p_end}
 
 {hline}

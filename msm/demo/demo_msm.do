@@ -108,7 +108,7 @@ noisily msm_report, eform
 noisily msm_report, export("`report_xlsx'") format(excel) ///
     eform replace
 
-noisily msm_table, xlsx("`tables_xlsx'") all eform replace
+noisily msm_table, xlsx("`tables_xlsx'") all eform borderstyle(academic) replace
 
 log close results
 

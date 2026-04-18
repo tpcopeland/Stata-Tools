@@ -1,9 +1,9 @@
-* test_excel_validation.do — Comprehensive Excel output validation for all tabtools commands
+* test_excel_validation.do — Comprehensive Excel output validation for tabtools Excel exporters
 * Coverage: Structure, formatting, headers, content patterns, cell values, themes,
 *           zebra striping, bold-p highlighting, merged cells, borders, fills
 * Uses: optional package-local check_xlsx.py validator when available
-* All 12 xlsx-producing commands: table1_tc, regtab, effecttab, survtab, crosstab,
-*   corrtab, diagtab, fittab, stratetab, tablex, comptab, hrtab
+* Core xlsx-producing commands covered here: table1_tc, regtab, effecttab, survtab,
+*   crosstab, corrtab, diagtab, stratetab, comptab
 
 capture log close _xlval
 log using "test_excel_validation.log", replace text name(_xlval)
@@ -35,7 +35,7 @@ foreach _trypath in "`qa_dir'/tools" {
 local has_checker = ("`checker'" != "")
 if !`has_checker' {
     display as text "NOTE: check_xlsx.py not found — using Stata-native Excel validation"
-    * Run Stata-native fallback: generate xlsx from all 12 commands, validate with import excel
+    * Run Stata-native fallback: generate xlsx from core commands, validate with import excel
     local _native_pass = 0
     local _native_fail = 0
 
@@ -179,48 +179,6 @@ if !`has_checker' {
         local ++n_fail
     }
 
-    * fittab
-    local ++n_total
-    capture noisily {
-        sysuse auto, clear
-        quietly regress price mpg
-        estimates store _m1
-        quietly regress price mpg weight
-        estimates store _m2
-        capture erase "`output_dir'/_xl_native_fittab.xlsx"
-        fittab _m1 _m2, xlsx("`output_dir'/_xl_native_fittab.xlsx") ///
-            sheet("Fit") title("Model Fit")
-        preserve
-        import excel "`output_dir'/_xl_native_fittab.xlsx", sheet("Fit") cellrange(A1:A1) clear
-        assert A[1] == "Model Fit"
-        restore
-    }
-    if _rc == 0 {
-        local ++n_pass
-    }
-    else {
-        local ++n_fail
-    }
-
-    * tablex
-    local ++n_total
-    capture noisily {
-        sysuse auto, clear
-        table (foreign) (), statistic(mean price mpg)
-        capture erase "`output_dir'/_xl_native_tablex.xlsx"
-        tablex using "`output_dir'/_xl_native_tablex.xlsx", sheet("Tab") title("General Table")
-        preserve
-        import excel "`output_dir'/_xl_native_tablex.xlsx", sheet("Tab") cellrange(A1:A1) clear
-        assert A[1] == "General Table"
-        restore
-    }
-    if _rc == 0 {
-        local ++n_pass
-    }
-    else {
-        local ++n_fail
-    }
-
     * comptab
     local ++n_total
     capture noisily {
@@ -262,27 +220,6 @@ if !`has_checker' {
         assert A[1] == "Rates"
         restore
         capture erase "`output_dir'/_rate1.dta"
-    }
-    if _rc == 0 {
-        local ++n_pass
-    }
-    else {
-        local ++n_fail
-    }
-
-    * hrtab
-    local ++n_total
-    capture noisily {
-        webuse drugtr, clear
-        gen id = _n
-        stset studytime, failure(died) id(id)
-        capture erase "`output_dir'/_xl_native_hrtab.xlsx"
-        hrtab, exposure(i.drug) model(stcox) nolog ///
-            xlsx("`output_dir'/_xl_native_hrtab.xlsx") sheet("HR") title("Hazard Ratios")
-        preserve
-        import excel "`output_dir'/_xl_native_hrtab.xlsx", sheet("HR") cellrange(A1:A1) clear
-        assert A[1] == "Hazard Ratios"
-        restore
     }
     if _rc == 0 {
         local ++n_pass
@@ -1127,139 +1064,6 @@ else {
 capture erase "`output_dir'/_xl_d3.txt"
 
 * =========================================================================
-**# SECTION 10: fittab Excel
-* =========================================================================
-
-* --- XL10.1: fittab structure ---
-local ++n_total
-capture noisily {
-    sysuse auto, clear
-    quietly regress price mpg
-    estimates store _xl_m1
-    quietly regress price mpg weight
-    estimates store _xl_m2
-    quietly regress price mpg weight i.foreign
-    estimates store _xl_m3
-    capture erase "`output_dir'/_xl_fittab.xlsx"
-    fittab _xl_m1 _xl_m2 _xl_m3, xlsx("`output_dir'/_xl_fittab.xlsx") ///
-        sheet("Fit") stats(n aic bic ll) title("Model Comparison")
-
-    shell python3 "`checker'" "`output_dir'/_xl_fittab.xlsx" --sheet "Fit" ///
-        --exact-rows 6 --min-cols 4 ///
-        --cell-contains A1 "Model Comparison" ///
-        --contains "AIC" --contains "BIC" --contains "Log-likelihood" ///
-        --has-borders ///
-        --bold-row-all 2 ///
-        --merged-row 1 ///
-        --result-file "`output_dir'/_xl_f1.txt" --quiet
-    file open _fh using "`output_dir'/_xl_f1.txt", read text
-    file read _fh _line
-    file close _fh
-    assert "`_line'" == "PASS"
-    estimates drop _xl_m1 _xl_m2 _xl_m3
-}
-if _rc == 0 {
-    display as result "  PASS: XL10.1 — fittab structure (title, stats rows, bold header)"
-    local ++n_pass
-}
-else {
-    display as error "  FAIL: XL10.1 — fittab structure (rc=`=_rc')"
-    local ++n_fail
-}
-capture erase "`output_dir'/_xl_f1.txt"
-
-* --- XL10.2: fittab N values and best AIC is bold ---
-local ++n_total
-capture noisily {
-    sysuse auto, clear
-    quietly regress price mpg
-    estimates store _xl_m1
-    quietly regress price mpg weight
-    estimates store _xl_m2
-    capture erase "`output_dir'/_xl_fittab2.xlsx"
-    fittab _xl_m1 _xl_m2, xlsx("`output_dir'/_xl_fittab2.xlsx") ///
-        sheet("Fit") stats(n aic bic)
-
-    * N should be 74 for both models
-    shell python3 "`checker'" "`output_dir'/_xl_fittab2.xlsx" --sheet "Fit" ///
-        --cell C3 "74" --cell D3 "74" ///
-        --result-file "`output_dir'/_xl_f2.txt" --quiet
-    file open _fh using "`output_dir'/_xl_f2.txt", read text
-    file read _fh _line
-    file close _fh
-    assert "`_line'" == "PASS"
-    estimates drop _xl_m1 _xl_m2
-}
-if _rc == 0 {
-    display as result "  PASS: XL10.2 — fittab N=74 for both models"
-    local ++n_pass
-}
-else {
-    display as error "  FAIL: XL10.2 — fittab N values (rc=`=_rc')"
-    local ++n_fail
-}
-capture erase "`output_dir'/_xl_f2.txt"
-
-* =========================================================================
-**# SECTION 11: tablex Excel
-* =========================================================================
-
-* --- XL11.1: tablex structure ---
-local ++n_total
-capture noisily {
-    sysuse auto, clear
-    table foreign, statistic(mean price mpg) statistic(sd price mpg) statistic(count price)
-    capture erase "`output_dir'/_xl_tablex.xlsx"
-    tablex using "`output_dir'/_xl_tablex.xlsx", sheet("Stats") ///
-        title("Summary Statistics") replace
-
-    shell python3 "`checker'" "`output_dir'/_xl_tablex.xlsx" --sheet "Stats" ///
-        --min-rows 5 --min-cols 5 ///
-        --cell-contains A1 "Summary Statistics" ///
-        --has-borders ///
-        --has-fill 2 --fill-color 2 "219 229 241" ///
-        --bold-row-all 2 ///
-        --merged-row 1 ///
-        --result-file "`output_dir'/_xl_tx1.txt" --quiet
-    file open _fh using "`output_dir'/_xl_tx1.txt", read text
-    file read _fh _line
-    file close _fh
-    assert "`_line'" == "PASS"
-}
-if _rc == 0 {
-    display as result "  PASS: XL11.1 — tablex structure (title, fills, bold header, borders)"
-    local ++n_pass
-}
-else {
-    display as error "  FAIL: XL11.1 — tablex structure (rc=`=_rc')"
-    local ++n_fail
-}
-capture erase "`output_dir'/_xl_tx1.txt"
-
-* --- XL11.2: tablex data values present ---
-local ++n_total
-capture noisily {
-    * Domestic and Foreign rows should have numeric values
-    shell python3 "`checker'" "`output_dir'/_xl_tablex.xlsx" --sheet "Stats" ///
-        --contains "Domestic" --contains "Foreign" --contains "Total" ///
-        --cell-not-empty C5 C6 C7 ///
-        --result-file "`output_dir'/_xl_tx2.txt" --quiet
-    file open _fh using "`output_dir'/_xl_tx2.txt", read text
-    file read _fh _line
-    file close _fh
-    assert "`_line'" == "PASS"
-}
-if _rc == 0 {
-    display as result "  PASS: XL11.2 — tablex has Domestic/Foreign/Total with data"
-    local ++n_pass
-}
-else {
-    display as error "  FAIL: XL11.2 — tablex data content (rc=`=_rc')"
-    local ++n_fail
-}
-capture erase "`output_dir'/_xl_tx2.txt"
-
-* =========================================================================
 **# SECTION 12: comptab Excel
 * =========================================================================
 
@@ -1554,7 +1358,7 @@ capture erase "`output_dir'/_xl_ar1.txt"
 * --- XL18.1: all xlsx files have non-empty content ---
 local ++n_total
 local xl18_pass = 1
-foreach cmd in regtab effecttab survtab crosstab corrtab diagtab fittab tablex comptab {
+foreach cmd in regtab effecttab survtab crosstab corrtab diagtab comptab {
     capture confirm file "`output_dir'/_xl_`cmd'.xlsx"
     if _rc != 0 {
         display as error "  FAIL: XL18.1 — _xl_`cmd'.xlsx does not exist"
@@ -1574,7 +1378,7 @@ foreach cmd in regtab effecttab survtab crosstab corrtab diagtab fittab tablex c
     capture erase "`output_dir'/_xl_batch_`cmd'.txt"
 }
 if `xl18_pass' == 1 {
-    display as result "  PASS: XL18.1 — all 9 command xlsx files pass structure check"
+    display as result "  PASS: XL18.1 — all 7 command xlsx files pass structure check"
     local ++n_pass
 }
 else {

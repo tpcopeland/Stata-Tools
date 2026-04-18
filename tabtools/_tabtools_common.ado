@@ -1,4 +1,4 @@
-*! _tabtools_common Version 1.0.5  2026/04/17
+*! _tabtools_common Version 1.0.7  2026/04/18
 *! Shared utility programs for tabtools package
 *! Author: Timothy P Copeland
 
@@ -22,7 +22,7 @@ PROGRAMS INCLUDED:
     _tabtools_frame_put         - Store output in a named frame with optional replace
 USAGE:
     These programs are called internally by tabtools commands (table1_tc, regtab,
-    effecttab, stratetab, tablex, and others). They are not intended for direct use.
+    effecttab, stratetab, hrcomptab, and others). They are not intended for direct use.
     Callers set varabbrev off; helpers do not need to set it independently.
 */
 
@@ -35,6 +35,7 @@ USAGE:
 * Usage: _tabtools_col_letter 3
 *        local my_letter = "`result'"   // my_letter = "C"
 
+capture program drop _tabtools_col_letter
 program _tabtools_col_letter
     version 16.0
     args col_num
@@ -60,6 +61,7 @@ end
 * Usage: _tabtools_validate_path "`filepath'" "xlsx()"
 *        (exits with error if invalid)
 
+capture program drop _tabtools_validate_path
 program _tabtools_validate_path
     version 16.0
     args filepath option_name
@@ -86,6 +88,7 @@ end
 * Usage: _tabtools_build_col_letters 30
 *        local letters = "`result'"   // letters = "A B C ... AA AB AC AD"
 
+capture program drop _tabtools_build_col_letters
 program _tabtools_build_col_letters
     version 16.0
     args num_cols
@@ -116,6 +119,7 @@ end
 * Usage: _tabtools_footnote `"`footnote'"' "`lastcol_letter'" `num_rows' "`fontname'" `fontsize'
 *        (call after putexcel set ... modify, before putexcel clear)
 
+capture program drop _tabtools_footnote
 program _tabtools_footnote
     version 16.0
     args footnote lastcol_letter row fontname fontsize
@@ -150,6 +154,7 @@ end
 *
 * Usage: _tabtools_open_file "`filepath'"
 
+capture program drop _tabtools_open_file
 program _tabtools_open_file
     version 16.0
     args filepath
@@ -187,6 +192,7 @@ end
 * Usage: _tabtools_detect_vartype myvar
 *        local type "`result'"
 
+capture program drop _tabtools_detect_vartype
 program _tabtools_detect_vartype
     version 16.0
     args varname
@@ -304,6 +310,7 @@ end
 *
 * Usage: _tabtools_validate_sheet "`sheet'" "sheet()"
 
+capture program drop _tabtools_validate_sheet
 program _tabtools_validate_sheet
     version 16.0
     args sheet option_name
@@ -327,6 +334,7 @@ end
 *        (sets c_local variables: _theme_font, _theme_fontsize, _theme_border,
 *         _theme_headershade, _theme_headercolor, _theme_zebra)
 
+capture program drop _tabtools_apply_theme
 program _tabtools_apply_theme
     version 16.0
     args theme
@@ -433,6 +441,7 @@ end
 * Usage: _tabtools_resolve_format, [theme(string) borderstyle(string)
 *            headershade(string) zebra(string)]
 
+capture program drop _tabtools_resolve_format
 program _tabtools_resolve_format
     version 16.0
     syntax , [THEme(string) BORDERstyle(string) HEADERShade(string) ZEBra(string)]
@@ -486,6 +495,7 @@ end
 *   datastart(#)       — first data row (default 3; use 4 for comptab)
 *   headerstart(#)     — first header row to display (default 2)
 
+capture program drop _tabtools_console_display
 program _tabtools_console_display
     version 16.0
     syntax anything(name=args) [, LABELvar(string) DATAstart(integer 3) HEADERstart(integer 2)]
@@ -576,6 +586,7 @@ end
 * Usage: _tabtools_frame_put `"`frame'"'
 *        local frame "`_frame_name'"
 
+capture program drop _tabtools_frame_put
 program _tabtools_frame_put
     version 16.0
     args frame_spec

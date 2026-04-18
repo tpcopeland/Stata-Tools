@@ -705,136 +705,6 @@ else {
 
 
 * =========================================================================
-**# KE5: fittab — best_aic / best_bic identities
-* =========================================================================
-
-* --- KE5.1: best_aic equals min AIC across stored models ---
-local ++n_total
-capture noisily {
-    sysuse auto, clear
-    quietly regress price mpg
-    estimates store m1
-    local aic1 = -2*e(ll) + 2*(e(rank))
-    quietly regress price mpg weight
-    estimates store m2
-    local aic2 = -2*e(ll) + 2*(e(rank))
-    quietly regress price mpg weight headroom
-    estimates store m3
-    local aic3 = -2*e(ll) + 2*(e(rank))
-
-    local hand_min = min(`aic1', `aic2', `aic3')
-
-    fittab m1 m2 m3, stats(n aic bic)
-    assert abs(r(best_aic) - `hand_min') < 0.5
-}
-if _rc == 0 {
-    display as result "  PASS: KE5.1 — fittab best_aic equals min over stored models"
-    local ++n_pass
-}
-else {
-    display as error "  FAIL: KE5.1 — best_aic min (rc=`=_rc')"
-    local ++n_fail
-}
-
-* --- KE5.2: best_bic equals min BIC ---
-local ++n_total
-capture noisily {
-    sysuse auto, clear
-    quietly regress price mpg
-    estimates store m1
-    quietly estat ic
-    matrix _S = r(S)
-    local bic1 = _S[1, 6]
-    quietly regress price mpg weight
-    estimates store m2
-    quietly estat ic
-    matrix _S = r(S)
-    local bic2 = _S[1, 6]
-
-    fittab m1 m2, stats(n aic bic)
-    local hand_min = min(`bic1', `bic2')
-    assert abs(r(best_bic) - `hand_min') < 0.5
-}
-if _rc == 0 {
-    display as result "  PASS: KE5.2 — fittab best_bic equals min over models"
-    local ++n_pass
-}
-else {
-    display as error "  FAIL: KE5.2 — best_bic min (rc=`=_rc')"
-    local ++n_fail
-}
-
-* --- KE5.3: r(table) AIC row matches each estat ic for two models ---
-local ++n_total
-capture noisily {
-    sysuse auto, clear
-    quietly regress price mpg
-    estimates store m1
-    quietly estat ic
-    matrix _S = r(S)
-    local ref_aic1 = _S[1, 5]
-    quietly regress price mpg weight
-    estimates store m2
-    quietly estat ic
-    matrix _S = r(S)
-    local ref_aic2 = _S[1, 5]
-
-    fittab m1 m2, stats(n aic bic)
-    matrix _F = r(table)
-    * Find AIC row (rowname-based)
-    local found = 0
-    forvalues i = 1/`=rowsof(_F)' {
-        local rn : word `i' of `:rownames _F'
-        if strpos(lower("`rn'"), "aic") > 0 {
-            assert abs(_F[`i', 1] - `ref_aic1') < 0.5
-            assert abs(_F[`i', 2] - `ref_aic2') < 0.5
-            local found = 1
-        }
-    }
-    assert `found' == 1
-}
-if _rc == 0 {
-    display as result "  PASS: KE5.3 — fittab r(table) AIC row matches estat ic per model"
-    local ++n_pass
-}
-else {
-    display as error "  FAIL: KE5.3 — AIC row (rc=`=_rc')"
-    local ++n_fail
-}
-
-* --- KE5.4: Adding variables monotonically lowers in-sample log-likelihood ---
-local ++n_total
-capture noisily {
-    sysuse auto, clear
-    quietly regress price mpg
-    local ll1 = e(ll)
-    estimates store mll1
-    quietly regress price mpg weight
-    local ll2 = e(ll)
-    estimates store mll2
-    quietly regress price mpg weight headroom turn
-    local ll3 = e(ll)
-    estimates store mll3
-
-    * Nested models: ll must be non-decreasing
-    assert `ll2' >= `ll1' - 1e-6
-    assert `ll3' >= `ll2' - 1e-6
-
-    * fittab should accept all three with ll
-    fittab mll1 mll2 mll3, stats(n aic bic ll)
-    assert r(N_models) == 3
-}
-if _rc == 0 {
-    display as result "  PASS: KE5.4 — nested models have monotone log-likelihood"
-    local ++n_pass
-}
-else {
-    display as error "  FAIL: KE5.4 — nested ll monotonicity (rc=`=_rc')"
-    local ++n_fail
-}
-
-
-* =========================================================================
 **# KE6: survtab — events/atrisk conservation, log-rank vs sts test
 * =========================================================================
 
@@ -1404,39 +1274,6 @@ else {
     local ++n_fail
 }
 
-* --- KE10.2: hrtab and direct stcox HR agree on same model ---
-local ++n_total
-capture noisily {
-    webuse drugtr, clear
-    gen long _ke_id = _n
-    quietly stset studytime, failure(died) id(_ke_id)
-    quietly stcox i.drug
-    local ref_hr = exp(_b[1.drug])
-
-    capture frame drop _ke_hr
-    hrtab, exposure(i.drug) model(stcox) frame(_ke_hr)
-    frame _ke_hr {
-        local found = 0
-        forvalues i = 1/`=_N' {
-            local cell = c4[`i']
-            local v = real(word("`cell'", 1))
-            if `v' < . & abs(`v' - `ref_hr') < 0.05 {
-                local found = 1
-            }
-        }
-        assert `found' == 1
-    }
-}
-if _rc == 0 {
-    display as result "  PASS: KE10.2 — hrtab HR matches stcox exp(b)"
-    local ++n_pass
-}
-else {
-    display as error "  FAIL: KE10.2 — hrtab vs stcox (rc=`=_rc')"
-    local ++n_fail
-}
-capture frame drop _ke_hr
-
 * --- KE10.3: diagtab Se equals proportion of TP among gold positives ---
 local ++n_total
 capture noisily {
@@ -1521,29 +1358,6 @@ else {
     display as error "  FAIL: KE11.3 — survtab logrank bounds (rc=`=_rc')"
     local ++n_fail
 }
-
-* --- KE11.4: fittab N_models equals model count argument ---
-local ++n_total
-capture noisily {
-    sysuse auto, clear
-    quietly regress price mpg
-    estimates store _ke_a
-    quietly regress price mpg weight
-    estimates store _ke_b
-    quietly regress price mpg weight headroom
-    estimates store _ke_c
-    fittab _ke_a _ke_b _ke_c
-    assert r(N_models) == 3
-}
-if _rc == 0 {
-    display as result "  PASS: KE11.4 — fittab N_models matches argument count"
-    local ++n_pass
-}
-else {
-    display as error "  FAIL: KE11.4 — fittab N_models (rc=`=_rc')"
-    local ++n_fail
-}
-
 
 * =========================================================================
 **# KE12: diagtab cutoff_table — monotonicity & extremes

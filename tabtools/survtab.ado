@@ -1,4 +1,4 @@
-*! survtab Version 1.0.5  2026/04/17
+*! survtab Version 1.0.7  2026/04/18
 *! Survival summary table with Kaplan-Meier estimates, medians, and RMST
 *! Author: Timothy P Copeland
 *! Program class: rclass
@@ -719,6 +719,9 @@ capture noisily {
             }
             if `has_highlight' & `has_by' & !missing(`logrank_p') & `logrank_p' < `highlight' & `_logrank_row' > 0 {
                 putexcel (B`_logrank_row':`lastcol'`_logrank_row'), fpattern(solid, "255 255 204")
+            }
+            if `_logrank_row' > 0 {
+                putexcel (B`_logrank_row':`lastcol'`_logrank_row'), merge left vcenter
             }
 
             * Footnote
