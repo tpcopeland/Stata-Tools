@@ -1,121 +1,121 @@
-* demo_msm.do — Generate screenshots for msm package documentation
-*
-* Produces:
-*   console_pipeline.smcl  — Validation + weight + diagnose console output
-*   survival_plot.png      — Counterfactual cumulative incidence curves
-*   balance_plot.png       — Covariate balance before/after weighting
-*   weight_plot.png        — Weight distribution histogram
-*   msm_tables.xlsx        — Publication-quality Excel export (5 sheets)
-*   msm_protocol.xlsx      — Study protocol export
-*   msm_report.xlsx        — Pipeline report export
+/*  demo_msm.do - Generate manuscript-ready demo output for msm
+
+    Produces 7 output types:
+      1. Console output (setup + protocol + validation) -> console_pipeline_setup.smcl
+      2. Console output (weighting + diagnostics) -> console_pipeline_diagnostics.smcl
+      3. Console output (fit + prediction + reporting) -> console_pipeline_results.smcl
+      4. Graph (counterfactual cumulative incidence) -> survival_plot.png
+      5. Graph (IP weight distribution) -> weight_plot.png
+      6. Graph (covariate balance) -> balance_plot.png
+      7. Excel exports (protocol, report, tables) -> .xlsx
+*/
 
 version 16.0
 set more off
 set varabbrev off
-set scheme plotplainblind
+set linesize 250
 
+**# Setup
+local repo_root "`c(pwd)'"
 local pkg_dir "msm/demo"
 capture mkdir "`pkg_dir'"
 
-* Reload all commands
-local cmds msm msm_prepare msm_validate msm_weight msm_diagnose ///
-    msm_fit msm_predict msm_plot msm_protocol msm_report msm_sensitivity ///
-    msm_table _msm_check_prepared _msm_check_weighted _msm_check_fitted ///
-    _msm_get_settings _msm_natural_spline _msm_cumulative_weight ///
-    _msm_smd _msm_col_letter
-foreach cmd of local cmds {
-    capture program drop `cmd'
-}
-quietly run msm/msm.ado
-quietly run msm/msm_prepare.ado
-quietly run msm/msm_validate.ado
-quietly run msm/msm_weight.ado
-quietly run msm/msm_diagnose.ado
-quietly run msm/msm_fit.ado
-quietly run msm/msm_predict.ado
-quietly run msm/msm_plot.ado
-quietly run msm/msm_protocol.ado
-quietly run msm/msm_report.ado
-quietly run msm/msm_sensitivity.ado
-quietly run msm/msm_table.ado
-quietly run msm/_msm_check_prepared.ado
-quietly run msm/_msm_check_weighted.ado
-quietly run msm/_msm_check_fitted.ado
-quietly run msm/_msm_get_settings.ado
-quietly run msm/_msm_natural_spline.ado
-quietly run msm/_msm_cumulative_weight.ado
-quietly run msm/_msm_smd.ado
-quietly run msm/_msm_col_letter.ado
+capture ado uninstall tc_schemes
+quietly net install tc_schemes, from("`repo_root'/tc_schemes") replace
+set scheme plotplainblind
 
-use "msm/msm_example.dta", clear
+capture ado uninstall msm
+quietly net install msm, from("`repo_root'/msm") replace
 
-* --- Console output: pipeline walkthrough ---
-log using "`pkg_dir'/console_pipeline.smcl", replace smcl name(demo)
+local data_file "`repo_root'/msm/msm_example.dta"
+local protocol_xlsx "`pkg_dir'/msm_protocol.xlsx"
+local report_xlsx "`pkg_dir'/msm_report.xlsx"
+local tables_xlsx "`pkg_dir'/msm_tables.xlsx"
+
+use "`data_file'", clear
+
+**## Console: setup, protocol, validation
+log using "`pkg_dir'/console_pipeline_setup.smcl", replace smcl name(setup) nomsg
+
+noisily msm, detail
+noisily describe
+noisily list id period treatment biomarker comorbidity outcome censored in 1/12, ///
+    sepby(id) noobs
+
+noisily msm_protocol, ///
+    population("Adults followed for 10 discrete periods (N=500; 5000 person-period observations)") ///
+    treatment("Dynamic treatment assignment at each period; counterfactual contrast is always treated versus never treated") ///
+    confounders("Time-varying: biomarker, comorbidity; baseline: age, sex; informative censoring indicator") ///
+    outcome("Binary outcome assessed each period and summarized as cumulative incidence over follow-up") ///
+    causal_contrast("Risk difference in cumulative incidence under always-treated versus never-treated strategies") ///
+    weight_spec("Stabilized IPTW with baseline numerator model, denominator model including time-varying covariates, and 1st/99th percentile truncation") ///
+    analysis("Validated pooled logistic MSM with quadratic time trend, robust SEs, Monte Carlo prediction intervals, and E-value sensitivity analysis")
+
+noisily msm_protocol, ///
+    population("Adults followed for 10 discrete periods (N=500; 5000 person-period observations)") ///
+    treatment("Dynamic treatment assignment at each period; counterfactual contrast is always treated versus never treated") ///
+    confounders("Time-varying: biomarker, comorbidity; baseline: age, sex; informative censoring indicator") ///
+    outcome("Binary outcome assessed each period and summarized as cumulative incidence over follow-up") ///
+    causal_contrast("Risk difference in cumulative incidence under always-treated versus never-treated strategies") ///
+    weight_spec("Stabilized IPTW with baseline numerator model, denominator model including time-varying covariates, and 1st/99th percentile truncation") ///
+    analysis("Validated pooled logistic MSM with quadratic time trend, robust SEs, Monte Carlo prediction intervals, and E-value sensitivity analysis") ///
+    export("`protocol_xlsx'") format(excel) replace
 
 noisily msm_prepare, id(id) period(period) treatment(treatment) ///
-    outcome(outcome) covariates(biomarker comorbidity) ///
-    baseline(age sex) censor(censored)
+    outcome(outcome) censor(censored) ///
+    covariates(biomarker comorbidity) ///
+    baseline_covariates(age sex)
 
-noisily msm_validate, verbose
+noisily msm_validate, strict verbose
+
+log close setup
+
+**# Diagnostics
+log using "`pkg_dir'/console_pipeline_diagnostics.smcl", replace smcl name(diagnostics) nomsg
 
 noisily msm_weight, treat_d_cov(biomarker comorbidity age sex) ///
     treat_n_cov(age sex) truncate(1 99) nolog
 
+noisily summarize _msm_weight, detail
+
 noisily msm_diagnose, balance_covariates(biomarker comorbidity age sex) ///
     by_period threshold(0.1)
 
-noisily msm_fit, model(logistic) period_spec(quadratic) nolog
+log close diagnostics
 
-noisily msm_predict, times(3 5 7 9) difference seed(12345)
+**## Diagnostic plots
+msm_plot, type(weights) title("Stabilized IP weight distribution")
+graph export "`pkg_dir'/weight_plot.png", replace width(1200)
+capture graph close _all
+
+msm_plot, type(balance) covariates(biomarker comorbidity age sex) ///
+    threshold(0.1) title("Covariate balance before and after weighting")
+graph export "`pkg_dir'/balance_plot.png", replace width(1200)
+capture graph close _all
+
+**# Results
+log using "`pkg_dir'/console_pipeline_results.smcl", replace smcl name(results) nomsg
+
+noisily msm_fit, model(logistic) outcome_cov(age sex) ///
+    period_spec(quadratic) nolog
+
+noisily msm_predict, times(1 3 5 7 9) samples(50) difference seed(12345)
 
 noisily msm_sensitivity, evalue
 
-log close demo
+noisily msm_report, eform
 
-* --- Survival/cumulative incidence plot ---
-capture restore
-capture noisily msm_plot, type(survival) times(3 5 7 9) seed(12345) ///
-    saving("`pkg_dir'/survival_plot.gph")
-capture restore
-capture noisily graph export "`pkg_dir'/survival_plot.png", replace width(1800)
+noisily msm_report, export("`report_xlsx'") format(excel) ///
+    eform replace
+
+noisily msm_table, xlsx("`tables_xlsx'") all eform replace
+
+log close results
+
+**## Results plot
+msm_plot, type(survival) times(1 3 5 7 9) samples(50) seed(12345) ///
+    title("Counterfactual cumulative incidence")
+graph export "`pkg_dir'/survival_plot.png", replace width(1200)
 capture graph close _all
-
-* --- Weight distribution plot ---
-capture restore
-capture noisily msm_plot, type(weights) ///
-    saving("`pkg_dir'/weight_plot.gph")
-capture restore
-capture noisily graph export "`pkg_dir'/weight_plot.png", replace width(1800)
-capture graph close _all
-
-* --- Covariate balance plot ---
-capture restore
-capture noisily msm_plot, type(balance) ///
-    covariates(biomarker comorbidity age sex) ///
-    saving("`pkg_dir'/balance_plot.gph")
-capture restore
-capture noisily graph export "`pkg_dir'/balance_plot.png", replace width(1800)
-capture graph close _all
-
-* --- Excel table export ---
-msm_table, xlsx("`pkg_dir'/msm_tables.xlsx") all eform replace
-
-* --- Protocol export ---
-msm_protocol, population("Adults aged 18+") ///
-    treatment("Binary drug exposure (treated vs untreated)") ///
-    confounders("Biomarker, comorbidity, age, sex") ///
-    outcome("Binary outcome (event/no event)") ///
-    causal_contrast("ATE: E[Y(1)] - E[Y(0)]") ///
-    weight_spec("Stabilized IPTW, numerator: age sex, denominator: biomarker comorbidity age sex") ///
-    analysis("Weighted pooled logistic regression with quadratic period") ///
-    export("`pkg_dir'/msm_protocol.xlsx") format(excel) replace
-
-* --- Report export ---
-msm_report, export("`pkg_dir'/msm_report.xlsx") format(excel) replace
-
-* --- Cleanup temp files ---
-capture erase "`pkg_dir'/survival_plot.gph"
-capture erase "`pkg_dir'/weight_plot.gph"
-capture erase "`pkg_dir'/balance_plot.gph"
 
 clear

@@ -33,6 +33,8 @@ program define _setup_pipeline
     version 16.0
     syntax [, NOCENSOR NOLOG FIT PREDICT DIAGNOSE SENSITIVITY]
 
+    local qa_dir "`c(pwd)'"
+    local pkg_dir "`qa_dir'/.."
     use "`pkg_dir'/msm_example.dta", clear
     if "`nocensor'" != "" {
         msm_prepare, id(id) period(period) treatment(treatment) ///

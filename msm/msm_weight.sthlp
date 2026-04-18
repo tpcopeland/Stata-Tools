@@ -29,13 +29,13 @@
 {synopthdr}
 {synoptline}
 {syntab:Required}
-{synopt:{opth treat_d_cov(varlist)}}treatment denominator covariates{p_end}
+{synopt:{opt treat_d_cov(varlist)}}treatment denominator covariates{p_end}
 
 {syntab:Optional}
-{synopt:{opth treat_n_cov(varlist)}}treatment numerator covariates{p_end}
-{synopt:{opth censor_d_cov(varlist)}}censoring denominator covariates{p_end}
-{synopt:{opth censor_n_cov(varlist)}}censoring numerator covariates{p_end}
-{synopt:{opth tru:ncate(numlist)}}truncation percentiles (e.g., 1 99){p_end}
+{synopt:{opt treat_n_cov(varlist)}}treatment numerator covariates{p_end}
+{synopt:{opt censor_d_cov(varlist)}}censoring denominator covariates{p_end}
+{synopt:{opt censor_n_cov(varlist)}}censoring numerator covariates{p_end}
+{synopt:{opt tru:ncate(numlist)}}truncation percentiles (e.g., 1 99){p_end}
 {synopt:{opt replace}}replace existing weight variables{p_end}
 {synopt:{opt nolog}}suppress iteration log{p_end}
 {synoptline}
@@ -56,6 +56,13 @@ weights (IPTW) and optionally inverse probability of censoring weights
 Period-specific weight ratios are accumulated via cumulative product
 within individuals using log-sum for numerical stability. Stabilized
 weights should have mean approximately 1.
+
+{pstd}
+If a treatment or censoring model encounters perfectly predicted strata,
+{cmd:msm_weight} uses truncated observed probabilities for those complete-case
+observations rather than silently dropping them. In contrast, observations with
+missing model inputs retain missing probabilities, and cumulative weights are
+set to missing from that period forward.
 
 {pstd}
 Creates variables: {cmd:_msm_weight} (cumulative combined),

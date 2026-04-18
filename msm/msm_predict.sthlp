@@ -28,7 +28,7 @@
 {synoptset 25 tabbed}{...}
 {synopthdr}
 {synoptline}
-{synopt:{opth times(numlist)}}time periods for prediction (required){p_end}
+{synopt:{opt times(numlist)}}time periods for prediction (required){p_end}
 {synopt:{opt stra:tegy(string)}}always, never, or both (default){p_end}
 {synopt:{opt type(string)}}cum_inc (default) or survival{p_end}
 {synopt:{opt sam:ples(#)}}MC samples for CIs; default 100{p_end}
@@ -47,7 +47,10 @@
 and never-treated strategies. Uses Monte Carlo simulation from the
 coefficient distribution (Cholesky decomposition) for confidence intervals.
 Predictions are based on G-formula standardization across the reference
-population at baseline.
+population at baseline. {cmd:msm_predict} currently supports logistic outcome
+models only. Any {cmd:outcome_cov()} terms from {helpb msm_fit} are held at
+their baseline/reference-population values during prediction, so they must be
+time-fixed within individual.
 
 
 {marker options}{...}

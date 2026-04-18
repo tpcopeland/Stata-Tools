@@ -15,13 +15,14 @@ version 16.0
 set more off
 set varabbrev off
 
-local data_dir "`qa_dir'/crossval_data"
-local results_dir "`qa_dir'/crossval_results"
-
 * === Bootstrap ===
 local qa_dir  "`c(pwd)'"
 local pkg_dir "`qa_dir'/.."  
+local data_dir "`qa_dir'/crossval_data"
+local results_dir "`qa_dir'/crossval_results"
 
+capture ado uninstall msm
+quietly net install msm, from("`pkg_dir'") replace
 adopath ++ "`pkg_dir'"
 
 capture log close crossval
@@ -153,7 +154,17 @@ display "    SE:  " %9.4f `teffects_se'
 * ============================================================
 display "STEP 4: Running R cross-validation..."
 
-!Rscript "`qa_dir'/crossval_r.R" > "`results_dir'/r_output.log" 2>&1
+capture erase "`results_dir'/r_results.csv"
+shell Rscript "`qa_dir'/crossval_r.R" > "`results_dir'/r_output.log" 2>&1
+if _rc {
+    display as error "R cross-validation failed. See `results_dir'/r_output.log"
+    exit _rc
+}
+capture confirm file "`results_dir'/r_results.csv"
+if _rc {
+    display as error "R cross-validation did not produce r_results.csv"
+    exit 601
+}
 display "  R script completed. See crossval_results/r_output.log"
 
 * ============================================================
@@ -161,7 +172,17 @@ display "  R script completed. See crossval_results/r_output.log"
 * ============================================================
 display "STEP 5: Running Python cross-validation..."
 
-!python3 "`qa_dir'/crossval_python.py" > "`results_dir'/py_output.log" 2>&1
+capture erase "`results_dir'/py_results.csv"
+shell python3 "`qa_dir'/crossval_python.py" > "`results_dir'/py_output.log" 2>&1
+if _rc {
+    display as error "Python cross-validation failed. See `results_dir'/py_output.log"
+    exit _rc
+}
+capture confirm file "`results_dir'/py_results.csv"
+if _rc {
+    display as error "Python cross-validation did not produce py_results.csv"
+    exit 601
+}
 display "  Python script completed. See crossval_results/py_output.log"
 
 * ============================================================

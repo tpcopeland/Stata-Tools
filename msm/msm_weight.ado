@@ -104,6 +104,20 @@ program define msm_weight, rclass
         exit 198
     }
 
+    * This implementation assumes a common baseline period for all individuals.
+    quietly summarize `period'
+    local min_period = r(min)
+    tempvar _first_period _id_tag
+    quietly bysort `id' (`period'): gen double `_first_period' = `period'[1]
+    quietly bysort `id': gen byte `_id_tag' = (_n == 1)
+    quietly count if `_id_tag' & `_first_period' != `min_period'
+    if r(N) > 0 {
+        display as error "delayed entry is not currently supported"
+        display as error as result r(N) as error ///
+            " individual(s) begin after the common baseline period `min_period'"
+        exit 198
+    }
+
     * =========================================================================
     * DISPLAY HEADER
     * =========================================================================
@@ -348,7 +362,11 @@ program define _msm_weight_treatment
         * DENOMINATOR MODEL: P(A_t | A_{t-1}, L_t, V)
         * Full model with all time-varying and baseline covariates
         * ---------------------------------------------------------------
-        tempvar _denom_pr
+        tempvar _denom_pr _denom_complete _denom_drop
+        gen byte `_denom_complete' = `_at_risk' & !missing(`_lag_treat')
+        foreach _v of varlist `d_cov' `period' {
+            replace `_denom_complete' = 0 if missing(`_v')
+        }
 
         noisily display as text "  Denominator model: `treatment' ~ `lag_treat' `d_cov' `period'"
         capture logit `treatment' `_lag_treat' `d_cov' `period' ///
@@ -366,9 +384,22 @@ program define _msm_weight_treatment
         else {
             predict double `_denom_pr' if `_at_risk' & !missing(`_lag_treat'), pr
         }
+        gen byte `_denom_drop' = `_denom_complete' & missing(`_denom_pr')
+        quietly count if `_denom_drop'
+        if r(N) > 0 {
+            noisily display as text "  Warning: " as result r(N) as text ///
+                " treatment-denominator observation(s) were perfectly predicted; " ///
+                "using truncated observed probabilities"
+            replace `_denom_pr' = cond(`treatment' == 1, `_pr_hi', `_pr_lo') ///
+                if `_denom_drop'
+        }
 
         * For first period (no lag), use a separate simpler model
-        tempvar _denom_pr0
+        tempvar _denom_pr0 _denom0_complete _denom0_drop
+        gen byte `_denom0_complete' = `_at_risk' & missing(`_lag_treat')
+        foreach _v of varlist `d_cov' {
+            replace `_denom0_complete' = 0 if missing(`_v')
+        }
         capture logit `treatment' `d_cov' if `_at_risk' & missing(`_lag_treat'), `log_opt'
         if _rc != 0 {
             summarize `treatment' if `_at_risk' & missing(`_lag_treat')
@@ -382,14 +413,29 @@ program define _msm_weight_treatment
         else {
             predict double `_denom_pr0' if `_at_risk' & missing(`_lag_treat'), pr
         }
+        gen byte `_denom0_drop' = `_denom0_complete' & missing(`_denom_pr0')
+        quietly count if `_denom0_drop'
+        if r(N) > 0 {
+            noisily display as text "  Warning: " as result r(N) as text ///
+                " first-period denominator observation(s) were perfectly predicted; " ///
+                "using truncated observed probabilities"
+            replace `_denom_pr0' = cond(`treatment' == 1, `_pr_hi', `_pr_lo') ///
+                if `_denom0_drop'
+        }
         replace `_denom_pr' = `_denom_pr0' if missing(`_denom_pr') & `_at_risk' & missing(`_lag_treat')
-        drop `_denom_pr0'
+        drop `_denom_pr0' `_denom_complete' `_denom_drop' `_denom0_complete' `_denom0_drop'
 
         * ---------------------------------------------------------------
         * NUMERATOR MODEL: P(A_t | A_{t-1}, V)
         * Baseline-only model (or simpler model) for stabilization
         * ---------------------------------------------------------------
-        tempvar _numer_pr
+        tempvar _numer_pr _numer_complete _numer_drop
+        gen byte `_numer_complete' = `_at_risk' & !missing(`_lag_treat')
+        if "`n_cov'" != "" {
+            foreach _v of varlist `n_cov' {
+                replace `_numer_complete' = 0 if missing(`_v')
+            }
+        }
 
         if "`n_cov'" != "" {
             noisily display as text "  Numerator model:   `treatment' ~ `lag_treat' `n_cov'"
@@ -413,9 +459,24 @@ program define _msm_weight_treatment
         else {
             predict double `_numer_pr' if `_at_risk' & !missing(`_lag_treat'), pr
         }
+        gen byte `_numer_drop' = `_numer_complete' & missing(`_numer_pr')
+        quietly count if `_numer_drop'
+        if r(N) > 0 {
+            noisily display as text "  Warning: " as result r(N) as text ///
+                " treatment-numerator observation(s) were perfectly predicted; " ///
+                "using truncated observed probabilities"
+            replace `_numer_pr' = cond(`treatment' == 1, `_pr_hi', `_pr_lo') ///
+                if `_numer_drop'
+        }
 
         * First period numerator
-        tempvar _numer_pr0
+        tempvar _numer_pr0 _numer0_complete _numer0_drop
+        gen byte `_numer0_complete' = `_at_risk' & missing(`_lag_treat')
+        if "`n_cov'" != "" {
+            foreach _v of varlist `n_cov' {
+                replace `_numer0_complete' = 0 if missing(`_v')
+            }
+        }
         if "`n_cov'" != "" {
             capture logit `treatment' `n_cov' if `_at_risk' & missing(`_lag_treat'), `log_opt'
         }
@@ -434,13 +495,22 @@ program define _msm_weight_treatment
         else {
             predict double `_numer_pr0' if `_at_risk' & missing(`_lag_treat'), pr
         }
+        gen byte `_numer0_drop' = `_numer0_complete' & missing(`_numer_pr0')
+        quietly count if `_numer0_drop'
+        if r(N) > 0 {
+            noisily display as text "  Warning: " as result r(N) as text ///
+                " first-period numerator observation(s) were perfectly predicted; " ///
+                "using truncated observed probabilities"
+            replace `_numer_pr0' = cond(`treatment' == 1, `_pr_hi', `_pr_lo') ///
+                if `_numer0_drop'
+        }
         replace `_numer_pr' = `_numer_pr0' if missing(`_numer_pr') & `_at_risk' & missing(`_lag_treat')
-        drop `_numer_pr0'
+        drop `_numer_pr0' `_numer_complete' `_numer_drop' `_numer0_complete' `_numer0_drop'
 
         * ---------------------------------------------------------------
         * COMPUTE PERIOD-SPECIFIC WEIGHT RATIOS
         * ---------------------------------------------------------------
-        tempvar _tw_t
+        tempvar _tw_t _miss_tw
 
         * Truncate extreme probabilities to avoid division by zero
         * and ensure all at-risk observations get proper weights
@@ -467,21 +537,34 @@ program define _msm_weight_treatment
         replace `_tw_t' = (1 - `_numer_pr') / (1 - `_denom_pr') ///
             if `treatment' == 0 & `_at_risk' & !missing(`_denom_pr')
 
+        gen byte `_miss_tw' = `_at_risk' & ///
+            (missing(`_denom_pr') | missing(`_numer_pr'))
+        quietly count if `_miss_tw'
+        if r(N) > 0 {
+            noisily display as text "  Warning: " as result r(N) as text ///
+                " at-risk observation(s) had missing model probabilities; " ///
+                "weights set to missing from that period forward"
+        }
+
         * ---------------------------------------------------------------
         * CUMULATIVE PRODUCT VIA LOG-SUM
         * ---------------------------------------------------------------
-        tempvar _log_tw _cum_log_tw
+        tempvar _log_tw _cum_log_tw _cum_miss_tw
 
-        gen double `_log_tw' = ln(`_tw_t') if `_at_risk' & !missing(`_tw_t') & `_tw_t' > 0
+        gen double `_log_tw' = ln(`_tw_t') if `_at_risk' & !`_miss_tw' & ///
+            !missing(`_tw_t') & `_tw_t' > 0
         * Set weight = 1 (log = 0) for non-at-risk observations
-        replace `_log_tw' = 0 if !`_at_risk' | missing(`_log_tw')
+        replace `_log_tw' = 0 if !`_at_risk'
 
+        bysort `id' (`period'): gen byte `_cum_miss_tw' = (sum(`_miss_tw') > 0)
         bysort `id' (`period'): gen double `_cum_log_tw' = sum(`_log_tw')
 
         gen double _msm_tw_weight = exp(`_cum_log_tw')
+        replace _msm_tw_weight = . if `_cum_miss_tw'
 
         * Clean up
-        drop `_at_risk' `_lag_treat' `_denom_pr' `_numer_pr' `_tw_t' `_log_tw' `_cum_log_tw'
+        drop `_at_risk' `_lag_treat' `_denom_pr' `_numer_pr' `_tw_t' ///
+            `_miss_tw' `_log_tw' `_cum_log_tw' `_cum_miss_tw'
     }
 end
 
@@ -519,7 +602,11 @@ program define _msm_weight_censor
         * DENOMINATOR MODEL: P(C_t = 0 | L_t, A_t)
         * We model P(uncensored) so weight = P_num(uncens) / P_den(uncens)
         * ---------------------------------------------------------------
-        tempvar _denom_pr
+        tempvar _denom_pr _denom_complete _denom_drop
+        gen byte `_denom_complete' = `_at_risk' & `outcome' == 0
+        foreach _v of varlist `treatment' `d_cov' `period' {
+            replace `_denom_complete' = 0 if missing(`_v')
+        }
 
         noisily display as text "  Denominator model: `censor' ~ `treatment' `d_cov' `period'"
         capture logit `censor' `treatment' `d_cov' `period' ///
@@ -537,11 +624,26 @@ program define _msm_weight_censor
         else {
             predict double `_denom_pr' if `_at_risk' & `outcome' == 0, pr
         }
+        gen byte `_denom_drop' = `_denom_complete' & missing(`_denom_pr')
+        quietly count if `_denom_drop'
+        if r(N) > 0 {
+            noisily display as text "  Warning: " as result r(N) as text ///
+                " censoring-denominator observation(s) were perfectly predicted; " ///
+                "using truncated observed probabilities"
+            replace `_denom_pr' = cond(`censor' == 1, `_pr_hi', `_pr_lo') ///
+                if `_denom_drop'
+        }
 
         * ---------------------------------------------------------------
         * NUMERATOR MODEL: P(C_t = 0 | A_t) or simpler
         * ---------------------------------------------------------------
-        tempvar _numer_pr
+        tempvar _numer_pr _numer_complete _numer_drop
+        gen byte `_numer_complete' = `_at_risk' & `outcome' == 0 & !missing(`treatment')
+        if "`n_cov'" != "" {
+            foreach _v of varlist `n_cov' {
+                replace `_numer_complete' = 0 if missing(`_v')
+            }
+        }
 
         if "`n_cov'" != "" {
             noisily display as text "  Numerator model:   `censor' ~ `treatment' `n_cov'"
@@ -565,12 +667,21 @@ program define _msm_weight_censor
         else {
             predict double `_numer_pr' if `_at_risk' & `outcome' == 0, pr
         }
+        gen byte `_numer_drop' = `_numer_complete' & missing(`_numer_pr')
+        quietly count if `_numer_drop'
+        if r(N) > 0 {
+            noisily display as text "  Warning: " as result r(N) as text ///
+                " censoring-numerator observation(s) were perfectly predicted; " ///
+                "using truncated observed probabilities"
+            replace `_numer_pr' = cond(`censor' == 1, `_pr_hi', `_pr_lo') ///
+                if `_numer_drop'
+        }
 
         * ---------------------------------------------------------------
         * WEIGHT: P(uncensored|num) / P(uncensored|den)
         *       = (1 - P_num(cens)) / (1 - P_den(cens))
         * ---------------------------------------------------------------
-        tempvar _cw_t
+        tempvar _cw_t _miss_cw
 
         * Truncate extreme censoring probabilities
         replace `_denom_pr' = max(`_denom_pr', `_pr_lo') if `_at_risk' & `outcome' == 0 & !missing(`_denom_pr')
@@ -582,14 +693,27 @@ program define _msm_weight_censor
         replace `_cw_t' = (1 - `_numer_pr') / (1 - `_denom_pr') ///
             if `_at_risk' & `outcome' == 0 & !missing(`_denom_pr')
 
-        * Cumulative product
-        tempvar _log_cw _cum_log_cw
-        gen double `_log_cw' = ln(`_cw_t') if !missing(`_cw_t') & `_cw_t' > 0
-        replace `_log_cw' = 0 if missing(`_log_cw')
+        gen byte `_miss_cw' = `_at_risk' & `outcome' == 0 & ///
+            (missing(`_denom_pr') | missing(`_numer_pr'))
+        quietly count if `_miss_cw'
+        if r(N) > 0 {
+            noisily display as text "  Warning: " as result r(N) as text ///
+                " at-risk observation(s) had missing censoring probabilities; " ///
+                "weights set to missing from that period forward"
+        }
 
+        * Cumulative product
+        tempvar _log_cw _cum_log_cw _cum_miss_cw
+        gen double `_log_cw' = ln(`_cw_t') if !`_miss_cw' & !missing(`_cw_t') & `_cw_t' > 0
+        replace `_log_cw' = 0 if !`_at_risk' | `outcome' != 0
+
+        bysort `id' (`period'): gen byte `_cum_miss_cw' = (sum(`_miss_cw') > 0)
         bysort `id' (`period'): gen double `_cum_log_cw' = sum(`_log_cw')
         gen double _msm_cw_weight = exp(`_cum_log_cw')
+        replace _msm_cw_weight = . if `_cum_miss_cw'
 
-        drop `_at_risk' `_denom_pr' `_numer_pr' `_cw_t' `_log_cw' `_cum_log_cw'
+        drop `_at_risk' `_denom_pr' `_numer_pr' `_cw_t' `_miss_cw' ///
+            `_log_cw' `_cum_log_cw' `_cum_miss_cw' `_denom_complete' ///
+            `_denom_drop' `_numer_complete' `_numer_drop'
     }
 end

@@ -16,7 +16,8 @@ library(survival)
 cat("=== R CROSS-VALIDATION FOR MSM PACKAGE ===\n")
 cat("Date:", format(Sys.time()), "\n\n")
 
-qa_dir <- "/home/tpcopeland/Stata-Tools/msm/qa"
+script_arg <- grep("^--file=", commandArgs(trailingOnly = FALSE), value = TRUE)
+qa_dir <- dirname(normalizePath(sub("^--file=", "", script_arg[1])))
 data_dir <- file.path(qa_dir, "crossval_data")
 results_dir <- file.path(qa_dir, "crossval_results")
 

@@ -88,6 +88,27 @@ program define msm_predict, rclass
         display as error "For Cox model, use standard Stata post-estimation."
         exit 198
     }
+    if "`outcome_cov'" != "" {
+        local varying_outcome_cov ""
+        foreach var of local outcome_cov {
+            tempvar _min_cov _max_cov _id_tag
+            quietly bysort `id': egen double `_min_cov' = min(`var')
+            quietly bysort `id': egen double `_max_cov' = max(`var')
+            quietly bysort `id': gen byte `_id_tag' = (_n == 1)
+            quietly count if `_id_tag' & (`_min_cov' != `_max_cov') & ///
+                !missing(`_min_cov') & !missing(`_max_cov')
+            if r(N) > 0 {
+                local varying_outcome_cov "`varying_outcome_cov' `var'"
+            }
+        }
+        local varying_outcome_cov = strtrim("`varying_outcome_cov'")
+        if "`varying_outcome_cov'" != "" {
+            display as error "msm_predict requires outcome_cov() variables to be time-fixed within id"
+            display as error "These variables vary over time: `varying_outcome_cov'"
+            display as error "Refit {bf:msm_fit} without time-varying outcome_cov() terms before predicting."
+            exit 198
+        }
+    }
     if `seed' >= 0 {
         set seed `seed'
     }

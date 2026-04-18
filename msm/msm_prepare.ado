@@ -120,6 +120,22 @@ program define msm_prepare, rclass
     local max_period = r(max)
     local n_periods = `max_period' - `min_period' + 1
 
+    * Baseline covariates must be constant within individual
+    if "`baseline_covariates'" != "" {
+        foreach var of local baseline_covariates {
+            tempvar _bl_min _bl_max _bl_tag
+            quietly bysort `id': egen double `_bl_min' = min(`var')
+            quietly bysort `id': egen double `_bl_max' = max(`var')
+            quietly bysort `id': gen byte `_bl_tag' = (_n == 1)
+            quietly count if `_bl_tag' & (`_bl_min' != `_bl_max') & ///
+                !missing(`_bl_min') & !missing(`_bl_max')
+            if r(N) > 0 {
+                display as error "baseline_covariates() variable `var' varies within `id'"
+                exit 198
+            }
+        }
+    }
+
     * Count key quantities
     quietly count if `outcome' == 1
     local n_events = r(N)

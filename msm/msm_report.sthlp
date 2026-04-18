@@ -37,7 +37,7 @@
 {synopt:{opt tit:le(string)}}title for cell A1{p_end}
 {synopt:{opt f:ont(name)}}font name; default is {cmd:Arial}{p_end}
 {synopt:{opt fonts:ize(#)}}font size in points; default is {cmd:10}{p_end}
-{synopt:{opt border:style(style)}}{cmd:thin} (default) or {cmd:medium}{p_end}
+{synopt:{opt border:style(style)}}{cmd:thin} (default), {cmd:medium}, or {cmd:academic}{p_end}
 {synopt:{opt zebra}}alternating row shading{p_end}
 {synopt:{opt foot:note(string)}}merged footnote below table{p_end}
 {synopt:{opt open}}auto-open file after export{p_end}
@@ -95,7 +95,8 @@ The following options apply only when {cmd:format(excel)} is specified:
 {opt fonts:ize(#)} sets the font size. Default is {cmd:10}.
 
 {phang}
-{opt border:style(style)} sets border weight: {cmd:thin} (default) or {cmd:medium}.
+{opt border:style(style)} sets border weight: {cmd:thin} (default),
+{cmd:medium}, or {cmd:academic}.
 
 {phang}
 {opt zebra} applies alternating row shading to data rows.

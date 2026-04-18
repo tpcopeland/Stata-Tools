@@ -10,6 +10,7 @@
 {viewerjumpto "Options" "msm_table##options"}{...}
 {viewerjumpto "Sheets" "msm_table##sheets"}{...}
 {viewerjumpto "Examples" "msm_table##examples"}{...}
+{viewerjumpto "Author" "msm_table##author"}{...}
 {title:Title}
 
 {p2colset 5 22 24 2}{...}
@@ -47,7 +48,7 @@
 {synopt:{opt replace}}replace existing file{p_end}
 {synopt:{opt f:ont(name)}}font name; default is {cmd:Arial}{p_end}
 {synopt:{opt fonts:ize(#)}}font size in points; default is {cmd:10}{p_end}
-{synopt:{opt border:style(style)}}border style: {cmd:thin} or {cmd:medium}; default is {cmd:thin}{p_end}
+{synopt:{opt border:style(style)}}border style: {cmd:thin}, {cmd:medium}, or {cmd:academic}; default is {cmd:thin}{p_end}
 {synopt:{opt nfor:mat(string)}}Excel number format for numeric cells{p_end}
 {synopt:{opt zebra}}alternating row shading (light gray){p_end}
 {synopt:{opt bold:p(#)}}bold p-values below threshold (Coefficients only){p_end}
@@ -139,7 +140,8 @@ Must be between 6 and 72.
 
 {phang}
 {opt border:style(style)} sets the border weight for the table frame and
-separators. Options are {cmd:thin} (default) or {cmd:medium}.
+separators. Options are {cmd:thin} (default), {cmd:medium}, or
+{cmd:academic}.
 
 {phang}
 {opt nfor:mat(string)} applies an Excel number format to converted numeric
@@ -235,9 +237,9 @@ Run the MSM pipeline before calling {cmd:msm_table}:
 {marker author}{...}
 {title:Author}
 
-{pstd}Timothy P Copeland{p_end}
-{pstd}Department of Clinical Neuroscience{p_end}
-{pstd}Karolinska Institutet, Stockholm, Sweden{p_end}
-{pstd}timothy.copeland@ki.se{p_end}
+{pstd}
+Timothy P Copeland, Karolinska Institutet{break}
+timothy.copeland@ki.se
+{p_end}
 
 {hline}

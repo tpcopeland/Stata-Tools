@@ -54,8 +54,9 @@ confounder-treatment (RR_UD) and confounder-outcome (RR_UY) associations.
 
 {phang}
 {opt evalue} computes the E-value for the point estimate and (if available)
-the confidence interval bound closest to the null. This is the default
-if no other option is specified.
+the confidence interval bound closest to the null for logistic and Cox fits.
+This is the default if no other option is specified. Linear models do not
+return E-values.
 
 {phang}
 {opt confounding_strength(# #)} specifies hypothetical RR(U,D) and RR(U,Y)
@@ -75,8 +76,8 @@ association.
 
 {synoptset 20 tabbed}{...}
 {p2col 5 20 24 2: Scalars}{p_end}
-{synopt:{cmd:r(evalue_point)}}E-value for point estimate{p_end}
-{synopt:{cmd:r(evalue_ci)}}E-value for CI bound{p_end}
+{synopt:{cmd:r(evalue_point)}}E-value for point estimate (logistic/Cox fits){p_end}
+{synopt:{cmd:r(evalue_ci)}}E-value for CI bound (logistic/Cox fits){p_end}
 {synopt:{cmd:r(effect)}}treatment effect estimate{p_end}
 {synopt:{cmd:r(effect_lo)}}lower CI bound{p_end}
 {synopt:{cmd:r(effect_hi)}}upper CI bound{p_end}

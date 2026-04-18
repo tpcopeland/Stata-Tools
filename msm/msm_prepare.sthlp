@@ -29,15 +29,15 @@
 {synopthdr}
 {synoptline}
 {syntab:Required}
-{synopt:{opth id(varname)}}individual identifier{p_end}
-{synopt:{opth per:iod(varname)}}time period variable (integer){p_end}
-{synopt:{opth treat:ment(varname)}}binary treatment indicator (0/1){p_end}
-{synopt:{opth out:come(varname)}}binary outcome indicator (0/1){p_end}
+{synopt:{opt id(varname)}}individual identifier{p_end}
+{synopt:{opt per:iod(varname)}}time period variable (integer){p_end}
+{synopt:{opt treat:ment(varname)}}binary treatment indicator (0/1){p_end}
+{synopt:{opt out:come(varname)}}binary outcome indicator (0/1){p_end}
 
 {syntab:Optional}
-{synopt:{opth cen:sor(varname)}}binary censoring indicator (0/1){p_end}
-{synopt:{opth cov:ariates(varlist)}}time-varying covariates{p_end}
-{synopt:{opth bas:eline_covariates(varlist)}}baseline-only covariates{p_end}
+{synopt:{opt cen:sor(varname)}}binary censoring indicator (0/1){p_end}
+{synopt:{opt cov:ariates(varlist)}}time-varying covariates{p_end}
+{synopt:{opt bas:eline_covariates(varlist)}}baseline-only covariates{p_end}
 {synoptline}
 
 
@@ -51,7 +51,9 @@ characteristics for downstream commands.
 
 {pstd}
 Data must be in person-period (long) format with one row per individual per
-time period.
+time period. All individuals must share the common baseline period, and
+variables passed in {cmd:baseline_covariates()} must be time-fixed within
+individual.
 
 
 {marker options}{...}
@@ -85,7 +87,8 @@ time period.
 {marker examples}{...}
 {title:Examples}
 
-{phang2}{cmd:. use msm_example.dta}{p_end}
+{phang2}{cmd:. findfile msm_example.dta}{p_end}
+{phang2}{cmd:. use "`r(fn)'", clear}{p_end}
 
 {phang2}{cmd:. msm_prepare, id(id) period(period) treatment(treatment)}{p_end}
 {phang2}{cmd:    outcome(outcome) covariates(biomarker comorbidity)}{p_end}

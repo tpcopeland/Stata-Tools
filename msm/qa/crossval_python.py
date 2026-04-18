@@ -14,6 +14,7 @@ from scipy.special import expit
 import statsmodels.api as sm
 import statsmodels.formula.api as smf
 import os
+import pathlib
 import warnings
 warnings.filterwarnings("ignore")
 
@@ -21,7 +22,7 @@ print("=== PYTHON CROSS-VALIDATION FOR MSM PACKAGE ===")
 print(f"numpy: {np.__version__}, pandas: {pd.__version__}, statsmodels: {sm.__version__}")
 print()
 
-qa_dir = "/home/tpcopeland/Stata-Tools/msm/qa"
+qa_dir = str(pathlib.Path(__file__).resolve().parent)
 data_dir = os.path.join(qa_dir, "crossval_data")
 results_dir = os.path.join(qa_dir, "crossval_results")
 

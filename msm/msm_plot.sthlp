@@ -28,9 +28,9 @@
 {synopthdr}
 {synoptline}
 {synopt:{opt type(string)}}weights, balance, survival, trajectory, or positivity{p_end}
-{synopt:{opth cov:ariates(varlist)}}for balance plot{p_end}
+{synopt:{opt cov:ariates(varlist)}}for balance plot{p_end}
 {synopt:{opt thr:eshold(#)}}SMD threshold for balance; default 0.1{p_end}
-{synopt:{opth times(numlist)}}for survival plot{p_end}
+{synopt:{opt times(numlist)}}for survival plot{p_end}
 {synopt:{opt sam:ples(#)}}MC samples for survival; default 50{p_end}
 {synopt:{opt seed(#)}}random number seed for survival curves{p_end}
 {synopt:{opt n_sample(#)}}individuals for trajectory; default 50{p_end}
@@ -51,6 +51,10 @@
 {phang2}{cmd:survival} - Cumulative incidence curves from msm_predict{p_end}
 {phang2}{cmd:trajectory} - Treatment spaghetti plot{p_end}
 {phang2}{cmd:positivity} - Treatment probability by period{p_end}
+
+{pstd}
+{cmd:msm_plot} uses the {cmd:plotplainblind} scheme from {cmd:tc_schemes}.
+Install that package before plotting if the scheme is not already available.
 
 
 {marker options}{...}

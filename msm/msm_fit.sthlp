@@ -29,9 +29,9 @@
 {synopthdr}
 {synoptline}
 {synopt:{opt mod:el(string)}}logistic (default), linear, or cox{p_end}
-{synopt:{opth outcome_cov(varlist)}}additional outcome covariates{p_end}
+{synopt:{opt outcome_cov(varlist)}}additional time-fixed outcome covariates{p_end}
 {synopt:{opt per:iod_spec(string)}}linear, quadratic (default), cubic, ns(#), or none{p_end}
-{synopt:{opth cl:uster(varname)}}cluster variable; default is ID{p_end}
+{synopt:{opt cl:uster(varname)}}cluster variable; default is ID{p_end}
 {synopt:{opt boot:strap(#)}}bootstrap replicates (0 = no bootstrap){p_end}
 {synopt:{opt level(#)}}confidence level; default is 95{p_end}
 {synopt:{opt nolog}}suppress iteration log{p_end}
@@ -57,8 +57,10 @@ logistic regression via GLM. {cmd:linear} fits a weighted linear model.
 {cmd:cox} fits a weighted Cox proportional hazards model.
 
 {phang}
-{opth outcome_cov(varlist)} specifies additional covariates for the
-outcome model beyond treatment and period.
+{opth outcome_cov(varlist)} specifies additional time-fixed covariates for the
+outcome model beyond treatment and period. If you plan to run
+{helpb msm_predict}, use baseline-only covariates here; dynamic time-varying
+covariate paths are not propagated by the prediction routine.
 
 {phang}
 {opt per:iod_spec(string)} specifies the functional form for period in
@@ -94,6 +96,9 @@ in {cmd:e()}, plus:
 {synopt:{cmd:e(msm_model)}}model type (logistic, linear, or cox){p_end}
 {synopt:{cmd:e(msm_treatment)}}treatment variable name{p_end}
 {synopt:{cmd:e(msm_period_spec)}}period specification used{p_end}
+
+{p2col 5 25 29 2: Matrices}{p_end}
+{synopt:{cmd:e(effects)}}1 x 4 effect matrix with columns {cmd:estimate}, {cmd:ci_lower}, {cmd:ci_upper}, and {cmd:pvalue}{p_end}
 
 
 {marker examples}{...}

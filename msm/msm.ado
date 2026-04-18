@@ -26,7 +26,7 @@ program define msm, rclass
 
     syntax [, List Detail PROTocol]
 
-    local version "1.0.4"
+    local version "1.0.0"
     local n_commands = 11
 
     * All user-facing commands

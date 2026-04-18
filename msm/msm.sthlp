@@ -78,7 +78,7 @@ is independent of measured confounders.
 {helpb msm_weight} {hline 2} Stabilized IPTW (+ optional IPCW)
 
 {phang}
-{helpb msm_fit} {hline 2} Weighted outcome model (pooled logistic/Cox)
+{helpb msm_fit} {hline 2} Weighted outcome model (pooled logistic/linear/Cox)
 
 {phang}
 {helpb msm_predict} {hline 2} Counterfactual predictions with CIs
@@ -89,7 +89,7 @@ is independent of measured confounders.
 {helpb msm_diagnose} {hline 2} Weight distribution and covariate balance
 
 {phang}
-{helpb msm_plot} {hline 2} Weight, balance, survival, trajectory plots
+{helpb msm_plot} {hline 2} Weight, balance, survival, trajectory, positivity plots
 
 {phang}
 {helpb msm_report} {hline 2} Publication-quality results tables
@@ -123,7 +123,8 @@ is independent of measured confounders.
 {title:Examples}
 
 {pstd}Setup{p_end}
-{phang2}{cmd:. use msm_example.dta}{p_end}
+{phang2}{cmd:. findfile msm_example.dta}{p_end}
+{phang2}{cmd:. use "`r(fn)'", clear}{p_end}
 
 {pstd}Prepare data{p_end}
 {phang2}{cmd:. msm_prepare, id(id) period(period) treatment(treatment)}{p_end}
@@ -131,7 +132,7 @@ is independent of measured confounders.
 {phang2}{cmd:    baseline_covariates(age sex)}{p_end}
 
 {pstd}Validate{p_end}
-{phang2}{cmd:. msm_validate, verbose}{p_end}
+{phang2}{cmd:. msm_validate, strict verbose}{p_end}
 
 {pstd}Calculate weights{p_end}
 {phang2}{cmd:. msm_weight, treat_d_cov(biomarker comorbidity age sex)}{p_end}
@@ -190,9 +191,7 @@ structural models. {it:American Journal of Epidemiology}. 2008;168(6):656-664.
 {title:Author}
 
 {pstd}
-Timothy P Copeland{break}
-Department of Clinical Neuroscience{break}
-Karolinska Institutet, Stockholm, Sweden{break}
+Timothy P Copeland, Karolinska Institutet{break}
 timothy.copeland@ki.se
 {p_end}
 

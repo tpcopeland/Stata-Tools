@@ -28,6 +28,8 @@ program define _setup_pipeline
     version 16.0
     syntax [, NOCENSOR NOLOG]
 
+    local qa_dir "`c(pwd)'"
+    local pkg_dir "`qa_dir'/.."
     use "`pkg_dir'/msm_example.dta", clear
     if "`nocensor'" != "" {
         msm_prepare, id(id) period(period) treatment(treatment) ///
@@ -2843,17 +2845,17 @@ else {
 }
 
 * =============================================================================
-* D1: DELIBERATION v1.0.4 FIXES
+* D1: DELIBERATION v1.0.0 FIXES
 * =============================================================================
 
 * --- D1: Version consistency ---
 local ++test_count
 capture noisily {
     msm
-    assert "`r(version)'" == "1.0.4"
+    assert "`r(version)'" == "1.0.0"
 }
 if _rc == 0 {
-    display as result "  PASS D1: msm version is 1.0.4"
+    display as result "  PASS D1: msm version is 1.0.0"
     local ++pass_count
 }
 else {
@@ -3170,6 +3172,115 @@ else {
     display as error "  FAIL R6: strict mode on clean data (rc=`=_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' R6"
+}
+
+* --- R7: msm_fit excludes rows after prior outcome events ---
+local ++test_count
+capture noisily {
+    use "`pkg_dir'/msm_example.dta", clear
+    sort id period
+    preserve
+    keep if outcome == 1
+    bysort id (period): keep if _n == 1
+    keep id period treatment outcome censored biomarker comorbidity age sex
+    replace period = period + 1
+    replace outcome = 0
+    replace censored = 0
+    tempfile postev
+    save `postev'
+    restore
+    append using `postev'
+    sort id period
+
+    msm_prepare, id(id) period(period) treatment(treatment) ///
+        outcome(outcome) censor(censored) ///
+        covariates(biomarker comorbidity) ///
+        baseline_covariates(age sex)
+    msm_weight, treat_d_cov(biomarker comorbidity age sex) ///
+        treat_n_cov(age sex) nolog
+    msm_fit, model(logistic) outcome_cov(age sex) period_spec(linear) nolog
+
+    gen byte _post_event_row = 0
+    bysort id (period): replace _post_event_row = (sum(outcome[_n-1]) >= 1) if _n > 1
+    count if _post_event_row == 1 & _msm_esample == 1
+    assert r(N) == 0
+    drop _post_event_row
+}
+if _rc == 0 {
+    display as result "  PASS R7: msm_fit excludes post-event follow-up rows"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL R7: post-event exclusion in msm_fit (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' R7"
+}
+
+* --- R8: msm_predict rejects time-varying outcome_cov() terms ---
+local ++test_count
+capture noisily {
+    use "`pkg_dir'/msm_example.dta", clear
+    msm_prepare, id(id) period(period) treatment(treatment) ///
+        outcome(outcome) censor(censored) ///
+        covariates(biomarker comorbidity) ///
+        baseline_covariates(age sex)
+    msm_weight, treat_d_cov(biomarker comorbidity age sex) ///
+        treat_n_cov(age sex) nolog
+    msm_fit, model(logistic) outcome_cov(biomarker age sex) ///
+        period_spec(linear) nolog
+    capture msm_predict, times(3 5) samples(10)
+    assert _rc == 198
+}
+if _rc == 0 {
+    display as result "  PASS R8: msm_predict rejects time-varying outcome_cov()"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL R8: time-varying outcome_cov() rejection (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' R8"
+}
+
+* --- R9: msm_prepare rejects baseline_covariates() that vary within id ---
+local ++test_count
+capture noisily {
+    use "`pkg_dir'/msm_example.dta", clear
+    capture msm_prepare, id(id) period(period) treatment(treatment) ///
+        outcome(outcome) censor(censored) ///
+        covariates(comorbidity) baseline_covariates(biomarker age sex)
+    assert _rc == 198
+}
+if _rc == 0 {
+    display as result "  PASS R9: baseline_covariates() must be time-fixed"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL R9: baseline_covariates() constancy check (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' R9"
+}
+
+* --- R10: msm_weight rejects delayed entry ---
+local ++test_count
+capture noisily {
+    use "`pkg_dir'/msm_example.dta", clear
+    drop if inrange(id, 1, 50) & period < 2
+    msm_prepare, id(id) period(period) treatment(treatment) ///
+        outcome(outcome) censor(censored) ///
+        covariates(biomarker comorbidity) ///
+        baseline_covariates(age sex)
+    capture msm_weight, treat_d_cov(biomarker comorbidity age sex) ///
+        treat_n_cov(age sex) nolog
+    assert _rc == 198
+}
+if _rc == 0 {
+    display as result "  PASS R10: msm_weight rejects delayed entry"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL R10: delayed entry rejection (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' R10"
 }
 
 * =============================================================================

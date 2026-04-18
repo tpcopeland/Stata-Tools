@@ -159,13 +159,48 @@ program define msm_fit, eclass
     * MARK ESTIMATION SAMPLE
     * =========================================================================
 
-    * Exclude censored observations if censoring exists
-    tempvar _esample
+    * Exclude rows after prior outcome/censoring so the pooled model is fit
+    * only on person-periods still at risk at the start of each interval.
+    tempvar _esample _post_outcome
+    local n_post_outcome = 0
+    local n_post_censor = 0
+
+    bysort `id' (`period'): gen byte `_post_outcome' = ///
+        (sum(`outcome'[_n-1]) >= 1) if _n > 1
+    replace `_post_outcome' = 0 if missing(`_post_outcome')
+    quietly count if `_post_outcome' == 1
+    local n_post_outcome = r(N)
+
     if "`censor'" != "" {
-        gen byte `_esample' = (`censor' == 0 & !missing(_msm_weight))
+        tempvar _post_censor
+        bysort `id' (`period'): gen byte `_post_censor' = ///
+            (sum(`censor'[_n-1]) >= 1) if _n > 1
+        replace `_post_censor' = 0 if missing(`_post_censor')
+        quietly count if `_post_censor' == 1
+        local n_post_censor = r(N)
+        gen byte `_esample' = (`_post_outcome' == 0 & `_post_censor' == 0 & ///
+            `censor' == 0 & !missing(_msm_weight))
     }
     else {
-        gen byte `_esample' = !missing(_msm_weight)
+        gen byte `_esample' = (`_post_outcome' == 0 & !missing(_msm_weight))
+    }
+
+    quietly count if `_esample'
+    if r(N) == 0 {
+        display as error "no observations remain in the MSM estimation sample"
+        exit 2000
+    }
+
+    if `n_post_outcome' > 0 {
+        display as text "Excluding " as result `n_post_outcome' ///
+            as text " row(s) after prior outcome events."
+    }
+    if `n_post_censor' > 0 {
+        display as text "Excluding " as result `n_post_censor' ///
+            as text " row(s) after prior censoring."
+    }
+    if `n_post_outcome' > 0 | `n_post_censor' > 0 {
+        display as text ""
     }
 
     * =========================================================================

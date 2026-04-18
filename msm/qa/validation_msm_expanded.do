@@ -32,6 +32,8 @@ program define _setup_pipeline
     version 16.0
     syntax [, NOLOG]
 
+    local qa_dir "`c(pwd)'"
+    local pkg_dir "`qa_dir'/.."
     use "`pkg_dir'/msm_example.dta", clear
     msm_prepare, id(id) period(period) treatment(treatment) ///
         outcome(outcome) covariates(biomarker comorbidity) ///
@@ -57,7 +59,9 @@ capture noisily {
     set obs `=`N' * `T''
     gen id = ceil(_n / `T')
     bysort id: gen period = _n - 1
-    gen bl = rnormal()
+    gen double bl = .
+    bysort id: replace bl = rnormal() if _n == 1
+    bysort id: replace bl = bl[1]
     bysort id: gen treatment = (runiform() < invlogit(-0.5 + 0.3 * bl))
     * Outcome with known effect: log-OR = ln(2) ≈ 0.693
     bysort id: gen outcome = (runiform() < invlogit(-4 + 0.693 * treatment + 0.3 * bl))
@@ -110,7 +114,9 @@ capture noisily {
     set obs `=`N' * `T''
     gen id = ceil(_n / `T')
     bysort id: gen period = _n - 1
-    gen bl = rnormal()
+    gen double bl = .
+    bysort id: replace bl = rnormal() if _n == 1
+    bysort id: replace bl = bl[1]
     bysort id: gen treatment = (runiform() < invlogit(-0.5 + 0.3 * bl))
     * Protective effect: log-OR = ln(0.5) ≈ -0.693
     bysort id: gen outcome = (runiform() < invlogit(-3 - 0.693 * treatment + 0.3 * bl))
@@ -570,7 +576,9 @@ capture noisily {
     set obs `=`N' * `T''
     gen id = ceil(_n / `T')
     bysort id: gen period = _n - 1
-    gen bl = rnormal()
+    gen double bl = .
+    bysort id: replace bl = rnormal() if _n == 1
+    bysort id: replace bl = bl[1]
     bysort id: gen treatment = (runiform() < invlogit(-0.5 + 0.3 * bl))
     * NO treatment effect on outcome
     bysort id: gen outcome = (runiform() < invlogit(-4 + 0 * treatment + 0.5 * bl))
@@ -608,7 +616,9 @@ capture noisily {
     set obs `=`N' * `T''
     gen id = ceil(_n / `T')
     bysort id: gen period = _n - 1
-    gen bl = rnormal()
+    gen double bl = .
+    bysort id: replace bl = rnormal() if _n == 1
+    bysort id: replace bl = bl[1]
     bysort id: gen treatment = (runiform() < invlogit(-0.5 + 0.3 * bl))
     bysort id: gen outcome = (runiform() < invlogit(-4 + 0 * treatment + 0.5 * bl))
 
@@ -1074,7 +1084,9 @@ capture noisily {
     set obs `=`N' * `T''
     gen id = ceil(_n / `T')
     bysort id: gen period = _n - 1
-    gen bl = rnormal()
+    gen double bl = .
+    bysort id: replace bl = rnormal() if _n == 1
+    bysort id: replace bl = bl[1]
     bysort id: gen treatment = (runiform() < invlogit(-0.5 + 0.3 * bl))
     * Continuous outcome with known effect = 2.0
     gen outcome_cont = 2.0 * treatment + 0.5 * bl + rnormal()

@@ -6,12 +6,13 @@ version 16.0
 set more off
 set varabbrev off
 
-local data_dir "`qa_dir'/data"
-
 * === Bootstrap ===
 local qa_dir  "`c(pwd)'"
 local pkg_dir "`qa_dir'/.."  
+local data_dir "`qa_dir'/data"
 
+capture ado uninstall msm
+quietly net install msm, from("`pkg_dir'") replace
 adopath ++ "`pkg_dir'"
 
 local test_count = 0
@@ -634,6 +635,7 @@ capture {
     }
     assert r(N) == 0
     display "  Person-periods: " _N " (" `n_persons' " x 10)"
+    drop `dup_check'
 
     save "`data_dir'/nhefs_personperiod.dta", replace
 }
@@ -816,14 +818,14 @@ else {
     local failed_tests "`failed_tests' 4.1"
 }
 
-* Test 4.2: MSM estimate within 0.20 of truth
+* Test 4.2: MSM estimate within 0.35 of truth
 local ++test_count
 capture {
     msm_prepare, id(id) period(period) treatment(mtx) ///
         outcome(outcome) covariates(disease_act) baseline_covariates(bl_da0)
 
     msm_weight, treat_d_cov(disease_act bl_da0) treat_n_cov(bl_da0) nolog
-    msm_fit, model(logistic) outcome_cov(bl_da0) period_spec(linear) nolog
+    msm_fit, model(logistic) outcome_cov(bl_da0) period_spec(quadratic) nolog
 
     local b_msm = _b[mtx]
     local bias_msm = abs(`b_msm' - `true_logor')
@@ -831,7 +833,7 @@ capture {
     assert `bias_msm' < 0.35
 }
 if _rc == 0 {
-    display as result "  PASS 4.2: MSM estimate within 0.20 of truth"
+    display as result "  PASS 4.2: MSM estimate within 0.35 of truth"
     local ++pass_count
 }
 else {
@@ -1597,7 +1599,9 @@ program define _v8_make_data
     bysort id: gen int period = _n - 1
     set seed 80801
     gen double age = rnormal(50, 10)
-    gen byte sex = runiform() < 0.5
+    gen byte sex = .
+    bysort id: replace sex = (runiform() < 0.5) if _n == 1
+    bysort id: replace sex = sex[1]
     gen double xb = -2 + 0.02 * age - 0.3 * sex
     gen byte treatment = runiform() < invlogit(xb)
     gen double yxb = -3 + 0.5 * treatment + 0.01 * age

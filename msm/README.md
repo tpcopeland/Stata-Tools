@@ -42,6 +42,8 @@ net install msm, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/
 The package includes `msm_example.dta` for testing.
 
 **Requirements:** Stata 16+
+For plotting, install `tc_schemes` so the `plotplainblind` scheme used by
+`msm_plot` is available.
 
 ---
 
@@ -60,7 +62,8 @@ MSMs solve this by using IPTW to create a pseudo-population where treatment is i
 ## Quick Start
 
 ```stata
-use msm_example.dta, clear
+findfile msm_example.dta
+use "`r(fn)'", clear
 
 * 1. Prepare
 msm_prepare, id(id) period(period) treatment(treatment) ///
@@ -68,7 +71,7 @@ msm_prepare, id(id) period(period) treatment(treatment) ///
     baseline_covariates(age sex)
 
 * 2. Validate
-msm_validate, verbose
+msm_validate, strict verbose
 
 * 3. Weight
 msm_weight, treat_d_cov(biomarker comorbidity age sex) ///
@@ -175,7 +178,7 @@ msm_prepare, id(varname) period(varname) treatment(varname)
 | `covariates(varlist)` | Time-varying covariates |
 | `baseline_covariates(varlist)` | Baseline-only covariates |
 
-**Data requirements:** Person-period (long) format. One row per individual per time period. No duplicate `(id, period)` combinations. Treatment and outcome must be binary 0/1.
+**Data requirements:** Person-period (long) format. One row per individual per time period. No duplicate `(id, period)` combinations. Treatment and outcome must be binary 0/1. `baseline_covariates()` must be time-fixed within individual, and delayed entry is not currently supported: all individuals must share the common baseline period.
 
 ---
 
@@ -225,6 +228,7 @@ msm_weight, treat_d_cov(varlist)
 | `censor_d_cov(varlist)` | Censoring denominator covariates |
 | `censor_n_cov(varlist)` | Censoring numerator covariates |
 | `truncate(numlist)` | Truncation percentiles, e.g., `truncate(1 99)` |
+| `replace` | Replace existing weight variables |
 | `nolog` | Suppress logistic iteration logs |
 
 **Weight formula (stabilized):**
@@ -233,7 +237,14 @@ msm_weight, treat_d_cov(varlist)
 w_t = ∏ [ Pr(A_t | A_{t-1}, V) / Pr(A_t | A_{t-1}, L_t, V) ]
 ```
 
-The denominator model conditions on the full covariate history (more variables = less confounding bias). The numerator model conditions on fewer covariates (closer to 1 = less variance). Weights are accumulated as a cumulative product across periods within each individual, using log-sums for numerical stability.
+`msm_weight` now distinguishes perfect prediction from incomplete inputs. If a
+complete-case treatment or censoring stratum is perfectly predicted, the
+command uses truncated observed probabilities for that stratum rather than
+dropping it or defaulting the weight factor to 1. If required weighting inputs
+are genuinely missing, cumulative weights become missing from that period
+forward.
+
+The denominator model conditions on lagged treatment, period, and the covariates you pass in `treat_d_cov()`. The numerator model conditions on lagged treatment plus the covariates you pass in `treat_n_cov()`. If you need richer history terms, construct them explicitly and include them in the model. Weights are accumulated as a cumulative product across periods within each individual, using log-sums for numerical stability.
 
 **Created variables:** `_msm_weight` (combined), `_msm_tw_weight` (treatment), `_msm_cw_weight` (censoring, if applicable).
 
@@ -271,10 +282,11 @@ msm_fit [, model(string) outcome_cov(varlist) period_spec(string)
 | Option | Description |
 |--------|-------------|
 | `model(string)` | `logistic` (default), `linear`, or `cox` |
-| `outcome_cov(varlist)` | Additional outcome covariates |
+| `outcome_cov(varlist)` | Additional time-fixed outcome covariates; use baseline-only covariates if you plan to run `msm_predict` |
 | `period_spec(string)` | `linear`, `quadratic` (default), `cubic`, `ns(#)`, or `none` |
 | `cluster(varname)` | Cluster variable; default is patient ID |
-| `bootstrap(#)` | Bootstrap replicates (0 = no bootstrap) |
+| `bootstrap(#)` | Bootstrap replicates (0 = no bootstrap; currently not implemented) |
+| `level(#)` | Confidence level; default `95` |
 | `nolog` | Suppress iteration log |
 
 **Logistic** (default): `glm outcome treatment [period terms] [covariates] [pw=weight], family(binomial) link(logit) vce(cluster id)`
@@ -293,7 +305,7 @@ Counterfactual predictions under always-treated and never-treated strategies.
 ```stata
 msm_predict, times(numlist)
     [strategy(string) type(string) samples(#) seed(#)
-    level(#) difference]
+    level(#) difference extrapolate]
 ```
 
 | Option | Description |
@@ -303,9 +315,11 @@ msm_predict, times(numlist)
 | `type(string)` | `cum_inc` (default) or `survival` |
 | `samples(#)` | MC samples for CIs; default `100` |
 | `seed(#)` | Random seed |
+| `level(#)` | Confidence level; default `95` |
 | `difference` | Compute risk differences |
+| `extrapolate` | Allow prediction beyond the maximum observed period |
 
-Uses G-formula standardization: for each MC draw of coefficients from MVN(b, V), predicts outcomes under the target strategy and averages over the reference population.
+`msm_predict` currently supports logistic outcome models only. It uses G-formula standardization over the baseline reference population, so any `outcome_cov()` terms are held at their baseline values during prediction. Do not use time-varying covariates in `outcome_cov()` if you plan to run `msm_predict`.
 
 ---
 
@@ -316,7 +330,7 @@ Diagnostic and results visualizations.
 **Syntax:**
 ```stata
 msm_plot, type(string) [covariates(varlist) threshold(#) times(numlist)
-    samples(#) n_sample(#) title(string) saving(string) replace]
+    samples(#) seed(#) n_sample(#) title(string) saving(string) replace]
 ```
 
 | Type | What it plots |
@@ -326,6 +340,8 @@ msm_plot, type(string) [covariates(varlist) threshold(#) times(numlist)
 | `survival` | Cumulative incidence under always/never strategies |
 | `trajectory` | Treatment spaghetti plot (individual trajectories) |
 | `positivity` | Treatment probability by period |
+
+`msm_plot` uses the `plotplainblind` scheme from `tc_schemes`.
 
 ---
 
@@ -350,7 +366,7 @@ msm_report [, export(string) format(string) decimals(#) eform replace
 | `title(string)` | Title for cell A1 (Excel only) |
 | `font(name)` | Font name; default `Arial` (Excel only) |
 | `fontsize(#)` | Font size in points; default `10` (Excel only) |
-| `borderstyle(style)` | `thin` (default) or `medium` (Excel only) |
+| `borderstyle(style)` | `thin` (default), `medium`, or `academic` (Excel only) |
 | `zebra` | Alternating row shading (Excel only) |
 | `footnote(string)` | Merged footnote below table (Excel only) |
 | `open` | Auto-open file after export (Excel only) |
@@ -386,7 +402,7 @@ msm_table, xlsx(filename)
 | `replace` | Replace existing file |
 | `font(name)` | Font name; default `Arial` |
 | `fontsize(#)` | Font size in points; default `10` |
-| `borderstyle(style)` | `thin` (default) or `medium` |
+| `borderstyle(style)` | `thin` (default), `medium`, or `academic` |
 | `nformat(string)` | Excel number format for numeric cells |
 | `zebra` | Alternating row shading |
 | `boldp(#)` | Bold p-values below threshold (Coefficients only) |
@@ -436,11 +452,11 @@ msm_sensitivity [, evalue confounding_strength(# #) level(#)]
 
 | Option | Description |
 |--------|-------------|
-| `evalue` | Compute E-value (default) |
+| `evalue` | Compute E-value (default; available for logistic and Cox fits) |
 | `confounding_strength(# #)` | RR(U,D) and RR(U,Y) for bias factor |
 | `level(#)` | Confidence level; default `95` |
 
-**E-value** (VanderWeele & Ding 2017): minimum strength of association that an unmeasured confounder would need with both treatment and outcome to fully explain the observed effect.
+**E-value** (VanderWeele & Ding 2017): minimum strength of association that an unmeasured confounder would need with both treatment and outcome to fully explain the observed effect. E-values are reported for logistic and Cox fits; linear models support `confounding_strength()` bounds but not E-values.
 
 ---
 
@@ -449,7 +465,8 @@ msm_sensitivity [, evalue confounding_strength(# #) level(#)]
 Full pipeline for a time-varying treatment analysis.
 
 ```stata
-use msm_example.dta, clear
+findfile msm_example.dta
+use "`r(fn)'", clear
 
 * Document study design
 msm_protocol, ///
@@ -467,7 +484,7 @@ msm_prepare, id(id) period(period) treatment(treatment) ///
     baseline_covariates(age sex)
 
 * Step 2: Validate — 10 data quality checks
-msm_validate, verbose
+msm_validate, strict verbose
 
 * Step 3: Calculate stabilized IP weights
 *   Denominator: all covariates (captures confounding)
@@ -552,6 +569,7 @@ Standard `glm`/`regress`/`stcox` results, plus:
 | `e(msm_model)` | Model type (logistic, linear, or cox) |
 | `e(msm_treatment)` | Treatment variable name |
 | `e(msm_period_spec)` | Period specification used |
+| `e(effects)` | 1 x 4 effect matrix: estimate, CI lower, CI upper, and p-value |
 
 ### msm_predict → r()
 
@@ -625,6 +643,8 @@ No stored results. Writes directly to the Excel file.
 | `r(rr_ud)` | Hypothetical RR(U,D) (with `confounding_strength()`) |
 | `r(rr_uy)` | Hypothetical RR(U,Y) (with `confounding_strength()`) |
 
+`r(evalue_point)` and `r(evalue_ci)` are returned for logistic and Cox fits only.
+
 ---
 
 ## Demo Output
@@ -648,11 +668,11 @@ No stored results. Writes directly to the Excel file.
 <details>
 <summary>Console output (click to expand)</summary>
 
-![Console output — setup](demo/console_pipeline_setup.png)
+![Console output — setup](demo/console_pipeline_setup_p1.png)
 
-![Console output — diagnostics](demo/console_pipeline_diagnostics.png)
+![Console output — diagnostics](demo/console_pipeline_diagnostics_p1.png)
 
-![Console output — results](demo/console_pipeline_results.png)
+![Console output — results](demo/console_pipeline_results_p1.png)
 
 </details>
 
@@ -698,9 +718,7 @@ Simulates N=5,000 subjects with informative censoring (sicker patients censor mo
 
 ## Author
 
-Timothy P. Copeland
-Department of Clinical Neuroscience
-Karolinska Institutet, Stockholm, Sweden
+Timothy P Copeland, Karolinska Institutet
 
 ## License
 
