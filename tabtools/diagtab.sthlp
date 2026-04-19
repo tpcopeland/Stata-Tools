@@ -151,7 +151,7 @@ Cannot be combined with {opt cutoffs()}.{p_end}
 {p2col 5 18 22 2: Macros}{p_end}
 {synopt:{cmd:r(cutoffs)}}cutoff values used (when {cmd:cutoffs()} specified){p_end}
 {synopt:{cmd:r(xlsx)}}Excel filename (if exported){p_end}
-{synopt:{cmd:r(sheet)}}sheet name{p_end}
+{synopt:{cmd:r(sheet)}}sheet name (if exported){p_end}
 {synopt:{cmd:r(frame)}}frame name (if saved){p_end}
 {synopt:{cmd:r(methods)}}methods paragraph{p_end}
 

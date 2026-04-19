@@ -169,8 +169,8 @@ are not defined or you want different wording. {cmd:tlabels()} implies {cmd:clea
 {synopt:{cmd:r(N_cols)}}number of columns in output table{p_end}
 
 {p2col 5 15 19 2: Macros}{p_end}
-{synopt:{cmd:r(xlsx)}}Excel filename{p_end}
-{synopt:{cmd:r(sheet)}}sheet name{p_end}
+{synopt:{cmd:r(xlsx)}}Excel filename (if exported){p_end}
+{synopt:{cmd:r(sheet)}}sheet name (if exported){p_end}
 {synopt:{cmd:r(type)}}detected or specified result type{p_end}
 {synopt:{cmd:r(effect_label)}}effect column label{p_end}
 {synopt:{cmd:r(methods)}}methods paragraph for manuscript text{p_end}

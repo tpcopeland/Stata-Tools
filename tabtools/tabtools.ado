@@ -33,6 +33,7 @@ program define tabtools, rclass
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     capture noisily {
+        local _package_version "1.0.7"
 
     * Parse anything (subcommand) separately from options
     syntax [anything(everything)] [, List Detail Category(string) ///
@@ -110,12 +111,11 @@ program define tabtools, rclass
             return local borderstyle "`setval'"
         }
         else if "`setkey'" == "theme" {
-            * Extract the theme name (first token before any comma)
-            gettoken _theme_name _rest_opts : setval, parse(",")
+            * Extract the theme name (first token before any comma).
+            * Theme sub-options (font, fontsize, etc.) are parsed by the outer
+            * syntax command, so we only need the theme name from setval.
+            gettoken _theme_name : setval, parse(",")
             local _theme_name = strtrim("`_theme_name'")
-            * Remove leading comma from rest
-            local _rest_opts : subinstr local _rest_opts "," "", count(local _ncomma)
-            local _rest_opts = strtrim("`_rest_opts'")
             if "`_theme_name'" == "custom" {
                 * Custom theme: options parsed by outer syntax (font, fontsize, headercolor, zebracolor, borderstyle)
                 if "`font'" != "" global TABTOOLS_FONT "`font'"
@@ -393,7 +393,7 @@ program define tabtools, rclass
         // Return results
         return local commands "`selected_cmds'"
         return scalar n_commands = `n_commands'
-        return local version "1.0.7"
+        return local version "`_package_version'"
         return local categories "descriptive models rates survival diagnostics composite general"
     }
 

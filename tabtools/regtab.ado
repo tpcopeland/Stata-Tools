@@ -220,8 +220,10 @@ quietly{
     tempfile temp_export
     local temp_xlsx "`temp_export'.xlsx"
 
-    if `_has_xlsx' return local xlsx "`xlsx'"
-    return local sheet "`sheet'"
+    if `_has_xlsx' {
+        return local xlsx "`xlsx'"
+        return local sheet "`sheet'"
+    }
 
     * Validate keep/drop mutual exclusivity
     if "`keep'" != "" & "`drop'" != "" {
@@ -1988,8 +1990,10 @@ return scalar N_cols = `num_cols'
 return scalar N_models = `n_models'
 return local coef_label "`coef'"
 return local stars "`stars'"
-return local xlsx "`xlsx'"
-return local sheet "`sheet'"
+if `_has_xlsx' {
+    return local xlsx "`xlsx'"
+    return local sheet "`sheet'"
+}
 return local methods "`_methods'"
 if "`frame'" != "" return local frame "`frame'"
 }

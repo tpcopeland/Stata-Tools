@@ -196,8 +196,10 @@ quietly {
 	}
 
 	* Return input/detected values
-	if `_has_xlsx' return local xlsx "`xlsx'"
-	return local sheet "`sheet'"
+	if `_has_xlsx' {
+		return local xlsx "`xlsx'"
+		return local sheet "`sheet'"
+	}
 	return local type "`type'"
 
 	* Set default effect label based on type
@@ -1100,8 +1102,10 @@ quietly {
 	return scalar N_cols = `num_cols'
 	return local effect_label "`effect'"
 	return local type "`type'"
-	return local xlsx "`xlsx'"
-	return local sheet "`sheet'"
+	if `_has_xlsx' {
+		return local xlsx "`xlsx'"
+		return local sheet "`sheet'"
+	}
 	return local methods "`_methods'"
 	if "`frame'" != "" return local frame "`frame'"
 }

@@ -706,10 +706,10 @@ local ++test_count
 capture noisily {
     comptab f1, rows(1) display
     assert "`r(xlsx)'" == ""
-    assert "`r(sheet)'" == "Composite"
+    assert "`r(sheet)'" == ""
 }
 if _rc == 0 {
-    display as result "  PASS: 4.2 Display-only: no r(xlsx), default sheet"
+    display as result "  PASS: 4.2 Display-only: no Excel return locals"
     local ++pass_count
 }
 else {

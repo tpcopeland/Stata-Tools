@@ -157,8 +157,8 @@ multiple rows.{p_end}
 {synopt:{cmd:r(rmst_ub_{it:#})}}upper 95% CI bound of RMST for group {it:#}{p_end}
 
 {p2col 5 18 22 2: Macros}{p_end}
-{synopt:{cmd:r(xlsx)}}Excel filename{p_end}
-{synopt:{cmd:r(sheet)}}sheet name{p_end}
+{synopt:{cmd:r(xlsx)}}Excel filename (if exported){p_end}
+{synopt:{cmd:r(sheet)}}sheet name (if exported){p_end}
 {synopt:{cmd:r(methods)}}methods paragraph for manuscript text{p_end}
 {synopt:{cmd:r(frame)}}frame name (when {cmd:frame()} specified){p_end}
 

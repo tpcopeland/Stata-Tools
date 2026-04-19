@@ -22,7 +22,7 @@ tabtools set clear
 **## Required package artifacts exist
 local ++test_count
 capture noisily {
-    foreach f in README.md stata.toc tabtools.pkg SSC_RELEASE_PLAN.md ///
+    foreach f in README.md stata.toc tabtools.pkg ///
         tabtools.ado tabtools.sthlp table1_tc.ado table1_tc.sthlp ///
         regtab.ado regtab.sthlp effecttab.ado effecttab.sthlp ///
         stratetab.ado stratetab.sthlp hrcomptab.ado hrcomptab.sthlp ///
@@ -156,10 +156,7 @@ else {
 **## Bundled helper ado files are on adopath
 local ++test_count
 capture noisily {
-    foreach helper in _tabtools_common.ado _tabtools_guard.ado ///
-        _tabtools_settings.ado _tabtools_table_spec.ado ///
-        _tabtools_render_excel.ado _tabtools_export.ado ///
-        _tabtools_collect_bridge.ado {
+    foreach helper in _tabtools_common.ado {
         findfile `helper'
     }
 }
@@ -171,6 +168,26 @@ else {
     display as error "  FAIL: bundled helper ado files resolve after install (error `=_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' helpers"
+}
+
+**## Retired refactor helpers are not shipped
+local ++test_count
+capture noisily {
+    foreach helper in _tabtools_guard.ado _tabtools_settings.ado ///
+        _tabtools_table_spec.ado _tabtools_render_excel.ado ///
+        _tabtools_export.ado _tabtools_collect_bridge.ado {
+        capture confirm file "`pkg_dir'/`helper'"
+        assert _rc != 0
+    }
+}
+if _rc == 0 {
+    display as result "  PASS: retired refactor helpers are absent from the source tree"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: retired refactor helpers still present in source tree (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' retired_helpers"
 }
 
 **# Documentation reality

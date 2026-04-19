@@ -52,7 +52,7 @@ or the full matrix.{p_end}
 {synopt:{opt full}}display the full correlation matrix{p_end}
 {synopt:{opt star(numlist)}}significance thresholds for stars; default thresholds yield *, **, *** at {it:p}<0.05, {it:p}<0.01, and {it:p}<0.001{p_end}
 {synopt:{opt pvalues}}show p-values in parentheses instead of stars{p_end}
-{synopt:{opt digits(#)}}decimal places for correlation coefficients; default 2{p_end}
+{synopt:{opt digits(#)}}decimal places for correlation coefficients; default 2, range 0-6{p_end}
 {syntab:Output}
 {synopt:{opt xlsx(filename)}}export to Excel; if omitted, output is displayed in the Results window only{p_end}
 {synopt:{opt sheet(string)}}Excel sheet name; default is {cmd:"Correlation"}{p_end}
@@ -91,7 +91,7 @@ or the full matrix.{p_end}
 
 {p2col 5 15 19 2: Macros}{p_end}
 {synopt:{cmd:r(xlsx)}}Excel filename (if exported){p_end}
-{synopt:{cmd:r(sheet)}}sheet name{p_end}
+{synopt:{cmd:r(sheet)}}sheet name (if exported){p_end}
 {synopt:{cmd:r(frame)}}frame name (if saved){p_end}
 {synopt:{cmd:r(methods)}}methods paragraph{p_end}
 

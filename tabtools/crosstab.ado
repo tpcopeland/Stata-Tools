@@ -424,12 +424,15 @@ capture noisily {
         if _rc {
             local _format_rc = _rc
             capture putexcel clear
+            capture mata: mata drop b
             noisily display as error "Excel formatting failed with error `_format_rc'"
+            restore
             exit `_format_rc'
         }
         capture confirm file "`xlsx'"
         if _rc {
             noisily display as error "Export command succeeded but file not found"
+            restore
             exit 601
         }
         noisily display as text "Exported to " as result `"`xlsx'"' as text ", sheet " as result `"`sheet'"'

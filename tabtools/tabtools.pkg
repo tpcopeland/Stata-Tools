@@ -29,12 +29,6 @@ d
 f tabtools.ado
 f tabtools.sthlp
 f _tabtools_common.ado
-f _tabtools_guard.ado
-f _tabtools_settings.ado
-f _tabtools_table_spec.ado
-f _tabtools_render_excel.ado
-f _tabtools_export.ado
-f _tabtools_collect_bridge.ado
 f table1_tc.ado
 f table1_tc.sthlp
 f regtab.ado

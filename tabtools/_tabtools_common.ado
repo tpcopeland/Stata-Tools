@@ -68,6 +68,12 @@ program _tabtools_validate_path
 
     * Check for shell metacharacters and command injection vectors
     * Reject: ; & | > < $ ` " '
+    * Note: the bracket class below includes a literal backtick (`). The
+    * backslashes escape $ and ` for regex, not for Stata's macro expander —
+    * Stata passes the pattern verbatim to regexm() because there is no
+    * matching close-quote (') that would trigger macro substitution.
+    * Double-quote (") and single-quote (') are checked separately via
+    * char(34)/char(39) to avoid quoting headaches in the pattern itself.
     local _has_bad = regexm(`"`filepath'"', "[;&|><\$\`]")
     if !`_has_bad' {
         local _has_bad = strpos(`"`filepath'"', char(34)) > 0 | ///
@@ -126,17 +132,10 @@ program _tabtools_footnote
 
     if `"`footnote'"' == "" exit
 
-    * Default font settings
+    * Callers are responsible for resolving globals/themes before invoking this
+    * helper. Treat the passed font settings as authoritative.
     if "`fontname'" == "" local fontname "Arial"
     if "`fontsize'" == "" local fontsize "10"
-
-    * Resolve persistent defaults from globals (caller can override)
-    if "`fontname'" == "Arial" & "$TABTOOLS_FONT" != "" {
-        local fontname "$TABTOOLS_FONT"
-    }
-    if "`fontsize'" == "10" & "$TABTOOLS_FONTSIZE" != "" {
-        local fontsize "$TABTOOLS_FONTSIZE"
-    }
 
     local frow = `row' + 1
     local fn_fontsize = max(`fontsize' - 2, 6)

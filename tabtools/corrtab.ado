@@ -3,24 +3,24 @@
 *! Author: Timothy P Copeland
 *! Program class: rclass
 
-capture program list _tabtools_guard
-if _rc {
-    capture findfile _tabtools_guard.ado
-    if _rc == 0 {
-        run "`r(fn)'"
-    }
-    else {
-        display as error "_tabtools_guard.ado not found; reinstall tabtools"
-        exit 111
-    }
-}
-
 program define corrtab, rclass
     version 17.0
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     capture noisily {
-        _tabtools_guard enter
+
+        * Auto-load shared helper programs
+        capture program list _tabtools_validate_path
+        if _rc {
+            capture findfile _tabtools_common.ado
+            if _rc == 0 {
+                run "`r(fn)'"
+            }
+            else {
+                display as error "_tabtools_common.ado not found; reinstall tabtools"
+                exit 111
+            }
+        }
 
         syntax varlist(min=2 numeric) [if] [in], ///
             [xlsx(string) excel(string) sheet(string) ///
@@ -39,9 +39,24 @@ program define corrtab, rclass
         if `_has_xlsx' _tabtools_validate_path "`xlsx'" "xlsx()"
         if "`csv'" != "" _tabtools_validate_path "`csv'" "csv()"
 
-        _tabtools_settings_resolve, theme(`theme') borderstyle(`borderstyle') ///
-            headercolor(`headercolor') zebracolor(`zebracolor') ///
-            `headershade' `zebra' digits(`digits')
+        if `digits' == -1 {
+            if "$TABTOOLS_DIGITS" != "" local digits = $TABTOOLS_DIGITS
+            else local digits = 2
+        }
+        if `digits' < 0 | `digits' > 6 {
+            noisily display as error "digits() must be between 0 and 6"
+            exit 198
+        }
+
+        _tabtools_resolve_format, theme(`theme') borderstyle(`borderstyle') ///
+            headershade(`headershade') zebra(`zebra')
+
+        local _headercolor "219 229 241"
+        local _zebracolor "237 242 249"
+        if "$TABTOOLS_HEADERCOLOR" != "" local _headercolor "$TABTOOLS_HEADERCOLOR"
+        if "$TABTOOLS_ZEBRACOLOR" != "" local _zebracolor "$TABTOOLS_ZEBRACOLOR"
+        if "`headercolor'" != "" local _headercolor "`headercolor'"
+        if "`zebracolor'" != "" local _zebracolor "`zebracolor'"
 
         if "`lower'" == "" & "`upper'" == "" & "`full'" == "" local lower "lower"
         if "`star'" == "" & "`pvalues'" == "" local star "0.001 0.01 0.05"
@@ -172,6 +187,7 @@ program define corrtab, rclass
             quietly replace c`_col' = `"`_vlbl_`v''"' in `row'
         }
 
+        local _diag_str = string(1, "%6.`digits'f")
         forvalues i = 1/`nvars' {
             local row = `row' + 1
             quietly set obs `row'
@@ -187,12 +203,12 @@ program define corrtab, rclass
 
                 if `_show' {
                     if `i' == `j' {
-                        quietly replace c`_col' = "1.00" in `row'
+                        quietly replace c`_col' = "`_diag_str'" in `row'
                     }
                     else {
                         local _r = `_corr'[`i', `j']
                         local _p = `_pmat'[`i', `j']
-                        local _rstr = string(`_r', "%6.`_digits'f")
+                        local _rstr = string(`_r', "%6.`digits'f")
                         if "`pvalues'" != "" {
                             if !missing(`_p') {
                                 local _pstr = cond(`_p' < 0.001, "<0.001", string(`_p', "%5.3f"))
@@ -213,20 +229,120 @@ program define corrtab, rclass
             }
         }
 
-        local _label_width = max(12, `_max_label_len' * 0.85 + 2)
-        local _data_width = cond("`pvalues'" != "", 14, 10)
-        local _data_width = max(`_data_width', min(24, ceil(`_max_label_len' * 0.80) + 2))
+        if !`_has_xlsx' | "`display'" != "" {
+            noisily _tabtools_console_display `out_ncols' `"`title'"'
+            if `"`_star_note'"' != "" noisily display as text `"`_star_note'"'
+            if `"`footnote'"' != "" noisily display as text `"`footnote'"'
+            noisily display as text ""
+        }
 
-        _tabtools_table_spec_init, title(`"`title'"') headerstart(2) headerend(2) ///
-            datastart(3) numcols(`out_ncols') footnote(`"`footnote'"') ///
-            starnote(`"`_star_note'"') tablestart(1) datafontstart(1) ///
-            centerstart(3) bottomstart(2) hastitle(1) widthmode(fixed) ///
-            widths("1 `_label_width' `_data_width'") exportxlsx(`"`xlsx'"') ///
-            exportcsv(`"`csv'"') exportframe(`"`frame'"') exportdisplay("`display'") ///
-            sheetreplace(1)
+        if "`csv'" != "" {
+            export delimited using "`csv'", replace
+            capture confirm file "`csv'"
+            if _rc {
+                noisily display as error "CSV export completed but file was not created"
+                restore
+                exit 601
+            }
+        }
 
-        _tabtools_export, xlsx(`"`xlsx'"') sheet(`"`sheet'"') csv(`"`csv'"') ///
-            frame(`"`frame'"') `display' `open' replace
+        if `"`frame'"' != "" {
+            _tabtools_frame_put `"`frame'"'
+            local frame "`_frame_name'"
+        }
+
+        if `_has_xlsx' {
+            local num_rows = _N
+            local num_cols = `out_ncols' + 1
+            local _header_row 2
+            local _data_start 3
+            local _label_width = max(12, ceil(`_max_label_len' * 0.85) + 2)
+            local _data_width = cond("`pvalues'" != "", 14, 10)
+            local _data_width = max(`_data_width', min(24, ceil(`_max_label_len' * 0.80) + 2))
+
+            order title c*
+            capture export excel using "`xlsx'", sheet("`sheet'") sheetreplace
+            if _rc {
+                local _export_rc = _rc
+                noisily display as error "Failed to export to `xlsx'"
+                noisily display as error "Hint: ensure the xlsx file is not open in another application"
+                restore
+                exit `_export_rc'
+            }
+
+            capture {
+                putexcel set "`xlsx'", sheet("`sheet'") modify
+
+                _tabtools_build_col_letters `num_cols'
+                local letters "`result'"
+                local lastcol : word `num_cols' of `letters'
+
+                putexcel (A1:`lastcol'1), merge bold txtwrap left vcenter ///
+                    font("`_font'", `=`_fontsize'+2')
+                putexcel (B`_header_row':`lastcol'`_header_row'), ///
+                    border(top, `_hborder') bold hcenter font("`_font'", `_fontsize')
+                putexcel (B`_header_row':`lastcol'`_header_row'), ///
+                    border(bottom, `_hborder')
+                putexcel (B`_header_row':`lastcol'`_header_row'), txtwrap
+                putexcel (B`_data_start':`lastcol'`num_rows'), font("`_font'", `_fontsize')
+                putexcel (C`_data_start':`lastcol'`num_rows'), hcenter
+                putexcel (B`num_rows':`lastcol'`num_rows'), border(bottom, `_hborder')
+
+                if "`headershade'" != "" {
+                    putexcel (B`_header_row':`lastcol'`_header_row'), ///
+                        fpattern(solid, "`_headercolor'")
+                }
+
+                mata: b = xl()
+                mata: b.load_book("`xlsx'")
+                mata: b.set_sheet("`sheet'")
+                mata: b.set_column_width(1, 1, 1)
+                mata: b.set_column_width(2, 2, `_label_width')
+                if `num_cols' >= 3 {
+                    forvalues _tt_col = 3/`num_cols' {
+                        mata: b.set_column_width(`_tt_col', `_tt_col', `_data_width')
+                    }
+                }
+                mata: b.close_book()
+                capture mata: mata drop b
+
+                if "`zebra'" != "" {
+                    forvalues _zr = `=`_data_start'+1'(2)`num_rows' {
+                        putexcel (B`_zr':`lastcol'`_zr'), fpattern(solid, "`_zebracolor'")
+                    }
+                }
+
+                local _foot_row = `num_rows'
+                if `"`_star_note'"' != "" {
+                    _tabtools_footnote `"`_star_note'"' "`lastcol'" `_foot_row' "`_font'" `_fontsize'
+                    local _foot_row = `_foot_row' + 1
+                }
+                if `"`footnote'"' != "" {
+                    _tabtools_footnote `"`footnote'"' "`lastcol'" `_foot_row' "`_font'" `_fontsize'
+                }
+
+                putexcel clear
+            }
+            if _rc {
+                local _format_rc = _rc
+                capture putexcel clear
+                capture mata: b.close_book()
+                capture mata: mata drop b
+                noisily display as error "Excel formatting failed with error `_format_rc'"
+                restore
+                exit `_format_rc'
+            }
+            capture confirm file "`xlsx'"
+            if _rc {
+                noisily display as error "Export command succeeded but file not found"
+                restore
+                exit 601
+            }
+            noisily display as text "Exported to " as result `"`xlsx'"' ///
+                as text ", sheet " as result `"`sheet'"'
+        }
+
+        if "`open'" != "" & `_has_xlsx' _tabtools_open_file "`xlsx'"
 
         restore
 
@@ -237,9 +353,7 @@ program define corrtab, rclass
             return local xlsx "`xlsx'"
             return local sheet "`sheet'"
         }
-        if "`_tabtools_export_frame'" != "" {
-            return local frame "`_tabtools_export_frame'"
-        }
+        if "`frame'" != "" return local frame "`frame'"
 
         local _method_type = cond("`spearman'" != "", "Spearman rank", "Pearson")
         local _methods "`_method_type' correlation coefficients are reported."
@@ -248,7 +362,6 @@ program define corrtab, rclass
         return local methods "`_methods'"
     }
     local rc = _rc
-    _tabtools_guard exit, rc(`rc') noexit
     set varabbrev `_orig_varabbrev'
     if `rc' exit `rc'
 end

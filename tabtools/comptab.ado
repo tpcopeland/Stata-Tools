@@ -870,8 +870,8 @@ program define comptab, rclass
     * Return results
     if `_has_xlsx' {
         return local xlsx "`xlsx'"
+        return local sheet "`sheet'"
     }
-    return local sheet "`sheet'"
     return scalar N_rows = `num_rows'
     return scalar N_cols = `num_cols'
     return scalar N_models = `n_models'

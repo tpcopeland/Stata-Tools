@@ -76,8 +76,8 @@ and a Spearman rank-correlation trend test.{p_end}
 
 {p2col 5 15 19 2: Macros}{p_end}
 {synopt:{cmd:r(methods)}}methods paragraph for manuscript text{p_end}
-{synopt:{cmd:r(xlsx)}}Excel filename (if specified){p_end}
-{synopt:{cmd:r(sheet)}}sheet name (if specified){p_end}
+{synopt:{cmd:r(xlsx)}}Excel filename (if exported){p_end}
+{synopt:{cmd:r(sheet)}}sheet name (if exported){p_end}
 {synopt:{cmd:r(frame)}}frame name (if specified){p_end}
 
 {marker author}{title:Author}

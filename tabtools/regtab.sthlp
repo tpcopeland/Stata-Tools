@@ -183,8 +183,8 @@ the threshold, and {opt highlight()} applies yellow fill to entire rows.{p_end}
 {synopt:{cmd:r(N_models)}}number of models{p_end}
 
 {p2col 5 18 22 2: Macros}{p_end}
-{synopt:{cmd:r(xlsx)}}Excel filename{p_end}
-{synopt:{cmd:r(sheet)}}sheet name{p_end}
+{synopt:{cmd:r(xlsx)}}Excel filename (if exported){p_end}
+{synopt:{cmd:r(sheet)}}sheet name (if exported){p_end}
 {synopt:{cmd:r(coef_label)}}coefficient label (OR, HR, IRR, Coef.){p_end}
 {synopt:{cmd:r(methods)}}auto-generated methods paragraph{p_end}
 {synopt:{cmd:r(stars)}}stars option value{p_end}

@@ -28,11 +28,6 @@ program define hrcomptab, rclass
             }
         }
 
-        if "`_byvars'" != "" {
-            display as error "hrcomptab may not be combined with by:"
-            exit 190
-        }
-
         syntax anything(name=rateframe) , MODELFRAMES(string asis) ///
             [rows(string asis) ROWNAMES(string asis) ///
             XLSX(string) EXCEL(string) SHEET(string) ///

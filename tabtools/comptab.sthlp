@@ -228,7 +228,7 @@ smaller than the specified threshold.
 
 {p2col 5 20 24 2: Macros}{p_end}
 {synopt:{cmd:r(xlsx)}}Excel file path (if exported){p_end}
-{synopt:{cmd:r(sheet)}}Excel sheet name{p_end}
+{synopt:{cmd:r(sheet)}}Excel sheet name (if exported){p_end}
 {synopt:{cmd:r(frame)}}frame name (if saved){p_end}
 
 
