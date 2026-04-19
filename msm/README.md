@@ -42,8 +42,7 @@ net install msm, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/
 The package includes `msm_example.dta` for testing.
 
 **Requirements:** Stata 16+
-For plotting, install `tc_schemes` so the `plotplainblind` scheme used by
-`msm_plot` is available.
+Plots use the current Stata scheme by default.
 
 ---
 
@@ -341,7 +340,7 @@ msm_plot, type(string) [covariates(varlist) threshold(#) times(numlist)
 | `trajectory` | Treatment spaghetti plot (individual trajectories) |
 | `positivity` | Treatment probability by period |
 
-`msm_plot` uses the `plotplainblind` scheme from `tc_schemes`.
+`msm_plot` uses the current Stata scheme by default.
 
 ---
 

@@ -83,8 +83,7 @@ program define msm_plot, rclass
             legend(order(1 "Untreated" 2 "Treated") ///
                 position(1) ring(0) cols(1)) ///
             xtitle("IP Weight") ytitle("Density") ///
-            title("`title'") ///
-            scheme(plotplainblind) `save_opts'
+            title("`title'") `save_opts'
     }
 
     * =========================================================================
@@ -155,8 +154,7 @@ program define msm_plot, rclass
             legend(order(1 "Unweighted" 2 "Weighted") position(4) ring(0)) ///
             xtitle("Absolute Standardized Mean Difference") ///
             ytitle("") ///
-            title("`title'") ///
-            scheme(plotplainblind) `save_opts'
+            title("`title'") `save_opts'
 
         restore
     }
@@ -242,8 +240,7 @@ program define msm_plot, rclass
             legend(order(3 "Never treated" 4 "Always treated") ///
                 position(11) ring(0) cols(1)) ///
             xtitle("Period") ytitle("Cumulative Incidence") ///
-            title("`title'") ///
-            scheme(plotplainblind) `save_opts'
+            title("`title'") `save_opts'
 
         restore
     }
@@ -281,7 +278,7 @@ program define msm_plot, rclass
                 lcolor(navy%60) lwidth(thin)), ///
             xtitle("Period") ytitle("Treatment") ///
             ylabel(0 1) ///
-            scheme(plotplainblind) `save_opts'
+            `save_opts'
 
         restore
     }
@@ -303,8 +300,7 @@ program define msm_plot, rclass
             yline(0.5, lcolor(gs10) lpattern(dash)) ///
             ylabel(0(0.1)1) ///
             xtitle("Period") ytitle("Treatment Probability") ///
-            title("`title'") ///
-            scheme(plotplainblind) `save_opts'
+            title("`title'") `save_opts'
 
         restore
     }

@@ -219,7 +219,7 @@ program define spaghetti, rclass
     * =========================================================================
     * SET DEFAULTS
     * =========================================================================
-    if "`scheme'" == "" local scheme "plotplainblind"
+    if "`scheme'" == "" local scheme "`c(scheme)'"
 
     * Color palette
     if "`colors'" != "" {

@@ -6,7 +6,7 @@
 * Bug fixes tested:
 *   - Stars + eform p-value computation (CRITICAL)
 *   - type() special rows bypassing if/in filtering
-*   - Matrix mode style(), cirange(), sigcolors, stars options
+*   - Matrix mode style(), xlabel(), sigcolors, stars options
 *   - Auto-note claiming weighted boxes without weights
 *   - Sort description alignment (raw value, not magnitude)
 *
@@ -261,7 +261,7 @@ else {
 }
 
 * =============================================================================
-**# BUG FIX: Matrix mode style(), cirange(), sigcolors, stars
+**# BUG FIX: Matrix mode style(), xlabel(), sigcolors, stars
 * =============================================================================
 
 * Test 6: Matrix mode accepts style()
@@ -282,20 +282,22 @@ else {
     local failed_tests "`failed_tests' 6"
 }
 
-* Test 7: Matrix mode accepts cirange()
+* Test 7: Matrix mode accepts effect-axis xlabel()
 local ++test_count
 capture noisily {
     matrix R = (0.5, 0.01, 5.0 \ 1.2, 0.9, 1.5)
     matrix rownames R = "Wide_CI" "Normal_CI"
-    eplot, matrix(R) cirange(0.1 3.0)
+    eplot, matrix(R) xlabel(0(1)5)
     assert r(N) == 2
+    local cmd `"`r(cmd)'"'
+    assert strpos(`"`cmd'"', "0(1)5") > 0
 }
 if _rc == 0 {
-    display as result "  PASS: Test 7 - Matrix mode cirange()"
+    display as result "  PASS: Test 7 - Matrix mode xlabel()"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: Test 7 - Matrix mode cirange() (error `=_rc')"
+    display as error "  FAIL: Test 7 - Matrix mode xlabel() (error `=_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' 7"
 }
@@ -446,7 +448,9 @@ capture noisily {
 
     eplot es lci uci, labels(study) favors("Favors Treatment" "Favors Control")
     local cmd `"`r(cmd)'"'
-    assert strpos(`"`cmd'"', "caption") > 0
+    assert strpos(`"`cmd'"', "text(") > 0
+    assert strpos(`"`cmd'"', "Favors Treatment") > 0
+    assert strpos(`"`cmd'"', "Favors Control") > 0
 }
 if _rc == 0 {
     display as result "  PASS: Test 14 - favors() in data mode"
@@ -465,7 +469,9 @@ capture noisily {
     quietly regress price mpg weight
     eplot ., drop(_cons) favors("Lower Price" "Higher Price")
     local cmd `"`r(cmd)'"'
-    assert strpos(`"`cmd'"', "caption") > 0
+    assert strpos(`"`cmd'"', "text(") > 0
+    assert strpos(`"`cmd'"', "Lower Price") > 0
+    assert strpos(`"`cmd'"', "Higher Price") > 0
 }
 if _rc == 0 {
     display as result "  PASS: Test 15 - favors() in estimates mode"
@@ -484,7 +490,9 @@ capture noisily {
     matrix rownames R = "Drug_A" "Drug_B"
     eplot, matrix(R) favors("Favors Drug" "Favors Placebo")
     local cmd `"`r(cmd)'"'
-    assert strpos(`"`cmd'"', "caption") > 0
+    assert strpos(`"`cmd'"', "text(") > 0
+    assert strpos(`"`cmd'"', "Favors Drug") > 0
+    assert strpos(`"`cmd'"', "Favors Placebo") > 0
 }
 if _rc == 0 {
     display as result "  PASS: Test 16 - favors() in matrix mode"

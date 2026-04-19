@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.0  08apr2026}{...}
+{* *! version 1.1.0  19apr2026}{...}
 {viewerjumpto "Syntax" "eplot##syntax"}{...}
 {viewerjumpto "Description" "eplot##description"}{...}
 {viewerjumpto "Options" "eplot##options"}{...}
@@ -57,6 +57,7 @@ Plot from matrix:
 {synopt:{opt groups(spec)}}define groups of effects with labels{p_end}
 {synopt:{opt head:ers(spec)}}insert section headers{p_end}
 {synopt:{opt headings(spec)}}alias for {opt headers()}{p_end}
+{synopt:{opt gap(#)}}extra vertical space between {opt groups()} blocks; single-model only{p_end}
 
 {syntab:Transform}
 {synopt:{opt eform}}exponentiate estimates (for OR, HR, RR){p_end}
@@ -64,6 +65,7 @@ Plot from matrix:
 
 {syntab:Reference lines}
 {synopt:{opt xline(numlist)}}add vertical reference lines{p_end}
+{synopt:{opt xlab:el(spec)}}effect-axis tick specification; maps to the effect axis in either layout{p_end}
 {synopt:{opt null(#)}}null hypothesis line position{p_end}
 {synopt:{opt nonull}}suppress null line{p_end}
 
@@ -165,6 +167,13 @@ when your results are in a Stata matrix (e.g., from {cmd:matrix} commands or
 post-estimation).  When {opt eform} is specified, the constant is automatically
 suppressed because exp(_cons) is not interpretable.
 
+{pmore}
+Mode detection gives precedence to data mode when the first three tokens are
+numeric variables. If stored estimate names happen to match numeric variable
+names in memory, {cmd:eplot} will treat the call as data mode. In ambiguous
+cases, restore the active model and use {cmd:eplot .}, or rename the variables
+or stored estimates.
+
 
 {marker options}{...}
 {title:Options}
@@ -227,6 +236,11 @@ Group headers appear above the first coefficient in each group. Available in
 single-model mode only.
 
 {phang}
+{opt gap(#)} adds extra vertical space between adjacent {opt groups()} blocks
+without requiring blank rows in the source data. Available in data mode and
+single-model estimates mode only.
+
+{phang}
 {opt headers(spec)} inserts section headers before specified coefficients.
 Syntax: {cmd:headers(coef1 = "Section Header")} or
 {cmd:headers(before(coef1) = "Section Header")}
@@ -260,7 +274,14 @@ single-model estimates, and matrix modes. Requires horizontal layout.
 {phang}
 {opt vformat(fmt)} specifies the numeric format for values annotation. Default
 is {cmd:%5.2f}. If both {opt dp()} and {opt vformat()} are specified,
-{opt vformat()} takes precedence.
+{opt vformat()} takes precedence. {cmd:eplot} automatically widens the values
+column margin when the formatted text is longer than the default layout.
+
+{phang}
+{opt xlabel(spec)} passes a tick specification to the effect axis. In
+horizontal layout this behaves like Stata's {cmd:xlabel()}, while in vertical
+layout it is applied to the y-axis so the effect scale can still be controlled
+without remapping the syntax manually.
 
 {phang}
 {opt noconstant} drops the constant ({cmd:_cons}) from the plot. Shorthand for

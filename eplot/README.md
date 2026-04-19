@@ -24,6 +24,7 @@ net install eplot, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tool
 - **Values annotation** - Display formatted effect text (e.g., "0.80 (0.72, 0.88)") beside each row
 - **Unified syntax** for data, estimates, and matrix modes
 - **Group labeling** with bold section headers via `groups()` and `headers()`
+- **Subgroup spacing** with `gap()` between grouped sections, without dummy blank rows
 - **Eform transformation** for odds ratios, hazard ratios, etc.
 - **Weighted markers** that scale with study/observation weights
 - **Diamond rendering** for pooled effects (subgroup and overall)
@@ -35,6 +36,7 @@ net install eplot, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tool
 - **Style presets** (`forest`, `coef`, `lancet`, `jama`, `nejm`, `bmj`) for quick publication-ready styling
 - **Significance stars** (*, **, ***) and **color-coded significance** (sig vs non-sig)
 - **Favors annotation** (`favors("Favors Treatment" "Favors Control")`) below x-axis
+- **Effect-axis tick control** with `xlabel()` mapped to the effect axis in either layout
 - **Auto-detect effect labels** from `e(cmd)` (Odds Ratio after logit, Hazard Ratio after stcox, IRR after poisson)
 - **Prediction intervals** (dashed whiskers behind CIs) for meta-analysis
 - **Heterogeneity statistics** (I², τ², Q) in automatic graph notes
@@ -65,6 +67,12 @@ eplot, matrix(matname) [options]
 ```
 
 Matrix must have 2 columns (b, se) or 3 columns (b, lci, uci).
+
+Mode detection gives precedence to data mode when the first three tokens are
+numeric variables. If stored estimate names happen to match numeric variable
+names in memory, `eplot` will interpret the call as data mode. In ambiguous
+cases, restore the active model and use `eplot .`, or rename the variables or
+stored estimates.
 
 ## Examples
 
@@ -228,6 +236,7 @@ eplot es lci uci, labels(study) weights(weight) type(type) ///
 | `coeflabels(spec)` | Custom labels for coefficients/effects |
 | `groups(spec)` | Define groups with bold headers |
 | `headers(spec)` | Insert section headers |
+| `gap(#)` | Extra spacing between `groups()` blocks in data and single-model estimates modes |
 
 ### Transform
 
@@ -255,6 +264,7 @@ eplot es lci uci, labels(study) weights(weight) type(type) ///
 | `insigncolor(color)` | Non-significant effect color (default: gs10) |
 | `style(name)` | Preset: forest, coef, lancet, jama, nejm, or bmj |
 | `favors(left right)` | Directional annotation below x-axis (horizontal mode) |
+| `xlabel(spec)` | Effect-axis tick specification in horizontal or vertical layout |
 | `pi(lci_var uci_var)` | Prediction interval whiskers (data mode) |
 | `i2(string)` | Display I-squared in note (data mode) |
 | `tau2(string)` | Display tau-squared in note (data mode) |
@@ -315,4 +325,9 @@ MIT License
 
 ## Version
 
-Version 1.0.0, 2026-04-08
+Version 1.1.0, 2026-04-19
+
+- Added `gap()` for grouped spacing in data and single-model estimates modes.
+- Added effect-axis `xlabel()` passthrough for both horizontal and vertical layouts.
+- Values annotation now widens the right plot margin automatically when formatted text is wide.
+- Help now documents the mode-detection ambiguity when stored estimate names collide with variable names.

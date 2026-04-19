@@ -105,7 +105,7 @@ kmplot, by(drug) ci cistyle(line) citransform(log) ///
     lpattern(solid dash dot) lwidth(thick) ///
     pvalue pvaluepos(topleft) ///
     xlabel(0(5)40) ylabel(0(0.2)1) ///
-    aspectratio(0.8) scheme(plotplainblind) ///
+    aspectratio(0.8) ///
     name(demo7, replace)
 graph export "`pkg_dir'/km_custom_style.png", replace width(1200)
 capture graph close _all

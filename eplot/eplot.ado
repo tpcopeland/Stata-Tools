@@ -1,6 +1,6 @@
-*! eplot Version 1.0.0  2026/04/08
+*! eplot Version 1.1.0  2026/04/19
 *! Unified effect plotting command for forest plots and coefficient plots
-*! Author: Timothy Copeland (Karolinska Institutet)
+*! Author: Timothy P Copeland
 *! Program class: rclass
 
 /*
@@ -15,20 +15,18 @@ Unified syntax for effect visualization:
   From matrix:
     eplot matrix(matname), [options]
 
-v2.0.0 additions:
-  - Multi-model comparison (estimates mode)
-  - Values annotation (formatted effect text)
-  - Sort/order options
-  - Capped CI lines (cicap)
-  - Color palette and marker customization
-  - Matrix mode implementation
+Recent additions:
+  - Shared style/range/annotation helpers across plotting modes
+  - Effect-axis xlabel() passthrough
+  - gap() support for grouped layouts
+  - Dynamic values-column margin sizing
 
 See help eplot for complete documentation
 */
 
 program define eplot, rclass
     version 16.0
-    local _varabbrev = c(varabbrev)
+    local _orig_varabbrev = c(varabbrev)
     set varabbrev off
 
     capture noisily {
@@ -83,7 +81,7 @@ program define eplot, rclass
         }
     }
 
-    set varabbrev `_varabbrev'
+    set varabbrev `_orig_varabbrev'
     if `rc' exit `rc'
 end
 
@@ -92,60 +90,68 @@ end
 // =============================================================================
 
 program define _eplot_parse_mode, sclass
-    syntax [anything] [if] [in] [, Matrix(name) *]
+    version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+        syntax [anything] [if] [in] [, Matrix(name) *]
 
-    // Matrix mode is explicit
-    if "`matrix'" != "" {
-        sreturn local mode "matrix"
-        exit
-    }
-
-    // If anything is empty, assume estimates mode with active estimates
-    if `"`anything'"' == "" {
-        sreturn local mode "estimates"
-        exit
-    }
-
-    // Count tokens - data mode needs exactly 3 variables
-    local nwords : word count `anything'
-
-    if `nwords' >= 3 {
-        // Check if first three tokens are numeric variables
-        local w1 : word 1 of `anything'
-        local w2 : word 2 of `anything'
-        local w3 : word 3 of `anything'
-
-        capture confirm numeric variable `w1' `w2' `w3'
-        if _rc == 0 {
-            sreturn local mode "data"
+        // Matrix mode is explicit
+        if "`matrix'" != "" {
+            sreturn local mode "matrix"
             exit
         }
-    }
 
-    // Check if it looks like estimate names
-    if `nwords' == 1 & "`anything'" == "." {
-        sreturn local mode "estimates"
-        exit
-    }
-
-    // Try to see if these are stored estimates
-    local is_est 1
-    foreach name of local anything {
-        if "`name'" == "." continue
-        capture estimates dir `name'
-        if _rc {
-            local is_est 0
-            continue, break
+        // If anything is empty, assume estimates mode with active estimates
+        if `"`anything'"' == "" {
+            sreturn local mode "estimates"
+            exit
         }
-    }
 
-    if `is_est' {
-        sreturn local mode "estimates"
-        exit
-    }
+        // Count tokens - data mode needs exactly 3 variables
+        local nwords : word count `anything'
 
-    // Default: try data mode
-    sreturn local mode "data"
+        if `nwords' >= 3 {
+            // Check if first three tokens are numeric variables
+            local w1 : word 1 of `anything'
+            local w2 : word 2 of `anything'
+            local w3 : word 3 of `anything'
+
+            capture confirm numeric variable `w1' `w2' `w3'
+            if _rc == 0 {
+                sreturn local mode "data"
+                exit
+            }
+        }
+
+        // Check if it looks like estimate names
+        if `nwords' == 1 & "`anything'" == "." {
+            sreturn local mode "estimates"
+            exit
+        }
+
+        // Try to see if these are stored estimates
+        local is_est 1
+        foreach name of local anything {
+            if "`name'" == "." continue
+            capture estimates dir `name'
+            if _rc {
+                local is_est 0
+                continue, break
+            }
+        }
+
+        if `is_est' {
+            sreturn local mode "estimates"
+            exit
+        }
+
+        // Default: try data mode
+        sreturn local mode "data"
+    }
+    local rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
 end
 
 // =============================================================================
@@ -154,129 +160,97 @@ end
 
 program define _eplot_data, rclass
     version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+        syntax varlist(numeric min=3 max=3) [if] [in] , ///
+            [ ///
+            /// Data options
+            LABels(varname string) ///
+            WEIghts(varname numeric) ///
+            Type(varname) ///
+            /// Coefficient selection
+            KEEP(string asis) ///
+            DROP(string asis) ///
+            /// Labeling
+            COEFLabels(string asis) ///
+            GRoups(string asis) ///
+            HEADers(string asis) ///
+            HEADings(string asis) ///
+            GAP(real 0) ///
+            /// Transform
+            EFORM ///
+            REScale(real 1) ///
+            /// Reference lines
+            XLine(numlist) ///
+            XLABel(string asis) ///
+            NULL(real -999) ///
+            NONULL ///
+            /// Confidence intervals
+            NOCI ///
+            CICap ///
+            /// Display
+            DP(integer 2) ///
+            EFFect(string) ///
+            VALues ///
+            VFormat(string) ///
+            STARs ///
+            SIGColors ///
+            SIGColor(string) ///
+            INSIGColor(string) ///
+            /// Layout
+            HORizontal ///
+            VERTical ///
+            SORT ///
+            ORDer(string asis) ///
+            /// Prediction intervals
+            PI(varlist numeric min=2 max=2) ///
+            /// Favors annotation
+            Favors(string asis) ///
+            /// Heterogeneity stats
+            I2(string) ///
+            TAU2(string) ///
+            Qstat(string) ///
+            /// Style presets
+            STYle(string) ///
+            /// Box/marker options
+            BOXScale(real 100) ///
+            NOBOX ///
+            NODIamonds ///
+            MColor(string) ///
+            MSymbol(string) ///
+            MSize(string) ///
+            CIColor(string) ///
+            CIWidth(string) ///
+            /// Graph options
+            TItle(string asis) ///
+            SUBtitle(string asis) ///
+            NOTE(string asis) ///
+            NAME(string) ///
+            SAVing(string asis) ///
+            SCHEME(string) ///
+            PLOTRegion(string asis) ///
+            GRAPHRegion(string asis) ///
+            ASPect(string) ///
+            NOCONStant ///
+            * ///
+            ]
 
-    syntax varlist(numeric min=3 max=3) [if] [in] , ///
-        [ ///
-        /// Data options
-        LABels(varname string) ///
-        WEIghts(varname numeric) ///
-        Type(varname) ///
-        /// Coefficient selection
-        KEEP(string asis) ///
-        DROP(string asis) ///
-        /// Labeling
-        COEFLabels(string asis) ///
-        GRoups(string asis) ///
-        HEADers(string asis) ///
-        HEADings(string asis) ///
-        /// Transform
-        EFORM ///
-        REScale(real 1) ///
-        /// Reference lines
-        XLine(numlist) ///
-        NULL(real -999) ///
-        NONULL ///
-        /// Confidence intervals
-        NOCI ///
-        CICap ///
-        /// Display
-        DP(integer 2) ///
-        EFFect(string) ///
-        VALues ///
-        VFormat(string) ///
-        STARs ///
-        SIGColors ///
-        SIGColor(string) ///
-        INSIGColor(string) ///
-        /// Layout
-        HORizontal ///
-        VERTical ///
-        SORT ///
-        ORDer(string asis) ///
-        /// Prediction intervals
-        PI(varlist numeric min=2 max=2) ///
-        /// Favors annotation
-        Favors(string asis) ///
-        /// Heterogeneity stats
-        I2(string) ///
-        TAU2(string) ///
-        Qstat(string) ///
-        /// Style presets
-        STYle(string) ///
-        /// Box/marker options
-        BOXScale(real 100) ///
-        NOBOX ///
-        NODIamonds ///
-        MColor(string) ///
-        MSymbol(string) ///
-        MSize(string) ///
-        CIColor(string) ///
-        CIWidth(string) ///
-        /// Graph options
-        TItle(string asis) ///
-        SUBtitle(string asis) ///
-        NOTE(string asis) ///
-        NAME(string) ///
-        SAVing(string asis) ///
-        SCHEME(string) ///
-        PLOTRegion(string asis) ///
-        GRAPHRegion(string asis) ///
-        ASPect(string) ///
-        NOCONStant ///
-        * ///
-        ]
+        // nocons -> add _cons to drop list
+        if "`noconstant'" != "" {
+            local drop `"`drop' _cons"'
+        }
 
-    // nocons -> add _cons to drop list
-    if "`noconstant'" != "" {
-        local drop `"`drop' _cons"'
-    }
-
-    // ====== Style presets (apply BEFORE user overrides) ======
-    if "`style'" != "" {
-        if "`style'" == "forest" {
-            if "`values'" == "" local values "values"
-            if "`mcolor'" == "" local mcolor "navy"
+        // ====== Style presets (apply BEFORE user overrides) ======
+        if "`style'" != "" {
+            _eplot_apply_style, style(`"`style'"')
+            if "`values'" == "" local values "`s(values)'"
+            if "`mcolor'" == "" local mcolor "`s(mcolor)'"
+            if "`cicolor'" == "" local cicolor "`s(cicolor)'"
+            if "`cicap'" == "" local cicap "`s(cicap)'"
+            if "`msymbol'" == "" local msymbol "`s(msymbol)'"
+            if "`msize'" == "" local msize "`s(msize)'"
         }
-        else if "`style'" == "coef" {
-            if "`cicap'" == "" local cicap "cicap"
-            if "`msymbol'" == "" local msymbol "O"
-            if "`mcolor'" == "" local mcolor "navy"
-        }
-        else if "`style'" == "lancet" {
-            if "`mcolor'" == "" local mcolor "cranberry"
-            if "`cicolor'" == "" local cicolor "cranberry"
-            if "`cicap'" == "" local cicap "cicap"
-            if "`msymbol'" == "" local msymbol "D"
-            if "`msize'" == "" local msize "medsmall"
-        }
-        else if "`style'" == "jama" {
-            if "`mcolor'" == "" local mcolor "black"
-            if "`cicolor'" == "" local cicolor "black"
-            if "`msymbol'" == "" local msymbol "S"
-            if "`msize'" == "" local msize "small"
-            if "`values'" == "" local values "values"
-        }
-        else if "`style'" == "nejm" {
-            if "`mcolor'" == "" local mcolor "dknavy"
-            if "`cicolor'" == "" local cicolor "dknavy"
-            if "`cicap'" == "" local cicap "cicap"
-            if "`msymbol'" == "" local msymbol "O"
-            if "`msize'" == "" local msize "medium"
-            if "`values'" == "" local values "values"
-        }
-        else if "`style'" == "bmj" {
-            if "`mcolor'" == "" local mcolor "black"
-            if "`cicolor'" == "" local cicolor "black"
-            if "`msymbol'" == "" local msymbol "S"
-            if "`msize'" == "" local msize "small"
-            if "`cicap'" == "" local cicap "cicap"
-            if "`values'" == "" local values "values"
-        }
-        else {
-            display as error `"style(`style') not recognized; use forest, coef, lancet, jama, nejm, or bmj"'
-            exit 198
-        }
-    }
 
     // Parse varlist
     tokenize `varlist'
@@ -342,7 +316,7 @@ program define _eplot_data, rclass
     quietly keep if `touse'
 
     // Create working variables
-    tempvar id pos es lci uci wt rowtype label_str
+    tempvar id pos es lci uci wt rowtype label_str gapflag rowspace
 
     // Generate row ID
     quietly gen long `id' = _n
@@ -393,6 +367,7 @@ program define _eplot_data, rclass
     else {
         quietly gen int `rowtype' = 1
     }
+    quietly gen byte `gapflag' = 0
 
     // Labels
     if "`labels'" != "" {
@@ -441,7 +416,8 @@ program define _eplot_data, rclass
     // Process groups - insert headers and adjust positions
     local n_groups 0
     if `"`groups'"' != "" {
-        _eplot_process_groups `pos' `label_str' `rowtype', groups(`groups')
+        _eplot_process_groups `pos' `label_str' `rowtype' `gapflag', ///
+            groups(`groups') gap(`gap')
         local n_groups = r(n_groups)
     }
 
@@ -452,7 +428,9 @@ program define _eplot_data, rclass
 
     // Recalculate positions after any insertions
     sort `pos'
-    quietly replace `pos' = _N - _n + 1
+    quietly gen double `rowspace' = 1
+    quietly replace `rowspace' = `gap' if `gapflag' == 1
+    quietly replace `pos' = sum(`rowspace')
 
     // Update N to include any added header rows
     local N = _N
@@ -491,35 +469,22 @@ program define _eplot_data, rclass
         quietly gen double `pi_uci' = .
     }
 
-    // Determine plot range
-    quietly summarize `lci' if inlist(`rowtype', 1, 3, 5), meanonly
-    if r(N) == 0 {
-        display as error "no valid confidence intervals to plot"
-        exit 2000
-    }
-    local xmin = r(min)
-    quietly summarize `uci' if inlist(`rowtype', 1, 3, 5), meanonly
-    local xmax = r(max)
+    // Determine plot range and effect-axis ticks
+    _eplot_calc_range `lci' `uci' if inlist(`rowtype', 1, 3, 5), ///
+        extralow(`pi_lci') extrahigh(`pi_uci')
+    local xmin = `s(min)'
+    local xmax = `s(max)'
+    local xrange = `s(range)'
+    local xmin_pad = `s(min_pad)'
+    local xmax_pad = `s(max_pad)'
 
-    // Extend range for prediction intervals
-    if "`pi'" != "" {
-        quietly summarize `pi_lci' if inlist(`rowtype', 1, 3, 5), meanonly
-        if r(N) > 0 & r(min) < `xmin' local xmin = r(min)
-        quietly summarize `pi_uci' if inlist(`rowtype', 1, 3, 5), meanonly
-        if r(N) > 0 & r(max) > `xmax' local xmax = r(max)
+    if `"`xlabel'"' != "" {
+        _eplot_effect_axis_labels, min(`xmin') max(`xmax') xlabel(`xlabel')
     }
-
-    local xrange = `xmax' - `xmin'
-    if `xrange' == 0 {
-        local xrange = abs(`xmax') * 0.1
-        if `xrange' == 0 local xrange = 1
+    else {
+        _eplot_effect_axis_labels, min(`xmin') max(`xmax')
     }
-    local xmin_pad = `xmin' - 0.05 * `xrange'
-    local xmax_pad = `xmax' + 0.05 * `xrange'
-
-    // Effect-axis grid ticks (data range only, so gridlines don't enter values column)
-    _natscale `xmin' `xmax' 5
-    local _xtick_spec "`r(min)'(`r(delta)')`r(max)'"
+    local _effect_axis_opts `"`s(axisopts)'"'
 
     // --- Values annotation ---
     local val_cmd ""
@@ -535,6 +500,8 @@ program define _eplot_data, rclass
 
         local val_xpos = `xmax_pad'
         quietly gen double `val_x' = `val_xpos' if !missing(`val_text')
+        _eplot_value_margin `val_text', header(`"`effect'"')
+        local _val_right_margin = `s(right_margin)'
 
         local val_cmd `"(scatter `pos' `val_x' if !missing(`val_text'), msymbol(none) mlabel(`val_text') mlabpos(3) mlabsize(vsmall) mlabcolor(gs4))"'
     }
@@ -708,28 +675,11 @@ program define _eplot_data, rclass
         local graphcmd `"`graphcmd' `val_cmd'"'
     }
 
-    // --- Reference/null line ---
-    local refline_cmd ""
-    if "`nonull'" == "" {
-        if "`horizontal'" != "" {
-            local refline_cmd `"xline(`null', lcolor(gs8) lpattern(dash) lwidth(thin))"'
-        }
-        else {
-            local refline_cmd `"yline(`null', lcolor(gs8) lpattern(dash) lwidth(thin))"'
-        }
-    }
-
-    // Additional reference lines
-    if "`xline'" != "" {
-        foreach val of numlist `xline' {
-            if "`horizontal'" != "" {
-                local refline_cmd `"`refline_cmd' xline(`val', lcolor(gs10) lpattern(shortdash))"'
-            }
-            else {
-                local refline_cmd `"`refline_cmd' yline(`val', lcolor(gs10) lpattern(shortdash))"'
-            }
-        }
-    }
+    local _xline_opt ""
+    if "`xline'" != "" local _xline_opt `"xline(`xline')"'
+    _eplot_build_reflines, null(`null') `_xline_opt' ///
+        `horizontal' `nonull'
+    local refline_cmd `"`s(cmd)'"'
 
     // --- Y-axis labels (row labels) ---
     local ylabels ""
@@ -747,29 +697,28 @@ program define _eplot_data, rclass
 
         local ylabels `"`ylabels' `this_pos' `"`this_label'"'"'
     }
+    quietly summarize `pos', meanonly
+    local pos_max = r(max)
 
     // --- Graph options ---
     local ypad_lo 0
-    local ypad_hi = _N + 1
+    local ypad_hi = `pos_max' + 1
     if "`horizontal'" != "" {
         local graphcmd `"`graphcmd', ylabel(`ylabels', angle(0) labsize(small) nogrid valuelabel)"'
         local graphcmd `"`graphcmd' ytitle("")"'
+        local graphcmd `"`graphcmd' xscale(range(`xmin_pad' `xmax_pad'))"'
         if "`values'" != "" {
             // Column header just above first row
             local _val_hdr_y = 0.3
             local ypad_lo = -0.2
             local graphcmd `"`graphcmd' xtitle(`"`effect'"', size(medsmall))"'
             local graphcmd `"`graphcmd' text(`_val_hdr_y' `val_xpos' `"{bf:`effect'}"', size(vsmall) placement(e))"'
-            local graphcmd `"`graphcmd' xscale(range(`xmin_pad' `xmax_pad'))"'
-            local graphcmd `"`graphcmd' xlabel(`_xtick_spec', grid glcolor(gs12) glwidth(vthin))"'
         }
-        else {
-            local graphcmd `"`graphcmd' xtitle(`"`effect'"')"'
-            local graphcmd `"`graphcmd' xlabel(, grid glcolor(gs12) glwidth(vthin))"'
-        }
+        else local graphcmd `"`graphcmd' xtitle(`"`effect'"')"'
+        local graphcmd `"`graphcmd' xlabel(`_effect_axis_opts')"'
         // Extend range for favors text if specified
         if `"`favors'"' != "" {
-            local ypad_hi = _N + 2
+            local ypad_hi = `pos_max' + 2
         }
         local graphcmd `"`graphcmd' yscale(reverse range(`ypad_lo' `ypad_hi'))"'
     }
@@ -778,7 +727,8 @@ program define _eplot_data, rclass
         local graphcmd `"`graphcmd' xscale(range(`ypad_lo' `ypad_hi'))"'
         local graphcmd `"`graphcmd' xtitle("")"'
         local graphcmd `"`graphcmd' ytitle(`"`effect'"')"'
-        local graphcmd `"`graphcmd' ylabel(, grid glcolor(gs12) glwidth(vthin))"'
+        local graphcmd `"`graphcmd' yscale(range(`xmin_pad' `xmax_pad'))"'
+        local graphcmd `"`graphcmd' ylabel(`_effect_axis_opts')"'
     }
 
     // Reference lines
@@ -842,7 +792,7 @@ program define _eplot_data, rclass
     // Plotregion / graphregion
     local _plotregion_use `"`plotregion'"'
     if `"`_plotregion_use'"' == "" & "`horizontal'" != "" & "`values'" != "" {
-        local _plotregion_use "margin(l+2 r+26 t+2 b+2)"
+        local _plotregion_use "margin(l+2 r+`_val_right_margin' t+2 b+2)"
     }
     if `"`_plotregion_use'"' != "" {
         local graphcmd `"`graphcmd' plotregion(`_plotregion_use')"'
@@ -871,13 +821,10 @@ program define _eplot_data, rclass
 
     // Favors annotation (horizontal mode only)
     if `"`favors'"' != "" & "`horizontal'" != "" {
-        gettoken _fav_left favors : favors, bind
-        gettoken _fav_right : favors, bind
-        local _fav_y = _N + 1.5
-        local _fav_x_left = (`xmin' + `null') / 2
-        local _fav_x_right = (`null' + `xmax') / 2
-        local graphcmd `"`graphcmd' text(`_fav_y' `_fav_x_left' `"`_fav_left'"', size(vsmall) color(gs5) placement(c))"'
-        local graphcmd `"`graphcmd' text(`_fav_y' `_fav_x_right' `"`_fav_right'"', size(vsmall) color(gs5) placement(c))"'
+        local _fav_top = `pos_max' + 1.5
+        _eplot_build_favors, favors(`favors') null(`null') ///
+            min(`xmin') max(`xmax') top(`_fav_top')
+        local graphcmd `"`graphcmd' `s(cmd)'"'
     }
 
     // Execute graph
@@ -907,12 +854,16 @@ program define _eplot_data, rclass
         return matrix table = `_rtable'
     }
 
-    return scalar N = `N'
-    quietly count if `rowtype' == 1
-    return scalar k = r(N)
-    return local cmd `"`graphcmd'"'
+        return scalar N = `N'
+        quietly count if `rowtype' == 1
+        return scalar k = r(N)
+        return local cmd `"`graphcmd'"'
 
-    restore
+        restore
+    }
+    local rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
 end
 
 // =============================================================================
@@ -921,135 +872,103 @@ end
 
 program define _eplot_estimates, rclass
     version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+        syntax [anything] [, ///
+            /// Coefficient selection
+            KEEP(string asis) ///
+            DROP(string asis) ///
+            REName(string asis) ///
+            /// Labeling
+            COEFLabels(string asis) ///
+            GRoups(string asis) ///
+            HEADers(string asis) ///
+            HEADings(string asis) ///
+            GAP(real 0) ///
+            /// Transform
+            EFORM ///
+            REScale(real 1) ///
+            /// Reference lines
+            XLine(numlist) ///
+            XLABel(string asis) ///
+            NULL(real -999) ///
+            NONULL ///
+            /// Confidence intervals
+            LEVel(cilevel) ///
+            NOCI ///
+            CICap ///
+            /// Display
+            DP(integer 2) ///
+            EFFect(string) ///
+            VALues ///
+            VFormat(string) ///
+            STARs ///
+            SIGColors ///
+            SIGColor(string) ///
+            INSIGColor(string) ///
+            /// Favors annotation
+            Favors(string asis) ///
+            /// Style presets
+            STYle(string) ///
+            /// Layout
+            HORizontal ///
+            VERTical ///
+            SORT ///
+            ORDer(string asis) ///
+            /// Multi-model
+            MODELLabels(string asis) ///
+            OFFset(real 0.15) ///
+            PALette(string) ///
+            LEGendopts(string asis) ///
+            /// Marker options
+            MColor(string) ///
+            MSymbol(string) ///
+            MSize(string) ///
+            CIColor(string) ///
+            CIWidth(string) ///
+            /// Graph options
+            TItle(string asis) ///
+            SUBtitle(string asis) ///
+            NOTE(string asis) ///
+            NAME(string) ///
+            SAVing(string asis) ///
+            SCHEME(string) ///
+            PLOTRegion(string asis) ///
+            GRAPHRegion(string asis) ///
+            ASPect(string) ///
+            NOCONStant ///
+            * ///
+            ]
 
-    syntax [anything] [, ///
-        /// Coefficient selection
-        KEEP(string asis) ///
-        DROP(string asis) ///
-        REName(string asis) ///
-        /// Labeling
-        COEFLabels(string asis) ///
-        GRoups(string asis) ///
-        HEADers(string asis) ///
-        HEADings(string asis) ///
-        /// Transform
-        EFORM ///
-        REScale(real 1) ///
-        /// Reference lines
-        XLine(numlist) ///
-        NULL(real -999) ///
-        NONULL ///
-        /// Confidence intervals
-        LEVel(cilevel) ///
-        NOCI ///
-        CICap ///
-        /// Display
-        DP(integer 2) ///
-        EFFect(string) ///
-        VALues ///
-        VFormat(string) ///
-        STARs ///
-        SIGColors ///
-        SIGColor(string) ///
-        INSIGColor(string) ///
-        /// Favors annotation
-        Favors(string asis) ///
-        /// Style presets
-        STYle(string) ///
-        /// Layout
-        HORizontal ///
-        VERTical ///
-        SORT ///
-        ORDer(string asis) ///
-        /// Multi-model
-        MODELLabels(string asis) ///
-        OFFset(real 0.15) ///
-        PALette(string) ///
-        LEGendopts(string asis) ///
-        /// Marker options
-        MColor(string) ///
-        MSymbol(string) ///
-        MSize(string) ///
-        CIColor(string) ///
-        CIWidth(string) ///
-        /// Graph options
-        TItle(string asis) ///
-        SUBtitle(string asis) ///
-        NOTE(string asis) ///
-        NAME(string) ///
-        SAVing(string asis) ///
-        SCHEME(string) ///
-        PLOTRegion(string asis) ///
-        GRAPHRegion(string asis) ///
-        ASPect(string) ///
-        NOCONStant ///
-        * ///
-        ]
-
-    // nocons -> add _cons to drop list
-    if "`noconstant'" != "" {
-        local drop `"`drop' _cons"'
-    }
-
-    // eform -> auto-suppress constant (exp(_cons) is not meaningful)
-    if "`eform'" != "" & "`noconstant'" == "" {
-        // Only add if not already in drop list
-        local _has_cons 0
-        foreach _d of local drop {
-            if "`_d'" == "_cons" local _has_cons 1
-        }
-        if !`_has_cons' {
+        // nocons -> add _cons to drop list
+        if "`noconstant'" != "" {
             local drop `"`drop' _cons"'
-            display as text "(note: constant suppressed with eform)"
         }
-    }
 
-    // ====== Style presets (apply BEFORE user overrides) ======
-    if "`style'" != "" {
-        if "`style'" == "forest" {
-            if "`values'" == "" local values "values"
-            if "`mcolor'" == "" local mcolor "navy"
+        // eform -> auto-suppress constant (exp(_cons) is not meaningful)
+        if "`eform'" != "" & "`noconstant'" == "" {
+            // Only add if not already in drop list
+            local _has_cons 0
+            foreach _d of local drop {
+                if "`_d'" == "_cons" local _has_cons 1
+            }
+            if !`_has_cons' {
+                local drop `"`drop' _cons"'
+                display as text "(note: constant suppressed with eform)"
+            }
         }
-        else if "`style'" == "coef" {
-            if "`cicap'" == "" local cicap "cicap"
-            if "`msymbol'" == "" local msymbol "O"
-            if "`mcolor'" == "" local mcolor "navy"
+
+        // ====== Style presets (apply BEFORE user overrides) ======
+        if "`style'" != "" {
+            _eplot_apply_style, style(`"`style'"')
+            if "`values'" == "" local values "`s(values)'"
+            if "`mcolor'" == "" local mcolor "`s(mcolor)'"
+            if "`cicolor'" == "" local cicolor "`s(cicolor)'"
+            if "`cicap'" == "" local cicap "`s(cicap)'"
+            if "`msymbol'" == "" local msymbol "`s(msymbol)'"
+            if "`msize'" == "" local msize "`s(msize)'"
         }
-        else if "`style'" == "lancet" {
-            if "`mcolor'" == "" local mcolor "cranberry"
-            if "`cicolor'" == "" local cicolor "cranberry"
-            if "`cicap'" == "" local cicap "cicap"
-            if "`msymbol'" == "" local msymbol "D"
-            if "`msize'" == "" local msize "medsmall"
-        }
-        else if "`style'" == "jama" {
-            if "`mcolor'" == "" local mcolor "black"
-            if "`cicolor'" == "" local cicolor "black"
-            if "`msymbol'" == "" local msymbol "S"
-            if "`msize'" == "" local msize "small"
-            if "`values'" == "" local values "values"
-        }
-        else if "`style'" == "nejm" {
-            if "`mcolor'" == "" local mcolor "dknavy"
-            if "`cicolor'" == "" local cicolor "dknavy"
-            if "`cicap'" == "" local cicap "cicap"
-            if "`msymbol'" == "" local msymbol "O"
-            if "`msize'" == "" local msize "medium"
-            if "`values'" == "" local values "values"
-        }
-        else if "`style'" == "bmj" {
-            if "`mcolor'" == "" local mcolor "black"
-            if "`cicolor'" == "" local cicolor "black"
-            if "`msymbol'" == "" local msymbol "S"
-            if "`msize'" == "" local msize "small"
-            if "`cicap'" == "" local cicap "cicap"
-            if "`values'" == "" local values "values"
-        }
-        else {
-            display as error `"style(`style') not recognized; use forest, coef, lancet, jama, nejm, or bmj"'
-            exit 198
-        }
-    }
 
     // ====== Parse estimate list ======
     if `"`anything'"' == "" | `"`anything'"' == "." {
@@ -1428,10 +1347,11 @@ program define _eplot_estimates, rclass
     // NOTE: groups/headers run BEFORE coeflabels so specs match original names
     if `n_models' == 1 {
         gen byte _rowtype = 1
+        gen byte _gapflag = 0
 
         if `"`groups'"' != "" {
-            _eplot_process_groups _base_pos coef_name _rowtype, ///
-                groups(`groups')
+            _eplot_process_groups _base_pos coef_name _rowtype _gapflag, ///
+                groups(`groups') gap(`gap')
         }
         if `"`headers'"' != "" {
             _eplot_process_headers _base_pos coef_name _rowtype, ///
@@ -1440,7 +1360,9 @@ program define _eplot_estimates, rclass
 
         // Recalculate positions after insertions
         sort _base_pos
-        quietly replace _base_pos = _N - _n + 1
+        gen double _rowspace = 1
+        quietly replace _rowspace = `gap' if _gapflag == 1
+        quietly replace _base_pos = sum(_rowspace)
         quietly replace _plot_pos = _base_pos
 
         // Update coef count to include headers
@@ -1451,8 +1373,8 @@ program define _eplot_estimates, rclass
         local n_items = `n_coefs'
 
         // Warn if groups/headers specified in multi-model mode
-        if `"`groups'"' != "" | `"`headers'"' != "" {
-            display as text "(note: groups() and headers() are ignored " ///
+        if `"`groups'"' != "" | `"`headers'"' != "" | `gap' > 0 {
+            display as text "(note: groups(), headers(), and gap() are ignored " ///
                 "in multi-model mode)"
         }
     }
@@ -1488,22 +1410,21 @@ program define _eplot_estimates, rclass
     }
 
     // ====== Determine axis range ======
-    quietly summarize lci if _rowtype == 1
-    local data_xmin = r(min)
-    quietly summarize uci if _rowtype == 1
-    local data_xmax = r(max)
+    _eplot_calc_range lci uci if _rowtype == 1
+    local data_xmin = `s(min)'
+    local data_xmax = `s(max)'
+    local data_range = `s(range)'
+    local xmin_pad = `s(min_pad)'
+    local xmax_pad = `s(max_pad)'
 
-    local data_range = `data_xmax' - `data_xmin'
-    if `data_range' == 0 {
-        local data_range = abs(`data_xmax') * 0.1
-        if `data_range' == 0 local data_range = 1
+    if `"`xlabel'"' != "" {
+        _eplot_effect_axis_labels, min(`data_xmin') max(`data_xmax') ///
+            xlabel(`xlabel')
     }
-    local xmin_pad = `data_xmin' - 0.05 * `data_range'
-    local xmax_pad = `data_xmax' + 0.05 * `data_range'
-
-    // Effect-axis grid ticks (data range only)
-    _natscale `data_xmin' `data_xmax' 5
-    local _xtick_spec "`r(min)'(`r(delta)')`r(max)'"
+    else {
+        _eplot_effect_axis_labels, min(`data_xmin') max(`data_xmax')
+    }
+    local _effect_axis_opts `"`s(axisopts)'"'
 
     // ====== Values annotation (single-model only) ======
     local val_cmd ""
@@ -1523,6 +1444,8 @@ program define _eplot_estimates, rclass
 
         local val_xpos = `xmax_pad'
         gen double _val_x = `val_xpos' if !missing(_val_text)
+        _eplot_value_margin _val_text, header(`"`effect'"')
+        local _val_right_margin = `s(right_margin)'
 
         local val_cmd `"(scatter _plot_pos _val_x if !missing(_val_text), msymbol(none) mlabel(_val_text) mlabpos(3) mlabsize(vsmall) mlabcolor(gs4))"'
     }
@@ -1666,59 +1589,44 @@ program define _eplot_estimates, rclass
             local ylabels `"`ylabels' `this_pos' `"`this_label'"'"'
         }
     }
+    quietly summarize _base_pos, meanonly
+    local pos_max = r(max)
 
     // ====== Graph options ======
     local ypad_lo = cond(`n_models' > 1, ///
         0.5 - `offset' * `n_models' / 2, 0)
-    local ypad_hi = `n_items' + 1
+    local ypad_hi = `pos_max' + 1
 
     if "`horizontal'" != "" {
         local graphcmd `"`graphcmd', ylabel(`ylabels', angle(0) labsize(small) nogrid noticks)"'
-        local graphcmd `"`graphcmd' ytitle("") xtitle(`"`effect'"')"'
+        local graphcmd `"`graphcmd' ytitle("") xscale(range(`xmin_pad' `xmax_pad'))"'
         if "`values'" != "" & `n_models' == 1 {
             // Column header just above first row
             local _val_hdr_y = 0.3
             local ypad_lo = cond(`ypad_lo' < -0.2, `ypad_lo', -0.2)
-            local graphcmd `"`graphcmd' xscale(range(`xmin_pad' `xmax_pad'))"'
+            local graphcmd `"`graphcmd' xtitle(`"`effect'"', size(medsmall))"'
             local graphcmd `"`graphcmd' text(`_val_hdr_y' `val_xpos' `"{bf:`effect'}"', size(vsmall) placement(e))"'
-            local graphcmd `"`graphcmd' xlabel(`_xtick_spec', grid glcolor(gs12) glwidth(vthin))"'
         }
-        else {
-            local graphcmd `"`graphcmd' xlabel(, grid glcolor(gs12) glwidth(vthin))"'
-        }
+        else local graphcmd `"`graphcmd' xtitle(`"`effect'"')"'
+        local graphcmd `"`graphcmd' xlabel(`_effect_axis_opts')"'
         // Extend range for favors text if specified
         if `"`favors'"' != "" {
-            local ypad_hi = `n_items' + 2
+            local ypad_hi = `pos_max' + 2
         }
         local graphcmd `"`graphcmd' yscale(reverse noline range(`ypad_lo' `ypad_hi'))"'
     }
     else {
         local graphcmd `"`graphcmd', xlabel(`ylabels', angle(45) labsize(small) nogrid)"'
         local graphcmd `"`graphcmd' xscale(range(`ypad_lo' `ypad_hi'))"'
-        local graphcmd `"`graphcmd' xtitle("") ytitle(`"`effect'"')"'
-        local graphcmd `"`graphcmd' ylabel(, grid glcolor(gs12) glwidth(vthin))"'
+        local graphcmd `"`graphcmd' xtitle("") ytitle(`"`effect'"') yscale(range(`xmin_pad' `xmax_pad'))"'
+        local graphcmd `"`graphcmd' ylabel(`_effect_axis_opts')"'
     }
 
-    // Reference line
-    local refline_cmd ""
-    if "`nonull'" == "" {
-        if "`horizontal'" != "" {
-            local refline_cmd `"xline(`null', lcolor(gs8) lpattern(dash) lwidth(thin))"'
-        }
-        else {
-            local refline_cmd `"yline(`null', lcolor(gs8) lpattern(dash) lwidth(thin))"'
-        }
-    }
-    if "`xline'" != "" {
-        foreach val of numlist `xline' {
-            if "`horizontal'" != "" {
-                local refline_cmd `"`refline_cmd' xline(`val', lcolor(gs10) lpattern(shortdash))"'
-            }
-            else {
-                local refline_cmd `"`refline_cmd' yline(`val', lcolor(gs10) lpattern(shortdash))"'
-            }
-        }
-    }
+    local _xline_opt ""
+    if "`xline'" != "" local _xline_opt `"xline(`xline')"'
+    _eplot_build_reflines, null(`null') `_xline_opt' ///
+        `horizontal' `nonull'
+    local refline_cmd `"`s(cmd)'"'
     if "`refline_cmd'" != "" {
         local graphcmd `"`graphcmd' `refline_cmd'"'
     }
@@ -1764,7 +1672,7 @@ program define _eplot_estimates, rclass
     // Plotregion / graphregion
     local _plotregion_use `"`plotregion'"'
     if `"`_plotregion_use'"' == "" & "`horizontal'" != "" & "`values'" != "" & `n_models' == 1 {
-        local _plotregion_use "margin(l+2 r+26 t+2 b+2)"
+        local _plotregion_use "margin(l+2 r+`_val_right_margin' t+2 b+2)"
     }
     if `"`_plotregion_use'"' != "" {
         local graphcmd `"`graphcmd' plotregion(`_plotregion_use')"'
@@ -1793,13 +1701,10 @@ program define _eplot_estimates, rclass
 
     // Favors annotation (horizontal mode only)
     if `"`favors'"' != "" & "`horizontal'" != "" {
-        gettoken _fav_left favors : favors, bind
-        gettoken _fav_right : favors, bind
-        local _fav_y = `n_items' + 1.5
-        local _fav_x_left = (`data_xmin' + `null') / 2
-        local _fav_x_right = (`null' + `data_xmax') / 2
-        local graphcmd `"`graphcmd' text(`_fav_y' `_fav_x_left' `"`_fav_left'"', size(vsmall) color(gs5) placement(c))"'
-        local graphcmd `"`graphcmd' text(`_fav_y' `_fav_x_right' `"`_fav_right'"', size(vsmall) color(gs5) placement(c))"'
+        local _fav_top = `pos_max' + 1.5
+        _eplot_build_favors, favors(`favors') null(`null') ///
+            min(`data_xmin') max(`data_xmax') top(`_fav_top')
+        local graphcmd `"`graphcmd' `s(cmd)'"'
     }
 
     // ====== Execute graph ======
@@ -1894,13 +1799,17 @@ program define _eplot_estimates, rclass
         }
     }
 
-    return scalar N = `n_items'
-    return scalar n_models = `n_models'
-    quietly count if _rowtype == 1
-    return scalar k = r(N)
-    return local cmd `"`graphcmd'"'
+        return scalar N = `n_items'
+        return scalar n_models = `n_models'
+        quietly count if _rowtype == 1
+        return scalar k = r(N)
+        return local cmd `"`graphcmd'"'
 
-    restore
+        restore
+    }
+    local rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
 end
 
 // =============================================================================
@@ -1909,121 +1818,88 @@ end
 
 program define _eplot_matrix, rclass
     version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+        syntax , Matrix(name) ///
+            [ ///
+            LEVel(cilevel) ///
+            EFORM ///
+            REScale(real 1) ///
+            /// Coefficient selection
+            KEEP(string asis) ///
+            DROP(string asis) ///
+            COEFLabels(string asis) ///
+            /// Reference lines
+            XLine(numlist) ///
+            XLABel(string asis) ///
+            NULL(real -999) ///
+            NONULL ///
+            NOCI ///
+            CICap ///
+            /// Display
+            STYle(string) ///
+            DP(integer 2) ///
+            EFFect(string) ///
+            VALues ///
+            VFormat(string) ///
+            SORT ///
+            ORDer(string asis) ///
+            SIGColors ///
+            SIGColor(string) ///
+            INSIGColor(string) ///
+            STARS ///
+            Favors(string asis) ///
+            /// Layout
+            HORizontal ///
+            VERTical ///
+            /// Markers
+            MColor(string) ///
+            MSymbol(string) ///
+            MSize(string) ///
+            CIColor(string) ///
+            CIWidth(string) ///
+            /// Graph options
+            TItle(string asis) ///
+            SUBtitle(string asis) ///
+            NOTE(string asis) ///
+            NAME(string) ///
+            SAVing(string asis) ///
+            SCHEME(string) ///
+            PLOTRegion(string asis) ///
+            GRAPHRegion(string asis) ///
+            ASPect(string) ///
+            NOCONStant ///
+            * ///
+            ]
 
-    syntax , Matrix(name) ///
-        [ ///
-        LEVel(cilevel) ///
-        EFORM ///
-        REScale(real 1) ///
-        /// Coefficient selection
-        KEEP(string asis) ///
-        DROP(string asis) ///
-        COEFLabels(string asis) ///
-        /// Reference lines
-        XLine(numlist) ///
-        NULL(real -999) ///
-        NONULL ///
-        NOCI ///
-        CICap ///
-        /// Display
-        STYle(string) ///
-        DP(integer 2) ///
-        EFFect(string) ///
-        VALues ///
-        VFormat(string) ///
-        SORT ///
-        ORDer(string asis) ///
-        SIGColors ///
-        SIGColor(string) ///
-        INSIGColor(string) ///
-        STARS ///
-        Favors(string asis) ///
-        /// Layout
-        HORizontal ///
-        VERTical ///
-        /// Markers
-        MColor(string) ///
-        MSymbol(string) ///
-        MSize(string) ///
-        CIColor(string) ///
-        CIWidth(string) ///
-        /// Graph options
-        TItle(string asis) ///
-        SUBtitle(string asis) ///
-        NOTE(string asis) ///
-        NAME(string) ///
-        SAVing(string asis) ///
-        SCHEME(string) ///
-        PLOTRegion(string asis) ///
-        GRAPHRegion(string asis) ///
-        ASPect(string) ///
-        NOCONStant ///
-        * ///
-        ]
-
-    // nocons -> add _cons to drop list
-    if "`noconstant'" != "" {
-        local drop `"`drop' _cons"'
-    }
-
-    // eform -> auto-suppress constant (exp(_cons) is not meaningful)
-    if "`eform'" != "" & "`noconstant'" == "" {
-        local _has_cons 0
-        foreach _d of local drop {
-            if "`_d'" == "_cons" local _has_cons 1
-        }
-        if !`_has_cons' {
+        // nocons -> add _cons to drop list
+        if "`noconstant'" != "" {
             local drop `"`drop' _cons"'
-            display as text "(note: constant suppressed with eform)"
         }
-    }
 
-    // ====== Style presets (apply BEFORE user overrides) ======
-    if "`style'" != "" {
-        if "`style'" == "forest" {
-            if "`values'" == "" local values "values"
-            if "`mcolor'" == "" local mcolor "navy"
+        // eform -> auto-suppress constant (exp(_cons) is not meaningful)
+        if "`eform'" != "" & "`noconstant'" == "" {
+            local _has_cons 0
+            foreach _d of local drop {
+                if "`_d'" == "_cons" local _has_cons 1
+            }
+            if !`_has_cons' {
+                local drop `"`drop' _cons"'
+                display as text "(note: constant suppressed with eform)"
+            }
         }
-        else if "`style'" == "coef" {
-            if "`cicap'" == "" local cicap "cicap"
-            if "`msymbol'" == "" local msymbol "O"
-            if "`mcolor'" == "" local mcolor "navy"
+
+        // ====== Style presets (apply BEFORE user overrides) ======
+        if "`style'" != "" {
+            _eplot_apply_style, style(`"`style'"')
+            if "`values'" == "" local values "`s(values)'"
+            if "`mcolor'" == "" local mcolor "`s(mcolor)'"
+            if "`cicolor'" == "" local cicolor "`s(cicolor)'"
+            if "`cicap'" == "" local cicap "`s(cicap)'"
+            if "`msymbol'" == "" local msymbol "`s(msymbol)'"
+            if "`msize'" == "" local msize "`s(msize)'"
         }
-        else if "`style'" == "lancet" {
-            if "`mcolor'" == "" local mcolor "cranberry"
-            if "`cicolor'" == "" local cicolor "cranberry"
-            if "`cicap'" == "" local cicap "cicap"
-            if "`msymbol'" == "" local msymbol "D"
-            if "`msize'" == "" local msize "medsmall"
-        }
-        else if "`style'" == "jama" {
-            if "`mcolor'" == "" local mcolor "black"
-            if "`cicolor'" == "" local cicolor "black"
-            if "`msymbol'" == "" local msymbol "S"
-            if "`msize'" == "" local msize "small"
-            if "`values'" == "" local values "values"
-        }
-        else if "`style'" == "nejm" {
-            if "`mcolor'" == "" local mcolor "dknavy"
-            if "`cicolor'" == "" local cicolor "dknavy"
-            if "`cicap'" == "" local cicap "cicap"
-            if "`msymbol'" == "" local msymbol "O"
-            if "`msize'" == "" local msize "medium"
-            if "`values'" == "" local values "values"
-        }
-        else if "`style'" == "bmj" {
-            if "`mcolor'" == "" local mcolor "black"
-            if "`cicolor'" == "" local cicolor "black"
-            if "`msymbol'" == "" local msymbol "S"
-            if "`msize'" == "" local msize "small"
-            if "`cicap'" == "" local cicap "cicap"
-            if "`values'" == "" local values "values"
-        }
-        else {
-            display as error `"style(`style') not recognized; use forest, coef, lancet, jama, nejm, or bmj"'
-            exit 198
-        }
-    }
 
     // Validate matrix dimensions
     local nrows = rowsof(`matrix')
@@ -2183,21 +2059,21 @@ program define _eplot_matrix, rclass
     }
 
     // Axis range
-    quietly summarize lci
-    local data_xmin = r(min)
-    quietly summarize uci
-    local data_xmax = r(max)
-    local data_range = `data_xmax' - `data_xmin'
-    if `data_range' == 0 {
-        local data_range = abs(`data_xmax') * 0.1
-        if `data_range' == 0 local data_range = 1
-    }
-    local xmin_pad = `data_xmin' - 0.05 * `data_range'
-    local xmax_pad = `data_xmax' + 0.05 * `data_range'
+    _eplot_calc_range lci uci
+    local data_xmin = `s(min)'
+    local data_xmax = `s(max)'
+    local data_range = `s(range)'
+    local xmin_pad = `s(min_pad)'
+    local xmax_pad = `s(max_pad)'
 
-    // Effect-axis grid ticks (data range only)
-    _natscale `data_xmin' `data_xmax' 5
-    local _xtick_spec "`r(min)'(`r(delta)')`r(max)'"
+    if `"`xlabel'"' != "" {
+        _eplot_effect_axis_labels, min(`data_xmin') max(`data_xmax') ///
+            xlabel(`xlabel')
+    }
+    else {
+        _eplot_effect_axis_labels, min(`data_xmin') max(`data_xmax')
+    }
+    local _effect_axis_opts `"`s(axisopts)'"'
 
     // Values annotation
     local val_cmd ""
@@ -2216,6 +2092,8 @@ program define _eplot_matrix, rclass
 
         local val_xpos = `xmax_pad'
         gen double _val_x = `val_xpos'
+        _eplot_value_margin _val_text, header(`"`effect'"')
+        local _val_right_margin = `s(right_margin)'
 
         local val_cmd `"(scatter _plot_pos _val_x, msymbol(none) mlabel(_val_text) mlabpos(3) mlabsize(vsmall) mlabcolor(gs4))"'
     }
@@ -2273,56 +2151,42 @@ program define _eplot_matrix, rclass
         local this_label = coef_name[`i']
         local ylabels `"`ylabels' `this_pos' `"`this_label'"'"'
     }
+    quietly summarize _plot_pos, meanonly
+    local pos_max = r(max)
 
     // Graph options
     local ypad_lo 0
-    local ypad_hi = `n_coefs' + 1
+    local ypad_hi = `pos_max' + 1
     if "`horizontal'" != "" {
         local graphcmd `"`graphcmd', ylabel(`ylabels', angle(0) labsize(small) nogrid)"'
-        local graphcmd `"`graphcmd' ytitle("") xtitle(`"`effect'"')"'
+        local graphcmd `"`graphcmd' ytitle("") xscale(range(`xmin_pad' `xmax_pad'))"'
         if "`values'" != "" {
             // Column header just above first row
             local _val_hdr_y = 0.3
             local ypad_lo = -0.2
-            local graphcmd `"`graphcmd' xscale(range(`xmin_pad' `xmax_pad'))"'
+            local graphcmd `"`graphcmd' xtitle(`"`effect'"', size(medsmall))"'
             local graphcmd `"`graphcmd' text(`_val_hdr_y' `val_xpos' `"{bf:`effect'}"', size(vsmall) placement(e))"'
-            local graphcmd `"`graphcmd' xlabel(`_xtick_spec', grid glcolor(gs12) glwidth(vthin))"'
         }
-        else {
-            local graphcmd `"`graphcmd' xlabel(, grid glcolor(gs12) glwidth(vthin))"'
-        }
+        else local graphcmd `"`graphcmd' xtitle(`"`effect'"')"'
+        local graphcmd `"`graphcmd' xlabel(`_effect_axis_opts')"'
         // Extend range for favors text if specified
         if `"`favors'"' != "" {
-            local ypad_hi = `n_coefs' + 2
+            local ypad_hi = `pos_max' + 2
         }
         local graphcmd `"`graphcmd' yscale(reverse range(`ypad_lo' `ypad_hi'))"'
     }
     else {
         local graphcmd `"`graphcmd', xlabel(`ylabels', angle(45) labsize(small) nogrid)"'
         local graphcmd `"`graphcmd' xscale(range(`ypad_lo' `ypad_hi'))"'
-        local graphcmd `"`graphcmd' xtitle("") ytitle(`"`effect'"')"'
-        local graphcmd `"`graphcmd' ylabel(, grid glcolor(gs12) glwidth(vthin))"'
+        local graphcmd `"`graphcmd' xtitle("") ytitle(`"`effect'"') yscale(range(`xmin_pad' `xmax_pad'))"'
+        local graphcmd `"`graphcmd' ylabel(`_effect_axis_opts')"'
     }
 
-    // Reference line
-    if "`nonull'" == "" {
-        if "`horizontal'" != "" {
-            local graphcmd `"`graphcmd' xline(`null', lcolor(gs8) lpattern(dash) lwidth(thin))"'
-        }
-        else {
-            local graphcmd `"`graphcmd' yline(`null', lcolor(gs8) lpattern(dash) lwidth(thin))"'
-        }
-    }
-    if "`xline'" != "" {
-        foreach val of numlist `xline' {
-            if "`horizontal'" != "" {
-                local graphcmd `"`graphcmd' xline(`val', lcolor(gs10) lpattern(shortdash))"'
-            }
-            else {
-                local graphcmd `"`graphcmd' yline(`val', lcolor(gs10) lpattern(shortdash))"'
-            }
-        }
-    }
+    local _xline_opt ""
+    if "`xline'" != "" local _xline_opt `"xline(`xline')"'
+    _eplot_build_reflines, null(`null') `_xline_opt' ///
+        `horizontal' `nonull'
+    local graphcmd `"`graphcmd' `s(cmd)'"'
 
     // Legend off
     local graphcmd `"`graphcmd' legend(off)"'
@@ -2334,7 +2198,7 @@ program define _eplot_matrix, rclass
     if "`scheme'" != "" local graphcmd `"`graphcmd' scheme(`scheme')"'
     local _plotregion_use `"`plotregion'"'
     if `"`_plotregion_use'"' == "" & "`horizontal'" != "" & "`values'" != "" {
-        local _plotregion_use "margin(l+2 r+26 t+2 b+2)"
+        local _plotregion_use "margin(l+2 r+`_val_right_margin' t+2 b+2)"
     }
     if `"`_plotregion_use'"' != "" local graphcmd `"`graphcmd' plotregion(`_plotregion_use')"'
     if `"`graphregion'"' != "" local graphcmd `"`graphcmd' graphregion(`graphregion')"'
@@ -2345,13 +2209,10 @@ program define _eplot_matrix, rclass
 
     // Favors annotation (horizontal mode only)
     if `"`favors'"' != "" & "`horizontal'" != "" {
-        gettoken _fav_left favors : favors, bind
-        gettoken _fav_right : favors, bind
-        local _fav_y = `n_coefs' + 1.5
-        local _fav_x_left = (`data_xmin' + `null') / 2
-        local _fav_x_right = (`null' + `data_xmax') / 2
-        local graphcmd `"`graphcmd' text(`_fav_y' `_fav_x_left' `"`_fav_left'"', size(vsmall) color(gs5) placement(c))"'
-        local graphcmd `"`graphcmd' text(`_fav_y' `_fav_x_right' `"`_fav_right'"', size(vsmall) color(gs5) placement(c))"'
+        local _fav_top = `pos_max' + 1.5
+        _eplot_build_favors, favors(`favors') null(`null') ///
+            min(`data_xmin') max(`data_xmax') top(`_fav_top')
+        local graphcmd `"`graphcmd' `s(cmd)'"'
     }
 
     // Execute
@@ -2375,11 +2236,239 @@ program define _eplot_matrix, rclass
         return matrix table = `_rtable'
     }
 
-    return scalar N = `n_coefs'
-    return scalar k = `n_coefs'
-    return local cmd `"`graphcmd'"'
+        return scalar N = `n_coefs'
+        return scalar k = `n_coefs'
+        return local cmd `"`graphcmd'"'
 
-    restore
+        restore
+    }
+    local rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
+end
+
+// =============================================================================
+// Shared helpers
+// =============================================================================
+
+program define _eplot_apply_style, sclass
+    version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+        syntax, STYle(string)
+
+        sreturn clear
+        local style = lower(trim("`style'"))
+
+        if "`style'" == "forest" {
+            sreturn local values "values"
+            sreturn local mcolor "navy"
+        }
+        else if "`style'" == "coef" {
+            sreturn local cicap "cicap"
+            sreturn local msymbol "O"
+            sreturn local mcolor "navy"
+        }
+        else if "`style'" == "lancet" {
+            sreturn local mcolor "cranberry"
+            sreturn local cicolor "cranberry"
+            sreturn local cicap "cicap"
+            sreturn local msymbol "D"
+            sreturn local msize "medsmall"
+        }
+        else if "`style'" == "jama" {
+            sreturn local mcolor "black"
+            sreturn local cicolor "black"
+            sreturn local msymbol "S"
+            sreturn local msize "small"
+            sreturn local values "values"
+        }
+        else if "`style'" == "nejm" {
+            sreturn local mcolor "dknavy"
+            sreturn local cicolor "dknavy"
+            sreturn local cicap "cicap"
+            sreturn local msymbol "O"
+            sreturn local msize "medium"
+            sreturn local values "values"
+        }
+        else if "`style'" == "bmj" {
+            sreturn local mcolor "black"
+            sreturn local cicolor "black"
+            sreturn local msymbol "S"
+            sreturn local msize "small"
+            sreturn local cicap "cicap"
+            sreturn local values "values"
+        }
+        else {
+            display as error `"style(`style') not recognized; use forest, coef, lancet, jama, nejm, or bmj"'
+            exit 198
+        }
+    }
+    local rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
+end
+
+program define _eplot_calc_range, sclass
+    version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+        syntax varlist(numeric min=2 max=2) [if] [in] [, ///
+            EXTRALOW(varname numeric) ///
+            EXTRAHIgh(varname numeric) ///
+        ]
+
+        tokenize `varlist'
+        local lowvar `1'
+        local highvar `2'
+
+        quietly summarize `lowvar' `if' `in', meanonly
+        if r(N) == 0 {
+            display as error "no valid confidence intervals to plot"
+            exit 2000
+        }
+        local xmin = r(min)
+
+        quietly summarize `highvar' `if' `in', meanonly
+        local xmax = r(max)
+
+        if "`extralow'" != "" {
+            quietly summarize `extralow' `if' `in', meanonly
+            if r(N) > 0 & r(min) < `xmin' local xmin = r(min)
+        }
+        if "`extrahigh'" != "" {
+            quietly summarize `extrahigh' `if' `in', meanonly
+            if r(N) > 0 & r(max) > `xmax' local xmax = r(max)
+        }
+
+        local xrange = `xmax' - `xmin'
+        if `xrange' == 0 {
+            local xrange = abs(`xmax') * 0.1
+            if `xrange' == 0 local xrange = 1
+        }
+
+        sreturn clear
+        sreturn local min "`xmin'"
+        sreturn local max "`xmax'"
+        sreturn local range "`xrange'"
+        sreturn local min_pad = string(`xmin' - 0.05 * `xrange', "%18.0g")
+        sreturn local max_pad = string(`xmax' + 0.05 * `xrange', "%18.0g")
+    }
+    local rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
+end
+
+program define _eplot_effect_axis_labels, sclass
+    version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+        syntax, MIN(real) MAX(real) [XLABel(string asis)]
+
+        sreturn clear
+        if trim(`"`xlabel'"') != "" & `"`xlabel'"' != `""""' {
+            sreturn local axisopts `"`xlabel'"'
+        }
+        else {
+            _natscale `min' `max' 5
+            sreturn local axisopts ///
+                `"`r(min)'(`r(delta)')`r(max)', grid glcolor(gs12) glwidth(vthin)"'
+        }
+    }
+    local rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
+end
+
+program define _eplot_build_reflines, sclass
+    version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+        syntax, NULL(real) [XLine(numlist) HORizontal NONULL]
+
+        local cmd ""
+        if "`nonull'" == "" {
+            if "`horizontal'" != "" {
+                local cmd `"xline(`null', lcolor(gs8) lpattern(dash) lwidth(thin))"'
+            }
+            else {
+                local cmd `"yline(`null', lcolor(gs8) lpattern(dash) lwidth(thin))"'
+            }
+        }
+
+        if "`xline'" != "" {
+            foreach val of numlist `xline' {
+                if "`horizontal'" != "" {
+                    local cmd `"`cmd' xline(`val', lcolor(gs10) lpattern(shortdash))"'
+                }
+                else {
+                    local cmd `"`cmd' yline(`val', lcolor(gs10) lpattern(shortdash))"'
+                }
+            }
+        }
+
+        sreturn clear
+        sreturn local cmd `"`cmd'"'
+    }
+    local rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
+end
+
+program define _eplot_build_favors, sclass
+    version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+        syntax, FAVors(string asis) NULL(real) MIN(real) MAX(real) TOP(real)
+
+        gettoken _fav_left favors : favors, bind
+        gettoken _fav_right : favors, bind
+
+        local _fav_x_left = (`min' + `null') / 2
+        local _fav_x_right = (`null' + `max') / 2
+
+        local cmd ///
+            `"text(`top' `_fav_x_left' `"`_fav_left'"', size(vsmall) color(gs5) placement(c))"'
+        local cmd ///
+            `"`cmd' text(`top' `_fav_x_right' `"`_fav_right'"', size(vsmall) color(gs5) placement(c))"'
+
+        sreturn clear
+        sreturn local cmd `"`cmd'"'
+    }
+    local rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
+end
+
+program define _eplot_value_margin, sclass
+    version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+        syntax varname, HEADer(string asis) [MINimum(integer 26)]
+
+        tempvar _val_len
+        quietly gen double `_val_len' = length(`varlist') if !missing(`varlist')
+        quietly summarize `_val_len', meanonly
+        local maxlen = cond(r(N) > 0, r(max), 0)
+
+        local header_len = length(`"`header'"')
+        if `header_len' > `maxlen' local maxlen = `header_len'
+
+        local right_margin = ceil(`maxlen' * 1.15 + 6)
+        if `right_margin' < `minimum' local right_margin = `minimum'
+
+        sreturn clear
+        sreturn local right_margin "`right_margin'"
+    }
+    local rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
 end
 
 // =============================================================================
@@ -2388,33 +2477,33 @@ end
 
 program define _eplot_apply_coeflabels
     version 16.0
-    syntax varname, COEFLabels(string asis)
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+        syntax varname, COEFLabels(string asis)
 
-    local labelvar `varlist'
+        local labelvar `varlist'
+        local remaining `"`coeflabels'"'
 
-    // Parse coeflabels: coef1 = "label1" coef2 = "label2" ...
-    local remaining `"`coeflabels'"'
+        while `"`remaining'"' != "" {
+            gettoken coef remaining : remaining, parse("=")
+            local coef = trim("`coef'")
 
-    while `"`remaining'"' != "" {
-        // Get coefficient name
-        gettoken coef remaining : remaining, parse("=")
-        local coef = trim("`coef'")
+            gettoken eq remaining : remaining, parse("=")
 
-        // Remove the = sign
-        gettoken eq remaining : remaining, parse("=")
+            gettoken label remaining : remaining, parse(" ") bind
+            local label = trim(`"`label'"')
 
-        // Get the label (may be quoted)
-        gettoken label remaining : remaining, parse(" ") bind
-        local label = trim(`"`label'"')
+            if substr(`"`label'"', 1, 1) == `"""' {
+                local label = substr(`"`label'"', 2, length(`"`label'"') - 2)
+            }
 
-        // Remove surrounding quotes if present
-        if substr(`"`label'"', 1, 1) == `"""' {
-            local label = substr(`"`label'"', 2, length(`"`label'"') - 2)
+            quietly replace `labelvar' = `"`label'"' if `labelvar' == "`coef'"
         }
-
-        // Apply the label
-        quietly replace `labelvar' = `"`label'"' if `labelvar' == "`coef'"
     }
+    local rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
 end
 
 // =============================================================================
@@ -2423,23 +2512,30 @@ end
 
 program define _eplot_apply_keep
     version 16.0
-    syntax varname, KEEP(string asis)
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+        syntax varname, KEEP(string asis)
 
-    local labelvar `varlist'
+        local labelvar `varlist'
 
-    tempvar tokeep
-    quietly gen byte `tokeep' = 0
+        tempvar tokeep
+        quietly gen byte `tokeep' = 0
 
-    foreach pattern of local keep {
-        if strpos("`pattern'", "*") > 0 | strpos("`pattern'", "?") > 0 {
-            quietly replace `tokeep' = 1 if strmatch(`labelvar', "`pattern'")
+        foreach pattern of local keep {
+            if strpos("`pattern'", "*") > 0 | strpos("`pattern'", "?") > 0 {
+                quietly replace `tokeep' = 1 if strmatch(`labelvar', "`pattern'")
+            }
+            else {
+                quietly replace `tokeep' = 1 if `labelvar' == "`pattern'"
+            }
         }
-        else {
-            quietly replace `tokeep' = 1 if `labelvar' == "`pattern'"
-        }
+
+        quietly keep if `tokeep'
     }
-
-    quietly keep if `tokeep'
+    local rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
 end
 
 // =============================================================================
@@ -2448,18 +2544,25 @@ end
 
 program define _eplot_apply_drop
     version 16.0
-    syntax varname, DROP(string asis)
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+        syntax varname, DROP(string asis)
 
-    local labelvar `varlist'
+        local labelvar `varlist'
 
-    foreach pattern of local drop {
-        if strpos("`pattern'", "*") > 0 | strpos("`pattern'", "?") > 0 {
-            quietly drop if strmatch(`labelvar', "`pattern'")
-        }
-        else {
-            quietly drop if `labelvar' == "`pattern'"
+        foreach pattern of local drop {
+            if strpos("`pattern'", "*") > 0 | strpos("`pattern'", "?") > 0 {
+                quietly drop if strmatch(`labelvar', "`pattern'")
+            }
+            else {
+                quietly drop if `labelvar' == "`pattern'"
+            }
         }
     }
+    local rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
 end
 
 // =============================================================================
@@ -2468,27 +2571,33 @@ end
 
 program define _eplot_apply_rename
     version 16.0
-    syntax varname, REName(string asis)
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+        syntax varname, REName(string asis)
 
-    local labelvar `varlist'
+        local labelvar `varlist'
+        local remaining `"`rename'"'
 
-    local remaining `"`rename'"'
+        while `"`remaining'"' != "" {
+            gettoken oldname remaining : remaining, parse("=")
+            local oldname = trim("`oldname'")
 
-    while `"`remaining'"' != "" {
-        gettoken oldname remaining : remaining, parse("=")
-        local oldname = trim("`oldname'")
+            gettoken eq remaining : remaining, parse("=")
 
-        gettoken eq remaining : remaining, parse("=")
+            gettoken newname remaining : remaining, parse(" ") bind
+            local newname = trim(`"`newname'"')
 
-        gettoken newname remaining : remaining, parse(" ") bind
-        local newname = trim(`"`newname'"')
+            if substr(`"`newname'"', 1, 1) == `"""' {
+                local newname = substr(`"`newname'"', 2, length(`"`newname'"') - 2)
+            }
 
-        if substr(`"`newname'"', 1, 1) == `"""' {
-            local newname = substr(`"`newname'"', 2, length(`"`newname'"') - 2)
+            quietly replace `labelvar' = `"`newname'"' if `labelvar' == "`oldname'"
         }
-
-        quietly replace `labelvar' = `"`newname'"' if `labelvar' == "`oldname'"
     }
+    local rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
 end
 
 // =============================================================================
@@ -2497,58 +2606,83 @@ end
 
 program define _eplot_process_groups, rclass
     version 16.0
-    syntax varlist(min=3 max=3), GRoups(string asis)
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+        syntax varlist(min=4 max=4), GRoups(string asis) [GAP(real 0)]
 
-    tokenize `varlist'
-    local posvar `1'
-    local labelvar `2'
-    local typevar `3'
+        tokenize `varlist'
+        local posvar `1'
+        local labelvar `2'
+        local typevar `3'
+        local gapflagvar `4'
 
-    local remaining `"`groups'"'
-    local n_groups 0
-    local group_coefs ""
+        local remaining `"`groups'"'
+        local n_groups 0
+        local group_coefs ""
 
-    while `"`remaining'"' != "" {
-        gettoken token remaining : remaining, bind
-        local token = trim(`"`token'"')
+        while `"`remaining'"' != "" {
+            gettoken token remaining : remaining, bind
+            local token = trim(`"`token'"')
 
-        if `"`token'"' == "" {
-            continue
-        }
-
-        if `"`token'"' == "=" {
-            gettoken label remaining : remaining, bind
-            local label = trim(`"`label'"')
-
-            if substr(`"`label'"', 1, 1) == `"""' {
-                local labellen = length(`"`label'"')
-                local label = substr(`"`label'"', 2, `labellen' - 2)
+            if `"`token'"' == "" {
+                continue
             }
 
-            local `++n_groups'
+            if `"`token'"' == "=" {
+                gettoken label remaining : remaining, bind
+                local label = trim(`"`label'"')
 
-            local first_coef : word 1 of `group_coefs'
+                if substr(`"`label'"', 1, 1) == `"""' {
+                    local labellen = length(`"`label'"')
+                    local label = substr(`"`label'"', 2, `labellen' - 2)
+                }
 
-            quietly count if `labelvar' == `"`first_coef'"'
-            if r(N) > 0 {
-                quietly summarize `posvar' if `labelvar' == `"`first_coef'"', meanonly
-                local header_pos = r(mean) + 0.5
+                local `++n_groups'
+                local first_coef : word 1 of `group_coefs'
+                local n_group_coefs : word count `group_coefs'
+                local last_coef : word `n_group_coefs' of `group_coefs'
 
-                local newN = _N + 1
-                quietly set obs `newN'
-                quietly replace `posvar' = `header_pos' in `newN'
-                quietly replace `labelvar' = `"`label'"' in `newN'
-                quietly replace `typevar' = 0 in `newN'
+                quietly count if `labelvar' == `"`first_coef'"'
+                if r(N) > 0 {
+                    quietly summarize `posvar' if `labelvar' == `"`first_coef'"', meanonly
+                    local header_pos = r(mean) + 0.5
+
+                    local newN = _N + 1
+                    quietly set obs `newN'
+                    quietly replace `posvar' = `header_pos' in `newN'
+                    quietly replace `labelvar' = `"`label'"' in `newN'
+                    quietly replace `typevar' = 0 in `newN'
+                    quietly replace `gapflagvar' = 0 in `newN'
+                }
+
+                if `gap' > 0 & trim(`"`remaining'"') != "" {
+                    quietly count if `labelvar' == `"`last_coef'"'
+                    if r(N) > 0 {
+                        quietly summarize `posvar' if `labelvar' == `"`last_coef'"', meanonly
+                        local gap_pos = r(mean) - 0.5
+
+                        local newN = _N + 1
+                        quietly set obs `newN'
+                        quietly replace `posvar' = `gap_pos' in `newN'
+                        quietly replace `labelvar' = "" in `newN'
+                        quietly replace `typevar' = 6 in `newN'
+                        quietly replace `gapflagvar' = 1 in `newN'
+                    }
+                }
+
+                local group_coefs ""
             }
+            else {
+                local group_coefs `"`group_coefs' `token'"'
+            }
+        }
 
-            local group_coefs ""
-        }
-        else {
-            local group_coefs `"`group_coefs' `token'"'
-        }
+        return scalar n_groups = `n_groups'
     }
-
-    return scalar n_groups = `n_groups'
+    local rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
 end
 
 // =============================================================================
@@ -2557,44 +2691,51 @@ end
 
 program define _eplot_process_headers, rclass
     version 16.0
-    syntax varlist(min=3 max=3), HEADers(string asis)
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+        syntax varlist(min=3 max=3), HEADers(string asis)
 
-    tokenize `varlist'
-    local posvar `1'
-    local labelvar `2'
-    local typevar `3'
+        tokenize `varlist'
+        local posvar `1'
+        local labelvar `2'
+        local typevar `3'
 
-    local remaining `"`headers'"'
+        local remaining `"`headers'"'
 
-    while `"`remaining'"' != "" {
-        gettoken ref remaining : remaining, parse("=") bind
-        local ref = trim("`ref'")
+        while `"`remaining'"' != "" {
+            gettoken ref remaining : remaining, parse("=") bind
+            local ref = trim("`ref'")
 
-        if substr("`ref'", 1, 7) == "before(" {
-            local ref = substr("`ref'", 8, length("`ref'") - 8)
-        }
+            if substr("`ref'", 1, 7) == "before(" {
+                local ref = substr("`ref'", 8, length("`ref'") - 8)
+            }
 
-        gettoken eq remaining : remaining, parse("=")
+            gettoken eq remaining : remaining, parse("=")
 
-        gettoken label remaining : remaining, parse(" ") bind
-        local label = trim(`"`label'"')
+            gettoken label remaining : remaining, parse(" ") bind
+            local label = trim(`"`label'"')
 
-        if substr(`"`label'"', 1, 1) == `"""' {
-            local label = substr(`"`label'"', 2, length(`"`label'"') - 2)
-        }
+            if substr(`"`label'"', 1, 1) == `"""' {
+                local label = substr(`"`label'"', 2, length(`"`label'"') - 2)
+            }
 
-        quietly count if `labelvar' == `"`ref'"'
-        if r(N) > 0 {
-            quietly summarize `posvar' if `labelvar' == `"`ref'"', meanonly
-            local header_pos = r(mean) + 0.5
+            quietly count if `labelvar' == `"`ref'"'
+            if r(N) > 0 {
+                quietly summarize `posvar' if `labelvar' == `"`ref'"', meanonly
+                local header_pos = r(mean) + 0.5
 
-            local newN = _N + 1
-            quietly set obs `newN'
-            quietly replace `posvar' = `header_pos' in `newN'
-            quietly replace `labelvar' = `"`label'"' in `newN'
-            quietly replace `typevar' = 0 in `newN'
+                local newN = _N + 1
+                quietly set obs `newN'
+                quietly replace `posvar' = `header_pos' in `newN'
+                quietly replace `labelvar' = `"`label'"' in `newN'
+                quietly replace `typevar' = 0 in `newN'
+            }
         }
     }
+    local rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
 end
 
 // End of eplot.ado

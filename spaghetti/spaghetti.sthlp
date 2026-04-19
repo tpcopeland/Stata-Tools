@@ -54,7 +54,7 @@
 {syntab:Styling}
 {synopt:{opt col:ors(colorlist)}}override default color palette{p_end}
 {synopt:{opt ind:ividual(options)}}individual line style; sub-options: {cmd:color()}, {cmd:opacity()}, {cmd:lwidth()}{p_end}
-{synopt:{opt sch:eme(schemename)}}graph scheme (default: {cmd:plotplainblind}){p_end}
+{synopt:{opt sch:eme(schemename)}}graph scheme (default: current Stata scheme){p_end}
 
 {syntab:Graph options}
 {synopt:{opt ti:tle(string)}}graph title{p_end}
@@ -200,7 +200,7 @@ appearance when {opt highlight()} is used.
 
 {phang}
 {opt sch:eme(schemename)} sets the graph scheme.
-Default: {cmd:plotplainblind}.
+Default: current Stata scheme.
 
 
 {marker remarks}{...}

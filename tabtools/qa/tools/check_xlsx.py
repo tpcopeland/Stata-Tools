@@ -213,6 +213,25 @@ def _column_width(ws, ref: str) -> float:
     return 8.43 if width is None else float(width)
 
 
+def _column_max_length(ws, ref: str, start_row: int = 1) -> Tuple[int, Optional[int], str]:
+    ref = ref.strip().upper()
+    try:
+        col_idx = int(ref)
+    except ValueError:
+        col_idx = column_index_from_string(ref)
+
+    max_len = 0
+    max_row = None
+    sample = ""
+    for row in range(max(start_row, 1), ws.max_row + 1):
+        value = _stringify(ws.cell(row=row, column=col_idx).value)
+        if len(value) > max_len:
+            max_len = len(value)
+            max_row = row
+            sample = value
+    return max_len, max_row, sample
+
+
 def _parse_args(argv: Sequence[str]):
     if not argv:
         raise ValueError("Usage: check_xlsx.py <xlsx_file> [options]")
@@ -298,6 +317,9 @@ def _parse_args(argv: Sequence[str]):
             i += 3
         elif token == "--col-width-at-most":
             checks.append(("col_width_at_most", argv[i + 1], float(argv[i + 2])))
+            i += 3
+        elif token == "--col-width-fits-content":
+            checks.append(("col_width_fits_content", argv[i + 1], int(argv[i + 2])))
             i += 3
         elif token == "--min-merges":
             checks.append(("min_merges", int(argv[i + 1])))
@@ -470,6 +492,15 @@ def main(argv: Sequence[str]) -> int:
             actual = _column_width(ws, check[1])
             if actual - 1e-9 > check[2]:
                 failures.append(f"Column {check[1]} width {actual:.2f} exceeds maximum {check[2]:.2f}")
+
+        elif name == "col_width_fits_content":
+            actual = _column_width(ws, check[1])
+            max_len, max_row, sample = _column_max_length(ws, check[1], check[2])
+            if actual + 1e-9 < max_len:
+                failures.append(
+                    f"Column {check[1]} width {actual:.2f} is narrower than max content length {max_len}"
+                    f" (row {max_row}: '{sample}')"
+                )
 
         elif name == "min_merges":
             if len(ws.merged_cells.ranges) < check[1]:

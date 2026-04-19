@@ -114,7 +114,7 @@ program define raincloud, rclass
     * =========================================================================
     * SET DEFAULTS
     * =========================================================================
-    if "`scheme'" == "" local scheme "plotplainblind"
+    if "`scheme'" == "" local scheme "`c(scheme)'"
     if "`kernel'" == "" local kernel "epanechnikov"
     if "`pointsize'" == "" local pointsize "vsmall"
 

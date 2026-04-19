@@ -88,7 +88,7 @@ spaghetti varname [if] [in] , id(varname) time(varname) [options]
 | `colors(colorlist)` | Override default palette (navy cranberry forest_green ...) |
 | `individual(color() opacity() lwidth())` | Individual line styling (defaults: gs12, 25, vthin) |
 | `export(filename [, replace])` | Export graph (.png, .pdf, .svg, .eps) |
-| `scheme(name)` | Graph scheme (default: plotplainblind) |
+| `scheme(name)` | Graph scheme (default: current Stata scheme) |
 
 ### Standard Graph Options
 

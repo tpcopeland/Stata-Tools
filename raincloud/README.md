@@ -74,7 +74,7 @@ raincloud mpg, over(foreign) nobox     // density + scatter only
 | `boxwidth(#)` | IQR box width (default: 0.08) |
 | `nomedian` | Suppress median line inside box |
 | `mean` | Add mean marker |
-| `scheme(string)` | Graph scheme (default: plotplainblind) |
+| `scheme(string)` | Graph scheme (default: current Stata scheme) |
 
 ## Stored results
 

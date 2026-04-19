@@ -2007,8 +2007,7 @@ program define codescan, rclass
         graph hbar prevalence, over(order) ///
             ytitle("Prevalence (%)") ///
             title("Condition Prevalence") ///
-            blabel(bar, format(%4.1f)) ///
-            scheme(plotplainblind)
+            blabel(bar, format(%4.1f))
         quietly use `_graph_save', clear
     }
 

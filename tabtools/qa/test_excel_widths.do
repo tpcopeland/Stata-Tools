@@ -36,25 +36,31 @@ program define _wx_assert
 end
 
 * =========================================================================
-**# WX1: regtab CI column width
+**# WX1: regtab CI column width tracks rendered content
 * =========================================================================
 local ++n_total
 capture noisily {
-    sysuse auto, clear
+    clear
+    set obs 200
+    set seed 20260419
+    gen double x = _n
+    gen double z = runiform()
+    gen double y = 123456789.123456 * x - 98765432.654321 * z + rnormal()*1000
     collect clear
-    collect: regress price mpg weight i.foreign
+    collect: regress y x z
     capture erase "`output_dir'/_wx_regtab.xlsx"
-    regtab, xlsx("`output_dir'/_wx_regtab.xlsx") sheet("Test") title("Regression Results")
+    regtab, xlsx("`output_dir'/_wx_regtab.xlsx") sheet("Test") ///
+        title("Regression Results") digits(6) stats(n ll)
 
     _wx_assert "`output_dir'/_wx_regtab.txt" ///
-        `"python3 "`checker'" "`output_dir'/_wx_regtab.xlsx" --sheet "Test" --col-width-at-least D 16 --result-file "`output_dir'/_wx_regtab.txt" --quiet"'
+        `"python3 "`checker'" "`output_dir'/_wx_regtab.xlsx" --sheet "Test" --col-width-fits-content D 4 --result-file "`output_dir'/_wx_regtab.txt" --quiet"'
 }
 if _rc == 0 {
-    display as result "  PASS: WX1 - regtab CI column width"
+    display as result "  PASS: WX1 - regtab CI column width fits rendered content"
     local ++n_pass
 }
 else {
-    display as error "  FAIL: WX1 - regtab CI column width (rc=`=_rc')"
+    display as error "  FAIL: WX1 - regtab CI column width fits rendered content (rc=`=_rc')"
     local ++n_fail
 }
 

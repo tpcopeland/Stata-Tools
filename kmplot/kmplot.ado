@@ -96,7 +96,7 @@ program define kmplot, rclass
     * SET DEFAULTS
     * =========================================================================
 
-    if "`scheme'" == "" local scheme "plotplainblind"
+    if "`scheme'" == "" local scheme "`c(scheme)'"
     if "`cistyle'" == "" local cistyle "band"
     if "`citransform'" == "" local citransform "loglog"
     if "`lwidth'" == "" local lwidth "medthick"

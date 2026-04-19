@@ -20,10 +20,6 @@ local repo_root "`c(pwd)'"
 local pkg_dir "msm/demo"
 capture mkdir "`pkg_dir'"
 
-capture ado uninstall tc_schemes
-quietly net install tc_schemes, from("`repo_root'/tc_schemes") replace
-set scheme plotplainblind
-
 capture ado uninstall msm
 quietly net install msm, from("`repo_root'/msm") replace
 

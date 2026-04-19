@@ -27,7 +27,7 @@ program define _kmplot_risktable
 
     capture noisily {
 
-    if "`scheme'" == "" local scheme "plotplainblind"
+    if "`scheme'" == "" local scheme "`c(scheme)'"
     if `"`xtitle'"' == "" local xtitle "Analysis time"
     local _xt_len = strlen(`"`xtitle'"')
     while `_xt_len' >= 2 & ///

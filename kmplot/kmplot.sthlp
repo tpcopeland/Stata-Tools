@@ -73,7 +73,7 @@
 {synopt:{opt note(string)}}graph note{p_end}
 
 {syntab:Output}
-{synopt:{opt sch:eme(string)}}graph scheme; default {bf:plotplainblind}{p_end}
+{synopt:{opt sch:eme(string)}}graph scheme; default is the current Stata scheme{p_end}
 {synopt:{opt name(string)}}graph name; default {bf:kmplot}{p_end}
 {synopt:{opt asp:ectratio(string)}}aspect ratio{p_end}
 {synopt:{opt exp:ort(string)}}export graph to file (e.g., {it:file.pdf, replace}){p_end}
@@ -96,8 +96,8 @@ survival lines, censoring marks, log-rank p-values, and colorblind-safe
 styling.
 
 {pstd}
-All plots use step-function rendering with the {bf:plotplainblind} scheme
-by default.  Colors, line widths, patterns, titles, and all graph elements
+All plots use step-function rendering with the current Stata scheme by
+default. Colors, line widths, patterns, titles, and all graph elements
 are fully customizable.
 
 

@@ -37,7 +37,6 @@ log close demo
 
 * --- 2. Basic raincloud by groups ---
 raincloud mpg, over(foreign) seed(2026) ///
-    scheme(plotplainblind) ///
     title("Distribution of Fuel Efficiency by Origin") ///
     name(basic, replace)
 graph export "`pkg_dir'/raincloud_basic.png", name(basic) replace width(1200)
@@ -45,7 +44,7 @@ capture graph close basic
 
 * --- 3. Vertical orientation with mean ---
 raincloud price, over(foreign) vertical mean seed(2026) ///
-    scheme(plotplainblind) opacity(60) jitter(0.5) ///
+    opacity(60) jitter(0.5) ///
     title("Price Distribution by Origin") ///
     name(vert_plot, replace)
 graph export "`pkg_dir'/raincloud_vertical.png", name(vert_plot) replace width(1200)
@@ -53,7 +52,7 @@ capture graph close vert_plot
 
 * --- 4. Customized: cloud + box only (no scatter), 5 groups ---
 raincloud mpg, over(rep78) norain seed(2026) ///
-    scheme(plotplainblind) opacity(40) cloudwidth(0.5) ///
+    opacity(40) cloudwidth(0.5) ///
     title("MPG by Repair Record") ///
     name(custom, replace)
 graph export "`pkg_dir'/raincloud_custom.png", name(custom) replace width(1200)
@@ -61,7 +60,7 @@ capture graph close custom
 
 * --- 5. Mirror (split violin) ---
 raincloud mpg, over(foreign) mirror mean seed(2026) ///
-    scheme(plotplainblind) opacity(60) ///
+    opacity(60) ///
     title("Split Violin: Fuel Efficiency by Origin") ///
     name(mirror_plot, replace)
 graph export "`pkg_dir'/raincloud_mirror.png", name(mirror_plot) replace width(1200)
@@ -69,7 +68,7 @@ capture graph close mirror_plot
 
 * --- 6. Custom colors with mirror ---
 raincloud mpg, over(foreign) mirror norain seed(2026) ///
-    scheme(plotplainblind) colors(midblue cranberry) opacity(70) ///
+    colors(midblue cranberry) opacity(70) ///
     title("Custom Colors: Full Violin") ///
     name(colors_plot, replace)
 graph export "`pkg_dir'/raincloud_colors.png", name(colors_plot) replace width(1200)
@@ -77,7 +76,6 @@ capture graph close colors_plot
 
 * --- 7. Element styling via pass-through options ---
 raincloud mpg, over(foreign) seed(2026) ///
-    scheme(plotplainblind) ///
     cloudopts(lwidth(medium) lpattern(dash)) ///
     pointopts(msymbol(d) msize(tiny)) ///
     boxopts(lwidth(thick)) ///
@@ -90,7 +88,6 @@ capture graph close styled
 * --- 8. Weighted raincloud ---
 gen int fw = max(1, round(price / 1000))
 raincloud mpg [fweight = fw], over(foreign) seed(2026) ///
-    scheme(plotplainblind) ///
     title("Weighted Fuel Efficiency (fweight = price/1000)") ///
     name(weighted, replace)
 graph export "`pkg_dir'/raincloud_weighted.png", name(weighted) replace width(1200)

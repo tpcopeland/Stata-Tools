@@ -67,7 +67,7 @@
 {synopt:{opt col:ors(string)}}custom color palette (space-separated){p_end}
 
 {syntab:Graph}
-{synopt:{opt sch:eme(string)}}graph scheme; default {cmd:plotplainblind}{p_end}
+{synopt:{opt sch:eme(string)}}graph scheme; default is the current Stata scheme{p_end}
 {synopt:{opt ti:tle(string)}}graph title{p_end}
 {synopt:{opt sub:title(string)}}graph subtitle{p_end}
 {synopt:{opt note(string)}}graph note{p_end}

@@ -1774,42 +1774,40 @@ forvalues i = 1(`_cols_per_model')`last' {
 local ci_max = 0
 local p_max = 0
 if "`compact'" != "" {
-    forvalues i = 2(2)`last' {
+    forvalues i = 2(2)`n' {
         sum c`i'_max, meanonly
         if `r(max)' > `p_max' local p_max = `r(max)'
     }
 }
 else {
-    forvalues i = 2(3)`last' {
+    forvalues i = 2(3)`n' {
         sum c`i'_max, meanonly
         if `r(max)' > `ci_max' local ci_max = `r(max)'
     }
-    forvalues i = 3(3)`last' {
+    forvalues i = 3(3)`n' {
         sum c`i'_max, meanonly
         if `r(max)' > `p_max' local p_max = `r(max)'
     }
 }
 
-local est_width = ceil(`est_max' * 0.85) + 2
+* Size numeric columns from the final rendered strings so large-scale or
+* high-precision outputs are not clipped in Excel.
+local est_width = `est_max' + 2
 if "`compact'" != "" {
     if `est_width' < 16 local est_width = 16
-    if `est_width' > 34 local est_width = 34
 }
 else {
     if `est_width' < 8 local est_width = 8
-    if `est_width' > 22 local est_width = 22
 }
 
 local ci_width = 0
 if "`compact'" == "" {
-    local ci_width = ceil(`ci_max' * 0.85) + 2
+    local ci_width = `ci_max' + 2
     if `ci_width' < 16 local ci_width = 16
-    if `ci_width' > 34 local ci_width = 34
 }
 
-local p_width = ceil(`p_max' * 0.85) + 2
+local p_width = `p_max' + 2
 if `p_width' < 8 local p_width = 8
-if `p_width' > 12 local p_width = 12
 
 gen A_length = length(A)
 egen factor_length = max(A_length)

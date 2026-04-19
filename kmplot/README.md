@@ -29,7 +29,7 @@ kmplot, by(drug) ci risktable median medianannotate pvalue censor
 - **Censoring marks**: Tick marks at censoring times with optional thinning
 - **Log-rank p-value**: Displayed on the plot with configurable position
 - **Cumulative incidence**: `failure` option inverts KM to show 1-S(t)
-- **Colorblind-safe**: Default `plotplainblind` scheme with 8-color palette
+- **Scheme-aware**: Uses the current Stata scheme by default
 - **Export**: Direct PDF/PNG/EPS/SVG export
 
 ## Syntax

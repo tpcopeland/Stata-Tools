@@ -53,8 +53,7 @@
 {phang2}{cmd:positivity} - Treatment probability by period{p_end}
 
 {pstd}
-{cmd:msm_plot} uses the {cmd:plotplainblind} scheme from {cmd:tc_schemes}.
-Install that package before plotting if the scheme is not already available.
+{cmd:msm_plot} uses the current Stata scheme by default.
 
 
 {marker options}{...}

@@ -16,7 +16,23 @@ set varabbrev off
 set linesize 250
 
 * --- Paths ---
-local pkg_dir "eplot/demo"
+if fileexists("eplot/eplot.ado") {
+    local cmd_dir "eplot"
+    local pkg_dir "eplot/demo"
+}
+else if fileexists("../eplot.ado") {
+    local cmd_dir ".."
+    local pkg_dir "."
+}
+else if fileexists("eplot.ado") {
+    local cmd_dir "."
+    local pkg_dir "demo"
+}
+else {
+    display as error "Could not locate eplot.ado relative to `c(pwd)'"
+    exit 601
+}
+
 capture mkdir "`pkg_dir'"
 
 * --- Set default scheme ---
@@ -27,7 +43,7 @@ capture program drop eplot _eplot_parse_mode _eplot_estimates _eplot_data
 capture program drop _eplot_matrix _eplot_apply_coeflabels
 capture program drop _eplot_apply_keep _eplot_apply_drop _eplot_apply_rename
 capture program drop _eplot_process_groups _eplot_process_headers
-quietly run eplot/eplot.ado
+quietly run "`cmd_dir'/eplot.ado"
 
 * ============================================================
 * 1. Multi-model coefficient comparison

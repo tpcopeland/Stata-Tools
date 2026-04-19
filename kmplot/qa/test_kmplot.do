@@ -36,7 +36,7 @@ capture noisily {
     assert r(N) == 48
     assert r(n_groups) == 1
     assert "`r(cmd)'" == "kmplot"
-    assert "`r(scheme)'" == "plotplainblind"
+    assert "`r(scheme)'" == "`c(scheme)'"
 }
 if _rc == 0 {
     display as result "  PASS: T1 Basic KM (no options)"
