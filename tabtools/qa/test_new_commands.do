@@ -1401,24 +1401,73 @@ else {
 * --- 7.3: table1_tc r(table) matrix ---
 local ++test_count
 capture noisily {
-    sysuse auto, clear
-    capture erase "`output_dir'/test_rtable_t1.xlsx"
-    table1_tc, by(foreign) ///
-        vars(mpg contn \ weight contn \ rep78 cat) ///
-        excel("`output_dir'/test_rtable_t1.xlsx")
-    matrix list r(table)
-    assert rowsof(r(table)) > 0
+    clear
+    set obs 6
+    gen g = _n > 3
+    gen y = _n
+    gen x = inlist(_n, 3, 4, 5, 6)
+    label var y y
+    label var x x
+
+    table1_tc, by(g) vars(y contn \ x bin) smd
+    tempname T
+    matrix `T' = r(table)
+    local _cnames : colnames `T'
+    local _rnames : rownames `T'
+    assert rowsof(`T') == 2
+    assert colsof(`T') == 2
+    assert "`_cnames'" == "p_value smd"
+    assert "`_rnames'" == "y x"
+
+    quietly ttest y, by(g)
+    local _p_y = r(p)
+    quietly tab x g, chi2
+    local _p_x = r(p)
+
+    scalar _rt_p_y = el(`T', 1, 1)
+    scalar _rt_s_y = el(`T', 1, 2)
+    scalar _rt_p_x = el(`T', 2, 1)
+    scalar _rt_s_x = el(`T', 2, 2)
+    assert reldif(_rt_p_y, `_p_y') < 1e-8
+    assert reldif(_rt_p_x, `_p_x') < 1e-8
+    assert reldif(_rt_s_y, 3) < 1e-12
+    assert reldif(_rt_s_x, 2) < 1e-12
 }
 if _rc == 0 {
-    display as result "  PASS: table1_tc r(table) matrix"
+    display as result "  PASS: table1_tc r(table) matrix is semantic"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: table1_tc r(table) (rc=`=_rc')"
+    display as error "  FAIL: table1_tc r(table) matrix is semantic (rc=`=_rc')"
     local ++fail_count
 }
 
-* --- 7.4: regtab dimonsig option ---
+* --- 7.4: table1_tc r(table) omitted above 200 rows ---
+local ++test_count
+capture noisily {
+    clear
+    set obs 20
+    gen g = _n > 10
+    local _vars ""
+    forvalues j = 1/201 {
+        gen x`j' = mod(_n + `j', 2)
+        if `j' > 1 local _vars "`_vars' \ "
+        local _vars "`_vars'x`j' bin"
+    }
+    table1_tc, by(g) vars(`_vars')
+    capture confirm matrix r(table)
+    assert _rc != 0
+}
+if _rc == 0 {
+    display as result "  PASS: table1_tc r(table) omitted above 200 rows"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: table1_tc r(table) omitted above 200 rows (rc=`=_rc')"
+    local ++fail_count
+}
+
+* --- 7.5: regtab dimonsig option ---
 local ++test_count
 capture noisily {
     sysuse auto, clear
@@ -1437,7 +1486,7 @@ else {
     local ++fail_count
 }
 
-* --- 7.5: regtab factorlabel option ---
+* --- 7.6: regtab factorlabel option ---
 local ++test_count
 capture noisily {
     sysuse auto, clear
@@ -1619,6 +1668,42 @@ if _rc != 0 {
 }
 else {
     display as error "  FAIL: Sheet name with [ ] should be rejected"
+    local ++fail_count
+}
+
+* Test: Sheet name with colon rejected
+local ++test_count
+capture noisily {
+    sysuse auto, clear
+    corrtab price mpg weight, ///
+        xlsx("`output_dir'/test_sheet_colon.xlsx") ///
+        sheet("Bad:Name")
+}
+if _rc != 0 {
+    display as result "  PASS: Sheet name with : rejected"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: Sheet name with : should be rejected"
+    local ++fail_count
+}
+
+* Test: Apostrophes are allowed in sheet names
+local ++test_count
+capture noisily {
+    sysuse auto, clear
+    capture erase "`output_dir'/test_sheet_apostrophe.xlsx"
+    corrtab price mpg weight, ///
+        xlsx("`output_dir'/test_sheet_apostrophe.xlsx") ///
+        sheet("O'Brien")
+    confirm file "`output_dir'/test_sheet_apostrophe.xlsx"
+}
+if _rc == 0 {
+    display as result "  PASS: Apostrophes allowed in sheet names"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: Apostrophes should be allowed in sheet names (rc=`=_rc')"
     local ++fail_count
 }
 

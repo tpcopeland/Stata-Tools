@@ -41,11 +41,17 @@ program define regtab, rclass
 	set varabbrev off
 
 	* Auto-load shared helper programs if not already in memory
-	capture program list _tabtools_validate_path
+	capture _tabtools_helpers_ready
 	if _rc {
 		capture findfile _tabtools_common.ado
 		if _rc == 0 {
 			run "`r(fn)'"
+			capture _tabtools_helpers_ready
+			if _rc {
+				display as error "_tabtools_common.ado failed to load fully; reinstall tabtools"
+				set varabbrev `_orig_varabbrev'
+				exit 111
+			}
 		}
 		else {
 			display as error "_tabtools_common.ado not found; reinstall tabtools"
@@ -66,6 +72,8 @@ syntax, [xlsx(string) excel(string) sheet(string)] [sep(string asis) models(stri
 
 * Accept excel() as synonym for xlsx()
 if "`xlsx'" == "" & "`excel'" != "" local xlsx "`excel'"
+local _user_coef_spec = ("`coef'" != "")
+local _user_noint_spec = ("`nointercept'" != "")
 
 * Default reference category label
 if "`refcat'" == "" local refcat "Reference"
@@ -84,6 +92,10 @@ if `highpdp' == -1 local highpdp = 2
 
 * Validate sheet name for Excel constraints
 _tabtools_validate_sheet "`sheet'" "sheet()"
+if strpos("`sheet'", ":") {
+	noisily display as error "sheet(): sheet name contains characters not allowed by Excel (:)"
+	exit 198
+}
 
 * Map option names for internal use
 local noint `nointercept'
@@ -92,6 +104,14 @@ local nore `noreeffects'
 * Validate digits range
 if `digits' < 0 | `digits' > 6 {
 	noisily display as error "digits() must be between 0 and 6"
+	exit 198
+}
+if `pdp' < 1 | `pdp' > 10 {
+	noisily display as error "pdp() must be between 1 and 10"
+	exit 198
+}
+if `highpdp' < 1 | `highpdp' > 10 {
+	noisily display as error "highpdp() must be between 1 and 10"
 	exit 198
 }
 
@@ -143,7 +163,7 @@ if "`nointercept'" == "" & "`keepintercept'" == "" {
 * CDISC mode overrides (C4)
 if "`cdisc'" != "" {
 	if `digits' == 2 local digits 4
-	if "`coef'" == "" local coef "Estimate"
+	if !`_user_coef_spec' local coef "Estimate"
 	if "`stats'" == "" local stats "n"
 }
 
@@ -214,7 +234,10 @@ quietly{
         }
         _tabtools_validate_path "`xlsx'" "xlsx()"
     }
-    _tabtools_validate_path "`sheet'" "sheet()"
+    if "`open'" != "" & !`_has_xlsx' {
+        noisily display as error "open requires xlsx() or excel()"
+        exit 198
+    }
 
     * Create temporary file for intermediate processing
     tempfile temp_export
@@ -232,6 +255,160 @@ quietly{
     }
 
 	if `"`sep'"' == "" local sep ", "      // Default CI delimiter
+
+    * =========================================================================
+    * EXTRACT PER-MODEL COMMAND METADATA
+    * =========================================================================
+    local _meta_models = 0
+    local _model_headers_mixed = 0
+    local _all_auto_noint = 1
+    local _coef_label_return "`coef'"
+    tempfile meta_temp
+    local meta_xlsx_file "`meta_temp'.xlsx"
+
+    capture {
+        collect layout (cmdset) (result[cmd cmdline])
+        collect export "`meta_xlsx_file'", sheet(_meta, replace) modify
+    }
+    if _rc == 0 {
+        preserve
+        capture {
+            import excel "`meta_xlsx_file'", sheet(_meta) clear allstring
+
+            local meta_col_cmd ""
+            local meta_col_cmdline ""
+            ds
+            local meta_allvars `r(varlist)'
+            foreach v of local meta_allvars {
+                local hdr = strlower(strtrim(`v'[1]))
+                if "`hdr'" == "command" local meta_col_cmd "`v'"
+                if "`hdr'" == "command line as typed" local meta_col_cmdline "`v'"
+            }
+
+            local _meta_models = _N - 1
+            forvalues m = 1/`_meta_models' {
+                local r = `m' + 1
+                local model_cmd_`m' = lower(strtrim(`meta_col_cmd'[`r']))
+                local model_cmdline_`m' = lower(strtrim(`meta_col_cmdline'[`r']))
+            }
+        }
+        if _rc local _meta_models = 0
+        restore
+    }
+    capture erase "`meta_xlsx_file'"
+
+    if !`_user_noint_spec' {
+        local nointercept ""
+    }
+
+    if `_meta_models' > 0 {
+        local _shared_coef ""
+        forvalues m = 1/`_meta_models' {
+            local _cmdline_lc `"`model_cmdline_`m''"'
+            local _cmdword ""
+            gettoken _cmdword _cmdrest : _cmdline_lc
+            if "`_cmdword'" == "" local _cmdword `"`model_cmd_`m''"'
+
+            local _has_irr = regexm(`"`_cmdline_lc'"', "(^|[, ])irr([ ,]|$)")
+            local _has_or = regexm(`"`_cmdline_lc'"', "(^|[, ])or([ ,]|$)")
+
+            local model_coef_`m' "Coef."
+            local model_null_`m' 0
+            local model_eform_`m' 0
+            local model_auto_noint_`m' 0
+
+            if inlist("`_cmdword'", "logit", "ologit") {
+                local model_coef_`m' "OR"
+                local model_null_`m' 1
+                local model_eform_`m' 1
+                local model_auto_noint_`m' 1
+            }
+            else if "`_cmdword'" == "logistic" {
+                local model_coef_`m' "OR"
+                local model_null_`m' 1
+                local model_auto_noint_`m' 1
+            }
+            else if "`_cmdword'" == "melogit" {
+                local model_coef_`m' "OR"
+                local model_null_`m' 1
+                local model_eform_`m' = !`_has_or'
+                local model_auto_noint_`m' 1
+            }
+            else if inlist("`_cmdword'", "poisson", "nbreg", "mepoisson", "menbreg") {
+                local model_coef_`m' "IRR"
+                local model_null_`m' 1
+                local model_eform_`m' = !`_has_irr'
+                local model_auto_noint_`m' 1
+            }
+            else if inlist("`_cmdword'", "finegray", "stcrreg") {
+                local model_coef_`m' "SHR"
+                local model_null_`m' 1
+                local model_auto_noint_`m' 1
+            }
+            else if inlist("`_cmdword'", "stcox") | "`model_cmd_`m''" == "cox" {
+                local model_coef_`m' "HR"
+                local model_null_`m' 1
+                local model_auto_noint_`m' 1
+            }
+            else if inlist("`_cmdword'", "streg") {
+                if "`e(frm2)'" == "time" local model_coef_`m' "TR"
+                else local model_coef_`m' "AF"
+                local model_null_`m' 1
+                local model_auto_noint_`m' 1
+            }
+            else if inlist("`_cmdword'", "mestreg", "mecloglog") {
+                local model_coef_`m' "HR"
+                local model_null_`m' 1
+                local model_auto_noint_`m' 1
+            }
+            else if "`_cmdword'" == "glm" {
+                local _efam "`e(varfunct)'"
+                if strpos("`_efam'", "Bernoulli") | strpos("`_efam'", "Binomial") {
+                    local model_coef_`m' "OR"
+                    local model_null_`m' 1
+                    local model_auto_noint_`m' 1
+                }
+                else if strpos("`_efam'", "Poisson") {
+                    local model_coef_`m' "IRR"
+                    local model_null_`m' 1
+                    local model_auto_noint_`m' 1
+                }
+                else {
+                    local model_coef_`m' "Coef."
+                }
+            }
+
+            if `m' == 1 {
+                local _shared_coef "`model_coef_`m''"
+            }
+            else if "`model_coef_`m''" != "`_shared_coef'" {
+                local _model_headers_mixed = 1
+            }
+            if `model_auto_noint_`m'' == 0 {
+                local _all_auto_noint = 0
+            }
+        }
+
+        if !`_user_coef_spec' & "`cdisc'" == "" {
+            if `_model_headers_mixed' {
+                local coef "Estimate"
+                local _coef_label_return "mixed"
+            }
+            else {
+                local coef "`_shared_coef'"
+                local _coef_label_return "`coef'"
+            }
+        }
+        if !`_user_noint_spec' & "`keepintercept'" == "" & `_all_auto_noint' {
+            local nointercept "nointercept"
+        }
+    }
+    else {
+        if !`_user_noint_spec' {
+            local nointercept ""
+        }
+    }
+    local noint `nointercept'
 
     * =========================================================================
     * STORE MODEL STATISTICS BEFORE COLLECT EXPORT
@@ -1098,6 +1275,14 @@ else {
     }
 }
 
+if !`_user_coef_spec' & "`cdisc'" == "" & `_meta_models' > 0 {
+    local _hdr_m = 0
+    forvalues _hdr_col = 1(3)`n' {
+        local _hdr_m = `_hdr_m' + 1
+        replace c`_hdr_col' = "`model_coef_`_hdr_m''" if _n == 2
+    }
+}
+
 * Apply factor variable value labels if requested
 if "`factorlabel'" != "" & "`_fvlabel_cmds'" != "" {
     foreach _fvcmd of local _fvlabel_cmds {
@@ -1138,9 +1323,23 @@ gen byte _is_re_intercept = 0
 foreach row of local re_int_row_nums {
     replace _is_re_intercept = 1 in `row'
 }
+gen byte _is_ancillary = 0
+replace _is_ancillary = 1 if _n > 2 & regexm(strlower(strtrim(A)), "^(/|alpha$|lnalpha$|ln_p$|p$|1/p$)")
+if "`dimnonsig'" != "" {
+    capture drop _nonsig _ci_seen
+    gen byte _nonsig = (_n >= 3)
+    gen byte _ci_seen = 0
+}
+local _model_ix = 0
 forvalues i = 1(3)`last'{
+local _model_ix = `_model_ix' + 1
+local _needs_eform = 0
+if `_model_ix' <= `_meta_models' local _needs_eform = `model_eform_`_model_ix''
 destring c`i', gen(double c`i'z) force
 replace c`i' = "`refcat'" if inlist(c`i', "0", "1") & c`=`i'+1' == ""
+if `_needs_eform' {
+    replace c`i'z = exp(c`i'z) if !_is_re & !_is_ancillary & !missing(c`i'z)
+}
 * MOR/MHR transformation: variance -> exp(sqrt(2*var) * invnormal(0.75))
 if "`re_transform'" != "none" {
     replace c`i'z = exp(sqrt(2 * c`i'z) * invnormal(0.75)) ///
@@ -1163,7 +1362,15 @@ if _rc == 0 replace c`=`i'+2' = "" if _n == 1
 }
 * Reformat CI columns with appropriate precision
 local sep_len = strlen(`"`sep'"')
+local _model_ix = 0
 forvalues i = 2(3)`=`last'+1' {
+    local _model_ix = `_model_ix' + 1
+    local _needs_eform = 0
+    local _null = cond(inlist("`coef'", "OR", "HR", "IRR", "SHR", "TR"), 1, 0)
+    if `_model_ix' <= `_meta_models' {
+        local _needs_eform = `model_eform_`_model_ix''
+        local _null = `model_null_`_model_ix''
+    }
     capture confirm variable c`i'
     if _rc continue
     gen _ci_raw = strtrim(c`i') if _n >= 3
@@ -1173,6 +1380,10 @@ forvalues i = 2(3)`=`last'+1' {
     gen _ci_hi_s = strtrim(substr(_ci_raw, _ci_dpos + `sep_len', .)) if _ci_dpos > 0
     destring _ci_lo_s, gen(double _ci_lo) force
     destring _ci_hi_s, gen(double _ci_hi) force
+    if `_needs_eform' {
+        replace _ci_lo = exp(_ci_lo) if !_is_re & !_is_ancillary & !missing(_ci_lo)
+        replace _ci_hi = exp(_ci_hi) if !_is_re & !_is_ancillary & !missing(_ci_hi)
+    }
     * MOR/MHR transformation of CI bounds
     if "`re_transform'" != "none" {
         replace _ci_lo = exp(sqrt(2 * _ci_lo) * invnormal(0.75)) ///
@@ -1193,14 +1404,17 @@ forvalues i = 2(3)`=`last'+1' {
     replace c`i' = _ci_fmt if _ci_fmt != ""
     * Save non-significance flag for dimnonsig formatting
     if "`dimnonsig'" != "" {
-        local _null = cond(inlist("`coef'", "OR", "HR", "IRR", "SHR", "TR"), 1, 0)
-        capture drop _nonsig
-        gen byte _nonsig = 0
-        replace _nonsig = 1 if !missing(_ci_lo) & !missing(_ci_hi) & _ci_lo <= `_null' & _ci_hi >= `_null' & _n >= 3
+        replace _ci_seen = 1 if !_is_re & !_is_ancillary & !missing(_ci_lo) & !missing(_ci_hi) & _n >= 3
+        replace _nonsig = 0 if !_is_re & !_is_ancillary & !missing(_ci_lo) & !missing(_ci_hi) ///
+            & (_ci_hi < `_null' | _ci_lo > `_null') & _n >= 3
     }
     drop _ci_raw _ci_dpos _ci_lo_s _ci_hi_s _ci_lo _ci_hi _ci_fmt
 }
-drop _is_re _is_re_intercept
+if "`dimnonsig'" != "" {
+    replace _nonsig = 0 if _ci_seen == 0 & _n >= 3
+}
+drop _is_re _is_re_intercept _is_ancillary
+capture drop _ci_seen
 forvalues i = 3(3)`n'{
 * Store original string value to detect genuinely missing p-values
 gen str20 c`i'_orig = c`i'
@@ -1377,13 +1591,16 @@ if `add_stats' == 1 {
             }
         }
         if `has_r2' {
-            * Determine label: R² if any model has r2, else Pseudo R²
+            * Use a generic label when regular and pseudo-R² metrics are mixed.
             local r2_label "R²"
             local _any_r2 = 0
+            local _any_pseudo_r2 = 0
             forvalues m = 1/`use_models' {
                 if `stat_r2_`m'' != . local _any_r2 = 1
+                if `stat_r2_p_`m'' != . local _any_pseudo_r2 = 1
             }
-            if !`_any_r2' local r2_label "Pseudo R²"
+            if !`_any_r2' & `_any_pseudo_r2' local r2_label "Pseudo R²"
+            else if `_any_r2' & `_any_pseudo_r2' local r2_label "R² / Pseudo R²"
 
             local curr_n = _N
             set obs `=`curr_n'+1'
@@ -1955,7 +2172,10 @@ if `_has_xlsx' {
 * Build methods description (I2)
 local _methods_coef ""
 local _methods_model ""
-if "`coef'" == "OR" {
+if `_model_headers_mixed' {
+    local _methods "Collected regression estimates with 95% confidence intervals across `n_models' models."
+}
+else if "`coef'" == "OR" {
     local _methods_coef "Odds ratios"
     local _methods_model "logistic regression"
 }
@@ -1977,7 +2197,7 @@ else {
 }
 if `n_models' > 1 local _methods_multi " across `n_models' models"
 else local _methods_multi ""
-local _methods "`_methods_coef' with 95% confidence intervals from multivariable `_methods_model'`_methods_multi'."
+if "`_methods'" == "" local _methods "`_methods_coef' with 95% confidence intervals from multivariable `_methods_model'`_methods_multi'."
 if "`stars'" != "" local _methods "`_methods' Statistical significance denoted as * p<`_sl1', ** p<`_sl2', *** p<`_sl3'."
 local _methods "`_methods' Analysis performed in Stata `c(stata_version)' (StataCorp, College Station, TX)."
 
@@ -1988,7 +2208,7 @@ if `_mat_nrows' > 0 & `_mat_nrows' <= 100 {
 return scalar N_rows = `num_rows'
 return scalar N_cols = `num_cols'
 return scalar N_models = `n_models'
-return local coef_label "`coef'"
+return local coef_label "`_coef_label_return'"
 return local stars "`stars'"
 if `_has_xlsx' {
     return local xlsx "`xlsx'"

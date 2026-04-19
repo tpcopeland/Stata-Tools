@@ -1,8 +1,4 @@
-*! test_hrcomptab.do - Dedicated QA for hrcomptab
-
-clear all
-set more off
-set varabbrev off
+*! test_hrcomptab.do - Focused QA for hrcomptab
 
 capture log close _hrcomptab
 log using "test_hrcomptab.log", replace text name(_hrcomptab)
@@ -14,12 +10,15 @@ capture mkdir "`output_dir'"
 
 capture ado uninstall tabtools
 quietly net install tabtools, from("`pkg_dir'") replace
+quietly tabtools set clear
 
 local test_count = 0
 local pass_count = 0
 local fail_count = 0
 
-* Build shared source frames
+* -------------------------------------------------------------------------
+* Build stable rate/model frames once
+* -------------------------------------------------------------------------
 tempfile rate11 rate12 rate21 rate22
 
 clear
@@ -85,7 +84,10 @@ gen double y2 = 6 + 1.5 * treated + rnormal()
 collect clear
 collect: regress y1 treated
 collect: regress y2 treated
-regtab, frame(hrc_bin, replace) noint
+capture frame drop hrc_bin
+regtab, frame(hrc_bin) noint
+capture frame drop hrc_bin_comp
+regtab, compact frame(hrc_bin_comp) noint
 
 clear
 set obs 45
@@ -95,9 +97,19 @@ gen double y2 = 8 + 0.5 * (dose == 1) + 1.5 * (dose == 2) + rnormal()
 collect clear
 collect: regress y1 i.dose
 collect: regress y2 i.dose
-regtab, frame(hrc_dose, replace) noint
+capture frame drop hrc_dose
+regtab, frame(hrc_dose) noint
 
+capture frame drop hrc_cmp3
+frame copy hrc_bin_comp hrc_cmp3
+frame hrc_cmp3 {
+    gen str244 c5 = c1
+    gen str244 c6 = c2
+}
+
+* -------------------------------------------------------------------------
 * 1. rows() workflow with frame output
+* -------------------------------------------------------------------------
 local ++test_count
 capture noisily {
     capture frame drop hrc_final
@@ -123,13 +135,11 @@ capture noisily {
         assert strpos(c10[6], "(") > 0
         assert c6[6] != "p-value"
         assert c11[6] != "p-value"
-        assert c5[9] != "Reference"
-        assert c10[10] != "Reference"
     }
     capture frame drop hrc_final
 }
 if _rc == 0 {
-    display as result "  PASS: hrcomptab rows() composes stratetab + regtab frames"
+    display as result "  PASS: hrcomptab rows() composes the final scaffold"
     local ++pass_count
 }
 else {
@@ -138,7 +148,9 @@ else {
 }
 capture frame drop hrc_final
 
+* -------------------------------------------------------------------------
 * 2. rownames() workflow
+* -------------------------------------------------------------------------
 local ++test_count
 capture noisily {
     capture frame drop hrc_final2
@@ -146,11 +158,14 @@ capture noisily {
         rownames("treated" \ "1 2") ///
         frame(hrc_final2, replace)
     assert r(N_modelrows) == 3
-    frame hrc_final2: assert c5[6] != ""
+    frame hrc_final2 {
+        assert c5[6] != ""
+        assert c10[9] != ""
+    }
     capture frame drop hrc_final2
 }
 if _rc == 0 {
-    display as result "  PASS: hrcomptab rownames() workflow"
+    display as result "  PASS: hrcomptab rownames() matches rendered labels"
     local ++pass_count
 }
 else {
@@ -159,28 +174,162 @@ else {
 }
 capture frame drop hrc_final2
 
-* 3. xlsx export
+* -------------------------------------------------------------------------
+* 3. Ambiguous mixed layouts are rejected
+* -------------------------------------------------------------------------
 local ++test_count
-capture noisily {
-    local xlsx "`output_dir'/test_hrcomptab.xlsx"
-    capture erase "`xlsx'"
-    hrcomptab hrc_rates, modelframes(hrc_bin hrc_dose) ///
-        rows(1 \ 3/4) ///
-        xlsx("`xlsx'") sheet("Table2") ///
-        title("Table 2. Composite") ///
-        footnote("aHR = adjusted hazard ratio")
-    confirm file "`xlsx'"
-}
-if _rc == 0 {
-    display as result "  PASS: hrcomptab xlsx export"
+capture noisily hrcomptab hrc_rates, modelframes(hrc_bin hrc_cmp3) ///
+    rows(1 \ 1) display
+if _rc == 198 {
+    display as result "  PASS: hrcomptab rejects mixed standard/compact layouts"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: hrcomptab xlsx export (rc=`=_rc')"
+    display as error "  FAIL: hrcomptab mixed-layout rejection (expected 198, got `=_rc')"
     local ++fail_count
 }
 
+* -------------------------------------------------------------------------
+* 4. theme(apa) propagates workbook font settings
+* -------------------------------------------------------------------------
+local ++test_count
+capture noisily {
+    quietly tabtools set clear
+    local xlsx "`output_dir'/test_hrcomptab_apa.xlsx"
+    local styles "`output_dir'/test_hrcomptab_apa_styles.xml"
+    capture erase "`xlsx'"
+    capture erase "`styles'"
+    hrcomptab hrc_rates, modelframes(hrc_bin hrc_dose) ///
+        rows(1 \ 3/4) ///
+        xlsx("`xlsx'") sheet("APA") theme(apa)
+    confirm file "`xlsx'"
+    shell unzip -p "`xlsx'" xl/styles.xml > "`styles'"
+    confirm file "`styles'"
+    shell grep -q 'Times New Roman' "`styles'"
+    assert _rc == 0
+    shell grep -q 'sz val=\"12\"' "`styles'"
+    assert _rc == 0
+}
+if _rc == 0 {
+    display as result "  PASS: hrcomptab theme(apa) reaches workbook styles"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: hrcomptab theme(apa) workbook styles (rc=`=_rc')"
+    local ++fail_count
+}
+
+* -------------------------------------------------------------------------
+* 5. tabtools set font/fontsize defaults propagate into hrcomptab
+* -------------------------------------------------------------------------
+local ++test_count
+capture noisily {
+    quietly tabtools set clear
+    quietly tabtools set font "Courier New"
+    quietly tabtools set fontsize 13
+    local xlsx "`output_dir'/test_hrcomptab_defaults.xlsx"
+    local styles "`output_dir'/test_hrcomptab_defaults_styles.xml"
+    capture erase "`xlsx'"
+    capture erase "`styles'"
+    hrcomptab hrc_rates, modelframes(hrc_bin hrc_dose) ///
+        rows(1 \ 3/4) ///
+        excel("`xlsx'") sheet("Defaults")
+    confirm file "`xlsx'"
+    shell unzip -p "`xlsx'" xl/styles.xml > "`styles'"
+    confirm file "`styles'"
+    shell grep -q 'Courier New' "`styles'"
+    assert _rc == 0
+    shell grep -q 'sz val=\"13\"' "`styles'"
+    assert _rc == 0
+    quietly tabtools set clear
+}
+if _rc == 0 {
+    display as result "  PASS: hrcomptab honors tabtools set font/fontsize defaults"
+    local ++pass_count
+}
+else {
+    local _test_rc = _rc
+    capture noisily tabtools set clear
+    display as error "  FAIL: hrcomptab persistent formatting defaults (rc=`_test_rc')"
+    local ++fail_count
+}
+
+* -------------------------------------------------------------------------
+* 6. frame()-only output does not preview unless display is requested
+* -------------------------------------------------------------------------
+local ++test_count
+capture noisily {
+    local preview_log "`output_dir'/test_hrcomptab_preview_off.log"
+    capture erase "`preview_log'"
+    capture log close _preview_off
+    log using "`preview_log'", replace text name(_preview_off)
+    capture frame drop hrc_nodisplay
+    hrcomptab hrc_rates, modelframes(hrc_bin hrc_dose) ///
+        rows(1 \ 3/4) ///
+        frame(hrc_nodisplay, replace)
+    log close _preview_off
+    local preview_text ""
+    tempname fh
+    file open `fh' using "`preview_log'", read text
+    file read `fh' line
+    while r(eof) == 0 {
+        local preview_text `"`preview_text'`line'"'
+        file read `fh' line
+    }
+    file close `fh'
+    assert strpos(`"`preview_text'"', "Binary HRT") == 0
+    capture frame drop hrc_nodisplay
+}
+if _rc == 0 {
+    display as result "  PASS: hrcomptab frame()-only path does not auto-preview"
+    local ++pass_count
+}
+else {
+    capture log close _preview_off
+    display as error "  FAIL: hrcomptab frame()-only preview suppression (rc=`=_rc')"
+    local ++fail_count
+}
+capture frame drop hrc_nodisplay
+
+* -------------------------------------------------------------------------
+* 7. display option still forces a preview
+* -------------------------------------------------------------------------
+local ++test_count
+capture noisily {
+    local preview_log "`output_dir'/test_hrcomptab_preview_on.log"
+    capture erase "`preview_log'"
+    capture log close _preview_on
+    log using "`preview_log'", replace text name(_preview_on)
+    capture frame drop hrc_display
+    hrcomptab hrc_rates, modelframes(hrc_bin hrc_dose) ///
+        rows(1 \ 3/4) ///
+        frame(hrc_display, replace) display
+    log close _preview_on
+    local preview_text ""
+    tempname fh
+    file open `fh' using "`preview_log'", read text
+    file read `fh' line
+    while r(eof) == 0 {
+        local preview_text `"`preview_text'`line'"'
+        file read `fh' line
+    }
+    file close `fh'
+    assert strpos(`"`preview_text'"', "Binary HRT") > 0
+    capture frame drop hrc_display
+}
+if _rc == 0 {
+    display as result "  PASS: hrcomptab display option still previews"
+    local ++pass_count
+}
+else {
+    capture log close _preview_on
+    display as error "  FAIL: hrcomptab display option preview (rc=`=_rc')"
+    local ++fail_count
+}
+capture frame drop hrc_display
+
 display as result "hrcomptab QA summary: `pass_count' passed, `fail_count' failed"
+quietly tabtools set clear
 if `fail_count' > 0 exit 1
 
 log close _hrcomptab

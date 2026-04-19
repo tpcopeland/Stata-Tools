@@ -223,6 +223,129 @@ else {
 }
 capture frame drop _corr_p
 
+**## undefined correlations stay missing without false stars or p-values
+local ++test_count
+capture noisily {
+    clear
+    set obs 10
+    gen double x = _n
+    gen double y = 1
+
+    capture frame drop _corr_const
+    corrtab x y, full frame(_corr_const, replace)
+
+    assert missing(r(C)[2, 1])
+    assert missing(r(P)[2, 1])
+    frame _corr_const {
+        assert strtrim(c2[4]) == "."
+        assert strpos(c2[4], "*") == 0
+    }
+
+    capture frame drop _corr_const_p
+    corrtab x y, full pvalues frame(_corr_const_p, replace)
+
+    assert missing(r(P)[2, 1])
+    frame _corr_const_p {
+        assert strtrim(c2[4]) == "."
+        assert strpos(c2[4], "(") == 0
+        assert strpos(c2[4], "<0.001") == 0
+    }
+}
+if _rc == 0 {
+    display as result "  PASS: corrtab leaves undefined correlations missing"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: corrtab leaves undefined correlations missing (rc=`=_rc')"
+    local ++fail_count
+}
+capture frame drop _corr_const
+capture frame drop _corr_const_p
+
+**## sparse Spearman overlaps return missing cells instead of aborting
+local ++test_count
+capture noisily {
+    clear
+    set obs 6
+    gen double x = .
+    gen double y = .
+    gen double z = .
+    replace x = _n in 1/3
+    replace y = _n in 1/3
+    replace z = _n - 3 in 4/6
+
+    capture frame drop _corr_sparse
+    corrtab x y z, spearman full frame(_corr_sparse, replace)
+
+    assert r(N)[1, 2] == 3
+    assert r(N)[1, 3] == 0
+    assert r(N)[2, 3] == 0
+    assert missing(r(C)[1, 3])
+    assert missing(r(P)[1, 3])
+    local p_rows : rownames r(P)
+    local p_cols : colnames r(P)
+    assert "`p_rows'" == "x y z"
+    assert "`p_cols'" == "x y z"
+}
+if _rc == 0 {
+    display as result "  PASS: corrtab sparse Spearman overlap stays pairwise"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: corrtab sparse Spearman overlap stays pairwise (rc=`=_rc')"
+    local ++fail_count
+}
+capture frame drop _corr_sparse
+
+**## invalid star thresholds and pvalues+star() reject cleanly
+local ++test_count
+capture noisily {
+    clear
+    set obs 10
+    gen double x = _n
+    gen double y = _n
+
+    capture corrtab x y, star(0.05 0.05)
+    assert _rc == 198
+
+    capture corrtab x y, star(0 0.05)
+    assert _rc == 198
+
+    capture corrtab x y, pvalues star(0.10 0.05)
+    assert _rc == 198
+}
+if _rc == 0 {
+    display as result "  PASS: corrtab rejects invalid star() contracts"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: corrtab rejects invalid star() contracts (rc=`=_rc')"
+    local ++fail_count
+}
+
+**## open and xlsx() validation fail early without a real workbook target
+local ++test_count
+capture noisily {
+    clear
+    set obs 10
+    gen double x = _n
+    gen double y = _n
+
+    capture corrtab x y, open
+    assert _rc == 198
+
+    capture corrtab x y, xlsx("bad_ext.txt")
+    assert _rc == 198
+}
+if _rc == 0 {
+    display as result "  PASS: corrtab validates open/xlsx() contracts"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: corrtab validates open/xlsx() contracts (rc=`=_rc')"
+    local ++fail_count
+}
+
 **# Console and Export
 **## display writes a visible console table
 local ++test_count

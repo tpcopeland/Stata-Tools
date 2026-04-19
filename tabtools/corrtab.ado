@@ -10,8 +10,15 @@ program define corrtab, rclass
     capture noisily {
 
         * Auto-load shared helper programs
-        capture program list _tabtools_validate_path
-        if _rc {
+        local _needs_helpers 0
+        foreach _helper in _tabtools_validate_path _tabtools_validate_sheet ///
+            _tabtools_resolve_format _tabtools_console_display ///
+            _tabtools_build_col_letters _tabtools_footnote ///
+            _tabtools_frame_put _tabtools_open_file {
+            capture program list `_helper'
+            if _rc local _needs_helpers 1
+        }
+        if `_needs_helpers' {
             capture findfile _tabtools_common.ado
             if _rc == 0 {
                 run "`r(fn)'"
@@ -33,10 +40,20 @@ program define corrtab, rclass
 
         if "`xlsx'" == "" & "`excel'" != "" local xlsx "`excel'"
         local _has_xlsx = (`"`xlsx'"' != "")
+        if "`open'" != "" & !`_has_xlsx' {
+            noisily display as error "open requires xlsx() or excel()"
+            exit 198
+        }
 
         if "`sheet'" == "" local sheet "Correlation"
         _tabtools_validate_sheet "`sheet'" "sheet()"
-        if `_has_xlsx' _tabtools_validate_path "`xlsx'" "xlsx()"
+        if `_has_xlsx' {
+            if !strmatch(lower("`xlsx'"), "*.xlsx") {
+                noisily display as error "xlsx() must have .xlsx extension"
+                exit 198
+            }
+            _tabtools_validate_path "`xlsx'" "xlsx()"
+        }
         if "`csv'" != "" _tabtools_validate_path "`csv'" "csv()"
 
         if `digits' == -1 {
@@ -59,7 +76,25 @@ program define corrtab, rclass
         if "`zebracolor'" != "" local _zebracolor "`zebracolor'"
 
         if "`lower'" == "" & "`upper'" == "" & "`full'" == "" local lower "lower"
+        if "`pvalues'" != "" & "`star'" != "" {
+            noisily display as error "star() cannot be combined with pvalues"
+            exit 198
+        }
         if "`star'" == "" & "`pvalues'" == "" local star "0.001 0.01 0.05"
+        if "`star'" != "" {
+            local _prev_star .
+            foreach _sl of local star {
+                if `_sl' <= 0 | `_sl' >= 1 {
+                    noisily display as error "star() thresholds must be strictly between 0 and 1"
+                    exit 198
+                }
+                if !missing(`_prev_star') & `_sl' <= `_prev_star' {
+                    noisily display as error "star() thresholds must be strictly increasing"
+                    exit 198
+                }
+                local _prev_star = `_sl'
+            }
+        }
         local n_stars : word count `star'
 
         marksample touse
@@ -89,29 +124,21 @@ program define corrtab, rclass
         matrix colnames `_nmat' = `varlist'
 
         if "`spearman'" != "" {
-            quietly spearman `varlist' if `_pwtouse', pw matrix
-            matrix `_corr' = r(Rho)
+            matrix `_corr' = J(`nvars', `nvars', .)
             matrix `_pmat' = J(`nvars', `nvars', .)
             forvalues i = 1/`nvars' {
+                matrix `_corr'[`i', `i'] = 1
                 forvalues j = `=`i' + 1'/`nvars' {
                     local _vi : word `i' of `varlist'
                     local _vj : word `j' of `varlist'
                     local _cn = `_nmat'[`i', `j']
-                    if `_cn' < 30 {
-                        quietly spearman `_vi' `_vj' if `_pwtouse'
-                        matrix `_pmat'[`i', `j'] = r(p)
-                        matrix `_pmat'[`j', `i'] = r(p)
-                    }
-                    else {
-                        local _r = `_corr'[`i', `j']
-                        if abs(`_r') < 1 {
-                            local _t = `_r' * sqrt((`_cn' - 2) / (1 - (`_r')^2))
-                            matrix `_pmat'[`i', `j'] = 2 * ttail(`_cn' - 2, abs(`_t'))
-                            matrix `_pmat'[`j', `i'] = `_pmat'[`i', `j']
-                        }
-                        else {
-                            matrix `_pmat'[`i', `j'] = 0
-                            matrix `_pmat'[`j', `i'] = 0
+                    if `_cn' > 1 {
+                        capture quietly spearman `_vi' `_vj' if `_pwtouse' & !missing(`_vi') & !missing(`_vj')
+                        if !_rc {
+                            matrix `_corr'[`i', `j'] = r(rho)
+                            matrix `_corr'[`j', `i'] = r(rho)
+                            matrix `_pmat'[`i', `j'] = r(p)
+                            matrix `_pmat'[`j', `i'] = r(p)
                         }
                     }
                 }
@@ -126,11 +153,14 @@ program define corrtab, rclass
                     if `i' != `j' {
                         local _r = `_corr'[`i', `j']
                         local _cn = `_nmat'[`i', `j']
-                        if `_cn' > 2 & abs(`_r') < 1 {
+                        if missing(`_r') | `_cn' <= 2 {
+                            matrix `_pmat'[`i', `j'] = .
+                        }
+                        else if abs(`_r') < 1 {
                             local _t = `_r' * sqrt((`_cn' - 2) / (1 - (`_r')^2))
                             matrix `_pmat'[`i', `j'] = 2 * ttail(`_cn' - 2, abs(`_t'))
                         }
-                        else if abs(`_r') >= 1 {
+                        else if abs(`_r') == 1 {
                             matrix `_pmat'[`i', `j'] = 0
                         }
                     }
@@ -140,6 +170,10 @@ program define corrtab, rclass
                 }
             }
         }
+        matrix rownames `_corr' = `varlist'
+        matrix colnames `_corr' = `varlist'
+        matrix rownames `_pmat' = `varlist'
+        matrix colnames `_pmat' = `varlist'
 
         local _max_label_len 0
         forvalues _vi = 1/`nvars' {
@@ -357,7 +391,8 @@ program define corrtab, rclass
 
         local _method_type = cond("`spearman'" != "", "Spearman rank", "Pearson")
         local _methods "`_method_type' correlation coefficients are reported."
-        if "`star'" != "" local _methods "`_methods' Significance levels: `_star_note'."
+        if "`pvalues'" != "" local _methods "`_methods' Pairwise p-values are shown in parentheses."
+        else if `"`_star_note'"' != "" local _methods "`_methods' Significance levels: `_star_note'."
         local _methods "`_methods' Analysis performed in Stata `c(stata_version)' (StataCorp, College Station, TX)."
         return local methods "`_methods'"
     }

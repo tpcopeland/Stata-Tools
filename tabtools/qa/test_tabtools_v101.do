@@ -405,7 +405,7 @@ else {
 }
 
 * ============================================================
-**# FIX 2: _tabtools_validate_path rejects quote characters
+**# FIX 2: _tabtools_validate_path rejects double quotes but allows apostrophes
 * ============================================================
 
 * --- 2.1 Double quote rejected ---
@@ -426,19 +426,17 @@ else {
     local failed_tests "`failed_tests' 2.1"
 }
 
-* --- 2.2 Single quote rejected ---
+* --- 2.2 Single quote accepted ---
 local ++test_count
 capture noisily {
-    capture noisily _tabtools_validate_path "bad'file.xlsx" "xlsx()"
-    local _vrc = _rc
-    assert `_vrc' == 198
+    _tabtools_validate_path "good'file.xlsx" "xlsx()"
 }
 if _rc == 0 {
-    display as result "  PASS: 2.2 validate_path rejects single quote"
+    display as result "  PASS: 2.2 validate_path accepts single quote"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: 2.2 validate_path rejects single quote (rc=`=_rc')"
+    display as error "  FAIL: 2.2 validate_path accepts single quote (rc=`=_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' 2.2"
 }

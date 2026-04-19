@@ -244,8 +244,8 @@ frames.{p_end}
 {phang3}{cmd:title("Table 2. HRT Events, Rates, and Adjusted Hazard Ratios")}{p_end}
 
 {pstd}Use {cmd:rows()} to pick the model rows that should be inserted for each
-exposure block, or switch to {cmd:rownames()} when you prefer name-based
-matching across model frames.{p_end}
+exposure block, or switch to {cmd:rownames()} when you prefer rendered-label
+substring matching across model frames.{p_end}
 
 {hline}
 {marker r10}{...}

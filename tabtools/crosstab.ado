@@ -26,8 +26,15 @@ program define crosstab, rclass
 capture noisily {
 
     * Auto-load shared helper programs
-    capture program list _tabtools_validate_path
-    if _rc {
+    local _needs_helpers 0
+    foreach _helper in _tabtools_validate_path _tabtools_validate_sheet ///
+        _tabtools_resolve_format _tabtools_console_display ///
+        _tabtools_build_col_letters _tabtools_footnote ///
+        _tabtools_frame_put _tabtools_open_file {
+        capture program list `_helper'
+        if _rc local _needs_helpers 1
+    }
+    if `_needs_helpers' {
         capture findfile _tabtools_common.ado
         if _rc == 0 {
             run "`r(fn)'"
@@ -51,9 +58,24 @@ capture noisily {
 
     gettoken rowvar colvar : varlist
 
+    capture confirm numeric variable `rowvar'
+    if _rc {
+        noisily display as error "rowvar and colvar must be numeric categorical variables"
+        exit 109
+    }
+    capture confirm numeric variable `colvar'
+    if _rc {
+        noisily display as error "rowvar and colvar must be numeric categorical variables"
+        exit 109
+    }
+
     * Accept excel() as synonym
     if "`xlsx'" == "" & "`excel'" != "" local xlsx "`excel'"
     local _has_xlsx = "`xlsx'" != ""
+    if "`open'" != "" & !`_has_xlsx' {
+        noisily display as error "open requires xlsx() or excel()"
+        exit 198
+    }
 
     * Resolve persistent defaults
     if `boldp' == -1 & "$TABTOOLS_BOLDP" != "" local boldp = $TABTOOLS_BOLDP
@@ -73,13 +95,28 @@ capture noisily {
     * Defaults
     if "`sheet'" == "" local sheet "Crosstab"
     _tabtools_validate_sheet "`sheet'" "sheet()"
-    if `_has_xlsx' _tabtools_validate_path "`xlsx'" "xlsx()"
+    if `_has_xlsx' {
+        if !strmatch(lower("`xlsx'"), "*.xlsx") {
+            noisily display as error "xlsx() must have .xlsx extension"
+            exit 198
+        }
+        _tabtools_validate_path "`xlsx'" "xlsx()"
+    }
     if "`csv'" != "" _tabtools_validate_path "`csv'" "csv()"
+
+    local _pct_modes = 0
+    if "`colpct'" != "" local ++_pct_modes
+    if "`rowpct'" != "" local ++_pct_modes
+    if "`totalpct'" != "" local ++_pct_modes
+    if `_pct_modes' > 1 {
+        noisily display as error "Specify only one of colpct, rowpct, or totalpct"
+        exit 198
+    }
 
     * Default to column percentages
     if "`colpct'" == "" & "`rowpct'" == "" & "`totalpct'" == "" local colpct "colpct"
 
-    marksample touse
+    marksample touse, novarlist
     if "`missing'" == "" markout `touse' `rowvar' `colvar'
 
     quietly count if `touse'
@@ -95,32 +132,45 @@ capture noisily {
 **# Cross-tabulation
     preserve
     qui keep if `touse'
+    local _missing_opt ""
+    if "`missing'" != "" local _missing_opt "missing"
 
     * Get levels
-    qui levelsof `rowvar', local(row_levels)
-    qui levelsof `colvar', local(col_levels)
+    qui levelsof `rowvar', local(row_levels) `missing'
+    qui levelsof `colvar', local(col_levels) `missing'
     local n_rows : word count `row_levels'
     local n_cols : word count `col_levels'
+    if ("`or'" != "" | "`rr'" != "" | "`rd'" != "") & (`n_rows' != 2 | `n_cols' != 2) {
+        noisily display as error "or, rr, and rd require a 2x2 table"
+        restore
+        exit 198
+    }
 
     * Row and column labels
     forvalues r = 1/`n_rows' {
         local _rlv : word `r' of `row_levels'
         if "`label'" != "" {
-            local _rlbl : label (`rowvar') `_rlv'
+            if substr("`_rlv'", 1, 1) == "." local _rlbl "Missing"
+            else local _rlbl : label (`rowvar') `_rlv'
         }
         else {
-            local _rlbl "`_rlv'"
+            if substr("`_rlv'", 1, 1) == "." local _rlbl "Missing"
+            else local _rlbl "`_rlv'"
         }
+        if "`_rlbl'" == "" local _rlbl "`_rlv'"
         local rlabel_`r' "`_rlbl'"
     }
     forvalues c = 1/`n_cols' {
         local _clv : word `c' of `col_levels'
         if "`label'" != "" {
-            local _clbl : label (`colvar') `_clv'
+            if substr("`_clv'", 1, 1) == "." local _clbl "Missing"
+            else local _clbl : label (`colvar') `_clv'
         }
         else {
-            local _clbl "`_clv'"
+            if substr("`_clv'", 1, 1) == "." local _clbl "Missing"
+            else local _clbl "`_clv'"
         }
+        if "`_clbl'" == "" local _clbl "`_clv'"
         local clabel_`c' "`_clbl'"
     }
 
@@ -132,7 +182,7 @@ capture noisily {
 
     * Tabulate with matcell
     tempname _freq _rowsum _colsum
-    qui tab `rowvar' `colvar' if `touse' [`weight'`exp'], matcell(`_freq')
+    qui tab `rowvar' `colvar' [`weight'`exp'], matcell(`_freq') `_missing_opt'
     local _total_n = r(N)
 
     * Row and column marginals
@@ -155,12 +205,12 @@ capture noisily {
     }
 
     if "`fisher'" != "" | "`exact'" != "" | `_min_expected' < 5 {
-        qui tab `rowvar' `colvar' if `touse' [`weight'`exp'], exact
+        qui tab `rowvar' `colvar' [`weight'`exp'], exact `_missing_opt'
         local _p = r(p_exact)
         local _test_name "Fisher's exact test"
     }
     else {
-        qui tab `rowvar' `colvar' if `touse' [`weight'`exp'], chi2
+        qui tab `rowvar' `colvar' [`weight'`exp'], chi2 `_missing_opt'
         local _chi2 = r(chi2)
         local _p = r(p)
         local _test_name "Pearson's chi-squared test"
@@ -325,6 +375,7 @@ capture noisily {
     matrix `_rtable' = `_freq'
     capture matrix rownames `_rtable' = `row_levels'
     capture matrix colnames `_rtable' = `col_levels'
+    order title c*
 
 **# Console Display
     if !`_has_xlsx' | "`display'" != "" {
@@ -454,7 +505,10 @@ capture noisily {
     * Methods paragraph
     local _methods "Cross-tabulation was performed for `_rowlabel' by `_collabel'."
     local _methods "`_methods' Statistical significance was assessed using `_test_name'."
-    if !missing(`_or') local _methods "`_methods' The odds ratio with 95% confidence interval is reported."
+    if !missing(`_or') local _methods "`_methods' The odds ratio comparing column `clabel_2' versus `clabel_1' for row `rlabel_2' versus `rlabel_1' is reported with a 95% confidence interval."
+    if !missing(`_rr') local _methods "`_methods' The risk ratio comparing column `clabel_2' versus `clabel_1' for row `rlabel_2' versus `rlabel_1' is reported with a 95% confidence interval."
+    if !missing(`_rd') local _methods "`_methods' The risk difference comparing column `clabel_2' versus `clabel_1' for row `rlabel_2' versus `rlabel_1' is reported with a 95% confidence interval."
+    if !missing(`_p_trend') local _methods "`_methods' A trend test across ordered column levels is also reported."
     local _methods "`_methods' Analysis performed in Stata `c(stata_version)' (StataCorp, College Station, TX)."
     return local methods "`_methods'"
 

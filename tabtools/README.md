@@ -235,7 +235,7 @@ All commands in the tabtools suite share a consistent set of formatting options:
 - **Consistent fonts** with persistent defaults via `tabtools set font`/`tabtools set fontsize`
 - **Conditional formatting**: bold p-values (`boldp`), row highlighting (`highlight`), alternating row shading (`zebra`)
 - **Footnotes** in smaller italic font below the table
-- **Custom colors**: `headercolor()` and `zebracolor()` with RGB values
+- **Custom colors**: `headercolor()` and `zebracolor()` with named colors or RGB values
 - **CSV export** alongside or instead of Excel via `csv()`
 - **Frame storage** via `frame()` for downstream programmatic access
 - **Console preview** via `display` or by omitting `xlsx()`

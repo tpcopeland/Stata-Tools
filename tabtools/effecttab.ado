@@ -55,11 +55,17 @@ program define effecttab, rclass
 	set varabbrev off
 
 	* Auto-load shared helper programs if not already in memory
-	capture program list _tabtools_validate_path
+	capture _tabtools_helpers_ready
 	if _rc {
 		capture findfile _tabtools_common.ado
 		if _rc == 0 {
 			run "`r(fn)'"
+			capture _tabtools_helpers_ready
+			if _rc {
+				display as error "_tabtools_common.ado failed to load fully; reinstall tabtools"
+				set varabbrev `_orig_varabbrev'
+				exit 111
+			}
 		}
 		else {
 			display as error "_tabtools_common.ado not found; reinstall tabtools"
@@ -93,6 +99,10 @@ program define effecttab, rclass
 
 	* Validate sheet name for Excel constraints
 	_tabtools_validate_sheet "`sheet'" "sheet()"
+	if strpos("`sheet'", ":") {
+		noisily display as error "sheet(): sheet name contains characters not allowed by Excel (:)"
+		exit 198
+	}
 
 quietly {
 	* =========================================================================
@@ -120,7 +130,10 @@ quietly {
 		}
 		_tabtools_validate_path "`xlsx'" "xlsx()"
 	}
-	_tabtools_validate_path "`sheet'" "sheet()"
+	if "`open'" != "" & !`_has_xlsx' {
+		noisily display as error "open requires xlsx() or excel()"
+		exit 198
+	}
 
 	* Validate highlight
 	local has_highlight = `highlight' != -1
@@ -139,6 +152,14 @@ quietly {
 	* Validate digits range
 	if `digits' < 0 | `digits' > 6 {
 		noisily display as error "digits() must be between 0 and 6"
+		exit 198
+	}
+	if `pdp' < 1 | `pdp' > 10 {
+		noisily display as error "pdp() must be between 1 and 10"
+		exit 198
+	}
+	if `highpdp' < 1 | `highpdp' > 10 {
+		noisily display as error "highpdp() must be between 1 and 10"
 		exit 198
 	}
 
@@ -182,16 +203,21 @@ quietly {
 	* =========================================================================
 
 	if "`type'" == "auto" {
-		* Check e(cmd) to detect teffects vs margins
-		* After teffects, e(cmd) = "teffects"
-		* After margins, e(cmd) = the underlying model (logit, probit, etc.)
-		local ecmd "`e(cmd)'"
-
-		if "`ecmd'" == "teffects" {
-			local type "teffects"
+		if `_from_matrix' {
+			local type "margins"
 		}
 		else {
-			local type "margins"
+			* Check e(cmd) to detect teffects vs margins
+			* After teffects, e(cmd) = "teffects"
+			* After margins, e(cmd) = the underlying model (logit, probit, etc.)
+			local ecmd "`e(cmd)'"
+
+			if "`ecmd'" == "teffects" {
+				local type "teffects"
+			}
+			else {
+				local type "margins"
+			}
 		}
 	}
 
@@ -211,6 +237,9 @@ quietly {
 			local effect "Estimate"
 		}
 	}
+
+	local _ate_keep ""
+	if !`_from_matrix' {
 
 	* =========================================================================
 	* CAPTURE TREATMENT LABELS (before import clears data)
@@ -415,6 +444,7 @@ quietly {
 			local _ate_keep `"`_ate_keep' "`lev'.`tvar'""'
 		}
 	}
+	}
 
 	* =========================================================================
 	* EXPORT AND IMPORT FOR PROCESSING
@@ -441,7 +471,6 @@ quietly {
 		* Row 1: title-level placeholder
 		qui replace A = "" in 1
 		* Row 2: headers
-		if "`effect'" == "" local effect "Effect"
 		qui replace A = "" in 2
 		qui replace c1 = "`effect'" in 2
 		qui replace c2 = "(95% CI)" in 2
@@ -462,12 +491,7 @@ quietly {
 				qui replace c2 = "(" + string(`_cilo', "%9.`digits'f") + `"`sep'"' + string(`_cihi', "%9.`digits'f") + ")" in `_obs'
 			}
 			if !missing(`_pv') {
-				local _pmin = 10^(-`pdp')
-				local _pfmt_lo = "%`=`pdp'+2'.`pdp'f"
-				local _pfmt_hi = "%`=`highpdp'+2'.`highpdp'f"
-				if `_pv' < `_pmin' qui replace c3 = "<" + string(`_pmin', "`_pfmt_lo'") in `_obs'
-				else if `_pv' < 0.10 qui replace c3 = string(`_pv', "`_pfmt_lo'") in `_obs'
-				else qui replace c3 = string(`_pv', "`_pfmt_hi'") in `_obs'
+				qui replace c3 = string(`_pv', "%21.0g") in `_obs'
 			}
 		}
 		local n 3
@@ -637,7 +661,7 @@ quietly {
 		}
 	}
 	tempname _rtable
-	if `_mat_nrows' > 0 & `_mat_nrows' <= 100 {
+	if `_mat_nrows' > 0 {
 		matrix `_rtable' = J(`_mat_nrows', `_n_models' * 2, .)
 		local _rnames ""
 		local _mr = 0
@@ -1095,7 +1119,7 @@ quietly {
 	local _methods "`_methods' Analysis performed in Stata `c(stata_version)' (StataCorp, College Station, TX)."
 
 	* Return statistics (I1)
-	if `_mat_nrows' > 0 & `_mat_nrows' <= 100 {
+	if `_mat_nrows' > 0 {
 		capture return matrix table = `_rtable'
 	}
 	return scalar N_rows = `num_rows'

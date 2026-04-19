@@ -35,9 +35,19 @@ program define survtab, rclass
 
 capture noisily {
 
-    * Auto-load shared helper programs if not already in memory
-    capture program list _tabtools_validate_path
-    if _rc {
+    * Auto-load the shared helper bundle if any required helper is missing
+    local _tt_reload = 0
+    foreach _tt_prog in _tabtools_validate_path _tabtools_validate_sheet ///
+        _tabtools_resolve_format _tabtools_console_display ///
+        _tabtools_frame_put _tabtools_build_col_letters ///
+        _tabtools_footnote _tabtools_open_file {
+        capture program list `_tt_prog'
+        if _rc {
+            local _tt_reload = 1
+            continue, break
+        }
+    }
+    if `_tt_reload' {
         capture findfile _tabtools_common.ado
         if _rc == 0 {
             run "`r(fn)'"
@@ -49,7 +59,7 @@ capture noisily {
     }
 
 **# Syntax and Validation
-    syntax, times(numlist >0) [by(varname) RMST(real 0) MEDian RISKset ///
+    syntax, times(numlist >0) [by(varname) RMST(real -1) MEDian RISKset ///
         TIMEUnit(string) REVerse DIFFerence EVents ///
         xlsx(string) excel(string) sheet(string) title(string) ///
         FOOTnote(string) THEme(string) BORDERstyle(string) ///
@@ -65,6 +75,14 @@ capture noisily {
     if `boldp' == -1 & "$TABTOOLS_BOLDP" != "" local boldp = $TABTOOLS_BOLDP
     if `pdp' == -1 local pdp = 3
     if `highpdp' == -1 local highpdp = 2
+    if `pdp' < 0 | `pdp' > 10 {
+        noisily display as error "pdp() must be between 0 and 10"
+        exit 198
+    }
+    if `highpdp' < 0 | `highpdp' > 10 {
+        noisily display as error "highpdp() must be between 0 and 10"
+        exit 198
+    }
 
     if `digits' == -1 {
         if "$TABTOOLS_DIGITS" != "" local digits = $TABTOOLS_DIGITS
@@ -81,6 +99,11 @@ capture noisily {
         noisily display as error "data not st set"
         noisily display as error "Hint: run {bf:stset timevar, failure(eventvar)} before calling survtab"
         exit 119
+    }
+    local st_id : char _dta[st_id]
+    if "`st_id'" != "" {
+        capture confirm variable `st_id'
+        if _rc local st_id ""
     }
 
     * Default options
@@ -125,7 +148,11 @@ capture noisily {
     }
 
     * RMST validation
-    local has_rmst = `rmst' > 0
+    if `rmst' != -1 & `rmst' <= 0 {
+        noisily display as error "rmst() must be greater than 0"
+        exit 198
+    }
+    local has_rmst = `rmst' != -1
 
     * Resolve formatting
     _tabtools_resolve_format, theme(`theme') borderstyle(`borderstyle') zebra(`zebra')
@@ -153,6 +180,10 @@ capture noisily {
             noisily display as error "by() variable must have at least 2 levels"
             exit 198
         }
+        if "`difference'" != "" & `n_groups' != 2 {
+            noisily display as error "difference requires exactly 2 groups in by()"
+            exit 198
+        }
     }
     else {
         qui gen byte `groupvar' = 1
@@ -169,7 +200,14 @@ capture noisily {
             local _glabel "Overall"
         }
         local glabel_`g' "`_glabel'"
-        qui count if `groupvar' == `_glv' & _st
+        if "`st_id'" != "" {
+            tempvar _gn_tag
+            qui egen byte `_gn_tag' = tag(`st_id') if `groupvar' == `_glv' & _st
+            qui count if `_gn_tag'
+        }
+        else {
+            qui count if `groupvar' == `_glv' & _st
+        }
         local gn_`g' = r(N)
     }
 
@@ -177,20 +215,22 @@ capture noisily {
     if "`events'" != "" {
         forvalues g = 1/`n_groups' {
             local _glv : word `g' of `group_levels'
-            if `has_by' {
-                qui count if `groupvar' == `_glv' & _st & _d == 1
+            if "`st_id'" != "" {
+                tempvar _event_tag
+                qui egen byte `_event_tag' = tag(`st_id') ///
+                    if `groupvar' == `_glv' & _st & _d == 1
+                qui count if `_event_tag'
             }
             else {
-                qui count if _st & _d == 1
+                if `has_by' {
+                    qui count if `groupvar' == `_glv' & _st & _d == 1
+                }
+                else {
+                    qui count if _st & _d == 1
+                }
             }
             local events_g`g' = r(N)
-            if `has_by' {
-                qui count if `groupvar' == `_glv' & _st
-            }
-            else {
-                qui count if _st
-            }
-            local atrisk_g`g' = r(N)
+            local atrisk_g`g' = `gn_`g''
         }
     }
 
@@ -227,7 +267,15 @@ capture noisily {
 
             * Number at risk (accounts for delayed entry via _t0)
             if "`riskset'" != "" {
-                qui count if _t >= `_time' & _t0 < `_time' & `groupvar' == `_glv' & _st
+                if "`st_id'" != "" {
+                    tempvar _risk_tag
+                    qui egen byte `_risk_tag' = tag(`st_id') ///
+                        if _t >= `_time' & _t0 < `_time' & `groupvar' == `_glv' & _st
+                    qui count if `_risk_tag'
+                }
+                else {
+                    qui count if _t >= `_time' & _t0 < `_time' & `groupvar' == `_glv' & _st
+                }
                 local nrisk_g`g'_t`t' = r(N)
             }
         }
@@ -268,67 +316,85 @@ capture noisily {
     if `has_rmst' {
         forvalues g = 1/`n_groups' {
             local _glv : word `g' of `group_levels'
-            * RMST: area under KM curve up to truncation time tau
-            * Also compute Greenwood-based SE for 95% CI
-            * Compute per-group in a preserve/restore block to avoid sort corruption
             preserve
             qui keep if `groupvar' == `_glv' & _st
             qui sort _t
-            tempvar _rmst_surv _dt _area _n_at_risk _d_count _last_in_t _n_risk_first _tail_area _gw_term
+            tempvar _rmst_surv _event _event_tag _d_count _surv_at_event _surv_event ///
+                _risk_tag
             qui sts generate `_rmst_surv' = s
+            qui gen byte `_event' = (_d == 1 & _t <= `rmst')
+            qui egen byte `_event_tag' = tag(_t) if `_event'
+            qui bysort _t: egen double `_d_count' = total(_d) if `_event'
+            qui gen double `_surv_at_event' = `_rmst_surv' if `_event'
+            qui bysort _t: egen double `_surv_event' = max(`_surv_at_event')
 
-            * Area from time 0 to first event time (S=1 in this interval)
-            qui su _t, meanonly
-            local _t_first = r(min)
-            local _area_0 = min(`_t_first', `rmst')
-
-            * Left-rectangle areas from each event time to the next (or tau)
-            qui gen double `_dt' = _t[_n+1] - _t if _n < _N & _t < `rmst' & !missing(`_rmst_surv')
-            * Clamp last interval at truncation time
-            qui replace `_dt' = `rmst' - _t ///
-                if !missing(`_rmst_surv') & (_t[_n+1] > `rmst' | _n == _N) ///
-                & _t < `rmst' & missing(`_dt')
-            qui gen double `_area' = `_dt' * `_rmst_surv' if !missing(`_dt')
-
-            qui su `_area', meanonly
-            if r(N) > 0 {
-                local rmst_g`g' = r(sum) + `_area_0'
-            }
-            else {
-                * No events before tau: RMST = tau (perfect survival)
-                local rmst_g`g' = `_area_0'
-            }
-
-            * Greenwood variance for RMST
-            * Var(RMST) = sum over event times t_j <= tau of:
-            *   [d_j / (n_j * (n_j - d_j))] * [integral from t_j to tau of S(u) du]^2
-            qui gen double `_n_at_risk' = _N - _n + 1
-            qui bysort _t: egen double `_d_count' = total(_d)
-            qui bysort _t: gen byte `_last_in_t' = (_n == _N)
-            qui bysort _t: gen double `_n_risk_first' = `_n_at_risk'[1]
-
-            * Keep unique event times within tau for variance computation
-            qui keep if `_last_in_t' == 1 & _t <= `rmst'
-
-            * Reverse cumulative sum of areas = tail area from t_j to tau
-            qui gsort -_t
-            qui gen double `_tail_area' = sum(`_area') if !missing(`_area')
-            qui gsort _t
-
-            * Greenwood variance terms (only at event times where n_j > d_j)
-            qui gen double `_gw_term' = ///
-                (`_d_count' / (`_n_risk_first' * (`_n_risk_first' - `_d_count'))) ///
-                * `_tail_area'^2 ///
-                if `_d_count' > 0 & `_n_risk_first' > `_d_count' & !missing(`_tail_area')
-
-            qui su `_gw_term', meanonly
-            if r(N) > 0 {
-                local rmst_se_g`g' = sqrt(r(sum))
-            }
-            else {
-                * No events before tau: SE = 0 (no uncertainty)
+            qui count if `_event_tag'
+            if r(N) == 0 {
+                local rmst_g`g' = `rmst'
                 local rmst_se_g`g' = 0
+                local rmst_lb_g`g' = `rmst'
+                local rmst_ub_g`g' = `rmst'
+                restore
+                continue
             }
+
+            tempname _evtmat
+            qui mkmat _t `_surv_event' `_d_count' if `_event_tag', matrix(`_evtmat')
+
+            local _n_evt = rowsof(`_evtmat')
+            local _rmst_area = min(`_evtmat'[1,1], `rmst')
+            forvalues k = 1/`_n_evt' {
+                local _this_t = `_evtmat'[`k',1]
+                if `k' < `_n_evt' {
+                    local _next_row = `k' + 1
+                    local _next_t = `_evtmat'[`_next_row',1]
+                    if `_next_t' > `rmst' local _next_t = `rmst'
+                }
+                else {
+                    local _next_t = `rmst'
+                }
+                local _dt = `_next_t' - `_this_t'
+                if `_dt' > 0 {
+                    local _rmst_area = `_rmst_area' + (`_evtmat'[`k',2] * `_dt')
+                }
+            }
+            local rmst_g`g' = `_rmst_area'
+
+            local _rmst_var = 0
+            forvalues k = 1/`_n_evt' {
+                local _this_t = `_evtmat'[`k',1]
+                local _d_j = `_evtmat'[`k',3]
+                local _tail = 0
+                forvalues m = `k'/`_n_evt' {
+                    local _seg_t = `_evtmat'[`m',1]
+                    if `m' < `_n_evt' {
+                        local _seg_next_row = `m' + 1
+                        local _seg_next_t = `_evtmat'[`_seg_next_row',1]
+                        if `_seg_next_t' > `rmst' local _seg_next_t = `rmst'
+                    }
+                    else {
+                        local _seg_next_t = `rmst'
+                    }
+                    local _seg_dt = `_seg_next_t' - `_seg_t'
+                    if `_seg_dt' > 0 {
+                        local _tail = `_tail' + (`_evtmat'[`m',2] * `_seg_dt')
+                    }
+                }
+                if "`st_id'" != "" {
+                    qui egen byte `_risk_tag' = tag(`st_id') if _t0 < `_this_t' & _t >= `_this_t'
+                    qui count if `_risk_tag'
+                    drop `_risk_tag'
+                }
+                else {
+                    qui count if _t0 < `_this_t' & _t >= `_this_t'
+                }
+                local _n_j = r(N)
+                if `_d_j' > 0 & `_n_j' > `_d_j' {
+                    local _rmst_var = `_rmst_var' + ///
+                        (`_d_j' / (`_n_j' * (`_n_j' - `_d_j'))) * (`_tail'^2)
+                }
+            }
+            local rmst_se_g`g' = sqrt(`_rmst_var')
             local rmst_lb_g`g' = `rmst_g`g'' - invnormal(0.975) * `rmst_se_g`g''
             local rmst_ub_g`g' = `rmst_g`g'' + invnormal(0.975) * `rmst_se_g`g''
 
@@ -374,7 +440,7 @@ capture noisily {
     local _p_col = 0
     if "`difference'" != "" & `n_groups' == 2 {
         local _diff_col = `n_groups' + 2
-        qui replace c`_diff_col' = "Difference (95% CI)" in `row'
+        qui replace c`_diff_col' = "Difference" in `row'
     }
     if `has_by' {
         local _p_col = `ncols'

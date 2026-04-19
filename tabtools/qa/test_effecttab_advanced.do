@@ -422,6 +422,126 @@ else {
     capture frame drop eff_adv
 }
 
+* ============================================================
+* Test 17: helper bundle reloads after a partial helper drop
+* ============================================================
+capture noisily {
+    matrix helpermat = (1.5, 0.8, 2.2, 0.04)
+    matrix rownames helpermat = Helper
+    effecttab, from(helpermat) display
+    capture program drop _tabtools_validate_sheet
+    effecttab, from(helpermat) display
+    assert r(N_rows) > 0
+}
+if _rc == 0 {
+    display as result "PASS: T17 — helper bundle reloads after partial drop"
+    local ++n_pass
+}
+else {
+    display as error "FAIL: T17 — helper reload failed (rc=`=_rc')"
+    local ++n_fail
+}
+capture matrix drop helpermat
+
+* ============================================================
+* Test 18: from() ignores ambient collect state
+* ============================================================
+capture noisily {
+    webuse cattaneo2, clear
+    collect clear
+    collect: teffects ipw (bweight) (mbsmoke mage prenatal1 mmarried fbaby), ate
+    matrix stalecheck = (1.5, 0.8, 2.2, 1e-7)
+    matrix rownames stalecheck = MatrixOnly
+    effecttab, from(stalecheck) display
+    assert r(type) == "margins"
+}
+if _rc == 0 {
+    display as result "PASS: T18 — from() stays isolated from ambient teffects state"
+    local ++n_pass
+}
+else {
+    display as error "FAIL: T18 — from() inherited ambient teffects state (rc=`=_rc')"
+    local ++n_fail
+}
+capture matrix drop stalecheck
+
+* ============================================================
+* Test 19: tiny matrix p-values survive until final formatting
+* ============================================================
+capture frame drop eff_small
+capture noisily {
+    matrix smallmat = (1.5, 0.8, 2.2, 1e-7)
+    matrix rownames smallmat = TinyP
+    effecttab, from(smallmat) frame(eff_small, replace) display
+    frame eff_small {
+        local found = 0
+        forvalues _r = 1/`=_N' {
+            local _p = strtrim(c3[`_r'])
+            if "`_p'" != "" & "`_p'" != "p" {
+                assert "`_p'" == "<0.001"
+                local found = 1
+                continue, break
+            }
+        }
+        assert `found' == 1
+    }
+}
+if _rc == 0 {
+    display as result "PASS: T19 — tiny matrix p-values format correctly"
+    local ++n_pass
+}
+else {
+    display as error "FAIL: T19 — tiny matrix p-values lost (rc=`=_rc')"
+    local ++n_fail
+}
+capture frame drop eff_small
+capture matrix drop smallmat
+
+* ============================================================
+* Test 20: invalid pdp()/highpdp() are rejected
+* ============================================================
+capture noisily {
+    matrix precmat = (1.5, 0.8, 2.2, 0.04)
+    matrix rownames precmat = Prec
+    capture noisily effecttab, from(precmat) display pdp(0)
+    assert _rc == 198
+    capture noisily effecttab, from(precmat) display highpdp(0)
+    assert _rc == 198
+}
+if _rc == 0 {
+    display as result "PASS: T20 — invalid p-value precision is rejected"
+    local ++n_pass
+}
+else {
+    display as error "FAIL: T20 — invalid p-value precision accepted (rc=`=_rc')"
+    local ++n_fail
+}
+capture matrix drop precmat
+
+* ============================================================
+* Test 21: r(table) is returned above 100 rows
+* ============================================================
+capture noisily {
+    matrix bigmat = J(101, 4, .)
+    forvalues _i = 1/101 {
+        matrix bigmat[`_i', 1] = `_i' / 100
+        matrix bigmat[`_i', 2] = (`_i' / 100) - 0.05
+        matrix bigmat[`_i', 3] = (`_i' / 100) + 0.05
+        matrix bigmat[`_i', 4] = 0.20
+    }
+    effecttab, from(bigmat) display
+    assert rowsof(r(table)) == 101
+}
+if _rc == 0 {
+    display as result "PASS: T21 — r(table) persists above 100 rows"
+    local ++n_pass
+}
+else {
+    display as error "FAIL: T21 — r(table) truncated above 100 rows (rc=`=_rc')"
+    local ++n_fail
+}
+capture matrix drop bigmat
+
 * Summary
 display _newline
 display "============================="

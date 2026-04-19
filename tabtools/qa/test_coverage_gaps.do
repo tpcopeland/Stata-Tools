@@ -87,13 +87,15 @@ capture noisily {
     table1_tc, by(foreign) vars(price contn \ rep78 cat \ foreign bin) ///
         varlabplus xlsx("`output_dir'/_cov_t1_vlp.xlsx") sheet("varlabplus")
     confirm file "`output_dir'/_cov_t1_vlp.xlsx"
+    assert `"`r(Dapa)'"' == "Data are presented as mean (SD) for continuous measures, and No. (%) for categorical measures."
+    assert strpos(`"`r(methods)'"', `"`r(Dapa)'"') > 0
 }
 if _rc == 0 {
-    display as result "  PASS: table1_tc varlabplus"
+    display as result "  PASS: table1_tc varlabplus keeps stored results"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: table1_tc varlabplus (error `=_rc')"
+    display as error "  FAIL: table1_tc varlabplus keeps stored results (error `=_rc')"
     local ++fail_count
 }
 
@@ -256,15 +258,20 @@ local ++test_count
 capture noisily {
     sysuse auto, clear
     table1_tc, by(foreign) vars(price contn \ rep78 cat) ///
-        csv("`output_dir'/_cov_t1.csv") xlsx("`output_dir'/_cov_t1_csv.xlsx") sheet("csv")
+        csv("`output_dir'/_cov_t1.csv")
     confirm file "`output_dir'/_cov_t1.csv"
+    import delimited using "`output_dir'/_cov_t1.csv", clear varnames(1)
+    capture confirm variable _p_raw
+    assert _rc == 111
+    capture confirm variable _smd_raw
+    assert _rc == 111
 }
 if _rc == 0 {
-    display as result "  PASS: table1_tc csv()"
+    display as result "  PASS: table1_tc csv() omits internal columns"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: table1_tc csv() (error `=_rc')"
+    display as error "  FAIL: table1_tc csv() omits internal columns (error `=_rc')"
     local ++fail_count
 }
 
@@ -273,16 +280,22 @@ local ++test_count
 capture noisily {
     sysuse auto, clear
     table1_tc, by(foreign) vars(price contn \ rep78 cat) ///
-        frame(_cov_t1_fr) xlsx("`output_dir'/_cov_t1_frame.xlsx") sheet("frame")
+        frame(_cov_t1_fr, replace)
     frame _cov_t1_fr: assert _N > 0
+    frame _cov_t1_fr: capture confirm variable _p_raw
+    local _frame_rc_p = _rc
+    frame _cov_t1_fr: capture confirm variable _smd_raw
+    local _frame_rc_s = _rc
+    assert `_frame_rc_p' == 111
+    assert `_frame_rc_s' == 111
     frame drop _cov_t1_fr
 }
 if _rc == 0 {
-    display as result "  PASS: table1_tc frame()"
+    display as result "  PASS: table1_tc frame() omits internal columns"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: table1_tc frame() (error `=_rc')"
+    display as error "  FAIL: table1_tc frame() omits internal columns (error `=_rc')"
     local ++fail_count
 }
 

@@ -117,13 +117,95 @@ if _rc == 0 {
     display as result "  PASS: stratetab xlsx + frame() + display"
     local ++pass_count
 }
-else {
-    display as error "  FAIL: stratetab xlsx + frame() + display (rc=`=_rc')"
-    local ++fail_count
-}
-capture frame drop issue_rates3
+	else {
+	    display as error "  FAIL: stratetab xlsx + frame() + display (rc=`=_rc')"
+	    local ++fail_count
+	}
+	capture frame drop issue_rates3
 
-display as result "stratetab QA summary: `pass_count' passed, `fail_count' failed"
-if `fail_count' > 0 exit 1
+	**## malformed color options fail before workbook creation
+	local ++test_count
+	capture noisily {
+	    tempfile rate1
+	    _make_issue_strate, basename("`rate1'")
+	    local bad_header "`output_dir'/stratetab_bad_headercolor.xlsx"
+	    local bad_zebra "`output_dir'/stratetab_bad_zebracolor.xlsx"
+	    capture erase "`bad_header'"
+	    capture erase "`bad_zebra'"
+	    clear
+	    capture stratetab, using("`rate1'") outcomes(1) xlsx("`bad_header'") ///
+	        headershade headercolor("1 2")
+	    assert _rc == 198
+	    capture confirm file "`bad_header'"
+	    assert _rc == 601
+	
+	    capture stratetab, using("`rate1'") outcomes(1) xlsx("`bad_zebra'") ///
+	        zebra zebracolor("999 0 0")
+	    assert _rc == 198
+	    capture confirm file "`bad_zebra'"
+	    assert _rc == 601
+	}
+	if _rc == 0 {
+	    display as result "  PASS: stratetab rejects malformed headercolor()/zebracolor() early"
+	    local ++pass_count
+	}
+	else {
+	    display as error "  FAIL: stratetab malformed color validation (rc=`=_rc')"
+	    local ++fail_count
+	}
+
+	**## r(rates) is still returned above 200 category rows
+	local ++test_count
+	capture noisily {
+	    tempfile many1
+	    clear
+	    set obs 201
+	    gen str8 category = "Cat" + string(_n, "%03.0f")
+	    gen double _D = _n
+	    gen double _Y = 1000 + _n
+	    gen double _Rate = _D / _Y
+	    gen double _Lower = _Rate * 0.8
+	    gen double _Upper = _Rate * 1.2
+	    save "`many1'.dta", replace
+	
+	    clear
+	    stratetab, using("`many1'") outcomes(1) display
+	    confirm matrix r(rates)
+	    assert rowsof(r(rates)) == 201
+	    assert colsof(r(rates)) == 1
+	}
+	if _rc == 0 {
+	    display as result "  PASS: stratetab returns r(rates) above 200 rows"
+	    local ++pass_count
+	}
+	else {
+	    display as error "  FAIL: stratetab matrix return above 200 rows (rc=`=_rc')"
+	    local ++fail_count
+	}
+
+	**## multi-exposure r(rates) rownames remain exposure-specific
+	local ++test_count
+	capture noisily {
+	    tempfile rate1 rate2
+	    _make_issue_strate, basename("`rate1'")
+	    _make_issue_strate, basename("`rate2'")
+	    clear
+	    stratetab, using("`rate1'" "`rate2'") outcomes(1) display
+	    assert rownumb(r(rates), "e1_Low") > 0
+	    assert rownumb(r(rates), "e2_Low") > 0
+	    assert rownumb(r(rates), "e1_High") > 0
+	    assert rownumb(r(rates), "e2_High") > 0
+	}
+	if _rc == 0 {
+	    display as result "  PASS: stratetab multi-exposure rownames are explicit"
+	    local ++pass_count
+	}
+	else {
+	    display as error "  FAIL: stratetab multi-exposure rownames (rc=`=_rc')"
+	    local ++fail_count
+	}
+
+	display as result "stratetab QA summary: `pass_count' passed, `fail_count' failed"
+	if `fail_count' > 0 exit 1
 
 log close _stratetab

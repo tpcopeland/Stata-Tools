@@ -16,8 +16,8 @@
 
 {marker syntax}{title:Syntax}
 
-{p 4 8 2}{cmd:crosstab} {it:rowvar} {it:colvar} [{it:if}] [{it:in}] [{it:weight}],
-[{opt xlsx(filename)} {opt col:pct} {opt row:pct} {opt total:pct}
+{p 4 8 2}{cmd:crosstab} {it:rowvar} {it:colvar} [{it:if}] [{it:in}] [{it:fweight}],
+[{opt xlsx(filename)} {opt excel(filename)} {opt col:pct} {opt row:pct} {opt total:pct}
 {opt or} {opt rr} {opt rd} {opt tr:end} {opt ex:act} {opt fi:sher}
 {opt lab:el} {opt mis:sing} {opt dig:its(#)}
 {opt sheet(string)} {opt title(string)} {opt foot:note(string)}
@@ -27,26 +27,38 @@
 {marker description}{title:Description}
 
 {pstd}{cmd:crosstab} generates a formatted cross-tabulation table with
-frequencies, percentages, and association measures (OR, RR, RD). Supports
-Chi-squared test, Fisher's exact test (auto-selected when expected cells < 5),
-and a Spearman rank-correlation trend test.{p_end}
+frequencies, percentages, and association measures (OR, RR, RD). {it:rowvar}
+and {it:colvar} must be numeric categorical variables. The command supports
+Pearson's chi-squared test, Fisher's exact test (auto-selected when expected
+cells are sparse), and a Spearman rank-correlation trend test.{p_end}
 
 {marker options}{title:Options}
 
 {synoptset 20 tabbed}{...}
-{synopt:{opt col:pct}}column percentages (default){p_end}
-{synopt:{opt row:pct}}row percentages{p_end}
-{synopt:{opt total:pct}}total percentages{p_end}
-{synopt:{opt or}}odds ratio with 95% CI (2x2 tables){p_end}
-{synopt:{opt rr}}risk ratio with 95% CI (2x2 tables){p_end}
-{synopt:{opt rd}}risk difference with 95% CI (2x2 tables){p_end}
-{synopt:{opt tr:end}}test for trend using Spearman rank correlation{p_end}
+{synopt:{opt col:pct}}column percentages (default); may not be combined with {opt rowpct} or {opt totalpct}{p_end}
+{synopt:{opt row:pct}}row percentages; may not be combined with {opt colpct} or {opt totalpct}{p_end}
+{synopt:{opt total:pct}}total percentages; may not be combined with {opt colpct} or {opt rowpct}{p_end}
+{synopt:{opt or}}odds ratio with 95% CI; requires a 2x2 table{p_end}
+{synopt:{opt rr}}risk ratio with 95% CI; requires a 2x2 table{p_end}
+{synopt:{opt rd}}risk difference with 95% CI; requires a 2x2 table{p_end}
+{synopt:{opt tr:end}}test for trend across ordered column levels using Spearman rank correlation{p_end}
 {synopt:{opt ex:act}}force Fisher's exact test{p_end}
 {synopt:{opt fi:sher}}force Fisher's exact test (synonym for {opt exact}){p_end}
 {synopt:{opt lab:el}}use value labels for headers{p_end}
 {synopt:{opt mis:sing}}include missing values{p_end}
 {synopt:{opt dig:its(#)}}decimal places for percentages and association measures (default 1, range 0-6){p_end}
 {synopt:{opt boldp(#)}}bold test and trend rows when p-values fall below the threshold; must be between 0 and 1{p_end}
+{synopt:{opt xlsx(filename)}}export to Excel; filename must end in {cmd:.xlsx}{p_end}
+{synopt:{opt excel(filename)}}synonym for {opt xlsx(filename)}{p_end}
+{synopt:{opt csv(filename)}}also export the output dataset as CSV{p_end}
+{synopt:{cmdab:fra:me(}{it:name}{cmd:)}}store the output dataset in a named Stata frame; specify {cmd:frame(name, replace)} to replace an existing frame{p_end}
+{synopt:{opt open}}open the Excel file after export; requires {opt xlsx()} or {opt excel()}{p_end}
+
+{pstd}{cmd:crosstab} supports {it:fweight}s only. When you request {opt or},
+{opt rr}, or {opt rd}, the command passes {it:rowvar} and then {it:colvar} to
+Stata's {helpb cc} or {helpb cs}. Recode the variables so that the event and
+comparison categories match your intended direction before interpreting those
+measures.{p_end}
 
 {marker examples}{title:Examples}
 
@@ -64,8 +76,8 @@ and a Spearman rank-correlation trend test.{p_end}
 {synoptset 15 tabbed}{...}
 {p2col 5 15 19 2: Scalars}{p_end}
 {synopt:{cmd:r(N)}}total observations{p_end}
-{synopt:{cmd:r(chi2)}}chi-squared statistic{p_end}
-{synopt:{cmd:r(p)}}p-value{p_end}
+{synopt:{cmd:r(chi2)}}chi-squared statistic when Pearson's chi-squared test is used{p_end}
+{synopt:{cmd:r(p)}}p-value from the reported test{p_end}
 {synopt:{cmd:r(or)}}odds ratio (2x2){p_end}
 {synopt:{cmd:r(rr)}}risk ratio (2x2){p_end}
 {synopt:{cmd:r(rd)}}risk difference (2x2){p_end}

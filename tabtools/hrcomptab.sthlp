@@ -47,11 +47,12 @@
 
 {syntab:Output}
 {synopt:{opt xlsx(filename)}}Excel output file (.xlsx){p_end}
+{synopt:{opt excel(filename)}}synonym for {opt xlsx()}{p_end}
 {synopt:{opt sheet(string)}}Excel sheet name; default {cmd:"Composite"}{p_end}
 {synopt:{opt csv(filename)}}export to CSV file{p_end}
 {synopt:{cmdab:fra:me(}{it:name}{cmd:)}}save output in a named Stata frame; use {cmd:frame(name, replace)} to replace{p_end}
-{synopt:{cmdab:dis:play}}show console preview{p_end}
-{synopt:{opt open}}open Excel file after export{p_end}
+{synopt:{cmdab:dis:play}}show console preview; if no {opt xlsx()}, {opt csv()}, or {opt frame()} is supplied, preview is the default{p_end}
+{synopt:{opt open}}open Excel file after export; requires {opt xlsx()} or {opt excel()}{p_end}
 
 {syntab:Content}
 {synopt:{opt title(string)}}table title for cell A1; defaults to the title stored in {it:rateframe}{p_end}
@@ -109,7 +110,7 @@ non-reference rows in the {cmd:stratetab} scaffold.
 outcome. Model frames must come from {cmd:regtab} and must contain exactly one
 model block per outcome in the rate frame. Standard {cmd:regtab} frames
 ({it:estimate} | {it:CI} | {it:p}) and compact frames ({it:estimate+CI} | {it:p})
-are both supported.
+are both supported, but all model frames in one call must share the same layout.
 
 
 {marker options}{...}
@@ -140,8 +141,10 @@ would use {cmd:rows(... \ 3/4)} to select the two non-reference dose rows.
 
 {phang}
 {cmdab:rown:ames(}{it:string}{cmd:)} is an alternative to {opt rows()} that
-matches case-insensitive substrings against the first column ({cmd:A}) of each
-model frame. Use one backslash-separated specification per frame.
+matches case-insensitive substrings against the rendered labels in the first
+column ({cmd:A}) of each model frame. Use one backslash-separated specification
+per frame. Choose unambiguous tokens, or quote multi-word phrases, when labels
+share common digits or prefixes.
 
 {dlgtab:Content}
 
@@ -152,6 +155,10 @@ Default is {cmd:aHR}. Common alternatives are {cmd:HR}, {cmd:SHR}, or {cmd:IRR}.
 {phang}
 {opt reflabel(string)} controls the text shown in inferred reference rows.
 Default is {cmd:Reference}.
+
+{phang}
+{opt display} prints a console preview. If no {opt xlsx()}, {opt csv()}, or
+{opt frame()} target is supplied, {cmd:hrcomptab} defaults to preview mode.
 
 
 {marker examples}{...}

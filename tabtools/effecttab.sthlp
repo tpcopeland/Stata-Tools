@@ -16,7 +16,7 @@
 
 {marker syntax}{title:Syntax}
 
-{p 4 8 2}{cmd:effecttab}, [{opt xlsx(string)} {opt sheet(string)} {opt type(string)} {opt effect(string)} {opt sep(string asis)} {opt models(string)} {opt title(string)} {opt clean} {opt tlab:els(string asis)} {opt foot:note(string)} {opt open} {opt zebra} {opt high:light(#)} {opt boldp(#)} {opt borders:tyle(string)} {opt the:me(string)} {opt full} {opt digits(#)} {opt fra:me(name)} {opt dis:play} {opt from(name)} {opt headerc:olor(string)} {opt zebrac:olor(string)} {opt csv(string)} {cmdab:addr:ow(}{it:string asis}{cmd:)} {opt pdp(#)} {opt highpdp(#)}]{p_end}
+{p 4 8 2}{cmd:effecttab}, [{opt xlsx(string)} {opt excel(string)} {opt sheet(string)} {opt type(string)} {opt effect(string)} {opt sep(string asis)} {opt models(string)} {opt title(string)} {opt clean} {opt tlab:els(string asis)} {opt foot:note(string)} {opt open} {opt zebra} {opt high:light(#)} {opt boldp(#)} {opt borders:tyle(string)} {opt the:me(string)} {opt full} {opt digits(#)} {opt fra:me(name)} {opt dis:play} {opt from(name)} {opt headerc:olor(string)} {opt zebrac:olor(string)} {opt csv(string)} {cmdab:addr:ow(}{it:string asis}{cmd:)} {opt pdp(#)} {opt highpdp(#)}]{p_end}
 
 {pstd}Required: either an active {helpb collect} containing results from {helpb teffects} or {helpb margins}, or {opt from(name)} with a matrix of estimates, confidence limits, and p-values.{p_end}
 
@@ -38,7 +38,7 @@
 {synoptline}
 {synopt:{opt xlsx(string)}}Output Excel filename (must end with {cmd:.xlsx}). If the file exists, only the named sheet is replaced. {opt excel()} is accepted as a synonym. If omitted, results are displayed in the console only.{p_end}
 {synopt:{opt sheet(string)}}Target sheet name to create/replace in {opt xlsx()}. Default is {cmd:"Effects"}.{p_end}
-{synopt:{opt type(string)}}Type of collected results: {cmd:teffects}, {cmd:margins}, or {cmd:auto} (default). Auto-detection checks {cmd:e(cmd)}.{p_end}
+{synopt:{opt type(string)}}Type of collected results: {cmd:teffects}, {cmd:margins}, or {cmd:auto} (default). Auto-detection checks {cmd:e(cmd)} for live {cmd:collect} output. With {opt from()}, {cmd:auto} uses margins-style defaults and does not inspect or relabel the active collection.{p_end}
 {synopt:{opt effect(string)}}Header label for the effect column. Examples: {cmd:ATE}, {cmd:ATET}, {cmd:RD} (risk difference), {cmd:RR} (risk ratio), {cmd:AME} (average marginal effect), {cmd:Pr(Y)}. Default is "Effect" for teffects, "Estimate" for margins.{p_end}
 {synopt:{opt sep(string asis)}}Delimiter between CI endpoints. Default is {cmd:", "}.{p_end}
 {synopt:{opt models(string)}}Labels for multiple models, separated by backslash. Example: {cmd:"IPTW \ AIPW"}.{p_end}
@@ -51,7 +51,7 @@ Implies {cmd:clean}. Example: {cmd:tlabels(0 "SSRI" 1 "SNRI")} produces ATE row
 {cmd:"SNRI vs SSRI"} and PO Mean rows {cmd:"SSRI (PO Mean)"}, {cmd:"SNRI (PO Mean)"}.
 Takes priority over auto-detected value labels.{p_end}
 {synopt:{opt foot:note(string)}}Add a footnote row below the table in smaller italic font.{p_end}
-{synopt:{opt open}}Open the Excel file in the default application after export.{p_end}
+{synopt:{opt open}}Open the Excel file in the default application after export. Requires {opt xlsx()} or {opt excel()}.{p_end}
 {synopt:{opt zebra}}Apply alternating light gray row shading for readability.{p_end}
 {synopt:{opt high:light(#)}}Apply yellow fill to rows where p-value < threshold.{p_end}
 {synopt:{opt boldp(#)}}Bold p-value cells below threshold (e.g., {cmd:boldp(0.05)}).{p_end}
@@ -61,13 +61,13 @@ Takes priority over auto-detected value labels.{p_end}
 {synopt:{opt fra:me(name)}}Store output in a named Stata frame. Specify {cmd:frame(name, replace)} to replace an existing frame.{p_end}
 {synopt:{opt dis:play}}Show formatted table in the Results window (in addition to Excel export if {cmd:xlsx()} specified).{p_end}
 {synopt:{opt the:me(string)}}Formatting theme: {cmd:lancet}, {cmd:nejm}, {cmd:bmj}, {cmd:apa}, {cmd:jama}, {cmd:plos}, {cmd:nature}, {cmd:cell}, {cmd:annals}, or {cmd:custom}. Overrides font/fontsize/borderstyle. Can also be set globally with {cmd:tabtools set theme}.{p_end}
-{synopt:{opt from(name)}}Pass results from a named Stata matrix instead of reading from {cmd:collect}.{p_end}
+{synopt:{opt from(name)}}Pass results from a named Stata matrix instead of reading from {cmd:collect}. The matrix must contain estimate, lower CI, upper CI, and p-value columns in that order. This path leaves any active {cmd:collect} labels/layout unchanged.{p_end}
 {synopt:{opt headerc:olor(string)}}Custom header background color as {cmd:"R G B"} (e.g., {cmd:"219 229 241"}).{p_end}
 {synopt:{opt zebrac:olor(string)}}Custom zebra stripe color as {cmd:"R G B"} (e.g., {cmd:"237 242 249"}).{p_end}
 {synopt:{opt csv(string)}}Also export as CSV to the specified filename.{p_end}
 {synopt:{cmdab:addr:ow(}{it:string asis}{cmd:)}}Append custom rows below the table body. Specify pairs of label and values. Use backslash to separate multiple rows.{p_end}
-{synopt:{opt pdp(#)}}Maximum decimal places for small p-values (p < 0.10). Default is 3.{p_end}
-{synopt:{opt highpdp(#)}}Maximum decimal places for large p-values (p >= 0.10). Default is 2.{p_end}
+{synopt:{opt pdp(#)}}Maximum decimal places for small p-values (p < 0.10). Default is 3; allowed range is 1 to 10.{p_end}
+{synopt:{opt highpdp(#)}}Maximum decimal places for large p-values (p >= 0.10). Default is 2; allowed range is 1 to 10.{p_end}
 {synoptline}
 
 {marker remarks}{title:Remarks}
@@ -171,13 +171,13 @@ are not defined or you want different wording. {cmd:tlabels()} implies {cmd:clea
 {p2col 5 15 19 2: Macros}{p_end}
 {synopt:{cmd:r(xlsx)}}Excel filename (if exported){p_end}
 {synopt:{cmd:r(sheet)}}sheet name (if exported){p_end}
-{synopt:{cmd:r(type)}}detected or specified result type{p_end}
+{synopt:{cmd:r(type)}}detected or specified result type; {cmd:from()} with {cmd:type(auto)} returns {cmd:margins}{p_end}
 {synopt:{cmd:r(effect_label)}}effect column label{p_end}
 {synopt:{cmd:r(methods)}}methods paragraph for manuscript text{p_end}
 {synopt:{cmd:r(frame)}}frame name (if {cmd:frame()} specified){p_end}
 
 {p2col 5 15 19 2: Matrices}{p_end}
-{synopt:{cmd:r(table)}}numeric matrix of effect estimates and p-values (rows = effects, columns = estimate and p-value per model){p_end}
+{synopt:{cmd:r(table)}}numeric matrix of effect estimates and p-values for all displayed effect rows (columns = estimate and p-value per model){p_end}
 
 {marker seealso}{title:Also see}
 

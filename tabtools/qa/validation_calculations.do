@@ -26,7 +26,7 @@ tabtools set clear
 **# VC1: table1_tc — mean, SD, median, percentage, p-value
 * =========================================================================
 
-* Frame variables: factor, <by>_0, <by>_1, pvalue, _p_raw
+* Frame variables expose public display columns only; numeric p-values live in r(table)
 
 * --- VC1.1: mean in frame matches summarize ---
 local ++n_total
@@ -42,7 +42,7 @@ capture noisily {
 
     frame _vc_t1 {
         * Row 3 = Price row (row 1=header, row 2=N=)
-        * Columns: factor, foreign_0, foreign_1, pvalue, _p_raw
+        * Columns: factor, foreign_0, foreign_1, pvalue
         local dom_cell = foreign_0[3]
         local for_cell = foreign_1[3]
 
@@ -151,15 +151,12 @@ capture noisily {
 
     capture frame drop _vc_t1p
     table1_tc, by(foreign) vars(price contn) frame(_vc_t1p)
-
-    frame _vc_t1p {
-        * _p_raw contains numeric p-value
-        local frame_p = _p_raw[3]
-        assert abs(`frame_p' - `ref_p') < 0.01
-    }
+    tempname _vc_t1p_mat
+    matrix `_vc_t1p_mat' = r(table)
+    assert abs(`_vc_t1p_mat'[1,1] - `ref_p') < 0.01
 }
 if _rc == 0 {
-    display as result "  PASS: VC1.4 — table1_tc raw p-value matches ttest"
+    display as result "  PASS: VC1.4 — table1_tc r(table) p-value matches ttest"
     local ++n_pass
 }
 else {
@@ -178,23 +175,12 @@ capture noisily {
 
     capture frame drop _vc_t1kw
     table1_tc, by(rep78) vars(price conts) frame(_vc_t1kw)
-
-    frame _vc_t1kw {
-        * _p_raw for first variable row
-        local found = 0
-        forvalues i = 1/`=_N' {
-            local praw = _p_raw[`i']
-            if `praw' < . {
-                assert abs(`praw' - `ref_p') < 0.01
-                local found = 1
-                continue, break
-            }
-        }
-        assert `found' == 1
-    }
+    tempname _vc_t1kw_mat
+    matrix `_vc_t1kw_mat' = r(table)
+    assert abs(`_vc_t1kw_mat'[1,1] - `ref_p') < 0.01
 }
 if _rc == 0 {
-    display as result "  PASS: VC1.5 — table1_tc p-value (>2 groups) matches kwallis"
+    display as result "  PASS: VC1.5 — table1_tc r(table) p-value (>2 groups) matches kwallis"
     local ++n_pass
 }
 else {
@@ -1101,14 +1087,13 @@ capture noisily {
     local _ref_p = r(p)
 
     table1_tc, vars(price contn) by(foreign) frame(_vc_t1p, replace)
-    frame _vc_t1p {
-        * _p_raw should contain the raw p-value
-        assert abs(_p_raw[3] - `_ref_p') < 0.001
-    }
+    tempname _vc11_t1p_mat
+    matrix `_vc11_t1p_mat' = r(table)
+    assert abs(`_vc11_t1p_mat'[1,1] - `_ref_p') < 0.001
     capture frame drop _vc_t1p
 }
 if _rc == 0 {
-    display as result "  PASS: VC11.1 — table1_tc continuous p matches ttest"
+    display as result "  PASS: VC11.1 — table1_tc continuous r(table) p matches ttest"
     local ++n_pass
 }
 else {
@@ -1126,22 +1111,13 @@ capture noisily {
     local _ref_chi2_p = r(p)
 
     table1_tc, vars(highmpg cat) by(foreign) frame(_vc_t1chi, replace)
-    frame _vc_t1chi {
-        * Find the p-value row for highmpg
-        local _found = 0
-        forvalues _r = 1/`=_N' {
-            if !missing(_p_raw[`_r']) {
-                assert abs(_p_raw[`_r'] - `_ref_chi2_p') < 0.001
-                local _found = 1
-                continue, break
-            }
-        }
-        assert `_found' == 1
-    }
+    tempname _vc11_t1chi_mat
+    matrix `_vc11_t1chi_mat' = r(table)
+    assert abs(`_vc11_t1chi_mat'[1,1] - `_ref_chi2_p') < 0.001
     capture frame drop _vc_t1chi
 }
 if _rc == 0 {
-    display as result "  PASS: VC11.2 — table1_tc categorical p matches chi2"
+    display as result "  PASS: VC11.2 — table1_tc categorical r(table) p matches chi2"
     local ++n_pass
 }
 else {

@@ -432,8 +432,9 @@ else {
 local ++test_count
 capture noisily {
     sysuse cancer, clear
+    gen byte drug2 = (drug >= 2)
     stset studytime, failure(died)
-    survtab, times(10 20 30) by(drug) difference median ///
+    survtab, times(10 20 30) by(drug2) difference median ///
         xlsx("`output_dir'/_stress_surv_diff.xlsx") sheet("diff")
     confirm file "`output_dir'/_stress_surv_diff.xlsx"
 }
@@ -443,6 +444,48 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL: S24 survtab with difference (error `=_rc')"
+    local ++fail_count
+}
+
+* S24b: survtab rejects difference with more than 2 groups
+local ++test_count
+capture noisily {
+    sysuse cancer, clear
+    stset studytime, failure(died)
+    capture survtab, times(10 20 30) by(drug) difference
+    assert _rc == 198
+}
+if _rc == 0 {
+    display as result "  PASS: S24b survtab rejects 3-group difference"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: S24b survtab 3-group difference validation (error `=_rc')"
+    local ++fail_count
+}
+
+* S24c: survtab rejects invalid rmst()/pdp()/highpdp()
+local ++test_count
+capture noisily {
+    sysuse cancer, clear
+    gen byte drug2 = (drug >= 2)
+    stset studytime, failure(died)
+
+    capture survtab, times(10 20 30) by(drug2) rmst(-5)
+    assert _rc == 198
+
+    capture survtab, times(10 20 30) by(drug2) pdp(-2)
+    assert _rc == 198
+
+    capture survtab, times(10 20 30) by(drug2) highpdp(-2)
+    assert _rc == 198
+}
+if _rc == 0 {
+    display as result "  PASS: S24c survtab rejects invalid rmst()/pdp()/highpdp()"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: S24c survtab option validation (error `=_rc')"
     local ++fail_count
 }
 

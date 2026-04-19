@@ -48,16 +48,16 @@ for treatment effects and margins tables.
 {synopt:{opt xlsx(string)}}Output Excel filename (must end with {cmd:.xlsx}). If the file exists, only the named sheet is replaced. {opt excel()} is accepted as a synonym. If omitted, results are displayed in the console only.{p_end}
 {synopt:{opt sheet(string)}}Target sheet name to create/replace in {opt xlsx()}. Default is {cmd:"Regression"}.{p_end}
 {synopt:{opt sep(string asis)}}Delimiter between CI endpoints used by {cmd:collect} {cmd:cidelimiter()}. Default is {cmd:", "}.{p_end}
-{synopt:{opt models(string)}}Labels to merge above each model's three columns. Separate labels with a backslash, e.g., {cmd:"Model 1 \ Model 2"}. If omitted, model label is not included.{p_end}
-{synopt:{opt coef(string)}}Header label for the point estimate column. If omitted, auto-detected from the model type: {cmd:logit}{it:->}OR, {cmd:stcox}{it:->}HR, {cmd:poisson}{it:->}IRR, {cmd:stcrreg}{it:->}SHR, {cmd:streg}{it:->}TR/AF, {cmd:regress}{it:->}Coef. Set explicitly to override (e.g., {cmd:coef("RR")}).{p_end}
+{synopt:{opt models(string)}}Labels to merge above each model's three columns. Separate labels with a backslash, e.g., {cmd:"Model 1 \ Model 2"}. If omitted, {cmd:regtab} auto-generates {cmd:Model} or {cmd:Model 1}, {cmd:Model 2}, ...{p_end}
+{synopt:{opt coef(string)}}Header label for the point estimate column. If omitted, {cmd:regtab} auto-detects the display scale for each collected model: {cmd:logit}/{cmd:logistic}{it:->}OR, {cmd:stcox}{it:->}HR, {cmd:poisson}/{cmd:nbreg}{it:->}IRR, {cmd:stcrreg}{it:->}SHR, {cmd:streg}{it:->}TR/AF, {cmd:regress}/{cmd:mixed}{it:->}Coef. For coefficient-scale fits such as {cmd:logit} or {cmd:poisson}, fixed-effect rows are exponentiated for display when the auto header implies OR/IRR output. Mixed-scale collections use per-model headers unless you set {opt coef()} explicitly.{p_end}
 {synopt:{opt title(string)}}Text written into {cmd:A1} and merged across the table width. If omitted, the title row is left blank.{p_end}
-{synopt:{opt noint:ercept}}Drop the intercept row. Auto-enabled for OR/HR/IRR models; use {opt keepintercept} to override.{p_end}
+{synopt:{opt noint:ercept}}Drop the intercept row. Auto-enabled when all collected models are on a ratio scale (OR/HR/IRR/SHR/TR/AF); use {opt keepintercept} to override.{p_end}
 {synopt:{opt keepi:ntercept}}Force display of intercept row even for exponentiated models.{p_end}
 {synopt:{opt nore:effects}}Drop all random-effects rows: variance components ({cmd:var(}...{cmd:)}), covariances ({cmd:cov(}...{cmd:)}), and standard deviations ({cmd:sd(}...{cmd:)}).{p_end}
-{synopt:{opt stats(string)}}Model fit statistics at bottom. Space-separated: {cmd:n}, {cmd:aic}, {cmd:bic}, {cmd:icc}, {cmd:ll}, {cmd:groups}, {cmd:r2} (R²/pseudo-R²). For OLS: e(r2). For logistic/probit: e(r2_p). {cmd:icc} computed per model from variance components.{p_end}
-{synopt:{opt digits(#)}}Number of decimal places for coefficients and CIs (default 2, range 0-6). Random effects variance components always use 4 decimals.{p_end}
+{synopt:{opt stats(string)}}Model fit statistics at bottom. Space-separated: {cmd:n}, {cmd:aic}, {cmd:bic}, {cmd:icc}, {cmd:ll}, {cmd:groups}, {cmd:r2} (R²/pseudo-R²). For mixed regular and pseudo-R² collections, the row label becomes {cmd:R² / Pseudo R²}. {cmd:icc} is computed per model from variance components when defined.{p_end}
+{synopt:{opt digits(#)}}Number of decimal places for coefficients and CIs (default 2, range 0-6). Random-effects rows use the same display precision as the main coefficient columns; MOR/MHR rows follow the transformed scale.{p_end}
 {synopt:{opt foot:note(string)}}Add a footnote row below the table in smaller italic font.{p_end}
-{synopt:{opt open}}Open the Excel file in the default application after export.{p_end}
+{synopt:{opt open}}Open the Excel file in the default application after export. Requires {opt xlsx()} or {opt excel()}.{p_end}
 {synopt:{opt zebra}}Apply alternating light gray row shading for readability.{p_end}
 {synopt:{opt high:light(#)}}Apply yellow fill to rows where p-value < threshold (e.g., {cmd:highlight(0.05)}).{p_end}
 {synopt:{opt boldp(#)}}Bold p-value cells below threshold (e.g., {cmd:boldp(0.05)}).{p_end}
@@ -74,13 +74,13 @@ for treatment effects and margins tables.
 {synopt:{opt dis:play}}Show formatted table in the Results window (in addition to Excel export if {cmd:xlsx()} specified).{p_end}
 {synopt:{opt keep(varlist)}}Show only rows matching specified variable names. Cannot be combined with {cmd:drop()}.{p_end}
 {synopt:{opt drop(varlist)}}Drop rows matching specified variable names. Cannot be combined with {cmd:keep()}.{p_end}
-{synopt:{opt dimnon:sig}}Gray out rows where the confidence interval includes the null value (1 for OR/HR/IRR/SHR/TR, 0 for Coef/AME).{p_end}
+{synopt:{opt dimnon:sig}}Gray out rows where every displayed fixed-effect confidence interval includes the null value (1 for OR/HR/IRR/SHR/TR, 0 for Coef.).{p_end}
 {synopt:{opt factorl:abel}}Replace factor variable prefixes (e.g., {it:3.rep78}) with their value labels.{p_end}
 {synopt:{opt ref:cat(string)}}Label for reference category rows. Default is {cmd:"Reference"}. Set to customize, e.g., {cmd:refcat("Ref.")}.{p_end}
 {synopt:{opt comp:act}}Merge estimate and CI into a single column per model, producing a more compact layout: ({it:Est (CI)} | {it:p}) instead of ({it:Est} | {it:CI} | {it:p}).{p_end}
 {synopt:{cmdab:addr:ow(}{it:string asis}{cmd:)}}Append custom rows below the table body. Specify pairs of label and values. Use backslash to separate multiple rows: {cmd:addrow("P trend" 0.032 0.041 \ "P interaction" 0.15 0.22)}.{p_end}
-{synopt:{opt pdp(#)}}Maximum decimal places for small p-values (p < 0.10). Default is 3. Controls precision for significant results.{p_end}
-{synopt:{opt highpdp(#)}}Maximum decimal places for large p-values (p >= 0.10). Default is 2. Controls precision for non-significant results.{p_end}
+{synopt:{opt pdp(#)}}Maximum decimal places for small p-values (p < 0.10). Default is 3; allowed range is 1 to 10.{p_end}
+{synopt:{opt highpdp(#)}}Maximum decimal places for large p-values (p >= 0.10). Default is 2; allowed range is 1 to 10.{p_end}
 {synoptline}
 
 {pstd}{bf:Automatic Median Odds Ratio / Median Hazard Ratio}{p_end}
@@ -102,12 +102,12 @@ random-effects rows if desired.{p_end}
 {p 4 8 2}- Run your models inside {cmd:collect:} or otherwise ensure the relevant results are in the active {helpb collect}. {cmd:regtab} does not run models.{p_end}
 {p 4 8 2}- {cmd:regtab} expects dimensions including {cmd:colname} and {cmd:cmdset}, and result items {cmd:_r_b}, {cmd:_r_ci}, {cmd:_r_p}. It applies cell styles: {cmd:_r_b} as %4.2fc, {cmd:_r_ci} as {cmd:sformat("(%s")} with {cmd:cidelimiter()}, and {cmd:_r_p} as %5.4f.{p_end}
 {p 4 8 2}- The CI delimiter is controlled by {opt sep()}; default {cmd:", "}. Example alternative: {cmd:sep("; ")}.{p_end}
-{p 4 8 2}- If {opt coef()} is not provided, the header label above {cmd:_r_b} may be blank depending on your {helpb collect} labels; set it explicitly for clarity (e.g., {cmd:coef("OR")}).{p_end}
-{p 4 8 2}- Model header labels are included only when {opt models()} is supplied; the labels are split on the backslash character.{p_end}
+{p 4 8 2}- If {opt coef()} is not provided, {cmd:regtab} detects the display scale from the collected command metadata and fills the estimate header automatically. When models use different scales, estimate headers are set per model and {cmd:r(coef_label)} returns {cmd:mixed}.{p_end}
+{p 4 8 2}- Model header labels are auto-generated unless {opt models()} supplies explicit names. {opt models()} values are split on the backslash character.{p_end}
 
 {pstd}Notes on output shaping{p_end}
 {p 4 8 2}- Baseline/reference rows: if a point estimate is 0 or 1 and the adjacent CI cell is empty, {cmd:regtab} substitutes {it:Reference} in the estimate column.{p_end}
-{p 4 8 2}- Random-effects variance components ({cmd:var()}, {cmd:cov()}, {cmd:sd()}) from {cmd:mixed}, {cmd:melogit}, {cmd:mepoisson}, and similar commands are automatically formatted with four decimal places for both the point estimate and confidence interval. Fixed-effects rows use two decimal places. Random-effects rows can be removed entirely with {opt nore}.{p_end}
+{p 4 8 2}- Random-effects variance components ({cmd:var()}, {cmd:cov()}, {cmd:sd()}) from {cmd:mixed}, {cmd:melogit}, {cmd:mepoisson}, and similar commands use the same {opt digits()} precision as the main coefficient rows. Random-effects rows can be removed entirely with {opt nore}.{p_end}
 {p 4 8 2}- Intercept rows can be removed with {opt noint}.{p_end}
 {p 4 8 2}- By default, fonts are set to Arial 10, but this can be overridden by {opt theme()}, session defaults set with {helpb tabtools:set font} / {helpb tabtools:set fontsize}, or both. Borders are drawn around the table and model blocks. Column widths and row heights are adjusted heuristically to fit labels and contents.{p_end}
 {p 4 8 2}- The command writes the Excel output using {helpb putexcel}; a temporary workbook {cmd:temp.xlsx} is created and deleted during processing.{p_end}
@@ -185,7 +185,7 @@ the threshold, and {opt highlight()} applies yellow fill to entire rows.{p_end}
 {p2col 5 18 22 2: Macros}{p_end}
 {synopt:{cmd:r(xlsx)}}Excel filename (if exported){p_end}
 {synopt:{cmd:r(sheet)}}sheet name (if exported){p_end}
-{synopt:{cmd:r(coef_label)}}coefficient label (OR, HR, IRR, Coef.){p_end}
+{synopt:{cmd:r(coef_label)}}shared coefficient label, or {cmd:mixed} when auto headers differ by model{p_end}
 {synopt:{cmd:r(methods)}}auto-generated methods paragraph{p_end}
 {synopt:{cmd:r(stars)}}stars option value{p_end}
 {synopt:{cmd:r(frame)}}frame name (if {cmd:frame()} specified){p_end}

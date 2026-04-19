@@ -27,8 +27,9 @@ output from binary classification data.{p_end}
 {marker syntax}{title:Syntax}
 
 {p 4 8 2}{cmd:corrtab} {varlist} [{it:if}] [{it:in}],
-[{opt xlsx(filename)} {opt spearman} {opt lower} {opt upper} {opt full}
-{opt star(numlist)} {opt pvalues} {opt digits(#)} {opt sheet(string)}
+[{opt xlsx(filename)} {opt excel(filename)} {opt spearman} {opt lower}
+{opt upper} {opt full} {opt star(numlist)} {opt pvalues}
+{opt digits(#)} {opt sheet(string)}
 {opt title(string)} {opt footnote(string)}
 {opt theme(string)} {opt borderstyle(string)} {opt headercolor(string)}
 {opt zebracolor(string)} {opt zebra} {opt headershade}
@@ -39,7 +40,8 @@ output from binary classification data.{p_end}
 {pstd}{cmd:corrtab} generates a formatted correlation matrix with
 significance stars or p-values. Supports Pearson (default) and Spearman
 rank correlations. Can display lower triangle (default), upper triangle,
-or the full matrix.{p_end}
+or the full matrix. Output may be displayed in the Results window, exported
+to Excel or CSV, or stored in a Stata frame.{p_end}
 
 {marker options}{title:Options}
 
@@ -50,16 +52,17 @@ or the full matrix.{p_end}
 {synopt:{opt lower}}display the lower triangle only; this is the default if no shape option is specified{p_end}
 {synopt:{opt upper}}display the upper triangle only{p_end}
 {synopt:{opt full}}display the full correlation matrix{p_end}
-{synopt:{opt star(numlist)}}significance thresholds for stars; default thresholds yield *, **, *** at {it:p}<0.05, {it:p}<0.01, and {it:p}<0.001{p_end}
+{synopt:{opt star(numlist)}}strictly increasing significance thresholds in (0,1); cannot be combined with {opt pvalues}. Default thresholds yield *, **, *** at {it:p}<0.05, {it:p}<0.01, and {it:p}<0.001{p_end}
 {synopt:{opt pvalues}}show p-values in parentheses instead of stars{p_end}
 {synopt:{opt digits(#)}}decimal places for correlation coefficients; default 2, range 0-6{p_end}
 {syntab:Output}
-{synopt:{opt xlsx(filename)}}export to Excel; if omitted, output is displayed in the Results window only{p_end}
+{synopt:{opt xlsx(filename)}}export to Excel; filename must end in {cmd:.xlsx}{p_end}
+{synopt:{opt excel(filename)}}synonym for {opt xlsx(filename)}{p_end}
 {synopt:{opt sheet(string)}}Excel sheet name; default is {cmd:"Correlation"}{p_end}
 {synopt:{opt csv(filename)}}also export the output dataset as CSV{p_end}
-{synopt:{opt frame(name)}}store the output dataset in a named Stata frame{p_end}
+{synopt:{cmdab:fra:me(}{it:name}{cmd:)}}store the output dataset in a named Stata frame; specify {cmd:frame(name, replace)} to replace an existing frame{p_end}
 {synopt:{opt display}}show console output in addition to any file export{p_end}
-{synopt:{opt open}}open the Excel file after export{p_end}
+{synopt:{opt open}}open the Excel file after export; requires {opt xlsx()} or {opt excel()}{p_end}
 {syntab:Formatting}
 {synopt:{opt title(string)}}table title{p_end}
 {synopt:{opt footnote(string)}}footnote text below the table{p_end}

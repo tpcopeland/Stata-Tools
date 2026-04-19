@@ -89,6 +89,8 @@ capture noisily {
 
     assert rowsof(r(cutoff_table)) == 3
     assert colsof(r(cutoff_table)) == 15
+    local cutoff_rows : rownames r(cutoff_table)
+    assert "`cutoff_rows'" == "cut_p2 cut_p5 cut_p8"
     assert real(word("`r(cutoffs)'", 1)) == 0.2
     assert real(word("`r(cutoffs)'", 2)) == 0.5
     assert real(word("`r(cutoffs)'", 3)) == 0.8
@@ -99,6 +101,26 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL: diagtab cutoffs() return matrix (rc=`=_rc')"
+    local ++fail_count
+}
+
+**## auc requires both gold classes
+local ++test_count
+capture noisily {
+    clear
+    set obs 40
+    gen byte gold = 1
+    gen double score = runiform()
+
+    capture diagtab score gold, auc
+    assert _rc == 198
+}
+if _rc == 0 {
+    display as result "  PASS: diagtab auc rejects one-class gold variables"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: diagtab auc rejects one-class gold variables (rc=`=_rc')"
     local ++fail_count
 }
 
@@ -145,6 +167,33 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL: diagtab cutoff()/cutoffs() conflict (rc=`=_rc')"
+    local ++fail_count
+}
+
+**## open/xlsx and CI-method conflicts fail early
+local ++test_count
+capture noisily {
+    clear
+    set obs 50
+    gen byte gold = (_n <= 25)
+    gen double score = cond(gold, 0.9, 0.1)
+    gen byte test = score >= 0.5
+
+    capture diagtab test gold, open
+    assert _rc == 198
+
+    capture diagtab test gold, xlsx("bad_ext.txt")
+    assert _rc == 198
+
+    capture diagtab test gold, exact wilson
+    assert _rc == 198
+}
+if _rc == 0 {
+    display as result "  PASS: diagtab validates open/xlsx()/CI contracts"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: diagtab validates open/xlsx()/CI contracts (rc=`=_rc')"
     local ++fail_count
 }
 

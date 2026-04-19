@@ -16,11 +16,16 @@ program define hrcomptab, rclass
     capture noisily {
 
         * Auto-load shared helper programs
-        capture program list _tabtools_validate_path
+        capture _tabtools_helpers_ready
         if _rc {
             capture findfile _tabtools_common.ado
             if _rc == 0 {
                 run "`r(fn)'"
+                capture _tabtools_helpers_ready
+                if _rc {
+                    display as error "_tabtools_common.ado failed to load fully; reinstall tabtools"
+                    exit 111
+                }
             }
             else {
                 display as error "_tabtools_common.ado not found; reinstall tabtools"
@@ -82,15 +87,10 @@ program define hrcomptab, rclass
             exit 198
         }
 
-        local _font "$TABTOOLS_RS_FONT"
-        local _fontsize = real("$TABTOOLS_RS_FONTSIZE")
-        local _hborder "$TABTOOLS_RS_HBORDER"
-        if "`_font'" == "" local _font "Arial"
-        if missing(`_fontsize') local _fontsize = 10
-        if "`_hborder'" == "" local _hborder "thin"
-
         local _headercolor "219 229 241"
         local _zebracolor "237 242 249"
+        if "$TABTOOLS_HEADERCOLOR" != "" local _headercolor "$TABTOOLS_HEADERCOLOR"
+        if "$TABTOOLS_ZEBRACOLOR" != "" local _zebracolor "$TABTOOLS_ZEBRACOLOR"
         if "`headercolor'" != "" local _headercolor "`headercolor'"
         if "`zebracolor'" != "" local _zebracolor "`zebracolor'"
 
@@ -208,18 +208,47 @@ program define hrcomptab, rclass
             quietly ds c*
             local _model_cvars `r(varlist)'
             local _model_cols : word count `r(varlist)'
-            local _model_rows = _N
         }
 
         local model_mode ""
         local _cols_per_model = .
         local n_models = .
+        local _looks_standard = 0
+        local _looks_compact = 0
         if mod(`_model_cols', 3) == 0 {
+            local _looks_standard = 1
+            forvalues _c = 1(3)`_model_cols' {
+                local _ci_var c`=`_c'+1'
+                local _p_var c`=`_c'+2'
+                frame `_fname1' {
+                    local _hdr_ci = lower(strtrim(`_ci_var'[3]))
+                    local _hdr_p = lower(strtrim(`_p_var'[3]))
+                }
+                if strpos(`"`_hdr_ci'"', "ci") == 0 | substr(`"`_hdr_p'"', 1, 1) != "p" {
+                    local _looks_standard = 0
+                }
+            }
+        }
+        if mod(`_model_cols', 2) == 0 {
+            local _looks_compact = 1
+            forvalues _c = 1(2)`_model_cols' {
+                local _p_var c`=`_c'+1'
+                frame `_fname1' {
+                    local _hdr_est = lower(strtrim(c`_c'[3]))
+                    local _hdr_p = lower(strtrim(`_p_var'[3]))
+                }
+                if strpos(`"`_hdr_est'"', "ci") == 0 | substr(`"`_hdr_p'"', 1, 1) != "p" {
+                    local _looks_compact = 0
+                }
+            }
+        }
+
+        if `_looks_standard' & !`_looks_compact' {
             local model_mode "standard"
             local _cols_per_model = 3
             local n_models = `_model_cols' / 3
         }
-        else if mod(`_model_cols', 2) == 0 {
+        else if `_looks_compact' & !`_looks_standard' {
             local model_mode "compact"
             local _cols_per_model = 2
             local n_models = `_model_cols' / 2
@@ -242,9 +271,60 @@ program define hrcomptab, rclass
                 local _model_cvars_f `r(varlist)'
                 local _model_cols_f : word count `r(varlist)'
             }
-            if `_model_cols_f' != `_model_cols' {
-                display as error "All model frames must have the same number of columns"
-                display as error "Frame '`_fname1'' has `_model_cols'; '`_fname'' has `_model_cols_f'"
+
+            local model_mode_f ""
+            local n_models_f = .
+            local _looks_standard_f = 0
+            local _looks_compact_f = 0
+            if mod(`_model_cols_f', 3) == 0 {
+                local _looks_standard_f = 1
+                forvalues _c = 1(3)`_model_cols_f' {
+                    local _ci_var c`=`_c'+1'
+                    local _p_var c`=`_c'+2'
+                    frame `_fname' {
+                        local _hdr_ci = lower(strtrim(`_ci_var'[3]))
+                        local _hdr_p = lower(strtrim(`_p_var'[3]))
+                    }
+                    if strpos(`"`_hdr_ci'"', "ci") == 0 | substr(`"`_hdr_p'"', 1, 1) != "p" {
+                        local _looks_standard_f = 0
+                    }
+                }
+            }
+            if mod(`_model_cols_f', 2) == 0 {
+                local _looks_compact_f = 1
+                forvalues _c = 1(2)`_model_cols_f' {
+                    local _p_var c`=`_c'+1'
+                    frame `_fname' {
+                        local _hdr_est = lower(strtrim(c`_c'[3]))
+                        local _hdr_p = lower(strtrim(`_p_var'[3]))
+                    }
+                    if strpos(`"`_hdr_est'"', "ci") == 0 | substr(`"`_hdr_p'"', 1, 1) != "p" {
+                        local _looks_compact_f = 0
+                    }
+                }
+            }
+
+            if `_looks_standard_f' & !`_looks_compact_f' {
+                local model_mode_f "standard"
+                local n_models_f = `_model_cols_f' / 3
+            }
+            else if `_looks_compact_f' & !`_looks_standard_f' {
+                local model_mode_f "compact"
+                local n_models_f = `_model_cols_f' / 2
+            }
+            else {
+                display as error "Model frame '`_fname'' has unsupported column structure"
+                display as error "Expected 2 or 3 columns per model block from regtab"
+                exit 198
+            }
+
+            if "`model_mode_f'" != "`model_mode'" | `n_models_f' != `n_models' {
+                display as error "All model frames must share the same layout"
+                display as error "Frame '`_fname1'' is `model_mode' with `n_models' model(s); '`_fname'' is `model_mode_f' with `n_models_f' model(s)"
+                exit 198
+            }
+            if `n_models_f' != `outcomes' {
+                display as error "Model frame '`_fname'' contributes `n_models_f' model(s), but rate frame requires `outcomes' outcome(s)"
                 exit 198
             }
         }
@@ -301,6 +381,7 @@ program define hrcomptab, rclass
                     }
                     if !`_matched' {
                         display as error `"rownames(): pattern "`_pat'" not found in frame '`_fname''"'
+                        display as error "rownames() matches rendered model-frame labels in column A"
                         exit 198
                     }
                 }
@@ -507,7 +588,7 @@ program define hrcomptab, rclass
         local exp_rows "`section_rows'"
 
         * Console display
-        if !`_has_xlsx' | "`display'" != "" {
+        if "`display'" != "" {
             noisily _tabtools_console_display `ncols' `"`_out_title'"', datastart(4) headerstart(2)
             if `"`footnote'"' != "" {
                 noisily display as text `"`footnote'"'

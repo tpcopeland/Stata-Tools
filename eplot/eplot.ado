@@ -533,10 +533,9 @@ program define _eplot_data, rclass
             + ", " + string(`uci', "`vformat'") + ")" ///
             if inlist(`rowtype', 1, 3, 5) & !missing(`es')
 
-        local val_xpos = `xmax' + `xrange' * 0.12
+        local val_xpos = `xmax_pad'
         quietly gen double `val_x' = `val_xpos' if !missing(`val_text')
 
-        local xmax_pad = `val_xpos' + `xrange' * 0.55
         local val_cmd `"(scatter `pos' `val_x' if !missing(`val_text'), msymbol(none) mlabel(`val_text') mlabpos(3) mlabsize(vsmall) mlabcolor(gs4))"'
     }
 
@@ -841,8 +840,12 @@ program define _eplot_data, rclass
     }
 
     // Plotregion / graphregion
-    if `"`plotregion'"' != "" {
-        local graphcmd `"`graphcmd' plotregion(`plotregion')"'
+    local _plotregion_use `"`plotregion'"'
+    if `"`_plotregion_use'"' == "" & "`horizontal'" != "" & "`values'" != "" {
+        local _plotregion_use "margin(l+2 r+18 t+2 b+2)"
+    }
+    if `"`_plotregion_use'"' != "" {
+        local graphcmd `"`graphcmd' plotregion(`_plotregion_use')"'
     }
     if `"`graphregion'"' != "" {
         local graphcmd `"`graphcmd' graphregion(`graphregion')"'
@@ -1518,10 +1521,9 @@ program define _eplot_estimates, rclass
             `_star_suf' ///
             if _rowtype == 1 & !missing(es)
 
-        local val_xpos = `data_xmax' + `data_range' * 0.12
+        local val_xpos = `xmax_pad'
         gen double _val_x = `val_xpos' if !missing(_val_text)
 
-        local xmax_pad = `val_xpos' + `data_range' * 0.55
         local val_cmd `"(scatter _plot_pos _val_x if !missing(_val_text), msymbol(none) mlabel(_val_text) mlabpos(3) mlabsize(vsmall) mlabcolor(gs4))"'
     }
 
@@ -1760,8 +1762,12 @@ program define _eplot_estimates, rclass
     }
 
     // Plotregion / graphregion
-    if `"`plotregion'"' != "" {
-        local graphcmd `"`graphcmd' plotregion(`plotregion')"'
+    local _plotregion_use `"`plotregion'"'
+    if `"`_plotregion_use'"' == "" & "`horizontal'" != "" & "`values'" != "" & `n_models' == 1 {
+        local _plotregion_use "margin(l+2 r+18 t+2 b+2)"
+    }
+    if `"`_plotregion_use'"' != "" {
+        local graphcmd `"`graphcmd' plotregion(`_plotregion_use')"'
     }
     if `"`graphregion'"' != "" {
         local graphcmd `"`graphcmd' graphregion(`graphregion')"'
@@ -2208,10 +2214,9 @@ program define _eplot_matrix, rclass
             + ", " + string(uci, "`vformat'") + ")" ///
             `_star_suf'
 
-        local val_xpos = `data_xmax' + `data_range' * 0.12
+        local val_xpos = `xmax_pad'
         gen double _val_x = `val_xpos'
 
-        local xmax_pad = `val_xpos' + `data_range' * 0.55
         local val_cmd `"(scatter _plot_pos _val_x, msymbol(none) mlabel(_val_text) mlabpos(3) mlabsize(vsmall) mlabcolor(gs4))"'
     }
 
@@ -2327,7 +2332,11 @@ program define _eplot_matrix, rclass
     if `"`subtitle'"' != "" local graphcmd `"`graphcmd' subtitle(`subtitle')"'
     if `"`note'"' != "" local graphcmd `"`graphcmd' note(`note')"'
     if "`scheme'" != "" local graphcmd `"`graphcmd' scheme(`scheme')"'
-    if `"`plotregion'"' != "" local graphcmd `"`graphcmd' plotregion(`plotregion')"'
+    local _plotregion_use `"`plotregion'"'
+    if `"`_plotregion_use'"' == "" & "`horizontal'" != "" & "`values'" != "" {
+        local _plotregion_use "margin(l+2 r+18 t+2 b+2)"
+    }
+    if `"`_plotregion_use'"' != "" local graphcmd `"`graphcmd' plotregion(`_plotregion_use')"'
     if `"`graphregion'"' != "" local graphcmd `"`graphcmd' graphregion(`graphregion')"'
     if "`aspect'" != "" local graphcmd `"`graphcmd' aspect(`aspect')"'
     if "`name'" != "" local graphcmd `"`graphcmd' name(`name')"'

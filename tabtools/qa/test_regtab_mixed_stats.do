@@ -500,6 +500,99 @@ else {
     local fail = `fail' + 1
 }
 
+**# Test K: logit fixed effects are exponentiated and intercept auto-drops
+
+capture frame drop _rt_or
+capture {
+    sysuse auto, clear
+    collect clear
+    collect: logit foreign mpg weight
+
+    tempname b_mat
+    matrix `b_mat' = e(b)
+    local exp_or = exp(`b_mat'[1,1])
+
+    regtab, display frame(_rt_or, replace)
+    assert "`r(coef_label)'" == "OR"
+
+    frame _rt_or {
+        count if A == "Intercept"
+        assert r(N) == 0
+
+        local act_or = .
+        forvalues i = 1/`=_N' {
+            if strpos(A[`i'], "Mileage") > 0 {
+                local act_or = real(strtrim(c1[`i']))
+            }
+        }
+        assert `act_or' != .
+        assert abs(`act_or' - round(`exp_or', 0.01)) < 0.02
+    }
+}
+local total = `total' + 1
+if _rc == 0 {
+    display as result "  PASS: Test K - logit fixed effects exponentiated; intercept dropped"
+    local pass = `pass' + 1
+}
+else {
+    display as error "  FAIL: Test K - logit OR transform or auto-noint failed (rc=`=_rc')"
+    local fail = `fail' + 1
+}
+capture frame drop _rt_or
+
+**# Test L: mixed OLS + logit collections get per-model headers and generic fit label
+
+capture frame drop _rt_mix
+capture {
+    sysuse auto, clear
+    collect clear
+    collect: regress price mpg
+    collect: logit foreign mpg
+
+    regtab, display frame(_rt_mix, replace) stats(r2)
+    assert "`r(coef_label)'" == "mixed"
+    assert strpos(`"`r(methods)'"', "Collected regression estimates") > 0
+
+    frame _rt_mix {
+        assert c1[3] == "Coef."
+        assert c4[3] == "OR"
+        count if A == "R² / Pseudo R²"
+        assert r(N) == 1
+    }
+}
+local total = `total' + 1
+if _rc == 0 {
+    display as result "  PASS: Test L - mixed collections keep model-specific headers"
+    local pass = `pass' + 1
+}
+else {
+    display as error "  FAIL: Test L - mixed collection headers/stats mislabeled (rc=`=_rc')"
+    local fail = `fail' + 1
+}
+capture frame drop _rt_mix
+
+**# Test M: invalid pdp()/highpdp() are rejected
+
+capture {
+    sysuse auto, clear
+    collect clear
+    collect: logit foreign mpg weight
+
+    capture noisily regtab, display pdp(0)
+    assert _rc == 198
+    capture noisily regtab, display highpdp(0)
+    assert _rc == 198
+}
+local total = `total' + 1
+if _rc == 0 {
+    display as result "  PASS: Test M - invalid p-value precision rejected"
+    local pass = `pass' + 1
+}
+else {
+    display as error "  FAIL: Test M - invalid p-value precision accepted (rc=`=_rc')"
+    local fail = `fail' + 1
+}
+
 **# Summary
 
 display ""

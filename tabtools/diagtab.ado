@@ -26,8 +26,15 @@ program define diagtab, rclass
 capture noisily {
 
     * Auto-load shared helper programs
-    capture program list _tabtools_validate_path
-    if _rc {
+    local _needs_helpers 0
+    foreach _helper in _tabtools_validate_path _tabtools_validate_sheet ///
+        _tabtools_resolve_format _tabtools_console_display ///
+        _tabtools_build_col_letters _tabtools_footnote ///
+        _tabtools_frame_put _tabtools_open_file {
+        capture program list `_helper'
+        if _rc local _needs_helpers 1
+    }
+    if `_needs_helpers' {
         capture findfile _tabtools_common.ado
         if _rc == 0 {
             run "`r(fn)'"
@@ -54,6 +61,10 @@ capture noisily {
 
     if "`xlsx'" == "" & "`excel'" != "" local xlsx "`excel'"
     local _has_xlsx = "`xlsx'" != ""
+    if "`open'" != "" & !`_has_xlsx' {
+        noisily display as error "open requires xlsx() or excel()"
+        exit 198
+    }
 
     if "`sheet'" == "" local sheet "Diagnostics"
 
@@ -67,7 +78,13 @@ capture noisily {
         exit 198
     }
     _tabtools_validate_sheet "`sheet'" "sheet()"
-    if `_has_xlsx' _tabtools_validate_path "`xlsx'" "xlsx()"
+    if `_has_xlsx' {
+        if !strmatch(lower("`xlsx'"), "*.xlsx") {
+            noisily display as error "xlsx() must have .xlsx extension"
+            exit 198
+        }
+        _tabtools_validate_path "`xlsx'" "xlsx()"
+    }
     if "`csv'" != "" _tabtools_validate_path "`csv'" "csv()"
     if `prevalence' != -1 & (`prevalence' <= 0 | `prevalence' >= 1) {
         noisily display as error "prevalence() must be between 0 and 1"
@@ -85,6 +102,10 @@ capture noisily {
     }
     if "`optimal'" != "" & "`cutoffs'" != "" {
         noisily display as error "optimal cannot be combined with cutoffs(); use cutoff() or omit optimal"
+        exit 198
+    }
+    if "`exact'" != "" & "`wilson'" != "" {
+        noisily display as error "exact and wilson are mutually exclusive"
         exit 198
     }
 
@@ -111,6 +132,10 @@ capture noisily {
             noisily display as error "`goldvar' must be coded 0/1; found value `_gl'"
             exit 198
         }
+    }
+    if "`auc'" != "" & `_ngold' != 2 {
+        noisily display as error "auc requires both 0 and 1 in `goldvar'"
+        exit 198
     }
     if `cutoff' == -999 & "`cutoffs'" == "" & "`optimal'" == "" {
         qui levelsof `testvar' if `touse', local(_testlevels)
@@ -141,6 +166,7 @@ capture noisily {
     if "`zebracolor'" != "" local _zebracolor "`zebracolor'"
 
     local _ci_method = cond("`exact'" != "", "exact", "wilson")
+    return clear
 
     if "`cutoffs'" != "" {
         * ============================================================

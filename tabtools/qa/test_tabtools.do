@@ -183,6 +183,20 @@ else {
     local ++fail_count
 }
 
+* Test: _tabtools_validate_path accepts apostrophes
+local ++test_count
+capture noisily {
+    _tabtools_validate_path "output/O'Brien.xlsx" "test"
+}
+if _rc == 0 {
+    display as result "  PASS: _tabtools_validate_path - apostrophe path accepted"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: _tabtools_validate_path - apostrophe path (error `=_rc')"
+    local ++fail_count
+}
+
 * Test: _tabtools_validate_path rejects dangerous characters
 local ++test_count
 capture noisily {
@@ -197,6 +211,28 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL: _tabtools_validate_path - dangerous chars (error `=_rc')"
+    local ++fail_count
+}
+
+* Test: helper bundle reloads when a later helper is missing
+local ++test_count
+capture noisily {
+    sysuse auto, clear
+    collect clear
+    collect: regress price mpg weight
+    capture frame drop _helper_reload
+    capture program drop _tabtools_frame_put
+    regtab, frame(_helper_reload, replace)
+    capture confirm frame _helper_reload
+    assert _rc == 0
+}
+capture frame drop _helper_reload
+if _rc == 0 {
+    display as result "  PASS: helper bundle reloads when a later helper is missing"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: helper bundle reload after partial drop (error `=_rc')"
     local ++fail_count
 }
 
@@ -234,6 +270,24 @@ else {
     local ++fail_count
 }
 
+* Test: Quick-start auto-detect contract matches help example
+local ++test_count
+capture noisily {
+    sysuse auto, clear
+    table1_tc rep78 foreign, by(foreign) clear
+    assert factor[2] == "No. (Column %)"
+    assert "`r(Dapa)'" == "Data are presented as No. (%)."
+    assert strpos(`"`r(methods)'"', `"`r(Dapa)'"') > 0
+}
+if _rc == 0 {
+    display as result "  PASS: table1_tc - quick-start descriptor contract"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: table1_tc - quick-start descriptor contract (error `=_rc')"
+    local ++fail_count
+}
+
 * Test: Total column before
 local ++test_count
 capture noisily {
@@ -261,6 +315,22 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL: table1_tc - total(after) (error `=_rc')"
+    local ++fail_count
+}
+
+* Test: Invalid total() value rejected
+local ++test_count
+capture noisily {
+    sysuse auto, clear
+    capture table1_tc, by(foreign) vars(price contn \ rep78 cat) total(foo)
+    assert _rc == 198
+}
+if _rc == 0 {
+    display as result "  PASS: table1_tc - invalid total() rejected"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: table1_tc - invalid total() rejected (error `=_rc')"
     local ++fail_count
 }
 
@@ -309,6 +379,64 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL: table1_tc - excel export (error `=_rc')"
+    local ++fail_count
+}
+
+* Test: open requires xlsx()/excel()
+local ++test_count
+capture noisily {
+    sysuse auto, clear
+    capture table1_tc, by(foreign) vars(price contn \ rep78 cat) open
+    assert _rc == 498
+}
+if _rc == 0 {
+    display as result "  PASS: table1_tc - open requires excel"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: table1_tc - open requires excel (error `=_rc')"
+    local ++fail_count
+}
+
+* Test: xlsx target must have .xlsx suffix
+local ++test_count
+capture noisily {
+    sysuse auto, clear
+    capture erase "`output_dir'/_test_table1_badext.xls"
+    capture table1_tc, by(foreign) vars(price contn \ rep78 cat) ///
+        xlsx("`output_dir'/_test_table1_badext.xls")
+    assert _rc == 198
+    capture confirm file "`output_dir'/_test_table1_badext.xls"
+    assert _rc != 0
+}
+if _rc == 0 {
+    display as result "  PASS: table1_tc - bad xlsx suffix rejected"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: table1_tc - bad xlsx suffix rejected (error `=_rc')"
+    local ++fail_count
+}
+
+* Test: Valid sheet names with punctuation
+local ++test_count
+capture noisily {
+    sysuse auto, clear
+    capture erase "`output_dir'/_test_table1_sheet_amp.xlsx"
+    capture erase "`output_dir'/_test_table1_sheet_quote.xlsx"
+    table1_tc, by(foreign) vars(price contn) ///
+        xlsx("`output_dir'/_test_table1_sheet_amp.xlsx") sheet("Men & Women")
+    confirm file "`output_dir'/_test_table1_sheet_amp.xlsx"
+    table1_tc, by(foreign) vars(price contn) ///
+        xlsx("`output_dir'/_test_table1_sheet_quote.xlsx") sheet("O'Brien")
+    confirm file "`output_dir'/_test_table1_sheet_quote.xlsx"
+}
+if _rc == 0 {
+    display as result "  PASS: table1_tc - punctuation sheet names accepted"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: table1_tc - punctuation sheet names accepted (error `=_rc')"
     local ++fail_count
 }
 
@@ -391,15 +519,25 @@ else {
 * Test: Header percentage
 local ++test_count
 capture noisily {
-    sysuse auto, clear
-    table1_tc, by(foreign) vars(price contn \ rep78 cat) headerperc
+    clear
+    input g y z
+    0 1 0
+    0 2 1
+    0 3 1
+    1 4 .
+    1 5 .
+    1 6 .
+    end
+    table1_tc, by(g) vars(y contn \ z bin) headerperc clear
+    assert g_0[2] == "3 (50.0%)"
+    assert g_1[2] == "3 (50.0%)"
 }
 if _rc == 0 {
-    display as result "  PASS: table1_tc - headerperc"
+    display as result "  PASS: table1_tc - headerperc uses true group totals"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: table1_tc - headerperc (error `=_rc')"
+    display as error "  FAIL: table1_tc - headerperc uses true group totals (error `=_rc')"
     local ++fail_count
 }
 
@@ -499,13 +637,17 @@ capture noisily {
     sysuse auto, clear
     table1_tc, by(foreign) vars(price contn \ rep78 cat) clear
     assert _N > 0
+    capture confirm variable _p_raw
+    assert _rc == 111
+    capture confirm variable _smd_raw
+    assert _rc == 111
 }
 if _rc == 0 {
-    display as result "  PASS: table1_tc - clear option"
+    display as result "  PASS: table1_tc - clear option cleans internal columns"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: table1_tc - clear option (error `=_rc')"
+    display as error "  FAIL: table1_tc - clear option cleans internal columns (error `=_rc')"
     local ++fail_count
 }
 
@@ -2059,6 +2201,26 @@ else {
     local ++fail_count
 }
 
+* Test: tabtools get returns effective named-theme values
+local ++test_count
+capture noisily {
+    tabtools set clear
+    tabtools set theme lancet
+    tabtools get
+    assert "`r(theme)'" == "lancet"
+    assert "`r(font)'" == "Arial"
+    assert "`r(fontsize)'" == "9"
+    assert "`r(borderstyle)'" == "academic"
+}
+if _rc == 0 {
+    display as result "  PASS: tabtools get - named theme reports effective values"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tabtools get effective named-theme values (error `=_rc')"
+    local ++fail_count
+}
+
 * Test: tabtools set clear empties all globals
 local ++test_count
 capture noisily {
@@ -2150,6 +2312,76 @@ else {
     local ++fail_count
 }
 
+* Test: tabtools set theme custom rejects invalid borderstyle
+local ++test_count
+capture noisily {
+    tabtools set theme custom, borderstyle(garbage)
+}
+if _rc == 198 {
+    display as result "  PASS: tabtools set theme custom invalid borderstyle - rc=198"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tabtools set theme custom invalid borderstyle - expected rc=198, got `=_rc'"
+    local ++fail_count
+}
+
+* Test: tabtools set theme custom rejects invalid headercolor
+local ++test_count
+capture noisily {
+    tabtools set theme custom, headercolor("12 999 5")
+}
+if _rc == 198 {
+    display as result "  PASS: tabtools set theme custom invalid headercolor - rc=198"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tabtools set theme custom invalid headercolor - expected rc=198, got `=_rc'"
+    local ++fail_count
+}
+
+* Test: tabtools get rejects trailing arguments
+local ++test_count
+capture noisily {
+    tabtools get extra
+}
+if _rc == 198 {
+    display as result "  PASS: tabtools get extra - rc=198"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tabtools get extra - expected rc=198, got `=_rc'"
+    local ++fail_count
+}
+
+* Test: tabtools set clear rejects trailing arguments
+local ++test_count
+capture noisily {
+    tabtools set clear extra
+}
+if _rc == 198 {
+    display as result "  PASS: tabtools set clear extra - rc=198"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tabtools set clear extra - expected rc=198, got `=_rc'"
+    local ++fail_count
+}
+
+* Test: tabtools rejects theme-builder options in display mode
+local ++test_count
+capture noisily {
+    tabtools, font(ComicSans)
+}
+if _rc == 198 {
+    display as result "  PASS: tabtools, font(...) - rc=198 outside set theme custom"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tabtools, font(...) - expected rc=198, got `=_rc'"
+    local ++fail_count
+}
+
 * Test: tabtools unknown subcommand → rc=198
 local ++test_count
 capture noisily {
@@ -2161,6 +2393,31 @@ if _rc == 198 {
 }
 else {
     display as error "  FAIL: tabtools unknowncmd - expected rc=198, got `=_rc'"
+    local ++fail_count
+}
+
+* Test: invalid persisted borderstyle fails before workbook creation
+local ++test_count
+capture noisily {
+    local _bad_xlsx "`output_dir'/_bad_borderstyle.xlsx"
+    capture erase "`_bad_xlsx'"
+    global TABTOOLS_BORDER "weird"
+    sysuse auto, clear
+    capture noisily corrtab price mpg weight, xlsx("`_bad_xlsx'") sheet("BadBorder")
+    local _cmd_rc = _rc
+    capture confirm file "`_bad_xlsx'"
+    local _file_rc = _rc
+    global TABTOOLS_BORDER
+    assert `_cmd_rc' == 198
+    assert `_file_rc' != 0
+}
+if _rc == 0 {
+    display as result "  PASS: invalid persisted borderstyle fails before workbook creation"
+    local ++pass_count
+}
+else {
+    global TABTOOLS_BORDER
+    display as error "  FAIL: invalid persisted borderstyle gate (error `=_rc')"
     local ++fail_count
 }
 
@@ -2306,23 +2563,39 @@ else {
     local ++fail_count
 }
 
-* Test: all-missing variable — graceful handling (levelsof rc=9 on all-missing)
-* _tabtools_detect_vartype may error on all-missing via levelsof; test graceful exit
+* Test: all-missing variable defaults cleanly to contn
 local ++test_count
 capture noisily {
     clear
     set obs 50
     gen double miss_var = .
     _tabtools_detect_vartype miss_var
-    * Accept either "contn" default or "cat" (≤7 unique); do not assert specific type
+    assert "`result'" == "contn"
 }
-* Accept rc=0 (type returned) or rc=9 (no observations from levelsof) — both are graceful
-if _rc == 0 | _rc == 9 {
-    display as result "  PASS: _tabtools_detect_vartype - all missing handled gracefully (rc=`=_rc')"
+if _rc == 0 {
+    display as result "  PASS: _tabtools_detect_vartype - all missing defaults to contn"
     local ++pass_count
 }
 else {
     display as error "  FAIL: _tabtools_detect_vartype - all missing unexpected error `=_rc'"
+    local ++fail_count
+}
+
+* Test: high-cardinality continuous variable does not overflow macros
+local ++test_count
+capture noisily {
+    clear
+    set obs 50000
+    gen double hi_cont = _n + runiform()/1000000
+    _tabtools_detect_vartype hi_cont
+    assert "`result'" == "contn"
+}
+if _rc == 0 {
+    display as result "  PASS: _tabtools_detect_vartype - 50,000 unique doubles → contn"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: _tabtools_detect_vartype - high-cardinality doubles (error `=_rc')"
     local ++fail_count
 }
 

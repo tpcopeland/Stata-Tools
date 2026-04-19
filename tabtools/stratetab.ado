@@ -112,18 +112,56 @@ if `outcomes' < 1 {
 	exit 198
 }
 
-* Resolve formatting
-_tabtools_resolve_format, theme(`theme') borderstyle(`borderstyle') headershade(`headershade') zebra(`zebra')
-if !inlist("`borderstyle'", "thin", "medium", "academic") {
-	di as err "borderstyle() must be thin, medium, or academic"
-	exit 198
-}
+	* Resolve formatting
+	_tabtools_resolve_format, theme(`theme') borderstyle(`borderstyle') headershade(`headershade') zebra(`zebra')
+	if !inlist("`borderstyle'", "thin", "medium", "academic") {
+		di as err "borderstyle() must be thin, medium, or academic"
+		exit 198
+	}
 
-* Resolve header/zebra colors (O4)
-local _headercolor "219 229 241"
-local _zebracolor "237 242 249"
-if "`headercolor'" != "" local _headercolor "`headercolor'"
-if "`zebracolor'" != "" local _zebracolor "`zebracolor'"
+	* Resolve header/zebra colors (O4)
+	local _headercolor "219 229 241"
+	local _zebracolor "237 242 249"
+	if "$TABTOOLS_HEADERCOLOR" != "" local _headercolor "$TABTOOLS_HEADERCOLOR"
+	if "$TABTOOLS_ZEBRACOLOR" != "" local _zebracolor "$TABTOOLS_ZEBRACOLOR"
+	if "`headercolor'" != "" local _headercolor "`headercolor'"
+	if "`zebracolor'" != "" local _zebracolor "`zebracolor'"
+	local _headercolor = itrim(strtrim(`"`_headercolor'"'))
+	local _zebracolor = itrim(strtrim(`"`_zebracolor'"'))
+	local _n_header_rgb : word count `_headercolor'
+	if `_n_header_rgb' != 3 {
+		di as err "headercolor() must be three integers between 0 and 255"
+		exit 198
+	}
+	forvalues _rgb_i = 1/3 {
+		local _rgb_part : word `_rgb_i' of `_headercolor'
+		if !regexm("`_rgb_part'", "^[0-9]+$") {
+			di as err "headercolor() must be three integers between 0 and 255"
+			exit 198
+		}
+		local _rgb_num = real("`_rgb_part'")
+		if `_rgb_num' < 0 | `_rgb_num' > 255 {
+			di as err "headercolor() must be three integers between 0 and 255"
+			exit 198
+		}
+	}
+	local _n_zebra_rgb : word count `_zebracolor'
+	if `_n_zebra_rgb' != 3 {
+		di as err "zebracolor() must be three integers between 0 and 255"
+		exit 198
+	}
+	forvalues _rgb_i = 1/3 {
+		local _rgb_part : word `_rgb_i' of `_zebracolor'
+		if !regexm("`_rgb_part'", "^[0-9]+$") {
+			di as err "zebracolor() must be three integers between 0 and 255"
+			exit 198
+		}
+		local _rgb_num = real("`_rgb_part'")
+		if `_rgb_num' < 0 | `_rgb_num' > 255 {
+			di as err "zebracolor() must be three integers between 0 and 255"
+			exit 198
+		}
+	}
 
 * Validate ratiodigits
 if `ratiodigits' < 0 | `ratiodigits' > 10 {
@@ -640,22 +678,26 @@ local _total_cats 0
 forvalues e = 1/`n_exposures' {
 	local _total_cats = `_total_cats' + `ncat_e`e''
 }
-if `_total_cats' > 0 & `_total_cats' <= 200 {
-	matrix `_rrates' = J(`_total_cats', `outcomes', .)
-	local _rnames ""
-	local _rr = 0
-	forvalues e = 1/`n_exposures' {
-		forvalues i = 1/`ncat_e`e'' {
+	if `_total_cats' > 0 {
+		matrix `_rrates' = J(`_total_cats', `outcomes', .)
+		local _rnames ""
+		local _rr = 0
+		forvalues e = 1/`n_exposures' {
+			forvalues i = 1/`ncat_e`e'' {
 			local _rr = `_rr' + 1
 			forvalues o = 1/`outcomes' {
 				capture matrix `_rrates'[`_rr', `o'] = `Rate_o`o'_e`e'_`i''
 			}
-			local _rname = subinstr("`cat_e`e'_`i''", " ", "_", .)
-			local _rname = substr("`_rname'", 1, 32)
-			if "`_rname'" == "" local _rname "row`_rr'"
-			local _rnames "`_rnames' `_rname'"
-		}
-		}
+				local _rname = subinstr("`cat_e`e'_`i''", " ", "_", .)
+				local _rname = substr("`_rname'", 1, 32)
+				if "`_rname'" == "" local _rname "row`_rr'"
+				if `n_exposures' > 1 {
+					local _rname = "e`e'_`_rname'"
+					local _rname = substr("`_rname'", 1, 32)
+				}
+				local _rnames "`_rnames' `_rname'"
+			}
+			}
 		local _cnames ""
 		forvalues o = 1/`outcomes' {
 			local _cname = subinstr(`"`outlab`o''"', " ", "_", .)
@@ -676,22 +718,26 @@ if "`rateratio'" != "" & `n_exposures' >= 2 {
 	forvalues e = 2/`n_exposures' {
 		local _ratio_cats = `_ratio_cats' + `ncat_e`e''
 	}
-	if `_ratio_cats' > 0 & `_ratio_cats' <= 200 {
-		matrix `_rratios' = J(`_ratio_cats', `outcomes', .)
-		local _rnames ""
-		local _rr = 0
-		forvalues e = 2/`n_exposures' {
-			forvalues i = 1/`ncat_e`e'' {
+		if `_ratio_cats' > 0 {
+			matrix `_rratios' = J(`_ratio_cats', `outcomes', .)
+			local _rnames ""
+			local _rr = 0
+			forvalues e = 2/`n_exposures' {
+				forvalues i = 1/`ncat_e`e'' {
 				local _rr = `_rr' + 1
 				forvalues o = 1/`outcomes' {
 					capture matrix `_rratios'[`_rr', `o'] = `IRR_o`o'_e`e'_`i''
 				}
-				local _rname = subinstr("`cat_e`e'_`i''", " ", "_", .)
-				local _rname = substr("`_rname'", 1, 32)
-				if "`_rname'" == "" local _rname "row`_rr'"
-				local _rnames "`_rnames' `_rname'"
+					local _rname = subinstr("`cat_e`e'_`i''", " ", "_", .)
+					local _rname = substr("`_rname'", 1, 32)
+					if "`_rname'" == "" local _rname "row`_rr'"
+					if `n_exposures' > 2 {
+						local _rname = "e`e'_`_rname'"
+						local _rname = substr("`_rname'", 1, 32)
+					}
+					local _rnames "`_rnames' `_rname'"
+				}
 			}
-		}
 			local _cnames ""
 			forvalues o = 1/`outcomes' {
 				local _cname = subinstr(`"`outlab`o''"', " ", "_", .)
@@ -707,12 +753,12 @@ if "`rateratio'" != "" & `n_exposures' >= 2 {
 	}
 
 * Return results
-if `_total_cats' > 0 & `_total_cats' <= 200 {
-	capture return matrix rates = `_rrates'
-}
-if "`rateratio'" != "" & `n_exposures' >= 2 {
-	capture return matrix ratios = `_rratios'
-}
+	if `_total_cats' > 0 {
+		capture return matrix rates = `_rrates'
+	}
+	if "`rateratio'" != "" & `n_exposures' >= 2 {
+		capture return matrix ratios = `_rratios'
+	}
 if `_has_xlsx' {
 	return local xlsx "`xlsx'"
 	return local sheet "`sht'"

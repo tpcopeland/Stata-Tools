@@ -20,7 +20,7 @@
 {title:Syntax}
 
 {p 8 17 2}
-{cmd:stratetab}{cmd:,} {opt using(string asis)} {opt outcomes(integer)} [{opt xlsx(string)} {opt sheet(string)} {opt title(string)} {opt outlabels(string)} {opt explabels(string)} {opt digits(integer 1)} {opt eventdigits(integer 0)} {opt pydigits(integer 0)} {opt unitlabel(string)} {opt pyscale(real 1)} {opt ratescale(real 1000)} {opt rateratio} {opt ratio:digits(#)} {opt foot:note(string)} {opt open} {opt zebra} {opt borders:tyle(string)} {opt the:me(string)} {opt headers:hade} {opt headerc:olor(string)} {opt zebrac:olor(string)} {opt csv(string)} {opt fra:me(name)} {opt dis:play}]
+{cmd:stratetab}{cmd:,} {opt using(string asis)} {opt outcomes(integer)} [{opt xlsx(string)} {opt excel(string)} {opt sheet(string)} {opt title(string)} {opt outlabels(string)} {opt explabels(string)} {opt digits(integer 1)} {opt eventdigits(integer 0)} {opt pydigits(integer 0)} {opt unitlabel(string)} {opt pyscale(real 1)} {opt ratescale(real 1000)} {opt rateratio} {opt ratio:digits(#)} {opt foot:note(string)} {opt open} {opt zebra} {opt borders:tyle(string)} {opt the:me(string)} {opt headers:hade} {opt headerc:olor(string)} {opt zebrac:olor(string)} {opt csv(string)} {opt fra:me(name)} {opt dis:play}]
 
 
 {marker description}{...}
@@ -101,11 +101,11 @@ No dataset needs to be loaded before running {cmd:stratetab}; it reads the saved
 
 {phang2}{opt headers:hade} applies a background fill to the header rows.{p_end}
 
-{phang2}{opt headerc:olor(string)} specifies a custom RGB header color (e.g., "200 220 240").{p_end}
+{phang2}{opt headerc:olor(string)} specifies a custom RGB header color as three integers from 0 to 255 (e.g., "200 220 240"). It is applied when header shading is active via {opt headershade} or the selected theme.{p_end}
 
-{phang2}{opt zebrac:olor(string)} specifies a custom RGB zebra stripe color (e.g., "245 245 255").{p_end}
+{phang2}{opt zebrac:olor(string)} specifies a custom RGB zebra stripe color as three integers from 0 to 255 (e.g., "245 245 255"). It is applied when {opt zebra} is active.{p_end}
 
-{phang2}{opt csv(string)} exports the table data as a CSV file in addition to the Excel output.{p_end}
+{phang2}{opt csv(string)} exports the table data as CSV. It may be used with or without {opt xlsx()}.{p_end}
 
 {phang2}{opt fra:me(name)} stores the output dataset in a named frame. Specify {cmd:frame(name, replace)} to replace an existing frame.{p_end}
 
@@ -204,8 +204,8 @@ If {opt explabels()} is specified, the number of labels must match the number of
 {synopt:{cmd:r(N_outcomes)}}number of outcomes{p_end}
 
 {p2col 5 18 22 2: Matrices}{p_end}
-{synopt:{cmd:r(rates)}}incidence rates matrix (rows=exposure levels, cols=outcomes){p_end}
-{synopt:{cmd:r(ratios)}}incidence rate ratio matrix (rows=exposure levels, cols=outcomes; when {cmd:rateratio} specified){p_end}
+{synopt:{cmd:r(rates)}}incidence rates matrix (rows=all category rows across exposures, cols=outcomes). When more than one exposure is supplied, rownames use the form {cmd:e#_category}.{p_end}
+{synopt:{cmd:r(ratios)}}incidence rate ratio matrix (rows=categories from exposures 2, 3, ..., cols=outcomes; when {cmd:rateratio} specified). When more than two exposures are supplied, rownames use the form {cmd:e#_category}.{p_end}
 
 {p2col 5 18 22 2: Macros}{p_end}
 {synopt:{cmd:r(xlsx)}}Excel filename (if exported){p_end}

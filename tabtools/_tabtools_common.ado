@@ -12,6 +12,7 @@ DESCRIPTION:
 PROGRAMS INCLUDED:
     _tabtools_col_letter        - Convert column number to Excel letter (A, B, ..., Z, AA, AB, ...)
     _tabtools_validate_path     - Validate file path for dangerous characters
+    _tabtools_validate_color    - Validate named/RGB color tokens for Excel formatting
     _tabtools_build_col_letters - Build list of Excel column letters for N columns
     _tabtools_footnote          - Write a merged footnote row to an open putexcel session
     _tabtools_open_file         - Open an xlsx file in the OS default application
@@ -20,6 +21,7 @@ PROGRAMS INCLUDED:
     _tabtools_apply_theme       - Apply journal-style formatting presets
     _tabtools_resolve_format    - Resolve font/fontsize/borderstyle from options, globals, and themes
     _tabtools_frame_put         - Store output in a named frame with optional replace
+    _tabtools_helpers_ready     - Verify the helper bundle is fully loaded
 USAGE:
     These programs are called internally by tabtools commands (table1_tc, regtab,
     effecttab, stratetab, hrcomptab, and others). They are not intended for direct use.
@@ -67,22 +69,53 @@ program _tabtools_validate_path
     args filepath option_name
 
     * Check for shell metacharacters and command injection vectors
-    * Reject: ; & | > < $ ` " '
+    * Reject: ; & | > < $ ` "
     * Note: the bracket class below includes a literal backtick (`). The
     * backslashes escape $ and ` for regex, not for Stata's macro expander —
     * Stata passes the pattern verbatim to regexm() because there is no
     * matching close-quote (') that would trigger macro substitution.
-    * Double-quote (") and single-quote (') are checked separately via
-    * char(34)/char(39) to avoid quoting headaches in the pattern itself.
+    * Double-quote (") is checked separately via char(34) to avoid quoting
+    * headaches in the pattern itself. Apostrophes are valid path characters.
     local _has_bad = regexm(`"`filepath'"', "[;&|><\$\`]")
     if !`_has_bad' {
-        local _has_bad = strpos(`"`filepath'"', char(34)) > 0 | ///
-                         strpos(`"`filepath'"', char(39)) > 0
+        local _has_bad = strpos(`"`filepath'"', char(34)) > 0
     }
     if `_has_bad' {
         display as error "`option_name' contains invalid characters"
         exit 198
     }
+end
+
+* =============================================================================
+* _tabtools_validate_color: Validate Excel color tokens
+* =============================================================================
+* Accepts either named colors (e.g. navy) or RGB triplets (e.g. 200 220 240).
+*
+* Usage: _tabtools_validate_color "`color'" "headercolor()"
+
+capture program drop _tabtools_validate_color
+program _tabtools_validate_color
+    version 16.0
+    args color option_name
+
+    local color = strtrim(`"`color'"')
+    if `"`color'"' == "" exit
+
+    if regexm(`"`color'"', "^[A-Za-z][A-Za-z0-9_]*$") exit
+
+    if regexm(`"`color'"', "^[0-9]+[ ]+[0-9]+[ ]+[0-9]+$") {
+        tokenize `"`color'"'
+        foreach _channel in `1' `2' `3' {
+            if real("`_channel'") < 0 | real("`_channel'") > 255 {
+                display as error "`option_name' RGB values must be between 0 and 255"
+                exit 198
+            }
+        }
+        exit
+    }
+
+    display as error "`option_name' must be a named color or an RGB triplet like 200 220 240"
+    exit 198
 end
 
 * =============================================================================
@@ -196,19 +229,18 @@ program _tabtools_detect_vartype
     version 16.0
     args varname
 
+    tempvar _uniqtag
+    quietly egen byte `_uniqtag' = tag(`varname') if !missing(`varname')
+    quietly count if `_uniqtag'
+    local _nuniq = r(N)
+
     * Check if string
     capture confirm string variable `varname'
     if !_rc {
-        quietly levelsof `varname', local(_lvls)
-        local _nuniq : word count `_lvls'
         c_local result "cat"
         c_local result_nuniq "`_nuniq'"
         exit
     }
-
-    * Count unique non-missing values
-    quietly levelsof `varname', local(_lvls)
-    local _nuniq : word count `_lvls'
 
     * All-missing numeric -> contn
     if `_nuniq' == 0 {
@@ -282,9 +314,12 @@ program _tabtools_detect_vartype
     else {
         capture quietly swilk `varname'
     }
+    local _sw_rc = _rc
+    local _sw_p = .
+    if !`_sw_rc' local _sw_p = r(p)
     restore
 
-    if _rc {
+    if `_sw_rc' {
         * If swilk fails for any reason, default to contn
         c_local result "contn"
         c_local result_nuniq "`_nuniq'"
@@ -292,7 +327,7 @@ program _tabtools_detect_vartype
     }
 
     * Classify based on Shapiro-Wilk p-value
-    if r(p) >= 0.05 {
+    if `_sw_p' >= 0.05 {
         c_local result "contn"
     }
     else {
@@ -305,7 +340,7 @@ end
 * _tabtools_validate_sheet: Validate Excel sheet name
 * =============================================================================
 * Checks that sheet name does not exceed 31 characters and does not contain
-* characters forbidden by Excel (\ / ? * [ ]).
+* characters forbidden by Excel (\ / ? * [ ] :).
 *
 * Usage: _tabtools_validate_sheet "`sheet'" "sheet()"
 
@@ -317,8 +352,8 @@ program _tabtools_validate_sheet
         display as error "`option_name': sheet name '`sheet'' exceeds Excel's 31-character limit"
         exit 198
     }
-    if regexm("`sheet'", "[][/\\?*]") {
-        display as error "`option_name': sheet name contains characters not allowed by Excel (\ / ? * [ ])"
+    if regexm("`sheet'", "[][/\\?*:]" ) {
+        display as error "`option_name': sheet name contains characters not allowed by Excel (\ / ? * [ ] :)"
         exit 198
     }
 end
@@ -465,6 +500,10 @@ program _tabtools_resolve_format
     * Resolve borderstyle: global -> default
     if "`borderstyle'" == "" & "$TABTOOLS_BORDER" != "" local borderstyle "$TABTOOLS_BORDER"
     if "`borderstyle'" == "" local borderstyle "thin"
+    if !inlist("`borderstyle'", "default", "thin", "medium", "academic") {
+        display as error "borderstyle must be: default, thin, medium, or academic"
+        exit 198
+    }
     if "`borderstyle'" == "default" local borderstyle "thin"
     local _hborder = cond("`borderstyle'" == "academic", "medium", "`borderstyle'")
 
@@ -575,6 +614,28 @@ program _tabtools_console_display
 end
 
 * =============================================================================
+* _tabtools_helpers_ready: Verify helper bundle completeness
+* =============================================================================
+* Returns rc=0 when all requested helpers are loaded; rc=111 otherwise.
+*
+* Usage: capture _tabtools_helpers_ready
+
+capture program drop _tabtools_helpers_ready
+program _tabtools_helpers_ready
+    version 16.0
+    args required
+
+    if `"`required'"' == "" {
+        local required "_tabtools_col_letter _tabtools_validate_path _tabtools_validate_color _tabtools_build_col_letters _tabtools_footnote _tabtools_open_file _tabtools_detect_vartype _tabtools_validate_sheet _tabtools_apply_theme _tabtools_resolve_format _tabtools_console_display _tabtools_frame_put"
+    }
+
+    foreach _prog of local required {
+        capture program list `_prog'
+        if _rc exit 111
+    }
+end
+
+* =============================================================================
 * _tabtools_frame_put: Store output in a named frame with optional replace
 * =============================================================================
 * Parses frame specification that may include ", replace" sub-option.
@@ -611,6 +672,10 @@ program _tabtools_frame_put
     capture confirm frame `_fr_name'
     if !_rc {
         if "`_fr_opts'" == "replace" {
+            if "`_fr_name'" == "`c(frame)'" {
+                display as error "frame(): cannot replace the current frame (`_fr_name')"
+                exit 198
+            }
             frame drop `_fr_name'
         }
         else {

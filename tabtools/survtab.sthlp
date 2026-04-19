@@ -21,7 +21,7 @@ and restricted mean survival time.{p_end}
 {p 4 8 2}{cmd:survtab}, {opt times(numlist)} [{opt by(varname)} {opt rmst(#)}
 {opt med:ian} {opt risk:set} {opt timeu:nit(string)} {opt rev:erse} {opt diff:erence}
 {opt ev:ents} {opt dig:its(#)}
-{opt xlsx(filename)} {opt sheet(string)} {opt title(string)}
+{opt xlsx(filename)} {opt excel(filename)} {opt sheet(string)} {opt title(string)}
 {opt foot:note(string)} {opt the:me(string)} {opt borders:tyle(string)}
 {opt boldp(#)} {opt zebra} {opt high:light(#)} {opt pdp(#)} {opt highpdp(#)}
 {opt csv(filename)} {opt fra:me(name)} {opt dis:play} {opt open}
@@ -54,7 +54,7 @@ comparison. A log-rank test is performed automatically. Median survival is
 also enabled by default when {cmd:by()} is specified.{p_end}
 
 {phang}{opt rmst(#)} computes the restricted mean survival time truncated
-at the specified time horizon.{p_end}
+at the specified time horizon. {cmd:rmst()} must be greater than 0.{p_end}
 
 {phang}{opt med:ian} includes median survival with 95% confidence interval.
 Automatically enabled when {cmd:by()} is specified.{p_end}
@@ -67,15 +67,18 @@ Automatically enabled when {cmd:by()} is specified.{p_end}
 {phang}{opt rev:erse} reports cumulative incidence (1 minus survival) instead
 of survival probability.{p_end}
 
-{phang}{opt diff:erence} adds a column showing between-group differences with
-95% CI. Requires {cmd:by()}.{p_end}
+{phang}{opt diff:erence} adds a between-group difference column. Requires
+{cmd:by()} with exactly 2 groups.{p_end}
 
-{phang}{opt ev:ents} adds an events/at-risk row showing the number of events and
-total at risk for each group at each timepoint (e.g., "12 / 98").{p_end}
+{phang}{opt ev:ents} adds one aggregate {bf:Events / N} row per group showing
+event counts and the group denominator used by the Kaplan-Meier summary
+(e.g., "12 / 98"). When the data were {cmd:stset} with {cmd:id()}, {cmd:N}
+is the number of subjects rather than the number of split episodes.{p_end}
 
 {dlgtab:Output}
 
-{phang}{opt xlsx(filename)} specifies the Excel output file.{p_end}
+{phang}{opt xlsx(filename)} specifies the Excel output file. {opt excel()}
+is accepted as a synonym.{p_end}
 
 {phang}{opt sheet(string)} specifies the Excel sheet name. Default is
 "Survival".{p_end}
@@ -112,10 +115,10 @@ or {cmd:academic}.{p_end}
 CIs (default 1, range 0-6).{p_end}
 
 {phang}{opt pdp(#)} maximum decimal places for small p-values (p < 0.10).
-Default is 3.{p_end}
+Default is 3. Must be between 0 and 10.{p_end}
 
 {phang}{opt highpdp(#)} maximum decimal places for large p-values (p >= 0.10).
-Default is 2.{p_end}
+Default is 2. Must be between 0 and 10.{p_end}
 
 {phang}{cmdab:addr:ow(}{it:string asis}{cmd:)} append custom rows below the
 table body. Specify pairs of label and values. Use backslash to separate
@@ -124,7 +127,7 @@ multiple rows.{p_end}
 {marker examples}{title:Examples}
 
 {pstd}{bf:Example 1: Basic survival table}{p_end}
-{phang2}{stata "webuse cancer, clear":. webuse cancer, clear}{p_end}
+{phang2}{stata "webuse drugtr, clear":. webuse drugtr, clear}{p_end}
 {phang2}{stata "stset studytime, failure(died)":. stset studytime, failure(died)}{p_end}
 {phang2}{cmd:. survtab, times(10 20 30) by(drug) ///}{p_end}
 {phang3}{cmd:xlsx(survival.xlsx) sheet("KM") ///}{p_end}
@@ -148,9 +151,10 @@ multiple rows.{p_end}
 {synopt:{cmd:r(N_rows)}}number of rows in output table{p_end}
 {synopt:{cmd:r(logrank_p)}}log-rank test p-value (when {cmd:by()} specified){p_end}
 {synopt:{cmd:r(logrank_chi2)}}log-rank test chi-squared statistic{p_end}
-{synopt:{cmd:r(median_1)}}median survival for group 1{p_end}
-{synopt:{cmd:r(median_2)}}median survival for group 2{p_end}
-{synopt:{cmd:r(rmst_diff)}}RMST difference (when {cmd:rmst()} and {cmd:by()} specified){p_end}
+{synopt:{cmd:r(median_{it:#})}}median survival for group {it:#}{p_end}
+{synopt:{cmd:r(events_{it:#})}}event count for group {it:#} (when {cmd:events}){p_end}
+{synopt:{cmd:r(atrisk_{it:#})}}group denominator for group {it:#} (when {cmd:events}){p_end}
+{synopt:{cmd:r(rmst_diff)}}RMST difference (when {cmd:rmst()} and exactly 2 groups are compared){p_end}
 {synopt:{cmd:r(rmst_{it:#})}}restricted mean survival time for group {it:#}{p_end}
 {synopt:{cmd:r(rmst_se_{it:#})}}standard error of RMST for group {it:#}{p_end}
 {synopt:{cmd:r(rmst_lb_{it:#})}}lower 95% CI bound of RMST for group {it:#}{p_end}

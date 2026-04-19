@@ -10,11 +10,17 @@ program define table1_tc, rclass
     set varabbrev off
 
     * Auto-load shared helper programs if not already in memory
-    capture program list _tabtools_validate_path
+    capture _tabtools_helpers_ready
     if _rc {
         capture findfile _tabtools_common.ado
         if _rc == 0 {
             run "`r(fn)'"
+            capture _tabtools_helpers_ready
+            if _rc {
+                display as error "_tabtools_common.ado failed to load fully; reinstall tabtools"
+                set varabbrev `_orig_varabbrev'
+                exit 111
+            }
         }
         else {
             display as error "_tabtools_common.ado not found; reinstall tabtools"
@@ -68,7 +74,7 @@ program define table1_tc, rclass
         [HEADERShade]           /// Header row shading in Excel
         [FRAme(string)]         /// Store output in a named frame
         [THEme(string)]         /// Journal-style theme: lancet, nejm, bmj, apa
-        [SMDThreshold(real -1)] /// SMD threshold for conditional formatting (-1 = disabled)
+        [SMDThreshold(real 0.1)] /// SMD threshold for conditional formatting (0.1 default; -1 = disabled)
         [HEADERColor(string)]   /// Custom header background color (R G B)
         [ZEBRAColor(string)]    /// Custom zebra stripe color (R G B)
         [csv(string)]           /// Export data as CSV file
@@ -122,6 +128,12 @@ program define table1_tc, rclass
     local has_excel = "`excel'" != ""  // Boolean flag for Excel option
     local has_sheet = "`sheet'" != ""  // Boolean flag for sheet option
     local has_title = "`title'" != ""  // Boolean flag for title option
+    local has_open = "`open'" != ""    // Boolean flag for open option
+
+    if "`total'" != "" & !inlist("`total'", "before", "after") {
+        display as error "total() must be before or after"
+        error 198
+    }
 
     // Default sheet name when excel() is specified but sheet() is not
     if `has_excel' & !`has_sheet' {
@@ -137,13 +149,18 @@ program define table1_tc, rclass
         display as error "sheet() and title() are only available when using excel()"
         error 498
     }
+    if `has_open' & !`has_excel' {
+        display as error "open requires excel() or xlsx()"
+        error 498
+    }
 
     /* Validate Excel file path for security */
     if `has_excel' {
-        _tabtools_validate_path "`excel'" "excel()"
-        if `has_sheet' {
-            _tabtools_validate_path "`sheet'" "sheet()"
+        if !regexm(lower(`"`excel'"'), "\.xlsx$") {
+            display as error "excel()/xlsx() must specify a .xlsx file"
+            error 198
         }
+        _tabtools_validate_path "`excel'" "excel()"
     }
 
     /* Validate pdp and highpdp options */
@@ -226,6 +243,12 @@ program define table1_tc, rclass
     local has_highlight = `highlight' != -1
     if `has_highlight' & (`highlight' <= 0 | `highlight' >= 1) {
         display as error "highlight() must be between 0 and 1"
+        exit 198
+    }
+
+    * Validate smdthreshold
+    if `smdthreshold' != -1 & `smdthreshold' <= 0 {
+        display as error "smdthreshold() must be positive or -1 to disable highlighting"
         exit 198
     }
 
@@ -475,6 +498,11 @@ program define table1_tc, rclass
 
 **# Process Variables Specified in vars() Option
     local _processed_varlist ""
+    local _resolved_has_bin 0
+    local _resolved_has_cat 0
+    local _resolved_has_contn 0
+    local _resolved_has_contln 0
+    local _resolved_has_conts 0
     if "`dots'" != "" display as text "Processing variables: " _continue
     gettoken arg rest : vars, parse("\")  // Parse the first variable specification
     while `"`arg'"' != "" {
@@ -512,6 +540,11 @@ program define table1_tc, rclass
                 display as error "Variables must be classified as contn, contln, conts, cat, cate, bin or bine"
                 error 498
             }
+            if inlist("`vartype'", "bin", "bine") local _resolved_has_bin 1
+            if inlist("`vartype'", "cat", "cate") local _resolved_has_cat 1
+            if "`vartype'" == "contn" local _resolved_has_contn 1
+            if "`vartype'" == "contln" local _resolved_has_contln 1
+            if "`vartype'" == "conts" local _resolved_has_conts 1
             
             /* Get variable label or use name if no label exists */
             local varlab: variable label `varname'
@@ -1707,9 +1740,9 @@ program define table1_tc, rclass
     if "`headerperc'" != "" {
         qui {
             // Build list of columns to process (include T only if total option used)
-            local hperc_cols "`glevels'"
+            local hperc_cols "`levels'"
             if "`total'" != "" {
-                local hperc_cols "`glevels' T"
+                local hperc_cols "`levels' T"
             }
 
             // Process each group column (including total if present)
@@ -1739,22 +1772,12 @@ program define table1_tc, rclass
 
     /* Create header description with proper Oxford comma usage */
     qui {
-        /* Identify variable types present */
-        gen has_bin = regexm("`vars' ", " bin ") == 1 | regexm("`vars' ", " bine ") == 1
-        gen has_cat = regexm("`vars' ", " cat ") == 1 | regexm("`vars' ", " cate ") == 1
-        gen has_contn = regexm("`vars' ", " contn ") == 1
-        gen has_contln = regexm("`vars' ", " contln ") == 1
-        gen has_conts = regexm("`vars' ", " conts ") == 1
-        
-        /* Calculate combined flags */
-        gen has_catbin = has_cat == 1 | has_bin == 1
-        
         /* Build header parts */
         local header_parts = ""
         local part_count = 0
         
         /* Add categorical description */
-        if has_cat == 1 {
+        if `_resolved_has_cat' {
             if "`percent'" == "percent" {
                 if "`catrowperc'" != "" local header_parts = "Row %"
                 else local header_parts = "Column %"
@@ -1779,7 +1802,7 @@ program define table1_tc, rclass
         }
 
         /* Add binary description if different from categorical */
-        if has_bin == 1 & (has_cat != 1 | "`catrowperc'" != "") {
+        if `_resolved_has_bin' & (!`_resolved_has_cat' | "`catrowperc'" != "") {
             if `part_count' > 0 local header_parts = "`header_parts' or "
 
             if "`percent'" == "percent" {
@@ -1801,12 +1824,12 @@ program define table1_tc, rclass
         /* Clean up the iqrmiddle value for display */
         local iqrmiddle_clean = substr(`"`iqrmiddle'"', 2, length(`"`iqrmiddle'"') - 2)
         
-        if has_contn == 1 {
+        if `_resolved_has_contn' {
             local cont_parts = "Mean (SD)"
             local cont_count = 1
         }
         
-        if has_contln == 1 {
+        if `_resolved_has_contln' {
             if `cont_count' > 0 {
                 if `cont_count' == 1 {
                     local cont_parts = "`cont_parts' or "
@@ -1819,7 +1842,7 @@ program define table1_tc, rclass
             local cont_count = `cont_count' + 1
         }
         
-        if has_conts == 1 {
+        if `_resolved_has_conts' {
             if `cont_count' > 0 {
                 if `cont_count' == 1 {
                     local cont_parts = "`cont_parts' or "
@@ -1853,10 +1876,8 @@ program define table1_tc, rclass
         
         /* Apply header description */
         replace factor = "`header_parts'" if _n == 2
-        
-        /* Clean up temporary variables */
-        drop has_*
     }
+    local _descriptor_row_text `"`header_parts'"'
 
     /* Display the table */
     qui ds factor_sep _* N_* m_*, not
@@ -1866,13 +1887,13 @@ program define table1_tc, rclass
     /* Generate data description string */
     qui {
         // Check which variable types are present
-        local ybin = regexm("`vars' ", " bin ") == 1 | regexm("`vars' ", " bine ") == 1  // Binary variables
-        local ycat = regexm("`vars' ", " cat ") == 1 | regexm("`vars' ", " cate ") == 1  // Categorical variables
+        local ybin `_resolved_has_bin'  // Binary variables
+        local ycat `_resolved_has_cat'  // Categorical variables
         if "`ycat'" == "1" | "`ybin'" == "1" local ycatbin "1"  // Flag if any categorical/binary
         
-        local ycontn = regexm("`vars' ", " contn ") == 1  // Normal continuous
-        local ycontln = regexm("`vars' ", " contln ") == 1  // Log-normal continuous
-        local yconts = regexm("`vars' ", " conts ") == 1  // Skewed continuous
+        local ycontn `_resolved_has_contn'  // Normal continuous
+        local ycontln `_resolved_has_contln'  // Log-normal continuous
+        local yconts `_resolved_has_conts'  // Skewed continuous
         
         /* Build description for continuous variables */
         if "`ycontn'" == "1" & "`ycontln'" == "1" & "`yconts'" == "1" {
@@ -1913,17 +1934,16 @@ program define table1_tc, rclass
             local ymix "`ymix' and `percfootnote2' for binary measures"
         }
         
-        /* Display data description if not using varlabplus */
+        if `has_wtcompare' {
+            local Dapa "Crude and weighted data are presented as `ymix'. P-values suppressed. SMD reflects weighted comparison."
+        }
+        else if `has_wt' {
+            local Dapa "Weighted data are presented as `ymix'. P-values suppressed."
+        }
+        else {
+            local Dapa "Data are presented as `ymix'."
+        }
         if `"`varlabplus'"' == "" {
-            if `has_wtcompare' {
-                local Dapa "Crude and weighted data are presented as `ymix'. P-values suppressed. SMD reflects weighted comparison."
-            }
-            else if `has_wt' {
-                local Dapa "Weighted data are presented as `ymix'. P-values suppressed."
-            }
-            else {
-                local Dapa "Data are presented as `ymix'."
-            }
             display "`Dapa'"
         }
         return local Dapa "`Dapa'"
@@ -2015,8 +2035,9 @@ program define table1_tc, rclass
     capture confirm variable _smd_raw
     local _has_smdraw = !_rc
     if `_has_praw' | `_has_smdraw' {
-        * Count data rows (skip header row 1 and category sub-rows)
-        qui count if factor != " " & factor != "" & factor != "N" & factor != "Effective sample size"
+        * Count data rows (skip descriptor/header rows and category sub-rows)
+        qui count if factor != " " & factor != "" & factor != "N" & ///
+            factor != "Effective sample size" & factor != `"`_descriptor_row_text'"'
         local _rt_nrows = r(N)
         if `_rt_nrows' > 0 & `_rt_nrows' <= 200 {
             local _rt_ncols = `_has_praw' + `_has_smdraw'
@@ -2024,7 +2045,8 @@ program define table1_tc, rclass
             local _rt_r = 0
             forvalues _obs = 1/`=_N' {
                 local _fval = factor[`_obs']
-                if "`_fval'" != " " & "`_fval'" != "" & "`_fval'" != "N" & "`_fval'" != "Effective sample size" {
+                if "`_fval'" != " " & "`_fval'" != "" & "`_fval'" != "N" & ///
+                    "`_fval'" != "Effective sample size" & "`_fval'" != `"`_descriptor_row_text'"' {
                     local _rt_r = `_rt_r' + 1
                     local _rt_c = 0
                     if `_has_praw' {
@@ -2087,7 +2109,7 @@ program define table1_tc, rclass
 			local iqrmiddle = substr(`"`iqrmiddle'"', 2, length(`"`iqrmiddle'"') - 2)
 
 			/* Add categorical formats if present */
-			if "`ycat'" == "1" {
+			if `_resolved_has_cat' {
 				if `part_count' > 0 local header_parts = "`header_parts', "
 				
 				if "`catrowperc'" != "" {
@@ -2110,7 +2132,7 @@ program define table1_tc, rclass
 			}
 			
 			/* Add binary format if present and different from categorical */
-			if "`ybin'" == "1" & ("`ycat'" != "1" | "`catrowperc'" != "") {
+			if `_resolved_has_bin' & (!`_resolved_has_cat' | "`catrowperc'" != "") {
 				if `part_count' > 0 local header_parts = "`header_parts', "
 				
 				if "`percent_n'" == "percent_n" {
@@ -2126,28 +2148,28 @@ program define table1_tc, rclass
 				local header_parts = ""
 				local part_count = 0
 				
-				if "`ycontn'" == "1" | "`ycontln'" == "1" | "`yconts'" == "1" {
-					if "`ycontn'" == "1" {
+				if `_resolved_has_contn' | `_resolved_has_contln' | `_resolved_has_conts' {
+					if `_resolved_has_contn' {
 						local header_parts = "Mean (SD)"
 						local part_count = 1
 					}
-					if "`ycontln'" == "1" {
+					if `_resolved_has_contln' {
 						if `part_count' > 0 local header_parts = "`header_parts', "
 						local header_parts = "`header_parts'Geometric mean (×/GSD)"
 						local part_count = `part_count' + 1
 					}
-					if "`yconts'" == "1" {
+					if `_resolved_has_conts' {
 						if `part_count' > 0 local header_parts = "`header_parts', "
 						local header_parts = "`header_parts'Median (Q1`iqrmiddle'Q3)"
 						local part_count = `part_count' + 1
 					}
 					
-					if "`ycat'" == "1" | "`ybin'" == "1" {
+					if `_resolved_has_cat' | `_resolved_has_bin' {
 						if `part_count' > 0 local header_parts = "`header_parts', "
 						
-						if "`ycat'" == "1" & "`catrowperc'" != "" {
+						if `_resolved_has_cat' & "`catrowperc'" != "" {
 							local header_parts = "`header_parts'Row %"
-							if "`ybin'" == "1" local header_parts = "`header_parts', Column %"
+							if `_resolved_has_bin' local header_parts = "`header_parts', Column %"
 						}
 						else {
 							local header_parts = "`header_parts'Column %"
@@ -2155,9 +2177,9 @@ program define table1_tc, rclass
 					}
 				}
 				else {
-					if "`ycat'" == "1" & "`catrowperc'" != "" {
+					if `_resolved_has_cat' & "`catrowperc'" != "" {
 						local header_parts = "Row %"
-						if "`ybin'" == "1" local header_parts = "`header_parts', Column %"
+						if `_resolved_has_bin' local header_parts = "`header_parts', Column %"
 					}
 					else {
 						local header_parts = "Column %"
@@ -2166,19 +2188,19 @@ program define table1_tc, rclass
 			}
 			
 			/* Add continuous variable formats if present */
-			if "`ycontn'" == "1" {
+			if `_resolved_has_contn' {
 				if `part_count' > 0 local header_parts = "`header_parts', "
 				local header_parts = "`header_parts'Mean (SD)"
 				local part_count = `part_count' + 1
 			}
 			
-			if "`ycontln'" == "1" {
+			if `_resolved_has_contln' {
 				if `part_count' > 0 local header_parts = "`header_parts', "
 				local header_parts = "`header_parts'Geometric mean (×/GSD)"
 				local part_count = `part_count' + 1
 			}
 			
-			if "`yconts'" == "1" {
+			if `_resolved_has_conts' {
 				if `part_count' > 0 local header_parts = "`header_parts', "
 				local header_parts = "`header_parts'Median (Q1`iqrmiddle'Q3)"
 				local part_count = `part_count' + 1
@@ -2608,6 +2630,10 @@ program define table1_tc, rclass
 
         }
     }
+
+    /* Keep internal raw columns out of public outputs */
+    capture drop _p_raw
+    capture drop _smd_raw
 
     * CSV export (F2)
     if "`csv'" != "" {

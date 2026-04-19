@@ -755,6 +755,43 @@ else {
     local ++n_fail
 }
 
+* --- KE6.2b: stsplit data still report subjects/events, not episodes ---
+local ++n_total
+capture noisily {
+    webuse drugtr, clear
+    gen long id = _n
+    quietly stset studytime, failure(died) id(id)
+    quietly stsplit split_t, at(10 20 30)
+    assert _N > 48
+
+    quietly levelsof drug, local(drug_levels)
+    local g = 0
+    foreach lev of local drug_levels {
+        local ++g
+        tempvar _sub_tag _evt_tag
+        quietly egen byte `_sub_tag' = tag(id) if drug == `lev'
+        quietly count if `_sub_tag'
+        local exp_n_`g' = r(N)
+        quietly egen byte `_evt_tag' = tag(id) if drug == `lev' & _d == 1
+        quietly count if `_evt_tag'
+        local exp_e_`g' = r(N)
+    }
+
+    survtab, times(20) by(drug) events
+    foreach g of numlist 1/2 {
+        assert r(atrisk_`g') == `exp_n_`g''
+        assert r(events_`g') == `exp_e_`g''
+    }
+}
+if _rc == 0 {
+    display as result "  PASS: KE6.2b — survtab uses subject counts after stsplit"
+    local ++n_pass
+}
+else {
+    display as error "  FAIL: KE6.2b — survtab stsplit subject counts (rc=`=_rc')"
+    local ++n_fail
+}
+
 * --- KE6.3: log-rank chi2 / p match sts test ---
 local ext_n_total = `n_total'
 local ++n_total
@@ -1004,13 +1041,12 @@ capture noisily {
 
     capture frame drop _ke_t1p
     table1_tc, by(foreign) vars(price contn) frame(_ke_t1p)
-    frame _ke_t1p {
-        local rp = _p_raw[3]
-        assert abs(`rp' - `ref_p') < 1e-4
-    }
+    tempname _ke_t1p_mat
+    matrix `_ke_t1p_mat' = r(table)
+    assert abs(`_ke_t1p_mat'[1,1] - `ref_p') < 1e-4
 }
 if _rc == 0 {
-    display as result "  PASS: KE7.5 — table1_tc raw p equals ttest p"
+    display as result "  PASS: KE7.5 — table1_tc r(table) p equals ttest p"
     local ++n_pass
 }
 else {

@@ -142,6 +142,12 @@ A {cmd:custom} theme accepts additional options on the same line:
 {p 8 17 2}
 {cmd:tabtools set theme custom, font(}{it:name}{cmd:) fontsize(}{it:#}{cmd:) headercolor(}{it:color}{cmd:) zebracolor(}{it:color}{cmd:) borderstyle(}{it:name}{cmd:)}
 
+{pstd}
+{it:color} may be either a named Excel color such as {cmd:navy} or an RGB
+triplet such as {cmd:"200 220 240"}. Omitted custom-theme suboptions reset
+that component to the command default the next time {cmd:tabtools set theme custom}
+is run.
+
 
 {marker defaults}{...}
 {title:Persistent defaults}
@@ -151,6 +157,11 @@ A {cmd:custom} theme accepts additional options on the same line:
 current session. Every tabtools command checks these globals before applying
 its own defaults, so you can configure formatting once and have it apply
 everywhere.
+
+{pstd}
+{cmd:tabtools get} reports the effective values that commands will use. Under a
+named theme such as {cmd:lancet}, this means the resolved theme values rather
+than any stale raw globals left over from earlier custom settings.
 
 {pstd}
 Defaults are session-only: they are lost when Stata is closed or restarted.
@@ -188,7 +199,7 @@ across sessions.
 {pstd}
 {bf:Custom theme with specific colors}
 
-{phang2}{cmd:. tabtools set theme custom, font(Arial) fontsize(9) headercolor(navy) borderstyle(thin)}{p_end}
+{phang2}{cmd:. tabtools set theme custom, font(Arial) fontsize(9) headercolor("200 220 240") borderstyle(thin)}{p_end}
 
 {pstd}
 {bf:Reset to command defaults}
@@ -239,12 +250,12 @@ across sessions.
 
 {synoptset 18 tabbed}{...}
 {p2col 5 18 22 2: Macros}{p_end}
-{synopt:{cmd:r(font)}}current font name{p_end}
-{synopt:{cmd:r(fontsize)}}current font size{p_end}
-{synopt:{cmd:r(borderstyle)}}current border style{p_end}
+{synopt:{cmd:r(font)}}effective current font name{p_end}
+{synopt:{cmd:r(fontsize)}}effective current font size{p_end}
+{synopt:{cmd:r(borderstyle)}}effective current border style{p_end}
 {synopt:{cmd:r(theme)}}current theme name{p_end}
-{synopt:{cmd:r(headercolor)}}current header color setting{p_end}
-{synopt:{cmd:r(zebracolor)}}current zebra stripe color setting{p_end}
+{synopt:{cmd:r(headercolor)}}effective current header color setting{p_end}
+{synopt:{cmd:r(zebracolor)}}effective current zebra stripe color setting{p_end}
 {synopt:{cmd:r(digits)}}current digits setting{p_end}
 {synopt:{cmd:r(boldp)}}current boldp setting{p_end}
 

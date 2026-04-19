@@ -25,21 +25,29 @@
 {cmd:rows(}{it:string}{cmd:)}
 [{it:options}]
 
+{p 8 17 2}
+{cmd:comptab}
+{it:framelist}
+{cmd:,}
+{cmdab:rown:ames(}{it:string}{cmd:)}
+[{it:options}]
+
 
 {synoptset 30 tabbed}{...}
 {synopthdr}
 {synoptline}
 {syntab:Required}
-{synopt:{opt rows(string)}}backslash-separated row specifications, one per frame{p_end}
-{synopt:{cmdab:rown:ames(}{it:string}{cmd:)}}alternative to {opt rows()}: select rows by name/label pattern{p_end}
+{synopt:{opt rows(string)}}backslash-separated row specifications, one per frame; exactly one of {opt rows()} or {opt rownames()} is required{p_end}
+{synopt:{cmdab:rown:ames(}{it:string}{cmd:)}}alternative to {opt rows()}: select rows by rendered row-label substring{p_end}
 
 {syntab:Output}
 {synopt:{opt xlsx(filename)}}Excel output file (.xlsx){p_end}
+{synopt:{opt excel(filename)}}synonym for {opt xlsx()}{p_end}
 {synopt:{opt sheet(string)}}Excel sheet name (default: "Composite"){p_end}
 {synopt:{opt csv(filename)}}export to CSV file{p_end}
 {synopt:{cmdab:fra:me(}{it:name}{cmd:)}}save composite to a named Stata frame; specify {cmd:frame(name, replace)} to replace an existing frame{p_end}
 {synopt:{cmdab:dis:play}}show console preview{p_end}
-{synopt:{opt open}}open Excel file after export{p_end}
+{synopt:{opt open}}open Excel file after export; requires {opt xlsx()} or {opt excel()}{p_end}
 
 {syntab:Content}
 {synopt:{opt title(string)}}table title for cell A1{p_end}
@@ -82,7 +90,10 @@ Common use cases:
 {pstd}
 Source frames are created by running {cmd:regtab} or {cmd:effecttab} with
 the {opt frame()} option. All source frames must have the same column structure
-(same number of models).
+(same layout and number of model blocks). Standard frames
+({it:estimate} | {it:CI} | {it:p}) and compact frames
+({it:estimate+CI} | {it:p}) are both supported, but all source frames in one
+call must use the same layout.
 
 
 {marker options}{...}
@@ -102,14 +113,16 @@ the first frame, rows 1 and 3 through 5 from the second, and row 1 from the thir
 
 {phang}
 {cmdab:rown:ames(}{it:string}{cmd:)} is an alternative to {opt rows()} that selects rows
-by name or label pattern instead of row number. Specifications are separated by
-backslashes, one per frame. Each specification is a space-separated list of patterns
-matched against the first column (row labels) in the source frame.
+by rendered row-label pattern instead of row number. Specifications are separated
+by backslashes, one per frame. Each specification is a space-separated list of
+case-insensitive substrings matched against the first column ({cmd:A}) in the
+source frame. This matches the displayed row labels, not the original source
+variable names.
 
 {pmore}
-Example: {cmd:rownames(age sex \ age education income)} extracts rows labeled "age"
-and "sex" from the first frame, and rows "age", "education", and "income" from the second.
-Only one of {opt rows()} or {opt rownames()} may be specified.
+Example: {cmd:rownames(origin weight \ origin length)} extracts rows whose displayed
+labels contain those substrings. Only one of {opt rows()} or {opt rownames()} may
+be specified.
 
 {dlgtab:Content}
 
@@ -117,7 +130,8 @@ Only one of {opt rows()} or {opt rownames()} may be specified.
 {opt compact} merges the estimate and CI into a single column per model,
 changing the layout from ({it:Est} | {it:CI} | {it:p}) to
 ({it:Est (CI)} | {it:p}). This produces a more compact table, common in
-publication composite tables.
+publication composite tables. When source frames are already compact, the output
+stays compact and {opt compact} is redundant.
 
 {phang}
 {opt section(string)} inserts bold section header rows before each
@@ -147,7 +161,8 @@ not needed.
 {cmd:lancet} (Arial 9pt, academic borders),
 {cmd:nejm} (Arial 10pt, shaded headers),
 {cmd:bmj} (Arial 10pt, academic borders),
-{cmd:apa} (Times New Roman 12pt, academic borders).
+{cmd:apa} (Times New Roman 12pt, academic borders),
+{cmd:jama}, {cmd:plos}, {cmd:nature}, {cmd:cell}, {cmd:annals}, and {cmd:custom}.
 Theme settings can be overridden by explicit options.
 
 {phang}

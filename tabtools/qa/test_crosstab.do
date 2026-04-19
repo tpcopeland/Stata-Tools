@@ -79,6 +79,45 @@ else {
 }
 capture frame drop cross_col
 
+**## missing changes level discovery and table totals
+local ++test_count
+capture noisily {
+    clear
+    input double outcome double exposure
+    0 0
+    0 1
+    1 0
+    1 1
+    . 0
+    1 .
+    end
+
+    capture frame drop cross_nomiss
+    crosstab outcome exposure, frame(cross_nomiss, replace)
+    assert r(N) == 4
+    frame cross_nomiss: assert c4[5] == "4"
+    capture frame drop cross_nomiss
+
+    capture frame drop cross_miss
+    crosstab outcome exposure, missing frame(cross_miss, replace)
+    assert r(N) == 6
+    frame cross_miss {
+        assert c1[5] == "Missing"
+        assert c4[4] == "1 (100.0%)"
+        assert c5[6] == "6"
+    }
+}
+if _rc == 0 {
+    display as result "  PASS: crosstab missing propagates into counts and levels"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: crosstab missing propagates into counts and levels (rc=`=_rc')"
+    local ++fail_count
+}
+capture frame drop cross_nomiss
+capture frame drop cross_miss
+
 **## rowpct and totalpct use the right denominators
 local ++test_count
 capture noisily {
@@ -150,6 +189,45 @@ else {
     local ++fail_count
 }
 
+**## methods text reflects RR/RD and trend paths
+local ++test_count
+capture noisily {
+    clear
+    input byte outcome byte exposure int freq
+    0 0 40
+    0 1 20
+    1 0 10
+    1 1 30
+    end
+    expand freq
+
+    crosstab outcome exposure, rr rd
+    assert strpos("`r(methods)'", "risk ratio") > 0
+    assert strpos("`r(methods)'", "risk difference") > 0
+
+    clear
+    input byte outcome byte dose int freq
+    0 0 25
+    1 0 5
+    0 1 20
+    1 1 10
+    0 2 10
+    1 2 20
+    end
+    expand freq
+
+    crosstab outcome dose, trend
+    assert strpos("`r(methods)'", "trend") > 0
+}
+if _rc == 0 {
+    display as result "  PASS: crosstab methods text matches reported analyses"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: crosstab methods text matches reported analyses (rc=`=_rc')"
+    local ++fail_count
+}
+
 **## fweights preserve weighted totals
 local ++test_count
 capture noisily {
@@ -179,6 +257,108 @@ else {
     local ++fail_count
 }
 capture frame drop cross_w
+
+**## invalid input contracts reject cleanly
+local ++test_count
+capture noisily {
+    clear
+    input byte outcome byte exposure int freq
+    0 0 40
+    0 1 20
+    1 0 10
+    1 1 30
+    end
+    expand freq
+
+    capture crosstab outcome exposure, rowpct totalpct
+    assert _rc == 198
+
+    capture crosstab outcome exposure, open
+    assert _rc == 198
+
+    capture crosstab outcome exposure, xlsx("bad_ext.txt")
+    assert _rc == 198
+
+    clear
+    input byte outcome byte exposure
+    0 0
+    0 1
+    0 2
+    1 0
+    1 1
+    1 2
+    end
+
+    capture crosstab outcome exposure, or
+    assert _rc == 198
+    capture crosstab outcome exposure, rr
+    assert _rc == 198
+    capture crosstab outcome exposure, rd
+    assert _rc == 198
+
+    clear
+    input str3 outcome str1 exposure
+    "Yes" "A"
+    "No"  "A"
+    "Yes" "B"
+    "No"  "B"
+    end
+
+    capture crosstab outcome exposure
+    assert _rc == 109
+
+    clear
+    input byte outcome byte exposure int freq
+    0 0 40
+    0 1 20
+    1 0 10
+    1 1 30
+    end
+
+    capture crosstab outcome exposure [iw=freq]
+    assert _rc != 0
+}
+if _rc == 0 {
+    display as result "  PASS: crosstab rejects conflicting or unsupported inputs"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: crosstab rejects conflicting or unsupported inputs (rc=`=_rc')"
+    local ++fail_count
+}
+
+**## CSV export matches the displayed variable order
+local ++test_count
+capture noisily {
+    clear
+    input byte outcome byte exposure int freq
+    0 0 40
+    0 1 20
+    1 0 10
+    1 1 30
+    end
+    expand freq
+
+    local csvfile "`output_dir'/crosstab_layout.csv"
+    capture erase "`csvfile'"
+    crosstab outcome exposure, csv("`csvfile'")
+
+    tempname fh
+    local header ""
+    file open `fh' using "`csvfile'", read text
+    file read `fh' header
+    file close `fh'
+
+    assert "`header'" == "title,c1,c2,c3,c4"
+}
+if _rc == 0 {
+    display as result "  PASS: crosstab CSV layout matches console/XLSX order"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: crosstab CSV layout matches console/XLSX order (rc=`=_rc')"
+    local ++fail_count
+}
 
 **# Display and Frame
 **## display and frame() work together

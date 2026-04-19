@@ -26,7 +26,8 @@ help for {cmd:table1_tc}
 {opt table1_tc} [{it:varlist}] {ifin} {weight}, {opt by(varname)} [{it:options}]
 
 {pstd}When a {it:varlist} is provided without {opt vars()}, each variable's type is automatically
-detected using the Shapiro-Wilk test. This is the simplest way to use {cmd:table1_tc}.{p_end}
+detected using the command's built-in type-classification heuristics. This is the simplest way to
+use {cmd:table1_tc}.{p_end}
 
 {pstd}{bf:Advanced (explicit types):}{p_end}
 
@@ -84,24 +85,24 @@ detected using the Shapiro-Wilk test. This is the simplest way to use {cmd:table
 {synopt:{opt highpdp(#)}}max decimal places for p >= 0.10; default is 2{p_end}
 
 {syntab:Excel Output}
-{synopt:{opt xlsx("filename")}}save table to Excel file (.xlsx){p_end}
-{synopt:{opt sheet("string")}}Excel sheet name; default is "Table 1"{p_end}
+{synopt:{opt xlsx("filename")}}save table to Excel file; {opt excel()} is a synonym; target must end in {.xlsx}{p_end}
+{synopt:{opt sheet("string")}}Excel sheet name; default is "Table 1"; available only with {opt xlsx()}/{opt excel()}{p_end}
 {synopt:{opt title("string")}}title for the Excel table{p_end}
 {synopt:{cmdab:borders:tyle(}{it:string}{cmd:)}}border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or {cmd:academic}{p_end}
 {synopt:{cmdab:the:me(}{it:string}{cmd:)}}journal-style formatting preset: {cmd:lancet}, {cmd:nejm}, {cmd:bmj}, {cmd:apa}, {cmd:jama}, {cmd:plos}, {cmd:nature}, {cmd:cell}, {cmd:annals}, or {cmd:custom}{p_end}
 {synopt:{opt boldp(#)}}bold p-value cells below threshold{p_end}
 {synopt:{cmdab:foot:note(}{it:string}{cmd:)}}add footnote row below table{p_end}
-{synopt:{opt open}}open Excel file after export{p_end}
+{synopt:{opt open}}open the exported workbook; requires {opt xlsx()} or {opt excel()}{p_end}
 {synopt:{opt zebra}}alternating row shading{p_end}
 {synopt:{cmdab:headers:hade}}apply shading to header rows{p_end}
 {synopt:{cmdab:high:light(}{it:#}{cmd:)}}highlight rows where p < threshold{p_end}
-{synopt:{cmdab:smdt:hreshold(}{it:#}{cmd:)}}SMD threshold for orange highlighting; default is 0.1{p_end}
+{synopt:{cmdab:smdt:hreshold(}{it:#}{cmd:)}}SMD threshold for orange highlighting in Excel; default is 0.1; use -1 to disable{p_end}
 {synopt:{cmdab:headerc:olor(}{it:string}{cmd:)}}custom header background color (R G B){p_end}
 {synopt:{cmdab:zebrac:olor(}{it:string}{cmd:)}}custom zebra stripe color (R G B){p_end}
 {synopt:{opt csv("filename")}}also export as CSV file{p_end}
 
 {syntab:Frame & Pipeline}
-{synopt:{cmdab:fra:me(}{it:name}{cmd:)}}store output in a named Stata frame{p_end}
+{synopt:{cmdab:fra:me(}{it:name}[{cmd:, replace}]{cmd:)}}store output in a named Stata frame{p_end}
 
 {syntab:Other}
 {synopt:{opt clear}}replace dataset in memory with the table{p_end}
@@ -127,7 +128,7 @@ type keyword, each variable's type is automatically classified:{p_end}
 {p 8 8 2}1. String variables or variables with value labels (>2 levels) → {cmd:cat}{p_end}
 {p 8 8 2}2. Variables with exactly 2 unique values → {cmd:bin}{p_end}
 {p 8 8 2}3. Variables with ≤7 unique values → {cmd:cat}{p_end}
-{p 8 8 2}4. Variables with >7 unique values → Shapiro-Wilk normality test:{p_end}
+{p 8 8 2}4. Variables with >7 unique values → distributional classification via the shared helper:{p_end}
 {p 12 12 2}p ≥ 0.05 → {cmd:contn} (normal){p_end}
 {p 12 12 2}p < 0.05 → {cmd:conts} (skewed){p_end}
 
@@ -156,7 +157,7 @@ directly to a regression model:{p_end}
 {pstd}{bf:Quick start — auto-detect all variable types:}{p_end}
 
 {phang2}{cmd:. sysuse auto, clear}{p_end}
-{phang2}{cmd:. table1_tc price mpg weight rep78 foreign, by(foreign)}{p_end}
+{phang2}{cmd:. table1_tc rep78 foreign, by(foreign)}{p_end}
 
 {pstd}{bf:With Excel export and formatting:}{p_end}
 
@@ -183,7 +184,7 @@ directly to a regression model:{p_end}
 
 {pstd}{bf:Store results in a frame:}{p_end}
 
-{phang2}{cmd:. table1_tc age sex bmi, by(treated) frame(mytable)}{p_end}
+{phang2}{cmd:. table1_tc age sex bmi, by(treated) frame(mytable, replace)}{p_end}
 {phang2}{cmd:. frame mytable: list}{p_end}
 
 
@@ -195,14 +196,14 @@ directly to a regression model:{p_end}
 
 {synoptset 18 tabbed}{...}
 {p2col 5 18 22 2: Macros}{p_end}
-{synopt:{cmd:r(Dapa)}}data presentation description (e.g., "Data are presented as mean (SD) or No. (%)."){p_end}
+{synopt:{cmd:r(Dapa)}}data-presentation description built from the resolved variable types; returned even with {opt varlabplus}{p_end}
 {synopt:{cmd:r(methods)}}extended methods paragraph describing statistical tests used (when {opt by()} specified without {opt wt()}){p_end}
 {synopt:{cmd:r(varlist)}}space-separated list of processed variables{p_end}
 {synopt:{cmd:r(xlsx)}}path to exported Excel file (when {opt xlsx()} specified){p_end}
 {synopt:{cmd:r(sheet)}}Excel sheet name (when {opt xlsx()} specified){p_end}
 
 {p2col 5 18 22 2: Matrices}{p_end}
-{synopt:{cmd:r(table)}}table contents matrix (when {opt xlsx()} specified){p_end}
+{synopt:{cmd:r(table)}}numeric matrix of raw {cmd:p_value} and absolute {cmd:smd} for top-level variable rows; omitted when no such columns exist or when the table has more than 200 rows{p_end}
 
 
 {marker technical}{...}
@@ -213,15 +214,15 @@ directly to a regression model:{p_end}
 {p 8 8 2}Binary variables: difference in proportions / pooled SD of proportions{p_end}
 {p 8 8 2}Categorical variables: average absolute SMD across dummy-coded categories{p_end}
 
-{pstd}Values |SMD| > {opt smdthreshold()} (default 0.1) are highlighted in orange in Excel output,
-following the convention that |SMD| > 0.1 indicates meaningful imbalance (Austin, 2009).{p_end}
+{pstd}Values |SMD| > {opt smdthreshold()} (default 0.1) are highlighted in orange in Excel output.
+Specify {cmd:smdthreshold(-1)} to disable this formatting. The 0.1 convention follows Austin (2009).{p_end}
 
 {pstd}When {opt by()} has more than 2 groups, SMD is computed for the first two groups only.
 A note is displayed identifying which groups are compared.{p_end}
 
-{pstd}{bf:Auto-type detection:} Uses Shapiro-Wilk test (p=0.05 threshold) on a random sample
-of up to 2,000 observations with a fixed seed for reproducibility. Users should verify
-classifications for publishable tables.{p_end}
+{pstd}{bf:Auto-type detection:} Variables with more than 7 unique values are classified by the
+shared helper using normality/distributional heuristics; large-N paths may use a fallback heuristic
+instead of direct Shapiro-Wilk testing. Users should verify classifications for publishable tables.{p_end}
 
 
 {title:References}

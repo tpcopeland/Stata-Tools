@@ -26,7 +26,7 @@ for general 2x2 tables and {helpb corrtab} for matrix-style correlation output.{
 {marker syntax}{title:Syntax}
 
 {p 4 8 2}{cmd:diagtab} {it:test_var} {it:gold_var} [{it:if}] [{it:in}],
-[{opt xlsx(filename)} {opt cutoff(#)} {opt cutoffs(numlist)}
+[{opt xlsx(filename)} {opt excel(filename)} {opt cutoff(#)} {opt cutoffs(numlist)}
 {opt prevalence(#)} {opt exact} {opt wilson} {opt auc} {opt optimal}
 {opt digits(#)} {opt sheet(string)} {opt title(string)}
 {opt footnote(string)} {opt theme(string)} {opt borderstyle(string)}
@@ -41,7 +41,8 @@ classification table: sensitivity, specificity, PPV, NPV, accuracy,
 likelihood ratios, diagnostic odds ratio, and optionally AUC. Confidence
 intervals use Wilson score (default) or Clopper-Pearson exact method. If
 {opt cutoff()}, {opt cutoffs()}, and {opt optimal} are all omitted, {it:test_var}
-must already be coded 0/1.{p_end}
+must already be coded 0/1. Output may be displayed in the Results window,
+exported to Excel or CSV, or stored in a Stata frame.{p_end}
 
 {marker options}{title:Options}
 
@@ -51,18 +52,19 @@ must already be coded 0/1.{p_end}
 {synopt:{opt cutoff(#)}}dichotomize a continuous test variable at a single threshold{p_end}
 {synopt:{opt cutoffs(numlist)}}evaluate diagnostic accuracy over multiple cutoff values; cannot be combined with {opt cutoff()}, {opt auc}, or {opt optimal}{p_end}
 {synopt:{opt prevalence(#)}}adjust PPV and NPV for a target prevalence between 0 and 1{p_end}
-{synopt:{opt exact}}use Clopper-Pearson exact confidence intervals{p_end}
-{synopt:{opt wilson}}use Wilson score confidence intervals (default){p_end}
-{synopt:{opt auc}}report AUC with 95% CI{p_end}
+{synopt:{opt exact}}use Clopper-Pearson exact confidence intervals; may not be combined with {opt wilson}{p_end}
+{synopt:{opt wilson}}use Wilson score confidence intervals (default); may not be combined with {opt exact}{p_end}
+{synopt:{opt auc}}report AUC with 95% CI; requires both 0 and 1 in {it:gold_var}{p_end}
 {synopt:{opt optimal}}choose the cutoff that maximizes Youden's J index{p_end}
 {synopt:{opt digits(#)}}decimal places for diagnostic measures and confidence intervals; default 1, range 0-6{p_end}
 {syntab:Output}
-{synopt:{opt xlsx(filename)}}export to Excel; if omitted, output is displayed in the Results window only{p_end}
+{synopt:{opt xlsx(filename)}}export to Excel; filename must end in {cmd:.xlsx}{p_end}
+{synopt:{opt excel(filename)}}synonym for {opt xlsx(filename)}{p_end}
 {synopt:{opt sheet(string)}}Excel sheet name; default is {cmd:"Diagnostics"}{p_end}
 {synopt:{opt csv(filename)}}also export the output dataset as CSV{p_end}
-{synopt:{opt frame(name)}}store the output dataset in a named Stata frame{p_end}
+{synopt:{cmdab:fra:me(}{it:name}{cmd:)}}store the output dataset in a named Stata frame; specify {cmd:frame(name, replace)} to replace an existing frame{p_end}
 {synopt:{opt display}}show console output in addition to any file export{p_end}
-{synopt:{opt open}}open the Excel file after export{p_end}
+{synopt:{opt open}}open the Excel file after export; requires {opt xlsx()} or {opt excel()}{p_end}
 {syntab:Formatting}
 {synopt:{opt title(string)}}table title{p_end}
 {synopt:{opt footnote(string)}}footnote text below the table{p_end}
@@ -80,19 +82,23 @@ must already be coded 0/1.{p_end}
 Values >= cutoff are classified as test-positive.{p_end}
 
 {phang}{opt cutoffs(numlist)} evaluate diagnostic accuracy at multiple cutoff
-values. Produces one row per cutoff showing all metrics. Cannot be combined with
-{opt cutoff()}.{p_end}
+values. Produces one section per cutoff in the displayed/exported table and
+returns the combined results in {cmd:r(cutoff_table)} plus the original cutoff
+list in {cmd:r(cutoffs)}. When {opt cutoffs()} is used, the single-cutoff
+scalars such as {cmd:r(sensitivity)} and {cmd:r(specificity)} are not returned.
+Cannot be combined with {opt cutoff()}, {opt auc}, or {opt optimal}.{p_end}
 
 {phang}{opt prevalence(#)} adjust PPV and NPV for a specified prevalence using
 Bayes' theorem. Useful when the study sample prevalence differs from the target population.
 Specify a proportion strictly between 0 and 1.{p_end}
 
-{phang}{opt exact} use Clopper-Pearson exact confidence intervals instead of Wilson score.{p_end}
+{phang}{opt exact} use Clopper-Pearson exact confidence intervals instead of Wilson score. May not be combined with {opt wilson}.{p_end}
 
-{phang}{opt wilson} use Wilson score confidence intervals (this is the default).{p_end}
+{phang}{opt wilson} use Wilson score confidence intervals (this is the default). May not be combined with {opt exact}.{p_end}
 
 {phang}{opt auc} report area under the ROC curve with 95% CI. Cannot be combined
-with {opt cutoffs()}.{p_end}
+with {opt cutoffs()}, and requires both outcome classes to be present in
+{it:gold_var}.{p_end}
 
 {phang}{opt optimal} find the optimal cutoff that maximizes Youden's J index
 (sensitivity + specificity - 1). Requires a continuous test variable. If
@@ -133,17 +139,17 @@ Cannot be combined with {opt cutoffs()}.{p_end}
 
 {synoptset 18 tabbed}{...}
 {p2col 5 18 22 2: Scalars}{p_end}
-{synopt:{cmd:r(sensitivity)}}sensitivity{p_end}
-{synopt:{cmd:r(specificity)}}specificity{p_end}
-{synopt:{cmd:r(ppv)}}positive predictive value{p_end}
-{synopt:{cmd:r(npv)}}negative predictive value{p_end}
-{synopt:{cmd:r(accuracy)}}overall accuracy{p_end}
-{synopt:{cmd:r(lr_pos)}}positive likelihood ratio{p_end}
-{synopt:{cmd:r(lr_neg)}}negative likelihood ratio{p_end}
-{synopt:{cmd:r(dor)}}diagnostic odds ratio{p_end}
-{synopt:{cmd:r(youden)}}Youden's index{p_end}
-{synopt:{cmd:r(auc)}}area under ROC curve{p_end}
-{synopt:{cmd:r(optimal_cutoff)}}optimal cutoff (Youden's J){p_end}
+{synopt:{cmd:r(sensitivity)}}sensitivity (single-cutoff mode only){p_end}
+{synopt:{cmd:r(specificity)}}specificity (single-cutoff mode only){p_end}
+{synopt:{cmd:r(ppv)}}positive predictive value (single-cutoff mode only){p_end}
+{synopt:{cmd:r(npv)}}negative predictive value (single-cutoff mode only){p_end}
+{synopt:{cmd:r(accuracy)}}overall accuracy (single-cutoff mode only){p_end}
+{synopt:{cmd:r(lr_pos)}}positive likelihood ratio (single-cutoff mode only){p_end}
+{synopt:{cmd:r(lr_neg)}}negative likelihood ratio (single-cutoff mode only){p_end}
+{synopt:{cmd:r(dor)}}diagnostic odds ratio (single-cutoff mode only){p_end}
+{synopt:{cmd:r(youden)}}Youden's index (single-cutoff mode only){p_end}
+{synopt:{cmd:r(auc)}}area under ROC curve (when {opt auc} is requested in single-cutoff mode){p_end}
+{synopt:{cmd:r(optimal_cutoff)}}optimal cutoff (Youden's J; single-cutoff mode only){p_end}
 
 {p2col 5 18 22 2: Matrices}{p_end}
 {synopt:{cmd:r(cutoff_table)}}cutoff analysis results (when {cmd:cutoffs()} specified){p_end}

@@ -271,14 +271,14 @@ else {
     local ++fail_count
 }
 
-* V2.2: Point estimates match logit output
+* V2.2: Odds ratios match exp(logit coefficients)
 local ++test_count
 capture noisily {
     sysuse auto, clear
     logit foreign price mpg weight
     matrix b = e(b)
-    local coef_price = b[1,1]
-    local coef_price_str = string(round(`coef_price', 0.01), "%9.2f")
+    local or_price = exp(b[1,1])
+    local or_price_str = string(round(`or_price', 0.01), "%9.2f")
 
     collect clear
     collect: logit foreign price mpg weight
@@ -292,14 +292,14 @@ capture noisily {
     forvalues i = 4/`=_N' {
         if regexm(strlower(strtrim(B[`i'])), "price") {
             local excel_val = strtrim(C[`i'])
-            assert "`excel_val'" == "`coef_price_str'"
+            assert "`excel_val'" == "`or_price_str'"
             local found = 1
         }
     }
     assert `found' == 1
 }
 if _rc == 0 {
-    display as result "  PASS: V2.2 - point estimates match model output"
+    display as result "  PASS: V2.2 - odds ratios match exp(logit coefficients)"
     local ++pass_count
 }
 else {
@@ -1604,6 +1604,24 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL: V7.1 - auto-detection (error `=_rc')"
+    local ++fail_count
+}
+
+* V7.2: High-cardinality continuous doubles should not overflow helper macros
+local ++test_count
+capture noisily {
+    clear
+    set obs 50000
+    gen double hi_cont = _n + runiform()/1000000
+    _tabtools_detect_vartype hi_cont
+    assert "`result'" == "contn"
+}
+if _rc == 0 {
+    display as result "  PASS: V7.2 - 50,000 unique doubles classify as contn without error"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: V7.2 - high-cardinality doubles (error `=_rc')"
     local ++fail_count
 }
 

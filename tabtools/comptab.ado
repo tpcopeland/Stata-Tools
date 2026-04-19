@@ -92,11 +92,17 @@ program define comptab, rclass
     set varabbrev off
 
     * Auto-load shared helper programs if not already in memory
-    capture program list _tabtools_validate_path
+    capture _tabtools_helpers_ready
     if _rc {
         capture findfile _tabtools_common.ado
         if _rc == 0 {
             run "`r(fn)'"
+            capture _tabtools_helpers_ready
+            if _rc {
+                display as error "_tabtools_common.ado failed to load fully; reinstall tabtools"
+                set varabbrev `_orig_varabbrev'
+                exit 111
+            }
         }
         else {
             display as error "_tabtools_common.ado not found; reinstall tabtools"
@@ -132,6 +138,10 @@ program define comptab, rclass
     if "`xlsx'" == "" & "`excel'" != "" local xlsx "`excel'"
     local _has_xlsx = "`xlsx'" != ""
     if "`sheet'" == "" local sheet "Composite"
+    if "`open'" != "" & !`_has_xlsx' {
+        noisily display as error "open requires xlsx() or excel()"
+        exit 198
+    }
 
     * Resolve persistent defaults
     if `boldp' == -1 & "$TABTOOLS_BOLDP" != "" local boldp = $TABTOOLS_BOLDP
@@ -189,7 +199,7 @@ program define comptab, rclass
     * PARSE ROWS() OR ROWNAMES() — BACKSLASH-SEPARATED SPECIFICATIONS
     * =====================================================================
     if `_use_rownames' {
-        * Parse rownames() — backslash-separated name/label patterns
+        * Parse rownames() — backslash-separated rendered-label patterns
         local rownames : subinstr local rownames " \ " "\", all
         local rownames : subinstr local rownames "\  " "\", all
         local rownames : subinstr local rownames "  \" "\", all
@@ -241,6 +251,7 @@ program define comptab, rclass
                 }
                 if !`_matched' {
                     noisily display as error `"rownames(): pattern "`_pat'" not found in frame '`_fname''"'
+                    noisily display as error "rownames() matches rendered row labels in column A, not source variable names"
                     exit 198
                 }
             }
@@ -302,6 +313,52 @@ program define comptab, rclass
         local _c_vars `r(varlist)'
     }
     local ncols : word count `_c_vars'
+    local source_layout ""
+    local n_models = .
+    local _looks_standard = 0
+    local _looks_compact = 0
+
+    if mod(`ncols', 3) == 0 {
+        local _looks_standard = 1
+        forvalues _c = 1(3)`ncols' {
+            local _ci_var c`=`_c'+1'
+            local _p_var c`=`_c'+2'
+            frame `fname1' {
+                local _hdr_ci = lower(strtrim(`_ci_var'[3]))
+                local _hdr_p = lower(strtrim(`_p_var'[3]))
+            }
+            if strpos(`"`_hdr_ci'"', "ci") == 0 | substr(`"`_hdr_p'"', 1, 1) != "p" {
+                local _looks_standard = 0
+            }
+        }
+    }
+    if mod(`ncols', 2) == 0 {
+        local _looks_compact = 1
+        forvalues _c = 1(2)`ncols' {
+            local _p_var c`=`_c'+1'
+            frame `fname1' {
+                local _hdr_est = lower(strtrim(c`_c'[3]))
+                local _hdr_p = lower(strtrim(`_p_var'[3]))
+            }
+            if strpos(`"`_hdr_est'"', "ci") == 0 | substr(`"`_hdr_p'"', 1, 1) != "p" {
+                local _looks_compact = 0
+            }
+        }
+    }
+
+    if `_looks_standard' & !`_looks_compact' {
+        local source_layout "standard"
+        local n_models = `ncols' / 3
+    }
+    else if `_looks_compact' & !`_looks_standard' {
+        local source_layout "compact"
+        local n_models = `ncols' / 2
+    }
+    else {
+        noisily display as error "Frame '`fname1'' has unsupported column structure"
+        noisily display as error "Expected 3 columns per model (standard) or 2 columns per model (compact)"
+        exit 198
+    }
 
     forvalues f = 2/`n_frames' {
         local _fname : word `f' of `framelist'
@@ -310,19 +367,66 @@ program define comptab, rclass
             local _c_vars_f `r(varlist)'
         }
         local ncols_f : word count `_c_vars_f'
+        local source_layout_f ""
+        local n_models_f = .
+        local _looks_standard_f = 0
+        local _looks_compact_f = 0
+
+        if mod(`ncols_f', 3) == 0 {
+            local _looks_standard_f = 1
+            forvalues _c = 1(3)`ncols_f' {
+                local _ci_var c`=`_c'+1'
+                local _p_var c`=`_c'+2'
+                frame `_fname' {
+                    local _hdr_ci = lower(strtrim(`_ci_var'[3]))
+                    local _hdr_p = lower(strtrim(`_p_var'[3]))
+                }
+                if strpos(`"`_hdr_ci'"', "ci") == 0 | substr(`"`_hdr_p'"', 1, 1) != "p" {
+                    local _looks_standard_f = 0
+                }
+            }
+        }
+        if mod(`ncols_f', 2) == 0 {
+            local _looks_compact_f = 1
+            forvalues _c = 1(2)`ncols_f' {
+                local _p_var c`=`_c'+1'
+                frame `_fname' {
+                    local _hdr_est = lower(strtrim(c`_c'[3]))
+                    local _hdr_p = lower(strtrim(`_p_var'[3]))
+                }
+                if strpos(`"`_hdr_est'"', "ci") == 0 | substr(`"`_hdr_p'"', 1, 1) != "p" {
+                    local _looks_compact_f = 0
+                }
+            }
+        }
+
+        if `_looks_standard_f' & !`_looks_compact_f' {
+            local source_layout_f "standard"
+            local n_models_f = `ncols_f' / 3
+        }
+        else if `_looks_compact_f' & !`_looks_standard_f' {
+            local source_layout_f "compact"
+            local n_models_f = `ncols_f' / 2
+        }
+        else {
+            noisily display as error "Frame '`_fname'' has unsupported column structure"
+            noisily display as error "Expected 3 columns per model (standard) or 2 columns per model (compact)"
+            exit 198
+        }
+
         if `ncols_f' != `ncols' {
             noisily display as error "Column mismatch: '`_fname'' has `ncols_f' data columns, '`fname1'' has `ncols'"
             noisily display as error "All source frames must have the same number of models"
             exit 198
         }
+        if "`source_layout_f'" != "`source_layout'" | `n_models_f' != `n_models' {
+            noisily display as error "All source frames must share the same layout"
+            noisily display as error "Frame '`fname1'' is `source_layout' with `n_models' model(s); '`_fname'' is `source_layout_f' with `n_models_f' model(s)"
+            exit 198
+        }
     }
-
-    local n_models = `ncols' / 3
-
-    if mod(`ncols', 3) != 0 {
-        noisily display as error "comptab: source frame columns not in multiples of 3"
-        exit 198
-    }
+    local _source_compact = ("`source_layout'" == "compact")
+    local _compact_output = (`_source_compact' | "`compact'" != "")
 
     * =====================================================================
     * PARSE SECTION() — BACKSLASH-SEPARATED LABELS
@@ -361,7 +465,6 @@ program define comptab, rclass
         }
         _tabtools_validate_path "`xlsx'" "xlsx()"
     }
-    _tabtools_validate_path "`sheet'" "sheet()"
 
     quietly {
 
@@ -429,7 +532,7 @@ program define comptab, rclass
     * =====================================================================
     * COMPACT MODE — MERGE ESTIMATE + CI INTO SINGLE COLUMN
     * =====================================================================
-    if "`compact'" != "" {
+    if !`_source_compact' & "`compact'" != "" {
         * Merge estimate (c1,c4,c7,...) + CI (c2,c5,c8,...) for data rows
         * Data rows start at dataset row 3 (rows 1-2 are headers)
         forvalues m = 1(3)`ncols' {
@@ -461,6 +564,9 @@ program define comptab, rclass
         }
 
         local ncols = `_new_idx' - 1
+        local n_cols_per_model = 2
+    }
+    else if `_source_compact' {
         local n_cols_per_model = 2
     }
     else {
@@ -544,7 +650,7 @@ program define comptab, rclass
     local est_max = 0
     local ci_max = 0
     local p_max = 0
-    if "`compact'" != "" {
+    if `_compact_output' {
         forvalues i = 1(2)`n' {
             qui sum c`i'_max, meanonly
             if `r(max)' > `est_max' local est_max = `r(max)'
@@ -570,7 +676,7 @@ program define comptab, rclass
     }
 
     local est_width = ceil(`est_max' * 0.85) + 2
-    if "`compact'" != "" {
+    if `_compact_output' {
         if `est_width' < 16 local est_width = 16
         if `est_width' > 34 local est_width = 34
     }
@@ -580,7 +686,7 @@ program define comptab, rclass
     }
 
     local ci_width = 0
-    if "`compact'" == "" {
+    if !`_compact_output' {
         local ci_width = ceil(`ci_max' * 0.85) + 2
         if `ci_width' < 16 local ci_width = 16
         if `ci_width' > 34 local ci_width = 34
@@ -650,7 +756,7 @@ program define comptab, rclass
         mata: b.set_column_width(1,1,1)
         mata: b.set_column_width(2,2,`factor_length')
 
-        if "`compact'" != "" {
+        if `_compact_output' {
             * Compact: 2 cols per model — est+CI and p-value
             forvalues i = 3(2)`=`num_cols'-1' {
                 mata: b.set_column_width(`i',`i',`est_width')
@@ -674,7 +780,7 @@ program define comptab, rclass
 
         * Auto-adjust header row height for long model names
         local _data_width = 0
-        if "`compact'" != "" {
+        if `_compact_output' {
             local _data_width = `n_models' * (`est_width' + `p_width')
         }
         else {
