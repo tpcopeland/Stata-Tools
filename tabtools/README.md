@@ -230,7 +230,7 @@ All commands in the tabtools suite share a consistent set of formatting options:
 
 - **Excel export** with automatic column widths calculated from content length
 - **Professional borders** with customizable styles: `default`, `thin`, `medium`, `academic`
-- **Journal themes**: `lancet`, `nejm`, `bmj`, `apa` with pre-configured formatting
+- **Journal-inspired themes**: `lancet`, `nejm`, `bmj`, `apa`, `jama`, `plos`, `nature`, `cell`, `annals`
 - **Merged headers** for title rows and grouped model columns
 - **Consistent fonts** with persistent defaults via `tabtools set font`/`tabtools set fontsize`
 - **Conditional formatting**: bold p-values (`boldp`), row highlighting (`highlight`), alternating row shading (`zebra`)

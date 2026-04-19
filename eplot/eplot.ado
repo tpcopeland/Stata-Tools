@@ -842,7 +842,7 @@ program define _eplot_data, rclass
     // Plotregion / graphregion
     local _plotregion_use `"`plotregion'"'
     if `"`_plotregion_use'"' == "" & "`horizontal'" != "" & "`values'" != "" {
-        local _plotregion_use "margin(l+2 r+18 t+2 b+2)"
+        local _plotregion_use "margin(l+2 r+26 t+2 b+2)"
     }
     if `"`_plotregion_use'"' != "" {
         local graphcmd `"`graphcmd' plotregion(`_plotregion_use')"'
@@ -1764,7 +1764,7 @@ program define _eplot_estimates, rclass
     // Plotregion / graphregion
     local _plotregion_use `"`plotregion'"'
     if `"`_plotregion_use'"' == "" & "`horizontal'" != "" & "`values'" != "" & `n_models' == 1 {
-        local _plotregion_use "margin(l+2 r+18 t+2 b+2)"
+        local _plotregion_use "margin(l+2 r+26 t+2 b+2)"
     }
     if `"`_plotregion_use'"' != "" {
         local graphcmd `"`graphcmd' plotregion(`_plotregion_use')"'
@@ -2334,7 +2334,7 @@ program define _eplot_matrix, rclass
     if "`scheme'" != "" local graphcmd `"`graphcmd' scheme(`scheme')"'
     local _plotregion_use `"`plotregion'"'
     if `"`_plotregion_use'"' == "" & "`horizontal'" != "" & "`values'" != "" {
-        local _plotregion_use "margin(l+2 r+18 t+2 b+2)"
+        local _plotregion_use "margin(l+2 r+26 t+2 b+2)"
     }
     if `"`_plotregion_use'"' != "" local graphcmd `"`graphcmd' plotregion(`_plotregion_use')"'
     if `"`graphregion'"' != "" local graphcmd `"`graphcmd' graphregion(`graphregion')"'

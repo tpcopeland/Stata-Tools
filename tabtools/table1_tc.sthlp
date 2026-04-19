@@ -136,11 +136,19 @@ type keyword, each variable's type is automatically classified:{p_end}
 including Excel export, journal themes, auto-type detection, IPTW weighting, SMD, and a methods
 paragraph generator.{p_end}
 
-{pstd}{bf:Themes:} The {opt theme()} option applies journal-specific formatting:{p_end}
+{pstd}{bf:Themes:} The {opt theme()} option applies journal-inspired formatting presets that
+match the current {cmd:tabtools} theme defaults:{p_end}
 {p 8 8 2}{cmd:lancet} - Arial 9pt, academic borders, no header shading{p_end}
-{p 8 8 2}{cmd:nejm} - Arial 10pt, thin borders, blue header shading{p_end}
+{p 8 8 2}{cmd:nejm} - Arial 10pt, academic borders, zebra striping{p_end}
 {p 8 8 2}{cmd:bmj} - Arial 10pt, academic borders, no header shading{p_end}
 {p 8 8 2}{cmd:apa} - Times New Roman 12pt, academic borders{p_end}
+{p 8 8 2}{cmd:jama} - Arial 10pt, academic borders, no header shading{p_end}
+{p 8 8 2}{cmd:plos} - Arial 10pt, thin borders, no header shading{p_end}
+{p 8 8 2}{cmd:nature} - Arial 7pt, academic borders, no header shading{p_end}
+{p 8 8 2}{cmd:cell} - Arial 10pt, academic borders, no header shading{p_end}
+{p 8 8 2}{cmd:annals} - Arial 10pt, academic borders, zebra striping{p_end}
+{pstd}Publishers may restyle accepted tables during production, so treat these as built-in
+Excel presets rather than exact house templates.{p_end}
 
 {pstd}{bf:Frame output:} The {opt frame()} option stores the results table in a Stata frame
 for programmatic access without replacing data in memory.{p_end}

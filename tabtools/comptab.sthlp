@@ -157,12 +157,17 @@ not needed.
 {dlgtab:Formatting}
 
 {phang}
-{opt theme(string)} applies a journal-style formatting preset. Valid themes:
+{opt theme(string)} applies a journal-inspired formatting preset. Valid themes:
 {cmd:lancet} (Arial 9pt, academic borders),
-{cmd:nejm} (Arial 10pt, shaded headers),
+{cmd:nejm} (Arial 10pt, academic borders, zebra),
 {cmd:bmj} (Arial 10pt, academic borders),
 {cmd:apa} (Times New Roman 12pt, academic borders),
-{cmd:jama}, {cmd:plos}, {cmd:nature}, {cmd:cell}, {cmd:annals}, and {cmd:custom}.
+{cmd:jama} (Arial 10pt, academic borders),
+{cmd:plos} (Arial 10pt, thin borders),
+{cmd:nature} (Arial 7pt, academic borders),
+{cmd:cell} (Arial 10pt, academic borders),
+{cmd:annals} (Arial 10pt, academic borders, zebra),
+and {cmd:custom}.
 Theme settings can be overridden by explicit options.
 
 {phang}

@@ -425,7 +425,7 @@ program _tabtools_apply_theme
     }
     else if "`theme'" == "nature" {
         c_local _theme_font "Arial"
-        c_local _theme_fontsize "9"
+        c_local _theme_fontsize "7"
         c_local _theme_border "academic"
         c_local _theme_headershade "0"
         c_local _theme_headercolor ""
@@ -445,7 +445,7 @@ program _tabtools_apply_theme
         c_local _theme_border "academic"
         c_local _theme_headershade "0"
         c_local _theme_headercolor ""
-        c_local _theme_zebra "0"
+        c_local _theme_zebra "1"
     }
     else if "`theme'" == "custom" {
         * Custom theme reads from globals set by tabtools set theme custom

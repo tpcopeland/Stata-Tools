@@ -337,7 +337,9 @@ session.{p_end}
 {phang2}{cmd:tabtools set clear}{p_end}
 
 {pstd}Available built-in themes: {cmd:lancet}, {cmd:nejm}, {cmd:bmj},
-{cmd:apa}. Use {cmd:custom} to define your own.{p_end}
+{cmd:apa}, {cmd:jama}, {cmd:plos}, {cmd:nature}, {cmd:cell}, and {cmd:annals}.
+Use {cmd:custom} to define your own. These are journal-inspired presets, not
+publisher-managed final-production templates.{p_end}
 
 {hline}
 {marker r14}{...}

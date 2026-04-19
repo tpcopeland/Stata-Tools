@@ -126,7 +126,7 @@ Display current formatting defaults
 {synopt:{cmd:font} {it:name}}font family applied to all cells (e.g., {cmd:Calibri}, {cmd:Times New Roman}){p_end}
 {synopt:{cmd:fontsize} {it:#}}font size in points; integer between 6 and 72{p_end}
 {synopt:{cmd:borderstyle} {it:name}}border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or {cmd:academic}{p_end}
-{synopt:{cmd:theme} {it:name}}journal theme: {cmd:lancet}, {cmd:nejm}, {cmd:bmj}, {cmd:apa}, {cmd:jama}, {cmd:plos}, {cmd:nature}, {cmd:cell}, {cmd:annals}, or {cmd:custom}{p_end}
+{synopt:{cmd:theme} {it:name}}journal-inspired theme: {cmd:lancet}, {cmd:nejm}, {cmd:bmj}, {cmd:apa}, {cmd:jama}, {cmd:plos}, {cmd:nature}, {cmd:cell}, {cmd:annals}, or {cmd:custom}{p_end}
 {synopt:{cmd:digits} {it:#}}decimal digits for numeric output; integer between 0 and 6{p_end}
 {synopt:{cmd:boldp} {it:#}}p-value threshold for bold formatting; number between 0 and 1{p_end}
 {synopt:{cmd:clear}}remove all persistent defaults{p_end}
