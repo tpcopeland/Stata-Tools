@@ -19,8 +19,6 @@ local pkg_dir "`qa_dir'/.."
 capture ado uninstall gcomp
 quietly net install gcomp, from("`pkg_dir'/") replace
 discard
-capture findfile gcomp.ado
-quietly run "`r(fn)'"
 
 * ============================================================
 * Shared synthetic data with `all` CI option fitted once

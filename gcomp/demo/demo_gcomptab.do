@@ -11,19 +11,15 @@
 *******************************************************************************/
 
 clear all
-set more off
 version 16.0
 
-* --- Reload gcomp and gcomptab from local source ---
-capture program drop gcomp
-capture program drop _gcomp_bootstrap
-capture program drop _gcomp_display_stats
-capture program drop _gcomp_detangle
-capture program drop _gcomp_formatline
-quietly run gcomp/gcomp.ado
-capture program drop gcomptab
-capture program drop _gcomptab_validate_path
-quietly run gcomp/gcomptab.ado
+* Bootstrap from demo/ so the script works after a normal net install
+local demo_dir "`c(pwd)'"
+local pkg_dir = subinstr("`demo_dir'", "/demo", "", 1)
+
+capture ado uninstall gcomp
+quietly net install gcomp, from("`pkg_dir'") replace
+discard
 
 * =============================================================================
 * GENERATE SYNTHETIC MEDIATION DATA
@@ -59,19 +55,19 @@ gcomp y m x c, outcome(y) mediation obe ///
 	base_confs(c) control(0) sim(500) samples(200) seed(1) all
 
 * =============================================================================
-* EXPORT WITH GFORMTAB
+* EXPORT WITH GCOMPTAB
 * =============================================================================
 
 * Basic export with normal CIs
-gcomptab, xlsx(gcomp/demo/demo_gcomptab.xlsx) sheet("Normal CI") ///
+gcomptab, xlsx("`demo_dir'/demo_gcomptab.xlsx") sheet("Normal CI") ///
 	title("Table 1. Causal Mediation Analysis (Normal CIs)")
 
 * Percentile CIs on a second sheet
-gcomptab, xlsx(gcomp/demo/demo_gcomptab.xlsx) sheet("Percentile CI") ///
+gcomptab, xlsx("`demo_dir'/demo_gcomptab.xlsx") sheet("Percentile CI") ///
 	ci(percentile) title("Table 2. Mediation Results (Percentile CIs)")
 
 * Custom labels with higher precision
-gcomptab, xlsx(gcomp/demo/demo_gcomptab.xlsx) sheet("Custom") ///
+gcomptab, xlsx("`demo_dir'/demo_gcomptab.xlsx") sheet("Custom") ///
 	labels("Total Effect \ Direct Effect \ Indirect Effect \ % Mediated \ CDE") ///
 	effect("RD") decimal(4) ///
 	title("Table 3. Risk Difference Decomposition")

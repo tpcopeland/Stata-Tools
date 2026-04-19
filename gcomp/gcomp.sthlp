@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.0  08apr2026}{...}
+{* *! version 1.0.2  19apr2026}{...}
 {viewerjumpto "Syntax" "gcomp##syntax"}{...}
 {viewerjumpto "Description" "gcomp##description"}{...}
 {viewerjumpto "Options" "gcomp##options"}{...}
@@ -89,7 +89,7 @@ or {opt baseline(string)}.
 {synopt:{opt alternative(string)}}alternative exposure level(s){p_end}
 
 {syntab:Time-varying options}
-{synopt:{opt eofu}}outcome is end-of-follow-up{p_end}
+{synopt:{opt eofu}}outcome is measured only at end of follow-up{p_end}
 {synopt:{opt pooled}}pooled logistic regression across visits{p_end}
 {synopt:{opt monotreat}}monotone treatment assumption{p_end}
 {synopt:{opt dynamic}}dynamic treatment regime{p_end}
@@ -124,7 +124,7 @@ or {opt baseline(string)}.
 {syntab:Output}
 {synopt:{opt all}}report all four CI types (normal, percentile, BC, BCa){p_end}
 {synopt:{opt graph}}graph potential outcomes{p_end}
-{synopt:{opt saving(filename)}}save bootstrap dataset{p_end}
+{synopt:{opt saving(filename)}}save the simulated dataset from the main estimation run{p_end}
 {synopt:{opt replace}}overwrite existing saved file{p_end}
 {synoptline}
 {p2colreset}{...}
@@ -247,7 +247,8 @@ for {opt specific} or {opt oce} effect types.
 
 {phang}
 {opt eofu} specifies that the outcome is measured at end of follow-up
-rather than at each time point.
+rather than at each time point. Only the final-visit outcome value for each
+subject is used; earlier nonmissing values are ignored with a warning.
 
 {phang}
 {opt pooled} specifies pooled logistic regression across all visits rather
@@ -364,8 +365,10 @@ normal CIs are reported.
 different intervention or mediation scenarios.
 
 {phang}
-{opt saving(filename)} saves the bootstrap replicate dataset to
-{it:filename} for further analysis.
+{opt saving(filename)} saves the simulated dataset from the main estimation
+run to {it:filename} for further analysis. The saved file contains the
+intervention indicator {_int} plus the variables retained for the analysis.
+It does not save Stata's bootstrap replicate-statistics dataset.
 
 {phang}
 {opt replace} allows {opt saving()} to overwrite an existing file.
@@ -409,6 +412,10 @@ different intervention or mediation scenarios.
 {pstd}
 {bf:Example 3: Time-varying confounding}
 
+{pstd}
+For {opt eofu} analyses, record the outcome only on the final row for each
+subject. Earlier nonmissing outcome values are ignored by design.
+
 {phang2}{cmd:. * Panel data: 500 subjects, 5 time points}{p_end}
 {phang2}{cmd:. * Confounder L is affected by prior treatment A}{p_end}
 {phang2}{cmd:. gcomp outcome L A id time, outcome(outcome) ///}{p_end}
@@ -451,6 +458,7 @@ different intervention or mediation scenarios.
 {synopt:{cmd:e(ci_percentile)}}percentile confidence intervals (with {cmd:all}){p_end}
 {synopt:{cmd:e(ci_bc)}}bias-corrected confidence intervals (with {cmd:all}){p_end}
 {synopt:{cmd:e(ci_bca)}}bias-corrected accelerated confidence intervals (with {cmd:all}){p_end}
+{synopt:{cmd:e(effects)}}effecttab-ready matrix of estimates, standard errors, and confidence limits{p_end}
 
 {pstd}
 {bf:Macros:}
@@ -519,7 +527,7 @@ g-computation formula{it:. The Stata Journal} 11(4):479-517.
 
 {pstd}Original author: Rhian Daniel, London School of Hygiene and Tropical Medicine{p_end}
 {pstd}Fork maintainer: Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.0.0, 2026-04-08{p_end}
+{pstd}Version 1.0.2, 2026-04-19{p_end}
 
 {pstd}
 This is a maintained fork of SSC {cmd:gformula} v1.16 beta with bug fixes

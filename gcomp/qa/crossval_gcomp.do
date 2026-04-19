@@ -50,8 +50,6 @@ local pkg_dir "`qa_dir'/.."
 capture ado uninstall gcomp
 quietly net install gcomp, from("`pkg_dir'/") replace
 discard
-capture findfile gcomp.ado
-quietly run "`r(fn)'"
 
 * Analytical truth (from N=100,000 MC integration in R)
 local true_tce = 0.05577
@@ -314,16 +312,15 @@ capture noisily {
     matrix `_eb' = e(b)
     local PO1 = `_eb'[1,1]
     local PO2 = `_eb'[1,2]
-    * Both POs should be non-missing real numbers
     assert `PO1' != .
     assert `PO2' != .
 }
 if _rc == 0 {
-    display as result "  PASS: CV3.1 Time-varying eofu returns valid POs (PO1=" %6.4f `PO1' " PO2=" %6.4f `PO2' ")"
+    display as result "  PASS: CV3.1 Time-varying eofu returns usable POs (PO1=" %6.4f `PO1' " PO2=" %6.4f `PO2' ")"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: CV3.1 POs should differ (error `=_rc')"
+    display as error "  FAIL: CV3.1 usable POs (error `=_rc')"
     local ++fail_count
 }
 

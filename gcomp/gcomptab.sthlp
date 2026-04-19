@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.0  08apr2026}{...}
+{* *! version 1.0.2  19apr2026}{...}
 {viewerjumpto "Syntax" "gcomptab##syntax"}{...}
 {viewerjumpto "Description" "gcomptab##description"}{...}
 {viewerjumpto "Options" "gcomptab##options"}{...}
@@ -19,9 +19,9 @@
 
 {marker syntax}{title:Syntax}
 
-{p 4 8 2}{cmd:gcomptab}, {opt xlsx(string)} {opt sheet(string)} [{opt ci(string)} {opt effect(string)} {opt title(string)} {opt labels(string)} {opt decimal(#)} {opt font(string)} {opt fonts:ize(#)} {opt borders:tyle(string)} {opt zebra} {opt foot:note(string)} {opt open} {opt boldp(#)} {opt high:light(#)}]{p_end}
+{p 4 8 2}{cmd:gcomptab}, {opt xlsx(string)} {opt sheet(string)} [{opt ci(string)} {opt effect(string)} {opt title(string)} {opt labels(string)} {opt decimal(#)} {opt font(string)} {opt fonts:ize(#)} {opt border:style(string)} {opt zebra} {opt foot:note(string)} {opt open} {opt bold:p(#)} {opt high:light(#)}]{p_end}
 
-{pstd}Required: Run {cmd:gcomp} first. {cmd:gcomptab} reads results from {cmd:e()} scalars and matrices.{p_end}
+{pstd}Required: run {cmd:gcomp} first for a supported mediation analysis. {cmd:gcomptab} requires {cmd:e(cmd)} = {cmd:gcomp}, {cmd:e(analysis_type)} = {cmd:mediation}, and the result matrices described below.{p_end}
 
 {marker description}{title:Description}
 
@@ -41,7 +41,7 @@
 {synopthdr}
 {synoptline}
 {synopt:{opt xlsx(string)}}Output Excel filename (must end with {cmd:.xlsx}). If the file exists, only the named sheet is replaced.{p_end}
-{synopt:{opt sheet(string)}}Target sheet name to create/replace in {opt xlsx()}.{p_end}
+{synopt:{opt sheet(string)}}Target sheet name to create/replace in {opt xlsx()}. Excel sheet names must be 31 characters or fewer and may not contain {cmd:: \ / ? * [ ]}.{p_end}
 {synopt:{opt ci(string)}}Type of confidence interval to display: {cmd:normal} (default), {cmd:percentile}, {cmd:bc} (bias-corrected), or {cmd:bca} (bias-corrected and accelerated). Must match a CI matrix created by gcomp.{p_end}
 {synopt:{opt effect(string)}}Header label for the effect estimate column. Default is {cmd:"Estimate"}.{p_end}
 {synopt:{opt title(string)}}Text written into cell {cmd:A1} and merged across the table width.{p_end}
@@ -49,12 +49,12 @@
 {synopt:{opt decimal(#)}}Number of decimal places for estimates and CIs. Default is 3. Range: 1-6.{p_end}
 {synopt:{opt font(string)}}Font family for Excel output. Default is {cmd:"Arial"}.{p_end}
 {synopt:{opt fonts:ize(#)}}Font size for body text. Title uses fontsize+2. Default is 10.{p_end}
-{synopt:{opt borders:tyle(string)}}Border style: {cmd:academic} (default, horizontal only), {cmd:thin}, or {cmd:medium}.{p_end}
+{synopt:{opt border:style(string)}}Border style: {cmd:academic} (default, horizontal only), {cmd:thin}, or {cmd:medium}.{p_end}
 {synopt:{opt zebra}}Apply alternating row shading (light blue) to data rows.{p_end}
 {synopt:{opt foot:note(string)}}Footnote text placed below the table in smaller italic font.{p_end}
 {synopt:{opt open}}Open the Excel file after export.{p_end}
-{synopt:{opt boldp(#)}}Bold data rows where the Wald p-value is below this threshold. Range: 0-1.{p_end}
-{synopt:{opt high:light(#)}}Highlight rows with yellow background where p-value is below this threshold. Range: 0-1.{p_end}
+{synopt:{opt bold:p(#)}}Bold the numeric cells in a data row when the two-sided Wald p-value {cmd:2*normal(-abs(estimate/se))} is below the cutoff. Default {cmd:0} disables bolding; otherwise require {cmd:0 < cutoff < 1}.{p_end}
+{synopt:{opt high:light(#)}}Highlight the full data row in yellow when the same Wald p-value is below the cutoff. Default {cmd:0} disables highlighting; otherwise require {cmd:0 < cutoff < 1}.{p_end}
 {synoptline}
 
 {marker remarks}{title:Remarks}
@@ -67,9 +67,11 @@
 
 {p 4 8 2}Run {cmd:gcomp} with the {cmd:mediation} option before using {cmd:gcomptab}. The {cmd:oce} mediation type is not supported; {cmd:gcomptab} handles standard mediation results ({cmd:obe}, {cmd:linexp}, {cmd:specific}, or baseline-based). The command reads:{p_end}
 
-{p 8 12 2}- Point estimates from {cmd:e(tce)}, {cmd:e(nde)}, {cmd:e(nie)}, {cmd:e(pm)}, {cmd:e(cde)}{p_end}
-{p 8 12 2}- Standard errors from {cmd:e(se)} matrix{p_end}
-{p 8 12 2}- Confidence intervals from {cmd:e(ci_normal)}, {cmd:e(ci_percentile)}, {cmd:e(ci_bc)}, {cmd:e(ci_bca)}{p_end}
+{p 8 12 2}- Point estimates from {cmd:e(b)} with named columns {cmd:tce nde nie pm} and optional {cmd:cde}{p_end}
+{p 8 12 2}- Standard errors from {cmd:e(se)} with the same column names{p_end}
+{p 8 12 2}- Confidence intervals from {cmd:e(ci_normal)} and, when requested, {cmd:e(ci_percentile)}, {cmd:e(ci_bc)}, or {cmd:e(ci_bca)}{p_end}
+
+{p 4 8 2}When the fitted mediation results do not include a {cmd:cde} column, {cmd:gcomptab} exports four effect rows ({cmd:TCE}, {cmd:NDE}, {cmd:NIE}, {cmd:PM}), returns {cmd:r(N_effects)} = 4, and does not return {cmd:r(cde)}.{p_end}
 
 {pstd}{bf:Confidence interval types}{p_end}
 
@@ -88,6 +90,8 @@
 
 {marker examples}{title:Examples}
 
+{pstd}These examples assume the mediation fit shown above has already been run. The workbook paths below are ordinary filenames in the current working directory, so they work after a normal {cmd:net install}.{p_end}
+
 {pstd}{bf:Example 1: Mediation of antidepressant effect through adherence}{p_end}
 {phang2}{cmd:. * Run gcomp: SNRI vs SSRI → adherence → CV event}{p_end}
 {phang2}{cmd:. gcomp cv_event adherence treated index_age female, ///}{p_end}
@@ -97,20 +101,20 @@
 {phang3}{cmd:base_confs(index_age female) control(0) sim(1000) samples(500) all}{p_end}
 {phang2}{cmd:. }{p_end}
 {phang2}{cmd:. * Format results to Excel}{p_end}
-{phang2}{stata `"gcomptab, xlsx(gcomp/examples/mediation.xlsx) sheet("Table 1") title("Causal Mediation: SNRI Effect via Adherence")"':. gcomptab, xlsx(gcomp/examples/mediation.xlsx) sheet("Table 1") ///}{p_end}
+{phang2}{cmd:. gcomptab, xlsx("mediation_results.xlsx") sheet("Table 1") ///}{p_end}
 {phang3}{cmd:title("Causal Mediation: SNRI Effect via Adherence")}{p_end}
 
 {pstd}{bf:Example 2: Using percentile bootstrap CIs}{p_end}
-{phang2}{stata `"gcomptab, xlsx(gcomp/examples/mediation.xlsx) sheet("Percentile CI") ci(percentile) title("Mediation Results (Percentile CI)")"':. gcomptab, xlsx(gcomp/examples/mediation.xlsx) sheet("Percentile CI") ///}{p_end}
+{phang2}{cmd:. gcomptab, xlsx("mediation_results.xlsx") sheet("Percentile CI") ///}{p_end}
 {phang3}{cmd:ci(percentile) title("Mediation Results (Percentile CI)")}{p_end}
 
 {pstd}{bf:Example 3: Custom effect labels}{p_end}
-{phang2}{cmd:. gcomptab, xlsx(gcomp/examples/mediation.xlsx) sheet("Custom") ///}{p_end}
+{phang2}{cmd:. gcomptab, xlsx("mediation_results.xlsx") sheet("Custom") ///}{p_end}
 {phang3}{cmd:labels("Total Effect \ Direct Effect \ Indirect Effect \ % Mediated \ CDE") ///}{p_end}
 {phang3}{cmd:effect("RD") title("Risk Difference Decomposition")}{p_end}
 
 {pstd}{bf:Example 4: Higher precision output}{p_end}
-{phang2}{stata `"gcomptab, xlsx(gcomp/examples/mediation.xlsx) sheet("Precise") decimal(4) title("Mediation Analysis (4 decimals)")"':. gcomptab, xlsx(gcomp/examples/mediation.xlsx) sheet("Precise") ///}{p_end}
+{phang2}{cmd:. gcomptab, xlsx("mediation_results.xlsx") sheet("Precise") ///}{p_end}
 {phang3}{cmd:decimal(4) title("Mediation Analysis (4 decimals)")}{p_end}
 
 {marker output}{title:Output Format}
@@ -119,7 +123,9 @@
 
 {p 8 12 2}- {bf:Row 1}: Title (if specified), merged across table width{p_end}
 {p 8 12 2}- {bf:Row 2}: Column headers: Effect, Estimate, 95% CI, SE{p_end}
-{p 8 12 2}- {bf:Rows 3-7}: The five effect estimates with CIs and SEs{p_end}
+{p 8 12 2}- {bf:Rows 3-6}: TCE, NDE, NIE, and PM{p_end}
+{p 8 12 2}- {bf:Row 7}: CDE when the fitted {cmd:gcomp} results include it{p_end}
+{p 8 12 2}- {bf:Next row}: Optional footnote, merged across the table width{p_end}
 
 {pstd}Formatting applied:{p_end}
 
@@ -130,7 +136,7 @@
 {p 8 12 2}- Centered numeric columns{p_end}
 {p 8 12 2}- Column widths adjusted to content{p_end}
 {p 8 12 2}- Numeric cells stored as Excel numbers (not text){p_end}
-{p 8 12 2}- Optional zebra striping, footnotes, bold/highlight by p-value{p_end}
+{p 8 12 2}- Optional zebra striping, footnotes, bolding via {opt bold:p()}, and row highlighting via {opt high:light()}{p_end}
 
 {marker stored}{title:Stored results}
 
@@ -143,7 +149,7 @@
 {synopt:{cmd:r(nde)}}natural direct effect{p_end}
 {synopt:{cmd:r(nie)}}natural indirect effect{p_end}
 {synopt:{cmd:r(pm)}}proportion mediated{p_end}
-{synopt:{cmd:r(cde)}}controlled direct effect{p_end}
+{synopt:{cmd:r(cde)}}controlled direct effect; returned only when the fitted results include CDE{p_end}
 
 {p2col 5 15 19 2: Macros}{p_end}
 {synopt:{cmd:r(xlsx)}}Excel filename{p_end}
@@ -162,6 +168,6 @@
 {pstd}Department of Clinical Neuroscience{p_end}
 {pstd}Karolinska Institutet{p_end}
 
-{pstd}Version 1.0.0 - 2026-04-08{p_end}
+{pstd}Version 1.0.2 - 2026-04-19{p_end}
 
 {hline}

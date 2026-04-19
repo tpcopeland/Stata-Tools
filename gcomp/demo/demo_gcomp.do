@@ -16,19 +16,15 @@ set more off
 set varabbrev off
 
 * --- Paths ---
-local pkg_dir "gcomp/demo"
-capture mkdir "`pkg_dir'"
-
-* --- Load and reload command ---
-capture program drop gcomp
-capture program drop _gcomp_bootstrap
-capture program drop _gcomp_display_stats
-capture program drop _gcomp_detangle
-capture program drop _gcomp_formatline
-quietly run gcomp/gcomp.ado
+local demo_dir "`c(pwd)'"
+local pkg_dir = subinstr("`demo_dir'", "/demo", "", 1)
+capture mkdir "`demo_dir'"
+capture ado uninstall gcomp
+quietly net install gcomp, from("`pkg_dir'") replace
+discard
 
 * --- Begin console log ---
-log using "`pkg_dir'/console_output.smcl", replace smcl name(demo) nomsg
+log using "`demo_dir'/console_output.smcl", replace smcl name(demo) nomsg
 
 * =====================================================================
 * EXAMPLE 1: Mediation with binary exposure (OBE)

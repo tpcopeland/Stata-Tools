@@ -23,10 +23,6 @@ capture ado uninstall gcomp
 quietly net install gcomp, from("`pkg_dir'/") replace
 discard
 
-* Force-load to clear program cache
-capture findfile gcomp.ado
-quietly run "`r(fn)'"
-
 local testdir "`c(tmpdir)'"
 
 * ============================================================
@@ -113,24 +109,18 @@ save `syndata'
 * gcomp: Basic functionality
 * ============================================================
 
-* 1. File loads and all programs defined
+* 1. Main command is discoverable after net install
 local ++test_count
 capture noisily {
-    capture program list gcomp
-    assert _rc == 0
-    capture program list _gcomp_bootstrap
-    assert _rc == 0
-    capture program list _gcomp_detangle
-    assert _rc == 0
-    capture program list _gcomp_formatline
+    capture which gcomp
     assert _rc == 0
 }
 if _rc == 0 {
-    display as result "  PASS: All programs defined (gcomp, _gcomp_bootstrap, _gcomp_detangle, _gcomp_formatline)"
+    display as result "  PASS: Main command is discoverable after net install"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: Not all programs defined (error `=_rc')"
+    display as error "  FAIL: Main command not discoverable after net install (error `=_rc')"
     local ++fail_count
 }
 
@@ -150,6 +140,52 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL: Basic OBE mediation (error `=_rc')"
+    local ++fail_count
+}
+
+* 2a. Regression: if qualifier and option vars work outside varlist
+local ++test_count
+capture noisily {
+    clear
+    set seed 24680
+    set obs 800
+    gen byte keepflag = mod(_n, 4) != 0
+    gen double c = rnormal()
+    gen double x = rbinomial(1, invlogit(-0.5 + 0.4*c))
+    gen double m = rbinomial(1, invlogit(-1 + 0.8*x + 0.5*c))
+    gen double y = rbinomial(1, invlogit(-1.5 + 0.6*m + 0.4*x + 0.3*c))
+    tempfile qdata
+    save `qdata'
+
+    gcomp y m x if keepflag == 1, outcome(y) mediation obe ///
+        exposure(x) mediator(m) base_confs(c) ///
+        commands(m: logit, y: logit) ///
+        equations(m: x c, y: m x c) ///
+        sim(100) samples(3) seed(9)
+    tempname b_if
+    matrix `b_if' = e(b)
+
+    use `qdata', clear
+    keep if keepflag == 1
+    gcomp y m x, outcome(y) mediation obe ///
+        exposure(x) mediator(m) base_confs(c) ///
+        commands(m: logit, y: logit) ///
+        equations(m: x c, y: m x c) ///
+        sim(100) samples(3) seed(9)
+    tempname b_keep
+    matrix `b_keep' = e(b)
+
+    local k = colsof(`b_if')
+    forvalues j = 1/`k' {
+        assert reldif(`b_if'[1,`j'], `b_keep'[1,`j']) < 1e-10
+    }
+}
+if _rc == 0 {
+    display as result "  PASS: if qualifier and option vars work outside varlist"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: if/varlist regression (error `=_rc')"
     local ++fail_count
 }
 
@@ -1378,6 +1414,34 @@ else {
     local ++fail_count
 }
 
+* 59a. Regression: documented eofu example pattern returns usable POs
+local ++test_count
+capture noisily {
+    use `tvdata', clear
+    gcomp Y L A id time, outcome(Y) ///
+        idvar(id) tvar(time) ///
+        varyingcovariates(L) ///
+        commands(L: regress, Y: logit, A: logit) ///
+        equations(L: A, Y: L A, A: L) ///
+        intvars(A) interventions(A_: A_=1, A_: A_=0) ///
+        eofu sim(100) samples(3) seed(1)
+
+    tempname eb
+    matrix `eb' = e(b)
+    local PO1 = `eb'[1,1]
+    local PO2 = `eb'[1,2]
+    assert `PO1' != .
+    assert `PO2' != .
+}
+if _rc == 0 {
+    display as result "  PASS: documented eofu example pattern returns usable POs"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: documented eofu example pattern (error `=_rc')"
+    local ++fail_count
+}
+
 * 60. Time-varying with continuous outcome (eofu + regress)
 * NOTE: gcomp eofu continuous in time-varying mode hits r(503) conformability
 * in "Estimating mean potential outcomes" — known limitation of SSC gformula fork.
@@ -1821,10 +1885,19 @@ capture noisily {
         base_confs(c) sim(100) samples(3) seed(1) ///
         saving("`testdir'/_test_gcomp_boot.dta") replace
     confirm file "`testdir'/_test_gcomp_boot.dta"
+    preserve
+    use "`testdir'/_test_gcomp_boot.dta", clear
+    confirm variable _int
+    confirm variable y
+    confirm variable m
+    confirm variable x
+    confirm variable c
+    assert _N > 500
+    restore
     capture erase "`testdir'/_test_gcomp_boot.dta"
 }
 if _rc == 0 {
-    display as result "  PASS: saving()/replace options"
+    display as result "  PASS: saving()/replace saves the simulated dataset"
     local ++pass_count
 }
 else {

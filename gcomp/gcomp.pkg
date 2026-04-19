@@ -13,7 +13,7 @@ d bug fixes, modernization, and SSC dependency removal.
 d
 d Requires: Stata version 16+
 d
-d Distribution-Date: 20260408
+d Distribution-Date: 20260419
 d License: MIT
 d
 d Author: Timothy P Copeland, Karolinska Institutet
@@ -27,6 +27,8 @@ d KW: time-varying confounding
 d KW: Monte Carlo simulation
 d
 f gcomp.ado
+f _gcomp_bootstrap.ado
+f _gcomp_bootstrap_impl.ado
 f gcomp.sthlp
 f gcomptab.ado
 f gcomptab.sthlp

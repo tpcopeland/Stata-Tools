@@ -23,8 +23,6 @@ local pkg_dir "`qa_dir'/.."
 capture ado uninstall gcomp
 quietly net install gcomp, from("`pkg_dir'/") replace
 discard
-capture findfile gcomp.ado
-quietly run "`r(fn)'"
 
 local testdir "`c(tmpdir)'"
 
@@ -743,13 +741,17 @@ capture noisily {
     local ncols = colsof(`_eb')
     * Should have PO columns for 2 interventions + observational regime
     assert `ncols' >= 3
+    local PO1 = `_eb'[1,1]
+    local PO2 = `_eb'[1,2]
+    assert `PO1' != .
+    assert `PO2' != .
 }
 if _rc == 0 {
-    display as result "  PASS: V7.1 Time-varying eofu completes with valid e() results"
+    display as result "  PASS: V7.1 Time-varying eofu completes with usable POs"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: V7.1 Treatment direction (error `=_rc')"
+    display as error "  FAIL: V7.1 usable POs (error `=_rc')"
     local ++fail_count
 }
 

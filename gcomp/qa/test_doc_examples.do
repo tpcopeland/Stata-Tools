@@ -18,8 +18,6 @@ local pkg_dir "`qa_dir'/.."
 capture ado uninstall gcomp
 quietly net install gcomp, from("`pkg_dir'/") replace
 discard
-capture findfile gcomp.ado
-quietly run "`r(fn)'"
 
 local testdir "`c(tmpdir)'"
 
@@ -126,21 +124,20 @@ capture erase "`xlsx'"
 * ============================================================
 * D4: README snippet — time-varying g-formula with intvars
 * ============================================================
-* Mirrors the documented time-varying pattern. Uses small synthetic panel.
+* Mirrors the README example as displayed: continuous time-varying confounder,
+* binary outcome, explicit exposure model, and eofu option.
 
 local ++test_count
 capture noisily {
     clear
     set seed 98765
-    set obs 300
+    set obs 600
     gen long id = ceil(_n / 3)
     bysort id: gen int time = _n
     gen double L = rnormal()
     gen double A = rbinomial(1, invlogit(-1 + 0.3*L))
     gen double outcome = rbinomial(1, invlogit(-2 + 0.5*L + 0.4*A))
 
-    * Note: varlist must include id and time in addition to model variables;
-    * equations for A and commands for A are required when A is an intvar.
     gcomp outcome L A id time, outcome(outcome) ///
         idvar(id) tvar(time) ///
         varyingcovariates(L) ///
@@ -149,9 +146,16 @@ capture noisily {
         intvars(A) interventions(A_: A_=1, A_: A_=0) ///
         sim(50) samples(10) seed(42) eofu
     assert "`e(cmd)'" == "gcomp"
+    assert "`e(analysis_type)'" == "time_varying"
+    tempname _eb
+    matrix `_eb' = e(b)
+    local PO1 = `_eb'[1,1]
+    local PO2 = `_eb'[1,2]
+    assert `PO1' != .
+    assert `PO2' != .
 }
 if _rc == 0 {
-    display as result "  PASS: D4 README time-varying example runs"
+    display as result "  PASS: D4 README time-varying example runs with a nondegenerate contrast"
     local ++pass_count
 }
 else {

@@ -13,16 +13,23 @@ local failed_files ""
 * Clean any residue from aborted prior runs (gcomptab uses c(tmpdir))
 local testdir "`c(tmpdir)'"
 local stale : dir "`testdir'" files "_test_gcomptab*.xlsx"
-foreach f of local stale { capture erase "`testdir'/`f'" }
+foreach f of local stale {
+    capture erase "`testdir'/`f'"
+}
 local stale2 : dir "`testdir'" files "_itest_*.xlsx"
-foreach f of local stale2 { capture erase "`testdir'/`f'" }
+foreach f of local stale2 {
+    capture erase "`testdir'/`f'"
+}
 local stale3 : dir "`testdir'" files "_docex_*.xlsx"
-foreach f of local stale3 { capture erase "`testdir'/`f'" }
+foreach f of local stale3 {
+    capture erase "`testdir'/`f'"
+}
 
 foreach f in ///
     test_gcomp ///
     test_stress ///
     test_interactions ///
+    test_gcomptab_regressions ///
     test_doc_examples ///
     validation_gcomp ///
     validation_extra ///

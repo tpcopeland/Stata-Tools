@@ -2,7 +2,7 @@
 
 ![Stata 16+](https://img.shields.io/badge/Stata-16%2B-brightgreen) ![MIT License](https://img.shields.io/badge/License-MIT-blue)
 
-**Version**: gcomp 1.0.0 / gcomptab 1.0.0 (2026-04-08)
+**Version**: gcomp 1.0.2 / gcomptab 1.0.2 (2026-04-19)
 **Forked from**: SSC `gformula` v1.16 beta (Rhian Daniel, 2021)
 
 ## Overview
@@ -90,7 +90,7 @@ gcomptab, xlsx(filename) sheet(string) [ci(string) effect(string)
 
 | Option | Description |
 |--------|-------------|
-| `eofu` | Outcome measured at end of follow-up |
+| `eofu` | Outcome measured only at end of follow-up |
 | `pooled` | Pooled logistic regression across visits |
 | `monotreat` | Monotone treatment assumption |
 | `dynamic` | Dynamic treatment regime |
@@ -127,7 +127,7 @@ gcomptab, xlsx(filename) sheet(string) [ci(string) effect(string)
 |--------|-------------|
 | `all` | Report all four CI types (normal, percentile, BC, BCa) |
 | `graph` | Graph potential outcomes |
-| `saving(filename)` | Save bootstrap dataset |
+| `saving(filename)` | Save the simulated dataset from the main estimation run |
 | `replace` | Overwrite existing saved file |
 
 ### gcomptab options
@@ -165,23 +165,26 @@ gcomp y m x c, outcome(y) mediation obe ///
 
 ### Example 2: Time-varying confounding
 
-What is the causal effect of sustained treatment on a binary outcome, adjusting for time-varying confounders?
+What is the causal effect of sustained treatment on a binary outcome measured at end of follow-up, adjusting for time-varying confounders?
 
 ```stata
 * Panel data: 500 subjects, 5 time points
 * Confounder L is affected by prior treatment A
-gcomp outcome L A, outcome(outcome) ///
+gcomp outcome L A id time, outcome(outcome) ///
     idvar(id) tvar(time) ///
     varyingcovariates(L) ///
-    commands(L: logit, outcome: logit) ///
-    equations(L: A, outcome: L A) ///
-    intvars(A) interventions(A=1, A=0) ///
-    sim(500) samples(200) seed(42)
+    commands(L: regress, outcome: logit, A: logit) ///
+    equations(L: A, outcome: L A, A: L) ///
+    intvars(A) interventions(A_: A_=1, A_: A_=0) ///
+    sim(500) samples(200) seed(42) eofu
 ```
 
-`interventions()` is executed as literal Stata replacement syntax on the
-variables named in `intvars()`. For static regimes, use expressions such as
-`A=1` and `A=0`.
+`interventions()` uses the same label-and-replacement syntax shown in the help
+file: `label: replacement`. In the example above, `A_` is the intervention label
+and `A_=1` / `A_=0` are the literal replacement statements applied to the
+variables named in `intvars()`. With `eofu`, only the final-visit outcome is
+used in the observed-data comparison; earlier nonmissing outcome values are
+ignored.
 
 ### Example 3: Export results to Excel
 
@@ -276,6 +279,7 @@ gcomp y m x c, outcome(y) mediation oce ///
 | `e(ci_percentile)` | Percentile CIs (with `all`) |
 | `e(ci_bc)` | Bias-corrected CIs (with `all`) |
 | `e(ci_bca)` | Bias-corrected accelerated CIs (with `all`) |
+| `e(effects)` | `effecttab`-ready matrix of estimates, standard errors, and confidence limits |
 
 **Macros:**
 | Result | Description |
@@ -300,7 +304,7 @@ gcomp y m x c, outcome(y) mediation oce ///
 | `r(nde)` | Natural direct effect |
 | `r(nie)` | Natural indirect effect |
 | `r(pm)` | Proportion mediated |
-| `r(cde)` | Controlled direct effect |
+| `r(cde)` | Controlled direct effect when the fitted results include CDE |
 | `r(xlsx)` | Excel filename |
 | `r(sheet)` | Sheet name |
 | `r(ci)` | CI type used |
@@ -313,7 +317,7 @@ gcomp y m x c, outcome(y) mediation oce ///
 3. **Global macro pollution** - Eliminated `$maxid`, `$check_delete`, `$check_print`, `$check_save`, `$almost_varlist` globals
 
 ### Modernization
-- Merged `gformula_.ado` into single file (no more separate bootstrap program)
+- Added an install-discoverable `_gcomp_bootstrap.ado` entry point for clean `net install` execution
 - Replaced deprecated `uniform()` with `runiform()` and `invnormal(uniform())` with `rnormal()`
 - Added `double` precision to all numeric `gen` statements
 - Inlined `detangle`/`formatline`/`chkin` dependencies (no more `ice` package dependency)
@@ -322,7 +326,7 @@ gcomp y m x c, outcome(y) mediation oce ///
 
 ## Validation
 
-The `qa/` directory contains **172 tests** across 3 test files, all passing.
+The `qa/` directory contains package-level functional, interaction, documentation-reality, validation, and cross-validation suites. Run them from `gcomp/qa/` so the relocatable paths resolve correctly.
 
 ### Cross-validation (crossval_gcomp.do — 18 tests)
 
@@ -344,10 +348,10 @@ Comprehensive functional coverage across 16 sections:
 
 - **Core mediation** (tests 1-22): Internal program loading, OBE/OCE/linexp/specific/baseline mediation modes, `e()` stored results (scalars, matrices, macros), `control()` for CDE, `all` CI types, `minsim`, `logOR`/`logRR` scale options, seed reproducibility, data preservation, `estimates store` compatibility
 - **gcomptab pipeline** (tests 23-47): Excel output with all option combinations (title, labels, decimal, CI types, effect labels), multi-sheet workbooks, `r()` return values, edge cases (negative/small/large effects), error handling (invalid CI, decimal, extension), full gcomp→gcomptab pipeline, `e()` persistence after rclass gcomptab
-- **Bug regression** (tests 48-57): Multi-exposure `baseline()` fix, OCE bootstrap spacing, `gen double` after reshape precision, varabbrev/more restore on success and error, CDE inclusion/exclusion in `e(b)`, PM missing when TCE near-zero, OBE without `baseline()`
-- **Time-varying mode** (tests 59-71): `eofu`, continuous outcome, `pooled`, `monotreat`, `death()`, `fixedcovariates()`, `laggedvars()`/`lagrules()`, `derived()`/`derrules()`, logit and regress MSM, multiple interventions, stored results, data preservation
-- **Mediation expanded** (tests 72-81): `linexp`, `specific` with `baseline()`/`alternative()`, `post_confs()`, `moreMC`, `saving()`/`replace`, continuous outcome/mediator, multiple mediators, imputation, `baseline` effect type
-- **Error handling** (tests 82-116): All invalid option combinations, missing required options, conflicting flags, gcomptab validation (oce rejection, shell metacharacter blocking, data/varabbrev preservation)
+- **Bug regression** (tests 48-57): Multi-exposure `baseline()` fix, OCE bootstrap spacing, `gen double` after reshape precision, varabbrev/more restore on success and error, CDE inclusion/exclusion in `e(b)`, PM missing when TCE near-zero, OBE without `baseline()`, and installed-user bootstrap discovery
+- **Time-varying mode** (tests 59-71): `eofu`, continuous outcome, `pooled`, `monotreat`, `death()`, `fixedcovariates()`, `laggedvars()`/`lagrules()`, `derived()`/`derrules()`, logit and regress MSM, multiple interventions, stored results, data preservation, and nondegenerate intervention contrasts
+- **Mediation expanded** (tests 72-81): `linexp`, `specific` with `baseline()`/`alternative()`, `post_confs()`, `moreMC`, `saving()`/`replace`, continuous outcome/mediator, multiple mediators, imputation, `baseline` effect type, and saved-dataset semantics
+- **Error handling** (tests 82-116): All invalid option combinations, missing required options, conflicting flags, `if`/option-variable behavior outside `varlist`, and `gcomptab` validation (helper autoload, path/sheet validation, stale `r()` cleanup, data/varabbrev preservation)
 
 ### Validation (validation_gcomp.do — 38 tests)
 

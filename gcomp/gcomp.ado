@@ -1,11 +1,11 @@
-*! gcomp Version 1.0.1  2026/04/11
+*! gcomp Version 1.0.2  2026/04/19
 *! G-computation formula via Monte Carlo simulation
 *! Forked from SSC gformula v1.16 beta (Rhian Daniel, 2021)
 *! with bug fixes, modernization, and SSC dependency removal
 *! Author: Timothy P Copeland (fork), Rhian Daniel (original)
 *!
 *! Changes from SSC v1.16:
-*!   - Merged gformula_.ado into single file (_gcomp_bootstrap)
+*!   - Refactored gformula_.ado internals into _gcomp_bootstrap_impl
 *!   - Fixed hardcoded `by id:` bug (idvar not honored in survival/death)
 *!   - Fixed broken baseline auto-detect with oce (backtick macro bug)
 *!   - Eliminated global macro pollution (`_gc_maxid', $check_*, `_gc_almost')
@@ -97,14 +97,23 @@ syntax varlist(min=2 numeric) [if] [in] , OUTcome(varname) COMmands(string) EQua
     mediation EXposure(varlist) mediator(varlist) control(string) baseline(string) alternative(string) base_confs(varlist) ///
     post_confs(varlist) impute(varlist) imp_eq(string) imp_cmd(string) imp_cycles(int 10) SIMulations(int 99999) ///
 	SAMples(int 1000) seed(int 0) obe oce specific boceam linexp minsim moreMC logOR logRR all graph saving(string) replace]
+local _gc_keepvars `varlist'
+foreach _gc_varblock in outcome idvar tvar varyingcovariates intvars death derived fixedcovariates laggedvars exposure mediator base_confs post_confs impute {
+	local _gc_keepvars `"`_gc_keepvars' ``_gc_varblock''"'
+}
+local _gc_keepvars : list uniq _gc_keepvars
 preserve
-keep `varlist'
 if "`in'"!="" {
 	qui keep `in'
 }
 if "`if'"!="" {
 	qui keep `if'
 }
+if "`_gc_keepvars'"!="" {
+	qui keep `_gc_keepvars'
+}
+local if
+local in
 if "`mediation'"=="" {
 	noi di
 	noi di as text "G-computation procedure using Monte Carlo simulation: time-varying confounding"
@@ -768,6 +777,9 @@ if "`mediation'"!="" & "`post_confs'"=="" {
 local _gc_check_delete = 0
 local _gc_check_print = 0
 local _gc_check_save = 0
+if "`saving'"!="" {
+	local _gc_check_save = 1
+}
 local originallist "varlist varlist2 if in outcome commands equations idvar tvar varyingcovariates intvars interventions eofu pooled death derived derrules fixedcovariates laggedvars lagrules msm mediation exposure mediator control baseline alternative base_confs post_confs impute imp_eq imp_cmd imp_cycles simulations samples seed all graph"
 foreach member of local originallist {
 	local original`member' "``member''"
@@ -884,7 +896,7 @@ if "`mediation'"=="" {
 		qui gen double `pastvar'=.
 	}
 }
-_gcomp_bootstrap `varlist' `if' `in', out(`outcome') com(`commands') eq(`equations') i(`idvar') t(`tvar') ///
+_gcomp_bootstrap_impl `varlist' `if' `in', out(`outcome') com(`commands') eq(`equations') i(`idvar') t(`tvar') ///
 	var(`varyingcovariates') intvars(`intvars') interventions(`interventions') `monotreat' `eofu' `pooled' death(`death') ///
 	derived(`derived') derrules(`derrules') fix(`fixedcovariates') lag(`laggedvars') lagrules(`lagrules') ///
 	msm(`msm') `mediation' ex(`exposure') mediator(`mediator') control(`control') baseline(`baseline') alternative(`alternative') ///
@@ -2525,8 +2537,8 @@ end
 * Inner bootstrap program (was gformula_.ado in SSC)
 * =============================================================================
 
-capture program drop _gcomp_bootstrap
-program define _gcomp_bootstrap, rclass
+capture program drop _gcomp_bootstrap_impl
+program define _gcomp_bootstrap_impl, rclass
 version 16.0
 local _gc_varabbrev = c(varabbrev)
 local _gc_more = c(more)
@@ -4896,25 +4908,20 @@ else {
     	}
     }
 }
-if "`saving'"!="" {
-	if `_gc_chk_sav'==2 {
-		rename `int_no' _int
-		keep _int `varlist'
-		foreach var in `varlist' {
-			local newname=substr("`var'",1,length("`var'")-1)
-			if "`var'"=="`idvar'" {
-				rename `idvar' _id
-			}
-			else {
-				rename `var' `newname'
-			}
+if "`saving'"!="" & `_gc_chk_sav'==1 {
+	rename `int_no' _int
+	keep _int `varlist'
+	foreach var in `varlist' {
+		local newname=substr("`var'",1,length("`var'")-1)
+		if "`var'"=="`idvar'" {
+			rename `idvar' _id
 		}
-		qui save `saving', `replace'
-		local _gc_chk_sav = 1
+		else {
+			rename `var' `newname'
+		}
 	}
-	if `_gc_chk_sav'==0 {
-		local _gc_chk_sav = 2
-	}
+	qui save `saving', `replace'
+	local _gc_chk_sav = 0
 }
 if `_gc_chk_prt'==0 {
    	noi di

@@ -1,4 +1,4 @@
-*! _gcomp_xl_common Version 1.0.0  2026/04/08
+*! _gcomp_xl_common Version 1.0.2  2026/04/19
 *! Shared Excel export utility programs for gcomp package
 *! Author: Timothy P Copeland
 
@@ -54,8 +54,7 @@ program _gcomp_validate_path
 
     local _has_bad = regexm(`"`filepath'"', "[;&|><\$\`]")
     if !`_has_bad' {
-        local _has_bad = strpos(`"`filepath'"', char(34)) > 0 | ///
-                         strpos(`"`filepath'"', char(39)) > 0
+        local _has_bad = strpos(`"`filepath'"', char(34)) > 0
     }
     if `_has_bad' {
         display as error "`option_name' contains invalid characters"
@@ -120,8 +119,15 @@ program _gcomp_xl_validate_sheet
         display as error "`option_name': sheet name '`sheet'' exceeds Excel's 31-character limit"
         exit 198
     }
-    if regexm("`sheet'", "[\\\\/\?\*\[\]]") {
-        display as error "`option_name': sheet name contains characters not allowed by Excel (\ / ? * [ ])"
+    local _has_bad = strpos(`"`sheet'"', ":") > 0 | ///
+        strpos(`"`sheet'"', char(92)) > 0 | ///
+        strpos(`"`sheet'"', "/") > 0 | ///
+        strpos(`"`sheet'"', "?") > 0 | ///
+        strpos(`"`sheet'"', "*") > 0 | ///
+        strpos(`"`sheet'"', "[") > 0 | ///
+        strpos(`"`sheet'"', "]") > 0
+    if `_has_bad' {
+        display as error "`option_name': sheet name contains characters not allowed by Excel (: \\ / ? * [ ])"
         exit 198
     }
 end

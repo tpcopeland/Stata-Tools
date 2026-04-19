@@ -1,4 +1,4 @@
-*! gcomptab Version 1.0.1  2026/04/11
+*! gcomptab Version 1.0.2  2026/04/19
 *! Format gcomp mediation analysis results for Excel export
 *! Author: Timothy P Copeland
 *! Program class: rclass (returns results in r())
@@ -40,13 +40,14 @@ PREREQUISITES:
 EXAMPLES:
 	* After running gcomp
 	gcomp ... , ... bootstrap(500)
-	gcomptab, xlsx(results.xlsx) sheet("Mediation") title("Causal Mediation Analysis")
+	gcomptab, xlsx("mediation_results.xlsx") sheet("Mediation") ///
+	    title("Causal Mediation Analysis")
 
 	* With percentile CIs
-	gcomptab, xlsx(results.xlsx) sheet("Mediation") ci(percentile)
+	gcomptab, xlsx("mediation_results.xlsx") sheet("Mediation") ci(percentile)
 
 	* Custom labels for specific analysis
-	gcomptab, xlsx(results.xlsx) sheet("Table 2") ///
+	gcomptab, xlsx("mediation_results.xlsx") sheet("Table 2") ///
 	    labels("Total Effect \ Direct Effect \ Indirect Effect \ % Mediated") ///
 	    title("Table 2. Mediation Analysis Results")
 */
@@ -56,18 +57,28 @@ program define gcomptab, rclass
 	local _gc_varabbrev = c(varabbrev)
 	set varabbrev off
 
-	capture program list _gcomp_validate_path
-	if _rc {
-		quietly findfile _gcomp_xl_common.ado
-		run "`r(fn)'"
-	}
-
 capture noisily {
+	return clear
 
 	syntax, xlsx(string) sheet(string) [ci(string) effect(string) title(string) ///
 	        labels(string) decimal(integer 3) Font(string) FONTSize(integer 10) ///
 	        BORDERstyle(string) ZEBRA FOOTnote(string) OPEN BOLDp(real 0) ///
 	        HIGHlight(real 0)]
+
+	* Auto-load bundled Excel helpers on demand
+	capture program list _gcomp_validate_path
+	if _rc {
+		capture findfile _gcomp_xl_common.ado
+		if _rc {
+			noisily display as error "_gcomp_xl_common.ado not found; reinstall gcomp"
+			exit 111
+		}
+		capture noisily run "`r(fn)'"
+		if _rc {
+			noisily display as error "_gcomp_xl_common.ado could not be loaded; reinstall gcomp"
+			exit 111
+		}
+	}
 
 quietly {
 	* =========================================================================
@@ -162,10 +173,6 @@ quietly {
 		noisily display as error "highlight() must be between 0 and 1"
 		exit 198
 	}
-
-	return local xlsx "`xlsx'"
-	return local sheet "`sheet'"
-	return local ci "`ci'"
 
 	* =========================================================================
 	* EXTRACT GCOMP RESULTS
@@ -347,6 +354,12 @@ quietly {
 		restore
 		exit _rc
 	}
+	capture confirm file "`xlsx'"
+	if _rc {
+		noisily display as error `"Workbook not found after export: `xlsx'"'
+		restore
+		exit 601
+	}
 
 	local num_rows = _N
 	local num_cols = 5
@@ -517,6 +530,9 @@ quietly {
 	if `has_cde' {
 		return scalar cde = `cde'
 	}
+	return local xlsx "`xlsx'"
+	return local sheet "`sheet'"
+	return local ci "`ci'"
 }
 } /* end capture noisily */
 local _gc_rc = _rc
