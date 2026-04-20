@@ -1,43 +1,39 @@
-# cstat_surv
+# cstat_surv - Harrell's C-statistic after `stcox`
 
-![Stata 16+](https://img.shields.io/badge/Stata-16%2B-brightgreen) ![MIT License](https://img.shields.io/badge/License-MIT-blue) ![Status](https://img.shields.io/badge/Status-Active-success)
+**Version 1.0.0** | 2026-04-08
 
-Calculate Harrell's C-statistic for Cox proportional hazards models.
+`cstat_surv` calculates Harrell's C-statistic for Cox proportional hazards models and reports an infinitesimal-jackknife standard error with a confidence interval. It is meant for post-estimation discrimination checks when you want a survival-model analogue of AUC.
+
+## Requirements
+
+- Stata 16 or later
+- Survival-time data already declared with `stset`
+- A Cox model fit with `stcox` in the current session
 
 ## Installation
 
 ```stata
 capture ado uninstall cstat_surv
 net install cstat_surv, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/cstat_surv") replace
-help cstat_surv
 ```
 
-## Requirements
+## Commands
 
-- Stata 16 or newer
-- Survival data declared with `stset`
-- A Cox model fit with `stcox` in the current session
-
-`cstat_surv` must be run immediately after `stcox`. It reads the active estimation results, predicts the fitted risk score, and then replaces the current `e()` results with the C-statistic output.
+| Command | Description |
+|---------|-------------|
+| `cstat_surv` | Calculate Harrell's C-statistic after `stcox` |
 
 ## How It Works
 
-`cstat_surv`:
+- Fit a Cox model with `stcox`.
+- Run `cstat_surv` immediately afterward on the same estimation results.
+- The command predicts fitted risk scores, compares all comparable survival pairs, and replaces `e()` with the C-statistic output.
 
-1. checks that the most recent model is `stcox`
-2. predicts from that fitted Cox model
-3. compares all comparable survival pairs
-4. calculates Harrell's C and its standard error via the infinitesimal jackknife
+## Worked Examples
 
-Interpretation is standard:
+### 1. Basic workflow with built-in data
 
-- `C = 0.5` suggests no discrimination
-- `C > 0.7` is often taken as acceptable discrimination
-- `C > 0.8` is often taken as strong discrimination
-
-## Worked Example
-
-The built-in `webuse drugtr` dataset is enough to show the full workflow.
+This is the shortest complete workflow and is runnable with Stata's built-in survival example data.
 
 ```stata
 webuse drugtr, clear
@@ -46,13 +42,9 @@ stcox age drug
 cstat_surv
 ```
 
-That sequence:
+### 2. Report a different confidence level
 
-- declares the survival outcome
-- fits a Cox model
-- reports Harrell's C, its standard error, and the confidence interval
-
-If you want a different confidence level, rerun `stcox` first and then call `cstat_surv` with `level()`:
+Use `level()` when you want a non-default interval around Harrell's C.
 
 ```stata
 webuse drugtr, clear
@@ -61,77 +53,29 @@ stcox age drug
 cstat_surv, level(90)
 ```
 
-## Important Behavior and Limitations
+## Important Behavior
 
-- The command uses unweighted pair comparisons even if the original `stcox` model used weights. A note is displayed when weights are detected.
+- `cstat_surv` overwrites the active `e()` results with the C-statistic output, so rerun `stcox` if you need the original model results again.
+- Weights from the original `stcox` model are not used in the pairwise C-statistic calculation.
 - Delayed entry via `_t0` is not accounted for in pair comparisons.
-- Multi-record counting-process survival data are not supported. The command assumes one record per subject.
-- The algorithm is pairwise and therefore quadratic in sample size. Very large datasets can take noticeably longer to run.
+- Multi-record counting-process survival data are not supported.
+- The calculation is pairwise, so very large datasets can take noticeably longer to run.
 
-## Syntax
-
-```stata
-cstat_surv [, level(#)]
-```
-
-### Option
-
-- `level(#)`: confidence level for the reported interval; default is the current Stata confidence level
-
-## Stored Results
-
-`cstat_surv` posts results to `e()`:
-
-### Scalars
+## Key Stored Results
 
 | Result | Description |
-| --- | --- |
+|--------|-------------|
 | `e(c)` | Harrell's C-statistic |
-| `e(se)` | Standard error |
+| `e(se)` | Infinitesimal-jackknife standard error |
 | `e(ci_lo)` | Lower confidence limit |
 | `e(ci_hi)` | Upper confidence limit |
-| `e(df_r)` | Degrees of freedom used for the interval |
 | `e(somers_d)` | Somers' D, equal to `2C - 1` |
-| `e(N)` | Number of observations used |
 | `e(N_comparable)` | Number of comparable pairs |
-| `e(N_concordant)` | Number of concordant pairs |
-| `e(N_discordant)` | Number of discordant pairs |
-| `e(N_tied)` | Number of tied pairs |
-| `e(level)` | Confidence level |
 
-### Macros
+## Version History
 
-| Result | Description |
-| --- | --- |
-| `e(cmd)` | `cstat_surv` |
-| `e(depvar)` | `_t` |
-| `e(title)` | Harrell's C-statistic |
-| `e(vcetype)` | Jackknife |
-
-### Matrices
-
-| Result | Description |
-| --- | --- |
-| `e(b)` | Coefficient vector containing the C-statistic |
-| `e(V)` | Variance matrix |
-
-## Screenshot
-
-![Console Output](demo/console_output.png)
-
-## Version
-
-**Version**: 1.0.0
+- **1.0.0** (2026-04-08): Initial Stata-Tools release
 
 ## Author
 
 Timothy P Copeland, Karolinska Institutet
-
-## License
-
-MIT License
-
-## See Also
-
-- `stset`
-- `stcox`

@@ -1,10 +1,8 @@
 # iivw - Inverse intensity of visit weighting for longitudinal data
 
-**Version**: 1.0.1 | 2026-04-17
+**Version 1.0.1** | 2026-04-17
 
-`iivw` corrects bias from informative visit timing in irregular longitudinal data. It computes inverse intensity weights (IIW), inverse probability of treatment weights (IPTW), or their product (FIPTIW), then fits weighted outcome models with GEE-style estimation or mixed models.
-
-The package is designed for clinic-based panel data where sicker patients tend to be seen more often. `iivw_weight` stores the weighting metadata in dataset characteristics, and `iivw_fit` reads that metadata automatically so you do not need to restate the panel and weight settings.
+`iivw` corrects bias from informative visit timing in irregular longitudinal data. It computes inverse intensity weights (IIW), inverse probability of treatment weights (IPTW), or their product (FIPTIW), then fits weighted outcome models with GEE-style estimation or mixed models. The package is designed for clinic-based panel data where sicker patients tend to be seen more often.
 
 ## Requirements
 
@@ -28,13 +26,12 @@ net install iivw, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools
 
 ## How It Works
 
-`iivw` has a simple two-command workflow:
-
 1. Run `iivw_weight` on one row per visit data. You always specify `id()` and `time()`.
-2. Choose the weighting strategy that matches your problem.
-3. Run `iivw_fit` on the same dataset to fit the weighted outcome model.
+2. Choose the weighting strategy that matches the scientific problem.
+3. Inspect the resulting weight distribution before fitting the outcome model.
+4. Run `iivw_fit` on the same dataset. It reads the stored weighting metadata automatically.
 
-Use the weighting modes as follows:
+## Choosing a Weight Type
 
 | Weight type | When to use it | Key `iivw_weight` inputs |
 |-------------|----------------|--------------------------|
@@ -42,19 +39,11 @@ Use the weighting modes as follows:
 | `iptw` | Treatment confounding only | `treat()` `treat_cov()` `wtype(iptw)` |
 | `fiptiw` | Both informative visit timing and treatment confounding matter | `id()` `time()` `visit_cov()` `treat()` `treat_cov()` |
 
-Important behavior:
-
-- `treat()` must be binary and time-invariant within subject.
-- `categorical()` in `iivw_fit` is for the outcome model only. It does not create multi-arm IPTW.
-- `iivw_fit` automatically uses the weight variable, panel ID, and time variable recorded by `iivw_weight`.
-
 ## Worked Examples
 
 These examples use a self-contained synthetic panel because Stata does not ship a built-in irregular-visit dataset that exercises the full workflow.
 
 ### 1. Create example longitudinal data
-
-This setup creates four visits per subject, irregular visit times, a continuous outcome (`edss`), a binary treatment (`treated`), and a three-level treatment label (`treatment`) for outcome-model examples.
 
 ```stata
 clear
@@ -81,7 +70,7 @@ label values treatment arm
 
 ### 2. IIW only: correct the visit process
 
-This is the basic workflow when the main concern is that patients with worse disease are seen more often. `visit_cov()` contains the variables that drive visit intensity.
+This is the basic workflow when the main concern is that patients with worse disease are seen more often.
 
 ```stata
 iivw_weight, id(id) time(days) visit_cov(edss relapse) nolog
@@ -89,11 +78,11 @@ summarize _iivw_weight, detail
 iivw_fit edss treated edss_bl, model(gee) timespec(linear)
 ```
 
-Look at the weight distribution before moving on. If the tails are extreme, rerun `iivw_weight` with `truncate(# #)`.
+If the weight tails are extreme, rerun `iivw_weight` with `truncate(# #)` before fitting the outcome model.
 
 ### 3. FIPTIW: correct visit timing and treatment confounding together
 
-Add `treat()` and `treat_cov()` when treatment assignment is also non-random. Here the final weights combine the visit-process model and the treatment model.
+Add `treat()` and `treat_cov()` when treatment assignment is also non-random.
 
 ```stata
 iivw_weight, id(id) time(days) ///
@@ -104,11 +93,9 @@ iivw_weight, id(id) time(days) ///
 iivw_fit edss treated age sex edss_bl, model(gee) timespec(quadratic)
 ```
 
-This is the canonical FIPTIW workflow for a binary treatment.
+### 4. Add time-varying effects in the weighted outcome model
 
-### 4. Time-varying effects in the weighted outcome model
-
-Once weights are in place, `iivw_fit` can add time terms and time interactions. This example asks whether the treatment effect changes over follow-up.
+Once weights are in place, `iivw_fit` can add time trends and time interactions.
 
 ```stata
 iivw_fit edss treated age sex edss_bl, ///
@@ -117,17 +104,15 @@ iivw_fit edss treated age sex edss_bl, ///
 
 Use `timespec(linear)`, `timespec(quadratic)`, `timespec(cubic)`, `timespec(ns(#))`, or `timespec(none)` depending on how flexible the time trend should be.
 
-### 5. Categorical predictors in the outcome model
+### 5. Use categorical predictors in the outcome model
 
-This example still uses the current weight variable created by `iivw_weight`, but it models a labeled three-level treatment variable in the outcome model. That is what `categorical()` is for.
+`categorical()` affects the outcome model only. It does not create multi-arm IPTW.
 
 ```stata
 iivw_weight, id(id) time(days) visit_cov(edss relapse) replace nolog
 iivw_fit edss treatment edss_bl, ///
     categorical(treatment) timespec(ns(3)) interaction(treatment)
 ```
-
-If you need treatment weighting, `treat()` in `iivw_weight` remains binary. A multi-level treatment can still appear in `iivw_fit` as an ordinary modeled predictor.
 
 ### 6. Bootstrap standard errors
 
@@ -137,34 +122,16 @@ Bootstrap replicates apply to the outcome model fit with fixed weights. The weig
 iivw_fit edss treated edss_bl, bootstrap(500) nolog
 ```
 
-## Key Options
+## Practical Notes
 
-### `iivw_weight`
-
-| Option | Meaning |
-|--------|---------|
-| `visit_cov(varlist)` | Covariates for the Andersen-Gill visit model |
-| `treat(varname)` | Binary treatment indicator for IPTW or FIPTIW |
-| `treat_cov(varlist)` | Covariates for the treatment model |
-| `stabcov(varlist)` | Covariates for stabilized IIW numerator model |
-| `lagvars(varlist)` | Time-varying covariates to lag by one visit |
-| `truncate(# #)` | Percentile truncation of the final weights |
-| `generate(name)` | Prefix for generated weight variables |
-
-### `iivw_fit`
-
-| Option | Meaning |
-|--------|---------|
-| `model(gee)` | Default GEE-style weighted fit via `glm` with clustered robust SEs |
-| `model(mixed)` | Mixed-effects outcome model |
-| `timespec(...)` | Time trend: `linear`, `quadratic`, `cubic`, `ns(#)`, or `none` |
-| `interaction(varlist)` | Time x covariate interactions |
-| `categorical(varlist)` | Expand labeled categorical predictors |
-| `bootstrap(#)` | Bootstrap SEs for the outcome model |
+- `treat()` must be binary and time-invariant within subject.
+- `iivw_fit` automatically uses the weight variable, panel ID, and time variable recorded by `iivw_weight`.
+- `categorical()` is for the outcome model only. It does not define IPTW treatment levels.
+- `bootstrap()` reflects outcome-model uncertainty only because the weights are treated as fixed.
 
 ## Validation
 
-The package ships with functional, validation, and cross-validation QA under `qa/`. The cross-validation workflows compare `iivw` against independent R implementations for both IIW-style weighting and the FIPTIW setting described by Tompkins et al. (2025).
+The package ships with functional, validation, and cross-validation QA under `qa/`, including comparisons against independent R workflows for both IIW-style weighting and the FIPTIW setting.
 
 ## References
 
@@ -176,7 +143,3 @@ The package ships with functional, validation, and cross-validation QA under `qa
 ## Author
 
 Timothy P Copeland, Karolinska Institutet
-
-## License
-
-MIT

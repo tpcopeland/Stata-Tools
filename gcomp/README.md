@@ -2,13 +2,14 @@
 
 **Version 1.0.2** | 2026-04-19
 
-`gcomp` implements Robins' parametric g-computation formula in Stata using Monte Carlo simulation and bootstrap inference. The package supports two related workflows: causal mediation analysis and longitudinal causal effects with time-varying confounding.
+`gcomp` implements Robins' parametric g-computation formula in Stata using Monte Carlo simulation and bootstrap inference. The package supports two related workflows: causal mediation analysis and longitudinal causal effects in the presence of time-varying confounding.
 
-`gcomp` is a maintained fork of SSC `gformula` v1.16 beta (Rhian Daniel, 2021) with bug fixes, modernization, and removal of SSC dependencies. The companion command `gcomptab` formats supported mediation results into publication-ready Excel tables.
+This Stata-Tools release is a maintained fork of SSC `gformula` v1.16 beta (Rhian Daniel, 2021) with bug fixes, modernization, and removal of SSC dependencies. The companion command `gcomptab` formats supported mediation results into publication-ready Excel tables.
 
 ## Requirements
 
 - Stata 16 or later
+- No external dependencies beyond official Stata commands bundled with Stata 16+
 
 ## Installation
 
@@ -22,35 +23,34 @@ net install gcomp, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tool
 | Command | Description |
 |---------|-------------|
 | `gcomp` | Estimate mediation effects or longitudinal causal effects via parametric g-computation |
-| `gcomptab` | Export supported `gcomp` mediation results to formatted Excel tables |
+| `gcomptab` | Export supported `gcomp` mediation results to a formatted Excel table |
 
 ## How It Works
 
-`gcomp` always needs the same two building blocks:
+`gcomp` always needs the same two core ingredients:
 
-- `commands()` tells Stata which model family to use for each simulated variable, such as `logit`, `regress`, `mlogit`, or `ologit`.
-- `equations()` tells Stata which predictors belong in each model.
+- `commands()` tells Stata which model family to use for each simulated variable, such as `logit`, `regress`, `mlogit`, or `ologit`
+- `equations()` tells Stata which predictors belong in each of those models
 
-From there, the workflow branches:
+From there the workflow branches:
 
-- In **mediation mode**, you add `mediation`, identify the exposure and mediator, specify baseline confounders, and choose an effect type such as `obe`, `oce`, `linexp`, or `specific`.
-- In **time-varying mode**, you identify the subject and time variables, list the time-varying confounders, and define the interventions to compare.
+- In **mediation mode**, add `mediation`, identify the exposure and mediator, supply baseline confounders, and choose an effect type such as `obe`, `oce`, `linexp`, or `specific`
+- In **time-varying mode**, identify the subject and time variables, list the time-varying confounders, and define the interventions to compare
+- `gcomptab` is a post-estimation formatter. Run it only after a supported mediation fit from `gcomp`
 
-`gcomptab` is a post-estimation formatter. Run it only after a supported mediation fit from `gcomp`.
-
-## Choosing a Mode
+## Choosing a Workflow
 
 | Use case | Core syntax pattern | What you get |
 |----------|---------------------|--------------|
 | Binary or categorical mediation | `gcomp ..., outcome() mediation exposure() mediator() base_confs() effect_type` | TCE, NDE, NIE, PM, and sometimes CDE |
 | Time-varying confounding | `gcomp ..., outcome() idvar() tvar() varyingcovariates() intvars() interventions()` | Potential outcomes under user-specified longitudinal interventions |
-| Excel export of mediation results | `gcomptab, xlsx() sheet()` | Publication-ready mediation table in `.xlsx` format |
+| Excel export of mediation output | `gcomptab, xlsx() sheet()` | Publication-ready `.xlsx` table from supported mediation results |
 
 ## Worked Examples
 
-### 1. Binary-exposure mediation with generated data
+### 1. Binary-exposure mediation with simulated data
 
-This example mirrors the main help-file workflow. The data are simulated in-place, so nothing else needs to be installed. The small `sim()` and `samples()` values keep the example quick; for a real analysis, increase them materially.
+This mirrors the main help-file mediation workflow and runs from a clean Stata session. The small `sim()` and `samples()` values keep the example fast; use much larger values for real analyses.
 
 ```stata
 clear
@@ -65,12 +65,12 @@ gcomp y m x c, outcome(y) mediation obe ///
     exposure(x) mediator(m) ///
     commands(m: logit, y: logit) ///
     equations(m: x c, y: m x c) ///
-    base_confs(c) sim(100) samples(20) seed(42)
+    base_confs(c) sim(500) samples(200) seed(42)
 ```
 
-Use this pattern when the exposure is binary and you want the usual decomposition into total, direct, and indirect effects.
+Use this pattern when the exposure is binary and you want the standard decomposition into total, direct, and indirect effects.
 
-### 2. Export a mediation fit to Excel with `gcomptab`
+### 2. Export supported mediation results to Excel with `gcomptab`
 
 Run `gcomptab` immediately after a supported mediation model. The workbook path is just a normal filename in the current working directory.
 
@@ -79,11 +79,11 @@ gcomptab, xlsx("mediation_results.xlsx") sheet("Table 1") ///
     title("Causal Mediation: Smoking Effect via Inflammation")
 ```
 
-`gcomptab` formats the estimates, confidence intervals, and standard errors into a polished Excel table. It is intended for mediation output, not the time-varying intervention workflow.
+`gcomptab` formats estimates, confidence intervals, and standard errors into a polished Excel table. It is intended for supported mediation output, not the time-varying intervention workflow, and it does not support `oce` results.
 
 ### 3. Categorical-exposure mediation with `oce`
 
-Use `oce` when the exposure has more than two levels.
+Use `oce` when the exposure has more than two levels and you want mediation contrasts against a baseline level.
 
 ```stata
 clear
@@ -98,14 +98,14 @@ gcomp y m x c, outcome(y) mediation oce ///
     exposure(x) mediator(m) ///
     commands(m: logit, y: logit) ///
     equations(m: x c, y: m x c) ///
-    base_confs(c) sim(100) samples(20) seed(42)
+    base_confs(c) sim(500) samples(200) seed(42)
 ```
 
-This estimates mediation contrasts across exposure levels. `gcomptab` is not the formatter for `oce`; use it for the standard supported mediation outputs described in the help file.
+This produces mediation contrasts across exposure levels. Because `gcomptab` does not format `oce` output, review the stored `e()` results directly or build custom tables from them.
 
 ### 4. Time-varying confounding in long data
 
-Here the data are already in long format with one row per person-time observation. `L` is the time-varying confounder, `A` is the intervention variable, and `outcome` is the binary outcome. With `eofu`, only the final-row outcome is used conceptually; earlier nonmissing values are ignored by design.
+Here the data are already in long format with one row per person-time observation. `L` is the time-varying confounder, `A` is the intervention variable, and `outcome` is the binary outcome.
 
 ```stata
 clear
@@ -123,12 +123,12 @@ gcomp outcome L A id time, outcome(outcome) ///
     commands(L: regress, outcome: logit, A: logit) ///
     equations(L: A, outcome: L A, A: L) ///
     intvars(A) interventions(A_: A_=1, A_: A_=0) ///
-    sim(50) samples(10) seed(42) eofu
+    sim(500) samples(200) seed(42) eofu
 ```
 
-The `interventions()` syntax is label-plus-replacement. In the example above, `A_` is the intervention label and `A_=1` or `A_=0` is the actual intervention rule applied to the variable named in `intvars()`.
+For `eofu` analyses, record the outcome only on the final row for each subject. Earlier nonmissing values are ignored by design.
 
-## Core Options
+## Key Options
 
 ### `gcomp`
 
@@ -162,14 +162,12 @@ The `interventions()` syntax is label-plus-replacement. In the example above, `A
 
 After `gcomp`, the main results are stored in `e()`, including:
 
-- `e(b)`: named effect estimates
-- `e(V)`: variance matrix
-- `e(se)`: standard errors
-- `e(ci_normal)`: normal-based confidence intervals
-- `e(ci_percentile)`, `e(ci_bc)`, and `e(ci_bca)` when requested
-- metadata such as `e(analysis_type)`, `e(outcome)`, `e(exposure)`, and `e(mediation_type)` when applicable
+- `e(b)`, `e(V)`, and `e(se)` for point estimates and uncertainty
+- `e(ci_normal)` and, with `all`, `e(ci_percentile)`, `e(ci_bc)`, and `e(ci_bca)`
+- metadata such as `e(analysis_type)`, `e(outcome)`, `e(exposure)`, `e(mediator)`, and `e(mediation_type)`
+- convenience mediation scalars such as `e(tce)`, `e(nde)`, `e(nie)`, `e(pm)`, and `e(cde)` when applicable
 
-After `gcomptab`, formatted export details are stored in `r()`, including the workbook name, sheet name, CI type, and effect estimates copied into the table.
+After `gcomptab`, export details are stored in `r()`, including the workbook name, sheet name, CI type, number of effects exported, and effect estimates copied into the table.
 
 ## References
 
@@ -178,4 +176,12 @@ After `gcomptab`, formatted export details are stored in `r()`, including the wo
 
 ## Version History
 
-- **1.0.2** (2026-04-19): Current Stata-Tools release
+- **1.0.2** (2026-04-19): Current Stata-Tools fork release with bundled Excel export support via `gcomptab`
+
+## Author
+
+Fork maintainer: Timothy P Copeland, Karolinska Institutet. Original command by Rhian Daniel, London School of Hygiene and Tropical Medicine.
+
+## License
+
+MIT

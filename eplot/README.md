@@ -1,42 +1,50 @@
-# eplot
+# eplot - Unified effect plotting from data, estimates, and matrices
 
-![Stata 16+](https://img.shields.io/badge/Stata-16%2B-brightgreen) ![MIT License](https://img.shields.io/badge/License-MIT-blue)
+**Version 1.1.0** | 2026-04-19
 
-Unified effect plotting for forest plots and coefficient plots in Stata.
+`eplot` creates forest-plot and coefficient-plot style graphics from three sources: variables in memory, active or stored estimation results, and preassembled matrices. The point of the package is to keep those workflows under one command instead of switching between separate plotting tools and custom graph code.
 
-`eplot` creates effect plots from three sources:
+## Requirements
 
-- data in memory
-- stored estimation results
-- matrices
-
-It is designed to cover the common workflows that otherwise get split across a forest-plot command, a coefficient-plot command, and custom graph code.
+- Stata 16 or later
+- No external package dependencies
 
 ## Installation
 
 ```stata
 capture ado uninstall eplot
 net install eplot, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/eplot") replace
-help eplot
 ```
+
+## Commands
+
+| Command | Description |
+|---------|-------------|
+| `eplot` | Draw effect plots from data in memory, estimation results, or matrices |
 
 ## How It Works
 
 `eplot` chooses its mode from the call you give it:
 
-1. `eplot es lci uci, ...` uses variables in memory
-2. `eplot .` or `eplot model1 model2, ...` uses active or stored estimates
-3. `eplot, matrix(R) ...` uses a matrix with effect information
+1. `eplot es lci uci, ...` uses variables in memory.
+2. `eplot .` or `eplot model1 model2, ...` uses active or stored estimates.
+3. `eplot, matrix(R) ...` uses a matrix with effect information.
 
-That means one README example is not enough. The most useful way to learn `eplot` is to see one worked example for each mode and then adapt the option set from there.
+Mode detection gives precedence to data mode when the first three tokens look like numeric variables. In ambiguous cases, use `eplot .` to force estimates mode or `matrix()` to force matrix mode explicitly.
 
-Mode detection gives precedence to data mode when the first three tokens look like numeric variables. In ambiguous cases, use `eplot .` to force estimates mode or `matrix()` to force matrix mode.
+## Feature Highlights
+
+- One plotting command across data, estimation, and matrix workflows
+- Forest-plot and coefficient-plot layouts under a shared option vocabulary
+- Multi-model comparisons with `modellabels()`, `offset()`, and `palette()`
+- Display controls such as `values`, `cicap`, `groups()`, `headers()`, and `gap()`
+- Quick styling through `style(lancet|jama|nejm|bmj|forest|coef)` and custom axis/reference-line options
 
 ## Worked Examples
 
-### 1. Single-model coefficient plot from `sysuse auto`
+### 1. Create a single-model coefficient plot
 
-This is the fastest way to use `eplot` if you already have estimation results in memory.
+This is the fastest way to use `eplot` when you already have estimation results in memory.
 
 ```stata
 sysuse auto, clear
@@ -72,8 +80,6 @@ eplot base extended, drop(_cons) ///
     cicap
 ```
 
-![Multi-Model Comparison](demo/multi_model.png)
-
 ### 3. Create a forest plot from data in memory
 
 Use data mode when you already have effect sizes and confidence limits in variables, for example after a meta-analysis or when reading results from another system.
@@ -94,8 +100,6 @@ eplot es lci uci, labels(study) weights(weight) type(type) ///
     values effect("Mean Difference (95% CI)")
 ```
 
-![Forest Plot](demo/forest_values.png)
-
 ### 4. Plot from a matrix
 
 Matrix mode is useful when the effect table is already assembled programmatically.
@@ -109,9 +113,9 @@ eplot, matrix(R) eform ///
     values
 ```
 
-### 5. Apply styling, grouping, and annotation
+### 5. Add grouping and annotation
 
-Once the basic plot works, layer on display options such as `groups()`, `gap()`, `style()`, significance coloring, or `favors()`.
+Once the basic plot works, layer on display options such as `groups()`, `gap()`, significance coloring, or `favors()`.
 
 ```stata
 sysuse auto, clear
@@ -124,92 +128,24 @@ eplot ., noconstant ///
     stars values sigcolors
 ```
 
-## Common Option Families
-
-### Data and labels
-
-- `labels(varname)`: row labels in data mode
-- `weights(varname)`: marker scaling in forest-plot style displays
-- `type(varname)`: row roles such as ordinary effect rows and pooled rows
-- `coeflabels()`, `groups()`, `headers()`: relabel or organize coefficients
-
-### Effect transformation and reference lines
-
-- `eform`: exponentiate coefficients
-- `rescale(#)`: multiply effects by a scalar
-- `xline()`, `null()`, `nonull`: control reference lines
-- `xlabel()`: pass effect-axis ticks through to either layout
-
-### Display and layout
-
-- `values`: print formatted effect text beside each row
-- `vformat()`: control numeric formatting of those values
-- `cicap`: use capped confidence-interval whiskers
-- `sort` or `order()`: control coefficient order
-- `style(lancet|jama|nejm|bmj|forest|coef)`: quick presets
-- `gap(#)`: add spacing between grouped sections
-- `favors("Left label" "Right label")`: directional annotation for treatment-vs-control style displays
-
-### Multi-model estimates mode
-
-- `modellabels()`: legend labels for stored estimates
-- `offset()`: vertical spacing between models
-- `palette()`: model color palette
-- `legendopts()`: additional legend control
-
-## Stored Results
-
-`eplot` stores:
-
-| Result | Description |
-| --- | --- |
-| `r(N)` | Number of plotted rows |
-| `r(k)` | Number of plotted effects excluding headers and diamonds |
-| `r(n_models)` | Number of models in estimates mode |
-| `r(cmd)` | Graph command executed |
-| `r(table)` | Matrix of plotted estimates and confidence limits |
-| `r(pvalues)` | P-value matrix in single-model estimates mode |
-
 ## Gallery
 
-### Grouped coefficient plot
+### Multi-model comparison
 
-![Grouped Coefficient Plot](demo/grouped_coefplot.png)
+![Multi-model comparison](demo/multi_model.png)
+
+### Forest plot from data mode
+
+![Forest plot from data mode](demo/forest_values.png)
 
 ### Matrix mode
 
-![Matrix Mode](demo/matrix_mode.png)
+![Matrix mode](demo/matrix_mode.png)
 
-### Lancet style preset
+## Version History
 
-![Lancet Style](demo/lancet_style.png)
-
-### Significance coloring
-
-![Significance Coloring](demo/sigcolors.png)
-
-### Meta-analysis style display
-
-![Meta-Analysis](demo/meta_heterogeneity.png)
-
-## Requirements
-
-- Stata 16 or newer
-- No external package dependencies
-
-## Version
-
-**Version**: 1.1.0
-
-- Added `gap()` for grouped spacing in data and single-model estimates modes.
-- Added effect-axis `xlabel()` passthrough for both horizontal and vertical layouts.
-- Values annotation now widens the right plot margin automatically when formatted text is wide.
-- Help and README now document mode-detection ambiguity when stored estimate names collide with variable names.
+- **1.1.0** (2026-04-19): Added `gap()` for grouped spacing, added effect-axis `xlabel()` passthrough, widened value-annotation margins automatically, and documented mode-detection ambiguity more clearly
 
 ## Author
 
 Timothy P Copeland, Karolinska Institutet
-
-## License
-
-MIT License

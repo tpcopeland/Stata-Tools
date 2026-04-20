@@ -1,13 +1,12 @@
-# datefix - Convert string date variables to Stata daily dates
+# datefix - Convert imported date strings to Stata daily dates
 
 **Version 1.0.0** | 2026-04-08
 
-`datefix` converts string date variables to numeric Stata daily dates and applies a daily-date display format. It is designed for the common data-cleaning case where imported dates arrive as strings, the ordering is unclear, or two-digit years need explicit handling before analysis.
+`datefix` converts string date variables to numeric Stata daily dates and applies a daily-date display format. It is designed for the common cleanup step after import, especially when date order is inconsistent, two-digit years need disambiguation, or you want to preserve the original string alongside a cleaned numeric date.
 
 ## Requirements
 
 - Stata 16 or later
-- Daily dates only; datetime strings are not supported
 
 ## Installation
 
@@ -24,7 +23,7 @@ net install datefix, from("https://raw.githubusercontent.com/tpcopeland/Stata-To
 
 ## Quick Start
 
-If the imported dates are clearly day-month-year or year-month-day, `datefix` can usually infer the correct ordering and replace the original string variable in place.
+If the imported dates are unambiguous, `datefix` can usually infer the correct ordering and replace the original string variable in place.
 
 ```stata
 clear
@@ -38,19 +37,19 @@ datefix visit_date
 list
 ```
 
-In this example, `datefix` will auto-detect `DMY`, convert `visit_date` to a numeric daily date, and leave it displayed with the default `%tdCCYY/NN/DD` format.
+In this example, `datefix` will auto-detect the ordering that produces the most valid parses, convert `visit_date` to a numeric daily date, and apply the default `%tdCCYY/NN/DD` format.
 
 ## How It Works
 
 - Without `newvar()`, each variable in `varlist` is converted in place.
 - With `newvar()`, only one source variable may be specified, and the original variable is preserved unless `drop` is also requested.
-- If `order()` is omitted, `datefix` tests `MDY`, `DMY`, and `YMD` and chooses the ordering that produces the most valid parses.
-- If two-digit years are present, supply `topyear()` so Stata's `date()` function interprets them correctly.
-- If a variable is already numeric, `datefix` applies the requested display format or copies it to `newvar()`.
+- If `order()` is omitted, `datefix` tests `MDY`, `DMY`, and `YMD` and uses the ordering that produces the most valid parses. If the strings are ambiguous, specify `order()` explicitly.
+- `topyear()` passes Stata's `topyear` argument to `date()` so two-digit years are interpreted correctly.
+- If a variable is already numeric, `datefix` can still copy it to `newvar()` and apply a different daily-date display format.
 
 ## Worked Examples
 
-### 1. Auto-detect the ordering and replace the original variable
+### 1. Auto-detect the ordering and replace the original variables
 
 This is the default cleanup workflow for imported string dates.
 
@@ -121,7 +120,6 @@ list
 | `%tdCCYY/NN/DD` | 2020/01/10 | Default year-month-day display |
 | `%tdDD/NN/CCYY` | 10/01/2020 | Day-month-year display |
 | `%tdMonth_DD,_CCYY` | January 10, 2020 | Full month name |
-| `%tdMon_DD,_CCYY` | Jan 10, 2020 | Abbreviated month with comma |
 | `%tdDD_Mon._CCYY` | 10 Jan. 2020 | Compact manuscript-style date |
 
 For the full set of Stata date display formats, see `help datetime_display_formats`.
@@ -130,12 +128,13 @@ For the full set of Stata date display formats, see `help datetime_display_forma
 
 - `newvar()` cannot be combined with multiple source variables.
 - `drop` is only meaningful when `newvar()` is used.
-- If `datefix` encounters strings with `:` in them, it stops because those look like datetimes rather than daily dates.
+- `datefix` stops when it encounters strings with `:` because those look like datetimes rather than daily dates.
 - Missing-value counts are reported before and after conversion so you can spot parsing problems quickly.
+- `datefix` does not store results in `r()`.
 
 ## Version History
 
-- **1.0.0** (2026-04-08): Initial Stata-Tools release for converting string dates to Stata daily dates with auto-detection, format control, and `topyear()` handling.
+- **1.0.0** (2026-04-08): Initial release with auto-detection, `newvar()`, custom display formats, and `topyear()` support.
 
 ## Author
 

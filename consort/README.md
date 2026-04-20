@@ -1,34 +1,41 @@
-# consort
+# consort - CONSORT-style exclusion flowcharts for observational research
 
-![Stata 16+](https://img.shields.io/badge/Stata-16%2B-brightgreen) ![Python 3.7+](https://img.shields.io/badge/Python-3.7%2B-blue) ![MIT License](https://img.shields.io/badge/License-MIT-blue)
+**Version 1.0.0** | 2026-04-08
 
-Generate CONSORT-style exclusion flowcharts for observational research directly from Stata.
+`consort` generates CONSORT-style exclusion flowcharts for observational research directly from Stata. It records each exclusion step, writes those steps to a backing CSV file, and uses a bundled Python renderer to produce a publication-ready diagram.
+
+The command is designed for real data-cleaning workflows, not just drawing. Each exclusion step actually drops observations from the active dataset, so the README examples emphasize `preserve` and `restore` when you want to keep the original data in memory.
+
+## Requirements
+
+- Stata 16 or later
+- Python 3.7 or later
+- Python package `matplotlib`
+
+Install `matplotlib` from a shell:
+
+```bash
+python -m pip install matplotlib
+```
+
+Or from Stata:
+
+```stata
+shell python -m pip install matplotlib
+```
 
 ## Installation
 
 ```stata
 capture ado uninstall consort
 net install consort, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/consort") replace
-help consort
 ```
 
-## Requirements
+## Commands
 
-- Stata 16 or newer
-- Python 3.7 or newer
-- Python package `matplotlib`
-
-Install `matplotlib` from a shell:
-
-```bash
-pip install matplotlib
-```
-
-Or from Stata:
-
-```stata
-shell pip install matplotlib
-```
+| Command | Description |
+|---------|-------------|
+| `consort` | Initialize, update, save, and clear a CONSORT-style exclusion flowchart through subcommands |
 
 ## How It Works
 
@@ -39,11 +46,27 @@ shell pip install matplotlib
 3. `consort save` calls the bundled Python renderer to turn the recorded steps into a diagram.
 4. `consort clear` removes the active state if you want to abandon or reset the workflow.
 
-The important operational detail is that `consort exclude` really does `drop` observations from the active dataset. If you want to keep working with the original data afterward, wrap the workflow in `preserve` and `restore`.
+Operational details that matter:
 
-## Worked Example
+- `consort exclude` really does `drop` observations from the active dataset
+- zero-match exclusions are skipped, so they do not add a step to the diagram
+- `consort save` requires at least one exclusion step and clears the active state after a successful save
+- if you want to keep the original data after drawing the figure, wrap the workflow in `preserve` and `restore`
 
-The example below uses `sysuse auto`, so it is runnable immediately after installation and shows the full command sequence from start to finish.
+## Subcommands
+
+| Subcommand | Syntax | Purpose |
+|------------|--------|---------|
+| `init` | `consort init, initial(string) [file(filename)]` | Start a new diagram from the current dataset |
+| `exclude` | `consort exclude if condition, label(string) [remaining(string)]` | Record an exclusion and drop matching observations |
+| `save` | `consort save, output(filename) [final(string) shading python(string) dpi(#)]` | Render the diagram to disk |
+| `clear` | `consort clear [, quiet]` | Abandon the active diagram state |
+
+## Worked Examples
+
+### 1. Basic workflow with built-in data
+
+This example is runnable immediately after installation. It shows the full workflow from initialization to a saved diagram while preserving the original dataset.
 
 ```stata
 sysuse auto, clear
@@ -62,99 +85,54 @@ consort save, output("consort_auto.png") ///
 restore
 ```
 
-What this does:
+This sequence starts from the full `auto` dataset, removes observations in order, and writes a high-resolution PNG flowchart to the current working directory.
 
-- starts from the full `auto` dataset
-- removes observations with missing `rep78`
-- removes foreign cars from the remaining sample
-- writes a publication-ready PNG flowchart at 300 DPI
+### 2. Cohort-style example using the shared `_data/` example file
 
-## Subcommands and Syntax
-
-### Initialize a diagram
+This mirrors the main epidemiology-oriented help-file workflow while keeping the example copy-paste runnable after installation.
 
 ```stata
-consort init, initial(string) [file(string)]
+use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear
+preserve
+
+consort init, initial("Persons with antidepressant dispensing")
+consort exclude if index_age < 18, ///
+    label("Age < 18 years") ///
+    remaining("Adult cohort")
+consort exclude if study_exit <= study_entry + 30, ///
+    label("Follow-up < 30 days")
+consort exclude if missing(education), ///
+    label("Missing education data")
+consort save, output("cohort_flowchart.png") ///
+    final("Analytic cohort") dpi(300)
+
+restore
 ```
 
-| Option | Description |
-| --- | --- |
-| `initial(string)` | Required label for the starting population box |
-| `file(string)` | Optional CSV path if you want to keep the intermediate step file |
+### 3. Saving with an explicit Python executable
 
-### Add an exclusion step
+Use `python()` when Python is not on the system path that Stata sees or when you need a specific interpreter.
 
 ```stata
-consort exclude if condition, label(string) [remaining(string)]
+sysuse auto, clear
+preserve
+
+consort init, initial("Cars in auto.dta")
+consort exclude if missing(rep78), label("Missing repair record")
+consort save, output("consort_auto.png") ///
+    python("/usr/local/bin/python3") ///
+    final("Analytic sample")
+
+restore
 ```
 
-| Option | Description |
-| --- | --- |
-| `if condition` | Required exclusion condition |
-| `label(string)` | Required text for the exclusion box |
-| `remaining(string)` | Optional label for the surviving cohort after that exclusion |
+## Practical Notes
 
-### Save the diagram
-
-```stata
-consort save, output(string) [final(string) shading python(string) dpi(integer)]
-```
-
-| Option | Description |
-| --- | --- |
-| `output(string)` | Required output image path |
-| `final(string)` | Label for the final cohort box |
-| `shading` | Apply shaded box styling |
-| `python(string)` | Explicit Python executable path if auto-detection fails |
-| `dpi(integer)` | Output resolution; default is 150 and `dpi(300)` is usually preferable for manuscripts |
-
-### Clear the active state
-
-```stata
-consort clear [, quiet]
-```
-
-Use `consort clear` when you want to abandon the current diagram without saving it.
-
-## Stored Results
-
-### `consort init`
-
-| Result | Description |
-| --- | --- |
-| `r(N)` | Initial number of observations |
-| `r(initial)` | Initial population label |
-| `r(file)` | Backing CSV path |
-
-### `consort exclude`
-
-| Result | Description |
-| --- | --- |
-| `r(n_excluded)` | Number of observations excluded at that step |
-| `r(n_remaining)` | Number of observations remaining |
-| `r(step)` | Exclusion step number |
-| `r(label)` | Exclusion label |
-
-### `consort save`
-
-| Result | Description |
-| --- | --- |
-| `r(N_initial)` | Initial observation count |
-| `r(N_final)` | Final observation count |
-| `r(N_excluded)` | Total excluded across all steps |
-| `r(steps)` | Number of exclusion steps |
-| `r(output)` | Output image path |
-| `r(final)` | Final cohort label |
-
-## Screenshots
-
-### Console output
-
-![Console Output](demo/console_output.png)
-
-### CONSORT flowchart
-
-![CONSORT Flowchart](demo/consort_flowchart.png)
+- `file()` in `consort init` lets you keep the intermediate CSV instead of using a temporary file
+- `remaining()` is useful when you want the post-exclusion population boxes to carry milestone labels rather than counts only
+- `final()` overrides the default final label of `"Final Cohort"`
+- `dpi(300)` is usually the right choice for manuscript figures; the default is 150
+- `shading` adds blue shading to flow boxes and red shading to exclusion boxes
 
 ## Troubleshooting
 
@@ -169,16 +147,16 @@ consort save, output("diagram.png") python("/usr/local/bin/python3")
 ### `matplotlib` not installed
 
 ```stata
-shell pip install matplotlib
+shell python -m pip install matplotlib
 ```
 
 ### Permission errors or missing output
 
-Make sure the target output directory exists and is writable from Stata.
+Make sure the target output directory exists and is writable from Stata before running `consort save`.
 
-## Version
+## Version History
 
-**Version**: 1.0.0
+- **1.0.0** (2026-04-08): Initial Stata-Tools release for stateful CONSORT-style flowchart generation from Stata
 
 ## Author
 
@@ -186,4 +164,4 @@ Timothy P Copeland, Karolinska Institutet
 
 ## License
 
-MIT License
+MIT

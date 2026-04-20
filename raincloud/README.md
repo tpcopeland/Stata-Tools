@@ -1,10 +1,10 @@
-# raincloud - Raincloud plots for Stata
+# raincloud - Raincloud plots combining density, points, and box summaries
 
 **Version 1.0.0** | 2026-04-08
 
-`raincloud` draws raincloud plots: a half-violin density, jittered raw points, and a box-and-whisker summary in one figure. The command is meant for fast distributional comparisons where you want both a smooth shape and the underlying observations on the same graph.
+`raincloud` draws raincloud plots: a half-violin density, jittered raw points, and a box-and-whisker summary in one figure. The command is built for distributional comparisons where you want the overall shape and the observed values on the same graph.
 
-It supports grouped displays through `over()`, horizontal or vertical orientation, mirror-mode split violins, analytic and frequency weights, and pass-through graph styling options.
+It supports grouped displays through `over()`, horizontal or vertical orientation, mirror-mode split violins, analytic and frequency weights, and pass-through styling options for the cloud, points, and box layers.
 
 ## Requirements
 
@@ -39,16 +39,14 @@ This draws separate rainclouds for domestic and foreign cars so you can compare 
 Each raincloud combines three pieces:
 
 - The **cloud** is a half-violin kernel density.
-- The **rain** is jittered raw data, so you can see the observed values directly.
-- The **box** is a compact quartile-and-whisker summary.
+- The **rain** is a jittered scatter of the observed values.
+- The **box** is a quartile-and-whisker summary of the same distribution.
 
-You can turn any element off with `nocloud`, `norain`, or `nobox`/`noumbrella`. Only one numeric outcome variable is allowed at a time. If you want to compare multiple measures, reshape to long format and use `over()` for the grouping variable.
+You can turn individual layers off with `nocloud`, `norain`, and `nobox` or `noumbrella`. Only one numeric outcome variable is allowed at a time. To compare multiple measures, reshape to long format and use `over()` for the grouping variable.
 
 ## Worked Examples
 
 ### 1. Single distribution
-
-This is the simplest use: show one variable with all three elements.
 
 ```stata
 sysuse auto, clear
@@ -57,27 +55,21 @@ raincloud mpg
 
 ### 2. Grouped comparison
 
-`over()` creates one raincloud per group. Value labels are used automatically when available.
-
 ```stata
 sysuse auto, clear
 raincloud mpg, over(foreign)
 ```
 
-Use this when the main question is whether two or more groups differ in spread, skewness, overlap, or outliers.
+Use this when the main question is whether groups differ in spread, skewness, overlap, or outliers.
 
 ### 3. Vertical layout with a mean marker
-
-For some figures, especially when the variable names belong on the x-axis, the vertical layout reads better.
 
 ```stata
 sysuse auto, clear
 raincloud price, over(foreign) vertical mean
 ```
 
-### 4. Mirror mode and styling
-
-`mirror` draws the density on both sides of the center line. Pass-through styling options let you tune the cloud, points, and box without leaving the command.
+### 4. Mirror mode and custom styling
 
 ```stata
 sysuse auto, clear
@@ -95,16 +87,26 @@ raincloud mpg, over(foreign) mirror ///
 |--------|-------------|
 | `over(varname)` | Draw one raincloud per group |
 | `horizontal` / `vertical` | Choose the plot orientation; horizontal is the default |
-| `mirror` | Draw a split-violin style cloud on both sides of center |
+| `mirror` | Draw the cloud on both sides of center |
 | `nocloud` | Suppress the half-violin density |
-| `norain` | Suppress the jittered raw data points |
-| `nobox` / `noumbrella` | Suppress the box-and-whisker element |
+| `norain` | Suppress the jittered raw points |
+| `nobox` / `noumbrella` | Suppress the box-and-whisker summary |
 | `bandwidth(#)` | Set the kernel-density bandwidth; `0` uses Stata's default selector |
 | `jitter(#)` | Control point jitter from `0` to `1` |
 | `opacity(#)` | Control cloud fill opacity from `0` to `100` |
 | `colors(string)` | Supply a space-separated custom palette |
 | `mean` | Add a mean marker |
 | `seed(#)` | Make the jitter reproducible |
+
+## Returned Results
+
+`raincloud` stores the following in `r()`:
+
+- `r(N)` for the number of observations used
+- `r(n_groups)` for the number of groups
+- `r(varname)` for the plotted variable
+- `r(over)` for the grouping variable, when used
+- `r(stats)` for the group-wise summary matrix containing `n`, `mean`, `sd`, `median`, `q25`, `q75`, `iqr`, and bandwidth
 
 ## Gallery
 
@@ -120,20 +122,18 @@ raincloud mpg, over(foreign) mirror ///
 
 ![Mirror raincloud](demo/raincloud_mirror.png)
 
-## Returned Results
-
-`raincloud` stores the following in `r()`:
-
-- `r(N)`: number of observations
-- `r(n_groups)`: number of groups
-- `r(varname)`: plotted variable
-- `r(over)`: grouping variable, if used
-- `r(stats)`: matrix with group-wise `n`, `mean`, `sd`, `median`, `q25`, `q75`, `iqr`, and bandwidth
-
 ## Reference
 
-Allen M, Poggiali D, Whitaker K, Marshall TR, Kievit RA. 2019. Raincloud plots: a multi-platform tool for robust data visualization. *Wellcome Open Research* 4:63. https://doi.org/10.12688/wellcomeopenres.15191.1
+- Allen M, Poggiali D, Whitaker K, Marshall TR, Kievit RA. Raincloud plots: a multi-platform tool for robust data visualization. *Wellcome Open Research*. 2019;4:63.
 
 ## Version History
 
-- **1.0.0** (2026-04-08): Current Stata-Tools release
+- **1.0.0** (2026-04-08): Initial Stata-Tools release of `raincloud`
+
+## Author
+
+Timothy P Copeland, Karolinska Institutet
+
+## License
+
+MIT
