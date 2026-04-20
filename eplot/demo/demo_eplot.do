@@ -1,13 +1,14 @@
 /*  demo_eplot.do - Generate screenshots for eplot
 
-    Produces 7 graphs:
+    Produces 8 graphs:
       1. Multi-model coefficient comparison     -> multi_model.png
       2. Forest plot with values annotation      -> forest_values.png
       3. Grouped coefficient plot                -> grouped_coefplot.png
       4. Lancet style preset                     -> lancet_style.png
       5. Significance coloring                   -> sigcolors.png
       6. Matrix mode                             -> matrix_mode.png
-      7. Meta-analysis with heterogeneity        -> meta_heterogeneity.png
+      7. Single-model values demo                -> coef_values.png
+      8. Meta-analysis with heterogeneity        -> meta_heterogeneity.png
 */
 
 version 16.0
@@ -160,7 +161,7 @@ quietly regress price mpg weight length turn headroom foreign
 
 eplot ., noconstant ///
     sigcolors sigcolor(navy) ///
-    cicap values stars ///
+    cicap stars ///
     coeflabels(mpg = "Miles per Gallon" ///
                weight = "Vehicle Weight" ///
                length = "Body Length" ///
@@ -185,14 +186,34 @@ eplot, matrix(R) eform ///
                Drug_B = "Drug B (standard)" ///
                Drug_C = "Drug C (combination)" ///
                Drug_D = "Drug D (low-dose)") ///
-    values cicap ///
+    cicap ///
     title("Treatment Odds Ratios from Matrix Input")
 
 graph export "`pkg_dir'/matrix_mode.png", replace width(1400)
 capture graph close _all
 
 * ============================================================
-* 7. Meta-analysis with heterogeneity and prediction intervals
+* 7. Single-model coefficient plot with values annotation
+* ============================================================
+
+sysuse auto, clear
+
+quietly regress price mpg weight length foreign
+
+eplot ., noconstant ///
+    values cicap ///
+    coeflabels(mpg = "Miles per Gallon" ///
+               weight = "Vehicle Weight" ///
+               length = "Body Length" ///
+               foreign = "Foreign Make") ///
+    effect("Coefficient (95% CI)") ///
+    title("Single-Model Coefficients with Values")
+
+graph export "`pkg_dir'/coef_values.png", replace width(1400)
+capture graph close _all
+
+* ============================================================
+* 8. Meta-analysis with heterogeneity and prediction intervals
 * ============================================================
 
 clear

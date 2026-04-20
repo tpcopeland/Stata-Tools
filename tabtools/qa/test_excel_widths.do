@@ -65,6 +65,30 @@ else {
 }
 
 * =========================================================================
+**# WX1A: regtab short-value columns stay tight
+* =========================================================================
+local ++n_total
+capture noisily {
+    sysuse auto, clear
+    collect clear
+    collect: logit foreign mpg weight
+    capture erase "`output_dir'/_wx_regtab_tight.xlsx"
+    regtab, xlsx("`output_dir'/_wx_regtab_tight.xlsx") sheet("Short") ///
+        title("Short Regression") coef("OR") noint
+
+    _wx_assert "`output_dir'/_wx_regtab_tight.txt" ///
+        `"python3 "`checker'" "`output_dir'/_wx_regtab_tight.xlsx" --sheet "Short" --col-width-at-most C 8 --col-width-at-most D 13 --col-width-at-most E 8 --result-file "`output_dir'/_wx_regtab_tight.txt" --quiet"'
+}
+if _rc == 0 {
+    display as result "  PASS: WX1A - regtab short-value columns stay tight"
+    local ++n_pass
+}
+else {
+    display as error "  FAIL: WX1A - regtab short-value columns stay tight (rc=`=_rc')"
+    local ++n_fail
+}
+
+* =========================================================================
 **# WX2: effecttab CI column width
 * =========================================================================
 local ++n_total
@@ -300,7 +324,7 @@ if `n_fail' > 0 {
     display as error "  Failed: `n_fail' / `n_total'"
 }
 
-foreach f in _wx_regtab.txt _wx_effecttab.txt _wx_comptab.txt _wx_corrtab.txt _wx_table1.txt _wx_crosstab.txt _wx_survtab.txt _wx_hrcomptab.txt {
+foreach f in _wx_regtab.txt _wx_regtab_tight.txt _wx_effecttab.txt _wx_comptab.txt _wx_corrtab.txt _wx_table1.txt _wx_crosstab.txt _wx_survtab.txt _wx_hrcomptab.txt {
     capture erase "`output_dir'/`f'"
 }
 

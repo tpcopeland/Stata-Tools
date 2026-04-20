@@ -1764,12 +1764,13 @@ forvalues i = 1(1)`n'{
 replace c`i'_length = . if _n == 2
 egen c`i'_max = max(c`i'_length)
 }
-* Compute minimum estimate column width from estimate columns (c1, c4, c7... or c1, c3, c5... in compact)
-* to ensure stats rows (Observations, Log-likelihood, etc.) fit
+* Compute estimate width from rendered numeric/stat rows, not the reference label.
+* "Reference" can safely overflow into adjacent blank cells, while numeric cells
+* should stay visually tight.
 local est_max = 0
 forvalues i = 1(`_cols_per_model')`last' {
-    sum c`i'_max, meanonly
-    if `r(max)' > `est_max' local est_max = `r(max)'
+    sum c`i'_length if _n >= 3 & c`i' != "`refcat'", meanonly
+    if r(N) > 0 & `r(max)' > `est_max' local est_max = `r(max)'
 }
 local ci_max = 0
 local p_max = 0
@@ -1790,24 +1791,19 @@ else {
     }
 }
 
-* Size numeric columns from the final rendered strings so large-scale or
-* high-precision outputs are not clipped in Excel.
-local est_width = `est_max' + 2
+* Calibrate widths to Stata's Excel writer, which lands about 0.7 wider than
+* the input width when read back from xlsx metadata.
+local est_width = max(`est_max' - 0.5, 7)
 if "`compact'" != "" {
-    if `est_width' < 16 local est_width = 16
-}
-else {
-    if `est_width' < 8 local est_width = 8
+    if `est_width' < 10 local est_width = 10
 }
 
 local ci_width = 0
 if "`compact'" == "" {
-    local ci_width = `ci_max' + 2
-    if `ci_width' < 16 local ci_width = 16
+    local ci_width = max(`ci_max' - 0.5, 10)
 }
 
-local p_width = `p_max' + 2
-if `p_width' < 8 local p_width = 8
+local p_width = max(`p_max' - 0.5, 7)
 
 gen A_length = length(A)
 egen factor_length = max(A_length)

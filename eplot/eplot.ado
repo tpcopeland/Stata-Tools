@@ -499,11 +499,12 @@ program define _eplot_data, rclass
             if inlist(`rowtype', 1, 3, 5) & !missing(`es')
 
         local val_xpos = `xmax_pad'
-        quietly gen double `val_x' = `val_xpos' if !missing(`val_text')
+        local _val_xshift = `xrange' * 0.006
+        quietly gen double `val_x' = `val_xpos' - `_val_xshift' if !missing(`val_text')
         _eplot_value_margin `val_text', header(`"`effect'"')
         local _val_right_margin = `s(right_margin)'
 
-        local val_cmd `"(scatter `pos' `val_x' if !missing(`val_text'), msymbol(none) mlabel(`val_text') mlabpos(3) mlabsize(vsmall) mlabcolor(gs4))"'
+        local val_cmd `"(scatter `pos' `val_x' if !missing(`val_text'), msymbol(none) mlabel(`val_text') mlabpos(3) mlabgap(0) mlabsize(vsmall) mlabcolor(gs4))"'
     }
 
     // --- Build graph command ---
@@ -712,7 +713,7 @@ program define _eplot_data, rclass
             local _val_hdr_y = 0.3
             local ypad_lo = -0.2
             local graphcmd `"`graphcmd' xtitle(`"`effect'"', size(medsmall))"'
-            local graphcmd `"`graphcmd' text(`_val_hdr_y' `val_xpos' `"{bf:`effect'}"', size(vsmall) placement(e))"'
+            local graphcmd `"`graphcmd' text(`_val_hdr_y' `val_xpos' `"{bf:`effect'}"', size(vsmall) placement(e) justification(left))"'
         }
         else local graphcmd `"`graphcmd' xtitle(`"`effect'"')"'
         local graphcmd `"`graphcmd' xlabel(`_effect_axis_opts')"'
@@ -1443,11 +1444,12 @@ program define _eplot_estimates, rclass
             if _rowtype == 1 & !missing(es)
 
         local val_xpos = `xmax_pad'
-        gen double _val_x = `val_xpos' if !missing(_val_text)
+        local _val_xshift = `data_range' * 0.006
+        gen double _val_x = `val_xpos' - `_val_xshift' if !missing(_val_text)
         _eplot_value_margin _val_text, header(`"`effect'"')
         local _val_right_margin = `s(right_margin)'
 
-        local val_cmd `"(scatter _plot_pos _val_x if !missing(_val_text), msymbol(none) mlabel(_val_text) mlabpos(3) mlabsize(vsmall) mlabcolor(gs4))"'
+        local val_cmd `"(scatter _plot_pos _val_x if !missing(_val_text), msymbol(none) mlabel(_val_text) mlabpos(3) mlabgap(0) mlabsize(vsmall) mlabcolor(gs4))"'
     }
 
     // ====== Build graph command ======
@@ -1605,7 +1607,7 @@ program define _eplot_estimates, rclass
             local _val_hdr_y = 0.3
             local ypad_lo = cond(`ypad_lo' < -0.2, `ypad_lo', -0.2)
             local graphcmd `"`graphcmd' xtitle(`"`effect'"', size(medsmall))"'
-            local graphcmd `"`graphcmd' text(`_val_hdr_y' `val_xpos' `"{bf:`effect'}"', size(vsmall) placement(e))"'
+            local graphcmd `"`graphcmd' text(`_val_hdr_y' `val_xpos' `"{bf:`effect'}"', size(vsmall) placement(e) justification(left))"'
         }
         else local graphcmd `"`graphcmd' xtitle(`"`effect'"')"'
         local graphcmd `"`graphcmd' xlabel(`_effect_axis_opts')"'
@@ -2091,11 +2093,12 @@ program define _eplot_matrix, rclass
             `_star_suf'
 
         local val_xpos = `xmax_pad'
-        gen double _val_x = `val_xpos'
+        local _val_xshift = `data_range' * 0.006
+        gen double _val_x = `val_xpos' - `_val_xshift'
         _eplot_value_margin _val_text, header(`"`effect'"')
         local _val_right_margin = `s(right_margin)'
 
-        local val_cmd `"(scatter _plot_pos _val_x, msymbol(none) mlabel(_val_text) mlabpos(3) mlabsize(vsmall) mlabcolor(gs4))"'
+        local val_cmd `"(scatter _plot_pos _val_x, msymbol(none) mlabel(_val_text) mlabpos(3) mlabgap(0) mlabsize(vsmall) mlabcolor(gs4))"'
     }
 
     // Build graph
@@ -2165,7 +2168,7 @@ program define _eplot_matrix, rclass
             local _val_hdr_y = 0.3
             local ypad_lo = -0.2
             local graphcmd `"`graphcmd' xtitle(`"`effect'"', size(medsmall))"'
-            local graphcmd `"`graphcmd' text(`_val_hdr_y' `val_xpos' `"{bf:`effect'}"', size(vsmall) placement(e))"'
+            local graphcmd `"`graphcmd' text(`_val_hdr_y' `val_xpos' `"{bf:`effect'}"', size(vsmall) placement(e) justification(left))"'
         }
         else local graphcmd `"`graphcmd' xtitle(`"`effect'"')"'
         local graphcmd `"`graphcmd' xlabel(`_effect_axis_opts')"'
