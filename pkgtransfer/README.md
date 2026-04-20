@@ -1,213 +1,145 @@
-# pkgtransfer
+# pkgtransfer - Transfer installed Stata packages between installations
 
-![Stata 16+](https://img.shields.io/badge/Stata-16%2B-brightgreen)
-![MIT License](https://img.shields.io/badge/License-MIT-blue)
-![Status](https://img.shields.io/badge/Status-Active-success)
+**Version 1.0.0** | 2026-04-08
 
-Transfer installed Stata packages between installations.
+`pkgtransfer` reads the package-tracking information in your PLUS directory and generates the files needed to recreate that package set on another Stata installation. It supports both online migration, where the new machine reinstalls packages from their original sources, and offline migration, where you carry a local bundle of package files.
 
-## Description
+## Requirements
 
-`pkgtransfer` facilitates transferring installed packages from one Stata installation to another. It can generate a do-file with the necessary `net install`, `ssc install`, or `github install` commands for online installation on a new machine. Alternatively, it can download all the package files and create a local installation script and a ZIP archive for offline installation.
-
-The command works by reading the `stata.trk` file in your current PLUS directory to identify installed packages and their sources. It can handle packages installed from various sources, including SSC, personal websites, and GitHub (using the [github](https://github.com/haghish/github) command).
-
-**Important Note:** It is strongly suggested that when using the `download()` option, you first run `pkgtransfer` without options to save all the original package installation commands for online installation and move the resulting `pkgtransfer.do` to a separate folder before running with the `download()` option.
-
-## Dependencies
-
-**Required:**
-- None - uses only built-in Stata commands
-
-**Optional:**
-- **github** command - Only needed if you have packages installed from GitHub
-  - Install with: `net install github, from("https://haghish.github.io/github/")`
+- Stata 16 or later
+- The `github` command is only needed if some installed packages were originally installed from GitHub
 
 ## Installation
 
 ```stata
-net install pkgtransfer, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/pkgtransfer")
+capture ado uninstall pkgtransfer
+net install pkgtransfer, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/pkgtransfer") replace
 ```
 
-## Syntax
+If you need GitHub-backed reinstall commands on the destination machine, install `github` as well:
 
 ```stata
-pkgtransfer [, download(local|online) limited(pkglist) skip(pkglist) restore os(string) dofile(filename) zipfile(filename)]
+net install github, from("https://haghish.github.io/github/") replace
 ```
 
-## Options
+## Commands
 
-| Option | Default | Description |
-|--------|---------|-------------|
-| `download(local\|online)` | script only | `download(online)` downloads all package files from the internet; `download(local)` copies from your local PLUS directory. Both create a local installation do-file and ZIP archive. When not specified, generates a do-file with online installation commands only. |
-| `limited(pkglist)` | all packages | Restricts the operation to a specific set of packages. `pkglist` should be a space-separated list of package names, exactly as they appear in the `stata.trk` file. |
-| `skip(pkglist)` | none | Excludes the specified packages from the transfer. |
-| `restore` | off | Restores installation pathways in `stata.trk` to point to online sources after a local installation. Creates a backup before modifying. |
-| `os(string)` | current OS | Target OS for cleanup commands in the generated do-file. Valid: `Windows`, `Unix`, `MacOSX`. |
-| `dofile(filename)` | `pkgtransfer.do` | Custom name for the generated do-file. Must end with `.do`. |
-| `zipfile(filename)` | `pkgtransfer_files.zip` | Custom name for the generated ZIP file. Must end with `.zip`. Only valid with `download()`. |
+| Command | Description |
+|---------|-------------|
+| `pkgtransfer` | Export an installed-package setup for online or offline recreation |
+
+## How It Works
+
+`pkgtransfer` works off the `stata.trk` file in your current PLUS directory. That file records which packages are installed and where they came from. The command uses that information to generate one of three outputs:
+
+1. **Default mode**: writes `pkgtransfer.do`, a do-file with `ssc install`, `net install`, or `github install` commands that recreate your current package setup online.
+2. **`download(online)` or `download(local)`**: creates a local-install do-file plus a ZIP archive of package files for offline transfer.
+3. **`restore`**: rewrites stored source paths in `stata.trk` back to their original online locations after packages were installed from a `pkgtransfer` ZIP bundle.
+
+`limited()` and `skip()` let you restrict the package set. `os()` lets you target cleanup commands to `Windows`, `Unix`, or `MacOSX` if the destination machine differs from the current one.
 
 ## Output Files
 
-### Without `download()` Option:
-- **pkgtransfer.do** - Do-file containing `net install`, `ssc install`, or `github install` commands for online installation
+| Mode | Files created |
+|------|---------------|
+| Default | `pkgtransfer.do` |
+| `download(online)` | `pkgtransfer.do` and `pkgtransfer_files.zip` |
+| `download(local)` | `pkgtransfer.do` and `pkgtransfer_files.zip` |
 
-### With `download()` Option:
-- **pkgtransfer.do** - Do-file with local installation commands
-- **pkgtransfer_files.zip** - ZIP archive containing all package files
+When `download(local)` is used, platform-specific `.plugin` files are still fetched from the internet because the local PLUS directory only contains the current platform's plugin build.
 
-## Workflow Examples
+## Worked Examples
 
-### Workflow 1: Online Installation (Internet Available on New Machine)
+### 1. Online migration to a new machine
 
-On your old machine:
+Use this when the destination machine has internet access and you want the lightest transfer workflow.
+
+On the old machine:
+
 ```stata
 pkgtransfer
 ```
 
-Transfer `pkgtransfer.do` to your new machine, then run:
+Move `pkgtransfer.do` to the new machine, then run:
+
 ```stata
 do pkgtransfer.do
 ```
 
-### Workflow 2: Offline Installation (No Internet on New Machine)
+The generated do-file recreates your installed packages from their original sources.
 
-On your old machine:
+### 2. Offline migration when the destination machine has no internet
+
+Use `download(online)` if you want `pkgtransfer` to fetch current package files from the internet before bundling them.
+
+On the old machine:
+
 ```stata
 pkgtransfer, download(online)
 ```
 
-Transfer both `pkgtransfer.do` and `pkgtransfer_files.zip` to your new machine. Extract the ZIP file, then run:
+Move both `pkgtransfer.do` and `pkgtransfer_files.zip` to the new machine. Extract the ZIP archive, then run:
+
 ```stata
 do pkgtransfer.do
 ```
 
-### Workflow 3: Best Practice (Save Both Online and Offline Versions)
+This is the safest offline workflow when you want the bundle to reflect the sources recorded in `stata.trk`.
 
-On your old machine:
-```stata
-* First, generate online installation script
-pkgtransfer
+### 3. Build an offline bundle from your local PLUS directory
 
-* Move the file to a safe location
-copy pkgtransfer.do ~/backup/pkgtransfer_online.do, replace
-
-* Then generate offline installation package
-pkgtransfer, download(online)
-```
-
-This gives you both options: fast online installation and an offline backup.
-
-## Examples
-
-### Example 1: Generate Online Installation Script
-
-```stata
-pkgtransfer
-```
-
-Generates a do-file (`pkgtransfer.do`) for online installation of all packages listed in your `stata.trk` file.
-
-### Example 2: Create Offline Installation Package (from Internet)
-
-```stata
-pkgtransfer, download(online)
-```
-
-Downloads all packages and creates a local installation script (`pkgtransfer.do`) and a ZIP archive (`pkgtransfer_files.zip`).
-
-### Example 3: Create Offline Installation Package (from Local Files)
+Use `download(local)` when you want to package the copies you already have installed locally.
 
 ```stata
 pkgtransfer, download(local)
 ```
 
-Copies all packages from your local PLUS directory and creates a local installation script and ZIP archive.
+This still creates `pkgtransfer.do` and `pkgtransfer_files.zip`, but it copies package files from your local installation whenever possible.
 
-### Example 4: Transfer Only Specific Packages (Online)
+### 4. Limit the package set or skip specific packages
 
-```stata
-pkgtransfer, limited(estout outreg2)
-```
-
-Generates a do-file for online installation of only the "estout" and "outreg2" packages.
-
-### Example 5: Transfer Only Specific Packages (Offline)
+These options are useful when you are preparing a smaller team environment or excluding packages you do not want to redistribute.
 
 ```stata
-pkgtransfer, download(online) limited(estout outreg2)
+pkgtransfer, limited(estout outreg2) dofile(team_setup.do)
+pkgtransfer, download(online) skip(gtools ftools) ///
+    dofile(clean_install.do) zipfile(clean_install.zip)
 ```
 
-Downloads only the "estout" and "outreg2" packages and creates a local installation script and ZIP archive.
+Package names in `limited()` and `skip()` must match the package names recorded in `stata.trk` exactly.
 
-### Example 6: Skip Specific Packages
+### 5. Restore online source paths after a local install
+
+If packages were installed from a `pkgtransfer` ZIP bundle, `restore` can point `stata.trk` back to the original online source URLs.
 
 ```stata
-pkgtransfer, skip(gtools ftools)
+pkgtransfer, restore
 ```
 
-Creates an installation script for all packages except gtools and ftools.
+This works only for packages installed from `pkgtransfer`-generated ZIP archives, because those archives store the backup source metadata needed for restoration.
 
-## How It Works
+## Practical Notes
 
-1. **Reads stata.trk**: The command reads the `stata.trk` file in your PLUS directory, which tracks all installed packages
-2. **Identifies Sources**: It identifies where each package was installed from (SSC, net install, GitHub, etc.)
-3. **Generates Commands**: Creates appropriate installation commands (`ssc install`, `net install`, or `github install`)
-4. **Downloads (if requested)**: If the `download()` option is used, it downloads all package files
-5. **Creates Output**: Generates do-file(s) and optionally a ZIP archive
+- Run `pkgtransfer` once in default mode before using `download()`. That gives you a clean online-install script you can keep as a fallback.
+- `zipfile()` is valid only with `download()`.
+- `dofile()` must end in `.do`, and `zipfile()` must end in `.zip`.
+- The generated outputs reflect the packages visible in the current PLUS directory, not every package that might exist elsewhere on the system.
 
-## Use Cases
+## Returned Results
 
-- **Migrating to a New Computer**: Transfer all your packages to a new Stata installation
-- **Setting Up Multiple Machines**: Standardize packages across multiple workstations
-- **Offline Installation**: Install packages on machines without internet access
-- **Backup**: Create a backup of your current package configuration
-- **Team Collaboration**: Share a standard package setup with collaborators
-- **Reproducibility**: Document and replicate package environments for research projects
+After a run, `pkgtransfer` stores:
 
-## Remarks
-
-### Important Notes
-
-- The command processes packages based on the `stata.trk` file, which is automatically maintained by Stata
-- Packages installed via different methods (SSC, net install, GitHub) are all supported
-- The `limited()` option is case-sensitive and must match package names exactly as they appear in `stata.trk`
-- When using `download()`, ensure you have sufficient disk space for all package files
-
-### Best Practices
-
-1. **Test First**: Run `pkgtransfer` without options first to verify which packages will be included
-2. **Keep Both Versions**: Save both online and offline installation scripts for flexibility
-3. **Document**: Add comments to the generated do-files documenting when they were created
-4. **Regular Backups**: Periodically run `pkgtransfer, download(online)` to maintain backups of your package setup
-5. **Version Control**: Store the generated do-files in version control for reproducibility
-
-## Requirements
-
-- Stata 16.0 or higher
-- No external dependencies for basic functionality
-- `github` command required only if you have GitHub-installed packages
+- `r(N_packages)` - number of packages processed
+- `r(package_list)` - package names included in the output
+- `r(download_mode)` - `script_only`, `online`, `local`, or `restore`
+- `r(os)` - target operating system
+- `r(dofile)` - generated do-file path
+- `r(zipfile)` - generated ZIP file path when applicable
 
 ## Author
 
-Timothy P Copeland<br>
-Department of Clinical Neuroscience<br>
-Karolinska Institutet
+Timothy P Copeland, Karolinska Institutet
 
 ## License
 
-MIT License
-
-## See Also
-
-- `help ssc` - SSC package installation
-- `help net` - Network installation commands
-- `help adoupdate` - Update installed packages
-- [GitHub command](https://github.com/haghish/github) - Install packages from GitHub
-
-## Getting Help
-
-For more detailed information, you can access the Stata help file:
-```stata
-help pkgtransfer
-```
+MIT

@@ -1,167 +1,146 @@
-# massdesas
+# massdesas - Batch convert SAS files to Stata datasets
 
-![Stata 14+](https://img.shields.io/badge/Stata-14%2B-brightgreen)
-![MIT License](https://img.shields.io/badge/License-MIT-blue)
-![Status](https://img.shields.io/badge/Status-Active-success)
+**Version 1.0.0** | 2026-04-08
 
-Batch convert SAS datasets to Stata format.
+`massdesas` recursively scans a directory tree for `.sas7bdat` files, imports each one into Stata, and writes a sibling `.dta` file with the same base name. It is meant for project folders with many SAS datasets where one-at-a-time conversion would be slow and error-prone.
 
-## Description
+## Requirements
 
-`massdesas` recursively converts all SAS dataset files (.sas7bdat) to Stata format (.dta) within a specified directory and all its subdirectories. This command is designed to streamline the process of converting large collections of SAS files to Stata format, which would otherwise require manual conversion of each file.
-
-The command scans the specified directory tree, identifies all .sas7bdat files, and converts each one to a .dta file in the same location with the same filename (but .dta extension). This preserves the original directory structure while making all datasets accessible in Stata.
-
-**Warning:** When using the `erase` option, the original .sas7bdat files will be permanently deleted after successful conversion. Ensure you have backups before using this option.
-
-## Dependencies
-
-**Required:**
-- **filelist** command - Install with: `ssc install filelist`
-- **fs** command - Install with: `ssc install fs`
-- Stata's built-in `import sas` (available in Stata 14+)
-
-Ensure all dependencies are properly installed before using `massdesas`.
+- Stata 14 or later
+- `filelist` from SSC
+- `fs` from SSC
+- Stata's built-in `import sas`
 
 ## Installation
 
 ```stata
-net install massdesas, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/massdesas")
+ssc install filelist
+ssc install fs
+capture ado uninstall massdesas
+net install massdesas, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/massdesas") replace
 ```
 
-## Syntax
+## Commands
 
-```stata
-massdesas [, directory(directory_name) erase lower]
-```
+| Command | Description |
+|---------|-------------|
+| `massdesas` | Recursively convert `.sas7bdat` files to `.dta` files |
 
-## Options
+## Quick Start
 
-| Option | Default | Description |
-|--------|---------|-------------|
-| `directory(directory_name)` | current working directory | Specifies the root directory containing the .sas7bdat files. The command will search this directory and all its subdirectories for SAS dataset files to convert. |
-| `erase` | not erased | Specifies that the original .sas7bdat files should be deleted after successful conversion to .dta format. **Use with caution** as the deletion is permanent. It is recommended to test the conversion on a small sample first and verify the .dta files are readable before using this option on your full dataset collection. Files are only deleted if conversion was successful. |
-| `lower` | original case preserved | Specifies that all variable names in the converted .dta files should be converted to lowercase. This is useful for ensuring consistency in variable naming conventions, as SAS variable names can be case-sensitive while Stata variable names are typically lowercase by convention. |
-
-## Examples
-
-### Example 1: Convert All SAS Files in Current Directory
+If your current working directory already contains SAS files somewhere under it, this is enough:
 
 ```stata
 massdesas
 ```
 
-This converts all .sas7bdat files in the current working directory and its subdirectories.
+`massdesas` will search `c(pwd)` recursively and create a `.dta` beside every `.sas7bdat` file it finds.
 
-### Example 2: Convert All SAS Files in Specific Directory
+If your SAS files live in a different folder and you want imported variable names standardized to lowercase:
 
 ```stata
-massdesas, directory("C:/Data/SAS_Files")
+massdesas, directory("/path/to/sas_files") lower
 ```
 
-### Example 3: Convert with Lowercase Variable Names
+## How It Works
+
+- If `directory()` is omitted, `massdesas` uses the current working directory.
+- The command searches that root and every subdirectory for files matching `*.sas7bdat`.
+- Each matching file is imported with `import sas` and saved as a `.dta` in the same folder.
+- `lower` passes `case(lower)` to `import sas`, which converts imported variable names to lowercase.
+- `erase` deletes the original `.sas7bdat` file only after a successful `.dta` save.
+
+Because the command works on files rather than data already loaded in memory, the examples below use path templates rather than `sysuse` or `webuse` data.
+
+## Worked Examples
+
+### 1. Convert an entire project tree
+
+Use `directory()` when your SAS files live outside the current Stata working directory.
 
 ```stata
-massdesas, directory("C:/Data/SAS_Files") lower
+massdesas, directory("/project/raw/sas_files")
 ```
 
-This ensures all variable names in the converted files are lowercase, following Stata conventions.
+This will recurse through `/project/raw/sas_files`, convert every `.sas7bdat` file it finds, and leave the converted `.dta` files in the same folders as their SAS sources.
 
-### Example 4: Convert and Delete Original SAS Files (Use with Caution!)
+### 2. Convert and normalize variable names to lowercase
 
 ```stata
-massdesas, directory("C:/Data/SAS_Files") erase
+massdesas, directory("/project/raw/sas_files") lower
 ```
 
-**Warning:** This permanently deletes the original .sas7bdat files after conversion.
+Use this when your SAS files contain mixed-case variable names and you want Stata-friendly lowercase names throughout the converted files.
 
-### Example 5: Complete Workflow - Test Before Erasing
+### 3. Safer test-before-erase workflow
+
+`erase` is useful, but it should come after you verify that the conversion worked on a backup or staging copy.
 
 ```stata
-* First, test on a backup copy
-massdesas, directory("C:/Data/SAS_Files_Backup") lower
+* First, convert a backup copy
+massdesas, directory("/project/backup_sas_files") lower
 
-* Verify conversion was successful by opening some files
-use "C:/Data/SAS_Files_Backup/dataset1.dta", clear
+* Inspect at least one converted file
+use "/project/backup_sas_files/example_file.dta", clear
 describe
 
-* If successful, run on actual data
-massdesas, directory("C:/Data/SAS_Files") lower erase
+* Only then consider removing originals in the real source tree
+massdesas, directory("/project/raw/sas_files") lower erase
 ```
 
-This demonstrates the recommended workflow: test on a backup first, verify the conversion, then run on your actual data.
+Files are deleted only after successful conversion, but the deletion is still permanent. Keep backups if the original SAS files matter.
 
-### Example 6: Convert Files in Nested Directory Structure
+### 4. Preserve a nested folder structure automatically
+
+If your input tree looks like this:
+
+```text
+/project
+  /raw
+    baseline.sas7bdat
+    followup.sas7bdat
+  /derived
+    analysis.sas7bdat
+```
+
+then this command:
 
 ```stata
-* Directory structure:
-* C:/Project/
-*   ├── Raw/
-*   │   ├── baseline.sas7bdat
-*   │   └── followup.sas7bdat
-*   └── Derived/
-*       └── analysis.sas7bdat
-
-massdesas, directory("C:/Project") lower
-
-* Results in:
-* C:/Project/Raw/baseline.dta
-* C:/Project/Raw/followup.dta
-* C:/Project/Derived/analysis.dta
+massdesas, directory("/project") lower
 ```
 
-This example shows how `massdesas` preserves the directory structure while converting all SAS files throughout the tree.
+produces:
 
-### Example 7: Full Conversion with All Options
-
-```stata
-massdesas, directory("C:/data/sas_files") lower erase
+```text
+/project
+  /raw
+    baseline.dta
+    followup.dta
+  /derived
+    analysis.dta
 ```
 
-Convert all SAS files to Stata format with lowercase variable names and remove the original SAS files after successful conversion.
+The directory layout is preserved; only the file format changes.
 
-## Remarks
+## Returned Results
 
-### Processing Behavior
+After a run, `massdesas` stores:
 
-- The command processes files sequentially, so conversion of large directory trees with many SAS files may take considerable time
-- Progress is displayed as each file is converted
-- If a conversion fails for any file, `massdesas` will display an error message for that file and continue processing remaining files
-- When using the `erase` option, files are only deleted if conversion was successful
+- `r(n_converted)` - number of files successfully converted
+- `r(n_failed)` - number of files that failed
+- `r(directory)` - root directory that was scanned
 
-### Best Practices
+## Notes and Limitations
 
-1. **Always test first**: Run the conversion on a backup copy of your data before using the `erase` option
-2. **Verify conversions**: Open and check several converted .dta files to ensure the conversion preserved your data correctly
-3. **Check variable names**: If using the `lower` option, verify that lowercase variable names don't create conflicts
-4. **Monitor progress**: For large directory trees, monitor the conversion progress to ensure it completes successfully
-5. **Keep backups**: Maintain backups of your original SAS files, especially when using the `erase` option
-
-## Requirements
-
-- Stata 14.0 or higher
-- `filelist` command (install via: `ssc install filelist`)
-- `fs` command (install via: `ssc install fs`)
+- File pattern matching is case-sensitive on Linux and macOS. Files ending in `.SAS7BDAT` rather than `.sas7bdat` will not be found.
+- Filenames containing spaces are not supported.
+- If a file fails to convert, `massdesas` reports the failure and continues with the remaining files.
+- When a converted file contains zero observations, the command reports that fact and still saves the `.dta`.
 
 ## Author
 
-Timothy P Copeland<br>
-Department of Clinical Neuroscience<br>
-Karolinska Institutet
+Timothy P Copeland, Karolinska Institutet
 
 ## License
 
-MIT License
-
-## See Also
-
-- `help import sas` - Stata's built-in SAS file import command
-- `ssc describe filelist` - File listing utility
-- `ssc describe fs` - File system utilities
-
-## Getting Help
-
-For more detailed information, you can access the Stata help file:
-```stata
-help massdesas
-```
+MIT

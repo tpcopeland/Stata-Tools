@@ -2,163 +2,173 @@
 
 ![Stata 16+](https://img.shields.io/badge/Stata-16%2B-brightgreen) ![MIT License](https://img.shields.io/badge/License-MIT-blue)
 
-One-command longitudinal trajectory plots with group mean overlays for Stata. Turn thousands of individual time series into a clean, readable visualization.
+One-command longitudinal trajectory plots with optional group mean overlays for Stata.
 
-Version 1.0.0
-
-## The Problem
-
-Visualizing individual trajectories in longitudinal data requires either (a) manually writing one `line` clause per individual, or (b) giving up and only showing the mean. With 500+ patients, neither option works.
-
-```stata
-* The painful way: one line per patient, then give up at patient 47
-twoway (line sdmt months if patid==1, lcolor(gs12) lwidth(vthin)) ///
-       (line sdmt months if patid==2, lcolor(gs12) lwidth(vthin)) ///
-       ... // 498 more lines
-```
-
-## The Solution
-
-```stata
-spaghetti sdmt, id(patid) time(months) by(treatment) mean(bold ci)
-```
-
-![By-group trajectories with mean and CI](demo/basic_by_mean.png)
-
-Individual trajectories as thin background lines, group means as bold overlays with 95% CI bands. Handles 10,000+ individuals with just 1-8 plot elements by using a line-break technique instead of one element per person.
+`spaghetti` is built for long-format repeated-measures data where you want to show individual trajectories without manually writing hundreds of `line` clauses.
 
 ## Installation
 
 ```stata
+capture ado uninstall spaghetti
 net install spaghetti, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/spaghetti") replace
+help spaghetti
 ```
 
-## Gallery
+## How It Works
 
-### Random Sample with Population Mean
-```stata
-spaghetti sdmt, id(patid) time(months) sample(30) seed(42) mean(bold ci)
-```
-![Sampled trajectories with mean](demo/sampled_mean.png)
-
-### Highlighted Individuals
-```stata
-spaghetti sdmt, id(patid) time(months) by(treatment) ///
-    highlight(patid==5 | patid==55) mean(bold)
-```
-![Highlighted patients](demo/highlight.png)
-
-### Color by Baseline Score
-```stata
-spaghetti sdmt, id(patid) time(months) colorby(baseline_score)
-```
-![Colored by baseline](demo/colorby.png)
-
-## Syntax
+The command takes one outcome variable plus required `id()` and `time()` variables:
 
 ```stata
-spaghetti varname [if] [in] , id(varname) time(varname) [options]
+spaghetti outcome, id(person_id) time(timevar) [options]
 ```
 
-## Options
+The most common extensions are:
 
-### Core
+- `by()` for separate groups
+- `mean()` for overlaid group means
+- `sample()` when the panel is too dense to show every trajectory clearly
+- `highlight()` or `colorby()` when you want to emphasize specific trajectories
 
-| Option | Description |
-|--------|-------------|
-| `id(varname)` | Individual identifier variable **(required)** |
-| `time(varname)` | Numeric time variable **(required)** |
-| `by(varname)` | Group variable for colored trajectories + separate means (max 8 levels) |
-| `mean(subopts)` | Add group mean overlay. Sub-options: `bold`, `ci`, `smooth(lowess\|linear)` |
+Internally, `spaghetti` avoids Stata's practical plot-element limit by combining many individuals into a single broken-line layer rather than drawing one plot element per subject.
 
-### Subsetting
+## Worked Examples
 
-| Option | Description |
-|--------|-------------|
-| `sample(#)` | Randomly display # individuals (mean computed on full data) |
-| `seed(#)` | Random seed for reproducible sampling |
-| `highlight(conditions)` | Emphasize specific individuals; others fade to background. Sub-option: `bgopacity(#)` |
-| `colorby(varname [, categorical])` | Color trajectories by a variable (continuous: quintiles; categorical: distinct levels) |
+All examples below use `webuse nlswork`, so they are runnable immediately after installation.
 
-### Annotations & Styling
+### 1. Start with the plain trajectory plot
 
-| Option | Description |
-|--------|-------------|
-| `refline(# [, label() style()])` | Vertical reference line at a timepoint |
-| `colors(colorlist)` | Override default palette (navy cranberry forest_green ...) |
-| `individual(color() opacity() lwidth())` | Individual line styling (defaults: gs12, 25, vthin) |
-| `export(filename [, replace])` | Export graph (.png, .pdf, .svg, .eps) |
-| `scheme(name)` | Graph scheme (default: current Stata scheme) |
-
-### Standard Graph Options
-
-`title()`, `subtitle()`, `note()`, `ytitle()`, `xtitle()`, `plotregion()`, `graphregion()`, `name()`, `saving()`, and any `twoway` options via passthrough.
-
-## Examples
-
-### Basic Trajectories
 ```stata
 webuse nlswork, clear
 spaghetti ln_wage, id(idcode) time(year)
 ```
 
-### By-Group with Mean and CI
+### 2. Add by-group mean overlays
+
+This is the default presentation most users want: thin background lines for individuals and a bold mean trend on top.
+
 ```stata
+webuse nlswork, clear
 spaghetti ln_wage, id(idcode) time(year) by(race) mean(bold ci)
 ```
 
-### Declutter Large Panels
+![By-group trajectories with mean and CI](demo/basic_by_mean.png)
+
+### 3. Declutter a dense panel with random sampling
+
+`sample()` reduces the number of displayed individual trajectories, while the mean overlay is still computed from the full data.
+
 ```stata
+webuse nlswork, clear
 spaghetti ln_wage, id(idcode) time(year) sample(100) seed(12345) mean(bold)
 ```
 
-### Highlight + Background Control
+![Sampled trajectories with mean](demo/sampled_mean.png)
+
+### 4. Highlight specific individuals
+
+Use `highlight()` when a few trajectories deserve emphasis and the rest should fade into the background.
+
 ```stata
+webuse nlswork, clear
 spaghetti ln_wage, id(idcode) time(year) ///
-    highlight(idcode==1 | idcode==2 bgopacity(10))
+    highlight(idcode == 1 | idcode == 2 bgopacity(10))
 ```
 
-### Custom Styling
+![Highlighted patients](demo/highlight.png)
+
+### 5. Customize styling and group colors
+
 ```stata
+webuse nlswork, clear
 spaghetti ln_wage, id(idcode) time(year) by(race) ///
-    individual(color(gs10) opacity(15) lwidth(vthin)) ///
+    individual(color(gs12) opacity(10) lwidth(vthin)) ///
     mean(bold ci) colors(navy cranberry)
 ```
 
-### Reference Line
+### 6. Add a reference line
+
 ```stata
-spaghetti sdmt, id(patid) time(months_from_switch) ///
-    refline(0, label("Treatment switch") style(dash))
+webuse nlswork, clear
+spaghetti ln_wage, id(idcode) time(year) ///
+    sample(50) ///
+    refline(80, label("Policy change") style(dash))
 ```
+
+## Key Options
+
+### Core structure
+
+| Option | Description |
+| --- | --- |
+| `id(varname)` | Required individual identifier |
+| `time(varname)` | Required numeric time variable |
+| `by(varname)` | Group variable for separate colored trajectories and means |
+| `mean(subopts)` | Add mean overlays; suboptions include `bold`, `ci`, and `smooth(lowess|linear)` |
+
+### Decluttering and emphasis
+
+| Option | Description |
+| --- | --- |
+| `sample(#)` | Randomly display `#` individuals |
+| `seed(#)` | Reproducible sampling |
+| `highlight()` | Emphasize selected trajectories and fade the background |
+| `colorby(varname [, categorical])` | Color trajectories by a continuous or categorical variable |
+
+### Styling and output
+
+| Option | Description |
+| --- | --- |
+| `refline(# [, label() style()])` | Vertical reference line |
+| `colors(colorlist)` | Override the default palette |
+| `individual(color() opacity() lwidth())` | Control individual-line appearance |
+| `export(filename [, replace])` | Export the graph to disk |
+| `scheme(name)` | Graph scheme |
+
+Standard graph options such as `title()`, `subtitle()`, `note()`, `ytitle()`, `xtitle()`, `plotregion()`, `graphregion()`, `name()`, and `saving()` are also passed through.
 
 ## Stored Results
 
 | Result | Description |
-|--------|-------------|
-| `r(N)` | Number of observations |
+| --- | --- |
+| `r(N)` | Number of observations used |
 | `r(n_ids)` | Number of unique individuals |
-| `r(n_sampled)` | Individuals displayed after sampling |
-| `r(n_groups)` | Number of by-groups |
+| `r(n_sampled)` | Number of displayed individuals after sampling |
+| `r(n_groups)` | Number of groups in `by()` |
 | `r(cmd)` | Full graph command executed |
-| `r(outcome)` | Outcome variable name |
-| `r(id)` | ID variable name |
-| `r(time)` | Time variable name |
-| `r(by)` | By-variable name (if specified) |
+| `r(outcome)` | Outcome variable |
+| `r(id)` | ID variable |
+| `r(time)` | Time variable |
+| `r(by)` | By-variable, if supplied |
 
-## How It Works
+## Gallery
 
-Rather than creating one `(line ...)` plot element per individual (which hits Stata's ~300 element limit), `spaghetti` inserts missing-value rows between individuals and draws all trajectories as a single `line` element with `cmissing(n)`. This scales to arbitrarily large panels.
+### Color by baseline score
 
-When `sample()` is specified, the mean overlay is computed on the **full** dataset before sampling, so the population mean is always accurate regardless of how many trajectories are displayed.
+![Colored by baseline](demo/colorby.png)
+
+### Reference line
+
+![Reference line](demo/refline.png)
+
+### Custom style
+
+![Custom styling](demo/custom_style.png)
 
 ## Data Requirements
 
-- Long format (one row per individual-timepoint)
+- Long format, with one row per person-time observation
 - Numeric outcome variable
 - Numeric time variable
-- ID variable (numeric or string)
+- ID variable that uniquely identifies individuals
+
+## Version
+
+**Version**: 1.0.0
 
 ## Author
 
-Timothy P Copeland
-Department of Clinical Neuroscience, Karolinska Institutet
+Timothy P Copeland, Karolinska Institutet
+
+## License
+
+MIT License

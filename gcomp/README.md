@@ -1,152 +1,58 @@
-# gcomp — G-Computation Formula for Stata
+# gcomp - Parametric g-computation for mediation and time-varying confounding
 
-![Stata 16+](https://img.shields.io/badge/Stata-16%2B-brightgreen) ![MIT License](https://img.shields.io/badge/License-MIT-blue)
+**Version 1.0.2** | 2026-04-19
 
-**Version**: gcomp 1.0.2 / gcomptab 1.0.2 (2026-04-19)
-**Forked from**: SSC `gformula` v1.16 beta (Rhian Daniel, 2021)
+`gcomp` implements Robins' parametric g-computation formula in Stata using Monte Carlo simulation and bootstrap inference. The package supports two related workflows: causal mediation analysis and longitudinal causal effects with time-varying confounding.
 
-## Overview
+`gcomp` is a maintained fork of SSC `gformula` v1.16 beta (Rhian Daniel, 2021) with bug fixes, modernization, and removal of SSC dependencies. The companion command `gcomptab` formats supported mediation results into publication-ready Excel tables.
 
-Implements Robins' parametric g-computation formula (Robins 1986) using Monte Carlo simulation for:
+## Requirements
 
-- **Time-varying confounding**: Estimates causal effects of time-varying exposures on outcomes in the presence of time-varying confounders affected by prior exposure
-- **Causal mediation**: Estimates total causal effects (TCE), natural direct effects (NDE), natural indirect effects (NIE), proportion mediated (PM), and controlled direct effects (CDE)
+- Stata 16 or later
+
+## Installation
+
+```stata
+capture ado uninstall gcomp
+net install gcomp, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/gcomp") replace
+```
 
 ## Commands
 
 | Command | Description |
 |---------|-------------|
-| `gcomp` | G-computation formula for causal inference and mediation |
-| `gcomptab` | Export gcomp mediation results to publication-ready Excel |
+| `gcomp` | Estimate mediation effects or longitudinal causal effects via parametric g-computation |
+| `gcomptab` | Export supported `gcomp` mediation results to formatted Excel tables |
 
-## Installation
+## How It Works
 
-```stata
-net install gcomp, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/gcomp/") replace
-```
+`gcomp` always needs the same two building blocks:
 
-## Syntax
+- `commands()` tells Stata which model family to use for each simulated variable, such as `logit`, `regress`, `mlogit`, or `ologit`.
+- `equations()` tells Stata which predictors belong in each model.
 
-### gcomp — Time-varying confounding
+From there, the workflow branches:
 
-```stata
-gcomp varlist [if] [in], outcome(varname) commands(string) equations(string)
-    idvar(varname) tvar(varname) varyingcovariates(varlist)
-    intvars(varlist) interventions(string) [options]
-```
+- In **mediation mode**, you add `mediation`, identify the exposure and mediator, specify baseline confounders, and choose an effect type such as `obe`, `oce`, `linexp`, or `specific`.
+- In **time-varying mode**, you identify the subject and time variables, list the time-varying confounders, and define the interventions to compare.
 
-### gcomp — Causal mediation
+`gcomptab` is a post-estimation formatter. Run it only after a supported mediation fit from `gcomp`.
 
-```stata
-gcomp varlist [if] [in], outcome(varname) commands(string) equations(string)
-    mediation exposure(varlist) mediator(varlist) base_confs(varlist)
-    effect_type [options]
-```
+## Choosing a Mode
 
-where `effect_type` is one of: `obe`, `oce`, `linexp`, `specific`, or `baseline(string)`.
+| Use case | Core syntax pattern | What you get |
+|----------|---------------------|--------------|
+| Binary or categorical mediation | `gcomp ..., outcome() mediation exposure() mediator() base_confs() effect_type` | TCE, NDE, NIE, PM, and sometimes CDE |
+| Time-varying confounding | `gcomp ..., outcome() idvar() tvar() varyingcovariates() intvars() interventions()` | Potential outcomes under user-specified longitudinal interventions |
+| Excel export of mediation results | `gcomptab, xlsx() sheet()` | Publication-ready mediation table in `.xlsx` format |
 
-### gcomptab — Export mediation results to Excel
+## Worked Examples
 
-```stata
-gcomptab, xlsx(filename) sheet(string) [ci(string) effect(string)
-    title(string) labels(string) decimal(#) font(string) fontsize(#)
-    borderstyle(string) zebra footnote(string) open boldp(#) highlight(#)]
-```
+### 1. Binary-exposure mediation with generated data
 
-## Key Options
-
-### Required (both modes)
-
-| Option | Description |
-|--------|-------------|
-| `outcome(varname)` | Outcome variable |
-| `commands(string)` | Model type for each variable, e.g., `commands(m: logit, y: logit)` |
-| `equations(string)` | Prediction equations, e.g., `equations(m: x c, y: m x c)` |
-
-### Required (time-varying)
-
-| Option | Description |
-|--------|-------------|
-| `idvar(varname)` | Subject identifier |
-| `tvar(varname)` | Time variable |
-| `varyingcovariates(varlist)` | Time-varying confounders affected by prior exposure |
-| `intvars(varlist)` | Variables to intervene on |
-| `interventions(string)` | Intervention rules, e.g., `interventions(A=0)` |
-
-### Mediation options
-
-| Option | Description |
-|--------|-------------|
-| `mediation` | Enable mediation analysis mode |
-| `exposure(varlist)` | Exposure variable(s) |
-| `mediator(varlist)` | Mediator variable(s) |
-| `base_confs(varlist)` | Baseline confounders |
-| `control(string)` | Controlled direct effect level(s) |
-| `post_confs(varlist)` | Post-treatment confounders of mediator-outcome |
-| `logOR` / `logRR` | Report log odds ratio or log risk ratio |
-| `boceam` | BOCE-AM estimation for multi-mediator settings |
-
-### Time-varying options
-
-| Option | Description |
-|--------|-------------|
-| `eofu` | Outcome measured only at end of follow-up |
-| `pooled` | Pooled logistic regression across visits |
-| `monotreat` | Monotone treatment assumption |
-| `dynamic` | Dynamic treatment regime |
-| `death(varname)` | Competing death/censoring variable |
-| `msm(string)` | Marginal structural model specification |
-| `fixedcovariates(varlist)` | Time-invariant covariates |
-| `laggedvars(varlist)` | Variables with lagged effects |
-| `lagrules(string)` | Custom lag specification rules |
-| `derived(varlist)` | Deterministically derived variables |
-| `derrules(string)` | Derivation rules |
-
-### Imputation
-
-| Option | Description |
-|--------|-------------|
-| `impute(varlist)` | Variables to impute (MAR assumption) |
-| `imp_eq(string)` | Imputation prediction equations |
-| `imp_cmd(string)` | Imputation model commands |
-| `imp_cycles(#)` | Chained-equation cycles (default: 10) |
-
-### Simulation
-
-| Option | Description |
-|--------|-------------|
-| `simulations(#)` | Monte Carlo sample size (default: sample size) |
-| `samples(#)` | Bootstrap replications (default: 1000) |
-| `seed(#)` | Random number seed |
-| `minsim` | Use expected values instead of random draws |
-| `moreMC` | Allow MC sample size larger than N |
-
-### Output
-
-| Option | Description |
-|--------|-------------|
-| `all` | Report all four CI types (normal, percentile, BC, BCa) |
-| `graph` | Graph potential outcomes |
-| `saving(filename)` | Save the simulated dataset from the main estimation run |
-| `replace` | Overwrite existing saved file |
-
-### gcomptab options
-
-| Option | Description |
-|--------|-------------|
-| `xlsx(filename)` | Output Excel filename (must end with `.xlsx`) |
-| `sheet(string)` | Sheet name to create/replace |
-| `ci(string)` | CI type: `normal` (default), `percentile`, `bc`, `bca` |
-| `decimal(#)` | Decimal places for estimates (default: 3, range: 1-6) |
-
-## Examples
-
-### Example 1: Binary exposure mediation (OBE)
-
-Does smoking affect lung function, and how much is mediated through inflammation?
+This example mirrors the main help-file workflow. The data are simulated in-place, so nothing else needs to be installed. The small `sim()` and `samples()` values keep the example quick; for a real analysis, increase them materially.
 
 ```stata
-* Generate data with known causal structure
 clear
 set seed 12345
 set obs 1000
@@ -155,50 +61,31 @@ gen double x = rbinomial(1, invlogit(-2 + 0.02 * c))
 gen double m = rbinomial(1, invlogit(-1 + 0.8 * x + 0.01 * c))
 gen double y = rbinomial(1, invlogit(-3 + 0.5 * m + 0.3 * x + 0.02 * c))
 
-* Run g-computation mediation
 gcomp y m x c, outcome(y) mediation obe ///
     exposure(x) mediator(m) ///
     commands(m: logit, y: logit) ///
     equations(m: x c, y: m x c) ///
-    base_confs(c) sim(500) samples(200) seed(42)
+    base_confs(c) sim(100) samples(20) seed(42)
 ```
 
-### Example 2: Time-varying confounding
+Use this pattern when the exposure is binary and you want the usual decomposition into total, direct, and indirect effects.
 
-What is the causal effect of sustained treatment on a binary outcome measured at end of follow-up, adjusting for time-varying confounders?
+### 2. Export a mediation fit to Excel with `gcomptab`
+
+Run `gcomptab` immediately after a supported mediation model. The workbook path is just a normal filename in the current working directory.
 
 ```stata
-* Panel data: 500 subjects, 5 time points
-* Confounder L is affected by prior treatment A
-gcomp outcome L A id time, outcome(outcome) ///
-    idvar(id) tvar(time) ///
-    varyingcovariates(L) ///
-    commands(L: regress, outcome: logit, A: logit) ///
-    equations(L: A, outcome: L A, A: L) ///
-    intvars(A) interventions(A_: A_=1, A_: A_=0) ///
-    sim(500) samples(200) seed(42) eofu
+gcomptab, xlsx("mediation_results.xlsx") sheet("Table 1") ///
+    title("Causal Mediation: Smoking Effect via Inflammation")
 ```
 
-`interventions()` uses the same label-and-replacement syntax shown in the help
-file: `label: replacement`. In the example above, `A_` is the intervention label
-and `A_=1` / `A_=0` are the literal replacement statements applied to the
-variables named in `intvars()`. With `eofu`, only the final-visit outcome is
-used in the observed-data comparison; earlier nonmissing outcome values are
-ignored.
+`gcomptab` formats the estimates, confidence intervals, and standard errors into a polished Excel table. It is intended for mediation output, not the time-varying intervention workflow.
 
-### Example 3: Export results to Excel
+### 3. Categorical-exposure mediation with `oce`
+
+Use `oce` when the exposure has more than two levels.
 
 ```stata
-* After running gcomp, export to Excel
-gcomptab, xlsx(mediation_results.xlsx) sheet("Table 1") ///
-    title("Causal Mediation: Smoking → Inflammation → Lung Function")
-```
-
-### Example 4: Categorical exposure mediation (OCE)
-
-```stata
-* Physical activity level (0=none, 1=moderate, 2=high) → depression,
-* mediated through sleep quality
 clear
 set seed 54321
 set obs 1000
@@ -211,167 +98,84 @@ gcomp y m x c, outcome(y) mediation oce ///
     exposure(x) mediator(m) ///
     commands(m: logit, y: logit) ///
     equations(m: x c, y: m x c) ///
-    base_confs(c) sim(500) samples(200) seed(42)
+    base_confs(c) sim(100) samples(20) seed(42)
 ```
 
-## Demo Output
+This estimates mediation contrasts across exposure levels. `gcomptab` is not the formatter for `oce`; use it for the standard supported mediation outputs described in the help file.
 
-### Console output
+### 4. Time-varying confounding in long data
 
-![Console output — setup and models](demo/console_output_setup.png)
+Here the data are already in long format with one row per person-time observation. `L` is the time-varying confounder, `A` is the intervention variable, and `outcome` is the binary outcome. With `eofu`, only the final-row outcome is used conceptually; earlier nonmissing values are ignored by design.
 
-![Console output — analysis](demo/console_output_analysis.png)
+```stata
+clear
+set seed 98765
+set obs 600
+gen long id = ceil(_n / 3)
+bysort id: gen int time = _n
+gen double L = rnormal()
+gen double A = rbinomial(1, invlogit(-1 + 0.3 * L))
+gen double outcome = rbinomial(1, invlogit(-2 + 0.5 * L + 0.4 * A))
 
-![Console output — results](demo/console_output_results.png)
+gcomp outcome L A id time, outcome(outcome) ///
+    idvar(id) tvar(time) ///
+    varyingcovariates(L) ///
+    commands(L: regress, outcome: logit, A: logit) ///
+    equations(L: A, outcome: L A, A: L) ///
+    intvars(A) interventions(A_: A_=1, A_: A_=0) ///
+    sim(50) samples(10) seed(42) eofu
+```
 
-### Excel export (gcomptab)
+The `interventions()` syntax is label-plus-replacement. In the example above, `A_` is the intervention label and `A_=1` or `A_=0` is the actual intervention rule applied to the variable named in `intvars()`.
 
-![gcomptab Excel output](demo/demo_gcomptab.png)
+## Core Options
 
-## Stored Results
+### `gcomp`
 
-### gcomp
+| Option | Role |
+|--------|------|
+| `outcome(varname)` | Identify the outcome variable |
+| `commands(string)` | Choose the model family for each simulated variable |
+| `equations(string)` | Specify the predictor set for each simulated variable |
+| `mediation` | Switch into mediation mode |
+| `exposure(varlist)` | Identify the exposure variable or variables for mediation |
+| `mediator(varlist)` | Identify the mediator variable or variables |
+| `base_confs(varlist)` | List baseline confounders for mediation |
+| `idvar(varname)` / `tvar(varname)` | Identify subject and time in long data |
+| `varyingcovariates(varlist)` | List time-varying confounders affected by prior exposure |
+| `intvars(varlist)` | List the variables the intervention acts on |
+| `interventions(string)` | Define the intervention rules to compare |
+| `simulations(#)` / `samples(#)` | Set Monte Carlo sample size and bootstrap replications |
 
-`gcomp` stores the following in `e()`:
+### `gcomptab`
 
-**Scalars:**
-| Result | Description |
-|--------|-------------|
-| `e(N)` | Number of subjects |
-| `e(MC_sims)` | Monte Carlo simulation size |
-| `e(samples)` | Number of bootstrap replications |
+| Option | Role |
+|--------|------|
+| `xlsx(filename)` | Excel workbook to create or update |
+| `sheet(string)` | Sheet name to create or replace |
+| `ci(string)` | Confidence-interval type to display |
+| `title(string)` | Table title written into the workbook |
+| `labels(string)` | Override the default effect labels |
+| `decimal(#)` | Control numeric precision |
 
-**Convenience scalars** (mediation, non-OCE):
-| Result | Description |
-|--------|-------------|
-| `e(tce)` | Total causal effect |
-| `e(nde)` | Natural direct effect |
-| `e(nie)` | Natural indirect effect |
-| `e(pm)` | Proportion mediated |
-| `e(cde)` | Controlled direct effect (with `control()`) |
-| `e(se_tce)` | SE of total causal effect |
-| `e(se_nde)` | SE of natural direct effect |
-| `e(se_nie)` | SE of natural indirect effect |
-| `e(se_pm)` | SE of proportion mediated |
-| `e(se_cde)` | SE of controlled direct effect |
+## Returned Results
 
-**Convenience scalars** (mediation, OCE — *j*=1,...,*K*-1):
-| Result | Description |
-|--------|-------------|
-| `e(tce_`*j*`)` | TCE for level *j* vs. baseline |
-| `e(nde_`*j*`)` | NDE for level *j* vs. baseline |
-| `e(nie_`*j*`)` | NIE for level *j* vs. baseline |
-| `e(pm_`*j*`)` | PM for level *j* vs. baseline |
-| `e(cde_`*j*`)` | CDE for level *j* vs. baseline |
+After `gcomp`, the main results are stored in `e()`, including:
 
-**Time-varying scalar:**
-| Result | Description |
-|--------|-------------|
-| `e(obs_data)` | Observed outcome in the data |
+- `e(b)`: named effect estimates
+- `e(V)`: variance matrix
+- `e(se)`: standard errors
+- `e(ci_normal)`: normal-based confidence intervals
+- `e(ci_percentile)`, `e(ci_bc)`, and `e(ci_bca)` when requested
+- metadata such as `e(analysis_type)`, `e(outcome)`, `e(exposure)`, and `e(mediation_type)` when applicable
 
-**Matrices:**
-| Result | Description |
-|--------|-------------|
-| `e(b)` | Coefficient vector with named columns |
-| `e(V)` | Diagonal variance matrix (SE^2 on diagonal) |
-| `e(se)` | Standard error vector |
-| `e(ci_normal)` | Normal-based confidence intervals |
-| `e(ci_percentile)` | Percentile CIs (with `all`) |
-| `e(ci_bc)` | Bias-corrected CIs (with `all`) |
-| `e(ci_bca)` | Bias-corrected accelerated CIs (with `all`) |
-| `e(effects)` | `effecttab`-ready matrix of estimates, standard errors, and confidence limits |
-
-**Macros:**
-| Result | Description |
-|--------|-------------|
-| `e(cmd)` | `gcomp` |
-| `e(analysis_type)` | `mediation` or `time_varying` |
-| `e(outcome)` | Outcome variable name |
-| `e(exposure)` | Exposure variable(s) (mediation) |
-| `e(mediator)` | Mediator variable(s) (mediation) |
-| `e(mediation_type)` | `obe`, `oce`, `linexp`, `specific`, or `baseline` |
-| `e(scale)` | `RD`, `logOR`, or `logRR` |
-| `e(msm)` | MSM specification (time-varying with MSM) |
-
-### gcomptab
-
-`gcomptab` stores the following in `r()`:
-
-| Result | Description |
-|--------|-------------|
-| `r(N_effects)` | Number of effects (4 without CDE, 5 with CDE) |
-| `r(tce)` | Total causal effect |
-| `r(nde)` | Natural direct effect |
-| `r(nie)` | Natural indirect effect |
-| `r(pm)` | Proportion mediated |
-| `r(cde)` | Controlled direct effect when the fitted results include CDE |
-| `r(xlsx)` | Excel filename |
-| `r(sheet)` | Sheet name |
-| `r(ci)` | CI type used |
-
-## Changes from SSC v1.16
-
-### Bug fixes
-1. **Hardcoded `by id:`** - Survival/death path now correctly uses `idvar()` variable
-2. **Broken baseline auto-detect with `oce`** - Fixed backtick macro bug that silently produced wrong results
-3. **Global macro pollution** - Eliminated `$maxid`, `$check_delete`, `$check_print`, `$check_save`, `$almost_varlist` globals
-
-### Modernization
-- Added an install-discoverable `_gcomp_bootstrap.ado` entry point for clean `net install` execution
-- Replaced deprecated `uniform()` with `runiform()` and `invnormal(uniform())` with `rnormal()`
-- Added `double` precision to all numeric `gen` statements
-- Inlined `detangle`/`formatline`/`chkin` dependencies (no more `ice` package dependency)
-- Added `version 16.0`, `set varabbrev off`, `set more off`
-- Namespaced internal variables to prevent collisions
-
-## Validation
-
-The `qa/` directory contains package-level functional, interaction, documentation-reality, validation, and cross-validation suites. Run them from `gcomp/qa/` so the relocatable paths resolve correctly.
-
-### Cross-validation (crossval_gcomp.do — 18 tests)
-
-Cross-validates gcomp estimates against analytical ground truth, R `mediation` 4.5.1 (Imai, Keele & Tingley 2010), and internal consistency checks.
-
-**V1: Known DGP — analytical ground truth (7 tests).** Generates N=5,000 from a known DGP (X→M→Y with confounder C, all logistic) and compares gcomp's OBE estimates against analytical potential outcome means (computed via N=100,000 MC integration over C). All effects recover the correct direction and magnitude: TCE within 0.011 of truth (0.056), NDE within 0.003 of truth (0.041), NIE within 0.008 of truth (0.015). PM falls in the plausible range [0.05, 0.60] (true: 0.272).
-
-**V2: R `mediation` cross-validation (6 tests).** Runs gcomp on the same N=5,000 dataset used to generate R benchmarks. TCE agrees within 0.002, NDE within 0.009, NIE within 0.010. The gcomp TCE estimate falls within R's 95% CI [0.039, 0.088]. Both tools identify the same effect decomposition pattern (NDE > NIE). The additive decomposition TCE = NDE + NIE holds exactly (residual < 0.001).
-
-**CV3: Time-varying mode cross-validation (3 tests).** Validates time-varying confounding mode against expected behavior with panel data.
-
-**CV4: minsim vs random draws (2 tests).** Checks that the `minsim` option (expected values) produces consistent decomposition compared to standard random draws.
-
-R benchmarks, shared dataset, and the R script that generated them are in `qa/data/`.
-
-### Functional tests (test_gcomp.do — 116 tests)
-
-Comprehensive functional coverage across 16 sections:
-
-- **Core mediation** (tests 1-22): Internal program loading, OBE/OCE/linexp/specific/baseline mediation modes, `e()` stored results (scalars, matrices, macros), `control()` for CDE, `all` CI types, `minsim`, `logOR`/`logRR` scale options, seed reproducibility, data preservation, `estimates store` compatibility
-- **gcomptab pipeline** (tests 23-47): Excel output with all option combinations (title, labels, decimal, CI types, effect labels), multi-sheet workbooks, `r()` return values, edge cases (negative/small/large effects), error handling (invalid CI, decimal, extension), full gcomp→gcomptab pipeline, `e()` persistence after rclass gcomptab
-- **Bug regression** (tests 48-57): Multi-exposure `baseline()` fix, OCE bootstrap spacing, `gen double` after reshape precision, varabbrev/more restore on success and error, CDE inclusion/exclusion in `e(b)`, PM missing when TCE near-zero, OBE without `baseline()`, and installed-user bootstrap discovery
-- **Time-varying mode** (tests 59-71): `eofu`, continuous outcome, `pooled`, `monotreat`, `death()`, `fixedcovariates()`, `laggedvars()`/`lagrules()`, `derived()`/`derrules()`, logit and regress MSM, multiple interventions, stored results, data preservation, and nondegenerate intervention contrasts
-- **Mediation expanded** (tests 72-81): `linexp`, `specific` with `baseline()`/`alternative()`, `post_confs()`, `moreMC`, `saving()`/`replace`, continuous outcome/mediator, multiple mediators, imputation, `baseline` effect type, and saved-dataset semantics
-- **Error handling** (tests 82-116): All invalid option combinations, missing required options, conflicting flags, `if`/option-variable behavior outside `varlist`, and `gcomptab` validation (helper autoload, path/sheet validation, stale `r()` cleanup, data/varabbrev preservation)
-
-### Validation (validation_gcomp.do — 38 tests)
-
-Correctness validation across 12 sections:
-
-- **V1-V2**: Mediation decomposition invariants (TCE = NDE + NIE, PM = NIE/TCE) and known-answer DGP validation with tolerance bounds
-- **V3**: Bootstrap properties (positive SEs, CIs contain estimates, positive CI widths, SE/V matrix consistency)
-- **V4**: Scale option validation (`logOR` and `logRR` produce different estimates than risk difference)
-- **V5**: `minsim` vs random draws consistency
-- **V6**: gcomptab value accuracy (12 tests) — `r()` scalars match input, Excel structure (7 rows × 5 columns), point estimates/CIs/SEs present, negative effects, custom labels, title, decimal precision, CI type default
-- **V7-V8**: Time-varying mode and continuous outcome validation
-- **V9**: Reproducibility (same seed → same results)
-- **V10-V12**: Stored result accuracy (`e(N)`, `e(MC_sims)`, `e(samples)` match inputs), linexp decomposition
+After `gcomptab`, formatted export details are stored in `r()`, including the workbook name, sheet name, CI type, and effect estimates copied into the table.
 
 ## References
 
-- Robins JM (1986). A new approach to causal inference in mortality studies with a sustained exposure period. *Mathematical Modelling* 7:1393-1512.
-- Daniel RM, De Stavola BL, Cousens SN (2011). gformula: Estimating causal effects in the presence of time-varying confounding or mediation using the g-computation formula. *The Stata Journal* 11(4):479-517.
+- Robins JM. 1986. A new approach to causal inference in mortality studies with sustained exposure periods. *Mathematical Modelling* 7(9-12):1393-1512.
+- Daniel RM, De Stavola BL, Cousens SN. 2011. gformula: Estimating causal effects in the presence of time-varying confounding or mediation using the g-computation formula. *Stata Journal* 11(4):479-517.
 
-## Credits
+## Version History
 
-Original author: Rhian Daniel (LSHTM)
-Fork maintainer: Timothy P Copeland (Karolinska Institutet)
+- **1.0.2** (2026-04-19): Current Stata-Tools release

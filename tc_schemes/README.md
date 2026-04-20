@@ -1,207 +1,154 @@
-# tc_schemes
+# tc_schemes - Consolidated Stata graph schemes from blindschemes and schemepack
 
-![Stata 16+](https://img.shields.io/badge/Stata-16%2B-brightgreen) ![MIT License](https://img.shields.io/badge/License-MIT-blue)
+**Version 1.0.0** | 2026-04-08
 
-Consolidated Stata graph schemes from blindschemes and schemepack.
+`tc_schemes` bundles high-quality Stata graph schemes from Daniel Bischof's `blindschemes`, Mead Over's compatibility fixes, and Asjad Naqvi's `schemepack` into one installable package. The practical advantage is that you get both the scheme files and a real Stata command, so `which tc_schemes` succeeds and do-files can check one package instead of juggling multiple upstream installs.
 
-## Overview
+## Requirements
 
-This package solves a common annoyance: `capture which schemepack` fails because schemepack contains only `.scheme` files without a `.ado` file, triggering unnecessary reinstallation checks in do-files.
-
-With `tc_schemes`, you get:
-- A proper `.ado` file so `which tc_schemes` works correctly
-- 4 blindschemes (plotplain, plotplainblind, plottig, plottigblind)
-- 35 schemepack schemes with modern color palettes
-- 21 custom color style files for colorblind accessibility
-- Complete documentation of all schemes
-
-## Scheme Gallery
-
-<details>
-<summary><strong>Blindschemes</strong> — Clean, publication-ready (Daniel Bischof)</summary>
-
-#### plotplain
-![plotplain](demo/scheme_plotplain.png)
-
-#### plotplainblind
-![plotplainblind](demo/scheme_plotplainblind.png)
-
-#### plottig
-![plottig](demo/scheme_plottig.png)
-
-#### plottigblind
-![plottigblind](demo/scheme_plottigblind.png)
-
-</details>
-
-<details>
-<summary><strong>White Background Series</strong> — Clean, traditional</summary>
-
-#### white_tableau
-![white_tableau](demo/scheme_white_tableau.png)
-
-#### white_viridis
-![white_viridis](demo/scheme_white_viridis.png)
-
-#### white_ptol
-![white_ptol](demo/scheme_white_ptol.png)
-
-</details>
-
-<details>
-<summary><strong>Black Background Series</strong> — Dramatic, presentations</summary>
-
-#### black_tableau
-![black_tableau](demo/scheme_black_tableau.png)
-
-#### black_cividis
-![black_cividis](demo/scheme_black_cividis.png)
-
-</details>
-
-<details>
-<summary><strong>gg (ggplot2-style) Background</strong> — Gray background</summary>
-
-#### gg_hue
-![gg_hue](demo/scheme_gg_hue.png)
-
-</details>
-
-<details>
-<summary><strong>Standalone Schemes</strong> — Distinctive individual styles</summary>
-
-#### neon
-![neon](demo/scheme_neon.png)
-
-#### swift_red
-![swift_red](demo/scheme_swift_red.png)
-
-</details>
+- Stata 16 or later
 
 ## Installation
 
 ```stata
-net install tc_schemes, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/tc_schemes")
+capture ado uninstall tc_schemes
+net install tc_schemes, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/tc_schemes") replace
 ```
 
-## Usage
+## Commands
 
-List all available schemes:
+| Command | Description |
+|---------|-------------|
+| `tc_schemes` | Browse the installed scheme catalog, filter by source package, and display either a compact list or detailed descriptions |
+
+## Quick Start
+
+The command is mainly a catalog and installation anchor. Once the package is installed, you either set a scheme for the whole session or apply one scheme to a single graph.
+
 ```stata
 tc_schemes
+set scheme plotplain
+
+sysuse auto, clear
+scatter mpg weight
 ```
 
-Show detailed descriptions:
+## How It Works
+
+- Run `tc_schemes` with no options to see the organized catalog of available schemes.
+- Use `source(blindschemes)` or `source(schemepack)` when you want to narrow the list to one upstream family.
+- Use `list` for a compact machine-readable list or `detail` for human-readable descriptions.
+- After browsing, either run `set scheme <name>` to change the session default or use `scheme(<name>)` on a single graph.
+
+## Included Scheme Families
+
+| Family | Count | Examples | Best for |
+|--------|-------|----------|----------|
+| `blindschemes` | 4 schemes | `plotplain`, `plotplainblind`, `plottig`, `plottigblind` | Clean publication figures and colorblind-safe defaults |
+| `white_*`, `black_*`, `gg_*` series | 27 schemes | `white_tableau`, `black_cividis`, `gg_viridis` | Choosing a palette and a background style together |
+| Standalone schemepack schemes | 8 schemes | `tab1`, `cblind1`, `ukraine`, `neon` | Distinctive one-off visual styles |
+| Custom color styles | 21 styles | `vermillion`, `sky`, `turquoise`, `sea` | Accessible colors used by the bundled scheme families |
+
+The package includes 39 graph schemes in total: 4 from `blindschemes` and 35 from `schemepack`.
+
+## Worked Examples
+
+### 1. Browse the catalog and filter by source
+
+Use the catalog first when you want to see what is available before you commit to a scheme.
+
 ```stata
+tc_schemes
 tc_schemes, detail
+tc_schemes, source(blindschemes) list
 ```
 
-Filter by source:
-```stata
-tc_schemes, source(blindschemes)
-tc_schemes, source(schemepack) list
-```
+### 2. Set a global scheme for the current Stata session
 
-Use a scheme:
+After `set scheme`, subsequent graphs inherit that scheme until you change it again.
+
 ```stata
 set scheme plotplain
-* or
-scatter y x, scheme(white_tableau)
+sysuse auto, clear
+scatter mpg weight, ///
+    title("Fuel Economy by Vehicle Weight") ///
+    xtitle("Weight") ytitle("Miles per gallon")
 ```
 
-Apply scheme to a cohort visualization:
+### 3. Apply a scheme to one graph without changing the session default
+
+This is the safer workflow when you want to compare different looks side by side.
+
 ```stata
-use _data/cohort.dta, clear
-scatter index_age study_entry, scheme(plotplain) ///
-    title("Age at Entry Over Calendar Time") ///
-    xtitle("Study Entry Date") ytitle("Age (years)")
+sysuse auto, clear
+scatter mpg weight, scheme(white_tableau) ///
+    title("Single-graph scheme override")
 ```
 
-Check if installed (in do-file headers):
+### 4. Compare two schemes visually
+
+Because the schemes are installed locally, you can render the same graph under two visual systems and combine them in one figure.
+
+```stata
+sysuse auto, clear
+scatter mpg weight, scheme(plotplain) name(g1, replace)
+scatter mpg weight, scheme(gg_viridis) name(g2, replace)
+graph combine g1 g2
+```
+
+### 5. Use `which tc_schemes` as an installation check in project headers
+
+This is one of the main reasons the wrapper command exists.
+
 ```stata
 capture which tc_schemes
 if _rc != 0 {
-    net install tc_schemes, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/tc_schemes")
+    net install tc_schemes, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/tc_schemes") replace
 }
 ```
 
-## Included Schemes
+## Preview Gallery
 
-### Blindschemes (Daniel Bischof)
+Representative outputs from `demo/demo_tc_schemes.do`:
 
-Clean, publication-ready schemes with colorblind-friendly palettes:
+### Blindschemes
 
-| Scheme | Description |
-|--------|-------------|
-| `plotplain` | Minimalist white background, no gridlines |
-| `plotplainblind` | plotplain with colorblind-safe colors |
-| `plottig` | ggplot2-style gray background |
-| `plottigblind` | plottig with colorblind-safe colors |
+![plotplain](demo/scheme_plotplain.png)
 
-### Schemepack (Asjad Naqvi)
+![plotplainblind](demo/scheme_plotplainblind.png)
 
-**Series Schemes** - Each palette available with three backgrounds:
-- `white_*` - White background (clean, traditional)
-- `black_*` - Black background (dramatic, presentations)
-- `gg_*` - Gray background (ggplot2-style)
+![plottig](demo/scheme_plottig.png)
 
-| Palette | Description |
-|---------|-------------|
-| `tableau` | Tableau Software default colors |
-| `cividis` | Perceptually uniform, colorblind-optimized |
-| `viridis` | Matplotlib perceptually uniform colormap |
-| `hue` | ggplot2 default hue colors |
-| `brbg` | Brown-Blue-Green diverging |
-| `piyg` | Pink-Yellow-Green diverging |
-| `ptol` | Paul Tol's colorblind-safe palette |
-| `jet` | Classic rainbow (use cautiously) |
-| `w3d` | Web 3D inspired vibrant colors |
+![plottigblind](demo/scheme_plottigblind.png)
 
-**Standalone Schemes:**
+### Selected schemepack variants
 
-| Scheme | Description |
-|--------|-------------|
-| `tab1`, `tab2`, `tab3` | Qualitative color schemes |
-| `cblind1` | Colorblind-friendly option |
-| `ukraine` | Ukraine flag colors |
-| `swift_red` | Taylor Swift Red album colors |
-| `neon` | High-contrast neon styling |
-| `rainbow` | Vibrant multicolor |
+![white_tableau](demo/scheme_white_tableau.png)
 
-## Stored Results
+![white_viridis](demo/scheme_white_viridis.png)
 
-```stata
-tc_schemes
-return list
-```
+![black_cividis](demo/scheme_black_cividis.png)
 
-| Result | Description |
-|--------|-------------|
-| `r(schemes)` | Space-separated list of all scheme names |
-| `r(n_schemes)` | Number of schemes |
-| `r(sources)` | Source packages included |
-| `r(version)` | Package version |
+![gg_hue](demo/scheme_gg_hue.png)
+
+### Standalone schemes
+
+![neon](demo/scheme_neon.png)
+
+![swift_red](demo/scheme_swift_red.png)
 
 ## Acknowledgments
 
-This package consolidates work from three generous contributors:
+- Daniel Bischof created the original `blindschemes` package and its publication-oriented, accessibility-aware visual style.
+- Mead Over supplied `blindschemes_fix`, which resolved compatibility issues with recent Stata versions.
+- Asjad Naqvi created `schemepack`, which contributes the larger palette-and-background scheme families collected here.
 
-- **Daniel Bischof** (University of Zurich) - Original [blindschemes](https://ideas.repec.org/c/boc/bocode/s458251.html)
-- **Mead Over** (Center for Global Development) - blindschemes_fix compatibility patches
-- **Asjad Naqvi** (Vienna University of Economics) - [schemepack](https://github.com/asjadnaqvi/stata-schemepack)
+Wrapper code is distributed under MIT. Individual schemes retain their original licensing and attribution.
 
-All original attributions preserved. Wrapper code under MIT license; individual schemes retain original licensing.
+## Version History
+
+- **1.0.0** (2026-04-08): Initial Stata-Tools release consolidating `blindschemes`, `blindschemes_fix`, and `schemepack` under one installable package and catalog command.
 
 ## Author
 
-Timothy P Copeland<br>
-Department of Clinical Neuroscience<br>
-Karolinska Institutet
-
-## License
-
-MIT License (wrapper code)
-
-## Version
-
-Version 1.0.0, 2026-04-08
+Timothy P Copeland, Karolinska Institutet

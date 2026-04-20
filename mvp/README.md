@@ -1,161 +1,141 @@
-# mvp - Missing Value Patterns
+# mvp - Missing Value Pattern Analysis for Stata
 
-![Stata 16+](https://img.shields.io/badge/Stata-16%2B-brightgreen) ![MIT License](https://img.shields.io/badge/License-MIT-blue) ![Status](https://img.shields.io/badge/Status-Active-success)
+**Version 1.0.0** | 2026-04-08
 
-Enhanced missing value pattern analysis for Stata 16+.
+`mvp` analyzes missing-data structure across variables, reports distinct missingness patterns, and can graph missingness as bar charts, pattern-frequency charts, observation-by-variable heatmaps, and missingness-correlation heatmaps. It is a Stata 16+ fork of `mvpatterns` with added graphing, stratification, generated indicators, and monotone-pattern diagnostics.
 
-Fork of `mvpatterns` by Jeroen Weesie (STB-61: dm91)
+## Requirements
 
-## Screenshots
-
-### Console Output
-![Console Output](demo/console_output.png)
-
-### Missingness Bar Chart
-![Missingness Bar Chart](demo/missingness_bar.png)
+- Stata 16 or later
 
 ## Installation
 
 ```stata
-net install mvp, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/mvp")
+capture ado uninstall mvp
+net install mvp, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/mvp") replace
 ```
 
-## Syntax
+## Commands
+
+| Command | Description |
+|---------|-------------|
+| `mvp` | Summarize, test, save, and graph missing value patterns |
+
+## Quick Start
+
+### 1. Inspect missingness in a built-in dataset
 
 ```stata
-mvp [varlist] [if] [in] [, options]
-```
-
-Supports `by` prefix.
-
-## Options
-
-| Option | Description |
-|--------|-------------|
-| **Display** | |
-| `notable` | Suppress variable table |
-| `skip` | Insert spaces every 5 vars |
-| `sort` | Sort vars by missingness (descending) |
-| `nodrop` | Include vars with no missing |
-| `wide` | Compact display |
-| `nosummary` | Suppress summary stats |
-| **Filtering** | |
-| `minfreq(#)` | Min pattern frequency to display (default 1) |
-| `minmissing(#)` | Show patterns with ≥# missing vars |
-| `maxmissing(#)` | Show patterns with ≤# missing vars |
-| `ascending` | Sort patterns rarest-first |
-| **Statistics** | |
-| `percent` | Show percentages |
-| `cumulative` | Show cumulative freq/pct |
-| `correlate` | Tetrachoric correlations of missingness |
-| `monotone` | Test for monotone pattern |
-| **Output** | |
-| `generate(stub)` | Create missingness indicators: `stub_varname`, `stub_pattern`, `stub_nmiss` |
-| `save(name)` | Save patterns to file (.dta) or frame (Stata 16+) |
-| **Graphics** | |
-| `graph(bar)` | Bar chart of % missing by variable |
-| `graph(patterns)` | Bar chart of top 20 pattern frequencies |
-| `graph(matrix)` | Obs × var heatmap |
-| `graph(matrix, sample(#))` | Sample # obs for large data |
-| `graph(matrix, sort)` | Sort obs by pattern |
-| `graph(correlation)` | Missingness correlation heatmap |
-| `scheme(name)` | Graph scheme (requires `graph()`) |
-| **Stratification** | |
-| `gby(varname)` | Stratify graphs by categorical variable (faceted) |
-| `over(varname)` | Overlay groups in same graph (grouped bars) |
-| `stacked` | Stacked bar chart (requires `graph(bar)`) |
-| `groupgap(#)` | Gap between bar groups in `over()` |
-| `legendopts(string)` | Customize legend in grouped charts |
-
-## Pattern Display
-
-- `+` = nonmissing
-- `.` = missing
-
-Patterns sorted by frequency (most common first) by default.
-
-## Stored Results
-
-**Scalars:**
-- `r(N)` - observations
-- `r(N_complete)` - complete cases
-- `r(N_incomplete)` - incomplete cases
-- `r(N_patterns)` - unique patterns
-- `r(N_vars)` - variables analyzed
-- `r(max_miss)` - max missing per obs
-- `r(mean_miss)` - mean missing per obs
-- `r(N_mv_total)` - total missing values
-- `r(N_monotone)`, `r(pct_monotone)` - if `monotone` specified
-
-**Macros:**
-- `r(varlist)` - analyzed variables
-- `r(varlist_nomiss)` - variables with no missing
-- `r(monotone_status)` - "monotone" or "non-monotone"
-- `r(gby)`, `r(gby_levels)` - if `gby()` specified
-- `r(over)`, `r(over_levels)` - if `over()` specified
-
-**Matrices:**
-- `r(corr_miss)` - correlation matrix (if `correlate` or `graph(correlation)`)
-
-## Examples
-
-```stata
-* Basic
 sysuse auto, clear
-mvp
-
-* With options
 mvp price mpg rep78, percent sort
+```
 
-* Filter patterns
-mvp, minfreq(5) minmissing(1) maxmissing(3)
+This prints the pattern table. In the pattern display, `+` means observed and `.` means missing. `sort` orders the variables by missingness so the sparsest variables are easiest to spot.
 
-* Test monotonicity
-mvp var1 var2 var3, monotone
+### 2. Add a quick graph
 
-* Generate indicators
-mvp, generate(m)
+```stata
+mvp price mpg rep78, graph(bar) sort
+```
+
+This switches from the table to a bar chart of percent missing by variable.
+
+## How It Works
+
+- If you omit `varlist`, `mvp` analyzes all variables in memory.
+- `generate(stub)` creates per-variable missingness indicators plus `stub_pattern` and `stub_nmiss`.
+- `save(name)` saves the pattern dataset either to a frame or to a `.dta` file, depending on the name you supply.
+- `graph(bar)`, `graph(patterns)`, `graph(matrix)`, and `graph(correlation)` provide four complementary views of missingness.
+- `gby()` and `over()` compare missingness across groups when you are graphing results.
+- `monotone` tests whether the missing-data structure is monotone, which is useful when planning imputation workflows.
+
+## Worked Examples
+
+### 1. Built-in workflow with `sysuse auto`
+
+`sysuse auto` is a good first check because `rep78` contains missing values and the example runs immediately after installation.
+
+```stata
+sysuse auto, clear
+
+* Tabular overview
+mvp price mpg rep78 headroom trunk, percent sort
+
+* Generate indicators for follow-up work
+mvp price mpg rep78, generate(m)
 tab m_pattern
 
-* Graphics
-mvp, graph(bar)
-mvp, graph(matrix, sample(1000) sort)
-mvp, graph(correlation) scheme(s1mono)
-
-* Stratified graphics
-mvp price mpg rep78, graph(bar) gby(foreign)     // faceted by group
-mvp price mpg rep78, graph(bar) over(foreign)    // grouped bars
-mvp, graph(bar) stacked                          // stacked bars
-mvp, graph(patterns) gby(treatment) top(10)      // patterns by group
-
-* Save patterns
-mvp, save(patterns)  // frame in Stata 16+, .dta in 14-15
-
-* Missing patterns in LISA data
-use _data/lisa.dta, clear
-mvp disp_income employment education_level, percent sort
-
-* Missing data visualization for cohort
-use _data/cohort.dta, clear
-mvp death_date, graph(bar)
-
-* Generate missingness indicators for imputation planning
-use _data/lisa.dta, clear
-mvp disp_income employment, generate(m) monotone
+* Visualize percent missing
+mvp price mpg rep78 headroom trunk, graph(bar) sort
 ```
+
+Use this pattern when you want a quick missing-data audit before modeling or imputation planning.
+
+### 2. Richer graph workflow with a small synthetic dataset
+
+For heatmaps, correlations, and grouped displays, it helps to have several variables with different missingness rates. The block below creates that kind of dataset directly in Stata.
+
+```stata
+clear
+set seed 12345
+set obs 300
+
+gen age = rnormal(50, 12)
+gen female = runiform() < 0.5
+gen bmi = rnormal(27, 5)
+gen sbp = rnormal(130, 18)
+gen ldl = rnormal(3.5, 1.1)
+gen hba1c = rnormal(5.8, 0.9)
+
+replace bmi = . if runiform() < 0.08
+replace sbp = . if runiform() < 0.05
+replace ldl = . if runiform() < 0.15
+replace hba1c = . if runiform() < 0.20
+replace hba1c = . if missing(ldl) & runiform() < 0.4
+
+* Full console summary
+mvp age female bmi sbp ldl hba1c, percent sort monotone correlate
+
+* Grouped view by sex
+mvp bmi sbp ldl hba1c, graph(bar) gby(female)
+
+* Correlation heatmap of missingness indicators
+mvp bmi sbp ldl hba1c, graph(correlation) textlabels
+```
+
+This example is useful when you want to see whether missingness clusters by variable, co-occurs across variables, or differs across subgroups.
+
+## Selected Returned Results
+
+`mvp` stores several useful summaries in `r()`, including:
+
+- `r(N)` - observations analyzed
+- `r(N_complete)` and `r(N_incomplete)` - complete and incomplete cases
+- `r(N_patterns)` - number of unique missingness patterns
+- `r(N_vars)` - number of variables analyzed
+- `r(monotone_status)` - monotone or non-monotone when `monotone` is requested
+- `r(corr_miss)` - missingness correlation matrix when `correlate` or `graph(correlation)` is used
+
+## Screenshots
+
+### Console summary
+
+![Console Output](demo/console_output.png)
+
+### Missingness bar chart
+
+![Missingness Bar Chart](demo/missingness_bar.png)
+
+### Correlation heatmap
+
+![Missingness Correlation Heatmap](demo/correlation_heatmap.png)
 
 ## Author
 
-Timothy P Copeland<br>
-Department of Clinical Neuroscience<br>
-Karolinska Institutet
+Timothy P Copeland, Karolinska Institutet
 
-Fork of mvpatterns by Jeroen Weesie (STB-61: dm91)
+Fork of `mvpatterns` by Jeroen Weesie (STB-61: dm91).
 
 ## License
 
-MIT License
-
-## Version
-
-Version 1.0.0, 2026-04-08
+MIT
