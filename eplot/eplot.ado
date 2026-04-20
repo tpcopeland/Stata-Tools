@@ -2453,7 +2453,7 @@ program define _eplot_value_margin, sclass
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     capture noisily {
-        syntax varname, HEADer(string asis) [MINimum(integer 26)]
+        syntax varname, HEADer(string asis) [MINimum(integer 18)]
 
         tempvar _val_len
         quietly gen double `_val_len' = length(`varlist') if !missing(`varlist')
@@ -2463,7 +2463,7 @@ program define _eplot_value_margin, sclass
         local header_len = length(`"`header'"')
         if `header_len' > `maxlen' local maxlen = `header_len'
 
-        local right_margin = ceil(`maxlen' * 1.15 + 6)
+        local right_margin = ceil(`maxlen' * 0.75 + 3)
         if `right_margin' < `minimum' local right_margin = `minimum'
 
         sreturn clear

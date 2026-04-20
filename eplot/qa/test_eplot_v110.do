@@ -197,18 +197,30 @@ capture noisily {
     "B" 1.2345 0.9345 1.5345
     end
 
+    eplot es lci uci, labels(lab) values ///
+        name(_v110_t7_default, replace)
+
+    local cmd_default `"`r(cmd)'"'
+    local prefix "plotregion(margin(l+2 r+"
+    local start_default = strpos(`"`cmd_default'"', "`prefix'")
+    assert `start_default' > 0
+    local rest_default = substr(`"`cmd_default'"', `start_default' + length("`prefix'"), .)
+    local stop_default = strpos(`"`rest_default'"', " t+2 b+2))")
+    assert `stop_default' > 1
+    local default_margin = real(substr(`"`rest_default'"', 1, `stop_default' - 1))
+
     eplot es lci uci, labels(lab) values vformat(%8.4f) ///
         name(_v110_t7, replace)
 
     local cmd `"`r(cmd)'"'
-    local prefix "plotregion(margin(l+2 r+"
     local start = strpos(`"`cmd'"', "`prefix'")
     assert `start' > 0
     local rest = substr(`"`cmd'"', `start' + length("`prefix'"), .)
     local stop = strpos(`"`rest'"', " t+2 b+2))")
     assert `stop' > 1
     local right_margin = real(substr(`"`rest'"', 1, `stop' - 1))
-    assert `right_margin' > 26
+    assert `right_margin' > `default_margin'
+    assert `right_margin' >= 18
 }
 if _rc == 0 {
     display as result "  PASS: Test 7 - values margin scales with wide vformat()"
@@ -220,6 +232,7 @@ else {
     local failed_tests "`failed_tests' 7"
 }
 capture graph drop _v110_t7
+capture graph drop _v110_t7_default
 
 * -----------------------------------------------------------------------------
 * Test 8: Mode detection still prefers data mode when names collide
