@@ -1,15 +1,19 @@
 v 3
-d 'MASSDESAS': module to mass destring and encode string variables to numeric
+d 'MASSDESAS': Batch convert SAS datasets to Stata format
 d
-d Mass destring and encode for Stata variables.
-d Converts multiple string variables to numeric simultaneously, with
-d options for labeling, error handling, and selective conversion.
-d Designed for large datasets with many string-coded categorical variables.
+d Recursively scans a directory tree for .sas7bdat files,
+d imports each one into Stata, and writes a sibling .dta file
+d with the same base name. Supports lowercase variable-name
+d conversion and optional erasure of the original SAS files
+d after successful conversion.
 d
-d KW: destring
-d KW: encode
-d KW: numeric conversion
+d Requires: Stata version 14+, built-in import sas,
+d SSC packages filelist and fs
+d KW: SAS
+d KW: import
+d KW: conversion
 d KW: batch
+d KW: data management
 d
 d Distribution-Date: 20260408
 d
