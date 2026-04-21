@@ -6,14 +6,8 @@
       user.
 
     Produces:
-      Console (7 SMCL files):
-        1. console_output.smcl      - table1_tc display
-        2. console_survtab.smcl     - survtab RMST + difference display
-        3. console_tabtools.smcl    - tabtools set/get/list/detail display
-        4. console_regtab.smcl      - regtab display preview
-        5. console_corrtab.smcl     - corrtab display preview
-        6. console_crosstab.smcl    - crosstab display preview
-        7. console_diagtab.smcl     - diagtab display preview
+      Console (1 SMCL file):
+        1. console_output.smcl      - consolidated display log for tabtools/table1_tc/survtab/regtab/corrtab/crosstab/diagtab
       Main workbook (demo_tabtools.xlsx) with 46 sheets:
         TABLE 1 FAMILY (9 sheets):
           1.  "Table 1"            - table1_tc baseline characteristics
@@ -106,6 +100,7 @@ capture ado uninstall tabtools
 quietly net install tabtools, from("`repo_root'/tabtools") replace
 
 local main_xlsx "`pkg_dir'/demo_tabtools.xlsx"
+local console_log "`pkg_dir'/console_output.smcl"
 capture erase "`main_xlsx'"
 
 **# Build analysis dataset
@@ -171,9 +166,17 @@ label values smoking smoke_lbl
 tempfile analysis
 save `analysis'
 
-**# Console: tabtools set/get/list/detail
-log using "`pkg_dir'/console_tabtools.smcl", replace smcl name(tt) nomsg
+**# Console: consolidated display log
+capture log close _all
+capture erase "`console_log'"
+foreach legacy_log in console_survtab.smcl console_tabtools.smcl console_regtab.smcl ///
+    console_corrtab.smcl console_crosstab.smcl console_diagtab.smcl {
+    capture erase "`pkg_dir'/`legacy_log'"
+}
 
+log using "`console_log'", replace smcl name(demo) nomsg
+
+**# Console: tabtools set/get/list/detail
 tabtools set font Calibri
 tabtools set fontsize 11
 tabtools set borderstyle thin
@@ -183,10 +186,10 @@ tabtools set clear
 noisily tabtools
 noisily tabtools, detail
 
-log close tt
+log off demo
 
 **# Console: table1_tc display
-log using "`pkg_dir'/console_output.smcl", replace smcl name(demo) nomsg
+log on demo
 
 noisily table1_tc, by(treated) ///
     vars(index_age contn %5.1f \ female bin \ ///
@@ -194,53 +197,53 @@ noisily table1_tc, by(treated) ///
          born_abroad bin \ civil_status cat \ ///
          diabetes bin \ hypertension bin \ anxiety bin \ prior_cvd bin)
 
-log close demo
+log off demo
 
 **# Console: survtab RMST + difference
-log using "`pkg_dir'/console_survtab.smcl", replace smcl name(surv) nomsg
+log on demo
 
 noisily survtab, times(365 730 1095 1460) by(treated) ///
     rmst(1460) difference median timeunit(days)
 
-log close surv
+log off demo
 
 **# Console: regtab display
 collect clear
 quietly collect: logistic treated index_age female i.education ///
     diabetes hypertension anxiety prior_cvd
 
-log using "`pkg_dir'/console_regtab.smcl", replace smcl name(regt) nomsg
+log on demo
 
 noisily regtab, coef("OR") noint display
 
-log close regt
+log off demo
 
 **# Console: corrtab display
-log using "`pkg_dir'/console_corrtab.smcl", replace smcl name(corr) nomsg
+log on demo
 
 noisily corrtab index_age crp prior_hosp, ///
     star(0.05 0.01 0.001) display
 
-log close corr
+log off demo
 
 **# Console: crosstab display
-log using "`pkg_dir'/console_crosstab.smcl", replace smcl name(cross) nomsg
+log on demo
 
 noisily crosstab treated female, or label display
 
-log close cross
+log off demo
 
 **# Console: diagtab display
 quietly logit cv_event treated index_age female diabetes hypertension
 predict double phat_display, pr
 label variable phat_display "Predicted CV risk"
 
-log using "`pkg_dir'/console_diagtab.smcl", replace smcl name(diag) nomsg
+log on demo
 
 noisily diagtab phat_display cv_event, cutoff(0.35) ///
     auc wilson display
 
-log close diag
+log close demo
 drop phat_display
 
 
@@ -913,10 +916,4 @@ capture frame drop _demo_hr_dose
 clear
 display as result "Demo complete. Outputs:"
 display as result "  `pkg_dir'/console_output.smcl"
-display as result "  `pkg_dir'/console_survtab.smcl"
-display as result "  `pkg_dir'/console_tabtools.smcl"
-display as result "  `pkg_dir'/console_regtab.smcl"
-display as result "  `pkg_dir'/console_corrtab.smcl"
-display as result "  `pkg_dir'/console_crosstab.smcl"
-display as result "  `pkg_dir'/console_diagtab.smcl"
 display as result "  `pkg_dir'/demo_tabtools.xlsx (46 sheets)"

@@ -10,12 +10,39 @@ local skip_file "`qa_dir'/_skip.txt"
 capture ado uninstall tabtools
 quietly net install tabtools, from("`pkg_dir'") replace
 
-local test_files : dir "`qa_dir'" files "test_*.do"
-local val_files : dir "`qa_dir'" files "validation_*.do"
-local xval_files : dir "`qa_dir'" files "crossval_*.do"
-local all_files : list test_files | val_files
-local all_files : list all_files | xval_files
-local all_files : list sort all_files
+local scan_dirs "."
+local child_dirs : dir "`qa_dir'" dirs "*"
+local child_dirs : list sort child_dirs
+foreach d of local child_dirs {
+    if inlist("`d'", "baseline", "data", "output", "output_issue_regressions", ///
+        "output_issue_rendering", "tools") {
+        continue
+    }
+    local scan_dirs `"`scan_dirs' `d'"'
+}
+
+local all_files ""
+foreach d of local scan_dirs {
+    local scan_path "`qa_dir'"
+    if "`d'" != "." {
+        local scan_path "`qa_dir'/`d'"
+    }
+
+    local test_files : dir "`scan_path'" files "test_*.do"
+    local val_files : dir "`scan_path'" files "validation_*.do"
+    local xval_files : dir "`scan_path'" files "crossval_*.do"
+    local dir_files : list test_files | val_files
+    local dir_files : list dir_files | xval_files
+    local dir_files : list sort dir_files
+
+    foreach f of local dir_files {
+        local rel_file "`f'"
+        if "`d'" != "." {
+            local rel_file "`d'/`f'"
+        }
+        local all_files : list all_files | rel_file
+    }
+}
 
 local skip_names ""
 capture confirm file "`skip_file'"
@@ -35,7 +62,7 @@ if _rc == 0 {
                 if "`skip_reason'" == "" {
                     local skip_reason "listed in _skip.txt"
                 }
-                local skip_key = subinstr("`skip_name'", ".", "_", .)
+                local skip_key = subinstr(subinstr("`skip_name'", "/", "_", .), ".", "_", .)
                 local skip_reason_`skip_key' `"`skip_reason'"'
             }
         }
@@ -46,7 +73,11 @@ if _rc == 0 {
 
 local n_discovered = 0
 foreach f of local all_files {
-    if "`f'" != "run_all.do" & "`f'" != "refactor_baseline.do" {
+    local base "`f'"
+    if regexm("`f'", ".*/([^/]+)$") {
+        local base = regexs(1)
+    }
+    if "`base'" != "run_all.do" & "`base'" != "refactor_baseline.do" {
         local ++n_discovered
     }
 }
@@ -63,14 +94,23 @@ if "`skip_names'" != "" {
 }
 
 foreach f of local all_files {
-    if "`f'" == "run_all.do" | "`f'" == "refactor_baseline.do" {
+    local base "`f'"
+    if regexm("`f'", ".*/([^/]+)$") {
+        local base = regexs(1)
+    }
+    if "`base'" == "run_all.do" | "`base'" == "refactor_baseline.do" {
         continue
     }
 
     local in_skip : list f in skip_names
-    if `in_skip' {
+    local in_skip_base : list base in skip_names
+    if `in_skip' | `in_skip_base' {
         local ++n_skip
-        local skip_key = subinstr("`f'", ".", "_", .)
+        local skip_name "`f'"
+        if `in_skip_base' {
+            local skip_name "`base'"
+        }
+        local skip_key = subinstr(subinstr("`skip_name'", "/", "_", .), ".", "_", .)
         local skip_reason `"`skip_reason_`skip_key''"'
         display _newline
         display as text "=== Skipping: `f' ==="
