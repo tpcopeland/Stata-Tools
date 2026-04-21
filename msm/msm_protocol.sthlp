@@ -54,6 +54,12 @@
 adapted from the Hernan framework for MSM/IPTW analyses. All 7 components
 are required to ensure complete study documentation.
 
+{pstd}
+Use this command to make the target trial explicit before weighting and
+estimation. In the current {cmd:msm} workflow, the downstream prediction
+examples are built around static strategies such as always treated versus
+never treated rather than dynamic intervention rules.
+
 
 {marker options}{...}
 {title:Options}
@@ -91,7 +97,8 @@ treated vs never treated").
 
 {phang}
 {opt format(string)} specifies output format: {cmd:display} (default),
-{cmd:csv}, {cmd:excel}, or {cmd:latex}.
+{cmd:csv}, {cmd:excel}, or {cmd:latex}. Use {cmd:export()} with all
+non-display formats.
 
 {phang}
 {opt replace} allows overwriting an existing file.
@@ -100,6 +107,7 @@ treated vs never treated").
 {marker examples}{...}
 {title:Examples}
 
+{pstd}Display a target-trial style protocol in the Results window{p_end}
 {phang2}{cmd:. msm_protocol,}{p_end}
 {phang2}{cmd:    population("Adults with chronic condition")}{p_end}
 {phang2}{cmd:    treatment("Drug A initiation vs no initiation")}{p_end}
@@ -108,6 +116,30 @@ treated vs never treated").
 {phang2}{cmd:    causal_contrast("Always treated vs never treated")}{p_end}
 {phang2}{cmd:    weight_spec("Stabilized IPTW, 1/99 truncation")}{p_end}
 {phang2}{cmd:    analysis("Pooled logistic with robust SE")}{p_end}
+
+{pstd}Export the same protocol to CSV for supplement material{p_end}
+{phang2}{cmd:. local proto_csv "`c(tmpdir)'/msm_protocol.csv"}{p_end}
+{phang2}{cmd:. msm_protocol,}{p_end}
+{phang2}{cmd:    population("Adults with chronic condition")}{p_end}
+{phang2}{cmd:    treatment("Drug A initiation vs no initiation")}{p_end}
+{phang2}{cmd:    confounders("Biomarker (TV), comorbidity (TV), age, sex")}{p_end}
+{phang2}{cmd:    outcome("All-cause mortality")}{p_end}
+{phang2}{cmd:    causal_contrast("Always treated vs never treated")}{p_end}
+{phang2}{cmd:    weight_spec("Stabilized IPTW, 1/99 truncation")}{p_end}
+{phang2}{cmd:    analysis("Pooled logistic with robust SE")}{p_end}
+{phang2}{cmd:    export("`proto_csv'") format(csv) replace}{p_end}
+
+{pstd}Export to Excel for a study file or protocol appendix{p_end}
+{phang2}{cmd:. local proto_xlsx "`c(tmpdir)'/msm_protocol.xlsx"}{p_end}
+{phang2}{cmd:. msm_protocol,}{p_end}
+{phang2}{cmd:    population("Adults with chronic condition")}{p_end}
+{phang2}{cmd:    treatment("Drug A initiation vs no initiation")}{p_end}
+{phang2}{cmd:    confounders("Biomarker (TV), comorbidity (TV), age, sex")}{p_end}
+{phang2}{cmd:    outcome("All-cause mortality")}{p_end}
+{phang2}{cmd:    causal_contrast("Always treated vs never treated")}{p_end}
+{phang2}{cmd:    weight_spec("Stabilized IPTW, 1/99 truncation")}{p_end}
+{phang2}{cmd:    analysis("Pooled logistic with robust SE")}{p_end}
+{phang2}{cmd:    export("`proto_xlsx'") format(excel) replace}{p_end}
 
 
 {marker results}{...}

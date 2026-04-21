@@ -55,6 +55,12 @@ time period. All individuals must share the common baseline period, and
 variables passed in {cmd:baseline_covariates()} must be time-fixed within
 individual.
 
+{pstd}
+Re-running {cmd:msm_prepare} overwrites the stored mapping and clears
+downstream {cmd:_msm_*} analysis artifacts from earlier weighting, fitting,
+prediction, and diagnostic runs, making it the right restart point when your
+analysis specification changes.
+
 
 {marker options}{...}
 {title:Options}
@@ -87,12 +93,27 @@ individual.
 {marker examples}{...}
 {title:Examples}
 
+{pstd}Minimal mapping of a person-period dataset{p_end}
 {phang2}{cmd:. findfile msm_example.dta}{p_end}
 {phang2}{cmd:. use "`r(fn)'", clear}{p_end}
+{phang2}{cmd:. msm_prepare, id(id) period(period) treatment(treatment)}{p_end}
+{phang2}{cmd:    outcome(outcome)}{p_end}
 
+{pstd}Full mapping for the intended IPTW workflow{p_end}
+{phang2}{cmd:. findfile msm_example.dta}{p_end}
+{phang2}{cmd:. use "`r(fn)'", clear}{p_end}
 {phang2}{cmd:. msm_prepare, id(id) period(period) treatment(treatment)}{p_end}
 {phang2}{cmd:    outcome(outcome) covariates(biomarker comorbidity)}{p_end}
+{phang2}{cmd:    censor(censored) baseline_covariates(age sex)}{p_end}
+{phang2}{cmd:. return list}{p_end}
+
+{pstd}Restart after revising the mapped covariate set{p_end}
+{phang2}{cmd:. msm_prepare, id(id) period(period) treatment(treatment)}{p_end}
+{phang2}{cmd:    outcome(outcome) covariates(biomarker)}{p_end}
 {phang2}{cmd:    baseline_covariates(age sex)}{p_end}
+{pstd}
+After re-running {cmd:msm_prepare}, re-run {helpb msm_validate} and
+{helpb msm_weight} because prior downstream results are cleared.{p_end}
 
 
 {marker results}{...}

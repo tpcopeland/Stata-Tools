@@ -7,6 +7,7 @@
 {viewerjumpto "Syntax" "msm_predict##syntax"}{...}
 {viewerjumpto "Description" "msm_predict##description"}{...}
 {viewerjumpto "Options" "msm_predict##options"}{...}
+{viewerjumpto "Current limits" "msm_predict##limits"}{...}
 {viewerjumpto "Stored results" "msm_predict##stored"}{...}
 {viewerjumpto "Examples" "msm_predict##examples"}{...}
 {viewerjumpto "Author" "msm_predict##author"}{...}
@@ -59,12 +60,14 @@ time-fixed within individual.
 {phang}
 {opth times(numlist)} specifies the time periods at which to predict
 counterfactual outcomes. Required. Values must be non-negative integers
-corresponding to period values in the data.
+corresponding to period values in the data. By default they must also lie
+within the observed follow-up range.
 
 {phang}
 {opt strategy(string)} specifies which treatment strategy to predict.
 {cmd:always} predicts under always-treated, {cmd:never} under never-treated,
-and {cmd:both} (the default) predicts under both strategies.
+and {cmd:both} (the default) predicts under both strategies. These are
+static intervention regimes; dynamic rules are not implemented here.
 
 {phang}
 {opt type(string)} specifies the prediction type. {cmd:cum_inc} (default)
@@ -83,13 +86,37 @@ coefficient distribution for confidence interval estimation. Default is 100.
 
 {phang}
 {opt difference} computes risk differences between always-treated and
-never-treated strategies at each time point.
+never-treated strategies at each time point. It is only meaningful with
+{cmd:strategy(both)}; otherwise the option is ignored.
 
 {phang}
 {opt extrapolate} allows prediction at time points beyond the maximum
 observed period in the data. By default, {cmd:msm_predict} rejects
 {cmd:times()} values exceeding the observed follow-up range. Use this
 option to override the guard when extrapolation is intentional.
+
+
+{marker limits}{...}
+{title:Current limits}
+
+{phang}
+{bf:Requires pooled logistic MSMs.} {cmd:msm_predict} stops unless the most
+recent {helpb msm_fit} run used {cmd:model(logistic)}.
+
+{phang}
+{bf:Static strategies only.} Supported {cmd:strategy()} values are
+{cmd:always}, {cmd:never}, and {cmd:both}. Dynamic or stochastic treatment
+regimes are out of scope for the current release.
+
+{phang}
+{bf:Outcome-model covariates must be time-fixed if predicting.} Any
+{cmd:outcome_cov()} variables from {helpb msm_fit} are standardized at the
+baseline/reference-population values, so they must not vary within person.
+
+{phang}
+{bf:Prediction horizon defaults to observed data support.} Out-of-range
+{cmd:times()} values require {cmd:extrapolate}; otherwise the command refuses
+them.
 
 
 {marker stored}{...}
@@ -117,8 +144,25 @@ option to override the guard when extrapolation is intentional.
 {marker examples}{...}
 {title:Examples}
 
+{pstd}Setup for prediction from a pooled logistic MSM{p_end}
+{phang2}{cmd:. findfile msm_example.dta}{p_end}
+{phang2}{cmd:. use "`r(fn)'", clear}{p_end}
+{phang2}{cmd:. msm_prepare, id(id) period(period) treatment(treatment)}{p_end}
+{phang2}{cmd:    outcome(outcome) covariates(biomarker comorbidity)}{p_end}
+{phang2}{cmd:    baseline_covariates(age sex)}{p_end}
+{phang2}{cmd:. msm_weight, treat_d_cov(biomarker comorbidity age sex)}{p_end}
+{phang2}{cmd:    treat_n_cov(age sex) truncate(1 99) nolog}{p_end}
+{phang2}{cmd:. msm_fit, model(logistic) outcome_cov(age sex) nolog}{p_end}
+
+{pstd}Risk predictions and risk differences at selected follow-up times{p_end}
 {phang2}{cmd:. msm_predict, times(3 5 7 9) difference seed(12345)}{p_end}
+{phang2}{cmd:. matrix list r(predictions)}{p_end}
+
+{pstd}Survival-scale predictions with more Monte Carlo draws{p_end}
 {phang2}{cmd:. msm_predict, times(1 3 5 7 9) type(survival) samples(200)}{p_end}
+
+{pstd}Single-strategy prediction when you only want one counterfactual path{p_end}
+{phang2}{cmd:. msm_predict, times(1 3 5 7 9) strategy(always) seed(12345)}{p_end}
 
 
 {marker author}{...}

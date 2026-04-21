@@ -4,7 +4,7 @@
 
 program define migrations, rclass
     version 16.0
-    local vabbrev_save `c(varabbrev)'
+    local _orig_varabbrev = c(varabbrev)
     set varabbrev off
 
     capture noisily {
@@ -18,6 +18,8 @@ program define migrations, rclass
     * Set defaults
     if "`idvar'" == "" local idvar "id"
     if "`startvar'" == "" local startvar "study_start"
+    local mig_event_date_var "event_date"
+    local mig_event_type_var "event_type"
 
     * Validate minresidence
     if `minresidence' < 0 {
@@ -86,25 +88,173 @@ program define migrations, rclass
         exit 111
     }
     
-    * Validate migration file has unique IDs
+    * Detect migration file format.
+    * Wide format is preserved as-is; long format is normalized into the
+    * same in_#/out_# layout already used by existing wide migration files.
+    capture confirm variable in_1
+    local has_wide_in = (_rc == 0)
+    capture confirm variable out_1
+    local has_wide_out = (_rc == 0)
+    capture confirm variable `mig_event_date_var'
+    local has_long_date = (_rc == 0)
+    capture confirm variable `mig_event_type_var'
+    local has_long_type = (_rc == 0)
+
+    if `has_wide_in' & `has_wide_out' {
+        if "`verbose'" != "" display as text "Detected wide-format migration file"
+
+        capture isid `idvar'
+        if _rc {
+            display as error "'`idvar'' is not unique in migration file"
+            display as error "Migration file must have one row per person (wide format)"
+            exit 459
+        }
+    }
+    else if `has_long_date' & `has_long_type' {
+        if "`verbose'" != "" {
+            display as text "Detected long-format migration file"
+            display as text "Normalizing event_date/event_type into wide migration sequences..."
+        }
+
+        capture confirm numeric variable `mig_event_date_var'
+        if _rc {
+            display as error "`mig_event_date_var' must be numeric (Stata date format)"
+            exit 109
+        }
+
+        capture confirm variable in_
+        if !_rc {
+            display as error "Long-format migration file already contains variable 'in_'"
+            display as error "Rename it or supply the existing wide-format file instead"
+            exit 110
+        }
+        capture confirm variable out_
+        if !_rc {
+            display as error "Long-format migration file already contains variable 'out_'"
+            display as error "Rename it or supply the existing wide-format file instead"
+            exit 110
+        }
+
+        tempvar _mig_event_order _mig_event_type_str _mig_is_in _mig_is_out
+
+        capture confirm string variable `mig_event_type_var'
+        if _rc == 0 {
+            qui gen str12 `_mig_event_type_str' = lower(trim(`mig_event_type_var'))
+        }
+        else {
+            local _mig_event_vlab : value label `mig_event_type_var'
+            if "`_mig_event_vlab'" == "" {
+                display as error "`mig_event_type_var' must be string or labeled numeric with values like Inv/Utv"
+                exit 109
+            }
+            qui decode `mig_event_type_var', gen(`_mig_event_type_str')
+            qui replace `_mig_event_type_str' = lower(trim(`_mig_event_type_str'))
+        }
+
+        qui gen byte `_mig_is_in' = (`_mig_event_type_str' == "inv")
+        qui gen byte `_mig_is_out' = (`_mig_event_type_str' == "utv")
+
+        quietly count if missing(`mig_event_date_var')
+        if r(N) > 0 {
+            display as error "Long-format migration file has missing `mig_event_date_var' values"
+            exit 198
+        }
+
+        quietly count if missing(`_mig_event_type_str') | !(`_mig_is_in' | `_mig_is_out')
+        if r(N) > 0 {
+            display as error "Long-format migration file has unsupported `mig_event_type_var' values"
+            display as error "Supported values are Inv and Utv (case-insensitive)"
+            exit 198
+        }
+
+        if _N == 0 {
+            qui keep `idvar'
+            qui gen long in_1 = .
+            qui gen long out_1 = .
+            qui keep `idvar' in_1 out_1
+        }
+        else {
+            tempvar _mig_first_date _mig_first_typex _mig_first_type _mig_count
+            tempfile _mig_long_raw _mig_wide_base _mig_in_wide _mig_out_wide
+
+            qui gen long `_mig_event_order' = _n
+            qui gen long in_ = `mig_event_date_var' if `_mig_is_in'
+            qui gen long out_ = `mig_event_date_var' if `_mig_is_out'
+
+            * Match the historical long->wide construction used by
+            * migrations_wide.dta: if the first observed event is an
+            * emigration, immigration counts are offset by one slot.
+            qui egen long `_mig_first_date' = min(`mig_event_date_var'), by(`idvar')
+            qui egen byte `_mig_first_typex' = min(`_mig_is_in') if `mig_event_date_var' == `_mig_first_date', by(`idvar')
+            qui egen byte `_mig_first_type' = min(`_mig_first_typex'), by(`idvar')
+            qui save `_mig_long_raw', replace
+
+            qui keep `idvar'
+            qui duplicates drop `idvar', force
+            qui save `_mig_wide_base', replace
+
+            qui use `_mig_long_raw', clear
+            qui keep if in_ != .
+            qui count
+            local has_long_in = (r(N) > 0)
+            if `has_long_in' {
+                qui bysort `idvar' (`mig_event_date_var' `_mig_event_order'): gen long `_mig_count' = _n
+                qui replace `_mig_count' = `_mig_count' + 1 if `_mig_first_type' == 0
+                qui keep `idvar' in_ `_mig_count'
+                qui reshape wide in_, i(`idvar') j(`_mig_count')
+                qui save `_mig_in_wide', replace
+            }
+
+            qui use `_mig_long_raw', clear
+            qui keep if out_ != .
+            qui count
+            local has_long_out = (r(N) > 0)
+            if `has_long_out' {
+                qui bysort `idvar' (`mig_event_date_var' `_mig_event_order'): gen long `_mig_count' = _n
+                qui keep `idvar' out_ `_mig_count'
+                qui reshape wide out_, i(`idvar') j(`_mig_count')
+                qui save `_mig_out_wide', replace
+            }
+
+            qui use `_mig_wide_base', clear
+            if `has_long_in' {
+                qui merge 1:1 `idvar' using `_mig_in_wide', keep(1 3) nogen
+            }
+            else {
+                qui gen long in_1 = .
+            }
+            if `has_long_out' {
+                qui merge 1:1 `idvar' using `_mig_out_wide', keep(1 3) nogen
+            }
+            else {
+                qui gen long out_1 = .
+            }
+            qui order `idvar' in_1 out_1
+            qui format in_* out_* %tdCCYY/NN/DD
+        }
+    }
+    else {
+        display as error "Migration file format not recognized"
+        display as error "Expected either wide format with in_1/out_1, or long format with `idvar', event_date, and event_type"
+        exit 111
+    }
+
+    * Internal representation must now be one-row-per-person wide data.
     capture isid `idvar'
     if _rc {
-        display as error "'`idvar'' is not unique in migration file"
-        display as error "Migration file must have one row per person (wide format)"
+        display as error "'`idvar'' is not unique after migration data normalization"
+        display as error "Migration file must resolve to one row per person"
         exit 459
     }
 
-    * Validate migration file has in_/out_ variables for reshape
     capture confirm variable in_1
     if _rc {
-        display as error "Variable 'in_1' not found in migration file"
-        display as error "Migration file must be in wide format with in_1, in_2, ... and out_1, out_2, ..."
+        display as error "Variable 'in_1' not found after migration data normalization"
         exit 111
     }
     capture confirm variable out_1
     if _rc {
-        display as error "Variable 'out_1' not found in migration file"
-        display as error "Migration file must be in wide format with in_1, in_2, ... and out_1, out_2, ..."
+        display as error "Variable 'out_1' not found after migration data normalization"
         exit 111
     }
     
@@ -552,7 +702,7 @@ program define migrations, rclass
     return scalar N_final = _N
 
     }
-    local _rc = _rc
-    set varabbrev `vabbrev_save'
-    if `_rc' exit `_rc'
+    local rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
 end

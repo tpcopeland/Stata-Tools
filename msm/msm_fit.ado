@@ -236,8 +236,21 @@ program define msm_fit, eclass
     else if "`model'" == "cox" {
         display as text "Setting up survival data..."
 
+        * Isolate the temporary stset so we can restore any caller-owned
+        * survival-time settings on exit while keeping the Cox e(sample).
+        tempvar _time_enter _time_exit _failure _cox_obs_index _cox_esample
+        tempfile cox_sample_map
+        local _caller_st_dataset : char _dta[_dta]
+        local _caller_had_stset = ("`_caller_st_dataset'" == "st")
+        foreach _stchar in st_ver st_id st_bt st_bd st_o st_s st_bs ///
+            st_enter st_enexp st_w st_wv st_wt st_ifexp st_d st_t0 st_t {
+            local _caller_`_stchar' : char _dta[`_stchar']
+        }
+        gen long `_cox_obs_index' = _n
+
+        preserve
+
         * Create interval survival data
-        tempvar _time_enter _time_exit _failure
         gen double `_time_enter' = `period'
         gen double `_time_exit' = `period' + 1
         gen byte `_failure' = `outcome'
@@ -246,8 +259,13 @@ program define msm_fit, eclass
         * id() is omitted because Stata requires weights constant within
         * subject, but IPTW weights vary by period. The vce(cluster) handles
         * the within-subject correlation (Hernan & Robins standard approach).
-        stset `_time_exit' [pw=_msm_weight] if `_esample', ///
+        capture noisily stset `_time_exit' [pw=_msm_weight] if `_esample', ///
             enter(`_time_enter') failure(`_failure')
+        local _cox_rc = _rc
+        if `_cox_rc' {
+            restore
+            exit `_cox_rc'
+        }
 
         display as text ""
         display as text "Fitting weighted Cox proportional hazards model..."
@@ -259,15 +277,40 @@ program define msm_fit, eclass
             local cox_covars "`cox_covars' `outcome_cov'"
         }
 
-        stcox `cox_covars', ///
+        capture noisily stcox `cox_covars', ///
             vce(cluster `cluster') level(`level') `log_opt'
+        local _cox_rc = _rc
+        if `_cox_rc' {
+            restore
+            exit `_cox_rc'
+        }
         if e(converged) == 0 {
             display as text ""
             display as text "Warning: Cox model did not converge; coefficients may be unreliable"
         }
 
-        * Clean up st variables and characteristics leaked by stset
-        capture stset, clear
+        gen byte `_cox_esample' = e(sample)
+        keep `_cox_obs_index' `_cox_esample'
+        quietly save `cox_sample_map', replace
+        restore
+
+        merge 1:1 `_cox_obs_index' using `cox_sample_map', ///
+            nogen assert(match)
+        if `_caller_had_stset' {
+            char _dta[_dta] "`_caller_st_dataset'"
+            foreach _stchar in st_ver st_id st_bt st_bd st_o st_s st_bs ///
+                st_enter st_enexp st_w st_wv st_wt st_ifexp st_d st_t0 st_t {
+                local _caller_value `"`_caller_`_stchar''"'
+                char _dta[`_stchar'] `"`_caller_value'"'
+            }
+        }
+        else {
+            foreach _stchar in _dta st_ver st_id st_bt st_bd st_o st_s st_bs ///
+                st_enter st_enexp st_w st_wv st_wt st_ifexp st_d st_t0 st_t {
+                char _dta[`_stchar'] ""
+            }
+        }
+        ereturn repost, esample(`_cox_esample')
     }
 
     * =========================================================================

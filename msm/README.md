@@ -4,7 +4,7 @@
 
 `msm` is a Stata suite for inverse-probability-weighted marginal structural models in person-period data. It is designed for longitudinal settings with time-varying treatments and confounders, where standard regression adjustment can be biased by treatment-confounder feedback.
 
-The package covers the full workflow: study protocol specification, variable mapping, validation, stabilized weighting, diagnostics, outcome modeling, counterfactual prediction, plotting, reporting, Excel export, and sensitivity analysis.
+The package covers the full workflow for conventional static-regime MSM analyses: study protocol specification, variable mapping, validation, stabilized weighting, diagnostics, outcome modeling, counterfactual prediction, plotting, reporting, Excel export, and sensitivity analysis.
 
 ## Requirements
 
@@ -69,23 +69,33 @@ The typical workflow is:
 |-----------------|----------------|------------------------|
 | `model(logistic)` | Binary outcomes when you also want standardized counterfactual predictions | Required for `msm_predict` |
 | `model(linear)` | Continuous outcomes where the weighted mean difference is the target | `msm_predict` is not available |
-| `model(cox)` | Time-to-event analyses where a weighted hazard ratio is the main estimand | `msm_predict` is not available |
+| `model(cox)` | Time-to-event analyses where a weighted hazard ratio is the main estimand | `msm_predict` is not available; use `stcox` postestimation instead |
 
 ## Data Requirements
 
 - Data must be in person-period format, with one row per individual-period.
 - `id()` and `period()` must uniquely identify observations.
+- All individuals must share a common baseline period before weighting.
 - `treatment()` and `outcome()` should be binary 0/1 variables.
 - `censor()` is optional but should also be binary 0/1 when used.
 - Variables in `baseline_covariates()` should be time-fixed within person.
-- Delayed entry is not currently supported in `msm_weight`.
+- `msm_weight` currently rejects delayed entry.
 - `msm_predict` currently supports logistic fits, so prediction workflows should use `msm_fit, model(logistic)`.
+
+## Current Scope and Limits
+
+- `msm` currently targets static binary treatment strategies. Prediction is implemented for always-treated, never-treated, or both; dynamic and stochastic regimes are not yet part of the estimation/prediction workflow.
+- `msm_predict` requires a prior `msm_fit, model(logistic)` run. Linear and Cox fits can be estimated, diagnosed, and reported, but they do not feed into `msm_predict`.
+- If you plan to predict, keep `outcome_cov()` limited to covariates that are time-fixed within individual. During prediction those terms are standardized at the baseline/reference-population values.
+- `msm_weight` assumes a shared baseline period across individuals. Late entry/left truncation is not currently supported.
+- By default, `msm_predict` only allows `times()` within the observed follow-up range. Use `extrapolate` only when you deliberately want out-of-range predictions.
+- The package is built around person-period data with binary treatment and outcome indicators. If your design requires multivalued treatment rules or richer intervention regimes, the current release is too narrow.
 
 ## Worked Examples
 
 ### 1. Full pipeline with the bundled example dataset
 
-This example mirrors the package's intended end-to-end workflow and uses the sample file shipped with the release.
+This example mirrors the package's intended end-to-end workflow and uses the sample file shipped with the release. It stays within the package's supported scope: static always-treat versus never-treat prediction from a pooled logistic MSM.
 
 ```stata
 findfile msm_example.dta
@@ -157,6 +167,7 @@ msm_predict, times(3 5 7 9) difference seed(12345)
 - If you plan to run `msm_predict`, keep `outcome_cov()` limited to covariates that are time-fixed within individual.
 - `msm_validate, strict` promotes warnings such as period gaps or positivity problems to errors before weighting.
 - `msm_table` exports all currently available pipeline outputs to separate Excel sheets, while `msm_report` focuses on a compact analysis summary.
+- If you need dynamic treatment rules, delayed-entry weighting, or standardized predictions after linear/Cox fits, treat those as out of scope for the current release.
 
 ## References
 

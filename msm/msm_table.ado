@@ -261,14 +261,27 @@ program define msm_table, nclass
         as result "`xlsx'"
 
     if "`open'" != "" {
-        if "`c(os)'" == "Windows" {
-            shell start "" "`xlsx'"
-        }
-        else if "`c(os)'" == "MacOSX" {
-            shell open "`xlsx'" &
+        if "`c(mode)'" == "batch" {
+            display as text "note: automatic open skipped in batch mode"
         }
         else {
-            shell xdg-open "`xlsx'" &
+            local _open_rc = 0
+            if "`c(os)'" == "Windows" {
+                capture shell start "" "`xlsx'"
+                local _open_rc = _rc
+            }
+            else if "`c(os)'" == "MacOSX" {
+                capture shell open "`xlsx'" &
+                local _open_rc = _rc
+            }
+            else {
+                capture shell xdg-open "`xlsx'" &
+                local _open_rc = _rc
+            }
+
+            if `_open_rc' {
+                display as text "note: automatic open skipped in this environment"
+            }
         }
     }
 
@@ -564,15 +577,15 @@ program define _msm_tbl_coef
         }
 
         * Font
-        putexcel (A1:D`nrows'), font(`font', `fontsize')
-        putexcel (A1:D1), font(`font', `=`fontsize'+2')
+        putexcel (A1:D`nrows'), font("`font'", `fontsize')
+        putexcel (A1:D1), font("`font'", `=`fontsize'+2')
 
         * Footnote
         if `_has_footnote' {
             putexcel A`footnote_row' = `"`footnote'"'
             putexcel (A`footnote_row':D`footnote_row'), merge italic txtwrap left
             local _fn_fontsize = max(`fontsize' - 2, 6)
-            putexcel (A`footnote_row':D`footnote_row'), font(`font', `_fn_fontsize')
+            putexcel (A`footnote_row':D`footnote_row'), font("`font'", `_fn_fontsize')
         }
 
         putexcel clear
@@ -881,15 +894,15 @@ program define _msm_tbl_pred
         }
 
         * Font
-        putexcel (A1:`last_col'`total_rows'), font(`font', `fontsize')
-        putexcel (A1:`last_col'1), font(`font', `=`fontsize'+2')
+        putexcel (A1:`last_col'`total_rows'), font("`font'", `fontsize')
+        putexcel (A1:`last_col'1), font("`font'", `=`fontsize'+2')
 
         * Footnote
         if `_has_footnote' {
             putexcel A`footnote_row' = `"`footnote'"'
             putexcel (A`footnote_row':`last_col'`footnote_row'), merge italic txtwrap left
             local _fn_fontsize = max(`fontsize' - 2, 6)
-            putexcel (A`footnote_row':`last_col'`footnote_row'), font(`font', `_fn_fontsize')
+            putexcel (A`footnote_row':`last_col'`footnote_row'), font("`font'", `_fn_fontsize')
         }
 
         putexcel clear
@@ -1096,15 +1109,15 @@ program define _msm_tbl_bal
         }
 
         * Font
-        putexcel (A1:E`total_rows'), font(`font', `fontsize')
-        putexcel (A1:E1), font(`font', `=`fontsize'+2')
+        putexcel (A1:E`total_rows'), font("`font'", `fontsize')
+        putexcel (A1:E1), font("`font'", `=`fontsize'+2')
 
         * Footnote
         if `_has_footnote' {
             putexcel A`footnote_row' = `"`footnote'"'
             putexcel (A`footnote_row':E`footnote_row'), merge italic txtwrap left
             local _fn_fontsize = max(`fontsize' - 2, 6)
-            putexcel (A`footnote_row':E`footnote_row'), font(`font', `_fn_fontsize')
+            putexcel (A`footnote_row':E`footnote_row'), font("`font'", `_fn_fontsize')
         }
 
         putexcel clear
@@ -1283,15 +1296,15 @@ program define _msm_tbl_wt
         }
 
         * Font
-        putexcel (A1:B`total_rows'), font(`font', `fontsize')
-        putexcel (A1:B1), font(`font', `=`fontsize'+2')
+        putexcel (A1:B`total_rows'), font("`font'", `fontsize')
+        putexcel (A1:B1), font("`font'", `=`fontsize'+2')
 
         * Footnote
         if `_has_footnote' {
             putexcel A`footnote_row' = `"`footnote'"'
             putexcel (A`footnote_row':B`footnote_row'), merge italic txtwrap left
             local _fn_fontsize = max(`fontsize' - 2, 6)
-            putexcel (A`footnote_row':B`footnote_row'), font(`font', `_fn_fontsize')
+            putexcel (A`footnote_row':B`footnote_row'), font("`font'", `_fn_fontsize')
         }
 
         putexcel clear
@@ -1472,15 +1485,15 @@ program define _msm_tbl_sens
         }
 
         * Font
-        putexcel (A1:B`total_rows'), font(`font', `fontsize')
-        putexcel (A1:B1), font(`font', `=`fontsize'+2')
+        putexcel (A1:B`total_rows'), font("`font'", `fontsize')
+        putexcel (A1:B1), font("`font'", `=`fontsize'+2')
 
         * Footnote
         if `_has_footnote' {
             putexcel A`footnote_row' = `"`footnote'"'
             putexcel (A`footnote_row':B`footnote_row'), merge italic txtwrap left
             local _fn_fontsize = max(`fontsize' - 2, 6)
-            putexcel (A`footnote_row':B`footnote_row'), font(`font', `_fn_fontsize')
+            putexcel (A`footnote_row':B`footnote_row'), font("`font'", `_fn_fontsize')
         }
 
         putexcel clear

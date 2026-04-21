@@ -489,7 +489,7 @@ program define msm_report, rclass
                 }
 
                 * Font
-                putexcel (A1:B`_sum_total'), font(`font', `fontsize')
+                putexcel (A1:B`_sum_total'), font("`font'", `fontsize')
 
                 * Footnote
                 if `_has_footnote' {
@@ -498,13 +498,16 @@ program define msm_report, rclass
                         merge italic txtwrap left
                     local _fn_fontsize = max(`fontsize' - 2, 6)
                     putexcel (A`_sum_footnote_row':B`_sum_footnote_row'), ///
-                        font(`font', `_fn_fontsize')
+                        font("`font'", `_fn_fontsize')
                 }
 
                 putexcel clear
             }
             if _rc {
+                local saved_rc = _rc
                 capture putexcel clear
+                restore
+                exit `saved_rc'
             }
 
             restore
@@ -734,7 +737,7 @@ program define msm_report, rclass
                     }
 
                     * Font
-                    putexcel (A1:D`_coef_total'), font(`font', `fontsize')
+                    putexcel (A1:D`_coef_total'), font("`font'", `fontsize')
 
                     * Footnote
                     if `_has_footnote' {
@@ -743,13 +746,16 @@ program define msm_report, rclass
                             merge italic txtwrap left
                         local _fn_fontsize = max(`fontsize' - 2, 6)
                         putexcel (A`_coef_footnote_row':D`_coef_footnote_row'), ///
-                            font(`font', `_fn_fontsize')
+                            font("`font'", `_fn_fontsize')
                     }
 
                     putexcel clear
                 }
                 if _rc {
+                    local saved_rc = _rc
                     capture putexcel clear
+                    restore
+                    exit `saved_rc'
                 }
 
                 restore
@@ -759,14 +765,27 @@ program define msm_report, rclass
         display as text "Report exported to: " as result "`export'"
 
         if "`open'" != "" {
-            if "`c(os)'" == "Windows" {
-                shell start "" "`export'"
-            }
-            else if "`c(os)'" == "MacOSX" {
-                shell open "`export'" &
+            if "`c(mode)'" == "batch" {
+                display as text "note: automatic open skipped in batch mode"
             }
             else {
-                shell xdg-open "`export'" &
+                local _open_rc = 0
+                if "`c(os)'" == "Windows" {
+                    capture shell start "" "`export'"
+                    local _open_rc = _rc
+                }
+                else if "`c(os)'" == "MacOSX" {
+                    capture shell open "`export'" &
+                    local _open_rc = _rc
+                }
+                else {
+                    capture shell xdg-open "`export'" &
+                    local _open_rc = _rc
+                }
+
+                if `_open_rc' {
+                    display as text "note: automatic open skipped in this environment"
+                }
             }
         }
     }

@@ -36,6 +36,7 @@
 {synopt:{opt censor_d_cov(varlist)}}censoring denominator covariates{p_end}
 {synopt:{opt censor_n_cov(varlist)}}censoring numerator covariates{p_end}
 {synopt:{opt tru:ncate(numlist)}}truncation percentiles (e.g., 1 99){p_end}
+{synopt:{opt fitfailure(policy)}}model-failure policy: {cmd:error} (default) or {cmd:marginal}{p_end}
 {synopt:{opt replace}}replace existing weight variables{p_end}
 {synopt:{opt nolog}}suppress iteration log{p_end}
 {synoptline}
@@ -58,11 +59,20 @@ within individuals using log-sum for numerical stability. Stabilized
 weights should have mean approximately 1.
 
 {pstd}
-If a treatment or censoring model encounters perfectly predicted strata,
-{cmd:msm_weight} uses truncated observed probabilities for those complete-case
-observations rather than silently dropping them. In contrast, observations with
-missing model inputs retain missing probabilities, and cumulative weights are
-set to missing from that period forward.
+Model-level fit failures and observation-level perfect prediction are handled
+differently. By default, if a treatment or censoring model cannot be estimated
+or does not converge, {cmd:msm_weight} stops with an error rather than quietly
+substituting a marginal probability. Users who explicitly want the older
+behavior may request {cmd:fitfailure(marginal)}; when used, the marginal
+fallback is applied only to the complete-case estimation sample for the failed
+model and is recorded in {cmd:r(fitfailure_models)}.
+
+{pstd}
+If a fitted model succeeds but some complete-case observations are perfectly
+predicted, {cmd:msm_weight} assigns truncated observed probabilities to those
+observations rather than silently dropping them. Observations with missing model
+inputs retain missing probabilities, and cumulative weights are set to missing
+from that period forward.
 
 {pstd}
 Creates variables: {cmd:_msm_weight} (cumulative combined),
@@ -95,6 +105,17 @@ numerator model (stabilization). Typically baseline covariates only.
 Common choice: {cmd:truncate(1 99)}.
 
 {phang}
+{opt fitfailure(policy)} controls what happens when a pooled treatment or
+censoring model fails to estimate or does not converge. The default
+{cmd:fitfailure(error)} stops immediately, which is safer for publication work
+because it does not conceal positivity or separation problems. Use
+{cmd:fitfailure(marginal)} only if you explicitly want a pooled marginal
+probability substituted for the failed model's complete-case estimation sample.
+When fallback is used, the affected model names are stored in
+{cmd:r(fitfailure_models)} and the number of fallback events is stored in
+{cmd:r(n_fitfail_fallback)}.
+
+{phang}
 {opt replace} allows overwriting existing weight variables from a previous
 run of {cmd:msm_weight}.
 
@@ -114,6 +135,10 @@ run of {cmd:msm_weight}.
 {phang2}{cmd:    treat_n_cov(age sex) censor_d_cov(age sex biomarker)}{p_end}
 {phang2}{cmd:    truncate(1 99) nolog}{p_end}
 
+{pstd}Explicit opt-in marginal fallback for unstable weight models{p_end}
+{phang2}{cmd:. msm_weight, treat_d_cov(biomarker comorbidity age sex)}{p_end}
+{phang2}{cmd:    treat_n_cov(age sex) fitfailure(marginal) nolog}{p_end}
+
 
 {marker results}{...}
 {title:Stored results}
@@ -124,6 +149,9 @@ run of {cmd:msm_weight}.
 {synopt:{cmd:r(sd_weight)}}weight standard deviation{p_end}
 {synopt:{cmd:r(ess)}}effective sample size{p_end}
 {synopt:{cmd:r(n_truncated)}}number of truncated observations{p_end}
+{synopt:{cmd:r(n_fitfail_fallback)}}number of model-level marginal fallback events used{p_end}
+{synopt:{cmd:r(fitfailure_fallback)}}1 if any model-level fallback was used, else 0{p_end}
+{synopt:{cmd:r(n_probability_repairs)}}number of complete-case observations repaired after perfect prediction{p_end}
 {synopt:{cmd:r(min_weight)}}minimum weight{p_end}
 {synopt:{cmd:r(max_weight)}}maximum weight{p_end}
 {synopt:{cmd:r(p1_weight)}}1st percentile weight{p_end}
@@ -132,6 +160,8 @@ run of {cmd:msm_weight}.
 
 {p2col 5 20 24 2: Macros}{p_end}
 {synopt:{cmd:r(weight_var)}}name of weight variable{p_end}
+{synopt:{cmd:r(fitfailure_policy)}}resolved model-failure policy used by {cmd:msm_weight}{p_end}
+{synopt:{cmd:r(fitfailure_models)}}model identifiers that used explicit marginal fallback{p_end}
 
 
 {marker author}{...}

@@ -1,5 +1,9 @@
 v 3
 d Stata-Tools: msm
+d Marginal structural models for longitudinal causal analysis
+d Static-regime workflow for person-period data: protocol, preparation,
+d validation, weighting, diagnostics, fitting, prediction, reporting,
+d and sensitivity analysis
 d Timothy P Copeland, Karolinska Institutet
-d https://github.com/tpcopeland/Stata-Tools
+d https://github.com/tpcopeland/Stata-Tools/tree/main/msm
 p msm

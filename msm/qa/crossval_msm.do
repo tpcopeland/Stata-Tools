@@ -1,6 +1,6 @@
 * crossval_msm.do
 * Master cross-validation: msm package vs R, Python, teffects, and true counterfactuals
-*
+* 
 * Workflow:
 *   1. Generate shared DGP datasets (Stata -> CSV)
 *   2. Run msm on DGP1 (time-varying) and DGP2 (point-treatment)
@@ -9,24 +9,51 @@
 *   5. Compare Stata teffects ipw on DGP2
 *   6. Compare all results with tolerances
 *
-* All results go in crossval_results/
+* By default, all generated files live in a temporary staging directory and are
+* deleted on success. Pass "keep" to retain the staging directory for debugging.
 
 version 16.0
 set more off
 set varabbrev off
 
 * === Bootstrap ===
-local qa_dir  "`c(pwd)'"
-local pkg_dir "`qa_dir'/.."  
-local data_dir "`qa_dir'/crossval_data"
-local results_dir "`qa_dir'/crossval_results"
+local qa_dir "`c(pwd)'"
+local pkg_dir "`qa_dir'/.."
+local mode = lower(strtrim("`0'"))
+local keep_outputs = inlist("`mode'", "keep", "retain")
+
+do "`qa_dir'/_cleanup_runtime_artifacts.do"
+
+local work_id = string(floor(runiform() * 1000000000), "%09.0f")
+local work_root "`c(tmpdir)'msm_crossval_`work_id'"
+local work_qa_dir "`work_root'/qa"
+local data_dir "`work_qa_dir'/crossval_data"
+local results_dir "`work_qa_dir'/crossval_results"
+local stage_log "`work_root'/crossval_msm.log"
+
+capture mkdir "`work_root'"
+capture mkdir "`work_qa_dir'"
+capture mkdir "`data_dir'"
+capture mkdir "`results_dir'"
+
+copy "`qa_dir'/crossval_dgp_generate.do" "`work_qa_dir'/crossval_dgp_generate.do", replace
+copy "`qa_dir'/crossval_r.R" "`work_qa_dir'/crossval_r.R", replace
+copy "`qa_dir'/crossval_python.py" "`work_qa_dir'/crossval_python.py", replace
 
 capture ado uninstall msm
 quietly net install msm, from("`pkg_dir'") replace
 adopath ++ "`pkg_dir'"
 
 capture log close crossval
-log using "`qa_dir'/crossval_msm.log", replace name(crossval)
+log using "`stage_log'", replace name(crossval)
+
+display "Cross-validation staging directory: `work_root'"
+if `keep_outputs' {
+    display "Staging retention: keep"
+}
+else {
+    display "Staging retention: cleanup on success"
+}
 
 * MSM CROSS-VALIDATION SUITE
 * Stata msm vs R (ipw/survey) vs Python (statsmodels) vs teffects
@@ -44,7 +71,10 @@ timer on 99
 * ============================================================
 display "STEP 1: Generating shared DGP datasets..."
 
-do "`qa_dir'/crossval_dgp_generate.do"
+local orig_pwd "`c(pwd)'"
+cd "`work_qa_dir'"
+do "`work_qa_dir'/crossval_dgp_generate.do"
+cd "`orig_pwd'"
 
 * ============================================================
 * STEP 2: Run msm on DGP1 (time-varying treatment)
@@ -155,7 +185,7 @@ display "    SE:  " %9.4f `teffects_se'
 display "STEP 4: Running R cross-validation..."
 
 capture erase "`results_dir'/r_results.csv"
-shell Rscript "`qa_dir'/crossval_r.R" > "`results_dir'/r_output.log" 2>&1
+shell Rscript "`work_qa_dir'/crossval_r.R" > "`results_dir'/r_output.log" 2>&1
 if _rc {
     display as error "R cross-validation failed. See `results_dir'/r_output.log"
     exit _rc
@@ -165,7 +195,7 @@ if _rc {
     display as error "R cross-validation did not produce r_results.csv"
     exit 601
 }
-display "  R script completed. See crossval_results/r_output.log"
+display "  R script completed. See `results_dir'/r_output.log"
 
 * ============================================================
 * STEP 5: Run Python cross-validation
@@ -173,7 +203,7 @@ display "  R script completed. See crossval_results/r_output.log"
 display "STEP 5: Running Python cross-validation..."
 
 capture erase "`results_dir'/py_results.csv"
-shell python3 "`qa_dir'/crossval_python.py" > "`results_dir'/py_output.log" 2>&1
+shell python3 "`work_qa_dir'/crossval_python.py" > "`results_dir'/py_output.log" 2>&1
 if _rc {
     display as error "Python cross-validation failed. See `results_dir'/py_output.log"
     exit _rc
@@ -183,7 +213,7 @@ if _rc {
     display as error "Python cross-validation did not produce py_results.csv"
     exit 601
 }
-display "  Python script completed. See crossval_results/py_output.log"
+display "  Python script completed. See `results_dir'/py_output.log"
 
 * ============================================================
 * STEP 6: Load and compare results
@@ -681,10 +711,22 @@ preserve
     replace metric = "log-OR" in 8
 
     export delimited using "`results_dir'/crossval_summary.csv", replace
-    display "Saved: crossval_results/crossval_summary.csv"
+    display "Saved: `results_dir'/crossval_summary.csv"
 restore
 
 log close crossval
+
+if `keep_outputs' {
+    display as text "Retained staging directory: " as result "`work_root'"
+}
+else {
+    if "`c(os)'" == "Windows" {
+        capture shell rmdir /s /q "`work_root'"
+    }
+    else {
+        capture shell rm -rf "`work_root'"
+    }
+}
 
 if `fail_count' > 0 {
     exit 1

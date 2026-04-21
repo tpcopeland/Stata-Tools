@@ -45,7 +45,10 @@
 {cmd:msm_fit} fits the weighted outcome model for MSM estimation. It supports
 pooled logistic regression (GLM with binomial family), linear regression,
 or Cox proportional hazards. Robust/sandwich standard errors are clustered
-at the individual level by default.
+at the individual level by default. When {cmd:model(cox)} is used,
+{cmd:msm_fit} applies its temporary {cmd:stset} inside an internal sandbox:
+any pre-existing survival-time settings are restored on exit, and datasets
+that were not previously {cmd:stset} remain unstset after estimation.
 
 
 {marker options}{...}
@@ -54,7 +57,13 @@ at the individual level by default.
 {phang}
 {opt mod:el(string)} specifies the model type. {cmd:logistic} fits a pooled
 logistic regression via GLM. {cmd:linear} fits a weighted linear model.
-{cmd:cox} fits a weighted Cox proportional hazards model.
+{cmd:cox} fits a weighted Cox proportional hazards model. The Cox path does
+not leave behind temporary {cmd:stset} variables or characteristics, and it
+restores any caller-owned {cmd:stset} definition after estimation. For Cox
+models, {opt period_spec()} is used only to define the person-period
+estimation sample; period terms are not added as covariates because time is
+handled through the survival-time outcome. Downstream
+{helpb msm_predict} remains unavailable after Cox fits.
 
 {phang}
 {opth outcome_cov(varlist)} specifies additional time-fixed covariates for the

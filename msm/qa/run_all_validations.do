@@ -1,65 +1,113 @@
 * run_all_validations.do
 *
-* Master runner for msm package QA suite.
-* Runs test_msm.do (functional tests) and validation_msm.do (validation suites).
+* Master runner for the msm QA surface.
+*
+* Default scope: all Stata-side QA in this package
+*   - test_msm.do
+*   - test_msm_expanded.do
+*   - test_msm_cox_state.do
+*   - test_msm_weight_failures.do
+*   - test_export_surface.do
+*   - validation_msm.do
+*   - validation_msm_expanded.do
+*   - validation_msm_sensitivity.do
+*
+* Optional cross-language scope:
+*   - crossval_msm.do
 *
 * Usage:
-*   stata-mp -b do run_all_validations.do              // runs all
-*   stata-mp -b do run_all_validations.do tests         // runs tests only
-*   stata-mp -b do run_all_validations.do validations   // runs validations only
+*   stata-mp -b do run_all_validations.do              // full Stata-side QA (default)
+*   stata-mp -b do run_all_validations.do stata        // same as default
+*   stata-mp -b do run_all_validations.do tests        // Stata functional + export tests
+*   stata-mp -b do run_all_validations.do validations  // Stata validation suites
+*   stata-mp -b do run_all_validations.do crossval     // cross-language only
+*   stata-mp -b do run_all_validations.do all          // Stata-side QA + cross-language
 
 version 16.0
 set more off
-
-* === Bootstrap ===
-local qa_dir  "`c(pwd)'"
-local pkg_dir "`qa_dir'/.."  
-
 set varabbrev off
 
+local qa_dir "`c(pwd)'"
+local runner_log "`c(tmpdir)'msm_run_all_validations.log"
 
 capture log close _all
-log using "`qa_dir'/run_all_validations.log", replace name(master)
+do "`qa_dir'/_cleanup_runtime_artifacts.do"
+log using "`runner_log'", replace name(master)
+
+local mode = lower(strtrim("`0'"))
+if "`mode'" == "" local mode "stata"
+if inlist("`mode'", "default", "stataside") local mode "stata"
+if "`mode'" == "full" local mode "all"
+
+local suite_list ""
+if "`mode'" == "stata" {
+    local suite_list "test_msm test_msm_expanded test_msm_cox_state test_msm_weight_failures test_export_surface validation_msm validation_msm_expanded validation_msm_sensitivity"
+}
+else if "`mode'" == "tests" {
+    local suite_list "test_msm test_msm_expanded test_msm_cox_state test_msm_weight_failures test_export_surface"
+}
+else if "`mode'" == "validations" {
+    local suite_list "validation_msm validation_msm_expanded validation_msm_sensitivity"
+}
+else if "`mode'" == "crossval" {
+    local suite_list "crossval_msm"
+}
+else if "`mode'" == "all" {
+    local suite_list "test_msm test_msm_expanded test_msm_cox_state test_msm_weight_failures test_export_surface validation_msm validation_msm_expanded validation_msm_sensitivity crossval_msm"
+}
+else {
+    display as error "Unknown run_all_validations mode: `mode'"
+    display as error "Use one of: stata, tests, validations, crossval, all"
+    log close master
+    exit 198
+}
+
+display as text "msm QA runner mode: " as result "`mode'"
+display as text "Working directory: " as result "`qa_dir'"
+display as text ""
+
+local pass_count = 0
+local fail_count = 0
+local suite_count = 0
+local failed_suites ""
 
 timer clear
 timer on 99
 
-* Determine what to run
-local run_list "`0'"
+foreach suite in `suite_list' {
+    local ++suite_count
+    display as text "========================================"
+    display as text "Running `suite'.do"
+    display as text "========================================"
 
-local do_tests = 0
-local do_validations = 0
-
-if "`run_list'" == "" {
-    local do_tests = 1
-    local do_validations = 1
-}
-else if "`run_list'" == "tests" {
-    local do_tests = 1
-}
-else if "`run_list'" == "validations" {
-    local do_validations = 1
-}
-else {
-    local do_tests = 1
-    local do_validations = 1
-}
-
-* Run functional tests
-if `do_tests' {
-    timer on 1
-    do "`qa_dir'/test_msm.do"
-    timer off 1
-}
-
-* Run validation suites
-if `do_validations' {
-    timer on 2
-    do "`qa_dir'/validation_msm.do"
-    timer off 2
+    capture noisily do "`qa_dir'/`suite'.do"
+    if _rc {
+        display as error "FAILED: `suite'.do (rc=`=_rc')"
+        local ++fail_count
+        local failed_suites "`failed_suites' `suite'"
+    }
+    else {
+        display as result "PASSED: `suite'.do"
+        local ++pass_count
+    }
+    display as text ""
 }
 
 timer off 99
-quietly timer list
+quietly timer list 99
 
-log close master
+display as text "========================================"
+display as text "MSM QA RUNNER SUMMARY"
+display as text "========================================"
+display as text "Suites run: " as result `suite_count'
+display as text "Passed:     " as result `pass_count'
+display as text "Failed:     " as result `fail_count'
+if `fail_count' > 0 {
+    display as error "Failed suites:`failed_suites'"
+}
+
+capture log close master
+do "`qa_dir'/_cleanup_runtime_artifacts.do"
+capture erase "`runner_log'"
+
+if `fail_count' > 0 exit 1

@@ -1,4 +1,4 @@
-*! _kmplot_risktable Version 1.0.1  2026/04/10
+*! _kmplot_risktable Version 1.0.2  2026/04/22
 *! Risk table helper for kmplot
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet
@@ -16,16 +16,15 @@ Called from kmplot.ado. Not intended for direct use.
 
 program define _kmplot_risktable
     version 16.0
-    local _vaset = c(varabbrev)
+    local _orig_varabbrev = c(varabbrev)
     set varabbrev off
+    capture noisily {
 
     syntax , GRPvar(varname) NGRoups(integer) ///
         [TIMEpoints(numlist sort) ///
          COLors(string asis) SCHeme(string) XMax(real -1) ///
          XTItle(string asis) XLAbel(string asis) ///
          EVents MONO]
-
-    capture noisily {
 
     if "`scheme'" == "" local scheme "`c(scheme)'"
     if `"`xtitle'"' == "" local xtitle "Analysis time"
@@ -226,8 +225,7 @@ program define _kmplot_risktable
     restore
 
     } // end capture noisily
-
-    local _rc_final = _rc
-    set varabbrev `_vaset'
-    if `_rc_final' exit `_rc_final'
+    local rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
 end

@@ -15,6 +15,7 @@
 {viewerjumpto "Description" "msm##description"}{...}
 {viewerjumpto "Commands" "msm##commands"}{...}
 {viewerjumpto "Workflow" "msm##workflow"}{...}
+{viewerjumpto "Current scope and limits" "msm##scope"}{...}
 {viewerjumpto "Examples" "msm##examples"}{...}
 {viewerjumpto "References" "msm##references"}{...}
 {viewerjumpto "Stored results" "msm##results"}{...}
@@ -50,7 +51,8 @@
 using inverse probability of treatment weighting (IPTW) for time-varying
 treatments and confounders. It implements the complete IPTW pipeline:
 data preparation, weight calculation, diagnostics, outcome modeling,
-counterfactual prediction, and sensitivity analysis.
+counterfactual prediction, and sensitivity analysis for conventional
+static-regime analyses in person-period data.
 
 {pstd}
 Unlike point-in-time treatment effect estimators ({cmd:teffects ipw}),
@@ -59,6 +61,12 @@ feedback where confounders are simultaneously affected by past treatment
 and predictive of future treatment. Standard regression adjustment cannot
 handle this structure; IPTW creates a pseudo-population where treatment
 is independent of measured confounders.
+
+{pstd}
+The package's prediction workflow targets static always-treated and
+never-treated strategies for binary outcomes fitted with pooled logistic
+models. Linear and Cox MSM fits are available for estimation and reporting,
+but they do not feed into {helpb msm_predict}.
 
 
 {marker commands}{...}
@@ -119,36 +127,78 @@ is independent of measured confounders.
 8. {cmd:msm_sensitivity} - Sensitivity analysis
 
 
+{marker scope}{...}
+{title:Current scope and limits}
+
+{phang}
+{bf:Static strategies only.} The standardized prediction workflow is built
+for always-treated, never-treated, or both. Dynamic or stochastic treatment
+regimes are not implemented in the current release.
+
+{phang}
+{bf:Prediction requires pooled logistic MSMs.} Run {cmd:msm_fit, model(logistic)}
+before {helpb msm_predict}. Linear and Cox models can be estimated, but
+prediction is not available for them.
+
+{phang}
+{bf:Prediction covariates must be time-fixed.} If you include
+{cmd:outcome_cov()} in {helpb msm_fit} and then call {helpb msm_predict},
+those covariates must be constant within {cmd:id}; prediction standardizes
+them at the baseline/reference-population values.
+
+{phang}
+{bf:Common baseline required for weighting.} {helpb msm_weight} assumes all
+individuals enter at the same baseline period and currently rejects delayed
+entry.
+
+{phang}
+{bf:Observed follow-up is the default prediction horizon.} {helpb msm_predict}
+rejects out-of-range {cmd:times()} values unless you explicitly request
+{cmd:extrapolate}.
+
+
 {marker examples}{...}
 {title:Examples}
 
-{pstd}Setup{p_end}
+{pstd}Prediction-ready end-to-end workflow{p_end}
 {phang2}{cmd:. findfile msm_example.dta}{p_end}
 {phang2}{cmd:. use "`r(fn)'", clear}{p_end}
-
-{pstd}Prepare data{p_end}
+{phang2}{cmd:. msm_protocol,}{p_end}
+{phang2}{cmd:    population("Adults aged 18-65 with condition X")}{p_end}
+{phang2}{cmd:    treatment("Always treat vs. never treat")}{p_end}
+{phang2}{cmd:    confounders("Biomarker (TV), comorbidity (TV), age, sex")}{p_end}
+{phang2}{cmd:    outcome("Binary clinical endpoint")}{p_end}
+{phang2}{cmd:    causal_contrast("ATE: always treat vs. never treat")}{p_end}
+{phang2}{cmd:    weight_spec("Stabilized IPTW, 1/99 truncation")}{p_end}
+{phang2}{cmd:    analysis("Pooled logistic with robust SE clustered by ID")}{p_end}
 {phang2}{cmd:. msm_prepare, id(id) period(period) treatment(treatment)}{p_end}
 {phang2}{cmd:    outcome(outcome) covariates(biomarker comorbidity)}{p_end}
 {phang2}{cmd:    baseline_covariates(age sex)}{p_end}
-
-{pstd}Validate{p_end}
 {phang2}{cmd:. msm_validate, strict verbose}{p_end}
-
-{pstd}Calculate weights{p_end}
 {phang2}{cmd:. msm_weight, treat_d_cov(biomarker comorbidity age sex)}{p_end}
 {phang2}{cmd:    treat_n_cov(age sex) truncate(1 99) nolog}{p_end}
-
-{pstd}Diagnose{p_end}
-{phang2}{cmd:. msm_diagnose, by_period threshold(0.1)}{p_end}
-
-{pstd}Fit model{p_end}
+{phang2}{cmd:. msm_diagnose, balance_covariates(biomarker comorbidity age sex)}{p_end}
+{phang2}{cmd:    by_period threshold(0.1)}{p_end}
 {phang2}{cmd:. msm_fit, model(logistic) outcome_cov(age sex) nolog}{p_end}
-
-{pstd}Predict{p_end}
 {phang2}{cmd:. msm_predict, times(3 5 7 9) difference seed(12345)}{p_end}
-
-{pstd}Sensitivity{p_end}
 {phang2}{cmd:. msm_sensitivity, evalue}{p_end}
+{phang2}{cmd:. msm_report, eform}{p_end}
+
+{pstd}Estimation-only workflow when prediction is not needed{p_end}
+{phang2}{cmd:. findfile msm_example.dta}{p_end}
+{phang2}{cmd:. use "`r(fn)'", clear}{p_end}
+{phang2}{cmd:. msm_prepare, id(id) period(period) treatment(treatment)}{p_end}
+{phang2}{cmd:    outcome(outcome) covariates(biomarker comorbidity)}{p_end}
+{phang2}{cmd:    baseline_covariates(age sex)}{p_end}
+{phang2}{cmd:. msm_weight, treat_d_cov(biomarker comorbidity age sex)}{p_end}
+{phang2}{cmd:    treat_n_cov(age sex) nolog}{p_end}
+{phang2}{cmd:. msm_fit, model(cox) outcome_cov(age sex) nolog}{p_end}
+{phang2}{cmd:. msm_report, eform}{p_end}
+
+{pstd}
+Use the Cox or linear branches when the estimand is a weighted hazard ratio
+or weighted mean difference, but do not expect those fits to work with
+{cmd:msm_predict}.{p_end}
 
 
 {marker references}{...}

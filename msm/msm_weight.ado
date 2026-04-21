@@ -26,6 +26,7 @@ Options:
   censor_d_cov(varlist)  - Covariates for censoring denominator model
   censor_n_cov(varlist)  - Covariates for censoring numerator model
   truncate(# #)          - Truncate at percentiles (e.g., truncate(1 99))
+  fitfailure(policy)     - Model-failure policy: error (default) or marginal
   replace                - Replace existing weight variables
   nolog                  - Suppress model iteration log
 
@@ -49,6 +50,7 @@ program define msm_weight, rclass
         [TREAT_n_cov(varlist numeric) ///
          CENsor_d_cov(varlist numeric) CENsor_n_cov(varlist numeric) ///
          TRUNCate(numlist min=2 max=2) ///
+         FITFailure(string) ///
          REPLACE noLOG]
 
     * =========================================================================
@@ -76,6 +78,21 @@ program define msm_weight, rclass
             display as error "truncate() lower bound must be less than upper bound"
             exit 198
         }
+    }
+
+    local fitfailure = lower(strtrim("`fitfailure'"))
+    if "`fitfailure'" == "" {
+        local fitfailure "error"
+    }
+    else if strpos("error", "`fitfailure'") == 1 {
+        local fitfailure "error"
+    }
+    else if strpos("marginal", "`fitfailure'") == 1 {
+        local fitfailure "marginal"
+    }
+    else {
+        display as error "fitfailure() must be error or marginal"
+        exit 198
     }
 
     * Check weight variables
@@ -141,6 +158,12 @@ program define msm_weight, rclass
         }
     }
     display as text "Stabilized:       " as result "Yes"
+    if "`fitfailure'" == "error" {
+        display as text "Model failure:    " as result "Hard fail (default)"
+    }
+    else {
+        display as text "Model failure:    " as result "Marginal fallback (explicit)"
+    }
     if "`truncate'" != "" {
         display as text "Truncation:       " as result "`trunc_lo'th - `trunc_hi'th percentile"
     }
@@ -158,7 +181,12 @@ program define msm_weight, rclass
     _msm_weight_treatment, id(`id') period(`period') ///
         treatment(`treatment') outcome(`outcome') ///
         censor(`censor') ///
-        d_cov(`treat_d_cov') n_cov(`treat_n_cov') `log_opt'
+        d_cov(`treat_d_cov') n_cov(`treat_n_cov') ///
+        fitfailure(`fitfailure') `log_opt'
+
+    local n_fitfail_fallback = r(n_fitfail_fallback)
+    local n_probability_repairs = r(n_probability_repairs)
+    local fitfailure_models "`r(fitfailure_models)'"
 
     * _msm_tw_weight now exists (cumulative treatment weight)
 
@@ -173,7 +201,12 @@ program define msm_weight, rclass
         _msm_weight_censor, id(`id') period(`period') ///
             treatment(`treatment') censor(`censor') ///
             outcome(`outcome') ///
-            d_cov(`censor_d_cov') n_cov(`censor_n_cov') `log_opt'
+            d_cov(`censor_d_cov') n_cov(`censor_n_cov') ///
+            fitfailure(`fitfailure') `log_opt'
+
+        local n_fitfail_fallback = `n_fitfail_fallback' + r(n_fitfail_fallback)
+        local n_probability_repairs = `n_probability_repairs' + r(n_probability_repairs)
+        local fitfailure_models "`fitfailure_models' `r(fitfailure_models)'"
 
         * _msm_cw_weight now exists (cumulative censoring weight)
     }
@@ -279,6 +312,22 @@ program define msm_weight, rclass
         display as text "  Check treatment model specification."
     }
 
+    local fitfailure_models : list retokenize fitfailure_models
+
+    if `n_fitfail_fallback' > 0 {
+        display as text ""
+        display as text "Requested marginal fallback used for " ///
+            as result `n_fitfail_fallback' as text " model(s)."
+        display as text "Affected models:  " as result "`fitfailure_models'"
+    }
+
+    if `n_probability_repairs' > 0 {
+        display as text ""
+        display as text "Perfect-prediction repairs: " ///
+            as result `n_probability_repairs' as text ///
+            " observation(s) assigned truncated observed probabilities"
+    }
+
     display as text ""
     display as text "Variables created: " as result "_msm_weight _msm_tw_weight" ///
         cond("`censor_d_cov'" != "", " _msm_cw_weight", "")
@@ -298,8 +347,13 @@ program define msm_weight, rclass
     return scalar p99_weight = `w_p99'
     return scalar ess = `ess'
     return scalar n_truncated = `n_truncated'
+    return scalar n_fitfail_fallback = `n_fitfail_fallback'
+    return scalar fitfailure_fallback = (`n_fitfail_fallback' > 0)
+    return scalar n_probability_repairs = `n_probability_repairs'
 
     return local weight_var "_msm_weight"
+    return local fitfailure_policy "`fitfailure'"
+    return local fitfailure_models "`fitfailure_models'"
 
     } /* end capture noisily */
     local _rc = _rc
@@ -314,7 +368,7 @@ end
 * _msm_weight_treatment: Fit treatment weight models and compute
 *   cumulative stabilized IPTW
 * =========================================================================
-program define _msm_weight_treatment
+program define _msm_weight_treatment, rclass
     version 16.0
     set varabbrev off
     set more off
@@ -322,10 +376,15 @@ program define _msm_weight_treatment
     syntax , id(varname) period(varname) ///
         treatment(varname) outcome(varname) ///
         [censor(varname)] ///
-        d_cov(varlist) [n_cov(varlist) nolog]
+        d_cov(varlist) [n_cov(varlist) fitfailure(string) nolog]
 
     local log_opt ""
     if "`nolog'" != "" local log_opt "nolog"
+    local fitfailure = lower(strtrim("`fitfailure'"))
+    if "`fitfailure'" == "" local fitfailure "error"
+    local n_fitfail_fallback = 0
+    local n_probability_repairs = 0
+    local fitfailure_models ""
 
     * Probability truncation bounds for numerical stability
     local _pr_lo = 0.001
@@ -369,25 +428,63 @@ program define _msm_weight_treatment
         }
 
         noisily display as text "  Denominator model: `treatment' ~ `lag_treat' `d_cov' `period'"
-        capture logit `treatment' `_lag_treat' `d_cov' `period' ///
-            if `_at_risk' & !missing(`_lag_treat'), `log_opt'
-        if _rc != 0 {
-            noisily display as text "  Warning: denominator model failed; using marginal probability"
-            summarize `treatment' if `_at_risk' & !missing(`_lag_treat')
-            gen double `_denom_pr' = r(mean) if `_at_risk' & !missing(`_lag_treat')
-        }
-        else if e(converged) == 0 {
-            noisily display as text "  Warning: denominator model did not converge; using marginal probability"
-            summarize `treatment' if `_at_risk' & !missing(`_lag_treat')
-            gen double `_denom_pr' = r(mean) if `_at_risk' & !missing(`_lag_treat')
+        quietly count if `_denom_complete'
+        local _n_denom_complete = r(N)
+        if `_n_denom_complete' == 0 {
+            gen double `_denom_pr' = .
         }
         else {
-            predict double `_denom_pr' if `_at_risk' & !missing(`_lag_treat'), pr
+            capture logit `treatment' `_lag_treat' `d_cov' `period' ///
+                if `_denom_complete', `log_opt'
+            local _fit_rc = _rc
+            if `_fit_rc' != 0 {
+                if "`fitfailure'" == "marginal" {
+                    noisily display as text ///
+                        "  Warning: denominator model failed; using requested marginal fallback"
+                    summarize `treatment' if `_denom_complete'
+                    gen double `_denom_pr' = r(mean) if `_denom_complete'
+                    local ++n_fitfail_fallback
+                    local fitfailure_models "`fitfailure_models' treatment_denominator"
+                }
+                else {
+                    noisily display as error ///
+                        "  Treatment denominator model failed (rc=`_fit_rc')."
+                    noisily display as error ///
+                        "  Refusing to substitute a marginal probability by default."
+                    noisily display as error ///
+                        "  Fix the weighting model or rerun with fitfailure(marginal)."
+                    exit 498
+                }
+            }
+            else if e(converged) == 0 {
+                if "`fitfailure'" == "marginal" {
+                    noisily display as text ///
+                        "  Warning: denominator model did not converge; using requested marginal fallback"
+                    summarize `treatment' if `_denom_complete'
+                    gen double `_denom_pr' = r(mean) if `_denom_complete'
+                    local ++n_fitfail_fallback
+                    local fitfailure_models "`fitfailure_models' treatment_denominator"
+                }
+                else {
+                    noisily display as error ///
+                        "  Treatment denominator model did not converge."
+                    noisily display as error ///
+                        "  Refusing to substitute a marginal probability by default."
+                    noisily display as error ///
+                        "  Fix the weighting model or rerun with fitfailure(marginal)."
+                    exit 498
+                }
+            }
+            else {
+                predict double `_denom_pr' if `_denom_complete', pr
+            }
         }
         gen byte `_denom_drop' = `_denom_complete' & missing(`_denom_pr')
         quietly count if `_denom_drop'
-        if r(N) > 0 {
-            noisily display as text "  Warning: " as result r(N) as text ///
+        local _n_denom_drop = r(N)
+        if `_n_denom_drop' > 0 {
+            local n_probability_repairs = `n_probability_repairs' + `_n_denom_drop'
+            noisily display as text "  Warning: " as result `_n_denom_drop' as text ///
                 " treatment-denominator observation(s) were perfectly predicted; " ///
                 "using truncated observed probabilities"
             replace `_denom_pr' = cond(`treatment' == 1, `_pr_hi', `_pr_lo') ///
@@ -400,23 +497,62 @@ program define _msm_weight_treatment
         foreach _v of varlist `d_cov' {
             replace `_denom0_complete' = 0 if missing(`_v')
         }
-        capture logit `treatment' `d_cov' if `_at_risk' & missing(`_lag_treat'), `log_opt'
-        if _rc != 0 {
-            summarize `treatment' if `_at_risk' & missing(`_lag_treat')
-            gen double `_denom_pr0' = r(mean) if `_at_risk' & missing(`_lag_treat')
-        }
-        else if e(converged) == 0 {
-            noisily display as text "  Warning: first-period denominator did not converge; using marginal"
-            summarize `treatment' if `_at_risk' & missing(`_lag_treat')
-            gen double `_denom_pr0' = r(mean) if `_at_risk' & missing(`_lag_treat')
+        quietly count if `_denom0_complete'
+        local _n_denom0_complete = r(N)
+        if `_n_denom0_complete' == 0 {
+            gen double `_denom_pr0' = .
         }
         else {
-            predict double `_denom_pr0' if `_at_risk' & missing(`_lag_treat'), pr
+            capture logit `treatment' `d_cov' if `_denom0_complete', `log_opt'
+            local _fit_rc = _rc
+            if `_fit_rc' != 0 {
+                if "`fitfailure'" == "marginal" {
+                    noisily display as text ///
+                        "  Warning: first-period denominator model failed; using requested marginal fallback"
+                    summarize `treatment' if `_denom0_complete'
+                    gen double `_denom_pr0' = r(mean) if `_denom0_complete'
+                    local ++n_fitfail_fallback
+                    local fitfailure_models "`fitfailure_models' treatment_denominator0"
+                }
+                else {
+                    noisily display as error ///
+                        "  First-period treatment denominator model failed (rc=`_fit_rc')."
+                    noisily display as error ///
+                        "  Refusing to substitute a marginal probability by default."
+                    noisily display as error ///
+                        "  Fix the weighting model or rerun with fitfailure(marginal)."
+                    exit 498
+                }
+            }
+            else if e(converged) == 0 {
+                if "`fitfailure'" == "marginal" {
+                    noisily display as text ///
+                        "  Warning: first-period denominator model did not converge; using requested marginal fallback"
+                    summarize `treatment' if `_denom0_complete'
+                    gen double `_denom_pr0' = r(mean) if `_denom0_complete'
+                    local ++n_fitfail_fallback
+                    local fitfailure_models "`fitfailure_models' treatment_denominator0"
+                }
+                else {
+                    noisily display as error ///
+                        "  First-period treatment denominator model did not converge."
+                    noisily display as error ///
+                        "  Refusing to substitute a marginal probability by default."
+                    noisily display as error ///
+                        "  Fix the weighting model or rerun with fitfailure(marginal)."
+                    exit 498
+                }
+            }
+            else {
+                predict double `_denom_pr0' if `_denom0_complete', pr
+            }
         }
         gen byte `_denom0_drop' = `_denom0_complete' & missing(`_denom_pr0')
         quietly count if `_denom0_drop'
-        if r(N) > 0 {
-            noisily display as text "  Warning: " as result r(N) as text ///
+        local _n_denom0_drop = r(N)
+        if `_n_denom0_drop' > 0 {
+            local n_probability_repairs = `n_probability_repairs' + `_n_denom0_drop'
+            noisily display as text "  Warning: " as result `_n_denom0_drop' as text ///
                 " first-period denominator observation(s) were perfectly predicted; " ///
                 "using truncated observed probabilities"
             replace `_denom_pr0' = cond(`treatment' == 1, `_pr_hi', `_pr_lo') ///
@@ -439,30 +575,118 @@ program define _msm_weight_treatment
 
         if "`n_cov'" != "" {
             noisily display as text "  Numerator model:   `treatment' ~ `lag_treat' `n_cov'"
-            capture logit `treatment' `_lag_treat' `n_cov' ///
-                if `_at_risk' & !missing(`_lag_treat'), `log_opt'
+            quietly count if `_numer_complete'
+            local _n_numer_complete = r(N)
+            if `_n_numer_complete' == 0 {
+                gen double `_numer_pr' = .
+            }
+            else {
+                capture logit `treatment' `_lag_treat' `n_cov' ///
+                    if `_numer_complete', `log_opt'
+                local _fit_rc = _rc
+                if `_fit_rc' != 0 {
+                    if "`fitfailure'" == "marginal" {
+                        noisily display as text ///
+                            "  Warning: numerator model failed; using requested marginal fallback"
+                        summarize `treatment' if `_numer_complete'
+                        gen double `_numer_pr' = r(mean) if `_numer_complete'
+                        local ++n_fitfail_fallback
+                        local fitfailure_models "`fitfailure_models' treatment_numerator"
+                    }
+                    else {
+                        noisily display as error ///
+                            "  Treatment numerator model failed (rc=`_fit_rc')."
+                        noisily display as error ///
+                            "  Refusing to substitute a marginal probability by default."
+                        noisily display as error ///
+                            "  Fix the weighting model or rerun with fitfailure(marginal)."
+                        exit 498
+                    }
+                }
+                else if e(converged) == 0 {
+                    if "`fitfailure'" == "marginal" {
+                        noisily display as text ///
+                            "  Warning: numerator model did not converge; using requested marginal fallback"
+                        summarize `treatment' if `_numer_complete'
+                        gen double `_numer_pr' = r(mean) if `_numer_complete'
+                        local ++n_fitfail_fallback
+                        local fitfailure_models "`fitfailure_models' treatment_numerator"
+                    }
+                    else {
+                        noisily display as error ///
+                            "  Treatment numerator model did not converge."
+                        noisily display as error ///
+                            "  Refusing to substitute a marginal probability by default."
+                        noisily display as error ///
+                            "  Fix the weighting model or rerun with fitfailure(marginal)."
+                        exit 498
+                    }
+                }
+                else {
+                    predict double `_numer_pr' if `_numer_complete', pr
+                }
+            }
         }
         else {
             noisily display as text "  Numerator model:   `treatment' ~ `lag_treat'"
-            capture logit `treatment' `_lag_treat' ///
-                if `_at_risk' & !missing(`_lag_treat'), `log_opt'
-        }
-        if _rc != 0 {
-            summarize `treatment' if `_at_risk' & !missing(`_lag_treat')
-            gen double `_numer_pr' = r(mean) if `_at_risk' & !missing(`_lag_treat')
-        }
-        else if e(converged) == 0 {
-            noisily display as text "  Warning: numerator model did not converge; using marginal probability"
-            summarize `treatment' if `_at_risk' & !missing(`_lag_treat')
-            gen double `_numer_pr' = r(mean) if `_at_risk' & !missing(`_lag_treat')
-        }
-        else {
-            predict double `_numer_pr' if `_at_risk' & !missing(`_lag_treat'), pr
+            quietly count if `_numer_complete'
+            local _n_numer_complete = r(N)
+            if `_n_numer_complete' == 0 {
+                gen double `_numer_pr' = .
+            }
+            else {
+                capture logit `treatment' `_lag_treat' ///
+                    if `_numer_complete', `log_opt'
+                local _fit_rc = _rc
+                if `_fit_rc' != 0 {
+                    if "`fitfailure'" == "marginal" {
+                        noisily display as text ///
+                            "  Warning: numerator model failed; using requested marginal fallback"
+                        summarize `treatment' if `_numer_complete'
+                        gen double `_numer_pr' = r(mean) if `_numer_complete'
+                        local ++n_fitfail_fallback
+                        local fitfailure_models "`fitfailure_models' treatment_numerator"
+                    }
+                    else {
+                        noisily display as error ///
+                            "  Treatment numerator model failed (rc=`_fit_rc')."
+                        noisily display as error ///
+                            "  Refusing to substitute a marginal probability by default."
+                        noisily display as error ///
+                            "  Fix the weighting model or rerun with fitfailure(marginal)."
+                        exit 498
+                    }
+                }
+                else if e(converged) == 0 {
+                    if "`fitfailure'" == "marginal" {
+                        noisily display as text ///
+                            "  Warning: numerator model did not converge; using requested marginal fallback"
+                        summarize `treatment' if `_numer_complete'
+                        gen double `_numer_pr' = r(mean) if `_numer_complete'
+                        local ++n_fitfail_fallback
+                        local fitfailure_models "`fitfailure_models' treatment_numerator"
+                    }
+                    else {
+                        noisily display as error ///
+                            "  Treatment numerator model did not converge."
+                        noisily display as error ///
+                            "  Refusing to substitute a marginal probability by default."
+                        noisily display as error ///
+                            "  Fix the weighting model or rerun with fitfailure(marginal)."
+                        exit 498
+                    }
+                }
+                else {
+                    predict double `_numer_pr' if `_numer_complete', pr
+                }
+            }
         }
         gen byte `_numer_drop' = `_numer_complete' & missing(`_numer_pr')
         quietly count if `_numer_drop'
-        if r(N) > 0 {
-            noisily display as text "  Warning: " as result r(N) as text ///
+        local _n_numer_drop = r(N)
+        if `_n_numer_drop' > 0 {
+            local n_probability_repairs = `n_probability_repairs' + `_n_numer_drop'
+            noisily display as text "  Warning: " as result `_n_numer_drop' as text ///
                 " treatment-numerator observation(s) were perfectly predicted; " ///
                 "using truncated observed probabilities"
             replace `_numer_pr' = cond(`treatment' == 1, `_pr_hi', `_pr_lo') ///
@@ -478,27 +702,115 @@ program define _msm_weight_treatment
             }
         }
         if "`n_cov'" != "" {
-            capture logit `treatment' `n_cov' if `_at_risk' & missing(`_lag_treat'), `log_opt'
+            quietly count if `_numer0_complete'
+            local _n_numer0_complete = r(N)
+            if `_n_numer0_complete' == 0 {
+                gen double `_numer_pr0' = .
+            }
+            else {
+                capture logit `treatment' `n_cov' if `_numer0_complete', `log_opt'
+                local _fit_rc = _rc
+                if `_fit_rc' != 0 {
+                    if "`fitfailure'" == "marginal" {
+                        noisily display as text ///
+                            "  Warning: first-period numerator model failed; using requested marginal fallback"
+                        summarize `treatment' if `_numer0_complete'
+                        gen double `_numer_pr0' = r(mean) if `_numer0_complete'
+                        local ++n_fitfail_fallback
+                        local fitfailure_models "`fitfailure_models' treatment_numerator0"
+                    }
+                    else {
+                        noisily display as error ///
+                            "  First-period treatment numerator model failed (rc=`_fit_rc')."
+                        noisily display as error ///
+                            "  Refusing to substitute a marginal probability by default."
+                        noisily display as error ///
+                            "  Fix the weighting model or rerun with fitfailure(marginal)."
+                        exit 498
+                    }
+                }
+                else if e(converged) == 0 {
+                    if "`fitfailure'" == "marginal" {
+                        noisily display as text ///
+                            "  Warning: first-period numerator model did not converge; using requested marginal fallback"
+                        summarize `treatment' if `_numer0_complete'
+                        gen double `_numer_pr0' = r(mean) if `_numer0_complete'
+                        local ++n_fitfail_fallback
+                        local fitfailure_models "`fitfailure_models' treatment_numerator0"
+                    }
+                    else {
+                        noisily display as error ///
+                            "  First-period treatment numerator model did not converge."
+                        noisily display as error ///
+                            "  Refusing to substitute a marginal probability by default."
+                        noisily display as error ///
+                            "  Fix the weighting model or rerun with fitfailure(marginal)."
+                        exit 498
+                    }
+                }
+                else {
+                    predict double `_numer_pr0' if `_numer0_complete', pr
+                }
+            }
         }
         else {
-            capture logit `treatment' if `_at_risk' & missing(`_lag_treat'), `log_opt'
-        }
-        if _rc != 0 {
-            summarize `treatment' if `_at_risk' & missing(`_lag_treat')
-            gen double `_numer_pr0' = r(mean) if `_at_risk' & missing(`_lag_treat')
-        }
-        else if e(converged) == 0 {
-            noisily display as text "  Warning: first-period numerator did not converge; using marginal"
-            summarize `treatment' if `_at_risk' & missing(`_lag_treat')
-            gen double `_numer_pr0' = r(mean) if `_at_risk' & missing(`_lag_treat')
-        }
-        else {
-            predict double `_numer_pr0' if `_at_risk' & missing(`_lag_treat'), pr
+            quietly count if `_numer0_complete'
+            local _n_numer0_complete = r(N)
+            if `_n_numer0_complete' == 0 {
+                gen double `_numer_pr0' = .
+            }
+            else {
+                capture logit `treatment' if `_numer0_complete', `log_opt'
+                local _fit_rc = _rc
+                if `_fit_rc' != 0 {
+                    if "`fitfailure'" == "marginal" {
+                        noisily display as text ///
+                            "  Warning: first-period numerator model failed; using requested marginal fallback"
+                        summarize `treatment' if `_numer0_complete'
+                        gen double `_numer_pr0' = r(mean) if `_numer0_complete'
+                        local ++n_fitfail_fallback
+                        local fitfailure_models "`fitfailure_models' treatment_numerator0"
+                    }
+                    else {
+                        noisily display as error ///
+                            "  First-period treatment numerator model failed (rc=`_fit_rc')."
+                        noisily display as error ///
+                            "  Refusing to substitute a marginal probability by default."
+                        noisily display as error ///
+                            "  Fix the weighting model or rerun with fitfailure(marginal)."
+                        exit 498
+                    }
+                }
+                else if e(converged) == 0 {
+                    if "`fitfailure'" == "marginal" {
+                        noisily display as text ///
+                            "  Warning: first-period numerator model did not converge; using requested marginal fallback"
+                        summarize `treatment' if `_numer0_complete'
+                        gen double `_numer_pr0' = r(mean) if `_numer0_complete'
+                        local ++n_fitfail_fallback
+                        local fitfailure_models "`fitfailure_models' treatment_numerator0"
+                    }
+                    else {
+                        noisily display as error ///
+                            "  First-period treatment numerator model did not converge."
+                        noisily display as error ///
+                            "  Refusing to substitute a marginal probability by default."
+                        noisily display as error ///
+                            "  Fix the weighting model or rerun with fitfailure(marginal)."
+                        exit 498
+                    }
+                }
+                else {
+                    predict double `_numer_pr0' if `_numer0_complete', pr
+                }
+            }
         }
         gen byte `_numer0_drop' = `_numer0_complete' & missing(`_numer_pr0')
         quietly count if `_numer0_drop'
-        if r(N) > 0 {
-            noisily display as text "  Warning: " as result r(N) as text ///
+        local _n_numer0_drop = r(N)
+        if `_n_numer0_drop' > 0 {
+            local n_probability_repairs = `n_probability_repairs' + `_n_numer0_drop'
+            noisily display as text "  Warning: " as result `_n_numer0_drop' as text ///
                 " first-period numerator observation(s) were perfectly predicted; " ///
                 "using truncated observed probabilities"
             replace `_numer_pr0' = cond(`treatment' == 1, `_pr_hi', `_pr_lo') ///
@@ -566,23 +878,33 @@ program define _msm_weight_treatment
         drop `_at_risk' `_lag_treat' `_denom_pr' `_numer_pr' `_tw_t' ///
             `_miss_tw' `_log_tw' `_cum_log_tw' `_cum_miss_tw'
     }
+
+    local fitfailure_models : list retokenize fitfailure_models
+    return scalar n_fitfail_fallback = `n_fitfail_fallback'
+    return scalar n_probability_repairs = `n_probability_repairs'
+    return local fitfailure_models "`fitfailure_models'"
 end
 
 * =========================================================================
 * _msm_weight_censor: Fit censoring weight models and compute
 *   cumulative stabilized IPCW
 * =========================================================================
-program define _msm_weight_censor
+program define _msm_weight_censor, rclass
     version 16.0
     set varabbrev off
     set more off
 
     syntax , id(varname) period(varname) ///
         treatment(varname) censor(varname) outcome(varname) ///
-        d_cov(varlist) [n_cov(varlist) nolog]
+        d_cov(varlist) [n_cov(varlist) fitfailure(string) nolog]
 
     local log_opt ""
     if "`nolog'" != "" local log_opt "nolog"
+    local fitfailure = lower(strtrim("`fitfailure'"))
+    if "`fitfailure'" == "" local fitfailure "error"
+    local n_fitfail_fallback = 0
+    local n_probability_repairs = 0
+    local fitfailure_models ""
 
     * Probability truncation bounds for numerical stability
     local _pr_lo = 0.001
@@ -609,25 +931,63 @@ program define _msm_weight_censor
         }
 
         noisily display as text "  Denominator model: `censor' ~ `treatment' `d_cov' `period'"
-        capture logit `censor' `treatment' `d_cov' `period' ///
-            if `_at_risk' & `outcome' == 0, `log_opt'
-        if _rc != 0 {
-            noisily display as text "  Warning: censoring denominator model failed; using marginal"
-            summarize `censor' if `_at_risk' & `outcome' == 0
-            gen double `_denom_pr' = r(mean) if `_at_risk' & `outcome' == 0
-        }
-        else if e(converged) == 0 {
-            noisily display as text "  Warning: censoring denominator did not converge; using marginal"
-            summarize `censor' if `_at_risk' & `outcome' == 0
-            gen double `_denom_pr' = r(mean) if `_at_risk' & `outcome' == 0
+        quietly count if `_denom_complete'
+        local _n_denom_complete = r(N)
+        if `_n_denom_complete' == 0 {
+            gen double `_denom_pr' = .
         }
         else {
-            predict double `_denom_pr' if `_at_risk' & `outcome' == 0, pr
+            capture logit `censor' `treatment' `d_cov' `period' ///
+                if `_denom_complete', `log_opt'
+            local _fit_rc = _rc
+            if `_fit_rc' != 0 {
+                if "`fitfailure'" == "marginal" {
+                    noisily display as text ///
+                        "  Warning: censoring denominator model failed; using requested marginal fallback"
+                    summarize `censor' if `_denom_complete'
+                    gen double `_denom_pr' = r(mean) if `_denom_complete'
+                    local ++n_fitfail_fallback
+                    local fitfailure_models "`fitfailure_models' censor_denominator"
+                }
+                else {
+                    noisily display as error ///
+                        "  Censoring denominator model failed (rc=`_fit_rc')."
+                    noisily display as error ///
+                        "  Refusing to substitute a marginal probability by default."
+                    noisily display as error ///
+                        "  Fix the weighting model or rerun with fitfailure(marginal)."
+                    exit 498
+                }
+            }
+            else if e(converged) == 0 {
+                if "`fitfailure'" == "marginal" {
+                    noisily display as text ///
+                        "  Warning: censoring denominator model did not converge; using requested marginal fallback"
+                    summarize `censor' if `_denom_complete'
+                    gen double `_denom_pr' = r(mean) if `_denom_complete'
+                    local ++n_fitfail_fallback
+                    local fitfailure_models "`fitfailure_models' censor_denominator"
+                }
+                else {
+                    noisily display as error ///
+                        "  Censoring denominator model did not converge."
+                    noisily display as error ///
+                        "  Refusing to substitute a marginal probability by default."
+                    noisily display as error ///
+                        "  Fix the weighting model or rerun with fitfailure(marginal)."
+                    exit 498
+                }
+            }
+            else {
+                predict double `_denom_pr' if `_denom_complete', pr
+            }
         }
         gen byte `_denom_drop' = `_denom_complete' & missing(`_denom_pr')
         quietly count if `_denom_drop'
-        if r(N) > 0 {
-            noisily display as text "  Warning: " as result r(N) as text ///
+        local _n_denom_drop = r(N)
+        if `_n_denom_drop' > 0 {
+            local n_probability_repairs = `n_probability_repairs' + `_n_denom_drop'
+            noisily display as text "  Warning: " as result `_n_denom_drop' as text ///
                 " censoring-denominator observation(s) were perfectly predicted; " ///
                 "using truncated observed probabilities"
             replace `_denom_pr' = cond(`censor' == 1, `_pr_hi', `_pr_lo') ///
@@ -647,30 +1007,118 @@ program define _msm_weight_censor
 
         if "`n_cov'" != "" {
             noisily display as text "  Numerator model:   `censor' ~ `treatment' `n_cov'"
-            capture logit `censor' `treatment' `n_cov' ///
-                if `_at_risk' & `outcome' == 0, `log_opt'
+            quietly count if `_numer_complete'
+            local _n_numer_complete = r(N)
+            if `_n_numer_complete' == 0 {
+                gen double `_numer_pr' = .
+            }
+            else {
+                capture logit `censor' `treatment' `n_cov' ///
+                    if `_numer_complete', `log_opt'
+                local _fit_rc = _rc
+                if `_fit_rc' != 0 {
+                    if "`fitfailure'" == "marginal" {
+                        noisily display as text ///
+                            "  Warning: censoring numerator model failed; using requested marginal fallback"
+                        summarize `censor' if `_numer_complete'
+                        gen double `_numer_pr' = r(mean) if `_numer_complete'
+                        local ++n_fitfail_fallback
+                        local fitfailure_models "`fitfailure_models' censor_numerator"
+                    }
+                    else {
+                        noisily display as error ///
+                            "  Censoring numerator model failed (rc=`_fit_rc')."
+                        noisily display as error ///
+                            "  Refusing to substitute a marginal probability by default."
+                        noisily display as error ///
+                            "  Fix the weighting model or rerun with fitfailure(marginal)."
+                        exit 498
+                    }
+                }
+                else if e(converged) == 0 {
+                    if "`fitfailure'" == "marginal" {
+                        noisily display as text ///
+                            "  Warning: censoring numerator model did not converge; using requested marginal fallback"
+                        summarize `censor' if `_numer_complete'
+                        gen double `_numer_pr' = r(mean) if `_numer_complete'
+                        local ++n_fitfail_fallback
+                        local fitfailure_models "`fitfailure_models' censor_numerator"
+                    }
+                    else {
+                        noisily display as error ///
+                            "  Censoring numerator model did not converge."
+                        noisily display as error ///
+                            "  Refusing to substitute a marginal probability by default."
+                        noisily display as error ///
+                            "  Fix the weighting model or rerun with fitfailure(marginal)."
+                        exit 498
+                    }
+                }
+                else {
+                    predict double `_numer_pr' if `_numer_complete', pr
+                }
+            }
         }
         else {
             noisily display as text "  Numerator model:   `censor' ~ `treatment'"
-            capture logit `censor' `treatment' ///
-                if `_at_risk' & `outcome' == 0, `log_opt'
-        }
-        if _rc != 0 {
-            summarize `censor' if `_at_risk' & `outcome' == 0
-            gen double `_numer_pr' = r(mean) if `_at_risk' & `outcome' == 0
-        }
-        else if e(converged) == 0 {
-            noisily display as text "  Warning: censoring numerator did not converge; using marginal"
-            summarize `censor' if `_at_risk' & `outcome' == 0
-            gen double `_numer_pr' = r(mean) if `_at_risk' & `outcome' == 0
-        }
-        else {
-            predict double `_numer_pr' if `_at_risk' & `outcome' == 0, pr
+            quietly count if `_numer_complete'
+            local _n_numer_complete = r(N)
+            if `_n_numer_complete' == 0 {
+                gen double `_numer_pr' = .
+            }
+            else {
+                capture logit `censor' `treatment' ///
+                    if `_numer_complete', `log_opt'
+                local _fit_rc = _rc
+                if `_fit_rc' != 0 {
+                    if "`fitfailure'" == "marginal" {
+                        noisily display as text ///
+                            "  Warning: censoring numerator model failed; using requested marginal fallback"
+                        summarize `censor' if `_numer_complete'
+                        gen double `_numer_pr' = r(mean) if `_numer_complete'
+                        local ++n_fitfail_fallback
+                        local fitfailure_models "`fitfailure_models' censor_numerator"
+                    }
+                    else {
+                        noisily display as error ///
+                            "  Censoring numerator model failed (rc=`_fit_rc')."
+                        noisily display as error ///
+                            "  Refusing to substitute a marginal probability by default."
+                        noisily display as error ///
+                            "  Fix the weighting model or rerun with fitfailure(marginal)."
+                        exit 498
+                    }
+                }
+                else if e(converged) == 0 {
+                    if "`fitfailure'" == "marginal" {
+                        noisily display as text ///
+                            "  Warning: censoring numerator model did not converge; using requested marginal fallback"
+                        summarize `censor' if `_numer_complete'
+                        gen double `_numer_pr' = r(mean) if `_numer_complete'
+                        local ++n_fitfail_fallback
+                        local fitfailure_models "`fitfailure_models' censor_numerator"
+                    }
+                    else {
+                        noisily display as error ///
+                            "  Censoring numerator model did not converge."
+                        noisily display as error ///
+                            "  Refusing to substitute a marginal probability by default."
+                        noisily display as error ///
+                            "  Fix the weighting model or rerun with fitfailure(marginal)."
+                        exit 498
+                    }
+                }
+                else {
+                    predict double `_numer_pr' if `_numer_complete', pr
+                }
+            }
         }
         gen byte `_numer_drop' = `_numer_complete' & missing(`_numer_pr')
         quietly count if `_numer_drop'
-        if r(N) > 0 {
-            noisily display as text "  Warning: " as result r(N) as text ///
+        local _n_numer_drop = r(N)
+        if `_n_numer_drop' > 0 {
+            local n_probability_repairs = `n_probability_repairs' + `_n_numer_drop'
+            noisily display as text "  Warning: " as result `_n_numer_drop' as text ///
                 " censoring-numerator observation(s) were perfectly predicted; " ///
                 "using truncated observed probabilities"
             replace `_numer_pr' = cond(`censor' == 1, `_pr_hi', `_pr_lo') ///
@@ -716,4 +1164,9 @@ program define _msm_weight_censor
             `_log_cw' `_cum_log_cw' `_cum_miss_cw' `_denom_complete' ///
             `_denom_drop' `_numer_complete' `_numer_drop'
     }
+
+    local fitfailure_models : list retokenize fitfailure_models
+    return scalar n_fitfail_fallback = `n_fitfail_fallback'
+    return scalar n_probability_repairs = `n_probability_repairs'
+    return local fitfailure_models "`fitfailure_models'"
 end

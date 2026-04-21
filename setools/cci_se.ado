@@ -12,12 +12,12 @@
 
 program define cci_se, rclass
     version 16.0
-    local _varabbrev `c(varabbrev)'
+    local _orig_varabbrev = c(varabbrev)
     set varabbrev off
 
     capture noisily {
 
-    syntax [if] [in], ID(varname) ICD(varname string) ///
+    syntax [if] [in], ID(varname) ICD(varlist) ///
         DATE(varname) ///
         [GENerate(name) COMPonents PREFIX(string) ///
          DATEFormat(string) NOIsily]
@@ -44,6 +44,15 @@ program define cci_se, rclass
     * Validate inputs
     * ---------------------------------------------------------------
     marksample touse, novarlist
+
+    local icd_vars `icd'
+    foreach icd_var of local icd_vars {
+        capture confirm string variable `icd_var'
+        if _rc {
+            display as error "icd() must contain one or more string diagnosis variables"
+            exit 109
+        }
+    }
 
     * Determine date variable type (string vs numeric)
     local date_is_str = 0
@@ -76,10 +85,15 @@ program define cci_se, rclass
 
     quietly keep if `touse'
 
-    * Normalize ICD codes: uppercase, strip dots, prepend space for
-    * word-boundary matching in regexm()
+    * Normalize one or more ICD code fields: uppercase, strip dots,
+    * prepend spaces between codes for regex matching
     tempvar code yr v7 v8 v9 v10
-    quietly gen `code' = " " + upper(subinstr(trim(`icd'), ".", "", .))
+    quietly gen strL `code' = ""
+    foreach icd_var of local icd_vars {
+        quietly replace `code' = `code' + " " + ///
+            upper(subinstr(trim(`icd_var'), ".", "", .)) ///
+            if trim(`icd_var') != ""
+    }
 
     * ---------------------------------------------------------------
     * Extract year from date (handles string, Stata date, YYYYMMDD)
@@ -443,7 +457,7 @@ program define cci_se, rclass
     return scalar max_cci    = `max_cci'
 
     }
-    local _rc = _rc
-    set varabbrev `_varabbrev'
-    if `_rc' exit `_rc'
+    local rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
 end

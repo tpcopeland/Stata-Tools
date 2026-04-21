@@ -1,4 +1,4 @@
-*! kmplot Version 1.0.1  2026/04/10
+*! kmplot Version 1.0.2  2026/04/22
 *! Publication-ready Kaplan-Meier and cumulative incidence plots
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet
@@ -20,10 +20,9 @@ See help kmplot for complete documentation
 
 program define kmplot, rclass
     version 16.0
-    local _vaset = c(varabbrev)
-    local _moreset = c(more)
+    local _orig_varabbrev = c(varabbrev)
     set varabbrev off
-    set more off
+    capture noisily {
 
     syntax [if] [in] , [BY(varname) FAILure ///
         CI CIStyle(string) CIOpacity(integer 12) CITRansform(string) ///
@@ -45,13 +44,11 @@ program define kmplot, rclass
 
     capture st_is 2 analysis
     if _rc {
-        display as error "data not stset"
-        display as error ""
-        display as error "You must {bf:stset} your data before using kmplot."
-        display as error "Example:"
-        display as error "  {cmd:stset time, failure(event)}"
-        set varabbrev `_vaset'
-        set more `_moreset'
+        noisily display as error "data not stset"
+        noisily display as error ""
+        noisily display as error "You must {bf:stset} your data before using kmplot."
+        noisily display as error "Example:"
+        noisily display as error "  {cmd:stset time, failure(event)}"
         exit 119
     }
 
@@ -63,32 +60,25 @@ program define kmplot, rclass
             markout `touse' `by'
         }
         else {
-            * String variable: exclude empty strings
             quietly replace `touse' = 0 if `by' == ""
         }
     }
     quietly count if `touse'
     if r(N) == 0 {
-        display as error "no observations"
-        set varabbrev `_vaset'
-        set more `_moreset'
+        noisily display as error "no observations"
         exit 2000
     }
     local N = r(N)
 
     * Validate cistyle
     if "`cistyle'" != "" & !inlist("`cistyle'", "band", "line") {
-        display as error "cistyle() must be {bf:band} or {bf:line}"
-        set varabbrev `_vaset'
-        set more `_moreset'
+        noisily display as error "cistyle() must be {bf:band} or {bf:line}"
         exit 198
     }
 
     * Validate citransform
     if "`citransform'" != "" & !inlist("`citransform'", "loglog", "log", "plain") {
-        display as error "citransform() must be {bf:loglog}, {bf:log}, or {bf:plain}"
-        set varabbrev `_vaset'
-        set more `_moreset'
+        noisily display as error "citransform() must be {bf:loglog}, {bf:log}, or {bf:plain}"
         exit 198
     }
 
@@ -103,9 +93,7 @@ program define kmplot, rclass
     if "`pvaluepos'" == "" local pvaluepos "bottomright"
     if "`pvaluepos'" != "" & ///
         !inlist("`pvaluepos'", "topleft", "topright", "bottomleft", "bottomright") {
-        display as error "pvaluepos() must be {bf:topleft}, {bf:topright}, {bf:bottomleft}, or {bf:bottomright}"
-        set varabbrev `_vaset'
-        set more `_moreset'
+        noisily display as error "pvaluepos() must be {bf:topleft}, {bf:topright}, {bf:bottomleft}, or {bf:bottomright}"
         exit 198
     }
     if `censorthin' < 1 local censorthin = 1
@@ -122,6 +110,15 @@ program define kmplot, rclass
         }
     }
     if `"`xtitle'"' == "" local xtitle "Analysis time"
+    * Strip outer quotes from string-asis options (asis preserves user quotes)
+    foreach _ttl in xtitle ytitle title subtitle note {
+        local _len = strlen(`"``_ttl''"')
+        if `_len' >= 2 & ///
+            substr(`"``_ttl''"', 1, 1) == char(34) & ///
+            substr(`"``_ttl''"', `_len', 1) == char(34) {
+            local `_ttl' = substr(`"``_ttl''"', 2, `_len' - 2)
+        }
+    }
     * Parse name option (handle "name, replace" syntax)
     if `"`name'"' == "" {
         local name "kmplot"
@@ -173,9 +170,6 @@ program define kmplot, rclass
     * =========================================================================
 
     preserve
-    local _rc_final = 0
-
-    capture noisily {
 
     quietly keep if `touse'
 
@@ -671,7 +665,10 @@ program define kmplot, rclass
             local export_file = substr(`"`export_file'"', 2, `_ef_len' - 2)
         }
         graph export `"`export_file'"', `export_opts'
-        display as text "Graph saved to: " as result `"`export_file'"'
+        capture confirm file `"`export_file'"'
+        if _rc == 0 {
+            display as text "Graph saved to: " as result `"`export_file'"'
+        }
     }
 
     * =========================================================================
@@ -700,20 +697,11 @@ program define kmplot, rclass
         }
     }
 
-    } // end capture noisily
-
-    local _rc_final = _rc
-    restore
-
-    if `_rc_final' {
-        set varabbrev `_vaset'
-        set more `_moreset'
-        exit `_rc_final'
-    }
-
     * =========================================================================
     * RETURN RESULTS
     * =========================================================================
+
+    restore
 
     return scalar N = `N'
     return scalar n_groups = `ngroups'
@@ -731,6 +719,8 @@ program define kmplot, rclass
         return local by "`by'"
     }
 
-    set varabbrev `_vaset'
-    set more `_moreset'
+    } // end capture noisily
+    local rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
 end

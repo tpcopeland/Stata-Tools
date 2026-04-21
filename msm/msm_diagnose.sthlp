@@ -41,6 +41,11 @@
 percentiles, effective sample size) and covariate balance using
 standardized mean differences (SMD) before and after weighting.
 
+{pstd}
+This command requires a prior {helpb msm_weight} run. If
+{cmd:balance_covariates()} is omitted, {cmd:msm_diagnose} uses the covariates
+registered earlier with {helpb msm_prepare}.
+
 
 {marker options}{...}
 {title:Options}
@@ -83,8 +88,22 @@ is 0.1. Covariates with weighted SMD exceeding this threshold are flagged.
 {marker examples}{...}
 {title:Examples}
 
+{pstd}Setup for diagnostics{p_end}
+{phang2}{cmd:. findfile msm_example.dta}{p_end}
+{phang2}{cmd:. use "`r(fn)'", clear}{p_end}
+{phang2}{cmd:. msm_prepare, id(id) period(period) treatment(treatment)}{p_end}
+{phang2}{cmd:    outcome(outcome) covariates(biomarker comorbidity)}{p_end}
+{phang2}{cmd:    baseline_covariates(age sex)}{p_end}
+{phang2}{cmd:. msm_weight, treat_d_cov(biomarker comorbidity age sex)}{p_end}
+{phang2}{cmd:    treat_n_cov(age sex) truncate(1 99) nolog}{p_end}
+
+{pstd}Overall weight diagnostics with default mapped covariates{p_end}
 {phang2}{cmd:. msm_diagnose}{p_end}
-{phang2}{cmd:. msm_diagnose, by_period threshold(0.1)}{p_end}
+
+{pstd}Period-specific diagnostics and explicit balance review{p_end}
+{phang2}{cmd:. msm_diagnose, balance_covariates(biomarker comorbidity age sex)}{p_end}
+{phang2}{cmd:    by_period threshold(0.1)}{p_end}
+{phang2}{cmd:. matrix list r(balance)}{p_end}
 
 
 {marker author}{...}
