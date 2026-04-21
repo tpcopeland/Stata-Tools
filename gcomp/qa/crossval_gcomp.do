@@ -1,5 +1,5 @@
 * crossval_gcomp.do - Cross-validation of gcomp mediation vs known DGP and R mediation
-* Tests: 13 total (V1: 7 known DGP, V2: 6 R cross-validation)
+* Tests: 14 total (V1: 7 known DGP, V2: 6 R cross-validation, CV3: 3 time-varying)
 * Runtime: ~5 minutes
 *
 * DGP: Binary exposure mediation with one confounder
@@ -285,9 +285,10 @@ else {
 display as text ""
 display as text "CV3: Time-varying mode cross-validation"
 
-* CV3.1: Time-varying eofu mode completes and returns e() matrix
+* CV3.1: Time-varying eofu mode returns ordered nondegenerate POs
 local PO1 = .
 local PO2 = .
+local PO3 = .
 local ++test_count
 capture noisily {
     clear
@@ -295,15 +296,35 @@ capture noisily {
     set obs 600
     gen long id = ceil(_n / 3)
     bysort id: gen int time = _n
-    gen double L = rnormal()
-    gen double A = rbinomial(1, invlogit(-1 + 0.3*L))
-    gen double Y = rbinomial(1, invlogit(-2 + 0.5*L + 0.4*A))
+    gen double L0 = rnormal()
+    bysort id (time): replace L0 = L0[1]
+    gen byte A = .
+    gen double L = .
+    gen byte Alag = 0
+    gen double Llag = 0
 
-    gcomp Y L A id time, outcome(Y) ///
+    bysort id (time): replace L = 0.15 + 0.65 * L0 + rnormal(0, 0.35) if time == 1
+    bysort id (time): replace A = rbinomial(1, invlogit(-0.35 + 0.70 * L + 0.20 * L0)) if time == 1
+
+    bysort id (time): replace L = 0.10 + 0.60 * L[_n-1] - 0.55 * A[_n-1] + 0.15 * L0 + rnormal(0, 0.35) if time == 2
+    bysort id (time): replace A = rbinomial(1, invlogit(-0.25 + 0.60 * L + 0.20 * L0)) if time == 2
+
+    bysort id (time): replace L = 0.05 + 0.55 * L[_n-1] - 0.55 * A[_n-1] + 0.10 * L0 + rnormal(0, 0.35) if time == 3
+    bysort id (time): replace A = rbinomial(1, invlogit(-0.15 + 0.55 * L + 0.20 * L0)) if time == 3
+
+    bysort id (time): replace Alag = A[_n-1] if _n > 1
+    bysort id (time): replace Llag = L[_n-1] if _n > 1
+
+    gen byte Y = 0
+    bysort id (time): replace Y = rbinomial(1, invlogit(-1.35 - 0.90 * A[_n-1] + 0.75 * L[_n-1] + 0.20 * L0)) if time == 3
+
+    gcomp Y L0 A L Alag Llag id time, outcome(Y) ///
         idvar(id) tvar(time) varyingcovariates(L) ///
-        commands(L: regress, Y: logit, A: logit) ///
-        equations(L: A, Y: L A, A: L) ///
-        intvars(A) interventions(A_: A_=1, A_: A_=0) ///
+        fixedcovariates(L0) laggedvars(Alag Llag) ///
+        lagrules(Alag: A 1, Llag: L 1) ///
+        commands(A: logit, Y: logit, L: regress) ///
+        equations(A: L0 L, Y: Alag Llag L0, L: Alag Llag L0) ///
+        intvars(A) interventions(A=1, A=0) ///
         eofu sim(200) samples(50) seed(20260321)
 
     assert "`e(cmd)'" == "gcomp"
@@ -312,26 +333,43 @@ capture noisily {
     matrix `_eb' = e(b)
     local PO1 = `_eb'[1,1]
     local PO2 = `_eb'[1,2]
-    assert `PO1' != .
-    assert `PO2' != .
+    local PO3 = `_eb'[1,3]
+    assert colsof(`_eb') == 3
+    assert `PO1' >= 0 & `PO1' <= 1
+    assert `PO2' >= 0 & `PO2' <= 1
+    assert `PO3' >= 0 & `PO3' <= 1
+    assert abs(`PO1' - `PO2') > 0.01
+    assert `PO1' < `PO2'
+    assert `PO3' > `PO1' & `PO3' < `PO2'
 }
 if _rc == 0 {
-    display as result "  PASS: CV3.1 Time-varying eofu returns usable POs (PO1=" %6.4f `PO1' " PO2=" %6.4f `PO2' ")"
+    display as result "  PASS: CV3.1 Time-varying eofu returns ordered nondegenerate POs (PO1=" %6.4f `PO1' " PO2=" %6.4f `PO2' ")"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: CV3.1 usable POs (error `=_rc')"
+    display as error "  FAIL: CV3.1 nondegenerate POs (error `=_rc')"
     local ++fail_count
 }
 
-* CV3.2: Both POs are finite real numbers
+* CV3.2: Intervention contrast is materially nonzero and natural regime lies between arms
 local ++test_count
-if `PO1' != . & `PO2' != . {
-    display as result "  PASS: CV3.2 Both POs are finite (PO1=" %6.4f `PO1' " PO2=" %6.4f `PO2' ")"
+if `PO1' != . & `PO2' != . & `PO3' != . & abs(`PO1' - `PO2') > 0.01 {
+    display as result "  PASS: CV3.2 Time-varying contrast is nonzero and ordered"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: CV3.2 PO is missing"
+    display as error "  FAIL: CV3.2 contrast missing or degenerate"
+    local ++fail_count
+}
+
+* CV3.3: Always-treat lowers risk relative to never-treat in this DGP
+local ++test_count
+if (`PO1' - `PO2') < -0.01 {
+    display as result "  PASS: CV3.3 Time-varying contrast has the expected negative sign"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: CV3.3 contrast sign/magnitude is not sensible"
     local ++fail_count
 }
 

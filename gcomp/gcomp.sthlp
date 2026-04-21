@@ -416,15 +416,15 @@ It does not save Stata's bootstrap replicate-statistics dataset.
 For {opt eofu} analyses, record the outcome only on the final row for each
 subject. Earlier nonmissing outcome values are ignored by design.
 
-{phang2}{cmd:. * Panel data: 500 subjects, 5 time points}{p_end}
-{phang2}{cmd:. * Confounder L is affected by prior treatment A}{p_end}
-{phang2}{cmd:. gcomp outcome L A id time, outcome(outcome) ///}{p_end}
+{phang2}{cmd:. * Panel data: baseline L0, time-varying confounder L, lagged state}{p_end}
+{phang2}{cmd:. gcomp outcome L0 A L Alag Llag id time, outcome(outcome) ///}{p_end}
 {phang2}{cmd:      idvar(id) tvar(time) ///}{p_end}
-{phang2}{cmd:      varyingcovariates(L) ///}{p_end}
-{phang2}{cmd:      commands(L: regress, outcome: logit, A: logit) ///}{p_end}
-{phang2}{cmd:      equations(L: A, outcome: L A, A: L) ///}{p_end}
-{phang2}{cmd:      intvars(A) interventions(A_: A_=1, A_: A_=0) ///}{p_end}
-{phang2}{cmd:      sim(500) samples(200) seed(42) eofu}{p_end}
+{phang2}{cmd:      varyingcovariates(L) fixedcovariates(L0) ///}{p_end}
+{phang2}{cmd:      laggedvars(Alag Llag) lagrules(Alag: A 1, Llag: L 1) ///}{p_end}
+{phang2}{cmd:      commands(A: logit, outcome: logit, L: regress) ///}{p_end}
+{phang2}{cmd:      equations(A: L0 L, outcome: Alag Llag L0, L: Alag Llag L0) ///}{p_end}
+{phang2}{cmd:      intvars(A) interventions(A=1, A=0) ///}{p_end}
+{phang2}{cmd:      sim(120) samples(5) seed(20260421) eofu}{p_end}
 
 {pstd}
 {bf:Example 4: Export mediation results to Excel}

@@ -1114,7 +1114,8 @@ else {
 }
 
 * 50. Fix: gen double after reshape — time-varying mode precision
-* Verifies time-varying mode still runs correctly after the double fix
+* Verifies time-varying mode still returns nondegenerate estimates after the
+* double fix
 local ++test_count
 capture noisily {
     clear
@@ -1122,25 +1123,53 @@ capture noisily {
     set obs 600
     gen long id = ceil(_n / 3)
     bysort id: gen int time = _n
-    gen double L = rnormal()
-    gen double A = rbinomial(1, invlogit(-1 + 0.3*L))
-    gen double Y = rbinomial(1, invlogit(-2 + 0.5*L + 0.4*A))
+    gen double L0 = rnormal()
+    bysort id (time): replace L0 = L0[1]
+    gen byte A = .
+    gen double L = .
+    gen byte Alag = 0
+    gen double Llag = 0
 
-    gcomp Y L A id time, outcome(Y) ///
+    bysort id (time): replace L = 0.15 + 0.65 * L0 + rnormal(0, 0.35) if time == 1
+    bysort id (time): replace A = rbinomial(1, invlogit(-0.35 + 0.70 * L + 0.20 * L0)) if time == 1
+
+    bysort id (time): replace L = 0.10 + 0.60 * L[_n-1] - 0.55 * A[_n-1] + 0.15 * L0 + rnormal(0, 0.35) if time == 2
+    bysort id (time): replace A = rbinomial(1, invlogit(-0.25 + 0.60 * L + 0.20 * L0)) if time == 2
+
+    bysort id (time): replace L = 0.05 + 0.55 * L[_n-1] - 0.55 * A[_n-1] + 0.10 * L0 + rnormal(0, 0.35) if time == 3
+    bysort id (time): replace A = rbinomial(1, invlogit(-0.15 + 0.55 * L + 0.20 * L0)) if time == 3
+
+    bysort id (time): replace Alag = A[_n-1] if _n > 1
+    bysort id (time): replace Llag = L[_n-1] if _n > 1
+
+    gen byte Y = 0
+    bysort id (time): replace Y = rbinomial(1, invlogit(-1.35 - 0.90 * A[_n-1] + 0.75 * L[_n-1] + 0.20 * L0)) if time == 3
+
+    gcomp Y L0 A L Alag Llag id time, outcome(Y) ///
         idvar(id) tvar(time) ///
-        varyingcovariates(L) ///
-        commands(L: regress, Y: logit, A: logit) ///
-        equations(L: A, Y: L A, A: L) ///
-        intvars(A) interventions(A_: A_=1, A_: A_=0) ///
+        varyingcovariates(L) fixedcovariates(L0) ///
+        laggedvars(Alag Llag) lagrules(Alag: A 1, Llag: L 1) ///
+        commands(A: logit, Y: logit, L: regress) ///
+        equations(A: L0 L, Y: Alag Llag L0, L: Alag Llag L0) ///
+        intvars(A) interventions(A=1, A=0) ///
         eofu sim(100) samples(3) seed(1)
 
     assert "`e(analysis_type)'" == "time_varying"
     confirm scalar e(N)
     confirm scalar e(MC_sims)
     confirm matrix e(b)
+    tempname _eb
+    matrix `_eb' = e(b)
+    local PO1 = `_eb'[1,1]
+    local PO2 = `_eb'[1,2]
+    local PO3 = `_eb'[1,3]
+    assert `PO1' >= 0 & `PO1' <= 1
+    assert `PO2' >= 0 & `PO2' <= 1
+    assert `PO3' >= 0 & `PO3' <= 1
+    assert abs(`PO1' - `PO2') > 1e-6
 }
 if _rc == 0 {
-    display as result "  PASS: Fix gen double — time-varying mode runs correctly"
+    display as result "  PASS: Fix gen double — time-varying mode returns nondegenerate POs"
     local ++pass_count
 }
 else {
@@ -1380,33 +1409,77 @@ set seed 33333
 set obs 600
 gen long id = ceil(_n / 3)
 bysort id: gen int time = _n
-gen double L = rnormal()
-gen double A = rbinomial(1, invlogit(-1 + 0.3*L))
-gen double Y = rbinomial(1, invlogit(-2 + 0.5*L + 0.4*A))
-gen double D = rbinomial(1, invlogit(-3 + 0.2*L))
-gen double Lcont = rnormal(5, 2)
-gen double Ycont = 2 + 0.5*L + 0.3*A + rnormal(0, 1)
+gen double L0 = rnormal()
+bysort id (time): replace L0 = L0[1]
 gen double fixvar = rnormal()
 bysort id (time): replace fixvar = fixvar[1]
+gen byte A = .
+gen double L = .
+gen byte Alag = 0
+gen double Llag = 0
+gen double Llagsq = 0
+
+bysort id (time): replace L = 0.15 + 0.65 * L0 + 0.10 * fixvar + rnormal(0, 0.35) if time == 1
+bysort id (time): replace A = rbinomial(1, invlogit(-0.35 + 0.70 * L + 0.20 * L0 + 0.10 * fixvar)) if time == 1
+
+bysort id (time): replace L = 0.10 + 0.60 * L[_n-1] - 0.55 * A[_n-1] + 0.15 * L0 + 0.10 * fixvar + rnormal(0, 0.35) if time == 2
+bysort id (time): replace A = rbinomial(1, invlogit(-0.25 + 0.60 * L + 0.20 * L0 + 0.10 * fixvar)) if time == 2
+
+bysort id (time): replace L = 0.05 + 0.55 * L[_n-1] - 0.55 * A[_n-1] + 0.10 * L0 + 0.10 * fixvar + rnormal(0, 0.35) if time == 3
+bysort id (time): replace A = rbinomial(1, invlogit(-0.15 + 0.55 * L + 0.20 * L0 + 0.10 * fixvar)) if time == 3
+
+bysort id (time): replace Alag = A[_n-1] if _n > 1
+bysort id (time): replace Llag = L[_n-1] if _n > 1
+replace Llagsq = Llag^2
+
+gen byte Y = 0
+bysort id (time): replace Y = rbinomial(1, invlogit(-1.35 - 0.90 * A[_n-1] + 0.75 * L[_n-1] + 0.20 * L0 + 0.10 * fixvar)) if time == 3
+gen byte D = rbinomial(1, invlogit(-3 + 0.2 * L0))
+gen double Lcont = rnormal(5, 2)
+gen double Ycont = 2 + 0.5 * L + 0.3 * A + rnormal(0, 1)
 tempfile tvdata
 save `tvdata'
+
+capture program drop _assert_tv_nondegenerate
+program define _assert_tv_nondegenerate
+    version 16.0
+    syntax [, Ordered]
+
+    tempname _eb
+    matrix `_eb' = e(b)
+    local PO1 = `_eb'[1,1]
+    local PO2 = `_eb'[1,2]
+    local PO3 = `_eb'[1,3]
+
+    assert colsof(`_eb') == 3
+    assert `PO1' >= 0 & `PO1' <= 1
+    assert `PO2' >= 0 & `PO2' <= 1
+    assert `PO3' >= 0 & `PO3' <= 1
+    assert abs(`PO1' - `PO2') > 0.01
+    if "`ordered'" != "" {
+        assert `PO1' < `PO2'
+        assert `PO3' > `PO1' & `PO3' < `PO2'
+    }
+end
 
 * 59. Time-varying with eofu binary outcome
 local ++test_count
 capture noisily {
     use `tvdata', clear
-    gcomp Y L A id time, outcome(Y) ///
+    gcomp Y L0 A L Alag Llag id time, outcome(Y) ///
         idvar(id) tvar(time) ///
-        varyingcovariates(L) ///
-        commands(L: regress, Y: logit, A: logit) ///
-        equations(L: A, Y: L A, A: L) ///
-        intvars(A) interventions(A_: A_=1, A_: A_=0) ///
+        varyingcovariates(L) fixedcovariates(L0) ///
+        laggedvars(Alag Llag) lagrules(Alag: A 1, Llag: L 1) ///
+        commands(A: logit, Y: logit, L: regress) ///
+        equations(A: L0 L, Y: Alag Llag L0, L: Alag Llag L0) ///
+        intvars(A) interventions(A=1, A=0) ///
         eofu sim(100) samples(3) seed(1)
     assert "`e(analysis_type)'" == "time_varying"
     confirm scalar e(obs_data)
+    _assert_tv_nondegenerate, ordered
 }
 if _rc == 0 {
-    display as result "  PASS: Time-varying eofu binary outcome"
+    display as result "  PASS: Time-varying eofu binary outcome is nondegenerate"
     local ++pass_count
 }
 else {
@@ -1418,23 +1491,18 @@ else {
 local ++test_count
 capture noisily {
     use `tvdata', clear
-    gcomp Y L A id time, outcome(Y) ///
+    gcomp Y L0 A L Alag Llag id time, outcome(Y) ///
         idvar(id) tvar(time) ///
-        varyingcovariates(L) ///
-        commands(L: regress, Y: logit, A: logit) ///
-        equations(L: A, Y: L A, A: L) ///
-        intvars(A) interventions(A_: A_=1, A_: A_=0) ///
+        varyingcovariates(L) fixedcovariates(L0) ///
+        laggedvars(Alag Llag) lagrules(Alag: A 1, Llag: L 1) ///
+        commands(A: logit, Y: logit, L: regress) ///
+        equations(A: L0 L, Y: Alag Llag L0, L: Alag Llag L0) ///
+        intvars(A) interventions(A=1, A=0) ///
         eofu sim(100) samples(3) seed(1)
-
-    tempname eb
-    matrix `eb' = e(b)
-    local PO1 = `eb'[1,1]
-    local PO2 = `eb'[1,2]
-    assert `PO1' != .
-    assert `PO2' != .
+    _assert_tv_nondegenerate, ordered
 }
 if _rc == 0 {
-    display as result "  PASS: documented eofu example pattern returns usable POs"
+    display as result "  PASS: documented eofu example pattern returns nondegenerate POs"
     local ++pass_count
 }
 else {
@@ -1479,17 +1547,19 @@ else {
 local ++test_count
 capture noisily {
     use `tvdata', clear
-    gcomp Y L A id time, outcome(Y) ///
+    gcomp Y L0 A L Alag Llag id time, outcome(Y) ///
         idvar(id) tvar(time) ///
-        varyingcovariates(L) ///
-        commands(L: regress, Y: logit, A: logit) ///
-        equations(L: A, Y: L A, A: L) ///
-        intvars(A) interventions(A_: A_=1, A_: A_=0) ///
+        varyingcovariates(L) fixedcovariates(L0) ///
+        laggedvars(Alag Llag) lagrules(Alag: A 1, Llag: L 1) ///
+        commands(A: logit, Y: logit, L: regress) ///
+        equations(A: L0 L, Y: Alag Llag L0, L: Alag Llag L0) ///
+        intvars(A) interventions(A=1, A=0) ///
         pooled eofu sim(100) samples(3) seed(1)
     assert "`e(analysis_type)'" == "time_varying"
+    _assert_tv_nondegenerate, ordered
 }
 if _rc == 0 {
-    display as result "  PASS: Time-varying pooled logistic"
+    display as result "  PASS: Time-varying pooled logistic keeps nondegenerate POs"
     local ++pass_count
 }
 else {
@@ -1501,17 +1571,19 @@ else {
 local ++test_count
 capture noisily {
     use `tvdata', clear
-    gcomp Y L A id time, outcome(Y) ///
+    gcomp Y L0 A L Alag Llag id time, outcome(Y) ///
         idvar(id) tvar(time) ///
-        varyingcovariates(L) ///
-        commands(L: regress, Y: logit, A: logit) ///
-        equations(L: A, Y: L A, A: L) ///
-        intvars(A) interventions(A_: A_=1, A_: A_=0) ///
+        varyingcovariates(L) fixedcovariates(L0) ///
+        laggedvars(Alag Llag) lagrules(Alag: A 1, Llag: L 1) ///
+        commands(A: logit, Y: logit, L: regress) ///
+        equations(A: L0 L, Y: Alag Llag L0, L: Alag Llag L0) ///
+        intvars(A) interventions(A=1, A=0) ///
         eofu monotreat sim(100) samples(3) seed(1)
     assert "`e(analysis_type)'" == "time_varying"
+    _assert_tv_nondegenerate, ordered
 }
 if _rc == 0 {
-    display as result "  PASS: Time-varying monotreat"
+    display as result "  PASS: Time-varying monotreat keeps nondegenerate POs"
     local ++pass_count
 }
 else {
@@ -1557,17 +1629,19 @@ else {
 local ++test_count
 capture noisily {
     use `tvdata', clear
-    gcomp Y L A fixvar id time, outcome(Y) ///
+    gcomp Y L0 A L Alag Llag fixvar id time, outcome(Y) ///
         idvar(id) tvar(time) ///
-        varyingcovariates(L) fixedcovariates(fixvar) ///
-        commands(L: regress, Y: logit, A: logit) ///
-        equations(L: A fixvar, Y: L A fixvar, A: L fixvar) ///
-        intvars(A) interventions(A_: A_=1, A_: A_=0) ///
+        varyingcovariates(L) fixedcovariates(L0 fixvar) ///
+        laggedvars(Alag Llag) lagrules(Alag: A 1, Llag: L 1) ///
+        commands(A: logit, Y: logit, L: regress) ///
+        equations(A: L0 L fixvar, Y: Alag Llag L0 fixvar, L: Alag Llag L0 fixvar) ///
+        intvars(A) interventions(A=1, A=0) ///
         eofu sim(100) samples(3) seed(1)
     assert "`e(analysis_type)'" == "time_varying"
+    _assert_tv_nondegenerate, ordered
 }
 if _rc == 0 {
-    display as result "  PASS: Time-varying with fixedcovariates()"
+    display as result "  PASS: Time-varying with fixedcovariates() stays nondegenerate"
     local ++pass_count
 }
 else {
@@ -1579,20 +1653,19 @@ else {
 local ++test_count
 capture noisily {
     use `tvdata', clear
-    gen double Alag = 0
-    bysort id (time): replace Alag = A[_n-1] if _n > 1
-    gcomp Y L A Alag id time, outcome(Y) ///
+    gcomp Y L0 A L Alag Llag id time, outcome(Y) ///
         idvar(id) tvar(time) ///
-        varyingcovariates(L) ///
-        commands(L: regress, Y: logit, A: logit) ///
-        equations(L: A Alag, Y: L A Alag, A: L Alag) ///
-        intvars(A) interventions(A_: A_=1, A_: A_=0) ///
-        laggedvars(Alag) lagrules(Alag: A 1) ///
+        varyingcovariates(L) fixedcovariates(L0) ///
+        commands(A: logit, Y: logit, L: regress) ///
+        equations(A: L0 L, Y: Alag Llag L0, L: Alag Llag L0) ///
+        intvars(A) interventions(A=1, A=0) ///
+        laggedvars(Alag Llag) lagrules(Alag: A 1, Llag: L 1) ///
         eofu sim(100) samples(3) seed(1)
     assert "`e(analysis_type)'" == "time_varying"
+    _assert_tv_nondegenerate, ordered
 }
 if _rc == 0 {
-    display as result "  PASS: Time-varying with laggedvars/lagrules"
+    display as result "  PASS: Time-varying with laggedvars/lagrules stays nondegenerate"
     local ++pass_count
 }
 else {
@@ -1604,19 +1677,20 @@ else {
 local ++test_count
 capture noisily {
     use `tvdata', clear
-    gen double Lsq = L^2
-    gcomp Y L Lsq A id time, outcome(Y) ///
+    gcomp Y L0 A L Alag Llag Llagsq id time, outcome(Y) ///
         idvar(id) tvar(time) ///
-        varyingcovariates(L) ///
-        commands(L: regress, Y: logit, A: logit) ///
-        equations(L: A, Y: L Lsq A, A: L) ///
-        intvars(A) interventions(A_: A_=1, A_: A_=0) ///
-        derived(Lsq) derrules(Lsq: L^2) ///
+        varyingcovariates(L) fixedcovariates(L0) ///
+        laggedvars(Alag Llag) lagrules(Alag: A 1, Llag: L 1) ///
+        commands(A: logit, Y: logit, L: regress) ///
+        equations(A: L0 L, Y: Alag Llag L0 Llagsq, L: Alag Llag L0) ///
+        intvars(A) interventions(A=1, A=0) ///
+        derived(Llagsq) derrules(Llagsq: Llag^2) ///
         eofu sim(100) samples(3) seed(1)
     assert "`e(analysis_type)'" == "time_varying"
+    _assert_tv_nondegenerate, ordered
 }
 if _rc == 0 {
-    display as result "  PASS: Time-varying with derived/derrules"
+    display as result "  PASS: Time-varying with derived/derrules stays nondegenerate"
     local ++pass_count
 }
 else {
@@ -1691,20 +1765,18 @@ else {
 local ++test_count
 capture noisily {
     use `tvdata', clear
-    gcomp Y L A id time, outcome(Y) ///
+    gcomp Y L0 A L Alag Llag id time, outcome(Y) ///
         idvar(id) tvar(time) ///
-        varyingcovariates(L) ///
-        commands(L: regress, Y: logit, A: logit) ///
-        equations(L: A, Y: L A, A: L) ///
-        intvars(A) interventions(A_: A_=1, A_: A_=0) ///
+        varyingcovariates(L) fixedcovariates(L0) ///
+        laggedvars(Alag Llag) lagrules(Alag: A 1, Llag: L 1) ///
+        commands(A: logit, Y: logit, L: regress) ///
+        equations(A: L0 L, Y: Alag Llag L0, L: Alag Llag L0) ///
+        intvars(A) interventions(A=1, A=0) ///
         eofu sim(100) samples(3) seed(1)
-    tempname _eb
-    matrix `_eb' = e(b)
-    * Should have PO1 and PO2 columns
-    assert colsof(`_eb') >= 2
+    _assert_tv_nondegenerate, ordered
 }
 if _rc == 0 {
-    display as result "  PASS: Time-varying multiple interventions (2 POs)"
+    display as result "  PASS: Time-varying interventions return nondegenerate POs"
     local ++pass_count
 }
 else {
@@ -1716,12 +1788,13 @@ else {
 local ++test_count
 capture noisily {
     use `tvdata', clear
-    gcomp Y L A id time, outcome(Y) ///
+    gcomp Y L0 A L Alag Llag id time, outcome(Y) ///
         idvar(id) tvar(time) ///
-        varyingcovariates(L) ///
-        commands(L: regress, Y: logit, A: logit) ///
-        equations(L: A, Y: L A, A: L) ///
-        intvars(A) interventions(A_: A_=1, A_: A_=0) ///
+        varyingcovariates(L) fixedcovariates(L0) ///
+        laggedvars(Alag Llag) lagrules(Alag: A 1, Llag: L 1) ///
+        commands(A: logit, Y: logit, L: regress) ///
+        equations(A: L0 L, Y: Alag Llag L0, L: Alag Llag L0) ///
+        intvars(A) interventions(A=1, A=0) ///
         eofu sim(100) samples(3) seed(1)
     confirm scalar e(obs_data)
     confirm scalar e(N)
@@ -1734,9 +1807,10 @@ capture noisily {
     confirm matrix e(V)
     confirm matrix e(se)
     confirm matrix e(ci_normal)
+    _assert_tv_nondegenerate, ordered
 }
 if _rc == 0 {
-    display as result "  PASS: Time-varying e() stored results complete"
+    display as result "  PASS: Time-varying e() stored results are complete and nondegenerate"
     local ++pass_count
 }
 else {
@@ -1749,22 +1823,27 @@ local ++test_count
 capture noisily {
     use `tvdata', clear
     local N_before = _N
-    gcomp Y L A id time, outcome(Y) ///
+    gcomp Y L0 A L Alag Llag id time, outcome(Y) ///
         idvar(id) tvar(time) ///
-        varyingcovariates(L) ///
-        commands(L: regress, Y: logit, A: logit) ///
-        equations(L: A, Y: L A, A: L) ///
-        intvars(A) interventions(A_: A_=1, A_: A_=0) ///
+        varyingcovariates(L) fixedcovariates(L0) ///
+        laggedvars(Alag Llag) lagrules(Alag: A 1, Llag: L 1) ///
+        commands(A: logit, Y: logit, L: regress) ///
+        equations(A: L0 L, Y: Alag Llag L0, L: Alag Llag L0) ///
+        intvars(A) interventions(A=1, A=0) ///
         eofu sim(100) samples(3) seed(1)
+    _assert_tv_nondegenerate, ordered
     assert _N == `N_before'
     confirm variable Y
+    confirm variable L0
     confirm variable L
     confirm variable A
+    confirm variable Alag
+    confirm variable Llag
     confirm variable id
     confirm variable time
 }
 if _rc == 0 {
-    display as result "  PASS: Time-varying data preservation"
+    display as result "  PASS: Time-varying data preservation with nondegenerate estimates"
     local ++pass_count
 }
 else {

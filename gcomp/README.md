@@ -105,25 +105,44 @@ This produces mediation contrasts across exposure levels. Because `gcomptab` doe
 
 ### 4. Time-varying confounding in long data
 
-Here the data are already in long format with one row per person-time observation. `L` is the time-varying confounder, `A` is the intervention variable, and `outcome` is the binary outcome.
+Here the data are already in long format with one row per person-time observation. `L0` is a baseline covariate, `L` is the time-varying confounder, `A` is the intervention variable, and `outcome` is recorded only on the final row for each subject.
 
 ```stata
 clear
-set seed 98765
-set obs 600
+set seed 20260421
+set obs 360
 gen long id = ceil(_n / 3)
 bysort id: gen int time = _n
-gen double L = rnormal()
-gen double A = rbinomial(1, invlogit(-1 + 0.3 * L))
-gen double outcome = rbinomial(1, invlogit(-2 + 0.5 * L + 0.4 * A))
+gen double L0 = rnormal()
+bysort id (time): replace L0 = L0[1]
+gen byte A = .
+gen double L = .
+gen byte Alag = 0
+gen double Llag = 0
 
-gcomp outcome L A id time, outcome(outcome) ///
+bysort id (time): replace L = 0.15 + 0.65 * L0 + rnormal(0, 0.35) if time == 1
+bysort id (time): replace A = rbinomial(1, invlogit(-0.35 + 0.70 * L + 0.20 * L0)) if time == 1
+
+bysort id (time): replace L = 0.10 + 0.60 * L[_n-1] - 0.55 * A[_n-1] + 0.15 * L0 + rnormal(0, 0.35) if time == 2
+bysort id (time): replace A = rbinomial(1, invlogit(-0.25 + 0.60 * L + 0.20 * L0)) if time == 2
+
+bysort id (time): replace L = 0.05 + 0.55 * L[_n-1] - 0.55 * A[_n-1] + 0.10 * L0 + rnormal(0, 0.35) if time == 3
+bysort id (time): replace A = rbinomial(1, invlogit(-0.15 + 0.55 * L + 0.20 * L0)) if time == 3
+
+bysort id (time): replace Alag = A[_n-1] if _n > 1
+bysort id (time): replace Llag = L[_n-1] if _n > 1
+
+gen byte outcome = 0
+bysort id (time): replace outcome = rbinomial(1, invlogit(-1.35 - 0.90 * A[_n-1] + 0.75 * L[_n-1] + 0.20 * L0)) if time == 3
+
+gcomp outcome L0 A L Alag Llag id time, outcome(outcome) ///
     idvar(id) tvar(time) ///
-    varyingcovariates(L) ///
-    commands(L: regress, outcome: logit, A: logit) ///
-    equations(L: A, outcome: L A, A: L) ///
-    intvars(A) interventions(A_: A_=1, A_: A_=0) ///
-    sim(500) samples(200) seed(42) eofu
+    varyingcovariates(L) fixedcovariates(L0) ///
+    laggedvars(Alag Llag) lagrules(Alag: A 1, Llag: L 1) ///
+    commands(A: logit, outcome: logit, L: regress) ///
+    equations(A: L0 L, outcome: Alag Llag L0, L: Alag Llag L0) ///
+    intvars(A) interventions(A=1, A=0) ///
+    sim(120) samples(5) seed(20260421) eofu
 ```
 
 For `eofu` analyses, record the outcome only on the final row for each subject. Earlier nonmissing values are ignored by design.

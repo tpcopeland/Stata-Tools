@@ -213,11 +213,18 @@ quietly {
 	* Get confidence intervals from e(ci_<type>) matrix
 	* gcomp CI matrices are 2 x N: row 1 = lower, row 2 = upper
 	tempname ci_mat
-	capture matrix `ci_mat' = e(ci_`ci')
+	capture confirm matrix e(ci_`ci')
 	if _rc != 0 {
 		noisily display as error "CI matrix ci_`ci' not found"
 		noisily display as error "Available CI types depend on gcomp bootstrap options"
 		exit 111
+	}
+	matrix `ci_mat' = e(ci_`ci')
+	if rowsof(`ci_mat') != 2 | colsof(`ci_mat') != `n_cols' {
+		noisily display as error "CI matrix ci_`ci' has unexpected dimensions"
+		noisily display as error "Expected 2 x `n_cols', found " ///
+		    rowsof(`ci_mat') " x " colsof(`ci_mat')
+		exit 198
 	}
 
 	local ci_tce_lo = `ci_mat'[1, colnumb(`ci_mat', "tce")]

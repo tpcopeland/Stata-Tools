@@ -26,6 +26,37 @@ discard
 
 local testdir "`c(tmpdir)'"
 
+capture program drop _val_tv_build
+program define _val_tv_build
+    version 16.0
+    syntax, Subjects(integer)
+
+    clear
+    set seed 20260421
+    set obs `=`subjects' * 3'
+
+    gen long id = ceil(_n / 3)
+    bysort id: gen byte time = _n
+    gen double L0 = rnormal()
+    bysort id (time): replace L0 = L0[1]
+    gen byte A = .
+    gen double L = .
+    gen byte Alag = 0
+    gen double Llag = 0
+
+    bysort id (time): replace L = 0.15 + 0.65 * L0 + rnormal(0, 0.35) if time == 1
+    bysort id (time): replace A = rbinomial(1, invlogit(-0.35 + 0.70 * L + 0.20 * L0)) if time == 1
+    bysort id (time): replace L = 0.10 + 0.60 * L[_n-1] - 0.55 * A[_n-1] + 0.15 * L0 + rnormal(0, 0.35) if time == 2
+    bysort id (time): replace A = rbinomial(1, invlogit(-0.25 + 0.60 * L + 0.20 * L0)) if time == 2
+    bysort id (time): replace L = 0.05 + 0.55 * L[_n-1] - 0.55 * A[_n-1] + 0.10 * L0 + rnormal(0, 0.35) if time == 3
+    bysort id (time): replace A = rbinomial(1, invlogit(-0.15 + 0.55 * L + 0.20 * L0)) if time == 3
+    bysort id (time): replace Alag = A[_n-1] if _n > 1
+    bysort id (time): replace Llag = L[_n-1] if _n > 1
+
+    gen byte Y = 0
+    bysort id (time): replace Y = rbinomial(1, invlogit(-1.35 - 0.90 * A[_n-1] + 0.75 * L[_n-1] + 0.20 * L0)) if time == 3
+end
+
 * ============================================================
 * V1: Mediation decomposition invariants
 * ============================================================
@@ -714,56 +745,94 @@ else {
 display ""
 display as text "V7: Time-varying mode validation"
 
+capture program drop _build_tv_validation_data
+program define _build_tv_validation_data
+    version 16.0
+    syntax, Observations(integer)
+
+    clear
+    set seed 20260321
+    set obs `observations'
+    gen long id = ceil(_n / 3)
+    bysort id: gen int time = _n
+    gen double L0 = rnormal()
+    bysort id (time): replace L0 = L0[1]
+    gen byte A = .
+    gen double L = .
+    gen byte Alag = 0
+    gen double Llag = 0
+
+    bysort id (time): replace L = 0.15 + 0.65 * L0 + rnormal(0, 0.35) if time == 1
+    bysort id (time): replace A = rbinomial(1, invlogit(-0.35 + 0.70 * L + 0.20 * L0)) if time == 1
+
+    bysort id (time): replace L = 0.10 + 0.60 * L[_n-1] - 0.55 * A[_n-1] + 0.15 * L0 + rnormal(0, 0.35) if time == 2
+    bysort id (time): replace A = rbinomial(1, invlogit(-0.25 + 0.60 * L + 0.20 * L0)) if time == 2
+
+    bysort id (time): replace L = 0.05 + 0.55 * L[_n-1] - 0.55 * A[_n-1] + 0.10 * L0 + rnormal(0, 0.35) if time == 3
+    bysort id (time): replace A = rbinomial(1, invlogit(-0.15 + 0.55 * L + 0.20 * L0)) if time == 3
+
+    bysort id (time): replace Alag = A[_n-1] if _n > 1
+    bysort id (time): replace Llag = L[_n-1] if _n > 1
+
+    gen byte Y = 0
+    bysort id (time): replace Y = rbinomial(1, invlogit(-1.35 - 0.90 * A[_n-1] + 0.75 * L[_n-1] + 0.20 * L0)) if time == 3
+end
+
 * V7.1: Time-varying mode completes and returns valid e() results
 local ++test_count
 capture noisily {
-    clear
-    set seed 20260321
-    set obs 600
-    gen long id = ceil(_n / 3)
-    bysort id: gen int time = _n
-    gen double L = rnormal()
-    gen double A = rbinomial(1, invlogit(-1 + 0.3*L))
-    gen double Y = rbinomial(1, invlogit(-2 + 0.5*L + 0.4*A))
+    _build_tv_validation_data, observations(600)
 
-    gcomp Y L A id time, outcome(Y) ///
+    gcomp Y L0 A L Alag Llag id time, outcome(Y) ///
         idvar(id) tvar(time) ///
-        varyingcovariates(L) ///
-        commands(L: regress, Y: logit, A: logit) ///
-        equations(L: A, Y: L A, A: L) ///
-        intvars(A) interventions(A_: A_=1, A_: A_=0) ///
+        varyingcovariates(L) fixedcovariates(L0) ///
+        laggedvars(Alag Llag) lagrules(Alag: A 1, Llag: L 1) ///
+        commands(A: logit, Y: logit, L: regress) ///
+        equations(A: L0 L, Y: Alag Llag L0, L: Alag Llag L0) ///
+        intvars(A) interventions(A=1, A=0) ///
         eofu sim(200) samples(50) seed(20260321)
 
     assert "`e(cmd)'" == "gcomp"
     assert "`e(analysis_type)'" == "time_varying"
     tempname _eb
     matrix `_eb' = e(b)
-    local ncols = colsof(`_eb')
-    * Should have PO columns for 2 interventions + observational regime
-    assert `ncols' >= 3
     local PO1 = `_eb'[1,1]
     local PO2 = `_eb'[1,2]
-    assert `PO1' != .
-    assert `PO2' != .
+    local PO3 = `_eb'[1,3]
+    assert colsof(`_eb') == 3
+    assert `PO1' >= 0 & `PO1' <= 1
+    assert `PO2' >= 0 & `PO2' <= 1
+    assert `PO3' >= 0 & `PO3' <= 1
+    assert abs(`PO1' - `PO2') > 0.01
+    assert `PO1' < `PO2'
+    assert `PO3' > `PO1' & `PO3' < `PO2'
 }
 if _rc == 0 {
-    display as result "  PASS: V7.1 Time-varying eofu completes with usable POs"
+    display as result "  PASS: V7.1 Time-varying eofu returns ordered nondegenerate POs"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: V7.1 usable POs (error `=_rc')"
+    display as error "  FAIL: V7.1 nondegenerate POs (error `=_rc')"
     local ++fail_count
 }
 
 * V7.2: Time-varying e(obs_data) is a real number
 local ++test_count
 capture noisily {
+    tempname _eb
+    matrix `_eb' = e(b)
+    local PO1 = `_eb'[1,1]
+    local PO2 = `_eb'[1,2]
+    local PO3 = `_eb'[1,3]
     assert e(obs_data) != .
     assert e(obs_data) >= 0
     assert e(obs_data) <= 1
+    assert abs(e(obs_data) - `PO1') > 0.01
+    assert abs(e(obs_data) - `PO2') > 0.01
+    assert abs(e(obs_data) - `PO3') < 0.12
 }
 if _rc == 0 {
-    display as result "  PASS: V7.2 e(obs_data) is valid proportion (" %6.4f e(obs_data) ")"
+    display as result "  PASS: V7.2 e(obs_data) is valid and close to the natural-regime PO"
     local ++pass_count
 }
 else {
@@ -831,32 +900,30 @@ display as text "V9: Idempotency — same data/seed = same results"
 * V9.1: Time-varying mode reproducibility
 local ++test_count
 capture noisily {
-    clear
-    set seed 20260321
-    set obs 300
-    gen long id = ceil(_n / 3)
-    bysort id: gen int time = _n
-    gen double L = rnormal()
-    gen double A = rbinomial(1, invlogit(-1 + 0.3*L))
-    gen double Y = rbinomial(1, invlogit(-2 + 0.5*L + 0.4*A))
+    _build_tv_validation_data, observations(300)
     tempfile tvrepro
     save `tvrepro'
 
-    gcomp Y L A id time, outcome(Y) ///
+    gcomp Y L0 A L Alag Llag id time, outcome(Y) ///
         idvar(id) tvar(time) varyingcovariates(L) ///
-        commands(L: regress, Y: logit, A: logit) ///
-        equations(L: A, Y: L A, A: L) ///
-        intvars(A) interventions(A_: A_=1, A_: A_=0) ///
+        fixedcovariates(L0) laggedvars(Alag Llag) ///
+        lagrules(Alag: A 1, Llag: L 1) ///
+        commands(A: logit, Y: logit, L: regress) ///
+        equations(A: L0 L, Y: Alag Llag L0, L: Alag Llag L0) ///
+        intvars(A) interventions(A=1, A=0) ///
         eofu sim(100) samples(5) seed(42)
     tempname b1
     matrix `b1' = e(b)
+    assert abs(`b1'[1,1] - `b1'[1,2]) > 0.01
 
     use `tvrepro', clear
-    gcomp Y L A id time, outcome(Y) ///
+    gcomp Y L0 A L Alag Llag id time, outcome(Y) ///
         idvar(id) tvar(time) varyingcovariates(L) ///
-        commands(L: regress, Y: logit, A: logit) ///
-        equations(L: A, Y: L A, A: L) ///
-        intvars(A) interventions(A_: A_=1, A_: A_=0) ///
+        fixedcovariates(L0) laggedvars(Alag Llag) ///
+        lagrules(Alag: A 1, Llag: L 1) ///
+        commands(A: logit, Y: logit, L: regress) ///
+        equations(A: L0 L, Y: Alag Llag L0, L: Alag Llag L0) ///
+        intvars(A) interventions(A=1, A=0) ///
         eofu sim(100) samples(5) seed(42)
     tempname b2
     matrix `b2' = e(b)
@@ -939,22 +1006,20 @@ else {
 * V10.2: e(N) matches subject count in time-varying mode
 local ++test_count
 capture noisily {
-    clear
-    set seed 20260321
-    set obs 450
-    gen long id = ceil(_n / 3)
-    bysort id: gen int time = _n
-    gen double L = rnormal()
-    gen double A = rbinomial(1, invlogit(-1 + 0.3*L))
-    gen double Y = rbinomial(1, invlogit(-2 + 0.5*L + 0.4*A))
-    gcomp Y L A id time, outcome(Y) ///
+    _build_tv_validation_data, observations(450)
+    gcomp Y L0 A L Alag Llag id time, outcome(Y) ///
         idvar(id) tvar(time) varyingcovariates(L) ///
-        commands(L: regress, Y: logit, A: logit) ///
-        equations(L: A, Y: L A, A: L) ///
-        intvars(A) interventions(A_: A_=1, A_: A_=0) ///
+        fixedcovariates(L0) laggedvars(Alag Llag) ///
+        lagrules(Alag: A 1, Llag: L 1) ///
+        commands(A: logit, Y: logit, L: regress) ///
+        equations(A: L0 L, Y: Alag Llag L0, L: Alag Llag L0) ///
+        intvars(A) interventions(A=1, A=0) ///
         eofu sim(100) samples(3) seed(1)
     * 450 obs / 3 time points = 150 subjects
     assert e(N) == 150
+    tempname _eb
+    matrix `_eb' = e(b)
+    assert abs(`_eb'[1,1] - `_eb'[1,2]) > 0.01
 }
 if _rc == 0 {
     display as result "  PASS: V10.2 e(N) matches subject count in time-varying (150)"

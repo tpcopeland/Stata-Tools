@@ -124,38 +124,63 @@ capture erase "`xlsx'"
 * ============================================================
 * D4: README snippet — time-varying g-formula with intvars
 * ============================================================
-* Mirrors the README example as displayed: continuous time-varying confounder,
-* binary outcome, explicit exposure model, and eofu option.
+* Mirrors the README example as displayed: baseline covariate L0, time-varying
+* confounder L, explicit lagged state, and eofu option.
 
 local ++test_count
 capture noisily {
     clear
-    set seed 98765
-    set obs 600
+    set seed 20260421
+    set obs 360
     gen long id = ceil(_n / 3)
     bysort id: gen int time = _n
-    gen double L = rnormal()
-    gen double A = rbinomial(1, invlogit(-1 + 0.3*L))
-    gen double outcome = rbinomial(1, invlogit(-2 + 0.5*L + 0.4*A))
+    gen double L0 = rnormal()
+    bysort id (time): replace L0 = L0[1]
+    gen byte A = .
+    gen double L = .
+    gen byte Alag = 0
+    gen double Llag = 0
 
-    gcomp outcome L A id time, outcome(outcome) ///
+    bysort id (time): replace L = 0.15 + 0.65 * L0 + rnormal(0, 0.35) if time == 1
+    bysort id (time): replace A = rbinomial(1, invlogit(-0.35 + 0.70 * L + 0.20 * L0)) if time == 1
+
+    bysort id (time): replace L = 0.10 + 0.60 * L[_n-1] - 0.55 * A[_n-1] + 0.15 * L0 + rnormal(0, 0.35) if time == 2
+    bysort id (time): replace A = rbinomial(1, invlogit(-0.25 + 0.60 * L + 0.20 * L0)) if time == 2
+
+    bysort id (time): replace L = 0.05 + 0.55 * L[_n-1] - 0.55 * A[_n-1] + 0.10 * L0 + rnormal(0, 0.35) if time == 3
+    bysort id (time): replace A = rbinomial(1, invlogit(-0.15 + 0.55 * L + 0.20 * L0)) if time == 3
+
+    bysort id (time): replace Alag = A[_n-1] if _n > 1
+    bysort id (time): replace Llag = L[_n-1] if _n > 1
+
+    gen byte outcome = 0
+    bysort id (time): replace outcome = rbinomial(1, invlogit(-1.35 - 0.90 * A[_n-1] + 0.75 * L[_n-1] + 0.20 * L0)) if time == 3
+
+    gcomp outcome L0 A L Alag Llag id time, outcome(outcome) ///
         idvar(id) tvar(time) ///
-        varyingcovariates(L) ///
-        commands(L: regress, outcome: logit, A: logit) ///
-        equations(L: A, outcome: L A, A: L) ///
-        intvars(A) interventions(A_: A_=1, A_: A_=0) ///
-        sim(50) samples(10) seed(42) eofu
+        varyingcovariates(L) fixedcovariates(L0) ///
+        laggedvars(Alag Llag) lagrules(Alag: A 1, Llag: L 1) ///
+        commands(A: logit, outcome: logit, L: regress) ///
+        equations(A: L0 L, outcome: Alag Llag L0, L: Alag Llag L0) ///
+        intvars(A) interventions(A=1, A=0) ///
+        sim(120) samples(5) seed(20260421) eofu
     assert "`e(cmd)'" == "gcomp"
     assert "`e(analysis_type)'" == "time_varying"
     tempname _eb
     matrix `_eb' = e(b)
     local PO1 = `_eb'[1,1]
     local PO2 = `_eb'[1,2]
-    assert `PO1' != .
-    assert `PO2' != .
+    local PO3 = `_eb'[1,3]
+    assert colsof(`_eb') == 3
+    assert `PO1' >= 0 & `PO1' <= 1
+    assert `PO2' >= 0 & `PO2' <= 1
+    assert `PO3' >= 0 & `PO3' <= 1
+    assert abs(`PO1' - `PO2') > 0.01
+    assert `PO1' < `PO2'
+    assert `PO3' > `PO1' & `PO3' < `PO2'
 }
 if _rc == 0 {
-    display as result "  PASS: D4 README time-varying example runs with a nondegenerate contrast"
+    display as result "  PASS: D4 README time-varying example returns ordered nondegenerate POs"
     local ++pass_count
 }
 else {

@@ -30,10 +30,14 @@ foreach f in ///
     test_stress ///
     test_interactions ///
     test_gcomptab_regressions ///
+    test_install_smoke ///
+    test_errors ///
     test_doc_examples ///
     validation_gcomp ///
     validation_extra ///
-    crossval_gcomp {
+    validation_timevarying ///
+    crossval_gcomp ///
+    crossval_timevarying {
     display _n as text "=============================================="
     display as text "Running: `f'.do"
     display as text "=============================================="

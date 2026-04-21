@@ -1,0 +1,5 @@
+metric,value,source,notes
+po_all1,0.08786,python_mc,"Always-treat mean potential outcome under the sequential 3-visit DGP"
+po_all0,0.25003,python_mc,"Never-treat mean potential outcome under the sequential 3-visit DGP"
+po_natural,0.16357,python_mc,"Natural-regime mean potential outcome under the same DGP"
+risk_difference,-0.16216,python_mc,"Always-treat minus never-treat risk difference"
