@@ -1,7 +1,13 @@
 {smcl}
 {* *! version 1.0.1  22apr2026}{...}
+{vieweralsosee "cdp" "help cdp"}{...}
+{vieweralsosee "migrations" "help migrations"}{...}
+{viewerjumpto "Syntax" "setools##syntax"}{...}
 {viewerjumpto "Description" "setools##description"}{...}
+{viewerjumpto "Options" "setools##options"}{...}
 {viewerjumpto "Commands" "setools##commands"}{...}
+{viewerjumpto "Examples" "setools##examples"}{...}
+{viewerjumpto "Stored results" "setools##results"}{...}
 {viewerjumpto "Installation" "setools##installation"}{...}
 {viewerjumpto "Author" "setools##author"}{...}
 {title:Title}
@@ -9,6 +15,22 @@
 {p2colset 5 16 18 2}{...}
 {p2col:{cmd:setools} {hline 2}}Swedish Registry Toolkit for Epidemiological Cohort Studies{p_end}
 {p2colreset}{...}
+
+
+{marker syntax}{...}
+{title:Syntax}
+
+{p 8 16 2}
+{cmd:setools}
+[{cmd:,} {opt list} {opt detail} {opt cat:egory(category)}]
+
+{synoptset 24 tabbed}{...}
+{synopthdr}
+{synoptline}
+{synopt:{opt list}}display only command names for the selected category{p_end}
+{synopt:{opt detail}}display grouped command descriptions; may not be combined with {opt list}{p_end}
+{synopt:{opt cat:egory(category)}}filter to {cmd:all}, {cmd:codes}, {cmd:migration}, or {cmd:ms}; default is {cmd:all}{p_end}
+{synoptline}
 
 
 {marker description}{...}
@@ -19,6 +41,28 @@
 conducting epidemiological cohort studies. The package includes tools for
 procedure code matching, comorbidity scoring, migration processing,
 and MS disability progression endpoints (EDSS, CDP, PIRA).
+
+{pstd}
+By default, {cmd:setools} displays a grouped package overview. Use {opt list}
+for a compact command list, {opt detail} for longer command descriptions, and
+{opt category()} to restrict the display and returned command list to one
+command group. {opt list} and {opt detail} are mutually exclusive.
+
+
+{marker options}{...}
+{title:Options}
+
+{phang}
+{opt list} displays only the command names for the selected category.
+
+{phang}
+{opt detail} displays grouped command descriptions. It may not be combined with
+{opt list}.
+
+{phang}
+{opt category(category)} filters the displayed and returned commands. Valid
+values are {cmd:all}, {cmd:codes}, {cmd:migration}, and {cmd:ms}. The default
+is {cmd:all}.
 
 
 {marker commands}{...}
@@ -39,7 +83,7 @@ and MS disability progression endpoints (EDSS, CDP, PIRA).
 {pstd}
 {bf:MS Disability Progression}
 
-{synopt:{helpb sustainedss}}Compute sustained EDSS progression date{p_end}
+{synopt:{helpb sustainedss}}Compute the first sustained EDSS threshold date{p_end}
 {synopt:{helpb cdp}}Confirmed Disability Progression from baseline EDSS{p_end}
 {synopt:{helpb pira}}Progression Independent of Relapse Activity{p_end}
 
@@ -56,20 +100,36 @@ To install or update setools:
 {marker examples}{...}
 {title:Examples}
 
-{pstd}Charlson Comorbidity Index from ICD codes{p_end}
-{phang2}{cmd:. cci_se, id(lopnr) icd(dia) date(diagdate)}{p_end}
+{pstd}Show the default grouped overview{p_end}
+{phang2}{cmd:. setools}{p_end}
 
-{pstd}Procedure code matching{p_end}
-{phang2}{cmd:. procmatch match, codes("AA010 AA020") procvars(op1 op2 op3)}{p_end}
+{pstd}List only MS-related commands{p_end}
+{phang2}{cmd:. setools, list category(ms)}{p_end}
 
-{pstd}Confirmed Disability Progression (MS){p_end}
-{phang2}{cmd:. cdp lopnr edss visitdate, dxdate(ms_onset)}{p_end}
+{pstd}Show detailed descriptions for registry-code commands{p_end}
+{phang2}{cmd:. setools, detail category(codes)}{p_end}
 
-{pstd}PIRA detection{p_end}
-{phang2}{cmd:. pira lopnr edss visitdate, dxdate(ms_onset) relapses(relapse_data.dta)}{p_end}
+{pstd}Inspect the returned metadata{p_end}
+{phang2}{cmd:. setools, category(migration)}{p_end}
+{phang2}{cmd:. return list}{p_end}
 
-{pstd}Process migration registry data{p_end}
-{phang2}{cmd:. migrations, migfile(migration_registry.dta)}{p_end}
+
+{marker results}{...}
+{title:Stored results}
+
+{pstd}
+{cmd:setools} stores the following in {cmd:r()}:
+
+{synoptset 20 tabbed}{...}
+{p2col 5 20 24 2: Scalars}{p_end}
+{synopt:{cmd:r(n_commands)}}number of commands in the selected category{p_end}
+
+{p2col 5 20 24 2: Macros}{p_end}
+{synopt:{cmd:r(commands)}}space-separated command list for the selected category{p_end}
+{synopt:{cmd:r(version)}}package version{p_end}
+{synopt:{cmd:r(categories)}}allowed values for {opt category()}: {cmd:all codes migration ms}{p_end}
+{synopt:{cmd:r(category)}}selected category filter{p_end}
+{synopt:{cmd:r(display)}}display mode used: {cmd:grouped}, {cmd:list}, or {cmd:detail}{p_end}
 
 
 {marker author}{...}
@@ -83,3 +143,5 @@ Karolinska Institutet, Stockholm, Sweden
 
 {pstd}
 Online: {browse "https://github.com/tpcopeland/Stata-Tools":Stata-Tools on GitHub}{p_end}
+
+{hline}

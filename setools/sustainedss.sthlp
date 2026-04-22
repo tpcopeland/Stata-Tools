@@ -9,6 +9,7 @@
 {viewerjumpto "Examples" "sustainedss##examples"}{...}
 {viewerjumpto "Stored results" "sustainedss##results"}{...}
 {viewerjumpto "References" "sustainedss##references"}{...}
+{viewerjumpto "Also see" "sustainedss##alsosee"}{...}
 {viewerjumpto "Author" "sustainedss##author"}{...}
 {title:Title}
 
@@ -35,13 +36,18 @@
 {synopt:{opt th:reshold(#)}}EDSS threshold for progression (e.g., 4 or 6){p_end}
 
 {syntab:Optional}
-{synopt:{opt gen:erate(newvar)}}name for generated date variable; default is {it:sustained#_dt}{p_end}
+{synopt:{opt gen:erate(name)}}name for generated date variable; default is {it:sustained#_dt}{p_end}
 {synopt:{opt conf:irmwindow(#)}}confirmation window in days; default is {bf:182}{p_end}
 {synopt:{opt base:linethreshold(#)}}EDSS level for reversal check; default is {it:threshold}{p_end}
 {synopt:{opt keepa:ll}}retain all observations; default keeps only patients with events{p_end}
 {synopt:{opt q:uietly}}suppress iteration messages and summary output{p_end}
 {synoptline}
 {p2colreset}{...}
+
+{p 8 17 2}
+{it:datevar} must be a Stata daily date with a {cmd:%td} display format.
+Other numeric time encodings such as {cmd:%tm}, {cmd:%tq}, and {cmd:%tc} are
+rejected because {opt confirmwindow()} is interpreted in days.{p_end}
 
 
 {marker description}{...}
@@ -52,6 +58,11 @@
 progression dates for multiple sclerosis research. An EDSS progression event 
 is considered "sustained" if the disability level is maintained or confirmed 
 within a specified window after the initial event.
+
+{pstd}
+{bf:Date contract:} {it:datevar} must be a numeric Stata daily date variable
+with a {cmd:%td} display format. The command uses day arithmetic for
+{opt confirmwindow()}, so non-daily encodings are not accepted.
 
 {pstd}
 The command implements an iterative algorithm that:
@@ -80,7 +91,7 @@ This option is required.
 {dlgtab:Optional}
 
 {phang}
-{opt generate(newvar)} specifies the name of the new variable to be created 
+{opt generate(name)} specifies the name of the new variable to be created 
 containing the sustained progression date. The default name is 
 {it:sustained#_dt} where # is the threshold value (with decimal points 
 replaced by underscores).
@@ -118,7 +129,7 @@ The command requires three variables in the specified order:
 
 {phang2}{it:idvar} - Patient identifier (numeric or string){p_end}
 {phang2}{it:edssvar} - EDSS score (numeric){p_end}
-{phang2}{it:datevar} - Date of EDSS measurement (numeric, Stata date format){p_end}
+{phang2}{it:datevar} - Date of EDSS measurement (numeric Stata daily date with {cmd:%td} format){p_end}
 
 {pstd}
 {bf:Algorithm details:}
@@ -243,3 +254,5 @@ Part of the {help setools:setools} package for Swedish registry research.{p_end}
 
 {pstd}
 Online: {browse "https://github.com/tpcopeland/Stata-Tools":Stata-Tools on GitHub}{p_end}
+
+{hline}

@@ -311,6 +311,11 @@ quietly{
 
             local _has_irr = regexm(`"`_cmdline_lc'"', "(^|[, ])irr([ ,]|$)")
             local _has_or = regexm(`"`_cmdline_lc'"', "(^|[, ])or([ ,]|$)")
+            local _optstr ""
+            local _comma_pos = strpos(`"`_cmdline_lc'"', ",")
+            if `_comma_pos' > 0 {
+                local _optstr = lower(strtrim(substr(`"`_cmdline_lc'"', `_comma_pos' + 1, .)))
+            }
 
             local model_coef_`m' "Coef."
             local model_null_`m' 0
@@ -351,7 +356,7 @@ quietly{
                 local model_auto_noint_`m' 1
             }
             else if inlist("`_cmdword'", "streg") {
-                if "`e(frm2)'" == "time" local model_coef_`m' "TR"
+                if regexm(`"`_optstr'"', "(^| )time( |$)") local model_coef_`m' "TR"
                 else local model_coef_`m' "AF"
                 local model_null_`m' 1
                 local model_auto_noint_`m' 1
@@ -362,13 +367,16 @@ quietly{
                 local model_auto_noint_`m' 1
             }
             else if "`_cmdword'" == "glm" {
-                local _efam "`e(varfunct)'"
-                if strpos("`_efam'", "Bernoulli") | strpos("`_efam'", "Binomial") {
+                local _glm_family ""
+                if regexm(`"`_optstr'"', "family\(([a-z0-9_]+)") {
+                    local _glm_family = lower(regexs(1))
+                }
+                if inlist("`_glm_family'", "bernoulli", "binomial") {
                     local model_coef_`m' "OR"
                     local model_null_`m' 1
                     local model_auto_noint_`m' 1
                 }
-                else if strpos("`_efam'", "Poisson") {
+                else if "`_glm_family'" == "poisson" {
                     local model_coef_`m' "IRR"
                     local model_null_`m' 1
                     local model_auto_noint_`m' 1
@@ -840,11 +848,15 @@ quietly{
     if "`re_groupvars'" != "" & "`re_groupvars'" != "." {
         local _n_re_levels : word count `re_groupvars'
         local _is_multilevel = (`_n_re_levels' > 1)
+        local _path_so_far ""
 
         * Store label for each grouping variable
         forvalues _lev = 1/`_n_re_levels' {
             local _gvar : word `_lev' of `re_groupvars'
             local re_groupvar_`_lev' "`_gvar'"
+            if "`_path_so_far'" == "" local _path_so_far "`_gvar'"
+            else local _path_so_far "`_path_so_far'>`_gvar'"
+            local re_grouppath_`_lev' "`_path_so_far'"
             local _glbl : variable label `_gvar'
             if "`_glbl'" == "" local _glbl "`_gvar'"
             local re_grouplbl_`_lev' "`_glbl'"
@@ -987,50 +999,75 @@ if _N < 3 {
 *   header="District" + data="  var(_cons)" -> "var(_cons[district])"
 *   header="y" + data="  x" -> "x"
 if `_is_multilevel' {
-    * Identify header rows: rows > 2 where B (data column) is empty
-    gen byte _is_header = (strtrim(B) == "" | B == ".") & _n > 2
+    quietly count if _n > 2 ///
+        & strpos(A, "[") > 0 & strpos(A, "]") > 0 ///
+        & (strpos(A, "var(") > 0 | strpos(A, "cov(") > 0 | strpos(A, "sd(") > 0)
+    local _qualified_re_layout = (r(N) > 0)
 
-    * Propagate coleq header label down to each data row
-    gen str244 _parent_header = A if _is_header
-    replace _parent_header = _parent_header[_n-1] if _parent_header == "" & _n > 2
-
-    * Trim once for reuse: strip coleq indent from A and whitespace from header
-    gen str244 _A_trim = strtrim(A) if _n > 2
-    replace _parent_header = strtrim(_parent_header) if _n > 2
-
-    * Map coleq labels to variable names using POSITIONAL group IDs
-    * (avoids label collisions when two grouping vars share the same label)
-    * Each header row starts a new group via running sum of _is_header:
-    *   group 1 = FE equation ("y"), group 2 = RE level 1, group 3 = RE level 2, ...
-    gen int _hdr_grp = sum(_is_header)
-    * The FE equation is always group 1; RE levels follow in order
-    local _fe_grp = 1
-    forvalues _lev = 1/`_n_re_levels' {
-        local _gvar "`re_groupvar_`_lev''"
-        local _target_grp = `_fe_grp' + `_lev'
-        replace _parent_header = "`_gvar'" if _hdr_grp == `_target_grp'
+    if `_qualified_re_layout' {
+        * Newer collect exports already encode multi-level RE rows with
+        * bracketed group paths (for example var(_cons[district>school])).
+        * Normalize nested paths to the terminal grouping variable so the
+        * downstream relabel/MOR logic can match them reliably.
+        replace A = strtrim(A) if _n > 2
+        gen byte _q_is_header = _n > 2 & (strtrim(B) == "" | B == ".")
+        drop if _q_is_header
+        drop _q_is_header
+        forvalues _lev = 1/`_n_re_levels' {
+            local _gvar "`re_groupvar_`_lev''"
+            local _gpath "`re_grouppath_`_lev''"
+            if "`_gpath'" != "`_gvar'" {
+                replace A = subinstr(A, "[`_gpath']", "[`_gvar']", .) ///
+                    if _n > 2 & (strpos(A, "var(") > 0 | strpos(A, "cov(") > 0 | strpos(A, "sd(") > 0)
+            }
+        }
     }
-    * Residual group is after all RE levels — leave as-is (handled below)
-    drop _hdr_grp
+    else {
+        * Identify header rows: rows > 2 where B (data column) is empty
+        gen byte _is_header = (strtrim(B) == "" | B == ".") & _n > 2
 
-    * Check if the DATA row (colname) contains an RE pattern
-    gen byte _data_is_re = (strpos(_A_trim, "var(") > 0 | ///
-        strpos(_A_trim, "cov(") > 0 | strpos(_A_trim, "sd(") > 0) & !_is_header
+        * Propagate coleq header label down to each data row
+        gen str244 _parent_header = A if _is_header
+        replace _parent_header = _parent_header[_n-1] if _parent_header == "" & _n > 2
 
-    * RE data rows (not Residual): splice header groupvar into bracket notation
-    * "  var(_cons)" + header "district" -> "var(_cons[district])"
-    replace A = subinstr(_A_trim, ")", "[" + _parent_header + "])", 1) ///
-        if _data_is_re & _parent_header != "Residual" & _n > 2
+        * Trim once for reuse: strip coleq indent from A and whitespace from header
+        gen str244 _A_trim = strtrim(A) if _n > 2
+        replace _parent_header = strtrim(_parent_header) if _n > 2
 
-    * Residual data row: just trim indent
-    replace A = _A_trim if _data_is_re & _parent_header == "Residual" & _n > 2
+        * Map coleq labels to variable names using POSITIONAL group IDs
+        * (avoids label collisions when two grouping vars share the same label)
+        * Each header row starts a new group via running sum of _is_header:
+        *   group 1 = FE equation ("y"), group 2 = RE level 1, group 3 = RE level 2, ...
+        gen int _hdr_grp = sum(_is_header)
+        * The FE equation is always group 1; RE levels follow in order
+        local _fe_grp = 1
+        forvalues _lev = 1/`_n_re_levels' {
+            local _gvar "`re_groupvar_`_lev''"
+            local _target_grp = `_fe_grp' + `_lev'
+            replace _parent_header = "`_gvar'" if _hdr_grp == `_target_grp'
+        }
+        * Residual group is after all RE levels — leave as-is (handled below)
+        drop _hdr_grp
 
-    * FE data rows: use data row's own colname (strip coleq indent)
-    replace A = _A_trim if !_is_header & !_data_is_re & _n > 2
+        * Check if the DATA row (colname) contains an RE pattern
+        gen byte _data_is_re = (strpos(_A_trim, "var(") > 0 | ///
+            strpos(_A_trim, "cov(") > 0 | strpos(_A_trim, "sd(") > 0) & !_is_header
 
-    * Drop the coleq header rows (no data)
-    drop if _is_header
-    drop _is_header _parent_header _data_is_re _A_trim
+        * RE data rows (not Residual): splice header groupvar into bracket notation
+        * "  var(_cons)" + header "district" -> "var(_cons[district])"
+        replace A = subinstr(_A_trim, ")", "[" + _parent_header + "])", 1) ///
+            if _data_is_re & _parent_header != "Residual" & _n > 2
+
+        * Residual data row: just trim indent
+        replace A = _A_trim if _data_is_re & _parent_header == "Residual" & _n > 2
+
+        * FE data rows: use data row's own colname (strip coleq indent)
+        replace A = _A_trim if !_is_header & !_data_is_re & _n > 2
+
+        * Drop the coleq header rows (no data)
+        drop if _is_header
+        drop _is_header _parent_header _data_is_re _A_trim
+    }
 }
 
 if "`noint'" != "" {
@@ -1049,19 +1086,30 @@ replace _is_re_sort = 0 if _n <= 2
 sort _is_re_sort _orig_order
 drop _orig_order _is_re_sort
 
-* Mark random effects row numbers for adaptive formatting
-gen _temp_re_row = _n if (strpos(A, "var(") > 0) | (strpos(A, "cov(") > 0) | (strpos(A, "sd(") > 0)
-levelsof _temp_re_row, local(re_row_nums)
-drop _temp_re_row
-
-* Mark random intercept row numbers for MOR/MHR (before relabel changes names)
-* Note: melogit uses var(_cons[groupvar]) format, not var(_cons)
-* Search for "var(_cons" without closing paren to match both formats
-local re_int_row_nums ""
+* Persist RE markers so keep()/drop() cannot desynchronize them from the
+* filtered table body later in the pipeline.
+gen byte _is_re = _n > 2 & (strpos(A, "var(") > 0 | strpos(A, "cov(") > 0 | strpos(A, "sd(") > 0)
+gen byte _is_re_intercept = 0
+gen str244 _re_group_label = ""
 if "`re_transform'" != "none" & "`nore'" == "" {
-    gen _temp_re_int = _n if strpos(A, "var(_cons") > 0
-    levelsof _temp_re_int, local(re_int_row_nums)
-    drop _temp_re_int
+    replace _is_re_intercept = strpos(A, "var(_cons") > 0 if _n > 2
+    if "`re_groupvars'" != "" & "`re_groupvars'" != "." {
+        forvalues _lev = 1/`_n_re_levels' {
+            local _gvar "`re_groupvar_`_lev''"
+            local _gpath "`re_grouppath_`_lev''"
+            local _glbl "`re_grouplbl_`_lev''"
+            replace _re_group_label = "`_glbl'" if A == "var(_cons[`_gvar'])"
+            if "`_gpath'" != "`_gvar'" {
+                replace _re_group_label = "`_glbl'" if A == "var(_cons[`_gpath'])"
+            }
+            replace _re_group_label = "`_glbl'" ///
+                if _is_re_intercept == 1 & _re_group_label == "" ///
+                & (strpos(A, "[`_gvar']") > 0 | strpos(A, ">`_gvar']") > 0)
+        }
+    }
+    if "`re_grouplbl'" != "" {
+        replace _re_group_label = "`re_grouplbl'" if _re_group_label == "" & A == "var(_cons)"
+    }
 }
 
 * Relabel random effects if requested
@@ -1196,31 +1244,25 @@ if "`relabel'" != "" {
     replace A = subinstr(A, "_cons", "Intercept", .)
 }
 
-* Apply MOR/MHR labels to random intercept rows (using stored row numbers)
+* Apply MOR/MHR labels using row-level group metadata.
 if "`re_transform'" == "mor" & "`nore'" == "" {
-    foreach row of local re_int_row_nums {
-        if "`re_grouplbl'" != "" {
-            replace A = "Median Odds Ratio (`re_grouplbl')" in `row'
-        }
-        else {
-            replace A = "Median Odds Ratio" in `row'
-        }
-    }
+    replace A = "Median Odds Ratio (" + _re_group_label + ")" ///
+        if _is_re_intercept == 1 & _re_group_label != ""
+    replace A = "Median Odds Ratio" ///
+        if _is_re_intercept == 1 & _re_group_label == ""
 }
 else if "`re_transform'" == "mhr" & "`nore'" == "" {
-    foreach row of local re_int_row_nums {
-        if "`re_grouplbl'" != "" {
-            replace A = "Median Hazard Ratio (`re_grouplbl')" in `row'
-        }
-        else {
-            replace A = "Median Hazard Ratio" in `row'
-        }
-    }
+    replace A = "Median Hazard Ratio (" + _re_group_label + ")" ///
+        if _is_re_intercept == 1 & _re_group_label != ""
+    replace A = "Median Hazard Ratio" ///
+        if _is_re_intercept == 1 & _re_group_label == ""
 }
 
 * Get all variables - first variable is row labels, rest are data columns
 ds
 local allvars `r(varlist)'
+local _helper_vars "_is_re _is_re_intercept _re_group_label"
+local allvars : list allvars - _helper_vars
 
 * Get the first variable name (row labels column)
 gettoken firstvar allvars : allvars
@@ -1312,17 +1354,13 @@ if "`drop'" != "" {
     }
 }
 
+local first_re_row ""
+gen long _re_rowid = _n
+quietly summarize _re_rowid if _is_re == 1, meanonly
+if r(N) > 0 local first_re_row = r(min)
+drop _re_rowid
+
 local last = `n' - 2
-* Recreate RE row indicator from stored row numbers
-gen byte _is_re = 0
-foreach row of local re_row_nums {
-    replace _is_re = 1 in `row'
-}
-* Recreate random intercept indicator for MOR/MHR formatting
-gen byte _is_re_intercept = 0
-foreach row of local re_int_row_nums {
-    replace _is_re_intercept = 1 in `row'
-}
 gen byte _is_ancillary = 0
 replace _is_ancillary = 1 if _n > 2 & regexm(strlower(strtrim(A)), "^(/|alpha$|lnalpha$|ln_p$|p$|1/p$)")
 if "`dimnonsig'" != "" {
@@ -1345,6 +1383,7 @@ if "`re_transform'" != "none" {
     replace c`i'z = exp(sqrt(2 * c`i'z) * invnormal(0.75)) ///
         if _is_re_intercept == 1 & !missing(c`i'z) & c`i'z >= 0
 }
+gen double _coefnum`i' = c`i'z if _n >= 3
 * Fixed effects: user-specified decimal places (default 2)
 gen str20 c`i'_fmt = string(round(c`i'z, `coef_round'), "`coef_fmt'") if !_is_re & !missing(c`i'z)
 * Transformed random intercept (MOR/MHR): same precision as fixed effects
@@ -1413,8 +1452,6 @@ forvalues i = 2(3)`=`last'+1' {
 if "`dimnonsig'" != "" {
     replace _nonsig = 0 if _ci_seen == 0 & _n >= 3
 }
-drop _is_re _is_re_intercept _is_ancillary
-capture drop _ci_seen
 forvalues i = 3(3)`n'{
 * Store original string value to detect genuinely missing p-values
 gen str20 c`i'_orig = c`i'
@@ -1449,6 +1486,66 @@ if "`stars'" != "" {
 }
 drop c`i'z c`i'_fmt c`i'_orig
 }
+
+* Build r(table) from the numeric coefficient body before stats()/addrow(),
+* title rows, compact mode, and significance stars change the display strings.
+local _mat_nrows = 0
+local _keep_obs ""
+if `n_models' > 0 {
+    forvalues _obs = 3/`=_N' {
+        local _row_has_data = 0
+        forvalues _ci = 1(3)`last' {
+            capture {
+                local _coefval = _coefnum`_ci'[`_obs']
+                local _cicell = strtrim(c`=`_ci'+1'[`_obs'])
+                if `_coefval' < . {
+                    if !(`_coefval' == 0 & "`_cicell'" == "") {
+                        local _row_has_data = 1
+                    }
+                }
+            }
+        }
+        if `_row_has_data' {
+            local _mat_nrows = `_mat_nrows' + 1
+            local _keep_obs "`_keep_obs' `_obs'"
+        }
+    }
+}
+tempname _rtable
+if `_mat_nrows' > 0 {
+    matrix `_rtable' = J(`_mat_nrows', `n_models', .)
+    local _rnames ""
+    local _mr = 0
+    foreach _obs of local _keep_obs {
+        local _mr = `_mr' + 1
+        local _mc = 0
+        forvalues _ci = 1(3)`last' {
+            local _mc = `_mc' + 1
+            capture {
+                local _coefval = _coefnum`_ci'[`_obs']
+                local _cicell = strtrim(c`=`_ci'+1'[`_obs'])
+                if `_coefval' < . {
+                    if !(`_coefval' == 0 & "`_cicell'" == "") {
+                        matrix `_rtable'[`_mr', `_mc'] = `_coefval'
+                    }
+                }
+            }
+        }
+        local _rname = A[`_obs']
+        local _rname = subinstr("`_rname'", ".", "_", .)
+        local _rname = subinstr("`_rname'", " ", "_", .)
+        local _rname = subinstr("`_rname'", ",", "", .)
+        local _rname = subinstr("`_rname'", ":", "", .)
+        local _rname = substr("`_rname'", 1, 32)
+        if "`_rname'" == "" local _rname "row`_mr'"
+        local _rnames "`_rnames' `_rname'"
+    }
+    capture matrix rownames `_rtable' = `_rnames'
+}
+capture drop _coefnum*
+drop _is_re _is_re_intercept _is_ancillary
+capture drop _re_group_label _ci_seen
+
 *
 * =========================================================================
 * ADD MODEL STATISTICS ROWS (if requested)
@@ -1823,38 +1920,6 @@ local ref_rows "`ref_rows' `ref`i'_levels'"
 }
 local ref_rows: list uniq ref_rows
 
-* Build return matrix from processed data
-* Rows: data rows (excluding headers); Columns: one per model (coef values)
-local _mat_nrows = _N - 2
-if `_mat_nrows' > 0 & `_mat_nrows' <= 100 {
-    tempname _rtable
-    matrix `_rtable' = J(`_mat_nrows', `n_models', .)
-    local _rnames ""
-    forvalues _mr = 1/`_mat_nrows' {
-        local _obs = `_mr' + 2
-        local _mc = 0
-        forvalues _ci = 1(`_cols_per_model')`last' {
-            local _mc = `_mc' + 1
-            capture {
-                local _cell = c`_ci'[`_obs']
-                if "`_cell'" != "`refcat'" & "`_cell'" != "" {
-                    local _numval = real("`_cell'")
-                    if `_numval' < . matrix `_rtable'[`_mr', `_mc'] = `_numval'
-                }
-            }
-        }
-        local _rname = A[`_obs']
-        local _rname = subinstr("`_rname'", ".", "_", .)
-        local _rname = subinstr("`_rname'", " ", "_", .)
-        local _rname = subinstr("`_rname'", ",", "", .)
-        local _rname = subinstr("`_rname'", ":", "", .)
-        local _rname = substr("`_rname'", 1, 32)
-        if "`_rname'" == "" local _rname "row`_mr'"
-        local _rnames "`_rnames' `_rname'"
-    }
-    capture matrix rownames `_rtable' = `_rnames'
-}
-
 * CSV export (F2) — must happen before clear
 if "`csv'" != "" {
     _tabtools_validate_path "`csv'" "csv()"
@@ -1999,9 +2064,8 @@ capture {
 	putexcel (`bl':`br'), border(bottom, `_hborder') // bottom
 
 	* Add border above first random-effects row (separates FE from RE)
-	if "`re_row_nums'" != "" {
-	    local first_re : word 1 of `re_row_nums'
-	    local re_excel_row = `first_re' + 1
+	if "`first_re_row'" != "" {
+	    local re_excel_row = `first_re_row' + 1
 	    putexcel (`letterleft'`re_excel_row':`letterright'`re_excel_row'), border(top, `_hborder')
 	}
 
@@ -2196,7 +2260,7 @@ if "`stars'" != "" local _methods "`_methods' Statistical significance denoted a
 local _methods "`_methods' Analysis performed in Stata `c(stata_version)' (StataCorp, College Station, TX)."
 
 * Return statistics (I1)
-if `_mat_nrows' > 0 & `_mat_nrows' <= 100 {
+if `_mat_nrows' > 0 {
     capture return matrix table = `_rtable'
 }
 return scalar N_rows = `num_rows'

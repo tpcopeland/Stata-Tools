@@ -28,18 +28,6 @@ program define cci_se, rclass
     if "`generate'" == "" local generate "charlson"
     if "`prefix'" == "" local prefix "cci_"
 
-    * Validate dateformat option
-    if "`dateformat'" != "" {
-        local dateformat = lower("`dateformat'")
-        if !inlist("`dateformat'", "stata", "yyyymmdd", "ymd") {
-            display as error "dateformat() must be: stata, yyyymmdd, or ymd"
-            display as error "  stata    = Stata date (numeric, days since 01jan1960)"
-            display as error "  yyyymmdd = YYYYMMDD integer or string (e.g., 20200115)"
-            display as error "  ymd      = YYYY-MM-DD string (e.g., 2020-01-15)"
-            exit 198
-        }
-    }
-
     * ---------------------------------------------------------------
     * Validate inputs
     * ---------------------------------------------------------------
@@ -61,6 +49,42 @@ program define cci_se, rclass
         local date_is_str = 1
     }
 
+    * Validate dateformat option against date variable type
+    if "`dateformat'" != "" {
+        local dateformat = lower("`dateformat'")
+        if !inlist("`dateformat'", "stata", "yyyymmdd", "ymd") {
+            display as error "dateformat() must be: stata, yyyymmdd, or ymd"
+            display as error "  stata    = Stata date (numeric, days since 01jan1960)"
+            display as error "  yyyymmdd = YYYYMMDD integer or string (e.g., 20200115)"
+            display as error "  ymd      = YYYY-MM-DD string (e.g., 2020-01-15)"
+            exit 198
+        }
+    }
+    else if `date_is_str' {
+        local dateformat "yyyymmdd"
+    }
+    else {
+        local dateformat "stata"
+    }
+
+    if `date_is_str' & "`dateformat'" == "stata" {
+        display as error "dateformat(stata) requires a numeric Stata date variable"
+        exit 198
+    }
+    if !`date_is_str' & "`dateformat'" == "ymd" {
+        display as error "dateformat(ymd) requires a string date variable"
+        exit 198
+    }
+
+    * Mark out missing IDs before patient-level collapse
+    capture confirm string variable `id'
+    if !_rc {
+        quietly replace `touse' = 0 if trim(`id') == "" & `touse'
+    }
+    else {
+        markout `touse' `id'
+    }
+
     * Mark out missing dates
     if `date_is_str' {
         quietly replace `touse' = 0 if trim(`date') == "" & `touse'
@@ -71,7 +95,6 @@ program define cci_se, rclass
 
     quietly count if `touse'
     if r(N) == 0 error 2000
-    local N_input = r(N)
 
     if "`generate'" == "`id'" {
         display as error "generate() name cannot be same as id() variable"
@@ -96,27 +119,26 @@ program define cci_se, rclass
     }
 
     * ---------------------------------------------------------------
-    * Extract year from date (handles string, Stata date, YYYYMMDD)
+    * Extract year from date according to validated dateformat()
     * ---------------------------------------------------------------
-    if `date_is_str' {
-        * String date variable
-        if "`dateformat'" == "ymd" {
-            * YYYY-MM-DD format: extract first 4 characters
-            quietly gen int `yr' = real(substr(trim(`date'), 1, 4))
-        }
-        else {
-            * Default for string: try YYYYMMDD (strip dashes/slashes first)
+    if "`dateformat'" == "ymd" {
+        * YYYY-MM-DD format: extract first 4 characters
+        quietly gen int `yr' = real(substr(trim(`date'), 1, 4))
+    }
+    else if "`dateformat'" == "yyyymmdd" {
+        if `date_is_str' {
+            * Strip separators before parsing string YYYYMMDD dates
             tempvar datenum
             quietly gen `datenum' = subinstr(subinstr(trim(`date'), "-", "", .), "/", "", .)
             quietly gen int `yr' = floor(real(`datenum') / 10000)
         }
-    }
-    else if "`dateformat'" == "yyyymmdd" {
-        * Numeric YYYYMMDD format
-        quietly gen int `yr' = floor(`date' / 10000)
+        else {
+            * Numeric YYYYMMDD format
+            quietly gen int `yr' = floor(`date' / 10000)
+        }
     }
     else {
-        * Default for numeric: Stata date format
+        * Numeric Stata date format
         quietly gen int `yr' = year(`date')
     }
 
@@ -134,6 +156,7 @@ program define cci_se, rclass
         restore
         exit 2000
     }
+    local N_input = r(N)
 
     * ICD version flags (Swedish transition dates)
     * Note: _v9 and _v10 intentionally overlap at 1997 (Swedish ICD transition period)

@@ -30,10 +30,10 @@
 
 {syntab:Optional}
 {synopt:{opt id:var(varname)}}ID variable; default is {cmd:id}{p_end}
-{synopt:{opt start:var(varname)}}study start date variable; default is {cmd:study_start}{p_end}
+{synopt:{opt start:var(varname)}}study start date variable; default is {cmd:study_start}; must be nonmissing{p_end}
 {synopt:{opt min:residence(#)}}minimum days of continuous residence before study start; default is {bf:0} (disabled){p_end}
 {synopt:{opt savee:xclude(filename)}}save excluded observations to file{p_end}
-{synopt:{opt savec:ensor(filename)}}save emigration censoring dates to file{p_end}
+{synopt:{opt savec:ensor(filename)}}save nonmissing emigration censoring dates to file{p_end}
 {synopt:{opt replace}}replace existing files{p_end}
 {synopt:{opt verb:ose}}display processing messages{p_end}
 {synopt:{opt keep:immigrants}}include (do not exclude) persons who immigrate after study start; generates {it:migration_in_dt}{p_end}
@@ -53,6 +53,7 @@
 
 {pstd}
 The command expects a master dataset in memory containing individual IDs and study start dates.
+All observations in the chosen {opt startvar()} must have nonmissing study start dates.
 It then merges with the Swedish migration registry and applies the following logic.
 
 {pstd}
@@ -127,7 +128,7 @@ format.{p_end}
 {phang}
 {opt startvar(varname)} specifies the name of the study start date variable in the master dataset.
 Default is {cmd:study_start}. This variable must be a Stata daily date with a {cmd:%td}
-display format.
+display format, and it must be nonmissing for every observation in the master dataset.
 
 {phang}
 {opt minresidence(#)} specifies the minimum number of days a person must have been
@@ -142,8 +143,9 @@ lookback windows. Default is {bf:0} (disabled). Persons with no immigration reco
 reason to the specified file.
 
 {phang}
-{opt savecensor(filename)} saves a dataset containing individuals with emigration censoring dates 
-to the specified file.
+{opt savecensor(filename)} saves a dataset containing only {opt idvar()} and
+{it:migration_out_dt} for individuals with nonmissing emigration censoring dates.
+If a run succeeds but no such individuals exist, the saved dataset is empty.
 
 {phang}
 {opt replace} allows existing files specified in {cmd:saveexclude()} and {cmd:savecensor()} to 

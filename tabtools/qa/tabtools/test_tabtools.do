@@ -110,6 +110,43 @@ else {
     local ++fail_count
 }
 
+* Test: tabtools models category excludes composite commands
+local ++test_count
+capture noisily {
+    tabtools, category(models)
+    assert r(n_commands) == 2
+    assert strpos("`r(commands)'", "regtab") > 0
+    assert strpos("`r(commands)'", "effecttab") > 0
+    assert strpos("`r(commands)'", "comptab") == 0
+    assert strpos("`r(commands)'", "hrcomptab") == 0
+}
+if _rc == 0 {
+    display as result "  PASS: tabtools - models category excludes composite commands"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tabtools - models category inventory (error `=_rc')"
+    local ++fail_count
+}
+
+* Test: tabtools composite category includes only composite commands
+local ++test_count
+capture noisily {
+    tabtools, category(composite)
+    assert r(n_commands) == 2
+    assert strpos("`r(commands)'", "comptab") > 0
+    assert strpos("`r(commands)'", "hrcomptab") > 0
+    assert strpos("`r(commands)'", "regtab") == 0
+}
+if _rc == 0 {
+    display as result "  PASS: tabtools - composite category inventory"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tabtools - composite category inventory (error `=_rc')"
+    local ++fail_count
+}
+
 * Test: tabtools returns version
 local ++test_count
 capture noisily {
@@ -129,7 +166,7 @@ else {
 * Helper Utility Tests (_tabtools_common)
 * ============================================================
 
-* Load internal helpers (not auto-loaded unless a public command runs first)
+* Ensure internal helpers are available even if this block is run standalone.
 capture findfile _tabtools_common.ado
 if _rc == 0 {
     run "`r(fn)'"
@@ -233,6 +270,31 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL: helper bundle reload after partial drop (error `=_rc')"
+    local ++fail_count
+}
+
+* Test: tabtools reloads helpers even when a stale same-name helper is in memory
+local ++test_count
+capture noisily {
+    capture program drop _tabtools_resolve_format
+    program define _tabtools_resolve_format
+        c_local _font "Bogus"
+        c_local _fontsize 99
+        c_local borderstyle "medium"
+        c_local _hborder "medium"
+    end
+    tabtools set clear
+    tabtools get
+    assert "`r(font)'" == "Arial"
+    assert "`r(fontsize)'" == "10"
+    assert "`r(borderstyle)'" == "thin"
+}
+if _rc == 0 {
+    display as result "  PASS: tabtools reloads stale same-name helpers"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tabtools stale-helper reload (error `=_rc')"
     local ++fail_count
 }
 
@@ -1641,22 +1703,24 @@ else {
     local ++fail_count
 }
 
-* Test: margins contrasts
+* Test: margins contrasts are rejected (collect command is contrast, not margins)
 local ++test_count
 capture noisily {
     use "`output_dir'/_effecttab_testdata.dta", clear
     logit outcome_bin i.treatment age female
     collect clear
     collect: margins r.treatment
-    effecttab, xlsx("`output_dir'/_test_effecttab_rd.xlsx") sheet("RD") effect("RD")
-    confirm file "`output_dir'/_test_effecttab_rd.xlsx"
+    capture noisily effecttab, xlsx("`output_dir'/_test_effecttab_rd.xlsx") sheet("RD") effect("RD")
+    assert _rc == 198
+    capture confirm file "`output_dir'/_test_effecttab_rd.xlsx"
+    assert _rc != 0
 }
 if _rc == 0 {
-    display as result "  PASS: effecttab - margins contrasts"
+    display as result "  PASS: effecttab - margins contrasts rejected"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: effecttab - margins contrasts (error `=_rc')"
+    display as error "  FAIL: effecttab - margins contrasts rejection (error `=_rc')"
     local ++fail_count
 }
 
@@ -1832,9 +1896,10 @@ local ++test_count
 capture noisily {
     sysuse auto, clear
     local orig_N = _N
+    logit foreign price mpg weight
     collect clear
-    collect: regress price mpg weight
-    effecttab, xlsx("`output_dir'/_test_effecttab_pres.xlsx") sheet("T1") type(margins)
+    collect: margins, at(mpg=(20 30))
+    effecttab, xlsx("`output_dir'/_test_effecttab_pres.xlsx") sheet("T1")
     assert _N == `orig_N'
     confirm variable price mpg weight foreign
 }
@@ -2224,6 +2289,7 @@ else {
 * Test: tabtools set clear empties all globals
 local ++test_count
 capture noisily {
+    tabtools set clear
     tabtools set font Calibri
     tabtools set fontsize 11
     tabtools set borderstyle thin
@@ -2239,6 +2305,25 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL: tabtools set clear - globals not empty (error `=_rc')"
+    local ++fail_count
+}
+
+* Test: tabtools get returns effective command defaults after clear
+local ++test_count
+capture noisily {
+    tabtools set clear
+    tabtools get
+    assert "`r(font)'" == "Arial"
+    assert "`r(fontsize)'" == "10"
+    assert "`r(borderstyle)'" == "thin"
+    assert `"`r(theme)'"' == ""
+}
+if _rc == 0 {
+    display as result "  PASS: tabtools get - clear resolves to Arial/10/thin"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tabtools get defaults after clear (error `=_rc')"
     local ++fail_count
 }
 
@@ -2312,6 +2397,29 @@ else {
     local ++fail_count
 }
 
+* Test: tabtools set font/size/border reject direct overrides under named theme
+local ++test_count
+capture noisily {
+    tabtools set clear
+    tabtools set theme lancet
+    capture noisily tabtools set font Calibri
+    assert _rc == 198
+    capture noisily tabtools set fontsize 11
+    assert _rc == 198
+    capture noisily tabtools set borderstyle thin
+    assert _rc == 198
+}
+tabtools set clear
+if _rc == 0 {
+    display as result "  PASS: tabtools direct setters reject named-theme no-ops"
+    local ++pass_count
+}
+else {
+    tabtools set clear
+    display as error "  FAIL: tabtools named-theme setter rejection (error `=_rc')"
+    local ++fail_count
+}
+
 * Test: tabtools set theme custom rejects invalid borderstyle
 local ++test_count
 capture noisily {
@@ -2354,6 +2462,25 @@ else {
     local ++fail_count
 }
 
+* Test: tabtools get rejects display-only options
+local ++test_count
+capture noisily {
+    capture noisily tabtools get, list
+    assert _rc == 198
+    capture noisily tabtools get, detail
+    assert _rc == 198
+    capture noisily tabtools get, category(models)
+    assert _rc == 198
+}
+if _rc == 0 {
+    display as result "  PASS: tabtools get rejects display-only options"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tabtools get display-only options (error `=_rc')"
+    local ++fail_count
+}
+
 * Test: tabtools set clear rejects trailing arguments
 local ++test_count
 capture noisily {
@@ -2365,6 +2492,25 @@ if _rc == 198 {
 }
 else {
     display as error "  FAIL: tabtools set clear extra - expected rc=198, got `=_rc'"
+    local ++fail_count
+}
+
+* Test: tabtools set rejects display-only options
+local ++test_count
+capture noisily {
+    capture noisily tabtools set clear, list
+    assert _rc == 198
+    capture noisily tabtools set clear, detail
+    assert _rc == 198
+    capture noisily tabtools set clear, category(models)
+    assert _rc == 198
+}
+if _rc == 0 {
+    display as result "  PASS: tabtools set rejects display-only options"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tabtools set display-only options (error `=_rc')"
     local ++fail_count
 }
 

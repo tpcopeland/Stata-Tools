@@ -71,9 +71,19 @@ program define cdp, rclass
         di as error "`datevar' must be numeric (Stata date format)"
         exit 109
     }
+    local _cdp_date_fmt : format `datevar'
+    if lower(substr("`_cdp_date_fmt'", 1, 3)) != "%td" {
+        di as error "`datevar' must be a Stata daily date variable with %td format"
+        exit 109
+    }
     capture confirm numeric variable `dxdate'
     if _rc {
         di as error "`dxdate' must be numeric (Stata date format)"
+        exit 109
+    }
+    local _cdp_dx_fmt : format `dxdate'
+    if lower(substr("`_cdp_dx_fmt'", 1, 3)) != "%td" {
+        di as error "`dxdate' must be a Stata daily date variable with %td format"
         exit 109
     }
 
@@ -107,6 +117,16 @@ program define cdp, rclass
     // Mark sample (strok: allow string ID variables)
     marksample touse, strok
     markout `touse' `dxdate'
+    qui count if `touse' & !missing(`datevar') & `datevar' != floor(`datevar')
+    if r(N) > 0 {
+        di as error "`datevar' must contain whole-number Stata daily dates"
+        exit 109
+    }
+    qui count if `touse' & !missing(`dxdate') & `dxdate' != floor(`dxdate')
+    if r(N) > 0 {
+        di as error "`dxdate' must contain whole-number Stata daily dates"
+        exit 109
+    }
 
     // Check for valid observations
     qui count if `touse'

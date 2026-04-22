@@ -28,12 +28,12 @@
 {synopthdr}
 {synoptline}
 {syntab:Required}
-{synopt:{opt dx:date(varname)}}diagnosis date variable{p_end}
+{synopt:{opt dx:date(varname)}}diagnosis date variable; must be a daily {cmd:%td} date{p_end}
 {synopt:{opt rel:apses(filename)}}path to relapse dataset{p_end}
 
 {syntab:Relapse file options}
 {synopt:{opt relapsei:dvar(varname)}}ID variable in relapse file; default is {it:idvar}{p_end}
-{synopt:{opt relapsed:atevar(varname)}}relapse date variable; default is {cmd:relapse_date}{p_end}
+{synopt:{opt relapsed:atevar(varname)}}relapse date variable; must be a daily {cmd:%td} date; default is {cmd:relapse_date}{p_end}
 
 {syntab:Relapse window}
 {synopt:{opt windowb:efore(#)}}days before relapse to exclude; default is {cmd:90}{p_end}
@@ -81,6 +81,10 @@ relapse: [{opt windowbefore()} days before relapse, {opt windowafter()} days aft
 Both PIRA and RAW dates are returned, allowing researchers to analyze different
 types of disability accumulation.
 
+{pstd}
+{it:datevar}, {opt dxdate()}, and the relapse date variable in {opt relapses()}
+must all be Stata daily dates with {cmd:%td} display formats.
+
 
 {marker options}{...}
 {title:Options}
@@ -89,10 +93,13 @@ types of disability accumulation.
 
 {phang}
 {opt dxdate(varname)} specifies the variable containing the MS diagnosis date.
+It must be a Stata daily date variable with a {cmd:%td} display format.
 
 {phang}
 {opt relapses(filename)} specifies the path to a dataset containing relapse dates.
 This file must contain an ID variable and a date variable for each relapse event.
+The file is read from disk; {cmd:pira} does not pull relapse dates from variables
+already in memory.
 
 {dlgtab:Relapse file options}
 
@@ -102,7 +109,8 @@ file. Default is the same as the {it:idvar} in the main dataset.
 
 {phang}
 {opt relapsedatevar(varname)} specifies the name of the relapse date variable.
-Default is {cmd:relapse_date}.
+Default is {cmd:relapse_date}. The variable must be a Stata daily date with a
+{cmd:%td} display format.
 
 {dlgtab:Relapse window}
 
@@ -124,7 +132,8 @@ Common configurations:
 
 {phang}
 {opt generate(name)} specifies the name for the PIRA date variable. Default is
-{cmd:pira_date}.
+{cmd:pira_date}. {opt generate()} and {opt rawgenerate()} must specify different
+variable names.
 
 {phang}
 {opt rawgenerate(name)} specifies the name for the RAW date variable. Default is
@@ -142,9 +151,10 @@ to identify the baseline EDSS. Default is {cmd:730} (2 years).
 
 {phang}
 {opt rebaselinerelapse} specifies that the baseline EDSS should be reset after
-relapses. Specifically, for patients with relapses after their initial baseline,
-the first EDSS measurement at least 30 days after the last relapse becomes the
-new baseline. This accounts for residual disability from relapses.
+relapses. Specifically, after a relapse that occurs after the current baseline,
+the first EDSS measurement at least 30 days later becomes the new baseline for
+subsequent visits. Later relapses do not retroactively move the baseline past
+earlier candidate progression events.
 
 {dlgtab:Output options}
 
@@ -162,24 +172,27 @@ outside the {ifin} sample.
 {marker examples}{...}
 {title:Examples}
 
-{pstd}Prepare relapse dataset (one row per relapse):{p_end}
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/relapses.dta", clear"':. use _data/relapses.dta, clear}{p_end}
-{phang2}{stata "keep if relapse_date < .":. keep if relapse_date < .}{p_end}
+{pstd}If relapse dates are currently in memory, save a local relapse-only file first:{p_end}
+{phang2}{stata "preserve":. preserve}{p_end}
 {phang2}{stata "keep id relapse_date":. keep id relapse_date}{p_end}
-{phang2}{stata `"save _data/relapses_only.dta, replace"':. save _data/relapses_only.dta, replace}{p_end}
+{phang2}{stata "drop if missing(relapse_date)":. drop if missing(relapse_date)}{p_end}
+{phang2}{stata `"save "ms_relapses.dta", replace"':. save "ms_relapses.dta", replace}{p_end}
+{phang2}{stata "restore":. restore}{p_end}
 
-{pstd}Basic PIRA analysis:{p_end}
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/relapses.dta", clear"':. use _data/relapses.dta, clear}{p_end}
-{phang2}{stata "pira id edss edss_date, dxdate(dx_date) relapses(_data/relapses_only.dta)":. pira id edss edss_date, dxdate(dx_date) relapses(_data/relapses_only.dta)}{p_end}
+{pstd}Basic PIRA analysis with a local relapse file:{p_end}
+{phang2}{stata `"use "ms_edss_visits.dta", clear"':. use "ms_edss_visits.dta", clear}{p_end}
+{phang2}{stata `"pira id edss edss_date, dxdate(dx_date) relapses("ms_relapses.dta")"':. pira id edss edss_date, dxdate(dx_date) relapses("ms_relapses.dta")}{p_end}
 
 {pstd}Using Lublin 2014 definition (30 days after relapse only):{p_end}
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/relapses.dta", clear"':. use _data/relapses.dta, clear}{p_end}
-{phang2}{stata "pira id edss edss_date, dxdate(dx_date) relapses(_data/relapses_only.dta) windowbefore(0) windowafter(30)":. pira id edss edss_date, dxdate(dx_date) relapses(_data/relapses_only.dta) ///}{p_end}
+{phang2}{stata `"use "ms_edss_visits.dta", clear"':. use "ms_edss_visits.dta", clear}{p_end}
+{phang2}{stata `"pira id edss edss_date, dxdate(dx_date) relapses("ms_relapses.dta") windowbefore(0) windowafter(30)"':. pira id edss edss_date, dxdate(dx_date) relapses("ms_relapses.dta") ///}{p_end}
 {phang3}{cmd:windowbefore(0) windowafter(30)}{p_end}
 
-{pstd}Keep all patients and compare PIRA vs RAW:{p_end}
-{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/relapses.dta", clear"':. use _data/relapses.dta, clear}{p_end}
-{phang2}{stata "pira id edss edss_date, dxdate(dx_date) relapses(_data/relapses_only.dta) keepall":. pira id edss edss_date, dxdate(dx_date) relapses(_data/relapses_only.dta) keepall}{p_end}
+{pstd}Rebaseline after relapses and keep all patients:{p_end}
+{phang2}{stata `"use "ms_edss_visits.dta", clear"':. use "ms_edss_visits.dta", clear}{p_end}
+{phang2}{stata `"pira id edss edss_date, dxdate(dx_date) relapses("ms_relapses.dta") rebaselinerelapse keepall"':. pira id edss edss_date, dxdate(dx_date) relapses("ms_relapses.dta") rebaselinerelapse keepall}{p_end}
+
+{pstd}Compare PIRA vs RAW after keeping all patients:{p_end}
 {phang2}{stata `"gen str4 progression_type = cond(!missing(pira_date), "PIRA", cond(!missing(raw_date), "RAW", "None"))"':. gen str4 progression_type = cond(!missing(pira_date), "PIRA", ///}{p_end}
 {phang3}{cmd:cond(!missing(raw_date), "RAW", "None"))}{p_end}
 {phang2}{stata "tab progression_type":. tab progression_type}{p_end}

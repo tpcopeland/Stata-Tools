@@ -64,6 +64,11 @@ end
 *  Rewritten in v2.0 to use efficient matching with inlist() for exact
 *  matching and substr() for prefix matching.
 program define procmatch_match, rclass
+    version 16.0
+    local _varabbrev `c(varabbrev)'
+    set varabbrev off
+
+    capture noisily {
     syntax, codes(string) procvars(varlist) [GENerate(name) REPlace PREfix NOIsily]
 
     * Clean up codes - allow comma or space separation
@@ -87,6 +92,13 @@ program define procmatch_match, rclass
     * Generate variable name if not specified
     if "`generate'" == "" {
         local generate "_proc_match"
+    }
+
+    * Output name may not collide with inputs
+    local generate_in_procvars : list posof "`generate'" in procvars
+    if `generate_in_procvars' {
+        display as error "generate() name `generate' may not duplicate a procvars() input variable"
+        exit 198
     }
 
     * Check if variable exists
@@ -150,12 +162,21 @@ program define procmatch_match, rclass
     return local codes "`codes_upper'"
     return scalar n_codes = `n_codes'
     return scalar n_matches = `n_matches'
+    }
+    local _rc = _rc
+    set varabbrev `_varabbrev'
+    if `_rc' exit `_rc'
 end
 
 
 **# procmatch_first - Extract first occurrence date of matching procedures
 *  Rewritten in v2.0 to use efficient matching.
 program define procmatch_first, rclass
+    version 16.0
+    local _varabbrev `c(varabbrev)'
+    set varabbrev off
+
+    capture noisily {
     syntax, codes(string) procvars(varlist) datevar(varname) IDvar(varname) ///
         [GENerate(name) GENDatevar(name) REPlace PREfix NOIsily]
 
@@ -183,6 +204,35 @@ program define procmatch_first, rclass
     }
     if "`gendatevar'" == "" {
         local gendatevar "_proc_first_dt"
+    }
+
+    * Validate date input contract before any matching work
+    capture confirm numeric variable `datevar'
+    if _rc {
+        display as error "`datevar' must be numeric (Stata date format)"
+        exit 109
+    }
+    local _procmatch_date_fmt : format `datevar'
+    if lower(substr("`_procmatch_date_fmt'", 1, 3)) != "%td" {
+        display as error "`datevar' must be a Stata daily date variable with %td format"
+        exit 109
+    }
+
+    * Output names may not collide with each other or with inputs
+    local inputvars `procvars' `datevar' `idvar'
+    if "`generate'" == "`gendatevar'" {
+        display as error "generate() and gendatevar() must specify different variable names"
+        exit 198
+    }
+    local generate_in_inputs : list posof "`generate'" in inputvars
+    if `generate_in_inputs' {
+        display as error "generate() name `generate' may not duplicate an input variable"
+        exit 198
+    }
+    local gendatevar_in_inputs : list posof "`gendatevar'" in inputvars
+    if `gendatevar_in_inputs' {
+        display as error "gendatevar() name `gendatevar' may not duplicate an input variable"
+        exit 198
     }
 
     * Check if variables exist
@@ -234,7 +284,20 @@ program define procmatch_first, rclass
         }
     }
 
-    * Find first occurrence date per person (double for datetime precision)
+    * Matched rows must have usable date and ID values before person-level collapse
+    quietly count if `row_match' == 1 & missing(`datevar')
+    if r(N) > 0 {
+        display as error "Matched procedure rows have missing `datevar' values"
+        exit 198
+    }
+
+    quietly count if `row_match' == 1 & missing(`idvar')
+    if r(N) > 0 {
+        display as error "Matched procedure rows have missing `idvar' values"
+        exit 198
+    }
+
+    * Find first occurrence date per person
     tempvar first_dt_temp
     quietly egen double `first_dt_temp' = min(cond(`row_match' == 1, `datevar', .)), by(`idvar')
 
@@ -259,8 +322,8 @@ program define procmatch_first, rclass
 
     * Count unique persons with a match
     tempvar id_tag
-    quietly egen `id_tag' = tag(`idvar')
-    quietly count if `id_tag' == 1 & `generate' == 1
+    quietly egen `id_tag' = tag(`idvar') if `generate' == 1
+    quietly count if `id_tag' == 1
     local n_persons = r(N)
 
     if "`noisily'" != "" {
@@ -275,4 +338,8 @@ program define procmatch_first, rclass
     return scalar n_codes = `n_codes'
     return scalar n_persons = `n_persons'
     return scalar n_matches = `n_matches'
+    }
+    local _rc = _rc
+    set varabbrev `_varabbrev'
+    if `_rc' exit `_rc'
 end

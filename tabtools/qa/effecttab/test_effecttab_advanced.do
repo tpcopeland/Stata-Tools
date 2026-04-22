@@ -104,6 +104,26 @@ else {
 }
 
 * ============================================================
+* Test 3b: single-model methods use collect metadata, not ambient e()
+* ============================================================
+capture noisily {
+    collect clear
+    collect: teffects ipw (bweight) (mbsmoke mage prenatal1 mmarried fbaby), ate
+    quietly teffects ra (bweight mage prenatal1 mmarried fbaby) (mbsmoke), ate
+    effecttab, display effect("ATE")
+    assert strpos(lower(`"`r(methods)'"'), "inverse probability weighting") > 0
+    assert strpos(lower(`"`r(methods)'"'), "regression adjustment") == 0
+}
+if _rc == 0 {
+    display as result "PASS: T3b — single-model methods ignore ambient e()"
+    local ++n_pass
+}
+else {
+    display as error "FAIL: T3b — single-model methods reused ambient e() (rc=`=_rc')"
+    local ++n_fail
+}
+
+* ============================================================
 * Test 4: effecttab with psmatch
 * ============================================================
 capture noisily {
@@ -517,6 +537,89 @@ else {
     local ++n_fail
 }
 capture matrix drop precmat
+
+* ============================================================
+* Test 21: unsupported active collect is rejected
+* ============================================================
+capture noisily {
+    sysuse auto, clear
+    collect clear
+    collect: regress price mpg weight
+    capture noisily effecttab, display
+    assert _rc == 198
+}
+if _rc == 0 {
+    display as result "PASS: T21 — unsupported collect rejected"
+    local ++n_pass
+}
+else {
+    display as error "FAIL: T21 — unsupported collect was accepted (rc=`=_rc')"
+    local ++n_fail
+}
+
+* ============================================================
+* Test 21b: contrast-backed margins collect is rejected
+* ============================================================
+capture noisily {
+    webuse cattaneo2, clear
+    gen byte low_bw = bweight < 2500
+    logit low_bw i.mbsmoke mage prenatal1 mmarried fbaby
+    collect clear
+    collect: margins r.mbsmoke
+    capture noisily effecttab, display
+    assert _rc == 198
+}
+if _rc == 0 {
+    display as result "PASS: T21b — margins contrast collect rejected"
+    local ++n_pass
+}
+else {
+    display as error "FAIL: T21b — margins contrast collect accepted (rc=`=_rc')"
+    local ++n_fail
+}
+
+* ============================================================
+* Test 22: mixed teffects + margins collection is rejected
+* ============================================================
+capture noisily {
+    webuse cattaneo2, clear
+    gen byte low_bw = bweight < 2500
+    collect clear
+    collect: teffects ipw (bweight) (mbsmoke mage prenatal1 mmarried fbaby), ate
+    logit low_bw i.mbsmoke mage prenatal1 mmarried fbaby
+    collect: margins, dydx(mbsmoke)
+    capture noisily effecttab, display
+    assert _rc == 198
+}
+if _rc == 0 {
+    display as result "PASS: T22 — mixed teffects/margins collect rejected"
+    local ++n_pass
+}
+else {
+    display as error "FAIL: T22 — mixed teffects/margins collect accepted (rc=`=_rc')"
+    local ++n_fail
+}
+
+* ============================================================
+* Test 23: explicit type() mismatch is rejected
+* ============================================================
+capture noisily {
+    webuse cattaneo2, clear
+    gen byte low_bw = bweight < 2500
+    logit low_bw i.mbsmoke mage prenatal1 mmarried fbaby
+    collect clear
+    collect: margins, dydx(mbsmoke)
+    capture noisily effecttab, display type(teffects)
+    assert _rc == 198
+}
+if _rc == 0 {
+    display as result "PASS: T23 — explicit type mismatch rejected"
+    local ++n_pass
+}
+else {
+    display as error "FAIL: T23 — explicit type mismatch accepted (rc=`=_rc')"
+    local ++n_fail
+}
 
 * ============================================================
 * Test 21: r(table) is returned above 100 rows

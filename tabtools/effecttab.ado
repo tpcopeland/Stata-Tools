@@ -192,6 +192,84 @@ quietly {
 		exit 198
 	}
 
+	* Inspect the active collection itself instead of ambient e()
+	local _collect_models 0
+	local _collect_kind ""
+	local _collect_kind_mixed 0
+	local _teffects_tvar ""
+	if !`_from_matrix' {
+		tempfile _meta_export
+		local _meta_xlsx "`_meta_export'.xlsx"
+		capture {
+			collect layout (cmdset) (result[cmd cmdline])
+			collect export "`_meta_xlsx'", sheet(_meta) replace
+		}
+		if _rc == 0 {
+			preserve
+			capture {
+				import excel "`_meta_xlsx'", sheet(_meta) clear allstring
+
+				local _meta_col_cmd ""
+				local _meta_col_cmdline ""
+				ds
+				local _meta_allvars `r(varlist)'
+				foreach _v of local _meta_allvars {
+					local _hdr = lower(strtrim(`_v'[1]))
+					if "`_hdr'" == "command" local _meta_col_cmd "`_v'"
+					if "`_hdr'" == "command line as typed" local _meta_col_cmdline "`_v'"
+				}
+
+				if "`_meta_col_cmd'" != "" {
+					local _collect_models = _N - 1
+					forvalues _m = 1/`_collect_models' {
+						local _r = `_m' + 1
+						local collect_cmd_`_m' = lower(strtrim(`_meta_col_cmd'[`_r']))
+						local collect_cmdline_`_m' = lower(strtrim(`_meta_col_cmdline'[`_r']))
+					}
+				}
+			}
+			if _rc local _collect_models = 0
+			restore
+		}
+		capture erase "`_meta_xlsx'"
+
+		if `_collect_models' == 0 {
+			noisily display as error "Could not inspect the active collect table"
+			noisily display as error "Run teffects or margins with {bf:collect:} prefix first"
+			exit 198
+		}
+
+		forvalues _m = 1/`_collect_models' {
+			local _cmd "`collect_cmd_`_m''"
+			local _cmdline `"`collect_cmdline_`_m''"'
+			local _kind ""
+
+			if "`_cmd'" == "teffects" local _kind "teffects"
+			else if "`_cmd'" == "margins" local _kind "margins"
+
+			if "`_kind'" == "" {
+				noisily display as error "effecttab supports only teffects or margins collections"
+				noisily display as error "Current collect contains unsupported command: `collect_cmd_`_m''"
+				exit 198
+			}
+
+			if "`_collect_kind'" == "" local _collect_kind "`_kind'"
+			else if "`_collect_kind'" != "`_kind'" local _collect_kind_mixed = 1
+
+			if "`_kind'" == "teffects" & "`_teffects_tvar'" == "" {
+				if regexm(`"`_cmdline'"', "^teffects[ ]+[a-z0-9_]+[ ]+\([^)]*\)[ ]+\(([^)]*)\)") {
+					local _tblock = strtrim(regexs(1))
+					gettoken _teffects_tvar _tblock_rest : _tblock
+				}
+			}
+		}
+
+		if `_collect_kind_mixed' {
+			noisily display as error "effecttab does not support mixing teffects and margins in one collection"
+			exit 198
+		}
+	}
+
 	* Create temporary file for intermediate processing
 	* Note: tempfile on Unix creates paths like /tmp/StXXXXX.XXXXXX without .tmp
 	* We append .xlsx to ensure a valid Excel file path
@@ -207,17 +285,13 @@ quietly {
 			local type "margins"
 		}
 		else {
-			* Check e(cmd) to detect teffects vs margins
-			* After teffects, e(cmd) = "teffects"
-			* After margins, e(cmd) = the underlying model (logit, probit, etc.)
-			local ecmd "`e(cmd)'"
-
-			if "`ecmd'" == "teffects" {
-				local type "teffects"
-			}
-			else {
-				local type "margins"
-			}
+			local type "`_collect_kind'"
+		}
+	}
+	else if !`_from_matrix' {
+		if "`type'" != "`_collect_kind'" {
+			noisily display as error "type(`type') does not match the active collect type (`_collect_kind')"
+			exit 198
 		}
 	}
 
@@ -256,7 +330,8 @@ quietly {
 	* Always capture treatment variable info for teffects (needed for row filtering)
 	* The clean option controls label relabeling; filtering is always applied
 	if "`type'" == "teffects" {
-		local tvar "`e(tvar)'"
+		local tvar "`_teffects_tvar'"
+		if "`tvar'" == "" local tvar "`e(tvar)'"
 
 		if "`clean'" != "" & `"`tlabels'"' != "" {
 			* Parse user-provided tlabels: 0 "SSRI" 1 "SNRI"
@@ -1102,7 +1177,15 @@ quietly {
 	}
 	else if "`type'" == "teffects" {
 		if `_n_models' == 1 {
-			local _te_subcmd "`e(subcmd)'"
+			local _te_subcmd ""
+			if `"`collect_cmdline_1'"' != "" {
+				if regexm(`"`collect_cmdline_1'"', "^teffects[ ]+([a-z0-9_]+)") {
+					local _te_subcmd = lower(regexs(1))
+				}
+			}
+			if "`_te_subcmd'" == "" {
+				local _te_subcmd = lower("`e(subcmd)'")
+			}
 			if "`_te_subcmd'" == "ipw" local _methods "Average treatment effects estimated using inverse probability weighting"
 			else if "`_te_subcmd'" == "ra" local _methods "Average treatment effects estimated using regression adjustment"
 			else if "`_te_subcmd'" == "aipw" local _methods "Average treatment effects estimated using augmented inverse probability weighting"

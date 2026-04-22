@@ -91,9 +91,19 @@ program define pira, rclass
         di as error "`datevar' must be numeric (Stata date format)"
         exit 109
     }
+    local _pira_date_fmt : format `datevar'
+    if lower(substr("`_pira_date_fmt'", 1, 3)) != "%td" {
+        di as error "`datevar' must be a Stata daily date variable with %td format"
+        exit 109
+    }
     capture confirm numeric variable `dxdate'
     if _rc {
         di as error "`dxdate' must be numeric (Stata date format)"
+        exit 109
+    }
+    local _pira_dx_fmt : format `dxdate'
+    if lower(substr("`_pira_dx_fmt'", 1, 3)) != "%td" {
+        di as error "`dxdate' must be a Stata daily date variable with %td format"
         exit 109
     }
 
@@ -129,6 +139,10 @@ program define pira, rclass
     if "`rawgenerate'" == "" {
         local rawgenerate "raw_date"
     }
+    if lower("`generate'") == lower("`rawgenerate'") {
+        di as error "generate() and rawgenerate() must specify different variable names"
+        exit 198
+    }
 
     // Check if generate variables already exist
     capture confirm variable `generate'
@@ -152,6 +166,16 @@ program define pira, rclass
         di as error "no valid observations"
         exit 2000
     }
+    qui count if `touse' & !missing(`datevar') & `datevar' != floor(`datevar')
+    if r(N) > 0 {
+        di as error "`datevar' must contain whole-number Stata daily dates"
+        exit 109
+    }
+    qui count if `touse' & !missing(`dxdate') & `dxdate' != floor(`dxdate')
+    if r(N) > 0 {
+        di as error "`dxdate' must contain whole-number Stata daily dates"
+        exit 109
+    }
 
     // =========================================================================
     // LOAD AND PREPARE RELAPSE DATA
@@ -162,7 +186,7 @@ program define pira, rclass
     capture confirm string variable `idvar'
     if !_rc local id_is_str = 1
 
-    tempfile master_data relapse_data relapse_collapsed
+    tempfile master_data relapse_data
 
     preserve
 
@@ -186,6 +210,18 @@ program define pira, rclass
         restore
         exit 111
     }
+    capture confirm numeric variable `relapsedatevar'
+    if _rc {
+        di as error "`relapsedatevar' in relapse file must be numeric (Stata date format)"
+        restore
+        exit 109
+    }
+    local _pira_rel_fmt : format `relapsedatevar'
+    if lower(substr("`_pira_rel_fmt'", 1, 3)) != "%td" {
+        di as error "`relapsedatevar' in relapse file must be a Stata daily date variable with %td format"
+        restore
+        exit 109
+    }
 
     // Validate ID type matches master data
     local rel_id_is_str = 0
@@ -204,21 +240,15 @@ program define pira, rclass
     qui rename `relapseidvar' `idvar'
     qui rename `relapsedatevar' _relapse_dt
     qui drop if missing(_relapse_dt)
+    qui count if _relapse_dt != floor(_relapse_dt)
+    if r(N) > 0 {
+        di as error "`relapsedatevar' in relapse file must contain whole-number Stata daily dates"
+        restore
+        exit 109
+    }
 
     // Save relapse data (long: one row per relapse per person)
     qui save `relapse_data', replace emptyok
-
-    // Also create collapsed version (one row per person, max relapse date)
-    // for rebaselinerelapse merge - avoids dataset switching later
-    qui count
-    if r(N) > 0 {
-        qui collapse (max) _pira_last_rel = _relapse_dt, by(`idvar')
-    }
-    else {
-        // Empty relapse file: create empty collapsed dataset with correct schema
-        qui gen double _pira_last_rel = .
-    }
-    qui save `relapse_collapsed', replace emptyok
 
     // =========================================================================
     // STEP 1: RUN CDP ALGORITHM
@@ -290,32 +320,73 @@ program define pira, rclass
     // -------------------------------------------------------------------------
 
     if "`rebaselinerelapse'" != "" {
-        // Merge pre-collapsed relapse data (one row per person, max date)
-        // Collapsed file was created during relapse data preparation above
-        qui merge m:1 `idvar' using `relapse_collapsed', nogen keep(1 3)
+        tempfile pira_visits pira_relapse_events pira_baseline_by_id
 
-        // For each person, if there's a relapse after baseline,
-        // use first EDSS after last relapse (within reason) as new baseline
-        qui gen byte _pira_has_rel = !missing(_pira_last_rel) & _pira_last_rel > _pira_bl_date
-        qui replace _pira_last_rel = . if !_pira_has_rel
+        // Walk forward through visit and relapse events so only relapses
+        // observed up to each visit can trigger a baseline reset.
+        qui save `pira_visits', replace
 
-        // Find first EDSS at least 30 days after last relapse (recovery period)
-        qui gen byte _pira_post_rel = (`datevar' >= _pira_last_rel + 30) & !missing(_pira_last_rel)
+        qui keep `idvar' _pira_bl_edss _pira_bl_date
+        qui duplicates drop `idvar', force
+        qui save `pira_baseline_by_id', replace
 
-        // Get earliest post-relapse date per person
-        qui gen long _pira_new_bdt = `datevar' if _pira_post_rel
-        qui bysort `idvar' (`datevar'): egen long _pira_new_bldt = min(_pira_new_bdt)
+        qui use `pira_visits', clear
+        qui gen byte _pira_is_visit = 1
+        qui save `pira_visits', replace
 
-        // Get EDSS at that earliest post-relapse date (not min across all dates)
-        qui gen double _pira_new_base = `edssvar' if `datevar' == _pira_new_bldt & _pira_post_rel
-        qui bysort `idvar' (`datevar'): egen double _pira_new_bl = min(_pira_new_base)
+        qui use `relapse_data', clear
+        qui rename _relapse_dt `datevar'
+        qui gen double `edssvar' = .
+        qui gen long _pira_obs_id = .
+        qui gen byte _pira_is_visit = 0
+        qui merge m:1 `idvar' using `pira_baseline_by_id', nogen keep(3)
+        qui save `pira_relapse_events', replace emptyok
 
-        // Update baseline if post-relapse baseline exists
-        qui replace _pira_bl_edss = _pira_new_bl if !missing(_pira_new_bl)
-        qui replace _pira_bl_date = _pira_new_bldt if !missing(_pira_new_bldt)
+        qui use `pira_visits', clear
+        qui append using `pira_relapse_events'
+        qui sort `idvar' `datevar' _pira_is_visit `edssvar' _pira_obs_id
 
-        qui drop _pira_has_rel _pira_last_rel _pira_post_rel ///
-            _pira_new_base _pira_new_bl _pira_new_bdt _pira_new_bldt
+        qui bysort `idvar' (`datevar' _pira_is_visit `edssvar' _pira_obs_id): ///
+            gen byte _pira_newid = _n == 1
+        qui gen double _pira_cur_bl_edss = .
+        qui gen long _pira_cur_bl_date = .
+        qui gen long _pira_pending_rel = .
+
+        qui count
+        local n_rebase_rows = r(N)
+        forvalues i = 1/`n_rebase_rows' {
+            if _pira_newid[`i'] {
+                qui replace _pira_cur_bl_edss = _pira_bl_edss in `i'
+                qui replace _pira_cur_bl_date = _pira_bl_date in `i'
+                qui replace _pira_pending_rel = . in `i'
+            }
+            else {
+                local j = `i' - 1
+                qui replace _pira_cur_bl_edss = _pira_cur_bl_edss[`j'] in `i'
+                qui replace _pira_cur_bl_date = _pira_cur_bl_date[`j'] in `i'
+                qui replace _pira_pending_rel = _pira_pending_rel[`j'] in `i'
+            }
+
+            if _pira_is_visit[`i'] == 0 {
+                if !missing(`datevar'[`i']) & `datevar'[`i'] > _pira_cur_bl_date[`i'] {
+                    qui replace _pira_pending_rel = `datevar' in `i'
+                }
+            }
+            else {
+                if !missing(_pira_pending_rel[`i']) & `datevar'[`i'] >= _pira_pending_rel[`i'] + 30 {
+                    qui replace _pira_cur_bl_edss = `edssvar' in `i'
+                    qui replace _pira_cur_bl_date = `datevar' in `i'
+                    qui replace _pira_pending_rel = . in `i'
+                }
+                qui replace _pira_bl_edss = _pira_cur_bl_edss[`i'] in `i'
+                qui replace _pira_bl_date = _pira_cur_bl_date[`i'] in `i'
+            }
+        }
+
+        qui keep if _pira_is_visit == 1
+        qui sort `idvar' `datevar' `edssvar'
+        qui drop _pira_is_visit _pira_newid _pira_cur_bl_edss ///
+            _pira_cur_bl_date _pira_pending_rel
     }
 
     // -------------------------------------------------------------------------

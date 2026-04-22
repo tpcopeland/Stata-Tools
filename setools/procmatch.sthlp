@@ -58,6 +58,9 @@ procedure codes are found in any of the procedure variables.
 {cmd:first} extracts the first (earliest) date on which any of the specified
 procedure codes occurred, aggregating by person ID. The dataset structure is
 preserved (no rows are dropped); each row receives the person-level first date.
+{cmd:first} requires {opt datevar()} to be a Stata daily date variable with
+{cmd:%td} format and fails if a matched procedure row has a missing date or
+person ID.
 
 
 {marker options}{...}
@@ -75,23 +78,29 @@ Typically proc1-proc30 for inpatient/outpatient data.
 
 {phang}
 {opt datevar(varname)} (first only) specifies the date variable associated with
-procedure records.
+procedure records. It must be numeric and formatted as a Stata daily date
+({cmd:%td}); {cmd:%tc} datetime variables are rejected.
 
 {phang}
 {opt idvar(varname)} (first only) specifies the person identifier variable.
+Matched procedure rows must have nonmissing {opt idvar()} values.
 
 {dlgtab:Optional}
 
 {phang}
 {opt generate(name)} specifies the name for the generated indicator variable.
-Default is _proc_match for match and _proc_ever for first.
+Default is _proc_match for match and _proc_ever for first. The name must not
+duplicate an input variable, and in {cmd:first} it must differ from
+{opt gendatevar()}.
 
 {phang}
 {opt gendatevar(name)} (first only) specifies the name for the generated date
-variable. Default is _proc_first_dt.
+variable. Default is _proc_first_dt. The name must not duplicate any input
+variable or {opt generate()}.
 
 {phang}
-{opt replace} allows overwriting existing variables.
+{opt replace} allows overwriting existing output variables. It does not permit
+reusing the names of input variables.
 
 {phang}
 {opt prefix} matches codes as prefixes rather than exact matches. For example,

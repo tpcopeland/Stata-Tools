@@ -49,7 +49,7 @@ for treatment effects and margins tables.
 {synopt:{opt sheet(string)}}Target sheet name to create/replace in {opt xlsx()}. Default is {cmd:"Regression"}.{p_end}
 {synopt:{opt sep(string asis)}}Delimiter between CI endpoints used by {cmd:collect} {cmd:cidelimiter()}. Default is {cmd:", "}.{p_end}
 {synopt:{opt models(string)}}Labels to merge above each model's three columns. Separate labels with a backslash, e.g., {cmd:"Model 1 \ Model 2"}. If omitted, {cmd:regtab} auto-generates {cmd:Model} or {cmd:Model 1}, {cmd:Model 2}, ...{p_end}
-{synopt:{opt coef(string)}}Header label for the point estimate column. If omitted, {cmd:regtab} auto-detects the display scale for each collected model: {cmd:logit}/{cmd:logistic}{it:->}OR, {cmd:stcox}{it:->}HR, {cmd:poisson}/{cmd:nbreg}{it:->}IRR, {cmd:stcrreg}{it:->}SHR, {cmd:streg}{it:->}TR/AF, {cmd:regress}/{cmd:mixed}{it:->}Coef. For coefficient-scale fits such as {cmd:logit} or {cmd:poisson}, fixed-effect rows are exponentiated for display when the auto header implies OR/IRR output. Mixed-scale collections use per-model headers unless you set {opt coef()} explicitly.{p_end}
+{synopt:{opt coef(string)}}Header label for the point estimate column. If omitted, {cmd:regtab} auto-detects the display scale separately for each collected model from the collected command metadata: {cmd:logit}/{cmd:logistic}{it:->}OR, {cmd:stcox}{it:->}HR, {cmd:poisson}/{cmd:nbreg}{it:->}IRR, {cmd:stcrreg}{it:->}SHR, {cmd:streg}{it:->}TR/AF, {cmd:regress}/{cmd:mixed}{it:->}Coef. For coefficient-scale fits such as {cmd:logit} or {cmd:poisson}, fixed-effect rows are exponentiated for display when the auto header implies OR/IRR output. Mixed-scale collections use per-model headers unless you set {opt coef()} explicitly.{p_end}
 {synopt:{opt title(string)}}Text written into {cmd:A1} and merged across the table width. If omitted, the title row is left blank.{p_end}
 {synopt:{opt noint:ercept}}Drop the intercept row. Auto-enabled when all collected models are on a ratio scale (OR/HR/IRR/SHR/TR/AF); use {opt keepintercept} to override.{p_end}
 {synopt:{opt keepi:ntercept}}Force display of intercept row even for exponentiated models.{p_end}
@@ -89,9 +89,10 @@ for treatment effects and margins tables.
 random intercept variance to a {bf:Median Odds Ratio (MOR)} using the formula
 MOR = exp(sqrt(2 * {it:sigma}^2) * invnormal(0.75)). For {cmd:mestreg} and
 {cmd:mecloglog}, the conversion produces a {bf:Median Hazard Ratio (MHR)}.
-The 95% CI bounds are transformed on the same scale. The row is labeled
-"Median Odds Ratio" or "Median Hazard Ratio" (with the grouping variable
-label in parentheses if available). MOR/MHR values are formatted with 2
+The 95% CI bounds are transformed on the same scale. In multi-level models,
+each transformed random-intercept row keeps its own grouping label, so the
+output reads, for example, "Median Odds Ratio (District)" and
+"Median Odds Ratio (School)". MOR/MHR values are formatted with 2
 decimal places. Other random effects (slopes, covariances, residual) remain
 as variance components with 4 decimal places. Use {opt nore} to suppress all
 random-effects rows if desired.{p_end}
@@ -102,7 +103,7 @@ random-effects rows if desired.{p_end}
 {p 4 8 2}- Run your models inside {cmd:collect:} or otherwise ensure the relevant results are in the active {helpb collect}. {cmd:regtab} does not run models.{p_end}
 {p 4 8 2}- {cmd:regtab} expects dimensions including {cmd:colname} and {cmd:cmdset}, and result items {cmd:_r_b}, {cmd:_r_ci}, {cmd:_r_p}. It applies cell styles: {cmd:_r_b} as %4.2fc, {cmd:_r_ci} as {cmd:sformat("(%s")} with {cmd:cidelimiter()}, and {cmd:_r_p} as %5.4f.{p_end}
 {p 4 8 2}- The CI delimiter is controlled by {opt sep()}; default {cmd:", "}. Example alternative: {cmd:sep("; ")}.{p_end}
-{p 4 8 2}- If {opt coef()} is not provided, {cmd:regtab} detects the display scale from the collected command metadata and fills the estimate header automatically. When models use different scales, estimate headers are set per model and {cmd:r(coef_label)} returns {cmd:mixed}.{p_end}
+{p 4 8 2}- If {opt coef()} is not provided, {cmd:regtab} detects the display scale per collected model from the collected command metadata and fills the estimate header automatically. When models use different scales, estimate headers are set per model and {cmd:r(coef_label)} returns {cmd:mixed}.{p_end}
 {p 4 8 2}- Model header labels are auto-generated unless {opt models()} supplies explicit names. {opt models()} values are split on the backslash character.{p_end}
 
 {pstd}Notes on output shaping{p_end}
@@ -191,7 +192,7 @@ the threshold, and {opt highlight()} applies yellow fill to entire rows.{p_end}
 {synopt:{cmd:r(frame)}}frame name (if {cmd:frame()} specified){p_end}
 
 {p2col 5 18 22 2: Matrices}{p_end}
-{synopt:{cmd:r(table)}}coefficient values matrix (rows = variables, columns = models){p_end}
+{synopt:{cmd:r(table)}}coefficient values matrix for the displayed coefficient body (rows = variables, columns = models; excludes title and appended stats/addrows){p_end}
 
 {marker seealso}{...}
 {title:Also see}

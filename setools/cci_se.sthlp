@@ -79,7 +79,8 @@ CCI results to a temporary file for merging.
 {phang}
 {opt id(varname)} specifies the patient identifier variable. Each unique value of
 this variable is treated as one patient. The output dataset will have one row per
-unique value.
+unique nonmissing value. Observations with missing {opt id()} are excluded before
+the patient-level collapse.
 
 {phang}
 {opt icd(varlist)} specifies one or more string variables containing ICD diagnosis
@@ -93,7 +94,9 @@ See {help cci_se##formats:ICD code formats} below.
 {opt date(varname)} specifies the date variable used to determine which ICD version
 applies. The variable can be numeric (Stata date or YYYYMMDD integer) or string.
 Use the {opt dateformat()} option to specify the format if auto-detection is
-insufficient. See {it:Date formats} below.
+insufficient. Incompatible {opt dateformat()} and variable-type combinations are
+rejected. Observations with missing or unparseable dates are excluded. See
+{it:Date formats} below.
 
 {dlgtab:Optional}
 
@@ -115,14 +118,17 @@ named {cmd:{it:prefix}mi}, {cmd:{it:prefix}chf}, etc. See
 {opt dateformat(string)} specifies the format of the date variable:
 
 {phang2}{cmd:stata} {hline 2} Stata date (numeric, days since 01jan1960). This is the
-default for numeric date variables.{p_end}
+default for numeric date variables and may only be used with numeric
+{opt date()} variables.{p_end}
 
 {phang2}{cmd:yyyymmdd} {hline 2} YYYYMMDD integer or string (e.g., 20200115 or "20200115").
-This is the default for string date variables. Also handles dates with dashes or
+This is the default for string date variables and may be used with numeric or
+string {opt date()} variables. Also handles dates with dashes or
 slashes (e.g., "2020-01-15", "2020/01/15") by stripping separators first.{p_end}
 
 {phang2}{cmd:ymd} {hline 2} YYYY-MM-DD string format. Extracts the four-digit year
-directly from the string.{p_end}
+directly from the string and may only be used with string {opt date()}
+variables.{p_end}
 
 {phang}
 {opt noisily} displays a summary table including patient counts, mean CCI, and
@@ -218,6 +224,10 @@ determine how to parse it. If not specified:
 {phang2}- String variables default to YYYYMMDD format (dashes and slashes are stripped
 automatically){p_end}
 
+{pstd}
+Allowed combinations are numeric + {cmd:stata}, numeric or string + {cmd:yyyymmdd},
+and string + {cmd:ymd}. Other combinations are rejected with an error.
+
 
 {marker examples}{...}
 {title:Examples}
@@ -238,10 +248,11 @@ automatically){p_end}
 {phang2}{stata "tab cci_mets":. tab cci_mets}{p_end}
 
 {pstd}
-{bf:Example 3: Custom variable names}
+{bf:Example 3: Custom score and component names}
 
 {phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/diagnoses.dta", clear"':. use "https://.../diagnoses.dta", clear}{p_end}
-{phang2}{stata "cci_se, id(id) icd(icd) date(visit_date) generate(cci_score) prefix(ch_)":. cci_se, id(id) icd(icd) date(visit_date) generate(cci_score) prefix(ch_)}{p_end}
+{phang2}{stata "cci_se, id(id) icd(icd) date(visit_date) generate(cci_score) components prefix(ch_)":. cci_se, id(id) icd(icd) date(visit_date) generate(cci_score) components prefix(ch_)}{p_end}
+{phang2}{stata "tab ch_mi":. tab ch_mi}{p_end}
 
 {pstd}
 {bf:Example 4: Save CCI and merge into analysis cohort}
@@ -272,9 +283,15 @@ automatically){p_end}
 {pstd}
 {cmd:cci_se} stores the following in {cmd:r()}:
 
+{pstd}
+{cmd:r(N_input)} and the {cmd:Input observations} line shown by {opt noisily}
+count diagnosis-level observations retained after excluding missing {opt id()},
+missing {opt date()}, and dates that cannot be parsed under the chosen
+{opt dateformat()}.
+
 {synoptset 20 tabbed}{...}
 {p2col 5 20 24 2: Scalars}{p_end}
-{synopt:{cmd:r(N_input)}}number of input observations used{p_end}
+{synopt:{cmd:r(N_input)}}number of retained diagnosis-level observations used{p_end}
 {synopt:{cmd:r(N_patients)}}number of unique patients in output{p_end}
 {synopt:{cmd:r(N_any)}}number of patients with CCI > 0{p_end}
 {synopt:{cmd:r(mean_cci)}}mean Charlson score{p_end}

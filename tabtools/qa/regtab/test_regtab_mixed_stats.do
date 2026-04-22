@@ -593,6 +593,136 @@ else {
     local fail = `fail' + 1
 }
 
+**# Test N: multi-level melogit keep() preserves distinct MOR labels after filtering
+
+capture frame drop _rt_mor_keep
+capture {
+    clear
+    set obs 2000
+    gen district = ceil(_n/200)
+    gen school = ceil(_n/40)
+    label variable district "District"
+    label variable school "School"
+    gen x = rnormal()
+    tempvar u1raw u2raw
+    gen `u1raw' = rnormal()
+    bysort district: gen u1 = `u1raw'[1] * 0.6
+    gen `u2raw' = rnormal()
+    bysort school: gen u2 = `u2raw'[1] * 0.8
+    gen p = invlogit(-0.8 + 0.4*x + u1 + u2)
+    gen y = runiform() < p
+
+    collect clear
+    collect: melogit y x || district: || school:
+
+    regtab, display frame(_rt_mor_keep, replace) relabel keep(District School)
+
+    frame _rt_mor_keep {
+        count if A == "Median Odds Ratio (District)"
+        assert r(N) == 1
+        count if A == "Median Odds Ratio (School)"
+        assert r(N) == 1
+        count if strpos(A, "Residual")
+        assert r(N) == 0
+    }
+}
+local total = `total' + 1
+if _rc == 0 {
+    display as result "  PASS: Test N - keep() preserves distinct multi-level MOR rows"
+    local pass = `pass' + 1
+}
+else {
+    display as error "  FAIL: Test N - keep() broke MOR row tracking (rc=`=_rc')"
+    local fail = `fail' + 1
+}
+capture frame drop _rt_mor_keep
+
+**# Test O: mixed streg collection keeps per-model TR/AF headers
+
+capture frame drop _rt_streg_mix
+capture {
+    webuse cancer, clear
+    stset studytime, failure(died)
+    collect clear
+    collect: streg age, dist(weibull) time
+    collect: streg age, dist(weibull)
+
+    regtab, display frame(_rt_streg_mix, replace)
+    assert "`r(coef_label)'" == "mixed"
+
+    frame _rt_streg_mix {
+        assert c1[3] == "TR"
+        assert c4[3] == "AF"
+    }
+}
+local total = `total' + 1
+if _rc == 0 {
+    display as result "  PASS: Test O - mixed streg headers use per-model metadata"
+    local pass = `pass' + 1
+}
+else {
+    display as error "  FAIL: Test O - mixed streg headers reused ambient metadata (rc=`=_rc')"
+    local fail = `fail' + 1
+}
+capture frame drop _rt_streg_mix
+
+**# Test P: mixed glm collection keeps per-model Coef./OR headers
+
+capture frame drop _rt_glm_mix
+capture {
+    sysuse auto, clear
+    collect clear
+    collect: glm price mpg weight, family(gaussian) link(identity)
+    collect: glm foreign mpg weight, family(binomial) link(logit)
+
+    regtab, display frame(_rt_glm_mix, replace)
+    assert "`r(coef_label)'" == "mixed"
+
+    frame _rt_glm_mix {
+        assert c1[3] == "Coef."
+        assert c4[3] == "OR"
+    }
+}
+local total = `total' + 1
+if _rc == 0 {
+    display as result "  PASS: Test P - mixed glm headers use per-model family metadata"
+    local pass = `pass' + 1
+}
+else {
+    display as error "  FAIL: Test P - mixed glm headers reused ambient metadata (rc=`=_rc')"
+    local fail = `fail' + 1
+}
+capture frame drop _rt_glm_mix
+
+**# Test Q: r(table) survives title/stars/compact rendering
+
+capture frame drop _rt_rendered
+capture {
+    sysuse auto, clear
+    collect clear
+    collect: logit foreign mpg weight
+
+    tempname b_mat
+    matrix `b_mat' = e(b)
+    local exp_or = exp(`b_mat'[1,1])
+
+    regtab, display frame(_rt_rendered, replace) stars compact title("Rendered")
+    matrix list r(table)
+    assert rowsof(r(table)) > 0
+    assert colsof(r(table)) == 1
+    assert abs(r(table)[1,1] - `exp_or') < 0.02
+}
+local total = `total' + 1
+if _rc == 0 {
+    display as result "  PASS: Test Q - r(table) stays numeric under rendered output"
+    local pass = `pass' + 1
+}
+else {
+    display as error "  FAIL: Test Q - rendered output corrupted r(table) (rc=`=_rc')"
+    local fail = `fail' + 1
+}
+capture frame drop _rt_rendered
+
 **# Summary
 
 display ""

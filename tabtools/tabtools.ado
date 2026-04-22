@@ -40,21 +40,21 @@ program define tabtools, rclass
         font(string) fontsize(integer 0) HEADERColor(string) ///
         ZEBRAColor(string) BORDERstyle(string)]
 
+    local _has_display_opts = ("`list'" != "" | "`detail'" != "" | "`category'" != "")
     local _has_theme_builder_opts = ///
         (`"`font'"' != "" | `fontsize' > 0 | `"`headercolor'"' != "" | ///
         `"`zebracolor'"' != "" | `"`borderstyle'"' != "")
 
+    capture findfile _tabtools_common.ado
+    if _rc {
+        display as error "_tabtools_common.ado not found; reinstall tabtools"
+        exit 111
+    }
+    run "`r(fn)'"
     capture _tabtools_helpers_ready "_tabtools_validate_color _tabtools_resolve_format _tabtools_apply_theme"
     if _rc {
-        capture findfile _tabtools_common.ado
-        if _rc == 0 {
-            run "`r(fn)'"
-            capture _tabtools_helpers_ready "_tabtools_validate_color _tabtools_resolve_format _tabtools_apply_theme"
-        }
-        if _rc {
-            display as error "_tabtools_common.ado failed to load; reinstall tabtools"
-            exit 111
-        }
+        display as error "_tabtools_common.ado failed to load; reinstall tabtools"
+        exit 111
     }
 
     * Extract first token to check for subcommands
@@ -71,9 +71,14 @@ program define tabtools, rclass
         gettoken setkey setrest : rest, quotes
         local setkey = lower(strtrim("`setkey'"))
         local setval = strtrim(`"`setrest'"')
+        local _named_theme_active = ("$TABTOOLS_THEME" != "" & "$TABTOOLS_THEME" != "custom")
 
         if "`setkey'" == "" {
             display as error "tabtools set requires a setting key"
+            exit 198
+        }
+        if `_has_display_opts' {
+            display as error "list, detail, and category() are only allowed in display mode"
             exit 198
         }
 
@@ -106,6 +111,10 @@ program define tabtools, rclass
             return local action "cleared"
         }
         else if "`setkey'" == "font" {
+            if `_named_theme_active' {
+                display as error "tabtools set font is unavailable while theme($TABTOOLS_THEME) is active; run tabtools set clear or tabtools set theme custom, ..."
+                exit 198
+            }
             if "`setval'" == "" {
                 display as error "tabtools set font requires a value (e.g., tabtools set font Calibri)"
                 exit 198
@@ -115,6 +124,10 @@ program define tabtools, rclass
             return local font "`setval'"
         }
         else if "`setkey'" == "fontsize" {
+            if `_named_theme_active' {
+                display as error "tabtools set fontsize is unavailable while theme($TABTOOLS_THEME) is active; run tabtools set clear or tabtools set theme custom, ..."
+                exit 198
+            }
             if "`setval'" == "" {
                 display as error "tabtools set fontsize requires a value (e.g., tabtools set fontsize 11)"
                 exit 198
@@ -133,6 +146,10 @@ program define tabtools, rclass
             return scalar fontsize = `setval'
         }
         else if "`setkey'" == "borderstyle" {
+            if `_named_theme_active' {
+                display as error "tabtools set borderstyle is unavailable while theme($TABTOOLS_THEME) is active; run tabtools set clear or tabtools set theme custom, ..."
+                exit 198
+            }
             if !inlist("`setval'", "default", "thin", "medium", "academic") {
                 display as error "borderstyle must be: default, thin, medium, or academic"
                 exit 198
@@ -253,25 +270,24 @@ program define tabtools, rclass
             display as error "tabtools get does not accept additional arguments"
             exit 198
         }
+        if `_has_display_opts' {
+            display as error "list, detail, and category() are only allowed in display mode"
+            exit 198
+        }
         if `_has_theme_builder_opts' {
             display as error "font()/fontsize()/headercolor()/zebracolor()/borderstyle() are only allowed with tabtools set theme custom"
             exit 198
         }
 
-        local _eff_font "$TABTOOLS_FONT"
-        local _eff_fontsize "$TABTOOLS_FONTSIZE"
-        local _eff_border "$TABTOOLS_BORDER"
+        _tabtools_resolve_format
+        local _eff_font "`_font'"
+        local _eff_fontsize "`_fontsize'"
+        local _eff_border "`borderstyle'"
         local _eff_headercolor "$TABTOOLS_HEADERCOLOR"
         local _eff_zebracolor "$TABTOOLS_ZEBRACOLOR"
-        if "$TABTOOLS_THEME" != "" {
-            _tabtools_resolve_format, theme($TABTOOLS_THEME)
-            local _eff_font "`_font'"
-            local _eff_fontsize "`_fontsize'"
-            local _eff_border "`borderstyle'"
-            if "$TABTOOLS_THEME" != "custom" {
-                local _eff_headercolor ""
-                local _eff_zebracolor ""
-            }
+        if "$TABTOOLS_THEME" != "" & "$TABTOOLS_THEME" != "custom" {
+            local _eff_headercolor ""
+            local _eff_zebracolor ""
         }
 
         display as text ""
@@ -280,50 +296,36 @@ program define tabtools, rclass
         display as text "{hline 50}"
         display as text ""
 
-        local _has_any = 0
-
-        if "`_eff_font'" != "" {
-            display as text "  Font:        " as result "`_eff_font'"
-            local _has_any = 1
-        }
-        if "`_eff_fontsize'" != "" {
-            display as text "  Font size:   " as result "`_eff_fontsize'"
-            local _has_any = 1
-        }
-        if "`_eff_border'" != "" {
-            display as text "  Border:      " as result "`_eff_border'"
-            local _has_any = 1
-        }
+        display as text "  Font:        " as result "`_eff_font'"
+        display as text "  Font size:   " as result "`_eff_fontsize'"
+        display as text "  Border:      " as result "`_eff_border'"
         if "$TABTOOLS_THEME" != "" {
             display as text "  Theme:       " as result "$TABTOOLS_THEME"
-            local _has_any = 1
         }
         if "`_eff_headercolor'" != "" {
             display as text "  Header color:" as result " `_eff_headercolor'"
-            local _has_any = 1
         }
         if "`_eff_zebracolor'" != "" {
             display as text "  Zebra color: " as result " `_eff_zebracolor'"
-            local _has_any = 1
         }
         if "$TABTOOLS_DIGITS" != "" {
             display as text "  Digits:      " as result "$TABTOOLS_DIGITS"
-            local _has_any = 1
         }
         if "$TABTOOLS_BOLDP" != "" {
             display as text "  Bold p:      " as result "$TABTOOLS_BOLDP"
-            local _has_any = 1
-        }
-
-        if !`_has_any' {
-            display as text "  (no defaults set — using command defaults)"
         }
 
         display as text ""
-        display as text "  Set with: " as result "tabtools set font Calibri"
-        display as text "            " as result "tabtools set fontsize 11"
-        display as text "            " as result "tabtools set borderstyle thin"
-        display as text "            " as result "tabtools set theme lancet"
+        if "$TABTOOLS_THEME" != "" & "$TABTOOLS_THEME" != "custom" {
+            display as text "  Set with: " as result "tabtools set theme custom, font(Calibri) fontsize(11) borderstyle(thin)"
+            display as text "            " as result "tabtools set theme lancet"
+        }
+        else {
+            display as text "  Set with: " as result "tabtools set font Calibri"
+            display as text "            " as result "tabtools set fontsize 11"
+            display as text "            " as result "tabtools set borderstyle thin"
+            display as text "            " as result "tabtools set theme lancet"
+        }
         display as text "            " as result "tabtools set digits 3"
         display as text "            " as result "tabtools set boldp 0.05"
         display as text "  Clear:    " as result "tabtools set clear"

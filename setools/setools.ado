@@ -12,11 +12,14 @@ Optional options:
   list            - Display commands as a simple list
   detail          - Show detailed information with descriptions
   category(string) - Filter by category: codes, migration, ms, all
+  note            - list and detail may not be specified together
 
 Returns:
   r(commands)     - List of all command names
   r(n_commands)   - Number of commands
   r(version)      - Package version
+  r(category)     - Selected category filter
+  r(display)      - Display mode used: grouped, list, or detail
 
 See help setools for complete documentation
 */
@@ -40,6 +43,11 @@ program define setools, rclass
         exit 198
     }
 
+    if "`list'" != "" & "`detail'" != "" {
+        display as error "list and detail may not be specified together"
+        exit 198
+    }
+
     // Define commands by category
     local cmd_codes "procmatch cci_se"
     local cmd_migration "migrations"
@@ -59,6 +67,10 @@ program define setools, rclass
         local selected_cmds "`cmd_codes' `cmd_migration' `cmd_ms'"
     }
 
+    local display "grouped"
+    if "`list'" != "" local display "list"
+    if "`detail'" != "" local display "detail"
+
     // Count commands
     local n_commands: word count `selected_cmds'
 
@@ -70,11 +82,11 @@ program define setools, rclass
     display as text ""
 
     // Display based on options
-    if "`detail'" != "" {
+    if "`display'" == "detail" {
         // Detailed view with descriptions
         _setools_detail, category(`category')
     }
-    else if "`list'" != "" {
+    else if "`display'" == "list" {
         // Simple list view
         display as text "Available commands (`category'):"
         display as text ""
@@ -99,7 +111,7 @@ program define setools, rclass
 
         if inlist("`category'", "all", "ms") {
             display as text "{bf:MS Disability Progression}"
-            display as result "  sustainedss" as text "- Sustained EDSS progression date"
+            display as result "  sustainedss" as text "- First sustained EDSS threshold date"
             display as result "  cdp        " as text "- Confirmed Disability Progression"
             display as result "  pira       " as text "- Progression Independent of Relapse Activity"
             display as text ""
@@ -116,7 +128,9 @@ program define setools, rclass
     return local commands "`selected_cmds'"
     return scalar n_commands = `n_commands'
     return local version "1.0.1"
-    return local categories "codes migration ms"
+    return local categories "all codes migration ms"
+    return local category "`category'"
+    return local display "`display'"
 
     }
     local _rc = _rc
@@ -126,6 +140,12 @@ end
 
 // Subroutine for detailed display
 program define _setools_detail
+    version 16.0
+    local _varabbrev `c(varabbrev)'
+    set varabbrev off
+
+    capture noisily {
+
     syntax , Category(string)
 
     if inlist("`category'", "all", "codes") {
@@ -157,10 +177,10 @@ program define _setools_detail
     if inlist("`category'", "all", "ms") {
         display as text "{bf:MS Disability Progression}"
         display as text "  {hline 60}"
-        display as result "  sustainedss" as text "  Compute sustained EDSS progression date for MS"
-        display as text "               research. Requires confirmation at specified"
-        display as text "               interval (typically 3-6 months). Handles"
-        display as text "               baseline roving and relapse exclusions."
+        display as result "  sustainedss" as text "  Compute the first sustained EDSS threshold date."
+        display as text "               Finds the first date EDSS reaches a user-"
+        display as text "               specified threshold and is not reversed within"
+        display as text "               the confirmation window."
         display as text ""
         display as result "  cdp" as text "          Confirmed Disability Progression from baseline."
         display as text "               Standard CDP definition: 1.0 point increase"
@@ -173,4 +193,9 @@ program define _setools_detail
         display as text "               progressive MS and treatment trials."
         display as text ""
     }
+
+    }
+    local _rc = _rc
+    set varabbrev `_varabbrev'
+    if `_rc' exit `_rc'
 end

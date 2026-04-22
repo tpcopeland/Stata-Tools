@@ -23,7 +23,7 @@
 Run the full suite from the `qa/` root so existing path assumptions stay valid:
 
 ```bash
-cd /home/tpcopeland/Stata-Tools/tabtools/qa
+cd qa
 stata-mp -b do run_all.do
 ```
 

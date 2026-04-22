@@ -63,15 +63,19 @@ worked examples.
 {synopt:{helpb corrtab}}Correlation matrix with significance stars{p_end}
 
 {pstd}
-{bf:Regression}
+{bf:Models}
 
 {synopt:{helpb regtab}}Regression results from any estimation command{p_end}
 {synopt:{helpb effecttab}}Treatment effects and margins results{p_end}
+
+{pstd}
+{bf:Composite}
+
 {synopt:{helpb comptab}}Combine regtab/effecttab frames into one table{p_end}
 {synopt:{helpb hrcomptab}}Combine stratetab and regtab frames into a Table 2-style sheet{p_end}
 
 {pstd}
-{bf:Clinical}
+{bf:Rates And Clinical}
 
 {synopt:{helpb survtab}}Kaplan-Meier estimates, medians, and RMST{p_end}
 {synopt:{helpb stratetab}}Incidence rates from strate output{p_end}
@@ -111,6 +115,10 @@ Display current formatting defaults
 {p 8 17 2}
 {cmd:tabtools get}
 
+{pstd}
+{opt list}, {opt detail}, and {opt category()} are display-mode options only.
+They are not accepted with {cmd:tabtools set} or {cmd:tabtools get}.
+
 
 {dlgtab:Display options}
 
@@ -148,6 +156,13 @@ triplet such as {cmd:"200 220 240"}. Omitted custom-theme suboptions reset
 that component to the command default the next time {cmd:tabtools set theme custom}
 is run.
 
+{pstd}
+The builder-style options {cmd:font()}, {cmd:fontsize()}, {cmd:headercolor()},
+{cmd:zebracolor()}, and {cmd:borderstyle()} are only valid with
+{cmd:tabtools set theme custom}. If a named non-{cmd:custom} theme is active,
+direct {cmd:tabtools set font}, {cmd:set fontsize}, and
+{cmd:set borderstyle} are rejected so they cannot silently do nothing.
+
 
 {marker defaults}{...}
 {title:Persistent defaults}
@@ -162,6 +177,11 @@ everywhere.
 {cmd:tabtools get} reports the effective values that commands will use. Under a
 named theme such as {cmd:lancet}, this means the resolved theme values rather
 than any stale raw globals left over from earlier custom settings.
+
+{pstd}
+After {cmd:tabtools set clear} or in a fresh session, the baseline resolved
+defaults reported by {cmd:tabtools get} are {cmd:Arial}, {cmd:10}, and
+{cmd:thin}.
 
 {pstd}
 Defaults are session-only: they are lost when Stata is closed or restarted.

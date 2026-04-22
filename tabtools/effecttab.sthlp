@@ -32,13 +32,17 @@
 
 {pstd}{cmd:effecttab} reads either the current {helpb collect} table or a named matrix supplied through {opt from(name)}, then writes an Excel sheet with columns for point estimate, 95% CI, and p-value. It applies the same professional formatting as {helpb regtab}.{p_end}
 
+{pstd}When reading from {cmd:collect}, {cmd:effecttab} requires the active
+collection to come from {cmd:teffects} or {cmd:margins}. Other collected
+command types are rejected rather than being guessed as margins output.{p_end}
+
 {marker options}{title:Options}
 
 {synoptset 27 tabbed}{...}
 {synoptline}
 {synopt:{opt xlsx(string)}}Output Excel filename (must end with {cmd:.xlsx}). If the file exists, only the named sheet is replaced. {opt excel()} is accepted as a synonym. If omitted, results are displayed in the console only.{p_end}
 {synopt:{opt sheet(string)}}Target sheet name to create/replace in {opt xlsx()}. Default is {cmd:"Effects"}.{p_end}
-{synopt:{opt type(string)}}Type of collected results: {cmd:teffects}, {cmd:margins}, or {cmd:auto} (default). Auto-detection checks {cmd:e(cmd)} for live {cmd:collect} output. With {opt from()}, {cmd:auto} uses margins-style defaults and does not inspect or relabel the active collection.{p_end}
+{synopt:{opt type(string)}}Type of collected results: {cmd:teffects}, {cmd:margins}, or {cmd:auto} (default). Auto-detection inspects the active {cmd:collect} metadata, not ambient {cmd:e()}. Unsupported collections are rejected, and one active collection cannot mix {cmd:teffects} and {cmd:margins}. With {opt from()}, {cmd:auto} uses margins-style defaults and does not inspect or relabel the active collection.{p_end}
 {synopt:{opt effect(string)}}Header label for the effect column. Examples: {cmd:ATE}, {cmd:ATET}, {cmd:RD} (risk difference), {cmd:RR} (risk ratio), {cmd:AME} (average marginal effect), {cmd:Pr(Y)}. Default is "Effect" for teffects, "Estimate" for margins.{p_end}
 {synopt:{opt sep(string asis)}}Delimiter between CI endpoints. Default is {cmd:", "}.{p_end}
 {synopt:{opt models(string)}}Labels for multiple models, separated by backslash. Example: {cmd:"IPTW \ AIPW"}.{p_end}
@@ -88,7 +92,10 @@ Takes priority over auto-detected value labels.{p_end}
 
 {pstd}{bf:Working with margins}{p_end}
 
-{p 4 8 2}The {cmd:margins} command computes marginal effects, predicted probabilities, and contrasts. Results can be collected directly:{p_end}
+{p 4 8 2}The {cmd:margins} command computes marginal effects and predicted probabilities. Standard {cmd:margins} collections can be collected directly:{p_end}
+
+{p 4 8 2}Contrast-backed collections such as {cmd:collect: margins r.treatment}
+are currently unsupported and are rejected by {cmd:effecttab}.{p_end}
 
 {phang2}{cmd:. logit outcome i.treatment age sex}{p_end}
 {phang2}{cmd:. collect clear}{p_end}

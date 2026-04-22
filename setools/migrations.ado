@@ -66,6 +66,14 @@ program define migrations, rclass
         display as error "`startvar' must be a Stata daily date variable with %td format"
         exit 109
     }
+
+    quietly count if missing(`startvar')
+    if r(N) > 0 {
+        local _mig_missing_start = r(N)
+        display as error "Study start variable '`startvar'' has `_mig_missing_start' missing value(s) in master data"
+        display as error "migrations requires nonmissing study start dates for all observations"
+        exit 498
+    }
     
     * Validate ID uniqueness in master data
     capture isid `idvar'
@@ -75,10 +83,40 @@ program define migrations, rclass
         exit 459
     }
 
+    * Preflight output-variable collisions before any save side effects.
+    capture confirm variable migration_out_dt
+    if !_rc {
+        display as error "Variable migration_out_dt already exists in master data"
+        display as error "Drop or rename it before running migrations"
+        exit 110
+    }
+    if "`keepimmigrants'" != "" {
+        capture confirm variable migration_in_dt
+        if !_rc {
+            display as error "Variable migration_in_dt already exists in master data"
+            display as error "Drop or rename it before running migrations"
+            exit 110
+        }
+    }
+
+    * Sanitize save targets before processing.
+    if "`saveexclude'" != "" {
+        if regexm("`saveexclude'", "[;&|><\$\`]") {
+            display as error "saveexclude() contains invalid characters"
+            exit 198
+        }
+    }
+    if "`savecensor'" != "" {
+        if regexm("`savecensor'", "[;&|><\$\`]") {
+            display as error "savecensor() contains invalid characters"
+            exit 198
+        }
+    }
+
     * Preserve master data
     preserve
 
-    tempfile master
+    tempfile master exclude1 exclude2 exclude3 exclude4 exclude_data censor_data censor_export_data
     qui save `master', replace
     
     * Load migration data
@@ -284,240 +322,40 @@ program define migrations, rclass
     
     * Merge with master (keep only cohort members)
     qui merge 1:1 `idvar' using `master', nogen keep(3)
-    
+
+    local no_cohort_matches = 0
+
     * Check if any cohort members found in migration file
     if _N == 0 {
-        restore
-        capture confirm variable migration_out_dt
-        if !_rc {
-            display as error "Variable migration_out_dt already exists in master data"
-            display as error "Drop or rename it before running migrations"
-            exit 110
-        }
-        if "`keepimmigrants'" != "" {
-            capture confirm variable migration_in_dt
-            if !_rc {
-                display as error "Variable migration_in_dt already exists in master data"
-                display as error "Drop or rename it before running migrations"
-                exit 110
-            }
-        }
-        qui gen long migration_out_dt = .
-        qui label var migration_out_dt "Emigration censoring date"
-        qui format migration_out_dt %tdCCYY/NN/DD
-        if "`keepimmigrants'" != "" {
-            qui gen long migration_in_dt = .
-            qui label var migration_in_dt "Post-study-start immigration date"
-            qui format migration_in_dt %tdCCYY/NN/DD
-        }
-        display as text "Note: No cohort members found in migration file"
-        display as text "No exclusions or censoring dates applied"
-        return scalar N_excluded_emigrated = 0
-        return scalar N_excluded_inmigration = 0
-        return scalar N_excluded_abroad = 0
-        return scalar N_excluded_minresidence = 0
-        return scalar N_excluded_total = 0
-        return scalar N_censored = 0
-        return scalar N_included_inmigration = 0
-        return scalar N_final = _N
-        exit
-    }
-    
-    * Reshape to long format
-    if "`verbose'" != "" display as text "Reshaping migration data..."
-    qui reshape long in_ out_, i(`idvar') j(_mig_num)
-    qui drop if out_ == . & in_ == .
-    
-    * Calculate last emigration and immigration dates per person
-    * Note: using bysort instead of egen — Stata's internal tempvar counter
-    * can be corrupted by prior dataset switching (use/clear).
-    * Note: negated sort keys are needed for max-by-group because Stata
-    * sorts missing last — [_N] gives missing when ANY row has missing.
-    * Negating puts the largest non-missing first at [1].
-    qui gen long _neg_out = -out_
-    qui bysort `idvar' (_neg_out): gen long _mig_last_out = out_[1] if !missing(out_[1])
-    qui drop _neg_out
-    qui gen long _neg_in = -in_
-    qui bysort `idvar' (_neg_in): gen long _mig_last_in = in_[1] if !missing(in_[1])
-    qui drop _neg_in
-    qui format _mig_last_out _mig_last_in %tdCCYY/NN/DD
-
-    * Baseline-state helpers used for broad format support. These do not
-    * rely on in_/out_ being paired at the same reshape index.
-    qui gen long _mig_pre_start_out = out_ if out_ < `startvar' & !missing(out_)
-    qui gen long _neg_pre_out = -_mig_pre_start_out
-    qui bysort `idvar' (_neg_pre_out): gen long _mig_last_pre_out = _mig_pre_start_out[1] if !missing(_mig_pre_start_out[1])
-    qui drop _neg_pre_out _mig_pre_start_out
-
-    qui gen long _mig_pre_start_in_all = in_ if in_ <= `startvar' & !missing(in_)
-    qui gen long _neg_pre_in_all = -_mig_pre_start_in_all
-    qui bysort `idvar' (_neg_pre_in_all): gen long _mig_last_pre_in = _mig_pre_start_in_all[1] if !missing(_mig_pre_start_in_all[1])
-    qui drop _neg_pre_in_all _mig_pre_start_in_all
-
-    qui gen long _mig_post_start_in = in_ if in_ > `startvar' & !missing(in_)
-    qui bysort `idvar' (_mig_post_start_in): gen long _mig_first_post_in = _mig_post_start_in[1] if !missing(_mig_post_start_in[1])
-    qui drop _mig_post_start_in
-    qui format _mig_last_pre_out _mig_last_pre_in _mig_first_post_in %tdCCYY/NN/DD
-
-    * Compute latest pre-start immigration per person (for minresidence check)
-    * Persons born in Sweden with no immigration will have missing _mig_pre_start_in
-    if `minresidence' > 0 {
-        qui gen long _mig_pre_start_in = _mig_last_pre_in
-        qui format _mig_pre_start_in %tdCCYY/NN/DD
-    }
-
-    * EXCLUSION 1: Left Sweden before study_start and never returned
-    qui gen _mig_excl_emig = 0
-    qui replace _mig_excl_emig = 1 if _mig_last_out < `startvar' & (missing(_mig_last_in) | _mig_last_in < _mig_last_out)
-    
-    tempfile temp_migrations
-    qui save `temp_migrations', replace
-    
-    * Save list of exclusions (type 1)
-    qui keep if _mig_excl_emig == 1
-    qui keep `idvar'
-    if _N > 0 {
-        qui duplicates drop `idvar', force
-        qui gen exclude_reason = "Emigrated before study start, never returned"
-    }
-
-    tempfile exclude1
-    qui save `exclude1', replace emptyok
-    local n_exclude1 = _N
-
-    * Continue with remaining individuals
-    qui use `temp_migrations', clear
-    qui drop if _mig_excl_emig == 1
-    qui drop _mig_excl_emig
-
-    * EXCLUSION 4: Insufficient residence before study_start
-    * Must run before pre-filter (line 208) drops immigration-only records
-    if `minresidence' > 0 {
-        qui gen _mig_excl_minres = 0
-        qui replace _mig_excl_minres = 1 if !missing(_mig_pre_start_in) & (`startvar' - _mig_pre_start_in) < `minresidence'
-
-        tempfile pre_exclude4
-        qui save `pre_exclude4', replace
-
-        qui keep if _mig_excl_minres == 1
-        qui keep `idvar'
-        if _N > 0 {
-            qui duplicates drop `idvar', force
-            qui gen exclude_reason = "Insufficient residence before study start (`minresidence' days required)"
-        }
-
-        tempfile exclude4
-        qui save `exclude4', replace emptyok
-        local n_exclude4 = _N
-
-        qui use `pre_exclude4', clear
-        qui drop if _mig_excl_minres == 1
-        qui drop _mig_excl_minres
-    }
-
-    * Check if any individuals remain after exclusion 1
-    qui count
-    local n_remaining = r(N)
-
-    if `n_remaining' == 0 {
-        * All matched individuals were excluded - create empty files
+        local no_cohort_matches = 1
+        local n_exclude1 = 0
         local n_exclude2 = 0
         local n_exclude3 = 0
         local n_censor = 0
 
-        * Create empty exclusion files (exclude4 already set by minresidence block)
         qui keep `idvar'
-        tempfile exclude2
+        qui save `exclude1', replace emptyok
         qui save `exclude2', replace emptyok
-        tempfile exclude3
         qui save `exclude3', replace emptyok
-        if `minresidence' == 0 {
-            tempfile exclude4
-            qui save `exclude4', replace emptyok
-        }
+        qui save `exclude4', replace emptyok
 
-        * Create empty censor file
         qui gen long migration_out_dt = .
         qui label var migration_out_dt "Emigration censoring date"
-        tempfile censor_data
+        qui format migration_out_dt %tdCCYY/NN/DD
         qui save `censor_data', replace emptyok
     }
     else {
-        * Drop individuals who immigrated before study_start with no emigration record
-        qui drop if _mig_last_in < `startvar' & _mig_last_out == .
+        * Reshape to long format
+        if "`verbose'" != "" display as text "Reshaping migration data..."
+        qui reshape long in_ out_, i(`idvar') j(_mig_num)
+        qui drop if out_ == . & in_ == .
 
-        * Check if any individuals remain after pre-filtering
-        qui count
-        if r(N) == 0 {
-            * No migration events to process — create empty result files
-            local n_exclude2 = 0
-            local n_exclude3 = 0
-            local n_censor = 0
-            qui keep `idvar'
-            tempfile exclude2
-            qui save `exclude2', replace emptyok
-            tempfile exclude3
-            qui save `exclude3', replace emptyok
-            if `minresidence' == 0 {
-                tempfile exclude4
-                qui save `exclude4', replace emptyok
-            }
-            qui gen long migration_out_dt = .
-            qui label var migration_out_dt "Emigration censoring date"
-            tempfile censor_data
-            qui save `censor_data', replace emptyok
-        }
-        else {
-
-        * EXCLUSION 3: Emigrated before study_start and returned after
-        * (abroad at baseline). This must work for both historical paired
-        * wide files and long->wide normalized event sequences.
-        qui gen _mig_excl_abroad = 0
-        qui replace _mig_excl_abroad = 1 if !missing(_mig_last_pre_out) & ///
-            !missing(_mig_first_post_in) & ///
-            (missing(_mig_last_pre_in) | _mig_last_pre_in < _mig_last_pre_out)
-
-        tempfile pre_exclude3
-        qui save `pre_exclude3', replace
-
-        * Save exclusions (type 3)
-        qui keep if _mig_excl_abroad == 1
-        qui keep `idvar'
-        if _N > 0 {
-            qui duplicates drop `idvar', force
-            qui gen exclude_reason = "Abroad at baseline (emigrated before, returned after study start)"
-        }
-
-        tempfile exclude3
-        qui save `exclude3', replace emptyok
-        local n_exclude3 = _N
-
-        * Continue with remaining individuals
-        qui use `pre_exclude3', clear
-        qui drop if _mig_excl_abroad == 1
-        qui drop _mig_excl_abroad
-
-        * Drop emigration records before study_start
-        qui drop if out_ < `startvar'
-
-        * Check if any rows remain for further processing
-        qui count
-        if r(N) == 0 {
-            local n_exclude2 = 0
-            local n_censor = 0
-            qui keep `idvar'
-            tempfile exclude2
-            qui save `exclude2', replace emptyok
-            qui gen long migration_out_dt = .
-            qui label var migration_out_dt "Emigration censoring date"
-            tempfile censor_data
-            qui save `censor_data', replace emptyok
-        }
-        else {
-
-        * Recalculate migration sequence
-        qui drop _mig_num _mig_last_out _mig_last_in
-        capture drop _mig_pre_start_in
+        * Calculate last emigration and immigration dates per person
+        * Note: using bysort instead of egen — Stata's internal tempvar counter
+        * can be corrupted by prior dataset switching (use/clear).
+        * Note: negated sort keys are needed for max-by-group because Stata
+        * sorts missing last — [_N] gives missing when ANY row has missing.
+        * Negating puts the largest non-missing first at [1].
         qui gen long _neg_out = -out_
         qui bysort `idvar' (_neg_out): gen long _mig_last_out = out_[1] if !missing(out_[1])
         qui drop _neg_out
@@ -525,121 +363,288 @@ program define migrations, rclass
         qui bysort `idvar' (_neg_in): gen long _mig_last_in = in_[1] if !missing(in_[1])
         qui drop _neg_in
         qui format _mig_last_out _mig_last_in %tdCCYY/NN/DD
-        qui bysort `idvar' (out_ in_): gen _mig_seq = _n
-        qui bysort `idvar': gen _mig_total = _N
 
-        * Drop if only one migration and it's an immigration before study_start
-        qui drop if _mig_total == 1 & _mig_last_in < `startvar'
+        * Baseline-state helpers used for broad format support. These do not
+        * rely on in_/out_ being paired at the same reshape index.
+        qui gen long _mig_pre_start_out = out_ if out_ < `startvar' & !missing(out_)
+        qui gen long _neg_pre_out = -_mig_pre_start_out
+        qui bysort `idvar' (_neg_pre_out): gen long _mig_last_pre_out = _mig_pre_start_out[1] if !missing(_mig_pre_start_out[1])
+        qui drop _neg_pre_out _mig_pre_start_out
 
-        * EXCLUSION 2: Only migration is immigration after study_start (not in Sweden at baseline)
-        qui gen _mig_excl_inmig = 0
-        qui replace _mig_excl_inmig = 1 if in_ > `startvar' & out_ == . & _mig_total == 1 & in_ != .
+        qui gen long _mig_pre_start_in_all = in_ if in_ <= `startvar' & !missing(in_)
+        qui gen long _neg_pre_in_all = -_mig_pre_start_in_all
+        qui bysort `idvar' (_neg_pre_in_all): gen long _mig_last_pre_in = _mig_pre_start_in_all[1] if !missing(_mig_pre_start_in_all[1])
+        qui drop _neg_pre_in_all _mig_pre_start_in_all
 
-        * Calculate emigration censoring date
-        * Only permanent emigrations (no subsequent return) generate censoring dates
-        * Note: use person-level _mig_last_in (latest immigration across all rows),
-        * not row-level in_ — the in_/out_ at the same reshape index are independently
-        * numbered sequences, not paired emigration-return events.
-        qui gen byte _mig_perm_emig = (_mig_excl_inmig == 0 & out_ != . & out_ > `startvar' & (missing(_mig_last_in) | _mig_last_in <= out_))
+        qui gen long _mig_post_start_in = in_ if in_ > `startvar' & !missing(in_)
+        qui bysort `idvar' (_mig_post_start_in): gen long _mig_first_post_in = _mig_post_start_in[1] if !missing(_mig_post_start_in[1])
+        qui drop _mig_post_start_in
+        qui format _mig_last_pre_out _mig_last_pre_in _mig_first_post_in %tdCCYY/NN/DD
 
-        * Earliest permanent emigration per person
-        * Note: avoid egen here — Stata's internal tempvar counter can be
-        * corrupted by prior dataset switching (use/clear), causing egen to fail.
-        qui gen long _mig_min_out = out_ if _mig_perm_emig == 1
-        qui bysort `idvar' (_mig_min_out): replace _mig_min_out = _mig_min_out[1]
+        * Compute latest pre-start immigration per person (for minresidence check)
+        * Persons born in Sweden with no immigration will have missing _mig_pre_start_in
+        if `minresidence' > 0 {
+            qui gen long _mig_pre_start_in = _mig_last_pre_in
+            qui format _mig_pre_start_in %tdCCYY/NN/DD
+        }
 
-        * Propagate to all rows for each person
-        qui gen long migration_out_dt = _mig_min_out
-        qui format migration_out_dt %tdCCYY/NN/DD
+        * EXCLUSION 1: Left Sweden before study_start and never returned
+        qui gen _mig_excl_emig = 0
+        qui replace _mig_excl_emig = 1 if _mig_last_out < `startvar' & (missing(_mig_last_in) | _mig_last_in < _mig_last_out)
 
-        * Collapse to one row per person
-        qui drop _mig_total _mig_seq
-        qui bysort `idvar' (out_ in_): gen _mig_seq = _n
-        qui drop if _mig_seq > 1
+        tempfile temp_migrations
+        qui save `temp_migrations', replace
 
-        * Save current state before extracting exclusions type 2
-        tempfile pre_exclude2
-        qui save `pre_exclude2', replace
+        * Save list of exclusions (type 1)
+        qui keep if _mig_excl_emig == 1
+        qui keep `idvar'
+        if _N > 0 {
+            qui duplicates drop `idvar', force
+            qui gen exclude_reason = "Emigrated before study start, never returned"
+        }
 
-        if "`keepimmigrants'" != "" {
-            * keepimmigrants: include Type 2 rather than exclude
-            qui count if _mig_excl_inmig == 1
-            local n_included_inmig = r(N)
-            local n_exclude2 = 0
+        qui save `exclude1', replace emptyok
+        local n_exclude1 = _N
 
-            * Record immigration date for included immigrants
-            qui gen long migration_in_dt = in_ if _mig_excl_inmig == 1
-            qui format migration_in_dt %tdCCYY/NN/DD
-            qui label var migration_in_dt "Post-study-start immigration date"
+        * Continue with remaining individuals
+        qui use `temp_migrations', clear
+        qui drop if _mig_excl_emig == 1
+        qui drop _mig_excl_emig
 
-            * Keep all individuals with dates
-            qui keep `idvar' migration_out_dt migration_in_dt
+        * EXCLUSION 4: Insufficient residence before study_start
+        * Must run before pre-filter drops immigration-only records
+        if `minresidence' > 0 {
+            qui gen _mig_excl_minres = 0
+            qui replace _mig_excl_minres = 1 if !missing(_mig_pre_start_in) & (`startvar' - _mig_pre_start_in) < `minresidence'
+
+            tempfile pre_exclude4
+            qui save `pre_exclude4', replace
+
+            qui keep if _mig_excl_minres == 1
+            qui keep `idvar'
             if _N > 0 {
                 qui duplicates drop `idvar', force
+                qui gen exclude_reason = "Insufficient residence before study start (`minresidence' days required)"
             }
-            qui label var migration_out_dt "Emigration censoring date"
 
-            * Create empty exclude2 file (keep only idvar to avoid
-            * variable collision when exclude_data is merged before censor_data)
-            tempfile _keepimm_data
-            qui save `_keepimm_data', replace
-            qui drop if 1
+            qui save `exclude4', replace emptyok
+            local n_exclude4 = _N
+
+            qui use `pre_exclude4', clear
+            qui drop if _mig_excl_minres == 1
+            qui drop _mig_excl_minres
+        }
+
+        * Check if any individuals remain after exclusion 1
+        qui count
+        local n_remaining = r(N)
+
+        if `n_remaining' == 0 {
+            * All matched individuals were excluded - create empty files
+            local n_exclude2 = 0
+            local n_exclude3 = 0
+            local n_censor = 0
+
+            * Create empty exclusion files (exclude4 already set by minresidence block)
             qui keep `idvar'
-            tempfile exclude2
             qui save `exclude2', replace emptyok
-            qui use `_keepimm_data', clear
+            qui save `exclude3', replace emptyok
+            if `minresidence' == 0 {
+                qui save `exclude4', replace emptyok
+            }
+
+            * Create empty censor file
+            qui gen long migration_out_dt = .
+            qui label var migration_out_dt "Emigration censoring date"
+            qui format migration_out_dt %tdCCYY/NN/DD
+            qui save `censor_data', replace emptyok
         }
         else {
-            * Save exclusions (type 2)
-            qui keep if _mig_excl_inmig == 1
+            * Drop individuals who immigrated before study_start with no emigration record
+            qui drop if _mig_last_in < `startvar' & _mig_last_out == .
+
+            * Check if any individuals remain after pre-filtering
+            qui count
+            if r(N) == 0 {
+                * No migration events to process — create empty result files
+                local n_exclude2 = 0
+                local n_exclude3 = 0
+                local n_censor = 0
+                qui keep `idvar'
+                qui save `exclude2', replace emptyok
+                qui save `exclude3', replace emptyok
+                if `minresidence' == 0 {
+                    qui save `exclude4', replace emptyok
+                }
+                qui gen long migration_out_dt = .
+                qui label var migration_out_dt "Emigration censoring date"
+                qui format migration_out_dt %tdCCYY/NN/DD
+                qui save `censor_data', replace emptyok
+            }
+            else {
+
+            * EXCLUSION 3: Emigrated before study_start and returned after
+            * (abroad at baseline). This must work for both historical paired
+            * wide files and long->wide normalized event sequences.
+            qui gen _mig_excl_abroad = 0
+            qui replace _mig_excl_abroad = 1 if !missing(_mig_last_pre_out) & ///
+                !missing(_mig_first_post_in) & ///
+                (missing(_mig_last_pre_in) | _mig_last_pre_in < _mig_last_pre_out)
+
+            tempfile pre_exclude3
+            qui save `pre_exclude3', replace
+
+            * Save exclusions (type 3)
+            qui keep if _mig_excl_abroad == 1
             qui keep `idvar'
             if _N > 0 {
                 qui duplicates drop `idvar', force
-                qui gen exclude_reason = "Immigration after study start (not in Sweden at baseline)"
+                qui gen exclude_reason = "Abroad at baseline (emigrated before, returned after study start)"
             }
 
-            tempfile exclude2
-            qui save `exclude2', replace emptyok
-            local n_exclude2 = _N
+            qui save `exclude3', replace emptyok
+            local n_exclude3 = _N
 
-            * Restore to pre-exclude2 state
-            qui use `pre_exclude2', clear
+            * Continue with remaining individuals
+            qui use `pre_exclude3', clear
+            qui drop if _mig_excl_abroad == 1
+            qui drop _mig_excl_abroad
 
-            * Keep only non-excluded individuals
-            qui keep if _mig_excl_inmig == 0
-            qui keep `idvar' migration_out_dt
-            if _N > 0 {
-                qui duplicates drop `idvar', force
-            }
-            qui label var migration_out_dt "Emigration censoring date"
-        }
+            * Drop emigration records before study_start
+            qui drop if out_ < `startvar'
 
-        * Count censoring dates
-        qui count if migration_out_dt != .
-        local n_censor = r(N)
-
-        * Save censoring data
-        if "`savecensor'" != "" {
-            // Sanitize file path
-            if regexm("`savecensor'", "[;&|><\$\`]") {
-                display as error "savecensor() contains invalid characters"
-                exit 198
-            }
-
-            if "`replace'" != "" {
-                qui save "`savecensor'", replace
+            * Check if any rows remain for further processing
+            qui count
+            if r(N) == 0 {
+                local n_exclude2 = 0
+                local n_censor = 0
+                qui keep `idvar'
+                qui save `exclude2', replace emptyok
+                qui gen long migration_out_dt = .
+                qui label var migration_out_dt "Emigration censoring date"
+                qui format migration_out_dt %tdCCYY/NN/DD
+                qui save `censor_data', replace emptyok
             }
             else {
-                qui save "`savecensor'"
-            }
-            if "`verbose'" != "" display as text "Censoring dates saved to `savecensor'"
-        }
 
-        tempfile censor_data
-        qui save `censor_data', replace
+            * Recalculate migration sequence
+            qui drop _mig_num _mig_last_out _mig_last_in
+            capture drop _mig_pre_start_in
+            qui gen long _neg_out = -out_
+            qui bysort `idvar' (_neg_out): gen long _mig_last_out = out_[1] if !missing(out_[1])
+            qui drop _neg_out
+            qui gen long _neg_in = -in_
+            qui bysort `idvar' (_neg_in): gen long _mig_last_in = in_[1] if !missing(in_[1])
+            qui drop _neg_in
+            qui format _mig_last_out _mig_last_in %tdCCYY/NN/DD
+            qui bysort `idvar' (out_ in_): gen _mig_seq = _n
+            qui bysort `idvar': gen _mig_total = _N
+
+            * Drop if only one migration and it's an immigration before study_start
+            qui drop if _mig_total == 1 & _mig_last_in < `startvar'
+
+            * EXCLUSION 2: Only migration is immigration after study_start (not in Sweden at baseline)
+            qui gen _mig_excl_inmig = 0
+            qui replace _mig_excl_inmig = 1 if in_ > `startvar' & out_ == . & _mig_total == 1 & in_ != .
+
+            * Calculate emigration censoring date
+            * Only permanent emigrations (no subsequent return) generate censoring dates
+            * Note: use person-level _mig_last_in (latest immigration across all rows),
+            * not row-level in_ — the in_/out_ at the same reshape index are independently
+            * numbered sequences, not paired emigration-return events.
+            qui gen byte _mig_perm_emig = (_mig_excl_inmig == 0 & out_ != . & out_ > `startvar' & (missing(_mig_last_in) | _mig_last_in <= out_))
+
+            * Earliest permanent emigration per person
+            * Note: avoid egen here — Stata's internal tempvar counter can be
+            * corrupted by prior dataset switching (use/clear), causing egen to fail.
+            qui gen long _mig_min_out = out_ if _mig_perm_emig == 1
+            qui bysort `idvar' (_mig_min_out): replace _mig_min_out = _mig_min_out[1]
+
+            * Propagate to all rows for each person
+            qui gen long migration_out_dt = _mig_min_out
+            qui format migration_out_dt %tdCCYY/NN/DD
+
+            * Collapse to one row per person
+            qui drop _mig_total _mig_seq
+            qui bysort `idvar' (out_ in_): gen _mig_seq = _n
+            qui drop if _mig_seq > 1
+
+            * Save current state before extracting exclusions type 2
+            tempfile pre_exclude2
+            qui save `pre_exclude2', replace
+
+            if "`keepimmigrants'" != "" {
+                * keepimmigrants: include Type 2 rather than exclude
+                qui count if _mig_excl_inmig == 1
+                local n_included_inmig = r(N)
+                local n_exclude2 = 0
+
+                * Record immigration date for included immigrants
+                qui gen long migration_in_dt = in_ if _mig_excl_inmig == 1
+                qui format migration_in_dt %tdCCYY/NN/DD
+                qui label var migration_in_dt "Post-study-start immigration date"
+
+                * Keep all individuals with dates
+                qui keep `idvar' migration_out_dt migration_in_dt
+                if _N > 0 {
+                    qui duplicates drop `idvar', force
+                }
+                qui label var migration_out_dt "Emigration censoring date"
+
+                * Create empty exclude2 file (keep only idvar to avoid
+                * variable collision when exclude_data is merged before censor_data)
+                tempfile _keepimm_data
+                qui save `_keepimm_data', replace
+                qui drop if 1
+                qui keep `idvar'
+                qui save `exclude2', replace emptyok
+                qui use `_keepimm_data', clear
+            }
+            else {
+                * Save exclusions (type 2)
+                qui keep if _mig_excl_inmig == 1
+                qui keep `idvar'
+                if _N > 0 {
+                    qui duplicates drop `idvar', force
+                    qui gen exclude_reason = "Immigration after study start (not in Sweden at baseline)"
+                }
+
+                qui save `exclude2', replace emptyok
+                local n_exclude2 = _N
+
+                * Restore to pre-exclude2 state
+                qui use `pre_exclude2', clear
+
+                * Keep only non-excluded individuals
+                qui keep if _mig_excl_inmig == 0
+                qui keep `idvar' migration_out_dt
+                if _N > 0 {
+                    qui duplicates drop `idvar', force
+                }
+                qui label var migration_out_dt "Emigration censoring date"
+            }
+
+            * Count censoring dates
+            qui count if migration_out_dt != .
+            local n_censor = r(N)
+
+            qui save `censor_data', replace
+            }
+            }
         }
         }
     }
+
+    * savecensor() exports only observations with nonmissing emigration censoring dates.
+    qui use `censor_data', clear
+    qui keep if !missing(migration_out_dt)
+    qui keep `idvar' migration_out_dt
+    if _N > 0 {
+        qui duplicates drop `idvar', force
+    }
+    qui label var migration_out_dt "Emigration censoring date"
+    qui format migration_out_dt %tdCCYY/NN/DD
+    qui save `censor_export_data', replace emptyok
 
     * Combine exclusion files
     qui use `exclude1', clear
@@ -652,15 +657,9 @@ program define migrations, rclass
         qui duplicates drop `idvar', force
     }
     local n_exclude_total = _N
-    
+
     * Save exclusions
     if "`saveexclude'" != "" {
-        // Sanitize file path
-        if regexm("`saveexclude'", "[;&|><\$\`]") {
-            display as error "saveexclude() contains invalid characters"
-            exit 198
-        }
-
         if "`replace'" != "" {
             qui save "`saveexclude'", replace
         }
@@ -670,25 +669,21 @@ program define migrations, rclass
         if "`verbose'" != "" display as text "Exclusions saved to `saveexclude'"
     }
     
-    tempfile exclude_data
     qui save `exclude_data', replace
-    
+
+    if "`savecensor'" != "" {
+        qui use `censor_export_data', clear
+        if "`replace'" != "" {
+            qui save "`savecensor'", replace
+        }
+        else {
+            qui save "`savecensor'"
+        }
+        if "`verbose'" != "" display as text "Censoring dates saved to `savecensor'"
+    }
+
     * Restore master and merge results
     qui use `master', clear
-    capture confirm variable migration_out_dt
-    if !_rc {
-        noisily display as error "Variable migration_out_dt already exists in master data"
-        noisily display as error "Drop or rename it before running migrations"
-        exit 110
-    }
-    if "`keepimmigrants'" != "" {
-        capture confirm variable migration_in_dt
-        if !_rc {
-            noisily display as error "Variable migration_in_dt already exists in master data"
-            noisily display as error "Drop or rename it before running migrations"
-            exit 110
-        }
-    }
 
     * Remove excluded individuals
     qui merge 1:1 `idvar' using `exclude_data', keep(1) nogen
@@ -708,6 +703,20 @@ program define migrations, rclass
     
     * Commit changes (don't restore to original)
     restore, not
+
+    if `no_cohort_matches' {
+        display as text "Note: No cohort members found in migration file"
+        display as text "No exclusions or censoring dates applied"
+        return scalar N_excluded_emigrated = 0
+        return scalar N_excluded_inmigration = 0
+        return scalar N_excluded_abroad = 0
+        return scalar N_excluded_minresidence = 0
+        return scalar N_excluded_total = 0
+        return scalar N_censored = 0
+        return scalar N_included_inmigration = 0
+        return scalar N_final = _N
+        exit
+    }
 
     * Display summary
     display as text _n "Migration Processing Summary"

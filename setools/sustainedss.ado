@@ -36,6 +36,11 @@ program define sustainedss, rclass
         di as error "`datevar' must be numeric (Stata date format)"
         exit 109
     }
+    local _sustainedss_date_fmt : format `datevar'
+    if lower(substr("`_sustainedss_date_fmt'", 1, 3)) != "%td" {
+        di as error "`datevar' must be a Stata daily date variable with %td format"
+        exit 109
+    }
     
     // Check threshold value
     if `threshold' <= 0 {
@@ -77,6 +82,11 @@ program define sustainedss, rclass
     
     // Mark sample (strok: allow string ID variables)
     marksample touse, strok
+    qui count if `touse' & !missing(`datevar') & `datevar' != floor(`datevar')
+    if r(N) > 0 {
+        di as error "`datevar' must contain whole-number Stata daily dates"
+        exit 109
+    }
 
     // Check for valid observations BEFORE preserve
     qui count if `touse'
