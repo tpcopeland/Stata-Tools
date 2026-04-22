@@ -1,4 +1,4 @@
-*! gcomp Version 1.0.2  2026/04/19
+*! gcomp Version 1.0.3  2026/04/22
 *! G-computation formula via Monte Carlo simulation
 *! Forked from SSC gformula v1.16 beta (Rhian Daniel, 2021)
 *! with bug fixes, modernization, and SSC dependency removal
@@ -249,10 +249,10 @@ if "`mediation'"=="" {
 			exit 198
 		}
 		if "`death'"=="" {
-			local varlist2="`outcome'"+" "+"`varyingcovariates'"+" "+"`intvars'"
+			local varlist2="`varyingcovariates'"+" "+"`intvars'"+" "+"`outcome'"
 		}
 		else {
-			local varlist2="`death'"+" "+"`outcome'"+" "+"`varyingcovariates'"+" "+"`intvars'"
+			local varlist2="`death'"+" "+"`varyingcovariates'"+" "+"`intvars'"+" "+"`outcome'"
 		}
 		local nvar: word count `varlist2'
 		_gcomp_detangle "`commands'" command "`varlist2'"
@@ -652,10 +652,10 @@ noi di
 * Display in a table the parametric models that have been specified (for simulation under different interventions)
 if "`mediation'"=="" {
 	if "`death'"=="" {
-		local varlist2="`outcome'"+" "+"`varyingcovariates'"+" "+"`intvars'"
+		local varlist2="`varyingcovariates'"+" "+"`intvars'"+" "+"`outcome'"
 	}
 	else {
-		local varlist2="`death'"+" "+"`outcome'"+" "+"`varyingcovariates'"+" "+"`intvars'"
+		local varlist2="`death'"+" "+"`varyingcovariates'"+" "+"`intvars'"+" "+"`outcome'"
 	}
 }
 else {
@@ -2613,10 +2613,10 @@ if "`mediation'"=="" {
 			}
 			else {
 				if "`death'"=="" {
-					local varlist2="`outcome'"+" "+"`varyingcovariates'"+" "+"`intvars'"
+					local varlist2="`varyingcovariates'"+" "+"`intvars'"+" "+"`outcome'"
 				}
 				else {
-					local varlist2="`death'"+" "+"`outcome'"+" "+"`varyingcovariates'"+" "+"`intvars'"
+					local varlist2="`death'"+" "+"`varyingcovariates'"+" "+"`intvars'"+" "+"`outcome'"
 				}
 				local nvar: word count `varlist2'
 				_gcomp_detangle "`equations'" equation "`varlist2'"
@@ -3022,10 +3022,10 @@ gen long `int_no'=0
 * It will be useful to have a list of the variables for which models will be specified
 if "`mediation'"=="" {
 	if "`death'"=="" {
-		local varlist2="`outcome'"+" "+"`varyingcovariates'"+" "+"`intvars'"
+		local varlist2="`varyingcovariates'"+" "+"`intvars'"+" "+"`outcome'"
 	}
 	else {
-		local varlist2="`death'"+" "+"`outcome'"+" "+"`varyingcovariates'"+" "+"`intvars'"
+		local varlist2="`death'"+" "+"`varyingcovariates'"+" "+"`intvars'"+" "+"`outcome'"
 	}
 }
 else {
@@ -3034,6 +3034,8 @@ else {
 local nvar: word count `varlist2'
 local nvar_formono: word count `intvars'
 local nvar_untilmono=`nvar'-`nvar_formono'
+* Per-position intvar flag (identity-based, so monotreat works regardless
+* of where outcome sits in varlist2). Populated after simvar_i locals below.
 * _gcomp_detangle commands
 _gcomp_detangle "`commands'" command "`varlist2'"
 forvalues i=1/`nvar' {
@@ -3056,6 +3058,13 @@ if `_gc_chk_prt'==0 {
 }
 forvalues i=1/`nvar' {
 	local simvar`i': word `i' of `varlist2'
+	* is_intvar_`i' = 1 if simvar`i' is an intervention variable, else 0
+	if strmatch(" "+"`intvars'"+" ","* "+"`simvar`i''"+" *")==1 {
+		local is_intvar_`i' = 1
+	}
+	else {
+		local is_intvar_`i' = 0
+	}
 }
 if `_gc_chk_prt'==0 {
 	noi di as text "{hline 1}" _cont
@@ -3879,7 +3888,7 @@ if "`mediation'"=="" {
 				else {
 					if "`eofu'"!="" {
 						if "`pooled'"=="" {
-							if "`monotreat'"=="" | `i'<=`nvar_untilmono' {
+							if "`monotreat'"=="" | `is_intvar_`i''==0 {
 								qui `command`i'' `simvar`i'' `equation`i'' if `tvar'==`k' & `int_no'==0
 							}
 							else {
@@ -3892,7 +3901,7 @@ if "`mediation'"=="" {
 							}
 						}
 						else {
-							if "`monotreat'"=="" | `i'<=`nvar_untilmono' {
+							if "`monotreat'"=="" | `is_intvar_`i''==0 {
 								qui `command`i'' `simvar`i'' `equation`i'' if `int_no'==0
 							}
 							else {
@@ -3942,10 +3951,10 @@ if "`mediation'"=="" {
 								else {
 									qui replace `simvar`i''=runiform()<`pred_simvar`i'' if `simvar`i''==. & `tvar'==`k' & `int_no'>0
 								}
-							}	
+							}
 							if rtrim(ltrim("`simvar`i''"))!=rtrim(ltrim("`outcome'")) {
 								qui replace `simvar`i''=runiform()<`pred_simvar`i'' if `simvar`i''==. & `tvar'==`k' & `int_no'>0
-								if "`monotreat'"!="" & `i'>`nvar_untilmono' {
+								if "`monotreat'"!="" & `is_intvar_`i''==1 {
 									qui replace `simvar`i''=1 if `simvar`i''[_n-1]==1 & `idvar'[_n]==`idvar'[_n-1] & `int_no'==`nint'+1
 								}
 							}
@@ -4112,7 +4121,7 @@ if "`mediation'"=="" {
 						}
 						else {
 							if "`pooled'"=="" {
-								if "`monotreat'"=="" | `i'<=`nvar_untilmono' {
+								if "`monotreat'"=="" | `is_intvar_`i''==0 {
 									qui `command`i'' `simvar`i'' `equation`i'' if `tvar'==`k' & `int_no'==0
 								}
 								else {
@@ -4125,7 +4134,7 @@ if "`mediation'"=="" {
 								}
 							}
 							else {
-								if "`monotreat'"=="" | `i'<=`nvar_untilmono' {
+								if "`monotreat'"=="" | `is_intvar_`i''==0 {
 									qui `command`i'' `simvar`i'' `equation`i'' if `int_no'==0
 								}
 								else {

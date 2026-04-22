@@ -1,4 +1,4 @@
-*! _gcomp_bootstrap_impl Version 1.0.2  2026/04/19
+*! _gcomp_bootstrap_impl Version 1.0.3  2026/04/22
 *! Internal bootstrap implementation for gcomp
 *! Author: Timothy P Copeland (fork), Rhian Daniel (original)
 *! Program class: rclass
@@ -82,10 +82,10 @@ if "`mediation'"=="" {
 			}
 			else {
 				if "`death'"=="" {
-					local varlist2="`outcome'"+" "+"`varyingcovariates'"+" "+"`intvars'"
+					local varlist2="`varyingcovariates'"+" "+"`intvars'"+" "+"`outcome'"
 				}
 				else {
-					local varlist2="`death'"+" "+"`outcome'"+" "+"`varyingcovariates'"+" "+"`intvars'"
+					local varlist2="`death'"+" "+"`varyingcovariates'"+" "+"`intvars'"+" "+"`outcome'"
 				}
 				local nvar: word count `varlist2'
 				_gcomp_detangle "`equations'" equation "`varlist2'"
@@ -491,10 +491,10 @@ gen long `int_no'=0
 * It will be useful to have a list of the variables for which models will be specified
 if "`mediation'"=="" {
 	if "`death'"=="" {
-		local varlist2="`outcome'"+" "+"`varyingcovariates'"+" "+"`intvars'"
+		local varlist2="`varyingcovariates'"+" "+"`intvars'"+" "+"`outcome'"
 	}
 	else {
-		local varlist2="`death'"+" "+"`outcome'"+" "+"`varyingcovariates'"+" "+"`intvars'"
+		local varlist2="`death'"+" "+"`varyingcovariates'"+" "+"`intvars'"+" "+"`outcome'"
 	}
 }
 else {
@@ -525,6 +525,12 @@ if `_gc_chk_prt'==0 {
 }
 forvalues i=1/`nvar' {
 	local simvar`i': word `i' of `varlist2'
+	if strmatch(" "+"`intvars'"+" ","* "+"`simvar`i''"+" *")==1 {
+		local is_intvar_`i' = 1
+	}
+	else {
+		local is_intvar_`i' = 0
+	}
 }
 if `_gc_chk_prt'==0 {
 	noi di as text "{hline 1}" _cont
@@ -1348,7 +1354,7 @@ if "`mediation'"=="" {
 				else {
 					if "`eofu'"!="" {
 						if "`pooled'"=="" {
-							if "`monotreat'"=="" | `i'<=`nvar_untilmono' {
+							if "`monotreat'"=="" | `is_intvar_`i''==0 {
 								qui `command`i'' `simvar`i'' `equation`i'' if `tvar'==`k' & `int_no'==0
 							}
 							else {
@@ -1361,7 +1367,7 @@ if "`mediation'"=="" {
 							}
 						}
 						else {
-							if "`monotreat'"=="" | `i'<=`nvar_untilmono' {
+							if "`monotreat'"=="" | `is_intvar_`i''==0 {
 								qui `command`i'' `simvar`i'' `equation`i'' if `int_no'==0
 							}
 							else {
@@ -1414,7 +1420,7 @@ if "`mediation'"=="" {
 							}	
 							if rtrim(ltrim("`simvar`i''"))!=rtrim(ltrim("`outcome'")) {
 								qui replace `simvar`i''=runiform()<`pred_simvar`i'' if `simvar`i''==. & `tvar'==`k' & `int_no'>0
-								if "`monotreat'"!="" & `i'>`nvar_untilmono' {
+								if "`monotreat'"!="" & `is_intvar_`i''==1 {
 									qui replace `simvar`i''=1 if `simvar`i''[_n-1]==1 & `idvar'[_n]==`idvar'[_n-1] & `int_no'==`nint'+1
 								}
 							}
@@ -1581,7 +1587,7 @@ if "`mediation'"=="" {
 						}
 						else {
 							if "`pooled'"=="" {
-								if "`monotreat'"=="" | `i'<=`nvar_untilmono' {
+								if "`monotreat'"=="" | `is_intvar_`i''==0 {
 									qui `command`i'' `simvar`i'' `equation`i'' if `tvar'==`k' & `int_no'==0
 								}
 								else {
@@ -1594,7 +1600,7 @@ if "`mediation'"=="" {
 								}
 							}
 							else {
-								if "`monotreat'"=="" | `i'<=`nvar_untilmono' {
+								if "`monotreat'"=="" | `is_intvar_`i''==0 {
 									qui `command`i'' `simvar`i'' `equation`i'' if `int_no'==0
 								}
 								else {

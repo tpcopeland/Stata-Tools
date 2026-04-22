@@ -779,6 +779,11 @@ program define _build_tv_validation_data
 end
 
 * V7.1: Time-varying mode completes and returns valid e() results
+* Regression guard: if varlist2 puts the outcome BEFORE the confounders/intvars
+* in the per-visit sim loop, predict fires before the covariates are sampled
+* at t==k. pred_simvar_Y is all missing; runiform()<. is always true; every
+* simulated Y comes out as 1. Prior assertions (PO != .) rode right past this.
+* The nondegeneracy + ordering asserts below catch the regression.
 local ++test_count
 capture noisily {
     _build_tv_validation_data, observations(600)
@@ -803,8 +808,13 @@ capture noisily {
     assert `PO1' >= 0 & `PO1' <= 1
     assert `PO2' >= 0 & `PO2' <= 1
     assert `PO3' >= 0 & `PO3' <= 1
+    * Nondegeneracy (catches the PO=1.0 regression): each PO must differ from
+    * the adjacent regime. If the varlist2 bug returns, every PO collapses to 1.
     assert abs(`PO1' - `PO2') > 0.01
+    * Direction: the DGP has A reducing outcome risk (-0.90 coef on A_lag),
+    * so always-treated risk must be below never-treated risk.
     assert `PO1' < `PO2'
+    * Observational simulated regime must land between the two intervention regimes.
     assert `PO3' > `PO1' & `PO3' < `PO2'
 }
 if _rc == 0 {
@@ -837,6 +847,43 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL: V7.2 e(obs_data) (error `=_rc')"
+    local ++fail_count
+}
+
+* V7.3: minsim (deterministic outcome expectation) completes without r(503)
+* Regression guard: the varlist2 ordering bug also triggered a conformability
+* error (r(503)) when minsim was set, because pred_simvar being all-missing
+* poisoned the downstream linexp/minsim matrix math. Uses the same helper
+* DGP as V7.1 for consistency (A has a negative effect on Y, so PO1 < PO2).
+local ++test_count
+capture noisily {
+    _build_tv_validation_data, observations(600)
+
+    gcomp Y L0 A L Alag Llag id time, outcome(Y) ///
+        idvar(id) tvar(time) ///
+        varyingcovariates(L) fixedcovariates(L0) ///
+        laggedvars(Alag Llag) lagrules(Alag: A 1, Llag: L 1) ///
+        commands(A: logit, Y: logit, L: regress) ///
+        equations(A: L0 L, Y: Alag Llag L0, L: Alag Llag L0) ///
+        intvars(A) interventions(A=1, A=0) ///
+        eofu minsim sim(200) samples(50) seed(20260321)
+
+    assert "`e(cmd)'" == "gcomp"
+    tempname _ebm
+    matrix `_ebm' = e(b)
+    local PO1m = `_ebm'[1,1]
+    local PO2m = `_ebm'[1,2]
+    assert `PO1m' > 0 & `PO1m' < 1
+    assert `PO2m' > 0 & `PO2m' < 1
+    assert abs(`PO1m' - `PO2m') > 0.01
+    assert `PO1m' < `PO2m'
+}
+if _rc == 0 {
+    display as result "  PASS: V7.3 Time-varying eofu + minsim runs and returns sensible POs"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: V7.3 minsim (error `=_rc')"
     local ++fail_count
 }
 
