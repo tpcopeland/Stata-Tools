@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.7  18apr2026}{...}
+{* *! version 1.0.8  22apr2026}{...}
 {viewerjumpto "Syntax" "crosstab##syntax"}{...}
 {viewerjumpto "Description" "crosstab##description"}{...}
 {viewerjumpto "Options" "crosstab##options"}{...}
@@ -21,7 +21,7 @@
 {opt or} {opt rr} {opt rd} {opt tr:end} {opt ex:act} {opt fi:sher}
 {opt lab:el} {opt mis:sing} {opt dig:its(#)}
 {opt sheet(string)} {opt title(string)} {opt foot:note(string)}
-{opt the:me(string)} {opt borders:tyle(string)} {opt boldp(#)} {opt zebra}
+{opt the:me(string)} {opt border:style(string)} {opt boldp(#)} {opt zebra}
 {opt csv(filename)} {opt fra:me(name)} {opt dis:play} {opt open}]{p_end}
 
 {marker description}{title:Description}
@@ -94,9 +94,8 @@ measures.{p_end}
 
 {marker author}{title:Author}
 
-{pstd}Timothy P Copeland{p_end}
-{pstd}Department of Clinical Neuroscience, Karolinska Institutet{p_end}
+{pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}timothy.copeland@ki.se{p_end}
-{pstd}Version 1.0.7{p_end}
+{pstd}Version 1.0.8{p_end}
 
 {hline}

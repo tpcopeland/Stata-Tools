@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.7  18apr2026}{...}
+{* *! version 1.0.8  22apr2026}{...}
 {viewerjumpto "Syntax" "stratetab##syntax"}{...}
 {viewerjumpto "Description" "stratetab##description"}{...}
 {viewerjumpto "Options" "stratetab##options"}{...}
@@ -20,7 +20,7 @@
 {title:Syntax}
 
 {p 8 17 2}
-{cmd:stratetab}{cmd:,} {opt using(string asis)} {opt outcomes(integer)} [{opt xlsx(string)} {opt excel(string)} {opt sheet(string)} {opt title(string)} {opt outlabels(string)} {opt explabels(string)} {opt digits(integer 1)} {opt eventdigits(integer 0)} {opt pydigits(integer 0)} {opt unitlabel(string)} {opt pyscale(real 1)} {opt ratescale(real 1000)} {opt rateratio} {opt ratio:digits(#)} {opt foot:note(string)} {opt open} {opt zebra} {opt borders:tyle(string)} {opt the:me(string)} {opt headers:hade} {opt headerc:olor(string)} {opt zebrac:olor(string)} {opt csv(string)} {opt fra:me(name)} {opt dis:play}]
+{cmd:stratetab}{cmd:,} {opt using(string asis)} {opt outcomes(integer)} [{opt xlsx(string)} {opt excel(string)} {opt sheet(string)} {opt title(string)} {opt outlabels(string)} {opt explabels(string)} {opt digits(integer 1)} {opt eventdigits(integer 0)} {opt pydigits(integer 0)} {opt unitlabel(string)} {opt pyscale(real 1)} {opt ratescale(real 1000)} {opt rateratio} {opt ratio:digits(#)} {opt foot:note(string)} {opt open} {opt zebra} {opt border:style(string)} {opt the:me(string)} {opt headers:hade} {opt headerc:olor(string)} {opt zebrac:olor(string)} {opt csv(string)} {opt fra:me(name)} {opt dis:play}]
 
 
 {marker description}{...}
@@ -77,7 +77,7 @@ No dataset needs to be loaded before running {cmd:stratetab}; it reads the saved
 {opt pydigits(integer 0)} specifies the number of decimal places for person-years. Must be between 0 and 10. Default is 0.
 
 {phang}
-{opt unitlabel(string)} specifies the unit label for the rate column header. Default is "1,000", producing "Per 1,000 PY (95% CI)".
+{opt unitlabel(string)} specifies the unit label for the rate column header. Default is "1,000", producing "Per 1,000 PY (95% CI)". Keep {opt unitlabel()} synchronized with {opt ratescale()} so the displayed label matches the scaled rate values.
 
 {phang}
 {opt pyscale(real 1)} divides person-years values by the specified factor. Default is 1 (no scaling).
@@ -95,7 +95,7 @@ No dataset needs to be loaded before running {cmd:stratetab}; it reads the saved
 
 {phang2}{opt zebra} applies alternating light gray row shading for readability.{p_end}
 
-{phang2}{opt borders:tyle(string)} specifies the border style: {cmd:thin} (default), {cmd:medium}, or {cmd:academic}.{p_end}
+{phang2}{opt border:style(string)} specifies the border style: {cmd:thin} (default), {cmd:medium}, or {cmd:academic}.{p_end}
 
 {phang2}{opt the:me(string)} applies a journal-style formatting theme: {cmd:lancet}, {cmd:nejm}, {cmd:bmj}, {cmd:apa}, {cmd:jama}, {cmd:plos}, {cmd:nature}, {cmd:cell}, {cmd:annals}, or {cmd:custom}.{p_end}
 
@@ -216,10 +216,9 @@ If {opt explabels()} is specified, the number of labels must match the number of
 {marker author}{...}
 {title:Author}
 
-{pstd}Timothy P Copeland{p_end}
-{pstd}Department of Clinical Neuroscience, Karolinska Institutet{p_end}
+{pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}timothy.copeland@ki.se{p_end}
-{pstd}Version 1.0.7{p_end}
+{pstd}Version 1.0.8{p_end}
 
 {title:Also see}
 

@@ -1,6 +1,6 @@
 {smcl}
-{* *! version 1.0.7  18apr2026}{...}
-{title:tabtools Quick Reference (v1.0.7)}
+{* *! version 1.0.8  22apr2026}{...}
+{title:tabtools Quick Reference (v1.0.8)}
 
 {pstd}Common option combinations for each command.{p_end}
 
@@ -90,9 +90,8 @@
 {hline}
 {title:Author}
 
-{pstd}Timothy P Copeland{p_end}
-{pstd}Department of Clinical Neuroscience, Karolinska Institutet{p_end}
+{pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}timothy.copeland@ki.se{p_end}
-{pstd}Version 1.0.7{p_end}
+{pstd}Version 1.0.8{p_end}
 
 {hline}

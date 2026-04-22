@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.7  18apr2026}{...}
+{* *! version 1.0.8  22apr2026}{...}
 {viewerjumpto "Package overview" "corrtab##package"}{...}
 {viewerjumpto "Syntax" "corrtab##syntax"}{...}
 {viewerjumpto "Description" "corrtab##description"}{...}
@@ -27,13 +27,13 @@ output from binary classification data.{p_end}
 {marker syntax}{title:Syntax}
 
 {p 4 8 2}{cmd:corrtab} {varlist} [{it:if}] [{it:in}],
-[{opt xlsx(filename)} {opt excel(filename)} {opt spearman} {opt lower}
-{opt upper} {opt full} {opt star(numlist)} {opt pvalues}
-{opt digits(#)} {opt sheet(string)}
-{opt title(string)} {opt footnote(string)}
-{opt theme(string)} {opt borderstyle(string)} {opt headercolor(string)}
-{opt zebracolor(string)} {opt zebra} {opt headershade}
-{opt csv(filename)} {opt frame(name)} {opt display} {opt open}]{p_end}
+[{opt xlsx(filename)} {opt excel(filename)} {opt sp:earman} {opt low:er}
+{opt upp:er} {opt full} {opt sta:r(numlist)} {opt pv:alues}
+{opt dig:its(#)} {opt sheet(string)}
+{opt title(string)} {opt foot:note(string)}
+{opt the:me(string)} {opt border:style(string)} {opt headerc:olor(string)}
+{opt zebrac:olor(string)} {opt zebra} {opt headers:hade}
+{opt csv(filename)} {opt fra:me(name)} {opt dis:play} {opt open}]{p_end}
 
 {marker description}{title:Description}
 
@@ -66,8 +66,8 @@ to Excel or CSV, or stored in a Stata frame.{p_end}
 {syntab:Formatting}
 {synopt:{opt title(string)}}table title{p_end}
 {synopt:{opt footnote(string)}}footnote text below the table{p_end}
-{synopt:{opt theme(string)}}journal-style formatting theme such as {cmd:lancet}, {cmd:nejm}, {cmd:bmj}, or {cmd:apa}{p_end}
-{synopt:{opt borderstyle(string)}}border style: {cmd:thin}, {cmd:medium}, or {cmd:academic}{p_end}
+{synopt:{opt theme(string)}}journal-style formatting theme such as {cmd:lancet}, {cmd:nejm}, {cmd:bmj}, {cmd:apa}, {cmd:jama}, {cmd:plos}, {cmd:nature}, {cmd:cell}, {cmd:annals}, or {cmd:custom}{p_end}
+{synopt:{opt border:style(string)}}border style: {cmd:thin}, {cmd:medium}, or {cmd:academic}{p_end}
 {synopt:{opt headershade}}apply background fill to the header rows{p_end}
 {synopt:{opt headercolor(string)}}custom RGB header color (for example, {cmd:"200 220 240"}){p_end}
 {synopt:{opt zebracolor(string)}}custom RGB zebra stripe color{p_end}
@@ -100,9 +100,8 @@ to Excel or CSV, or stored in a Stata frame.{p_end}
 
 {marker author}{title:Author}
 
-{pstd}Timothy P Copeland{p_end}
-{pstd}Department of Clinical Neuroscience, Karolinska Institutet{p_end}
+{pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}timothy.copeland@ki.se{p_end}
-{pstd}Version 1.0.7{p_end}
+{pstd}Version 1.0.8{p_end}
 
 {hline}

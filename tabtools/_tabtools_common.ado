@@ -1,6 +1,6 @@
-*! _tabtools_common Version 1.0.7  2026/04/18
+*! _tabtools_common Version 1.0.8  2026/04/22
 *! Shared utility programs for tabtools package
-*! Author: Timothy P Copeland
+*! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
 DESCRIPTION:
@@ -70,12 +70,10 @@ program _tabtools_validate_path
 
     * Check for shell metacharacters and command injection vectors
     * Reject: ; & | > < $ ` "
-    * Note: the bracket class below includes a literal backtick (`). The
-    * backslashes escape $ and ` for regex, not for Stata's macro expander —
-    * Stata passes the pattern verbatim to regexm() because there is no
-    * matching close-quote (') that would trigger macro substitution.
-    * Double-quote (") is checked separately via char(34) to avoid quoting
-    * headaches in the pattern itself. Apostrophes are valid path characters.
+    * Note: the regex character class below matches literal $ and backtick via
+    * \$/\`. Double-quote (") is checked separately via char(34) to avoid
+    * quoting headaches in the pattern itself. Apostrophes are valid path
+    * characters.
     local _has_bad = regexm(`"`filepath'"', "[;&|><\$\`]")
     if !`_has_bad' {
         local _has_bad = strpos(`"`filepath'"', char(34)) > 0
@@ -626,7 +624,30 @@ program _tabtools_helpers_ready
     args required
 
     if `"`required'"' == "" {
-        local required "_tabtools_col_letter _tabtools_validate_path _tabtools_validate_color _tabtools_build_col_letters _tabtools_footnote _tabtools_open_file _tabtools_detect_vartype _tabtools_validate_sheet _tabtools_apply_theme _tabtools_resolve_format _tabtools_console_display _tabtools_frame_put"
+        tempname _fh
+        capture findfile _tabtools_common.ado
+        if _rc == 0 {
+            file open `_fh' using "`r(fn)'", read text
+            file read `_fh' line
+            while r(eof) == 0 {
+                local _w1 : word 1 of line
+                local _w2 : word 2 of line
+                local _w3 : word 3 of line
+                local _w4 : word 4 of line
+                if "`_w1'" == "capture" & "`_w2'" == "program" & "`_w3'" == "drop" {
+                    local _prog "`_w4'"
+                    if "`_prog'" != "" & "`_prog'" != "_tabtools_helpers_ready" {
+                        local required : list required | _prog
+                    }
+                }
+                file read `_fh' line
+            }
+            file close `_fh'
+        }
+
+        if `"`required'"' == "" {
+            local required "_tabtools_col_letter _tabtools_validate_path _tabtools_validate_color _tabtools_build_col_letters _tabtools_footnote _tabtools_open_file _tabtools_detect_vartype _tabtools_validate_sheet _tabtools_apply_theme _tabtools_resolve_format _tabtools_console_display _tabtools_frame_put"
+        }
     }
 
     foreach _prog of local required {

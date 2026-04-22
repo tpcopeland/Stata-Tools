@@ -1,5 +1,5 @@
-*! regtab Version 1.0.7  2026/04/18
-*! Author: Timothy P Copeland
+*! regtab Version 1.0.8  2026/04/22
+*! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
 DESCRIPTION:
@@ -242,11 +242,6 @@ quietly{
     * Create temporary file for intermediate processing
     tempfile temp_export
     local temp_xlsx "`temp_export'.xlsx"
-
-    if `_has_xlsx' {
-        return local xlsx "`xlsx'"
-        return local sheet "`sheet'"
-    }
 
     * Validate keep/drop mutual exclusivity
     if "`keep'" != "" & "`drop'" != "" {
@@ -1834,19 +1829,64 @@ if "`dimnonsig'" != "" {
     }
 }
 
+local num_rows = _N
+local num_cols = c(k)
+local _xlsx_ok 0
+
+* Build methods description (I2)
+local _methods_coef ""
+local _methods_model ""
+if `_model_headers_mixed' {
+    local _methods "Collected regression estimates with 95% confidence intervals across `n_models' models."
+}
+else if "`coef'" == "OR" {
+    local _methods_coef "Odds ratios"
+    local _methods_model "logistic regression"
+}
+else if "`coef'" == "HR" {
+    local _methods_coef "Hazard ratios"
+    local _methods_model "Cox proportional hazards regression"
+}
+else if "`coef'" == "IRR" {
+    local _methods_coef "Incidence rate ratios"
+    local _methods_model "Poisson regression"
+}
+else if "`coef'" == "Coef." {
+    local _methods_coef "Coefficients"
+    local _methods_model "linear regression"
+}
+else {
+    local _methods_coef "`coef'"
+    local _methods_model "regression"
+}
+if `n_models' > 1 local _methods_multi " across `n_models' models"
+else local _methods_multi ""
+if "`_methods'" == "" local _methods "`_methods_coef' with 95% confidence intervals from multivariable `_methods_model'`_methods_multi'."
+if "`stars'" != "" local _methods "`_methods' Statistical significance denoted as * p<`_sl1', ** p<`_sl2', *** p<`_sl3'."
+local _methods "`_methods' Analysis performed in Stata `c(stata_version)' (StataCorp, College Station, TX)."
+
+* Return statistics before any file-writing failure can abort the command
+if `_mat_nrows' > 0 {
+    capture return matrix table = `_rtable'
+}
+return scalar N_rows = `num_rows'
+return scalar N_cols = `num_cols'
+return scalar N_models = `n_models'
+return local coef_label "`_coef_label_return'"
+return local stars "`stars'"
+return local methods "`_methods'"
+
 if `_has_xlsx' {
     capture export excel using "`xlsx'", sheet("`sheet'") sheetreplace
     if _rc {
+        local _export_rc = _rc
         noisily display as error "Failed to export to `xlsx', sheet `sheet'"
         noisily display as error "Check file permissions and that file is not open in Excel"
         capture erase "`temp_xlsx'"
         restore
-        exit _rc
+        error `_export_rc'
     }
 }
-
-local num_rows = _N
-local num_cols = c(k)
 
 forvalues i = 1(1)`n'{
 gen c`i'_length = length(c`i')
@@ -1935,6 +1975,7 @@ if !`_has_xlsx' | "`display'" != "" {
 if `"`frame'"' != "" {
     _tabtools_frame_put `"`frame'"'
     local frame "`_frame_name'"
+    return local frame "`frame'"
 }
 
 * Save p-value strings before clear (needed for boldp/highlight formatting)
@@ -1999,7 +2040,7 @@ if _rc {
 	* Clean up temporary file
 	capture erase "`temp_xlsx'"
 	restore
-	exit `saved_rc'
+	error `saved_rc'
 }
 capture mata: mata drop b
 
@@ -2208,7 +2249,7 @@ if _rc {
 	* Clean up temporary file
 	capture erase "`temp_xlsx'"
 	restore
-	exit `saved_rc'
+	error `saved_rc'
 }
 
 } // end if _has_xlsx (Excel formatting)
@@ -2219,61 +2260,23 @@ capture erase "`temp_xlsx'"
 * Restore user data
 restore
 
-* Open file if requested (W3)
-if `_has_xlsx' & "`open'" != "" _tabtools_open_file "`xlsx'"
-
 * Console confirmation (O1)
 if `_has_xlsx' {
+    capture confirm file "`xlsx'"
+    if _rc {
+        noisily display as error "Export command succeeded but file not found"
+        exit 601
+    }
+    local _xlsx_ok 1
     noisily display as text "Exported " as result "`num_rows'" as text " rows × " as result "`num_cols'" as text " cols to " as result `"`xlsx'"' as text ", sheet " as result `"`sheet'"'
 }
-
-* Build methods description (I2)
-local _methods_coef ""
-local _methods_model ""
-if `_model_headers_mixed' {
-    local _methods "Collected regression estimates with 95% confidence intervals across `n_models' models."
-}
-else if "`coef'" == "OR" {
-    local _methods_coef "Odds ratios"
-    local _methods_model "logistic regression"
-}
-else if "`coef'" == "HR" {
-    local _methods_coef "Hazard ratios"
-    local _methods_model "Cox proportional hazards regression"
-}
-else if "`coef'" == "IRR" {
-    local _methods_coef "Incidence rate ratios"
-    local _methods_model "Poisson regression"
-}
-else if "`coef'" == "Coef." {
-    local _methods_coef "Coefficients"
-    local _methods_model "linear regression"
-}
-else {
-    local _methods_coef "`coef'"
-    local _methods_model "regression"
-}
-if `n_models' > 1 local _methods_multi " across `n_models' models"
-else local _methods_multi ""
-if "`_methods'" == "" local _methods "`_methods_coef' with 95% confidence intervals from multivariable `_methods_model'`_methods_multi'."
-if "`stars'" != "" local _methods "`_methods' Statistical significance denoted as * p<`_sl1', ** p<`_sl2', *** p<`_sl3'."
-local _methods "`_methods' Analysis performed in Stata `c(stata_version)' (StataCorp, College Station, TX)."
-
-* Return statistics (I1)
-if `_mat_nrows' > 0 {
-    capture return matrix table = `_rtable'
-}
-return scalar N_rows = `num_rows'
-return scalar N_cols = `num_cols'
-return scalar N_models = `n_models'
-return local coef_label "`_coef_label_return'"
-return local stars "`stars'"
-if `_has_xlsx' {
+if `_xlsx_ok' {
     return local xlsx "`xlsx'"
     return local sheet "`sheet'"
 }
-return local methods "`_methods'"
-if "`frame'" != "" return local frame "`frame'"
+
+* Open file if requested (W3)
+if `_xlsx_ok' & "`open'" != "" _tabtools_open_file "`xlsx'"
 }
 
     } // end capture noisily

@@ -150,6 +150,44 @@ else {
 capture frame drop cross_row
 capture frame drop cross_total
 
+**## col/row/total abbreviations map to colpct/rowpct/totalpct
+local ++test_count
+capture noisily {
+    clear
+    input byte outcome byte exposure int freq
+    0 0 40
+    0 1 20
+    1 0 10
+    1 1 30
+    end
+    expand freq
+
+    capture frame drop cross_col_abbrev
+    crosstab outcome exposure, col frame(cross_col_abbrev, replace)
+    frame cross_col_abbrev: assert c3[4] == "30 (60.0%)"
+    capture frame drop cross_col_abbrev
+
+    capture frame drop cross_row_abbrev
+    crosstab outcome exposure, row frame(cross_row_abbrev, replace)
+    frame cross_row_abbrev: assert c3[4] == "30 (75.0%)"
+    capture frame drop cross_row_abbrev
+
+    capture frame drop cross_total_abbrev
+    crosstab outcome exposure, total frame(cross_total_abbrev, replace)
+    frame cross_total_abbrev: assert c3[4] == "30 (30.0%)"
+}
+if _rc == 0 {
+    display as result "  PASS: crosstab col/row/total abbreviations"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: crosstab col/row/total abbreviations (rc=`=_rc')"
+    local ++fail_count
+}
+capture frame drop cross_col_abbrev
+capture frame drop cross_row_abbrev
+capture frame drop cross_total_abbrev
+
 **# Tests and Weights
 **## exact and trend return finite p-values
 local ++test_count

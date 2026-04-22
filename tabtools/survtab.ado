@@ -1,6 +1,6 @@
-*! survtab Version 1.0.7  2026/04/18
+*! survtab Version 1.0.8  2026/04/22
 *! Survival summary table with Kaplan-Meier estimates, medians, and RMST
-*! Author: Timothy P Copeland
+*! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
 
 /*
@@ -708,8 +708,60 @@ capture noisily {
         local frame "`_frame_name'"
     }
 
+**# Return Results
+    capture return matrix table = `_rtable'
+    return scalar N_rows = `num_rows'
+    if "`median'" != "" {
+        forvalues g = 1/`n_groups' {
+            capture return scalar median_`g' = `med_g`g''
+        }
+    }
+    if "`events'" != "" {
+        forvalues g = 1/`n_groups' {
+            return scalar events_`g' = `events_g`g''
+            return scalar atrisk_`g' = `atrisk_g`g''
+        }
+    }
+    if `has_by' {
+        return scalar logrank_p = `logrank_p'
+        return scalar logrank_chi2 = `logrank_chi2'
+    }
+    if `has_rmst' {
+        forvalues g = 1/`n_groups' {
+            capture return scalar rmst_`g' = `rmst_g`g''
+            capture return scalar rmst_se_`g' = `rmst_se_g`g''
+            capture return scalar rmst_lb_`g' = `rmst_lb_g`g''
+            capture return scalar rmst_ub_`g' = `rmst_ub_g`g''
+        }
+        if `n_groups' >= 2 {
+            capture return scalar rmst_diff = `rmst_diff'
+        }
+    }
+    if "`frame'" != "" return local frame "`frame'"
+
+    * Build methods paragraph
+    local _methods "Survival was estimated using the Kaplan-Meier method."
+    if "`reverse'" != "" {
+        local _methods "`_methods' Cumulative incidence (1 minus survival) is reported."
+    }
+    if `has_by' {
+        local _bylabel : variable label `by'
+        if "`_bylabel'" == "" local _bylabel "`by'"
+        local _methods "`_methods' Groups were compared using the log-rank test."
+    }
+    if "`median'" != "" {
+        local _methods "`_methods' Median survival time with 95% confidence intervals is reported."
+    }
+    if `has_rmst' {
+        local _rmst_mstr = cond(mod(`rmst', 1) == 0, string(`rmst', "%3.0f"), string(`rmst', "%5.1f"))
+        local _methods "`_methods' Restricted mean survival time was computed up to `_rmst_mstr' `timeunit' with 95% confidence intervals based on the Greenwood variance formula."
+    }
+    local _methods "`_methods' Analysis performed in Stata `c(stata_version)' (StataCorp, College Station, TX)."
+    return local methods "`_methods'"
+
 **# Excel Export
     local num_cols = `ncols' + 1
+    local _xlsx_ok 0
     if `_has_xlsx' {
         order title c*
         capture export excel using "`xlsx'", sheet("`sheet'") sheetreplace
@@ -810,70 +862,17 @@ capture noisily {
             noisily display as error "Export command succeeded but file not found"
             exit 601
         }
-        else {
-            noisily display as text "Exported to " as result `"`xlsx'"' as text ", sheet " as result `"`sheet'"'
-        }
+        local _xlsx_ok 1
+        noisily display as text "Exported to " as result `"`xlsx'"' as text ", sheet " as result `"`sheet'"'
     }
-
-    * Open file
-    if "`open'" != "" & `_has_xlsx' _tabtools_open_file "`xlsx'"
 
     restore
 
-**# Return Results
-    capture return matrix table = `_rtable'
-    return scalar N_rows = `num_rows'
-    if "`median'" != "" {
-        forvalues g = 1/`n_groups' {
-            capture return scalar median_`g' = `med_g`g''
-        }
-    }
-    if "`events'" != "" {
-        forvalues g = 1/`n_groups' {
-            return scalar events_`g' = `events_g`g''
-            return scalar atrisk_`g' = `atrisk_g`g''
-        }
-    }
-    if `has_by' {
-        return scalar logrank_p = `logrank_p'
-        return scalar logrank_chi2 = `logrank_chi2'
-    }
-    if `has_rmst' {
-        forvalues g = 1/`n_groups' {
-            capture return scalar rmst_`g' = `rmst_g`g''
-            capture return scalar rmst_se_`g' = `rmst_se_g`g''
-            capture return scalar rmst_lb_`g' = `rmst_lb_g`g''
-            capture return scalar rmst_ub_`g' = `rmst_ub_g`g''
-        }
-        if `n_groups' >= 2 {
-            capture return scalar rmst_diff = `rmst_diff'
-        }
-    }
-    if `_has_xlsx' {
+    if `_xlsx_ok' {
         return local xlsx "`xlsx'"
         return local sheet "`sheet'"
     }
-    if "`frame'" != "" return local frame "`frame'"
-
-    * Build methods paragraph
-    local _methods "Survival was estimated using the Kaplan-Meier method."
-    if "`reverse'" != "" {
-        local _methods "`_methods' Cumulative incidence (1 minus survival) is reported."
-    }
-    if `has_by' {
-        local _bylabel : variable label `by'
-        if "`_bylabel'" == "" local _bylabel "`by'"
-        local _methods "`_methods' Groups were compared using the log-rank test."
-    }
-    if "`median'" != "" {
-        local _methods "`_methods' Median survival time with 95% confidence intervals is reported."
-    }
-    if `has_rmst' {
-        local _rmst_mstr = cond(mod(`rmst', 1) == 0, string(`rmst', "%3.0f"), string(`rmst', "%5.1f"))
-        local _methods "`_methods' Restricted mean survival time was computed up to `_rmst_mstr' `timeunit' with 95% confidence intervals based on the Greenwood variance formula."
-    }
-    local _methods "`_methods' Analysis performed in Stata `c(stata_version)' (StataCorp, College Station, TX)."
-    return local methods "`_methods'"
+    if "`open'" != "" & `_xlsx_ok' _tabtools_open_file "`xlsx'"
 
 } // end capture noisily
     local rc = _rc

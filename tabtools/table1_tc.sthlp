@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.7  18apr2026}{...}
+{* *! version 1.0.8  22apr2026}{...}
 {viewerjumpto "Syntax" "table1_tc##syntax"}{...}
 {viewerjumpto "Description" "table1_tc##description"}{...}
 {viewerjumpto "Examples" "table1_tc##examples"}{...}
@@ -88,7 +88,7 @@ use {cmd:table1_tc}.{p_end}
 {synopt:{opt xlsx("filename")}}save table to Excel file; {opt excel()} is a synonym; target must end in {.xlsx}{p_end}
 {synopt:{opt sheet("string")}}Excel sheet name; default is "Table 1"; available only with {opt xlsx()}/{opt excel()}{p_end}
 {synopt:{opt title("string")}}title for the Excel table{p_end}
-{synopt:{cmdab:borders:tyle(}{it:string}{cmd:)}}border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or {cmd:academic}{p_end}
+{synopt:{cmdab:border:style(}{it:string}{cmd:)}}border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or {cmd:academic}{p_end}
 {synopt:{cmdab:the:me(}{it:string}{cmd:)}}journal-style formatting preset: {cmd:lancet}, {cmd:nejm}, {cmd:bmj}, {cmd:apa}, {cmd:jama}, {cmd:plos}, {cmd:nature}, {cmd:cell}, {cmd:annals}, or {cmd:custom}{p_end}
 {synopt:{opt boldp(#)}}bold p-value cells below threshold{p_end}
 {synopt:{cmdab:foot:note(}{it:string}{cmd:)}}add footnote row below table{p_end}
@@ -243,10 +243,9 @@ instead of direct Shapiro-Wilk testing. Users should verify classifications for 
 {marker author}{...}
 {title:Author}
 
-{pstd}Timothy P Copeland{p_end}
-{pstd}Department of Clinical Neuroscience, Karolinska Institutet{p_end}
+{pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}timothy.copeland@ki.se{p_end}
-{pstd}Version 1.0.7{p_end}
+{pstd}Version 1.0.8{p_end}
 
 {title:Also see}
 

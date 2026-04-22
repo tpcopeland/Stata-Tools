@@ -1,7 +1,6 @@
-*! tabtools Version 1.0.7  2026/04/18
+*! tabtools Version 1.0.8  2026/04/22
 *! Suite of table export commands for publication-ready Excel output
-*! Author: Timothy P Copeland
-*! Department of Clinical Neuroscience, Karolinska Institutet
+*! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
 
 /*
@@ -33,7 +32,7 @@ program define tabtools, rclass
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     capture noisily {
-        local _package_version "1.0.7"
+        local _package_version "1.0.8"
 
     * Parse anything (subcommand) separately from options
     syntax [anything(everything)] [, List Detail Category(string) ///

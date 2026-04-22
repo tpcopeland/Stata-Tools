@@ -1,6 +1,6 @@
-*! effecttab Version 1.0.7  2026/04/18
+*! effecttab Version 1.0.8  2026/04/22
 *! Format treatment effects and margins results for Excel export
-*! Author: Timothy P Copeland
+*! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
 
 /*
@@ -296,10 +296,6 @@ quietly {
 	}
 
 	* Return input/detected values
-	if `_has_xlsx' {
-		return local xlsx "`xlsx'"
-		return local sheet "`sheet'"
-	}
 	return local type "`type'"
 
 	* Set default effect label based on type
@@ -785,7 +781,8 @@ quietly {
 		replace c`i' = c`i'z if c`i'z != "." & _n >= 3 & c`i' != "Reference"
 		* Clear CI and p-value for Reference rows
 		replace c`=`i'+1' = "" if c`i' == "Reference" & _n >= 3
-		capture replace c`=`i'+2' = "" if c`i' == "Reference" & _n >= 3
+		capture confirm variable c`=`i'+2'
+		if _rc == 0 replace c`=`i'+2' = "" if c`i' == "Reference" & _n >= 3
 		drop c`i'z
 		capture confirm variable c`=`i'+1'
 		if _rc == 0 replace c`=`i'+1' = "" if _n == 1
@@ -885,19 +882,65 @@ quietly {
 	}
 	local ref_rows: list uniq ref_rows
 
+	local num_rows = _N
+	local num_cols = c(k)
+	local _xlsx_ok 0
+
+	* Build methods description (I2)
+	local _methods ""
+	if `_from_matrix' {
+		local _methods "Effect estimates were formatted from the supplied matrix with 95% confidence intervals and p-values."
+	}
+	else if `_n_models' > 1 {
+		local _methods "Effect estimates from multiple collected models were formatted with 95% confidence intervals."
+	}
+	else if "`type'" == "teffects" {
+		if `_n_models' == 1 {
+			local _te_subcmd ""
+			if `"`collect_cmdline_1'"' != "" {
+				if regexm(`"`collect_cmdline_1'"', "^teffects[ ]+([a-z0-9_]+)") {
+					local _te_subcmd = lower(regexs(1))
+				}
+			}
+			if "`_te_subcmd'" == "" {
+				local _te_subcmd = lower("`e(subcmd)'")
+			}
+			if "`_te_subcmd'" == "ipw" local _methods "Average treatment effects estimated using inverse probability weighting"
+			else if "`_te_subcmd'" == "ra" local _methods "Average treatment effects estimated using regression adjustment"
+			else if "`_te_subcmd'" == "aipw" local _methods "Average treatment effects estimated using augmented inverse probability weighting"
+			else if "`_te_subcmd'" == "ipwra" local _methods "Average treatment effects estimated using inverse probability weighted regression adjustment"
+			else if "`_te_subcmd'" == "psmatch" local _methods "Average treatment effects estimated using propensity score matching"
+			else if "`_te_subcmd'" == "nnmatch" local _methods "Average treatment effects estimated using nearest-neighbor matching"
+			else local _methods "Average treatment effects estimated using teffects"
+			local _methods "`_methods' with 95% confidence intervals."
+		}
+	}
+	else {
+		local _methods "Marginal effects estimated using the margins command with 95% confidence intervals."
+	}
+	local _methods "`_methods' Analysis performed in Stata `c(stata_version)' (StataCorp, College Station, TX)."
+
+	* Return statistics before any file-writing failure can abort the command
+	if `_mat_nrows' > 0 {
+		capture return matrix table = `_rtable'
+	}
+	return scalar N_rows = `num_rows'
+	return scalar N_cols = `num_cols'
+	return local effect_label "`effect'"
+	return local type "`type'"
+	return local methods "`_methods'"
+
 	if `_has_xlsx' {
 		capture export excel using "`xlsx'", sheet("`sheet'") sheetreplace
 		if _rc {
+			local _export_rc = _rc
 			noisily display as error "Failed to export to `xlsx', sheet `sheet'"
 			noisily display as error "Check file permissions and that file is not open in Excel"
 			capture erase "`temp_xlsx'"
 			restore
-			exit _rc
+			error `_export_rc'
 		}
 	}
-
-	local num_rows = _N
-	local num_cols = c(k)
 
 	* =========================================================================
 	* CALCULATE COLUMN WIDTHS
@@ -976,6 +1019,7 @@ quietly {
 	if `"`frame'"' != "" {
 		_tabtools_frame_put `"`frame'"'
 		local frame "`_frame_name'"
+		return local frame "`frame'"
 	}
 
 	if `_has_xlsx' {
@@ -1014,7 +1058,7 @@ quietly {
 		noisily display as error "Excel formatting failed with error `saved_rc'"
 		capture erase "`temp_xlsx'"
 		restore
-		exit `saved_rc'
+		error `saved_rc'
 	}
 	capture mata: mata drop b
 
@@ -1142,7 +1186,7 @@ quietly {
 		noisily display as error "Excel cell formatting failed with error `saved_rc'"
 		capture erase "`temp_xlsx'"
 		restore
-		exit `saved_rc'
+		error `saved_rc'
 	}
 
 	} // end if _has_xlsx (Excel formatting)
@@ -1153,9 +1197,6 @@ quietly {
 	clear
 	restore
 
-	* Open file if requested (W3)
-	if `_has_xlsx' & "`open'" != "" _tabtools_open_file "`xlsx'"
-
 	* Console confirmation (O1)
 	if `_has_xlsx' {
 		capture confirm file "`xlsx'"
@@ -1163,58 +1204,17 @@ quietly {
 			noisily display as error "Warning: expected output file not found"
 		}
 		else {
+			local _xlsx_ok 1
 			noisily display as text "Exported " as result "`num_rows'" as text " rows × " as result "`num_cols'" as text " cols to " as result `"`xlsx'"' as text ", sheet " as result `"`sheet'"'
 		}
 	}
-
-	* Build methods description (I2)
-	local _methods ""
-	if `_from_matrix' {
-		local _methods "Effect estimates were formatted from the supplied matrix with 95% confidence intervals and p-values."
-	}
-	else if `_n_models' > 1 {
-		local _methods "Effect estimates from multiple collected models were formatted with 95% confidence intervals."
-	}
-	else if "`type'" == "teffects" {
-		if `_n_models' == 1 {
-			local _te_subcmd ""
-			if `"`collect_cmdline_1'"' != "" {
-				if regexm(`"`collect_cmdline_1'"', "^teffects[ ]+([a-z0-9_]+)") {
-					local _te_subcmd = lower(regexs(1))
-				}
-			}
-			if "`_te_subcmd'" == "" {
-				local _te_subcmd = lower("`e(subcmd)'")
-			}
-			if "`_te_subcmd'" == "ipw" local _methods "Average treatment effects estimated using inverse probability weighting"
-			else if "`_te_subcmd'" == "ra" local _methods "Average treatment effects estimated using regression adjustment"
-			else if "`_te_subcmd'" == "aipw" local _methods "Average treatment effects estimated using augmented inverse probability weighting"
-			else if "`_te_subcmd'" == "ipwra" local _methods "Average treatment effects estimated using inverse probability weighted regression adjustment"
-			else if "`_te_subcmd'" == "psmatch" local _methods "Average treatment effects estimated using propensity score matching"
-			else if "`_te_subcmd'" == "nnmatch" local _methods "Average treatment effects estimated using nearest-neighbor matching"
-			else local _methods "Average treatment effects estimated using teffects"
-			local _methods "`_methods' with 95% confidence intervals."
-		}
-	}
-	else {
-		local _methods "Marginal effects estimated using the margins command with 95% confidence intervals."
-	}
-	local _methods "`_methods' Analysis performed in Stata `c(stata_version)' (StataCorp, College Station, TX)."
-
-	* Return statistics (I1)
-	if `_mat_nrows' > 0 {
-		capture return matrix table = `_rtable'
-	}
-	return scalar N_rows = `num_rows'
-	return scalar N_cols = `num_cols'
-	return local effect_label "`effect'"
-	return local type "`type'"
-	if `_has_xlsx' {
+	if `_xlsx_ok' {
 		return local xlsx "`xlsx'"
 		return local sheet "`sheet'"
 	}
-	return local methods "`_methods'"
-	if "`frame'" != "" return local frame "`frame'"
+
+	* Open file if requested (W3)
+	if `_xlsx_ok' & "`open'" != "" _tabtools_open_file "`xlsx'"
 }
 
 	} // end capture noisily

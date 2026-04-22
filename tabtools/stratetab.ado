@@ -1,5 +1,5 @@
-*! stratetab Version 1.0.7  2026/04/18
-*! Author: Timothy P Copeland
+*! stratetab Version 1.0.8  2026/04/22
+*! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
 DESCRIPTION:
@@ -539,138 +539,6 @@ if `"`frame'"' != "" {
 	local frame "`_frame_name'"
 }
 
-* Export to Excel
-if `_has_xlsx' {
-	order title c*
-	capture export excel using "`xlsx'", sheet("`sht'") sheetreplace
-	if _rc {
-		local saved_rc = _rc
-		noi di as err "Failed to export to `xlsx'"
-		noi di as err "Hint: ensure the xlsx file is not open in another application"
-		exit `saved_rc'
-	}
-
-	* Apply formatting with mata
-	clear
-	capture {
-		mata: b = xl()
-		mata: b.load_book("`xlsx'")
-		mata: b.set_sheet("`sht'")
-		mata: b.set_row_height(1,1,30)
-		mata: b.set_column_width(1,1,1)
-		mata: b.set_column_width(2,2,18)
-
-		* Set data column widths based on row 3 header content
-		forvalues col = 3/`=`ncols'+1' {
-			mata: st_local("_hdr", b.get_string(3, `col'))
-			local _hdrlen = strlen("`_hdr'")
-			local _cw = max(8, `_hdrlen' + 2)
-			mata: b.set_column_width(`col', `col', `_cw')
-		}
-		mata: b.close_book()
-	}
-	if _rc {
-		local saved_rc = _rc
-		capture mata: b.close_book()
-		capture mata: mata drop b
-		noi di as err "Excel formatting (Mata) failed with error `saved_rc'"
-		noi di as err "Hint: ensure the xlsx file is not open in another application"
-		exit `saved_rc'
-	}
-	capture mata: mata drop b
-
-	* Apply borders and formatting with putexcel
-	capture {
-		putexcel set "`xlsx'", sheet("`sht'") modify
-
-		* Column letters
-		_tabtools_build_col_letters `=`ncols'+1'
-		local letters "`result'"
-		local lastcol : word `=`ncols'+1' of `letters'
-
-		* Title row - merge and format
-		putexcel (A1:`lastcol'1), merge bold txtwrap left vcenter font("`_font'",`=`_fontsize'+2')
-
-		* Header rows
-		putexcel (B2:`lastcol'2), border(top,`_hborder')
-		putexcel (B3:`lastcol'3), border(bottom,`_hborder')
-
-		* Merge outcome headers
-		local col = 3
-		forvalues o = 1/`outcomes' {
-			local col1 : word `col' of `letters'
-			local col_end : word `=`col'+`_cols_per_outcome'-1' of `letters'
-			putexcel (`col1'2:`col_end'2), merge bold hcenter top border(bottom,`_hborder')
-			local col = `col' + `_cols_per_outcome'
-		}
-
-		* Merge Exposure cell across rows 2-3
-		putexcel (B2:B3), merge bold hcenter vcenter border(bottom,`_hborder')
-
-		* Row 3 formatting
-		putexcel (C3:`lastcol'3), bold hcenter vcenter
-
-		* Header background
-		if "`headershade'" != "" {
-			putexcel (B2:`lastcol'3), fpattern(solid, "`_headercolor'")
-		}
-
-		* Zebra striping (O3)
-		if "`zebra'" != "" {
-			forvalues _zr = 5(2)`lastrow' {
-				putexcel (B`_zr':`lastcol'`_zr'), fpattern(solid, "`_zebracolor'")
-			}
-		}
-
-		* Font for all data (W4 integration)
-		putexcel (B2:`lastcol'`lastrow'), font("`_font'",`_fontsize')
-
-		* Center-align data columns
-		putexcel (C4:`lastcol'`lastrow'), hcenter
-
-		* Vertical borders between outcome groups
-		if "`borderstyle'" != "academic" {
-			putexcel (B2:B`lastrow'), border(left,`borderstyle')
-			putexcel (B2:B`lastrow'), border(right,`borderstyle')
-
-			local col = 3
-			forvalues o = 1/`outcomes' {
-				local col_end : word `=`col'+`_cols_per_outcome'-1' of `letters'
-				putexcel (`col_end'2:`col_end'`lastrow'), border(right,`borderstyle')
-				local col = `col' + `_cols_per_outcome'
-			}
-		}
-
-		* Horizontal borders between exposure groups (at bottom of each group)
-		foreach r of local exp_rows {
-			local border_row = `r' - 1
-			if `border_row' > 3 {
-				putexcel (B`border_row':`lastcol'`border_row'), border(bottom,`_hborder')
-			}
-		}
-
-		* Bottom border
-		putexcel (B`lastrow':`lastcol'`lastrow'), border(bottom,`_hborder')
-
-		* Footnote (F2)
-		if `"`footnote'"' != "" {
-			_tabtools_footnote `"`footnote'"' "`lastcol'" `lastrow' "`_font'" `_fontsize'
-		}
-
-		putexcel clear
-	}
-	if _rc {
-		local saved_rc = _rc
-		capture putexcel clear
-		noi di as err "Excel cell formatting failed with error `saved_rc'"
-		noi di as err "Hint: ensure the xlsx file is not open in another application"
-		exit `saved_rc'
-	}
-}
-
-* Restore user data
-qui use "`_userdata_path'", clear
-
 * Build r(rates) matrix: rows = exposure categories, columns = outcomes
 * Each cell contains the rate per exposure-category × outcome
 tempname _rrates
@@ -759,36 +627,185 @@ if "`rateratio'" != "" & `n_exposures' >= 2 {
 	if "`rateratio'" != "" & `n_exposures' >= 2 {
 		capture return matrix ratios = `_rratios'
 	}
-if `_has_xlsx' {
-	return local xlsx "`xlsx'"
-	return local sheet "`sht'"
-}
 if "`frame'" != "" return local frame "`frame'"
 return scalar N_rows = `lastrow'
 return scalar N_exposures = `n_exposures'
 return scalar N_outcomes = `outcomes'
 
-}
-
+* Export to Excel
+local _xlsx_ok 0
+local _fatal_rc 0
 if `_has_xlsx' {
-	capture confirm file "`xlsx'"
+	order title c*
+	capture export excel using "`xlsx'", sheet("`sht'") sheetreplace
 	if _rc {
-	    noisily display as error "Export command succeeded but file not found"
-	    exit 601
+		local saved_rc = _rc
+		noi di as err "Failed to export to `xlsx'"
+		noi di as err "Hint: ensure the xlsx file is not open in another application"
+		qui use "`_userdata_path'", clear
+		set varabbrev `_orig_varabbrev'
+		local _fatal_rc = `saved_rc'
+		error `saved_rc'
 	}
 	else {
-	    di as txt "Exported to `xlsx'"
+		* Apply formatting with mata
+		clear
+		capture {
+			mata: b = xl()
+			mata: b.load_book("`xlsx'")
+			mata: b.set_sheet("`sht'")
+			mata: b.set_row_height(1,1,30)
+			mata: b.set_column_width(1,1,1)
+			mata: b.set_column_width(2,2,18)
+
+			* Set data column widths based on row 3 header content
+			forvalues col = 3/`=`ncols'+1' {
+				mata: st_local("_hdr", b.get_string(3, `col'))
+				local _hdrlen = strlen("`_hdr'")
+				local _cw = max(8, `_hdrlen' + 2)
+				mata: b.set_column_width(`col', `col', `_cw')
+			}
+			mata: b.close_book()
+		}
+		if _rc {
+			local saved_rc = _rc
+			capture mata: b.close_book()
+			capture mata: mata drop b
+			noi di as err "Excel formatting (Mata) failed with error `saved_rc'"
+			noi di as err "Hint: ensure the xlsx file is not open in another application"
+			qui use "`_userdata_path'", clear
+			set varabbrev `_orig_varabbrev'
+			local _fatal_rc = `saved_rc'
+			error `saved_rc'
+		}
+		else {
+			capture mata: mata drop b
+
+			* Apply borders and formatting with putexcel
+			capture {
+				putexcel set "`xlsx'", sheet("`sht'") modify
+
+				* Column letters
+				_tabtools_build_col_letters `=`ncols'+1'
+				local letters "`result'"
+				local lastcol : word `=`ncols'+1' of `letters'
+
+				* Title row - merge and format
+				putexcel (A1:`lastcol'1), merge bold txtwrap left vcenter font("`_font'",`=`_fontsize'+2')
+
+				* Header rows
+				putexcel (B2:`lastcol'2), border(top,`_hborder')
+				putexcel (B3:`lastcol'3), border(bottom,`_hborder')
+
+				* Merge outcome headers
+				local col = 3
+				forvalues o = 1/`outcomes' {
+					local col1 : word `col' of `letters'
+					local col_end : word `=`col'+`_cols_per_outcome'-1' of `letters'
+					putexcel (`col1'2:`col_end'2), merge bold hcenter top border(bottom,`_hborder')
+					local col = `col' + `_cols_per_outcome'
+				}
+
+				* Merge Exposure cell across rows 2-3
+				putexcel (B2:B3), merge bold hcenter vcenter border(bottom,`_hborder')
+
+				* Row 3 formatting
+				putexcel (C3:`lastcol'3), bold hcenter vcenter
+
+				* Header background
+				if "`headershade'" != "" {
+					putexcel (B2:`lastcol'3), fpattern(solid, "`_headercolor'")
+				}
+
+				* Zebra striping (O3)
+				if "`zebra'" != "" {
+					forvalues _zr = 5(2)`lastrow' {
+						putexcel (B`_zr':`lastcol'`_zr'), fpattern(solid, "`_zebracolor'")
+					}
+				}
+
+				* Font for all data (W4 integration)
+				putexcel (B2:`lastcol'`lastrow'), font("`_font'",`_fontsize')
+
+				* Center-align data columns
+				putexcel (C4:`lastcol'`lastrow'), hcenter
+
+				* Vertical borders between outcome groups
+				if "`borderstyle'" != "academic" {
+					putexcel (B2:B`lastrow'), border(left,`borderstyle')
+					putexcel (B2:B`lastrow'), border(right,`borderstyle')
+
+					local col = 3
+					forvalues o = 1/`outcomes' {
+						local col_end : word `=`col'+`_cols_per_outcome'-1' of `letters'
+						putexcel (`col_end'2:`col_end'`lastrow'), border(right,`borderstyle')
+						local col = `col' + `_cols_per_outcome'
+					}
+				}
+
+				* Horizontal borders between exposure groups (at bottom of each group)
+				foreach r of local exp_rows {
+					local border_row = `r' - 1
+					if `border_row' > 3 {
+						putexcel (B`border_row':`lastcol'`border_row'), border(bottom,`_hborder')
+					}
+				}
+
+				* Bottom border
+				putexcel (B`lastrow':`lastcol'`lastrow'), border(bottom,`_hborder')
+
+				* Footnote (F2)
+				if `"`footnote'"' != "" {
+					_tabtools_footnote `"`footnote'"' "`lastcol'" `lastrow' "`_font'" `_fontsize'
+				}
+
+				putexcel clear
+			}
+			if _rc {
+				local saved_rc = _rc
+				capture putexcel clear
+				noi di as err "Excel cell formatting failed with error `saved_rc'"
+				noi di as err "Hint: ensure the xlsx file is not open in another application"
+				qui use "`_userdata_path'", clear
+				set varabbrev `_orig_varabbrev'
+				local _fatal_rc = `saved_rc'
+				error `saved_rc'
+			}
+			else {
+				capture confirm file "`xlsx'"
+				if _rc {
+				    noisily display as error "Export command succeeded but file not found"
+				    qui use "`_userdata_path'", clear
+				    set varabbrev `_orig_varabbrev'
+				    local _fatal_rc = 601
+				    error 601
+				}
+				else {
+					local _xlsx_ok 1
+					di as txt "Exported to `xlsx'"
+				}
+			}
+		}
 	}
+}
+
+* Restore user data
+qui use "`_userdata_path'", clear
+
+if `_xlsx_ok' {
+	return local xlsx "`xlsx'"
+	return local sheet "`sht'"
 }
 
 * Open file if requested (W3)
-if "`open'" != "" & `_has_xlsx' _tabtools_open_file "`xlsx'"
+if "`open'" != "" & `_xlsx_ok' _tabtools_open_file "`xlsx'"
 
 } // end capture noisily
 local _rc = _rc
+if `_rc' == 0 & `_fatal_rc' != 0 local _rc = `_fatal_rc'
 if `_rc' {
     capture qui use "`_userdata_path'", clear
 }
 set varabbrev `_orig_varabbrev'
-if `_rc' exit `_rc'
+if `_rc' error `_rc'
 end

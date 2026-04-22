@@ -1,6 +1,6 @@
-*! crosstab Version 1.0.7  2026/04/18
+*! crosstab Version 1.0.8  2026/04/22
 *! Cross-tabulation with association measures
-*! Author: Timothy P Copeland
+*! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
 
 /*
@@ -48,7 +48,7 @@ capture noisily {
 **# Syntax and Validation
     syntax varlist(min=2 max=2) [if] [in] [fweight], ///
         [xlsx(string) excel(string) sheet(string) ///
-        COLPct ROWPct TOTALPct EXact FIsher ///
+        COLpct ROWpct TOTALpct EXact FIsher ///
         OR RR RD TRend LABel MISsing ///
         DIGits(integer -1) ///
         title(string) ///
@@ -394,7 +394,23 @@ capture noisily {
         local frame "`_frame_name'"
     }
 
+**# Return Results
+    capture return matrix table = `_rtable'
+    return scalar N = `_total_n'
+    if "`frame'" != "" return local frame "`frame'"
+
+    * Methods paragraph
+    local _methods "Cross-tabulation was performed for `_rowlabel' by `_collabel'."
+    local _methods "`_methods' Statistical significance was assessed using `_test_name'."
+    if !missing(`_or') local _methods "`_methods' The odds ratio comparing column `clabel_2' versus `clabel_1' for row `rlabel_2' versus `rlabel_1' is reported with a 95% confidence interval."
+    if !missing(`_rr') local _methods "`_methods' The risk ratio comparing column `clabel_2' versus `clabel_1' for row `rlabel_2' versus `rlabel_1' is reported with a 95% confidence interval."
+    if !missing(`_rd') local _methods "`_methods' The risk difference comparing column `clabel_2' versus `clabel_1' for row `rlabel_2' versus `rlabel_1' is reported with a 95% confidence interval."
+    if !missing(`_p_trend') local _methods "`_methods' A trend test across ordered column levels is also reported."
+    local _methods "`_methods' Analysis performed in Stata `c(stata_version)' (StataCorp, College Station, TX)."
+    return local methods "`_methods'"
+
 **# Excel Export
+    local _xlsx_ok 0
     if `_has_xlsx' {
         order title c*
         capture export excel using "`xlsx'", sheet("`sheet'") sheetreplace
@@ -486,31 +502,17 @@ capture noisily {
             restore
             exit 601
         }
+        local _xlsx_ok 1
         noisily display as text "Exported to " as result `"`xlsx'"' as text ", sheet " as result `"`sheet'"'
     }
 
-    if "`open'" != "" & `_has_xlsx' _tabtools_open_file "`xlsx'"
-
     restore
 
-**# Return Results
-    capture return matrix table = `_rtable'
-    return scalar N = `_total_n'
-    if `_has_xlsx' {
+    if `_xlsx_ok' {
         return local xlsx "`xlsx'"
         return local sheet "`sheet'"
     }
-    if "`frame'" != "" return local frame "`frame'"
-
-    * Methods paragraph
-    local _methods "Cross-tabulation was performed for `_rowlabel' by `_collabel'."
-    local _methods "`_methods' Statistical significance was assessed using `_test_name'."
-    if !missing(`_or') local _methods "`_methods' The odds ratio comparing column `clabel_2' versus `clabel_1' for row `rlabel_2' versus `rlabel_1' is reported with a 95% confidence interval."
-    if !missing(`_rr') local _methods "`_methods' The risk ratio comparing column `clabel_2' versus `clabel_1' for row `rlabel_2' versus `rlabel_1' is reported with a 95% confidence interval."
-    if !missing(`_rd') local _methods "`_methods' The risk difference comparing column `clabel_2' versus `clabel_1' for row `rlabel_2' versus `rlabel_1' is reported with a 95% confidence interval."
-    if !missing(`_p_trend') local _methods "`_methods' A trend test across ordered column levels is also reported."
-    local _methods "`_methods' Analysis performed in Stata `c(stata_version)' (StataCorp, College Station, TX)."
-    return local methods "`_methods'"
+    if "`open'" != "" & `_xlsx_ok' _tabtools_open_file "`xlsx'"
 
 } // end capture noisily
     local rc = _rc

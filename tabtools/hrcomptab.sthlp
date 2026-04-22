@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.7  18apr2026}{...}
+{* *! version 1.0.8  22apr2026}{...}
 {viewerjumpto "Syntax" "hrcomptab##syntax"}{...}
 {viewerjumpto "Description" "hrcomptab##description"}{...}
 {viewerjumpto "Options" "hrcomptab##options"}{...}
@@ -62,7 +62,7 @@
 
 {syntab:Formatting}
 {synopt:{cmdab:the:me(}{it:string}{cmd:)}}journal theme: {it:lancet}, {it:nejm}, {it:bmj}, {it:apa}, {it:jama}, {it:plos}, {it:nature}, {it:cell}, {it:annals}, or {it:custom}{p_end}
-{synopt:{cmdab:borders:tyle(}{it:string}{cmd:)}}border style: {it:thin}, {it:medium}, {it:academic}{p_end}
+{synopt:{cmdab:border:style(}{it:string}{cmd:)}}border style: {it:thin}, {it:medium}, {it:academic}{p_end}
 {synopt:{opt zebra}}alternating row shading{p_end}
 {synopt:{opt headers:hade}}shade the 2 header rows{p_end}
 {synopt:{cmdab:headerc:olor(}{it:string}{cmd:)}}RGB color for header rows{p_end}

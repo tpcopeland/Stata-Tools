@@ -1,6 +1,6 @@
-*! hrcomptab Version 1.0.7  2026/04/18
+*! hrcomptab Version 1.0.8  2026/04/22
 *! Compose stratetab and regtab frames into Table 2-style survival tables
-*! Author: Timothy P Copeland
+*! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
 
 program define hrcomptab, rclass
@@ -611,9 +611,21 @@ program define hrcomptab, rclass
         if `"`frame'"' != "" {
             _tabtools_frame_put `"`frame'"'
             local frame "`_frame_name'"
+            return local frame "`frame'"
         }
 
+        return scalar N_rows = `lastrow'
+        return scalar N_outcomes = `outcomes'
+        return scalar N_sections = `n_sections'
+        return scalar N_modelrows = `_selected_total'
+        return scalar N_modelframes = `n_frames'
+        return local rateframe "`rateframe'"
+        return local modelframes "`modelframes'"
+        return local effect "`effect'"
+        if "`csv'" != "" return local csv "`csv'"
+
         * Excel export
+        local _xlsx_ok 0
         if `_has_xlsx' {
             * Compute column widths before export
             tempvar _hrc_len
@@ -767,24 +779,20 @@ program define hrcomptab, rclass
                 display as error "Excel cell formatting failed with error `_fmt_rc'"
                 exit `_fmt_rc'
             }
+
+            capture confirm file "`xlsx'"
+            if _rc {
+                display as error "Excel export completed but file was not created"
+                exit 601
+            }
+            local _xlsx_ok 1
         }
 
-        if `_has_xlsx' & "`open'" != "" _tabtools_open_file "`xlsx'"
-
-        return scalar N_rows = `lastrow'
-        return scalar N_outcomes = `outcomes'
-        return scalar N_sections = `n_sections'
-        return scalar N_modelrows = `_selected_total'
-        return scalar N_modelframes = `n_frames'
-        return local rateframe "`rateframe'"
-        return local modelframes "`modelframes'"
-        return local effect "`effect'"
-        if `_has_xlsx' {
+        if `_xlsx_ok' {
             return local xlsx "`xlsx'"
             return local sheet "`sheet'"
         }
-        if "`csv'" != "" return local csv "`csv'"
-        if `"`frame'"' != "" return local frame "`frame'"
+        if `_xlsx_ok' & "`open'" != "" _tabtools_open_file "`xlsx'"
     }
 
     local rc = _rc

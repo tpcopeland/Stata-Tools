@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.7  18apr2026}{...}
+{* *! version 1.0.8  22apr2026}{...}
 {viewerjumpto "Syntax" "comptab##syntax"}{...}
 {viewerjumpto "Description" "comptab##description"}{...}
 {viewerjumpto "Options" "comptab##options"}{...}
@@ -59,7 +59,7 @@
 
 {syntab:Formatting}
 {synopt:{cmdab:the:me(}{it:string}{cmd:)}}journal theme: {it:lancet}, {it:nejm}, {it:bmj}, {it:apa}, {it:jama}, {it:plos}, {it:nature}, {it:cell}, {it:annals}, or {it:custom}{p_end}
-{synopt:{cmdab:borders:tyle(}{it:string}{cmd:)}}border style: {it:thin}, {it:medium}, {it:academic}{p_end}
+{synopt:{cmdab:border:style(}{it:string}{cmd:)}}border style: {it:thin}, {it:medium}, {it:academic}{p_end}
 {synopt:{opt zebra}}alternating row shading{p_end}
 {synopt:{opt boldp(#)}}bold p-values below threshold{p_end}
 {synopt:{cmdab:high:light(}{it:#}{cmd:)}}highlight rows where p < threshold{p_end}
@@ -255,10 +255,9 @@ smaller than the specified threshold.
 {marker author}{...}
 {title:Author}
 
-{pstd}Timothy P Copeland{p_end}
-{pstd}Department of Clinical Neuroscience, Karolinska Institutet{p_end}
+{pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}timothy.copeland@ki.se{p_end}
-{pstd}Version 1.0.7{p_end}
+{pstd}Version 1.0.8{p_end}
 
 
 {marker alsosee}{...}

@@ -1,5 +1,5 @@
-*! table1_tc Version 1.0.7  2026/04/18 - Descriptive Statistics Table Generator
-*! Author: Timothy P Copeland
+*! table1_tc Version 1.0.8  2026/04/22 - Descriptive Statistics Table Generator
+*! Author: Timothy P Copeland, Karolinska Institutet
 *! Fork of -table1_mc- version 3.5 (2024-12-19) by Mark Chatfield
 *! This program generates descriptive statistics tables with formatting options
 *! and can export them to Excel with automatic column width calculation
@@ -2081,6 +2081,13 @@ program define table1_tc, rclass
     }
 
 **# Export to Excel if Requested
+    local _processed_varlist = strtrim("`_processed_varlist'")
+    return local varlist "`_processed_varlist'"
+    if `_rt_nrows' > 0 & `_rt_nrows' <= 200 {
+        capture return matrix table = `_rtable'
+    }
+
+    local _xlsx_ok 0
     if "`excel'" != "" {
         quietly {
             /* Add ID for sorting and prepare for export */
@@ -2628,6 +2635,14 @@ program define table1_tc, rclass
             capture drop _p_raw
             capture drop _smd_raw
 
+            capture confirm file "`excel'"
+            if _rc {
+                noisily display as error "Export command succeeded but file not found"
+                restore
+                exit 601
+            }
+            local _xlsx_ok 1
+
         }
     }
 
@@ -2642,26 +2657,11 @@ program define table1_tc, rclass
         display as text "CSV exported to `csv'"
     }
 
-    /* Open file if requested (W3) */
-    if "`open'" != "" & `has_excel' {
-        _tabtools_open_file "`excel'"
-    }
-
 **#  Store output in frame if requested (I5)
     if `"`frame'"' != "" {
         _tabtools_frame_put `"`frame'"'
         local frame "`_frame_name'"
-    }
-
-* Return additional results (I4, C2)
-    local _processed_varlist = strtrim("`_processed_varlist'")
-    return local varlist "`_processed_varlist'"
-    if `_rt_nrows' > 0 & `_rt_nrows' <= 200 {
-        capture return matrix table = `_rtable'
-    }
-    if `has_excel' {
-        return local xlsx "`excel'"
-        return local sheet "`sheet'"
+        return local frame "`frame'"
     }
 
 **#  Restore original data unless told not to
@@ -2669,6 +2669,16 @@ program define table1_tc, rclass
     if "`clear'"=="clear" restore, not
     else restore
 }
+
+    if `_xlsx_ok' {
+        return local xlsx "`excel'"
+        return local sheet "`sheet'"
+    }
+
+    /* Open file if requested (W3) */
+    if "`open'" != "" & `_xlsx_ok' {
+        _tabtools_open_file "`excel'"
+    }
 
     capture mata: mata drop _p_raw_save
     capture mata: mata drop _smd_raw_save

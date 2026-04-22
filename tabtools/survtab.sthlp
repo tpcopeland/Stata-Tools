@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.7  18apr2026}{...}
+{* *! version 1.0.8  22apr2026}{...}
 {viewerjumpto "Syntax" "survtab##syntax"}{...}
 {viewerjumpto "Description" "survtab##description"}{...}
 {viewerjumpto "Options" "survtab##options"}{...}
@@ -22,7 +22,7 @@ and restricted mean survival time.{p_end}
 {opt med:ian} {opt risk:set} {opt timeu:nit(string)} {opt rev:erse} {opt diff:erence}
 {opt ev:ents} {opt dig:its(#)}
 {opt xlsx(filename)} {opt excel(filename)} {opt sheet(string)} {opt title(string)}
-{opt foot:note(string)} {opt the:me(string)} {opt borders:tyle(string)}
+{opt foot:note(string)} {opt the:me(string)} {opt border:style(string)}
 {opt boldp(#)} {opt zebra} {opt high:light(#)} {opt pdp(#)} {opt highpdp(#)}
 {opt csv(filename)} {opt fra:me(name)} {opt dis:play} {opt open}
 {cmdab:addr:ow(}{it:string asis}{cmd:)}]{p_end}
@@ -100,9 +100,10 @@ is accepted as a synonym.{p_end}
 {dlgtab:Formatting}
 
 {phang}{opt the:me(string)} applies a journal-style theme: {cmd:lancet},
-{cmd:nejm}, {cmd:bmj}, {cmd:apa}, or {cmd:custom}.{p_end}
+{cmd:nejm}, {cmd:bmj}, {cmd:apa}, {cmd:jama}, {cmd:plos}, {cmd:nature},
+{cmd:cell}, {cmd:annals}, or {cmd:custom}.{p_end}
 
-{phang}{opt borders:tyle(string)} border style: {cmd:thin}, {cmd:medium},
+{phang}{opt border:style(string)} border style: {cmd:thin}, {cmd:medium},
 or {cmd:academic}.{p_end}
 
 {phang}{opt boldp(#)} bolds the log-rank p-value and log-rank summary row when the log-rank p-value is below the specified threshold. Must be between 0 and 1.{p_end}
@@ -123,6 +124,8 @@ Default is 2. Must be between 0 and 10.{p_end}
 {phang}{cmdab:addr:ow(}{it:string asis}{cmd:)} append custom rows below the
 table body. Specify pairs of label and values. Use backslash to separate
 multiple rows.{p_end}
+
+{pstd}When {opt rmst()} is used, interpret RMST summaries relative to the requested truncation time. The estimate is restricted to the observed follow-up window up to that horizon and should not be read as a lifetime mean survival measure.{p_end}
 
 {marker examples}{title:Examples}
 
@@ -171,9 +174,8 @@ multiple rows.{p_end}
 
 {marker author}{title:Author}
 
-{pstd}Timothy P Copeland{p_end}
-{pstd}Department of Clinical Neuroscience, Karolinska Institutet{p_end}
+{pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}timothy.copeland@ki.se{p_end}
-{pstd}Version 1.0.7{p_end}
+{pstd}Version 1.0.8{p_end}
 
 {hline}

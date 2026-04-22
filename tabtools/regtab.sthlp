@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.7  18apr2026}{...}
+{* *! version 1.0.8  22apr2026}{...}
 {vieweralsosee "effecttab" "help effecttab"}{...}
 {viewerjumpto "Package overview" "regtab##package"}{...}
 {viewerjumpto "Syntax" "regtab##syntax"}{...}
@@ -61,7 +61,7 @@ for treatment effects and margins tables.
 {synopt:{opt zebra}}Apply alternating light gray row shading for readability.{p_end}
 {synopt:{opt high:light(#)}}Apply yellow fill to rows where p-value < threshold (e.g., {cmd:highlight(0.05)}).{p_end}
 {synopt:{opt boldp(#)}}Bold p-value cells below threshold (e.g., {cmd:boldp(0.05)}).{p_end}
-{synopt:{opt borders:tyle(string)}}Border style: {cmd:thin} (default), {cmd:medium}, or {cmd:academic}.{p_end}
+{synopt:{opt border:style(string)}}Border style: {cmd:thin} (default), {cmd:medium}, or {cmd:academic}.{p_end}
 {synopt:{opt cdisc}}CDISC formatting mode: sets digits to 4, coef label to "Estimate", and forces {cmd:stats(n)}.{p_end}
 {synopt:{opt relab:el}}Relabel random effects using variable labels. For single-level models, {cmd:var(_cons)} becomes {it:GroupLabel} {cmd:(Intercept)}. For multi-level models ({cmd:mixed ... || district: || school:}), each level is labeled separately: {it:District} {cmd:(Intercept)}, {it:School} {cmd:(Intercept)}, etc.{p_end}
 {synopt:{opt stars}}Add significance stars to coefficients (*, **, ***).{p_end}
@@ -112,7 +112,7 @@ random-effects rows if desired.{p_end}
 {p 4 8 2}- Intercept rows can be removed with {opt noint}.{p_end}
 {p 4 8 2}- By default, fonts are set to Arial 10, but this can be overridden by {opt theme()}, session defaults set with {helpb tabtools:set font} / {helpb tabtools:set fontsize}, or both. Borders are drawn around the table and model blocks. Column widths and row heights are adjusted heuristically to fit labels and contents.{p_end}
 {p 4 8 2}- The command writes the Excel output using {helpb putexcel}; a temporary workbook {cmd:temp.xlsx} is created and deleted during processing.{p_end}
-{p 4 8 2}- Model statistics ({opt stats()}): For multi-model tables, N, AIC, BIC, log-likelihood, and groups are extracted per model from the {helpb collect} framework and placed in each model's column. If extraction fails, statistics fall back to the last model's {cmd:e()} values in the first column only. ICC is computed per model from each model's variance components in the collection. If extraction fails, ICC falls back to the last model's {cmd:e(b)} matrix.{p_end}
+{p 4 8 2}- Model statistics ({opt stats()}): For multi-model tables, N, AIC, BIC, log-likelihood, and groups are extracted per model from the {helpb collect} framework and placed in each model's column. If extraction fails, statistics fall back to the last model's {cmd:e()} values in the first column only. ICC is computed per model from variance components in the collected results when that variance decomposition is defined. For model families without a closed-form level-1 variance, ICC is left blank rather than guessed. If the primary collection path cannot recover supported ICC components, {cmd:regtab} falls back to the last model's {cmd:e(b)} matrix.{p_end}
 
 {marker examples}{title:Examples}
 
@@ -206,9 +206,8 @@ the threshold, and {opt highlight()} applies yellow fill to entire rows.{p_end}
 {marker author}{...}
 {title:Author}
 
-{pstd}Timothy P Copeland{p_end}
-{pstd}Department of Clinical Neuroscience, Karolinska Institutet{p_end}
+{pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}timothy.copeland@ki.se{p_end}
-{pstd}Version 1.0.7{p_end}
+{pstd}Version 1.0.8{p_end}
 
 {hline}

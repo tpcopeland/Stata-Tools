@@ -1,6 +1,6 @@
-*! comptab Version 1.0.7  2026/04/18
+*! comptab Version 1.0.8  2026/04/22
 *! Compose publication tables from regtab/effecttab output frames
-*! Author: Timothy P Copeland
+*! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
 
 /*
@@ -724,6 +724,7 @@ program define comptab, rclass
     if `"`frame'"' != "" {
         _tabtools_frame_put `"`frame'"'
         local frame "`_frame_name'"
+        return local frame "`frame'"
     }
 
     * =====================================================================
@@ -731,6 +732,13 @@ program define comptab, rclass
     * =====================================================================
     local num_rows = _N
     local num_cols = c(k)
+    local _xlsx_ok 0
+
+    * Return results before any file-writing failure can abort the command
+    return scalar N_rows = `num_rows'
+    return scalar N_cols = `num_cols'
+    return scalar N_models = `n_models'
+    return scalar N_frames = `n_frames'
 
     if `_has_xlsx' {
         capture export excel using "`xlsx'", sheet("`sheet'") sheetreplace
@@ -958,13 +966,11 @@ program define comptab, rclass
     clear
     restore
 
-    * Open file if requested
-    if `_has_xlsx' & "`open'" != "" _tabtools_open_file "`xlsx'"
-
     * Console confirmation
     if `_has_xlsx' {
         capture confirm file "`xlsx'"
         if _rc == 0 {
+            local _xlsx_ok 1
             noisily display as text "Exported " as result "`num_rows'" as text " rows × " as result "`num_cols'" as text " cols to " as result `"`xlsx'"' as text ", sheet " as result `"`sheet'"'
         }
         else {
@@ -973,16 +979,13 @@ program define comptab, rclass
         }
     }
 
-    * Return results
-    if `_has_xlsx' {
+    if `_xlsx_ok' {
         return local xlsx "`xlsx'"
         return local sheet "`sheet'"
     }
-    return scalar N_rows = `num_rows'
-    return scalar N_cols = `num_cols'
-    return scalar N_models = `n_models'
-    return scalar N_frames = `n_frames'
-    if "`frame'" != "" return local frame "`frame'"
+
+    * Open file if requested
+    if `_xlsx_ok' & "`open'" != "" _tabtools_open_file "`xlsx'"
 
     } // end quietly
 

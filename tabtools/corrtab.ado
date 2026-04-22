@@ -1,6 +1,6 @@
-*! corrtab Version 1.0.7  2026/04/18
+*! corrtab Version 1.0.8  2026/04/22
 *! Correlation matrix table
-*! Author: Timothy P Copeland
+*! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
 
 program define corrtab, rclass
@@ -285,6 +285,19 @@ program define corrtab, rclass
             local frame "`_frame_name'"
         }
 
+        return matrix C = `_corr'
+        capture return matrix P = `_pmat'
+        capture return matrix N = `_nmat'
+        if "`frame'" != "" return local frame "`frame'"
+
+        local _method_type = cond("`spearman'" != "", "Spearman rank", "Pearson")
+        local _methods "`_method_type' correlation coefficients are reported."
+        if "`pvalues'" != "" local _methods "`_methods' Pairwise p-values are shown in parentheses."
+        else if `"`_star_note'"' != "" local _methods "`_methods' Significance levels: `_star_note'."
+        local _methods "`_methods' Analysis performed in Stata `c(stata_version)' (StataCorp, College Station, TX)."
+        return local methods "`_methods'"
+
+        local _xlsx_ok 0
         if `_has_xlsx' {
             local num_rows = _N
             local num_cols = `out_ncols' + 1
@@ -372,29 +385,18 @@ program define corrtab, rclass
                 restore
                 exit 601
             }
+            local _xlsx_ok 1
             noisily display as text "Exported to " as result `"`xlsx'"' ///
                 as text ", sheet " as result `"`sheet'"'
         }
 
-        if "`open'" != "" & `_has_xlsx' _tabtools_open_file "`xlsx'"
-
         restore
 
-        return matrix C = `_corr'
-        capture return matrix P = `_pmat'
-        capture return matrix N = `_nmat'
-        if `_has_xlsx' {
+        if `_xlsx_ok' {
             return local xlsx "`xlsx'"
             return local sheet "`sheet'"
         }
-        if "`frame'" != "" return local frame "`frame'"
-
-        local _method_type = cond("`spearman'" != "", "Spearman rank", "Pearson")
-        local _methods "`_method_type' correlation coefficients are reported."
-        if "`pvalues'" != "" local _methods "`_methods' Pairwise p-values are shown in parentheses."
-        else if `"`_star_note'"' != "" local _methods "`_methods' Significance levels: `_star_note'."
-        local _methods "`_methods' Analysis performed in Stata `c(stata_version)' (StataCorp, College Station, TX)."
-        return local methods "`_methods'"
+        if "`open'" != "" & `_xlsx_ok' _tabtools_open_file "`xlsx'"
     }
     local rc = _rc
     set varabbrev `_orig_varabbrev'

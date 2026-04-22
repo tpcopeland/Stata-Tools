@@ -1,6 +1,6 @@
-*! diagtab Version 1.0.7  2026/04/18
+*! diagtab Version 1.0.8  2026/04/22
 *! Diagnostic accuracy table
-*! Author: Timothy P Copeland
+*! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
 
 /*
@@ -673,6 +673,15 @@ capture noisily {
         local frame "`_frame_name'"
     }
 
+    if "`frame'" != "" return local frame "`frame'"
+
+    local _ci_method = cond("`exact'" != "", "Clopper-Pearson exact", "Wilson score")
+    local _methods "Diagnostic accuracy was assessed against the gold standard (`goldvar')."
+    local _methods "`_methods' `_ci_method' 95% confidence intervals are reported."
+    local _methods "`_methods' Analysis performed in Stata `c(stata_version)' (StataCorp, College Station, TX)."
+    return local methods "`_methods'"
+
+    local _xlsx_ok 0
     if `_has_xlsx' {
         order title c*
         capture export excel using "`xlsx'", sheet("`sheet'") sheetreplace
@@ -759,24 +768,17 @@ capture noisily {
             noisily display as error "Export command succeeded but file not found"
             exit 601
         }
+        local _xlsx_ok 1
         noisily display as text "Exported to " as result `"`xlsx'"' as text ", sheet " as result `"`sheet'"'
     }
 
-    if "`open'" != "" & `_has_xlsx' _tabtools_open_file "`xlsx'"
-
     restore
 
-    if `_has_xlsx' {
+    if `_xlsx_ok' {
         return local xlsx "`xlsx'"
         return local sheet "`sheet'"
     }
-    if "`frame'" != "" return local frame "`frame'"
-
-    local _ci_method = cond("`exact'" != "", "Clopper-Pearson exact", "Wilson score")
-    local _methods "Diagnostic accuracy was assessed against the gold standard (`goldvar')."
-    local _methods "`_methods' `_ci_method' 95% confidence intervals are reported."
-    local _methods "`_methods' Analysis performed in Stata `c(stata_version)' (StataCorp, College Station, TX)."
-    return local methods "`_methods'"
+    if "`open'" != "" & `_xlsx_ok' _tabtools_open_file "`xlsx'"
 
 } // end capture noisily
     local rc = _rc

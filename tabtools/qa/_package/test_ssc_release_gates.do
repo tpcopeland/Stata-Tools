@@ -134,6 +134,43 @@ else {
     local failed_tests "`failed_tests' pkg_manifest"
 }
 
+**## tabtools.ado package version literal matches the header version
+local ++test_count
+capture noisily {
+    tempname ado_fh
+    local header_version ""
+    local package_version ""
+
+    file open `ado_fh' using "`pkg_dir'/tabtools.ado", read text
+    file read `ado_fh' line
+    while r(eof) == 0 {
+        if `"`header_version'"' == "" & strpos(`"`line'"', "Version ") > 0 {
+            local header_tail = subinstr(`"`line'"', "Version ", "", 1)
+            local header_version = word(`"`header_tail'"', 3)
+        }
+        if `"`package_version'"' == "" & strpos(`"`line'"', "_package_version") > 0 {
+            local package_version = subinstr(`"`line'"', "local _package_version ", "", 1)
+            local package_version = subinstr(`"`package_version'"', char(34), "", .)
+            local package_version = strtrim(`"`package_version'"')
+        }
+        file read `ado_fh' line
+    }
+    file close `ado_fh'
+
+    assert `"`header_version'"' != ""
+    assert `"`package_version'"' != ""
+    assert `"`header_version'"' == `"`package_version'"'
+}
+if _rc == 0 {
+    display as result "  PASS: tabtools.ado header and package version literal match"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tabtools.ado version synchronization (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' tabtools_version_sync"
+}
+
 **# Fresh-install discoverability
 **## Public commands resolve after net install
 local ++test_count

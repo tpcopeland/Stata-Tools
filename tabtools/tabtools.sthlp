@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.7  18apr2026}{...}
+{* *! version 1.0.8  22apr2026}{...}
 {viewerjumpto "Description" "tabtools##description"}{...}
 {viewerjumpto "Commands" "tabtools##commands"}{...}
 {viewerjumpto "Syntax" "tabtools##syntax"}{...}
@@ -283,14 +283,8 @@ across sessions.
 {marker author}{...}
 {title:Author}
 
-{pstd}
-Timothy P Copeland{break}
-Department of Clinical Neuroscience{break}
-Karolinska Institutet, Stockholm, Sweden{break}
-{browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}
-{p_end}
-
-{pstd}
-{bf:Version} 1.0.7
+{pstd}Timothy P Copeland, Karolinska Institutet{p_end}
+{pstd}{browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}{p_end}
+{pstd}{bf:Version} 1.0.8
 
 {hline}

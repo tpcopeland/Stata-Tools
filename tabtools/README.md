@@ -1,6 +1,6 @@
 # tabtools - Publication-ready Excel tables across common Stata workflows
 
-**Version 1.0.7** | 2026-04-18
+**Version 1.0.8** | 2026-04-22
 
 `tabtools` is a suite of Stata commands for exporting manuscript-ready tables to Excel across descriptive summaries, regression models, treatment effects, survival analysis, diagnostic accuracy workflows, incidence rates, and composite tables. The package is organized around a shared formatting layer, so commands that come from very different analysis pipelines still produce tables that look like they belong in the same workbook.
 
@@ -203,7 +203,11 @@ tabtools set clear
 
 ## Version History
 
-- **1.0.7** (2026-04-18): Current Stata-Tools suite release covering direct descriptive tables, `collect`-based model formatters, file-based rate workflows, and frame-based composite builders.
+- **1.0.8** (2026-04-22): Clarity audit release with hardened export-return behavior, synchronized package metadata, and expanded QA around release gates and export failures.
+- **1.0.7** (2026-04-18): Stata-Tools suite release covering direct descriptive tables, `collect`-based model formatters, file-based rate workflows, and frame-based composite builders.
+- **1.0.6** (2026-04-17): Incremental refinement release during the Stata-Tools packaging cycle.
+- **1.0.5** (2026-04-17): Incremental refinement release during the Stata-Tools packaging cycle.
+- **1.0.4** (2026-04-16): Early public packaging milestone for the tabtools suite.
 
 ## Author
 
