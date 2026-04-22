@@ -5,10 +5,14 @@
 * Default scope: all Stata-side QA in this package
 *   - test_msm.do
 *   - test_msm_expanded.do
+*   - test_msm_status.do
+*   - test_msm_weight_ergonomics.do
+*   - test_msm_fit_guidance.do
 *   - test_msm_cox_state.do
 *   - test_msm_weight_failures.do
 *   - test_export_surface.do
 *   - validation_msm.do
+*   - validation_msm_known_answers.do
 *   - validation_msm_expanded.do
 *   - validation_msm_sensitivity.do
 *
@@ -28,7 +32,7 @@ set more off
 set varabbrev off
 
 local qa_dir "`c(pwd)'"
-local runner_log "`c(tmpdir)'msm_run_all_validations.log"
+local runner_log "`c(tmpdir)'/msm_run_all_validations.log"
 
 capture log close _all
 do "`qa_dir'/_cleanup_runtime_artifacts.do"
@@ -41,19 +45,19 @@ if "`mode'" == "full" local mode "all"
 
 local suite_list ""
 if "`mode'" == "stata" {
-    local suite_list "test_msm test_msm_expanded test_msm_cox_state test_msm_weight_failures test_export_surface validation_msm validation_msm_expanded validation_msm_sensitivity"
+    local suite_list "test_msm test_msm_expanded test_msm_status test_msm_weight_ergonomics test_msm_fit_guidance test_msm_cox_state test_msm_weight_failures test_export_surface validation_msm validation_msm_known_answers validation_msm_expanded validation_msm_sensitivity"
 }
 else if "`mode'" == "tests" {
-    local suite_list "test_msm test_msm_expanded test_msm_cox_state test_msm_weight_failures test_export_surface"
+    local suite_list "test_msm test_msm_expanded test_msm_status test_msm_weight_ergonomics test_msm_fit_guidance test_msm_cox_state test_msm_weight_failures test_export_surface"
 }
 else if "`mode'" == "validations" {
-    local suite_list "validation_msm validation_msm_expanded validation_msm_sensitivity"
+    local suite_list "validation_msm validation_msm_known_answers validation_msm_expanded validation_msm_sensitivity"
 }
 else if "`mode'" == "crossval" {
     local suite_list "crossval_msm"
 }
 else if "`mode'" == "all" {
-    local suite_list "test_msm test_msm_expanded test_msm_cox_state test_msm_weight_failures test_export_surface validation_msm validation_msm_expanded validation_msm_sensitivity crossval_msm"
+    local suite_list "test_msm test_msm_expanded test_msm_status test_msm_weight_ergonomics test_msm_fit_guidance test_msm_cox_state test_msm_weight_failures test_export_surface validation_msm validation_msm_known_answers validation_msm_expanded validation_msm_sensitivity crossval_msm"
 }
 else {
     display as error "Unknown run_all_validations mode: `mode'"

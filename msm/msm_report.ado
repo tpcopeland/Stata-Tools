@@ -765,28 +765,7 @@ program define msm_report, rclass
         display as text "Report exported to: " as result "`export'"
 
         if "`open'" != "" {
-            if "`c(mode)'" == "batch" {
-                display as text "note: automatic open skipped in batch mode"
-            }
-            else {
-                local _open_rc = 0
-                if "`c(os)'" == "Windows" {
-                    capture shell start "" "`export'"
-                    local _open_rc = _rc
-                }
-                else if "`c(os)'" == "MacOSX" {
-                    capture shell open "`export'" &
-                    local _open_rc = _rc
-                }
-                else {
-                    capture shell xdg-open "`export'" &
-                    local _open_rc = _rc
-                }
-
-                if `_open_rc' {
-                    display as text "note: automatic open skipped in this environment"
-                }
-            }
+            _msm_post_export_open, file(`"`export'"')
         }
     }
 

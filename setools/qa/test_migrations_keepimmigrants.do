@@ -27,6 +27,8 @@
 *   K23: Varabbrev restored on error with keepimmigrants
 *   K24: Data preservation — original vars unchanged by keepimmigrants
 *   K25: keepimmigrants with verbose — runs without error
+*   K26: keepimmigrants works with long-format migration data
+*   K27: long-format Type 3 remains excluded under keepimmigrants
 
 clear all
 set more off
@@ -89,6 +91,19 @@ end
 format in_1 out_1 in_2 out_2 %td
 tempfile mig5
 save `mig5'
+
+clear
+input long id double event_date str3 event_type
+2 20999 "Utv"
+3 21244 "Inv"
+4 21366 "Utv"
+5 21244 "Utv"
+5 21336 "Inv"
+5 21427 "Utv"
+end
+format event_date %td
+tempfile mig5_long
+save `mig5_long'
 
 
 **# K1: keepimmigrants includes Type 2 individuals
@@ -500,6 +515,52 @@ use `master5', clear
 capture noisily migrations, migfile("`mig5'") keepimmigrants verbose
 local t = (_rc == 0)
 run_test "K25: verbose + keepimmigrants runs without error" `t'
+
+
+**# K26: keepimmigrants works with long-format migration data
+
+use `master5', clear
+migrations, migfile("`mig5_long'") keepimmigrants
+local incl = r(N_included_inmigration)
+qui count if id == 3
+local kept = r(N)
+qui summarize migration_in_dt if id == 3
+local t = (`incl' == 1 & `kept' == 1 & r(N) == 1 & r(mean) == 21244)
+run_test "K26: long-format keepimmigrants retains Type 2 with migration_in_dt" `t'
+
+
+**# K27: long-format Type 3 remains excluded
+
+clear
+input long id double study_start
+1 21185
+2 21185
+3 21185
+4 21185
+end
+format study_start %td
+tempfile k27_cohort
+save `k27_cohort'
+
+clear
+input long id double event_date str3 event_type
+2 20800 "Utv"
+3 20800 "Utv"
+3 21300 "Inv"
+4 21300 "Inv"
+end
+format event_date %td
+tempfile k27_long
+save `k27_long'
+
+use `k27_cohort', clear
+migrations, migfile("`k27_long'") keepimmigrants
+local t1 = (r(N_excluded_emigrated) == 1)
+run_test "K27a: long-format Type 1 still excluded" `t1'
+local t2 = (r(N_excluded_abroad) == 1)
+run_test "K27b: long-format Type 3 excluded, not reclassified as Type 2" `t2'
+local t3 = (r(N_included_inmigration) == 1 & r(N_final) == 2)
+run_test "K27c: only true Type 2 immigrant is included" `t3'
 
 
 * === Cleanup ===

@@ -48,7 +48,9 @@ or Cox proportional hazards. Robust/sandwich standard errors are clustered
 at the individual level by default. When {cmd:model(cox)} is used,
 {cmd:msm_fit} applies its temporary {cmd:stset} inside an internal sandbox:
 any pre-existing survival-time settings are restored on exit, and datasets
-that were not previously {cmd:stset} remain unstset after estimation.
+that were not previously {cmd:stset} remain unstset after estimation. After
+fitting, use {cmd:msm, status} to inspect the current pipeline state and see
+whether downstream prediction is available for the fitted model.
 
 
 {marker options}{...}
@@ -62,8 +64,10 @@ not leave behind temporary {cmd:stset} variables or characteristics, and it
 restores any caller-owned {cmd:stset} definition after estimation. For Cox
 models, {opt period_spec()} is used only to define the person-period
 estimation sample; period terms are not added as covariates because time is
-handled through the survival-time outcome. Downstream
-{helpb msm_predict} remains unavailable after Cox fits.
+handled through the survival-time outcome. Counterfactual prediction via
+{helpb msm_predict} is available only after {cmd:model(logistic)}; use
+{cmd:msm, status} to confirm the current stage and available follow-on
+commands after linear or Cox fits.
 
 {phang}
 {opth outcome_cov(varlist)} specifies additional time-fixed covariates for the
@@ -114,6 +118,7 @@ in {cmd:e()}, plus:
 {title:Examples}
 
 {phang2}{cmd:. msm_fit, model(logistic) outcome_cov(age sex) nolog}{p_end}
+{phang2}{cmd:. msm, status}{p_end}
 {phang2}{cmd:. msm_fit, model(logistic) period_spec(ns(3)) nolog}{p_end}
 {phang2}{cmd:. msm_fit, model(cox) outcome_cov(age sex) nolog}{p_end}
 

@@ -6,7 +6,7 @@
 
 /*
 Basic syntax:
-  msm_weight, treat_d_cov(varlist) [options]
+  msm_weight [, treat_d_cov(varlist) options]
 
 Description:
   Calculates stabilized inverse probability of treatment weights (IPTW)
@@ -21,11 +21,12 @@ Description:
   within individuals using log-sum for numerical stability.
 
 Options:
-  treat_d_cov(varlist)   - Covariates for treatment denominator model (required)
+  treat_d_cov(varlist)   - Covariates for treatment denominator model
   treat_n_cov(varlist)   - Covariates for treatment numerator model (stabilized)
   censor_d_cov(varlist)  - Covariates for censoring denominator model
   censor_n_cov(varlist)  - Covariates for censoring numerator model
-  truncate(# #)          - Truncate at percentiles (e.g., truncate(1 99))
+  truncate(# [#])        - Truncate at percentiles (e.g., truncate(1) or truncate(1 99))
+  preview                - Resolve and display model specs without fitting
   fitfailure(policy)     - Model-failure policy: error (default) or marginal
   replace                - Replace existing weight variables
   nolog                  - Suppress model iteration log
@@ -46,12 +47,12 @@ program define msm_weight, rclass
     * SYNTAX PARSING
     * =========================================================================
 
-    syntax , TREAT_d_cov(varlist numeric) ///
-        [TREAT_n_cov(varlist numeric) ///
+    syntax , [TREAT_d_cov(varlist numeric) ///
+         TREAT_n_cov(varlist numeric) ///
          CENsor_d_cov(varlist numeric) CENsor_n_cov(varlist numeric) ///
-         TRUNCate(numlist min=2 max=2) ///
+         TRUNCate(numlist min=1 max=2) ///
          FITFailure(string) ///
-         REPLACE noLOG]
+         PREVIEW REPLACE noLOG]
 
     * =========================================================================
     * CHECK PREREQUISITES
@@ -65,15 +66,62 @@ program define msm_weight, rclass
     local treatment  "`_msm_treatment'"
     local outcome    "`_msm_outcome'"
     local censor     "`_msm_censor'"
+    local prepared_treat_d_cov "`_msm_covariates' `_msm_bl_covs'"
+    local prepared_treat_d_cov : list retokenize prepared_treat_d_cov
+    local prepared_treat_d_cov_uniq ""
+    foreach var of local prepared_treat_d_cov {
+        if !`: list var in prepared_treat_d_cov_uniq' {
+            local prepared_treat_d_cov_uniq "`prepared_treat_d_cov_uniq' `var'"
+        }
+    }
+    local prepared_treat_d_cov : list retokenize prepared_treat_d_cov_uniq
 
     * =========================================================================
     * VALIDATE OPTIONS
     * =========================================================================
 
+    local preview_flag "0"
+    if "`preview'" != "" local preview_flag "1"
+
+    local treat_d_cov_source "explicit"
+    if "`treat_d_cov'" == "" {
+        if "`prepared_treat_d_cov'" == "" {
+            display as error ///
+                "treat_d_cov() is required unless msm_prepare stored covariates() or baseline_covariates()"
+            exit 198
+        }
+        local treat_d_cov "`prepared_treat_d_cov'"
+        local treat_d_cov_source "prepared"
+        foreach var of local treat_d_cov {
+            capture confirm numeric variable `var'
+            if _rc {
+                display as error ///
+                    "prepared treatment denominator covariate `var' is not available as a numeric variable"
+                exit 198
+            }
+        }
+    }
+
     * Validate truncation
+    local truncate_original "`truncate'"
+    local truncate_source ""
     if "`truncate'" != "" {
-        local trunc_lo: word 1 of `truncate'
-        local trunc_hi: word 2 of `truncate'
+        local n_trunc : word count `truncate'
+        if `n_trunc' == 1 {
+            local trunc_lo: word 1 of `truncate'
+            local trunc_hi = 100 - `trunc_lo'
+            local truncate_source "symmetric"
+        }
+        else {
+            local trunc_lo: word 1 of `truncate'
+            local trunc_hi: word 2 of `truncate'
+            local truncate_source "explicit"
+        }
+        local truncate "`trunc_lo' `trunc_hi'"
+        if `trunc_lo' <= 0 | `trunc_hi' >= 100 {
+            display as error "truncate() values must lie strictly between 0 and 100"
+            exit 198
+        }
         if `trunc_lo' >= `trunc_hi' {
             display as error "truncate() lower bound must be less than upper bound"
             exit 198
@@ -95,18 +143,6 @@ program define msm_weight, rclass
         exit 198
     }
 
-    * Check weight variables
-    foreach wvar in _msm_weight _msm_tw_weight _msm_cw_weight {
-        capture confirm variable `wvar'
-        if _rc == 0 {
-            if "`replace'" == "" {
-                display as error "variable `wvar' already exists; use replace option"
-                exit 110
-            }
-            quietly drop `wvar'
-        }
-    }
-
     * IPCW requested but no censor variable?
     if "`censor_d_cov'" != "" & "`censor'" == "" {
         display as error "censor_d_cov() specified but no censoring variable was mapped in msm_prepare"
@@ -121,18 +157,28 @@ program define msm_weight, rclass
         exit 198
     }
 
-    * This implementation assumes a common baseline period for all individuals.
-    quietly summarize `period'
-    local min_period = r(min)
-    tempvar _first_period _id_tag
-    quietly bysort `id' (`period'): gen double `_first_period' = `period'[1]
-    quietly bysort `id': gen byte `_id_tag' = (_n == 1)
-    quietly count if `_id_tag' & `_first_period' != `min_period'
-    if r(N) > 0 {
-        display as error "delayed entry is not currently supported"
-        display as error as result r(N) as error ///
-            " individual(s) begin after the common baseline period `min_period'"
-        exit 198
+    local treat_d_spec_later "`treatment' ~ lagged `treatment' `treat_d_cov' `period'"
+    local treat_d_spec_first "`treatment' ~ `treat_d_cov'"
+    local treat_n_label "`treat_n_cov'"
+    if "`treat_n_cov'" != "" {
+        local treat_n_spec_later "`treatment' ~ lagged `treatment' `treat_n_cov'"
+        local treat_n_spec_first "`treatment' ~ `treat_n_cov'"
+    }
+    else {
+        local treat_n_label "(intercept + lagged treatment only)"
+        local treat_n_spec_later "`treatment' ~ lagged `treatment'"
+        local treat_n_spec_first "`treatment' ~ (intercept)"
+    }
+    local censor_n_label "`censor_n_cov'"
+    if "`censor_d_cov'" != "" {
+        local censor_d_spec "`censor' ~ `treatment' `censor_d_cov' `period'"
+        if "`censor_n_cov'" != "" {
+            local censor_n_spec "`censor' ~ `treatment' `censor_n_cov'"
+        }
+        else {
+            local censor_n_label "(intercept + current treatment only)"
+            local censor_n_spec "`censor' ~ `treatment'"
+        }
     }
 
     * =========================================================================
@@ -141,21 +187,39 @@ program define msm_weight, rclass
 
     display as text ""
     display as text "{hline 70}"
-    display as result "msm_weight" as text " - Inverse Probability Weights"
+    if "`preview'" != "" {
+        display as result "msm_weight" as text " - Model Spec Preview"
+    }
+    else {
+        display as result "msm_weight" as text " - Inverse Probability Weights"
+    }
     display as text "{hline 70}"
     display as text ""
     display as text "Treatment denom:  " as result "`treat_d_cov'"
+    if "`treat_d_cov_source'" == "prepared" {
+        display as text "Denom source:     " as result ///
+            "prepared covariates() + baseline_covariates() from msm_prepare"
+    }
     if "`treat_n_cov'" != "" {
         display as text "Treatment numer:  " as result "`treat_n_cov'"
     }
     else {
-        display as text "Treatment numer:  " as result "(intercept + lagged treatment only)"
+        display as text "Treatment numer:  " as result "`treat_n_label'"
     }
+    display as text "Treatment models:"
+    display as text "  Denominator:    " as result "`treat_d_spec_later'"
+    display as text "  First period:   " as result "`treat_d_spec_first'"
+    display as text "  Numerator:      " as result "`treat_n_spec_later'"
+    display as text "  First period:   " as result "`treat_n_spec_first'"
     if "`censor_d_cov'" != "" {
         display as text "Censoring denom:  " as result "`censor_d_cov'"
-        if "`censor_n_cov'" != "" {
-            display as text "Censoring numer:  " as result "`censor_n_cov'"
-        }
+        display as text "Censoring numer:  " as result "`censor_n_label'"
+        display as text "Censoring models:"
+        display as text "  Denominator:    " as result "`censor_d_spec'"
+        display as text "  Numerator:      " as result "`censor_n_spec'"
+    }
+    else if "`preview'" != "" {
+        display as text "Censoring models: " as result "(not requested)"
     }
     display as text "Stabilized:       " as result "Yes"
     if "`fitfailure'" == "error" {
@@ -166,194 +230,246 @@ program define msm_weight, rclass
     }
     if "`truncate'" != "" {
         display as text "Truncation:       " as result "`trunc_lo'th - `trunc_hi'th percentile"
+        if "`truncate_source'" == "symmetric" {
+            display as text "Truncate source:  " as result "symmetric shorthand from truncate(`truncate_original')"
+        }
     }
     display as text ""
 
-    local log_opt ""
-    if "`log'" == "nolog" local log_opt "nolog"
+    if "`preview'" != "" {
+        display as text "Preview only: no models fitted and no variables created."
+        display as text "Next step: rerun {cmd:msm_weight} without {cmd:preview}"
+        display as text "{hline 70}"
 
-    * =========================================================================
-    * TREATMENT WEIGHTS (IPTW)
-    * =========================================================================
+        return local preview "`preview_flag'"
+        return local treat_d_cov "`treat_d_cov'"
+        return local treat_d_cov_source "`treat_d_cov_source'"
+        return local treat_n_cov "`treat_n_cov'"
+        return local censor_d_cov "`censor_d_cov'"
+        return local censor_n_cov "`censor_n_cov'"
+        return local truncate "`truncate'"
+        return local fitfailure_policy "`fitfailure'"
+    }
+    else {
+        * Check weight variables
+        foreach wvar in _msm_weight _msm_tw_weight _msm_cw_weight {
+            capture confirm variable `wvar'
+            if _rc == 0 {
+                if "`replace'" == "" {
+                    display as error "variable `wvar' already exists; use replace option"
+                    exit 110
+                }
+                quietly drop `wvar'
+            }
+        }
 
-    display as text "Fitting treatment models..."
+        * This implementation assumes a common baseline period for all individuals.
+        quietly summarize `period'
+        local min_period = r(min)
+        tempvar _first_period _id_tag
+        quietly bysort `id' (`period'): gen double `_first_period' = `period'[1]
+        quietly bysort `id': gen byte `_id_tag' = (_n == 1)
+        quietly count if `_id_tag' & `_first_period' != `min_period'
+        if r(N) > 0 {
+            display as error "delayed entry is not currently supported"
+            display as error as result r(N) as error ///
+                " individual(s) begin after the common baseline period `min_period'"
+            exit 198
+        }
 
-    _msm_weight_treatment, id(`id') period(`period') ///
-        treatment(`treatment') outcome(`outcome') ///
-        censor(`censor') ///
-        d_cov(`treat_d_cov') n_cov(`treat_n_cov') ///
-        fitfailure(`fitfailure') `log_opt'
+        local log_opt ""
+        if "`log'" == "nolog" local log_opt "nolog"
 
-    local n_fitfail_fallback = r(n_fitfail_fallback)
-    local n_probability_repairs = r(n_probability_repairs)
-    local fitfailure_models "`r(fitfailure_models)'"
+        * =========================================================================
+        * TREATMENT WEIGHTS (IPTW)
+        * =========================================================================
 
-    * _msm_tw_weight now exists (cumulative treatment weight)
+        display as text "Fitting treatment models..."
 
-    * =========================================================================
-    * CENSORING WEIGHTS (IPCW) - optional
-    * =========================================================================
-
-    if "`censor_d_cov'" != "" & "`censor'" != "" {
-        display as text ""
-        display as text "Fitting censoring models..."
-
-        _msm_weight_censor, id(`id') period(`period') ///
-            treatment(`treatment') censor(`censor') ///
-            outcome(`outcome') ///
-            d_cov(`censor_d_cov') n_cov(`censor_n_cov') ///
+        _msm_weight_treatment, id(`id') period(`period') ///
+            treatment(`treatment') outcome(`outcome') ///
+            censor(`censor') ///
+            d_cov(`treat_d_cov') n_cov(`treat_n_cov') ///
             fitfailure(`fitfailure') `log_opt'
 
-        local n_fitfail_fallback = `n_fitfail_fallback' + r(n_fitfail_fallback)
-        local n_probability_repairs = `n_probability_repairs' + r(n_probability_repairs)
-        local fitfailure_models "`fitfailure_models' `r(fitfailure_models)'"
+        local n_fitfail_fallback = r(n_fitfail_fallback)
+        local n_probability_repairs = r(n_probability_repairs)
+        local fitfailure_models "`r(fitfailure_models)'"
 
-        * _msm_cw_weight now exists (cumulative censoring weight)
-    }
+        * _msm_tw_weight now exists (cumulative treatment weight)
 
-    * =========================================================================
-    * COMBINE WEIGHTS
-    * =========================================================================
+        * =========================================================================
+        * CENSORING WEIGHTS (IPCW) - optional
+        * =========================================================================
 
-    quietly {
-        * Combined weight = treatment weight * censoring weight
-        capture confirm variable _msm_cw_weight
-        if _rc == 0 {
-            gen double _msm_weight = _msm_tw_weight * _msm_cw_weight
+        if "`censor_d_cov'" != "" & "`censor'" != "" {
+            display as text ""
+            display as text "Fitting censoring models..."
+
+            _msm_weight_censor, id(`id') period(`period') ///
+                treatment(`treatment') censor(`censor') ///
+                outcome(`outcome') ///
+                d_cov(`censor_d_cov') n_cov(`censor_n_cov') ///
+                fitfailure(`fitfailure') `log_opt'
+
+            local n_fitfail_fallback = `n_fitfail_fallback' + r(n_fitfail_fallback)
+            local n_probability_repairs = `n_probability_repairs' + r(n_probability_repairs)
+            local fitfailure_models "`fitfailure_models' `r(fitfailure_models)'"
+
+            * _msm_cw_weight now exists (cumulative censoring weight)
         }
-        else {
-            gen double _msm_weight = _msm_tw_weight
-        }
-    }
 
-    * =========================================================================
-    * TRUNCATION
-    * =========================================================================
-
-    local n_truncated = 0
-    if "`truncate'" != "" {
-        display as text ""
-        display as text "Truncating weights at `trunc_lo'th and `trunc_hi'th percentiles..."
+        * =========================================================================
+        * COMBINE WEIGHTS
+        * =========================================================================
 
         quietly {
-            _pctile _msm_weight if !missing(_msm_weight), ///
-                percentiles(`trunc_lo' `trunc_hi')
-            local lo_val = r(r1)
-            local hi_val = r(r2)
-
-            count if _msm_weight < `lo_val' & !missing(_msm_weight)
-            local n_lo = r(N)
-            count if _msm_weight > `hi_val' & !missing(_msm_weight)
-            local n_hi = r(N)
-            local n_truncated = `n_lo' + `n_hi'
-
-            replace _msm_weight = `lo_val' if _msm_weight < `lo_val' & !missing(_msm_weight)
-            replace _msm_weight = `hi_val' if _msm_weight > `hi_val' & !missing(_msm_weight)
+            * Combined weight = treatment weight * censoring weight
+            capture confirm variable _msm_cw_weight
+            if _rc == 0 {
+                gen double _msm_weight = _msm_tw_weight * _msm_cw_weight
+            }
+            else {
+                gen double _msm_weight = _msm_tw_weight
+            }
         }
 
-        display as text "  Truncated `n_truncated' observations (`n_lo' low, `n_hi' high)"
-    }
+        * =========================================================================
+        * TRUNCATION
+        * =========================================================================
 
-    * =========================================================================
-    * DIAGNOSTICS
-    * =========================================================================
+        local n_truncated = 0
+        if "`truncate'" != "" {
+            display as text ""
+            display as text "Truncating weights at `trunc_lo'th and `trunc_hi'th percentiles..."
 
-    quietly summarize _msm_weight, detail
-    local w_mean = r(mean)
-    local w_sd   = r(sd)
-    local w_min  = r(min)
-    local w_max  = r(max)
-    local w_p1   = r(p1)
-    local w_p50  = r(p50)
-    local w_p99  = r(p99)
+            quietly {
+                _pctile _msm_weight if !missing(_msm_weight), ///
+                    percentiles(`trunc_lo' `trunc_hi')
+                local lo_val = r(r1)
+                local hi_val = r(r2)
 
-    * Effective sample size: (sum w)^2 / (sum w^2)
-    quietly {
-        summarize _msm_weight
-        local sum_w = r(sum)
-        tempvar _w2
-        gen double `_w2' = _msm_weight^2
-        summarize `_w2'
-        local sum_w2 = r(sum)
-        drop `_w2'
-    }
-    local ess = (`sum_w'^2) / `sum_w2'
+                count if _msm_weight < `lo_val' & !missing(_msm_weight)
+                local n_lo = r(N)
+                count if _msm_weight > `hi_val' & !missing(_msm_weight)
+                local n_hi = r(N)
+                local n_truncated = `n_lo' + `n_hi'
 
-    label variable _msm_weight "MSM cumulative IP weight"
-    label variable _msm_tw_weight "MSM treatment weight (cumulative)"
-    capture label variable _msm_cw_weight "MSM censoring weight (cumulative)"
+                replace _msm_weight = `lo_val' if _msm_weight < `lo_val' & !missing(_msm_weight)
+                replace _msm_weight = `hi_val' if _msm_weight > `hi_val' & !missing(_msm_weight)
+            }
 
-    * Store metadata
-    char _dta[_msm_weighted] "1"
-    char _dta[_msm_weight_var] "_msm_weight"
+            display as text "  Truncated `n_truncated' observations (`n_lo' low, `n_hi' high)"
+        }
 
-    * =========================================================================
-    * DISPLAY RESULTS
-    * =========================================================================
+        * =========================================================================
+        * DIAGNOSTICS
+        * =========================================================================
 
-    display as text ""
-    display as text "Weight distribution:"
-    display as text "  Mean:     " as result %9.4f `w_mean'
-    display as text "  SD:       " as result %9.4f `w_sd'
-    display as text "  Min:      " as result %9.4f `w_min'
-    display as text "  Median:   " as result %9.4f `w_p50'
-    display as text "  Max:      " as result %9.4f `w_max'
-    display as text "  P1:       " as result %9.4f `w_p1'
-    display as text "  P99:      " as result %9.4f `w_p99'
-    display as text ""
-    display as text "Effective sample size: " as result %9.1f `ess' ///
-        as text " (of " as result _N as text ")"
+        quietly summarize _msm_weight, detail
+        local w_mean = r(mean)
+        local w_sd   = r(sd)
+        local w_min  = r(min)
+        local w_max  = r(max)
+        local w_p1   = r(p1)
+        local w_p50  = r(p50)
+        local w_p99  = r(p99)
 
-    * Check mean ~1 for stabilized weights
-    if abs(`w_mean' - 1) > 0.1 {
+        * Effective sample size: (sum w)^2 / (sum w^2)
+        quietly {
+            summarize _msm_weight
+            local sum_w = r(sum)
+            tempvar _w2
+            gen double `_w2' = _msm_weight^2
+            summarize `_w2'
+            local sum_w2 = r(sum)
+            drop `_w2'
+        }
+        local ess = (`sum_w'^2) / `sum_w2'
+
+        label variable _msm_weight "MSM cumulative IP weight"
+        label variable _msm_tw_weight "MSM treatment weight (cumulative)"
+        capture label variable _msm_cw_weight "MSM censoring weight (cumulative)"
+
+        * Store metadata
+        char _dta[_msm_weighted] "1"
+        char _dta[_msm_weight_var] "_msm_weight"
+
+        * =========================================================================
+        * DISPLAY RESULTS
+        * =========================================================================
+
         display as text ""
-        display as text "Note: stabilized weight mean is " as result %5.3f `w_mean'
-        display as text "  Expected ~1.0 for correctly specified models."
-        display as text "  Check treatment model specification."
-    }
-
-    local fitfailure_models : list retokenize fitfailure_models
-
-    if `n_fitfail_fallback' > 0 {
+        display as text "Weight distribution:"
+        display as text "  Mean:     " as result %9.4f `w_mean'
+        display as text "  SD:       " as result %9.4f `w_sd'
+        display as text "  Min:      " as result %9.4f `w_min'
+        display as text "  Median:   " as result %9.4f `w_p50'
+        display as text "  Max:      " as result %9.4f `w_max'
+        display as text "  P1:       " as result %9.4f `w_p1'
+        display as text "  P99:      " as result %9.4f `w_p99'
         display as text ""
-        display as text "Requested marginal fallback used for " ///
-            as result `n_fitfail_fallback' as text " model(s)."
-        display as text "Affected models:  " as result "`fitfailure_models'"
-    }
+        display as text "Effective sample size: " as result %9.1f `ess' ///
+            as text " (of " as result _N as text ")"
 
-    if `n_probability_repairs' > 0 {
+        * Check mean ~1 for stabilized weights
+        if abs(`w_mean' - 1) > 0.1 {
+            display as text ""
+            display as text "Note: stabilized weight mean is " as result %5.3f `w_mean'
+            display as text "  Expected ~1.0 for correctly specified models."
+            display as text "  Check treatment model specification."
+        }
+
+        local fitfailure_models : list retokenize fitfailure_models
+
+        if `n_fitfail_fallback' > 0 {
+            display as text ""
+            display as text "Requested marginal fallback used for " ///
+                as result `n_fitfail_fallback' as text " model(s)."
+            display as text "Affected models:  " as result "`fitfailure_models'"
+        }
+
+        if `n_probability_repairs' > 0 {
+            display as text ""
+            display as text "Perfect-prediction repairs: " ///
+                as result `n_probability_repairs' as text ///
+                " observation(s) assigned truncated observed probabilities"
+        }
+
         display as text ""
-        display as text "Perfect-prediction repairs: " ///
-            as result `n_probability_repairs' as text ///
-            " observation(s) assigned truncated observed probabilities"
+        display as text "Variables created: " as result "_msm_weight _msm_tw_weight" ///
+            cond("`censor_d_cov'" != "", " _msm_cw_weight", "")
+        display as text "Next step: {cmd:msm_diagnose} or {cmd:msm_fit}"
+        display as text "{hline 70}"
+
+        * =========================================================================
+        * RETURN RESULTS
+        * =========================================================================
+
+        return scalar mean_weight = `w_mean'
+        return scalar sd_weight = `w_sd'
+        return scalar min_weight = `w_min'
+        return scalar max_weight = `w_max'
+        return scalar p1_weight = `w_p1'
+        return scalar median_weight = `w_p50'
+        return scalar p99_weight = `w_p99'
+        return scalar ess = `ess'
+        return scalar n_truncated = `n_truncated'
+        return scalar n_fitfail_fallback = `n_fitfail_fallback'
+        return scalar fitfailure_fallback = (`n_fitfail_fallback' > 0)
+        return scalar n_probability_repairs = `n_probability_repairs'
+
+        return local weight_var "_msm_weight"
+        return local fitfailure_policy "`fitfailure'"
+        return local fitfailure_models "`fitfailure_models'"
+        return local preview "`preview_flag'"
+        return local treat_d_cov "`treat_d_cov'"
+        return local treat_d_cov_source "`treat_d_cov_source'"
+        return local treat_n_cov "`treat_n_cov'"
+        return local censor_d_cov "`censor_d_cov'"
+        return local censor_n_cov "`censor_n_cov'"
+        return local truncate "`truncate'"
     }
-
-    display as text ""
-    display as text "Variables created: " as result "_msm_weight _msm_tw_weight" ///
-        cond("`censor_d_cov'" != "", " _msm_cw_weight", "")
-    display as text "Next step: {cmd:msm_diagnose} or {cmd:msm_fit}"
-    display as text "{hline 70}"
-
-    * =========================================================================
-    * RETURN RESULTS
-    * =========================================================================
-
-    return scalar mean_weight = `w_mean'
-    return scalar sd_weight = `w_sd'
-    return scalar min_weight = `w_min'
-    return scalar max_weight = `w_max'
-    return scalar p1_weight = `w_p1'
-    return scalar median_weight = `w_p50'
-    return scalar p99_weight = `w_p99'
-    return scalar ess = `ess'
-    return scalar n_truncated = `n_truncated'
-    return scalar n_fitfail_fallback = `n_fitfail_fallback'
-    return scalar fitfailure_fallback = (`n_fitfail_fallback' > 0)
-    return scalar n_probability_repairs = `n_probability_repairs'
-
-    return local weight_var "_msm_weight"
-    return local fitfailure_policy "`fitfailure'"
-    return local fitfailure_models "`fitfailure_models'"
 
     } /* end capture noisily */
     local _rc = _rc

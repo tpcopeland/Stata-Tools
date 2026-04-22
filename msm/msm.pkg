@@ -47,11 +47,14 @@ f msm_sensitivity.ado
 f msm_sensitivity.sthlp
 f msm_table.ado
 f msm_table.sthlp
+f _msm_clear_downstream_state.ado
 f _msm_check_prepared.ado
 f _msm_check_weighted.ado
 f _msm_check_fitted.ado
 f _msm_get_settings.ado
 f _msm_natural_spline.ado
+f _msm_pipeline_state.ado
+f _msm_post_export_open.ado
 f _msm_smd.ado
 f _msm_col_letter.ado
 f msm_example.dta

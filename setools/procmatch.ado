@@ -1,4 +1,4 @@
-*! procmatch Version 1.0.0  2026/04/08
+*! procmatch Version 1.0.1  2026/04/22
 *! Procedure code matching for Swedish registry research
 *! Part of the setools package
 *!

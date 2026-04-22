@@ -22,20 +22,19 @@
 
 {p 8 17 2}
 {cmdab:msm_weight}
-{cmd:,} {opth treat_d_cov(varlist)}
+{cmd:,}
 [{it:options}]
 
 {synoptset 30 tabbed}{...}
 {synopthdr}
 {synoptline}
-{syntab:Required}
-{synopt:{opt treat_d_cov(varlist)}}treatment denominator covariates{p_end}
-
 {syntab:Optional}
+{synopt:{opt treat_d_cov(varlist)}}treatment denominator covariates; defaults to prepared covariates when available{p_end}
 {synopt:{opt treat_n_cov(varlist)}}treatment numerator covariates{p_end}
 {synopt:{opt censor_d_cov(varlist)}}censoring denominator covariates{p_end}
 {synopt:{opt censor_n_cov(varlist)}}censoring numerator covariates{p_end}
-{synopt:{opt tru:ncate(numlist)}}truncation percentiles (e.g., 1 99){p_end}
+{synopt:{opt tru:ncate(numlist)}}truncation percentiles (e.g., 1 or 1 99){p_end}
+{synopt:{opt preview}}resolve and display treatment/censoring model specs without fitting{p_end}
 {synopt:{opt fitfailure(policy)}}model-failure policy: {cmd:error} (default) or {cmd:marginal}{p_end}
 {synopt:{opt replace}}replace existing weight variables{p_end}
 {synopt:{opt nolog}}suppress iteration log{p_end}
@@ -57,6 +56,17 @@ weights (IPTW) and optionally inverse probability of censoring weights
 Period-specific weight ratios are accumulated via cumulative product
 within individuals using log-sum for numerical stability. Stabilized
 weights should have mean approximately 1.
+
+{pstd}
+If {cmd:treat_d_cov()} is omitted, {cmd:msm_weight} defaults the treatment
+denominator covariates to the variables stored by {cmd:msm_prepare} in
+{cmd:covariates()} plus {cmd:baseline_covariates()}, when those are available.
+An explicit {cmd:treat_d_cov()} always overrides the prepared default.
+
+{pstd}
+{cmd:preview} resolves those treatment and censoring model specifications,
+prints the formulas that would be fit, and returns without creating weight
+variables or modifying existing ones.
 
 {pstd}
 Model-level fit failures and observation-level perfect prediction are handled
@@ -86,7 +96,9 @@ Creates variables: {cmd:_msm_weight} (cumulative combined),
 {phang}
 {opth treat_d_cov(varlist)} specifies covariates for the treatment
 denominator model. Should include time-varying confounders and baseline
-covariates. Required.
+covariates. If omitted, {cmd:msm_weight} uses the prepared
+{cmd:covariates()} and {cmd:baseline_covariates()} stored by
+{cmd:msm_prepare}. Explicit {cmd:treat_d_cov()} overrides that default.
 
 {phang}
 {opth treat_n_cov(varlist)} specifies covariates for the treatment
@@ -102,7 +114,15 @@ numerator model (stabilization). Typically baseline covariates only.
 
 {phang}
 {opth tru:ncate(numlist)} truncates weights at specified percentiles.
-Common choice: {cmd:truncate(1 99)}.
+Common choices are {cmd:truncate(1 99)} and the symmetric shorthand
+{cmd:truncate(1)}, which resolves to {cmd:1 99}. Values must lie strictly
+between 0 and 100.
+
+{phang}
+{opt preview} resolves and displays the treatment and censoring model
+specifications that {cmd:msm_weight} would fit, including any defaulted
+{cmd:treat_d_cov()} and shorthand {cmd:truncate()} expansion. No models are
+fit and no weight variables are created.
 
 {phang}
 {opt fitfailure(policy)} controls what happens when a pooled treatment or
@@ -127,8 +147,11 @@ run of {cmd:msm_weight}.
 {title:Examples}
 
 {pstd}IPTW only{p_end}
-{phang2}{cmd:. msm_weight, treat_d_cov(biomarker comorbidity age sex)}{p_end}
+{phang2}{cmd:. msm_weight}{p_end}
 {phang2}{cmd:    treat_n_cov(age sex) truncate(1 99) nolog}{p_end}
+
+{pstd}Preview resolved model specifications{p_end}
+{phang2}{cmd:. msm_weight, preview truncate(1)}{p_end}
 
 {pstd}IPTW + IPCW{p_end}
 {phang2}{cmd:. msm_weight, treat_d_cov(biomarker comorbidity age sex)}{p_end}
@@ -162,6 +185,13 @@ run of {cmd:msm_weight}.
 {synopt:{cmd:r(weight_var)}}name of weight variable{p_end}
 {synopt:{cmd:r(fitfailure_policy)}}resolved model-failure policy used by {cmd:msm_weight}{p_end}
 {synopt:{cmd:r(fitfailure_models)}}model identifiers that used explicit marginal fallback{p_end}
+{synopt:{cmd:r(preview)}}1 if {cmd:preview} was used, else 0{p_end}
+{synopt:{cmd:r(treat_d_cov)}}resolved treatment denominator covariates{p_end}
+{synopt:{cmd:r(treat_d_cov_source)}}whether {cmd:treat_d_cov()} was explicit or prepared{p_end}
+{synopt:{cmd:r(treat_n_cov)}}treatment numerator covariates, if any{p_end}
+{synopt:{cmd:r(censor_d_cov)}}censoring denominator covariates, if any{p_end}
+{synopt:{cmd:r(censor_n_cov)}}censoring numerator covariates, if any{p_end}
+{synopt:{cmd:r(truncate)}}resolved truncation percentiles, if any{p_end}
 
 
 {marker author}{...}

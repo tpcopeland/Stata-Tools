@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.0  08apr2026}{...}
+{* *! version 1.0.1  22apr2026}{...}
 {vieweralsosee "[D] generate" "help generate"}{...}
 {vieweralsosee "migrations" "help migrations"}{...}
 {viewerjumpto "Syntax" "cci_se##syntax"}{...}
@@ -26,7 +26,7 @@
 {cmd:cci_se}
 {ifin}{cmd:,}
 {opt id(varname)}
-{opt icd(varname)}
+{opt icd(varlist)}
 {opt date(varname)}
 [{it:options}]
 
@@ -35,7 +35,7 @@
 {synoptline}
 {syntab:Required}
 {synopt:{opt id(varname)}}patient identifier variable{p_end}
-{synopt:{opt icd(varname)}}string variable containing ICD diagnosis codes{p_end}
+{synopt:{opt icd(varlist)}}one or more string variables containing ICD diagnosis codes{p_end}
 {synopt:{opt date(varname)}}date variable (Stata date, YYYYMMDD, or string){p_end}
 
 {syntab:Optional}
@@ -59,9 +59,11 @@ revisions used in Swedish national health registries: ICD-7 (before 1969),
 ICD-8 (1969{c -}1986), ICD-9 (1987{c -}1997), and ICD-10 (1997+).
 
 {pstd}
-The command takes long-format data (one or more rows per patient, each containing an
-ICD code and a date) and collapses it to one row per patient with the weighted CCI
-score. The date determines which ICD version is used for code matching.
+The command takes long-format data (one or more rows per patient) and collapses it to
+one row per patient with the weighted CCI score. Diagnosis codes may be stored in a
+single string variable or across multiple diagnosis variables named in {opt icd()}.
+The date determines which ICD version is used for code matching, so all diagnosis
+variables listed in {opt icd()} are assumed to correspond to the same row-level date.
 
 {pstd}
 {bf:Important:} This command replaces the data in memory with patient-level results.
@@ -80,10 +82,12 @@ this variable is treated as one patient. The output dataset will have one row pe
 unique value.
 
 {phang}
-{opt icd(varname)} specifies the string variable containing ICD diagnosis codes.
-Codes may be stored with or without dots (e.g., both {cmd:"I252"} and {cmd:"I25.2"}
-are recognized). The variable may also contain multiple space-separated codes per
-cell. See {help cci_se##formats:ICD code formats} below.
+{opt icd(varlist)} specifies one or more string variables containing ICD diagnosis
+codes. Codes may be stored with or without dots (e.g., both {cmd:"I252"} and
+{cmd:"I25.2"} are recognized). Each variable may also contain multiple
+space-separated codes per cell. When multiple diagnosis variables are supplied,
+all of them contribute to the patient-level score for that row's {opt date()}.
+See {help cci_se##formats:ICD code formats} below.
 
 {phang}
 {opt date(varname)} specifies the date variable used to determine which ICD version
@@ -195,9 +199,9 @@ format. Commas in ICD-7/8 codes are preserved as they are part of the code
 structure.
 
 {pstd}
-The ICD variable may contain a single code per cell (most common in long-format
+The ICD variables may contain a single code per cell (most common in long-format
 registry data) or multiple space-separated codes per cell. Both formats are handled
-correctly.
+correctly, and multiple diagnosis variables can be listed together in {opt icd()}.
 
 {pstd}
 All matching is case-insensitive. Leading and trailing whitespace is trimmed

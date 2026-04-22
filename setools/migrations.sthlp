@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.0  08apr2026}{...}
+{* *! version 1.0.1  22apr2026}{...}
 {vieweralsosee "[ST] stset" "help stset"}{...}
 {vieweralsosee "sustainedss" "help sustainedss"}{...}
 {viewerjumpto "Syntax" "migrations##syntax"}{...}
@@ -26,7 +26,7 @@
 {synopthdr}
 {synoptline}
 {syntab:Required}
-{synopt:{opt mig:file(filename)}}path to migrations_wide.dta file{p_end}
+{synopt:{opt mig:file(filename)}}path to migration data file in wide or long format{p_end}
 
 {syntab:Optional}
 {synopt:{opt id:var(varname)}}ID variable; default is {cmd:id}{p_end}
@@ -53,8 +53,22 @@
 
 {pstd}
 The command expects a master dataset in memory containing individual IDs and study start dates.
-It then merges with the Swedish migration registry (migrations_wide.dta format) and applies
-the following logic:
+It then merges with the Swedish migration registry and applies the following logic.
+
+{pstd}
+The migration file supplied in {opt migfile()} may be either:
+
+{phang2}1. {bf:Wide format}: one row per person with variables {it:in_1}, {it:out_1},
+{it:in_2}, {it:out_2}, ... . All migration date variables must be Stata {it:daily}
+dates with {cmd:%td} display formats.{p_end}
+
+{phang2}2. {bf:Long format}: one row per migration event with the ID variable specified
+in {opt idvar()} plus variables {cmd:event_date} and {cmd:event_type}, where
+{cmd:event_type} contains {cmd:Inv}
+for immigration and {cmd:Utv} for emigration (case-insensitive). Long input is
+normalized internally to the same wide event sequence used by the existing command
+logic. {cmd:event_date} must be a Stata {it:daily} date variable with a {cmd:%td}
+display format; datetime variables such as {cmd:%tc} are rejected.{p_end}
 
 {pstd}
 {bf:Exclusion criteria:}
@@ -92,10 +106,18 @@ re-running the command.{p_end}
 {dlgtab:Required}
 
 {phang}
-{opt migfile(filename)} specifies the path to the migrations_wide.dta file. This file must 
-contain the same ID variable as specified in {opt idvar()} (default: {cmd:id}), plus 
-immigration date variables ({it:in_1}, {it:in_2}, ...) and emigration date variables 
-({it:out_1}, {it:out_2}, ...) in wide format.
+{opt migfile(filename)} specifies the path to the migration data file. The file must
+contain the same ID variable as specified in {opt idvar()} (default: {cmd:id}) and
+must be in one of these formats:
+
+{phang2}{bf:Wide format}: immigration date variables ({it:in_1}, {it:in_2}, ...) and
+emigration date variables ({it:out_1}, {it:out_2}, ...) with one row per person.
+All such date variables must use Stata daily {cmd:%td} formats.{p_end}
+
+{phang2}{bf:Long format}: variables {cmd:event_date} and {cmd:event_type}, with one
+row per migration event. {cmd:event_type} must distinguish immigration ({cmd:Inv})
+from emigration ({cmd:Utv}). {cmd:event_date} must use a Stata daily {cmd:%td}
+format.{p_end}
 
 {dlgtab:Optional}
 
@@ -104,7 +126,8 @@ immigration date variables ({it:in_1}, {it:in_2}, ...) and emigration date varia
 
 {phang}
 {opt startvar(varname)} specifies the name of the study start date variable in the master dataset.
-Default is {cmd:study_start}. This variable must be a Stata date.
+Default is {cmd:study_start}. This variable must be a Stata daily date with a {cmd:%td}
+display format.
 
 {phang}
 {opt minresidence(#)} specifies the minimum number of days a person must have been
@@ -206,7 +229,8 @@ Karolinska Institutet{break}
 Stockholm, Sweden
 
 {pstd}
-For use with Swedish registry data (migrations_wide.dta format).{p_end}
+For use with Swedish registry data in wide {it:in_#}/{it:out_#} format or normalized
+long event format with {cmd:event_date}/{cmd:event_type}.{p_end}
 
 
 {marker alsosee}{...}

@@ -1,12 +1,12 @@
 # setools - Swedish registry tools for epidemiological cohort studies
 
-**Version 1.0.0** | 2026-04-08
+**Version 1.0.1** | 2026-04-22
 
 `setools` is a registry-workflow toolkit rather than a single estimation command. It groups together utilities for Swedish diagnosis and procedure coding, migration-based cohort construction, and multiple-sclerosis disability progression endpoints built from repeated EDSS measurements.
 
 The package is most useful when you need practical building blocks for cohort definition, comorbidity scoring, and endpoint derivation in Swedish register-based research.
 
-> Version note: the package `.pkg`, help files, and command headers are version 1.0.0 dated 2026-04-08. The current `setools.ado` also returns `r(version) = "1.4.7"`, so the README follows the shipped package metadata.
+The package metadata, help files, and `setools` return value are synchronized at version 1.0.1 dated 2026-04-22.
 
 ## Requirements
 
@@ -48,8 +48,8 @@ net install setools, from("https://raw.githubusercontent.com/tpcopeland/Stata-To
 
 `setools` covers three distinct data shapes, and the right command depends on which one you have in memory:
 
-1. `cci_se` and `procmatch` work on long diagnosis-level or procedure-level registry data.
-2. `migrations` works on a person-level cohort in memory plus a separate wide migration file with `in_#` and `out_#` variables.
+1. `cci_se` and `procmatch` work on long diagnosis-level or procedure-level registry data. `cci_se` can read one diagnosis variable or a list of diagnosis variables per row.
+2. `migrations` works on a person-level cohort in memory plus a separate migration file supplied in either wide `in_#`/`out_#` format or long `event_date`/`event_type` format.
 3. `sustainedss`, `cdp`, and `pira` work on repeated EDSS measurements, and `pira` also needs a relapse file.
 
 Start with `setools` or `setools, detail` inside Stata if you want a menu-style overview before choosing a command.
@@ -76,7 +76,7 @@ setools, detail
 
 ### 2. Swedish Charlson Comorbidity Index with `cci_se`
 
-`cci_se` expects long diagnosis-level data with one ICD code per row. The public example file already has the variables used in the help file: `id`, `icd`, and `visit_date`.
+`cci_se` expects long diagnosis-level data. You can pass one ICD variable or a list of diagnosis variables in `icd()`, as long as the row-level `date()` applies to all of them. The public example file already has the variables used in the help file: `id`, `icd`, and `visit_date`.
 
 ```stata
 use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/diagnoses.dta", clear
@@ -88,7 +88,7 @@ Use `components` when you want the individual comorbidity indicators as well as 
 
 ### 3. Migration-based exclusions and censoring with `migrations`
 
-`migrations` needs a local file path in `migfile()`, so this example first downloads both the cohort and migration files into the working directory.
+`migrations` needs a local file path in `migfile()`, so this example first downloads both the cohort and migration files into the working directory. `migfile()` may point either to the traditional wide `migrations_wide.dta` file or to a long event file with `event_date` and `event_type` (`Inv`/`Utv`). The master `startvar()`, long `event_date`, and wide `in_#`/`out_#` variables must all be Stata daily dates with `%td` display formats; `%tc` datetime variables are rejected.
 
 ```stata
 copy "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta" "cohort_example.dta", replace
@@ -146,9 +146,9 @@ Adjust `windowbefore()` and `windowafter()` if your protocol uses a different re
 
 ## Data Shape Notes
 
-- `cci_se` expects diagnosis-level long data with an ID, ICD code, and date variable.
+- `cci_se` expects diagnosis-level long data with an ID, a date variable, and one or more diagnosis-code variables.
 - `procmatch` expects one or more procedure-code variables, and `procmatch first` also needs a date variable and subject ID.
-- `migrations` expects one row per person in memory plus a wide migration file containing `in_#` and `out_#`.
+- `migrations` expects one row per person in memory plus a migration file in either wide `in_#`/`out_#` format or long `event_date`/`event_type` format.
 - `sustainedss`, `cdp`, and `pira` expect EDSS visits sorted within person by date.
 
 ## References
@@ -160,6 +160,7 @@ Adjust `windowbefore()` and `windowafter()` if your protocol uses a different re
 
 ## Version History
 
+- **1.0.1** (2026-04-22): Added long-format migration-file support in `migrations`, enforced `%td` daily-date formats for `migrations` inputs, extended `cci_se` to accept multiple diagnosis variables in `icd()`, and expanded QA coverage for both features
 - **1.0.0** (2026-04-08): Initial Stata-Tools release of the Swedish registry toolkit
 
 ## Author

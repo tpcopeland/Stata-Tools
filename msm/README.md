@@ -25,7 +25,7 @@ The release installs `msm_example.dta`, which the examples below access with `fi
 
 | Command | Description |
 |---------|-------------|
-| `msm` | Package overview and workflow guide |
+| `msm` | Package overview, workflow guide, and pipeline state check via `msm, status` |
 | `msm_protocol` | Record the target trial, contrast, weighting plan, and analysis plan |
 | `msm_prepare` | Map identifier, period, treatment, outcome, censoring, and covariate variables |
 | `msm_validate` | Run the package's 10 data-quality checks for person-period data |
@@ -50,7 +50,7 @@ The release installs `msm_example.dta`, which the examples below access with `fi
 
 ## How It Works
 
-`msm` is organized as a pipeline. After documenting the study design with `msm_protocol`, you use `msm_prepare` to store the dataset's variable mapping in characteristics. Downstream commands then read those stored settings instead of making you restate the same identifiers and covariates at every step.
+`msm` is organized as a pipeline. After documenting the study design with `msm_protocol`, you use `msm_prepare` to store the dataset's variable mapping in characteristics. Downstream commands then read those stored settings instead of making you restate the same identifiers and covariates at every step. At any point, run `msm, status` to inspect what the pipeline currently has available and what the next supported step is.
 
 The typical workflow is:
 
@@ -67,9 +67,9 @@ The typical workflow is:
 
 | `msm_fit` model | When to use it | Follow-on implications |
 |-----------------|----------------|------------------------|
-| `model(logistic)` | Binary outcomes when you also want standardized counterfactual predictions | Required for `msm_predict` |
-| `model(linear)` | Continuous outcomes where the weighted mean difference is the target | `msm_predict` is not available |
-| `model(cox)` | Time-to-event analyses where a weighted hazard ratio is the main estimand | `msm_predict` is not available; use `stcox` postestimation instead |
+| `model(logistic)` | Binary outcomes when you also want standardized counterfactual predictions | Required for `msm_predict`; use `msm, status` to confirm prediction is available |
+| `model(linear)` | Continuous outcomes where the weighted mean difference is the target | `msm_predict` is not available; use `msm, status` to check the current stage before reporting/export |
+| `model(cox)` | Time-to-event analyses where a weighted hazard ratio is the main estimand | `msm_predict` is not available; use `stcox` postestimation and `msm, status` for pipeline state |
 
 ## Data Requirements
 
@@ -81,6 +81,7 @@ The typical workflow is:
 - Variables in `baseline_covariates()` should be time-fixed within person.
 - `msm_weight` currently rejects delayed entry.
 - `msm_predict` currently supports logistic fits, so prediction workflows should use `msm_fit, model(logistic)`.
+- `msm, status` is the package-level check for current pipeline state and available downstream commands.
 
 ## Current Scope and Limits
 
@@ -124,6 +125,8 @@ msm_diagnose, balance_covariates(biomarker comorbidity age sex) ///
 
 msm_fit, model(logistic) outcome_cov(age sex) nolog
 
+msm, status
+
 msm_predict, times(1 3 5 7 9) type(cum_inc) difference ///
     samples(200) seed(12345)
 
@@ -152,6 +155,7 @@ msm_validate
 msm_weight, treat_d_cov(biomarker comorbidity age sex) ///
     treat_n_cov(age sex) nolog
 msm_fit, model(logistic) outcome_cov(age sex) nolog
+msm, status
 msm_predict, times(3 5 7 9) difference seed(12345)
 ```
 
@@ -160,13 +164,14 @@ msm_predict, times(3 5 7 9) difference seed(12345)
 - `msm_weight` creates `_msm_weight` and returns weight summaries such as `r(mean_weight)`, `r(ess)`, and `r(n_truncated)`.
 - `msm_diagnose` can return a balance matrix in `r(balance)` when `balance_covariates()` is specified.
 - `msm_fit` stores the weighted model in `e()` and records the fitted MSM effect matrix in `e(effects)`.
-- `msm_predict` returns the prediction matrix in `r(predictions)` and risk differences in `r(rd_#)` when `difference` is requested.
+- `msm_predict` returns the prediction matrix in `r(predictions)`, risk differences in `r(rd_#)` when `difference` is requested, and the seed/state used for the Monte Carlo draws in `r(seed)` plus `r(seed_state)`.
 
 ## Practical Notes
 
 - If you plan to run `msm_predict`, keep `outcome_cov()` limited to covariates that are time-fixed within individual.
 - `msm_validate, strict` promotes warnings such as period gaps or positivity problems to errors before weighting.
 - `msm_table` exports all currently available pipeline outputs to separate Excel sheets, while `msm_report` focuses on a compact analysis summary.
+- `msm, status` is the quickest way to check whether the current dataset is only prepared/weighted or already fitted and prediction-ready.
 - If you need dynamic treatment rules, delayed-entry weighting, or standardized predictions after linear/Cox fits, treat those as out of scope for the current release.
 
 ## References

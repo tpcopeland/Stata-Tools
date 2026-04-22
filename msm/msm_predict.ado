@@ -109,9 +109,16 @@ program define msm_predict, rclass
             exit 198
         }
     }
+    local seed_source "session_rng_state"
     if `seed' >= 0 {
         set seed `seed'
+        local seed_source "seed()"
+        local seed_used "`seed'"
     }
+    else {
+        local seed_used `"`c(seed)'"'
+    }
+    local seed_state `"`c(seed)'"'
 
     * =========================================================================
     * DISPLAY HEADER
@@ -125,6 +132,14 @@ program define msm_predict, rclass
     display as text "Strategy:         " as result "`strategy'"
     display as text "Prediction type:  " as result "`type'"
     display as text "MC samples:       " as result "`samples'"
+    if "`seed_source'" == "seed()" {
+        display as text "Seed used:        " as result "`seed_used'"
+    }
+    else {
+        local seed_preview = substr("`seed_state'", 1, 32)
+        display as text "Seed used:        " as result "`seed_preview'..." ///
+            as text " (session RNG state)"
+    }
     display as text "Confidence level: " as result "`level'%"
     if "`difference'" != "" {
         if "`strategy'" != "both" {
@@ -553,6 +568,9 @@ program define msm_predict, rclass
     }
 
     return matrix predictions = `results'
+    return local seed `"`seed_used'"'
+    return local seed_source "`seed_source'"
+    return local seed_state `"`seed_state'"'
     return local type "`type'"
     return local strategy "`strategy'"
     return scalar n_times = `n_times'
@@ -583,96 +601,79 @@ end
 * =========================================================================
 program define _msm_predict_xb
     version 16.0
+    local _orig_varabbrev = c(varabbrev)
     set varabbrev off
-    set more off
+    capture noisily {
 
-    syntax , time(integer) treat_val(integer) ///
-        treatment(varname) period(varname) ///
-        period_spec(string) ///
-        [outcome_cov(string)] b_hat(name) probvar(varname)
+        syntax , time(integer) treat_val(integer) ///
+            treatment(varname) period(varname) ///
+            period_spec(string) ///
+            [outcome_cov(string)] b_hat(name) probvar(varname)
 
-    * Get coefficient names
-    local coef_names: colnames `b_hat'
-    local n_coefs: word count `coef_names'
+        * Get coefficient names
+        local coef_names: colnames `b_hat'
+        local n_coefs: word count `coef_names'
 
-    tempvar _xb
-    gen double `_xb' = 0
+        tempvar _xb
+        gen double `_xb' = 0
 
-    * Constant
-    forvalues i = 1/`n_coefs' {
-        local cname: word `i' of `coef_names'
-        if "`cname'" == "_cons" {
-            quietly replace `_xb' = `_xb' + `b_hat'[1, `i']
-        }
-    }
-
-    * Treatment
-    forvalues i = 1/`n_coefs' {
-        local cname: word `i' of `coef_names'
-        if "`cname'" == "`treatment'" {
-            quietly replace `_xb' = `_xb' + `b_hat'[1, `i'] * `treat_val'
-        }
-    }
-
-    * Period terms
-    forvalues i = 1/`n_coefs' {
-        local cname: word `i' of `coef_names'
-        if "`cname'" == "`period'" {
-            quietly replace `_xb' = `_xb' + `b_hat'[1, `i'] * `time'
-        }
-        else if "`cname'" == "_msm_period_sq" {
-            quietly replace `_xb' = `_xb' + `b_hat'[1, `i'] * `time'^2
-        }
-        else if "`cname'" == "_msm_period_cu" {
-            quietly replace `_xb' = `_xb' + `b_hat'[1, `i'] * `time'^3
-        }
-    }
-
-    * Natural spline terms for period
-    local per_ns_knots : char _dta[_msm_per_ns_knots]
-    local per_ns_df    : char _dta[_msm_per_ns_df]
-    if "`per_ns_knots'" != "" & "`per_ns_df'" != "" {
-        local ns_df = `per_ns_df'
-        local _ki = 0
-        foreach _kv of local per_ns_knots {
-            local _pk`_ki' = `_kv'
-            local ++_ki
-        }
-        * Basis 1: linear
+        * Constant
         forvalues i = 1/`n_coefs' {
             local cname: word `i' of `coef_names'
-            if "`cname'" == "_msm_per_ns1" {
-                quietly replace `_xb' = `_xb' + `b_hat'[1, `i'] * `time'
+            if "`cname'" == "_cons" {
+                quietly replace `_xb' = `_xb' + `b_hat'[1, `i']
             }
         }
-        * Additional nonlinear bases
-        if `ns_df' > 1 {
-            local _n_int = `ns_df' - 1
-            local _t_last = `_pk`ns_df''
-            local _t_pen  = `_pk`_n_int''
-            if `_n_int' == 1 {
-                local jj = 2
-                local _bval = (max(0, `time' - `_pk1')^3 - ///
-                    max(0, `time' - `_t_last')^3) / ///
-                    (`_t_last' - `_pk1')
-                forvalues i = 1/`n_coefs' {
-                    local cname: word `i' of `coef_names'
-                    if "`cname'" == "_msm_per_ns`jj'" {
-                        quietly replace `_xb' = `_xb' + `b_hat'[1, `i'] * `_bval'
-                    }
+
+        * Treatment
+        forvalues i = 1/`n_coefs' {
+            local cname: word `i' of `coef_names'
+            if "`cname'" == "`treatment'" {
+                quietly replace `_xb' = `_xb' + `b_hat'[1, `i'] * `treat_val'
+            }
+        }
+
+        * Period terms
+        forvalues i = 1/`n_coefs' {
+            local cname: word `i' of `coef_names'
+            if "`cname'" == "`period'" {
+                quietly replace `_xb' = `_xb' + `b_hat'[1, `i'] * `time'
+            }
+            else if "`cname'" == "_msm_period_sq" {
+                quietly replace `_xb' = `_xb' + `b_hat'[1, `i'] * `time'^2
+            }
+            else if "`cname'" == "_msm_period_cu" {
+                quietly replace `_xb' = `_xb' + `b_hat'[1, `i'] * `time'^3
+            }
+        }
+
+        * Natural spline terms for period
+        local per_ns_knots : char _dta[_msm_per_ns_knots]
+        local per_ns_df    : char _dta[_msm_per_ns_df]
+        if "`per_ns_knots'" != "" & "`per_ns_df'" != "" {
+            local ns_df = `per_ns_df'
+            local _ki = 0
+            foreach _kv of local per_ns_knots {
+                local _pk`_ki' = `_kv'
+                local ++_ki
+            }
+            * Basis 1: linear
+            forvalues i = 1/`n_coefs' {
+                local cname: word `i' of `coef_names'
+                if "`cname'" == "_msm_per_ns1" {
+                    quietly replace `_xb' = `_xb' + `b_hat'[1, `i'] * `time'
                 }
             }
-            else {
-                * Harrell RCS: df-1 nonlinear bases using knots 0..n_int-1
-                forvalues j = 0/`=`_n_int'-1' {
-                    local jj = `j' + 2
-                    local _d_j = (max(0, `time' - `_pk`j'')^3 - ///
+            * Additional nonlinear bases
+            if `ns_df' > 1 {
+                local _n_int = `ns_df' - 1
+                local _t_last = `_pk`ns_df''
+                local _t_pen  = `_pk`_n_int''
+                if `_n_int' == 1 {
+                    local jj = 2
+                    local _bval = (max(0, `time' - `_pk1')^3 - ///
                         max(0, `time' - `_t_last')^3) / ///
-                        (`_t_last' - `_pk`j'')
-                    local _d_pen = (max(0, `time' - `_t_pen')^3 - ///
-                        max(0, `time' - `_t_last')^3) / ///
-                        (`_t_last' - `_t_pen')
-                    local _bval = `_d_j' - `_d_pen'
+                        (`_t_last' - `_pk1')
                     forvalues i = 1/`n_coefs' {
                         local cname: word `i' of `coef_names'
                         if "`cname'" == "_msm_per_ns`jj'" {
@@ -680,25 +681,47 @@ program define _msm_predict_xb
                         }
                     }
                 }
-            }
-        }
-    }
-
-    * Other covariates: use each observation's actual values
-    if "`outcome_cov'" != "" {
-        foreach var of local outcome_cov {
-            forvalues i = 1/`n_coefs' {
-                local cname: word `i' of `coef_names'
-                if "`cname'" == "`var'" {
-                    quietly replace `_xb' = `_xb' + `b_hat'[1, `i'] * `var'
+                else {
+                    * Harrell RCS: df-1 nonlinear bases using knots 0..n_int-1
+                    forvalues j = 0/`=`_n_int'-1' {
+                        local jj = `j' + 2
+                        local _d_j = (max(0, `time' - `_pk`j'')^3 - ///
+                            max(0, `time' - `_t_last')^3) / ///
+                            (`_t_last' - `_pk`j'')
+                        local _d_pen = (max(0, `time' - `_t_pen')^3 - ///
+                            max(0, `time' - `_t_last')^3) / ///
+                            (`_t_last' - `_t_pen')
+                        local _bval = `_d_j' - `_d_pen'
+                        forvalues i = 1/`n_coefs' {
+                            local cname: word `i' of `coef_names'
+                            if "`cname'" == "_msm_per_ns`jj'" {
+                                quietly replace `_xb' = `_xb' + `b_hat'[1, `i'] * `_bval'
+                            }
+                        }
+                    }
                 }
             }
         }
-    }
 
-    * Convert to probability
-    quietly replace `probvar' = invlogit(`_xb')
-    drop `_xb'
+        * Other covariates: use each observation's actual values
+        if "`outcome_cov'" != "" {
+            foreach var of local outcome_cov {
+                forvalues i = 1/`n_coefs' {
+                    local cname: word `i' of `coef_names'
+                    if "`cname'" == "`var'" {
+                        quietly replace `_xb' = `_xb' + `b_hat'[1, `i'] * `var'
+                    }
+                }
+            }
+        }
+
+        * Convert to probability
+        quietly replace `probvar' = invlogit(`_xb')
+        drop `_xb'
+    }
+    local rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
 end
 
 * =========================================================================

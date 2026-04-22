@@ -1,15 +1,14 @@
 * test_kmplot.do
-* Functional test suite for kmplot v1.0.1
+* Functional test suite for kmplot v1.0.2
 * Author: Timothy P Copeland
 * Created: 2026-03-15
 
 clear all
-set more off
 
 
-* === Bootstrap ===
+**# Bootstrap
 local qa_dir  "`c(pwd)'"
-local pkg_dir "`qa_dir'/.."  
+local pkg_dir "`qa_dir'/.."
 
 capture ado uninstall kmplot
 net install kmplot, from("`pkg_dir'") replace
@@ -18,8 +17,41 @@ local test_count = 0
 local pass_count = 0
 local fail_count = 0
 
-* === Setup ===
+capture program drop _kmplot_assert_file_contains
+program define _kmplot_assert_file_contains
+    syntax using/, PATTERN(string)
+    tempname fh
+    local found 0
+    file open `fh' using `"`using'"', read text
+    file read `fh' line
+    while r(eof) == 0 {
+        if strpos(`"`line'"', `"`pattern'"') > 0 {
+            local found 1
+        }
+        file read `fh' line
+    }
+    file close `fh'
+    assert `found' == 1
+end
 
+capture program drop _kmplot_assert_file_not_contains
+program define _kmplot_assert_file_not_contains
+    syntax using/, PATTERN(string)
+    tempname fh
+    local found 0
+    file open `fh' using `"`using'"', read text
+    file read `fh' line
+    while r(eof) == 0 {
+        if strpos(`"`line'"', `"`pattern'"') > 0 {
+            local found 1
+        }
+        file read `fh' line
+    }
+    file close `fh'
+    assert `found' == 0
+end
+
+**# Setup
 sysuse cancer, clear
 stset studytime, failure(died)
 local orig_N = _N
@@ -1382,6 +1414,201 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL: T63 Single obs all options (rc=`=_rc')"
+    local ++fail_count
+}
+
+* =============================================================================
+* T64: Varabbrev restored after syntax parse error
+* =============================================================================
+
+local ++test_count
+capture noisily {
+    sysuse cancer, clear
+    stset studytime, failure(died)
+    set varabbrev on
+    capture kmplot, notarealoption
+    assert _rc != 0
+    assert c(varabbrev) == "on"
+    set varabbrev off
+}
+if _rc == 0 {
+    display as result "  PASS: T64 Varabbrev restored after syntax error"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: T64 Varabbrev after syntax error (rc=`=_rc')"
+    local ++fail_count
+}
+
+* =============================================================================
+* T65: Quoted ytitle renders without literal quotes
+* =============================================================================
+
+local ++test_count
+capture noisily {
+    sysuse cancer, clear
+    stset studytime, failure(died)
+    local svgfile `c(tmpdir)'/kmplot_t65.svg
+    capture erase "`svgfile'"
+    kmplot, by(drug) ytitle("My Y Title") ///
+        export("`svgfile'", replace) name(t65, replace)
+    confirm file "`svgfile'"
+    _kmplot_assert_file_contains using "`svgfile'", pattern("My Y Title")
+    _kmplot_assert_file_not_contains using "`svgfile'", pattern(`">"My Y Title"</text>"')
+    erase "`svgfile'"
+}
+if _rc == 0 {
+    display as result "  PASS: T65 Quoted ytitle renders without literal quotes"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: T65 Quoted ytitle (rc=`=_rc')"
+    local ++fail_count
+}
+
+* =============================================================================
+* T66: Quoted xtitle renders without literal quotes
+* =============================================================================
+
+local ++test_count
+capture noisily {
+    sysuse cancer, clear
+    stset studytime, failure(died)
+    local svgfile `c(tmpdir)'/kmplot_t66.svg
+    capture erase "`svgfile'"
+    kmplot, by(drug) xtitle("Follow-up (months)") ///
+        export("`svgfile'", replace) name(t66, replace)
+    confirm file "`svgfile'"
+    _kmplot_assert_file_contains using "`svgfile'", pattern("Follow-up (months)")
+    erase "`svgfile'"
+}
+if _rc == 0 {
+    display as result "  PASS: T66 Quoted xtitle renders without literal quotes"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: T66 Quoted xtitle (rc=`=_rc')"
+    local ++fail_count
+}
+
+* =============================================================================
+* T67: Quoted note renders without literal quotes
+* =============================================================================
+
+local ++test_count
+capture noisily {
+    sysuse cancer, clear
+    stset studytime, failure(died)
+    local svgfile `c(tmpdir)'/kmplot_t67.svg
+    capture erase "`svgfile'"
+    kmplot, by(drug) note("Source: cancer dataset") ///
+        export("`svgfile'", replace) name(t67, replace)
+    confirm file "`svgfile'"
+    _kmplot_assert_file_contains using "`svgfile'", pattern("Source: cancer dataset")
+    erase "`svgfile'"
+}
+if _rc == 0 {
+    display as result "  PASS: T67 Quoted note renders without literal quotes"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: T67 Quoted note (rc=`=_rc')"
+    local ++fail_count
+}
+
+* =============================================================================
+* T68: Export to nonexistent directory fails gracefully
+* =============================================================================
+
+local ++test_count
+capture noisily {
+    sysuse cancer, clear
+    stset studytime, failure(died)
+    capture kmplot, by(drug) ///
+        export("/tmp/no_such_dir_kmplot/output.png", replace) ///
+        name(t68, replace)
+    assert _rc != 0
+}
+if _rc == 0 {
+    display as result "  PASS: T68 Export to bad directory fails gracefully"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: T68 Export bad directory (rc=`=_rc')"
+    local ++fail_count
+}
+
+* =============================================================================
+* T69: Varabbrev restored after export failure
+* =============================================================================
+
+local ++test_count
+capture noisily {
+    sysuse cancer, clear
+    stset studytime, failure(died)
+    set varabbrev on
+    capture kmplot, by(drug) ///
+        export("/tmp/no_such_dir_kmplot/output.png", replace) ///
+        name(t69, replace)
+    assert _rc != 0
+    assert c(varabbrev) == "on"
+    set varabbrev off
+}
+if _rc == 0 {
+    display as result "  PASS: T69 Varabbrev restored after export failure"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: T69 Varabbrev after export fail (rc=`=_rc')"
+    local ++fail_count
+}
+
+* =============================================================================
+* T70: Risktable with quoted xtitle (no literal quotes in bottom axis)
+* =============================================================================
+
+local ++test_count
+capture noisily {
+    sysuse cancer, clear
+    stset studytime, failure(died)
+    local svgfile `c(tmpdir)'/kmplot_t70.svg
+    capture erase "`svgfile'"
+    kmplot, by(drug) risktable xtitle("Time (months)") ///
+        timepoints(0 10 20 30) ///
+        export("`svgfile'", replace) name(t70, replace)
+    confirm file "`svgfile'"
+    _kmplot_assert_file_contains using "`svgfile'", pattern("Time (months)")
+    erase "`svgfile'"
+}
+if _rc == 0 {
+    display as result "  PASS: T70 Risktable with quoted xtitle"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: T70 Risktable quoted xtitle (rc=`=_rc')"
+    local ++fail_count
+}
+
+* =============================================================================
+* T71: set more not leaked (kmplot no longer touches set more)
+* =============================================================================
+
+local ++test_count
+capture noisily {
+    sysuse cancer, clear
+    stset studytime, failure(died)
+    set more on
+    local orig = c(more)
+    kmplot, by(drug) name(t71, replace)
+    assert c(more) == "`orig'"
+    set more off
+}
+if _rc == 0 {
+    display as result "  PASS: T71 set more not leaked"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: T71 set more not leaked (rc=`=_rc')"
     local ++fail_count
 }
 

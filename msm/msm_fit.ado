@@ -401,7 +401,18 @@ program define msm_fit, eclass
     }
 
     display as text ""
-    display as text "Next step: {cmd:msm_predict} for counterfactual predictions"
+    if "`model'" == "logistic" {
+        display as text "Next step: {cmd:msm_predict} for counterfactual predictions"
+    }
+    else if "`model'" == "linear" {
+        display as text "Next step: {cmd:msm_report}, {cmd:msm_table}, or {cmd:msm_sensitivity}"
+        display as text "           {cmd:msm_predict} is not available after {cmd:model(linear)}"
+    }
+    else {
+        display as text "Next step: Stata Cox postestimation or {cmd:msm_report}/{cmd:msm_table}"
+        display as text "           {cmd:msm_predict} is not available after {cmd:model(cox)}"
+    }
+    display as text "State check: {cmd:msm, status}"
     display as text "{hline 70}"
 
     * eclass results stored by glm/regress/stcox automatically

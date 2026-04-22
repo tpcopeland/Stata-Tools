@@ -9,19 +9,21 @@
 */
 
 version 16.0
-set more off
 set varabbrev off
 
 * --- Paths ---
-local pkg_dir "/home/tpcopeland/Stata-Tools/kmplot/demo"
-capture mkdir "`pkg_dir'"
+local pkg_dir "`c(pwd)'"
+
+* --- Scheme ---
+capture net install tc_schemes, from("~/Stata-Tools/tc_schemes") replace
+set scheme plotplainblind, permanently
 
 * --- Reload commands ---
 capture ado uninstall kmplot
 capture program drop kmplot
 capture program drop _kmplot_risktable
-quietly run /home/tpcopeland/Stata-Tools/kmplot/kmplot.ado
-quietly run /home/tpcopeland/Stata-Tools/kmplot/_kmplot_risktable.ado
+quietly run "`pkg_dir'/../kmplot.ado"
+quietly run "`pkg_dir'/../_kmplot_risktable.ado"
 
 * --- Setup data ---
 sysuse cancer, clear

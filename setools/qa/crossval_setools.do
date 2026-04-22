@@ -245,6 +245,47 @@ run_cv "C3.1e: Patient 2 hierarchy: diab=0, diabcomp=1" `t'
 local t = (cci_cancer[3] == 0 & cci_mets[3] == 1)
 run_cv "C3.1f: Patient 3 hierarchy: cancer=0, mets=1" `t'
 
+* C3.2: Hand-score multi-row, multi-variable input with wildcard varlist
+* Patient 1: 290 + (I21 J44) + N18 -> 1 + 1 + 1 + 2 = 5
+* Patient 2: 250A + 250D -> hierarchy to 2, plus B20 = 8
+* Patient 3: 420,1 + C50 + C77 -> 1 + hierarchy to 6 = 7
+clear
+input long lopnr long datum str20 diag_main str20 diag_aux str20 diag_oth
+1 19800101 "290" "" ""
+1 20180115 "I21 J44" "" "N18"
+2 19900101 "250A" "250D" ""
+2 20180115 "" "B20" ""
+3 19650315 "420,1" "" ""
+3 20180115 "C50" "C77" ""
+end
+tempfile c32_multi c32_ref
+save `c32_multi', replace
+
+use `c32_multi', clear
+gen str80 diag_all = trim(diag_main + " " + diag_aux + " " + diag_oth)
+cci_se, id(lopnr) icd(diag_all) date(datum) dateformat(yyyymmdd) generate(score_single)
+sort lopnr
+keep lopnr score_single
+save `c32_ref', replace
+
+use `c32_multi', clear
+cci_se, id(lopnr) icd(diag_*) date(datum) dateformat(yyyymmdd) generate(score_multi) components
+sort lopnr
+merge 1:1 lopnr using `c32_ref', nogen
+sort lopnr
+
+local t = (score_multi[1] == 5 & score_single[1] == 5 & cci_dem[1] == 1 & cci_renal[1] == 1)
+run_cv "C3.2a: Patient 1 CCI=5 under wildcard multi-variable input" `t'
+
+local t = (score_multi[2] == 8 & score_single[2] == 8 & cci_diab[2] == 0 & cci_diabcomp[2] == 1 & cci_aids[2] == 1)
+run_cv "C3.2b: Patient 2 CCI=8 with hierarchy across rows/columns" `t'
+
+local t = (score_multi[3] == 7 & score_single[3] == 7 & cci_mi[3] == 1 & cci_cancer[3] == 0 & cci_mets[3] == 1)
+run_cv "C3.2c: Patient 3 CCI=7 across ICD-7 and ICD-10 rows" `t'
+
+local t = (score_multi[1] == score_single[1] & score_multi[2] == score_single[2] & score_multi[3] == score_single[3])
+run_cv "C3.2d: wildcard multi-variable path matches single-field reference" `t'
+
 **# C4: PIRA/CDP INTERNAL CONSISTENCY
 
 * Create test data with mix of PIRA and RAW patients

@@ -1,6 +1,6 @@
 # kmplot - Publication-ready Kaplan-Meier and cumulative incidence plots
 
-**Version 1.0.1** | 2026-04-10
+**Version 1.0.2** | 2026-04-22
 
 `kmplot` turns an `stset` dataset into publication-ready survival graphics with sensible defaults for confidence intervals, risk tables, median lines, censor marks, and log-rank p-values. It keeps the flexibility of native Stata graphics while removing most of the repetitive styling work that usually follows `sts graph`.
 
@@ -76,6 +76,7 @@ kmplot, by(drug) ci median export(km_figure.pdf, replace)
 
 ## Version History
 
+- **1.0.2** (2026-04-22): Varabbrev wrapper refactored to cover all exit paths (syntax, validation, and main logic). Fixed literal-quote rendering in user-supplied ytitle/xtitle/note options. Removed unnecessary `set more off`. Export success message now guarded by `confirm file`.
 - **1.0.1** (2026-04-10): Initial Stata-Tools release with Kaplan-Meier, cumulative-incidence, risk-table, censoring, median-line, and export support
 
 ## Author

@@ -10,6 +10,7 @@
 *   R6: Boundary — one day short — excluded
 *   R7: Interaction with other exclusions — minresidence doesn't double-count
 *   R8: Mixed cohort — correct counts
+*   R9: Long-format migration data respects minresidence()
 
 clear all
 set more off
@@ -312,6 +313,34 @@ qui count if id == 3
 local p3 = (r(N) == 1)
 run_test "R8e: person 1 retained" `p1'
 run_test "R8f: person 3 retained" `p3'
+
+
+**# R9: Long-format migration data respects minresidence()
+
+clear
+set obs 1
+gen long id = 1
+gen long study_start = td(01jan2018)
+format study_start %td
+tempfile r9_cohort
+save `r9_cohort'
+
+clear
+set obs 1
+gen long id = 1
+gen long event_date = td(23sep2017)
+gen str3 event_type = "Inv"
+format event_date %td
+tempfile r9_mig
+save `r9_mig'
+
+use `r9_cohort', clear
+migrations, migfile("`r9_mig'") minresidence(365)
+local r9_minres = r(N_excluded_minresidence)
+qui count if id == 1
+local r9_present = r(N)
+local t = (`r9_present' == 0 & `r9_minres' == 1)
+run_test "R9: long-format immigration 100 days before start -> minresidence exclusion" `t'
 
 
 * === SUMMARY ===

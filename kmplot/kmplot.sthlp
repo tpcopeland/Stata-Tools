@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.1  10apr2026}{...}
+{* *! version 1.0.2  22apr2026}{...}
 {vieweralsosee "sts graph" "help sts graph"}{...}
 {vieweralsosee "stci" "help stci"}{...}
 {vieweralsosee "sts test" "help sts test"}{...}
@@ -253,6 +253,6 @@ underlying {cmd:twoway} call.{p_end}
 Timothy P Copeland{break}
 Department of Clinical Neuroscience{break}
 Karolinska Institutet{break}
-Version 1.0.1, 2026-04-10{p_end}
+Version 1.0.2, 2026-04-22{p_end}
 
 {hline}

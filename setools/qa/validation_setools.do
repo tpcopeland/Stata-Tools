@@ -206,6 +206,103 @@ cci_se, id(lopnr) icd(diagnos) date(datum)
 local t = (charlson == 30)
 run_val "V1.9: max CCI = 30 (all comorbidities)" `t'
 
+* V1.10: Multiple diagnosis variables on the same row accumulate correctly
+clear
+input long lopnr str10 diag_main str10 diag_aux double datum
+1 "I21" "J44" 21915
+2 "" "B20" 21915
+end
+format datum %td
+cci_se, id(lopnr) icd(diag_main diag_aux) date(datum) components
+sort lopnr
+local t = (charlson[1] == 2 & cci_mi[1] == 1 & cci_copd[1] == 1 & charlson[2] == 6 & cci_aids[2] == 1)
+run_val "V1.10: multi-variable icd() accumulates within row" `t'
+
+* V1.11: Hierarchy rules apply across diagnosis variables
+clear
+input long lopnr str10 diag_main str10 diag_aux double datum
+1 "E100" "E102" 21915
+2 "C50" "C77" 21915
+end
+format datum %td
+cci_se, id(lopnr) icd(diag_main diag_aux) date(datum) components
+sort lopnr
+local t = (charlson[1] == 2 & cci_diab[1] == 0 & cci_diabcomp[1] == 1 & charlson[2] == 6 & cci_cancer[2] == 0 & cci_mets[2] == 1)
+run_val "V1.11: multi-variable icd() respects hierarchy rules" `t'
+
+* V1.12: Duplicate diagnosis across variables does not double-count
+clear
+input long lopnr str10 diag_main str10 diag_aux double datum
+1 "I21" "I21" 21915
+end
+format datum %td
+cci_se, id(lopnr) icd(diag_main diag_aux) date(datum) components
+local t = (charlson == 1 & cci_mi == 1)
+run_val "V1.12: duplicate diagnosis across variables counts once" `t'
+
+* V1.13: Multi-variable path matches legacy single-field path after normalization
+clear
+input long lopnr str10 diag_main str10 diag_aux double datum
+1 "i21." "j44" 21915
+2 "" "b20." 21915
+3 "e100" "e102." 21915
+end
+format datum %td
+gen str30 diag_all = trim(diag_main + " " + diag_aux)
+cci_se, id(lopnr) icd(diag_all) date(datum) generate(score_single)
+keep lopnr score_single
+tempfile v113_single
+save `v113_single', replace
+
+clear
+input long lopnr str10 diag_main str10 diag_aux double datum
+1 "i21." "j44" 21915
+2 "" "b20." 21915
+3 "e100" "e102." 21915
+end
+format datum %td
+cci_se, id(lopnr) icd(diag_main diag_aux) date(datum) generate(score_multi) components
+merge 1:1 lopnr using `v113_single', nogen
+sort lopnr
+local t = (score_multi[1] == 2 & score_single[1] == 2 & ///
+    score_multi[2] == 6 & score_single[2] == 6 & ///
+    score_multi[3] == 2 & score_single[3] == 2 & ///
+    cci_diab[3] == 0 & cci_diabcomp[3] == 1)
+run_val "V1.13: multi-variable icd() matches single-field path with dots/case/blanks" `t'
+
+* V1.14: Wildcard multi-variable path handles multi-row, multi-code, yyyymmdd input
+clear
+input long lopnr long datum str20 diag_main str20 diag_aux str20 diag_oth
+1 19800101 "290" "" ""
+1 20180115 "I21 J44" "" "N18"
+2 19900101 "250A" "250D" ""
+2 20180115 "" "B20" ""
+3 19650315 "420,1" "" ""
+3 20180115 "C50" "C77" ""
+end
+tempfile v114_multi v114_ref
+save `v114_multi', replace
+
+use `v114_multi', clear
+gen str80 diag_all = trim(diag_main + " " + diag_aux + " " + diag_oth)
+cci_se, id(lopnr) icd(diag_all) date(datum) dateformat(yyyymmdd) generate(score_single)
+sort lopnr
+keep lopnr score_single
+save `v114_ref', replace
+
+use `v114_multi', clear
+cci_se, id(lopnr) icd(diag_*) date(datum) dateformat(yyyymmdd) generate(score_multi) components
+sort lopnr
+merge 1:1 lopnr using `v114_ref', nogen
+sort lopnr
+local t = (score_multi[1] == 5 & score_single[1] == 5 & ///
+    cci_dem[1] == 1 & cci_mi[1] == 1 & cci_copd[1] == 1 & cci_renal[1] == 1 & ///
+    score_multi[2] == 8 & score_single[2] == 8 & ///
+    cci_diab[2] == 0 & cci_diabcomp[2] == 1 & cci_aids[2] == 1 & ///
+    score_multi[3] == 7 & score_single[3] == 7 & ///
+    cci_mi[3] == 1 & cci_cancer[3] == 0 & cci_mets[3] == 1)
+run_val "V1.14: wildcard icd() handles multirow multi-code yyyymmdd input" `t'
+
 **# V2. CDP ALGORITHM VALIDATION
 
 * V2.1: Baseline within window selects first EDSS
@@ -709,6 +806,184 @@ migrations, migfile("`data_dir'/_val_mig_stay_wide.dta")
 sum migration_out_dt if id == 1
 local t = (missing(r(mean)))
 run_val "V5.6: no migration record -> stays" `t'
+
+* V5.7: Long-format migration file matches known wide baseline
+clear
+input long id double study_start
+1 21185
+2 21185
+3 21185
+4 21185
+5 21185
+end
+format study_start %td
+save "`data_dir'/_val_mig_long_master.dta", replace
+
+clear
+input long id double event_date str3 event_type
+2 20999 "Utv"
+3 21244 "Inv"
+4 21366 "Utv"
+5 21244 "Utv"
+5 21336 "Inv"
+5 21427 "Utv"
+end
+format event_date %td
+save "`data_dir'/_val_mig_long.dta", replace
+
+use "`data_dir'/_val_mig_long_master.dta", clear
+migrations, migfile("`data_dir'/_val_mig_long.dta")
+local n_excl1 = r(N_excluded_emigrated)
+local n_excl2 = r(N_excluded_inmigration)
+local n_exclt = r(N_excluded_total)
+local n_cens = r(N_censored)
+local n_final = r(N_final)
+quietly summarize migration_out_dt if id == 4
+local p4_out = r(mean)
+quietly summarize migration_out_dt if id == 5
+local p5_out = r(mean)
+local t = (`n_excl1' == 1 & `n_excl2' == 1 & `n_exclt' == 2 & `n_cens' == 2 & `n_final' == 3 & `p4_out' == 21366 & `p5_out' == 21427)
+run_val "V5.7: long-format exclusion/censoring matches baseline" `t'
+
+* V5.8: Long-format keepimmigrants retains Type 2 with immigration date
+use "`data_dir'/_val_mig_long_master.dta", clear
+migrations, migfile("`data_dir'/_val_mig_long.dta") keepimmigrants
+local incl = r(N_included_inmigration)
+quietly count if id == 3
+local kept = r(N)
+quietly summarize migration_in_dt if id == 3
+local t = (`incl' == 1 & `kept' == 1 & r(N) == 1 & r(mean) == 21244)
+run_val "V5.8: long-format keepimmigrants retains Type 2" `t'
+
+* V5.9: Long-format Type 3 exclusion (abroad at baseline) is not reclassified as Type 2
+clear
+input long id double study_start
+1 21185
+2 21185
+3 21185
+4 21185
+end
+format study_start %td
+save "`data_dir'/_val_mig_type3_master.dta", replace
+
+clear
+input long id double event_date str3 event_type
+2 20800 "Utv"
+3 20800 "Utv"
+3 21300 "Inv"
+4 21300 "Inv"
+end
+format event_date %td
+save "`data_dir'/_val_mig_type3_long.dta", replace
+
+use "`data_dir'/_val_mig_type3_master.dta", clear
+migrations, migfile("`data_dir'/_val_mig_type3_long.dta") keepimmigrants
+local t = (r(N_excluded_emigrated) == 1 & r(N_excluded_abroad) == 1 & r(N_included_inmigration) == 1 & r(N_final) == 2)
+run_val "V5.9: long-format Type 3 excluded, Type 2 included" `t'
+
+* V5.10: Long-format labeled numeric event_type decodes correctly
+clear
+set obs 1
+gen long id = 1
+gen long study_start = td(01jan2018)
+format study_start %td
+save "`data_dir'/_val_mig_label_master.dta", replace
+
+clear
+set obs 1
+gen long id = 1
+gen double event_date = td(01mar2018)
+gen byte event_type = 1
+label define _val_mig_type 1 "Inv" 2 "Utv"
+label values event_type _val_mig_type
+format event_date %td
+save "`data_dir'/_val_mig_label_long.dta", replace
+
+use "`data_dir'/_val_mig_label_master.dta", clear
+migrations, migfile("`data_dir'/_val_mig_label_long.dta") keepimmigrants
+local incl = r(N_included_inmigration)
+quietly summarize migration_in_dt if id == 1
+local t = (`incl' == 1 & r(N) == 1 & r(mean) == td(01mar2018))
+run_val "V5.10: labeled numeric event_type Inv decodes correctly" `t'
+
+* V5.11: Emigration on study_start is retained and not censored
+clear
+set obs 1
+gen long id = 1
+gen long study_start = td(01jan2018)
+format study_start %td
+tempfile v511_master v511_long
+save `v511_master', replace
+
+clear
+input long id double event_date str3 event_type
+1 21185 "Utv"
+end
+format event_date %td
+save `v511_long', replace
+
+use `v511_master', clear
+migrations, migfile("`v511_long'")
+local n_excl_total = r(N_excluded_total)
+local n_cens = r(N_censored)
+local n_final = r(N_final)
+quietly summarize migration_out_dt if id == 1
+local t = (`n_excl_total' == 0 & `n_cens' == 0 & `n_final' == 1 & r(N) == 0 & missing(r(mean)))
+run_val "V5.11: study-start emigration is retained without censoring" `t'
+
+* V5.12: Long-format %tc event_date is rejected
+clear
+set obs 1
+gen long id = 1
+gen long study_start = td(01jan2018)
+format study_start %td
+tempfile v512_master v512_long
+save `v512_master', replace
+
+clear
+set obs 1
+gen long id = 1
+gen double event_date = clock("2018-03-01 12:34:56", "YMDhms")
+gen str3 event_type = "Inv"
+format event_date %tc
+save `v512_long', replace
+
+use `v512_master', clear
+capture noisily migrations, migfile("`v512_long'")
+local t = (_rc == 109)
+run_val "V5.12: long-format %tc event_date rejected" `t'
+
+* V5.13: %tc startvar is rejected
+clear
+set obs 1
+gen long id = 1
+gen double study_start = clock("2018-01-01 00:00:00", "YMDhms")
+format study_start %tc
+capture noisily migrations, migfile("`data_dir'/_val_mig_stay_wide.dta") startvar(study_start)
+local t = (_rc == 109)
+run_val "V5.13: %tc startvar rejected" `t'
+
+* V5.14: Wide-format %tc migration dates are rejected
+clear
+set obs 1
+gen long id = 1
+gen long study_start = td(01jan2018)
+format study_start %td
+tempfile v514_master v514_wide
+save `v514_master', replace
+
+clear
+set obs 1
+gen long id = 1
+gen double in_1 = clock("2018-03-01 12:34:56", "YMDhms")
+gen double out_1 = .
+format in_1 out_1 %tc
+save `v514_wide', replace
+
+use `v514_master', clear
+capture noisily migrations, migfile("`v514_wide'")
+local t = (_rc == 109)
+run_val "V5.14: wide-format %tc migration dates rejected" `t'
 
 **# V6. PROCMATCH MATCHING VALIDATION
 
@@ -1286,7 +1561,7 @@ set varabbrev off
 
 **# CLEANUP
 
-local cleanup_files "_val_pira_data.dta _val_pira_rel.dta _val_pira_rel2.dta _val_pira_rel3.dta _val_pira_rel4.dta _val_pira_multi.dta _val_cross.dta _val_cross_rel.dta _val_det.dta _val_mig_t1.dta _val_mig_t1_wide.dta _val_mig_t2.dta _val_mig_t2_wide.dta _val_mig_cens.dta _val_mig_cens_wide.dta _val_mig_temp.dta _val_mig_temp_wide.dta _val_mig_tp.dta _val_mig_tp_wide.dta _val_mig_stay.dta _val_mig_stay_wide.dta _val_mig_inv.dta _val_mig_inv_wide.dta _val_pira_rebase.dta _val_pira_rebase_rel.dta _val_v15_edss.dta _val_v15_rel.dta _val_v15_mig_master.dta _val_v15_mig_wide.dta"
+local cleanup_files "_val_pira_data.dta _val_pira_rel.dta _val_pira_rel2.dta _val_pira_rel3.dta _val_pira_rel4.dta _val_pira_multi.dta _val_cross.dta _val_cross_rel.dta _val_det.dta _val_mig_t1.dta _val_mig_t1_wide.dta _val_mig_t2.dta _val_mig_t2_wide.dta _val_mig_cens.dta _val_mig_cens_wide.dta _val_mig_temp.dta _val_mig_temp_wide.dta _val_mig_tp.dta _val_mig_tp_wide.dta _val_mig_stay.dta _val_mig_stay_wide.dta _val_mig_long_master.dta _val_mig_long.dta _val_mig_type3_master.dta _val_mig_type3_long.dta _val_mig_label_master.dta _val_mig_label_long.dta _val_mig_inv.dta _val_mig_inv_wide.dta _val_pira_rebase.dta _val_pira_rebase_rel.dta _val_v15_edss.dta _val_v15_rel.dta _val_v15_mig_master.dta _val_v15_mig_wide.dta"
 foreach f of local cleanup_files {
     capture erase "`data_dir'/`f'"
 }

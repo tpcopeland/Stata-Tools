@@ -51,7 +51,10 @@ Predictions are based on G-formula standardization across the reference
 population at baseline. {cmd:msm_predict} currently supports logistic outcome
 models only. Any {cmd:outcome_cov()} terms from {helpb msm_fit} are held at
 their baseline/reference-population values during prediction, so they must be
-time-fixed within individual.
+time-fixed within individual. The command reports and returns the starting
+RNG state used for the Monte Carlo step so prediction runs are reproducible.
+If you are unsure whether prediction is currently available, check
+{cmd:msm, status} first.
 
 
 {marker options}{...}
@@ -79,7 +82,9 @@ cumulative incidence.
 coefficient distribution for confidence interval estimation. Default is 100.
 
 {phang}
-{opt seed(#)} sets the random number seed for reproducibility.
+{opt seed(#)} sets the random number seed for reproducibility. If omitted,
+{cmd:msm_predict} uses the current session RNG state and returns that
+starting state in {cmd:r(seed)} and {cmd:r(seed_state)}.
 
 {phang}
 {opt level(#)} specifies the confidence level. Default is 95.
@@ -137,6 +142,9 @@ them.
 {synopt:{cmd:r(level)}}confidence level{p_end}
 
 {p2col 5 20 24 2: Macros}{p_end}
+{synopt:{cmd:r(seed)}}seed actually used; when {cmd:seed()} is omitted this is the starting RNG state string{p_end}
+{synopt:{cmd:r(seed_source)}}{cmd:seed()} or {cmd:session_rng_state}, indicating how the prediction run was seeded{p_end}
+{synopt:{cmd:r(seed_state)}}starting RNG state used for the Monte Carlo draws{p_end}
 {synopt:{cmd:r(type)}}prediction type{p_end}
 {synopt:{cmd:r(strategy)}}strategy used{p_end}
 
@@ -155,6 +163,7 @@ them.
 {phang2}{cmd:. msm_fit, model(logistic) outcome_cov(age sex) nolog}{p_end}
 
 {pstd}Risk predictions and risk differences at selected follow-up times{p_end}
+{phang2}{cmd:. msm, status}{p_end}
 {phang2}{cmd:. msm_predict, times(3 5 7 9) difference seed(12345)}{p_end}
 {phang2}{cmd:. matrix list r(predictions)}{p_end}
 

@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.0  08apr2026}{...}
+{* *! version 1.0.1  22apr2026}{...}
 {viewerjumpto "Syntax" "cdp##syntax"}{...}
 {viewerjumpto "Description" "cdp##description"}{...}
 {viewerjumpto "Options" "cdp##options"}{...}

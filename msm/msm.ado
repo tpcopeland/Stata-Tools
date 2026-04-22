@@ -6,11 +6,11 @@
 
 /*
 Basic syntax:
-  msm [, list detail protocol]
+  msm [, list detail protocol status]
 
 Description:
   Displays package overview, lists all commands with descriptions,
-  and shows the typical analysis workflow.
+  shows the typical analysis workflow, or reports current pipeline state.
 
 See help msm for complete documentation
 */
@@ -24,7 +24,7 @@ program define msm, rclass
 
     capture noisily {
 
-    syntax [, List Detail PROTocol]
+    syntax [, List Detail PROTocol STATus]
 
     local version "1.0.0"
     local n_commands = 11
@@ -34,11 +34,145 @@ program define msm, rclass
 
     display as text ""
     display as text "{hline 70}"
-    display as result "msm" as text " - Marginal Structural Models for Stata"
+    if "`status'" != "" {
+        display as result "msm" as text " - Pipeline Status"
+    }
+    else {
+        display as result "msm" as text " - Marginal Structural Models for Stata"
+    }
     display as text "Version `version'"
     display as text "{hline 70}"
 
-    if "`protocol'" != "" {
+    if "`status'" != "" {
+        _msm_pipeline_state
+
+        local prepared = real("`_msm_state_prepared'")
+        local weighted = real("`_msm_state_weighted'")
+        local fitted = real("`_msm_state_fitted'")
+        local pred_saved = real("`_msm_state_pred_saved'")
+        local bal_saved = real("`_msm_state_bal_saved'")
+        local diag_saved = real("`_msm_state_diag_saved'")
+        local sens_saved = real("`_msm_state_sens_saved'")
+
+        local prepared_label "no"
+        local weighted_label "no"
+        local fitted_label "no"
+        local pred_label "no"
+        local bal_label "no"
+        local diag_label "no"
+        local sens_label "no"
+        if `prepared' local prepared_label "yes"
+        if `weighted' local weighted_label "yes"
+        if `fitted' local fitted_label "yes"
+        if `pred_saved' local pred_label "yes"
+        if `bal_saved' local bal_label "yes"
+        if `diag_saved' local diag_label "yes"
+        if `sens_saved' local sens_label "yes"
+
+        local censor_show "(none)"
+        local covariates_show "(none)"
+        local baseline_show "(none)"
+        local weight_vars_show "(none)"
+        local fit_artifacts_show "(none)"
+        if "`_msm_state_censor'" != "" local censor_show "`_msm_state_censor'"
+        if "`_msm_state_covariates'" != "" local covariates_show "`_msm_state_covariates'"
+        if "`_msm_state_bl_covariates'" != "" local baseline_show "`_msm_state_bl_covariates'"
+        if "`_msm_state_weight_vars'" != "" local weight_vars_show "`_msm_state_weight_vars'"
+        if "`_msm_state_fit_artifacts'" != "" local fit_artifacts_show "`_msm_state_fit_artifacts'"
+
+        local pred_detail ""
+        if `pred_saved' {
+            local pred_detail " (`_msm_state_pred_strategy'; `_msm_state_pred_type'"
+            if "`_msm_state_pred_level'" != "" {
+                local pred_detail "`pred_detail'; level `_msm_state_pred_level'%"
+            }
+            local pred_detail "`pred_detail')"
+        }
+
+        local bal_detail ""
+        if `bal_saved' & "`_msm_state_bal_threshold'" != "" {
+            local bal_threshold_num = real("`_msm_state_bal_threshold'")
+            local bal_threshold_show "`_msm_state_bal_threshold'"
+            if !missing(`bal_threshold_num') {
+                local bal_threshold_show : display %4.2f `bal_threshold_num'
+            }
+            local bal_detail " (threshold `bal_threshold_show')"
+        }
+
+        local diag_detail ""
+        if `diag_saved' {
+            local diag_mean_show "`_msm_state_diag_mean'"
+            local diag_ess_show "`_msm_state_diag_ess'"
+            local diag_mean_num = real("`_msm_state_diag_mean'")
+            local diag_ess_num = real("`_msm_state_diag_ess'")
+            if !missing(`diag_mean_num') {
+                local diag_mean_show : display %9.4f `diag_mean_num'
+            }
+            if !missing(`diag_ess_num') {
+                local diag_ess_show : display %9.1f `diag_ess_num'
+            }
+            if "`_msm_state_diag_mean'" != "" {
+                local diag_detail " (mean `diag_mean_show'"
+                if "`_msm_state_diag_ess'" != "" {
+                    local diag_detail "`diag_detail'; ESS `diag_ess_show'"
+                }
+                local diag_detail "`diag_detail')"
+            }
+            else if "`_msm_state_diag_ess'" != "" {
+                local diag_detail " (ESS `diag_ess_show')"
+            }
+        }
+
+        local sens_detail ""
+        if `sens_saved' {
+            local sens_effect_show "`_msm_state_sens_effect'"
+            local sens_effect_num = real("`_msm_state_sens_effect'")
+            if !missing(`sens_effect_num') {
+                local sens_effect_show : display %9.4f `sens_effect_num'
+            }
+            if "`_msm_state_sens_effect_label'" != "" & "`_msm_state_sens_effect'" != "" {
+                local sens_detail " (`_msm_state_sens_effect_label' `sens_effect_show')"
+            }
+            else if "`_msm_state_sens_effect'" != "" {
+                local sens_detail " (`sens_effect_show')"
+            }
+        }
+
+        display as text ""
+        display as text "Current pipeline state: " as result "`_msm_state_stage_label'"
+        display as text "Recommended next step: " as result "`_msm_state_next_step'"
+        display as text ""
+        display as text "Pipeline stages:"
+        display as text "  Prepared:         " as result "`prepared_label'"
+        display as text "  Weighted:         " as result "`weighted_label'"
+        display as text "  Fitted:           " as result "`fitted_label'"
+        if "`_msm_state_model'" != "" {
+            display as text "  Fitted model:     " as result "`_msm_state_model'"
+        }
+        display as text ""
+        display as text "Mapped variables:"
+        if `prepared' {
+            display as text "  ID:               " as result "`_msm_state_id'"
+            display as text "  Period:           " as result "`_msm_state_period'"
+            display as text "  Treatment:        " as result "`_msm_state_treatment'"
+            display as text "  Outcome:          " as result "`_msm_state_outcome'"
+            display as text "  Censoring:        " as result "`censor_show'"
+            display as text "  Covariates:       " as result "`covariates_show'"
+            display as text "  Baseline covars:  " as result "`baseline_show'"
+        }
+        else {
+            display as text "  No msm variable mapping found in the current dataset."
+        }
+        display as text ""
+        display as text "Available saved artifacts:"
+        display as text "  Weight variables: " as result "`weight_vars_show'"
+        display as text "  Fit artifacts:    " as result "`fit_artifacts_show'"
+        display as text "  Predictions:      " as result "`pred_label'" as text "`pred_detail'"
+        display as text "  Balance results:  " as result "`bal_label'" as text "`bal_detail'"
+        display as text "  Diagnostics:      " as result "`diag_label'" as text "`diag_detail'"
+        display as text "  Sensitivity:      " as result "`sens_label'" as text "`sens_detail'"
+    }
+    else if "`protocol'" != "" {
         _msm_protocol_overview
     }
     else if "`detail'" != "" {
@@ -84,6 +218,8 @@ program define msm, rclass
         display as text "  8. {cmd:msm_report}      " as text "Export publication tables"
         display as text "  9. {cmd:msm_sensitivity} " as text "Sensitivity analysis"
         display as text ""
+        display as text "Check state anytime: " as result "{cmd:msm, status}"
+        display as text ""
         display as text "Help:  " as result "{help msm}" as text "  for documentation"
         display as text "       " as result "{help msm_prepare}" as text "  to get started"
     }
@@ -93,6 +229,25 @@ program define msm, rclass
     return local version "`version'"
     return local commands "`all_commands'"
     return scalar n_commands = `n_commands'
+    if "`status'" != "" {
+        return local stage "`_msm_state_stage'"
+        return local next_step "`_msm_state_next_step'"
+        return local model "`_msm_state_model'"
+        return local id "`_msm_state_id'"
+        return local period "`_msm_state_period'"
+        return local treatment "`_msm_state_treatment'"
+        return local outcome "`_msm_state_outcome'"
+        return local censor "`_msm_state_censor'"
+        return local covariates "`_msm_state_covariates'"
+        return local baseline_covariates "`_msm_state_bl_covariates'"
+        return scalar prepared = `prepared'
+        return scalar weighted = `weighted'
+        return scalar fitted = `fitted'
+        return scalar prediction_saved = `pred_saved'
+        return scalar balance_saved = `bal_saved'
+        return scalar diagnostics_saved = `diag_saved'
+        return scalar sensitivity_saved = `sens_saved'
+    }
 
     } /* end capture noisily */
     local _rc = _rc
@@ -105,94 +260,117 @@ end
 
 program define _msm_protocol_overview
     version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    local _orig_more = c(more)
     set varabbrev off
     set more off
 
-    display as text ""
-    display as text "{bf:MSM Study Protocol (7 Components)}"
-    display as text ""
-    display as text "  Adapted from Robins, Hernan & Brumback (2000)"
-    display as text ""
-    display as text "  {result:1. Population}"
-    display as text "     Who is in the study? Inclusion/exclusion criteria."
-    display as text ""
-    display as text "  {result:2. Treatment strategies}"
-    display as text "     What treatment regimes are being compared?"
-    display as text "     Example: Always treated vs. never treated"
-    display as text ""
-    display as text "  {result:3. Confounders}"
-    display as text "     Time-varying and baseline confounders measured."
-    display as text "     Example: Biomarker (time-varying), age, sex (baseline)"
-    display as text ""
-    display as text "  {result:4. Outcome}"
-    display as text "     What is the outcome of interest?"
-    display as text "     Example: All-cause mortality"
-    display as text ""
-    display as text "  {result:5. Causal contrast}"
-    display as text "     What causal parameter is being estimated?"
-    display as text "     Example: Average treatment effect under always vs. never"
-    display as text ""
-    display as text "  {result:6. Weight specification}"
-    display as text "     How are IP weights constructed?"
-    display as text "     Example: Stabilized IPTW with 1/99 truncation"
-    display as text ""
-    display as text "  {result:7. Statistical analysis}"
-    display as text "     What model and estimation approach?"
-    display as text "     Example: Pooled logistic regression with robust SE"
-    display as text ""
+    capture noisily {
+        display as text ""
+        display as text "{bf:MSM Study Protocol (7 Components)}"
+        display as text ""
+        display as text "  Adapted from Robins, Hernan & Brumback (2000)"
+        display as text ""
+        display as text "  {result:1. Population}"
+        display as text "     Who is in the study? Inclusion/exclusion criteria."
+        display as text ""
+        display as text "  {result:2. Treatment strategies}"
+        display as text "     What treatment regimes are being compared?"
+        display as text "     Example: Always treated vs. never treated"
+        display as text ""
+        display as text "  {result:3. Confounders}"
+        display as text "     Time-varying and baseline confounders measured."
+        display as text "     Example: Biomarker (time-varying), age, sex (baseline)"
+        display as text ""
+        display as text "  {result:4. Outcome}"
+        display as text "     What is the outcome of interest?"
+        display as text "     Example: All-cause mortality"
+        display as text ""
+        display as text "  {result:5. Causal contrast}"
+        display as text "     What causal parameter is being estimated?"
+        display as text "     Example: Average treatment effect under always vs. never"
+        display as text ""
+        display as text "  {result:6. Weight specification}"
+        display as text "     How are IP weights constructed?"
+        display as text "     Example: Stabilized IPTW with 1/99 truncation"
+        display as text ""
+        display as text "  {result:7. Statistical analysis}"
+        display as text "     What model and estimation approach?"
+        display as text "     Example: Pooled logistic regression with robust SE"
+        display as text ""
+    }
+    local _rc = _rc
+
+    set varabbrev `_orig_varabbrev'
+    set more `_orig_more'
+
+    if `_rc' exit `_rc'
 end
 
 program define _msm_overview_detail
     version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    local _orig_more = c(more)
     set varabbrev off
     set more off
 
-    display as text ""
-    display as text "{bf:Data Preparation}"
-    display as text "  {hline 60}"
-    display as result "  msm_prepare" as text "     Map variable names, validate data structure."
-    display as text "                Entry point for the pipeline. Stores"
-    display as text "                metadata in dataset characteristics."
-    display as text ""
-    display as result "  msm_validate" as text "    Comprehensive data quality checks: person-"
-    display as text "                period format, gaps, treatment variation,"
-    display as text "                positivity, and missing data patterns."
-    display as text ""
+    capture noisily {
+        display as text ""
+        display as text "{bf:Data Preparation}"
+        display as text "  {hline 60}"
+        display as result "  msm_prepare" as text "     Map variable names, validate data structure."
+        display as text "                Entry point for the pipeline. Stores"
+        display as text "                metadata in dataset characteristics."
+        display as text ""
+        display as result "  msm_validate" as text "    Comprehensive data quality checks: person-"
+        display as text "                period format, gaps, treatment variation,"
+        display as text "                positivity, and missing data patterns."
+        display as text ""
 
-    display as text "{bf:Core Engine}"
-    display as text "  {hline 60}"
-    display as result "  msm_weight" as text "      Stabilized inverse probability of treatment"
-    display as text "                weights (IPTW) with optional IPCW for"
-    display as text "                informative censoring. Logistic models"
-    display as text "                with cumulative product via log-sum."
-    display as text ""
-    display as result "  msm_fit" as text "         Weighted outcome model: pooled logistic"
-    display as text "                regression (GLM), linear, or Cox PH."
-    display as text "                Robust/sandwich SE clustered by individual."
-    display as text ""
-    display as result "  msm_predict" as text "     Counterfactual predictions under always-"
-    display as text "                treated vs never-treated strategies."
-    display as text "                Monte Carlo CIs via Cholesky decomposition."
-    display as text ""
+        display as text "{bf:Core Engine}"
+        display as text "  {hline 60}"
+        display as result "  msm_weight" as text "      Stabilized inverse probability of treatment"
+        display as text "                weights (IPTW) with optional IPCW for"
+        display as text "                informative censoring. Logistic models"
+        display as text "                with cumulative product via log-sum."
+        display as text ""
+        display as result "  msm_fit" as text "         Weighted outcome model: pooled logistic"
+        display as text "                regression (GLM), linear, or Cox PH."
+        display as text "                Robust/sandwich SE clustered by individual."
+        display as text ""
+        display as result "  msm_predict" as text "     Counterfactual predictions under always-"
+        display as text "                treated vs never-treated strategies."
+        display as text "                Monte Carlo CIs via Cholesky decomposition."
+        display as text ""
 
-    display as text "{bf:Diagnostics & Reporting}"
-    display as text "  {hline 60}"
-    display as result "  msm_diagnose" as text "    Weight distribution, effective sample size,"
-    display as text "                covariate balance (SMD before/after)."
-    display as text ""
-    display as result "  msm_plot" as text "        Visualization: weight densities, Love plots,"
-    display as text "                survival curves, treatment trajectories,"
-    display as text "                and positivity assessment."
-    display as text ""
-    display as result "  msm_report" as text "      Publication-quality tables: analysis summary,"
-    display as text "                weight diagnostics, model coefficients."
-    display as text "                Export to display, CSV, or Excel."
-    display as text ""
-    display as result "  msm_protocol" as text "    MSM study protocol: 7-component specification"
-    display as text "                adapted from Robins, Hernan & Brumback."
-    display as text ""
-    display as result "  msm_sensitivity" as text " E-value (VanderWeele & Ding 2017) and"
-    display as text "                confounding strength bounds for"
-    display as text "                unmeasured confounding assessment."
-    display as text ""
+        display as text "{bf:Diagnostics & Reporting}"
+        display as text "  {hline 60}"
+        display as result "  msm_diagnose" as text "    Weight distribution, effective sample size,"
+        display as text "                covariate balance (SMD before/after)."
+        display as text ""
+        display as result "  msm_plot" as text "        Visualization: weight densities, Love plots,"
+        display as text "                survival curves, treatment trajectories,"
+        display as text "                and positivity assessment."
+        display as text ""
+        display as result "  msm_report" as text "      Publication-quality tables: analysis summary,"
+        display as text "                weight diagnostics, model coefficients."
+        display as text "                Export to display, CSV, or Excel."
+        display as text ""
+        display as result "  msm_protocol" as text "    MSM study protocol: 7-component specification"
+        display as text "                adapted from Robins, Hernan & Brumback."
+        display as text ""
+        display as result "  msm_sensitivity" as text " E-value (VanderWeele & Ding 2017) and"
+        display as text "                confounding strength bounds for"
+        display as text "                unmeasured confounding assessment."
+        display as text ""
+        display as text "  msm, status" as text "      Inspect the current pipeline stage, mapped"
+        display as text "                variables, and saved artifacts."
+        display as text ""
+    }
+    local _rc = _rc
+
+    set varabbrev `_orig_varabbrev'
+    set more `_orig_more'
+
+    if `_rc' exit `_rc'
 end

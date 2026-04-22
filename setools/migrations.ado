@@ -1,4 +1,4 @@
-*! migrations Version 1.0.0  2026/04/08
+*! migrations Version 1.0.1  2026/04/22
 *! Handle Swedish migration data for registry-based cohort studies
 *! Part of the setools package
 
@@ -55,10 +55,15 @@ program define migrations, rclass
         exit 111
     }
     
-    * Check that startvar is a date (accept %t*, %d*, %tc, %tC formats)
+    * Check that startvar is a Stata daily date
     capture confirm numeric variable `startvar'
     if _rc {
         display as error "`startvar' must be numeric (Stata date format)"
+        exit 109
+    }
+    local _mig_start_fmt : format `startvar'
+    if lower(substr("`_mig_start_fmt'", 1, 3)) != "%td" {
+        display as error "`startvar' must be a Stata daily date variable with %td format"
         exit 109
     }
     
@@ -109,6 +114,20 @@ program define migrations, rclass
             display as error "Migration file must have one row per person (wide format)"
             exit 459
         }
+
+        unab _mig_wide_date_vars : in_* out_*
+        foreach wide_date_var of local _mig_wide_date_vars {
+            capture confirm numeric variable `wide_date_var'
+            if _rc {
+                display as error "Wide-format migration variable '`wide_date_var'' must be numeric"
+                exit 109
+            }
+            local _mig_wide_date_fmt : format `wide_date_var'
+            if lower(substr("`_mig_wide_date_fmt'", 1, 3)) != "%td" {
+                display as error "Wide-format migration variable '`wide_date_var'' must be a Stata daily date variable with %td format"
+                exit 109
+            }
+        }
     }
     else if `has_long_date' & `has_long_type' {
         if "`verbose'" != "" {
@@ -119,6 +138,11 @@ program define migrations, rclass
         capture confirm numeric variable `mig_event_date_var'
         if _rc {
             display as error "`mig_event_date_var' must be numeric (Stata date format)"
+            exit 109
+        }
+        local _mig_event_date_fmt : format `mig_event_date_var'
+        if lower(substr("`_mig_event_date_fmt'", 1, 3)) != "%td" {
+            display as error "`mig_event_date_var' must be a Stata daily date variable with %td format"
             exit 109
         }
 
@@ -318,13 +342,27 @@ program define migrations, rclass
     qui drop _neg_in
     qui format _mig_last_out _mig_last_in %tdCCYY/NN/DD
 
+    * Baseline-state helpers used for broad format support. These do not
+    * rely on in_/out_ being paired at the same reshape index.
+    qui gen long _mig_pre_start_out = out_ if out_ < `startvar' & !missing(out_)
+    qui gen long _neg_pre_out = -_mig_pre_start_out
+    qui bysort `idvar' (_neg_pre_out): gen long _mig_last_pre_out = _mig_pre_start_out[1] if !missing(_mig_pre_start_out[1])
+    qui drop _neg_pre_out _mig_pre_start_out
+
+    qui gen long _mig_pre_start_in_all = in_ if in_ <= `startvar' & !missing(in_)
+    qui gen long _neg_pre_in_all = -_mig_pre_start_in_all
+    qui bysort `idvar' (_neg_pre_in_all): gen long _mig_last_pre_in = _mig_pre_start_in_all[1] if !missing(_mig_pre_start_in_all[1])
+    qui drop _neg_pre_in_all _mig_pre_start_in_all
+
+    qui gen long _mig_post_start_in = in_ if in_ > `startvar' & !missing(in_)
+    qui bysort `idvar' (_mig_post_start_in): gen long _mig_first_post_in = _mig_post_start_in[1] if !missing(_mig_post_start_in[1])
+    qui drop _mig_post_start_in
+    qui format _mig_last_pre_out _mig_last_pre_in _mig_first_post_in %tdCCYY/NN/DD
+
     * Compute latest pre-start immigration per person (for minresidence check)
     * Persons born in Sweden with no immigration will have missing _mig_pre_start_in
     if `minresidence' > 0 {
-        qui gen long _mig_pre_start_in = in_ if in_ <= `startvar' & !missing(in_)
-        qui gen long _neg_pre_in = -_mig_pre_start_in
-        qui bysort `idvar' (_neg_pre_in): replace _mig_pre_start_in = _mig_pre_start_in[1]
-        qui drop _neg_pre_in
+        qui gen long _mig_pre_start_in = _mig_last_pre_in
         qui format _mig_pre_start_in %tdCCYY/NN/DD
     }
 
@@ -431,9 +469,13 @@ program define migrations, rclass
         }
         else {
 
-        * EXCLUSION 3: Emigrated before study_start and returned after (abroad at baseline)
+        * EXCLUSION 3: Emigrated before study_start and returned after
+        * (abroad at baseline). This must work for both historical paired
+        * wide files and long->wide normalized event sequences.
         qui gen _mig_excl_abroad = 0
-        qui replace _mig_excl_abroad = 1 if out_ < `startvar' & in_ > `startvar' & in_ != .
+        qui replace _mig_excl_abroad = 1 if !missing(_mig_last_pre_out) & ///
+            !missing(_mig_first_post_in) & ///
+            (missing(_mig_last_pre_in) | _mig_last_pre_in < _mig_last_pre_out)
 
         tempfile pre_exclude3
         qui save `pre_exclude3', replace

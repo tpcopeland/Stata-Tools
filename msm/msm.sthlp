@@ -15,6 +15,7 @@
 {viewerjumpto "Description" "msm##description"}{...}
 {viewerjumpto "Commands" "msm##commands"}{...}
 {viewerjumpto "Workflow" "msm##workflow"}{...}
+{viewerjumpto "Pipeline status" "msm##status"}{...}
 {viewerjumpto "Current scope and limits" "msm##scope"}{...}
 {viewerjumpto "Examples" "msm##examples"}{...}
 {viewerjumpto "References" "msm##references"}{...}
@@ -40,6 +41,7 @@
 {synopt:{opt list}}display commands as simple list{p_end}
 {synopt:{opt detail}}show detailed command descriptions{p_end}
 {synopt:{opt pro:tocol}}show MSM protocol framework{p_end}
+{synopt:{opt status}}show current pipeline stage, mapped variables, and saved artifacts{p_end}
 {synoptline}
 
 
@@ -67,6 +69,13 @@ The package's prediction workflow targets static always-treated and
 never-treated strategies for binary outcomes fitted with pooled logistic
 models. Linear and Cox MSM fits are available for estimation and reporting,
 but they do not feed into {helpb msm_predict}.
+
+{pstd}
+Run {cmd:msm, status} at any point to inspect the current dataset state.
+It reports whether the data are prepared, weighted, and fitted; the
+variable mappings stored by {helpb msm_prepare}; saved prediction, balance,
+diagnostic, and sensitivity artifacts; the fitted model type if present;
+and a recommended next command.
 
 
 {marker commands}{...}
@@ -126,6 +135,27 @@ but they do not feed into {helpb msm_predict}.
 7. {cmd:msm_report} - Export publication tables{break}
 8. {cmd:msm_sensitivity} - Sensitivity analysis
 
+{pstd}
+Run {cmd:msm, status} anytime to see where the current dataset sits in
+the workflow and what outputs are already available.
+
+
+{marker status}{...}
+{title:Pipeline status}
+
+{pstd}
+{cmd:msm, status} is a lightweight introspection command for interrupted
+or iterative workflows. It does not fit models or recalculate anything.
+Instead, it reads the stored {cmd:_dta[_msm_*]} characteristics and saved
+artifacts already attached to the dataset.
+
+{pstd}
+The status report summarizes the current pipeline stage, mapped variables,
+saved weight/model/prediction artifacts, and the recommended next step.
+Use it before resuming work in an old dataset or after commands such as
+{helpb msm_prepare}, {helpb msm_weight}, {helpb msm_fit}, or
+{helpb msm_predict}.
+
 
 {marker scope}{...}
 {title:Current scope and limits}
@@ -183,6 +213,7 @@ rejects out-of-range {cmd:times()} values unless you explicitly request
 {phang2}{cmd:. msm_predict, times(3 5 7 9) difference seed(12345)}{p_end}
 {phang2}{cmd:. msm_sensitivity, evalue}{p_end}
 {phang2}{cmd:. msm_report, eform}{p_end}
+{phang2}{cmd:. msm, status}{p_end}
 
 {pstd}Estimation-only workflow when prediction is not needed{p_end}
 {phang2}{cmd:. findfile msm_example.dta}{p_end}
@@ -231,10 +262,27 @@ structural models. {it:American Journal of Epidemiology}. 2008;168(6):656-664.
 {synoptset 20 tabbed}{...}
 {p2col 5 20 24 2: Scalars}{p_end}
 {synopt:{cmd:r(n_commands)}}number of available commands{p_end}
+{synopt:{cmd:r(prepared)}}1 if {cmd:msm_prepare} state is available; reported by {cmd:msm, status}{p_end}
+{synopt:{cmd:r(weighted)}}1 if saved weights are available; reported by {cmd:msm, status}{p_end}
+{synopt:{cmd:r(fitted)}}1 if a saved fit is available; reported by {cmd:msm, status}{p_end}
+{synopt:{cmd:r(prediction_saved)}}1 if saved prediction results are available; reported by {cmd:msm, status}{p_end}
+{synopt:{cmd:r(balance_saved)}}1 if saved balance results are available; reported by {cmd:msm, status}{p_end}
+{synopt:{cmd:r(diagnostics_saved)}}1 if saved diagnostics are available; reported by {cmd:msm, status}{p_end}
+{synopt:{cmd:r(sensitivity_saved)}}1 if saved sensitivity results are available; reported by {cmd:msm, status}{p_end}
 
 {p2col 5 20 24 2: Macros}{p_end}
 {synopt:{cmd:r(version)}}package version number{p_end}
 {synopt:{cmd:r(commands)}}list of all msm commands{p_end}
+{synopt:{cmd:r(stage)}}current pipeline stage; reported by {cmd:msm, status}{p_end}
+{synopt:{cmd:r(next_step)}}recommended next command; reported by {cmd:msm, status}{p_end}
+{synopt:{cmd:r(model)}}saved fitted model type, if any; reported by {cmd:msm, status}{p_end}
+{synopt:{cmd:r(id)}}mapped ID variable; reported by {cmd:msm, status}{p_end}
+{synopt:{cmd:r(period)}}mapped period variable; reported by {cmd:msm, status}{p_end}
+{synopt:{cmd:r(treatment)}}mapped treatment variable; reported by {cmd:msm, status}{p_end}
+{synopt:{cmd:r(outcome)}}mapped outcome variable; reported by {cmd:msm, status}{p_end}
+{synopt:{cmd:r(censor)}}mapped censoring variable, if any; reported by {cmd:msm, status}{p_end}
+{synopt:{cmd:r(covariates)}}mapped time-varying covariates; reported by {cmd:msm, status}{p_end}
+{synopt:{cmd:r(baseline_covariates)}}mapped baseline covariates; reported by {cmd:msm, status}{p_end}
 
 
 {marker author}{...}

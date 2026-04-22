@@ -158,6 +158,86 @@ else {
     local failed = `failed' + 1
 }
 
+* ============================================================
+* Re-run the same known-answer test with long-format migration data
+* ============================================================
+clear
+set obs 6
+gen long id = .
+gen double event_date = .
+gen str3 event_type = ""
+replace id = 1 in 1/3
+replace id = 2 in 4
+replace id = 3 in 5/6
+replace event_date = td(01mar2015) in 1
+replace event_date = td(01jun2020) in 2
+replace event_date = td(01jan2021) in 3
+replace event_date = td(01jun2020) in 4
+replace event_date = td(01jun2020) in 5
+replace event_date = td(01jan2021) in 6
+replace event_type = "Inv" in 1
+replace event_type = "Utv" in 2
+replace event_type = "Inv" in 3
+replace event_type = "Utv" in 4
+replace event_type = "Utv" in 5
+replace event_type = "Inv" in 6
+format event_date %td
+tempfile miglong
+save `miglong'
+
+use `cohort', clear
+migrations, migfile("`miglong'") verbose
+
+capture assert migration_out_dt == . if id == 1
+if _rc == 0 {
+    display as result "[PASS] Long format person 1: no censoring date (temporary emigration)"
+    local passed = `passed' + 1
+}
+else {
+    summarize migration_out_dt if id == 1, format
+    display as error "[FAIL] Long format person 1: has censoring date but emigration was temporary"
+    local failed = `failed' + 1
+}
+
+capture assert migration_out_dt == td(01jun2020) if id == 2
+if _rc == 0 {
+    display as result "[PASS] Long format person 2: correct censoring date for permanent emigration"
+    local passed = `passed' + 1
+}
+else {
+    display as error "[FAIL] Long format person 2: wrong censoring date for permanent emigration"
+    local failed = `failed' + 1
+}
+
+capture assert migration_out_dt == . if id == 3
+if _rc == 0 {
+    display as result "[PASS] Long format person 3: no censoring date (temporary emigration)"
+    local passed = `passed' + 1
+}
+else {
+    display as error "[FAIL] Long format person 3: has censoring date but emigration was temporary"
+    local failed = `failed' + 1
+}
+
+capture assert id == 4 if id == 4
+if _rc == 0 {
+    local passed = `passed' + 1
+}
+else {
+    display as error "[FAIL] Long format person 4: missing from final dataset"
+    local failed = `failed' + 1
+}
+
+capture assert migration_out_dt == . if id == 4
+if _rc == 0 {
+    display as result "[PASS] Long format person 4: retained with no censoring date"
+    local passed = `passed' + 1
+}
+else {
+    display as error "[FAIL] Long format person 4: has unexpected censoring date"
+    local failed = `failed' + 1
+}
+
 * --- Summary ---
 display _newline "=== TEST SUMMARY ==="
 display "Passed: `passed'"

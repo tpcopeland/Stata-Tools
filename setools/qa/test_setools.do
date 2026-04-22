@@ -79,8 +79,8 @@ run_test "T1.1: setools runs without error" `t'
 
 * T1.2: Version return value
 setools
-local t = ("`r(version)'" == "1.4.7")
-run_test "T1.2: r(version) = 1.4.7" `t'
+local t = ("`r(version)'" == "1.0.1")
+run_test "T1.2: r(version) = 1.0.1" `t'
 
 * T1.3: Command count
 setools
@@ -913,6 +913,18 @@ end
 format in_1 out_1 in_2 out_2 %td
 save "`data_dir'/_test_mig_wide.dta", replace
 
+clear
+input long id double event_date str3 event_type
+2 20999 "Utv"
+3 21244 "Inv"
+4 21366 "Utv"
+5 21244 "Utv"
+5 21336 "Inv"
+5 21427 "Utv"
+end
+format event_date %td
+save "`data_dir'/_test_mig_long.dta", replace
+
 * T7.1: Basic migrations
 use "`data_dir'/_test_mig_master.dta", clear
 capture noisily migrations, migfile("`data_dir'/_test_mig_wide.dta")
@@ -1075,7 +1087,216 @@ restore
 
 migrations, migfile("`data_dir'/_test_mig_wide_renamed.dta") idvar(patient_id) startvar(baseline_dt)
 local t = (r(N_final) == 3)
-run_test "T7.16: custom idvar/startvar work" `t'
+run_test "T7.19: custom idvar/startvar work" `t'
+
+* T7.19a: Long-format migration file runs
+use "`data_dir'/_test_mig_master.dta", clear
+capture noisily migrations, migfile("`data_dir'/_test_mig_long.dta")
+local t = (_rc == 0)
+run_test "T7.19a: long-format migfile runs" `t'
+
+* T7.19b: Long-format counts match baseline wide case
+use "`data_dir'/_test_mig_master.dta", clear
+migrations, migfile("`data_dir'/_test_mig_long.dta")
+local t = (r(N_excluded_emigrated) == 1 & r(N_excluded_inmigration) == 1 & r(N_excluded_total) == 2 & r(N_censored) == 2 & r(N_final) == 3)
+run_test "T7.19b: long-format exclusions/censoring match wide baseline" `t'
+
+* T7.19c: Long-format keepimmigrants generates migration_in_dt
+use "`data_dir'/_test_mig_master.dta", clear
+migrations, migfile("`data_dir'/_test_mig_long.dta") keepimmigrants
+local incl = r(N_included_inmigration)
+quietly count if id == 3
+local kept = r(N)
+quietly summarize migration_in_dt if id == 3
+local t = (`incl' == 1 & `kept' == 1 & r(N) == 1 & r(mean) == 21244)
+run_test "T7.19c: long-format keepimmigrants retains Type 2 with migration_in_dt" `t'
+
+* T7.19d: Long-format Type 3 remains excluded with keepimmigrants
+clear
+input long id double study_start
+1 21185
+2 21185
+3 21185
+4 21185
+end
+format study_start %td
+save "`data_dir'/_test_mig_type3_master.dta", replace
+
+clear
+input long id double event_date str3 event_type
+2 20800 "Utv"
+3 20800 "Utv"
+3 21300 "Inv"
+4 21300 "Inv"
+end
+format event_date %td
+save "`data_dir'/_test_mig_type3_long.dta", replace
+
+use "`data_dir'/_test_mig_type3_master.dta", clear
+migrations, migfile("`data_dir'/_test_mig_type3_long.dta") keepimmigrants
+local t = (r(N_excluded_emigrated) == 1 & r(N_excluded_abroad) == 1 & r(N_included_inmigration) == 1 & r(N_final) == 2)
+run_test "T7.19d: long-format Type 3 excluded and Type 2 included" `t'
+
+* T7.19e: Long-format labeled numeric event_type works
+clear
+set obs 1
+gen long id = 1
+gen long study_start = td(01jan2018)
+format study_start %td
+save "`data_dir'/_test_mig_label_master.dta", replace
+
+clear
+set obs 1
+gen long id = 1
+gen double event_date = td(01mar2018)
+gen byte event_type = 1
+label define _test_mig_type 1 "Inv" 2 "Utv"
+label values event_type _test_mig_type
+format event_date %td
+save "`data_dir'/_test_mig_label_long.dta", replace
+
+use "`data_dir'/_test_mig_label_master.dta", clear
+migrations, migfile("`data_dir'/_test_mig_label_long.dta") keepimmigrants
+local incl = r(N_included_inmigration)
+quietly summarize migration_in_dt if id == 1
+local t = (`incl' == 1 & r(N) == 1 & r(mean) == td(01mar2018))
+run_test "T7.19e: long-format labeled numeric event_type accepted" `t'
+
+* T7.19f: Emigration on study_start is retained and not censored
+clear
+set obs 1
+gen long id = 1
+gen long study_start = td(01jan2018)
+format study_start %td
+tempfile t719f_master t719f_long
+save `t719f_master', replace
+
+clear
+input long id double event_date str3 event_type
+1 21185 "Utv"
+end
+format event_date %td
+save `t719f_long', replace
+
+use `t719f_master', clear
+migrations, migfile("`t719f_long'")
+local n_excl_total = r(N_excluded_total)
+local n_cens = r(N_censored)
+local n_final = r(N_final)
+quietly summarize migration_out_dt if id == 1
+local t = (`n_excl_total' == 0 & `n_cens' == 0 & `n_final' == 1 & r(N) == 0 & missing(r(mean)))
+run_test "T7.19f: study-start emigration retained without censoring" `t'
+
+* T7.19g: Missing long event_date errors cleanly
+clear
+set obs 1
+gen long id = 1
+gen long study_start = td(01jan2018)
+format study_start %td
+tempfile t719g_master t719g_long
+save `t719g_master', replace
+
+clear
+set obs 1
+gen long id = 1
+gen double event_date = .
+gen str3 event_type = "Inv"
+format event_date %td
+save `t719g_long', replace
+
+use `t719g_master', clear
+capture noisily migrations, migfile("`t719g_long'")
+local t = (_rc == 198)
+run_test "T7.19g: missing long event_date -> rc 198" `t'
+
+* T7.19h: Unsupported long event_type errors cleanly
+clear
+set obs 1
+gen long id = 1
+gen long study_start = td(01jan2018)
+format study_start %td
+tempfile t719h_master t719h_long
+save `t719h_master', replace
+
+clear
+set obs 1
+gen long id = 1
+gen double event_date = td(01mar2018)
+gen str3 event_type = "Foo"
+format event_date %td
+save `t719h_long', replace
+
+use `t719h_master', clear
+capture noisily migrations, migfile("`t719h_long'")
+local t = (_rc == 198)
+run_test "T7.19h: unsupported long event_type -> rc 198" `t'
+
+* T7.19i: Unlabeled numeric event_type errors cleanly
+clear
+set obs 1
+gen long id = 1
+gen long study_start = td(01jan2018)
+format study_start %td
+tempfile t719i_master t719i_long
+save `t719i_master', replace
+
+clear
+set obs 1
+gen long id = 1
+gen double event_date = td(01mar2018)
+gen byte event_type = 1
+format event_date %td
+save `t719i_long', replace
+
+use `t719i_master', clear
+capture noisily migrations, migfile("`t719i_long'")
+local t = (_rc == 109)
+run_test "T7.19i: unlabeled numeric long event_type -> rc 109" `t'
+
+* T7.19j: Reserved in_ collision in long-format file errors cleanly
+clear
+set obs 1
+gen long id = 1
+gen long study_start = td(01jan2018)
+format study_start %td
+tempfile t719j_master t719j_long
+save `t719j_master', replace
+
+clear
+set obs 1
+gen long id = 1
+gen double event_date = td(01mar2018)
+gen str3 event_type = "Inv"
+gen double in_ = td(01mar2018)
+format event_date in_ %td
+save `t719j_long', replace
+
+use `t719j_master', clear
+capture noisily migrations, migfile("`t719j_long'")
+local t = (_rc == 110)
+run_test "T7.19j: reserved in_ in long migfile -> rc 110" `t'
+
+* T7.19k: Non-daily long event_date format is rejected
+clear
+set obs 1
+gen long id = 1
+gen long study_start = td(01jan2018)
+format study_start %td
+tempfile t719k_master t719k_long
+save `t719k_master', replace
+
+clear
+set obs 1
+gen long id = 1
+gen double event_date = clock("2018-03-01 12:34:56", "YMDhms")
+gen str3 event_type = "Inv"
+format event_date %tc
+save `t719k_long', replace
+
+use `t719k_master', clear
+capture noisily migrations, migfile("`t719k_long'")
+local t = (_rc == 109)
+run_test "T7.19k: non-daily long event_date format -> rc 109" `t'
 
 **# Section 6: sustainedss command
 
@@ -1631,6 +1852,64 @@ cci_se, id(lopnr) icd(diagnos) date(datum) dateformat(yyyymmdd) components
 local t = (charlson >= 3)
 run_test "T9.26: mixed ICD-9/ICD-10 both scored" `t'
 
+* T9.27: Multiple diagnosis variables on one row contribute jointly
+clear
+input long lopnr str10 diag_main str10 diag_aux double datum
+1 "I21" "J44" 21915
+2 "B20" "" 21915
+end
+format datum %td
+cci_se, id(lopnr) icd(diag_main diag_aux) date(datum) components
+sort lopnr
+local t = (charlson[1] == 2 & cci_mi[1] == 1 & cci_copd[1] == 1 & charlson[2] == 6)
+run_test "T9.27: multi-variable icd() accumulates across columns" `t'
+
+* T9.28: Hierarchy rules apply across diagnosis variables
+clear
+input long lopnr str10 diag_main str10 diag_aux double datum
+1 "E100" "E102" 21915
+2 "C50" "C77" 21915
+end
+format datum %td
+cci_se, id(lopnr) icd(diag_main diag_aux) date(datum) components
+sort lopnr
+local t = (charlson[1] == 2 & cci_diab[1] == 0 & cci_diabcomp[1] == 1 & charlson[2] == 6 & cci_cancer[2] == 0 & cci_mets[2] == 1)
+run_test "T9.28: hierarchies work across multiple diagnosis variables" `t'
+
+* T9.29: Mixed-type icd() varlist errors cleanly
+clear
+input long lopnr str10 diag_main double diag_aux double datum
+1 "I21" 12345 21915
+end
+format datum %td
+capture noisily cci_se, id(lopnr) icd(diag_main diag_aux) date(datum)
+local t = (_rc == 109)
+run_test "T9.29: mixed-type icd() varlist -> rc 109" `t'
+
+* T9.30: Multi-variable icd() matches legacy single-variable path
+clear
+input long lopnr str10 diag_main str10 diag_aux double datum
+1 "I21" "J44" 21915
+2 "E100" "E102" 21915
+3 "C50" "C77" 21915
+end
+format datum %td
+tempfile t930_multi t930_ref
+save `t930_multi', replace
+
+use `t930_multi', clear
+gen str30 diag_all = trim(diag_main + " " + diag_aux)
+cci_se, id(lopnr) icd(diag_all) date(datum) generate(score_single)
+keep lopnr score_single
+rename score_single score_ref
+save `t930_ref', replace
+
+use `t930_multi', clear
+cci_se, id(lopnr) icd(diag_main diag_aux) date(datum) generate(score_multi)
+merge 1:1 lopnr using `t930_ref', nogen
+local t = (score_multi[1] == score_ref[1] & score_multi[2] == score_ref[2] & score_multi[3] == score_ref[3])
+run_test "T9.30: multi-variable icd() matches legacy single-variable scores" `t'
+
 * --- 9B: procmatch expanded edge cases ---
 
 * T3.23: More than 9 codes (chunking logic)
@@ -1987,6 +2266,38 @@ capture noisily migrations, migfile("`data_dir'/_test_mig_wide.dta") startvar(st
 local t = (_rc == 109)
 run_test "T7.24: string startvar -> rc 109" `t'
 
+* T7.24a: Non-daily %tc startvar -> error 109
+clear
+set obs 1
+gen long id = 1
+gen double study_start = clock("2018-01-01 00:00:00", "YMDhms")
+format study_start %tc
+capture noisily migrations, migfile("`data_dir'/_test_mig_wide.dta") startvar(study_start)
+local t = (_rc == 109)
+run_test "T7.24a: %tc startvar -> rc 109" `t'
+
+* T7.24b: Wide-format %tc migration dates -> error 109
+clear
+set obs 1
+gen long id = 1
+gen long study_start = td(01jan2018)
+format study_start %td
+tempfile t724b_master t724b_wide
+save `t724b_master', replace
+
+clear
+set obs 1
+gen long id = 1
+gen double in_1 = clock("2018-03-01 12:34:56", "YMDhms")
+gen double out_1 = .
+format in_1 out_1 %tc
+save `t724b_wide', replace
+
+use `t724b_master', clear
+capture noisily migrations, migfile("`t724b_wide'")
+local t = (_rc == 109)
+run_test "T7.24b: wide-format %tc migration dates -> rc 109" `t'
+
 * T7.25: Pre-existing migration_out_dt -> error (Codex Finding 5)
 * Regression: should not silently drop user's existing variable
 use "`data_dir'/_test_mig_master.dta", clear
@@ -2199,7 +2510,7 @@ run_test "T13.5: procmatch does not change set more" `t'
 
 **# Cleanup
 
-local cleanup_files "_test_cdp.dta _test_relapses.dta _test_relapses_empty.dta _test_relapses_strid.dta _test_mig_master.dta _test_mig_wide.dta _test_mig_wide_renamed.dta _test_excluded.dta _test_censor.dta _test_mig_t13.dta _test_mig_t13_wide.dta _test_mig_t14.dta _test_mig_t14_wide.dta _test_pira_exact.dta _test_rel_exact.dta _test_rel_outside.dta _test_rel_multi.dta _test_rel_custom.dta _test_mig_imonly_master.dta _test_mig_imonly_wide.dta _test_mig_emafter_master.dta _test_mig_emafter_wide.dta _test_excl_rep.dta _test_cens_rep.dta"
+local cleanup_files "_test_cdp.dta _test_relapses.dta _test_relapses_empty.dta _test_relapses_strid.dta _test_mig_master.dta _test_mig_wide.dta _test_mig_long.dta _test_mig_wide_renamed.dta _test_excluded.dta _test_censor.dta _test_mig_t13.dta _test_mig_t13_wide.dta _test_mig_t14.dta _test_mig_t14_wide.dta _test_mig_type3_master.dta _test_mig_type3_long.dta _test_mig_label_master.dta _test_mig_label_long.dta _test_pira_exact.dta _test_rel_exact.dta _test_rel_outside.dta _test_rel_multi.dta _test_rel_custom.dta _test_mig_imonly_master.dta _test_mig_imonly_wide.dta _test_mig_emafter_master.dta _test_mig_emafter_wide.dta _test_excl_rep.dta _test_cens_rep.dta"
 foreach f of local cleanup_files {
     capture erase "`data_dir'/`f'"
 }

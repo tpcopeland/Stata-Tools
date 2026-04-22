@@ -261,28 +261,7 @@ program define msm_table, nclass
         as result "`xlsx'"
 
     if "`open'" != "" {
-        if "`c(mode)'" == "batch" {
-            display as text "note: automatic open skipped in batch mode"
-        }
-        else {
-            local _open_rc = 0
-            if "`c(os)'" == "Windows" {
-                capture shell start "" "`xlsx'"
-                local _open_rc = _rc
-            }
-            else if "`c(os)'" == "MacOSX" {
-                capture shell open "`xlsx'" &
-                local _open_rc = _rc
-            }
-            else {
-                capture shell xdg-open "`xlsx'" &
-                local _open_rc = _rc
-            }
-
-            if `_open_rc' {
-                display as text "note: automatic open skipped in this environment"
-            }
-        }
+        _msm_post_export_open, file(`"`xlsx'"')
     }
 
     } /* end capture noisily */
