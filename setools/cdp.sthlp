@@ -42,7 +42,7 @@
 
 {p 8 16 2}
 {it:datevar} and the variable supplied in {opt dxdate()} must both be Stata
-daily dates with {cmd:%td} display formats. Other numeric time encodings such
+daily dates stored as whole-number values with {cmd:%td} display formats. Other numeric time encodings such
 as {cmd:%tm}, {cmd:%tq}, and {cmd:%tc} are rejected because the command uses
 day arithmetic.{p_end}
 
@@ -57,7 +57,7 @@ and observational studies.
 
 {pstd}
 {bf:Date contract:} {it:datevar} and {opt dxdate()} must be numeric Stata daily
-date variables with {cmd:%td} display formats. {opt confirmdays()} and
+date variables with {cmd:%td} display formats and whole-number daily values. {opt confirmdays()} and
 {opt baselinewindow()} are interpreted in days, so non-daily encodings are not
 accepted.
 
@@ -99,7 +99,7 @@ confirmation window.
 {phang}
 {opt dxdate(varname)} specifies the variable containing the MS diagnosis date.
 This is used to determine the baseline window. The variable must be a Stata
-daily date with a {cmd:%td} display format.
+daily date with a {cmd:%td} display format and whole-number daily values.
 
 {dlgtab:Optional}
 

@@ -94,6 +94,16 @@ save `migwide'
 use `cohort', clear
 migrations, migfile("`migwide'") verbose
 
+capture assert r(N_excluded_total) == 0 & r(N_censored) == 1 & r(N_final) == 4
+if _rc == 0 {
+    display as result "[PASS] Wide format returns: excluded=0 censored=1 final=4"
+    local passed = `passed' + 1
+}
+else {
+    display as error "[FAIL] Wide format returns do not match expected counts"
+    local failed = `failed' + 1
+}
+
 * ============================================================
 * Verify results
 * ============================================================
@@ -139,7 +149,8 @@ else {
 
 * --- Person 4: no migration record ---
 * Should be retained with no censoring date
-capture assert id == 4 if id == 4
+quietly count if id == 4
+capture assert r(N) == 1
 if _rc == 0 {
     local passed = `passed' + 1
 }
@@ -188,6 +199,16 @@ save `miglong'
 use `cohort', clear
 migrations, migfile("`miglong'") verbose
 
+capture assert r(N_excluded_total) == 0 & r(N_censored) == 1 & r(N_final) == 4
+if _rc == 0 {
+    display as result "[PASS] Long format returns: excluded=0 censored=1 final=4"
+    local passed = `passed' + 1
+}
+else {
+    display as error "[FAIL] Long format returns do not match expected counts"
+    local failed = `failed' + 1
+}
+
 capture assert migration_out_dt == . if id == 1
 if _rc == 0 {
     display as result "[PASS] Long format person 1: no censoring date (temporary emigration)"
@@ -219,7 +240,8 @@ else {
     local failed = `failed' + 1
 }
 
-capture assert id == 4 if id == 4
+quietly count if id == 4
+capture assert r(N) == 1
 if _rc == 0 {
     local passed = `passed' + 1
 }

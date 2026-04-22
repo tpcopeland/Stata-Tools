@@ -106,6 +106,9 @@ program define pira, rclass
         di as error "`dxdate' must be a Stata daily date variable with %td format"
         exit 109
     }
+    local id_is_str = 0
+    capture confirm string variable `idvar'
+    if !_rc local id_is_str = 1
 
     // Check relapse file exists
     capture confirm file "`relapses'"
@@ -143,6 +146,13 @@ program define pira, rclass
         di as error "generate() and rawgenerate() must specify different variable names"
         exit 198
     }
+    foreach _pira_out in `generate' `rawgenerate' {
+        if substr(lower("`_pira_out'"), 1, 6) == "_pira_" | ///
+            lower("`_pira_out'") == "_relapse_dt" {
+            di as error "generate() and rawgenerate() may not use reserved internal names"
+            exit 198
+        }
+    }
 
     // Check if generate variables already exist
     capture confirm variable `generate'
@@ -158,6 +168,12 @@ program define pira, rclass
 
     // Mark sample (strok: allow string ID variables)
     marksample touse, strok
+    if `id_is_str' {
+        quietly replace `touse' = 0 if trim(`idvar') == "" & `touse'
+    }
+    else {
+        markout `touse' `idvar'
+    }
     markout `touse' `dxdate'
 
     // Check for valid observations
@@ -180,11 +196,6 @@ program define pira, rclass
     // =========================================================================
     // LOAD AND PREPARE RELAPSE DATA
     // =========================================================================
-
-    // Detect master ID type for cross-file validation
-    local id_is_str = 0
-    capture confirm string variable `idvar'
-    if !_rc local id_is_str = 1
 
     tempfile master_data relapse_data
 
@@ -239,6 +250,12 @@ program define pira, rclass
     qui keep `relapseidvar' `relapsedatevar'
     qui rename `relapseidvar' `idvar'
     qui rename `relapsedatevar' _relapse_dt
+    if `rel_id_is_str' {
+        qui drop if trim(`idvar') == ""
+    }
+    else {
+        qui drop if missing(`idvar')
+    }
     qui drop if missing(_relapse_dt)
     qui count if _relapse_dt != floor(_relapse_dt)
     if r(N) > 0 {

@@ -61,7 +61,7 @@ The migration file supplied in {opt migfile()} may be either:
 
 {phang2}1. {bf:Wide format}: one row per person with variables {it:in_1}, {it:out_1},
 {it:in_2}, {it:out_2}, ... . All migration date variables must be Stata {it:daily}
-dates with {cmd:%td} display formats.{p_end}
+dates stored as whole-number daily values with {cmd:%td} display formats.{p_end}
 
 {phang2}2. {bf:Long format}: one row per migration event with the ID variable specified
 in {opt idvar()} plus variables {cmd:event_date} and {cmd:event_type}, where
@@ -69,7 +69,8 @@ in {opt idvar()} plus variables {cmd:event_date} and {cmd:event_type}, where
 for immigration and {cmd:Utv} for emigration (case-insensitive). Long input is
 normalized internally to the same wide event sequence used by the existing command
 logic. {cmd:event_date} must be a Stata {it:daily} date variable with a {cmd:%td}
-display format; datetime variables such as {cmd:%tc} are rejected.{p_end}
+display format and whole-number daily values; datetime variables such as {cmd:%tc}
+are rejected.{p_end}
 
 {pstd}
 {bf:Exclusion criteria:}
@@ -77,8 +78,9 @@ display format; datetime variables such as {cmd:%tc} are rejected.{p_end}
 {phang2}{bf:Type 1}: Last emigration occurred before study start AND last immigration occurred before 
 last emigration (i.e., person left Sweden and never returned before their study start).{p_end}
 
-{phang2}{bf:Type 2}: Only migration record is an immigration after study start (i.e., person was
-not in Sweden at their study start date). Excluded by default; see {opt keepimmigrants} to
+{phang2}{bf:Type 2}: The person has no evidence of being in Sweden at study start and
+their migration history only shows immigration after study start (including duplicate
+post-start immigration records). Excluded by default; see {opt keepimmigrants} to
 include these individuals instead.{p_end}
 
 {phang2}{bf:Type 3}: Person emigrated before study start and returned after study start (i.e.,
@@ -113,12 +115,13 @@ must be in one of these formats:
 
 {phang2}{bf:Wide format}: immigration date variables ({it:in_1}, {it:in_2}, ...) and
 emigration date variables ({it:out_1}, {it:out_2}, ...) with one row per person.
-All such date variables must use Stata daily {cmd:%td} formats.{p_end}
+All such date variables must use Stata daily {cmd:%td} formats and whole-number
+daily values.{p_end}
 
 {phang2}{bf:Long format}: variables {cmd:event_date} and {cmd:event_type}, with one
 row per migration event. {cmd:event_type} must distinguish immigration ({cmd:Inv})
 from emigration ({cmd:Utv}). {cmd:event_date} must use a Stata daily {cmd:%td}
-format.{p_end}
+format with whole-number daily values.{p_end}
 
 {dlgtab:Optional}
 
@@ -128,7 +131,8 @@ format.{p_end}
 {phang}
 {opt startvar(varname)} specifies the name of the study start date variable in the master dataset.
 Default is {cmd:study_start}. This variable must be a Stata daily date with a {cmd:%td}
-display format, and it must be nonmissing for every observation in the master dataset.
+display format, must contain whole-number daily values, and must be nonmissing for
+every observation in the master dataset.
 
 {phang}
 {opt minresidence(#)} specifies the minimum number of days a person must have been
@@ -140,7 +144,8 @@ lookback windows. Default is {bf:0} (disabled). Persons with no immigration reco
 
 {phang}
 {opt saveexclude(filename)} saves a dataset containing excluded individuals and their exclusion 
-reason to the specified file.
+reason to the specified file. When no exclusions occur, the saved dataset is empty
+but still contains {opt idvar()} and {cmd:exclude_reason}.
 
 {phang}
 {opt savecensor(filename)} saves a dataset containing only {opt idvar()} and

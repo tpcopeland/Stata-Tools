@@ -66,6 +66,11 @@ program define migrations, rclass
         display as error "`startvar' must be a Stata daily date variable with %td format"
         exit 109
     }
+    quietly count if !missing(`startvar') & `startvar' != floor(`startvar')
+    if r(N) > 0 {
+        display as error "`startvar' must contain whole-number Stata daily dates"
+        exit 109
+    }
 
     quietly count if missing(`startvar')
     if r(N) > 0 {
@@ -109,6 +114,43 @@ program define migrations, rclass
     if "`savecensor'" != "" {
         if regexm("`savecensor'", "[;&|><\$\`]") {
             display as error "savecensor() contains invalid characters"
+            exit 198
+        }
+    }
+    local _migfile_lc = lower("`migfile'")
+    if "`saveexclude'" != "" {
+        local _saveexclude_lc = lower("`saveexclude'")
+        if "`_saveexclude_lc'" == "`_migfile_lc'" {
+            display as error "saveexclude() may not overwrite migfile()"
+            exit 198
+        }
+        if "`replace'" == "" {
+            capture confirm new file "`saveexclude'"
+            if _rc {
+                display as error "File already exists: `saveexclude'"
+                display as error "Specify replace to overwrite it"
+                exit 602
+            }
+        }
+    }
+    if "`savecensor'" != "" {
+        local _savecensor_lc = lower("`savecensor'")
+        if "`_savecensor_lc'" == "`_migfile_lc'" {
+            display as error "savecensor() may not overwrite migfile()"
+            exit 198
+        }
+        if "`replace'" == "" {
+            capture confirm new file "`savecensor'"
+            if _rc {
+                display as error "File already exists: `savecensor'"
+                display as error "Specify replace to overwrite it"
+                exit 602
+            }
+        }
+    }
+    if "`saveexclude'" != "" & "`savecensor'" != "" {
+        if "`_saveexclude_lc'" == "`_savecensor_lc'" {
+            display as error "saveexclude() and savecensor() must specify different files"
             exit 198
         }
     }
@@ -165,7 +207,19 @@ program define migrations, rclass
                 display as error "Wide-format migration variable '`wide_date_var'' must be a Stata daily date variable with %td format"
                 exit 109
             }
+            quietly count if !missing(`wide_date_var') & `wide_date_var' != floor(`wide_date_var')
+            if r(N) > 0 {
+                display as error "Wide-format migration variable '`wide_date_var'' must contain whole-number Stata daily dates"
+                exit 109
+            }
         }
+
+        tempvar _mig_has_wide_event
+        qui gen byte `_mig_has_wide_event' = 0
+        foreach wide_date_var of local _mig_wide_date_vars {
+            qui replace `_mig_has_wide_event' = 1 if !missing(`wide_date_var')
+        }
+        qui keep if `_mig_has_wide_event' == 1
     }
     else if `has_long_date' & `has_long_type' {
         if "`verbose'" != "" {
@@ -181,6 +235,11 @@ program define migrations, rclass
         local _mig_event_date_fmt : format `mig_event_date_var'
         if lower(substr("`_mig_event_date_fmt'", 1, 3)) != "%td" {
             display as error "`mig_event_date_var' must be a Stata daily date variable with %td format"
+            exit 109
+        }
+        quietly count if !missing(`mig_event_date_var') & `mig_event_date_var' != floor(`mig_event_date_var')
+        if r(N) > 0 {
+            display as error "`mig_event_date_var' must contain whole-number Stata daily dates"
             exit 109
         }
 
@@ -334,11 +393,13 @@ program define migrations, rclass
         local n_censor = 0
 
         qui keep `idvar'
+        qui gen str80 exclude_reason = ""
         qui save `exclude1', replace emptyok
         qui save `exclude2', replace emptyok
         qui save `exclude3', replace emptyok
         qui save `exclude4', replace emptyok
 
+        qui drop exclude_reason
         qui gen long migration_out_dt = .
         qui label var migration_out_dt "Emigration censoring date"
         qui format migration_out_dt %tdCCYY/NN/DD
@@ -349,6 +410,30 @@ program define migrations, rclass
         if "`verbose'" != "" display as text "Reshaping migration data..."
         qui reshape long in_ out_, i(`idvar') j(_mig_num)
         qui drop if out_ == . & in_ == .
+        qui duplicates drop `idvar' in_ out_, force
+
+        qui count
+        if r(N) == 0 {
+            local n_exclude1 = 0
+            local n_exclude2 = 0
+            local n_exclude3 = 0
+            local n_exclude4 = 0
+            local n_censor = 0
+
+            qui keep `idvar'
+            qui gen str80 exclude_reason = ""
+            qui save `exclude1', replace emptyok
+            qui save `exclude2', replace emptyok
+            qui save `exclude3', replace emptyok
+            qui save `exclude4', replace emptyok
+
+            qui drop exclude_reason
+            qui gen long migration_out_dt = .
+            qui label var migration_out_dt "Emigration censoring date"
+            qui format migration_out_dt %tdCCYY/NN/DD
+            qui save `censor_data', replace emptyok
+        }
+        else {
 
         * Calculate last emigration and immigration dates per person
         * Note: using bysort instead of egen — Stata's internal tempvar counter
@@ -400,7 +485,10 @@ program define migrations, rclass
         qui keep `idvar'
         if _N > 0 {
             qui duplicates drop `idvar', force
-            qui gen exclude_reason = "Emigrated before study start, never returned"
+        }
+        qui gen str80 exclude_reason = ""
+        if _N > 0 {
+            qui replace exclude_reason = "Emigrated before study start, never returned"
         }
 
         qui save `exclude1', replace emptyok
@@ -411,11 +499,11 @@ program define migrations, rclass
         qui drop if _mig_excl_emig == 1
         qui drop _mig_excl_emig
 
-        * EXCLUSION 4: Insufficient residence before study_start
-        * Must run before pre-filter drops immigration-only records
-        if `minresidence' > 0 {
-            qui gen _mig_excl_minres = 0
-            qui replace _mig_excl_minres = 1 if !missing(_mig_pre_start_in) & (`startvar' - _mig_pre_start_in) < `minresidence'
+            * EXCLUSION 4: Insufficient residence before study_start
+            * Must run before pre-filter drops immigration-only records
+            if `minresidence' > 0 {
+                qui gen _mig_excl_minres = 0
+                qui replace _mig_excl_minres = 1 if !missing(_mig_pre_start_in) & (`startvar' - _mig_pre_start_in) < `minresidence'
 
             tempfile pre_exclude4
             qui save `pre_exclude4', replace
@@ -543,9 +631,13 @@ program define migrations, rclass
             * Drop if only one migration and it's an immigration before study_start
             qui drop if _mig_total == 1 & _mig_last_in < `startvar'
 
-            * EXCLUSION 2: Only migration is immigration after study_start (not in Sweden at baseline)
+            * EXCLUSION 2: Immigration only after study_start (not in Sweden at baseline)
+            * Use person-level state helpers so duplicate or repeated post-start
+            * immigration records do not evade classification.
             qui gen _mig_excl_inmig = 0
-            qui replace _mig_excl_inmig = 1 if in_ > `startvar' & out_ == . & _mig_total == 1 & in_ != .
+            qui replace _mig_excl_inmig = 1 if missing(_mig_last_out) & ///
+                missing(_mig_last_pre_in) & ///
+                !missing(_mig_first_post_in)
 
             * Calculate emigration censoring date
             * Only permanent emigrations (no subsequent return) generate censoring dates
@@ -580,7 +672,7 @@ program define migrations, rclass
                 local n_exclude2 = 0
 
                 * Record immigration date for included immigrants
-                qui gen long migration_in_dt = in_ if _mig_excl_inmig == 1
+                qui gen long migration_in_dt = _mig_first_post_in if _mig_excl_inmig == 1
                 qui format migration_in_dt %tdCCYY/NN/DD
                 qui label var migration_in_dt "Post-study-start immigration date"
 
@@ -658,13 +750,41 @@ program define migrations, rclass
     }
     local n_exclude_total = _N
 
+    local _saveexclude_had_file = 0
+    local _savecensor_had_file = 0
+    tempfile _mig_saveexclude_backup _mig_savecensor_backup
+    if "`saveexclude'" != "" {
+        capture confirm file "`saveexclude'"
+        if !_rc {
+            local _saveexclude_had_file = 1
+            qui copy "`saveexclude'" "`_mig_saveexclude_backup'", replace
+        }
+    }
+    if "`savecensor'" != "" {
+        capture confirm file "`savecensor'"
+        if !_rc {
+            local _savecensor_had_file = 1
+            qui copy "`savecensor'" "`_mig_savecensor_backup'", replace
+        }
+    }
+
     * Save exclusions
     if "`saveexclude'" != "" {
-        if "`replace'" != "" {
-            qui save "`saveexclude'", replace
+        capture noisily {
+            if "`replace'" != "" {
+                qui save "`saveexclude'", replace
+            }
+            else {
+                qui save "`saveexclude'"
+            }
         }
-        else {
-            qui save "`saveexclude'"
+        local _saveexclude_rc = _rc
+        if `_saveexclude_rc' {
+            if `_saveexclude_had_file' {
+                capture copy "`_mig_saveexclude_backup'" "`saveexclude'", replace
+            }
+            restore
+            exit `_saveexclude_rc'
         }
         if "`verbose'" != "" display as text "Exclusions saved to `saveexclude'"
     }
@@ -673,11 +793,29 @@ program define migrations, rclass
 
     if "`savecensor'" != "" {
         qui use `censor_export_data', clear
-        if "`replace'" != "" {
-            qui save "`savecensor'", replace
+        capture noisily {
+            if "`replace'" != "" {
+                qui save "`savecensor'", replace
+            }
+            else {
+                qui save "`savecensor'"
+            }
         }
-        else {
-            qui save "`savecensor'"
+        local _savecensor_rc = _rc
+        if `_savecensor_rc' {
+            if "`saveexclude'" != "" {
+                if `_saveexclude_had_file' {
+                    capture copy "`_mig_saveexclude_backup'" "`saveexclude'", replace
+                }
+                else {
+                    capture erase "`saveexclude'"
+                }
+            }
+            if `_savecensor_had_file' {
+                capture copy "`_mig_savecensor_backup'" "`savecensor'", replace
+            }
+            restore
+            exit `_savecensor_rc'
         }
         if "`verbose'" != "" display as text "Censoring dates saved to `savecensor'"
     }

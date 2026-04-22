@@ -45,7 +45,7 @@
 {p2colreset}{...}
 
 {p 8 17 2}
-{it:datevar} must be a Stata daily date with a {cmd:%td} display format.
+{it:datevar} must be a Stata daily date stored as a whole-number value with a {cmd:%td} display format.
 Other numeric time encodings such as {cmd:%tm}, {cmd:%tq}, and {cmd:%tc} are
 rejected because {opt confirmwindow()} is interpreted in days.{p_end}
 
@@ -61,7 +61,7 @@ within a specified window after the initial event.
 
 {pstd}
 {bf:Date contract:} {it:datevar} must be a numeric Stata daily date variable
-with a {cmd:%td} display format. The command uses day arithmetic for
+with a {cmd:%td} display format and whole-number daily values. The command uses day arithmetic for
 {opt confirmwindow()}, so non-daily encodings are not accepted.
 
 {pstd}
@@ -129,7 +129,7 @@ The command requires three variables in the specified order:
 
 {phang2}{it:idvar} - Patient identifier (numeric or string){p_end}
 {phang2}{it:edssvar} - EDSS score (numeric){p_end}
-{phang2}{it:datevar} - Date of EDSS measurement (numeric Stata daily date with {cmd:%td} format){p_end}
+{phang2}{it:datevar} - Date of EDSS measurement (numeric Stata daily date with {cmd:%td} format and whole-number daily values){p_end}
 
 {pstd}
 {bf:Algorithm details:}

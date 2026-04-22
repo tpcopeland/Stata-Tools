@@ -103,9 +103,19 @@ program define procmatch_match, rclass
 
     * Check if variable exists
     capture confirm variable `generate'
-    if !_rc & "`replace'" == "" {
-        display as error "Variable `generate' already exists. Use replace option."
-        exit 110
+    local generate_exists = (_rc == 0)
+    if `generate_exists' {
+        if "`replace'" == "" {
+            display as error "Variable `generate' already exists. Use replace option."
+            exit 110
+        }
+        local _procmatch_outtype : char `generate'[_procmatch_output]
+        local _procmatch_outlabel : variable label `generate'
+        if "`_procmatch_outtype'" != "match" & ///
+            substr(`"`_procmatch_outlabel'"', 1, 16) != "Procedure match:" {
+            display as error "generate() name `generate' may not overwrite an unrelated existing variable"
+            exit 198
+        }
     }
 
     * Create matching variable
@@ -115,6 +125,7 @@ program define procmatch_match, rclass
 
     quietly generate byte `generate' = 0
     label variable `generate' "Procedure match: `codes'"
+    char `generate'[_procmatch_output] "match"
 
     * For each procedure variable, apply efficient matching
     foreach procvar of varlist `procvars' {
@@ -217,6 +228,15 @@ program define procmatch_first, rclass
         display as error "`datevar' must be a Stata daily date variable with %td format"
         exit 109
     }
+    quietly count if !missing(`datevar') & `datevar' != floor(`datevar')
+    if r(N) > 0 {
+        display as error "`datevar' must contain whole-number Stata daily dates"
+        exit 109
+    }
+
+    local id_is_str = 0
+    capture confirm string variable `idvar'
+    if !_rc local id_is_str = 1
 
     * Output names may not collide with each other or with inputs
     local inputvars `procvars' `datevar' `idvar'
@@ -291,7 +311,12 @@ program define procmatch_first, rclass
         exit 198
     }
 
-    quietly count if `row_match' == 1 & missing(`idvar')
+    if `id_is_str' {
+        quietly count if `row_match' == 1 & trim(`idvar') == ""
+    }
+    else {
+        quietly count if `row_match' == 1 & missing(`idvar')
+    }
     if r(N) > 0 {
         display as error "Matched procedure rows have missing `idvar' values"
         exit 198
@@ -310,11 +335,13 @@ program define procmatch_first, rclass
     * Generate ever-had indicator
     quietly gen byte `generate' = (`first_dt_temp' != .)
     label variable `generate' "Ever had procedure: `codes'"
+    char `generate'[_procmatch_output] "first_ever"
 
     * Generate first date
     quietly gen long `gendatevar' = `first_dt_temp'
     format `gendatevar' %tdCCYY/NN/DD
     label variable `gendatevar' "First date of procedure: `codes'"
+    char `gendatevar'[_procmatch_output] "first_date"
 
     * Count actual matching rows (before person-level expansion)
     quietly count if `row_match' == 1

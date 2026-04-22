@@ -89,8 +89,8 @@ run_test "T1.3: r(n_commands) = 6" `t'
 
 * T1.4: Categories return
 setools
-local t = ("`r(categories)'" == "codes migration ms")
-run_test "T1.4: r(categories) contains all 3" `t'
+local t = ("`r(categories)'" == "all codes migration ms")
+run_test "T1.4: r(categories) includes all + 3 subcategories" `t'
 
 * T1.5: list option
 capture noisily setools, list
@@ -110,13 +110,18 @@ run_test "T1.7: category(codes) returns procmatch cci_se" `t'
 
 * T1.8: category(migration) filter
 setools, category(migration)
-local t = (r(n_commands) == 1)
-run_test "T1.8: category(migration) returns 1 command" `t'
+local t = (r(n_commands) == 1 & "`r(commands)'" == "migrations" & "`r(category)'" == "migration")
+run_test "T1.8: category(migration) returns exact dispatcher metadata" `t'
 
 * T1.9: category(ms) filter
 setools, category(ms)
-local t = (r(n_commands) == 3)
-run_test "T1.9: category(ms) returns 3 commands" `t'
+local t = (r(n_commands) == 3 & "`r(commands)'" == "sustainedss cdp pira" & "`r(category)'" == "ms")
+run_test "T1.9: category(ms) returns exact dispatcher metadata" `t'
+
+* T1.9a: list mode stores exact metadata
+setools, list category(migration)
+local t = ("`r(display)'" == "list" & "`r(category)'" == "migration" & "`r(commands)'" == "migrations" & r(n_commands) == 1)
+run_test "T1.9a: list mode stores exact metadata" `t'
 
 * T1.10: invalid category error
 capture noisily setools, category(invalid)
@@ -132,6 +137,16 @@ run_test "T1.11: list + category combo works" `t'
 capture noisily setools, detail category(codes)
 local t = (_rc == 0)
 run_test "T1.12: detail + category combo works" `t'
+
+* T1.12a: list + detail is rejected
+capture noisily setools, list detail
+local t = (_rc == 198)
+run_test "T1.12a: list + detail -> rc 198" `t'
+
+* T1.12b: detail category(ms) returns exact dispatcher metadata
+setools, detail category(ms)
+local t = ("`r(display)'" == "detail" & "`r(category)'" == "ms" & r(n_commands) == 3)
+run_test "T1.12b: detail category(ms) returns exact metadata" `t'
 
 **# Section 2: procmatch command
 
@@ -221,6 +236,16 @@ procmatch match, codes("ABC10") procvars(proc1) generate(my_match)
 capture noisily procmatch match, codes("ABC10") procvars(proc1) generate(my_match) replace
 local t = (_rc == 0)
 run_test "T3.8: replace option works" `t'
+
+* T3.8a: replace may not overwrite unrelated existing variables
+clear
+input long id str10 proc1
+1 "ABC10"
+2 "ZZZ99"
+end
+capture noisily procmatch match, codes("ABC10") procvars(proc1) generate(id) replace
+local t = (_rc == 198 & id[1] == 1 & id[2] == 2)
+run_test "T3.8a: match generate(id) replace -> rc 198 and id preserved" `t'
 
 * T3.9: Variable exists without replace -> error
 clear
@@ -366,6 +391,110 @@ procmatch first, codes("ABC10") procvars(proc1) datevar(procdt) idvar(id) genera
 local t = ("`r(datevarname)'" == "my_dt")
 run_test "T3.22: r(datevarname) correct" `t'
 
+* T3.22a: match generate() may not duplicate procvars() input
+clear
+input long id str10 proc1
+1 "ABC10"
+end
+capture noisily procmatch match, codes("ABC10") procvars(proc1) generate(proc1)
+local t = (_rc == 198)
+run_test "T3.22a: match generate(proc1) -> rc 198" `t'
+
+* T3.22b: first generate() and gendatevar() must differ
+clear
+input long id str10 proc1 double procdt
+1 "ABC10" 21550
+end
+format procdt %td
+capture noisily procmatch first, codes("ABC10") procvars(proc1) datevar(procdt) idvar(id) generate(pm_same) gendatevar(pm_same)
+local t = (_rc == 198)
+run_test "T3.22b: first generate()==gendatevar() -> rc 198" `t'
+
+* T3.22c: first generate() may not duplicate idvar()
+clear
+input long id str10 proc1 double procdt
+1 "ABC10" 21550
+end
+format procdt %td
+capture noisily procmatch first, codes("ABC10") procvars(proc1) datevar(procdt) idvar(id) generate(id) gendatevar(pm_dt_in)
+local t = (_rc == 198)
+run_test "T3.22c: first generate(id) -> rc 198" `t'
+
+* T3.22d: first gendatevar() may not duplicate datevar()
+clear
+input long id str10 proc1 double procdt
+1 "ABC10" 21550
+end
+format procdt %td
+capture noisily procmatch first, codes("ABC10") procvars(proc1) datevar(procdt) idvar(id) generate(pm_ev_in) gendatevar(procdt)
+local t = (_rc == 198)
+run_test "T3.22d: first gendatevar(procdt) -> rc 198" `t'
+
+* T3.22e: matched missing datevar() -> error 198
+clear
+input long id str10 proc1 double procdt
+1 "ABC10" .
+2 "DEF20" 21915
+end
+format procdt %td
+capture noisily procmatch first, codes("ABC10") procvars(proc1) datevar(procdt) idvar(id) generate(pm_bad_dt) gendatevar(pm_bad_dt2)
+local t = (_rc == 198)
+run_test "T3.22e: matched missing datevar -> rc 198" `t'
+
+* T3.22f: matched missing idvar() -> error 198
+clear
+input double id str10 proc1 double procdt
+. "ABC10" 21915
+2 "DEF20" 22000
+end
+format procdt %td
+capture noisily procmatch first, codes("ABC10") procvars(proc1) datevar(procdt) idvar(id) generate(pm_bad_id) gendatevar(pm_bad_id2)
+local t = (_rc == 198)
+run_test "T3.22f: matched missing idvar -> rc 198" `t'
+
+* T3.22fa: matched blank string idvar() -> error 198
+clear
+input str3 id str10 proc1 double procdt
+"   " "ABC10" 21915
+"A" "DEF20" 22000
+end
+format procdt %td
+capture noisily procmatch first, codes("ABC10") procvars(proc1) datevar(procdt) idvar(id) generate(pm_bad_sid) gendatevar(pm_bad_sid_dt)
+local t = (_rc == 198)
+run_test "T3.22fa: matched blank string idvar -> rc 198" `t'
+
+* T3.22g: unmatched missing datevar() does not block valid match
+clear
+input long id str10 proc1 double procdt
+1 "ABC10" 21550
+2 "DEF20" .
+end
+format procdt %td
+procmatch first, codes("ABC10") procvars(proc1) datevar(procdt) idvar(id) generate(pm_ok_unmatched) gendatevar(pm_ok_unmatched_dt)
+local t = (r(n_persons) == 1 & pm_ok_unmatched_dt[1] == 21550)
+run_test "T3.22g: unmatched missing datevar still succeeds" `t'
+
+* T3.22h: %tc datevar() is rejected
+clear
+input long id str10 proc1 double procdt
+1 "ABC10" .
+end
+replace procdt = clock("2020-01-01 12:34:56", "YMDhms") in 1
+format procdt %tc
+capture noisily procmatch first, codes("ABC10") procvars(proc1) datevar(procdt) idvar(id) generate(pm_tc) gendatevar(pm_tc_dt)
+local t = (_rc == 109)
+run_test "T3.22h: %tc datevar -> rc 109" `t'
+
+* T3.22i: fractional %td datevar() is rejected
+clear
+input long id str10 proc1 double procdt
+1 "ABC10" 22000.5
+end
+format procdt %td
+capture noisily procmatch first, codes("ABC10") procvars(proc1) datevar(procdt) idvar(id) generate(pm_frac) gendatevar(pm_frac_dt)
+local t = (_rc == 109)
+run_test "T3.22i: fractional %td datevar -> rc 109" `t'
+
 **# Section 3: cdp command
 
 * Create standard EDSS test data
@@ -499,6 +628,50 @@ capture noisily cdp id edss edss_dt, dxdate(dx_date)
 local t = (_rc == 109)
 run_test "T5.15: string date -> rc 109" `t'
 
+* T5.15a: %tc datevar -> error
+clear
+input long id double edss double edss_dt double dx_date
+1 2.0 . 21000
+end
+replace edss_dt = clock("2020-01-01 12:34:56", "YMDhms") in 1
+format edss_dt %tc
+format dx_date %td
+capture noisily cdp id edss edss_dt, dxdate(dx_date)
+local t = (_rc == 109)
+run_test "T5.15a: %tc datevar -> rc 109" `t'
+
+* T5.15b: %tc dxdate() -> error
+clear
+input long id double edss double edss_dt double dx_date
+1 2.0 21185 .
+end
+replace dx_date = clock("2020-01-01 12:34:56", "YMDhms") in 1
+format edss_dt %td
+format dx_date %tc
+capture noisily cdp id edss edss_dt, dxdate(dx_date)
+local t = (_rc == 109)
+run_test "T5.15b: %tc dxdate() -> rc 109" `t'
+
+* T5.15c: fractional %td datevar -> error
+clear
+input long id double edss double edss_dt double dx_date
+1 2.0 21185.5 21000
+end
+format edss_dt dx_date %td
+capture noisily cdp id edss edss_dt, dxdate(dx_date)
+local t = (_rc == 109)
+run_test "T5.15c: fractional %td datevar -> rc 109" `t'
+
+* T5.15d: fractional %td dxdate() -> error
+clear
+input long id double edss double edss_dt double dx_date
+1 2.0 21185 21000.5
+end
+format edss_dt dx_date %td
+capture noisily cdp id edss edss_dt, dxdate(dx_date)
+local t = (_rc == 109)
+run_test "T5.15d: fractional %td dxdate() -> rc 109" `t'
+
 * T5.16: confirmdays <= 0 -> error
 use "`data_dir'/_test_cdp.dta", clear
 capture noisily cdp id edss edss_dt, dxdate(dx_date) confirmdays(0) generate(cdp_bad)
@@ -518,6 +691,7 @@ gen long id = _n
 gen double edss = .
 gen double edss_dt = .
 gen double dx_date = 21000
+format edss_dt dx_date %td
 capture noisily cdp id edss edss_dt, dxdate(dx_date) generate(cdp_bad3)
 local t = (_rc == 2000)
 run_test "T5.18: no valid obs -> rc 2000" `t'
@@ -763,6 +937,24 @@ pira id edss edss_dt, dxdate(dx_date) relapses("`data_dir'/_test_relapses_empty.
 local t = ("`r(pira_varname)'" == "my_pira")
 run_test "T6.9: r(pira_varname) = my_pira" `t'
 
+* T6.9a: generate() and rawgenerate() must differ
+use "`data_dir'/_test_cdp.dta", clear
+capture noisily pira id edss edss_dt, dxdate(dx_date) relapses("`data_dir'/_test_relapses_empty.dta") keepall generate(pira_same) rawgenerate(pira_same)
+local t = (_rc == 198)
+run_test "T6.9a: generate()==rawgenerate() -> rc 198" `t'
+
+* T6.9b: reserved internal generate() name rejected up front
+use "`data_dir'/_test_cdp.dta", clear
+capture noisily pira id edss edss_dt, dxdate(dx_date) relapses("`data_dir'/_test_relapses_empty.dta") keepall generate(_pira_cdp_dt) rawgenerate(raw_ok)
+local t = (_rc == 198)
+run_test "T6.9b: reserved generate(_pira_cdp_dt) -> rc 198" `t'
+
+* T6.9c: reserved internal rawgenerate() name rejected up front
+use "`data_dir'/_test_cdp.dta", clear
+capture noisily pira id edss edss_dt, dxdate(dx_date) relapses("`data_dir'/_test_relapses_empty.dta") keepall generate(pira_ok) rawgenerate(_relapse_dt)
+local t = (_rc == 198)
+run_test "T6.9c: reserved rawgenerate(_relapse_dt) -> rc 198" `t'
+
 * T6.10: rebaselinerelapse option
 use "`data_dir'/_test_cdp.dta", clear
 capture noisily pira id edss edss_dt, dxdate(dx_date) relapses("`data_dir'/_test_relapses.dta") keepall generate(pira_rebase) rawgenerate(raw_rebase) rebaselinerelapse
@@ -816,6 +1008,116 @@ capture noisily pira id edss edss_dt, dxdate(dx_date) relapses("`data_dir'/_test
 local t = (_rc == 109)
 run_test "T6.15: ID type mismatch -> rc 109" `t'
 
+* T6.15a: %tc datevar -> rc 109
+clear
+input long id double edss double edss_dt double dx_date
+1 2.0 . 21000
+end
+replace edss_dt = clock("2020-01-01 12:34:56", "YMDhms") in 1
+format edss_dt %tc
+format dx_date %td
+capture noisily pira id edss edss_dt, dxdate(dx_date) relapses("`data_dir'/_test_relapses_empty.dta") keepall generate(pira_tc) rawgenerate(raw_tc)
+local t = (_rc == 109)
+run_test "T6.15a: %tc datevar -> rc 109" `t'
+
+* T6.15b: %tc dxdate() -> rc 109
+clear
+input long id double edss double edss_dt double dx_date
+1 2.0 21185 .
+end
+replace dx_date = clock("2020-01-01 12:34:56", "YMDhms") in 1
+format edss_dt %td
+format dx_date %tc
+capture noisily pira id edss edss_dt, dxdate(dx_date) relapses("`data_dir'/_test_relapses_empty.dta") keepall generate(pira_tcdx) rawgenerate(raw_tcdx)
+local t = (_rc == 109)
+run_test "T6.15b: %tc dxdate() -> rc 109" `t'
+
+* T6.15c: %tc relapse date -> rc 109
+clear
+input long id double edss double edss_dt double dx_date
+1 2.0 21185 21000
+end
+format edss_dt dx_date %td
+tempfile t615c_rel
+preserve
+clear
+set obs 1
+gen long id = 1
+gen double relapse_date = clock("2020-01-01 12:34:56", "YMDhms")
+format relapse_date %tc
+save `t615c_rel', replace
+restore
+capture noisily pira id edss edss_dt, dxdate(dx_date) relapses("`t615c_rel'") keepall generate(pira_tcrel) rawgenerate(raw_tcrel)
+local t = (_rc == 109)
+run_test "T6.15c: %tc relapse date -> rc 109" `t'
+
+* T6.15d: fractional %td datevar -> rc 109
+clear
+input long id double edss double edss_dt double dx_date
+1 2.0 21185.5 21000
+end
+format edss_dt dx_date %td
+capture noisily pira id edss edss_dt, dxdate(dx_date) relapses("`data_dir'/_test_relapses_empty.dta") keepall generate(pira_fracdt) rawgenerate(raw_fracdt)
+local t = (_rc == 109)
+run_test "T6.15d: fractional %td datevar -> rc 109" `t'
+
+* T6.15e: fractional %td dxdate() -> rc 109
+clear
+input long id double edss double edss_dt double dx_date
+1 2.0 21185 21000.5
+end
+format edss_dt dx_date %td
+capture noisily pira id edss edss_dt, dxdate(dx_date) relapses("`data_dir'/_test_relapses_empty.dta") keepall generate(pira_fracdx) rawgenerate(raw_fracdx)
+local t = (_rc == 109)
+run_test "T6.15e: fractional %td dxdate() -> rc 109" `t'
+
+* T6.15f: fractional %td relapse date -> rc 109
+clear
+input long id double edss double edss_dt double dx_date
+1 2.0 21185 21000
+end
+format edss_dt dx_date %td
+tempfile t615f_rel
+preserve
+clear
+set obs 1
+gen long id = 1
+gen double relapse_date = 21300.5
+format relapse_date %td
+save `t615f_rel', replace
+restore
+capture noisily pira id edss edss_dt, dxdate(dx_date) relapses("`t615f_rel'") keepall generate(pira_fracrel) rawgenerate(raw_fracrel)
+local t = (_rc == 109)
+run_test "T6.15f: fractional %td relapse date -> rc 109" `t'
+
+* T6.15g: blank string ids are excluded before PIRA counts
+clear
+input str3 id double edss double edss_dt double dx_date
+"A" 2.0 21185 21000
+"A" 3.5 21350 21000
+"A" 3.5 21600 21000
+"   " 2.0 21185 21000
+"   " 3.5 21350 21000
+"   " 3.5 21600 21000
+end
+format edss_dt dx_date %td
+tempfile t615g_rel
+preserve
+clear
+set obs 0
+gen str3 id = ""
+gen double relapse_date = .
+format relapse_date %td
+save `t615g_rel', replace emptyok
+restore
+quietly pira id edss edss_dt, dxdate(dx_date) relapses("`t615g_rel'") generate(pira_blankid) rawgenerate(raw_blankid)
+local t615g_cdp = r(N_cdp)
+local t615g_pira = r(N_pira)
+local t615g_raw = r(N_raw)
+quietly count if trim(id) == ""
+local t = (`t615g_cdp' == 1 & `t615g_pira' == 1 & `t615g_raw' == 0 & r(N) == 0)
+run_test "T6.15g: blank string ids excluded before PIRA classification" `t'
+
 * T6.16: Date format on output
 use "`data_dir'/_test_cdp.dta", clear
 pira id edss edss_dt, dxdate(dx_date) relapses("`data_dir'/_test_relapses_empty.dta") keepall generate(pira_fmt) rawgenerate(raw_fmt)
@@ -842,15 +1144,15 @@ run_test "T6.17: no internal _pira_* vars leak" `t'
 * T6.18: No internal vars leak with rebaselinerelapse
 use "`data_dir'/_test_cdp.dta", clear
 pira id edss edss_dt, dxdate(dx_date) relapses("`data_dir'/_test_relapses.dta") rebaselinerelapse keepall generate(pira_rbl) rawgenerate(raw_rbl)
-capture confirm variable _has_relapse
+capture confirm variable _pira_is_visit
 local l1 = (_rc != 0)
-capture confirm variable _last_relapse_dt
+capture confirm variable _pira_newid
 local l2 = (_rc != 0)
-capture confirm variable _post_relapse
+capture confirm variable _pira_cur_bl_edss
 local l3 = (_rc != 0)
-capture confirm variable _new_baseline
+capture confirm variable _pira_cur_bl_date
 local l4 = (_rc != 0)
-capture confirm variable _new_baseline_dt
+capture confirm variable _pira_pending_rel
 local l5 = (_rc != 0)
 local t = (`l1' & `l2' & `l3' & `l4' & `l5')
 run_test "T6.18: no internal rebaseline vars leak" `t'
@@ -881,6 +1183,30 @@ local t = (r(N_pira) == 1)
 run_test "T6.20: PIRA first-event masking: 1 PIRA found" `t'
 local t = (pira_mask1[1] == 500)
 run_test "T6.21: PIRA first-event masking: date=500 not 200" `t'
+
+* T6.21a: future relapse does not retroactively rebaseline earlier PIRA
+clear
+input long id double edss long edss_dt long dx_date
+1 2.0 0 0
+1 3.5 100 0
+1 3.5 300 0
+end
+format edss_dt dx_date %td
+tempfile t621a_edss t621a_rel
+save `t621a_edss', replace
+
+clear
+input long id double relapse_date
+1 250
+end
+format relapse_date %td
+save `t621a_rel', replace
+
+use `t621a_edss', clear
+pira id edss edss_dt, dxdate(dx_date) relapses("`t621a_rel'") ///
+    rebaselinerelapse keepall quietly generate(pira_future) rawgenerate(raw_future)
+local t = (r(N_pira) == 1 & r(N_raw) == 0 & pira_future[1] == 100)
+run_test "T6.21a: future relapse does not erase earlier PIRA at day 100" `t'
 
 **# Section 5: migrations command
 
@@ -991,15 +1317,43 @@ run_test "T7.10: verbose runs" `t'
 use "`data_dir'/_test_mig_master.dta", clear
 migrations, migfile("`data_dir'/_test_mig_wide.dta") saveexclude("`data_dir'/_test_excluded.dta") replace
 capture confirm file "`data_dir'/_test_excluded.dta"
-local t = (_rc == 0)
-run_test "T7.11: saveexclude creates file" `t'
+local t_file = (_rc == 0)
+preserve
+use "`data_dir'/_test_excluded.dta", clear
+local t_schema = (_N == 2)
+capture confirm variable id
+local t_id = (_rc == 0)
+capture confirm variable exclude_reason
+local t_reason = (_rc == 0)
+sort id
+local t_rows = (id[1] == 2 & exclude_reason[1] == "Emigrated before study start, never returned" & ///
+    id[2] == 3 & exclude_reason[2] == "Immigration after study start (not in Sweden at baseline)")
+restore
+local t = (`t_file' & `t_schema' & `t_id' & `t_reason' & `t_rows')
+run_test "T7.11: saveexclude saves exact excluded ids and reasons" `t'
 
 * T7.12: savecensor option
 use "`data_dir'/_test_mig_master.dta", clear
 migrations, migfile("`data_dir'/_test_mig_wide.dta") savecensor("`data_dir'/_test_censor.dta") replace
 capture confirm file "`data_dir'/_test_censor.dta"
-local t = (_rc == 0)
-run_test "T7.12: savecensor creates file" `t'
+local t_file = (_rc == 0)
+preserve
+use "`data_dir'/_test_censor.dta", clear
+local t_schema = (_N == 2)
+capture confirm variable id
+local t_id = (_rc == 0)
+capture confirm variable migration_out_dt
+local t_out = (_rc == 0)
+capture confirm variable migration_in_dt
+local t_noin = (_rc != 0)
+quietly count if missing(migration_out_dt)
+local t_nomiss = (r(N) == 0)
+sort id
+local t_rows = (id[1] == 4 & migration_out_dt[1] == 21366 & ///
+    id[2] == 5 & migration_out_dt[2] == 21427)
+restore
+local t = (`t_file' & `t_schema' & `t_id' & `t_out' & `t_noin' & `t_nomiss' & `t_rows')
+run_test "T7.12: savecensor saves exact id/migration_out_dt rows only" `t'
 
 * T7.13: migfile not found -> error
 use "`data_dir'/_test_mig_master.dta", clear
@@ -1073,6 +1427,79 @@ use "`data_dir'/_test_mig_t14.dta", clear
 migrations, migfile("`data_dir'/_test_mig_t14_wide.dta")
 local t = (r(N_excluded_inmigration) == 1 & r(N_final) == 0)
 run_test "T7.18: immigration-only still excluded" `t'
+
+* T7.18a: Duplicate post-start immigration rows are still Type 2 exclusions (wide)
+clear
+set obs 1
+gen long id = 1
+gen long study_start = mdy(1,1,2018)
+format study_start %td
+tempfile t718a_master t718a_wide
+save `t718a_master', replace
+
+clear
+input long id double(in_1 out_1 in_2 out_2)
+1 21244 . 21244 .
+end
+format in_1 out_1 in_2 out_2 %td
+save `t718a_wide', replace
+
+use `t718a_master', clear
+migrations, migfile("`t718a_wide'")
+local t = (r(N_excluded_inmigration) == 1 & r(N_excluded_total) == 1 & r(N_final) == 0)
+run_test "T7.18a: duplicate post-start immigration rows still exclude as Type 2 (wide)" `t'
+
+* T7.18b: Duplicate post-start immigration rows are still Type 2 exclusions (long)
+clear
+set obs 1
+gen long id = 1
+gen long study_start = mdy(1,1,2018)
+format study_start %td
+tempfile t718b_master t718b_long
+save `t718b_master', replace
+
+clear
+input long id double event_date str3 event_type
+1 21244 "Inv"
+1 21244 "Inv"
+end
+format event_date %td
+save `t718b_long', replace
+
+use `t718b_master', clear
+migrations, migfile("`t718b_long'")
+local t = (r(N_excluded_inmigration) == 1 & r(N_excluded_total) == 1 & r(N_final) == 0)
+run_test "T7.18b: duplicate post-start immigration rows still exclude as Type 2 (long)" `t'
+
+* T7.18c: keepimmigrants retains duplicate post-start immigration rows once with earliest date
+use `t718a_master', clear
+migrations, migfile("`t718a_wide'") keepimmigrants
+local t718c_incl = r(N_included_inmigration)
+local t718c_final = r(N_final)
+quietly summarize migration_in_dt if id == 1
+local t = (`t718c_incl' == 1 & r(N) == 1 & r(mean) == 21244 & `t718c_final' == 1)
+run_test "T7.18c: keepimmigrants retains duplicate Type 2 rows once with earliest date" `t'
+
+* T7.18d: Fully blank wide rows behave like no migration record
+clear
+set obs 1
+gen long id = 1
+gen long study_start = mdy(1,1,2018)
+format study_start %td
+tempfile t718d_master t718d_wide
+save `t718d_master', replace
+
+clear
+input long id double(in_1 out_1)
+1 . .
+end
+format in_1 out_1 %td
+save `t718d_wide', replace
+
+use `t718d_master', clear
+migrations, migfile("`t718d_wide'")
+local t = (r(N_excluded_total) == 0 & r(N_censored) == 0 & r(N_final) == 1)
+run_test "T7.18d: fully blank wide rows are ignored like no migration record" `t'
 
 * T7.19: Custom variable names
 use "`data_dir'/_test_mig_master.dta", clear
@@ -1356,6 +1783,7 @@ set obs 5
 gen long id = _n
 gen double edss = 5
 gen double edss_dt = 21000 + _n * 100
+format edss_dt %td
 capture noisily sustainedss id edss edss_dt, threshold(0)
 local t = (_rc == 198)
 run_test "T8.9: threshold(0) -> rc 198" `t'
@@ -1366,6 +1794,7 @@ set obs 5
 gen long id = 1
 gen double edss = 5 + _n * 0.5
 gen double edss_dt = 21000 + _n * 100
+format edss_dt %td
 capture noisily sustainedss id edss edss_dt, threshold(6) confirmwindow(0)
 local t = (_rc == 198)
 run_test "T8.10: confirmwindow(0) -> rc 198" `t'
@@ -1383,6 +1812,7 @@ set obs 3
 gen long id = 1
 gen str5 edss = "6.0"
 gen double edss_dt = 21000 + _n * 100
+format edss_dt %td
 capture noisily sustainedss id edss edss_dt, threshold(6)
 local t = (_rc == 109)
 run_test "T8.12: string EDSS -> rc 109" `t'
@@ -1393,6 +1823,7 @@ set obs 3
 gen long id = _n
 gen double edss = .
 gen double edss_dt = .
+format edss_dt %td
 capture noisily sustainedss id edss edss_dt, threshold(6) generate(sust_bad)
 local t = (_rc == 2000)
 run_test "T8.13: no valid obs -> rc 2000" `t'
@@ -1436,6 +1867,7 @@ input int id double edss int edss_dt
 1 5 21800
 3 2 21700
 end
+format edss_dt %td
 gen long orig_order = _n
 sustainedss id edss edss_dt, threshold(4) keepall quietly generate(sust_so)
 local t = (orig_order[1] == 1 & orig_order[2] == 2 & orig_order[5] == 5)
@@ -1451,6 +1883,7 @@ input int id double edss int edss_dt
 2 2 21900
 2 3 22000
 end
+format edss_dt %td
 local N_before = _N
 sustainedss id edss edss_dt, threshold(4) generate(sust_drop)
 local t = (_N == 3 & _N < `N_before')
@@ -1463,6 +1896,7 @@ input int id double edss int edss_dt
 1 2 200
 1 5 200
 end
+format edss_dt %td
 sustainedss id edss edss_dt, threshold(4) keepall quietly generate(sust_min)
 local t = (r(N_events) == 1)
 run_test "T8.20: same-date uses min() for conservative check" `t'
@@ -1473,6 +1907,7 @@ input int id double edss int edss_dt
 1 5 21915
 1 5 22006
 end
+format edss_dt %td
 set varabbrev on
 sustainedss id edss edss_dt, threshold(4) keepall quietly generate(sust_va)
 local t = ("`c(varabbrev)'" == "on")
@@ -1485,6 +1920,7 @@ input int id double edss int edss_dt
 1 5 21915
 1 5 22006
 end
+format edss_dt %td
 capture noisily sustainedss id edss edss_dt, threshold(4) generate(123abc)
 local t = (_rc != 0)
 run_test "T8.22: generate(123abc) rejected" `t'
@@ -1674,6 +2110,72 @@ end
 cci_se, id(lopnr) icd(diagnos) date(datum) dateformat(ymd)
 local t = (charlson == 1)
 run_test "T9.14: string YYYY-MM-DD with dateformat(ymd)" `t'
+
+* T9.14a: dateformat(stata) requires numeric date variable
+clear
+input long lopnr str10 diagnos str10 datum
+1 "I21" "20200115"
+end
+capture noisily cci_se, id(lopnr) icd(diagnos) date(datum) dateformat(stata)
+local t = (_rc == 198)
+run_test "T9.14a: string date + dateformat(stata) -> rc 198" `t'
+
+* T9.14b: dateformat(ymd) requires string date variable
+clear
+input long lopnr str10 diagnos double datum
+1 "I21" 21915
+end
+format datum %td
+capture noisily cci_se, id(lopnr) icd(diagnos) date(datum) dateformat(ymd)
+local t = (_rc == 198)
+run_test "T9.14b: numeric date + dateformat(ymd) -> rc 198" `t'
+
+* T9.14c: dateformat(stata) rejects non-daily %tm dates
+clear
+input long lopnr str10 diagnos double datum
+1 "I21" 720
+end
+format datum %tm
+capture noisily cci_se, id(lopnr) icd(diagnos) date(datum) dateformat(stata)
+local t = (_rc == 109)
+run_test "T9.14c: %tm date + dateformat(stata) -> rc 109" `t'
+
+* T9.14d: dateformat(stata) rejects fractional %td dates
+clear
+input long lopnr str10 diagnos double datum
+1 "I21" 21915.5
+end
+format datum %td
+capture noisily cci_se, id(lopnr) icd(diagnos) date(datum) dateformat(stata)
+local t = (_rc == 109)
+run_test "T9.14d: fractional %td date + dateformat(stata) -> rc 109" `t'
+
+* T9.14e: dateformat(yyyymmdd) rejects fractional numeric values
+clear
+input long lopnr str10 diagnos double datum
+1 "I21" 20200115.5
+end
+capture noisily cci_se, id(lopnr) icd(diagnos) date(datum) dateformat(yyyymmdd)
+local t = (_rc == 109)
+run_test "T9.14e: fractional numeric YYYYMMDD + dateformat(yyyymmdd) -> rc 109" `t'
+
+* T9.14f: numeric YYYYMMDD requires explicit dateformat(yyyymmdd)
+clear
+input long lopnr str10 diagnos long datum
+1 "420,1" 19650315
+end
+capture noisily cci_se, id(lopnr) icd(diagnos) date(datum)
+local t = (_rc == 109)
+run_test "T9.14f: numeric YYYYMMDD without dateformat -> rc 109" `t'
+
+* T9.14g: dateformat(ymd) rejects non-zero-padded dates
+clear
+input long lopnr str10 diagnos str12 datum
+1 "I21" "2020-1-15"
+end
+capture noisily cci_se, id(lopnr) icd(diagnos) date(datum) dateformat(ymd)
+local t = (_rc == 2000)
+run_test "T9.14g: non-zero-padded ymd string dropped -> rc 2000" `t'
 
 * T9.15: Pre-existing conflicting variable names (_yr)
 clear
@@ -1909,6 +2411,21 @@ cci_se, id(lopnr) icd(diag_main diag_aux) date(datum) generate(score_multi)
 merge 1:1 lopnr using `t930_ref', nogen
 local t = (score_multi[1] == score_ref[1] & score_multi[2] == score_ref[2] & score_multi[3] == score_ref[3])
 run_test "T9.30: multi-variable icd() matches legacy single-variable scores" `t'
+
+* T9.31: Missing ids and unparseable dates are excluded before stored counts
+clear
+input str4 lopnr str10 diagnos str12 datum
+"A1" "I21" "20200115"
+""   "B20" "20200115"
+"A2" "I50" "bad"
+"A2" "J44" "20200116"
+end
+cci_se, id(lopnr) icd(diagnos) date(datum)
+sort lopnr
+local t = (r(N_input) == 2 & r(N_patients) == 2 & _N == 2 & ///
+    trim(lopnr[1]) == "A1" & trim(lopnr[2]) == "A2" & ///
+    charlson[1] == 1 & charlson[2] == 1)
+run_test "T9.31: missing ids and bad dates excluded before N_input/patient collapse" `t'
 
 * --- 9B: procmatch expanded edge cases ---
 
@@ -2298,6 +2815,71 @@ capture noisily migrations, migfile("`t724b_wide'")
 local t = (_rc == 109)
 run_test "T7.24b: wide-format %tc migration dates -> rc 109" `t'
 
+* T7.24c: Missing startvar values -> error 498
+clear
+input long id double study_start
+1 21185
+2 .
+end
+format study_start %td
+capture noisily migrations, migfile("`data_dir'/_test_mig_wide.dta")
+local t = (_rc == 498)
+run_test "T7.24c: missing startvar values -> rc 498" `t'
+
+* T7.24d: Fractional %td startvar -> error 109
+clear
+set obs 1
+gen long id = 1
+gen double study_start = 21185.5
+format study_start %td
+capture noisily migrations, migfile("`data_dir'/_test_mig_wide.dta")
+local t = (_rc == 109)
+run_test "T7.24d: fractional %td startvar -> rc 109" `t'
+
+* T7.24e: Fractional %td wide migration dates -> error 109
+clear
+set obs 1
+gen long id = 1
+gen long study_start = td(01jan2018)
+format study_start %td
+tempfile t724e_master t724e_wide
+save `t724e_master', replace
+
+clear
+set obs 1
+gen long id = 1
+gen double in_1 = 21185.5
+gen double out_1 = .
+format in_1 out_1 %td
+save `t724e_wide', replace
+
+use `t724e_master', clear
+capture noisily migrations, migfile("`t724e_wide'")
+local t = (_rc == 109)
+run_test "T7.24e: fractional %td wide migration date -> rc 109" `t'
+
+* T7.24f: Fractional %td long event_date -> error 109
+clear
+set obs 1
+gen long id = 1
+gen long study_start = td(01jan2018)
+format study_start %td
+tempfile t724f_master t724f_long
+save `t724f_master', replace
+
+clear
+set obs 1
+gen long id = 1
+gen double event_date = 21185.5
+gen str3 event_type = "Inv"
+format event_date %td
+save `t724f_long', replace
+
+use `t724f_master', clear
+capture noisily migrations, migfile("`t724f_long'")
+local t = (_rc == 109)
+run_test "T7.24f: fractional %td long event_date -> rc 109" `t'
+
 * T7.25: Pre-existing migration_out_dt -> error (Codex Finding 5)
 * Regression: should not silently drop user's existing variable
 use "`data_dir'/_test_mig_master.dta", clear
@@ -2305,6 +2887,68 @@ gen double migration_out_dt = .
 capture migrations, migfile("`data_dir'/_test_mig_wide.dta")
 local t = (_rc == 110)
 run_test "T7.25: pre-existing migration_out_dt -> rc 110" `t'
+
+* T7.25a: Preflight failure leaves save targets untouched
+tempfile t725a_excl t725a_cens
+clear
+set obs 1
+gen byte sentinel = 41
+save `t725a_excl', replace
+clear
+set obs 1
+gen byte sentinel = 42
+save `t725a_cens', replace
+
+use "`data_dir'/_test_mig_master.dta", clear
+gen double migration_out_dt = .
+capture noisily migrations, migfile("`data_dir'/_test_mig_wide.dta") ///
+    saveexclude("`t725a_excl'") savecensor("`t725a_cens'") replace
+local rc_fail = _rc
+preserve
+use `t725a_excl', clear
+local excl_ok = (_N == 1 & sentinel[1] == 41)
+restore
+preserve
+use `t725a_cens', clear
+local cens_ok = (_N == 1 & sentinel[1] == 42)
+restore
+local t = (`rc_fail' == 110 & `excl_ok' & `cens_ok')
+run_test "T7.25a: preflight failure leaves save files untouched" `t'
+
+* T7.25b: saveexclude() and savecensor() must differ
+use "`data_dir'/_test_mig_master.dta", clear
+tempfile t725b_same
+capture noisily migrations, migfile("`data_dir'/_test_mig_wide.dta") ///
+    saveexclude("`t725b_same'") savecensor("`t725b_same'") replace
+local t = (_rc == 198)
+run_test "T7.25b: saveexclude()==savecensor() -> rc 198" `t'
+
+* T7.25c: savecensor() may not overwrite migfile()
+use "`data_dir'/_test_mig_master.dta", clear
+capture noisily migrations, migfile("`data_dir'/_test_mig_wide.dta") ///
+    savecensor("`data_dir'/_test_mig_wide.dta") replace
+local t = (_rc == 198)
+run_test "T7.25c: savecensor()==migfile() -> rc 198" `t'
+
+* T7.25d: saveexclude() may not overwrite migfile()
+use "`data_dir'/_test_mig_master.dta", clear
+capture noisily migrations, migfile("`data_dir'/_test_mig_wide.dta") ///
+    saveexclude("`data_dir'/_test_mig_wide.dta") replace
+local t = (_rc == 198)
+run_test "T7.25d: saveexclude()==migfile() -> rc 198" `t'
+
+* T7.25e: saveexclude()/savecensor() rollback is atomic on second-save failure
+tempfile t725e_excl
+local t725e_badcens "/tmp/setools_atomic_missing_dir/rollback_censor.dta"
+capture erase "`t725e_excl'"
+use "`data_dir'/_test_mig_master.dta", clear
+capture noisily migrations, migfile("`data_dir'/_test_mig_wide.dta") ///
+    saveexclude("`t725e_excl'") savecensor("`t725e_badcens'") replace
+local t725e_rc = _rc
+capture confirm file "`t725e_excl'"
+local t725e_nofile = (_rc != 0)
+local t = (`t725e_rc' != 0 & `t725e_nofile')
+run_test "T7.25e: second-save failure leaves no partial saveexclude file" `t'
 
 * --- 9F: sustainedss expanded edge cases ---
 
@@ -2364,6 +3008,27 @@ end
 capture noisily sustainedss id edss edss_dt, threshold(5.0) generate(sus_strdt)
 local t = (_rc == 109)
 run_test "T8.28: non-numeric datevar -> rc 109" `t'
+
+* T8.28a: %tc datevar -> error
+clear
+input long id double edss double edss_dt
+1 6.0 .
+end
+replace edss_dt = clock("2020-01-01 12:34:56", "YMDhms") in 1
+format edss_dt %tc
+capture noisily sustainedss id edss edss_dt, threshold(5.0) generate(sus_tc)
+local t = (_rc == 109)
+run_test "T8.28a: %tc datevar -> rc 109" `t'
+
+* T8.28b: fractional %td datevar -> error
+clear
+input long id double edss double edss_dt
+1 6.0 21185.5
+end
+format edss_dt %td
+capture noisily sustainedss id edss edss_dt, threshold(5.0) generate(sus_frac)
+local t = (_rc == 109)
+run_test "T8.28b: fractional %td datevar -> rc 109" `t'
 
 * T8.29: Multiple patients, mixed outcomes
 clear
@@ -2436,13 +3101,59 @@ capture noisily {
 local t = (_rc == 0)
 run_test "T12.3: cci_se works after fresh install" `t'
 
+* T12.3a: cci_se multi-variable icd() works after fresh install
+capture noisily {
+    clear
+    input long lopnr str10 diag_main str10 diag_aux double datum
+    1 "I21" "E119" 21915
+    end
+    format datum %td
+    cci_se, id(lopnr) icd(diag_main diag_aux) date(datum)
+    assert charlson == 2
+}
+local t = (_rc == 0)
+run_test "T12.3a: cci_se multi-variable icd() works after install" `t'
+
+* T12.3b: migrations long-format path works after fresh install
+capture noisily {
+    tempfile t123b_master t123b_long
+    clear
+    set obs 1
+    gen long id = 1
+    gen long study_start = td(01jan2018)
+    format study_start %td
+    save `t123b_master', replace
+
+    clear
+    set obs 1
+    gen long id = 1
+    gen double event_date = td(01mar2018)
+    gen str3 event_type = "Inv"
+    format event_date %td
+    save `t123b_long', replace
+
+    use `t123b_master', clear
+    migrations, migfile("`t123b_long'") keepimmigrants
+    assert migration_in_dt == td(01mar2018)
+}
+local t = (_rc == 0)
+run_test "T12.3b: migrations long-format works after install" `t'
+
 * T12.4: setools hub works after fresh install (tests _setools_detail auto-load)
 capture noisily {
     setools, detail
     assert r(n_commands) == 6
+    assert "`r(display)'" == "detail"
+    assert "`r(category)'" == "all"
+    assert "`r(categories)'" == "all codes migration ms"
 }
 local t = (_rc == 0)
-run_test "T12.4: setools detail works after install" `t'
+run_test "T12.4: setools detail stores exact metadata after install" `t'
+
+* T12.4a: setools rejects list + detail after fresh install
+capture noisily setools, list detail
+local t = (_rc == 198)
+run_test "T12.4a: setools list detail -> rc 198 after install" `t'
 
 * Uninstall and reload from source for remaining tests
 capture ado uninstall setools
@@ -2498,7 +3209,21 @@ sustainedss id edss edss_dt, threshold(5.0) keepall generate(sus_more)
 local t = ("`c(more)'" == "`more_before'")
 run_test "T13.3: sustainedss does not change set more" `t'
 
-* T13.4: procmatch does not change set more
+* T13.4: pira does not change set more
+local more_before "`c(more)'"
+use "`data_dir'/_test_cdp.dta", clear
+pira id edss edss_dt, dxdate(dx_date) relapses("`data_dir'/_test_relapses_empty.dta") keepall generate(pira_more) rawgenerate(raw_more)
+local t = ("`c(more)'" == "`more_before'")
+run_test "T13.4: pira does not change set more" `t'
+
+* T13.5: migrations does not change set more
+local more_before "`c(more)'"
+use "`data_dir'/_test_mig_master.dta", clear
+migrations, migfile("`data_dir'/_test_mig_wide.dta")
+local t = ("`c(more)'" == "`more_before'")
+run_test "T13.5: migrations does not change set more" `t'
+
+* T13.6: procmatch does not change set more
 local more_before "`c(more)'"
 clear
 input long id str10 proc1
@@ -2506,7 +3231,7 @@ input long id str10 proc1
 end
 procmatch match, codes("ABC10") procvars(proc1) generate(pm_more)
 local t = ("`c(more)'" == "`more_before'")
-run_test "T13.5: procmatch does not change set more" `t'
+run_test "T13.6: procmatch does not change set more" `t'
 
 **# Cleanup
 

@@ -85,6 +85,10 @@ types of disability accumulation.
 {it:datevar}, {opt dxdate()}, and the relapse date variable in {opt relapses()}
 must all be Stata daily dates with {cmd:%td} display formats.
 
+{pstd}
+Observations with missing IDs or blank string IDs are excluded before CDP/PIRA
+classification. Relapse rows with missing or blank IDs are ignored.
+
 
 {marker options}{...}
 {title:Options}

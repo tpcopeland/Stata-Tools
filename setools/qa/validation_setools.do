@@ -131,6 +131,15 @@ cci_se, id(lopnr) icd(diagnos) date(datum) components
 local t = (charlson == 3 & cci_livmild == 0 & cci_livsev == 1)
 run_val "V1.4: liver hierarchy: CCI=3, mild cleared" `t'
 
+* V1.4a: Numeric YYYYMMDD requires explicit dateformat(yyyymmdd)
+clear
+input long lopnr str10 diagnos long datum
+1 "420,1" 19650315
+end
+capture noisily cci_se, id(lopnr) icd(diagnos) date(datum)
+local t = (_rc == 109)
+run_val "V1.4a: numeric YYYYMMDD without dateformat -> rc 109" `t'
+
 * V1.5: ICD-7 code from 1965 (year <= 1968 -> v7 flag)
 * 420,1 = MI in ICD-7 -> CCI = 1
 clear
@@ -302,6 +311,30 @@ local t = (score_multi[1] == 5 & score_single[1] == 5 & ///
     score_multi[3] == 7 & score_single[3] == 7 & ///
     cci_mi[3] == 1 & cci_cancer[3] == 0 & cci_mets[3] == 1)
 run_val "V1.14: wildcard icd() handles multirow multi-code yyyymmdd input" `t'
+
+* V1.15: Invalid yyyymmdd rows are dropped before r(N_input)
+clear
+input long lopnr str10 diagnos str10 datum
+1 "I21" "20200115"
+1 "I50" "202001"
+2 "B20" "20200116"
+end
+cci_se, id(lopnr) icd(diagnos) date(datum) dateformat(yyyymmdd)
+sort lopnr
+local t = (r(N_input) == 2 & r(N_patients) == 2 & charlson[1] == 1 & charlson[2] == 6)
+run_val "V1.15: malformed yyyymmdd rows dropped before scoring" `t'
+
+* V1.16: Invalid ymd rows are dropped before r(N_input)
+clear
+input long lopnr str10 diagnos str10 datum
+1 "I21" "2020-01-15"
+1 "I50" "2020-1-15"
+2 "B20" "2020-01-16"
+end
+cci_se, id(lopnr) icd(diagnos) date(datum) dateformat(ymd)
+sort lopnr
+local t = (r(N_input) == 2 & r(N_patients) == 2 & charlson[1] == 1 & charlson[2] == 6)
+run_val "V1.16: non-zero-padded ymd rows dropped before scoring" `t'
 
 **# V2. CDP ALGORITHM VALIDATION
 
@@ -675,6 +708,34 @@ pira id edss edss_dt, dxdate(dx_date) relapses("`data_dir'/_val_pira_rel4.dta") 
 local t = (r(N_pira) + r(N_raw) == r(N_cdp))
 run_val "V4.5: PIRA + RAW = CDP invariant" `t'
 
+* V4.6: Blank string IDs are excluded before classification
+clear
+input str3 id double edss double edss_dt double dx_date
+"A" 2.0 21000 20800
+"A" 3.5 21350 20800
+"A" 3.5 21600 20800
+"   " 2.0 21000 20800
+"   " 3.5 21350 20800
+"   " 3.5 21600 20800
+end
+format edss_dt dx_date %td
+tempfile v46_rel
+preserve
+clear
+set obs 0
+gen str3 id = ""
+gen double relapse_date = .
+format relapse_date %td
+save `v46_rel', replace emptyok
+restore
+pira id edss edss_dt, dxdate(dx_date) relapses("`v46_rel'") generate(pira_v46) rawgenerate(raw_v46)
+local v46_cdp = r(N_cdp)
+local v46_pira = r(N_pira)
+local v46_raw = r(N_raw)
+quietly count if trim(id) == ""
+local t = (`v46_cdp' == 1 & `v46_pira' == 1 & `v46_raw' == 0 & r(N) == 0)
+run_val "V4.6: blank string IDs excluded before PIRA counts" `t'
+
 **# V5. MIGRATIONS EXCLUSION/CENSORING VALIDATION
 
 * V5.1: Type 1 exclusion - emigrated before study, never returned
@@ -718,6 +779,34 @@ use "`data_dir'/_val_mig_t2.dta", clear
 migrations, migfile("`data_dir'/_val_mig_t2_wide.dta")
 local t = (r(N_excluded_inmigration) == 1)
 run_val "V5.2: Type 2 exclusion: immigration after start" `t'
+
+* V5.2a: Duplicate post-start immigration rows still exclude once
+clear
+set obs 1
+gen long id = 1
+gen long study_start = mdy(1, 1, 2018)
+format study_start %td
+tempfile v52a_master v52a_wide
+save `v52a_master', replace
+
+clear
+input long id double(in_1 out_1 in_2 out_2)
+1 21244 . 21244 .
+end
+format in_1 out_1 in_2 out_2 %td
+save `v52a_wide', replace
+
+use `v52a_master', clear
+migrations, migfile("`v52a_wide'")
+local t = (r(N_excluded_inmigration) == 1 & r(N_excluded_total) == 1 & r(N_final) == 0)
+run_val "V5.2a: duplicate post-start immigration still excludes once" `t'
+
+* V5.2b: keepimmigrants retains duplicate Type 2 rows once with earliest date
+use `v52a_master', clear
+migrations, migfile("`v52a_wide'") keepimmigrants
+local t = (r(N_included_inmigration) == 1 & r(N_excluded_total) == 0 & ///
+    r(N_final) == 1 & migration_in_dt == 21244)
+run_val "V5.2b: keepimmigrants retains duplicate Type 2 rows once with earliest date" `t'
 
 * V5.3: Censoring at permanent emigration
 clear
@@ -807,6 +896,27 @@ sum migration_out_dt if id == 1
 local t = (missing(r(mean)))
 run_val "V5.6: no migration record -> stays" `t'
 
+* V5.6a: Fully blank wide row behaves like no migration record
+clear
+set obs 1
+gen long id = 1
+gen long study_start = mdy(1, 1, 2018)
+format study_start %td
+tempfile v56a_master v56a_wide
+save `v56a_master', replace
+
+clear
+input long id double(in_1 out_1)
+1 . .
+end
+format in_1 out_1 %td
+save `v56a_wide', replace
+
+use `v56a_master', clear
+migrations, migfile("`v56a_wide'")
+local t = (r(N_excluded_total) == 0 & r(N_censored) == 0 & r(N_final) == 1)
+run_val "V5.6a: fully blank wide row is ignored like no migration record" `t'
+
 * V5.7: Long-format migration file matches known wide baseline
 clear
 input long id double study_start
@@ -854,6 +964,27 @@ local kept = r(N)
 quietly summarize migration_in_dt if id == 3
 local t = (`incl' == 1 & `kept' == 1 & r(N) == 1 & r(mean) == 21244)
 run_val "V5.8: long-format keepimmigrants retains Type 2" `t'
+
+* V5.8a: savecensor exports only exact nonmissing censor rows
+tempfile v58a_cens
+use "`data_dir'/_val_mig_long_master.dta", clear
+migrations, migfile("`data_dir'/_val_mig_long.dta") savecensor("`v58a_cens'") replace
+preserve
+use `v58a_cens', clear
+capture confirm variable id
+local v58a_id = (_rc == 0)
+capture confirm variable migration_out_dt
+local v58a_out = (_rc == 0)
+capture confirm variable migration_in_dt
+local v58a_noin = (_rc != 0)
+quietly count if missing(migration_out_dt)
+local v58a_nomiss = (r(N) == 0)
+sort id
+local t = (`v58a_id' & `v58a_out' & `v58a_noin' & `v58a_nomiss' & ///
+    _N == 2 & id[1] == 4 & migration_out_dt[1] == 21366 & ///
+    id[2] == 5 & migration_out_dt[2] == 21427)
+restore
+run_val "V5.8a: savecensor exact id/migration_out_dt contract" `t'
 
 * V5.9: Long-format Type 3 exclusion (abroad at baseline) is not reclassified as Type 2
 clear
@@ -1058,6 +1189,16 @@ end
 procmatch match, codes("TARGET") procvars(proc1 proc2 proc3) generate(pm_v85)
 local t = (r(n_matches) == 3)
 run_val "V6.5: multi-procvar search: 3 matches" `t'
+
+* V6.6: replace may not overwrite unrelated existing variables
+clear
+input long id str10 proc1
+1 "ABC10"
+2 "ZZZ99"
+end
+capture noisily procmatch match, codes("ABC10") procvars(proc1) generate(id) replace
+local t = (_rc == 198 & id[1] == 1 & id[2] == 2)
+run_val "V6.6: match generate(id) replace rejected and id preserved" `t'
 
 **# V7. CROSS-COMMAND INVARIANT CHECKS
 
@@ -1324,38 +1465,86 @@ capture noisily pira id edss edss_dt, dxdate(dx_date) relapses("`data_dir'/_val_
 local t = (_rc == 0)
 run_val "V10.1: rebaselinerelapse runs without error" `t'
 
-* V10.2: rebaselinerelapse uses correct baseline EDSS
-* With fix: baseline = EDSS at earliest post-relapse date (3.0 at day 150)
-* Progression at day 500 (4.5 >= 3.0+1.0), confirmed at day 700
-* This is outside relapse window -> should be PIRA (not RAW)
-use "`data_dir'/_val_pira_rebase.dta", clear
-pira id edss edss_dt, dxdate(dx_date) relapses("`data_dir'/_val_pira_rebase_rel.dta") rebaselinerelapse keepall quietly generate(prb_v14) rawgenerate(rrb_v14)
-* Accept: either PIRA detected (correct) or no CDP at all (confirmation timing)
-quietly count if !missing(prb_v14)
-local n_pira = r(N)
-quietly count if !missing(rrb_v14)
-local n_raw = r(N)
-local t = (`n_pira' > 0 | (`n_pira' == 0 & `n_raw' == 0))
-run_val "V10.2: rebaselinerelapse uses correct baseline" `t'
+* V10.2: Rebaselining is forward-only, not retroactive
+clear
+input long id double edss long edss_dt long dx_date
+1 2.0 100 0
+1 3.0 160 0
+1 4.2 220 0
+1 4.2 420 0
+end
+format edss_dt dx_date %td
+tempfile v102_edss v102_rel
+save `v102_edss', replace
+
+clear
+input long id double relapse_date
+1 120
+1 260
+end
+format relapse_date %td
+save `v102_rel', replace
+
+use `v102_edss', clear
+pira id edss edss_dt, dxdate(dx_date) relapses("`v102_rel'") ///
+    rebaselinerelapse windowbefore(0) windowafter(0) ///
+    keepall quietly generate(prb_v102) rawgenerate(rrb_v102)
+local t = (r(N_pira) == 1 & r(N_raw) == 0 & prb_v102[1] == 220 & missing(rrb_v102[1]))
+run_val "V10.2: rebaselinerelapse is forward-only with exact PIRA at day 220" `t'
+
+* V10.3: Latest relapse before reset governs the new baseline
+clear
+input long id double edss long edss_dt long dx_date
+1 2.0 100 0
+1 2.5 140 0
+1 3.5 181 0
+1 4.2 260 0
+1 4.2 460 0
+end
+format edss_dt dx_date %td
+tempfile v103_edss v103_rel
+save `v103_edss', replace
+
+clear
+input long id double relapse_date
+1 120
+1 150
+end
+format relapse_date %td
+save `v103_rel', replace
+
+use `v103_edss', clear
+pira id edss edss_dt, dxdate(dx_date) relapses("`v103_rel'") ///
+    rebaselinerelapse windowbefore(0) windowafter(0) ///
+    keepall quietly generate(prb_v103) rawgenerate(rrb_v103)
+local t = (r(N_cdp) == 0 & r(N_pira) == 0 & r(N_raw) == 0 & missing(prb_v103[1]) & missing(rrb_v103[1]))
+run_val "V10.3: latest pre-reset relapse yields no false CDP/PIRA event" `t'
 
 **# V11: STORED RESULTS COMPLETENESS
 
 * V11.1: setools stored results
 setools
-local t = ("`r(commands)'" != "" & r(n_commands) > 0 & "`r(version)'" != "" & "`r(categories)'" != "")
-run_val "V11.1: setools r(commands,n_commands,version,categories)" `t'
+local t = ("`r(commands)'" == "procmatch cci_se migrations sustainedss cdp pira" & ///
+    r(n_commands) == 6 & "`r(version)'" == "1.0.1" & ///
+    "`r(categories)'" == "all codes migration ms" & ///
+    "`r(category)'" == "all" & "`r(display)'" == "grouped")
+run_val "V11.1: setools exact stored results" `t'
 
 * V11.2: cci_se stored results
 clear
-input long lopnr str10 diagnos double datum
-1 "I21" 21915
-2 "I50" 21915
-3 "Z99" 21915
+input str4 lopnr str10 diagnos str12 datum
+"1" "I21" "20200115"
+"1" "I50" "bad"
+"2" "B20" "20200116"
+""  "I21" "20200117"
+"3" "Z99" ""
 end
-format datum %td
 cci_se, id(lopnr) icd(diagnos) date(datum)
-local t = (r(N_input) > 0 & r(N_patients) > 0 & !missing(r(N_any)) & !missing(r(mean_cci)) & !missing(r(max_cci)))
-run_val "V11.2: cci_se r(N_input,N_patients,N_any,mean_cci,max_cci)" `t'
+sort lopnr
+local t = (r(N_input) == 2 & r(N_patients) == 2 & r(N_any) == 2 & ///
+    abs(r(mean_cci) - 3.5) < 1e-10 & r(max_cci) == 6 & ///
+    lopnr[1] == "1" & charlson[1] == 1 & lopnr[2] == "2" & charlson[2] == 6)
+run_val "V11.2: cci_se exact stored results after bad-date and missing-id drops" `t'
 
 * V11.3: cdp stored results
 clear
@@ -1420,8 +1609,11 @@ save "`data_dir'/_val_v15_mig_wide.dta", replace
 
 use "`data_dir'/_val_v15_mig_master.dta", clear
 migrations, migfile("`data_dir'/_val_v15_mig_wide.dta")
-local t = (!missing(r(N_excluded_emigrated)) & !missing(r(N_excluded_inmigration)) & !missing(r(N_excluded_abroad)) & !missing(r(N_excluded_total)) & !missing(r(N_censored)) & !missing(r(N_final)))
-run_val "V11.6: migrations r(N_excluded_*,N_censored,N_final)" `t'
+local t = (r(N_excluded_emigrated) == 1 & r(N_excluded_inmigration) == 0 & ///
+    r(N_excluded_abroad) == 0 & r(N_excluded_minresidence) == 0 & ///
+    r(N_excluded_total) == 1 & r(N_censored) == 0 & ///
+    r(N_included_inmigration) == 0 & r(N_final) == 1)
+run_val "V11.6: migrations exact stored results" `t'
 
 * V11.7: procmatch match stored results
 clear
@@ -1431,8 +1623,9 @@ input long id str10 proc1 double procdt
 end
 format procdt %td
 procmatch match, codes("ABC10") procvars(proc1) generate(v15pm)
-local t = ("`r(varname)'" == "v15pm" & "`r(codes)'" != "" & r(n_codes) == 1 & !missing(r(n_matches)))
-run_val "V11.7: procmatch match r(varname,codes,n_codes,n_matches)" `t'
+local t = ("`r(varname)'" == "v15pm" & "`r(codes)'" == "ABC10" & ///
+    r(n_codes) == 1 & r(n_matches) == 1)
+run_val "V11.7: procmatch match exact stored results" `t'
 
 * V11.8: procmatch first stored results
 clear
@@ -1442,8 +1635,10 @@ input long id str10 proc1 double procdt
 end
 format procdt %td
 procmatch first, codes("ABC10") procvars(proc1) datevar(procdt) idvar(id) generate(v15pe) gendatevar(v15pdt)
-local t = ("`r(varname)'" == "v15pe" & "`r(datevarname)'" == "v15pdt" & "`r(codes)'" != "" & r(n_codes) == 1 & !missing(r(n_persons)) & !missing(r(n_matches)))
-run_val "V11.8: procmatch first r(varname,datevarname,codes,n_codes,n_persons,n_matches)" `t'
+local t = ("`r(varname)'" == "v15pe" & "`r(datevarname)'" == "v15pdt" & ///
+    "`r(codes)'" == "ABC10" & r(n_codes) == 1 & ///
+    r(n_persons) == 1 & r(n_matches) == 1)
+run_val "V11.8: procmatch first exact stored results" `t'
 
 **# V12: VARABBREV RESTORATION
 

@@ -258,15 +258,35 @@ tempfile k12_cohort
 save `k12_cohort'
 
 use `k12_cohort', clear
-capture noisily migrations, migfile("`mig5'") keepimmigrants
+capture noisily migrations, migfile("`mig5'") keepimmigrants ///
+    saveexclude("`qa_dir'/data/_test_keepimm_nomatch_excl.dta") ///
+    savecensor("`qa_dir'/data/_test_keepimm_nomatch_cens.dta") replace
 local k12_rc = _rc
 * Both date vars should exist
 capture confirm variable migration_out_dt
 local k12_out = (_rc == 0)
 capture confirm variable migration_in_dt
 local k12_in = (_rc == 0)
-local t = (`k12_rc' == 0 & `k12_out' & `k12_in')
-run_test "K12: no cohort match — both date vars created (all missing)" `t'
+preserve
+use "`qa_dir'/data/_test_keepimm_nomatch_excl.dta", clear
+capture confirm variable id
+local k12_excl_id = (_rc == 0)
+capture confirm variable exclude_reason
+local k12_excl_reason = (_rc == 0)
+local k12_excl_empty = (_N == 0)
+restore
+preserve
+use "`qa_dir'/data/_test_keepimm_nomatch_cens.dta", clear
+capture confirm variable id
+local k12_cens_id = (_rc == 0)
+capture confirm variable migration_out_dt
+local k12_cens_out = (_rc == 0)
+local k12_cens_empty = (_N == 0)
+restore
+local t = (`k12_rc' == 0 & `k12_out' & `k12_in' & ///
+    `k12_excl_id' & `k12_excl_reason' & `k12_excl_empty' & ///
+    `k12_cens_id' & `k12_cens_out' & `k12_cens_empty')
+run_test "K12: no cohort match creates empty saveexclude/savecensor outputs" `t'
 
 
 **# K13: keepimmigrants with saveexclude — Type 2 not in file
@@ -281,19 +301,35 @@ qui count if id == 3
 local k13_p3 = r(N)
 qui count
 local k13_total = r(N)
+sort id
+local k13_reason = (_N == 1 & id[1] == 2 & exclude_reason[1] == "Emigrated before study start, never returned")
 restore
 * Person 2 (Type 1) should be excluded, person 3 (Type 2) should NOT
-local t = (`k13_p3' == 0 & `k13_total' == 1)
-run_test "K13: saveexclude does not contain Type 2 with keepimmigrants" `t'
+local t = (`k13_p3' == 0 & `k13_total' == 1 & `k13_reason')
+run_test "K13: saveexclude keeps exact Type 1 row only with keepimmigrants" `t'
 
 
-**# K14: keepimmigrants with savecensor — runs without error
+**# K14: keepimmigrants with savecensor — exact censor file contract
 
 use `master5', clear
-capture noisily migrations, migfile("`mig5'") keepimmigrants ///
+migrations, migfile("`mig5'") keepimmigrants ///
     savecensor("`qa_dir'/data/_test_keepimm_cens.dta") replace
-local t = (_rc == 0)
-run_test "K14: savecensor with keepimmigrants runs" `t'
+preserve
+use "`qa_dir'/data/_test_keepimm_cens.dta", clear
+capture confirm variable id
+local k14_id = (_rc == 0)
+capture confirm variable migration_out_dt
+local k14_out = (_rc == 0)
+capture confirm variable migration_in_dt
+local k14_noin = (_rc != 0)
+quietly count if missing(migration_out_dt)
+local k14_nomiss = (r(N) == 0)
+sort id
+local k14_rows = (_N == 2 & id[1] == 4 & migration_out_dt[1] == 21366 & ///
+    id[2] == 5 & migration_out_dt[2] == 21427)
+restore
+local t = (`k14_id' & `k14_out' & `k14_noin' & `k14_nomiss' & `k14_rows')
+run_test "K14: savecensor contains only ids 4 and 5 with exact dates" `t'
 
 
 **# K15: Pre-existing migration_in_dt → error 110
@@ -303,6 +339,33 @@ gen double migration_in_dt = .
 capture migrations, migfile("`mig5'") keepimmigrants
 local t = (_rc == 110)
 run_test "K15: pre-existing migration_in_dt → rc 110" `t'
+
+* K15a: Preflight migration_in_dt collision leaves save targets untouched
+tempfile k15a_excl k15a_cens
+clear
+set obs 1
+gen byte sentinel = 51
+save `k15a_excl', replace
+clear
+set obs 1
+gen byte sentinel = 52
+save `k15a_cens', replace
+
+use `master5', clear
+gen double migration_in_dt = .
+capture noisily migrations, migfile("`mig5'") keepimmigrants ///
+    saveexclude("`k15a_excl'") savecensor("`k15a_cens'") replace
+local k15a_rc = _rc
+preserve
+use `k15a_excl', clear
+local k15a_excl_ok = (_N == 1 & sentinel[1] == 51)
+restore
+preserve
+use `k15a_cens', clear
+local k15a_cens_ok = (_N == 1 & sentinel[1] == 52)
+restore
+local t = (`k15a_rc' == 110 & `k15a_excl_ok' & `k15a_cens_ok')
+run_test "K15a: migration_in_dt collision leaves save files untouched" `t'
 
 
 **# K16: migration_in_dt variable type is long
@@ -566,6 +629,8 @@ run_test "K27c: only true Type 2 immigrant is included" `t3'
 * === Cleanup ===
 capture erase "`qa_dir'/data/_test_keepimm_excl.dta"
 capture erase "`qa_dir'/data/_test_keepimm_cens.dta"
+capture erase "`qa_dir'/data/_test_keepimm_nomatch_excl.dta"
+capture erase "`qa_dir'/data/_test_keepimm_nomatch_cens.dta"
 
 
 * === SUMMARY ===

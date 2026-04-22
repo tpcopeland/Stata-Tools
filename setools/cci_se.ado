@@ -75,6 +75,18 @@ program define cci_se, rclass
         display as error "dateformat(ymd) requires a string date variable"
         exit 198
     }
+    if !`date_is_str' & "`dateformat'" == "stata" {
+        local _cci_date_fmt : format `date'
+        if lower(substr("`_cci_date_fmt'", 1, 3)) != "%td" {
+            display as error "date() must be a Stata daily date variable when dateformat(stata) is used"
+            exit 109
+        }
+        quietly count if `touse' & !missing(`date') & `date' != floor(`date')
+        if r(N) > 0 {
+            display as error "date() must contain whole-number Stata daily dates when dateformat(stata) is used"
+            exit 109
+        }
+    }
 
     * Mark out missing IDs before patient-level collapse
     capture confirm string variable `id'
@@ -110,7 +122,7 @@ program define cci_se, rclass
 
     * Normalize one or more ICD code fields: uppercase, strip dots,
     * prepend spaces between codes for regex matching
-    tempvar code yr v7 v8 v9 v10
+    tempvar code yr v7 v8 v9 v10 parsed_date
     quietly gen strL `code' = ""
     foreach icd_var of local icd_vars {
         quietly replace `code' = `code' + " " + ///
@@ -122,32 +134,54 @@ program define cci_se, rclass
     * Extract year from date according to validated dateformat()
     * ---------------------------------------------------------------
     if "`dateformat'" == "ymd" {
-        * YYYY-MM-DD format: extract first 4 characters
-        quietly gen int `yr' = real(substr(trim(`date'), 1, 4))
+        * Strict YYYY-MM-DD string parsing
+        tempvar _cci_date_trim
+        quietly gen str20 `_cci_date_trim' = trim(`date')
+        quietly gen double `parsed_date' = daily(`_cci_date_trim', "YMD") ///
+            if regexm(`_cci_date_trim', ///
+                "^[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]$")
     }
     else if "`dateformat'" == "yyyymmdd" {
+        tempvar _cci_date_clean _cci_date_std
+        quietly gen str20 `_cci_date_clean' = ""
         if `date_is_str' {
             * Strip separators before parsing string YYYYMMDD dates
-            tempvar datenum
-            quietly gen `datenum' = subinstr(subinstr(trim(`date'), "-", "", .), "/", "", .)
-            quietly gen int `yr' = floor(real(`datenum') / 10000)
+            quietly replace `_cci_date_clean' = ///
+                subinstr(subinstr(trim(`date'), "-", "", .), "/", "", .) ///
+                if trim(`date') != ""
         }
         else {
+            quietly count if !missing(`date') & `date' != floor(`date')
+            if r(N) > 0 {
+                display as error "date() must contain whole-number YYYYMMDD values when dateformat(yyyymmdd) is used"
+                restore
+                exit 109
+            }
             * Numeric YYYYMMDD format
-            quietly gen int `yr' = floor(`date' / 10000)
+            quietly replace `_cci_date_clean' = trim(strofreal(`date', "%20.0f")) ///
+                if !missing(`date')
         }
+        quietly gen str10 `_cci_date_std' = ""
+        quietly replace `_cci_date_std' = ///
+            substr(`_cci_date_clean', 1, 4) + "-" + ///
+            substr(`_cci_date_clean', 5, 2) + "-" + ///
+            substr(`_cci_date_clean', 7, 2) ///
+            if regexm(`_cci_date_clean', ///
+                "^[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]$")
+        quietly gen double `parsed_date' = daily(`_cci_date_std', "YMD")
     }
     else {
         * Numeric Stata date format
-        quietly gen int `yr' = year(`date')
+        quietly gen double `parsed_date' = `date'
     }
+    quietly gen int `yr' = year(`parsed_date') if !missing(`parsed_date')
 
     * Validate year extraction
-    quietly count if missing(`yr')
+    quietly count if missing(`parsed_date')
     if r(N) > 0 {
         local n_bad = r(N)
         display as text "Warning: `n_bad' observations with unparseable dates (dropped)"
-        quietly drop if missing(`yr')
+        quietly drop if missing(`parsed_date')
     }
 
     quietly count

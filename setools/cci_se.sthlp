@@ -36,7 +36,7 @@
 {syntab:Required}
 {synopt:{opt id(varname)}}patient identifier variable{p_end}
 {synopt:{opt icd(varlist)}}one or more string variables containing ICD diagnosis codes{p_end}
-{synopt:{opt date(varname)}}date variable (Stata date, YYYYMMDD, or string){p_end}
+{synopt:{opt date(varname)}}date variable (Stata daily date, YYYYMMDD, or YYYY-MM-DD string){p_end}
 
 {syntab:Optional}
 {synopt:{opt gen:erate(name)}}name for Charlson score variable; default is {cmd:charlson}{p_end}
@@ -92,10 +92,11 @@ See {help cci_se##formats:ICD code formats} below.
 
 {phang}
 {opt date(varname)} specifies the date variable used to determine which ICD version
-applies. The variable can be numeric (Stata date or YYYYMMDD integer) or string.
-Use the {opt dateformat()} option to specify the format if auto-detection is
-insufficient. Incompatible {opt dateformat()} and variable-type combinations are
-rejected. Observations with missing or unparseable dates are excluded. See
+applies. The variable can be numeric (Stata daily date or YYYYMMDD integer) or
+string. Use the {opt dateformat()} option to specify the format if auto-detection
+is insufficient. Numeric YYYYMMDD inputs require {opt dateformat(yyyymmdd)}.
+Incompatible {opt dateformat()} and variable-type combinations are rejected.
+Observations with missing or unparseable dates are excluded. See
 {it:Date formats} below.
 
 {dlgtab:Optional}
@@ -117,17 +118,19 @@ named {cmd:{it:prefix}mi}, {cmd:{it:prefix}chf}, etc. See
 {phang}
 {opt dateformat(string)} specifies the format of the date variable:
 
-{phang2}{cmd:stata} {hline 2} Stata date (numeric, days since 01jan1960). This is the
-default for numeric date variables and may only be used with numeric
-{opt date()} variables.{p_end}
+{phang2}{cmd:stata} {hline 2} Stata daily date (numeric, days since 01jan1960).
+This is the default for numeric date variables and may only be used with numeric
+{opt date()} variables. Values must be whole-number daily dates; other {cmd:%t*}
+time encodings are rejected.{p_end}
 
 {phang2}{cmd:yyyymmdd} {hline 2} YYYYMMDD integer or string (e.g., 20200115 or "20200115").
 This is the default for string date variables and may be used with numeric or
-string {opt date()} variables. Also handles dates with dashes or
+string {opt date()} variables. Numeric inputs must be whole-number YYYYMMDD
+values. Also handles string dates with dashes or
 slashes (e.g., "2020-01-15", "2020/01/15") by stripping separators first.{p_end}
 
-{phang2}{cmd:ymd} {hline 2} YYYY-MM-DD string format. Extracts the four-digit year
-directly from the string and may only be used with string {opt date()}
+{phang2}{cmd:ymd} {hline 2} Exact YYYY-MM-DD string format. May only be used with
+string {opt date()}
 variables.{p_end}
 
 {phang}
@@ -220,13 +223,17 @@ automatically.
 The date variable can be numeric or string. The command uses {opt dateformat()} to
 determine how to parse it. If not specified:
 
-{phang2}- Numeric variables default to Stata date format{p_end}
+{phang2}- Numeric variables default to Stata daily date format{p_end}
 {phang2}- String variables default to YYYYMMDD format (dashes and slashes are stripped
 automatically){p_end}
 
 {pstd}
 Allowed combinations are numeric + {cmd:stata}, numeric or string + {cmd:yyyymmdd},
-and string + {cmd:ymd}. Other combinations are rejected with an error.
+and string + {cmd:ymd}. With {cmd:stata}, values must be whole-number daily dates.
+With {cmd:yyyymmdd}, numeric inputs must be whole-number YYYYMMDD integers.
+{cmd:ymd} accepts only exact YYYY-MM-DD strings. Other combinations are rejected
+with an error. Numeric YYYYMMDD values are not auto-detected; specify
+{cmd:dateformat(yyyymmdd)} explicitly.
 
 
 {marker examples}{...}
