@@ -2,7 +2,7 @@
 
 clear all
 set more off
-set varabbrev off
+set varabbrev on
 
 capture log close _stratetab
 log using "test_stratetab.log", replace text name(_stratetab)
@@ -34,6 +34,28 @@ program define _make_issue_strate
     label values exposure issue_exp
     save "`basename'.dta", replace
 end
+
+**## early failure restores varabbrev and preserves the original return code
+local ++test_count
+capture noisily {
+    tempfile missing_rate
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev on
+    capture stratetab, using("`missing_rate'") outcomes(1) display
+    local got_rc = _rc
+    local final_varabbrev "`c(varabbrev)'"
+    set varabbrev `_orig_varabbrev'
+    assert `got_rc' == 601
+    assert "`final_varabbrev'" == "on"
+}
+if _rc == 0 {
+    display as result "  PASS: stratetab early failures restore varabbrev and return 601"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: stratetab early failure cleanup regression (rc=`=_rc')"
+    local ++fail_count
+}
 
 **# Output Modes
 **## console-only mode works without xlsx() or a preloaded dataset

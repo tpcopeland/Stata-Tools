@@ -34,6 +34,8 @@ program define stratetab, rclass
 	version 17.0
 	local _orig_varabbrev = c(varabbrev)
 	set varabbrev off
+	local _xlsx_ok 0
+	local _fatal_rc 0
 
 tempfile _userdata_outer
 local _userdata_path "`_userdata_outer'"
@@ -633,8 +635,6 @@ return scalar N_exposures = `n_exposures'
 return scalar N_outcomes = `outcomes'
 
 * Export to Excel
-local _xlsx_ok 0
-local _fatal_rc 0
 if `_has_xlsx' {
 	order title c*
 	capture export excel using "`xlsx'", sheet("`sht'") sheetreplace
