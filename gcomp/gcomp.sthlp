@@ -458,7 +458,7 @@ subject. Earlier nonmissing outcome values are ignored by design.
 {synopt:{cmd:e(ci_percentile)}}percentile confidence intervals (with {cmd:all}){p_end}
 {synopt:{cmd:e(ci_bc)}}bias-corrected confidence intervals (with {cmd:all}){p_end}
 {synopt:{cmd:e(ci_bca)}}bias-corrected accelerated confidence intervals (with {cmd:all}){p_end}
-{synopt:{cmd:e(effects)}}effecttab-ready matrix of estimates, standard errors, and confidence limits{p_end}
+{synopt:{cmd:e(effects)}}effecttab-ready matrix of estimates, confidence limits, and p-values{p_end}
 
 {pstd}
 {bf:Macros:}

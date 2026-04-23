@@ -87,9 +87,7 @@ capture program drop gcomp
 program define gcomp, eclass
 version 16.0
 local _gc_varabbrev = c(varabbrev)
-local _gc_more = c(more)
 set varabbrev off
-set more off
 capture noisily {
 syntax varlist(min=2 numeric) [if] [in] , OUTcome(varname) COMmands(string) EQuations(string) [Idvar(varname) ///
     Tvar(varname) VARyingcovariates(varlist) intvars(varlist) interventions(string) monotreat dynamic eofu pooled death(varname) ///
@@ -334,6 +332,10 @@ if "`impute'"!="" {
 
 qui drop if `missing'==1
 
+if _N == 0 {
+	noi di as err "Error: no observations remain after dropping missing data."
+	exit 2000
+}
 
 if "`mediation'"=="" {
 	tempvar countid
@@ -2526,7 +2528,6 @@ capture matrix drop _matrow
 capture matrix drop matvis
 
 * Restore settings
-set more `_gc_more'
 set varabbrev `_gc_varabbrev'
 if `_gc_rc' exit `_gc_rc'
 
@@ -2541,9 +2542,7 @@ capture program drop _gcomp_bootstrap_impl
 program define _gcomp_bootstrap_impl, rclass
 version 16.0
 local _gc_varabbrev = c(varabbrev)
-local _gc_more = c(more)
 set varabbrev off
-set more off
 capture noisily {
 syntax varlist(min=2 numeric) [if] [in] , OUTcome(varname) COMmands(string) EQuations(string) [Idvar(varname) ///
 	Tvar(varname) VARyingcovariates(varlist) intvars(varlist) interventions(string) monotreat eofu pooled death(varname) ///
@@ -4965,7 +4964,6 @@ capture matrix drop matem2
 ereturn clear
 
 * Restore settings
-set more `_gc_more'
 set varabbrev `_gc_varabbrev'
 if `_gc_rc' exit `_gc_rc'
 end

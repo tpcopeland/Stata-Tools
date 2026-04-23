@@ -196,7 +196,7 @@ After `gcomptab`, export details are stored in `r()`, including the workbook nam
 ## Version History
 
 - **1.0.3** (2026-04-22): Fix time-varying g-computation regression — varlist2 ordering had been reversed (outcome first) in v1.0.2, causing `predict pred_Y` to fire before time-varying confounders and treatment were sampled at each visit. Every simulated outcome came out as 1 (silent wrong results); `minsim` errored with r(503). Restores outcome-last ordering from v1.0.1. Adds V7.3 minsim regression test and tightens V7.1 assertions to guard against re-introduction.
-- **1.0.2** (2026-04-19): Current Stata-Tools fork release with bundled Excel export support via `gcomptab`
+- **1.0.2** (2026-04-19): Stata-Tools fork release with bundled Excel export support via `gcomptab`
 
 ## Author
 

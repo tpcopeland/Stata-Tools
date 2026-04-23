@@ -10,9 +10,7 @@ capture program drop _gcomp_bootstrap_impl
 program define _gcomp_bootstrap_impl, rclass
 version 16.0
 local _gc_varabbrev = c(varabbrev)
-local _gc_more = c(more)
 set varabbrev off
-set more off
 capture noisily {
 syntax varlist(min=2 numeric) [if] [in] , OUTcome(varname) COMmands(string) EQuations(string) [Idvar(varname) ///
 	Tvar(varname) VARyingcovariates(varlist) intvars(varlist) interventions(string) monotreat eofu pooled death(varname) ///
@@ -2431,7 +2429,6 @@ capture matrix drop matem2
 ereturn clear
 
 * Restore settings
-set more `_gc_more'
 set varabbrev `_gc_varabbrev'
 if `_gc_rc' exit `_gc_rc'
 end
