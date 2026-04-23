@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.8  22apr2026}{...}
+{* *! version 1.0.9  23apr2026}{...}
 {viewerjumpto "Syntax" "survtab##syntax"}{...}
 {viewerjumpto "Description" "survtab##description"}{...}
 {viewerjumpto "Options" "survtab##options"}{...}
@@ -176,6 +176,6 @@ multiple rows.{p_end}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}timothy.copeland@ki.se{p_end}
-{pstd}Version 1.0.8{p_end}
+{pstd}Version 1.0.9{p_end}
 
 {hline}

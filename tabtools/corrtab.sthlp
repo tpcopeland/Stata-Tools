@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.8  22apr2026}{...}
+{* *! version 1.0.9  23apr2026}{...}
 {viewerjumpto "Package overview" "corrtab##package"}{...}
 {viewerjumpto "Syntax" "corrtab##syntax"}{...}
 {viewerjumpto "Description" "corrtab##description"}{...}
@@ -102,6 +102,6 @@ to Excel or CSV, or stored in a Stata frame.{p_end}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}timothy.copeland@ki.se{p_end}
-{pstd}Version 1.0.8{p_end}
+{pstd}Version 1.0.9{p_end}
 
 {hline}

@@ -1,4 +1,4 @@
-*! regtab Version 1.0.8  2026/04/22
+*! regtab Version 1.0.9  2026/04/23
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
@@ -1539,7 +1539,8 @@ if `_mat_nrows' > 0 {
 }
 capture drop _coefnum*
 drop _is_re _is_re_intercept _is_ancillary
-capture drop _re_group_label _ci_seen
+capture drop _re_group_label
+capture drop _ci_seen
 
 *
 * =========================================================================

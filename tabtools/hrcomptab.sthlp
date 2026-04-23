@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.8  22apr2026}{...}
+{* *! version 1.0.9  23apr2026}{...}
 {viewerjumpto "Syntax" "hrcomptab##syntax"}{...}
 {viewerjumpto "Description" "hrcomptab##description"}{...}
 {viewerjumpto "Options" "hrcomptab##options"}{...}
