@@ -11,7 +11,7 @@ local fail = 0
 foreach f in ///
     test_codescan ///
     test_countrows ///
-    test_codescan_v101 ///
+    test_codescan_regressions ///
     test_documentation_examples ///
     validation_codescan ///
     validation_codescan_io ///

@@ -1,4 +1,4 @@
-*! codescan_describe Version 1.0.2  2026/04/17
+*! codescan_describe Version 1.0.3  2026/04/23
 *! Tabulate unique codes across wide-format variables
 *! Author: Timothy P Copeland
 *! Program class: rclass (returns results in r())
@@ -259,7 +259,7 @@ program define codescan_describe, rclass
     } // end capture noisily
     local rc = _rc
     if `rc' {
-        capture restore
+        capture restore  // error-path cleanup: preserve was inside the noisily block
     }
     set varabbrev `_orig_varabbrev'
     if `rc' exit `rc'

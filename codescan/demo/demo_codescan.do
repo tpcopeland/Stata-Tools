@@ -26,7 +26,6 @@ capture mkdir "`pkg_dir'"
 
 * --- Load and reload command ---
 capture program drop codescan
-capture program drop _codescan_prefix_scan
 quietly run "`pkg_root'/codescan.ado"
 
 * --- Setup: synthetic wide-format diagnosis data ---

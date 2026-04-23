@@ -1,2 +1,2 @@
 status	sheet	title	max_row	max_col	n_merges	merged_ranges	n_bold_cells	n_filled_cells	n_border_cells	dominant_font	dominant_font_size	fill_palette
-PASS	Auto	Refactor Baseline: table1 auto	12	5	3	A1:E1;E2:E3;B2:B3	6	0	20	Arial	10.0	
+PASS	Auto	Refactor Baseline: table1 auto	12	5	3	A1:E1;E2:E3;B2:B3	7	0	21	Arial	10.0	

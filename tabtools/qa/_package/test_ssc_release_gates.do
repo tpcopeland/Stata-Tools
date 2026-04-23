@@ -134,6 +134,70 @@ else {
     local failed_tests "`failed_tests' pkg_manifest"
 }
 
+**## Shipped text artifacts do not contain dev-only paths or legacy repo refs
+local ++test_count
+capture noisily {
+    local scan_files "README.md stata.toc tabtools.pkg qa/README.md qa/run_all.do qa/check_tabtools_render.py qa/crossval_tabtools_companion.R qa/baseline/baseline_manifest.tsv demo/demo_tabtools.do"
+
+    local root_ado : dir "`pkg_dir'" files "*.ado"
+    foreach f of local root_ado {
+        local scan_files `"`scan_files' `f'"'
+    }
+
+    local root_sthlp : dir "`pkg_dir'" files "*.sthlp"
+    foreach f of local root_sthlp {
+        local scan_files `"`scan_files' `f'"'
+    }
+
+    foreach sub in _package comptab corrtab crosstab diagtab effecttab ///
+        hrcomptab regtab stratetab tabtools tools {
+        foreach ext in do py R md {
+            local subfiles : dir "`pkg_dir'/qa/`sub'" files "*.`ext'"
+            foreach f of local subfiles {
+                if "`sub'" == "_package" & "`f'" == "test_ssc_release_gates.do" continue
+                local scan_files `"`scan_files' qa/`sub'/`f'"'
+            }
+        }
+    }
+
+    local devref_count = 0
+    tempname scan_fh
+    foreach relpath of local scan_files {
+        capture confirm file "`pkg_dir'/`relpath'"
+        if _rc continue
+
+        file open `scan_fh' using "`pkg_dir'/`relpath'", read text
+        file read `scan_fh' line
+        while r(eof) == 0 {
+            local raw `"`line'"'
+            if strpos(`"`raw'"', "/home/tpcopeland/") ///
+                | strpos(`"`raw'"', "~/Stata-Tools") ///
+                | strpos(`"`raw'"', "~/Stata-Dev") ///
+                | strpos(`"`raw'"', ".codex/skills/") ///
+                | strpos(`"`raw'"', "_examples/") ///
+                | strpos(`"`raw'"', "/Stata-Dev") {
+                display as error "  DEV REF: `relpath'"
+                display as error "           `raw'"
+                local ++devref_count
+                continue, break
+            }
+            file read `scan_fh' line
+        }
+        file close `scan_fh'
+    }
+
+    assert `devref_count' == 0
+}
+if _rc == 0 {
+    display as result "  PASS: shipped text artifacts are free of dev-only paths"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: shipped text artifacts include dev-only paths (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' dev_refs"
+}
+
 **## tabtools.ado package version literal matches the header version
 local ++test_count
 capture noisily {
@@ -324,8 +388,10 @@ tabtools set clear
 if `fail_count' > 0 {
     display as error "FAILED TESTS: `failed_tests'"
     display "RESULT: test_ssc_release_gates tests=`test_count' pass=`pass_count' fail=`fail_count'"
+    capture log close _sscg
     exit 1
 }
 
 display as result "ALL TESTS PASSED"
 display "RESULT: test_ssc_release_gates tests=`test_count' pass=`pass_count' fail=`fail_count'"
+capture log close _sscg

@@ -1,4 +1,4 @@
-*! codescan Version 1.0.2  2026/04/17
+*! codescan Version 1.0.3  2026/04/23
 *! Scan wide-format code variables for pattern matches and collapse to patient-level
 *! Author: Timothy P Copeland
 *! Program class: rclass (returns results in r())
@@ -656,7 +656,6 @@ program define codescan, rclass
     * SCORE() — Charlson default weights (F2)
     * =========================================================================
     if "`score'" != "" {
-        local _score_type = lower("`score'")
         if "`_score_type'" == "charlson" {
             * Quan et al. 2011 updated Charlson weights (ICD-10 codes from Quan et al. 2005)
             * Map condition names to standard Charlson weights
@@ -902,6 +901,12 @@ program define codescan, rclass
             display as error "`_defsrc': condition name `nm' conflicts with id, date, or refdate variable"
             exit 198
         }
+        if `"`export'"' != "" {
+            if inlist("`nm'", "condition", "matches", "prevalence", "pattern", "exclusion", "ci_low", "ci_high") {
+                display as error "`_defsrc': condition name `nm' conflicts with a reserved export column name"
+                exit 198
+            }
+        }
     }
 
     local _scorename "_score"
@@ -1072,12 +1077,21 @@ program define codescan, rclass
             local lab_label_`n_labels' `"`lab_txt'"'
         }
 
-        * Validate label names match condition names
+        * Validate label names match condition names (with generate-prefix fallback)
         forvalues j = 1/`n_labels' {
             local found = 0
             forvalues k = 1/`n_conditions' {
                 if "`lab_name_`j''" == "`def_name_`k''" {
                     local found = 1
+                }
+            }
+            if !`found' & "`generate'" != "" {
+                local _lab_pref "`generate'`lab_name_`j''"
+                forvalues k = 1/`n_conditions' {
+                    if "`_lab_pref'" == "`def_name_`k''" {
+                        local found = 1
+                        local lab_name_`j' "`_lab_pref'"
+                    }
                 }
             }
             if !`found' {
@@ -1447,7 +1461,7 @@ program define codescan, rclass
 
                 if "`countdate'" != "" {
                     tempvar hasmatch_`i' tag_`i'
-                    bysort `id' `date': egen byte `hasmatch_`i'' = max(`name' * `touse')
+                    bysort `id' `date': egen byte `hasmatch_`i'' = max((`name' > 0) * `touse')
                     by `id' `date': gen byte `tag_`i'' = `hasmatch_`i'' & `touse' & sum(`touse') == 1 & !missing(`date')
                 }
             }
@@ -1564,7 +1578,7 @@ program define codescan, rclass
                 }
                 if "`countdate'" != "" {
                     tempvar mhasmatch_`i' mtag_`i'
-                    quietly bysort `id' `date': egen byte `mhasmatch_`i'' = max(`name' * `touse')
+                    quietly bysort `id' `date': egen byte `mhasmatch_`i'' = max((`name' > 0) * `touse')
                     quietly by `id' `date': gen byte `mtag_`i'' = `mhasmatch_`i'' & `touse' & sum(`touse') == 1 & !missing(`date')
                     local merge_expr "`merge_expr' (sum) `name'_count=`mtag_`i''"
                 }
@@ -2062,6 +2076,7 @@ program define codescan, rclass
     if `"`define'"' != ""              return local define `"`define'"'
     if "`codefile'" != ""              return local codefile "`codefile'"
     if "`id'" != ""                    return local id "`id'"
+    if "`date'" != ""                  return local date "`date'"
     if `has_lookback' & `n_lookback_windows' == 1 {
         return scalar lookback = `_lookback_primary'
     }
@@ -2524,9 +2539,9 @@ void _codescan_validate_regex(string scalar pat, string scalar cname, string sca
         errprintf("{err}" + ptype + " for %s: unmatched '(' in pattern: %s\n", cname, pat)
         exit(198)
     }
-    // Note: Stata's regex engine tolerates unclosed brackets, so we only
-    // warn on unmatched brackets rather than erroring.
-    // Unmatched brackets are still technically valid in Stata's regexm().
+    if (depth_bracket != 0) {
+        printf("{txt}(note: " + ptype + " for %s has unclosed '[' in pattern: %s)\n", cname, pat)
+    }
 }
 
 // P1: Compute co-occurrence matrix in a single Mata pass

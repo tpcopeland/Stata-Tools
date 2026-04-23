@@ -1,6 +1,6 @@
 # codescan - Scan wide-format diagnosis, procedure, and medication code fields
 
-**Version 1.0.2** | 2026-04-17
+**Version 1.0.3** | 2026-04-23
 
 `codescan` scans wide-format code slots with anchored regex or prefix rules and creates row-level indicators, counts, or patient-level summaries. `codescan_describe` is the reconnaissance companion command: it shows what codes are actually in the data before you commit to a scanning rule set.
 

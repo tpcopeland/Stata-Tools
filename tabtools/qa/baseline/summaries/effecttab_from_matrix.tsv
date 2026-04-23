@@ -1,2 +1,2 @@
-status\tmessage
-FAIL\teffecttab matrix baseline failed with rc=198
+status	sheet	title	max_row	max_col	n_merges	merged_ranges	n_bold_cells	n_filled_cells	n_border_cells	dominant_font	dominant_font_size	fill_palette
+PASS	Matrix	Refactor Baseline: effecttab matrix	6	5	2	C2:E2;A1:E1	4	3	11	Arial	10.0	DBE5F1

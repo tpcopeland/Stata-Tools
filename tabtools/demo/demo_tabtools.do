@@ -69,27 +69,40 @@
 */
 
 version 16.0
+local _orig_more = c(more)
+local _orig_varabbrev = c(varabbrev)
+local _orig_linesize = c(linesize)
+local _orig_scheme = c(scheme)
+local _demo_success ""
+
+capture noisily {
 set more off
 set varabbrev off
 set linesize 250
 
 **# Setup
 
-* Derive repo root from current working directory
+* Support running from either the repo root or the package demo directory.
 local repo_root "`c(pwd)'"
-local pkg_dir "tabtools/demo"
+capture confirm file "`repo_root'/tabtools/tabtools.pkg"
+if _rc {
+    local repo_root = subinstr("`repo_root'", "/tabtools/demo", "", 1)
+    capture confirm file "`repo_root'/tabtools/tabtools.pkg"
+    if _rc {
+        display as error "Run demo_tabtools.do from the Stata-Tools repo root or from tabtools/demo"
+        exit 601
+    }
+}
+
+local pkg_dir "`repo_root'/tabtools/demo"
 capture mkdir "`pkg_dir'"
 
 * Install tc_schemes for consistent graph appearance
 local tc_schemes_dir "`repo_root'/tc_schemes"
 capture confirm file "`tc_schemes_dir'/stata.toc"
 if _rc {
-    local tc_schemes_dir = subinstr("`repo_root'", "/Stata-Dev", "/Stata-Tools", 1) + "/tc_schemes"
-    capture confirm file "`tc_schemes_dir'/stata.toc"
-    if _rc {
-        display as error "tc_schemes package not found in repo or sibling Stata-Tools checkout"
-        exit 601
-    }
+    display as error "tc_schemes package not found at `tc_schemes_dir'"
+    exit 601
 }
 capture ado uninstall tc_schemes
 quietly net install tc_schemes, from("`tc_schemes_dir'") replace
@@ -167,7 +180,7 @@ tempfile analysis
 save `analysis'
 
 **# Console: consolidated display log
-capture log close _all
+capture log close demo
 capture erase "`console_log'"
 foreach legacy_log in console_survtab.smcl console_tabtools.smcl console_regtab.smcl ///
     console_corrtab.smcl console_crosstab.smcl console_diagtab.smcl {
@@ -917,3 +930,13 @@ clear
 display as result "Demo complete. Outputs:"
 display as result "  `pkg_dir'/console_output.smcl"
 display as result "  `pkg_dir'/demo_tabtools.xlsx (46 sheets)"
+local _demo_success "1"
+}
+local _rc = _rc
+if "`_demo_success'" == "1" local _rc = 0
+capture log close demo
+set scheme `_orig_scheme'
+set linesize `_orig_linesize'
+set varabbrev `_orig_varabbrev'
+set more `_orig_more'
+if `_rc' exit `_rc'

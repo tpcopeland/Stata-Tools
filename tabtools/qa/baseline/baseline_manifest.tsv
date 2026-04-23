@@ -1,16 +1,16 @@
 scenario	command	status	xlsx	sheet	N_rows	N_cols	methods_present	summary_file	note
-corrtab_spearman_lower	corrtab	PASS	/home/tpcopeland/Stata-Dev/tabtools/qa/baseline/workbooks/corrtab_spearman_lower.xlsx	Corr			1	/home/tpcopeland/Stata-Dev/tabtools/qa/baseline/summaries/corrtab_spearman_lower.tsv	Spearman lower triangle with p-values
-crosstab_2x2_chi2	crosstab	PASS	/home/tpcopeland/Stata-Dev/tabtools/qa/baseline/workbooks/crosstab_2x2_chi2.xlsx	Cross2x2			1	/home/tpcopeland/Stata-Dev/tabtools/qa/baseline/summaries/crosstab_2x2_chi2.tsv	2x2 with chi-squared row
-crosstab_3x3_chi2	crosstab	PASS	/home/tpcopeland/Stata-Dev/tabtools/qa/baseline/workbooks/crosstab_3x3_chi2.xlsx	Cross3x3			1	/home/tpcopeland/Stata-Dev/tabtools/qa/baseline/summaries/crosstab_3x3_chi2.tsv	3x3 with chi-squared row
-diagtab_basic	diagtab	PASS	/home/tpcopeland/Stata-Dev/tabtools/qa/baseline/workbooks/diagtab_basic.xlsx	Diag			1	/home/tpcopeland/Stata-Dev/tabtools/qa/baseline/summaries/diagtab_basic.tsv	Sensitivity and specificity table
-effecttab_single_model	effecttab	PASS	/home/tpcopeland/Stata-Dev/tabtools/qa/baseline/workbooks/effecttab_single_model.xlsx	Single	5	5	1	/home/tpcopeland/Stata-Dev/tabtools/qa/baseline/summaries/effecttab_single_model.tsv	Single-model treatment effects
-effecttab_multi_model	effecttab	PASS	/home/tpcopeland/Stata-Dev/tabtools/qa/baseline/workbooks/effecttab_multi_model.xlsx	Multi	5	8	1	/home/tpcopeland/Stata-Dev/tabtools/qa/baseline/summaries/effecttab_multi_model.tsv	Multiple collected models
-effecttab_from_matrix	effecttab	FAIL	/home/tpcopeland/Stata-Dev/tabtools/qa/baseline/workbooks/effecttab_from_matrix.xlsx	Matrix			0	/home/tpcopeland/Stata-Dev/tabtools/qa/baseline/summaries/effecttab_from_matrix.tsv	From-matrix path
-regtab_single_model	regtab	PASS	/home/tpcopeland/Stata-Dev/tabtools/qa/baseline/workbooks/regtab_single_model.xlsx	Single	9	5	1	/home/tpcopeland/Stata-Dev/tabtools/qa/baseline/summaries/regtab_single_model.tsv	Single collected regression model
-regtab_compact_multi	regtab	PASS	/home/tpcopeland/Stata-Dev/tabtools/qa/baseline/workbooks/regtab_compact_multi.xlsx	Compact	9	6	1	/home/tpcopeland/Stata-Dev/tabtools/qa/baseline/summaries/regtab_compact_multi.tsv	Compact multi-model regression table
-stratetab_multi_exposure	stratetab	PASS	/home/tpcopeland/Stata-Dev/tabtools/qa/baseline/workbooks/stratetab_multi_exposure.xlsx	Rates	12		0	/home/tpcopeland/Stata-Dev/tabtools/qa/baseline/summaries/stratetab_multi_exposure.tsv	Two outcomes by two exposure types
-survtab_km	survtab	PASS	/home/tpcopeland/Stata-Dev/tabtools/qa/baseline/workbooks/survtab_km.xlsx	KM	10		1	/home/tpcopeland/Stata-Dev/tabtools/qa/baseline/summaries/survtab_km.tsv	Kaplan-Meier estimates by group
-survtab_median	survtab	PASS	/home/tpcopeland/Stata-Dev/tabtools/qa/baseline/workbooks/survtab_median.xlsx	Median	10		1	/home/tpcopeland/Stata-Dev/tabtools/qa/baseline/summaries/survtab_median.tsv	Median survival table
-table1_tc_autodetect	table1_tc	PASS	/home/tpcopeland/Stata-Dev/tabtools/qa/baseline/workbooks/table1_tc_autodetect.xlsx	Auto			1	/home/tpcopeland/Stata-Dev/tabtools/qa/baseline/summaries/table1_tc_autodetect.tsv	Grouped auto-detect baseline
-table1_tc_forced_types	table1_tc	PASS	/home/tpcopeland/Stata-Dev/tabtools/qa/baseline/workbooks/table1_tc_forced_types.xlsx	Forced			1	/home/tpcopeland/Stata-Dev/tabtools/qa/baseline/summaries/table1_tc_forced_types.tsv	Grouped forced-type baseline
-comptab_sections	comptab	PASS	/home/tpcopeland/Stata-Dev/tabtools/qa/baseline/workbooks/comptab_sections.xlsx	Comp	8	5	0	/home/tpcopeland/Stata-Dev/tabtools/qa/baseline/summaries/comptab_sections.tsv	Two-frame composite with sections
+corrtab_spearman_lower	corrtab	PASS	qa/baseline/workbooks/corrtab_spearman_lower.xlsx	Corr			1	qa/baseline/summaries/corrtab_spearman_lower.tsv	Spearman lower triangle with p-values
+crosstab_2x2_chi2	crosstab	PASS	qa/baseline/workbooks/crosstab_2x2_chi2.xlsx	Cross2x2			1	qa/baseline/summaries/crosstab_2x2_chi2.tsv	2x2 with chi-squared row
+crosstab_3x3_chi2	crosstab	PASS	qa/baseline/workbooks/crosstab_3x3_chi2.xlsx	Cross3x3			1	qa/baseline/summaries/crosstab_3x3_chi2.tsv	3x3 with chi-squared row
+diagtab_basic	diagtab	PASS	qa/baseline/workbooks/diagtab_basic.xlsx	Diag			1	qa/baseline/summaries/diagtab_basic.tsv	Sensitivity and specificity table
+effecttab_single_model	effecttab	PASS	qa/baseline/workbooks/effecttab_single_model.xlsx	Single	5	5	1	qa/baseline/summaries/effecttab_single_model.tsv	Single-model treatment effects
+effecttab_multi_model	effecttab	PASS	qa/baseline/workbooks/effecttab_multi_model.xlsx	Multi	5	8	1	qa/baseline/summaries/effecttab_multi_model.tsv	Multiple collected models
+effecttab_from_matrix	effecttab	PASS	qa/baseline/workbooks/effecttab_from_matrix.xlsx	Matrix	6	5	1	qa/baseline/summaries/effecttab_from_matrix.tsv	From-matrix path
+regtab_single_model	regtab	PASS	qa/baseline/workbooks/regtab_single_model.xlsx	Single	9	6	1	qa/baseline/summaries/regtab_single_model.tsv	Single collected regression model
+regtab_compact_multi	regtab	PASS	qa/baseline/workbooks/regtab_compact_multi.xlsx	Compact	9	7	1	qa/baseline/summaries/regtab_compact_multi.tsv	Compact multi-model regression table
+stratetab_multi_exposure	stratetab	PASS	qa/baseline/workbooks/stratetab_multi_exposure.xlsx	Rates	12		0	qa/baseline/summaries/stratetab_multi_exposure.tsv	Two outcomes by two exposure types
+survtab_km	survtab	PASS	qa/baseline/workbooks/survtab_km.xlsx	KM	10		1	qa/baseline/summaries/survtab_km.tsv	Kaplan-Meier estimates by group
+survtab_median	survtab	PASS	qa/baseline/workbooks/survtab_median.xlsx	Median	10		1	qa/baseline/summaries/survtab_median.tsv	Median survival table
+table1_tc_autodetect	table1_tc	PASS	qa/baseline/workbooks/table1_tc_autodetect.xlsx	Auto			1	qa/baseline/summaries/table1_tc_autodetect.tsv	Grouped auto-detect baseline
+table1_tc_forced_types	table1_tc	PASS	qa/baseline/workbooks/table1_tc_forced_types.xlsx	Forced			1	qa/baseline/summaries/table1_tc_forced_types.tsv	Grouped forced-type baseline
+comptab_sections	comptab	PASS	qa/baseline/workbooks/comptab_sections.xlsx	Comp	8	5	0	qa/baseline/summaries/comptab_sections.tsv	Two-frame composite with sections

@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.2  17apr2026}{...}
+{* *! version 1.0.3  23apr2026}{...}
 {vieweralsosee "codescan" "help codescan"}{...}
 {vieweralsosee "[D] contract" "help contract"}{...}
 {vieweralsosee "[D] tostring" "help tostring"}{...}

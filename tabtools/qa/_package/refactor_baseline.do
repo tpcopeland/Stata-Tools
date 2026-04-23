@@ -713,14 +713,20 @@ else {
 postclose `posth'
 
 use `baseline_manifest_data', clear
+* Store manifest paths relative to the package root so the release tree remains relocatable.
+replace xlsx = subinstr(xlsx, "`baseline_dir'/", "qa/baseline/", 1) ///
+    if strpos(xlsx, "`baseline_dir'/") == 1
+replace summary_file = subinstr(summary_file, "`baseline_dir'/", "qa/baseline/", 1) ///
+    if strpos(summary_file, "`baseline_dir'/") == 1
 order scenario command status xlsx sheet N_rows N_cols methods_present summary_file note
 export delimited using "`manifest_file'", delimiter(tab) replace
 
 display _newline as result "=== Refactor baseline: `pass_count' passed, `fail_count' failed out of `case_count' scenarios ==="
-display as result "Manifest: `manifest_file'"
+display as result "Manifest: qa/baseline/baseline_manifest.tsv"
 if `fail_count' > 0 {
     display as error "Failed scenarios:`failed_cases'"
+    capture log close _refactor_baseline
     exit 1
 }
 
-log close _refactor_baseline
+capture log close _refactor_baseline

@@ -1,5 +1,5 @@
-* test_codescan_v101.do - Regression tests for current package fixes
-* Date: 2026-04-17
+* test_codescan_regressions.do - Regression tests for current package fixes
+* Date: 2026-04-23
 *
 * Covers:
 *   T1: r() scalars/matrices populated even when export() target fails
@@ -8,7 +8,12 @@
 *   T4: unmatched() is strict 0/1 when rows have missing id under merge
 *   T5: unmatched() + collapse: option is row-level only; flag not retained after collapse
 *   T6: Mata cooccurrence still posts to caller's tempname after matname refactor
-*   T7: Version header reports 1.0.2
+*   T7: Version header reports 1.0.3
+*   T8: label() with generate() accepts bare names (I3 fix)
+*   T9: Reserved export column names rejected as condition names (I5 fix)
+*   T10: generate() + hierarchy() with bare names (M8)
+*   T11: r(date) returned when date() specified (I8 fix)
+*   T12: countdate + countmode uses 0/1 flag, not raw counts (I4 fix)
 
 clear all
 set seed 12345
@@ -207,22 +212,21 @@ else {
 
 
 * ============================================================
-* T7: header advertises version 1.0.2
+* T7: header advertises version 1.0.3
 * ============================================================
 
 local ++test_count
 capture noisily {
-    * Read the installed codescan.ado header.
     findfile codescan.ado
     local _path `"`r(fn)'"'
     tempname fh
     file open `fh' using `"`_path'"', read
     file read `fh' _line1
     file close `fh'
-    assert strpos("`_line1'", "1.0.2") > 0
+    assert strpos("`_line1'", "1.0.3") > 0
 }
 if _rc == 0 {
-    display as result "  PASS T7: version header is 1.0.2"
+    display as result "  PASS T7: version header is 1.0.3"
     local ++pass_count
 }
 else {
@@ -232,11 +236,144 @@ else {
 
 
 * ============================================================
+* T8: label() + generate() accepts bare condition names
+* ============================================================
+
+local ++test_count
+capture noisily {
+    _make_v101_data
+    codescan dx1, define(dm2 "E11" | htn "I10") generate(cs_) ///
+        label(dm2 "Type 2 Diabetes" \ htn "Hypertension")
+    * Variables should exist with the prefix
+    confirm variable cs_dm2
+    confirm variable cs_htn
+    * Labels should have been applied
+    local _lbl : variable label cs_dm2
+    assert `"`_lbl'"' == "Type 2 Diabetes"
+    local _lbl : variable label cs_htn
+    assert `"`_lbl'"' == "Hypertension"
+}
+if _rc == 0 {
+    display as result "  PASS T8: label() + generate() bare names"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL T8: label() + generate() bare names (rc=`=_rc')"
+    local ++fail_count
+}
+
+
+* ============================================================
+* T9: reserved export column names rejected as condition names
+* ============================================================
+
+local ++test_count
+capture noisily {
+    _make_v101_data
+    capture codescan dx1, define(pattern "E11") export(test_reserved.xlsx)
+    assert _rc == 198
+    capture codescan dx1, define(matches "E11") export(test_reserved.xlsx)
+    assert _rc == 198
+    * Without export(), same names should be fine
+    capture codescan dx1, define(pattern "E11")
+    assert _rc == 0
+}
+if _rc == 0 {
+    display as result "  PASS T9: reserved export column names rejected"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL T9: reserved export column name check (rc=`=_rc')"
+    local ++fail_count
+}
+
+
+* ============================================================
+* T10: generate() + hierarchy() with bare names
+* ============================================================
+
+local ++test_count
+capture noisily {
+    _make_v101_data
+    codescan dx1, define(dm_comp "E10" | dm_uncomp "E11") generate(cs_) ///
+        id(pid) collapse hierarchy(dm_comp > dm_uncomp)
+    confirm variable cs_dm_comp
+    confirm variable cs_dm_uncomp
+    * Hierarchy should have suppressed dm_uncomp where dm_comp is present
+}
+if _rc == 0 {
+    display as result "  PASS T10: generate() + hierarchy() bare names"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL T10: generate()+hierarchy() bare names (rc=`=_rc')"
+    local ++fail_count
+}
+
+
+* ============================================================
+* T11: r(date) returned when date() specified
+* ============================================================
+
+local ++test_count
+capture noisily {
+    clear
+    input long pid str10 dx1 double visit_dt
+    1 "E110" 21914
+    1 "Z00"  21880
+    2 "I10"  21900
+    end
+    format visit_dt %td
+    codescan dx1, define(dm2 "E11") date(visit_dt)
+    assert `"`=r(date)'"' == "visit_dt"
+}
+if _rc == 0 {
+    display as result "  PASS T11: r(date) returned"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL T11: r(date) not returned (rc=`=_rc')"
+    local ++fail_count
+}
+
+
+* ============================================================
+* T12: countdate + countmode uses 0/1 flag (byte safe)
+* ============================================================
+
+local ++test_count
+capture noisily {
+    clear
+    input long pid str10 dx1 double visit_dt double index_dt
+    1 "E110" 21914 21920
+    1 "E110" 21915 21920
+    1 "E110" 21916 21920
+    2 "Z00"  21914 21920
+    end
+    format visit_dt index_dt %td
+    codescan dx1, define(dm2 "E11") id(pid) date(visit_dt) refdate(index_dt) ///
+        lookback(365) inclusive collapse countdate countmode
+    * Patient 1 has 3 unique dates with matches
+    assert dm2_count == 3 if pid == 1
+    * Patient 2 has 0 matching dates
+    assert dm2_count == 0 if pid == 2
+}
+if _rc == 0 {
+    display as result "  PASS T12: countdate + countmode byte-safe"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL T12: countdate + countmode (rc=`=_rc')"
+    local ++fail_count
+}
+
+
+* ============================================================
 * Summary
 * ============================================================
 
 display ""
-display as result "RESULT: test_codescan_v101 tests=`test_count' pass=`pass_count' fail=`fail_count'"
+display as result "RESULT: test_codescan_regressions tests=`test_count' pass=`pass_count' fail=`fail_count'"
 display as result "Test Results: `pass_count'/`test_count' passed, `fail_count' failed"
 
 if `fail_count' > 0 {

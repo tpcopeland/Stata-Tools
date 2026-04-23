@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.2  17apr2026}{...}
+{* *! version 1.0.3  23apr2026}{...}
 {vieweralsosee "codescan_describe" "help codescan_describe"}{...}
 {vieweralsosee "[D] collapse" "help collapse"}{...}
 {vieweralsosee "[D] merge" "help merge"}{...}
@@ -202,6 +202,8 @@ projects, or shared with collaborators.
 {cmd:label(dm2 "Type 2 diabetes" \ htn "Hypertension")}.
 Labels apply to the main indicator/count variable and any date-summary variables.
 If labels were supplied in {cmd:codefile()}, {cmd:label()} overrides them.
+When {cmd:generate()} is used, label names may be written with bare condition
+names; the generate-prefix fallback is applied automatically.
 
 {phang}
 {opt save(filename)} writes the parsed {cmd:define()} rules to a CSV with columns
@@ -309,14 +311,57 @@ of pairwise counts.  In row-level mode it counts observations.  After
 {cmd:{it:prefix}_score} when {cmd:generate()} is used.
 
 {pmore}
-{cmd:score(charlson)} applies the bundled Charlson mapping.  Standard aliases such
-as {cmd:mi}, {cmd:chf}, {cmd:renal}, {cmd:dm_uncomp}, {cmd:dm_comp},
-{cmd:liver_mild}, {cmd:liver_severe}, {cmd:cancer}, and {cmd:metastatic} are
-recognized.  Unrecognized names receive weight 0 and generate a note.
+{cmd:score(charlson)} applies Quan et al. (2011) updated Charlson weights.
+Recognized condition aliases and their weights:{break}
+Weight 1: {cmd:mi}, {cmd:chf}, {cmd:pvd}, {cmd:dementia}, {cmd:copd},
+{cmd:cvd}, {cmd:stroke}, {cmd:cerebrovascular},
+{cmd:rheumatic}, {cmd:rheumatoid}, {cmd:connective},
+{cmd:peptic}, {cmd:ulcer}, {cmd:pud},
+{cmd:liver_mild}, {cmd:mild_liver},
+{cmd:dm}, {cmd:dm1}, {cmd:dm2}, {cmd:dm_uncomp}, {cmd:diabetes}.{break}
+Weight 2: {cmd:dm_comp}, {cmd:dm_complicated}, {cmd:diabetes_comp},
+{cmd:hemiplegia}, {cmd:paraplegia}, {cmd:paralysis},
+{cmd:renal}, {cmd:ckd}, {cmd:kidney},
+{cmd:cancer}, {cmd:malignancy}, {cmd:tumor}.{break}
+Weight 3: {cmd:liver_severe}, {cmd:severe_liver}.{break}
+Weight 6: {cmd:metastatic}, {cmd:mets}, {cmd:hiv}, {cmd:aids}.{break}
+Unrecognized names receive weight 0 and generate a note.
 
 {pmore}
-{cmd:score(elixhauser)} applies the bundled van Walraven Elixhauser weights.
-Again, unrecognized names receive weight 0 and generate a note.
+{cmd:score(elixhauser)} applies van Walraven et al. (2009) weights, not the
+original Elixhauser (1998) weights.  Recognized condition aliases and their
+weights:{break}
+Weight 12: {cmd:metastatic}, {cmd:metastatic_cancer}.{break}
+Weight 11: {cmd:liver}, {cmd:liver_disease}.{break}
+Weight 9: {cmd:lymphoma}.{break}
+Weight 7: {cmd:chf}, {cmd:heart_failure}, {cmd:paralysis}.{break}
+Weight 6: {cmd:neuro_other}, {cmd:other_neurological},
+{cmd:weight_loss}.{break}
+Weight 5: {cmd:arrhythmia}, {cmd:cardiac_arrhythmia},
+{cmd:renal}, {cmd:renal_failure},
+{cmd:fluid_electrolyte}, {cmd:fluid_electrolytes}.{break}
+Weight 4: {cmd:pulmonary_circ}, {cmd:pulmonary_circulation},
+{cmd:solid_tumor}, {cmd:solid_tumour}.{break}
+Weight 3: {cmd:copd}, {cmd:chronic_pulmonary},
+{cmd:coagulopathy}.{break}
+Weight 2: {cmd:pvd}, {cmd:peripheral_vascular}.{break}
+Weight 0: {cmd:htn_uncomp}, {cmd:hypertension_uncomp},
+{cmd:htn_comp}, {cmd:hypertension_comp},
+{cmd:dm_uncomp}, {cmd:diabetes_uncomp},
+{cmd:dm_comp}, {cmd:diabetes_comp},
+{cmd:hypothyroid}, {cmd:hypothyroidism},
+{cmd:pud}, {cmd:peptic_ulcer},
+{cmd:hiv}, {cmd:aids},
+{cmd:rheumatoid}, {cmd:rheumatoid_arthritis}, {cmd:collagen},
+{cmd:alcohol}, {cmd:alcohol_abuse},
+{cmd:psychoses}, {cmd:psychosis}.{break}
+Weight {hline 1}1: {cmd:valvular}, {cmd:valvular_disease}.{break}
+Weight {hline 1}2: {cmd:blood_loss_anemia}, {cmd:blood_loss},
+{cmd:deficiency_anemia}, {cmd:anemia}.{break}
+Weight {hline 1}3: {cmd:depression}.{break}
+Weight {hline 1}4: {cmd:obesity}.{break}
+Weight {hline 1}7: {cmd:drug}, {cmd:drug_abuse}.{break}
+Unrecognized names receive weight 0 and generate a note.
 
 {pmore}
 {cmd:score(custom)} reads weights from the {bf:weight} column in {cmd:codefile()}.
@@ -340,15 +385,16 @@ defined condition list before the generate-prefix fallback is applied.
 
 {phang}
 {opt unmatched(name)} creates a row-level 0/1 flag equal to 1 when an observation
-matched no condition.  It is useful for auditing leftover codes.  The flag is not
-retained after {cmd:collapse}, but it is retained in row-level or {cmd:merge}
-output.
+matched no condition.  Rows excluded by {cmd:if}, {cmd:in}, or missing
+{cmd:id()} under {cmd:collapse}/{cmd:merge} are assigned 0, not missing — the
+flag is strict 0/1 over all rows.  It is not retained after {cmd:collapse}, but
+it is retained in row-level or {cmd:merge} output.
 
 {phang}
-{opt matched_code(name)} creates a row-level string variable containing the first
-code value that survived inclusion and exclusion checks for any condition.  It is
-empty when nothing matched.  Like {cmd:unmatched()}, it is not retained after
-{cmd:collapse}.
+{opt matched_code(name)} creates a row-level {cmd:str244} variable containing the
+first code value that survived inclusion and exclusion checks for any condition.
+It is empty when nothing matched.  Like {cmd:unmatched()}, it is not retained
+after {cmd:collapse}.
 
 {phang}
 {opt graph} draws a horizontal bar chart of condition prevalence.
@@ -358,7 +404,8 @@ empty when nothing matched.  Like {cmd:unmatched()}, it is not retained after
 Exported columns are {cmd:condition}, {cmd:matches}, {cmd:prevalence},
 {cmd:ci_low}, {cmd:ci_high}, {cmd:pattern}, and {cmd:exclusion}.  When both
 {cmd:cooccurrence} and {cmd:export(.xlsx)} are used, the workbook receives a
-second sheet named {cmd:cooccurrence}.
+second sheet named {cmd:cooccurrence} with a {cmd:condition} column and one
+column per condition containing the pairwise count.
 
 {phang}
 {opt format(%fmt)} controls the displayed and exported format of prevalence and
@@ -454,6 +501,12 @@ after aggregation to the patient level.  In practice that means using either
 should supersede milder variants.
 
 {pstd}
+{bf:countmode and countrows.}  Without {cmd:countmode}, {cmd:_nrows} counts the
+number of rows with at least one qualifying match.  With {cmd:countmode},
+{cmd:_nrows} sums the per-row match counts (total code-slot hits across all rows
+for that patient).
+
+{pstd}
 {bf:Frames and restore behavior.}  If you need a non-destructive workflow,
 {cmd:preserve} keeps the active dataset untouched and {cmd:frame()} gives you a
 named copy of the finished result dataset.  That is the recommended pattern when
@@ -546,6 +599,7 @@ it before examples that change the data in memory.
 {synopt:{cmd:r(define)}}full {cmd:define()} string when used{p_end}
 {synopt:{cmd:r(codefile)}}codefile path when used{p_end}
 {synopt:{cmd:r(id)}}identifier variable when specified{p_end}
+{synopt:{cmd:r(date)}}event-date variable when {cmd:date()} was specified{p_end}
 {synopt:{cmd:r(refdate)}}reference-date variable when windowing was used{p_end}
 {synopt:{cmd:r(frame)}}frame name when {cmd:frame()} was used{p_end}
 {synopt:{cmd:r(score)}}score type when {cmd:score()} was used{p_end}
