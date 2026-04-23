@@ -40,8 +40,8 @@
 {synoptline}
 {synopt:{opt list}}display commands as simple list{p_end}
 {synopt:{opt detail}}show detailed command descriptions{p_end}
-{synopt:{opt pro:tocol}}show MSM protocol framework{p_end}
-{synopt:{opt status}}show current pipeline stage, mapped variables, and saved artifacts{p_end}
+{synopt:{opt prot:ocol}}show MSM protocol framework{p_end}
+{synopt:{opt stat:us}}show current pipeline stage, mapped variables, and saved artifacts{p_end}
 {synoptline}
 
 

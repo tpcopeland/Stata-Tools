@@ -8,7 +8,6 @@
 program define _msm_get_settings
     version 16.0
     set varabbrev off
-    set more off
 
     local id         : char _dta[_msm_id]
     local period     : char _dta[_msm_period]

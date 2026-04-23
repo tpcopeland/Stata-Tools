@@ -433,15 +433,16 @@ program define msm_fit, eclass
     local _cidx 0
     foreach _cn of local _msm_cnames {
         local _cidx = `_cidx' + 1
-        if strpos("`_cn'", "`treatment'") > 0 {
+        if "`_cn'" == "`treatment'" {
             local _msm_trt_idx = `_cidx'
             continue, break
         }
     }
     local _est = `_msm_b'[1, `_msm_trt_idx']
     local _se = sqrt(`_msm_V'[`_msm_trt_idx', `_msm_trt_idx'])
-    local _ci_lo = `_est' - 1.96 * `_se'
-    local _ci_hi = `_est' + 1.96 * `_se'
+    local _z_eff = invnormal((100 + `level') / 200)
+    local _ci_lo = `_est' - `_z_eff' * `_se'
+    local _ci_hi = `_est' + `_z_eff' * `_se'
     local _pval = 2 * normal(-abs(`_est' / `_se'))
     matrix `_msm_effects' = (`_est', `_ci_lo', `_ci_hi', `_pval')
     matrix colnames `_msm_effects' = estimate ci_lower ci_upper pvalue

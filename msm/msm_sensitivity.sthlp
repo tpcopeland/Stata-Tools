@@ -31,7 +31,7 @@
 {synopt:{opt eva:lue}}compute E-value (default){p_end}
 {synopt:{opt conf:ounding_strength(# #)}}RR(U,D) and RR(U,Y) for bias factor{p_end}
 {synopt:{opt level(#)}}confidence level; default 95{p_end}
-{synopt:{opt rarethres:hold(#)}}maximum weighted outcome prevalence for automatic logistic approximation; default 0.10{p_end}
+{synopt:{opt rarethr:eshold(#)}}maximum weighted outcome prevalence for automatic logistic approximation; default 0.10{p_end}
 {synopt:{opt orapprox}}force OR-based rare-outcome approximation for logistic models{p_end}
 {synoptline}
 

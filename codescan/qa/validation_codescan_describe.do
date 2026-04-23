@@ -255,6 +255,49 @@ else {
     local ++fail_count
 }
 
+* ============================================================
+* V6: save() writes exact chapter-based draft codefile
+* ============================================================
+
+local ++test_count
+capture noisily {
+    clear
+    input str10 dx1 str10 dx2
+    "E11.0" "I10"
+    "E11.9" "I10"
+    "J45"   "I10"
+    ""      "A123"
+    end
+
+    tempfile v6_base
+    local v6_csv "`v6_base'.csv"
+
+    codescan_describe dx1 dx2, nodots save("`v6_csv'")
+    import delimited using "`v6_csv'", clear stringcols(_all) varnames(1)
+
+    assert _N == 4
+
+    count if name == "chapter_I" & pattern == "I" & exclusion == "" & label == ""
+    assert r(N) == 1
+
+    count if name == "chapter_E" & pattern == "E" & exclusion == "" & label == ""
+    assert r(N) == 1
+
+    count if name == "chapter_A" & pattern == "A" & exclusion == "" & label == ""
+    assert r(N) == 1
+
+    count if name == "chapter_J" & pattern == "J" & exclusion == "" & label == ""
+    assert r(N) == 1
+}
+if _rc == 0 {
+    display as result "  PASS: V6 - save() writes exact chapter draft codefile"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: V6 - save() exact chapter draft codefile (error `=_rc')"
+    local ++fail_count
+}
+
 display ""
 display as result "RESULT: validation_codescan_describe tests=`test_count' pass=`pass_count' fail=`fail_count'"
 display as result "Validation Results: `pass_count'/`test_count' passed, `fail_count' failed"

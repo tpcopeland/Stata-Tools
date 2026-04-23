@@ -5,9 +5,7 @@
 program define _msm_pipeline_state
     version 16.0
     local _orig_varabbrev = c(varabbrev)
-    local _orig_more = c(more)
     set varabbrev off
-    set more off
 
     capture noisily {
         local prepared_flag : char _dta[_msm_prepared]
@@ -216,7 +214,6 @@ program define _msm_pipeline_state
     local _rc = _rc
 
     set varabbrev `_orig_varabbrev'
-    set more `_orig_more'
 
     if `_rc' exit `_rc'
 end

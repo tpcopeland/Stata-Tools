@@ -5,7 +5,6 @@
 program define _msm_check_weighted
     version 16.0
     set varabbrev off
-    set more off
 
     local weighted : char _dta[_msm_weighted]
     if "`weighted'" != "1" {

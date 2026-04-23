@@ -486,8 +486,10 @@ end
 * =========================================================================
 program define _msm_weight_treatment, rclass
     version 16.0
+    local _orig_varabbrev = c(varabbrev)
     set varabbrev off
-    set more off
+
+    capture noisily {
 
     syntax , id(varname) period(varname) ///
         treatment(varname) outcome(varname) ///
@@ -995,6 +997,13 @@ program define _msm_weight_treatment, rclass
             `_miss_tw' `_log_tw' `_cum_log_tw' `_cum_miss_tw'
     }
 
+    } /* end capture noisily */
+    local _rc = _rc
+
+    set varabbrev `_orig_varabbrev'
+
+    if `_rc' exit `_rc'
+
     local fitfailure_models : list retokenize fitfailure_models
     return scalar n_fitfail_fallback = `n_fitfail_fallback'
     return scalar n_probability_repairs = `n_probability_repairs'
@@ -1007,8 +1016,10 @@ end
 * =========================================================================
 program define _msm_weight_censor, rclass
     version 16.0
+    local _orig_varabbrev = c(varabbrev)
     set varabbrev off
-    set more off
+
+    capture noisily {
 
     syntax , id(varname) period(varname) ///
         treatment(varname) censor(varname) outcome(varname) ///
@@ -1280,6 +1291,13 @@ program define _msm_weight_censor, rclass
             `_log_cw' `_cum_log_cw' `_cum_miss_cw' `_denom_complete' ///
             `_denom_drop' `_numer_complete' `_numer_drop'
     }
+
+    } /* end capture noisily */
+    local _rc = _rc
+
+    set varabbrev `_orig_varabbrev'
+
+    if `_rc' exit `_rc'
 
     local fitfailure_models : list retokenize fitfailure_models
     return scalar n_fitfail_fallback = `n_fitfail_fallback'

@@ -5,7 +5,6 @@
 program define _msm_check_prepared
     version 16.0
     set varabbrev off
-    set more off
 
     local prepared : char _dta[_msm_prepared]
     if "`prepared'" != "1" {

@@ -279,8 +279,10 @@ end
 
 program define _msm_tbl_coef
     version 16.0
+    local _orig_varabbrev = c(varabbrev)
     set varabbrev off
-    set more off
+
+    capture noisily {
 
     syntax , xlsx(string) decimals(integer) sep(string) ///
         [title(string) eform font(string) fontsize(integer 10) ///
@@ -579,6 +581,11 @@ program define _msm_tbl_coef
 
     restore
     display as text "  Sheet: `sheet'"
+
+    } /* end capture noisily */
+    local _rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `_rc' exit `_rc'
 end
 
 * =========================================================================
@@ -587,8 +594,10 @@ end
 
 program define _msm_tbl_pred
     version 16.0
+    local _orig_varabbrev = c(varabbrev)
     set varabbrev off
-    set more off
+
+    capture noisily {
 
     syntax , xlsx(string) decimals(integer) sep(string) ///
         [title(string) font(string) fontsize(integer 10) ///
@@ -896,6 +905,11 @@ program define _msm_tbl_pred
 
     restore
     display as text "  Sheet: `sheet'"
+
+    } /* end capture noisily */
+    local _rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `_rc' exit `_rc'
 end
 
 * =========================================================================
@@ -904,8 +918,10 @@ end
 
 program define _msm_tbl_bal
     version 16.0
+    local _orig_varabbrev = c(varabbrev)
     set varabbrev off
-    set more off
+
+    capture noisily {
 
     syntax , xlsx(string) decimals(integer) ///
         [title(string) font(string) fontsize(integer 10) ///
@@ -1111,6 +1127,11 @@ program define _msm_tbl_bal
 
     restore
     display as text "  Sheet: `sheet'"
+
+    } /* end capture noisily */
+    local _rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `_rc' exit `_rc'
 end
 
 * =========================================================================
@@ -1119,8 +1140,10 @@ end
 
 program define _msm_tbl_wt
     version 16.0
+    local _orig_varabbrev = c(varabbrev)
     set varabbrev off
-    set more off
+
+    capture noisily {
 
     syntax , xlsx(string) decimals(integer) ///
         [title(string) font(string) fontsize(integer 10) ///
@@ -1298,6 +1321,11 @@ program define _msm_tbl_wt
 
     restore
     display as text "  Sheet: `sheet'"
+
+    } /* end capture noisily */
+    local _rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `_rc' exit `_rc'
 end
 
 * =========================================================================
@@ -1306,8 +1334,10 @@ end
 
 program define _msm_tbl_sens
     version 16.0
+    local _orig_varabbrev = c(varabbrev)
     set varabbrev off
-    set more off
+
+    capture noisily {
 
     syntax , xlsx(string) decimals(integer) ///
         [title(string) font(string) fontsize(integer 10) ///
@@ -1487,4 +1517,9 @@ program define _msm_tbl_sens
 
     restore
     display as text "  Sheet: `sheet'"
+
+    } /* end capture noisily */
+    local _rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `_rc' exit `_rc'
 end

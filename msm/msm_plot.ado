@@ -81,7 +81,7 @@ program define msm_plot, rclass
                (kdensity _msm_weight if `treatment' == 1, ///
                 lcolor(cranberry) lwidth(medthick) lpattern(dash)), ///
             legend(order(1 "Untreated" 2 "Treated") ///
-                position(1) ring(0) cols(1)) ///
+                pos(6)) ///
             xtitle("IP Weight") ytitle("Density") ///
             title("`title'") `save_opts'
     }
@@ -151,7 +151,7 @@ program define msm_plot, rclass
             xline(`threshold', lcolor(gs10) lpattern(dash)) ///
             ylabel(`ylabels', angle(0) labsize(small)) ///
             xlabel(0(0.1)0.5) ///
-            legend(order(1 "Unweighted" 2 "Weighted") position(4) ring(0)) ///
+            legend(order(1 "Unweighted" 2 "Weighted") pos(6)) ///
             xtitle("Absolute Standardized Mean Difference") ///
             ytitle("") ///
             title("`title'") `save_opts'
@@ -238,7 +238,7 @@ program define msm_plot, rclass
                (connected ci_always time, lcolor(cranberry) mcolor(cranberry) ///
                 lwidth(medthick) msymbol(S) lpattern(dash)), ///
             legend(order(3 "Never treated" 4 "Always treated") ///
-                position(11) ring(0) cols(1)) ///
+                pos(6)) ///
             xtitle("Period") ytitle("Cumulative Incidence") ///
             title("`title'") `save_opts'
 

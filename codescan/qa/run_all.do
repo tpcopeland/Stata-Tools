@@ -14,6 +14,7 @@ foreach f in ///
     test_codescan_v101 ///
     test_documentation_examples ///
     validation_codescan ///
+    validation_codescan_io ///
     validation_countrows ///
     validation_codescan_describe ///
     crossval_codescan {

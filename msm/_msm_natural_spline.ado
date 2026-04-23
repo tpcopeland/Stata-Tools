@@ -11,7 +11,6 @@
 program define _msm_natural_spline
     version 16.0
     set varabbrev off
-    set more off
 
     syntax varname, df(integer) prefix(string) [touse(varname)]
 
