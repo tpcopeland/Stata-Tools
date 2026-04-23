@@ -745,8 +745,6 @@ capture noisily {
         local _methods "`_methods' Cumulative incidence (1 minus survival) is reported."
     }
     if `has_by' {
-        local _bylabel : variable label `by'
-        if "`_bylabel'" == "" local _bylabel "`by'"
         local _methods "`_methods' Groups were compared using the log-rank test."
     }
     if "`median'" != "" {
