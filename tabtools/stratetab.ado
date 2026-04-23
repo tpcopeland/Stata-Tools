@@ -787,7 +787,9 @@ if `_has_xlsx' {
 			}
 		}
 	}
-}
+	}
+
+} // end quietly block
 
 * Restore user data
 qui use "`_userdata_path'", clear

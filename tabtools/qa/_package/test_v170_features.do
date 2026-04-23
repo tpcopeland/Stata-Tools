@@ -1128,6 +1128,7 @@ capture noisily {
     survtab, times(10 20) by(drug) events
     assert _N == `orig_n'
     confirm variable studytime died drug
+    assert strpos(`"`r(methods)'"', "log-rank test") > 0
 }
 if _rc == 0 {
     display as result "  PASS: DP.2 — survtab events preserves user data"

@@ -123,6 +123,49 @@ if _rc == 0 {
 	}
 	capture frame drop issue_rates3
 
+**## multi-outcome xlsx path does not emit brace parser noise
+local ++test_count
+capture noisily {
+    tempfile rate11 rate12 rate21 rate22 brace_log
+    local xlsx "`output_dir'/stratetab_brace_check.xlsx"
+    capture erase "`xlsx'"
+    _make_issue_strate, basename("`rate11'")
+    _make_issue_strate, basename("`rate12'")
+    _make_issue_strate, basename("`rate21'")
+    _make_issue_strate, basename("`rate22'")
+    clear
+    capture log close _bracechk
+    log using "`brace_log'", replace text name(_bracechk)
+    stratetab, using("`rate11'" "`rate12'" "`rate21'" "`rate22'") ///
+        outcomes(2) xlsx("`xlsx'") sheet("Rates") ///
+        outlabels("Outcome A \ Outcome B") ///
+        explabels("Exposure A \ Exposure B") ///
+        rateratio footnote("IRR = incidence rate ratio.")
+    log close _bracechk
+    confirm file "`xlsx'"
+    tempname fh
+    local saw_brace = 0
+    file open `fh' using "`brace_log'", read text
+    file read `fh' line
+    while r(eof) == 0 {
+        if strpos(lower(`"`line'"'), "matching close brace not found") > 0 {
+            local saw_brace = 1
+        }
+        file read `fh' line
+    }
+    file close `fh'
+    assert `saw_brace' == 0
+}
+if _rc == 0 {
+    display as result "  PASS: stratetab xlsx path avoids brace parser noise"
+    local ++pass_count
+}
+else {
+    capture log close _bracechk
+    display as error "  FAIL: stratetab brace parser regression (rc=`=_rc')"
+    local ++fail_count
+}
+
 	**## malformed color options fail before workbook creation
 	local ++test_count
 	capture noisily {
