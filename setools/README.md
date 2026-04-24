@@ -1,12 +1,12 @@
 # setools - Swedish registry tools for epidemiological cohort studies
 
-**Version 1.0.1** | 2026-04-22
+**Version 1.2.0** | 2026-04-24
 
 `setools` is a registry-workflow toolkit rather than a single estimation command. It groups together utilities for Swedish diagnosis and procedure coding, migration-based cohort construction, and multiple-sclerosis disability progression endpoints built from repeated EDSS measurements.
 
 The package is most useful when you need practical building blocks for cohort definition, comorbidity scoring, and endpoint derivation in Swedish register-based research.
 
-The package metadata, help files, and `setools` return value are synchronized at version 1.0.1 dated 2026-04-22.
+The package metadata, help files, and `setools` return value are synchronized at version 1.2.0 dated 2026-04-24.
 
 ## Requirements
 
@@ -160,6 +160,7 @@ Adjust `windowbefore()` and `windowafter()` if your protocol uses a different re
 
 ## Version History
 
+- **1.2.0** (2026-04-24): Added `dates` option to `cci_se` — generates earliest diagnosis date per comorbidity component alongside the binary indicators. Also includes the v1.1.0 Mata hash-table engine for faster ICD classification.
 - **1.0.1** (2026-04-22): Added long-format migration-file support in `migrations`, enforced `%td` daily-date formats for `migrations` inputs, extended `cci_se` to accept multiple diagnosis variables in `icd()`, and expanded QA coverage for both features
 - **1.0.0** (2026-04-08): Initial Stata-Tools release of the Swedish registry toolkit
 

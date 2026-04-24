@@ -681,96 +681,119 @@ if `_has_xlsx' {
 		else {
 			capture mata: mata drop b
 
-			* Apply borders and formatting with putexcel
+			* Apply formatting (Mata xl())
+			local _total_cols = `ncols' + 1
 			capture {
-				putexcel set "`xlsx'", sheet("`sht'") modify
+				mata: b = xl()
+				mata: b.load_book("`xlsx'")
+				mata: b.set_sheet("`sht'")
 
-				* Column letters
-				_tabtools_build_col_letters `=`ncols'+1'
-				local letters "`result'"
-				local lastcol : word `=`ncols'+1' of `letters'
+				* Font
+				mata: b.set_font((1,`lastrow'), (1,`_total_cols'), "`_font'", `_fontsize')
+				mata: b.set_font((1,1), (1,`_total_cols'), "`_font'", `=`_fontsize'+2')
 
-				* Title row - merge and format
-				putexcel (A1:`lastcol'1), merge bold txtwrap left vcenter font("`_font'",`=`_fontsize'+2')
+				* Title row
+				mata: b.set_sheet_merge("`sht'", (1,1), (1,`_total_cols'))
+				mata: b.set_font_bold(1, 1, "on")
+				mata: b.set_text_wrap(1, 1, "on")
+				mata: b.set_horizontal_align(1, 1, "left")
+				mata: b.set_vertical_align(1, 1, "center")
 
-				* Header rows
-				putexcel (B2:`lastcol'2), border(top,`_hborder')
-				putexcel (B3:`lastcol'3), border(bottom,`_hborder')
+				* Header borders
+				mata: b.set_top_border(2, (2,`_total_cols'), "`_hborder'")
+				mata: b.set_bottom_border(3, (2,`_total_cols'), "`_hborder'")
 
 				* Merge outcome headers
 				local col = 3
 				forvalues o = 1/`outcomes' {
-					local col1 : word `col' of `letters'
-					local col_end : word `=`col'+`_cols_per_outcome'-1' of `letters'
-					putexcel (`col1'2:`col_end'2), merge bold hcenter top border(bottom,`_hborder')
+					local _col_end = `col' + `_cols_per_outcome' - 1
+					mata: b.set_sheet_merge("`sht'", (2,2), (`col',`_col_end'))
+					mata: b.set_font_bold(2, `col', "on")
+					mata: b.set_horizontal_align(2, `col', "center")
+					mata: b.set_vertical_align(2, `col', "top")
+					mata: b.set_bottom_border(2, (`col',`_col_end'), "`_hborder'")
 					local col = `col' + `_cols_per_outcome'
 				}
 
-				* Merge Exposure cell across rows 2-3
-				putexcel (B2:B3), merge bold hcenter vcenter border(bottom,`_hborder')
+				* Merge Exposure cell (B2:B3)
+				mata: b.set_sheet_merge("`sht'", (2,3), (2,2))
+				mata: b.set_font_bold((2,3), 2, "on")
+				mata: b.set_horizontal_align((2,3), 2, "center")
+				mata: b.set_vertical_align((2,3), 2, "center")
+				mata: b.set_bottom_border(3, 2, "`_hborder'")
 
 				* Row 3 formatting
-				putexcel (C3:`lastcol'3), bold hcenter vcenter
+				mata: b.set_font_bold(3, (3,`_total_cols'), "on")
+				mata: b.set_horizontal_align(3, (3,`_total_cols'), "center")
+				mata: b.set_vertical_align(3, (3,`_total_cols'), "center")
 
 				* Header background
 				if "`headershade'" != "" {
-					putexcel (B2:`lastcol'3), fpattern(solid, "`_headercolor'")
+					mata: b.set_fill_pattern((2,3), (2,`_total_cols'), "solid", "`_headercolor'")
 				}
 
-				* Zebra striping (O3)
+				* Zebra striping
 				if "`zebra'" != "" {
 					forvalues _zr = 5(2)`lastrow' {
-						putexcel (B`_zr':`lastcol'`_zr'), fpattern(solid, "`_zebracolor'")
+						mata: b.set_fill_pattern(`_zr', (2,`_total_cols'), "solid", "`_zebracolor'")
 					}
 				}
 
-				* Font for all data (W4 integration)
-				putexcel (B2:`lastcol'`lastrow'), font("`_font'",`_fontsize')
-
 				* Center-align data columns
-				putexcel (C4:`lastcol'`lastrow'), hcenter
+				if `lastrow' >= 4 & `_total_cols' >= 3 {
+					mata: b.set_horizontal_align((4,`lastrow'), (3,`_total_cols'), "center")
+				}
 
-				* Vertical borders between outcome groups
+				* Vertical borders
 				if "`borderstyle'" != "academic" {
-					putexcel (B2:B`lastrow'), border(left,`borderstyle')
-					putexcel (B2:B`lastrow'), border(right,`borderstyle')
-
+					mata: b.set_left_border((2,`lastrow'), 2, "`borderstyle'")
+					mata: b.set_right_border((2,`lastrow'), 2, "`borderstyle'")
 					local col = 3
 					forvalues o = 1/`outcomes' {
-						local col_end : word `=`col'+`_cols_per_outcome'-1' of `letters'
-						putexcel (`col_end'2:`col_end'`lastrow'), border(right,`borderstyle')
+						local _col_end = `col' + `_cols_per_outcome' - 1
+						mata: b.set_right_border((2,`lastrow'), `_col_end', "`borderstyle'")
 						local col = `col' + `_cols_per_outcome'
 					}
 				}
 
-				* Horizontal borders between exposure groups (at bottom of each group)
+				* Exposure group borders
 				foreach r of local exp_rows {
 					local border_row = `r' - 1
 					if `border_row' > 3 {
-						putexcel (B`border_row':`lastcol'`border_row'), border(bottom,`_hborder')
+						mata: b.set_bottom_border(`border_row', (2,`_total_cols'), "`_hborder'")
 					}
 				}
 
 				* Bottom border
-				putexcel (B`lastrow':`lastcol'`lastrow'), border(bottom,`_hborder')
+				mata: b.set_bottom_border(`lastrow', (2,`_total_cols'), "`_hborder'")
 
-				* Footnote (F2)
+				* Footnote
 				if `"`footnote'"' != "" {
-					_tabtools_footnote `"`footnote'"' "`lastcol'" `lastrow' "`_font'" `_fontsize'
+					local _fn_row = `lastrow' + 1
+					local _fn_fontsize = max(`_fontsize' - 2, 6)
+					mata: b.put_string(`_fn_row', 2, `"`footnote'"')
+					mata: b.set_sheet_merge("`sht'", (`_fn_row',`_fn_row'), (2,`_total_cols'))
+					mata: b.set_horizontal_align(`_fn_row', 2, "left")
+					mata: b.set_vertical_align(`_fn_row', 2, "center")
+					mata: b.set_text_wrap(`_fn_row', 2, "on")
+					mata: b.set_font(`_fn_row', 2, "`_font'", `_fn_fontsize')
+					mata: b.set_font_italic(`_fn_row', 2, "on")
 				}
 
-				putexcel clear
+				mata: b.close_book()
 			}
 			if _rc {
 				local saved_rc = _rc
-				capture putexcel clear
-				noi di as err "Excel cell formatting failed with error `saved_rc'"
+				capture mata: b.close_book()
+				capture mata: mata drop b
+				noi di as err "Excel formatting failed with error `saved_rc'"
 				noi di as err "Hint: ensure the xlsx file is not open in another application"
 				qui use "`_userdata_path'", clear
 				set varabbrev `_orig_varabbrev'
 				local _fatal_rc = `saved_rc'
 				error `saved_rc'
 			}
+			capture mata: mata drop b
 			else {
 				capture confirm file "`xlsx'"
 				if _rc {

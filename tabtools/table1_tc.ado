@@ -2397,83 +2397,117 @@ program define table1_tc, rclass
             }
 
             /*****************************************************************
-            * Apply column width calculations
+            * Apply all Excel formatting in a single Mata xl() session
             *****************************************************************/
-			/* Create Excel interface object in Mata */
-			capture {
-				mata: b = xl()
-				mata: b.load_book("`excel'")
-				mata: b.set_sheet("`sheet'")
-				mata: b.set_row_height(1, 1, 30)  // Title row height
-				* Only adjust row 2 height if header_parts text wraps in factor column
-				local _hdr_len = strlen(`"`header_parts'"')
-				if `_hdr_len' > `factorwidth' * 1.2 {
-				    local _hdr_lines = ceil(`_hdr_len' / (`factorwidth' * 1.2))
-				    local _hdr_height = `_hdr_lines' * 15
-				    mata: b.set_row_height(2, 2, `_hdr_height')
-				}
-				mata: b.set_column_width(1, 1, 1)  // Make first column (title) narrow
-				mata: b.set_column_width(2, 2, `factorwidth')  // Factor column width
-				forvalues _dw = 3/`num_cols' {
-					mata: b.set_column_width(`_dw', `_dw', `datawidth')
-				}
-				if `pvalue_pos' > 0 {
-					mata: b.set_column_width(`pvalue_pos', `pvalue_pos',10)  // p-value column width
-				}
-				if `test_pos' > 0 {
-					* Dynamic width: scan content for max length
-					local _test_maxlen = 12
-					forvalues _tw = 1/`=_N' {
-						local _tstr = test[`_tw']
-						local _tlen = strlen("`_tstr'")
-						if `_tlen' > `_test_maxlen' local _test_maxlen = `_tlen'
-					}
-					local _test_width = max(12, ceil(`_test_maxlen' * 0.85) + 2)
-					mata: b.set_column_width(`test_pos', `test_pos', `_test_width')
-				}
-				if `statistic_pos' > 0 {
-					* Dynamic width: scan content for max length
-					local _stat_maxlen = 14
-					forvalues _sw = 1/`=_N' {
-						local _sstr = statistic[`_sw']
-						local _slen = strlen("`_sstr'")
-						if `_slen' > `_stat_maxlen' local _stat_maxlen = `_slen'
-					}
-					local _stat_width = max(14, ceil(`_stat_maxlen' * 0.85) + 2)
-					mata: b.set_column_width(`statistic_pos', `statistic_pos', `_stat_width')
-				}
-				if `smd_pos' > 0 {
-					mata: b.set_column_width(`smd_pos', `smd_pos', 8)
-				}
-				mata: b.close_book()
-			}
-			if _rc {
-				local saved_rc = _rc
-				capture mata: b.close_book()
-				capture mata: mata drop b
-				noisily display as error "Excel formatting (Mata) failed with error `saved_rc'"
-				restore
-				exit `saved_rc'
-			}
-			capture mata: mata drop b
 
-            /*****************************************************************
-            * Apply Excel formatting
-            *****************************************************************/
+            * Pre-extract p-value and SMD data for conditional formatting
+            if `has_boldp' | `has_highlight' {
+                if `pvalue_pos' > 0 {
+                    forvalues _br = 4/`num_rows' {
+                        capture local _pval_`_br' = _p_raw[`_br']
+                        if _rc local _pval_`_br' = .
+                    }
+                }
+            }
+            if `smd_pos' > 0 & `smdthreshold' > 0 {
+                forvalues _sr = 4/`num_rows' {
+                    capture local _sval_`_sr' = _smd_raw[`_sr']
+                    if _rc local _sval_`_sr' = .
+                }
+            }
+
+            * Find total column position before entering Mata
+            local total_col_pos = 0
+            if "`total'" != "" & "`borderstyle'" != "academic" {
+                local i = 1
+                foreach var of varlist * {
+                    if "`var'" == "`by'_T" {
+                        local total_col_pos = `i'
+                        continue, break
+                    }
+                    local i = `i' + 1
+                }
+            }
+
+            * Dynamic column width calculations
+            if `test_pos' > 0 {
+                local _test_maxlen = 12
+                forvalues _tw = 1/`=_N' {
+                    local _tstr = test[`_tw']
+                    local _tlen = strlen("`_tstr'")
+                    if `_tlen' > `_test_maxlen' local _test_maxlen = `_tlen'
+                }
+                local _test_width = max(12, ceil(`_test_maxlen' * 0.85) + 2)
+            }
+            if `statistic_pos' > 0 {
+                local _stat_maxlen = 14
+                forvalues _sw = 1/`=_N' {
+                    local _sstr = statistic[`_sw']
+                    local _slen = strlen("`_sstr'")
+                    if `_slen' > `_stat_maxlen' local _stat_maxlen = `_slen'
+                }
+                local _stat_width = max(14, ceil(`_stat_maxlen' * 0.85) + 2)
+            }
+
             capture {
-                putexcel set "`excel'", sheet("`sheet'") modify
+                mata: b = xl()
+                mata: b.load_book("`excel'")
+                mata: b.set_sheet("`sheet'")
 
-                /* Title row formatting */
-                putexcel (A1:`lastcol_letter'1), merge txtwrap left vcenter bold
-
-                /* Header rows formatting */
-                putexcel (`factor_letter'2:`factor_letter'3), merge hcenter vcenter txtwrap bold
-
-                if `level_pos' > 0 {
-                    putexcel (`level_letter'2:`level_letter'3), merge hcenter vcenter txtwrap bold
+                * Column widths and row heights
+                mata: b.set_row_height(1, 1, 30)
+                local _hdr_len = strlen(`"`header_parts'"')
+                if `_hdr_len' > `factorwidth' * 1.2 {
+                    local _hdr_lines = ceil(`_hdr_len' / (`factorwidth' * 1.2))
+                    local _hdr_height = `_hdr_lines' * 15
+                    mata: b.set_row_height(2, 2, `_hdr_height')
+                }
+                mata: b.set_column_width(1, 1, 1)
+                mata: b.set_column_width(2, 2, `factorwidth')
+                if `num_cols' >= 3 {
+                    mata: b.set_column_width(3, `num_cols', `datawidth')
+                }
+                if `pvalue_pos' > 0 {
+                    mata: b.set_column_width(`pvalue_pos', `pvalue_pos', 10)
+                }
+                if `test_pos' > 0 {
+                    mata: b.set_column_width(`test_pos', `test_pos', `_test_width')
+                }
+                if `statistic_pos' > 0 {
+                    mata: b.set_column_width(`statistic_pos', `statistic_pos', `_stat_width')
+                }
+                if `smd_pos' > 0 {
+                    mata: b.set_column_width(`smd_pos', `smd_pos', 8)
                 }
 
-                /* Format group headers */
+                * Font for entire table (single row-range call)
+                mata: b.set_font((1,`num_rows'), (1,`num_cols'), "`_font'", `_fontsize')
+                mata: b.set_font((1,1), (1,`num_cols'), "`_font'", `=`_fontsize'+2')
+
+                * Title row: merge + format
+                mata: b.set_sheet_merge("`sheet'", (1,1), (1,`num_cols'))
+                mata: b.set_text_wrap(1, 1, "on")
+                mata: b.set_horizontal_align(1, 1, "left")
+                mata: b.set_vertical_align(1, 1, "center")
+                mata: b.set_font_bold(1, 1, "on")
+
+                * Header rows: merge factor column across rows 2-3
+                mata: b.set_sheet_merge("`sheet'", (2,3), (2,2))
+                mata: b.set_horizontal_align((2,3), 2, "center")
+                mata: b.set_vertical_align((2,3), 2, "center")
+                mata: b.set_text_wrap((2,3), 2, "on")
+                mata: b.set_font_bold((2,3), 2, "on")
+
+                * Level column header merge (if exists)
+                if `level_pos' > 0 {
+                    mata: b.set_sheet_merge("`sheet'", (2,3), (`level_pos',`level_pos'))
+                    mata: b.set_horizontal_align((2,3), `level_pos', "center")
+                    mata: b.set_vertical_align((2,3), `level_pos', "center")
+                    mata: b.set_text_wrap((2,3), `level_pos', "on")
+                    mata: b.set_font_bold((2,3), `level_pos', "on")
+                }
+
+                * Group data column headers (skip special columns)
                 local data_col = `data_start_pos'
                 while `data_col' <= `num_cols' {
                     local _skip = 0
@@ -2482,154 +2516,149 @@ program define table1_tc, rclass
                     if `data_col' == `statistic_pos' local _skip = 1
                     if `data_col' == `smd_pos' local _skip = 1
                     if !`_skip' {
-                        local col_letter: word `data_col' of `col_letters'
-                        putexcel (`col_letter'2:`col_letter'3), hcenter vcenter txtwrap bold
+                        mata: b.set_horizontal_align((2,3), `data_col', "center")
+                        mata: b.set_vertical_align((2,3), `data_col', "center")
+                        mata: b.set_text_wrap((2,3), `data_col', "on")
+                        mata: b.set_font_bold((2,3), `data_col', "on")
                     }
                     local data_col = `data_col' + 1
                 }
 
-                /* Format p-value column if it exists */
+                * P-value column header merge
                 if `pvalue_pos' > 0 {
-                    putexcel (`pvalue_letter'2:`pvalue_letter'3), merge hcenter vcenter txtwrap bold
+                    mata: b.set_sheet_merge("`sheet'", (2,3), (`pvalue_pos',`pvalue_pos'))
+                    mata: b.set_horizontal_align((2,3), `pvalue_pos', "center")
+                    mata: b.set_vertical_align((2,3), `pvalue_pos', "center")
+                    mata: b.set_text_wrap((2,3), `pvalue_pos', "on")
+                    mata: b.set_font_bold((2,3), `pvalue_pos', "on")
                 }
 
-                /* Apply borders based on selected style */
-                * Horizontal borders (always applied)
-                putexcel (`factor_letter'2:`lastcol_letter'2), border(top, `_hborder')
-                putexcel (`factor_letter'4:`lastcol_letter'4), border(top, `_hborder')
-                putexcel (`factor_letter'`num_rows':`lastcol_letter'`num_rows'), border(bottom, `_hborder')
+                * Test, statistic, SMD column header merges
+                if `test_pos' > 0 {
+                    mata: b.set_sheet_merge("`sheet'", (2,3), (`test_pos',`test_pos'))
+                    mata: b.set_horizontal_align((2,3), `test_pos', "center")
+                    mata: b.set_vertical_align((2,3), `test_pos', "center")
+                    mata: b.set_text_wrap((2,3), `test_pos', "on")
+                    mata: b.set_font_bold((2,3), `test_pos', "on")
+                }
+                if `statistic_pos' > 0 {
+                    mata: b.set_sheet_merge("`sheet'", (2,3), (`statistic_pos',`statistic_pos'))
+                    mata: b.set_horizontal_align((2,3), `statistic_pos', "center")
+                    mata: b.set_vertical_align((2,3), `statistic_pos', "center")
+                    mata: b.set_text_wrap((2,3), `statistic_pos', "on")
+                    mata: b.set_font_bold((2,3), `statistic_pos', "on")
+                }
+                if `smd_pos' > 0 {
+                    mata: b.set_sheet_merge("`sheet'", (2,3), (`smd_pos',`smd_pos'))
+                    mata: b.set_horizontal_align((2,3), `smd_pos', "center")
+                    mata: b.set_vertical_align((2,3), `smd_pos', "center")
+                    mata: b.set_text_wrap((2,3), `smd_pos', "on")
+                    mata: b.set_font_bold((2,3), `smd_pos', "on")
+                }
+
+                * Horizontal borders
+                mata: b.set_top_border(2, (2,`num_cols'), "`_hborder'")
+                mata: b.set_top_border(4, (2,`num_cols'), "`_hborder'")
+                mata: b.set_bottom_border(`num_rows', (2,`num_cols'), "`_hborder'")
 
                 * Vertical borders (skip for academic)
                 if "`borderstyle'" != "academic" {
-                    putexcel (`factor_letter'2:`factor_letter'`num_rows'), border(left, `_hborder')
-                    putexcel (`factor_letter'2:`factor_letter'`num_rows'), border(right, `_hborder')
-                    putexcel (`lastcol_letter'2:`lastcol_letter'`num_rows'), border(right, `_hborder')
+                    mata: b.set_left_border((2,`num_rows'), 2, "`_hborder'")
+                    mata: b.set_right_border((2,`num_rows'), 2, "`_hborder'")
+                    mata: b.set_right_border((2,`num_rows'), `num_cols', "`_hborder'")
                 }
 
-                /* Add border for total column if specified */
-                if "`total'" != "" & "`borderstyle'" != "academic" {
-                    /* Find total column position by variable name */
-                    local total_col_pos = 0
-                    local i = 1
-                    foreach var of varlist * {
-                        if "`var'" == "`by'_T" {
-                            local total_col_pos = `i'
-                            continue, break
-                        }
-                        local i = `i' + 1
-                    }
-
-                    if `total_col_pos' > 0 {
-                        local total_letter: word `total_col_pos' of `col_letters'
-                        local total_right_letter "`total_letter'"
-                        if "`total_letter'" != "" {
-                            putexcel (`total_letter'2:`total_letter'`num_rows'), border(left, `_hborder')
-                            putexcel (`total_right_letter'2:`total_right_letter'`num_rows'), border(right, `_hborder')
-                        }
-                    }
+                * Total column borders
+                if `total_col_pos' > 0 {
+                    mata: b.set_left_border((2,`num_rows'), `total_col_pos', "`_hborder'")
+                    mata: b.set_right_border((2,`num_rows'), `total_col_pos', "`_hborder'")
                 }
 
-                /* Add border for p-value if it exists */
+                * P-value column left border
                 if `pvalue_pos' > 0 & "`borderstyle'" != "academic" {
-                    putexcel (`pvalue_letter'2:`pvalue_letter'`num_rows'), border(left, `_hborder')
+                    mata: b.set_left_border((2,`num_rows'), `pvalue_pos', "`_hborder'")
                 }
 
-                /* Add borders and merge headers for test, statistic, SMD columns */
-                if `test_pos' > 0 {
-                    putexcel (`test_letter'2:`test_letter'3), merge hcenter vcenter txtwrap bold
-                    if "`borderstyle'" != "academic" {
-                        putexcel (`test_letter'2:`test_letter'`num_rows'), border(left, `_hborder')
-                    }
+                * Test/statistic/SMD column left borders
+                if `test_pos' > 0 & "`borderstyle'" != "academic" {
+                    mata: b.set_left_border((2,`num_rows'), `test_pos', "`_hborder'")
                 }
-                if `statistic_pos' > 0 {
-                    putexcel (`statistic_letter'2:`statistic_letter'3), merge hcenter vcenter txtwrap bold
-                    if "`borderstyle'" != "academic" {
-                        putexcel (`statistic_letter'2:`statistic_letter'`num_rows'), border(left, `_hborder')
-                    }
+                if `statistic_pos' > 0 & "`borderstyle'" != "academic" {
+                    mata: b.set_left_border((2,`num_rows'), `statistic_pos', "`_hborder'")
                 }
-                if `smd_pos' > 0 {
-                    putexcel (`smd_letter'2:`smd_letter'3), merge hcenter vcenter txtwrap bold
-                    if "`borderstyle'" != "academic" {
-                        putexcel (`smd_letter'2:`smd_letter'`num_rows'), border(left, `_hborder')
-                    }
+                if `smd_pos' > 0 & "`borderstyle'" != "academic" {
+                    mata: b.set_left_border((2,`num_rows'), `smd_pos', "`_hborder'")
                 }
 
-                /* Apply font to entire table (W4 integration) */
-                putexcel (A1:`lastcol_letter'`num_rows'), font("`_font'", `_fontsize')
-                putexcel (A1:`lastcol_letter'1), font("`_font'", `=`_fontsize'+2')
-
-                /* Header background (off by default, enabled with headershade) */
-                local _data_start_letter: word `data_start_pos' of `col_letters'
+                * Header background
                 if "`headershade'" != "" {
-                    putexcel (`factor_letter'2:`lastcol_letter'3), fpattern(solid, "`_headercolor'")
+                    mata: b.set_fill_pattern((2,3), (2,`num_cols'), "solid", "`_headercolor'")
                 }
 
-                /* Center-align data columns */
-                putexcel (`_data_start_letter'4:`lastcol_letter'`num_rows'), hcenter
+                * Center-align data columns
+                if `num_rows' >= 4 {
+                    mata: b.set_horizontal_align((4,`num_rows'), (`data_start_pos',`num_cols'), "center")
+                }
 
-                /* Zebra striping (O3) */
+                * Zebra striping
                 if "`zebra'" != "" {
                     forvalues _zr = 5(2)`num_rows' {
-                        putexcel (`factor_letter'`_zr':`lastcol_letter'`_zr'), fpattern(solid, "`_zebracolor'")
+                        mata: b.set_fill_pattern(`_zr', (2,`num_cols'), "solid", "`_zebracolor'")
                     }
                 }
 
-                /* Bold significant p-values (O5) */
+                * Bold significant p-values
                 if `has_boldp' & `pvalue_pos' > 0 {
-                    * _p_raw holds numeric p-values; row 1=title, 2-3=headers, data from row 4
-                    * No variable-names header row, so Excel row = observation number
                     forvalues _br = 4/`num_rows' {
-                        local _obs = `_br'
-                        capture {
-                            local _pval = _p_raw[`_obs']
-                            if `_pval' < . & `_pval' < `boldp' {
-                                putexcel (`pvalue_letter'`_br'), bold
-                            }
+                        if `_pval_`_br'' < . & `_pval_`_br'' < `boldp' {
+                            mata: b.set_font_bold(`_br', `pvalue_pos', "on")
                         }
                     }
                 }
 
-                /* Highlight significant rows (O1) */
+                * Highlight significant rows
                 if `has_highlight' & `pvalue_pos' > 0 {
                     forvalues _hr = 4/`num_rows' {
-                        local _obs = `_hr'
-                        capture {
-                            local _pval = _p_raw[`_obs']
-                            if `_pval' < . & `_pval' < `highlight' {
-                                putexcel (`factor_letter'`_hr':`lastcol_letter'`_hr'), fpattern(solid, "255 255 204")
-                            }
+                        if `_pval_`_hr'' < . & `_pval_`_hr'' < `highlight' {
+                            mata: b.set_fill_pattern(`_hr', (2,`num_cols'), "solid", "255 255 204")
                         }
                     }
                 }
 
-                /* SMD conditional formatting (O2) — bold + orange for |SMD| > threshold */
+                * SMD conditional formatting
                 if `smd_pos' > 0 & `smdthreshold' > 0 {
                     forvalues _sr = 4/`num_rows' {
-                        local _obs = `_sr'
-                        capture {
-                            local _sval = _smd_raw[`_obs']
-                            if `_sval' < . & `_sval' > `smdthreshold' {
-                                putexcel (`smd_letter'`_sr'), bold fpattern(solid, "255 235 205")
-                            }
+                        if `_sval_`_sr'' < . & `_sval_`_sr'' > `smdthreshold' {
+                            mata: b.set_font_bold(`_sr', `smd_pos', "on")
+                            mata: b.set_fill_pattern(`_sr', `smd_pos', "solid", "255 235 205")
                         }
                     }
                 }
 
-                /* Footnote (F2) */
+                * Footnote
                 if `"`footnote'"' != "" {
-                    _tabtools_footnote `"`footnote'"' "`lastcol_letter'" `num_rows' "`_font'" `_fontsize'
+                    local _fn_row = `num_rows' + 1
+                    local _fn_fontsize = max(`_fontsize' - 2, 6)
+                    mata: b.put_string(`_fn_row', 2, `"`footnote'"')
+                    mata: b.set_sheet_merge("`sheet'", (`_fn_row',`_fn_row'), (2,`num_cols'))
+                    mata: b.set_horizontal_align(`_fn_row', 2, "left")
+                    mata: b.set_vertical_align(`_fn_row', 2, "center")
+                    mata: b.set_text_wrap(`_fn_row', 2, "on")
+                    mata: b.set_font(`_fn_row', 2, "`_font'", `_fn_fontsize')
+                    mata: b.set_font_italic(`_fn_row', 2, "on")
                 }
 
-                /* Clear putexcel */
-                putexcel clear
+                mata: b.close_book()
             }
             if _rc {
                 local saved_rc = _rc
-                capture putexcel clear
-                noisily display as error "Excel cell formatting failed with error `saved_rc'"
+                capture mata: b.close_book()
+                capture mata: mata drop b
+                noisily display as error "Excel formatting failed with error `saved_rc'"
                 restore
                 exit `saved_rc'
             }
+            capture mata: mata drop b
 
             /* Clean up temporary p-value and SMD variables */
             capture drop _p_raw

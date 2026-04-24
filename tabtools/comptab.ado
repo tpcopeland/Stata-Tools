@@ -812,91 +812,108 @@ program define comptab, rclass
     capture mata: mata drop b
 
     * =====================================================================
-    * EXCEL FORMATTING — PUTEXCEL (BORDERS, FONTS, MERGES)
+    * EXCEL FORMATTING — Mata xl()
     * =====================================================================
-    _tabtools_col_letter `num_cols'
-    local letterright "`result'"
+
+    * Pre-extract p-values for conditional formatting
+    if `has_boldp' | `has_highlight' {
+        forvalues _m = 1/`n_models' {
+            local _pcol_data = `_m' * `n_cols_per_model'
+            local _pcol_excel = `_pcol_data' + 2
+            forvalues _dr = 4/`num_rows' {
+                capture {
+                    local _pstr = c`_pcol_data'[`_dr']
+                    local _pstr = strtrim("`_pstr'")
+                    if substr("`_pstr'", 1, 1) == "<" {
+                        local _bp_m`_m'_r`_dr' = 0
+                    }
+                    else {
+                        local _bp_m`_m'_r`_dr' = real("`_pstr'")
+                    }
+                }
+                if _rc local _bp_m`_m'_r`_dr' = .
+            }
+        }
+    }
 
     capture {
-        putexcel set "`xlsx'", sheet("`sheet'") modify
-        local letterleft B
-        local lettertwo C
-        local n1 2
-        local n2 `num_rows'
-        local tl1 `letterleft'`n1'
-        local tl2 `letterleft'`=1+`n1''
-        local tr1 `letterright'`n1'
-        local tr2 `letterright'`=1+`n1''
-        local bl `letterleft'`n2'
-        local br `letterright'`n2'
+        mata: b = xl()
+        mata: b.load_book("`xlsx'")
+        mata: b.set_sheet("`sheet'")
 
-        * Reference row formatting (merge across model columns, italic)
+        * Font
+        mata: b.set_font((1,`num_rows'), (1,`num_cols'), "`_font'", `_fontsize')
+        mata: b.set_font((1,1), (1,`num_cols'), "`_font'", `=`_fontsize'+2')
+
+        * Title row
+        mata: b.set_sheet_merge("`sheet'", (1,1), (1,`num_cols'))
+        mata: b.set_text_wrap(1, 1, "on")
+        mata: b.set_horizontal_align(1, 1, "left")
+        mata: b.set_vertical_align(1, 1, "center")
+        mata: b.set_font_bold(1, 1, "on")
+
+        * Header background (rows 2-3)
+        mata: b.set_fill_pattern((2,3), (2,`num_cols'), "solid", "`_headercolor'")
+        mata: b.set_font_bold(3, (2,`num_cols'), "on")
+        mata: b.set_horizontal_align(3, (2,`num_cols'), "center")
+        mata: b.set_vertical_align(3, (2,`num_cols'), "center")
+
+        * Reference rows
         foreach row of local ref_rows {
             local col_num = 3
             while `col_num' <= `num_cols' {
-                _tabtools_col_letter `col_num'
-                local col_letter "`result'"
-                _tabtools_col_letter `=`col_num'+`n_cols_per_model'-1'
-                local col_letter_end "`result'"
-                putexcel (`col_letter'`row':`col_letter_end'`row'), merge hcenter vcenter italic
+                local _col_end = `col_num' + `n_cols_per_model' - 1
+                mata: b.set_sheet_merge("`sheet'", (`row',`row'), (`col_num',`_col_end'))
+                mata: b.set_horizontal_align(`row', `col_num', "center")
+                mata: b.set_vertical_align(`row', `col_num', "center")
+                mata: b.set_font_italic(`row', `col_num', "on")
                 local col_num = `col_num' + `n_cols_per_model'
             }
         }
 
-        * Merge model label headers (row 2: one merged cell per model)
+        * Model headers (row 2)
         local col_num = 3
         while `col_num' <= `num_cols' {
-            _tabtools_col_letter `col_num'
-            local col_letter "`result'"
-            _tabtools_col_letter `=`col_num'+`n_cols_per_model'-1'
-            local col_letter_end "`result'"
-            putexcel (`col_letter'`n1':`col_letter_end'`n1'), merge hcenter vcenter bold txtwrap
+            local _col_end = `col_num' + `n_cols_per_model' - 1
+            mata: b.set_sheet_merge("`sheet'", (2,2), (`col_num',`_col_end'))
+            mata: b.set_horizontal_align(2, `col_num', "center")
+            mata: b.set_vertical_align(2, `col_num', "center")
+            mata: b.set_font_bold(2, `col_num', "on")
+            mata: b.set_text_wrap(2, `col_num', "on")
             if "`borderstyle'" != "academic" {
-                putexcel (`col_letter_end'`n1':`col_letter_end'`n2'), border(right, `borderstyle')
+                mata: b.set_right_border((2,`num_rows'), `_col_end', "`borderstyle'")
             }
             local col_num = `col_num' + `n_cols_per_model'
         }
 
-        * Title row
-        putexcel (A1:`letterright'1), merge txtwrap left vcenter bold
+        * Horizontal borders
+        mata: b.set_top_border(2, (2,`num_cols'), "`_hborder'")
+        mata: b.set_top_border(3, (3,`num_cols'), "`_hborder'")
+        mata: b.set_bottom_border(3, (2,`num_cols'), "`_hborder'")
+        mata: b.set_bottom_border(`num_rows', (2,`num_cols'), "`_hborder'")
 
-        * Header background and formatting
-        putexcel (`letterleft'2:`letterright'3), fpattern(solid, "`_headercolor'")
-        putexcel (`letterleft'3:`letterright'3), hcenter vcenter bold
-
-        * Top border
-        putexcel (`tl1':`tr1'), border(top, `_hborder')
-        * Border between model labels and column headers
-        putexcel (`lettertwo'`n1':`tr2'), border(top, `_hborder')
-        * Bottom of header block
-        putexcel (`tl2':`tr2'), border(bottom, `_hborder')
-
-        * Side borders (non-academic)
+        * Vertical borders (non-academic)
         if "`borderstyle'" != "academic" {
-            putexcel (`tr1':`br'), border(right, `borderstyle')
-            putexcel (`tl1':`bl'), border(left, `borderstyle')
-            putexcel (`tl1':`bl'), border(right, `borderstyle')
+            mata: b.set_right_border((2,`num_rows'), `num_cols', "`borderstyle'")
+            mata: b.set_left_border((2,`num_rows'), 2, "`borderstyle'")
+            mata: b.set_right_border((2,`num_rows'), 2, "`borderstyle'")
         }
 
-        * Bottom border
-        putexcel (`bl':`br'), border(bottom, `_hborder')
-
-        * Section row formatting (bold + border above)
+        * Section rows
         if "`_section_rows'" != "" {
             foreach _sr of local _section_rows {
-                * Section data row _sr → Excel row = _sr + 3
                 local _sr_excel = `_sr' + 3
-                putexcel (`letterleft'`_sr_excel':`letterright'`_sr_excel'), bold
-                putexcel (`letterleft'`_sr_excel':`letterright'`_sr_excel'), border(top, `_hborder')
+                mata: b.set_font_bold(`_sr_excel', (2,`num_cols'), "on")
+                mata: b.set_top_border(`_sr_excel', (2,`num_cols'), "`_hborder'")
             }
         }
 
-        * User-specified separator borders
+        * Separator borders
         if "`separator'" != "" {
             foreach _sep of local separator {
                 local _sep_excel = `_sep' + 3
                 if `_sep_excel' >= 4 & `_sep_excel' <= `num_rows' {
-                    putexcel (`letterleft'`_sep_excel':`letterright'`_sep_excel'), border(top, `_hborder')
+                    mata: b.set_top_border(`_sep_excel', (2,`num_cols'), "`_hborder'")
                 }
             }
         }
@@ -904,42 +921,27 @@ program define comptab, rclass
         * Zebra striping
         if "`zebra'" != "" {
             forvalues _zr = 5(2)`num_rows' {
-                putexcel (`letterleft'`_zr':`letterright'`_zr'), fpattern(solid, "`_zebracolor'")
+                mata: b.set_fill_pattern(`_zr', (2,`num_cols'), "solid", "`_zebracolor'")
             }
         }
 
-        * Font
-        putexcel (A1:`br'), font("`_font'", `_fontsize')
-        putexcel (A1:`letterright'1), font("`_font'", `=`_fontsize'+2')
-
         * Center-align data columns
-        putexcel (`lettertwo'4:`letterright'`num_rows'), hcenter
+        if `num_rows' >= 4 {
+            mata: b.set_horizontal_align((4,`num_rows'), (3,`num_cols'), "center")
+        }
 
-        * Bold significant p-values / highlight significant rows
+        * Bold p-values / highlight
         if `has_boldp' | `has_highlight' {
             forvalues _m = 1/`n_models' {
-                * P-value is the last column in each model group
-                local _pcol_data = `_m' * `n_cols_per_model'
-                local _pcol_excel = `_pcol_data' + 2
-                _tabtools_col_letter `_pcol_excel'
-                local _p_letter "`result'"
+                local _pcol_excel = `_m' * `n_cols_per_model' + 2
                 forvalues _dr = 4/`num_rows' {
-                    capture {
-                        local _pstr = c`_pcol_data'[`_dr']
-                        local _pstr = strtrim("`_pstr'")
-                        if substr("`_pstr'", 1, 1) == "<" {
-                            local _pnum = 0
+                    local _pnum = `_bp_m`_m'_r`_dr''
+                    if `_pnum' < . {
+                        if `has_boldp' & `_pnum' < `boldp' {
+                            mata: b.set_font_bold(`_dr', `_pcol_excel', "on")
                         }
-                        else {
-                            local _pnum = real("`_pstr'")
-                        }
-                        if `_pnum' < . {
-                            if `has_boldp' & `_pnum' < `boldp' {
-                                putexcel (`_p_letter'`_dr'), bold
-                            }
-                            if `has_highlight' & `_pnum' < `highlight' {
-                                putexcel (`letterleft'`_dr':`letterright'`_dr'), fpattern(solid, "255 255 204")
-                            }
+                        if `has_highlight' & `_pnum' < `highlight' {
+                            mata: b.set_fill_pattern(`_dr', (2,`num_cols'), "solid", "255 255 204")
                         }
                     }
                 }
@@ -948,18 +950,28 @@ program define comptab, rclass
 
         * Footnote
         if `"`footnote'"' != "" {
-            _tabtools_footnote `"`footnote'"' "`letterright'" `num_rows' "`_font'" `_fontsize'
+            local _fn_row = `num_rows' + 1
+            local _fn_fontsize = max(`_fontsize' - 2, 6)
+            mata: b.put_string(`_fn_row', 2, `"`footnote'"')
+            mata: b.set_sheet_merge("`sheet'", (`_fn_row',`_fn_row'), (2,`num_cols'))
+            mata: b.set_horizontal_align(`_fn_row', 2, "left")
+            mata: b.set_vertical_align(`_fn_row', 2, "center")
+            mata: b.set_text_wrap(`_fn_row', 2, "on")
+            mata: b.set_font(`_fn_row', 2, "`_font'", `_fn_fontsize')
+            mata: b.set_font_italic(`_fn_row', 2, "on")
         }
 
-        putexcel clear
+        mata: b.close_book()
     }
     if _rc {
         local saved_rc = _rc
-        capture putexcel clear
-        noisily display as error "Excel cell formatting failed with error `saved_rc'"
+        capture mata: b.close_book()
+        capture mata: mata drop b
+        noisily display as error "Excel formatting failed with error `saved_rc'"
         restore
         exit `saved_rc'
     }
+    capture mata: mata drop b
 
     } // end if _has_xlsx (Excel formatting)
 

@@ -694,32 +694,50 @@ capture noisily {
         }
 
         capture {
-            putexcel set "`xlsx'", sheet("`sheet'") modify
-            _tabtools_build_col_letters `num_cols'
-            local letters "`result'"
-            local lastcol : word `num_cols' of `letters'
+            mata: b = xl()
+            mata: b.load_book("`xlsx'")
+            mata: b.set_sheet("`sheet'")
 
-            putexcel (A1:`lastcol'1), merge bold txtwrap left vcenter font("`_font'", `=`_fontsize'+2')
-            putexcel (B`_top_header_row':`lastcol'`num_rows'), font("`_font'", `_fontsize')
+            * Column widths
+            mata: b.set_column_width(1, 1, 1)
+            mata: b.set_column_width(2, 2, 18)
+            if `num_cols' >= 3 mata: b.set_column_width(3, 3, 12)
+            if `num_cols' >= 4 mata: b.set_column_width(4, 4, 18)
+
+            * Font
+            mata: b.set_font((1,`num_rows'), (1,`num_cols'), "`_font'", `_fontsize')
+            mata: b.set_font((1,1), (1,`num_cols'), "`_font'", `=`_fontsize'+2')
+
+            * Title row
+            mata: b.set_sheet_merge("`sheet'", (1,1), (1,`num_cols'))
+            mata: b.set_font_bold(1, 1, "on")
+            mata: b.set_text_wrap(1, 1, "on")
+            mata: b.set_horizontal_align(1, 1, "left")
+            mata: b.set_vertical_align(1, 1, "center")
+
+            * Headers
             if `_is_multicut' {
-                putexcel (B`_header_row':`lastcol'`_header_row'), bold hcenter border(bottom, `_hborder')
+                mata: b.set_font_bold(`_header_row', (2,`num_cols'), "on")
+                mata: b.set_horizontal_align(`_header_row', (2,`num_cols'), "center")
+                mata: b.set_bottom_border(`_header_row', (2,`num_cols'), "`_hborder'")
                 foreach _sr of local _section_rows {
-                    putexcel (B`_sr':`lastcol'`_sr'), bold
+                    mata: b.set_font_bold(`_sr', (2,`num_cols'), "on")
                 }
             }
             else {
-                putexcel (B`_top_header_row':`lastcol'`_top_header_row'), bold hcenter
-                putexcel (B`_measures_row':`lastcol'`_measures_row'), bold
+                mata: b.set_font_bold(`_top_header_row', (2,`num_cols'), "on")
+                mata: b.set_horizontal_align(`_top_header_row', (2,`num_cols'), "center")
+                mata: b.set_font_bold(`_measures_row', (2,`num_cols'), "on")
             }
-            putexcel (B`num_rows':`lastcol'`num_rows'), border(bottom, `_hborder')
+            mata: b.set_bottom_border(`num_rows', (2,`num_cols'), "`_hborder'")
 
-            * Header background fill
+            * Header background
             if "`headershade'" != "" {
                 if `_is_multicut' {
-                    putexcel (A`_header_row':`lastcol'`_header_row'), fpattern(solid, "`_headercolor'")
+                    mata: b.set_fill_pattern(`_header_row', (1,`num_cols'), "solid", "`_headercolor'")
                 }
                 else {
-                    putexcel (A`_top_header_row':`lastcol'`_top_header_row'), fpattern(solid, "`_headercolor'")
+                    mata: b.set_fill_pattern(`_top_header_row', (1,`num_cols'), "solid", "`_headercolor'")
                 }
             }
 
@@ -727,42 +745,39 @@ capture noisily {
             if "`zebra'" != "" {
                 if `_is_multicut' {
                     forvalues _zr = `=`_header_row'+2'(2)`num_rows' {
-                        putexcel (A`_zr':`lastcol'`_zr'), fpattern(solid, "`_zebracolor'")
+                        mata: b.set_fill_pattern(`_zr', (1,`num_cols'), "solid", "`_zebracolor'")
                     }
                 }
                 else {
-                    * Single-cutoff: shade alternating measure rows only,
-                    * starting with the first measure (Sensitivity) just below
-                    * the bolded measures header. Skip the confusion-matrix block.
                     forvalues _zr = `=`_measures_row'+1'(2)`num_rows' {
-                        putexcel (A`_zr':`lastcol'`_zr'), fpattern(solid, "`_zebracolor'")
+                        mata: b.set_fill_pattern(`_zr', (1,`num_cols'), "solid", "`_zebracolor'")
                     }
                 }
             }
 
+            * Footnote
             if `"`footnote'"' != "" {
-                _tabtools_footnote `"`footnote'"' "`lastcol'" `num_rows' "`_font'" `_fontsize'
+                local _fn_row = `num_rows' + 1
+                local _fn_fontsize = max(`_fontsize' - 2, 6)
+                mata: b.put_string(`_fn_row', 2, `"`footnote'"')
+                mata: b.set_sheet_merge("`sheet'", (`_fn_row',`_fn_row'), (2,`num_cols'))
+                mata: b.set_horizontal_align(`_fn_row', 2, "left")
+                mata: b.set_vertical_align(`_fn_row', 2, "center")
+                mata: b.set_text_wrap(`_fn_row', 2, "on")
+                mata: b.set_font(`_fn_row', 2, "`_font'", `_fn_fontsize')
+                mata: b.set_font_italic(`_fn_row', 2, "on")
             }
-            putexcel clear
 
-            * Set column widths via Mata
-            mata: b = xl()
-            mata: b.load_book("`xlsx'")
-            mata: b.set_sheet("`sheet'")
-            mata: b.set_column_width(1, 1, 1)
-            mata: b.set_column_width(2, 2, 18)
-            mata: b.set_column_width(3, 3, 12)
-            mata: b.set_column_width(4, 4, 18)
             mata: b.close_book()
-            mata: mata drop b
         }
         if _rc {
             local _format_rc = _rc
-            capture putexcel clear
+            capture mata: b.close_book()
             capture mata: mata drop b
             noisily display as error "Excel formatting failed with error `_format_rc'"
             exit `_format_rc'
         }
+        capture mata: mata drop b
         capture confirm file "`xlsx'"
         if _rc {
             noisily display as error "Export command succeeded but file not found"

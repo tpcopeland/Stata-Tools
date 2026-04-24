@@ -447,76 +447,94 @@ quietly {
 	restore
 
 	* =========================================================================
-	* APPLY PUTEXCEL FORMATTING
+	* APPLY EXCEL FORMATTING (Mata xl())
 	* =========================================================================
 
 	capture {
-		putexcel set "`xlsx'", sheet("`sheet'") modify
+		mata: b = xl()
+		mata: b.load_book("`xlsx'")
+		mata: b.set_sheet("`sheet'")
+
+		* Font
+		mata: b.set_font((1,`num_rows'), (1,`num_cols'), "`font'", `fontsize')
+		mata: b.set_font((1,1), (1,`num_cols'), "`font'", `=`fontsize'+2')
 
 		* Title row
-		putexcel (A1:`lastcol'1), merge txtwrap left vcenter bold
-		putexcel (A1:`lastcol'1), font("`font'", `=`fontsize' + 2')
+		mata: b.set_sheet_merge("`sheet'", (1,1), (1,`num_cols'))
+		mata: b.set_text_wrap(1, 1, "on")
+		mata: b.set_horizontal_align(1, 1, "left")
+		mata: b.set_vertical_align(1, 1, "center")
+		mata: b.set_font_bold(1, 1, "on")
 
-		* Header row formatting
-		putexcel (B2:`lastcol'2), bold hcenter font("`font'", `fontsize')
-		putexcel (B2:`lastcol'2), border(top, `_hborder')
-		putexcel (B2:`lastcol'2), border(bottom, `_hborder')
-		putexcel (B2:`lastcol'2), fpattern(solid, "219 229 241")
+		* Header row
+		mata: b.set_font_bold(2, (2,`num_cols'), "on")
+		mata: b.set_horizontal_align(2, (2,`num_cols'), "center")
+		mata: b.set_top_border(2, (2,`num_cols'), "`_hborder'")
+		mata: b.set_bottom_border(2, (2,`num_cols'), "`_hborder'")
+		mata: b.set_fill_pattern(2, (2,`num_cols'), "solid", "219 229 241")
 
-		* Body font
-		putexcel (B3:`lastcol'`num_rows'), font("`font'", `fontsize')
+		* Bottom border
+		mata: b.set_bottom_border(`num_rows', (2,`num_cols'), "`_hborder'")
 
-		* Bottom border on last data row
-		putexcel (B`num_rows':`lastcol'`num_rows'), border(bottom, `_hborder')
-
-		* Vertical borders (skip for academic)
+		* Vertical borders (non-academic)
 		if "`borderstyle'" != "academic" {
-			putexcel (B2:`lastcol'`num_rows'), border(left, `_hborder')
-			putexcel (B2:`lastcol'`num_rows'), border(right, `_hborder')
+			mata: b.set_left_border((2,`num_rows'), 2, "`_hborder'")
+			mata: b.set_right_border((2,`num_rows'), `num_cols', "`_hborder'")
 		}
 
 		* Center data columns
-		putexcel (C3:`lastcol'`num_rows'), hcenter
+		if `num_rows' >= 3 & `num_cols' >= 3 {
+			mata: b.set_horizontal_align((3,`num_rows'), (3,`num_cols'), "center")
+		}
 
-		* Zebra striping on alternating data rows
+		* Zebra striping
 		if "`zebra'" != "" {
 			forvalues _zr = 4(2)`num_rows' {
-				putexcel (B`_zr':`lastcol'`_zr'), fpattern(solid, "237 242 249")
+				mata: b.set_fill_pattern(`_zr', (2,`num_cols'), "solid", "237 242 249")
 			}
 		}
 
-		* Bold p-value cells where p < threshold
+		* Bold p-value rows
 		if `boldp' > 0 {
 			forvalues _br = 3/`num_rows' {
 				if `_pval_`_br'' < . & `_pval_`_br'' < `boldp' {
-					putexcel (C`_br':`lastcol'`_br'), bold
+					mata: b.set_font_bold(`_br', (3,`num_cols'), "on")
 				}
 			}
 		}
 
-		* Highlight rows where p < threshold
+		* Highlight rows
 		if `highlight' > 0 {
 			forvalues _hr = 3/`num_rows' {
 				if `_pval_`_hr'' < . & `_pval_`_hr'' < `highlight' {
-					putexcel (B`_hr':`lastcol'`_hr'), fpattern(solid, "255 255 204")
+					mata: b.set_fill_pattern(`_hr', (2,`num_cols'), "solid", "255 255 204")
 				}
 			}
 		}
 
 		* Footnote
-		local _fn_row = `num_rows'
 		if `"`footnote'"' != "" {
-			_gcomp_xl_footnote `"`footnote'"' "`lastcol'" `_fn_row' "`font'" `fontsize'
+			local _fn_row = `num_rows' + 1
+			local _fn_fontsize = max(`fontsize' - 2, 6)
+			mata: b.put_string(`_fn_row', 2, `"`footnote'"')
+			mata: b.set_sheet_merge("`sheet'", (`_fn_row',`_fn_row'), (2,`num_cols'))
+			mata: b.set_horizontal_align(`_fn_row', 2, "left")
+			mata: b.set_vertical_align(`_fn_row', 2, "center")
+			mata: b.set_text_wrap(`_fn_row', 2, "on")
+			mata: b.set_font(`_fn_row', 2, "`font'", `_fn_fontsize')
+			mata: b.set_font_italic(`_fn_row', 2, "on")
 		}
 
-		putexcel clear
+		mata: b.close_book()
 	}
 	if _rc {
 		local saved_rc = _rc
-		capture putexcel clear
-		noisily display as error "Excel cell formatting failed with error `saved_rc'"
+		capture mata: b.close_book()
+		capture mata: mata drop b
+		noisily display as error "Excel formatting failed with error `saved_rc'"
 		exit `saved_rc'
 	}
+	capture mata: mata drop b
 
 	* Open file if requested
 	if "`open'" != "" {

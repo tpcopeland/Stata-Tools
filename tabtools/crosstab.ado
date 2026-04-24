@@ -422,80 +422,105 @@ capture noisily {
             exit `_export_rc'
         }
 
+        * Pre-compute column B width
+        local _rlbl_maxlen = strlen("`_rowlabel'")
+        forvalues _ri = 1/`n_rows' {
+            local _rlen = strlen("`rlabel_`_ri''")
+            if `_rlen' > `_rlbl_maxlen' local _rlbl_maxlen = `_rlen'
+        }
+        local _b_width = max(12, ceil(`_rlbl_maxlen' * 0.85) + 2)
+
         capture {
-            putexcel set "`xlsx'", sheet("`sheet'") modify
-
-            _tabtools_build_col_letters `num_cols'
-            local letters "`result'"
-            local lastcol : word `num_cols' of `letters'
-
-            putexcel (A1:`lastcol'1), merge bold txtwrap left vcenter font("`_font'", `=`_fontsize'+2')
-            putexcel (B`_header_row':`lastcol'`_header_row'), border(top, `_hborder') bold hcenter font("`_font'", `_fontsize')
-            putexcel (B`_header_row':`lastcol'`_header_row'), border(bottom, `_hborder')
-            putexcel (A`_data_start':`lastcol'`num_rows'), font("`_font'", `_fontsize')
-            putexcel (C`_data_start':`lastcol'`num_rows'), hcenter
-
-            * Border above total row and below it
-            putexcel (B`_total_row':`lastcol'`_total_row'), border(top, `_hborder')
-            putexcel (B`_total_row':`lastcol'`_total_row'), border(bottom, `_hborder')
-
-            * Merge and format measure rows (chi-sq, OR, RR, etc.)
-            local _fm = `_first_measure_row'
-            if `_fm' <= `num_rows' {
-                putexcel (B`_fm':`lastcol'`_fm'), border(top, `_hborder')
-                forvalues _mr = `_fm'/`num_rows' {
-                    putexcel (B`_mr':`lastcol'`_mr'), merge left vcenter
-                }
-                putexcel (B`num_rows':`lastcol'`num_rows'), border(bottom, `_hborder')
-            }
-
-            if `boldp' != -1 & !missing(`_p') & `_p' < `boldp' {
-                putexcel (B`_p_row':`lastcol'`_p_row'), bold
-            }
-            if `boldp' != -1 & !missing(`_p_trend') & `_p_trend' < `boldp' & `_trend_row' > 0 {
-                putexcel (B`_trend_row':`lastcol'`_trend_row'), bold
-            }
-
-            * Column widths via Mata
             mata: b = xl()
             mata: b.load_book("`xlsx'")
             mata: b.set_sheet("`sheet'")
-            mata: b.set_column_width(1, 1, 1)
-            local _rlbl_maxlen = strlen("`_rowlabel'")
-            forvalues _ri = 1/`n_rows' {
-                local _rlen = strlen("`rlabel_`_ri''")
-                if `_rlen' > `_rlbl_maxlen' local _rlbl_maxlen = `_rlen'
-            }
-            local _b_width = max(12, ceil(`_rlbl_maxlen' * 0.85) + 2)
-            mata: b.set_column_width(2, 2, `_b_width')
-            forvalues _ci = 3/`num_cols' {
-                mata: b.set_column_width(`_ci', `_ci', 14)
-            }
-            mata: b.close_book()
-            capture mata: mata drop b
 
+            * Column widths
+            mata: b.set_column_width(1, 1, 1)
+            mata: b.set_column_width(2, 2, `_b_width')
+            if `num_cols' >= 3 {
+                mata: b.set_column_width(3, `num_cols', 14)
+            }
+
+            * Font
+            mata: b.set_font((1,`num_rows'), (1,`num_cols'), "`_font'", `_fontsize')
+            mata: b.set_font((1,1), (1,`num_cols'), "`_font'", `=`_fontsize'+2')
+
+            * Title row
+            mata: b.set_sheet_merge("`sheet'", (1,1), (1,`num_cols'))
+            mata: b.set_font_bold(1, 1, "on")
+            mata: b.set_text_wrap(1, 1, "on")
+            mata: b.set_horizontal_align(1, 1, "left")
+            mata: b.set_vertical_align(1, 1, "center")
+
+            * Header row
+            mata: b.set_top_border(`_header_row', (2,`num_cols'), "`_hborder'")
+            mata: b.set_bottom_border(`_header_row', (2,`num_cols'), "`_hborder'")
+            mata: b.set_font_bold(`_header_row', (2,`num_cols'), "on")
+            mata: b.set_horizontal_align(`_header_row', (2,`num_cols'), "center")
+
+            * Data alignment
+            if `num_rows' >= `_data_start' & `num_cols' >= 3 {
+                mata: b.set_horizontal_align((`_data_start',`num_rows'), (3,`num_cols'), "center")
+            }
+
+            * Total row borders
+            mata: b.set_top_border(`_total_row', (2,`num_cols'), "`_hborder'")
+            mata: b.set_bottom_border(`_total_row', (2,`num_cols'), "`_hborder'")
+
+            * Measure rows (chi-sq, OR, RR, etc.)
+            local _fm = `_first_measure_row'
+            if `_fm' <= `num_rows' {
+                mata: b.set_top_border(`_fm', (2,`num_cols'), "`_hborder'")
+                forvalues _mr = `_fm'/`num_rows' {
+                    mata: b.set_sheet_merge("`sheet'", (`_mr',`_mr'), (2,`num_cols'))
+                    mata: b.set_horizontal_align(`_mr', 2, "left")
+                    mata: b.set_vertical_align(`_mr', 2, "center")
+                }
+                mata: b.set_bottom_border(`num_rows', (2,`num_cols'), "`_hborder'")
+            }
+
+            * Bold p-value rows
+            if `boldp' != -1 & !missing(`_p') & `_p' < `boldp' {
+                mata: b.set_font_bold(`_p_row', (2,`num_cols'), "on")
+            }
+            if `boldp' != -1 & !missing(`_p_trend') & `_p_trend' < `boldp' & `_trend_row' > 0 {
+                mata: b.set_font_bold(`_trend_row', (2,`num_cols'), "on")
+            }
+
+            * Zebra striping
             if "`zebra'" != "" {
                 local _zebracolor "237 242 249"
                 if "$TABTOOLS_ZEBRACOLOR" != "" local _zebracolor "$TABTOOLS_ZEBRACOLOR"
                 forvalues _zr = `=`_data_start'+1'(2)`_total_row' {
-                    putexcel (B`_zr':`lastcol'`_zr'), fpattern(solid, "`_zebracolor'")
+                    mata: b.set_fill_pattern(`_zr', (2,`num_cols'), "solid", "`_zebracolor'")
                 }
             }
 
+            * Footnote
             if `"`footnote'"' != "" {
-                _tabtools_footnote `"`footnote'"' "`lastcol'" `num_rows' "`_font'" `_fontsize'
+                local _fn_row = `num_rows' + 1
+                local _fn_fontsize = max(`_fontsize' - 2, 6)
+                mata: b.put_string(`_fn_row', 2, `"`footnote'"')
+                mata: b.set_sheet_merge("`sheet'", (`_fn_row',`_fn_row'), (2,`num_cols'))
+                mata: b.set_horizontal_align(`_fn_row', 2, "left")
+                mata: b.set_vertical_align(`_fn_row', 2, "center")
+                mata: b.set_text_wrap(`_fn_row', 2, "on")
+                mata: b.set_font(`_fn_row', 2, "`_font'", `_fn_fontsize')
+                mata: b.set_font_italic(`_fn_row', 2, "on")
             }
 
-            putexcel clear
+            mata: b.close_book()
         }
         if _rc {
             local _format_rc = _rc
-            capture putexcel clear
+            capture mata: b.close_book()
             capture mata: mata drop b
             noisily display as error "Excel formatting failed with error `_format_rc'"
             restore
             exit `_format_rc'
         }
+        capture mata: mata drop b
         capture confirm file "`xlsx'"
         if _rc {
             noisily display as error "Export command succeeded but file not found"

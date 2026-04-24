@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.1  22apr2026}{...}
+{* *! version 1.2.0  24apr2026}{...}
 {vieweralsosee "[D] generate" "help generate"}{...}
 {vieweralsosee "migrations" "help migrations"}{...}
 {viewerjumpto "Syntax" "cci_se##syntax"}{...}
@@ -41,6 +41,7 @@
 {syntab:Optional}
 {synopt:{opt gen:erate(name)}}name for Charlson score variable; default is {cmd:charlson}{p_end}
 {synopt:{opt comp:onents}}generate binary indicator variables for each comorbidity{p_end}
+{synopt:{opt date:s}}generate earliest diagnosis date for each comorbidity; implies {opt components}{p_end}
 {synopt:{opt prefix(string)}}prefix for component variable names; default is {cmd:cci_}{p_end}
 {synopt:{opt datef:ormat(string)}}date format: {cmd:stata}, {cmd:yyyymmdd}, or {cmd:ymd}{p_end}
 {synopt:{opt noi:sily}}display summary of results{p_end}
@@ -110,6 +111,9 @@ The default is {cmd:charlson}.
 of the 18 comorbidity components in addition to the composite score. Variables are
 named {cmd:{it:prefix}mi}, {cmd:{it:prefix}chf}, etc. See
 {help cci_se##comorbidities:Comorbidities} for the full list.
+
+{phang}
+{opt dates} generates a Stata daily date variable for each comorbidity containing the earliest diagnosis date. Variables are named {cmd:{it:prefix}mi_date}, {cmd:{it:prefix}chf_date}, etc. The date is missing for patients without that comorbidity. Hierarchy rules are applied to dates in the same way as indicators: when a comorbidity is cleared by a hierarchy rule, its date is also cleared. Specifying {opt dates} implies {opt components}.
 
 {phang}
 {opt prefix(string)} specifies the prefix for component variable names when
@@ -255,14 +259,22 @@ with an error. Numeric YYYYMMDD values are not auto-detected; specify
 {phang2}{stata "tab cci_mets":. tab cci_mets}{p_end}
 
 {pstd}
-{bf:Example 3: Custom score and component names}
+{bf:Example 3: Components with earliest diagnosis dates}
+
+{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/diagnoses.dta", clear"':. use "https://.../diagnoses.dta", clear}{p_end}
+{phang2}{stata "cci_se, id(id) icd(icd) date(visit_date) dates":. cci_se, id(id) icd(icd) date(visit_date) dates}{p_end}
+{phang2}{stata "summarize cci_mi_date cci_chf_date, format":. summarize cci_mi_date cci_chf_date, format}{p_end}
+{phang2}{stata "list id charlson cci_mi cci_mi_date cci_chf cci_chf_date in 1/10":. list id charlson cci_mi cci_mi_date cci_chf cci_chf_date in 1/10}{p_end}
+
+{pstd}
+{bf:Example 4: Custom score and component names}
 
 {phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/diagnoses.dta", clear"':. use "https://.../diagnoses.dta", clear}{p_end}
 {phang2}{stata "cci_se, id(id) icd(icd) date(visit_date) generate(cci_score) components prefix(ch_)":. cci_se, id(id) icd(icd) date(visit_date) generate(cci_score) components prefix(ch_)}{p_end}
 {phang2}{stata "tab ch_mi":. tab ch_mi}{p_end}
 
 {pstd}
-{bf:Example 4: Save CCI and merge into analysis cohort}
+{bf:Example 5: Save CCI and merge into analysis cohort}
 
 {phang2}{cmd:. * Load diagnosis data and compute CCI}{p_end}
 {phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/diagnoses.dta", clear"':. use "https://.../diagnoses.dta", clear}{p_end}
@@ -275,7 +287,7 @@ with an error. Numeric YYYYMMDD values are not auto-detected; specify
 {phang2}{stata "replace charlson = 0 if missing(charlson)":. replace charlson = 0 if missing(charlson)}{p_end}
 
 {pstd}
-{bf:Example 5: CCI categories for regression}
+{bf:Example 6: CCI categories for regression}
 
 {phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/diagnoses.dta", clear"':. use "https://.../diagnoses.dta", clear}{p_end}
 {phang2}{stata "cci_se, id(id) icd(icd) date(visit_date)":. cci_se, id(id) icd(icd) date(visit_date)}{p_end}

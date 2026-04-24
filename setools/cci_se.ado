@@ -1,4 +1,4 @@
-*! cci_se Version 1.0.1  2026/04/22
+*! cci_se Version 1.2.0  2026/04/24
 *! Swedish Charlson Comorbidity Index using ICD-7 through ICD-10
 *! Based on Ludvigsson et al. Clinical Epidemiology 2021;13:21-41
 *! Part of the setools package
@@ -9,6 +9,10 @@
 *!   through ICD-10 codes as used in Swedish national health registries.
 *!   Handles ICD codes with or without dots automatically.
 *!   Accepts date variables as Stata dates, YYYYMMDD integers, or strings.
+*!
+*! v1.2.0: dates option — earliest diagnosis date per comorbidity component
+*! v1.1.0: Mata hash-table engine replaces 70+ regex passes with single-pass
+*!         prefix lookup. Same output, dramatically faster on large datasets.
 
 program define cci_se, rclass
     version 16.0
@@ -19,7 +23,7 @@ program define cci_se, rclass
 
     syntax [if] [in], ID(varname) ICD(varlist) ///
         DATE(varname) ///
-        [GENerate(name) COMPonents PREFIX(string) ///
+        [GENerate(name) COMPonents DATEs PREFIX(string) ///
          DATEFormat(string) NOIsily]
 
     * ---------------------------------------------------------------
@@ -122,7 +126,7 @@ program define cci_se, rclass
 
     * Normalize one or more ICD code fields: uppercase, strip dots,
     * prepend spaces between codes for regex matching
-    tempvar code yr v7 v8 v9 v10 parsed_date
+    tempvar code yr parsed_date
     quietly gen strL `code' = ""
     foreach icd_var of local icd_vars {
         quietly replace `code' = `code' + " " + ///
@@ -192,12 +196,10 @@ program define cci_se, rclass
     }
     local N_input = r(N)
 
-    * ICD version flags (Swedish transition dates)
-    * Note: _v9 and _v10 intentionally overlap at 1997 (Swedish ICD transition period)
-    quietly gen byte `v7'  = (`yr' <= 1968)
-    quietly gen byte `v8'  = (`yr' >= 1969 & `yr' <= 1986)
-    quietly gen byte `v9'  = (`yr' >= 1987 & `yr' <= 1997)
-    quietly gen byte `v10' = (`yr' >= 1997)
+    * dates implies components
+    if "`dates'" != "" & "`components'" == "" {
+        local components "components"
+    }
 
     * ---------------------------------------------------------------
     * Initialize 19 comorbidity indicators
@@ -215,166 +217,29 @@ program define cci_se, rclass
         quietly gen byte _cci_`i' = 0
     }
 
-    * ---------------------------------------------------------------
-    * Match ICD codes per comorbidity
-    * Source: Ludvigsson et al. Clin Epidemiol 2021;13:21-41
-    * ---------------------------------------------------------------
-
-    * --- 1. Myocardial infarction ---
-    quietly replace _cci_1 = 1 if `v7'  & regexm(`code', " 420,1")
-    quietly replace _cci_1 = 1 if `v8'  & regexm(`code', " 410| 411| 412,01| 412,91")
-    quietly replace _cci_1 = 1 if `v9'  & regexm(`code', " 410| 412")
-    quietly replace _cci_1 = 1 if `v10' & regexm(`code', " I21| I22| I252")
-
-    * --- 2. Congestive heart failure ---
-    quietly replace _cci_2 = 1 if `v7'  & regexm(`code', " 422,21| 422,22| 434,1| 434,2")
-    quietly replace _cci_2 = 1 if `v8'  & regexm(`code', " 425,08| 425,09| 427,0| 427,1| 428")
-    quietly replace _cci_2 = 1 if `v9'  & regexm(`code', " 402A| 402B| 402X| 404A| 404B| 404X| 425E| 425F| 425H| 425W| 425X| 428")
-    quietly replace _cci_2 = 1 if `v10' & regexm(`code', " I110| I130| I132| I255| I420| I426| I427| I428| I429| I43| I50")
-
-    * --- 3. Peripheral vascular disease ---
-    quietly replace _cci_3 = 1 if `v7'  & regexm(`code', " 450,1| 451| 453")
-    quietly replace _cci_3 = 1 if `v8'  & regexm(`code', " 440| 441| 443,1| 443,9")
-    quietly replace _cci_3 = 1 if `v9'  & regexm(`code', " 440| 441| 443B| 443X| 447B| 557")
-    quietly replace _cci_3 = 1 if `v10' & regexm(`code', " I70| I71| I731| I738| I739| I771| I790| I792| K55")
-
-    * --- 4. Cerebrovascular disease ---
-    quietly replace _cci_4 = 1 if `v7'  & regexm(`code', " 330| 331| 332| 333| 334")
-    quietly replace _cci_4 = 1 if `v8'  & regexm(`code', " 430| 431| 432| 433| 434| 435| 436| 437| 438")
-    quietly replace _cci_4 = 1 if `v9'  & regexm(`code', " 430| 431| 432| 433| 434| 435| 436| 437| 438")
-    quietly replace _cci_4 = 1 if `v10' & regexm(`code', " G45| I60| I61| I62| I63| I64| I67| I69")
-
-    * --- 5. COPD ---
-    quietly replace _cci_5 = 1 if `v7'  & regexm(`code', " 502| 527,1")
-    quietly replace _cci_5 = 1 if `v8'  & regexm(`code', " 491| 492")
-    quietly replace _cci_5 = 1 if `v9'  & regexm(`code', " 491| 492| 496")
-    quietly replace _cci_5 = 1 if `v10' & regexm(`code', " J43| J44")
-
-    * --- 6. Other chronic pulmonary disease ---
-    quietly replace _cci_6 = 1 if `v7'  & regexm(`code', " 241| 501| 523| 524| 525| 526")
-    quietly replace _cci_6 = 1 if `v8'  & regexm(`code', " 490| 493| 515| 516| 517| 518")
-    quietly replace _cci_6 = 1 if `v9'  & regexm(`code', " 490| 493| 494| 495| 500| 501| 502| 503| 504| 505| 506| 507| 508| 516| 517")
-    quietly replace _cci_6 = 1 if `v10' & regexm(`code', " J41| J42| J45| J46| J47| J60| J61| J62| J63| J64| J65| J66| J67| J68| J69| J70")
-
-    * --- 7. Rheumatic disease ---
-    quietly replace _cci_7 = 1 if `v7'  & regexm(`code', " 722,00| 722,01| 722,10| 722,20| 722,23| 456,0| 456,1| 456,2| 456,3")
-    quietly replace _cci_7 = 1 if `v8'  & regexm(`code', " 446| 696| 712,0| 712,1| 712,2| 712,3| 712,5| 716| 734,0| 734,1| 734,9")
-    quietly replace _cci_7 = 1 if `v9'  & regexm(`code', " 446| 696A| 710A| 710B| 710C| 710D| 710E| 714| 719D| 720| 725")
-    quietly replace _cci_7 = 1 if `v10' & regexm(`code', " M05| M06| M123| M070| M071| M072| M073| M08| M13| M30| M313| M314| M315| M316| M32| M33| M34| M350| M351| M353| M45| M46")
-
-    * --- 8. Dementia ---
-    quietly replace _cci_8 = 1 if `v7'  & regexm(`code', " 304| 305")
-    quietly replace _cci_8 = 1 if `v8'  & regexm(`code', " 290")
-    quietly replace _cci_8 = 1 if `v9'  & regexm(`code', " 290| 294B| 331A| 331B| 331C| 331X")
-    quietly replace _cci_8 = 1 if `v10' & regexm(`code', " F00| F01| F02| F03| F051| G30| G311| G319")
-
-    * --- 9. Hemiplegia/paraplegia ---
-    quietly replace _cci_9 = 1 if `v7'  & regexm(`code', " 351| 352| 357,00")
-    quietly replace _cci_9 = 1 if `v8'  & regexm(`code', " 343| 344")
-    quietly replace _cci_9 = 1 if `v9'  & regexm(`code', " 342| 343| 344A| 344B| 344C| 344D| 344E| 344F")
-    quietly replace _cci_9 = 1 if `v10' & regexm(`code', " G114| G80| G81| G82| G830| G831| G832| G833| G838")
-
-    * --- 10. Diabetes without complications ---
-    quietly replace _cci_10 = 1 if `v7'  & regexm(`code', " 260,09")
-    quietly replace _cci_10 = 1 if `v8'  & regexm(`code', " 250,00| 250,07| 250,08")
-    quietly replace _cci_10 = 1 if `v9'  & regexm(`code', " 250A| 250B| 250C")
-    quietly replace _cci_10 = 1 if `v10' & regexm(`code', " E100| E101| E106| E109| E110| E111| E119| E120| E121| E129| E130| E131| E139| E140| E141| E149")
-
-    * --- 11. Diabetes with complications ---
-    quietly replace _cci_11 = 1 if `v7'  & regexm(`code', " 260,2| 260,21| 260,29| 260,3| 260,4| 260,49| 260,99")
-    quietly replace _cci_11 = 1 if `v8'  & regexm(`code', " 250,01| 250,02| 250,03| 250,04| 250,05")
-    quietly replace _cci_11 = 1 if `v9'  & regexm(`code', " 250D| 250E| 250F| 250G")
-    local c11_10a " E102| E103| E104| E105| E107| E112| E113| E114| E115| E116| E117"
-    local c11_10b " E122| E123| E124| E125| E126| E127| E132| E133| E134| E135| E136| E137"
-    local c11_10c " E142| E143| E144| E145| E146| E147"
-    quietly replace _cci_11 = 1 if `v10' & regexm(`code', "`c11_10a'|`c11_10b'|`c11_10c'")
-
-    * --- 12. Renal disease ---
-    quietly replace _cci_12 = 1 if `v7'  & regexm(`code', " 592| 593| 792")
-    quietly replace _cci_12 = 1 if `v8'  & regexm(`code', " 582| 583| 584| 792| 593,00| 403,99| 404,99| 792,99| Y29,01")
-    quietly replace _cci_12 = 1 if `v9'  & regexm(`code', " 403A| 403B| 403X| 582| 583| 585| 586| 588A| V42A| V45B| V56")
-    local c12_10a " I120| I131| N032| N033| N034| N035| N036| N037| N052| N053| N054| N055| N056| N057"
-    local c12_10b " N11| N18| N19| N250| Q611| Q612| Q613| Q614| Z49| Z940| Z992"
-    quietly replace _cci_12 = 1 if `v10' & regexm(`code', "`c12_10a'|`c12_10b'")
-
-    * --- 13. Mild liver disease ---
-    quietly replace _cci_13 = 1 if `v7'  & regexm(`code', " 581")
-    quietly replace _cci_13 = 1 if `v8'  & regexm(`code', " 070| 571| 573")
-    quietly replace _cci_13 = 1 if `v9'  & regexm(`code', " 070| 571C| 571E| 571F| 573")
-    quietly replace _cci_13 = 1 if `v10' & regexm(`code', " B15| B16| B17| B18| B19| K703| K709| K73| K746| K754")
-
-    * --- 14. Ascites (internal, used for liver hierarchy) ---
-    quietly replace _cci_14 = 1 if `v8'  & regexm(`code', " 785,3")
-    quietly replace _cci_14 = 1 if `v9'  & regexm(`code', " 789F")
-    quietly replace _cci_14 = 1 if `v10' & regexm(`code', " R18")
-
-    * --- 15. Moderate/severe liver disease ---
-    quietly replace _cci_15 = 1 if `v7'  & regexm(`code', " 462,1")
-    quietly replace _cci_15 = 1 if `v8'  & regexm(`code', " 456,0| 571,9| 573,02")
-    quietly replace _cci_15 = 1 if `v9'  & regexm(`code', " 456A| 456B| 456C| 572C| 572D| 572E")
-    quietly replace _cci_15 = 1 if `v10' & regexm(`code', " I850| I859| I982| I983")
-
-    * --- 16. Peptic ulcer disease ---
-    quietly replace _cci_16 = 1 if `v7'  & regexm(`code', " 540| 541| 542")
-    quietly replace _cci_16 = 1 if `v8'  & regexm(`code', " 531| 532| 533| 534")
-    quietly replace _cci_16 = 1 if `v9'  & regexm(`code', " 531| 532| 533| 534")
-    quietly replace _cci_16 = 1 if `v10' & regexm(`code', " K25| K26| K27| K28")
-
-    * --- 17. Malignancy (non-metastatic) ---
-    * ICD-7
-    local c17_7a " 140| 141| 142| 143| 144| 145| 146| 147| 148| 149"
-    local c17_7b " 150| 151| 152| 153| 154| 155| 156| 157| 158| 159"
-    local c17_7c " 160| 161| 162| 163| 164| 165| 166| 167| 168| 169"
-    local c17_7d " 170| 171| 172| 173| 174| 175| 176| 177| 178| 179"
-    local c17_7e " 180| 181| 182| 183| 184| 185| 186| 187| 188| 189"
-    local c17_7f " 190| 191| 192| 193| 194| 195| 196| 197| 200| 201| 202| 203| 204"
-    quietly replace _cci_17 = 1 if `v7' & regexm(`code', "`c17_7a'|`c17_7b'|`c17_7c'|`c17_7d'|`c17_7e'|`c17_7f'")
-
-    * ICD-8
-    local c17_8a " 140| 141| 142| 143| 144| 145| 146| 147| 148| 149"
-    local c17_8b " 150| 151| 152| 153| 154| 155| 156| 157| 158| 159"
-    local c17_8c " 160| 161| 162| 163| 164| 165| 166| 167| 168| 169"
-    local c17_8d " 170| 171| 172| 174| 180| 181| 182| 183| 184| 185"
-    local c17_8e " 186| 187| 188| 189| 190| 191| 192| 193| 194| 195"
-    local c17_8f " 196| 197| 198| 199| 200| 201| 202| 203| 204| 205| 206| 207| 209"
-    quietly replace _cci_17 = 1 if `v8' & regexm(`code', "`c17_8a'|`c17_8b'|`c17_8c'|`c17_8d'|`c17_8e'|`c17_8f'")
-
-    * ICD-9
-    local c17_9a " 140| 141| 142| 143| 144| 145| 146| 147| 148| 149"
-    local c17_9b " 150| 151| 152| 153| 154| 155| 156| 157| 158| 159"
-    local c17_9c " 160| 161| 162| 163| 164| 165| 166| 167| 168| 169"
-    local c17_9d " 170| 171| 172| 174| 175| 176| 177| 178| 179| 180"
-    local c17_9e " 181| 182| 183| 184| 185| 186| 187| 188| 189| 190"
-    local c17_9f " 191| 192| 193| 194| 195| 196| 197| 198| 199| 200"
-    local c17_9g " 201| 202| 203| 204| 205| 206| 207| 208"
-    quietly replace _cci_17 = 1 if `v9' & regexm(`code', "`c17_9a'|`c17_9b'|`c17_9c'|`c17_9d'|`c17_9e'|`c17_9f'|`c17_9g'")
-
-    * ICD-10
-    local c17_10a " C00| C01| C02| C03| C04| C05| C06| C07| C08| C09"
-    local c17_10b " C10| C11| C12| C13| C14| C15| C16| C17| C18| C19"
-    local c17_10c " C20| C21| C22| C23| C24| C25| C26| C27| C28| C29"
-    local c17_10d " C30| C31| C32| C33| C34| C35| C36| C37| C38| C39"
-    local c17_10e " C40| C41| C43| C45| C46| C47| C48| C49| C50| C51"
-    local c17_10f " C52| C53| C54| C55| C56| C57| C58| C59| C60| C61"
-    local c17_10g " C62| C63| C64| C65| C66| C67| C68| C69| C70| C71"
-    local c17_10h " C72| C73| C74| C75| C76| C81| C82| C83| C84| C85"
-    local c17_10i " C86| C88| C89| C90| C91| C92| C93| C94| C95| C96| C97"
-    quietly replace _cci_17 = 1 if `v10' & regexm(`code', "`c17_10a'|`c17_10b'|`c17_10c'|`c17_10d'|`c17_10e'|`c17_10f'|`c17_10g'|`c17_10h'|`c17_10i'")
-
-    * --- 18. Metastatic cancer ---
-    quietly replace _cci_18 = 1 if `v7'  & regexm(`code', " 156,91| 198| 199")
-    quietly replace _cci_18 = 1 if `v8'  & regexm(`code', " 196| 197| 198| 199")
-    quietly replace _cci_18 = 1 if `v9'  & regexm(`code', " 196| 197| 198| 199A| 199B")
-    quietly replace _cci_18 = 1 if `v10' & regexm(`code', " C77| C78| C79| C80")
-
-    * --- 19. AIDS/HIV ---
-    quietly replace _cci_19 = 1 if `v9'  & regexm(`code', " 079J| 279K")
-    quietly replace _cci_19 = 1 if `v10' & regexm(`code', " B20| B21| B22| B23| B24| F024| O987| R75| Z219| Z717")
+    * Initialize date variables when dates option is specified
+    local _do_dates = 0
+    if "`dates'" != "" {
+        local _do_dates = 1
+        forvalues i = 1/19 {
+            quietly gen double _cci_d_`i' = .
+        }
+    }
 
     * ---------------------------------------------------------------
-    * Collapse to patient level (max of each indicator)
+    * Match ICD codes via Mata hash-table engine (single pass)
     * ---------------------------------------------------------------
-    collapse (max) _cci_*, by(`id')
+    mata: _cci_se_classify("`code'", "`yr'", "`parsed_date'", `_do_dates')
+
+    * ---------------------------------------------------------------
+    * Collapse to patient level (max of each indicator, min of dates)
+    * ---------------------------------------------------------------
+    if `_do_dates' {
+        collapse (max) _cci_1-_cci_19 (min) _cci_d_1-_cci_d_19, by(`id')
+    }
+    else {
+        collapse (max) _cci_*, by(`id')
+    }
 
     * Replace missing with 0 (patients with no matches in any component)
     forvalues i = 1/19 {
@@ -394,6 +259,15 @@ program define cci_se, rclass
 
     * Cancer: clear non-metastatic if metastatic present
     quietly replace _cci_17 = 0 if _cci_18 > 0
+
+    * Apply same hierarchy to dates
+    if `_do_dates' {
+        quietly replace _cci_d_15 = min(_cci_d_13, _cci_d_14) ///
+            if !missing(_cci_d_13) & !missing(_cci_d_14) & missing(_cci_d_15)
+        quietly replace _cci_d_13 = . if _cci_15 > 0
+        quietly replace _cci_d_10 = . if _cci_11 > 0
+        quietly replace _cci_d_17 = . if _cci_18 > 0
+    }
 
     * ---------------------------------------------------------------
     * Compute weighted Charlson score
@@ -454,6 +328,14 @@ program define cci_se, rclass
             label variable `prefix'`name_`i'' "`lbl_`i''"
         }
         drop _cci_14
+        if `_do_dates' {
+            foreach i in 1 2 3 4 5 6 7 8 9 10 11 12 13 15 16 17 18 19 {
+                rename _cci_d_`i' `prefix'`name_`i''_date
+                format `prefix'`name_`i''_date %td
+                label variable `prefix'`name_`i''_date "Earliest `lbl_`i'' diagnosis"
+            }
+            drop _cci_d_14
+        }
     }
     else {
         drop _cci_*
@@ -517,4 +399,272 @@ program define cci_se, rclass
     local rc = _rc
     set varabbrev `_orig_varabbrev'
     if `rc' exit `rc'
+end
+
+* =====================================================================
+* Mata engine: single-pass hash-table ICD classification
+* =====================================================================
+capture mata: mata drop _cci_se_classify()
+capture mata: mata drop _cci_aa_multi()
+capture mata: mata drop _cci_aa_range()
+capture mata: mata drop _cci_lookup_token()
+
+mata:
+mata set matastrict on
+
+void _cci_se_classify(string scalar code_var, string scalar yr_var,
+                      string scalar date_var, real scalar do_dates)
+{
+    real scalar    N, i, j, yr, ntok, dt
+    string scalar  raw
+    string vector  toks
+    real matrix    indicators, dates
+    real colvector yr_data, date_data
+
+    transmorphic   ht7, ht8, ht9, ht10
+
+    N = st_nobs()
+    if (N == 0) return
+
+    // ---------------------------------------------------------------
+    // Build hash tables: prefix -> comorbidity index (1-19)
+    // Each ICD version gets its own associative array.
+    // Keys are the exact prefix strings from Ludvigsson et al. 2021.
+    // ---------------------------------------------------------------
+    ht7  = asarray_create()
+    ht8  = asarray_create()
+    ht9  = asarray_create()
+    ht10 = asarray_create()
+
+    // --- 1. Myocardial infarction ---
+    asarray(ht7, "420,1", 1)
+    _cci_aa_multi(ht8, "410 411 412,01 412,91", 1)
+    _cci_aa_multi(ht9, "410 412", 1)
+    _cci_aa_multi(ht10, "I21 I22 I252", 1)
+
+    // --- 2. Congestive heart failure ---
+    _cci_aa_multi(ht7, "422,21 422,22 434,1 434,2", 2)
+    _cci_aa_multi(ht8, "425,08 425,09 427,0 427,1 428", 2)
+    _cci_aa_multi(ht9, "402A 402B 402X 404A 404B 404X 425E 425F 425H 425W 425X 428", 2)
+    _cci_aa_multi(ht10, "I110 I130 I132 I255 I420 I426 I427 I428 I429 I43 I50", 2)
+
+    // --- 3. Peripheral vascular disease ---
+    _cci_aa_multi(ht7, "450,1 451 453", 3)
+    _cci_aa_multi(ht8, "440 441 443,1 443,9", 3)
+    _cci_aa_multi(ht9, "440 441 443B 443X 447B 557", 3)
+    _cci_aa_multi(ht10, "I70 I71 I731 I738 I739 I771 I790 I792 K55", 3)
+
+    // --- 4. Cerebrovascular disease ---
+    _cci_aa_multi(ht7, "330 331 332 333 334", 4)
+    _cci_aa_multi(ht8, "430 431 432 433 434 435 436 437 438", 4)
+    _cci_aa_multi(ht9, "430 431 432 433 434 435 436 437 438", 4)
+    _cci_aa_multi(ht10, "G45 I60 I61 I62 I63 I64 I67 I69", 4)
+
+    // --- 5. COPD ---
+    _cci_aa_multi(ht7, "502 527,1", 5)
+    _cci_aa_multi(ht8, "491 492", 5)
+    _cci_aa_multi(ht9, "491 492 496", 5)
+    _cci_aa_multi(ht10, "J43 J44", 5)
+
+    // --- 6. Other chronic pulmonary disease ---
+    _cci_aa_multi(ht7, "241 501 523 524 525 526", 6)
+    _cci_aa_multi(ht8, "490 493 515 516 517 518", 6)
+    _cci_aa_multi(ht9, "490 493 494 495 500 501 502 503 504 505 506 507 508 516 517", 6)
+    _cci_aa_multi(ht10, "J41 J42 J45 J46 J47 J60 J61 J62 J63 J64 J65 J66 J67 J68 J69 J70", 6)
+
+    // --- 7. Rheumatic disease ---
+    _cci_aa_multi(ht7, "722,00 722,01 722,10 722,20 722,23 456,0 456,1 456,2 456,3", 7)
+    _cci_aa_multi(ht8, "446 696 712,0 712,1 712,2 712,3 712,5 716 734,0 734,1 734,9", 7)
+    _cci_aa_multi(ht9, "446 696A 710A 710B 710C 710D 710E 714 719D 720 725", 7)
+    _cci_aa_multi(ht10, "M05 M06 M123 M070 M071 M072 M073 M08 M13 M30 M313 M314 M315 M316 M32 M33 M34 M350 M351 M353 M45 M46", 7)
+
+    // --- 8. Dementia ---
+    _cci_aa_multi(ht7, "304 305", 8)
+    asarray(ht8, "290", 8)
+    _cci_aa_multi(ht9, "290 294B 331A 331B 331C 331X", 8)
+    _cci_aa_multi(ht10, "F00 F01 F02 F03 F051 G30 G311 G319", 8)
+
+    // --- 9. Hemiplegia/paraplegia ---
+    _cci_aa_multi(ht7, "351 352 357,00", 9)
+    _cci_aa_multi(ht8, "343 344", 9)
+    _cci_aa_multi(ht9, "342 343 344A 344B 344C 344D 344E 344F", 9)
+    _cci_aa_multi(ht10, "G114 G80 G81 G82 G830 G831 G832 G833 G838", 9)
+
+    // --- 10. Diabetes without complications ---
+    asarray(ht7, "260,09", 10)
+    _cci_aa_multi(ht8, "250,00 250,07 250,08", 10)
+    _cci_aa_multi(ht9, "250A 250B 250C", 10)
+    _cci_aa_multi(ht10, "E100 E101 E106 E109 E110 E111 E119 E120 E121 E129 E130 E131 E139 E140 E141 E149", 10)
+
+    // --- 11. Diabetes with complications ---
+    _cci_aa_multi(ht7, "260,2 260,21 260,29 260,3 260,4 260,49 260,99", 11)
+    _cci_aa_multi(ht8, "250,01 250,02 250,03 250,04 250,05", 11)
+    _cci_aa_multi(ht9, "250D 250E 250F 250G", 11)
+    _cci_aa_multi(ht10, "E102 E103 E104 E105 E107 E112 E113 E114 E115 E116 E117 E122 E123 E124 E125 E126 E127 E132 E133 E134 E135 E136 E137 E142 E143 E144 E145 E146 E147", 11)
+
+    // --- 12. Renal disease ---
+    _cci_aa_multi(ht7, "592 593 792", 12)
+    _cci_aa_multi(ht8, "582 583 584 792 593,00 403,99 404,99 792,99 Y29,01", 12)
+    _cci_aa_multi(ht9, "403A 403B 403X 582 583 585 586 588A V42A V45B V56", 12)
+    _cci_aa_multi(ht10, "I120 I131 N032 N033 N034 N035 N036 N037 N052 N053 N054 N055 N056 N057 N11 N18 N19 N250 Q611 Q612 Q613 Q614 Z49 Z940 Z992", 12)
+
+    // --- 13. Mild liver disease ---
+    asarray(ht7, "581", 13)
+    _cci_aa_multi(ht8, "070 571 573", 13)
+    _cci_aa_multi(ht9, "070 571C 571E 571F 573", 13)
+    _cci_aa_multi(ht10, "B15 B16 B17 B18 B19 K703 K709 K73 K746 K754", 13)
+
+    // --- 14. Ascites (internal, for liver hierarchy) ---
+    asarray(ht8, "785,3", 14)
+    asarray(ht9, "789F", 14)
+    asarray(ht10, "R18", 14)
+
+    // --- 15. Moderate/severe liver disease ---
+    asarray(ht7, "462,1", 15)
+    _cci_aa_multi(ht8, "456,0 571,9 573,02", 15)
+    _cci_aa_multi(ht9, "456A 456B 456C 572C 572D 572E", 15)
+    _cci_aa_multi(ht10, "I850 I859 I982 I983", 15)
+
+    // --- 16. Peptic ulcer disease ---
+    _cci_aa_multi(ht7, "540 541 542", 16)
+    _cci_aa_multi(ht8, "531 532 533 534", 16)
+    _cci_aa_multi(ht9, "531 532 533 534", 16)
+    _cci_aa_multi(ht10, "K25 K26 K27 K28", 16)
+
+    // --- 17. Malignancy (non-metastatic) ---
+    // ICD-7: 140-197, 200-204
+    _cci_aa_range(ht7, "1", 40, 97, 17)
+    _cci_aa_range(ht7, "2", 0, 4, 17)
+    // ICD-8: 140-199, 200-209 (excl 173, 208)
+    _cci_aa_range(ht8, "1", 40, 99, 17)
+    _cci_aa_range(ht8, "2", 0, 9, 17)
+    asarray_remove(ht8, "173")
+    asarray_remove(ht8, "208")
+    // ICD-9: 140-199, 200-208 (excl 173)
+    _cci_aa_range(ht9, "1", 40, 99, 17)
+    _cci_aa_range(ht9, "2", 0, 8, 17)
+    asarray_remove(ht9, "173")
+    // ICD-10: C00-C76, C81-C97 (excl C42, C44, C77-C80, C87)
+    _cci_aa_range(ht10, "C", 0, 76, 17)
+    _cci_aa_range(ht10, "C", 81, 97, 17)
+    asarray_remove(ht10, "C42")
+    asarray_remove(ht10, "C44")
+    asarray_remove(ht10, "C87")
+
+    // --- 18. Metastatic cancer ---
+    // ICD-7: 156,91 198 199
+    asarray(ht7, "156,91", 18)
+    _cci_aa_multi(ht7, "198 199", 18)
+    // ICD-8: 196-199
+    _cci_aa_multi(ht8, "196 197 198 199", 18)
+    // ICD-9: 196-199A 199B (196, 197, 198 as prefixes; 199A, 199B exact)
+    _cci_aa_multi(ht9, "196 197 198 199A 199B", 18)
+    // ICD-10: C77-C80
+    _cci_aa_multi(ht10, "C77 C78 C79 C80", 18)
+
+    // --- 19. AIDS/HIV ---
+    _cci_aa_multi(ht9, "079J 279K", 19)
+    _cci_aa_multi(ht10, "B20 B21 B22 B23 B24 F024 O987 R75 Z219 Z717", 19)
+
+    // ---------------------------------------------------------------
+    // Single-pass classification
+    // st_sdata() for strL code column (row-by-row); st_view() for
+    // numeric indicators (zero-copy direct write to Stata variables)
+    // ---------------------------------------------------------------
+    real scalar code_idx
+    code_idx = st_varindex(code_var)
+
+    st_view(indicators = ., ., "_cci_1 _cci_2 _cci_3 _cci_4 _cci_5 _cci_6 _cci_7 _cci_8 _cci_9 _cci_10 _cci_11 _cci_12 _cci_13 _cci_14 _cci_15 _cci_16 _cci_17 _cci_18 _cci_19")
+
+    st_view(yr_data = ., ., yr_var)
+
+    if (do_dates) {
+        st_view(dates = ., ., "_cci_d_1 _cci_d_2 _cci_d_3 _cci_d_4 _cci_d_5 _cci_d_6 _cci_d_7 _cci_d_8 _cci_d_9 _cci_d_10 _cci_d_11 _cci_d_12 _cci_d_13 _cci_d_14 _cci_d_15 _cci_d_16 _cci_d_17 _cci_d_18 _cci_d_19")
+        st_view(date_data = ., ., date_var)
+    }
+
+    for (i = 1; i <= N; i++) {
+        yr = yr_data[i]
+        if (yr >= .) continue
+
+        raw = st_sdata(i, code_idx)
+        if (raw == "") continue
+        toks = tokens(strtrim(raw))
+        ntok = cols(toks)
+
+        if (do_dates) dt = date_data[i]
+
+        // Determine ICD version(s) from year
+        // 1997 overlaps v9 and v10 — must check both
+        if (yr <= 1968) {
+            for (j = 1; j <= ntok; j++) {
+                _cci_lookup_token(ht7, toks[j], indicators, i, do_dates, dates, dt)
+            }
+        }
+        else if (yr <= 1986) {
+            for (j = 1; j <= ntok; j++) {
+                _cci_lookup_token(ht8, toks[j], indicators, i, do_dates, dates, dt)
+            }
+        }
+        else if (yr >= 1998) {
+            for (j = 1; j <= ntok; j++) {
+                _cci_lookup_token(ht10, toks[j], indicators, i, do_dates, dates, dt)
+            }
+        }
+        else {
+            // 1987-1997: check both v9 and v10 (overlap period)
+            for (j = 1; j <= ntok; j++) {
+                _cci_lookup_token(ht9, toks[j], indicators, i, do_dates, dates, dt)
+                _cci_lookup_token(ht10, toks[j], indicators, i, do_dates, dates, dt)
+            }
+        }
+    }
+}
+
+// Helper: add multiple space-separated prefixes to an asarray
+void _cci_aa_multi(transmorphic ht, string scalar prefixes, real scalar idx)
+{
+    string vector  toks
+    real scalar    j
+
+    toks = tokens(prefixes)
+    for (j = 1; j <= cols(toks); j++) {
+        asarray(ht, toks[j], idx)
+    }
+}
+
+// Helper: add a range of numeric 2-digit suffixes (with zero-pad) to a prefix
+void _cci_aa_range(transmorphic ht, string scalar pfx, real scalar lo,
+                   real scalar hi, real scalar idx)
+{
+    real scalar k
+    for (k = lo; k <= hi; k++) {
+        asarray(ht, pfx + strofreal(k, "%02.0f"), idx)
+    }
+}
+
+// Core lookup: try progressively shorter prefixes of a token against hash table.
+// When do_dates==1, also writes the visit date to the dates matrix.
+void _cci_lookup_token(transmorphic ht, string scalar tok,
+                       real matrix indicators, real scalar row,
+                       real scalar do_dates, real matrix dates,
+                       real scalar dt)
+{
+    real scalar   len, cci_idx, plen
+    string scalar pfx
+
+    len = strlen(tok)
+    if (len == 0) return
+
+    for (plen = len; plen >= 2; plen--) {
+        pfx = substr(tok, 1, plen)
+        if (asarray_contains(ht, pfx)) {
+            cci_idx = asarray(ht, pfx)
+            indicators[row, cci_idx] = 1
+            if (do_dates) dates[row, cci_idx] = dt
+            return
+        }
+    }
+}
+
 end

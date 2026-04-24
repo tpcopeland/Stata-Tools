@@ -686,10 +686,13 @@ program define hrcomptab, rclass
                 exit 601
             }
 
+            local _total_cols = `ncols' + 1
             capture {
                 mata: b = xl()
                 mata: b.load_book("`xlsx'")
                 mata: b.set_sheet("`sheet'")
+
+                * Column widths
                 mata: b.set_row_height(1, 1, 30)
                 mata: b.set_column_width(1, 1, 1)
                 mata: b.set_column_width(2, 2, `_label_width')
@@ -697,88 +700,109 @@ program define hrcomptab, rclass
                     local _excel_col = `_c' + 1
                     mata: b.set_column_width(`_excel_col', `_excel_col', `_cw`_c'')
                 }
-                mata: b.close_book()
-            }
-            if _rc {
-                local _mata_rc = _rc
-                capture mata: b.close_book()
-                capture mata: mata drop b
-                display as error "Excel formatting (Mata) failed with error `_mata_rc'"
-                exit `_mata_rc'
-            }
-            capture mata: mata drop b
 
-            capture {
-                putexcel set "`xlsx'", sheet("`sheet'") modify
+                * Font
+                mata: b.set_font((1,`lastrow'), (1,`_total_cols'), "`_font'", `_fontsize')
+                mata: b.set_font((1,1), (1,`_total_cols'), "`_font'", `=`_fontsize'+2')
 
-                _tabtools_build_col_letters `=`ncols'+1'
-                local _letters "`result'"
-                local lastcol : word `=`ncols'+1' of `_letters'
+                * Title row
+                mata: b.set_sheet_merge("`sheet'", (1,1), (1,`_total_cols'))
+                mata: b.set_font_bold(1, 1, "on")
+                mata: b.set_text_wrap(1, 1, "on")
+                mata: b.set_horizontal_align(1, 1, "left")
+                mata: b.set_vertical_align(1, 1, "center")
 
-                putexcel (A1:`lastcol'1), merge bold txtwrap left vcenter ///
-                    font("`_font'", `=`_fontsize' + 2')
-                putexcel (B2:`lastcol'2), border(top, `_hborder')
-                putexcel (B3:`lastcol'3), border(bottom, `_hborder')
+                * Header borders
+                mata: b.set_top_border(2, (2,`_total_cols'), "`_hborder'")
+                mata: b.set_bottom_border(3, (2,`_total_cols'), "`_hborder'")
 
-                * Merge outcome headers
+                * Merge outcome headers (5 cols per outcome)
                 local _merge_col = 3
                 forvalues _o = 1/`outcomes' {
-                    local _col1 : word `_merge_col' of `_letters'
-                    local _col_end : word `=`_merge_col'+4' of `_letters'
-                    putexcel (`_col1'2:`_col_end'2), merge bold hcenter top ///
-                        border(bottom, `_hborder')
+                    local _col_end = `_merge_col' + 4
+                    mata: b.set_sheet_merge("`sheet'", (2,2), (`_merge_col',`_col_end'))
+                    mata: b.set_font_bold(2, `_merge_col', "on")
+                    mata: b.set_horizontal_align(2, `_merge_col', "center")
+                    mata: b.set_vertical_align(2, `_merge_col', "top")
+                    mata: b.set_bottom_border(2, (`_merge_col',`_col_end'), "`_hborder'")
                     local _merge_col = `_merge_col' + 5
                 }
 
-                putexcel (B2:B3), merge bold hcenter vcenter border(bottom, `_hborder')
-                putexcel (C3:`lastcol'3), bold hcenter vcenter
+                * Merge Exposure cell (B2:B3)
+                mata: b.set_sheet_merge("`sheet'", (2,3), (2,2))
+                mata: b.set_font_bold((2,3), 2, "on")
+                mata: b.set_horizontal_align((2,3), 2, "center")
+                mata: b.set_vertical_align((2,3), 2, "center")
+                mata: b.set_bottom_border(3, 2, "`_hborder'")
 
+                * Row 3 formatting
+                mata: b.set_font_bold(3, (3,`_total_cols'), "on")
+                mata: b.set_horizontal_align(3, (3,`_total_cols'), "center")
+                mata: b.set_vertical_align(3, (3,`_total_cols'), "center")
+
+                * Header background
                 if "`headershade'" != "" {
-                    putexcel (B2:`lastcol'3), fpattern(solid, "`_headercolor'")
+                    mata: b.set_fill_pattern((2,3), (2,`_total_cols'), "solid", "`_headercolor'")
                 }
 
+                * Zebra striping
                 if "`zebra'" != "" {
                     forvalues _zr = 5(2)`lastrow' {
-                        putexcel (B`_zr':`lastcol'`_zr'), fpattern(solid, "`_zebracolor'")
+                        mata: b.set_fill_pattern(`_zr', (2,`_total_cols'), "solid", "`_zebracolor'")
                     }
                 }
 
-                putexcel (B2:`lastcol'`lastrow'), font("`_font'", `_fontsize')
-                putexcel (C4:`lastcol'`lastrow'), hcenter
+                * Center-align data columns
+                if `lastrow' >= 4 & `_total_cols' >= 3 {
+                    mata: b.set_horizontal_align((4,`lastrow'), (3,`_total_cols'), "center")
+                }
 
+                * Vertical borders
                 if "`borderstyle'" != "academic" {
-                    putexcel (B2:B`lastrow'), border(left, `borderstyle')
-                    putexcel (B2:B`lastrow'), border(right, `borderstyle')
-
+                    mata: b.set_left_border((2,`lastrow'), 2, "`borderstyle'")
+                    mata: b.set_right_border((2,`lastrow'), 2, "`borderstyle'")
                     local _vcol = 3
                     forvalues _o = 1/`outcomes' {
-                        local _col_end : word `=`_vcol'+4' of `_letters'
-                        putexcel (`_col_end'2:`_col_end'`lastrow'), border(right, `borderstyle')
+                        local _col_end = `_vcol' + 4
+                        mata: b.set_right_border((2,`lastrow'), `_col_end', "`borderstyle'")
                         local _vcol = `_vcol' + 5
                     }
                 }
 
+                * Exposure group borders
                 foreach _sr of local exp_rows {
                     local _border_row = `_sr' - 1
                     if `_border_row' > 3 {
-                        putexcel (B`_border_row':`lastcol'`_border_row'), border(bottom, `_hborder')
+                        mata: b.set_bottom_border(`_border_row', (2,`_total_cols'), "`_hborder'")
                     }
                 }
 
-                putexcel (B`lastrow':`lastcol'`lastrow'), border(bottom, `_hborder')
+                * Bottom border
+                mata: b.set_bottom_border(`lastrow', (2,`_total_cols'), "`_hborder'")
 
+                * Footnote
                 if `"`footnote'"' != "" {
-                    _tabtools_footnote `"`footnote'"' "`lastcol'" `lastrow' "`_font'" `_fontsize'
+                    local _fn_row = `lastrow' + 1
+                    local _fn_fontsize = max(`_fontsize' - 2, 6)
+                    mata: b.put_string(`_fn_row', 2, `"`footnote'"')
+                    mata: b.set_sheet_merge("`sheet'", (`_fn_row',`_fn_row'), (2,`_total_cols'))
+                    mata: b.set_horizontal_align(`_fn_row', 2, "left")
+                    mata: b.set_vertical_align(`_fn_row', 2, "center")
+                    mata: b.set_text_wrap(`_fn_row', 2, "on")
+                    mata: b.set_font(`_fn_row', 2, "`_font'", `_fn_fontsize')
+                    mata: b.set_font_italic(`_fn_row', 2, "on")
                 }
 
-                putexcel clear
+                mata: b.close_book()
             }
             if _rc {
                 local _fmt_rc = _rc
-                capture putexcel clear
-                display as error "Excel cell formatting failed with error `_fmt_rc'"
+                capture mata: b.close_book()
+                capture mata: mata drop b
+                display as error "Excel formatting failed with error `_fmt_rc'"
                 exit `_fmt_rc'
             }
+            capture mata: mata drop b
 
             capture confirm file "`xlsx'"
             if _rc {

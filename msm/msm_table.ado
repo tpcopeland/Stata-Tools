@@ -488,93 +488,105 @@ program define _msm_tbl_coef
     }
     capture mata: mata drop _msm_xl
 
-    * putexcel: formatting
-    capture {
-        putexcel set "`xlsx'", sheet("`sheet'") modify
-
-        * Title: merge, wrap, vcenter, bold
-        putexcel (A1:D1), merge txtwrap left vcenter bold
-
-        * Headers: bold, centered, wrapped
-        putexcel (A2:D2), bold hcenter vcenter txtwrap
-        putexcel (A2:D2), fpattern(solid, "219 229 241")
-
-        * Full rectangular border frame
-        putexcel (A2:D2), border(top, `_hborder')
-        putexcel (A2:D2), border(bottom, `_hborder')
-        if "`borderstyle'" != "academic" {
-            putexcel (A2:A`nrows'), border(left, `borderstyle')
-            putexcel (D2:D`nrows'), border(right, `borderstyle')
+    * Pre-extract p-values for conditional formatting
+    if `boldp' > 0 | `highlight' > 0 {
+        forvalues _br = 3/`last_data' {
+            local _pval = D[`_br']
+            if `"`_pval'"' == "<0.001" {
+                local _pnum_`_br' = 0.0001
+            }
+            else if `"`_pval'"' != "" & `"`_pval'"' != "." {
+                local _pnum_`_br' = real("`_pval'")
+            }
+            else {
+                local _pnum_`_br' = .
+            }
         }
-        putexcel (A`nrows':D`nrows'), border(bottom, `_hborder')
+    }
 
-        * Data alignment: center numeric cols, right-align p-value
-        putexcel (B3:C`nrows'), hcenter
-        putexcel (D3:D`nrows'), right
+    * Mata xl() formatting
+    capture {
+        mata: b = xl()
+        mata: b.load_book("`xlsx'")
+        mata: b.set_sheet("`sheet'")
 
-        * Vertical separator before p-value
+        * Font
+        mata: b.set_font((1,`nrows'), (1,4), "`font'", `fontsize')
+        mata: b.set_font((1,1), (1,4), "`font'", `=`fontsize'+2')
+
+        * Title
+        mata: b.set_sheet_merge("`sheet'", (1,1), (1,4))
+        mata: b.set_text_wrap(1, 1, "on")
+        mata: b.set_horizontal_align(1, 1, "left")
+        mata: b.set_vertical_align(1, 1, "center")
+        mata: b.set_font_bold(1, 1, "on")
+
+        * Headers
+        mata: b.set_font_bold(2, (1,4), "on")
+        mata: b.set_horizontal_align(2, (1,4), "center")
+        mata: b.set_vertical_align(2, (1,4), "center")
+        mata: b.set_text_wrap(2, (1,4), "on")
+        mata: b.set_fill_pattern(2, (1,4), "solid", "219 229 241")
+
+        * Borders
+        mata: b.set_top_border(2, (1,4), "`_hborder'")
+        mata: b.set_bottom_border(2, (1,4), "`_hborder'")
+        mata: b.set_bottom_border(`nrows', (1,4), "`_hborder'")
         if "`borderstyle'" != "academic" {
-            putexcel (D2:D`nrows'), border(left, `borderstyle')
+            mata: b.set_left_border((2,`nrows'), 1, "`borderstyle'")
+            mata: b.set_right_border((2,`nrows'), 4, "`borderstyle'")
+            mata: b.set_left_border((2,`nrows'), 4, "`borderstyle'")
+        }
+
+        * Data alignment
+        if `nrows' >= 3 {
+            mata: b.set_horizontal_align((3,`nrows'), (2,3), "center")
+            mata: b.set_horizontal_align((3,`nrows'), 4, "right")
         }
 
         * Zebra striping
         if "`zebra'" != "" {
             forvalues _zr = 3(2)`last_data' {
-                putexcel (A`_zr':D`_zr'), fpattern(solid, "237 242 249")
+                mata: b.set_fill_pattern(`_zr', (1,4), "solid", "237 242 249")
             }
         }
 
         * Bold significant p-values
         if `boldp' > 0 {
             forvalues _br = 3/`last_data' {
-                local _pval = D[`_br']
-                if `"`_pval'"' == "<0.001" {
-                    putexcel (D`_br'), bold
-                }
-                else if `"`_pval'"' != "" & `"`_pval'"' != "." {
-                    local _pnum = real("`_pval'")
-                    if `_pnum' != . & `_pnum' < `boldp' {
-                        putexcel (D`_br'), bold
-                    }
+                if `_pnum_`_br'' != . & `_pnum_`_br'' < `boldp' {
+                    mata: b.set_font_bold(`_br', 4, "on")
                 }
             }
         }
 
-        * Highlight rows with significant p-values
+        * Highlight rows
         if `highlight' > 0 {
             forvalues _hr = 3/`last_data' {
-                local _pval = D[`_hr']
-                local _pnum = .
-                if `"`_pval'"' == "<0.001" {
-                    local _pnum = 0.0001
-                }
-                else if `"`_pval'"' != "" & `"`_pval'"' != "." {
-                    local _pnum = real("`_pval'")
-                }
-                if `_pnum' != . & `_pnum' < `highlight' {
-                    putexcel (A`_hr':D`_hr'), fpattern(solid, "255 255 204")
+                if `_pnum_`_hr'' != . & `_pnum_`_hr'' < `highlight' {
+                    mata: b.set_fill_pattern(`_hr', (1,4), "solid", "255 255 204")
                 }
             }
         }
-
-        * Font
-        putexcel (A1:D`nrows'), font("`font'", `fontsize')
-        putexcel (A1:D1), font("`font'", `=`fontsize'+2')
 
         * Footnote
         if `_has_footnote' {
-            putexcel A`footnote_row' = `"`footnote'"'
-            putexcel (A`footnote_row':D`footnote_row'), merge italic txtwrap left
             local _fn_fontsize = max(`fontsize' - 2, 6)
-            putexcel (A`footnote_row':D`footnote_row'), font("`font'", `_fn_fontsize')
+            mata: b.put_string(`footnote_row', 1, `"`footnote'"')
+            mata: b.set_sheet_merge("`sheet'", (`footnote_row',`footnote_row'), (1,4))
+            mata: b.set_font_italic(`footnote_row', 1, "on")
+            mata: b.set_text_wrap(`footnote_row', 1, "on")
+            mata: b.set_horizontal_align(`footnote_row', 1, "left")
+            mata: b.set_font(`footnote_row', 1, "`font'", `_fn_fontsize')
         }
 
-        putexcel clear
+        mata: b.close_book()
     }
     if _rc {
         local saved_rc = _rc
-        capture putexcel clear
-        noisily display as error "Excel cell formatting failed with error `saved_rc'"
+        capture mata: b.close_book()
+        capture mata: mata drop b
+        noisily display as error "Excel formatting failed with error `saved_rc'"
         restore
         exit `saved_rc'
     }
@@ -831,67 +843,107 @@ program define _msm_tbl_pred
     }
     capture mata: mata drop _msm_xl
 
-    * putexcel: formatting
+    * Mata xl() formatting
     capture {
-        putexcel set "`xlsx'", sheet("`sheet'") modify
+        mata: b = xl()
+        mata: b.load_book("`xlsx'")
+        mata: b.set_sheet("`sheet'")
 
-        * Title: merge, wrap, vcenter, bold
-        putexcel (A1:`last_col'1), merge txtwrap left vcenter bold
+        * Font
+        mata: b.set_font((1,`total_rows'), (1,`n_cols'), "`font'", `fontsize')
+        mata: b.set_font((1,1), (1,`n_cols'), "`font'", `=`fontsize'+2')
+
+        * Title
+        mata: b.set_sheet_merge("`sheet'", (1,1), (1,`n_cols'))
+        mata: b.set_text_wrap(1, 1, "on")
+        mata: b.set_horizontal_align(1, 1, "left")
+        mata: b.set_vertical_align(1, 1, "center")
+        mata: b.set_font_bold(1, 1, "on")
 
         * Group header row 2
-        putexcel (A2:`last_col'2), border(top, `_hborder')
+        mata: b.set_top_border(2, (1,`n_cols'), "`_hborder'")
         if "`strategy'" == "both" {
-            putexcel (B2:C2), merge hcenter vcenter bold txtwrap
-            putexcel (D2:E2), merge hcenter vcenter bold txtwrap
+            mata: b.set_sheet_merge("`sheet'", (2,2), (2,3))
+            mata: b.set_horizontal_align(2, 2, "center")
+            mata: b.set_vertical_align(2, 2, "center")
+            mata: b.set_font_bold(2, 2, "on")
+            mata: b.set_text_wrap(2, 2, "on")
+            mata: b.set_sheet_merge("`sheet'", (2,2), (4,5))
+            mata: b.set_horizontal_align(2, 4, "center")
+            mata: b.set_vertical_align(2, 4, "center")
+            mata: b.set_font_bold(2, 4, "on")
+            mata: b.set_text_wrap(2, 4, "on")
             if `has_diff' {
-                putexcel (F2:G2), merge hcenter vcenter bold txtwrap
+                mata: b.set_sheet_merge("`sheet'", (2,2), (6,7))
+                mata: b.set_horizontal_align(2, 6, "center")
+                mata: b.set_vertical_align(2, 6, "center")
+                mata: b.set_font_bold(2, 6, "on")
+                mata: b.set_text_wrap(2, 6, "on")
             }
         }
         else {
-            putexcel (B2:C2), merge hcenter vcenter bold txtwrap
+            mata: b.set_sheet_merge("`sheet'", (2,2), (2,3))
+            mata: b.set_horizontal_align(2, 2, "center")
+            mata: b.set_vertical_align(2, 2, "center")
+            mata: b.set_font_bold(2, 2, "on")
+            mata: b.set_text_wrap(2, 2, "on")
         }
 
         * Column headers (row 3)
-        putexcel (A3:`last_col'3), bold hcenter vcenter txtwrap
-        putexcel (A3:`last_col'3), fpattern(solid, "219 229 241")
-        putexcel (A3:`last_col'3), border(bottom, `_hborder')
+        mata: b.set_font_bold(3, (1,`n_cols'), "on")
+        mata: b.set_horizontal_align(3, (1,`n_cols'), "center")
+        mata: b.set_vertical_align(3, (1,`n_cols'), "center")
+        mata: b.set_text_wrap(3, (1,`n_cols'), "on")
+        mata: b.set_fill_pattern(3, (1,`n_cols'), "solid", "219 229 241")
+        mata: b.set_bottom_border(3, (1,`n_cols'), "`_hborder'")
 
-        * Full rectangular border frame
+        * Borders
         if "`borderstyle'" != "academic" {
-            putexcel (A2:A`total_rows'), border(left, `borderstyle')
-            putexcel (`last_col'2:`last_col'`total_rows'), border(right, `borderstyle')
+            mata: b.set_left_border((2,`total_rows'), 1, "`borderstyle'")
+            mata: b.set_right_border((2,`total_rows'), `n_cols', "`borderstyle'")
         }
-        putexcel (A`total_rows':`last_col'`total_rows'), border(bottom, `_hborder')
+        mata: b.set_bottom_border(`total_rows', (1,`n_cols'), "`_hborder'")
 
         * Data alignment
-        putexcel (A`data_start':`last_col'`total_rows'), hcenter
+        if `total_rows' >= `data_start' {
+            mata: b.set_horizontal_align((`data_start',`total_rows'), (1,`n_cols'), "center")
+        }
 
-        * Vertical separators between strategy groups
+        * Vertical separators
         if "`strategy'" == "both" & "`borderstyle'" != "academic" {
-            putexcel (D2:D`total_rows'), border(left, `borderstyle')
+            mata: b.set_left_border((2,`total_rows'), 4, "`borderstyle'")
             if `has_diff' {
-                putexcel (F2:F`total_rows'), border(left, `borderstyle')
+                mata: b.set_left_border((2,`total_rows'), 6, "`borderstyle'")
             }
         }
 
         * Zebra striping
         if "`zebra'" != "" {
             forvalues _zr = `data_start'(2)`last_data' {
-                putexcel (A`_zr':`last_col'`_zr'), fpattern(solid, "237 242 249")
+                mata: b.set_fill_pattern(`_zr', (1,`n_cols'), "solid", "237 242 249")
             }
         }
 
-        * Font
-        putexcel (A1:`last_col'`total_rows'), font("`font'", `fontsize')
-        putexcel (A1:`last_col'1), font("`font'", `=`fontsize'+2')
-
         * Footnote
         if `_has_footnote' {
-            putexcel A`footnote_row' = `"`footnote'"'
-            putexcel (A`footnote_row':`last_col'`footnote_row'), merge italic txtwrap left
             local _fn_fontsize = max(`fontsize' - 2, 6)
-            putexcel (A`footnote_row':`last_col'`footnote_row'), font("`font'", `_fn_fontsize')
+            mata: b.put_string(`footnote_row', 1, `"`footnote'"')
+            mata: b.set_sheet_merge("`sheet'", (`footnote_row',`footnote_row'), (1,`n_cols'))
+            mata: b.set_font_italic(`footnote_row', 1, "on")
+            mata: b.set_text_wrap(`footnote_row', 1, "on")
+            mata: b.set_horizontal_align(`footnote_row', 1, "left")
+            mata: b.set_font(`footnote_row', 1, "`font'", `_fn_fontsize')
         }
+
+        mata: b.close_book()
+    }
+    if _rc {
+        local saved_rc = _rc
+        capture mata: b.close_book()
+        capture mata: mata drop b
+        noisily display as error "Excel formatting failed with error `saved_rc'"
+        restore
+        exit `saved_rc'
 
         putexcel clear
     }

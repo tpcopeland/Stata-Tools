@@ -318,67 +318,90 @@ program define corrtab, rclass
             }
 
             capture {
-                putexcel set "`xlsx'", sheet("`sheet'") modify
-
-                _tabtools_build_col_letters `num_cols'
-                local letters "`result'"
-                local lastcol : word `num_cols' of `letters'
-
-                putexcel (A1:`lastcol'1), merge bold txtwrap left vcenter ///
-                    font("`_font'", `=`_fontsize'+2')
-                putexcel (B`_header_row':`lastcol'`_header_row'), ///
-                    border(top, `_hborder') bold hcenter font("`_font'", `_fontsize')
-                putexcel (B`_header_row':`lastcol'`_header_row'), ///
-                    border(bottom, `_hborder')
-                putexcel (B`_header_row':`lastcol'`_header_row'), txtwrap
-                putexcel (B`_data_start':`lastcol'`num_rows'), font("`_font'", `_fontsize')
-                putexcel (C`_data_start':`lastcol'`num_rows'), hcenter
-                putexcel (B`num_rows':`lastcol'`num_rows'), border(bottom, `_hborder')
-
-                if "`headershade'" != "" {
-                    putexcel (B`_header_row':`lastcol'`_header_row'), ///
-                        fpattern(solid, "`_headercolor'")
-                }
-
                 mata: b = xl()
                 mata: b.load_book("`xlsx'")
                 mata: b.set_sheet("`sheet'")
+
+                * Column widths
                 mata: b.set_column_width(1, 1, 1)
                 mata: b.set_column_width(2, 2, `_label_width')
                 if `num_cols' >= 3 {
-                    forvalues _tt_col = 3/`num_cols' {
-                        mata: b.set_column_width(`_tt_col', `_tt_col', `_data_width')
-                    }
+                    mata: b.set_column_width(3, `num_cols', `_data_width')
                 }
-                mata: b.close_book()
-                capture mata: mata drop b
 
+                * Font for entire table
+                mata: b.set_font((1,`num_rows'), (1,`num_cols'), "`_font'", `_fontsize')
+                mata: b.set_font((1,1), (1,`num_cols'), "`_font'", `=`_fontsize'+2')
+
+                * Title row
+                mata: b.set_sheet_merge("`sheet'", (1,1), (1,`num_cols'))
+                mata: b.set_font_bold(1, 1, "on")
+                mata: b.set_text_wrap(1, 1, "on")
+                mata: b.set_horizontal_align(1, 1, "left")
+                mata: b.set_vertical_align(1, 1, "center")
+
+                * Header row
+                mata: b.set_top_border(`_header_row', (2,`num_cols'), "`_hborder'")
+                mata: b.set_bottom_border(`_header_row', (2,`num_cols'), "`_hborder'")
+                mata: b.set_font_bold(`_header_row', (2,`num_cols'), "on")
+                mata: b.set_horizontal_align(`_header_row', (2,`num_cols'), "center")
+                mata: b.set_text_wrap(`_header_row', (2,`num_cols'), "on")
+
+                * Data alignment
+                if `num_rows' >= `_data_start' & `num_cols' >= 3 {
+                    mata: b.set_horizontal_align((`_data_start',`num_rows'), (3,`num_cols'), "center")
+                }
+
+                * Bottom border
+                mata: b.set_bottom_border(`num_rows', (2,`num_cols'), "`_hborder'")
+
+                * Header background
+                if "`headershade'" != "" {
+                    mata: b.set_fill_pattern(`_header_row', (2,`num_cols'), "solid", "`_headercolor'")
+                }
+
+                * Zebra striping
                 if "`zebra'" != "" {
                     forvalues _zr = `=`_data_start'+1'(2)`num_rows' {
-                        putexcel (B`_zr':`lastcol'`_zr'), fpattern(solid, "`_zebracolor'")
+                        mata: b.set_fill_pattern(`_zr', (2,`num_cols'), "solid", "`_zebracolor'")
                     }
                 }
 
+                * Footnotes
                 local _foot_row = `num_rows'
+                local _fn_fontsize = max(`_fontsize' - 2, 6)
                 if `"`_star_note'"' != "" {
-                    _tabtools_footnote `"`_star_note'"' "`lastcol'" `_foot_row' "`_font'" `_fontsize'
                     local _foot_row = `_foot_row' + 1
+                    mata: b.put_string(`_foot_row', 2, `"`_star_note'"')
+                    mata: b.set_sheet_merge("`sheet'", (`_foot_row',`_foot_row'), (2,`num_cols'))
+                    mata: b.set_horizontal_align(`_foot_row', 2, "left")
+                    mata: b.set_vertical_align(`_foot_row', 2, "center")
+                    mata: b.set_text_wrap(`_foot_row', 2, "on")
+                    mata: b.set_font(`_foot_row', 2, "`_font'", `_fn_fontsize')
+                    mata: b.set_font_italic(`_foot_row', 2, "on")
                 }
                 if `"`footnote'"' != "" {
-                    _tabtools_footnote `"`footnote'"' "`lastcol'" `_foot_row' "`_font'" `_fontsize'
+                    local _foot_row = `_foot_row' + 1
+                    mata: b.put_string(`_foot_row', 2, `"`footnote'"')
+                    mata: b.set_sheet_merge("`sheet'", (`_foot_row',`_foot_row'), (2,`num_cols'))
+                    mata: b.set_horizontal_align(`_foot_row', 2, "left")
+                    mata: b.set_vertical_align(`_foot_row', 2, "center")
+                    mata: b.set_text_wrap(`_foot_row', 2, "on")
+                    mata: b.set_font(`_foot_row', 2, "`_font'", `_fn_fontsize')
+                    mata: b.set_font_italic(`_foot_row', 2, "on")
                 }
 
-                putexcel clear
+                mata: b.close_book()
             }
             if _rc {
                 local _format_rc = _rc
-                capture putexcel clear
                 capture mata: b.close_book()
                 capture mata: mata drop b
                 noisily display as error "Excel formatting failed with error `_format_rc'"
                 restore
                 exit `_format_rc'
             }
+            capture mata: mata drop b
             capture confirm file "`xlsx'"
             if _rc {
                 noisily display as error "Export command succeeded but file not found"

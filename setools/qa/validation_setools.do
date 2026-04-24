@@ -336,6 +336,165 @@ sort lopnr
 local t = (r(N_input) == 2 & r(N_patients) == 2 & charlson[1] == 1 & charlson[2] == 6)
 run_val "V1.16: non-zero-padded ymd rows dropped before scoring" `t'
 
+* V1.17: Dates option - single diagnosis, exact date
+* MI (I21) on day 21915 -> cci_mi_date = 21915
+clear
+input long lopnr str10 diagnos double datum
+1 "I21" 21915
+end
+format datum %td
+cci_se, id(lopnr) icd(diagnos) date(datum) dates
+local t = (cci_mi_date == 21915 & cci_mi == 1 & charlson == 1)
+run_val "V1.17: dates: MI on day 21915, cci_mi_date = 21915" `t'
+
+* V1.18: Dates option - earliest of two dates for same comorbidity
+* MI (I21) on day 21000 and 21915 -> cci_mi_date = 21000
+clear
+input long lopnr str10 diagnos double datum
+1 "I21" 21000
+1 "I22" 21915
+end
+format datum %td
+cci_se, id(lopnr) icd(diagnos) date(datum) dates
+local t = (cci_mi_date == 21000 & cci_mi == 1 & charlson == 1)
+run_val "V1.18: dates: two MI dates, earliest wins (21000)" `t'
+
+* V1.19: Dates hierarchy - diabetes complicated clears uncomplicated date
+* E100 on day 21000 (uncomplicated) + E102 on day 21500 (complicated)
+* -> cci_diab_date = . (cleared), cci_diabcomp_date = 21500
+clear
+input long lopnr str10 diagnos double datum
+1 "E100" 21000
+1 "E102" 21500
+end
+format datum %td
+cci_se, id(lopnr) icd(diagnos) date(datum) dates
+local t = (missing(cci_diab_date) & cci_diabcomp_date == 21500 & cci_diab == 0 & cci_diabcomp == 1)
+run_val "V1.19: dates hierarchy: uncomplicated diabetes date cleared" `t'
+
+* V1.20: Dates hierarchy - metastatic clears non-metastatic date
+* C50 on day 21000 (cancer) + C77 on day 21500 (mets)
+* -> cci_cancer_date = . (cleared), cci_mets_date = 21500
+clear
+input long lopnr str10 diagnos double datum
+1 "C50" 21000
+1 "C77" 21500
+end
+format datum %td
+cci_se, id(lopnr) icd(diagnos) date(datum) dates
+local t = (missing(cci_cancer_date) & cci_mets_date == 21500 & cci_cancer == 0 & cci_mets == 1)
+run_val "V1.20: dates hierarchy: non-metastatic cancer date cleared" `t'
+
+* V1.21: Dates hierarchy - mild liver + ascites -> severe liver date
+* K73 on day 21000 (mild liver) + R18 on day 21500 (ascites)
+* -> cci_livmild_date = . (cleared), cci_livsev_date = min(21000, 21500) = 21000
+clear
+input long lopnr str10 diagnos double datum
+1 "K73" 21000
+1 "R18" 21500
+end
+format datum %td
+cci_se, id(lopnr) icd(diagnos) date(datum) dates
+local t = (missing(cci_livmild_date) & cci_livsev_date == 21000 & cci_livmild == 0 & cci_livsev == 1)
+run_val "V1.21: dates hierarchy: mild liver date -> severe, earliest (21000)" `t'
+
+* V1.22: Dates implies components - components exist without explicit option
+clear
+input long lopnr str10 diagnos double datum
+1 "I21" 21915
+end
+format datum %td
+cci_se, id(lopnr) icd(diagnos) date(datum) dates
+capture confirm variable cci_mi
+local has_comp = (_rc == 0)
+capture confirm variable cci_mi_date
+local has_date = (_rc == 0)
+local t = (`has_comp' & `has_date')
+run_val "V1.22: dates implies components" `t'
+
+* V1.23: Without dates - no date variables (backward compat)
+clear
+input long lopnr str10 diagnos double datum
+1 "I21" 21915
+end
+format datum %td
+cci_se, id(lopnr) icd(diagnos) date(datum) components
+capture confirm variable cci_mi_date
+local t = (_rc != 0)
+run_val "V1.23: without dates option, no date variables" `t'
+
+* V1.24: Multi-patient dates - each patient gets correct earliest date
+* Patient 1: MI(I21) on 21000, CHF(I50) on 21500
+* Patient 2: AIDS(B20) on 21200
+* Patient 3: no CCI code -> all dates missing
+clear
+input long lopnr str10 diagnos double datum
+1 "I21" 21000
+1 "I50" 21500
+2 "B20" 21200
+3 "Z99" 21915
+end
+format datum %td
+cci_se, id(lopnr) icd(diagnos) date(datum) dates
+sort lopnr
+local t = (cci_mi_date[1] == 21000 & cci_chf_date[1] == 21500 & ///
+    cci_aids_date[2] == 21200 & missing(cci_mi_date[2]) & ///
+    missing(cci_mi_date[3]) & missing(cci_aids_date[3]))
+run_val "V1.24: multi-patient dates correct per patient" `t'
+
+* V1.25: Indicator/date consistency - indicator == 1 iff date nonmissing
+clear
+input long lopnr str10 diagnos double datum
+1 "I21" 21000
+1 "I50" 21500
+1 "J44" 21200
+2 "B20" 21200
+2 "E102" 21300
+3 "Z99" 21915
+end
+format datum %td
+cci_se, id(lopnr) icd(diagnos) date(datum) dates
+local all_ok = 1
+foreach v in mi chf pvd cevd copd pulm rheum dem plegia diab diabcomp renal livmild livsev pud cancer mets aids {
+    quietly count if cci_`v' == 1 & missing(cci_`v'_date)
+    if r(N) > 0 local all_ok = 0
+    quietly count if cci_`v' == 0 & !missing(cci_`v'_date)
+    if r(N) > 0 local all_ok = 0
+}
+run_val "V1.25: indicator/date consistency across all components" `all_ok'
+
+* V1.26: Score unchanged by dates option
+clear
+input long lopnr str10 diagnos double datum
+1 "I21" 21000
+1 "I50" 21500
+1 "E102" 21200
+2 "B20" 21300
+2 "C50" 21400
+3 "K73" 21000
+3 "R18" 21500
+end
+format datum %td
+preserve
+cci_se, id(lopnr) icd(diagnos) date(datum) components
+keep lopnr charlson cci_*
+tempfile no_dates
+save `no_dates'
+restore
+cci_se, id(lopnr) icd(diagnos) date(datum) dates generate(charlson2)
+rename charlson2 charlson
+merge 1:1 lopnr using `no_dates', nogenerate assert(match)
+sort lopnr
+local score_ok = 1
+forvalues i = 1/3 {
+    if charlson[`i'] != charlson[`i'] local score_ok = 0
+}
+foreach v in mi chf pvd cevd copd pulm rheum dem plegia diab diabcomp renal livmild livsev pud cancer mets aids {
+    quietly count if cci_`v' != cci_`v'
+    if r(N) > 0 local score_ok = 0
+}
+run_val "V1.26: score and indicators unchanged by dates option" `score_ok'
+
 **# V2. CDP ALGORITHM VALIDATION
 
 * V2.1: Baseline within window selects first EDSS
@@ -1525,7 +1684,7 @@ run_val "V10.3: latest pre-reset relapse yields no false CDP/PIRA event" `t'
 * V11.1: setools stored results
 setools
 local t = ("`r(commands)'" == "procmatch cci_se migrations sustainedss cdp pira" & ///
-    r(n_commands) == 6 & "`r(version)'" == "1.0.1" & ///
+    r(n_commands) == 6 & "`r(version)'" == "1.2.0" & ///
     "`r(categories)'" == "all codes migration ms" & ///
     "`r(category)'" == "all" & "`r(display)'" == "grouped")
 run_val "V11.1: setools exact stored results" `t'

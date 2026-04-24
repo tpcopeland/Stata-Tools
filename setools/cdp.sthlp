@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.1  22apr2026}{...}
+{* *! version 1.2.0  24apr2026}{...}
 {vieweralsosee "sustainedss" "help sustainedss"}{...}
 {vieweralsosee "pira" "help pira"}{...}
 {viewerjumpto "Syntax" "cdp##syntax"}{...}

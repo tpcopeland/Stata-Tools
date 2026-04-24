@@ -15,6 +15,8 @@ local fail = 0
 
 foreach f in ///
     test_setools ///
+    _test_cci_mata ///
+    _test_cci_dates ///
     validation_setools ///
     validation_known_answer_boundaries ///
     test_migrations_perm_emig_bug ///
