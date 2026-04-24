@@ -1,4 +1,4 @@
-*! codescan_describe Version 1.0.3  2026/04/23
+*! codescan_describe Version 1.1.0  2026/04/24
 *! Tabulate unique codes across wide-format variables
 *! Author: Timothy P Copeland
 *! Program class: rclass (returns results in r())
@@ -58,10 +58,9 @@ program define codescan_describe, rclass
 
     local nvars : word count `varlist'
 
-    preserve
-
-    * Auto-convert numeric variables if tostring specified (after preserve)
+    * Auto-convert numeric variables if tostring specified
     if "`tostring'" != "" {
+        preserve
         foreach var of local varlist {
             capture confirm string variable `var'
             if _rc {
@@ -70,70 +69,43 @@ program define codescan_describe, rclass
             }
         }
     }
-    quietly {
-        keep if `touse'
 
-        * Accumulate code frequencies variable-by-variable (avoids reshape explosion)
-        local total_entries = 0
-        tempfile _source _combined
-        save `_source'
-        local first = 1
+    * Tabulate via single Mata pass (hash map over all vars, no tempfile I/O)
+    local _desc_scanvars "`varlist'"
+    local _desc_touse "`touse'"
+    local _desc_nodots "`nodots'"
+    local _desc_top "`top'"
+    tempname _desc_tc _desc_ch
+    local _desc_tc_name "`_desc_tc'"
+    local _desc_ch_name "`_desc_ch'"
+    mata: _codescan_describe_tabulate()
 
-        foreach var of local varlist {
-            use `var' using `_source', clear
-            rename `var' _code_
+    if "`tostring'" != "" {
+        restore
+    }
 
-            if "`nodots'" != "" {
-                replace _code_ = subinstr(_code_, ".", "", .)
-            }
+    local total_codes = `_desc_total_codes'
+    local total_entries = `_desc_total_entries'
+    local show = `_desc_show'
+    local n_chapters = `_desc_n_chapters'
 
-            drop if _code_ == "" | missing(_code_)
-            count
-            local total_entries = `total_entries' + r(N)
-
-            if r(N) > 0 {
-                contract _code_, freq(_freq)
-                if `first' {
-                    save `_combined', replace
-                    local first = 0
-                }
-                else {
-                    append using `_combined'
-                    collapse (sum) _freq, by(_code_)
-                    save `_combined', replace
-                }
-            }
-        }
-
-        if `first' {
-            * No codes found at all
-            restore
-            noisily display as text _n "codescan describe: `nvars' variable" ///
-                cond(`nvars' > 1, "s", "") ", 0 unique codes, 0 total entries"
-            return scalar n_unique = 0
-            return scalar n_entries = 0
-            return scalar n_vars = `nvars'
-            return local varlist "`varlist'"
-            tempname _empty_tc _empty_ch
-            matrix `_empty_tc' = J(1, 3, 0)
-            matrix colnames `_empty_tc' = frequency percent cumul_pct
-            matrix rownames `_empty_tc' = none
-            matrix `_empty_ch' = J(1, 2, 0)
-            matrix colnames `_empty_ch' = codes entries
-            matrix rownames `_empty_ch' = none
-            return matrix top_codes = `_empty_tc'
-            return matrix chapters = `_empty_ch'
-            exit
-        }
-
-        * Load accumulated frequencies
-        use `_combined', clear
-        gsort -_freq _code_
-        count
-        local total_codes = r(N)
-
-        * Chapter summary (group by first character)
-        gen str1 _chapter = substr(_code_, 1, 1)
+    if `total_codes' == 0 {
+        display as text _n "codescan describe: `nvars' variable" ///
+            cond(`nvars' > 1, "s", "") ", 0 unique codes, 0 total entries"
+        return scalar n_unique = 0
+        return scalar n_entries = 0
+        return scalar n_vars = `nvars'
+        return local varlist "`varlist'"
+        tempname _empty_tc _empty_ch
+        matrix `_empty_tc' = J(1, 3, 0)
+        matrix colnames `_empty_tc' = frequency percent cumul_pct
+        matrix rownames `_empty_tc' = none
+        matrix `_empty_ch' = J(1, 2, 0)
+        matrix colnames `_empty_ch' = codes entries
+        matrix rownames `_empty_ch' = none
+        return matrix top_codes = `_empty_tc'
+        return matrix chapters = `_empty_ch'
+        exit
     }
 
     * Display header
@@ -142,16 +114,15 @@ program define codescan_describe, rclass
         as text " unique codes, " as result %10.0fc `total_entries' ///
         as text " total entries"
 
-    * Display top-N codes (O5: with cumulative percent)
+    * Display top-N codes
     display as text ""
     display as text "  Code" _col(20) %9s "Frequency" _col(32) %10s "Percent" _col(44) %10s "Cumul %"
     display as text "  {hline 52}"
 
-    local show = min(`top', `total_codes')
     local _cum_pct = 0
     forvalues i = 1/`show' {
-        local code = _code_[`i']
-        local freq = _freq[`i']
+        local code "`_desc_code_`i''"
+        local freq = `_desc_freq_`i''
         local pct = `freq' / `total_entries' * 100
         local _cum_pct = `_cum_pct' + `pct'
         display as text "  `code'" _col(20) as result %9.0fc `freq' ///
@@ -162,14 +133,14 @@ program define codescan_describe, rclass
         display as text "  ... (`=`total_codes' - `top'' more codes)"
     }
 
-    * O4: Build r(top_codes) matrix before collapse destroys the data
+    * Build r(top_codes) matrix from Mata-returned locals
     tempname top_codes
     matrix `top_codes' = J(`show', 3, .)
     local _tc_rnames ""
     local _tc_cum = 0
     forvalues i = 1/`show' {
-        local _tc_code = _code_[`i']
-        local _tc_freq = _freq[`i']
+        local _tc_code "`_desc_code_`i''"
+        local _tc_freq = `_desc_freq_`i''
         local _tc_pct = `_tc_freq' / `total_entries' * 100
         local _tc_cum = `_tc_cum' + `_tc_pct'
         matrix `top_codes'[`i', 1] = `_tc_freq'
@@ -181,72 +152,73 @@ program define codescan_describe, rclass
     matrix rownames `top_codes' = `_tc_rnames'
     matrix colnames `top_codes' = frequency percent cumul_pct
 
-    * Chapter summary — collapse in place (outer preserve protects original data)
+    * Chapter summary
     display as text _n "  By first character:"
     display as text "  Char" _col(12) %9s "Codes" _col(24) %9s "Entries"
     display as text "  {hline 34}"
 
-    quietly {
-        collapse (count) _n_codes=_freq (sum) _n_entries=_freq, by(_chapter)
-        gsort -_n_entries
-        local n_chapters = _N
-    }
-
     forvalues i = 1/`n_chapters' {
-        local ch = _chapter[`i']
-        local nc = _n_codes[`i']
-        local ne = _n_entries[`i']
+        local ch "`_desc_ch_`i''"
+        local nc = `_desc_ch_codes_`i''
+        local ne = `_desc_ch_entries_`i''
         display as text "  `ch'" _col(12) as result %9.0fc `nc' ///
             _col(24) as result %9.0fc `ne'
     }
 
-    * O4: Build r(chapters) matrix
+    * Build r(chapters) matrix
     tempname chapters
     matrix `chapters' = J(`n_chapters', 2, .)
     local _ch_rnames ""
     forvalues i = 1/`n_chapters' {
-        local _ch_ch = _chapter[`i']
-        matrix `chapters'[`i', 1] = _n_codes[`i']
-        matrix `chapters'[`i', 2] = _n_entries[`i']
+        local _ch_ch "`_desc_ch_`i''"
+        matrix `chapters'[`i', 1] = `_desc_ch_codes_`i''
+        matrix `chapters'[`i', 2] = `_desc_ch_entries_`i''
         local _ch_rnames "`_ch_rnames' `_ch_ch'"
     }
     local _ch_rnames = trim("`_ch_rnames'")
     matrix rownames `chapters' = `_ch_rnames'
     matrix colnames `chapters' = codes entries
 
-    * O4: Pattern suggestion — suggest define() patterns for top chapters
+    * Pattern suggestion
     if `n_chapters' >= 2 {
         display as text _n "  Suggested patterns:"
         local _n_suggest = min(5, `n_chapters')
         forvalues i = 1/`_n_suggest' {
-            local ch = _chapter[`i']
-            local nc = _n_codes[`i']
-            local ne = _n_entries[`i']
+            local ch "`_desc_ch_`i''"
+            local nc = `_desc_ch_codes_`i''
+            local ne = `_desc_ch_entries_`i''
             display as text `"    define(chapter_`ch' "`ch'") — `nc' codes, `ne' entries"'
         }
     }
 
-    * I3: Save draft codefile from chapter summary
+    * Save draft codefile from chapter summary
     if `"`save'"' != "" {
         local _save_ext = lower(substr(`"`save'"', -4, .))
         if "`_save_ext'" != ".csv" {
             display as error "save() requires a .csv file extension"
             exit 198
         }
-        * Data currently has: _chapter, _n_codes, _n_entries (from collapse)
+        preserve
         quietly {
-            gen str32 name = "chapter_" + _chapter
-            gen str244 pattern = _chapter
+            clear
+            set obs `n_chapters'
+            gen str32 name = ""
+            gen str244 pattern = ""
             gen str244 exclusion = ""
             gen str80 label = ""
+            forvalues i = 1/`n_chapters' {
+                replace name = "chapter_`_desc_ch_`i''" in `i'
+                replace pattern = "`_desc_ch_`i''" in `i'
+            }
             keep name pattern exclusion label
             export delimited using `"`save'"', replace
         }
+        restore
         noisily display as text ///
             `"(draft codefile saved to `save' -- edit condition names and patterns before use)"'
     }
 
-    * Return results (from locals captured before collapse)
+    * Return results
     return scalar n_unique = `total_codes'
     return scalar n_entries = `total_entries'
     return scalar n_vars = `nvars'
@@ -254,13 +226,120 @@ program define codescan_describe, rclass
     return matrix top_codes = `top_codes'
     return matrix chapters = `chapters'
 
-    restore  // back to original data
-
     } // end capture noisily
     local rc = _rc
-    if `rc' {
-        capture restore  // error-path cleanup: preserve was inside the noisily block
-    }
     set varabbrev `_orig_varabbrev'
     if `rc' exit `rc'
+end
+
+* =============================================================================
+* MATA: Single-pass hash-map tabulation (replaces foreach/contract/append loop)
+* =============================================================================
+
+mata:
+void _codescan_describe_tabulate()
+{
+    string rowvector scanvars
+    string colvector col
+    real colvector   touse
+    string scalar    touse_name, val, ch
+    real scalar      N, nvars, i, j, total_entries, strip_dots, top_n, show
+    real scalar      n_unique, n_chapters, si, ci
+    real rowvector   cv, prev
+
+    scanvars   = tokens(st_local("_desc_scanvars"))
+    touse_name = st_local("_desc_touse")
+    strip_dots = (st_local("_desc_nodots") != "")
+    top_n      = strtoreal(st_local("_desc_top"))
+    nvars      = cols(scanvars)
+    N          = st_nobs()
+    touse      = st_data(., touse_name)
+
+    transmorphic freq_map
+    freq_map = asarray_create()
+    asarray_notfound(freq_map, 0)
+
+    total_entries = 0
+
+    for (j = 1; j <= nvars; j++) {
+        st_sview(col, ., scanvars[j])
+
+        for (i = 1; i <= N; i++) {
+            if (!touse[i]) continue
+            val = col[i]
+            if (val == "" || val == ".") continue
+            if (strip_dots) {
+                val = subinstr(val, ".", "", .)
+                if (val == "") continue
+            }
+            asarray(freq_map, val, asarray(freq_map, val) + 1)
+            total_entries = total_entries + 1
+        }
+    }
+
+    string colvector keys
+    keys = asarray_keys(freq_map)
+    n_unique = rows(keys)
+
+    st_local("_desc_total_entries", strofreal(total_entries))
+    st_local("_desc_total_codes", strofreal(n_unique))
+
+    if (n_unique == 0) {
+        st_local("_desc_show", "0")
+        st_local("_desc_n_chapters", "0")
+        return
+    }
+
+    // Build frequency vector and sort descending
+    real colvector freqs
+    freqs = J(n_unique, 1, 0)
+    for (i = 1; i <= n_unique; i++) {
+        freqs[i] = asarray(freq_map, keys[i])
+    }
+    real colvector sort_idx
+    sort_idx = order(-freqs, 1)
+
+    // Return top-N codes via locals
+    show = (top_n < n_unique ? top_n : n_unique)
+    st_local("_desc_show", strofreal(show))
+    for (i = 1; i <= show; i++) {
+        si = sort_idx[i]
+        st_local("_desc_code_" + strofreal(i), keys[si])
+        st_local("_desc_freq_" + strofreal(i), strofreal(freqs[si]))
+    }
+
+    // Chapter summary: group by first character
+    transmorphic ch_map
+    ch_map = asarray_create()
+    asarray_notfound(ch_map, J(1, 2, 0))
+
+    for (i = 1; i <= n_unique; i++) {
+        ch = substr(keys[i], 1, 1)
+        prev = asarray(ch_map, ch)
+        asarray(ch_map, ch, (prev[1] + 1, prev[2] + freqs[i]))
+    }
+
+    string colvector ch_keys
+    ch_keys = asarray_keys(ch_map)
+    n_chapters = rows(ch_keys)
+    st_local("_desc_n_chapters", strofreal(n_chapters))
+
+    // Sort chapters by entries descending
+    real colvector ch_entries
+    ch_entries = J(n_chapters, 1, 0)
+    for (i = 1; i <= n_chapters; i++) {
+        cv = asarray(ch_map, ch_keys[i])
+        ch_entries[i] = cv[2]
+    }
+    real colvector ch_sort
+    ch_sort = order(-ch_entries, 1)
+
+    for (i = 1; i <= n_chapters; i++) {
+        ci = ch_sort[i]
+        cv = asarray(ch_map, ch_keys[ci])
+        st_local("_desc_ch_" + strofreal(i), ch_keys[ci])
+        st_local("_desc_ch_codes_" + strofreal(i), strofreal(cv[1]))
+        st_local("_desc_ch_entries_" + strofreal(i), strofreal(cv[2]))
+    }
+}
 end

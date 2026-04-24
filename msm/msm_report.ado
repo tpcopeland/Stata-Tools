@@ -458,57 +458,61 @@ program define msm_report, rclass
             }
             capture mata: mata drop _msm_xl
 
-            * putexcel: formatting
+            * Mata xl() formatting
             capture {
-                putexcel set "`export'", sheet("Summary") modify
+                mata: b = xl()
+                mata: b.load_book("`export'")
+                mata: b.set_sheet("Summary")
 
-                * Title: merge, wrap, vcenter, bold
-                putexcel (A1:B1), merge txtwrap left vcenter bold
+                mata: b.set_font((1,`_sum_total'), (1,2), "`font'", `fontsize')
+                mata: b.set_sheet_merge("Summary", (1,1), (1,2))
+                mata: b.set_text_wrap(1, 1, "on")
+                mata: b.set_horizontal_align(1, 1, "left")
+                mata: b.set_vertical_align(1, 1, "center")
+                mata: b.set_font_bold(1, 1, "on")
 
-                * Headers: bold, centered, wrapped
-                putexcel (A2:B2), bold hcenter vcenter txtwrap
-                putexcel (A2:B2), fpattern(solid, "219 229 241")
-
-                * Border frame
-                putexcel (A2:B2), border(top, `_hborder')
-                putexcel (A2:B2), border(bottom, `_hborder')
+                mata: b.set_font_bold(2, (1,2), "on")
+                mata: b.set_horizontal_align(2, (1,2), "center")
+                mata: b.set_vertical_align(2, (1,2), "center")
+                mata: b.set_text_wrap(2, (1,2), "on")
+                mata: b.set_fill_pattern(2, (1,2), "solid", "219 229 241")
+                mata: b.set_top_border(2, (1,2), "`_hborder'")
+                mata: b.set_bottom_border(2, (1,2), "`_hborder'")
                 if "`borderstyle'" != "academic" {
-                    putexcel (A2:A`_sum_total'), border(left, `borderstyle')
-                    putexcel (B2:B`_sum_total'), border(right, `borderstyle')
+                    mata: b.set_left_border((2,`_sum_total'), 1, "`borderstyle'")
+                    mata: b.set_right_border((2,`_sum_total'), 2, "`borderstyle'")
                 }
-                putexcel (A`_sum_total':B`_sum_total'), border(bottom, `_hborder')
+                mata: b.set_bottom_border(`_sum_total', (1,2), "`_hborder'")
+                if `_sum_total' >= 3 {
+                    mata: b.set_horizontal_align((3,`_sum_total'), 2, "center")
+                }
 
-                * Data alignment
-                putexcel (B3:B`_sum_total'), hcenter
-
-                * Zebra striping
                 if "`zebra'" != "" {
                     forvalues _zr = 3(2)`_sum_last_data' {
-                        putexcel (A`_zr':B`_zr'), fpattern(solid, "237 242 249")
+                        mata: b.set_fill_pattern(`_zr', (1,2), "solid", "237 242 249")
                     }
                 }
 
-                * Font
-                putexcel (A1:B`_sum_total'), font("`font'", `fontsize')
-
-                * Footnote
                 if `_has_footnote' {
-                    putexcel A`_sum_footnote_row' = `"`footnote'"'
-                    putexcel (A`_sum_footnote_row':B`_sum_footnote_row'), ///
-                        merge italic txtwrap left
                     local _fn_fontsize = max(`fontsize' - 2, 6)
-                    putexcel (A`_sum_footnote_row':B`_sum_footnote_row'), ///
-                        font("`font'", `_fn_fontsize')
+                    mata: b.put_string(`_sum_footnote_row', 1, `"`footnote'"')
+                    mata: b.set_sheet_merge("Summary", (`_sum_footnote_row',`_sum_footnote_row'), (1,2))
+                    mata: b.set_font_italic(`_sum_footnote_row', 1, "on")
+                    mata: b.set_text_wrap(`_sum_footnote_row', 1, "on")
+                    mata: b.set_horizontal_align(`_sum_footnote_row', 1, "left")
+                    mata: b.set_font(`_sum_footnote_row', 1, "`font'", `_fn_fontsize')
                 }
 
-                putexcel clear
+                mata: b.close_book()
             }
             if _rc {
                 local saved_rc = _rc
-                capture putexcel clear
+                capture mata: b.close_book()
+                capture mata: mata drop b
                 restore
                 exit `saved_rc'
             }
+            capture mata: mata drop b
 
             restore
         }
@@ -700,63 +704,63 @@ program define msm_report, rclass
                 }
                 capture mata: mata drop _msm_xl
 
-                * putexcel: formatting
+                * Mata xl() formatting
                 capture {
-                    putexcel set "`export'", sheet("Coefficients") modify
+                    mata: b = xl()
+                    mata: b.load_book("`export'")
+                    mata: b.set_sheet("Coefficients")
 
-                    * Title: merge, wrap, vcenter, bold
-                    putexcel (A1:D1), merge txtwrap left vcenter bold
+                    mata: b.set_font((1,`_coef_total'), (1,4), "`font'", `fontsize')
+                    mata: b.set_sheet_merge("Coefficients", (1,1), (1,4))
+                    mata: b.set_text_wrap(1, 1, "on")
+                    mata: b.set_horizontal_align(1, 1, "left")
+                    mata: b.set_vertical_align(1, 1, "center")
+                    mata: b.set_font_bold(1, 1, "on")
 
-                    * Headers: bold, centered, wrapped
-                    putexcel (A2:D2), bold hcenter vcenter txtwrap
-                    putexcel (A2:D2), fpattern(solid, "219 229 241")
-
-                    * Border frame
-                    putexcel (A2:D2), border(top, `_hborder')
-                    putexcel (A2:D2), border(bottom, `_hborder')
+                    mata: b.set_font_bold(2, (1,4), "on")
+                    mata: b.set_horizontal_align(2, (1,4), "center")
+                    mata: b.set_vertical_align(2, (1,4), "center")
+                    mata: b.set_text_wrap(2, (1,4), "on")
+                    mata: b.set_fill_pattern(2, (1,4), "solid", "219 229 241")
+                    mata: b.set_top_border(2, (1,4), "`_hborder'")
+                    mata: b.set_bottom_border(2, (1,4), "`_hborder'")
                     if "`borderstyle'" != "academic" {
-                        putexcel (A2:A`_coef_total'), border(left, `borderstyle')
-                        putexcel (D2:D`_coef_total'), border(right, `borderstyle')
+                        mata: b.set_left_border((2,`_coef_total'), 1, "`borderstyle'")
+                        mata: b.set_right_border((2,`_coef_total'), 4, "`borderstyle'")
+                        mata: b.set_left_border((2,`_coef_total'), 4, "`borderstyle'")
                     }
-                    putexcel (A`_coef_total':D`_coef_total'), border(bottom, `_hborder')
-
-                    * Data alignment
-                    putexcel (B3:C`_coef_total'), hcenter
-                    putexcel (D3:D`_coef_total'), right
-
-                    * P-value separator
-                    if "`borderstyle'" != "academic" {
-                        putexcel (D2:D`_coef_total'), border(left, `borderstyle')
+                    mata: b.set_bottom_border(`_coef_total', (1,4), "`_hborder'")
+                    if `_coef_total' >= 3 {
+                        mata: b.set_horizontal_align((3,`_coef_total'), (2,3), "center")
+                        mata: b.set_horizontal_align((3,`_coef_total'), 4, "right")
                     }
 
-                    * Zebra striping
                     if "`zebra'" != "" {
                         forvalues _zr = 3(2)`_coef_last_data' {
-                            putexcel (A`_zr':D`_zr'), fpattern(solid, "237 242 249")
+                            mata: b.set_fill_pattern(`_zr', (1,4), "solid", "237 242 249")
                         }
                     }
 
-                    * Font
-                    putexcel (A1:D`_coef_total'), font("`font'", `fontsize')
-
-                    * Footnote
                     if `_has_footnote' {
-                        putexcel A`_coef_footnote_row' = `"`footnote'"'
-                        putexcel (A`_coef_footnote_row':D`_coef_footnote_row'), ///
-                            merge italic txtwrap left
                         local _fn_fontsize = max(`fontsize' - 2, 6)
-                        putexcel (A`_coef_footnote_row':D`_coef_footnote_row'), ///
-                            font("`font'", `_fn_fontsize')
+                        mata: b.put_string(`_coef_footnote_row', 1, `"`footnote'"')
+                        mata: b.set_sheet_merge("Coefficients", (`_coef_footnote_row',`_coef_footnote_row'), (1,4))
+                        mata: b.set_font_italic(`_coef_footnote_row', 1, "on")
+                        mata: b.set_text_wrap(`_coef_footnote_row', 1, "on")
+                        mata: b.set_horizontal_align(`_coef_footnote_row', 1, "left")
+                        mata: b.set_font(`_coef_footnote_row', 1, "`font'", `_fn_fontsize')
                     }
 
-                    putexcel clear
+                    mata: b.close_book()
                 }
                 if _rc {
                     local saved_rc = _rc
-                    capture putexcel clear
+                    capture mata: b.close_book()
+                    capture mata: mata drop b
                     restore
                     exit `saved_rc'
                 }
+                capture mata: mata drop b
 
                 restore
             }

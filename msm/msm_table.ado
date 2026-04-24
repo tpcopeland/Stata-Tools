@@ -944,16 +944,8 @@ program define _msm_tbl_pred
         noisily display as error "Excel formatting failed with error `saved_rc'"
         restore
         exit `saved_rc'
-
-        putexcel clear
     }
-    if _rc {
-        local saved_rc = _rc
-        capture putexcel clear
-        noisily display as error "Excel cell formatting failed with error `saved_rc'"
-        restore
-        exit `saved_rc'
-    }
+    capture mata: mata drop b
 
     restore
     display as text "  Sheet: `sheet'"
@@ -1115,67 +1107,70 @@ program define _msm_tbl_bal
     }
     capture mata: mata drop _msm_xl
 
-    * putexcel formatting
+    * Mata xl() formatting
     capture {
-        putexcel set "`xlsx'", sheet("`sheet'") modify
+        mata: b = xl()
+        mata: b.load_book("`xlsx'")
+        mata: b.set_sheet("`sheet'")
 
-        * Title: merge, wrap, vcenter, bold
-        putexcel (A1:E1), merge txtwrap left vcenter bold
+        mata: b.set_font((1,`total_rows'), (1,5), "`font'", `fontsize')
+        mata: b.set_font((1,1), (1,5), "`font'", `=`fontsize'+2')
 
-        * Headers: bold, centered, wrapped
-        putexcel (A2:E2), bold hcenter vcenter txtwrap
-        putexcel (A2:E2), fpattern(solid, "219 229 241")
+        mata: b.set_sheet_merge("`sheet'", (1,1), (1,5))
+        mata: b.set_text_wrap(1, 1, "on")
+        mata: b.set_horizontal_align(1, 1, "left")
+        mata: b.set_vertical_align(1, 1, "center")
+        mata: b.set_font_bold(1, 1, "on")
 
-        * Full rectangular border frame
-        putexcel (A2:E2), border(top, `_hborder')
-        putexcel (A2:E2), border(bottom, `_hborder')
+        mata: b.set_font_bold(2, (1,5), "on")
+        mata: b.set_horizontal_align(2, (1,5), "center")
+        mata: b.set_vertical_align(2, (1,5), "center")
+        mata: b.set_text_wrap(2, (1,5), "on")
+        mata: b.set_fill_pattern(2, (1,5), "solid", "219 229 241")
+        mata: b.set_top_border(2, (1,5), "`_hborder'")
+        mata: b.set_bottom_border(2, (1,5), "`_hborder'")
+
         if "`borderstyle'" != "academic" {
-            putexcel (A2:A`total_rows'), border(left, `borderstyle')
-            putexcel (E2:E`total_rows'), border(right, `borderstyle')
+            mata: b.set_left_border((2,`total_rows'), 1, "`borderstyle'")
+            mata: b.set_right_border((2,`total_rows'), 5, "`borderstyle'")
+            mata: b.set_left_border((2,`last_data'), 5, "`borderstyle'")
         }
 
-        * Data alignment
-        putexcel (B3:E`last_data'), hcenter
-
-        * Bottom border before footer (separator)
-        putexcel (A`last_data':E`last_data'), border(bottom, `_hborder')
-
-        * Vertical separator before Balanced column
-        if "`borderstyle'" != "academic" {
-            putexcel (E2:E`last_data'), border(left, `borderstyle')
+        if `last_data' >= 3 {
+            mata: b.set_horizontal_align((3,`last_data'), (2,5), "center")
         }
+        mata: b.set_bottom_border(`last_data', (1,5), "`_hborder'")
 
-        * Footer: merge, italic
-        putexcel (A`footer_row':E`footer_row'), merge italic
+        mata: b.set_sheet_merge("`sheet'", (`footer_row',`footer_row'), (1,5))
+        mata: b.set_font_italic(`footer_row', 1, "on")
 
-        * Zebra striping
         if "`zebra'" != "" {
             forvalues _zr = 3(2)`last_data' {
-                putexcel (A`_zr':E`_zr'), fpattern(solid, "237 242 249")
+                mata: b.set_fill_pattern(`_zr', (1,5), "solid", "237 242 249")
             }
         }
 
-        * Font
-        putexcel (A1:E`total_rows'), font("`font'", `fontsize')
-        putexcel (A1:E1), font("`font'", `=`fontsize'+2')
-
-        * Footnote
         if `_has_footnote' {
-            putexcel A`footnote_row' = `"`footnote'"'
-            putexcel (A`footnote_row':E`footnote_row'), merge italic txtwrap left
             local _fn_fontsize = max(`fontsize' - 2, 6)
-            putexcel (A`footnote_row':E`footnote_row'), font("`font'", `_fn_fontsize')
+            mata: b.put_string(`footnote_row', 1, `"`footnote'"')
+            mata: b.set_sheet_merge("`sheet'", (`footnote_row',`footnote_row'), (1,5))
+            mata: b.set_font_italic(`footnote_row', 1, "on")
+            mata: b.set_text_wrap(`footnote_row', 1, "on")
+            mata: b.set_horizontal_align(`footnote_row', 1, "left")
+            mata: b.set_font(`footnote_row', 1, "`font'", `_fn_fontsize')
         }
 
-        putexcel clear
+        mata: b.close_book()
     }
     if _rc {
         local saved_rc = _rc
-        capture putexcel clear
-        noisily display as error "Excel cell formatting failed with error `saved_rc'"
+        capture mata: b.close_book()
+        capture mata: mata drop b
+        noisily display as error "Excel formatting failed with error `saved_rc'"
         restore
         exit `saved_rc'
     }
+    capture mata: mata drop b
 
     restore
     display as text "  Sheet: `sheet'"
@@ -1319,57 +1314,63 @@ program define _msm_tbl_wt
     }
     capture mata: mata drop _msm_xl
 
-    * putexcel formatting
+    * Mata xl() formatting
     capture {
-        putexcel set "`xlsx'", sheet("`sheet'") modify
+        mata: b = xl()
+        mata: b.load_book("`xlsx'")
+        mata: b.set_sheet("`sheet'")
 
-        * Title: merge, wrap, vcenter, bold
-        putexcel (A1:B1), merge txtwrap left vcenter bold
+        mata: b.set_font((1,`total_rows'), (1,2), "`font'", `fontsize')
+        mata: b.set_font((1,1), (1,2), "`font'", `=`fontsize'+2')
+        mata: b.set_sheet_merge("`sheet'", (1,1), (1,2))
+        mata: b.set_text_wrap(1, 1, "on")
+        mata: b.set_horizontal_align(1, 1, "left")
+        mata: b.set_vertical_align(1, 1, "center")
+        mata: b.set_font_bold(1, 1, "on")
 
-        * Headers: bold, centered, wrapped
-        putexcel (A2:B2), bold hcenter vcenter txtwrap
-        putexcel (A2:B2), fpattern(solid, "219 229 241")
-
-        * Full rectangular border frame
-        putexcel (A2:B2), border(top, `_hborder')
-        putexcel (A2:B2), border(bottom, `_hborder')
+        mata: b.set_font_bold(2, (1,2), "on")
+        mata: b.set_horizontal_align(2, (1,2), "center")
+        mata: b.set_vertical_align(2, (1,2), "center")
+        mata: b.set_text_wrap(2, (1,2), "on")
+        mata: b.set_fill_pattern(2, (1,2), "solid", "219 229 241")
+        mata: b.set_top_border(2, (1,2), "`_hborder'")
+        mata: b.set_bottom_border(2, (1,2), "`_hborder'")
         if "`borderstyle'" != "academic" {
-            putexcel (A2:A`total_rows'), border(left, `borderstyle')
-            putexcel (B2:B`total_rows'), border(right, `borderstyle')
+            mata: b.set_left_border((2,`total_rows'), 1, "`borderstyle'")
+            mata: b.set_right_border((2,`total_rows'), 2, "`borderstyle'")
         }
-        putexcel (A`total_rows':B`total_rows'), border(bottom, `_hborder')
+        mata: b.set_bottom_border(`total_rows', (1,2), "`_hborder'")
+        if `total_rows' >= 3 {
+            mata: b.set_horizontal_align((3,`total_rows'), 2, "center")
+        }
 
-        * Data alignment
-        putexcel (B3:B`total_rows'), hcenter
-
-        * Zebra striping
         if "`zebra'" != "" {
             forvalues _zr = 3(2)`last_data' {
-                putexcel (A`_zr':B`_zr'), fpattern(solid, "237 242 249")
+                mata: b.set_fill_pattern(`_zr', (1,2), "solid", "237 242 249")
             }
         }
 
-        * Font
-        putexcel (A1:B`total_rows'), font("`font'", `fontsize')
-        putexcel (A1:B1), font("`font'", `=`fontsize'+2')
-
-        * Footnote
         if `_has_footnote' {
-            putexcel A`footnote_row' = `"`footnote'"'
-            putexcel (A`footnote_row':B`footnote_row'), merge italic txtwrap left
             local _fn_fontsize = max(`fontsize' - 2, 6)
-            putexcel (A`footnote_row':B`footnote_row'), font("`font'", `_fn_fontsize')
+            mata: b.put_string(`footnote_row', 1, `"`footnote'"')
+            mata: b.set_sheet_merge("`sheet'", (`footnote_row',`footnote_row'), (1,2))
+            mata: b.set_font_italic(`footnote_row', 1, "on")
+            mata: b.set_text_wrap(`footnote_row', 1, "on")
+            mata: b.set_horizontal_align(`footnote_row', 1, "left")
+            mata: b.set_font(`footnote_row', 1, "`font'", `_fn_fontsize')
         }
 
-        putexcel clear
+        mata: b.close_book()
     }
     if _rc {
         local saved_rc = _rc
-        capture putexcel clear
-        noisily display as error "Excel cell formatting failed with error `saved_rc'"
+        capture mata: b.close_book()
+        capture mata: mata drop b
+        noisily display as error "Excel formatting failed with error `saved_rc'"
         restore
         exit `saved_rc'
     }
+    capture mata: mata drop b
 
     restore
     display as text "  Sheet: `sheet'"
@@ -1515,57 +1516,63 @@ program define _msm_tbl_sens
     }
     capture mata: mata drop _msm_xl
 
-    * putexcel formatting
+    * Mata xl() formatting
     capture {
-        putexcel set "`xlsx'", sheet("`sheet'") modify
+        mata: b = xl()
+        mata: b.load_book("`xlsx'")
+        mata: b.set_sheet("`sheet'")
 
-        * Title: merge, wrap, vcenter, bold
-        putexcel (A1:B1), merge txtwrap left vcenter bold
+        mata: b.set_font((1,`total_rows'), (1,2), "`font'", `fontsize')
+        mata: b.set_font((1,1), (1,2), "`font'", `=`fontsize'+2')
+        mata: b.set_sheet_merge("`sheet'", (1,1), (1,2))
+        mata: b.set_text_wrap(1, 1, "on")
+        mata: b.set_horizontal_align(1, 1, "left")
+        mata: b.set_vertical_align(1, 1, "center")
+        mata: b.set_font_bold(1, 1, "on")
 
-        * Headers: bold, centered, wrapped
-        putexcel (A2:B2), bold hcenter vcenter txtwrap
-        putexcel (A2:B2), fpattern(solid, "219 229 241")
-
-        * Full rectangular border frame
-        putexcel (A2:B2), border(top, `_hborder')
-        putexcel (A2:B2), border(bottom, `_hborder')
+        mata: b.set_font_bold(2, (1,2), "on")
+        mata: b.set_horizontal_align(2, (1,2), "center")
+        mata: b.set_vertical_align(2, (1,2), "center")
+        mata: b.set_text_wrap(2, (1,2), "on")
+        mata: b.set_fill_pattern(2, (1,2), "solid", "219 229 241")
+        mata: b.set_top_border(2, (1,2), "`_hborder'")
+        mata: b.set_bottom_border(2, (1,2), "`_hborder'")
         if "`borderstyle'" != "academic" {
-            putexcel (A2:A`total_rows'), border(left, `borderstyle')
-            putexcel (B2:B`total_rows'), border(right, `borderstyle')
+            mata: b.set_left_border((2,`total_rows'), 1, "`borderstyle'")
+            mata: b.set_right_border((2,`total_rows'), 2, "`borderstyle'")
         }
-        putexcel (A`total_rows':B`total_rows'), border(bottom, `_hborder')
+        mata: b.set_bottom_border(`total_rows', (1,2), "`_hborder'")
+        if `total_rows' >= 3 {
+            mata: b.set_horizontal_align((3,`total_rows'), 2, "center")
+        }
 
-        * Data alignment
-        putexcel (B3:B`total_rows'), hcenter
-
-        * Zebra striping
         if "`zebra'" != "" {
             forvalues _zr = 3(2)`last_data' {
-                putexcel (A`_zr':B`_zr'), fpattern(solid, "237 242 249")
+                mata: b.set_fill_pattern(`_zr', (1,2), "solid", "237 242 249")
             }
         }
 
-        * Font
-        putexcel (A1:B`total_rows'), font("`font'", `fontsize')
-        putexcel (A1:B1), font("`font'", `=`fontsize'+2')
-
-        * Footnote
         if `_has_footnote' {
-            putexcel A`footnote_row' = `"`footnote'"'
-            putexcel (A`footnote_row':B`footnote_row'), merge italic txtwrap left
             local _fn_fontsize = max(`fontsize' - 2, 6)
-            putexcel (A`footnote_row':B`footnote_row'), font("`font'", `_fn_fontsize')
+            mata: b.put_string(`footnote_row', 1, `"`footnote'"')
+            mata: b.set_sheet_merge("`sheet'", (`footnote_row',`footnote_row'), (1,2))
+            mata: b.set_font_italic(`footnote_row', 1, "on")
+            mata: b.set_text_wrap(`footnote_row', 1, "on")
+            mata: b.set_horizontal_align(`footnote_row', 1, "left")
+            mata: b.set_font(`footnote_row', 1, "`font'", `_fn_fontsize')
         }
 
-        putexcel clear
+        mata: b.close_book()
     }
     if _rc {
         local saved_rc = _rc
-        capture putexcel clear
-        noisily display as error "Excel cell formatting failed with error `saved_rc'"
+        capture mata: b.close_book()
+        capture mata: mata drop b
+        noisily display as error "Excel formatting failed with error `saved_rc'"
         restore
         exit `saved_rc'
     }
+    capture mata: mata drop b
 
     restore
     display as text "  Sheet: `sheet'"

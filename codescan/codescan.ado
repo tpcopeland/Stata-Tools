@@ -1,4 +1,4 @@
-*! codescan Version 1.0.3  2026/04/23
+*! codescan Version 1.1.0  2026/04/24
 *! Scan wide-format code variables for pattern matches and collapse to patient-level
 *! Author: Timothy P Copeland
 *! Program class: rclass (returns results in r())
@@ -1280,13 +1280,14 @@ program define codescan, rclass
         if "`detail'" != "" {
             local _mata_vcname "`varcounts'"
         }
+        tempname _match_counts
+        local _mata_mc_name "`_match_counts'"
         mata: _codescan_mata_scan()
 
-        * Noisily display and zero-match warnings (from Mata-computed counts)
+        * Noisily display and zero-match warnings (from Mata-accumulated counts)
         forvalues i = 1/`n_conditions' {
             local name "`def_name_`i''"
-            count if `name' > 0 & `touse'
-            local _n_matched = r(N)
+            local _n_matched = el(`_match_counts', 1, `i')
 
             if "`noisily'" != "" {
                 noisily display as text "  `name': " as result `_n_matched' ///
@@ -1298,19 +1299,22 @@ program define codescan, rclass
             }
         }
 
-        * R1: Warn on overlapping conditions
+        * R1: Warn on overlapping conditions (single Mata pass via cross product)
         if "`cooccurrence'" == "" & `n_conditions' > 1 {
+            tempname _overlap_cooc
+            local _mata_cooc_matname "`_overlap_cooc'"
+            local _mata_cooc_names "`all_names'"
+            local _mata_cooc_touse "`touse'"
+            local _mata_cooc_countmode "`countmode'"
+            mata: _codescan_mata_cooccurrence()
             forvalues _oi = 1/`n_conditions' {
                 forvalues _oj = `=`_oi'+1'/`n_conditions' {
                     local _on1 "`def_name_`_oi''"
                     local _on2 "`def_name_`_oj''"
-                    quietly count if `_on1' > 0 & `_on2' > 0 & `touse'
-                    local _overlap = r(N)
+                    local _overlap = el(`_overlap_cooc', `_oi', `_oj')
                     if `_overlap' > 0 {
-                        quietly count if `_on1' > 0 & `touse'
-                        local _cnt1 = r(N)
-                        quietly count if `_on2' > 0 & `touse'
-                        local _cnt2 = r(N)
+                        local _cnt1 = el(`_overlap_cooc', `_oi', `_oi')
+                        local _cnt2 = el(`_overlap_cooc', `_oj', `_oj')
                         local _smaller = min(`_cnt1', `_cnt2')
                         if `_smaller' > 0 & `_overlap' / `_smaller' > 0.5 {
                             local _opct = round(`_overlap' / `_smaller' * 100, 1)
@@ -1344,100 +1348,122 @@ program define codescan, rclass
     }
 
     * =========================================================================
-    * MULTI-WINDOW SENSITIVITY ANALYSIS (W4)
+    * MULTI-WINDOW SENSITIVITY ANALYSIS (W4, Mata-optimized)
     * =========================================================================
-    * Must run BEFORE collapse since secondary scans need row-level data.
+    * Scans secondary-window observations in ONE supplementary Mata pass
+    * instead of N-1 save/scan/restore cycles. Per-window counts are
+    * computed in Mata (patient-level for collapse/merge, row-level otherwise).
     if `n_lookback_windows' > 1 {
         tempname sensitivity
         matrix `sensitivity' = J(`n_conditions', `n_lookback_windows', .)
         local _sens_cnames ""
 
-        * First window: count from primary scan
+        * First window: use match counts already accumulated by primary scan
         forvalues i = 1/`n_conditions' {
-            local name "`def_name_`i''"
-            quietly count if `name' > 0 & `touse'
-            local _prim_n_`i' = r(N)
+            local _prim_n_`i' = el(`_match_counts', 1, `i')
         }
 
-        * Run additional windows
-        forvalues _wi = 2/`n_lookback_windows' {
-            local _lb_wi = `_lookback_`_wi''
-            local _sens_cnames "`_sens_cnames' `_lb_wi'd"
-
-            tempfile _sens_save
-            quietly save `_sens_save'
-            quietly {
-                tempvar _stouse
-                mark `_stouse' `if' `in'
-                if "`id'" != "" replace `_stouse' = 0 if missing(`id')
-                replace `_stouse' = 0 if missing(`date') | missing(`refdate')
-
+        * Pre-compute ALL secondary window touse masks
+        quietly {
+            forvalues _wi = 2/`n_lookback_windows' {
+                local _lb_wi = `_lookback_`_wi''
+                local _sens_cnames "`_sens_cnames' `_lb_wi'd"
+                tempvar _stouse_`_wi'
+                mark `_stouse_`_wi'' `if' `in'
+                if "`id'" != "" replace `_stouse_`_wi'' = 0 if missing(`id')
+                replace `_stouse_`_wi'' = 0 if missing(`date') | missing(`refdate')
                 if `has_lookfwd' {
-                    replace `_stouse' = 0 if `date' < `refdate' - `_lb_wi'
-                    replace `_stouse' = 0 if `date' > `refdate' + `lookforward'
+                    replace `_stouse_`_wi'' = 0 if `date' < `refdate' - `_lb_wi'
+                    replace `_stouse_`_wi'' = 0 if `date' > `refdate' + `lookforward'
                 }
                 else {
-                    replace `_stouse' = 0 if `date' < `refdate' - `_lb_wi'
+                    replace `_stouse_`_wi'' = 0 if `date' < `refdate' - `_lb_wi'
                     if `include_ref' {
-                        replace `_stouse' = 0 if `date' > `refdate'
+                        replace `_stouse_`_wi'' = 0 if `date' > `refdate'
                     }
                     else {
-                        replace `_stouse' = 0 if `date' >= `refdate'
-                    }
-                }
-
-                * Create temp indicators
-                forvalues i = 1/`n_conditions' {
-                    tempvar _sind_`i'
-                    gen byte `_sind_`i'' = 0
-                }
-
-                * Run Mata scan with temp touse
-                local _mata_touse "`_stouse'"
-                forvalues i = 1/`n_conditions' {
-                    local _mata_name_`i' "`_sind_`i''"
-                }
-                local _mata_detail ""
-                local _mata_countmode ""
-                mata: _codescan_mata_scan()
-
-                * Collapse to get patient-level counts
-                count if `_stouse'
-                local _sens_N_`_wi' = r(N)
-                if `_sens_N_`_wi'' > 0 {
-                    if "`collapse'" != "" | "`merge'" != "" {
-                        local _sens_cexpr ""
-                        forvalues i = 1/`n_conditions' {
-                            local _sens_cexpr "`_sens_cexpr' (max) `_sind_`i''"
-                        }
-                        collapse `_sens_cexpr' if `_stouse', by(`id')
-                        count
-                        local _sens_N_`_wi' = r(N)
-                    }
-                    forvalues i = 1/`n_conditions' {
-                        count if `_sind_`i'' > 0
-                        local _sens_ct_`_wi'_`i' = r(N)
-                    }
-                }
-                else {
-                    forvalues i = 1/`n_conditions' {
-                        local _sens_ct_`_wi'_`i' = 0
+                        replace `_stouse_`_wi'' = 0 if `date' >= `refdate'
                     }
                 }
             }
-            quietly use `_sens_save', clear
 
-            * Restore original Mata locals for the main scan
-            local _mata_touse "`touse'"
-            forvalues i = 1/`n_conditions' {
-                local _mata_name_`i' "`def_name_`i''"
+            * Union touse: observations in ANY secondary window but NOT primary
+            tempvar _utouse
+            gen byte `_utouse' = 0
+            forvalues _wi = 2/`n_lookback_windows' {
+                replace `_utouse' = 1 if `_stouse_`_wi'' & !`touse'
             }
-            local _mata_detail "`detail'"
-            local _mata_countmode "`countmode'"
+            count if `_utouse'
+            local _n_supp = r(N)
         }
 
-        * Store sensitivity matrix (deferred until after display section
-        * computes N_display for prevalence calculation)
+        * Supplementary scan: match codes in secondary-only observations
+        if `_n_supp' > 0 {
+            quietly {
+                forvalues i = 1/`n_conditions' {
+                    tempvar _uind_`i'
+                    gen byte `_uind_`i'' = 0
+                }
+            }
+            local _mata_touse "`_utouse'"
+            local _mata_mc_name ""
+            forvalues i = 1/`n_conditions' {
+                local _mata_name_`i' "`_uind_`i''"
+            }
+            local _mata_detail ""
+            local _mata_countmode ""
+            quietly mata: _codescan_mata_scan()
+        }
+
+        * Count per-window matches via Mata
+        local _sens_ind_names "`all_names'"
+        local _sens_supp_names ""
+        if `_n_supp' > 0 {
+            forvalues i = 1/`n_conditions' {
+                local _sens_supp_names "`_sens_supp_names' `_uind_`i''"
+            }
+            local _sens_supp_names = trim("`_sens_supp_names'")
+        }
+        local _sens_ncond "`n_conditions'"
+        local _sens_nwindows "`n_lookback_windows'"
+        local _sens_primary_touse "`touse'"
+        forvalues _wi = 2/`n_lookback_windows' {
+            local _sens_touse_`_wi' "`_stouse_`_wi''"
+        }
+        local _sens_do_collapse = ("`collapse'" != "" | "`merge'" != "")
+        local _sens_id "`id'"
+        tempname _sens_counts _sens_ns
+        local _sens_counts_name "`_sens_counts'"
+        local _sens_ns_name "`_sens_ns'"
+        mata: _codescan_mata_sensitivity_count()
+
+        * Extract per-window results from Mata
+        forvalues _wi = 2/`n_lookback_windows' {
+            local _sens_N_`_wi' = el(`_sens_ns', 1, `_wi')
+            forvalues i = 1/`n_conditions' {
+                local _sens_ct_`_wi'_`i' = el(`_sens_counts', `i', `_wi')
+            }
+        }
+
+        * Clean up supplementary variables
+        if `_n_supp' > 0 {
+            forvalues i = 1/`n_conditions' {
+                quietly drop `_uind_`i''
+            }
+        }
+        quietly drop `_utouse'
+        forvalues _wi = 2/`n_lookback_windows' {
+            quietly drop `_stouse_`_wi''
+        }
+
+        * Restore Mata locals for potential later use
+        local _mata_touse "`touse'"
+        forvalues i = 1/`n_conditions' {
+            local _mata_name_`i' "`def_name_`i''"
+        }
+        local _mata_detail "`detail'"
+        local _mata_countmode "`countmode'"
+
         local _has_sensitivity = 1
     }
     else {
@@ -2299,13 +2325,14 @@ void _codescan_mata_scan()
     real scalar      ncond, nvars, N, i, j, k, len, npfx, enpfx
     real scalar      is_prefix, has_detail, has_excl, use_nocase, is_count, has_mcode
     real scalar      matched, excluded, strip_dots
-    string scalar    mode, touse_name, vcname, val, mcname
+    string scalar    mode, touse_name, vcname, val, mcname, mc_name
     string rowvector scanvars, cond_names
     string colvector patterns, excl_patterns, anchored_pats, anchored_excl
     string colvector col
     string colvector mcode
     real matrix      indicators, varcounts
     real colvector   touse
+    real rowvector   match_counts
 
     // Read parameters from Stata locals
     ncond      = strtoreal(st_local("_mata_ncond"))
@@ -2397,6 +2424,9 @@ void _codescan_mata_scan()
         varcounts = J(ncond, nvars, 0)
     }
 
+    match_counts = J(1, ncond, 0)
+    mc_name = st_local("_mata_mc_name")
+
     // ── SINGLE PASS: inclusion with inline exclusion per code value ──
     // Each code value is independently evaluated: it must match the
     // inclusion pattern AND NOT match the exclusion pattern.  This
@@ -2454,9 +2484,11 @@ void _codescan_mata_scan()
 
                 // ── Code passed inclusion and exclusion — record match ──
                 if (is_count) {
+                    if (indicators[i, k] == 0) match_counts[k] = match_counts[k] + 1
                     indicators[i, k] = indicators[i, k] + 1
                 }
                 else {
+                    match_counts[k] = match_counts[k] + 1
                     indicators[i, k] = 1
                 }
                 if (has_mcode) {
@@ -2470,6 +2502,9 @@ void _codescan_mata_scan()
     // Write detail matrix back to Stata
     if (has_detail) {
         st_matrix(vcname, varcounts)
+    }
+    if (mc_name != "") {
+        st_matrix(mc_name, match_counts)
     }
 }
 
@@ -2578,5 +2613,147 @@ void _codescan_mata_cooccurrence()
     // cross(mask, mask) gives ncond × ncond co-occurrence counts
     cooc = cross(mask, mask)
     st_matrix(coocname, cooc)
+}
+
+// Multi-window sensitivity: count per-window matches in a single pass.
+// For collapse/merge, counts at patient level (unique IDs per window).
+// For row-level, counts observations per window.
+// Reads primary indicators + supplementary indicators (from union scan).
+void _codescan_mata_sensitivity_count()
+{
+    real scalar ncond, nwindows, N, i, j, k, w
+    real scalar do_collapse, has_supp, id_is_str, new_patient
+    string rowvector ind_names, supp_names
+    string scalar id_name, counts_name, ns_name, primary_touse_name
+    real matrix indicators, supp_ind, touse_w, counts
+    real colvector primary_touse, sort_idx, num_ids
+    real rowvector N_per_window, in_window
+    real matrix matched
+    string colvector str_ids
+
+    ncond = strtoreal(st_local("_sens_ncond"))
+    nwindows = strtoreal(st_local("_sens_nwindows"))
+    N = st_nobs()
+    do_collapse = strtoreal(st_local("_sens_do_collapse"))
+    id_name = st_local("_sens_id")
+    counts_name = st_local("_sens_counts_name")
+    ns_name = st_local("_sens_ns_name")
+    primary_touse_name = st_local("_sens_primary_touse")
+
+    ind_names = tokens(st_local("_sens_ind_names"))
+    st_view(indicators, ., ind_names)
+
+    supp_names = tokens(st_local("_sens_supp_names"))
+    has_supp = (cols(supp_names) > 0)
+    if (has_supp) {
+        if (supp_names[1] == "") has_supp = 0
+    }
+    if (has_supp) {
+        st_view(supp_ind, ., supp_names)
+    }
+
+    primary_touse = st_data(., primary_touse_name)
+
+    // Build touse matrix: column 1 = primary, columns 2..nwindows = secondary
+    touse_w = J(N, nwindows, 0)
+    touse_w[., 1] = primary_touse
+    for (w = 2; w <= nwindows; w++) {
+        touse_w[., w] = st_data(., st_local("_sens_touse_" + strofreal(w)))
+    }
+
+    counts = J(ncond, nwindows, 0)
+    N_per_window = J(1, nwindows, 0)
+
+    if (do_collapse && id_name != "") {
+        // Patient-level counting: sort by ID, scan for unique patients
+        id_is_str = st_isstrvar(id_name)
+
+        if (id_is_str) {
+            str_ids = st_sdata(., id_name)
+            sort_idx = order(str_ids, 1)
+        }
+        else {
+            num_ids = st_data(., id_name)
+            sort_idx = order(num_ids, 1)
+        }
+        in_window = J(1, nwindows, 0)
+        matched = J(nwindows, ncond, 0)
+
+        for (j = 1; j <= N; j++) {
+            i = sort_idx[j]
+
+            // Detect new patient
+            if (j == 1) {
+                new_patient = 1
+            }
+            else if (id_is_str) {
+                new_patient = (str_ids[i] != str_ids[sort_idx[j - 1]])
+            }
+            else {
+                new_patient = (num_ids[i] != num_ids[sort_idx[j - 1]])
+            }
+
+            if (new_patient && j > 1) {
+                for (w = 1; w <= nwindows; w++) {
+                    if (in_window[w]) {
+                        N_per_window[w] = N_per_window[w] + 1
+                        for (k = 1; k <= ncond; k++) {
+                            if (matched[w, k]) counts[k, w] = counts[k, w] + 1
+                        }
+                    }
+                }
+                in_window = J(1, nwindows, 0)
+                matched = J(nwindows, ncond, 0)
+            }
+
+            for (w = 1; w <= nwindows; w++) {
+                if (touse_w[i, w]) {
+                    in_window[w] = 1
+                    for (k = 1; k <= ncond; k++) {
+                        if (!matched[w, k]) {
+                            if (indicators[i, k] > 0) {
+                                matched[w, k] = 1
+                            }
+                            else if (has_supp) {
+                                if (supp_ind[i, k] > 0) matched[w, k] = 1
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        // Commit last patient
+        if (N > 0) {
+            for (w = 1; w <= nwindows; w++) {
+                if (in_window[w]) {
+                    N_per_window[w] = N_per_window[w] + 1
+                    for (k = 1; k <= ncond; k++) {
+                        if (matched[w, k]) counts[k, w] = counts[k, w] + 1
+                    }
+                }
+            }
+        }
+    }
+    else {
+        // Row-level counting
+        for (i = 1; i <= N; i++) {
+            for (w = 1; w <= nwindows; w++) {
+                if (touse_w[i, w]) {
+                    N_per_window[w] = N_per_window[w] + 1
+                    for (k = 1; k <= ncond; k++) {
+                        if (indicators[i, k] > 0) {
+                            counts[k, w] = counts[k, w] + 1
+                        }
+                        else if (has_supp) {
+                            if (supp_ind[i, k] > 0) counts[k, w] = counts[k, w] + 1
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    st_matrix(counts_name, counts)
+    st_matrix(ns_name, N_per_window)
 }
 end
