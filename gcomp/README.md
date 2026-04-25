@@ -1,6 +1,6 @@
 # gcomp - Parametric g-computation for mediation and time-varying confounding
 
-**Version 1.0.3** | 2026-04-22
+**Version 1.1.0** | 2026-04-26
 
 `gcomp` implements Robins' parametric g-computation formula in Stata using Monte Carlo simulation and bootstrap inference. The package supports two related workflows: causal mediation analysis and longitudinal causal effects in the presence of time-varying confounding.
 
@@ -195,6 +195,7 @@ After `gcomptab`, export details are stored in `r()`, including the workbook nam
 
 ## Version History
 
+- **1.1.0** (2026-04-26): Input validation and model-fit diagnostics. `commands()`, `equations()`, and related options are now validated before the bootstrap loop — mismatches produce clear error messages naming the offending variable. New `diagnostics` option displays model-fit statistics (N, convergence, R²/pseudo-R², RMSE) for each parametric model during the initial estimation run. Diagnostics are always stored in `e(model_diagnostics)`.
 - **1.0.3** (2026-04-22): Fix time-varying g-computation regression — varlist2 ordering had been reversed (outcome first) in v1.0.2, causing `predict pred_Y` to fire before time-varying confounders and treatment were sampled at each visit. Every simulated outcome came out as 1 (silent wrong results); `minsim` errored with r(503). Restores outcome-last ordering from v1.0.1. Adds V7.3 minsim regression test and tightens V7.1 assertions to guard against re-introduction.
 - **1.0.2** (2026-04-19): Stata-Tools fork release with bundled Excel export support via `gcomptab`
 

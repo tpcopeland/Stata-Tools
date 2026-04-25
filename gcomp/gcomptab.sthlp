@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.3  22apr2026}{...}
+{* *! version 1.1.0  26apr2026}{...}
 {viewerjumpto "Syntax" "gcomptab##syntax"}{...}
 {viewerjumpto "Description" "gcomptab##description"}{...}
 {viewerjumpto "Options" "gcomptab##options"}{...}
@@ -168,6 +168,6 @@
 {pstd}Department of Clinical Neuroscience{p_end}
 {pstd}Karolinska Institutet{p_end}
 
-{pstd}Version 1.0.3 - 2026-04-22{p_end}
+{pstd}Version 1.1.0 - 2026-04-26{p_end}
 
 {hline}

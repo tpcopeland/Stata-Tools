@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.3  22apr2026}{...}
+{* *! version 1.1.0  26apr2026}{...}
 {viewerjumpto "Syntax" "gcomp##syntax"}{...}
 {viewerjumpto "Description" "gcomp##description"}{...}
 {viewerjumpto "Options" "gcomp##options"}{...}
@@ -122,6 +122,7 @@ or {opt baseline(string)}.
 {synopt:{opt moreMC}}allow MC sample size > N{p_end}
 
 {syntab:Output}
+{synopt:{opt diag:nostics}}display model-fit diagnostics for each parametric model{p_end}
 {synopt:{opt all}}report all four CI types (normal, percentile, BC, BCa){p_end}
 {synopt:{opt graph}}graph potential outcomes{p_end}
 {synopt:{opt saving(filename)}}save the simulated dataset from the main estimation run{p_end}
@@ -349,6 +350,9 @@ exceed the observed dataset sample size.
 {dlgtab:Output}
 
 {phang}
+{opt diagnostics} displays model-fit statistics for each parametric model fitted during the initial (pre-bootstrap) estimation run. For each model, the output shows sample size, convergence status (logit/mlogit/ologit), goodness-of-fit (R{c 178} for regress, pseudo-R{c 178} for logit/mlogit/ologit), and RMSE (regress). Warnings flag non-convergence, small sample sizes (N < 20), and poor model fit. The diagnostics matrix is always stored in {cmd:e(model_diagnostics)} regardless of whether this option is specified.
+
+{phang}
 {opt all} reports all four confidence interval types: normal, percentile,
 bias-corrected, and bias-corrected accelerated (BCa). By default, only
 normal CIs are reported.
@@ -417,7 +421,18 @@ subject. Earlier nonmissing outcome values are ignored by design.
 {phang2}{cmd:      sim(120) samples(5) seed(20260421) eofu}{p_end}
 
 {pstd}
-{bf:Example 4: Export mediation results to Excel}
+{bf:Example 4: Mediation with model diagnostics}
+
+{phang2}{cmd:. gcomp y m x c, outcome(y) mediation obe ///}{p_end}
+{phang2}{cmd:      exposure(x) mediator(m) ///}{p_end}
+{phang2}{cmd:      commands(m: logit, y: logit) ///}{p_end}
+{phang2}{cmd:      equations(m: x c, y: m x c) ///}{p_end}
+{phang2}{cmd:      base_confs(c) sim(500) samples(200) seed(42) diagnostics}{p_end}
+
+{phang2}{cmd:. mat list e(model_diagnostics)}{p_end}
+
+{pstd}
+{bf:Example 5: Export mediation results to Excel}
 
 {phang2}{cmd:. * After running gcomp mediation, export to Excel}{p_end}
 {phang2}{cmd:. gcomptab, xlsx(mediation_results.xlsx) sheet("Table 1") ///}{p_end}
@@ -449,6 +464,7 @@ subject. Earlier nonmissing outcome values are ignored by design.
 {synopt:{cmd:e(ci_bc)}}bias-corrected confidence intervals (with {cmd:all}){p_end}
 {synopt:{cmd:e(ci_bca)}}bias-corrected accelerated confidence intervals (with {cmd:all}){p_end}
 {synopt:{cmd:e(effects)}}effecttab-ready matrix of estimates, confidence limits, and p-values{p_end}
+{synopt:{cmd:e(model_diagnostics)}}matrix of model-fit statistics (N, converged, ll, r2, rmse) for each parametric model fitted during initial estimation{p_end}
 
 {pstd}
 {bf:Macros:}
@@ -517,7 +533,7 @@ g-computation formula{it:. The Stata Journal} 11(4):479-517.
 
 {pstd}Original author: Rhian Daniel, London School of Hygiene and Tropical Medicine{p_end}
 {pstd}Fork maintainer: Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.0.3, 2026-04-22{p_end}
+{pstd}Version 1.1.0, 2026-04-26{p_end}
 
 {pstd}
 This is a maintained fork of SSC {cmd:gformula} v1.16 beta with bug fixes

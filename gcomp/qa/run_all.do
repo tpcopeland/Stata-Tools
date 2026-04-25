@@ -27,6 +27,8 @@ foreach f of local stale3 {
 
 foreach f in ///
     test_gcomp ///
+    test_gcomp_validation ///
+    test_gcomp_diagnostics ///
     test_stress ///
     test_interactions ///
     test_gcomptab_regressions ///

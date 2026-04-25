@@ -1,4 +1,4 @@
-*! _gcomp_bootstrap_impl Version 1.0.3  2026/04/22
+*! _gcomp_bootstrap_impl Version 1.1.0  2026/04/26
 *! Internal bootstrap implementation for gcomp
 *! Author: Timothy P Copeland (fork), Rhian Daniel (original)
 *! Program class: rclass
@@ -18,7 +18,11 @@ syntax varlist(min=2 numeric) [if] [in] , OUTcome(varname) COMmands(string) EQua
 	mediation EXposure(varlist) mediator(varlist) control(string) baseline(string) alternative(string) base_confs(varlist) ///
 	post_confs(varlist) impute(varlist) imp_eq(string) imp_cmd(string) imp_cycles(int 10) SIMulations(int 10000) ///
 	obe oce specific boceam linexp minsim moreMC logOR logRR graph saving(string) replace ///
-	_gc_maxid(integer 0) _gc_chk_del(integer 0) _gc_chk_prt(integer 0) _gc_chk_sav(integer 0) _gc_almost(string)]
+	_gc_maxid(integer 0) _gc_chk_del(integer 0) _gc_chk_prt(integer 0) _gc_chk_sav(integer 0) _gc_almost(string) ///
+	GCDIAGnostics GCDIAGShow]
+if "`gcdiagshow'" != "" {
+	local _gc_show_flag "show"
+}
 preserve
 *for the time-varying option, the first step is to make the dataset long again; this is how we want it, 
 *but we had to start with it wide for the sake of the boostrapping
@@ -1381,6 +1385,9 @@ if "`mediation'"=="" {
 								noi di as err "   Warning: `command`i'' model for `simvar`i'' did not converge"
 							}
 						}
+						if "`gcdiagnostics'" != "" {
+							_gcomp_diag_capture, varname(`simvar`i'') command(`command`i'') visit(`k') `_gc_show_flag'
+						}
 *****************************************************************************************************************************************************************************
 						if "`command`i''"=="logit" | "`command`i''"=="regress" {
 							tempvar pred_simvar`i'
@@ -1502,10 +1509,8 @@ if "`mediation'"=="" {
 									noi di as err "   Warning: `command`i'' model for `simvar`i'' did not converge"
 								}
 							}
-							if `_gc_chk_prt'==0 & "`command`i''"!="regress" {
-								if e(converged)==0 {
-									noi di as err "   Warning: `command`i'' model for `simvar`i'' did not converge"
-								}
+							if "`gcdiagnostics'" != "" {
+								_gcomp_diag_capture, varname(`simvar`i'') command(`command`i'') visit(`k') `_gc_show_flag'
 							}
 *****************************************************************************************************************************************************************************
 							if "`command`i''"=="logit" | "`command`i''"=="regress" {
@@ -1608,6 +1613,9 @@ if "`mediation'"=="" {
 									qui `command`i'' `simvar`i'' `equation`i'' if `checkmono'==0
 									drop `checkmono'
 								}
+							}
+							if "`gcdiagnostics'" != "" {
+								_gcomp_diag_capture, varname(`simvar`i'') command(`command`i'') visit(`k') `_gc_show_flag'
 							}
 *****************************************************************************************************************************************************************************
 							if "`command`i''"=="logit" | "`command`i''"=="regress" {
@@ -1733,6 +1741,9 @@ else {
 			if e(converged)==0 {
 				noi di as err "   Warning: `command`i'' model for `simvar`i'' did not converge"
 			}
+		}
+		if "`gcdiagnostics'" != "" {
+			_gcomp_diag_capture, varname(`simvar`i'') command(`command`i'') `_gc_show_flag'
 		}
 *****************************************************************************************************************************************************************************
 		if "`command`i''"=="logit" | "`command`i''"=="regress" {

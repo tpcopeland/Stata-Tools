@@ -1,4 +1,4 @@
-*! gcomp Version 1.0.3  2026/04/22
+*! gcomp Version 1.1.0  2026/04/26
 *! G-computation formula via Monte Carlo simulation
 *! Forked from SSC gformula v1.16 beta (Rhian Daniel, 2021)
 *! with bug fixes, modernization, and SSC dependency removal
@@ -94,7 +94,7 @@ syntax varlist(min=2 numeric) [if] [in] , OUTcome(varname) COMmands(string) EQua
     derived(varlist) derrules(string) FIXedcovariates(varlist) LAGgedvars(varlist) lagrules(string) msm(string) ///
     mediation EXposure(varlist) mediator(varlist) control(string) baseline(string) alternative(string) base_confs(varlist) ///
     post_confs(varlist) impute(varlist) imp_eq(string) imp_cmd(string) imp_cycles(int 10) SIMulations(int 99999) ///
-	SAMples(int 1000) seed(int 0) obe oce specific boceam linexp minsim moreMC logOR logRR all graph saving(string) replace]
+	SAMples(int 1000) seed(int 0) obe oce specific boceam linexp minsim moreMC logOR logRR all DIAGnostics graph saving(string) replace]
 local _gc_keepvars `varlist'
 foreach _gc_varblock in outcome idvar tvar varyingcovariates intvars death derived fixedcovariates laggedvars exposure mediator base_confs post_confs impute {
 	local _gc_keepvars `"`_gc_keepvars' ``_gc_varblock''"'
@@ -617,6 +617,225 @@ else {
 		}
 	}
 }
+* === Input validation: commands/equations cross-check ===
+if "`mediation'"=="" {
+	if "`death'"=="" {
+		local varlist2 "`varyingcovariates' `intvars' `outcome'"
+	}
+	else {
+		local varlist2 "`death' `varyingcovariates' `intvars' `outcome'"
+	}
+}
+else {
+	local varlist2 "`post_confs' `mediator' `outcome'"
+}
+local nvar: word count `varlist2'
+capture noisily _gcomp_detangle "`commands'" command "`varlist2'"
+if _rc {
+	noi di as err ""
+	noi di as err "commands() must specify a model for each of these variables:"
+	noi di as err "  `varlist2'"
+	noi di as err ""
+	noi di as err "Example: commands(`=word("`varlist2'",1)': logit, `=word("`varlist2'",2)': regress)"
+	exit 198
+}
+forvalues i=1/`nvar' {
+	if "${S_`i'}"!="" {
+		local command`i' ${S_`i'}
+	}
+}
+forvalues i=1/`nvar' {
+	local _v: word `i' of `varlist2'
+	if "`command`i''"=="" {
+		noi di as err "commands(): no model specified for `_v'"
+		noi di as err "  Every variable that gcomp simulates needs a model command."
+		noi di as err "  Add `_v': logit (or regress/mlogit/ologit) to commands()."
+		exit 198
+	}
+}
+capture noisily _gcomp_detangle "`equations'" equation "`varlist2'"
+if _rc {
+	noi di as err ""
+	noi di as err "equations() must specify predictors for each of these variables:"
+	noi di as err "  `varlist2'"
+	noi di as err ""
+	noi di as err "Example: equations(`=word("`varlist2'",1)': x1 x2, `=word("`varlist2'",2)': x1 x3)"
+	exit 198
+}
+forvalues i=1/`nvar' {
+	if "${S_`i'}"!="" {
+		local equation`i' ${S_`i'}
+	}
+}
+forvalues i=1/`nvar' {
+	local _v: word `i' of `varlist2'
+	if "`equation`i''"=="" {
+		noi di as err "equations(): no prediction equation specified for `_v'"
+		noi di as err "  Every variable that gcomp simulates needs at least one predictor."
+		noi di as err "  Add `_v': predictor1 predictor2 to equations()."
+		exit 198
+	}
+}
+forvalues i=1/`nvar' {
+	local simvar`i': word `i' of `varlist2'
+}
+* Equation predictors exist in the dataset
+forvalues i=1/`nvar' {
+	local _v: word `i' of `varlist2'
+	local _eq "`equation`i''"
+	foreach _pred in `_eq' {
+		local _pred_clean = subinstr("`_pred'", "i.", "", 1)
+		capture confirm variable `_pred_clean'
+		if _rc {
+			noi di as err "equations(): variable `_pred' in the equation for `_v' does not exist in the dataset"
+			noi di as err "  Check spelling. Available variables: `varlist'"
+			exit 111
+		}
+	}
+}
+* Command <-> variable type consistency
+forvalues i=1/`nvar' {
+	local _v: word `i' of `varlist2'
+	local _cmd "`command`i''"
+	if !inlist("`_cmd'", "logit", "regress", "mlogit", "ologit") {
+		noi di as err "commands(): `_cmd' is not a supported model command for `_v'"
+		noi di as err "  Supported commands: logit, regress, mlogit, ologit"
+		exit 198
+	}
+	if "`_cmd'" == "logit" {
+		qui tab `_v' if `_v' < .
+		if r(r) > 2 {
+			noi di as err "Warning: commands() specifies logit for `_v', but `_v' has " r(r) " distinct values."
+			noi di as err "  logit requires a binary (0/1) variable. Consider mlogit or ologit."
+		}
+		else if r(r) == 2 {
+			qui summ `_v' if `_v' < .
+			if r(min) != 0 | r(max) != 1 {
+				noi di as err "Warning: commands() specifies logit for `_v', but values are not 0/1."
+				noi di as err "  logit requires values {0, 1}. Found min=" r(min) " max=" r(max) "."
+			}
+		}
+	}
+	if "`_cmd'" == "regress" {
+		qui tab `_v' if `_v' < .
+		if r(r) == 2 {
+			qui summ `_v' if `_v' < .
+			if r(min) == 0 & r(max) == 1 {
+				noi di as text "  Note: `_v' appears binary (0/1) but is modeled with regress."
+				noi di as text "  This is valid (linear probability model) but logit is more common."
+			}
+		}
+	}
+}
+* Outcome not in its own equation
+local _out_eq "`equation`nvar''"
+foreach _pred in `_out_eq' {
+	local _pred_clean = subinstr("`_pred'", "i.", "", 1)
+	if "`_pred_clean'" == "`outcome'" {
+		noi di as err "equations(): the outcome `outcome' appears as a predictor in its own equation"
+		noi di as err "  This creates a circular dependency. Remove `outcome' from the RHS."
+		exit 198
+	}
+}
+* Mediation-specific validation
+if "`mediation'" != "" {
+	foreach _exp in `exposure' {
+		local _found: list posof "`_exp'" in base_confs
+		if `_found' > 0 {
+			noi di as err "base_confs() includes the exposure variable `_exp'"
+			noi di as err "  Baseline confounders should be pre-exposure variables only."
+			noi di as err "  Remove `_exp' from base_confs()."
+			exit 198
+		}
+	}
+	foreach _med in `mediator' {
+		local _found: list posof "`_med'" in base_confs
+		if `_found' > 0 {
+			noi di as err "base_confs() includes the mediator variable `_med'"
+			noi di as err "  Baseline confounders should not include the mediator."
+			noi di as err "  Remove `_med' from base_confs()."
+			exit 198
+		}
+	}
+	foreach _bc in `base_confs' {
+		local _found: list posof "`_bc'" in varlist2
+		if `_found' > 0 {
+			noi di as err "base_confs() variable `_bc' also appears in the simulation variable list"
+			noi di as err "  Baseline confounders are not re-simulated. If `_bc' is post-treatment,"
+			noi di as err "  move it to post_confs() instead."
+			exit 198
+		}
+	}
+}
+* Time-varying-specific validation
+if "`mediation'" == "" {
+	foreach _iv in `intvars' {
+		local _found: list posof "`_iv'" in varlist
+		if `_found' == 0 {
+			noi di as err "intvars(): variable `_iv' is not in the main varlist"
+			noi di as err "  Add `_iv' to the variable list after the gcomp command name."
+			exit 198
+		}
+	}
+	if "`laggedvars'" != "" {
+		local _nlag: word count `laggedvars'
+		capture _gcomp_detangle "`lagrules'" lagrule "`laggedvars'"
+		if _rc {
+			noi di as err "lagrules(): could not parse lag rules for laggedvars(`laggedvars')"
+			noi di as err "  Syntax: lagrules(lagvar1: sourcevar1 1, lagvar2: sourcevar2 2)"
+			exit 198
+		}
+		forvalues _li=1/`_nlag' {
+			if "${S_`_li'}" != "" {
+				tokenize "${S_`_li'}", parse(" ")
+				local _lagsrc "`1'"
+				capture confirm variable `_lagsrc'
+				if _rc {
+					local _lagv: word `_li' of `laggedvars'
+					noi di as err "lagrules(): source variable `_lagsrc' for lag of `_lagv' does not exist"
+					exit 111
+				}
+			}
+		}
+	}
+	if "`derived'" != "" {
+		capture _gcomp_detangle "`derrules'" derrule "`derived'"
+		if _rc {
+			noi di as err "derrules(): could not parse derivation rules for derived(`derived')"
+			noi di as err "  Syntax: derrules(derivedvar1: expression1, derivedvar2: expression2)"
+			exit 198
+		}
+	}
+}
+* Imputation-specific validation
+if "`impute'" != "" {
+	if "`imp_cmd'" == "" {
+		noi di as err "impute() specified but imp_cmd() is missing"
+		noi di as err "  Specify the model command for each imputed variable."
+		exit 198
+	}
+	if "`imp_eq'" == "" {
+		noi di as err "impute() specified but imp_eq() is missing"
+		noi di as err "  Specify the prediction equation for each imputed variable."
+		exit 198
+	}
+	local _imp_nvar: word count `impute'
+	capture _gcomp_detangle "`imp_cmd'" imp_cmd "`impute'"
+	if _rc {
+		noi di as err "imp_cmd() must specify a model for each variable in impute(`impute')"
+		exit 198
+	}
+	forvalues _ii=1/`_imp_nvar' {
+		local _imp_c "${S_`_ii'}"
+		if "`_imp_c'" != "" & !inlist("`_imp_c'", "logit", "regress", "mlogit", "ologit") {
+			local _imp_v: word `_ii' of `impute'
+			noi di as err "imp_cmd(): `_imp_c' is not a supported imputation command for `_imp_v'"
+			noi di as err "  Supported: logit, regress, mlogit, ologit"
+			exit 198
+		}
+	}
+}
+* === End input validation ===
 noi di
 noi di as text "   Outcome variable: " _cont
 noi di as result "`outcome'"
@@ -651,36 +870,6 @@ noi di as result "`simulations'"
 noi di as text "   No. of bootstrap samples: " _cont
 noi di as result "`samples'"
 noi di
-* Display in a table the parametric models that have been specified (for simulation under different interventions)
-if "`mediation'"=="" {
-	if "`death'"=="" {
-		local varlist2="`varyingcovariates'"+" "+"`intvars'"+" "+"`outcome'"
-	}
-	else {
-		local varlist2="`death'"+" "+"`varyingcovariates'"+" "+"`intvars'"+" "+"`outcome'"
-	}
-}
-else {
-	local varlist2="`post_confs'"+" "+"`mediator'"+" "+"`outcome'"
-}
-local nvar: word count `varlist2'
-* _gcomp_detangle commands
-_gcomp_detangle "`commands'" command "`varlist2'"
-forvalues i=1/`nvar' {
-	if "${S_`i'}"!="" {
-		local command`i' ${S_`i'}
-	}
-}
-* _gcomp_detangle equations
-_gcomp_detangle "`equations'" equation "`varlist2'"
-forvalues i=1/`nvar' {
-	if "${S_`i'}"!="" {
-		local equation`i' ${S_`i'}
-	}
-}
-forvalues i=1/`nvar' {
-	local simvar`i': word `i' of `varlist2'
-}
 noi di as text _n "   A summary of the specified parametric models:"
 noi di as text _n "   (for simulation under different interventions)"
 local longstring 55
@@ -898,13 +1087,49 @@ if "`mediation'"=="" {
 		qui gen double `pastvar'=.
 	}
 }
+capture matrix drop _gc_diag_result
+if "`diagnostics'" != "" {
+	local _gc_diag_show "gcdiagshow"
+}
 _gcomp_bootstrap_impl `varlist' `if' `in', out(`outcome') com(`commands') eq(`equations') i(`idvar') t(`tvar') ///
 	var(`varyingcovariates') intvars(`intvars') interventions(`interventions') `monotreat' `eofu' `pooled' death(`death') ///
 	derived(`derived') derrules(`derrules') fix(`fixedcovariates') lag(`laggedvars') lagrules(`lagrules') ///
 	msm(`msm') `mediation' ex(`exposure') mediator(`mediator') control(`control') baseline(`baseline') alternative(`alternative') ///
 	base_confs(`base_confs') post_confs(`post_confs') impute(`impute') imp_eq(`imp_eq') imp_cmd(`imp_cmd') ///
 	imp_cycles(`imp_cycles') sim(`simulations') `obe' `oce' `specific' `boceam' `linexp' `minsim' `moreMC' `logOR' `logRR' `graph' saving(`saving') `replace' ///
-	_gc_maxid(`maxid') _gc_chk_del(`_gc_check_delete') _gc_chk_prt(`_gc_check_print') _gc_chk_sav(`_gc_check_save') _gc_almost(`_gc_almost_varlist')
+	_gc_maxid(`maxid') _gc_chk_del(`_gc_check_delete') _gc_chk_prt(`_gc_check_print') _gc_chk_sav(`_gc_check_save') _gc_almost(`_gc_almost_varlist') ///
+	gcdiagnostics `_gc_diag_show'
+* Display diagnostics summary if requested
+if "`diagnostics'" != "" {
+	capture confirm matrix _gc_diag_result
+	if _rc == 0 {
+		local _diag_nrows = rowsof(_gc_diag_result)
+		noi di
+		noi di as text "{hline 78}"
+		noi di as text "Model diagnostics (initial estimation, pre-bootstrap)"
+		noi di as text "{hline 78}"
+		local _any_nc = 0
+		forvalues _di=1/`_diag_nrows' {
+			if _gc_diag_result[`_di', 2] == 0 {
+				local _any_nc = 1
+			}
+		}
+		if `_any_nc' {
+			noi di as err ""
+			noi di as err ">>> One or more models did not converge. Examine the equations."
+			noi di as err "    Non-convergence in the initial fit will propagate to bootstrap CIs."
+		}
+		noi di as text "{hline 78}"
+		noi di
+	}
+}
+* Save diagnostics matrix for later e() posting
+tempname _gc_diag_saved
+capture confirm matrix _gc_diag_result
+if _rc == 0 {
+	matrix `_gc_diag_saved' = _gc_diag_result
+	capture matrix drop _gc_diag_result
+}
 
 local _gc_check_delete `_gc_check_delete'
 local _gc_check_print `_gc_check_print'
@@ -2437,6 +2662,10 @@ ereturn matrix ci_normal = `cin_post'
 capture ereturn matrix ci_percentile = `cip_post'
 capture ereturn matrix ci_bc = `cibc_post'
 capture ereturn matrix ci_bca = `cibca_post'
+capture confirm matrix `_gc_diag_saved'
+if _rc == 0 {
+	ereturn matrix model_diagnostics = `_gc_diag_saved'
+}
 * Convenience scalars
 if "`mediation'"!="" {
 	if "`oce'"=="" {
@@ -2526,6 +2755,7 @@ capture matrix drop ci_bc
 capture matrix drop ci_bca
 capture matrix drop _matrow
 capture matrix drop matvis
+capture matrix drop _gc_diag_result
 
 * Restore settings
 set varabbrev `_gc_varabbrev'
@@ -2550,9 +2780,13 @@ syntax varlist(min=2 numeric) [if] [in] , OUTcome(varname) COMmands(string) EQua
 	mediation EXposure(varlist) mediator(varlist) control(string) baseline(string) alternative(string) base_confs(varlist) ///
 	post_confs(varlist) impute(varlist) imp_eq(string) imp_cmd(string) imp_cycles(int 10) SIMulations(int 10000) ///
 	obe oce specific boceam linexp minsim moreMC logOR logRR graph saving(string) replace ///
-	_gc_maxid(integer 0) _gc_chk_del(integer 0) _gc_chk_prt(integer 0) _gc_chk_sav(integer 0) _gc_almost(string)]
+	_gc_maxid(integer 0) _gc_chk_del(integer 0) _gc_chk_prt(integer 0) _gc_chk_sav(integer 0) _gc_almost(string) ///
+	GCDIAGnostics GCDIAGShow]
+if "`gcdiagshow'" != "" {
+	local _gc_show_flag "show"
+}
 preserve
-*for the time-varying option, the first step is to make the dataset long again; this is how we want it, 
+*for the time-varying option, the first step is to make the dataset long again; this is how we want it,
 *but we had to start with it wide for the sake of the boostrapping
 local maxid=_N
 if _N!=`simulations' {
@@ -3916,6 +4150,9 @@ if "`mediation'"=="" {
 								noi di as err "   Warning: `command`i'' model for `simvar`i'' did not converge"
 							}
 						}
+						if "`gcdiagnostics'" != "" {
+							_gcomp_diag_capture, varname(`simvar`i'') command(`command`i'') visit(`k') `_gc_show_flag'
+						}
 *****************************************************************************************************************************************************************************
 						if "`command`i''"=="logit" | "`command`i''"=="regress" {
 							tempvar pred_simvar`i'
@@ -4037,10 +4274,8 @@ if "`mediation'"=="" {
 									noi di as err "   Warning: `command`i'' model for `simvar`i'' did not converge"
 								}
 							}
-							if `_gc_chk_prt'==0 & "`command`i''"!="regress" {
-								if e(converged)==0 {
-									noi di as err "   Warning: `command`i'' model for `simvar`i'' did not converge"
-								}
+							if "`gcdiagnostics'" != "" {
+								_gcomp_diag_capture, varname(`simvar`i'') command(`command`i'') visit(`k') `_gc_show_flag'
 							}
 *****************************************************************************************************************************************************************************
 							if "`command`i''"=="logit" | "`command`i''"=="regress" {
@@ -4143,6 +4378,9 @@ if "`mediation'"=="" {
 									qui `command`i'' `simvar`i'' `equation`i'' if `checkmono'==0
 									drop `checkmono'
 								}
+							}
+							if "`gcdiagnostics'" != "" {
+								_gcomp_diag_capture, varname(`simvar`i'') command(`command`i'') visit(`k') `_gc_show_flag'
 							}
 *****************************************************************************************************************************************************************************
 							if "`command`i''"=="logit" | "`command`i''"=="regress" {
@@ -4268,6 +4506,9 @@ else {
 			if e(converged)==0 {
 				noi di as err "   Warning: `command`i'' model for `simvar`i'' did not converge"
 			}
+		}
+		if "`gcdiagnostics'" != "" {
+			_gcomp_diag_capture, varname(`simvar`i'') command(`command`i'') `_gc_show_flag'
 		}
 *****************************************************************************************************************************************************************************
 		if "`command`i''"=="logit" | "`command`i''"=="regress" {
@@ -5022,6 +5263,82 @@ else {
 	noi di as result _col(`ci_col') %9.0g `ci_lo' _cont
 	noi di as result _col(`ci2_col') %9.0g `ci_hi'
 }
+end
+
+capture program drop _gcomp_diag_capture
+program define _gcomp_diag_capture
+	version 16.0
+	syntax, varname(string) command(string) [visit(string) show]
+	local _n = e(N)
+	local _converged = .
+	local _ll = .
+	local _r2 = .
+	local _rmse = .
+	if inlist("`command'", "logit", "mlogit", "ologit") {
+		local _converged = e(converged)
+		local _ll = e(ll)
+		local _r2 = e(r2_p)
+	}
+	if "`command'" == "regress" {
+		local _r2 = e(r2)
+		local _rmse = e(rmse)
+	}
+	local _cleanvar = subinstr("`varname'", "_", "", .)
+	if "`_cleanvar'" == "" local _cleanvar "v"
+	if "`visit'" != "" {
+		local _rowname "`_cleanvar't`visit'"
+	}
+	else {
+		local _rowname "`_cleanvar'"
+	}
+	tempname _newrow
+	matrix `_newrow' = (`_n', `_converged', `_ll', `_r2', `_rmse')
+	matrix colnames `_newrow' = N converged ll r2 rmse
+	matrix rownames `_newrow' = `_rowname'
+	capture confirm matrix _gc_diag_result
+	if _rc {
+		matrix _gc_diag_result = `_newrow'
+	}
+	else {
+		matrix _gc_diag_result = _gc_diag_result \ `_newrow'
+	}
+	if "`show'" != "" {
+		if "`visit'" != "" {
+			local _vlabel " (t=`visit')"
+		}
+		else {
+			local _vlabel ""
+		}
+		if "`command'" == "regress" {
+			noi di as text "   Diagnostics: `varname'`_vlabel'" ///
+				_col(40) "N=" as result %7.0f `_n' ///
+				as text "  R" _char(178) "=" as result %6.4f `_r2' ///
+				as text "  RMSE=" as result %8.4f `_rmse'
+		}
+		else {
+			local _conv_label "yes"
+			if `_converged' == 0 {
+				local _conv_label "{err}NO{text}"
+			}
+			noi di as text "   Diagnostics: `varname'`_vlabel'" ///
+				_col(40) "N=" as result %7.0f `_n' ///
+				as text "  pseudo-R" _char(178) "=" as result %6.4f `_r2' ///
+				as text "  converged=`_conv_label'"
+		}
+		if `_converged' == 0 {
+			noi di as err "   >>> WARNING: `command' model for `varname'`_vlabel' did not converge."
+			noi di as err "       Estimates may be unreliable. Check equation specification."
+		}
+		if `_n' < 20 {
+			noi di as err "   >>> WARNING: `command' model for `varname'`_vlabel' fit on only `_n' observations."
+		}
+		if "`command'" == "regress" & `_r2' < 0.01 {
+			noi di as text "   >>> Note: very low R" _char(178) " for `varname'`_vlabel'. Model explains <1% of variance."
+		}
+		if inlist("`command'", "logit", "mlogit", "ologit") & `_r2' != . & `_r2' < 0.001 {
+			noi di as text "   >>> Note: very low pseudo-R" _char(178) " for `varname'`_vlabel'. Model may have poor discrimination."
+		}
+	}
 end
 
 capture program drop _gcomp_detangle
