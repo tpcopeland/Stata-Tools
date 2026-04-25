@@ -26,7 +26,7 @@ for general 2x2 tables and {helpb corrtab} for matrix-style correlation output.{
 {marker syntax}{title:Syntax}
 
 {p 4 8 2}{cmd:diagtab} {it:test_var} {it:gold_var} [{it:if}] [{it:in}],
-[{opt xlsx(filename)} {opt excel(filename)} {opt cuto:ff(#)} {opt cuto:ffs(numlist)}
+[{opt xlsx(filename)} {opt excel(filename)} {opt cut:off(#)} {opt cuto:ffs(numlist)}
 {opt preval:ence(#)} {opt exact} {opt wilson} {opt auc} {opt opt:imal}
 {opt dig:its(#)} {opt sheet(string)} {opt title(string)}
 {opt foot:note(string)} {opt the:me(string)} {opt border:style(string)}
@@ -49,7 +49,7 @@ exported to Excel or CSV, or stored in a Stata frame.{p_end}
 {synoptset 24 tabbed}{...}
 {synoptline}
 {syntab:Diagnostic}
-{synopt:{opt cutoff(#)}}dichotomize a continuous test variable at a single threshold{p_end}
+{synopt:{opt cut:off(#)}}dichotomize a continuous test variable at a single threshold{p_end}
 {synopt:{opt cutoffs(numlist)}}evaluate diagnostic accuracy over multiple cutoff values; cannot be combined with {opt cutoff()}, {opt auc}, or {opt optimal}{p_end}
 {synopt:{opt prevalence(#)}}adjust PPV and NPV for a target prevalence between 0 and 1{p_end}
 {synopt:{opt exact}}use Clopper-Pearson exact confidence intervals; may not be combined with {opt wilson}{p_end}
@@ -78,7 +78,7 @@ exported to Excel or CSV, or stored in a Stata frame.{p_end}
 
 {dlgtab:Diagnostic details}
 
-{phang}{opt cutoff(#)} dichotomize a continuous test variable at this threshold.
+{phang}{opt cut:off(#)} dichotomize a continuous test variable at this threshold.
 Values >= cutoff are classified as test-positive.{p_end}
 
 {phang}{opt cutoffs(numlist)} evaluate diagnostic accuracy at multiple cutoff

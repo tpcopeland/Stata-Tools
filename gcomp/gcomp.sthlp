@@ -165,9 +165,7 @@ and {cmd:ologit}.
 {opt outcome(varname)} specifies the outcome variable.
 
 {phang}
-{opt commands(string)} specifies the model command for each simulated variable.
-Syntax: {cmd:commands(}{it:var1}{cmd:: }{it:cmd1}{cmd:, }{it:var2}{cmd:: }{it:cmd2}{cmd:)}.
-Supported commands: {cmd:logit}, {cmd:regress}, {cmd:mlogit}, {cmd:ologit}.
+{opt commands(string)} specifies the model command for each simulated variable. Syntax: {cmd:commands(}{it:var1}{cmd:: }{it:cmd1}{cmd:, }{it:var2}{cmd:: }{it:cmd2}{cmd:)}. Supported commands: {cmd:logit}, {cmd:regress}, {cmd:mlogit}, {cmd:ologit}.
 
 {phang}
 {opt equations(string)} specifies the prediction equation for each simulated
@@ -194,10 +192,7 @@ modeled and re-simulated at each time point.
 applied (typically the time-varying exposure).
 
 {phang}
-{opt interventions(string)} specifies the intervention rules. Each
-intervention defines how {opt intvars()} are set at each time point, e.g.,
-{cmd:interventions(A=0)} sets the exposure to 0 at every time point.
-Multiple interventions can be specified for comparison.
+{opt interventions(string)} specifies the intervention rules. Each intervention defines how {opt intvars()} are set at each time point, e.g., {cmd:interventions(A=0)} sets the exposure to 0 at every time point. Multiple interventions can be specified for comparison.
 
 {dlgtab:Required (mediation)}
 
@@ -220,8 +215,7 @@ exposure-outcome and mediator-outcome relationships.
 {dlgtab:Mediation effect types}
 
 {phang}
-{opt obe} specifies observed baseline exposure for binary exposure variables.
-This computes effects comparing all-exposed vs. all-unexposed.
+{opt obe} specifies observed baseline exposure for binary exposure variables. This computes effects comparing all-exposed vs. all-unexposed.
 
 {phang}
 {opt oce} specifies observed conditional exposure for categorical exposure
@@ -338,8 +332,7 @@ dataset sample size. If larger than the sample size, {opt moreMC} must
 also be specified.
 
 {phang}
-{opt samples(#)} sets the number of bootstrap replications for inference.
-Default is {cmd:1000}.
+{opt samples(#)} sets the number of bootstrap replications for inference. Default is {cmd:1000}.
 
 {phang}
 {opt seed(#)} sets the random number seed for reproducibility.
@@ -365,10 +358,7 @@ normal CIs are reported.
 different intervention or mediation scenarios.
 
 {phang}
-{opt saving(filename)} saves the simulated dataset from the main estimation
-run to {it:filename} for further analysis. The saved file contains the
-intervention indicator {_int} plus the variables retained for the analysis.
-It does not save Stata's bootstrap replicate-statistics dataset.
+{opt saving(filename)} saves the simulated dataset from the main estimation run to {it:filename} for further analysis. The saved file contains the intervention indicator {cmd:_int} plus the variables retained for the analysis. It does not save Stata's bootstrap replicate-statistics dataset.
 
 {phang}
 {opt replace} allows {opt saving()} to overwrite an existing file.

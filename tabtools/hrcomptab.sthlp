@@ -5,6 +5,7 @@
 {viewerjumpto "Options" "hrcomptab##options"}{...}
 {viewerjumpto "Examples" "hrcomptab##examples"}{...}
 {viewerjumpto "Stored results" "hrcomptab##stored"}{...}
+{viewerjumpto "Author" "hrcomptab##author"}{...}
 {viewerjumpto "Also see" "hrcomptab##alsosee"}{...}
 {vieweralsosee "stratetab" "help stratetab"}{...}
 {vieweralsosee "regtab" "help regtab"}{...}
@@ -231,6 +232,14 @@ frame contributes 1 non-reference row, and the dose-category frame contributes
 {synopt:{cmd:r(sheet)}}Excel sheet name, when exported{p_end}
 {synopt:{cmd:r(csv)}}CSV path, when exported{p_end}
 {synopt:{cmd:r(frame)}}output frame name, when {cmd:frame()} specified{p_end}
+
+
+{marker author}{...}
+{title:Author}
+
+{pstd}Timothy P Copeland, Karolinska Institutet{p_end}
+{pstd}timothy.copeland@ki.se{p_end}
+{pstd}Version 1.0.9{p_end}
 
 
 {marker alsosee}{...}

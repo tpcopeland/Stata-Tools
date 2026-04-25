@@ -6,6 +6,7 @@
 {viewerjumpto "Examples" "comptab##examples"}{...}
 {viewerjumpto "Stored results" "comptab##stored"}{...}
 {viewerjumpto "Also see" "comptab##alsosee"}{...}
+{viewerjumpto "Author" "comptab##author"}{...}
 {vieweralsosee "regtab" "help regtab"}{...}
 {vieweralsosee "effecttab" "help effecttab"}{...}
 {vieweralsosee "tabtools" "help tabtools"}{...}
