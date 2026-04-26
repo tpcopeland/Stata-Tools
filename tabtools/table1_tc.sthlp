@@ -209,6 +209,7 @@ directly to a regression model:{p_end}
 {synopt:{cmd:r(varlist)}}space-separated list of processed variables{p_end}
 {synopt:{cmd:r(xlsx)}}path to exported Excel file (when {opt xlsx()} specified){p_end}
 {synopt:{cmd:r(sheet)}}Excel sheet name (when {opt xlsx()} specified){p_end}
+{synopt:{cmd:r(frame)}}frame name (if {cmd:frame()} specified){p_end}
 
 {p2col 5 18 22 2: Matrices}{p_end}
 {synopt:{cmd:r(table)}}numeric matrix of raw {cmd:p_value} and absolute {cmd:smd} for top-level variable rows; omitted when no such columns exist or when the table has more than 200 rows{p_end}

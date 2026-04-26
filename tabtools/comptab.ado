@@ -116,7 +116,7 @@ program define comptab, rclass
     syntax anything(name=framelist), [rows(string) ROWNames(string)] ///
         [xlsx(string) excel(string) sheet(string)] ///
         [title(string) FOOTnote(string asis) COMPact ///
-        SEParator(numlist >0 integer sort) SECTion(string asis) ///
+        SEParator(numlist >0 integer sort) SECtion(string asis) ///
         RELAbel(string asis) ///
         THEme(string) BORDERstyle(string) open zebra ///
         HIGHlight(real -1) BOLDp(real -1) ///

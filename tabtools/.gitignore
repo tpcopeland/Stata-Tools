@@ -1,0 +1,5 @@
+output/
+qa/output_issue_rendering/
+**/__pycache__/
+*.log
+*.smcl
