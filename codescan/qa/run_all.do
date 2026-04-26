@@ -13,6 +13,8 @@ foreach f in ///
     test_countrows ///
     test_codescan_regressions ///
     test_documentation_examples ///
+    _test_known_answers ///
+    _test_mata_opt ///
     validation_codescan ///
     validation_codescan_io ///
     validation_codescan_output ///
