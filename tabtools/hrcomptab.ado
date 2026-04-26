@@ -36,7 +36,7 @@ program define hrcomptab, rclass
         syntax anything(name=rateframe) , MODELFRAMES(string asis) ///
             [rows(string asis) ROWNAMES(string asis) ///
             XLSX(string) EXCEL(string) SHEET(string) ///
-            TITLE(string) FOOTnote(string asis) ///
+            TITLE(string) FOOTnote(string) ///
             EFFect(string) REFLabel(string) ///
             BORDERstyle(string) THEme(string) ///
             open zebra HEADERShade ///
