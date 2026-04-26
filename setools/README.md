@@ -1,12 +1,12 @@
 # setools - Swedish registry tools for epidemiological cohort studies
 
-**Version 1.2.0** | 2026-04-24
+**Version 1.2.1** | 2026-04-26
 
 `setools` is a registry-workflow toolkit rather than a single estimation command. It groups together utilities for Swedish diagnosis and procedure coding, migration-based cohort construction, and multiple-sclerosis disability progression endpoints built from repeated EDSS measurements.
 
 The package is most useful when you need practical building blocks for cohort definition, comorbidity scoring, and endpoint derivation in Swedish register-based research.
 
-The package metadata, help files, and `setools` return value are synchronized at version 1.2.0 dated 2026-04-24.
+The package metadata, help files, and `setools` return value are synchronized at version 1.2.1 dated 2026-04-26.
 
 ## Requirements
 

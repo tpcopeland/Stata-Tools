@@ -1,4 +1,4 @@
-*! cci_se Version 1.2.0  2026/04/24
+*! cci_se Version 1.2.1  2026/04/26
 *! Swedish Charlson Comorbidity Index using ICD-7 through ICD-10
 *! Based on Ludvigsson et al. Clinical Epidemiology 2021;13:21-41
 *! Part of the setools package
@@ -115,6 +115,14 @@ program define cci_se, rclass
     if "`generate'" == "`id'" {
         display as error "generate() name cannot be same as id() variable"
         exit 198
+    }
+
+    if "`components'" != "" {
+        local _pfxlen = strlen("`prefix'")
+        if substr("`generate'", 1, `_pfxlen') == "`prefix'" {
+            display as error "generate() name conflicts with component variable prefix"
+            exit 198
+        }
     }
 
     * ---------------------------------------------------------------
@@ -262,7 +270,9 @@ program define cci_se, rclass
 
     * Apply same hierarchy to dates
     if `_do_dates' {
-        quietly replace _cci_d_15 = min(_cci_d_13, _cci_d_14) ///
+        quietly replace _cci_d_15 = min(_cci_d_15, max(_cci_d_13, _cci_d_14)) ///
+            if !missing(_cci_d_13) & !missing(_cci_d_14) & !missing(_cci_d_15)
+        quietly replace _cci_d_15 = max(_cci_d_13, _cci_d_14) ///
             if !missing(_cci_d_13) & !missing(_cci_d_14) & missing(_cci_d_15)
         quietly replace _cci_d_13 = . if _cci_15 > 0
         quietly replace _cci_d_10 = . if _cci_11 > 0
@@ -549,7 +559,7 @@ void _cci_se_classify(string scalar code_var, string scalar yr_var,
     _cci_aa_range(ht10, "C", 81, 97, 17)
     asarray_remove(ht10, "C42")
     asarray_remove(ht10, "C44")
-    asarray_remove(ht10, "C87")
+    asarray_remove(ht10, "C87")  // C87 unallocated in WHO ICD-10; remove from C81-C97 range
 
     // --- 18. Metastatic cancer ---
     // ICD-7: 156,91 198 199

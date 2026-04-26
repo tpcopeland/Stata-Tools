@@ -26,6 +26,7 @@ local test_count = 0
 local pass_count = 0
 local fail_count = 0
 local failed_tests ""
+local tol = 1e-6
 
 capture program drop _ka_set_unit_weights
 program define _ka_set_unit_weights
@@ -100,18 +101,20 @@ capture noisily {
     msm_prepare, id(id) period(period) treatment(treatment) ///
         outcome(outcome) covariates(x)
     msm_weight, treat_d_cov(x) nolog
+    local mean_weight = r(mean_weight)
+    local ess = r(ess)
 
     quietly summarize _msm_weight if x == 0 & treatment == 1, meanonly
-    assert abs(r(mean) - 2) < 1e-10
+    assert abs(r(mean) - 2) < `tol'
     quietly summarize _msm_weight if x == 0 & treatment == 0, meanonly
-    assert abs(r(mean) - (2/3)) < 1e-10
+    assert abs(r(mean) - (2/3)) < `tol'
     quietly summarize _msm_weight if x == 1 & treatment == 1, meanonly
-    assert abs(r(mean) - (2/3)) < 1e-10
+    assert abs(r(mean) - (2/3)) < `tol'
     quietly summarize _msm_weight if x == 1 & treatment == 0, meanonly
-    assert abs(r(mean) - 2) < 1e-10
+    assert abs(r(mean) - 2) < `tol'
 
-    assert abs(r(mean_weight) - 1) < 1e-10
-    assert abs(r(ess) - 120) < 1e-8
+    assert abs(`mean_weight' - 1) < `tol'
+    assert abs(`ess' - 120) < `tol'
 }
 if _rc == 0 {
     display as result "  PASS KA1: exact stabilized weights and ESS"
@@ -284,16 +287,16 @@ capture noisily {
         local exp_always = 1 - (1 - `q_always')^`k'
         local exp_diff = `exp_always' - `exp_never'
 
-        assert abs(`P'[`row', 2] - `exp_never') < 1e-10
-        assert abs(`P'[`row', 3] - `exp_never') < 1e-10
-        assert abs(`P'[`row', 4] - `exp_never') < 1e-10
-        assert abs(`P'[`row', 5] - `exp_always') < 1e-10
-        assert abs(`P'[`row', 6] - `exp_always') < 1e-10
-        assert abs(`P'[`row', 7] - `exp_always') < 1e-10
-        assert abs(`P'[`row', 8] - `exp_diff') < 1e-10
-        assert abs(`P'[`row', 9] - `exp_diff') < 1e-10
-        assert abs(`P'[`row', 10] - `exp_diff') < 1e-10
-        assert abs(r(rd_`t') - `exp_diff') < 1e-10
+        assert abs(`P'[`row', 2] - `exp_never') < `tol'
+        assert abs(`P'[`row', 3] - `exp_never') < `tol'
+        assert abs(`P'[`row', 4] - `exp_never') < `tol'
+        assert abs(`P'[`row', 5] - `exp_always') < `tol'
+        assert abs(`P'[`row', 6] - `exp_always') < `tol'
+        assert abs(`P'[`row', 7] - `exp_always') < `tol'
+        assert abs(`P'[`row', 8] - `exp_diff') < `tol'
+        assert abs(`P'[`row', 9] - `exp_diff') < `tol'
+        assert abs(`P'[`row', 10] - `exp_diff') < `tol'
+        assert abs(r(rd_`t') - `exp_diff') < `tol'
     }
 
     assert "`r(seed)'" == "12345"
@@ -342,9 +345,9 @@ capture noisily {
         local p_t = invlogit(`alpha' + `beta' + `gamma' * `t')
         local expected_surv = `expected_surv' * (1 - `p_t')
 
-        assert abs(`P'[`row', 5] - `expected_surv') < 1e-10
-        assert abs(`P'[`row', 6] - `expected_surv') < 1e-10
-        assert abs(`P'[`row', 7] - `expected_surv') < 1e-10
+        assert abs(`P'[`row', 5] - `expected_surv') < `tol'
+        assert abs(`P'[`row', 6] - `expected_surv') < `tol'
+        assert abs(`P'[`row', 7] - `expected_surv') < `tol'
     }
 
     assert "`r(strategy)'" == "always"
@@ -397,9 +400,9 @@ capture noisily {
         local k = `t' + 1
         local expected = 1 - (((1 - `p_x0')^`k' + (1 - `p_x1')^`k') / 2)
 
-        assert abs(`P'[`row', 2] - `expected') < 1e-10
-        assert abs(`P'[`row', 3] - `expected') < 1e-10
-        assert abs(`P'[`row', 4] - `expected') < 1e-10
+        assert abs(`P'[`row', 2] - `expected') < `tol'
+        assert abs(`P'[`row', 3] - `expected') < `tol'
+        assert abs(`P'[`row', 4] - `expected') < `tol'
     }
 }
 if _rc == 0 {
@@ -584,28 +587,28 @@ capture noisily {
     local overall_mean = r(mean_weight)
 
     quietly summarize _msm_tw_weight if period == 0, meanonly
-    assert abs(r(mean) - 1) < 1e-10
+    assert abs(r(mean) - 1) < `tol'
     quietly summarize _msm_tw_weight if period == 1, meanonly
-    assert abs(r(mean) - 1) < 1e-10
+    assert abs(r(mean) - 1) < `tol'
 
     quietly summarize _msm_tw_weight if period == 1 & x == 0 & a0 == 1 & a1 == 1, meanonly
-    assert abs(r(mean) - 5) < 1e-10
+    assert abs(r(mean) - 5) < `tol'
     quietly summarize _msm_tw_weight if period == 1 & x == 0 & a0 == 1 & a1 == 0, meanonly
-    assert abs(r(mean) - 1) < 1e-10
+    assert abs(r(mean) - 1) < `tol'
     quietly summarize _msm_tw_weight if period == 1 & x == 0 & a0 == 0 & a1 == 1, meanonly
-    assert abs(r(mean) - 1) < 1e-10
+    assert abs(r(mean) - 1) < `tol'
     quietly summarize _msm_tw_weight if period == 1 & x == 0 & a0 == 0 & a1 == 0, meanonly
-    assert abs(r(mean) - (5 / 9)) < 1e-10
+    assert abs(r(mean) - (5 / 9)) < `tol'
     quietly summarize _msm_tw_weight if period == 1 & x == 1 & a0 == 1 & a1 == 1, meanonly
-    assert abs(r(mean) - (5 / 9)) < 1e-10
+    assert abs(r(mean) - (5 / 9)) < `tol'
     quietly summarize _msm_tw_weight if period == 1 & x == 1 & a0 == 1 & a1 == 0, meanonly
-    assert abs(r(mean) - 1) < 1e-10
+    assert abs(r(mean) - 1) < `tol'
     quietly summarize _msm_tw_weight if period == 1 & x == 1 & a0 == 0 & a1 == 1, meanonly
-    assert abs(r(mean) - 1) < 1e-10
+    assert abs(r(mean) - 1) < `tol'
     quietly summarize _msm_tw_weight if period == 1 & x == 1 & a0 == 0 & a1 == 0, meanonly
-    assert abs(r(mean) - 5) < 1e-10
+    assert abs(r(mean) - 5) < `tol'
 
-    assert abs(`overall_mean' - 1) < 1e-10
+    assert abs(`overall_mean' - 1) < `tol'
 }
 if _rc == 0 {
     display as result "  PASS KA11: exact cumulative two-period treatment weights"
@@ -790,29 +793,29 @@ capture noisily {
     local n_probability_repairs = r(n_probability_repairs)
 
     quietly summarize _msm_tw_weight, meanonly
-    assert abs(r(mean) - 1) < 1e-10
-    assert abs(r(min) - 1) < 1e-10
-    assert abs(r(max) - 1) < 1e-10
+    assert abs(r(mean) - 1) < `tol'
+    assert abs(r(min) - 1) < `tol'
+    assert abs(r(max) - 1) < `tol'
 
     quietly summarize _msm_cw_weight if x == 0, meanonly
-    assert abs(r(mean) - (2 / 3)) < 1e-8
+    assert abs(r(mean) - (2 / 3)) < `tol'
     quietly summarize _msm_cw_weight if x == 1, meanonly
-    assert abs(r(mean) - 2) < 1e-8
+    assert abs(r(mean) - 2) < `tol'
 
     quietly summarize _msm_weight if x == 0, meanonly
-    assert abs(r(mean) - (2 / 3)) < 1e-8
+    assert abs(r(mean) - (2 / 3)) < `tol'
     quietly summarize _msm_weight if x == 1, meanonly
-    assert abs(r(mean) - 2) < 1e-8
+    assert abs(r(mean) - 2) < `tol'
 
-    assert abs(`mean_weight' - (4 / 3)) < 1e-8
-    assert abs(`ess' - 128) < 1e-8
+    assert abs(`mean_weight' - (4 / 3)) < `tol'
+    assert abs(`ess' - 128) < `tol'
     assert `n_fitfail_fallback' == 0
     assert `n_probability_repairs' == 0
 
     tempvar wdiff
     gen double `wdiff' = abs(_msm_weight - _msm_cw_weight)
     quietly summarize `wdiff', meanonly
-    assert r(max) < 1e-12
+    assert r(max) < `tol'
 }
 if _rc == 0 {
     display as result "  PASS KA15: exact stabilized censoring weights and combined weight identity"

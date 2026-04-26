@@ -79,8 +79,8 @@ run_test "T1.1: setools runs without error" `t'
 
 * T1.2: Version return value
 setools
-local t = ("`r(version)'" == "1.2.0")
-run_test "T1.2: r(version) = 1.2.0" `t'
+local t = ("`r(version)'" == "1.2.1")
+run_test "T1.2: r(version) = 1.2.1" `t'
 
 * T1.3: Command count
 setools

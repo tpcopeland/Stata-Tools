@@ -19,6 +19,7 @@ foreach f in ///
     _test_cci_dates ///
     validation_setools ///
     validation_known_answer_boundaries ///
+    validation_cci_se_v121 ///
     test_migrations_perm_emig_bug ///
     test_migrations_keepimmigrants ///
     test_migrations_minresidence ///
