@@ -1,6 +1,6 @@
 # iivw - Inverse intensity of visit weighting for longitudinal data
 
-**Version 1.0.1** | 2026-04-17
+**Version 1.0.2** | 2026-04-26
 
 `iivw` corrects bias from informative visit timing in irregular longitudinal data. It computes inverse intensity weights (IIW), inverse probability of treatment weights (IPTW), or their product (FIPTIW), then fits weighted outcome models with GEE-style estimation or mixed models. The package is designed for clinic-based panel data where sicker patients tend to be seen more often.
 
@@ -139,6 +139,17 @@ The package ships with functional, validation, and cross-validation QA under `qa
 - Lin H, Scharfstein DO, Rosenheck RA. Analysis of longitudinal data with irregular, outcome-dependent follow-up. *Journal of the Royal Statistical Society Series B*. 2004;66(3):791-813.
 - Pullenayegum EM. Multiple outputation for the analysis of longitudinal data subject to irregular observation. *Statistics in Medicine*. 2016;35(11):1800-1818.
 - Tompkins G, Dubin JA, Wallace M. On flexible inverse probability of treatment and intensity weighting. *Statistical Methods in Medical Research*. 2025.
+
+## Changelog
+
+### v1.0.2 (2026-04-26)
+
+- Added `efron` option to `iivw_weight` for Efron tie-handling in the Cox model (matches R's coxph default; Breslow remains the Stata default)
+- Improved `stabcov()` documentation with guidance on numerator model specification in FIPTIW settings
+- Added Remarks in `iivw_fit.sthlp` for choosing between GEE and mixed models, and for timespec selection
+- Expanded `entry()` documentation for late-entry/left-truncation designs
+- Fixed `iivw.sthlp` Example 1 to match README (was showing wrong predictors)
+- Improved error message for time-varying treatment (suggests MSMs as alternative)
 
 ## Author
 

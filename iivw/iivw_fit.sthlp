@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.1  17apr2026}{...}
+{* *! version 1.0.2  26apr2026}{...}
 {vieweralsosee "iivw" "help iivw"}{...}
 {vieweralsosee "iivw_weight" "help iivw_weight"}{...}
 {vieweralsosee "[XT] xtgee" "help xtgee"}{...}
@@ -203,6 +203,30 @@ errors.  This structure is required by IIW theory.
 metadata are read from dataset characteristics set by {cmd:iivw_weight}.
 
 {pstd}
+{bf:Mixed vs. GEE}
+
+{pstd}
+The GEE model (default) assumes a marginal (population-averaged) structure,
+which is what IIW theory requires (Buzkova & Lumley 2007).  The mixed model
+adds a subject-specific random intercept and estimates a conditional
+(subject-specific) treatment effect.  Use {cmd:model(mixed)} only when a
+conditional interpretation is specifically needed and you understand that
+the IIW theoretical justification is for marginal models.
+
+{pstd}
+{bf:Choosing timespec}
+
+{pstd}
+The choice of time specification affects the estimated treatment effect.
+{cmd:timespec(linear)} assumes a constant rate of change over time,
+appropriate when the outcome trends linearly.  {cmd:timespec(ns(3))} or
+{cmd:timespec(ns(4))} allows flexible nonlinear trends, preferable when
+the outcome trajectory has curvature (e.g., rapid early change that
+plateaus).  Start with {cmd:linear}, then compare to {cmd:ns(3)} to check
+sensitivity.  Quadratic and cubic specifications are available but natural
+splines are generally more stable at the boundaries.
+
+{pstd}
 {bf:Convergence}
 
 {pstd}
@@ -366,7 +390,7 @@ To compare multiple weighting strategies side by side:
 {pstd}Timothy P Copeland{p_end}
 {pstd}Department of Clinical Neuroscience{p_end}
 {pstd}Karolinska Institutet{p_end}
-{pstd}Version 1.0.1, 2026-04-17{p_end}
+{pstd}Version 1.0.2, 2026-04-26{p_end}
 
 
 {title:Also see}

@@ -643,7 +643,7 @@ program define _datamap_ProcessDataset
 
 	// Generate natural language summary
 	_datamap_GenerateDatasetSummary `fh' "`filepath'" `obs' `nvars' "`label'" ///
-		`detect_panel' `detect_survival' "`panelid'" "`dateformat'"
+		`detect_panel' `detect_survival' "`panelid'" "`dateformat'" "`datesafe'"
 
 	// Run detection features if requested
 	if `detect_panel' | "`panelid'" != "" {
@@ -984,10 +984,11 @@ program define _datamap_ProcessVariables
 			local nmiss = missing_n[`i']
 		}
 		if missing(missing_pct[`i']) {
-			local pctmiss = 0
+			local pctmiss "0.0"
 		}
 		else {
-			local pctmiss = missing_pct[`i']
+			local pctmiss : di %5.1f missing_pct[`i']
+			local pctmiss = strtrim("`pctmiss'")
 		}
 
 		file write `fh' "  `vname'" _n
@@ -1060,10 +1061,11 @@ program define _datamap_ProcessCategorical
 			local nmiss = missing_n[`i']
 		}
 		if missing(missing_pct[`i']) {
-			local pctmiss = 0
+			local pctmiss "0.0"
 		}
 		else {
-			local pctmiss = missing_pct[`i']
+			local pctmiss : di %5.1f missing_pct[`i']
+			local pctmiss = strtrim("`pctmiss'")
 		}
 		if missing(unique_vals[`i']) {
 			local nuniq = 0
@@ -1096,10 +1098,11 @@ program define _datamap_ProcessCategorical
 					local val = vals[`j',1]
 					local freq = freqs[`j',1]
 					if `obs' > 0 {
-						local pct = round(100*`freq'/`obs', 0.1)
+						local pct : di %5.1f round(100*`freq'/`obs', 0.1)
+						local pct = strtrim("`pct'")
 					}
 					else {
-						local pct = .
+						local pct "."
 					}
 					local vlab : label (`vname') `val'
 					file write `fh' "    `val' = `vlab': `freq' (`pct'%)" _n
@@ -1169,10 +1172,11 @@ program define _datamap_ProcessContinuous
 			local nmiss = missing_n[`i']
 		}
 		if missing(missing_pct[`i']) {
-			local pctmiss = 0
+			local pctmiss "0.0"
 		}
 		else {
-			local pctmiss = missing_pct[`i']
+			local pctmiss : di %5.1f missing_pct[`i']
+			local pctmiss = strtrim("`pctmiss'")
 		}
 		if missing(unique_vals[`i']) {
 			local nuniq = 0
@@ -1302,10 +1306,11 @@ program define _datamap_ProcessDate
 			local nmiss = missing_n[`i']
 		}
 		if missing(missing_pct[`i']) {
-			local pctmiss = 0
+			local pctmiss "0.0"
 		}
 		else {
-			local pctmiss = missing_pct[`i']
+			local pctmiss : di %5.1f missing_pct[`i']
+			local pctmiss = strtrim("`pctmiss'")
 		}
 
 		file write `fh' "VARIABLE: `vname'" _n
@@ -1448,10 +1453,11 @@ program define _datamap_ProcessString
 			local nmiss = missing_n[`i']
 		}
 		if missing(missing_pct[`i']) {
-			local pctmiss = 0
+			local pctmiss "0.0"
 		}
 		else {
-			local pctmiss = missing_pct[`i']
+			local pctmiss : di %5.1f missing_pct[`i']
+			local pctmiss = strtrim("`pctmiss'")
 		}
 
 		local is_strL = ("`vtype'" == "strL")
@@ -1562,10 +1568,11 @@ program define _datamap_ProcessExcluded
 			local nmiss = missing_n[`i']
 		}
 		if missing(missing_pct[`i']) {
-			local pctmiss = 0
+			local pctmiss "0.0"
 		}
 		else {
-			local pctmiss = missing_pct[`i']
+			local pctmiss : di %5.1f missing_pct[`i']
+			local pctmiss = strtrim("`pctmiss'")
 		}
 
 		file write `fh' "VARIABLE: `vname'" _n
@@ -1707,10 +1714,11 @@ program define _datamap_ProcessBinary
 			local val = vals[`j',1]
 			local freq = freqs[`j',1]
 			if `obs' > 0 {
-				local pct = round(100*`freq'/`obs', 0.1)
+				local pct : di %5.1f round(100*`freq'/`obs', 0.1)
+				local pct = strtrim("`pct'")
 			}
 			else {
-				local pct = .
+				local pct "."
 			}
 			capture local vallabtext : label (`vname') `val'
 			if _rc == 0 & "`vallabtext'" != "" {
@@ -2160,7 +2168,7 @@ end
 // =============================================================================
 program define _datamap_GenerateDatasetSummary
 	version 16.0
-	args fh filepath obs nvars label detect_panel detect_survival panelid dateformat
+	args fh filepath obs nvars label detect_panel detect_survival panelid dateformat datesafe
 
 	quietly use "`filepath'", clear
 
@@ -2258,17 +2266,21 @@ program define _datamap_GenerateDatasetSummary
 	}
 
 	if `has_dates' & `earliest' != . & `latest' != . {
-		// Use dateformat for daily dates, adapt for datetime, keep native for others
-		local dispfmt "`datefmt'"
-		if strpos("`datefmt'", "%td") > 0 | strpos("`datefmt'", "%d") > 0 {
-			local dispfmt "`dateformat'"
+		if "`datesafe'" != "" {
+			local summary "`summary'The data includes date variables (exact range suppressed for privacy). "
 		}
-		else if strpos("`datefmt'", "%tc") > 0 | strpos("`datefmt'", "%tC") > 0 {
-			local dispfmt = subinstr("`dateformat'", "%td", "%tc", 1)
+		else {
+			local dispfmt "`datefmt'"
+			if strpos("`datefmt'", "%td") > 0 | strpos("`datefmt'", "%d") > 0 {
+				local dispfmt "`dateformat'"
+			}
+			else if strpos("`datefmt'", "%tc") > 0 | strpos("`datefmt'", "%tC") > 0 {
+				local dispfmt = subinstr("`dateformat'", "%td", "%tc", 1)
+			}
+			local earliest_str = string(`earliest', "`dispfmt'")
+			local latest_str = string(`latest', "`dispfmt'")
+			local summary "`summary'The data spans from `earliest_str' to `latest_str'. "
 		}
-		local earliest_str = string(`earliest', "`dispfmt'")
-		local latest_str = string(`latest', "`dispfmt'")
-		local summary "`summary'The data spans from `earliest_str' to `latest_str'. "
 	}
 
 	// Detect variable groups

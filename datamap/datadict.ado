@@ -363,7 +363,7 @@ program define _datadict_ProcessCombined
 	local chlogidx = `nfiles' + 2
 	file write `fh' `"`notesidx'. [Notes](#notes)"' _n
 	file write `fh' `"`chlogidx'. [Change Log](#change-log)"' _n
-	file write `fh' _n "---" _n _n
+	file write `fh' _n _n
 
 	// Process each dataset
 	tempname fh_list fh_names2
@@ -398,7 +398,6 @@ program define _datadict_ProcessCombined
 	// Notes section
 	file write `fh' "## Notes" _n _n
 	if `"`notes'"' != "" {
-		// Read notes from file
 		capture quietly confirm file `"`notes'"'
 		if _rc == 0 {
 			tempname fh_notes
@@ -411,13 +410,13 @@ program define _datadict_ProcessCombined
 			file close `fh_notes'
 		}
 		else {
-			file write `fh' `"- Notes file not found: `notes'"' _n
+			file write `fh' `"`macval(notes)'"' _n
 		}
 	}
 	else {
 		file write `fh' "- No additional notes provided" _n
 	}
-	file write `fh' _n "---" _n _n
+	file write `fh' _n _n
 
 	// Change Log section
 	file write `fh' "## Change Log" _n _n
@@ -434,13 +433,13 @@ program define _datadict_ProcessCombined
 			file close `fh_clog'
 		}
 		else {
-			file write `fh' `"Changelog file not found: `changelog'"' _n
+			file write `fh' `"`macval(changelog)'"' _n
 		}
 	}
 	else {
 		file write `fh' "*No changes recorded.*" _n
 	}
-	file write `fh' _n "---" _n _n
+	file write `fh' _n _n
 
 	// Footer
 	if `"`version'"' != "" {
@@ -501,7 +500,7 @@ program define _datadict_ProcessSeparate
 		if `"`version'"' != "" {
 			file write `fh' `"Version `version'"' _n _n
 		}
-		file write `fh' "---" _n _n
+		file write `fh' _n
 
 		// Process dataset
 		_datadict_ProcessOneDataset `fh' `"`macval(filepath)'"' `"`dsname'"' `"`macval(dslabel)'"' 1 "`showmissing'" "`showstats'" `maxcat' `maxfreq' "`dateformat'"
@@ -510,7 +509,7 @@ program define _datadict_ProcessSeparate
 		file write `fh' "## Notes" _n _n
 		file write `fh' `"- All date variables are displayed using `dateformat' format"' _n
 		file write `fh' "- Missing values coded as . (numeric missing) or empty string" _n
-		file write `fh' _n "---" _n _n
+		file write `fh' _n _n
 
 		// Footer
 		if `"`author'"' != "" {
@@ -587,7 +586,7 @@ program define _datadict_ProcessOneDataset
 		_datadict_WriteVariableRow `fh' `"`vn'"' `obs' "`showmissing'" "`showstats'" `maxcat' `maxfreq' "`dateformat'"
 	}
 
-	file write `fh' _n "---" _n _n
+	file write `fh' _n _n
 end
 
 // =============================================================================
@@ -731,18 +730,22 @@ program define _datadict_WriteVariableRow
 			}
 		}
 		else if "`varclass'" == "string" {
-			// Use codebook compact for fast unique count (much faster than tab for high-cardinality strings)
-			capture quietly codebook `vname', compact
+			quietly count if !missing(`vname')
+			local nvalid = r(N)
+			capture quietly tab `vname'
 			if _rc == 0 {
-				local nvalid = r(N)
-				local nuniq = r(ndistinct)
-				local valsnotes "N=`nvalid'; `nuniq' unique values"
+				local nuniq = r(r)
 			}
 			else {
-				quietly count if !missing(`vname')
-				local nvalid = r(N)
-				local valsnotes "N=`nvalid'; String variable"
+				capture quietly duplicates report `vname'
+				if _rc == 0 {
+					local nuniq = r(unique_value)
+				}
+				else {
+					local nuniq "?"
+				}
 			}
+			local valsnotes "N=`nvalid'; `nuniq' unique values"
 		}
 	}
 	else {

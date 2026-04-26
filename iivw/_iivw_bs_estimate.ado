@@ -1,4 +1,4 @@
-*! _iivw_bs_estimate Version 1.0.1  2026/04/17
+*! _iivw_bs_estimate Version 1.0.2  2026/04/26
 *! Bootstrap wrapper for iivw_fit: applies pweights inside the estimation
 *! call so Stata's bootstrap prefix does not strip them.
 *! Author: Timothy P Copeland
@@ -22,10 +22,12 @@ program define _iivw_bs_estimate, eclass
         local glm_family "family(`family')"
         local glm_link ""
         if "`link'" != "" local glm_link "link(`link')"
+        * vce(cluster) omitted: bootstrap prefix handles clustering
         glm `depvar' `covars' [pw=`weightvar'] if `touse', ///
             `glm_family' `glm_link' `log_opt' `geeopts'
     }
     else if "`model'" == "mixed" {
+        * vce(cluster) omitted: bootstrap prefix handles clustering
         mixed `depvar' `covars' [pw=`weightvar'] if `touse' ///
             || `panelid':, `log_opt' `mixedopts'
     }

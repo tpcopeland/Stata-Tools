@@ -1,4 +1,4 @@
-*! iivw_fit Version 1.0.1  2026/04/17
+*! iivw_fit Version 1.0.2  2026/04/26
 *! Fit weighted outcome model for IIW/IPTW/FIPTIW analysis
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet

@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.1  17apr2026}{...}
+{* *! version 1.0.2  26apr2026}{...}
 {vieweralsosee "iivw_weight" "help iivw_weight"}{...}
 {vieweralsosee "iivw_fit" "help iivw_fit"}{...}
 {vieweralsosee "[XT] xtgee" "help xtgee"}{...}
@@ -105,7 +105,7 @@ to a GEE (independence working correlation) or mixed model.{p_end}
 {bf:Example 1: IIW only (visit process correction)}
 
 {phang2}{cmd:. iivw_weight, id(id) time(days) visit_cov(edss relapse) nolog}{p_end}
-{phang2}{cmd:. iivw_fit edss relapse, model(gee) timespec(linear)}{p_end}
+{phang2}{cmd:. iivw_fit edss treated edss_bl, model(gee) timespec(linear)}{p_end}
 
 {pstd}
 {bf:Example 2: FIPTIW (visit + treatment correction)}
@@ -166,7 +166,7 @@ R package. CRAN.
 {pstd}Timothy P Copeland{p_end}
 {pstd}Department of Clinical Neuroscience{p_end}
 {pstd}Karolinska Institutet{p_end}
-{pstd}Version 1.0.1, 2026-04-17{p_end}
+{pstd}Version 1.0.2, 2026-04-26{p_end}
 
 
 {title:Also see}

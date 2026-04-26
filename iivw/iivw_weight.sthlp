@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.1  17apr2026}{...}
+{* *! version 1.0.2  26apr2026}{...}
 {vieweralsosee "iivw" "help iivw"}{...}
 {vieweralsosee "iivw_fit" "help iivw_fit"}{...}
 {vieweralsosee "[ST] stcox" "help stcox"}{...}
@@ -57,6 +57,7 @@
 {synopt:{opt gen:erate(name)}}prefix for weight variables (default: {cmd:_iivw_}){p_end}
 {synopt:{opt replace}}overwrite existing weight variables{p_end}
 {synopt:{opt nolog}}suppress model iteration log{p_end}
+{synopt:{opt efr:on}}use Efron method for tied visit times in Cox model{p_end}
 
 {synoptline}
 {p2colreset}{...}
@@ -124,7 +125,10 @@ score model.  If omitted, {opt visit_cov()} is used as fallback.
 {phang}
 {opt stab:cov(varlist)} specifies covariates for the IIW stabilization
 numerator model.  When specified, a second Cox model is fit with only these
-covariates, and the IIW weight becomes exp(xb_stab - xb_full).
+covariates, and the IIW weight becomes exp(xb_stab - xb_full).  In the
+FIPTIW setting (Tompkins et al. 2025), the numerator model typically
+includes only the treatment variable, not the time-varying confounders
+that appear in the full visit model.
 
 {dlgtab:Data options}
 
@@ -136,7 +140,10 @@ time-varying covariates within each subject.  Lagged variables are named
 {phang}
 {opt entry(varname)} specifies a subject-specific study entry time.  The
 default is 0 for all subjects.  This affects the start time for the first
-visit's counting process interval.
+visit's counting process interval.  In designs with late entry or left
+truncation, ensure that entry times are strictly less than first visit
+times.  Examine the weight distribution carefully in such designs, as late
+entry can concentrate weight on a few early-entering subjects.
 
 {dlgtab:Reporting}
 
@@ -155,6 +162,12 @@ Default is {cmd:_iivw_}.  Variables created include {it:prefix}iw,
 
 {phang}
 {opt nolog} suppresses iteration logs from the Cox and logistic models.
+
+{phang}
+{opt efron} uses the Efron method for handling tied event times in the
+Andersen-Gill Cox model. The default is Breslow. Efron is more accurate
+when there are many tied visit times (common in clinic data with monthly
+or quarterly rounding). This also matches R's {cmd:coxph()} default.
 
 
 {marker wtypes}{...}
@@ -311,7 +324,7 @@ highly variable weights that may reduce statistical power.
 {pstd}Timothy P Copeland{p_end}
 {pstd}Department of Clinical Neuroscience{p_end}
 {pstd}Karolinska Institutet{p_end}
-{pstd}Version 1.0.1, 2026-04-17{p_end}
+{pstd}Version 1.0.2, 2026-04-26{p_end}
 
 
 {title:Also see}

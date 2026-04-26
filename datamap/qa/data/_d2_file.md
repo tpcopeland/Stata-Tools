@@ -1,0 +1,44 @@
+# Data Dictionary
+
+## Table of Contents
+
+1. [ D2 Auto](#1--d2-auto)
+2. [Notes](#notes)
+3. [Change Log](#change-log)
+
+
+## 1.  D2 Auto
+
+**Filename:** `_d2_auto.dta`  
+**Description:** Dataset containing 12 variables and 74 observations.
+
+### Variables
+
+| Variable | Label | Type | Values/Notes |
+|----------|-------|------|--------------|
+| `make` | Make and model | String |  |
+| `price` | Price | Numeric |  |
+| `mpg` | Mileage (mpg) | Numeric | Unique=21<br>12 (2; 2.7%)<br>14 (6; 8.1%)<br>15 (2; 2.7%)<br>16 (4; 5.4%)<br>17 (4; 5.4%)<br>18 (9; 12.2%)<br>19 (8; 10.8%)<br>20 (3; 4.1%)<br>21 (5; 6.8%)<br>22 (5; 6.8%)<br>23 (3; 4.1%)<br>24 (4; 5.4%)<br>25 (5; 6.8%)<br>26 (3; 4.1%)<br>28 (3; 4.1%)<br>29 (1; 1.4%)<br>30 (2; 2.7%)<br>31 (1; 1.4%)<br>34 (1; 1.4%)<br>35 (2; 2.7%)<br>41 (1; 1.4%) |
+| `rep78` | Repair record 1978 | Numeric | Unique=5<br>1 (2; 2.9%)<br>2 (8; 11.6%)<br>3 (30; 43.5%)<br>4 (18; 26.1%)<br>5 (11; 15.9%) |
+| `headroom` | Headroom (in.) | Numeric | Unique=8<br>1.5 (4; 5.4%)<br>2 (13; 17.6%)<br>2.5 (14; 18.9%)<br>3 (13; 17.6%)<br>3.5 (15; 20.3%)<br>4 (10; 13.5%)<br>4.5 (4; 5.4%)<br>5 (1; 1.4%) |
+| `trunk` | Trunk space (cu. ft.) | Numeric | Unique=18<br>5 (1; 1.4%)<br>6 (1; 1.4%)<br>7 (3; 4.1%)<br>8 (5; 6.8%)<br>9 (4; 5.4%)<br>10 (5; 6.8%)<br>11 (8; 10.8%)<br>12 (3; 4.1%)<br>13 (4; 5.4%)<br>14 (4; 5.4%)<br>15 (5; 6.8%)<br>16 (12; 16.2%)<br>17 (8; 10.8%)<br>18 (1; 1.4%)<br>20 (6; 8.1%)<br>21 (2; 2.7%)<br>22 (1; 1.4%)<br>23 (1; 1.4%) |
+| `weight` | Weight (lbs.) | Numeric |  |
+| `length` | Length (in.) | Numeric |  |
+| `turn` | Turn circle (ft.) | Numeric | Unique=18<br>31 (1; 1.4%)<br>32 (1; 1.4%)<br>33 (2; 2.7%)<br>34 (6; 8.1%)<br>35 (6; 8.1%)<br>36 (9; 12.2%)<br>37 (4; 5.4%)<br>38 (3; 4.1%)<br>39 (1; 1.4%)<br>40 (6; 8.1%)<br>41 (4; 5.4%)<br>42 (7; 9.5%)<br>43 (12; 16.2%)<br>44 (3; 4.1%)<br>45 (3; 4.1%)<br>46 (3; 4.1%)<br>48 (2; 2.7%)<br>51 (1; 1.4%) |
+| `displacement` | Displacement (cu. in.) | Numeric |  |
+| `gear_ratio` | Gear ratio | Numeric |  |
+| `foreign` | Car origin | Numeric | 0=Domestic, 1=Foreign |
+
+
+## Notes
+
+These notes came from a file.
+Second line of file notes.
+
+
+## Change Log
+
+*No changes recorded.*
+
+
+**Last Updated:** 27 Apr 2026

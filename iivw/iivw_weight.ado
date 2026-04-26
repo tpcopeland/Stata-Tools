@@ -1,4 +1,4 @@
-*! iivw_weight Version 1.0.1  2026/04/17
+*! iivw_weight Version 1.0.2  2026/04/26
 *! Compute inverse intensity of visit weights (IIW/IPTW/FIPTIW)
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet
@@ -56,7 +56,7 @@ program define iivw_weight, rclass sortpreserve
          LAGvars(varlist numeric) ///
          ENTry(varname numeric) ///
          TRUNCate(numlist min=2 max=2) ///
-         GENerate(name) REPLACE noLOG]
+         GENerate(name) REPLACE noLOG EFRon]
 
     * =========================================================================
     * SET DEFAULTS
@@ -67,6 +67,9 @@ program define iivw_weight, rclass sortpreserve
 
     local log_opt ""
     if "`log'" == "nolog" local log_opt "nolog"
+
+    local efron_opt ""
+    if "`efron'" != "" local efron_opt "efron"
 
     * Invalidate stored weighting/fitting state before any failure path.
     * A failed rerun must not leave prior weights looking current.
@@ -184,6 +187,7 @@ program define iivw_weight, rclass sortpreserve
         quietly summarize `_treat_sd'
         if r(max) > 0 {
             display as error "treat() must be time-invariant within subjects"
+            display as error "for time-varying treatments, consider marginal structural models (MSMs)"
             error 198
         }
         drop `_treat_sd'
@@ -352,7 +356,7 @@ program define iivw_weight, rclass sortpreserve
             stset `_stop', enter(time `_start') failure(`_event') ///
                 id(`id') exit(time .)
 
-            stcox `visit_covars', `log_opt'
+            stcox `visit_covars', `log_opt' `efron_opt'
             local __iivw_visit_converged = e(converged)
 
             * Get linear predictor
@@ -367,7 +371,7 @@ program define iivw_weight, rclass sortpreserve
 
             if "`stabcov'" != "" {
                 noisily display as text "  Stabilization model: stcox `stabcov'"
-                noisily stcox `stabcov', `log_opt'
+                noisily stcox `stabcov', `log_opt' `efron_opt'
                 local __iivw_stab_converged = e(converged)
 
                 tempvar _xb_stab
