@@ -622,7 +622,7 @@ else {
 }
 
 * ============================================================
-* Test 21: r(table) is returned above 100 rows
+* Test 24: r(table) is returned above 100 rows
 * ============================================================
 capture noisily {
     matrix bigmat = J(101, 4, .)
@@ -636,11 +636,11 @@ capture noisily {
     assert rowsof(r(table)) == 101
 }
 if _rc == 0 {
-    display as result "PASS: T21 — r(table) persists above 100 rows"
+    display as result "PASS: T24 — r(table) persists above 100 rows"
     local ++n_pass
 }
 else {
-    display as error "FAIL: T21 — r(table) truncated above 100 rows (rc=`=_rc')"
+    display as error "FAIL: T24 — r(table) truncated above 100 rows (rc=`=_rc')"
     local ++n_fail
 }
 capture matrix drop bigmat
