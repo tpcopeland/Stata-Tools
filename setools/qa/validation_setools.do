@@ -387,7 +387,8 @@ run_val "V1.20: dates hierarchy: non-metastatic cancer date cleared" `t'
 
 * V1.21: Dates hierarchy - mild liver + ascites -> severe liver date
 * K73 on day 21000 (mild liver) + R18 on day 21500 (ascites)
-* -> cci_livmild_date = . (cleared), cci_livsev_date = min(21000, 21500) = 21000
+* -> cci_livmild_date = . (cleared), cci_livsev_date = max(21000, 21500) = 21500
+* (upgrade date is when BOTH conditions are met, i.e. the later of the two)
 clear
 input long lopnr str10 diagnos double datum
 1 "K73" 21000
@@ -395,8 +396,8 @@ input long lopnr str10 diagnos double datum
 end
 format datum %td
 cci_se, id(lopnr) icd(diagnos) date(datum) dates
-local t = (missing(cci_livmild_date) & cci_livsev_date == 21000 & cci_livmild == 0 & cci_livsev == 1)
-run_val "V1.21: dates hierarchy: mild liver date -> severe, earliest (21000)" `t'
+local t = (missing(cci_livmild_date) & cci_livsev_date == 21500 & cci_livmild == 0 & cci_livsev == 1)
+run_val "V1.21: dates hierarchy: mild liver date -> severe, latest (21500)" `t'
 
 * V1.22: Dates implies components - components exist without explicit option
 clear
@@ -1684,7 +1685,7 @@ run_val "V10.3: latest pre-reset relapse yields no false CDP/PIRA event" `t'
 * V11.1: setools stored results
 setools
 local t = ("`r(commands)'" == "procmatch cci_se migrations sustainedss cdp pira" & ///
-    r(n_commands) == 6 & "`r(version)'" == "1.2.0" & ///
+    r(n_commands) == 6 & "`r(version)'" == "1.2.1" & ///
     "`r(categories)'" == "all codes migration ms" & ///
     "`r(category)'" == "all" & "`r(display)'" == "grouped")
 run_val "V11.1: setools exact stored results" `t'

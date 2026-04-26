@@ -10,9 +10,17 @@ foreach f in ///
     run_all_validations.log ///
     test_export_surface.log ///
     test_msm.log ///
+    test_msm_state_guards.log ///
+    test_msm_status.log ///
+    test_msm_weight_ergonomics.log ///
+    test_msm_fit_guidance.log ///
+    test_msm_cox_state.log ///
+    test_msm_weight_failures.log ///
     test_msm_expanded.log ///
     validation_msm.log ///
+    validation_msm_known_answers.log ///
     validation_msm_expanded.log ///
+    validation_msm_sensitivity.log ///
     crossval_msm.log {
     capture erase "`qa_dir'/`f'"
 }

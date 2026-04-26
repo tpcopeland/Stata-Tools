@@ -2750,21 +2750,24 @@ else {
 }
 
 * --- M11: Extreme probabilities are truncated, not defaulted to 1 (Finding 4) ---
-* Build a dataset with near-deterministic treatment to verify truncation.
+* Build a dataset with extreme but estimable treatment probabilities.
 local ++test_count
 capture {
+    set seed 8675309
     clear
     set obs 500
     gen id = ceil(_n / 10)
     bysort id: gen period = _n - 1
 
-    * Near-deterministic treatment: treated when biomarker > 0
     gen double biomarker = rnormal()
-    gen treatment = (biomarker > 0)
+    gen double xb = -0.3 + 2.0 * biomarker
+    gen treatment = (runiform() < invlogit(xb))
 
-    * Make a few observations have extreme probabilities
-    * by setting biomarker very high for some treated observations
-    replace biomarker = 10 if _n <= 5
+    * Force a few high-risk treated observations without making the
+    * whole model perfectly separated.
+    replace biomarker = 8 if _n <= 5
+    replace treatment = 1 if _n <= 5
+    drop xb
 
     gen outcome = (runiform() < 0.02) & (period > 3)
 

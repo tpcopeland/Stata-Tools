@@ -1,6 +1,7 @@
 {smcl}
-{* *! version 1.2.0  24apr2026}{...}
+{* *! version 1.2.1  26apr2026}{...}
 {vieweralsosee "[D] generate" "help generate"}{...}
+{vieweralsosee "procmatch" "help procmatch"}{...}
 {vieweralsosee "migrations" "help migrations"}{...}
 {viewerjumpto "Syntax" "cci_se##syntax"}{...}
 {viewerjumpto "Description" "cci_se##description"}{...}

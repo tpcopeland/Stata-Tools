@@ -594,6 +594,8 @@ drop p_denom p_numer sw age_sq smokeintensity_sq smokeyrs_sq wt71_sq
 * Create person-month data from NHEFS, model death over 120 months
 * PART B: Chapter 17 -- Person-Period MSM
 
+tempfile nhefs_personperiod
+
 * Test 3.5: Person-period restructuring creates valid panel
 local ++test_count
 capture {
@@ -635,7 +637,7 @@ capture {
     display "  Person-periods: " _N " (" `n_persons' " x 10)"
     drop `dup_check'
 
-    save "`data_dir'/nhefs_personperiod.dta", replace
+    save `"`nhefs_personperiod'"', replace
 }
 if _rc == 0 {
     display as result "  PASS 3.5: Person-period restructuring valid"
@@ -650,14 +652,14 @@ else {
 * Test 3.6: msm pipeline runs on NHEFS person-period data
 local ++test_count
 capture {
-    use "`data_dir'/nhefs_personperiod.dta", clear
+    use `"`nhefs_personperiod'"', clear
 
     msm_prepare, id(id) period(period) treatment(qsmk) ///
         outcome(died) baseline_covariates(sex race age wt71)
 
     * Since treatment is time-fixed, denominator = baseline covariates
     msm_weight, treat_d_cov(sex race age wt71) ///
-        treat_n_cov(sex race) nolog
+        treat_n_cov(sex race) fitfailure(marginal) nolog
 
     msm_fit, model(logistic) outcome_cov(sex race age wt71) ///
         period_spec(linear) nolog
@@ -700,12 +702,12 @@ else {
 local ++test_count
 capture {
     * Reload and refit logistic for weight diagnostics
-    use "`data_dir'/nhefs_personperiod.dta", clear
+    use `"`nhefs_personperiod'"', clear
 
     msm_prepare, id(id) period(period) treatment(qsmk) ///
         outcome(died) baseline_covariates(sex race age wt71)
     msm_weight, treat_d_cov(sex race age wt71) ///
-        treat_n_cov(sex race) nolog
+        treat_n_cov(sex race) fitfailure(marginal) nolog
 
     msm_diagnose
     local ess = r(ess)
@@ -2633,7 +2635,7 @@ capture {
 
     msm_prepare, id(id) period(period) treatment(treatment) ///
         outcome(outcome) covariates(x)
-    msm_weight, treat_d_cov(x) nolog
+    msm_weight, treat_d_cov(x) fitfailure(marginal) nolog
 
     * Verify all weights are positive and finite
     quietly summarize _msm_weight

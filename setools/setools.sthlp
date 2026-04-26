@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.2.0  24apr2026}{...}
+{* *! version 1.2.1  26apr2026}{...}
 {vieweralsosee "cdp" "help cdp"}{...}
 {vieweralsosee "migrations" "help migrations"}{...}
 {viewerjumpto "Syntax" "setools##syntax"}{...}
