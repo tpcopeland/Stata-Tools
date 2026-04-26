@@ -1,4 +1,4 @@
-*! msm_weight Version 1.0.0  2026/04/08
+*! msm_weight Version 1.0.0  2026/04/26
 *! Inverse probability of treatment weights for marginal structural models
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet
@@ -334,6 +334,19 @@ program define msm_weight, rclass
             }
         }
 
+        quietly count if _msm_weight > 0 & _msm_weight < .
+        local n_weight_valid = r(N)
+        quietly summarize _msm_weight if _msm_weight > 0 & _msm_weight < .
+        local sum_weight_valid = r(sum)
+        if `n_weight_valid' == 0 | missing(`sum_weight_valid') | ///
+            `sum_weight_valid' <= 0 {
+            display as error "msm_weight did not produce any positive nonmissing weights"
+            display as error "At least one treatment or censoring probability model returned only missing probabilities."
+            display as error "Check complete-case availability for the weighting covariates before proceeding."
+            _msm_clear_downstream_state
+            exit 2000
+        }
+
         * =========================================================================
         * TRUNCATION
         * =========================================================================
@@ -360,6 +373,18 @@ program define msm_weight, rclass
             }
 
             display as text "  Truncated `n_truncated' observations (`n_lo' low, `n_hi' high)"
+        }
+
+        quietly count if _msm_weight > 0 & _msm_weight < .
+        local n_weight_valid = r(N)
+        quietly summarize _msm_weight if _msm_weight > 0 & _msm_weight < .
+        local sum_weight_valid = r(sum)
+        if `n_weight_valid' == 0 | missing(`sum_weight_valid') | ///
+            `sum_weight_valid' <= 0 {
+            display as error "msm_weight did not produce a finite positive weight sum"
+            display as error "Refusing to mark the dataset weighted with unusable _msm_weight values."
+            _msm_clear_downstream_state
+            exit 2000
         }
 
         * =========================================================================

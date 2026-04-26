@@ -1,6 +1,6 @@
 # msm - Marginal structural models for longitudinal causal analysis
 
-**Version 1.0.0** | 2026-04-08
+**Version 1.0.0** | 2026-04-26
 
 `msm` is a Stata suite for inverse-probability-weighted marginal structural models in person-period data. It is designed for longitudinal settings with time-varying treatments and confounders, where standard regression adjustment can be biased by treatment-confounder feedback.
 
@@ -183,7 +183,7 @@ msm_predict, times(3 5 7 9) difference seed(12345)
 
 ## Version History
 
-- **1.0.0** (2026-04-08): Initial Stata-Tools release of the full MSM workflow suite
+- **1.0.0** (2026-04-26): Initial Stata-Tools release of the full MSM workflow suite
 
 ## Author
 

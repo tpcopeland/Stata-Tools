@@ -1,4 +1,4 @@
-*! msm_fit Version 1.0.0  2026/04/08
+*! msm_fit Version 1.0.0  2026/04/26
 *! Weighted outcome model for marginal structural models
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet
@@ -223,7 +223,9 @@ program define msm_fit, eclass
             vce(cluster `cluster') level(`level') `log_opt'
         if e(converged) == 0 {
             display as text ""
-            display as text "Warning: GLM did not converge; coefficients may be unreliable"
+            display as error "GLM did not converge; refusing to persist fitted MSM state"
+            display as error "Revise the outcome model or weighting specification and rerun msm_fit."
+            exit 430
         }
     }
     else if "`model'" == "linear" {
@@ -286,7 +288,10 @@ program define msm_fit, eclass
         }
         if e(converged) == 0 {
             display as text ""
-            display as text "Warning: Cox model did not converge; coefficients may be unreliable"
+            display as error "Cox model did not converge; refusing to persist fitted MSM state"
+            display as error "Revise the outcome model or weighting specification and rerun msm_fit."
+            restore
+            exit 430
         }
 
         gen byte `_cox_esample' = e(sample)

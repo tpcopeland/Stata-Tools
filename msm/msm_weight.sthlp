@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.0  08apr2026}{...}
+{* *! version 1.0.0  26apr2026}{...}
 {vieweralsosee "msm" "help msm"}{...}
 {vieweralsosee "msm_prepare" "help msm_prepare"}{...}
 {vieweralsosee "msm_diagnose" "help msm_diagnose"}{...}
@@ -83,6 +83,8 @@ predicted, {cmd:msm_weight} assigns truncated observed probabilities to those
 observations rather than silently dropping them. Observations with missing model
 inputs retain missing probabilities, and cumulative weights are set to missing
 from that period forward.
+If no positive nonmissing cumulative weights remain, {cmd:msm_weight} stops
+with an error and does not mark the dataset as weighted.
 
 {pstd}
 Creates variables: {cmd:_msm_weight} (cumulative combined),

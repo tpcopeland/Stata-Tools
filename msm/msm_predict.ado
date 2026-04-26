@@ -1,4 +1,4 @@
-*! msm_predict Version 1.0.0  2026/04/08
+*! msm_predict Version 1.0.0  2026/04/26
 *! Counterfactual predictions from marginal structural models
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet
@@ -197,6 +197,18 @@ program define msm_predict, rclass
     quietly bysort `id': keep if _n == 1
 
     local n_ref = _N
+    if `n_ref' == 0 {
+        display as error "no reference population remains for prediction"
+        display as error "msm_predict requires at least one baseline row in the fitted estimation sample."
+        display as error "Re-run {bf:msm_fit} or check why baseline rows are excluded from _msm_esample."
+        restore
+        capture matrix drop _msm_pred_matrix
+        char _dta[_msm_pred_saved]
+        char _dta[_msm_pred_type]
+        char _dta[_msm_pred_strategy]
+        char _dta[_msm_pred_level]
+        exit 2000
+    }
 
     * Number of prediction times
     local n_times: word count `times'

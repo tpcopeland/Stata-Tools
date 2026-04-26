@@ -1,4 +1,4 @@
-*! _msm_smd Version 1.0.0  2026/04/08
+*! _msm_smd Version 1.0.0  2026/04/26
 *! Compute standardized mean difference between treatment groups
 *! Author: Timothy P Copeland
 
@@ -14,50 +14,56 @@
 
 program define _msm_smd
     version 16.0
+    local _orig_varabbrev = c(varabbrev)
     set varabbrev off
+    capture noisily {
 
-    syntax varname, treatment(varname) [weight(varname) touse(varname)]
+        syntax varname, treatment(varname) [weight(varname) touse(varname)]
 
-    local x "`varlist'"
+        local x "`varlist'"
 
-    * Default touse
-    if "`touse'" == "" {
-        tempvar touse
-        gen byte `touse' = 1
-    }
+        * Default touse
+        if "`touse'" == "" {
+            tempvar touse
+            gen byte `touse' = 1
+        }
 
-    quietly {
-        if "`weight'" != "" {
-            * Weighted means and variances
-            summarize `x' [aw=`weight'] if `treatment' == 1 & `touse'
-            local mean1 = r(mean)
-            local var1  = r(Var)
+        quietly {
+            if "`weight'" != "" {
+                * Weighted means and variances
+                summarize `x' [aw=`weight'] if `treatment' == 1 & `touse'
+                local mean1 = r(mean)
+                local var1  = r(Var)
 
-            summarize `x' [aw=`weight'] if `treatment' == 0 & `touse'
-            local mean0 = r(mean)
-            local var0  = r(Var)
+                summarize `x' [aw=`weight'] if `treatment' == 0 & `touse'
+                local mean0 = r(mean)
+                local var0  = r(Var)
+            }
+            else {
+                * Unweighted
+                summarize `x' if `treatment' == 1 & `touse'
+                local mean1 = r(mean)
+                local var1  = r(Var)
+
+                summarize `x' if `treatment' == 0 & `touse'
+                local mean0 = r(mean)
+                local var0  = r(Var)
+            }
+        }
+
+        * Pooled SD (average of variances, then square root)
+        local pooled_sd = sqrt((`var1' + `var0') / 2)
+
+        if `pooled_sd' > 0 {
+            local smd = (`mean1' - `mean0') / `pooled_sd'
         }
         else {
-            * Unweighted
-            summarize `x' if `treatment' == 1 & `touse'
-            local mean1 = r(mean)
-            local var1  = r(Var)
-
-            summarize `x' if `treatment' == 0 & `touse'
-            local mean0 = r(mean)
-            local var0  = r(Var)
+            local smd = 0
         }
-    }
 
-    * Pooled SD (average of variances, then square root)
-    local pooled_sd = sqrt((`var1' + `var0') / 2)
-
-    if `pooled_sd' > 0 {
-        local smd = (`mean1' - `mean0') / `pooled_sd'
+        c_local _msm_smd_value "`smd'"
     }
-    else {
-        local smd = 0
-    }
-
-    c_local _msm_smd_value "`smd'"
+    local rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
 end

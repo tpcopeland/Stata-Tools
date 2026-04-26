@@ -1,4 +1,4 @@
-*! msm Version 1.0.0  2026/04/08
+*! msm Version 1.0.0  2026/04/26
 *! Marginal Structural Models suite for Stata
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet

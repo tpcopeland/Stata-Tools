@@ -40,9 +40,7 @@ copy "`qa_dir'/crossval_dgp_generate.do" "`work_qa_dir'/crossval_dgp_generate.do
 copy "`qa_dir'/crossval_r.R" "`work_qa_dir'/crossval_r.R", replace
 copy "`qa_dir'/crossval_python.py" "`work_qa_dir'/crossval_python.py", replace
 
-capture ado uninstall msm
-quietly net install msm, from("`pkg_dir'") replace
-adopath ++ "`pkg_dir'"
+do "`qa_dir'/_install_msm_isolated.do" "`pkg_dir'"
 
 capture log close crossval
 log using "`stage_log'", replace name(crossval)

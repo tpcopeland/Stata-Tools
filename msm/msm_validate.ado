@@ -1,4 +1,4 @@
-*! msm_validate Version 1.0.0  2026/04/08
+*! msm_validate Version 1.0.0  2026/04/26
 *! Data quality checks for marginal structural models
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet
@@ -444,9 +444,6 @@ program define msm_validate, rclass
         display as text ""
         display as error "Data validation failed. Fix errors before proceeding."
         display as text "{hline 70}"
-        if "`strict'" != "" {
-            exit 198
-        }
     }
     else if `n_warnings' > 0 {
         display as text ""
@@ -469,6 +466,13 @@ program define msm_validate, rclass
     return scalar n_errors = `n_errors'
     return scalar n_warnings = `n_warnings'
     return local validation = cond(`n_errors' == 0, "passed", "failed")
+
+    if `n_errors' > 0 {
+        exit 198
+    }
+    if "`strict'" != "" & `n_warnings' > 0 {
+        exit 198
+    }
 
     } /* end capture noisily */
     local _rc = _rc

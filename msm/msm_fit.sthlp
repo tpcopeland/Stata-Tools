@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.0  08apr2026}{...}
+{* *! version 1.0.0  26apr2026}{...}
 {vieweralsosee "msm" "help msm"}{...}
 {vieweralsosee "msm_weight" "help msm_weight"}{...}
 {vieweralsosee "msm_predict" "help msm_predict"}{...}
@@ -51,6 +51,8 @@ any pre-existing survival-time settings are restored on exit, and datasets
 that were not previously {cmd:stset} remain unstset after estimation. After
 fitting, use {cmd:msm, status} to inspect the current pipeline state and see
 whether downstream prediction is available for the fitted model.
+If a pooled logistic or Cox outcome model does not converge, {cmd:msm_fit}
+stops with an error and does not mark the dataset as fitted.
 
 
 {marker options}{...}

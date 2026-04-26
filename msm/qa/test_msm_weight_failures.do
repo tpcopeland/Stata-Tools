@@ -11,9 +11,7 @@ set varabbrev off
 local qa_dir  "`c(pwd)'"
 local pkg_dir "`qa_dir'/.."
 
-capture ado uninstall msm
-quietly net install msm, from("`pkg_dir'") replace
-adopath ++ "`pkg_dir'"
+do "`qa_dir'/_install_msm_isolated.do" "`pkg_dir'"
 
 local pass_count = 0
 local fail_count = 0

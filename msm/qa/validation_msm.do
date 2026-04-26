@@ -11,9 +11,7 @@ local qa_dir  "`c(pwd)'"
 local pkg_dir "`qa_dir'/.."  
 local data_dir "`qa_dir'/data"
 
-capture ado uninstall msm
-quietly net install msm, from("`pkg_dir'") replace
-adopath ++ "`pkg_dir'"
+do "`qa_dir'/_install_msm_isolated.do" "`pkg_dir'"
 
 local test_count = 0
 local pass_count = 0

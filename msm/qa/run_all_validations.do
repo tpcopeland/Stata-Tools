@@ -10,6 +10,7 @@
 *   - test_msm_fit_guidance.do
 *   - test_msm_cox_state.do
 *   - test_msm_weight_failures.do
+*   - test_msm_state_guards.do
 *   - test_export_surface.do
 *   - validation_msm.do
 *   - validation_msm_known_answers.do
@@ -45,10 +46,10 @@ if "`mode'" == "full" local mode "all"
 
 local suite_list ""
 if "`mode'" == "stata" {
-    local suite_list "test_msm test_msm_expanded test_msm_status test_msm_weight_ergonomics test_msm_fit_guidance test_msm_cox_state test_msm_weight_failures test_export_surface validation_msm validation_msm_known_answers validation_msm_expanded validation_msm_sensitivity"
+    local suite_list "test_msm test_msm_expanded test_msm_status test_msm_weight_ergonomics test_msm_fit_guidance test_msm_cox_state test_msm_weight_failures test_msm_state_guards test_export_surface validation_msm validation_msm_known_answers validation_msm_expanded validation_msm_sensitivity"
 }
 else if "`mode'" == "tests" {
-    local suite_list "test_msm test_msm_expanded test_msm_status test_msm_weight_ergonomics test_msm_fit_guidance test_msm_cox_state test_msm_weight_failures test_export_surface"
+    local suite_list "test_msm test_msm_expanded test_msm_status test_msm_weight_ergonomics test_msm_fit_guidance test_msm_cox_state test_msm_weight_failures test_msm_state_guards test_export_surface"
 }
 else if "`mode'" == "validations" {
     local suite_list "validation_msm validation_msm_known_answers validation_msm_expanded validation_msm_sensitivity"
@@ -57,7 +58,7 @@ else if "`mode'" == "crossval" {
     local suite_list "crossval_msm"
 }
 else if "`mode'" == "all" {
-    local suite_list "test_msm test_msm_expanded test_msm_status test_msm_weight_ergonomics test_msm_fit_guidance test_msm_cox_state test_msm_weight_failures test_export_surface validation_msm validation_msm_known_answers validation_msm_expanded validation_msm_sensitivity crossval_msm"
+    local suite_list "test_msm test_msm_expanded test_msm_status test_msm_weight_ergonomics test_msm_fit_guidance test_msm_cox_state test_msm_weight_failures test_msm_state_guards test_export_surface validation_msm validation_msm_known_answers validation_msm_expanded validation_msm_sensitivity crossval_msm"
 }
 else {
     display as error "Unknown run_all_validations mode: `mode'"

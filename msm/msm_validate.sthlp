@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.0  08apr2026}{...}
+{* *! version 1.0.0  26apr2026}{...}
 {vieweralsosee "msm" "help msm"}{...}
 {vieweralsosee "msm_prepare" "help msm_prepare"}{...}
 {vieweralsosee "msm_weight" "help msm_weight"}{...}
@@ -56,6 +56,8 @@ The 10 checks are:
 {pstd}
 Checks 2, 3, 5, 9, and 10 produce warnings by default. With {opt strict},
 these become errors and the command exits with error code 198 if any fail.
+Hard validation errors always exit with a nonzero return code, regardless of
+whether {opt strict} is specified.
 
 
 {marker options}{...}
@@ -64,7 +66,7 @@ these become errors and the command exits with error code 198 if any fail.
 {phang}
 {opt strict} treats warnings as errors. When specified, any check that would
 normally produce a warning instead produces an error, and the command exits
-with return code 198 if one or more errors are found. Use this to enforce
+with return code 198 if one or more warnings or errors are found. Use this to enforce
 strict data quality before proceeding to {cmd:msm_weight}.
 
 {phang}

@@ -10,8 +10,7 @@ local qa_dir "`c(pwd)'"
 local pkg_dir "`qa_dir'/.."
 local tools_dir "`qa_dir'/tools"
 
-capture ado uninstall msm
-quietly net install msm, from("`pkg_dir'") replace
+do "`qa_dir'/_install_msm_isolated.do" "`pkg_dir'"
 
 local pass_count = 0
 local fail_count = 0
