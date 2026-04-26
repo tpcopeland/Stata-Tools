@@ -41,89 +41,42 @@ in the console, saved as CSV, or stored in a Stata frame.{p_end}
 
 {marker options}{title:Options}
 
-{dlgtab:Required}
+{synoptset 27 tabbed}{...}
+{synoptline}
+{syntab:Required}
+{synopt:{opt times(numlist)}}analysis timepoints for Kaplan-Meier estimates{p_end}
 
-{phang}{opt times(numlist)} specifies the analysis timepoints for
-Kaplan-Meier estimates. For example, {cmd:times(1 3 5)} reports survival at
-1, 3, and 5 time units.{p_end}
+{syntab:Analysis}
+{synopt:{opt by(varname)}}grouping variable for between-group comparison{p_end}
+{synopt:{opt rmst(#)}}restricted mean survival time truncated at specified horizon{p_end}
+{synopt:{opt med:ian}}include median survival with 95% CI{p_end}
+{synopt:{opt risk:set}}add number-at-risk rows at each timepoint{p_end}
+{synopt:{opt timeu:nit(string)}}time unit label: {cmd:years} (default), {cmd:months}, {cmd:days}, {cmd:weeks}{p_end}
+{synopt:{opt rev:erse}}report cumulative incidence (1 minus survival){p_end}
+{synopt:{opt diff:erence}}add between-group difference column; requires {cmd:by()} with exactly 2 groups{p_end}
+{synopt:{opt ev:ents}}add aggregate Events / N row per group{p_end}
 
-{dlgtab:Analysis}
+{syntab:Output}
+{synopt:{opt xlsx(filename)}}Excel output file; {opt excel()} is a synonym{p_end}
+{synopt:{opt sheet(string)}}Excel sheet name; default is {cmd:"Survival"}{p_end}
+{synopt:{opt title(string)}}table title in row 1{p_end}
+{synopt:{opt foot:note(string)}}footnote below the table{p_end}
+{synopt:{opt dis:play}}display table in the Results window{p_end}
+{synopt:{opt csv(filename)}}export a CSV file alongside Excel output{p_end}
+{synopt:{opt fra:me(name)}}store output in a named Stata frame; specify {cmd:frame(name, replace)} to replace{p_end}
+{synopt:{opt open}}open the Excel file after export{p_end}
 
-{phang}{opt by(varname)} specifies a grouping variable for between-group
-comparison. A log-rank test is performed automatically. Median survival is
-also enabled by default when {cmd:by()} is specified.{p_end}
-
-{phang}{opt rmst(#)} computes the restricted mean survival time truncated
-at the specified time horizon. {cmd:rmst()} must be greater than 0.{p_end}
-
-{phang}{opt med:ian} includes median survival with 95% confidence interval.
-Automatically enabled when {cmd:by()} is specified.{p_end}
-
-{phang}{opt risk:set} adds number-at-risk rows at each timepoint.{p_end}
-
-{phang}{opt timeu:nit(string)} specifies the time unit label. Options:
-{cmd:years} (default), {cmd:months}, {cmd:days}, {cmd:weeks}.{p_end}
-
-{phang}{opt rev:erse} reports cumulative incidence (1 minus survival) instead
-of survival probability.{p_end}
-
-{phang}{opt diff:erence} adds a between-group difference column. Requires
-{cmd:by()} with exactly 2 groups.{p_end}
-
-{phang}{opt ev:ents} adds one aggregate {bf:Events / N} row per group showing
-event counts and the group denominator used by the Kaplan-Meier summary
-(e.g., "12 / 98"). When the data were {cmd:stset} with {cmd:id()}, {cmd:N}
-is the number of subjects rather than the number of split episodes.{p_end}
-
-{dlgtab:Output}
-
-{phang}{opt xlsx(filename)} specifies the Excel output file. {opt excel()}
-is accepted as a synonym.{p_end}
-
-{phang}{opt sheet(string)} specifies the Excel sheet name. Default is
-"Survival".{p_end}
-
-{phang}{opt title(string)} specifies the table title in row 1.{p_end}
-
-{phang}{opt foot:note(string)} adds a footnote below the table.{p_end}
-
-{phang}{opt dis:play} displays the table in the Results window (auto-on when
-{cmd:xlsx()} is omitted).{p_end}
-
-{phang}{opt csv(filename)} exports a CSV file alongside Excel output.{p_end}
-
-{phang}{opt fra:me(name)} stores the output in a named Stata frame. Specify
-{cmd:frame(name, replace)} to replace an existing frame.{p_end}
-
-{phang}{opt open} opens the Excel file after export.{p_end}
-
-{dlgtab:Formatting}
-
-{phang}{opt the:me(string)} applies a journal-style theme: {cmd:lancet},
-{cmd:nejm}, {cmd:bmj}, {cmd:apa}, {cmd:jama}, {cmd:plos}, {cmd:nature},
-{cmd:cell}, {cmd:annals}, or {cmd:custom}.{p_end}
-
-{phang}{opt border:style(string)} border style: {cmd:thin}, {cmd:medium},
-or {cmd:academic}.{p_end}
-
-{phang}{opt boldp(#)} bolds the log-rank p-value and log-rank summary row when the log-rank p-value is below the specified threshold. Must be between 0 and 1.{p_end}
-
-{phang}{opt zebra} applies alternating row shading.{p_end}
-
-{phang}{opt high:light(#)} highlights the log-rank summary row when the log-rank p-value is below the specified threshold. Must be between 0 and 1.{p_end}
-
-{phang}{opt dig:its(#)} number of decimal places for survival estimates and
-CIs (default 1, range 0-6).{p_end}
-
-{phang}{opt pdp(#)} maximum decimal places for small p-values (p < 0.10).
-Default is 3. Must be between 0 and 10.{p_end}
-
-{phang}{opt highpdp(#)} maximum decimal places for large p-values (p >= 0.10).
-Default is 2. Must be between 0 and 10.{p_end}
-
-{phang}{cmdab:addr:ow(}{it:string asis}{cmd:)} append custom rows below the
-table body. Specify pairs of label and values. Use backslash to separate
-multiple rows.{p_end}
+{syntab:Formatting}
+{synopt:{opt the:me(string)}}journal-style theme: {cmd:lancet}, {cmd:nejm}, {cmd:bmj}, {cmd:apa}, {cmd:jama}, {cmd:plos}, {cmd:nature}, {cmd:cell}, {cmd:annals}, or {cmd:custom}{p_end}
+{synopt:{opt border:style(string)}}border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or {cmd:academic}{p_end}
+{synopt:{opt boldp(#)}}bold log-rank p-value and summary row when p < threshold{p_end}
+{synopt:{opt zebra}}alternating row shading{p_end}
+{synopt:{opt high:light(#)}}highlight log-rank summary row when p < threshold{p_end}
+{synopt:{opt dig:its(#)}}decimal places for survival estimates and CIs (default 1, range 0-6){p_end}
+{synopt:{opt pdp(#)}}max decimal places for small p-values (p < 0.10); default 3{p_end}
+{synopt:{opt highpdp(#)}}max decimal places for large p-values (p >= 0.10); default 2{p_end}
+{synopt:{cmdab:addr:ow(}{it:string asis}{cmd:)}}append custom rows below table body{p_end}
+{synoptline}
 
 {pstd}When {opt rmst()} is used, interpret RMST summaries relative to the requested truncation time. The estimate is restricted to the observed follow-up window up to that horizon and should not be read as a lifetime mean survival measure.{p_end}
 

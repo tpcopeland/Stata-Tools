@@ -61,7 +61,7 @@ for treatment effects and margins tables.
 {synopt:{opt zebra}}Apply alternating light gray row shading for readability.{p_end}
 {synopt:{opt high:light(#)}}Apply yellow fill to rows where p-value < threshold (e.g., {cmd:highlight(0.05)}).{p_end}
 {synopt:{opt boldp(#)}}Bold p-value cells below threshold (e.g., {cmd:boldp(0.05)}).{p_end}
-{synopt:{opt border:style(string)}}Border style: {cmd:thin} (default), {cmd:medium}, or {cmd:academic}.{p_end}
+{synopt:{opt border:style(string)}}Border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or {cmd:academic}.{p_end}
 {synopt:{opt cdisc}}CDISC formatting mode: sets digits to 4, coef label to "Estimate", and forces {cmd:stats(n)}.{p_end}
 {synopt:{opt relab:el}}Relabel random effects using variable labels. For single-level models, {cmd:var(_cons)} becomes {it:GroupLabel} {cmd:(Intercept)}. For multi-level models ({cmd:mixed ... || district: || school:}), each level is labeled separately: {it:District} {cmd:(Intercept)}, {it:School} {cmd:(Intercept)}, etc.{p_end}
 {synopt:{opt stars}}Add significance stars to coefficients (*, **, ***).{p_end}

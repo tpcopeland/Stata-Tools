@@ -95,7 +95,7 @@ No dataset needs to be loaded before running {cmd:stratetab}; it reads the saved
 
 {phang2}{opt zebra} applies alternating light gray row shading for readability.{p_end}
 
-{phang2}{opt border:style(string)} specifies the border style: {cmd:thin} (default), {cmd:medium}, or {cmd:academic}.{p_end}
+{phang2}{opt border:style(string)} specifies the border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or {cmd:academic}.{p_end}
 
 {phang2}{opt the:me(string)} applies a journal-style formatting theme: {cmd:lancet}, {cmd:nejm}, {cmd:bmj}, {cmd:apa}, {cmd:jama}, {cmd:plos}, {cmd:nature}, {cmd:cell}, {cmd:annals}, or {cmd:custom}.{p_end}
 

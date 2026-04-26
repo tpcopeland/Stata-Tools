@@ -438,8 +438,8 @@ capture noisily {
             * Column widths
             mata: b.set_column_width(1, 1, 1)
             mata: b.set_column_width(2, 2, `_b_width')
-            if `num_cols' >= 3 {
-                mata: b.set_column_width(3, `num_cols', 14)
+            forvalues _wc = 3/`num_cols' {
+                mata: b.set_column_width(`_wc', `_wc', 14)
             }
 
             * Font

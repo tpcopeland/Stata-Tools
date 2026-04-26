@@ -161,29 +161,20 @@ capture noisily {
     }
 
     local devref_count = 0
-    tempname scan_fh
+    tempfile _grep_out
     foreach relpath of local scan_files {
         capture confirm file "`pkg_dir'/`relpath'"
         if _rc continue
 
-        file open `scan_fh' using "`pkg_dir'/`relpath'", read text
-        file read `scan_fh' line
-        while r(eof) == 0 {
-            local raw `"`line'"'
-            if strpos(`"`raw'"', "/home/tpcopeland/") ///
-                | strpos(`"`raw'"', "~/Stata-Tools") ///
-                | strpos(`"`raw'"', "~/Stata-Dev") ///
-                | strpos(`"`raw'"', ".codex/skills/") ///
-                | strpos(`"`raw'"', "_examples/") ///
-                | strpos(`"`raw'"', "/Stata-Dev") {
-                display as error "  DEV REF: `relpath'"
-                display as error "           `raw'"
-                local ++devref_count
-                continue, break
-            }
-            file read `scan_fh' line
+        shell grep -cE '/home/tpcopeland/|~/Stata-Tools|~/Stata-Dev|\.codex/skills/|_examples/|/Stata-Dev' "`pkg_dir'/`relpath'" > "`_grep_out'" 2>/dev/null
+        tempname gfh
+        file open `gfh' using "`_grep_out'", read text
+        file read `gfh' _gline
+        file close `gfh'
+        if real("`_gline'") > 0 {
+            display as error "  DEV REF: `relpath'"
+            local ++devref_count
         }
-        file close `scan_fh'
     }
 
     assert `devref_count' == 0

@@ -58,11 +58,6 @@ if _rc {
 	}
 }
 
-if "`_byvars'" != "" {
-	di as err "stratetab may not be combined with by:"
-	exit 190
-}
-
 syntax, using(string asis) [xlsx(string) excel(string)] outcomes(integer) ///
 	[sheet(string) title(string) outlabels(string) explabels(string) ///
 	digits(integer 1) eventdigits(integer 0) pydigits(integer 0) ///

@@ -2464,8 +2464,8 @@ program define table1_tc, rclass
                 }
                 mata: b.set_column_width(1, 1, 1)
                 mata: b.set_column_width(2, 2, `factorwidth')
-                if `num_cols' >= 3 {
-                    mata: b.set_column_width(3, `num_cols', `datawidth')
+                forvalues _wc = 3/`num_cols' {
+                    mata: b.set_column_width(`_wc', `_wc', `datawidth')
                 }
                 if `pvalue_pos' > 0 {
                     mata: b.set_column_width(`pvalue_pos', `pvalue_pos', 10)

@@ -325,8 +325,8 @@ program define corrtab, rclass
                 * Column widths
                 mata: b.set_column_width(1, 1, 1)
                 mata: b.set_column_width(2, 2, `_label_width')
-                if `num_cols' >= 3 {
-                    mata: b.set_column_width(3, `num_cols', `_data_width')
+                forvalues _wc = 3/`num_cols' {
+                    mata: b.set_column_width(`_wc', `_wc', `_data_width')
                 }
 
                 * Font for entire table

@@ -67,7 +67,7 @@ to Excel or CSV, or stored in a Stata frame.{p_end}
 {synopt:{opt title(string)}}table title{p_end}
 {synopt:{opt footnote(string)}}footnote text below the table{p_end}
 {synopt:{opt theme(string)}}journal-style formatting theme such as {cmd:lancet}, {cmd:nejm}, {cmd:bmj}, {cmd:apa}, {cmd:jama}, {cmd:plos}, {cmd:nature}, {cmd:cell}, {cmd:annals}, or {cmd:custom}{p_end}
-{synopt:{opt border:style(string)}}border style: {cmd:thin}, {cmd:medium}, or {cmd:academic}{p_end}
+{synopt:{opt border:style(string)}}border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or {cmd:academic}{p_end}
 {synopt:{opt headershade}}apply background fill to the header rows{p_end}
 {synopt:{opt headercolor(string)}}custom RGB header color (for example, {cmd:"200 220 240"}){p_end}
 {synopt:{opt zebracolor(string)}}custom RGB zebra stripe color{p_end}
@@ -89,8 +89,8 @@ to Excel or CSV, or stored in a Stata frame.{p_end}
 {synoptset 15 tabbed}{...}
 {p2col 5 15 19 2: Matrices}{p_end}
 {synopt:{cmd:r(C)}}correlation matrix{p_end}
-{synopt:{cmd:r(P)}}p-value matrix{p_end}
-{synopt:{cmd:r(N)}}pairwise observation count matrix{p_end}
+{synopt:{cmd:r(P)}}p-value matrix; returned only when significance stars or {opt pvalues} are requested{p_end}
+{synopt:{cmd:r(N)}}pairwise observation count matrix; returned only when computed{p_end}
 
 {p2col 5 15 19 2: Macros}{p_end}
 {synopt:{cmd:r(xlsx)}}Excel filename (if exported){p_end}

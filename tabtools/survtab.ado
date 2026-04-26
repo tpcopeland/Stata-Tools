@@ -158,6 +158,9 @@ capture noisily {
     _tabtools_resolve_format, theme(`theme') borderstyle(`borderstyle') zebra(`zebra')
     if "`headershade'" != "" local _headershade 1
 
+    local _zebracolor "237 242 249"
+    if "$TABTOOLS_ZEBRACOLOR" != "" local _zebracolor "$TABTOOLS_ZEBRACOLOR"
+
     * Count timepoints
     local n_times : word count `times'
 
@@ -780,8 +783,8 @@ capture noisily {
             * Column widths
             mata: b.set_column_width(1, 1, 1)
             mata: b.set_column_width(2, 2, 22)
-            if `num_cols' >= 3 {
-                mata: b.set_column_width(3, `num_cols', 18)
+            forvalues _wc = 3/`num_cols' {
+                mata: b.set_column_width(`_wc', `_wc', 18)
             }
 
             * Font
@@ -818,8 +821,6 @@ capture noisily {
 
             * Zebra striping
             if "`zebra'" != "" {
-                local _zebracolor "237 242 249"
-                if "$TABTOOLS_ZEBRACOLOR" != "" local _zebracolor "$TABTOOLS_ZEBRACOLOR"
                 forvalues _zr = `=`_data_start'+1'(2)`num_rows' {
                     mata: b.set_fill_pattern(`_zr', (2,`num_cols'), "solid", "`_zebracolor'")
                 }

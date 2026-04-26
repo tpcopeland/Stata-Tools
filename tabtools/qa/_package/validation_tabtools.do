@@ -1838,17 +1838,23 @@ else {
     local ++fail_count
 }
 
-* V10.4: set clear → get → all return empty
+* V10.4: set clear → globals are empty, get returns defaults
 local ++test_count
 capture noisily {
+    tabtools set font "Courier New"
+    tabtools set fontsize 14
+    tabtools set borderstyle medium
     tabtools set clear
+    assert "$TABTOOLS_FONT" == ""
+    assert "$TABTOOLS_FONTSIZE" == ""
+    assert "$TABTOOLS_BORDER" == ""
     tabtools get
-    assert "`r(font)'" == ""
-    assert "`r(fontsize)'" == ""
-    assert "`r(borderstyle)'" == ""
+    assert "`r(font)'" == "Arial"
+    assert "`r(fontsize)'" == "10"
+    assert "`r(borderstyle)'" == "thin"
 }
 if _rc == 0 {
-    display as result "  PASS: V10.4 - set clear → get returns empty strings"
+    display as result "  PASS: V10.4 - set clear resets globals, get returns defaults"
     local ++pass_count
 }
 else {

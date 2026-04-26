@@ -47,19 +47,14 @@ command types are rejected rather than being guessed as margins output.{p_end}
 {synopt:{opt sep(string asis)}}Delimiter between CI endpoints. Default is {cmd:", "}.{p_end}
 {synopt:{opt models(string)}}Labels for multiple models, separated by backslash. Example: {cmd:"IPTW \ AIPW"}.{p_end}
 {synopt:{opt title(string)}}Text written into cell {cmd:A1} and merged across the table width.{p_end}
-{synopt:{opt clean}}Clean up teffects row labels. When the treatment variable has value labels,
-uses them automatically (e.g., {cmd:"r1vs0.treated"} becomes {cmd:"SNRI vs SSRI"}).
-Falls back to basic cleanup if no value labels exist (e.g., {cmd:"Treated (1 vs 0)"}).{p_end}
-{synopt:{opt tlab:els(string asis)}}Explicit treatment level labels as value-label pairs.
-Implies {cmd:clean}. Example: {cmd:tlabels(0 "SSRI" 1 "SNRI")} produces ATE row
-{cmd:"SNRI vs SSRI"} and PO Mean rows {cmd:"SSRI (PO Mean)"}, {cmd:"SNRI (PO Mean)"}.
-Takes priority over auto-detected value labels.{p_end}
+{synopt:{opt clean}}clean up teffects row labels; uses value labels when available (e.g., {cmd:"r1vs0.treated"} becomes {cmd:"SNRI vs SSRI"}), otherwise falls back to basic cleanup{p_end}
+{synopt:{opt tlab:els(string asis)}}explicit treatment level labels as value-label pairs; implies {cmd:clean}. Example: {cmd:tlabels(0 "SSRI" 1 "SNRI")}. Takes priority over auto-detected value labels{p_end}
 {synopt:{opt foot:note(string)}}Add a footnote row below the table in smaller italic font.{p_end}
 {synopt:{opt open}}Open the Excel file in the default application after export. Requires {opt xlsx()} or {opt excel()}.{p_end}
 {synopt:{opt zebra}}Apply alternating light gray row shading for readability.{p_end}
 {synopt:{opt high:light(#)}}Apply yellow fill to rows where p-value < threshold.{p_end}
 {synopt:{opt boldp(#)}}Bold p-value cells below threshold (e.g., {cmd:boldp(0.05)}).{p_end}
-{synopt:{opt border:style(string)}}Border style: {cmd:thin} (default), {cmd:medium}, or {cmd:academic}.{p_end}
+{synopt:{opt border:style(string)}}Border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or {cmd:academic}.{p_end}
 {synopt:{opt full}}Show all rows including those normally filtered (e.g., display all teffects rows, not just ATE/POmean).{p_end}
 {synopt:{opt digits(#)}}Number of decimal places for effects and CIs (default 2, range 0-6).{p_end}
 {synopt:{opt fra:me(name)}}Store output in a named Stata frame. Specify {cmd:frame(name, replace)} to replace an existing frame.{p_end}
