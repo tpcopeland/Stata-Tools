@@ -45,6 +45,7 @@ capture confirm file "crossval_tabtools.do"
 if _rc != 0 {
     cd "`pkg_dir'/qa"
 }
+adopath ++ "`pkg_dir'"
 
 capture log close _crossval
 log using "crossval_tabtools.log", replace text name(_crossval)
@@ -1085,6 +1086,112 @@ else {
     display as error "  FAIL: CV17 ICC formula extra test cases"
     local ++fail_count
     local failed_tests "`failed_tests' CV17"
+}
+
+**# Command-Backed Oracle Checks
+**## CV18: diagtab command returns R-benchmarked diagnostic estimates
+local ++test_count
+capture noisily {
+    clear
+    set obs 200
+    gen byte gold = (_n <= 100)
+    gen byte test = 0
+    replace test = 1 in 1/80
+    replace test = 1 in 101/110
+
+    diagtab test gold
+
+    assert abs(r(sensitivity) - `r_diag_Se') < 1e-10
+    assert abs(r(specificity) - `r_diag_Sp') < 1e-10
+    assert abs(r(ppv) - `r_diag_PPV') < 1e-10
+    assert abs(r(npv) - `r_diag_NPV') < 1e-10
+    assert abs(r(accuracy) - `r_diag_Acc') < 1e-10
+    assert abs(r(lr_pos) - `r_diag_LRp') < 1e-10
+    assert abs(r(lr_neg) - `r_diag_LRn') < 1e-10
+    assert abs(r(dor) - `r_diag_DOR') < 1e-10
+    assert abs(r(youden) - `r_diag_J') < 1e-10
+}
+if _rc == 0 {
+    display as result "  PASS: CV18 diagtab command matches R diagnostic oracle"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: CV18 diagtab command oracle"
+    local ++fail_count
+    local failed_tests "`failed_tests' CV18"
+}
+
+**## CV19: crosstab fweight trend equals explicit expansion
+local ++test_count
+capture noisily {
+    clear
+    input byte outcome byte dose int wt
+    0 0 25
+    1 0 5
+    0 1 20
+    1 1 10
+    0 2 10
+    1 2 20
+    end
+
+    crosstab outcome dose [fw=wt], trend
+    local weighted_p = r(p_trend)
+
+    preserve
+    expand wt
+    crosstab outcome dose, trend
+    local expanded_p = r(p_trend)
+    restore
+
+    assert !missing(`weighted_p')
+    assert !missing(`expanded_p')
+    assert abs(`weighted_p' - `expanded_p') < 1e-12
+}
+if _rc == 0 {
+    display as result "  PASS: CV19 crosstab weighted trend matches expansion"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: CV19 crosstab weighted trend command oracle"
+    local ++fail_count
+    local failed_tests "`failed_tests' CV19"
+}
+
+**## CV20: stratetab command returns R-benchmarked incidence rate ratio
+local ++test_count
+capture noisily {
+    tempfile rate_ref rate_exp
+    clear
+    set obs 1
+    gen str1 category = "A"
+    gen double _D = 100
+    gen double _Y = 20000
+    gen double _Rate = _D / _Y
+    gen double _Lower = _Rate * 0.8
+    gen double _Upper = _Rate * 1.2
+    save "`rate_ref'.dta", replace
+
+    replace _D = 75
+    replace _Rate = _D / _Y
+    replace _Lower = _Rate * 0.8
+    replace _Upper = _Rate * 1.2
+    save "`rate_exp'.dta", replace
+
+    clear
+    stratetab, using("`rate_ref'" "`rate_exp'") outcomes(1) rateratio display
+    matrix _ratios = r(ratios)
+    assert abs(_ratios[1, 1] - `r_irr') < 1e-10
+    capture matrix drop _ratios
+}
+if _rc == 0 {
+    display as result "  PASS: CV20 stratetab command matches R IRR oracle"
+    local ++pass_count
+}
+else {
+    capture matrix drop _ratios
+    display as error "  FAIL: CV20 stratetab command oracle"
+    local ++fail_count
+    local failed_tests "`failed_tests' CV20"
 }
 
 * ============================================================

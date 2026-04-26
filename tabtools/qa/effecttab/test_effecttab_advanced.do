@@ -48,13 +48,36 @@ if _rc == 0 {
     display as result "PASS: T2 — from() matrix Excel export works"
     local ++n_pass
 }
-else {
-    display as error "FAIL: T2 — from() matrix Excel export failed (rc=`=_rc')"
-    local ++n_fail
-}
+	else {
+	    display as error "FAIL: T2 — from() matrix Excel export failed (rc=`=_rc')"
+	    local ++n_fail
+	}
 
-* ============================================================
-* Test 2b: invalid from() matrix preserves user data on error
+	**# Test 2c: final missing workbook guard returns rc=601
+	capture noisily {
+	    local final_missing "/tmp/test_from_matrix_final_missing.xlsx"
+	    capture erase "`final_missing'"
+	    global TABTOOLS_QA_EFFECTTAB_ERASE_XLSX 1
+	    capture noisily effecttab, from(mymat) xlsx("`final_missing'") sheet("Missing") ///
+	        title("Final Missing Guard") effect("OR")
+	    local got_rc = _rc
+	    global TABTOOLS_QA_EFFECTTAB_ERASE_XLSX
+	    capture confirm file "`final_missing'"
+	    assert `got_rc' == 601
+	    assert _rc == 601
+	}
+	if _rc == 0 {
+	    display as result "PASS: T2c — final missing workbook guard returns rc=601"
+	    local ++n_pass
+	}
+	else {
+	    global TABTOOLS_QA_EFFECTTAB_ERASE_XLSX
+	    display as error "FAIL: T2c — final missing workbook guard did not return rc=601 (rc=`=_rc')"
+	    local ++n_fail
+	}
+
+	* ============================================================
+	* Test 2b: invalid from() matrix preserves user data on error
 * ============================================================
 capture noisily {
     sysuse auto, clear

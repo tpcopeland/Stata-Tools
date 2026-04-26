@@ -4,9 +4,28 @@ clear all
 
 local qa_dir "`c(pwd)'"
 local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
+local orig_plus "`c(sysdir_plus)'"
+local orig_personal "`c(sysdir_personal)'"
+tempname install_id
+local install_tag = subinstr("`install_id'", "__", "", .)
+local plus_dir "`c(tmpdir)'/tabtools_render_plus_`install_tag'"
+local personal_dir "`c(tmpdir)'/tabtools_render_personal_`install_tag'"
 
+capture mkdir "`plus_dir'"
+capture mkdir "`personal_dir'"
+sysdir set PLUS "`plus_dir'"
+sysdir set PERSONAL "`personal_dir'"
+discard
 capture ado uninstall tabtools
-quietly net install tabtools, from("`pkg_dir'") replace
+capture noisily net install tabtools, from("`pkg_dir'") replace
+local install_rc = _rc
+if `install_rc' {
+    sysdir set PLUS "`orig_plus'"
+    sysdir set PERSONAL "`orig_personal'"
+    discard
+    capture shell rm -rf "`plus_dir'" "`personal_dir'"
+    exit `install_rc'
+}
 
 local output_dir "`qa_dir'/output_issue_rendering"
 capture mkdir "`output_dir'"
@@ -125,6 +144,11 @@ else {
 
 display ""
 display as result "=== tabtools issue rendering validation: `pass_count' passed, `fail_count' failed, `skip_count' skipped out of `test_count' ==="
+capture ado uninstall tabtools
+sysdir set PLUS "`orig_plus'"
+sysdir set PERSONAL "`orig_personal'"
+discard
+capture shell rm -rf "`plus_dir'" "`personal_dir'"
 if `fail_count' > 0 {
     display as error "Failed tests:`failed_tests'"
     exit 1

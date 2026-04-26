@@ -311,17 +311,26 @@ capture noisily {
     capture corrtab x y, star(0 0.05)
     assert _rc == 198
 
-    capture corrtab x y, pvalues star(0.10 0.05)
-    assert _rc == 198
-}
-if _rc == 0 {
-    display as result "  PASS: corrtab rejects invalid star() contracts"
-    local ++pass_count
-}
-else {
-    display as error "  FAIL: corrtab rejects invalid star() contracts (rc=`=_rc')"
-    local ++fail_count
-}
+	    capture corrtab x y, pvalues star(0.10 0.05)
+	    assert _rc == 198
+
+	    capture corrtab x y, lower upper
+	    assert _rc == 198
+
+	    capture corrtab x y, lower full
+	    assert _rc == 198
+
+	    capture corrtab x y, upper full
+	    assert _rc == 198
+	}
+	if _rc == 0 {
+	    display as result "  PASS: corrtab rejects invalid star() and shape contracts"
+	    local ++pass_count
+	}
+	else {
+	    display as error "  FAIL: corrtab rejects invalid star() and shape contracts (rc=`=_rc')"
+	    local ++fail_count
+	}
 
 **## open and xlsx() validation fail early without a real workbook target
 local ++test_count

@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.9  23apr2026}{...}
+{* *! version 1.0.10  26apr2026}{...}
 {viewerjumpto "Syntax" "effecttab##syntax"}{...}
 {viewerjumpto "Description" "effecttab##description"}{...}
 {viewerjumpto "Options" "effecttab##options"}{...}
@@ -192,6 +192,6 @@ are not defined or you want different wording. {cmd:tlabels()} implies {cmd:clea
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}timothy.copeland@ki.se{p_end}
-{pstd}Version 1.0.9{p_end}
+{pstd}Version 1.0.10{p_end}
 
 {hline}

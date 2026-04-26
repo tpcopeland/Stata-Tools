@@ -1,4 +1,4 @@
-*! effecttab Version 1.0.9  2026/04/23
+*! effecttab Version 1.0.10  2026/04/26
 *! Format treatment effects and margins results for Excel export
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -54,6 +54,8 @@ program define effecttab, rclass
 	local _orig_varabbrev = c(varabbrev)
 	set varabbrev off
 
+	capture noisily {
+
 	* Auto-load shared helper programs if not already in memory
 	capture _tabtools_helpers_ready
 	if _rc {
@@ -63,18 +65,14 @@ program define effecttab, rclass
 			capture _tabtools_helpers_ready
 			if _rc {
 				display as error "_tabtools_common.ado failed to load fully; reinstall tabtools"
-				set varabbrev `_orig_varabbrev'
 				exit 111
 			}
 		}
 		else {
 			display as error "_tabtools_common.ado not found; reinstall tabtools"
-			set varabbrev `_orig_varabbrev'
 			exit 111
 		}
 	}
-
-	capture noisily {
 
 	syntax, [xlsx(string) excel(string) sheet(string)] [sep(string asis) type(string) effect(string) ///
 	        models(string) title(string) clean TLABels(string asis) ///
@@ -1215,9 +1213,14 @@ quietly {
 
 	* Console confirmation (O1)
 	if `_has_xlsx' {
+		* QA-only hook used to exercise the final artifact guard.
+		if "$TABTOOLS_QA_EFFECTTAB_ERASE_XLSX" == "1" {
+			capture erase "`xlsx'"
+		}
 		capture confirm file "`xlsx'"
 		if _rc {
-			noisily display as error "Warning: expected output file not found"
+			noisily display as error "Export command succeeded but file not found"
+			exit 601
 		}
 		else {
 			local _xlsx_ok 1

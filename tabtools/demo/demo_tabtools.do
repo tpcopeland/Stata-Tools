@@ -26,6 +26,13 @@ local _orig_more = c(more)
 local _orig_varabbrev = c(varabbrev)
 local _orig_linesize = c(linesize)
 local _orig_scheme = c(scheme)
+local _orig_plus "`c(sysdir_plus)'"
+local _orig_personal "`c(sysdir_personal)'"
+tempname _demo_id
+local _demo_tag = subinstr("`_demo_id'", "__", "", .)
+local _demo_plus "`c(tmpdir)'/tabtools_demo_plus_`_demo_tag'"
+local _demo_personal "`c(tmpdir)'/tabtools_demo_personal_`_demo_tag'"
+local _demo_isolated 0
 local _demo_success ""
 
 capture noisily {
@@ -57,6 +64,12 @@ if _rc {
     display as error "tc_schemes package not found at `tc_schemes_dir'"
     exit 601
 }
+capture mkdir "`_demo_plus'"
+capture mkdir "`_demo_personal'"
+sysdir set PLUS "`_demo_plus'"
+sysdir set PERSONAL "`_demo_personal'"
+discard
+local _demo_isolated 1
 capture ado uninstall tc_schemes
 quietly net install tc_schemes, from("`tc_schemes_dir'") replace
 set scheme plotplainblind
@@ -907,4 +920,12 @@ set scheme `_orig_scheme'
 set linesize `_orig_linesize'
 set varabbrev `_orig_varabbrev'
 set more `_orig_more'
+if `_demo_isolated' {
+    capture ado uninstall tabtools
+    capture ado uninstall tc_schemes
+    sysdir set PLUS "`_orig_plus'"
+    sysdir set PERSONAL "`_orig_personal'"
+    discard
+    capture shell rm -rf "`_demo_plus'" "`_demo_personal'"
+}
 if `_rc' exit `_rc'

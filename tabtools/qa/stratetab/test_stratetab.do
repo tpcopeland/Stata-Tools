@@ -265,12 +265,74 @@ else {
 	    display as result "  PASS: stratetab multi-exposure rownames are explicit"
 	    local ++pass_count
 	}
-	else {
-	    display as error "  FAIL: stratetab multi-exposure rownames (rc=`=_rc')"
-	    local ++fail_count
-	}
+		else {
+		    display as error "  FAIL: stratetab multi-exposure rownames (rc=`=_rc')"
+		    local ++fail_count
+		}
 
-	display as result "stratetab QA summary: `pass_count' passed, `fail_count' failed"
+		**## truncated r(rates) and r(ratios) rownames remain unique
+		local ++test_count
+		capture noisily {
+		    tempfile long1 long2
+		    clear
+		    set obs 2
+		    gen str80 category = cond(_n == 1, ///
+		        "Alpha beta gamma delta epsilon zeta first", ///
+		        "Alpha beta gamma delta epsilon zeta second")
+		    gen double _D = cond(_n == 1, 100, 80)
+		    gen double _Y = 1000
+		    gen double _Rate = _D / _Y
+		    gen double _Lower = _Rate * 0.8
+		    gen double _Upper = _Rate * 1.2
+		    save "`long1'.dta", replace
+
+		    replace _D = cond(_n == 1, 75, 60)
+		    replace _Rate = _D / _Y
+		    replace _Lower = _Rate * 0.8
+		    replace _Upper = _Rate * 1.2
+		    save "`long2'.dta", replace
+
+		    clear
+		    stratetab, using("`long1'" "`long2'") outcomes(1) rateratio display
+
+		    local rate_names : rownames r(rates)
+		    local n_rate_names : word count `rate_names'
+		    assert `n_rate_names' == 4
+		    forvalues i = 1/`n_rate_names' {
+		        local rate_i : word `i' of `rate_names'
+		        assert strlen("`rate_i'") <= 32
+		        if `i' < `n_rate_names' {
+		            forvalues j = `=`i' + 1'/`n_rate_names' {
+		                local rate_j : word `j' of `rate_names'
+		                assert "`rate_i'" != "`rate_j'"
+		            }
+		        }
+		    }
+
+		    local ratio_names : rownames r(ratios)
+		    local n_ratio_names : word count `ratio_names'
+		    assert `n_ratio_names' == 2
+		    forvalues i = 1/`n_ratio_names' {
+		        local ratio_i : word `i' of `ratio_names'
+		        assert strlen("`ratio_i'") <= 32
+		        if `i' < `n_ratio_names' {
+		            forvalues j = `=`i' + 1'/`n_ratio_names' {
+		                local ratio_j : word `j' of `ratio_names'
+		                assert "`ratio_i'" != "`ratio_j'"
+		            }
+		        }
+		    }
+		}
+		if _rc == 0 {
+		    display as result "  PASS: stratetab suffixes truncated matrix rownames"
+		    local ++pass_count
+		}
+		else {
+		    display as error "  FAIL: stratetab truncated matrix rownames (rc=`=_rc')"
+		    local ++fail_count
+		}
+
+		display as result "stratetab QA summary: `pass_count' passed, `fail_count' failed"
 	if `fail_count' > 0 exit 1
 
 log close _stratetab

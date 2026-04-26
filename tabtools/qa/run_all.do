@@ -6,9 +6,28 @@ clear all
 local qa_dir "`c(pwd)'"
 local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
 local skip_file "`qa_dir'/_skip.txt"
+local orig_plus "`c(sysdir_plus)'"
+local orig_personal "`c(sysdir_personal)'"
+tempname install_id
+local install_tag = subinstr("`install_id'", "__", "", .)
+local plus_dir "`c(tmpdir)'/tabtools_plus_`install_tag'"
+local personal_dir "`c(tmpdir)'/tabtools_personal_`install_tag'"
 
+capture mkdir "`plus_dir'"
+capture mkdir "`personal_dir'"
+sysdir set PLUS "`plus_dir'"
+sysdir set PERSONAL "`personal_dir'"
+discard
 capture ado uninstall tabtools
-quietly net install tabtools, from("`pkg_dir'") replace
+capture noisily net install tabtools, from("`pkg_dir'") replace
+local install_rc = _rc
+if `install_rc' {
+    sysdir set PLUS "`orig_plus'"
+    sysdir set PERSONAL "`orig_personal'"
+    discard
+    capture shell rm -rf "`plus_dir'" "`personal_dir'"
+    exit `install_rc'
+}
 
 local scan_dirs "."
 local child_dirs : dir "`qa_dir'" dirs "*"
@@ -148,5 +167,11 @@ if `n_fail' > 0 {
 else {
     display as result "ALL DISCOVERED QA FILES PASSED"
 }
+
+capture ado uninstall tabtools
+sysdir set PLUS "`orig_plus'"
+sysdir set PERSONAL "`orig_personal'"
+discard
+capture shell rm -rf "`plus_dir'" "`personal_dir'"
 
 if `suite_rc' > 0 exit `suite_rc'

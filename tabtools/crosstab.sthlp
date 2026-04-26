@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.9  23apr2026}{...}
+{* *! version 1.0.10  26apr2026}{...}
 {viewerjumpto "Syntax" "crosstab##syntax"}{...}
 {viewerjumpto "Description" "crosstab##description"}{...}
 {viewerjumpto "Options" "crosstab##options"}{...}
@@ -41,7 +41,7 @@ cells are sparse), and a Spearman rank-correlation trend test.{p_end}
 {synopt:{opt or}}odds ratio with 95% CI; requires a 2x2 table{p_end}
 {synopt:{opt rr}}risk ratio with 95% CI; requires a 2x2 table{p_end}
 {synopt:{opt rd}}risk difference with 95% CI; requires a 2x2 table{p_end}
-{synopt:{opt tr:end}}test for trend across ordered column levels using Spearman rank correlation{p_end}
+{synopt:{opt tr:end}}test for trend across ordered column levels using Spearman rank correlation; {it:fweight}s are honored by expanding to the equivalent frequency-weighted data{p_end}
 {synopt:{opt ex:act}}force Fisher's exact test{p_end}
 {synopt:{opt fi:sher}}force Fisher's exact test (synonym for {opt exact}){p_end}
 {synopt:{opt lab:el}}use value labels for headers{p_end}
@@ -96,6 +96,6 @@ measures.{p_end}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}timothy.copeland@ki.se{p_end}
-{pstd}Version 1.0.9{p_end}
+{pstd}Version 1.0.10{p_end}
 
 {hline}

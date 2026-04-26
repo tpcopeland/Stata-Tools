@@ -95,17 +95,39 @@ capture noisily {
     assert real(word("`r(cutoffs)'", 2)) == 0.5
     assert real(word("`r(cutoffs)'", 3)) == 0.8
 }
-if _rc == 0 {
-    display as result "  PASS: diagtab cutoffs() return matrix"
-    local ++pass_count
-}
+	if _rc == 0 {
+	    display as result "  PASS: diagtab cutoffs() return matrix"
+	    local ++pass_count
+	}
 else {
     display as error "  FAIL: diagtab cutoffs() return matrix (rc=`=_rc')"
-    local ++fail_count
-}
+	    local ++fail_count
+	}
 
-**## auc requires both gold classes
-local ++test_count
+	**## optimal rejects binary test variables
+	local ++test_count
+	capture noisily {
+	    clear
+	    set obs 80
+	    gen byte gold = (_n <= 40)
+	    gen byte test = 0
+	    replace test = 1 in 1/30
+	    replace test = 1 in 41/50
+
+	    capture diagtab test gold, optimal
+	    assert _rc == 198
+	}
+	if _rc == 0 {
+	    display as result "  PASS: diagtab optimal rejects binary test variables"
+	    local ++pass_count
+	}
+	else {
+	    display as error "  FAIL: diagtab optimal rejects binary test variables (rc=`=_rc')"
+	    local ++fail_count
+	}
+
+	**## auc requires both gold classes
+	local ++test_count
 capture noisily {
     clear
     set obs 40

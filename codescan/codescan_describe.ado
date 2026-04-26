@@ -125,7 +125,7 @@ program define codescan_describe, rclass
         local freq = `_desc_freq_`i''
         local pct = `freq' / `total_entries' * 100
         local _cum_pct = `_cum_pct' + `pct'
-        display as text "  `code'" _col(20) as result %9.0fc `freq' ///
+        display as text `"  `code'"' _col(20) as result %9.0fc `freq' ///
             _col(32) as result %9.1f `pct' as text "%" ///
             _col(44) as result %9.1f `_cum_pct' as text "%"
     }
@@ -161,7 +161,7 @@ program define codescan_describe, rclass
         local ch "`_desc_ch_`i''"
         local nc = `_desc_ch_codes_`i''
         local ne = `_desc_ch_entries_`i''
-        display as text "  `ch'" _col(12) as result %9.0fc `nc' ///
+        display as text `"  `ch'"' _col(12) as result %9.0fc `nc' ///
             _col(24) as result %9.0fc `ne'
     }
 

@@ -1,4 +1,4 @@
-*! stratetab Version 1.0.9  2026/04/23
+*! stratetab Version 1.0.10  2026/04/26
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
@@ -544,25 +544,36 @@ forvalues e = 1/`n_exposures' {
 	local _total_cats = `_total_cats' + `ncat_e`e''
 }
 	if `_total_cats' > 0 {
-		matrix `_rrates' = J(`_total_cats', `outcomes', .)
-		local _rnames ""
-		local _rr = 0
-		forvalues e = 1/`n_exposures' {
-			forvalues i = 1/`ncat_e`e'' {
-			local _rr = `_rr' + 1
-			forvalues o = 1/`outcomes' {
+			matrix `_rrates' = J(`_total_cats', `outcomes', .)
+			local _rnames ""
+			local _used_rnames ""
+			local _rr = 0
+			forvalues e = 1/`n_exposures' {
+				forvalues i = 1/`ncat_e`e'' {
+				local _rr = `_rr' + 1
+				forvalues o = 1/`outcomes' {
 				capture matrix `_rrates'[`_rr', `o'] = `Rate_o`o'_e`e'_`i''
 			}
 				local _rname = subinstr("`cat_e`e'_`i''", " ", "_", .)
 				local _rname = substr("`_rname'", 1, 32)
 				if "`_rname'" == "" local _rname "row`_rr'"
-				if `n_exposures' > 1 {
-					local _rname = "e`e'_`_rname'"
-					local _rname = substr("`_rname'", 1, 32)
+					if `n_exposures' > 1 {
+						local _rname = "e`e'_`_rname'"
+						local _rname = substr("`_rname'", 1, 32)
+					}
+					local _base_rname "`_rname'"
+					local _rname_i = 1
+					while strpos(" `_used_rnames' ", " `_rname' ") {
+						local ++_rname_i
+						local _suffix "_`_rname_i'"
+						local _stem_len = 32 - strlen("`_suffix'")
+						local _rname = substr("`_base_rname'", 1, `_stem_len')
+						local _rname "`_rname'`_suffix'"
+					}
+					local _used_rnames "`_used_rnames' `_rname'"
+					local _rnames "`_rnames' `_rname'"
 				}
-				local _rnames "`_rnames' `_rname'"
-			}
-			}
+				}
 		local _cnames ""
 		forvalues o = 1/`outcomes' {
 			local _cname = subinstr(`"`outlab`o''"', " ", "_", .)
@@ -584,25 +595,36 @@ if "`rateratio'" != "" & `n_exposures' >= 2 {
 		local _ratio_cats = `_ratio_cats' + `ncat_e`e''
 	}
 		if `_ratio_cats' > 0 {
-			matrix `_rratios' = J(`_ratio_cats', `outcomes', .)
-			local _rnames ""
-			local _rr = 0
-			forvalues e = 2/`n_exposures' {
-				forvalues i = 1/`ncat_e`e'' {
-				local _rr = `_rr' + 1
+				matrix `_rratios' = J(`_ratio_cats', `outcomes', .)
+				local _rnames ""
+				local _used_rnames ""
+				local _rr = 0
+				forvalues e = 2/`n_exposures' {
+					forvalues i = 1/`ncat_e`e'' {
+					local _rr = `_rr' + 1
 				forvalues o = 1/`outcomes' {
 					capture matrix `_rratios'[`_rr', `o'] = `IRR_o`o'_e`e'_`i''
 				}
 					local _rname = subinstr("`cat_e`e'_`i''", " ", "_", .)
 					local _rname = substr("`_rname'", 1, 32)
 					if "`_rname'" == "" local _rname "row`_rr'"
-					if `n_exposures' > 2 {
-						local _rname = "e`e'_`_rname'"
-						local _rname = substr("`_rname'", 1, 32)
+						if `n_exposures' > 2 {
+							local _rname = "e`e'_`_rname'"
+							local _rname = substr("`_rname'", 1, 32)
+						}
+						local _base_rname "`_rname'"
+						local _rname_i = 1
+						while strpos(" `_used_rnames' ", " `_rname' ") {
+							local ++_rname_i
+							local _suffix "_`_rname_i'"
+							local _stem_len = 32 - strlen("`_suffix'")
+							local _rname = substr("`_base_rname'", 1, `_stem_len')
+							local _rname "`_rname'`_suffix'"
+						}
+						local _used_rnames "`_used_rnames' `_rname'"
+						local _rnames "`_rnames' `_rname'"
 					}
-					local _rnames "`_rnames' `_rname'"
 				}
-			}
 			local _cnames ""
 			forvalues o = 1/`outcomes' {
 				local _cname = subinstr(`"`outlab`o''"', " ", "_", .)

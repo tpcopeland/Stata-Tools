@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.9  23apr2026}{...}
+{* *! version 1.0.10  26apr2026}{...}
 {viewerjumpto "Package overview" "corrtab##package"}{...}
 {viewerjumpto "Syntax" "corrtab##syntax"}{...}
 {viewerjumpto "Description" "corrtab##description"}{...}
@@ -49,9 +49,9 @@ to Excel or CSV, or stored in a Stata frame.{p_end}
 {synoptline}
 {syntab:Correlation}
 {synopt:{opt spe:arman}}compute Spearman rank correlations instead of Pearson{p_end}
-{synopt:{opt lower}}display the lower triangle only; this is the default if no shape option is specified{p_end}
-{synopt:{opt upper}}display the upper triangle only{p_end}
-{synopt:{opt full}}display the full correlation matrix{p_end}
+{synopt:{opt lower}}display the lower triangle only; this is the default if no shape option is specified; may not be combined with {opt upper} or {opt full}{p_end}
+{synopt:{opt upper}}display the upper triangle only; may not be combined with {opt lower} or {opt full}{p_end}
+{synopt:{opt full}}display the full correlation matrix; may not be combined with {opt lower} or {opt upper}{p_end}
 {synopt:{opt star(numlist)}}strictly increasing significance thresholds in (0,1); cannot be combined with {opt pvalues}. Default thresholds yield *, **, *** at {it:p}<0.05, {it:p}<0.01, and {it:p}<0.001{p_end}
 {synopt:{opt pval:ues}}show p-values in parentheses instead of stars{p_end}
 {synopt:{opt digits(#)}}decimal places for correlation coefficients; default 2, range 0-6{p_end}
@@ -102,6 +102,6 @@ to Excel or CSV, or stored in a Stata frame.{p_end}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}timothy.copeland@ki.se{p_end}
-{pstd}Version 1.0.9{p_end}
+{pstd}Version 1.0.10{p_end}
 
 {hline}

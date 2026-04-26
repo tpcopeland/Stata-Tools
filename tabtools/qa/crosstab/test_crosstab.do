@@ -266,10 +266,10 @@ else {
     local ++fail_count
 }
 
-**## fweights preserve weighted totals
-local ++test_count
-capture noisily {
-    clear
+	**## fweights preserve weighted totals
+	local ++test_count
+	capture noisily {
+	    clear
     input byte outcome byte exposure int w
     0 0 40
     0 1 20
@@ -293,11 +293,46 @@ if _rc == 0 {
 else {
     display as error "  FAIL: crosstab fweights (rc=`=_rc')"
     local ++fail_count
-}
-capture frame drop cross_w
+	}
+	capture frame drop cross_w
 
-**## invalid input contracts reject cleanly
-local ++test_count
+	**## weighted trend matches explicit fweight expansion
+	local ++test_count
+	capture noisily {
+	    clear
+	    input byte outcome byte dose int wt
+	    0 0 25
+	    1 0 5
+	    0 1 20
+	    1 1 10
+	    0 2 10
+	    1 2 20
+	    end
+
+	    crosstab outcome dose [fw=wt], trend
+	    local weighted_p = r(p_trend)
+
+	    preserve
+	    expand wt
+	    crosstab outcome dose, trend
+	    local expanded_p = r(p_trend)
+	    restore
+
+	    assert !missing(`weighted_p')
+	    assert !missing(`expanded_p')
+	    assert abs(`weighted_p' - `expanded_p') < 1e-12
+	}
+	if _rc == 0 {
+	    display as result "  PASS: crosstab weighted trend matches expanded fweights"
+	    local ++pass_count
+	}
+	else {
+	    display as error "  FAIL: crosstab weighted trend matches expanded fweights (rc=`=_rc')"
+	    local ++fail_count
+	}
+
+	**## invalid input contracts reject cleanly
+	local ++test_count
 capture noisily {
     clear
     input byte outcome byte exposure int freq

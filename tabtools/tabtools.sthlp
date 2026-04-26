@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.9  23apr2026}{...}
+{* *! version 1.0.10  26apr2026}{...}
 {viewerjumpto "Description" "tabtools##description"}{...}
 {viewerjumpto "Commands" "tabtools##commands"}{...}
 {viewerjumpto "Syntax" "tabtools##syntax"}{...}
@@ -285,6 +285,6 @@ across sessions.
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}{browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}{p_end}
-{pstd}{bf:Version} 1.0.9
+{pstd}{bf:Version} 1.0.10
 
 {hline}

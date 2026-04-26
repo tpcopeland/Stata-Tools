@@ -1,4 +1,4 @@
-*! crosstab Version 1.0.9  2026/04/23
+*! crosstab Version 1.0.10  2026/04/26
 *! Cross-tabulation with association measures
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -247,19 +247,23 @@ capture noisily {
         }
     }
 
-    * Trend test (Spearman rank correlation)
-    local _p_trend .
-    if "`trend'" != "" {
-        * Assign ordinal scores to column levels and test rank correlation
-        tempvar _trend_score
-        qui egen `_trend_score' = group(`colvar')
-        capture qui spearman `rowvar' `_trend_score'
-        if !_rc {
-            local _p_trend = r(p)
-        }
-        drop `_trend_score'
-        return scalar p_trend = `_p_trend'
-    }
+	    * Trend test (Spearman rank correlation)
+	    local _p_trend .
+	    if "`trend'" != "" {
+	        * Assign ordinal scores to column levels and test rank correlation
+	        tempvar _trend_score
+	        qui egen `_trend_score' = group(`colvar')
+	        if "`weight'" == "fweight" {
+	            local _fwexp = substr("`exp'", 2, .)
+	            qui expand `_fwexp'
+	        }
+	        capture qui spearman `rowvar' `_trend_score'
+	        if !_rc {
+	            local _p_trend = r(p)
+	        }
+	        drop `_trend_score'
+	        return scalar p_trend = `_p_trend'
+	    }
 
 **# Build Output Dataset
     clear

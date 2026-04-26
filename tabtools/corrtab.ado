@@ -1,4 +1,4 @@
-*! corrtab Version 1.0.9  2026/04/23
+*! corrtab Version 1.0.10  2026/04/26
 *! Correlation matrix table
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -75,6 +75,14 @@ program define corrtab, rclass
         if "`headercolor'" != "" local _headercolor "`headercolor'"
         if "`zebracolor'" != "" local _zebracolor "`zebracolor'"
 
+        local _shape_modes = 0
+        if "`lower'" != "" local ++_shape_modes
+        if "`upper'" != "" local ++_shape_modes
+        if "`full'" != "" local ++_shape_modes
+        if `_shape_modes' > 1 {
+            noisily display as error "Specify only one of lower, upper, or full"
+            exit 198
+        }
         if "`lower'" == "" & "`upper'" == "" & "`full'" == "" local lower "lower"
         if "`pvalues'" != "" & "`star'" != "" {
             noisily display as error "star() cannot be combined with pvalues"

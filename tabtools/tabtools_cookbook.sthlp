@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.9  23apr2026}{...}
+{* *! version 1.0.10  26apr2026}{...}
 {viewerjumpto "Recipe 1" "tabtools_cookbook##r1"}{...}
 {viewerjumpto "Recipe 2" "tabtools_cookbook##r2"}{...}
 {viewerjumpto "Recipe 3" "tabtools_cookbook##r3"}{...}
@@ -14,14 +14,16 @@
 {viewerjumpto "Recipe 12" "tabtools_cookbook##r12"}{...}
 {viewerjumpto "Recipe 13" "tabtools_cookbook##r13"}{...}
 {viewerjumpto "Recipe 14" "tabtools_cookbook##r14"}{...}
+{viewerjumpto "Recipe 15" "tabtools_cookbook##r15"}{...}
 {viewerjumpto "Recipe 16" "tabtools_cookbook##r16"}{...}
 {viewerjumpto "Recipe 17" "tabtools_cookbook##r17"}{...}
-{viewerjumpto "Recipe 18" "tabtools_cookbook##r18"}{...}
 {title:tabtools Cookbook}
 
 {pstd}
-Copy-paste recipes for common tabtools workflows. Each recipe is
-self-contained and uses built-in Stata datasets.
+Copy-paste recipes for common tabtools workflows. Runnable recipes use
+{cmd:sysuse} or {cmd:webuse} datasets and write local example files. Recipes
+marked illustrative show project-specific scaffolds and require your own files
+or variables.
 {p_end}
 
 {pstd}See also: {helpb tabtools}, {helpb tabtools_cheatsheet}{p_end}
@@ -123,6 +125,7 @@ The MOR is automatically computed for the random intercept.{p_end}
 
 {pstd}For marginal effects:{p_end}
 
+{phang2}{cmd:webuse lbw, clear}{p_end}
 {phang2}{cmd:logit low smoke age lwt i.race, nolog}{p_end}
 {phang2}{cmd:collect clear}{p_end}
 {phang2}{cmd:collect: margins, dydx(*)}{p_end}
@@ -211,11 +214,14 @@ table with custom row ordering.{p_end}
 
 {hline}
 {marker r9}{...}
-{title:Recipe 9. Table 2 workflow with hrcomptab}
+{title:Recipe 9. Illustrative Table 2 workflow with hrcomptab}
 
 {pstd}Build a final Table 2-style worksheet by using {cmd:stratetab} as the
 rates scaffold and injecting selected rows from one or more {cmd:regtab}
 frames.{p_end}
+
+{pstd}This recipe is illustrative. Replace the rate-file names, model variables,
+and placeholder covariate lists with outputs and models from your analysis.{p_end}
 
 {phang2}{cmd:* Step 1: build the incidence-rate scaffold}{p_end}
 {phang2}{cmd:stratetab, using(edss4_tv edss6_tv recurring_tv ///}{p_end}
@@ -364,8 +370,8 @@ in a regression table.{p_end}
 the value label "4000-5999".{p_end}
 
 {hline}
-{marker r16}{...}
-{title:Recipe 16. Survival Summary Table}
+{marker r15}{...}
+{title:Recipe 15. Survival Summary Table}
 
 {pstd}
 Create a Kaplan-Meier survival table with median survival, risk set counts,
@@ -382,8 +388,8 @@ and between-group comparison.
 {phang3}{cmd:theme(lancet)}{p_end}
 
 {hline}
-{marker r17}{...}
-{title:Recipe 17. Diagnostic Accuracy Report}
+{marker r16}{...}
+{title:Recipe 16. Diagnostic Accuracy Report}
 
 {pstd}
 Evaluate a diagnostic test against a gold standard with ROC analysis
@@ -398,8 +404,8 @@ and prevalence-adjusted predictive values.
 {phang3}{cmd:prevalence(0.3) display}{p_end}
 
 {hline}
-{marker r18}{...}
-{title:Recipe 18. Correlation Matrix with Significance Stars}
+{marker r17}{...}
+{title:Recipe 17. Correlation Matrix with Significance Stars}
 
 {pstd}
 Publication-ready correlation matrix with lower triangle,

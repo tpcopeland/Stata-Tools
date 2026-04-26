@@ -1,4 +1,4 @@
-*! diagtab Version 1.0.9  2026/04/23
+*! diagtab Version 1.0.10  2026/04/26
 *! Diagnostic accuracy table
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -136,6 +136,14 @@ capture noisily {
     if "`auc'" != "" & `_ngold' != 2 {
         noisily display as error "auc requires both 0 and 1 in `goldvar'"
         exit 198
+    }
+    if "`optimal'" != "" {
+        qui levelsof `testvar' if `touse', local(_opt_testlevels)
+        local _nopt_test : word count `_opt_testlevels'
+        if `_nopt_test' <= 2 {
+            noisily display as error "optimal requires a continuous test variable with more than two observed levels"
+            exit 198
+        }
     }
     if `cutoff' == -999 & "`cutoffs'" == "" & "`optimal'" == "" {
         qui levelsof `testvar' if `touse', local(_testlevels)
