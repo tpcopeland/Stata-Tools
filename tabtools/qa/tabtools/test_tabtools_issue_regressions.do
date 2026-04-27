@@ -191,6 +191,225 @@ else {
     local failed_tests "`failed_tests' 6"
 }
 
+* Test 7: table1_tc headerperc works with total(before)
+local ++test_count
+capture noisily {
+    clear
+    input g y z
+    0 1 0
+    0 2 1
+    0 3 1
+    1 4 .
+    1 5 .
+    1 6 .
+    end
+    table1_tc, by(g) vars(y contn \ z bin) headerperc total(before) clear
+    assert g_T[2] == "6 (100.0%)"
+    assert g_0[2] == "3 (50.0%)"
+    assert g_1[2] == "3 (50.0%)"
+}
+if _rc == 0 {
+    display as result "  PASS: table1_tc headerperc total(before)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: table1_tc headerperc total(before) (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 7"
+}
+
+* Test 8: table1_tc headerperc works with total(after)
+local ++test_count
+capture noisily {
+    clear
+    input g y z
+    0 1 0
+    0 2 1
+    0 3 1
+    1 4 .
+    1 5 .
+    1 6 .
+    end
+    table1_tc, by(g) vars(y contn \ z bin) headerperc total(after) clear
+    assert g_T[2] == "6 (100.0%)"
+    assert g_0[2] == "3 (50.0%)"
+    assert g_1[2] == "3 (50.0%)"
+}
+if _rc == 0 {
+    display as result "  PASS: table1_tc headerperc total(after)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: table1_tc headerperc total(after) (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 8"
+}
+
+* Test 9: table1_tc wt() smd works when categorical variable is first
+local ++test_count
+capture noisily {
+    clear
+    input g cat bin x w
+    0 1 0 1 1
+    0 1 0 2 1
+    0 2 1 3 4
+    1 1 0 4 3
+    1 2 1 5 1
+    1 2 1 6 1
+    end
+    table1_tc, by(g) vars(cat cat \ x contn \ bin bin) wt(w) smd
+
+    tempname T
+    matrix `T' = r(table)
+    local _cnames : colnames `T'
+    local _cat_row = rownumb(`T', "cat")
+    local _x_row = rownumb(`T', "x")
+    local _bin_row = rownumb(`T', "bin")
+    assert colsof(`T') == 1
+    assert "`_cnames'" == "smd"
+    assert `_cat_row' < .
+    assert `_x_row' < .
+    assert `_bin_row' < .
+    assert el(`T', `_cat_row', 1) < .
+    assert el(`T', `_x_row', 1) < .
+    assert el(`T', `_bin_row', 1) < .
+}
+if _rc == 0 {
+    display as result "  PASS: table1_tc wt() smd categorical-first"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: table1_tc wt() smd categorical-first (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 9"
+}
+
+* Test 10: table1_tc wt() smd uses weighted, non-stale values by variable type
+local ++test_count
+capture noisily {
+    clear
+    input g cat bin x w
+    0 1 0 1 1
+    0 1 0 2 1
+    0 2 1 3 4
+    1 1 0 4 3
+    1 2 1 5 1
+    1 2 1 6 1
+    end
+
+    quietly summarize x [aw=w] if g == 0
+    local _m0 = r(mean)
+    local _sd0 = r(sd)
+    quietly summarize x [aw=w] if g == 1
+    local _m1 = r(mean)
+    local _sd1 = r(sd)
+    local _cont_exp = abs((`_m0' - `_m1') / sqrt((`_sd0'^2 + `_sd1'^2) / 2))
+
+    local _cat_ssq 0
+    quietly levelsof cat, local(_cat_levels)
+    foreach _clv of local _cat_levels {
+        quietly summarize w if g == 0
+        local _w0 = r(sum)
+        quietly summarize w if cat == `_clv' & g == 0
+        local _p0 = r(sum) / `_w0'
+        quietly summarize w if g == 1
+        local _w1 = r(sum)
+        quietly summarize w if cat == `_clv' & g == 1
+        local _p1 = r(sum) / `_w1'
+        local _pavg = (`_p0' + `_p1') / 2
+        local _den = sqrt(`_pavg' * (1 - `_pavg'))
+        if `_den' > 0 local _cat_ssq = `_cat_ssq' + ((`_p0' - `_p1') / `_den')^2
+    }
+    local _cat_exp = sqrt(`_cat_ssq')
+
+    quietly summarize bin [aw=w] if g == 0
+    local _bp0 = r(mean)
+    quietly summarize bin [aw=w] if g == 1
+    local _bp1 = r(mean)
+    local _bin_exp = abs((`_bp0' - `_bp1') / sqrt((`_bp0' * (1 - `_bp0') + `_bp1' * (1 - `_bp1')) / 2))
+
+    table1_tc, by(g) vars(x contn \ cat cat \ bin bin) wt(w) smd
+    tempname T
+    matrix `T' = r(table)
+    local _x_row = rownumb(`T', "x")
+    local _cat_row = rownumb(`T', "cat")
+    local _bin_row = rownumb(`T', "bin")
+    assert colsof(`T') == 1
+    assert `_x_row' < .
+    assert `_cat_row' < .
+    assert `_bin_row' < .
+    assert abs(el(`T', `_x_row', 1) - `_cont_exp') < 0.001
+    assert abs(el(`T', `_cat_row', 1) - `_cat_exp') < 0.001
+    assert abs(el(`T', `_bin_row', 1) - `_bin_exp') < 0.001
+    assert abs(el(`T', `_cat_row', 1) - el(`T', `_x_row', 1)) > 0.001
+    assert abs(el(`T', `_bin_row', 1) - el(`T', `_x_row', 1)) > 0.001
+}
+if _rc == 0 {
+    display as result "  PASS: table1_tc wt() smd weighted non-stale values"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: table1_tc wt() smd weighted non-stale values (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 10"
+}
+
+* Test 11: regtab documents active collect mutation
+local ++test_count
+capture noisily {
+    findfile regtab.sthlp
+    tempname fh
+    local _found_mutation 0
+    local _found_rebuild 0
+    file open `fh' using "`r(fn)'", read text
+    file read `fh' line
+    while r(eof) == 0 {
+        if strpos(`"`line'"', "intentionally updates collect labels") > 0 local _found_mutation 1
+        if strpos(`"`line'"', "save or rebuild that collection") > 0 local _found_rebuild 1
+        file read `fh' line
+    }
+    file close `fh'
+    assert `_found_mutation' == 1
+    assert `_found_rebuild' == 1
+}
+if _rc == 0 {
+    display as result "  PASS: regtab active collect side effect documented"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: regtab active collect side effect documented (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 11"
+}
+
+* Test 12: effecttab documents active collect mutation and from() isolation
+local ++test_count
+capture noisily {
+    findfile effecttab.sthlp
+    tempname fh
+    local _found_mutation 0
+    local _found_from 0
+    file open `fh' using "`r(fn)'", read text
+    file read `fh' line
+    while r(eof) == 0 {
+        if strpos(`"`line'"', "intentionally updates active collection labels") > 0 local _found_mutation 1
+        if strpos(`"`line'"', "matrix path does not inspect") > 0 local _found_from 1
+        file read `fh' line
+    }
+    file close `fh'
+    assert `_found_mutation' == 1
+    assert `_found_from' == 1
+}
+if _rc == 0 {
+    display as result "  PASS: effecttab active collect side effect documented"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: effecttab active collect side effect documented (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' 12"
+}
+
 display ""
 display as result "=== tabtools issue regression tests: `pass_count' passed, `fail_count' failed out of `test_count' ==="
 if `fail_count' > 0 {

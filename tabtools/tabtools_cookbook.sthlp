@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.10  26apr2026}{...}
+{* *! version 1.0.11  27apr2026}{...}
 {viewerjumpto "Recipe 1" "tabtools_cookbook##r1"}{...}
 {viewerjumpto "Recipe 2" "tabtools_cookbook##r2"}{...}
 {viewerjumpto "Recipe 3" "tabtools_cookbook##r3"}{...}

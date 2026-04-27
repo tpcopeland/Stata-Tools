@@ -1,4 +1,4 @@
-*! table1_tc Version 1.0.10  2026/04/26 - Descriptive Statistics Table Generator
+*! table1_tc Version 1.0.11  2026/04/27 - Descriptive Statistics Table Generator
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Fork of -table1_mc- version 3.5 (2024-12-19) by Mark Chatfield
 *! This program generates descriptive statistics tables with formatting options
@@ -9,6 +9,8 @@ program define table1_tc, rclass
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
 
+    capture noisily {
+
     * Auto-load shared helper programs if not already in memory
     capture _tabtools_helpers_ready
     if _rc {
@@ -18,18 +20,14 @@ program define table1_tc, rclass
             capture _tabtools_helpers_ready
             if _rc {
                 display as error "_tabtools_common.ado failed to load fully; reinstall tabtools"
-                set varabbrev `_orig_varabbrev'
                 exit 111
             }
         }
         else {
             display as error "_tabtools_common.ado not found; reinstall tabtools"
-            set varabbrev `_orig_varabbrev'
             exit 111
         }
     }
-
-    capture noisily {
 
 **# Syntax Definition
     syntax [varlist] [if] [in] [fweight], ///
@@ -516,6 +514,7 @@ program define table1_tc, rclass
             local f .
             local df1 .
             local df2 .
+            local _smd_val .
 
             local varname   : word 1 of `arg'  // Extract variable name
             local vartype   : word 2 of `arg'  // Extract variable type
@@ -587,7 +586,7 @@ program define table1_tc, rclass
                 /* Compute SMD if requested (F1) */
                 local _smd_val .
                 if `has_smd' & `nglevels' >= 2 {
-                    if `has_wtcompare' & `has_wt' {
+                    if `has_wt' {
                         qui su `varname' [aw=`wt'] if `groupnum' == `level1'
                         local _smd_m1 = r(mean)
                         local _smd_s1 = r(sd)
@@ -724,7 +723,7 @@ program define table1_tc, rclass
                 /* Compute SMD if requested (F1) — on log-transformed values */
                 local _smd_val .
                 if `has_smd' & `nglevels' >= 2 {
-                    if `has_wtcompare' & `has_wt' {
+                    if `has_wt' {
                         qui su `lvarname' [aw=`wt'] if `groupnum' == `level1'
                         local _smd_m1 = r(mean)
                         local _smd_s1 = r(sd)
@@ -862,7 +861,7 @@ program define table1_tc, rclass
                 /* Compute SMD if requested (F1) — on raw values for skewed vars */
                 local _smd_val .
                 if `has_smd' & `nglevels' >= 2 {
-                    if `has_wtcompare' & `has_wt' {
+                    if `has_wt' {
                         qui su `varname' [aw=`wt'] if `groupnum' == `level1'
                         local _smd_m1 = r(mean)
                         local _smd_s1 = r(sd)
@@ -1011,7 +1010,6 @@ program define table1_tc, rclass
                     }
 
                     /* Compute SMD for categorical vars — Austin (2009) variance-ratio approach */
-                    local _smd_val .
                     if `has_smd' & `nglevels' >= 2 {
                         local _smd_ssq 0
                         qui levelsof `varnum', local(_cat_lvls)
@@ -1034,8 +1032,8 @@ program define table1_tc, rclass
                     }
                 }
 
-                /* Compute weighted SMD for categorical vars when wtcompare */
-                if `has_wtcompare' & `has_wt' & `has_smd' & `nglevels' >= 2 {
+                /* Compute weighted SMD for categorical vars when wt() is active */
+                if `has_wt' & `has_smd' & `nglevels' >= 2 {
                     local _smd_val .
                     local _smd_ssq 0
                     qui levelsof `varnum', local(_cat_lvls)
@@ -1266,7 +1264,6 @@ program define table1_tc, rclass
                     }
 
                     /* Compute SMD for binary vars (F1) */
-                    local _smd_val .
                     if `has_smd' & `nglevels' >= 2 {
                         qui su `varname' if `groupnum' == `level1'
                         local _smd_p1 = r(mean)
@@ -1277,8 +1274,8 @@ program define table1_tc, rclass
                     }
                 }
 
-                /* Compute weighted SMD for binary vars when wtcompare */
-                if `has_wtcompare' & `has_wt' & `has_smd' & `nglevels' >= 2 {
+                /* Compute weighted SMD for binary vars when wt() is active */
+                if `has_wt' & `has_smd' & `nglevels' >= 2 {
                     local _smd_val .
                     qui su `varname' [aw=`wt'] if `groupnum' == `level1'
                     local _smd_p1 = r(mean)
@@ -1739,10 +1736,15 @@ program define table1_tc, rclass
     /* Add percentages to header if requested */
     if "`headerperc'" != "" {
         qui {
-            // Build list of columns to process (include T only if total option used)
-            local hperc_cols "`levels'"
-            if "`total'" != "" {
-                local hperc_cols "`levels' T"
+            // Build list of renamed group columns to process.
+            local hperc_cols ""
+            foreach gl of local levels {
+                if "`gl'" == "`_total_code'" {
+                    local hperc_cols "`hperc_cols' T"
+                }
+                else {
+                    local hperc_cols "`hperc_cols' `gl'"
+                }
             }
 
             // Process each group column (including total if present)
@@ -1939,6 +1941,7 @@ program define table1_tc, rclass
         }
         else if `has_wt' {
             local Dapa "Weighted data are presented as `ymix'. P-values suppressed."
+            if `has_smd' local Dapa "`Dapa' SMD reflects weighted comparison."
         }
         else {
             local Dapa "Data are presented as `ymix'."

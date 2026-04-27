@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.10  26apr2026}{...}
+{* *! version 1.0.11  27apr2026}{...}
 {viewerjumpto "Syntax" "hrcomptab##syntax"}{...}
 {viewerjumpto "Description" "hrcomptab##description"}{...}
 {viewerjumpto "Options" "hrcomptab##options"}{...}
@@ -239,7 +239,7 @@ frame contributes 1 non-reference row, and the dose-category frame contributes
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}timothy.copeland@ki.se{p_end}
-{pstd}Version 1.0.10{p_end}
+{pstd}Version 1.0.11{p_end}
 
 
 {marker alsosee}{...}

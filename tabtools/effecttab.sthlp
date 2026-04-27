@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.10  26apr2026}{...}
+{* *! version 1.0.11  27apr2026}{...}
 {viewerjumpto "Syntax" "effecttab##syntax"}{...}
 {viewerjumpto "Description" "effecttab##description"}{...}
 {viewerjumpto "Options" "effecttab##options"}{...}
@@ -35,6 +35,11 @@
 {pstd}When reading from {cmd:collect}, {cmd:effecttab} requires the active
 collection to come from {cmd:teffects} or {cmd:margins}. Other collected
 command types are rejected rather than being guessed as margins output.{p_end}
+
+{pstd}The {cmd:collect} path intentionally updates active collection labels,
+styles, and layout before export. The {opt from()} matrix path does not inspect
+or relabel the active collection and is the safer path when the existing
+collection must remain unchanged.{p_end}
 
 {marker options}{title:Options}
 
@@ -192,6 +197,6 @@ are not defined or you want different wording. {cmd:tlabels()} implies {cmd:clea
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}timothy.copeland@ki.se{p_end}
-{pstd}Version 1.0.10{p_end}
+{pstd}Version 1.0.11{p_end}
 
 {hline}

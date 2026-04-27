@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.10  26apr2026}{...}
+{* *! version 1.0.11  27apr2026}{...}
 {vieweralsosee "effecttab" "help effecttab"}{...}
 {viewerjumpto "Package overview" "regtab##package"}{...}
 {viewerjumpto "Syntax" "regtab##syntax"}{...}
@@ -102,6 +102,7 @@ random-effects rows if desired.{p_end}
 {pstd}Prerequisites and expectations{p_end}
 {p 4 8 2}- Run your models inside {cmd:collect:} or otherwise ensure the relevant results are in the active {helpb collect}. {cmd:regtab} does not run models.{p_end}
 {p 4 8 2}- {cmd:regtab} expects dimensions including {cmd:colname} and {cmd:cmdset}, and result items {cmd:_r_b}, {cmd:_r_ci}, {cmd:_r_p}. It applies cell styles: {cmd:_r_b} as %4.2fc, {cmd:_r_ci} as {cmd:sformat("(%s")} with {cmd:cidelimiter()}, and {cmd:_r_p} as %5.4f.{p_end}
+{p 4 8 2}- Because {cmd:regtab} works through the active {cmd:collect}, it intentionally updates collect labels, styles, and layout before export. If you need the original collection layout unchanged for later commands, save or rebuild that collection before running {cmd:regtab}.{p_end}
 {p 4 8 2}- The CI delimiter is controlled by {opt sep()}; default {cmd:", "}. Example alternative: {cmd:sep("; ")}.{p_end}
 {p 4 8 2}- If {opt coef()} is not provided, {cmd:regtab} detects the display scale per collected model from the collected command metadata and fills the estimate header automatically. When models use different scales, estimate headers are set per model and {cmd:r(coef_label)} returns {cmd:mixed}.{p_end}
 {p 4 8 2}- Model header labels are auto-generated unless {opt models()} supplies explicit names. {opt models()} values are split on the backslash character.{p_end}
@@ -208,6 +209,6 @@ the threshold, and {opt highlight()} applies yellow fill to entire rows.{p_end}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}timothy.copeland@ki.se{p_end}
-{pstd}Version 1.0.10{p_end}
+{pstd}Version 1.0.11{p_end}
 
 {hline}

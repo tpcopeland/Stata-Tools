@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.10  26apr2026}{...}
+{* *! version 1.0.11  27apr2026}{...}
 {viewerjumpto "Syntax" "table1_tc##syntax"}{...}
 {viewerjumpto "Description" "table1_tc##description"}{...}
 {viewerjumpto "Examples" "table1_tc##examples"}{...}
@@ -223,6 +223,9 @@ directly to a regression model:{p_end}
 {p 8 8 2}Binary variables: difference in proportions / pooled SD of proportions{p_end}
 {p 8 8 2}Categorical variables: average absolute SMD across dummy-coded categories{p_end}
 
+{pstd}When {opt wt()} is specified, SMDs use weighted means, weighted standard
+deviations, and weighted proportions for the first two {opt by()} groups.{p_end}
+
 {pstd}Values |SMD| > {opt smdthreshold()} (default 0.1) are highlighted in orange in Excel output.
 Specify {cmd:smdthreshold(-1)} to disable this formatting. The 0.1 convention follows Austin (2009).{p_end}
 
@@ -246,7 +249,7 @@ instead of direct Shapiro-Wilk testing. Users should verify classifications for 
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}timothy.copeland@ki.se{p_end}
-{pstd}Version 1.0.10{p_end}
+{pstd}Version 1.0.11{p_end}
 
 {title:Also see}
 
