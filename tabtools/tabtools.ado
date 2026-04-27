@@ -1,4 +1,4 @@
-*! tabtools Version 1.0.12  2026/04/27
+*! tabtools Version 1.0.13  2026/04/27
 *! Suite of table export commands for publication-ready Excel output
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -32,7 +32,7 @@ program define tabtools, rclass
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     capture noisily {
-        local _package_version "1.0.12"
+        local _package_version "1.0.13"
 
     * Parse anything (subcommand) separately from options
     syntax [anything(everything)] [, List Detail Category(string) ///
@@ -142,7 +142,7 @@ program define tabtools, rclass
             }
             global TABTOOLS_FONTSIZE `setval'
             display as text "tabtools: default font size set to " as result "`setval'"
-            return scalar fontsize = `setval'
+            return local fontsize "`setval'"
         }
         else if "`setkey'" == "borderstyle" {
             if `_named_theme_active' {

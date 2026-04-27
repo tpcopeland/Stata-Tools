@@ -1,4 +1,4 @@
-*! diagtab Version 1.0.12  2026/04/27
+*! diagtab Version 1.0.13  2026/04/27
 *! Diagnostic accuracy table
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -612,28 +612,49 @@ capture noisily {
         else if "`_m'" == "PPV" qui replace c1 = "PPV" in `row'
         else if "`_m'" == "NPV" qui replace c1 = "NPV" in `row'
         else if "`_m'" == "Acc" qui replace c1 = "Accuracy" in `row'
-        qui replace c2 = string(``_m'' * 100, "%5.`digits'f") + "%" in `row'
-        qui replace c3 = "(" + string(``_m'_lo' * 100, "%5.`digits'f") + ", " + string(``_m'_hi' * 100, "%5.`digits'f") + ")" in `row'
+        if !missing(``_m'') {
+            qui replace c2 = string(``_m'' * 100, "%5.`digits'f") + "%" in `row'
+            qui replace c3 = "(" + string(``_m'_lo' * 100, "%5.`digits'f") + ", " + string(``_m'_hi' * 100, "%5.`digits'f") + ")" in `row'
+        }
+        else {
+            qui replace c2 = "—" in `row'
+            qui replace c3 = "" in `row'
+        }
     }
 
     * LR+, LR-, DOR
     local row = `row' + 1
     qui set obs `row'
     qui replace c1 = "LR+" in `row'
-    qui replace c2 = string(`LRp', "%5.`digits'f") in `row'
-    qui replace c3 = "(" + string(`LRp_lo', "%5.`digits'f") + ", " + string(`LRp_hi', "%5.`digits'f") + ")" in `row'
+    if !missing(`LRp') {
+        qui replace c2 = string(`LRp', "%5.`digits'f") in `row'
+        qui replace c3 = "(" + string(`LRp_lo', "%5.`digits'f") + ", " + string(`LRp_hi', "%5.`digits'f") + ")" in `row'
+    }
+    else {
+        qui replace c2 = "—" in `row'
+    }
 
     local row = `row' + 1
     qui set obs `row'
     qui replace c1 = "LR-" in `row'
-    qui replace c2 = string(`LRn', "%5.`=`digits'+1'f") in `row'
-    qui replace c3 = "(" + string(`LRn_lo', "%5.`=`digits'+1'f") + ", " + string(`LRn_hi', "%5.`=`digits'+1'f") + ")" in `row'
+    if !missing(`LRn') {
+        qui replace c2 = string(`LRn', "%5.`=`digits'+1'f") in `row'
+        qui replace c3 = "(" + string(`LRn_lo', "%5.`=`digits'+1'f") + ", " + string(`LRn_hi', "%5.`=`digits'+1'f") + ")" in `row'
+    }
+    else {
+        qui replace c2 = "—" in `row'
+    }
 
     local row = `row' + 1
     qui set obs `row'
     qui replace c1 = "DOR" in `row'
-    qui replace c2 = string(`DOR', "%5.`digits'f") in `row'
-    qui replace c3 = "(" + string(`DOR_lo', "%5.`digits'f") + ", " + string(`DOR_hi', "%5.`digits'f") + ")" in `row'
+    if !missing(`DOR') {
+        qui replace c2 = string(`DOR', "%5.`digits'f") in `row'
+        qui replace c3 = "(" + string(`DOR_lo', "%5.`digits'f") + ", " + string(`DOR_hi', "%5.`digits'f") + ")" in `row'
+    }
+    else {
+        qui replace c2 = "—" in `row'
+    }
 
     * AUC
     if !missing(`_auc') {

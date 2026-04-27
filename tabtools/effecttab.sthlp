@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.12  27apr2026}{...}
+{* *! version 1.0.13  27apr2026}{...}
 {viewerjumpto "Syntax" "effecttab##syntax"}{...}
 {viewerjumpto "Description" "effecttab##description"}{...}
 {viewerjumpto "Options" "effecttab##options"}{...}
@@ -16,7 +16,7 @@
 
 {marker syntax}{title:Syntax}
 
-{p 4 8 2}{cmd:effecttab}, [{opt xlsx(string)} {opt excel(string)} {opt sheet(string)} {opt type(string)} {opt effect(string)} {opt sep(string asis)} {opt models(string)} {opt title(string)} {opt clean} {opt tlab:els(string asis)} {opt foot:note(string)} {opt open} {opt zebra} {opt high:light(#)} {opt boldp(#)} {opt border:style(string)} {opt the:me(string)} {opt full} {opt digits(#)} {opt fra:me(name)} {opt dis:play} {opt from(name)} {opt headerc:olor(string)} {opt zebrac:olor(string)} {opt csv(string)} {cmdab:addr:ow(}{it:string asis}{cmd:)} {opt pdp(#)} {opt highpdp(#)}]{p_end}
+{p 4 8 2}{cmd:effecttab}, [{opt xlsx(string)} {opt excel(string)} {opt sheet(string)} {opt type(string)} {opt effect(string)} {opt sep(string asis)} {opt models(string)} {opt title(string)} {opt clean} {opt tlab:els(string asis)} {opt foot:note(string)} {opt open} {opt zebra} {opt high:light(#)} {opt bold:p(#)} {opt border:style(string)} {opt the:me(string)} {opt full} {opt digits(#)} {opt fra:me(name)} {opt dis:play} {opt from(name)} {opt headerc:olor(string)} {opt zebrac:olor(string)} {opt csv(string)} {cmdab:addr:ow(}{it:string asis}{cmd:)} {opt pdp(#)} {opt highpdp(#)}]{p_end}
 
 {pstd}Required: either an active {helpb collect} containing results from {helpb teffects} or {helpb margins}, or {opt from(name)} with a matrix of estimates, confidence limits, and p-values.{p_end}
 
@@ -58,7 +58,7 @@ collection must remain unchanged.{p_end}
 {synopt:{opt open}}Open the Excel file in the default application after export. Requires {opt xlsx()} or {opt excel()}.{p_end}
 {synopt:{opt zebra}}Apply alternating light gray row shading for readability.{p_end}
 {synopt:{opt high:light(#)}}Apply yellow fill to rows where p-value < threshold.{p_end}
-{synopt:{opt boldp(#)}}Bold p-value cells below threshold (e.g., {cmd:boldp(0.05)}).{p_end}
+{synopt:{opt bold:p(#)}}Bold p-value cells below threshold (e.g., {cmd:boldp(0.05)}).{p_end}
 {synopt:{opt border:style(string)}}Border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or {cmd:academic}.{p_end}
 {synopt:{opt full}}Show all rows including those normally filtered (e.g., display all teffects rows, not just ATE/POmean).{p_end}
 {synopt:{opt digits(#)}}Number of decimal places for effects and CIs (default 2, range 0-6).{p_end}
@@ -197,6 +197,6 @@ are not defined or you want different wording. {cmd:tlabels()} implies {cmd:clea
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}timothy.copeland@ki.se{p_end}
-{pstd}Version 1.0.12{p_end}
+{pstd}Version 1.0.13{p_end}
 
 {hline}

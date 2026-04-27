@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.12  27apr2026}{...}
+{* *! version 1.0.13  27apr2026}{...}
 {vieweralsosee "effecttab" "help effecttab"}{...}
 {viewerjumpto "Package overview" "regtab##package"}{...}
 {viewerjumpto "Syntax" "regtab##syntax"}{...}
@@ -112,7 +112,7 @@ random-effects rows if desired.{p_end}
 {p 4 8 2}- Random-effects variance components ({cmd:var()}, {cmd:cov()}, {cmd:sd()}) from {cmd:mixed}, {cmd:melogit}, {cmd:mepoisson}, and similar commands use the same {opt digits()} precision as the main coefficient rows. Random-effects rows can be removed entirely with {opt nore}.{p_end}
 {p 4 8 2}- Intercept rows can be removed with {opt noint}.{p_end}
 {p 4 8 2}- By default, fonts are set to Arial 10, but this can be overridden by {opt theme()}, session defaults set with {helpb tabtools:set font} / {helpb tabtools:set fontsize}, or both. Borders are drawn around the table and model blocks. Column widths and row heights are adjusted heuristically to fit labels and contents.{p_end}
-{p 4 8 2}- The command writes the Excel output using {helpb putexcel}; a temporary workbook {cmd:temp.xlsx} is created and deleted during processing.{p_end}
+{p 4 8 2}- The command writes the Excel output using {helpb export excel} and applies formatting via the Mata {cmd:xl()} class.{p_end}
 {p 4 8 2}- Model statistics ({opt stats()}): For multi-model tables, N, AIC, BIC, log-likelihood, and groups are extracted per model from the {helpb collect} framework and placed in each model's column. If extraction fails, statistics fall back to the last model's {cmd:e()} values in the first column only. ICC is computed per model from variance components in the collected results when that variance decomposition is defined. For model families without a closed-form level-1 variance, ICC is left blank rather than guessed. If the primary collection path cannot recover supported ICC components, {cmd:regtab} falls back to the last model's {cmd:e(b)} matrix.{p_end}
 
 {marker examples}{title:Examples}
@@ -209,6 +209,6 @@ the threshold, and {opt highlight()} applies yellow fill to entire rows.{p_end}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}timothy.copeland@ki.se{p_end}
-{pstd}Version 1.0.12{p_end}
+{pstd}Version 1.0.13{p_end}
 
 {hline}

@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.12  27apr2026}{...}
+{* *! version 1.0.13  27apr2026}{...}
 {viewerjumpto "Package overview" "corrtab##package"}{...}
 {viewerjumpto "Syntax" "corrtab##syntax"}{...}
 {viewerjumpto "Description" "corrtab##description"}{...}
@@ -89,8 +89,8 @@ to Excel or CSV, or stored in a Stata frame.{p_end}
 {synoptset 15 tabbed}{...}
 {p2col 5 15 19 2: Matrices}{p_end}
 {synopt:{cmd:r(C)}}correlation matrix{p_end}
-{synopt:{cmd:r(P)}}p-value matrix; returned only when significance stars or {opt pvalues} are requested{p_end}
-{synopt:{cmd:r(N)}}pairwise observation count matrix; returned only when computed{p_end}
+{synopt:{cmd:r(P)}}p-value matrix{p_end}
+{synopt:{cmd:r(N)}}pairwise observation count matrix{p_end}
 
 {p2col 5 15 19 2: Macros}{p_end}
 {synopt:{cmd:r(xlsx)}}Excel filename (if exported){p_end}
@@ -102,6 +102,6 @@ to Excel or CSV, or stored in a Stata frame.{p_end}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}timothy.copeland@ki.se{p_end}
-{pstd}Version 1.0.12{p_end}
+{pstd}Version 1.0.13{p_end}
 
 {hline}

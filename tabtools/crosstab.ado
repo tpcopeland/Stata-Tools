@@ -1,4 +1,4 @@
-*! crosstab Version 1.0.12  2026/04/27
+*! crosstab Version 1.0.13  2026/04/27
 *! Cross-tabulation with association measures
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -338,16 +338,22 @@ capture noisily {
             local _col_total = `_colsum'[1, `c']
             local _cell_str = string(`_freq_val', "%11.0fc")
             if "`colpct'" != "" {
-                local _pct = string(`_freq_val' / `_col_total' * 100, "%5.`digits'f")
-                local _cell_str "`_cell_str' (`_pct'%)"
+                if `_col_total' > 0 {
+                    local _pct = string(`_freq_val' / `_col_total' * 100, "%5.`digits'f")
+                    local _cell_str "`_cell_str' (`_pct'%)"
+                }
             }
             else if "`rowpct'" != "" {
-                local _pct = string(`_freq_val' / `_row_total' * 100, "%5.`digits'f")
-                local _cell_str "`_cell_str' (`_pct'%)"
+                if `_row_total' > 0 {
+                    local _pct = string(`_freq_val' / `_row_total' * 100, "%5.`digits'f")
+                    local _cell_str "`_cell_str' (`_pct'%)"
+                }
             }
             else if "`totalpct'" != "" {
-                local _pct = string(`_freq_val' / `_total_n' * 100, "%5.`digits'f")
-                local _cell_str "`_cell_str' (`_pct'%)"
+                if `_total_n' > 0 {
+                    local _pct = string(`_freq_val' / `_total_n' * 100, "%5.`digits'f")
+                    local _cell_str "`_cell_str' (`_pct'%)"
+                }
             }
             qui replace c`_col' = strtrim("`_cell_str'") in `row'
         }

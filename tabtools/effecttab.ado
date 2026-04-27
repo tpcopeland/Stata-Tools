@@ -1,4 +1,4 @@
-*! effecttab Version 1.0.12  2026/04/27
+*! effecttab Version 1.0.13  2026/04/27
 *! Format treatment effects and margins results for Excel export
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -294,9 +294,6 @@ quietly {
 			exit 198
 		}
 	}
-
-	* Return input/detected values
-	return local type "`type'"
 
 	* Set default effect label based on type
 	if "`effect'" == "" {
@@ -1027,45 +1024,6 @@ quietly {
 	* APPLY EXCEL FORMATTING (MATA)
 	* =========================================================================
 
-	capture {
-		mata: b = xl()
-		mata: b.load_book("`xlsx'")
-		mata: b.set_sheet("`sheet'")
-		mata: b.set_row_height(1,1,30)
-		mata: b.set_column_width(1,1,1)
-		mata: b.set_column_width(2,2,`factor_length')
-		forvalues i = 3(3)`=`num_cols'-2' {
-			mata: b.set_column_width(`i',`i',`est_width')
-		}
-		forvalues i = 4(3)`=`num_cols'-1' {
-			mata: b.set_column_width(`i',`i',`ci_width')
-		}
-		forvalues i = 5(3)`num_cols' {
-			mata: b.set_column_width(`i',`i',`p_width')
-		}
-		local _total_model_width = `est_width' + `ci_width' + `p_width'
-		if `=`max_header_length'*.9' > `_total_model_width' {
-			local headerheight = ceil(`=`max_header_length'*.9'/`_total_model_width')
-			mata: b.set_row_height(2,2,`=`headerheight'*15')
-		}
-		mata: b.close_book()
-	}
-	if _rc {
-		local saved_rc = _rc
-		* Ensure Excel file handle is closed on error
-		capture mata: b.close_book()
-		capture mata: mata drop b
-		noisily display as error "Excel formatting failed with error `saved_rc'"
-		capture erase "`temp_xlsx'"
-		restore
-		error `saved_rc'
-	}
-	capture mata: mata drop b
-
-	* =========================================================================
-	* APPLY EXCEL FORMATTING (Mata xl())
-	* =========================================================================
-
 	* Pre-extract p-value data for conditional formatting
 	if `has_boldp' | `has_highlight' {
 		local _n_models = `n' / 3
@@ -1090,6 +1048,25 @@ quietly {
 		mata: b = xl()
 		mata: b.load_book("`xlsx'")
 		mata: b.set_sheet("`sheet'")
+
+		* Column widths and row heights
+		mata: b.set_row_height(1,1,30)
+		mata: b.set_column_width(1,1,1)
+		mata: b.set_column_width(2,2,`factor_length')
+		forvalues i = 3(3)`=`num_cols'-2' {
+			mata: b.set_column_width(`i',`i',`est_width')
+		}
+		forvalues i = 4(3)`=`num_cols'-1' {
+			mata: b.set_column_width(`i',`i',`ci_width')
+		}
+		forvalues i = 5(3)`num_cols' {
+			mata: b.set_column_width(`i',`i',`p_width')
+		}
+		local _total_model_width = `est_width' + `ci_width' + `p_width'
+		if `=`max_header_length'*.9' > `_total_model_width' {
+			local headerheight = ceil(`=`max_header_length'*.9'/`_total_model_width')
+			mata: b.set_row_height(2,2,`=`headerheight'*15')
+		}
 
 		* Font for entire table
 		mata: b.set_font((1,`num_rows'), (1,`num_cols'), "`_font'", `_fontsize')
@@ -1215,10 +1192,6 @@ quietly {
 
 	* Console confirmation (O1)
 	if `_has_xlsx' {
-		* QA-only hook used to exercise the final artifact guard.
-		if "$TABTOOLS_QA_EFFECTTAB_ERASE_XLSX" == "1" {
-			capture erase "`xlsx'"
-		}
 		capture confirm file "`xlsx'"
 		if _rc {
 			noisily display as error "Export command succeeded but file not found"

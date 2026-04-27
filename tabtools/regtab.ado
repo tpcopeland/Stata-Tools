@@ -1,4 +1,4 @@
-*! regtab Version 1.0.12  2026/04/27
+*! regtab Version 1.0.13  2026/04/27
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
@@ -189,10 +189,6 @@ local coef_round = 10^(-`digits')
 
 * Resolve formatting
 _tabtools_resolve_format, theme(`theme') borderstyle(`borderstyle')
-if !inlist("`borderstyle'", "thin", "medium", "academic") {
-	noisily display as error "borderstyle() must be thin, medium, or academic"
-	exit 198
-}
 
 * Resolve header/zebra colors (O4)
 local _headercolor "219 229 241"
@@ -1371,7 +1367,12 @@ local _model_ix = `_model_ix' + 1
 local _needs_eform = 0
 if `_model_ix' <= `_meta_models' local _needs_eform = `model_eform_`_model_ix''
 destring c`i', gen(double c`i'z) force
-replace c`i' = "`refcat'" if inlist(c`i', "0", "1") & c`=`i'+1' == ""
+if `_needs_eform' {
+    replace c`i' = "`refcat'" if inlist(c`i', "0", "1") & c`=`i'+1' == ""
+}
+else {
+    replace c`i' = "`refcat'" if c`i' == "0" & c`=`i'+1' == ""
+}
 if `_needs_eform' {
     replace c`i'z = exp(c`i'z) if !_is_re & !_is_ancillary & !missing(c`i'z)
 }

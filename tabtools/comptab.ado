@@ -1,4 +1,4 @@
-*! comptab Version 1.0.12  2026/04/27
+*! comptab Version 1.0.13  2026/04/27
 *! Compose publication tables from regtab/effecttab output frames
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -91,6 +91,8 @@ program define comptab, rclass
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
 
+    capture noisily {
+
     * Auto-load shared helper programs if not already in memory
     capture _tabtools_helpers_ready
     if _rc {
@@ -99,19 +101,15 @@ program define comptab, rclass
             run "`r(fn)'"
             capture _tabtools_helpers_ready
             if _rc {
-                display as error "_tabtools_common.ado failed to load fully; reinstall tabtools"
-                set varabbrev `_orig_varabbrev'
+                noisily display as error "_tabtools_common.ado failed to load fully; reinstall tabtools"
                 exit 111
             }
         }
         else {
-            display as error "_tabtools_common.ado not found; reinstall tabtools"
-            set varabbrev `_orig_varabbrev'
+            noisily display as error "_tabtools_common.ado not found; reinstall tabtools"
             exit 111
         }
     }
-
-    capture noisily {
 
     syntax anything(name=framelist), [rows(string) ROWNames(string)] ///
         [xlsx(string) excel(string) sheet(string)] ///
@@ -153,10 +151,6 @@ program define comptab, rclass
     * RESOLVE FORMATTING OPTIONS
     * =====================================================================
     _tabtools_resolve_format, theme(`theme') borderstyle(`borderstyle')
-    if !inlist("`borderstyle'", "thin", "medium", "academic") {
-        noisily display as error "borderstyle() must be thin, medium, or academic"
-        exit 198
-    }
 
     local _headercolor "219 229 241"
     local _zebracolor "237 242 249"

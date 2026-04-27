@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.12  27apr2026}{...}
+{* *! version 1.0.13  27apr2026}{...}
 {viewerjumpto "Syntax" "table1_tc##syntax"}{...}
 {viewerjumpto "Description" "table1_tc##description"}{...}
 {viewerjumpto "Examples" "table1_tc##examples"}{...}
@@ -90,7 +90,7 @@ use {cmd:table1_tc}.{p_end}
 {synopt:{opt title("string")}}title for the Excel table{p_end}
 {synopt:{cmdab:border:style(}{it:string}{cmd:)}}border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or {cmd:academic}{p_end}
 {synopt:{cmdab:the:me(}{it:string}{cmd:)}}journal-style formatting preset: {cmd:lancet}, {cmd:nejm}, {cmd:bmj}, {cmd:apa}, {cmd:jama}, {cmd:plos}, {cmd:nature}, {cmd:cell}, {cmd:annals}, or {cmd:custom}{p_end}
-{synopt:{opt boldp(#)}}bold p-value cells below threshold{p_end}
+{synopt:{opt bold:p(#)}}bold p-value cells below threshold{p_end}
 {synopt:{cmdab:foot:note(}{it:string}{cmd:)}}add footnote row below table{p_end}
 {synopt:{opt open}}open the exported workbook; requires {opt xlsx()} or {opt excel()}{p_end}
 {synopt:{opt zebra}}alternating row shading{p_end}
@@ -249,7 +249,7 @@ instead of direct Shapiro-Wilk testing. Users should verify classifications for 
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}timothy.copeland@ki.se{p_end}
-{pstd}Version 1.0.12{p_end}
+{pstd}Version 1.0.13{p_end}
 
 {title:Also see}
 

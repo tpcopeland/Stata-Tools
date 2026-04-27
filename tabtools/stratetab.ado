@@ -1,4 +1,4 @@
-*! stratetab Version 1.0.12  2026/04/27
+*! stratetab Version 1.0.13  2026/04/27
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
@@ -46,14 +46,19 @@ qui save "`_userdata_path'", emptyok
 capture noisily {
 
 * Auto-load shared helper programs if not already in memory
-capture program list _tabtools_validate_path
+capture _tabtools_helpers_ready
 if _rc {
 	capture findfile _tabtools_common.ado
 	if _rc == 0 {
 		run "`r(fn)'"
+		capture _tabtools_helpers_ready
+		if _rc {
+			noisily display as error "_tabtools_common.ado failed to load fully; reinstall tabtools"
+			exit 111
+		}
 	}
 	else {
-		display as error "_tabtools_common.ado not found; reinstall tabtools"
+		noisily display as error "_tabtools_common.ado not found; reinstall tabtools"
 		exit 111
 	}
 }
@@ -776,8 +781,8 @@ if `_has_xlsx' {
 				local _fatal_rc = `saved_rc'
 				error `saved_rc'
 			}
-			capture mata: mata drop b
 			else {
+				capture mata: mata drop b
 				capture confirm file "`xlsx'"
 				if _rc {
 				    noisily display as error "Export command succeeded but file not found"
@@ -788,7 +793,7 @@ if `_has_xlsx' {
 				}
 				else {
 					local _xlsx_ok 1
-					di as txt "Exported to `xlsx'"
+					noisily display as text "Exported to " as result `"`xlsx'"' as text ", sheet " as result `"`sheet'"'
 				}
 			}
 		}

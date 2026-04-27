@@ -1,4 +1,4 @@
-*! survtab Version 1.0.12  2026/04/27
+*! survtab Version 1.0.13  2026/04/27
 *! Survival summary table with Kaplan-Meier estimates, medians, and RMST
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -35,6 +35,8 @@ program define survtab, rclass
 
 capture noisily {
 
+    return clear
+
     * Auto-load the shared helper bundle if any required helper is missing
     local _tt_reload = 0
     foreach _tt_prog in _tabtools_validate_path _tabtools_validate_sheet ///
@@ -63,6 +65,7 @@ capture noisily {
         TIMEUnit(string) REVerse DIFFerence EVents ///
         xlsx(string) excel(string) sheet(string) title(string) ///
         FOOTnote(string) THEme(string) BORDERstyle(string) ///
+        HEADERShade HEADERColor(string) ZEBRAColor(string) ///
         BOLDp(real -1) zebra HIGHlight(real -1) DIGits(integer -1) ///
         csv(string) FRAme(string) DISplay open pdp(integer -1) highpdp(integer -1) ///
         ADDRow(string asis)]
@@ -155,11 +158,17 @@ capture noisily {
     local has_rmst = `rmst' != -1
 
     * Resolve formatting
-    _tabtools_resolve_format, theme(`theme') borderstyle(`borderstyle') zebra(`zebra')
+    _tabtools_resolve_format, theme(`theme') borderstyle(`borderstyle') headershade(`headershade') zebra(`zebra')
     if "`headershade'" != "" local _headershade 1
 
+    local _headercolor "219 229 241"
     local _zebracolor "237 242 249"
+    if "$TABTOOLS_HEADERCOLOR" != "" local _headercolor "$TABTOOLS_HEADERCOLOR"
     if "$TABTOOLS_ZEBRACOLOR" != "" local _zebracolor "$TABTOOLS_ZEBRACOLOR"
+    if "`headercolor'" != "" local _headercolor "`headercolor'"
+    if "`zebracolor'" != "" local _zebracolor "`zebracolor'"
+    _tabtools_validate_color "`_headercolor'" "headercolor()"
+    _tabtools_validate_color "`_zebracolor'" "zebracolor()"
 
     * Count timepoints
     local n_times : word count `times'
@@ -806,9 +815,7 @@ capture noisily {
 
             * Header background
             if "`_headershade'" == "1" {
-                local _hdrcolor "219 229 241"
-                if "$TABTOOLS_HEADERCOLOR" != "" local _hdrcolor "$TABTOOLS_HEADERCOLOR"
-                mata: b.set_fill_pattern(`_header_row', (2,`num_cols'), "solid", "`_hdrcolor'")
+                mata: b.set_fill_pattern(`_header_row', (2,`num_cols'), "solid", "`_headercolor'")
             }
 
             * Center-align data columns

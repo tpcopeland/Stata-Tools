@@ -1,6 +1,6 @@
 {smcl}
-{* *! version 1.0.12  27apr2026}{...}
-{title:tabtools Quick Reference (v1.0.12)}
+{* *! version 1.0.13  27apr2026}{...}
+{title:tabtools Quick Reference (v1.0.13)}
 
 {pstd}Common option combinations for each command.{p_end}
 
@@ -92,6 +92,6 @@
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}timothy.copeland@ki.se{p_end}
-{pstd}Version 1.0.12{p_end}
+{pstd}Version 1.0.13{p_end}
 
 {hline}

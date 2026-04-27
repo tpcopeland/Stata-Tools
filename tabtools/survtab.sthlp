@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.12  27apr2026}{...}
+{* *! version 1.0.13  27apr2026}{...}
 {viewerjumpto "Syntax" "survtab##syntax"}{...}
 {viewerjumpto "Description" "survtab##description"}{...}
 {viewerjumpto "Options" "survtab##options"}{...}
@@ -23,7 +23,7 @@ and restricted mean survival time.{p_end}
 {opt ev:ents} {opt dig:its(#)}
 {opt xlsx(filename)} {opt excel(filename)} {opt sheet(string)} {opt title(string)}
 {opt foot:note(string)} {opt the:me(string)} {opt border:style(string)}
-{opt boldp(#)} {opt zebra} {opt high:light(#)} {opt pdp(#)} {opt highpdp(#)}
+{opt headers:hade} {opt headerc:olor(string)} {opt boldp(#)} {opt zebra} {opt zebrac:olor(string)} {opt high:light(#)} {opt pdp(#)} {opt highpdp(#)}
 {opt csv(filename)} {opt fra:me(name)} {opt dis:play} {opt open}
 {cmdab:addr:ow(}{it:string asis}{cmd:)}]{p_end}
 
@@ -70,7 +70,10 @@ in the console, saved as CSV, or stored in a Stata frame.{p_end}
 {synopt:{opt the:me(string)}}journal-style theme: {cmd:lancet}, {cmd:nejm}, {cmd:bmj}, {cmd:apa}, {cmd:jama}, {cmd:plos}, {cmd:nature}, {cmd:cell}, {cmd:annals}, or {cmd:custom}{p_end}
 {synopt:{opt border:style(string)}}border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or {cmd:academic}{p_end}
 {synopt:{opt boldp(#)}}bold log-rank p-value and summary row when p < threshold{p_end}
+{synopt:{opt headers:hade}}shade header row background{p_end}
+{synopt:{opt headerc:olor(string)}}custom header background color as {it:R G B} (e.g., {cmd:"219 229 241"}){p_end}
 {synopt:{opt zebra}}alternating row shading{p_end}
+{synopt:{opt zebrac:olor(string)}}custom zebra stripe color as {it:R G B} (e.g., {cmd:"237 242 249"}){p_end}
 {synopt:{opt high:light(#)}}highlight log-rank summary row when p < threshold{p_end}
 {synopt:{opt dig:its(#)}}decimal places for survival estimates and CIs (default 1, range 0-6){p_end}
 {synopt:{opt pdp(#)}}max decimal places for small p-values (p < 0.10); default 3{p_end}
@@ -129,6 +132,6 @@ in the console, saved as CSV, or stored in a Stata frame.{p_end}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}timothy.copeland@ki.se{p_end}
-{pstd}Version 1.0.12{p_end}
+{pstd}Version 1.0.13{p_end}
 
 {hline}

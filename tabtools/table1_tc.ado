@@ -1,4 +1,4 @@
-*! table1_tc Version 1.0.12  2026/04/27 - Descriptive Statistics Table Generator
+*! table1_tc Version 1.0.13  2026/04/27 - Descriptive Statistics Table Generator
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Fork of -table1_mc- version 3.5 (2024-12-19) by Mark Chatfield
 *! This program generates descriptive statistics tables with formatting options
@@ -1022,12 +1022,22 @@ program define table1_tc, rclass
                         foreach _clv of local _cat_lvls {
                             qui su `varnum' if `groupnum' == `level1'
                             local _smd_n1 = r(N)
-                            qui count if `varnum' == `_clv' & `groupnum' == `level1'
-                            local _smd_p1 = r(N) / `_smd_n1'
+                            if `_smd_n1' == 0 {
+                                local _smd_p1 = .
+                            }
+                            else {
+                                qui count if `varnum' == `_clv' & `groupnum' == `level1'
+                                local _smd_p1 = r(N) / `_smd_n1'
+                            }
                             qui su `varnum' if `groupnum' == `level2'
                             local _smd_n2 = r(N)
-                            qui count if `varnum' == `_clv' & `groupnum' == `level2'
-                            local _smd_p2 = r(N) / `_smd_n2'
+                            if `_smd_n2' == 0 {
+                                local _smd_p2 = .
+                            }
+                            else {
+                                qui count if `varnum' == `_clv' & `groupnum' == `level2'
+                                local _smd_p2 = r(N) / `_smd_n2'
+                            }
                             local _smd_pavg = (`_smd_p1' + `_smd_p2') / 2
                             local _smd_denom = sqrt(`_smd_pavg' * (1 - `_smd_pavg'))
                             if `_smd_denom' > 0 {
@@ -1047,12 +1057,22 @@ program define table1_tc, rclass
                         * Weighted proportions via sum of weights
                         qui su `wt' if `groupnum' == `level1'
                         local _smd_wtot1 = r(sum)
-                        qui su `wt' if `varnum' == `_clv' & `groupnum' == `level1'
-                        local _smd_p1 = r(sum) / `_smd_wtot1'
+                        if `_smd_wtot1' == 0 {
+                            local _smd_p1 = .
+                        }
+                        else {
+                            qui su `wt' if `varnum' == `_clv' & `groupnum' == `level1'
+                            local _smd_p1 = r(sum) / `_smd_wtot1'
+                        }
                         qui su `wt' if `groupnum' == `level2'
                         local _smd_wtot2 = r(sum)
-                        qui su `wt' if `varnum' == `_clv' & `groupnum' == `level2'
-                        local _smd_p2 = r(sum) / `_smd_wtot2'
+                        if `_smd_wtot2' == 0 {
+                            local _smd_p2 = .
+                        }
+                        else {
+                            qui su `wt' if `varnum' == `_clv' & `groupnum' == `level2'
+                            local _smd_p2 = r(sum) / `_smd_wtot2'
+                        }
                         local _smd_pavg = (`_smd_p1' + `_smd_p2') / 2
                         local _smd_denom = sqrt(`_smd_pavg' * (1 - `_smd_pavg'))
                         if `_smd_denom' > 0 {
@@ -1104,19 +1124,18 @@ program define table1_tc, rclass
                 }                
 
                 /* Format results for display */
-                qui gen perc=string(100*_freq/tot, "`varformat'")  // Calculate and format percentage
-                
+                qui gen perc = "" if tot == 0
+                qui replace perc = string(100*_freq/tot, "`varformat'") if tot > 0
+
                 /* Add leading space for percentages <10% for alignment */
                 if `"`nospacelowpercent'"' == "" & `"`extraspace'"' == "" {
-                    // Add space for single-digit percentages for alignment
-                    qui replace perc= " " + perc if 100*_freq/tot < 10 & perc!="10" & perc!="10.0" & perc!="10.00"
+                    qui replace perc = " " + perc if tot > 0 & 100*_freq/tot < 10 & perc!="10" & perc!="10.0" & perc!="10.00"
                 }
                 if `"`nospacelowpercent'"' == "" & `"`extraspace'"' != "" {
-                    // Add extra space with extraspace option
-                    qui replace perc= "  " + perc if 100*_freq/tot < 10 & perc!="10" & perc!="10.0" & perc!="10.00"
+                    qui replace perc = "  " + perc if tot > 0 & 100*_freq/tot < 10 & perc!="10" & perc!="10.0" & perc!="10.00"
                 }
-                
-                qui replace perc= perc + `percsign'  // Add percent sign
+
+                qui replace perc = perc + `percsign' if tot > 0
 
                 // Format count: use unweighted n when wt() specified
                 if `has_wt' {
@@ -1329,15 +1348,15 @@ program define table1_tc, rclass
                 if r(N) == 0 qui replace _freq = 0 if _freq > 0  // Handle case where no positives exist
 
                 /* Format results for display */
-                qui gen perc=string(100*_freq/tot, "`varformat'")  // Calculate and format percentage
+                qui gen perc = "" if tot == 0
+                qui replace perc = string(100*_freq/tot, "`varformat'") if tot > 0
 
                 /* Add leading space for percentages <10% for alignment */
                 if "`nospacelowpercent'" == "" {
-                    // Add space for single-digit percentages for alignment
-                    qui replace perc= " " + perc if 100*_freq/tot < 10 & perc!="10" & perc!="10.0" & perc!="10.00"
+                    qui replace perc = " " + perc if tot > 0 & 100*_freq/tot < 10 & perc!="10" & perc!="10.0" & perc!="10.00"
                 }
 
-                qui replace perc= perc + `percsign'  // Add percent sign
+                qui replace perc = perc + `percsign' if tot > 0
 
                 // Format count: use unweighted n when wt() specified
                 if `has_wt' {
@@ -2203,23 +2222,25 @@ program define table1_tc, rclass
 				}
 			}
 			
-			/* Add continuous variable formats if present */
-			if `_resolved_has_contn' {
-				if `part_count' > 0 local header_parts = "`header_parts', "
-				local header_parts = "`header_parts'Mean (SD)"
-				local part_count = `part_count' + 1
-			}
-			
-			if `_resolved_has_contln' {
-				if `part_count' > 0 local header_parts = "`header_parts', "
-				local header_parts = "`header_parts'Geometric mean (×/GSD)"
-				local part_count = `part_count' + 1
-			}
-			
-			if `_resolved_has_conts' {
-				if `part_count' > 0 local header_parts = "`header_parts', "
-				local header_parts = "`header_parts'Median (Q1`iqrmiddle'Q3)"
-				local part_count = `part_count' + 1
+			/* Add continuous variable formats if present (skip when percent already added them) */
+			if "`percent'" != "percent" {
+				if `_resolved_has_contn' {
+					if `part_count' > 0 local header_parts = "`header_parts', "
+					local header_parts = "`header_parts'Mean (SD)"
+					local part_count = `part_count' + 1
+				}
+
+				if `_resolved_has_contln' {
+					if `part_count' > 0 local header_parts = "`header_parts', "
+					local header_parts = "`header_parts'Geometric mean (×/GSD)"
+					local part_count = `part_count' + 1
+				}
+
+				if `_resolved_has_conts' {
+					if `part_count' > 0 local header_parts = "`header_parts', "
+					local header_parts = "`header_parts'Median (Q1`iqrmiddle'Q3)"
+					local part_count = `part_count' + 1
+				}
 			}
 			
 			/* Set header description in the table */

@@ -1,4 +1,4 @@
-*! corrtab Version 1.0.12  2026/04/27
+*! corrtab Version 1.0.13  2026/04/27
 *! Correlation matrix table
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -107,7 +107,6 @@ program define corrtab, rclass
         }
         local n_stars : word count `star'
 
-        marksample touse
         marksample _pwtouse, novarlist
 
         quietly count if `_pwtouse'
