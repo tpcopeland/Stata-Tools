@@ -338,6 +338,92 @@ else {
     local ++fail_count
 }
 
+* Regression: wt() negative values outside if-sample are ignored
+local ++test_count
+capture noisily {
+    clear
+    input x grp wt keep
+    10 0 1 1
+    20 1 2 1
+    30 0 -5 0
+    40 1 3 1
+    end
+    table1_tc x if keep, by(grp) wt(wt)
+}
+if _rc == 0 {
+    display as result "  PASS: table1_tc wt() ignores negative values outside sample"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: table1_tc wt() ignores negative values outside sample (error `=_rc')"
+    local ++fail_count
+}
+
+* Regression: wt() negative values inside if-sample still fail
+local ++test_count
+capture noisily {
+    clear
+    input x grp wt keep
+    10 0 1 1
+    20 1 -2 1
+    30 0 4 0
+    40 1 3 1
+    end
+    capture table1_tc x if keep, by(grp) wt(wt)
+    assert _rc == 498
+}
+if _rc == 0 {
+    display as result "  PASS: table1_tc wt() still rejects negative values inside sample"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: table1_tc wt() still rejects negative values inside sample (error `=_rc')"
+    local ++fail_count
+}
+
+* Regression: negative numeric by() values outside if-sample are ignored
+local ++test_count
+capture noisily {
+    clear
+    input x grp keep
+    10 0 1
+    20 1 1
+    30 -1 0
+    40 1 1
+    end
+    table1_tc x if keep, by(grp)
+}
+if _rc == 0 {
+    display as result "  PASS: table1_tc by() ignores negative values outside sample"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: table1_tc by() ignores negative values outside sample (error `=_rc')"
+    local ++fail_count
+}
+
+* Regression: negative numeric by() values inside if-sample still fail
+local ++test_count
+capture noisily {
+    clear
+    input x grp keep
+    10 0 1
+    20 -1 1
+    30 1 0
+    40 1 1
+    end
+    capture table1_tc x if keep, by(grp)
+    assert _rc == 498
+}
+if _rc == 0 {
+    display as result "  PASS: table1_tc by() still rejects negative values inside sample"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: table1_tc by() still rejects negative values inside sample (error `=_rc')"
+    local ++fail_count
+}
+
 * ============================================================
 **# SECTION 2: regtab — untested options
 * ============================================================

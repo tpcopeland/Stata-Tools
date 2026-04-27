@@ -1,4 +1,4 @@
-*! table1_tc Version 1.0.11  2026/04/27 - Descriptive Statistics Table Generator
+*! table1_tc Version 1.0.12  2026/04/27 - Descriptive Statistics Table Generator
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Fork of -table1_mc- version 3.5 (2024-12-19) by Mark Chatfield
 *! This program generates descriptive statistics tables with formatting options
@@ -186,17 +186,12 @@ program define table1_tc, rclass
         error 498
     }
 
-    /* Validate weight option */
+    /* Validate weight option metadata */
     if "`wt'" != "" {
         confirm numeric variable `wt'
         if "`weight'" == "fweight" {
             display as error "wt() and fweight cannot be used together"
             error 198
-        }
-        quietly count if `wt' < 0
-        if r(N) > 0 {
-            display as error "wt() variable must be non-negative"
-            error 498
         }
     }
     local has_wt = "`wt'" != ""
@@ -318,9 +313,18 @@ program define table1_tc, rclass
         if "`_bylab'" == "" local _bylab "`by'"
     }
 
-    /* Mark observations to include in analysis */
+    /* Mark observations to include in analysis before sample-dependent validation */
     marksample touse, novarlist  // Creates indicator variable for observations that satisfy if/in conditions
     if `has_wt' markout `touse' `wt'  // Exclude observations with missing weights
+
+    /* Validate wt() only within the analysis sample */
+    if `has_wt' {
+        quietly count if `touse' & `wt' < 0
+        if r(N) > 0 {
+            display as error "wt() variable must be non-negative"
+            error 498
+        }
+    }
 
     /* Validate that observations remain after if/in conditions */
     quietly count if `touse'
@@ -351,7 +355,7 @@ program define table1_tc, rclass
     }
     
     /* Validate the grouping variable */
-    qui su `groupnum'
+    qui su `groupnum' if `touse', meanonly
     // Check that grouping variable values are non-negative
     if `r(min)' < 0 {
         display as error "by() variable must be either (i) string, or (ii) numeric and contain only non-negative integers, whether or not a value label is attached"

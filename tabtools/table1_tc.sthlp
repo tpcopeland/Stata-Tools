@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.11  27apr2026}{...}
+{* *! version 1.0.12  27apr2026}{...}
 {viewerjumpto "Syntax" "table1_tc##syntax"}{...}
 {viewerjumpto "Description" "table1_tc##description"}{...}
 {viewerjumpto "Examples" "table1_tc##examples"}{...}
@@ -249,7 +249,7 @@ instead of direct Shapiro-Wilk testing. Users should verify classifications for 
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}timothy.copeland@ki.se{p_end}
-{pstd}Version 1.0.11{p_end}
+{pstd}Version 1.0.12{p_end}
 
 {title:Also see}
 

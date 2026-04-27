@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.11  27apr2026}{...}
+{* *! version 1.0.12  27apr2026}{...}
 {viewerjumpto "Syntax" "crosstab##syntax"}{...}
 {viewerjumpto "Description" "crosstab##description"}{...}
 {viewerjumpto "Options" "crosstab##options"}{...}
@@ -55,10 +55,15 @@ cells are sparse), and a Spearman rank-correlation trend test.{p_end}
 {synopt:{opt open}}open the Excel file after export; requires {opt xlsx()} or {opt excel()}{p_end}
 
 {pstd}{cmd:crosstab} supports {it:fweight}s only. When you request {opt or},
-{opt rr}, or {opt rd}, the command passes {it:rowvar} and then {it:colvar} to
-Stata's {helpb cc} or {helpb cs}. Recode the variables so that the event and
-comparison categories match your intended direction before interpreting those
-measures.{p_end}
+{opt rr}, or {opt rd}, the command internally recodes the first observed level
+of {it:rowvar} and {it:colvar} to 0 and the second observed level to 1 before
+calling Stata's {helpb cc} or {helpb cs}. The reported measures therefore
+compare the second observed column level versus the first for the second
+observed row level versus the first. Observed levels follow Stata's numeric
+level order, not value-label display order; use the variable coding that
+matches the direction you want to report. If a requested association measure is
+undefined, for example because a required 2x2 cell count is zero, {cmd:crosstab}
+exits with an error instead of silently omitting the measure.{p_end}
 
 {marker examples}{title:Examples}
 
@@ -96,6 +101,6 @@ measures.{p_end}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}timothy.copeland@ki.se{p_end}
-{pstd}Version 1.0.11{p_end}
+{pstd}Version 1.0.12{p_end}
 
 {hline}

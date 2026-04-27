@@ -339,7 +339,7 @@ else {
     local ++fail_count
 }
 
-* S17: crosstab with very sparse table (many zeros)
+* S17: crosstab with very sparse table exports with exact test
 local ++test_count
 capture noisily {
     clear
@@ -348,7 +348,7 @@ capture noisily {
     gen byte outcome = cond(_n <= 48, 0, 1)
     label variable exposure "Rare exposure"
     label variable outcome "Rare outcome"
-    crosstab exposure outcome, exact or ///
+    crosstab exposure outcome, exact ///
         xlsx("`output_dir'/_stress_cross_sparse.xlsx") sheet("sparse")
     confirm file "`output_dir'/_stress_cross_sparse.xlsx"
 }
@@ -358,6 +358,25 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL: S17 crosstab sparse table (error `=_rc')"
+    local ++fail_count
+}
+
+* S18: crosstab rejects undefined requested OR
+local ++test_count
+capture noisily {
+    clear
+    set obs 50
+    gen byte exposure = cond(_n <= 45, 0, 1)
+    gen byte outcome = cond(_n <= 48, 0, 1)
+    capture crosstab exposure outcome, exact or
+    assert _rc == 498
+}
+if _rc == 0 {
+    display as result "  PASS: S18 crosstab undefined OR rejected"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: S18 crosstab undefined OR rejected (error `=_rc')"
     local ++fail_count
 }
 

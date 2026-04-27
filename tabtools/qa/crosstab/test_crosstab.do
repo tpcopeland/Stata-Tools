@@ -48,6 +48,45 @@ else {
     local ++fail_count
 }
 
+**## Regression: 1/2-coded labeled 2x2 tables still post OR/RR/RD rows
+local ++test_count
+capture noisily {
+    clear
+    input byte outcome byte exposure int freq
+    1 1 40
+    1 2 20
+    2 1 10
+    2 2 30
+    end
+    label define crosstab_outcome_lbl 1 "No event" 2 "Event", replace
+    label define crosstab_exposure_lbl 1 "Unexposed" 2 "Exposed", replace
+    label values outcome crosstab_outcome_lbl
+    label values exposure crosstab_exposure_lbl
+    expand freq
+
+    capture frame drop cross_assoc_lbl
+    crosstab outcome exposure, or rr rd label frame(cross_assoc_lbl, replace)
+
+    assert abs(r(or) - 6) < 1e-10
+    assert abs(r(rr) - 3) < 1e-10
+    assert abs(r(rd) - 0.4) < 1e-10
+    frame cross_assoc_lbl {
+        assert _N == 9
+        assert strpos(c1[7], "OR = ") == 1
+        assert strpos(c1[8], "RR = ") == 1
+        assert strpos(c1[9], "RD = ") == 1
+    }
+}
+if _rc == 0 {
+    display as result "  PASS: crosstab 1/2-coded labeled association measures"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: crosstab 1/2-coded labeled association measures (rc=`=_rc')"
+    local ++fail_count
+}
+capture frame drop cross_assoc_lbl
+
 **# Percent Displays
 **## default colpct uses column denominators
 local ++test_count

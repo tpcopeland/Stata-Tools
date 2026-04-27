@@ -1,4 +1,4 @@
-*! crosstab Version 1.0.11  2026/04/27
+*! crosstab Version 1.0.12  2026/04/27
 *! Cross-tabulation with association measures
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -145,10 +145,17 @@ capture noisily {
     qui levelsof `colvar', local(col_levels) `missing'
     local n_rows : word count `row_levels'
     local n_cols : word count `col_levels'
-    if ("`or'" != "" | "`rr'" != "" | "`rd'" != "") & (`n_rows' != 2 | `n_cols' != 2) {
+    local _assoc_requested = ("`or'" != "" | "`rr'" != "" | "`rd'" != "")
+    if `_assoc_requested' & (`n_rows' != 2 | `n_cols' != 2) {
         noisily display as error "or, rr, and rd require a 2x2 table"
         restore
         exit 198
+    }
+    if `_assoc_requested' {
+        local _assoc_row0 : word 1 of `row_levels'
+        local _assoc_row1 : word 2 of `row_levels'
+        local _assoc_col0 : word 1 of `col_levels'
+        local _assoc_col1 : word 2 of `col_levels'
     }
 
     * Row and column labels
@@ -228,23 +235,49 @@ capture noisily {
     local _rr .
     local _rd .
     if `n_rows' == 2 & `n_cols' == 2 {
+        if `_assoc_requested' {
+            tempvar _assoc_row01 _assoc_col01
+            * Code the second observed row/column levels as 1 so OR/RR/RD
+            * keep the documented orientation: row level 2 by column level 2.
+            qui gen byte `_assoc_row01' = .
+            qui replace `_assoc_row01' = 0 if `rowvar' == `_assoc_row0'
+            qui replace `_assoc_row01' = 1 if `rowvar' == `_assoc_row1'
+            qui gen byte `_assoc_col01' = .
+            qui replace `_assoc_col01' = 0 if `colvar' == `_assoc_col0'
+            qui replace `_assoc_col01' = 1 if `colvar' == `_assoc_col1'
+        }
         if "`or'" != "" {
-            qui cc `rowvar' `colvar' if `touse' [`weight'`exp']
+            qui cc `_assoc_row01' `_assoc_col01' [`weight'`exp']
             local _or = r(or)
+            if missing(`_or') {
+                noisily display as error "odds ratio is undefined for this 2x2 table"
+                restore
+                exit 498
+            }
             local _or_lo = r(lb_or)
             local _or_hi = r(ub_or)
             return scalar or = `_or'
         }
         if "`rr'" != "" | "`rd'" != "" {
-            qui cs `rowvar' `colvar' if `touse' [`weight'`exp']
+            qui cs `_assoc_row01' `_assoc_col01' [`weight'`exp']
             if "`rr'" != "" {
                 local _rr = r(rr)
+                if missing(`_rr') {
+                    noisily display as error "risk ratio is undefined for this 2x2 table"
+                    restore
+                    exit 498
+                }
                 local _rr_lo = r(lb_rr)
                 local _rr_hi = r(ub_rr)
                 return scalar rr = `_rr'
             }
             if "`rd'" != "" {
                 local _rd = r(rd)
+                if missing(`_rd') {
+                    noisily display as error "risk difference is undefined for this 2x2 table"
+                    restore
+                    exit 498
+                }
                 local _rd_lo = r(lb_rd)
                 local _rd_hi = r(ub_rd)
                 return scalar rd = `_rd'
