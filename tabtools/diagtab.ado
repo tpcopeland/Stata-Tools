@@ -26,18 +26,16 @@ program define diagtab, rclass
 capture noisily {
 
     * Auto-load shared helper programs
-    local _needs_helpers 0
-    foreach _helper in _tabtools_validate_path _tabtools_validate_sheet ///
-        _tabtools_resolve_format _tabtools_console_display ///
-        _tabtools_build_col_letters _tabtools_footnote ///
-        _tabtools_frame_put _tabtools_open_file {
-        capture program list `_helper'
-        if _rc local _needs_helpers 1
-    }
-    if `_needs_helpers' {
+    capture _tabtools_helpers_ready
+    if _rc {
         capture findfile _tabtools_common.ado
         if _rc == 0 {
             run "`r(fn)'"
+            capture _tabtools_helpers_ready
+            if _rc {
+                display as error "_tabtools_common.ado failed to load fully; reinstall tabtools"
+                exit 111
+            }
         }
         else {
             display as error "_tabtools_common.ado not found; reinstall tabtools"
@@ -255,8 +253,10 @@ capture noisily {
             * Adjust PPV/NPV with external prevalence
             if `prevalence' > 0 & `prevalence' < 1 {
                 if !missing(`Se') & !missing(`Sp') {
-                    local PPV = (`Se' * `prevalence') / (`Se' * `prevalence' + (1 - `Sp') * (1 - `prevalence'))
-                    local NPV = (`Sp' * (1 - `prevalence')) / ((1 - `Se') * `prevalence' + `Sp' * (1 - `prevalence'))
+                    local _ppv_d = `Se' * `prevalence' + (1 - `Sp') * (1 - `prevalence')
+                    local _npv_d = (1 - `Se') * `prevalence' + `Sp' * (1 - `prevalence')
+                    if `_ppv_d' > 0 local PPV = (`Se' * `prevalence') / `_ppv_d'
+                    if `_npv_d' > 0 local NPV = (`Sp' * (1 - `prevalence')) / `_npv_d'
                     if !missing(`Se_lo') & !missing(`Sp_lo') {
                         local _p = `prevalence'
                         local _d1 = `Se_lo' * `_p' + (1 - `Sp') * (1 - `_p')
@@ -522,8 +522,10 @@ capture noisily {
     * Adjust PPV/NPV with external prevalence (point estimates and CIs)
     if `prevalence' > 0 & `prevalence' < 1 {
         if !missing(`Se') & !missing(`Sp') {
-            local PPV = (`Se' * `prevalence') / (`Se' * `prevalence' + (1 - `Sp') * (1 - `prevalence'))
-            local NPV = (`Sp' * (1 - `prevalence')) / ((1 - `Se') * `prevalence' + `Sp' * (1 - `prevalence'))
+            local _ppv_d = `Se' * `prevalence' + (1 - `Sp') * (1 - `prevalence')
+            local _npv_d = (1 - `Se') * `prevalence' + `Sp' * (1 - `prevalence')
+            if `_ppv_d' > 0 local PPV = (`Se' * `prevalence') / `_ppv_d'
+            if `_npv_d' > 0 local NPV = (`Sp' * (1 - `prevalence')) / `_npv_d'
             * Transform Se/Sp CI bounds through Bayes' formula for PPV/NPV CIs
             if !missing(`Se_lo') & !missing(`Sp_lo') {
                 local _p = `prevalence'
@@ -542,6 +544,10 @@ capture noisily {
     }
 
 **# Return Scalars
+    return scalar TP = `TP'
+    return scalar FP = `FP'
+    return scalar FN = `FN'
+    return scalar TN = `TN'
     return scalar sensitivity = `Se'
     return scalar specificity = `Sp'
     return scalar ppv = `PPV'
@@ -551,7 +557,27 @@ capture noisily {
     return scalar lr_neg = `LRn'
     return scalar dor = `DOR'
     return scalar youden = `J'
-    if !missing(`_auc') return scalar auc = `_auc'
+    return scalar sensitivity_lb = `Se_lo'
+    return scalar sensitivity_ub = `Se_hi'
+    return scalar specificity_lb = `Sp_lo'
+    return scalar specificity_ub = `Sp_hi'
+    return scalar ppv_lb = `PPV_lo'
+    return scalar ppv_ub = `PPV_hi'
+    return scalar npv_lb = `NPV_lo'
+    return scalar npv_ub = `NPV_hi'
+    return scalar accuracy_lb = `Acc_lo'
+    return scalar accuracy_ub = `Acc_hi'
+    return scalar lr_pos_lb = `LRp_lo'
+    return scalar lr_pos_ub = `LRp_hi'
+    return scalar lr_neg_lb = `LRn_lo'
+    return scalar lr_neg_ub = `LRn_hi'
+    return scalar dor_lb = `DOR_lo'
+    return scalar dor_ub = `DOR_hi'
+    if !missing(`_auc') {
+        return scalar auc = `_auc'
+        return scalar auc_lb = `_auc_lo'
+        return scalar auc_ub = `_auc_hi'
+    }
     if !missing(`_opt_cutoff') return scalar optimal_cutoff = `_opt_cutoff'
 
 **# Build Output Dataset

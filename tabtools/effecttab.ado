@@ -76,7 +76,7 @@ program define effecttab, rclass
 
 	syntax, [xlsx(string) excel(string) sheet(string)] [sep(string asis) type(string) effect(string) ///
 	        models(string) title(string) clean TLABels(string asis) ///
-	        FOOTnote(string) open zebra HIGHlight(real -1) BOLDp(real -1) ///
+	        FOOTnote(string) open zebra HEADERShade HIGHlight(real -1) BOLDp(real -1) ///
 	        BORDERstyle(string) full THEme(string) digits(integer -1) ///
 	        HEADERColor(string) ZEBRAColor(string) csv(string) FRAme(string) DISplay ///
 	        FROM(name) ADDRow(string asis) pdp(integer -1) highpdp(integer -1)]
@@ -166,13 +166,10 @@ quietly {
 	local coef_round = 10^(-`digits')
 
 	* Resolve formatting
-	_tabtools_resolve_format, theme(`theme') borderstyle(`borderstyle')
-	if !inlist("`borderstyle'", "thin", "medium", "academic") {
-		noisily display as error "borderstyle() must be thin, medium, or academic"
-		exit 198
-	}
+	_tabtools_resolve_format, theme(`theme') borderstyle(`borderstyle') headershade(`headershade') zebra(`zebra')
+	if "`headershade'" != "" local _headershade 1
 
-	* Resolve header/zebra colors (O4)
+	* Resolve header/zebra colors
 	local _headercolor "219 229 241"
 	local _zebracolor "237 242 249"
 	if "$TABTOOLS_HEADERCOLOR" != "" local _headercolor "$TABTOOLS_HEADERCOLOR"

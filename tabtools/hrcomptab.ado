@@ -82,10 +82,6 @@ program define hrcomptab, rclass
         * Resolve formatting
         _tabtools_resolve_format, theme(`theme') borderstyle(`borderstyle') ///
             headershade(`headershade') zebra(`zebra')
-        if !inlist("`borderstyle'", "thin", "medium", "academic") {
-            display as error "borderstyle() must be thin, medium, or academic"
-            exit 198
-        }
 
         local _headercolor "219 229 241"
         local _zebracolor "237 242 249"

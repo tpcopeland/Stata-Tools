@@ -10,18 +10,16 @@ program define corrtab, rclass
     capture noisily {
 
         * Auto-load shared helper programs
-        local _needs_helpers 0
-        foreach _helper in _tabtools_validate_path _tabtools_validate_sheet ///
-            _tabtools_resolve_format _tabtools_console_display ///
-            _tabtools_build_col_letters _tabtools_footnote ///
-            _tabtools_frame_put _tabtools_open_file {
-            capture program list `_helper'
-            if _rc local _needs_helpers 1
-        }
-        if `_needs_helpers' {
+        capture _tabtools_helpers_ready
+        if _rc {
             capture findfile _tabtools_common.ado
             if _rc == 0 {
                 run "`r(fn)'"
+                capture _tabtools_helpers_ready
+                if _rc {
+                    display as error "_tabtools_common.ado failed to load fully; reinstall tabtools"
+                    exit 111
+                }
             }
             else {
                 display as error "_tabtools_common.ado not found; reinstall tabtools"

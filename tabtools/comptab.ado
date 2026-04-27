@@ -116,7 +116,7 @@ program define comptab, rclass
         [title(string) FOOTnote(string) COMPact ///
         SEParator(numlist >0 integer sort) SECtion(string asis) ///
         RELAbel(string asis) ///
-        THEme(string) BORDERstyle(string) open zebra ///
+        THEme(string) BORDERstyle(string) open zebra HEADERShade ///
         HIGHlight(real -1) BOLDp(real -1) ///
         HEADERColor(string) ZEBRAColor(string) ///
         csv(string) FRAme(string) DISplay]
@@ -150,7 +150,8 @@ program define comptab, rclass
     * =====================================================================
     * RESOLVE FORMATTING OPTIONS
     * =====================================================================
-    _tabtools_resolve_format, theme(`theme') borderstyle(`borderstyle')
+    _tabtools_resolve_format, theme(`theme') borderstyle(`borderstyle') headershade(`headershade') zebra(`zebra')
+    if "`headershade'" != "" local _headershade 1
 
     local _headercolor "219 229 241"
     local _zebracolor "237 242 249"
@@ -991,6 +992,12 @@ program define comptab, rclass
         return local xlsx "`xlsx'"
         return local sheet "`sheet'"
     }
+
+    local _methods "Composite table assembled from `n_frames' source frame(s) with `n_models' model column(s)."
+    if `num_rows' > 0 {
+        local _methods "`_methods' The final table contains `num_rows' rows and `num_cols' columns."
+    }
+    return local methods "`_methods'"
 
     * Open file if requested
     if `_xlsx_ok' & "`open'" != "" _tabtools_open_file "`xlsx'"

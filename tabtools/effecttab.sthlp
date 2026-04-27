@@ -16,7 +16,7 @@
 
 {marker syntax}{title:Syntax}
 
-{p 4 8 2}{cmd:effecttab}, [{opt xlsx(string)} {opt excel(string)} {opt sheet(string)} {opt type(string)} {opt effect(string)} {opt sep(string asis)} {opt models(string)} {opt title(string)} {opt clean} {opt tlab:els(string asis)} {opt foot:note(string)} {opt open} {opt zebra} {opt high:light(#)} {opt bold:p(#)} {opt border:style(string)} {opt the:me(string)} {opt full} {opt digits(#)} {opt fra:me(name)} {opt dis:play} {opt from(name)} {opt headerc:olor(string)} {opt zebrac:olor(string)} {opt csv(string)} {cmdab:addr:ow(}{it:string asis}{cmd:)} {opt pdp(#)} {opt highpdp(#)}]{p_end}
+{p 4 8 2}{cmd:effecttab}, [{opt xlsx(string)} {opt excel(string)} {opt sheet(string)} {opt type(string)} {opt effect(string)} {opt sep(string asis)} {opt models(string)} {opt title(string)} {opt clean} {opt tlab:els(string asis)} {opt foot:note(string)} {opt open} {opt zebra} {opt high:light(#)} {opt bold:p(#)} {opt border:style(string)} {opt the:me(string)} {opt full} {opt digits(#)} {opt fra:me(name)} {opt dis:play} {opt from(name)} {opt headers:hade} {opt headerc:olor(string)} {opt zebrac:olor(string)} {opt csv(string)} {cmdab:addr:ow(}{it:string asis}{cmd:)} {opt pdp(#)} {opt highpdp(#)}]{p_end}
 
 {pstd}Required: either an active {helpb collect} containing results from {helpb teffects} or {helpb margins}, or {opt from(name)} with a matrix of estimates, confidence limits, and p-values.{p_end}
 
@@ -66,6 +66,7 @@ collection must remain unchanged.{p_end}
 {synopt:{opt dis:play}}Show formatted table in the Results window (in addition to Excel export if {cmd:xlsx()} specified).{p_end}
 {synopt:{opt the:me(string)}}Formatting theme: {cmd:lancet}, {cmd:nejm}, {cmd:bmj}, {cmd:apa}, {cmd:jama}, {cmd:plos}, {cmd:nature}, {cmd:cell}, {cmd:annals}, or {cmd:custom}. Overrides font/fontsize/borderstyle. Can also be set globally with {cmd:tabtools set theme}.{p_end}
 {synopt:{opt from(name)}}Pass results from a named Stata matrix instead of reading from {cmd:collect}. The matrix must contain estimate, lower CI, upper CI, and p-value columns in that order. This path leaves any active {cmd:collect} labels/layout unchanged.{p_end}
+{synopt:{opt headers:hade}}apply background fill to the header row{p_end}
 {synopt:{opt headerc:olor(string)}}Custom header background color as a named Excel color or RGB triplet (e.g., {cmd:"219 229 241"}).{p_end}
 {synopt:{opt zebrac:olor(string)}}Custom zebra stripe color as a named Excel color or RGB triplet (e.g., {cmd:"237 242 249"}).{p_end}
 {synopt:{opt csv(string)}}Also export as CSV to the specified filename.{p_end}

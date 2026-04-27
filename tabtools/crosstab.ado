@@ -14,7 +14,7 @@ SYNTAX:
         or rr rd trend label missing
         sheet(string) title(string)
         footnote(string) theme(string) borderstyle(string)
-        boldp(real) zebra
+        boldp(real) zebra headershade headercolor(string) zebracolor(string)
         csv(filename) frame(name) display open]
 */
 
@@ -26,18 +26,16 @@ program define crosstab, rclass
 capture noisily {
 
     * Auto-load shared helper programs
-    local _needs_helpers 0
-    foreach _helper in _tabtools_validate_path _tabtools_validate_sheet ///
-        _tabtools_resolve_format _tabtools_console_display ///
-        _tabtools_build_col_letters _tabtools_footnote ///
-        _tabtools_frame_put _tabtools_open_file {
-        capture program list `_helper'
-        if _rc local _needs_helpers 1
-    }
-    if `_needs_helpers' {
+    capture _tabtools_helpers_ready
+    if _rc {
         capture findfile _tabtools_common.ado
         if _rc == 0 {
             run "`r(fn)'"
+            capture _tabtools_helpers_ready
+            if _rc {
+                display as error "_tabtools_common.ado failed to load fully; reinstall tabtools"
+                exit 111
+            }
         }
         else {
             display as error "_tabtools_common.ado not found; reinstall tabtools"
@@ -53,6 +51,7 @@ capture noisily {
         DIGits(integer -1) ///
         title(string) ///
         FOOTnote(string) THEme(string) BORDERstyle(string) ///
+        HEADERShade HEADERColor(string) ZEBRAColor(string) ///
         BOLDp(real -1) zebra ///
         csv(string) FRAme(string) DISplay open]
 
@@ -127,12 +126,17 @@ capture noisily {
     }
 
     * Resolve formatting
-    _tabtools_resolve_format, theme(`theme') borderstyle(`borderstyle')
-    if "`zebra'" != "" {
-        local _zebracolor "237 242 249"
-        if "$TABTOOLS_ZEBRACOLOR" != "" local _zebracolor "$TABTOOLS_ZEBRACOLOR"
-        _tabtools_validate_color "`_zebracolor'" "zebracolor()"
-    }
+    _tabtools_resolve_format, theme(`theme') borderstyle(`borderstyle') headershade(`headershade') zebra(`zebra')
+    if "`headershade'" != "" local _headershade 1
+
+    local _headercolor "219 229 241"
+    local _zebracolor "237 242 249"
+    if "$TABTOOLS_HEADERCOLOR" != "" local _headercolor "$TABTOOLS_HEADERCOLOR"
+    if "$TABTOOLS_ZEBRACOLOR" != "" local _zebracolor "$TABTOOLS_ZEBRACOLOR"
+    if "`headercolor'" != "" local _headercolor "`headercolor'"
+    if "`zebracolor'" != "" local _zebracolor "`zebracolor'"
+    _tabtools_validate_color "`_headercolor'" "headercolor()"
+    _tabtools_validate_color "`_zebracolor'" "zebracolor()"
 
 **# Cross-tabulation
     preserve
@@ -506,6 +510,9 @@ capture noisily {
             mata: b.set_bottom_border(`_header_row', (2,`num_cols'), "`_hborder'")
             mata: b.set_font_bold(`_header_row', (2,`num_cols'), "on")
             mata: b.set_horizontal_align(`_header_row', (2,`num_cols'), "center")
+            if "`_headershade'" == "1" {
+                mata: b.set_fill_pattern(`_header_row', (2,`num_cols'), "solid", "`_headercolor'")
+            }
 
             * Data alignment
             if `num_rows' >= `_data_start' & `num_cols' >= 3 {

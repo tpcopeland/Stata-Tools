@@ -22,6 +22,7 @@
 {opt lab:el} {opt mis:sing} {opt dig:its(#)}
 {opt sheet(string)} {opt title(string)} {opt foot:note(string)}
 {opt the:me(string)} {opt border:style(string)} {opt boldp(#)} {opt zebra}
+{opt headers:hade} {opt headerc:olor(string)} {opt zebrac:olor(string)}
 {opt csv(filename)} {opt fra:me(name)} {opt dis:play} {opt open}]{p_end}
 
 {marker description}{title:Description}
@@ -47,11 +48,21 @@ cells are sparse), and a Spearman rank-correlation trend test.{p_end}
 {synopt:{opt lab:el}}use value labels for headers{p_end}
 {synopt:{opt mis:sing}}include missing values{p_end}
 {synopt:{opt dig:its(#)}}decimal places for percentages and association measures (default 1, range 0-6){p_end}
+{synopt:{opt sheet(string)}}Excel sheet name (default {cmd:"Crosstab"}){p_end}
+{synopt:{opt title(string)}}title row in the exported table{p_end}
+{synopt:{cmdab:foot:note(}{it:string}{cmd:)}}footnote row below the table{p_end}
+{synopt:{cmdab:the:me(}{it:string}{cmd:)}}journal-style formatting theme: {cmd:lancet}, {cmd:nejm}, {cmd:bmj}, {cmd:apa}, {cmd:jama}, {cmd:plos}, {cmd:nature}, {cmd:cell}, {cmd:annals}, or {cmd:custom}{p_end}
+{synopt:{opt border:style(string)}}border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or {cmd:academic}{p_end}
 {synopt:{opt boldp(#)}}bold test and trend rows when p-values fall below the threshold; must be between 0 and 1{p_end}
+{synopt:{opt zebra}}alternating row shading{p_end}
+{synopt:{cmdab:headers:hade}}apply background fill to the header row{p_end}
+{synopt:{opt headerc:olor(string)}}custom header color as a named Excel color or RGB triplet{p_end}
+{synopt:{opt zebrac:olor(string)}}custom zebra color as a named Excel color or RGB triplet{p_end}
 {synopt:{opt xlsx(filename)}}export to Excel; filename must end in {cmd:.xlsx}{p_end}
 {synopt:{opt excel(filename)}}synonym for {opt xlsx(filename)}{p_end}
 {synopt:{opt csv(filename)}}also export the output dataset as CSV{p_end}
 {synopt:{cmdab:fra:me(}{it:name}{cmd:)}}store the output dataset in a named Stata frame; specify {cmd:frame(name, replace)} to replace an existing frame{p_end}
+{synopt:{opt dis:play}}show formatted table in the Results window{p_end}
 {synopt:{opt open}}open the Excel file after export; requires {opt xlsx()} or {opt excel()}{p_end}
 
 {pstd}{cmd:crosstab} supports {it:fweight}s only. When you request {opt or},

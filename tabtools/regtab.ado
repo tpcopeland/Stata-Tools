@@ -40,7 +40,9 @@ program define regtab, rclass
 	local _orig_varabbrev = c(varabbrev)
 	set varabbrev off
 
-	* Auto-load shared helper programs if not already in memory
+capture noisily {
+
+	* Auto-load shared helper programs
 	capture _tabtools_helpers_ready
 	if _rc {
 		capture findfile _tabtools_common.ado
@@ -49,22 +51,18 @@ program define regtab, rclass
 			capture _tabtools_helpers_ready
 			if _rc {
 				display as error "_tabtools_common.ado failed to load fully; reinstall tabtools"
-				set varabbrev `_orig_varabbrev'
 				exit 111
 			}
 		}
 		else {
 			display as error "_tabtools_common.ado not found; reinstall tabtools"
-			set varabbrev `_orig_varabbrev'
 			exit 111
 		}
 	}
 
-capture noisily {
-
 syntax, [xlsx(string) excel(string) sheet(string)] [sep(string asis) models(string) coef(string) ///
 	title(string) NOINTercept KEEPIntercept NOREeffects stats(string) RELABel ///
-	digits(integer -1) FOOTnote(string) open zebra HIGHlight(real -1) ///
+	digits(integer -1) FOOTnote(string) open zebra HEADERShade HIGHlight(real -1) ///
 	BOLDp(real -1) cdisc BORDERstyle(string) stars THEme(string) ///
 	STARSLevels(numlist) HEADERColor(string) ZEBRAColor(string) csv(string) ///
 	FRAme(string) DISplay keep(string) drop(string) DIMNONsig FACTORLabel ///
@@ -188,9 +186,10 @@ local ci_fmt "%`=`digits'+3'.`digits'fc"
 local coef_round = 10^(-`digits')
 
 * Resolve formatting
-_tabtools_resolve_format, theme(`theme') borderstyle(`borderstyle')
+_tabtools_resolve_format, theme(`theme') borderstyle(`borderstyle') headershade(`headershade') zebra(`zebra')
+if "`headershade'" != "" local _headershade 1
 
-* Resolve header/zebra colors (O4)
+* Resolve header/zebra colors
 local _headercolor "219 229 241"
 local _zebracolor "237 242 249"
 if "$TABTOOLS_HEADERCOLOR" != "" local _headercolor "$TABTOOLS_HEADERCOLOR"
@@ -2081,7 +2080,9 @@ capture {
 	mata: b.set_font_bold(1, 1, "on")
 
 	* Header background (rows 2-3, cols 2 through last)
-	mata: b.set_fill_pattern((2,3), (2,`num_cols'), "solid", "`_headercolor'")
+	if "`headershade'" != "" {
+		mata: b.set_fill_pattern((2,3), (2,`num_cols'), "solid", "`_headercolor'")
+	}
 	* Bold and center column label row (row 3)
 	mata: b.set_font_bold(3, (2,`num_cols'), "on")
 	mata: b.set_horizontal_align(3, (2,`num_cols'), "center")

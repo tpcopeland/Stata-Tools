@@ -37,22 +37,17 @@ capture noisily {
 
     return clear
 
-    * Auto-load the shared helper bundle if any required helper is missing
-    local _tt_reload = 0
-    foreach _tt_prog in _tabtools_validate_path _tabtools_validate_sheet ///
-        _tabtools_resolve_format _tabtools_console_display ///
-        _tabtools_frame_put _tabtools_build_col_letters ///
-        _tabtools_footnote _tabtools_open_file {
-        capture program list `_tt_prog'
-        if _rc {
-            local _tt_reload = 1
-            continue, break
-        }
-    }
-    if `_tt_reload' {
+    * Auto-load shared helper programs
+    capture _tabtools_helpers_ready
+    if _rc {
         capture findfile _tabtools_common.ado
         if _rc == 0 {
             run "`r(fn)'"
+            capture _tabtools_helpers_ready
+            if _rc {
+                display as error "_tabtools_common.ado failed to load fully; reinstall tabtools"
+                exit 111
+            }
         }
         else {
             display as error "_tabtools_common.ado not found; reinstall tabtools"
@@ -549,8 +544,8 @@ capture noisily {
                 * SE of difference (independent groups)
                 if !missing(`_se1') & !missing(`_se2') {
                     local _se_d = sqrt(`_se1'^2 + `_se2'^2) * 100
-                    local _lo = `_d_pct' - 1.96 * `_se_d'
-                    local _hi = `_d_pct' + 1.96 * `_se_d'
+                    local _lo = `_d_pct' - invnormal(0.975) * `_se_d'
+                    local _hi = `_d_pct' + invnormal(0.975) * `_se_d'
                     qui replace c`_diff_col' = string(`_d_pct', "%5.`digits'f") + " (" + string(`_lo', "%5.`digits'f") + ", " + string(`_hi', "%5.`digits'f") + ")" in `row'
                 }
                 else {

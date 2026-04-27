@@ -116,12 +116,8 @@ if `outcomes' < 1 {
 
 	* Resolve formatting
 	_tabtools_resolve_format, theme(`theme') borderstyle(`borderstyle') headershade(`headershade') zebra(`zebra')
-	if !inlist("`borderstyle'", "thin", "medium", "academic") {
-		di as err "borderstyle() must be thin, medium, or academic"
-		exit 198
-	}
 
-	* Resolve header/zebra colors (O4)
+	* Resolve header/zebra colors
 	local _headercolor "219 229 241"
 	local _zebracolor "237 242 249"
 	if "$TABTOOLS_HEADERCOLOR" != "" local _headercolor "$TABTOOLS_HEADERCOLOR"

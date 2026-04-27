@@ -27,7 +27,7 @@ for general 2x2 tables and {helpb corrtab} for matrix-style correlation output.{
 
 {p 4 8 2}{cmd:diagtab} {it:test_var} {it:gold_var} [{it:if}] [{it:in}],
 [{opt xlsx(filename)} {opt excel(filename)} {opt cut:off(#)} {opt cuto:ffs(numlist)}
-{opt preval:ence(#)} {opt exact} {opt wilson} {opt auc} {opt opt:imal}
+{opt prev:alence(#)} {opt exact} {opt wilson} {opt auc} {opt opt:imal}
 {opt dig:its(#)} {opt sheet(string)} {opt title(string)}
 {opt foot:note(string)} {opt the:me(string)} {opt border:style(string)}
 {opt headerc:olor(string)} {opt zebrac:olor(string)} {opt zebra}
@@ -69,7 +69,7 @@ exported to Excel or CSV, or stored in a Stata frame.{p_end}
 {synopt:{opt title(string)}}table title{p_end}
 {synopt:{opt footnote(string)}}footnote text below the table{p_end}
 {synopt:{opt theme(string)}}journal-style formatting theme such as {cmd:lancet}, {cmd:nejm}, {cmd:bmj}, {cmd:apa}, {cmd:jama}, {cmd:plos}, {cmd:nature}, {cmd:cell}, {cmd:annals}, or {cmd:custom}{p_end}
-{synopt:{opt border:style(string)}}border style: {cmd:thin}, {cmd:medium}, or {cmd:academic}{p_end}
+{synopt:{opt border:style(string)}}border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or {cmd:academic}{p_end}
 {synopt:{opt headershade}}apply background fill to the header rows{p_end}
 {synopt:{opt headercolor(string)}}custom header color as a named Excel color or RGB triplet (for example, {cmd:"200 220 240"}){p_end}
 {synopt:{opt zebracolor(string)}}custom zebra stripe color as a named Excel color or RGB triplet{p_end}
@@ -137,19 +137,41 @@ Cannot be combined with {opt cutoffs()}.{p_end}
 
 {marker stored}{title:Stored results}
 
-{synoptset 18 tabbed}{...}
-{p2col 5 18 22 2: Scalars}{p_end}
-{synopt:{cmd:r(sensitivity)}}sensitivity (single-cutoff mode only){p_end}
-{synopt:{cmd:r(specificity)}}specificity (single-cutoff mode only){p_end}
-{synopt:{cmd:r(ppv)}}positive predictive value (single-cutoff mode only){p_end}
-{synopt:{cmd:r(npv)}}negative predictive value (single-cutoff mode only){p_end}
-{synopt:{cmd:r(accuracy)}}overall accuracy (single-cutoff mode only){p_end}
-{synopt:{cmd:r(lr_pos)}}positive likelihood ratio (single-cutoff mode only){p_end}
-{synopt:{cmd:r(lr_neg)}}negative likelihood ratio (single-cutoff mode only){p_end}
-{synopt:{cmd:r(dor)}}diagnostic odds ratio (single-cutoff mode only){p_end}
-{synopt:{cmd:r(youden)}}Youden's index (single-cutoff mode only){p_end}
-{synopt:{cmd:r(auc)}}area under ROC curve (when {opt auc} is requested in single-cutoff mode){p_end}
-{synopt:{cmd:r(optimal_cutoff)}}optimal cutoff (Youden's J; single-cutoff mode only){p_end}
+{synoptset 22 tabbed}{...}
+{p2col 5 22 26 2: Scalars}{p_end}
+{synopt:{cmd:r(TP)}}true positives (single-cutoff mode){p_end}
+{synopt:{cmd:r(FP)}}false positives (single-cutoff mode){p_end}
+{synopt:{cmd:r(FN)}}false negatives (single-cutoff mode){p_end}
+{synopt:{cmd:r(TN)}}true negatives (single-cutoff mode){p_end}
+{synopt:{cmd:r(sensitivity)}}sensitivity (single-cutoff mode){p_end}
+{synopt:{cmd:r(sensitivity_lb)}}sensitivity lower CI bound{p_end}
+{synopt:{cmd:r(sensitivity_ub)}}sensitivity upper CI bound{p_end}
+{synopt:{cmd:r(specificity)}}specificity (single-cutoff mode){p_end}
+{synopt:{cmd:r(specificity_lb)}}specificity lower CI bound{p_end}
+{synopt:{cmd:r(specificity_ub)}}specificity upper CI bound{p_end}
+{synopt:{cmd:r(ppv)}}positive predictive value (single-cutoff mode){p_end}
+{synopt:{cmd:r(ppv_lb)}}PPV lower CI bound{p_end}
+{synopt:{cmd:r(ppv_ub)}}PPV upper CI bound{p_end}
+{synopt:{cmd:r(npv)}}negative predictive value (single-cutoff mode){p_end}
+{synopt:{cmd:r(npv_lb)}}NPV lower CI bound{p_end}
+{synopt:{cmd:r(npv_ub)}}NPV upper CI bound{p_end}
+{synopt:{cmd:r(accuracy)}}overall accuracy (single-cutoff mode){p_end}
+{synopt:{cmd:r(accuracy_lb)}}accuracy lower CI bound{p_end}
+{synopt:{cmd:r(accuracy_ub)}}accuracy upper CI bound{p_end}
+{synopt:{cmd:r(lr_pos)}}positive likelihood ratio (single-cutoff mode){p_end}
+{synopt:{cmd:r(lr_pos_lb)}}LR+ lower CI bound{p_end}
+{synopt:{cmd:r(lr_pos_ub)}}LR+ upper CI bound{p_end}
+{synopt:{cmd:r(lr_neg)}}negative likelihood ratio (single-cutoff mode){p_end}
+{synopt:{cmd:r(lr_neg_lb)}}LR- lower CI bound{p_end}
+{synopt:{cmd:r(lr_neg_ub)}}LR- upper CI bound{p_end}
+{synopt:{cmd:r(dor)}}diagnostic odds ratio (single-cutoff mode){p_end}
+{synopt:{cmd:r(dor_lb)}}DOR lower CI bound{p_end}
+{synopt:{cmd:r(dor_ub)}}DOR upper CI bound{p_end}
+{synopt:{cmd:r(youden)}}Youden's index (single-cutoff mode){p_end}
+{synopt:{cmd:r(auc)}}area under ROC curve (when {opt auc} requested){p_end}
+{synopt:{cmd:r(auc_lb)}}AUC lower CI bound{p_end}
+{synopt:{cmd:r(auc_ub)}}AUC upper CI bound{p_end}
+{synopt:{cmd:r(optimal_cutoff)}}optimal cutoff (Youden's J; single-cutoff mode){p_end}
 
 {p2col 5 18 22 2: Matrices}{p_end}
 {synopt:{cmd:r(cutoff_table)}}cutoff analysis results (when {cmd:cutoffs()} specified){p_end}
