@@ -64,8 +64,8 @@
 {synopt:{opt zebra}}alternating row shading{p_end}
 {synopt:{opt boldp(#)}}bold p-values below threshold{p_end}
 {synopt:{cmdab:high:light(}{it:#}{cmd:)}}highlight rows where p < threshold{p_end}
-{synopt:{cmdab:headerc:olor(}{it:string}{cmd:)}}RGB color for header rows{p_end}
-{synopt:{cmdab:zebrac:olor(}{it:string}{cmd:)}}RGB color for zebra shading{p_end}
+{synopt:{cmdab:headerc:olor(}{it:string}{cmd:)}}named Excel color or RGB triplet for header rows{p_end}
+{synopt:{cmdab:zebrac:olor(}{it:string}{cmd:)}}named Excel color or RGB triplet for zebra shading{p_end}
 {synoptline}
 
 

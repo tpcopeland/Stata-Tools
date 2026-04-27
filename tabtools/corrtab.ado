@@ -74,6 +74,8 @@ program define corrtab, rclass
         if "$TABTOOLS_ZEBRACOLOR" != "" local _zebracolor "$TABTOOLS_ZEBRACOLOR"
         if "`headercolor'" != "" local _headercolor "`headercolor'"
         if "`zebracolor'" != "" local _zebracolor "`zebracolor'"
+        _tabtools_validate_color "`_headercolor'" "headercolor()"
+        _tabtools_validate_color "`_zebracolor'" "zebracolor()"
 
         local _shape_modes = 0
         if "`lower'" != "" local ++_shape_modes

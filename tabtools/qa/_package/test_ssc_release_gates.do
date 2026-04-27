@@ -303,24 +303,182 @@ else {
 }
 
 **# Documentation reality
-**## README example: crosstab runs as displayed
+**## README example: table1_tc runs as displayed
 local ++test_count
 capture noisily {
-    webuse nhanes2, clear
-    capture erase "crosstab.xlsx"
-    crosstab diabetes highbp, xlsx("crosstab.xlsx") ///
-        or colpct exact ///
-        title("Cross-tabulation: Diabetes by Hypertension")
-    confirm file "crosstab.xlsx"
+    sysuse auto, clear
+    capture erase "table1.xlsx"
+    table1_tc price mpg weight rep78, by(foreign) ///
+        xlsx(table1.xlsx) sheet("Table 1") ///
+        title("Table 1. Vehicle Characteristics by Origin") ///
+        smd zebra
+    confirm file "table1.xlsx"
 }
 if _rc == 0 {
-    display as result "  PASS: README crosstab example runs unchanged"
+    display as result "  PASS: README table1_tc example runs unchanged"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: README crosstab example (error `=_rc')"
+    display as error "  FAIL: README table1_tc example (error `=_rc')"
     local ++fail_count
-    local failed_tests "`failed_tests' readme_crosstab"
+    local failed_tests "`failed_tests' readme_table1"
+}
+
+**## README example: regtab runs as displayed
+local ++test_count
+capture noisily {
+    sysuse auto, clear
+    capture erase "regression.xlsx"
+    generate byte expensive = (price > 6000)
+    collect clear
+    collect: logistic expensive mpg weight i.foreign
+    regtab, xlsx(regression.xlsx) sheet("Logistic") ///
+        title("Table 2. Predictors of High Price") ///
+        noint boldp(0.05) zebra
+    confirm file "regression.xlsx"
+}
+if _rc == 0 {
+    display as result "  PASS: README regtab example runs unchanged"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: README regtab example (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' readme_regtab"
+}
+
+**## README example: effecttab runs as displayed
+local ++test_count
+capture noisily {
+    webuse cattaneo2, clear
+    capture erase "effects.xlsx"
+    collect clear
+    collect: teffects ipw (bweight) ///
+        (mbsmoke mage medu mmarried fbaby, logit), ate
+    effecttab, xlsx(effects.xlsx) sheet("ATE") ///
+        effect("ATE") ///
+        title("Average Treatment Effect on Birthweight") ///
+        clean
+    confirm file "effects.xlsx"
+}
+if _rc == 0 {
+    display as result "  PASS: README effecttab example runs unchanged"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: README effecttab example (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' readme_effecttab"
+}
+
+**## README example: comptab runs as displayed
+local ++test_count
+capture noisily {
+    sysuse auto, clear
+    capture erase "composite.xlsx"
+    capture frame drop m1
+    capture frame drop m2
+    generate byte expensive = (price > 6000)
+    collect clear
+    collect: logistic expensive i.foreign
+    regtab, frame(m1) noint
+    collect clear
+    collect: logistic expensive i.foreign mpg weight
+    regtab, frame(m2) noint
+    comptab m1 m2, rownames("foreign \ foreign") ///
+        xlsx(composite.xlsx) sheet("Models") ///
+        title("Table 3. Association with Price (OR, 95% CI)") ///
+        zebra
+    confirm file "composite.xlsx"
+}
+if _rc == 0 {
+    display as result "  PASS: README comptab example runs unchanged"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: README comptab example (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' readme_comptab"
+}
+
+**## README example: crosstab and corrtab run as displayed
+local ++test_count
+capture noisily {
+    sysuse auto, clear
+    capture erase "crosstab.xlsx"
+    capture erase "corrtab.xlsx"
+    generate byte expensive = (price > 6000)
+    crosstab expensive foreign, or label ///
+        xlsx(crosstab.xlsx) ///
+        title("Price by Origin")
+    confirm file "crosstab.xlsx"
+    corrtab price mpg weight length, xlsx(corrtab.xlsx) ///
+        lower title("Correlation Matrix")
+    confirm file "corrtab.xlsx"
+}
+if _rc == 0 {
+    display as result "  PASS: README crosstab/corrtab example runs unchanged"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: README crosstab/corrtab example (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' readme_crosstab_corrtab"
+}
+
+**## README example: survtab and stratetab run as displayed
+local ++test_count
+capture noisily {
+    capture erase "survival.xlsx"
+    capture erase "rates.xlsx"
+    capture erase "rate_hienergy.dta"
+    webuse drugtr, clear
+    stset studytime, failure(died)
+    survtab, times(5 10 15 20) by(drug) ///
+        median riskset difference ///
+        xlsx(survival.xlsx) sheet("KM") ///
+        title("Survival by Treatment Group")
+    confirm file "survival.xlsx"
+    webuse diet, clear
+    stset dox, failure(fail) origin(time dob) enter(time doe) ///
+        scale(365.25) id(id)
+    strate hienergy, per(1000) output(rate_hienergy, replace)
+    stratetab, using(rate_hienergy) outcomes(1) ///
+        xlsx(rates.xlsx) sheet("Rates") ///
+        outlabels("CHD Death") explabels("Energy Intake") ///
+        title("Incidence Rates per 1,000 Person-Years")
+    confirm file "rates.xlsx"
+}
+if _rc == 0 {
+    display as result "  PASS: README survtab/stratetab example runs unchanged"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: README survtab/stratetab example (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' readme_surv_strate"
+}
+
+**## README example: diagtab runs as displayed
+local ++test_count
+capture noisily {
+    webuse lbw, clear
+    capture erase "diagtab.xlsx"
+    logit low age lwt smoke
+    predict phat
+    diagtab phat low, cutoff(0.4) auc ///
+        xlsx(diagtab.xlsx) ///
+        title("Diagnostic Accuracy: Low Birth Weight Prediction")
+    confirm file "diagtab.xlsx"
+}
+if _rc == 0 {
+    display as result "  PASS: README diagtab example runs unchanged"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: README diagtab example (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' readme_diagtab"
 }
 
 **## regtab.sthlp example runs as displayed
@@ -393,7 +551,17 @@ else {
 display as result "Test Results: `pass_count'/`test_count' passed, `fail_count' failed"
 
 capture erase "crosstab.xlsx"
+capture erase "corrtab.xlsx"
+capture erase "table1.xlsx"
 capture erase "regression.xlsx"
+capture erase "effects.xlsx"
+capture erase "composite.xlsx"
+capture erase "survival.xlsx"
+capture erase "rates.xlsx"
+capture erase "rate_hienergy.dta"
+capture erase "diagtab.xlsx"
+capture frame drop m1
+capture frame drop m2
 tabtools set clear
 capture ado uninstall tabtools
 sysdir set PLUS "`orig_plus'"

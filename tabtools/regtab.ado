@@ -201,6 +201,8 @@ if "$TABTOOLS_HEADERCOLOR" != "" local _headercolor "$TABTOOLS_HEADERCOLOR"
 if "$TABTOOLS_ZEBRACOLOR" != "" local _zebracolor "$TABTOOLS_ZEBRACOLOR"
 if "`headercolor'" != "" local _headercolor "`headercolor'"
 if "`zebracolor'" != "" local _zebracolor "`zebracolor'"
+_tabtools_validate_color "`_headercolor'" "headercolor()"
+_tabtools_validate_color "`_zebracolor'" "zebracolor()"
 
 * Validate highlight
 local has_highlight = `highlight' != -1

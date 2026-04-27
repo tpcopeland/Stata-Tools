@@ -164,6 +164,8 @@ program define comptab, rclass
     if "$TABTOOLS_ZEBRACOLOR" != "" local _zebracolor "$TABTOOLS_ZEBRACOLOR"
     if "`headercolor'" != "" local _headercolor "`headercolor'"
     if "`zebracolor'" != "" local _zebracolor "`zebracolor'"
+    _tabtools_validate_color "`_headercolor'" "headercolor()"
+    _tabtools_validate_color "`_zebracolor'" "zebracolor()"
 
     local has_highlight = `highlight' != -1
     if `has_highlight' & (`highlight' <= 0 | `highlight' >= 1) {

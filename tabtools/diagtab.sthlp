@@ -71,8 +71,8 @@ exported to Excel or CSV, or stored in a Stata frame.{p_end}
 {synopt:{opt theme(string)}}journal-style formatting theme such as {cmd:lancet}, {cmd:nejm}, {cmd:bmj}, {cmd:apa}, {cmd:jama}, {cmd:plos}, {cmd:nature}, {cmd:cell}, {cmd:annals}, or {cmd:custom}{p_end}
 {synopt:{opt border:style(string)}}border style: {cmd:thin}, {cmd:medium}, or {cmd:academic}{p_end}
 {synopt:{opt headershade}}apply background fill to the header rows{p_end}
-{synopt:{opt headercolor(string)}}custom RGB header color (for example, {cmd:"200 220 240"}){p_end}
-{synopt:{opt zebracolor(string)}}custom RGB zebra stripe color{p_end}
+{synopt:{opt headercolor(string)}}custom header color as a named Excel color or RGB triplet (for example, {cmd:"200 220 240"}){p_end}
+{synopt:{opt zebracolor(string)}}custom zebra stripe color as a named Excel color or RGB triplet{p_end}
 {synopt:{opt zebra}}alternating row shading{p_end}
 {synoptline}
 

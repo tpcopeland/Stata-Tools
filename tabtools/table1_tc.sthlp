@@ -97,8 +97,8 @@ use {cmd:table1_tc}.{p_end}
 {synopt:{cmdab:headers:hade}}apply shading to header rows{p_end}
 {synopt:{cmdab:high:light(}{it:#}{cmd:)}}highlight rows where p < threshold{p_end}
 {synopt:{cmdab:smdt:hreshold(}{it:#}{cmd:)}}SMD threshold for orange highlighting in Excel; default is 0.1; use -1 to disable{p_end}
-{synopt:{cmdab:headerc:olor(}{it:string}{cmd:)}}custom header background color (R G B){p_end}
-{synopt:{cmdab:zebrac:olor(}{it:string}{cmd:)}}custom zebra stripe color (R G B){p_end}
+{synopt:{cmdab:headerc:olor(}{it:string}{cmd:)}}custom header background color; named Excel color or RGB triplet such as {cmd:"200 220 240"}{p_end}
+{synopt:{cmdab:zebrac:olor(}{it:string}{cmd:)}}custom zebra stripe color; named Excel color or RGB triplet such as {cmd:"240 245 250"}{p_end}
 {synopt:{opt csv("filename")}}also export as CSV file{p_end}
 
 {syntab:Frame & Pipeline}

@@ -260,6 +260,8 @@ program define table1_tc, rclass
     if "$TABTOOLS_ZEBRACOLOR" != "" local _zebracolor "$TABTOOLS_ZEBRACOLOR"
     if "`headercolor'" != "" local _headercolor "`headercolor'"
     if "`zebracolor'" != "" local _zebracolor "`zebracolor'"
+    _tabtools_validate_color "`_headercolor'" "headercolor()"
+    _tabtools_validate_color "`_zebracolor'" "zebracolor()"
 
     * Initialize test tracking for methods paragraph (C5)
     local _used_ttest 0

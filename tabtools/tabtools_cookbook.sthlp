@@ -204,10 +204,10 @@ table with custom row ordering.{p_end}
 {phang3}{cmd:scale(365.25) id(id)}{p_end}
 {phang2}{cmd:}{p_end}
 {phang2}{cmd:* Generate strate output files}{p_end}
-{phang2}{cmd:strate hieng, per(1000) output(rate_hieng, replace)}{p_end}
+{phang2}{cmd:strate hienergy, per(1000) output(rate_hienergy, replace)}{p_end}
 {phang2}{cmd:}{p_end}
 {phang2}{cmd:* Export to Excel}{p_end}
-{phang2}{cmd:stratetab, using(rate_hieng) xlsx(rates.xlsx) outcomes(1) ///}{p_end}
+{phang2}{cmd:stratetab, using(rate_hienergy) xlsx(rates.xlsx) outcomes(1) ///}{p_end}
 {phang3}{cmd:outlabels("CHD Death") explabels("Energy Intake") ///}{p_end}
 {phang3}{cmd:title("Incidence Rates per 1,000 Person-Years") ///}{p_end}
 {phang3}{cmd:zebra}{p_end}

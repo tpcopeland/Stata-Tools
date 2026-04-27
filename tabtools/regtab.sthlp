@@ -67,8 +67,8 @@ for treatment effects and margins tables.
 {synopt:{opt stars}}Add significance stars to coefficients (*, **, ***).{p_end}
 {synopt:{cmdab:starsl:evels(}{it:numlist}{cmd:)}}Custom p-value thresholds for stars; exactly 3 values (default: 0.05 0.01 0.001).{p_end}
 {synopt:{cmdab:the:me(}{it:string}{cmd:)}}Formatting theme: {cmd:lancet}, {cmd:nejm}, {cmd:bmj}, {cmd:apa}, {cmd:jama}, {cmd:plos}, {cmd:nature}, {cmd:cell}, {cmd:annals}, or {cmd:custom}.{p_end}
-{synopt:{cmdab:headerc:olor(}{it:string}{cmd:)}}Custom header color as "R G B" (default: "219 229 241").{p_end}
-{synopt:{cmdab:zebrac:olor(}{it:string}{cmd:)}}Custom zebra color as "R G B" (default: "237 242 249").{p_end}
+{synopt:{cmdab:headerc:olor(}{it:string}{cmd:)}}Custom header color as a named Excel color or RGB triplet (default: {cmd:"219 229 241"}).{p_end}
+{synopt:{cmdab:zebrac:olor(}{it:string}{cmd:)}}Custom zebra color as a named Excel color or RGB triplet (default: {cmd:"237 242 249"}).{p_end}
 {synopt:{opt csv("filename")}}Also export as CSV.{p_end}
 {synopt:{opt fra:me(name)}}Store output in a named Stata frame for programmatic access. Specify {cmd:frame(name, replace)} to replace an existing frame.{p_end}
 {synopt:{opt dis:play}}Show formatted table in the Results window (in addition to Excel export if {cmd:xlsx()} specified).{p_end}

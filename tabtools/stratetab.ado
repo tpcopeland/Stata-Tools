@@ -120,47 +120,13 @@ if `outcomes' < 1 {
 	local _headercolor "219 229 241"
 	local _zebracolor "237 242 249"
 	if "$TABTOOLS_HEADERCOLOR" != "" local _headercolor "$TABTOOLS_HEADERCOLOR"
-	if "$TABTOOLS_ZEBRACOLOR" != "" local _zebracolor "$TABTOOLS_ZEBRACOLOR"
-	if "`headercolor'" != "" local _headercolor "`headercolor'"
-	if "`zebracolor'" != "" local _zebracolor "`zebracolor'"
-	local _headercolor = itrim(strtrim(`"`_headercolor'"'))
-	local _zebracolor = itrim(strtrim(`"`_zebracolor'"'))
-	local _n_header_rgb : word count `_headercolor'
-	if `_n_header_rgb' != 3 {
-		di as err "headercolor() must be three integers between 0 and 255"
-		exit 198
-	}
-	forvalues _rgb_i = 1/3 {
-		local _rgb_part : word `_rgb_i' of `_headercolor'
-		if !regexm("`_rgb_part'", "^[0-9]+$") {
-			di as err "headercolor() must be three integers between 0 and 255"
-			exit 198
-		}
-		local _rgb_num = real("`_rgb_part'")
-		if `_rgb_num' < 0 | `_rgb_num' > 255 {
-			di as err "headercolor() must be three integers between 0 and 255"
-			exit 198
-		}
-	}
-	local _n_zebra_rgb : word count `_zebracolor'
-	if `_n_zebra_rgb' != 3 {
-		di as err "zebracolor() must be three integers between 0 and 255"
-		exit 198
-	}
-	forvalues _rgb_i = 1/3 {
-		local _rgb_part : word `_rgb_i' of `_zebracolor'
-		if !regexm("`_rgb_part'", "^[0-9]+$") {
-			di as err "zebracolor() must be three integers between 0 and 255"
-			exit 198
-		}
-		local _rgb_num = real("`_rgb_part'")
-		if `_rgb_num' < 0 | `_rgb_num' > 255 {
-			di as err "zebracolor() must be three integers between 0 and 255"
-			exit 198
-		}
-	}
+		if "$TABTOOLS_ZEBRACOLOR" != "" local _zebracolor "$TABTOOLS_ZEBRACOLOR"
+		if "`headercolor'" != "" local _headercolor "`headercolor'"
+		if "`zebracolor'" != "" local _zebracolor "`zebracolor'"
+		_tabtools_validate_color "`_headercolor'" "headercolor()"
+		_tabtools_validate_color "`_zebracolor'" "zebracolor()"
 
-* Validate ratiodigits
+	* Validate ratiodigits
 if `ratiodigits' < 0 | `ratiodigits' > 10 {
 	di as err "ratiodigits must be 0-10"
 	exit 198

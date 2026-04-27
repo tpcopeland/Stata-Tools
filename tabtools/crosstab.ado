@@ -128,6 +128,11 @@ capture noisily {
 
     * Resolve formatting
     _tabtools_resolve_format, theme(`theme') borderstyle(`borderstyle')
+    if "`zebra'" != "" {
+        local _zebracolor "237 242 249"
+        if "$TABTOOLS_ZEBRACOLOR" != "" local _zebracolor "$TABTOOLS_ZEBRACOLOR"
+        _tabtools_validate_color "`_zebracolor'" "zebracolor()"
+    }
 
 **# Cross-tabulation
     preserve
@@ -494,8 +499,6 @@ capture noisily {
 
             * Zebra striping
             if "`zebra'" != "" {
-                local _zebracolor "237 242 249"
-                if "$TABTOOLS_ZEBRACOLOR" != "" local _zebracolor "$TABTOOLS_ZEBRACOLOR"
                 forvalues _zr = `=`_data_start'+1'(2)`_total_row' {
                     mata: b.set_fill_pattern(`_zr', (2,`num_cols'), "solid", "`_zebracolor'")
                 }

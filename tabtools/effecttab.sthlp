@@ -66,8 +66,8 @@ collection must remain unchanged.{p_end}
 {synopt:{opt dis:play}}Show formatted table in the Results window (in addition to Excel export if {cmd:xlsx()} specified).{p_end}
 {synopt:{opt the:me(string)}}Formatting theme: {cmd:lancet}, {cmd:nejm}, {cmd:bmj}, {cmd:apa}, {cmd:jama}, {cmd:plos}, {cmd:nature}, {cmd:cell}, {cmd:annals}, or {cmd:custom}. Overrides font/fontsize/borderstyle. Can also be set globally with {cmd:tabtools set theme}.{p_end}
 {synopt:{opt from(name)}}Pass results from a named Stata matrix instead of reading from {cmd:collect}. The matrix must contain estimate, lower CI, upper CI, and p-value columns in that order. This path leaves any active {cmd:collect} labels/layout unchanged.{p_end}
-{synopt:{opt headerc:olor(string)}}Custom header background color as {cmd:"R G B"} (e.g., {cmd:"219 229 241"}).{p_end}
-{synopt:{opt zebrac:olor(string)}}Custom zebra stripe color as {cmd:"R G B"} (e.g., {cmd:"237 242 249"}).{p_end}
+{synopt:{opt headerc:olor(string)}}Custom header background color as a named Excel color or RGB triplet (e.g., {cmd:"219 229 241"}).{p_end}
+{synopt:{opt zebrac:olor(string)}}Custom zebra stripe color as a named Excel color or RGB triplet (e.g., {cmd:"237 242 249"}).{p_end}
 {synopt:{opt csv(string)}}Also export as CSV to the specified filename.{p_end}
 {synopt:{cmdab:addr:ow(}{it:string asis}{cmd:)}}Append custom rows below the table body. Specify pairs of label and values. Use backslash to separate multiple rows.{p_end}
 {synopt:{opt pdp(#)}}Maximum decimal places for small p-values (p < 0.10). Default is 3; allowed range is 1 to 10.{p_end}

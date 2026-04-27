@@ -101,9 +101,9 @@ No dataset needs to be loaded before running {cmd:stratetab}; it reads the saved
 
 {phang2}{opt headers:hade} applies a background fill to the header rows.{p_end}
 
-{phang2}{opt headerc:olor(string)} specifies a custom RGB header color as three integers from 0 to 255 (e.g., "200 220 240"). It is applied when header shading is active via {opt headershade} or the selected theme.{p_end}
+{phang2}{opt headerc:olor(string)} specifies a custom header color as a named Excel color or RGB triplet (e.g., "200 220 240"). It is applied when header shading is active via {opt headershade} or the selected theme.{p_end}
 
-{phang2}{opt zebrac:olor(string)} specifies a custom RGB zebra stripe color as three integers from 0 to 255 (e.g., "245 245 255"). It is applied when {opt zebra} is active.{p_end}
+{phang2}{opt zebrac:olor(string)} specifies a custom zebra stripe color as a named Excel color or RGB triplet (e.g., "245 245 255"). It is applied when {opt zebra} is active.{p_end}
 
 {phang2}{opt csv(string)} exports the table data as CSV. It may be used with or without {opt xlsx()}.{p_end}
 

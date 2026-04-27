@@ -161,8 +161,8 @@ survtab, times(5 10 15 20) by(drug) ///
 webuse diet, clear
 stset dox, failure(fail) origin(time dob) enter(time doe) ///
     scale(365.25) id(id)
-strate hieng, per(1000) output(rate_hieng, replace)
-stratetab, using(rate_hieng) outcomes(1) ///
+strate hienergy, per(1000) output(rate_hienergy, replace)
+stratetab, using(rate_hienergy) outcomes(1) ///
     xlsx(rates.xlsx) sheet("Rates") ///
     outlabels("CHD Death") explabels("Energy Intake") ///
     title("Incidence Rates per 1,000 Person-Years")
