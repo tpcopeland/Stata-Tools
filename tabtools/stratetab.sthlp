@@ -217,8 +217,8 @@ If {opt explabels()} is specified, the number of labels must match the number of
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}timothy.copeland@ki.se{p_end}
-{pstd}Version 1.0.13{p_end}
+{pstd}{browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}{p_end}
+{pstd}{bf:Version} 1.0.13{p_end}
 
 {title:Also see}
 

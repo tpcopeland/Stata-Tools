@@ -1,13 +1,18 @@
-# datamap - Privacy-safe dataset maps and Markdown dictionaries
+# datamap — Privacy-safe dataset maps and Markdown dictionaries
 
 **Version 1.0.0** | 2026-04-08
 
-`datamap` documents Stata datasets without exporting row-level data. Use `datamap` for a plain-text inventory that can be made privacy-conscious with options such as `exclude()` and `datesafe`, and use `datadict` for Markdown data dictionaries you can commit to GitHub or convert into reports. Both commands preserve the dataset in memory and support data in memory, a single `.dta`, a directory scan, or a named file list.
+`datamap` documents Stata datasets without exporting row-level data. It produces two kinds of output:
+
+- **`datamap`** writes a structured plain-text file designed to be pasted into an LLM prompt, attached to an internal data handoff, or fed into an automated pipeline. It includes privacy controls (`exclude()`, `datesafe`), automatic structure detection (panel, survival, survey), data quality flags, and missing-data summaries.
+- **`datadict`** writes a Markdown data dictionary suitable for GitHub, documentation sites, or conversion to PDF/Word/HTML via Pandoc. It includes document metadata (`title()`, `author()`, `version()`), optional missing-value and statistics columns, and a table of contents when documenting multiple datasets.
+
+Both commands preserve the dataset in memory, accept the same input modes (data in memory, a single `.dta` file, a directory scan, or a named file list), and handle the `.dta` extension automatically.
 
 ## Requirements
 
 - Stata 16 or later
-- Pandoc is optional if you want to convert `datadict` output to PDF, HTML, or Word
+- [Pandoc](https://pandoc.org/) (optional) — only needed if you want to convert `datadict` Markdown output to PDF, HTML, or Word
 
 ## Installation
 
@@ -18,48 +23,50 @@ net install datamap, from("https://raw.githubusercontent.com/tpcopeland/Stata-To
 
 ## Commands
 
-| Command | Description |
-|---------|-------------|
-| `datamap` | Generate text documentation for one or more datasets with privacy controls when needed |
-| `datadict` | Generate Markdown data dictionaries from the same input sources |
+| Command    | Output format | Purpose |
+|------------|---------------|---------|
+| `datamap`  | Plain text    | LLM context, internal documentation, QA, privacy-controlled sharing |
+| `datadict` | Markdown      | GitHub repos, report appendices, Pandoc conversion, IRB submissions |
 
 ## How It Works
 
-1. Choose the input source: the dataset in memory, `single()`, `directory()`, or `filelist()`.
-2. Decide whether you need a technical map (`datamap`) or a publication-ready Markdown dictionary (`datadict`).
-3. Add privacy or content controls such as `exclude()`, `datesafe`, `missing()`, `quality`, `missing`, or `stats` depending on the command.
-4. Write one combined output file or separate files for each dataset.
-
-## Choosing a Command
-
-- Use `datamap` when you want a technical inventory for LLM context, internal data handoff, or QA.
-- Use `datadict` when you want a Markdown artifact for repositories, appendices, or Pandoc conversion.
-- Use `separate` when each dataset should get its own output file.
-- Use `directory()` plus `recursive` once the single-dataset workflow is behaving the way you want.
+1. **Choose the input source.** Load data into memory (the default), or point at a file with `single()`, a folder with `directory()`, or a list of names with `filelist()`.
+2. **Pick the output command.** Use `datamap` for plain text or `datadict` for Markdown.
+3. **Layer on options.** Add privacy controls (`exclude()`, `datesafe`), detection features (`autodetect`, `detect(panel survival)`), quality checks (`quality`), or missing-data analysis (`missing(detail)`) to `datamap`. Add document metadata (`title()`, `author()`) and descriptive statistics (`stats`, `missing`) to `datadict`.
+4. **Write the output.** One combined file by default, or separate files per dataset with `separate`.
 
 ## Worked Examples
 
-### 1. Create a text map from the dataset in memory
+### 1. Quick text map from data in memory
 
-This is the fastest starting point. `datamap` inspects the current dataset, preserves it, and writes a text summary.
+The fastest starting point. `datamap` inspects the current dataset and writes a text summary to `datamap.txt`.
 
 ```stata
 sysuse auto, clear
 datamap
 ```
 
-### 2. Add privacy controls, missing-data reporting, and quality checks
-
-For sensitive data, start by excluding identifiers and then layer on the extra diagnostics you want in the text output.
+### 2. Quick Markdown dictionary from data in memory
 
 ```stata
 sysuse auto, clear
-datamap, exclude(make) quality missing(detail) output(auto_map.txt)
+datadict
 ```
 
-### 3. Create a Markdown data dictionary from the same dataset
+This writes `data_dictionary.md` in the current directory.
 
-`datadict` is the presentation-oriented companion command. It adds document metadata and optional missingness or descriptive-statistics columns.
+### 3. Privacy controls with detection and quality checks
+
+For sensitive data, exclude identifiers, suppress exact dates, and enable diagnostics:
+
+```stata
+sysuse auto, clear
+datamap, exclude(make) quality missing(detail) autodetect output(auto_map.txt)
+```
+
+### 4. Markdown dictionary with statistics and metadata
+
+`datadict` is the presentation-oriented companion. Add document metadata and optional columns:
 
 ```stata
 sysuse auto, clear
@@ -69,35 +76,66 @@ datadict, output(auto_dictionary.md) ///
     missing stats
 ```
 
-### 4. Document a saved dataset by filename
+### 5. Document a saved dataset by filename
 
-The same commands work when the data are not already loaded into memory.
+Both commands work on `.dta` files without loading them first:
 
 ```stata
 sysuse auto, clear
 save auto_example.dta, replace
 
-datamap, single(auto_example.dta) output(auto_example.txt)
-datadict, single(auto_example.dta) output(auto_example.md) ///
-    title("Saved auto example")
+datamap, single(auto_example) output(auto_example_map.txt)
+datadict, single(auto_example) output(auto_example_dict.md) title("Saved auto")
 ```
 
-### 5. Scale up to a project directory
+### 6. Scale up to a directory
 
-Once the single-dataset workflow looks right, switch to directory mode and decide whether you want a combined output file or one file per dataset.
+Document every `.dta` file in a folder — combined or one file per dataset:
 
 ```stata
 datamap, directory("analysis_data") recursive output(project_map.txt)
 datadict, directory("analysis_data") recursive separate
 ```
 
-## Feature Highlights
+## Feature Reference
 
-- Automatic variable classification into categorical, continuous, date, string, or excluded variables
-- Privacy controls through `exclude()` and `datesafe` when exact identifiers or dates are sensitive
-- Multiple input modes for data in memory, one file, a directory, or a named file list
-- Missing-data summaries and quality checks in `datamap`
-- Markdown document metadata in `datadict` through `title()`, `subtitle()`, `version()`, `author()`, and `date()`
+### datamap options
+
+| Category | Options |
+|----------|---------|
+| Input | `single()`, `directory()`, `filelist()`, `recursive` |
+| Output | `output()`, `format()`, `separate`, `append` |
+| Content | `nostats`, `nofreq`, `nolabels`, `maxfreq()`, `maxcat()` |
+| Privacy | `exclude()`, `datesafe`, `dateformat()` |
+| Detection | `detect()`, `autodetect`, `panelid()`, `survivalvars()` |
+| Quality | `quality`, `quality2(strict)`, `missing(detail\|pattern)` |
+| Sample data | `samples()` |
+
+### datadict options
+
+| Category | Options |
+|----------|---------|
+| Input | `single()`, `directory()`, `filelist()`, `recursive` |
+| Output | `output()`, `separate` |
+| Metadata | `title()`, `subtitle()`, `version()`, `author()`, `date()` |
+| Content | `notes()`, `changelog()`, `missing`, `stats`, `maxcat()`, `maxfreq()`, `dateformat()` |
+
+### Variable classification (both commands)
+
+| Priority | Condition | Class |
+|----------|-----------|-------|
+| 1 | Listed in `exclude()` | Excluded |
+| 2 | String type (`str#`, `strL`) | String |
+| 3 | Date format (`%t*`, `%d*`) | Date |
+| 4 | Value labels or ≤ `maxcat()` unique values | Categorical |
+| 5 | Everything else | Continuous |
+
+## Choosing Between the Commands
+
+- **`datamap`** when you need a technical inventory: LLM context windows, internal handoffs, automated pipelines, or privacy-controlled documentation.
+- **`datadict`** when you need a publication-quality Markdown document: GitHub repositories, report appendices, IRB submissions, or Pandoc conversion.
+- Use **`separate`** with either command when each dataset should get its own output file.
+- Start with a single dataset; switch to **`directory()`** + **`recursive`** once the output looks right.
 
 ## Author
 

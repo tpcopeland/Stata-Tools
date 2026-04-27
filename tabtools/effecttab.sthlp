@@ -197,7 +197,7 @@ are not defined or you want different wording. {cmd:tlabels()} implies {cmd:clea
 {marker author}{title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}timothy.copeland@ki.se{p_end}
-{pstd}Version 1.0.13{p_end}
+{pstd}{browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}{p_end}
+{pstd}{bf:Version} 1.0.13{p_end}
 
 {hline}

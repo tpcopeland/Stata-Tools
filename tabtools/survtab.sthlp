@@ -5,6 +5,7 @@
 {viewerjumpto "Options" "survtab##options"}{...}
 {viewerjumpto "Examples" "survtab##examples"}{...}
 {viewerjumpto "Stored results" "survtab##stored"}{...}
+{viewerjumpto "Also see" "survtab##alsosee"}{...}
 {viewerjumpto "Author" "survtab##author"}{...}
 {vieweralsosee "tabtools" "help tabtools"}{...}
 {vieweralsosee "stratetab" "help stratetab"}{...}
@@ -31,13 +32,24 @@ and restricted mean survival time.{p_end}
 
 {marker description}{title:Description}
 
-{pstd}{cmd:survtab} generates a publication-ready survival summary table.
-It computes Kaplan-Meier survival (or cumulative incidence) estimates at
-user-specified timepoints, optionally with median survival, number at risk,
-restricted mean survival time, and group comparisons via the log-rank test.{p_end}
+{pstd}{cmd:survtab} generates a publication-ready survival summary table from
+{helpb stset} data. It computes Kaplan-Meier survival probabilities (or
+cumulative incidence when {opt reverse} is specified) at user-specified
+timepoints and, optionally, median survival with 95% CI, the number at risk
+at each timepoint, restricted mean survival time (RMST), and between-group
+comparisons via the log-rank test.{p_end}
 
-{pstd}Output can be exported to Excel with professional formatting, displayed
-in the console, saved as CSV, or stored in a Stata frame.{p_end}
+{pstd}A typical use case is constructing a Table 2 for a manuscript: two or
+more treatment arms, survival at clinically meaningful timepoints, and a
+log-rank p-value. Adding {opt median}, {opt riskset}, and {opt difference}
+extends the table to the full set of survival summary measures often
+requested by reviewers.{p_end}
+
+{pstd}Output can be exported to a professionally formatted Excel workbook,
+displayed in the Results window, saved as CSV, or stored in a Stata
+{helpb frames:frame} for programmatic access. All tabtools formatting
+options — themes, borders, zebra striping, bold p-values, and custom
+colors — are supported.{p_end}
 
 {marker options}{title:Options}
 
@@ -98,7 +110,13 @@ in the console, saved as CSV, or stored in a Stata frame.{p_end}
 {phang3}{cmd:xlsx(survival.xlsx) sheet("CI") ///}{p_end}
 {phang3}{cmd:title("Cumulative Incidence") timeunit(months)}{p_end}
 
-{pstd}{bf:Example 3: Console preview}{p_end}
+{pstd}{bf:Example 3: Median survival only}{p_end}
+{phang2}{cmd:. survtab, times(10 20 30) by(drug) median events ///}{p_end}
+{phang3}{cmd:xlsx(survival.xlsx) sheet("Median") ///}{p_end}
+{phang3}{cmd:title("Median Survival by Treatment Group") ///}{p_end}
+{phang3}{cmd:footnote("P-value from log-rank test.") boldp(0.05)}{p_end}
+
+{pstd}{bf:Example 4: Console preview}{p_end}
 {phang2}{cmd:. survtab, times(10 20 30) by(drug) display}{p_end}
 
 {marker stored}{title:Stored results}
@@ -128,10 +146,17 @@ in the console, saved as CSV, or stored in a Stata frame.{p_end}
 {p2col 5 18 22 2: Matrices}{p_end}
 {synopt:{cmd:r(table)}}survival estimates at each timepoint by group{p_end}
 
+{marker alsosee}{title:Also see}
+
+{psee}
+{helpb tabtools}, {helpb stratetab}, {helpb effecttab},
+{helpb tabtools_cheatsheet}, {helpb sts}, {helpb stci}
+{p_end}
+
 {marker author}{title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}timothy.copeland@ki.se{p_end}
-{pstd}Version 1.0.13{p_end}
+{pstd}{browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}{p_end}
+{pstd}{bf:Version} 1.0.13{p_end}
 
 {hline}

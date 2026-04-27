@@ -22,62 +22,77 @@
 {title:Syntax}
 
 {p 8 17 2}
-{cmdab:datadict}
+{cmd:datadict}
 [{cmd:,}
 {it:options}]
 
-{synoptset 25 tabbed}{...}
+{synoptset 28 tabbed}{...}
 {synopthdr}
 {synoptline}
-{syntab:Input (choose one)}
-{synopt:{opt si:ngle(dataset)}}document a single dataset{p_end}
-{synopt:{opt dir:ectory(path)}}document all .dta files in directory{p_end}
-{synopt:{opt file:list(datasets)}}space-separated list of dataset names to process{p_end}
-{synopt:{opt rec:ursive}}scan subdirectories when using {opt directory()}{p_end}
+{syntab:Input {it:(choose at most one; default is data in memory)}}
+{synopt:{opt si:ngle(filename)}}document one {opt .dta} file{p_end}
+{synopt:{opt dir:ectory(path)}}document every {opt .dta} file in {it:path}{p_end}
+{synopt:{opt file:list(names)}}space-separated dataset names to document{p_end}
+{synopt:{opt rec:ursive}}with {opt directory()}, also scan subdirectories{p_end}
 
 {syntab:Output}
-{synopt:{opt ou:tput(filename)}}output markdown file; default is {bf:data_dictionary.md}{p_end}
-{synopt:{opt sep:arate}}create separate output file per dataset{p_end}
+{synopt:{opt ou:tput(filename)}}output Markdown file; default is {bf:data_dictionary.md}{p_end}
+{synopt:{opt sep:arate}}write a separate file per dataset{p_end}
 
 {syntab:Document metadata}
 {synopt:{opt ti:tle(string)}}document title; default is {bf:Data Dictionary}{p_end}
 {synopt:{opt sub:title(string)}}subtitle or description line{p_end}
-{synopt:{opt ver:sion(string)}}version number for documentation{p_end}
-{synopt:{opt auth:or(string)}}author name (can include markdown links){p_end}
-{synopt:{opt date(string)}}date string; default is current date{p_end}
+{synopt:{opt ver:sion(string)}}version number shown in header and footer{p_end}
+{synopt:{opt auth:or(string)}}author name for the footer{p_end}
+{synopt:{opt date(string)}}date string; default is the current date{p_end}
 
 {syntab:Content}
-{synopt:{opt note:s(filename)}}path to text file with notes to append{p_end}
-{synopt:{opt change:log(filename)}}path to text file with changelog to append{p_end}
-{synopt:{opt miss:ing}}include missing n (%) column for each variable{p_end}
-{synopt:{opt st:ats}}include descriptive statistics column for each variable{p_end}
-{synopt:{opt maxc:at(#)}}max unique values to classify as categorical; default is {bf:25}{p_end}
-{synopt:{opt maxf:req(#)}}max unique values to show frequencies for; default is {bf:25}{p_end}
-{synopt:{opt datef:ormat(string)}}Stata date format for all displayed dates; default is {bf:%tdCCYY/NN/DD}{p_end}
+{synopt:{opt note:s(string)}}notes text, or path to a text file containing notes{p_end}
+{synopt:{opt change:log(string)}}changelog text, or path to a text file{p_end}
+{synopt:{opt miss:ing}}add a Missing column with count and percent{p_end}
+{synopt:{opt st:ats}}add descriptive statistics to the Values column{p_end}
+{synopt:{opt maxc:at(#)}}max unique values to treat as categorical; default {bf:25}{p_end}
+{synopt:{opt maxf:req(#)}}max unique values to show individually; default {bf:25}{p_end}
+{synopt:{opt datef:ormat(string)}}date display format; default {bf:%tdCCYY/NN/DD}{p_end}
 {synoptline}
 {p2colreset}{...}
+
+{pstd}
+The {opt .dta} extension is optional everywhere and is added automatically when
+omitted.
 
 
 {marker description}{...}
 {title:Description}
 
 {pstd}
-{cmd:datadict} generates professional Markdown data dictionaries from Stata 
-datasets. The output includes a table of contents, dataset metadata, and 
-variable tables showing Variable, Label, Type, and Values/Notes columns.
+{cmd:datadict} generates professional Markdown data dictionaries from one or
+more Stata datasets.  Each dictionary includes a table of contents, dataset
+metadata, and a variable table with columns for Variable, Label, Type, and
+Values/Notes.  When {opt missing} or {opt stats} is specified, additional
+columns are added.
 
 {pstd}
-The command automatically extracts variable labels, identifies variable types 
+The command automatically extracts variable labels, classifies variables
 (Numeric, String, Date), and formats value labels for categorical variables.
-For variables with more than {opt maxfreq()} unique values, it displays a count 
-rather than listing all values.
+For variables with more than {opt maxfreq()} unique values it displays a count
+rather than listing every value.
 
 {pstd}
-The {opt .dta} extension is optional and assumed if not specified.
+The generated Markdown files are valid CommonMark and render in GitHub, GitLab,
+MkDocs, Sphinx, and any standard Markdown viewer.  They can be converted to
+PDF, Word, or HTML with Pandoc:
+
+{phang2}{cmd:pandoc data_dictionary.md -o data_dictionary.pdf}{p_end}
+{phang2}{cmd:pandoc data_dictionary.md -o data_dictionary.docx}{p_end}
 
 {pstd}
-The generated Markdown files are suitable for rendering in documentation 
-systems, GitHub, or conversion to other formats via tools like Pandoc.
+The current dataset in memory is preserved and restored after processing.
+
+{pstd}
+For a companion command that produces plain-text documentation optimized for
+LLM context windows, with privacy controls, detection features, and quality
+checks, see {help datamap}.
 
 
 {marker options}{...}
@@ -87,171 +102,223 @@ systems, GitHub, or conversion to other formats via tools like Pandoc.
 
 {pstd}
 If no input option is specified and data is loaded in memory, {cmd:datadict}
-documents the current dataset directly.
+documents the current dataset directly.  This is the simplest usage: load or
+prepare your data, then run {cmd:datadict}.
 
 {phang}
-{opt si:ngle(dataset)} specifies a single dataset to document. The {opt .dta}
-extension is optional and will be added automatically if not specified.
-The file must exist and be a valid Stata dataset.
+{opt si:ngle(filename)} documents one Stata dataset file.  If the file is not
+in the current directory, include the full or relative path.
 
 {phang}
-{opt dir:ectory(path)} specifies a directory containing .dta files. All
-datasets in the directory will be documented in a single output file (unless
-{opt separate} is specified). If no path is given, the current working
-directory is used.
+{opt dir:ectory(path)} scans a directory for every {opt .dta} file and
+documents all of them in a single output file (unless {opt separate} is also
+specified).  If {it:path} is omitted, the current working directory is used.
 
 {phang}
-{opt file:list(datasets)} specifies a space-separated list of dataset names
-to process. The {opt .dta} extension is optional for each dataset name.
-
-{pmore}
-Example: {cmd:filelist(patients hrt dmt)} will process {it:patients.dta},
-{it:hrt.dta}, and {it:dmt.dta}.
+{opt file:list(names)} documents a specific set of datasets given as a
+space-separated list.  For example, {cmd:filelist(patients hrt dmt)} documents
+{it:patients.dta}, {it:hrt.dta}, and {it:dmt.dta}.
 
 {phang}
-{opt rec:ursive} causes {cmd:datadict} to scan subdirectories recursively when
-used with {opt dir:ectory()}. Hidden directories (beginning with .) and
-__pycache__ directories are skipped.
+{opt rec:ursive} makes {opt directory()} also descend into subdirectories.
+Hidden directories (names beginning with {cmd:.}) and {cmd:__pycache__} are
+always skipped.
+
+{pstd}
+Only one of {opt single()}, {opt directory()}, or {opt filelist()} may be
+specified.  Specifying more than one is an error.
 
 {dlgtab:Output}
 
 {phang}
-{opt ou:tput(filename)} specifies the name of the output markdown file. The
-default is {bf:data_dictionary.md}. When {opt separate} is specified, this
-option is ignored and each dataset produces its own file named
-{it:datasetname}_dictionary.md in the same directory as the source dataset.
+{opt ou:tput(filename)} names the output Markdown file.  The default is
+{bf:data_dictionary.md}.  When {opt separate} is specified this option is
+ignored; instead each dataset produces a file named
+{it:datasetname}{cmd:_dictionary.md} in the same directory as the source
+dataset.
 
 {phang}
-{opt sep:arate} creates a separate markdown file for each dataset instead of
-combining all datasets into a single document.
+{opt sep:arate} writes a separate Markdown file for each dataset instead of
+combining them into one document.
 
 {dlgtab:Document metadata}
 
-{phang}
-{opt ti:tle(string)} specifies the document title appearing at the top of the
-output. The default is "Data Dictionary".
+{pstd}
+These options add structured headers and footers to the Markdown output.  None
+of them affect the variable table itself.
 
 {phang}
-{opt sub:title(string)} specifies an optional subtitle or description line
-appearing below the title.
+{opt ti:tle(string)} sets the document title (the top-level Markdown heading).
+Default is "Data Dictionary".
 
 {phang}
-{opt ver:sion(string)} specifies a version number for the documentation,
-displayed in the header and footer.
+{opt sub:title(string)} adds an optional subtitle line below the title.
 
 {phang}
-{opt auth:or(string)} specifies the author name to appear in the footer.
-Markdown formatting (e.g., links) is preserved.
+{opt ver:sion(string)} adds a version number that appears in the header and
+footer.
 
 {phang}
-{opt date(string)} specifies the date string. The default is the current date.
+{opt auth:or(string)} adds an author line to the footer.  Markdown formatting
+(e.g., links) is preserved.
+
+{phang}
+{opt date(string)} sets the "Last Updated" date string.  Default is the
+current date from Stata's clock.
 
 {dlgtab:Content}
 
 {phang}
-{opt note:s(filename)} specifies a text file containing notes to include in
-the Notes section. If not specified, default notes about date formats and
-missing values are included.
+{opt note:s(string)} specifies notes to include in the "Notes" section at the
+end of the document.  This can be either an inline text string or the path to a
+plain-text file.  If the value resolves to an existing file, its contents are
+read; otherwise the string itself is written.  If omitted, a default note
+about date formats and missing values is included.
 
 {phang}
-{opt change:log(filename)} specifies a text file containing changelog entries
-to include in the Change Log section.
+{opt change:log(string)} specifies changelog entries for the "Change Log"
+section.  Like {opt notes()}, this can be an inline string or a path to a
+plain-text file.
 
 {phang}
 {opt miss:ing} adds a "Missing" column to the variable table showing the count
 and percentage of missing values for each variable.
 
 {phang}
-{opt st:ats} adds descriptive statistics to the Values/Notes column. The type
-of statistics shown depends on the variable classification:
+{opt st:ats} adds descriptive statistics to the Values/Notes column.  The
+type of statistics depends on variable classification:
 
-{pmore}
-{bf:Categorical variables:} Value frequencies (e.g., "1=Male, 2=Female")
-
-{pmore}
-{bf:Continuous variables:} N, median, IQR, mean, SD, and range{p_end}
-{pmore}(e.g., "N=200; Median=42.5; IQR=30-55; Mean=45.2 (SD=12.3); Range=18-89")
-
-{pmore}
-{bf:Date variables:} Date range (e.g., "Range: 01jan2020 to 31dec2023")
-
-{pmore}
-{bf:String variables:} Count of unique values
+{phang2}{bf:Categorical:} unique count plus value frequencies and percentages
+(e.g., "1 Male (120; 60.0%)")
+{p_end}
+{phang2}{bf:Continuous:} N, median, IQR, mean, SD, and range
+(e.g., "N=200; Median=42.5; IQR=30{hline 1}55; Mean=45.2 (SD=12.3); Range=18{hline 1}89")
+{p_end}
+{phang2}{bf:Date:} date range (e.g., "Range: 2020/01/01 to 2023/12/31")
+{p_end}
+{phang2}{bf:String:} count of non-missing observations and unique values
+{p_end}
 
 {phang}
-{opt maxc:at(#)} specifies the threshold for classifying numeric variables
-as categorical versus continuous. Numeric variables with {it:#} or fewer unique values
-(or with value labels) are classified as categorical. Default is {bf:25}. Must be positive.
+{opt maxc:at(#)} sets the cutoff that separates categorical from continuous.
+Numeric variables with value labels or with {it:#} or fewer unique values are
+treated as categorical.  Default is {bf:25}.  Must be positive.
 
 {phang}
-{opt maxf:req(#)} specifies the maximum number of unique values for which
-individual values will be shown. If a categorical variable has more than this
-many unique values, only a count is shown. Default is {bf:25}. Must be positive.
+{opt maxf:req(#)} sets the maximum number of unique values to list
+individually.  Categorical variables with more values than this show only a
+count.  Default is {bf:25}.  Must be positive.
 
 {phang}
-{opt datef:ormat(string)} specifies a Stata date format string used to display
-all dates in the output. The default is {bf:%tdCCYY/NN/DD} (ISO 8601: YYYY/MM/DD).
-For datetime variables ({cmd:%tc}), the prefix is automatically adapted.
-Weekly, monthly, quarterly, and other non-daily date types retain their native
-format regardless of this setting.
+{opt datef:ormat(string)} sets the Stata date format used to display all dates.
+The default is {bf:%tdCCYY/NN/DD} (ISO 8601).  For datetime variables
+({cmd:%tc}/{cmd:%tC}), the prefix is automatically adapted.  Weekly, monthly,
+quarterly, and other non-daily types retain their native format regardless of
+this setting.
 
 
 {marker remarks}{...}
 {title:Remarks}
 
 {pstd}
-{cmd:datadict} generates standard Markdown tables with the following structure
-per dataset: a section header with filename and description, then a variable
-table with columns for Variable, Label, Type, and Values/Notes. When
-{opt missing} or {opt stats} is specified, additional columns are added.
+{bf:When to use datadict vs. datamap}
+
+{pstd}
+Use {cmd:datadict} when you need a polished Markdown document: for GitHub
+repositories, report appendices, IRB submissions, or conversion to other
+formats via Pandoc.  Use {help datamap} when you need a plain-text file for
+LLM context, internal handoff, or automated pipelines.  Both commands accept
+the same input modes (data in memory, single file, directory, or file list)
+and preserve the dataset in memory.
+
+{pstd}
+{bf:Variable classification}
 
 {pstd}
 Variable classification follows the same hierarchy as {help datamap}:
 
-{phang2}1. String variables (str#) are classified as "String"{p_end}
-{phang2}2. Variables with date formats (%t*) are classified as "Date"{p_end}
-{phang2}3. Numeric variables with value labels or <= {opt maxcat()} unique values are "Numeric" (categorical){p_end}
-{phang2}4. All other numeric variables are "Numeric" (continuous){p_end}
+{phang2}1. String variables ({cmd:str}{it:#} or {cmd:strL}) are "String".{p_end}
+{phang2}2. Variables with date formats ({cmd:%t*} or {cmd:%d*}) are "Date".{p_end}
+{phang2}3. Numeric variables with value labels, or with {opt maxcat()} or fewer unique values, are "Numeric" (treated as categorical in the Values column).{p_end}
+{phang2}4. All other numeric variables are "Numeric" (treated as continuous).{p_end}
 
 {pstd}
-The generated Markdown is compatible with GitHub, GitLab, MkDocs, Sphinx, and
-any CommonMark renderer. To convert to other formats, use Pandoc:
+{bf:Notes and changelog}
 
-{phang2}{cmd:pandoc data_dictionary.md -o data_dictionary.pdf}{p_end}
-{phang2}{cmd:pandoc data_dictionary.md -o data_dictionary.docx}{p_end}
+{pstd}
+The {opt notes()} and {opt changelog()} options accept either a literal string
+or a file path.  If the argument is a path to an existing file, the file's
+contents are read and inserted verbatim; otherwise the string itself is used.
+This lets you maintain notes in a separate file and reference it across
+multiple dictionaries.
 
 
 {marker examples}{...}
 {title:Examples}
 
-{pstd}Document a single dataset with default settings:{p_end}
-{phang2}{stata "datadict, single(patients)":. datadict, single(patients)}{p_end}
+    {title:Getting started}
 
-{pstd}Document a dataset with custom title and version:{p_end}
-{phang2}{stata `"datadict, single(patients) output(dict.md) title("Patient Registry") version("1.0")"':. datadict, single(patients) output(dict.md) title("Patient Registry") version("1.0")}{p_end}
+{pstd}
+The simplest way to use {cmd:datadict} is to load a dataset and run the
+command with no options.  The output is written to {bf:data_dictionary.md} in
+the current directory.{p_end}
 
-{pstd}Document multiple datasets from a list:{p_end}
-{phang2}{stata "datadict, filelist(patients hrt dmt) output(combined.md)":. datadict, filelist(patients hrt dmt) output(combined.md)}{p_end}
+{phang2}{cmd:. sysuse auto, clear}{p_end}
+{phang2}{cmd:. datadict}{p_end}
 
-{pstd}Document all datasets in the current directory:{p_end}
-{phang2}{stata `"datadict, directory(.) output(combined.md) title("Project Data") author("Jane Doe")"':. datadict, directory(.) output(combined.md) title("Project Data") author("Jane Doe")}{p_end}
+{pstd}
+Add a title and author for context:{p_end}
 
-{pstd}Document datasets recursively with separate files:{p_end}
-{phang2}{stata "datadict, directory(data) recursive separate":. datadict, directory(data) recursive separate}{p_end}
+{phang2}{cmd:. sysuse auto, clear}{p_end}
+{phang2}{cmd:. datadict, title("Auto Dataset") author("Timothy P Copeland, Karolinska Institutet")}{p_end}
 
-{pstd}Include missing data and statistics in the output:{p_end}
-{phang2}{stata "datadict, single(patients) missing stats":. datadict, single(patients) missing stats}{p_end}
+    {title:Adding statistics and missingness}
 
-{pstd}Document with full metadata and statistics:{p_end}
-{phang2}{cmd:. datadict, filelist(patients labs visits) missing stats title("Clinical Study Data") version("2.0") author("Research Team")}{p_end}
+{pstd}
+The {opt stats} option fills the Values column with summary statistics, and
+{opt missing} adds a dedicated missing-value column.{p_end}
 
-{pstd}Create Markdown data dictionary for the synthetic cohort:{p_end}
-{phang2}{cmd:. datadict, single(_data/cohort.dta) ///}{p_end}
-{phang2}{cmd:     output(datamap/examples/cohort_dictionary.md) ///}{p_end}
-{phang2}{cmd:     title("Synthetic Cohort Data Dictionary") ///}{p_end}
-{phang2}{cmd:     version("1.0") ///}{p_end}
-{phang2}{cmd:     author("Stata-Tools") ///}{p_end}
-{phang2}{cmd:     missing stats}{p_end}
+{phang2}{cmd:. sysuse auto, clear}{p_end}
+{phang2}{cmd:. datadict, missing stats output(auto_dict.md)}{p_end}
+
+    {title:Full metadata}
+
+{pstd}
+Add title, subtitle, version, author, and statistics:{p_end}
+
+{phang2}{cmd:. datadict, single(patients) missing stats ///}{p_end}
+{phang2}{cmd:     title("Patient Registry") ///}{p_end}
+{phang2}{cmd:     subtitle("Source: EMR export 2025-Q4") ///}{p_end}
+{phang2}{cmd:     version("2.0") ///}{p_end}
+{phang2}{cmd:     author("Research Team")}{p_end}
+
+    {title:Multiple datasets}
+
+{pstd}
+Document several named datasets into one file:{p_end}
+
+{phang2}{cmd:. datadict, filelist(patients labs visits) output(study_dictionary.md)}{p_end}
+
+{pstd}
+Document every dataset in a directory, one file each:{p_end}
+
+{phang2}{cmd:. datadict, directory(data) recursive separate}{p_end}
+
+    {title:Notes and changelog from files}
+
+{pstd}
+Point {opt notes()} and {opt changelog()} at text files to keep metadata
+outside of the command line:{p_end}
+
+{phang2}{cmd:. datadict, single(patients) ///}{p_end}
+{phang2}{cmd:     notes(data_notes.txt) ///}{p_end}
+{phang2}{cmd:     changelog(data_changelog.txt) ///}{p_end}
+{phang2}{cmd:     output(patients_dictionary.md)}{p_end}
+
+{pstd}
+Or pass a short note inline:{p_end}
+
+{phang2}{cmd:. datadict, single(patients) notes("All dates are admission dates")}{p_end}
 
 
 {marker results}{...}
@@ -263,9 +330,11 @@ any CommonMark renderer. To convert to other formats, use Pandoc:
 {synoptset 15 tabbed}{...}
 {p2col 5 15 19 2: Scalars}{p_end}
 {synopt:{cmd:r(nfiles)}}number of datasets documented{p_end}
+{synoptline}
 
 {p2col 5 15 19 2: Macros}{p_end}
 {synopt:{cmd:r(output)}}output filename{p_end}
+{synoptline}
 {p2colreset}{...}
 
 
@@ -277,7 +346,7 @@ any CommonMark renderer. To convert to other formats, use Pandoc:
 {pstd}Karolinska Institutet{p_end}
 {pstd}Email: timothy.copeland@ki.se{p_end}
 
-{pstd}Version 1.0.0 - 08apr2026{p_end}
+{pstd}Version 1.0.0 {hline 2} 08apr2026{p_end}
 
 
 {title:Also see}

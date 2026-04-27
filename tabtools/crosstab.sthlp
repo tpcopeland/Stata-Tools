@@ -5,14 +5,16 @@
 {viewerjumpto "Options" "crosstab##options"}{...}
 {viewerjumpto "Examples" "crosstab##examples"}{...}
 {viewerjumpto "Stored results" "crosstab##stored"}{...}
+{viewerjumpto "Also see" "crosstab##alsosee"}{...}
 {viewerjumpto "Author" "crosstab##author"}{...}
 {vieweralsosee "tabtools" "help tabtools"}{...}
 {vieweralsosee "corrtab" "help corrtab"}{...}
 {vieweralsosee "diagtab" "help diagtab"}{...}
 {vieweralsosee "tabulate twoway" "help tabulate twoway"}{...}
-{title:crosstab}
+{title:Title}
 
-{pstd}Cross-tabulation table with association measures for Excel export.{p_end}
+{phang}
+{bf:crosstab} {hline 2} Cross-tabulation table with association measures for Excel export
 
 {marker syntax}{title:Syntax}
 
@@ -36,21 +38,28 @@ cells are sparse), and a Spearman rank-correlation trend test.{p_end}
 {marker options}{title:Options}
 
 {synoptset 20 tabbed}{...}
+{synoptline}
+{syntab:Percentages}
 {synopt:{opt col:pct}}column percentages (default); may not be combined with {opt rowpct} or {opt totalpct}{p_end}
 {synopt:{opt row:pct}}row percentages; may not be combined with {opt colpct} or {opt totalpct}{p_end}
 {synopt:{opt total:pct}}total percentages; may not be combined with {opt colpct} or {opt rowpct}{p_end}
+{syntab:Association measures}
 {synopt:{opt or}}odds ratio with 95% CI; requires a 2x2 table{p_end}
 {synopt:{opt rr}}risk ratio with 95% CI; requires a 2x2 table{p_end}
 {synopt:{opt rd}}risk difference with 95% CI; requires a 2x2 table{p_end}
 {synopt:{opt tr:end}}test for trend across ordered column levels using Spearman rank correlation; {it:fweight}s are honored by expanding to the equivalent frequency-weighted data{p_end}
+{syntab:Tests}
 {synopt:{opt ex:act}}force Fisher's exact test{p_end}
 {synopt:{opt fi:sher}}force Fisher's exact test (synonym for {opt exact}){p_end}
-{synopt:{opt lab:el}}use value labels for headers{p_end}
-{synopt:{opt mis:sing}}include missing values{p_end}
+{syntab:Content}
+{synopt:{opt lab:el}}use value labels for row and column headers{p_end}
+{synopt:{opt mis:sing}}include observations with missing values as a separate category{p_end}
 {synopt:{opt dig:its(#)}}decimal places for percentages and association measures (default 1, range 0-6){p_end}
+{syntab:Output}
 {synopt:{opt sheet(string)}}Excel sheet name (default {cmd:"Crosstab"}){p_end}
 {synopt:{opt title(string)}}title row in the exported table{p_end}
 {synopt:{cmdab:foot:note(}{it:string}{cmd:)}}footnote row below the table{p_end}
+{syntab:Formatting}
 {synopt:{cmdab:the:me(}{it:string}{cmd:)}}journal-style formatting theme: {cmd:lancet}, {cmd:nejm}, {cmd:bmj}, {cmd:apa}, {cmd:jama}, {cmd:plos}, {cmd:nature}, {cmd:cell}, {cmd:annals}, or {cmd:custom}{p_end}
 {synopt:{opt border:style(string)}}border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or {cmd:academic}{p_end}
 {synopt:{opt boldp(#)}}bold test and trend rows when p-values fall below the threshold; must be between 0 and 1{p_end}
@@ -58,6 +67,7 @@ cells are sparse), and a Spearman rank-correlation trend test.{p_end}
 {synopt:{cmdab:headers:hade}}apply background fill to the header row{p_end}
 {synopt:{opt headerc:olor(string)}}custom header color as a named Excel color or RGB triplet{p_end}
 {synopt:{opt zebrac:olor(string)}}custom zebra color as a named Excel color or RGB triplet{p_end}
+{synoptline}
 {synopt:{opt xlsx(filename)}}export to Excel; filename must end in {cmd:.xlsx}{p_end}
 {synopt:{opt excel(filename)}}synonym for {opt xlsx(filename)}{p_end}
 {synopt:{opt csv(filename)}}also export the output dataset as CSV{p_end}
@@ -84,8 +94,18 @@ exits with an error instead of silently omitting the measure.{p_end}
 {phang2}{cmd:. crosstab expensive foreign, or label ///}{p_end}
 {phang3}{cmd:xlsx(crosstab.xlsx) title("Price by Origin")}{p_end}
 
-{pstd}{bf:Example 2: Console preview}{p_end}
+{pstd}{bf:Example 2: Risk ratios and trend test}{p_end}
+{phang2}{cmd:. crosstab expensive foreign, rr rd trend label ///}{p_end}
+{phang3}{cmd:xlsx(crosstab.xlsx) sheet("RR") ///}{p_end}
+{phang3}{cmd:title("Risk Ratios and Trend Test")}{p_end}
+
+{pstd}{bf:Example 3: Console preview}{p_end}
 {phang2}{cmd:. crosstab rep78 foreign, label display}{p_end}
+
+{pstd}{bf:Example 4: Row percentages with Fisher's exact test}{p_end}
+{phang2}{cmd:. crosstab rep78 foreign, rowpct fisher label ///}{p_end}
+{phang3}{cmd:xlsx(crosstab.xlsx) sheet("Fisher") ///}{p_end}
+{phang3}{cmd:title("Repair Record by Origin") zebra}{p_end}
 
 {marker stored}{title:Stored results}
 
@@ -108,10 +128,17 @@ exits with an error instead of silently omitting the measure.{p_end}
 {synopt:{cmd:r(sheet)}}sheet name (if exported){p_end}
 {synopt:{cmd:r(frame)}}frame name (if specified){p_end}
 
+{marker alsosee}{title:Also see}
+
+{psee}
+{helpb tabtools}, {helpb corrtab}, {helpb diagtab},
+{helpb tabtools_cheatsheet}, {helpb tabulate twoway}
+{p_end}
+
 {marker author}{title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}timothy.copeland@ki.se{p_end}
-{pstd}Version 1.0.13{p_end}
+{pstd}{browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}{p_end}
+{pstd}{bf:Version} 1.0.13{p_end}
 
 {hline}

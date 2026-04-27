@@ -24,7 +24,7 @@
 {cmd:hrcomptab}
 {it:rateframe}
 {cmd:,}
-{opt modelf:rames(framelist)}
+{opt modelframes(framelist)}
 {cmd:rows(}{it:string}{cmd:)}
 [{it:options}]
 
@@ -32,7 +32,7 @@
 {cmd:hrcomptab}
 {it:rateframe}
 {cmd:,}
-{opt modelf:rames(framelist)}
+{opt modelframes(framelist)}
 {cmdab:rown:ames(}{it:string}{cmd:)}
 [{it:options}]
 
@@ -238,8 +238,8 @@ frame contributes 1 non-reference row, and the dose-category frame contributes
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}timothy.copeland@ki.se{p_end}
-{pstd}Version 1.0.13{p_end}
+{pstd}{browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}{p_end}
+{pstd}{bf:Version} 1.0.13{p_end}
 
 
 {marker alsosee}{...}

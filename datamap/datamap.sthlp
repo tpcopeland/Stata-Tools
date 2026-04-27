@@ -7,6 +7,7 @@
 {viewerjumpto "Syntax" "datamap##syntax"}{...}
 {viewerjumpto "Description" "datamap##description"}{...}
 {viewerjumpto "Options" "datamap##options"}{...}
+{viewerjumpto "Variable classification" "datamap##classification"}{...}
 {viewerjumpto "Remarks" "datamap##remarks"}{...}
 {viewerjumpto "Examples" "datamap##examples"}{...}
 {viewerjumpto "Stored results" "datamap##results"}{...}
@@ -15,7 +16,7 @@
 {title:Title}
 
 {phang}
-{bf:datamap} {hline 2} Generate privacy-safe dataset documentation
+{bf:datamap} {hline 2} Generate privacy-safe dataset documentation for LLM-assisted coding
 
 
 {marker syntax}{...}
@@ -26,74 +27,82 @@
 [{cmd:,}
 {it:options}]
 
-{synoptset 25 tabbed}{...}
+{synoptset 28 tabbed}{...}
 {synopthdr}
 {synoptline}
-{syntab:Input (choose one)}
-{synopt:{opt single(dataset)}}document a single Stata dataset{p_end}
-{synopt:{opt dir:ectory(path)}}document all .dta files in a directory{p_end}
-{synopt:{opt file:list(datasets)}}space-separated list of dataset names to process{p_end}
+{syntab:Input {it:(choose at most one; default is data in memory)}}
+{synopt:{opt single(filename)}}document one {opt .dta} file{p_end}
+{synopt:{opt dir:ectory(path)}}document every {opt .dta} file in {it:path}{p_end}
+{synopt:{opt file:list(names)}}space-separated dataset names to document{p_end}
+{synopt:{opt rec:ursive}}with {opt directory()}, also scan subdirectories{p_end}
 
 {syntab:Output}
-{synopt:{opt o:utput(filename)}}name of output file; default is {bf:datamap.txt}{p_end}
-{synopt:{opt f:ormat(format)}}output format; only {bf:text} is currently supported{p_end}
-{synopt:{opt sep:arate}}create separate output file for each dataset{p_end}
-{synopt:{opt app:end}}append to existing output file{p_end}
+{synopt:{opt o:utput(filename)}}output file name; default is {bf:datamap.txt}{p_end}
+{synopt:{opt f:ormat(string)}}output format; currently only {bf:text}{p_end}
+{synopt:{opt sep:arate}}write a separate file per dataset{p_end}
+{synopt:{opt app:end}}append to an existing output file{p_end}
 
-{syntab:Privacy controls}
-{synopt:{opt exc:lude(string)}}exclude specified variables from documentation{p_end}
-{synopt:{opt dates:afe}}show only date ranges, not exact dates{p_end}
-{synopt:{opt datef:ormat(string)}}Stata date format for all displayed dates; default is {bf:%tdCCYY/NN/DD}{p_end}
-
-{syntab:Content controls}
+{syntab:Content control}
 {synopt:{opt nost:ats}}suppress summary statistics for continuous variables{p_end}
 {synopt:{opt nofr:eq}}suppress frequency tables for categorical variables{p_end}
-{synopt:{opt nola:bels}}suppress value label definitions{p_end}
+{synopt:{opt nola:bels}}suppress the value-label definitions section{p_end}
+{synopt:{opt maxf:req(#)}}max unique values to tabulate; default {bf:25}{p_end}
+{synopt:{opt maxc:at(#)}}max unique values to treat as categorical; default {bf:25}{p_end}
 
-{syntab:Parameters}
-{synopt:{opt maxf:req(#)}}maximum unique values to show frequencies for; default is {bf:25}{p_end}
-{synopt:{opt maxc:at(#)}}maximum unique values to classify as categorical; default is {bf:25}{p_end}
+{syntab:Privacy}
+{synopt:{opt exc:lude(varlist)}}variables to document structure only (no values/stats){p_end}
+{synopt:{opt dates:afe}}show date-range span only, not exact dates{p_end}
+{synopt:{opt datef:ormat(string)}}date display format; default {bf:%tdCCYY/NN/DD}{p_end}
 
-{syntab:Detection features}
-{synopt:{opt det:ect(options)}}enable specific detection features{p_end}
-{synopt:{opt autodet:ect}}enable all detection features{p_end}
-{synopt:{opt panel:id(varname)}}specify panel ID variable for panel detection{p_end}
-{synopt:{opt survival:vars(varlist)}}specify survival analysis variables{p_end}
+{syntab:Detection}
+{synopt:{opt det:ect(options)}}enable specific structure detectors{p_end}
+{synopt:{opt autodet:ect}}enable all detectors at once{p_end}
+{synopt:{opt panel:id(varname)}}specify the panel identifier for panel detection{p_end}
+{synopt:{opt survival:vars(varlist)}}specify survival-analysis variables{p_end}
 
 {syntab:Data quality}
-{synopt:{opt qu:ality}}enable basic data quality checks{p_end}
-{synopt:{opt qu:ality2(strict)}}enable strict data quality checks{p_end}
-{synopt:{opt miss:ing(string)}}missing data analysis; {it:detail} or {it:pattern}{p_end}
+{synopt:{opt qu:ality}}flag basic data quality issues{p_end}
+{synopt:{opt qu:ality2(strict)}}flag quality issues with stricter thresholds{p_end}
+{synopt:{opt miss:ing(option)}}missing-data summary; {bf:detail} or {bf:pattern}{p_end}
 
 {syntab:Sample data}
-{synopt:{opt sam:ples(#)}}include # sample observations in output{p_end}
-
-{syntab:Advanced}
-{synopt:{opt rec:ursive}}scan subdirectories recursively (with {cmd:directory()}){p_end}
+{synopt:{opt sam:ples(#)}}include the first {it:#} observations in the output{p_end}
 {synoptline}
 {p2colreset}{...}
+
+{pstd}
+The {opt .dta} extension is optional everywhere and is added automatically when
+omitted.
 
 
 {marker description}{...}
 {title:Description}
 
 {pstd}
-{cmd:datamap} generates comprehensive, privacy-safe documentation for Stata datasets.
-It is designed for researchers who need to share dataset descriptions without revealing
-sensitive information. The command automatically classifies variables as categorical,
-continuous, date, string, or excluded, and generates appropriate documentation for each type.
+{cmd:datamap} writes a structured, plain-text description of one or more Stata
+datasets.  The output is designed to be pasted into an LLM prompt window so the
+model can write code against your data without ever seeing a single observation.
 
 {pstd}
-The {opt .dta} extension is optional and assumed if not specified.
+The command automatically classifies every variable as categorical, continuous,
+date, string, or excluded, and then writes the section that fits: frequency
+tables for categorical variables, summary statistics for continuous variables,
+date ranges for date variables, and a length/uniqueness note for strings.
+Variables listed in {opt exclude()} appear in the output with their type and
+missingness but no values or statistics.
 
 {pstd}
-Key features include:
+All output is aggregate-level.  No cross-variable combinations or individual
+observations are ever exported unless you explicitly request sample rows with
+{opt samples()}.
 
-{phang2}1. Automatic variable classification based on type, format, and cardinality{p_end}
-{phang2}2. Privacy controls to exclude sensitive variables or limit date precision{p_end}
-{phang2}3. Flexible output options (single combined file or separate files per dataset){p_end}
-{phang2}4. Support for multiple input modes (data in memory, single file, directory scan, or dataset list){p_end}
-{phang2}5. Comprehensive documentation including variable types, labels, missing values, and summary statistics{p_end}
+{pstd}
+The current dataset in memory is preserved and restored after processing.
+
+{pstd}
+For a companion command that produces Markdown data dictionaries suitable for
+GitHub, documentation sites, or conversion to PDF/Word via Pandoc, see
+{help datadict}.
 
 
 {marker options}{...}
@@ -102,281 +111,305 @@ Key features include:
 {dlgtab:Input}
 
 {pstd}
-If no input option is specified and data is loaded in memory, {cmd:datamap}
-documents the current dataset directly. This is the simplest usage:
-load or prepare data, then run {cmd:datamap}.
+If no input option is specified, {cmd:datamap} documents the data currently in
+memory.  This is the simplest way to use the command: load or prepare your data,
+then type {cmd:datamap}.
 
 {phang}
-{opt single(dataset)} documents a single Stata dataset file. The {opt .dta}
-extension is optional and will be added automatically if not specified.
+{opt single(filename)} documents one Stata dataset file.  If the file is not in
+the current directory, include the full or relative path.
 
 {phang}
-{opt directory(path)} scans a directory for all .dta files and documents them.
-By default, only the specified directory is scanned. Use with {cmd:recursive} to scan subdirectories.
+{opt dir:ectory(path)} scans a directory for every {opt .dta} file and documents
+all of them.  Only the specified directory is scanned unless {opt recursive} is
+also specified.
 
 {phang}
-{opt file:list(datasets)} specifies a space-separated list of dataset names to 
-process. The {opt .dta} extension is optional for each dataset name.
+{opt file:list(names)} documents a specific set of datasets given as a
+space-separated list.  For example, {cmd:filelist(patients hrt dmt)} documents
+{it:patients.dta}, {it:hrt.dta}, and {it:dmt.dta}.
 
-{pmore}
-Example: {cmd:filelist(patients hrt dmt)} will process {it:patients.dta}, 
-{it:hrt.dta}, and {it:dmt.dta}.
+{phang}
+{opt rec:ursive} makes {opt directory()} also descend into subdirectories.
+Hidden directories (names beginning with {cmd:.}) and {cmd:__pycache__} are
+always skipped.
+
+{pstd}
+Only one of {opt single()}, {opt directory()}, or {opt filelist()} may be
+specified.  Specifying more than one is an error.
 
 {dlgtab:Output}
 
 {phang}
-{opt o:utput(filename)} specifies the name of the output file. Default is {bf:datamap.txt}.
-The file extension should match the format (currently only .txt is supported).
+{opt o:utput(filename)} names the output file.  The default is {bf:datamap.txt}.
 
 {phang}
-{opt f:ormat(format)} specifies the output format. Currently only {bf:text} is supported.
-For Markdown-formatted data dictionaries, see {help datadict}.
+{opt f:ormat(string)} selects the output format.  The only value currently
+accepted is {bf:text}.  For Markdown output, use {help datadict} instead.
 
 {phang}
-{opt separate} creates a separate output file for each dataset instead of combining
-all documentation into a single file. Output files are named {it:datasetname}_map.txt.
+{opt sep:arate} writes a separate output file for each dataset instead of
+combining them into one file.  Output files are named
+{it:datasetname}{cmd:_map.txt}.
 
 {phang}
-{opt append} appends documentation to an existing output file instead of replacing it.
-Useful for incrementally building documentation.
+{opt app:end} appends to an existing output file rather than replacing it.
+Useful for incrementally building documentation.  Note that no header is added
+when appending.
 
-{dlgtab:Privacy controls}
-
-{phang}
-{opt exc:lude(string)} excludes the specified variables from all documentation.
-Specify variable names separated by spaces; wildcard expansion is not supported.
-Use this to protect personally identifiable information (PII) such as names, IDs,
-or other sensitive variables. Excluded variables appear in the variable summary
-with classification "excluded" but no statistics or frequencies are shown.
-Variables listed in {cmd:exclude()} that do not exist in a dataset are silently ignored.
+{dlgtab:Content control}
 
 {phang}
-{opt dates:afe} restricts date variable documentation to show only the range
-(minimum and maximum) instead of individual values or frequencies. This helps
-prevent date-based reidentification.
+{opt nost:ats} suppresses summary statistics (mean, SD, median, IQR, range) for
+continuous variables.  The variables still appear with their basic properties.
 
 {phang}
-{opt datef:ormat(string)} specifies a Stata date format string used to display
-all dates in the output. The default is {bf:%tdCCYY/NN/DD} (ISO 8601: YYYY/MM/DD).
-For datetime variables ({cmd:%tc}), the prefix is automatically adapted.
-Weekly, monthly, quarterly, and other non-daily date types retain their native
-format regardless of this setting.
-
-{dlgtab:Content controls}
+{opt nofr:eq} suppresses frequency tables for categorical variables.  Variables
+are still listed and classified.
 
 {phang}
-{opt nost:ats} suppresses summary statistics (mean, SD, min, max, percentiles)
-for continuous variables. The variables are still listed with their basic properties.
+{opt nola:bels} suppresses the "Value Label Definitions" section at the end of
+each dataset.  Value labels attached to individual variables in the frequency
+table are unaffected.
 
 {phang}
-{opt nofr:eq} suppresses frequency tables for categorical variables.
-The variables are still listed and classified, but individual value frequencies are omitted.
+{opt maxf:req(#)} sets the maximum number of unique values for which a frequency
+table is printed.  Categorical variables with more unique values than this
+threshold show only the unique count.  Default is {bf:25}.  Must be positive.
 
 {phang}
-{opt nola:bels} suppresses the value label definitions section.
-Value labels are still shown attached to individual variables, but the detailed
-label mappings are not included.
+{opt maxc:at(#)} sets the cutoff that separates categorical from continuous.
+Numeric variables with value labels or with {it:#} or fewer unique values are
+classified as categorical; the rest are continuous.  Default is {bf:25}.  Must
+be positive.
 
-{dlgtab:Parameters}
-
-{phang}
-{opt maxf:req(#)} specifies the maximum number of unique values for which
-frequency tables will be shown. If a categorical variable has more than this
-many unique values, frequencies are suppressed. Default is {bf:25}. Must be positive.
+{dlgtab:Privacy}
 
 {phang}
-{opt maxc:at(#)} specifies the threshold for classifying numeric variables
-as categorical versus continuous. Numeric variables with {it:#} or fewer unique values
-(or with value labels) are classified as categorical. Default is {bf:25}. Must be positive.
-
-{dlgtab:Advanced}
-
-{phang}
-{opt recursive} scans subdirectories recursively when using {cmd:directory()}.
-Without this option, only .dta files in the specified directory are documented.
-
-{dlgtab:Detection features}
+{opt exc:lude(varlist)} lists variables whose values should not appear in the
+output.  They are documented with type and missingness only, classified as
+"excluded".  Use this for personally identifiable information such as names,
+national IDs, and addresses.  Variable names that do not exist in a given
+dataset are silently ignored.  Wildcard expansion is not supported; list each
+variable name explicitly.
 
 {phang}
-{opt det:ect(options)} enables specific detection features. Multiple options can be
-specified separated by spaces. Valid options are:
+{opt dates:afe} prevents exact dates from appearing in the output.  Date
+variables are documented with the number of time units spanned instead of the
+earliest and latest values.  Use this when dates of birth or other potentially
+identifying dates are present.
 
-{phang2}{bf:panel} - detect panel/longitudinal data structure{p_end}
-{phang2}{bf:binary} - identify binary (0/1) variables as potential outcomes{p_end}
-{phang2}{bf:survival} - detect survival/time-to-event variables{p_end}
-{phang2}{bf:survey} - detect survey design elements (weights, strata, clusters){p_end}
-{phang2}{bf:common} - detect common variable patterns (IDs, dates, demographics){p_end}
+{phang}
+{opt datef:ormat(string)} sets the Stata date format used to display all dates.
+The default is {bf:%tdCCYY/NN/DD} (ISO 8601).  For datetime variables
+({cmd:%tc}/{cmd:%tC}), the prefix is automatically adapted.  Weekly, monthly,
+quarterly, and other non-daily types retain their native format regardless of
+this setting.
+
+{dlgtab:Detection}
+
+{phang}
+{opt det:ect(options)} turns on specific automatic structure detectors.  Specify
+one or more of the following, separated by spaces:
+
+{phang2}{bf:panel} {hline 2} look for repeated observations per unit (longitudinal/panel data).{p_end}
+{phang2}{bf:binary} {hline 2} flag variables with exactly two unique values as potential outcomes or indicators.{p_end}
+{phang2}{bf:survival} {hline 2} search for time-to-event and censoring/event variables.{p_end}
+{phang2}{bf:survey} {hline 2} search for sampling weights, strata, and cluster/PSU variables.{p_end}
+{phang2}{bf:common} {hline 2} identify IDs, dates, demographics, exposures, and outcomes by name patterns.{p_end}
 
 {pmore}
-Example: {cmd:detect(panel survival)} enables panel and survival detection.
+Example: {cmd:detect(panel survival)} enables panel and survival detection only.
 
 {phang}
-{opt autodet:ect} enables all detection features (equivalent to specifying all 
-options in {cmd:detect()}).
+{opt autodet:ect} enables every detector at once (equivalent to specifying all
+five keywords in {opt detect()}).
 
 {phang}
-{opt panel:id(varname)} specifies the panel identifier variable when using panel 
-detection. If not specified, the command attempts to auto-detect ID variables 
-based on common naming patterns.
+{opt panel:id(varname)} tells the panel detector which variable identifies
+units.  If omitted, the detector searches for variables whose names match common
+ID patterns ({it:*id}, {it:patient*}, {it:subject*}, etc.).
 
 {phang}
-{opt survival:vars(varlist)} specifies variables to consider for survival analysis 
-detection. If not specified, the command searches for common time-to-event 
-variable naming patterns.
+{opt survival:vars(varlist)} tells the survival detector which variables to
+consider.  If omitted, the detector searches for common time-to-event naming
+patterns ({it:time*}, {it:event*}, {it:death*}, etc.).
 
 {dlgtab:Data quality}
 
 {phang}
-{opt qu:ality} enables basic data quality checks. The command flags potential
-issues such as negative ages, out-of-range percentages, and negative counts.
+{opt qu:ality} enables basic data quality flags.  The command checks for
+negative ages, negative counts, and percentages outside 0{en_dash}100.  Flags are
+printed in a "Data Quality Flags" section.
 
 {phang}
-{opt qu:ality2(strict)} enables strict data quality checks with more conservative 
-thresholds (e.g., flagging ages over 100 instead of 120).
+{opt qu:ality2(strict)} enables stricter quality checks.  Thresholds are more
+conservative; for example, ages above 100 are flagged (the basic mode flags ages
+above 120).
 
 {phang}
-{opt miss:ing(option)} provides detailed missing data analysis. Valid options are:
+{opt miss:ing(option)} adds a missing-data summary section.  Valid values are:
 
-{phang2}{bf:detail} - show count of variables with >50% and >10% missing, 
-plus count of complete cases{p_end}
-{phang2}{bf:pattern} - includes detail plus missing data pattern analysis{p_end}
+{phang2}{bf:detail} {hline 2} report the number of variables with >50% and >10% missing, plus the number of complete-case observations.{p_end}
+{phang2}{bf:pattern} {hline 2} everything in {bf:detail}, plus the same pattern analysis.{p_end}
 
 {dlgtab:Sample data}
 
 {phang}
-{opt sam:ples(#)} includes the first {it:#} observations in the output as sample 
-data. Excluded variables are masked in the output. This helps LLMs understand 
-the data structure while protecting individual observations. Use with caution 
-as sample data may contain identifiable information.
+{opt sam:ples(#)} appends a table of the first {it:#} observations.  Variables
+in {opt exclude()} are shown as {bf:[MASKED]}.  Use with caution: even
+aggregate-safe documentation becomes identifiable once raw rows are included.
+Always combine with {opt exclude()} when sample rows are enabled.
+
+
+{marker classification}{...}
+{title:Variable classification}
+
+{pstd}
+{cmd:datamap} classifies every variable using the following priority order:
+
+{phang2}1. Variables listed in {opt exclude()} are classified as {bf:excluded}.{p_end}
+{phang2}2. String variables ({cmd:str}{it:#} or {cmd:strL}) are classified as {bf:string}.{p_end}
+{phang2}3. Variables whose display format starts with {cmd:%t} or {cmd:%d} are classified as {bf:date}.{p_end}
+{phang2}4. Numeric variables with an attached value label, or with {opt maxcat()} or fewer unique values, are classified as {bf:categorical}.{p_end}
+{phang2}5. All remaining numeric variables are classified as {bf:continuous}.{p_end}
+
+{pstd}
+Each class gets a dedicated output section:
+
+{p2colset 5 28 30 2}{...}
+{p2col:{bf:Categorical}}frequency table with counts and percentages (suppressed by {opt nofreq}){p_end}
+{p2col:{bf:Continuous}}mean, SD, median, IQR, range (suppressed by {opt nostats}){p_end}
+{p2col:{bf:Date}}earliest/latest date and span (exact dates suppressed by {opt datesafe}){p_end}
+{p2col:{bf:String}}maximum string length and unique-value count; values are always suppressed{p_end}
+{p2col:{bf:Excluded}}type and missingness only; no values or statistics{p_end}
+{p2colreset}{...}
 
 
 {marker remarks}{...}
 {title:Remarks}
 
 {pstd}
-{cmd:datamap} is designed for researchers who need to document datasets for sharing,
-archiving, or IRB compliance while protecting participant privacy. The command
-automatically classifies variables and generates appropriate documentation for each type:
-
-{phang2}{bf:Categorical variables:} Shown with frequency tables and value labels.
-Percentages are calculated as a proportion of total observations (including
-missing), so they may not sum to 100% when missing values are present.{p_end}
-{phang2}{bf:Continuous variables:} Shown with summary statistics (mean, SD, percentiles){p_end}
-{phang2}{bf:Date variables:} Shown with date ranges{p_end}
-{phang2}{bf:String variables:} Shown with unique value count (values suppressed){p_end}
-{phang2}{bf:Excluded variables:} Listed but no values or statistics shown{p_end}
+{bf:When to use datamap vs. datadict}
 
 {pstd}
-Variable classification is automatic and based on:
-
-{phang2}1. Variables in the {cmd:exclude()} list are classified as "excluded"{p_end}
-{phang2}2. String variables (str#) are classified as "string"{p_end}
-{phang2}3. Variables with date formats (%t* or %d*) are classified as "date"{p_end}
-{phang2}4. Numeric variables with value labels or <= maxcat unique values are "categorical"{p_end}
-{phang2}5. All other numeric variables are "continuous"{p_end}
+Use {cmd:datamap} when you need a plain-text file to paste into an LLM chat
+window, attach to an internal data handoff, or feed into an automated pipeline.
+Use {help datadict} when you need a polished Markdown document for a GitHub
+repository, an appendix, or conversion to PDF/Word via Pandoc.  Both commands
+accept the same input modes and preserve the dataset in memory.
 
 {pstd}
-{bf:Detection features:}
+{bf:Privacy best practices}
+
+{phang2}{hline 2} Always use {opt exclude()} for direct identifiers: names, national IDs, addresses, phone numbers.{p_end}
+{phang2}{hline 2} Add {opt datesafe} when the dataset contains dates of birth, death dates, or admission dates that could help re-identify individuals.{p_end}
+{phang2}{hline 2} Consider lowering {opt maxfreq()} to limit how much detail appears for high-cardinality categorical variables.{p_end}
+{phang2}{hline 2} Use {opt samples()} sparingly and always combine it with {opt exclude()}.{p_end}
+{phang2}{hline 2} Review the output file before sharing to confirm that no personally identifiable information leaked through.{p_end}
 
 {pstd}
-The {cmd:detect()} and {cmd:autodetect} options enable automatic detection of 
-common data structures:
-
-{phang2}• {bf:Panel data:} Detects repeated observations per unit and reports panel structure{p_end}
-{phang2}• {bf:Survival data:} Identifies time-to-event and censoring variables{p_end}
-{phang2}• {bf:Survey data:} Detects sampling weights, strata, and cluster variables{p_end}
-{phang2}• {bf:Binary outcomes:} Flags variables with exactly 2 unique values{p_end}
-{phang2}• {bf:Common patterns:} Identifies IDs, dates, demographics, exposures, and outcomes{p_end}
+{bf:Input modes}
 
 {pstd}
-{bf:Data quality checks:}
+{cmd:datamap} supports four input modes:
 
-{pstd}
-The {cmd:quality} option flags potential data quality issues based on variable 
-names and values, such as negative ages, out-of-range percentages, or negative 
-counts. Use {cmd:quality2(strict)} for more conservative thresholds.
-
-{pstd}
-{bf:Multiple input modes:}
-
-{pstd}
-You can document datasets in three ways:
-
-{phang2}1. {bf:Single file mode:} Use {cmd:single()} to document one dataset{p_end}
-{phang2}2. {bf:Directory mode:} Use {cmd:directory()} to document all .dta files in a folder{p_end}
-{phang2}3. {bf:Dataset list mode:} Use {cmd:filelist()} to document a specific list of datasets{p_end}
-
-{pstd}
-{bf:Privacy best practices:}
-
-{phang2}• Always use {cmd:exclude()} for direct identifiers (names, IDs, addresses, etc.){p_end}
-{phang2}• Use {cmd:datesafe} when documenting datasets with dates of birth or other potentially identifying dates{p_end}
-{phang2}• Consider using {cmd:maxfreq()} to limit detail in high-cardinality categorical variables{p_end}
-{phang2}• Use {cmd:samples()} with caution and always combine with {cmd:exclude()}{p_end}
-{phang2}• Review generated documentation before sharing to ensure no PII is exposed{p_end}
+{phang2}1. {bf:Data in memory} (default){hline 2} just run {cmd:datamap} after loading your data.{p_end}
+{phang2}2. {bf:Single file}{hline 2} use {opt single(filename)} to document one {opt .dta} file without loading it first.{p_end}
+{phang2}3. {bf:Directory scan}{hline 2} use {opt directory(path)} to document every {opt .dta} file in a folder. Add {opt recursive} to include subdirectories.{p_end}
+{phang2}4. {bf:File list}{hline 2} use {opt filelist(names)} to document a hand-picked set of datasets.{p_end}
 
 
 {marker examples}{...}
 {title:Examples}
 
-{pstd}Basic usage - document a single dataset{p_end}
-{phang2}{stata "datamap, single(patients)":. datamap, single(patients)}{p_end}
+    {title:Getting started}
 
-{pstd}Document with custom output name{p_end}
-{phang2}{stata "datamap, single(patients) output(patient_codebook.txt)":. datamap, single(patients) output(patient_codebook.txt)}{p_end}
+{pstd}
+The simplest way to use {cmd:datamap} is to load a dataset and run the command
+with no options.  The output is written to {bf:datamap.txt} in the current
+directory.{p_end}
 
-{pstd}Document multiple datasets from a list{p_end}
-{phang2}{stata "datamap, filelist(patients hrt dmt) output(combined.txt)":. datamap, filelist(patients hrt dmt) output(combined.txt)}{p_end}
+{phang2}{cmd:. sysuse auto, clear}{p_end}
+{phang2}{cmd:. datamap}{p_end}
 
-{pstd}Exclude sensitive variables{p_end}
-{phang2}{stata "datamap, single(patients) exclude(patient_id patient_name ssn)":. datamap, single(patients) exclude(patient_id patient_name ssn)}{p_end}
+{pstd}
+To give the output a different name:{p_end}
 
-{pstd}Use date-safe mode for datasets with dates of birth{p_end}
-{phang2}{stata "datamap, single(patients) exclude(patient_id patient_name) datesafe":. datamap, single(patients) exclude(patient_id patient_name) datesafe}{p_end}
+{phang2}{cmd:. sysuse auto, clear}{p_end}
+{phang2}{cmd:. datamap, output(auto_codebook.txt)}{p_end}
 
-{pstd}Document all datasets in current directory{p_end}
-{phang2}{stata "datamap, directory(.)":. datamap, directory(.)}{p_end}
+    {title:Privacy controls}
 
-{pstd}Create separate documentation files for each dataset{p_end}
-{phang2}{stata "datamap, directory(.) separate":. datamap, directory(.) separate}{p_end}
+{pstd}
+Exclude sensitive variables and suppress exact dates in one step:{p_end}
 
-{pstd}Suppress statistics and frequencies for minimal documentation{p_end}
-{phang2}{stata "datamap, single(patients) nostats nofreq":. datamap, single(patients) nostats nofreq}{p_end}
+{phang2}{cmd:. datamap, single(patients) exclude(patient_id ssn patient_name) datesafe}{p_end}
 
-{pstd}Customize categorical threshold{p_end}
-{phang2}{stata "datamap, single(survey) maxcat(10) maxfreq(10)":. datamap, single(survey) maxcat(10) maxfreq(10)}{p_end}
+{pstd}
+For a minimal output that shows only structure and classification:{p_end}
 
-{pstd}Combined privacy settings{p_end}
-{phang2}{stata "datamap, single(patients) exclude(id name dob ssn) datesafe nostats output(safe_docs.txt)":. datamap, single(patients) exclude(id name dob ssn) datesafe nostats output(safe_docs.txt)}{p_end}
+{phang2}{cmd:. datamap, single(patients) exclude(patient_id ssn) nostats nofreq nolabels}{p_end}
 
-{pstd}Enable panel and survival detection{p_end}
-{phang2}{stata "datamap, single(cohort) detect(panel survival)":. datamap, single(cohort) detect(panel survival)}{p_end}
+    {title:Detection and quality}
 
-{pstd}Enable all detection features{p_end}
-{phang2}{stata "datamap, single(survey_data) autodetect":. datamap, single(survey_data) autodetect}{p_end}
+{pstd}
+Turn on all automatic structure detectors:{p_end}
 
-{pstd}Specify panel ID variable{p_end}
-{phang2}{stata "datamap, single(longitudinal) detect(panel) panelid(patient_id)":. datamap, single(longitudinal) detect(panel) panelid(patient_id)}{p_end}
+{phang2}{cmd:. sysuse auto, clear}{p_end}
+{phang2}{cmd:. datamap, autodetect output(auto_detected.txt)}{p_end}
 
-{pstd}Enable data quality checks{p_end}
-{phang2}{stata "datamap, single(clinical) quality":. datamap, single(clinical) quality}{p_end}
+{pstd}
+Detect panel structure with an explicit ID variable:{p_end}
 
-{pstd}Include missing data analysis{p_end}
-{phang2}{stata "datamap, single(survey) missing(pattern)":. datamap, single(survey) missing(pattern)}{p_end}
+{phang2}{cmd:. datamap, single(longitudinal) detect(panel) panelid(patient_id)}{p_end}
 
-{pstd}Include sample observations (use with caution){p_end}
-{phang2}{stata "datamap, single(demo_data) samples(5) exclude(id name)":. datamap, single(demo_data) samples(5) exclude(id name)}{p_end}
+{pstd}
+Enable quality checks and missing-data pattern analysis:{p_end}
 
-{pstd}Document synthetic cohort with privacy controls{p_end}
-{phang2}{cmd:. datamap, single(_data/cohort.dta) ///}{p_end}
-{phang2}{cmd:     exclude(id birth_date death_date) ///}{p_end}
-{phang2}{cmd:     datesafe ///}{p_end}
-{phang2}{cmd:     output(datamap/examples/cohort_documentation.txt)}{p_end}
+{phang2}{cmd:. sysuse auto, clear}{p_end}
+{phang2}{cmd:. datamap, quality missing(pattern) output(auto_quality.txt)}{p_end}
 
-{pstd}Document all example datasets{p_end}
-{phang2}{stata "datamap, directory(_examples) exclude(id) datesafe output(datamap/examples/example_documentation.txt)":. datamap, directory(_examples) ///}{p_end}
-{phang2}{cmd:     exclude(id) datesafe ///}{p_end}
-{phang2}{cmd:     output(datamap/examples/example_documentation.txt)}{p_end}
+    {title:Multiple datasets}
+
+{pstd}
+Document every {opt .dta} file in a directory:{p_end}
+
+{phang2}{cmd:. datamap, directory(.) output(project_map.txt)}{p_end}
+
+{pstd}
+Write a separate output file per dataset:{p_end}
+
+{phang2}{cmd:. datamap, directory(.) separate}{p_end}
+
+{pstd}
+Document a specific set of files:{p_end}
+
+{phang2}{cmd:. datamap, filelist(patients labs visits) output(combined.txt)}{p_end}
+
+    {title:Tuning the output}
+
+{pstd}
+Change the categorical threshold so that only variables with 10 or fewer unique
+values are treated as categorical:{p_end}
+
+{phang2}{cmd:. datamap, single(survey) maxcat(10) maxfreq(10)}{p_end}
+
+{pstd}
+Include sample observations (use with caution):{p_end}
+
+{phang2}{cmd:. datamap, single(demo_data) samples(5) exclude(id name)}{p_end}
+
+    {title:Full privacy-controlled workflow}
+
+{pstd}
+Combine multiple privacy and content options:{p_end}
+
+{phang2}{cmd:. datamap, single(clinical_trial) ///}{p_end}
+{phang2}{cmd:     exclude(patient_id birth_date death_date) ///}{p_end}
+{phang2}{cmd:     datesafe nostats ///}{p_end}
+{phang2}{cmd:     quality missing(detail) ///}{p_end}
+{phang2}{cmd:     output(safe_documentation.txt)}{p_end}
 
 
 {marker results}{...}
@@ -388,14 +421,17 @@ You can document datasets in three ways:
 {synoptset 20 tabbed}{...}
 {p2col 5 20 24 2: Scalars}{p_end}
 {synopt:{cmd:r(nfiles)}}number of datasets documented{p_end}
-{synopt:{cmd:r(nobs)}}number of observations (single-file mode only){p_end}
-{synopt:{cmd:r(nvars)}}number of variables (single-file mode only){p_end}
+{synopt:{cmd:r(nobs)}}number of observations (single-file and in-memory modes only){p_end}
+{synopt:{cmd:r(nvars)}}number of variables (single-file and in-memory modes only){p_end}
+{synoptline}
 
 {synoptset 20 tabbed}{...}
 {p2col 5 20 24 2: Macros}{p_end}
-{synopt:{cmd:r(format)}}output format used (text){p_end}
-{synopt:{cmd:r(output)}}name of output file created{p_end}
+{synopt:{cmd:r(format)}}output format used ({bf:text}){p_end}
+{synopt:{cmd:r(output)}}name of the output file created{p_end}
 {synopt:{cmd:r(input_source)}}input mode: {bf:memory}, {bf:single}, {bf:directory}, or {bf:filelist}{p_end}
+{synoptline}
+{p2colreset}{...}
 
 
 {marker author}{...}
@@ -406,7 +442,7 @@ You can document datasets in three ways:
 {pstd}Karolinska Institutet{p_end}
 {pstd}Email: timothy.copeland@ki.se{p_end}
 
-{pstd}Version 1.0.0 - 08apr2026{p_end}
+{pstd}Version 1.0.0 {hline 2} 08apr2026{p_end}
 
 
 {title:Also see}

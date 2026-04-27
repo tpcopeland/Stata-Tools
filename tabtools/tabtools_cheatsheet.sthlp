@@ -1,5 +1,17 @@
 {smcl}
 {* *! version 1.0.13  27apr2026}{...}
+{vieweralsosee "tabtools" "help tabtools"}{...}
+{vieweralsosee "tabtools cookbook" "help tabtools_cookbook"}{...}
+{vieweralsosee "table1_tc" "help table1_tc"}{...}
+{vieweralsosee "regtab" "help regtab"}{...}
+{vieweralsosee "effecttab" "help effecttab"}{...}
+{vieweralsosee "survtab" "help survtab"}{...}
+{vieweralsosee "stratetab" "help stratetab"}{...}
+{vieweralsosee "comptab" "help comptab"}{...}
+{vieweralsosee "hrcomptab" "help hrcomptab"}{...}
+{vieweralsosee "crosstab" "help crosstab"}{...}
+{vieweralsosee "corrtab" "help corrtab"}{...}
+{vieweralsosee "diagtab" "help diagtab"}{...}
 {title:tabtools Quick Reference (v1.0.13)}
 
 {pstd}Common option combinations for each command.{p_end}

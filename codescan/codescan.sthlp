@@ -94,25 +94,38 @@
 {title:Description}
 
 {pstd}
-{cmd:codescan} scans wide-format code slots such as diagnosis, procedure, or
-medication variables and creates condition indicators or counts from a single
-declarative rule set.  It is designed for administrative data, registry data,
-claims data, and other datasets where each observation stores multiple code
-fields side by side.
+{cmd:codescan} scans wide-format code slots — such as {cmd:dx1} through
+{cmd:dx30} or {cmd:proc1} through {cmd:proc20} — and creates condition
+indicators (or counts) from a single declarative rule set.  It is designed for
+administrative data, registry data, claims data, and other datasets where each
+observation stores multiple code fields side by side.  It works with any
+string code system: ICD-10, ICD-9, KVÅ, CPT, ATC, OPCS, or proprietary
+codes.
+
+{pstd}
+{bf:In plain language:}  You tell {cmd:codescan} which code patterns to look
+for and what to name each condition.  The command scans every code slot on
+every row, marks which conditions are present, and returns a summary with
+prevalence and confidence intervals.  You can stay at the row level (one
+indicator per encounter), collapse to one row per patient, or merge
+patient-level summaries back onto the original data.
 
 {pstd}
 Rules can be supplied inline through {cmd:define()} or read from a reusable
 CSV/{cmd:.dta} code dictionary via {cmd:codefile()}.  Matching is anchored at
-the start of each code value.  The default {cmd:regex} mode supports character
-classes and alternation; {cmd:prefix} mode is faster when simple startswith
-logic is sufficient.
+the start of each code value — for example, the pattern {cmd:"E11"} matches
+{cmd:E110}, {cmd:E119}, and any other code that starts with {cmd:E11}, but
+does not match {cmd:AE11}.  The default {cmd:regex} mode supports character
+classes and alternation (for example {cmd:"I1[0-35]"} matches {cmd:I10},
+{cmd:I11}, {cmd:I12}, {cmd:I13}, and {cmd:I15}); {cmd:prefix} mode uses
+simple starts-with comparisons and is faster when regex features are not
+needed.
 
 {pstd}
-The command can leave row-level outputs in memory, {cmd:collapse} to one row per
-{cmd:id()}, or {cmd:merge} patient-level results back onto the original row
-structure.  Optional time windows, date summaries, co-occurrence counts, and
-Charlson/Elixhauser/custom scores support common clinical and health-services
-research workflows.
+Optional time windows, date summaries, co-occurrence counts, hierarchy rules,
+and Charlson/Elixhauser/custom scores support common clinical and
+health-services research workflows — all without leaving Stata or reshaping
+the data.
 
 {pstd}
 Use {helpb codescan_describe} first when you need to inspect the raw code
@@ -127,26 +140,33 @@ Most users will learn {cmd:codescan} fastest by treating it as a four-step
 workflow rather than as a menu of unrelated options:
 
 {phang2}1. {bf:Inspect the code inventory.}  Start with
-{helpb codescan_describe} to see which codes and chapter prefixes actually occur
-in your data.{p_end}
+{helpb codescan_describe} to see which codes and chapter prefixes actually
+occur in your data.  This tells you what patterns to target and which chapters
+to focus on.{p_end}
 
 {phang2}2. {bf:Draft and test simple rules.}  Write an initial
 {cmd:define()} specification and check the row-level results before adding
-windows, dates, or scores.{p_end}
+windows, dates, or scores.  At this stage, the created variables appear
+alongside the original data so you can eyeball whether each match is
+correct.{p_end}
 
 {phang2}3. {bf:Choose the output shape.}  Stay row-level for auditing, use
 {cmd:collapse} for one row per {cmd:id()}, or use {cmd:merge} when you need
-patient-level results attached back to the original encounters.{p_end}
+patient-level results attached back to the original encounters.  Most analytic
+pipelines want {cmd:collapse}.{p_end}
 
-{phang2}4. {bf:Add advanced features last.}  Once the basic matches look right,
-layer on {cmd:lookback()}, {cmd:lookforward()}, date summaries,
-{cmd:hierarchy()}, scoring, and export/save options.{p_end}
+{phang2}4. {bf:Add advanced features last.}  Once the basic matches look
+right, layer on {cmd:lookback()}/{cmd:lookforward()}, date summaries,
+{cmd:hierarchy()}, scoring, and export/save options.  Each feature is additive
+and does not change the meaning of earlier options.{p_end}
 
 {pstd}
-In practice, a common sequence is
-{cmd:codescan_describe} {hline 1} {cmd:codescan, define(...)} at the row level
-{hline 1} {cmd:codescan, collapse} or {cmd:merge} {hline 1}
-{cmd:score()}, {cmd:export()}, or {cmd:saving()} for the final deliverable.
+In practice, a common sequence is:
+
+{phang2}{cmd:codescan_describe} (reconnaissance) {hline 1}>{p_end}
+{phang2}{cmd:codescan, define(...)} at the row level (draft rules) {hline 1}>{p_end}
+{phang2}{cmd:codescan, collapse} or {cmd:merge} (patient-level) {hline 1}>{p_end}
+{phang2}{cmd:score()}, {cmd:export()}, or {cmd:saving()} (final deliverable){p_end}
 
 
 {marker options}{...}
@@ -523,8 +543,11 @@ applying the same rule set to large administrative datasets.
 {title:Examples}
 
 {pstd}
-The following setup block is copy-paste runnable after {cmd:net install}.  Rerun
-it before examples that change the data in memory.
+The following setup block creates a small toy dataset that is copy-paste
+runnable after {cmd:net install}.  Rerun it before any example that changes
+the data in memory.  The dataset represents five encounters for three patients,
+each with up to two diagnosis codes, one procedure code, a visit date, and an
+index date.
 
 {phang2}{cmd:. clear}{p_end}
 {phang2}{cmd:. input long pid str6 dx1 str6 dx2 str6 proc1 double visit_dt double index_dt}{p_end}
@@ -539,37 +562,124 @@ it before examples that change the data in memory.
 {pstd}
 {bf:Example 1: Row-level indicators}
 
+{pstd}
+The simplest use case.  Scan {cmd:dx1} and {cmd:dx2} for two conditions.  Each
+row gets a 0/1 variable for each condition.  The console output shows
+prevalence and Wilson confidence intervals.
+
 {phang2}{cmd:. codescan dx1 dx2, define(dm2 "E11" | htn "I1[0-35]")}{p_end}
 
 {pstd}
+After this command, {cmd:dm2} is 1 on any row where {cmd:dx1} or {cmd:dx2}
+starts with {cmd:E11}, and {cmd:htn} is 1 where either slot starts with
+{cmd:I10}, {cmd:I11}, {cmd:I12}, {cmd:I13}, or {cmd:I15}.
+
+{pstd}
 {bf:Example 2: Patient-level collapse with a lookback window and date summaries}
+
+{pstd}
+Collapse to one row per patient, restricting to encounters within 365 days
+before {cmd:index_dt} (inclusive).  {cmd:alldates} creates {cmd:_first},
+{cmd:_last}, and {cmd:_count} date-summary variables for each condition.
 
 {phang2}{cmd:. codescan dx1 dx2, id(pid) date(visit_dt) refdate(index_dt) ///}{p_end}
 {phang2}{cmd:    define(dm2 "E11" | htn "I1[0-35]" | chf "I50") ///}{p_end}
 {phang2}{cmd:    lookback(365) inclusive collapse alldates}{p_end}
 
 {pstd}
+Patient 2's second encounter (E102, 2020-04-15) falls {it:after} the index
+date, so it is excluded by the lookback window.
+
+{pstd}
 {bf:Example 3: Prefix matching for procedure codes}
+
+{pstd}
+Switch to {cmd:mode(prefix)} when patterns are simple starts-with strings
+rather than regex expressions.  Pipe-separated tokens are alternative
+prefixes:
 
 {phang2}{cmd:. codescan proc1, define(mammo "XF001|XF002" | colectomy "JFB|JFH") mode(prefix)}{p_end}
 
 {pstd}
-{bf:Example 4: Save an inline rule set, then reuse it as a codefile}
+{bf:Example 4: Exclusion patterns}
+
+{pstd}
+Use {cmd:~} to exclude specific codes that would otherwise be caught by the
+inclusion pattern.  Here {cmd:dm2} matches all {cmd:E11*} codes except
+{cmd:E116} (unspecified hypoglycaemia):
+
+{phang2}{cmd:. codescan dx1 dx2, define(dm2 "E11" ~ "E116" | htn "I1[0-35]")}{p_end}
+
+{pstd}
+{bf:Example 5: Save an inline rule set, then reuse it as a codefile}
+
+{pstd}
+During development, iterate with {cmd:define()}.  Once the rules look right,
+freeze them to a CSV with {cmd:save()}, then switch future runs to
+{cmd:codefile()}.
 
 {phang2}{cmd:. codescan dx1 dx2, define(dm2 "E11" | htn "I1[0-35]") save(dm_rules.csv)}{p_end}
 {phang2}{cmd:. codescan dx1 dx2, codefile(dm_rules.csv)}{p_end}
 
 {pstd}
-{bf:Example 5: Charlson scoring with the bundled codefile}
+{bf:Example 6: Charlson scoring with the bundled codefile}
+
+{pstd}
+{cmd:codescan} ships two bundled CSV files that can be used directly by basename.
+{cmd:hierarchy()} zeroes out the less-severe condition when both members of a
+pair are present.
 
 {phang2}{cmd:. codescan dx1 dx2, codefile(charlson_icd10_example.csv) id(pid) collapse ///}{p_end}
 {phang2}{cmd:    score(charlson) hierarchy(dm_comp > dm_uncomp \ liver_severe > liver_mild \ metastatic > cancer)}{p_end}
 
 {pstd}
-{bf:Example 6: Export a formatted summary and save the final dataset}
+After this command, each patient has a {cmd:_score} variable containing the
+weighted Charlson comorbidity index.
+
+{pstd}
+{bf:Example 7: Multi-window sensitivity analysis}
+
+{pstd}
+Supply several lookback values to compare how prevalence changes across
+windows.  {cmd:r(sensitivity)} returns a matrix of prevalences by condition and
+window.
+
+{phang2}{cmd:. codescan dx1 dx2, id(pid) date(visit_dt) refdate(index_dt) ///}{p_end}
+{phang2}{cmd:    define(dm2 "E11" | htn "I1[0-35]") ///}{p_end}
+{phang2}{cmd:    lookback(90 365) inclusive collapse}{p_end}
+
+{pstd}
+{bf:Example 8: Non-destructive workflow with frames}
+
+{pstd}
+{cmd:frame()} stores the collapsed result in a named frame, leaving the
+original data untouched.  This is the recommended pattern when you need both
+the encounter-level data and a patient-level summary in the same session.
+
+{phang2}{cmd:. codescan dx1 dx2, define(dm2 "E11" | htn "I1[0-35]") id(pid) collapse ///}{p_end}
+{phang2}{cmd:    frame(results) replace}{p_end}
+{phang2}{cmd:. frame results: list}{p_end}
+
+{pstd}
+{bf:Example 9: Export a formatted summary and save the final dataset}
+
+{pstd}
+{cmd:export()} writes the prevalence table to {cmd:.csv} or {cmd:.xlsx}.
+{cmd:saving()} saves the transformed dataset that {cmd:codescan} leaves in
+memory after {cmd:collapse} or {cmd:merge}.
 
 {phang2}{cmd:. codescan dx1 dx2, define(dm2 "E11" | htn "I1[0-35]") id(pid) collapse ///}{p_end}
 {phang2}{cmd:    export(codescan_results.xlsx) saving(codescan_results.dta, replace) format(%9.2f)}{p_end}
+
+{pstd}
+{bf:Example 10: Merge results back to original rows}
+
+{pstd}
+{cmd:merge} computes patient-level summaries and joins them back, so every row
+for a given patient gets the same values.  This is useful when you need both
+the encounter detail and the comorbidity flags in one dataset.
+
+{phang2}{cmd:. codescan dx1 dx2, define(dm2 "E11" | htn "I1[0-35]") id(pid) merge}{p_end}
 
 
 {marker results}{...}
@@ -632,7 +742,8 @@ adaptation of the Elixhauser comorbidity measure for hospital mortality.
 {marker author}{...}
 {title:Author}
 
-{pstd}Timothy P Copeland, Karolinska Institutet{p_end}
+{pstd}Timothy P Copeland{p_end}
+{pstd}Karolinska Institutet{p_end}
 
 
 {title:Also see}
