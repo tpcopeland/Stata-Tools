@@ -4,8 +4,6 @@
 
 `tvtools` is a workflow package for building analysis-ready time-varying survival data in Stata. It starts from person-level follow-up plus episode-format exposure records and helps you derive exposure intervals, align multiple time-varying sources, add outcomes and competing risks, diagnose gaps and overlaps, estimate IPTW weights, and create age-band intervals.
 
-> Version note: the package `.pkg`, help files, and command headers are version 1.0.0 dated 2026-04-08. The current `tvtools.ado` also returns `r(version) = "1.5.3"`, so the README follows the shipped package metadata.
-
 ## Requirements
 
 - Stata 16 or later
@@ -27,26 +25,45 @@ do tvtools_menu_setup.do
 
 ## Commands
 
-| Command | Description |
-|---------|-------------|
-| `tvtools` | Package index and workflow guide |
-| `tvexpose` | Create time-varying exposure intervals from episode data |
-| `tvmerge` | Merge multiple time-varying datasets into aligned person-time intervals |
-| `tvevent` | Add outcomes and competing risks to an interval dataset |
-| `tvdiagnose` | Check coverage, gaps, overlaps, and exposure summaries |
-| `tvweight` | Estimate inverse probability of treatment weights for interval data |
-| `tvage` | Create time-varying age intervals from dates of birth and follow-up dates |
+| Command | Purpose | Help |
+|---------|---------|------|
+| `tvtools` | Package index: lists all commands and their categories | `help tvtools` |
+| `tvexpose` | Create time-varying exposure intervals from episode data | `help tvexpose` |
+| `tvmerge` | Merge multiple time-varying datasets into aligned person-time intervals | `help tvmerge` |
+| `tvevent` | Add outcomes and competing risks to an interval dataset | `help tvevent` |
+| `tvdiagnose` | Check coverage, gaps, overlaps, and exposure summaries | `help tvdiagnose` |
+| `tvweight` | Estimate inverse probability of treatment weights for interval data | `help tvweight` |
+| `tvage` | Create time-varying age intervals from dates of birth and follow-up dates | `help tvage` |
 
 ## How It Works
 
-- Keep the cohort or event data in memory and use `tvexpose` with a `using` file of exposure episodes.
-- If you need multiple exposure streams, first build each one with `tvexpose`, then combine them with `tvmerge` and use `generate()` or `prefix()` if the source exposure variables share the default name `tv_exposure`.
-- Load event data as the master dataset and use `tvevent using <interval-file>` to split intervals at outcomes and competing risks.
-- Run `tvdiagnose` after `tvexpose` or `tvmerge` to verify coverage and identify gaps or overlaps.
-- Use `tvweight` once the interval data are ready for causal weighting.
-- Use `tvage` when age itself needs the same interval structure as the exposure data.
+The package follows a pipeline where each command produces output in a consistent id/start/stop format:
+
+```
+cohort.dta + episodes.dta
+        |
+     tvexpose  -->  person-period intervals (one exposure)
+        |
+     tvmerge   -->  aligned intervals (multiple exposures)
+        |
+     tvevent   -->  intervals with outcome/competing-risk flags
+        |
+     tvdiagnose -->  quality report (coverage, gaps, overlaps)
+        |
+     tvweight  -->  IPTW weights for causal inference
+```
+
+**Key conventions:**
+
+- The **cohort or event data stay in memory**; exposure episodes are supplied through `using` files.
+- All date variables must be **Stata daily dates** (integer days, `%td` format). Datetime variables (`%tc`/`%tC`) are rejected with a clear error.
+- Intervals use a **closed [start, stop] convention** where both endpoints are inclusive.
+- `tvmerge` operates on **tvexpose output**, not raw episode files.
+- For `tvevent`, the **event data** is the master (in memory) and the **interval data** is the using file.
 
 ## Worked Examples
+
+The examples below use synthetic datasets from `_data/` modeling an SSRI vs SNRI antidepressant study.
 
 ### 1. Create a single time-varying exposure dataset and diagnose it
 
@@ -123,14 +140,49 @@ tvage, idvar(id) dobvar(dob) entryvar(study_entry) exitvar(study_exit) ///
     saveas(age_tv.dta) replace
 ```
 
-## Command Notes
+The output has the same id/start/stop structure as `tvexpose`, so you can merge it with exposure intervals using `tvmerge`:
 
-- `tvexpose` supports default time-varying coding plus `evertreated`, `currentformer`, `duration()`, `continuousunit()`, `recency()`, and `dose`.
-- `tvmerge` merges `tvexpose` outputs. It does not work directly on raw episode files.
-- `tvevent` supports single events, recurring events in wide format, competing risks, and proportional adjustment of continuous interval variables when an event splits a period.
-- `tvdiagnose` is most useful right after `tvexpose` or `tvmerge`, especially with `coverage`, `gaps`, `overlaps`, and `all`.
-- `tvweight` supports both binary and multinomial treatment models and can add stabilized or truncated weights.
-- `tvage` expects one record per person and daily date variables rather than `%tc` datetimes.
+```stata
+tvmerge tv_antidep.dta age_tv.dta, id(id) ///
+    start(rx_start age_start) stop(rx_stop age_stop) ///
+    exposure(drug_class age_tv)
+```
+
+## Command Reference
+
+### tvexpose
+
+Transforms episode-format exposure records into person-period intervals. Supports:
+
+- **Default**: categorical time-varying exposure
+- **evertreated**: binary ever/never (corrects immortal time bias)
+- **currentformer**: three-level never/current/former
+- **duration()**: cumulative duration categories
+- **continuousunit()**: continuous cumulative exposure (days, weeks, months, quarters, years)
+- **recency()**: time since last exposure
+- **dose**: cumulative dose tracking with proportional overlap allocation
+- **grace()**, **lag()**, **washout()**: exposure timing adjustments
+- **priority()**, **layer**, **split**, **combine()**: overlap resolution
+
+### tvmerge
+
+Merges two or more `tvexpose` outputs into a single dataset with synchronized time periods. Uses Cartesian interval intersection. Continuous exposures are pro-rated when intervals are split. The `force` option handles non-matching IDs across datasets.
+
+### tvevent
+
+Integrates outcomes and competing risks into interval data. Splits intervals at event dates, adjusts continuous variables proportionally, and flags events (0=censored, 1=primary, 2+=competing). Supports `type(single)` (terminal first event) and `type(recurring)` (wide-format repeated events).
+
+### tvdiagnose
+
+Quality-control tool for interval datasets. Four reports: `coverage` (fraction of follow-up covered), `gaps` (unexposed intervals), `overlaps` (concurrent records), and `summarize` (exposure frequency and person-time). Use `all` to run everything. The `verbose` option shows individual records.
+
+### tvweight
+
+Estimates inverse probability of treatment weights (IPTW) for causal inference. Supports binary (`logit`) and multinomial (`mlogit`) propensity score models, stabilized weights, percentile truncation, and panel-aware weighting with cluster-robust SEs. Reports weight distribution, percentiles, and effective sample size (ESS).
+
+### tvage
+
+Creates time-varying age intervals from dates of birth and follow-up dates. Expands one-record-per-person data into one row per age (or age group). Output is compatible with `tvmerge` for merging age bands with other time-varying covariates.
 
 ## Version History
 

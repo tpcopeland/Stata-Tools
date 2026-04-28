@@ -147,25 +147,66 @@ displayed.
 {title:Examples}
 
 {pstd}
-Check coverage after creating time-varying exposure data:
-
-{phang2}{cmd:. tvexpose using medications, id(id) start(rx_start) stop(rx_stop) exposure(drug) reference(0) entry(entry) exit(exit)}{p_end}
-{phang2}{stata "tvdiagnose, id(id) start(start) stop(stop) entry(study_entry) exit(study_exit) coverage":. tvdiagnose, id(id) start(start) stop(stop) entry(study_entry) exit(study_exit) coverage}{p_end}
+The examples below follow a typical workflow: first create time-varying data
+with {helpb tvexpose}, then diagnose the result with {cmd:tvdiagnose}.
 
 {pstd}
-Run all diagnostics:
-
-{phang2}{stata "tvdiagnose, id(id) start(start) stop(stop) exposure(tv_exposure) entry(study_entry) exit(study_exit) all":. tvdiagnose, id(id) start(start) stop(stop) exposure(tv_exposure) entry(study_entry) exit(study_exit) all}{p_end}
+{bf:Example 1: Coverage diagnostics}
 
 {pstd}
-Check for gaps exceeding 90 days:
+Check what fraction of each person's follow-up is covered by exposure records:
 
-{phang2}{stata "tvdiagnose, id(id) start(start) stop(stop) gaps threshold(90)":. tvdiagnose, id(id) start(start) stop(stop) gaps threshold(90)}{p_end}
+{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
+
+{phang2}{cmd:. tvexpose using _data/tv_antidep_episodes.dta, id(id) start(rx_start) stop(rx_stop) ///}{p_end}
+{phang3}{cmd:exposure(drug_class) reference(0) entry(study_entry) exit(study_exit) keepdates}{p_end}
+
+{phang2}{cmd:. tvdiagnose, id(id) start(rx_start) stop(rx_stop) ///}{p_end}
+{phang3}{cmd:entry(study_entry) exit(study_exit) coverage}{p_end}
 
 {pstd}
-Check for overlapping periods:
+Reports mean/min/max coverage and the number of persons with gaps.
+Add {cmd:verbose} to list per-person details.
 
-{phang2}{stata "tvdiagnose, id(id) start(start) stop(stop) overlaps":. tvdiagnose, id(id) start(start) stop(stop) overlaps}{p_end}
+{pstd}
+{bf:Example 2: Run all diagnostics}
+
+{pstd}
+Combine all four reports in a single call:
+
+{phang2}{cmd:. tvdiagnose, id(id) start(rx_start) stop(rx_stop) ///}{p_end}
+{phang3}{cmd:exposure(tv_exposure) entry(study_entry) exit(study_exit) all verbose}{p_end}
+
+{pstd}
+{cmd:all} is equivalent to specifying {cmd:coverage gaps overlaps summarize}.
+The {cmd:verbose} option shows individual IDs and dates for every issue found.
+
+{pstd}
+{bf:Example 3: Flag large gaps}
+
+{pstd}
+Identify gaps exceeding 90 days between consecutive exposure periods:
+
+{phang2}{cmd:. tvdiagnose, id(id) start(rx_start) stop(rx_stop) ///}{p_end}
+{phang3}{cmd:gaps threshold(90)}{p_end}
+
+{pstd}
+The default threshold is 30 days. Gaps below the threshold still appear in
+the gap count but are not flagged as warnings.
+
+{pstd}
+{bf:Example 4: Check for overlapping periods}
+
+{pstd}
+Detect periods where a person has two overlapping records:
+
+{phang2}{cmd:. tvdiagnose, id(id) start(rx_start) stop(rx_stop) overlaps verbose}{p_end}
+
+{pstd}
+Overlapping periods in {helpb tvexpose} output usually indicate that the input
+episode data had concurrent exposures. Use {cmd:verbose} to inspect specific
+records and decide whether to re-run {cmd:tvexpose} with overlap-handling
+options such as {cmd:layer}, {cmd:priority()}, or {cmd:split}.
 
 
 {marker results}{...}

@@ -6,6 +6,7 @@
 {viewerjumpto "Syntax" "tvage##syntax"}{...}
 {viewerjumpto "Description" "tvage##description"}{...}
 {viewerjumpto "Options" "tvage##options"}{...}
+{viewerjumpto "Remarks" "tvage##remarks"}{...}
 {viewerjumpto "Examples" "tvage##examples"}{...}
 {viewerjumpto "Stored results" "tvage##results"}{...}
 {viewerjumpto "Author" "tvage##author"}{...}
@@ -119,21 +120,126 @@ the current data in memory.
 {opt noisily} displays progress and summary information.
 
 
+{marker remarks}{...}
+{title:Remarks}
+
+{pstd}
+{bf:When to use tvage}
+
+{pstd}
+Use {cmd:tvage} when age itself should be a time-varying covariate in your
+survival model. Instead of adjusting for age at baseline, {cmd:tvage} creates
+intervals where each person's data is split at age boundaries, so a Cox
+model can use age as a time-varying variable.
+
+{pstd}
+{bf:Integration with the tvtools workflow}
+
+{pstd}
+The output of {cmd:tvage} has the same id/start/stop structure as
+{helpb tvexpose}, so you can merge age bands with exposure intervals using
+{helpb tvmerge}. See Example 4 below.
+
+{pstd}
+{bf:Precision note}
+
+{pstd}
+Age is computed using a 365.25-day year approximation, which may differ from
+exact birthdays by up to 1 day. Start and stop dates are rounded to integer
+Stata dates for compatibility with interval-based survival analysis.
+
+{pstd}
+{bf:Input requirements}
+
+{pstd}
+{cmd:tvage} requires exactly one observation per person. All date variables
+({opt dobvar()}, {opt entryvar()}, {opt exitvar()}) must be non-missing Stata
+daily dates. Datetime formats ({cmd:%tc}/{cmd:%tC}) are not supported;
+convert with {cmd:gen daily = dofc(datetime)}.
+
+
 {marker examples}{...}
 {title:Examples}
 
-{pstd}Setup with cohort data{p_end}
-{phang2}{cmd:. use analysis_cohort, clear}{p_end}
-{phang2}{stata "keep id study_entry study_exit dob":. keep id study_entry study_exit dob}{p_end}
+{pstd}
+{bf:Example 1: 5-year age groups}
 
-{pstd}Create 5-year age groups for ages 40-80{p_end}
-{phang2}{cmd:. tvage, idvar(id) dobvar(dob) entryvar(study_entry) exitvar(study_exit) groupwidth(5) minage(40) maxage(80) noisily}{p_end}
+{pstd}
+Create 5-year age bands for persons aged 40-80, then merge with exposure data:
 
-{pstd}Create single-year ages and save to file{p_end}
-{phang2}{cmd:. tvage, idvar(id) dobvar(dob) entryvar(study_entry) exitvar(study_exit) groupwidth(1) saveas(age_tv_data) replace noisily}{p_end}
+{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
 
-{pstd}Create 10-year age groups{p_end}
-{phang2}{cmd:. tvage, idvar(id) dobvar(dob) entryvar(study_entry) exitvar(study_exit) groupwidth(10) generate(age_group) startgen(age_start) stopgen(age_end) noisily}{p_end}
+{phang2}{cmd:. tvage, idvar(id) dobvar(dob) entryvar(study_entry) exitvar(study_exit) ///}{p_end}
+{phang3}{cmd:groupwidth(5) minage(40) maxage(80) ///}{p_end}
+{phang3}{cmd:saveas(age_tv.dta) replace noisily}{p_end}
+
+{pstd}
+Each person is expanded into one row per 5-year age band they pass through
+during follow-up (e.g., 40-44, 45-49, ...). The {cmd:saveas()} option saves
+the result to a file and restores the original data in memory.
+
+
+{pstd}
+{bf:Example 2: Single-year ages (continuous)}
+
+{pstd}
+Create one row per person-year of age with no grouping labels:
+
+{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
+
+{phang2}{cmd:. tvage, idvar(id) dobvar(dob) entryvar(study_entry) exitvar(study_exit) ///}{p_end}
+{phang3}{cmd:groupwidth(1) noisily}{p_end}
+
+{pstd}
+With {cmd:groupwidth(1)} (the default), {cmd:age_tv} contains each integer age
+traversed during follow-up. Suitable for continuous age adjustment in Cox models.
+
+
+{pstd}
+{bf:Example 3: Custom variable names and 10-year groups}
+
+{pstd}
+Specify output variable names and use wide age bands:
+
+{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
+
+{phang2}{cmd:. tvage, idvar(id) dobvar(dob) entryvar(study_entry) exitvar(study_exit) ///}{p_end}
+{phang3}{cmd:groupwidth(10) generate(age_group) startgen(age_start) stopgen(age_end) noisily}{p_end}
+
+{pstd}
+Creates variables {cmd:age_group}, {cmd:age_start}, and {cmd:age_end} instead of
+the defaults ({cmd:age_tv}, {cmd:age_start}, {cmd:age_stop}).
+
+
+{pstd}
+{bf:Example 4: Integration with tvmerge}
+
+{pstd}
+Age bands have the same start/stop structure as {helpb tvexpose} output, so they
+can be merged with other time-varying datasets using {helpb tvmerge}:
+
+{phang2}{cmd:. * Step 1: Create exposure intervals}{p_end}
+{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
+{phang2}{cmd:. tvexpose using _data/tv_antidep_episodes.dta, id(id) start(rx_start) stop(rx_stop) ///}{p_end}
+{phang3}{cmd:exposure(drug_class) reference(0) entry(study_entry) exit(study_exit) ///}{p_end}
+{phang3}{cmd:saveas(tv_antidep.dta) replace}{p_end}
+{phang2}{cmd:. use tv_antidep.dta, clear}{p_end}
+{phang2}{cmd:. rename tv_exposure drug_class}{p_end}
+{phang2}{cmd:. save tv_antidep.dta, replace}{p_end}
+
+{phang2}{cmd:. * Step 2: Create age bands}{p_end}
+{phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
+{phang2}{cmd:. tvage, idvar(id) dobvar(dob) entryvar(study_entry) exitvar(study_exit) ///}{p_end}
+{phang3}{cmd:groupwidth(5) saveas(age_tv.dta) replace noisily}{p_end}
+
+{phang2}{cmd:. * Step 3: Merge exposure intervals with age bands}{p_end}
+{phang2}{cmd:. tvmerge tv_antidep.dta age_tv.dta, id(id) ///}{p_end}
+{phang3}{cmd:start(rx_start age_start) stop(rx_stop age_stop) ///}{p_end}
+{phang3}{cmd:exposure(drug_class age_tv)}{p_end}
+
+{pstd}
+The merged dataset has one row per period where both exposure status and age
+band are constant, ready for age-stratified or age-adjusted analysis.
 
 
 {marker results}{...}

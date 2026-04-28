@@ -11,6 +11,8 @@
 {viewerjumpto "Commands" "tvtools##commands"}{...}
 {viewerjumpto "Workflow" "tvtools##workflow"}{...}
 {viewerjumpto "Examples" "tvtools##examples"}{...}
+{viewerjumpto "Remarks" "tvtools##remarks"}{...}
+{viewerjumpto "Stored results" "tvtools##results"}{...}
 {viewerjumpto "Installation" "tvtools##installation"}{...}
 {viewerjumpto "Author" "tvtools##author"}{...}
 {title:Title}
@@ -108,12 +110,71 @@ A typical time-varying exposure analysis follows these steps:
 
 {phang2}{cmd:. tvweight tv_exposure, covariates(age sex comorbidity)}{p_end}
 
+{marker remarks}{...}
+{title:Remarks}
+
+{pstd}
+{bf:When to use tvtools}
+
+{pstd}
+Use {cmd:tvtools} whenever you have exposure data recorded as episodes or
+prescriptions and need to build a person-period dataset for time-to-event
+analysis. The package handles the mechanics of aligning exposure windows
+with follow-up intervals, splitting at event dates, and diagnosing common
+data quality problems.
+
+{pstd}
+{bf:Data assumptions}
+
+{pstd}
+All date variables must be Stata daily dates (integer days since 01jan1960).
+Datetime variables ({cmd:%tc}/{cmd:%tC}) are not supported and will be
+rejected with a clear error message. Convert datetimes first with
+{cmd:gen daily = dofc(datetime_var)}.
+
+{pstd}
+Intervals use a closed [start, stop] convention where both endpoints are
+inclusive. A period [2020-01-01, 2020-01-31] covers 31 days.
+
+{pstd}
+{bf:Choosing exposure definitions}
+
+{pstd}
+{helpb tvexpose} supports several exposure definitions for different
+research questions:
+
+{p 8 12 2}{cmd:[default]} — Categorical time-varying exposure (e.g., which drug a patient is currently on){p_end}
+{p 8 12 2}{cmd:evertreated} — Binary ever/never, for immortal-time-bias correction{p_end}
+{p 8 12 2}{cmd:currentformer} — Three-level never/current/former{p_end}
+{p 8 12 2}{cmd:duration()} — Cumulative duration categories{p_end}
+{p 8 12 2}{cmd:continuousunit()} — Continuous cumulative exposure{p_end}
+{p 8 12 2}{cmd:recency()} — Time since last exposure{p_end}
+{p 8 12 2}{cmd:dose} — Cumulative dose with proportional overlap allocation{p_end}
+
+
+{marker results}{...}
+{title:Stored results}
+
+{pstd}
+{cmd:tvtools} stores the following in {cmd:r()}:
+
+{synoptset 20 tabbed}{...}
+{p2col 5 20 24 2: Scalars}{p_end}
+{synopt:{cmd:r(n_commands)}}number of commands listed{p_end}
+
+{p2col 5 20 24 2: Macros}{p_end}
+{synopt:{cmd:r(commands)}}space-separated list of command names{p_end}
+{synopt:{cmd:r(version)}}package version string{p_end}
+{synopt:{cmd:r(categories)}}available categories (prep diag weight){p_end}
+
+
 {marker installation}{...}
 {title:Installation}
 
 {pstd}
 To install or update tvtools:
 
+{phang2}{cmd:. capture ado uninstall tvtools}{p_end}
 {phang2}{cmd:. net install tvtools, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/tvtools") replace}{p_end}
 
 
@@ -123,8 +184,6 @@ To install or update tvtools:
 {pstd}
 Timothy P Copeland{break}
 Department of Clinical Neuroscience{break}
-Karolinska Institutet, Stockholm, Sweden{break}
-Email: timothy.copeland@ki.se
-{p_end}
+Karolinska Institutet{break}
 
 {hline}

@@ -9,6 +9,7 @@
 {viewerjumpto "Options" "tvevent##options"}{...}
 {viewerjumpto "Examples" "tvevent##examples"}{...}
 {viewerjumpto "Stored results" "tvevent##results"}{...}
+{viewerjumpto "Author" "tvevent##author"}{...}
 {title:Title}
 
 {p2colset 5 18 20 2}{...}

@@ -117,7 +117,7 @@ program define tvtools, rclass
     // Return results
     return local commands "`selected_cmds'"
     return scalar n_commands = `n_commands'
-    return local version "1.5.3"
+    return local version "1.0.0"
     return local categories "prep diag weight"
 
     } // end capture noisily

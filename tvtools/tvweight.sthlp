@@ -168,25 +168,99 @@ propensity score (predicted probability of observed treatment given covariates).
 {marker examples}{...}
 {title:Examples}
 
-{pstd}Setup: Create time-varying exposure dataset (assumes tvexpose output in memory){p_end}
+{pstd}
+The examples below assume you have created a time-varying dataset using
+{helpb tvexpose} with baseline covariates carried through via {cmd:keepvars()}.
+
+{pstd}
+{bf:Setup}
+
 {phang2}{stata `"use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear"':. use _data/cohort.dta, clear}{p_end}
-{phang2}{cmd:. tvexpose using _data/tv_antidep_episodes.dta, id(id) start(rx_start) stop(rx_stop) exposure(drug_class) reference(0) entry(study_entry) exit(study_exit) keepvars(index_age female education)}{p_end}
 
-{pstd}Basic IPTW for binary treatment{p_end}
-{phang2}{stata "tvweight tv_exposure, covariates(age sex comorbidity_score)":. tvweight tv_exposure, covariates(age sex comorbidity_score)}{p_end}
+{phang2}{cmd:. tvexpose using _data/tv_antidep_episodes.dta, id(id) start(rx_start) stop(rx_stop) ///}{p_end}
+{phang3}{cmd:exposure(drug_class) reference(0) entry(study_entry) exit(study_exit) ///}{p_end}
+{phang3}{cmd:keepvars(index_age female education)}{p_end}
 
-{pstd}Stabilized weights with truncation{p_end}
-{phang2}{stata "tvweight tv_exposure, covariates(age sex) stabilized truncate(1 99)":. tvweight tv_exposure, covariates(age sex) stabilized truncate(1 99)}{p_end}
 
-{pstd}Custom weight variable name with propensity score output{p_end}
-{phang2}{stata "tvweight tv_exposure, covariates(age sex bmi) generate(myweight) denominator(ps)":. tvweight tv_exposure, covariates(age sex bmi) generate(myweight) denominator(ps)}{p_end}
+{pstd}
+{bf:Example 1: Basic IPTW for binary treatment}
 
-{pstd}Multinomial weights for categorical treatment{p_end}
-{phang2}{stata "tvweight drug_type, covariates(age sex) model(mlogit) generate(mw)":. tvweight drug_type, covariates(age sex) model(mlogit) generate(mw)}{p_end}
+{pstd}
+Recode the multi-level antidepressant variable to binary (any vs none), then
+estimate IPTW:
 
-{pstd}Weighted Cox regression for causal effect{p_end}
-{phang2}{stata "stset stop, failure(event) enter(start) id(id)":. stset stop, failure(event) enter(start) id(id)}{p_end}
-{phang2}{stata "stcox tv_exposure [pw=iptw], robust cluster(id)":. stcox tv_exposure [pw=iptw], robust cluster(id)}{p_end}
+{phang2}{cmd:. gen byte treated = (tv_exposure > 0) if !missing(tv_exposure)}{p_end}
+{phang2}{cmd:. tvweight treated, covariates(index_age female education)}{p_end}
+
+{pstd}
+Creates the variable {cmd:iptw} in the dataset. The output shows weight
+distribution, percentiles, and effective sample size.
+
+
+{pstd}
+{bf:Example 2: Stabilized weights with truncation}
+
+{pstd}
+Stabilized weights have smaller variance. Truncation at the 1st and 99th
+percentiles limits the influence of extreme weights:
+
+{phang2}{cmd:. tvweight treated, covariates(index_age female education) ///}{p_end}
+{phang3}{cmd:stabilized truncate(1 99) replace}{p_end}
+
+{pstd}
+The {cmd:replace} option overwrites the {cmd:iptw} variable from Example 1.
+
+
+{pstd}
+{bf:Example 3: Multinomial weights for categorical treatment}
+
+{pstd}
+When the exposure has 3+ levels (e.g., 0=unexposed, 1=SSRI, 2=SNRI),
+{cmd:tvweight} automatically uses multinomial logistic regression:
+
+{phang2}{cmd:. tvweight tv_exposure, covariates(index_age female education) ///}{p_end}
+{phang3}{cmd:generate(mw) stabilized nolog}{p_end}
+
+{pstd}
+Each observation receives weight 1/P(A=a|X), where a is the observed
+treatment level. The {cmd:nolog} option suppresses the iteration log.
+
+
+{pstd}
+{bf:Example 4: Propensity score output}
+
+{pstd}
+Save the propensity score alongside the weight for diagnostic plots:
+
+{phang2}{cmd:. tvweight treated, covariates(index_age female education) ///}{p_end}
+{phang3}{cmd:generate(sw) denominator(ps) stabilized replace}{p_end}
+
+
+{pstd}
+{bf:Example 5: Panel-aware weighting with time-varying covariates}
+
+{pstd}
+When panel structure is available, {cmd:id()} and {cmd:time()} enable
+cluster-robust standard errors and time fixed effects in the propensity
+score model:
+
+{phang2}{cmd:. gen period = quarter(rx_start)}{p_end}
+{phang2}{cmd:. tvweight treated, covariates(index_age female education) ///}{p_end}
+{phang3}{cmd:id(id) time(period) generate(panel_w) replace nolog}{p_end}
+
+
+{pstd}
+{bf:Example 6: Weighted Cox regression}
+
+{pstd}
+After weighting, fit a marginal structural Cox model:
+
+{phang2}{cmd:. stset rx_stop, failure(event==1) enter(rx_start) id(id)}{p_end}
+{phang2}{cmd:. stcox treated [pw=iptw], robust cluster(id)}{p_end}
+
+{pstd}
+The {cmd:[pw=iptw]} applies the inverse probability weights. Cluster-robust
+standard errors account for within-person correlation in the panel data.
 
 
 {marker results}{...}
