@@ -1,0 +1,336 @@
+VERSION 16.0
+INCLUDE _std_xlarge
+DEFINE _dlght 520
+DEFINE _dlgwd 640
+INCLUDE header
+
+HELP hlp1, view("help logdoc")
+RESET res1
+
+SCRIPT PREINIT
+BEGIN
+	program parseMessage
+	script max_setOptionalOn
+END
+
+SCRIPT POSTINIT
+BEGIN
+	script max_setDefaultWidth
+END
+
+DIALOG main, label("logdoc - Convert Stata Log Files to Documents") tabtitle("Main")
+BEGIN
+  * =========================================================================
+  * INPUT FILE
+  * =========================================================================
+  TEXT     tx_input      20  10  620  ., label("Input file:")
+  FILE     fi_input      20  +20 610  ., error("Input file") ///
+           label("Browse...") ///
+           filter("SMCL Files (*.smcl)|*.smcl|Log Files (*.log)|*.log|Do Files (*.do)|*.do|All Files (*.*)|*.*")
+
+  * =========================================================================
+  * OUTPUT FILE
+  * =========================================================================
+  TEXT     tx_output     20  +30 620  ., label("Output file:")
+  FILE     fi_output     20  +20 610  ., error("Output file") save ///
+           label("Browse...") ///
+           filter("HTML Files (*.html)|*.html|Markdown Files (*.md)|*.md|Quarto Files (*.qmd)|*.qmd|Word Documents (*.docx)|*.docx|LaTeX Files (*.tex)|*.tex|PDF Files (*.pdf)|*.pdf|All Files (*.*)|*.*")
+
+  * =========================================================================
+  * FORMAT AND THEME
+  * =========================================================================
+  GROUPBOX gb_format     10  +30 620  75, label("Output Settings")
+
+  TEXT     tx_format     20  +20 140  ., label("Format:")
+  COMBOBOX cb_format     165 @   140  ., dropdownlist contents(format_list) ///
+           default("html") label("Format")
+
+  TEXT     tx_theme      330 @   140  ., label("Theme:")
+  COMBOBOX cb_theme      475 @   140  ., dropdownlist contents(theme_list) ///
+           default("light") label("Theme")
+
+  * =========================================================================
+  * COMMON FLAGS
+  * =========================================================================
+  GROUPBOX gb_flags      10  +30 620  200, label("Common Options")
+
+  CHECKBOX ck_run        20  +20 280  ., label("Run .do file before converting") ///
+           option(run)
+  CHECKBOX ck_replace    20  +25 280  ., label("Replace existing output file") ///
+           option(replace)
+  CHECKBOX ck_open       20  +25 280  ., label("Open output file after conversion") ///
+           option(open)
+  CHECKBOX ck_quiet      20  +25 280  ., label("Suppress progress messages") ///
+           option(quiet)
+  CHECKBOX ck_verbose    20  +25 280  ., label("Show verbose output") ///
+           option(verbose)
+  CHECKBOX ck_append     20  +25 280  ., label("Append to existing output") ///
+           option(append)
+
+  CHECKBOX ck_preformat  330 -75 280  ., label("Keep tables as monospace") ///
+           option(preformatted)
+  CHECKBOX ck_nofold     330 +25 280  ., label("Disable collapsible sections") ///
+           option(nofold)
+  CHECKBOX ck_nodots     330 +25 280  ., label("Strip dot prompts") ///
+           option(nodots)
+  CHECKBOX ck_nograph    330 +25 280  ., label("Exclude graphs") ///
+           option(nograph)
+END
+
+
+DIALOG options, tabtitle("Options")
+BEGIN
+  * =========================================================================
+  * DOCUMENT METADATA
+  * =========================================================================
+  GROUPBOX gb_meta       10  10  620  75, label("Document Metadata")
+
+  TEXT     tx_title      20  +20 140  ., label("Title:")
+  EDIT     ed_title      165 @   465  ., label("Title")
+
+  TEXT     tx_date       20  +25 140  ., label("Date:")
+  EDIT     ed_date       165 @   465  ., label("Date")
+
+  * =========================================================================
+  * DISPLAY OPTIONS
+  * =========================================================================
+  GROUPBOX gb_display    10  +30 620  225, label("Display Options")
+
+  CHECKBOX ck_stamp      20  +20 280  ., label("Add metadata stamp to header") ///
+           option(stamp)
+  CHECKBOX ck_linenums   20  +25 280  ., label("Show line numbers") ///
+           option(linenumbers)
+  CHECKBOX ck_toc        20  +25 280  ., label("Include table of contents") ///
+           option(toc)
+  CHECKBOX ck_highlight  20  +25 280  ., label("Syntax highlighting") ///
+           option(highlight)
+  CHECKBOX ck_tables     20  +25 280  ., label("Parse HTML tables") ///
+           option(tables)
+  CHECKBOX ck_fold       20  +25 280  ., label("Fold long output") ///
+           option(fold)
+  CHECKBOX ck_notebook   330 -50 280  ., label("Notebook mode") ///
+           option(notebook)
+  CHECKBOX ck_email      330 +25 280  ., label("Email mode") ///
+           option(email)
+  CHECKBOX ck_copy       330 +25 280  ., label("Copy buttons") ///
+           option(copy)
+  CHECKBOX ck_download   330 +25 280  ., label("Download .do button") ///
+           option(download)
+  CHECKBOX ck_legacy     330 +25 280  ., label("Legacy enhancement defaults") ///
+           option(legacy)
+  CHECKBOX ck_generated  330 +25 280  ., label("Add generated timestamp footer") ///
+           option(generated)
+END
+
+
+DIALOG advanced, tabtitle("Advanced")
+BEGIN
+  * =========================================================================
+  * PYTHON AND CSS
+  * =========================================================================
+  GROUPBOX gb_python     10  10  620  75, label("Python and Styling")
+
+  TEXT     tx_python     20  +20 140  ., label("Python path:")
+  EDIT     ed_python     165 @   465  ., label("Python path")
+
+  TEXT     tx_css        20  +25 140  ., label("CSS file:")
+  FILE     fi_css        165 @   465  ., label("Browse...") ///
+           filter("CSS Files (*.css)|*.css|All Files (*.*)|*.*")
+
+  * =========================================================================
+  * FOOTER AND FILTERING
+  * =========================================================================
+  GROUPBOX gb_content    10  +30 620  125, label("Content Options")
+
+  TEXT     tx_footer     20  +20 140  ., label("Footer text:")
+  EDIT     ed_footer     165 @   465  ., label("Footer")
+
+  TEXT     tx_annotate   20  +25 140  ., label("Annotation file:")
+  FILE     fi_annotate   165 @   465  ., label("Browse...") ///
+           filter("Text Files (*.txt)|*.txt|All Files (*.*)|*.*")
+
+  TEXT     tx_keep       20  +25 140  ., label("Keep pattern:")
+  EDIT     ed_keep       165 @   465  ., label("Keep pattern")
+
+  TEXT     tx_drop       20  +25 140  ., label("Drop pattern:")
+  EDIT     ed_drop       165 @   465  ., label("Drop pattern")
+
+  * =========================================================================
+  * GRAPH DIMENSIONS
+  * =========================================================================
+  GROUPBOX gb_graph      10  +30 620  55, label("Graph Dimensions")
+
+  TEXT     tx_gwidth     20  +20 140  ., label("Graph width:")
+  EDIT     ed_gwidth     165 @   140  ., label("Graph width")
+
+  TEXT     tx_gheight    330 @   140  ., label("Graph height:")
+  EDIT     ed_gheight    475 @   140  ., label("Graph height")
+END
+
+
+* =============================================================================
+* LIST DEFINITIONS
+* =============================================================================
+LIST format_list
+BEGIN
+	html
+	md
+	qmd
+	both
+	docx
+	tex
+	pdf
+END
+
+LIST theme_list
+BEGIN
+	light
+	dark
+END
+
+
+* =============================================================================
+* COMMAND BUILDER
+* =============================================================================
+PROGRAM parseMessage
+BEGIN
+END
+
+PROGRAM command
+BEGIN
+	put "logdoc using "
+
+	require main.fi_input
+	put `"""'
+	put main.fi_input
+	put `"""'
+
+	put ", "
+
+	require main.fi_output
+	put "output("
+	put `"""'
+	put main.fi_output
+	put `"""'
+	put ")"
+
+	* Format (only if not default)
+	if !main.cb_format.isdefault() {
+		put " format("
+		put main.cb_format
+		put ")"
+	}
+
+	* Theme (only if not default)
+	if !main.cb_theme.isdefault() {
+		put " theme("
+		put main.cb_theme
+		put ")"
+	}
+
+	* Main tab flags
+	option main.ck_run
+	option main.ck_replace
+	option main.ck_open
+	option main.ck_quiet
+	option main.ck_verbose
+	option main.ck_append
+	option main.ck_preformat
+	option main.ck_nofold
+	option main.ck_nodots
+	option main.ck_nograph
+
+	* Options tab: metadata
+	if options.ed_title {
+		put " title("
+		put `"""'
+		put options.ed_title
+		put `"""'
+		put ")"
+	}
+	if options.ed_date {
+		put " date("
+		put `"""'
+		put options.ed_date
+		put `"""'
+		put ")"
+	}
+
+	* Options tab: display flags
+	option options.ck_stamp
+	option options.ck_linenums
+	option options.ck_toc
+	option options.ck_highlight
+	option options.ck_tables
+	option options.ck_fold
+	option options.ck_notebook
+	option options.ck_email
+	option options.ck_copy
+	option options.ck_download
+	option options.ck_legacy
+	option options.ck_generated
+
+	* Advanced tab: python path
+	if advanced.ed_python {
+		put " python("
+		put `"""'
+		put advanced.ed_python
+		put `"""'
+		put ")"
+	}
+
+	* Advanced tab: CSS file
+	if advanced.fi_css {
+		put " css("
+		put `"""'
+		put advanced.fi_css
+		put `"""'
+		put ")"
+	}
+
+	* Advanced tab: footer
+	if advanced.ed_footer {
+		put " footer("
+		put `"""'
+		put advanced.ed_footer
+		put `"""'
+		put ")"
+	}
+
+	* Advanced tab: annotation file
+	if advanced.fi_annotate {
+		put " annotate("
+		put `"""'
+		put advanced.fi_annotate
+		put `"""'
+		put ")"
+	}
+
+	* Advanced tab: keep/drop patterns
+	if advanced.ed_keep {
+		put " keep("
+		put `"""'
+		put advanced.ed_keep
+		put `"""'
+		put ")"
+	}
+	if advanced.ed_drop {
+		put " drop("
+		put `"""'
+		put advanced.ed_drop
+		put `"""'
+		put ")"
+	}
+
+	* Advanced tab: graph dimensions
+	if advanced.ed_gwidth {
+		put " graphwidth("
+		put advanced.ed_gwidth
+		put ")"
+	}
+	if advanced.ed_gheight {
+		put " graphheight("
+		put advanced.ed_gheight
+		put ")"
+	}
+END

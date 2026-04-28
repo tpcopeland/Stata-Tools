@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>No Graph Example</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #ffffff; color: #212529;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-size: 16px; line-height: 1.55; -webkit-font-smoothing: antialiased; }
+.logdoc { max-width: 1040px; margin: 0 auto; padding: 2rem 1.25rem; }
+.logdoc-header { margin-bottom: 1.25rem; padding-bottom: 0.75rem; border-bottom: 1px solid #d7dde5; }
+.logdoc-header h1 { font-size: 1.5rem; font-weight: 600; color: #1f2937; margin: 0; }
+.subtitle { font-size: 0.9375rem; color: #667085; margin-top: 0.25rem; }
+.stamp { font-size: 0.75rem; color: #667085; margin-top: 0.25rem; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
+.stata-log-wrap { margin: 0; overflow-x: auto; }
+.stata-log { margin: 0; padding: 0 0 0.75rem 0; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; font-size: 0.875rem; line-height: 1.45; white-space: pre; tab-size: 8; color: #374151; }
+.err { color: #b42318; }
+.cmd { color: #111827; font-weight: 600; }
+.res { color: #111827; }
+.comment-block { margin: 0.25rem 0; color: #667085; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; font-size: 0.875rem; }
+.graph-figure { margin: 1rem 0 1.5rem 0; text-align: center; }
+.graph-figure img { max-width: 100%; height: auto; border: 1px solid #d7dde5; border-radius: 4px; }
+.graph-missing { margin: 0.5rem 0; padding: 0.6rem 0.75rem; background: #fff7ed; border-left: 3px solid #f97316; color: #9a3412; font-size: 0.875rem; }
+.logdoc-footer { margin-top: 2rem; padding-top: 0.75rem; border-top: 1px solid #d7dde5; font-size: 0.75rem; color: #667085; text-align: center; }
+@media (max-width: 768px) { .logdoc { padding: 1rem; } .logdoc-header h1 { font-size: 1.25rem; } }
+@media print { body { font-size: 11pt; } .logdoc { max-width: 100%; padding: 0; } .graph-figure, .stata-log-wrap { break-inside: avoid; } }
+
+</style>
+</head>
+<body>
+<article class="logdoc">
+<header class="logdoc-header">
+<h1>No Graph Example</h1>
+</header>
+<main class="logdoc-body">
+<div class="stata-log-wrap"><pre class="stata-log">. * # Data Overview
+. summarize price mpg weight length, separator(0)
+    Variable │        Obs        Mean    Std. dev.       Min        Max
+─────────────┼─────────────────────────────────────────────────────────
+       price │<span class="res">         74    6165.257    2949.496       3291      15906</span>
+         mpg │<span class="res">         74     21.2973    5.785503         12         41</span>
+      weight │<span class="res">         74    3019.459    777.1936       1760       4840</span>
+      length │<span class="res">         74    187.9324    22.26634        142        233</span>
+
+<span class="cmd">. tabstat price mpg weight, by(foreign) statistics(n mean sd median min max) columns(statistics)</span>
+Summary for variables: price mpg weight
+Group variable: foreign (Car origin)
+
+ foreign │         N      Mean        SD       p50       Min       Max
+─────────┼────────────────────────────────────────────────────────────
+Domestic │ <span class="res">       52  6072.423  3097.104    4782.5      3291     15906</span>
+         │ <span class="res">       52  19.82692  4.743297        19        12        34</span>
+         │ <span class="res">       52  3317.115  695.3637      3360      1800      4840</span>
+─────────┼────────────────────────────────────────────────────────────
+ Foreign │ <span class="res">       22  6384.682  2621.915      5759      3748     12990</span>
+         │ <span class="res">       22  24.77273  6.611187      24.5        14        41</span>
+         │ <span class="res">       22  2315.909  433.0035      2180      1760      3420</span>
+─────────┼────────────────────────────────────────────────────────────
+   Total │ <span class="res">       74  6165.257  2949.496    5006.5      3291     15906</span>
+         │ <span class="res">       74   21.2973  5.785503        20        12        41</span>
+         │ <span class="res">       74  3019.459  777.1936      3190      1760      4840</span>
+─────────┴────────────────────────────────────────────────────────────
+
+. * # Regression Analysis
+. regress price mpg weight length i.foreign
+      Source │       SS           df       MS      Number of obs   =<span class="res">        74</span>
+─────────────┼──────────────────────────────────   F(4, 69)        = <span class="res">    21.01</span>
+       Model │ <span class="res">  348708940         4    87177235   </span>Prob &gt; F        =<span class="res">    0.0000</span>
+    Residual │ <span class="res">  286356456        69  4150093.57   </span>R-squared       =<span class="res">    0.5491</span>
+─────────────┼──────────────────────────────────   Adj R-squared   =<span class="res">    0.5230</span>
+       Total │ <span class="res">  635065396        73  8699525.97   </span>Root MSE        =   <span class="res"> 2037.2</span>
+
+─────────────┬────────────────────────────────────────────────────────────────────────
+        price │ Coefficient   Std. err.       t    P&gt;|t|      [95% con f. interval]
+─────────────┼────────────────────────────────────────────────────────────────────────
+         mpg │ <span class="res">  -13.40719    72.10761     -0.19    0.853     -157.2579     130.4436</span>
+      weight │ <span class="res">   5.716181    1.016095      5.63    0.000      3.689127     7.743235</span>
+      length │ <span class="res">  -92.48018     33.5912     -2.75    0.008     -159.4928    -25.46758</span>
+             │────────────────────────────────────────────────────────────────────────
+     foreign │
+    Foreign  │ <span class="res">   3550.194    655.4564      5.42    0.000      2242.594     4857.793</span>
+       _cons │ <span class="res">    5515.58    5241.941      1.05    0.296     -4941.807     15972.97</span>
+─────────────┴────────────────────────────────────────────────────────────────────────
+<span class="res"></span>
+<span class="cmd">. estimates store base</span>
+. * ## Margins
+. margins foreign, atmeans
+<span class="res"></span>
+ Adjusted predictions                                       Number of obs  = <span class="res">74</span>
+ Model VCE: <span class="res">OLS</span>
+
+<span class="res">Linear prediction, predict()</span>
+At: mpg       = <span class="res"> 21.2973</span> (mean)
+weight    = <span class="res">3019.459</span> (mean)
+length    = <span class="res">187.9324</span> (mean)
+0.foreign = <span class="res">.7027027</span> (mean)
+1.foreign = <span class="res">.2972973</span> (mean)
+
+<span class="res"></span>─────────────┬───────────────────────────────────────────────────────────────────────
+             │            Delta-method
+             │     Margin    std. err.       t    P&gt;|t|      [95% con f. interval]
+─────────────┼───────────────────────────────────────────────────────────────────────
+     foreign │
+   Domestic  │ <span class="res">   5109.794    306.6837     16.66    0.000      4497.977     5721.611</span>
+    Foreign  │ <span class="res">   8659.987    517.9058     16.72    0.000      7626.794     9693.181</span>
+─────────────┴───────────────────────────────────────────────────────────────────────
+<span class="res"></span>
+. * # Tabulations
+. tabulate foreign rep78, row
+┌────────────────┐─────────────────────────────────────────────────────────────
+│ Key            │
+├────────────────┤─────────────────────────────────────────────────────────────
+│   <em>frequency</em>    │
+│ <em>row percentage</em> │
+└────────────────┘─────────────────────────────────────────────────────────────
+
+           │                   Repair record 1978
+Car origin │         1          2          3          4          5 │     Total
+───────────┼───────────────────────────────────────────────────────┼───────────
+  Domestic │<span class="res">         2          8         27          9          2 </span>│<span class="res">        48 </span>
+           │<span class="res">      4.17      16.67      56.25      18.75       4.17 </span>│<span class="res">    100.00 </span>
+───────────┼───────────────────────────────────────────────────────┼───────────
+   Foreign │<span class="res">         0          0          3          9          9 </span>│<span class="res">        21 </span>
+           │<span class="res">      0.00       0.00      14.29      42.86      42.86 </span>│<span class="res">    100.00 </span>
+───────────┼───────────────────────────────────────────────────────┼───────────
+     Total │<span class="res">         2          8         30         18         11 </span>│<span class="res">        69 </span>
+           │<span class="res">      2.90      11.59      43.48      26.09      15.94 </span>│<span class="res">    100.00 </span>
+
+. * # Diagnostics
+. quietly regress price mpg weight
+<span class="cmd">. predict double resid, residuals</span>
+<span class="cmd">. histogram resid, normal ///</span>
+&gt;     title(&quot;Residual Distribution&quot;) ///
+&gt;     xtitle(&quot;Residuals&quot;) ytitle(&quot;Density&quot;)
+(bin=<span class="res">8</span>, start=<span class="res">-3332.4617</span>, width=<span class="res">1354.9264</span>)
+<span class="res"></span>
+<span class="cmd">. graph export &quot;logdoc/demo/residuals.png&quot;, replace width(900)</span>
+<span class="res"></span>file <strong>logdoc/demo/residuals.png</strong> written in PNG format
+
+<span class="cmd">. capture graph close _all</span>
+<span class="cmd">. drop resid</span></pre></div>
+</main>
+</article>
+</body>
+</html>

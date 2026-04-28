@@ -1,0 +1,3 @@
+.logdoc-header { border-bottom: 4px solid #2f6f4e; }
+.stata-log { border-left: 4px solid #2f6f4e; padding-left: .75rem; }
+.logdoc-footer::before { content: 'Demo custom CSS'; display: block; }

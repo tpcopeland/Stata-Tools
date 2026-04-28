@@ -1,0 +1,2 @@
+@block 2: The main regression is rendered as a structured output block.
+@command "graph export": Exported graph files are embedded directly in self-contained HTML.

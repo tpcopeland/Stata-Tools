@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Run Option Example</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #ffffff; color: #212529;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-size: 16px; line-height: 1.55; -webkit-font-smoothing: antialiased; }
+.logdoc { max-width: 1040px; margin: 0 auto; padding: 2rem 1.25rem; }
+.logdoc-header { margin-bottom: 1.25rem; padding-bottom: 0.75rem; border-bottom: 1px solid #d7dde5; }
+.logdoc-header h1 { font-size: 1.5rem; font-weight: 600; color: #1f2937; margin: 0; }
+.subtitle { font-size: 0.9375rem; color: #667085; margin-top: 0.25rem; }
+.stamp { font-size: 0.75rem; color: #667085; margin-top: 0.25rem; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
+.stata-log-wrap { margin: 0; overflow-x: auto; }
+.stata-log { margin: 0; padding: 0 0 0.75rem 0; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; font-size: 0.875rem; line-height: 1.45; white-space: pre; tab-size: 8; color: #374151; }
+.err { color: #b42318; }
+.cmd { color: #111827; font-weight: 600; }
+.res { color: #111827; }
+.comment-block { margin: 0.25rem 0; color: #667085; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; font-size: 0.875rem; }
+.graph-figure { margin: 1rem 0 1.5rem 0; text-align: center; }
+.graph-figure img { max-width: 100%; height: auto; border: 1px solid #d7dde5; border-radius: 4px; }
+.graph-missing { margin: 0.5rem 0; padding: 0.6rem 0.75rem; background: #fff7ed; border-left: 3px solid #f97316; color: #9a3412; font-size: 0.875rem; }
+.logdoc-footer { margin-top: 2rem; padding-top: 0.75rem; border-top: 1px solid #d7dde5; font-size: 0.75rem; color: #667085; text-align: center; }
+@media (max-width: 768px) { .logdoc { padding: 1rem; } .logdoc-header h1 { font-size: 1.25rem; } }
+@media print { body { font-size: 11pt; } .logdoc { max-width: 100%; padding: 0; } .graph-figure, .stata-log-wrap { break-inside: avoid; } }
+
+</style>
+</head>
+<body>
+<article class="logdoc">
+<header class="logdoc-header">
+<h1>Run Option Example</h1>
+</header>
+<main class="logdoc-body">
+<div class="stata-log-wrap"><pre class="stata-log"><span class="cmd">. sysuse auto, clear</span>
+(1978 automobile data)
+
+<span class="cmd">. summarize price mpg weight</span>
+    Variable │        Obs        Mean    Std. dev.       Min        Max
+─────────────┼─────────────────────────────────────────────────────────
+       price │<span class="res">         74    6165.257    2949.496       3291      15906</span>
+         mpg │<span class="res">         74     21.2973    5.785503         12         41</span>
+      weight │<span class="res">         74    3019.459    777.1936       1760       4840</span>
+
+<span class="cmd">. regress price mpg weight</span>
+      Source │       SS           df       MS      Number of obs   =<span class="res">        74</span>
+─────────────┼──────────────────────────────────   F(2, 71)        = <span class="res">    14.74</span>
+       Model │ <span class="res">  186321280         2  93160639.9   </span>Prob &gt; F        =<span class="res">    0.0000</span>
+    Residual │ <span class="res">  448744116        71  6320339.67   </span>R-squared       =<span class="res">    0.2934</span>
+─────────────┼──────────────────────────────────   Adj R-squared   =<span class="res">    0.2735</span>
+       Total │ <span class="res">  635065396        73  8699525.97   </span>Root MSE        =   <span class="res">   2514</span>
+
+─────────────┬────────────────────────────────────────────────────────────────────────
+        price │ Coefficient   Std. err.       t    P&gt;|t|      [95% con f. interval]
+─────────────┼────────────────────────────────────────────────────────────────────────
+         mpg │ <span class="res">  -49.51222    86.15604     -0.57    0.567     -221.3025      122.278</span>
+      weight │ <span class="res">   1.746559    .6413538      2.72    0.008       .467736     3.025382</span>
+       _cons │ <span class="res">   1946.069     3597.05      0.54    0.590     -5226.245     9118.382</span>
+─────────────┴────────────────────────────────────────────────────────────────────────
+<span class="res"></span></pre></div>
+</main>
+</article>
+</body>
+</html>

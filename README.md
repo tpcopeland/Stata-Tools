@@ -2,7 +2,7 @@
 
 ---
 
-Production distribution repository for Stata packages (21 packages). All packages require Stata 16+, except where noted. Install any package directly from here using `net install`.
+Production distribution repository for Stata packages (22 packages). All packages require Stata 16+, except where noted. Install any package directly from here using `net install`.
 
 ## Installation
 
@@ -63,6 +63,7 @@ net install <package>, from("https://raw.githubusercontent.com/tpcopeland/Stata-
 | --- | --- | --- | --- |
 | [consort](https://github.com/tpcopeland/Stata-Tools/tree/main/consort) | ![version](https://img.shields.io/badge/version-1.0.0-blue) | ![updated](https://img.shields.io/badge/updated-2026--04--08-brightgreen) | CONSORT-style exclusion flowcharts with bundled Python/matplotlib rendering |
 | [eplot](https://github.com/tpcopeland/Stata-Tools/tree/main/eplot) | ![version](https://img.shields.io/badge/version-1.1.0-blue) | ![updated](https://img.shields.io/badge/updated-2026--04--19-brightgreen) | Unified effect plotting from variables, stored estimates, or matrices |
+| [logdoc](https://github.com/tpcopeland/Stata-Tools/tree/main/logdoc) | ![version](https://img.shields.io/badge/version-1.0.0-blue) | ![updated](https://img.shields.io/badge/updated-2026--04--28-brightgreen) | Convert Stata SMCL/log files to faithful HTML, Markdown, Word, LaTeX, Quarto, or PDF documents (requires Python 3.6+) |
 | [kmplot](https://github.com/tpcopeland/Stata-Tools/tree/main/kmplot) | ![version](https://img.shields.io/badge/version-1.0.2-blue) | ![updated](https://img.shields.io/badge/updated-2026--04--22-brightgreen) | Publication-ready Kaplan-Meier and cumulative incidence curves with CI, risk tables, median lines, and censor marks |
 | [raincloud](https://github.com/tpcopeland/Stata-Tools/tree/main/raincloud) | ![version](https://img.shields.io/badge/version-1.0.0-blue) | ![updated](https://img.shields.io/badge/updated-2026--04--08-brightgreen) | Raincloud plots combining density, raw points, and box summaries |
 | [spaghetti](https://github.com/tpcopeland/Stata-Tools/tree/main/spaghetti) | ![version](https://img.shields.io/badge/version-1.0.0-blue) | ![updated](https://img.shields.io/badge/updated-2026--04--08-brightgreen) | Long-format longitudinal trajectory plots with optional group mean and CI overlays |

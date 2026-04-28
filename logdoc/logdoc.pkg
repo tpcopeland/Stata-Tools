@@ -1,0 +1,28 @@
+v 3
+d logdoc: Convert Stata log files to faithful HTML, Markdown, Word, LaTeX, Quarto, or PDF documents
+d Converts Stata .smcl, .log, or .do files into faithful documents with opt-in enhancements and embedded graphs.
+d Timothy P Copeland, Karolinska Institutet
+d https://github.com/tpcopeland/Stata-Tools
+d
+d Distribution-Date: 20260428
+d License: MIT
+d
+d KW: log
+d KW: SMCL
+d KW: HTML
+d KW: Markdown
+d KW: document
+d KW: reproducibility
+d KW: Word
+d KW: LaTeX
+d KW: PDF
+d KW: Quarto
+d
+f logdoc.ado
+f logdoc.sthlp
+f logdoc_py.ado
+f logdoc_py.sthlp
+f logdoc_render.py
+f logdoc_light.css
+f logdoc_dark.css
+f logdoc.dlg
