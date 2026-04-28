@@ -1189,6 +1189,11 @@ quietly {
 
 	* Console confirmation (O1)
 	if `_has_xlsx' {
+		* QA-only hook to exercise the final missing-workbook guard.
+		local _qa_erase_xlsx "$TABTOOLS_QA_EFFECTTAB_ERASE_XLSX"
+		if `"`_qa_erase_xlsx'"' == `"`xlsx'"' {
+			capture erase "`xlsx'"
+		}
 		capture confirm file "`xlsx'"
 		if _rc {
 			noisily display as error "Export command succeeded but file not found"

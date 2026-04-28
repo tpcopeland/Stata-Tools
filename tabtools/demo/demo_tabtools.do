@@ -425,7 +425,7 @@ regtab, xlsx("`xlsx_regtab'") sheet("Poisson") ///
 * Demonstrates: dimnonsig, factorlabel, starslevels(), theme(bmj)
 collect clear
 collect: logistic cv_event treated index_age female i.education ///
-    diabetes hypertension anxiety prior_cvd
+    i.civil_status diabetes hypertension anxiety prior_cvd
 
 regtab, xlsx("`xlsx_regtab'") sheet("Regtab Advanced") ///
     title("Table X. Logistic Regression with Advanced Formatting") ///

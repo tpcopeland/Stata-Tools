@@ -1366,12 +1366,7 @@ local _model_ix = `_model_ix' + 1
 local _needs_eform = 0
 if `_model_ix' <= `_meta_models' local _needs_eform = `model_eform_`_model_ix''
 destring c`i', gen(double c`i'z) force
-if `_needs_eform' {
-    replace c`i' = "`refcat'" if inlist(c`i', "0", "1") & c`=`i'+1' == ""
-}
-else {
-    replace c`i' = "`refcat'" if c`i' == "0" & c`=`i'+1' == ""
-}
+replace c`i' = "`refcat'" if inlist(c`i', "0", "1") & c`=`i'+1' == ""
 if `_needs_eform' {
     replace c`i'z = exp(c`i'z) if !_is_re & !_is_ancillary & !missing(c`i'z)
 }
@@ -1447,7 +1442,38 @@ forvalues i = 2(3)`=`last'+1' {
     drop _ci_raw _ci_dpos _ci_lo_s _ci_hi_s _ci_lo _ci_hi _ci_fmt
 }
 if "`dimnonsig'" != "" {
-    replace _nonsig = 0 if _ci_seen == 0 & _n >= 3
+    gen byte _is_refrow = 0
+    forvalues _ri = 1(3)`last' {
+        replace _is_refrow = 1 if c`_ri' == "`refcat'" & _n >= 3
+    }
+    gen byte _is_cathead = (_ci_seen == 0 & !_is_refrow & _n >= 3)
+    forvalues _ri = 1(3)`last' {
+        replace _is_cathead = 0 if _is_cathead == 1 & strtrim(c`_ri') != "" & _n >= 3
+    }
+    replace _nonsig = 0 if _ci_seen == 0 & !_is_refrow & !_is_cathead & _n >= 3
+    forvalues _obs = 3/`=_N' {
+        if _is_cathead[`_obs'] == 1 {
+            local _hdr_obs = `_obs'
+            local _any_sig = 0
+            local _has_ref = 0
+            local _child = `_obs' + 1
+            while `_child' <= _N {
+                if _is_cathead[`_child'] == 1 continue, break
+                local _child_A = A[`_child']
+                if substr("`_child_A'", 1, 1) != " " continue, break
+                if _is_refrow[`_child'] == 1 local _has_ref = 1
+                if _nonsig[`_child'] == 0 local _any_sig = 1
+                local _child = `_child' + 1
+            }
+            if `_has_ref' & `_any_sig' {
+                replace _nonsig = 0 in `_hdr_obs'
+            }
+            else if !`_has_ref' {
+                replace _nonsig = 0 in `_hdr_obs'
+            }
+        }
+    }
+    drop _is_refrow _is_cathead
 }
 forvalues i = 3(3)`n'{
 * Store original string value to detect genuinely missing p-values

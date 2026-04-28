@@ -75,7 +75,7 @@ for treatment effects and margins tables.
 {synopt:{opt dis:play}}Show formatted table in the Results window (in addition to Excel export if {cmd:xlsx()} specified).{p_end}
 {synopt:{opt keep(varlist)}}Show only rows matching specified variable names. Cannot be combined with {cmd:drop()}.{p_end}
 {synopt:{opt drop(varlist)}}Drop rows matching specified variable names. Cannot be combined with {cmd:keep()}.{p_end}
-{synopt:{opt dimnon:sig}}Gray out rows where every displayed fixed-effect confidence interval includes the null value (1 for OR/HR/IRR/SHR/TR, 0 for Coef.).{p_end}
+{synopt:{opt dimnon:sig}}Gray out non-significant rows. Rows where every displayed fixed-effect confidence interval includes the null value (1 for OR/HR/IRR/SHR/TR, 0 for Coef.) are dimmed. Reference category rows are always dimmed. Category headers are dimmed unless at least one level is significant.{p_end}
 {synopt:{opt factorl:abel}}Replace factor variable prefixes (e.g., {it:3.rep78}) with their value labels.{p_end}
 {synopt:{opt ref:cat(string)}}Label for reference category rows. Default is {cmd:"Reference"}. Set to customize, e.g., {cmd:refcat("Ref.")}.{p_end}
 {synopt:{opt comp:act}}Merge estimate and CI into a single column per model, producing a more compact layout: ({it:Est (CI)} | {it:p}) instead of ({it:Est} | {it:CI} | {it:p}).{p_end}

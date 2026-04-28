@@ -272,7 +272,8 @@ capture noisily {
     collect clear
     collect: regress price mpg weight i.foreign
     capture erase "`output_dir'/_xl_regtab.xlsx"
-    regtab, xlsx("`output_dir'/_xl_regtab.xlsx") sheet("Test") title("Regression Results")
+    regtab, xlsx("`output_dir'/_xl_regtab.xlsx") sheet("Test") ///
+        title("Regression Results") headershade
 
     shell python3 "`checker'" "`output_dir'/_xl_regtab.xlsx" --sheet "Test" ///
         --min-rows 7 --min-cols 4 ///
@@ -1246,7 +1247,7 @@ local ++n_total
 capture noisily {
     * NEJM theme should have zebra fills
     shell python3 "`checker'" "`output_dir'/_xl_theme_nejm.xlsx" --sheet "NEJM" ///
-        --has-fill 2 ///
+        --has-fill 5 ///
         --result-file "`output_dir'/_xl_th4.txt" --quiet
     file open _fh using "`output_dir'/_xl_th4.txt", read text
     file read _fh _line
@@ -1254,11 +1255,11 @@ capture noisily {
     assert "`_line'" == "PASS"
 }
 if _rc == 0 {
-    display as result "  PASS: XL14.4 — NEJM theme has fill colors (zebra/header)"
+    display as result "  PASS: XL14.4 — NEJM theme has zebra fill colors"
     local ++n_pass
 }
 else {
-    display as error "  FAIL: XL14.4 — NEJM theme fills (rc=`=_rc')"
+    display as error "  FAIL: XL14.4 — NEJM theme zebra fills (rc=`=_rc')"
     local ++n_fail
 }
 capture erase "`output_dir'/_xl_th4.txt"

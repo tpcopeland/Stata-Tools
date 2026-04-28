@@ -57,7 +57,7 @@ if _rc == 0 {
 	capture noisily {
 	    local final_missing "/tmp/test_from_matrix_final_missing.xlsx"
 	    capture erase "`final_missing'"
-	    global TABTOOLS_QA_EFFECTTAB_ERASE_XLSX 1
+	    global TABTOOLS_QA_EFFECTTAB_ERASE_XLSX "`final_missing'"
 	    capture noisily effecttab, from(mymat) xlsx("`final_missing'") sheet("Missing") ///
 	        title("Final Missing Guard") effect("OR")
 	    local got_rc = _rc

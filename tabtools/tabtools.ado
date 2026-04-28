@@ -142,7 +142,7 @@ program define tabtools, rclass
             }
             global TABTOOLS_FONTSIZE `setval'
             display as text "tabtools: default font size set to " as result "`setval'"
-            return local fontsize "`setval'"
+            return scalar fontsize = `setval'
         }
         else if "`setkey'" == "borderstyle" {
             if `_named_theme_active' {
@@ -496,92 +496,99 @@ end
 capture program drop _tabtools_detail
 program define _tabtools_detail
     version 16.0
-    syntax , Category(string)
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+        syntax , Category(string)
 
-    if inlist("`category'", "all", "descriptive") {
-        display as text "{bf:Descriptive Statistics}"
-        display as text "  {hline 60}"
-        display as result "  table1_tc" as text "    Create publication-ready Table 1 with descriptive"
-        display as text "               statistics. Automatically selects appropriate"
-        display as text "               tests (t-test, Wilcoxon, chi-square, Fisher's"
-        display as text "               exact) based on variable type and distribution."
-        display as text "               Supports continuous, categorical, and binary"
-        display as text "               variables with customizable formatting."
-        display as text ""
-        display as result "  crosstab" as text "     Cross-tabulation with row/column percentages"
-        display as text "               and association measures. Supports chi-square,"
-        display as text "               Fisher's exact, odds ratios, and risk ratios."
-        display as text ""
-        display as result "  corrtab" as text "      Correlation matrix with significance stars or"
-        display as text "               p-values. Supports Pearson and Spearman. Exports"
-        display as text "               lower, upper, or full triangle to Excel."
-        display as text ""
+        if inlist("`category'", "all", "descriptive") {
+            display as text "{bf:Descriptive Statistics}"
+            display as text "  {hline 60}"
+            display as result "  table1_tc" as text "    Create publication-ready Table 1 with descriptive"
+            display as text "               statistics. Automatically selects appropriate"
+            display as text "               tests (t-test, Wilcoxon, chi-square, Fisher's"
+            display as text "               exact) based on variable type and distribution."
+            display as text "               Supports continuous, categorical, and binary"
+            display as text "               variables with customizable formatting."
+            display as text ""
+            display as result "  crosstab" as text "     Cross-tabulation with row/column percentages"
+            display as text "               and association measures. Supports chi-square,"
+            display as text "               Fisher's exact, odds ratios, and risk ratios."
+            display as text ""
+            display as result "  corrtab" as text "      Correlation matrix with significance stars or"
+            display as text "               p-values. Supports Pearson and Spearman. Exports"
+            display as text "               lower, upper, or full triangle to Excel."
+            display as text ""
+        }
+
+        if inlist("`category'", "all", "models") {
+            display as text "{bf:Model Results}"
+            display as text "  {hline 60}"
+            display as result "  regtab" as text "       Export regression results from any estimation"
+            display as text "               command to Excel. Supports logistic, Cox, Poisson,"
+            display as text "               linear, and other models. Configurable columns"
+            display as text "               for coefficients, confidence intervals, p-values,"
+            display as text "               and model statistics."
+            display as text ""
+            display as result "  effecttab" as text "    Export treatment-effect style tables from"
+            display as text "               supported estimation results and matrix inputs."
+            display as text "               Formats effect estimates, confidence intervals,"
+            display as text "               and p-values for publication output."
+            display as text ""
+        }
+
+        if inlist("`category'", "all", "rates") {
+            display as text "{bf:Incidence Rates}"
+            display as text "  {hline 60}"
+            display as result "  stratetab" as text "    Export stratified incidence rates from strate"
+            display as text "               command output. Formats person-time, events,"
+            display as text "               rates, and confidence intervals. Supports"
+            display as text "               rate ratios and stratified analyses."
+            display as text ""
+        }
+
+        if inlist("`category'", "all", "survival") {
+            display as text "{bf:Survival Analysis}"
+            display as text "  {hline 60}"
+            display as result "  survtab" as text "      Export Kaplan-Meier estimates, median survival,"
+            display as text "               and restricted mean survival time (RMST) to"
+            display as text "               Excel. Supports multiple groups and time points."
+            display as text ""
+        }
+
+        if inlist("`category'", "all", "diagnostics") {
+            display as text "{bf:Diagnostic Accuracy}"
+            display as text "  {hline 60}"
+            display as result "  diagtab" as text "      Export sensitivity, specificity, PPV, NPV, and"
+            display as text "               ROC analysis results. Supports multiple cutpoints"
+            display as text "               and diagnostic tests."
+            display as text ""
+        }
+
+        if inlist("`category'", "all", "composite") {
+            display as text "{bf:Composite}"
+            display as text "  {hline 60}"
+            display as result "  comptab" as text "      Combine multiple regtab or effecttab frames"
+            display as text "               into a single publication-ready table. Supports"
+            display as text "               side-by-side and stacked layouts."
+            display as text ""
+            display as result "  hrcomptab" as text "    Build a final Table 2-style sheet by using"
+            display as text "               a stratetab frame as the scaffold and injecting"
+            display as text "               selected rows from one or more regtab frames."
+            display as text ""
+        }
+
+        if inlist("`category'", "all", "general") {
+            display as text "{bf:General Purpose}"
+            display as text "  {hline 60}"
+            display as result "  tabtools" as text "     Suite controller for listing commands and"
+            display as text "               managing persistent formatting defaults with"
+            display as text "               {cmd:set} and {cmd:get}."
+            display as text ""
+        }
+
     }
-
-    if inlist("`category'", "all", "models") {
-        display as text "{bf:Model Results}"
-        display as text "  {hline 60}"
-        display as result "  regtab" as text "       Export regression results from any estimation"
-        display as text "               command to Excel. Supports logistic, Cox, Poisson,"
-        display as text "               linear, and other models. Configurable columns"
-        display as text "               for coefficients, confidence intervals, p-values,"
-        display as text "               and model statistics."
-        display as text ""
-        display as result "  effecttab" as text "    Export treatment-effect style tables from"
-        display as text "               supported estimation results and matrix inputs."
-        display as text "               Formats effect estimates, confidence intervals,"
-        display as text "               and p-values for publication output."
-        display as text ""
-    }
-
-    if inlist("`category'", "all", "rates") {
-        display as text "{bf:Incidence Rates}"
-        display as text "  {hline 60}"
-        display as result "  stratetab" as text "    Export stratified incidence rates from strate"
-        display as text "               command output. Formats person-time, events,"
-        display as text "               rates, and confidence intervals. Supports"
-        display as text "               rate ratios and stratified analyses."
-        display as text ""
-    }
-
-    if inlist("`category'", "all", "survival") {
-        display as text "{bf:Survival Analysis}"
-        display as text "  {hline 60}"
-        display as result "  survtab" as text "      Export Kaplan-Meier estimates, median survival,"
-        display as text "               and restricted mean survival time (RMST) to"
-        display as text "               Excel. Supports multiple groups and time points."
-        display as text ""
-    }
-
-    if inlist("`category'", "all", "diagnostics") {
-        display as text "{bf:Diagnostic Accuracy}"
-        display as text "  {hline 60}"
-        display as result "  diagtab" as text "      Export sensitivity, specificity, PPV, NPV, and"
-        display as text "               ROC analysis results. Supports multiple cutpoints"
-        display as text "               and diagnostic tests."
-        display as text ""
-    }
-
-    if inlist("`category'", "all", "composite") {
-        display as text "{bf:Composite}"
-        display as text "  {hline 60}"
-        display as result "  comptab" as text "      Combine multiple regtab or effecttab frames"
-        display as text "               into a single publication-ready table. Supports"
-        display as text "               side-by-side and stacked layouts."
-        display as text ""
-        display as result "  hrcomptab" as text "    Build a final Table 2-style sheet by using"
-        display as text "               a stratetab frame as the scaffold and injecting"
-        display as text "               selected rows from one or more regtab frames."
-        display as text ""
-    }
-
-    if inlist("`category'", "all", "general") {
-        display as text "{bf:General Purpose}"
-        display as text "  {hline 60}"
-        display as result "  tabtools" as text "     Suite controller for listing commands and"
-        display as text "               managing persistent formatting defaults with"
-        display as text "               {cmd:set} and {cmd:get}."
-        display as text ""
-    }
-
+    local _rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `_rc' exit `_rc'
 end

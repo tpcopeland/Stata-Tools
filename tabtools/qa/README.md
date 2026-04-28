@@ -15,6 +15,7 @@
 `_package/` holds QA that is genuinely cross-command or package-wide:
 
 - feature/version sweeps
+- adversarial breakage tests across every public command
 - release gates
 - mixed validation suites
 - package-wide regressions
