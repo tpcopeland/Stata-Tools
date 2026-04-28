@@ -4,12 +4,14 @@
 {vieweralsosee "msm_fit" "help msm_fit"}{...}
 {vieweralsosee "msm_plot" "help msm_plot"}{...}
 {vieweralsosee "msm_table" "help msm_table"}{...}
+{vieweralsosee "msm_sensitivity" "help msm_sensitivity"}{...}
 {viewerjumpto "Syntax" "msm_predict##syntax"}{...}
 {viewerjumpto "Description" "msm_predict##description"}{...}
+{viewerjumpto "How prediction works" "msm_predict##how"}{...}
 {viewerjumpto "Options" "msm_predict##options"}{...}
 {viewerjumpto "Current limits" "msm_predict##limits"}{...}
-{viewerjumpto "Stored results" "msm_predict##stored"}{...}
 {viewerjumpto "Examples" "msm_predict##examples"}{...}
+{viewerjumpto "Stored results" "msm_predict##stored"}{...}
 {viewerjumpto "Author" "msm_predict##author"}{...}
 
 {title:Title}
@@ -29,13 +31,22 @@
 {synoptset 25 tabbed}{...}
 {synopthdr}
 {synoptline}
-{synopt:{opt times(numlist)}}time periods for prediction (required){p_end}
-{synopt:{opt stra:tegy(string)}}always, never, or both (default){p_end}
-{synopt:{opt type(string)}}cum_inc (default) or survival{p_end}
-{synopt:{opt sam:ples(#)}}MC samples for CIs; default 100{p_end}
-{synopt:{opt seed(#)}}random seed{p_end}
-{synopt:{opt level(#)}}confidence level; default 95{p_end}
-{synopt:{opt diff:erence}}compute risk difference{p_end}
+{syntab:Required}
+{synopt:{opt times(numlist)}}time periods for prediction{p_end}
+
+{syntab:Strategy}
+{synopt:{opt stra:tegy(string)}}{cmd:always}, {cmd:never}, or {cmd:both} (default){p_end}
+{synopt:{opt diff:erence}}compute risk differences between strategies{p_end}
+
+{syntab:Output type}
+{synopt:{opt type(string)}}{cmd:cum_inc} (default) or {cmd:survival}{p_end}
+
+{syntab:Monte Carlo settings}
+{synopt:{opt sam:ples(#)}}MC draws for confidence intervals; default {cmd:100}{p_end}
+{synopt:{opt seed(#)}}random number seed for reproducibility{p_end}
+{synopt:{opt level(#)}}confidence level; default {cmd:95}{p_end}
+
+{syntab:Extrapolation}
 {synopt:{opt extra:polate}}allow predictions beyond observed follow-up{p_end}
 {synoptline}
 
@@ -44,17 +55,56 @@
 {title:Description}
 
 {pstd}
-{cmd:msm_predict} generates counterfactual predictions under always-treated
-and never-treated strategies. Uses Monte Carlo simulation from the
-coefficient distribution (Cholesky decomposition) for confidence intervals.
-Predictions are based on G-formula standardization across the reference
-population at baseline. {cmd:msm_predict} currently supports logistic outcome
-models only. Any {cmd:outcome_cov()} terms from {helpb msm_fit} are held at
-their baseline/reference-population values during prediction, so they must be
-time-fixed within individual. The command reports and returns the starting
-RNG state used for the Monte Carlo step so prediction runs are reproducible.
-If you are unsure whether prediction is currently available, check
-{cmd:msm, status} first.
+{cmd:msm_predict} answers the central causal question: "What would happen if
+everyone were always treated versus never treated?"  It generates standardized
+counterfactual predictions under static treatment strategies using the fitted
+pooled logistic MSM from {helpb msm_fit}.
+
+{pstd}
+The command computes cumulative incidence (risk) or survival at each requested
+time point for each strategy, averaging over the reference population at
+baseline.  Confidence intervals are computed via Monte Carlo simulation from
+the estimated coefficient distribution using Cholesky decomposition.
+
+{pstd}
+When {opt difference} is specified with {cmd:strategy(both)}, the command also
+reports risk differences (always-treated minus never-treated) with CIs at each
+time point.
+
+{pstd}
+{cmd:msm_predict} requires a prior {helpb msm_fit} run with
+{cmd:model(logistic)}.  Use {cmd:msm, status} to confirm that prediction is
+available before calling this command.
+
+
+{marker how}{...}
+{title:How prediction works}
+
+{phang2}1. {bf:Reference population.}  The command identifies all individuals
+at the first observed period who are in the estimation sample.  These serve
+as the reference population over which predictions are standardized.{p_end}
+
+{phang2}2. {bf:Counterfactual trajectories.}  For each individual in the
+reference population and each strategy (always-treated or never-treated),
+the command computes period-specific event probabilities from the fitted
+model by setting treatment to the strategy value (1 or 0) at every period.
+{p_end}
+
+{phang2}3. {bf:Cumulative survival.}  The product of (1 - period hazard) across
+periods gives cumulative survival.  Cumulative incidence = 1 - survival.{p_end}
+
+{phang2}4. {bf:Population average.}  The individual-level predictions are
+averaged across the reference population to produce the marginal
+estimate.{p_end}
+
+{phang2}5. {bf:Monte Carlo CIs.}  Steps 2-4 are repeated for each MC draw
+from the coefficient distribution.  Percentile-based CIs are constructed from
+the resulting empirical distribution.{p_end}
+
+{pstd}
+Any {cmd:outcome_cov()} variables from {helpb msm_fit} are held at each
+individual's actual baseline values during prediction.  They must therefore be
+time-fixed within person.
 
 
 {marker options}{...}
@@ -62,66 +112,105 @@ If you are unsure whether prediction is currently available, check
 
 {phang}
 {opth times(numlist)} specifies the time periods at which to predict
-counterfactual outcomes. Required. Values must be non-negative integers
-corresponding to period values in the data. By default they must also lie
-within the observed follow-up range.
+counterfactual outcomes.  Required.  Values must be non-negative integers
+corresponding to period values in the data.  By default they must also lie
+within the observed follow-up range; use {opt extrapolate} to override.
 
 {phang}
-{opt strategy(string)} specifies which treatment strategy to predict.
-{cmd:always} predicts under always-treated, {cmd:never} under never-treated,
-and {cmd:both} (the default) predicts under both strategies. These are
-static intervention regimes; dynamic rules are not implemented here.
+{opt stra:tegy(string)} specifies which treatment strategy to predict.
+{cmd:always} computes predictions under always-treated, {cmd:never} under
+never-treated, and {cmd:both} (the default) computes both.
 
 {phang}
-{opt type(string)} specifies the prediction type. {cmd:cum_inc} (default)
-computes cumulative incidence (risk). {cmd:survival} computes 1 minus
+{opt diff:erence} computes risk differences (always-treated minus
+never-treated) at each time point with MC confidence intervals.  Only
+meaningful with {cmd:strategy(both)}; silently ignored otherwise.
+
+{phang}
+{opt type(string)} specifies the output scale.  {cmd:cum_inc} (default)
+reports cumulative incidence (risk).  {cmd:survival} reports one minus
 cumulative incidence.
 
 {phang}
-{opt samples(#)} specifies the number of Monte Carlo draws from the
-coefficient distribution for confidence interval estimation. Default is 100.
+{opt sam:ples(#)} specifies the number of Monte Carlo draws from the
+coefficient distribution for CI estimation.  Default is 100.  More draws
+produce smoother CIs but take longer.  Must be at least 10.
 
 {phang}
-{opt seed(#)} sets the random number seed for reproducibility. If omitted,
-{cmd:msm_predict} uses the current session RNG state and returns that
-starting state in {cmd:r(seed)} and {cmd:r(seed_state)}.
+{opt seed(#)} sets the random number seed before the MC simulation for
+reproducibility.  If omitted, the command uses the current session RNG state
+and returns the starting state so you can reproduce the results later.
 
 {phang}
-{opt level(#)} specifies the confidence level. Default is 95.
+{opt level(#)} specifies the confidence level.  Default is 95.
 
 {phang}
-{opt difference} computes risk differences between always-treated and
-never-treated strategies at each time point. It is only meaningful with
-{cmd:strategy(both)}; otherwise the option is ignored.
-
-{phang}
-{opt extrapolate} allows prediction at time points beyond the maximum
-observed period in the data. By default, {cmd:msm_predict} rejects
-{cmd:times()} values exceeding the observed follow-up range. Use this
-option to override the guard when extrapolation is intentional.
+{opt extra:polate} allows prediction at time points beyond the maximum
+observed period.  By default, out-of-range values in {opt times()} produce an
+error.  Use this only when extrapolation beyond the observed data support is
+intentional.
 
 
 {marker limits}{...}
 {title:Current limits}
 
 {phang}
-{bf:Requires pooled logistic MSMs.} {cmd:msm_predict} stops unless the most
-recent {helpb msm_fit} run used {cmd:model(logistic)}.
+{bf:Requires pooled logistic MSMs.}  {cmd:msm_predict} stops with an error
+unless the most recent {helpb msm_fit} used {cmd:model(logistic)}.  Linear
+and Cox models can be estimated but do not feed into this prediction
+workflow.{p_end}
 
 {phang}
-{bf:Static strategies only.} Supported {cmd:strategy()} values are
-{cmd:always}, {cmd:never}, and {cmd:both}. Dynamic or stochastic treatment
-regimes are out of scope for the current release.
+{bf:Static strategies only.}  Supported strategies are always-treated,
+never-treated, and both.  Dynamic or stochastic treatment regimes are out
+of scope.{p_end}
 
 {phang}
-{bf:Outcome-model covariates must be time-fixed if predicting.} Any
-{cmd:outcome_cov()} variables from {helpb msm_fit} are standardized at the
-baseline/reference-population values, so they must not vary within person.
+{bf:Outcome-model covariates must be time-fixed.}  Any {cmd:outcome_cov()}
+from {helpb msm_fit} are standardized at baseline values, so they must not
+vary within person.{p_end}
 
 {phang}
-{bf:Prediction horizon defaults to observed data support.} Out-of-range
-{cmd:times()} values require {cmd:extrapolate}; otherwise the command refuses
-them.
+{bf:Prediction horizon defaults to observed data.}  Out-of-range
+{opt times()} values require {opt extrapolate}.{p_end}
+
+
+{marker examples}{...}
+{title:Examples}
+
+{pstd}
+{bf:Setup.}  Run the pipeline through {cmd:msm_fit} first:{p_end}
+
+{phang2}{cmd:. findfile msm_example.dta}{p_end}
+{phang2}{cmd:. use "`r(fn)'", clear}{p_end}
+{phang2}{cmd:. msm_prepare, id(id) period(period) treatment(treatment)}{p_end}
+{phang2}{cmd:    outcome(outcome) covariates(biomarker comorbidity)}{p_end}
+{phang2}{cmd:    baseline_covariates(age sex)}{p_end}
+{phang2}{cmd:. msm_weight, treat_d_cov(biomarker comorbidity age sex)}{p_end}
+{phang2}{cmd:    treat_n_cov(age sex) truncate(1 99) nolog}{p_end}
+{phang2}{cmd:. msm_fit, model(logistic) outcome_cov(age sex) nolog}{p_end}
+
+{pstd}
+{bf:Risk predictions with risk differences:}{p_end}
+
+{phang2}{cmd:. msm, status}{p_end}
+{phang2}{cmd:. msm_predict, times(3 5 7 9) difference seed(12345)}{p_end}
+{phang2}{cmd:. matrix list r(predictions)}{p_end}
+
+{pstd}
+{bf:Survival-scale predictions with more MC draws:}{p_end}
+
+{phang2}{cmd:. msm_predict, times(1 3 5 7 9) type(survival) samples(200) seed(12345)}{p_end}
+
+{pstd}
+{bf:Single-strategy prediction:}{p_end}
+
+{phang2}{cmd:. msm_predict, times(1 3 5 7 9) strategy(always) seed(12345)}{p_end}
+
+{pstd}
+{bf:Visualizing predictions.}  Follow up with a survival plot:{p_end}
+
+{phang2}{cmd:. msm_plot, type(survival) times(1 3 5 7 9) seed(12345)}{p_end}
 
 
 {marker stored}{...}
@@ -132,54 +221,29 @@ them.
 
 {synoptset 20 tabbed}{...}
 {p2col 5 20 24 2: Matrices}{p_end}
-{synopt:{cmd:r(predictions)}}predictions per strategy and time{p_end}
+{synopt:{cmd:r(predictions)}}prediction matrix (period, estimates, CIs per strategy; plus diff columns with {opt difference}){p_end}
 
 {p2col 5 20 24 2: Scalars}{p_end}
-{synopt:{cmd:r(rd_#)}}risk difference at time # (with {cmd:difference}){p_end}
-{synopt:{cmd:r(n_times)}}number of time points{p_end}
-{synopt:{cmd:r(n_ref)}}reference population size{p_end}
-{synopt:{cmd:r(samples)}}MC samples used{p_end}
+{synopt:{cmd:r(rd_#)}}risk difference at time # (only with {opt difference}){p_end}
+{synopt:{cmd:r(n_times)}}number of time points requested{p_end}
+{synopt:{cmd:r(n_ref)}}number of individuals in the reference population{p_end}
+{synopt:{cmd:r(samples)}}number of MC draws used{p_end}
 {synopt:{cmd:r(level)}}confidence level{p_end}
 
 {p2col 5 20 24 2: Macros}{p_end}
-{synopt:{cmd:r(seed)}}seed actually used; when {cmd:seed()} is omitted this is the starting RNG state string{p_end}
-{synopt:{cmd:r(seed_source)}}{cmd:seed()} or {cmd:session_rng_state}, indicating how the prediction run was seeded{p_end}
-{synopt:{cmd:r(seed_state)}}starting RNG state used for the Monte Carlo draws{p_end}
-{synopt:{cmd:r(type)}}prediction type{p_end}
-{synopt:{cmd:r(strategy)}}strategy used{p_end}
-
-
-{marker examples}{...}
-{title:Examples}
-
-{pstd}Setup for prediction from a pooled logistic MSM{p_end}
-{phang2}{cmd:. findfile msm_example.dta}{p_end}
-{phang2}{cmd:. use "`r(fn)'", clear}{p_end}
-{phang2}{cmd:. msm_prepare, id(id) period(period) treatment(treatment)}{p_end}
-{phang2}{cmd:    outcome(outcome) covariates(biomarker comorbidity)}{p_end}
-{phang2}{cmd:    baseline_covariates(age sex)}{p_end}
-{phang2}{cmd:. msm_weight, treat_d_cov(biomarker comorbidity age sex)}{p_end}
-{phang2}{cmd:    treat_n_cov(age sex) truncate(1 99) nolog}{p_end}
-{phang2}{cmd:. msm_fit, model(logistic) outcome_cov(age sex) nolog}{p_end}
-
-{pstd}Risk predictions and risk differences at selected follow-up times{p_end}
-{phang2}{cmd:. msm, status}{p_end}
-{phang2}{cmd:. msm_predict, times(3 5 7 9) difference seed(12345)}{p_end}
-{phang2}{cmd:. matrix list r(predictions)}{p_end}
-
-{pstd}Survival-scale predictions with more Monte Carlo draws{p_end}
-{phang2}{cmd:. msm_predict, times(1 3 5 7 9) type(survival) samples(200)}{p_end}
-
-{pstd}Single-strategy prediction when you only want one counterfactual path{p_end}
-{phang2}{cmd:. msm_predict, times(1 3 5 7 9) strategy(always) seed(12345)}{p_end}
+{synopt:{cmd:r(seed)}}seed or RNG state used for the MC simulation{p_end}
+{synopt:{cmd:r(seed_source)}}{cmd:seed()} or {cmd:session_rng_state}{p_end}
+{synopt:{cmd:r(seed_state)}}full starting RNG state string{p_end}
+{synopt:{cmd:r(type)}}prediction type ({cmd:cum_inc} or {cmd:survival}){p_end}
+{synopt:{cmd:r(strategy)}}strategy used ({cmd:always}, {cmd:never}, or {cmd:both}){p_end}
 
 
 {marker author}{...}
 {title:Author}
 
 {pstd}
-Timothy P Copeland, Karolinska Institutet{break}
-timothy.copeland@ki.se
+Timothy P Copeland{break}
+Department of Clinical Neuroscience, Karolinska Institutet
 {p_end}
 
 {hline}

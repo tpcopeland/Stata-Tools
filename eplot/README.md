@@ -1,8 +1,20 @@
-# eplot - Unified effect plotting from data, estimates, and matrices
+# eplot — Unified effect plotting from data, estimates, and matrices
 
 **Version 1.1.0** | 2026-04-19
 
-`eplot` creates forest-plot and coefficient-plot style graphics from three sources: variables in memory, active or stored estimation results, and preassembled matrices. The point of the package is to keep those workflows under one command instead of switching between separate plotting tools and custom graph code.
+`eplot` creates forest plots and coefficient plots from three sources — variables in memory, active or stored estimation results, and preassembled matrices — under one command with one set of options.
+
+## Quick Start
+
+Run a regression and plot the coefficients in two lines:
+
+```stata
+sysuse auto, clear
+regress price mpg weight foreign
+eplot ., drop(_cons) cicap
+```
+
+That's it. `eplot .` reads the active estimation results and draws a coefficient plot with capped confidence intervals.
 
 ## Requirements
 
@@ -24,27 +36,32 @@ net install eplot, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tool
 
 ## How It Works
 
-`eplot` chooses its mode from the call you give it:
+`eplot` detects its input mode automatically from the arguments you supply:
 
-1. `eplot es lci uci, ...` uses variables in memory.
-2. `eplot .` or `eplot model1 model2, ...` uses active or stored estimates.
-3. `eplot, matrix(R) ...` uses a matrix with effect information.
+| Call | Mode | When to use |
+|------|------|-------------|
+| `eplot es lci uci, ...` | **Data** | Effect sizes already in variables (meta-analysis, imported results) |
+| `eplot .` or `eplot m1 m2, ...` | **Estimates** | Plot coefficients from a regression you just ran, or compare stored models |
+| `eplot, matrix(R) ...` | **Matrix** | Results assembled in a Stata matrix |
 
-Mode detection gives precedence to data mode when the first three tokens look like numeric variables. In ambiguous cases, use `eplot .` to force estimates mode or `matrix()` to force matrix mode explicitly.
+Mode detection gives precedence to data mode when the first three tokens are numeric variables. In ambiguous cases, use `eplot .` to force estimates mode or `matrix()` to force matrix mode explicitly.
 
 ## Feature Highlights
 
-- One plotting command across data, estimation, and matrix workflows
-- Forest-plot and coefficient-plot layouts under a shared option vocabulary
-- Multi-model comparisons with `modellabels()`, `offset()`, and `palette()`
-- Display controls such as `values`, `cicap`, `groups()`, `headers()`, and `gap()`
-- Quick styling through `style(lancet|jama|nejm|bmj|forest|coef)` and custom axis/reference-line options
+- **One command, three input modes** — data in memory, estimation results, and matrices share one option vocabulary
+- **Journal style presets** — `style(lancet)`, `style(jama)`, `style(nejm)`, `style(bmj)` apply ready-made looks; override any individual element
+- **Multi-model comparison** — overlay stored estimates side by side with `modellabels()`, `offset()`, and `palette()`
+- **Values annotation** — add formatted effect text next to each marker with `values`; customize with `vformat()` and `stars`
+- **Significance coloring** — `sigcolors` draws significant and non-significant effects in contrasting colors
+- **Grouped and annotated layouts** — `groups()`, `headers()`, `gap()`, and `favors()` organize complex plots
+- **Meta-analysis support** — prediction intervals (`pi()`), heterogeneity statistics (`i2()`, `tau2()`, `qstat()`), weighted boxes, and diamond pooled effects
+- **Eform with auto-labeling** — `eform` exponentiates coefficients and sets the axis label automatically (Odds Ratio, Hazard Ratio, IRR)
 
 ## Worked Examples
 
-### 1. Create a single-model coefficient plot
+### 1. Coefficient plot with custom labels
 
-This is the fastest way to use `eplot` when you already have estimation results in memory.
+The fastest way to use `eplot` — run a regression, then plot the results immediately.
 
 ```stata
 sysuse auto, clear
@@ -54,8 +71,10 @@ eplot ., drop(_cons) ///
     coeflabels(mpg = "Miles per Gallon" ///
                weight = "Vehicle Weight" ///
                foreign = "Foreign Make") ///
-    cicap
+    cicap values
 ```
+
+![Coefficient plot with values](demo/coef_values.png)
 
 ### 2. Compare two stored models
 
@@ -80,9 +99,11 @@ eplot base extended, drop(_cons) ///
     cicap
 ```
 
-### 3. Create a forest plot from data in memory
+![Multi-model comparison](demo/multi_model.png)
 
-Use data mode when you already have effect sizes and confidence limits in variables, for example after a meta-analysis or when reading results from another system.
+### 3. Forest plot from data in memory
+
+Use data mode when you already have effect sizes and confidence limits in variables — for example, after a meta-analysis or when reading results from another system.
 
 ```stata
 clear
@@ -100,7 +121,33 @@ eplot es lci uci, labels(study) weights(weight) type(type) ///
     values effect("Mean Difference (95% CI)")
 ```
 
-### 4. Plot from a matrix
+![Forest plot with values](demo/forest_values.png)
+
+### 4. Meta-analysis forest plot with heterogeneity
+
+Data mode supports prediction intervals and heterogeneity statistics for publication-ready meta-analysis plots.
+
+```stata
+clear
+input str20 study es lci uci weight byte type
+"Smith 2018"   -0.42  -0.78  -0.06  12.3  1
+"Jones 2019"   -0.31  -0.58  -0.04  16.8  1
+"Brown 2020"   -0.18  -0.41   0.05  21.5  1
+"Lee 2021"     -0.55  -0.93  -0.17  10.2  1
+"Garcia 2022"  -0.27  -0.49  -0.05  19.1  1
+"Patel 2023"   -0.09  -0.35   0.17  20.1  1
+"Overall"      -0.28  -0.41  -0.15   .    5
+end
+
+eplot es lci uci, labels(study) weights(weight) type(type) ///
+    values vformat(%4.2f) ///
+    i2("42.1") tau2("0.021") qstat("8.63, df=5, p=0.125") ///
+    effect("Mean Difference (95% CI)")
+```
+
+![Meta-analysis with heterogeneity](demo/meta_heterogeneity.png)
+
+### 5. Plot from a matrix
 
 Matrix mode is useful when the effect table is already assembled programmatically.
 
@@ -113,9 +160,21 @@ eplot, matrix(R) eform ///
     values
 ```
 
-### 5. Add grouping and annotation
+![Matrix mode](demo/matrix_mode.png)
 
-Once the basic plot works, layer on display options such as `groups()`, `gap()`, significance coloring, or `favors()`.
+### 6. Logistic regression with odds ratios
+
+After a logistic model, `eform` exponentiates coefficients to odds ratios and sets the axis label automatically. Factor variables are labeled using Stata's value labels.
+
+```stata
+sysuse auto, clear
+logit foreign mpg weight i.rep78
+eplot ., eform cicap values
+```
+
+### 7. Grouped coefficients with significance coloring
+
+Layer options to organize and annotate complex plots. `groups()` adds section headers, `gap()` adds space between groups, `sigcolors` highlights statistical significance, and `stars` adds asterisks.
 
 ```stata
 sysuse auto, clear
@@ -128,23 +187,58 @@ eplot ., noconstant ///
     stars values sigcolors
 ```
 
-## Gallery
+![Grouped coefficient plot](demo/grouped_coefplot.png)
 
-### Multi-model comparison
+### 8. Journal style presets
 
-![Multi-model comparison](demo/multi_model.png)
+Apply a journal-style preset, then override individual elements as needed.
 
-### Forest plot from data mode
+```stata
+sysuse auto, clear
+regress price mpg weight foreign
+eplot ., noconstant style(lancet)
+```
 
-![Forest plot from data mode](demo/forest_values.png)
+![Lancet style](demo/lancet_style.png)
 
-### Matrix mode
+### 9. Significance coloring with custom colors
 
-![Matrix mode](demo/matrix_mode.png)
+```stata
+eplot ., noconstant sigcolors sigcolor(navy) insigncolor(gs12) cicap
+```
+
+![Significance colors](demo/sigcolors.png)
+
+## Option Reference
+
+Options are organized by function. Not every option works in every mode — see `help eplot` for per-option mode availability.
+
+| Category | Options |
+|----------|---------|
+| **Data specification** | `labels()`, `weights()`, `type()` |
+| **Coefficient selection** | `keep()`, `drop()`, `rename()`, `noconstant` |
+| **Labeling** | `coeflabels()`, `groups()`, `headers()`, `gap()` |
+| **Transform** | `eform`, `rescale()` |
+| **Reference lines** | `null()`, `nonull`, `xline()`, `xlabel()` |
+| **Confidence intervals** | `level()`, `noci`, `cicap` |
+| **Display** | `dp()`, `effect()`, `values`, `vformat()`, `stars`, `sigcolors`, `sigcolor()`, `insigncolor()`, `style()`, `favors()` |
+| **Prediction/heterogeneity** | `pi()`, `i2()`, `tau2()`, `qstat()` |
+| **Layout** | `horizontal`, `vertical`, `sort`, `order()` |
+| **Multi-model** | `modellabels()`, `offset()`, `palette()`, `legendopts()` |
+| **Markers** | `mcolor()`, `msymbol()`, `msize()`, `boxscale()`, `nobox`, `nodiamonds`, `cicolor()`, `ciwidth()` |
+| **Graph** | `title()`, `subtitle()`, `note()`, `name()`, `saving()`, `scheme()`, `plotregion()`, `graphregion()`, `aspect()`, plus any `twoway` option |
+
+## Also See
+
+- `help eplot` — full documentation with clickable examples
+- [`coefplot`](https://repec.sowi.unibe.ch/stata/coefplot/) (Ben Jann, SSC) — comprehensive coefficient plotting
+- [`metan`](https://ideas.repec.org/c/boc/bocode/s456798.html) (SSC) — meta-analysis with forest plots
+- Stata 18+: `meta forestplot` — official meta-analysis forest plots
 
 ## Version History
 
-- **1.1.0** (2026-04-19): Added `gap()` for grouped spacing, added effect-axis `xlabel()` passthrough, widened value-annotation margins automatically, and documented mode-detection ambiguity more clearly
+- **1.1.0** (2026-04-19): Added `gap()` for grouped spacing, effect-axis `xlabel()` passthrough, automatic value-annotation margin sizing, and clearer mode-detection documentation
+- **1.0.0** (2026-04-12): Initial release with data, estimates, and matrix modes; multi-model comparison; journal style presets; significance coloring; meta-analysis features
 
 ## Author
 

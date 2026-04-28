@@ -13,6 +13,7 @@
 {vieweralsosee "msm_sensitivity" "help msm_sensitivity"}{...}
 {viewerjumpto "Syntax" "msm##syntax"}{...}
 {viewerjumpto "Description" "msm##description"}{...}
+{viewerjumpto "When to use this package" "msm##when"}{...}
 {viewerjumpto "Commands" "msm##commands"}{...}
 {viewerjumpto "Workflow" "msm##workflow"}{...}
 {viewerjumpto "Pipeline status" "msm##status"}{...}
@@ -38,44 +39,68 @@
 {synoptset 15 tabbed}{...}
 {synopthdr}
 {synoptline}
-{synopt:{opt list}}display commands as simple list{p_end}
-{synopt:{opt detail}}show detailed command descriptions{p_end}
-{synopt:{opt prot:ocol}}show MSM protocol framework{p_end}
+{synopt:{opt list}}display command names as a simple list{p_end}
+{synopt:{opt detail}}show detailed descriptions of each command{p_end}
+{synopt:{opt prot:ocol}}show the 7-component MSM protocol framework{p_end}
 {synopt:{opt stat:us}}show current pipeline stage, mapped variables, and saved artifacts{p_end}
 {synoptline}
+
+{pstd}
+With no options, {cmd:msm} displays the command overview and workflow guide.
 
 
 {marker description}{...}
 {title:Description}
 
 {pstd}
-{cmd:msm} is a comprehensive suite for marginal structural model estimation
-using inverse probability of treatment weighting (IPTW) for time-varying
-treatments and confounders. It implements the complete IPTW pipeline:
-data preparation, weight calculation, diagnostics, outcome modeling,
-counterfactual prediction, and sensitivity analysis for conventional
-static-regime analyses in person-period data.
+{cmd:msm} is a comprehensive suite for estimating marginal structural models
+using inverse probability of treatment weighting (IPTW) in longitudinal
+person-period data.  It is designed for the common setting where treatment and
+confounders both vary over time and where confounders are simultaneously
+affected by past treatment and predictive of future treatment {hline 1} the
+classic "treatment-confounder feedback" problem.
 
 {pstd}
-Unlike point-in-time treatment effect estimators ({cmd:teffects ipw}),
-{cmd:msm} handles the key challenge of time-varying treatment-confounder
-feedback where confounders are simultaneously affected by past treatment
-and predictive of future treatment. Standard regression adjustment cannot
-handle this structure; IPTW creates a pseudo-population where treatment
-is independent of measured confounders.
+Standard regression adjustment (including fixed-effects and random-effects
+models) cannot handle this structure without introducing bias.  IPTW solves
+the problem by creating a pseudo-population where treatment is independent of
+measured confounders, allowing a simple weighted outcome model to estimate the
+causal effect.
 
 {pstd}
-The package's prediction workflow targets static always-treated and
-never-treated strategies for binary outcomes fitted with pooled logistic
-models. Linear and Cox MSM fits are available for estimation and reporting,
-but they do not feed into {helpb msm_predict}.
+The package covers the full analysis pipeline:
+
+{phang2}1. {bf:Protocol specification} {hline 2} document the causal question{p_end}
+{phang2}2. {bf:Data preparation} {hline 2} map variables and validate data{p_end}
+{phang2}3. {bf:Weighting} {hline 2} stabilized IPTW and optional IPCW{p_end}
+{phang2}4. {bf:Diagnostics} {hline 2} weight behavior and covariate balance{p_end}
+{phang2}5. {bf:Estimation} {hline 2} weighted outcome model{p_end}
+{phang2}6. {bf:Prediction} {hline 2} counterfactual standardization{p_end}
+{phang2}7. {bf:Reporting} {hline 2} tables, plots, and sensitivity analysis{p_end}
+
+
+{marker when}{...}
+{title:When to use this package}
 
 {pstd}
-Run {cmd:msm, status} at any point to inspect the current dataset state.
-It reports whether the data are prepared, weighted, and fitted; the
-variable mappings stored by {helpb msm_prepare}; saved prediction, balance,
-diagnostic, and sensitivity artifacts; the fitted model type if present;
-and a recommended next command.
+Use {cmd:msm} when your data have all of the following features:
+
+{phang2}{bf:Longitudinal (panel) structure} with repeated observations per
+individual over time.{p_end}
+
+{phang2}{bf:Time-varying treatment} that can change between periods.{p_end}
+
+{phang2}{bf:Time-varying confounders} that are affected by past treatment and
+predictive of future treatment (treatment-confounder feedback).{p_end}
+
+{phang2}{bf:Binary treatment and outcome indicators} (0/1).  Linear models for
+continuous outcomes and Cox models for time-to-event outcomes are also
+supported for estimation, though the full prediction workflow currently
+requires a binary outcome with a pooled logistic model.{p_end}
+
+{pstd}
+If your treatment is assigned at a single point in time (not time-varying),
+consider Stata's built-in {helpb teffects ipw} instead.
 
 
 {marker commands}{...}
@@ -84,113 +109,133 @@ and a recommended next command.
 {dlgtab:Data Preparation}
 
 {phang}
-{helpb msm_prepare} {hline 2} Map variables and store metadata
+{helpb msm_prepare} {hline 2} Map variables and store metadata.  Entry point
+for the pipeline.
 
 {phang}
-{helpb msm_validate} {hline 2} Data quality checks (10 diagnostics)
+{helpb msm_validate} {hline 2} Run 10 data quality checks for person-period
+data.
 
 {dlgtab:Core Engine}
 
 {phang}
-{helpb msm_weight} {hline 2} Stabilized IPTW (+ optional IPCW)
+{helpb msm_weight} {hline 2} Estimate stabilized IPTW (+ optional IPCW for
+informative censoring).
 
 {phang}
-{helpb msm_fit} {hline 2} Weighted outcome model (pooled logistic/linear/Cox)
+{helpb msm_fit} {hline 2} Fit the weighted outcome model: pooled logistic
+(GLM), linear, or Cox PH.
 
 {phang}
-{helpb msm_predict} {hline 2} Counterfactual predictions with CIs
+{helpb msm_predict} {hline 2} Generate counterfactual predictions under
+always-treated and never-treated strategies with Monte Carlo CIs.
 
 {dlgtab:Diagnostics and Reporting}
 
 {phang}
-{helpb msm_diagnose} {hline 2} Weight distribution and covariate balance
+{helpb msm_diagnose} {hline 2} Inspect weight distribution and covariate
+balance (SMD before/after weighting).
 
 {phang}
-{helpb msm_plot} {hline 2} Weight, balance, survival, trajectory, positivity plots
+{helpb msm_plot} {hline 2} Visualize weights, balance (Love plot), survival
+curves, treatment trajectories, and positivity.
 
 {phang}
-{helpb msm_report} {hline 2} Publication-quality results tables
+{helpb msm_report} {hline 2} Compact publication-style results table (console,
+CSV, or Excel).
 
 {phang}
-{helpb msm_table} {hline 2} Multi-sheet Excel export of pipeline results
+{helpb msm_table} {hline 2} Multi-sheet Excel workbook with all pipeline
+results.
 
 {phang}
-{helpb msm_protocol} {hline 2} MSM study protocol (7 components)
+{helpb msm_protocol} {hline 2} Document the MSM study protocol (7 components
+adapted from Hernan et al.).
 
 {phang}
-{helpb msm_sensitivity} {hline 2} E-value and confounding bounds
+{helpb msm_sensitivity} {hline 2} E-value and confounding strength bounds for
+unmeasured confounding assessment.
 
 
 {marker workflow}{...}
 {title:Typical Workflow}
 
 {p 4 4 2}
-0. {cmd:msm_protocol} - Document study design{break}
-1. {cmd:msm_prepare} - Map variables{break}
-2. {cmd:msm_validate} - Check data quality{break}
-3. {cmd:msm_weight} - Calculate stabilized IP weights{break}
-4. {cmd:msm_diagnose} - Assess weight distribution and balance{break}
-5. {cmd:msm_fit} - Fit weighted outcome model{break}
-6. {cmd:msm_predict} - Estimate counterfactual outcomes{break}
-7. {cmd:msm_report} - Export publication tables{break}
-8. {cmd:msm_sensitivity} - Sensitivity analysis
+0. {helpb msm_protocol} {hline 1} Document the study design{break}
+1. {helpb msm_prepare} {hline 1} Map variables and store metadata{break}
+2. {helpb msm_validate} {hline 1} Check data quality (10 diagnostics){break}
+3. {helpb msm_weight} {hline 1} Calculate stabilized IP weights{break}
+4. {helpb msm_diagnose} {hline 1} Assess weight distribution and balance{break}
+5. {helpb msm_fit} {hline 1} Fit the weighted outcome model{break}
+6. {helpb msm_predict} {hline 1} Estimate counterfactual outcomes{break}
+7. {helpb msm_plot} {hline 1} Visualize results{break}
+8. {helpb msm_report} / {helpb msm_table} {hline 1} Export publication tables{break}
+9. {helpb msm_sensitivity} {hline 1} Sensitivity analysis
 
 {pstd}
-Run {cmd:msm, status} anytime to see where the current dataset sits in
-the workflow and what outputs are already available.
+Run {cmd:msm, status} at any point to see where the current dataset sits in
+the pipeline, what outputs are available, and what the recommended next step is.
 
 
 {marker status}{...}
 {title:Pipeline status}
 
 {pstd}
-{cmd:msm, status} is a lightweight introspection command for interrupted
-or iterative workflows. It does not fit models or recalculate anything.
-Instead, it reads the stored {cmd:_dta[_msm_*]} characteristics and saved
-artifacts already attached to the dataset.
+{cmd:msm, status} is a lightweight introspection command.  It reads the stored
+{cmd:_dta[_msm_*]} characteristics and saved artifacts already attached to the
+dataset.  It does not fit models, recalculate anything, or modify the data.
 
 {pstd}
-The status report summarizes the current pipeline stage, mapped variables,
-saved weight/model/prediction artifacts, and the recommended next step.
-Use it before resuming work in an old dataset or after commands such as
-{helpb msm_prepare}, {helpb msm_weight}, {helpb msm_fit}, or
-{helpb msm_predict}.
+The status report shows:
+
+{phang2}The current pipeline stage (not prepared / prepared / weighted / fitted){p_end}
+{phang2}The recommended next command{p_end}
+{phang2}All mapped variables (ID, period, treatment, outcome, covariates){p_end}
+{phang2}Available saved artifacts (weights, predictions, balance, diagnostics,
+sensitivity){p_end}
+{phang2}Summary details for each artifact (e.g., prediction type, balance
+threshold, E-value){p_end}
+
+{pstd}
+Use it before resuming work in a saved dataset, after any pipeline step, or
+whenever you are unsure what has been run.
 
 
 {marker scope}{...}
 {title:Current scope and limits}
 
 {phang}
-{bf:Static strategies only.} The standardized prediction workflow is built
-for always-treated, never-treated, or both. Dynamic or stochastic treatment
-regimes are not implemented in the current release.
+{bf:Static strategies only.}  The prediction workflow supports always-treated,
+never-treated, or both.  Dynamic or stochastic treatment regimes are not
+implemented.
 
 {phang}
-{bf:Prediction requires pooled logistic MSMs.} Run {cmd:msm_fit, model(logistic)}
-before {helpb msm_predict}. Linear and Cox models can be estimated, but
-prediction is not available for them.
+{bf:Prediction requires pooled logistic MSMs.}  Run
+{cmd:msm_fit, model(logistic)} before {helpb msm_predict}.  Linear and Cox
+models can be estimated, diagnosed, and reported, but prediction is not
+available for them.
 
 {phang}
-{bf:Prediction covariates must be time-fixed.} If you include
-{cmd:outcome_cov()} in {helpb msm_fit} and then call {helpb msm_predict},
-those covariates must be constant within {cmd:id}; prediction standardizes
-them at the baseline/reference-population values.
+{bf:Prediction covariates must be time-fixed.}  Any {cmd:outcome_cov()} in
+{helpb msm_fit} must be constant within person if you plan to predict.
 
 {phang}
-{bf:Common baseline required for weighting.} {helpb msm_weight} assumes all
-individuals enter at the same baseline period and currently rejects delayed
-entry.
+{bf:Common baseline required.}  {helpb msm_weight} assumes all individuals
+enter at the same baseline period.  Delayed entry / left truncation is not
+supported.
 
 {phang}
-{bf:Observed follow-up is the default prediction horizon.} {helpb msm_predict}
-rejects out-of-range {cmd:times()} values unless you explicitly request
-{cmd:extrapolate}.
+{bf:Observed follow-up is the default horizon.}  {helpb msm_predict} rejects
+out-of-range {cmd:times()} unless {cmd:extrapolate} is specified.
 
 
 {marker examples}{...}
 {title:Examples}
 
-{pstd}Prediction-ready end-to-end workflow{p_end}
+{pstd}
+{bf:Prediction-ready end-to-end workflow.}  This is the complete pipeline using
+the bundled example dataset:{p_end}
+
 {phang2}{cmd:. findfile msm_example.dta}{p_end}
 {phang2}{cmd:. use "`r(fn)'", clear}{p_end}
 {phang2}{cmd:. msm_protocol,}{p_end}
@@ -215,7 +260,10 @@ rejects out-of-range {cmd:times()} values unless you explicitly request
 {phang2}{cmd:. msm_report, eform}{p_end}
 {phang2}{cmd:. msm, status}{p_end}
 
-{pstd}Estimation-only workflow when prediction is not needed{p_end}
+{pstd}
+{bf:Estimation-only workflow.}  Use a Cox or linear model when prediction is
+not needed:{p_end}
+
 {phang2}{cmd:. findfile msm_example.dta}{p_end}
 {phang2}{cmd:. use "`r(fn)'", clear}{p_end}
 {phang2}{cmd:. msm_prepare, id(id) period(period) treatment(treatment)}{p_end}
@@ -229,7 +277,7 @@ rejects out-of-range {cmd:times()} values unless you explicitly request
 {pstd}
 Use the Cox or linear branches when the estimand is a weighted hazard ratio
 or weighted mean difference, but do not expect those fits to work with
-{cmd:msm_predict}.{p_end}
+{helpb msm_predict}.{p_end}
 
 
 {marker references}{...}
@@ -245,12 +293,16 @@ the causal effect of zidovudine on the survival of HIV-positive men.
 {it:Epidemiology}. 2000;11(5):561-570.
 
 {phang}
+Cole SR, Hernan MA. Constructing inverse probability weights for marginal
+structural models. {it:American Journal of Epidemiology}. 2008;168(6):656-664.
+
+{phang}
 VanderWeele TJ, Ding P. Sensitivity analysis in observational research:
 introducing the E-value. {it:Annals of Internal Medicine}. 2017;167(4):268-274.
 
 {phang}
-Cole SR, Hernan MA. Constructing inverse probability weights for marginal
-structural models. {it:American Journal of Epidemiology}. 2008;168(6):656-664.
+Hernan MA, Robins JM. {it:Causal Inference: What If}. Boca Raton: Chapman &
+Hall/CRC, 2020.
 
 
 {marker results}{...}
@@ -259,38 +311,46 @@ structural models. {it:American Journal of Epidemiology}. 2008;168(6):656-664.
 {pstd}
 {cmd:msm} stores the following in {cmd:r()}:
 
-{synoptset 20 tabbed}{...}
-{p2col 5 20 24 2: Scalars}{p_end}
-{synopt:{cmd:r(n_commands)}}number of available commands{p_end}
-{synopt:{cmd:r(prepared)}}1 if {cmd:msm_prepare} state is available; reported by {cmd:msm, status}{p_end}
-{synopt:{cmd:r(weighted)}}1 if saved weights are available; reported by {cmd:msm, status}{p_end}
-{synopt:{cmd:r(fitted)}}1 if a saved fit is available; reported by {cmd:msm, status}{p_end}
-{synopt:{cmd:r(prediction_saved)}}1 if saved prediction results are available; reported by {cmd:msm, status}{p_end}
-{synopt:{cmd:r(balance_saved)}}1 if saved balance results are available; reported by {cmd:msm, status}{p_end}
-{synopt:{cmd:r(diagnostics_saved)}}1 if saved diagnostics are available; reported by {cmd:msm, status}{p_end}
-{synopt:{cmd:r(sensitivity_saved)}}1 if saved sensitivity results are available; reported by {cmd:msm, status}{p_end}
+{synoptset 25 tabbed}{...}
+{p2col 5 25 29 2: Scalars}{p_end}
+{synopt:{cmd:r(n_commands)}}number of available commands (11){p_end}
 
-{p2col 5 20 24 2: Macros}{p_end}
+{pstd}
+With {opt status}, the following additional results are stored:
+
+{synopt:{cmd:r(prepared)}}1 if {helpb msm_prepare} state is available{p_end}
+{synopt:{cmd:r(weighted)}}1 if saved weights are available{p_end}
+{synopt:{cmd:r(fitted)}}1 if a saved fit is available{p_end}
+{synopt:{cmd:r(prediction_saved)}}1 if prediction results are available{p_end}
+{synopt:{cmd:r(balance_saved)}}1 if balance results are available{p_end}
+{synopt:{cmd:r(diagnostics_saved)}}1 if diagnostic results are available{p_end}
+{synopt:{cmd:r(sensitivity_saved)}}1 if sensitivity results are available{p_end}
+
+{p2col 5 25 29 2: Macros}{p_end}
 {synopt:{cmd:r(version)}}package version number{p_end}
 {synopt:{cmd:r(commands)}}list of all msm commands{p_end}
-{synopt:{cmd:r(stage)}}current pipeline stage; reported by {cmd:msm, status}{p_end}
-{synopt:{cmd:r(next_step)}}recommended next command; reported by {cmd:msm, status}{p_end}
-{synopt:{cmd:r(model)}}saved fitted model type, if any; reported by {cmd:msm, status}{p_end}
-{synopt:{cmd:r(id)}}mapped ID variable; reported by {cmd:msm, status}{p_end}
-{synopt:{cmd:r(period)}}mapped period variable; reported by {cmd:msm, status}{p_end}
-{synopt:{cmd:r(treatment)}}mapped treatment variable; reported by {cmd:msm, status}{p_end}
-{synopt:{cmd:r(outcome)}}mapped outcome variable; reported by {cmd:msm, status}{p_end}
-{synopt:{cmd:r(censor)}}mapped censoring variable, if any; reported by {cmd:msm, status}{p_end}
-{synopt:{cmd:r(covariates)}}mapped time-varying covariates; reported by {cmd:msm, status}{p_end}
-{synopt:{cmd:r(baseline_covariates)}}mapped baseline covariates; reported by {cmd:msm, status}{p_end}
+
+{pstd}
+With {opt status}:
+
+{synopt:{cmd:r(stage)}}current pipeline stage{p_end}
+{synopt:{cmd:r(next_step)}}recommended next command{p_end}
+{synopt:{cmd:r(model)}}fitted model type, if any{p_end}
+{synopt:{cmd:r(id)}}mapped ID variable{p_end}
+{synopt:{cmd:r(period)}}mapped period variable{p_end}
+{synopt:{cmd:r(treatment)}}mapped treatment variable{p_end}
+{synopt:{cmd:r(outcome)}}mapped outcome variable{p_end}
+{synopt:{cmd:r(censor)}}mapped censoring variable, if any{p_end}
+{synopt:{cmd:r(covariates)}}mapped time-varying covariates{p_end}
+{synopt:{cmd:r(baseline_covariates)}}mapped baseline covariates{p_end}
 
 
 {marker author}{...}
 {title:Author}
 
 {pstd}
-Timothy P Copeland, Karolinska Institutet{break}
-timothy.copeland@ki.se
+Timothy P Copeland{break}
+Department of Clinical Neuroscience, Karolinska Institutet
 {p_end}
 
 {hline}

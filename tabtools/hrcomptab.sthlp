@@ -42,7 +42,7 @@
 {synoptline}
 {syntab:Required}
 {synopt:{it:rateframe}}frame created by {helpb stratetab} with {cmd:frame()}{p_end}
-{synopt:{opt modelf:rames(framelist)}}space-separated list of frames created by {helpb regtab} with {cmd:frame()}{p_end}
+{synopt:{opt modelframes(framelist)}}space-separated list of frames created by {helpb regtab} with {cmd:frame()}{p_end}
 {synopt:{opt rows(string)}}backslash-separated row specifications, one per model frame{p_end}
 {synopt:{cmdab:rown:ames(}{it:string}{cmd:)}}alternative to {opt rows()}: select model rows by label pattern{p_end}
 

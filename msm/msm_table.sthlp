@@ -5,10 +5,12 @@
 {vieweralsosee "msm_predict" "help msm_predict"}{...}
 {vieweralsosee "msm_diagnose" "help msm_diagnose"}{...}
 {vieweralsosee "msm_sensitivity" "help msm_sensitivity"}{...}
+{vieweralsosee "msm_report" "help msm_report"}{...}
 {viewerjumpto "Syntax" "msm_table##syntax"}{...}
 {viewerjumpto "Description" "msm_table##description"}{...}
 {viewerjumpto "Options" "msm_table##options"}{...}
 {viewerjumpto "Sheets" "msm_table##sheets"}{...}
+{viewerjumpto "Prerequisites" "msm_table##prerequisites"}{...}
 {viewerjumpto "Examples" "msm_table##examples"}{...}
 {viewerjumpto "Author" "msm_table##author"}{...}
 {title:Title}
@@ -30,29 +32,29 @@
 {synopthdr}
 {synoptline}
 {syntab:Required}
-{synopt:{opt xlsx(filename)}}Excel output file (.xlsx){p_end}
+{synopt:{opt xlsx(filename)}}Excel output file ({cmd:.xlsx} extension){p_end}
 
 {syntab:Table selection}
-{synopt:{opt coef:icients}}model coefficients{p_end}
-{synopt:{opt pred:ictions}}counterfactual outcome predictions{p_end}
-{synopt:{opt bal:ance}}covariate balance (SMD){p_end}
-{synopt:{opt weight:s}}weight distribution summary{p_end}
-{synopt:{opt sens:itivity}}E-value sensitivity analysis{p_end}
-{synopt:{opt all}}all available tables (default){p_end}
+{synopt:{opt coef:icients}}model coefficients from {helpb msm_fit}{p_end}
+{synopt:{opt pred:ictions}}counterfactual predictions from {helpb msm_predict}{p_end}
+{synopt:{opt bal:ance}}covariate balance (SMD) from {helpb msm_diagnose}{p_end}
+{synopt:{opt weight:s}}weight distribution summary from {helpb msm_diagnose}{p_end}
+{synopt:{opt sens:itivity}}E-value analysis from {helpb msm_sensitivity}{p_end}
+{synopt:{opt all}}all available tables on separate sheets (default){p_end}
 
 {syntab:Formatting}
 {synopt:{opt ef:orm}}exponentiate coefficients (OR/HR){p_end}
 {synopt:{opt dec:imals(#)}}decimal places; default is {cmd:3}{p_end}
 {synopt:{opt sep(string)}}CI delimiter; default is {cmd:", "}{p_end}
-{synopt:{opt tit:le(string)}}title for cell A1{p_end}
+{synopt:{opt tit:le(string)}}title for cell A1 of each sheet{p_end}
 {synopt:{opt replace}}replace existing file{p_end}
 {synopt:{opt f:ont(name)}}font name; default is {cmd:Arial}{p_end}
 {synopt:{opt fonts:ize(#)}}font size in points; default is {cmd:10}{p_end}
-{synopt:{opt border:style(style)}}border style: {cmd:thin}, {cmd:medium}, or {cmd:academic}; default is {cmd:thin}{p_end}
+{synopt:{opt border:style(style)}}{cmd:thin} (default), {cmd:medium}, or {cmd:academic}{p_end}
 {synopt:{opt nfor:mat(string)}}Excel number format for numeric cells{p_end}
-{synopt:{opt zebra}}alternating row shading (light gray){p_end}
-{synopt:{opt bold:p(#)}}bold p-values below threshold (Coefficients only){p_end}
-{synopt:{opt high:light(#)}}highlight rows where p < threshold (Coefficients only){p_end}
+{synopt:{opt zebra}}alternating row shading{p_end}
+{synopt:{opt bold:p(#)}}bold p-values below threshold (Coefficients sheet only){p_end}
+{synopt:{opt high:light(#)}}highlight significant rows (Coefficients sheet only){p_end}
 {synopt:{opt foot:note(string)}}merged footnote below each table{p_end}
 {synopt:{opt open}}auto-open Excel file after export{p_end}
 {synoptline}
@@ -62,184 +64,213 @@
 {title:Description}
 
 {pstd}
-{cmd:msm_table} exports results from the MSM pipeline to a formatted Excel
-workbook with one sheet per table type. Each sheet includes a title row,
-formatted headers, full border frame, and configurable font (default
-Arial 10). Numeric values are stored as proper Excel numbers for
-sorting and formulas. Column widths are calculated automatically from
-content.
+{cmd:msm_table} exports results from the entire MSM pipeline to a formatted
+Excel workbook.  Each table type goes on its own sheet, producing a single
+file that contains all the publication-ready tables from an analysis.
 
 {pstd}
-By default (or with {opt all}), all available tables are exported. Tables are
-skipped silently if the required pipeline step has not been run. When specific
-tables are requested, missing prerequisites produce an error.
+Sheets include title rows, formatted headers with background shading, full
+border frames, and configurable font and size.  Numeric values are stored as
+proper Excel numbers (not text) so they can be sorted and used in formulas.
+Column widths are calculated automatically from content.
 
 {pstd}
-The command reads persisted results stored by {cmd:msm_fit} (e()),
-{cmd:msm_predict}, {cmd:msm_diagnose}, and {cmd:msm_sensitivity} (saved to
-Stata matrices and dataset characteristics).
+By default (or with {opt all}), all available tables are exported.  Tables are
+silently skipped if the corresponding pipeline step has not been run yet.
+When specific tables are requested explicitly, missing prerequisites produce
+an error.
+
+{pstd}
+{cmd:msm_table} is the multi-sheet companion to {helpb msm_report}, which
+produces a single compact summary.  Use {cmd:msm_table} when you want the
+full set of pipeline outputs in one workbook; use {cmd:msm_report} for a
+quick overview.
+
+{pstd}
+{cmd:msm_table} does not store results in {cmd:r()} or {cmd:e()}.
 
 
 {marker options}{...}
 {title:Options}
 
+{dlgtab:Required}
+
+{phang}
+{opt xlsx(filename)} specifies the output Excel file.  Must have a
+{cmd:.xlsx} extension.
+
 {dlgtab:Table selection}
 
 {phang}
-{opt coef:icients} exports model coefficients from {cmd:msm_fit}. Columns
-include the point estimate, 95% CI, and p-value. The column header adapts
-to model type: OR (logistic), HR (cox), or Coef. (linear).
+{opt coef:icients} exports model coefficients from {helpb msm_fit}.  Columns
+include the point estimate, 95% CI, and p-value.  The column header adapts
+to model type: OR (logistic), HR (Cox), or Coef. (linear).
 
 {phang}
-{opt pred:ictions} exports counterfactual predictions from {cmd:msm_predict}.
-For {cmd:both} strategy, includes Never-Treat and Always-Treat estimates with
-two-level merged headers. Includes Risk Difference columns if {cmd:difference}
-was specified.
+{opt pred:ictions} exports counterfactual predictions from {helpb msm_predict}.
+For {cmd:strategy(both)}, includes Never-Treat and Always-Treat estimates with
+two-level merged headers.  Includes Risk Difference columns if {opt difference}
+was specified during prediction.
 
 {phang}
-{opt bal:ance} exports the covariate balance table from {cmd:msm_diagnose}.
-Shows raw and weighted SMDs, percentage change, and a balanced indicator.
-Includes a footer summarizing the number of balanced covariates.
+{opt bal:ance} exports the covariate balance table from {helpb msm_diagnose}.
+Shows raw SMD, weighted SMD, percentage change, and a balanced/imbalanced
+indicator.
 
 {phang}
 {opt weight:s} exports weight distribution summary statistics from
-{cmd:msm_diagnose}: mean, SD, min, P1, median, P99, max, ESS, and ESS (%).
+{helpb msm_diagnose}: mean, SD, min, P1, median, P99, max, ESS, and ESS (%).
 
 {phang}
 {opt sens:itivity} exports sensitivity analysis results from
-{cmd:msm_sensitivity}: treatment effect, CI, and E-values if computed.
+{helpb msm_sensitivity}: treatment effect, CI, and E-values if computed.
+
+{phang}
+{opt all} exports all available tables.  Tables whose prerequisites have not
+been run are silently skipped.  This is the default behavior when no specific
+table is requested.
 
 {dlgtab:Formatting}
 
 {phang}
-{opt ef:orm} exponentiates coefficients on the Coefficients sheet. Displays
-odds ratios (logistic), hazard ratios (cox), or exp(b) (linear).
+{opt ef:orm} exponentiates coefficients on the Coefficients sheet.  Displays
+odds ratios (logistic), hazard ratios (Cox), or exp(b) (linear).
 
 {phang}
-{opt dec:imals(#)} sets decimal places for numeric values. Default is 3.
-P-values use the tabtools convention: {cmd:<0.001} for very small values,
+{opt dec:imals(#)} sets decimal places for numeric values.  Default is 3.
+P-values use a tiered convention: {cmd:<0.001} for very small values,
 3 decimal places for p < 0.05, 2 decimal places for p >= 0.05.
 
 {phang}
-{opt sep(string)} sets the CI delimiter. Default is {cmd:", "}. For example,
-{cmd:sep(" to ")} produces CI formatted as "(0.58 to 0.85)".
+{opt sep(string)} sets the CI delimiter string.  Default is {cmd:", "}.
+For example, {cmd:sep(" to ")} formats CIs as "(0.58 to 0.85)".
 
 {phang}
-{opt tit:le(string)} sets the title text in cell A1 of each sheet. If not
-specified, a default title is used (e.g., "Coefficients", "Predictions").
+{opt tit:le(string)} sets the title text in cell A1 of each sheet.  If
+omitted, each sheet gets a descriptive default title.
 
 {phang}
-{opt replace} overwrites an existing Excel file.
+{opt replace} allows overwriting an existing Excel file.
 
 {phang}
-{opt f:ont(name)} sets the font for all cells. Default is {cmd:Arial}.
+{opt f:ont(name)} sets the font.  Default is {cmd:Arial}.
 
 {phang}
-{opt fonts:ize(#)} sets the font size in points. Default is {cmd:10}.
-Must be between 6 and 72.
+{opt fonts:ize(#)} sets the font size in points.  Default is 10.  Must be
+between 6 and 72.
 
 {phang}
-{opt border:style(style)} sets the border weight for the table frame and
-separators. Options are {cmd:thin} (default), {cmd:medium}, or
-{cmd:academic}.
+{opt border:style(style)} sets the border weight.  {cmd:thin} (default) adds
+a full grid.  {cmd:medium} uses heavier lines.  {cmd:academic} uses medium
+horizontal borders only (top/bottom of header and bottom of table), which
+mirrors the style of journal tables.
 
 {phang}
-{opt nfor:mat(string)} applies an Excel number format to converted numeric
-cells. For example, {cmd:nformat("#,##0.000")} adds thousands separators
-with 3 decimal places. If not specified, Excel uses its default format.
+{opt nfor:mat(string)} applies an Excel number format to numeric cells (e.g.,
+{cmd:nformat("#,##0.000")} for thousands separators with 3 decimals).
 
 {phang}
-{opt zebra} applies alternating row shading (light gray, RGB 242 242 242) to
-data rows. Makes wide tables easier to read across rows. Applies to all
-sheets.
+{opt zebra} applies alternating row shading (light gray) to data rows across
+all sheets.
 
 {phang}
-{opt bold:p(#)} bolds p-values below the specified threshold on the
-Coefficients sheet. For example, {cmd:boldp(0.05)} bolds all p-values < 0.05.
-Values formatted as {cmd:<0.001} are always bolded when this option is used.
+{opt bold:p(#)} bolds p-values below the threshold on the Coefficients sheet
+(e.g., {cmd:boldp(0.05)}).
 
 {phang}
-{opt high:light(#)} highlights entire rows on the Coefficients sheet where the
-p-value is below the specified threshold, using light yellow shading
-(RGB 255 255 204). Overrides zebra shading for highlighted rows.
+{opt high:light(#)} highlights entire rows on the Coefficients sheet where
+p < threshold, using light yellow shading.
 
 {phang}
-{opt foot:note(string)} adds a merged, italic footnote row below each table.
-The footnote appears outside the table border frame in a smaller font
-(2 points below the main font size, minimum 6pt). Useful for explaining
-statistical conventions or data sources.
+{opt foot:note(string)} adds a merged, italic footnote below each table in a
+smaller font.
 
 {phang}
-{opt open} automatically opens the Excel file after export using the
-system default application.
+{opt open} opens the file after export using the system default application.
 
 
 {marker sheets}{...}
 {title:Sheet specifications}
 
 {pstd}
-{bf:Coefficients}: Variable | OR/HR/Coef. | 95% CI | p-value
+{bf:Coefficients:} Variable | OR/HR/Coef. | 95% CI | p-value
 
 {pstd}
-{bf:Predictions}: Period | Est. | 95% CI (per strategy, with merged headers)
+{bf:Predictions:} Period | Est. | 95% CI (per strategy, with merged headers)
 
 {pstd}
-{bf:Balance}: Covariate | Raw SMD | Weighted SMD | % Change | Balanced
+{bf:Balance:} Covariate | Raw SMD | Weighted SMD | % Change | Balanced
 
 {pstd}
-{bf:Weights}: Statistic | Value (9 summary rows)
+{bf:Weights:} Statistic | Value (9 summary rows)
 
 {pstd}
-{bf:Sensitivity}: Parameter | Value (effect, CI, E-values)
+{bf:Sensitivity:} Parameter | Value (effect, CI, E-values)
 
 
-{marker examples}{...}
-{title:Examples}
-
-{pstd}Export all available tables:{p_end}
-{phang2}{cmd:. msm_table, xlsx(results.xlsx) eform replace}{p_end}
-
-{pstd}Export only coefficients with odds ratios:{p_end}
-{phang2}{cmd:. msm_table, xlsx(coef_table.xlsx) coefficients eform replace}{p_end}
-
-{pstd}Export predictions and balance sheets:{p_end}
-{phang2}{cmd:. msm_table, xlsx(tables.xlsx) predictions balance replace}{p_end}
-
-{pstd}Custom formatting:{p_end}
-{phang2}{cmd:. msm_table, xlsx(pub_table.xlsx) all eform decimals(2) sep(" to ") title("Table 1: MSM Results") replace}{p_end}
-
-{pstd}Custom font and border style:{p_end}
-{phang2}{cmd:. msm_table, xlsx(results.xlsx) all eform font(Calibri) fontsize(11) borderstyle(medium) replace}{p_end}
-
-{pstd}With zebra striping and bold p-values:{p_end}
-{phang2}{cmd:. msm_table, xlsx(results.xlsx) all eform zebra boldp(0.05) replace}{p_end}
-
-{pstd}Highlight significant results with footnote:{p_end}
-{phang2}{cmd:. msm_table, xlsx(results.xlsx) coefficients eform zebra highlight(0.05) footnote("Bold p-values indicate statistical significance at the 0.05 level.") replace}{p_end}
-
-{pstd}Auto-open after export:{p_end}
-{phang2}{cmd:. msm_table, xlsx(results.xlsx) all eform zebra open replace}{p_end}
-
-
+{marker prerequisites}{...}
 {title:Prerequisites}
 
 {pstd}
 Run the MSM pipeline before calling {cmd:msm_table}:
 
-{phang2}1. {cmd:msm_prepare} {hline 2} set up data{p_end}
-{phang2}2. {cmd:msm_weight} {hline 2} compute IPTW weights{p_end}
-{phang2}3. {cmd:msm_fit} {hline 2} fit outcome model (required for coefficients){p_end}
-{phang2}4. {cmd:msm_predict} {hline 2} compute predictions (required for predictions){p_end}
-{phang2}5. {cmd:msm_diagnose} {hline 2} run diagnostics (required for balance/weights){p_end}
-{phang2}6. {cmd:msm_sensitivity} {hline 2} sensitivity analysis (required for sensitivity){p_end}
+{phang2}1. {helpb msm_prepare} {hline 2} set up data{p_end}
+{phang2}2. {helpb msm_weight} {hline 2} compute IPTW weights{p_end}
+{phang2}3. {helpb msm_fit} {hline 2} fit outcome model (for Coefficients sheet){p_end}
+{phang2}4. {helpb msm_predict} {hline 2} predictions (for Predictions sheet){p_end}
+{phang2}5. {helpb msm_diagnose} {hline 2} diagnostics (for Balance and Weights sheets){p_end}
+{phang2}6. {helpb msm_sensitivity} {hline 2} sensitivity (for Sensitivity sheet){p_end}
+
+
+{marker examples}{...}
+{title:Examples}
+
+{pstd}
+{bf:Export all available pipeline results:}{p_end}
+
+{phang2}{cmd:. msm_table, xlsx(results.xlsx) eform replace}{p_end}
+
+{pstd}
+{bf:Export only the coefficient table with odds ratios:}{p_end}
+
+{phang2}{cmd:. msm_table, xlsx(coef_table.xlsx) coefficients eform replace}{p_end}
+
+{pstd}
+{bf:Export predictions and balance on separate sheets:}{p_end}
+
+{phang2}{cmd:. msm_table, xlsx(tables.xlsx) predictions balance replace}{p_end}
+
+{pstd}
+{bf:Publication-style formatting:}{p_end}
+
+{phang2}{cmd:. msm_table, xlsx(pub_table.xlsx) all eform decimals(2)}{p_end}
+{phang2}{cmd:    sep(" to ") title("Table 1: MSM Results") replace}{p_end}
+
+{pstd}
+{bf:Academic border style with custom font:}{p_end}
+
+{phang2}{cmd:. msm_table, xlsx(results.xlsx) all eform}{p_end}
+{phang2}{cmd:    font(Calibri) fontsize(11) borderstyle(academic) replace}{p_end}
+
+{pstd}
+{bf:Zebra striping, bold significant p-values, and a footnote:}{p_end}
+
+{phang2}{cmd:. msm_table, xlsx(results.xlsx) coefficients eform zebra}{p_end}
+{phang2}{cmd:    boldp(0.05) highlight(0.05)}{p_end}
+{phang2}{cmd:    footnote("Bold p-values indicate significance at 0.05.") replace}{p_end}
+
+{pstd}
+{bf:Auto-open after export:}{p_end}
+
+{phang2}{cmd:. msm_table, xlsx(results.xlsx) all eform zebra open replace}{p_end}
 
 
 {marker author}{...}
 {title:Author}
 
 {pstd}
-Timothy P Copeland, Karolinska Institutet{break}
-timothy.copeland@ki.se
+Timothy P Copeland{break}
+Department of Clinical Neuroscience, Karolinska Institutet
 {p_end}
 
 {hline}

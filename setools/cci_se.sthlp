@@ -3,6 +3,7 @@
 {vieweralsosee "[D] generate" "help generate"}{...}
 {vieweralsosee "procmatch" "help procmatch"}{...}
 {vieweralsosee "migrations" "help migrations"}{...}
+{vieweralsosee "setools" "help setools"}{...}
 {viewerjumpto "Syntax" "cci_se##syntax"}{...}
 {viewerjumpto "Description" "cci_se##description"}{...}
 {viewerjumpto "Options" "cci_se##options"}{...}
@@ -55,22 +56,37 @@
 
 {pstd}
 {cmd:cci_se} computes the Swedish adaptation of the Charlson Comorbidity Index (CCI)
-from diagnosis-level registry data. It implements the algorithm described in
-Ludvigsson et al. (2021), which maps comorbidity definitions across all four ICD
-revisions used in Swedish national health registries: ICD-7 (before 1969),
-ICD-8 (1969{c -}1986), ICD-9 (1987{c -}1997), and ICD-10 (1997+).
+from diagnosis-level registry data.  The Charlson index is a widely used summary
+score that captures the burden of chronic disease; higher values predict increased
+mortality.
 
 {pstd}
-The command takes long-format data (one or more rows per patient) and collapses it to
-one row per patient with the weighted CCI score. Diagnosis codes may be stored in a
-single string variable or across multiple diagnosis variables named in {opt icd()}.
-The date determines which ICD version is used for code matching, so all diagnosis
-variables listed in {opt icd()} are assumed to correspond to the same row-level date.
+The command implements the algorithm described in Ludvigsson et al. (2021), which
+maps comorbidity definitions across all four ICD revisions used in Swedish national
+health registries: ICD-7 (before 1969), ICD-8 (1969{c -}1986), ICD-9
+(1987{c -}1997), and ICD-10 (1997+).  The correct ICD version is determined
+automatically from each row's {opt date()} value, so diagnosis records spanning
+decades of registry data can be processed in a single call.
 
 {pstd}
-{bf:Important:} This command replaces the data in memory with patient-level results.
-Use {cmd:preserve}/{cmd:restore} if you need to keep the original data, or save the
-CCI results to a temporary file for merging.
+{bf:What you need:}  Long-format data with one or more rows per patient, where each
+row represents a diagnosis record.  You supply a patient ID, one or more string
+variables containing ICD codes, and a date variable.
+
+{pstd}
+{bf:What you get:}  A patient-level dataset (one row per unique {opt id()}) with the
+weighted CCI score.  Optionally, binary indicators for each of the 18 comorbidity
+components ({opt components}) and their earliest diagnosis dates ({opt dates}).
+
+{pstd}
+Diagnosis codes may be stored in a single string variable or across multiple
+diagnosis variables listed in {opt icd()}.  All diagnosis variables in {opt icd()}
+are assumed to correspond to the same row-level date.
+
+{pstd}
+{bf:Important:}  This command replaces the data in memory with patient-level results.
+Save the CCI output to a temporary file and merge it into your analysis cohort (see
+Example 5).
 
 
 {marker options}{...}
@@ -361,10 +377,13 @@ Part of the {help setools:setools} package for Swedish registry research.{p_end}
 {title:Also see}
 
 {pstd}
-{help setools:setools} - Swedish registry toolkit overview{p_end}
+{help setools:setools} {hline 2} Swedish registry toolkit overview{p_end}
 {pstd}
-{help procmatch:procmatch} - KVA procedure code matching{p_end}
+{help procmatch:procmatch} {hline 2} KV{c a:} procedure code matching{p_end}
 {pstd}
-{help migrations:migrations} - Process Swedish migration registry data{p_end}
+{help migrations:migrations} {hline 2} Process Swedish migration registry data{p_end}
+
 {pstd}
 Online: {browse "https://github.com/tpcopeland/Stata-Tools":Stata-Tools on GitHub}{p_end}
+
+{hline}

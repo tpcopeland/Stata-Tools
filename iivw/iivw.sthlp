@@ -6,7 +6,9 @@
 {vieweralsosee "[ST] stcox" "help stcox"}{...}
 {viewerjumpto "Syntax" "iivw##syntax"}{...}
 {viewerjumpto "Description" "iivw##description"}{...}
+{viewerjumpto "When do I need this?" "iivw##when"}{...}
 {viewerjumpto "Commands" "iivw##commands"}{...}
+{viewerjumpto "Choosing a weight type" "iivw##choosing"}{...}
 {viewerjumpto "Workflow" "iivw##workflow"}{...}
 {viewerjumpto "Examples" "iivw##examples"}{...}
 {viewerjumpto "Stored results" "iivw##results"}{...}
@@ -25,6 +27,10 @@
 {p 8 17 2}
 {cmd:iivw}
 
+{pstd}
+Typing {cmd:iivw} without arguments displays a package overview.  The two
+working commands are {helpb iivw_weight} and {helpb iivw_fit}.
+
 
 {marker description}{...}
 {title:Description}
@@ -42,12 +48,50 @@ The package provides two main commands:
 {phang2}{helpb iivw_weight} computes IIW, IPTW, or FIPTIW weights{p_end}
 {phang2}{helpb iivw_fit} fits weighted outcome models via GEE or mixed effects{p_end}
 
+
+{marker when}{...}
+{title:When do I need this?}
+
 {pstd}
-In clinic-based longitudinal data, sicker patients often visit more frequently,
-biasing naive analyses.  IIW corrects this by weighting each observation by the
-inverse of its estimated visit intensity.  When combined with IPTW for treatment
-confounding, the resulting FIPTIW weights address both sources of bias
-simultaneously.
+{bf:The core problem.}  In clinic-based longitudinal studies, patients are
+not observed on a fixed schedule.  Sicker patients often visit the clinic
+more frequently, so they contribute more rows to the analysis dataset.
+A naive regression on this data over-represents sick patients at each time
+point, which biases estimates of treatment effects, disease trajectories,
+and covariate associations.
+
+{pstd}
+{bf:What IIW does.}  Inverse intensity weighting down-weights observations
+from patients who visit frequently (relative to what the model predicts)
+and up-weights observations from patients who visit rarely.  After
+reweighting, the analysis behaves as though all patients were observed on
+the same schedule, removing the bias created by outcome-dependent visit
+timing.
+
+{pstd}
+{bf:You likely need this package if:}
+
+{phang2}(a) Your data comes from a clinical registry, electronic health
+records, or any setting where visit times are determined by clinical need
+rather than a protocol.{p_end}
+
+{phang2}(b) You have longitudinal data with unequal numbers of visits per
+subject, and you suspect that sicker (or healthier) patients are observed
+more often.{p_end}
+
+{phang2}(c) You want to estimate a treatment effect, disease trajectory, or
+covariate association in such data and need to remove the bias introduced by
+informative visit timing.{p_end}
+
+{pstd}
+{bf:You do not need this package if:}
+
+{phang2}(a) Your data comes from a randomized trial with a fixed visit
+schedule (all patients observed at the same planned time points).{p_end}
+
+{phang2}(b) Missing visits are the main concern rather than differential
+visit frequency.  For missing data due to dropout, consider inverse
+probability of censoring weighting (IPCW) instead.{p_end}
 
 
 {marker commands}{...}
@@ -58,27 +102,67 @@ simultaneously.
 {synopt:{helpb iivw_fit}}fit weighted outcome model using GEE or mixed effects{p_end}
 
 
+{marker choosing}{...}
+{title:Choosing a weight type}
+
+{pstd}
+{cmd:iivw_weight} supports three types of weights.  Which one you need
+depends on the sources of bias in your study:
+
+{p2colset 5 18 60 2}{...}
+{p2col:{bf:Weight type}}{bf:When to use}{p_end}
+{p2col:{cmd:iivw}}Visit timing is informative (sicker patients visit more
+often), but treatment assignment is either randomized or not a concern.
+This is the most common case for registry data without a treatment
+comparison.{p_end}
+{p2col:{cmd:iptw}}Treatment assignment is non-random (confounding by
+indication), but visit timing is either protocol-driven or not
+informative.  This is standard propensity-score weighting.{p_end}
+{p2col:{cmd:fiptiw}}Both problems are present: visit timing is informative
+{it:and} treatment assignment is confounded.  The weight is the product
+IIW x IPTW.  This is the most common case when comparing treatments in
+registry data.{p_end}
+{p2colreset}{...}
+
+{pstd}
+By default, {cmd:iivw_weight} auto-detects the weight type: if you specify
+{opt treat()}, it computes FIPTIW; otherwise it computes IIW.  You can
+override this with {opt wtype()}.
+
+
 {marker workflow}{...}
 {title:Workflow}
 
 {pstd}
-The typical analysis proceeds in three steps:
+A typical analysis proceeds in three steps:
 
-{phang2}1. Compute weights with {cmd:iivw_weight}, specifying the visit intensity
-covariates and (optionally) treatment and treatment covariates.{p_end}
+{phang2}1. {bf:Compute weights} with {cmd:iivw_weight}, specifying the visit
+intensity covariates and (optionally) treatment and treatment covariates.
+The command creates a weight variable in the dataset.{p_end}
 
-{phang2}2. Inspect weights using {cmd:summarize _iivw_weight, detail} and
-optionally re-run with truncation.{p_end}
+{phang2}2. {bf:Inspect weights} using {cmd:summarize _iivw_weight, detail}.
+Look for extreme values (very large max or very small min).  If the weight
+distribution has heavy tails, re-run {cmd:iivw_weight} with
+{opt truncate(1 99)} to stabilize the weights.  A mean near 1.0 is expected
+for well-specified models.{p_end}
 
-{phang2}3. Fit the outcome model with {cmd:iivw_fit}, which applies the weights
-to a GEE (independence working correlation) or mixed model.{p_end}
+{phang2}3. {bf:Fit the outcome model} with {cmd:iivw_fit}, which reads the
+weights from the dataset automatically.  The default is a GEE-style model
+(GLM with clustered robust standard errors), equivalent to independence
+working correlation GEE.{p_end}
 
 
 {marker examples}{...}
 {title:Examples}
 
 {pstd}
-{bf:Setup example data}
+{bf:Setup: create example longitudinal data}
+
+{pstd}
+These examples use a synthetic panel dataset that mimics a clinical registry:
+80 patients, each with 4 visits at irregular intervals, with a continuous
+outcome (EDSS disability score), a binary treatment, and a binary event
+(relapse) that also predicts future visit timing.
 
 {phang2}{cmd:. clear}{p_end}
 {phang2}{cmd:. set seed 20260417}{p_end}
@@ -102,13 +186,23 @@ to a GEE (independence working correlation) or mixed model.{p_end}
 {phang2}{cmd:. label values treatment arm}{p_end}
 
 {pstd}
-{bf:Example 1: IIW only (visit process correction)}
+{bf:Example 1: IIW only (correct the visit process)}
+
+{pstd}
+When the main concern is that patients with worse disease are seen more
+often, but treatment assignment is either randomized or not being analyzed:
 
 {phang2}{cmd:. iivw_weight, id(id) time(days) visit_cov(edss relapse) nolog}{p_end}
+{phang2}{cmd:. summarize _iivw_weight, detail}{p_end}
 {phang2}{cmd:. iivw_fit edss treated edss_bl, model(gee) timespec(linear)}{p_end}
 
 {pstd}
-{bf:Example 2: FIPTIW (visit + treatment correction)}
+{bf:Example 2: FIPTIW (correct both visit timing and treatment confounding)}
+
+{pstd}
+When both visit frequency and treatment assignment are driven by disease
+severity, add {opt treat()} and {opt treat_cov()} to correct for both
+simultaneously:
 
 {phang2}{cmd:. iivw_weight, id(id) time(days) visit_cov(edss relapse) treat(treated) treat_cov(age sex edss_bl) truncate(1 99) replace nolog}{p_end}
 {phang2}{cmd:. iivw_fit edss treated age sex edss_bl, model(gee) timespec(quadratic)}{p_end}

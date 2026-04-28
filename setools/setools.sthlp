@@ -1,7 +1,11 @@
 {smcl}
 {* *! version 1.2.1  26apr2026}{...}
+{vieweralsosee "cci_se" "help cci_se"}{...}
 {vieweralsosee "cdp" "help cdp"}{...}
 {vieweralsosee "migrations" "help migrations"}{...}
+{vieweralsosee "pira" "help pira"}{...}
+{vieweralsosee "procmatch" "help procmatch"}{...}
+{vieweralsosee "sustainedss" "help sustainedss"}{...}
 {viewerjumpto "Syntax" "setools##syntax"}{...}
 {viewerjumpto "Description" "setools##description"}{...}
 {viewerjumpto "Options" "setools##options"}{...}
@@ -37,16 +41,31 @@
 {title:Description}
 
 {pstd}
-{cmd:setools} provides utilities for working with Swedish health registries and
-conducting epidemiological cohort studies. The package includes tools for
-procedure code matching, comorbidity scoring, migration processing,
-and MS disability progression endpoints (EDSS, CDP, PIRA).
+{cmd:setools} is a toolkit for Swedish register-based epidemiological research.
+It provides practical building blocks for cohort definition, comorbidity scoring,
+procedure-code extraction, and disability-progression endpoints built from repeated
+EDSS measurements.
 
 {pstd}
-By default, {cmd:setools} displays a grouped package overview. Use {opt list}
-for a compact command list, {opt detail} for longer command descriptions, and
-{opt category()} to restrict the display and returned command list to one
-command group. {opt list} and {opt detail} are mutually exclusive.
+Running {cmd:setools} by itself displays a grouped overview of all commands.  Use
+{opt list} for a compact command list, {opt detail} for longer descriptions, and
+{opt category()} to restrict the display to one command group.  {opt list} and
+{opt detail} are mutually exclusive.
+
+{pstd}
+{bf:Choosing the right command:}
+
+{p2colset 5 28 30 2}{...}
+{p2col:If you need to...}Use{p_end}
+{p2line}
+{p2col:Score comorbidities from ICD codes}{helpb cci_se}{p_end}
+{p2col:Search procedure variables for KV{c a:} codes}{helpb procmatch}{p_end}
+{p2col:Exclude non-residents and derive emigration censoring}{helpb migrations}{p_end}
+{p2col:Find the first sustained EDSS threshold crossing}{helpb sustainedss}{p_end}
+{p2col:Define confirmed disability progression (CDP)}{helpb cdp}{p_end}
+{p2col:Classify CDP as PIRA vs relapse-associated}{helpb pira}{p_end}
+{p2line}
+{p2colreset}{...}
 
 
 {marker options}{...}

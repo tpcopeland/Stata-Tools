@@ -9,8 +9,10 @@
 {viewerjumpto "Options" "iivw_weight##options"}{...}
 {viewerjumpto "Weight types" "iivw_weight##wtypes"}{...}
 {viewerjumpto "Remarks" "iivw_weight##remarks"}{...}
+{viewerjumpto "Diagnostics" "iivw_weight##diagnostics"}{...}
 {viewerjumpto "Examples" "iivw_weight##examples"}{...}
 {viewerjumpto "Stored results" "iivw_weight##results"}{...}
+{viewerjumpto "References" "iivw_weight##references"}{...}
 {viewerjumpto "Author" "iivw_weight##author"}{...}
 {title:Title}
 
@@ -71,17 +73,31 @@
 in longitudinal panel data.  Three types of weights are available:
 
 {phang2}{bf:IIW} (inverse intensity weighting) corrects for outcome-dependent
-visit frequency using an Andersen-Gill recurrent-event Cox model.{p_end}
+visit frequency using an Andersen-Gill recurrent-event Cox model.  Use this
+when sicker patients visit the clinic more often, causing them to be
+over-represented in the data.{p_end}
 
 {phang2}{bf:IPTW} (inverse probability of treatment weighting) corrects for
-confounding by indication using a cross-sectional logistic model.{p_end}
+confounding by indication using a cross-sectional logistic model.  Use this
+when treatment assignment is driven by patient characteristics (e.g., sicker
+patients are more likely to receive an active drug).{p_end}
 
 {phang2}{bf:FIPTIW} (fully inverse probability of treatment and intensity
-weighting) is the product IIW x IPTW, correcting for both sources of bias.{p_end}
+weighting) is the product IIW x IPTW, correcting for both sources of bias
+simultaneously.  Use this when both visit frequency and treatment assignment
+are driven by patient characteristics.{p_end}
 
 {pstd}
 The weight type is auto-detected: if {opt treat()} is specified, FIPTIW is
 computed; otherwise, IIW only.  Override with {opt wtype()}.
+
+{pstd}
+{bf:What the command creates.}  {cmd:iivw_weight} adds one or more weight
+variables to the dataset.  The final weight variable (by default
+{cmd:_iivw_weight}) is used automatically by {helpb iivw_fit} in the next
+step.  If you specified FIPTIW, two component variables are also created:
+{cmd:_iivw_iw} (the visit intensity weight) and {cmd:_iivw_tw} (the treatment
+weight).  You can change the prefix with {opt generate()}.
 
 
 {marker options}{...}
@@ -91,83 +107,139 @@ computed; otherwise, IIW only.  Override with {opt wtype()}.
 
 {phang}
 {opt id(varname)} specifies the subject identifier.  Data must be in long
-panel format with multiple rows per subject.
+panel format with multiple rows per subject (one row per visit).
 
 {phang}
-{opt time(varname)} specifies the visit time in continuous units (e.g., months
-since baseline).  Must be numeric and uniquely identify visits within subjects.
+{opt time(varname)} specifies the visit time in continuous units (e.g., days
+since baseline, months since enrollment).  Must be numeric and uniquely
+identify visits within each subject.  If your time variable has ties within
+a subject (e.g., two visits on the same day), resolve them first.
 
 {dlgtab:Visit model (required for IIW/FIPTIW)}
 
 {phang}
-{opt visit_cov(varlist)} specifies covariates for the visit intensity
-Andersen-Gill Cox model.  These should include factors that predict visit
-frequency (e.g., disease severity, recent relapses).  Required for IIW and
-FIPTIW weights.  For {cmd:wtype(iptw)}, {opt visit_cov()} is optional; if
-{opt treat_cov()} is specified, the visit model is skipped entirely.
+{opt visit_cov(varlist)} specifies covariates for the Andersen-Gill Cox model
+that predicts visit frequency.  These should include factors that you believe
+drive visit timing: current disease severity, recent clinical events, and any
+other variables associated with when a patient comes in for a visit.  Required
+for IIW and FIPTIW weights.
+
+{pmore}
+For {cmd:wtype(iptw)}, {opt visit_cov()} is optional.  If {opt treat_cov()}
+is specified, the visit model is skipped entirely.  If only {opt visit_cov()}
+is specified (without {opt treat_cov()}), it is used as the treatment model
+covariates with a note.
+
+{pmore}
+{bf:Choosing visit covariates.}  Include variables that predict both (a) the
+outcome and (b) visit frequency.  Time-varying covariates (measured at each
+visit) are typical: current disease score, recent adverse events, lab values.
+Baseline-only covariates (age, sex) are useful if they independently predict
+visit frequency.  Over-fitting the visit model is generally less harmful than
+under-fitting, because the weights only need to be directionally correct.
 
 {dlgtab:Treatment (IPTW)}
 
 {phang}
 {opt treat(varname)} specifies a binary (0/1) time-invariant treatment
-indicator.  Required for IPTW or FIPTIW weights.
+indicator.  Each subject must have the same treatment value at every visit.
+Required for IPTW or FIPTIW weights.  For time-varying treatments (e.g.,
+switching drugs), consider marginal structural models (MSMs) instead.
 
 {phang}
 {opt treat_cov(varlist)} specifies covariates for the treatment propensity
-score model.  If omitted, {opt visit_cov()} is used as fallback.
+score model (logistic regression).  These should include baseline
+characteristics that predict treatment assignment: demographics, baseline
+disease severity, comorbidities.  If omitted, {opt visit_cov()} is used as
+fallback.
+
+{pmore}
+The propensity score model is fit on a cross-sectional dataset (one row per
+subject) to avoid over-counting subjects with more visits.  The resulting
+score is merged back to all visits for each subject.
 
 {dlgtab:Weight specification}
 
 {phang}
 {opt wtype(string)} overrides automatic weight type detection.  Options are
-{cmd:iivw}, {cmd:iptw}, or {cmd:fiptiw}.
+{cmd:iivw}, {cmd:iptw}, or {cmd:fiptiw}.  By default, specifying {opt treat()}
+triggers FIPTIW; omitting it triggers IIW.
 
 {phang}
 {opt stab:cov(varlist)} specifies covariates for the IIW stabilization
-numerator model.  When specified, a second Cox model is fit with only these
-covariates, and the IIW weight becomes exp(xb_stab - xb_full).  In the
-FIPTIW setting (Tompkins et al. 2025), the numerator model typically
+numerator model.  Without this option, the IIW weight is
+{it:exp(-xb_full)}, which can be volatile.  With stabilization, a second
+(simpler) Cox model is fit using only {opt stabcov()}, and the weight becomes
+{it:exp(xb_stab - xb_full)}.
+
+{pmore}
+In the FIPTIW setting (Tompkins et al. 2025), the numerator model typically
 includes only the treatment variable, not the time-varying confounders
-that appear in the full visit model.
+that appear in the full visit model.  This stabilizes the weights while
+preserving the treatment effect estimand.
 
 {dlgtab:Data options}
 
 {phang}
 {opt lag:vars(varlist)} creates lagged versions (lag-1) of the specified
 time-varying covariates within each subject.  Lagged variables are named
-{it:varname}_lag1 and are automatically included in the visit intensity model.
+{it:varname}_lag1 and are automatically included in the visit intensity model
+alongside any variables in {opt visit_cov()}.
+
+{pmore}
+Lagging avoids using the current visit's outcome to predict the current
+visit (which is tautological).  For example, if EDSS at visit {it:t}
+partly determines when visit {it:t} happens, using the previous visit's
+EDSS ({cmd:edss_lag1}) is more appropriate.
 
 {phang}
 {opt entry(varname)} specifies a subject-specific study entry time.  The
 default is 0 for all subjects.  This affects the start time for the first
-visit's counting process interval.  In designs with late entry or left
-truncation, ensure that entry times are strictly less than first visit
+visit's counting process interval in the Andersen-Gill model.
+
+{pmore}
+In designs with late entry or left truncation, set this to the date
+(in the same units as {opt time()}) when each subject became eligible for
+observation.  Ensure that entry times are strictly less than first visit
 times.  Examine the weight distribution carefully in such designs, as late
 entry can concentrate weight on a few early-entering subjects.
 
 {dlgtab:Reporting}
 
 {phang}
-{opt truncate(# #)} truncates weights at the specified percentiles.  For
-example, {cmd:truncate(1 99)} trims weights below the 1st and above the 99th
-percentile to those boundary values.
+{opt truncate(# #)} truncates (winsorizes) weights at the specified
+percentiles.  For example, {cmd:truncate(1 99)} sets all weights below the
+1st percentile to the 1st percentile value, and all weights above the 99th
+percentile to the 99th percentile value.  This stabilizes estimates when a
+few observations have extreme weights.
+
+{pmore}
+Truncation does not drop observations; it caps the influence of extreme
+weights.  A common starting point is {cmd:truncate(1 99)}.  If you still
+see extreme weights after truncation, check whether the visit model is
+well-specified or whether certain subjects have unusual visit patterns.
 
 {phang}
 {opt generate(name)} specifies a prefix for generated weight variables.
-Default is {cmd:_iivw_}.  Variables created include {it:prefix}iw,
-{it:prefix}tw, and {it:prefix}weight.
+Default is {cmd:_iivw_}.  Variables created include {it:prefix}iw (IIW
+component), {it:prefix}tw (IPTW component), and {it:prefix}weight (final
+combined weight).
 
 {phang}
-{opt replace} allows overwriting existing weight variables.
+{opt replace} allows overwriting existing weight variables.  Without this
+option, {cmd:iivw_weight} errors if any generated variable already exists.
+Use this when re-running the weighting step with different options.
 
 {phang}
 {opt nolog} suppresses iteration logs from the Cox and logistic models.
 
 {phang}
 {opt efron} uses the Efron method for handling tied event times in the
-Andersen-Gill Cox model. The default is Breslow. Efron is more accurate
-when there are many tied visit times (common in clinic data with monthly
-or quarterly rounding). This also matches R's {cmd:coxph()} default.
+Andersen-Gill Cox model.  The default is Breslow.  Efron is more accurate
+when there are many tied visit times, which is common in clinic data where
+visits are recorded at monthly or quarterly granularity.  This option also
+matches R's {cmd:coxph()} default, which is useful when cross-validating
+results against R.
 
 
 {marker wtypes}{...}
@@ -179,24 +251,43 @@ or quarterly rounding). This also matches R's {cmd:coxph()} default.
 {pstd}
 Visit intensity is modeled as an Andersen-Gill counting process where each
 visit is a recurrent event.  The Cox model estimates the conditional hazard of
-visiting given covariates.  The IIW weight for each observation is exp(-xb),
-where xb is the linear predictor from the Cox model.  First observations per
-subject receive weight 1.
+a visit occurring given covariates.  Subjects whose covariates predict frequent
+visits receive lower weights (they are over-represented), while subjects whose
+covariates predict rare visits receive higher weights (they are
+under-represented).
+
+{pstd}
+Formally, the IIW weight for each observation is exp(-xb), where xb is the
+linear predictor from the Cox model.  First observations per subject always
+receive weight 1 because there is no prior inter-visit interval from which
+to estimate intensity.
 
 {pstd}
 {bf:IPTW (inverse probability of treatment weighting)}
 
 {pstd}
-A logistic regression estimates the propensity score P(treatment | covariates).
+A logistic regression estimates the propensity score: the probability of
+receiving treatment given measured covariates.  IPTW creates a pseudo-population
+in which treatment is independent of the measured confounders, enabling an
+unbiased estimate of the treatment effect.
+
+{pstd}
 IPTW weights are always stabilized using the marginal treatment prevalence as
-the numerator: P(treatment)/P(treatment | covariates) for treated
-and (1-P(treatment))/(1-P(treatment | covariates)) for untreated.
+the numerator: P(treatment)/P(treatment | covariates) for treated subjects
+and (1-P(treatment))/(1-P(treatment | covariates)) for untreated subjects.
+Stabilization reduces weight variability without changing the estimand.
+
+{pstd}
+The propensity model is fit on a cross-sectional dataset (one row per subject)
+to avoid over-counting subjects with more visits.
 
 {pstd}
 {bf:FIPTIW}
 
 {pstd}
-The final weight is simply IIW x IPTW, applied to each observation.
+The final weight is IIW x IPTW, applied to each observation.  This product
+simultaneously reweights for both informative visit timing and confounding
+by indication.
 
 
 {marker remarks}{...}
@@ -206,9 +297,10 @@ The final weight is simply IIW x IPTW, applied to each observation.
 {bf:Data requirements}
 
 {pstd}
-Data must be in long panel format with one row per subject-visit.  Each subject
-must have at least 2 visits.  The {opt treat()} variable must be binary and
-time-invariant within subjects.
+Data must be in long panel format with one row per subject-visit.  Each
+subject must have at least 2 visits.  The {opt id()} and {opt time()}
+combination must uniquely identify each row.  The {opt treat()} variable
+must be binary (0/1) and time-invariant within subjects.
 
 {pstd}
 {bf:First-observation weights}
@@ -226,16 +318,20 @@ a note is displayed and the weight remains 1.
 Extreme weights can destabilize estimates.  The {opt truncate()} option
 winsorizes weights at the specified percentiles (sets values beyond the
 bounds to the boundary value, rather than dropping observations).  A common
-choice is {cmd:truncate(1 99)}.
+choice is {cmd:truncate(1 99)}.  Start without truncation, inspect the
+weight distribution, and add truncation if the max weight is very large
+(e.g., > 10) or the effective sample size is much smaller than N.
 
 {pstd}
 {bf:Extreme propensity scores}
 
 {pstd}
 When computing IPTW or FIPTIW weights, propensity scores near 0 or 1
-produce extreme weights.  {cmd:iivw_weight} displays a note if any
-observations have propensity scores below 0.01 or above 0.99,
-recommending {opt truncate()} to stabilize weights.
+produce extreme weights because they appear in the denominator.
+{cmd:iivw_weight} displays a note if any observations have propensity
+scores below 0.01 or above 0.99, recommending {opt truncate()} to stabilize
+weights.  Extreme propensity scores can indicate positivity violations
+(some covariate patterns always or never receive treatment).
 
 {pstd}
 {bf:Effective sample size}
@@ -244,7 +340,46 @@ recommending {opt truncate()} to stabilize weights.
 The effective sample size (ESS) measures how much information the weighted
 sample retains relative to an unweighted sample of the same size.  It is
 calculated as (sum w)^2 / sum(w^2).  An ESS much smaller than N indicates
-highly variable weights that may reduce statistical power.
+highly variable weights that may reduce statistical power.  As a rule of
+thumb, an ESS below 50% of N warrants investigating model specification or
+using truncation.
+
+{pstd}
+{bf:Weight mean}
+
+{pstd}
+For a correctly specified model, the mean of the weights should be close to
+1.0.  {cmd:iivw_weight} displays a note if the mean deviates from 1 by more
+than 0.2.  A mean far from 1 can indicate model misspecification or data
+issues.
+
+
+{marker diagnostics}{...}
+{title:Diagnostics}
+
+{pstd}
+After running {cmd:iivw_weight}, check the following before proceeding to
+{cmd:iivw_fit}:
+
+{phang2}1. {bf:Weight distribution.}  Run {cmd:summarize _iivw_weight, detail}.
+Look at the min, max, and percentiles.  Weights with a max above 10 or a
+ratio of max/min above 100 suggest the model may be struggling with certain
+subjects.{p_end}
+
+{phang2}2. {bf:Effective sample size.}  Reported by {cmd:iivw_weight}
+automatically.  If ESS is much less than N, consider truncation or
+simplifying the visit model.{p_end}
+
+{phang2}3. {bf:Weight mean.}  Should be near 1.0.  A mean far from 1
+suggests model misspecification.{p_end}
+
+{phang2}4. {bf:Sensitivity to truncation.}  Compare results with and without
+{opt truncate(1 99)}.  If the treatment effect changes substantially, the
+estimate may be driven by a few extreme weights.{p_end}
+
+{phang2}5. {bf:IPTW component.}  For FIPTIW, inspect {cmd:_iivw_tw}
+separately.  Extreme treatment weights usually indicate positivity
+violations.{p_end}
 
 
 {marker examples}{...}
@@ -272,7 +407,12 @@ highly variable weights that may reduce statistical power.
 {phang2}{cmd:. gen byte relapse = (runiform() < invlogit(-2 + 0.4 * edss))}{p_end}
 
 {pstd}
-{bf:Example 1: IIW only}
+{bf:Example 1: Basic IIW weights}
+
+{pstd}
+Correct for informative visit timing only.  The visit model includes
+current disease severity (edss) and recent relapses as predictors of when
+patients visit the clinic.
 
 {phang2}{cmd:. iivw_weight, id(id) time(days) visit_cov(edss relapse) nolog}{p_end}
 {phang2}{cmd:. summarize _iivw_weight, detail}{p_end}
@@ -280,17 +420,55 @@ highly variable weights that may reduce statistical power.
 {pstd}
 {bf:Example 2: FIPTIW with truncation}
 
+{pstd}
+Correct for both informative visits and treatment confounding.
+{opt truncate(1 99)} caps extreme weights at the 1st and 99th percentiles.
+
 {phang2}{cmd:. iivw_weight, id(id) time(days) visit_cov(edss relapse) treat(treated) treat_cov(age sex edss_bl) truncate(1 99) nolog}{p_end}
 
 {pstd}
-{bf:Example 3: With lagged covariates}
+{bf:Example 3: Lagged covariates in the visit model}
 
-{phang2}{cmd:. iivw_weight, id(id) time(days) visit_cov(edss relapse) lagvars(edss relapse) nolog}{p_end}
+{pstd}
+Using a lagged version of a time-varying covariate avoids the conceptual
+problem of using the current visit's measurement to predict the current
+visit's timing.  {opt lagvars()} creates the lagged variables automatically.
+
+{phang2}{cmd:. iivw_weight, id(id) time(days) visit_cov(edss relapse) lagvars(edss relapse) replace nolog}{p_end}
 
 {pstd}
 {bf:Example 4: Custom variable prefix}
 
+{pstd}
+Use {opt generate()} to change the prefix of created weight variables,
+which is useful when comparing different weighting specifications
+side by side.
+
 {phang2}{cmd:. iivw_weight, id(id) time(days) visit_cov(edss) generate(w_) replace nolog}{p_end}
+
+{pstd}
+{bf:Example 5: IPTW only (treatment confounding without visit correction)}
+
+{phang2}{cmd:. iivw_weight, id(id) time(days) treat(treated) treat_cov(age sex edss_bl) wtype(iptw) replace nolog}{p_end}
+
+{pstd}
+{bf:Example 6: Stabilized IIW weights}
+
+{pstd}
+Fit a simpler numerator model to stabilize the IIW weights.  This reduces
+weight variability without changing the target estimand.
+
+{phang2}{cmd:. iivw_weight, id(id) time(days) visit_cov(edss relapse) stabcov(treated) replace nolog}{p_end}
+
+{pstd}
+{bf:Example 7: Efron tie handling}
+
+{pstd}
+When visit times are rounded (e.g., monthly), many subjects may share
+the same visit time.  The Efron method handles these ties more accurately
+than the default Breslow method.
+
+{phang2}{cmd:. iivw_weight, id(id) time(days) visit_cov(edss relapse) efron replace nolog}{p_end}
 
 
 {marker results}{...}
@@ -316,6 +494,26 @@ highly variable weights that may reduce statistical power.
 {p2col 5 20 24 2: Macros}{p_end}
 {synopt:{cmd:r(weighttype)}}weight type (iivw, iptw, or fiptiw){p_end}
 {synopt:{cmd:r(weight_var)}}name of final weight variable{p_end}
+
+
+{marker references}{...}
+{title:References}
+
+{phang}
+Buzkova P, Lumley T. 2007.
+Longitudinal data analysis for generalized linear models with follow-up
+dependent on outcome-related variables.
+{it:Canadian Journal of Statistics} 35: 485-500.
+
+{phang}
+Lin H, Scharfstein DO, Rosenheck RA. 2004.
+Analysis of longitudinal data with irregular, outcome-dependent follow-up.
+{it:JRSS-B} 66: 791-813.
+
+{phang}
+Tompkins G, Dubin JA, Wallace M. 2025.
+On flexible inverse probability of treatment and intensity weighting.
+{it:Statistical Methods in Medical Research}.
 
 
 {marker author}{...}

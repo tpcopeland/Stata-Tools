@@ -1,13 +1,16 @@
 {smcl}
 {* *! version 1.2.0  24apr2026}{...}
 {vieweralsosee "[ST] stset" "help stset"}{...}
-{vieweralsosee "sustainedss" "help sustainedss"}{...}
+{vieweralsosee "cci_se" "help cci_se"}{...}
+{vieweralsosee "setools" "help setools"}{...}
 {viewerjumpto "Syntax" "migrations##syntax"}{...}
 {viewerjumpto "Description" "migrations##description"}{...}
 {viewerjumpto "Options" "migrations##options"}{...}
+{viewerjumpto "Remarks" "migrations##remarks"}{...}
 {viewerjumpto "Examples" "migrations##examples"}{...}
 {viewerjumpto "Stored results" "migrations##results"}{...}
 {viewerjumpto "Author" "migrations##author"}{...}
+
 {title:Title}
 
 {p2colset 5 20 22 2}{...}
@@ -22,21 +25,21 @@
 {cmdab:migrations}
 {cmd:,} {opt mig:file(filename)} [{it:options}]
 
-{synoptset 24 tabbed}{...}
+{synoptset 28 tabbed}{...}
 {synopthdr}
 {synoptline}
 {syntab:Required}
-{synopt:{opt mig:file(filename)}}path to migration data file in wide or long format{p_end}
+{synopt:{opt mig:file(filename)}}path to migration data file (wide or long format){p_end}
 
 {syntab:Optional}
 {synopt:{opt id:var(varname)}}ID variable; default is {cmd:id}{p_end}
 {synopt:{opt start:var(varname)}}study start date variable; default is {cmd:study_start}; must be nonmissing{p_end}
-{synopt:{opt min:residence(#)}}minimum days of continuous residence before study start; default is {bf:0} (disabled){p_end}
-{synopt:{opt savee:xclude(filename)}}save excluded observations to file{p_end}
-{synopt:{opt savec:ensor(filename)}}save nonmissing emigration censoring dates to file{p_end}
-{synopt:{opt replace}}replace existing files{p_end}
+{synopt:{opt min:residence(#)}}minimum days of continuous residence before study start; default is {cmd:0} (disabled){p_end}
+{synopt:{opt savee:xclude(filename)}}save excluded observations to a dataset{p_end}
+{synopt:{opt savec:ensor(filename)}}save nonmissing emigration censoring dates to a dataset{p_end}
+{synopt:{opt replace}}allow overwriting files specified in {opt saveexclude()} and {opt savecensor()}{p_end}
 {synopt:{opt verb:ose}}display processing messages{p_end}
-{synopt:{opt keep:immigrants}}include (do not exclude) persons who immigrate after study start; generates {it:migration_in_dt}{p_end}
+{synopt:{opt keep:immigrants}}include (do not exclude) post-start immigrants; creates {it:migration_in_dt}{p_end}
 {synoptline}
 {p2colreset}{...}
 
@@ -45,62 +48,53 @@
 {title:Description}
 
 {pstd}
-{cmd:migrations} processes Swedish migration registry data to identify:
+{cmd:migrations} processes Swedish migration registry data to apply two essential
+steps for register-based cohort studies:
 
-{phang2}1. {bf:Exclusions}: Individuals who should be excluded from the cohort because they were not residing in Sweden at their study start date.{p_end}
+{phang2}1. {bf:Exclude non-residents.}  People who were not living in Sweden at their
+study start date are dropped from the cohort, because Swedish health registries
+only capture care delivered in Sweden.  Including non-residents introduces
+informative censoring and misclassification.{p_end}
 
-{phang2}2. {bf:Censoring dates}: The first emigration date after study start, which can be used to right-censor individuals in survival analyses.{p_end}
-
-{pstd}
-The command expects a master dataset in memory containing individual IDs and study start dates.
-All observations in the chosen {opt startvar()} must have nonmissing study start dates.
-It then merges with the Swedish migration registry and applies the following logic.
-
-{pstd}
-The migration file supplied in {opt migfile()} may be either:
-
-{phang2}1. {bf:Wide format}: one row per person with variables {it:in_1}, {it:out_1},
-{it:in_2}, {it:out_2}, ... . All migration date variables must be Stata {it:daily}
-dates stored as whole-number daily values with {cmd:%td} display formats.{p_end}
-
-{phang2}2. {bf:Long format}: one row per migration event with the ID variable specified
-in {opt idvar()} plus variables {cmd:event_date} and {cmd:event_type}, where
-{cmd:event_type} contains {cmd:Inv}
-for immigration and {cmd:Utv} for emigration (case-insensitive). Long input is
-normalized internally to the same wide event sequence used by the existing command
-logic. {cmd:event_date} must be a Stata {it:daily} date variable with a {cmd:%td}
-display format and whole-number daily values; datetime variables such as {cmd:%tc}
-are rejected.{p_end}
+{phang2}2. {bf:Generate emigration censoring dates.}  For people who were in Sweden at
+study start but later emigrated permanently, the command creates a
+{cmd:migration_out_dt} variable containing the first permanent emigration date.
+Use this as a right-censoring date in {helpb stset} or equivalent time-to-event
+setup.{p_end}
 
 {pstd}
-{bf:Exclusion criteria:}
-
-{phang2}{bf:Type 1}: Last emigration occurred before study start AND last immigration occurred before 
-last emigration (i.e., person left Sweden and never returned before their study start).{p_end}
-
-{phang2}{bf:Type 2}: The person has no evidence of being in Sweden at study start and
-their migration history only shows immigration after study start (including duplicate
-post-start immigration records). Excluded by default; see {opt keepimmigrants} to
-include these individuals instead.{p_end}
-
-{phang2}{bf:Type 3}: Person emigrated before study start and returned after study start (i.e.,
-person was abroad at their study start date but later re-entered Sweden).{p_end}
-
-{phang2}{bf:Type 4} (optional): Person's most recent immigration before study start was fewer
-than {opt minresidence()} days before their study start date. This ensures a minimum
-period of continuous Swedish residence for complete registry coverage (e.g., NPR lookback
-windows for comorbidity scoring). Only applied when {opt minresidence()} is specified.
-Persons with no immigration record (born in Sweden) are not affected.{p_end}
+{bf:What you need in memory:}  A cohort dataset with one row per person, containing
+a patient ID and a study start date.  All study start dates must be nonmissing.
 
 {pstd}
-{bf:Censoring logic:}
+{bf:What you supply on disk:}  A migration registry file via {opt migfile()}, in
+either of two formats:
 
-{phang2}For individuals not excluded, the command identifies the first {it:permanent} emigration date
-occurring after study start as the {it:migration_out_dt} variable, which represents when the
-person left Sweden and should be censored from follow-up. Temporary emigrations (where the
-person subsequently returned to Sweden) are ignored for censoring purposes. The variable
-{it:migration_out_dt} must not already exist in the master data; drop or rename it before
-re-running the command.{p_end}
+{phang2}{bf:Wide format:}  One row per person with variables {it:in_1}, {it:out_1},
+{it:in_2}, {it:out_2}, ... representing immigration and emigration dates.  All date
+variables must be Stata daily dates with {cmd:%td} formats.{p_end}
+
+{phang2}{bf:Long format:}  One row per migration event with variables
+{cmd:event_date} (Stata daily date with {cmd:%td} format) and {cmd:event_type}
+({cmd:Inv} for immigration, {cmd:Utv} for emigration, case-insensitive).  The
+command normalizes this into the wide layout internally.{p_end}
+
+{pstd}
+{bf:Exclusion criteria applied (in order):}
+
+{phang2}{bf:Type 1} {hline 2} Emigrated before study start and never returned.{p_end}
+
+{phang2}{bf:Type 4} {hline 2} (Only when {opt minresidence()} > 0.)  Most recent
+immigration before study start was too recent — fewer than {opt minresidence()} days
+of continuous residence.  Persons with no immigration record (born in Sweden) always
+pass.{p_end}
+
+{phang2}{bf:Type 3} {hline 2} Abroad at baseline: emigrated before study start and
+returned after.{p_end}
+
+{phang2}{bf:Type 2} {hline 2} No evidence of being in Sweden at study start;
+migration history only shows immigration after study start.  (With
+{opt keepimmigrants}, these are retained instead of excluded.){p_end}
 
 
 {marker options}{...}
@@ -109,103 +103,187 @@ re-running the command.{p_end}
 {dlgtab:Required}
 
 {phang}
-{opt migfile(filename)} specifies the path to the migration data file. The file must
-contain the same ID variable as specified in {opt idvar()} (default: {cmd:id}) and
-must be in one of these formats:
+{opt migfile(filename)} specifies the path to the migration data file.  The file
+must contain the same ID variable as {opt idvar()} and be in one of these formats:
 
-{phang2}{bf:Wide format}: immigration date variables ({it:in_1}, {it:in_2}, ...) and
-emigration date variables ({it:out_1}, {it:out_2}, ...) with one row per person.
-All such date variables must use Stata daily {cmd:%td} formats and whole-number
-daily values.{p_end}
+{phang2}{bf:Wide:}  variables {it:in_1}, {it:out_1}, {it:in_2}, {it:out_2}, ... with
+one row per person.  All date variables must use Stata daily {cmd:%td} formats with
+whole-number daily values.{p_end}
 
-{phang2}{bf:Long format}: variables {cmd:event_date} and {cmd:event_type}, with one
-row per migration event. {cmd:event_type} must distinguish immigration ({cmd:Inv})
-from emigration ({cmd:Utv}). {cmd:event_date} must use a Stata daily {cmd:%td}
-format with whole-number daily values.{p_end}
+{phang2}{bf:Long:}  variables {cmd:event_date} and {cmd:event_type}, with one row
+per migration event.  {cmd:event_type} must be {cmd:Inv} for immigration or
+{cmd:Utv} for emigration (case-insensitive).  {cmd:event_date} must be a Stata daily
+{cmd:%td} date with whole-number daily values.{p_end}
 
 {dlgtab:Optional}
 
 {phang}
-{opt idvar(varname)} specifies the name of the individual identifier variable. Default is {cmd:id}.
+{opt idvar(varname)} specifies the patient identifier variable.  Default is {cmd:id}.
+Must uniquely identify observations in the master data.
 
 {phang}
-{opt startvar(varname)} specifies the name of the study start date variable in the master dataset.
-Default is {cmd:study_start}. This variable must be a Stata daily date with a {cmd:%td}
-display format, must contain whole-number daily values, and must be nonmissing for
-every observation in the master dataset.
+{opt startvar(varname)} specifies the study start date variable.  Default is
+{cmd:study_start}.  Must be a Stata daily date with {cmd:%td} format, with
+whole-number values and no missing values.
 
 {phang}
 {opt minresidence(#)} specifies the minimum number of days a person must have been
-continuously resident in Sweden before their study start date. Persons whose most recent
-immigration before study start occurred fewer than {it:#} days before study start are
-excluded (Type 4). This is useful for ensuring complete NPR coverage for comorbidity
-lookback windows. Default is {bf:0} (disabled). Persons with no immigration record
-(presumed born in Sweden) always pass this check.
+continuously resident in Sweden before their study start date.  Default is {cmd:0}
+(disabled).  When set to a positive value (e.g., {cmd:minresidence(365)}), persons
+whose most recent immigration occurred fewer than {it:#} days before study start
+are excluded (Type 4).  This is useful for ensuring complete NPR lookback for
+comorbidity scoring via {helpb cci_se}.  Persons born in Sweden (no immigration
+record) always pass this check.
 
 {phang}
-{opt saveexclude(filename)} saves a dataset containing excluded individuals and their exclusion 
-reason to the specified file. When no exclusions occur, the saved dataset is empty
-but still contains {opt idvar()} and {cmd:exclude_reason}.
+{opt saveexclude(filename)} saves a dataset of excluded individuals with columns
+{opt idvar()} and {cmd:exclude_reason} to the specified file.  If no exclusions
+occur, the file is still created (empty).  Requires {opt replace} if the file
+already exists.
 
 {phang}
 {opt savecensor(filename)} saves a dataset containing only {opt idvar()} and
-{it:migration_out_dt} for individuals with nonmissing emigration censoring dates.
-If a run succeeds but no such individuals exist, the saved dataset is empty.
+{cmd:migration_out_dt} for individuals with nonmissing emigration censoring dates.
+If no such individuals exist, the file is still created (empty).  Requires
+{opt replace} if the file already exists.
 
 {phang}
-{opt replace} allows existing files specified in {cmd:saveexclude()} and {cmd:savecensor()} to 
-be overwritten.
+{opt replace} allows overwriting existing files specified in {opt saveexclude()}
+and {opt savecensor()}.
 
 {phang}
-{opt verbose} displays additional processing messages.
+{opt verbose} displays additional processing messages, including migration file
+format detection and exclusion/censoring progress.
 
 {phang}
-{opt keepimmigrants} specifies that individuals whose only migration record is an immigration
-after study start (Type 2) should be included rather than excluded. When specified,
-the command generates a variable {it:migration_in_dt} containing the post-study-start
-immigration date for these individuals. Use this when late immigrants should contribute
-person-time from their arrival date rather than being dropped. Individuals who were in
-Sweden at their study start date have {it:migration_in_dt} set to missing.
+{opt keepimmigrants} specifies that Type 2 individuals (whose only migration
+record is immigration after study start) should be included rather than excluded.
+The command generates a variable {cmd:migration_in_dt} containing the post-start
+immigration date for these individuals.  Use this when late immigrants should
+contribute person-time from their arrival date rather than being dropped entirely.
+Individuals who were in Sweden at study start have {cmd:migration_in_dt} set to
+missing.
+
+
+{marker remarks}{...}
+{title:Remarks}
+
+{pstd}
+{bf:Why migration processing matters}
+
+{pstd}
+Swedish national registries (NPR, Cancer Register, Cause of Death Register) only
+capture events occurring in Sweden.  A person living abroad appears healthy in the
+registry — not because they are, but because their care is recorded elsewhere.
+Failing to account for migration introduces immortal time bias and outcome
+misclassification.
+
+{pstd}
+{bf:Output variables}
+
+{pstd}
+After {cmd:migrations} completes, the master dataset has been modified:
+
+{phang2}{hline 2} Excluded individuals have been dropped.{p_end}
+{phang2}{hline 2} A new variable {cmd:migration_out_dt} (Stata daily date, {cmd:%td})
+is added for every remaining person.  It contains the first permanent emigration
+date after study start, or missing if the person did not emigrate.{p_end}
+{phang2}{hline 2} If {opt keepimmigrants} was specified, a variable
+{cmd:migration_in_dt} is also added.{p_end}
+
+{pstd}
+{bf:Typical workflow}
+
+{pstd}
+Run {cmd:migrations} early in your cohort-construction pipeline, after defining
+the cohort and study start dates but before survival setup:
+
+{phang2}1. Load cohort data (one row per person){p_end}
+{phang2}2. Run {cmd:migrations} to drop non-residents and create censoring dates{p_end}
+{phang2}3. Compute comorbidities with {helpb cci_se} (optionally using
+{opt minresidence()} to ensure NPR lookback coverage){p_end}
+{phang2}4. Define exit dates using {cmd:migration_out_dt}, death, and
+administrative end{p_end}
+{phang2}5. Run {helpb stset} for survival analysis{p_end}
+
+{pstd}
+{bf:Re-running the command}
+
+{pstd}
+{cmd:migration_out_dt} (and {cmd:migration_in_dt} when applicable) must not
+already exist in the master data.  Drop or rename them before re-running.
 
 
 {marker examples}{...}
 {title:Examples}
 
 {pstd}
-{it:Note: Click each link in order. The first two links download example data}
-{it:from GitHub to your current directory.}
+{it:Note: click each link in order.  The first two links download example data
+from GitHub to your current directory.}
 
-{pstd}Setup: download example data:{p_end}
+{pstd}
+{bf:Setup: download example data}
+
 {phang2}{stata `"copy "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta" "cohort_example.dta", replace"':. copy "https://.../cohort.dta" "cohort_example.dta", replace}{p_end}
 {phang2}{stata `"copy "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/migrations_wide.dta" "migrations_wide.dta", replace"':. copy "https://.../migrations_wide.dta" "migrations_wide.dta", replace}{p_end}
 
-{pstd}Basic usage:{p_end}
+{pstd}
+{bf:Example 1: Basic migration processing}
+
+{pstd}
+Apply exclusions and generate emigration censoring dates.  The summary table
+shows how many people were excluded by each criterion.{p_end}
+
 {phang2}{stata `"use "cohort_example.dta", clear"':. use cohort_example.dta, clear}{p_end}
 {phang2}{stata `"migrations, migfile("migrations_wide.dta") startvar(study_entry)"':. migrations, migfile("migrations_wide.dta") startvar(study_entry)}{p_end}
 
-{pstd}With saving intermediate files:{p_end}
+{pstd}
+{bf:Example 2: Save exclusion and censoring files}
+
+{pstd}
+Useful for auditing which individuals were excluded and why.{p_end}
+
 {phang2}{stata `"use "cohort_example.dta", clear"':. use cohort_example.dta, clear}{p_end}
 {phang2}{stata `"migrations, migfile("migrations_wide.dta") startvar(study_entry) saveexclude(excluded_migrations) savecensor(emigration_dates) replace"':. migrations, migfile("migrations_wide.dta") ///}{p_end}
 {phang3}{cmd:startvar(study_entry) ///}{p_end}
 {phang3}{cmd:saveexclude(excluded_migrations) savecensor(emigration_dates) replace}{p_end}
 
-{pstd}Typical workflow for a cohort study:{p_end}
+{pstd}
+{bf:Example 3: Full cohort-construction workflow}
+
+{pstd}
+A typical pipeline: apply migration exclusions, then construct exit dates for
+survival analysis.{p_end}
+
 {phang2}{stata `"use "cohort_example.dta", clear"':. use cohort_example.dta, clear}{p_end}
-{phang2}{cmd:. }{p_end}
-{phang2}{cmd:. * Apply migration exclusions and get censoring dates}{p_end}
 {phang2}{stata `"migrations, migfile("migrations_wide.dta") startvar(study_entry) verbose"':. migrations, migfile("migrations_wide.dta") startvar(study_entry) verbose}{p_end}
 {phang2}{cmd:. }{p_end}
-{phang2}{cmd:. * Use migration_out_dt in survival analysis}{p_end}
+{phang2}{cmd:. * Construct exit date: earliest of death, emigration, or admin end}{p_end}
 {phang2}{stata "gen double end_date = min(death_date, migration_out_dt, mdy(12,31,2023))":. gen double end_date = min(death_date, migration_out_dt, mdy(12,31,2023))}{p_end}
+{phang2}{stata "format end_date %td":. format end_date %td}{p_end}
 {phang2}{stata "stset end_date, failure(outcome) origin(study_entry)":. stset end_date, failure(outcome) origin(study_entry)}{p_end}
 
-{pstd}Including late immigrants:{p_end}
+{pstd}
+{bf:Example 4: Include late immigrants}
+
+{pstd}
+With {opt keepimmigrants}, people who immigrated after study start are retained.
+Use {cmd:migration_in_dt} as their effective entry date.{p_end}
+
 {phang2}{stata `"use "cohort_example.dta", clear"':. use cohort_example.dta, clear}{p_end}
 {phang2}{stata `"migrations, migfile("migrations_wide.dta") startvar(study_entry) keepimmigrants"':. migrations, migfile("migrations_wide.dta") startvar(study_entry) keepimmigrants}{p_end}
-{phang2}{cmd:. }{p_end}
-{phang2}{cmd:. * Use immigration date as entry for late arrivals}{p_end}
 {phang2}{stata "gen double effective_start = cond(!missing(migration_in_dt), migration_in_dt, study_entry)":. gen double effective_start = cond(!missing(migration_in_dt), migration_in_dt, study_entry)}{p_end}
 {phang2}{stata "format effective_start %tdCCYY/NN/DD":. format effective_start %tdCCYY/NN/DD}{p_end}
+
+{pstd}
+{bf:Example 5: Minimum residence requirement}
+
+{pstd}
+Ensure at least 365 days of Swedish residence before study start, so the NPR
+lookback for comorbidity scoring is complete.{p_end}
+
+{phang2}{stata `"use "cohort_example.dta", clear"':. use cohort_example.dta, clear}{p_end}
+{phang2}{stata `"migrations, migfile("migrations_wide.dta") startvar(study_entry) minresidence(365)"':. migrations, migfile("migrations_wide.dta") startvar(study_entry) minresidence(365)}{p_end}
 
 
 {marker results}{...}
@@ -214,15 +292,15 @@ Sweden at their study start date have {it:migration_in_dt} set to missing.
 {pstd}
 {cmd:migrations} stores the following in {cmd:r()}:
 
-{synoptset 25 tabbed}{...}
-{p2col 5 25 29 2: Scalars}{p_end}
-{synopt:{cmd:r(N_excluded_emigrated)}}number excluded due to emigration before study start{p_end}
-{synopt:{cmd:r(N_excluded_inmigration)}}number excluded due to immigration after study start{p_end}
-{synopt:{cmd:r(N_excluded_abroad)}}number excluded due to being abroad at baseline{p_end}
-{synopt:{cmd:r(N_excluded_minresidence)}}number excluded due to insufficient residence{p_end}
-{synopt:{cmd:r(N_excluded_total)}}total number excluded{p_end}
-{synopt:{cmd:r(N_censored)}}number with emigration censoring dates{p_end}
-{synopt:{cmd:r(N_included_inmigration)}}number of post-start immigrants included (with {cmd:keepimmigrants}){p_end}
+{synoptset 28 tabbed}{...}
+{p2col 5 28 32 2: Scalars}{p_end}
+{synopt:{cmd:r(N_excluded_emigrated)}}Type 1: emigrated before study start, never returned{p_end}
+{synopt:{cmd:r(N_excluded_inmigration)}}Type 2: immigration after study start only{p_end}
+{synopt:{cmd:r(N_excluded_abroad)}}Type 3: abroad at baseline, returned after study start{p_end}
+{synopt:{cmd:r(N_excluded_minresidence)}}Type 4: insufficient continuous residence{p_end}
+{synopt:{cmd:r(N_excluded_total)}}total number excluded across all types{p_end}
+{synopt:{cmd:r(N_censored)}}number of individuals with emigration censoring dates{p_end}
+{synopt:{cmd:r(N_included_inmigration)}}post-start immigrants included (with {opt keepimmigrants}){p_end}
 {synopt:{cmd:r(N_final)}}final sample size after exclusions{p_end}
 
 
@@ -232,21 +310,25 @@ Sweden at their study start date have {it:migration_in_dt} set to missing.
 {pstd}
 Timothy P Copeland{break}
 Department of Clinical Neuroscience{break}
-Karolinska Institutet{break}
-Stockholm, Sweden
+Karolinska Institutet, Stockholm, Sweden
 
 {pstd}
-For use with Swedish registry data in wide {it:in_#}/{it:out_#} format or normalized
-long event format with {cmd:event_date}/{cmd:event_type}.{p_end}
+Part of the {help setools:setools} package for Swedish registry research.{p_end}
 
 
-{marker alsosee}{...}
 {title:Also see}
 
 {pstd}
-{help setools:setools} - Swedish registry toolkit overview{p_end}
+{help setools:setools} {hline 2} Swedish registry toolkit overview{p_end}
 {pstd}
-{help cci_se:cci_se} - Swedish Charlson Comorbidity Index{p_end}
+{help cci_se:cci_se} {hline 2} Swedish Charlson Comorbidity Index{p_end}
+{pstd}
+{help procmatch:procmatch} {hline 2} KV{c a:} procedure code matching{p_end}
+
+{psee}
+Manual: {manlink ST stset}
 
 {pstd}
 Online: {browse "https://github.com/tpcopeland/Stata-Tools":Stata-Tools on GitHub}{p_end}
+
+{hline}
