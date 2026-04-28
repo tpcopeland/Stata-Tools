@@ -483,6 +483,14 @@ body { background: #ffffff; color: #212529;
 .graph-missing { margin: 0.5rem 0; padding: 0.6rem 0.75rem; background: #fff7ed; border-left: 3px solid #f97316; color: #9a3412; font-size: 0.875rem; }
 .logdoc-footer { margin-top: 2rem; padding-top: 0.75rem; border-top: 1px solid #d7dde5; font-size: 0.75rem; color: #667085; text-align: center; }
 @media (max-width: 768px) { .logdoc { padding: 1rem; } .logdoc-header h1 { font-size: 1.25rem; } }
+.diff-added { background: #d4edda; border-left: 3px solid #28a745; }
+.diff-removed { background: #f8d7da; border-left: 3px solid #dc3545; }
+.diff-context { opacity: 0.6; }
+.diff-legend { display: flex; gap: 1.5rem; margin-bottom: 1rem; font-size: 0.8125rem; color: #667085; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
+.diff-legend span { display: inline-flex; align-items: center; gap: 0.4rem; }
+.diff-legend .swatch { display: inline-block; width: 0.875rem; height: 0.875rem; border-radius: 2px; }
+.diff-group { margin: 0.5rem 0; padding: 0.25rem 0; border-top: 1px dashed #d7dde5; }
+.diff-label { font-size: 0.75rem; color: #667085; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; padding: 0.125rem 0.5rem; }
 @media print { body { font-size: 11pt; } .logdoc { max-width: 100%; padding: 0; } .graph-figure, .stata-log-wrap { break-inside: avoid; } }
 """
 
@@ -508,6 +516,14 @@ body { background: #191a1f; color: #e5e7eb;
 .graph-missing { margin: 0.5rem 0; padding: 0.6rem 0.75rem; background: #431407; border-left: 3px solid #fb923c; color: #fed7aa; font-size: 0.875rem; }
 .logdoc-footer { margin-top: 2rem; padding-top: 0.75rem; border-top: 1px solid #374151; font-size: 0.75rem; color: #9ca3af; text-align: center; }
 @media (max-width: 768px) { .logdoc { padding: 1rem; } .logdoc-header h1 { font-size: 1.25rem; } }
+.diff-added { background: #1a3a2a; border-left: 3px solid #a6e3a1; }
+.diff-removed { background: #3a1a2a; border-left: 3px solid #f38ba8; }
+.diff-context { opacity: 0.6; }
+.diff-legend { display: flex; gap: 1.5rem; margin-bottom: 1rem; font-size: 0.8125rem; color: #9ca3af; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
+.diff-legend span { display: inline-flex; align-items: center; gap: 0.4rem; }
+.diff-legend .swatch { display: inline-block; width: 0.875rem; height: 0.875rem; border-radius: 2px; }
+.diff-group { margin: 0.5rem 0; padding: 0.25rem 0; border-top: 1px dashed #374151; }
+.diff-label { font-size: 0.75rem; color: #9ca3af; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; padding: 0.125rem 0.5rem; }
 @media print { body { background: #fff; color: #212529; font-size: 11pt; } .logdoc { max-width: 100%; padding: 0; } .graph-figure, .stata-log-wrap { break-inside: avoid; } }
 """
 
@@ -1435,20 +1451,18 @@ def _inline_css(html_str):
 # ---------------------------------------------------------------------------
 
 def render_diff_html(blocks_a, blocks_b, title="Diff View", theme_css="",
-                     base_dir=".", generated=False):
-    """Render a diff view comparing two sets of blocks.
-
-    Uses difflib.SequenceMatcher on block text to find differences.
-    """
-    # Expand blocks in HTML mode
+                     base_dir=".", generated=False, file_a="", file_b=""):
+    """Render a diff view comparing two sets of blocks."""
     for b in blocks_a:
         expand_block(b, mode="html")
     for b in blocks_b:
         expand_block(b, mode="html")
 
-    # Build text representations for matching
     texts_a = ['\n'.join(b.lines) for b in blocks_a]
     texts_b = ['\n'.join(b.lines) for b in blocks_b]
+
+    label_a = os.path.basename(file_a) if file_a else "File A"
+    label_b = os.path.basename(file_b) if file_b else "File B"
 
     matcher = difflib.SequenceMatcher(None, texts_a, texts_b)
     parts = []
@@ -1458,38 +1472,55 @@ def render_diff_html(blocks_a, blocks_b, title="Diff View", theme_css="",
             for b in blocks_a[i1:i2]:
                 content = '\n'.join(b.lines)
                 parts.append(
-                    f'<div class="output-block"><pre>{content}</pre></div>'
+                    f'<div class="output-block diff-context">'
+                    f'<pre>{content}</pre></div>'
                 )
         elif op == 'replace':
+            parts.append('<div class="diff-group">')
+            parts.append(
+                f'<div class="diff-label">− {html_mod.escape(label_a)}</div>')
             for b in blocks_a[i1:i2]:
                 content = '\n'.join(b.lines)
                 parts.append(
                     f'<div class="output-block diff-removed">'
                     f'<pre>{content}</pre></div>'
                 )
+            parts.append(
+                f'<div class="diff-label">+ {html_mod.escape(label_b)}</div>')
             for b in blocks_b[j1:j2]:
                 content = '\n'.join(b.lines)
                 parts.append(
                     f'<div class="output-block diff-added">'
                     f'<pre>{content}</pre></div>'
                 )
+            parts.append('</div>')
         elif op == 'delete':
+            parts.append('<div class="diff-group">')
+            parts.append(
+                f'<div class="diff-label">− {html_mod.escape(label_a)}</div>')
             for b in blocks_a[i1:i2]:
                 content = '\n'.join(b.lines)
                 parts.append(
                     f'<div class="output-block diff-removed">'
                     f'<pre>{content}</pre></div>'
                 )
+            parts.append('</div>')
         elif op == 'insert':
+            parts.append('<div class="diff-group">')
+            parts.append(
+                f'<div class="diff-label">+ {html_mod.escape(label_b)}</div>')
             for b in blocks_b[j1:j2]:
                 content = '\n'.join(b.lines)
                 parts.append(
                     f'<div class="output-block diff-added">'
                     f'<pre>{content}</pre></div>'
                 )
+            parts.append('</div>')
 
     body = '\n'.join(parts)
     escaped_title = html_mod.escape(title)
+    esc_a = html_mod.escape(label_a)
+    esc_b = html_mod.escape(label_b)
 
     footer_block = ""
     if generated:
@@ -1513,6 +1544,11 @@ def render_diff_html(blocks_a, blocks_b, title="Diff View", theme_css="",
 <article class="logdoc">
 <header class="logdoc-header">
 <h1>{escaped_title}</h1>
+<div class="diff-legend">
+<span><span class="swatch" style="background:#f8d7da;border:1px solid #dc3545;"></span> − {esc_a}</span>
+<span><span class="swatch" style="background:#d4edda;border:1px solid #28a745;"></span> + {esc_b}</span>
+<span>Dimmed = unchanged</span>
+</div>
 </header>
 <main class="logdoc-body">
 {body}
@@ -2732,6 +2768,7 @@ def main():
             blocks, blocks_b, title=f"Diff: {title}",
             theme_css=theme_css, base_dir=base_dir,
             generated=args.generated,
+            file_a=args.input, file_b=args.compare,
         )
         os.makedirs(os.path.dirname(os.path.abspath(args.output)),
                      exist_ok=True)

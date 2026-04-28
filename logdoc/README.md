@@ -70,7 +70,23 @@ If it reports "logdoc Python check passed", you are ready. If Python is not foun
 
 Run `logdoc_py, verbose` to see every candidate that was tried and why each was accepted or rejected.
 
-**Optional: PDF output** requires `wkhtmltopdf` as a system executable (not a pip package). Install it through your OS package manager, then verify:
+**Optional: PDF output** requires `wkhtmltopdf` as a system executable (not a pip package).
+
+```bash
+# Ubuntu / Debian
+sudo apt install wkhtmltopdf
+
+# macOS (Homebrew)
+brew install wkhtmltopdf
+
+# RHEL / Fedora
+sudo dnf install wkhtmltopdf
+
+# Windows (Chocolatey)
+choco install wkhtmltopdf
+```
+
+Then verify from Stata:
 
 ```stata
 logdoc_py, check pdf

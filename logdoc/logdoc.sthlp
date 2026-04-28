@@ -625,8 +625,16 @@ session:{break}
 
 {pstd}
 {bf:Step 3 (optional): Enable PDF output.} PDF conversion requires
-{cmd:wkhtmltopdf} as a system executable (not a Python package). Install it
-through your operating system's package manager, then verify:
+{browse "https://wkhtmltopdf.org":wkhtmltopdf} as a system executable
+(not a Python package). Install it through your operating system's package
+manager:
+
+{phang2}Ubuntu/Debian: {cmd:sudo apt install wkhtmltopdf}{p_end}
+{phang2}macOS (Homebrew): {cmd:brew install wkhtmltopdf}{p_end}
+{phang2}RHEL/Fedora: {cmd:sudo dnf install wkhtmltopdf}{p_end}
+{phang2}Windows (Chocolatey): {cmd:choco install wkhtmltopdf}{p_end}
+
+{pstd}Then verify from Stata:
 
 {phang2}{cmd:. logdoc_py, check pdf}{p_end}
 
