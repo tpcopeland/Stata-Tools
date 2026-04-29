@@ -53,13 +53,21 @@ program define logdoc_py, rclass
     }
 
     local _pdf_ok .
+    local _xhtml2pdf ""
     local _wkhtmltopdf ""
     if "`pdf'" != "" {
+        _logdoc_py_check_xhtml2pdf, python(`"`_selected'"') `verbose'
+        local _xhtml2pdf = r(ok)
         _logdoc_py_check_pdf, path(_wkhtmltopdf) `verbose'
-        local _pdf_ok = r(ok)
-        if `_pdf_ok' != 1 {
-            display as error "wkhtmltopdf is not available on the system path"
-            display as error "format(pdf) requires wkhtmltopdf; other logdoc formats do not"
+        local _wk_ok = r(ok)
+        if `_xhtml2pdf' == 1 | `_wk_ok' == 1 {
+            local _pdf_ok = 1
+        }
+        else {
+            local _pdf_ok = 0
+            display as error "no PDF converter found"
+            display as error "install xhtml2pdf: logdoc_py, install(xhtml2pdf)"
+            display as error "or install wkhtmltopdf as a system package"
             exit 601
         }
     }
@@ -100,7 +108,18 @@ program define logdoc_py, rclass
         display as text   `"  Source:  `_source'"'
         display as text   `"  Renderer: `_renderer'"'
         if "`pdf'" != "" {
-            display as text `"  wkhtmltopdf: `_wkhtmltopdf'"'
+            if `_xhtml2pdf' == 1 {
+                display as text "  xhtml2pdf:   installed (preferred)"
+            }
+            else {
+                display as text "  xhtml2pdf:   not installed"
+            }
+            if `"`_wkhtmltopdf'"' != "" {
+                display as text `"  wkhtmltopdf: `_wkhtmltopdf'"'
+            }
+            else {
+                display as text "  wkhtmltopdf: not found"
+            }
         }
     }
 
@@ -117,8 +136,11 @@ program define logdoc_py, rclass
     if `_config_read' == 1 | `"`_config_path'"' != "" {
         return local config `"`_config_path'"'
     }
-    if "`pdf'" != "" & `"`_wkhtmltopdf'"' != "" {
-        return local wkhtmltopdf `"`_wkhtmltopdf'"'
+    if "`pdf'" != "" {
+        if `_xhtml2pdf' == 1 return local xhtml2pdf "installed"
+        if `"`_wkhtmltopdf'"' != "" {
+            return local wkhtmltopdf `"`_wkhtmltopdf'"'
+        }
     }
     return local required "`_required'"
     return local optional "`_optional'"
@@ -604,6 +626,41 @@ program define _logdoc_py_save_config, rclass
     local rc = _rc
     capture file close `infh'
     capture file close `outfh'
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
+end
+
+
+capture program drop _logdoc_py_check_xhtml2pdf
+program define _logdoc_py_check_xhtml2pdf, rclass
+    version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+
+    syntax , python(string) [Verbose]
+
+    tempfile _xh2p_out
+    quietly shell "`python'" -c "from xhtml2pdf import pisa; print('OK')" ///
+        > "`_xh2p_out'" 2>&1
+    _logdoc_py_first_line using "`_xh2p_out'"
+    local found `"`r(line)'"'
+
+    if `"`found'"' == "OK" {
+        return scalar ok = 1
+        if "`verbose'" != "" {
+            display as text "xhtml2pdf: installed"
+        }
+    }
+    else {
+        return scalar ok = 0
+        if "`verbose'" != "" {
+            display as text "xhtml2pdf: not installed"
+        }
+    }
+
+    }
+    local rc = _rc
     set varabbrev `_orig_varabbrev'
     if `rc' exit `rc'
 end

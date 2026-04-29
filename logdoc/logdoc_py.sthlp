@@ -78,7 +78,7 @@ Install Python package dependencies, when a package needs them:
 {synopt:{opt save}}write or update {cmd:python=...} in {cmd:.logdocrc}{p_end}
 {synopt:{opt inst:all(string)}}install Python packages with the selected Python executable{p_end}
 {synopt:{opt py:thon(path)}}explicit Python executable to check or save{p_end}
-{synopt:{opt pdf}}also check {cmd:wkhtmltopdf}, required only for {cmd:format(pdf)}{p_end}
+{synopt:{opt pdf}}also check {cmd:xhtml2pdf} and {cmd:wkhtmltopdf} for {cmd:format(pdf)}{p_end}
 {synopt:{opt rep:lace}}allow {cmd:save} to replace an existing {cmd:python=} entry in {cmd:.logdocrc}{p_end}
 {synopt:{opt dry:run}}show the pip command that would be run, but do not install packages{p_end}
 {synopt:{opt q:uiet}}suppress nonessential output{p_end}
@@ -166,10 +166,11 @@ must be quoted. When {opt python()} is supplied, it takes precedence over all
 auto-detected candidates.
 
 {phang}
-{opt pdf} checks whether {cmd:wkhtmltopdf} is available on the system path.
-{cmd:wkhtmltopdf} is required only for {cmd:logdoc}'s {cmd:format(pdf)}
-output. Missing PDF support should not make ordinary HTML or Markdown output
-fail.
+{opt pdf} checks whether {cmd:xhtml2pdf} (Python library) or
+{cmd:wkhtmltopdf} (system executable) is available for {cmd:format(pdf)}
+output. {cmd:xhtml2pdf} is preferred and can be installed with
+{cmd:logdoc_py, install(xhtml2pdf)}. Missing PDF support does not affect
+HTML or Markdown output.
 
 {phang}
 {opt replace} allows {opt save} to replace an existing {cmd:python=} entry in
@@ -349,10 +350,10 @@ explicitly with {opt python(path)}.
 session or {cmd:logdoc_py, python(path) save replace} for the current project.
 
 {phang}
-{bf:PDF support missing}: Install {cmd:wkhtmltopdf} using your operating
-system's normal package manager, then rerun {cmd:logdoc_py, check pdf}. Do not
-install {cmd:wkhtmltopdf} with {cmd:pip}; it is a system executable, not a
-Python package.
+{bf:PDF support missing}: Install {cmd:xhtml2pdf} with
+{cmd:logdoc_py, install(xhtml2pdf)} (recommended), or install
+{cmd:wkhtmltopdf} as a system package. Then rerun
+{cmd:logdoc_py, check pdf}.
 
 {phang}
 {bf:Python package installs fail}: Use {opt dryrun} to display the exact pip

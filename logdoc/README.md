@@ -70,7 +70,13 @@ If it reports "logdoc Python check passed", you are ready. If Python is not foun
 
 Run `logdoc_py, verbose` to see every candidate that was tried and why each was accepted or rejected.
 
-**Optional: PDF output** requires `wkhtmltopdf` as a system executable (not a pip package).
+**Optional: PDF output** — the recommended method is `xhtml2pdf`, a pure Python library:
+
+```stata
+logdoc_py, install(xhtml2pdf)
+```
+
+Alternatively, `wkhtmltopdf` works as a system executable:
 
 ```bash
 # Ubuntu / Debian
@@ -86,7 +92,7 @@ sudo dnf install wkhtmltopdf
 choco install wkhtmltopdf
 ```
 
-Then verify from Stata:
+logdoc tries xhtml2pdf first, then falls back to wkhtmltopdf. Verify either is available:
 
 ```stata
 logdoc_py, check pdf
@@ -97,7 +103,7 @@ logdoc_py, check pdf
 - Stata 16.0+
 - Python 3.6+ (standard library only -- no pip packages needed)
 - `format(docx)` requires Stata 17+
-- `format(pdf)` requires wkhtmltopdf
+- `format(pdf)` requires xhtml2pdf (`logdoc_py, install(xhtml2pdf)`) or wkhtmltopdf
 
 ## Syntax
 

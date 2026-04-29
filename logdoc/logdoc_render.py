@@ -2479,6 +2479,48 @@ def render_latex(blocks, title="Stata Output", nodots=False, date=None,
 
 
 # ---------------------------------------------------------------------------
+# PDF conversion via xhtml2pdf (optional dependency)
+# ---------------------------------------------------------------------------
+
+_BOX_DRAW_MAP = str.maketrans({
+    '─': '-', '━': '-', '│': '|', '┃': '|',
+    '┌': '+', '┐': '+', '└': '+', '┘': '+',
+    '├': '+', '┤': '+', '┬': '+', '┴': '+', '┼': '+',
+    '┏': '+', '┓': '+', '┗': '+', '┛': '+',
+    '┣': '+', '┫': '+', '┳': '+', '┻': '+', '╋': '+',
+    '╌': '-', '╎': '|', '╴': '-', '╶': '-', '╵': '|', '╷': '|',
+    '═': '=', '║': '|',
+    '╔': '+', '╗': '+', '╚': '+', '╝': '+',
+    '╠': '+', '╣': '+', '╦': '+', '╩': '+', '╬': '+',
+    '╭': '+', '╮': '+', '╰': '+', '╯': '+',
+})
+
+
+def convert_html_to_pdf(html_path, pdf_path):
+    """Convert an HTML file to PDF using xhtml2pdf.
+
+    Returns True on success, False if xhtml2pdf is not installed.
+    Raises RuntimeError on conversion failure.
+    """
+    try:
+        from xhtml2pdf import pisa
+    except ImportError:
+        return False
+
+    with open(html_path, "r", encoding="utf-8") as f:
+        html = f.read()
+
+    html = html.translate(_BOX_DRAW_MAP)
+
+    with open(pdf_path, "wb") as out:
+        status = pisa.CreatePDF(html, dest=out)
+
+    if status.err:
+        raise RuntimeError(f"xhtml2pdf conversion failed with {status.err} error(s)")
+    return True
+
+
+# ---------------------------------------------------------------------------
 # Main entry point
 # ---------------------------------------------------------------------------
 
@@ -2648,8 +2690,28 @@ def main():
                         help="Email-safe HTML with inline CSS")
     parser.add_argument("--annotate", default=None,
                         help="Annotation file path")
+    parser.add_argument("--html-to-pdf", default=None,
+                        help="Convert an HTML file to PDF via xhtml2pdf (standalone mode)")
 
     args = parser.parse_args()
+
+    # Standalone HTML-to-PDF conversion (called from .ado)
+    if args.html_to_pdf:
+        html_path = args.html_to_pdf
+        pdf_path = args.output
+        if not os.path.isfile(html_path):
+            print(f"Error: HTML file not found: {html_path}", file=sys.stderr)
+            sys.exit(1)
+        try:
+            ok = convert_html_to_pdf(html_path, pdf_path)
+        except RuntimeError as e:
+            print(f"Error: {e}", file=sys.stderr)
+            sys.exit(1)
+        if not ok:
+            print("XHTML2PDF_NOT_INSTALLED", file=sys.stderr)
+            sys.exit(2)
+        print(f"Generated: {pdf_path}")
+        sys.exit(0)
 
     # Read title/date/footer/stamp from file if provided (avoids shell quoting)
     for _attr in ("title_file", "date_file", "footer_file", "stamp_file"):

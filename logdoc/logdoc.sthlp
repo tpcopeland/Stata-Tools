@@ -624,17 +624,23 @@ session:{break}
 {cmd:. logdoc_py, python("/usr/local/bin/python3") save}{p_end}
 
 {pstd}
-{bf:Step 3 (optional): Enable PDF output.} PDF conversion requires
-{browse "https://wkhtmltopdf.org":wkhtmltopdf} as a system executable
-(not a Python package). Install it through your operating system's package
-manager:
+{bf:Step 3 (optional): Enable PDF output.} The recommended method is
+{cmd:xhtml2pdf}, a pure Python library with no system dependencies:
+
+{phang2}{cmd:. logdoc_py, install(xhtml2pdf)}{p_end}
+
+{pstd}
+Alternatively, {browse "https://wkhtmltopdf.org":wkhtmltopdf} works as a
+system executable:
 
 {phang2}Ubuntu/Debian: {cmd:sudo apt install wkhtmltopdf}{p_end}
 {phang2}macOS (Homebrew): {cmd:brew install wkhtmltopdf}{p_end}
 {phang2}RHEL/Fedora: {cmd:sudo dnf install wkhtmltopdf}{p_end}
 {phang2}Windows (Chocolatey): {cmd:choco install wkhtmltopdf}{p_end}
 
-{pstd}Then verify from Stata:
+{pstd}
+logdoc tries xhtml2pdf first, then falls back to wkhtmltopdf. Verify
+either is available:
 
 {phang2}{cmd:. logdoc_py, check pdf}{p_end}
 

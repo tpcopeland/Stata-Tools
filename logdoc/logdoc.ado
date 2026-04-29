@@ -678,50 +678,68 @@ program define _logdoc_convert, rclass
             display as error `"`cmd'"'
             exit 601
         }
-        * Try wkhtmltopdf first
-        tempfile _wkcheck
-        shell command -v wkhtmltopdf > "`_wkcheck'" 2>&1
-        local _has_wkhtmltopdf = 0
-        capture {
-            tempname _wkfh
-            file open `_wkfh' using "`_wkcheck'", read text
-            file read `_wkfh' _wkline
-            file close `_wkfh'
-            if regexm("`_wkline'", "wkhtmltopdf") {
-                local _has_wkhtmltopdf = 1
+        * Try xhtml2pdf (via Python) first, then fall back to wkhtmltopdf
+        local _pdf_done = 0
+        if "`quiet'" == "" {
+            display as text "Converting HTML to PDF..."
+        }
+        tempfile _xh2p_out
+        shell "`python'" "`scriptpath'" "__dummy__" "`output'" ///
+            --html-to-pdf "`_temphtml_path'" > "`_xh2p_out'" 2>&1
+        capture confirm file "`output'"
+        if !_rc {
+            local _pdf_done = 1
+            if "`quiet'" == "" {
+                display as text "(via xhtml2pdf)"
             }
         }
-        if `_has_wkhtmltopdf' {
-            if "`quiet'" == "" {
-                display as text "Converting HTML to PDF via wkhtmltopdf..."
-            }
-            tempfile _wk_stderr
-            shell wkhtmltopdf "`_temphtml_path'" "`output'" > /dev/null 2>"`_wk_stderr'"
-            capture confirm file "`output'"
-            if _rc {
-                display as error "wkhtmltopdf failed to produce output"
-                capture {
-                    tempname _wkefh
-                    file open `_wkefh' using "`_wk_stderr'", read text
-                    file read `_wkefh' _wkeline
-                    while r(eof) == 0 {
-                        if strtrim("`_wkeline'") != "" {
-                            display as error "`_wkeline'"
-                        }
-                        file read `_wkefh' _wkeline
-                    }
-                    file close `_wkefh'
+        if !`_pdf_done' {
+            * Fall back to wkhtmltopdf
+            tempfile _wkcheck
+            shell command -v wkhtmltopdf > "`_wkcheck'" 2>&1
+            local _has_wkhtmltopdf = 0
+            capture {
+                tempname _wkfh
+                file open `_wkfh' using "`_wkcheck'", read text
+                file read `_wkfh' _wkline
+                file close `_wkfh'
+                if regexm("`_wkline'", "wkhtmltopdf") {
+                    local _has_wkhtmltopdf = 1
                 }
+            }
+            if `_has_wkhtmltopdf' {
+                if "`quiet'" == "" {
+                    display as text "(via wkhtmltopdf)"
+                }
+                tempfile _wk_stderr
+                shell wkhtmltopdf "`_temphtml_path'" "`output'" ///
+                    > /dev/null 2>"`_wk_stderr'"
+                capture confirm file "`output'"
+                if _rc {
+                    display as error "wkhtmltopdf failed to produce output"
+                    capture {
+                        tempname _wkefh
+                        file open `_wkefh' using "`_wk_stderr'", read text
+                        file read `_wkefh' _wkeline
+                        while r(eof) == 0 {
+                            if strtrim("`_wkeline'") != "" {
+                                display as error "`_wkeline'"
+                            }
+                            file read `_wkefh' _wkeline
+                        }
+                        file close `_wkefh'
+                    }
+                    capture erase "`_temphtml_path'"
+                    exit 601
+                }
+            }
+            else {
                 capture erase "`_temphtml_path'"
+                display as error "no PDF converter found"
+                display as error "install xhtml2pdf: logdoc_py, install(xhtml2pdf)"
+                display as error "or install wkhtmltopdf as a system package"
                 exit 601
             }
-        }
-        else {
-            capture erase "`_temphtml_path'"
-            display as error "wkhtmltopdf is not installed on this system"
-            display as error "format(pdf) requires wkhtmltopdf to be on your PATH"
-            display as error "use format(html) and print from a browser, or install wkhtmltopdf"
-            exit 601
         }
         * Clean up temp HTML
         capture erase "`_temphtml_path'"
