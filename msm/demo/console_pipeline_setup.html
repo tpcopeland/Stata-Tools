@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MSM Pipeline: Setup, Protocol, and Validation</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #191a1f; color: #e5e7eb;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-size: 16px; line-height: 1.55; -webkit-font-smoothing: antialiased; }
+.logdoc { max-width: 1040px; margin: 0 auto; padding: 2rem 1.25rem; }
+.logdoc-header { margin-bottom: 1.25rem; padding-bottom: 0.75rem; border-bottom: 1px solid #374151; }
+.logdoc-header h1 { font-size: 1.5rem; font-weight: 600; color: #f9fafb; margin: 0; }
+.subtitle { font-size: 0.9375rem; color: #9ca3af; margin-top: 0.25rem; }
+.stamp { font-size: 0.75rem; color: #9ca3af; margin-top: 0.25rem; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
+.stata-log-wrap { margin: 0; overflow-x: auto; }
+.stata-log { margin: 0; padding: 0 0 0.75rem 0; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; font-size: 0.875rem; line-height: 1.45; white-space: pre; tab-size: 8; color: #d1d5db; }
+.err { color: #fca5a5; }
+.cmd { color: #f9fafb; font-weight: 600; }
+.res { color: #f9fafb; }
+.comment-block { margin: 0.25rem 0; color: #9ca3af; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; font-size: 0.875rem; }
+.graph-figure { margin: 1rem 0 1.5rem 0; text-align: center; }
+.graph-figure img { max-width: 100%; height: auto; border: 1px solid #374151; border-radius: 4px; }
+.graph-missing { margin: 0.5rem 0; padding: 0.6rem 0.75rem; background: #431407; border-left: 3px solid #fb923c; color: #fed7aa; font-size: 0.875rem; }
+.logdoc-footer { margin-top: 2rem; padding-top: 0.75rem; border-top: 1px solid #374151; font-size: 0.75rem; color: #9ca3af; text-align: center; }
+@media (max-width: 768px) { .logdoc { padding: 1rem; } .logdoc-header h1 { font-size: 1.25rem; } }
+.diff-added { background: #1a3a2a; border-left: 3px solid #a6e3a1; }
+.diff-removed { background: #3a1a2a; border-left: 3px solid #f38ba8; }
+.diff-context { opacity: 0.6; }
+.diff-legend { display: flex; gap: 1.5rem; margin-bottom: 1rem; font-size: 0.8125rem; color: #9ca3af; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
+.diff-legend span { display: inline-flex; align-items: center; gap: 0.4rem; }
+.diff-legend .swatch { display: inline-block; width: 0.875rem; height: 0.875rem; border-radius: 2px; }
+.diff-group { margin: 0.5rem 0; padding: 0.25rem 0; border-top: 1px dashed #374151; }
+.diff-label { font-size: 0.75rem; color: #9ca3af; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; padding: 0.125rem 0.5rem; }
+@media print { body { background: #fff; color: #212529; font-size: 11pt; } .logdoc { max-width: 100%; padding: 0; } .graph-figure, .stata-log-wrap { break-inside: avoid; } }
+
+</style>
+</head>
+<body>
+<article class="logdoc">
+<header class="logdoc-header">
+<h1>MSM Pipeline: Setup, Protocol, and Validation</h1>
+</header>
+<main class="logdoc-body">
+<div class="stata-log-wrap"><pre class="stata-log">. noisily msm, detail
+──────────────────────────────────────────────────────────────────────
+<span class="res">msm</span> - Marginal Structural Models for Stata
+Version 1.0.0
+──────────────────────────────────────────────────────────────────────
+
+<strong>Data Preparation</strong>
+  ────────────────────────────────────────────────────────────────────
+<span class="res">  msm_prepare</span>     Map variable names, validate data structure.
+                Entry point for the pipeline. Stores
+                metadata in dataset characteristics.
+
+<span class="res">  msm_validate</span>    Comprehensive data quality checks: person-
+                period format, gaps, treatment variation,
+                positivity, and missing data patterns.
+
+<strong>Core Engine</strong>
+  ────────────────────────────────────────────────────────────────────
+<span class="res">  msm_weight</span>      Stabilized inverse probability of treatment
+                weights (IPTW) with optional IPCW for
+                informative censoring. Logistic models
+                with cumulative product via log-sum.
+
+<span class="res">  msm_fit</span>         Weighted outcome model: pooled logistic
+                regression (GLM), linear, or Cox PH.
+                Robust/sandwich SE clustered by individual.
+
+<span class="res">  msm_predict</span>     Counterfactual predictions under always-
+                treated vs never-treated strategies.
+                Monte Carlo CIs via Cholesky decomposition.
+
+<strong>Diagnostics &amp; Reporting</strong>
+  ────────────────────────────────────────────────────────────────────
+<span class="res">  msm_diagnose</span>    Weight distribution, effective sample size,
+                covariate balance (SMD before/after).
+
+<span class="res">  msm_plot</span>        Visualization: weight densities, Love plots,
+                survival curves, treatment trajectories,
+                and positivity assessment.
+
+<span class="res">  msm_report</span>      Publication-quality tables: analysis summary,
+                weight diagnostics, model coefficients.
+                Export to display, CSV, or Excel.
+
+<span class="res">  msm_protocol</span>    MSM study protocol: 7-component specification
+                adapted from Robins, Hernan &amp; Brumback.
+
+<span class="res">  msm_sensitivity</span> E-value (VanderWeele &amp; Ding 2017) and
+                confounding strength bounds for
+                unmeasured confounding assessment.
+
+  msm, status      Inspect the current pipeline stage, mapped
+                variables, and saved artifacts.
+
+──────────────────────────────────────────────────────────────────────
+
+<span class="cmd">. noisily describe</span>
+Contains data from <span class="res">/home/tpcopeland/Stata-Tools/msm/msm_example.dta</span>
+ Observations:<span class="res">         4,586                  </span>
+    Variables:<span class="res">             9                  3 Mar 2026 18:24</span>
+───────────────────────────────────────────────────────────────────────────────
+Variable      Storage   Display    Value
+    name         type    format    label      Variable label
+───────────────────────────────────────────────────────────────────────────────
+<span class="res"></span> <span class="res"></span><span class="res">Individual identifier</span>
+ <span class="res"></span><span class="res">Age at baseline (years)</span>
+ <span class="res"></span><span class="res">Sex (0=Female, 1=Male)</span>
+ <span class="res"></span><span class="res">Time period (0-9)</span>
+ <span class="res"></span><span class="res">Biomarker level (time-varying)</span>
+ <span class="res"></span><span class="res">Comorbidity indicator (time-varying, 0/1)</span>
+ <span class="res"></span><span class="res">Treatment indicator (0/1)</span>
+ <span class="res"></span><span class="res">Outcome event (0/1)</span>
+ <span class="res"></span><span class="res">Censored (0/1)</span>
+───────────────────────────────────────────────────────────────────────────────
+Sorted by: <span class="res">id  period</span>
+
+<span class="cmd">. noisily list id period treatment biomarker comorbidity outcome censored in 1/12, ///</span>
+&gt;     sepby(id) noobs
+  ┌────────────────────────────────────────────────────────────────────┐
+  │ <span class="res">id   period   treatm~t   biomarker   comorb~y   outcome   censored </span>│
+  ├────────────────────────────────────────────────────────────────────┤
+  │ <span class="res"> 1        0          0   4.8851082          0         0          0 </span>│
+  │ <span class="res"> 1        1          0    3.780933          1         0          0 </span>│
+  │ <span class="res"> 1        2          1   3.7545209          1         0          0 </span>│
+  │ <span class="res"> 1        3          0    4.514095          0         0          0 </span>│
+  │ <span class="res"> 1        4          0   5.0256457          0         0          0 </span>│
+  │ <span class="res"> 1        5          0   3.8641432          0         0          0 </span>│
+  │ <span class="res"> 1        6          0   3.3054486          0         0          0 </span>│
+  │ <span class="res"> 1        7          0   2.0098388          0         0          0 </span>│
+  │ <span class="res"> 1        8          0   1.4487226          0         0          0 </span>│
+  │ <span class="res"> 1        9          0   1.5522786          0         0          0 </span>│
+  ├────────────────────────────────────────────────────────────────────┤
+  │ <span class="res"> 2        0          1   5.7298563          0         0          0 </span>│
+  │ <span class="res"> 2        1          0   5.1694216          0         0          0 </span>│
+  └────────────────────────────────────────────────────────────────────┘
+
+. noisily msm_protocol, ///
+&gt;     population(&quot;Adults followed for 10 discrete periods (N=500; 5000 person-period observations)&quot;) ///
+&gt;     treatment(&quot;Dynamic treatment assignment at each period; counterfactual contrast is always treated versus never treated&quot;) ///
+&gt;     confounders(&quot;Time-varying: biomarker, comorbidity; baseline: age, sex; informative censoring indicator&quot;) ///
+&gt;     outcome(&quot;Binary outcome assessed each period and summarized as cumulative incidence over follow-up&quot;) ///
+&gt;     causal_contrast(&quot;Risk difference in cumulative incidence under always-treated versus never-treated strategies&quot;) ///
+&gt;     weight_spec(&quot;Stabilized IPTW with baseline numerator model, denominator model including time-varying covariates, and 1st/99th percentile truncation&quot;) ///
+&gt;     analysis(&quot;Validated pooled logistic MSM with quadratic time trend, robust SEs, Monte Carlo prediction intervals, and E-value sensitivity analysis&quot;)
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+<span class="res">msm_protocol</span> - MSM Study Protocol
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+  <span class="res">1. Population</span>
+     Adults followed for 10 discrete periods (N=500; 5000 person-period observations)
+
+  <span class="res">2. Treatment strategies</span>
+     Dynamic treatment assignment at each period; counterfactual contrast is always treated versus never treated
+
+  <span class="res">3. Confounders</span>
+     Time-varying: biomarker, comorbidity; baseline: age, sex; informative censoring indicator
+
+  <span class="res">4. Outcome</span>
+     Binary outcome assessed each period and summarized as cumulative incidence over follow-up
+
+  <span class="res">5. Causal contrast</span>
+     Risk difference in cumulative incidence under always-treated versus never-treated strategies
+
+  <span class="res">6. Weight specification</span>
+     Stabilized IPTW with baseline numerator model, denominator model including time-varying covariates, and 1st/99th percentile truncation
+
+  <span class="res">7. Statistical analysis</span>
+     Validated pooled logistic MSM with quadratic time trend, robust SEs, Monte Carlo prediction intervals, and E-value sensitivity analysis
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+. noisily msm_protocol, ///
+&gt;     population(&quot;Adults followed for 10 discrete periods (N=500; 5000 person-period observations)&quot;) ///
+&gt;     treatment(&quot;Dynamic treatment assignment at each period; counterfactual contrast is always treated versus never treated&quot;) ///
+&gt;     confounders(&quot;Time-varying: biomarker, comorbidity; baseline: age, sex; informative censoring indicator&quot;) ///
+&gt;     outcome(&quot;Binary outcome assessed each period and summarized as cumulative incidence over follow-up&quot;) ///
+&gt;     causal_contrast(&quot;Risk difference in cumulative incidence under always-treated versus never-treated strategies&quot;) ///
+&gt;     weight_spec(&quot;Stabilized IPTW with baseline numerator model, denominator model including time-varying covariates, and 1st/99th percentile truncation&quot;) ///
+&gt;     analysis(&quot;Validated pooled logistic MSM with quadratic time trend, robust SEs, Monte Carlo prediction intervals, and E-value sensitivity analysis&quot;) ///
+&gt;     export(&quot;`protocol_xlsx&#x27;&quot;) format(excel) replace
+Protocol exported to: <span class="res">msm/demo/msm_protocol.xlsx</span>
+
+. noisily msm_prepare, id(id) period(period) treatment(treatment) ///
+&gt;     outcome(outcome) censor(censored) ///
+&gt;     covariates(biomarker comorbidity) ///
+&gt;     baseline_covariates(age sex)
+──────────────────────────────────────────────────────────────────────
+<span class="res">msm_prepare</span> - Data Preparation
+──────────────────────────────────────────────────────────────────────
+
+Variable mapping:
+  ID:          <span class="res">id</span>
+  Period:      <span class="res">period</span> (range: 0 to 9)
+  Treatment:   <span class="res">treatment</span>
+  Outcome:     <span class="res">outcome</span>
+  Censoring:   <span class="res">censored</span>
+  Covariates:  <span class="res">biomarker comorbidity</span>
+  Baseline:    <span class="res">age sex</span>
+
+Data summary:
+  Observations:     <span class="res">     4,586</span>
+  Individuals:      <span class="res">       500</span>
+  Period range:     <span class="res">0 - 9</span>
+  Treated obs:      <span class="res">     1,681</span>
+  Outcome events:   <span class="res">        47</span>
+  Censored obs:     <span class="res">        49</span>
+
+Metadata stored. Next step:  or
+──────────────────────────────────────────────────────────────────────
+
+. noisily msm_validate, strict verbose
+──────────────────────────────────────────────────────────────────────
+<span class="res">msm_validate</span> - Data Quality Checks
+──────────────────────────────────────────────────────────────────────
+
+Check 1: Person-period format
+<span class="res">  PASS</span>
+Check 2: No gaps in period sequences
+<span class="res">  PASS</span>
+Check 3: Outcome is terminal (no rows after event)
+<span class="res">  PASS</span>
+Check 4: Treatment variation
+<span class="res">  PASS</span> (treated: <span class="res">36.7%</span>, switches on: 661, off: 573)
+Check 5: Missing data
+<span class="res">  PASS (no missing values)</span>
+Check 6: Sufficient observations per period
+<span class="res">  PASS</span> (min per period: 413, max: 500)
+Check 7: Covariate completeness
+<span class="res">  PASS</span> (4 covariates all have variation)
+Check 8: Treatment history patterns
+<span class="res">  PASS</span>
+    Always treated: 9 (<span class="res"> 1.8%</span>)
+    Never treated:  42 (<span class="res"> 8.4%</span>)
+    Switchers:      449 (<span class="res">89.8%</span>)
+Check 9: Censoring patterns
+<span class="res">  PASS</span> (censored: 49 obs, <span class="res"> 1.1%</span>)
+Check 10: Positivity by period
+<span class="res">  PASS</span> (treatment prevalence range: <span class="res">22.0%</span> - <span class="res">41.2%</span>)
+
+──────────────────────────────────────────────────────────────────────
+Validation summary:
+  Checks run:   <span class="res">10</span>
+  Errors:       <span class="res">0</span>
+  Warnings:     <span class="res">0</span>
+
+<span class="res">All checks passed.</span>
+Next step:
+──────────────────────────────────────────────────────────────────────
+</pre></div>
+</main>
+</article>
+</body>
+</html>

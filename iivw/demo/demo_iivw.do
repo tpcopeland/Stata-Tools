@@ -1,39 +1,34 @@
-/*  demo_iivw.do - Generate screenshots for iivw v1.0.1
+/*  demo_iivw.do - Generate screenshots for iivw v1.0.2
 
-    Produces 2 output types:
+    Produces 3 output types:
       1. Console output (FIPTIW workflow: weighting + outcome model) -> .smcl
       2. Excel table (IIW vs FIPTIW comparison via collect + regtab) -> .xlsx
+      3. HTML documentation (logdoc rendering of console output) -> .html
+
+    Run from the Stata-Tools repository root:
+      stata-mp -b do iivw/demo/demo_iivw.do
 */
 
 version 16.0
 set more off
 set varabbrev off
+set linesize 250
 
-* --- Paths ---
+**# Paths
+local repo_dir = regexr("`c(pwd)'", "/+$", "")
 local pkg_dir "iivw/demo"
 capture mkdir "`pkg_dir'"
 
-* --- Load commands ---
-capture program drop iivw
-quietly run iivw/iivw.ado
-capture program drop iivw_weight
-quietly run iivw/iivw_weight.ado
-capture program drop iivw_fit
-quietly run iivw/iivw_fit.ado
-capture program drop _iivw_bs_estimate
-quietly run iivw/_iivw_bs_estimate.ado
-capture program drop _iivw_check_weighted
-quietly run iivw/_iivw_check_weighted.ado
-capture program drop _iivw_get_settings
-quietly run iivw/_iivw_get_settings.ado
-capture program drop regtab
-quietly run tabtools/regtab.ado
-capture program drop _tabtools_validate_path
-capture program drop _tabtools_col_letter
-capture program drop _tabtools_build_col_letters
-quietly run tabtools/_tabtools_common.ado
+**# Graph scheme
+capture set scheme plotplainblind
 
-* --- Generate synthetic longitudinal data ---
+**# Install packages from local source
+capture ado uninstall iivw
+quietly net install iivw, from("`repo_dir'/iivw") replace
+capture ado uninstall tabtools
+quietly net install tabtools, from("`repo_dir'/tabtools") replace
+
+**# Generate synthetic longitudinal data
 * 200 patients, 3-8 visits each, irregular timing
 * Sicker patients visit more often (informative visit process)
 clear
@@ -90,28 +85,28 @@ label define treat_lbl 0 "Placebo" 1 "Low dose" 2 "High dose", replace
 label values treatment treat_lbl
 label variable treatment "Treatment arm"
 
-* --- 1. Console output: Full FIPTIW workflow ---
-log using "`pkg_dir'/console_output.smcl", replace smcl name(demo)
+**# Console output: Full FIPTIW workflow
+log using "`pkg_dir'/console_output.smcl", replace smcl name(demo) nomsg
 
-* Package overview
+* # Package overview
 noisily iivw
 
-* Step 1: Compute FIPTIW weights with truncation
+* # Step 1: Compute FIPTIW weights
 noisily iivw_weight, id(patid) time(months) ///
     visit_cov(severity relapse) ///
     treat(drug) treat_cov(age female severity_bl) ///
     truncate(1 99) nolog
 
-* Step 2: Inspect weights
+* # Step 2: Inspect weight distribution
 noisily summarize _iivw_weight, detail
 
-* Step 3: Fit weighted outcome model (GEE)
+* # Step 3: Fit weighted outcome model (GEE)
 noisily iivw_fit score drug age female severity_bl, ///
     model(gee) timespec(linear) nolog
 
 log close demo
 
-* --- 2. Excel table: IIW vs FIPTIW comparison ---
+**# Excel table: IIW vs FIPTIW comparison
 collect clear
 
 * Model 1: IIW only
@@ -149,5 +144,16 @@ regtab, xlsx(`pkg_dir'/iivw_results.xlsx) sheet(Comparison) ///
     models(IIW \ FIPTIW \ FIPTIW-IX \ FIPTIW-CAT) ///
     title(IIW vs FIPTIW: Cognitive Score) stats(n) noint
 
-* --- Cleanup ---
+**# Render HTML documentation with logdoc
+capture ado uninstall logdoc
+quietly net install logdoc, from("`repo_dir'/logdoc") replace
+
+logdoc using "`pkg_dir'/console_output.smcl", ///
+    output("`pkg_dir'/console_output.html") ///
+    title("iivw: Inverse Intensity of Visit Weighting") ///
+    date("April 2026") ///
+    highlight tables ///
+    replace quiet
+
+**# Cleanup
 clear

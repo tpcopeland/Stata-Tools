@@ -143,6 +143,68 @@ The E-value is the minimum strength of association (risk ratio scale) that an un
 - `msm_weight` assumes a shared baseline period. Late entry/left truncation is not supported.
 - By default, `msm_predict` only allows `times()` within the observed follow-up range. Use `extrapolate` only when you deliberately want out-of-range predictions.
 
+## Demo
+
+The demo runs the full pipeline on the bundled `msm_example.dta` dataset. Console output is rendered as self-contained HTML documents using [logdoc](https://github.com/tpcopeland/Stata-Tools/tree/main/logdoc).
+
+### Console output
+
+<details>
+<summary>Setup, protocol, and validation (click to expand)</summary>
+
+[View HTML](demo/console_pipeline_setup.html) | [Source .do file](demo/demo_msm.do)
+
+![Setup output](demo/console_pipeline_setup_p1.png)
+![Setup output](demo/console_pipeline_setup_p2.png)
+![Setup output](demo/console_pipeline_setup_p3.png)
+![Setup output](demo/console_pipeline_setup_p4.png)
+
+</details>
+
+<details>
+<summary>Weighting and diagnostics (click to expand)</summary>
+
+[View HTML](demo/console_pipeline_diagnostics.html)
+
+![Diagnostics output](demo/console_pipeline_diagnostics_p1.png)
+![Diagnostics output](demo/console_pipeline_diagnostics_p2.png)
+
+</details>
+
+<details>
+<summary>Estimation, prediction, and reporting (click to expand)</summary>
+
+[View HTML](demo/console_pipeline_results.html)
+
+![Results output](demo/console_pipeline_results_p1.png)
+![Results output](demo/console_pipeline_results_p2.png)
+![Results output](demo/console_pipeline_results_p3.png)
+![Results output](demo/console_pipeline_results_p4.png)
+![Results output](demo/console_pipeline_results_p5.png)
+
+</details>
+
+### Graphs
+
+![Counterfactual cumulative incidence](demo/survival_plot.png)
+
+![Stabilized IP weight distribution](demo/weight_plot.png)
+
+![Covariate balance before and after weighting](demo/balance_plot.png)
+
+### Excel exports
+
+<details>
+<summary>Excel workbook screenshots (click to expand)</summary>
+
+![Protocol export](demo/msm_protocol.png)
+
+![Report export](demo/msm_report.png)
+
+![Multi-sheet workbook](demo/msm_tables.png)
+
+</details>
+
 ## Worked Examples
 
 ### 1. Full pipeline with the bundled example dataset

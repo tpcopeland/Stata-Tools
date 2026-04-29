@@ -100,6 +100,200 @@ mvp bmi sbp ldl hba1c, graph(correlation) textlabels
 
 For large datasets, `graph(matrix)` samples 500 observations by default. Use `graph(matrix, sample(#))` to change that, and add `sort` inside `graph(matrix, sort)` when you want observations grouped by pattern.
 
+## Demo
+
+<details>
+<summary>Console output — pattern analysis with monotone test and correlations (click to expand)</summary>
+
+```stata
+. mvp age female bmi sbp ldl hba1c, percent sort monotone correlate
+```
+
+```
+Variables with no missing: age female
+
+Variable     | Type     Obs    Miss   %Miss   Variable label
+-------------+-----------------------------------------
+hba1c        |  double    369    131   26.2   HbA1c
+ldl          |  double    417     83   16.6   LDL cholesterol
+bmi          |  double    452     48    9.6   Body mass index
+sbp          |  double    470     30    6.0   Systolic BP
+-------------------------------------------------------
+
+Missing value patterns
+
+  +----------------------------------+
+  | _pattern   _miss   _freq    _pct |
+  |----------------------------------|
+  |     ++++       0     276   55.20 |
+  |     .+++       1      74   14.80 |
+  |     ..++       2      40    8.00 |
+  |     +.++       1      35    7.00 |
+  |     ++.+       1      32    6.40 |
+  |     +++.       1      18    3.60 |
+  |     .+.+       2       9    1.80 |
+  |     .++.       2       5    1.00 |
+  |     ++..       2       3    0.60 |
+  |     +..+       2       3    0.60 |
+  |     +.+.       2       2    0.40 |
+  |     ..+.       3       2    0.40 |
+  |     ...+       3       1    0.20 |
+  +----------------------------------+
+
+--------------------------------------------------
+Total observations:             500
+Complete cases:                 276  ( 55.2%)
+Incomplete cases:               224  ( 44.8%)
+Unique patterns:                 13
+Variables analyzed:               4
+Max missing/obs:                  3
+Mean missing/obs:              0.58
+--------------------------------------------------
+
+Monotone missingness test:
+  Observations with monotone pattern:      297 ( 59.4%)
+  Pattern is non-monotone
+
+Tetrachoric correlations of missingness:
+(correlations among missingness indicators)
+
+        hba1c     ldl     bmi     sbp
+hba1c   1.000
+  ldl   0.453   1.000
+  bmi  -0.097  -0.217   1.000
+  sbp  -0.045  -0.070   0.012   1.000
+```
+
+</details>
+
+### Graph gallery
+
+<details>
+<summary>Bar chart — % missing by variable (click to expand)</summary>
+
+![Missing values by variable](demo/missingness_bar.png)
+
+</details>
+
+<details>
+<summary>Pattern frequency chart — top 10 patterns</summary>
+
+![Top 10 missing value patterns](demo/pattern_freq.png)
+
+</details>
+
+<details>
+<summary>Matrix heatmap — observation × variable</summary>
+
+![Missingness heatmap](demo/matrix_heatmap.png)
+
+</details>
+
+<details>
+<summary>Correlation heatmap — missingness indicators</summary>
+
+![Missingness correlations](demo/correlation_heatmap.png)
+
+</details>
+
+<details>
+<summary>Stratified bar chart — by sex (2 groups)</summary>
+
+![Bar chart by sex](demo/bar_by_sex.png)
+
+</details>
+
+<details>
+<summary>Stacked bar chart — variable contributions</summary>
+
+![Stacked bar chart](demo/stacked_bar.png)
+
+</details>
+
+### Multiple treatment groups
+
+The `gby()` and `over()` options support any number of groups. Here the dataset has 3 treatment arms (Placebo, Low dose, High dose) with the high-dose arm receiving extra lab dropout missingness.
+
+<details>
+<summary>Faceted bar chart — gby(arm) (click to expand)</summary>
+
+![Missing values by treatment arm](demo/mg_bar_gby.png)
+
+</details>
+
+<details>
+<summary>Overlay bar chart — over(arm)</summary>
+
+![Treatment arms compared](demo/mg_bar_over.png)
+
+</details>
+
+<details>
+<summary>Faceted pattern chart — gby(arm)</summary>
+
+![Patterns by treatment arm](demo/mg_patterns_gby.png)
+
+</details>
+
+<details>
+<summary>Per-arm console output (click to expand)</summary>
+
+```stata
+. mvp bmi sbp ldl hba1c if arm == 0, percent sort   // Placebo
+```
+
+```
+Variable     | Type     Obs    Miss   %Miss   Variable label
+-------------+-----------------------------------------
+hba1c        |  double    130     37   22.2   HbA1c
+ldl          |  double    144     23   13.8   LDL cholesterol
+bmi          |  double    151     16    9.6   Body mass index
+sbp          |  double    153     14    8.4   Systolic BP
+-------------------------------------------------------
+
+Complete cases:           95  ( 56.9%)    Unique patterns: 10
+```
+
+```stata
+. mvp bmi sbp ldl hba1c if arm == 1, percent sort   // Low dose
+```
+
+```
+Variable     | Type     Obs    Miss   %Miss   Variable label
+-------------+-----------------------------------------
+hba1c        |  double    121     46   27.5   HbA1c
+ldl          |  double    144     23   13.8   LDL cholesterol
+bmi          |  double    149     18   10.8   Body mass index
+sbp          |  double    163      4    2.4   Systolic BP
+-------------------------------------------------------
+
+Complete cases:           94  ( 56.3%)    Unique patterns: 8
+```
+
+```stata
+. mvp bmi sbp ldl hba1c if arm == 2, percent sort   // High dose
+```
+
+```
+Variable     | Type     Obs    Miss   %Miss   Variable label
+-------------+-----------------------------------------
+hba1c        |  double     97     69   41.6   HbA1c
+ldl          |  double    116     50   30.1   LDL cholesterol
+bmi          |  double    152     14    8.4   Body mass index
+sbp          |  double    154     12    7.2   Systolic BP
+-------------------------------------------------------
+
+Complete cases:           67  ( 40.4%)    Unique patterns: 13
+```
+
+</details>
+
+Regenerate with:
+
+```stata
+do mvp/demo/demo_mvp.do
+```
+
 ## Selected Returned Results
 
 `mvp` stores several useful summaries in `r()`, including:

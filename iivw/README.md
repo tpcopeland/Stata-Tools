@@ -185,6 +185,20 @@ After running `iivw_weight`, check these before fitting the outcome model:
 
 The package ships with functional, validation, and cross-validation QA under `qa/`, including comparisons against independent R workflows for both IIW-style weighting and the FIPTIW setting.
 
+## Demo
+
+The full FIPTIW workflow (weighting, weight diagnostics, outcome model) is rendered as a self-contained HTML document:
+
+**[View rendered output (console_output.html)](demo/console_output.html)**
+
+The demo also produces a multi-model comparison table (`demo/iivw_results.xlsx`) showing IIW, FIPTIW, FIPTIW with treatment-time interaction, and FIPTIW with categorical treatment side by side.
+
+Regenerate with:
+
+```stata
+do iivw/demo/demo_iivw.do
+```
+
 ## References
 
 - Buzkova P, Lumley T. Longitudinal data analysis for generalized linear models with follow-up dependent on outcome-related variables. *Canadian Journal of Statistics*. 2007;35(4):485-500.

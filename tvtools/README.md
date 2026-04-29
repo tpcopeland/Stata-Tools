@@ -61,92 +61,375 @@ cohort.dta + episodes.dta
 - `tvmerge` operates on **tvexpose output**, not raw episode files.
 - For `tvevent`, the **event data** is the master (in memory) and the **interval data** is the using file.
 
-## Worked Examples
+## Demo Output
 
-The examples below use synthetic datasets from `_data/` modeling an SSRI vs SNRI antidepressant study.
+Output below is generated from `tvtools/demo/demo_tvtools.do` (200-patient synthetic cohort, SSRI/SNRI antidepressant study design). Rendered with [logdoc](../logdoc/).
 
-### 1. Create a single time-varying exposure dataset and diagnose it
+### Binary treatment pipeline
 
-In this pattern, the cohort is in memory and the exposure episodes are supplied through `using`.
+<details>
+<summary>Package overview (click to expand)</summary>
 
-```stata
-use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear
+```
+----------------------------------------------------------------------
+tvtools - Time-Varying Exposure Analysis Suite
+----------------------------------------------------------------------
 
-tvexpose using "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/tv_antidep_episodes.dta", ///
-    id(id) start(rx_start) stop(rx_stop) ///
-    exposure(drug_class) reference(0) ///
-    entry(study_entry) exit(study_exit) ///
-    keepvars(index_age female education) keepdates ///
-    saveas(tv_antidep.dta) replace
+Data Preparation
+  tvexpose   - Create time-varying exposure variables
+  tvmerge    - Merge multiple time-varying datasets
+  tvevent    - Integrate events and competing risks
+  tvage      - Add time-varying age to stset data
 
-use tv_antidep.dta, clear
-tvdiagnose, id(id) start(rx_start) stop(rx_stop) ///
-    exposure(tv_exposure) entry(study_entry) exit(study_exit) all
+Diagnostics
+  tvdiagnose - Diagnostic tools for TV datasets
+
+Weighting
+  tvweight   - Calculate IPTW weights
+
+----------------------------------------------------------------------
+Total commands: 6
+
+Help: help tvtools for workflow guide
+      help <command> for individual command help
 ```
 
-`tvexpose` creates one row per person-time segment where exposure status is constant. `tvdiagnose` is the first quality check for coverage, gaps, overlaps, and exposure distribution.
+</details>
 
-### 2. Merge two exposure streams and estimate IPTW
-
-`tvmerge` expects interval files, not raw episode data. When those files still use the default `tv_exposure` variable name, assign distinct output names during the merge with `generate()`.
+<details>
+<summary>Step 1: tvexpose — create exposure intervals (click to expand)</summary>
 
 ```stata
-use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear
-tvexpose using "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/tv_benzo_episodes.dta", ///
+tvexpose using episodes_antidep.dta, ///
     id(id) start(rx_start) stop(rx_stop) ///
-    exposure(benzo_use) reference(0) ///
+    exposure(drug) reference(0) ///
     entry(study_entry) exit(study_exit) ///
-    saveas(tv_benzo.dta) replace
+    keepvars(age female) keepdates
+```
 
+```
+Warning! Overlapping exposure categories detected for 3 IDs
+  (specify verbose to list affected IDs)
+
+Default behavior: Later exposures take precedence (layer-style resolution)
+Consider using one of these options to resolve overlaps explicitly:
+  priority(numlist) - Specify precedence order for exposure types
+  layer - Later exposures take precedence, earlier resume after
+  split - Create separate periods at all boundaries
+  combine(newvar) - Encode overlaps as combined values
+
+Gaps in Coverage
+------------------------------------------------------------
+No gaps found in coverage
+
+Time-varying exposure dataset created
+Exposure Operationalization: timevarying
+--------------------------------------------------
+    Persons:            200
+    Time-varying periods:            929
+    Total person-time (days):        219,007
+    Exposed person-time:         60,167 (27.5%)
+    Unexposed person-time:        158,840
+    Note: Baseline periods included (complete person-time coverage)
+--------------------------------------------------
+```
+
+</details>
+
+<details>
+<summary>Step 2: tvdiagnose — coverage and gap diagnostics (click to expand)</summary>
+
+```stata
+tvdiagnose, id(id) start(rx_start) stop(rx_stop) ///
+    entry(study_entry) exit(study_exit) all
+```
+
+```
+----------------------------------------------------------------------
+Time-Varying Data Diagnostics
+----------------------------------------------------------------------
+Dataset summary:
+  Observations:          929
+  Persons:          200
+  Periods/person:      4.6
+
+----------------------------------------------------------------------
+Coverage Diagnostics
+----------------------------------------------------------------------
+----------------------------------------------------------------------
+Coverage Summary:
+  Mean coverage: 100.0%
+  Min coverage:  100.0%
+  Max coverage:  100.0%
+  Persons with gaps: 0 ( 0.0%)
+----------------------------------------------------------------------
+
+----------------------------------------------------------------------
+Gap Analysis
+----------------------------------------------------------------------
+No gaps found in coverage
+
+----------------------------------------------------------------------
+Overlap Analysis
+----------------------------------------------------------------------
+No overlapping periods found
+
+----------------------------------------------------------------------
+Diagnostic Complete
+----------------------------------------------------------------------
+```
+
+</details>
+
+<details>
+<summary>Step 3: tvmerge — merge two exposure streams (click to expand)</summary>
+
+```stata
 tvmerge tv_antidep.dta tv_benzo.dta, id(id) ///
     start(rx_start rx_start) stop(rx_stop rx_stop) ///
     exposure(tv_exposure tv_exposure) ///
-    generate(antidep_class benzo) ///
-    keep(index_age female education)
-
-tvweight antidep_class, ///
-    covariates(index_age_ds1 female_ds1 education_ds1) ///
-    model(mlogit) generate(iptw)
+    generate(antidep benzo) ///
+    keep(age female)
 ```
 
-The `keep()` option carries selected covariates through the merge and suffixes them with `_ds#` so their source dataset stays explicit.
+```
+Processing 200 unique IDs in 5 batches (batch size: 40 IDs = 20%)...
+  Batch 1/5...
+  Batch 2/5...
+  Batch 3/5...
+  Batch 4/5...
+  Batch 5/5...
 
-### 3. Add events and fit a competing-risks model
+Merged time-varying dataset successfully created
+--------------------------------------------------
+    Observations:          1,522
+    Persons:            200
+    Exposure variables:  antidep benzo
+--------------------------------------------------
+```
 
-For `tvevent`, the event data stay in memory and the interval dataset is the `using` file.
+</details>
+
+<details>
+<summary>Step 4: tvevent — add outcomes and competing risks (click to expand)</summary>
 
 ```stata
-use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/tv_events.dta", clear
-
 tvevent using tv_antidep.dta, id(id) ///
     date(cv_event_date) compete(death_date) ///
     generate(outcome) startvar(rx_start) stopvar(rx_stop)
-
-stset rx_stop, id(id) failure(outcome==1) enter(rx_start)
-stcrreg i.tv_exposure, compete(outcome==2)
 ```
 
-The resulting outcome variable uses `0` for censoring, `1` for the primary event, and `2` for the competing event.
+```
+Splitting intervals for 24 internal events...
+Single event type: Censored person-time after first event.
 
-### 4. Create age bands on the same follow-up scale
+--------------------------------------------------
+Event integration complete
+  Observations: 897
+  Events flagged (outcome): 24
+  Variable outcome labels:
+    0 = Censored
+    1 = Event: cv_event_date
+    2 = Competing: death_date
+--------------------------------------------------
+```
 
-`tvage` is a helper when age needs to be represented as its own time-varying interval dataset.
+</details>
+
+<details>
+<summary>Step 5: tvweight — estimate IPTW weights, binary (click to expand)</summary>
 
 ```stata
-use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear
+gen byte any_drug = (tv_exposure != 0) if !missing(tv_exposure)
+tvweight any_drug, covariates(age female) ///
+    generate(iptw) stabilized nolog
+```
 
+```
+----------------------------------------------------------------------
+IPTW Weight Calculation
+----------------------------------------------------------------------
+
+Exposure variable: any_drug
+Number of levels:  2
+Model type:        logit
+Covariates:        age female
+Observations:      929
+
+Fitting propensity score model...
+
+Calculating weights...
+Calculating stabilized weights...
+
+----------------------------------------------------------------------
+Weight Diagnostics
+----------------------------------------------------------------------
+
+Weight distribution:
+  Mean:        0.9999
+  SD:          0.0764
+  Min:         0.8245
+  Max:         1.2455
+
+Percentiles:
+  1%:          0.8323
+  5%:          0.8732
+  25%:         0.9517
+  50%:         0.9928
+  75%:         1.0424
+  95%:         1.1267
+  99%:         1.2315
+
+Effective sample size:
+  ESS:          923.6 (of 929 observations)
+  ESS %:         99.4%
+
+Weights by exposure group:
+--------------------------------------------------
+  Reference (any_drug=0): N=640, Mean=  1.000, SD=  0.052
+  Exposed (any_drug!=0):  N=289, Mean=  1.000, SD=  0.113
+----------------------------------------------------------------------
+
+Weight variable iptw created successfully.
+----------------------------------------------------------------------
+```
+
+</details>
+
+### Step 6: tvage — create age-band intervals
+
+```stata
 tvage, idvar(id) dobvar(dob) entryvar(study_entry) exitvar(study_exit) ///
     groupwidth(5) minage(40) maxage(80) ///
     saveas(age_tv.dta) replace
 ```
 
-The output has the same id/start/stop structure as `tvexpose`, so you can merge it with exposure intervals using `tvmerge`:
+The output has the same id/start/stop structure as `tvexpose`, so you can merge age bands with exposure intervals using `tvmerge`:
 
 ```stata
 tvmerge tv_antidep.dta age_tv.dta, id(id) ///
     start(rx_start age_start) stop(rx_stop age_stop) ///
-    exposure(drug_class age_tv)
+    exposure(tv_exposure age_tv)
 ```
+
+### Multi-group treatment weighting
+
+When the exposure has 3+ categories, `tvweight` automatically switches to multinomial logit (`mlogit`). This example uses the full drug variable (0=Unexposed, 1=SSRI, 2=SNRI) with stabilized weights and percentile truncation.
+
+<details>
+<summary>tvexpose — 3 treatment categories (click to expand)</summary>
+
+```stata
+tvexpose using episodes_antidep.dta, ///
+    id(id) start(rx_start) stop(rx_stop) ///
+    exposure(drug) reference(0) ///
+    entry(study_entry) exit(study_exit) ///
+    keepvars(age female) keepdates
+```
+
+```
+Warning! Overlapping exposure categories detected for 3 IDs
+  (specify verbose to list affected IDs)
+
+Default behavior: Later exposures take precedence (layer-style resolution)
+Consider using one of these options to resolve overlaps explicitly:
+  priority(numlist) - Specify precedence order for exposure types
+  layer - Later exposures take precedence, earlier resume after
+  split - Create separate periods at all boundaries
+  combine(newvar) - Encode overlaps as combined values
+
+Gaps in Coverage
+------------------------------------------------------------
+No gaps found in coverage
+
+Time-varying exposure dataset created
+Exposure Operationalization: timevarying
+--------------------------------------------------
+    Persons:            200
+    Time-varying periods:            929
+    Total person-time (days):        219,007
+    Exposed person-time:         60,167 (27.5%)
+    Unexposed person-time:        158,840
+    Note: Baseline periods included (complete person-time coverage)
+--------------------------------------------------
+```
+
+</details>
+
+<details>
+<summary>tvweight — multinomial logit with stabilization and truncation (click to expand)</summary>
+
+```stata
+tvweight tv_exposure, covariates(age female) ///
+    generate(iptw_mg) model(mlogit) stabilized truncate(1 99) nolog
+```
+
+```
+----------------------------------------------------------------------
+IPTW Weight Calculation
+----------------------------------------------------------------------
+
+Exposure variable: tv_exposure
+Number of levels:  3
+Model type:        mlogit
+Covariates:        age female
+Observations:      929
+
+Fitting propensity score model...
+
+Calculating weights...
+Calculating stabilized weights...
+Truncating weights at 1th and 99th percentiles...
+  Truncated 15 observations (6 low, 9 high)
+
+----------------------------------------------------------------------
+Weight Diagnostics
+----------------------------------------------------------------------
+
+Weight distribution:
+  Mean:        0.9994
+  SD:          0.0896
+  Min:         0.7501
+  Max:         1.3094
+
+Percentiles:
+  1%:          0.7501
+  5%:          0.8555
+  25%:         0.9432
+  50%:         0.9925
+  75%:         1.0464
+  95%:         1.1091
+  99%:         1.3094
+
+Effective sample size:
+  ESS:          921.6 (of 929 observations)
+  ESS %:         99.2%
+
+Weights by exposure group:
+--------------------------------------------------
+  Level 0: N=640, Mean=  1.000, SD=  0.052
+  Level 1: N=152, Mean=  0.996, SD=  0.182
+  Level 2: N=137, Mean=  1.000, SD=  0.073
+----------------------------------------------------------------------
+
+Weight variable iptw_mg created successfully.
+----------------------------------------------------------------------
+```
+
+</details>
+
+## Worked Examples
+
+### Fitting a competing-risks model after the pipeline
+
+After running Steps 1 and 4, the interval dataset is ready for `stset` and analysis:
+
+```stata
+stset rx_stop, id(id) failure(outcome==1) enter(rx_start)
+stcrreg i.tv_exposure, compete(outcome==2)
+```
+
+The outcome variable uses `0` for censoring, `1` for the primary event, and `2` for the competing event.
 
 ## Command Reference
 

@@ -67,18 +67,63 @@ Start with `setools` or `setools, detail` inside Stata if you want a menu-style 
 | Define confirmed disability progression from baseline EDSS | `cdp` |
 | Separate confirmed progression into PIRA versus relapse-associated worsening | `pira` |
 
-## Worked Examples
+## Demo
 
-### 1. Inspect the package inside Stata
+### Package overview
 
-```stata
-setools
-setools, detail
-```
+![setools overview](demo/setools_overview.png)
 
-### 2. Swedish Charlson Comorbidity Index with `cci_se`
+### Registry code utilities
 
-`cci_se` expects long diagnosis-level data. You can pass one ICD variable or a list of diagnosis variables in `icd()`, as long as the row-level `date()` applies to all of them. The public example file already has the variables used in the help file: `id`, `icd`, and `visit_date`.
+<details>
+<summary>cci_se — Swedish Charlson Comorbidity Index (click to expand)</summary>
+
+![cci_se output](demo/cci_se.png)
+
+</details>
+
+<details>
+<summary>procmatch — KVÅ procedure code matching (click to expand)</summary>
+
+![procmatch output](demo/procmatch.png)
+
+</details>
+
+### Cohort construction
+
+<details>
+<summary>migrations — migration exclusions and censoring (click to expand)</summary>
+
+![migrations output](demo/migrations.png)
+
+</details>
+
+### MS disability progression
+
+<details>
+<summary>sustainedss — sustained EDSS progression (click to expand)</summary>
+
+![sustainedss output](demo/sustainedss.png)
+
+</details>
+
+<details>
+<summary>cdp — confirmed disability progression (click to expand)</summary>
+
+![cdp output](demo/cdp.png)
+
+</details>
+
+<details>
+<summary>pira — progression independent of relapse activity (click to expand)</summary>
+
+![pira output](demo/pira.png)
+
+</details>
+
+## Quick Start
+
+### Swedish Charlson Comorbidity Index
 
 ```stata
 use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/diagnoses.dta", clear
@@ -86,43 +131,30 @@ cci_se, id(id) icd(icd) date(visit_date) components noisily
 summarize charlson
 ```
 
-Use `components` when you want the individual comorbidity indicators as well as the total score.
+Use `components` to get individual comorbidity indicators alongside the total score. Use `dates` to also get the earliest diagnosis date per component.
 
-### 3. Migration-based exclusions and censoring with `migrations`
-
-`migrations` needs a local file path in `migfile()`, so this example first downloads both the cohort and migration files into the working directory. `migfile()` may point either to the traditional wide `migrations_wide.dta` file or to a long event file with `event_date` and `event_type` (`Inv`/`Utv`). The master `startvar()`, long `event_date`, and wide `in_#`/`out_#` variables must all be Stata daily dates with `%td` display formats; `%tc` datetime variables are rejected.
-
-```stata
-copy "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta" "cohort_example.dta", replace
-copy "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/migrations_wide.dta" "migrations_wide.dta", replace
-
-use "cohort_example.dta", clear
-migrations, migfile("migrations_wide.dta") startvar(study_entry) verbose
-
-gen double admin_end = mdy(12,31,2023)
-gen double exit_date = min(admin_end, death_date, migration_out_dt)
-format exit_date %td
-```
-
-After `migrations`, excluded people are dropped and `migration_out_dt` is ready for use as a right-censoring date in downstream survival setup.
-
-### 4. Procedure code matching with `procmatch`
-
-`procmatch match` searches one or more code variables for any member of a code list. `procmatch first` then adds a subject-level first-occurrence date.
+### Procedure code matching
 
 ```stata
 use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/procedures.dta", clear
-procmatch match, codes("FNG02 FNG05") procvars(kva_code) ///
-    generate(cardiac_proc_match) prefix noisily
-
+procmatch match, codes("FNG02 FNG05") procvars(kva_code) generate(cardiac_proc) noisily
 procmatch first, codes("FNG02 FNG05") procvars(kva_code) ///
-    datevar(proc_date) idvar(id) ///
-    generate(cardiac_proc_ever) gendatevar(cardiac_proc_dt)
+    datevar(proc_date) idvar(id) generate(cardiac_ever) gendatevar(cardiac_dt)
 ```
 
-### 5. Sustained EDSS and CDP from repeated EDSS data
+### Migration exclusions and censoring
 
-The `_data/relapses.dta` example file contains repeated EDSS measurements together with diagnosis and relapse dates. `sustainedss` and `cdp` use the visit-level EDSS fields directly.
+`migrations` needs a local file path in `migfile()`. It accepts both wide `in_#`/`out_#` format and long `event_date`/`event_type` format. All date variables must be Stata daily dates with `%td` formats.
+
+```stata
+use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/cohort.dta", clear
+copy "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/migrations_wide.dta" "migrations_wide.dta", replace
+migrations, migfile("migrations_wide.dta") startvar(study_entry) verbose
+```
+
+After `migrations`, excluded people are dropped and `migration_out_dt` is ready for use as a right-censoring date.
+
+### MS disability progression endpoints
 
 ```stata
 use "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/relapses.dta", clear
@@ -130,21 +162,14 @@ sustainedss id edss edss_date, threshold(4) keepall
 cdp id edss edss_date, dxdate(dx_date) keepall
 ```
 
-Use `confirmwindow()` in `sustainedss` or `confirmdays()` in `cdp` when your study uses a shorter or longer confirmation rule than the defaults.
-
-### 6. PIRA versus relapse-associated worsening with `pira`
-
-`pira` requires a separate relapse file, so this workflow downloads both the EDSS visits file and the relapse-only file referenced by the help file.
+`pira` requires a separate relapse file to classify progression as PIRA versus relapse-associated worsening:
 
 ```stata
-copy "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/relapses.dta" "relapses_example.dta", replace
 copy "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/relapses_only.dta" "relapses_only.dta", replace
-
-use "relapses_example.dta", clear
 pira id edss edss_date, dxdate(dx_date) relapses("relapses_only.dta") keepall
 ```
 
-Adjust `windowbefore()` and `windowafter()` if your protocol uses a different relapse exclusion window.
+Use `confirmwindow()` / `confirmdays()` when your study uses a different confirmation rule, and `windowbefore()` / `windowafter()` to adjust the relapse exclusion window.
 
 ## Data Shape Notes
 

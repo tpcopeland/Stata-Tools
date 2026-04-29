@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MSM Pipeline: Weighting and Diagnostics</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #191a1f; color: #e5e7eb;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-size: 16px; line-height: 1.55; -webkit-font-smoothing: antialiased; }
+.logdoc { max-width: 1040px; margin: 0 auto; padding: 2rem 1.25rem; }
+.logdoc-header { margin-bottom: 1.25rem; padding-bottom: 0.75rem; border-bottom: 1px solid #374151; }
+.logdoc-header h1 { font-size: 1.5rem; font-weight: 600; color: #f9fafb; margin: 0; }
+.subtitle { font-size: 0.9375rem; color: #9ca3af; margin-top: 0.25rem; }
+.stamp { font-size: 0.75rem; color: #9ca3af; margin-top: 0.25rem; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
+.stata-log-wrap { margin: 0; overflow-x: auto; }
+.stata-log { margin: 0; padding: 0 0 0.75rem 0; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; font-size: 0.875rem; line-height: 1.45; white-space: pre; tab-size: 8; color: #d1d5db; }
+.err { color: #fca5a5; }
+.cmd { color: #f9fafb; font-weight: 600; }
+.res { color: #f9fafb; }
+.comment-block { margin: 0.25rem 0; color: #9ca3af; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; font-size: 0.875rem; }
+.graph-figure { margin: 1rem 0 1.5rem 0; text-align: center; }
+.graph-figure img { max-width: 100%; height: auto; border: 1px solid #374151; border-radius: 4px; }
+.graph-missing { margin: 0.5rem 0; padding: 0.6rem 0.75rem; background: #431407; border-left: 3px solid #fb923c; color: #fed7aa; font-size: 0.875rem; }
+.logdoc-footer { margin-top: 2rem; padding-top: 0.75rem; border-top: 1px solid #374151; font-size: 0.75rem; color: #9ca3af; text-align: center; }
+@media (max-width: 768px) { .logdoc { padding: 1rem; } .logdoc-header h1 { font-size: 1.25rem; } }
+.diff-added { background: #1a3a2a; border-left: 3px solid #a6e3a1; }
+.diff-removed { background: #3a1a2a; border-left: 3px solid #f38ba8; }
+.diff-context { opacity: 0.6; }
+.diff-legend { display: flex; gap: 1.5rem; margin-bottom: 1rem; font-size: 0.8125rem; color: #9ca3af; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
+.diff-legend span { display: inline-flex; align-items: center; gap: 0.4rem; }
+.diff-legend .swatch { display: inline-block; width: 0.875rem; height: 0.875rem; border-radius: 2px; }
+.diff-group { margin: 0.5rem 0; padding: 0.25rem 0; border-top: 1px dashed #374151; }
+.diff-label { font-size: 0.75rem; color: #9ca3af; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; padding: 0.125rem 0.5rem; }
+@media print { body { background: #fff; color: #212529; font-size: 11pt; } .logdoc { max-width: 100%; padding: 0; } .graph-figure, .stata-log-wrap { break-inside: avoid; } }
+
+</style>
+</head>
+<body>
+<article class="logdoc">
+<header class="logdoc-header">
+<h1>MSM Pipeline: Weighting and Diagnostics</h1>
+</header>
+<main class="logdoc-body">
+<div class="stata-log-wrap"><pre class="stata-log">. noisily msm_weight, treat_d_cov(biomarker comorbidity age sex) ///
+&gt;     treat_n_cov(age sex) truncate(1 99) nolog
+───────────────────────────────────────────────────────────────────────────────────
+<span class="res">msm_weight</span> - Inverse Probability Weights
+───────────────────────────────────────────────────────────────────────────────────
+
+Treatment denom:  <span class="res">biomarker comorbidity age sex</span>
+Treatment numer:  <span class="res">age sex</span>
+Treatment models:
+  Denominator:    <span class="res">treatment ~ lagged treatment biomarker comorbidity age sex period</span>
+  First period:   <span class="res">treatment ~ biomarker comorbidity age sex</span>
+  Numerator:      <span class="res">treatment ~ lagged treatment age sex</span>
+  First period:   <span class="res">treatment ~ age sex</span>
+Stabilized:       <span class="res">Yes</span>
+Model failure:    <span class="res">Hard fail (default)</span>
+Truncation:       <span class="res">1th - 99th percentile</span>
+
+Fitting treatment models...
+  Denominator model: treatment ~  biomarker comorbidity age sex period
+  Numerator model:   treatment ~  age sex
+
+Truncating weights at 1th and 99th percentiles...
+  Truncated 90 observations (45 low, 45 high)
+
+Weight distribution:
+  Mean:     <span class="res">   0.9847</span>
+  SD:       <span class="res">   0.3765</span>
+  Min:      <span class="res">   0.3549</span>
+  Median:   <span class="res">   0.9362</span>
+  Max:      <span class="res">   2.7880</span>
+  P1:       <span class="res">   0.3549</span>
+  P99:      <span class="res">   2.7880</span>
+
+Effective sample size: <span class="res">   4001.1</span> (of <span class="res">4586</span>)
+
+Variables created: <span class="res">_msm_weight _msm_tw_weight</span>
+Next step:  or
+───────────────────────────────────────────────────────────────────────────────────
+
+. noisily summarize _msm_weight, detail
+                  MSM cumulative IP weight
+─────────────────────────────────────────────────────────────
+      Percentiles      Smallest
+ 1%    <span class="res"> .3548514       .3548514</span>
+ 5%    <span class="res">  .506544       .3548514</span>
+10%    <span class="res"> .6084005       .3548514       </span>Obs         <span class="res">      4,586</span>
+25%    <span class="res"> .7679421       .3548514       </span>Sum of wgt. <span class="res">      4,586</span>
+
+50%    <span class="res"> .9362059                      </span>Mean          <span class="res"> .9847162</span>
+                        Largest       Std. dev.     <span class="res"> .3765483</span>
+75%    <span class="res"> 1.100673       2.788025</span>
+90%    <span class="res">  1.37987       2.788025       </span>Variance      <span class="res"> .1417887</span>
+95%    <span class="res"> 1.658905       2.788025       </span>Skewness      <span class="res"> 1.934508</span>
+99%    <span class="res"> 2.788025       2.788025       </span>Kurtosis      <span class="res"> 9.203435</span>
+
+. noisily msm_diagnose, balance_covariates(biomarker comorbidity age sex) ///
+&gt;     by_period threshold(0.1)
+──────────────────────────────────────────────────────────────────────
+<span class="res">msm_diagnose</span> - Weight Diagnostics
+──────────────────────────────────────────────────────────────────────
+
+<strong>Weight Distribution</strong>
+
+  Mean:     <span class="res">   0.9847</span>
+  SD:       <span class="res">   0.3765</span>
+  Min:      <span class="res">   0.3549</span>
+  P1:       <span class="res">   0.3549</span>
+  P5:       <span class="res">   0.5065</span>
+  P25:      <span class="res">   0.7679</span>
+  Median:   <span class="res">   0.9362</span>
+  P75:      <span class="res">   1.1007</span>
+  P95:      <span class="res">   1.6589</span>
+  P99:      <span class="res">   2.7880</span>
+  Max:      <span class="res">   2.7880</span>
+
+  ESS:      <span class="res">   4001.1</span> (<span class="res">87.2%</span> of <span class="res">4586</span>)
+
+  <strong>By treatment group:</strong>
+    Untreated (n=<span class="res">2905</span>): mean=<span class="res">0.9810</span>, SD=<span class="res">0.3419</span>, ESS=<span class="res">2590.5</span>
+    Treated (n=<span class="res">1681</span>): mean=<span class="res">0.9912</span>, SD=<span class="res">0.4300</span>, ESS=<span class="res">1414.9</span>
+
+<strong>Weight Distribution by Period</strong>
+
+Period         N        Mean          SD         Min         Max
+------------------------------------------------------------
+     0  <span class="res">     500      0.9994      0.1390      0.6067      1.7841</span>
+     1  <span class="res">     496      1.0057      0.2267      0.4815      2.4336</span>
+     2  <span class="res">     484      0.9920      0.2651      0.4359      2.5149</span>
+     3  <span class="res">     473      0.9970      0.3313      0.3828      2.7880</span>
+     4  <span class="res">     460      0.9890      0.3794      0.3549      2.7880</span>
+     5  <span class="res">     456      0.9772      0.4114      0.3549      2.7880</span>
+     6  <span class="res">     444      0.9820      0.4416      0.3549      2.7880</span>
+     7  <span class="res">     434      0.9665      0.4745      0.3549      2.7880</span>
+     8  <span class="res">     426      0.9642      0.4826      0.3549      2.7880</span>
+     9  <span class="res">     413      0.9660      0.4985      0.3549      2.7880</span>
+
+<strong>Covariate Balance (Standardized Mean Difference)</strong>
+
+           Covariate    Unweighted      Weighted    Change
+----------------------------------------------------------
+           biomarker  <span class="res">      0.3954        0.0006    -99.8%</span>
+         comorbidity  <span class="res">      0.1706       -0.0204    -88.0%</span>
+                 age  <span class="res">      0.1283        0.1372      6.9%</span> *
+                 sex  <span class="res">      0.1154        0.1159      0.4%</span> *
+----------------------------------------------------------
+Threshold: |SMD| &lt; <span class="res">.1</span>
+Balanced:   <span class="res">2</span>/<span class="res">4</span>
+Imbalanced: <span class="err">2</span> covariates marked with *
+──────────────────────────────────────────────────────────────────────
+</pre></div>
+</main>
+</article>
+</body>
+</html>

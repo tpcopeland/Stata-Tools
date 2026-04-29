@@ -258,6 +258,20 @@ program define mvp, rclass byable(recall) sortpreserve
         }
         * Get value labels if available
         local gby_vallbl : value label `gby'
+        * Pre-extract label texts (labels are lost after preserve/clear in graph code)
+        local _gbi = 0
+        foreach _lev of local gby_levels {
+            local ++_gbi
+            if "`gby_vallbl'" != "" {
+                local _gby_lt_`_gbi' : label `gby_vallbl' `_lev'
+            }
+            else if `gby_isstr' {
+                local _gby_lt_`_gbi' `"`_lev'"'
+            }
+            else {
+                local _gby_lt_`_gbi' "`gby' = `_lev'"
+            }
+        }
     }
     local over_levels ""
     local over_nlev = 0
@@ -273,6 +287,20 @@ program define mvp, rclass byable(recall) sortpreserve
         }
         * Get value labels if available
         local over_vallbl : value label `over'
+        * Pre-extract label texts
+        local _ovi = 0
+        foreach _lev of local over_levels {
+            local ++_ovi
+            if "`over_vallbl'" != "" {
+                local _over_lt_`_ovi' : label `over_vallbl' `_lev'
+            }
+            else if `over_isstr' {
+                local _over_lt_`_ovi' `"`_lev'"'
+            }
+            else {
+                local _over_lt_`_ovi' "`over' = `_lev'"
+            }
+        }
     }
 
     * ===================================================================
@@ -812,19 +840,14 @@ program define mvp, rclass byable(recall) sortpreserve
                     gen str80 gbylabel = ""
 
                     local row = 1
+                    local _gbi = 0
                     tokenize `varlist'
                     foreach lev of local gby_levels {
+                        local ++_gbi
                         forv i = 1/`nvar' {
                             replace varname = "``i''" in `row'
                             replace varorder = `i' in `row'
-                            * Get value label if available
-                            if "`gby_vallbl'" != "" {
-                                local lbltxt : label `gby_vallbl' `lev'
-                                replace gbylabel = "`lbltxt'" in `row'
-                            }
-                            else {
-                                replace gbylabel = "`gby' = `lev'" in `row'
-                            }
+                            replace gbylabel = `"`_gby_lt_`_gbi''"' in `row'
                             local ++row
                         }
                     }
@@ -887,19 +910,14 @@ program define mvp, rclass byable(recall) sortpreserve
                     gen str80 overlabel = ""
 
                     local row = 1
+                    local _ovi = 0
                     tokenize `varlist'
                     foreach lev of local over_levels {
+                        local ++_ovi
                         forv i = 1/`nvar' {
                             replace varname = "``i''" in `row'
                             replace varorder = `i' in `row'
-                            * Get value label if available
-                            if "`over_vallbl'" != "" {
-                                local lbltxt : label `over_vallbl' `lev'
-                                replace overlabel = "`lbltxt'" in `row'
-                            }
-                            else {
-                                replace overlabel = "`over' = `lev'" in `row'
-                            }
+                            replace overlabel = `"`_over_lt_`_ovi''"' in `row'
                             local ++row
                         }
                     }
@@ -1069,18 +1087,16 @@ program define mvp, rclass byable(recall) sortpreserve
                     bys `gby' _mv_patt: gen byte _isf = (_n == 1)
                     keep if _isf
 
-                    * Get group labels
+                    * Get group labels (use pre-extracted texts)
                     gen str80 _gbylabel = ""
+                    local _gbi = 0
                     foreach lev of local gby_levels {
+                        local ++_gbi
                         if `gby_isstr' {
-                            replace _gbylabel = "`gby' = `lev'" if `gby' == `"`lev'"'
-                        }
-                        else if "`gby_vallbl'" != "" {
-                            local lbltxt : label `gby_vallbl' `lev'
-                            replace _gbylabel = "`lbltxt'" if `gby' == `lev'
+                            replace _gbylabel = `"`_gby_lt_`_gbi''"' if `gby' == `"`lev'"'
                         }
                         else {
-                            replace _gbylabel = "`gby' = `lev'" if `gby' == `lev'
+                            replace _gbylabel = `"`_gby_lt_`_gbi''"' if `gby' == `lev'
                         }
                     }
 
