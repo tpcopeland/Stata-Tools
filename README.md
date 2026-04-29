@@ -2,7 +2,7 @@
 
 ---
 
-Production distribution repository for Stata packages (22 packages). All packages require Stata 16+, except where noted. Install any package directly from here using `net install`.
+Production distribution repository for Stata packages (23 packages). All packages require Stata 16+, except where noted. Install any package directly from here using `net install`.
 
 ## Installation
 
@@ -49,6 +49,7 @@ net install <package>, from("https://raw.githubusercontent.com/tpcopeland/Stata-
 | [iivw](https://github.com/tpcopeland/Stata-Tools/tree/main/iivw) | ![version](https://img.shields.io/badge/version-1.0.2-blue) | ![updated](https://img.shields.io/badge/updated-2026--04--26-brightgreen) | Inverse intensity/visit weighting for irregular longitudinal data (Stata 17+ for mixed models) |
 | [msm](https://github.com/tpcopeland/Stata-Tools/tree/main/msm) | ![version](https://img.shields.io/badge/version-1.0.0-blue) | ![updated](https://img.shields.io/badge/updated-2026--04--26-brightgreen) | Marginal structural models for longitudinal causal analysis with IPTW, diagnostics, prediction, plots, and reports |
 | [mvp](https://github.com/tpcopeland/Stata-Tools/tree/main/mvp) | ![version](https://img.shields.io/badge/version-1.0.0-blue) | ![updated](https://img.shields.io/badge/updated-2026--04--08-brightgreen) | Missing-data pattern analysis with stratified pattern tables and missingness graphics |
+| [psdash](https://github.com/tpcopeland/Stata-Tools/tree/main/psdash) | ![version](https://img.shields.io/badge/version-1.0.0-blue) | ![updated](https://img.shields.io/badge/updated-2026--04--29-brightgreen) | Propensity score diagnostics dashboard: overlap, balance, weight distribution, and common support |
 
 ### Time-Varying Data & Registries
 

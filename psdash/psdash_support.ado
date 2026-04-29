@@ -1,0 +1,956 @@
+*! psdash_support Version 1.0.0  2026/04/29
+*! Common support assessment for propensity score analysis
+*! Author: Timothy P Copeland
+*! Program class: rclass
+
+/*
+DESCRIPTION:
+    Assesses the common support (positivity) region for propensity score
+    analysis. Identifies observations outside common support, implements
+    Crump et al. (2009) optimal trimming, and generates support indicator
+    variables.
+
+    Supports binary (0/1) and multi-group (K >= 2) treatment.
+
+SYNTAX:
+    psdash support [treatment] [psvar] [if] [in] [, options]
+
+Options:
+    covariates(varlist) - Covariates (for auto-detection context)
+    crump               - Apply Crump et al. (2009) optimal trimming (binary only)
+    threshold(real)     - Manual PS trimming threshold (trim if ps<t or ps>1-t)
+    generate(name)      - Generate indicator variable (1=in support, 0=outside)
+    replace             - Allow replacing existing variable
+    nograph             - Suppress graph
+    saving(string)      - Save graph to file
+    scheme(string)      - Graph scheme
+    graphoptions(string)- Additional graph options
+    title(string)       - Title
+    name(string)        - Graph name (default: psdash_support)
+    reference(string)   - Reference group for multi-group treatment
+
+STORED RESULTS (binary):
+    r(N)                    - Total observations
+    r(N_treated)            - Treated observations
+    r(N_control)            - Control observations
+    r(lower_bound)          - Lower bound of common support
+    r(upper_bound)          - Upper bound of common support
+    r(n_outside)            - Observations outside support
+    r(pct_outside)          - Percentage outside support
+    r(n_outside_treated)    - Treated outside support
+    r(n_outside_control)    - Control outside support
+    r(trim_lower)           - Trimming lower bound (if threshold/crump)
+    r(trim_upper)           - Trimming upper bound (if threshold/crump)
+    r(n_trimmed)            - Observations trimmed (if threshold/crump)
+    r(pct_trimmed)          - Percentage trimmed (if threshold/crump)
+    r(crump_alpha)          - Crump optimal alpha (if crump)
+    r(treatment)            - Treatment variable name
+    r(psvar)                - PS variable name
+
+STORED RESULTS (multi-group):
+    r(N)                    - Total observations
+    r(K)                    - Number of treatment groups
+    r(N_group_<lev>)        - Per-group observation count
+    r(lower_bound)          - Lower bound of common support
+    r(upper_bound)          - Upper bound of common support
+    r(n_outside)            - Total observations outside support
+    r(pct_outside)          - Percentage outside support
+    r(n_outside_group_<lev>)- Per-group outside counts
+    r(trim_lower)           - Trimming lower bound (if threshold)
+    r(trim_upper)           - Trimming upper bound (if threshold)
+    r(n_trimmed)            - Observations trimmed (if threshold)
+    r(pct_trimmed)          - Percentage trimmed (if threshold)
+    r(treatment)            - Treatment variable name
+    r(levels)               - Space-separated treatment levels
+    r(reference)            - Reference group level
+*/
+
+program define psdash_support, rclass
+    version 16.0
+    local _vao = c(varabbrev)
+    set varabbrev off
+
+    capture noisily {
+
+    * =========================================================================
+    * SYNTAX PARSING
+    * =========================================================================
+    syntax [anything] [if] [in], ///
+        [COVariates(varlist numeric) ///
+         CRUMP ///
+         THReshold(real 0) ///
+         GENerate(name) ///
+         replace ///
+         NOGraph ///
+         SAVing(string) ///
+         SCHeme(string) ///
+         GRAPHOPTions(string asis) ///
+         TItle(string) ///
+         name(string) ///
+         ESTImand(string) ///
+         REFerence(string) ///
+         PSVars(varlist numeric)]
+
+    * =========================================================================
+    * MARK SAMPLE AND AUTO-DETECT
+    * =========================================================================
+    tempvar touse ps_auto
+    mark `touse' `if' `in'  // validator-note: mark+markout pattern is equivalent to marksample
+
+    * Pass reference and psvars to detect if specified
+    local ref_opt ""
+    if "`reference'" != "" {
+        local ref_opt "reference(`reference')"
+    }
+    local psvars_opt ""
+    if "`psvars'" != "" {
+        local psvars_opt "psvars(`psvars')"
+    }
+
+    _psdash_detect `anything' , covariates(`covariates') ///
+        samplevar(`touse') estimand(`estimand') psout(`ps_auto') ///
+        `ref_opt' `psvars_opt'
+
+    local treatment "`_psd_treatment'"
+    local psvar "`_psd_psvar'"
+    local psvar_auto "`_psd_psvar_auto'"
+    local det_wvar "`_psd_wvar'"
+    local source "`_psd_source'"
+    if "`estimand'" == "" local estimand "`_psd_estimand'"
+    local psvar_label "`psvar'"
+    if "`psvar_auto'" == "1" local psvar_label "auto-generated"
+
+    * Retrieve multi-group info from detect
+    local multigroup "`_psd_multigroup'"
+    local K = `_psd_K'
+    local levels "`_psd_levels'"
+    local reference_grp "`_psd_reference'"
+
+    * Build multigroup PS mapping before markout. For K=2 with a single
+    * non-0/1 PS variable, treat the second sorted level as P(A=level2|X)
+    * and use 1-ps for the first level's own-group probability.
+    local mg_psvars_all ""
+    if "`multigroup'" != "0" {
+        local n_group_ps = 0
+        foreach lev of local levels {
+            local this_ps "`_psd_ps_`lev''"
+            if "`this_ps'" != "" {
+                local group_ps_`lev' "`this_ps'"
+                local mg_psvars_all "`mg_psvars_all' `this_ps'"
+                local n_group_ps = `n_group_ps' + 1
+            }
+        }
+
+        if `n_group_ps' == 0 & `K' == 2 & "`psvar'" != "" {
+            local first_level : word 1 of `levels'
+            local second_level : word 2 of `levels'
+            tempvar ps_first_level
+            quietly gen double `ps_first_level' = 1 - `psvar' if `touse'
+            local group_ps_`first_level' "`ps_first_level'"
+            local group_ps_`second_level' "`psvar'"
+            local mg_psvars_all "`ps_first_level' `psvar'"
+        }
+        else if `n_group_ps' != `K' {
+            display as error "internal error: multigroup propensity score mapping incomplete"
+            exit 498
+        }
+
+        local mg_psvars_all : list uniq mg_psvars_all
+        markout `touse' `treatment' `mg_psvars_all'
+    }
+    else {
+        markout `touse' `treatment' `psvar'
+    }
+
+    quietly count if `touse'
+    if r(N) == 0 {
+        display as error "no observations"
+        exit 2000
+    }
+    local N = r(N)
+
+    if "`multigroup'" == "0" {
+    * =========================================================================
+    * BINARY PATH (unchanged from v1.1.9)
+    * =========================================================================
+
+    * VALIDATE INPUTS
+    capture assert inlist(`treatment', 0, 1) if `touse'
+    if _rc {
+        display as error "treatment must be binary (0/1)"
+        exit 198
+    }
+
+    quietly tab `treatment' if `touse'
+    if r(r) != 2 {
+        display as error "treatment must have exactly 2 levels"
+        exit 198
+    }
+
+    * Check minimum group size
+    quietly count if `treatment' == 1 & `touse'
+    if r(N) < 2 {
+        display as error "each treatment group must have at least 2 observations"
+        exit 2001
+    }
+    quietly count if `treatment' == 0 & `touse'
+    if r(N) < 2 {
+        display as error "each treatment group must have at least 2 observations"
+        exit 2001
+    }
+
+    * Validate PS range
+    quietly summarize `psvar' if `touse'
+    if r(min) < 0 | r(max) > 1 {
+        display as error "propensity scores must be in [0,1]"
+        exit 198
+    }
+
+    * Positivity warnings
+    local n_ps_boundary = 0
+    local n_ps_near = 0
+    quietly count if (`psvar' == 0 | `psvar' == 1) & `touse'
+    local n_ps_boundary = r(N)
+    if `n_ps_boundary' > 0 {
+        display as error "warning: `n_ps_boundary' observations have PS exactly 0 or 1"
+        display as error "  IPTW weights are undefined at these values"
+    }
+    quietly count if (`psvar' < 0.01 | `psvar' > 0.99) & `touse' ///
+        & `psvar' != 0 & `psvar' != 1
+    local n_ps_near = r(N)
+    if `n_ps_near' > 0 {
+        display as text "note: `n_ps_near' additional observations have PS < 0.01 or > 0.99"
+        display as text "  consider {cmd:psdash support, crump} or {cmd:psdash support, threshold(0.05)}"
+    }
+
+    if "`crump'" != "" & `threshold' != 0 {
+        display as error "cannot specify both crump and threshold()"
+        exit 198
+    }
+
+    if `threshold' != 0 {
+        if `threshold' <= 0 | `threshold' >= 0.5 {
+            display as error "threshold() must be between 0 and 0.5"
+            exit 198
+        }
+    }
+
+    * Validate generate
+    if "`generate'" != "" {
+        foreach reserved in `treatment' `psvar' `det_wvar' _psdash_ps _psdash_wt {
+            if "`generate'" == "`reserved'" {
+                display as error "generate() cannot be the same as `reserved'"
+                exit 198
+            }
+        }
+        if substr("`generate'", 1, 8) == "_psdash_" {
+            display as error "generate() cannot use the reserved _psdash_ prefix"
+            exit 198
+        }
+    }
+    if "`generate'" != "" & "`replace'" == "" {
+        capture confirm new variable `generate'
+        if _rc {
+            display as error "variable `generate' already exists; use replace option"
+            exit 110
+        }
+    }
+
+    * Set defaults
+    if "`title'" == "" local title "Common Support Assessment"
+    if "`name'" == "" local name "psdash_support"
+
+    * COMMON SUPPORT ANALYSIS
+    quietly {
+        * Group counts
+        count if `treatment' == 1 & `touse'
+        local n_treated = r(N)
+        count if `treatment' == 0 & `touse'
+        local n_control = r(N)
+
+        * PS ranges by group
+        summarize `psvar' if `treatment' == 1 & `touse'
+        local min_ps_t = r(min)
+        local max_ps_t = r(max)
+
+        summarize `psvar' if `treatment' == 0 & `touse'
+        local min_ps_c = r(min)
+        local max_ps_c = r(max)
+
+        * Common support bounds
+        local lower_bound = max(`min_ps_t', `min_ps_c')
+        local upper_bound = min(`max_ps_t', `max_ps_c')
+
+        * Observations outside common support
+        count if (`psvar' < `lower_bound' | `psvar' > `upper_bound') & `touse'
+        local n_outside = r(N)
+        local pct_outside = 100 * `n_outside' / `N'
+
+        count if (`psvar' < `lower_bound' | `psvar' > `upper_bound') ///
+            & `treatment' == 1 & `touse'
+        local n_outside_t = r(N)
+
+        count if (`psvar' < `lower_bound' | `psvar' > `upper_bound') ///
+            & `treatment' == 0 & `touse'
+        local n_outside_c = r(N)
+    }
+
+    * CRUMP OPTIMAL TRIMMING
+    local trim_lower = 0
+    local trim_upper = 1
+    local n_trimmed = 0
+    local pct_trimmed = 0
+    local crump_alpha = 0
+    local has_trimming = 0
+
+    if "`crump'" != "" {
+        local has_trimming = 1
+
+        * Crump et al. (2009) optimal trimming rule:
+        * Find alpha that satisfies 1/(alpha*(1-alpha)) = 2*E[1/(e*(1-e))]
+        * where expectation is over observations with alpha <= e <= 1-alpha
+        * Grid search over alpha in [0.01, 0.49]
+
+        quietly {
+            tempvar inv_var_ps
+            gen double `inv_var_ps' = 1 / (`psvar' * (1 - `psvar')) if `touse'
+
+            local best_alpha = 0
+            local best_diff = .
+
+            forvalues a_int = 1/49 {
+                local alpha = `a_int' / 100
+
+                * LHS: 1 / (alpha * (1 - alpha))
+                local lhs = 1 / (`alpha' * (1 - `alpha'))
+
+                * RHS: 2 * E[1/(e*(1-e))] for e in [alpha, 1-alpha]
+                local upper_a = 1 - `alpha'
+                summarize `inv_var_ps' if `psvar' >= `alpha' & `psvar' <= `upper_a' & `touse'
+                if r(N) > 0 {
+                    local rhs = 2 * r(mean)
+
+                    local diff = abs(`lhs' - `rhs')
+                    if `diff' < `best_diff' {
+                        local best_diff = `diff'
+                        local best_alpha = `alpha'
+                    }
+                }
+            }
+
+            drop `inv_var_ps'
+
+            if `best_alpha' > 0 {
+                local crump_alpha = `best_alpha'
+                local trim_lower = `crump_alpha'
+                local trim_upper = 1 - `crump_alpha'
+            }
+            else {
+                * Fallback to standard 0.1 threshold
+                local crump_alpha = 0.1
+                local trim_lower = 0.1
+                local trim_upper = 0.9
+                noisily display as text "note: Crump search did not converge; using alpha = 0.1"
+            }
+
+            * Count trimmed observations
+            count if (`psvar' < `trim_lower' | `psvar' > `trim_upper') & `touse'
+            local n_trimmed = r(N)
+            local pct_trimmed = 100 * `n_trimmed' / `N'
+        }
+    }
+
+    if `threshold' != 0 {
+        local has_trimming = 1
+        local trim_lower = `threshold'
+        local trim_upper = 1 - `threshold'
+
+        quietly {
+            count if (`psvar' < `trim_lower' | `psvar' > `trim_upper') & `touse'
+            local n_trimmed = r(N)
+            local pct_trimmed = 100 * `n_trimmed' / `N'
+        }
+    }
+
+    * GENERATE SUPPORT INDICATOR
+    if "`generate'" != "" {
+        if "`replace'" != "" {
+            capture drop `generate'  // safe: capture swallows 111 if var doesn't exist
+        }
+
+        if `has_trimming' {
+            quietly gen byte `generate' = ///
+                (`psvar' >= `trim_lower' & `psvar' <= `trim_upper') if `touse'
+            label variable `generate' "In trimmed support [`=string(`trim_lower', "%5.3f")', `=string(`trim_upper', "%5.3f")']"
+        }
+        else {
+            quietly gen byte `generate' = ///
+                (`psvar' >= `lower_bound' & `psvar' <= `upper_bound') if `touse'
+            label variable `generate' "In common support [`=string(`lower_bound', "%5.3f")', `=string(`upper_bound', "%5.3f")']"
+        }
+    }
+
+    * DISPLAY OUTPUT
+    display as text _n "{hline 70}"
+    display as text `"`title'"'
+    display as text "{hline 70}"
+    display as text "Treatment:         " as result "`treatment'"
+    display as text "PS variable:       " as result "`psvar_label'"
+    display as text "Observations:      " as result %10.0fc `N'
+    if "`source'" != "manual" {
+        display as text "Source:            " as result "`source'"
+    }
+    display as text "{hline 70}"
+    display ""
+
+    * PS range by group
+    display as text "{hline 60}"
+    display as text "Propensity Score Range"
+    display as text "{hline 60}"
+    display as text %20s "" %15s "Treated" %15s "Control"
+    display as text "{hline 60}"
+    display as text %20s "N" ///
+        as result %15.0fc `n_treated' %15.0fc `n_control'
+    display as text %20s "Min PS" ///
+        as result %15.4f `min_ps_t' %15.4f `min_ps_c'
+    display as text %20s "Max PS" ///
+        as result %15.4f `max_ps_t' %15.4f `max_ps_c'
+    display as text "{hline 60}"
+    display ""
+
+    * Common support
+    display as text "{hline 55}"
+    display as text "Common Support Region"
+    display as text "{hline 55}"
+    display as text "Lower bound:           " as result %10.4f `lower_bound'
+    display as text "Upper bound:           " as result %10.4f `upper_bound'
+    display as text "Outside support:       " ///
+        as result %10.0f `n_outside' as text " (" as result %5.2f `pct_outside' as text "%)"
+    display as text "  Treated outside:     " as result %10.0f `n_outside_t'
+    display as text "  Control outside:     " as result %10.0f `n_outside_c'
+    display as text "{hline 55}"
+
+    * Trimming results
+    if `has_trimming' {
+        display ""
+        display as text "{hline 55}"
+        if "`crump'" != "" {
+            display as text "Crump et al. (2009) Optimal Trimming"
+            display as text "{hline 55}"
+            display as text "Optimal alpha:         " as result %10.4f `crump_alpha'
+        }
+        else {
+            display as text "Manual Threshold Trimming"
+            display as text "{hline 55}"
+            display as text "Threshold:             " as result %10.4f `threshold'
+        }
+        display as text "Trim region:           " ///
+            as result "[`=string(`trim_lower', "%5.3f")', `=string(`trim_upper', "%5.3f")']"
+        display as text "Observations trimmed:  " ///
+            as result %10.0f `n_trimmed' as text " (" as result %5.2f `pct_trimmed' as text "%)"
+        display as text "Remaining sample:      " as result %10.0f `=`N' - `n_trimmed''
+        display as text "{hline 55}"
+    }
+
+    if "`generate'" != "" {
+        display as text _n "Support indicator generated: " as result "`generate'"
+    }
+
+    * Warnings
+    if `pct_outside' > 10 {
+        display as error "Warning: >10% of observations outside common support."
+    }
+    if `upper_bound' <= `lower_bound' {
+        display as error "Warning: No common support region (upper <= lower bound)."
+    }
+
+    * Verdict
+    if `has_trimming' {
+        display as text _n "Support: " as result "Trimmed" ///
+            as text " (" as result %4.1f `pct_trimmed' as text "% excluded)"
+    }
+    else if `pct_outside' > 10 {
+        display as text _n "Support: " as error "WARNING" ///
+            as text " (" as result %4.1f `pct_outside' as text "% outside support)"
+        display as text "  Consider: {cmd:psdash support, crump generate(in_support)}"
+    }
+    else {
+        display as text _n "Support: " as result "Good" ///
+            as text " (" as result %4.1f `pct_outside' as text "% outside support)"
+    }
+
+    * RETURN RESULTS (before graph so r() values survive graph errors)
+    return scalar N = `N'
+    return scalar N_treated = `n_treated'
+    return scalar N_control = `n_control'
+    return scalar lower_bound = `lower_bound'
+    return scalar upper_bound = `upper_bound'
+    return scalar n_outside = `n_outside'
+    return scalar pct_outside = `pct_outside'
+    return scalar n_outside_treated = `n_outside_t'
+    return scalar n_outside_control = `n_outside_c'
+
+    if `has_trimming' {
+        return scalar trim_lower = `trim_lower'
+        return scalar trim_upper = `trim_upper'
+        return scalar n_trimmed = `n_trimmed'
+        return scalar pct_trimmed = `pct_trimmed'
+        if "`crump'" != "" {
+            return scalar crump_alpha = `crump_alpha'
+        }
+    }
+
+    return scalar n_ps_boundary = `n_ps_boundary'
+    return scalar n_ps_near_boundary = `n_ps_near'
+    return local treatment "`treatment'"
+    return local psvar "`psvar_label'"
+    return local estimand "`estimand'"
+
+    * GRAPH
+    if "`nograph'" == "" {
+        capture noisily {
+            quietly {
+                if "`scheme'" != "" {
+                    local graphoptions `"scheme(`scheme') `graphoptions'"'
+                }
+
+                * Build xline options
+                local xlines "xline(`lower_bound' `upper_bound', lcolor(gs8) lpattern(dash))"
+                if `has_trimming' {
+                    local xlines "`xlines' xline(`trim_lower' `trim_upper', lcolor(red) lpattern(shortdash))"
+                }
+
+                noisily twoway ///
+                    (kdensity `psvar' if `touse' & `treatment' == 1, ///
+                        lcolor(navy) lwidth(medthick)) ///
+                    (kdensity `psvar' if `touse' & `treatment' == 0, ///
+                        lcolor(cranberry) lwidth(medthick)), ///
+                    legend(order(1 "Treated" 2 "Control") rows(1) position(6)) ///
+                    xtitle("Propensity Score") ytitle("Density") ///
+                    title(`"`title'"') ///
+                    `xlines' ///
+                    name(`name', replace) ///
+                    `graphoptions'
+
+                if "`saving'" != "" {
+                    noisily graph export "`saving'", replace
+                }
+            }
+        }
+        local graph_rc = _rc
+        if `graph_rc' {
+            return clear
+            return scalar N = `N'
+            return scalar N_treated = `n_treated'
+            return scalar N_control = `n_control'
+            return scalar lower_bound = `lower_bound'
+            return scalar upper_bound = `upper_bound'
+            return scalar n_outside = `n_outside'
+            return scalar pct_outside = `pct_outside'
+            return scalar n_outside_treated = `n_outside_t'
+            return scalar n_outside_control = `n_outside_c'
+            if `has_trimming' {
+                return scalar trim_lower = `trim_lower'
+                return scalar trim_upper = `trim_upper'
+                return scalar n_trimmed = `n_trimmed'
+                return scalar pct_trimmed = `pct_trimmed'
+                if "`crump'" != "" {
+                    return scalar crump_alpha = `crump_alpha'
+                }
+            }
+            return scalar n_ps_boundary = `n_ps_boundary'
+            return scalar n_ps_near_boundary = `n_ps_near'
+            return local treatment "`treatment'"
+            return local psvar "`psvar_label'"
+            return local estimand "`estimand'"
+            exit `graph_rc'
+        }
+    }
+
+    }
+    else {
+    * =========================================================================
+    * MULTI-GROUP PATH (K >= 2 with non-0/1 values)
+    * =========================================================================
+
+    * Reject Crump for multi-group
+    if "`crump'" != "" {
+        display as error "crump trimming is defined for binary treatment only"
+        display as error "  use {cmd:threshold()} for multi-group trimming"
+        exit 198
+    }
+
+    * Validate each group has at least 2 observations
+    foreach lev of local levels {
+        quietly count if `treatment' == `lev' & `touse'
+        if r(N) < 2 {
+            display as error "each treatment group must have at least 2 observations"
+            exit 2001
+        }
+    }
+
+    * Validate PS range for every supplied/generated group-specific PS column.
+    foreach psv of local mg_psvars_all {
+        quietly summarize `psv' if `touse'
+        if r(min) < 0 | r(max) > 1 {
+            display as error "propensity scores must be in [0,1]"
+            exit 198
+        }
+    }
+
+    tempvar obs_ps
+    quietly gen double `obs_ps' = . if `touse'
+    foreach lev of local levels {
+        local lev_ps "`group_ps_`lev''"
+        quietly replace `obs_ps' = `lev_ps' if `treatment' == `lev' & `touse'
+    }
+
+    * Positivity warnings are based on the probability of each observation's
+    * observed treatment group.
+    local n_ps_boundary = 0
+    local n_ps_near = 0
+    quietly count if (`obs_ps' == 0 | `obs_ps' == 1) & `touse'
+    local n_ps_boundary = r(N)
+    if `n_ps_boundary' > 0 {
+        display as error "warning: `n_ps_boundary' observations have PS exactly 0 or 1"
+        display as error "  IPTW weights are undefined at these values"
+    }
+    quietly count if (`obs_ps' < 0.01 | `obs_ps' > 0.99) & `touse' ///
+        & `obs_ps' != 0 & `obs_ps' != 1
+    local n_ps_near = r(N)
+    if `n_ps_near' > 0 {
+        display as text "note: `n_ps_near' additional observations have PS < 0.01 or > 0.99"
+        display as text "  consider {cmd:psdash support, threshold(0.05)}"
+    }
+
+    if "`crump'" != "" & `threshold' != 0 {
+        display as error "cannot specify both crump and threshold()"
+        exit 198
+    }
+
+    if `threshold' != 0 {
+        if `threshold' <= 0 | `threshold' >= 0.5 {
+            display as error "threshold() must be between 0 and 0.5"
+            exit 198
+        }
+    }
+
+    * Validate generate
+    if "`generate'" != "" {
+        local reserved_names "`treatment' `psvar' `det_wvar' _psdash_ps _psdash_wt `mg_psvars_all'"
+        local reserved_names : list uniq reserved_names
+        foreach reserved of local reserved_names {
+            if "`reserved'" == "" continue
+            if "`generate'" == "`reserved'" {
+                display as error "generate() cannot be the same as `reserved'"
+                exit 198
+            }
+        }
+        if substr("`generate'", 1, 8) == "_psdash_" {
+            display as error "generate() cannot use the reserved _psdash_ prefix"
+            exit 198
+        }
+    }
+    if "`generate'" != "" & "`replace'" == "" {
+        capture confirm new variable `generate'
+        if _rc {
+            display as error "variable `generate' already exists; use replace option"
+            exit 110
+        }
+    }
+
+    * Set defaults
+    if "`title'" == "" local title "Common Support Assessment"
+    if "`name'" == "" local name "psdash_support"
+
+    * Get group labels
+    foreach lev of local levels {
+        local lbl_`lev' : label (`treatment') `lev'
+        if "`lbl_`lev''" == "" local lbl_`lev' "Group `lev'"
+    }
+
+    * COMMON SUPPORT ANALYSIS
+    quietly {
+        * Per-group counts and PS ranges
+        foreach lev of local levels {
+            count if `treatment' == `lev' & `touse'
+            local n_group_`lev' = r(N)
+
+            local lev_ps "`group_ps_`lev''"
+            summarize `lev_ps' if `treatment' == `lev' & `touse'
+            local min_ps_`lev' = r(min)
+            local max_ps_`lev' = r(max)
+        }
+
+        * Common support bounds: max of all mins, min of all maxes
+        local lower_bound = 0
+        local upper_bound = 1
+        foreach lev of local levels {
+            if `min_ps_`lev'' > `lower_bound' local lower_bound = `min_ps_`lev''
+            if `max_ps_`lev'' < `upper_bound' local upper_bound = `max_ps_`lev''
+        }
+
+        * Count observations outside common support
+        count if (`obs_ps' < `lower_bound' | `obs_ps' > `upper_bound') & `touse'
+        local n_outside = r(N)
+        local pct_outside = 100 * `n_outside' / `N'
+
+        * Per-group outside counts
+        foreach lev of local levels {
+            count if (`obs_ps' < `lower_bound' | `obs_ps' > `upper_bound') ///
+                & `treatment' == `lev' & `touse'
+            local n_outside_`lev' = r(N)
+        }
+    }
+
+    * THRESHOLD TRIMMING (multi-group)
+    local trim_lower = 0
+    local trim_upper = 1
+    local n_trimmed = 0
+    local pct_trimmed = 0
+    local has_trimming = 0
+
+    if `threshold' != 0 {
+        local has_trimming = 1
+        local trim_lower = `threshold'
+        local trim_upper = 1 - `threshold'
+
+        quietly {
+            count if (`obs_ps' < `trim_lower' | `obs_ps' > `trim_upper') & `touse'
+            local n_trimmed = r(N)
+            local pct_trimmed = 100 * `n_trimmed' / `N'
+        }
+    }
+
+    * GENERATE SUPPORT INDICATOR
+    if "`generate'" != "" {
+        if "`replace'" != "" {
+            capture drop `generate'
+        }
+
+        if `has_trimming' {
+            quietly gen byte `generate' = ///
+                (`obs_ps' >= `trim_lower' & `obs_ps' <= `trim_upper') if `touse'
+            label variable `generate' "In trimmed support [`=string(`trim_lower', "%5.3f")', `=string(`trim_upper', "%5.3f")']"
+        }
+        else {
+            quietly gen byte `generate' = ///
+                (`obs_ps' >= `lower_bound' & `obs_ps' <= `upper_bound') if `touse'
+            label variable `generate' "In common support [`=string(`lower_bound', "%5.3f")', `=string(`upper_bound', "%5.3f")']"
+        }
+    }
+
+    * DISPLAY OUTPUT
+    display as text _n "{hline 70}"
+    display as text `"`title'"'
+    display as text "{hline 70}"
+    display as text "Treatment:         " as result "`treatment'" as text " (`K' groups)"
+    display as text "PS variable:       " as result "`psvar_label'"
+    display as text "Reference group:   " as result "`reference_grp'"
+    display as text "Observations:      " as result %10.0fc `N'
+    if "`source'" != "manual" {
+        display as text "Source:            " as result "`source'"
+    }
+    display as text "{hline 70}"
+    display ""
+
+    * PS range by group — dynamic columns
+    local col_width = 13
+    local hline_width = 20 + `K' * `col_width'
+    display as text "{hline `hline_width'}"
+    display as text "Propensity Score Range"
+    display as text "{hline `hline_width'}"
+
+    * Header row
+    display as text %20s "" _c
+    foreach lev of local levels {
+        display as text %`col_width's "`lbl_`lev''" _c
+    }
+    display ""
+    display as text "{hline `hline_width'}"
+
+    * N row
+    display as text %20s "N" _c
+    foreach lev of local levels {
+        display as result %`col_width'.0fc `n_group_`lev'' _c
+    }
+    display ""
+
+    * Min PS row
+    display as text %20s "Min PS" _c
+    foreach lev of local levels {
+        display as result %`col_width'.4f `min_ps_`lev'' _c
+    }
+    display ""
+
+    * Max PS row
+    display as text %20s "Max PS" _c
+    foreach lev of local levels {
+        display as result %`col_width'.4f `max_ps_`lev'' _c
+    }
+    display ""
+    display as text "{hline `hline_width'}"
+    display ""
+
+    * Common support
+    display as text "{hline 55}"
+    display as text "Common Support Region"
+    display as text "{hline 55}"
+    display as text "Lower bound:           " as result %10.4f `lower_bound'
+    display as text "Upper bound:           " as result %10.4f `upper_bound'
+    display as text "Outside support:       " ///
+        as result %10.0f `n_outside' as text " (" as result %5.2f `pct_outside' as text "%)"
+    foreach lev of local levels {
+        display as text "  `lbl_`lev'' outside: " as result %10.0f `n_outside_`lev''
+    }
+    display as text "{hline 55}"
+
+    * Trimming results
+    if `has_trimming' {
+        display ""
+        display as text "{hline 55}"
+        display as text "Manual Threshold Trimming"
+        display as text "{hline 55}"
+        display as text "Threshold:             " as result %10.4f `threshold'
+        display as text "Trim region:           " ///
+            as result "[`=string(`trim_lower', "%5.3f")', `=string(`trim_upper', "%5.3f")']"
+        display as text "Observations trimmed:  " ///
+            as result %10.0f `n_trimmed' as text " (" as result %5.2f `pct_trimmed' as text "%)"
+        display as text "Remaining sample:      " as result %10.0f `=`N' - `n_trimmed''
+        display as text "{hline 55}"
+    }
+
+    if "`generate'" != "" {
+        display as text _n "Support indicator generated: " as result "`generate'"
+    }
+
+    * Warnings
+    if `pct_outside' > 10 {
+        display as error "Warning: >10% of observations outside common support."
+    }
+    if `upper_bound' <= `lower_bound' {
+        display as error "Warning: No common support region (upper <= lower bound)."
+    }
+
+    * Verdict
+    if `has_trimming' {
+        display as text _n "Support: " as result "Trimmed" ///
+            as text " (" as result %4.1f `pct_trimmed' as text "% excluded)"
+    }
+    else if `pct_outside' > 10 {
+        display as text _n "Support: " as error "WARNING" ///
+            as text " (" as result %4.1f `pct_outside' as text "% outside support)"
+        display as text "  Consider: {cmd:psdash support, threshold(0.05)}"
+    }
+    else {
+        display as text _n "Support: " as result "Good" ///
+            as text " (" as result %4.1f `pct_outside' as text "% outside support)"
+    }
+
+    * RETURN RESULTS (before graph so r() values survive graph errors)
+    return scalar N = `N'
+    return scalar K = `K'
+    foreach lev of local levels {
+        return scalar N_group_`lev' = `n_group_`lev''
+        return scalar n_outside_group_`lev' = `n_outside_`lev''
+    }
+    return scalar lower_bound = `lower_bound'
+    return scalar upper_bound = `upper_bound'
+    return scalar n_outside = `n_outside'
+    return scalar pct_outside = `pct_outside'
+
+    if `has_trimming' {
+        return scalar trim_lower = `trim_lower'
+        return scalar trim_upper = `trim_upper'
+        return scalar n_trimmed = `n_trimmed'
+        return scalar pct_trimmed = `pct_trimmed'
+    }
+
+    return scalar n_ps_boundary = `n_ps_boundary'
+    return scalar n_ps_near_boundary = `n_ps_near'
+    return local treatment "`treatment'"
+    return local psvar "`psvar_label'"
+    return local levels "`levels'"
+    return local reference "`reference_grp'"
+    return local estimand "`estimand'"
+
+    * GRAPH
+    if "`nograph'" == "" {
+        capture noisily {
+            quietly {
+                if "`scheme'" != "" {
+                    local graphoptions `"scheme(`scheme') `graphoptions'"'
+                }
+
+                * Build xline options
+                local xlines "xline(`lower_bound' `upper_bound', lcolor(gs8) lpattern(dash))"
+                if `has_trimming' {
+                    local xlines "`xlines' xline(`trim_lower' `trim_upper', lcolor(red) lpattern(shortdash))"
+                }
+
+                local color_list "navy cranberry forest_green dkorange purple teal maroon olive"
+                local plot_cmd ""
+                local legend_order ""
+                local gnum = 0
+
+                foreach lev of local levels {
+                    local gnum = `gnum' + 1
+                    local col : word `gnum' of `color_list'
+                    if "`col'" == "" local col "gs`gnum'"
+                    local lab "`lbl_`lev''"
+                    local lev_ps "`group_ps_`lev''"
+                    local plot_cmd `"`plot_cmd' (kdensity `lev_ps' if `touse' & `treatment' == `lev', lcolor(`col') lwidth(medthick))"'
+                    local legend_order `"`legend_order' `gnum' "`lab'""'
+                }
+
+                noisily twoway `plot_cmd', ///
+                    legend(order(`legend_order') rows(1) position(6)) ///
+                    xtitle("Propensity Score") ytitle("Density") ///
+                    title(`"`title'"') ///
+                    `xlines' ///
+                    name(`name', replace) ///
+                    `graphoptions'
+
+                if "`saving'" != "" {
+                    noisily graph export "`saving'", replace
+                }
+            }
+        }
+        local graph_rc = _rc
+        if `graph_rc' {
+            * Re-post r() after graph failure
+            return clear
+            return scalar N = `N'
+            return scalar K = `K'
+            foreach lev of local levels {
+                return scalar N_group_`lev' = `n_group_`lev''
+                return scalar n_outside_group_`lev' = `n_outside_`lev''
+            }
+            return scalar lower_bound = `lower_bound'
+            return scalar upper_bound = `upper_bound'
+            return scalar n_outside = `n_outside'
+            return scalar pct_outside = `pct_outside'
+            if `has_trimming' {
+                return scalar trim_lower = `trim_lower'
+                return scalar trim_upper = `trim_upper'
+                return scalar n_trimmed = `n_trimmed'
+                return scalar pct_trimmed = `pct_trimmed'
+            }
+            return scalar n_ps_boundary = `n_ps_boundary'
+            return scalar n_ps_near_boundary = `n_ps_near'
+            return local treatment "`treatment'"
+            return local psvar "`psvar_label'"
+            return local levels "`levels'"
+            return local reference "`reference_grp'"
+            return local estimand "`estimand'"
+            exit `graph_rc'
+        }
+    }
+
+    }
+
+    }
+    local rc = _rc
+    set varabbrev `_vao'
+    if `rc' exit `rc'
+end

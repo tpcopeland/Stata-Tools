@@ -1,0 +1,27 @@
+v 3
+d psdash: Propensity Score Diagnostics Dashboard
+d
+d Unified interface for propensity score diagnostics including overlap
+d assessment, covariate balance (SMD + Love plot), weight diagnostics
+d (ESS, CV, extreme weights), and common support analysis with Crump
+d optimal trimming. Works after teffects, logit/probit, or with manual
+d propensity scores.
+d
+d Author: Timothy P Copeland, Karolinska Institutet
+d
+d Distribution-Date: 20260429
+d License: MIT
+d
+d Requires: Stata version 16.0 or higher
+d
+d Keywords: propensity score, balance, SMD, Love plot, IPTW, ESS,
+d   common support, overlap, causal inference, diagnostics
+d
+f psdash.ado
+f psdash.sthlp
+f _psdash_detect.ado
+f psdash_overlap.ado
+f psdash_balance.ado
+f psdash_weights.ado
+f psdash_support.ado
+f psdash_combined.ado

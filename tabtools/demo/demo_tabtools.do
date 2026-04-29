@@ -191,12 +191,14 @@ noisily table1_tc, by(treated) ///
 log off demo
 
 **# Console: survtab RMST + difference
+set linesize 120
 log on demo
 
 noisily survtab, times(365 730 1095 1460) by(treated) ///
     rmst(1460) difference median timeunit(days)
 
 log off demo
+set linesize 250
 
 **# Console: regtab display
 collect clear
