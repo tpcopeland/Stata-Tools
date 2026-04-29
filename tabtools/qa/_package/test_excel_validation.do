@@ -691,7 +691,7 @@ capture noisily {
     collect: teffects ra (price mpg weight) (foreign), ate
     capture erase "`output_dir'/_xl_effecttab.xlsx"
     effecttab, xlsx("`output_dir'/_xl_effecttab.xlsx") sheet("Effects") ///
-        title("Treatment Effects")
+        title("Treatment Effects") headershade
 
     shell python3 "`checker'" "`output_dir'/_xl_effecttab.xlsx" --sheet "Effects" ///
         --min-rows 5 --min-cols 4 ///
@@ -1084,7 +1084,7 @@ capture noisily {
     capture erase "`output_dir'/_xl_comptab.xlsx"
     comptab _xl_ca _xl_cb, xlsx("`output_dir'/_xl_comptab.xlsx") ///
         sheet("Compare") rownames(Mileage Weight \ Mileage Weight Foreign) ///
-        title("Model Comparison Table")
+        title("Model Comparison Table") headershade
     frame drop _xl_ca
     frame drop _xl_cb
 
