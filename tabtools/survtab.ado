@@ -154,8 +154,6 @@ capture noisily {
 
     * Resolve formatting
     _tabtools_resolve_format, theme(`theme') borderstyle(`borderstyle') headershade(`headershade') zebra(`zebra')
-    if "`headershade'" != "" local _headershade 1
-
     local _headercolor "219 229 241"
     local _zebracolor "237 242 249"
     if "$TABTOOLS_HEADERCOLOR" != "" local _headercolor "$TABTOOLS_HEADERCOLOR"
@@ -809,7 +807,7 @@ capture noisily {
             mata: b.set_horizontal_align(`_header_row', (2,`num_cols'), "center")
 
             * Header background
-            if "`_headershade'" == "1" {
+            if "`headershade'" != "" {
                 mata: b.set_fill_pattern(`_header_row', (2,`num_cols'), "solid", "`_headercolor'")
             }
 
@@ -889,7 +887,7 @@ capture noisily {
     if "`open'" != "" & `_xlsx_ok' _tabtools_open_file "`xlsx'"
 
 } // end capture noisily
-    local rc = _rc
+    local _rc = _rc
     set varabbrev `_orig_varabbrev'
-    if `rc' exit `rc'
+    if `_rc' exit `_rc'
 end

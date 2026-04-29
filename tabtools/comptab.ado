@@ -151,8 +151,6 @@ program define comptab, rclass
     * RESOLVE FORMATTING OPTIONS
     * =====================================================================
     _tabtools_resolve_format, theme(`theme') borderstyle(`borderstyle') headershade(`headershade') zebra(`zebra')
-    if "`headershade'" != "" local _headershade 1
-
     local _headercolor "219 229 241"
     local _zebracolor "237 242 249"
     if "$TABTOOLS_HEADERCOLOR" != "" local _headercolor "$TABTOOLS_HEADERCOLOR"
@@ -850,7 +848,9 @@ program define comptab, rclass
         mata: b.set_font_bold(1, 1, "on")
 
         * Header background (rows 2-3)
-        mata: b.set_fill_pattern((2,3), (2,`num_cols'), "solid", "`_headercolor'")
+        if "`headershade'" != "" {
+            mata: b.set_fill_pattern((2,3), (2,`num_cols'), "solid", "`_headercolor'")
+        }
         mata: b.set_font_bold(3, (2,`num_cols'), "on")
         mata: b.set_horizontal_align(3, (2,`num_cols'), "center")
         mata: b.set_vertical_align(3, (2,`num_cols'), "center")

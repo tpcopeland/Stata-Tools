@@ -121,11 +121,11 @@ if `outcomes' < 1 {
 	local _headercolor "219 229 241"
 	local _zebracolor "237 242 249"
 	if "$TABTOOLS_HEADERCOLOR" != "" local _headercolor "$TABTOOLS_HEADERCOLOR"
-		if "$TABTOOLS_ZEBRACOLOR" != "" local _zebracolor "$TABTOOLS_ZEBRACOLOR"
-		if "`headercolor'" != "" local _headercolor "`headercolor'"
-		if "`zebracolor'" != "" local _zebracolor "`zebracolor'"
-		_tabtools_validate_color "`_headercolor'" "headercolor()"
-		_tabtools_validate_color "`_zebracolor'" "zebracolor()"
+	if "$TABTOOLS_ZEBRACOLOR" != "" local _zebracolor "$TABTOOLS_ZEBRACOLOR"
+	if "`headercolor'" != "" local _headercolor "`headercolor'"
+	if "`zebracolor'" != "" local _zebracolor "`zebracolor'"
+	_tabtools_validate_color "`_headercolor'" "headercolor()"
+	_tabtools_validate_color "`_zebracolor'" "zebracolor()"
 
 	* Validate ratiodigits
 if `ratiodigits' < 0 | `ratiodigits' > 10 {
@@ -629,7 +629,7 @@ if `_has_xlsx' {
 		qui use "`_userdata_path'", clear
 		set varabbrev `_orig_varabbrev'
 		local _fatal_rc = `saved_rc'
-		error `saved_rc'
+		exit `saved_rc'
 	}
 	else {
 		* Apply formatting with mata
@@ -660,7 +660,7 @@ if `_has_xlsx' {
 			qui use "`_userdata_path'", clear
 			set varabbrev `_orig_varabbrev'
 			local _fatal_rc = `saved_rc'
-			error `saved_rc'
+			exit `saved_rc'
 		}
 		else {
 			capture mata: mata drop b
@@ -775,7 +775,7 @@ if `_has_xlsx' {
 				qui use "`_userdata_path'", clear
 				set varabbrev `_orig_varabbrev'
 				local _fatal_rc = `saved_rc'
-				error `saved_rc'
+				exit `saved_rc'
 			}
 			else {
 				capture mata: mata drop b

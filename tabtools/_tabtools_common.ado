@@ -14,7 +14,6 @@ PROGRAMS INCLUDED:
     _tabtools_validate_path     - Validate file path for dangerous characters
     _tabtools_validate_color    - Validate named/RGB color tokens for Excel formatting
     _tabtools_build_col_letters - Build list of Excel column letters for N columns
-    _tabtools_footnote          - Write a merged footnote row to an open putexcel session
     _tabtools_open_file         - Open an xlsx file in the OS default application
     _tabtools_detect_vartype    - Auto-classify a variable as contn/conts/cat/bin
     _tabtools_validate_sheet    - Validate Excel sheet name (length, forbidden chars)
@@ -145,35 +144,6 @@ program _tabtools_build_col_letters
     }
 
     c_local result "`=strtrim("`col_letters'")'"
-end
-
-* =============================================================================
-* _tabtools_footnote: Write a merged footnote row to an open putexcel session
-* =============================================================================
-* Writes a footnote in a merged cell below the table. Requires putexcel to
-* already be open (via putexcel set). The footnote uses a smaller, italic font.
-*
-* Usage: _tabtools_footnote `"`footnote'"' "`lastcol_letter'" `num_rows' "`fontname'" `fontsize'
-*        (call after putexcel set ... modify, before putexcel clear)
-
-capture program drop _tabtools_footnote
-program _tabtools_footnote
-    version 16.0
-    args footnote lastcol_letter row fontname fontsize
-
-    if `"`footnote'"' == "" exit
-
-    * Callers are responsible for resolving globals/themes before invoking this
-    * helper. Treat the passed font settings as authoritative.
-    if "`fontname'" == "" local fontname "Arial"
-    if "`fontsize'" == "" local fontsize "10"
-
-    local frow = `row' + 1
-    local fn_fontsize = max(`fontsize' - 2, 6)
-
-    putexcel B`frow' = `"`footnote'"'
-    putexcel (B`frow':`lastcol_letter'`frow'), merge left vcenter txtwrap
-    putexcel (B`frow':`lastcol_letter'`frow'), font("`fontname'", `fn_fontsize') italic
 end
 
 * =============================================================================
@@ -624,7 +594,7 @@ program _tabtools_helpers_ready
     args required
 
     if `"`required'"' == "" {
-        local required "_tabtools_col_letter _tabtools_validate_path _tabtools_validate_color _tabtools_build_col_letters _tabtools_footnote _tabtools_open_file _tabtools_detect_vartype _tabtools_validate_sheet _tabtools_apply_theme _tabtools_resolve_format _tabtools_console_display _tabtools_frame_put"
+        local required "_tabtools_col_letter _tabtools_validate_path _tabtools_validate_color _tabtools_build_col_letters _tabtools_open_file _tabtools_detect_vartype _tabtools_validate_sheet _tabtools_apply_theme _tabtools_resolve_format _tabtools_console_display _tabtools_frame_put"
     }
 
     foreach _prog of local required {

@@ -167,7 +167,7 @@ capture noisily {
     * Drop all helpers to force a fresh-load scenario
     foreach _p in _tabtools_col_letter _tabtools_validate_path ///
         _tabtools_validate_color _tabtools_build_col_letters ///
-        _tabtools_footnote _tabtools_open_file _tabtools_detect_vartype ///
+        _tabtools_open_file _tabtools_detect_vartype ///
         _tabtools_validate_sheet _tabtools_apply_theme ///
         _tabtools_resolve_format _tabtools_console_display ///
         _tabtools_frame_put _tabtools_helpers_ready {
@@ -194,7 +194,7 @@ local ++test_count
 local t3b_pass = 1
 foreach prog in _tabtools_col_letter _tabtools_validate_path ///
     _tabtools_validate_color _tabtools_build_col_letters ///
-    _tabtools_footnote _tabtools_open_file _tabtools_detect_vartype ///
+    _tabtools_open_file _tabtools_detect_vartype ///
     _tabtools_validate_sheet _tabtools_apply_theme ///
     _tabtools_resolve_format _tabtools_console_display ///
     _tabtools_frame_put _tabtools_helpers_ready {

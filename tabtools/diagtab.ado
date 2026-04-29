@@ -853,7 +853,7 @@ capture noisily {
     if "`open'" != "" & `_xlsx_ok' _tabtools_open_file "`xlsx'"
 
 } // end capture noisily
-    local rc = _rc
+    local _rc = _rc
     set varabbrev `_orig_varabbrev'
-    if `rc' exit `rc'
+    if `_rc' exit `_rc'
 end

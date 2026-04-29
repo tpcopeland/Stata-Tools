@@ -79,7 +79,7 @@ program define table1_tc, rclass
         [MISSINGSummary]        /// Add missing data summary row per variable
         [NOIsily]               /// Show auto-detection classification decisions
         [dots]                  /// Show progress dots per variable
-        [WTCompare]             // Side-by-side crude vs weighted comparison
+        [WTCompare]             /// Side-by-side crude vs weighted comparison
 
 **# Input Validation and Option Setup
 

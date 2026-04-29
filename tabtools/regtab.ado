@@ -90,10 +90,6 @@ if `highpdp' == -1 local highpdp = 2
 
 * Validate sheet name for Excel constraints
 _tabtools_validate_sheet "`sheet'" "sheet()"
-if strpos("`sheet'", ":") {
-	noisily display as error "sheet(): sheet name contains characters not allowed by Excel (:)"
-	exit 198
-}
 
 * Map option names for internal use
 local noint `nointercept'
@@ -187,7 +183,6 @@ local coef_round = 10^(-`digits')
 
 * Resolve formatting
 _tabtools_resolve_format, theme(`theme') borderstyle(`borderstyle') headershade(`headershade') zebra(`zebra')
-if "`headershade'" != "" local _headershade 1
 
 * Resolve header/zebra colors
 local _headercolor "219 229 241"

@@ -292,7 +292,8 @@ capture noisily {
 	    * Trend test (Spearman rank correlation)
 	    local _p_trend .
 	    if "`trend'" != "" {
-	        * Assign ordinal scores to column levels and test rank correlation
+	        tempfile _trend_snap
+	        qui save `_trend_snap'
 	        tempvar _trend_score
 	        qui egen `_trend_score' = group(`colvar')
 	        if "`weight'" == "fweight" {
@@ -303,7 +304,7 @@ capture noisily {
 	        if !_rc {
 	            local _p_trend = r(p)
 	        }
-	        drop `_trend_score'
+	        qui use `_trend_snap', clear
 	        return scalar p_trend = `_p_trend'
 	    }
 
@@ -593,7 +594,7 @@ capture noisily {
     if "`open'" != "" & `_xlsx_ok' _tabtools_open_file "`xlsx'"
 
 } // end capture noisily
-    local rc = _rc
+    local _rc = _rc
     set varabbrev `_orig_varabbrev'
-    if `rc' exit `rc'
+    if `_rc' exit `_rc'
 end

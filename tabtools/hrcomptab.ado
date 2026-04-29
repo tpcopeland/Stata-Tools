@@ -818,8 +818,8 @@ program define hrcomptab, rclass
         if `_xlsx_ok' & "`open'" != "" _tabtools_open_file "`xlsx'"
     }
 
-    local rc = _rc
+    local _rc = _rc
     quietly use "`_userdata_path'", clear
     set varabbrev `_orig_varabbrev'
-    if `rc' exit `rc'
+    if `_rc' exit `_rc'
 end
