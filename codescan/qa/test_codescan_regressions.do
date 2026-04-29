@@ -14,6 +14,9 @@
 *   T10: generate() + hierarchy() with bare names (M8)
 *   T11: r(date) returned when date() specified (I8 fix)
 *   T12: countdate + countmode uses 0/1 flag, not raw counts (I4 fix)
+*   T13: r(codefile) returns user-facing basename for builtin codefiles
+*   T14: auto-labels on suffix variables when no explicit label given
+*   T15: explicit labels still override auto-labels
 
 clear all
 set seed 12345
@@ -364,6 +367,101 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL T12: countdate + countmode (rc=`=_rc')"
+    local ++fail_count
+}
+
+
+* ============================================================
+* T13: r(codefile) returns user-facing basename for builtin codefiles
+* ============================================================
+
+local ++test_count
+capture noisily {
+    _make_v101_data
+    codescan dx1, codefile(charlson_icd10_example.csv) id(pid) collapse
+    assert `"`=r(codefile)'"' == "charlson_icd10_example.csv"
+}
+if _rc == 0 {
+    display as result "  PASS T13: r(codefile) returns basename for builtin"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL T13: r(codefile) builtin basename (rc=`=_rc')"
+    local ++fail_count
+}
+
+
+* ============================================================
+* T14: auto-labels on suffix variables when no explicit label given
+* ============================================================
+
+local ++test_count
+capture noisily {
+    clear
+    input long pid str10 dx1 double visit_dt double index_dt
+    1 "E110" 21914 21920
+    1 "Z00"  21880 21920
+    2 "I10"  21900 21920
+    2 "Z00"  21850 21920
+    end
+    format visit_dt index_dt %td
+    codescan dx1, define(dm2 "E11" | htn "I10") id(pid) ///
+        date(visit_dt) refdate(index_dt) lookback(365) inclusive ///
+        collapse alldates countrows
+    * Suffix variables should have auto-labels
+    local _lbl : variable label dm2_first
+    assert `"`_lbl'"' == "dm2: earliest date"
+    local _lbl : variable label dm2_last
+    assert `"`_lbl'"' == "dm2: latest date"
+    local _lbl : variable label dm2_count
+    assert `"`_lbl'"' == "dm2: unique dates"
+    local _lbl : variable label dm2_nrows
+    assert `"`_lbl'"' == "dm2: row count"
+    local _lbl : variable label htn_first
+    assert `"`_lbl'"' == "htn: earliest date"
+}
+if _rc == 0 {
+    display as result "  PASS T14: auto-labels on suffix vars (no explicit label)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL T14: auto-labels on suffix vars (rc=`=_rc')"
+    local ++fail_count
+}
+
+
+* ============================================================
+* T15: explicit labels still override auto-labels
+* ============================================================
+
+local ++test_count
+capture noisily {
+    clear
+    input long pid str10 dx1 double visit_dt double index_dt
+    1 "E110" 21914 21920
+    1 "Z00"  21880 21920
+    2 "I10"  21900 21920
+    end
+    format visit_dt index_dt %td
+    codescan dx1, define(dm2 "E11" | htn "I10") id(pid) ///
+        date(visit_dt) refdate(index_dt) lookback(365) inclusive ///
+        collapse alldates countrows ///
+        label(dm2 "Type 2 Diabetes" \ htn "Hypertension")
+    * Base indicator gets explicit label
+    local _lbl : variable label dm2
+    assert `"`_lbl'"' == "Type 2 Diabetes"
+    * Suffix variables use explicit label in existing format
+    local _lbl : variable label dm2_first
+    assert `"`_lbl'"' == "Earliest Type 2 Diabetes Date"
+    local _lbl : variable label dm2_nrows
+    assert `"`_lbl'"' == "Type 2 Diabetes Row Count"
+}
+if _rc == 0 {
+    display as result "  PASS T15: explicit labels override auto-labels"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL T15: explicit label override (rc=`=_rc')"
     local ++fail_count
 }
 

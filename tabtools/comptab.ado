@@ -454,7 +454,7 @@ program define comptab, rclass
     * VALIDATE FILE PATHS
     * =====================================================================
     if `_has_xlsx' {
-        if !strmatch("`xlsx'", "*.xlsx") {
+        if !strmatch(lower("`xlsx'"), "*.xlsx") {
             noisily display as error "Excel filename must have .xlsx extension"
             exit 198
         }

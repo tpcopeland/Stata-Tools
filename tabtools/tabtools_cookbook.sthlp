@@ -347,6 +347,10 @@ session.{p_end}
 Use {cmd:custom} to define your own. These are journal-inspired presets, not
 publisher-managed final-production templates.{p_end}
 
+{pstd}Individual {cmd:set font}, {cmd:set fontsize}, and {cmd:set borderstyle}
+commands can override a named theme.  The theme automatically transitions to
+{cmd:custom} mode, preserving the original theme's other settings.{p_end}
+
 {hline}
 {marker r14}{...}
 {title:Recipe 14. Dose-response pattern via regtab}

@@ -140,6 +140,10 @@ if mod(`n_files', `outcomes') != 0 {
 }
 
 local n_exposures = `n_files' / `outcomes'
+if "`rateratio'" != "" & `n_exposures' < 2 {
+	di as err "rateratio requires at least two exposure groups"
+	exit 198
+}
 
 	* Sanitize file paths in using()
 	foreach file of local using {

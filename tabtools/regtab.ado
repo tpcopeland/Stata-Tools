@@ -290,6 +290,8 @@ quietly{
 
     if `_meta_models' > 0 {
         local _shared_coef ""
+        local _re_family_seen ""
+        local _re_family_mixed 0
         forvalues m = 1/`_meta_models' {
             local _cmdline_lc `"`model_cmdline_`m''"'
             local _cmdword ""
@@ -308,6 +310,7 @@ quietly{
             local model_null_`m' 0
             local model_eform_`m' 0
             local model_auto_noint_`m' 0
+            local model_re_family_`m' "none"
 
             if inlist("`_cmdword'", "logit", "ologit") {
                 local model_coef_`m' "OR"
@@ -325,12 +328,14 @@ quietly{
                 local model_null_`m' 1
                 local model_eform_`m' = !`_has_or'
                 local model_auto_noint_`m' 1
+                local model_re_family_`m' "mor"
             }
             else if inlist("`_cmdword'", "poisson", "nbreg", "mepoisson", "menbreg") {
                 local model_coef_`m' "IRR"
                 local model_null_`m' 1
                 local model_eform_`m' = !`_has_irr'
                 local model_auto_noint_`m' 1
+                if inlist("`_cmdword'", "mepoisson", "menbreg") local model_re_family_`m' "variance"
             }
             else if inlist("`_cmdword'", "finegray", "stcrreg") {
                 local model_coef_`m' "SHR"
@@ -352,6 +357,10 @@ quietly{
                 local model_coef_`m' "HR"
                 local model_null_`m' 1
                 local model_auto_noint_`m' 1
+                local model_re_family_`m' "mhr"
+            }
+            else if "`_cmdword'" == "mixed" {
+                local model_re_family_`m' "variance"
             }
             else if "`_cmdword'" == "glm" {
                 local _glm_family ""
@@ -382,6 +391,16 @@ quietly{
             if `model_auto_noint_`m'' == 0 {
                 local _all_auto_noint = 0
             }
+            if "`model_re_family_`m''" != "none" {
+                if "`_re_family_seen'" == "" local _re_family_seen "`model_re_family_`m''"
+                else if "`model_re_family_`m''" != "`_re_family_seen'" local _re_family_mixed 1
+            }
+        }
+
+        if `_re_family_mixed' & "`noreffects'" == "" {
+            noisily display as error "mixed random-effect model families cannot be combined with random-effects rows"
+            noisily display as error "Use separate regtab calls, or specify noreffects to suppress random-effects rows"
+            exit 198
         }
 
         if !`_user_coef_spec' & "`cdisc'" == "" {

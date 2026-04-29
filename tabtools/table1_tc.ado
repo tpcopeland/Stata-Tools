@@ -1736,7 +1736,13 @@ program define table1_tc, rclass
     if "`total'" == "before" {
         tokenize `levels'
         local first `1'
-        cap order `by'_T, before(`by'_`first')  // Move total before first group
+        if `has_wtcompare' {
+            cap order Cr_T, before(Cr_`first')  // Move crude total before first crude group
+            cap order Wt_T, before(Wt_`first')  // Move weighted total before first weighted group
+        }
+        else {
+            cap order `by'_T, before(`by'_`first')  // Move total before first group
+        }
         order N_T, before(N_`first')  // Reorder N columns
         order m_T, before(m_`first')  // Reorder missing columns
         order _columna_T _columnb_T, before(_columna_`first')  // Reorder column components
@@ -1761,37 +1767,77 @@ program define table1_tc, rclass
     /* Add percentages to header if requested */
     if "`headerperc'" != "" {
         qui {
-            // Build list of renamed group columns to process.
+            // Build list of visible sample-size columns after all renaming.
             local hperc_cols ""
-            foreach gl of local levels {
-                if "`gl'" == "`_total_code'" {
-                    local hperc_cols "`hperc_cols' T"
+            if `has_wtcompare' {
+                foreach _pfx in Cr Wt {
+                    foreach gl of local levels {
+                        if "`gl'" == "`_total_code'" local _hgl "T"
+                        else local _hgl "`gl'"
+                        capture confirm variable `_pfx'_`_hgl'
+                        if !_rc local hperc_cols "`hperc_cols' `_pfx'_`_hgl'"
+                    }
                 }
-                else {
-                    local hperc_cols "`hperc_cols' `gl'"
+            }
+            else if "`by'" == "" {
+                capture confirm variable Total
+                if !_rc local hperc_cols "Total"
+            }
+            else {
+                foreach gl of local levels {
+                    if "`gl'" == "`_total_code'" local _hgl "T"
+                    else local _hgl "`gl'"
+                    capture confirm variable `by'_`_hgl'
+                    if !_rc local hperc_cols "`hperc_cols' `by'_`_hgl'"
                 }
             }
 
-            // Process each group column (including total if present)
-            foreach gl in `hperc_cols' {
-                replace `by'_`gl' = subinstr(`by'_`gl',"N=","",.)  // Remove N= prefix
-                gen `by'_`gl'2 = subinstr(`by'_`gl',",","",.)  // Clean up for conversion
-                destring `by'_`gl'2, replace force  // Convert to numeric
+            if "`hperc_cols'" == "" {
+                noisily display as error "headerperc could not identify sample-size columns"
+                exit 111
             }
 
-            // Calculate total denominator (sum of all groups) if total column not present
-            if "`total'" == "" {
-                capture egen `by'_T2 = rowtotal(`by'_*2) if inlist(_n,2)  // Sum all groups for denominator
+            // Process each sample-size column and build numeric scratch columns.
+            local hperc_scratch ""
+            foreach _hcol of local hperc_cols {
+                replace `_hcol' = subinstr(`_hcol', "N=", "", .)
+                capture drop `_hcol'2
+                gen double `_hcol'2 = real(subinstr(`_hcol', ",", "", .)) if inlist(_n, 2)
+                local hperc_scratch "`hperc_scratch' `_hcol'2"
             }
 
-            // Add percentage of total to each group label
-            foreach gl in `hperc_cols' {
-                capture replace `by'_`gl' = `by'_`gl' + " " + "(" + string(round(`by'_`gl'2/`by'_T2,0.001)*100,"%9.1f") + `percsign' + ")" if inlist(_n,2)
-                capture drop `by'_`gl'2
+            // Build denominator variables from total columns when present, otherwise row totals.
+            tempvar hperc_den hperc_crden hperc_wtden
+            if `has_wtcompare' {
+                capture confirm variable Cr_T2
+                if !_rc gen double `hperc_crden' = Cr_T2 if inlist(_n, 2)
+                else egen `hperc_crden' = rowtotal(Cr_*2) if inlist(_n, 2)
+
+                capture confirm variable Wt_T2
+                if !_rc gen double `hperc_wtden' = Wt_T2 if inlist(_n, 2)
+                else egen `hperc_wtden' = rowtotal(Wt_*2) if inlist(_n, 2)
+            }
+            else if "`by'" == "" {
+                gen double `hperc_den' = Total2 if inlist(_n, 2)
+            }
+            else {
+                capture confirm variable `by'_T2
+                if !_rc gen double `hperc_den' = `by'_T2 if inlist(_n, 2)
+                else egen `hperc_den' = rowtotal(`by'_*2) if inlist(_n, 2)
             }
 
-            if "`total'" == "" {
-                capture drop `by'_T2
+            // Add percentage of total to each sample-size label.
+            foreach _hcol of local hperc_cols {
+                local _hden "`hperc_den'"
+                if `has_wtcompare' & substr("`_hcol'", 1, 3) == "Cr_" local _hden "`hperc_crden'"
+                if `has_wtcompare' & substr("`_hcol'", 1, 3) == "Wt_" local _hden "`hperc_wtden'"
+                replace `_hcol' = `_hcol' + " " + "(" + ///
+                    string(round(`_hcol'2 / `_hden', 0.001) * 100, "%9.1f") + ///
+                    "`percsign')" if inlist(_n, 2) & `_hden' > 0 & !missing(`_hcol'2)
+            }
+
+            foreach _htmp of local hperc_scratch {
+                capture drop `_htmp'
             }
 
         }

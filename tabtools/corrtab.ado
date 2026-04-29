@@ -134,7 +134,9 @@ program define corrtab, rclass
             matrix `_corr' = J(`nvars', `nvars', .)
             matrix `_pmat' = J(`nvars', `nvars', .)
             forvalues i = 1/`nvars' {
-                matrix `_corr'[`i', `i'] = 1
+                if `_nmat'[`i', `i'] > 0 {
+                    matrix `_corr'[`i', `i'] = 1
+                }
                 forvalues j = `=`i' + 1'/`nvars' {
                     local _vi : word `i' of `varlist'
                     local _vj : word `j' of `varlist'
@@ -244,7 +246,9 @@ program define corrtab, rclass
 
                 if `_show' {
                     if `i' == `j' {
-                        quietly replace c`_col' = "`_diag_str'" in `row'
+                        if `_nmat'[`i', `i'] > 0 & !missing(`_corr'[`i', `i']) {
+                            quietly replace c`_col' = "`_diag_str'" in `row'
+                        }
                     }
                     else {
                         local _r = `_corr'[`i', `j']

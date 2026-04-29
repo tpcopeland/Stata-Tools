@@ -121,6 +121,14 @@ capture noisily {
     _tabtools_validate_sheet "`sheet'" "sheet()"
 
     * Path validation
+    if "`open'" != "" & !`_has_xlsx' {
+        noisily display as error "open requires xlsx() or excel()"
+        exit 198
+    }
+    if `_has_xlsx' & !strmatch(lower("`xlsx'"), "*.xlsx") {
+        noisily display as error "Excel filename must have .xlsx extension"
+        exit 198
+    }
     if `_has_xlsx' _tabtools_validate_path "`xlsx'" "xlsx()"
     if "`csv'" != "" _tabtools_validate_path "`csv'" "csv()"
 
@@ -704,6 +712,11 @@ capture noisily {
 **# CSV Export
     if "`csv'" != "" {
         export delimited using "`csv'", replace
+        capture confirm file "`csv'"
+        if _rc {
+            noisily display as error "CSV export command succeeded but file not found"
+            exit 601
+        }
         noisily display as text "CSV exported to `csv'"
     }
 
@@ -883,6 +896,9 @@ capture noisily {
     if `_xlsx_ok' {
         return local xlsx "`xlsx'"
         return local sheet "`sheet'"
+    }
+    if "`csv'" != "" {
+        return local csv "`csv'"
     }
     if "`open'" != "" & `_xlsx_ok' _tabtools_open_file "`xlsx'"
 

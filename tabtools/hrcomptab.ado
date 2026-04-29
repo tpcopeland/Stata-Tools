@@ -372,6 +372,11 @@ program define hrcomptab, rclass
                             local _cell_lower = lower(`"`_cell_text'"')
                             local _pat_lower = lower(`"`_pat'"')
                             if strmatch(`"`_cell_lower'"', `"*`_pat_lower'*"') {
+                                if strpos(" `expanded`_f'' ", " `_row' ") {
+                                    display as error `"rownames(): pattern "`_pat'" duplicates row `_row' in frame '`_fname''"'
+                                    display as error "rownames() patterns must select each model-frame row at most once"
+                                    exit 198
+                                }
                                 local expanded`_f' "`expanded`_f'' `_row'"
                                 local _matched = 1
                             }

@@ -364,6 +364,7 @@ program define codescan, rclass
     local _defsrc = cond("`codefile'" != "", "codefile()", "define()")
 
     if "`codefile'" != "" {
+        local _orig_codefile "`codefile'"
         local ext = lower(substr("`codefile'", -4, .))
         if "`ext'" != ".csv" & "`ext'" != ".dta" {
             display as error "codefile() must be a .csv or .dta file"
@@ -1767,6 +1768,21 @@ program define codescan, rclass
                 label variable `name'_nrows `"`lbl' Row Count"'
             }
         }
+        else {
+            label variable `name' `"`name'"'
+            if "`earliestdate'" != "" {
+                label variable `name'_first `"`name': earliest date"'
+            }
+            if "`latestdate'" != "" {
+                label variable `name'_last `"`name': latest date"'
+            }
+            if "`countdate'" != "" {
+                label variable `name'_count `"`name': unique dates"'
+            }
+            if "`countrows'" != "" {
+                label variable `name'_nrows `"`name': row count"'
+            }
+        }
     }
 
     * =========================================================================
@@ -2100,7 +2116,7 @@ program define codescan, rclass
     if "`nocase'" != ""                return local nocase "nocase"
     if "`generate'" != ""              return local generate "`generate'"
     if `"`define'"' != ""              return local define `"`define'"'
-    if "`codefile'" != ""              return local codefile "`codefile'"
+    if "`_orig_codefile'" != ""         return local codefile "`_orig_codefile'"
     if "`id'" != ""                    return local id "`id'"
     if "`date'" != ""                  return local date "`date'"
     if `has_lookback' & `n_lookback_windows' == 1 {

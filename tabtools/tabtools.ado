@@ -111,8 +111,11 @@ program define tabtools, rclass
         }
         else if "`setkey'" == "font" {
             if `_named_theme_active' {
-                display as error "tabtools set font is unavailable while theme($TABTOOLS_THEME) is active; run tabtools set clear or tabtools set theme custom, ..."
-                exit 198
+                _tabtools_apply_theme "$TABTOOLS_THEME"
+                global TABTOOLS_FONT "`_theme_font'"
+                global TABTOOLS_FONTSIZE `_theme_fontsize'
+                global TABTOOLS_BORDER "`_theme_border'"
+                global TABTOOLS_THEME "custom"
             }
             if "`setval'" == "" {
                 display as error "tabtools set font requires a value (e.g., tabtools set font Calibri)"
@@ -124,8 +127,11 @@ program define tabtools, rclass
         }
         else if "`setkey'" == "fontsize" {
             if `_named_theme_active' {
-                display as error "tabtools set fontsize is unavailable while theme($TABTOOLS_THEME) is active; run tabtools set clear or tabtools set theme custom, ..."
-                exit 198
+                _tabtools_apply_theme "$TABTOOLS_THEME"
+                global TABTOOLS_FONT "`_theme_font'"
+                global TABTOOLS_FONTSIZE `_theme_fontsize'
+                global TABTOOLS_BORDER "`_theme_border'"
+                global TABTOOLS_THEME "custom"
             }
             if "`setval'" == "" {
                 display as error "tabtools set fontsize requires a value (e.g., tabtools set fontsize 11)"
@@ -146,8 +152,11 @@ program define tabtools, rclass
         }
         else if "`setkey'" == "borderstyle" {
             if `_named_theme_active' {
-                display as error "tabtools set borderstyle is unavailable while theme($TABTOOLS_THEME) is active; run tabtools set clear or tabtools set theme custom, ..."
-                exit 198
+                _tabtools_apply_theme "$TABTOOLS_THEME"
+                global TABTOOLS_FONT "`_theme_font'"
+                global TABTOOLS_FONTSIZE `_theme_fontsize'
+                global TABTOOLS_BORDER "`_theme_border'"
+                global TABTOOLS_THEME "custom"
             }
             if !inlist("`setval'", "default", "thin", "medium", "academic") {
                 display as error "borderstyle must be: default, thin, medium, or academic"

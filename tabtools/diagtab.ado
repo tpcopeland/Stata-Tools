@@ -654,10 +654,16 @@ capture noisily {
     qui replace c1 = "LR+" in `row'
     if !missing(`LRp') {
         qui replace c2 = string(`LRp', "%5.`digits'f") in `row'
-        qui replace c3 = "(" + string(`LRp_lo', "%5.`digits'f") + ", " + string(`LRp_hi', "%5.`digits'f") + ")" in `row'
+        if !missing(`LRp_lo') & !missing(`LRp_hi') {
+            qui replace c3 = "(" + string(`LRp_lo', "%5.`digits'f") + ", " + string(`LRp_hi', "%5.`digits'f") + ")" in `row'
+        }
+        else {
+            qui replace c3 = "" in `row'
+        }
     }
     else {
         qui replace c2 = "—" in `row'
+        qui replace c3 = "" in `row'
     }
 
     local row = `row' + 1
@@ -665,10 +671,16 @@ capture noisily {
     qui replace c1 = "LR-" in `row'
     if !missing(`LRn') {
         qui replace c2 = string(`LRn', "%5.`=`digits'+1'f") in `row'
-        qui replace c3 = "(" + string(`LRn_lo', "%5.`=`digits'+1'f") + ", " + string(`LRn_hi', "%5.`=`digits'+1'f") + ")" in `row'
+        if !missing(`LRn_lo') & !missing(`LRn_hi') {
+            qui replace c3 = "(" + string(`LRn_lo', "%5.`=`digits'+1'f") + ", " + string(`LRn_hi', "%5.`=`digits'+1'f") + ")" in `row'
+        }
+        else {
+            qui replace c3 = "" in `row'
+        }
     }
     else {
         qui replace c2 = "—" in `row'
+        qui replace c3 = "" in `row'
     }
 
     local row = `row' + 1
@@ -676,10 +688,16 @@ capture noisily {
     qui replace c1 = "DOR" in `row'
     if !missing(`DOR') {
         qui replace c2 = string(`DOR', "%5.`digits'f") in `row'
-        qui replace c3 = "(" + string(`DOR_lo', "%5.`digits'f") + ", " + string(`DOR_hi', "%5.`digits'f") + ")" in `row'
+        if !missing(`DOR_lo') & !missing(`DOR_hi') {
+            qui replace c3 = "(" + string(`DOR_lo', "%5.`digits'f") + ", " + string(`DOR_hi', "%5.`digits'f") + ")" in `row'
+        }
+        else {
+            qui replace c3 = "" in `row'
+        }
     }
     else {
         qui replace c2 = "—" in `row'
+        qui replace c3 = "" in `row'
     }
 
     * AUC

@@ -1,77 +1,66 @@
-# tabtools - Publication-ready Excel tables across common Stata workflows
+---
+title: "console_output"
+---
 
-**Version 1.0.13** | 2026-04-27
-
-`tabtools` is a suite of Stata commands for exporting manuscript-ready tables to Excel across descriptive summaries, regression models, treatment effects, survival analysis, diagnostic accuracy workflows, incidence rates, and composite tables. The package is organized around a shared formatting layer, so commands that come from very different analysis pipelines still produce tables that look like they belong in the same workbook.
-
-## Requirements
-
-- Stata 16 or later for `tabtools` and `table1_tc`
-- Stata 17 or later for `regtab`, `effecttab`, `comptab`, `hrcomptab`, `survtab`, `crosstab`, `corrtab`, `diagtab`, and `stratetab`
-- `regtab` and `effecttab` require Stata's `collect` framework
-- `survtab` requires `stset` data, and `stratetab` expects saved `strate, output()` datasets
-
-## Installation
+<!-- **# Console: tabtools set/get/list/detail -->
 
 ```stata
-capture ado uninstall tabtools
-net install tabtools, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/tabtools") replace
+. tabtools set font Calibri
 ```
 
-After installation, start with `help tabtools` for the suite overview, `help tabtools_cheatsheet` for common option patterns, and `help tabtools_cookbook` for longer worked workflows.
-
-## Commands
-
-### Direct table builders
-
-| Command | Description | Stata |
-|---------|-------------|-------|
-| `table1_tc` | Table 1 generator with automatic tests, SMDs, weighting support, and Excel export | 16+ |
-| `crosstab` | Cross-tabulation with association measures such as OR, RR, and risk difference | 17+ |
-| `corrtab` | Correlation matrix with significance stars, p-values, and lower, upper, or full layouts | 17+ |
-| `survtab` | Kaplan-Meier survival summary table with medians, RMST, and number at risk | 17+ |
-| `diagtab` | Diagnostic-accuracy table with sensitivity, specificity, predictive values, likelihood ratios, and optional AUC | 17+ |
-
-### Post-estimation formatters
-
-| Command | Description | Stata |
-|---------|-------------|-------|
-| `regtab` | Format the current `collect` from regression models into a polished Excel table or console preview | 17+ |
-| `effecttab` | Format `teffects` or `margins` results from the current `collect` into an effects table | 17+ |
-
-### File and frame workflow builders
-
-| Command | Description | Stata |
-|---------|-------------|-------|
-| `stratetab` | Format saved `strate, output()` files into incidence-rate tables | 17+ |
-| `comptab` | Combine selected rows from one or more `regtab` or `effecttab` frames into one composite sheet | 17+ |
-| `hrcomptab` | Build a final Table 2-style sheet by combining a `stratetab` frame with selected `regtab` rows | 17+ |
-
-### Suite utility
-
-| Command | Description | Stata |
-|---------|-------------|-------|
-| `tabtools` | Browse commands and manage persistent formatting defaults for the current Stata session | 16+ |
-
-## Choosing a Workflow
-
-| Workflow | Start here | Notes |
-|----------|------------|-------|
-| Descriptive table from the dataset in memory | `table1_tc`, `crosstab`, `corrtab`, `diagtab` | These commands work directly on the active dataset and do not require `collect` |
-| Regression or effect estimates after modeling | `collect:` then `regtab` or `effecttab` | These commands format the active collection rather than refitting models |
-| Survival summaries from `stset` data | `survtab` | Use when you want Kaplan-Meier estimates, medians, RMST, or risk sets |
-| Incidence-rate tables from saved `strate` files | `stratetab` | File-based workflow; no dataset needs to remain in memory |
-| Final manuscript table assembled from earlier outputs | `comptab` or `hrcomptab` | These second-stage builders consume frames produced earlier in the pipeline |
-| Session-wide formatting defaults | `tabtools` | Use `tabtools set`, `tabtools get`, and `tabtools set clear` to control fonts, borders, themes, and digits |
-
-## Demo
-
-The demo script (`tabtools/demo/demo_tabtools.do`) produces console output for key commands and 10 Excel workbooks (46 sheets total) covering every tabtools command. Run it from the repo root with `stata-mp -b do tabtools/demo/demo_tabtools.do`.
-
-### Suite overview
+```
+tabtools: default font set to Calibri
+```
 
 ```stata
-. tabtools
+tabtools set fontsize 11
+```
+
+```
+tabtools: default font size set to 11
+```
+
+```stata
+tabtools set borderstyle thin
+```
+
+```
+tabtools: default border style set to thin
+```
+
+```stata
+tabtools get
+```
+
+```
+──────────────────────────────────────────────────
+tabtools - Persistent Formatting Defaults
+──────────────────────────────────────────────────
+
+  Font:        Calibri
+  Font size:   11
+  Border:      thin
+
+  Set with: tabtools set font Calibri
+            tabtools set fontsize 11
+            tabtools set borderstyle thin
+            tabtools set theme lancet
+            tabtools set digits 3
+            tabtools set boldp 0.05
+  Clear:    tabtools set clear
+
+```
+
+```stata
+tabtools set clear
+```
+
+```
+tabtools: all persistent defaults cleared
+```
+
+```stata
+. noisily tabtools
 ```
 
 ```
@@ -106,20 +95,100 @@ tabtools - Publication-Ready Table Export Suite
 
 ──────────────────────────────────────────────────────────────────────
 Total commands: 11
-```
 
-### table1_tc — Baseline characteristics
+Help:     help tabtools for overview
+          help <command> for individual command help
+Settings: tabtools set font Calibri (persistent defaults)
+          tabtools get (view current defaults)
+```
 
 ```stata
-. table1_tc, by(treated) ///
->     vars(index_age contn %5.1f \ female bin \ ///
->          education cat \ income_quintile cat \ ///
->          born_abroad bin \ civil_status cat \ ///
->          diabetes bin \ hypertension bin \ anxiety bin \ prior_cvd bin)
+noisily tabtools, detail
 ```
 
-<details>
-<summary>Console output (click to expand)</summary>
+```
+──────────────────────────────────────────────────────────────────────
+tabtools - Publication-Ready Table Export Suite
+──────────────────────────────────────────────────────────────────────
+
+**Descriptive Statistics**
+  ────────────────────────────────────────────────────────────────────
+  table1_tc    Create publication-ready Table 1 with descriptive
+               statistics. Automatically selects appropriate
+               tests (t-test, Wilcoxon, chi-square, Fisher's
+               exact) based on variable type and distribution.
+               Supports continuous, categorical, and binary
+               variables with customizable formatting.
+
+  crosstab     Cross-tabulation with row/column percentages
+               and association measures. Supports chi-square,
+               Fisher's exact, odds ratios, and risk ratios.
+
+  corrtab      Correlation matrix with significance stars or
+               p-values. Supports Pearson and Spearman. Exports
+               lower, upper, or full triangle to Excel.
+
+**Model Results**
+  ────────────────────────────────────────────────────────────────────
+  regtab       Export regression results from any estimation
+               command to Excel. Supports logistic, Cox, Poisson,
+               linear, and other models. Configurable columns
+               for coefficients, confidence intervals, p-values,
+               and model statistics.
+
+  effecttab    Export treatment-effect style tables from
+               supported estimation results and matrix inputs.
+               Formats effect estimates, confidence intervals,
+               and p-values for publication output.
+
+**Incidence Rates**
+  ────────────────────────────────────────────────────────────────────
+  stratetab    Export stratified incidence rates from strate
+               command output. Formats person-time, events,
+               rates, and confidence intervals. Supports
+               rate ratios and stratified analyses.
+
+**Survival Analysis**
+  ────────────────────────────────────────────────────────────────────
+  survtab      Export Kaplan-Meier estimates, median survival,
+               and restricted mean survival time (RMST) to
+               Excel. Supports multiple groups and time points.
+
+**Diagnostic Accuracy**
+  ────────────────────────────────────────────────────────────────────
+  diagtab      Export sensitivity, specificity, PPV, NPV, and
+               ROC analysis results. Supports multiple cutpoints
+               and diagnostic tests.
+
+**Composite**
+  ────────────────────────────────────────────────────────────────────
+  comptab      Combine multiple regtab or effecttab frames
+               into a single publication-ready table. Supports
+               side-by-side and stacked layouts.
+
+  hrcomptab    Build a final Table 2-style sheet by using
+               a stratetab frame as the scaffold and injecting
+               selected rows from one or more regtab frames.
+
+**General Purpose**
+  ────────────────────────────────────────────────────────────────────
+  tabtools     Suite controller for listing commands and
+               managing persistent formatting defaults with
+                and .
+
+```
+
+```stata
+. log off demo
+```
+
+```stata
+. noisily table1_tc, by(treated)
+>     vars(index_age contn %5.1f \ female bin \
+>          education cat \ income_quintile cat \
+>          born_abroad bin \ civil_status cat \
+>          diabetes bin \ hypertension bin \ anxiety bin \ prior_cvd bin)
+```
 
 ```
   ┌────────────────────────────────────────────────────────────────────────┐
@@ -161,17 +230,14 @@ Total commands: 11
   └────────────────────────────────────────────────────────────────────────┘
 ```
 
-</details>
-
-### survtab — Kaplan-Meier survival summary
-
 ```stata
-. survtab, times(365 730 1095 1460) by(treated) ///
->     rmst(1460) difference median timeunit(days)
+. log off demo
 ```
 
-<details>
-<summary>Console output (click to expand)</summary>
+```stata
+. noisily survtab, times(365 730 1095 1460) by(treated)
+>     rmst(1460) difference median timeunit(days)
+```
 
 ```
                                           SSRI (N=8934)               SNRI (N=6066)               Difference        p
@@ -185,17 +251,15 @@ Total commands: 11
    1460 days                              97.3%                       97.5%                       -0.2 (-0.8, 0.3)
  RMST (1460-d), d (95% CI)                1448.87 (1447.02, 1450.72)  1449.75 (1447.55, 1451.96)  -0.88
  Log-rank test: chi2(1) = 2.80, p = 0.094
+
 ```
 
-</details>
-
-### regtab — Regression table
+```stata
+. log off demo
+```
 
 ```stata
-. collect clear
-. collect: logistic treated index_age female i.education ///
->     diabetes hypertension anxiety prior_cvd
-. regtab, coef("OR") noint display
+. noisily regtab, coef("OR") noint display
 ```
 
 ```
@@ -212,12 +276,15 @@ Total commands: 11
  Hypertension                 1.10       (1.03, 1.17)  0.005
  Anxiety disorder             1.00       (0.93, 1.08)  0.96
  Prior cardiovascular disease 0.98       (0.92, 1.05)  0.63
+
 ```
 
-### corrtab — Correlation matrix
+```stata
+. log off demo
+```
 
 ```stata
-. corrtab index_age crp prior_hosp, ///
+. noisily corrtab index_age crp prior_hosp,
 >     star(0.05 0.01 0.001) display
 ```
 
@@ -229,12 +296,15 @@ Total commands: 11
  Prior hospitalizations      -0.00                        0.01                       1.00
 
 * p<.05, ** p<.01, *** p<.001
+
 ```
 
-### crosstab — Cross-tabulation
+```stata
+. log off demo
+```
 
 ```stata
-. crosstab treated female, or label display
+. noisily crosstab treated female, or label display
 ```
 
 ```
@@ -245,12 +315,16 @@ Total commands: 11
  Total                                    6,028          8,972          15,000
  Pearson's chi-squared test: chi2 = 0.06, p = 0.805
  OR = 1.0 (95% CI: 0.9, 1.1)
+
 ```
 
-### diagtab — Diagnostic accuracy
+```stata
+. log off demo
+```
 
 ```stata
-. diagtab phat cv_event, cutoff(0.35) auc wilson display
+. noisily diagtab phat_display cv_event, cutoff(0.35)
+>     auc wilson display
 ```
 
 ```
@@ -270,70 +344,5 @@ Total commands: 11
  DOR            1.2       (1.1, 1.2)
  AUC            0.520     (0.510, 0.530)
  Youden's index 0.038
+
 ```
-
-### Persistent defaults
-
-```stata
-. tabtools set font Calibri
-tabtools: default font set to Calibri
-
-. tabtools set fontsize 11
-tabtools: default font size set to 11
-
-. tabtools set borderstyle thin
-tabtools: default border style set to thin
-
-. tabtools get
-──────────────────────────────────────────────────
-tabtools - Persistent Formatting Defaults
-──────────────────────────────────────────────────
-
-  Font:        Calibri
-  Font size:   11
-  Border:      thin
-
-. tabtools set clear
-tabtools: all persistent defaults cleared
-```
-
-### Excel workbooks
-
-The demo generates 10 workbooks (46 sheets) covering every command and option combination:
-
-| Workbook | Sheets | Contents |
-|----------|--------|----------|
-| `demo_table1.xlsx` | 11 | table1_tc variants: basic, total, weighted, wtcompare, SMD, formats, missing, custom symbols, NEJM/BMJ/APA themes |
-| `demo_regtab.xlsx` | 10 | regtab: logistic, multi-model, Cox, mixed, CDISC, Poisson, advanced formatting, keep/drop, addrow |
-| `demo_effecttab.xlsx` | 4 | effecttab: ATE (IPW), IPW vs AIPW comparison, margins, average marginal effects |
-| `demo_comptab.xlsx` | 5 | comptab: source frames, composite, compact with sections, name-based row selection |
-| `demo_survtab.xlsx` | 3 | survtab: KM + median, RMST + difference, cumulative incidence |
-| `demo_stratetab.xlsx` | 1 | stratetab: incidence rates with rate ratios by sex |
-| `demo_corrtab.xlsx` | 3 | corrtab: Pearson with stars, Spearman with p-values, full matrix |
-| `demo_crosstab.xlsx` | 5 | crosstab: OR, RR/RD, styled, trend, row percentages |
-| `demo_diagtab.xlsx` | 3 | diagtab: accuracy + AUC, prevalence-adjusted, multiple cutoffs |
-| `demo_hrcomptab.xlsx` | 1 | hrcomptab: Table 2-style composite (rates + hazard ratios) |
-
-## Resources
-
-- `help tabtools` for the suite overview and persistent defaults
-- `help tabtools_cheatsheet` for compact option patterns across commands
-- `help tabtools_cookbook` for longer end-to-end recipes
-- `help table1_tc`, `help regtab`, `help effecttab`, `help comptab`, `help hrcomptab`, `help survtab`, `help stratetab`, `help crosstab`, `help corrtab`, and `help diagtab` for command-specific syntax
-
-## Version History
-
-- **1.0.13** (2026-04-27): Documentation improvements across all .sthlp files and README. Enhanced corrtab, survtab, and diagtab help files with richer descriptions, additional examples, and "Also see" sections. Standardized author blocks with mailto links. Added `{vieweralsosee}` links to the cheatsheet.
-- **1.0.12** (2026-04-27): Fix `crosstab, or rr rd` for 2x2 variables coded with nonzero category values by internally recoding observed levels to 0/1 before calling Stata's `cc`/`cs`; reject undefined requested association measures instead of silently omitting them; and validate `table1_tc` `wt()` and numeric `by()` values within the analysis sample so excluded rows do not trigger false hard failures.
-- **1.0.11** (2026-04-26): Fix `table1_tc, wt() smd` weighted SMD calculations for continuous, categorical, and binary variables; fix `headerperc` with `total(before|after)`; and document active `collect` side effects for `regtab` and `effecttab`.
-- **1.0.10** (2026-04-26): Fix weighted `crosstab, trend`, enforce unique truncated `stratetab` matrix row names, hard-fail missing final `effecttab` workbooks, reject binary `diagtab, optimal`, add `corrtab` shape conflict checks, clarify cookbook runnable versus illustrative recipes, and strengthen QA/install isolation.
-- **1.0.9** (2026-04-23): Fix `regtab` exporting a spurious blank trailing column. The `_re_group_label` internal variable was not being dropped before export because it was bundled in a `capture drop` with `_ci_seen`, which only exists under `dimnonsig`.
-- **1.0.8** (2026-04-22): Clarity audit release with hardened export-return behavior, synchronized package metadata, and expanded QA around release gates and export failures.
-- **1.0.7** (2026-04-18): Stata-Tools suite release covering direct descriptive tables, `collect`-based model formatters, file-based rate workflows, and frame-based composite builders.
-- **1.0.6** (2026-04-17): Incremental refinement release during the Stata-Tools packaging cycle.
-- **1.0.5** (2026-04-17): Incremental refinement release during the Stata-Tools packaging cycle.
-- **1.0.4** (2026-04-16): Early public packaging milestone for the tabtools suite.
-
-## Author
-
-Timothy P Copeland, Karolinska Institutet

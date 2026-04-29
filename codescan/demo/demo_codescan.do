@@ -1,15 +1,14 @@
-/*  demo_codescan.do - Generate screenshots for codescan
+/*  demo_codescan.do - Demo output for codescan
 
-    Produces 5 output types:
-      1. Console output (codescan_describe: code inventory)  -> .smcl
-      2. Console output (codescan: inline define, row-level)  -> .smcl
-      3. Console output (Charlson scoring with hierarchy)     -> .smcl
+    Produces:
+      1. Console output (codescan_describe: code inventory)  -> .log -> .md via logdoc
+      2. Console output (codescan: inline define, row-level)  -> .log -> .md via logdoc
+      3. Console output (Charlson scoring with hierarchy)     -> .log -> .md via logdoc
       4. Graph (prevalence bar chart)                         -> .png
       5. Excel (summary + cooccurrence workbook)              -> .xlsx
 */
 
 version 16.0
-set more off
 set varabbrev off
 set linesize 250
 
@@ -20,6 +19,11 @@ capture mkdir "`pkg_dir'"
 * --- Install package from local source ---
 capture ado uninstall codescan
 quietly net install codescan, from("`c(pwd)'/codescan") replace
+
+* --- Graph scheme ---
+capture ado uninstall tc_schemes
+quietly net install tc_schemes, from("`c(pwd)'/tc_schemes") replace
+set scheme plotplainblind
 
 **# Synthetic Administrative Data
 * 500 patients, 3 encounters each, wide-format ICD-10 diagnosis + procedure codes
@@ -97,7 +101,7 @@ label variable female   "Female sex"
 save "`pkg_dir'/_admin_demo.dta", replace
 
 **# 1. Code Inventory (codescan_describe)
-log using "`pkg_dir'/console_describe.smcl", replace smcl name(describe) nomsg
+log using "`pkg_dir'/console_describe.log", replace text name(describe) nomsg
 
 noisily codescan_describe dx1 dx2 dx3 dx4, top(15)
 
@@ -106,7 +110,7 @@ log close describe
 **# 2. Inline Define — Row-Level Scan
 use "`pkg_dir'/_admin_demo.dta", clear
 
-log using "`pkg_dir'/console_rowlevel.smcl", replace smcl name(rowlevel) nomsg
+log using "`pkg_dir'/console_rowlevel.log", replace text name(rowlevel) nomsg
 
 noisily codescan dx1 dx2 dx3 dx4, ///
     define(dm "E1[01]" | htn "I1[0-35]" | chf "I50" | copd "J4[0-7]" | ///
@@ -120,7 +124,7 @@ log close rowlevel
 **# 3. Charlson Scoring — Full Clinical Workflow
 use "`pkg_dir'/_admin_demo.dta", clear
 
-log using "`pkg_dir'/console_charlson.smcl", replace smcl name(charlson) nomsg
+log using "`pkg_dir'/console_charlson.log", replace text name(charlson) nomsg
 
 noisily codescan dx1 dx2 dx3 dx4, ///
     codefile(charlson_icd10_example.csv) ///
@@ -159,6 +163,22 @@ codescan dx1 dx2 dx3 dx4, ///
     cooccurrence ///
     export("`pkg_dir'/codescan_results.xlsx") ///
     format(%9.2f)
+
+**# 6. Convert Console Logs to Markdown via logdoc
+capture ado uninstall logdoc
+quietly net install logdoc, from("`c(pwd)'/logdoc") replace
+
+logdoc using "`pkg_dir'/console_describe.log", ///
+    output("`pkg_dir'/console_describe.md") ///
+    format(md) replace quiet
+
+logdoc using "`pkg_dir'/console_rowlevel.log", ///
+    output("`pkg_dir'/console_rowlevel.md") ///
+    format(md) replace quiet
+
+logdoc using "`pkg_dir'/console_charlson.log", ///
+    output("`pkg_dir'/console_charlson.md") ///
+    format(md) replace quiet
 
 **# Cleanup
 capture erase "`pkg_dir'/_admin_demo.dta"
