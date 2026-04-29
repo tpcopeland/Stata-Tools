@@ -1833,7 +1833,7 @@ program define table1_tc, rclass
                 if `has_wtcompare' & substr("`_hcol'", 1, 3) == "Wt_" local _hden "`hperc_wtden'"
                 replace `_hcol' = `_hcol' + " " + "(" + ///
                     string(round(`_hcol'2 / `_hden', 0.001) * 100, "%9.1f") + ///
-                    "`percsign')" if inlist(_n, 2) & `_hden' > 0 & !missing(`_hcol'2)
+                    `percsign' + ")" if inlist(_n, 2) & `_hden' > 0 & !missing(`_hcol'2)
             }
 
             foreach _htmp of local hperc_scratch {

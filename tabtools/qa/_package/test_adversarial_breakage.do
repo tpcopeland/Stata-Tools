@@ -67,9 +67,9 @@ capture noisily {
     assert c(varabbrev) == "on"
 
     tabtools set theme lancet
-    capture tabtools set font Calibri
-    assert _rc == 198
-    assert "$TABTOOLS_THEME" == "lancet"
+    tabtools set font Calibri
+    assert "$TABTOOLS_THEME" == "custom"
+    assert "$TABTOOLS_FONT" == "Calibri"
 
     capture tabtools set theme custom, fontsize(5)
     assert _rc == 198

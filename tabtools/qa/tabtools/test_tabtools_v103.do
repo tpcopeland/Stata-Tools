@@ -172,9 +172,9 @@ else {
 * stratetab `ratio` short form
 * ============================================================
 
-* T9: stratetab ratiodigits via `ratio` short form. Build a synthetic
-*     strate output file (same shape that the existing test_tabtools.do
-*     uses) and exercise the ratio() abbreviation alongside rateratio.
+* T9: stratetab ratiodigits via `ratio` short form. Build two synthetic
+*     strate output files (two exposure groups) and exercise the ratio()
+*     abbreviation alongside rateratio.
 quietly {
     clear
     set obs 3
@@ -186,11 +186,19 @@ quietly {
     gen _Upper = _Rate * 1.35
     label define _v103_lbl 0 "Never" 1 "Former" 2 "Current"
     label values exposure _v103_lbl
-    save "`output_dir'/_v103_strate.dta", replace
+    save "`output_dir'/_v103_strate1.dta", replace
+
+    replace _D = cond(_n==1, 30, cond(_n==2, 22, 28))
+    replace _Y = cond(_n==1, 4800, cond(_n==2, 4600, 5100))
+    replace _Rate = _D / _Y
+    replace _Lower = _Rate * 0.65
+    replace _Upper = _Rate * 1.35
+    save "`output_dir'/_v103_strate2.dta", replace
 }
 local ++test_count
-capture noisily stratetab, using("`output_dir'/_v103_strate") ///
+capture noisily stratetab, using("`output_dir'/_v103_strate1" "`output_dir'/_v103_strate2") ///
     outcomes(1) rateratio ratio(3) border(thin) ///
+    explabels("Group A" \ "Group B") ///
     xlsx("`output_dir'/_v103_stratetab.xlsx")
 if _rc == 0 {
     display as result "  PASS T9: stratetab ratio short form"
@@ -201,7 +209,8 @@ else {
     local ++fail_count
     local failed_tests "`failed_tests' T9"
 }
-capture erase "`output_dir'/_v103_strate.dta"
+capture erase "`output_dir'/_v103_strate1.dta"
+capture erase "`output_dir'/_v103_strate2.dta"
 capture erase "`output_dir'/_v103_stratetab.xlsx"
 
 * ============================================================
