@@ -1,6 +1,6 @@
 # eplot — Unified effect plotting from data, estimates, and matrices
 
-**Version 1.1.0** | 2026-04-19
+**Version 1.1.1** | 2026-04-30
 
 `eplot` creates forest plots and coefficient plots from three sources — variables in memory, active or stored estimation results, and preassembled matrices — under one command with one set of options.
 
@@ -237,6 +237,7 @@ Options are organized by function. Not every option works in every mode — see 
 
 ## Version History
 
+- **1.1.1** (2026-04-30): Fixed y-axis ordering bug where categorical labels appeared in reverse order across all plotting modes (data, estimates, matrix)
 - **1.1.0** (2026-04-19): Added `gap()` for grouped spacing, effect-axis `xlabel()` passthrough, automatic value-annotation margin sizing, and clearer mode-detection documentation
 - **1.0.0** (2026-04-12): Initial release with data, estimates, and matrix modes; multi-model comparison; journal style presets; significance coloring; meta-analysis features
 

@@ -25,6 +25,8 @@ program define crosstab, rclass
 
 capture noisily {
 
+    capture putexcel close
+
     * Auto-load shared helper programs
     capture _tabtools_helpers_ready
     if _rc {

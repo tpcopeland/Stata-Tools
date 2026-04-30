@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.1.0  19apr2026}{...}
+{* *! version 1.1.1  30apr2026}{...}
 {viewerjumpto "Syntax" "eplot##syntax"}{...}
 {viewerjumpto "Description" "eplot##description"}{...}
 {viewerjumpto "Options" "eplot##options"}{...}

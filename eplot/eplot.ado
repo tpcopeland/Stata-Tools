@@ -1,4 +1,4 @@
-*! eplot Version 1.1.0  2026/04/19
+*! eplot Version 1.1.1  2026/04/30
 *! Unified effect plotting command for forest plots and coefficient plots
 *! Author: Timothy P Copeland
 *! Program class: rclass
@@ -410,8 +410,8 @@ program define _eplot_data, rclass
         sort `order_rank'
     }
 
-    // Calculate positions (reverse order so first obs is at top)
-    quietly gen double `pos' = _N - _n + 1
+    // Calculate positions (yscale(reverse) puts low values at top)
+    quietly gen double `pos' = _n
 
     // Process groups - insert headers and adjust positions
     local n_groups 0
@@ -498,9 +498,8 @@ program define _eplot_data, rclass
             + ", " + string(`uci', "`vformat'") + ")" ///
             if inlist(`rowtype', 1, 3, 5) & !missing(`es')
 
-        local val_xpos = `xmax_pad'
-        local _val_xshift = `xrange' * 0.006
-        quietly gen double `val_x' = `val_xpos' - `_val_xshift' if !missing(`val_text')
+        local val_xpos = `xmax' + 0.15 * `xrange'
+        quietly gen double `val_x' = `val_xpos' if !missing(`val_text')
         _eplot_value_margin `val_text', header(`"`effect'"')
         local _val_right_margin = `s(right_margin)'
 
@@ -704,12 +703,15 @@ program define _eplot_data, rclass
     // --- Graph options ---
     local ypad_lo 0
     local ypad_hi = `pos_max' + 1
+    local _xscale_max = `xmax_pad'
     if "`horizontal'" != "" {
+        if "`values'" != "" {
+            local _xscale_max = `val_xpos'
+        }
         local graphcmd `"`graphcmd', ylabel(`ylabels', angle(0) labsize(small) nogrid valuelabel)"'
         local graphcmd `"`graphcmd' ytitle("")"'
-        local graphcmd `"`graphcmd' xscale(range(`xmin_pad' `xmax_pad'))"'
+        local graphcmd `"`graphcmd' xscale(range(`xmin_pad' `_xscale_max'))"'
         if "`values'" != "" {
-            // Column header just above first row
             local _val_hdr_y = 0.3
             local ypad_lo = -0.2
             local graphcmd `"`graphcmd' xtitle(`"`effect'"', size(medsmall))"'
@@ -717,7 +719,6 @@ program define _eplot_data, rclass
         }
         else local graphcmd `"`graphcmd' xtitle(`"`effect'"')"'
         local graphcmd `"`graphcmd' xlabel(`_effect_axis_opts')"'
-        // Extend range for favors text if specified
         if `"`favors'"' != "" {
             local ypad_hi = `pos_max' + 2
         }
@@ -1328,7 +1329,7 @@ program define _eplot_estimates, rclass
     quietly save `fulldata'
 
     keep if _coef_tag
-    gen long _base_pos = _N - _n + 1
+    gen long _base_pos = _n
     keep coef_name _base_pos
     quietly save `posmap'
 
@@ -1443,9 +1444,8 @@ program define _eplot_estimates, rclass
             `_star_suf' ///
             if _rowtype == 1 & !missing(es)
 
-        local val_xpos = `xmax_pad'
-        local _val_xshift = `data_range' * 0.006
-        gen double _val_x = `val_xpos' - `_val_xshift' if !missing(_val_text)
+        local val_xpos = `data_xmax' + 0.15 * `data_range'
+        gen double _val_x = `val_xpos' if !missing(_val_text)
         _eplot_value_margin _val_text, header(`"`effect'"')
         local _val_right_margin = `s(right_margin)'
 
@@ -1599,11 +1599,14 @@ program define _eplot_estimates, rclass
         0.5 - `offset' * `n_models' / 2, 0)
     local ypad_hi = `pos_max' + 1
 
+    local _xscale_max = `xmax_pad'
     if "`horizontal'" != "" {
-        local graphcmd `"`graphcmd', ylabel(`ylabels', angle(0) labsize(small) nogrid noticks)"'
-        local graphcmd `"`graphcmd' ytitle("") xscale(range(`xmin_pad' `xmax_pad'))"'
         if "`values'" != "" & `n_models' == 1 {
-            // Column header just above first row
+            local _xscale_max = `val_xpos'
+        }
+        local graphcmd `"`graphcmd', ylabel(`ylabels', angle(0) labsize(small) nogrid noticks)"'
+        local graphcmd `"`graphcmd' ytitle("") xscale(range(`xmin_pad' `_xscale_max'))"'
+        if "`values'" != "" & `n_models' == 1 {
             local _val_hdr_y = 0.3
             local ypad_lo = cond(`ypad_lo' < -0.2, `ypad_lo', -0.2)
             local graphcmd `"`graphcmd' xtitle(`"`effect'"', size(medsmall))"'
@@ -1611,7 +1614,6 @@ program define _eplot_estimates, rclass
         }
         else local graphcmd `"`graphcmd' xtitle(`"`effect'"')"'
         local graphcmd `"`graphcmd' xlabel(`_effect_axis_opts')"'
-        // Extend range for favors text if specified
         if `"`favors'"' != "" {
             local ypad_hi = `pos_max' + 2
         }
@@ -2050,7 +2052,7 @@ program define _eplot_matrix, rclass
     }
 
     // Positions
-    gen double _plot_pos = _N - _n + 1
+    gen double _plot_pos = _n
 
     // Stars string generation (from pre-eform p-values)
     if "`stars'" != "" {
@@ -2092,9 +2094,8 @@ program define _eplot_matrix, rclass
             + ", " + string(uci, "`vformat'") + ")" ///
             `_star_suf'
 
-        local val_xpos = `xmax_pad'
-        local _val_xshift = `data_range' * 0.006
-        gen double _val_x = `val_xpos' - `_val_xshift'
+        local val_xpos = `data_xmax' + 0.15 * `data_range'
+        gen double _val_x = `val_xpos'
         _eplot_value_margin _val_text, header(`"`effect'"')
         local _val_right_margin = `s(right_margin)'
 
@@ -2160,11 +2161,14 @@ program define _eplot_matrix, rclass
     // Graph options
     local ypad_lo 0
     local ypad_hi = `pos_max' + 1
+    local _xscale_max = `xmax_pad'
     if "`horizontal'" != "" {
-        local graphcmd `"`graphcmd', ylabel(`ylabels', angle(0) labsize(small) nogrid)"'
-        local graphcmd `"`graphcmd' ytitle("") xscale(range(`xmin_pad' `xmax_pad'))"'
         if "`values'" != "" {
-            // Column header just above first row
+            local _xscale_max = `val_xpos'
+        }
+        local graphcmd `"`graphcmd', ylabel(`ylabels', angle(0) labsize(small) nogrid)"'
+        local graphcmd `"`graphcmd' ytitle("") xscale(range(`xmin_pad' `_xscale_max'))"'
+        if "`values'" != "" {
             local _val_hdr_y = 0.3
             local ypad_lo = -0.2
             local graphcmd `"`graphcmd' xtitle(`"`effect'"', size(medsmall))"'
@@ -2172,7 +2176,6 @@ program define _eplot_matrix, rclass
         }
         else local graphcmd `"`graphcmd' xtitle(`"`effect'"')"'
         local graphcmd `"`graphcmd' xlabel(`_effect_axis_opts')"'
-        // Extend range for favors text if specified
         if `"`favors'"' != "" {
             local ypad_hi = `pos_max' + 2
         }
@@ -2649,7 +2652,7 @@ program define _eplot_process_groups, rclass
                 quietly count if `labelvar' == `"`first_coef'"'
                 if r(N) > 0 {
                     quietly summarize `posvar' if `labelvar' == `"`first_coef'"', meanonly
-                    local header_pos = r(mean) + 0.5
+                    local header_pos = r(mean) - 0.5
 
                     local newN = _N + 1
                     quietly set obs `newN'
@@ -2663,7 +2666,7 @@ program define _eplot_process_groups, rclass
                     quietly count if `labelvar' == `"`last_coef'"'
                     if r(N) > 0 {
                         quietly summarize `posvar' if `labelvar' == `"`last_coef'"', meanonly
-                        local gap_pos = r(mean) - 0.5
+                        local gap_pos = r(mean) + 0.5
 
                         local newN = _N + 1
                         quietly set obs `newN'
@@ -2726,7 +2729,7 @@ program define _eplot_process_headers, rclass
             quietly count if `labelvar' == `"`ref'"'
             if r(N) > 0 {
                 quietly summarize `posvar' if `labelvar' == `"`ref'"', meanonly
-                local header_pos = r(mean) + 0.5
+                local header_pos = r(mean) - 0.5
 
                 local newN = _N + 1
                 quietly set obs `newN'

@@ -9,6 +9,8 @@ program define corrtab, rclass
     set varabbrev off
     capture noisily {
 
+        capture putexcel close
+
         * Auto-load shared helper programs
         capture _tabtools_helpers_ready
         if _rc {

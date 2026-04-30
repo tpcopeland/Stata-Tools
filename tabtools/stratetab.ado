@@ -45,6 +45,8 @@ qui save "`_userdata_path'", emptyok
 
 capture noisily {
 
+capture putexcel close
+
 * Auto-load shared helper programs if not already in memory
 capture _tabtools_helpers_ready
 if _rc {

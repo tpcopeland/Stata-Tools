@@ -35,6 +35,8 @@ program define survtab, rclass
 
 capture noisily {
 
+    capture putexcel close
+
     return clear
 
     * Auto-load shared helper programs
