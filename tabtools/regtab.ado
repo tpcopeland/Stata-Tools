@@ -957,6 +957,8 @@ quietly{
     }
 
 collect label levels result _r_b "`coef'", modify
+collect label levels result _r_ci "`=c(level)'% CI", modify
+collect label levels result _r_p "p-value", modify
 collect style cell result[_r_b], warn nformat(%4.2fc) halign(center) valign(center)
 collect style cell result[_r_ci], warn nformat(%12.8f) sformat("(%s)") cidelimiter("`sep'") halign(center) valign(center)
 collect style cell result[_r_p], warn nformat(%5.4f) halign(center) valign(center)

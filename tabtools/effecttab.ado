@@ -374,6 +374,8 @@ quietly {
 
 	* Apply formatting to result items
 	collect label levels result _r_b "`effect'", modify
+	collect label levels result _r_ci "`=c(level)'% CI", modify
+	collect label levels result _r_p "p-value", modify
 	collect style cell result[_r_b], warn nformat(%`=`digits'+2'.`digits'fc) halign(center) valign(center)
 	collect style cell result[_r_ci], warn nformat(%`=`digits'+3'.`digits'fc) sformat("(%s)") ///
 	        cidelimiter("`sep'") halign(center) valign(center)
