@@ -199,7 +199,7 @@ capture noisily {
     local old_maxiter = c(maxiter)
     set maxiter 1
     capture msm_fit, model(logistic) ///
-        outcome_cov(age sex biomarker comorbidity) ///
+        outcome_cov(age sex) ///
         period_spec(cubic) nolog
     local fit_rc = _rc
     set maxiter `old_maxiter'

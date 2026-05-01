@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.0  26apr2026}{...}
+{* *! version 1.0.1  30apr2026}{...}
 {vieweralsosee "msm" "help msm"}{...}
 {vieweralsosee "msm_weight" "help msm_weight"}{...}
 {vieweralsosee "msm_predict" "help msm_predict"}{...}
@@ -94,8 +94,10 @@ continuous and the target estimand is a weighted mean difference.
 {p2col:{cmd:model(cox)}}Weighted Cox proportional hazards.  Use when the target
 estimand is a weighted hazard ratio.  Period terms are not added as covariates
 because time is modeled through the survival-time outcome.
-{helpb msm_predict} is not available for Cox models; use standard Stata
-{cmd:stcox} postestimation instead.{p_end}
+{helpb msm_predict} is not available for Cox models; use {helpb msm_report},
+{helpb msm_table}, or {helpb msm_sensitivity} for downstream output.  If you
+need custom Stata survival postestimation, fit a direct {cmd:stcox} model on
+an explicitly {cmd:stset} dataset using the same weights and covariates.{p_end}
 
 {pstd}
 After fitting, run {cmd:msm, status} to confirm the current pipeline stage
@@ -111,10 +113,11 @@ and see which downstream commands are available.
 
 {phang}
 {opth outcome_cov(varlist)} specifies additional covariates for the outcome
-model beyond treatment and period.  These should be {bf:time-fixed} (constant
-within person) if you plan to use {helpb msm_predict} afterward, because the
-prediction routine holds them at their baseline values.  Common choices are
-the same baseline covariates used in the weight numerator (e.g., age, sex).
+model beyond treatment and period.  These must be {bf:time-fixed} (constant
+within person).  {cmd:msm_fit} rejects variables that vary within the mapped
+ID because downstream prediction standardizes them at baseline values.  Common
+choices are the same baseline covariates used in the weight numerator (e.g.,
+age, sex).
 
 {phang}
 {opt per:iod_spec(string)} specifies the functional form for the period

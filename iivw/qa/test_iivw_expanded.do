@@ -897,6 +897,55 @@ if `run_only' == 0 | `run_only' == 27 {
     }
 }
 
+* =============================================================================
+* E28: Successful reruns clear stale weighting and fit metadata
+* =============================================================================
+local ++test_count
+if `run_only' == 0 | `run_only' == 28 {
+    capture noisily {
+        _setup_panel
+
+        * Weight metadata: FIPTIW sets _iivw_treat; IIW rerun clears it.
+        iivw_weight, id(id) time(months) visit_cov(severity) ///
+            treat(treated) treat_cov(sev_bl) nolog
+        local treat1 : char _dta[_iivw_treat]
+        assert "`treat1'" == "treated"
+
+        iivw_weight, id(id) time(months) visit_cov(severity) replace nolog
+        local type2 : char _dta[_iivw_weighttype]
+        local treat2 : char _dta[_iivw_treat]
+        assert "`type2'" == "iivw"
+        assert "`treat2'" == ""
+
+        * Fit metadata: categorical/interaction chars clear on rerun without them.
+        gen byte arm = cond(treated == 0, 0, cond(sev_bl < 2.5, 1, 2))
+        iivw_fit event arm sev_bl, categorical(arm) interaction(arm) ///
+            timespec(linear) nolog
+        local cat1 : char _dta[_iivw_categorical]
+        local ix1 : char _dta[_iivw_interaction]
+        assert "`cat1'" == "arm"
+        assert "`ix1'" == "arm"
+
+        iivw_fit event sev_bl, timespec(linear) replace nolog
+        local cat2 : char _dta[_iivw_categorical]
+        local ix2 : char _dta[_iivw_interaction]
+        local catvars2 : char _dta[_iivw_cat_vars]
+        local ixvars2 : char _dta[_iivw_ix_vars]
+        assert "`cat2'" == ""
+        assert "`ix2'" == ""
+        assert "`catvars2'" == ""
+        assert "`ixvars2'" == ""
+    }
+    if _rc == 0 {
+        display as result "  PASS: E28 - Successful reruns clear stale metadata"
+        local ++pass_count
+    }
+    else {
+        display as error "  FAIL: E28 - metadata clearing on rerun (error `=_rc')"
+        local ++fail_count
+    }
+}
+
 * ============================================================
 * Summary
 * ============================================================

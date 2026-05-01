@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.0  26apr2026}{...}
+{* *! version 1.0.1  30apr2026}{...}
 {vieweralsosee "msm" "help msm"}{...}
 {vieweralsosee "msm_fit" "help msm_fit"}{...}
 {vieweralsosee "msm_plot" "help msm_plot"}{...}
@@ -168,7 +168,9 @@ of scope.{p_end}
 {phang}
 {bf:Outcome-model covariates must be time-fixed.}  Any {cmd:outcome_cov()}
 from {helpb msm_fit} are standardized at baseline values, so they must not
-vary within person.{p_end}
+vary within person.  Current {cmd:msm_fit} versions reject time-varying
+{cmd:outcome_cov()} variables; this command also checks the contract for
+datasets fitted by older versions.{p_end}
 
 {phang}
 {bf:Prediction horizon defaults to observed data.}  Out-of-range

@@ -2877,10 +2877,10 @@ else {
 local ++test_count
 capture noisily {
     msm
-    assert "`r(version)'" == "1.0.0"
+    assert "`r(version)'" == "1.0.1"
 }
 if _rc == 0 {
-    display as result "  PASS D1: msm version is 1.0.0"
+    display as result "  PASS D1: msm version is 1.0.1"
     local ++pass_count
 }
 else {
@@ -3203,6 +3203,16 @@ else {
 local ++test_count
 capture noisily {
     use "`pkg_dir'/msm_example.dta", clear
+    msm_prepare, id(id) period(period) treatment(treatment) ///
+        outcome(outcome) censor(censored) ///
+        covariates(biomarker comorbidity) ///
+        baseline_covariates(age sex)
+    msm_weight, treat_d_cov(biomarker comorbidity age sex) ///
+        treat_n_cov(age sex) nolog
+    msm_fit, model(logistic) outcome_cov(age sex) period_spec(linear) nolog
+    local clean_b = _b[treatment]
+
+    use "`pkg_dir'/msm_example.dta", clear
     sort id period
     preserve
     keep if outcome == 1
@@ -3229,6 +3239,7 @@ capture noisily {
     bysort id (period): replace _post_event_row = (sum(outcome[_n-1]) >= 1) if _n > 1
     count if _post_event_row == 1 & _msm_esample == 1
     assert r(N) == 0
+    assert reldif(_b[treatment], `clean_b') < 1e-10
     drop _post_event_row
 }
 if _rc == 0 {
@@ -3241,7 +3252,7 @@ else {
     local failed_tests "`failed_tests' R7"
 }
 
-* --- R8: msm_predict rejects time-varying outcome_cov() terms ---
+* --- R8: msm_fit rejects time-varying outcome_cov() terms ---
 local ++test_count
 capture noisily {
     use "`pkg_dir'/msm_example.dta", clear
@@ -3251,13 +3262,13 @@ capture noisily {
         baseline_covariates(age sex)
     msm_weight, treat_d_cov(biomarker comorbidity age sex) ///
         treat_n_cov(age sex) nolog
-    msm_fit, model(logistic) outcome_cov(biomarker age sex) ///
+    capture msm_fit, model(logistic) outcome_cov(biomarker age sex) ///
         period_spec(linear) nolog
-    capture msm_predict, times(3 5) samples(10)
     assert _rc == 198
+    assert "`: char _dta[_msm_fitted]'" == ""
 }
 if _rc == 0 {
-    display as result "  PASS R8: msm_predict rejects time-varying outcome_cov()"
+    display as result "  PASS R8: msm_fit rejects time-varying outcome_cov()"
     local ++pass_count
 }
 else {
@@ -3306,6 +3317,71 @@ else {
     display as error "  FAIL R10: delayed entry rejection (rc=`=_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' R10"
+}
+
+* --- R11: msm_validate hard errors fail even without strict ---
+local ++test_count
+capture noisily {
+    use "`pkg_dir'/msm_example.dta", clear
+    replace treatment = 0
+    msm_prepare, id(id) period(period) treatment(treatment) ///
+        outcome(outcome) censor(censored) ///
+        covariates(biomarker comorbidity) ///
+        baseline_covariates(age sex)
+    capture msm_validate
+    assert _rc == 198
+}
+if _rc == 0 {
+    display as result "  PASS R11: msm_validate hard errors fail without strict"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL R11: non-strict hard validation error (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' R11"
+}
+
+* --- R12: msm_fit excludes rows after prior censoring ---
+local ++test_count
+capture noisily {
+    use "`pkg_dir'/msm_example.dta", clear
+    sort id period
+    preserve
+    keep if censored == 1
+    bysort id (period): keep if _n == 1
+    keep id period treatment outcome censored biomarker comorbidity age sex
+    replace period = period + 100
+    replace outcome = 0
+    replace censored = 0
+    tempfile postcens
+    save `postcens'
+    restore
+    append using `postcens'
+    sort id period
+
+    msm_prepare, id(id) period(period) treatment(treatment) ///
+        outcome(outcome) censor(censored) ///
+        covariates(biomarker comorbidity) ///
+        baseline_covariates(age sex)
+    msm_weight, treat_d_cov(biomarker comorbidity age sex) ///
+        treat_n_cov(age sex) nolog
+    msm_fit, model(logistic) outcome_cov(age sex) period_spec(linear) nolog
+
+    gen byte _post_censor_row = 0
+    bysort id (period): replace _post_censor_row = ///
+        (sum(censored[_n-1]) >= 1) if _n > 1
+    count if _post_censor_row == 1 & _msm_esample == 1
+    assert r(N) == 0
+    drop _post_censor_row
+}
+if _rc == 0 {
+    display as result "  PASS R12: msm_fit excludes post-censor follow-up rows"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL R12: post-censor exclusion in msm_fit (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' R12"
 }
 
 * =============================================================================

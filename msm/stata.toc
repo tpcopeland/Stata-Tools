@@ -1,5 +1,7 @@
 v 3
 d Stata-Tools: msm
+d Marginal structural models for longitudinal causal analysis
+d IPTW/IPCW weighting, diagnostics, outcome models, prediction, and reporting
 d Timothy P Copeland, Karolinska Institutet
 d https://github.com/tpcopeland/Stata-Tools
 p msm

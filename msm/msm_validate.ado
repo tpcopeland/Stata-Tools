@@ -1,4 +1,4 @@
-*! msm_validate Version 1.0.0  2026/04/26
+*! msm_validate Version 1.0.1  2026/04/30
 *! Data quality checks for marginal structural models
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet

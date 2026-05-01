@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.2  26apr2026}{...}
+{* *! version 1.0.3  30apr2026}{...}
 {vieweralsosee "iivw" "help iivw"}{...}
 {vieweralsosee "iivw_weight" "help iivw_weight"}{...}
 {vieweralsosee "[XT] xtgee" "help xtgee"}{...}
@@ -27,7 +27,7 @@
 {p 8 17 2}
 {cmd:iivw_fit}
 {depvar}
-{indepvars}
+[{indepvars}]
 {ifin}
 [{cmd:,} {it:options}]
 
@@ -121,6 +121,12 @@ binomial, log for poisson).  Override when you need a non-canonical link (e.g.,
 which allows flexible nonlinear trends while remaining stable at the
 boundaries.
 {cmd:none} excludes time from the model entirely.
+
+{pmore}
+The predictor list may be empty.  For example, {cmd:iivw_fit y} fits a
+weighted intercept-plus-time model using the default {cmd:timespec(linear)}.
+With {cmd:timespec(none)} and no predictors, the command fits a weighted
+intercept-only model.
 
 {pmore}
 The time variables are built from the time variable stored by
@@ -550,6 +556,7 @@ a conditional (subject-specific) treatment effect rather than the marginal
 {synopt:{cmd:e(iivw_timespec)}}time specification used{p_end}
 {synopt:{cmd:e(iivw_weight_var)}}weight variable name{p_end}
 {synopt:{cmd:e(iivw_cluster)}}clustering variable used{p_end}
+{synopt:{cmd:e(iivw_display_vars)}}terms displayed in the formatted effects table{p_end}
 {synopt:{cmd:e(iivw_interaction)}}variables specified in {opt interaction()}{p_end}
 {synopt:{cmd:e(iivw_ix_vars)}}interaction variables created{p_end}
 {synopt:{cmd:e(iivw_categorical)}}variables specified in {opt categorical()}{p_end}
@@ -587,7 +594,7 @@ On flexible inverse probability of treatment and intensity weighting.
 {pstd}Timothy P Copeland{p_end}
 {pstd}Department of Clinical Neuroscience{p_end}
 {pstd}Karolinska Institutet{p_end}
-{pstd}Version 1.0.2, 2026-04-26{p_end}
+{pstd}Version 1.0.3, 2026-04-30{p_end}
 
 
 {title:Also see}

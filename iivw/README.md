@@ -1,6 +1,6 @@
 # iivw - Inverse intensity of visit weighting for longitudinal data
 
-**Version 1.0.2** | 2026-04-26
+**Version 1.0.3** | 2026-04-30
 
 `iivw` corrects bias from informative visit timing in irregular longitudinal data.  In clinic-based studies, sicker patients often visit more frequently, so they contribute more rows to the dataset and bias naive analyses.  This package re-weights each observation so the analysis behaves as though patients were observed on a common schedule.
 
@@ -44,7 +44,7 @@ You probably do *not* need this if visits follow a fixed protocol (e.g., randomi
 
 ## How It Works
 
-1. **Compute weights** with `iivw_weight`.  You always specify `id()` and `time()`.  The command fits an Andersen-Gill recurrent-event Cox model to estimate each subject's visit intensity, then creates a weight variable in the dataset.
+1. **Compute weights** with `iivw_weight`.  You always specify `id()` and `time()`.  For IIW/FIPTIW, the command fits an Andersen-Gill recurrent-event Cox model to estimate each subject's visit intensity; for IPTW-only, it fits only the treatment propensity model.  It then creates a weight variable in the dataset.
 2. **Choose the weighting strategy** that matches the scientific problem (see table below).
 3. **Inspect weights** with `summarize _iivw_weight, detail`.  Look for extreme values.  If the weight distribution has heavy tails, re-run with `truncate(1 99)` to cap extreme weights.
 4. **Fit the outcome model** with `iivw_fit`.  It reads the weight variable and panel structure from the dataset automatically.
@@ -176,6 +176,8 @@ After running `iivw_weight`, check these before fitting the outcome model:
 ## Practical Notes
 
 - `treat()` must be binary (0/1) and time-invariant within each subject.  For time-varying treatments, consider marginal structural models instead.
+- `treat_cov()` is required for IPTW and FIPTIW; treatment-model covariates are not inferred from `visit_cov()`.
+- IPTW-only analyses may use one row per subject.  IIW and FIPTIW require repeated visits because they estimate a visit-intensity model.
 - `iivw_fit` automatically reads the weight variable, panel ID, and time variable stored by `iivw_weight`.
 - `categorical()` is for the outcome model only.  It does not define IPTW treatment levels.
 - `bootstrap()` reflects outcome-model uncertainty only because the weights are treated as fixed.
@@ -207,6 +209,14 @@ do iivw/demo/demo_iivw.do
 - Tompkins G, Dubin JA, Wallace M. On flexible inverse probability of treatment and intensity weighting. *Statistical Methods in Medical Research*. 2025.
 
 ## Changelog
+
+### v1.0.3 (2026-04-30)
+
+- Allowed IPTW-only weighting for one-row-per-subject datasets
+- Required explicit `treat_cov()` for IPTW/FIPTIW treatment models
+- Allowed `iivw_fit` time-only and intercept-only weighted outcome models
+- Expanded the formatted effects summary to include time and interaction terms
+- Made cross-validation path resolution robust to running from the package or repository root
 
 ### v1.0.2 (2026-04-26)
 

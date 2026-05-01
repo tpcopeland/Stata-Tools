@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.0  26apr2026}{...}
+{* *! version 1.0.1  30apr2026}{...}
 {vieweralsosee "msm_prepare" "help msm_prepare"}{...}
 {vieweralsosee "msm_validate" "help msm_validate"}{...}
 {vieweralsosee "msm_weight" "help msm_weight"}{...}
@@ -216,8 +216,9 @@ models can be estimated, diagnosed, and reported, but prediction is not
 available for them.
 
 {phang}
-{bf:Prediction covariates must be time-fixed.}  Any {cmd:outcome_cov()} in
-{helpb msm_fit} must be constant within person if you plan to predict.
+{bf:Outcome-model covariates must be time-fixed.}  Any {cmd:outcome_cov()} in
+{helpb msm_fit} must be constant within person.  Time-varying confounders
+belong in the treatment and censoring weight models.
 
 {phang}
 {bf:Common baseline required.}  {helpb msm_weight} assumes all individuals

@@ -1,4 +1,4 @@
-*! msm_predict Version 1.0.0  2026/04/26
+*! msm_predict Version 1.0.1  2026/04/30
 *! Counterfactual predictions from marginal structural models
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet
@@ -85,7 +85,7 @@ program define msm_predict, rclass
     }
     if "`model'" != "logistic" {
         display as error "msm_predict currently only supports logistic model"
-        display as error "For Cox model, use standard Stata post-estimation."
+        display as error "Use msm_report, msm_table, or msm_sensitivity for non-logistic fits."
         exit 198
     }
     if "`outcome_cov'" != "" {

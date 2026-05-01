@@ -4,7 +4,7 @@ version 16.0
 set varabbrev off
 
 * test_iivw.do - Functional tests for iivw package
-* Tests: 115 (basic functionality, options, error handling, return values,
+* Tests: 118 (basic functionality, options, error handling, return values,
 *        edge cases, data preservation, expanded coverage,
 *        regtab integration + console summary + install/settings)
 *
@@ -72,7 +72,7 @@ if `run_only' == 0 | `run_only' == 1 {
     capture noisily {
         iivw
         assert r(n_commands) == 2
-        assert "`r(version)'" == "1.0.2"
+        assert "`r(version)'" == "1.0.3"
     }
     if _rc == 0 {
         display as result "  PASS: Test 1 - iivw overview runs and returns metadata"
@@ -1390,25 +1390,22 @@ if `run_only' == 0 | `run_only' == 54 {
 }
 
 * =============================================================================
-* TEST 55: treat_cov defaults to visit_cov when not specified
+* TEST 55: Error - FIPTIW requires explicit treat_cov()
 * =============================================================================
 local ++test_count
 if `run_only' == 0 | `run_only' == 55 {
     capture noisily {
         _setup_relapses
-        * Without treat_cov: should use visit_cov for propensity model
-        iivw_weight, id(id) time(days) visit_cov(edss relapse) ///
+        capture iivw_weight, id(id) time(days) visit_cov(edss relapse) ///
             treat(treated) nolog
-        assert "`r(weighttype)'" == "fiptiw"
-        confirm variable _iivw_tw
-        assert r(mean_weight) > 0
+        assert _rc == 198
     }
     if _rc == 0 {
-        display as result "  PASS: Test 55 - treat_cov defaults to visit_cov"
+        display as result "  PASS: Test 55 - Error: FIPTIW requires treat_cov()"
         local ++pass_count
     }
     else {
-        display as error "  FAIL: Test 55 - treat_cov default (error `=_rc')"
+        display as error "  FAIL: Test 55 - FIPTIW treat_cov requirement (error `=_rc')"
         local ++fail_count
     }
 }
@@ -1894,23 +1891,21 @@ else {
 }
 }
 
-* TEST 74: wtype(iptw) note when treat_cov not specified
+* TEST 74: Error - wtype(iptw) requires explicit treat_cov()
 if `run_only' == 0 | `run_only' == 74 {
 local ++test_count
 capture noisily {
     _setup_relapses
-    * Without treat_cov, should use visit_cov as fallback (note displayed)
-    iivw_weight, id(id) time(days) visit_cov(edss relapse) ///
+    capture iivw_weight, id(id) time(days) visit_cov(edss relapse) ///
         treat(treated) wtype(iptw) nolog
-    assert "`r(weighttype)'" == "iptw"
-    assert r(N) > 0
+    assert _rc == 198
 }
 if _rc == 0 {
-    display as result "  PASS: Test 74 - wtype(iptw) without treat_cov"
+    display as result "  PASS: Test 74 - Error: wtype(iptw) requires treat_cov()"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: Test 74 - iptw no treat_cov (error `=_rc')"
+    display as error "  FAIL: Test 74 - iptw treat_cov requirement (error `=_rc')"
     local ++fail_count
 }
 }
@@ -2860,6 +2855,83 @@ if `run_only' == 0 | `run_only' == 115 {
     }
     else {
         display as error "  FAIL: Test 115 - varabbrev iivw overview (error `=_rc')"
+        local ++fail_count
+    }
+}
+
+* =============================================================================
+* TEST 116: IPTW-only accepts one row per subject
+* =============================================================================
+local ++test_count
+if `run_only' == 0 | `run_only' == 116 {
+    capture noisily {
+        clear
+        set seed 20260430
+        set obs 80
+        gen long id = _n
+        gen double days = 0
+        gen double x = rnormal()
+        gen byte treated = (_n <= 40)
+        iivw_weight, id(id) time(days) treat(treated) treat_cov(x) ///
+            wtype(iptw) nolog
+        assert "`r(weighttype)'" == "iptw"
+        assert r(n_ids) == 80
+        confirm variable _iivw_tw
+        confirm variable _iivw_weight
+        capture confirm variable _iivw_iw
+        assert _rc != 0
+    }
+    if _rc == 0 {
+        display as result "  PASS: Test 116 - IPTW-only accepts one row per subject"
+        local ++pass_count
+    }
+    else {
+        display as error "  FAIL: Test 116 - IPTW single-row subjects (error `=_rc')"
+        local ++fail_count
+    }
+}
+
+* =============================================================================
+* TEST 117: iivw_fit allows a time-only model
+* =============================================================================
+local ++test_count
+if `run_only' == 0 | `run_only' == 117 {
+    capture noisily {
+        _setup_relapses
+        iivw_weight, id(id) time(days) visit_cov(edss relapse) nolog
+        iivw_fit edss, model(gee) timespec(linear) nolog
+        assert e(N) > 0
+        assert _b[days] != .
+        assert "`e(iivw_display_vars)'" == "days"
+    }
+    if _rc == 0 {
+        display as result "  PASS: Test 117 - iivw_fit time-only model"
+        local ++pass_count
+    }
+    else {
+        display as error "  FAIL: Test 117 - time-only fit (error `=_rc')"
+        local ++fail_count
+    }
+}
+
+* =============================================================================
+* TEST 118: iivw_fit allows an intercept-only weighted model
+* =============================================================================
+local ++test_count
+if `run_only' == 0 | `run_only' == 118 {
+    capture noisily {
+        _setup_relapses
+        iivw_weight, id(id) time(days) visit_cov(edss relapse) nolog
+        iivw_fit edss, model(gee) timespec(none) nolog
+        assert e(N) > 0
+        assert "`e(iivw_display_vars)'" == ""
+    }
+    if _rc == 0 {
+        display as result "  PASS: Test 118 - iivw_fit intercept-only model"
+        local ++pass_count
+    }
+    else {
+        display as error "  FAIL: Test 118 - intercept-only fit (error `=_rc')"
         local ++fail_count
     }
 }

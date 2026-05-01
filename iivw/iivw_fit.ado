@@ -1,4 +1,4 @@
-*! iivw_fit Version 1.0.2  2026/04/26
+*! iivw_fit Version 1.0.3  2026/04/30
 *! Fit weighted outcome model for IIW/IPTW/FIPTIW analysis
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet
@@ -6,7 +6,7 @@
 
 /*
 Basic syntax:
-  iivw_fit depvar indepvars [if] [in] , [options]
+  iivw_fit depvar [indepvars] [if] [in] , [options]
 
 Description:
   Fits a weighted outcome model using weights from iivw_weight.
@@ -41,7 +41,7 @@ program define iivw_fit, eclass
     * SYNTAX PARSING
     * =========================================================================
 
-    syntax varlist(numeric min=2) [if] [in] , ///
+    syntax varlist(numeric min=1) [if] [in] , ///
         [MODel(string) ///
          FAMily(string) LINk(string) ///
          TIMEspec(string) ///
@@ -177,7 +177,9 @@ program define iivw_fit, eclass
     display as text ""
     display as text "Model type:       " as result "`model'"
     display as text "Outcome:          " as result "`depvar'"
-    display as text "Predictors:       " as result "`indepvars'"
+    local predictor_display "`indepvars'"
+    if "`predictor_display'" == "" local predictor_display "(none)"
+    display as text "Predictors:       " as result "`predictor_display'"
     display as text "Time spec:        " as result "`timespec'"
     if "`interaction'" != "" {
         display as text "Interactions:     " as result "`interaction'"
@@ -641,6 +643,7 @@ program define iivw_fit, eclass
     if "`ix_vars'" != "" {
         local all_covars "`all_covars' `ix_vars'"
     }
+    local all_covars = strtrim("`all_covars'")
 
     * =========================================================================
     * FIT MODEL
@@ -740,14 +743,14 @@ program define iivw_fit, eclass
         _col(65) "{ralign 6:P}"
     display as text "{hline 70}"
 
-    foreach pred of local expanded_indepvars {
+    foreach pred of local all_covars {
         local b_val = .
         local se_val = 0
-        capture {
-            local b_val = _b[`pred']
-            local se_val = _se[`pred']
-        }
-        local coef_rc = _rc
+        capture local b_val = _b[`pred']
+        local b_rc = _rc
+        capture local se_val = _se[`pred']
+        local se_rc = _rc
+        local coef_rc = max(`b_rc', `se_rc')
         if `coef_rc' == 0 & `se_val' > 0 & `se_val' < . {
             local z_val = `b_val' / `se_val'
             local p_val = 2 * normal(-abs(`z_val'))
@@ -789,6 +792,7 @@ program define iivw_fit, eclass
     ereturn local iivw_timespec "`timespec'"
     ereturn local iivw_weight_var "`weight_var'"
     ereturn local iivw_cluster "`cluster'"
+    ereturn local iivw_display_vars "`all_covars'"
     if "`interaction'" != "" {
         ereturn local iivw_interaction "`interaction'"
         ereturn local iivw_ix_vars "`ix_vars'"
@@ -804,12 +808,15 @@ program define iivw_fit, eclass
     if `rc' != 0 {
         foreach v of local time_vars_created {
             capture drop `v'
+            local __iivw_drop_rc = _rc
         }
         foreach v of local cat_vars_created {
             capture drop `v'
+            local __iivw_drop_rc = _rc
         }
         foreach v of local ix_vars_created {
             capture drop `v'
+            local __iivw_drop_rc = _rc
         }
     }
     set varabbrev `__iivw_old_varabbrev'

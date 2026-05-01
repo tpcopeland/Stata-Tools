@@ -30,7 +30,32 @@ if "`run_only'" == "" local run_only = 0
 
 
 * === Bootstrap ===
-local qa_dir  "`c(pwd)'"
+local here "`c(pwd)'"
+local basename = substr("`here'", strrpos("`here'", "/") + 1, .)
+if "`basename'" == "qa" {
+    local qa_dir "`here'"
+}
+else {
+    capture confirm file "`here'/phenobarb_prepared.csv"
+    if _rc == 0 {
+        local qa_dir "`here'"
+    }
+    else {
+        capture confirm file "`here'/qa/phenobarb_prepared.csv"
+        if _rc == 0 {
+            local qa_dir "`here'/qa"
+        }
+        else {
+            capture confirm file "`here'/iivw/qa/phenobarb_prepared.csv"
+            if _rc == 0 {
+                local qa_dir "`here'/iivw/qa"
+            }
+            else {
+                local qa_dir "`here'"
+            }
+        }
+    }
+}
 local pkg_dir "`qa_dir'/.."
 global IIVW_QA_DIR "`qa_dir'"
 
@@ -45,8 +70,8 @@ local fail_count = 0
 capture confirm file "`qa_dir'/phenobarb_prepared.csv"
 if _rc != 0 {
     display as error "Reference data not found. Run R scripts first:"
-    display as error "  Rscript iivw/qa/crossval_irreglong.R"
-    display as error "  Rscript iivw/qa/crossval_fiptiw.R"
+    display as error "  Rscript `qa_dir'/crossval_irreglong.R"
+    display as error "  Rscript `qa_dir'/crossval_fiptiw.R"
     exit 601
 }
 
@@ -505,11 +530,13 @@ if `run_only' == 0 | `run_only' == 9 {
         display as text "  Unweighted: " %8.4f `b_unwt' "  (bias = " %6.4f `bias_unwt' ")"
         display as text "  FIPTIW:     " %8.4f `b_fiptiw' "  (bias = " %6.4f `bias_fiptiw' ")"
 
-        * Tolerance: within 1.0 of truth (single simulation, wide tolerance)
-        assert abs(`b_fiptiw' - 0.5) < 1.0
+        * Fixed simulation: require a plausible absolute bias and reject
+        * materially worse weighted performance than the unweighted fit.
+        assert `bias_fiptiw' < 0.25
+        assert `bias_fiptiw' <= `bias_unwt' + 0.15
     }
     if _rc == 0 {
-        display as result "  PASS: XV9 - FIPTIW treatment effect near truth (beta1=0.5)"
+        display as result "  PASS: XV9 - FIPTIW treatment effect bias bounded"
         local ++pass_count
     }
     else {

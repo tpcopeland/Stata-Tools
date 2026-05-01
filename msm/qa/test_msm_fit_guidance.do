@@ -161,6 +161,8 @@ capture noisily {
 
     assert strpos(`"`nextline_lc'"', "next step: msm_predict") == 0
     assert strpos(`"`nextline_lc'"', "next step: {cmd:msm_predict") == 0
+    assert strpos(`"`nextline_lc'"', "postestimation") == 0
+    assert strpos(`"`nextline_lc'"', "stcox") == 0
     assert strpos(`"`nextline_lc'"', "msm_table") > 0 | ///
         strpos(`"`nextline_lc'"', "msm_report") > 0 | ///
         strpos(`"`nextline_lc'"', "msm_sensitivity") > 0

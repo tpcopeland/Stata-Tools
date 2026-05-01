@@ -1,4 +1,4 @@
-*! _iivw_bs_estimate Version 1.0.2  2026/04/26
+*! _iivw_bs_estimate Version 1.0.3  2026/04/30
 *! Bootstrap wrapper for iivw_fit: applies pweights inside the estimation
 *! call so Stata's bootstrap prefix does not strip them.
 *! Author: Timothy P Copeland
@@ -8,7 +8,7 @@ program define _iivw_bs_estimate, eclass
     local __iivw_old_varabbrev = c(varabbrev)
     set varabbrev off
     capture noisily {
-    syntax varlist(numeric min=2) [if] [in], ///
+    syntax varlist(numeric min=1) [if] [in], ///
         WEIGHTvar(varname) MODel(string) ///
         [FAMily(string) LINk(string) PANELid(varname) ///
          GEEopts(string asis) MIXEDopts(string asis) noLOG]

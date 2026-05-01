@@ -489,9 +489,9 @@ if `run_only' == 0 | `run_only' == 12 {
         iivw_weight, id(id) time(months) visit_cov(severity) nolog
         assert "`r(weighttype)'" == "iivw"
 
-        * With treat() → should be fiptiw
+        * With treat() and treat_cov() -> should be fiptiw
         iivw_weight, id(id) time(months) visit_cov(severity) ///
-            treat(treated) replace nolog
+            treat(treated) treat_cov(severity) replace nolog
         assert "`r(weighttype)'" == "fiptiw"
     }
     if _rc == 0 {
@@ -805,9 +805,9 @@ if `run_only' == 0 | `run_only' == 20 {
 }
 
 * =============================================================================
-* V21: Bootstrap SEs are wider than sandwich SEs
-* Bootstrap accounts for weight estimation uncertainty, so SEs should
-* generally be larger than the model-based sandwich SEs.
+* V21: Fixed-weight bootstrap SEs are not dramatically smaller than sandwich SEs
+* The bootstrap in iivw_fit treats estimated weights as fixed, so it reflects
+* outcome-model uncertainty only rather than weight-estimation uncertainty.
 * =============================================================================
 local ++test_count
 if `run_only' == 0 | `run_only' == 21 {

@@ -1,4 +1,4 @@
-*! _msm_natural_spline Version 1.0.0  2026/04/26
+*! _msm_natural_spline Version 1.0.1  2026/04/30
 *! Generate natural spline basis variables
 *! Author: Timothy P Copeland
 

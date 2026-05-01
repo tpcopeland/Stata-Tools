@@ -1,4 +1,4 @@
-*! msm_fit Version 1.0.0  2026/04/26
+*! msm_fit Version 1.0.1  2026/04/30
 *! Weighted outcome model for marginal structural models
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet
@@ -16,7 +16,7 @@ Description:
 
 Options:
   model(string)           - logistic (default) | linear | cox
-  outcome_cov(varlist)    - Additional covariates for outcome model
+  outcome_cov(varlist)    - Time-fixed additional covariates for outcome model
   period_spec(string)     - Period specification: linear | quadratic | cubic | ns(#) | none
                             (default: quadratic)
   cluster(varname)        - Cluster variable (default: id variable)
@@ -70,6 +70,29 @@ program define msm_fit, eclass
     if !inlist("`model'", "logistic", "linear", "cox") {
         display as error "model() must be logistic, linear, or cox"
         exit 198
+    }
+
+    if "`outcome_cov'" != "" {
+        local varying_outcome_cov ""
+        foreach var of local outcome_cov {
+            tempvar _cov_min _cov_max _cov_tag
+            quietly bysort `id': egen double `_cov_min' = min(`var')
+            quietly bysort `id': egen double `_cov_max' = max(`var')
+            quietly bysort `id': gen byte `_cov_tag' = (_n == 1)
+            quietly count if `_cov_tag' & (`_cov_min' != `_cov_max') & ///
+                !missing(`_cov_min') & !missing(`_cov_max')
+            if r(N) > 0 {
+                local varying_outcome_cov "`varying_outcome_cov' `var'"
+            }
+            drop `_cov_min' `_cov_max' `_cov_tag'
+        }
+        local varying_outcome_cov = strtrim("`varying_outcome_cov'")
+        if "`varying_outcome_cov'" != "" {
+            display as error "outcome_cov() variables must be time-fixed within `id'"
+            display as error "These variables vary over time: `varying_outcome_cov'"
+            display as error "Use baseline/time-fixed covariates in outcome_cov(); keep time-varying confounders in the weight model."
+            exit 198
+        }
     }
 
     * Validate period spec
@@ -414,7 +437,7 @@ program define msm_fit, eclass
         display as text "           {cmd:msm_predict} is not available after {cmd:model(linear)}"
     }
     else {
-        display as text "Next step: Stata Cox postestimation or {cmd:msm_report}/{cmd:msm_table}"
+        display as text "Next step: {cmd:msm_report}, {cmd:msm_table}, or {cmd:msm_sensitivity}"
         display as text "           {cmd:msm_predict} is not available after {cmd:model(cox)}"
     }
     display as text "State check: {cmd:msm, status}"

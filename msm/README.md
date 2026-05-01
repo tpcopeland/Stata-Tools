@@ -1,6 +1,6 @@
 # msm - Marginal structural models for longitudinal causal analysis
 
-**Version 1.0.0** | 2026-04-26
+**Version 1.0.1** | 2026-04-30
 
 `msm` is a Stata suite for inverse-probability-weighted marginal structural models in person-period data. It is designed for longitudinal settings with time-varying treatments and confounders, where standard regression adjustment can be biased by treatment-confounder feedback.
 
@@ -22,6 +22,14 @@ If your treatment is assigned at a single point in time (not time-varying), cons
 - Stata 16 or later
 
 ## Installation
+
+After SSC acceptance, install the released package with:
+
+```stata
+ssc install msm
+```
+
+Until then, install the current Stata-Tools release directly:
 
 ```stata
 capture ado uninstall msm
@@ -103,7 +111,7 @@ Run `msm, status` at any point to see the current pipeline stage, what variables
 |-----------------|----------------|------------------------|
 | `model(logistic)` | Binary outcomes when you also want standardized counterfactual predictions | Required for `msm_predict`; use `msm, status` to confirm prediction is available |
 | `model(linear)` | Continuous outcomes where the weighted mean difference is the target | `msm_predict` is not available; use `msm, status` to check the current stage before reporting/export |
-| `model(cox)` | Time-to-event analyses where a weighted hazard ratio is the main estimand | `msm_predict` is not available; use `stcox` postestimation and `msm, status` for pipeline state |
+| `model(cox)` | Time-to-event analyses where a weighted hazard ratio is the main estimand | `msm_predict` is not available; use `msm_report`, `msm_table`, `msm_sensitivity`, and `msm, status` for pipeline state |
 
 ## Data Requirements
 
@@ -139,7 +147,7 @@ The E-value is the minimum strength of association (risk ratio scale) that an un
 
 - `msm` targets static binary treatment strategies. Prediction is implemented for always-treated, never-treated, or both; dynamic and stochastic regimes are not supported.
 - `msm_predict` requires a prior `msm_fit, model(logistic)` run. Linear and Cox fits can be estimated, diagnosed, and reported, but they do not feed into `msm_predict`.
-- If you plan to predict, keep `outcome_cov()` limited to covariates that are time-fixed within individual.
+- `outcome_cov()` is limited to covariates that are time-fixed within individual; time-varying confounders belong in the weight model.
 - `msm_weight` assumes a shared baseline period. Late entry/left truncation is not supported.
 - By default, `msm_predict` only allows `times()` within the observed follow-up range. Use `extrapolate` only when you deliberately want out-of-range predictions.
 
@@ -315,6 +323,7 @@ msm_report, eform
 
 ## Version History
 
+- **1.0.1** (2026-04-30): Hardened validation edge cases, time-fixed outcome-covariate enforcement, Cox guidance, and protocol export escaping
 - **1.0.0** (2026-04-26): Initial Stata-Tools release of the full MSM workflow suite
 
 ## Author

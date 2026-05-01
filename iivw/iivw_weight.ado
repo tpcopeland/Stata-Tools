@@ -1,4 +1,4 @@
-*! iivw_weight Version 1.0.2  2026/04/26
+*! iivw_weight Version 1.0.3  2026/04/30
 *! Compute inverse intensity of visit weights (IIW/IPTW/FIPTIW)
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet
@@ -108,18 +108,18 @@ program define iivw_weight, rclass sortpreserve
     }
     if inlist("`wtype'", "iivw", "fiptiw") & "`visit_cov'" == "" {
         display as error "`wtype' requires visit_cov() option"
-        error 198
+        exit 198
+    }
+    if inlist("`wtype'", "iptw", "fiptiw") & "`treat_cov'" == "" {
+        display as error "`wtype' requires treat_cov() option"
+        exit 198
     }
 
     * Note when visit_cov is supplied but ignored for IPTW-only
     if "`wtype'" == "iptw" {
-        if "`visit_cov'" != "" & "`treat_cov'" != "" {
+        if "`visit_cov'" != "" {
             display as text "note: visit_cov() is ignored for wtype(iptw); " ///
                 "only the treatment model is fitted"
-        }
-        else if "`visit_cov'" != "" & "`treat_cov'" == "" {
-            display as text "note: treat_cov() not specified; " ///
-                "using visit_cov() as treatment model covariates"
         }
     }
 
@@ -137,18 +137,20 @@ program define iivw_weight, rclass sortpreserve
     confirm variable `id'
     confirm numeric variable `time'
 
-    * Check for sufficient observations per subject
-    tempvar _nvis
-    quietly bysort `id' (`time'): gen long `_nvis' = _N
-    quietly summarize `_nvis'
-    if r(min) < 2 {
-        quietly count if `_nvis' < 2
-        local n_single = r(N)
-        display as error "`n_single' observations belong to subjects with only 1 visit"
-        display as error "IIW requires at least 2 visits per subject"
-        error 198
+    * Check for sufficient observations per subject when fitting visit intensity
+    if inlist("`wtype'", "iivw", "fiptiw") {
+        tempvar _nvis
+        quietly bysort `id' (`time'): gen long `_nvis' = _N
+        quietly summarize `_nvis'
+        if r(min) < 2 {
+            quietly count if `_nvis' < 2
+            local n_single = r(N)
+            display as error "`n_single' observations belong to subjects with only 1 visit"
+            display as error "`wtype' requires at least 2 visits per subject"
+            exit 198
+        }
+        drop `_nvis'
     }
-    drop `_nvis'
 
     * Check for duplicate id-time combinations
     tempvar _dup
@@ -185,10 +187,10 @@ program define iivw_weight, rclass sortpreserve
         tempvar _treat_sd
         quietly bysort `id': egen double `_treat_sd' = sd(`treat')
         quietly summarize `_treat_sd'
-        if r(max) > 0 {
+        if r(N) > 0 & r(max) > 0 {
             display as error "treat() must be time-invariant within subjects"
             display as error "for time-varying treatments, consider marginal structural models (MSMs)"
-            error 198
+            exit 198
         }
         drop `_treat_sd'
 
@@ -407,9 +409,10 @@ program define iivw_weight, rclass sortpreserve
         if `__iivw_iw_rc' != 0 {
             foreach v of local lag_created {
                 capture drop `v'
+                local __iivw_drop_rc = _rc
             }
             display as error "visit intensity model failed; no weights created"
-            error `__iivw_iw_rc'
+            exit `__iivw_iw_rc'
         }
 
         merge 1:1 `_obsno' using `__iivw_iwfile', nogen assert(match)
@@ -433,18 +436,7 @@ program define iivw_weight, rclass sortpreserve
 
         display as text "Fitting treatment model (logistic)..."
 
-        quietly {
-            * Build treatment covariate list
-            local treat_covars "`treat_cov'"
-            if "`treat_covars'" == "" {
-                * If no treat_cov specified, use visit_cov as fallback
-                if "`visit_cov'" == "" {
-                    noisily display as error "treat_cov() required when visit_cov() is not specified"
-                    error 198
-                }
-                local treat_covars "`visit_cov'"
-            }
-        }
+        local treat_covars "`treat_cov'"
 
         * Fit propensity score model on cross-sectional data (one row per subject)
         * Using full panel would over-represent subjects with more visits.
@@ -474,12 +466,14 @@ program define iivw_weight, rclass sortpreserve
             * Clean up IIW variables if they were created before IPTW failed
             if inlist("`wtype'", "fiptiw") {
                 capture drop `prefix'iw
+                local __iivw_drop_rc = _rc
             }
             foreach v of local lag_created {
                 capture drop `v'
+                local __iivw_drop_rc = _rc
             }
             display as error "treatment model failed; no weights created"
-            error `logit_rc'
+            exit `logit_rc'
         }
 
         quietly {
@@ -671,6 +665,7 @@ program define iivw_weight, rclass sortpreserve
     }
     local rc = _rc
     capture drop `_obsno'
+    local __iivw_drop_rc = _rc
     set varabbrev `__iivw_old_varabbrev'
     if `rc' exit `rc'
 end

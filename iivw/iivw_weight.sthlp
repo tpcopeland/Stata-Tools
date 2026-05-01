@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.2  26apr2026}{...}
+{* *! version 1.0.3  30apr2026}{...}
 {vieweralsosee "iivw" "help iivw"}{...}
 {vieweralsosee "iivw_fit" "help iivw_fit"}{...}
 {vieweralsosee "[ST] stcox" "help stcox"}{...}
@@ -107,7 +107,9 @@ weight).  You can change the prefix with {opt generate()}.
 
 {phang}
 {opt id(varname)} specifies the subject identifier.  Data must be in long
-panel format with multiple rows per subject (one row per visit).
+panel format with one row per subject-visit.  IIW and FIPTIW analyses
+require multiple rows per subject; IPTW-only analyses may use one row per
+subject.
 
 {phang}
 {opt time(varname)} specifies the visit time in continuous units (e.g., days
@@ -125,10 +127,8 @@ other variables associated with when a patient comes in for a visit.  Required
 for IIW and FIPTIW weights.
 
 {pmore}
-For {cmd:wtype(iptw)}, {opt visit_cov()} is optional.  If {opt treat_cov()}
-is specified, the visit model is skipped entirely.  If only {opt visit_cov()}
-is specified (without {opt treat_cov()}), it is used as the treatment model
-covariates with a note.
+For {cmd:wtype(iptw)}, {opt visit_cov()} is optional.  The visit model is
+skipped entirely, and any {opt visit_cov()} variables are ignored with a note.
 
 {pmore}
 {bf:Choosing visit covariates.}  Include variables that predict both (a) the
@@ -150,8 +150,9 @@ switching drugs), consider marginal structural models (MSMs) instead.
 {opt treat_cov(varlist)} specifies covariates for the treatment propensity
 score model (logistic regression).  These should include baseline
 characteristics that predict treatment assignment: demographics, baseline
-disease severity, comorbidities.  If omitted, {opt visit_cov()} is used as
-fallback.
+disease severity, comorbidities.  Required for IPTW and FIPTIW weights;
+{cmd:iivw_weight} does not infer treatment-model covariates from
+{opt visit_cov()}.
 
 {pmore}
 The propensity score model is fit on a cross-sectional dataset (one row per
@@ -298,9 +299,11 @@ by indication.
 
 {pstd}
 Data must be in long panel format with one row per subject-visit.  Each
-subject must have at least 2 visits.  The {opt id()} and {opt time()}
-combination must uniquely identify each row.  The {opt treat()} variable
-must be binary (0/1) and time-invariant within subjects.
+subject must have at least 2 visits for IIW and FIPTIW because the visit
+intensity model requires repeated visits.  IPTW-only analyses may use a
+single row per subject.  The {opt id()} and {opt time()} combination must
+uniquely identify each row.  The {opt treat()} variable must be binary (0/1)
+and time-invariant within subjects.
 
 {pstd}
 {bf:First-observation weights}
@@ -522,7 +525,7 @@ On flexible inverse probability of treatment and intensity weighting.
 {pstd}Timothy P Copeland{p_end}
 {pstd}Department of Clinical Neuroscience{p_end}
 {pstd}Karolinska Institutet{p_end}
-{pstd}Version 1.0.2, 2026-04-26{p_end}
+{pstd}Version 1.0.3, 2026-04-30{p_end}
 
 
 {title:Also see}

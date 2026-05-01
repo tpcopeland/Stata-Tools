@@ -332,6 +332,110 @@ else {
     local failed_tests "`failed_tests' X10"
 }
 
+local protocol_csv "`work_dir'/protocol_surface.csv"
+local protocol_xlsx "`work_dir'/protocol_surface.xlsx"
+local protocol_tex "`work_dir'/protocol_surface.tex"
+local protocol_tail ""
+forvalues i = 1/12 {
+    local protocol_tail `"`protocol_tail' Long protocol prose remains intact."'
+}
+local protocol_text `"Complex, "quoted" population with 50% eligible & subgroup_A #1. `protocol_tail'"'
+
+capture erase "`protocol_csv'"
+local ++test_count
+capture noisily {
+    msm_protocol, ///
+        population(`"`protocol_text'"') ///
+        treatment("Treat, no treat, and quoted strategy") ///
+        confounders("biomarker_TV, age & sex") ///
+        outcome("Outcome includes 10% threshold") ///
+        causal_contrast("ATE #1") ///
+        weight_spec("IPTW, 1/99 truncation") ///
+        analysis("Pooled logistic with robust SE") ///
+        format(csv) export("`protocol_csv'") replace
+
+    import delimited using "`protocol_csv'", clear varnames(1) stringcols(_all)
+    assert _N == 7
+    assert component[1] == "Population"
+    assert description[1] == `"`protocol_text'"'
+}
+if _rc == 0 {
+    display as result "  PASS X11: msm_protocol CSV escapes commas and quotes"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL X11: msm_protocol CSV escaping (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' X11"
+}
+
+capture erase "`protocol_xlsx'"
+local ++test_count
+capture noisily {
+    msm_protocol, ///
+        population(`"`protocol_text'"') ///
+        treatment("Treat, no treat, and quoted strategy") ///
+        confounders("biomarker_TV, age & sex") ///
+        outcome("Outcome includes 10% threshold") ///
+        causal_contrast("ATE #1") ///
+        weight_spec("IPTW, 1/99 truncation") ///
+        analysis("Pooled logistic with robust SE") ///
+        format(excel) export("`protocol_xlsx'") replace
+
+    import excel using "`protocol_xlsx'", sheet("Protocol") firstrow clear allstring
+    assert _N == 7
+    assert component[1] == "1. Population"
+    assert description[1] == `"`protocol_text'"'
+    assert strlen(description[1]) > 244
+}
+if _rc == 0 {
+    display as result "  PASS X12: msm_protocol Excel keeps long descriptions"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL X12: msm_protocol Excel long text (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' X12"
+}
+
+capture erase "`protocol_tex'"
+local ++test_count
+capture noisily {
+    msm_protocol, ///
+        population(`"`protocol_text'"') ///
+        treatment("Treat, no treat, and quoted strategy") ///
+        confounders("biomarker_TV, age & sex") ///
+        outcome("Outcome includes 10% threshold") ///
+        causal_contrast("ATE #1") ///
+        weight_spec("IPTW, 1/99 truncation") ///
+        analysis("Pooled logistic with robust SE") ///
+        format(latex) export("`protocol_tex'") replace
+
+    tempname fh
+    local tex_text ""
+    file open `fh' using "`protocol_tex'", read text
+    file read `fh' line
+    while r(eof) == 0 {
+        local tex_text `"`tex_text' `macval(line)'"'
+        file read `fh' line
+    }
+    file close `fh'
+
+    assert strpos(`"`tex_text'"', "\%") > 0
+    assert strpos(`"`tex_text'"', "\_") > 0
+    assert strpos(`"`tex_text'"', "\&") > 0
+    assert strpos(`"`tex_text'"', "\#") > 0
+}
+if _rc == 0 {
+    display as result "  PASS X13: msm_protocol LaTeX escapes special characters"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL X13: msm_protocol LaTeX escaping (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' X13"
+}
+
 display as text ""
 display as text "========================================"
 display as text "EXPORT SURFACE QA SUMMARY"
@@ -347,5 +451,8 @@ if `fail_count' > 0 {
 capture erase "`report_xlsx'"
 capture erase "`table_all_xlsx'"
 capture erase "`table_coef_xlsx'"
+capture erase "`protocol_csv'"
+capture erase "`protocol_xlsx'"
+capture erase "`protocol_tex'"
 
 if `fail_count' > 0 exit 1

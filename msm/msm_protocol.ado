@@ -1,4 +1,4 @@
-*! msm_protocol Version 1.0.0  2026/04/26
+*! msm_protocol Version 1.0.1  2026/04/30
 *! MSM study protocol specification
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet
@@ -95,19 +95,27 @@ program define msm_protocol, rclass
             exit 198
         }
 
+        mata: st_local("_csv_population", _msm_protocol_csv_escape(st_local("population")))
+        mata: st_local("_csv_treatment", _msm_protocol_csv_escape(st_local("treatment")))
+        mata: st_local("_csv_confounders", _msm_protocol_csv_escape(st_local("confounders")))
+        mata: st_local("_csv_outcome", _msm_protocol_csv_escape(st_local("outcome")))
+        mata: st_local("_csv_causal_contrast", _msm_protocol_csv_escape(st_local("causal_contrast")))
+        mata: st_local("_csv_weight_spec", _msm_protocol_csv_escape(st_local("weight_spec")))
+        mata: st_local("_csv_analysis", _msm_protocol_csv_escape(st_local("analysis")))
+
         tempname fh
         local _fh_open = 0
         capture noisily {
             file open `fh' using "`export'", write `replace'
             local _fh_open = 1
-            file write `fh' "Component,Description" _n
-            file write `fh' `"Population,"`population'""' _n
-            file write `fh' `"Treatment strategies,"`treatment'""' _n
-            file write `fh' `"Confounders,"`confounders'""' _n
-            file write `fh' `"Outcome,"`outcome'""' _n
-            file write `fh' `"Causal contrast,"`causal_contrast'""' _n
-            file write `fh' `"Weight specification,"`weight_spec'""' _n
-            file write `fh' `"Statistical analysis,"`analysis'""' _n
+            file write `fh' `""Component","Description""' _n
+            file write `fh' `""Population",`_csv_population'"' _n
+            file write `fh' `""Treatment strategies",`_csv_treatment'"' _n
+            file write `fh' `""Confounders",`_csv_confounders'"' _n
+            file write `fh' `""Outcome",`_csv_outcome'"' _n
+            file write `fh' `""Causal contrast",`_csv_causal_contrast'"' _n
+            file write `fh' `""Weight specification",`_csv_weight_spec'"' _n
+            file write `fh' `""Statistical analysis",`_csv_analysis'"' _n
             file close `fh'
             local _fh_open = 0
         }
@@ -136,7 +144,7 @@ program define msm_protocol, rclass
             clear
             set obs 7
             gen str40 component = ""
-            gen str244 description = ""
+            gen strL description = ""
 
             replace component = "1. Population" in 1
             replace description = `"`population'"' in 1
@@ -170,6 +178,14 @@ program define msm_protocol, rclass
             exit 198
         }
 
+        mata: st_local("_tex_population", _msm_protocol_latex_escape(st_local("population")))
+        mata: st_local("_tex_treatment", _msm_protocol_latex_escape(st_local("treatment")))
+        mata: st_local("_tex_confounders", _msm_protocol_latex_escape(st_local("confounders")))
+        mata: st_local("_tex_outcome", _msm_protocol_latex_escape(st_local("outcome")))
+        mata: st_local("_tex_causal_contrast", _msm_protocol_latex_escape(st_local("causal_contrast")))
+        mata: st_local("_tex_weight_spec", _msm_protocol_latex_escape(st_local("weight_spec")))
+        mata: st_local("_tex_analysis", _msm_protocol_latex_escape(st_local("analysis")))
+
         tempname fh
         local _fh_open = 0
         capture noisily {
@@ -183,13 +199,13 @@ program define msm_protocol, rclass
             file write `fh' "\toprule" _n
             file write `fh' "Component & Description \\" _n
             file write `fh' "\midrule" _n
-            file write `fh' `"1. Population & `population' \\"' _n
-            file write `fh' `"2. Treatment strategies & `treatment' \\"' _n
-            file write `fh' `"3. Confounders & `confounders' \\"' _n
-            file write `fh' `"4. Outcome & `outcome' \\"' _n
-            file write `fh' `"5. Causal contrast & `causal_contrast' \\"' _n
-            file write `fh' `"6. Weight specification & `weight_spec' \\"' _n
-            file write `fh' `"7. Statistical analysis & `analysis' \\"' _n
+            file write `fh' `"1. Population & `_tex_population' \\"' _n
+            file write `fh' `"2. Treatment strategies & `_tex_treatment' \\"' _n
+            file write `fh' `"3. Confounders & `_tex_confounders' \\"' _n
+            file write `fh' `"4. Outcome & `_tex_outcome' \\"' _n
+            file write `fh' `"5. Causal contrast & `_tex_causal_contrast' \\"' _n
+            file write `fh' `"6. Weight specification & `_tex_weight_spec' \\"' _n
+            file write `fh' `"7. Statistical analysis & `_tex_analysis' \\"' _n
             file write `fh' "\bottomrule" _n
             file write `fh' "\end{tabular}" _n
             file write `fh' "\end{table}" _n
@@ -224,4 +240,34 @@ program define msm_protocol, rclass
     set more `_more'
 
     if `_rc' exit `_rc'
+end
+
+mata:
+string scalar _msm_protocol_csv_escape(string scalar s)
+{
+    string scalar dq
+
+    dq = char(34)
+    return(dq + subinstr(s, dq, dq + dq, .) + dq)
+}
+
+string scalar _msm_protocol_latex_escape(string scalar s)
+{
+    string scalar bs, placeholder
+
+    bs = char(92)
+    placeholder = char(1)
+    s = subinstr(s, bs, placeholder, .)
+    s = subinstr(s, "&", bs + "&", .)
+    s = subinstr(s, "%", bs + "%", .)
+    s = subinstr(s, "$", bs + "$", .)
+    s = subinstr(s, "#", bs + "#", .)
+    s = subinstr(s, "_", bs + "_", .)
+    s = subinstr(s, "{", bs + "{", .)
+    s = subinstr(s, "}", bs + "}", .)
+    s = subinstr(s, "~", bs + "textasciitilde{}", .)
+    s = subinstr(s, "^", bs + "textasciicircum{}", .)
+    s = subinstr(s, placeholder, bs + "textbackslash{}", .)
+    return(s)
+}
 end

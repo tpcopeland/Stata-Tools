@@ -3191,13 +3191,13 @@ capture {
     forvalues j = 1/10 {
         gen double x`j' = rnormal()
     }
+    bysort id (period): gen double bl_x1 = x1[1]
+    bysort id (period): gen double bl_x2 = x2[1]
 
     * Treatment depends on first 3 covariates
     gen double xb = -1 + 0.3 * x1 + 0.2 * x2 + 0.1 * x3
     gen byte treatment = runiform() < invlogit(xb)
     gen byte outcome = runiform() < invlogit(-4 + 0.2 * x1 + 0.1 * x2)
-    gen double bl_x1 = .
-    bysort id (period): replace bl_x1 = x1[1]
     drop xb
 
     msm_prepare, id(id) period(period) treatment(treatment) ///
@@ -3212,7 +3212,7 @@ capture {
     assert r(max) < .
     display "  10-covariate weight mean: " %9.4f r(mean)
 
-    msm_fit, model(logistic) outcome_cov(x1 x2) period_spec(linear) nolog
+    msm_fit, model(logistic) outcome_cov(bl_x1 bl_x2) period_spec(linear) nolog
     assert _b[treatment] != .
 }
 if _rc == 0 {

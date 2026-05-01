@@ -190,6 +190,37 @@ else {
     local failed_tests "`failed_tests' WFAIL4"
 }
 
+* --- WFAIL5: missing at-risk treatment covariate makes weights missing ---
+local ++test_count
+capture noisily {
+    use "`pkg_dir'/msm_example.dta", clear
+    replace biomarker = . if id == 1 & period == 2
+
+    msm_prepare, id(id) period(period) treatment(treatment) ///
+        outcome(outcome) censor(censored) ///
+        covariates(biomarker comorbidity) ///
+        baseline_covariates(age sex)
+
+    msm_weight, treat_d_cov(biomarker comorbidity age sex) ///
+        treat_n_cov(age sex) nolog
+
+    confirm variable _msm_weight
+    confirm variable _msm_tw_weight
+    quietly count if id == 1 & period >= 2 & missing(_msm_tw_weight)
+    assert r(N) > 0
+    quietly count if id == 1 & period == 2 & _msm_tw_weight < .
+    assert r(N) == 0
+}
+if _rc == 0 {
+    display as result "  PASS WFAIL5: missing treatment covariate does not carry weights forward"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL WFAIL5: missing treatment covariate handling (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' WFAIL5"
+}
+
 display as text ""
 display as text "{hline 72}"
 display as text "Tests run: " as result `test_count'
