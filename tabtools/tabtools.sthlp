@@ -95,7 +95,7 @@ worked examples.
 Display available commands
 
 {p 8 17 2}
-{cmd:tabtools} [{cmd:,} {opt list} {opt detail} {opt cat:egory(string)}]
+{cmd:tabtools} [{cmd:,} {opt list} {opt detail} {opt c:ategory(string)}]
 
 {pstd}
 Set a formatting default
@@ -125,7 +125,7 @@ They are not accepted with {cmd:tabtools set} or {cmd:tabtools get}.
 {synoptset 22 tabbed}{...}
 {synopt:{opt list}}display commands as a simple list{p_end}
 {synopt:{opt detail}}show detailed information with descriptions{p_end}
-{synopt:{opt cat:egory(string)}}filter by category: {cmd:descriptive}, {cmd:models}, {cmd:rates}, {cmd:survival}, {cmd:diagnostics}, {cmd:composite}, {cmd:general}, {cmd:all}{p_end}
+{synopt:{opt c:ategory(string)}}filter by category: {cmd:descriptive}, {cmd:models}, {cmd:rates}, {cmd:survival}, {cmd:diagnostics}, {cmd:composite}, {cmd:general}, {cmd:all}{p_end}
 {synoptline}
 
 {dlgtab:Settings keys}
@@ -285,6 +285,6 @@ across sessions.
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}{browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}{p_end}
-{pstd}{bf:Version} 1.0.13
+{pstd}{bf:Version} 1.0.13{p_end}
 
 {hline}

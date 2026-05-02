@@ -78,7 +78,7 @@ program _tabtools_validate_path
         local _has_bad = strpos(`"`filepath'"', char(34)) > 0
     }
     if `_has_bad' {
-        display as error "`option_name' contains invalid characters"
+        noisily display as error "`option_name' contains invalid characters"
         exit 198
     }
 end
@@ -104,14 +104,14 @@ program _tabtools_validate_color
         tokenize `"`color'"'
         foreach _channel in `1' `2' `3' {
             if real("`_channel'") < 0 | real("`_channel'") > 255 {
-                display as error "`option_name' RGB values must be between 0 and 255"
+                noisily display as error "`option_name' RGB values must be between 0 and 255"
                 exit 198
             }
         }
         exit
     }
 
-    display as error "`option_name' must be a named color or an RGB triplet like 200 220 240"
+    noisily display as error "`option_name' must be a named color or an RGB triplet like 200 220 240"
     exit 198
 end
 

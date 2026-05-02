@@ -140,6 +140,7 @@ colors — are supported.{p_end}
 {p2col 5 18 22 2: Macros}{p_end}
 {synopt:{cmd:r(xlsx)}}Excel filename (if exported){p_end}
 {synopt:{cmd:r(sheet)}}sheet name (if exported){p_end}
+{synopt:{cmd:r(csv)}}CSV path, when exported{p_end}
 {synopt:{cmd:r(methods)}}methods paragraph for manuscript text{p_end}
 {synopt:{cmd:r(frame)}}frame name (when {cmd:frame()} specified){p_end}
 
