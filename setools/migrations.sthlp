@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.2.0  24apr2026}{...}
+{* *! version 1.2.2  04may2026}{...}
 {vieweralsosee "[ST] stset" "help stset"}{...}
 {vieweralsosee "cci_se" "help cci_se"}{...}
 {vieweralsosee "setools" "help setools"}{...}
@@ -323,8 +323,6 @@ Part of the {help setools:setools} package for Swedish registry research.{p_end}
 {pstd}
 {help cci_se:cci_se} {hline 2} Swedish Charlson Comorbidity Index{p_end}
 {pstd}
-{help procmatch:procmatch} {hline 2} KV{c a:} procedure code matching{p_end}
-
 {psee}
 Manual: {manlink ST stset}
 

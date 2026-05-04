@@ -1,4 +1,4 @@
-*! migrations Version 1.2.0  2026/04/24
+*! migrations Version 1.2.2  2026/05/04
 *! Handle Swedish migration data for registry-based cohort studies
 *! Part of the setools package
 

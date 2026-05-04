@@ -1,7 +1,6 @@
 {smcl}
-{* *! version 1.2.1  26apr2026}{...}
+{* *! version 1.2.2  04may2026}{...}
 {vieweralsosee "[D] generate" "help generate"}{...}
-{vieweralsosee "procmatch" "help procmatch"}{...}
 {vieweralsosee "migrations" "help migrations"}{...}
 {vieweralsosee "setools" "help setools"}{...}
 {viewerjumpto "Syntax" "cci_se##syntax"}{...}
@@ -379,8 +378,6 @@ Part of the {help setools:setools} package for Swedish registry research.{p_end}
 
 {pstd}
 {help setools:setools} {hline 2} Swedish registry toolkit overview{p_end}
-{pstd}
-{help procmatch:procmatch} {hline 2} KV{c a:} procedure code matching{p_end}
 {pstd}
 {help migrations:migrations} {hline 2} Process Swedish migration registry data{p_end}
 

@@ -1,10 +1,9 @@
 {smcl}
-{* *! version 1.2.1  26apr2026}{...}
+{* *! version 1.2.2  04may2026}{...}
 {vieweralsosee "cci_se" "help cci_se"}{...}
 {vieweralsosee "cdp" "help cdp"}{...}
 {vieweralsosee "migrations" "help migrations"}{...}
 {vieweralsosee "pira" "help pira"}{...}
-{vieweralsosee "procmatch" "help procmatch"}{...}
 {vieweralsosee "sustainedss" "help sustainedss"}{...}
 {viewerjumpto "Syntax" "setools##syntax"}{...}
 {viewerjumpto "Description" "setools##description"}{...}
@@ -59,7 +58,6 @@ Running {cmd:setools} by itself displays a grouped overview of all commands.  Us
 {p2col:If you need to...}Use{p_end}
 {p2line}
 {p2col:Score comorbidities from ICD codes}{helpb cci_se}{p_end}
-{p2col:Search procedure variables for KV{c a:} codes}{helpb procmatch}{p_end}
 {p2col:Exclude non-residents and derive emigration censoring}{helpb migrations}{p_end}
 {p2col:Find the first sustained EDSS threshold crossing}{helpb sustainedss}{p_end}
 {p2col:Define confirmed disability progression (CDP)}{helpb cdp}{p_end}
@@ -91,7 +89,6 @@ is {cmd:all}.
 {bf:Registry Code Utilities}
 
 {synoptset 16}{...}
-{synopt:{helpb procmatch}}Procedure code matching for Swedish registry research{p_end}
 {synopt:{helpb cci_se}}Swedish Charlson Comorbidity Index (ICD-7 through ICD-10){p_end}
 
 {pstd}

@@ -1,4 +1,4 @@
-*! setools Version 1.2.1  2026/04/26
+*! setools Version 1.2.2  2026/05/04
 *! Swedish Registry Toolkit for Epidemiological Cohort Studies
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet
@@ -49,7 +49,7 @@ program define setools, rclass
     }
 
     // Define commands by category
-    local cmd_codes "procmatch cci_se"
+    local cmd_codes "cci_se"
     local cmd_migration "migrations"
     local cmd_ms "sustainedss cdp pira"
 
@@ -98,7 +98,6 @@ program define setools, rclass
         // Default: organized view
         if inlist("`category'", "all", "codes") {
             display as text "{bf:Registry Code Utilities}"
-            display as result "  procmatch  " as text "- KVA procedure code matching"
             display as result "  cci_se     " as text "- Swedish Charlson Comorbidity Index"
             display as text ""
         }
@@ -127,7 +126,7 @@ program define setools, rclass
     // Return results
     return local commands "`selected_cmds'"
     return scalar n_commands = `n_commands'
-    return local version "1.2.1"
+    return local version "1.2.2"
     return local categories "all codes migration ms"
     return local category "`category'"
     return local display "`display'"
@@ -151,11 +150,6 @@ program define _setools_detail
     if inlist("`category'", "all", "codes") {
         display as text "{bf:Registry Code Utilities}"
         display as text "  {hline 60}"
-        display as result "  procmatch" as text "    Procedure code matching for Swedish registries."
-        display as text "               Matches KVA procedure codes in surgical and"
-        display as text "               intervention registers. Supports wildcards"
-        display as text "               and code ranges."
-        display as text ""
         display as result "  cci_se" as text "       Swedish Charlson Comorbidity Index."
         display as text "               Computes CCI from ICD-7 through ICD-10 codes"
         display as text "               using the Ludvigsson et al. (2021) adaptation"

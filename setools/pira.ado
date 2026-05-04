@@ -1,4 +1,4 @@
-*! pira Version 1.2.0  2026/04/24
+*! pira Version 1.2.2  2026/05/04
 *! Progression Independent of Relapse Activity
 *! Author: Tim Copeland
 *! Program class: rclass

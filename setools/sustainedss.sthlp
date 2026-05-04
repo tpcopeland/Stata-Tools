@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.2.0  24apr2026}{...}
+{* *! version 1.2.2  04may2026}{...}
 {vieweralsosee "cdp" "help cdp"}{...}
 {vieweralsosee "pira" "help pira"}{...}
 {vieweralsosee "setools" "help setools"}{...}

@@ -1,4 +1,4 @@
-*! sustainedss Version 1.2.0  2026/04/24
+*! sustainedss Version 1.2.2  2026/05/04
 *! Compute sustained EDSS progression date
 *! Part of the setools package
 
