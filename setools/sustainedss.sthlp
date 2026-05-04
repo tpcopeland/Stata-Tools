@@ -40,7 +40,7 @@
 {synopt:{opt gen:erate(name)}}name for generated date variable; default is {it:sustained#_dt}{p_end}
 {synopt:{opt conf:irmwindow(#)}}confirmation window in days; default is {cmd:182}{p_end}
 {synopt:{opt base:linethreshold(#)}}EDSS level for reversal check; default equals {opt threshold()}{p_end}
-{synopt:{opt keepa:ll}}retain all observations; default keeps only patients with events{p_end}
+{synopt:{opt keep:all}}retain all observations; default keeps only patients with events{p_end}
 {synopt:{opt q:uietly}}suppress iteration messages and summary output{p_end}
 {synoptline}
 {p2colreset}{...}

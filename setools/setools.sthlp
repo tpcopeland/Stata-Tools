@@ -26,14 +26,14 @@
 
 {p 8 16 2}
 {cmd:setools}
-[{cmd:,} {opt list} {opt detail} {opt cat:egory(category)}]
+[{cmd:,} {opt list} {opt detail} {opt c:ategory(category)}]
 
 {synoptset 24 tabbed}{...}
 {synopthdr}
 {synoptline}
 {synopt:{opt list}}display only command names for the selected category{p_end}
 {synopt:{opt detail}}display grouped command descriptions; may not be combined with {opt list}{p_end}
-{synopt:{opt cat:egory(category)}}filter to {cmd:all}, {cmd:codes}, {cmd:migration}, or {cmd:ms}; default is {cmd:all}{p_end}
+{synopt:{opt c:ategory(category)}}filter to {cmd:all}, {cmd:codes}, {cmd:migration}, or {cmd:ms}; default is {cmd:all}{p_end}
 {synoptline}
 
 

@@ -53,7 +53,7 @@
 {synopt:{opt rebase:linerelapse}}reset the baseline EDSS after each relapse{p_end}
 
 {syntab:Output}
-{synopt:{opt keepall}}retain all observations (including patients without progression){p_end}
+{synopt:{opt keep:all}}retain all observations (including patients without progression){p_end}
 {synopt:{opt q:uietly}}suppress output messages{p_end}
 {synoptline}
 {p2colreset}{...}

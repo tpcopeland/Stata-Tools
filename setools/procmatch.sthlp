@@ -27,15 +27,15 @@ Match procedure codes and generate a binary indicator
 
 {p 8 16 2}
 {cmd:procmatch match}{cmd:,} {opt codes(codelist)} {opt procvars(varlist)}
-[{opt gen:erate(name)} {opt replace} {opt pre:fix} {opt noi:sily}]
+[{opt gen:erate(name)} {opt rep:lace} {opt pre:fix} {opt noi:sily}]
 
 {pstd}
 Extract the earliest date each person received a matching procedure
 
 {p 8 16 2}
 {cmd:procmatch first}{cmd:,} {opt codes(codelist)} {opt procvars(varlist)}
-{opt datevar(varname)} {opt idvar(varname)}
-[{opt gen:erate(name)} {opt gendatevar(name)} {opt replace} {opt pre:fix} {opt noi:sily}]
+{opt datevar(varname)} {opt id:var(varname)}
+[{opt gen:erate(name)} {opt gend:atevar(name)} {opt rep:lace} {opt pre:fix} {opt noi:sily}]
 
 {synoptset 28 tabbed}{...}
 {synopthdr}
@@ -46,12 +46,12 @@ Extract the earliest date each person received a matching procedure
 
 {syntab:Required (first only)}
 {synopt:{opt datevar(varname)}}date of each procedure; must be a Stata daily date with {cmd:%td} format{p_end}
-{synopt:{opt idvar(varname)}}patient identifier variable{p_end}
+{synopt:{opt id:var(varname)}}patient identifier variable{p_end}
 
 {syntab:Optional}
 {synopt:{opt gen:erate(name)}}name for the indicator variable; default {cmd:_proc_match} ({cmd:match}) or {cmd:_proc_ever} ({cmd:first}){p_end}
-{synopt:{opt gendatevar(name)}}({cmd:first} only) name for the date variable; default {cmd:_proc_first_dt}{p_end}
-{synopt:{opt replace}}allow overwriting existing output variables{p_end}
+{synopt:{opt gend:atevar(name)}}({cmd:first} only) name for the date variable; default {cmd:_proc_first_dt}{p_end}
+{synopt:{opt rep:lace}}allow overwriting existing output variables{p_end}
 {synopt:{opt pre:fix}}match codes as prefixes instead of exact strings{p_end}
 {synopt:{opt noi:sily}}display progress and summary information{p_end}
 {synoptline}
@@ -156,12 +156,12 @@ must not duplicate an input variable.  In {cmd:first} it must also differ from
 {opt gendatevar()}.
 
 {phang}
-{opt gendatevar(name)} ({cmd:first} only) specifies the name for the generated
+{opt gend:atevar(name)} ({cmd:first} only) specifies the name for the generated
 first-occurrence date variable.  Default is {cmd:_proc_first_dt}.  Must not
 duplicate an input variable or {opt generate()}.
 
 {phang}
-{opt replace} allows overwriting existing output variables.  In {cmd:match}, the
+{opt rep:lace} allows overwriting existing output variables.  In {cmd:match}, the
 target must be a variable previously created by {cmd:procmatch}; the command
 refuses to overwrite unrelated existing variables.
 

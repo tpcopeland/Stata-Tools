@@ -38,7 +38,7 @@
 {synopt:{opt base:linewindow(#)}}days from diagnosis for baseline EDSS; default is {cmd:730}{p_end}
 {synopt:{opt roving}}use roving baseline (reset after each confirmed progression){p_end}
 {synopt:{opt all:events}}track all CDP events, not just the first; requires {opt roving}{p_end}
-{synopt:{opt keepall}}retain all observations (including patients without CDP){p_end}
+{synopt:{opt keep:all}}retain all observations (including patients without CDP){p_end}
 {synopt:{opt q:uietly}}suppress output messages{p_end}
 {synoptline}
 {p2colreset}{...}

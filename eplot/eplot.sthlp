@@ -1,5 +1,7 @@
 {smcl}
 {* *! version 1.1.1  30apr2026}{...}
+{vieweralsosee "[G] graph twoway" "help twoway"}{...}
+{vieweralsosee "estimates store" "help estimates store"}{...}
 {viewerjumpto "Syntax" "eplot##syntax"}{...}
 {viewerjumpto "Description" "eplot##description"}{...}
 {viewerjumpto "Options" "eplot##options"}{...}

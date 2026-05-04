@@ -1,5 +1,8 @@
 {smcl}
 {* *! version 1.0.0  29apr2026}{...}
+{vieweralsosee "[TE] teffects" "help teffects"}{...}
+{vieweralsosee "[R] logit" "help logit"}{...}
+{vieweralsosee "[TE] tebalance" "help tebalance"}{...}
 {viewerjumpto "Syntax" "psdash##syntax"}{...}
 {viewerjumpto "Description" "psdash##description"}{...}
 {viewerjumpto "Subcommands" "psdash##subcommands"}{...}
@@ -53,7 +56,7 @@ After {cmd:mlogit} with a multi-valued treatment, supply {opt psv:ars()} with K 
 [{cmd:,} {opt cov:ariates(varlist)} {opt hist:ogram} {opt bins(#)}
 {opt bwid:th(#)} {opt nog:raph} {opt sav:ing(filename)} {opt sch:eme(schemename)}
 {opt graphopt:ions(string)} {opt ti:tle(string)} {opt name(string)}
-{opt estim:and(string)} {opt psv:ars(varlist)} {opt ref:erence(#)}]
+{opt esti:mand(string)} {opt psv:ars(varlist)} {opt ref:erence(#)}]
 
 {dlgtab:balance}
 
@@ -63,7 +66,7 @@ After {cmd:mlogit} with a multi-valued treatment, supply {opt psv:ars()} with K 
 {opt thr:eshold(#)} {opt now:var} {opt xlsx(filename)} {opt sheet(string)}
 {opt love:plot} {opt sav:ing(filename)} {opt sch:eme(schemename)}
 {opt graphopt:ions(string)} {opt f:ormat(string)} {opt ti:tle(string)}
-{opt name(string)} {opt ks} {opt estim:and(string)}
+{opt name(string)} {opt ks} {opt esti:mand(string)}
 {opt psv:ars(varlist)} {opt ref:erence(#)}]
 
 {dlgtab:weights}
@@ -73,7 +76,7 @@ After {cmd:mlogit} with a multi-valued treatment, supply {opt psv:ars()} with K 
 [{cmd:,} {opt w:var(varname)} {opt trim(#)} {opt trunc:ate(#)} {opt stab:ilize}
 {opt gen:erate(name)} {opt replace} {opt det:ail} {opt gr:aph}
 {opt sav:ing(filename)} {opt xlabel(numlist)} {opt sch:eme(schemename)}
-{opt graphopt:ions(string)} {opt name(string)} {opt estim:and(string)}
+{opt graphopt:ions(string)} {opt name(string)} {opt esti:mand(string)}
 {opt psv:ars(varlist)} {opt ref:erence(#)}]
 
 {dlgtab:support}
@@ -83,7 +86,7 @@ After {cmd:mlogit} with a multi-valued treatment, supply {opt psv:ars()} with K 
 [{cmd:,} {opt cov:ariates(varlist)} {opt crump} {opt thr:eshold(#)}
 {opt gen:erate(name)} {opt replace} {opt nog:raph} {opt sav:ing(filename)}
 {opt sch:eme(schemename)} {opt graphopt:ions(string)} {opt ti:tle(string)}
-{opt name(string)} {opt estim:and(string)}
+{opt name(string)} {opt esti:mand(string)}
 {opt psv:ars(varlist)} {opt ref:erence(#)}]
 
 {dlgtab:combined}
@@ -93,7 +96,7 @@ After {cmd:mlogit} with a multi-valued treatment, supply {opt psv:ars()} with K 
 [{cmd:,} {opt cov:ariates(varlist)} {opt w:var(varname)} {opt thr:eshold(#)}
 {opt noo:verlap} {opt nob:alance} {opt now:eights} {opt nos:upport}
 {opt sav:ing(filename)} {opt sch:eme(schemename)} {opt ti:tle(string)}
-{opt estim:and(string)} {opt psv:ars(varlist)} {opt ref:erence(#)}]
+{opt esti:mand(string)} {opt psv:ars(varlist)} {opt ref:erence(#)}]
 
 
 {marker description}{...}
@@ -639,3 +642,5 @@ Dealing with limited overlap in estimation of average treatment effects.
 {space 2}Help:  {manhelp teffects TE}, {manhelp logit R}, {manhelp mlogit R},
 {manhelp tebalance TE}, {help tebalance##summarize:tebalance summarize}, {manhelp teoverlap TE}
 {p_end}
+
+{hline}
