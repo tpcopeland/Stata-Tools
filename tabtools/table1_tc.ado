@@ -1,4 +1,4 @@
-*! table1_tc Version 1.0.13  2026/04/27 - Descriptive Statistics Table Generator
+*! table1_tc Version 1.0.14  2026/05/05 - Descriptive Statistics Table Generator
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Fork of -table1_mc- version 3.5 (2024-12-19) by Mark Chatfield
 *! This program generates descriptive statistics tables with formatting options
@@ -82,6 +82,7 @@ program define table1_tc, rclass
         [NOIsily]               /// Show auto-detection classification decisions
         [dots]                  /// Show progress dots per variable
         [WTCompare]             /// Side-by-side crude vs weighted comparison
+        [NOPvalue]              /// Suppress p-value column
 
 **# Input Validation and Option Setup
 
@@ -197,6 +198,7 @@ program define table1_tc, rclass
         }
     }
     local has_wt = "`wt'" != ""
+    local _suppress_p = `has_wt' | "`nopvalue'" == "nopvalue"
 
     /* When wt() specified without wtcompare: default to percent-only for
        binary/categorical variables. In IPTW analyses, showing unweighted counts
@@ -567,8 +569,8 @@ program define table1_tc, rclass
                 qui levelsof `groupnum' if `varname'!=., local(glevels)
                 local nglevels: word count `glevels'
 
-                /* Calculate significance test (suppressed when wt() specified) */
-                if !`has_wt' {
+                /* Calculate significance test (suppressed when wt() or nopvalue specified) */
+                if !`_suppress_p' {
                     if `nglevels'>=2 {
                         // ANOVA for >1 group
                         qui anova `varname' `groupnum' [`weight'`exp']
@@ -665,8 +667,8 @@ program define table1_tc, rclass
                 qui reshape wide mean_sd _columna_ _columnb_ N_, i(factor) j(`groupnum')
                 rename mean_sd* `groupnum'*  // Rename columns by group
                 
-                /* Add p-value, test type, and statistics (skipped when weighted) */
-                if `nglevels'>1 & !`has_wt' qui {
+                /* Add p-value, test type, and statistics (suppressed when wt() or nopvalue) */
+                if `nglevels'>1 & !`_suppress_p' qui {
                     gen p=`p'
                 }
 
@@ -674,12 +676,12 @@ program define table1_tc, rclass
                 if `has_smd' qui gen smd_val = `_smd_val'
 
                 // Add test type label based on number of groups
-                if "`test'"=="test" & `nglevels'==2 & !`has_wt' gen test="Ind. t test"
-                if "`test'"=="test" & `nglevels'>2 & !`has_wt' gen test="ANOVA"
+                if "`test'"=="test" & `nglevels'==2 & !`_suppress_p' gen test="Ind. t test"
+                if "`test'"=="test" & `nglevels'>2 & !`_suppress_p' gen test="ANOVA"
 
                 // Add test statistic details if requested
-                if "`statistic'"=="statistic" & `nglevels'==2 & !`has_wt' gen statistic="t(`df2')=`tstat'"
-                if "`statistic'"=="statistic" & `nglevels'>2 & !`has_wt' gen statistic="F(`df1',`df2')=`f'"
+                if "`statistic'"=="statistic" & `nglevels'==2 & !`_suppress_p' gen statistic="t(`df2')=`tstat'"
+                if "`statistic'"=="statistic" & `nglevels'>2 & !`_suppress_p' gen statistic="F(`df1',`df2')=`f'"
 
                 /* Add sort variable and append to results */
                 gen sort1=`sortorder++'
@@ -704,8 +706,8 @@ program define table1_tc, rclass
                 qui levelsof `groupnum' if `lvarname'!=., local(glevels)
                 local nglevels: word count `glevels'
 
-                /* Calculate significance test (suppressed when wt() specified) */
-                if !`has_wt' {
+                /* Calculate significance test (suppressed when wt() or nopvalue specified) */
+                if !`_suppress_p' {
                     if `nglevels'>=2 {
                         // ANOVA on log-transformed values
                         qui anova `lvarname' `groupnum' [`weight'`exp']
@@ -804,20 +806,20 @@ program define table1_tc, rclass
                 qui reshape wide mean_sd _columna_ _columnb_ N_, i(factor) j(`groupnum')
                 rename mean_sd* `groupnum'*  // Rename columns by group
                 
-                /* Add p-value, test type, and statistics (skipped when weighted) */
-                if `nglevels'>1 & !`has_wt' qui {
+                /* Add p-value, test type, and statistics (suppressed when wt() or nopvalue) */
+                if `nglevels'>1 & !`_suppress_p' qui {
                     gen p=`p'
                 }
 
                 if `has_smd' qui gen smd_val = `_smd_val'
 
                 // Add test type label based on number of groups
-                if "`test'"=="test" & `nglevels'==2 & !`has_wt' gen test="Ind. t test, logged data"
-                if "`test'"=="test" & `nglevels'>2 & !`has_wt' gen test="ANOVA, logged data"
+                if "`test'"=="test" & `nglevels'==2 & !`_suppress_p' gen test="Ind. t test, logged data"
+                if "`test'"=="test" & `nglevels'>2 & !`_suppress_p' gen test="ANOVA, logged data"
 
                 // Add test statistic details if requested
-                if "`statistic'"=="statistic" & `nglevels'==2 & !`has_wt' gen statistic="t(`df2')=`tstat'"
-                if "`statistic'"=="statistic" & `nglevels'>2 & !`has_wt' gen statistic="F(`df1',`df2')=`f'"
+                if "`statistic'"=="statistic" & `nglevels'==2 & !`_suppress_p' gen statistic="t(`df2')=`tstat'"
+                if "`statistic'"=="statistic" & `nglevels'>2 & !`_suppress_p' gen statistic="F(`df1',`df2')=`f'"
 
                 /* Add sort variable and append to results */
                 gen sort1=`sortorder++'
@@ -840,8 +842,8 @@ program define table1_tc, rclass
                 qui levelsof `groupnum' if `varname'!=., local(glevels)
                 local nglevels: word count `glevels'
 
-                /* Calculate significance test (suppressed when wt() specified) */
-                if !`has_wt' {
+                /* Calculate significance test (suppressed when wt() or nopvalue specified) */
+                if !`_suppress_p' {
                     if `nglevels'>2 {
                         /* Kruskal-Wallis for >2 groups */
                         capture qui kwallis `varname', by(`groupnum')
@@ -941,20 +943,20 @@ program define table1_tc, rclass
                 qui reshape wide median_iqr _columna_ _columnb_ N_, i(factor) j(`groupnum')
                 rename median_iqr* `groupnum'*  // Rename columns by group
 
-                /* Add p-value, test type, and statistics (skipped when weighted) */
-                if `nglevels'>1 & !`has_wt' qui {
+                /* Add p-value, test type, and statistics (suppressed when wt() or nopvalue) */
+                if `nglevels'>1 & !`_suppress_p' qui {
                     gen p=`p'
                 }
 
                 if `has_smd' qui gen smd_val = `_smd_val'
 
                 // Add test type label based on number of groups
-                if "`test'"=="test" & `nglevels'==2 & !`has_wt' gen test="Wilcoxon rank-sum"
-                if "`test'"=="test" & `nglevels'>2 & !`has_wt' gen test="Kruskal-Wallis"
+                if "`test'"=="test" & `nglevels'==2 & !`_suppress_p' gen test="Wilcoxon rank-sum"
+                if "`test'"=="test" & `nglevels'>2 & !`_suppress_p' gen test="Kruskal-Wallis"
 
                 // Add test statistic details if requested
-                if "`statistic'"=="statistic" & `nglevels'==2 & !`has_wt' gen statistic="Z=`z'"
-                if "`statistic'"=="statistic" & `nglevels'>2 & !`has_wt' gen statistic="Chi2(`df')=`chi2'"
+                if "`statistic'"=="statistic" & `nglevels'==2 & !`_suppress_p' gen statistic="Z=`z'"
+                if "`statistic'"=="statistic" & `nglevels'>2 & !`_suppress_p' gen statistic="Chi2(`df')=`chi2'"
 
                 /* Add sort variable and append to results */
                 gen sort1=`sortorder++'
@@ -996,8 +998,8 @@ program define table1_tc, rclass
                     if r(N)!=0 local nvlevels = `nvlevels'+1
                 }                
                 
-                /* Calculate significance test (suppressed when wt() specified) */
-                if `nglevels'>1 & `nvlevels'>1 & !`has_wt' {
+                /* Calculate significance test (suppressed when wt() or nopvalue specified) */
+                if `nglevels'>1 & `nvlevels'>1 & !`_suppress_p' {
                     if "`vartype'"=="cat" {
                         // Chi-square test for standard categorical
                         qui tab `varnum' `groupnum' [`weight'`exp'], chi2 m
@@ -1210,9 +1212,9 @@ program define table1_tc, rclass
                     }
                     qui replace factor="   Missing" if `varnum'==. & _n!=1  // Label for missing values
 
-                /* Add p-value, test type, and statistics (skipped when weighted) */
+                /* Add p-value, test type, and statistics (suppressed when wt() or nopvalue) */
                 qui gen cat_not_top_row = 1 if _n!=1
-                if `nglevels'>1 & `nvlevels'>1 & !`has_wt' {
+                if `nglevels'>1 & `nvlevels'>1 & !`_suppress_p' {
                     qui gen p=`p' if _n==1
                 }
 
@@ -1224,11 +1226,11 @@ program define table1_tc, rclass
                 }
 
                 // Add test type and statistic labels if requested
-                if "`test'"=="test" & `nglevels'>1 & `nvlevels'>1 & !`has_wt' {
+                if "`test'"=="test" & `nglevels'>1 & `nvlevels'>1 & !`_suppress_p' {
                     if "`vartype'"=="cat" qui gen test="Chi-square" if _n==1
                     else qui gen test="Fisher's exact" if _n==1
                 }
-                if "`statistic'"=="statistic" & `nglevels'>1 & `nvlevels'>1 & !`has_wt' {
+                if "`statistic'"=="statistic" & `nglevels'>1 & `nvlevels'>1 & !`_suppress_p' {
                     if "`vartype'"=="cat" qui gen statistic="Chi2(`df')=`chi2'" if _n==1
                     else qui gen statistic="N/A" if _n==1
                 }                
@@ -1269,8 +1271,8 @@ program define table1_tc, rclass
                 qui levelsof `varname', local(vlevels)
                 local nvlevels: word count `vlevels'
                 
-                /* Calculate significance test (suppressed when wt() specified) */
-                if !`has_wt' {
+                /* Calculate significance test (suppressed when wt() or nopvalue specified) */
+                if !`_suppress_p' {
                     if "`vartype'"=="bin" & `nglevels'>1 & `nvlevels'>1 {
                         // Chi-square test for standard binary
                         qui tab `varname' `groupnum' [`weight'`exp'], chi2
@@ -1402,19 +1404,19 @@ program define table1_tc, rclass
                 qui clonevar factor_sep=factor  // Copy for formatting
                 rename n_perc* `groupnum'*  // Rename columns by group
 
-                /* Add p-value, test type, and statistics (skipped when weighted) */
-                if `nglevels'>1 & `nvlevels'>1 & !`has_wt' {
+                /* Add p-value, test type, and statistics (suppressed when wt() or nopvalue) */
+                if `nglevels'>1 & `nvlevels'>1 & !`_suppress_p' {
                     qui gen p=`p'
                 }
 
                 if `has_smd' qui gen smd_val = `_smd_val'
 
                 // Add test type and statistic labels if requested
-                if "`test'"=="test" & `nglevels'>1 & `nvlevels'>1 & !`has_wt' {
+                if "`test'"=="test" & `nglevels'>1 & `nvlevels'>1 & !`_suppress_p' {
                     if "`vartype'"=="bin" qui gen test="Chi-square"
                     else qui gen test="Fisher's exact"
                 }
-                if "`statistic'"=="statistic" & `nglevels'>1 & `nvlevels'>1 & !`has_wt' {
+                if "`statistic'"=="statistic" & `nglevels'>1 & `nvlevels'>1 & !`_suppress_p' {
                     if "`vartype'"=="bin" qui gen statistic="Chi2(`df')=`chi2'"
                     else qui gen statistic="N/A"
                 }
@@ -1596,8 +1598,8 @@ program define table1_tc, rclass
     capture lab var N_`_total_code' "T N_"
     capture lab var m_`_total_code' "T m_"
     
-    /* Format p-values (skipped when wt() specified) */
-    if `groupcount'>1 & !`has_wt' {
+    /* Format p-values (skipped when wt() or nopvalue specified) */
+    if `groupcount'>1 & !`_suppress_p' {
         cap gen p = .  // Create p-value variable if it doesn't exist
         
         // Format p-values according to their magnitude and specified decimal places
@@ -2016,6 +2018,9 @@ program define table1_tc, rclass
             local Dapa "Weighted data are presented as `ymix'. P-values suppressed."
             if `has_smd' local Dapa "`Dapa' SMD reflects weighted comparison."
         }
+        else if "`nopvalue'" == "nopvalue" {
+            local Dapa "Data are presented as `ymix'. P-values suppressed."
+        }
         else {
             local Dapa "Data are presented as `ymix'."
         }
@@ -2026,7 +2031,7 @@ program define table1_tc, rclass
         display " "
 
         /* Build extended methods paragraph (C5) */
-        if "`by'" != "" & !`has_wt' {
+        if "`by'" != "" & !`_suppress_p' {
 
             * Build test list
             local _test_list ""

@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.13  27apr2026}{...}
+{* *! version 1.0.14  05may2026}{...}
 {viewerjumpto "Package overview" "diagtab##package"}{...}
 {viewerjumpto "Syntax" "diagtab##syntax"}{...}
 {viewerjumpto "Description" "diagtab##description"}{...}
@@ -208,6 +208,6 @@ The combined results are returned in {cmd:r(cutoff_table)}.{p_end}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}{browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}{p_end}
-{pstd}{bf:Version} 1.0.13{p_end}
+{pstd}{bf:Version} 1.0.14{p_end}
 
 {hline}

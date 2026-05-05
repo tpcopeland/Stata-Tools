@@ -10,7 +10,7 @@
         1. console_output.smcl        - consolidated display log
       Per-command workbooks (10 xlsx files, 46 sheets total):
         demo_table1.xlsx    (11 sheets) - table1_tc + themes
-        demo_regtab.xlsx    (10 sheets) - regtab all variants
+        demo_regtab.xlsx    (11 sheets) - regtab all variants
         demo_comptab.xlsx    (5 sheets) - comptab + source frames
         demo_effecttab.xlsx  (4 sheets) - effecttab ATE + margins
         demo_stratetab.xlsx  (1 sheet)  - stratetab rates
@@ -187,6 +187,17 @@ noisily table1_tc, by(treated) ///
          education cat \ income_quintile cat \ ///
          born_abroad bin \ civil_status cat \ ///
          diabetes bin \ hypertension bin \ anxiety bin \ prior_cvd bin)
+
+log off demo
+
+**# Console: table1_tc nopvalue + smd
+log on demo
+
+noisily table1_tc, by(treated) ///
+    vars(index_age contn %5.1f \ female bin \ ///
+         education cat \ income_quintile cat \ ///
+         born_abroad bin \ diabetes bin \ hypertension bin) ///
+    nopvalue smd
 
 log off demo
 
@@ -423,7 +434,21 @@ regtab, xlsx("`xlsx_regtab'") sheet("Poisson") ///
     title("Table X. Poisson Regression -- Incidence Rate Ratios") ///
     coef("IRR") noint stats(n aic) models("Poisson")
 
-**# Sheet 16: Regtab Advanced -- Conditional formatting and label features
+**# Sheet 16: GEE with QIC -- Population-averaged model with QIC statistic
+* Demonstrates: xtgee, stats(aic) auto-fallback to QIC, multi-model comparison
+preserve
+webuse nlswork, clear
+xtset idcode year
+collect clear
+collect: xtgee ln_wage age tenure, family(gaussian) link(identity) corr(exchangeable)
+collect: xtgee ln_wage age tenure i.race, family(gaussian) link(identity) corr(exchangeable)
+
+regtab, xlsx("`xlsx_regtab'") sheet("GEE QIC") ///
+    title("Table X. GEE Models -- QIC for Model Comparison") ///
+    noint stats(n aic groups) models("Exchangeable" \ "Adjusted")
+restore
+
+**# Sheet 17: Regtab Advanced -- Conditional formatting and label features
 * Demonstrates: dimnonsig, factorlabel, starslevels(), theme(bmj)
 collect clear
 collect: logistic cv_event treated index_age female i.education ///

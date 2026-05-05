@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.13  27apr2026}{...}
+{* *! version 1.0.14  05may2026}{...}
 {viewerjumpto "Syntax" "table1_tc##syntax"}{...}
 {viewerjumpto "Description" "table1_tc##description"}{...}
 {viewerjumpto "Examples" "table1_tc##examples"}{...}
@@ -63,6 +63,7 @@ use {cmd:table1_tc}.{p_end}
 {synopt:{opt stat:istic}}include column describing the value of the test statistic{p_end}
 {synopt:{opt headerp:erc}}add percentage of total to sample size row{p_end}
 {synopt:{opt smd}}add standardized mean differences column (requires {opt by()}){p_end}
+{synopt:{opt nop:value}}suppress the p-value column (and associated test/statistic columns){p_end}
 
 {syntab:Contents of Cells}
 {synopt:{cmdab:f:ormat(}{it:{help fmt:%fmt}}{cmd:)}}default display format for continuous variables{p_end}
@@ -249,7 +250,7 @@ instead of direct Shapiro-Wilk testing. Users should verify classifications for 
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}{browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}{p_end}
-{pstd}{bf:Version} 1.0.13{p_end}
+{pstd}{bf:Version} 1.0.14{p_end}
 
 {title:Also see}
 

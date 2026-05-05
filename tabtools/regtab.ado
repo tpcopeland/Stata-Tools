@@ -1,4 +1,4 @@
-*! regtab Version 1.0.13  2026/04/27
+*! regtab Version 1.0.14  2026/05/05
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
@@ -16,10 +16,11 @@ SYNTAX:
 	noint:	Drops intercept row
 	nore:	Drops random effects rows
 	sep:    character separating 95% CI, default is ", "
-	stats:	Model statistics to add at bottom (space-separated): n aic bic icc ll groups
+	stats:	Model statistics to add at bottom (space-separated): n aic bic qic icc ll groups
 	        - n: Number of observations
 	        - aic: Akaike Information Criterion
 	        - bic: Bayesian Information Criterion
+	        - qic: Quasi-likelihood Information Criterion (for GEE/xtgee models)
 	        - icc: Intraclass Correlation Coefficient (for mixed models)
 	        - ll: Log-likelihood
 	        - groups: Number of groups (for mixed models)
@@ -441,6 +442,7 @@ quietly{
         local want_n = 0
         local want_aic = 0
         local want_bic = 0
+        local want_qic = 0
         local want_icc = 0
         local want_ll = 0
         local want_groups = 0
@@ -450,6 +452,7 @@ quietly{
         if strpos("`stats_lower'", " n ") local want_n = 1
         if strpos("`stats_lower'", " aic ") local want_aic = 1
         if strpos("`stats_lower'", " bic ") local want_bic = 1
+        if strpos("`stats_lower'", " qic ") local want_qic = 1
         if strpos("`stats_lower'", " icc ") local want_icc = 1
         if strpos("`stats_lower'", " ll ") local want_ll = 1
         if strpos("`stats_lower'", " groups ") | strpos("`stats_lower'", " group ") local want_groups = 1
@@ -473,8 +476,11 @@ quietly{
         }
         if `want_aic' local result_levels "`result_levels' aic"
         if `want_bic' local result_levels "`result_levels' bic"
-        if `want_aic' | `want_bic' {
+        if `want_aic' | `want_bic' | `want_qic' {
             local result_levels "`result_levels' rank"
+        }
+        if `want_qic' | `want_aic' {
+            local result_levels "`result_levels' deviance"
         }
         if `want_groups' local result_levels "`result_levels' N_g"
         if `want_r2' local result_levels "`result_levels' r2 r2_p r2_a"
@@ -515,6 +521,7 @@ quietly{
                     local stat_col_aic ""
                     local stat_col_bic ""
                     local stat_col_rank ""
+                    local stat_col_deviance ""
                     local stat_col_N_g ""
                     local stat_col_r2 ""
                     local stat_col_r2_p ""
@@ -530,6 +537,7 @@ quietly{
                         if "`hdr'" == "aic" local stat_col_aic "`v'"
                         if "`hdr'" == "bic" local stat_col_bic "`v'"
                         if "`hdr'" == "rank" local stat_col_rank "`v'"
+                        if "`hdr'" == "deviance" local stat_col_deviance "`v'"
                         if "`hdr'" == "N_g" local stat_col_N_g "`v'"
                         if "`hdr'" == "r2" local stat_col_r2 "`v'"
                         if "`hdr'" == "r2_p" local stat_col_r2_p "`v'"
@@ -542,7 +550,7 @@ quietly{
                         local r = `m' + 1
 
                         * Extract each result level
-                        foreach sname in N N_sub ll aic bic rank N_g r2 r2_p r2_a {
+                        foreach sname in N N_sub ll aic bic rank deviance N_g r2 r2_p r2_a {
                             if "`sname'" == "N_g" local lname "groups"
                             else local lname "`sname'"
                             local stat_`lname'_`m' = .
@@ -553,6 +561,12 @@ quietly{
                                     local stat_`lname'_`m' = real("`val'")
                                 }
                             }
+                        }
+
+                        * Compute QIC from deviance + rank (GEE models)
+                        local stat_qic_`m' = .
+                        if `stat_deviance_`m'' != . & `stat_rank_`m'' != . {
+                            local stat_qic_`m' = `stat_deviance_`m'' + 2 * `stat_rank_`m''
                         }
 
                         * Compute AIC from ll + rank if not directly available
@@ -607,6 +621,7 @@ quietly{
             local stat_N_1 = .
             local stat_aic_1 = .
             local stat_bic_1 = .
+            local stat_qic_1 = .
             local stat_ll_1 = .
             local stat_groups_1 = .
             local stat_k_1 = .
@@ -664,6 +679,18 @@ quietly{
                 }
                 if `stat_k_1' != . {
                     local stat_bic_1 = -2 * `stat_ll_1' + `stat_k_1' * ln(`stat_N_1')
+                }
+            }
+
+            * QIC for GEE models: deviance + 2*rank
+            local _deviance = .
+            capture local _deviance = e(deviance)
+            if `_deviance' != . {
+                if `stat_k_1' == . {
+                    capture local stat_k_1 = e(rank)
+                }
+                if `stat_k_1' != . {
+                    local stat_qic_1 = `_deviance' + 2 * `stat_k_1'
                 }
             }
 
@@ -1639,20 +1666,55 @@ if `add_stats' == 1 {
         }
     }
 
-    * Add AIC row
+    * Add AIC row (falls back to QIC for GEE models where AIC is undefined)
     if `want_aic' == 1 {
         local has_val = 0
+        local _aic_label "AIC"
         forvalues m = 1/`use_models' {
             if `stat_aic_`m'' != . local has_val = 1
+        }
+        if !`has_val' {
+            forvalues m = 1/`use_models' {
+                if `stat_qic_`m'' != . local has_val = 1
+            }
+            if `has_val' local _aic_label "QIC"
         }
         if `has_val' {
             local curr_n = _N
             set obs `=`curr_n'+1'
-            replace A = "AIC" in `=`curr_n'+1'
+            replace A = "`_aic_label'" in `=`curr_n'+1'
             forvalues m = 1/`use_models' {
-                if `stat_aic_`m'' != . {
+                if "`_aic_label'" == "AIC" {
+                    if `stat_aic_`m'' != . {
+                        local col = (`m' - 1) * 3 + 1
+                        replace c`col' = string(`stat_aic_`m'', "%12.2f") in `=`curr_n'+1'
+                    }
+                }
+                else {
+                    if `stat_qic_`m'' != . {
+                        local col = (`m' - 1) * 3 + 1
+                        replace c`col' = string(`stat_qic_`m'', "%12.2f") in `=`curr_n'+1'
+                    }
+                }
+            }
+            local stats_rows = "`stats_rows' `=`curr_n'+1'"
+        }
+    }
+
+    * Add QIC row (explicit request — for GEE/xtgee models)
+    if `want_qic' == 1 {
+        local has_val = 0
+        forvalues m = 1/`use_models' {
+            if `stat_qic_`m'' != . local has_val = 1
+        }
+        if `has_val' {
+            local curr_n = _N
+            set obs `=`curr_n'+1'
+            replace A = "QIC" in `=`curr_n'+1'
+            forvalues m = 1/`use_models' {
+                if `stat_qic_`m'' != . {
                     local col = (`m' - 1) * 3 + 1
-                    replace c`col' = string(`stat_aic_`m'', "%12.2f") in `=`curr_n'+1'
+                    replace c`col' = string(`stat_qic_`m'', "%12.2f") in `=`curr_n'+1'
                 }
             }
             local stats_rows = "`stats_rows' `=`curr_n'+1'"
