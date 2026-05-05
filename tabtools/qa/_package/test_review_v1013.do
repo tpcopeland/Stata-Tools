@@ -613,6 +613,7 @@ capture noisily {
     while r(eof) == 0 {
         if strpos(`"`line'"', "{bf:Version}") > 0 {
             local sthlp_version = strtrim(subinstr(`"`line'"', "{pstd}{bf:Version}", "", 1))
+            local sthlp_version = strtrim(subinstr(`"`sthlp_version'"', "{p_end}", "", .))
         }
         file read `fh_ver' line
     }
