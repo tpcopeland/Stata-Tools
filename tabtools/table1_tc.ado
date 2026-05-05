@@ -1843,6 +1843,9 @@ program define table1_tc, rclass
             foreach _htmp of local hperc_scratch {
                 capture drop `_htmp'
             }
+            capture drop `hperc_den'
+            capture drop `hperc_crden'
+            capture drop `hperc_wtden'
 
         }
     }
