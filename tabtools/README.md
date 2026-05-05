@@ -64,9 +64,17 @@ After installation, start with `help tabtools` for the suite overview, `help tab
 | Final manuscript table assembled from earlier outputs | `comptab` or `hrcomptab` | These second-stage builders consume frames produced earlier in the pipeline |
 | Session-wide formatting defaults | `tabtools` | Use `tabtools set`, `tabtools get`, and `tabtools set clear` to control fonts, borders, themes, and digits |
 
-## Demo
+## Repository Checkout Demo
 
-The demo script (`tabtools/demo/demo_tabtools.do`) produces console output for key commands and 10 Excel workbooks (46 sheets total) covering every tabtools command. Run it from the repo root with `stata-mp -b do tabtools/demo/demo_tabtools.do`.
+The rebuild demo is a repository-maintenance workflow, not part of the net install payload. It reads shared `_data/` fixtures and sibling packages from a local Stata-Tools checkout, then regenerates console output and 10 Excel workbooks (46 sheets total) covering every tabtools command.
+
+From a local checkout, run:
+
+```bash
+stata-mp -b do tabtools/demo/demo_tabtools.do
+```
+
+Installed users should start with `help tabtools`, `help tabtools_cheatsheet`, and `help tabtools_cookbook`; those help files are shipped by `net install`.
 
 ### Suite overview
 

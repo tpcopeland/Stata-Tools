@@ -116,12 +116,18 @@ No dataset needs to be loaded before running {cmd:stratetab}; it reads the saved
 {title:Examples}
 
 {pstd}
+The examples below are workflow sketches. They assume you have already run
+{helpb strate} with {cmd:output()} to create the named .dta files in the
+current working directory. For a runnable public-data workflow, see
+{help tabtools_cookbook:tabtools cookbook}.{p_end}
+
+{pstd}
 {bf:Example 1: Two outcomes by antidepressant class}
 
 {pstd}
 Combine strate output for cardiovascular events and self-harm by SSRI/SNRI exposure:
 
-{phang2}{stata `"stratetab, using(rate_ssri rate_snri) xlsx(rates.xlsx) outcomes(2) outlabels(CV Event \ Self-Harm) title("Incidence Rates per 1,000 Person-Years")"':. stratetab, using(rate_ssri rate_snri) ///}{p_end}
+{phang2}{cmd:. stratetab, using(rate_ssri rate_snri) ///}{p_end}
 {phang3}{cmd:xlsx(rates.xlsx) outcomes(2) ///}{p_end}
 {phang3}{cmd:outlabels(CV Event \ Self-Harm) ///}{p_end}
 {phang3}{cmd:title("Incidence Rates per 1,000 Person-Years")}{p_end}
@@ -145,14 +151,14 @@ Full table comparing time-varying and cumulative dose exposures:
 {pstd}
 Display rates per 100 person-years with person-years in 1000s:
 
-{phang2}{stata "stratetab, using(rate_ssri rate_snri) xlsx(rates.xlsx) outcomes(2) ratescale(100) unitlabel(100) pyscale(1000)":. stratetab, using(rate_ssri rate_snri) ///}{p_end}
+{phang2}{cmd:. stratetab, using(rate_ssri rate_snri) ///}{p_end}
 {phang3}{cmd:xlsx(rates.xlsx) outcomes(2) ///}{p_end}
 {phang3}{cmd:ratescale(100) unitlabel(100) pyscale(1000)}{p_end}
 
 {pstd}
 {bf:Example 4: Two decimal places for rates}
 
-{phang2}{stata "stratetab, using(rate_ssri rate_snri) xlsx(rates.xlsx) outcomes(2) outlabels(CV Event \ Self-Harm) digits(2)":. stratetab, using(rate_ssri rate_snri) ///}{p_end}
+{phang2}{cmd:. stratetab, using(rate_ssri rate_snri) ///}{p_end}
 {phang3}{cmd:xlsx(rates.xlsx) outcomes(2) ///}{p_end}
 {phang3}{cmd:outlabels(CV Event \ Self-Harm) digits(2)}{p_end}
 

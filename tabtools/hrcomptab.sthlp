@@ -166,6 +166,11 @@ Default is {cmd:Reference}.
 {title:Examples}
 
 {pstd}
+The examples below are workflow sketches. They assume source frames have already
+been created by {helpb stratetab} and {helpb regtab}. For a runnable public-data
+workflow, see {help tabtools_cookbook:tabtools cookbook}.{p_end}
+
+{pstd}
 {bf:Example 1: Table 2 from existing stratetab/regtab frames}
 
 {phang2}{cmd:. * Step 1: descriptive scaffold}{p_end}

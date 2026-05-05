@@ -23,7 +23,7 @@ help for {cmd:table1_tc}
 {pstd}{bf:Quick start (recommended):}{p_end}
 
 {p 8 18 2}
-{opt table1_tc} [{it:varlist}] {ifin} {weight}, {opt by(varname)} [{it:options}]
+{opt table1_tc} [{it:varlist}] {ifin} {weight} [{cmd:,} {opt by(varname)} {it:options}]
 
 {pstd}When a {it:varlist} is provided without {opt vars()}, each variable's type is automatically
 detected using the command's built-in type-classification heuristics. This is the simplest way to
