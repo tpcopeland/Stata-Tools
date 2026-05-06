@@ -7,7 +7,6 @@
 *   C2. sustainedss vs manual threshold check
 *   C3. cci_se vs manual scoring
 *   C4. PIRA/CDP internal consistency
-*   C5. procmatch match vs first consistency
 *
 * Run from setools/qa/ directory:
 *   stata-mp -b do crossval_setools.do
@@ -41,7 +40,7 @@ else {
 }
 
 capture program drop _setools_detail
-foreach cmd in setools cci_se cdp migrations pira procmatch sustainedss {
+foreach cmd in setools cci_se cdp migrations pira sustainedss {
     capture program drop `cmd'
     run "`pkg_dir'/`cmd'.ado"
 }
@@ -350,55 +349,6 @@ quietly sum c4b_pira if id == 1
 local pira_date_p1 = r(mean)
 local t = (`cdp_date_p1' == `pira_date_p1')
 run_cv "C4.5: PIRA date = CDP date for non-RAW patient" `t'
-
-**# C5: PROCMATCH MATCH VS FIRST CONSISTENCY
-
-* Create multi-person, multi-record dataset
-clear
-input long id str10 proc1 double procdt
-1 "ABC10" 21550
-1 "ABC10" 21915
-1 "DEF20" 22000
-2 "DEF20" 21550
-2 "GHI30" 21915
-3 "ABC10" 22000
-3 "DEF20" 21550
-4 "XYZ99" 21915
-end
-format procdt %td
-
-* Run match
-procmatch match, codes("ABC10 DEF20") procvars(proc1) generate(c5_match)
-local match_total = r(n_matches)
-
-* Run first (need to save and reload because match already added variable)
-procmatch first, codes("ABC10 DEF20") procvars(proc1) datevar(procdt) idvar(id) generate(c5_ever) gendatevar(c5_first_dt)
-local first_persons = r(n_persons)
-
-* C5.1: Every person with _proc_ever==1 has at least one row with match==1
-* (ever is per-person, match is per-row; check at person level)
-tempvar has_any_match
-egen `has_any_match' = max(c5_match), by(id)
-quietly count if c5_ever == 1 & `has_any_match' == 0
-local t = (r(N) == 0)
-run_cv "C5.1: ever=1 implies >=1 match row per person" `t'
-
-* C5.2: Match count >= first person count (matches are row-level, persons are unique)
-local t = (`match_total' >= `first_persons')
-run_cv "C5.2: match count >= first person count" `t'
-
-* C5.3: First date for patient 1 = 21550 (earliest of the two matches)
-quietly sum c5_first_dt if id == 1
-local t = (r(mean) == 21550)
-run_cv "C5.3: first date for patient 1 = earliest match" `t'
-
-* C5.4: Patient 4 has no match and no first
-quietly sum c5_match if id == 4
-local m4 = r(mean)
-quietly sum c5_ever if id == 4
-local e4 = r(mean)
-local t = (`m4' == 0 & `e4' == 0)
-run_cv "C5.4: non-matching patient: match=0, ever=0" `t'
 
 **# CLEANUP
 

@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.1.1  06may2026}{...}
+{* *! version 1.1.2  06may2026}{...}
 {vieweralsosee "[R] bootstrap" "help bootstrap"}{...}
 {vieweralsosee "[R] logit" "help logit"}{...}
 {vieweralsosee "[R] regress" "help regress"}{...}
@@ -482,10 +482,11 @@ Carlo variability but increase computation time. If you specify a value
 larger than the sample size, you must also specify {opt moreMC}.
 
 {phang}
-{opt samples(#)} sets the number of bootstrap replications. Default is
-{cmd:1000}. This determines the precision of the confidence intervals: more
-replications produce more stable intervals. For exploratory analyses, 200-500
-is often sufficient; for publication, 1000 or more is recommended.
+{opt samples(#)} sets the number of bootstrap replications. The value must be
+at least {cmd:2}. Default is {cmd:1000}. This determines the precision of the
+confidence intervals: more replications produce more stable intervals. For
+exploratory analyses, 200-500 is often sufficient; for publication, 1000 or
+more is recommended.
 
 {phang}
 {opt seed(#)} sets the random number seed for reproducibility. Setting the
@@ -877,7 +878,7 @@ VanderWeele TJ (2015). {it:Explanation in causal inference: methods for mediatio
 {pstd}Department of Clinical Neuroscience{p_end}
 {pstd}Karolinska Institutet{p_end}
 
-{pstd}Version 1.1.1, 2026-05-06{p_end}
+{pstd}Version 1.1.2, 2026-05-06{p_end}
 
 {pstd}
 This is a maintained fork of SSC {cmd:gformula} v1.16 beta (Rhian Daniel,

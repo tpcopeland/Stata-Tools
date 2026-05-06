@@ -1,7 +1,6 @@
-*! setools Version 1.2.2  2026/05/04
+*! setools Version 1.2.3  2026/05/06
 *! Swedish Registry Toolkit for Epidemiological Cohort Studies
-*! Author: Timothy P Copeland
-*! Department of Clinical Neuroscience, Karolinska Institutet
+*! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
 
 /*
@@ -126,7 +125,7 @@ program define setools, rclass
     // Return results
     return local commands "`selected_cmds'"
     return scalar n_commands = `n_commands'
-    return local version "1.2.2"
+    return local version "1.2.3"
     return local categories "all codes migration ms"
     return local category "`category'"
     return local display "`display'"

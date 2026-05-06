@@ -435,33 +435,6 @@ local t = (`cmd_excl_emig' == 1 & ///
     `id7_out' == mdy(6, 1, 2019))
 run_val "K5.2: migrations long mixed-state cohort matches exact wide-format results" `t'
 
-**# K6. PROCMATCH FIRST EXACT VALUES
-
-* K6.1: prefix + multi-procvar first occurrence uses earliest matched row per person
-clear
-input long id str10 proc1 str10 proc2 long procdt
-1 "ABC10" ""      21000
-1 ""      "ABC11" 21000
-1 "XYZ99" ""      21100
-2 "ABC99" ""      20900
-2 "ZZZ00" "ABC10" 20800
-3 "AB"    "ABC1"  20700
-end
-format procdt %td
-procmatch first, codes("ABC") procvars(proc1 proc2) datevar(procdt) idvar(id) ///
-    prefix generate(pm_k61) gendatevar(pm_k61_dt)
-local cmd_matches = r(n_matches)
-local cmd_persons = r(n_persons)
-quietly summarize pm_k61_dt if id == 1, meanonly
-local id1_dt = r(mean)
-quietly summarize pm_k61_dt if id == 2, meanonly
-local id2_dt = r(mean)
-quietly summarize pm_k61_dt if id == 3, meanonly
-local id3_dt = r(mean)
-local t = (`cmd_matches' == 5 & `cmd_persons' == 3 & ///
-    `id1_dt' == 21000 & `id2_dt' == 20800 & `id3_dt' == 20700)
-run_val "K6.1: procmatch first exact prefix dates are correct across procvars" `t'
-
 **# Final Summary
 
 display as text "Total tests:  " scalar(gs_ntest)

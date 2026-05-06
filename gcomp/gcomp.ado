@@ -1,4 +1,4 @@
-*! gcomp Version 1.1.1  2026/05/06
+*! gcomp Version 1.1.2  2026/05/06
 *! G-computation formula via Monte Carlo simulation
 *! Forked from SSC gformula v1.16 beta (Rhian Daniel, 2021)
 *! with bug fixes, modernization, and SSC dependency removal
@@ -1043,8 +1043,8 @@ if `simulations'<1 {
 	noi di as err "number of Monte Carlo simulations must be 1 or more"
 	exit 198
 }
-if `samples'<1 {
-	noi di as err "number of bootstrap samples must be 1 or more"
+if `samples'<2 {
+	noi di as err "number of bootstrap samples must be 2 or more"
 	exit 198
 }
 if `imp_cycles'<1 {
@@ -1227,6 +1227,7 @@ bootstrap `_b' `_po' `_cinc', reps(`samples') `bca' noheader nolegend notable no
 	sim(`simulations') `obe' `oce' `specific' `boceam' `linexp' `minsim' `moreMC' `logOR' `logRR' saving(`saving') `replace' ///
 	_gc_maxid(`maxid') _gc_chk_del(`_gc_check_delete') _gc_chk_prt(`_gc_check_print') _gc_chk_sav(`_gc_check_save') _gc_almost(`_gc_almost_varlist')
 mat b=e(b)
+mat V=e(V)
 mat se=e(se)
 mat ci_normal=e(ci_normal)
 mat ci_percentile=e(ci_percentile)
@@ -1301,6 +1302,8 @@ else {
 }
 local _colnames = strtrim("`_colnames'")
 matrix colnames b = `_colnames'
+matrix colnames V = `_colnames'
+matrix rownames V = `_colnames'
 matrix colnames se = `_colnames'
 matrix colnames ci_normal = `_colnames'
 capture matrix colnames ci_percentile = `_colnames'
@@ -1312,10 +1315,7 @@ local _k = colsof(b)
 matrix `b_post' = b
 matrix `se_post' = se
 matrix `cin_post' = ci_normal
-matrix `V_post' = J(`_k', `_k', 0)
-forvalues _i=1/`_k' {
-	matrix `V_post'[`_i', `_i'] = se[1, `_i']^2
-}
+matrix `V_post' = V
 matrix colnames `V_post' = `_colnames'
 matrix rownames `V_post' = `_colnames'
 tempname cip_post cibc_post cibca_post
@@ -2614,6 +2614,7 @@ else {
 * =========================================================================
 * Clean up global matrices created during display code
 capture matrix drop b
+capture matrix drop V
 capture matrix drop se
 capture matrix drop ci_normal
 capture matrix drop ci_percentile

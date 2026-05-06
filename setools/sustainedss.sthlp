@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.2.2  04may2026}{...}
+{* *! version 1.2.3  06may2026}{...}
 {vieweralsosee "cdp" "help cdp"}{...}
 {vieweralsosee "pira" "help pira"}{...}
 {vieweralsosee "setools" "help setools"}{...}
@@ -270,9 +270,7 @@ concept. {it:Brain}. 2006;129(3):606{c -}616.
 {title:Author}
 
 {pstd}
-Timothy P Copeland{break}
-Department of Clinical Neuroscience{break}
-Karolinska Institutet, Stockholm, Sweden
+Timothy P Copeland, Karolinska Institutet
 
 {pstd}
 Part of the {help setools:setools} package for Swedish registry research.{p_end}

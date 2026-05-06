@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.2.2  04may2026}{...}
+{* *! version 1.2.3  06may2026}{...}
 {vieweralsosee "sustainedss" "help sustainedss"}{...}
 {vieweralsosee "pira" "help pira"}{...}
 {vieweralsosee "setools" "help setools"}{...}
@@ -252,9 +252,7 @@ analysis or logistic regression.{p_end}
 {title:Author}
 
 {pstd}
-Timothy P Copeland{break}
-Department of Clinical Neuroscience{break}
-Karolinska Institutet, Stockholm, Sweden
+Timothy P Copeland, Karolinska Institutet
 
 
 {title:Also see}

@@ -1,4 +1,4 @@
-*! _gcomp_bootstrap_impl Version 1.1.1  2026/05/06
+*! _gcomp_bootstrap_impl Version 1.1.2  2026/05/06
 *! Internal bootstrap implementation for gcomp
 *! Author: Timothy P Copeland (fork), Rhian Daniel (original)
 *! Program class: rclass

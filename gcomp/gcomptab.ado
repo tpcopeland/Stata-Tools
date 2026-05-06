@@ -1,4 +1,4 @@
-*! gcomptab Version 1.1.1  2026/05/06
+*! gcomptab Version 1.1.2  2026/05/06
 *! Format gcomp mediation analysis results for Excel export
 *! Author: Timothy P Copeland
 *! Program class: rclass (returns results in r())

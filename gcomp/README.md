@@ -1,6 +1,6 @@
 # gcomp — Parametric g-computation for mediation and time-varying confounding
 
-**Version 1.1.1** | 2026-05-06
+**Version 1.1.2** | 2026-05-06
 
 `gcomp` implements Robins' parametric g-computation formula in Stata using Monte Carlo simulation and bootstrap inference. It supports two related causal-inference workflows: **causal mediation analysis** and **longitudinal causal-effect estimation** in the presence of time-varying confounding.
 
@@ -365,7 +365,7 @@ gcomptab, xlsx("demo_gcomptab.xlsx") sheet("Percentile CI") ///
 | `varyingcovariates(varlist)` | List time-varying confounders affected by prior exposure |
 | `intvars(varlist)` / `interventions(string)` | Define the variables and rules for hypothetical interventions |
 | `eofu` | Outcome is measured only on the last row per subject |
-| `simulations(#)` / `samples(#)` | Set Monte Carlo sample size and bootstrap replications |
+| `simulations(#)` / `samples(#)` | Set Monte Carlo sample size and bootstrap replications (`samples()` must be at least 2) |
 | `diagnostics` | Display model-fit statistics during initial estimation |
 | `all` | Report all four CI types (normal, percentile, BC, BCa) |
 | `seed(#)` | Set random number seed for reproducibility |
@@ -419,6 +419,7 @@ Results are stored in `r()`: `r(N_effects)` (4 or 5), `r(tce)`, `r(nde)`, `r(nie
 
 ## Version History
 
+- **1.1.2** (2026-05-06): Restored full bootstrap covariance posting in `e(V)` instead of rebuilding a diagonal-only matrix from `e(se)`, preserving valid covariance-aware postestimation for mediation and time-varying estimates. `samples(1)` is now rejected by package validation before Stata's bootstrap machinery runs.
 - **1.1.1** (2026-05-06): Hardened `gcomptab` Excel/reporting contracts. The command now rejects malformed `e(b)`, `e(se)`, and CI matrices with missing effect column names before export, validates `font()` metacharacters and `fontsize()` range, and preserves active `e()` while returning clean validation errors. Time-varying `gcomp` now counts unique subjects correctly in unsorted panels and eofu MSM bootstrap no longer depends on a scratch `msm_params` matrix.
 - **1.1.0** (2026-04-26): Input validation and model-fit diagnostics. `commands()`, `equations()`, and related options are now validated before the bootstrap loop — mismatches produce clear error messages naming the offending variable. New `diagnostics` option displays model-fit statistics (N, convergence, R^2/pseudo-R^2, RMSE) for each parametric model during the initial estimation run. Diagnostics are always stored in `e(model_diagnostics)`.
 - **1.0.3** (2026-04-22): Fix time-varying g-computation regression — varlist2 ordering had been reversed (outcome first) in v1.0.2, causing `predict pred_Y` to fire before time-varying confounders and treatment were sampled at each visit. Every simulated outcome came out as 1 (silent wrong results); `minsim` errored with r(503). Restores outcome-last ordering from v1.0.1. Adds V7.3 minsim regression test and tightens V7.1 assertions to guard against re-introduction.

@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.2.2  04may2026}{...}
+{* *! version 1.2.3  06may2026}{...}
 {vieweralsosee "cdp" "help cdp"}{...}
 {vieweralsosee "sustainedss" "help sustainedss"}{...}
 {vieweralsosee "setools" "help setools"}{...}
@@ -332,9 +332,7 @@ in disease activity-free relapsing multiple sclerosis.
 {title:Author}
 
 {pstd}
-Timothy P Copeland{break}
-Department of Clinical Neuroscience{break}
-Karolinska Institutet, Stockholm, Sweden
+Timothy P Copeland, Karolinska Institutet
 
 {pstd}
 Part of the {help setools:setools} package for Swedish registry research.{p_end}

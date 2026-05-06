@@ -47,6 +47,8 @@ foreach f in ///
     validation_timevarying ///
     crossval_gcomp ///
     crossval_external_replication ///
+    crossval_mediation_se ///
+    crossval_timevarying_se ///
     crossval_timevarying {
     display _n as text "=============================================="
     display as text "Running: `f'.do"

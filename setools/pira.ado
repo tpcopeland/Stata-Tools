@@ -1,6 +1,6 @@
-*! pira Version 1.2.2  2026/05/04
+*! pira Version 1.2.3  2026/05/06
 *! Progression Independent of Relapse Activity
-*! Author: Tim Copeland
+*! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
 
 /*
@@ -41,6 +41,7 @@ See help pira for complete documentation
 program define pira, rclass
     version 16.0
     local _varabbrev `c(varabbrev)'
+    tempvar _pira_sortorder
     set varabbrev off
 
     capture noisily {
@@ -182,6 +183,7 @@ program define pira, rclass
         di as error "no valid observations"
         exit 2000
     }
+    qui gen long `_pira_sortorder' = _n
     qui count if `touse' & !missing(`datevar') & `datevar' != floor(`datevar')
     if r(N) > 0 {
         di as error "`datevar' must contain whole-number Stata daily dates"
@@ -309,28 +311,22 @@ program define pira, rclass
     qui gen double _pira_bl_edss = .
     qui gen long _pira_bl_date = .
 
-    // First EDSS within baseline window of diagnosis
-    // Use egen min() to find earliest date in window, then extract EDSS at that date
+    // First EDSS within baseline window of diagnosis. On same-day ties,
+    // use the lower EDSS value because sort order alone is not a contract.
     qui gen byte _pira_in_win = (`datevar' >= `dxdate' & `datevar' <= `dxdate' + `baselinewindow')
-    qui egen long _pira_1st_win = min(cond(_pira_in_win, `datevar', .)), by(`idvar')
-    qui replace _pira_bl_edss = `edssvar' if `datevar' == _pira_1st_win & !missing(_pira_1st_win)
+    qui egen double _pira_1st_win = min(cond(_pira_in_win, `datevar', .)), by(`idvar')
+    qui egen double _pira_1st_win_edss = min(cond(`datevar' == _pira_1st_win, `edssvar', .)), by(`idvar')
+    qui replace _pira_bl_edss = _pira_1st_win_edss if !missing(_pira_1st_win_edss)
     qui replace _pira_bl_date = _pira_1st_win if !missing(_pira_1st_win)
-    qui bysort `idvar' (`datevar' `edssvar'): replace _pira_bl_edss = _pira_bl_edss[1] ///
-        if missing(_pira_bl_edss) & !missing(_pira_bl_edss[1])
-    qui bysort `idvar' (`datevar' `edssvar'): replace _pira_bl_date = _pira_bl_date[1] ///
-        if missing(_pira_bl_date) & !missing(_pira_bl_date[1])
 
-    qui drop _pira_in_win _pira_1st_win
+    qui drop _pira_in_win _pira_1st_win _pira_1st_win_edss
 
     // If no EDSS within window, use earliest available (lowest EDSS on ties)
-    qui bysort `idvar' (`datevar' `edssvar'): replace _pira_bl_edss = `edssvar'[1] ///
-        if missing(_pira_bl_edss)
-    qui bysort `idvar' (`datevar' `edssvar'): replace _pira_bl_date = `datevar'[1] ///
-        if missing(_pira_bl_date)
-
-    // Propagate baseline
-    qui bysort `idvar' (`datevar' `edssvar'): replace _pira_bl_edss = _pira_bl_edss[1]
-    qui bysort `idvar' (`datevar' `edssvar'): replace _pira_bl_date = _pira_bl_date[1]
+    qui egen double _pira_1st_any = min(`datevar'), by(`idvar')
+    qui egen double _pira_1st_any_edss = min(cond(`datevar' == _pira_1st_any, `edssvar', .)), by(`idvar')
+    qui replace _pira_bl_edss = _pira_1st_any_edss if missing(_pira_bl_edss)
+    qui replace _pira_bl_date = _pira_1st_any if missing(_pira_bl_date)
+    qui drop _pira_1st_any _pira_1st_any_edss
 
     // -------------------------------------------------------------------------
     // Re-baseline after relapse (if requested)
@@ -541,6 +537,8 @@ program define pira, rclass
         // keepall: retain all original observations
         qui merge m:1 `idvar' using `results', nogen
     }
+    qui sort `_pira_sortorder'
+    qui drop `_pira_sortorder'
 
     // Label variables
     label var `generate' "PIRA date (progression independent of relapse)"
@@ -577,6 +575,7 @@ program define pira, rclass
 
     }
     local _rc = _rc
+    capture drop `_pira_sortorder'
     set varabbrev `_varabbrev'
     if `_rc' exit `_rc'
 end

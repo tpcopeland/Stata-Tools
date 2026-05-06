@@ -1,6 +1,7 @@
-*! sustainedss Version 1.2.2  2026/05/04
+*! sustainedss Version 1.2.3  2026/05/06
 *! Compute sustained EDSS progression date
 *! Part of the setools package
+*! Author: Timothy P Copeland, Karolinska Institutet
 
 program define sustainedss, rclass
     version 16.0

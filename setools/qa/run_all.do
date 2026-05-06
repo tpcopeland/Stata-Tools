@@ -15,15 +15,25 @@ local fail = 0
 
 foreach f in ///
     test_setools ///
+    test_release_integrity ///
+    test_documentation_examples ///
     _test_cci_mata ///
     _test_cci_dates ///
+    test_cci_se_adversarial ///
+    validation_cci_se_era_boundaries ///
+    test_cdp_adversarial ///
+    validation_cdp_known_answers ///
     validation_setools ///
     validation_known_answer_boundaries ///
     validation_cci_se_v121 ///
     test_migrations_perm_emig_bug ///
     test_migrations_keepimmigrants ///
     test_migrations_minresidence ///
+    test_migrations_malformed_rollback ///
+    validation_migrations_adversarial_boundaries ///
     validation_migrations_longwide_equivalence ///
+    validation_sustainedss_known_answers ///
+    validation_pira_known_answers ///
     crossval_setools {
     capture discard
     capture program drop _all

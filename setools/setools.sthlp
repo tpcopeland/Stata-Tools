@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.2.2  04may2026}{...}
+{* *! version 1.2.3  06may2026}{...}
 {vieweralsosee "cci_se" "help cci_se"}{...}
 {vieweralsosee "cdp" "help cdp"}{...}
 {vieweralsosee "migrations" "help migrations"}{...}
@@ -42,8 +42,8 @@
 {pstd}
 {cmd:setools} is a toolkit for Swedish register-based epidemiological research.
 It provides practical building blocks for cohort definition, comorbidity scoring,
-procedure-code extraction, and disability-progression endpoints built from repeated
-EDSS measurements.
+migration-based exclusions, and disability-progression endpoints built from
+repeated EDSS measurements.
 
 {pstd}
 Running {cmd:setools} by itself displays a grouped overview of all commands.  Use
@@ -152,9 +152,7 @@ To install or update setools:
 {title:Author}
 
 {pstd}
-Timothy P Copeland{break}
-Department of Clinical Neuroscience{break}
-Karolinska Institutet, Stockholm, Sweden
+Timothy P Copeland, Karolinska Institutet
 {p_end}
 
 {pstd}

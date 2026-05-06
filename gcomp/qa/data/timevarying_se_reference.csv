@@ -1,0 +1,7 @@
+analysis,metric,estimate,se,tolerance_estimate,tolerance_se,source,n_subjects,bootstrap_reps,data_seed,bootstrap_seed,notes
+binary,po_a1,0.11761848213424,0.0309133713730603,0.015,0.012,python_statsmodels,360,700,20260513,20260514,statsmodels GLM Binomial; subject bootstrap over 3-visit EOFU panel
+binary,po_a0,0.258125804696532,0.0465531563654109,0.015,0.012,python_statsmodels,360,700,20260513,20260514,statsmodels GLM Binomial; subject bootstrap over 3-visit EOFU panel
+binary,rd_a1_a0,-0.140507322562292,0.0654841750532294,0.02,0.014,python_statsmodels,360,700,20260513,20260514,statsmodels GLM Binomial; subject bootstrap over 3-visit EOFU panel
+continuous,po_a1,-0.547270350251076,0.0617712390253059,0.02,0.015,python_statsmodels,360,700,20260513,20260514,statsmodels OLS; subject bootstrap over 3-visit EOFU panel
+continuous,po_a0,0.462842402184648,0.055871136791013,0.02,0.015,python_statsmodels,360,700,20260513,20260514,statsmodels OLS; subject bootstrap over 3-visit EOFU panel
+continuous,rd_a1_a0,-1.01011275243572,0.0886262698808597,0.03,0.018,python_statsmodels,360,700,20260513,20260514,statsmodels OLS; subject bootstrap over 3-visit EOFU panel

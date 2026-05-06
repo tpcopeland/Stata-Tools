@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.2.2  04may2026}{...}
+{* *! version 1.2.3  06may2026}{...}
 {vieweralsosee "[ST] stset" "help stset"}{...}
 {vieweralsosee "cci_se" "help cci_se"}{...}
 {vieweralsosee "setools" "help setools"}{...}
@@ -308,9 +308,7 @@ lookback for comorbidity scoring is complete.{p_end}
 {title:Author}
 
 {pstd}
-Timothy P Copeland{break}
-Department of Clinical Neuroscience{break}
-Karolinska Institutet, Stockholm, Sweden
+Timothy P Copeland, Karolinska Institutet
 
 {pstd}
 Part of the {help setools:setools} package for Swedish registry research.{p_end}

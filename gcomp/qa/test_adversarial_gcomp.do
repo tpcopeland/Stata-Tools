@@ -509,6 +509,78 @@ else {
     local failed_tests "`failed_tests' A10"
 }
 
+**# A11: Mediation bootstrap posts full covariance, not diagonal-only V
+local ++test_count
+capture noisily {
+    _adv_make_med_data, observations(420)
+    _adv_fit_med, simulations(180) samples(12) seed(9001)
+
+    tempname V se
+    matrix `V' = e(V)
+    matrix `se' = e(se)
+    local k = colsof(`V')
+    assert rowsof(`V') == `k'
+    assert colsof(`se') == `k'
+
+    local offdiag_nonzero = 0
+    forvalues i = 1/`k' {
+        assert reldif(sqrt(`V'[`i', `i']), `se'[1, `i']) < 1e-10
+        if `i' < `k' {
+            forvalues j = `=`i' + 1'/`k' {
+                if abs(`V'[`i', `j']) > 1e-12 {
+                    local offdiag_nonzero = 1
+                }
+            }
+        }
+    }
+    assert `offdiag_nonzero' == 1
+}
+if _rc == 0 {
+    display as result "  PASS: A11 mediation bootstrap e(V) keeps covariance terms"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: A11 mediation bootstrap covariance (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' A11"
+}
+
+**# A12: Time-varying bootstrap posts full covariance, not diagonal-only V
+local ++test_count
+capture noisily {
+    _adv_make_tv_data, subjects(160)
+    _adv_fit_tv, simulations(110) samples(8) seed(9002)
+
+    tempname V se
+    matrix `V' = e(V)
+    matrix `se' = e(se)
+    local k = colsof(`V')
+    assert rowsof(`V') == `k'
+    assert colsof(`se') == `k'
+
+    local offdiag_nonzero = 0
+    forvalues i = 1/`k' {
+        assert reldif(sqrt(`V'[`i', `i']), `se'[1, `i']) < 1e-10
+        if `i' < `k' {
+            forvalues j = `=`i' + 1'/`k' {
+                if abs(`V'[`i', `j']) > 1e-12 {
+                    local offdiag_nonzero = 1
+                }
+            }
+        }
+    }
+    assert `offdiag_nonzero' == 1
+}
+if _rc == 0 {
+    display as result "  PASS: A12 time-varying bootstrap e(V) keeps covariance terms"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: A12 time-varying bootstrap covariance (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' A12"
+}
+
 **# Summary
 display as result "Results: `pass_count'/`test_count' passed, `fail_count' failed"
 if `fail_count' > 0 {

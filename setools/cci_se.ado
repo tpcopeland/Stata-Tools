@@ -1,7 +1,8 @@
-*! cci_se Version 1.2.2  2026/05/04
+*! cci_se Version 1.2.3  2026/05/06
 *! Swedish Charlson Comorbidity Index using ICD-7 through ICD-10
 *! Based on Ludvigsson et al. Clinical Epidemiology 2021;13:21-41
 *! Part of the setools package
+*! Author: Timothy P Copeland, Karolinska Institutet
 *!
 *! Description:
 *!   Computes the Swedish adaptation of the Charlson Comorbidity Index
@@ -10,6 +11,7 @@
 *!   Handles ICD codes with or without dots automatically.
 *!   Accepts date variables as Stata dates, YYYYMMDD integers, or strings.
 *!
+*! v1.2.3: restrict dual ICD-9/ICD-10 matching to the 1997 overlap year
 *! v1.2.0: dates option — earliest diagnosis date per comorbidity component
 *! v1.1.0: Mata hash-table engine replaces 70+ regex passes with single-pass
 *!         prefix lookup. Same output, dramatically faster on large datasets.
@@ -621,8 +623,13 @@ void _cci_se_classify(string scalar code_var, string scalar yr_var,
                 _cci_lookup_token(ht10, toks[j], indicators, i, do_dates, dates, dt)
             }
         }
+        else if (yr <= 1996) {
+            for (j = 1; j <= ntok; j++) {
+                _cci_lookup_token(ht9, toks[j], indicators, i, do_dates, dates, dt)
+            }
+        }
         else {
-            // 1987-1997: check both v9 and v10 (overlap period)
+            // 1997 overlap period: check both v9 and v10
             for (j = 1; j <= ntok; j++) {
                 _cci_lookup_token(ht9, toks[j], indicators, i, do_dates, dates, dt)
                 _cci_lookup_token(ht10, toks[j], indicators, i, do_dates, dates, dt)

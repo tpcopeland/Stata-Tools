@@ -1,0 +1,3 @@
+analysis,metric1,metric2,covariance,correlation,cov_abs_tol,source,n_subjects,bootstrap_reps,data_seed,bootstrap_seed,notes
+binary,po_a1,po_a0,-0.000582672142585428,-0.404882263061231,0.0004078704998098,python_statsmodels_subject_bootstrap,360,700,20260513,20260514,off-diagonal covariance of static-intervention potential outcomes
+continuous,po_a1,po_a0,-0.000458672907976701,-0.132901311991022,0.00035,python_statsmodels_subject_bootstrap,360,700,20260513,20260514,off-diagonal covariance of static-intervention potential outcomes

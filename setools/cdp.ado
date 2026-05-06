@@ -1,6 +1,6 @@
-*! cdp Version 1.2.2  2026/05/04
+*! cdp Version 1.2.3  2026/05/06
 *! Confirmed Disability Progression from baseline EDSS
-*! Author: Tim Copeland
+*! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
 
 /*
@@ -146,9 +146,11 @@ program define cdp, rclass
     tempvar baseline_edss baseline_date prog_thresh edss_change ///
             is_prog first_prog_dt confirm_edss confirmed obs_id ///
             current_baseline current_base_dt event_num ///
-            in_window first_win_dt min_confirm
+            in_window first_win_dt first_win_edss first_any_dt ///
+            first_any_edss min_confirm sortorder
 
     // Preserve original data
+    qui gen long `sortorder' = _n
     preserve
 
     // Keep only relevant observations
@@ -180,27 +182,21 @@ program define cdp, rclass
     qui gen double `baseline_edss' = .
     qui gen long `baseline_date' = .
 
-    // For each person, find first EDSS within window
-    // Use egen min() to find earliest date in window, then extract EDSS at that date
+    // For each person, find first EDSS within window. On same-day ties,
+    // use the lower EDSS value because sort order alone is not a contract.
     qui gen byte `in_window' = (`datevar' >= `dxdate' & `datevar' <= `dxdate' + `baselinewindow')
-    qui egen long `first_win_dt' = min(cond(`in_window', `datevar', .)), by(`idvar')
-    qui replace `baseline_edss' = `edssvar' if `datevar' == `first_win_dt' & !missing(`first_win_dt')
+    qui egen double `first_win_dt' = min(cond(`in_window', `datevar', .)), by(`idvar')
+    qui egen double `first_win_edss' = min(cond(`datevar' == `first_win_dt', `edssvar', .)), by(`idvar')
+    qui replace `baseline_edss' = `first_win_edss' if !missing(`first_win_edss')
     qui replace `baseline_date' = `first_win_dt' if !missing(`first_win_dt')
-    qui bysort `idvar' (`datevar'): replace `baseline_edss' = `baseline_edss'[1] ///
-        if missing(`baseline_edss') & !missing(`baseline_edss'[1])
-    qui bysort `idvar' (`datevar'): replace `baseline_date' = `baseline_date'[1] ///
-        if missing(`baseline_date') & !missing(`baseline_date'[1])
-    qui drop `in_window' `first_win_dt'
+    qui drop `in_window' `first_win_dt' `first_win_edss'
 
     // If no EDSS within window, use earliest available
-    qui bysort `idvar' (`datevar'): replace `baseline_edss' = `edssvar'[1] ///
-        if missing(`baseline_edss')
-    qui bysort `idvar' (`datevar'): replace `baseline_date' = `datevar'[1] ///
-        if missing(`baseline_date')
-
-    // Propagate baseline to all rows
-    qui bysort `idvar' (`datevar'): replace `baseline_edss' = `baseline_edss'[1]
-    qui bysort `idvar' (`datevar'): replace `baseline_date' = `baseline_date'[1]
+    qui egen double `first_any_dt' = min(`datevar'), by(`idvar')
+    qui egen double `first_any_edss' = min(cond(`datevar' == `first_any_dt', `edssvar', .)), by(`idvar')
+    qui replace `baseline_edss' = `first_any_edss' if missing(`baseline_edss')
+    qui replace `baseline_date' = `first_any_dt' if missing(`baseline_date')
+    qui drop `first_any_dt' `first_any_edss'
 
     // -------------------------------------------------------------------------
     // Step 2: Identify progression events
@@ -458,6 +454,8 @@ program define cdp, rclass
             qui merge m:1 `idvar' using `results', nogen
         }
     }
+    qui sort `sortorder'
+    qui drop `sortorder'
 
     // Label variable
     label var `generate' "Confirmed disability progression date"
@@ -499,6 +497,7 @@ program define cdp, rclass
 
     }
     local _rc = _rc
+    capture drop `sortorder'
     set varabbrev `_varabbrev'
     if `_rc' exit `_rc'
 end

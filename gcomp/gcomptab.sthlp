@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.1.1  06may2026}{...}
+{* *! version 1.1.2  06may2026}{...}
 {vieweralsosee "[R] bootstrap" "help bootstrap"}{...}
 {viewerjumpto "Syntax" "gcomptab##syntax"}{...}
 {viewerjumpto "Description" "gcomptab##description"}{...}
@@ -360,7 +360,7 @@ Formatting details:
 {pstd}Department of Clinical Neuroscience{p_end}
 {pstd}Karolinska Institutet{p_end}
 
-{pstd}Version 1.1.1, 2026-05-06{p_end}
+{pstd}Version 1.1.2, 2026-05-06{p_end}
 
 
 {marker seealso}{...}

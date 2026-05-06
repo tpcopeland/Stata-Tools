@@ -1,6 +1,7 @@
-*! migrations Version 1.2.2  2026/05/04
+*! migrations Version 1.2.3  2026/05/06
 *! Handle Swedish migration data for registry-based cohort studies
 *! Part of the setools package
+*! Author: Timothy P Copeland, Karolinska Institutet
 
 program define migrations, rclass
     version 16.0

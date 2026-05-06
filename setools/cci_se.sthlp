@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.2.2  04may2026}{...}
+{* *! version 1.2.3  06may2026}{...}
 {vieweralsosee "[D] generate" "help generate"}{...}
 {vieweralsosee "migrations" "help migrations"}{...}
 {vieweralsosee "setools" "help setools"}{...}
@@ -360,10 +360,7 @@ studies: development and validation.
 {title:Author}
 
 {pstd}
-Timothy P Copeland{break}
-Department of Clinical Neuroscience{break}
-Karolinska Institutet{break}
-Stockholm, Sweden
+Timothy P Copeland, Karolinska Institutet
 
 {pstd}
 ICD code mappings from scripts by Bj{c o:}rn Roelstraete and Jonas

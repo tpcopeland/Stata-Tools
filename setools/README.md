@@ -1,8 +1,8 @@
 # setools — Swedish registry tools for epidemiological cohort studies
 
-**Version 1.2.2** | 2026-05-04
+**Version 1.2.3** | 2026-05-06
 
-`setools` provides practical Stata commands for working with Swedish health registries. Instead of writing one-off data-management code for each new project, you get tested, documented building blocks for the steps that recur across register-based cohort studies: comorbidity scoring, procedure-code extraction, migration-based exclusions, and MS disability-progression endpoints.
+`setools` provides practical Stata commands for working with Swedish health registries. Instead of writing one-off data-management code for each new project, you get tested, documented building blocks for the steps that recur across register-based cohort studies: comorbidity scoring, migration-based exclusions, and MS disability-progression endpoints.
 
 The package covers two data shapes:
 
@@ -167,6 +167,7 @@ Use `confirmwindow()` / `confirmdays()` when your study uses a different confirm
 
 ## Version History
 
+- **1.2.3** (2026-05-06): Hardened known-answer and adversarial QA; restricted ICD-10 Charlson matching to valid Swedish ICD-10 eras; fixed CDP/PIRA baseline-window selection when pre-diagnosis EDSS visits exist; preserved row order after CDP/PIRA keepall merges
 - **1.2.2** (2026-05-04): Removed `procmatch` (superseded by `codescan` package); documentation fixes — abbreviation corrections across help files
 - **1.2.1** (2026-04-26): Documentation improvements — richer help files for all Stata fluency levels, consistent cross-references across all commands, "Choosing the right command" guidance in the overview help file
 - **1.2.0** (2026-04-24): Added `dates` option to `cci_se` — generates earliest diagnosis date per comorbidity component alongside the binary indicators. Also includes the v1.1.0 Mata hash-table engine for faster ICD classification

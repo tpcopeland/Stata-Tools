@@ -12,9 +12,8 @@
 *   V3. sustainedss algorithm validation
 *   V4. pira classification validation
 *   V5. migrations exclusion/censoring validation
-*   V6. procmatch matching validation
-*   V7. Cross-command invariant checks
-*   V8. Determinism and idempotency
+*   V6. Cross-command invariant checks
+*   V7. Determinism and idempotency
 *
 * Run from setools/qa/ directory:
 *   stata-mp -b do validation_setools.do
@@ -48,7 +47,7 @@ else {
 }
 
 capture program drop _setools_detail
-foreach cmd in setools cci_se cdp migrations pira procmatch sustainedss {
+foreach cmd in setools cci_se cdp migrations pira sustainedss {
     capture program drop `cmd'
     run "`pkg_dir'/`cmd'.ado"
 }
@@ -1276,91 +1275,7 @@ capture noisily migrations, migfile("`v514_wide'")
 local t = (_rc == 109)
 run_val "V5.14: wide-format %tc migration dates rejected" `t'
 
-**# V6. PROCMATCH MATCHING VALIDATION
-
-* V6.1: Exact match is truly exact (no partial)
-clear
-input long id str10 proc1
-1 "ABC10"
-2 "ABC100"
-3 "ABC1"
-end
-procmatch match, codes("ABC10") procvars(proc1) generate(pm_v81)
-local t = (r(n_matches) == 1)
-run_val "V6.1: exact match: only ABC10 matches" `t'
-
-* V6.2: Prefix match captures all prefixes
-clear
-input long id str10 proc1
-1 "ABC10"
-2 "ABC100"
-3 "ABC1"
-4 "ABD10"
-end
-procmatch match, codes("ABC") procvars(proc1) prefix generate(pm_v82)
-local t = (r(n_matches) == 3)
-run_val "V6.2: prefix ABC: 3 matches (10, 100, 1)" `t'
-
-* V6.3: First occurrence picks earliest date per person
-clear
-input long id str10 proc1 double procdt
-1 "ABC10" 22000
-1 "ABC10" 21000
-1 "ABC10" 21500
-end
-format procdt %td
-procmatch first, codes("ABC10") procvars(proc1) datevar(procdt) idvar(id) generate(ev_v83) gendatevar(fd_v83)
-sum fd_v83 if id == 1
-local t = (r(mean) == 21000)
-run_val "V6.3: first date = 21000 (earliest)" `t'
-
-* V6.4: 12 codes across two inlist chunks (verifies chunking at 9 works)
-* Previously, procmatch chunked at 10 but string inlist() allows only 9
-* comparisons (10 total args = 1 base + 9 values). Fixed in v2.0.4.
-* 12 codes = chunk of 9 + chunk of 3, both must work.
-clear
-input long id str10 proc1
-1 "A01"
-2 "A02"
-3 "A03"
-4 "A04"
-5 "A05"
-6 "A06"
-7 "A07"
-8 "A08"
-9 "A09"
-10 "A10"
-11 "A11"
-12 "A12"
-13 "B01"
-end
-procmatch match, codes("A01 A02 A03 A04 A05 A06 A07 A08 A09 A10 A11 A12") procvars(proc1) generate(pm_v84)
-local t = (r(n_matches) == 12)
-run_val "V6.4: 12 codes across 2 chunks: 12 matches" `t'
-
-* V6.5: Search across multiple procvars
-clear
-input long id str10 proc1 str10 proc2 str10 proc3
-1 "" "" "TARGET"
-2 "TARGET" "" ""
-3 "" "TARGET" ""
-4 "" "" ""
-end
-procmatch match, codes("TARGET") procvars(proc1 proc2 proc3) generate(pm_v85)
-local t = (r(n_matches) == 3)
-run_val "V6.5: multi-procvar search: 3 matches" `t'
-
-* V6.6: replace may not overwrite unrelated existing variables
-clear
-input long id str10 proc1
-1 "ABC10"
-2 "ZZZ99"
-end
-capture noisily procmatch match, codes("ABC10") procvars(proc1) generate(id) replace
-local t = (_rc == 198 & id[1] == 1 & id[2] == 2)
-run_val "V6.6: match generate(id) replace rejected and id preserved" `t'
-
-**# V7. CROSS-COMMAND INVARIANT CHECKS
+**# V6. CROSS-COMMAND INVARIANT CHECKS
 
 * V7.1: CDP/PIRA algorithm produces identical CDP dates
 * When no relapses, CDP dates from cdp.ado should exactly match dates from pira.ado
@@ -1684,8 +1599,8 @@ run_val "V10.3: latest pre-reset relapse yields no false CDP/PIRA event" `t'
 
 * V11.1: setools stored results
 setools
-local t = ("`r(commands)'" == "procmatch cci_se migrations sustainedss cdp pira" & ///
-    r(n_commands) == 6 & "`r(version)'" == "1.2.1" & ///
+local t = ("`r(commands)'" == "cci_se migrations sustainedss cdp pira" & ///
+    r(n_commands) == 5 & "`r(version)'" == "1.2.3" & ///
     "`r(categories)'" == "all codes migration ms" & ///
     "`r(category)'" == "all" & "`r(display)'" == "grouped")
 run_val "V11.1: setools exact stored results" `t'
@@ -1775,31 +1690,6 @@ local t = (r(N_excluded_emigrated) == 1 & r(N_excluded_inmigration) == 0 & ///
     r(N_included_inmigration) == 0 & r(N_final) == 1)
 run_val "V11.6: migrations exact stored results" `t'
 
-* V11.7: procmatch match stored results
-clear
-input long id str10 proc1 double procdt
-1 "ABC10" 21915
-2 "DEF20" 21915
-end
-format procdt %td
-procmatch match, codes("ABC10") procvars(proc1) generate(v15pm)
-local t = ("`r(varname)'" == "v15pm" & "`r(codes)'" == "ABC10" & ///
-    r(n_codes) == 1 & r(n_matches) == 1)
-run_val "V11.7: procmatch match exact stored results" `t'
-
-* V11.8: procmatch first stored results
-clear
-input long id str10 proc1 double procdt
-1 "ABC10" 21915
-2 "DEF20" 21550
-end
-format procdt %td
-procmatch first, codes("ABC10") procvars(proc1) datevar(procdt) idvar(id) generate(v15pe) gendatevar(v15pdt)
-local t = ("`r(varname)'" == "v15pe" & "`r(datevarname)'" == "v15pdt" & ///
-    "`r(codes)'" == "ABC10" & r(n_codes) == 1 & ///
-    r(n_persons) == 1 & r(n_matches) == 1)
-run_val "V11.8: procmatch first exact stored results" `t'
-
 **# V12: VARABBREV RESTORATION
 
 * V12.1: setools restores varabbrev
@@ -1821,19 +1711,7 @@ local t = ("`c(varabbrev)'" == "on")
 run_val "V12.2: cci_se restores varabbrev" `t'
 set varabbrev off
 
-* V12.3: procmatch restores varabbrev
-set varabbrev on
-clear
-input long id str10 proc1 double procdt
-1 "ABC10" 21915
-end
-format procdt %td
-procmatch match, codes("ABC10") procvars(proc1) generate(v16pm)
-local t = ("`c(varabbrev)'" == "on")
-run_val "V12.3: procmatch restores varabbrev" `t'
-set varabbrev off
-
-* V12.4: cdp restores varabbrev
+* V12.3: cdp restores varabbrev
 set varabbrev on
 clear
 input long id double edss double edss_dt double dx_date
@@ -1844,10 +1722,10 @@ end
 format edss_dt dx_date %td
 cdp id edss edss_dt, dxdate(dx_date) keepall generate(v16cdp)
 local t = ("`c(varabbrev)'" == "on")
-run_val "V12.4: cdp restores varabbrev" `t'
+run_val "V12.3: cdp restores varabbrev" `t'
 set varabbrev off
 
-* V12.5: sustainedss restores varabbrev
+* V12.4: sustainedss restores varabbrev
 set varabbrev on
 clear
 input long id double edss double edss_dt

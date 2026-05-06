@@ -370,6 +370,29 @@ else {
 capture erase "`hi_xlsx'"
 
 * ============================================================
+* E12: samples(1) is rejected before bootstrap
+* ============================================================
+
+local ++test_count
+capture noisily {
+    _make_med_data
+    capture gcomp y m x c, outcome(y) mediation obe ///
+        exposure(x) mediator(m) ///
+        commands(m: logit, y: logit) ///
+        equations(m: x c, y: m x c) ///
+        base_confs(c) sim(50) samples(1) seed(12)
+    assert _rc == 198
+}
+if _rc == 0 {
+    display as result "  PASS: E12 samples(1) returns package rc 198"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: E12 samples(1) validation (error `=_rc')"
+    local ++fail_count
+}
+
+* ============================================================
 * Summary
 * ============================================================
 
