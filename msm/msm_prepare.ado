@@ -1,4 +1,4 @@
-*! msm_prepare Version 1.0.1  2026/04/30
+*! msm_prepare Version 1.0.2  2026/05/06
 *! Data preparation and variable mapping for marginal structural models
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet
@@ -29,7 +29,11 @@ program define msm_prepare, rclass
     set varabbrev off
     set more off
 
+    tempvar _msm_orig_order
+
     capture noisily {
+
+    quietly gen long `_msm_orig_order' = _n
 
     * =========================================================================
     * SYNTAX PARSING
@@ -203,6 +207,10 @@ program define msm_prepare, rclass
     display as text "Metadata stored. Next step: {cmd:msm_validate} or {cmd:msm_weight}"
     display as text "{hline 70}"
 
+    * Restore caller's physical observation order before returning.
+    sort `_msm_orig_order'
+    drop `_msm_orig_order'
+
     * =========================================================================
     * RETURN RESULTS
     * =========================================================================
@@ -224,6 +232,12 @@ program define msm_prepare, rclass
 
     } /* end capture noisily */
     local _rc = _rc
+
+    capture confirm variable `_msm_orig_order'
+    if _rc == 0 {
+        capture sort `_msm_orig_order'
+        capture drop `_msm_orig_order'
+    }
 
     set varabbrev `_varabbrev'
     set more `_more'

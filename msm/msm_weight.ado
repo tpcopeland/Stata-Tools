@@ -1,4 +1,4 @@
-*! msm_weight Version 1.0.1  2026/04/30
+*! msm_weight Version 1.0.2  2026/05/06
 *! Inverse probability of treatment weights for marginal structural models
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet
@@ -414,7 +414,10 @@ program define msm_weight, rclass
 
         label variable _msm_weight "MSM cumulative IP weight"
         label variable _msm_tw_weight "MSM treatment weight (cumulative)"
-        capture label variable _msm_cw_weight "MSM censoring weight (cumulative)"
+        capture confirm variable _msm_cw_weight
+        if _rc == 0 {
+            label variable _msm_cw_weight "MSM censoring weight (cumulative)"
+        }
 
         * Store metadata
         char _dta[_msm_weighted] "1"
@@ -536,7 +539,7 @@ program define _msm_weight_treatment, rclass
     quietly {
         * Create analysis sample marker: not yet had outcome or been censored
         * At each period t, we model treatment among those still at risk
-        tempvar _at_risk _lag_treat
+        tempvar _at_risk _lag_treat _first_obs
 
         * Cumulative prior outcome (excluding current period)
         tempvar _cum_out
@@ -557,6 +560,7 @@ program define _msm_weight_treatment, rclass
         drop `_cum_out'
 
         * Lagged treatment
+        bysort `id' (`period'): gen byte `_first_obs' = (_n == 1)
         bysort `id' (`period'): gen byte `_lag_treat' = `treatment'[_n-1]
         * First period has no lag - handle separately
 
@@ -565,7 +569,8 @@ program define _msm_weight_treatment, rclass
         * Full model with all time-varying and baseline covariates
         * ---------------------------------------------------------------
         tempvar _denom_pr _denom_complete _denom_drop
-        gen byte `_denom_complete' = `_at_risk' & !missing(`_lag_treat')
+        gen byte `_denom_complete' = `_at_risk' & !`_first_obs' & ///
+            !missing(`treatment') & !missing(`_lag_treat')
         foreach _v of varlist `d_cov' `period' {
             replace `_denom_complete' = 0 if missing(`_v')
         }
@@ -636,7 +641,8 @@ program define _msm_weight_treatment, rclass
 
         * For first period (no lag), use a separate simpler model
         tempvar _denom_pr0 _denom0_complete _denom0_drop
-        gen byte `_denom0_complete' = `_at_risk' & missing(`_lag_treat')
+        gen byte `_denom0_complete' = `_at_risk' & `_first_obs' & ///
+            !missing(`treatment')
         foreach _v of varlist `d_cov' {
             replace `_denom0_complete' = 0 if missing(`_v')
         }
@@ -701,7 +707,8 @@ program define _msm_weight_treatment, rclass
             replace `_denom_pr0' = cond(`treatment' == 1, `_pr_hi', `_pr_lo') ///
                 if `_denom0_drop'
         }
-        replace `_denom_pr' = `_denom_pr0' if missing(`_denom_pr') & `_at_risk' & missing(`_lag_treat')
+        replace `_denom_pr' = `_denom_pr0' if missing(`_denom_pr') & ///
+            `_at_risk' & `_first_obs'
         drop `_denom_pr0' `_denom_complete' `_denom_drop' `_denom0_complete' `_denom0_drop'
 
         * ---------------------------------------------------------------
@@ -709,7 +716,8 @@ program define _msm_weight_treatment, rclass
         * Baseline-only model (or simpler model) for stabilization
         * ---------------------------------------------------------------
         tempvar _numer_pr _numer_complete _numer_drop
-        gen byte `_numer_complete' = `_at_risk' & !missing(`_lag_treat')
+        gen byte `_numer_complete' = `_at_risk' & !`_first_obs' & ///
+            !missing(`treatment') & !missing(`_lag_treat')
         if "`n_cov'" != "" {
             foreach _v of varlist `n_cov' {
                 replace `_numer_complete' = 0 if missing(`_v')
@@ -838,7 +846,8 @@ program define _msm_weight_treatment, rclass
 
         * First period numerator
         tempvar _numer_pr0 _numer0_complete _numer0_drop
-        gen byte `_numer0_complete' = `_at_risk' & missing(`_lag_treat')
+        gen byte `_numer0_complete' = `_at_risk' & `_first_obs' & ///
+            !missing(`treatment')
         if "`n_cov'" != "" {
             foreach _v of varlist `n_cov' {
                 replace `_numer0_complete' = 0 if missing(`_v')
@@ -959,7 +968,8 @@ program define _msm_weight_treatment, rclass
             replace `_numer_pr0' = cond(`treatment' == 1, `_pr_hi', `_pr_lo') ///
                 if `_numer0_drop'
         }
-        replace `_numer_pr' = `_numer_pr0' if missing(`_numer_pr') & `_at_risk' & missing(`_lag_treat')
+        replace `_numer_pr' = `_numer_pr0' if missing(`_numer_pr') & ///
+            `_at_risk' & `_first_obs'
         drop `_numer_pr0' `_numer_complete' `_numer_drop' `_numer0_complete' `_numer0_drop'
 
         * ---------------------------------------------------------------
@@ -993,7 +1003,7 @@ program define _msm_weight_treatment, rclass
             if `treatment' == 0 & `_at_risk' & !missing(`_denom_pr')
 
         gen byte `_miss_tw' = `_at_risk' & ///
-            (missing(`_denom_pr') | missing(`_numer_pr'))
+            (missing(`treatment') | missing(`_denom_pr') | missing(`_numer_pr'))
         quietly count if `_miss_tw'
         if r(N) > 0 {
             noisily display as text "  Warning: " as result r(N) as text ///
@@ -1018,7 +1028,7 @@ program define _msm_weight_treatment, rclass
         replace _msm_tw_weight = . if `_cum_miss_tw'
 
         * Clean up
-        drop `_at_risk' `_lag_treat' `_denom_pr' `_numer_pr' `_tw_t' ///
+        drop `_at_risk' `_lag_treat' `_first_obs' `_denom_pr' `_numer_pr' `_tw_t' ///
             `_miss_tw' `_log_tw' `_cum_log_tw' `_cum_miss_tw'
     }
 
@@ -1077,7 +1087,8 @@ program define _msm_weight_censor, rclass
         * We model P(uncensored) so weight = P_num(uncens) / P_den(uncens)
         * ---------------------------------------------------------------
         tempvar _denom_pr _denom_complete _denom_drop
-        gen byte `_denom_complete' = `_at_risk' & `outcome' == 0
+        gen byte `_denom_complete' = `_at_risk' & `outcome' == 0 & ///
+            !missing(`censor')
         foreach _v of varlist `treatment' `d_cov' `period' {
             replace `_denom_complete' = 0 if missing(`_v')
         }
@@ -1150,7 +1161,8 @@ program define _msm_weight_censor, rclass
         * NUMERATOR MODEL: P(C_t = 0 | A_t) or simpler
         * ---------------------------------------------------------------
         tempvar _numer_pr _numer_complete _numer_drop
-        gen byte `_numer_complete' = `_at_risk' & `outcome' == 0 & !missing(`treatment')
+        gen byte `_numer_complete' = `_at_risk' & `outcome' == 0 & ///
+            !missing(`censor') & !missing(`treatment')
         if "`n_cov'" != "" {
             foreach _v of varlist `n_cov' {
                 replace `_numer_complete' = 0 if missing(`_v')
@@ -1294,7 +1306,7 @@ program define _msm_weight_censor, rclass
             if `_at_risk' & `outcome' == 0 & !missing(`_denom_pr')
 
         gen byte `_miss_cw' = `_at_risk' & `outcome' == 0 & ///
-            (missing(`_denom_pr') | missing(`_numer_pr'))
+            (missing(`censor') | missing(`_denom_pr') | missing(`_numer_pr'))
         quietly count if `_miss_cw'
         if r(N) > 0 {
             noisily display as text "  Warning: " as result r(N) as text ///

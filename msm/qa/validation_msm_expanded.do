@@ -1,7 +1,7 @@
 * validation_msm_expanded.do — Expanded validation tests for msm package
 * Known-answer, invariance, consistency, and stored results validation.
 *
-* Location: ~/Stata-Tools/msm/qa/
+* Location: msm/qa/
 
 version 16.0
 clear all
@@ -1076,36 +1076,29 @@ else {
 local ++test_count
 capture noisily {
     clear
-    set seed 20260326
+    set seed 20260506
     local N = 1000
-    local T = 5
+    local T = 1
     set obs `=`N' * `T''
     gen id = ceil(_n / `T')
     bysort id: gen period = _n - 1
-    gen double bl = .
-    bysort id: replace bl = rnormal() if _n == 1
-    bysort id: replace bl = bl[1]
-    bysort id: gen treatment = (runiform() < invlogit(-0.5 + 0.3 * bl))
-    * Continuous outcome with known effect = 2.0
-    gen outcome_cont = 2.0 * treatment + 0.5 * bl + rnormal()
-    * Need binary outcome for prepare — use a dummy
-    gen outcome = (outcome_cont > 3)
+    gen double bl = runiform()
+    gen byte treatment = (_n <= `N' / 2)
+    gen byte outcome = 0
+    replace outcome = 1 if treatment == 1 & _n <= 150
+    replace outcome = 1 if treatment == 0 & inrange(_n, `N' / 2 + 1, `N' / 2 + 50)
 
     msm_prepare, id(id) period(period) treatment(treatment) ///
         outcome(outcome) baseline_covariates(bl)
     msm_weight, treat_d_cov(bl) nolog
 
-    * Replace outcome with continuous for linear fit
-    * msm_fit uses the mapped outcome variable
-    replace outcome = outcome_cont
-
-    msm_fit, model(linear) period_spec(linear) nolog
+    msm_fit, model(linear) period_spec(none) nolog
     local b = _b[treatment]
-    display "  Linear model coef = " %7.4f `b' " (true = 2.0)"
-    assert abs(`b' - 2.0) < 1.0
+    display "  Linear probability coefficient = " %7.4f `b' " (target RD = 0.20)"
+    assert abs(`b' - 0.20) < 0.06
 }
 if _rc == 0 {
-    display as result "  PASS V13.1: Linear model coefficient reasonable"
+    display as result "  PASS V13.1: Linear probability coefficient reasonable"
     local ++pass_count
 }
 else {

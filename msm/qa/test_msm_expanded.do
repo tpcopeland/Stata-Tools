@@ -3,7 +3,7 @@
 * sensitivity, diagnose, plot, fit options, weight options, validate options,
 * main command options, and edge cases.
 *
-* Location: ~/Stata-Tools/msm/qa/
+* Location: msm/qa/
 
 version 16.0
 clear all

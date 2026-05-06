@@ -72,7 +72,7 @@ if `run_only' == 0 | `run_only' == 1 {
     capture noisily {
         iivw
         assert r(n_commands) == 2
-        assert "`r(version)'" == "1.0.3"
+        assert "`r(version)'" == "1.0.4"
     }
     if _rc == 0 {
         display as result "  PASS: Test 1 - iivw overview runs and returns metadata"

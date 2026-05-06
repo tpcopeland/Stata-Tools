@@ -1,4 +1,4 @@
-*! msm_predict Version 1.0.1  2026/04/30
+*! msm_predict Version 1.0.2  2026/05/06
 *! Counterfactual predictions from marginal structural models
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet

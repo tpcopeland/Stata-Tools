@@ -1,6 +1,6 @@
 # msm - Marginal structural models for longitudinal causal analysis
 
-**Version 1.0.1** | 2026-04-30
+**Version 1.0.2** | 2026-05-06
 
 `msm` is a Stata suite for inverse-probability-weighted marginal structural models in person-period data. It is designed for longitudinal settings with time-varying treatments and confounders, where standard regression adjustment can be biased by treatment-confounder feedback.
 
@@ -110,7 +110,7 @@ Run `msm, status` at any point to see the current pipeline stage, what variables
 | `msm_fit` model | When to use it | Follow-on implications |
 |-----------------|----------------|------------------------|
 | `model(logistic)` | Binary outcomes when you also want standardized counterfactual predictions | Required for `msm_predict`; use `msm, status` to confirm prediction is available |
-| `model(linear)` | Continuous outcomes where the weighted mean difference is the target | `msm_predict` is not available; use `msm, status` to check the current stage before reporting/export |
+| `model(linear)` | Binary outcomes on the identity scale when a weighted risk difference is the target | `msm_predict` is not available; use `msm, status` to check the current stage before reporting/export |
 | `model(cox)` | Time-to-event analyses where a weighted hazard ratio is the main estimand | `msm_predict` is not available; use `msm_report`, `msm_table`, `msm_sensitivity`, and `msm, status` for pipeline state |
 
 ## Data Requirements
@@ -323,6 +323,7 @@ msm_report, eform
 
 ## Version History
 
+- **1.0.2** (2026-05-06): Added adversarial QA for state invalidation, missing treatment/censoring weights, output export restoration, and clarified binary-outcome model scope
 - **1.0.1** (2026-04-30): Hardened validation edge cases, time-fixed outcome-covariate enforcement, Cox guidance, and protocol export escaping
 - **1.0.0** (2026-04-26): Initial Stata-Tools release of the full MSM workflow suite
 

@@ -22,10 +22,8 @@ local pkg_dir "`qa_dir'/.."
 local mode = lower(strtrim("`0'"))
 local keep_outputs = inlist("`mode'", "keep", "retain")
 
-do "`qa_dir'/_cleanup_runtime_artifacts.do"
-
 local work_id = string(floor(runiform() * 1000000000), "%09.0f")
-local work_root "`c(tmpdir)'msm_crossval_`work_id'"
+local work_root "`c(tmpdir)'/msm_crossval_`work_id'"
 local work_qa_dir "`work_root'/qa"
 local data_dir "`work_qa_dir'/crossval_data"
 local results_dir "`work_qa_dir'/crossval_results"
@@ -184,13 +182,10 @@ display "STEP 4: Running R cross-validation..."
 
 capture erase "`results_dir'/r_results.csv"
 shell Rscript "`work_qa_dir'/crossval_r.R" > "`results_dir'/r_output.log" 2>&1
-if _rc {
-    display as error "R cross-validation failed. See `results_dir'/r_output.log"
-    exit _rc
-}
 capture confirm file "`results_dir'/r_results.csv"
 if _rc {
     display as error "R cross-validation did not produce r_results.csv"
+    display as error "See `results_dir'/r_output.log"
     exit 601
 }
 display "  R script completed. See `results_dir'/r_output.log"
@@ -202,13 +197,10 @@ display "STEP 5: Running Python cross-validation..."
 
 capture erase "`results_dir'/py_results.csv"
 shell python3 "`work_qa_dir'/crossval_python.py" > "`results_dir'/py_output.log" 2>&1
-if _rc {
-    display as error "Python cross-validation failed. See `results_dir'/py_output.log"
-    exit _rc
-}
 capture confirm file "`results_dir'/py_results.csv"
 if _rc {
     display as error "Python cross-validation did not produce py_results.csv"
+    display as error "See `results_dir'/py_output.log"
     exit 601
 }
 display "  Python script completed. See `results_dir'/py_output.log"

@@ -1,4 +1,4 @@
-*! msm_table Version 1.0.1  2026/04/30
+*! msm_table Version 1.0.2  2026/05/06
 *! Publication-quality Excel tables for MSM pipeline results
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet
@@ -280,6 +280,7 @@ end
 program define _msm_tbl_coef
     version 16.0
     local _orig_varabbrev = c(varabbrev)
+    local _restore_needed = 0
     set varabbrev off
 
     capture noisily {
@@ -334,6 +335,7 @@ program define _msm_tbl_coef
     local n_cols = 4
 
     preserve
+    local _restore_needed = 1
     quietly {
         clear
         set obs `nrows'
@@ -484,6 +486,7 @@ program define _msm_tbl_coef
         capture mata: mata drop _msm_xl
         noisily display as error "Excel formatting (Mata) failed with error `saved_rc'"
         restore
+        local _restore_needed = 0
         exit `saved_rc'
     }
     capture mata: mata drop _msm_xl
@@ -588,14 +591,19 @@ program define _msm_tbl_coef
         capture mata: mata drop b
         noisily display as error "Excel formatting failed with error `saved_rc'"
         restore
+        local _restore_needed = 0
         exit `saved_rc'
     }
 
     restore
+    local _restore_needed = 0
     display as text "  Sheet: `sheet'"
 
     } /* end capture noisily */
     local _rc = _rc
+    if `_restore_needed' {
+        capture restore
+    }
     set varabbrev `_orig_varabbrev'
     if `_rc' exit `_rc'
 end
@@ -607,6 +615,7 @@ end
 program define _msm_tbl_pred
     version 16.0
     local _orig_varabbrev = c(varabbrev)
+    local _restore_needed = 0
     set varabbrev off
 
     capture noisily {
@@ -653,6 +662,7 @@ program define _msm_tbl_pred
     local last_col "`result'"
 
     preserve
+    local _restore_needed = 1
     quietly {
         clear
         set obs `total_rows'
@@ -839,6 +849,7 @@ program define _msm_tbl_pred
         capture mata: mata drop _msm_xl
         noisily display as error "Excel formatting (Mata) failed with error `saved_rc'"
         restore
+        local _restore_needed = 0
         exit `saved_rc'
     }
     capture mata: mata drop _msm_xl
@@ -943,15 +954,20 @@ program define _msm_tbl_pred
         capture mata: mata drop b
         noisily display as error "Excel formatting failed with error `saved_rc'"
         restore
+        local _restore_needed = 0
         exit `saved_rc'
     }
     capture mata: mata drop b
 
     restore
+    local _restore_needed = 0
     display as text "  Sheet: `sheet'"
 
     } /* end capture noisily */
     local _rc = _rc
+    if `_restore_needed' {
+        capture restore
+    }
     set varabbrev `_orig_varabbrev'
     if `_rc' exit `_rc'
 end
@@ -963,6 +979,7 @@ end
 program define _msm_tbl_bal
     version 16.0
     local _orig_varabbrev = c(varabbrev)
+    local _restore_needed = 0
     set varabbrev off
 
     capture noisily {
@@ -1000,6 +1017,7 @@ program define _msm_tbl_bal
     }
 
     preserve
+    local _restore_needed = 1
     quietly {
         clear
         set obs `total_rows'
@@ -1103,6 +1121,7 @@ program define _msm_tbl_bal
         capture mata: mata drop _msm_xl
         noisily display as error "Excel formatting (Mata) failed with error `saved_rc'"
         restore
+        local _restore_needed = 0
         exit `saved_rc'
     }
     capture mata: mata drop _msm_xl
@@ -1168,15 +1187,20 @@ program define _msm_tbl_bal
         capture mata: mata drop b
         noisily display as error "Excel formatting failed with error `saved_rc'"
         restore
+        local _restore_needed = 0
         exit `saved_rc'
     }
     capture mata: mata drop b
 
     restore
+    local _restore_needed = 0
     display as text "  Sheet: `sheet'"
 
     } /* end capture noisily */
     local _rc = _rc
+    if `_restore_needed' {
+        capture restore
+    }
     set varabbrev `_orig_varabbrev'
     if `_rc' exit `_rc'
 end
@@ -1188,6 +1212,7 @@ end
 program define _msm_tbl_wt
     version 16.0
     local _orig_varabbrev = c(varabbrev)
+    local _restore_needed = 0
     set varabbrev off
 
     capture noisily {
@@ -1220,6 +1245,7 @@ program define _msm_tbl_wt
     local footnote_row = `total_rows' + 1
 
     preserve
+    local _restore_needed = 1
     quietly {
         clear
         set obs `total_rows'
@@ -1310,6 +1336,7 @@ program define _msm_tbl_wt
         capture mata: mata drop _msm_xl
         noisily display as error "Excel formatting (Mata) failed with error `saved_rc'"
         restore
+        local _restore_needed = 0
         exit `saved_rc'
     }
     capture mata: mata drop _msm_xl
@@ -1368,15 +1395,20 @@ program define _msm_tbl_wt
         capture mata: mata drop b
         noisily display as error "Excel formatting failed with error `saved_rc'"
         restore
+        local _restore_needed = 0
         exit `saved_rc'
     }
     capture mata: mata drop b
 
     restore
+    local _restore_needed = 0
     display as text "  Sheet: `sheet'"
 
     } /* end capture noisily */
     local _rc = _rc
+    if `_restore_needed' {
+        capture restore
+    }
     set varabbrev `_orig_varabbrev'
     if `_rc' exit `_rc'
 end
@@ -1388,6 +1420,7 @@ end
 program define _msm_tbl_sens
     version 16.0
     local _orig_varabbrev = c(varabbrev)
+    local _restore_needed = 0
     set varabbrev off
 
     capture noisily {
@@ -1424,6 +1457,7 @@ program define _msm_tbl_sens
     local footnote_row = `total_rows' + 1
 
     preserve
+    local _restore_needed = 1
     quietly {
         clear
         set obs `total_rows'
@@ -1512,6 +1546,7 @@ program define _msm_tbl_sens
         capture mata: mata drop _msm_xl
         noisily display as error "Excel formatting (Mata) failed with error `saved_rc'"
         restore
+        local _restore_needed = 0
         exit `saved_rc'
     }
     capture mata: mata drop _msm_xl
@@ -1570,15 +1605,20 @@ program define _msm_tbl_sens
         capture mata: mata drop b
         noisily display as error "Excel formatting failed with error `saved_rc'"
         restore
+        local _restore_needed = 0
         exit `saved_rc'
     }
     capture mata: mata drop b
 
     restore
+    local _restore_needed = 0
     display as text "  Sheet: `sheet'"
 
     } /* end capture noisily */
     local _rc = _rc
+    if `_restore_needed' {
+        capture restore
+    }
     set varabbrev `_orig_varabbrev'
     if `_rc' exit `_rc'
 end

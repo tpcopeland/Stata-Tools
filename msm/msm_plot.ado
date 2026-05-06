@@ -1,4 +1,4 @@
-*! msm_plot Version 1.0.1  2026/04/30
+*! msm_plot Version 1.0.2  2026/05/06
 *! Visualization for marginal structural models
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet
@@ -33,6 +33,7 @@ program define msm_plot, rclass
     version 16.0
     local _varabbrev = c(varabbrev)
     local _more = c(more)
+    local _restore_needed = 0
     set varabbrev off
     set more off
 
@@ -118,6 +119,7 @@ program define msm_plot, rclass
 
         * Build plotting dataset
         preserve
+        local _restore_needed = 1
         quietly {
             clear
             set obs `n_covs'
@@ -157,6 +159,7 @@ program define msm_plot, rclass
             title("`title'") `save_opts'
 
         restore
+        local _restore_needed = 0
     }
 
     * =========================================================================
@@ -207,6 +210,7 @@ program define msm_plot, rclass
 
         * Build plot data
         preserve
+        local _restore_needed = 1
         quietly {
             clear
             set obs `n_times'
@@ -243,6 +247,7 @@ program define msm_plot, rclass
             title("`title'") `save_opts'
 
         restore
+        local _restore_needed = 0
     }
 
     * =========================================================================
@@ -257,6 +262,7 @@ program define msm_plot, rclass
         }
 
         preserve
+        local _restore_needed = 1
         quietly {
             * Sample individuals
             tempvar _id_tag _rand _selected
@@ -281,6 +287,7 @@ program define msm_plot, rclass
             `save_opts'
 
         restore
+        local _restore_needed = 0
     }
 
     * =========================================================================
@@ -291,6 +298,7 @@ program define msm_plot, rclass
         if "`title'" == "" local title "Treatment Probability by Period"
 
         preserve
+        local _restore_needed = 1
         quietly {
             collapse (mean) treat_prob = `treatment' (count) n = `treatment', by(`period')
         }
@@ -303,12 +311,17 @@ program define msm_plot, rclass
             title("`title'") `save_opts'
 
         restore
+        local _restore_needed = 0
     }
 
     return local plot_type "`type'"
 
     } /* end capture noisily */
     local _rc = _rc
+
+    if `_restore_needed' {
+        capture restore
+    }
 
     set varabbrev `_varabbrev'
     set more `_more'

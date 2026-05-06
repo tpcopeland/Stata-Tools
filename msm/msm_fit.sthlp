@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.1  30apr2026}{...}
+{* *! version 1.0.2  06may2026}{...}
 {vieweralsosee "msm" "help msm"}{...}
 {vieweralsosee "msm_weight" "help msm_weight"}{...}
 {vieweralsosee "msm_predict" "help msm_predict"}{...}
@@ -87,8 +87,8 @@ It approximates a discrete-time survival model when the outcome is rare within
 each period.  This is the only model type that supports {helpb msm_predict}
 for counterfactual standardization.{p_end}
 
-{p2col:{cmd:model(linear)}}Weighted linear regression.  Use when the outcome is
-continuous and the target estimand is a weighted mean difference.
+{p2col:{cmd:model(linear)}}Weighted linear probability model for the prepared
+binary outcome.  Use when an identity-scale risk difference is the target.
 {helpb msm_predict} is not available for linear models.{p_end}
 
 {p2col:{cmd:model(cox)}}Weighted Cox proportional hazards.  Use when the target
@@ -192,7 +192,7 @@ in person-period data:{p_end}
 {phang2}{cmd:. msm_fit, model(cox) outcome_cov(age sex) nolog}{p_end}
 
 {pstd}
-{bf:Linear MSM for a continuous outcome:}{p_end}
+{bf:Linear probability MSM for an identity-scale risk difference:}{p_end}
 
 {phang2}{cmd:. msm_fit, model(linear) outcome_cov(age sex)}{p_end}
 

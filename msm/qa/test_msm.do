@@ -2425,7 +2425,7 @@ else {
 }
 
 * =============================================================================
-* SECTION M: AUDIT FIX REGRESSION TESTS (v1.0.1)
+* SECTION M: AUDIT FIX REGRESSION TESTS
 * Tests for fixes from msm/audit.md findings
 * =============================================================================
 
@@ -2877,10 +2877,10 @@ else {
 local ++test_count
 capture noisily {
     msm
-    assert "`r(version)'" == "1.0.1"
+    assert "`r(version)'" == "1.0.2"
 }
 if _rc == 0 {
-    display as result "  PASS D1: msm version is 1.0.1"
+    display as result "  PASS D1: msm version is 1.0.2"
     local ++pass_count
 }
 else {

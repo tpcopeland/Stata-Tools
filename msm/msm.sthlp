@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.1  30apr2026}{...}
+{* *! version 1.0.2  06may2026}{...}
 {vieweralsosee "msm_prepare" "help msm_prepare"}{...}
 {vieweralsosee "msm_validate" "help msm_validate"}{...}
 {vieweralsosee "msm_weight" "help msm_weight"}{...}
@@ -93,10 +93,10 @@ individual over time.{p_end}
 {phang2}{bf:Time-varying confounders} that are affected by past treatment and
 predictive of future treatment (treatment-confounder feedback).{p_end}
 
-{phang2}{bf:Binary treatment and outcome indicators} (0/1).  Linear models for
-continuous outcomes and Cox models for time-to-event outcomes are also
-supported for estimation, though the full prediction workflow currently
-requires a binary outcome with a pooled logistic model.{p_end}
+{phang2}{bf:Binary treatment and outcome indicators} (0/1).  Linear models use
+the prepared binary outcome on the identity scale, and Cox models estimate
+weighted hazard ratios.  The full prediction workflow currently requires a
+binary outcome with a pooled logistic model.{p_end}
 
 {pstd}
 If your treatment is assigned at a single point in time (not time-varying),

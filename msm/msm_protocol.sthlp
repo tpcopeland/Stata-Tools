@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.1  30apr2026}{...}
+{* *! version 1.0.2  06may2026}{...}
 {vieweralsosee "msm" "help msm"}{...}
 {vieweralsosee "msm_prepare" "help msm_prepare"}{...}
 {vieweralsosee "msm_report" "help msm_report"}{...}
@@ -25,7 +25,7 @@
 {p 8 17 2}
 {cmdab:msm_protocol}
 {cmd:,} {opt pop:ulation(string)} {opt treat:ment(string)}
-{opt con:founders(string)} {opt out:come(string)}
+{opt conf:ounders(string)} {opt out:come(string)}
 {opt caus:al_contrast(string)} {opt weight:_spec(string)}
 {opt ana:lysis(string)}
 [{it:options}]
@@ -36,7 +36,7 @@
 {syntab:Required (7 components)}
 {synopt:{opt pop:ulation(string)}}target population definition{p_end}
 {synopt:{opt treat:ment(string)}}treatment strategies compared{p_end}
-{synopt:{opt con:founders(string)}}confounders measured{p_end}
+{synopt:{opt conf:ounders(string)}}confounders measured{p_end}
 {synopt:{opt out:come(string)}}outcome definition{p_end}
 {synopt:{opt caus:al_contrast(string)}}causal contrast{p_end}
 {synopt:{opt weight:_spec(string)}}weight specification{p_end}
@@ -112,7 +112,7 @@ ID").{p_end}
 {opt treat:ment(string)} describes the treatment strategies being compared.
 
 {phang}
-{opt con:founders(string)} lists the measured confounders.
+{opt conf:ounders(string)} lists the measured confounders.
 
 {phang}
 {opt out:come(string)} defines the outcome of interest.

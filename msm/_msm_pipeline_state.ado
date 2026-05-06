@@ -1,4 +1,4 @@
-*! _msm_pipeline_state Version 1.0.1  2026/04/30
+*! _msm_pipeline_state Version 1.0.2  2026/05/06
 *! Compute current MSM pipeline stage and saved-artifact state
 *! Author: Timothy P Copeland
 
@@ -47,6 +47,37 @@ program define _msm_pipeline_state
         local sens_level : char _dta[_msm_sens_level]
 
         local prepared = cond("`prepared_flag'" == "1", 1, 0)
+        if `prepared' {
+            foreach var in `id' `period' `treatment' `outcome' {
+                if "`var'" == "" {
+                    local prepared = 0
+                }
+                else {
+                    capture confirm variable `var'
+                    if _rc != 0 {
+                        local prepared = 0
+                    }
+                }
+            }
+            foreach var of local censor {
+                capture confirm variable `var'
+                if _rc != 0 {
+                    local prepared = 0
+                }
+            }
+            foreach var of local covariates {
+                capture confirm variable `var'
+                if _rc != 0 {
+                    local prepared = 0
+                }
+            }
+            foreach var of local bl_covariates {
+                capture confirm variable `var'
+                if _rc != 0 {
+                    local prepared = 0
+                }
+            }
+        }
 
         local weight_vars ""
         foreach var in _msm_weight _msm_tw_weight _msm_cw_weight {
@@ -108,6 +139,29 @@ program define _msm_pipeline_state
         local sens_saved = 0
         if "`sens_flag'" == "1" & "`sens_effect'" != "" {
             local sens_saved = 1
+        }
+
+        if !`prepared' {
+            local id ""
+            local period ""
+            local treatment ""
+            local outcome ""
+            local censor ""
+            local covariates ""
+            local bl_covariates ""
+            local weight_var ""
+            local weight_vars ""
+            local fit_artifacts ""
+            local model ""
+            local fit_level ""
+            local period_spec ""
+            local outcome_cov ""
+            local pred_saved = 0
+            local bal_saved = 0
+            local diag_saved = 0
+            local sens_saved = 0
+            local weighted = 0
+            local fitted = 0
         }
 
         local stage "not_prepared"

@@ -1,4 +1,4 @@
-*! iivw_weight Version 1.0.3  2026/04/30
+*! iivw_weight Version 1.0.4  2026/05/06
 *! Compute inverse intensity of visit weights (IIW/IPTW/FIPTIW)
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet
@@ -136,6 +136,46 @@ program define iivw_weight, rclass sortpreserve
     * Confirm panel structure
     confirm variable `id'
     confirm numeric variable `time'
+
+    quietly count if missing(`id')
+    if r(N) > 0 {
+        display as error "id() contains missing values"
+        display as error "each observation must have a nonmissing subject identifier"
+        error 198
+    }
+
+    quietly count if missing(`time')
+    if r(N) > 0 {
+        display as error "time() contains missing values"
+        display as error "each observation must have a nonmissing visit time"
+        error 198
+    }
+
+    if "`entry'" != "" {
+        quietly count if missing(`entry')
+        if r(N) > 0 {
+            display as error "entry() contains missing values"
+            display as error "each observation must have a nonmissing study entry time"
+            error 198
+        }
+
+        tempvar _entry_min _entry_max _first_time
+        quietly bysort `id': egen double `_entry_min' = min(`entry')
+        quietly bysort `id': egen double `_entry_max' = max(`entry')
+        quietly count if `_entry_min' != `_entry_max'
+        if r(N) > 0 {
+            display as error "entry() must be constant within each id()"
+            error 198
+        }
+
+        quietly bysort `id' (`time'): gen double `_first_time' = `time'[1]
+        quietly count if `_entry_min' >= `_first_time'
+        if r(N) > 0 {
+            display as error "entry() must be strictly less than the first visit time within each id()"
+            error 198
+        }
+        drop `_entry_min' `_entry_max' `_first_time'
+    }
 
     * Check for sufficient observations per subject when fitting visit intensity
     if inlist("`wtype'", "iivw", "fiptiw") {

@@ -1,4 +1,4 @@
-*! _msm_clear_downstream_state Version 1.0.1  2026/04/30
+*! _msm_clear_downstream_state Version 1.0.2  2026/05/06
 *! Clear downstream MSM pipeline artifacts after re-prepare
 *! Author: Timothy P Copeland
 
@@ -7,7 +7,14 @@ program define _msm_clear_downstream_state
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     capture noisily {
-        foreach _msm_var in _msm_weight _msm_tw_weight _msm_cw_weight {
+        foreach _msm_var in ///
+            _msm_weight ///
+            _msm_tw_weight ///
+            _msm_cw_weight ///
+            _msm_esample ///
+            _msm_period_sq ///
+            _msm_period_cu ///
+            _msm_per_ns* {
             capture drop `_msm_var'
         }
 

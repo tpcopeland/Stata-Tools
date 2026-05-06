@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.1  30apr2026}{...}
+{* *! version 1.0.2  06may2026}{...}
 {vieweralsosee "msm" "help msm"}{...}
 {vieweralsosee "msm_validate" "help msm_validate"}{...}
 {vieweralsosee "msm_weight" "help msm_weight"}{...}
@@ -40,7 +40,7 @@
 {syntab:Optional}
 {synopt:{opt cen:sor(varname)}}binary censoring indicator (0/1){p_end}
 {synopt:{opt cov:ariates(varlist)}}time-varying covariates{p_end}
-{synopt:{opt bas:eline_covariates(varlist)}}baseline-only covariates{p_end}
+{synopt:{opt base:line_covariates(varlist)}}baseline-only covariates{p_end}
 {synoptline}
 
 
@@ -124,7 +124,7 @@ the treatment weight denominator model by {helpb msm_weight} and for covariate
 balance assessment by {helpb msm_diagnose}.  All variables must be numeric.
 
 {phang}
-{opth bas:eline_covariates(varlist)} specifies covariates that are fixed at
+{opth base:line_covariates(varlist)} specifies covariates that are fixed at
 baseline and do not change over time within an individual (e.g., sex, baseline
 age, race).  {cmd:msm_prepare} verifies that these variables are truly constant
 within person.  Baseline covariates are commonly included in both the weight

@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.1  30apr2026}{...}
+{* *! version 1.0.2  06may2026}{...}
 {vieweralsosee "msm" "help msm"}{...}
 {vieweralsosee "msm_fit" "help msm_fit"}{...}
 {vieweralsosee "msm_plot" "help msm_plot"}{...}
@@ -42,7 +42,7 @@
 {synopt:{opt type(string)}}{cmd:cum_inc} (default) or {cmd:survival}{p_end}
 
 {syntab:Monte Carlo settings}
-{synopt:{opt sam:ples(#)}}MC draws for confidence intervals; default {cmd:100}{p_end}
+{synopt:{opt samp:les(#)}}MC draws for confidence intervals; default {cmd:100}{p_end}
 {synopt:{opt seed(#)}}random number seed for reproducibility{p_end}
 {synopt:{opt level(#)}}confidence level; default {cmd:95}{p_end}
 
@@ -132,7 +132,7 @@ reports cumulative incidence (risk).  {cmd:survival} reports one minus
 cumulative incidence.
 
 {phang}
-{opt sam:ples(#)} specifies the number of Monte Carlo draws from the
+{opt samp:les(#)} specifies the number of Monte Carlo draws from the
 coefficient distribution for CI estimation.  Default is 100.  More draws
 produce smoother CIs but take longer.  Must be at least 10.
 

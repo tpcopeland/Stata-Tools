@@ -1,4 +1,4 @@
-*! msm_protocol Version 1.0.1  2026/04/30
+*! msm_protocol Version 1.0.2  2026/05/06
 *! MSM study protocol specification
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet
@@ -33,6 +33,7 @@ program define msm_protocol, rclass
     version 16.0
     local _varabbrev = c(varabbrev)
     local _more = c(more)
+    local _restore_needed = 0
     set varabbrev off
     set more off
 
@@ -141,6 +142,7 @@ program define msm_protocol, rclass
 
         quietly {
             preserve
+            local _restore_needed = 1
             clear
             set obs 7
             gen str40 component = ""
@@ -164,6 +166,7 @@ program define msm_protocol, rclass
             export excel using "`export'", sheet("Protocol") ///
                 firstrow(variables) `rep_opt'
             restore
+            local _restore_needed = 0
         }
         display as text "Protocol exported to: " as result "`export'"
     }
@@ -235,6 +238,10 @@ program define msm_protocol, rclass
 
     } /* end capture noisily */
     local _rc = _rc
+
+    if `_restore_needed' {
+        capture restore
+    }
 
     set varabbrev `_varabbrev'
     set more `_more'

@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.3  30apr2026}{...}
+{* *! version 1.0.4  06may2026}{...}
 {vieweralsosee "iivw" "help iivw"}{...}
 {vieweralsosee "iivw_weight" "help iivw_weight"}{...}
 {vieweralsosee "[XT] xtgee" "help xtgee"}{...}
@@ -319,7 +319,7 @@ the {cmd:tabtools} package; install separately if needed).
 To compare multiple weighting strategies side by side:
 
 {phang2}{cmd:. collect clear}{p_end}
-{phang2}{cmd:. iivw_weight, id(id) time(t) visit_cov(x1) truncate(1 99) nolog}{p_end}
+{phang2}{cmd:. iivw_weight, id(id) time(t) visit_cov(x1) truncate(1 99) replace nolog}{p_end}
 {phang2}{cmd:. iivw_fit y treated age, model(gee) nolog collect}{p_end}
 {phang2}{cmd:. iivw_weight, id(id) time(t) visit_cov(x1) treat(treated) treat_cov(age) truncate(1 99) replace nolog}{p_end}
 {phang2}{cmd:. iivw_fit y treated age, model(gee) nolog collect}{p_end}
@@ -487,7 +487,7 @@ Allow both treatment and age effects to vary over time.
 Run two weighting strategies and combine them in a single Excel table.
 
 {phang2}{cmd:. collect clear}{p_end}
-{phang2}{cmd:. iivw_weight, id(id) time(days) visit_cov(edss relapse) truncate(1 99) nolog}{p_end}
+{phang2}{cmd:. iivw_weight, id(id) time(days) visit_cov(edss relapse) truncate(1 99) replace nolog}{p_end}
 {phang2}{cmd:. iivw_fit edss treated edss_bl, model(gee) nolog collect}{p_end}
 {phang2}{cmd:. iivw_weight, id(id) time(days) visit_cov(edss relapse) treat(treated) treat_cov(age sex edss_bl) truncate(1 99) replace nolog}{p_end}
 {phang2}{cmd:. iivw_fit edss treated edss_bl, model(gee) nolog replace collect}{p_end}
@@ -594,7 +594,7 @@ On flexible inverse probability of treatment and intensity weighting.
 {pstd}Timothy P Copeland{p_end}
 {pstd}Department of Clinical Neuroscience{p_end}
 {pstd}Karolinska Institutet{p_end}
-{pstd}Version 1.0.3, 2026-04-30{p_end}
+{pstd}Version 1.0.4, 2026-05-06{p_end}
 
 
 {title:Also see}

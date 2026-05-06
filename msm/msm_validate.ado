@@ -1,4 +1,4 @@
-*! msm_validate Version 1.0.1  2026/04/30
+*! msm_validate Version 1.0.2  2026/05/06
 *! Data quality checks for marginal structural models
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet
@@ -26,7 +26,11 @@ program define msm_validate, rclass
     set varabbrev off
     set more off
 
+    tempvar _msm_orig_order
+
     capture noisily {
+
+    quietly gen long `_msm_orig_order' = _n
 
     syntax [, STRict VERbose]
 
@@ -51,6 +55,24 @@ program define msm_validate, rclass
     display as result "msm_validate" as text " - Data Quality Checks"
     display as text "{hline 70}"
     display as text ""
+
+    * Re-check binary mappings in case the data changed after msm_prepare.
+    foreach var in `treatment' `outcome' {
+        quietly count if !missing(`var') & !inlist(`var', 0, 1)
+        if r(N) > 0 {
+            display as error "  FAIL: `var' must be binary (0/1); found " ///
+                r(N) " non-binary values"
+            local ++n_errors
+        }
+    }
+    if "`censor'" != "" {
+        quietly count if !missing(`censor') & !inlist(`censor', 0, 1)
+        if r(N) > 0 {
+            display as error "  FAIL: `censor' must be binary (0/1); found " ///
+                r(N) " non-binary values"
+            local ++n_errors
+        }
+    }
 
     * =========================================================================
     * CHECK 1: Person-period format (exactly one row per id-period)
@@ -458,6 +480,10 @@ program define msm_validate, rclass
         display as text "{hline 70}"
     }
 
+    * Restore caller's physical observation order before returning.
+    sort `_msm_orig_order'
+    drop `_msm_orig_order'
+
     * =========================================================================
     * RETURN RESULTS
     * =========================================================================
@@ -476,6 +502,12 @@ program define msm_validate, rclass
 
     } /* end capture noisily */
     local _rc = _rc
+
+    capture confirm variable `_msm_orig_order'
+    if _rc == 0 {
+        capture sort `_msm_orig_order'
+        capture drop `_msm_orig_order'
+    }
 
     set varabbrev `_varabbrev'
     set more `_more'

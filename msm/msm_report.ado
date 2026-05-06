@@ -1,4 +1,4 @@
-*! msm_report Version 1.0.1  2026/04/30
+*! msm_report Version 1.0.2  2026/05/06
 *! Publication-quality results tables for MSM
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet
@@ -33,6 +33,7 @@ program define msm_report, rclass
     version 16.0
     local _varabbrev = c(varabbrev)
     local _more = c(more)
+    local _restore_needed = 0
     set varabbrev off
     set more off
 
@@ -365,6 +366,7 @@ program define msm_report, rclass
 
         quietly {
             preserve
+            local _restore_needed = 1
             clear
             set obs `_sum_total'
 
@@ -508,13 +510,17 @@ program define msm_report, rclass
             if _rc {
                 local saved_rc = _rc
                 capture mata: b.close_book()
+                local _cleanup_rc = _rc
                 capture mata: mata drop b
+                local _cleanup_rc = _rc
                 restore
+                local _restore_needed = 0
                 exit `saved_rc'
             }
             capture mata: mata drop b
 
             restore
+            local _restore_needed = 0
         }
 
         * ---------------------------------------------------------------
@@ -538,6 +544,7 @@ program define msm_report, rclass
                 }
 
                 preserve
+                local _restore_needed = 1
                 clear
                 local _coef_total = `n_coefs' + 2
                 set obs `_coef_total'
@@ -756,13 +763,17 @@ program define msm_report, rclass
                 if _rc {
                     local saved_rc = _rc
                     capture mata: b.close_book()
+                    local _cleanup_rc = _rc
                     capture mata: mata drop b
+                    local _cleanup_rc = _rc
                     restore
+                    local _restore_needed = 0
                     exit `saved_rc'
                 }
                 capture mata: mata drop b
 
                 restore
+                local _restore_needed = 0
             }
         }
 
@@ -778,6 +789,10 @@ program define msm_report, rclass
 
     } /* end capture noisily */
     local _rc = _rc
+
+    if `_restore_needed' {
+        capture restore
+    }
 
     set varabbrev `_varabbrev'
     set more `_more'

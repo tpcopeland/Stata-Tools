@@ -16,11 +16,15 @@ foreach f in ///
     test_msm_fit_guidance.log ///
     test_msm_cox_state.log ///
     test_msm_weight_failures.log ///
+    test_msm_weight_adversarial.log ///
+    test_msm_prepare_validate_adversarial.log ///
+    test_msm_output_adversarial.log ///
     test_msm_expanded.log ///
     validation_msm.log ///
     validation_msm_known_answers.log ///
     validation_msm_expanded.log ///
     validation_msm_sensitivity.log ///
+    crossval_external_models.log ///
     crossval_msm.log {
     capture erase "`qa_dir'/`f'"
 }

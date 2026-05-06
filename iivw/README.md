@@ -1,6 +1,6 @@
 # iivw - Inverse intensity of visit weighting for longitudinal data
 
-**Version 1.0.3** | 2026-04-30
+**Version 1.0.4** | 2026-05-06
 
 `iivw` corrects bias from informative visit timing in irregular longitudinal data.  In clinic-based studies, sicker patients often visit more frequently, so they contribute more rows to the dataset and bias naive analyses.  This package re-weights each observation so the analysis behaves as though patients were observed on a common schedule.
 
@@ -209,6 +209,13 @@ do iivw/demo/demo_iivw.do
 - Tompkins G, Dubin JA, Wallace M. On flexible inverse probability of treatment and intensity weighting. *Statistical Methods in Medical Research*. 2025.
 
 ## Changelog
+
+### v1.0.4 (2026-05-06)
+
+- Added hard validation that `id()` and `time()` are nonmissing before `iivw_weight` reaches `stset`
+- Enforced `entry()` as nonmissing, constant within subject, and strictly earlier than each subject's first visit
+- Added adversarial QA lanes for weighting, outcome fitting, release/install/docs, validation guards, and external R cross-validation
+- Integrated quick/full QA runner modes with full-mode R reference regeneration
 
 ### v1.0.3 (2026-04-30)
 

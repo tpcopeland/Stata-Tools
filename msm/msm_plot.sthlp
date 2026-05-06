@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.1  30apr2026}{...}
+{* *! version 1.0.2  06may2026}{...}
 {vieweralsosee "msm" "help msm"}{...}
 {vieweralsosee "msm_diagnose" "help msm_diagnose"}{...}
 {vieweralsosee "msm_predict" "help msm_predict"}{...}
@@ -39,7 +39,7 @@
 
 {syntab:Survival plot options}
 {synopt:{opt times(numlist)}}time periods for survival curves{p_end}
-{synopt:{opt sam:ples(#)}}MC samples for CI bands; default {cmd:50}{p_end}
+{synopt:{opt samp:les(#)}}MC samples for CI bands; default {cmd:50}{p_end}
 {synopt:{opt seed(#)}}random seed for survival curves{p_end}
 
 {syntab:Trajectory plot options}
@@ -125,7 +125,7 @@ Love plot.  Default is 0.1.
 incidence curves.  Required when {cmd:type(survival)} is specified.
 
 {phang}
-{opt sam:ples(#)} specifies MC draws for the confidence bands.  Default is
+{opt samp:les(#)} specifies MC draws for the confidence bands.  Default is
 50 (lower than the {helpb msm_predict} default because plotting needs fewer
 draws for smooth bands).
 

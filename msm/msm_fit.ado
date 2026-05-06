@@ -1,4 +1,4 @@
-*! msm_fit Version 1.0.1  2026/04/30
+*! msm_fit Version 1.0.2  2026/05/06
 *! Weighted outcome model for marginal structural models
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet
@@ -57,6 +57,27 @@ program define msm_fit, eclass
     local treatment  "`_msm_treatment'"
     local outcome    "`_msm_outcome'"
     local censor     "`_msm_censor'"
+
+    * Re-check mapped binary variables in case the caller modified data after
+    * prepare/weight; stale metadata must not authorize a different target.
+    foreach var in `treatment' `outcome' {
+        quietly count if !missing(`var') & !inlist(`var', 0, 1)
+        if r(N) > 0 {
+            display as error "prepared MSM variable `var' must be binary (0/1); found " ///
+                r(N) " non-binary values"
+            display as error "Re-run {bf:msm_prepare} after correcting or remapping variables."
+            exit 198
+        }
+    }
+    if "`censor'" != "" {
+        quietly count if !missing(`censor') & !inlist(`censor', 0, 1)
+        if r(N) > 0 {
+            display as error "prepared MSM censoring variable `censor' must be binary (0/1); found " ///
+                r(N) " non-binary values"
+            display as error "Re-run {bf:msm_prepare} after correcting or remapping variables."
+            exit 198
+        }
+    }
 
     * =========================================================================
     * DEFAULTS

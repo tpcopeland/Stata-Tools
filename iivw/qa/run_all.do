@@ -6,6 +6,14 @@ version 16.0
 * Works whether invoked from package root or from qa/ directly:
 *   stata-mp -b do iivw/qa/run_all.do   (from Stata-Tools root)
 *   stata-mp -b do run_all.do           (from iivw/qa/)
+*   stata-mp -b do run_all.do quick     (skip R cross-validation lanes)
+
+args mode
+if "`mode'" == "" local mode "full"
+if !inlist("`mode'", "full", "quick") {
+    display as error "mode must be full or quick"
+    exit 198
+}
 
 * Resolve qa directory from the invocation's cwd
 local here "`c(pwd)'"
@@ -17,6 +25,8 @@ else {
     * Assume Stata-Tools root or similar
     local qa_dir "`here'/iivw/qa"
 }
+local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
+local repo_dir = subinstr("`pkg_dir'", "/iivw", "", 1)
 
 * Each sub-suite's bootstrap uses `c(pwd)' to find the package — run from qa
 cd "`qa_dir'"
@@ -25,7 +35,29 @@ local suites          ///
     test_iivw         ///
     test_iivw_expanded ///
     validation_iivw    ///
-    validation_iivw_expanded
+    validation_iivw_expanded ///
+    test_iivw_weight_validation_guards ///
+    test_iivw_weight_adversarial ///
+    test_iivw_fit_adversarial ///
+    test_iivw_release_adversarial
+
+if "`mode'" == "full" {
+    display as text "Generating R references for crossval_iivw.do..."
+    capture noisily shell cd "`repo_dir'" && Rscript iivw/qa/crossval_irreglong.R
+    if _rc {
+        display as error "FAILED: crossval_irreglong.R (rc=`=_rc')"
+        exit _rc
+    }
+    capture noisily shell cd "`repo_dir'" && Rscript iivw/qa/crossval_fiptiw.R
+    if _rc {
+        display as error "FAILED: crossval_fiptiw.R (rc=`=_rc')"
+        exit _rc
+    }
+
+    local suites `suites' ///
+        crossval_iivw ///
+        crossval_iivw_external
+}
 
 local suite_pass = 0
 local suite_fail = 0
@@ -62,6 +94,6 @@ if `suite_fail' > 0 {
     display as error "Failed suites:`failed_suites'"
     exit 1
 }
-
-* crossval_iivw.do runs separately — requires R reference CSVs staged first
-display as text "Note: crossval_iivw.do must be run separately after generating R references"
+if "`mode'" == "quick" {
+    display as text "Note: quick mode skipped R cross-validation lanes"
+}
