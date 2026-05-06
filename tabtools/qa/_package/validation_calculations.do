@@ -275,6 +275,7 @@ capture noisily {
         * Find rows by A column label
         local found_n = 0
         local found_aic = 0
+        local found_bic = 0
         forvalues i = 1/`=_N' {
             local label = strtrim(A[`i'])
             if "`label'" == "Observations" {
@@ -287,13 +288,19 @@ capture noisily {
                 assert abs(`frame_aic' - `ref_aic') < 0.2
                 local found_aic = 1
             }
+            if strpos("`label'", "BIC") > 0 {
+                local frame_bic = real(strtrim(c1[`i']))
+                assert abs(`frame_bic' - `ref_bic') < 0.2
+                local found_bic = 1
+            }
         }
         assert `found_n' == 1
         assert `found_aic' == 1
+        assert `found_bic' == 1
     }
 }
 if _rc == 0 {
-    display as result "  PASS: VC2.3 — regtab stats N/AIC match estat ic"
+    display as result "  PASS: VC2.3 — regtab stats N/AIC/BIC match estat ic"
     local ++n_pass
 }
 else {

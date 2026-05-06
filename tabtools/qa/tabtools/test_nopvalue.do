@@ -11,7 +11,9 @@ local test_count = 0
 local pass_count = 0
 local fail_count = 0
 
-adopath + "/home/tpcopeland/Stata-Tools/tabtools"
+local qa_dir "`c(pwd)'"
+local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
+adopath + "`pkg_dir'"
 
 **# T1: Default by() produces p-value column
 
