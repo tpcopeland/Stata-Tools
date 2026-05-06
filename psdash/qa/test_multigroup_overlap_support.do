@@ -52,6 +52,12 @@ replace ps2 = 0.2 + rnormal() * 0.07 if treat == 1
 replace ps2 = 0.5 + rnormal() * 0.1 if treat == 2
 replace ps2 = max(0.001, min(0.999, ps2))
 
+egen double ps_sum = rowtotal(ps0 ps1 ps2)
+replace ps0 = ps0 / ps_sum
+replace ps1 = ps1 / ps_sum
+replace ps2 = ps2 / ps_sum
+drop ps_sum
+
 capture program drop _mg_adversarial_gps_data
 program define _mg_adversarial_gps_data
     clear
@@ -65,7 +71,7 @@ program define _mg_adversarial_gps_data
     replace gps0 = 0.70 in 1
     replace gps0 = 0.80 in 2
     replace gps0 = 0.20 in 3
-    replace gps0 = 0.30 in 4
+    replace gps0 = 0.15 in 4
     replace gps0 = 0.10 in 5
     replace gps0 = 0.15 in 6
 

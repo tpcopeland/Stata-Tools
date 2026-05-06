@@ -1,4 +1,4 @@
-*! _psdash_detect Version 1.0.0  2026/04/29
+*! _psdash_detect Version 1.0.1  2026/05/06
 *! Auto-detect propensity score components from estimation context
 *! Author: Timothy P Copeland
 *! Internal helper — not user-facing
@@ -176,6 +176,14 @@ program define _psdash_detect
                 * Allow single psvar with K=2 non-0/1
                 if `_K' == 2 & "`arg_psvar'" != "" {
                     * For K=2 non-0/1, single PS is P(treatment=level2|X)
+                    local _sv_cond "1"
+                    if "`samplevar'" != "" local _sv_cond "`samplevar'"
+                    quietly count if `_sv_cond' & !missing(`arg_psvar') ///
+                        & (`arg_psvar' < 0 | `arg_psvar' > 1)
+                    if r(N) > 0 {
+                        display as error "propensity scores must be in [0,1]"
+                        exit 198
+                    }
                     c_local _psd_psvar "`arg_psvar'"
                     c_local _psd_psvar_auto "0"
                 }
@@ -200,6 +208,39 @@ program define _psdash_detect
                     local _ps_v : word `_ps_idx' of `psvars'
                     c_local _psd_ps_`_lv' "`_ps_v'"
                     local _ps_idx = `_ps_idx' + 1
+                }
+                tempvar _psv_sum _psv_complete
+                local _sv_cond "1"
+                if "`samplevar'" != "" local _sv_cond "`samplevar'"
+                quietly {
+                    gen double `_psv_sum' = 0 if `_sv_cond'
+                    gen byte `_psv_complete' = 1 if `_sv_cond'
+                }
+                local _bad_psvar ""
+                local _bad_range = 0
+                foreach _ps_v of local psvars {
+                    quietly count if `_sv_cond' & !missing(`_ps_v') ///
+                        & (`_ps_v' < 0 | `_ps_v' > 1)
+                    if r(N) > 0 & `_bad_range' == 0 {
+                        local _bad_psvar "`_ps_v'"
+                        local _bad_range = r(N)
+                    }
+                    quietly replace `_psv_complete' = 0 ///
+                        if `_sv_cond' & missing(`_ps_v')
+                    quietly replace `_psv_sum' = `_psv_sum' + `_ps_v' ///
+                        if `_sv_cond' & !missing(`_ps_v')
+                }
+                if `_bad_range' > 0 {
+                    display as error "propensity scores must be in [0,1]"
+                    display as error "  invalid values found in `_bad_psvar'"
+                    exit 198
+                }
+                quietly count if `_sv_cond' & `_psv_complete' ///
+                    & abs(`_psv_sum' - 1) > 1e-6
+                if r(N) > 0 {
+                    display as error "psvars() probabilities must sum to 1 within each observation"
+                    display as error "  offending complete rows: " r(N)
+                    exit 198
                 }
                 * First PS variable for backward compat
                 gettoken _first_psv _rest_psv : psvars
@@ -238,8 +279,14 @@ program define _psdash_detect
                     if "`samplevar'" != "" local _sv "& `samplevar'"
                     gen double `wt_storage' = .
 
-                    if "`estimand'" == "ate" {
-                        * ATE: w = 1 / P(A=a|X) for each obs's own group
+                    local _single_k2_ps = (`_K' == 2 & "`psvars'" == "" & "`arg_psvar'" != "")
+                    if `_single_k2_ps' {
+                        local _lev1 : word 1 of `_trt_levels'
+                        local _lev2 : word 2 of `_trt_levels'
+                        local _ownps_`_lev1' "(1 - `arg_psvar')"
+                        local _ownps_`_lev2' "`arg_psvar'"
+                    }
+                    else {
                         foreach _lv of local _trt_levels {
                             local _ps_lv "`_psd_ps_`_lv''"
                             if "`_ps_lv'" == "" {
@@ -252,35 +299,31 @@ program define _psdash_detect
                                     local _lv_idx = `_lv_idx' + 1
                                 }
                             }
-                            replace `wt_storage' = 1 / `_ps_lv' ///
-                                if `arg_treatment' == `_lv' & `_ps_lv' > 0 `_sv'
+                            local _ownps_`_lv' "`_ps_lv'"
+                        }
+                    }
+
+                    if "`estimand'" == "ate" {
+                        * ATE: w = 1 / P(A=a|X) for each obs's own group
+                        foreach _lv of local _trt_levels {
+                            local _ps_expr "`_ownps_`_lv''"
+                            replace `wt_storage' = 1 / (`_ps_expr') ///
+                                if `arg_treatment' == `_lv' & (`_ps_expr') > 0 `_sv'
                         }
                     }
                     else if "`estimand'" == "att" {
                         * ATT: w=1 for reference, w=P(A=ref|X)/P(A=a|X) for others
                         * Get reference group PS variable
-                        local _ref_ps_idx = 1
-                        foreach _lv of local _trt_levels {
-                            if "`_lv'" == "`_ref_level'" {
-                                local _ps_ref : word `_ref_ps_idx' of `psvars'
-                            }
-                            local _ref_ps_idx = `_ref_ps_idx' + 1
-                        }
+                        local _ps_ref "`_ownps_`_ref_level''"
                         foreach _lv of local _trt_levels {
                             if "`_lv'" == "`_ref_level'" {
                                 replace `wt_storage' = 1 ///
                                     if `arg_treatment' == `_lv' `_sv'
                             }
                             else {
-                                local _att_ps_idx = 1
-                                foreach _lv2 of local _trt_levels {
-                                    if "`_lv2'" == "`_lv'" {
-                                        local _ps_lv : word `_att_ps_idx' of `psvars'
-                                    }
-                                    local _att_ps_idx = `_att_ps_idx' + 1
-                                }
-                                replace `wt_storage' = `_ps_ref' / `_ps_lv' ///
-                                    if `arg_treatment' == `_lv' & `_ps_lv' > 0 `_sv'
+                                local _ps_expr "`_ownps_`_lv''"
+                                replace `wt_storage' = (`_ps_ref') / (`_ps_expr') ///
+                                    if `arg_treatment' == `_lv' & (`_ps_expr') > 0 `_sv'
                             }
                         }
                     }
@@ -289,15 +332,9 @@ program define _psdash_detect
                         * For simplicity, ATC with multi-group uses same formula as ATE
                         * This is the standard approach; ATT/ATC are less common with K>2
                         foreach _lv of local _trt_levels {
-                            local _atc_ps_idx = 1
-                            foreach _lv2 of local _trt_levels {
-                                if "`_lv2'" == "`_lv'" {
-                                    local _ps_lv : word `_atc_ps_idx' of `psvars'
-                                }
-                                local _atc_ps_idx = `_atc_ps_idx' + 1
-                            }
-                            replace `wt_storage' = 1 / `_ps_lv' ///
-                                if `arg_treatment' == `_lv' & `_ps_lv' > 0 `_sv'
+                            local _ps_expr "`_ownps_`_lv''"
+                            replace `wt_storage' = 1 / (`_ps_expr') ///
+                                if `arg_treatment' == `_lv' & (`_ps_expr') > 0 `_sv'
                         }
                     }
                 }
@@ -463,11 +500,13 @@ program define _psdash_detect
                     }
                     drop `ps_storage'
                 }
+                * teffects' default predict, ps is for the base treatment
+                * level; psdash binary formulas require P(A=1|X).
                 if "`samplevar'" != "" {
-                    quietly predict double `ps_storage' if `samplevar', ps
+                    quietly predict double `ps_storage' if `samplevar', ps tlevel(1)
                 }
                 else {
-                    quietly predict double `ps_storage', ps
+                    quietly predict double `ps_storage', ps tlevel(1)
                 }
                 if `ps_fixed' {
                     char `ps_storage'[_psdash_auto] 1
@@ -647,6 +686,12 @@ program define _psdash_detect
         }
         else if `nargs' == 1 {
             * Single arg could be psvar if treatment is auto-detected
+            if "`arg_treatment'" == "`est_treatment'" {
+                display as error "after logit/probit, specify the propensity score variable"
+                display as error "  treatment is already auto-detected as `est_treatment'"
+                display as error "  e.g., {cmd:psdash overlap ps_varname}"
+                exit 198
+            }
             c_local _psd_treatment "`est_treatment'"
             c_local _psd_psvar "`arg_treatment'"
             c_local _psd_psvar_auto "0"
@@ -798,6 +843,39 @@ program define _psdash_detect
                 local _ps_v : word `_ps_idx' of `psvars'
                 c_local _psd_ps_`_lv' "`_ps_v'"
                 local _ps_idx = `_ps_idx' + 1
+            }
+            tempvar _psv_sum _psv_complete
+            local _sv_cond "1"
+            if "`samplevar'" != "" local _sv_cond "`samplevar'"
+            quietly {
+                gen double `_psv_sum' = 0 if `_sv_cond'
+                gen byte `_psv_complete' = 1 if `_sv_cond'
+            }
+            local _bad_psvar ""
+            local _bad_range = 0
+            foreach _ps_v of local psvars {
+                quietly count if `_sv_cond' & !missing(`_ps_v') ///
+                    & (`_ps_v' < 0 | `_ps_v' > 1)
+                if r(N) > 0 & `_bad_range' == 0 {
+                    local _bad_psvar "`_ps_v'"
+                    local _bad_range = r(N)
+                }
+                quietly replace `_psv_complete' = 0 ///
+                    if `_sv_cond' & missing(`_ps_v')
+                quietly replace `_psv_sum' = `_psv_sum' + `_ps_v' ///
+                    if `_sv_cond' & !missing(`_ps_v')
+            }
+            if `_bad_range' > 0 {
+                display as error "propensity scores must be in [0,1]"
+                display as error "  invalid values found in `_bad_psvar'"
+                exit 198
+            }
+            quietly count if `_sv_cond' & `_psv_complete' ///
+                & abs(`_psv_sum' - 1) > 1e-6
+            if r(N) > 0 {
+                display as error "psvars() probabilities must sum to 1 within each observation"
+                display as error "  offending complete rows: " r(N)
+                exit 198
             }
             gettoken _first_psv _rest_psv : psvars
             c_local _psd_psvar "`_first_psv'"

@@ -47,7 +47,7 @@ program define _mg_weights_ps_data
     replace gps0 = 0.70 in 1
     replace gps0 = 0.80 in 2
     replace gps0 = 0.20 in 3
-    replace gps0 = 0.30 in 4
+    replace gps0 = 0.15 in 4
     replace gps0 = 0.10 in 5
     replace gps0 = 0.15 in 6
 

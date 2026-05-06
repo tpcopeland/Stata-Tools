@@ -7,10 +7,13 @@ local fail = 0
 local skip = 0
 
 local suite_files test_psdash.do validation_psdash.do validation_known_answers.do ///
-    crossval_psdash.do crossval_python_psdash.do ///
+    crossval_psdash.do crossval_python_psdash.do crossval_external_references.do ///
     test_multigroup_detect.do test_multigroup_overlap_support.do ///
     test_multigroup_balance_weights.do ///
-    test_adversarial.do
+    test_adversarial.do test_detect_dispatch_adversarial.do ///
+    test_binary_balance_weights_adversarial.do ///
+    test_overlap_support_multigroup_adversarial.do ///
+    test_multigroup_psvars_regression.do
 
 foreach f of local suite_files {
     capture noisily do "`qa_dir'/`f'"

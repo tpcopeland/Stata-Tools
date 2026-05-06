@@ -1,4 +1,4 @@
-*! psdash_balance Version 1.0.0  2026/04/29
+*! psdash_balance Version 1.0.1  2026/05/06
 *! Covariate balance diagnostics with standardized mean differences
 *! Author: Timothy P Copeland
 *! Program class: rclass
@@ -487,6 +487,8 @@ program define psdash_balance, rclass
     local max_smd_adj = 0
     local max_vr_raw = 1
     local max_vr_adj = 1
+    local max_vr_raw_dev = 0
+    local max_vr_adj_dev = 0
     local max_ks_raw = 0
     local n_imbalanced = 0
     local n_vr_imbalanced = 0
@@ -502,7 +504,10 @@ program define psdash_balance, rclass
         if !missing(`balance_mat'[`i', 4]) {
             local vr_i = `balance_mat'[`i', 4]
             local dev_from_1 = max(abs(`vr_i' - 1), abs(1/`vr_i' - 1))
-            if `dev_from_1' > abs(`max_vr_raw' - 1) local max_vr_raw = `vr_i'
+            if `dev_from_1' > `max_vr_raw_dev' {
+                local max_vr_raw = `vr_i'
+                local max_vr_raw_dev = `dev_from_1'
+            }
             if `vr_i' < 0.5 | `vr_i' > 2 {
                 local n_vr_imbalanced = `n_vr_imbalanced' + 1
             }
@@ -529,7 +534,10 @@ program define psdash_balance, rclass
             if !missing(`balance_mat'[`i', 9]) {
                 local vr_adj_i = `balance_mat'[`i', 9]
                 local dev_adj = max(abs(`vr_adj_i' - 1), abs(1/`vr_adj_i' - 1))
-                if `dev_adj' > abs(`max_vr_adj' - 1) local max_vr_adj = `vr_adj_i'
+                if `dev_adj' > `max_vr_adj_dev' {
+                    local max_vr_adj = `vr_adj_i'
+                    local max_vr_adj_dev = `dev_adj'
+                }
             }
         }
         else {

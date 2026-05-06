@@ -1,6 +1,6 @@
 # psdash — Propensity Score Diagnostics Dashboard
 
-**Version 1.0.0** | 2026-04-29
+**Version 1.0.1** | 2026-05-06
 
 Unified diagnostics dashboard for propensity score analyses in Stata. After `teffects`, after `logit`/`probit` with manually supplied propensity scores from `predict`, or in fully manual mode, `psdash` assesses the four standard PS diagnostic domains through one command family: overlap between treatment groups (`psdash overlap`), covariate balance before and after weighting (`psdash balance`), weight distribution and effective sample size (`psdash weights`), and common-support regions (`psdash support`). `psdash combined` runs all four and produces a consolidated dashboard.
 
@@ -551,4 +551,5 @@ PNG demo images in demo/ are tracked in this repository.
 
 ## Version History
 
+- **v1.0.1** (06 May 2026): Hardened PS detection and validation, fixed `teffects` binary PS orientation, K=2 non-0/1 auto-weights, support `threshold(0)`, and binary variance-ratio summaries.
 - **v1.0.0** (29 Apr 2026): Initial release with five subcommands

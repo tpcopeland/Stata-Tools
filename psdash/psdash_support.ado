@@ -1,4 +1,4 @@
-*! psdash_support Version 1.0.0  2026/04/29
+*! psdash_support Version 1.0.1  2026/05/06
 *! Common support assessment for propensity score analysis
 *! Author: Timothy P Copeland
 *! Program class: rclass
@@ -78,7 +78,7 @@ program define psdash_support, rclass
     syntax [anything] [if] [in], ///
         [COVariates(varlist numeric) ///
          CRUMP ///
-         THReshold(real 0) ///
+         THReshold(real -1) ///
          GENerate(name) ///
          replace ///
          NOGraph ///
@@ -223,12 +223,12 @@ program define psdash_support, rclass
         display as text "  consider {cmd:psdash support, crump} or {cmd:psdash support, threshold(0.05)}"
     }
 
-    if "`crump'" != "" & `threshold' != 0 {
+    if "`crump'" != "" & `threshold' != -1 {
         display as error "cannot specify both crump and threshold()"
         exit 198
     }
 
-    if `threshold' != 0 {
+    if `threshold' != -1 {
         if `threshold' <= 0 | `threshold' >= 0.5 {
             display as error "threshold() must be between 0 and 0.5"
             exit 198
@@ -360,7 +360,7 @@ program define psdash_support, rclass
         }
     }
 
-    if `threshold' != 0 {
+    if `threshold' != -1 {
         local has_trimming = 1
         local trim_lower = `threshold'
         local trim_upper = 1 - `threshold'
@@ -623,12 +623,12 @@ program define psdash_support, rclass
         display as text "  consider {cmd:psdash support, threshold(0.05)}"
     }
 
-    if "`crump'" != "" & `threshold' != 0 {
+    if "`crump'" != "" & `threshold' != -1 {
         display as error "cannot specify both crump and threshold()"
         exit 198
     }
 
-    if `threshold' != 0 {
+    if `threshold' != -1 {
         if `threshold' <= 0 | `threshold' >= 0.5 {
             display as error "threshold() must be between 0 and 0.5"
             exit 198
@@ -710,7 +710,7 @@ program define psdash_support, rclass
     local pct_trimmed = 0
     local has_trimming = 0
 
-    if `threshold' != 0 {
+    if `threshold' != -1 {
         local has_trimming = 1
         local trim_lower = `threshold'
         local trim_upper = 1 - `threshold'
