@@ -698,6 +698,122 @@ else {
     local failed_tests "`failed_tests' D13"
 }
 
+* --- D14: vce(robust) sets robust SE metadata ---
+local ++test_count
+capture noisily {
+    _setup_pipeline, nolog
+    msm_fit, model(linear) outcome_cov(age sex) period_spec(linear) ///
+        vce(robust) nolog
+    assert "`e(msm_vce)'" == "robust"
+    assert "`e(msm_cluster)'" == ""
+    local stored_vce : char _dta[_msm_vce]
+    assert "`stored_vce'" == "robust"
+}
+if _rc == 0 {
+    display as result "  PASS D14: msm_fit vce(robust)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL D14: msm_fit vce(robust) (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' D14"
+}
+
+* --- D15: vce(cluster varname) sets cluster metadata ---
+local ++test_count
+capture noisily {
+    _setup_pipeline, nolog
+    msm_fit, model(linear) outcome_cov(age sex) period_spec(linear) ///
+        vce(cluster id) nolog
+    assert "`e(msm_vce)'" == "cluster"
+    assert "`e(msm_cluster)'" == "id"
+    local stored_cluster : char _dta[_msm_cluster]
+    assert "`stored_cluster'" == "id"
+}
+if _rc == 0 {
+    display as result "  PASS D15: msm_fit vce(cluster)"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL D15: msm_fit vce(cluster) (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' D15"
+}
+
+* --- D16: legacy cluster() remains supported ---
+local ++test_count
+capture noisily {
+    _setup_pipeline, nolog
+    msm_fit, model(linear) outcome_cov(age sex) period_spec(linear) ///
+        cluster(id) nolog
+    assert "`e(msm_vce)'" == "cluster"
+    assert "`e(msm_cluster)'" == "id"
+}
+if _rc == 0 {
+    display as result "  PASS D16: msm_fit legacy cluster()"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL D16: msm_fit legacy cluster() (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' D16"
+}
+
+* --- D17: cluster() and vce() cannot be combined ---
+local ++test_count
+capture noisily {
+    _setup_pipeline, nolog
+    capture msm_fit, model(linear) vce(robust) cluster(id) nolog
+    assert _rc == 198
+}
+if _rc == 0 {
+    display as result "  PASS D17: msm_fit rejects cluster()/vce() conflict"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL D17: msm_fit cluster()/vce() conflict (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' D17"
+}
+
+* --- D18: strata() is Cox-only ---
+local ++test_count
+capture noisily {
+    _setup_pipeline, nolog
+    capture msm_fit, model(linear) strata(sex) nolog
+    assert _rc == 198
+}
+if _rc == 0 {
+    display as result "  PASS D18: msm_fit rejects non-Cox strata()"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL D18: msm_fit non-Cox strata() guard (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' D18"
+}
+
+* --- D19: Cox strata() stores baseline hazard metadata ---
+local ++test_count
+capture noisily {
+    _setup_pipeline, nolog
+    msm_fit, model(cox) outcome_cov(age) strata(sex) vce(cluster id) nolog
+    assert "`e(msm_vce)'" == "cluster"
+    assert "`e(msm_cluster)'" == "id"
+    assert "`e(msm_strata)'" == "sex"
+    local stored_strata : char _dta[_msm_strata]
+    assert "`stored_strata'" == "sex"
+}
+if _rc == 0 {
+    display as result "  PASS D19: msm_fit Cox strata() metadata"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL D19: msm_fit Cox strata() metadata (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' D19"
+}
+
 * =============================================================================
 * SECTION E: msm_diagnose options
 * =============================================================================

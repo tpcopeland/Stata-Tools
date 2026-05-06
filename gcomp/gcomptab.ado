@@ -1,4 +1,4 @@
-*! gcomptab Version 1.1.0  2026/04/26
+*! gcomptab Version 1.1.1  2026/05/06
 *! Format gcomp mediation analysis results for Excel export
 *! Author: Timothy P Copeland
 *! Program class: rclass (returns results in r())
@@ -117,6 +117,18 @@ quietly {
 		noisily display as error "Expected 4-5 columns, found `n_cols'"
 		exit 198
 	}
+	foreach _col in tce nde nie pm {
+		if colnumb(`_eb', "`_col'") == . {
+			noisily display as error "e(b) matrix missing expected column '`_col''"
+			noisily display as error "gcomp results may be from an incompatible version"
+			exit 198
+		}
+	}
+	if `n_cols' == 5 & colnumb(`_eb', "cde") == . {
+		noisily display as error "e(b) matrix missing expected column 'cde'"
+		noisily display as error "gcomp results may be from an incompatible version"
+		exit 198
+	}
 
 	* Verify e(se) matrix exists
 	capture confirm matrix e(se)
@@ -125,6 +137,24 @@ quietly {
 		exit 119
 	}
 	matrix `_ese' = e(se)
+	if rowsof(`_ese') != 1 | colsof(`_ese') != `n_cols' {
+		noisily display as error "e(se) matrix has unexpected dimensions"
+		noisily display as error "Expected 1 x `n_cols', found " ///
+		    rowsof(`_ese') " x " colsof(`_ese')
+		exit 198
+	}
+	foreach _col in tce nde nie pm {
+		if colnumb(`_ese', "`_col'") == . {
+			noisily display as error "e(se) matrix missing expected column '`_col''"
+			noisily display as error "gcomp results may be from an incompatible version"
+			exit 198
+		}
+	}
+	if `n_cols' == 5 & colnumb(`_ese', "cde") == . {
+		noisily display as error "e(se) matrix missing expected column 'cde'"
+		noisily display as error "gcomp results may be from an incompatible version"
+		exit 198
+	}
 
 	* Check if file name has .xlsx extension
 	if !strmatch("`xlsx'", "*.xlsx") {
@@ -156,6 +186,13 @@ quietly {
 		exit 198
 	}
 
+	* Validate font options before creating/modifying the workbook
+	_gcomp_validate_path "`font'" "font()"
+	if `fontsize' < 1 | `fontsize' > 72 {
+		noisily display as error "fontsize() must be between 1 and 72"
+		exit 198
+	}
+
 	* Validate borderstyle option
 	if !inlist("`borderstyle'", "academic", "thin", "medium") {
 		noisily display as error "borderstyle() must be academic, thin, or medium"
@@ -179,14 +216,6 @@ quietly {
 	* =========================================================================
 
 	* Extract point estimates from e(b) using named column lookups
-	* Guard: verify expected columns exist
-	foreach _col in tce nde nie pm {
-		if colnumb(`_eb', "`_col'") == . {
-			noisily display as error "e(b) matrix missing expected column '`_col''"
-			noisily display as error "gcomp results may be from an incompatible version"
-			exit 198
-		}
-	}
 	local tce = `_eb'[1, colnumb(`_eb', "tce")]
 	local nde = `_eb'[1, colnumb(`_eb', "nde")]
 	local nie = `_eb'[1, colnumb(`_eb', "nie")]
@@ -224,6 +253,18 @@ quietly {
 		noisily display as error "CI matrix ci_`ci' has unexpected dimensions"
 		noisily display as error "Expected 2 x `n_cols', found " ///
 		    rowsof(`ci_mat') " x " colsof(`ci_mat')
+		exit 198
+	}
+	foreach _col in tce nde nie pm {
+		if colnumb(`ci_mat', "`_col'") == . {
+			noisily display as error "CI matrix ci_`ci' missing expected column '`_col''"
+			noisily display as error "gcomp results may be from an incompatible version"
+			exit 198
+		}
+	}
+	if `n_cols' == 5 & colnumb(`ci_mat', "cde") == . {
+		noisily display as error "CI matrix ci_`ci' missing expected column 'cde'"
+		noisily display as error "gcomp results may be from an incompatible version"
 		exit 198
 	}
 

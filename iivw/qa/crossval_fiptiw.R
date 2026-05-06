@@ -12,6 +12,7 @@
 # Usage: Rscript iivw/qa/xval_fiptiw.R
 
 library(survival)
+library(geepack)
 
 cat("=== FIPTIW Simulation Cross-Validation ===\n")
 cat("Based on Tompkins, Dubin & Wallace (2025)\n\n")
@@ -147,11 +148,13 @@ cat("Mean visits per subject:", round(nrow(simdata_obs) / n_actual, 1), "\n\n")
 delta_fit <- coxph(Surv(time_lag, time, observed) ~ D,
     data = simdata_obs)
 delta_hat <- coef(delta_fit)
+delta_se <- sqrt(diag(vcov(delta_fit)))
 
 # Conditional intensity model (denominator): D + Wt + Z
 gamma_fit <- coxph(Surv(time_lag, time, observed) ~ D + Wt + Z,
     data = simdata_obs)
 gamma_hat <- coef(gamma_fit)
+gamma_se <- sqrt(diag(vcov(gamma_fit)))
 
 cat("IIW models:\n")
 cat("  Marginal (delta):     D =", round(delta_hat, 4), "\n")
@@ -176,6 +179,7 @@ subj_data <- simdata_obs[!duplicated(simdata_obs$id), ]
 
 # Full propensity score model
 ps_fit <- glm(D ~ W, family = binomial(link = "logit"), data = subj_data)
+ps_se <- sqrt(diag(vcov(ps_fit)))
 
 # Marginal treatment probability
 prD <- mean(subj_data$D)
@@ -219,6 +223,20 @@ simdata_obs$iiw_unstab_first1[first_obs] <- 1
 cat("\n  Unstabilized IIW (exp(-xb), first=1) summary:\n")
 print(summary(simdata_obs$iiw_unstab_first1))
 
+simdata_obs$stata_fiptiw_weight <-
+    simdata_obs$iiw_unstab_first1 * simdata_obs$iptw_weight
+
+outcome_gee <- geeglm(
+    y ~ D + time,
+    id = id,
+    data = simdata_obs,
+    weights = stata_fiptiw_weight,
+    family = gaussian(),
+    corstr = "independence",
+    std.err = "san.se"
+)
+outcome_gee_summary <- coef(summary(outcome_gee))
+
 # =============================================================================
 # 6. Export
 # =============================================================================
@@ -236,14 +254,30 @@ coefs <- data.frame(
     term = c(names(delta_hat), names(gamma_hat),
              "(Intercept)", "W", "prD"),
     estimate = c(delta_hat, gamma_hat,
-                 coef(ps_fit), prD)
+                 coef(ps_fit), prD),
+    se = c(delta_se, gamma_se, ps_se, NA_real_)
 )
 write.csv(coefs,
     file = file.path(outdir, "fiptiw_coefs.csv"),
     row.names = FALSE)
 
+write.csv(
+    data.frame(
+        intercept = unname(coef(outcome_gee)[["(Intercept)"]]),
+        D = unname(coef(outcome_gee)[["D"]]),
+        time = unname(coef(outcome_gee)[["time"]]),
+        se_intercept =
+            unname(outcome_gee_summary["(Intercept)", "Std.err"]),
+        se_D = unname(outcome_gee_summary["D", "Std.err"]),
+        se_time = unname(outcome_gee_summary["time", "Std.err"])
+    ),
+    file = file.path(outdir, "fiptiw_outcome_geeglm.csv"),
+    row.names = FALSE
+)
+
 cat("\nExported:\n")
 cat("  ", file.path(outdir, "fiptiw_simdata.csv"), "\n")
 cat("  ", file.path(outdir, "fiptiw_coefs.csv"), "\n")
+cat("  ", file.path(outdir, "fiptiw_outcome_geeglm.csv"), "\n")
 
 cat("\n=== FIPTIW cross-validation data ready ===\n")

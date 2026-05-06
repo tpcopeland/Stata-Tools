@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.1.0  26apr2026}{...}
+{* *! version 1.1.1  06may2026}{...}
 {vieweralsosee "[R] bootstrap" "help bootstrap"}{...}
 {viewerjumpto "Syntax" "gcomptab##syntax"}{...}
 {viewerjumpto "Description" "gcomptab##description"}{...}
@@ -152,10 +152,12 @@ confidence limits, and standard errors. Default is {cmd:3}. Range is 1 to 6.
 {phang}
 {opt font(string)} sets the font family for all text in the workbook.
 Default is {cmd:"Arial"}. Any font installed on your system can be used.
+Font names containing shell metacharacters are rejected before workbook
+creation.
 
 {phang}
 {opt fontsize(#)} sets the body text font size in points. The title row
-(if specified) uses fontsize+2. Default is {cmd:10}.
+(if specified) uses fontsize+2. Default is {cmd:10}. Range is 1 to 72.
 
 {phang}
 {opt borderstyle(string)} controls the table border style:{break}
@@ -358,7 +360,7 @@ Formatting details:
 {pstd}Department of Clinical Neuroscience{p_end}
 {pstd}Karolinska Institutet{p_end}
 
-{pstd}Version 1.1.0, 2026-04-26{p_end}
+{pstd}Version 1.1.1, 2026-05-06{p_end}
 
 
 {marker seealso}{...}

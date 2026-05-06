@@ -1,4 +1,4 @@
-*! msm_prepare Version 1.0.2  2026/05/06
+*! msm_prepare Version 1.0.3  2026/05/06
 *! Data preparation and variable mapping for marginal structural models
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet

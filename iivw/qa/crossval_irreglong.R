@@ -60,6 +60,7 @@ data$iiw_weight <- i$iiw.weight
 
 # Cox model coefficients
 cox_coefs <- coef(i$m)
+cox_ses <- sqrt(diag(vcov(i$m)))
 cat("\nCox model coefficients:\n")
 print(cox_coefs)
 
@@ -111,7 +112,8 @@ write.csv(data_sorted[, export_cols],
 # Export Cox coefficients
 coef_df <- data.frame(
     term = names(cox_coefs),
-    estimate = as.numeric(cox_coefs)
+    estimate = as.numeric(cox_coefs),
+    se = as.numeric(cox_ses)
 )
 write.csv(coef_df,
     file = file.path(outdir, "phenobarb_cox_coefs.csv"),

@@ -1,8 +1,8 @@
-"model","term","estimate"
-"marginal_cox","D",-0.700609242638407
-"conditional_cox","D",0.507634235301228
-"conditional_cox","Wt",-0.332959516714323
-"conditional_cox","Z",0.559255886907771
-"ps_intercept","(Intercept)",-0.836089094776243
-"ps_W","W",1.2991553264677
-"marginal_prD","prD",0.454545454545455
+"model","term","estimate","se"
+"marginal_cox","D",-0.700609242638407,0.0438069901530115
+"conditional_cox","D",0.507634235301228,0.0683255063968249
+"conditional_cox","Wt",-0.332959516714323,0.0552318205975556
+"conditional_cox","Z",0.559255886907771,0.0229483937670151
+"ps_intercept","(Intercept)",-0.836089094776243,0.298781834957182
+"ps_W","W",1.2991553264677,0.51442642893802
+"marginal_prD","prD",0.454545454545455,NA

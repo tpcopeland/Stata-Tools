@@ -2605,6 +2605,11 @@ else {
 * Install tabtools for regtab integration tests (108-110)
 capture ado uninstall tabtools
 quietly net install tabtools, from("`repo_dir'/tabtools") replace
+capture which regtab
+if _rc {
+    display as error "regtab is unavailable after local tabtools install"
+    exit _rc
+}
 
 * TEST 106: Console summary shows all predictors (GEE)
 if `run_only' == 0 | `run_only' == 106 {

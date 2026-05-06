@@ -55,6 +55,7 @@ bladder_cox <- coxph(
     data = bladder,
     ties = "efron"
 )
+bladder_se <- sqrt(diag(vcov(bladder_cox)))
 bladder_lp <- predict(bladder_cox, newdata = bladder, type = "lp",
     reference = "zero")
 bladder$r_iivw <- exp(-bladder_lp)
@@ -66,7 +67,14 @@ write_ref(
     "crossval_iivw_external_bladder.csv"
 )
 write_ref(
-    as.data.frame(as.list(coef(bladder_cox))),
+    data.frame(
+        rx2 = unname(coef(bladder_cox)[["rx2"]]),
+        number = unname(coef(bladder_cox)[["number"]]),
+        size = unname(coef(bladder_cox)[["size"]]),
+        se_rx2 = unname(bladder_se[["rx2"]]),
+        se_number = unname(bladder_se[["number"]]),
+        se_size = unname(bladder_se[["size"]])
+    ),
     "crossval_iivw_external_bladder_coefs.csv"
 )
 
@@ -92,6 +100,8 @@ lalonde_ipw <- ipwpoint(
     data = lalonde
 )
 lalonde$r_iptw <- lalonde_ipw$ipw.weights
+lalonde_den_se <- sqrt(diag(vcov(lalonde_ipw$den.mod)))
+lalonde_num_se <- sqrt(diag(vcov(lalonde_ipw$num.mod)))
 
 write_ref(
     lalonde[, c("id", "time", "treat", "age", "educ", "black",
@@ -111,7 +121,18 @@ write_ref(
         re74 = unname(coef(lalonde_ipw$den.mod)[["re74"]]),
         re75 = unname(coef(lalonde_ipw$den.mod)[["re75"]]),
         numerator_intercept =
-            unname(coef(lalonde_ipw$num.mod)[["(Intercept)"]])
+            unname(coef(lalonde_ipw$num.mod)[["(Intercept)"]]),
+        se_intercept = unname(lalonde_den_se[["(Intercept)"]]),
+        se_age = unname(lalonde_den_se[["age"]]),
+        se_educ = unname(lalonde_den_se[["educ"]]),
+        se_black = unname(lalonde_den_se[["black"]]),
+        se_hispan = unname(lalonde_den_se[["hispan"]]),
+        se_married = unname(lalonde_den_se[["married"]]),
+        se_nodegree = unname(lalonde_den_se[["nodegree"]]),
+        se_re74 = unname(lalonde_den_se[["re74"]]),
+        se_re75 = unname(lalonde_den_se[["re75"]]),
+        se_numerator_intercept =
+            unname(lalonde_num_se[["(Intercept)"]])
     ),
     "crossval_iivw_external_lalonde_coefs.csv"
 )
@@ -123,12 +144,15 @@ cat("  lalonde:", nrow(lalonde), "subjects\n")
 dietox <- geepack::dietox
 dietox <- dietox[order(dietox$Pig, dietox$Time), ]
 dietox$id <- as.integer(factor(dietox$Pig))
+dietox$pen <- ceiling(dietox$id / 5)
 dietox$time <- dietox$Time
 dietox$feed0 <- ifelse(is.na(dietox$Feed), 0, dietox$Feed)
 dietox$startwt <- dietox$Start
 dietox$cu_high <- as.integer(dietox$Cu == "Cu175")
 dietox$evit100 <- as.integer(dietox$Evit == "Evit100")
 dietox$evit200 <- as.integer(dietox$Evit == "Evit200")
+dietox$heavy <- as.integer(dietox$Weight > median(dietox$Weight,
+    na.rm = TRUE))
 
 # Create a reproducible irregular-observation subset from the weekly Dietox
 # measurements so the visit-process component is non-degenerate while preserving
@@ -195,9 +219,30 @@ dietox_gee <- geeglm(
     std.err = "san.se"
 )
 dietox_gee_summary <- coef(summary(dietox_gee))
+dietox_gee_pen <- geeglm(
+    Weight ~ cu_high + feed0 + time,
+    id = pen,
+    data = dietox,
+    weights = r_fiptiw,
+    family = gaussian(),
+    corstr = "independence",
+    std.err = "san.se"
+)
+dietox_gee_pen_summary <- coef(summary(dietox_gee_pen))
+dietox_gee_logit <- geeglm(
+    heavy ~ cu_high + feed0 + time,
+    id = id,
+    data = dietox,
+    weights = r_fiptiw,
+    family = binomial(link = "logit"),
+    corstr = "independence",
+    std.err = "san.se"
+)
+dietox_gee_logit_summary <- coef(summary(dietox_gee_logit))
 
 write_ref(
-    dietox[, c("id", "time", "time_lag", "event_one", "Weight",
+    dietox[, c("id", "pen", "time", "time_lag", "event_one", "Weight",
+               "heavy",
                "feed0", "startwt", "cu_high", "evit100", "evit200",
                "visit_n", "r_iiw", "r_iptw", "r_fiptiw")],
     "crossval_iivw_external_dietox.csv"
@@ -229,6 +274,35 @@ write_ref(
         se_time = unname(dietox_gee_summary["time", "Std.err"])
     ),
     "crossval_iivw_external_dietox_geeglm.csv"
+)
+write_ref(
+    data.frame(
+        intercept = unname(coef(dietox_gee_pen)[["(Intercept)"]]),
+        cu_high = unname(coef(dietox_gee_pen)[["cu_high"]]),
+        feed0 = unname(coef(dietox_gee_pen)[["feed0"]]),
+        time = unname(coef(dietox_gee_pen)[["time"]]),
+        se_intercept =
+            unname(dietox_gee_pen_summary["(Intercept)", "Std.err"]),
+        se_cu_high = unname(dietox_gee_pen_summary["cu_high", "Std.err"]),
+        se_feed0 = unname(dietox_gee_pen_summary["feed0", "Std.err"]),
+        se_time = unname(dietox_gee_pen_summary["time", "Std.err"])
+    ),
+    "crossval_iivw_external_dietox_geeglm_pen.csv"
+)
+write_ref(
+    data.frame(
+        intercept = unname(coef(dietox_gee_logit)[["(Intercept)"]]),
+        cu_high = unname(coef(dietox_gee_logit)[["cu_high"]]),
+        feed0 = unname(coef(dietox_gee_logit)[["feed0"]]),
+        time = unname(coef(dietox_gee_logit)[["time"]]),
+        se_intercept =
+            unname(dietox_gee_logit_summary["(Intercept)", "Std.err"]),
+        se_cu_high =
+            unname(dietox_gee_logit_summary["cu_high", "Std.err"]),
+        se_feed0 = unname(dietox_gee_logit_summary["feed0", "Std.err"]),
+        se_time = unname(dietox_gee_logit_summary["time", "Std.err"])
+    ),
+    "crossval_iivw_external_dietox_geeglm_logit.csv"
 )
 
 cat("  dietox:", nrow(dietox), "visits;",

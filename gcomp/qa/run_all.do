@@ -24,21 +24,29 @@ local stale3 : dir "`testdir'" files "_docex_*.xlsx"
 foreach f of local stale3 {
     capture erase "`testdir'/`f'"
 }
+local stale4 : dir "`testdir'" files "_adv_gcomptab*.xlsx"
+foreach f of local stale4 {
+    capture erase "`testdir'/`f'"
+}
 
 foreach f in ///
     test_gcomp ///
+    test_adversarial_gcomp ///
     test_gcomp_validation ///
     test_gcomp_diagnostics ///
     test_stress ///
     test_interactions ///
     test_gcomptab_regressions ///
+    test_adversarial_gcomptab ///
     test_install_smoke ///
     test_errors ///
     test_doc_examples ///
     validation_gcomp ///
+    validation_adversarial_gcomp ///
     validation_extra ///
     validation_timevarying ///
     crossval_gcomp ///
+    crossval_external_replication ///
     crossval_timevarying {
     display _n as text "=============================================="
     display as text "Running: `f'.do"

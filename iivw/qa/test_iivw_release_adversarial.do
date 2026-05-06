@@ -16,6 +16,7 @@ if _rc {
     display as error "Run this test from the iivw/qa directory"
     exit 601
 }
+local repo_dir = subinstr("`pkg_dir'", "/iivw", "", 1)
 
 local old_cwd "`c(pwd)'"
 local old_plus "`c(sysdir_plus)'"
@@ -30,6 +31,7 @@ local test_count = 0
 local pass_count = 0
 local fail_count = 0
 local installed_ready = 0
+local tabtools_ready = 0
 local install_path ""
 
 capture mata: mata drop _qa_iivw_file_has()
@@ -112,6 +114,26 @@ program define _qa_iivw_doc_data
     capture label drop arm
     label define arm 0 "Placebo" 1 "Low dose" 2 "High dose"
     label values treatment arm
+end
+
+capture program drop _qa_iivw_ensure_tabtools
+program define _qa_iivw_ensure_tabtools
+    version 16.0
+    syntax , FROM(string)
+
+    capture which regtab
+    if _rc {
+        capture ado uninstall tabtools
+        quietly net install tabtools, from("`from'") replace
+        discard
+    }
+
+    capture which regtab
+    if _rc {
+        display as error "regtab is unavailable after tabtools install"
+        display as error "  from: `from'"
+        exit 111
+    }
 end
 
 **# Release Metadata And Static Surface
@@ -292,6 +314,7 @@ capture noisily {
     discard
 
     quietly net install iivw, from("`pkg_dir'") replace
+    _qa_iivw_ensure_tabtools, from("`repo_dir'/tabtools")
     discard
 
     foreach file in ///
@@ -301,6 +324,9 @@ capture noisily {
         _iivw_get_settings.ado ///
         _iivw_check_weighted.ado ///
         _iivw_bs_estimate.ado ///
+        regtab.ado ///
+        tabtools.ado ///
+        _tabtools_common.ado ///
         iivw.sthlp ///
         iivw_weight.sthlp ///
         iivw_fit.sthlp {
@@ -323,20 +349,25 @@ capture noisily {
     findfile iivw.ado
     assert strpos("`r(fn)'", "`plus_dir'") > 0
 
+    findfile regtab.ado
+    assert strpos("`r(fn)'", "`plus_dir'") > 0
+    local tabtools_ready = 1
+
     local installed_ready = 1
 }
 if _rc == 0 {
-    display as result "  PASS: isolated net install, uninstall, and reinstall are idempotent"
+    display as result "  PASS: isolated net install plus tabtools/regtab dependency smoke"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: isolated net install smoke (error `=_rc')"
+    display as error "  FAIL: isolated net install/tabtools smoke (error `=_rc')"
     local ++fail_count
 }
 
 local ++test_count
 capture noisily {
     if `installed_ready' != 1 exit 9
+    if `tabtools_ready' != 1 exit 9
 
     discard
     _qa_iivw_doc_data
@@ -404,16 +435,11 @@ capture noisily {
 
     collect clear
     iivw_fit edss treated edss_bl, model(gee) nolog replace collect
-    capture which regtab
-    if _rc == 0 {
-        regtab, xlsx(iivw_results.xlsx) sheet(Results) title(IIW Analysis) stats(n)
-        capture confirm file "`work_dir'/iivw_results.xlsx"
-        assert _rc == 0
-        erase "`work_dir'/iivw_results.xlsx"
-    }
-    else {
-        display as text "note: regtab not installed; optional export command not run"
-    }
+    which regtab
+    regtab, xlsx(iivw_results.xlsx) sheet(Results) title(IIW Analysis) stats(n)
+    capture confirm file "`work_dir'/iivw_results.xlsx"
+    assert _rc == 0
+    erase "`work_dir'/iivw_results.xlsx"
 }
 if _rc == 0 {
     display as result "  PASS: README and iivw.sthlp worked examples run after install"
@@ -427,6 +453,7 @@ else {
 local ++test_count
 capture noisily {
     if `installed_ready' != 1 exit 9
+    if `tabtools_ready' != 1 exit 9
 
     discard
     _qa_iivw_doc_data
@@ -485,16 +512,11 @@ capture noisily {
 
     collect clear
     iivw_fit edss treated edss_bl, model(gee) nolog replace collect
-    capture which regtab
-    if _rc == 0 {
-        regtab, xlsx(iivw_results.xlsx) sheet(Results) title(IIW Analysis) stats(n)
-        capture confirm file "`work_dir'/iivw_results.xlsx"
-        assert _rc == 0
-        erase "`work_dir'/iivw_results.xlsx"
-    }
-    else {
-        display as text "note: regtab not installed; optional export command not run"
-    }
+    which regtab
+    regtab, xlsx(iivw_results.xlsx) sheet(Results) title(IIW Analysis) stats(n)
+    capture confirm file "`work_dir'/iivw_results.xlsx"
+    assert _rc == 0
+    erase "`work_dir'/iivw_results.xlsx"
 
     iivw_fit edss treated edss_bl, timespec(ns(3)) interaction(treated) replace
     iivw_fit edss treated age edss_bl, timespec(quadratic) interaction(treated age) replace
@@ -506,17 +528,12 @@ capture noisily {
     iivw_weight, id(id) time(days) visit_cov(edss relapse) ///
         treat(treated) treat_cov(age sex edss_bl) truncate(1 99) replace nolog
     iivw_fit edss treated edss_bl, model(gee) nolog replace collect
-    capture which regtab
-    if _rc == 0 {
-        regtab, xlsx(iivw_results.xlsx) sheet(Comparison) ///
-            models(IIW \ FIPTIW) title(IIW vs FIPTIW) stats(n) noint
-        capture confirm file "`work_dir'/iivw_results.xlsx"
-        assert _rc == 0
-        erase "`work_dir'/iivw_results.xlsx"
-    }
-    else {
-        display as text "note: regtab not installed; optional comparison export not run"
-    }
+    which regtab
+    regtab, xlsx(iivw_results.xlsx) sheet(Comparison) ///
+        models(IIW \ FIPTIW) title(IIW vs FIPTIW) stats(n) noint
+    capture confirm file "`work_dir'/iivw_results.xlsx"
+    assert _rc == 0
+    erase "`work_dir'/iivw_results.xlsx"
 
     iivw_fit edss treatment edss_bl, categorical(treatment) replace
     iivw_fit edss treatment edss_bl, categorical(treatment) basecat(2) replace
@@ -542,6 +559,7 @@ else {
 
 **# Cleanup And Summary
 
+capture ado uninstall tabtools
 capture ado uninstall iivw
 discard
 capture cd "`old_cwd'"

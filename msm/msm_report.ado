@@ -1,4 +1,4 @@
-*! msm_report Version 1.0.2  2026/05/06
+*! msm_report Version 1.0.3  2026/05/06
 *! Publication-quality results tables for MSM
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet

@@ -53,13 +53,29 @@ import delimited using "`data_dir'/external_health_lpm.csv", clear varnames(1)
 msm_prepare, id(id) period(period) treatment(treatment) ///
     outcome(outcome) baseline_covariates(iq)
 msm_weight, treat_d_cov(iq) nolog
-msm_fit, model(linear) outcome_cov(iq) period_spec(none) nolog
 
-local stata_lpm_b = _b[treatment]
-local stata_lpm_se = _se[treatment]
+msm_fit, model(linear) outcome_cov(iq) period_spec(none) ///
+    vce(robust) nolog
+local stata_lpm_robust_b = _b[treatment]
+local stata_lpm_robust_se = _se[treatment]
+
+msm_fit, model(linear) outcome_cov(iq) period_spec(none) ///
+    vce(cluster iqgrp) nolog
+local stata_lpm_cluster_b = _b[treatment]
+local stata_lpm_cluster_se = _se[treatment]
+
+msm_fit, model(logistic) outcome_cov(iq) period_spec(none) ///
+    vce(robust) nolog
+local stata_logit_robust_b = _b[treatment]
+local stata_logit_robust_se = _se[treatment]
+
+msm_fit, model(logistic) outcome_cov(iq) period_spec(none) ///
+    vce(cluster iqgrp) nolog
+local stata_logit_cluster_b = _b[treatment]
+local stata_logit_cluster_se = _se[treatment]
 
 preserve
-    keep id period outcome treatment iq _msm_weight
+    keep id period outcome treatment iq iqgrp _msm_weight
     rename _msm_weight weight
     export delimited using "`results_dir'/external_lpm_modeldata.csv", replace
 restore
@@ -67,40 +83,64 @@ restore
 import delimited using "`data_dir'/external_pbcseq_cox.csv", clear varnames(1)
 
 msm_prepare, id(id) period(period) treatment(treatment) ///
-    outcome(outcome) baseline_covariates(age_dec female)
+    outcome(outcome) baseline_covariates(age_dec female stage_bl)
 gen double _msm_weight = 1
 label variable _msm_weight "External validation uniform weight"
 char _dta[_msm_weighted] "1"
 
-msm_fit, model(cox) outcome_cov(age_dec female) nolog
+msm_fit, model(cox) outcome_cov(age_dec female) vce(cluster id) nolog
 
-local stata_cox_b = _b[treatment]
-local stata_cox_se = _se[treatment]
-local stata_cox_hr = exp(`stata_cox_b')
+local stata_cox_cluster_b = _b[treatment]
+local stata_cox_cluster_se = _se[treatment]
+local stata_cox_cluster_hr = exp(`stata_cox_cluster_b')
+
+msm_fit, model(cox) outcome_cov(age_dec) strata(stage_bl) ///
+    vce(cluster id) nolog
+
+local stata_cox_strata_b = _b[treatment]
+local stata_cox_strata_se = _se[treatment]
+local stata_cox_strata_hr = exp(`stata_cox_strata_b')
 
 preserve
-    keep id period outcome treatment age_dec female _msm_weight
+    keep id period outcome treatment age_dec female stage_bl _msm_weight
     rename _msm_weight weight
     export delimited using "`results_dir'/external_cox_modeldata.csv", replace
 restore
 
 preserve
     clear
-    set obs 2
-    gen str10 model = ""
+    set obs 6
+    gen str24 model = ""
     gen str20 source = "Stata_msm"
     gen double coef = .
     gen double se = .
     gen double or_hr = .
 
-    replace model = "lpm" in 1
-    replace coef = `stata_lpm_b' in 1
-    replace se = `stata_lpm_se' in 1
+    replace model = "lpm_robust" in 1
+    replace coef = `stata_lpm_robust_b' in 1
+    replace se = `stata_lpm_robust_se' in 1
 
-    replace model = "cox" in 2
-    replace coef = `stata_cox_b' in 2
-    replace se = `stata_cox_se' in 2
-    replace or_hr = `stata_cox_hr' in 2
+    replace model = "lpm_cluster" in 2
+    replace coef = `stata_lpm_cluster_b' in 2
+    replace se = `stata_lpm_cluster_se' in 2
+
+    replace model = "logit_robust" in 3
+    replace coef = `stata_logit_robust_b' in 3
+    replace se = `stata_logit_robust_se' in 3
+
+    replace model = "logit_cluster" in 4
+    replace coef = `stata_logit_cluster_b' in 4
+    replace se = `stata_logit_cluster_se' in 4
+
+    replace model = "cox_cluster" in 5
+    replace coef = `stata_cox_cluster_b' in 5
+    replace se = `stata_cox_cluster_se' in 5
+    replace or_hr = `stata_cox_cluster_hr' in 5
+
+    replace model = "cox_strata_cluster" in 6
+    replace coef = `stata_cox_strata_b' in 6
+    replace se = `stata_cox_strata_se' in 6
+    replace or_hr = `stata_cox_strata_hr' in 6
 
     export delimited using "`results_dir'/external_stata_results.csv", replace
 restore
@@ -121,57 +161,161 @@ if _rc {
 
 preserve
     import delimited using "`results_dir'/external_r_results.csv", clear varnames(1)
-    quietly summarize coef if model == "lpm", meanonly
-    local r_lpm_b = r(mean)
-    quietly summarize coef if model == "cox", meanonly
-    local r_cox_b = r(mean)
+    foreach m in lpm_robust lpm_cluster logit_robust logit_cluster ///
+        cox_cluster cox_strata_cluster {
+        quietly summarize coef if model == "`m'", meanonly
+        local r_`m'_b = r(mean)
+        quietly summarize se if model == "`m'", meanonly
+        local r_`m'_se = r(mean)
+    }
 restore
 
 preserve
     import delimited using "`results_dir'/external_py_results.csv", clear varnames(1)
-    quietly summarize coef if model == "lpm", meanonly
-    local py_lpm_b = r(mean)
+    foreach m in lpm_robust lpm_cluster logit_robust logit_cluster {
+        quietly summarize coef if model == "`m'", meanonly
+        local py_`m'_b = r(mean)
+        quietly summarize se if model == "`m'", meanonly
+        local py_`m'_se = r(mean)
+    }
 restore
 
 display as text ""
 display as text "{hline 72}"
 display as result "External model cross-validation"
 display as text "{hline 72}"
-display as text "LPM coefficients:"
-display as text "  Stata msm: " as result %10.7f `stata_lpm_b'
-display as text "  R svyglm:  " as result %10.7f `r_lpm_b'
-display as text "  Python:    " as result %10.7f `py_lpm_b'
-display as text "Cox log-HR coefficients:"
-display as text "  Stata msm: " as result %10.7f `stata_cox_b'
-display as text "  R coxph:   " as result %10.7f `r_cox_b'
+display as text "LPM treatment coefficient / SE:"
+display as text "  Robust  Stata: " as result %10.7f `stata_lpm_robust_b' ///
+    as text " / " as result %10.7f `stata_lpm_robust_se'
+display as text "          R:     " as result %10.7f `r_lpm_robust_b' ///
+    as text " / " as result %10.7f `r_lpm_robust_se'
+display as text "          Python:" as result %10.7f `py_lpm_robust_b' ///
+    as text " / " as result %10.7f `py_lpm_robust_se'
+display as text "  Cluster Stata: " as result %10.7f `stata_lpm_cluster_b' ///
+    as text " / " as result %10.7f `stata_lpm_cluster_se'
+display as text "          R:     " as result %10.7f `r_lpm_cluster_b' ///
+    as text " / " as result %10.7f `r_lpm_cluster_se'
+display as text "          Python:" as result %10.7f `py_lpm_cluster_b' ///
+    as text " / " as result %10.7f `py_lpm_cluster_se'
+display as text "Logistic treatment coefficient / SE:"
+display as text "  Robust  Stata: " as result %10.7f `stata_logit_robust_b' ///
+    as text " / " as result %10.7f `stata_logit_robust_se'
+display as text "          R:     " as result %10.7f `r_logit_robust_b' ///
+    as text " / " as result %10.7f `r_logit_robust_se'
+display as text "          Python:" as result %10.7f `py_logit_robust_b' ///
+    as text " / " as result %10.7f `py_logit_robust_se'
+display as text "  Cluster Stata: " as result %10.7f `stata_logit_cluster_b' ///
+    as text " / " as result %10.7f `stata_logit_cluster_se'
+display as text "          R:     " as result %10.7f `r_logit_cluster_b' ///
+    as text " / " as result %10.7f `r_logit_cluster_se'
+display as text "          Python:" as result %10.7f `py_logit_cluster_b' ///
+    as text " / " as result %10.7f `py_logit_cluster_se'
+display as text "Cox treatment log-HR / SE:"
+display as text "  Cluster Stata: " as result %10.7f `stata_cox_cluster_b' ///
+    as text " / " as result %10.7f `stata_cox_cluster_se'
+display as text "          R:     " as result %10.7f `r_cox_cluster_b' ///
+    as text " / " as result %10.7f `r_cox_cluster_se'
+display as text "  Strata  Stata: " as result %10.7f `stata_cox_strata_b' ///
+    as text " / " as result %10.7f `stata_cox_strata_se'
+display as text "          R:     " as result %10.7f `r_cox_strata_cluster_b' ///
+    as text " / " as result %10.7f `r_cox_strata_cluster_se'
 
 local ++test_count
 capture {
-    assert abs(`stata_lpm_b' - `r_lpm_b') < 1e-6
-    assert abs(`stata_lpm_b' - `py_lpm_b') < 1e-6
+    assert abs(`stata_lpm_robust_b' - `r_lpm_robust_b') < 1e-6
+    assert abs(`stata_lpm_robust_b' - `py_lpm_robust_b') < 1e-6
+    assert abs(`stata_lpm_robust_se' - `r_lpm_robust_se') < 1e-5
+    assert abs(`stata_lpm_robust_se' - `py_lpm_robust_se') < 1e-5
 }
 if _rc == 0 {
-    display as result "PASS EXT1: model(linear) matches R/Python LPM coefficients"
+    display as result "PASS EXT1: model(linear) vce(robust) matches R/Python"
     local ++pass_count
 }
 else {
-    display as error "FAIL EXT1: model(linear) external coefficient mismatch"
+    display as error "FAIL EXT1: model(linear) vce(robust) external mismatch"
     local ++fail_count
     local failed_tests "`failed_tests' EXT1"
 }
 
 local ++test_count
 capture {
-    assert abs(`stata_cox_b' - `r_cox_b') < 1e-6
+    assert abs(`stata_lpm_cluster_b' - `r_lpm_cluster_b') < 1e-6
+    assert abs(`stata_lpm_cluster_b' - `py_lpm_cluster_b') < 1e-6
+    assert abs(`stata_lpm_cluster_se' - `r_lpm_cluster_se') < 1e-5
+    assert abs(`stata_lpm_cluster_se' - `py_lpm_cluster_se') < 1e-5
 }
 if _rc == 0 {
-    display as result "PASS EXT2: model(cox) matches R Cox coefficient"
+    display as result "PASS EXT2: model(linear) vce(cluster) matches R/Python"
     local ++pass_count
 }
 else {
-    display as error "FAIL EXT2: model(cox) external coefficient mismatch"
+    display as error "FAIL EXT2: model(linear) vce(cluster) external mismatch"
     local ++fail_count
     local failed_tests "`failed_tests' EXT2"
+}
+
+local ++test_count
+capture {
+    assert abs(`stata_logit_robust_b' - `r_logit_robust_b') < 1e-6
+    assert abs(`stata_logit_robust_b' - `py_logit_robust_b') < 1e-6
+    assert abs(`stata_logit_robust_se' - `r_logit_robust_se') < 1e-5
+    assert abs(`stata_logit_robust_se' - `py_logit_robust_se') < 1e-5
+}
+if _rc == 0 {
+    display as result "PASS EXT3: model(logistic) vce(robust) matches R/Python"
+    local ++pass_count
+}
+else {
+    display as error "FAIL EXT3: model(logistic) vce(robust) external mismatch"
+    local ++fail_count
+    local failed_tests "`failed_tests' EXT3"
+}
+
+local ++test_count
+capture {
+    assert abs(`stata_logit_cluster_b' - `r_logit_cluster_b') < 1e-6
+    assert abs(`stata_logit_cluster_b' - `py_logit_cluster_b') < 1e-6
+    assert abs(`stata_logit_cluster_se' - `r_logit_cluster_se') < 1e-5
+    assert abs(`stata_logit_cluster_se' - `py_logit_cluster_se') < 1e-5
+}
+if _rc == 0 {
+    display as result "PASS EXT4: model(logistic) vce(cluster) matches R/Python"
+    local ++pass_count
+}
+else {
+    display as error "FAIL EXT4: model(logistic) vce(cluster) external mismatch"
+    local ++fail_count
+    local failed_tests "`failed_tests' EXT4"
+}
+
+local ++test_count
+capture {
+    assert abs(`stata_cox_cluster_b' - `r_cox_cluster_b') < 1e-6
+    assert abs(`stata_cox_cluster_se' - `r_cox_cluster_se') < 1e-5
+}
+if _rc == 0 {
+    display as result "PASS EXT5: model(cox) vce(cluster) matches R"
+    local ++pass_count
+}
+else {
+    display as error "FAIL EXT5: model(cox) vce(cluster) external mismatch"
+    local ++fail_count
+    local failed_tests "`failed_tests' EXT5"
+}
+
+local ++test_count
+capture {
+    assert abs(`stata_cox_strata_b' - `r_cox_strata_cluster_b') < 1e-6
+    assert abs(`stata_cox_strata_se' - `r_cox_strata_cluster_se') < 1e-5
+}
+if _rc == 0 {
+    display as result "PASS EXT6: model(cox) strata() with vce(cluster) matches R"
+    local ++pass_count
+}
+else {
+    display as error "FAIL EXT6: model(cox) strata() external mismatch"
+    local ++fail_count
+    local failed_tests "`failed_tests' EXT6"
 }
 
 display as text ""

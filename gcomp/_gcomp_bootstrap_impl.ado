@@ -1,4 +1,4 @@
-*! _gcomp_bootstrap_impl Version 1.1.0  2026/04/26
+*! _gcomp_bootstrap_impl Version 1.1.1  2026/05/06
 *! Internal bootstrap implementation for gcomp
 *! Author: Timothy P Copeland (fork), Rhian Daniel (original)
 *! Program class: rclass
@@ -2042,13 +2042,21 @@ if "`mediation'"=="" {
     	}
 		tempname msm_params noomit
 	    mat `msm_params'=e(b)
+		local _msm_orig_colnames: colfullnames `msm_params'
 		_ms_omit_info `msm_params'
 		local cols = colsof(`msm_params')
 		matrix `noomit' =  J(1,`cols',1) - r(omit)
 		mata: msm_params = select(st_matrix(st_local("msm_params")),(st_matrix(st_local("noomit"))))
 		mata: st_matrix(st_local("msm_params"),msm_params)
-		mat msm_params=`msm_params'
-    	local colnames: colfullnames msm_params
+		local colnames ""
+		forvalues _msm_ci = 1/`cols' {
+			if `noomit'[1,`_msm_ci'] == 1 {
+				local _msm_name: word `_msm_ci' of `_msm_orig_colnames'
+				local colnames "`colnames' `_msm_name'"
+			}
+		}
+		local colnames = strtrim("`colnames'")
+		matrix colnames `msm_params' = `colnames'
     	tokenize "`colnames'", parse(" ")
     	local nparams 0 			
     	while "`1'"!="" {
@@ -2057,13 +2065,14 @@ if "`mediation'"=="" {
     			local colname`nparams'=substr(substr("`1'",strpos("`1'",":")+1,.), ///
                     strpos(substr("`1'",strpos("`1'",":")+1,.),".")+1,.)
     		}
-    		mac shift
+		mac shift
     	}
 		return clear
-    	forvalues i=1/`nparams' {
-    		local p`i'=msm_params[1,`i']
-    		return scalar `colname`i''=`p`i''
-    	}
+		return local msm_colnames "`colnames'"
+	forvalues i=1/`nparams' {
+		local p`i'=`msm_params'[1,`i']
+		return scalar `colname`i''=`p`i''
+	}
     	return scalar N_msm_params=`nparams'
     	if `_gc_chk_prt'==0 {
     		noi di as text "{hline 10}{c RT}"
@@ -2356,13 +2365,21 @@ else {
 		}
 		tempname msm_params noomit
 		mat `msm_params'=e(b)
+		local _msm_orig_colnames: colfullnames `msm_params'
 		_ms_omit_info `msm_params'
 		local cols = colsof(`msm_params')
 		matrix `noomit' =  J(1,`cols',1) - r(omit)
 		mata: msm_params = select(st_matrix(st_local("msm_params")),(st_matrix(st_local("noomit"))))
 		mata: st_matrix(st_local("msm_params"),msm_params)
-		mat msm_params=`msm_params'
-    	local colnames: colfullnames msm_params
+		local colnames ""
+		forvalues _msm_ci = 1/`cols' {
+			if `noomit'[1,`_msm_ci'] == 1 {
+				local _msm_name: word `_msm_ci' of `_msm_orig_colnames'
+				local colnames "`colnames' `_msm_name'"
+			}
+		}
+		local colnames = strtrim("`colnames'")
+		matrix colnames `msm_params' = `colnames'
     	tokenize "`colnames'", parse(" ")
     	local nparams 0 			
     	while "`1'"!="" {
@@ -2371,12 +2388,13 @@ else {
     			local colname`nparams'=substr(substr("`1'",strpos("`1'",":")+1,.), ///
                     strpos(substr("`1'",strpos("`1'",":")+1,.),".")+1,.)
     		}
-    		mac shift
+		mac shift
     	}
-    	forvalues i=1/`nparams' {
-    		local p`i'=msm_params[1,`i']
-    		return scalar `colname`i''=`p`i''
-    	}
+		return local msm_colnames "`colnames'"
+	forvalues i=1/`nparams' {
+		local p`i'=`msm_params'[1,`i']
+		return scalar `colname`i''=`p`i''
+	}
     	return scalar N_msm_params=`nparams'
     	if `_gc_chk_prt'==0 {
     		noi di as text "{hline 10}{c RT}"

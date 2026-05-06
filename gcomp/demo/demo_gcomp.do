@@ -147,7 +147,7 @@ gcomptab, xlsx("`demo_dir'/demo_gcomptab.xlsx") sheet("Percentile CI") ///
 **# Convert console log to markdown via logdoc
 
 capture ado uninstall logdoc
-quietly net install logdoc, from("~/Stata-Tools/logdoc") replace
+quietly net install logdoc, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/logdoc") replace
 
 logdoc using "`demo_dir'/console_output.log", ///
     output("`demo_dir'/console_output.md") ///

@@ -67,12 +67,21 @@ local pass_count = 0
 local fail_count = 0
 
 * --- Check reference data exists ---
-capture confirm file "`qa_dir'/phenobarb_prepared.csv"
-if _rc != 0 {
-    display as error "Reference data not found. Run R scripts first:"
-    display as error "  Rscript `qa_dir'/crossval_irreglong.R"
-    display as error "  Rscript `qa_dir'/crossval_fiptiw.R"
-    exit 601
+foreach ref in ///
+    phenobarb_prepared.csv ///
+    phenobarb_cox_coefs.csv ///
+    phenobarb_cox_data.csv ///
+    fiptiw_simdata.csv ///
+    fiptiw_coefs.csv ///
+    fiptiw_outcome_geeglm.csv {
+    capture confirm file "`qa_dir'/`ref'"
+    if _rc != 0 {
+        display as error "Reference data not found. Run R scripts first:"
+        display as error "  Rscript `qa_dir'/crossval_irreglong.R"
+        display as error "  Rscript `qa_dir'/crossval_fiptiw.R"
+        display as error "missing: `ref'"
+        exit 601
+    }
 }
 
 * ============================================================
@@ -104,7 +113,7 @@ if `run_only' == 0 | `run_only' == 1 {
 
         stset time, enter(time time_lag) failure(event) id(id) exit(time .)
         * Use efron to match R's coxph default (Stata defaults to Breslow)
-        stcox conc_low conc_mid conc_high, nohr efron
+        stcox conc_low conc_mid conc_high, nohr efron vce(cluster id)
 
         * Load R reference coefficients
         preserve
@@ -112,19 +121,30 @@ if `run_only' == 0 | `run_only' == 1 {
         local r_coef1 = estimate[1]
         local r_coef2 = estimate[2]
         local r_coef3 = estimate[3]
+        local r_se1 = se[1]
+        local r_se2 = se[2]
+        local r_se3 = se[3]
         restore
 
         local s_coef1 = _b[conc_low]
         local s_coef2 = _b[conc_mid]
         local s_coef3 = _b[conc_high]
+        local s_se1 = _se[conc_low]
+        local s_se2 = _se[conc_mid]
+        local s_se3 = _se[conc_high]
 
         display as text "  R coefs:     " %9.6f `r_coef1' "  " %9.6f `r_coef2' "  " %9.6f `r_coef3'
         display as text "  Stata coefs: " %9.6f `s_coef1' "  " %9.6f `s_coef2' "  " %9.6f `s_coef3'
+        display as text "  R robust SEs:     " %9.6f `r_se1' "  " %9.6f `r_se2' "  " %9.6f `r_se3'
+        display as text "  Stata robust SEs: " %9.6f `s_se1' "  " %9.6f `s_se2' "  " %9.6f `s_se3'
 
         * Tolerance: 0.001 for cross-implementation Cox coefficients
         assert abs(`s_coef1' - `r_coef1') < 0.001
         assert abs(`s_coef2' - `r_coef2') < 0.001
         assert abs(`s_coef3' - `r_coef3') < 0.001
+        assert abs(`s_se1' - `r_se1') / `r_se1' < 0.05
+        assert abs(`s_se2' - `r_se2') / `r_se2' < 0.05
+        assert abs(`s_se3' - `r_se3') / `r_se3' < 0.05
     }
     if _rc == 0 {
         display as result "  PASS: XV1 - Cox coefficients match R coxph (Phenobarb)"
@@ -413,11 +433,14 @@ if `run_only' == 0 | `run_only' == 7 {
         _load_fiptiw
 
         stset time, enter(time time_lag) failure(observed) id(id) exit(time .)
-        stcox d wt z, nohr
+        stcox d wt z, nohr efron
 
         local s_d = _b[d]
         local s_wt = _b[wt]
         local s_z = _b[z]
+        local s_se_d = _se[d]
+        local s_se_wt = _se[wt]
+        local s_se_z = _se[z]
 
         preserve
         import delimited "`qa_dir'/fiptiw_coefs.csv", clear
@@ -425,16 +448,24 @@ if `run_only' == 0 | `run_only' == 7 {
         local r_d = estimate[1]
         local r_wt = estimate[2]
         local r_z = estimate[3]
+        local r_se_d = se[1]
+        local r_se_wt = se[2]
+        local r_se_z = se[3]
         restore
 
         display as text "  Conditional Cox (D + Wt + Z):"
         display as text "    R:     D=" %8.4f `r_d' "  Wt=" %8.4f `r_wt' "  Z=" %8.4f `r_z'
         display as text "    Stata: D=" %8.4f `s_d' "  Wt=" %8.4f `s_wt' "  Z=" %8.4f `s_z'
+        display as text "    R SE:     D=" %8.4f `r_se_d' "  Wt=" %8.4f `r_se_wt' "  Z=" %8.4f `r_se_z'
+        display as text "    Stata SE: D=" %8.4f `s_se_d' "  Wt=" %8.4f `s_se_wt' "  Z=" %8.4f `s_se_z'
 
         * Tolerance: 0.01 for cross-implementation Cox coefficients
         assert abs(`s_d' - `r_d') < 0.01
         assert abs(`s_wt' - `r_wt') < 0.01
         assert abs(`s_z' - `r_z') < 0.01
+        assert abs(`s_se_d' - `r_se_d') / `r_se_d' < 0.05
+        assert abs(`s_se_wt' - `r_se_wt') / `r_se_wt' < 0.05
+        assert abs(`s_se_z' - `r_se_z') / `r_se_z' < 0.05
     }
     if _rc == 0 {
         display as result "  PASS: XV7 - Cox coefficients match R coxph (FIPTIW sim)"
@@ -545,13 +576,70 @@ if `run_only' == 0 | `run_only' == 9 {
     }
 }
 
+* =============================================================================
+* XV10: FIPTIW outcome coefficients and robust SEs match geepack
+* =============================================================================
+local ++test_count
+if `run_only' == 0 | `run_only' == 10 {
+    capture noisily {
+        _load_fiptiw
+
+        rename d treated
+        rename wt wt_cov
+        rename z z_cov
+
+        iivw_weight, id(id) time(time) ///
+            visit_cov(treated wt_cov z_cov) ///
+            treat(treated) treat_cov(w) nolog
+
+        iivw_fit y treated, timespec(linear) nolog
+
+        local s_cons = _b[_cons]
+        local s_treated = _b[treated]
+        local s_time = _b[time]
+        local s_se_cons = _se[_cons]
+        local s_se_treated = _se[treated]
+        local s_se_time = _se[time]
+
+        preserve
+        import delimited "`qa_dir'/fiptiw_outcome_geeglm.csv", clear
+        local r_cons = intercept[1]
+        local r_treated = d[1]
+        local r_time = time[1]
+        local r_se_cons = se_intercept[1]
+        local r_se_treated = se_d[1]
+        local r_se_time = se_time[1]
+        restore
+
+        display as text "  Stata-equivalent FIPTIW GEE vs geepack:"
+        display as text "    coef treated diff = " %12.9f (`s_treated' - `r_treated')
+        display as text "    se treated rel diff = " ///
+            %12.9f abs(`s_se_treated' - `r_se_treated') / `r_se_treated'
+
+        assert abs(`s_cons' - `r_cons') < 0.001
+        assert abs(`s_treated' - `r_treated') < 0.001
+        assert abs(`s_time' - `r_time') < 0.001
+        assert abs(`s_se_cons' - `r_se_cons') / `r_se_cons' < 0.05
+        assert abs(`s_se_treated' - `r_se_treated') / `r_se_treated' < 0.05
+        assert abs(`s_se_time' - `r_se_time') / `r_se_time' < 0.05
+    }
+    if _rc == 0 {
+        display as result "  PASS: XV10 - FIPTIW outcome coefficients/SEs match geepack"
+        local ++pass_count
+    }
+    else {
+        display as error "  FAIL: XV10 - FIPTIW outcome GEE comparison (error `=_rc')"
+        local ++fail_count
+    }
+}
+
 * ============================================================
 * Summary
 * ============================================================
 display as text ""
 display as result "Cross-Validation: `pass_count'/`test_count' passed, `fail_count' failed"
 display as text "  Part A (IrregLong/Phenobarb):  XV1-XV4"
-display as text "  Part B (FIPTIW simulation):    XV5-XV9"
+display as text "  Part B (FIPTIW simulation):    XV5-XV10"
 
 if `fail_count' > 0 {
     display as error "RESULT: `fail_count' CROSS-VALIDATION TESTS FAILED"

@@ -1,4 +1,4 @@
-"term","estimate"
-"I(conc.lag > 0 & conc.lag <= 20)TRUE",-2.27453445831092
-"I(conc.lag > 20 & conc.lag <= 30)TRUE",-2.67330608153667
-"I(conc.lag > 30)TRUE",-2.99982121774429
+"term","estimate","se"
+"I(conc.lag > 0 & conc.lag <= 20)TRUE",-2.27453445831092,0.404970525074685
+"I(conc.lag > 20 & conc.lag <= 30)TRUE",-2.67330608153667,0.373984770843292
+"I(conc.lag > 30)TRUE",-2.99982121774429,0.467622568458954

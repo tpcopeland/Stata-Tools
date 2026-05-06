@@ -1,4 +1,4 @@
-*! msm_sensitivity Version 1.0.2  2026/05/06
+*! msm_sensitivity Version 1.0.3  2026/05/06
 *! Sensitivity analysis for unmeasured confounding in MSM
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet

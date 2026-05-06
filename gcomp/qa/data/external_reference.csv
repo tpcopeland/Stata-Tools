@@ -1,0 +1,17 @@
+analysis,metric,value,tolerance,source,notes
+mediation_binary,tce,0.142660423916864,0.005,python_statsmodels,binary mediator and binary outcome; plug-in parametric g-formula
+mediation_binary,nde,0.109326291224346,0.005,python_statsmodels,binary mediator and binary outcome; plug-in parametric g-formula
+mediation_binary,nie,0.0333341326925172,0.005,python_statsmodels,binary mediator and binary outcome; plug-in parametric g-formula
+mediation_binary,pm,0.233660687227054,0.02,python_statsmodels,binary mediator and binary outcome; plug-in parametric g-formula
+mediation_binary,cde,0.101904651186535,0.001,python_statsmodels,binary mediator and binary outcome; plug-in parametric g-formula
+mediation_continuous,tce,0.566735958755791,0.015,python_statsmodels,binary mediator and continuous outcome; GLM logit plus OLS g-formula
+mediation_continuous,nde,0.446585088612918,0.01,python_statsmodels,binary mediator and continuous outcome; GLM logit plus OLS g-formula
+mediation_continuous,nie,0.120150870142873,0.015,python_statsmodels,binary mediator and continuous outcome; GLM logit plus OLS g-formula
+mediation_continuous,pm,0.212005023303359,0.03,python_statsmodels,binary mediator and continuous outcome; GLM logit plus OLS g-formula
+mediation_continuous,cde,0.446585088612919,0.001,python_statsmodels,binary mediator and continuous outcome; GLM logit plus OLS g-formula
+timevarying_binary,po_a1,0.124162546859058,1e-05,python_statsmodels,3-visit sequential g-formula; deterministic L transitions; A fixed at all visits
+timevarying_binary,po_a0,0.297085477942617,1e-05,python_statsmodels,3-visit sequential g-formula; deterministic L transitions; A fixed at all visits
+timevarying_binary,rd_a1_a0,-0.172922931083559,1e-05,python_statsmodels,3-visit sequential g-formula; deterministic L transitions; A fixed at all visits
+timevarying_continuous,po_a1,-0.493439545230119,1e-05,python_statsmodels,3-visit sequential g-formula; deterministic L transitions; A fixed at all visits
+timevarying_continuous,po_a0,0.599036010436009,1e-05,python_statsmodels,3-visit sequential g-formula; deterministic L transitions; A fixed at all visits
+timevarying_continuous,rd_a1_a0,-1.09247555566613,1e-05,python_statsmodels,3-visit sequential g-formula; deterministic L transitions; A fixed at all visits

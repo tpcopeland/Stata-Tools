@@ -1,4 +1,4 @@
-*! gcomp Version 1.1.0  2026/04/26
+*! gcomp Version 1.1.1  2026/05/06
 *! G-computation formula via Monte Carlo simulation
 *! Forked from SSC gformula v1.16 beta (Rhian Daniel, 2021)
 *! with bug fixes, modernization, and SSC dependency removal
@@ -338,19 +338,11 @@ if _N == 0 {
 }
 
 if "`mediation'"=="" {
-	tempvar countid
-	qui gen long `countid'=1 in 1
-	local N=_N
-	forvalues i=2(1)`N' {
-		local j=`i'-1          
-		if `idvar'[`i']==`idvar'[`j'] {
-			qui replace `countid'=`countid'[`j'] in `i'
-		}
-		else {
-			qui replace `countid'=`countid'[`j']+1 in `i'
-		}
-	}
-	local maxid=`countid'[`N']
+	tempvar _gc_idtag
+	qui egen byte `_gc_idtag' = tag(`idvar')
+	qui count if `_gc_idtag'
+	local maxid = r(N)
+	drop `_gc_idtag'
 	if `maxid'<`simulations'  {
 		if `simulations'!=99999 {
 			noi di as err "Warning: the number of MC simulations exceeds the sample size, which is not allowed."
@@ -1139,7 +1131,7 @@ if "`mediation'"=="" {
 	local _b=""
 	if "`msm'"!="" {
 		local r1=r(N_msm_params)
-		local colnames: colfullnames msm_params
+		local colnames "`r(msm_colnames)'"
 		tokenize "`colnames'", parse(" ")
 		local nparams 0 			
 		while "`1'"!="" {
@@ -1180,7 +1172,7 @@ else {
     local _b=""
 	if "`msm'"!="" {
 		local r1=r(N_msm_params)
-		local colnames: colfullnames msm_params
+		local colnames "`r(msm_colnames)'"
 		tokenize "`colnames'", parse(" ")
 		local nparams 0 			
 		while "`1'"!="" {
@@ -4807,13 +4799,21 @@ if "`mediation'"=="" {
     	}
 		tempname msm_params noomit
 	    mat `msm_params'=e(b)
+		local _msm_orig_colnames: colfullnames `msm_params'
 		_ms_omit_info `msm_params'
 		local cols = colsof(`msm_params')
 		matrix `noomit' =  J(1,`cols',1) - r(omit)
 		mata: msm_params = select(st_matrix(st_local("msm_params")),(st_matrix(st_local("noomit"))))
 		mata: st_matrix(st_local("msm_params"),msm_params)
-		mat msm_params=`msm_params'
-    	local colnames: colfullnames msm_params
+		local colnames ""
+		forvalues _msm_ci = 1/`cols' {
+			if `noomit'[1,`_msm_ci'] == 1 {
+				local _msm_name: word `_msm_ci' of `_msm_orig_colnames'
+				local colnames "`colnames' `_msm_name'"
+			}
+		}
+		local colnames = strtrim("`colnames'")
+		matrix colnames `msm_params' = `colnames'
     	tokenize "`colnames'", parse(" ")
     	local nparams 0 			
     	while "`1'"!="" {
@@ -4822,13 +4822,14 @@ if "`mediation'"=="" {
     			local colname`nparams'=substr(substr("`1'",strpos("`1'",":")+1,.), ///
                     strpos(substr("`1'",strpos("`1'",":")+1,.),".")+1,.)
     		}
-    		mac shift
+		mac shift
     	}
 		return clear
-    	forvalues i=1/`nparams' {
-    		local p`i'=msm_params[1,`i']
-    		return scalar `colname`i''=`p`i''
-    	}
+		return local msm_colnames "`colnames'"
+	forvalues i=1/`nparams' {
+		local p`i'=`msm_params'[1,`i']
+		return scalar `colname`i''=`p`i''
+	}
     	return scalar N_msm_params=`nparams'
     	if `_gc_chk_prt'==0 {
     		noi di as text "{hline 10}{c RT}"
@@ -5121,13 +5122,21 @@ else {
 		}
 		tempname msm_params noomit
 		mat `msm_params'=e(b)
+		local _msm_orig_colnames: colfullnames `msm_params'
 		_ms_omit_info `msm_params'
 		local cols = colsof(`msm_params')
 		matrix `noomit' =  J(1,`cols',1) - r(omit)
 		mata: msm_params = select(st_matrix(st_local("msm_params")),(st_matrix(st_local("noomit"))))
 		mata: st_matrix(st_local("msm_params"),msm_params)
-		mat msm_params=`msm_params'
-    	local colnames: colfullnames msm_params
+		local colnames ""
+		forvalues _msm_ci = 1/`cols' {
+			if `noomit'[1,`_msm_ci'] == 1 {
+				local _msm_name: word `_msm_ci' of `_msm_orig_colnames'
+				local colnames "`colnames' `_msm_name'"
+			}
+		}
+		local colnames = strtrim("`colnames'")
+		matrix colnames `msm_params' = `colnames'
     	tokenize "`colnames'", parse(" ")
     	local nparams 0 			
     	while "`1'"!="" {
@@ -5136,12 +5145,13 @@ else {
     			local colname`nparams'=substr(substr("`1'",strpos("`1'",":")+1,.), ///
                     strpos(substr("`1'",strpos("`1'",":")+1,.),".")+1,.)
     		}
-    		mac shift
+		mac shift
     	}
-    	forvalues i=1/`nparams' {
-    		local p`i'=msm_params[1,`i']
-    		return scalar `colname`i''=`p`i''
-    	}
+		return local msm_colnames "`colnames'"
+	forvalues i=1/`nparams' {
+		local p`i'=`msm_params'[1,`i']
+		return scalar `colname`i''=`p`i''
+	}
     	return scalar N_msm_params=`nparams'
     	if `_gc_chk_prt'==0 {
     		noi di as text "{hline 10}{c RT}"

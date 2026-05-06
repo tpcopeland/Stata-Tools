@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.2  06may2026}{...}
+{* *! version 1.0.3  06may2026}{...}
 {vieweralsosee "msm" "help msm"}{...}
 {vieweralsosee "msm_weight" "help msm_weight"}{...}
 {vieweralsosee "msm_predict" "help msm_predict"}{...}
@@ -34,6 +34,8 @@
 {synopt:{opt outcome_cov(varlist)}}additional time-fixed outcome covariates{p_end}
 {synopt:{opt per:iod_spec(string)}}period functional form: {cmd:linear}, {cmd:quadratic} (default), {cmd:cubic}, {cmd:ns(#)}, or {cmd:none}{p_end}
 {synopt:{opt cl:uster(varname)}}cluster variable for robust SE; default is the ID variable{p_end}
+{synopt:{opt vce(string)}}standard-error estimator: {cmd:robust} or {cmd:cluster} {it:varname}{p_end}
+{synopt:{opt str:ata(varlist)}}Cox-only baseline hazard strata{p_end}
 {synopt:{opt boot:strap(#)}}bootstrap replicates (not yet implemented){p_end}
 {synopt:{opt level(#)}}confidence level; default is {cmd:95}{p_end}
 {synopt:{opt nolog}}suppress iteration log{p_end}
@@ -134,7 +136,21 @@ terms.{p_end}
 
 {phang}
 {opth cl:uster(varname)} specifies the clustering variable for robust sandwich
-standard errors.  Default is the ID variable from {helpb msm_prepare}.
+standard errors.  Default is the ID variable from {helpb msm_prepare}.  This is
+equivalent to {cmd:vce(cluster} {it:varname}{cmd:)} and is retained for
+backward compatibility.
+
+{phang}
+{opt vce(string)} specifies the sandwich variance estimator.  Supported values
+are {cmd:vce(robust)} and {cmd:vce(cluster} {it:varname}{cmd:)}.  If neither
+{cmd:vce()} nor {cmd:cluster()} is specified, {cmd:msm_fit} uses
+{cmd:vce(cluster} {it:idvar}{cmd:)}.  {cmd:cluster()} and {cmd:vce()} may not
+be specified together.
+
+{phang}
+{opth str:ata(varlist)} specifies Cox baseline hazard strata and is allowed
+only with {cmd:model(cox)}.  Strata variables are passed to {cmd:stcox}'s
+{cmd:strata()} option and are not included as regression covariates.
 
 {phang}
 {opt boot:strap(#)} is reserved for future bootstrap variance estimation.
@@ -162,6 +178,9 @@ Default is 95.
 {synopt:{cmd:e(msm_model)}}model type ({cmd:logistic}, {cmd:linear}, or {cmd:cox}){p_end}
 {synopt:{cmd:e(msm_treatment)}}treatment variable name{p_end}
 {synopt:{cmd:e(msm_period_spec)}}period specification used{p_end}
+{synopt:{cmd:e(msm_vce)}}variance estimator ({cmd:robust} or {cmd:cluster}){p_end}
+{synopt:{cmd:e(msm_cluster)}}cluster variable when clustered SEs are used{p_end}
+{synopt:{cmd:e(msm_strata)}}Cox strata variables, if specified{p_end}
 
 {p2col 5 25 29 2: Matrices}{p_end}
 {synopt:{cmd:e(effects)}}1 x 4 matrix (estimate, ci_lower, ci_upper, pvalue) for treatment{p_end}
@@ -192,9 +211,19 @@ in person-period data:{p_end}
 {phang2}{cmd:. msm_fit, model(cox) outcome_cov(age sex) nolog}{p_end}
 
 {pstd}
+{bf:Cox MSM with stratum-specific baseline hazards:}{p_end}
+
+{phang2}{cmd:. msm_fit, model(cox) outcome_cov(age) strata(sex) vce(cluster id) nolog}{p_end}
+
+{pstd}
 {bf:Linear probability MSM for an identity-scale risk difference:}{p_end}
 
 {phang2}{cmd:. msm_fit, model(linear) outcome_cov(age sex)}{p_end}
+
+{pstd}
+{bf:Linear probability MSM with robust standard errors:}{p_end}
+
+{phang2}{cmd:. msm_fit, model(linear) outcome_cov(age sex) vce(robust)}{p_end}
 
 {pstd}
 {bf:Checking what comes next after fitting:}{p_end}

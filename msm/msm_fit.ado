@@ -1,4 +1,4 @@
-*! msm_fit Version 1.0.2  2026/05/06
+*! msm_fit Version 1.0.3  2026/05/06
 *! Weighted outcome model for marginal structural models
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet
@@ -20,6 +20,8 @@ Options:
   period_spec(string)     - Period specification: linear | quadratic | cubic | ns(#) | none
                             (default: quadratic)
   cluster(varname)        - Cluster variable (default: id variable)
+  vce(string)             - SE estimator: robust | cluster varname
+  strata(varlist)         - Cox-only baseline hazard strata
   bootstrap(#)            - Bootstrap replicates (0 = no bootstrap, default)
   level(#)                - Confidence level (default: 95)
   nolog                   - Suppress iteration log
@@ -42,6 +44,7 @@ program define msm_fit, eclass
 
     syntax , [MODel(string) OUTcome_cov(varlist numeric) ///
         PERiod_spec(string) CLuster(varname) ///
+        VCE(string asis) STRata(varlist numeric) ///
         BOOTstrap(integer 0) Level(cilevel) noLOG]
 
     * =========================================================================
@@ -85,12 +88,58 @@ program define msm_fit, eclass
 
     if "`model'" == "" local model "logistic"
     if "`period_spec'" == "" local period_spec "quadratic"
-    if "`cluster'" == "" local cluster "`id'"
 
     * Validate model type
     if !inlist("`model'", "logistic", "linear", "cox") {
         display as error "model() must be logistic, linear, or cox"
         exit 198
+    }
+
+    if "`strata'" != "" & "`model'" != "cox" {
+        display as error "strata() is only allowed with model(cox)"
+        exit 198
+    }
+
+    local vce_type ""
+    local vce_cluster ""
+    local vce_opt ""
+    if "`vce'" != "" & "`cluster'" != "" {
+        display as error "cluster() may not be combined with vce()"
+        display as error "Use vce(cluster varname) to request clustered standard errors."
+        exit 198
+    }
+    if "`vce'" == "" {
+        if "`cluster'" == "" local cluster "`id'"
+        local vce_type "cluster"
+        local vce_cluster "`cluster'"
+        local vce_opt "vce(cluster `cluster')"
+    }
+    else {
+        local vce_clean "`vce'"
+        local vce_clean = strtrim("`vce_clean'")
+        local n_vce_words : word count `vce_clean'
+        local vce_first : word 1 of `vce_clean'
+        local vce_first = lower("`vce_first'")
+        if "`vce_first'" == "robust" & `n_vce_words' == 1 {
+            local vce_type "robust"
+            local vce_opt "vce(robust)"
+        }
+        else if "`vce_first'" == "cluster" & `n_vce_words' == 2 {
+            local vce_cluster : word 2 of `vce_clean'
+            capture confirm variable `vce_cluster'
+            if _rc {
+                display as error "vce(cluster `vce_cluster') variable not found"
+                exit 111
+            }
+            local vce_type "cluster"
+            local vce_opt "vce(cluster `vce_cluster')"
+            local cluster "`vce_cluster'"
+        }
+        else {
+            display as error "vce() must be robust or cluster varname"
+            display as error "Examples: vce(robust) or vce(cluster id)"
+            exit 198
+        }
     }
 
     if "`outcome_cov'" != "" {
@@ -190,7 +239,13 @@ program define msm_fit, eclass
         display as text "Covariates:       " as result "`outcome_cov'"
     }
     display as text "Weight var:       " as result "_msm_weight"
-    display as text "Cluster var:      " as result "`cluster'"
+    display as text "SE type:          " as result "`vce_type'"
+    if "`vce_cluster'" != "" {
+        display as text "Cluster var:      " as result "`vce_cluster'"
+    }
+    if "`strata'" != "" {
+        display as text "Strata:           " as result "`strata'"
+    }
     if `bootstrap' > 0 {
         display as text "Bootstrap reps:   " as result "`bootstrap'"
     }
@@ -264,7 +319,7 @@ program define msm_fit, eclass
 
         glm `outcome' `all_covars' [pw=_msm_weight] if `_esample', ///
             family(binomial) link(logit) ///
-            vce(cluster `cluster') level(`level') `log_opt'
+            `vce_opt' level(`level') `log_opt'
         if e(converged) == 0 {
             display as text ""
             display as error "GLM did not converge; refusing to persist fitted MSM state"
@@ -277,7 +332,7 @@ program define msm_fit, eclass
         display as text ""
 
         regress `outcome' `all_covars' [pw=_msm_weight] if `_esample', ///
-            vce(cluster `cluster') level(`level')
+            `vce_opt' level(`level')
     }
     else if "`model'" == "cox" {
         display as text "Setting up survival data..."
@@ -322,9 +377,13 @@ program define msm_fit, eclass
         if "`outcome_cov'" != "" {
             local cox_covars "`cox_covars' `outcome_cov'"
         }
+        local cox_strata_opt ""
+        if "`strata'" != "" {
+            local cox_strata_opt "strata(`strata')"
+        }
 
         capture noisily stcox `cox_covars', ///
-            vce(cluster `cluster') level(`level') `log_opt'
+            `cox_strata_opt' `vce_opt' level(`level') `log_opt'
         local _cox_rc = _rc
         if `_cox_rc' {
             restore
@@ -376,7 +435,9 @@ program define msm_fit, eclass
     char _dta[_msm_outcome_cov] "`outcome_cov'"
     char _dta[_msm_per_ns_knots] "`per_ns_knots'"
     char _dta[_msm_per_ns_df] "`per_ns_df'"
-    char _dta[_msm_cluster] "`cluster'"
+    char _dta[_msm_cluster] "`vce_cluster'"
+    char _dta[_msm_vce] "`vce_type'"
+    char _dta[_msm_strata] "`strata'"
     char _dta[_msm_time_vars] "`time_vars'"
     char _dta[_msm_fit_level] "`level'"
 
@@ -469,6 +530,9 @@ program define msm_fit, eclass
     ereturn local msm_model "`model'"
     ereturn local msm_treatment "`treatment'"
     ereturn local msm_period_spec "`period_spec'"
+    ereturn local msm_vce "`vce_type'"
+    ereturn local msm_cluster "`vce_cluster'"
+    ereturn local msm_strata "`strata'"
 
     * Build e(effects) matrix for effecttab integration
     tempname _msm_b _msm_V _msm_effects

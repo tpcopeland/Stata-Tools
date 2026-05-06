@@ -1,4 +1,4 @@
-*! msm Version 1.0.2  2026/05/06
+*! msm Version 1.0.3  2026/05/06
 *! Marginal Structural Models suite for Stata
 *! Author: Timothy P Copeland
 *! Department of Clinical Neuroscience, Karolinska Institutet
@@ -26,7 +26,7 @@ program define msm, rclass
 
     syntax [, List Detail PROTocol STATus]
 
-    local version "1.0.2"
+    local version "1.0.3"
     local n_commands = 11
 
     * All user-facing commands

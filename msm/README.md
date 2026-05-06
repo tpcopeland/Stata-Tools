@@ -1,6 +1,6 @@
 # msm - Marginal structural models for longitudinal causal analysis
 
-**Version 1.0.2** | 2026-05-06
+**Version 1.0.3** | 2026-05-06
 
 `msm` is a Stata suite for inverse-probability-weighted marginal structural models in person-period data. It is designed for longitudinal settings with time-varying treatments and confounders, where standard regression adjustment can be biased by treatment-confounder feedback.
 
@@ -99,7 +99,7 @@ Run `msm, status` at any point to see the current pipeline stage, what variables
 
 5. **`msm_diagnose`** — reports the weight distribution (mean, SD, percentiles, effective sample size) and computes standardized mean differences (SMD) for each covariate before and after weighting. A good analysis should see SMDs below 0.1 after weighting.
 
-6. **`msm_fit`** — fits the weighted outcome model. The treatment coefficient from this model is the MSM causal estimate. Standard errors are robust/sandwich, clustered at the individual level.
+6. **`msm_fit`** — fits the weighted outcome model. The treatment coefficient from this model is the MSM causal estimate. Standard errors are robust/sandwich, clustered at the individual level by default, with `vce(robust)` and `vce(cluster varname)` available for explicit control.
 
 7. **`msm_predict`** — generates standardized counterfactual predictions: "What would the outcome be if everyone were always treated? Never treated?" Uses Monte Carlo simulation from the coefficient distribution for confidence intervals. Risk differences between strategies are available.
 
@@ -112,6 +112,8 @@ Run `msm, status` at any point to see the current pipeline stage, what variables
 | `model(logistic)` | Binary outcomes when you also want standardized counterfactual predictions | Required for `msm_predict`; use `msm, status` to confirm prediction is available |
 | `model(linear)` | Binary outcomes on the identity scale when a weighted risk difference is the target | `msm_predict` is not available; use `msm, status` to check the current stage before reporting/export |
 | `model(cox)` | Time-to-event analyses where a weighted hazard ratio is the main estimand | `msm_predict` is not available; use `msm_report`, `msm_table`, `msm_sensitivity`, and `msm, status` for pipeline state |
+
+`msm_fit` supports `vce(robust)` and `vce(cluster varname)` for weighted linear, pooled logistic, and Cox models. For Cox models, `strata(varlist)` fits separate baseline hazards by stratum while retaining the treatment effect and requested robust or clustered standard errors.
 
 ## Data Requirements
 
@@ -323,6 +325,7 @@ msm_report, eform
 
 ## Version History
 
+- **1.0.3** (2026-05-06): Added explicit `msm_fit` `vce()` control, Cox `strata()` support, and external R/Python validation of robust and clustered standard errors
 - **1.0.2** (2026-05-06): Added adversarial QA for state invalidation, missing treatment/censoring weights, output export restoration, and clarified binary-outcome model scope
 - **1.0.1** (2026-04-30): Hardened validation edge cases, time-fixed outcome-covariate enforcement, Cox guidance, and protocol export escaping
 - **1.0.0** (2026-04-26): Initial Stata-Tools release of the full MSM workflow suite

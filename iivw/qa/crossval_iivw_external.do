@@ -59,7 +59,8 @@ if _rc != 0 {
 }
 
 foreach f in bladder bladder_coefs lalonde lalonde_coefs ///
-    dietox dietox_weight_coefs dietox_geeglm {
+    dietox dietox_weight_coefs dietox_geeglm dietox_geeglm_pen ///
+    dietox_geeglm_logit {
     capture confirm file "`qa_dir'/crossval_iivw_external_`f'.csv"
     if _rc != 0 {
         display as error "missing reference file: crossval_iivw_external_`f'.csv"
@@ -89,11 +90,17 @@ if `run_only' == 0 | `run_only' == 1 {
         local r_rx2 = rx2[1]
         local r_number = number[1]
         local r_size = size[1]
+        local r_se_rx2 = se_rx2[1]
+        local r_se_number = se_number[1]
+        local r_se_size = se_size[1]
         restore
 
         assert abs(_b[rx2] - `r_rx2') < 1e-6
         assert abs(_b[number] - `r_number') < 1e-6
         assert abs(_b[size] - `r_size') < 1e-6
+        assert abs(_se[rx2] - `r_se_rx2') < 1e-6
+        assert abs(_se[number] - `r_se_number') < 1e-6
+        assert abs(_se[size] - `r_se_size') < 1e-6
 
         iivw_weight, id(id) time(time) ///
             visit_cov(rx2 number size) efron nolog
@@ -103,6 +110,10 @@ if `run_only' == 0 | `run_only' == 1 {
         local max_diff = r(max)
         local mean_diff = r(mean)
 
+        display as text "  bladder2 Cox SE diffs:"
+        display as text "    rx2    " %12.9f (_se[rx2] - `r_se_rx2')
+        display as text "    number " %12.9f (_se[number] - `r_se_number')
+        display as text "    size   " %12.9f (_se[size] - `r_se_size')
         display as text "  bladder2 IIW max diff:  " %12.9f `max_diff'
         display as text "  bladder2 IIW mean diff: " %12.9f `mean_diff'
         assert `max_diff' < 1e-6
@@ -140,6 +151,16 @@ if `run_only' == 0 | `run_only' == 2 {
         local r_re74 = re74[1]
         local r_re75 = re75[1]
         local r_num_cons = numerator_intercept[1]
+        local r_se_cons = se_intercept[1]
+        local r_se_age = se_age[1]
+        local r_se_educ = se_educ[1]
+        local r_se_black = se_black[1]
+        local r_se_hispan = se_hispan[1]
+        local r_se_married = se_married[1]
+        local r_se_nodegree = se_nodegree[1]
+        local r_se_re74 = se_re74[1]
+        local r_se_re75 = se_re75[1]
+        local r_se_num_cons = se_numerator_intercept[1]
         restore
 
         assert abs(_b[_cons] - `r_cons') < 1e-7
@@ -151,10 +172,21 @@ if `run_only' == 0 | `run_only' == 2 {
         assert abs(_b[nodegree] - `r_nodegree') < 1e-7
         assert abs(_b[re74] - `r_re74') < 1e-10
         assert abs(_b[re75] - `r_re75') < 1e-10
+        assert abs(_se[_cons] - `r_se_cons') / `r_se_cons' < 1e-4
+        assert abs(_se[age] - `r_se_age') / `r_se_age' < 1e-4
+        assert abs(_se[educ] - `r_se_educ') / `r_se_educ' < 1e-4
+        assert abs(_se[black] - `r_se_black') / `r_se_black' < 1e-4
+        assert abs(_se[hispan] - `r_se_hispan') / `r_se_hispan' < 1e-4
+        assert abs(_se[married] - `r_se_married') / `r_se_married' < 1e-4
+        assert abs(_se[nodegree] - `r_se_nodegree') / `r_se_nodegree' < 1e-4
+        assert abs(_se[re74] - `r_se_re74') / `r_se_re74' < 1e-4
+        assert abs(_se[re75] - `r_se_re75') / `r_se_re75' < 1e-4
 
         quietly summarize treat
         local s_num_cons = logit(r(mean))
         assert abs(`s_num_cons' - `r_num_cons') < 1e-10
+        quietly logit treat, nolog
+        assert abs(_se[_cons] - `r_se_num_cons') / `r_se_num_cons' < 1e-4
 
         iivw_weight, id(id) time(time) ///
             treat(treat) ///
@@ -166,6 +198,9 @@ if `run_only' == 0 | `run_only' == 2 {
         local max_diff = r(max)
         local mean_diff = r(mean)
 
+        display as text "  Lalonde logit SE diffs:"
+        display as text "    numerator _cons rel diff  " ///
+            %12.9f abs(_se[_cons] - `r_se_num_cons') / `r_se_num_cons'
         display as text "  Lalonde IPTW max diff:  " %12.9f `max_diff'
         display as text "  Lalonde IPTW mean diff: " %12.9f `mean_diff'
         assert `max_diff' < 1e-6
@@ -228,6 +263,10 @@ if `run_only' == 0 | `run_only' == 3 {
         local r_cu_high = cu_high[1]
         local r_feed0 = feed0[1]
         local r_time = time[1]
+        local r_se_cons = se_intercept[1]
+        local r_se_cu_high = se_cu_high[1]
+        local r_se_feed0 = se_feed0[1]
+        local r_se_time = se_time[1]
         restore
 
         display as text "  Dietox GEE coefficients (Stata - R):"
@@ -240,13 +279,131 @@ if `run_only' == 0 | `run_only' == 3 {
         assert abs(`s_cu_high' - `r_cu_high') < 1e-6
         assert abs(`s_feed0' - `r_feed0') < 1e-6
         assert abs(`s_time' - `r_time') < 1e-6
+
+        display as text "  Dietox GEE robust SE relative differences:"
+        display as text "    _cons   " %12.9f abs(_se[_cons] - `r_se_cons') / `r_se_cons'
+        display as text "    cu_high " %12.9f abs(_se[cu_high] - `r_se_cu_high') / `r_se_cu_high'
+        display as text "    feed0   " %12.9f abs(_se[feed0] - `r_se_feed0') / `r_se_feed0'
+        display as text "    time    " %12.9f abs(_se[time] - `r_se_time') / `r_se_time'
+
+        assert abs(_se[_cons] - `r_se_cons') / `r_se_cons' < 0.05
+        assert abs(_se[cu_high] - `r_se_cu_high') / `r_se_cu_high' < 0.05
+        assert abs(_se[feed0] - `r_se_feed0') / `r_se_feed0' < 0.05
+        assert abs(_se[time] - `r_se_time') / `r_se_time' < 0.05
     }
     if _rc == 0 {
-        display as result "  PASS: XV3 - FIPTIW weights and GEE coefficients match Dietox references"
+        display as result "  PASS: XV3 - FIPTIW weights plus GEE coefficients/SEs match Dietox references"
         local ++pass_count
     }
     else {
         display as error "  FAIL: XV3 - FIPTIW/Dietox comparison (error `=_rc')"
+        local ++fail_count
+    }
+}
+
+**# XV4: Outcome SE option paths match R alternatives
+
+local ++test_count
+if `run_only' == 0 | `run_only' == 4 {
+    capture noisily {
+        import delimited "`qa_dir'/crossval_iivw_external_dietox.csv", ///
+            clear asdouble
+
+        iivw_weight, id(id) time(time) ///
+            visit_cov(cu_high startwt evit100 evit200) ///
+            stabcov(cu_high) ///
+            treat(cu_high) treat_cov(startwt evit100 evit200) ///
+            efron nolog
+
+        iivw_fit weight cu_high feed0, timespec(linear) ///
+            cluster(pen) level(90) geeopts(iterate(60)) nolog
+
+        local s_cons = _b[_cons]
+        local s_cu_high = _b[cu_high]
+        local s_feed0 = _b[feed0]
+        local s_time = _b[time]
+        local s_se_cons = _se[_cons]
+        local s_se_cu_high = _se[cu_high]
+        local s_se_feed0 = _se[feed0]
+        local s_se_time = _se[time]
+        assert "`e(iivw_cluster)'" == "pen"
+
+        preserve
+        import delimited "`qa_dir'/crossval_iivw_external_dietox_geeglm_pen.csv", ///
+            clear asdouble
+        local r_cons = intercept[1]
+        local r_cu_high = cu_high[1]
+        local r_feed0 = feed0[1]
+        local r_time = time[1]
+        local r_se_cons = se_intercept[1]
+        local r_se_cu_high = se_cu_high[1]
+        local r_se_feed0 = se_feed0[1]
+        local r_se_time = se_time[1]
+        restore
+
+        assert abs(`s_cons' - `r_cons') < 1e-6
+        assert abs(`s_cu_high' - `r_cu_high') < 1e-6
+        assert abs(`s_feed0' - `r_feed0') < 1e-6
+        assert abs(`s_time' - `r_time') < 1e-6
+
+        display as text "  Dietox GEE cluster(pen) SE relative differences:"
+        display as text "    _cons   " %12.9f abs(`s_se_cons' - `r_se_cons') / `r_se_cons'
+        display as text "    cu_high " %12.9f abs(`s_se_cu_high' - `r_se_cu_high') / `r_se_cu_high'
+        display as text "    feed0   " %12.9f abs(`s_se_feed0' - `r_se_feed0') / `r_se_feed0'
+        display as text "    time    " %12.9f abs(`s_se_time' - `r_se_time') / `r_se_time'
+
+        assert abs(`s_se_cons' - `r_se_cons') / `r_se_cons' < 0.10
+        assert abs(`s_se_cu_high' - `r_se_cu_high') / `r_se_cu_high' < 0.10
+        assert abs(`s_se_feed0' - `r_se_feed0') / `r_se_feed0' < 0.10
+        assert abs(`s_se_time' - `r_se_time') / `r_se_time' < 0.10
+
+        iivw_fit heavy cu_high feed0, timespec(linear) ///
+            family(binomial) link(logit) nolog replace
+
+        local s_cons = _b[_cons]
+        local s_cu_high = _b[cu_high]
+        local s_feed0 = _b[feed0]
+        local s_time = _b[time]
+        local s_se_cons = _se[_cons]
+        local s_se_cu_high = _se[cu_high]
+        local s_se_feed0 = _se[feed0]
+        local s_se_time = _se[time]
+
+        preserve
+        import delimited "`qa_dir'/crossval_iivw_external_dietox_geeglm_logit.csv", ///
+            clear asdouble
+        local r_cons = intercept[1]
+        local r_cu_high = cu_high[1]
+        local r_feed0 = feed0[1]
+        local r_time = time[1]
+        local r_se_cons = se_intercept[1]
+        local r_se_cu_high = se_cu_high[1]
+        local r_se_feed0 = se_feed0[1]
+        local r_se_time = se_time[1]
+        restore
+
+        assert abs(`s_cons' - `r_cons') < 1e-5
+        assert abs(`s_cu_high' - `r_cu_high') < 1e-5
+        assert abs(`s_feed0' - `r_feed0') < 1e-5
+        assert abs(`s_time' - `r_time') < 1e-5
+
+        display as text "  Dietox binomial-logit robust SE relative differences:"
+        display as text "    _cons   " %12.9f abs(`s_se_cons' - `r_se_cons') / `r_se_cons'
+        display as text "    cu_high " %12.9f abs(`s_se_cu_high' - `r_se_cu_high') / `r_se_cu_high'
+        display as text "    feed0   " %12.9f abs(`s_se_feed0' - `r_se_feed0') / `r_se_feed0'
+        display as text "    time    " %12.9f abs(`s_se_time' - `r_se_time') / `r_se_time'
+
+        assert abs(`s_se_cons' - `r_se_cons') / `r_se_cons' < 0.10
+        assert abs(`s_se_cu_high' - `r_se_cu_high') / `r_se_cu_high' < 0.10
+        assert abs(`s_se_feed0' - `r_se_feed0') / `r_se_feed0' < 0.10
+        assert abs(`s_se_time' - `r_se_time') / `r_se_time' < 0.10
+    }
+    if _rc == 0 {
+        display as result "  PASS: XV4 - alternative SE option paths comparable with R"
+        local ++pass_count
+    }
+    else {
+        display as error "  FAIL: XV4 - alternative SE option comparison (error `=_rc')"
         local ++fail_count
     }
 }
@@ -258,6 +415,7 @@ display as result "External Cross-Validation: `pass_count'/`test_count' passed, 
 display as text "  XV1: IIW vs survival::coxph bladder2"
 display as text "  XV2: IPTW vs ipw::ipwpoint Lalonde"
 display as text "  XV3: FIPTIW/outcome vs survival::coxph + geepack::geeglm Dietox"
+display as text "  XV4: cluster(), level(), family()/link() SE option paths vs geeglm"
 
 if `fail_count' > 0 {
     display as error "RESULT: `fail_count' EXTERNAL CROSS-VALIDATION TESTS FAILED"
