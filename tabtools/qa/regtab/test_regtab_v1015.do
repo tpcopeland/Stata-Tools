@@ -1,8 +1,10 @@
 * test_regtab_v1015.do — regression tests for tabtools v1.0.15 fixes
-* Tests A, B, C from the 2026-05-07 reviewer punch list:
+* Tests A, B, C, F, G from the 2026-05-07 reviewer punch list:
 *   A. ICC cross-pollution: multi-model [melogit, mepoisson] keeps melogit ICC
 *   B. Comma-format coefficient destring: coefficients >= 1000 round-trip
 *   C. Refcat detection robustness against non-default precision
+*   F. Single-model mepoisson: exact ICC-skip note string emitted
+*   G. Multi-model collection: ICC-skip note names the affected model index
 *
 * Run from the package qa/regtab/ directory.
 
@@ -184,6 +186,133 @@ if `rc_C' == 0 {
 }
 else {
     display as error "  FAIL: Test C (rc=`rc_C'; ref_count=`ref_count')"
+    local ++fail
+}
+
+**# Helper: assert string appears in a captured log file
+* Slurps the log file, joining Stata's hard-wrapped continuation lines
+* (`\n> ` markers from batch mode line-wrap at column ~80), then asserts
+* `needle' appears in the resulting concatenated content. This locks the
+* exact Note text emitted by regtab without being defeated by the column
+* wrap that Stata applies when writing display strings to a text log.
+capture program drop _v1015_assert_in_log
+program define _v1015_assert_in_log
+    args path needle
+    capture confirm file `"`path'"'
+    if _rc {
+        display as error "  log file not found: `path'"
+        exit 601
+    }
+    tempname _vfh
+    local _content ""
+    file open `_vfh' using `"`path'"', read text
+    file read `_vfh' line
+    while r(eof) == 0 {
+        * Strip Stata's batch wrap-continuation prefix exactly "> " (gt,
+        * single space). The wrap point preserves the original character at
+        * column 1 of the continuation, so the leading space from the source
+        * text typically remains as the first char after the marker. Removing
+        * only "> " (not "> +") rejoins exactly as the user-visible string.
+        if regexm(`"`line'"', "^> ") {
+            local line = regexr(`"`line'"', "^> ", "")
+            local _content `"`_content'`line'"'
+        }
+        else {
+            local _content `"`_content' `line'"'
+        }
+        file read `_vfh' line
+    }
+    file close `_vfh'
+    if strpos(`"`_content'"', `"`needle'"') == 0 {
+        display as error "  needle not found in `path':"
+        display as error "    `needle'"
+        exit 9
+    }
+end
+
+**# Test F: single-model mepoisson — exact ICC-skip Note string
+* Lock the user-facing message that fires when every model in the collection
+* has an undefined level-1 variance. The exact wording is part of the
+* contract: any future refactor that drops the parenthetical must update
+* this assertion too.
+local _f_log "`out_dir'/_test_F.log"
+capture erase "`_f_log'"
+local ++total
+capture noisily {
+    clear
+    set obs 600
+    gen group = ceil(_n / 30)
+    gen x = rnormal()
+    tempvar uraw
+    gen `uraw' = rnormal()
+    bysort group: gen u = `uraw'[1] * 0.5
+    gen mu = exp(0.5 + 0.3 * x + u)
+    gen y = rpoisson(mu)
+
+    collect clear
+    collect: mepoisson y x || group:
+
+    log using `"`_f_log'"', replace text name(_v1015_F)
+    capture frame drop _rt_v1015_F
+    regtab, frame(_rt_v1015_F, replace) stats(icc)
+    capture log close _v1015_F
+    capture frame drop _rt_v1015_F
+
+    _v1015_assert_in_log `"`_f_log'"' ///
+        "Note: ICC not computed (no closed-form level-1 variance for the requested model family)"
+}
+local rc_F = _rc
+capture log close _v1015_F
+if `rc_F' == 0 {
+    display as result "  PASS: Test F (single-model mepoisson — exact Note string emitted)"
+    local ++pass
+}
+else {
+    display as error "  FAIL: Test F (rc=`rc_F'; see `_f_log')"
+    local ++fail
+}
+
+**# Test G: multi-model — ICC-skip Note names the affected position(s)
+* Two-model collection [melogit, mepoisson]. Note must list the count-data
+* position only; melogit ICC must still be recovered. Lock both the message
+* template and the listed index.
+local _g_log "`out_dir'/_test_G.log"
+capture erase "`_g_log'"
+local ++total
+capture noisily {
+    clear
+    set obs 600
+    gen cluster = ceil(_n / 30)
+    gen x = rnormal()
+    tempvar uraw2
+    gen `uraw2' = rnormal()
+    bysort cluster: gen u = `uraw2'[1] * 0.6
+    gen lp = 0.4 + 0.5 * x + u
+    gen y_bin = runiform() < invlogit(lp)
+    gen y_cnt = rpoisson(exp(0.3 + 0.4 * x + u))
+
+    collect clear
+    collect: melogit y_bin x || cluster:
+    collect: mepoisson y_cnt x || cluster:
+
+    log using `"`_g_log'"', replace text name(_v1015_G)
+    capture frame drop _rt_v1015_G
+    regtab, frame(_rt_v1015_G, replace) stats(icc) noreeffects
+    capture log close _v1015_G
+    capture frame drop _rt_v1015_G
+
+    * mepoisson is the second model — index 2 must appear in the note.
+    _v1015_assert_in_log `"`_g_log'"' ///
+        "Note: ICC not computed for model(s) 2 (no closed-form level-1 variance)"
+}
+local rc_G = _rc
+capture log close _v1015_G
+if `rc_G' == 0 {
+    display as result "  PASS: Test G (multi-model — Note lists position 2 only)"
+    local ++pass
+}
+else {
+    display as error "  FAIL: Test G (rc=`rc_G'; see `_g_log')"
     local ++fail
 }
 

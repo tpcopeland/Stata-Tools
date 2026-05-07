@@ -1,7 +1,11 @@
 * test_tabtools_v1015.do — regression tests for tabtools v1.0.15 fixes
-* Tests D and E from the 2026-05-07 reviewer punch list:
+* Tests D, E, F, G from the 2026-05-07 reviewer punch list:
 *   D. by-variable name restriction surfaces a clear, documented error
 *   E. Mata workspace leak on Excel formatting failure is plugged
+*   F. Sthlp source contains the new "Reserved by() variable names" section
+*      with all reserved prefixes/names documented
+*   G. `help table1_tc` renders that section: anchor + title + body land in
+*      the SMCL viewer output captured to a log
 *
 * Run from the package qa/tabtools/ directory.
 
@@ -119,6 +123,104 @@ if `rc_E' == 0 {
 }
 else {
     display as error "  FAIL: Test E (rc=`rc_E')"
+    local ++fail
+}
+
+**# Helper: assert ALL needles appear in a captured log/sthlp file
+* Reads `path' line by line; asserts that every newline-separated entry in
+* `needles_local' (passed by name) appears in at least one line.
+capture program drop _v1015_assert_all_in_file
+program define _v1015_assert_all_in_file
+    args path needles_local
+    capture confirm file `"`path'"'
+    if _rc {
+        display as error "  file not found: `path'"
+        exit 601
+    }
+    * Slurp file content into one local for substring checks. SMCL is
+    * line-oriented; a single pass collecting all lines is sufficient.
+    tempname _vfh
+    local _content ""
+    file open `_vfh' using `"`path'"', read text
+    file read `_vfh' line
+    while r(eof) == 0 {
+        local _content `"`_content' `line'"'
+        file read `_vfh' line
+    }
+    file close `_vfh'
+
+    local _missing ""
+    foreach _n of local `needles_local' {
+        if strpos(`"`_content'"', `"`_n'"') == 0 {
+            local _missing `"`_missing' [`_n']"'
+        }
+    }
+    if `"`_missing'"' != "" {
+        display as error "  missing in `path':`_missing'"
+        exit 9
+    }
+end
+
+**# Test F: sthlp source contains the new "Reserved by() variable names" section
+* Verify the markup we shipped: the {marker technical} anchor, the bold
+* section header, every reserved-name token, and a rename example. This
+* locks the source-of-truth so a future sthlp rewrite cannot silently drop
+* the documentation that the table1_tc.ado error message points at.
+local ++total
+capture noisily {
+    capture findfile table1_tc.sthlp
+    if _rc {
+        display as error "  table1_tc.sthlp not found on adopath"
+        exit 601
+    }
+    local _sthlp_path "`r(fn)'"
+
+    * Tokens that must all be present in the .sthlp source.
+    local needles_F
+    local needles_F : list needles_F | needles_F
+    local needles_F `" "{marker technical}" "{bf:Reserved by() variable names:}" "{cmd:N_<level>}" "{cmd:m_<level>}" "{cmd:_columna_<level>}" "{cmd:_columnb_<level>}" "rejects such names with rc=498" "{cmd:rename N_age age_n}" "'
+
+    _v1015_assert_all_in_file `"`_sthlp_path'"' needles_F
+}
+local rc_F = _rc
+if `rc_F' == 0 {
+    display as result "  PASS: Test F (sthlp source contains Reserved by() variable names section + all reserved tokens)"
+    local ++pass
+}
+else {
+    display as error "  FAIL: Test F (rc=`rc_F'; sthlp markup incomplete)"
+    local ++fail
+}
+
+**# Test G: `help table1_tc` renders the new section to a log-captured viewer
+* `help` in batch mode resolves the .sthlp through Stata's viewer pipeline
+* and prints the rendered output to the log. Asserting on the rendered
+* form (post-SMCL) catches markup that compiles but renders blank — the
+* failure mode visual inspection would catch.
+local _g_log "`c(tmpdir)'/_t1tc_help_render.log"
+capture erase "`_g_log'"
+local ++total
+capture noisily {
+    log using `"`_g_log'"', replace text name(_v1015_G_t1tc)
+    capture noisily help table1_tc
+    capture log close _v1015_G_t1tc
+
+    * After SMCL rendering the bracket markers are stripped. Assert on
+    * the surface text the user actually sees: the section title, a
+    * representative reserved name, and the actionable rename guidance.
+    local needles_G
+    local needles_G `" "Reserved by() variable names" "N_<level>" "m_<level>" "rc=498" "rename N_age age_n" "Technical notes" "'
+
+    _v1015_assert_all_in_file `"`_g_log'"' needles_G
+}
+local rc_G = _rc
+capture log close _v1015_G_t1tc
+if `rc_G' == 0 {
+    display as result "  PASS: Test G (help table1_tc renders Reserved by() section in viewer)"
+    local ++pass
+}
+else {
+    display as error "  FAIL: Test G (rc=`rc_G'; see `_g_log')"
     local ++fail
 }
 

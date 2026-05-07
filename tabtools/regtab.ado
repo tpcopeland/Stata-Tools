@@ -729,24 +729,28 @@ quietly{
             * melogit still recovers ICC for the binary-outcome model. Build a
             * skip list and a notice list now; values stay missing for skipped
             * positions while non-skipped positions flow through extraction.
+            * Iterate over _meta_models (not n_stat_models): when stats(icc)
+            * is the ONLY stats option, the per-model stats extraction path
+            * is skipped, n_stat_models falls back to 1, and a loop bounded by
+            * n_stat_models would miss positions 2+ in a multi-model collection.
+            * model_icc_undef is set during cmdline parsing for count-data mixed
+            * models (mepoisson, menbreg). Use it here rather than re-parsing
+            * model_cmd_`m', which may report a deeper e(cmd) name like "meglm".
             local _icc_skip_list ""
             if `_meta_models' > 0 {
-                forvalues m = 1/`n_stat_models' {
-                    if `m' <= `_meta_models' {
-                        * model_icc_undef is set during cmdline parsing for
-                        * count-data mixed models (mepoisson, menbreg). Use it
-                        * here rather than re-parsing model_cmd_`m', which may
-                        * report a deeper e(cmd) name like "meglm".
-                        if `model_icc_undef_`m'' {
-                            local _icc_skip_list "`_icc_skip_list' `m'"
-                        }
+                forvalues m = 1/`_meta_models' {
+                    if `model_icc_undef_`m'' {
+                        local _icc_skip_list "`_icc_skip_list' `m'"
                     }
                 }
             }
             if "`_icc_skip_list'" != "" {
                 local _icc_skip_list = strtrim("`_icc_skip_list'")
                 local _icc_skip_n : word count `_icc_skip_list'
-                if `_icc_skip_n' == `n_stat_models' {
+                * "all skipped" is measured against the meta-known model count,
+                * not the (possibly fallback-shrunk) n_stat_models.
+                local _icc_total = cond(`_meta_models' > 0, `_meta_models', `n_stat_models')
+                if `_icc_skip_n' == `_icc_total' {
                     noisily display as text "Note: ICC not computed (no closed-form level-1 variance for the requested model family)"
                 }
                 else {
