@@ -1,4 +1,4 @@
-*! regtab Version 1.0.14  2026/05/05
+*! regtab Version 1.0.15  2026/05/07
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
@@ -314,6 +314,10 @@ quietly{
             local model_eform_`m' 0
             local model_auto_noint_`m' 0
             local model_re_family_`m' "none"
+            * model_icc_undef = 1 means ICC is undefined for this model family
+            * (count-data mixed models: mepoisson, menbreg). Set in the
+            * inlist branches below so the ICC code path can skip per-model.
+            local model_icc_undef_`m' 0
 
             if inlist("`_cmdword'", "logit", "ologit") {
                 local model_coef_`m' "OR"
@@ -338,7 +342,10 @@ quietly{
                 local model_null_`m' 1
                 local model_eform_`m' = !`_has_irr'
                 local model_auto_noint_`m' 1
-                if inlist("`_cmdword'", "mepoisson", "menbreg") local model_re_family_`m' "variance"
+                if inlist("`_cmdword'", "mepoisson", "menbreg") {
+                    local model_re_family_`m' "variance"
+                    local model_icc_undef_`m' 1
+                }
             }
             else if inlist("`_cmdword'", "finegray", "stcrreg") {
                 local model_coef_`m' "SHR"
@@ -400,9 +407,9 @@ quietly{
             }
         }
 
-        if `_re_family_mixed' & "`noreffects'" == "" {
+        if `_re_family_mixed' & "`noreeffects'" == "" {
             noisily display as error "mixed random-effect model families cannot be combined with random-effects rows"
-            noisily display as error "Use separate regtab calls, or specify noreffects to suppress random-effects rows"
+            noisily display as error "Use separate regtab calls, or specify noreeffects to suppress random-effects rows"
             exit 198
         }
 
@@ -455,7 +462,7 @@ quietly{
         if strpos("`stats_lower'", " qic ") local want_qic = 1
         if strpos("`stats_lower'", " icc ") local want_icc = 1
         if strpos("`stats_lower'", " ll ") local want_ll = 1
-        if strpos("`stats_lower'", " groups ") | strpos("`stats_lower'", " group ") local want_groups = 1
+        if strpos("`stats_lower'", " groups ") local want_groups = 1
         if strpos("`stats_lower'", " r2 ") | strpos("`stats_lower'", " r-squared ") local want_r2 = 1
 
         * ================================================================
@@ -694,8 +701,17 @@ quietly{
                 }
             }
 
-            * Flag as single-model fallback
+            * Flag as single-model fallback. For multi-model collections this
+            * places the active e() (typically the LAST fitted model) under
+            * model 1's column and leaves the other model columns blank, which
+            * is a known and documented limitation. Warn the user when the
+            * fallback triggers under a multi-model layout so misattribution
+            * is visible at runtime, not just buried in the help file.
             local n_stat_models = 1
+            if `_meta_models' > 1 {
+                noisily display as text "Note: per-model stats extraction failed; falling back to active e() for model 1 only"
+                noisily display as text "      remaining model columns will be blank for stats() rows"
+            }
         }
 
         * ICC: extract variance components per model from collection
@@ -708,17 +724,35 @@ quietly{
             }
 
             * Count data models (mepoisson, menbreg) have no closed-form
-            * level-1 variance — ICC is not defined. Stata's estat icc also
-            * refuses to compute ICC for these models.
-            local _icc_cmd2 ""
-            capture local _icc_cmd2 = e(cmd2)
-            local _icc_skip = 0
-            if inlist("`_icc_cmd2'", "mepoisson", "menbreg") {
-                local _icc_skip = 1
-                noisily display as text "Note: ICC not computed for `_icc_cmd2' (no closed-form level-1 variance)"
+            * level-1 variance — ICC is not defined for those rows. Decision is
+            * per-model so a multi-model collection containing mepoisson plus
+            * melogit still recovers ICC for the binary-outcome model. Build a
+            * skip list and a notice list now; values stay missing for skipped
+            * positions while non-skipped positions flow through extraction.
+            local _icc_skip_list ""
+            if `_meta_models' > 0 {
+                forvalues m = 1/`n_stat_models' {
+                    if `m' <= `_meta_models' {
+                        * model_icc_undef is set during cmdline parsing for
+                        * count-data mixed models (mepoisson, menbreg). Use it
+                        * here rather than re-parsing model_cmd_`m', which may
+                        * report a deeper e(cmd) name like "meglm".
+                        if `model_icc_undef_`m'' {
+                            local _icc_skip_list "`_icc_skip_list' `m'"
+                        }
+                    }
+                }
             }
-
-            if !`_icc_skip' {
+            if "`_icc_skip_list'" != "" {
+                local _icc_skip_list = strtrim("`_icc_skip_list'")
+                local _icc_skip_n : word count `_icc_skip_list'
+                if `_icc_skip_n' == `n_stat_models' {
+                    noisily display as text "Note: ICC not computed (no closed-form level-1 variance for the requested model family)"
+                }
+                else {
+                    noisily display as text "Note: ICC not computed for model(s) `_icc_skip_list' (no closed-form level-1 variance)"
+                }
+            }
 
             tempfile icc_temp
             local icc_xlsx_file "`icc_temp'.xlsx"
@@ -755,6 +789,15 @@ quietly{
                     }
 
                     forvalues m = 1/`n_icc_models' {
+                        * Per-model skip: count families have no closed-form ICC.
+                        local _icc_this_skip = 0
+                        if "`_icc_skip_list'" != "" {
+                            foreach _ism of local _icc_skip_list {
+                                if `_ism' == `m' local _icc_this_skip = 1
+                            }
+                        }
+                        if `_icc_this_skip' continue
+
                         local r = `m' + `_icc_hdr'
                         local val_re = ""
                         local val_resid = ""
@@ -803,8 +846,17 @@ quietly{
             *   mixed:   lns1_1_1:, lns2_1_1:, ... = log-SD (needs exp(2*x))
             *   melogit: /var(_cons[group]): = variance directly (no conversion)
             * Accumulates ALL random intercept levels so multi-level ICC sums
-            * all grouping-level variances.
-            if `n_icc_models' == 0 {
+            * all grouping-level variances. Skip when the last model is a count
+            * family (mepoisson/menbreg) since ICC is undefined for those rows.
+            local _icc_fallback_skip = 0
+            if `_meta_models' > 0 {
+                if `n_stat_models' <= `_meta_models' {
+                    if `model_icc_undef_`n_stat_models'' {
+                        local _icc_fallback_skip = 1
+                    }
+                }
+            }
+            if `n_icc_models' == 0 & !`_icc_fallback_skip' {
                 local var_re = 0
                 local var_re_found = 0
                 local var_resid = ""
@@ -840,8 +892,6 @@ quietly{
                 }
                 local n_icc_models = `n_stat_models'
             }
-
-            } // end if !_icc_skip
         }
     }
 
@@ -1410,8 +1460,14 @@ forvalues i = 1(3)`last'{
 local _model_ix = `_model_ix' + 1
 local _needs_eform = 0
 if `_model_ix' <= `_meta_models' local _needs_eform = `model_eform_`_model_ix''
+* Strip thousands separators (collect's %#.#fc nformat emits "1,234.56") so
+* destring can parse coefficients >= 1000 instead of returning missing.
+replace c`i' = subinstr(c`i', ",", "", .) if _n >= 3
 destring c`i', gen(double c`i'z) force
-replace c`i' = "`refcat'" if inlist(c`i', "0", "1") & c`=`i'+1' == ""
+* Reference-category detection: original collect output shows refcat as 0
+* (linear scale) or 1 (exponentiated scale) with empty CI. Match against the
+* numeric value so non-default nformat (e.g., "0.00", "1.000") still labels.
+replace c`i' = "`refcat'" if (c`i'z == 0 | c`i'z == 1) & c`=`i'+1' == "" & _n >= 3
 if `_needs_eform' {
     replace c`i'z = exp(c`i'z) if !_is_re & !_is_ancillary & !missing(c`i'z)
 }
@@ -1451,6 +1507,16 @@ forvalues i = 2(3)`=`last'+1' {
     if _rc continue
     gen _ci_raw = strtrim(c`i') if _n >= 3
     replace _ci_raw = subinstr(subinstr(_ci_raw, "(", "", 1), ")", "", 1)
+    * Strip thousands separators (collect's %#.#fc nformat emits "(1,234.56,
+    * 2,345.67)"). Only safe when sep contains whitespace: a sep "comma+space"
+    * disambiguates from a thousands "comma+digit". For exotic sep values
+    * without whitespace we leave the string untouched and rely on the user
+    * having matched the format precision in their collect style.
+    if strpos(`"`sep'"', " ") > 0 {
+        replace _ci_raw = subinstr(_ci_raw, `"`sep'"', "|||SEP|||", 1)
+        replace _ci_raw = subinstr(_ci_raw, ",", "", .)
+        replace _ci_raw = subinstr(_ci_raw, "|||SEP|||", `"`sep'"', 1)
+    }
     gen int _ci_dpos = strpos(_ci_raw, `"`sep'"')
     gen _ci_lo_s = strtrim(substr(_ci_raw, 1, _ci_dpos - 1)) if _ci_dpos > 0
     gen _ci_hi_s = strtrim(substr(_ci_raw, _ci_dpos + `sep_len', .)) if _ci_dpos > 0

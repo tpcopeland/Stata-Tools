@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.14  05may2026}{...}
+{* *! version 1.0.15  07may2026}{...}
 {viewerjumpto "Syntax" "table1_tc##syntax"}{...}
 {viewerjumpto "Description" "table1_tc##description"}{...}
 {viewerjumpto "Examples" "table1_tc##examples"}{...}
@@ -91,7 +91,7 @@ use {cmd:table1_tc}.{p_end}
 {synopt:{opt title("string")}}title for the Excel table{p_end}
 {synopt:{cmdab:border:style(}{it:string}{cmd:)}}border style: {cmd:default}, {cmd:thin}, {cmd:medium}, or {cmd:academic}{p_end}
 {synopt:{cmdab:the:me(}{it:string}{cmd:)}}journal-style formatting preset: {cmd:lancet}, {cmd:nejm}, {cmd:bmj}, {cmd:apa}, {cmd:jama}, {cmd:plos}, {cmd:nature}, {cmd:cell}, {cmd:annals}, or {cmd:custom}{p_end}
-{synopt:{opt boldp(#)}}bold p-value cells below threshold{p_end}
+{synopt:{opt bold:p(#)}}bold p-value cells below threshold{p_end}
 {synopt:{cmdab:foot:note(}{it:string}{cmd:)}}add footnote row below table{p_end}
 {synopt:{opt open}}open the exported workbook; requires {opt xlsx()} or {opt excel()}{p_end}
 {synopt:{opt zebra}}alternating row shading{p_end}
@@ -237,6 +237,15 @@ A note is displayed identifying which groups are compared.{p_end}
 shared helper using normality/distributional heuristics; large-N paths may use a fallback heuristic
 instead of direct Shapiro-Wilk testing. Users should verify classifications for publishable tables.{p_end}
 
+{pstd}{bf:Reserved by() variable names:} The internal reshape pipeline produces wide columns
+named {cmd:N_<level>}, {cmd:m_<level>}, {cmd:_columna_<level>}, and {cmd:_columnb_<level>}.
+A {opt by()} variable whose own name starts with {cmd:N_}, {cmd:m_}, or {cmd:_column*} would
+alias those reshape outputs and silently corrupt the resulting table, so {cmd:table1_tc} rejects
+such names with rc=498. Reserved exact names are {cmd:N}, {cmd:m}, {cmd:_}, {cmd:_c},
+{cmd:_co}, {cmd:_col}, {cmd:_colu}, {cmd:_colum}, {cmd:_column}, {cmd:_columna}, {cmd:_columnb};
+reserved prefixes are {cmd:N_} and {cmd:m_}. If you hit this error, rename the variable
+(for example, {cmd:rename N_age age_n}) before calling {cmd:table1_tc}.{p_end}
+
 
 {title:References}
 
@@ -250,7 +259,7 @@ instead of direct Shapiro-Wilk testing. Users should verify classifications for 
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}{browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}{p_end}
-{pstd}{bf:Version} 1.0.14{p_end}
+{pstd}{bf:Version} 1.0.15{p_end}
 
 {title:Also see}
 

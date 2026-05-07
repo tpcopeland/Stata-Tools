@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.14  05may2026}{...}
+{* *! version 1.0.15  07may2026}{...}
 {vieweralsosee "effecttab" "help effecttab"}{...}
 {viewerjumpto "Package overview" "regtab##package"}{...}
 {viewerjumpto "Syntax" "regtab##syntax"}{...}
@@ -194,7 +194,7 @@ the threshold, and {opt highlight()} applies yellow fill to entire rows.{p_end}
 {synopt:{cmd:r(frame)}}frame name (if {cmd:frame()} specified){p_end}
 
 {p2col 5 18 22 2: Matrices}{p_end}
-{synopt:{cmd:r(table)}}coefficient values matrix for the displayed coefficient body (rows = variables, columns = models; excludes title and appended stats/addrows){p_end}
+{synopt:{cmd:r(table)}}coefficient values matrix for the displayed coefficient body (rows = variables, columns = models; excludes title and appended stats/addrows). Row names are derived from each variable's display label with periods, spaces, commas, and colons substituted for underscores or stripped, then truncated to 32 characters.{p_end}
 
 {marker seealso}{...}
 {title:Also see}
@@ -210,6 +210,6 @@ the threshold, and {opt highlight()} applies yellow fill to entire rows.{p_end}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}{browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}{p_end}
-{pstd}{bf:Version} 1.0.14{p_end}
+{pstd}{bf:Version} 1.0.15{p_end}
 
 {hline}

@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.14  05may2026}{...}
+{* *! version 1.0.15  07may2026}{...}
 {vieweralsosee "tabtools" "help tabtools"}{...}
 {vieweralsosee "tabtools cookbook" "help tabtools_cookbook"}{...}
 {vieweralsosee "table1_tc" "help table1_tc"}{...}
@@ -12,7 +12,7 @@
 {vieweralsosee "crosstab" "help crosstab"}{...}
 {vieweralsosee "corrtab" "help corrtab"}{...}
 {vieweralsosee "diagtab" "help diagtab"}{...}
-{title:tabtools Quick Reference (v1.0.14)}
+{title:tabtools Quick Reference (v1.0.15)}
 
 {pstd}Common option combinations for each command.{p_end}
 
@@ -104,6 +104,6 @@
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}timothy.copeland@ki.se{p_end}
-{pstd}Version 1.0.14{p_end}
+{pstd}Version 1.0.15{p_end}
 
 {hline}

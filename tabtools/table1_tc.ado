@@ -1,4 +1,4 @@
-*! table1_tc Version 1.0.14  2026/05/05 - Descriptive Statistics Table Generator
+*! table1_tc Version 1.0.15  2026/05/07 - Descriptive Statistics Table Generator
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Fork of -table1_mc- version 3.5 (2024-12-19) by Mark Chatfield
 *! This program generates descriptive statistics tables with formatting options
@@ -118,10 +118,17 @@ program define table1_tc, rclass
         }
     }
 
-    /* Check if by() variable will cause naming conflicts */
+    /* Check if by() variable will cause naming conflicts.
+       The reshape pipeline below produces wide columns named N_<level>,
+       m_<level>, _columna_<level>, _columnb_<level>. A by-variable whose own
+       name starts with N_, m_, or _column* would alias one of those during
+       reshape and silently corrupt the output. See "Reserved by() variable
+       names" in help table1_tc (Technical notes). */
     if (substr("`by'",1,2) == "N_" | substr("`by'",1,2) == "m_" | inlist("`by'", "N", "m") | ///
         inlist("`by'", "_", "_c","_co","_col","_colu","_colum","_column","_columna","_columnb")) {
-        display as error "by() variable cannot start with the prefix N_ or m_, or be named N, m, _, _c, _co, _col, _colu, _colum, _column, _columna, _columnb. Please rename that variable."
+        display as error "by() variable name `by' collides with internal reshape columns"
+        display as error "Reserved prefixes: N_, m_; reserved names: N, m, _, _c, _co, _col, _colu, _colum, _column, _columna, _columnb"
+        display as error "Rename the variable (e.g. {bf:rename `by' grp}); see {help table1_tc##technical:help table1_tc}"
         error 498  // User-defined error
     }
 
@@ -354,10 +361,20 @@ program define table1_tc, rclass
         capture confirm numeric variable `by'
         if !_rc qui clonevar `groupnum'=`by'  // If by() is already numeric
         else qui encode `by', gen(`groupnum')  // If by() is string, encode to numeric
+        // Validate non-integer / non-negative values BEFORE recast long, force,
+        // because that recast silently truncates non-integer values.
+        qui levelsof `groupnum' if `touse', local(_pre_levels)
+        foreach _pl of local _pre_levels {
+            capture confirm integer number `_pl'
+            if _rc!=0 {
+                display as error "by() variable must be either (i) string, or (ii) numeric and contain only non-negative integers, whether or not a value label is attached"
+                error 498
+            }
+        }
         // Ensure long storage so total sentinel value is exact
         qui recast long `groupnum', force
     }
-    
+
     /* Validate the grouping variable */
     qui su `groupnum' if `touse', meanonly
     // Check that grouping variable values are non-negative
@@ -380,7 +397,7 @@ program define table1_tc, rclass
     qui levelsof `groupnum' if `touse', local(levels)
     local _group_levels "`levels'"  // Save group levels for wtcompare merge
 
-    /* Check that all group values are integers */
+    /* Check that all group values are integers (re-check after recast) */
     foreach l of local levels {
         capture confirm integer number `l'
         if _rc!=0 {
@@ -1518,8 +1535,13 @@ program define table1_tc, rclass
     capture do "`labels'"
     
     /* Set up total column label */
-    if "`total'" != "" { 
-        if "`vallab'"=="" local vallab "beatles"  // Create arbitrary label name if none exists
+    if "`total'" != "" {
+        // If no value label exists, generate a unique tempname to avoid
+        // mutating any user label of the same arbitrary name.
+        if "`vallab'"=="" {
+            tempname _t1tc_vallab
+            local vallab "`_t1tc_vallab'"
+        }
         label define `vallab' `_total_code' `"Total"', modify  // Add "Total" label for sentinel
         local levels "`levels' `_total_code'"  // Add sentinel to levels list
     }
@@ -1802,32 +1824,62 @@ program define table1_tc, rclass
             }
 
             // Process each sample-size column and build numeric scratch columns.
+            // Use a unique prefix (__hp_) for the scratch names so we never
+            // collide with user-level group columns like by_12 produced by a
+            // by-variable level == 12 — the prior `<col>2` suffix scheme could
+            // alias real data columns.
             local hperc_scratch ""
+            local hperc_cr_scratch ""
+            local hperc_wt_scratch ""
+            local hperc_main_scratch ""
+            local _hpn = 0
             foreach _hcol of local hperc_cols {
+                local ++_hpn
+                local _hp_var "__hp_`_hpn'"
                 replace `_hcol' = subinstr(`_hcol', "N=", "", .)
-                capture drop `_hcol'2
-                gen double `_hcol'2 = real(subinstr(`_hcol', ",", "", .)) if inlist(_n, 2)
-                local hperc_scratch "`hperc_scratch' `_hcol'2"
+                capture drop `_hp_var'
+                gen double `_hp_var' = real(subinstr(`_hcol', ",", "", .)) if inlist(_n, 2)
+                local hperc_scratch "`hperc_scratch' `_hp_var'"
+                local hperc_scratch_for_`_hcol' "`_hp_var'"
+                if `has_wtcompare' & substr("`_hcol'", 1, 3) == "Cr_" {
+                    local hperc_cr_scratch "`hperc_cr_scratch' `_hp_var'"
+                }
+                else if `has_wtcompare' & substr("`_hcol'", 1, 3) == "Wt_" {
+                    local hperc_wt_scratch "`hperc_wt_scratch' `_hp_var'"
+                }
+                else {
+                    local hperc_main_scratch "`hperc_main_scratch' `_hp_var'"
+                }
             }
 
-            // Build denominator variables from total columns when present, otherwise row totals.
+            // Build denominator variables from total columns when present,
+            // otherwise sum across the scratch columns we just built. The Cr_T
+            // / Wt_T / by_T total columns were renamed to Cr_T / Wt_T / by_T
+            // already; their scratch versions live under the __hp_ prefix.
             tempvar hperc_den hperc_crden hperc_wtden
             if `has_wtcompare' {
-                capture confirm variable Cr_T2
-                if !_rc gen double `hperc_crden' = Cr_T2 if inlist(_n, 2)
-                else egen `hperc_crden' = rowtotal(Cr_*2) if inlist(_n, 2)
+                local _cr_tot_scratch ""
+                local _wt_tot_scratch ""
+                foreach _hcol of local hperc_cols {
+                    if "`_hcol'" == "Cr_T" local _cr_tot_scratch "`hperc_scratch_for_`_hcol''"
+                    if "`_hcol'" == "Wt_T" local _wt_tot_scratch "`hperc_scratch_for_`_hcol''"
+                }
+                if "`_cr_tot_scratch'" != "" gen double `hperc_crden' = `_cr_tot_scratch' if inlist(_n, 2)
+                else egen `hperc_crden' = rowtotal(`hperc_cr_scratch') if inlist(_n, 2)
 
-                capture confirm variable Wt_T2
-                if !_rc gen double `hperc_wtden' = Wt_T2 if inlist(_n, 2)
-                else egen `hperc_wtden' = rowtotal(Wt_*2) if inlist(_n, 2)
+                if "`_wt_tot_scratch'" != "" gen double `hperc_wtden' = `_wt_tot_scratch' if inlist(_n, 2)
+                else egen `hperc_wtden' = rowtotal(`hperc_wt_scratch') if inlist(_n, 2)
             }
             else if "`by'" == "" {
-                gen double `hperc_den' = Total2 if inlist(_n, 2)
+                local _tot_scratch "`hperc_scratch_for_Total'"
+                if "`_tot_scratch'" != "" gen double `hperc_den' = `_tot_scratch' if inlist(_n, 2)
+                else egen `hperc_den' = rowtotal(`hperc_main_scratch') if inlist(_n, 2)
             }
             else {
-                capture confirm variable `by'_T2
-                if !_rc gen double `hperc_den' = `by'_T2 if inlist(_n, 2)
-                else egen `hperc_den' = rowtotal(`by'_*2) if inlist(_n, 2)
+                local _by_t "`by'_T"
+                local _tot_scratch "`hperc_scratch_for_`_by_t''"
+                if "`_tot_scratch'" != "" gen double `hperc_den' = `_tot_scratch' if inlist(_n, 2)
+                else egen `hperc_den' = rowtotal(`hperc_main_scratch') if inlist(_n, 2)
             }
 
             // Add percentage of total to each sample-size label.
@@ -1835,9 +1887,10 @@ program define table1_tc, rclass
                 local _hden "`hperc_den'"
                 if `has_wtcompare' & substr("`_hcol'", 1, 3) == "Cr_" local _hden "`hperc_crden'"
                 if `has_wtcompare' & substr("`_hcol'", 1, 3) == "Wt_" local _hden "`hperc_wtden'"
+                local _hp_var "`hperc_scratch_for_`_hcol''"
                 replace `_hcol' = `_hcol' + " " + "(" + ///
-                    string(round(`_hcol'2 / `_hden', 0.001) * 100, "%9.1f") + ///
-                    `percsign' + ")" if inlist(_n, 2) & `_hden' > 0 & !missing(`_hcol'2)
+                    string(round(`_hp_var' / `_hden', 0.001) * 100, "%9.1f") + ///
+                    `percsign' + ")" if inlist(_n, 2) & `_hden' > 0 & !missing(`_hp_var')
             }
 
             foreach _htmp of local hperc_scratch {
@@ -2740,6 +2793,12 @@ program define table1_tc, rclass
                 local saved_rc = _rc
                 capture mata: b.close_book()
                 capture mata: mata drop b
+                * Drop the saved-state Mata vectors so a failed Excel write
+                * does not leak _p_raw_save / _smd_raw_save into the user's
+                * Mata workspace. Without this, a retry on a different table
+                * size would hit a stale-vector error.
+                capture mata: mata drop _p_raw_save
+                capture mata: mata drop _smd_raw_save
                 noisily display as error "Excel formatting failed with error `saved_rc'"
                 restore
                 exit `saved_rc'
@@ -2795,11 +2854,13 @@ program define table1_tc, rclass
         _tabtools_open_file "`excel'"
     }
 
-    capture mata: mata drop _p_raw_save
-    capture mata: mata drop _smd_raw_save
-
     } // end capture noisily
     local _rc = _rc
+    * Unconditional Mata cleanup — runs on success AND on any error path so a
+    * failure mid-Excel-write cannot leak _p_raw_save / _smd_raw_save into the
+    * user's Mata workspace.
+    capture mata: mata drop _p_raw_save
+    capture mata: mata drop _smd_raw_save
     set varabbrev `_orig_varabbrev'
     if `_rc' exit `_rc'
 end
