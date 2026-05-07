@@ -1,0 +1,4 @@
+analysis,metric1,metric2,covariance,correlation,tolerance_covariance,source,n_subjects,bootstrap_reps,notes
+survival_death_msm,out_a1,out_a0,2.58035113918635e-05,0.0550013114784278,0.006,python_statsmodels_plugin_subject_bootstrap,720,220,subject-bootstrap off-diagonal covariance for selected longitudinal outputs
+survival_death_msm,death_a1,death_a0,9.10684644463757e-06,0.0234909534647748,0.006,python_statsmodels_plugin_subject_bootstrap,720,220,subject-bootstrap off-diagonal covariance for selected longitudinal outputs
+survival_death_msm,msm_a,msm_cons,-0.00850168372529558,-0.502016481551194,0.0106271046566195,python_statsmodels_plugin_subject_bootstrap,720,220,subject-bootstrap off-diagonal covariance for selected longitudinal outputs

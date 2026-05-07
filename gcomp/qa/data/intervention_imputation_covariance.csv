@@ -1,0 +1,8 @@
+scenario,metric1,metric2,covariance,correlation,cov_abs_tol,source,python_boot_reps
+dyn,pody,po0,0.000449884190070821,0.832109690091658,0.00035,python_statsmodels_plugin_bootstrap,700
+dyn,po1,po0,0.000883104540403476,1,0.000662328405302607,python_statsmodels_plugin_bootstrap,700
+stoch,postoch,po0,0.000824683781440561,1,0.000618512836080421,python_statsmodels_plugin_bootstrap,700
+stoch,po1,po0,0.000824683781440561,0.999999999999999,0.000618512836080421,python_statsmodels_plugin_bootstrap,700
+imp,tce,nde,0.00322139957031589,0.558105400530879,0.00241604967773692,python_statsmodels_plugin_bootstrap,700
+imp,tce,cde,0.0032213995703159,0.558105400530879,0.00241604967773692,python_statsmodels_plugin_bootstrap,700
+imp,nde,cde,0.00514776287693428,1,0.00386082215770071,python_statsmodels_plugin_bootstrap,700

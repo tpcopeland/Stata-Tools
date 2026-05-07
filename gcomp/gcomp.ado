@@ -3291,6 +3291,12 @@ forvalues i=1/`nvar' {
 	else {
 		local is_intvar_`i' = 0
 	}
+	local commandopts`i'
+	if "`command`i''"=="mlogit" {
+		quietly levelsof `simvar`i'' if `simvar`i'' < . & `int_no'==0, local(_gc_mlogit_levels)
+		local _gc_mlogit_base : word 1 of `_gc_mlogit_levels'
+		local commandopts`i' ", baseoutcome(`_gc_mlogit_base')"
+	}
 }
 if `_gc_chk_prt'==0 {
 	noi di as text "{hline 1}" _cont
@@ -3358,6 +3364,14 @@ if `_gc_chk_prt'==0 {
 *set up dataset ready for Monte Carlo simulation
     *increase size of dataset to make room for the new simulated observations
 	local oldN=_N
+	if "`mediation'"=="" {
+		tempvar _gc_source_ord
+		qui egen long `_gc_source_ord' = group(`idvar') if _n<=`oldN'
+		quietly summarize `_gc_source_ord' if _n<=`oldN', meanonly
+		local _gc_source_count = r(max)
+		quietly summarize `idvar' if _n<=`oldN', meanonly
+		local _gc_id_offset = r(max)
+	}
 	*create an id variable for mediation setting
 	if "`mediation'"!="" {
 		tempvar subjectid
@@ -3413,9 +3427,38 @@ if `_gc_chk_prt'==0 {
 	}
 	*idvar and tvar
     if "`mediation'"=="" {
-    	qui replace `idvar'=ceil(_n/`maxv') if `idvar'==.
-    	qui replace `tvar'=_n-`maxv'*ceil(_n/`maxv')+`maxv' if `tvar'==.
-    	qui replace `tvar'=matvis[`tvar',1] if _n>`oldN'
+		tempvar _gc_app_index _gc_app_tindex
+		qui gen long `_gc_app_index' = _n - `oldN' if _n>`oldN'
+		qui gen int `_gc_app_tindex' = mod(`_gc_app_index' - 1, `maxv') + 1 if _n>`oldN'
+		qui replace `idvar'=`_gc_id_offset' + ceil(`_gc_app_index'/`maxv') if `idvar'==. & _n>`oldN'
+		qui replace `tvar'=matvis[`_gc_app_tindex',1] if `tvar'==. & _n>`oldN'
+		tempvar _gc_source_id
+		qui gen long `_gc_source_id' = `_gc_source_ord' if _n<=`oldN'
+		qui replace `_gc_source_id' = mod(ceil(`_gc_app_index'/`maxv') - 1, `_gc_source_count') + 1 if _n>`oldN'
+		local _gc_fixed_lookup_count 0
+		foreach var in `fixedcovariates' {
+			local _gc_fixed_lookup_count = `_gc_fixed_lookup_count' + 1
+			tempvar _gc_fixed_lookup`_gc_fixed_lookup_count'
+			qui gen double `_gc_fixed_lookup`_gc_fixed_lookup_count'' = .
+			forvalues _gc_src=1/`_gc_source_count' {
+				qui summarize `var' if `_gc_source_ord'==`_gc_src' & `int_no'==0, meanonly
+				if r(N)>0 {
+					qui replace `_gc_fixed_lookup`_gc_fixed_lookup_count'' = r(mean) in `_gc_src'
+				}
+			}
+		}
+		local _gc_varying_lookup_count 0
+		foreach var in `varyingcovariates' {
+			local _gc_varying_lookup_count = `_gc_varying_lookup_count' + 1
+			tempvar _gc_varying_lookup`_gc_varying_lookup_count'
+			qui gen double `_gc_varying_lookup`_gc_varying_lookup_count'' = .
+			forvalues _gc_src=1/`_gc_source_count' {
+				qui summarize `var' if `_gc_source_ord'==`_gc_src' & `tvar'==`firstv' & `int_no'==0, meanonly
+				if r(N)>0 {
+					qui replace `_gc_varying_lookup`_gc_varying_lookup_count'' = r(mean) in `_gc_src'
+				}
+			}
+		}
     }
 	if `_gc_chk_prt'==0 {
 		noi di as text "{hline 1}" _cont
@@ -3472,10 +3515,21 @@ if `_gc_chk_prt'==0 {
 			local nintplus1=(0.5*(`nint'))*(`nexplev'+1)+`comb_em'
 		}
 	}	
-	forvalues i=1/`nintplus1' {
+	if "`mediation'"=="" {
+		local _gc_fixed_lookup_count 0
 		foreach var in `fixedcovariates' {
-			qui replace `var'=`var'[_n-`oldN'-(`i'-1)*`simulations'*`maxv'] if `var'==. & `int_no'[_n-`oldN'-(`i'-1)*`simulations'*`maxv']==0 
+			local _gc_fixed_lookup_count = `_gc_fixed_lookup_count' + 1
+			qui replace `var'=`_gc_fixed_lookup`_gc_fixed_lookup_count''[`_gc_source_id'] if `var'==. & _n>`oldN' & `_gc_source_id'<.
 		}
+	}
+	else {
+		forvalues i=1/`nintplus1' {
+			foreach var in `fixedcovariates' {
+				qui replace `var'=`var'[_n-`oldN'-(`i'-1)*`simulations'*`maxv'] if `var'==. & `int_no'[_n-`oldN'-(`i'-1)*`simulations'*`maxv']==0
+			}
+		}
+	}
+	forvalues i=1/`nintplus1' {
 		foreach var in `base_confs' {
 			if "`moreMC'"=="" {
 				qui replace `var'=`var'[_n-`oldN'-(`i'-1)*`simulations'] if `var'==. & `int_no'[_n-`oldN'-(`i'-1)*`simulations']==0 
@@ -4108,9 +4162,10 @@ if "`mediation'"=="" {
 						capture qui replace `der`l''=`derrule`l'' & `der`l''==. & `int_no'>0
 					}
 				}
-				if `j'==1 & strmatch(" "+"`varyingcovariates'"+" ","* "+"`simvar`i''"+" *")==1 {
-					qui replace `simvar`i''=`simvar`i''[_n-`oldN'-(`int_no'-1)*`simulations'*`maxv'] if `simvar`i''==. & `tvar'==`k' & `int_no'>0
-				}
+					if `j'==1 & strmatch(" "+"`varyingcovariates'"+" ","* "+"`simvar`i''"+" *")==1 {
+						local _gc_varying_lookup_pos : list posof "`simvar`i''" in varyingcovariates
+						qui replace `simvar`i''=`_gc_varying_lookup`_gc_varying_lookup_pos''[`_gc_source_id'] if `simvar`i''==. & `tvar'==`k' & `int_no'>0 & `_gc_source_id'<.
+					}
 				else {
 					if "`eofu'"!="" {
 						if "`pooled'"=="" {
@@ -4166,7 +4221,7 @@ if "`mediation'"=="" {
 							if rtrim(ltrim("`simvar`i''"))==rtrim(ltrim("`outcome'")) & "`minsim'"!="" {
 								if "`death'"!="" {
 									qui replace `simvar`i''=`pred_simvar`i'' if `simvar`i''==. ///
-										& `tvar'==`k' & `death'!=1 & `int_no'>0
+												& `tvar'==`k' & `death'!=1 & `int_no'>0 & `pred_simvar`i''<.
 								}
 								else {
 									qui replace `simvar`i''=`pred_simvar`i'' if `simvar`i''==. & `tvar'==`k' & `int_no'>0
@@ -4174,15 +4229,15 @@ if "`mediation'"=="" {
 							}	
 							if rtrim(ltrim("`simvar`i''"))==rtrim(ltrim("`outcome'")) & "`minsim'"=="" {
 								if "`death'"!="" {
-									qui replace `simvar`i''=runiform()<`pred_simvar`i'' if `simvar`i''==. ///
-										& `tvar'==`k' & `death'!=1 & `int_no'>0
+										qui replace `simvar`i''=runiform()<`pred_simvar`i'' if `simvar`i''==. ///
+											& `tvar'==`k' & `death'!=1 & `int_no'>0 & `pred_simvar`i''<.
 								}
 								else {
-									qui replace `simvar`i''=runiform()<`pred_simvar`i'' if `simvar`i''==. & `tvar'==`k' & `int_no'>0
+										qui replace `simvar`i''=runiform()<`pred_simvar`i'' if `simvar`i''==. & `tvar'==`k' & `int_no'>0 & `pred_simvar`i''<.
 								}
 							}
 							if rtrim(ltrim("`simvar`i''"))!=rtrim(ltrim("`outcome'")) {
-								qui replace `simvar`i''=runiform()<`pred_simvar`i'' if `simvar`i''==. & `tvar'==`k' & `int_no'>0
+									qui replace `simvar`i''=runiform()<`pred_simvar`i'' if `simvar`i''==. & `tvar'==`k' & `int_no'>0 & `pred_simvar`i''<.
 								if "`monotreat'"!="" & `is_intvar_`i''==1 {
 									qui replace `simvar`i''=1 if `simvar`i''[_n-1]==1 & `idvar'[_n]==`idvar'[_n-1] & `int_no'==`nint'+1
 								}
@@ -4190,6 +4245,7 @@ if "`mediation'"=="" {
 							if rtrim(ltrim("`simvar`i''"))==rtrim(ltrim("`death'")) {
 								local tc=1
 								while `tc'>0 {
+									qui sort `idvar' `tvar'
 									tempvar temp_count
 									qui by `idvar': gen `temp_count'=`simvar`i''[_n-1]==1
 									qui summ `temp_count'
@@ -4216,11 +4272,11 @@ if "`mediation'"=="" {
 								local catval=catvals[1,`cat']
 								qui replace `cum_p2'=`cum_p2'+_gc_p`cat'
 								if "`death'"!="" & rtrim(ltrim("`simvar`i''"))==rtrim(ltrim("`outcome'")) {
-									qui replace `simvar`i''=`catval' if `umlogitimp'>`cum_p1' & `umlogitimp'<`cum_p2' & `simvar`i''==. ///
+									qui replace `simvar`i''=`catval' if `umlogitimp'>`cum_p1' & `umlogitimp'<`cum_p2' & `cum_p1'<. & `cum_p2'<. & `simvar`i''==. ///
 										& `tvar'==`k' & `death'!=1 & `int_no'>0
 								}
 								else {
-									qui replace `simvar`i''=`catval' if `umlogitimp'>`cum_p1' & `umlogitimp'<`cum_p2' & `simvar`i''==. ///
+									qui replace `simvar`i''=`catval' if `umlogitimp'>`cum_p1' & `umlogitimp'<`cum_p2' & `cum_p1'<. & `cum_p2'<. & `simvar`i''==. ///
 										& `tvar'==`k' & `int_no'>0
 								}
 								qui replace `cum_p1'=`cum_p2'
@@ -4289,13 +4345,14 @@ if "`mediation'"=="" {
 							if "`command`i''"=="logit" {
 								if "`death'"!="" & rtrim(ltrim("`simvar`i''"))==rtrim(ltrim("`outcome'")) {
 									qui replace `simvar`i''=runiform()<`pred_simvar`i'' if `simvar`i''==. ///
-										& `tvar'==`k' & `death'!=1 & `int_no'>0
+										& `tvar'==`k' & `death'!=1 & `int_no'>0 & `pred_simvar`i''<.
 								}
 								else {
-									qui replace `simvar`i''=runiform()<`pred_simvar`i'' if `simvar`i''==. & `tvar'==`k' & `int_no'>0
+									qui replace `simvar`i''=runiform()<`pred_simvar`i'' if `simvar`i''==. & `tvar'==`k' & `int_no'>0 & `pred_simvar`i''<.
 								}
 								local tc=1
 								while `tc'>0 {
+									qui sort `idvar' `tvar'
 									tempvar temp_count
 									qui by `idvar': gen `temp_count'=`simvar`i''[_n-1]==1
 									qui summ `temp_count'
@@ -4320,12 +4377,12 @@ if "`mediation'"=="" {
 									}
 									local catval=catvals[1,`cat']
 									qui replace `cum_p2'=`cum_p2'+_gc_p`cat'
-									if "`death'"!="" & rtrim(ltrim("`simvar`i''"))==rtrim(ltrim("`outcome'")) {
-										qui replace `simvar`i''=`catval' if `umlogitimp'>`cum_p1' & `umlogitimp'<`cum_p2' & `simvar`i''==. ///
-											& `tvar'==`k' & `death'!=1 & `int_no'>0
-									}
+										if "`death'"!="" & rtrim(ltrim("`simvar`i''"))==rtrim(ltrim("`outcome'")) {
+											qui replace `simvar`i''=`catval' if `umlogitimp'>`cum_p1' & `umlogitimp'<`cum_p2' & `cum_p1'<. & `cum_p2'<. & `simvar`i''==. ///
+												& `tvar'==`k' & `death'!=1 & `int_no'>0
+										}
 									else {
-										qui replace `simvar`i''=`catval' if `umlogitimp'>`cum_p1' & `umlogitimp'<`cum_p2' & `simvar`i''==. ///
+										qui replace `simvar`i''=`catval' if `umlogitimp'>`cum_p1' & `umlogitimp'<`cum_p2' & `cum_p1'<. & `cum_p2'<. & `simvar`i''==. ///
 											& `tvar'==`k' & `int_no'>0
 									}
 									qui replace `cum_p1'=`cum_p2'
@@ -4392,7 +4449,7 @@ if "`mediation'"=="" {
 							}
 *****************************************************************************************************************************************************************************
 							if "`command`i''"=="logit" {
-								qui replace `simvar`i''=runiform()<`pred_simvar`i'' if `simvar`i''==. & `tvar'==`k' & `int_no'>0
+									qui replace `simvar`i''=runiform()<`pred_simvar`i'' if `simvar`i''==. & `tvar'==`k' & `int_no'>0 & `pred_simvar`i''<.
 							}
 *****************************************************************************************************************************************************************************
 							if "`command`i''"=="mlogit" | "`command`i''"=="ologit" {
@@ -4410,7 +4467,7 @@ if "`mediation'"=="" {
 									}
 									local catval=catvals[1,`cat']
 									qui replace `cum_p2'=`cum_p2'+_gc_p`cat'
-									qui replace `simvar`i''=`catval' if `umlogitimp'>`cum_p1' & `umlogitimp'<`cum_p2' & `simvar`i''==. ///
+									qui replace `simvar`i''=`catval' if `umlogitimp'>`cum_p1' & `umlogitimp'<`cum_p2' & `cum_p1'<. & `cum_p2'<. & `simvar`i''==. ///
 											& `tvar'==`k' & `int_no'>0
 									qui replace `cum_p1'=`cum_p2'
 								}
@@ -4494,7 +4551,7 @@ else {
 				capture qui replace `der`l''=`derrule`l'' & `der`l''==.
 			}
 		}
-		qui `command`i'' `simvar`i'' `equation`i'' if  `int_no'==0
+		qui `command`i'' `simvar`i'' `equation`i'' if  `int_no'==0 `commandopts`i''
 		if `_gc_chk_prt'==0 & "`command`i''"!="regress" {
 			if e(converged)==0 {
 				noi di as err "   Warning: `command`i'' model for `simvar`i'' did not converge"
@@ -4534,7 +4591,7 @@ else {
 				}
 			}
 			else {
-				qui replace `simvar`i''=runiform()<`pred_simvar`i'' if `simvar`i''==.				
+					qui replace `simvar`i''=runiform()<`pred_simvar`i'' if `simvar`i''==. & `pred_simvar`i''<.
 			}
 		}
 *****************************************************************************************************************************************************************************
@@ -4553,7 +4610,7 @@ else {
 				}				
 				local catval=catvals[1,`cat']
 				qui replace `cum_p2'=`cum_p2'+_gc_p`cat'
-				qui replace `simvar`i''=`catval' if `umlogitimp'>`cum_p1' & `umlogitimp'<`cum_p2' & `simvar`i''==.
+				qui replace `simvar`i''=`catval' if `umlogitimp'>`cum_p1' & `umlogitimp'<`cum_p2' & `cum_p1'<. & `cum_p2'<. & `simvar`i''==.
 				if "`moreMC'"=="" {
 					qui replace `simvar`i''=`simvar`i''[_n-`oldN'-`simulations'] if `int_no'==2 & "`linexp'"!="" & rtrim(ltrim("`simvar`i''"))==rtrim(ltrim("`outcome'"))
 				}
@@ -4592,12 +4649,37 @@ else {
 		}
         forvalues k=1/`nmed' {
             tokenize "`mediator'"
-            if "`simvar`i''"=="``k''" {
-				if "`command`i''"=="logit" {
-					qui replace `simvar`i''=runiform()<`pred_simvar`i''[_n+`simulations'] if `int_no'==1
-					if "`moreMC'"=="" {
-						qui replace `simvar`i''=`simvar`i''[_n-`oldN'] if `int_no'==1 & "`linexp'"!="" & "`minsim'"!=""
-					}
+				if "`simvar`i''"=="``k''" {
+					if "`command`i''"=="logit" {
+						if "`oce'"!="" {
+							tempname _gc_oce_levels
+							qui tab `exposure', matrow(`_gc_oce_levels')
+							local _gc_oce_nlevels = r(r) - 1
+							forvalues _gc_oce_j=1/`_gc_oce_nlevels' {
+								local _gc_oce_checkbase=0
+								forvalues _gc_oce_jj=1/`_gc_oce_j' {
+									local _gc_oce_kk = `_gc_oce_levels'[`_gc_oce_jj',1]
+									if `_gc_oce_kk'==`baseline1' {
+										local _gc_oce_checkbase=1
+									}
+								}
+								if `_gc_oce_checkbase'==0 {
+									local _gc_oce_k = `_gc_oce_levels'[`_gc_oce_j',1]
+								}
+								else {
+									local _gc_oce_kkk = `_gc_oce_j' + 1
+									local _gc_oce_k = `_gc_oce_levels'[`_gc_oce_kkk',1]
+								}
+								local _gc_oce_base_offset = (`_gc_oce_nlevels' - `_gc_oce_j' + 1) * `simulations'
+									qui replace `simvar`i''=runiform()<`pred_simvar`i''[_n+`_gc_oce_base_offset'] if `int_no'==1 & `exposure'==`_gc_oce_k' & `pred_simvar`i''[_n+`_gc_oce_base_offset']<.
+							}
+						}
+						else {
+								qui replace `simvar`i''=runiform()<`pred_simvar`i''[_n+`simulations'] if `int_no'==1 & `pred_simvar`i''[_n+`simulations']<.
+						}
+						if "`moreMC'"=="" {
+							qui replace `simvar`i''=`simvar`i''[_n-`oldN'] if `int_no'==1 & "`linexp'"!="" & "`minsim'"!=""
+						}
 					else {
 						local RA=ceil(`simulations'/`oldN')
 						forvalues ra=1(1)`RA' {
@@ -4616,15 +4698,40 @@ else {
 						if "`command`i''"=="mlogit" {
 							mat catvals=e(out)
 						}
-						if "`command`i''"=="ologit" {
-							mat catvals=e(cat)
-						}
-						local catval=catvals[1,`cat']
-						qui replace `cum_p2'=`cum_p2'+_gc_p`cat'
-						qui replace `simvar`i''=`catval' if `umlogitimp'>`cum_p1'[_n+`simulations'] & `umlogitimp'<`cum_p2'[_n+`simulations'] & `int_no'==1
-						if "`moreMC'"=="" {
-							qui replace `simvar`i''=`simvar`i''[_n-`oldN'] if `int_no'==1 & "`linexp'"!="" & "`minsim'"!=""
-						}
+							if "`command`i''"=="ologit" {
+								mat catvals=e(cat)
+							}
+							local catval=catvals[1,`cat']
+							qui replace `cum_p2'=`cum_p2'+_gc_p`cat'
+							if "`oce'"!="" {
+								tempname _gc_oce_levels
+								qui tab `exposure', matrow(`_gc_oce_levels')
+								local _gc_oce_nlevels = r(r) - 1
+								forvalues _gc_oce_j=1/`_gc_oce_nlevels' {
+									local _gc_oce_checkbase=0
+									forvalues _gc_oce_jj=1/`_gc_oce_j' {
+										local _gc_oce_kk = `_gc_oce_levels'[`_gc_oce_jj',1]
+										if `_gc_oce_kk'==`baseline1' {
+											local _gc_oce_checkbase=1
+										}
+									}
+									if `_gc_oce_checkbase'==0 {
+										local _gc_oce_k = `_gc_oce_levels'[`_gc_oce_j',1]
+									}
+									else {
+										local _gc_oce_kkk = `_gc_oce_j' + 1
+										local _gc_oce_k = `_gc_oce_levels'[`_gc_oce_kkk',1]
+									}
+									local _gc_oce_base_offset = (`_gc_oce_nlevels' - `_gc_oce_j' + 1) * `simulations'
+									qui replace `simvar`i''=`catval' if `umlogitimp'>`cum_p1'[_n+`_gc_oce_base_offset'] & `umlogitimp'<`cum_p2'[_n+`_gc_oce_base_offset'] & `cum_p1'[_n+`_gc_oce_base_offset']<. & `cum_p2'[_n+`_gc_oce_base_offset']<. & `int_no'==1 & `exposure'==`_gc_oce_k'
+								}
+							}
+							else {
+								qui replace `simvar`i''=`catval' if `umlogitimp'>`cum_p1'[_n+`simulations'] & `umlogitimp'<`cum_p2'[_n+`simulations'] & `cum_p1'[_n+`simulations']<. & `cum_p2'[_n+`simulations']<. & `int_no'==1
+							}
+							if "`moreMC'"=="" {
+								qui replace `simvar`i''=`simvar`i''[_n-`oldN'] if `int_no'==1 & "`linexp'"!="" & "`minsim'"!=""
+							}
 						else {
 							local RA=ceil(`simulations'/`oldN')
 							forvalues ra=1(1)`RA' {
@@ -4635,13 +4742,38 @@ else {
 					}
 				}
 *****************************************************************************************************************************************************************************
-				if "`command`i''"=="regress" {
-					tempvar helpU2
-					qui gen double `helpU2'=rnormal(0,1) if _n<=`simulations'
-					qui replace `simvar`i''=`pred_simvar`i''[_n+`simulations']+e(rmse)*`helpU2'[`subjectid'] if `int_no'==1
-					if "`moreMC'"=="" {
-						qui replace `simvar`i''=`simvar`i''[_n-`oldN'] if `int_no'==1 & "`linexp'"!="" & "`minsim'"!=""
-					}
+					if "`command`i''"=="regress" {
+						tempvar helpU2
+						qui gen double `helpU2'=rnormal(0,1) if _n<=`simulations'
+						if "`oce'"!="" {
+							tempname _gc_oce_levels
+							qui tab `exposure', matrow(`_gc_oce_levels')
+							local _gc_oce_nlevels = r(r) - 1
+							forvalues _gc_oce_j=1/`_gc_oce_nlevels' {
+								local _gc_oce_checkbase=0
+								forvalues _gc_oce_jj=1/`_gc_oce_j' {
+									local _gc_oce_kk = `_gc_oce_levels'[`_gc_oce_jj',1]
+									if `_gc_oce_kk'==`baseline1' {
+										local _gc_oce_checkbase=1
+									}
+								}
+								if `_gc_oce_checkbase'==0 {
+									local _gc_oce_k = `_gc_oce_levels'[`_gc_oce_j',1]
+								}
+								else {
+									local _gc_oce_kkk = `_gc_oce_j' + 1
+									local _gc_oce_k = `_gc_oce_levels'[`_gc_oce_kkk',1]
+								}
+								local _gc_oce_base_offset = (`_gc_oce_nlevels' - `_gc_oce_j' + 1) * `simulations'
+								qui replace `simvar`i''=`pred_simvar`i''[_n+`_gc_oce_base_offset']+e(rmse)*`helpU2'[`subjectid'] if `int_no'==1 & `exposure'==`_gc_oce_k'
+							}
+						}
+						else {
+							qui replace `simvar`i''=`pred_simvar`i''[_n+`simulations']+e(rmse)*`helpU2'[`subjectid'] if `int_no'==1
+						}
+						if "`moreMC'"=="" {
+							qui replace `simvar`i''=`simvar`i''[_n-`oldN'] if `int_no'==1 & "`linexp'"!="" & "`minsim'"!=""
+						}
 					else {
 						local RA=ceil(`simulations'/`oldN')
 						forvalues ra=1(1)`RA' {
