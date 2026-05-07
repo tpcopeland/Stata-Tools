@@ -5596,7 +5596,7 @@ capture noisily {
     local lbl : variable label dm2
     assert `"`lbl'"' == "DM2 only"
     local lbl2 : variable label htn
-    assert `"`lbl2'"' == ""
+    assert `"`lbl2'"' == "htn"
 }
 if _rc == 0 {
     display as result "  PASS: Partial labels (some conditions only)"

@@ -1,0 +1,163 @@
+* test_release_integrity.do - Release surface and package metadata checks for codescan
+
+clear all
+version 16.0
+
+local test_count = 0
+local pass_count = 0
+local fail_count = 0
+
+local qa_dir "`c(pwd)'"
+local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
+local repo_dir "`pkg_dir'/.."
+
+capture program drop _assert_marker_pass
+program define _assert_marker_pass
+    version 16.0
+    args marker
+
+    tempname fh
+    file open `fh' using `"`marker'"', read text
+    file read `fh' status
+    file close `fh'
+    assert strtrim("`status'") == "PASS"
+end
+
+**# Tests
+
+local ++test_count
+capture noisily {
+    confirm file "`pkg_dir'/codescan.ado"
+    confirm file "`pkg_dir'/codescan.sthlp"
+    confirm file "`pkg_dir'/codescan_describe.ado"
+    confirm file "`pkg_dir'/codescan_describe.sthlp"
+    confirm file "`pkg_dir'/codescan.pkg"
+    confirm file "`pkg_dir'/stata.toc"
+    confirm file "`pkg_dir'/README.md"
+    confirm file "`pkg_dir'/charlson_icd10_example.csv"
+    confirm file "`pkg_dir'/elixhauser_icd10_example.csv"
+}
+if _rc == 0 {
+    display as result "  PASS: release files present"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: release files present (error `=_rc')"
+    local ++fail_count
+}
+
+local ++test_count
+capture noisily {
+    tempname fh
+    local pkg_files ""
+    file open `fh' using "`pkg_dir'/codescan.pkg", read text
+    file read `fh' line
+    while r(eof) == 0 {
+        local trimmed = strtrim(`"`line'"')
+        if substr(`"`trimmed'"', 1, 2) == "f " {
+            local f = strtrim(substr(`"`trimmed'"', 3, .))
+            local pkg_files "`pkg_files' `f'"
+            confirm file "`pkg_dir'/`f'"
+        }
+        file read `fh' line
+    }
+    file close `fh'
+
+    foreach f in ///
+        codescan.ado ///
+        codescan.sthlp ///
+        codescan_describe.ado ///
+        codescan_describe.sthlp ///
+        charlson_icd10_example.csv ///
+        elixhauser_icd10_example.csv {
+
+        assert strpos(" `pkg_files' ", " `f' ") > 0
+    }
+}
+if _rc == 0 {
+    display as result "  PASS: .pkg lists every runtime/help/example file"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: .pkg runtime/help/example file list (error `=_rc')"
+    local ++fail_count
+}
+
+local ++test_count
+capture noisily {
+    tempfile marker
+    shell bash -lc 'cd "$1" && if grep -Fq "codescan Version 1.1.0  2026/04/24" codescan.ado && grep -Fq "codescan_describe Version 1.1.0  2026/04/24" codescan_describe.ado && grep -Fq "{* *! version 1.1.0  24apr2026}" codescan.sthlp && grep -Fq "{* *! version 1.1.0  24apr2026}" codescan_describe.sthlp && grep -Fq "**Version 1.1.0** | 2026-04-24" README.md && grep -Fq "d Distribution-Date: 20260424" codescan.pkg; then echo PASS > "$2"; else echo FAIL > "$2"; fi' bash "`pkg_dir'" "`marker'"
+    _assert_marker_pass "`marker'"
+}
+if _rc == 0 {
+    display as result "  PASS: version strings synchronized"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: version strings synchronized (error `=_rc')"
+    local ++fail_count
+}
+
+local ++test_count
+capture noisily {
+    tempfile marker
+    shell bash -lc 'cd "$1" && if grep -Fq "v 3" stata.toc && grep -Fq "d Stata-Tools: codescan" stata.toc && grep -Fq "d Timothy P Copeland, Karolinska Institutet" stata.toc && grep -Fq "d https://github.com/tpcopeland/Stata-Tools" stata.toc && grep -Fq "p codescan" stata.toc && grep -Fq "d Author: Timothy P Copeland, Karolinska Institutet" codescan.pkg && grep -Fq "Timothy P Copeland, Karolinska Institutet" README.md && grep -Fq "Timothy P Copeland, Karolinska Institutet" codescan.sthlp && grep -Fq "Timothy P Copeland, Karolinska Institutet" codescan_describe.sthlp; then echo PASS > "$2"; else echo FAIL > "$2"; fi' bash "`pkg_dir'" "`marker'"
+    _assert_marker_pass "`marker'"
+}
+if _rc == 0 {
+    display as result "  PASS: canonical metadata present"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: canonical metadata present (error `=_rc')"
+    local ++fail_count
+}
+
+local ++test_count
+capture noisily {
+    tempfile marker
+    local p1 = "/home/" + "tpcopeland"
+    local p2 = "~/" + "Stata-"
+    local p3 = "Stata-" + "Dev"
+    local p4 = "." + "claude"
+    local p5 = "." + "codex"
+    shell bash -lc 'cd "$1" && if git ls-files -z codescan | grep -zEv "^codescan/demo/.*\\.(xlsx|png)$" | xargs -0 rg -n -F -e "$3" -e "$4" -e "$5" -e "$6" -e "$7" > "$2.hits"; then echo FAIL > "$2"; else echo PASS > "$2"; fi' bash "`repo_dir'" "`marker'" "`p1'" "`p2'" "`p3'" "`p4'" "`p5'"
+    _assert_marker_pass "`marker'"
+}
+if _rc == 0 {
+    display as result "  PASS: tracked text has no dev-only paths"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tracked text has dev-only paths (error `=_rc')"
+    local ++fail_count
+}
+
+local ++test_count
+capture noisily {
+    tempfile marker
+    shell bash -lc 'cd "$1" && if git ls-files codescan | grep -Ev "^codescan/demo/" | grep -E "\\.(log|smcl|dta|xlsx)$" > "$2.hits"; then echo FAIL > "$2"; else echo PASS > "$2"; fi' bash "`repo_dir'" "`marker'"
+    _assert_marker_pass "`marker'"
+}
+if _rc == 0 {
+    display as result "  PASS: no tracked generated debris outside demo allowances"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: tracked generated debris outside demo allowances (error `=_rc')"
+    local ++fail_count
+}
+
+**# Summary
+
+display ""
+display as result "RESULT: test_release_integrity tests=`test_count' pass=`pass_count' fail=`fail_count'"
+display as result "Test Results: `pass_count'/`test_count' passed, `fail_count' failed"
+
+if `fail_count' > 0 {
+    display as error "SOME TESTS FAILED"
+    exit 1
+}
+else {
+    display as result "ALL TESTS PASSED"
+}

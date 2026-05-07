@@ -72,6 +72,7 @@ program define _gle_run_survival, eclass
         death(d) ///
         commands(d: logit, l: regress, a: logit, y: logit) ///
         equations(d: a c, l: c, a: c l, y: a c) ///
+        pooled ///
         msm(logit y a) ///
         sim(720) samples(50) seed(20260519)
 end
@@ -163,7 +164,7 @@ capture noisily {
     }
 }
 if _rc == 0 {
-    display as result "  PASS: MSM point estimates match Python plug-in oracle"
+    display as result "  PASS: pooled MSM point estimates match Python oracle"
     local ++pass_count
 }
 else {
@@ -181,7 +182,7 @@ capture noisily {
     }
 }
 if _rc == 0 {
-    display as result "  PASS: selected bootstrap SEs agree with Python subject-bootstrap reference"
+    display as result "  PASS: selected bootstrap SEs agree with Python pooled subject-bootstrap reference"
     local ++pass_count
 }
 else {

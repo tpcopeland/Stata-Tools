@@ -374,10 +374,32 @@ program define codescan, rclass
         if _rc {
             local _cf_base = lower(regexr(`"`codefile'"', ".*[\\/]", ""))
             if inlist("`_cf_base'", "charlson_icd10_example.csv", "elixhauser_icd10_example.csv") {
-                tempfile _builtin_codefile
-                _codescan_write_builtin_codefile, name("`_cf_base'") target("`_builtin_codefile'")
-                local codefile "`_builtin_codefile'"
-                local ext ".dta"
+                local _builtin_found = 0
+                capture findfile "`_cf_base'"
+                if _rc == 0 {
+                    local codefile `"`r(fn)'"'
+                    local ext ".csv"
+                    local _builtin_found = 1
+                }
+                if !`_builtin_found' {
+                    capture findfile codescan.ado
+                    if _rc == 0 {
+                        local _pkg_dir = regexr(`"`r(fn)'"', "codescan\.ado$", "")
+                        local _pkg_csv `"`_pkg_dir'`_cf_base'"'
+                        capture confirm file `"`_pkg_csv'"'
+                        if _rc == 0 {
+                            local codefile `"`_pkg_csv'"'
+                            local ext ".csv"
+                            local _builtin_found = 1
+                        }
+                    }
+                }
+                if !`_builtin_found' {
+                    tempfile _builtin_codefile
+                    _codescan_write_builtin_codefile, name("`_cf_base'") target("`_builtin_codefile'")
+                    local codefile "`_builtin_codefile'"
+                    local ext ".dta"
+                }
             }
             else {
                 display as error `"codefile(): file not found: `codefile'"'
@@ -952,6 +974,7 @@ program define codescan, rclass
         local ++_n_outputs
         local _output_`_n_outputs' "`matched_code'"
     }
+    local _outputs_created = 0
 
     forvalues i = 1/`_n_outputs' {
         local _out_nm "`_output_`i''"
@@ -1234,6 +1257,7 @@ program define codescan, rclass
     * =========================================================================
     * CREATE ROW-LEVEL INDICATORS (Mata-accelerated)
     * =========================================================================
+    local _outputs_created = 1
     quietly {
         * Drop/create indicator variables
         forvalues i = 1/`n_conditions' {
@@ -2224,9 +2248,9 @@ program define codescan, rclass
     } // end capture noisily
     local rc = _rc
     if `rc' {
-        * Clean up: restore any active user preserve, drop partial indicator variables.
+        * Clean up: restore any active user preserve, drop only variables this run started creating.
         capture restore
-        if "`_n_outputs'" != "" {
+        if "`_n_outputs'" != "" & "`_outputs_created'" == "1" {
             forvalues i = 1/`_n_outputs' {
                 local _drop_nm "`_output_`i''"
                 local _drop_protected = 0
@@ -2269,11 +2293,11 @@ program define _codescan_write_builtin_codefile, rclass
         post `_cfh' ("dm_uncomp") ("E100|E101|E106|E108|E109|E110|E111|E116|E118|E119|E120|E121|E126|E128|E129|E130|E131|E136|E138|E139|E140|E141|E146|E148|E149") ("") ("Diabetes without Complications") (1)
         post `_cfh' ("dm_comp") ("E102|E103|E104|E105|E107|E112|E113|E114|E115|E117|E122|E123|E124|E125|E127|E132|E133|E134|E135|E137|E142|E143|E144|E145|E147") ("") ("Diabetes with Complications") (2)
         post `_cfh' ("hemiplegia") ("G041|G114|G801|G802|G81|G82|G830|G831|G832|G833|G834|G839") ("") ("Hemiplegia or Paraplegia") (2)
-        post `_cfh' ("renal") ("I12|I13|N03|N05|N18|N19|N250|Z490|Z491|Z492|Z940|Z992") ("") ("Renal Disease") (2)
-        post `_cfh' ("cancer") ("C00|C01|C02|C03|C04|C05|C06|C07|C08|C09|C10|C11|C12|C13|C14|C15|C16|C17|C18|C19|C20|C21|C22|C23|C24|C25|C26|C30|C31|C32|C33|C34|C37|C38|C39|C40|C41|C43|C45|C46|C47|C48|C49|C50|C51|C52|C53|C54|C55|C56|C57|C58|C60|C61|C62|C63|C64|C65|C66|C67|C68|C69|C70|C71|C72|C73|C74|C75|C76|C81|C82|C83|C84|C85|C88|C90|C91|C92|C93|C94|C95|C96") ("C77|C78|C79|C80") ("Any Malignancy, Including Leukemia and Lymphoma") (2)
-        post `_cfh' ("liver_severe") ("I85|I864|I982|K704|K711|K721|K729|K765|K766|K767") ("") ("Moderate or Severe Liver Disease") (3)
+        post `_cfh' ("renal") ("I120|I131|N032|N033|N034|N035|N036|N037|N052|N053|N054|N055|N056|N057|N18|N19|N250|Z490|Z491|Z492|Z940|Z992") ("") ("Renal Disease") (2)
+        post `_cfh' ("cancer") ("C00|C01|C02|C03|C04|C05|C06|C07|C08|C09|C10|C11|C12|C13|C14|C15|C16|C17|C18|C19|C20|C21|C22|C23|C24|C25|C26|C30|C31|C32|C33|C34|C37|C38|C39|C40|C41|C43|C45|C46|C47|C48|C49|C50|C51|C52|C53|C54|C55|C56|C57|C58|C60|C61|C62|C63|C64|C65|C66|C67|C68|C69|C70|C71|C72|C73|C74|C75|C76|C81|C82|C83|C84|C85|C88|C90|C91|C92|C93|C94|C95|C96|C97") ("") ("Any Malignancy") (2)
+        post `_cfh' ("liver_severe") ("I850|I859|I864|I982|K704|K711|K721|K729|K765|K766|K767") ("") ("Moderate or Severe Liver Disease") (3)
         post `_cfh' ("metastatic") ("C77|C78|C79|C80") ("") ("Metastatic Solid Tumor") (6)
-        post `_cfh' ("hiv") ("B20|B21|B22|B24") ("") ("AIDS/HIV") (6)
+        post `_cfh' ("hiv") ("B20|B21|B22|B24") ("") ("HIV/AIDS") (6)
     }
     else if lower("`name'") == "elixhauser_icd10_example.csv" {
         post `_cfh' ("chf") ("I099|I110|I130|I132|I255|I420|I425|I426|I427|I428|I429|I43|I50|P290") ("") ("Congestive Heart Failure") (7)
@@ -2289,24 +2313,24 @@ program define _codescan_write_builtin_codefile, rclass
         post `_cfh' ("dm_uncomp") ("E100|E101|E106|E108|E109|E110|E111|E116|E118|E119|E120|E121|E126|E128|E129|E130|E131|E136|E138|E139|E140|E141|E146|E148|E149") ("") ("Diabetes Uncomplicated") (0)
         post `_cfh' ("dm_comp") ("E102|E103|E104|E105|E107|E112|E113|E114|E115|E117|E122|E123|E124|E125|E127|E132|E133|E134|E135|E137|E142|E143|E144|E145|E147") ("") ("Diabetes Complicated") (0)
         post `_cfh' ("hypothyroid") ("E00|E01|E02|E03|E890") ("") ("Hypothyroidism") (0)
-        post `_cfh' ("renal") ("I12|I13|N00|N01|N02|N03|N04|N05|N07|N11|N14|N17|N18|N19|Q61") ("") ("Renal Failure") (5)
-        post `_cfh' ("liver") ("B18|I85|I864|I982|K70|K711|K713|K714|K715|K717|K72|K73|K74|K760|K762|K763|K764|K765|K766|K767|K768|K769|Z944") ("") ("Liver Disease") (11)
-        post `_cfh' ("pud") ("K257|K259|K267|K269|K277|K279|K287|K289") ("") ("Peptic Ulcer Disease Excluding Bleeding") (0)
+        post `_cfh' ("renal") ("I120|I131|N032|N033|N034|N035|N036|N037|N052|N053|N054|N055|N056|N057|N18|N19|N250|Z490|Z491|Z492|Z940|Z992") ("") ("Renal Failure") (5)
+        post `_cfh' ("liver") ("B18|I850|I859|I864|I982|K700|K701|K702|K703|K704|K709|K711|K713|K714|K715|K717|K721|K729|K73|K74|K760|K762|K763|K764|K765|K766|K767|K768|K769|Z944") ("") ("Liver Disease") (11)
+        post `_cfh' ("pud") ("K25|K26|K27|K28") ("") ("Peptic Ulcer Disease") (0)
         post `_cfh' ("hiv") ("B20|B21|B22|B24") ("") ("AIDS/HIV") (0)
-        post `_cfh' ("lymphoma") ("C81|C82|C83|C84|C85|C88|C96|C900|C902") ("") ("Lymphoma") (9)
+        post `_cfh' ("lymphoma") ("C81|C82|C83|C84|C85|C88|C96") ("") ("Lymphoma") (9)
         post `_cfh' ("metastatic") ("C77|C78|C79|C80") ("") ("Metastatic Cancer") (12)
-        post `_cfh' ("solid_tumor") ("C00|C01|C02|C03|C04|C05|C06|C07|C08|C09|C10|C11|C12|C13|C14|C15|C16|C17|C18|C19|C20|C21|C22|C23|C24|C25|C26|C30|C31|C32|C33|C34|C37|C38|C39|C40|C41|C43|C45|C46|C47|C48|C49|C50|C51|C52|C53|C54|C55|C56|C57|C58|C60|C61|C62|C63|C64|C65|C66|C67|C68|C69|C70|C71|C72|C73|C74|C75|C76|C97") ("C77|C78|C79|C80") ("Solid Tumor Without Metastasis") (4)
-        post `_cfh' ("rheumatoid") ("M05|M06|M315|M32|M33|M34|M351|M353|M360") ("") ("Rheumatoid Arthritis/Collagen Vascular Diseases") (0)
+        post `_cfh' ("solid_tumor") ("C00|C01|C02|C03|C04|C05|C06|C07|C08|C09|C10|C11|C12|C13|C14|C15|C16|C17|C18|C19|C20|C21|C22|C23|C24|C25|C26|C30|C31|C32|C33|C34|C37|C38|C39|C40|C41|C43|C45|C46|C47|C48|C49|C50|C51|C52|C53|C54|C55|C56|C57|C58|C60|C61|C62|C63|C64|C65|C66|C67|C68|C69|C70|C71|C72|C73|C74|C75|C76") ("") ("Solid Tumor Without Metastasis") (4)
+        post `_cfh' ("rheumatoid") ("L940|L941|L943|M05|M06|M08|M120|M123|M30|M31|M32|M33|M34|M35|M45|M46") ("") ("Rheumatoid Arthritis/Collagen Vascular Disease") (0)
         post `_cfh' ("coagulopathy") ("D65|D66|D67|D68|D691|D693|D694|D695|D696") ("") ("Coagulopathy") (3)
         post `_cfh' ("obesity") ("E66") ("") ("Obesity") (-4)
-        post `_cfh' ("weight_loss") ("E40|E41|E42|E43|E44|E45|E46|R634|R64") ("") ("Weight Loss") (6)
+        post `_cfh' ("weight_loss") ("E40|E41|E42|E43|E44|E45|E46|R634") ("") ("Weight Loss") (6)
         post `_cfh' ("fluid_electrolyte") ("E222|E86|E87") ("") ("Fluid and Electrolyte Disorders") (5)
         post `_cfh' ("blood_loss_anemia") ("D500") ("") ("Blood Loss Anemia") (-2)
         post `_cfh' ("deficiency_anemia") ("D508|D509|D51|D52|D53") ("") ("Deficiency Anemia") (-2)
-        post `_cfh' ("alcohol") ("F10|E52|G621|I426|K292|K700|K703|K709|T51|Z502|Z714|Z721") ("") ("Alcohol Abuse") (0)
-        post `_cfh' ("drug") ("F11|F12|F13|F14|F15|F16|F18|F19|Z715|Z722") ("") ("Drug Abuse") (-7)
-        post `_cfh' ("psychoses") ("F20|F22|F23|F24|F25|F28|F29|F302|F312|F315") ("") ("Psychoses") (0)
-        post `_cfh' ("depression") ("F204|F313|F314|F315|F32|F33|F341|F412|F432") ("") ("Depression") (-3)
+        post `_cfh' ("alcohol") ("F10|K700|K703|K709|T51") ("") ("Alcohol Abuse") (0)
+        post `_cfh' ("drug") ("F11|F12|F13|F14|F15|F16|F18|F19") ("") ("Drug Abuse") (-7)
+        post `_cfh' ("psychoses") ("F20|F22|F23|F24|F25|F28|F29|F302|F312|F313|F314|F315") ("") ("Psychoses") (0)
+        post `_cfh' ("depression") ("F204|F313|F314|F315|F32|F33|F341|F351|F38|F39") ("") ("Depression") (-3)
     }
     else {
         postclose `_cfh'

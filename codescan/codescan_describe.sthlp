@@ -219,8 +219,7 @@ If your code variables were imported as numeric rather than string, add
 {marker author}{...}
 {title:Author}
 
-{pstd}Timothy P Copeland{p_end}
-{pstd}Karolinska Institutet{p_end}
+{pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 
 
 {title:Also see}

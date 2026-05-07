@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Generate external references for extended longitudinal gcomp QA.
 
-The fixture targets non-EOFU time-varying output: survival-style log incidence
-rates, cumulative outcome/death incidence, and a simple logit MSM fitted to
-the simulated intervention risk sets.
+The fixture targets non-EOFU time-varying output under a pooled simulation
+model: survival-style log incidence rates, cumulative outcome/death incidence,
+and a logit MSM fitted to the pooled intervention risk sets.
 """
 
 from __future__ import annotations
@@ -106,24 +106,18 @@ def subject_frame(data: pd.DataFrame) -> pd.DataFrame:
     )
 
 
-def fit_visit_models(data: pd.DataFrame) -> dict[tuple[str, int], object]:
-    models: dict[tuple[str, int], object] = {}
-    for time in range(1, N_VISITS + 1):
-        visit = data.loc[data["time"] == time].copy()
-        if visit.empty:
-            raise RuntimeError(f"no rows available at visit {time}")
-
-        models[("d", time)] = fit_logit(visit["d"], visit[["a", "c"]])
-        models[("l", time)] = sm.OLS(visit["l"], add_constant(visit[["c"]])).fit()
-        models[("a", time)] = fit_logit(visit["a"], visit[["c", "l"]])
-        models[("y", time)] = fit_logit(visit["y"], visit[["a", "c"]])
-
+def fit_pooled_models(data: pd.DataFrame) -> dict[str, object]:
+    models: dict[str, object] = {}
+    models["d"] = fit_logit(data["d"], data[["a", "c"]])
+    models["l"] = sm.OLS(data["l"], add_constant(data[["c"]])).fit()
+    models["a"] = fit_logit(data["a"], data[["c", "l"]])
+    models["y"] = fit_logit(data["y"], data[["a", "c"]])
     return models
 
 
 def intervention_summary(
     subjects: pd.DataFrame,
-    models: dict[tuple[str, int], object],
+    models: dict[str, object],
     a_value: int,
 ) -> InterventionSummary:
     c = subjects["c"].to_numpy(dtype=float)
@@ -135,8 +129,8 @@ def intervention_summary(
 
     for time in range(1, N_VISITS + 1):
         x = pd.DataFrame({"a": np.full(len(subjects), a_value), "c": c})
-        p_d = predict(models[("d", time)], x)
-        p_y = predict(models[("y", time)], x)
+        p_d = predict(models["d"], x)
+        p_y = predict(models["y"], x)
 
         person_time += float(np.sum(alive))
         death_events += float(np.sum(alive * p_d))
@@ -157,7 +151,7 @@ def intervention_summary(
 
 def estimate(data: pd.DataFrame) -> dict[str, float]:
     subjects = subject_frame(data)
-    models = fit_visit_models(data)
+    models = fit_pooled_models(data)
 
     treated = intervention_summary(subjects, models, 1)
     untreated = intervention_summary(subjects, models, 0)
@@ -209,28 +203,28 @@ def bootstrap(data: pd.DataFrame) -> pd.DataFrame:
 def reference_rows(est: dict[str, float], boot: pd.DataFrame) -> list[dict[str, object]]:
     se = boot.drop(columns=["rep"]).std(ddof=1).to_dict()
     tol_est = {
-        "po_a1": 0.18,
-        "po_a0": 0.16,
-        "out_a1": 0.055,
-        "out_a0": 0.060,
-        "death_a1": 0.055,
-        "death_a0": 0.055,
-        "out_diff_a1_a0": 0.075,
-        "death_diff_a1_a0": 0.075,
-        "msm_a": 0.40,
-        "msm_cons": 0.28,
+        "po_a1": 0.08,
+        "po_a0": 0.08,
+        "out_a1": 0.03,
+        "out_a0": 0.03,
+        "death_a1": 0.03,
+        "death_a0": 0.03,
+        "out_diff_a1_a0": 0.04,
+        "death_diff_a1_a0": 0.04,
+        "msm_a": 0.12,
+        "msm_cons": 0.05,
     }
     tol_se = {
-        "po_a1": 0.12,
-        "po_a0": 0.12,
-        "out_a1": 0.055,
-        "out_a0": 0.055,
-        "death_a1": 0.055,
-        "death_a0": 0.055,
-        "out_diff_a1_a0": 0.070,
-        "death_diff_a1_a0": 0.070,
-        "msm_a": 0.24,
-        "msm_cons": 0.16,
+        "po_a1": 0.08,
+        "po_a0": 0.06,
+        "out_a1": 0.025,
+        "out_a0": 0.025,
+        "death_a1": 0.025,
+        "death_a0": 0.025,
+        "out_diff_a1_a0": 0.035,
+        "death_diff_a1_a0": 0.035,
+        "msm_a": 0.12,
+        "msm_cons": 0.06,
     }
     rows: list[dict[str, object]] = []
     for metric, value in est.items():
@@ -242,13 +236,13 @@ def reference_rows(est: dict[str, float], boot: pd.DataFrame) -> list[dict[str, 
                 "se": se[metric],
                 "tolerance_estimate": tol_est[metric],
                 "tolerance_se": tol_se[metric],
-                "source": "python_statsmodels_plugin_subject_bootstrap",
+                "source": "python_statsmodels_pooled_plugin_subject_bootstrap",
                 "n_subjects": N_SUBJECTS,
                 "n_visits": N_VISITS,
                 "bootstrap_reps": len(boot),
                 "data_seed": DATA_SEED,
                 "bootstrap_seed": BOOT_SEED,
-                "notes": "visit-specific GLM Binomial nuisance models; deterministic plug-in intervention summaries",
+                "notes": "pooled GLM Binomial nuisance models; deterministic plug-in intervention risk sets",
             }
         )
     return rows
@@ -265,6 +259,10 @@ def covariance_rows(boot: pd.DataFrame) -> list[dict[str, object]]:
     rows: list[dict[str, object]] = []
     for metric1, metric2 in pairs:
         cov_value = float(cov.loc[metric1, metric2])
+        if metric1.startswith("msm_") or metric2.startswith("msm_"):
+            tolerance_covariance = max(abs(cov_value) * 2.5, 0.015)
+        else:
+            tolerance_covariance = max(abs(cov_value) * 1.25, 0.001)
         rows.append(
             {
                 "analysis": "survival_death_msm",
@@ -272,11 +270,11 @@ def covariance_rows(boot: pd.DataFrame) -> list[dict[str, object]]:
                 "metric2": metric2,
                 "covariance": cov_value,
                 "correlation": float(corr.loc[metric1, metric2]),
-                "tolerance_covariance": max(abs(cov_value) * 1.25, 0.006),
-                "source": "python_statsmodels_plugin_subject_bootstrap",
+                "tolerance_covariance": tolerance_covariance,
+                "source": "python_statsmodels_pooled_plugin_subject_bootstrap",
                 "n_subjects": N_SUBJECTS,
                 "bootstrap_reps": len(boot),
-                "notes": "subject-bootstrap off-diagonal covariance for selected longitudinal outputs",
+                "notes": "pooled subject-bootstrap off-diagonal covariance for selected longitudinal outputs",
             }
         )
     return rows

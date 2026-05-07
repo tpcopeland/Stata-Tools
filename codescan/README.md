@@ -386,6 +386,7 @@ Window: 365 days before index_dt (inclusive)
 ## Key Behaviors
 
 - **Anchored matching:** patterns are anchored at the start of each code value.  `define(dm2 "E11")` matches `E110` and `E119`, not `AE11`.
+- **Default labels:** if neither `label()` nor a codefile `label` column supplies a label, displayed and exported output use the condition name.
 - **Regex vs. prefix:** `mode(regex)` (default) supports character classes and alternation.  `mode(prefix)` uses simple starts-with comparisons and is usually faster.
 - **Exclusion patterns:** use `~` after the inclusion pattern, e.g. `define(dm2 "E11" ~ "E116")`.  Multiple exclusions are allowed: `define(x "A" ~ "A1" ~ "A2")`.
 - **nodots:** strips periods during matching without modifying the stored data.

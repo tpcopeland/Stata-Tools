@@ -222,6 +222,8 @@ projects, or shared with collaborators.
 {cmd:label(dm2 "Type 2 diabetes" \ htn "Hypertension")}.
 Labels apply to the main indicator/count variable and any date-summary variables.
 If labels were supplied in {cmd:codefile()}, {cmd:label()} overrides them.
+Conditions without an explicit label use the condition name as the default label
+in displayed and exported output.
 When {cmd:generate()} is used, label names may be written with bare condition
 names; the generate-prefix fallback is applied automatically.
 
@@ -742,8 +744,7 @@ adaptation of the Elixhauser comorbidity measure for hospital mortality.
 {marker author}{...}
 {title:Author}
 
-{pstd}Timothy P Copeland{p_end}
-{pstd}Karolinska Institutet{p_end}
+{pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 
 
 {title:Also see}
