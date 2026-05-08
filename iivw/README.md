@@ -1,6 +1,6 @@
 # iivw - Inverse intensity of visit weighting for longitudinal data
 
-**Version 1.0.4** | 2026-05-06
+**Version 1.0.5** | 2026-05-09
 
 `iivw` corrects bias from informative visit timing in irregular longitudinal data.  In clinic-based studies, sicker patients often visit more frequently, so they contribute more rows to the dataset and bias naive analyses.  This package re-weights each observation so the analysis behaves as though patients were observed on a common schedule.
 
@@ -175,7 +175,7 @@ After running `iivw_weight`, check these before fitting the outcome model:
 
 ## Practical Notes
 
-- `treat()` must be binary (0/1) and time-invariant within each subject.  For time-varying treatments, consider marginal structural models instead.
+- `treat()` must be observed on every row used in IPTW/FIPTIW, binary (0/1), and time-invariant within each subject.  For time-varying treatments, consider marginal structural models instead.
 - `treat_cov()` is required for IPTW and FIPTIW; treatment-model covariates are not inferred from `visit_cov()`.
 - IPTW-only analyses may use one row per subject.  IIW and FIPTIW require repeated visits because they estimate a visit-intensity model.
 - `iivw_fit` automatically reads the weight variable, panel ID, and time variable stored by `iivw_weight`.
@@ -209,6 +209,12 @@ do iivw/demo/demo_iivw.do
 - Tompkins G, Dubin JA, Wallace M. On flexible inverse probability of treatment and intensity weighting. *Statistical Methods in Medical Research*. 2025.
 
 ## Changelog
+
+### v1.0.5 (2026-05-09)
+
+- Rejected invalid long `generate()` prefixes before creating partial outputs
+- Rejected missing `treat()` values for IPTW/FIPTIW and negative `bootstrap()` counts
+- Added exact known-answer validation and stricter R fixture coefficient checks
 
 ### v1.0.4 (2026-05-06)
 

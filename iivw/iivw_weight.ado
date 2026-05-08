@@ -1,7 +1,6 @@
-*! iivw_weight Version 1.0.4  2026/05/06
+*! iivw_weight Version 1.0.5  2026/05/09
 *! Compute inverse intensity of visit weights (IIW/IPTW/FIPTIW)
-*! Author: Timothy P Copeland
-*! Department of Clinical Neuroscience, Karolinska Institutet
+*! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
 
 /*
@@ -42,7 +41,7 @@ program define iivw_weight, rclass sortpreserve
     set varabbrev off
     capture noisily {
 
-    * No marksample: IIW requires full panel, no [if] [in] by design
+    * No sample marker: IIW requires full panel, no [if] [in] by design
 
     * =========================================================================
     * SYNTAX PARSING
@@ -71,6 +70,8 @@ program define iivw_weight, rclass sortpreserve
     local efron_opt ""
     if "`efron'" != "" local efron_opt "efron"
 
+    local __iivw_created_vars ""
+
     * Invalidate stored weighting/fitting state before any failure path.
     * A failed rerun must not leave prior weights looking current.
     foreach ch in _iivw_weighted _iivw_id _iivw_time _iivw_weighttype ///
@@ -79,6 +80,22 @@ program define iivw_weight, rclass sortpreserve
         _iivw_interaction _iivw_ix_vars _iivw_categorical ///
         _iivw_cat_vars _iivw_basecat {
         char _dta[`ch'] ""
+    }
+
+    if strlen("`prefix'") > 23 {
+        display as error "generate() prefix must be 23 characters or fewer"
+        display as error "longer prefixes can make downstream iivw_fit variable names invalid"
+        error 198
+    }
+
+    foreach candidate in `prefix'iw `prefix'tw `prefix'weight ///
+        `prefix'time_sq `prefix'time_cu `prefix'tns1 ///
+        `prefix'cat_x `prefix'ix_x_time {
+        capture confirm name `candidate'
+        if _rc {
+            display as error "generate() prefix creates invalid variable name: `candidate'"
+            error 198
+        }
     }
 
     * =========================================================================
@@ -205,6 +222,13 @@ program define iivw_weight, rclass sortpreserve
 
     * Validate treatment is binary (if specified)
     if "`treat'" != "" {
+        quietly count if missing(`treat')
+        if r(N) > 0 {
+            display as error "treat() contains missing values"
+            display as error "treat() must be observed for every row used in IPTW/FIPTIW"
+            error 198
+        }
+
         capture assert inlist(`treat', 0, 1) if !missing(`treat')
         if _rc {
             display as error "treat() must be binary (0/1)"
@@ -253,8 +277,8 @@ program define iivw_weight, rclass sortpreserve
             display as error "truncate() lower bound must be less than upper bound"
             error 198
         }
-        if `trunc_lo' < 0 | `trunc_hi' > 100 {
-            display as error "truncate() values must be between 0 and 100"
+        if `trunc_lo' <= 0 | `trunc_hi' >= 100 {
+            display as error "truncate() values must be strictly between 0 and 100"
             error 198
         }
     }
@@ -304,6 +328,7 @@ program define iivw_weight, rclass sortpreserve
             }
             quietly bysort `id' (`time'): gen double `lagname' = `v'[_n-1]
             local lag_created "`lag_created' `lagname'"
+            local __iivw_created_vars "`__iivw_created_vars' `lagname'"
         }
     }
 
@@ -456,6 +481,7 @@ program define iivw_weight, rclass sortpreserve
         }
 
         merge 1:1 `_obsno' using `__iivw_iwfile', nogen assert(match)
+        local __iivw_created_vars "`__iivw_created_vars' `prefix'iw"
 
         if `__iivw_visit_converged' == 0 {
             display as error "warning: visit intensity Cox model did not converge"
@@ -545,6 +571,7 @@ program define iivw_weight, rclass sortpreserve
 
             drop `_ps'
             label variable `prefix'tw "Inverse probability of treatment weight"
+            local __iivw_created_vars "`__iivw_created_vars' `prefix'tw"
         }
     }
 
@@ -556,14 +583,17 @@ program define iivw_weight, rclass sortpreserve
         if "`wtype'" == "fiptiw" {
             gen double `prefix'weight = `prefix'iw * `prefix'tw
             label variable `prefix'weight "FIPTIW weight (IIW x IPTW)"
+            local __iivw_created_vars "`__iivw_created_vars' `prefix'weight"
         }
         else if "`wtype'" == "iivw" {
             gen double `prefix'weight = `prefix'iw
             label variable `prefix'weight "IIW weight"
+            local __iivw_created_vars "`__iivw_created_vars' `prefix'weight"
         }
         else if "`wtype'" == "iptw" {
             gen double `prefix'weight = `prefix'tw
             label variable `prefix'weight "IPTW weight"
+            local __iivw_created_vars "`__iivw_created_vars' `prefix'weight"
         }
     }
 
@@ -704,6 +734,12 @@ program define iivw_weight, rclass sortpreserve
 
     }
     local rc = _rc
+    if `rc' != 0 {
+        foreach v of local __iivw_created_vars {
+            capture drop `v'
+            local __iivw_drop_rc = _rc
+        }
+    }
     capture drop `_obsno'
     local __iivw_drop_rc = _rc
     set varabbrev `__iivw_old_varabbrev'

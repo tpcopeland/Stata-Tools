@@ -1,6 +1,6 @@
-*! _iivw_check_weighted Version 1.0.4  2026/05/06
+*! _iivw_check_weighted Version 1.0.5  2026/05/09
 *! Verify weight variable exists before fitting
-*! Author: Timothy P Copeland
+*! Author: Timothy P Copeland, Karolinska Institutet
 
 program define _iivw_check_weighted, rclass
     version 16.0

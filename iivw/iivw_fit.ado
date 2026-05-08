@@ -1,7 +1,6 @@
-*! iivw_fit Version 1.0.4  2026/05/06
+*! iivw_fit Version 1.0.5  2026/05/09
 *! Fit weighted outcome model for IIW/IPTW/FIPTIW analysis
-*! Author: Timothy P Copeland
-*! Department of Clinical Neuroscience, Karolinska Institutet
+*! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: eclass (returns results in e())
 
 /*
@@ -69,11 +68,11 @@ program define iivw_fit, eclass
     _iivw_check_weighted
     _iivw_get_settings
 
-    local panel_id   "`_iivw_id'"
-    local panel_time "`_iivw_time'"
-    local weighttype "`_iivw_weighttype'"
-    local weight_var "`_iivw_weight_var'"
-    local prefix     "`_iivw_prefix'"
+    local panel_id   "`r(id)'"
+    local panel_time "`r(time)'"
+    local weighttype "`r(weighttype)'"
+    local weight_var "`r(weight_var)'"
+    local prefix     "`r(prefix)'"
 
     * Parse depvar and indepvars
     gettoken depvar indepvars : varlist
@@ -122,6 +121,11 @@ program define iivw_fit, eclass
     * Validate model type
     if !inlist("`model'", "gee", "mixed") {
         display as error "model() must be gee or mixed"
+        error 198
+    }
+
+    if `bootstrap' < 0 {
+        display as error "bootstrap() must be greater than or equal to 0"
         error 198
     }
 

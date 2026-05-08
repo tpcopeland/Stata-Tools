@@ -745,17 +745,15 @@ if `run_only' == 0 | `run_only' == 22 {
 }
 
 * =============================================================================
-* E23: truncate(0 100) rejected at _pctile — documents known Stata limit
+* E23: truncate(0 100) rejected at option validation
 * =============================================================================
 local ++test_count
 if `run_only' == 0 | `run_only' == 23 {
     capture noisily {
         _setup_panel
-        * Stata _pctile requires percentiles strictly in (0,100); iivw_weight
-        * accepts [0,100] at validation but _pctile then errors. Expect rc!=0.
         capture iivw_weight, id(id) time(months) visit_cov(severity) ///
             truncate(0 100) nolog
-        assert _rc != 0
+        assert _rc == 198
         * Near-boundary values work
         _setup_panel
         iivw_weight, id(id) time(months) visit_cov(severity) ///

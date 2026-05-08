@@ -1,7 +1,7 @@
-*! _iivw_bs_estimate Version 1.0.4  2026/05/06
+*! _iivw_bs_estimate Version 1.0.5  2026/05/09
 *! Bootstrap wrapper for iivw_fit: applies pweights inside the estimation
 *! call so Stata's bootstrap prefix does not strip them.
-*! Author: Timothy P Copeland
+*! Author: Timothy P Copeland, Karolinska Institutet
 
 program define _iivw_bs_estimate, eclass
     version 16.0
@@ -14,6 +14,12 @@ program define _iivw_bs_estimate, eclass
          GEEopts(string asis) MIXEDopts(string asis) noLOG]
 
     marksample touse
+    markout `touse' `weightvar'
+    quietly count if `touse'
+    if r(N) == 0 {
+        display as error "no observations"
+        error 2000
+    }
     gettoken depvar covars : varlist
 
     local log_opt = cond("`log'" == "nolog", "nolog", "")

@@ -15,7 +15,13 @@ library(survival)
 cat("=== IrregLong Phenobarb Cross-Validation ===\n")
 cat("IrregLong version:", as.character(packageVersion("IrregLong")), "\n\n")
 
-outdir <- "iivw/qa"
+cmd_args <- commandArgs(FALSE)
+file_arg <- grep("^--file=", cmd_args, value = TRUE)
+outdir <- if (length(file_arg)) {
+    dirname(normalizePath(sub("^--file=", "", file_arg[1])))
+} else {
+    getwd()
+}
 
 # =============================================================================
 # 1. Load and prepare Phenobarb data (following vignette exactly)

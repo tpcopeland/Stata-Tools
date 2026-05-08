@@ -1,4 +1,4 @@
-/*  demo_iivw.do - Generate screenshots for iivw v1.0.4
+/*  demo_iivw.do - Generate screenshots for iivw v1.0.5
 
     Produces 3 output types:
       1. Console output (FIPTIW workflow: weighting + outcome model) -> .smcl
@@ -151,7 +151,7 @@ quietly net install logdoc, from("`repo_dir'/logdoc") replace
 logdoc using "`pkg_dir'/console_output.smcl", ///
     output("`pkg_dir'/console_output.html") ///
     title("iivw: Inverse Intensity of Visit Weighting") ///
-    date("April 2026") ///
+    date("May 2026") ///
     highlight tables ///
     replace quiet
 

@@ -36,6 +36,7 @@ local suites          ///
     test_iivw_expanded ///
     validation_iivw    ///
     validation_iivw_expanded ///
+    validation_iivw_known_answers ///
     test_iivw_weight_validation_guards ///
     test_iivw_weight_adversarial ///
     test_iivw_fit_adversarial ///

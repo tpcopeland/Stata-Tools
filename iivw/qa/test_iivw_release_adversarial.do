@@ -140,11 +140,11 @@ end
 
 local ++test_count
 capture noisily {
-    local version "1.0.4"
-    local ado_date "2026/05/06"
-    local sthlp_date "06may2026"
-    local iso_date "2026-05-06"
-    local pkg_date "20260506"
+    local version "1.0.5"
+    local ado_date "2026/05/09"
+    local sthlp_date "09may2026"
+    local iso_date "2026-05-09"
+    local pkg_date "20260509"
 
     _qa_iivw_must_contain, file("`pkg_dir'/README.md") ///
         pattern("**Version `version'** | `iso_date'")
@@ -175,11 +175,19 @@ capture noisily {
         local cmd = substr("`cmd'", 2, .)
         _qa_iivw_must_contain, file("`pkg_dir'/`file'") ///
             pattern("*! `cmd' Version `version'  `ado_date'")
+        _qa_iivw_must_contain, file("`pkg_dir'/`file'") ///
+            pattern("*! Author: Timothy P Copeland, Karolinska Institutet")
+        _qa_iivw_must_not_contain, file("`pkg_dir'/`file'") ///
+            pattern("*! Department of Clinical Neuroscience")
     }
 
     foreach help in iivw iivw_weight iivw_fit {
         _qa_iivw_must_contain, file("`pkg_dir'/`help'.sthlp") ///
             pattern("{* *! version `version'  `sthlp_date'}")
+        _qa_iivw_must_contain, file("`pkg_dir'/`help'.sthlp") ///
+            pattern("{pstd}Timothy P Copeland, Karolinska Institutet{p_end}")
+        _qa_iivw_must_not_contain, file("`pkg_dir'/`help'.sthlp") ///
+            pattern("{pstd}Department of Clinical Neuroscience{p_end}")
         _qa_iivw_must_contain, file("`pkg_dir'/`help'.sthlp") ///
             pattern("Version `version', `iso_date'")
     }
@@ -374,7 +382,7 @@ capture noisily {
 
     iivw
     assert r(n_commands) == 2
-    assert "`r(version)'" == "1.0.4"
+    assert "`r(version)'" == "1.0.5"
 
     iivw_weight, id(id) time(days) visit_cov(edss relapse) nolog
     assert "`r(weighttype)'" == "iivw"

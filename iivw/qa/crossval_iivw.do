@@ -397,6 +397,26 @@ if `run_only' == 0 | `run_only' == 6 {
         rename z z_cov
         rename iptw_weight r_iptw_weight
 
+        preserve
+        bysort id (time): keep if _n == 1
+        logit treated w, nolog
+        local s_ps_cons = _b[_cons]
+        local s_ps_w = _b[w]
+        quietly summarize treated
+        local s_prD = r(mean)
+        restore
+
+        preserve
+        import delimited "`qa_dir'/fiptiw_coefs.csv", clear
+        local r_ps_cons = estimate[5]
+        local r_ps_w = estimate[6]
+        local r_prD = estimate[7]
+        restore
+
+        assert abs(`s_ps_cons' - `r_ps_cons') < 1e-7
+        assert abs(`s_ps_w' - `r_ps_w') < 1e-7
+        assert abs(`s_prD' - `r_prD') < 1e-7
+
         iivw_weight, id(id) time(time) ///
             visit_cov(wt_cov z_cov) ///
             treat(treated) treat_cov(w) ///
@@ -433,6 +453,9 @@ if `run_only' == 0 | `run_only' == 7 {
         _load_fiptiw
 
         stset time, enter(time time_lag) failure(observed) id(id) exit(time .)
+        stcox d, nohr efron
+        local s_marginal_d = _b[d]
+
         stcox d wt z, nohr efron
 
         local s_d = _b[d]
@@ -444,6 +467,8 @@ if `run_only' == 0 | `run_only' == 7 {
 
         preserve
         import delimited "`qa_dir'/fiptiw_coefs.csv", clear
+        quietly summarize estimate if model == "marginal_cox", meanonly
+        local r_marginal_d = r(mean)
         keep if model == "conditional_cox"
         local r_d = estimate[1]
         local r_wt = estimate[2]
@@ -459,6 +484,7 @@ if `run_only' == 0 | `run_only' == 7 {
         display as text "    R SE:     D=" %8.4f `r_se_d' "  Wt=" %8.4f `r_se_wt' "  Z=" %8.4f `r_se_z'
         display as text "    Stata SE: D=" %8.4f `s_se_d' "  Wt=" %8.4f `s_se_wt' "  Z=" %8.4f `s_se_z'
 
+        assert abs(`s_marginal_d' - `r_marginal_d') < 0.01
         * Tolerance: 0.01 for cross-implementation Cox coefficients
         assert abs(`s_d' - `r_d') < 0.01
         assert abs(`s_wt' - `r_wt') < 0.01

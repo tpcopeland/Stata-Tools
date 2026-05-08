@@ -1,7 +1,6 @@
-*! iivw Version 1.0.4  2026/05/06
+*! iivw Version 1.0.5  2026/05/09
 *! Inverse intensity of visit weighting for Stata
-*! Author: Timothy P Copeland
-*! Department of Clinical Neuroscience, Karolinska Institutet
+*! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
 
 /*
@@ -24,7 +23,7 @@ program define iivw, rclass
 
     syntax
 
-    local version "1.0.4"
+    local version "1.0.5"
 
     display as text ""
     display as text "{hline 70}"

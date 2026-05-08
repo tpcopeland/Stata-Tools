@@ -1,10 +1,8 @@
-*! _iivw_get_settings Version 1.0.4  2026/05/06
+*! _iivw_get_settings Version 1.0.5  2026/05/09
 *! Retrieve stored metadata from dataset characteristics
-*! Author: Timothy P Copeland
+*! Author: Timothy P Copeland, Karolinska Institutet
 
-* Returns via c_local: id, time, weighttype, weight_var, prefix
-
-program define _iivw_get_settings
+program define _iivw_get_settings, rclass
     version 16.0
     local __iivw_old_varabbrev = c(varabbrev)
     set varabbrev off
@@ -19,12 +17,12 @@ program define _iivw_get_settings
 
     if "`prefix'" == "" local prefix "_iivw_"
 
-    c_local _iivw_id         "`id'"
-    c_local _iivw_time       "`time'"
-    c_local _iivw_weighttype "`weighttype'"
-    c_local _iivw_weight_var "`weight_var'"
-    c_local _iivw_prefix     "`prefix'"
-    c_local _iivw_treat      "`treat'"
+    return local id "`id'"
+    return local time "`time'"
+    return local weighttype "`weighttype'"
+    return local weight_var "`weight_var'"
+    return local prefix "`prefix'"
+    return local treat "`treat'"
 
     }
     local rc = _rc

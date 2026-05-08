@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.4  06may2026}{...}
+{* *! version 1.0.5  09may2026}{...}
 {vieweralsosee "iivw" "help iivw"}{...}
 {vieweralsosee "iivw_fit" "help iivw_fit"}{...}
 {vieweralsosee "[ST] stcox" "help stcox"}{...}
@@ -212,7 +212,8 @@ entry can concentrate weight on a few early-entering subjects.
 percentiles.  For example, {cmd:truncate(1 99)} sets all weights below the
 1st percentile to the 1st percentile value, and all weights above the 99th
 percentile to the 99th percentile value.  This stabilizes estimates when a
-few observations have extreme weights.
+few observations have extreme weights.  Both percentile values must be
+strictly between 0 and 100.
 
 {pmore}
 Truncation does not drop observations; it caps the influence of extreme
@@ -224,7 +225,8 @@ well-specified or whether certain subjects have unusual visit patterns.
 {opt generate(name)} specifies a prefix for generated weight variables.
 Default is {cmd:_iivw_}.  Variables created include {it:prefix}iw (IIW
 component), {it:prefix}tw (IPTW component), and {it:prefix}weight (final
-combined weight).
+combined weight).  The prefix must be 23 characters or fewer so derived
+variables used by {cmd:iivw_fit} can also be valid Stata names.
 
 {phang}
 {opt replace} allows overwriting existing weight variables.  Without this
@@ -302,8 +304,9 @@ Data must be in long panel format with one row per subject-visit.  Each
 subject must have at least 2 visits for IIW and FIPTIW because the visit
 intensity model requires repeated visits.  IPTW-only analyses may use a
 single row per subject.  The {opt id()} and {opt time()} combination must
-uniquely identify each row.  The {opt treat()} variable must be binary (0/1)
-and time-invariant within subjects.
+uniquely identify each row.  The {opt treat()} variable must be observed
+for every row used in IPTW/FIPTIW, binary (0/1), and time-invariant within
+subjects.
 
 {pstd}
 {bf:First-observation weights}
@@ -522,10 +525,8 @@ On flexible inverse probability of treatment and intensity weighting.
 {marker author}{...}
 {title:Author}
 
-{pstd}Timothy P Copeland{p_end}
-{pstd}Department of Clinical Neuroscience{p_end}
-{pstd}Karolinska Institutet{p_end}
-{pstd}Version 1.0.4, 2026-05-06{p_end}
+{pstd}Timothy P Copeland, Karolinska Institutet{p_end}
+{pstd}Version 1.0.5, 2026-05-09{p_end}
 
 
 {title:Also see}

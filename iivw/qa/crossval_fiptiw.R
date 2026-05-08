@@ -17,7 +17,13 @@ library(geepack)
 cat("=== FIPTIW Simulation Cross-Validation ===\n")
 cat("Based on Tompkins, Dubin & Wallace (2025)\n\n")
 
-outdir <- "iivw/qa"
+cmd_args <- commandArgs(FALSE)
+file_arg <- grep("^--file=", cmd_args, value = TRUE)
+outdir <- if (length(file_arg)) {
+    dirname(normalizePath(sub("^--file=", "", file_arg[1])))
+} else {
+    getwd()
+}
 
 expit <- function(x) 1 / (1 + exp(-x))
 

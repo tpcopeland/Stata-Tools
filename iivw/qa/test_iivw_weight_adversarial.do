@@ -432,6 +432,13 @@ if `run_only' == 0 | `run_only' == 9 {
             visit_cov(severity) treat(treated) treat_cov(sev_bl) nolog
         assert _rc == 198
         _assert_no_weight_outputs
+
+        _adv_panel
+        replace treated = . if id == 1
+        capture noisily iivw_weight, id(id) time(months) ///
+            visit_cov(severity) treat(treated) treat_cov(sev_bl) nolog
+        assert _rc == 198
+        _assert_no_weight_outputs
     }
     if _rc == 0 {
         display as result "  PASS: 9 - covariate and treatment missingness"
@@ -461,6 +468,22 @@ if `run_only' == 0 | `run_only' == 10 {
         confirm variable alt_weight
         assert "`r(weight_var)'" == "alt_weight"
         _assert_weight_chars, wtype(iivw) wvar(alt_weight) prefix(alt_)
+
+        _adv_panel
+        local long_prefix "abcdefghijklmnopqrstuvwx12"
+        capture noisily iivw_weight, id(id) time(months) ///
+            visit_cov(severity) treat(treated) treat_cov(sev_bl) ///
+            generate(`long_prefix') nolog
+        assert _rc == 198
+        foreach suffix in iw tw weight time_sq time_cu tns1 cat_x ix_x_time {
+            capture confirm variable `long_prefix'`suffix'
+            assert _rc != 0
+        }
+        foreach ch in _iivw_weighted _iivw_id _iivw_time _iivw_weighttype ///
+            _iivw_weight_var _iivw_prefix _iivw_treat {
+            local val : char _dta[`ch']
+            assert "`val'" == ""
+        }
     }
     if _rc == 0 {
         display as result "  PASS: 10 - prefix collisions and metadata"

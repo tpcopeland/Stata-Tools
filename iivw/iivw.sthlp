@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.4  06may2026}{...}
+{* *! version 1.0.5  09may2026}{...}
 {vieweralsosee "iivw_weight" "help iivw_weight"}{...}
 {vieweralsosee "iivw_fit" "help iivw_fit"}{...}
 {vieweralsosee "[XT] xtgee" "help xtgee"}{...}
@@ -257,10 +257,8 @@ R package. CRAN.
 {marker author}{...}
 {title:Author}
 
-{pstd}Timothy P Copeland{p_end}
-{pstd}Department of Clinical Neuroscience{p_end}
-{pstd}Karolinska Institutet{p_end}
-{pstd}Version 1.0.4, 2026-05-06{p_end}
+{pstd}Timothy P Copeland, Karolinska Institutet{p_end}
+{pstd}Version 1.0.5, 2026-05-09{p_end}
 
 
 {title:Also see}

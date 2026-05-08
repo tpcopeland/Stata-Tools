@@ -223,6 +223,54 @@ if `run_only' == 0 | `run_only' == 3 {
         import delimited "`qa_dir'/crossval_iivw_external_dietox.csv", ///
             clear asdouble
 
+        stset time, enter(time time_lag) failure(event_one) ///
+            id(id) exit(time .)
+        stcox cu_high, nohr efron nolog
+        local s_num_cu_high = _b[cu_high]
+
+        stcox cu_high startwt evit100 evit200, nohr efron nolog
+        local s_den_cu_high = _b[cu_high]
+        local s_den_startwt = _b[startwt]
+        local s_den_evit100 = _b[evit100]
+        local s_den_evit200 = _b[evit200]
+
+        preserve
+        bysort id (time): keep if _n == 1
+        logit cu_high startwt evit100 evit200, nolog
+        local s_ps_cons = _b[_cons]
+        local s_ps_startwt = _b[startwt]
+        local s_ps_evit100 = _b[evit100]
+        local s_ps_evit200 = _b[evit200]
+        quietly summarize cu_high
+        local s_pr_treat = r(mean)
+        restore
+
+        preserve
+        import delimited "`qa_dir'/crossval_iivw_external_dietox_weight_coefs.csv", ///
+            clear asdouble
+        local r_num_cu_high = num_cu_high[1]
+        local r_den_cu_high = den_cu_high[1]
+        local r_den_startwt = den_startwt[1]
+        local r_den_evit100 = den_evit100[1]
+        local r_den_evit200 = den_evit200[1]
+        local r_ps_cons = ps_intercept[1]
+        local r_ps_startwt = ps_startwt[1]
+        local r_ps_evit100 = ps_evit100[1]
+        local r_ps_evit200 = ps_evit200[1]
+        local r_pr_treat = pr_treat[1]
+        restore
+
+        assert abs(`s_num_cu_high' - `r_num_cu_high') < 1e-7
+        assert abs(`s_den_cu_high' - `r_den_cu_high') < 1e-7
+        assert abs(`s_den_startwt' - `r_den_startwt') < 1e-7
+        assert abs(`s_den_evit100' - `r_den_evit100') < 1e-7
+        assert abs(`s_den_evit200' - `r_den_evit200') < 1e-7
+        assert abs(`s_ps_cons' - `r_ps_cons') < 1e-7
+        assert abs(`s_ps_startwt' - `r_ps_startwt') < 1e-7
+        assert abs(`s_ps_evit100' - `r_ps_evit100') < 1e-7
+        assert abs(`s_ps_evit200' - `r_ps_evit200') < 1e-7
+        assert abs(`s_pr_treat' - `r_pr_treat') < 1e-12
+
         iivw_weight, id(id) time(time) ///
             visit_cov(cu_high startwt evit100 evit200) ///
             stabcov(cu_high) ///

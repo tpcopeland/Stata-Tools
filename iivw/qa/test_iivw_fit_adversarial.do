@@ -539,6 +539,12 @@ if `run_only' == 0 | `run_only' == 16 {
         assert _rc != 0
         local fitted2 : char _dta[_iivw_fitted]
         assert "`fitted2'" == ""
+
+        _adv_setup_panel, seed(20260530)
+        capture iivw_fit y severity, bootstrap(-1) nolog
+        assert _rc == 198
+        local fitted3 : char _dta[_iivw_fitted]
+        assert "`fitted3'" == ""
     }
     if _rc == 0 {
         display as result "  PASS: A16 - invalid family/link leave no fitted metadata"
