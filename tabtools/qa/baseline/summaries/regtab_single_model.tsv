@@ -1,2 +1,2 @@
-status	sheet	title	max_row	max_col	n_merges	merged_ranges	n_bold_cells	n_filled_cells	n_border_cells	dominant_font	dominant_font_size	fill_palette
-PASS	Single	Refactor Baseline: regtab single	9	6	3	C7:E7;C2:E2;A1:F1	5	4	17	Arial	10.0	DBE5F1
+status	sheet	title	max_row	max_col	n_merges	merged_ranges	n_bold_cells	n_filled_cells	n_border_cells	dominant_font	dominant_font_size	fill_palette	nonempty_text_count	content_digest
+PASS	Single	Refactor Baseline: regtab single	9	5	3	C7:E7;C2:E2;A1:E1	5	0	17	Arial	10.0		24	4438e4b9d92d64e3ba8e4e5150a16060bf867fa191b782b6cbc2ff0c2d08bed3

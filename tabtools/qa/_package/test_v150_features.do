@@ -20,6 +20,13 @@ capture mkdir "`output_dir'"
 
 capture ado uninstall tabtools
 quietly net install tabtools, from("`pkg_dir'") replace
+capture findfile _tabtools_common.ado
+if _rc {
+    display as error "FAIL: installed _tabtools_common.ado not found"
+    log close _v150
+    exit 601
+}
+quietly do "`r(fn)'"
 
 * =========================================================================
 **# R1: Sort stability in auto-type detection

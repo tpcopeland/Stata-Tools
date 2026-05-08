@@ -34,18 +34,26 @@ clear all
 set more off
 
 * === Bootstrap ===
-local qa_dir  "`c(pwd)'"
-local pkg_dir "`qa_dir'/.."  
+local qa_dir "`c(pwd)'"
+if regexm("`qa_dir'", "/qa/_package$") {
+    local pkg_dir = regexr("`qa_dir'", "/qa/_package$", "")
+    local qa_dir = regexr("`qa_dir'", "/_package$", "")
+}
+else if regexm("`qa_dir'", "/qa$") {
+    local pkg_dir = regexr("`qa_dir'", "/qa$", "")
+}
+else {
+    local pkg_dir "`qa_dir'"
+    local qa_dir "`pkg_dir'/qa"
+}
 
 set varabbrev off
 version 16.0
 
-* Ensure we're in the qa directory
-capture confirm file "crossval_tabtools.do"
-if _rc != 0 {
-    cd "`pkg_dir'/qa"
-}
-adopath ++ "`pkg_dir'"
+cd "`qa_dir'"
+capture ado uninstall tabtools
+quietly net install tabtools, from("`pkg_dir'") replace
+discard
 
 capture log close _crossval
 log using "crossval_tabtools.log", replace text name(_crossval)

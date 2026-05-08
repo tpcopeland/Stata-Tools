@@ -103,9 +103,9 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
     if load_workbook is None:
-        Path(args.result_file).write_text("SKIP")
-        print("openpyxl not installed; skipping render assertions", file=sys.stderr)
-        return 0
+        Path(args.result_file).write_text("FAIL")
+        print("openpyxl not installed; render assertions cannot run", file=sys.stderr)
+        return 1
 
     wb = load_workbook(args.xlsx)
     ws = wb[args.sheet]

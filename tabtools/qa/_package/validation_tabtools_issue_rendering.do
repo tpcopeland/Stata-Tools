@@ -30,12 +30,30 @@ if `install_rc' {
 local output_dir "`qa_dir'/output_issue_rendering"
 capture mkdir "`output_dir'"
 local checker "`qa_dir'/check_tabtools_render.py"
+capture confirm file "`checker'"
+if _rc {
+    display as error "FAIL: check_tabtools_render.py not available"
+    sysdir set PLUS "`orig_plus'"
+    sysdir set PERSONAL "`orig_personal'"
+    discard
+    capture shell rm -rf "`plus_dir'" "`personal_dir'"
+    exit 601
+}
+
 local python_cmd ""
 capture noisily shell python3 --version
 if _rc == 0 local python_cmd "python3"
 else {
     capture noisily shell python --version
     if _rc == 0 local python_cmd "python"
+}
+if "`python_cmd'" == "" {
+    display as error "FAIL: python/openpyxl render checker runtime not available"
+    sysdir set PLUS "`orig_plus'"
+    sysdir set PERSONAL "`orig_personal'"
+    discard
+    capture shell rm -rf "`plus_dir'" "`personal_dir'"
+    exit 601
 }
 
 local test_count = 0
@@ -62,32 +80,19 @@ capture noisily {
     capture erase "`output_dir'/crosstab_boldp.txt"
     crosstab outcome exposure, trend xlsx("`output_dir'/crosstab_boldp.xlsx") ///
         sheet("Cross") boldp(0.05)
-    if "`python_cmd'" == "" {
-        file open _fh using "`output_dir'/crosstab_boldp.txt", write text replace
-        file write _fh "SKIP"
-        file close _fh
-    }
-    else {
-        shell `python_cmd' "`checker'" "`output_dir'/crosstab_boldp.xlsx" --sheet Cross ///
-            --row-contains-bold "Pearson's chi-squared test" ///
-            --row-contains-bold "P for trend =" ///
-            --result-file "`output_dir'/crosstab_boldp.txt"
-    }
+    shell `python_cmd' "`checker'" "`output_dir'/crosstab_boldp.xlsx" --sheet Cross ///
+        --row-contains-bold "Pearson's chi-squared test" ///
+        --row-contains-bold "P for trend =" ///
+        --result-file "`output_dir'/crosstab_boldp.txt"
     file open _fh using "`output_dir'/crosstab_boldp.txt", read text
     file read _fh _line
     file close _fh
     local _render_status1 "`_line'"
-    assert inlist("`_render_status1'", "PASS", "SKIP")
+    assert "`_render_status1'" == "PASS"
 }
 if _rc == 0 {
-    if "`_render_status1'" == "PASS" {
-        display as result "  PASS: crosstab boldp() bolds test and trend rows"
-        local ++pass_count
-    }
-    else {
-        display as text "  SKIP: crosstab boldp() render check (python/openpyxl unavailable)"
-        local ++skip_count
-    }
+    display as result "  PASS: crosstab boldp() bolds test and trend rows"
+    local ++pass_count
 }
 else {
     display as error "  FAIL: crosstab boldp() bolds test and trend rows (rc=`=_rc')"
@@ -109,32 +114,19 @@ capture noisily {
     capture erase "`output_dir'/survtab_styles.txt"
     survtab, times(1 2 3) by(group) xlsx("`output_dir'/survtab_styles.xlsx") ///
         sheet("Surv") boldp(0.05) highlight(0.05)
-    if "`python_cmd'" == "" {
-        file open _fh using "`output_dir'/survtab_styles.txt", write text replace
-        file write _fh "SKIP"
-        file close _fh
-    }
-    else {
-        shell `python_cmd' "`checker'" "`output_dir'/survtab_styles.xlsx" --sheet Surv ///
-            --row-contains-bold "Log-rank test:" ///
-            --row-contains-fill "Log-rank test:" "255 255 204" ///
-            --result-file "`output_dir'/survtab_styles.txt"
-    }
+    shell `python_cmd' "`checker'" "`output_dir'/survtab_styles.xlsx" --sheet Surv ///
+        --row-contains-bold "Log-rank test:" ///
+        --row-contains-fill "Log-rank test:" "255 255 204" ///
+        --result-file "`output_dir'/survtab_styles.txt"
     file open _fh using "`output_dir'/survtab_styles.txt", read text
     file read _fh _line
     file close _fh
     local _render_status2 "`_line'"
-    assert inlist("`_render_status2'", "PASS", "SKIP")
+    assert "`_render_status2'" == "PASS"
 }
 if _rc == 0 {
-    if "`_render_status2'" == "PASS" {
-        display as result "  PASS: survtab boldp()/highlight() render bold and highlight"
-        local ++pass_count
-    }
-    else {
-        display as text "  SKIP: survtab boldp()/highlight() render check (python/openpyxl unavailable)"
-        local ++skip_count
-    }
+    display as result "  PASS: survtab boldp()/highlight() render bold and highlight"
+    local ++pass_count
 }
 else {
     display as error "  FAIL: survtab boldp()/highlight() render bold and highlight (rc=`=_rc')"

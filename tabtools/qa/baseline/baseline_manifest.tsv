@@ -6,11 +6,11 @@ diagtab_basic	diagtab	PASS	qa/baseline/workbooks/diagtab_basic.xlsx	Diag			1	qa/
 effecttab_single_model	effecttab	PASS	qa/baseline/workbooks/effecttab_single_model.xlsx	Single	5	5	1	qa/baseline/summaries/effecttab_single_model.tsv	Single-model treatment effects
 effecttab_multi_model	effecttab	PASS	qa/baseline/workbooks/effecttab_multi_model.xlsx	Multi	5	8	1	qa/baseline/summaries/effecttab_multi_model.tsv	Multiple collected models
 effecttab_from_matrix	effecttab	PASS	qa/baseline/workbooks/effecttab_from_matrix.xlsx	Matrix	6	5	1	qa/baseline/summaries/effecttab_from_matrix.tsv	From-matrix path
-regtab_single_model	regtab	PASS	qa/baseline/workbooks/regtab_single_model.xlsx	Single	9	6	1	qa/baseline/summaries/regtab_single_model.tsv	Single collected regression model
-regtab_compact_multi	regtab	PASS	qa/baseline/workbooks/regtab_compact_multi.xlsx	Compact	9	7	1	qa/baseline/summaries/regtab_compact_multi.tsv	Compact multi-model regression table
+regtab_single_model	regtab	PASS	qa/baseline/workbooks/regtab_single_model.xlsx	Single	9	5	1	qa/baseline/summaries/regtab_single_model.tsv	Single collected regression model
+regtab_compact_multi	regtab	PASS	qa/baseline/workbooks/regtab_compact_multi.xlsx	Compact	9	6	1	qa/baseline/summaries/regtab_compact_multi.tsv	Compact multi-model regression table
 stratetab_multi_exposure	stratetab	PASS	qa/baseline/workbooks/stratetab_multi_exposure.xlsx	Rates	12		0	qa/baseline/summaries/stratetab_multi_exposure.tsv	Two outcomes by two exposure types
 survtab_km	survtab	PASS	qa/baseline/workbooks/survtab_km.xlsx	KM	10		1	qa/baseline/summaries/survtab_km.tsv	Kaplan-Meier estimates by group
 survtab_median	survtab	PASS	qa/baseline/workbooks/survtab_median.xlsx	Median	10		1	qa/baseline/summaries/survtab_median.tsv	Median survival table
 table1_tc_autodetect	table1_tc	PASS	qa/baseline/workbooks/table1_tc_autodetect.xlsx	Auto			1	qa/baseline/summaries/table1_tc_autodetect.tsv	Grouped auto-detect baseline
 table1_tc_forced_types	table1_tc	PASS	qa/baseline/workbooks/table1_tc_forced_types.xlsx	Forced			1	qa/baseline/summaries/table1_tc_forced_types.tsv	Grouped forced-type baseline
-comptab_sections	comptab	PASS	qa/baseline/workbooks/comptab_sections.xlsx	Comp	8	5	0	qa/baseline/summaries/comptab_sections.tsv	Two-frame composite with sections
+comptab_sections	comptab	PASS	qa/baseline/workbooks/comptab_sections.xlsx	Comp	8	5	1	qa/baseline/summaries/comptab_sections.tsv	Two-frame composite with sections

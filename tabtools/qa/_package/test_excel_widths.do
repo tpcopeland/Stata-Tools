@@ -20,9 +20,24 @@ quietly net install tabtools, from("`pkg_dir'") replace
 local checker "`qa_dir'/tools/check_xlsx.py"
 capture confirm file "`checker'"
 if _rc {
-    display as text "SKIP: check_xlsx.py not available"
+    display as error "FAIL: check_xlsx.py not available"
     log close _wx
-    exit 0
+    exit 601
+}
+
+local python_cmd ""
+capture noisily shell python3 --version
+if _rc == 0 {
+    local python_cmd "python3"
+}
+else {
+    capture noisily shell python --version
+    if _rc == 0 local python_cmd "python"
+}
+if "`python_cmd'" == "" {
+    display as error "FAIL: python/openpyxl checker runtime not available"
+    log close _wx
+    exit 601
 }
 
 capture program drop _wx_assert
@@ -53,7 +68,7 @@ capture noisily {
         title("Regression Results") digits(6) stats(n ll)
 
     _wx_assert "`output_dir'/_wx_regtab.txt" ///
-        `"python3 "`checker'" "`output_dir'/_wx_regtab.xlsx" --sheet "Test" --col-width-fits-content D 4 --result-file "`output_dir'/_wx_regtab.txt" --quiet"'
+        `"`python_cmd' "`checker'" "`output_dir'/_wx_regtab.xlsx" --sheet "Test" --col-width-fits-content D 4 --result-file "`output_dir'/_wx_regtab.txt" --quiet"'
 }
 if _rc == 0 {
     display as result "  PASS: WX1 - regtab CI column width fits rendered content"
@@ -77,7 +92,7 @@ capture noisily {
         title("Short Regression") coef("OR") noint
 
     _wx_assert "`output_dir'/_wx_regtab_tight.txt" ///
-        `"python3 "`checker'" "`output_dir'/_wx_regtab_tight.xlsx" --sheet "Short" --col-width-at-most C 8 --col-width-at-most D 13 --col-width-at-most E 8 --result-file "`output_dir'/_wx_regtab_tight.txt" --quiet"'
+        `"`python_cmd' "`checker'" "`output_dir'/_wx_regtab_tight.xlsx" --sheet "Short" --col-width-at-most C 8 --col-width-at-most D 13 --col-width-at-most E 8 --result-file "`output_dir'/_wx_regtab_tight.txt" --quiet"'
 }
 if _rc == 0 {
     display as result "  PASS: WX1A - regtab short-value columns stay tight"
@@ -101,7 +116,7 @@ capture noisily {
         title("Treatment Effects")
 
     _wx_assert "`output_dir'/_wx_effecttab.txt" ///
-        `"python3 "`checker'" "`output_dir'/_wx_effecttab.xlsx" --sheet "Effects" --col-width-at-least D 18 --result-file "`output_dir'/_wx_effecttab.txt" --quiet"'
+        `"`python_cmd' "`checker'" "`output_dir'/_wx_effecttab.xlsx" --sheet "Effects" --col-width-at-least D 18 --result-file "`output_dir'/_wx_effecttab.txt" --quiet"'
 }
 if _rc == 0 {
     display as result "  PASS: WX2 - effecttab CI column width"
@@ -131,7 +146,7 @@ capture noisily {
     capture frame drop _wx_m2
 
     _wx_assert "`output_dir'/_wx_comptab.txt" ///
-        `"python3 "`checker'" "`output_dir'/_wx_comptab.xlsx" --sheet "Comp" --col-width-at-least D 17 --result-file "`output_dir'/_wx_comptab.txt" --quiet"'
+        `"`python_cmd' "`checker'" "`output_dir'/_wx_comptab.xlsx" --sheet "Comp" --col-width-at-least D 17 --result-file "`output_dir'/_wx_comptab.txt" --quiet"'
 }
 if _rc == 0 {
     display as result "  PASS: WX3 - comptab CI column width"
@@ -157,7 +172,7 @@ capture noisily {
         sheet("Corr") title("Correlation Matrix")
 
     _wx_assert "`output_dir'/_wx_corrtab.txt" ///
-        `"python3 "`checker'" "`output_dir'/_wx_corrtab.xlsx" --sheet "Corr" --col-width-at-least C 24 --col-width-at-least D 24 --col-width-at-least E 24 --col-width-at-least F 24 --result-file "`output_dir'/_wx_corrtab.txt" --quiet"'
+        `"`python_cmd' "`checker'" "`output_dir'/_wx_corrtab.xlsx" --sheet "Corr" --col-width-at-least C 24 --col-width-at-least D 24 --col-width-at-least E 24 --col-width-at-least F 24 --result-file "`output_dir'/_wx_corrtab.txt" --quiet"'
 }
 if _rc == 0 {
     display as result "  PASS: WX4 - corrtab long-label widths"
@@ -179,7 +194,7 @@ capture noisily {
         excel("`output_dir'/_wx_table1.xlsx") title("Baseline Characteristics")
 
     _wx_assert "`output_dir'/_wx_table1.txt" ///
-        `"python3 "`checker'" "`output_dir'/_wx_table1.xlsx" --sheet "Table 1" --col-width-at-least C 17 --col-width-at-least D 17 --result-file "`output_dir'/_wx_table1.txt" --quiet"'
+        `"`python_cmd' "`checker'" "`output_dir'/_wx_table1.xlsx" --sheet "Table 1" --col-width-at-least C 17 --col-width-at-least D 17 --result-file "`output_dir'/_wx_table1.txt" --quiet"'
 }
 if _rc == 0 {
     display as result "  PASS: WX5 - table1_tc data-column widths"
@@ -201,7 +216,7 @@ capture noisily {
     crosstab highmpg foreign, xlsx("`output_dir'/_wx_crosstab.xlsx") sheet("Cross")
 
     _wx_assert "`output_dir'/_wx_crosstab.txt" ///
-        `"python3 "`checker'" "`output_dir'/_wx_crosstab.xlsx" --sheet "Cross" --merged-row 6 --result-file "`output_dir'/_wx_crosstab.txt" --quiet"'
+        `"`python_cmd' "`checker'" "`output_dir'/_wx_crosstab.xlsx" --sheet "Cross" --merged-row 6 --result-file "`output_dir'/_wx_crosstab.txt" --quiet"'
 }
 if _rc == 0 {
     display as result "  PASS: WX6 - crosstab summary row merged"
@@ -224,7 +239,7 @@ capture noisily {
         sheet("Surv") title("Survival Estimates") events
 
     _wx_assert "`output_dir'/_wx_survtab.txt" ///
-        `"python3 "`checker'" "`output_dir'/_wx_survtab.xlsx" --sheet "Surv" --merged-row 10 --result-file "`output_dir'/_wx_survtab.txt" --quiet"'
+        `"`python_cmd' "`checker'" "`output_dir'/_wx_survtab.xlsx" --sheet "Surv" --merged-row 10 --result-file "`output_dir'/_wx_survtab.txt" --quiet"'
 }
 if _rc == 0 {
     display as result "  PASS: WX7 - survtab log-rank row merged"
@@ -300,7 +315,7 @@ capture noisily {
         title("HR Composite") effect("aHR")
 
     _wx_assert "`output_dir'/_wx_hrcomptab.txt" ///
-        `"python3 "`checker'" "`output_dir'/_wx_hrcomptab.xlsx" --sheet "HRComp" --col-width-at-most B 15 --col-width-at-most C 8 --col-width-at-least D 15 --col-width-at-least E 17 --col-width-at-least F 14 --col-width-at-most G 8 --result-file "`output_dir'/_wx_hrcomptab.txt" --quiet"'
+        `"`python_cmd' "`checker'" "`output_dir'/_wx_hrcomptab.xlsx" --sheet "HRComp" --col-width-at-most B 15 --col-width-at-most C 8 --col-width-at-least D 15 --col-width-at-least E 17 --col-width-at-least F 14 --col-width-at-most G 8 --result-file "`output_dir'/_wx_hrcomptab.txt" --quiet"'
 
     capture frame drop _wx_hr_rates
     capture frame drop _wx_hr_bin

@@ -140,6 +140,9 @@ foreach f of local all_files {
     local ++n_run
     display _newline
     display as text "=== Running: `f' ==="
+    clear all
+    discard
+    set more off
     capture noisily do "`qa_dir'/`f'"
     if _rc == 0 {
         local ++n_pass

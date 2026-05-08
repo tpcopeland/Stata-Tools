@@ -18,21 +18,19 @@ set seed 13579
 local _cwd "`c(pwd)'"
 if regexm("`_cwd'", "/qa/regtab$") {
     local pkg_root = regexr("`_cwd'", "/qa/regtab$", "")
+    local qa_dir = regexr("`_cwd'", "/regtab$", "")
 }
 else if regexm("`_cwd'", "/qa$") {
     local pkg_root = regexr("`_cwd'", "/qa$", "")
+    local qa_dir "`_cwd'"
 }
 else {
     local pkg_root "`_cwd'"
+    local qa_dir "`pkg_root'/qa"
 }
-* When run via the orchestrator, tabtools is already net installed; helper
-* loads itself via findfile on first use. Standalone runs still need the
-* manual adopath + helper preload below.
-capture _tabtools_helpers_ready
-if _rc {
-    capture noisily adopath ++ "`pkg_root'"
-    capture noisily do "`pkg_root'/_tabtools_common.ado"
-}
+capture ado uninstall tabtools
+quietly net install tabtools, from("`pkg_root'") replace
+discard
 
 local pass = 0
 local fail = 0

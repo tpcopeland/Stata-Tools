@@ -12,8 +12,21 @@ local pass_count = 0
 local fail_count = 0
 
 local qa_dir "`c(pwd)'"
-local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
-adopath + "`pkg_dir'"
+if regexm("`qa_dir'", "/qa/tabtools$") {
+    local pkg_dir = regexr("`qa_dir'", "/qa/tabtools$", "")
+    local qa_dir = regexr("`qa_dir'", "/tabtools$", "")
+}
+else if regexm("`qa_dir'", "/qa$") {
+    local pkg_dir = regexr("`qa_dir'", "/qa$", "")
+}
+else {
+    local pkg_dir "`qa_dir'"
+    local qa_dir "`pkg_dir'/qa"
+}
+
+capture ado uninstall tabtools
+quietly net install tabtools, from("`pkg_dir'") replace
+discard
 
 **# T1: Default by() produces p-value column
 

@@ -1,2 +1,2 @@
-status	sheet	title	max_row	max_col	n_merges	merged_ranges	n_bold_cells	n_filled_cells	n_border_cells	dominant_font	dominant_font_size	fill_palette
-PASS	Multi	Refactor Baseline: effecttab multi	5	8	3	C2:E2;F2:H2;A1:H1	9	8	18	Arial	10.0	DBE5F1
+status	sheet	title	max_row	max_col	n_merges	merged_ranges	n_bold_cells	n_filled_cells	n_border_cells	dominant_font	dominant_font_size	fill_palette	nonempty_text_count	content_digest
+PASS	Multi	Refactor Baseline: effecttab multi	5	8	3	C2:E2;F2:H2;A1:H1	9	0	18	Arial	10.0		23	26f80de1541a8ce47bb60754d8d644c2f3dd092be3467364da9401c4e64ddeda

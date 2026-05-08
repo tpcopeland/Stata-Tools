@@ -52,9 +52,14 @@ program define _rb_write_summary
     if "`pycmd'" != "" & "`tool'" != "" {
         capture noisily shell `pycmd' "`tool'" "`xlsx'" --sheet "`sheet'" --result-file "`outfile'"
         if _rc == 0 exit
+        local summary_rc = _rc
+        _rb_write_status, outfile("`outfile'") status("FAIL") ///
+            message("workbook summary failed with rc=`summary_rc'")
+        exit `summary_rc'
     }
-    _rb_write_status, outfile("`outfile'") status("SKIP") ///
+    _rb_write_status, outfile("`outfile'") status("FAIL") ///
         message("python/openpyxl summary unavailable")
+    exit 601
 end
 
 capture program drop _rb_post_case

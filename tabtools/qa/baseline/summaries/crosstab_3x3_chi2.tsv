@@ -1,2 +1,2 @@
-status	sheet	title	max_row	max_col	n_merges	merged_ranges	n_bold_cells	n_filled_cells	n_border_cells	dominant_font	dominant_font_size	fill_palette
-PASS	Cross3x3	Refactor Baseline: crosstab 3x3	6	8	2	B6:H6;A1:H1	8	0	15	Arial	10.0	
+status	sheet	title	max_row	max_col	n_merges	merged_ranges	n_bold_cells	n_filled_cells	n_border_cells	dominant_font	dominant_font_size	fill_palette	nonempty_text_count	content_digest
+PASS	Cross3x3	Refactor Baseline: crosstab 3x3	6	8	2	B6:H6;A1:H1	8	0	15	Arial	10.0		30	a649cb86f7205312f7c136a6dccb6a00c59f602e56f0b8857ca75a8fd6d5b1d3
