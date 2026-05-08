@@ -1,4 +1,4 @@
-* test_baseline_artifacts.do — validate tabtools baseline workbooks as semantic oracles
+* test_baseline_artifacts.do — validate tabtools baseline summaries as semantic oracles
 
 clear all
 version 16.0
@@ -26,7 +26,6 @@ else {
 }
 
 local baseline_dir "`qa_dir'/baseline"
-local workbook_dir "`baseline_dir'/workbooks"
 local summary_dir "`baseline_dir'/summaries"
 local manifest_file "`baseline_dir'/baseline_manifest.tsv"
 local summary_tool "`qa_dir'/tools/summarize_xlsx.py"
@@ -60,7 +59,7 @@ quietly net install tabtools, from("`pkg_dir'") replace
 discard
 tabtools set clear
 
-**# T1: Manifest lists only passing, materialized baseline artifacts
+**# T1: Manifest lists only passing, materialized baseline summary artifacts
 local ++test_count
 capture noisily {
     capture confirm file "`manifest_file'"
@@ -73,21 +72,18 @@ capture noisily {
         assert status[`i'] == "PASS"
         assert xlsx[`i'] != ""
         assert summary_file[`i'] != ""
-        local _wb = xlsx[`i']
         local _summary = summary_file[`i']
-        capture confirm file "`pkg_dir'/`_wb'"
-        assert _rc == 0
         capture confirm file "`pkg_dir'/`_summary'"
         assert _rc == 0
     }
     restore
 }
 if _rc == 0 {
-    display as result "  PASS: T1 - baseline manifest artifacts are present and PASS"
+    display as result "  PASS: T1 - baseline manifest summaries are present and PASS"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: T1 - baseline manifest has missing or non-PASS artifacts (rc=`=_rc')"
+    display as error "  FAIL: T1 - baseline manifest has missing summaries or non-PASS rows (rc=`=_rc')"
     local ++fail_count
 }
 
