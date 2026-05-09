@@ -168,6 +168,26 @@ In practice, a common sequence is:
 {phang2}{cmd:codescan, collapse} or {cmd:merge} (patient-level) {hline 1}>{p_end}
 {phang2}{cmd:score()}, {cmd:export()}, or {cmd:saving()} (final deliverable){p_end}
 
+{pstd}
+Choose the output shape based on the question you are answering:
+
+{phang2}{bf:Audit the rules:} omit {cmd:collapse} and {cmd:merge}; the original
+rows remain in memory with one new condition variable per rule.{p_end}
+
+{phang2}{bf:Build an analysis dataset:} use {cmd:id()} with {cmd:collapse}; the
+active data become one row per patient or entity.{p_end}
+
+{phang2}{bf:Keep encounter rows:} use {cmd:id()} with {cmd:merge}; patient-level
+flags are attached back to the original row structure.{p_end}
+
+{phang2}{bf:Avoid changing the active data:} add {cmd:frame(name)} for a named
+result frame, or {cmd:preserve} when you only need returned results and console
+output.{p_end}
+
+{phang2}{bf:Save deliverables:} use {cmd:export()} for the prevalence table and
+{cmd:saving()} for the transformed dataset.  Do not confuse these with
+{cmd:save()}, which writes reusable scan definitions.{p_end}
+
 
 {marker options}{...}
 {title:Options}
@@ -205,6 +225,14 @@ fit inside Stata's 32-character variable-name limit.
 file must contain string variables {bf:name} and {bf:pattern}.  Optional columns
 are {bf:label}, {bf:exclusion}, and {bf:weight}.  Column names are matched
 case-insensitively.
+
+{pmore}
+The {bf:name} column must contain valid, unique Stata names no longer than 26
+characters.  The {bf:pattern} column supplies the inclusion rule.  The
+{bf:exclusion} column supplies one or more exclusions separated by {cmd:|}.
+The {bf:label} column is used for variable labels and displayed/exported
+condition labels.  The {bf:weight} column is required for {cmd:score(custom)}
+and ignored by built-in Charlson or Elixhauser scoring.
 
 {pmore}
 Two bundled example codefiles are shipped with the package and can be requested
@@ -515,6 +543,13 @@ rule is a simple startswith comparison and performance matters.
 {helpb codescan_describe}, then write a first pass with {cmd:define()}, and
 finally freeze those rules with {cmd:save()} for future runs through
 {cmd:codefile()}.
+
+{pstd}
+{bf:Codefiles for teams.}  A codefile is usually the most transparent way to
+review and reuse definitions.  Keep one row per condition, put the main
+inclusion rule in {cmd:pattern}, put exception rules in {cmd:exclusion}, and
+use {cmd:label} for clinical or project-facing wording.  When a custom score is
+needed, add a numeric {cmd:weight} column and call {cmd:score(custom)}.
 
 {pstd}
 {bf:Scores and hierarchy.}  Charlson and Elixhauser scoring are most defensible

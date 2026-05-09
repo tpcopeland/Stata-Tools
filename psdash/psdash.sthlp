@@ -42,6 +42,9 @@ where {it:subcommand} is one of:
 {pstd}
 After {cmd:teffects}, both {it:treatment} and {it:psvar} can be omitted and are auto-detected from {cmd:e()}.
 After {cmd:logit}/{cmd:probit}, {it:treatment} is auto-detected but {it:psvar} must be supplied explicitly.
+In that setting, {cmd:psdash overlap ps} and {cmd:psdash overlap treatment ps}
+are both valid; the one-argument form treats the argument as the propensity
+score variable and uses the treatment from {cmd:e(depvar)}.
 After {cmd:mlogit} with a multi-valued treatment, supply {opt psv:ars()} with K predicted probabilities
 (one per treatment level, ordered by level value).
 
@@ -113,6 +116,18 @@ command with consistent syntax.
 {cmd:psdash} auto-detects the treatment variable, propensity score, covariates,
 and weights from the most recent estimation context when possible. Users can
 always override by providing explicit arguments.
+
+{pstd}
+For most analyses, start with {cmd:psdash combined}. It runs overlap, balance,
+weight, and support diagnostics together. Then rerun the individual panel named
+in any warning message when you need a graph, export, or modified weights.
+
+{pstd}
+The four diagnostics answer different practical questions: {cmd:overlap} asks
+whether comparable treated and control observations exist; {cmd:balance} asks
+whether observed covariates look similar after adjustment; {cmd:weights} asks
+whether a small number of observations dominate the analysis; and {cmd:support}
+asks which observations should be excluded before outcome estimation.
 
 
 {marker options}{...}
@@ -254,6 +269,10 @@ Required with {opt trim()}, {opt truncate()}, or {opt stabilize}.
 {phang}
 {opt graph} displays a weight distribution histogram.
 
+{phang}
+{opt xlabel(numlist)} specifies custom x-axis labels for the weight histogram.
+It is ignored unless {opt graph} is also specified.
+
 {pstd}
 {bf:Interpretation:} An ESS above 50% of the original sample size is typical.
 A coefficient of variation (CV) greater than 1 indicates substantial weight
@@ -276,7 +295,9 @@ Must be between 0 and 0.5.
 
 {phang}
 {opt generate(name)} creates an indicator variable equal to 1 for
-observations within the support region.
+observations within the support region. With {opt crump} or {opt threshold()},
+the indicator marks the trimmed region; otherwise it marks the empirical common
+support interval.
 
 {phang}
 {opt replace} allows overwriting an existing variable specified in
@@ -355,6 +376,14 @@ balance using SMD, variance ratios, and optionally KS statistics; (5) assess
 weight distribution, ESS, and extreme weights; (6) proceed to outcome analysis
 only when diagnostics are satisfactory. {cmd:psdash combined} runs steps 2-5
 in a single command.
+
+{pstd}
+{bf:Reading the status lines:} {cmd:PASS} or {cmd:Adequate} means no diagnostic
+crossed the package's default warning threshold. A warning does not make the
+analysis invalid by itself; it identifies the next check to make. Poor overlap
+usually calls for tighter eligibility criteria or trimming. Large SMDs point to
+model revision or additional covariates. Low ESS or extreme weights point to
+stabilization, trimming, truncation, or a different estimand.
 
 
 {marker examples}{...}
@@ -436,17 +465,27 @@ weights, and mark observations inside common support.
 {bf:6. Multi-group treatment (3 arms) with mlogit.}
 When the treatment has more than two levels, estimate the generalized propensity
 score with {cmd:mlogit} and pass the K predicted probabilities via
-{opt psvars()}. Balance and weights are computed pairwise against the reference
-group (default: smallest level).
+{opt psvars()}. The generated example below creates a stable three-arm treatment
+so the multinomial model converges in a small demonstration dataset.
 
-{phang2}{cmd:. sysuse auto, clear}{p_end}
-{phang2}{cmd:. gen byte arm = cond(weight < 2500, 0, cond(weight < 3500, 1, 2))}{p_end}
-{phang2}{cmd:. mlogit arm mpg length turn}{p_end}
+{phang2}{cmd:. clear}{p_end}
+{phang2}{cmd:. set obs 300}{p_end}
+{phang2}{cmd:. set seed 20260506}{p_end}
+{phang2}{cmd:. gen double age = rnormal(60, 10)}{p_end}
+{phang2}{cmd:. gen byte female = runiform() > .5}{p_end}
+{phang2}{cmd:. gen double bmi = rnormal(27, 4)}{p_end}
+{phang2}{cmd:. gen double eta1 = -0.2 + 0.03*(age-60) + 0.25*female - 0.04*(bmi-27)}{p_end}
+{phang2}{cmd:. gen double eta2 = 0.1 - 0.02*(age-60) + 0.02*(bmi-27)}{p_end}
+{phang2}{cmd:. gen double den = 1 + exp(eta1) + exp(eta2)}{p_end}
+{phang2}{cmd:. gen double p0 = 1/den}{p_end}
+{phang2}{cmd:. gen double p1 = exp(eta1)/den}{p_end}
+{phang2}{cmd:. gen double u = runiform()}{p_end}
+{phang2}{cmd:. gen byte arm = cond(u < p0, 0, cond(u < p0 + p1, 1, 2))}{p_end}
+{phang2}{cmd:. mlogit arm age female bmi}{p_end}
 {phang2}{cmd:. predict double ps0 ps1 ps2, pr}{p_end}
 {phang2}{cmd:. psdash overlap arm , psvars(ps0 ps1 ps2)}{p_end}
-{phang2}{cmd:. psdash balance arm , psvars(ps0 ps1 ps2) covariates(mpg length turn)}{p_end}
-{phang2}{cmd:. gen double w = cond(arm==0, 1/ps0, cond(arm==1, 1/ps1, 1/ps2))}{p_end}
-{phang2}{cmd:. psdash weights arm , psvars(ps0 ps1 ps2) wvar(w) detail}{p_end}
+{phang2}{cmd:. psdash balance arm , psvars(ps0 ps1 ps2) covariates(age female bmi)}{p_end}
+{phang2}{cmd:. psdash weights arm , psvars(ps0 ps1 ps2) detail}{p_end}
 {phang2}{cmd:. psdash support arm , psvars(ps0 ps1 ps2) threshold(0.1)}{p_end}
 
 {pstd}
@@ -454,7 +493,7 @@ group (default: smallest level).
 Specify {opt reference()} to change the comparator group for pairwise
 SMD calculations.
 
-{phang2}{cmd:. psdash balance arm , psvars(ps0 ps1 ps2) covariates(mpg length turn) reference(1)}{p_end}
+{phang2}{cmd:. psdash balance arm , psvars(ps0 ps1 ps2) covariates(age female bmi) reference(1)}{p_end}
 
 
 {marker results}{...}
@@ -464,9 +503,10 @@ SMD calculations.
 Each subcommand stores results in {cmd:r()}.
 
 {pstd}
-{bf:Multi-group note:} For binary (0/1) treatment, stored results are identical
-to v1.1.x ({cmd:N_treated}, {cmd:N_control}, etc.). For K > 2 treatment groups,
-per-group results use the naming convention {cmd:r(N_group_{it:<level>})},
+{bf:Multi-group note:} For binary (0/1) treatment, stored results use
+binary group names such as {cmd:r(N_treated)} and {cmd:r(N_control)}.
+For K > 2 treatment groups, per-group results use the naming convention
+{cmd:r(N_group_{it:<level>})},
 {cmd:r(ess_group_{it:<level>})}, etc. Additionally, {cmd:r(K)} returns the number
 of groups, {cmd:r(levels)} lists the treatment values, and {cmd:r(reference)}
 identifies the reference group.
@@ -522,13 +562,20 @@ identifies the reference group.
 {synopt:{cmd:r(wvar)}}weight variable, or {cmd:auto-generated} for temporary weights{p_end}
 
 {p2col 5 30 34 2: Matrices}{p_end}
-{synopt:{cmd:r(balance)}}nvars x 10 matrix of balance statistics{p_end}
+{synopt:{cmd:r(balance)}}balance-statistics matrix; rows are covariates{p_end}
 
 {pstd}
-The balance matrix columns are: {cmd:Mean_T}, {cmd:Mean_C}, {cmd:SMD_Raw},
+For binary treatments, the balance matrix columns are: {cmd:Mean_T}, {cmd:Mean_C}, {cmd:SMD_Raw},
 {cmd:VR_Raw}, {cmd:KS_Raw}, {cmd:Mean_T_Adj}, {cmd:Mean_C_Adj}, {cmd:SMD_Adj},
 {cmd:VR_Adj}, {cmd:KS_Adj}. Adjusted columns contain missing values if no
 weights are applied. {cmd:KS_Adj} is reserved for future use.
+
+{pstd}
+For multi-group treatments, {cmd:r(balance)} contains one five-column block for
+each non-reference group: mean in the comparison group, mean in the reference
+group, SMD, variance ratio, and KS statistic. When weights are applied, a second
+five-column adjusted block is added for each non-reference group. Column names
+include the compared treatment levels.
 
 {dlgtab:weights}
 
@@ -606,6 +653,11 @@ If {opt trim()}, {opt truncate()}, or {opt stabilize} is specified, also returns
 {synopt:{cmd:r(psvar)}}PS variable name, or {cmd:auto-generated} for a temporary PS from {cmd:teffects}{p_end}
 {synopt:{cmd:r(estimand)}}target estimand{p_end}
 {synopt:{cmd:r(source)}}detection source ({cmd:"manual"}, {cmd:"teffects"}, or {cmd:"estimation"}){p_end}
+{synopt:{cmd:r(levels)}}multi-group treatment levels, if K > 2{p_end}
+{synopt:{cmd:r(reference)}}multi-group reference level, if K > 2{p_end}
+
+{p2col 5 30 34 2: Scalars}{p_end}
+{synopt:{cmd:r(K)}}number of treatment groups, if K > 2{p_end}
 
 
 {marker author}{...}

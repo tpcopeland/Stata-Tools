@@ -124,6 +124,14 @@ conditions, refine the patterns, and add exclusion patterns as needed before
 passing it to {helpb codescan:codescan, codefile()}.
 
 {pstd}
+{bf:Programmatic use.}  The same information printed to the Results window is
+also returned in matrices.  {cmd:r(top_codes)} uses code values as row names and
+has columns {cmd:frequency}, {cmd:percent}, and {cmd:cumul_pct}.  {cmd:r(chapters)}
+uses first characters as row names and has columns {cmd:codes} and
+{cmd:entries}.  This makes it possible to audit a new dataset automatically
+before deciding whether an existing code dictionary is still appropriate.
+
+{pstd}
 {bf:Edge cases.}  If {cmd:if} or {cmd:in} removes every observation, the
 command exits with error {cmd:r(2000)}.  If observations remain but every
 scanned code slot is empty, the command succeeds and reports zero unique
@@ -159,6 +167,11 @@ frequency:
 The output shows one table of the top codes (ranked by frequency, with percent
 and cumulative percent) and a second table grouping all codes by their first
 character.
+
+{pstd}
+Technical users can inspect the returned matrix directly:
+{cmd:. matrix list r(top_codes)}.  The table is stored in
+{cmd:r(top_codes)}.
 
 {pstd}
 {bf:Example 2: Show more codes and ignore dots}
@@ -212,8 +225,8 @@ If your code variables were imported as numeric rather than string, add
 {synopt:{cmd:r(varlist)}}scanned variables{p_end}
 
 {p2col 5 24 28 2: Matrices}{p_end}
-{synopt:{cmd:r(top_codes)}}frequency, percent, and cumulative percent for the displayed top codes{p_end}
-{synopt:{cmd:r(chapters)}}chapter summary with columns {cmd:codes} and {cmd:entries}{p_end}
+{synopt:{cmd:r(top_codes)}}displayed top codes; row names are codes and columns are {cmd:frequency}, {cmd:percent}, and {cmd:cumul_pct}{p_end}
+{synopt:{cmd:r(chapters)}}first-character summary; row names are characters and columns are {cmd:codes} and {cmd:entries}{p_end}
 
 
 {marker author}{...}

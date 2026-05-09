@@ -29,7 +29,9 @@ capture ado uninstall codescan
 net install codescan, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/codescan") replace
 ```
 
-To access the bundled example codefiles for use with `net get`:
+The bundled example codefiles are installed with the package and can be used by
+basename in `codefile()`.  If you want editable local copies in the current
+working directory, download them with:
 
 ```stata
 net get codescan, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/codescan") replace
@@ -59,6 +61,20 @@ The recommended workflow has four steps:
 2. **Draft simple rules** with `define()` and check the row-level results.  At this stage the created variables appear alongside the original data so you can verify matches.
 3. **Choose the output shape.**  Stay row-level for auditing, `collapse` to one row per `id()`, or `merge` patient-level summaries back to encounter rows.
 4. **Add advanced features last.**  Once basic matches look right, layer on time windows (`lookback()`/`lookforward()`), date summaries (`alldates`), hierarchy rules, scoring, and export/save options.
+
+## Choosing the Output Shape
+
+| Goal | Use | What remains in memory |
+|------|-----|------------------------|
+| Check whether rules match the right encounters | No `collapse` or `merge` | Original rows plus condition variables |
+| Build an analysis dataset with one row per patient | `id(pid) collapse` | One row per `id()` |
+| Keep encounter rows but attach patient-level flags | `id(pid) merge` | Original rows plus patient-level results |
+| Keep the original data untouched and store results separately | `frame(results) replace` | Original data plus a new frame |
+| Save the transformed dataset to disk | `saving(results.dta, replace)` | Same data as the selected output shape |
+| Save the prevalence summary table | `export(results.xlsx)` or `export(results.csv)` | Data in memory are unchanged by the export |
+
+For most analytic workflows, start with row-level output while checking the
+rules, then use `collapse` once the definitions are stable.
 
 ## Worked Examples
 
@@ -402,6 +418,69 @@ Window: 365 days before index_dt (inclusive)
 - **matched_code:** creates a row-level variable holding the first code value that survived matching.
 - **frame:** stores the result in a named frame and implies `preserve`, so the original data are untouched.
 - **Confidence intervals:** prevalence CIs use the Wilson score method at the current `c(level)` setting.
+
+## Definition Rules and Codefiles
+
+Inline definitions use this structure:
+
+```stata
+define(name "inclusion_pattern" ~ "exclusion_pattern" | name2 "pattern2")
+```
+
+The inclusion and exclusion patterns are anchored at the start of each code
+value.  In default `mode(regex)`, `"I1[0-35]"` matches `I10`, `I11`, `I12`,
+`I13`, and `I15`.  In `mode(prefix)`, pipe-separated tokens are treated as
+simple alternative prefixes.
+
+Reusable codefiles may be CSV or Stata `.dta` files.  Column names are matched
+case-insensitively.
+
+| Column | Required | Meaning |
+|--------|----------|---------|
+| `name` | Yes | Valid Stata condition name; must be unique and no longer than 26 characters |
+| `pattern` | Yes | Inclusion pattern or pipe-separated prefix list |
+| `exclusion` | No | Exclusion pattern(s), combined with `|` when more than one is needed |
+| `label` | No | Human-readable label for output variables and tables |
+| `weight` | Only for `score(custom)` | Numeric score weight |
+
+Use `save(rules.csv)` to turn an inline `define()` rule set into a reusable
+codefile.  Use `saving(results.dta, replace)` for the final transformed dataset;
+the two option names deliberately do different jobs.
+
+## Output Reference
+
+`codescan` creates one variable per condition.  Without `countmode`, those
+variables are 0/1 indicators.  With `countmode`, they are integer counts of
+matching code slots.  With `collapse` or `merge`, optional date/count variables
+are added as requested:
+
+| Option | Created variables |
+|--------|-------------------|
+| `earliestdate` | `<condition>_first` |
+| `latestdate` | `<condition>_last` |
+| `countdate` | `<condition>_count` for unique dates |
+| `countrows` | `<condition>_nrows` for matching rows or code-slot hits under `countmode` |
+| `score(charlson|elixhauser|custom)` | `_score`, or `<prefix>_score` with `generate(prefix)` |
+
+Important returned results include `r(summary)` with count, prevalence, and
+Wilson confidence interval columns; `r(codelist)` with count and prevalence;
+`r(varcounts)` when `detail` is used; `r(cooccurrence)` when `cooccurrence` is
+used; and `r(sensitivity)` for multi-window `lookback()` analyses.
+
+`codescan_describe` returns `r(top_codes)` with columns `frequency`, `percent`,
+and `cumul_pct`, and `r(chapters)` with columns `codes` and `entries`.  These are
+useful for automated checks before freezing a code dictionary.
+
+## Troubleshooting
+
+| Symptom | Likely cause and fix |
+|---------|----------------------|
+| `not a string variable` | Code variables were imported as numeric; add `tostring` or convert them before scanning |
+| `collapse requires id()` | Patient-level output needs an identifier supplied through `id()` |
+| `lookback()/lookforward() require both date() and refdate()` | Windowing needs an event date and a reference date, both stored as numeric Stata daily dates |
+| `variable ... already exists` | Add `replace` only after confirming that overwriting existing output variables is intended |
+| A condition matches zero observations | Check spelling, dots, case, anchoring, and whether `mode(regex)` or `mode(prefix)` matches the intended rule |
+| Multi-window `lookback()` fails | Multiple windows require `collapse` or `merge` because the comparison is patient-level |
 
 ## References
 

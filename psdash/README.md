@@ -34,9 +34,30 @@ net install psdash, from("/path/to/psdash") replace
 When a PS variable is available, `psdash balance` auto-generates IPTW weights for the requested `estimand()` unless you suppress that with `nowvar` or provide `wvar()` yourself.
 Auto-generated propensity scores and weights are temporary working variables and are not left behind in the user's dataset.
 
+## What Should I Run?
+
+Most users can start with `psdash combined`. It runs the four diagnostic panels together and prints an overall status line. If one panel raises a caution, rerun that subcommand by itself to inspect the graph, export a table, or create a modified weight/support variable.
+
+| Question | Command | What to look for |
+|----------|---------|------------------|
+| Do treated and control observations have comparable propensity scores? | `psdash overlap` | Large percentages outside common support, very high AUC, PS values near 0 or 1 |
+| Are the covariates balanced after adjustment? | `psdash balance` | Maximum absolute SMD above `threshold()`; variance ratios outside 0.5 to 2.0; large KS statistics |
+| Are a few observations dominating the weighted analysis? | `psdash weights` | Low ESS, high coefficient of variation, weights above 10 or 20 |
+| Which observations are inside the usable support region? | `psdash support` | Number outside empirical common support and number trimmed by `crump` or `threshold()` |
+| Do I need the full dashboard in one step? | `psdash combined` | Overall PASS/CAUTION plus the panel named in the warning |
+
+## Reading the Output
+
+`psdash` uses the same diagnostics that are common in propensity-score reporting, but it labels the output so a non-specialist can follow the next action:
+
+- **Overlap/support warnings** mean the treatment groups do not share enough comparable observations in part of the propensity-score range. Consider trimming, narrowing the study population, changing the estimand, or revisiting the PS model.
+- **Balance warnings** mean one or more observed covariates still differ after adjustment. Consider model revisions, additional covariates or interactions, a different weighting scheme, or reporting the residual imbalance explicitly.
+- **Weight warnings** mean the estimated effect may be sensitive to a small number of observations. Consider stabilized weights, percentile trimming, truncation, or an estimand with better support.
+- **A PASS or Adequate label is not a causal proof.** It means these observed-diagnostic thresholds were not crossed. Outcome-model assumptions, unmeasured confounding, missing data, and study design still need separate judgment.
+
 ## Worked Examples
 
-All examples below use Stata's built-in `sysuse` or `webuse` datasets, so they can be copied directly after installation. The `sysuse auto` examples use `foreign` as a convenient binary treatment indicator. The `webuse cattaneo2` examples show a more realistic treatment-effects workflow. They are intended to illustrate syntax and diagnostics, not to endorse a final causal specification.
+Most examples below use Stata's built-in `sysuse` or `webuse` datasets, so they can be copied directly after installation. The `sysuse auto` examples use `foreign` as a convenient binary treatment indicator. The `webuse cattaneo2` examples show a more realistic treatment-effects workflow. The multi-group example generates a small simulated dataset so the multinomial treatment model has stable support. These examples are intended to illustrate syntax and diagnostics, not to endorse a final causal specification.
 
 ### 1. Manual propensity-score workflow with `sysuse auto`
 
@@ -50,6 +71,14 @@ psdash overlap foreign ps
 psdash balance foreign ps, covariates(mpg weight length) loveplot
 psdash weights foreign ps
 psdash support foreign ps, crump generate(in_support)
+```
+
+After `logit` or `probit`, the treatment and covariates are still available in `e()`, so the same workflow can be written more compactly:
+
+```stata
+psdash overlap ps
+psdash balance ps, loveplot
+psdash weights ps
 ```
 
 ### 2. Fully automatic workflow after `teffects` with `webuse cattaneo2`
@@ -101,6 +130,34 @@ psdash weights foreign ps, stabilize generate(ipw_stab)
 psdash support foreign ps, crump generate(in_support)
 ```
 
+### 6. Multi-group treatment with `mlogit`
+
+When the treatment has more than two levels, estimate generalized propensity scores and pass the K predicted probabilities through `psvars()`.
+
+```stata
+clear
+set obs 300
+set seed 20260506
+gen double age = rnormal(60, 10)
+gen byte female = runiform() > .5
+gen double bmi = rnormal(27, 4)
+gen double eta1 = -0.2 + 0.03*(age-60) + 0.25*female - 0.04*(bmi-27)
+gen double eta2 = 0.1 - 0.02*(age-60) + 0.02*(bmi-27)
+gen double den = 1 + exp(eta1) + exp(eta2)
+gen double p0 = 1/den
+gen double p1 = exp(eta1)/den
+gen double u = runiform()
+gen byte arm = cond(u < p0, 0, cond(u < p0 + p1, 1, 2))
+
+mlogit arm age female bmi
+predict double ps0 ps1 ps2, pr
+psdash overlap arm, psvars(ps0 ps1 ps2)
+psdash balance arm, psvars(ps0 ps1 ps2) covariates(age female bmi)
+psdash weights arm, psvars(ps0 ps1 ps2) detail
+psdash support arm, psvars(ps0 ps1 ps2) threshold(0.1)
+psdash balance arm, psvars(ps0 ps1 ps2) covariates(age female bmi) reference(1)
+```
+
 ## Subcommands
 
 | Subcommand | Purpose |
@@ -113,14 +170,32 @@ psdash support foreign ps, crump generate(in_support)
 
 ## Key Options
 
+### Common and multi-group options
+- `estimand(ate|att|atc)` - target estimand for generated weights. Default is `ate`; after `teffects`, the value is read from `e(stat)` unless supplied explicitly.
+- `psvars(varlist)` - generalized propensity scores for multi-group treatments. Provide one probability variable per treatment level, ordered by ascending treatment value.
+- `reference(#)` - reference treatment level for pairwise multi-group balance and weight summaries. Default is the smallest observed treatment level.
+- `saving(filename)` - save the graph produced by the relevant subcommand. For `combined`, this saves the combined dashboard graph.
+- `scheme(schemename)`, `title(string)`, `name(string)`, `graphoptions(string)` - graph styling options where supported by the subcommand.
+
+### overlap
+- `histogram` - use overlapping histograms instead of kernel density plots
+- `bins(#)` - histogram bins; default is 30
+- `bwidth(#)` - kernel density bandwidth; Stata's default is used when omitted
+- `nograph` - show the overlap table without drawing a graph
+
 ### balance
 - `covariates(varlist)` — covariates to assess (auto-detected if omitted)
 - `wvar(varname)` — weight variable (auto-generated from PS if omitted)
 
 > **Default behavior:** When a PS is supplied, `balance` auto-generates IPTW weights for the requested `estimand()` (default: ATE) and displays *adjusted* SMD/VR columns alongside the raw columns. Pass `nowvar` to see raw balance only, or `wvar()` to supply a pre-computed weight variable.
+- `matched` - report matched/unweighted balance; mutually exclusive with `wvar()`
+- `nowvar` - suppress automatic weight generation and show raw balance only
 - `loveplot` — generate Love plot
 - `threshold(#)` — SMD threshold (default: 0.1)
+- `ks` - display Kolmogorov-Smirnov statistics; KS values are stored either way
 - `xlsx(filename)` — export to Excel
+- `sheet(string)` - Excel sheet name; default is `"Balance"`
+- `format(string)` - numeric display format for SMD values; default is `%6.3f`
 
 ### weights
 - `wvar(varname)` — weight variable (auto-generated from PS if omitted)
@@ -128,20 +203,44 @@ psdash support foreign ps, crump generate(in_support)
 - `truncate(#)` — cap at fixed value
 - `stabilize` — create stabilized weights
 - `generate(name)` — variable for modified weights
+- `replace` - allow `generate()` to replace an existing variable
 - `detail` — show percentile distribution
 - `graph` — weight distribution histogram
+- `xlabel(numlist)` - custom x-axis labels for the histogram
 
 ### support
 - `crump` — Crump et al. (2009) optimal trimming
 - `threshold(#)` — manual PS trimming threshold (0–0.5)
-- `generate(name)` — create in-support indicator
+- `generate(name)` — create an in-support indicator. With `crump` or `threshold()`, this marks the trimmed region; otherwise it marks the empirical common-support interval.
+- `replace` - allow `generate()` to replace an existing variable
+- `nograph` - show the support table without drawing a graph
 
 ### combined
 - `nooverlap`, `nobalance`, `noweights`, `nosupport` — suppress panels
 
 ## Stored Results
 
-Each subcommand stores results in `r()`. See `help psdash` for the full list.
+Each subcommand stores results in `r()`. Technical users can use these values in QA checks, automated reports, or decision rules.
+
+| Subcommand | Key scalars/macros | Matrix |
+|------------|--------------------|--------|
+| `overlap` | `r(N)`, `r(overlap_lower)`, `r(overlap_upper)`, `r(n_outside)`, `r(pct_outside)`, `r(auc)`, `r(treatment)`, `r(psvar)` | none |
+| `balance` | `r(max_smd_raw)`, `r(max_smd_adj)`, `r(max_vr_raw)`, `r(max_vr_adj)`, `r(max_ks_raw)`, `r(n_imbalanced)`, `r(threshold)`, `r(wvar)` | `r(balance)` |
+| `weights` | `r(mean_wt)`, `r(sd_wt)`, `r(cv)`, `r(ess)`, `r(ess_pct)`, `r(n_extreme)`, `r(p1)`, `r(p99)`, `r(generate)` | none |
+| `support` | `r(lower_bound)`, `r(upper_bound)`, `r(n_outside)`, `r(pct_outside)`, `r(trim_lower)`, `r(trim_upper)`, `r(n_trimmed)`, `r(crump_alpha)` | none |
+| `combined` | Inherits subcommand results via `return add`; also stores `r(treatment)`, `r(psvar)`, `r(estimand)`, `r(source)`, and for multi-group runs `r(K)`, `r(levels)`, `r(reference)` | inherited when balance runs |
+
+For binary treatments, `r(balance)` has one row per covariate and columns for raw and adjusted means, SMDs, variance ratios, and KS statistics. For multi-group treatments, `r(balance)` has one five-column block per non-reference group, plus adjusted blocks when weights are applied; column names include the compared treatment levels.
+
+Example:
+
+```stata
+psdash balance foreign ps, covariates(mpg weight length)
+return list
+matrix list r(balance)
+* Example decision rule for your own analysis:
+* assert r(max_smd_adj) < 0.1
+```
 
 ## Relationship to Existing Packages
 
@@ -551,5 +650,5 @@ PNG demo images in demo/ are tracked in this repository.
 
 ## Version History
 
-- **v1.0.1** (06 May 2026): Hardened PS detection and validation, fixed `teffects` binary PS orientation, K=2 non-0/1 auto-weights, support `threshold(0)`, and binary variance-ratio summaries.
+- **v1.0.1** (06 May 2026): Hardened PS detection and validation, fixed `teffects` binary PS orientation, K=2 non-0/1 auto-weights, support threshold validation, and binary variance-ratio summaries.
 - **v1.0.0** (29 Apr 2026): Initial release with five subcommands
