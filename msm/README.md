@@ -36,7 +36,47 @@ capture ado uninstall msm
 net install msm, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/msm") replace
 ```
 
-The release installs `msm_example.dta`, which the examples below access with `findfile`.
+The release ships `msm_example.dta` as ancillary example data. To copy it into your current working directory, run:
+
+```stata
+net get msm, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/msm") replace
+```
+
+## Quick Start
+
+This is the shortest complete prediction-ready workflow using the bundled
+example dataset. It estimates stabilized treatment weights, fits a pooled
+logistic MSM, and predicts cumulative incidence under always-treated and
+never-treated strategies.
+
+```stata
+capture confirm file msm_example.dta
+if _rc net get msm, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/msm") replace
+use msm_example.dta, clear
+
+msm_prepare, id(id) period(period) treatment(treatment) ///
+    outcome(outcome) covariates(biomarker comorbidity) ///
+    baseline_covariates(age sex)
+
+msm_validate
+
+msm_weight, treat_d_cov(biomarker comorbidity age sex) ///
+    treat_n_cov(age sex) truncate(1 99) nolog
+
+msm_diagnose, balance_covariates(biomarker comorbidity age sex) ///
+    by_period
+
+msm_fit, model(logistic) outcome_cov(age sex) nolog
+
+msm_predict, times(1 3 5 7 9) difference seed(12345)
+
+msm_report, eform
+msm, status
+```
+
+In plain language, this asks: after accounting for measured time-varying
+confounding, what would the outcome risk look like if everyone followed the
+always-treated strategy versus the never-treated strategy?
 
 ## Commands
 
@@ -86,6 +126,19 @@ msm_protocol  →  msm_prepare  →  msm_validate  →  msm_weight
 ```
 
 Run `msm, status` at any point to see the current pipeline stage, what variables are mapped, what artifacts are saved, and what the recommended next step is.
+
+## What Should I Run Next?
+
+| Situation | Command | Why |
+|-----------|---------|-----|
+| You have not mapped the data yet | `msm_prepare` | Stores which variables are ID, time, treatment, outcome, censoring, and covariates |
+| You want to know whether the data are usable | `msm_validate` | Checks panel structure, binary variables, missingness, positivity, and outcome timing |
+| You need the pseudo-population | `msm_weight` | Creates `_msm_weight`, the stabilized inverse-probability weight used downstream |
+| You are worried about extreme weights or imbalance | `msm_diagnose` and `msm_plot` | Summarizes weights and checks whether weighting improved covariate balance |
+| You need the causal effect estimate | `msm_fit` | Fits the weighted outcome model and stores the treatment effect |
+| You want absolute risks under treatment strategies | `msm_predict` | Converts a fitted logistic MSM into standardized counterfactual predictions |
+| You need a paper/report table | `msm_report` or `msm_table` | Produces a compact summary or a multi-sheet Excel workbook |
+| You are reopening a saved analysis | `msm, status` | Shows what has already been run and which artifacts are available |
 
 ### What each step does
 
@@ -222,8 +275,9 @@ The demo runs the full pipeline on the bundled `msm_example.dta` dataset. Consol
 This example mirrors the package's intended end-to-end workflow. It stays within the supported scope: static always-treat versus never-treat prediction from a pooled logistic MSM.
 
 ```stata
-findfile msm_example.dta
-use "`r(fn)'", clear
+capture confirm file msm_example.dta
+if _rc net get msm, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/msm") replace
+use msm_example.dta, clear
 
 * Step 0: Document the study protocol
 msm_protocol, ///
@@ -275,8 +329,9 @@ msm_table, xlsx(msm_results.xlsx) all eform replace
 If you want the core causal estimates first, this shorter sequence gets you from prepared data to standardized counterfactual predictions quickly.
 
 ```stata
-findfile msm_example.dta
-use "`r(fn)'", clear
+capture confirm file msm_example.dta
+if _rc net get msm, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/msm") replace
+use msm_example.dta, clear
 
 msm_prepare, id(id) period(period) treatment(treatment) ///
     outcome(outcome) covariates(biomarker comorbidity) ///
@@ -295,8 +350,9 @@ msm_predict, times(3 5 7 9) difference seed(12345)
 When the target estimand is a weighted hazard ratio and prediction is not needed:
 
 ```stata
-findfile msm_example.dta
-use "`r(fn)'", clear
+capture confirm file msm_example.dta
+if _rc net get msm, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/msm") replace
+use msm_example.dta, clear
 
 msm_prepare, id(id) period(period) treatment(treatment) ///
     outcome(outcome) covariates(biomarker comorbidity) ///
@@ -313,7 +369,19 @@ msm_report, eform
 - `msm_diagnose` returns a balance matrix in `r(balance)` when `balance_covariates()` is specified.
 - `msm_fit` stores the weighted model in `e()` and records the fitted MSM effect matrix in `e(effects)`.
 - `msm_predict` returns the prediction matrix in `r(predictions)`, risk differences in `r(rd_#)` when `difference` is requested, and the seed/state used for the Monte Carlo draws in `r(seed)` plus `r(seed_state)`.
-- `msm_table` exports formatted Excel workbooks; `msm_report` produces compact summaries to console, CSV, or Excel.
+- `msm_table` exports formatted Excel workbooks and does not leave Stata returned results; `msm_report` produces compact summaries to console, CSV, or Excel.
+
+## Troubleshooting
+
+| Symptom | Likely cause and fix |
+|---------|----------------------|
+| `msm_validate` reports period gaps | Check that every person has one row per observed period and that `id()` plus `period()` uniquely identifies rows |
+| `msm_weight` says delayed entry is unsupported | All people must share the same baseline period before weighting |
+| Stabilized weight mean is far from 1 | Revisit numerator and denominator model covariates; denominator models should contain measured treatment predictors/confounders |
+| Effective sample size is much smaller than N | Extreme weights are dominating; inspect positivity, simplify the weight model, or consider stronger `truncate()` values |
+| Balance is still poor after weighting | Add or revise treatment model covariates, check functional form, and inspect by-period balance |
+| `msm_predict` refuses to run | Prediction requires a prior `msm_fit, model(logistic)` and prediction times within observed follow-up unless `extrapolate` is deliberate |
+| `msm_table` exports fewer sheets than expected | In default/all mode it exports available artifacts; explicitly requested missing sheets produce errors naming the required prior command |
 
 ## References
 

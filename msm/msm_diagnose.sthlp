@@ -128,8 +128,9 @@ versus imbalanced.
 {bf:Basic diagnostics with default covariates.}  Uses all covariates from
 {cmd:msm_prepare}:{p_end}
 
-{phang2}{cmd:. findfile msm_example.dta}{p_end}
-{phang2}{cmd:. use "`r(fn)'", clear}{p_end}
+{phang2}{cmd:. capture confirm file msm_example.dta}{p_end}
+{phang2}{cmd:. if _rc net get msm, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/msm") replace}{p_end}
+{phang2}{cmd:. use msm_example.dta, clear}{p_end}
 {phang2}{cmd:. msm_prepare, id(id) period(period) treatment(treatment)}{p_end}
 {phang2}{cmd:    outcome(outcome) covariates(biomarker comorbidity)}{p_end}
 {phang2}{cmd:    baseline_covariates(age sex)}{p_end}

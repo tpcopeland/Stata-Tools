@@ -19,7 +19,7 @@
 {title:Title}
 
 {p2colset 5 20 22 2}{...}
-{p2col:{cmd:iivw_fit} {hline 2}}Fit weighted outcome model for IIW analysis{p_end}
+{p2col:{cmd:iivw_fit} {hline 2}}Fit weighted outcome model for IIW/IPTW/FIPTIW analysis{p_end}
 {p2colreset}{...}
 
 
@@ -348,11 +348,12 @@ informative visit timing, treatment is associated with a 0.7-unit decrease
 in the outcome on average.
 
 {pstd}
-{bf:Treatment effect.}  The coefficient on the treatment variable is the
-primary quantity of interest.  With IIW or FIPTIW weights, this estimates
-the causal treatment effect under the assumption that the visit intensity
-model and (for FIPTIW) the propensity score model are correctly specified,
-and that there is no unmeasured confounding.
+{bf:Treatment effect.}  The coefficient on the treatment variable is often the
+primary quantity of interest.  With IIW, IPTW, or FIPTIW weights, it is the
+weighted treatment contrast implied by the selected weight type.  A causal
+interpretation requires the visit intensity model and, for IPTW/FIPTIW, the
+propensity score model to be correctly specified, with no unmeasured
+confounding and plausible positivity.
 
 {pstd}
 {bf:Time variables.}  When {opt timespec()} is not {cmd:none}, the model
@@ -383,9 +384,9 @@ account for weight estimation uncertainty, use a custom bootstrap (see
 {pstd}
 Common messages and decisions:
 
-{phang2}{bf:{cmd:iivw_weight must be run before iivw_fit}.}  The dataset does
-not contain the metadata and weight variable created by {cmd:iivw_weight}, or
-those variables were dropped.  Re-run {cmd:iivw_weight} immediately before
+{phang2}{bf:{cmd:data has not been weighted}.}  The dataset does not contain
+the metadata and weight variable created by {cmd:iivw_weight}, or those
+variables were dropped.  Re-run {cmd:iivw_weight} immediately before
 {cmd:iivw_fit}.{p_end}
 
 {phang2}{bf:Generated time or interaction variables already exist.}  A
@@ -625,6 +626,23 @@ a conditional (subject-specific) treatment effect rather than the marginal
 {synopt:{cmd:e(iivw_ix_vars)}}interaction variables created{p_end}
 {synopt:{cmd:e(iivw_categorical)}}variables specified in {opt categorical()}{p_end}
 {synopt:{cmd:e(iivw_cat_vars)}}categorical dummy variables created{p_end}
+
+{pstd}
+The command also stores fit metadata in dataset characteristics so downstream
+checks can tell which model was most recently fit:
+
+{synoptset 26 tabbed}{...}
+{p2col 5 26 30 2: Dataset characteristics}{p_end}
+{synopt:{cmd:_dta[_iivw_fitted]}}flag that {cmd:iivw_fit} completed{p_end}
+{synopt:{cmd:_dta[_iivw_model]}}estimation method used{p_end}
+{synopt:{cmd:_dta[_iivw_timespec]}}time specification used{p_end}
+{synopt:{cmd:_dta[_iivw_cluster]}}clustering variable used{p_end}
+{synopt:{cmd:_dta[_iivw_time_vars]}}time variables included in the outcome model{p_end}
+{synopt:{cmd:_dta[_iivw_interaction]}}variables specified in {opt interaction()}{p_end}
+{synopt:{cmd:_dta[_iivw_ix_vars]}}interaction variables created{p_end}
+{synopt:{cmd:_dta[_iivw_categorical]}}variables specified in {opt categorical()}{p_end}
+{synopt:{cmd:_dta[_iivw_cat_vars]}}categorical dummy variables created{p_end}
+{synopt:{cmd:_dta[_iivw_basecat]}}base category, if specified{p_end}
 
 {pstd}
 All standard post-estimation commands for {cmd:glm} or {cmd:mixed} are

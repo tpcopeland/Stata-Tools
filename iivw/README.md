@@ -16,6 +16,7 @@ Weighted outcome models are fit via GEE-style estimation (GLM with clustered rob
 
 - Stata 16 or later
 - Stata 17 or later for `iivw_fit, model(mixed)`
+- Optional: `tabtools` for the `regtab` Excel export examples
 
 ## Installation
 
@@ -69,6 +70,18 @@ You probably do *not* need this if visits follow a fixed protocol (e.g., randomi
 | `fiptiw` | Both informative visit timing and treatment confounding | `id()` `time()` `visit_cov()` `treat()` `treat_cov()` |
 
 By default, `iivw_weight` auto-detects the type: specifying `treat()` triggers FIPTIW; omitting it triggers IIW.  Override with `wtype()`.
+
+## Data Contract
+
+`iivw_weight` expects long panel data: one row per subject-visit.  `id()` identifies the subject, and `time()` identifies visit time.  The `id()` and `time()` combination must be unique and nonmissing.  For IIW and FIPTIW, each subject needs at least two visits because the command estimates a visit-intensity model from inter-visit intervals.
+
+For IPTW and FIPTIW, `treat()` must be a binary 0/1 treatment indicator, observed on every row, and constant within subject.  Treatment-model covariates are supplied with `treat_cov()` and are not inferred from `visit_cov()`.  IPTW-only analyses can use one row per subject by specifying `wtype(iptw)`.
+
+## What Gets Added to the Data
+
+By default, `iivw_weight` creates `_iivw_weight`, the final weight used by `iivw_fit`.  It also creates component weights when needed: `_iivw_iw` for visit-intensity weights and `_iivw_tw` for treatment weights.  Use `generate(prefix)` to change the prefix.
+
+The weighting step also stores dataset metadata, including the panel ID, time variable, weight type, weight variable, and prefix.  `iivw_fit` reads that metadata automatically, so the usual workflow is to run `iivw_weight`, inspect the weights, and then run `iivw_fit` without re-entering the panel structure.
 
 ## Assumptions and Limits
 
@@ -200,7 +213,7 @@ After running `iivw_weight`, check these before fitting the outcome model:
 |---------|--------------|-----|
 | `treat() contains missing values` | Treatment is missing on one or more visit rows | Fill the baseline treatment consistently within subject, or exclude those subjects deliberately |
 | `treat() must be time-invariant` | Treatment changes over time | Do not use this IPTW/FIPTIW implementation; use a time-varying treatment/MSM approach |
-| `each subject must have at least 2 observations` | IIW/FIPTIW needs repeated visits | Use repeated-visit data, or use `wtype(iptw)` for treatment weighting only |
+| `requires at least 2 visits per subject` | IIW/FIPTIW needs repeated visits | Use repeated-visit data, or use `wtype(iptw)` for treatment weighting only |
 | Very large weights | Sparse overlap, overfit model, or unusual visit patterns | Inspect covariates, simplify the model, and try `truncate(1 99)` |
 | `variable ... already exists` | Re-running created-variable steps | Add `replace` if overwriting is intended |
 | `iivw_fit` says weights are missing | Dataset changed or weights were dropped after `iivw_weight` | Re-run `iivw_weight` immediately before `iivw_fit` |
@@ -208,7 +221,7 @@ After running `iivw_weight`, check these before fitting the outcome model:
 ## Interpreting Results
 
 - **Coefficients** (default GEE with gaussian family) are the change in the outcome per one-unit change in the predictor, averaged over the population.
-- **Treatment effect**: The coefficient on the treatment variable estimates the causal treatment effect, assuming the visit model (and propensity model, for FIPTIW) is correctly specified and there is no unmeasured confounding.
+- **Treatment effect**: The coefficient on the treatment variable is the weighted treatment contrast.  A causal interpretation additionally requires a correctly specified visit model, a correctly specified propensity model for IPTW/FIPTIW, no unmeasured confounding, and a treatment assignment mechanism appropriate for the chosen weight type.
 - **Standard errors** are sandwich (robust) SEs clustered at the subject level.  They do not account for weight estimation uncertainty.
 - **Post-estimation**: All standard Stata post-estimation commands work after `iivw_fit` (`predict`, `lincom`, `test`, `margins`).
 
@@ -246,7 +259,7 @@ The full FIPTIW workflow (weighting, weight diagnostics, outcome model) is rende
 
 The demo also produces a multi-model comparison table (`demo/iivw_results.xlsx`) showing IIW, FIPTIW, FIPTIW with treatment-time interaction, and FIPTIW with categorical treatment side by side.
 
-Regenerate with:
+Regenerate from the repository root with:
 
 ```stata
 do iivw/demo/demo_iivw.do

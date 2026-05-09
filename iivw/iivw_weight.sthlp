@@ -416,10 +416,10 @@ changes treatment over follow-up.  This implementation is for fixed binary
 treatment; use a time-varying treatment/MSM approach for treatment switching.
 {p_end}
 
-{phang2}{bf:{cmd:each subject must have at least 2 observations}.}  IIW and
-FIPTIW need repeated visits because the visit process is estimated from
-inter-visit intervals.  Use repeated-visit data, or use {cmd:wtype(iptw)}
-when treatment weighting only is required.{p_end}
+{phang2}{bf:{cmd:requires at least 2 visits per subject}.}  IIW and FIPTIW
+need repeated visits because the visit process is estimated from inter-visit
+intervals.  Use repeated-visit data, or use {cmd:wtype(iptw)} when treatment
+weighting only is required.{p_end}
 
 {phang2}{bf:Very large weights or very small ESS.}  This usually indicates
 sparse overlap, an overly complex model, or unusual visit patterns.  Inspect
@@ -564,6 +564,15 @@ than the default Breslow method.
 {p2col 5 20 24 2: Macros}{p_end}
 {synopt:{cmd:r(weighttype)}}weight type (iivw, iptw, or fiptiw){p_end}
 {synopt:{cmd:r(weight_var)}}name of final weight variable{p_end}
+
+{p2col 5 28 32 2: Dataset characteristics}{p_end}
+{synopt:{cmd:_dta[_iivw_weighted]}}flag that weights are current{p_end}
+{synopt:{cmd:_dta[_iivw_id]}}subject identifier used in {opt id()}{p_end}
+{synopt:{cmd:_dta[_iivw_time]}}visit time variable used in {opt time()}{p_end}
+{synopt:{cmd:_dta[_iivw_weighttype]}}weight type used{p_end}
+{synopt:{cmd:_dta[_iivw_weight_var]}}final weight variable name{p_end}
+{synopt:{cmd:_dta[_iivw_prefix]}}generated-variable prefix{p_end}
+{synopt:{cmd:_dta[_iivw_treat]}}treatment variable, if specified{p_end}
 
 
 {marker references}{...}

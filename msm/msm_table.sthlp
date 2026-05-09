@@ -78,7 +78,8 @@ Column widths are calculated automatically from content.
 By default (or with {opt all}), all available tables are exported.  Tables are
 silently skipped if the corresponding pipeline step has not been run yet.
 When specific tables are requested explicitly, missing prerequisites produce
-an error.
+an error.  If no requested or auto-detected table is available, the command
+exits with an error rather than creating an empty workbook.
 
 {pstd}
 {cmd:msm_table} is the multi-sheet companion to {helpb msm_report}, which
@@ -87,7 +88,9 @@ full set of pipeline outputs in one workbook; use {cmd:msm_report} for a
 quick overview.
 
 {pstd}
-{cmd:msm_table} does not store results in {cmd:r()} or {cmd:e()}.
+{cmd:msm_table} is an export command.  Its durable output is the Excel
+workbook; it does not leave returned scalars, macros, matrices, or estimation
+results behind for later commands.
 
 
 {marker options}{...}

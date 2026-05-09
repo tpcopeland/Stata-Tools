@@ -179,7 +179,9 @@ A typical analysis proceeds in three steps:
 
 {phang2}1. {bf:Compute weights} with {cmd:iivw_weight}, specifying the visit
 intensity covariates and (optionally) treatment and treatment covariates.
-The command creates a weight variable in the dataset.{p_end}
+The command creates the final weight variable (default {cmd:_iivw_weight}),
+component weights when applicable, and dataset metadata used by
+{cmd:iivw_fit}.{p_end}
 
 {phang2}2. {bf:Inspect weights} using {cmd:summarize _iivw_weight, detail}.
 Look for extreme values (very large max or very small min).  If the weight

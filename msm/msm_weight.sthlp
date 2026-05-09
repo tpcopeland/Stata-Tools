@@ -104,6 +104,13 @@ numerator/denominator; for untreated observations it is
 individual using log-sum for numerical stability.
 
 {pstd}
+For non-technical readers, the denominator model asks how likely the observed
+treatment was given the person's history and confounders.  The numerator model
+is a simpler stabilizing model.  Final weights are larger when an observed
+treatment pattern was unlikely under the denominator model, and smaller when
+the pattern was common.
+
+{pstd}
 The first period is handled with a simpler model (no lagged treatment)
 because there is no treatment history at baseline.
 
@@ -246,8 +253,13 @@ investigated and are willing to accept a marginal probability substitute:{p_end}
 {title:Stored results}
 
 {pstd}
-{cmd:msm_weight} stores the following in {cmd:r()} after fitting (not in
-{cmd:preview} mode):
+{cmd:msm_weight} stores the following in {cmd:r()}.  In {cmd:preview} mode,
+only the model-specification macros are returned; after fitting, all scalars
+and macros below are returned.
+
+{pstd}
+Scalars are available only after fitting.  They are not returned by
+{cmd:preview}.
 
 {synoptset 28 tabbed}{...}
 {p2col 5 28 32 2: Scalars}{p_end}
@@ -265,6 +277,11 @@ investigated and are willing to accept a marginal probability substitute:{p_end}
 {synopt:{cmd:r(n_probability_repairs)}}observations repaired after perfect prediction{p_end}
 
 {p2col 5 28 32 2: Macros}{p_end}
+{pstd}
+The specification macros are returned both after fitting and after
+{cmd:preview}, except {cmd:r(weight_var)} and {cmd:r(fitfailure_models)}, which
+are meaningful after fitting.
+
 {synopt:{cmd:r(weight_var)}}name of the final weight variable ({cmd:_msm_weight}){p_end}
 {synopt:{cmd:r(fitfailure_policy)}}resolved failure policy ({cmd:error} or {cmd:marginal}){p_end}
 {synopt:{cmd:r(fitfailure_models)}}model identifiers that used marginal fallback{p_end}
@@ -275,6 +292,29 @@ investigated and are willing to accept a marginal probability substitute:{p_end}
 {synopt:{cmd:r(censor_d_cov)}}censoring denominator covariates{p_end}
 {synopt:{cmd:r(censor_n_cov)}}censoring numerator covariates{p_end}
 {synopt:{cmd:r(truncate)}}resolved truncation percentiles{p_end}
+
+{pstd}
+For scripted specification checks, the most useful preview results are
+{cmd:r(preview)}, {cmd:r(treat_d_cov)}, {cmd:r(treat_d_cov_source)},
+{cmd:r(treat_n_cov)}, {cmd:r(censor_d_cov)}, {cmd:r(censor_n_cov)},
+{cmd:r(truncate)}, and {cmd:r(fitfailure_policy)}.
+
+{pstd}
+For scripted post-fit checks, the most useful diagnostics are
+{cmd:r(weight_var)}, {cmd:r(mean_weight)}, {cmd:r(ess)},
+{cmd:r(n_truncated)}, {cmd:r(n_fitfail_fallback)}, {cmd:r(fitfailure_fallback)},
+{cmd:r(fitfailure_models)}, and {cmd:r(n_probability_repairs)}.
+
+{pstd}
+For routine QA thresholds, scripts commonly inspect {cmd:r(mean_weight)},
+{cmd:r(sd_weight)}, {cmd:r(min_weight)}, {cmd:r(max_weight)}, and
+{cmd:r(p99_weight)} before proceeding to {helpb msm_diagnose}.
+
+{phang2}{cmd:r(mean_weight)} is the fastest check for whether stabilized
+weights are centered near 1.{p_end}
+
+{phang2}{cmd:r(ess)} is the fastest check for whether extreme weights have
+substantially reduced usable information.{p_end}
 
 
 {marker author}{...}

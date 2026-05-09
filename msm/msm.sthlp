@@ -176,6 +176,29 @@ unmeasured confounding assessment.
 Run {cmd:msm, status} at any point to see where the current dataset sits in
 the pipeline, what outputs are available, and what the recommended next step is.
 
+{pstd}
+{bf:Plain-language command map.}  If you are new to MSMs, think of the
+commands as a sequence of practical checks and outputs:
+
+{phang2}{cmd:msm_prepare} tells the package what each column means.{p_end}
+
+{phang2}{cmd:msm_validate} checks whether the person-period data are usable
+before modeling.{p_end}
+
+{phang2}{cmd:msm_weight} builds the weighted pseudo-population used for causal
+estimation.{p_end}
+
+{phang2}{cmd:msm_diagnose} checks whether those weights look stable and whether
+covariate balance improved.{p_end}
+
+{phang2}{cmd:msm_fit} estimates the treatment effect in the weighted data.{p_end}
+
+{phang2}{cmd:msm_predict} translates a logistic MSM into absolute predicted
+risks under always-treated and never-treated strategies.{p_end}
+
+{phang2}{cmd:msm_report} and {cmd:msm_table} turn saved pipeline artifacts into
+console, CSV, or Excel tables for reporting.{p_end}
+
 
 {marker status}{...}
 {title:Pipeline status}
@@ -237,8 +260,9 @@ out-of-range {cmd:times()} unless {cmd:extrapolate} is specified.
 {bf:Prediction-ready end-to-end workflow.}  This is the complete pipeline using
 the bundled example dataset:{p_end}
 
-{phang2}{cmd:. findfile msm_example.dta}{p_end}
-{phang2}{cmd:. use "`r(fn)'", clear}{p_end}
+{phang2}{cmd:. capture confirm file msm_example.dta}{p_end}
+{phang2}{cmd:. if _rc net get msm, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/msm") replace}{p_end}
+{phang2}{cmd:. use msm_example.dta, clear}{p_end}
 {phang2}{cmd:. msm_protocol,}{p_end}
 {phang2}{cmd:    population("Adults aged 18-65 with condition X")}{p_end}
 {phang2}{cmd:    treatment("Always treat vs. never treat")}{p_end}
@@ -265,8 +289,9 @@ the bundled example dataset:{p_end}
 {bf:Estimation-only workflow.}  Use a Cox or linear model when prediction is
 not needed:{p_end}
 
-{phang2}{cmd:. findfile msm_example.dta}{p_end}
-{phang2}{cmd:. use "`r(fn)'", clear}{p_end}
+{phang2}{cmd:. capture confirm file msm_example.dta}{p_end}
+{phang2}{cmd:. if _rc net get msm, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/msm") replace}{p_end}
+{phang2}{cmd:. use msm_example.dta, clear}{p_end}
 {phang2}{cmd:. msm_prepare, id(id) period(period) treatment(treatment)}{p_end}
 {phang2}{cmd:    outcome(outcome) covariates(biomarker comorbidity)}{p_end}
 {phang2}{cmd:    baseline_covariates(age sex)}{p_end}
