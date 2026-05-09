@@ -9,6 +9,7 @@
 {viewerjumpto "When do I need this?" "iivw##when"}{...}
 {viewerjumpto "Commands" "iivw##commands"}{...}
 {viewerjumpto "Choosing a weight type" "iivw##choosing"}{...}
+{viewerjumpto "Assumptions and limits" "iivw##assumptions"}{...}
 {viewerjumpto "Workflow" "iivw##workflow"}{...}
 {viewerjumpto "Examples" "iivw##examples"}{...}
 {viewerjumpto "Stored results" "iivw##results"}{...}
@@ -48,6 +49,15 @@ The package provides two main commands:
 {phang2}{helpb iivw_weight} computes IIW, IPTW, or FIPTIW weights{p_end}
 {phang2}{helpb iivw_fit} fits weighted outcome models via GEE or mixed effects{p_end}
 
+{pstd}
+{bf:Plain-language summary.}  In many clinical datasets, the unit recorded
+in the data is a visit, but the scientific target is a patient population.
+If patients with worse disease visit more often, they appear more often in
+the data and can dominate an ordinary regression.  {cmd:iivw_weight}
+estimates how expected each visit was and creates weights so that frequent
+visitors do not automatically receive more influence just because they have
+more rows.  {cmd:iivw_fit} then fits the weighted outcome model.
+
 
 {marker when}{...}
 {title:When do I need this?}
@@ -64,9 +74,9 @@ and covariate associations.
 {bf:What IIW does.}  Inverse intensity weighting down-weights observations
 from patients who visit frequently (relative to what the model predicts)
 and up-weights observations from patients who visit rarely.  After
-reweighting, the analysis behaves as though all patients were observed on
-the same schedule, removing the bias created by outcome-dependent visit
-timing.
+reweighting, the analysis is less dominated by differential visit
+frequency and, under the visit model assumptions, targets the patient
+population rather than the visit process.
 
 {pstd}
 {bf:You likely need this package if:}
@@ -128,6 +138,37 @@ registry data.{p_end}
 By default, {cmd:iivw_weight} auto-detects the weight type: if you specify
 {opt treat()}, it computes FIPTIW; otherwise it computes IIW.  You can
 override this with {opt wtype()}.
+
+
+{marker assumptions}{...}
+{title:Assumptions and limits}
+
+{pstd}
+Weights correct specific measured sources of bias.  They do not, by
+themselves, make a weak study design causal.  Before interpreting a weighted
+model, check the following assumptions:
+
+{phang2}(a) The visit model includes the measured variables that drive visit
+timing and are related to the outcome.{p_end}
+
+{phang2}(b) For IPTW/FIPTIW, the treatment model includes the measured
+variables that drive treatment assignment; unmeasured confounding remains a
+study-design limitation.{p_end}
+
+{phang2}(c) Treatment is binary and time-invariant within subject.  This
+package is not a time-varying treatment MSM implementation.{p_end}
+
+{phang2}(d) Positivity/overlap is plausible.  Near-certain visits or
+near-certain treatment assignments create extreme weights and unstable
+estimates.{p_end}
+
+{phang2}(e) Built-in standard errors treat the weights as fixed.  The
+{opt bootstrap()} option re-samples the outcome model but does not re-fit
+{cmd:iivw_weight} inside each replicate.{p_end}
+
+{pstd}
+Use IPCW methods for censoring/dropout problems, and use a time-varying
+treatment method when treatment changes over follow-up.
 
 
 {marker workflow}{...}
@@ -192,9 +233,14 @@ outcome (EDSS disability score), a binary treatment, and a binary event
 When the main concern is that patients with worse disease are seen more
 often, but treatment assignment is either randomized or not being analyzed:
 
-{phang2}{cmd:. iivw_weight, id(id) time(days) visit_cov(edss relapse) nolog}{p_end}
+{phang2}{cmd:. iivw_weight, id(id) time(days) visit_cov(edss_bl age sex) lagvars(edss relapse) nolog}{p_end}
 {phang2}{cmd:. summarize _iivw_weight, detail}{p_end}
 {phang2}{cmd:. iivw_fit edss treated edss_bl, model(gee) timespec(linear)}{p_end}
+
+{pstd}
+For real analyses, prefer baseline or lagged time-varying predictors in the
+visit model when the current visit measurement should not be used to explain
+the timing of that same visit.
 
 {pstd}
 {bf:Example 2: FIPTIW (correct both visit timing and treatment confounding)}
@@ -204,7 +250,7 @@ When both visit frequency and treatment assignment are driven by disease
 severity, add {opt treat()} and {opt treat_cov()} to correct for both
 simultaneously:
 
-{phang2}{cmd:. iivw_weight, id(id) time(days) visit_cov(edss relapse) treat(treated) treat_cov(age sex edss_bl) truncate(1 99) replace nolog}{p_end}
+{phang2}{cmd:. iivw_weight, id(id) time(days) visit_cov(edss_bl age sex) lagvars(edss relapse) treat(treated) treat_cov(age sex edss_bl) truncate(1 99) replace nolog}{p_end}
 {phang2}{cmd:. iivw_fit edss treated age sex edss_bl, model(gee) timespec(quadratic)}{p_end}
 
 

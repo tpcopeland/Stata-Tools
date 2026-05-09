@@ -10,6 +10,8 @@
 {viewerjumpto "Options" "iivw_fit##options"}{...}
 {viewerjumpto "Remarks" "iivw_fit##remarks"}{...}
 {viewerjumpto "Interpreting results" "iivw_fit##interpreting"}{...}
+{viewerjumpto "Troubleshooting" "iivw_fit##troubleshooting"}{...}
+{viewerjumpto "What to report" "iivw_fit##reporting"}{...}
 {viewerjumpto "Examples" "iivw_fit##examples"}{...}
 {viewerjumpto "Stored results" "iivw_fit##results"}{...}
 {viewerjumpto "References" "iivw_fit##references"}{...}
@@ -87,6 +89,14 @@ and fits a weighted regression.  It displays both the underlying model
 output (from {cmd:glm} or {cmd:mixed}) and a formatted summary table of
 the weighted effects with coefficients, standard errors, confidence
 intervals, and p-values.
+
+{pstd}
+{bf:For non-technical readers.}  After {cmd:iivw_weight} has made the
+dataset behave less like "one row per clinic visit" and more like "one
+appropriately weighted patient history," {cmd:iivw_fit} estimates the
+association or treatment effect of interest in that weighted dataset.
+The default model reports a population-average effect with standard errors
+clustered by subject.
 
 
 {marker options}{...}
@@ -367,6 +377,60 @@ account for weight estimation uncertainty, use a custom bootstrap (see
 {opt bootstrap()} in the Options section).
 
 
+{marker troubleshooting}{...}
+{title:Troubleshooting}
+
+{pstd}
+Common messages and decisions:
+
+{phang2}{bf:{cmd:iivw_weight must be run before iivw_fit}.}  The dataset does
+not contain the metadata and weight variable created by {cmd:iivw_weight}, or
+those variables were dropped.  Re-run {cmd:iivw_weight} immediately before
+{cmd:iivw_fit}.{p_end}
+
+{phang2}{bf:Generated time or interaction variables already exist.}  A
+previous {cmd:iivw_fit} call created variables such as {cmd:_iivw_time_sq} or
+{cmd:_iivw_ix_*}.  Add {opt replace} if overwriting those generated variables
+is intended.{p_end}
+
+{phang2}{bf:No observations.}  The analysis sample becomes empty after
+applying {it:if}/{it:in} restrictions and marking out missing variables,
+weights, cluster variable, time variable, categorical variables, or
+interaction variables.  Check missingness before fitting.{p_end}
+
+{phang2}{bf:Model does not converge.}  The outcome model may be too complex,
+the predictors may be collinear, or extreme weights may dominate the fit.
+Inspect the weight distribution, simplify the model, and compare results
+with truncated weights.{p_end}
+
+{phang2}{bf:Which time specification should I use?}  Start with
+{cmd:timespec(linear)}.  If residual trends or subject-matter knowledge
+suggest curvature, compare with {cmd:timespec(ns(3))}.  Report whether the
+main effect is sensitive to this choice.{p_end}
+
+
+{marker reporting}{...}
+{title:What to report}
+
+{pstd}
+A reproducible report should include:
+
+{phang2}(a) the outcome model type ({cmd:gee} or {cmd:mixed}), family, and
+link;{p_end}
+
+{phang2}(b) the covariates in {it:indepvars}, the {opt timespec()} choice,
+and any {opt interaction()} or {opt categorical()} expansions;{p_end}
+
+{phang2}(c) the clustering variable and whether standard errors were
+sandwich or bootstrap;{p_end}
+
+{phang2}(d) the weight type inherited from {cmd:iivw_weight} and the weight
+diagnostics from the weighting step;{p_end}
+
+{phang2}(e) a sensitivity check comparing an untruncated and truncated
+weight analysis when weights are extreme.{p_end}
+
+
 {marker examples}{...}
 {title:Examples}
 
@@ -393,7 +457,7 @@ account for weight estimation uncertainty, use a custom bootstrap (see
 {phang2}{cmd:. gen byte treatment = cond(treated == 0, 0, cond(edss_bl < 3.5, 1, 2))}{p_end}
 {phang2}{cmd:. label define arm 0 "Placebo" 1 "Low dose" 2 "High dose"}{p_end}
 {phang2}{cmd:. label values treatment arm}{p_end}
-{phang2}{cmd:. iivw_weight, id(id) time(days) visit_cov(edss relapse) nolog}{p_end}
+{phang2}{cmd:. iivw_weight, id(id) time(days) visit_cov(edss_bl age sex) lagvars(edss relapse) nolog}{p_end}
 
 {pstd}
 {bf:Example 1: Basic GEE model with linear time}
@@ -487,9 +551,9 @@ Allow both treatment and age effects to vary over time.
 Run two weighting strategies and combine them in a single Excel table.
 
 {phang2}{cmd:. collect clear}{p_end}
-{phang2}{cmd:. iivw_weight, id(id) time(days) visit_cov(edss relapse) truncate(1 99) replace nolog}{p_end}
+{phang2}{cmd:. iivw_weight, id(id) time(days) visit_cov(edss_bl age sex) lagvars(edss relapse) truncate(1 99) replace nolog}{p_end}
 {phang2}{cmd:. iivw_fit edss treated edss_bl, model(gee) nolog collect}{p_end}
-{phang2}{cmd:. iivw_weight, id(id) time(days) visit_cov(edss relapse) treat(treated) treat_cov(age sex edss_bl) truncate(1 99) replace nolog}{p_end}
+{phang2}{cmd:. iivw_weight, id(id) time(days) visit_cov(edss_bl age sex) lagvars(edss relapse) treat(treated) treat_cov(age sex edss_bl) truncate(1 99) replace nolog}{p_end}
 {phang2}{cmd:. iivw_fit edss treated edss_bl, model(gee) nolog replace collect}{p_end}
 {phang2}{cmd:. regtab, xlsx(iivw_results.xlsx) sheet(Comparison) models(IIW \ FIPTIW) title(IIW vs FIPTIW) stats(n) noint}{p_end}
 

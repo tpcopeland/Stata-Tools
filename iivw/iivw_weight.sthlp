@@ -10,6 +10,8 @@
 {viewerjumpto "Weight types" "iivw_weight##wtypes"}{...}
 {viewerjumpto "Remarks" "iivw_weight##remarks"}{...}
 {viewerjumpto "Diagnostics" "iivw_weight##diagnostics"}{...}
+{viewerjumpto "Troubleshooting" "iivw_weight##troubleshooting"}{...}
+{viewerjumpto "What to report" "iivw_weight##reporting"}{...}
 {viewerjumpto "Examples" "iivw_weight##examples"}{...}
 {viewerjumpto "Stored results" "iivw_weight##results"}{...}
 {viewerjumpto "References" "iivw_weight##references"}{...}
@@ -92,6 +94,14 @@ The weight type is auto-detected: if {opt treat()} is specified, FIPTIW is
 computed; otherwise, IIW only.  Override with {opt wtype()}.
 
 {pstd}
+{bf:For non-technical readers.}  The command estimates how much influence
+each row should have in the later outcome model.  Visits that were very
+likely under the visit model receive less influence; visits that were less
+likely receive more influence.  If treatment assignment is also confounded,
+the final FIPTIW weight combines this visit weight with a treatment
+propensity-score weight.
+
+{pstd}
 {bf:What the command creates.}  {cmd:iivw_weight} adds one or more weight
 variables to the dataset.  The final weight variable (by default
 {cmd:_iivw_weight}) is used automatically by {helpb iivw_fit} in the next
@@ -132,11 +142,13 @@ skipped entirely, and any {opt visit_cov()} variables are ignored with a note.
 
 {pmore}
 {bf:Choosing visit covariates.}  Include variables that predict both (a) the
-outcome and (b) visit frequency.  Time-varying covariates (measured at each
-visit) are typical: current disease score, recent adverse events, lab values.
-Baseline-only covariates (age, sex) are useful if they independently predict
-visit frequency.  Over-fitting the visit model is generally less harmful than
-under-fitting, because the weights only need to be directionally correct.
+outcome and (b) visit frequency.  Use information that would plausibly be
+available before, or at the start of, the interval leading to a visit:
+baseline risk factors, previous disease score, recent adverse events, or
+previous lab values.  Avoid adding many weak predictors simply because they
+are available; overly complex visit models can create unstable weights.
+Use {opt lagvars()} for time-varying predictors when the current visit's
+measurement should not be used to explain the timing of that same visit.
 
 {dlgtab:Treatment (IPTW)}
 
@@ -388,6 +400,58 @@ separately.  Extreme treatment weights usually indicate positivity
 violations.{p_end}
 
 
+{marker troubleshooting}{...}
+{title:Troubleshooting}
+
+{pstd}
+Common messages and what they usually mean:
+
+{phang2}{bf:{cmd:treat() contains missing values}.}  Treatment is missing on
+one or more visit rows.  For IPTW/FIPTIW, treatment must be observed on every
+row used by the command.  Fill the baseline treatment consistently within
+subject or exclude those subjects deliberately.{p_end}
+
+{phang2}{bf:{cmd:treat() must be time-invariant within subjects}.}  A subject
+changes treatment over follow-up.  This implementation is for fixed binary
+treatment; use a time-varying treatment/MSM approach for treatment switching.
+{p_end}
+
+{phang2}{bf:{cmd:each subject must have at least 2 observations}.}  IIW and
+FIPTIW need repeated visits because the visit process is estimated from
+inter-visit intervals.  Use repeated-visit data, or use {cmd:wtype(iptw)}
+when treatment weighting only is required.{p_end}
+
+{phang2}{bf:Very large weights or very small ESS.}  This usually indicates
+sparse overlap, an overly complex model, or unusual visit patterns.  Inspect
+the covariates, simplify the visit or treatment model, and compare results
+with {cmd:truncate(1 99)}.{p_end}
+
+{phang2}{bf:Generated variable already exists.}  The command is protecting
+variables from a previous run.  Add {opt replace} only when you intentionally
+want to overwrite those variables.{p_end}
+
+
+{marker reporting}{...}
+{title:What to report}
+
+{pstd}
+A transparent analysis report should describe:
+
+{phang2}(a) the weight type used ({cmd:iivw}, {cmd:iptw}, or
+{cmd:fiptiw});{p_end}
+
+{phang2}(b) the visit model covariates and whether {opt efron} tie handling
+was used;{p_end}
+
+{phang2}(c) the treatment model covariates for IPTW/FIPTIW;{p_end}
+
+{phang2}(d) whether IIW stabilization ({opt stabcov()}) and/or percentile
+truncation ({opt truncate()}) was used;{p_end}
+
+{phang2}(e) weight diagnostics: mean, min, max, selected percentiles, and
+effective sample size.{p_end}
+
+
 {marker examples}{...}
 {title:Examples}
 
@@ -417,10 +481,10 @@ violations.{p_end}
 
 {pstd}
 Correct for informative visit timing only.  The visit model includes
-current disease severity (edss) and recent relapses as predictors of when
-patients visit the clinic.
+baseline severity, age, sex, and previous-visit values of EDSS and relapse
+as predictors of when patients visit the clinic.
 
-{phang2}{cmd:. iivw_weight, id(id) time(days) visit_cov(edss relapse) nolog}{p_end}
+{phang2}{cmd:. iivw_weight, id(id) time(days) visit_cov(edss_bl age sex) lagvars(edss relapse) nolog}{p_end}
 {phang2}{cmd:. summarize _iivw_weight, detail}{p_end}
 
 {pstd}
@@ -430,7 +494,7 @@ patients visit the clinic.
 Correct for both informative visits and treatment confounding.
 {opt truncate(1 99)} caps extreme weights at the 1st and 99th percentiles.
 
-{phang2}{cmd:. iivw_weight, id(id) time(days) visit_cov(edss relapse) treat(treated) treat_cov(age sex edss_bl) truncate(1 99) nolog}{p_end}
+{phang2}{cmd:. iivw_weight, id(id) time(days) visit_cov(edss_bl age sex) lagvars(edss relapse) treat(treated) treat_cov(age sex edss_bl) truncate(1 99) nolog}{p_end}
 
 {pstd}
 {bf:Example 3: Lagged covariates in the visit model}
@@ -440,7 +504,7 @@ Using a lagged version of a time-varying covariate avoids the conceptual
 problem of using the current visit's measurement to predict the current
 visit's timing.  {opt lagvars()} creates the lagged variables automatically.
 
-{phang2}{cmd:. iivw_weight, id(id) time(days) visit_cov(edss relapse) lagvars(edss relapse) replace nolog}{p_end}
+{phang2}{cmd:. iivw_weight, id(id) time(days) visit_cov(edss_bl age sex) lagvars(edss relapse) replace nolog}{p_end}
 
 {pstd}
 {bf:Example 4: Custom variable prefix}
@@ -450,7 +514,7 @@ Use {opt generate()} to change the prefix of created weight variables,
 which is useful when comparing different weighting specifications
 side by side.
 
-{phang2}{cmd:. iivw_weight, id(id) time(days) visit_cov(edss) generate(w_) replace nolog}{p_end}
+{phang2}{cmd:. iivw_weight, id(id) time(days) visit_cov(edss_bl) lagvars(edss) generate(w_) replace nolog}{p_end}
 
 {pstd}
 {bf:Example 5: IPTW only (treatment confounding without visit correction)}
@@ -464,7 +528,7 @@ side by side.
 Fit a simpler numerator model to stabilize the IIW weights.  This reduces
 weight variability without changing the target estimand.
 
-{phang2}{cmd:. iivw_weight, id(id) time(days) visit_cov(edss relapse) stabcov(treated) replace nolog}{p_end}
+{phang2}{cmd:. iivw_weight, id(id) time(days) visit_cov(edss_bl age sex) lagvars(edss relapse) stabcov(treated) replace nolog}{p_end}
 
 {pstd}
 {bf:Example 7: Efron tie handling}
@@ -474,7 +538,7 @@ When visit times are rounded (e.g., monthly), many subjects may share
 the same visit time.  The Efron method handles these ties more accurately
 than the default Breslow method.
 
-{phang2}{cmd:. iivw_weight, id(id) time(days) visit_cov(edss relapse) efron replace nolog}{p_end}
+{phang2}{cmd:. iivw_weight, id(id) time(days) visit_cov(edss_bl age sex) lagvars(edss relapse) efron replace nolog}{p_end}
 
 
 {marker results}{...}
