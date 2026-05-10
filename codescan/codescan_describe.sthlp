@@ -5,6 +5,7 @@
 {vieweralsosee "[D] tostring" "help tostring"}{...}
 {viewerjumpto "Syntax" "codescan_describe##syntax"}{...}
 {viewerjumpto "Description" "codescan_describe##description"}{...}
+{viewerjumpto "Variable lists" "codescan_describe##varlists"}{...}
 {viewerjumpto "Options" "codescan_describe##options"}{...}
 {viewerjumpto "Remarks" "codescan_describe##remarks"}{...}
 {viewerjumpto "Examples" "codescan_describe##examples"}{...}
@@ -69,6 +70,26 @@ which prefixes deserve attention when you write {helpb codescan} rules.
 Because it accumulates frequencies variable by variable using a Mata hash
 map, {cmd:codescan_describe} avoids the memory blow-up that often comes with
 reshaping very wide code data to long form just for reconnaissance.
+
+
+{marker varlists}{...}
+{title:Variable lists}
+
+{pstd}
+The {varlist} after {cmd:codescan_describe} is a normal Stata varlist.  Use
+explicit names for a short list, a hyphen range when the variables are adjacent
+in the dataset order, or a wildcard when the variable prefix is consistent.
+
+{phang2}{cmd:. codescan_describe dx1 dx2 dx3}{p_end}
+{phang2}{cmd:. codescan_describe dx1-dx30}{p_end}
+{phang2}{cmd:. codescan_describe dx*}{p_end}
+{phang2}{cmd:. codescan_describe dx1-dx30 proc1-proc20}{p_end}
+
+{pstd}
+The output pools nonempty code values across all listed variables.  That is the
+right behavior when you are asking "what codes exist anywhere in these slots?"
+If you later need to see which variable contributed matches to a scan rule, run
+{helpb codescan} with the {cmd:detail} option.
 
 
 {marker options}{...}

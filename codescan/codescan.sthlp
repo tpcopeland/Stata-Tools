@@ -7,6 +7,7 @@
 {viewerjumpto "Syntax" "codescan##syntax"}{...}
 {viewerjumpto "Description" "codescan##description"}{...}
 {viewerjumpto "Typical workflow" "codescan##workflow"}{...}
+{viewerjumpto "Regex and variable lists" "codescan##patterns"}{...}
 {viewerjumpto "Options" "codescan##options"}{...}
 {viewerjumpto "Time windows" "codescan##windows"}{...}
 {viewerjumpto "Remarks" "codescan##remarks"}{...}
@@ -189,6 +190,68 @@ output.{p_end}
 {cmd:save()}, which writes reusable scan definitions.{p_end}
 
 
+{marker patterns}{...}
+{title:Regex and variable lists in plain language}
+
+{pstd}
+The words after {cmd:codescan} and before the comma are a normal Stata
+{it:varlist}: they tell {cmd:codescan} which variables contain codes.  The
+rules in {cmd:define()} or {cmd:codefile()} are applied to every variable in
+that varlist.
+
+{phang2}{cmd:. codescan dx1 dx2 dx3, define(dm2 "E11")}{p_end}
+{phang2}{cmd:. codescan dx1-dx30, define(dm2 "E11")}{p_end}
+{phang2}{cmd:. codescan dx*, define(dm2 "E11")}{p_end}
+{phang2}{cmd:. codescan dx1-dx30 proc1-proc20, define(dm2 "E11" | proc "XF001")}{p_end}
+
+{pstd}
+Use explicit names when there are only a few code variables.  Use a range such
+as {cmd:dx1-dx30} when those variables sit next to each other in the dataset
+order.  Use a wildcard such as {cmd:dx*} when every variable with that prefix
+should be scanned.  If diagnosis, procedure, and medication codes need
+different dictionaries, run separate scans and add {cmd:generate()} prefixes so
+the output names do not collide.
+
+{phang2}{cmd:. codescan dx1-dx30, define(dm2 "E11" | htn "I1[0-35]") generate(dx_)}{p_end}
+{phang2}{cmd:. codescan proc1-proc20, define(mammo "XF001|XF002" | colectomy "JFB|JFH") ///}{p_end}
+{phang2}{cmd:    mode(prefix) generate(proc_)}{p_end}
+
+{pstd}
+In the default {cmd:mode(regex)}, {cmd:codescan} uses Stata's {cmd:regexm()}
+function and automatically adds a start-of-string anchor.  The rule
+{cmd:define(dm2 "E11")} is checked like {cmd:regexm(code, "^(E11)")}: the code
+must start with {cmd:E11}.
+
+{phang2}{cmd:"E11"} matches {cmd:E110}, {cmd:E119}, and {cmd:E11.9}; it does
+not match {cmd:AE11}.{p_end}
+
+{phang2}{cmd:"I1[0-35]"} matches {cmd:I10}, {cmd:I11}, {cmd:I12}, {cmd:I13},
+and {cmd:I15}.  The brackets mean "one character from this set"; {cmd:[0-35]}
+means {cmd:0}, {cmd:1}, {cmd:2}, {cmd:3}, or {cmd:5}.{p_end}
+
+{phang2}{cmd:"E1[01]"} matches {cmd:E10} and {cmd:E11}.{p_end}
+
+{phang2}{cmd:"C7[7-9]|C80"} matches {cmd:C77}, {cmd:C78}, {cmd:C79}, or
+{cmd:C80}.  A {cmd:|} inside a quoted regex pattern means "or".{p_end}
+
+{pstd}
+The unquoted {cmd:|} in {cmd:define()} has a different job: it separates named
+conditions.  Thus {cmd:define(dm2 "E11" | htn "I1[0-35]")} defines two
+conditions, while {cmd:define(metastatic "C7[7-9]|C80")} defines one condition
+with two regex alternatives.
+
+{pstd}
+Use {cmd:~} for exclusions: {cmd:define(dm2 "E11" ~ "E116")} matches codes
+that start with {cmd:E11}, except codes that start with {cmd:E116}.  In
+{cmd:mode(prefix)}, regex characters are not special; {cmd:"XF001|XF002"} means
+"starts with {cmd:XF001} or starts with {cmd:XF002}".
+
+{pstd}
+For troubleshooting, add {cmd:detail} to see how many matches came from each
+scanned variable.  Use {helpb codescan_describe} to inventory the code values
+before writing rules; it pools the nonempty codes across the listed variables.
+
+
 {marker options}{...}
 {title:Options}
 
@@ -204,6 +267,12 @@ output.{p_end}
 In {cmd:regex} mode, each inclusion and exclusion pattern is automatically
 anchored at the start of the code value.  For example, {cmd:"E11"} is treated
 as {cmd:^(E11)}.
+
+{pmore}
+An unquoted {cmd:|} separates definitions in {cmd:define()}; a {cmd:|} inside a
+quoted pattern remains part of that regex or prefix list.  For example,
+{cmd:define(metastatic "C7[7-9]|C80")} is one condition, while
+{cmd:define(dm2 "E11" | htn "I1[0-35]")} is two conditions.
 
 {pmore}
 In {cmd:prefix} mode, pipe-separated tokens are treated as alternative prefixes:
@@ -243,6 +312,12 @@ directly by basename:
 {pmore}
 Use a codefile when definitions should be version-controlled, reused across
 projects, or shared with collaborators.
+
+{pmore}
+The codefile uses the same matching rules as {cmd:define()}.  Each row is one
+condition.  The definitions are applied to all variables in {varlist}; use
+separate {cmd:codescan} calls with {cmd:generate()} prefixes when different
+variable groups need different dictionaries.
 
 {phang}
 {opt label(string)} assigns labels to named conditions.  Entries are separated by

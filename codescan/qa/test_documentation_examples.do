@@ -99,6 +99,48 @@ else {
 
 local ++test_count
 capture noisily {
+    clear
+    input str6 dx1 str6 dx2 str6 proc1
+    "E110" "I10" "XF001"
+    "E102" "I14" "JFB10"
+    "C77"  "C80" ""
+    "AE11" "I15" "XF002"
+    end
+
+    codescan dx*, define(dm "E1[01]" | htn "I1[0-35]" | metastatic "C7[7-9]|C80")
+    assert dm == 1 in 1
+    assert dm == 1 in 2
+    assert dm == 0 in 3
+    assert dm == 0 in 4
+    assert htn == 1 in 1
+    assert htn == 0 in 2
+    assert htn == 0 in 3
+    assert htn == 1 in 4
+    assert metastatic == 1 in 3
+
+    drop dm htn metastatic
+    codescan dx1-dx2, define(dm "E1[01]" | htn "I1[0-35]" | metastatic "C7[7-9]|C80") detail
+    assert "`r(varlist)'" == "dx1 dx2"
+    matrix VC = r(varcounts)
+    assert colsof(VC) == 2
+    matrix drop VC
+
+    codescan proc1, define(mammo "XF001|XF002" | colectomy "JFB|JFH") mode(prefix)
+    assert mammo == 1 in 1
+    assert mammo == 1 in 4
+    assert colectomy == 1 in 2
+}
+if _rc == 0 {
+    display as result "  PASS: README beginner regex and varlist examples"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: README beginner regex and varlist examples (error `=_rc')"
+    local ++fail_count
+}
+
+local ++test_count
+capture noisily {
     _load_codescan_setup
     codescan dx1 dx2, id(pid) date(visit_dt) refdate(index_dt) ///
         define(dm2 "E11" | htn "I1[0-35]" | chf "I50") ///

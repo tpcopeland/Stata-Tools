@@ -62,6 +62,58 @@ The recommended workflow has four steps:
 3. **Choose the output shape.**  Stay row-level for auditing, `collapse` to one row per `id()`, or `merge` patient-level summaries back to encounter rows.
 4. **Add advanced features last.**  Once basic matches look right, layer on time windows (`lookback()`/`lookforward()`), date summaries (`alldates`), hierarchy rules, scoring, and export/save options.
 
+## Which Variables to Scan
+
+The words between `codescan` and the comma are a normal Stata varlist: they tell `codescan` which columns contain codes.  The rules in `define()` or `codefile()` are then applied to every variable in that varlist.
+
+```stata
+codescan dx1 dx2 dx3, define(dm2 "E11")
+codescan dx1-dx30, define(dm2 "E11")
+codescan dx*, define(dm2 "E11")
+codescan dx1-dx30 proc1-proc20, define(dm2 "E11" | proc "XF001")
+```
+
+Use explicit names (`dx1 dx2 dx3`) when there are only a few variables.  Use a range (`dx1-dx30`) when the variables sit next to each other in the dataset order.  Use a wildcard (`dx*`) when all variables with that prefix should be scanned.  You can mix groups in one varlist when the same definitions should be checked across all of them.
+
+If diagnosis codes, procedure codes, and medication codes need different dictionaries, run separate scans and use `generate()` so the output names do not collide:
+
+```stata
+codescan dx1-dx30, define(dm2 "E11" | htn "I1[0-35]") generate(dx_)
+codescan proc1-proc20, define(mammo "XF001|XF002" | colectomy "JFB|JFH") ///
+    mode(prefix) generate(proc_)
+```
+
+For troubleshooting, add `detail` to see how many matches came from each scanned variable.  `codescan_describe dx1-dx30` is for inventory: it pools the nonempty codes across the listed variables so you can decide what rules to write.
+
+## Regex Patterns in Plain English
+
+`mode(regex)` is the default.  For each code value, `codescan` uses Stata's `regexm()` function and automatically adds a start-of-string anchor.  That means `define(dm2 "E11")` is checked like `regexm(code, "^(E11)")`: the code must start with `E11`.
+
+Common patterns:
+
+- `"E11"` matches `E110`, `E119`, and `E11.9`; it does not match `AE11`.
+- `"I1[0-35]"` matches `I10`, `I11`, `I12`, `I13`, and `I15`.  The brackets mean "one character from this set"; `[0-35]` means `0`, `1`, `2`, `3`, or `5`.
+- `"E1[01]"` matches `E10` and `E11`.
+- `"C7[7-9]|C80"` matches `C77`, `C78`, `C79`, or `C80`.  A `|` inside a quoted regex pattern means "or".
+
+The unquoted `|` in `define()` has a different job: it separates conditions.
+
+```stata
+* Two conditions: dm2 and htn
+codescan dx1 dx2, define(dm2 "E11" | htn "I1[0-35]")
+
+* One condition with two regex alternatives: metastatic
+codescan dx1 dx2, define(metastatic "C7[7-9]|C80")
+```
+
+Use `~` for exclusions.  This keeps the broad rule readable while removing specific subcodes:
+
+```stata
+codescan dx1 dx2, define(dm2 "E11" ~ "E116")
+```
+
+In `mode(prefix)`, regex metacharacters are not special.  The pattern is treated as one or more simple starts-with tokens separated by `|`, so `"XF001|XF002"` means "starts with `XF001` or starts with `XF002`".
+
 ## Choosing the Output Shape
 
 | Goal | Use | What remains in memory |
@@ -431,6 +483,14 @@ The inclusion and exclusion patterns are anchored at the start of each code
 value.  In default `mode(regex)`, `"I1[0-35]"` matches `I10`, `I11`, `I12`,
 `I13`, and `I15`.  In `mode(prefix)`, pipe-separated tokens are treated as
 simple alternative prefixes.
+
+There are three practical ways to list condition definitions:
+
+1. Keep a short rule set inline with `define()`.
+2. Put many conditions in a CSV or `.dta` codefile, with one row per condition.
+3. Use `codescan_describe, save(chapter_rules.csv)` or `codescan, save(rules.csv)` to create a starter CSV, then edit it.
+
+Definitions apply to all variables in the varlist.  To use different definitions for different variable groups, run separate calls with `generate()` prefixes, as shown above.
 
 Reusable codefiles may be CSV or Stata `.dta` files.  Column names are matched
 case-insensitively.
