@@ -1,0 +1,21 @@
+v 3
+d 'TTE example data': ancillary example dataset for tte
+d
+d This GitHub net source provides the tte_example.dta worked-example dataset
+d for users who install tte from SSC or another source that distributes only
+d the .ado and .sthlp files.
+d
+d Usage after installing tte:
+d     net get tte, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/_data/tte")
+d     use tte_example, clear
+d
+d Distribution-Date: 20260511
+d License: MIT
+d
+d Author: Timothy P Copeland, Karolinska Institutet
+d
+d KW: target trial emulation
+d KW: example data
+d KW: net get
+d
+f tte_example.dta
