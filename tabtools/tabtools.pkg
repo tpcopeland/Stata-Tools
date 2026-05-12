@@ -5,6 +5,7 @@ d tabtools is a comprehensive suite of Stata commands for exporting
 d tables to professionally formatted Excel files. Includes:
 d
 d   table1_tc      - Descriptive statistics (Table 1) with automatic tests
+d   desctab        - Per-statistic formatted descriptive table collects
 d   tabtools       - Suite controller and persistent defaults manager
 d   regtab         - Regression results from any model
 d   effecttab      - Treatment effects and margins results
@@ -21,7 +22,7 @@ d borders, fonts, merged headers, and professional styling.
 d
 d Requires: Stata version 16+ (tabtools, table1_tc), 17+ (all other commands)
 d
-d Distribution-Date: 20260507
+d Distribution-Date: 20260513
 d License: MIT
 d
 d Author: Timothy P Copeland, Karolinska Institutet
@@ -31,6 +32,8 @@ f tabtools.sthlp
 f _tabtools_common.ado
 f table1_tc.ado
 f table1_tc.sthlp
+f desctab.ado
+f desctab.sthlp
 f regtab.ado
 f regtab.sthlp
 f effecttab.ado

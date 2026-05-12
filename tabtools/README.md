@@ -1,14 +1,14 @@
 # tabtools - Publication-ready Excel tables across common Stata workflows
 
-**Version 1.0.15** | 2026-05-07
+**Version 1.1.0** | 2026-05-13
 
 `tabtools` is a suite of Stata commands for exporting manuscript-ready tables to Excel across descriptive summaries, regression models, treatment effects, survival analysis, diagnostic accuracy workflows, incidence rates, and composite tables. The package is organized around a shared formatting layer, so commands that come from very different analysis pipelines still produce tables that look like they belong in the same workbook.
 
 ## Requirements
 
 - Stata 16 or later for `tabtools` and `table1_tc`
-- Stata 17 or later for `regtab`, `effecttab`, `comptab`, `hrcomptab`, `survtab`, `crosstab`, `corrtab`, `diagtab`, and `stratetab`
-- `regtab` and `effecttab` require Stata's `collect` framework
+- Stata 17 or later for `desctab`, `regtab`, `effecttab`, `comptab`, `hrcomptab`, `survtab`, `crosstab`, `corrtab`, `diagtab`, and `stratetab`
+- `desctab`, `regtab`, and `effecttab` require Stata's `collect` framework
 - `survtab` requires `stset` data, and `stratetab` expects saved `strate, output()` datasets
 
 ## Installation
@@ -27,6 +27,7 @@ After installation, start with `help tabtools` for the suite overview, `help tab
 | Command | Description | Stata |
 |---------|-------------|-------|
 | `table1_tc` | Table 1 generator with automatic tests, SMDs, weighting support, and Excel export | 16+ |
+| `desctab` | Format active `table` collections with per-statistic formats and composite cells | 17+ |
 | `crosstab` | Cross-tabulation with association measures such as OR, RR, and risk difference | 17+ |
 | `corrtab` | Correlation matrix with significance stars, p-values, and lower, upper, or full layouts | 17+ |
 | `survtab` | Kaplan-Meier survival summary table with medians, RMST, and number at risk | 17+ |
@@ -58,6 +59,7 @@ After installation, start with `help tabtools` for the suite overview, `help tab
 | Workflow | Start here | Notes |
 |----------|------------|-------|
 | Descriptive table from the dataset in memory | `table1_tc`, `crosstab`, `corrtab`, `diagtab` | These commands work directly on the active dataset and do not require `collect` |
+| Formatted output from a custom `table` call | `collect: table` then `desctab` | Use when Stata's single `nformat()` is too blunt and each statistic needs its own format |
 | Regression or effect estimates after modeling | `collect:` then `regtab` or `effecttab` | These commands format the active collection rather than refitting models |
 | Survival summaries from `stset` data | `survtab` | Use when you want Kaplan-Meier estimates, medians, RMST, or risk sets |
 | Incidence-rate tables from saved `strate` files | `stratetab` | File-based workflow; no dataset needs to remain in memory |
@@ -66,7 +68,7 @@ After installation, start with `help tabtools` for the suite overview, `help tab
 
 ## Repository Checkout Demo
 
-The rebuild demo is a repository-maintenance workflow, not part of the net install payload. It reads shared `_data/` fixtures and sibling packages from a local Stata-Tools checkout, then regenerates console output and 10 Excel workbooks (46 sheets total) covering every tabtools command.
+The rebuild demo is a repository-maintenance workflow, not part of the net install payload. It reads shared `_data/` fixtures and sibling packages from a local Stata-Tools checkout, then regenerates console output and 11 Excel workbooks (53 sheets total) covering every tabtools command.
 
 From a local checkout, run:
 
@@ -89,6 +91,7 @@ tabtools - Publication-Ready Table Export Suite
 
 **Descriptive Statistics**
   table1_tc    - Table 1 with automatic statistical tests
+  desctab      - Format descriptive table collects
   crosstab     - Cross-tabulation with association measures
   corrtab      - Correlation matrix with significance
 
@@ -307,12 +310,13 @@ tabtools: all persistent defaults cleared
 
 ### Excel workbooks
 
-The demo generates 10 workbooks (46 sheets) covering every command and option combination:
+The demo generates 11 workbooks (53 sheets) covering every command and option combination:
 
 | Workbook | Sheets | Contents |
 |----------|--------|----------|
 | `demo_table1.xlsx` | 11 | table1_tc variants: basic, total, weighted, wtcompare, SMD, formats, missing, custom symbols, NEJM/BMJ/APA themes |
-| `demo_regtab.xlsx` | 10 | regtab: logistic, multi-model, Cox, mixed, CDISC, Poisson, advanced formatting, keep/drop, addrow |
+| `demo_desctab.xlsx` | 6 | desctab: default unshaded exports, explicit shaded styling, events / N (%), mean (SD), median (IQR), separate statistic columns, and custom compose templates |
+| `demo_regtab.xlsx` | 11 | regtab: logistic, multi-model, Cox, mixed, CDISC, Poisson, GEE QIC, advanced formatting, keep/drop, addrow |
 | `demo_effecttab.xlsx` | 4 | effecttab: ATE (IPW), IPW vs AIPW comparison, margins, average marginal effects |
 | `demo_comptab.xlsx` | 5 | comptab: source frames, composite, compact with sections, name-based row selection |
 | `demo_survtab.xlsx` | 3 | survtab: KM + median, RMST + difference, cumulative incidence |
@@ -327,10 +331,11 @@ The demo generates 10 workbooks (46 sheets) covering every command and option co
 - `help tabtools` for the suite overview and persistent defaults
 - `help tabtools_cheatsheet` for compact option patterns across commands
 - `help tabtools_cookbook` for longer end-to-end recipes
-- `help table1_tc`, `help regtab`, `help effecttab`, `help comptab`, `help hrcomptab`, `help survtab`, `help stratetab`, `help crosstab`, `help corrtab`, and `help diagtab` for command-specific syntax
+- `help table1_tc`, `help desctab`, `help regtab`, `help effecttab`, `help comptab`, `help hrcomptab`, `help survtab`, `help stratetab`, `help crosstab`, `help corrtab`, and `help diagtab` for command-specific syntax
 
 ## Version History
 
+- **1.1.0** (2026-05-13): Add `desctab`, a formatter for active `table` collections with per-statistic number formats, `events / N (%)` and other composite cells, Excel/CSV/frame/display outputs, and shared tabtools styling defaults.
 - **1.0.15** (2026-05-07): Fix `regtab` ICC cross-pollution where a multi-model collection ending in `mepoisson`/`menbreg` silently suppressed ICC for all earlier mixed-effects models (now skipped per-model). Strip thousands separators from coefficient and CI cells so `digits()`, `stars`, `boldp`, `dimnonsig`, and `r(table)` work for coefficients ≥ 1000. Make reference-category detection match the underlying numeric value (0 or 1 with empty CI) instead of the rendered string, so non-default precision still labels rows "Reference". Emit a noisily warning when the per-model stats fallback fires for a multi-model collection. Document `table1_tc` reserved `by()` variable name prefixes (`N_`, `m_`, `_c…`). Plug a Mata workspace leak in `table1_tc` Excel error path. Use a tempname instead of the literal `beatles` value-label fallback. Replace ad-hoc `…2` suffix scratch columns in `headerperc` with tempvars to avoid name collisions. Move integer check before `recast long, force` to prevent silent truncation. Sthlp `boldp` colon-position fix.
 - **1.0.14** (2026-05-05): Add QIC (Quasi-likelihood Information Criterion) support to `regtab` for GEE models. When `stats(aic)` is requested after `xtgee`, QIC is automatically computed and displayed since AIC is undefined for quasi-likelihood estimators. QIC can also be requested explicitly via `stats(qic)`.
 - **1.0.13** (2026-04-27): Documentation improvements across all .sthlp files and README. Enhanced corrtab, survtab, and diagtab help files with richer descriptions, additional examples, and "Also see" sections. Standardized author blocks with mailto links. Added `{vieweralsosee}` links to the cheatsheet.

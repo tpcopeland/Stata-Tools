@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.15  07may2026}{...}
+{* *! version 1.1.0  13may2026}{...}
 {viewerjumpto "Recipe 1" "tabtools_cookbook##r1"}{...}
 {viewerjumpto "Recipe 2" "tabtools_cookbook##r2"}{...}
 {viewerjumpto "Recipe 3" "tabtools_cookbook##r3"}{...}
@@ -17,6 +17,7 @@
 {viewerjumpto "Recipe 15" "tabtools_cookbook##r15"}{...}
 {viewerjumpto "Recipe 16" "tabtools_cookbook##r16"}{...}
 {viewerjumpto "Recipe 17" "tabtools_cookbook##r17"}{...}
+{viewerjumpto "Recipe 18" "tabtools_cookbook##r18"}{...}
 {title:tabtools Cookbook}
 
 {pstd}
@@ -27,6 +28,19 @@ or variables.
 {p_end}
 
 {pstd}See also: {helpb tabtools}, {helpb tabtools_cheatsheet}{p_end}
+
+{hline}
+{marker r18}{...}
+{title:Recipe 18. Events / N (%) from a table collect}
+
+{pstd}
+Use {cmd:desctab} when a {cmd:table} collection contains multiple statistics
+that need different formats in the same cell.
+
+{phang2}{cmd:sysuse auto, clear}{p_end}
+{phang2}{cmd:collect clear}{p_end}
+{phang2}{cmd:collect: table rep78 foreign, statistic(sum foreign) statistic(count foreign) statistic(mean foreign)}{p_end}
+{phang2}{cmd:desctab, xlsx(desc_events.xlsx) sheet("Events") compose(events_n_pct) title("Events / N (%) by repair record and origin")}{p_end}
 
 {hline}
 {marker r1}{...}

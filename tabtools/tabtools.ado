@@ -1,4 +1,4 @@
-*! tabtools Version 1.0.15  2026/05/07
+*! tabtools Version 1.1.0  2026/05/13
 *! Suite of table export commands for publication-ready Excel output
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -32,7 +32,7 @@ program define tabtools, rclass
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     capture noisily {
-        local _package_version "1.0.15"
+        local _package_version "1.1.0"
 
     * Parse anything (subcommand) separately from options
     syntax [anything(everything)] [, List Detail Category(string) ///
@@ -374,7 +374,7 @@ program define tabtools, rclass
         }
 
         // Define commands by category
-        local cmd_descriptive "table1_tc crosstab corrtab"
+        local cmd_descriptive "table1_tc desctab crosstab corrtab"
         local cmd_models "regtab effecttab"
         local cmd_rates "stratetab"
         local cmd_survival "survtab"
@@ -436,6 +436,7 @@ program define tabtools, rclass
             if inlist("`category'", "all", "descriptive") {
                 display as text "{bf:Descriptive Statistics}"
                 display as result "  table1_tc    " as text "- Table 1 with automatic statistical tests"
+                display as result "  desctab      " as text "- Format descriptive table collects"
                 display as result "  crosstab     " as text "- Cross-tabulation with association measures"
                 display as result "  corrtab      " as text "- Correlation matrix with significance"
                 display as text ""
@@ -519,6 +520,10 @@ program define _tabtools_detail
             display as text "               exact) based on variable type and distribution."
             display as text "               Supports continuous, categorical, and binary"
             display as text "               variables with customizable formatting."
+            display as text ""
+            display as result "  desctab" as text "      Format an active table collect with per-statistic"
+            display as text "               number formats and optional composite cells such"
+            display as text "               as events / N (%)."
             display as text ""
             display as result "  crosstab" as text "     Cross-tabulation with row/column percentages"
             display as text "               and association measures. Supports chi-square,"

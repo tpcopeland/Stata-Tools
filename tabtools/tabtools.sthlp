@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.15  07may2026}{...}
+{* *! version 1.1.0  13may2026}{...}
 {viewerjumpto "Description" "tabtools##description"}{...}
 {viewerjumpto "Commands" "tabtools##commands"}{...}
 {viewerjumpto "Syntax" "tabtools##syntax"}{...}
@@ -8,6 +8,7 @@
 {viewerjumpto "Stored results" "tabtools##stored"}{...}
 {viewerjumpto "Author" "tabtools##author"}{...}
 {vieweralsosee "table1_tc" "help table1_tc"}{...}
+{vieweralsosee "desctab" "help desctab"}{...}
 {vieweralsosee "crosstab" "help crosstab"}{...}
 {vieweralsosee "corrtab" "help corrtab"}{...}
 {vieweralsosee "regtab" "help regtab"}{...}
@@ -59,6 +60,7 @@ worked examples.
 
 {synoptset 16}{...}
 {synopt:{helpb table1_tc}}Table 1 with automatic statistical tests and SMDs{p_end}
+{synopt:{helpb desctab}}Per-statistic formatted descriptive tables from {cmd:table} collects{p_end}
 {synopt:{helpb crosstab}}Cross-tabulation with association measures{p_end}
 {synopt:{helpb corrtab}}Correlation matrix with significance stars{p_end}
 
@@ -285,6 +287,6 @@ across sessions.
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}{browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}{p_end}
-{pstd}{bf:Version} 1.0.15{p_end}
+{pstd}{bf:Version} 1.1.0{p_end}
 
 {hline}

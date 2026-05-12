@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.15  07may2026}{...}
+{* *! version 1.1.0  13may2026}{...}
 {viewerjumpto "Syntax" "comptab##syntax"}{...}
 {viewerjumpto "Description" "comptab##description"}{...}
 {viewerjumpto "Options" "comptab##options"}{...}
@@ -260,7 +260,7 @@ smaller than the specified threshold.
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}{browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}{p_end}
-{pstd}{bf:Version} 1.0.15{p_end}
+{pstd}{bf:Version} 1.1.0{p_end}
 
 
 {marker alsosee}{...}

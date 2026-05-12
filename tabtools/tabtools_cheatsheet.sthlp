@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.15  07may2026}{...}
+{* *! version 1.1.0  13may2026}{...}
 {vieweralsosee "tabtools" "help tabtools"}{...}
 {vieweralsosee "tabtools cookbook" "help tabtools_cookbook"}{...}
 {vieweralsosee "table1_tc" "help table1_tc"}{...}
@@ -12,7 +12,7 @@
 {vieweralsosee "crosstab" "help crosstab"}{...}
 {vieweralsosee "corrtab" "help corrtab"}{...}
 {vieweralsosee "diagtab" "help diagtab"}{...}
-{title:tabtools Quick Reference (v1.0.15)}
+{title:tabtools Quick Reference (v1.1.0)}
 
 {pstd}Common option combinations for each command.{p_end}
 
@@ -24,6 +24,15 @@
 {phang2}{cmd:table1_tc, by(group) vars(...) xlsx(t1.xlsx) sheet("T1") title("T1") boldp(0.05) highlight(0.05)} {it:// bold + highlight significant rows}{p_end}
 {phang2}{cmd:table1_tc, by(group) vars(...) xlsx(t1.xlsx) sheet("T1") title("T1") footnote("HR = hazard ratio") zebra}{p_end}
 {phang2}{cmd:table1_tc, by(group) vars(...) wt(iptw) xlsx(t1.xlsx) sheet("Weighted") title("IPTW-Weighted")} {it:// weighted statistics, unweighted N}{p_end}
+
+{hline}
+{title:desctab}
+
+{phang2}{cmd:collect: table rep78 foreign, statistic(count price) statistic(mean price) statistic(sd price)}{p_end}
+{phang2}{cmd:desctab, xlsx(desc.xlsx) sheet("Descriptive") digits(1)}{p_end}
+{phang2}{cmd:collect: table rep78, statistic(sum foreign) statistic(count foreign) statistic(mean foreign)}{p_end}
+{phang2}{cmd:desctab, compose(events_n_pct) pctdigits(1) display} {it:// events / N (%)}{p_end}
+{phang2}{cmd:desctab, xlsx(desc.xlsx) sheet("Styled") headershade zebra} {it:// opt-in shading}{p_end}
 
 {hline}
 {title:regtab}
@@ -104,6 +113,6 @@
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}timothy.copeland@ki.se{p_end}
-{pstd}Version 1.0.15{p_end}
+{pstd}Version 1.1.0{p_end}
 
 {hline}

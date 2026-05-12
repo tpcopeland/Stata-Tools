@@ -1,4 +1,4 @@
-*! _tabtools_common Version 1.0.15  2026/05/07
+*! _tabtools_common Version 1.1.0  2026/05/13
 *! Shared utility programs for tabtools package
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -19,6 +19,8 @@ PROGRAMS INCLUDED:
     _tabtools_validate_sheet    - Validate Excel sheet name (length, forbidden chars)
     _tabtools_apply_theme       - Apply journal-style formatting presets
     _tabtools_resolve_format    - Resolve font/fontsize/borderstyle from options, globals, and themes
+    _tabtools_classify_stat      - Classify collect table statistics for formatting
+    _tabtools_resolve_stat_format - Resolve per-statistic display formats
     _tabtools_frame_put         - Store output in a named frame with optional replace
     _tabtools_helpers_ready     - Verify the helper bundle is fully loaded
 USAGE:
@@ -485,6 +487,65 @@ program _tabtools_resolve_format
 end
 
 * =============================================================================
+* _tabtools_classify_stat: Classify collect table statistics for formatting
+* =============================================================================
+
+capture program drop _tabtools_classify_stat
+program _tabtools_classify_stat, rclass
+    version 16.0
+    syntax anything(name=stat)
+    local stat = lower("`stat'")
+    local class "unknown"
+    if inlist("`stat'", "frequency", "fvfrequency", "count", "sum", "sum_w", "total") {
+        local class "integer"
+    }
+    else if inlist("`stat'", "percent", "fvpercent") {
+        local class "percent"
+    }
+    else if inlist("`stat'", "prop", "propc", "propr") {
+        local class "proportion"
+    }
+    else if inlist("`stat'", "mean", "sd", "variance", "semean", "min", "max", "range") {
+        local class "continuous"
+    }
+    else if inlist("`stat'", "median", "iqr", "q", "skewness", "kurtosis") {
+        local class "continuous"
+    }
+    else if regexm("`stat'", "^p[0-9][0-9]?$") {
+        local class "continuous"
+    }
+    return local class "`class'"
+end
+
+* =============================================================================
+* _tabtools_resolve_stat_format: Resolve per-statistic display formats
+* =============================================================================
+
+capture program drop _tabtools_resolve_stat_format
+program _tabtools_resolve_stat_format, rclass
+    version 16.0
+    syntax anything(name=stat) [, DIGits(integer 2) PCTDIGits(integer 1) ///
+        NINTEGERfmt(string)]
+    if "`nintegerfmt'" == "" local nintegerfmt "%12.0fc"
+    _tabtools_classify_stat `stat'
+    local class "`r(class)'"
+    if "`class'" == "integer" {
+        local fmt "`nintegerfmt'"
+    }
+    else if "`class'" == "percent" {
+        local fmt "%5.`pctdigits'f"
+    }
+    else if "`class'" == "proportion" {
+        local fmt "%4.3f"
+    }
+    else {
+        local fmt "%5.`digits'f"
+    }
+    return local class "`class'"
+    return local fmt "`fmt'"
+end
+
+* =============================================================================
 * _tabtools_console_display: Format and display a table dataset with proper
 *   column widths
 * =============================================================================
@@ -594,7 +655,7 @@ program _tabtools_helpers_ready
     args required
 
     if `"`required'"' == "" {
-        local required "_tabtools_col_letter _tabtools_validate_path _tabtools_validate_color _tabtools_build_col_letters _tabtools_open_file _tabtools_detect_vartype _tabtools_validate_sheet _tabtools_apply_theme _tabtools_resolve_format _tabtools_console_display _tabtools_frame_put"
+        local required "_tabtools_col_letter _tabtools_validate_path _tabtools_validate_color _tabtools_build_col_letters _tabtools_open_file _tabtools_detect_vartype _tabtools_validate_sheet _tabtools_apply_theme _tabtools_resolve_format _tabtools_classify_stat _tabtools_resolve_stat_format _tabtools_console_display _tabtools_frame_put"
     }
 
     foreach _prog of local required {
