@@ -433,6 +433,13 @@ program define desctab, rclass
             rename `_v' c`_j'
         }
         local n_display_cols = `n_data_vars'
+        * Capture per-group header labels for later border / grouping logic.
+        if "`coldim'" != "" {
+            forvalues _g = 1/`n_groups' {
+                local _first = (`_g' - 1) * `n_stats' + 1
+                local _glabel_`_g' = strtrim(c`_first'[`raw_col_row'])
+            }
+        }
         if "`coldim'" != "" & `n_stats' > 1 {
             local _merge_group_headers 1
             forvalues _g = 1/`n_groups' {
@@ -499,9 +506,11 @@ program define desctab, rclass
             local _first = (`_g' - 1) * `n_stats' + 1
             local _firstvar : word `_first' of `data_vars'
             if "`coldim'" != "" {
-                quietly replace _new`_g' = strtrim(`_firstvar'[`raw_col_row']) in `raw_col_row'
+                local _glabel_`_g' = strtrim(`_firstvar'[`raw_col_row'])
+                quietly replace _new`_g' = `"`_glabel_`_g''"' in `raw_col_row'
             }
             else {
+                local _glabel_`_g' ""
                 quietly replace _new`_g' = "Value" in `raw_stat_row'
             }
         }
@@ -624,6 +633,29 @@ program define desctab, rclass
             rename _new`_g' c`_j'
         }
         local n_display_cols = `n_groups'
+
+        * Collapse residual dim-label row in compose path. After the drops above,
+        * raw_dim_row may still hold a dimension label (e.g. "Education level")
+        * in column A with no data in the c1..cN cells. Move the label up to the
+        * header row (so column B gets a "what these rows are levels of" header)
+        * and drop the residual row so the header sits on row 2 with no spacer.
+        * Post-drops the header row is row 1 in both the coldim and no-coldim
+        * branches (coldim: drops in 1 and `raw_stat_row' shifted col headers up;
+        * no-coldim: "Value" was written at `raw_stat_row' = 1).
+        if `raw_dim_row' > 0 & `raw_dim_row' < `raw_data_start' & `raw_dim_row' <= _N {
+            local _dim_row_is_label 0
+            local _dim_label = strtrim(A[`raw_dim_row'])
+            if `"`_dim_label'"' != "" local _dim_row_is_label 1
+            forvalues _j = 1/`n_display_cols' {
+                if strtrim(c`_j'[`raw_dim_row']) != "" local _dim_row_is_label 0
+            }
+            if `_dim_row_is_label' {
+                quietly replace A = `"`_dim_label'"' in 1
+                quietly drop in `raw_dim_row'
+                local raw_data_start = `raw_data_start' - 1
+                local raw_dim_row 0
+            }
+        }
     }
 
     * Add title row/column so Excel output follows the suite convention:
@@ -767,6 +799,26 @@ program define desctab, rclass
             if "`borderstyle'" != "academic" {
                 mata: b.set_left_border((2, `num_rows'), 2, "`borderstyle'")
                 mata: b.set_right_border((2, `num_rows'), `num_cols', "`borderstyle'")
+                * Separator between row labels (column B) and data (column C).
+                mata: b.set_right_border((2, `num_rows'), 2, "`borderstyle'")
+                * Separators between column groups: always before/after a Total
+                * group; for multi-column groups (super columns) between every
+                * group, matching manuscript-style table conventions.
+                if `n_groups' > 1 {
+                    local _cols_per_group = `n_display_cols' / `n_groups'
+                    forvalues _g = 1/`=`n_groups' - 1' {
+                        local _next_g = `_g' + 1
+                        local _curr_label "`_glabel_`_g''"
+                        local _next_label "`_glabel_`_next_g''"
+                        local _draw = (`_cols_per_group' > 1) ///
+                            | ("`_next_label'" == "Total") ///
+                            | ("`_curr_label'" == "Total")
+                        if `_draw' {
+                            local _gcol_end = 2 + `_g' * `_cols_per_group'
+                            mata: b.set_right_border((2, `num_rows'), `_gcol_end', "`borderstyle'")
+                        }
+                    }
+                }
             }
             if "`zebra'" != "" {
                 forvalues _zr = `=`data_start' + 1'(2)`num_rows' {
