@@ -5,7 +5,7 @@
 
 capture program drop rangematch
 program define rangematch, rclass
-    version 17.0
+    version 16.1
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     capture noisily {

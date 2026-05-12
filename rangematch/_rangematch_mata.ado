@@ -2,7 +2,7 @@
 *! Mata backend for rangematch: binary-search pair generation and output materialization
 *! Author: Timothy P Copeland, Karolinska Institutet
 
-version 17.0
+version 16.1
 
 capture mata: mata drop _rm_build_pairs()
 capture mata: mata drop _rm_build_pairs_sweep()

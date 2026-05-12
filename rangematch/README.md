@@ -13,7 +13,7 @@ net install rangematch, from("https://raw.githubusercontent.com/tpcopeland/Stata
 
 ## Requirements
 
-- Stata 17+
+- Stata 16.1+
 - No external dependencies
 
 ## Quick Start

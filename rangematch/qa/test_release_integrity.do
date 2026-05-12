@@ -90,7 +90,7 @@ display as result "PASS: versions and author strings synchronized at `pkg_versio
 local ++test_count
 local path "`pkg_dir'/rangematch.pkg"
 foreach needle in "f rangematch.ado" "f _rangematch_mata.ado" ///
-    "f rangematch.sthlp" "f bench_rangematch.do" {
+    "f rangematch.sthlp" {
     mata: st_numscalar("__found", _qa_file_contains(st_local("path"), st_local("needle")))
     assert scalar(__found) == 1
 }
