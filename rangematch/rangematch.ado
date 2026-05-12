@@ -47,7 +47,7 @@ program define rangematch, rclass
           MASTERID(name) USINGID(name) ///
           MAXPairs(integer 0) FRAME(name) REPLACE STATS noSORT ///
           CLOSED(string) NEARest(string) TIES(string) ///
-          TOLerance(real 0) ///
+          TOLerance(real 0) MISSing(string) ///
           ASsert(string) SAVing(string asis) DRYRun COUNT VERBOSE ]
 
     tokenize `"`interval'"'
@@ -173,6 +173,14 @@ program define rangematch, rclass
         exit 198
     }
 
+    if `"`missing'"' == "" local missing "wildcard"
+    local missing = lower(`"`missing'"')
+    if !inlist(`"`missing'"', "wildcard", "drop", "error") {
+        display as error ///
+            "missing() must be {bf:wildcard}, {bf:drop}, or {bf:error}"
+        exit 198
+    }
+
     local nosort ""
     if "`sort'" == "nosort" {
         local nosort "nosort"
@@ -285,7 +293,50 @@ program define rangematch, rclass
         display as error "no observations"
         exit 2000
     }
-    local N_master_orig = r(N)
+    local N_master = r(N)
+
+    * -------------------------------------------------------------------
+    * Count master rows with missing variable bounds and apply missing()
+    * policy. Applies only to bound variables; a literal `.' positional
+    * bound is the user's explicit open-ended token and is unaffected.
+    * -------------------------------------------------------------------
+    local N_missing_bounds = 0
+    if "`low_kind'" == "variable" & "`high_kind'" == "variable" {
+        quietly count if `touse' & (missing(`low') | missing(`high'))
+        local N_missing_bounds = r(N)
+    }
+    else if "`low_kind'" == "variable" {
+        quietly count if `touse' & missing(`low')
+        local N_missing_bounds = r(N)
+    }
+    else if "`high_kind'" == "variable" {
+        quietly count if `touse' & missing(`high')
+        local N_missing_bounds = r(N)
+    }
+    if `N_missing_bounds' > 0 {
+        if "`missing'" == "error" {
+            display as error ///
+                "`N_missing_bounds' master row(s) have missing values in low or high"
+            display as error ///
+                "specify {bf:missing(drop)} to ignore them or {bf:missing(wildcard)} to keep current open-ended behavior"
+            exit 459
+        }
+        else if "`missing'" == "drop" {
+            if "`low_kind'" == "variable" {
+                quietly replace `touse' = 0 if missing(`low')
+            }
+            if "`high_kind'" == "variable" {
+                quietly replace `touse' = 0 if missing(`high')
+            }
+            quietly count if `touse'
+            local N_master = r(N)
+            if `N_master' == 0 {
+                display as error ///
+                    "missing(drop) removed all master observations"
+                exit 2000
+            }
+        }
+    }
 
     local using_source "file"
     local using_frame ""
@@ -619,7 +670,7 @@ program define rangematch, rclass
 
                 if `_rm_miss_master' == 0 & `_rm_miss_using' == 0 ///
                         & `_rm_bad_master' == 0 & `_rm_bad_using' == 0 ///
-                        & `_rm_gid_max' <= (`N_master_orig' + `N_using') {
+                        & `_rm_gid_max' <= (`N_master' + `N_using') {
                     local _rm_direct_gid = 1
                 }
             }
@@ -718,7 +769,7 @@ program define rangematch, rclass
     * Call Mata backend
     * -------------------------------------------------------------------
     if "`verbose'" != "" {
-        display as text "Master observations: " as result `N_master_orig'
+        display as text "Master observations: " as result `N_master'
         display as text "Using observations:  " as result `N_using'
         display as text "By-groups:           " as result ///
             cond("`by'" != "", "yes (`by')", "none")
@@ -729,7 +780,7 @@ program define rangematch, rclass
         frame create __rm_out
     }
 
-    local _rm_show_progress = ("`verbose'" != "" & `N_master_orig' > 100000)
+    local _rm_show_progress = ("`verbose'" != "" & `N_master' > 100000)
     local _rm_stats_mode = ("`stats'" != "")
     local _rm_assert_match = (strpos(" `assert' ", " match ") > 0)
     local _rm_assert_using = (strpos(" `assert' ", " using ") > 0)
@@ -887,11 +938,12 @@ program define rangematch, rclass
             capture timer clear 93
         }
 
-        return scalar N_master         = `N_master_orig'
+        return scalar N_master         = `N_master'
         return scalar N_using          = `N_using'
         return scalar N_pairs          = `N_pairs'
         return scalar N_unmatched      = `N_unmatched'
         return scalar N_matched_pairs  = `N_matched_pairs'
+        return scalar N_missing_bounds = `N_missing_bounds'
         if `_rm_stats_mode' {
             return scalar N_matched_master = `N_matched_master'
             return scalar N_matched_using  = `N_matched_using'
@@ -918,6 +970,7 @@ program define rangematch, rclass
         return local suffix `"`suffix'"'
         return local unmatched `"`unmatched'"'
         return local closed `"`closed'"'
+        return local missing `"`missing'"'
         return local nearest `"`nearest'"'
         return local ties `"`ties'"'
         return local sort "`sort'"
@@ -1162,11 +1215,12 @@ program define rangematch, rclass
     * -------------------------------------------------------------------
     * Return results
     * -------------------------------------------------------------------
-    return scalar N_master         = `N_master_orig'
+    return scalar N_master         = `N_master'
     return scalar N_using          = `N_using'
     return scalar N_pairs          = `N_pairs'
     return scalar N_unmatched      = `N_unmatched'
     return scalar N_matched_pairs  = `N_matched_pairs'
+    return scalar N_missing_bounds = `N_missing_bounds'
     if `_rm_stats_mode' {
         return scalar N_matched_master = `N_matched_master'
         return scalar N_matched_using  = `N_matched_using'
@@ -1195,6 +1249,7 @@ program define rangematch, rclass
     return local suffix `"`suffix'"'
     return local unmatched `"`unmatched'"'
     return local closed `"`closed'"'
+    return local missing `"`missing'"'
     return local nearest `"`nearest'"'
     return local ties `"`ties'"'
     return local sort "`sort'"

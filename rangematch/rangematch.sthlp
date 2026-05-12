@@ -55,6 +55,7 @@
 {synopt:{opt maxp:airs(#)}}abort if output rows exceed {it:#}; 0 = no guard{p_end}
 {synopt:{opt closed(both|left|right|none)}}interval endpoint closure{p_end}
 {synopt:{opt tol:erance(#)}}boundary-comparison tolerance for floating-point keys{p_end}
+{synopt:{opt miss:ing(wildcard|drop|error)}}policy for master rows with missing variable bounds{p_end}
 {synopt:{opt near:est(before|after|both)}}keep nearest match(es) within the interval{p_end}
 {synopt:{opt ties(all|first|last)}}tie handling for {opt nearest()}{p_end}
 {synopt:{opt as:sert(match|using)}}abort when required master or using matches are absent{p_end}
@@ -199,6 +200,29 @@ noise such as decimal arithmetic, not as a statistical matching rule. The
 default is {cmd:tolerance(0)}.
 
 {phang}
+{opt miss:ing(wildcard|drop|error)} controls handling of master rows whose
+{it:low} or {it:high} variable bound is missing. {opt miss:ing(wildcard)}, the
+default, treats a missing bound as open-ended on that side, consistent with the
+semantics of a literal {cmd:.} positional bound; such rows wildcard-match every
+using row in the same {opt by()} group. {opt miss:ing(drop)} drops those rows
+before matching, equivalent to {cmd:drop if missing(}{it:low}{cmd:) | missing(}{it:high}{cmd:)}
+upstream of the call. {opt miss:ing(error)} aborts with a clear message and the
+count of offending master rows. The option applies only to bound
+{it:variables}; a literal {cmd:.} positional bound is the user's explicit
+open-ended token and is unaffected. {opt miss:ing(drop)} removes missing-bound
+master rows entirely, so they never appear as unmatched output regardless of
+the {opt unmatch:ed()} setting. If {opt miss:ing(drop)} empties an entire
+{opt by()} group from master, the corresponding using rows in that group still
+surface as unmatched-using rows under {opt unmatch:ed(using)} or
+{opt unmatch:ed(both)} and will trip {opt as:sert(using)}; the dropped master
+rows themselves never appear in the output and do not trip {opt as:sert(match)}.
+The count of master rows with missing variable bounds is always posted in
+{cmd:r(N_missing_bounds)}; under {opt miss:ing(drop)}, {cmd:r(N_master)} is the
+post-drop master count, and {cmd:r(N_master) + r(N_missing_bounds)} recovers
+the pre-drop master count only when no other filter (an {cmd:if} or {cmd:in}
+clause) excluded rows.
+
+{phang}
 {opt near:est(before|after|both)} keeps only nearest using observations within
 the interval. {opt near:est(before)} keeps the nearest using key at or before
 the master key, {opt near:est(after)} keeps the nearest using key at or after
@@ -331,6 +355,58 @@ bounds such as {cmd:-30 30}, explicit unmatched-row control through
 distances through {opt dist:ance()}, and output saving through {opt sav:ing()}.
 It also accepts an existing frame after {cmd:using}, avoiding temporary files in
 frame-based workflows.
+
+{pstd}
+{bf:Migrating from joinby}
+
+{pstd}
+The common {cmd:joinby}+filter pattern
+
+{p 12 12 2}
+{cmd:joinby id using events.dta, unmatched(none)}
+{p_end}
+{p 12 12 2}
+{cmd:keep if inrange(event_date, lo, hi)}
+
+{pstd}
+becomes
+
+{p 12 12 2}
+{cmd:rangematch event_date lo hi using events.dta, by(id) unmatched(none)}
+
+{pstd}
+Three things change when porting:
+
+{phang}
+o {bf:Master/using direction may flip.} {cmd:joinby} treats the in-memory
+dataset as master regardless of which side carries the join key. With
+{cmd:rangematch}, master holds the bounds and using holds the key. For a
+typical "narrow registry rows to a wide cohort" pipeline, put the cohort
+(with bounds) in memory and the registry on the using side.
+
+{phang}
+o {bf:{opt unmatch:ed()} defaults differ.} {cmd:joinby} drops unmatched rows;
+{cmd:rangematch} defaults to {opt unmatch:ed(master)}. Specify
+{opt unmatch:ed(none)} to reproduce {cmd:joinby} semantics.
+
+{phang}
+o {bf:Missing variable bounds are handled differently.} When a {cmd:joinby}
+is followed by {cmd:keep if inrange(date, lo, hi)}, rows with missing
+{cmd:lo} or {cmd:hi} are silently dropped because every comparison against
+missing returns false. {cmd:rangematch} treats a missing bound as open-ended
+on that side, consistent with the literal {cmd:.} positional bound, so those
+rows wildcard-match every using row in the same {opt by()} group. If your
+bound variables can be missing, either drop missing-bound rows upstream or
+specify {opt miss:ing(drop)}; otherwise output may contain spurious matches.
+{opt miss:ing(error)} makes {cmd:rangematch} refuse to run when missing-bound
+rows are present.
+
+{pstd}
+{cmd:rangematch} also avoids the Cartesian blow-up of {cmd:joinby}+{cmd:keep if},
+which materializes the full within-{opt by()} Cartesian product before
+filtering. {cmd:rangematch} emits matched pairs directly through binary search
+or sweep, which is a substantial memory and time win on registry-scale datasets
+with selective intervals.
 
 {pstd}
 {bf:Endpoint closure}
@@ -487,6 +563,7 @@ specified.
 {synopt:{cmd:r(N_pairs)}}total output rows, including unmatched rows{p_end}
 {synopt:{cmd:r(N_unmatched)}}unmatched output rows{p_end}
 {synopt:{cmd:r(N_matched_pairs)}}matched output rows{p_end}
+{synopt:{cmd:r(N_missing_bounds)}}master rows with a missing variable bound for {it:low} or {it:high}{p_end}
 {synopt:{cmd:r(tolerance)}}boundary-comparison tolerance used{p_end}
 
 {p2col 5 22 26 2: Match-density scalars, only with {opt stats}}{p_end}
@@ -517,6 +594,7 @@ specified.
 {synopt:{cmd:r(suffix)}}parsed {opt s:uffix()} string{p_end}
 {synopt:{cmd:r(unmatched)}}parsed {opt unmatch:ed()} mode{p_end}
 {synopt:{cmd:r(closed)}}parsed {opt closed()} mode{p_end}
+{synopt:{cmd:r(missing)}}parsed {opt miss:ing()} mode{p_end}
 {synopt:{cmd:r(frame)}}target frame name, when {opt frame()} is used{p_end}
 {synopt:{cmd:r(saving)}}output filename, when {opt saving()} is used{p_end}
 {synopt:{cmd:r(nearest)}}parsed {opt near:est()} mode{p_end}

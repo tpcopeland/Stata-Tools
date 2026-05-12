@@ -154,7 +154,8 @@ rangematch keyvar low high using filename_or_framename [if] [in]
        masterid(name) usingid(name) maxpairs(#)
        frame(name) replace saving(filename[, replace]) stats
        closed(both|left|right|none) nearest(before|after|both)
-       tolerance(#) ties(all|first|last) assert(match|using)
+       tolerance(#) missing(wildcard|drop|error)
+       ties(all|first|last) assert(match|using)
        sort nosort dryrun count verbose]
 ```
 
@@ -202,6 +203,7 @@ rangematch event_date . 30 using `events'
 | `stats` | Display match-density diagnostics, including p50/p90/p99 matches per master row, and post match-density stored results. Core count results are posted even without `stats`. |
 | `closed(both|left|right|none)` | Control endpoint closure: `both` = `[lo,hi]`, `left` = `[lo,hi)`, `right` = `(lo,hi]`, `none` = `(lo,hi)`. |
 | `tolerance(#)` | Apply a nonnegative boundary-comparison tolerance for floating-point keys; default is `0`. |
+| `missing(wildcard|drop|error)` | Policy for master rows with a missing variable bound: `wildcard` (default) treats missing as open-ended on that side; `drop` removes those rows before matching; `error` aborts. Applies only to bound variables; literal `.` is unaffected. If `drop` empties an entire `by()` group from master, the corresponding using rows still surface under `unmatched(using|both)` and trip `assert(using)`. `r(N_master)` is the post-drop count; `r(N_master) + r(N_missing_bounds)` recovers the pre-drop count only when no `if`/`in` clause was applied. |
 | `nearest(before|after|both)` | Keep nearest using observations within the interval relative to the master key. |
 | `ties(all|first|last)` | Tie handling for `nearest()`; default is `all`. |
 | `assert(match|using)` | Abort if every master row must match (`match`), every using row must match (`using`), or both. |
@@ -222,6 +224,7 @@ rangematch event_date . 30 using `events'
 | `r(N_pairs)` | Total output rows, including unmatched rows |
 | `r(N_unmatched)` | Unmatched output rows |
 | `r(N_matched_pairs)` | Matched output rows |
+| `r(N_missing_bounds)` | Master rows with a missing variable bound for `low` or `high` |
 | `r(tolerance)` | Boundary-comparison tolerance used |
 
 | Match-density scalar, only with `stats` | Description |
@@ -254,6 +257,7 @@ rangematch event_date . 30 using `events'
 | `r(suffix)` | Parsed `suffix()` string |
 | `r(unmatched)` | Parsed `unmatched()` mode |
 | `r(closed)` | Parsed `closed()` mode |
+| `r(missing)` | Parsed `missing()` mode |
 | `r(frame)` | Target frame name, when `frame()` is used |
 | `r(saving)` | Output filename, when `saving()` is used |
 | `r(nearest)` | Parsed nearest mode |
@@ -303,6 +307,43 @@ rangematch key lo hi using file
 ```
 
 `rangematch` adds `frame()` output, using-from-frame input, scalar-offset bounds such as `-30 30`, `unmatched()` control, `nearest()`, `distance()`, and `saving()`.
+
+## Migrating from `joinby`
+
+The common `joinby`+filter pattern
+
+```stata
+joinby id using events.dta, unmatched(none)
+keep if inrange(event_date, lo, hi)
+```
+
+becomes
+
+```stata
+rangematch event_date lo hi using events.dta, by(id) unmatched(none)
+```
+
+Three things change when porting:
+
+1. **Master/using direction may flip.** `joinby` treats the in-memory dataset as master regardless of which side carries the join key. With `rangematch`, master holds the bounds and using holds the key. For a typical "narrow registry rows to a wide cohort" pipeline, put the cohort (with bounds) in memory and the registry on the using side.
+
+2. **`unmatched()` defaults differ.** `joinby` drops unmatched rows; `rangematch` defaults to `unmatched(master)`. Specify `unmatched(none)` to reproduce `joinby` semantics.
+
+3. **Missing variable bounds are handled differently.** When a `joinby` is followed by `keep if inrange(date, lo, hi)`, rows with missing `lo` or `hi` are silently dropped because every comparison against missing returns false. `rangematch` treats a missing bound as open-ended on that side, consistent with the literal `.` positional bound, so those rows wildcard-match every using row in the same `by()` group. **If your bound variables can be missing and you are porting from `joinby`+filter, drop missing-bound rows upstream or specify `missing(drop)`; otherwise output may contain spurious wildcard matches.** Use `missing(error)` to make `rangematch` refuse to run when missing-bound rows are present — the recommended setting for production registry pipelines.
+
+```stata
+* joinby pattern: missing bounds silently dropped by the inrange() filter
+joinby id using events.dta, unmatched(none)
+keep if inrange(event_date, lo, hi)
+
+* Direct rangematch port: missing lo/hi become open-ended (wildcard matches)
+rangematch event_date lo hi using events.dta, by(id) unmatched(none)
+
+* Equivalent rangematch port: missing(drop) preserves joinby+filter behavior
+rangematch event_date lo hi using events.dta, by(id) unmatched(none) missing(drop)
+```
+
+`rangematch` also avoids the Cartesian blow-up of `joinby`+`keep if`, which materializes the full within-`by()` Cartesian product before filtering. `rangematch` emits matched pairs directly through binary search or sweep, which is a substantial memory and time win on registry-scale datasets with selective intervals (see the benchmark table below).
 
 ## Benchmark
 
