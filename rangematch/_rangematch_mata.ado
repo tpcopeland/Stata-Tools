@@ -1,4 +1,4 @@
-*! _rangematch_mata Version 1.0.0  2026/05/12
+*! _rangematch_mata Version 1.0.1  2026/05/13
 *! Mata backend for rangematch: binary-search pair generation and output materialization
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -23,7 +23,7 @@ mata:
 
 string scalar _rm_mata_version()
 {
-    return("1.0.0")
+    return("1.0.1")
 }
 
 void _rm_prepare_sweep_master(

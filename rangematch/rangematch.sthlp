@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.0  12may2026}{...}
+{* *! version 1.0.1  13may2026}{...}
 {vieweralsosee "[D] merge" "help merge"}{...}
 {vieweralsosee "[D] joinby" "help joinby"}{...}
 {vieweralsosee "[D] frames" "help frames"}{...}
@@ -330,8 +330,10 @@ current data are left unchanged. Existing target frames are protected unless
 {pstd}
 The token after {cmd:using} may name an existing frame. If a frame with that
 name exists, {cmd:rangematch} copies it into an internal work frame and leaves
-the source frame unchanged. Otherwise the token is treated as a filename. The
-using frame must be different from the current frame.
+the source frame unchanged. Otherwise the token is treated as a filename; if
+the file does not exist as written, {cmd:rangematch} appends {cmd:.dta} and
+tries again (matching the behavior of {cmd:use}). The using frame must be
+different from the current frame.
 
 {pstd}
 {bf:Migrating from rangejoin}
@@ -619,7 +621,7 @@ specified.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.0.0, 12may2026{p_end}
+{pstd}Version 1.0.1, 13may2026{p_end}
 
 
 {title:Also see}

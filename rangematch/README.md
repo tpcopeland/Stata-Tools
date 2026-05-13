@@ -1,6 +1,6 @@
 # rangematch
 
-Version 1.0.0, 12may2026
+Version 1.0.1, 13may2026
 
 `rangematch` performs a range join between the dataset in memory and a using dataset or frame. It emits the joined rows themselves, using Stata frames and a Mata binary-search backend.
 
@@ -402,6 +402,10 @@ do bench_rangematch.do
 ```
 
 ## Version History
+
+### 1.0.1 (2026-05-13)
+
+- `using` filename now auto-appends `.dta` when no extension is supplied, matching Stata's `use` behavior (e.g. `... using antibiotics` works the same as `... using antibiotics.dta`).
 
 ### 1.0.0 (2026-05-12)
 

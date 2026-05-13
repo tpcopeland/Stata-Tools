@@ -25,6 +25,7 @@ local suites ///
     test_rangematch_v145.do ///
     test_rangematch_v147.do ///
     test_rangematch_v148.do ///
+    test_rangematch_v101.do ///
     test_rangematch_missing_option.do ///
     test_rangematch_missing_option_extra.do ///
     test_rangematch_adversarial.do ///

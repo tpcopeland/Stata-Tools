@@ -1,4 +1,4 @@
-*! rangematch Version 1.0.0  2026/05/12
+*! rangematch Version 1.0.1  2026/05/13
 *! Range join using Stata frames and Mata binary search
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -11,7 +11,7 @@ program define rangematch, rclass
     capture noisily {
 
     * Load Mata backend only when missing or stale.
-    local _rm_required_mata_version "1.0.0"
+    local _rm_required_mata_version "1.0.1"
     local _rm_mata_loaded ""
     capture mata: st_local("_rm_mata_loaded", _rm_mata_version())
     local _rm_mata_rc = _rc
@@ -361,7 +361,17 @@ program define rangematch, rclass
         }
     }
     else {
-        confirm file `"`using'"'
+        * Mirror Stata's `use` behavior: append .dta if no extension supplied
+        capture confirm file `"`using'"'
+        if _rc {
+            capture confirm file `"`using'.dta"'
+            if !_rc {
+                local using `"`using'.dta"'
+            }
+            else {
+                confirm file `"`using'"'
+            }
+        }
     }
 
     local N_using_pre = .
