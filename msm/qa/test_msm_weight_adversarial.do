@@ -429,6 +429,52 @@ else {
     local failed_tests "`failed_tests' WADV7"
 }
 
+* --- WADV8: representative combined-weight snapshot stays fixed ---
+local ++test_count
+capture noisily {
+    _wadv_make_panel
+
+    msm_prepare, id(id) period(period) treatment(treatment) ///
+        outcome(outcome) censor(censored) covariates(L) baseline_covariates(bl)
+    msm_weight, treat_d_cov(L bl) treat_n_cov(bl) ///
+        censor_d_cov(L bl) censor_n_cov(bl) truncate(10 90) nolog
+
+    local n_truncated = r(n_truncated)
+    local mean_weight = r(mean_weight)
+    local min_weight = r(min_weight)
+    local max_weight = r(max_weight)
+    local ess = r(ess)
+    local repairs = r(n_probability_repairs)
+
+    assert `n_truncated' == 177
+    assert abs(`mean_weight' - 0.9529898614330415) < `tol'
+    assert abs(`min_weight' - 0.5156611662660014) < `tol'
+    assert abs(`max_weight' - 1.5647614277191191) < `tol'
+    assert abs(`ess' - 807.2369832496900) < `tol'
+    assert `repairs' == 0
+
+    assert abs(_msm_tw_weight - 0.9974944973378391) < `tol' if id == 1 & period == 0
+    assert abs(_msm_cw_weight - 0.9887670482398930) < `tol' if id == 1 & period == 0
+    assert abs(_msm_weight - 0.9862896897682710) < `tol' if id == 1 & period == 0
+    assert abs(_msm_tw_weight - 0.6359360121111731) < `tol' if id == 1 & period == 4
+    assert abs(_msm_cw_weight - 1.0734940180082200) < `tol' if id == 1 & period == 4
+    assert abs(_msm_weight - 0.6826735048373475) < `tol' if id == 1 & period == 4
+    assert abs(_msm_tw_weight - 1.2602290650067010) < `tol' if id == 7 & period == 2
+    assert abs(_msm_cw_weight - 0.9795108379149934) < `tol' if id == 7 & period == 2
+    assert abs(_msm_weight - 1.2344080274295419) < `tol' if id == 7 & period == 2
+    assert abs(_msm_weight - 0.5156611662660014) < `tol' if id == 25 & period == 3
+    assert abs(_msm_weight - 0.5156611662660014) < `tol' if id == 101 & period == 4
+}
+if _rc == 0 {
+    display as result "  PASS WADV8: representative combined-weight snapshot"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL WADV8: representative combined-weight snapshot (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' WADV8"
+}
+
 display as text ""
 display as text "{hline 72}"
 display as text "Tests run: " as result `test_count'

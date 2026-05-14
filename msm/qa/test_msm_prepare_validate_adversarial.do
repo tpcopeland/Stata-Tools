@@ -338,7 +338,7 @@ else {
     local failed_tests "`failed_tests' PV8"
 }
 
-**## PV9: msm_fit rejects post-weight non-binary outcome mutations
+**## PV9: msm_fit applies model-specific binary guards after data mutation
 local ++test_count
 capture noisily {
     clear
@@ -362,18 +362,38 @@ capture noisily {
     replace outcome = 0.25 in 1
     set varabbrev on
     capture msm_fit, model(linear) period_spec(linear) nolog
-    local fit_rc = _rc
+    local linear_rc = _rc
 
-    assert `fit_rc' == 198
+    capture msm_fit, model(logistic) period_spec(linear) nolog
+    local logistic_rc = _rc
+
+    capture msm_fit, model(cox) period_spec(linear) nolog
+    local cox_rc = _rc
+
+    local _orig_treatment = treatment[2]
+    replace treatment = 0.25 in 2
+    capture msm_fit, model(linear) period_spec(linear) nolog
+    local treatment_rc = _rc
+    replace treatment = `_orig_treatment' in 2
+
+    replace censored = 0.25 in 3
+    capture msm_fit, model(linear) period_spec(linear) nolog
+    local censor_rc = _rc
+
+    assert `linear_rc' == 0
+    assert `logistic_rc' == 198
+    assert `cox_rc' == 198
+    assert `treatment_rc' == 198
+    assert `censor_rc' == 198
     assert c(varabbrev) == "on"
     set varabbrev off
 }
 if _rc == 0 {
-    display as result "PASS PV9: msm_fit rejects stale non-binary outcome"
+    display as result "PASS PV9: msm_fit model-specific binary guards"
     local ++pass_count
 }
 else {
-    display as error "FAIL PV9: stale non-binary outcome fit guard (rc=`=_rc')"
+    display as error "FAIL PV9: model-specific binary fit guards (rc=`=_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' PV9"
     set varabbrev off

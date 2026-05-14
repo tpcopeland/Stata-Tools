@@ -256,6 +256,13 @@ def _parse_args(argv: Sequence[str]):
         elif token == "--result-file":
             result_file = argv[i + 1]
             i += 2
+        elif token in ("--sheet-order", "--exact-sheets"):
+            sheet_names = []
+            i += 1
+            while i < len(argv) and not _is_option(argv[i]):
+                sheet_names.append(argv[i])
+                i += 1
+            checks.append(("sheet_order", sheet_names))
         elif token == "--quiet":
             quiet = True
             i += 1
@@ -425,7 +432,18 @@ def main(argv: Sequence[str]) -> int:
     for check in checks:
         name = check[0]
 
-        if name == "min_rows":
+        if name == "sheet_order":
+            actual = workbook.sheetnames
+            expected = check[1]
+            if actual != expected:
+                failures.append(
+                    "Expected sheet order "
+                    + ", ".join(expected)
+                    + "; found "
+                    + ", ".join(actual)
+                )
+
+        elif name == "min_rows":
             if (ws.max_row or 0) < check[1]:
                 failures.append(f"Expected at least {check[1]} rows, found {ws.max_row or 0}")
 

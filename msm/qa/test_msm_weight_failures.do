@@ -114,8 +114,21 @@ capture noisily {
     assert strpos("`models'", " treatment_denominator ") > 0
     assert strpos("`models'", " treatment_numerator ") > 0
 
+    local mean_weight = r(mean_weight)
+    local min_weight = r(min_weight)
+    local max_weight = r(max_weight)
+    local ess = r(ess)
+    assert abs(`mean_weight' - 0.9985646215520740) < 1e-8
+    assert abs(`min_weight' - 0.5556007751210694) < 1e-8
+    assert abs(`max_weight' - 1.6523702859121441) < 1e-8
+    assert abs(`ess' - 311.0122960279682) < 1e-8
+
     confirm variable _msm_weight
     confirm variable _msm_tw_weight
+    quietly summarize _msm_weight if id == 1 & period == 0, meanonly
+    assert abs(r(mean) - 0.9128774309707239) < 1e-8
+    quietly summarize _msm_weight if id == 10 & period == 3, meanonly
+    assert abs(r(mean) - 0.9839924957013462) < 1e-8
     quietly count if missing(_msm_weight)
     assert r(N) == 0
     quietly summarize _msm_weight
@@ -173,8 +186,21 @@ capture noisily {
     assert strpos("`models'", " censor_denominator ") > 0
     assert strpos("`models'", " censor_numerator ") > 0
 
+    local mean_weight = r(mean_weight)
+    local min_weight = r(min_weight)
+    local max_weight = r(max_weight)
+    local ess = r(ess)
+    assert abs(`mean_weight' - 0.9901677351754107) < 1e-8
+    assert abs(`min_weight' - 0.5340810738404568) < 1e-8
+    assert abs(`max_weight' - 1.7048779989337319) < 1e-8
+    assert abs(`ess' - 344.6795074684041) < 1e-8
+
     confirm variable _msm_weight
     confirm variable _msm_cw_weight
+    quietly summarize _msm_weight if id == 1 & period == 0, meanonly
+    assert abs(r(mean) - 0.9104605141467487) < 1e-8
+    quietly summarize _msm_weight if id == 10 & period == 3, meanonly
+    assert abs(r(mean) - 0.9994307306728258) < 1e-8
     quietly count if missing(_msm_cw_weight)
     assert r(N) == 0
     quietly summarize _msm_cw_weight

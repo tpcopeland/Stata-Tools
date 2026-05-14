@@ -59,6 +59,8 @@ program define psdash_balance, rclass
     version 16.0
     local _vao = c(varabbrev)
     set varabbrev off
+    local _psdash_side_rc = 0
+    local _psdash_return_mode ""
 
     capture noisily {
 
@@ -107,7 +109,6 @@ program define psdash_balance, rclass
         confirm numeric variable `1'
         local treatment "`1'"
         local psvar ""
-        local psvar_auto "0"
         local source "manual"
         if "`estimand'" == "" local estimand "ate"
         local wvar_auto "0"
@@ -169,7 +170,6 @@ program define psdash_balance, rclass
 
         local treatment "`_psd_treatment'"
         local psvar "`_psd_psvar'"
-        local psvar_auto "`_psd_psvar_auto'"
         local source "`_psd_source'"
         if "`estimand'" == "" local estimand "`_psd_estimand'"
         local wvar_auto "0"
@@ -736,38 +736,9 @@ program define psdash_balance, rclass
     }
 
     * =========================================================================
-    * RETURN RESULTS (binary — before graph so r() values survive graph errors)
-    * =========================================================================
-    return scalar N = `N'
-    return scalar N_treated = `n_treated'
-    return scalar N_control = `n_control'
-    return scalar max_smd_raw = `max_smd_raw'
-    return scalar max_vr_raw = `max_vr_raw'
-    if `has_adj' {
-        return scalar max_smd_adj = `max_smd_adj'
-        return scalar max_vr_adj = `max_vr_adj'
-    }
-    return scalar n_imbalanced = `n_imbalanced'
-    return scalar n_vr_imbalanced = `n_vr_imbalanced'
-    return scalar max_ks_raw = `max_ks_raw'
-    return scalar threshold = `threshold'
-    return scalar n_ps_boundary = `n_ps_boundary'
-    return scalar n_ps_near_boundary = `n_ps_near'
-    return local treatment "`treatment'"
-    return local estimand "`estimand'"
-    return local varlist "`varlist'"
-    if "`wvar'" != "" {
-        if "`wvar_auto'" == "1" {
-            return local wvar "auto-generated"
-        }
-        else {
-            return local wvar "`wvar'"
-        }
-    }
-
-    * =========================================================================
     * LOVE PLOT (binary)
     * =========================================================================
+    local graph_rc = 0
     if "`loveplot'" != "" {
         capture noisily {
             quietly {
@@ -850,42 +821,15 @@ program define psdash_balance, rclass
         local graph_rc = _rc
         if `graph_rc' {
             capture restore
-            return clear
-            return scalar N = `N'
-            return scalar N_treated = `n_treated'
-            return scalar N_control = `n_control'
-            return scalar max_smd_raw = `max_smd_raw'
-            return scalar max_vr_raw = `max_vr_raw'
-            if `has_adj' {
-                return scalar max_smd_adj = `max_smd_adj'
-                return scalar max_vr_adj = `max_vr_adj'
-            }
-            return scalar n_imbalanced = `n_imbalanced'
-            return scalar n_vr_imbalanced = `n_vr_imbalanced'
-            return scalar max_ks_raw = `max_ks_raw'
-            return scalar threshold = `threshold'
-            return scalar n_ps_boundary = `n_ps_boundary'
-            return scalar n_ps_near_boundary = `n_ps_near'
-            return local treatment "`treatment'"
-            return local estimand "`estimand'"
-            return local varlist "`varlist'"
-            if "`wvar'" != "" {
-                if "`wvar_auto'" == "1" {
-                    return local wvar "auto-generated"
-                }
-                else {
-                    return local wvar "`wvar'"
-                }
-            }
-            return matrix balance = `balance_mat'
-            exit `graph_rc'
+            local _psdash_side_rc = `graph_rc'
         }
     }
 
     * =========================================================================
     * EXPORT TO EXCEL (binary)
     * =========================================================================
-    if "`xlsx'" != "" {
+    local xlsx_rc = 0
+    if "`xlsx'" != "" & `_psdash_side_rc' == 0 {
         capture noisily {
             quietly {
                 preserve
@@ -964,41 +908,11 @@ program define psdash_balance, rclass
         local xlsx_rc = _rc
         if `xlsx_rc' {
             capture restore
-            return clear
-            return scalar N = `N'
-            return scalar N_treated = `n_treated'
-            return scalar N_control = `n_control'
-            return scalar max_smd_raw = `max_smd_raw'
-            return scalar max_vr_raw = `max_vr_raw'
-            if `has_adj' {
-                return scalar max_smd_adj = `max_smd_adj'
-                return scalar max_vr_adj = `max_vr_adj'
-            }
-            return scalar n_imbalanced = `n_imbalanced'
-            return scalar n_vr_imbalanced = `n_vr_imbalanced'
-            return scalar max_ks_raw = `max_ks_raw'
-            return scalar threshold = `threshold'
-            return scalar n_ps_boundary = `n_ps_boundary'
-            return scalar n_ps_near_boundary = `n_ps_near'
-            return local treatment "`treatment'"
-            return local estimand "`estimand'"
-            return local varlist "`varlist'"
-            if "`wvar'" != "" {
-                if "`wvar_auto'" == "1" {
-                    return local wvar "auto-generated"
-                }
-                else {
-                    return local wvar "`wvar'"
-                }
-            }
-            return matrix balance = `balance_mat'
-            exit `xlsx_rc'
+            local _psdash_side_rc = `xlsx_rc'
         }
     }
 
-    * Return matrix last — `return matrix` moves (not copies) the source,
-    * so it must run AFTER loveplot/xlsx blocks that reference `balance_mat'.
-    return matrix balance = `balance_mat'
+    local _psdash_return_mode "binary"
 
     } // end binary path
     else {
@@ -1513,38 +1427,9 @@ program define psdash_balance, rclass
     }
 
     * =====================================================================
-    * RETURN RESULTS (multi-group)
-    * =====================================================================
-    return scalar N = `N'
-    return scalar K = `K'
-    foreach lev of local levels {
-        return scalar N_group_`lev' = `n_group_`lev''
-    }
-    return scalar max_smd_raw = `max_smd_raw'
-    if `has_adj' {
-        return scalar max_smd_adj = `max_smd_adj'
-    }
-    return scalar n_imbalanced = `n_imbalanced'
-    return scalar n_vr_imbalanced = `n_vr_imbalanced'
-    return scalar max_ks_raw = `max_ks_raw'
-    return scalar threshold = `threshold'
-    return local treatment "`treatment'"
-    return local estimand "`estimand'"
-    return local varlist "`varlist'"
-    return local levels "`levels'"
-    return local reference "`mg_reference'"
-    if "`wvar'" != "" {
-        if "`wvar_auto'" == "1" {
-            return local wvar "auto-generated"
-        }
-        else {
-            return local wvar "`wvar'"
-        }
-    }
-
-    * =====================================================================
     * LOVE PLOT (multi-group)
     * =====================================================================
+    local graph_rc = 0
     if "`loveplot'" != "" {
         capture noisily {
             quietly {
@@ -1647,42 +1532,15 @@ program define psdash_balance, rclass
         local graph_rc = _rc
         if `graph_rc' {
             capture restore
-            return clear
-            return scalar N = `N'
-            return scalar K = `K'
-            foreach lev of local levels {
-                return scalar N_group_`lev' = `n_group_`lev''
-            }
-            return scalar max_smd_raw = `max_smd_raw'
-            if `has_adj' {
-                return scalar max_smd_adj = `max_smd_adj'
-            }
-            return scalar n_imbalanced = `n_imbalanced'
-            return scalar n_vr_imbalanced = `n_vr_imbalanced'
-            return scalar max_ks_raw = `max_ks_raw'
-            return scalar threshold = `threshold'
-            return local treatment "`treatment'"
-            return local estimand "`estimand'"
-            return local varlist "`varlist'"
-            return local levels "`levels'"
-            return local reference "`mg_reference'"
-            if "`wvar'" != "" {
-                if "`wvar_auto'" == "1" {
-                    return local wvar "auto-generated"
-                }
-                else {
-                    return local wvar "`wvar'"
-                }
-            }
-            return matrix balance = `balance_mat'
-            exit `graph_rc'
+            local _psdash_side_rc = `graph_rc'
         }
     }
 
     * =====================================================================
     * EXPORT TO EXCEL (multi-group)
     * =====================================================================
-    if "`xlsx'" != "" {
+    local xlsx_rc = 0
+    if "`xlsx'" != "" & `_psdash_side_rc' == 0 {
         capture noisily {
             quietly {
                 preserve
@@ -1703,7 +1561,6 @@ program define psdash_balance, rclass
 
                 * Generate string columns dynamically
                 gen str80 col_1 = ""
-                local colnum = 1
                 local max_xl_col = `xl_ncols'
                 forvalues c = 2/`max_xl_col' {
                     gen str20 col_`c' = ""
@@ -1782,7 +1639,53 @@ program define psdash_balance, rclass
         local xlsx_rc = _rc
         if `xlsx_rc' {
             capture restore
-            return clear
+            local _psdash_side_rc = `xlsx_rc'
+        }
+    }
+
+    local _psdash_return_mode "multigroup"
+
+    } // end multi-group path
+
+    } // end capture noisily
+
+    local rc = _rc
+    set varabbrev `_vao'
+    if `rc' == 0 & "`_psdash_return_mode'" != "" {
+        if `_psdash_side_rc' {
+            local rc = `_psdash_side_rc'
+        }
+        return clear
+        if "`_psdash_return_mode'" == "binary" {
+            return scalar N = `N'
+            return scalar N_treated = `n_treated'
+            return scalar N_control = `n_control'
+            return scalar max_smd_raw = `max_smd_raw'
+            return scalar max_vr_raw = `max_vr_raw'
+            if `has_adj' {
+                return scalar max_smd_adj = `max_smd_adj'
+                return scalar max_vr_adj = `max_vr_adj'
+            }
+            return scalar n_imbalanced = `n_imbalanced'
+            return scalar n_vr_imbalanced = `n_vr_imbalanced'
+            return scalar max_ks_raw = `max_ks_raw'
+            return scalar threshold = `threshold'
+            return scalar n_ps_boundary = `n_ps_boundary'
+            return scalar n_ps_near_boundary = `n_ps_near'
+            return local treatment "`treatment'"
+            return local estimand "`estimand'"
+            return local varlist "`varlist'"
+            if "`wvar'" != "" {
+                if "`wvar_auto'" == "1" {
+                    return local wvar "auto-generated"
+                }
+                else {
+                    return local wvar "`wvar'"
+                }
+            }
+            return matrix balance = `balance_mat'
+        }
+        else if "`_psdash_return_mode'" == "multigroup" {
             return scalar N = `N'
             return scalar K = `K'
             foreach lev of local levels {
@@ -1810,18 +1713,7 @@ program define psdash_balance, rclass
                 }
             }
             return matrix balance = `balance_mat'
-            exit `xlsx_rc'
         }
     }
-
-    * Return matrix last
-    return matrix balance = `balance_mat'
-
-    } // end multi-group path
-
-    } // end capture noisily
-
-    local rc = _rc
-    set varabbrev `_vao'
     if `rc' exit `rc'
 end

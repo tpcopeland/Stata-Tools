@@ -61,12 +61,34 @@ program define msm_fit, eclass
     local outcome    "`_msm_outcome'"
     local censor     "`_msm_censor'"
 
+    * =========================================================================
+    * DEFAULTS
+    * =========================================================================
+
+    if "`model'" == "" local model "logistic"
+    if "`period_spec'" == "" local period_spec "quadratic"
+
+    * Validate model type before model-specific outcome checks.
+    if !inlist("`model'", "logistic", "linear", "cox") {
+        display as error "model() must be logistic, linear, or cox"
+        exit 198
+    }
+
     * Re-check mapped binary variables in case the caller modified data after
-    * prepare/weight; stale metadata must not authorize a different target.
-    foreach var in `treatment' `outcome' {
-        quietly count if !missing(`var') & !inlist(`var', 0, 1)
+    * prepare/weight; stale metadata must not authorize a different treatment
+    * or binary-event target. Linear MSMs may intentionally use a continuous
+    * outcome while still relying on prepared treatment/weight metadata.
+    quietly count if !missing(`treatment') & !inlist(`treatment', 0, 1)
+    if r(N) > 0 {
+        display as error "prepared MSM variable `treatment' must be binary (0/1); found " ///
+            r(N) " non-binary values"
+        display as error "Re-run {bf:msm_prepare} after correcting or remapping variables."
+        exit 198
+    }
+    if inlist("`model'", "logistic", "cox") {
+        quietly count if !missing(`outcome') & !inlist(`outcome', 0, 1)
         if r(N) > 0 {
-            display as error "prepared MSM variable `var' must be binary (0/1); found " ///
+            display as error "prepared MSM variable `outcome' must be binary (0/1); found " ///
                 r(N) " non-binary values"
             display as error "Re-run {bf:msm_prepare} after correcting or remapping variables."
             exit 198
@@ -80,19 +102,6 @@ program define msm_fit, eclass
             display as error "Re-run {bf:msm_prepare} after correcting or remapping variables."
             exit 198
         }
-    }
-
-    * =========================================================================
-    * DEFAULTS
-    * =========================================================================
-
-    if "`model'" == "" local model "logistic"
-    if "`period_spec'" == "" local period_spec "quadratic"
-
-    * Validate model type
-    if !inlist("`model'", "logistic", "linear", "cox") {
-        display as error "model() must be logistic, linear, or cox"
-        exit 198
     }
 
     if "`strata'" != "" & "`model'" != "cox" {

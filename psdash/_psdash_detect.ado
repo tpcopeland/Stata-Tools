@@ -358,16 +358,12 @@ program define _psdash_detect
 
         * Find the treatment model equation (second parenthesized group)
         * First, find the position after the first closing paren
-        local rest "`cmdline'"
-        local found_first = 0
-        local found_second = 0
         local tmodel_contents ""
 
         * future: prefer e(tvar)/e(treat_varlist) accessors once teffects populates them
         * Count parens to find second group
         local paren_depth = 0
         local group_num = 0
-        local in_group = 0
         local tmodel_start = 0
         local tmodel_end = 0
 

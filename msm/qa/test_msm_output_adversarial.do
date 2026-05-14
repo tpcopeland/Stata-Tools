@@ -147,6 +147,35 @@ else {
     set varabbrev off
 }
 
+* --- OUTADV4: msm_table restores data after failed Excel export ---
+local ++test_count
+capture noisily {
+    _outadv_setup_pipeline
+    set varabbrev on
+
+    capture msm_table, xlsx("/tmp/msm_missing_dir/table.xlsx") all replace
+    local table_rc = _rc
+
+    assert `table_rc' != 0
+    assert c(varabbrev) == "on"
+    _outadv_assert_pipeline_intact
+    assert "`: char _dta[_msm_pred_saved]'" == "1"
+    assert "`: char _dta[_msm_bal_saved]'" == "1"
+    assert "`: char _dta[_msm_diag_saved]'" == "1"
+    assert "`: char _dta[_msm_sens_saved]'" == "1"
+    set varabbrev off
+}
+if _rc == 0 {
+    display as result "PASS OUTADV4: msm_table failed export restores dataset"
+    local ++pass_count
+}
+else {
+    display as error "FAIL OUTADV4: msm_table failed export restoration (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' OUTADV4"
+    set varabbrev off
+}
+
 display as text ""
 display as text "{hline 72}"
 display as text "Tests run: " as result `test_count'

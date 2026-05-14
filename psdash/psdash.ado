@@ -19,6 +19,8 @@ program define psdash, rclass
     version 16.0
     local _vao = c(varabbrev)
     set varabbrev off
+    local _psdash_side_rc = 0
+    local _psdash_return_add = 0
     capture noisily {
 
         gettoken subcmd 0 : 0, parse(" ,")
@@ -36,7 +38,10 @@ program define psdash, rclass
         }
 
         if `is_subcmd' {
-            psdash_`subcmd' `0'
+            return clear
+            capture noisily psdash_`subcmd' `0'
+            local _psdash_side_rc = _rc
+            local _psdash_return_add = 1
         }
         else {
             display as error "unknown psdash subcommand: `subcmd'"
@@ -44,10 +49,15 @@ program define psdash, rclass
             exit 198
         }
 
-        return add
     }
     local rc = _rc
     set varabbrev `_vao'
+    if `rc' == 0 & `_psdash_return_add' {
+        return add
+    }
+    if `rc' == 0 & `_psdash_side_rc' {
+        local rc = `_psdash_side_rc'
+    }
     if `rc' exit `rc'
 end
 

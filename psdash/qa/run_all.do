@@ -8,6 +8,7 @@ local skip = 0
 
 local suite_files test_psdash.do validation_psdash.do validation_known_answers.do ///
     crossval_psdash.do crossval_python_psdash.do crossval_external_references.do ///
+    test_refactor_return_contracts.do test_refactor_graph_export_failures.do ///
     test_multigroup_detect.do test_multigroup_overlap_support.do ///
     test_multigroup_balance_weights.do ///
     test_adversarial.do test_detect_dispatch_adversarial.do ///

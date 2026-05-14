@@ -47,6 +47,14 @@ f msm_sensitivity.ado
 f msm_sensitivity.sthlp
 f msm_table.ado
 f msm_table.sthlp
+f _msm_tbl_coef.ado
+f _msm_tbl_pred.ado
+f _msm_tbl_bal.ado
+f _msm_tbl_wt.ado
+f _msm_tbl_sens.ado
+f _msm_coef_display_name.ado
+f _msm_coef_pvalue_string.ado
+f _msm_coef_scale_label.ado
 f _msm_clear_downstream_state.ado
 f _msm_check_prepared.ado
 f _msm_check_weighted.ado
@@ -57,4 +65,9 @@ f _msm_pipeline_state.ado
 f _msm_post_export_open.ado
 f _msm_smd.ado
 f _msm_col_letter.ado
+f _msm_xlsx_colwidths.ado
+f _msm_xlsx_footnote.ado
+f _msm_xlsx_put_number.ado
+f _msm_xlsx_title_header_style.ado
+f _msm_xlsx_zebra.ado
 f msm_example.dta

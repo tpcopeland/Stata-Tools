@@ -59,6 +59,9 @@ capture noisily {
     assert `pred_rc' == 2000
     assert c(varabbrev) == "on"
     assert "`: char _dta[_msm_pred_saved]'" == ""
+    assert "`: char _dta[_msm_pred_type]'" == ""
+    assert "`: char _dta[_msm_pred_strategy]'" == ""
+    assert "`: char _dta[_msm_pred_level]'" == ""
     capture matrix list _msm_pred_matrix
     assert _rc != 0
     set varabbrev off
@@ -218,6 +221,56 @@ else {
     local ++fail_count
     local failed_tests "`failed_tests' SG5"
     capture set maxiter 16000
+}
+
+**# State Inventory
+**## Full pipeline writes the selected downstream state surface
+local ++test_count
+capture noisily {
+    _guard_setup_fitted
+    msm_predict, times(1 3 5) difference samples(10) seed(90211)
+    msm_diagnose, balance_covariates(biomarker comorbidity age sex) threshold(0.1)
+    msm_sensitivity, evalue
+
+    assert "`: char _dta[_msm_prepared]'" == "1"
+    assert "`: char _dta[_msm_weighted]'" == "1"
+    assert "`: char _dta[_msm_weight_var]'" == "_msm_weight"
+    assert "`: char _dta[_msm_fitted]'" == "1"
+    assert "`: char _dta[_msm_model]'" == "logistic"
+    assert "`: char _dta[_msm_fit_level]'" == "95"
+    assert "`: char _dta[_msm_pred_saved]'" == "1"
+    assert "`: char _dta[_msm_pred_type]'" == "cum_inc"
+    assert "`: char _dta[_msm_pred_strategy]'" == "both"
+    assert "`: char _dta[_msm_pred_level]'" == "95"
+    assert "`: char _dta[_msm_bal_saved]'" == "1"
+    local bal_threshold : char _dta[_msm_bal_threshold]
+    assert abs(real("`bal_threshold'") - 0.1) < 1e-12
+    assert "`: char _dta[_msm_diag_saved]'" == "1"
+    assert "`: char _dta[_msm_diag_mean]'" != ""
+    assert "`: char _dta[_msm_diag_p50]'" != ""
+    assert "`: char _dta[_msm_diag_ess]'" != ""
+    assert "`: char _dta[_msm_sens_saved]'" == "1"
+    assert "`: char _dta[_msm_sens_effect]'" != ""
+    assert "`: char _dta[_msm_sens_evalue_point]'" != ""
+    assert "`: char _dta[_msm_sens_level]'" == "95"
+
+    msm, status
+    assert r(prepared) == 1
+    assert r(weighted) == 1
+    assert r(fitted) == 1
+    assert r(prediction_saved) == 1
+    assert r(balance_saved) == 1
+    assert r(diagnostics_saved) == 1
+    assert r(sensitivity_saved) == 1
+}
+if _rc == 0 {
+    display as result "PASS SG6: full pipeline state inventory is populated"
+    local ++pass_count
+}
+else {
+    display as error "FAIL SG6: full pipeline state inventory (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' SG6"
 }
 
 **# Summary

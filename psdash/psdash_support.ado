@@ -69,6 +69,8 @@ program define psdash_support, rclass
     version 16.0
     local _vao = c(varabbrev)
     set varabbrev off
+    local _psdash_side_rc = 0
+    local _psdash_return_mode ""
 
     capture noisily {
 
@@ -479,34 +481,8 @@ program define psdash_support, rclass
             as text " (" as result %4.1f `pct_outside' as text "% outside support)"
     }
 
-    * RETURN RESULTS (before graph so r() values survive graph errors)
-    return scalar N = `N'
-    return scalar N_treated = `n_treated'
-    return scalar N_control = `n_control'
-    return scalar lower_bound = `lower_bound'
-    return scalar upper_bound = `upper_bound'
-    return scalar n_outside = `n_outside'
-    return scalar pct_outside = `pct_outside'
-    return scalar n_outside_treated = `n_outside_t'
-    return scalar n_outside_control = `n_outside_c'
-
-    if `has_trimming' {
-        return scalar trim_lower = `trim_lower'
-        return scalar trim_upper = `trim_upper'
-        return scalar n_trimmed = `n_trimmed'
-        return scalar pct_trimmed = `pct_trimmed'
-        if "`crump'" != "" {
-            return scalar crump_alpha = `crump_alpha'
-        }
-    }
-
-    return scalar n_ps_boundary = `n_ps_boundary'
-    return scalar n_ps_near_boundary = `n_ps_near'
-    return local treatment "`treatment'"
-    return local psvar "`psvar_label'"
-    return local estimand "`estimand'"
-
     * GRAPH
+    local graph_rc = 0
     if "`nograph'" == "" {
         capture noisily {
             quietly {
@@ -539,33 +515,11 @@ program define psdash_support, rclass
         }
         local graph_rc = _rc
         if `graph_rc' {
-            return clear
-            return scalar N = `N'
-            return scalar N_treated = `n_treated'
-            return scalar N_control = `n_control'
-            return scalar lower_bound = `lower_bound'
-            return scalar upper_bound = `upper_bound'
-            return scalar n_outside = `n_outside'
-            return scalar pct_outside = `pct_outside'
-            return scalar n_outside_treated = `n_outside_t'
-            return scalar n_outside_control = `n_outside_c'
-            if `has_trimming' {
-                return scalar trim_lower = `trim_lower'
-                return scalar trim_upper = `trim_upper'
-                return scalar n_trimmed = `n_trimmed'
-                return scalar pct_trimmed = `pct_trimmed'
-                if "`crump'" != "" {
-                    return scalar crump_alpha = `crump_alpha'
-                }
-            }
-            return scalar n_ps_boundary = `n_ps_boundary'
-            return scalar n_ps_near_boundary = `n_ps_near'
-            return local treatment "`treatment'"
-            return local psvar "`psvar_label'"
-            return local estimand "`estimand'"
-            exit `graph_rc'
+            local _psdash_side_rc = `graph_rc'
         }
     }
+
+    local _psdash_return_mode "binary"
 
     }
     else {
@@ -847,34 +801,8 @@ program define psdash_support, rclass
             as text " (" as result %4.1f `pct_outside' as text "% outside support)"
     }
 
-    * RETURN RESULTS (before graph so r() values survive graph errors)
-    return scalar N = `N'
-    return scalar K = `K'
-    foreach lev of local levels {
-        return scalar N_group_`lev' = `n_group_`lev''
-        return scalar n_outside_group_`lev' = `n_outside_`lev''
-    }
-    return scalar lower_bound = `lower_bound'
-    return scalar upper_bound = `upper_bound'
-    return scalar n_outside = `n_outside'
-    return scalar pct_outside = `pct_outside'
-
-    if `has_trimming' {
-        return scalar trim_lower = `trim_lower'
-        return scalar trim_upper = `trim_upper'
-        return scalar n_trimmed = `n_trimmed'
-        return scalar pct_trimmed = `pct_trimmed'
-    }
-
-    return scalar n_ps_boundary = `n_ps_boundary'
-    return scalar n_ps_near_boundary = `n_ps_near'
-    return local treatment "`treatment'"
-    return local psvar "`psvar_label'"
-    return local levels "`levels'"
-    return local reference "`reference_grp'"
-    return local estimand "`estimand'"
-
     * GRAPH
+    local graph_rc = 0
     if "`nograph'" == "" {
         capture noisily {
             quietly {
@@ -918,8 +846,48 @@ program define psdash_support, rclass
         }
         local graph_rc = _rc
         if `graph_rc' {
-            * Re-post r() after graph failure
-            return clear
+            local _psdash_side_rc = `graph_rc'
+        }
+    }
+
+    local _psdash_return_mode "multigroup"
+
+    }
+
+    }
+    local rc = _rc
+    set varabbrev `_vao'
+    if `rc' == 0 & "`_psdash_return_mode'" != "" {
+        if `_psdash_side_rc' {
+            local rc = `_psdash_side_rc'
+        }
+        return clear
+        if "`_psdash_return_mode'" == "binary" {
+            return scalar N = `N'
+            return scalar N_treated = `n_treated'
+            return scalar N_control = `n_control'
+            return scalar lower_bound = `lower_bound'
+            return scalar upper_bound = `upper_bound'
+            return scalar n_outside = `n_outside'
+            return scalar pct_outside = `pct_outside'
+            return scalar n_outside_treated = `n_outside_t'
+            return scalar n_outside_control = `n_outside_c'
+            if `has_trimming' {
+                return scalar trim_lower = `trim_lower'
+                return scalar trim_upper = `trim_upper'
+                return scalar n_trimmed = `n_trimmed'
+                return scalar pct_trimmed = `pct_trimmed'
+                if "`crump'" != "" {
+                    return scalar crump_alpha = `crump_alpha'
+                }
+            }
+            return scalar n_ps_boundary = `n_ps_boundary'
+            return scalar n_ps_near_boundary = `n_ps_near'
+            return local treatment "`treatment'"
+            return local psvar "`psvar_label'"
+            return local estimand "`estimand'"
+        }
+        else if "`_psdash_return_mode'" == "multigroup" {
             return scalar N = `N'
             return scalar K = `K'
             foreach lev of local levels {
@@ -943,14 +911,7 @@ program define psdash_support, rclass
             return local levels "`levels'"
             return local reference "`reference_grp'"
             return local estimand "`estimand'"
-            exit `graph_rc'
         }
     }
-
-    }
-
-    }
-    local rc = _rc
-    set varabbrev `_vao'
     if `rc' exit `rc'
 end

@@ -1012,19 +1012,47 @@ capture noisily {
     tempname r2
     matrix `r2' = r(predictions)
 
-    * Point estimates should match exactly
-    assert abs(`r1'[1,2] - `r2'[1,2]) < 0.0001
-    assert abs(`r1'[2,2] - `r2'[2,2]) < 0.0001
-    assert abs(`r1'[1,5] - `r2'[1,5]) < 0.0001
+    * Point estimates and Monte Carlo CI columns should match exactly
+    assert rowsof(`r1') == rowsof(`r2')
+    assert colsof(`r1') == colsof(`r2')
+    forvalues i = 1/`=rowsof(`r1')' {
+        forvalues j = 1/`=colsof(`r1')' {
+            assert abs(`r1'[`i',`j'] - `r2'[`i',`j']) < 1e-12
+        }
+    }
 }
 if _rc == 0 {
-    display as result "  PASS F5: msm_predict seed reproducibility"
+    display as result "  PASS F5: msm_predict seeded CI reproducibility"
     local ++pass_count
 }
 else {
-    display as error "  FAIL F5: msm_predict seed reproducibility (rc=`=_rc')"
+    display as error "  FAIL F5: msm_predict seeded CI reproducibility (rc=`=_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' F5"
+}
+
+* --- F5b: no seed reports session RNG state and advances RNG ---
+local ++test_count
+capture noisily {
+    _setup_pipeline, nolog fit
+    set seed 987654
+    local seed_before `"`c(seed)'"'
+    msm_predict, times(1 3) samples(10)
+    local seed_after `"`c(seed)'"'
+
+    assert "`r(seed_source)'" == "session_rng_state"
+    assert `"`r(seed)'"' == `"`seed_before'"'
+    assert `"`r(seed_state)'"' == `"`seed_before'"'
+    assert `"`seed_after'"' != `"`seed_before'"'
+}
+if _rc == 0 {
+    display as result "  PASS F5b: msm_predict no-seed RNG reporting"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL F5b: msm_predict no-seed RNG reporting (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' F5b"
 }
 
 * --- F6: samples(10) minimum ---

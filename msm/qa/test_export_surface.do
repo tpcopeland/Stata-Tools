@@ -23,6 +23,11 @@ capture mkdir "`work_dir'"
 local report_xlsx "`work_dir'/report_surface.xlsx"
 local table_all_xlsx "`work_dir'/table_surface_all.xlsx"
 local table_coef_xlsx "`work_dir'/table_surface_coef.xlsx"
+local table_default_xlsx "`work_dir'/table_surface_default.xlsx"
+local table_pred_xlsx "`work_dir'/table_surface_pred.xlsx"
+local table_bal_wt_xlsx "`work_dir'/table_surface_bal_wt.xlsx"
+local table_sens_xlsx "`work_dir'/table_surface_sens.xlsx"
+local table_nclass_xlsx "`work_dir'/table_surface_nclass.xlsx"
 
 capture program drop _setup_export_surface
 program define _setup_export_surface
@@ -162,6 +167,22 @@ else {
     display as error "  FAIL X4: msm_table all-sheets export (rc=`=_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' X4"
+}
+
+local ++test_count
+tempfile x4b_status
+capture noisily shell python3 "`tools_dir'/check_xlsx.py" "`table_all_xlsx'" ///
+    --sheet-order Coefficients Predictions Balance Weights Sensitivity ///
+    --result-file "`x4b_status'"
+quietly _read_check_status "`x4b_status'"
+if "`r(status)'" == "PASS" {
+    display as result "  PASS X4b: msm_table all sheet order"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL X4b: msm_table all sheet order"
+    local ++fail_count
+    local failed_tests "`failed_tests' X4b"
 }
 
 local ++test_count
@@ -332,6 +353,172 @@ else {
     local failed_tests "`failed_tests' X10"
 }
 
+local ++test_count
+tempfile x10b_status
+capture noisily shell python3 "`tools_dir'/check_xlsx.py" "`table_coef_xlsx'" ///
+    --sheet-order Coefficients ///
+    --result-file "`x10b_status'"
+quietly _read_check_status "`x10b_status'"
+if "`r(status)'" == "PASS" {
+    display as result "  PASS X10b: msm_table coefficients-only sheet order"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL X10b: msm_table coefficients-only sheet order"
+    local ++fail_count
+    local failed_tests "`failed_tests' X10b"
+}
+
+capture erase "`table_default_xlsx'"
+local ++test_count
+capture noisily msm_table, xlsx("`table_default_xlsx'") replace
+if _rc == 0 {
+    capture confirm file "`table_default_xlsx'"
+}
+if _rc == 0 {
+    display as result "  PASS X10c: msm_table default auto export"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL X10c: msm_table default auto export (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' X10c"
+}
+
+local ++test_count
+tempfile x10d_status
+capture noisily shell python3 "`tools_dir'/check_xlsx.py" "`table_default_xlsx'" ///
+    --sheet-order Coefficients Predictions Balance Weights Sensitivity ///
+    --result-file "`x10d_status'"
+quietly _read_check_status "`x10d_status'"
+if "`r(status)'" == "PASS" {
+    display as result "  PASS X10d: msm_table default sheet order"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL X10d: msm_table default sheet order"
+    local ++fail_count
+    local failed_tests "`failed_tests' X10d"
+}
+
+capture erase "`table_pred_xlsx'"
+local ++test_count
+capture noisily msm_table, xlsx("`table_pred_xlsx'") predictions replace
+if _rc == 0 {
+    capture confirm file "`table_pred_xlsx'"
+}
+if _rc == 0 {
+    display as result "  PASS X10e: msm_table predictions-only export"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL X10e: msm_table predictions-only export (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' X10e"
+}
+
+local ++test_count
+tempfile x10f_status
+capture noisily shell python3 "`tools_dir'/check_xlsx.py" "`table_pred_xlsx'" ///
+    --sheet-order Predictions ///
+    --result-file "`x10f_status'"
+quietly _read_check_status "`x10f_status'"
+if "`r(status)'" == "PASS" {
+    display as result "  PASS X10f: msm_table predictions-only sheet order"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL X10f: msm_table predictions-only sheet order"
+    local ++fail_count
+    local failed_tests "`failed_tests' X10f"
+}
+
+capture erase "`table_bal_wt_xlsx'"
+local ++test_count
+capture noisily msm_table, xlsx("`table_bal_wt_xlsx'") balance weights replace
+if _rc == 0 {
+    capture confirm file "`table_bal_wt_xlsx'"
+}
+if _rc == 0 {
+    display as result "  PASS X10g: msm_table balance+weights export"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL X10g: msm_table balance+weights export (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' X10g"
+}
+
+local ++test_count
+tempfile x10h_status
+capture noisily shell python3 "`tools_dir'/check_xlsx.py" "`table_bal_wt_xlsx'" ///
+    --sheet-order Balance Weights ///
+    --result-file "`x10h_status'"
+quietly _read_check_status "`x10h_status'"
+if "`r(status)'" == "PASS" {
+    display as result "  PASS X10h: msm_table balance+weights sheet order"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL X10h: msm_table balance+weights sheet order"
+    local ++fail_count
+    local failed_tests "`failed_tests' X10h"
+}
+
+capture erase "`table_sens_xlsx'"
+local ++test_count
+capture noisily msm_table, xlsx("`table_sens_xlsx'") sensitivity replace
+if _rc == 0 {
+    capture confirm file "`table_sens_xlsx'"
+}
+if _rc == 0 {
+    display as result "  PASS X10i: msm_table sensitivity-only export"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL X10i: msm_table sensitivity-only export (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' X10i"
+}
+
+local ++test_count
+tempfile x10j_status
+capture noisily shell python3 "`tools_dir'/check_xlsx.py" "`table_sens_xlsx'" ///
+    --sheet-order Sensitivity ///
+    --result-file "`x10j_status'"
+quietly _read_check_status "`x10j_status'"
+if "`r(status)'" == "PASS" {
+    display as result "  PASS X10j: msm_table sensitivity-only sheet order"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL X10j: msm_table sensitivity-only sheet order"
+    local ++fail_count
+    local failed_tests "`failed_tests' X10j"
+}
+
+capture erase "`table_nclass_xlsx'"
+local ++test_count
+capture noisily {
+    return clear
+    msm_table, xlsx("`table_nclass_xlsx'") coefficients replace
+    mata: st_local("r_n_scalars", strofreal(rows(st_dir("r()", "numscalar", "*"))))
+    mata: st_local("r_n_macros", strofreal(rows(st_dir("r()", "macro", "*"))))
+    mata: st_local("r_n_matrices", strofreal(rows(st_dir("r()", "matrix", "*"))))
+    assert `r_n_scalars' == 0
+    assert `r_n_macros' == 0
+    assert `r_n_matrices' == 0
+}
+if _rc == 0 {
+    display as result "  PASS X10k: msm_table leaves no r() return surface"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL X10k: msm_table r() return surface (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' X10k"
+}
+
 local protocol_csv "`work_dir'/protocol_surface.csv"
 local protocol_xlsx "`work_dir'/protocol_surface.xlsx"
 local protocol_tex "`work_dir'/protocol_surface.tex"
@@ -436,6 +623,24 @@ else {
     local failed_tests "`failed_tests' X13"
 }
 
+local ++test_count
+capture noisily {
+    local root_logs : dir "`pkg_dir'" files "*.log"
+    local root_smcl : dir "`pkg_dir'" files "*.smcl"
+    local root_xlsx : dir "`pkg_dir'" files "*.xlsx"
+    local n_root_artifacts = wordcount(`"`root_logs' `root_smcl' `root_xlsx'"')
+    assert `n_root_artifacts' == 0
+}
+if _rc == 0 {
+    display as result "  PASS X14: export QA leaves no root logs or workbooks"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL X14: root artifact hygiene (rc=`=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' X14"
+}
+
 display as text ""
 display as text "========================================"
 display as text "EXPORT SURFACE QA SUMMARY"
@@ -451,6 +656,11 @@ if `fail_count' > 0 {
 capture erase "`report_xlsx'"
 capture erase "`table_all_xlsx'"
 capture erase "`table_coef_xlsx'"
+capture erase "`table_default_xlsx'"
+capture erase "`table_pred_xlsx'"
+capture erase "`table_bal_wt_xlsx'"
+capture erase "`table_sens_xlsx'"
+capture erase "`table_nclass_xlsx'"
 capture erase "`protocol_csv'"
 capture erase "`protocol_xlsx'"
 capture erase "`protocol_tex'"

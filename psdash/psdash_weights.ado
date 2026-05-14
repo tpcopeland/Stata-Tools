@@ -67,6 +67,8 @@ program define psdash_weights, rclass
     version 16.0
     local _vao = c(varabbrev)
     set varabbrev off
+    local _psdash_side_rc = 0
+    local _psdash_return_mode ""
 
     capture noisily {
 
@@ -113,7 +115,6 @@ program define psdash_weights, rclass
         confirm numeric variable `1'
         local treatment "`1'"
         local psvar ""
-        local psvar_auto "0"
         local source "manual"
         if "`estimand'" == "" local estimand "ate"
         local wvar_auto "0"
@@ -179,7 +180,6 @@ program define psdash_weights, rclass
 
         local treatment "`_psd_treatment'"
         local psvar "`_psd_psvar'"
-        local psvar_auto "`_psd_psvar_auto'"
         local source "`_psd_source'"
         if "`estimand'" == "" local estimand "`_psd_estimand'"
         local wvar_auto "0"
@@ -657,51 +657,7 @@ program define psdash_weights, rclass
             as result %14.1f `ess_pct' "%" %14.1f `new_ess_pct' "%"
         display as text "{hline 70}"
 
-        return scalar new_mean = `new_mean'
-        return scalar new_sd = `new_sd'
-        return scalar new_min = `new_min'
-        return scalar new_max = `new_max'
-        return scalar new_cv = `new_cv'
-        return scalar new_ess = `new_ess'
-        return scalar new_ess_pct = `new_ess_pct'
-        return local generate "`generate'"
     }
-
-    * =========================================================================
-    * RETURN RESULTS (binary — before graph so r() values survive graph errors)
-    * =========================================================================
-    return scalar N = `N'
-    return scalar N_treated = `n_treated'
-    return scalar N_control = `n_control'
-    return scalar mean_wt = `mean_wt'
-    return scalar sd_wt = `sd_wt'
-    return scalar min_wt = `min_wt'
-    return scalar max_wt = `max_wt'
-    return scalar cv = `cv'
-    return scalar ess = `ess'
-    return scalar ess_pct = `ess_pct'
-    return scalar ess_treated = `ess_t'
-    return scalar ess_control = `ess_c'
-    return scalar ess_pct_treated = `ess_pct_t'
-    return scalar ess_pct_control = `ess_pct_c'
-    return scalar n_extreme = `n_extreme'
-    return scalar pct_extreme = `pct_extreme'
-    return scalar p1 = `p1'
-    return scalar p5 = `p5'
-    return scalar p95 = `p95'
-    return scalar p99 = `p99'
-    if "`psvar'" != "" {
-        return scalar n_ps_boundary = `n_ps_boundary'
-        return scalar n_ps_near_boundary = `n_ps_near'
-    }
-    if "`wvar_auto'" == "1" {
-        return local wvar "auto-generated"
-    }
-    else {
-        return local wvar "`wvar'"
-    }
-    return local treatment "`treatment'"
-    return local estimand "`estimand'"
 
     * =========================================================================
     * WEIGHT DISTRIBUTION GRAPH (binary)
@@ -715,6 +671,7 @@ program define psdash_weights, rclass
         }
     }
 
+    local graph_rc = 0
     if "`graph'" != "" {
         capture noisily {
             quietly {
@@ -751,52 +708,11 @@ program define psdash_weights, rclass
         }
         local graph_rc = _rc
         if `graph_rc' {
-            return clear
-            if "`generate'" != "" {
-                return scalar new_mean = `new_mean'
-                return scalar new_sd = `new_sd'
-                return scalar new_min = `new_min'
-                return scalar new_max = `new_max'
-                return scalar new_cv = `new_cv'
-                return scalar new_ess = `new_ess'
-                return scalar new_ess_pct = `new_ess_pct'
-                return local generate "`generate'"
-            }
-            return scalar N = `N'
-            return scalar N_treated = `n_treated'
-            return scalar N_control = `n_control'
-            return scalar mean_wt = `mean_wt'
-            return scalar sd_wt = `sd_wt'
-            return scalar min_wt = `min_wt'
-            return scalar max_wt = `max_wt'
-            return scalar cv = `cv'
-            return scalar ess = `ess'
-            return scalar ess_pct = `ess_pct'
-            return scalar ess_treated = `ess_t'
-            return scalar ess_control = `ess_c'
-            return scalar ess_pct_treated = `ess_pct_t'
-            return scalar ess_pct_control = `ess_pct_c'
-            return scalar n_extreme = `n_extreme'
-            return scalar pct_extreme = `pct_extreme'
-            return scalar p1 = `p1'
-            return scalar p5 = `p5'
-            return scalar p95 = `p95'
-            return scalar p99 = `p99'
-            if "`psvar'" != "" {
-                return scalar n_ps_boundary = `n_ps_boundary'
-                return scalar n_ps_near_boundary = `n_ps_near'
-            }
-            if "`wvar_auto'" == "1" {
-                return local wvar "auto-generated"
-            }
-            else {
-                return local wvar "`wvar'"
-            }
-            return local treatment "`treatment'"
-            return local estimand "`estimand'"
-            exit `graph_rc'
+            local _psdash_side_rc = `graph_rc'
         }
     }
+
+    local _psdash_return_mode "binary"
 
     } // end binary path
     else {
@@ -1212,48 +1128,6 @@ program define psdash_weights, rclass
             as result %14.1f `ess_pct' "%" %14.1f `new_ess_pct' "%"
         display as text "{hline 70}"
 
-        return scalar new_mean = `new_mean'
-        return scalar new_sd = `new_sd'
-        return scalar new_min = `new_min'
-        return scalar new_max = `new_max'
-        return scalar new_cv = `new_cv'
-        return scalar new_ess = `new_ess'
-        return scalar new_ess_pct = `new_ess_pct'
-        return local generate "`generate'"
-    }
-
-    * =====================================================================
-    * RETURN RESULTS (multi-group)
-    * =====================================================================
-    return scalar N = `N'
-    return scalar K = `K'
-    foreach lev of local levels {
-        return scalar N_group_`lev' = `n_group_`lev''
-        return scalar ess_group_`lev' = `ess_`lev''
-        return scalar ess_pct_group_`lev' = `ess_pct_`lev''
-    }
-    return scalar mean_wt = `mean_wt'
-    return scalar sd_wt = `sd_wt'
-    return scalar min_wt = `min_wt'
-    return scalar max_wt = `max_wt'
-    return scalar cv = `cv'
-    return scalar ess = `ess'
-    return scalar ess_pct = `ess_pct'
-    return scalar n_extreme = `n_extreme'
-    return scalar pct_extreme = `pct_extreme'
-    return scalar p1 = `p1'
-    return scalar p5 = `p5'
-    return scalar p95 = `p95'
-    return scalar p99 = `p99'
-    return local treatment "`treatment'"
-    return local estimand "`estimand'"
-    return local levels "`levels'"
-    return local reference "`mg_reference'"
-    if "`wvar_auto'" == "1" {
-        return local wvar "auto-generated"
-    }
-    else {
-        return local wvar "`wvar'"
     }
 
     * =====================================================================
@@ -1268,6 +1142,7 @@ program define psdash_weights, rclass
         }
     }
 
+    local graph_rc = 0
     if "`graph'" != "" {
         capture noisily {
             quietly {
@@ -1314,7 +1189,67 @@ program define psdash_weights, rclass
         }
         local graph_rc = _rc
         if `graph_rc' {
-            return clear
+            local _psdash_side_rc = `graph_rc'
+        }
+    }
+
+    local _psdash_return_mode "multigroup"
+
+    } // end multi-group path
+
+    }
+    local rc = _rc
+    set varabbrev `_vao'
+    if `rc' == 0 & "`_psdash_return_mode'" != "" {
+        if `_psdash_side_rc' {
+            local rc = `_psdash_side_rc'
+        }
+        return clear
+        if "`_psdash_return_mode'" == "binary" {
+            if "`generate'" != "" {
+                return scalar new_mean = `new_mean'
+                return scalar new_sd = `new_sd'
+                return scalar new_min = `new_min'
+                return scalar new_max = `new_max'
+                return scalar new_cv = `new_cv'
+                return scalar new_ess = `new_ess'
+                return scalar new_ess_pct = `new_ess_pct'
+                return local generate "`generate'"
+            }
+            return scalar N = `N'
+            return scalar N_treated = `n_treated'
+            return scalar N_control = `n_control'
+            return scalar mean_wt = `mean_wt'
+            return scalar sd_wt = `sd_wt'
+            return scalar min_wt = `min_wt'
+            return scalar max_wt = `max_wt'
+            return scalar cv = `cv'
+            return scalar ess = `ess'
+            return scalar ess_pct = `ess_pct'
+            return scalar ess_treated = `ess_t'
+            return scalar ess_control = `ess_c'
+            return scalar ess_pct_treated = `ess_pct_t'
+            return scalar ess_pct_control = `ess_pct_c'
+            return scalar n_extreme = `n_extreme'
+            return scalar pct_extreme = `pct_extreme'
+            return scalar p1 = `p1'
+            return scalar p5 = `p5'
+            return scalar p95 = `p95'
+            return scalar p99 = `p99'
+            if "`psvar'" != "" {
+                return scalar n_ps_boundary = `n_ps_boundary'
+                return scalar n_ps_near_boundary = `n_ps_near'
+            }
+            if "`wvar_auto'" == "1" {
+                return local wvar "auto-generated"
+            }
+            else {
+                return local wvar "`wvar'"
+            }
+            return local treatment "`treatment'"
+            return local estimand "`estimand'"
+        }
+        else if "`_psdash_return_mode'" == "multigroup" {
             if "`generate'" != "" {
                 return scalar new_mean = `new_mean'
                 return scalar new_sd = `new_sd'
@@ -1355,15 +1290,8 @@ program define psdash_weights, rclass
             else {
                 return local wvar "`wvar'"
             }
-            exit `graph_rc'
         }
     }
-
-    } // end multi-group path
-
-    }
-    local rc = _rc
-    set varabbrev `_vao'
     if `rc' exit `rc'
 
 end

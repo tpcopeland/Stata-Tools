@@ -57,7 +57,7 @@ Most users can start with `psdash combined`. It runs the four diagnostic panels 
 
 ## Worked Examples
 
-Most examples below use Stata's built-in `sysuse` or `webuse` datasets, so they can be copied directly after installation. The `sysuse auto` examples use `foreign` as a convenient binary treatment indicator. The `webuse cattaneo2` examples show a more realistic treatment-effects workflow. The multi-group example generates a small simulated dataset so the multinomial treatment model has stable support. These examples are intended to illustrate syntax and diagnostics, not to endorse a final causal specification.
+All examples below use Stata's built-in `sysuse` or `webuse` datasets, or self-contained simulated data, so they can be copied directly after installation. The `sysuse auto` examples use `foreign` as a convenient binary treatment indicator. The `webuse cattaneo2` examples show a more realistic treatment-effects workflow. The multi-group example generates a small simulated dataset so the multinomial treatment model has stable support. These examples are intended to illustrate syntax and diagnostics, not to endorse a final causal specification.
 
 ### 1. Manual propensity-score workflow with `sysuse auto`
 

@@ -29,10 +29,6 @@ program define _msm_natural_spline
             gen byte `touse' = 1
         }
 
-        * Number of knots = df + 1 (boundary knots at min/max, internal knots
-        * at equally spaced quantiles)
-        local n_knots = `df' + 1
-
         * Get range of x
         quietly summarize `x' if `touse'
         local xmin = r(min)
