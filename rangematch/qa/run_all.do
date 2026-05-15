@@ -29,6 +29,11 @@ local suites ///
     test_rangematch_missing_option.do ///
     test_rangematch_missing_option_extra.do ///
     test_rangematch_adversarial.do ///
+    test_rangematch_return_contract.do ///
+    test_rangematch_display_contract.do ///
+    test_rangematch_routing_contract.do ///
+    test_rangematch_backend_equivalence.do ///
+    test_rangematch_saving_matrix.do ///
     test_documentation_examples.do ///
     test_release_integrity.do
 

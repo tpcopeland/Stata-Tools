@@ -3,7 +3,17 @@ clear all
 set more off
 
 cap ado uninstall rangematch
-adopath ++ "/home/tpcopeland/Stata-Tools/rangematch"
+local cwd "`c(pwd)'"
+local cwd_len = strlen("`cwd'")
+if substr("`cwd'", `cwd_len' - 2, 3) == "/qa" {
+    local qa_dir "`cwd'"
+    local pkg_dir = substr("`cwd'", 1, `cwd_len' - 3)
+}
+else {
+    local pkg_dir "`cwd'"
+    local qa_dir "`pkg_dir'/qa"
+}
+adopath ++ "`pkg_dir'"
 
 local _orig_pwd "`c(pwd)'"
 local tmp "`c(tmpdir)'/rangematch_v101"

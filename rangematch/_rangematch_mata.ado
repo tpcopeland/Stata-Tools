@@ -2,11 +2,13 @@
 *! Mata backend for rangematch: binary-search pair generation and output materialization
 *! Author: Timothy P Copeland, Karolinska Institutet
 
-version 16.1
+version 16.0
 
 capture mata: mata drop _rm_build_pairs()
 capture mata: mata drop _rm_build_pairs_sweep()
 capture mata: mata drop _rm_prepare_sweep_master()
+capture mata: mata drop _rm_compute_match_stats()
+capture mata: mata drop _rm_post_pair_results()
 capture mata: mata drop _rm_mata_version()
 capture mata: mata drop _rm_bsearch_left()
 capture mata: mata drop _rm_bsearch_right()
@@ -34,12 +36,11 @@ void _rm_prepare_sweep_master(
     string scalar oldframe
     real matrix M
     real scalar nm, i, gid_i, last_gid, last_lo, last_hi
-    real scalar ready, sorted, lo_ready, hi_ready, sweep_mode
+    real scalar ready, lo_ready, hi_ready, sweep_mode
 
     oldframe = st_framecurrent()
     sort_allowed = (sort_allowed != 0)
     ready = 1
-    sorted = 0
     lo_ready = 1
     hi_ready = 1
     sweep_mode = 2
@@ -79,7 +80,6 @@ void _rm_prepare_sweep_master(
     if (!ready & sort_allowed) {
         M = sort(M, (1, 2, 3, 4))
         ready = 1
-        sorted = 1
         lo_ready = 1
         hi_ready = 1
         last_gid = .
@@ -107,15 +107,109 @@ void _rm_prepare_sweep_master(
         if (ready & nm > 0) {
             st_store(., (1..cols(M)), M)
         }
-        else {
-            sorted = 0
-        }
     }
 
     st_framecurrent(oldframe)
     st_local("_rm_sweep_ready", strofreal(ready))
-    st_local("_rm_sweep_sorted", strofreal(sorted))
     st_local("_rm_sweep_mode", strofreal(sweep_mode))
+}
+
+real rowvector _rm_compute_match_stats(
+    real colvector match_counts,
+    real scalar nm,
+    real scalar max_gid,
+    real colvector gstart_map,
+    real matrix M,
+    real scalar compute_stats
+)
+{
+    real colvector sorted_counts, seen_master
+    real scalar max_matches, mean_matches, median_matches, p50_matches
+    real scalar p90_matches, p99_matches, p90_pos, p99_pos
+    real scalar n_empty_groups, n_master_groups, i, gid_i
+
+    if (compute_stats) {
+        max_matches = (nm > 0 ? max(match_counts) : 0)
+        mean_matches = (nm > 0 ? mean(match_counts) : 0)
+        if (nm > 0) {
+            sorted_counts = sort(match_counts, 1)
+            if (mod(nm, 2) == 1) {
+                median_matches = sorted_counts[(nm + 1) / 2]
+            }
+            else {
+                median_matches = (sorted_counts[nm / 2] +
+                    sorted_counts[(nm / 2) + 1]) / 2
+            }
+            p50_matches = median_matches
+            p90_pos = ceil(.90 * nm)
+            p99_pos = ceil(.99 * nm)
+            p90_matches = sorted_counts[p90_pos]
+            p99_matches = sorted_counts[p99_pos]
+        }
+        else {
+            median_matches = 0
+            p50_matches = 0
+            p90_matches = 0
+            p99_matches = 0
+        }
+        n_empty_groups = 0
+        n_master_groups = 0
+        if (nm > 0 & max_gid > 0) {
+            seen_master = J(max_gid, 1, 0)
+            for (i = 1; i <= nm; i++) {
+                gid_i = trunc(M[i, 1])
+                if (gid_i >= 1 & gid_i <= max_gid) {
+                    if (seen_master[gid_i] == 0) {
+                        seen_master[gid_i] = 1
+                        n_master_groups++
+                        if (gid_i > rows(gstart_map) | gstart_map[gid_i] == 0) {
+                            n_empty_groups++
+                        }
+                    }
+                }
+            }
+        }
+    }
+    else {
+        max_matches = .
+        mean_matches = .
+        median_matches = .
+        p50_matches = .
+        p90_matches = .
+        p99_matches = .
+        n_empty_groups = .
+        n_master_groups = .
+    }
+
+    return((max_matches, mean_matches, median_matches, p50_matches, ///
+        p90_matches, p99_matches, n_empty_groups, n_master_groups))
+}
+
+void _rm_post_pair_results(
+    real scalar n_pairs,
+    real scalar n_matched_pairs,
+    real scalar n_matched_master,
+    real scalar n_matched_using,
+    real scalar n_unmatched_master,
+    real scalar n_unmatched_using,
+    real rowvector match_stats
+)
+{
+    st_local("_rm_n_pairs", strofreal(n_pairs))
+    st_local("_rm_n_matched_pairs", strofreal(n_matched_pairs))
+    st_local("_rm_n_matched_master", strofreal(n_matched_master))
+    st_local("_rm_n_matched_using", strofreal(n_matched_using))
+    st_local("_rm_n_unmatched_master", strofreal(n_unmatched_master))
+    st_local("_rm_n_unmatched_using", strofreal(n_unmatched_using))
+    st_local("_rm_max_matches", strofreal(match_stats[1]))
+    st_local("_rm_mean_matches", strofreal(match_stats[2], "%21.17g"))
+    st_local("_rm_median_matches", strofreal(match_stats[3], "%21.17g"))
+    st_local("_rm_p50_matches", strofreal(match_stats[4], "%21.17g"))
+    st_local("_rm_p90_matches", strofreal(match_stats[5], "%21.17g"))
+    st_local("_rm_p99_matches", strofreal(match_stats[6], "%21.17g"))
+    st_local("_rm_n_empty_groups", strofreal(match_stats[7]))
+    st_local("_rm_n_master_groups", strofreal(match_stats[8]))
+    st_local("_rm_err_maxpairs", "0")
 }
 
 void _rm_build_pairs_sweep(
@@ -139,7 +233,8 @@ void _rm_build_pairs_sweep(
     real matrix M, U, Usorted
     real colvector mi, ui, perm, ukeys, uobs, ugid, match_counts
     real colvector gstart_map, gend_map
-    real colvector matched_using, sorted_counts, seen_master
+    real colvector matched_using
+    real rowvector match_stats
     real scalar nm, nu, i, pos, n_pairs, nmatch, cap, needed
     real scalar lo, hi, lo_search, hi_search, mobs, g, gid_i
     real scalar max_gid, u, target, n_matched_pairs, n_matched_master
@@ -147,9 +242,7 @@ void _rm_build_pairs_sweep(
     real scalar gstart, gend, cur_gid, left, right
     real scalar progress_next, progress_step
     real scalar progress_pct, progress_last
-    real scalar nu_all, track_using, max_matches, mean_matches
-    real scalar median_matches, p50_matches, p90_matches, p99_matches
-    real scalar p90_pos, p99_pos, n_empty_groups, n_master_groups
+    real scalar nu_all, track_using
     real scalar right_sweep, jhi
 
     oldframe = st_framecurrent()
@@ -383,58 +476,8 @@ void _rm_build_pairs_sweep(
         }
     }
 
-    if (compute_stats) {
-        max_matches = (nm > 0 ? max(match_counts) : 0)
-        mean_matches = (nm > 0 ? mean(match_counts) : 0)
-        if (nm > 0) {
-            sorted_counts = sort(match_counts, 1)
-            if (mod(nm, 2) == 1) {
-                median_matches = sorted_counts[(nm + 1) / 2]
-            }
-            else {
-                median_matches = (sorted_counts[nm / 2] +
-                    sorted_counts[(nm / 2) + 1]) / 2
-            }
-            p50_matches = median_matches
-            p90_pos = ceil(.90 * nm)
-            p99_pos = ceil(.99 * nm)
-            p90_matches = sorted_counts[p90_pos]
-            p99_matches = sorted_counts[p99_pos]
-        }
-        else {
-            median_matches = 0
-            p50_matches = 0
-            p90_matches = 0
-            p99_matches = 0
-        }
-        n_empty_groups = 0
-        n_master_groups = 0
-        if (nm > 0 & max_gid > 0) {
-            seen_master = J(max_gid, 1, 0)
-            for (i = 1; i <= nm; i++) {
-                gid_i = trunc(M[i, 1])
-                if (gid_i >= 1 & gid_i <= max_gid) {
-                    if (seen_master[gid_i] == 0) {
-                        seen_master[gid_i] = 1
-                        n_master_groups++
-                        if (gid_i > rows(gstart_map) | gstart_map[gid_i] == 0) {
-                            n_empty_groups++
-                        }
-                    }
-                }
-            }
-        }
-    }
-    else {
-        max_matches = .
-        mean_matches = .
-        median_matches = .
-        p50_matches = .
-        p90_matches = .
-        p99_matches = .
-        n_empty_groups = .
-        n_master_groups = .
-    }
+    match_stats = _rm_compute_match_stats(match_counts, nm, max_gid, ///
+        gstart_map, M, compute_stats)
 
     if (!dryrun) {
         st_framecurrent(out_frame)
@@ -450,21 +493,8 @@ void _rm_build_pairs_sweep(
     }
 
     st_framecurrent(oldframe)
-    st_local("_rm_n_pairs", strofreal(n_pairs))
-    st_local("_rm_n_matched_pairs", strofreal(n_matched_pairs))
-    st_local("_rm_n_matched_master", strofreal(n_matched_master))
-    st_local("_rm_n_matched_using", strofreal(n_matched_using))
-    st_local("_rm_n_unmatched_master", strofreal(n_unmatched_master))
-    st_local("_rm_n_unmatched_using", strofreal(n_unmatched_using))
-    st_local("_rm_max_matches", strofreal(max_matches))
-    st_local("_rm_mean_matches", strofreal(mean_matches, "%21.17g"))
-    st_local("_rm_median_matches", strofreal(median_matches, "%21.17g"))
-    st_local("_rm_p50_matches", strofreal(p50_matches, "%21.17g"))
-    st_local("_rm_p90_matches", strofreal(p90_matches, "%21.17g"))
-    st_local("_rm_p99_matches", strofreal(p99_matches, "%21.17g"))
-    st_local("_rm_n_empty_groups", strofreal(n_empty_groups))
-    st_local("_rm_n_master_groups", strofreal(n_master_groups))
-    st_local("_rm_err_maxpairs", "0")
+    _rm_post_pair_results(n_pairs, n_matched_pairs, n_matched_master, ///
+        n_matched_using, n_unmatched_master, n_unmatched_using, match_stats)
 }
 
 void _rm_build_pairs(
@@ -489,15 +519,14 @@ void _rm_build_pairs(
     real matrix M, U, Usorted
     real colvector mi, ui, perm, ukeys, uobs, ugid, match_counts
     real colvector gstart_map, gend_map
-    real colvector selected, allties, matched_using, sorted_counts, seen_master
+    real colvector selected, allties, matched_using
+    real rowvector match_stats
     real scalar nm, nu, nu_all, i, lo, hi, jlo, jhi, kk, n_pairs
     real scalar gstart, gend, mobs, g, cap, nmatch, u
     real scalar mkey, before_pos, after_pos, before_dist, after_dist
-    real scalar n_matched_pairs, n_matched_master, max_matches, mean_matches
-    real scalar n_empty_groups, n_unmatched_master, n_matched_using
-    real scalar n_unmatched_using, median_matches, p50_matches
-    real scalar p90_matches, p99_matches, p90_pos, p99_pos
-    real scalar n_master_groups, progress_next, progress_step, progress_pct
+    real scalar n_matched_pairs, n_matched_master
+    real scalar n_unmatched_master, n_matched_using, n_unmatched_using
+    real scalar progress_next, progress_step, progress_pct
     real scalar progress_last, lo_search, hi_search
     real scalar max_gid, gid_i, pos, target, needed
     real scalar track_using
@@ -809,58 +838,8 @@ void _rm_build_pairs(
         }
     }
 
-    if (compute_stats) {
-        max_matches = (nm > 0 ? max(match_counts) : 0)
-        mean_matches = (nm > 0 ? mean(match_counts) : 0)
-        if (nm > 0) {
-            sorted_counts = sort(match_counts, 1)
-            if (mod(nm, 2) == 1) {
-                median_matches = sorted_counts[(nm + 1) / 2]
-            }
-            else {
-                median_matches = (sorted_counts[nm / 2] +
-                    sorted_counts[(nm / 2) + 1]) / 2
-            }
-            p50_matches = median_matches
-            p90_pos = ceil(.90 * nm)
-            p99_pos = ceil(.99 * nm)
-            p90_matches = sorted_counts[p90_pos]
-            p99_matches = sorted_counts[p99_pos]
-        }
-        else {
-            median_matches = 0
-            p50_matches = 0
-            p90_matches = 0
-            p99_matches = 0
-        }
-        n_empty_groups = 0
-        n_master_groups = 0
-        if (nm > 0 & max_gid > 0) {
-            seen_master = J(max_gid, 1, 0)
-            for (i = 1; i <= nm; i++) {
-                gid_i = trunc(M[i, 1])
-                if (gid_i >= 1 & gid_i <= max_gid) {
-                    if (seen_master[gid_i] == 0) {
-                        seen_master[gid_i] = 1
-                        n_master_groups++
-                        if (gid_i > rows(gstart_map) | gstart_map[gid_i] == 0) {
-                            n_empty_groups++
-                        }
-                    }
-                }
-            }
-        }
-    }
-    else {
-        max_matches = .
-        mean_matches = .
-        median_matches = .
-        p50_matches = .
-        p90_matches = .
-        p99_matches = .
-        n_empty_groups = .
-        n_master_groups = .
-    }
+    match_stats = _rm_compute_match_stats(match_counts, nm, max_gid, ///
+        gstart_map, M, compute_stats)
 
     if (!dryrun) {
         st_framecurrent(out_frame)
@@ -876,21 +855,8 @@ void _rm_build_pairs(
     }
 
     st_framecurrent(oldframe)
-    st_local("_rm_n_pairs", strofreal(n_pairs))
-    st_local("_rm_n_matched_pairs", strofreal(n_matched_pairs))
-    st_local("_rm_n_matched_master", strofreal(n_matched_master))
-    st_local("_rm_n_matched_using", strofreal(n_matched_using))
-    st_local("_rm_n_unmatched_master", strofreal(n_unmatched_master))
-    st_local("_rm_n_unmatched_using", strofreal(n_unmatched_using))
-    st_local("_rm_max_matches", strofreal(max_matches))
-    st_local("_rm_mean_matches", strofreal(mean_matches, "%21.17g"))
-    st_local("_rm_median_matches", strofreal(median_matches, "%21.17g"))
-    st_local("_rm_p50_matches", strofreal(p50_matches, "%21.17g"))
-    st_local("_rm_p90_matches", strofreal(p90_matches, "%21.17g"))
-    st_local("_rm_p99_matches", strofreal(p99_matches, "%21.17g"))
-    st_local("_rm_n_empty_groups", strofreal(n_empty_groups))
-    st_local("_rm_n_master_groups", strofreal(n_master_groups))
-    st_local("_rm_err_maxpairs", "0")
+    _rm_post_pair_results(n_pairs, n_matched_pairs, n_matched_master, ///
+        n_matched_using, n_unmatched_master, n_unmatched_using, match_stats)
 }
 
 

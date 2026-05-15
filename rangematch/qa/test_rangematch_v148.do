@@ -53,6 +53,10 @@ mata: st_local("has_distance", strofreal(findexternal("_rm_generate_distance()")
 assert "`has_distance'" == "1"
 mata: st_local("has_key_block", strofreal(findexternal("_rm_key_block_uobs()") != NULL))
 assert "`has_key_block'" == "1"
+mata: st_local("has_match_stats", strofreal(findexternal("_rm_compute_match_stats()") != NULL))
+assert "`has_match_stats'" == "1"
+mata: st_local("has_post_results", strofreal(findexternal("_rm_post_pair_results()") != NULL))
+assert "`has_post_results'" == "1"
 display as result "PASS: live Mata functions present"
 
 **# T4: Full range join still works after cleanup

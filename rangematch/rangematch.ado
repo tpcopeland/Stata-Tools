@@ -4,8 +4,649 @@
 *! Program class: rclass (returns results in r())
 
 capture program drop rangematch
+capture program drop _rangematch_display_counts
+capture program drop _rangematch_display_stats
+capture program drop _rangematch_display_timing
+capture program drop _rangematch_build_output_names
+capture program drop _rangematch_load_using
+capture program drop _rangematch_build_group_ids
+capture program drop _rangematch_run_backend
+
+program define _rangematch_display_counts
+    version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+        syntax , TITLE(string) UNMATCHed(real) MATCHed(real) PAIRS(real) ///
+            [ FRAME(string) SAVing(string) DRYRun ]
+
+        display as text ""
+        if `"`title'"' == "Dry run result" {
+            display as text "    Dry run result               " ///
+                "Number of obs"
+        }
+        else {
+            display as text "    Result                       " ///
+                "Number of obs"
+        }
+        display as text "    {hline 49}"
+        display as text "    Not matched" ///
+            _col(44) as result %12.0fc `unmatched'
+        display as text "    Matched" ///
+            _col(44) as result %12.0fc `matched'
+        display as text "    {hline 49}"
+        display as text "    Total output" ///
+            _col(44) as result %12.0fc `pairs'
+        if `"`dryrun'"' != "" {
+            display as text "    (data unchanged)"
+        }
+        if `"`frame'"' != "" {
+            display as text "    Output frame" _col(44) as result "`frame'"
+        }
+        if `"`saving'"' != "" {
+            display as text "    Output file" _col(44) as result `"`saving'"'
+        }
+    }
+    local rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
+end
+
+program define _rangematch_display_stats
+    version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+        syntax , MAXMatches(real) DENSITYWarn(real) ///
+            NMATCHedmaster(real) NUNMATCHedmaster(real) ///
+            NUNMATCHedusing(real) MEANMatches(real) ///
+            MEDIANMatches(real) P90(real) P99(real) ///
+            NEMPTYgroups(real) NMASTERgroups(real) [ BY(string) ]
+
+        if `maxmatches' > `densitywarn' {
+            display as error ///
+                "warning: one master row matched `maxmatches' using rows; consider maxpairs(), by(), or nearest()"
+        }
+        if `"`by'"' != "" & `nmastergroups' > 0 ///
+                & `nemptygroups' > (`nmastergroups' / 2) {
+            display as error ///
+                "warning: `nemptygroups' of `nmastergroups' by-groups had no using rows; check by() coding"
+        }
+
+        display as text ""
+        display as text "    Match density                " ///
+            "Value"
+        display as text "    {hline 49}"
+        display as text "    Matched master rows" ///
+            _col(44) as result %12.0fc `nmatchedmaster'
+        display as text "    Unmatched master rows" ///
+            _col(44) as result %12.0fc `nunmatchedmaster'
+        display as text "    Unmatched using rows" ///
+            _col(44) as result %12.0fc `nunmatchedusing'
+        display as text "    Max matches/master row" ///
+            _col(44) as result %12.0fc `maxmatches'
+        display as text "    Mean matches/master row" ///
+            _col(44) as result %12.3fc `meanmatches'
+        display as text "    p50 matches/master row" ///
+            _col(44) as result %12.3fc `medianmatches'
+        display as text "    p90 matches/master row" ///
+            _col(44) as result %12.3fc `p90'
+        display as text "    p99 matches/master row" ///
+            _col(44) as result %12.3fc `p99'
+        display as text "    Master groups with no using keys" ///
+            _col(44) as result %12.0fc `nemptygroups'
+        display as text "    Master groups considered" ///
+            _col(44) as result %12.0fc `nmastergroups'
+    }
+    local rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
+end
+
+program define _rangematch_display_timing
+    version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+        syntax , LOADTime(real) MATCHTime(real) MATERIALIZETime(real)
+
+        display as text ""
+        display as text "    Timing                       Seconds"
+        display as text "    {hline 49}"
+        display as text "    Load" ///
+            _col(44) as result %12.3fc `loadtime'
+        display as text "    Match" ///
+            _col(44) as result %12.3fc `matchtime'
+        display as text "    Materialize" ///
+            _col(44) as result %12.3fc `materializetime'
+        capture timer clear 91
+        capture timer clear 92
+        capture timer clear 93
+    }
+    local rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
+end
+
+program define _rangematch_build_output_names, sclass
+    version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+        args all_using_vars touse keepusing by prefix suffix all generate ///
+            distance masterid usingid
+
+        if `"`keepusing'"' != "" {
+            local carry_vars `"`keepusing'"'
+        }
+        else {
+            local carry_vars ""
+            foreach v of local all_using_vars {
+                local is_by = 0
+                if "`by'" != "" {
+                    foreach bv of local by {
+                        if "`v'" == "`bv'" local is_by = 1
+                    }
+                }
+                if !`is_by' {
+                    local carry_vars `"`carry_vars' `v'"'
+                }
+            }
+            local carry_vars : list retokenize carry_vars
+        }
+
+        quietly describe, varlist short
+        local master_vars `r(varlist)'
+        local _rm_touse_var "`touse'"
+        local master_vars : list master_vars - _rm_touse_var
+
+        local out_names ""
+        foreach v of local carry_vars {
+            local outname "`prefix'`v'`suffix'"
+            if "`all'" != "" {
+                local out_names `"`out_names' `outname'"'
+            }
+            else {
+                local conflict = 0
+                foreach mv of local master_vars {
+                    if "`v'" == "`mv'" local conflict = 1
+                }
+                if `conflict' {
+                    local out_names `"`out_names' `outname'"'
+                }
+                else {
+                    local out_names `"`out_names' `v'"'
+                }
+            }
+        }
+        local out_names : list retokenize out_names
+
+        local all_out "`master_vars' `out_names'"
+        if "`generate'" != "" local all_out "`all_out' `generate'"
+        if "`distance'" != "" local all_out "`all_out' `distance'"
+        if "`masterid'" != "" local all_out "`all_out' `masterid'"
+        if "`usingid'" != "" local all_out "`all_out' `usingid'"
+        local n_all : word count `all_out'
+        local all_out_uniq : list uniq all_out
+        local n_uniq : word count `all_out_uniq'
+        if `n_all' != `n_uniq' {
+            display as error "output variable name collision after applying prefix/suffix"
+            display as error "use {bf:prefix()} or {bf:suffix()} to resolve"
+            exit 110
+        }
+
+        sreturn clear
+        sreturn local carry_vars `"`carry_vars'"'
+        sreturn local master_vars `"`master_vars'"'
+        sreturn local out_names `"`out_names'"'
+    }
+    local rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
+end
+
+program define _rangematch_load_using, sclass
+    version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+        args using key by keepusing dryrun_mode caller_frame
+
+        local using_source "file"
+        local using_frame ""
+        local using_is_frame = 0
+        capture confirm name `using'
+        if !_rc {
+            capture frame `using': describe
+            if !_rc {
+                local using_source "frame"
+                local using_frame "`using'"
+                local using_is_frame = 1
+            }
+        }
+        if `using_is_frame' {
+            if "`using_frame'" == "`caller_frame'" {
+                display as error "using frame must be different from the current frame"
+                exit 198
+            }
+            if substr("`using_frame'", 1, 5) == "__rm_" {
+                display as error "using frame may not use names beginning with __rm_"
+                exit 198
+            }
+        }
+        else {
+            * Mirror Stata's `use` behavior: append .dta if no extension supplied
+            capture confirm file `"`using'"'
+            if _rc {
+                capture confirm file `"`using'.dta"'
+                if !_rc {
+                    local using `"`using'.dta"'
+                }
+                else {
+                    confirm file `"`using'"'
+                }
+            }
+        }
+
+        local N_using_pre = .
+        if `using_is_frame' {
+            frame `using_frame': local N_using_pre = _N
+        }
+        else {
+            quietly describe using `"`using'"'
+            local N_using_pre = r(N)
+        }
+        local large_using_warn_threshold = 10000000
+        if `N_using_pre' > `large_using_warn_threshold' ///
+                & "`by'" == "" & `"`keepusing'"' == "" {
+            display as error ///
+                "warning: using data contain `N_using_pre' rows and no by() or keepusing() was specified"
+            display as error ///
+                "consider by() to partition matching or keepusing() to limit carried variables"
+        }
+
+        if `"`keepusing'"' != "" {
+            if `using_is_frame' {
+                foreach kv of local keepusing {
+                    frame `using_frame': capture confirm variable `kv'
+                    if _rc {
+                        display as error ///
+                            `"keepusing() variable {bf:`kv'} not found in using frame {bf:`using_frame'}"'
+                        exit 111
+                    }
+                }
+            }
+            else {
+                capture quietly describe `keepusing' using `"`using'"'
+                if _rc {
+                    local _rm_keep_rc = _rc
+                    quietly describe using `"`using'"', varlist
+                    local _rm_using_vars `r(varlist)'
+                    local _rm_missing_keep ""
+                    foreach kv of local keepusing {
+                        capture confirm name `kv'
+                        if !_rc {
+                            if strpos(" `_rm_using_vars' ", " `kv' ") == 0 {
+                                local _rm_missing_keep ///
+                                    `"`_rm_missing_keep' `kv'"'
+                            }
+                        }
+                    }
+                    local _rm_missing_keep : list retokenize _rm_missing_keep
+                    if `"`_rm_missing_keep'"' != "" {
+                        display as error ///
+                            `"keepusing() variable(s) not found in using dataset: `_rm_missing_keep'"'
+                    }
+                    else {
+                        display as error ///
+                            `"one or more keepusing() variables were not found in using dataset"'
+                        display as error `"requested: `keepusing'"'
+                    }
+                    exit `_rm_keep_rc'
+                }
+            }
+        }
+
+        local all_using_vars ""
+        if `dryrun_mode' {
+            if `using_is_frame' {
+                frame `using_frame': quietly describe, varlist short
+                local all_using_vars `r(varlist)'
+            }
+            else {
+                quietly describe using `"`using'"', varlist
+                local all_using_vars `r(varlist)'
+            }
+        }
+
+        local using_load_vars `"`key'"'
+        if "`by'" != "" {
+            local using_load_vars `"`using_load_vars' `by'"'
+        }
+        if `"`keepusing'"' != "" & !`dryrun_mode' {
+            local using_load_vars `"`using_load_vars' `keepusing'"'
+        }
+        local using_load_vars : list uniq using_load_vars
+
+        capture frame drop __rm_using
+        if `using_is_frame' {
+            if `"`keepusing'"' != "" | `dryrun_mode' {
+                frame `using_frame': frame put `using_load_vars', into(__rm_using)
+            }
+            else {
+                frame `using_frame': frame put _all, into(__rm_using)
+            }
+        }
+        else {
+            frame create __rm_using
+            if `"`keepusing'"' != "" | `dryrun_mode' {
+                frame __rm_using: use `using_load_vars' using `"`using'"'
+            }
+            else {
+                frame __rm_using: use `"`using'"'
+            }
+        }
+
+        frame __rm_using {
+            capture confirm variable `key'
+            if _rc {
+                noisily display as error ///
+                    `"variable {bf:`key'} not found in using dataset"'
+                exit 111
+            }
+            capture confirm numeric variable `key'
+            if _rc {
+                noisily display as error ///
+                    `"key variable {bf:`key'} must be numeric in using dataset"'
+                exit 109
+            }
+        }
+
+        if "`by'" != "" {
+            foreach bv of local by {
+                frame __rm_using {
+                    capture confirm variable `bv'
+                    if _rc {
+                        noisily display as error ///
+                            `"by-variable {bf:`bv'} not found in using dataset"'
+                        exit 111
+                    }
+                }
+                local m_isstr = 0
+                local u_isstr = 0
+                capture confirm string variable `bv'
+                if !_rc local m_isstr = 1
+                frame __rm_using {
+                    capture confirm string variable `bv'
+                    if !_rc local u_isstr = 1
+                }
+                if `m_isstr' != `u_isstr' {
+                    display as error ///
+                        `"by-variable {bf:`bv'} has different types in master and using"'
+                    exit 109
+                }
+                if !`m_isstr' {
+                    local m_type : type `bv'
+                    frame __rm_using: local u_type : type `bv'
+                    local m_integer = inlist("`m_type'", "byte", "int", "long")
+                    local u_integer = inlist("`u_type'", "byte", "int", "long")
+                    if "`m_type'" != "`u_type'" & !(`m_integer' & `u_integer') {
+                        display as error ///
+                            `"numeric by-variable {bf:`bv'} has storage types `m_type' and `u_type'"'
+                        display as error ///
+                            "recast the by-variable to the same exact storage type in both datasets"
+                        exit 109
+                    }
+                }
+            }
+        }
+
+        local N_using = 0
+        frame __rm_using: local N_using = _N
+
+        sreturn clear
+        sreturn local using `"`using'"'
+        sreturn local using_source "`using_source'"
+        sreturn local using_frame "`using_frame'"
+        sreturn local using_is_frame "`using_is_frame'"
+        sreturn local all_using_vars `"`all_using_vars'"'
+        sreturn local N_using_pre "`N_using_pre'"
+        sreturn local N_using "`N_using'"
+    }
+    local rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
+end
+
+program define _rangematch_build_group_ids
+    version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+        args by touse N_master N_using
+
+        local _rm_need_obs_resort = 0
+        if "`by'" != "" {
+            local _rm_direct_gid = 0
+            local _rm_by_n : word count `by'
+            if `_rm_by_n' == 1 {
+                local _rm_by1 : word 1 of `by'
+                capture confirm numeric variable `_rm_by1'
+                if !_rc {
+                    quietly count if `touse' & missing(`_rm_by1')
+                    local _rm_miss_master = r(N)
+                    frame __rm_using: quietly count if missing(`_rm_by1')
+                    local _rm_miss_using = r(N)
+                    quietly count if `touse' ///
+                        & (`_rm_by1' < 1 | `_rm_by1' != floor(`_rm_by1'))
+                    local _rm_bad_master = r(N)
+                    frame __rm_using: quietly count ///
+                        if `_rm_by1' < 1 | `_rm_by1' != floor(`_rm_by1')
+                    local _rm_bad_using = r(N)
+                    quietly summarize `_rm_by1' if `touse', meanonly
+                    local _rm_gid_max_master = r(max)
+                    frame __rm_using: quietly summarize `_rm_by1', meanonly
+                    local _rm_gid_max_using = r(max)
+                    local _rm_gid_max = max(`_rm_gid_max_master', ///
+                        `_rm_gid_max_using')
+
+                    if `_rm_miss_master' == 0 & `_rm_miss_using' == 0 ///
+                            & `_rm_bad_master' == 0 & `_rm_bad_using' == 0 ///
+                            & `_rm_gid_max' <= (`N_master' + `N_using') {
+                        local _rm_direct_gid = 1
+                    }
+                }
+            }
+
+            if `_rm_direct_gid' {
+                quietly gen double __rm_gid = `_rm_by1'
+                frame __rm_using {
+                    quietly gen double __rm_gid = `_rm_by1'
+                }
+            }
+            else {
+                local _rm_need_obs_resort = 1
+                capture frame drop __rm_grp
+                quietly frame put `by' if `touse', into(__rm_grp)
+                frame __rm_grp: quietly duplicates drop
+
+                frame __rm_using {
+                    capture frame drop __rm_grp_u
+                    quietly frame put `by', into(__rm_grp_u)
+                    frame __rm_grp_u: quietly duplicates drop
+                }
+
+                tempfile _grp_u_tmp
+                frame __rm_grp_u: quietly save `"`_grp_u_tmp'"'
+                frame __rm_grp {
+                    quietly {
+                        append using `"`_grp_u_tmp'"'
+                        duplicates drop
+                        sort `by'
+                        gen long __rm_gid = _n
+                    }
+                }
+                capture frame drop __rm_grp_u
+
+                tempfile _grp_catalog
+                frame __rm_grp: quietly save `"`_grp_catalog'"'
+
+                quietly {
+                    merge m:1 `by' using `"`_grp_catalog'"', ///
+                        keep(match master) nogenerate keepusing(__rm_gid)
+                    replace __rm_gid = 0 if __rm_gid >= .
+                }
+
+                frame __rm_using {
+                    quietly {
+                        merge m:1 `by' using `"`_grp_catalog'"', ///
+                            keep(match master) nogenerate keepusing(__rm_gid)
+                        replace __rm_gid = 0 if __rm_gid >= .
+                    }
+                }
+
+                capture frame drop __rm_grp
+            }
+        }
+        else {
+            quietly gen byte __rm_gid = 1
+            frame __rm_using {
+                quietly gen byte __rm_gid = 1
+            }
+        }
+
+        if `_rm_need_obs_resort' {
+            quietly sort __rm_obs
+            frame __rm_using {
+                quietly sort __rm_obs
+            }
+        }
+    }
+    local rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
+end
+
+program define _rangematch_run_backend, sclass
+    version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+        syntax , TRYSweep(real) SWEEPSort(real) DRYRun(real) ///
+            SHOWProgress(real) STATSmode(real) ASSERTMatch(real) ///
+            ASSERTUsing(real) KEEPMASTER(real) KEEPUSING(real) ///
+            MAXPairs(real) CLOSEDCode(real) TOLerance(real) ///
+            NEARESTCode(real) TIESCode(real) TIMing(real)
+
+        capture frame drop __rm_out
+        if !`dryrun' {
+            frame create __rm_out
+        }
+
+        local _rm_backend "binary"
+        local _rm_sweep_ready 0
+        local _rm_sweep_mode 0
+        if `trysweep' {
+            mata: _rm_prepare_sweep_master("__rm_master", `sweepsort')
+        }
+        if `trysweep' & `_rm_sweep_ready' {
+            mata: _rm_build_pairs_sweep("__rm_master", "__rm_uwork", ///
+                "__rm_out", `keepmaster', `keepusing', ///
+                `maxpairs', `closedcode', `tolerance', `dryrun', ///
+                `showprogress', `statsmode', `assertmatch', ///
+                `assertusing', `_rm_sweep_mode')
+            if "`_rm_err_maxpairs'" != "1" {
+                local _rm_backend "sweep"
+            }
+        }
+        if !`trysweep' | !`_rm_sweep_ready' {
+            mata: _rm_build_pairs("__rm_master", "__rm_uwork", "__rm_out", ///
+                `keepmaster', `keepusing', `maxpairs', `closedcode', ///
+                `nearestcode', `tiescode', `tolerance', `dryrun', ///
+                `showprogress', `statsmode', `assertmatch', `assertusing')
+        }
+
+        if `timing' {
+            timer off 92
+        }
+
+        if "`_rm_err_maxpairs'" == "1" {
+            display as error ///
+                "maxpairs(`maxpairs') exceeded; join would produce `_rm_n_pairs' output rows"
+            display as error "increase maxpairs() or add by() to reduce output size"
+            exit 198
+        }
+
+        local N_pairs = `_rm_n_pairs'
+        local N_matched_pairs = `_rm_n_matched_pairs'
+        local N_unmatched = `N_pairs' - `N_matched_pairs'
+        if `statsmode' | `assertmatch' {
+            local N_unmatched_master = `_rm_n_unmatched_master'
+        }
+        if `statsmode' | `assertusing' {
+            local N_unmatched_using = `_rm_n_unmatched_using'
+        }
+        if `statsmode' {
+            local N_matched_master = `_rm_n_matched_master'
+            local N_matched_using = `_rm_n_matched_using'
+            local N_unmatched_master = `_rm_n_unmatched_master'
+            local N_unmatched_using = `_rm_n_unmatched_using'
+            local max_matches = `_rm_max_matches'
+            local mean_matches = `_rm_mean_matches'
+            local median_matches = `_rm_median_matches'
+            local p50_matches = `_rm_p50_matches'
+            local p90_matches = `_rm_p90_matches'
+            local p99_matches = `_rm_p99_matches'
+            local N_empty_groups = `_rm_n_empty_groups'
+            local N_master_groups = `_rm_n_master_groups'
+        }
+
+        if `assertmatch' {
+            if `N_unmatched_master' > 0 {
+                display as error ///
+                    "assert(match) failed: `N_unmatched_master' master observations had no match"
+                exit 9
+            }
+        }
+        if `assertusing' {
+            if `N_unmatched_using' > 0 {
+                display as error ///
+                    "assert(using) failed: `N_unmatched_using' using observations had no match"
+                exit 9
+            }
+        }
+
+        sreturn clear
+        sreturn local backend "`_rm_backend'"
+        sreturn local N_pairs "`N_pairs'"
+        sreturn local N_matched_pairs "`N_matched_pairs'"
+        sreturn local N_unmatched "`N_unmatched'"
+        if `statsmode' | `assertmatch' {
+            sreturn local N_unmatched_master "`N_unmatched_master'"
+        }
+        if `statsmode' | `assertusing' {
+            sreturn local N_unmatched_using "`N_unmatched_using'"
+        }
+        if `statsmode' {
+            sreturn local N_matched_master "`N_matched_master'"
+            sreturn local N_matched_using "`N_matched_using'"
+            sreturn local max_matches "`max_matches'"
+            sreturn local mean_matches "`mean_matches'"
+            sreturn local median_matches "`median_matches'"
+            sreturn local p50_matches "`p50_matches'"
+            sreturn local p90_matches "`p90_matches'"
+            sreturn local p99_matches "`p99_matches'"
+            sreturn local N_empty_groups "`N_empty_groups'"
+            sreturn local N_master_groups "`N_master_groups'"
+        }
+    }
+    local rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
+end
+
 program define rangematch, rclass
-    version 16.1
+    version 16.0
     local _orig_varabbrev = c(varabbrev)
     set varabbrev off
     capture noisily {
@@ -338,203 +979,18 @@ program define rangematch, rclass
         }
     }
 
-    local using_source "file"
-    local using_frame ""
-    local using_is_frame = 0
-    capture confirm name `using'
-    if !_rc {
-        capture frame `using': describe
-        if !_rc {
-            local using_source "frame"
-            local using_frame "`using'"
-            local using_is_frame = 1
-        }
-    }
-    if `using_is_frame' {
-        if "`using_frame'" == "`_rm_caller_frame'" {
-            display as error "using frame must be different from the current frame"
-            exit 198
-        }
-        if substr("`using_frame'", 1, 5) == "__rm_" {
-            display as error "using frame may not use names beginning with __rm_"
-            exit 198
-        }
-    }
-    else {
-        * Mirror Stata's `use` behavior: append .dta if no extension supplied
-        capture confirm file `"`using'"'
-        if _rc {
-            capture confirm file `"`using'.dta"'
-            if !_rc {
-                local using `"`using'.dta"'
-            }
-            else {
-                confirm file `"`using'"'
-            }
-        }
-    }
-
-    local N_using_pre = .
-    if `using_is_frame' {
-        frame `using_frame': local N_using_pre = _N
-    }
-    else {
-        quietly describe using `"`using'"'
-        local N_using_pre = r(N)
-    }
-    local large_using_warn_threshold = 10000000
-    if `N_using_pre' > `large_using_warn_threshold' ///
-            & "`by'" == "" & `"`keepusing'"' == "" {
-        display as error ///
-            "warning: using data contain `N_using_pre' rows and no by() or keepusing() was specified"
-        display as error ///
-            "consider by() to partition matching or keepusing() to limit carried variables"
-    }
-
-    if `"`keepusing'"' != "" {
-        if `using_is_frame' {
-            foreach kv of local keepusing {
-                frame `using_frame': capture confirm variable `kv'
-                if _rc {
-                    display as error ///
-                        `"keepusing() variable {bf:`kv'} not found in using frame {bf:`using_frame'}"'
-                    exit 111
-                }
-            }
-        }
-        else {
-            capture quietly describe `keepusing' using `"`using'"'
-            if _rc {
-                local _rm_keep_rc = _rc
-                quietly describe using `"`using'"', varlist
-                local _rm_using_vars `r(varlist)'
-                local _rm_missing_keep ""
-                foreach kv of local keepusing {
-                    capture confirm name `kv'
-                    if !_rc {
-                        if strpos(" `_rm_using_vars' ", " `kv' ") == 0 {
-                            local _rm_missing_keep ///
-                                `"`_rm_missing_keep' `kv'"'
-                        }
-                    }
-                }
-                local _rm_missing_keep : list retokenize _rm_missing_keep
-                if `"`_rm_missing_keep'"' != "" {
-                    display as error ///
-                        `"keepusing() variable(s) not found in using dataset: `_rm_missing_keep'"'
-                }
-                else {
-                    display as error ///
-                        `"one or more keepusing() variables were not found in using dataset"'
-                    display as error `"requested: `keepusing'"'
-                }
-                exit `_rm_keep_rc'
-            }
-        }
-    }
-
     * -------------------------------------------------------------------
-    * Load using data into frame
+    * Load and validate using data
     * -------------------------------------------------------------------
-    local all_using_vars ""
-    if `dryrun_mode' {
-        if `using_is_frame' {
-            frame `using_frame': quietly describe, varlist short
-            local all_using_vars `r(varlist)'
-        }
-        else {
-            quietly describe using `"`using'"', varlist
-            local all_using_vars `r(varlist)'
-        }
-    }
-
-    local using_load_vars `"`key'"'
-    if "`by'" != "" {
-        local using_load_vars `"`using_load_vars' `by'"'
-    }
-    if `"`keepusing'"' != "" & !`dryrun_mode' {
-        local using_load_vars `"`using_load_vars' `keepusing'"'
-    }
-    * Deduplicate
-    local using_load_vars : list uniq using_load_vars
-
-    capture frame drop __rm_using
-    if `using_is_frame' {
-        if `"`keepusing'"' != "" | `dryrun_mode' {
-            frame `using_frame': frame put `using_load_vars', into(__rm_using)
-        }
-        else {
-            frame `using_frame': frame put _all, into(__rm_using)
-        }
-    }
-    else {
-        frame create __rm_using
-        if `"`keepusing'"' != "" | `dryrun_mode' {
-            frame __rm_using: use `using_load_vars' using `"`using'"'
-        }
-        else {
-            frame __rm_using: use `"`using'"'
-        }
-    }
-
-    * Validate using-side key
-    frame __rm_using {
-        capture confirm variable `key'
-        if _rc {
-            noisily display as error ///
-                `"variable {bf:`key'} not found in using dataset"'
-            exit 111
-        }
-        capture confirm numeric variable `key'
-        if _rc {
-            noisily display as error ///
-                `"key variable {bf:`key'} must be numeric in using dataset"'
-            exit 109
-        }
-    }
-
-    * Validate by-variables in using
-    if "`by'" != "" {
-        foreach bv of local by {
-            frame __rm_using {
-                capture confirm variable `bv'
-                if _rc {
-                    noisily display as error ///
-                        `"by-variable {bf:`bv'} not found in using dataset"'
-                    exit 111
-                }
-            }
-            local m_isstr = 0
-            local u_isstr = 0
-            capture confirm string variable `bv'
-            if !_rc local m_isstr = 1
-            frame __rm_using {
-                capture confirm string variable `bv'
-                if !_rc local u_isstr = 1
-            }
-            if `m_isstr' != `u_isstr' {
-                display as error ///
-                    `"by-variable {bf:`bv'} has different types in master and using"'
-                exit 109
-            }
-            if !`m_isstr' {
-                local m_type : type `bv'
-                frame __rm_using: local u_type : type `bv'
-                local m_integer = inlist("`m_type'", "byte", "int", "long")
-                local u_integer = inlist("`u_type'", "byte", "int", "long")
-                if "`m_type'" != "`u_type'" & !(`m_integer' & `u_integer') {
-                    display as error ///
-                        `"numeric by-variable {bf:`bv'} has storage types `m_type' and `u_type'"'
-                    display as error ///
-                        "recast the by-variable to the same exact storage type in both datasets"
-                    exit 109
-                }
-            }
-        }
-    }
-
-    local N_using = 0
-    frame __rm_using: local N_using = _N
+    _rangematch_load_using `"`using'"' `"`key'"' `"`by'"' ///
+        `"`keepusing'"' `"`dryrun_mode'"' `"`_rm_caller_frame'"'
+    local using `"`s(using)'"'
+    local using_source "`s(using_source)'"
+    local using_frame "`s(using_frame)'"
+    local using_is_frame = `s(using_is_frame)'
+    local all_using_vars `"`s(all_using_vars)'"'
+    local N_using_pre = `s(N_using_pre)'
+    local N_using = `s(N_using)'
 
     * -------------------------------------------------------------------
     * Determine carry variables and output names
@@ -544,64 +1000,12 @@ program define rangematch, rclass
         local all_using_vars `r(varlist)'
     }
 
-    if `"`keepusing'"' != "" {
-        local carry_vars `"`keepusing'"'
-    }
-    else {
-        local carry_vars ""
-        foreach v of local all_using_vars {
-            local is_by = 0
-            if "`by'" != "" {
-                foreach bv of local by {
-                    if "`v'" == "`bv'" local is_by = 1
-                }
-            }
-            if !`is_by' {
-                local carry_vars `"`carry_vars' `v'"'
-            }
-        }
-        local carry_vars : list retokenize carry_vars
-    }
-
-    * Build output names (handle conflicts)
-    quietly describe, varlist short
-    local master_vars `r(varlist)'
-
-    local out_names ""
-    foreach v of local carry_vars {
-        local outname "`prefix'`v'`suffix'"
-        if "`all'" != "" {
-            local out_names `"`out_names' `outname'"'
-        }
-        else {
-            local conflict = 0
-            foreach mv of local master_vars {
-                if "`v'" == "`mv'" local conflict = 1
-            }
-            if `conflict' {
-                local out_names `"`out_names' `outname'"'
-            }
-            else {
-                local out_names `"`out_names' `v'"'
-            }
-        }
-    }
-    local out_names : list retokenize out_names
-
-    * Check for collisions
-    local all_out "`master_vars' `out_names'"
-    if "`generate'" != "" local all_out "`all_out' `generate'"
-    if "`distance'" != "" local all_out "`all_out' `distance'"
-    if "`masterid'" != "" local all_out "`all_out' `masterid'"
-    if "`usingid'" != "" local all_out "`all_out' `usingid'"
-    local n_all : word count `all_out'
-    local all_out_uniq : list uniq all_out
-    local n_uniq : word count `all_out_uniq'
-    if `n_all' != `n_uniq' {
-        display as error "output variable name collision after applying prefix/suffix"
-        display as error "use {bf:prefix()} or {bf:suffix()} to resolve"
-        exit 110
-    }
+    _rangematch_build_output_names `"`all_using_vars'"' `"`touse'"' ///
+        `"`keepusing'"' `"`by'"' `"`prefix'"' `"`suffix'"' `"`all'"' ///
+        `"`generate'"' `"`distance'"' `"`masterid'"' `"`usingid'"'
+    local carry_vars `"`s(carry_vars)'"'
+    local master_vars `"`s(master_vars)'"'
+    local out_names `"`s(out_names)'"'
 
     if `_rm_timing' {
         timer off 91
@@ -652,113 +1056,8 @@ program define rangematch, rclass
     frame __rm_using {
         quietly gen long __rm_obs = _n
     }
-
-    local _rm_need_obs_resort = 0
-    if "`by'" != "" {
-        local _rm_direct_gid = 0
-        local _rm_by_n : word count `by'
-        if `_rm_by_n' == 1 {
-            local _rm_by1 : word 1 of `by'
-            capture confirm numeric variable `_rm_by1'
-            if !_rc {
-                quietly count if `touse' & missing(`_rm_by1')
-                local _rm_miss_master = r(N)
-                frame __rm_using: quietly count if missing(`_rm_by1')
-                local _rm_miss_using = r(N)
-                quietly count if `touse' ///
-                    & (`_rm_by1' < 1 | `_rm_by1' != floor(`_rm_by1'))
-                local _rm_bad_master = r(N)
-                frame __rm_using: quietly count ///
-                    if `_rm_by1' < 1 | `_rm_by1' != floor(`_rm_by1')
-                local _rm_bad_using = r(N)
-                quietly summarize `_rm_by1' if `touse', meanonly
-                local _rm_gid_max_master = r(max)
-                frame __rm_using: quietly summarize `_rm_by1', meanonly
-                local _rm_gid_max_using = r(max)
-                local _rm_gid_max = max(`_rm_gid_max_master', ///
-                    `_rm_gid_max_using')
-
-                if `_rm_miss_master' == 0 & `_rm_miss_using' == 0 ///
-                        & `_rm_bad_master' == 0 & `_rm_bad_using' == 0 ///
-                        & `_rm_gid_max' <= (`N_master' + `N_using') {
-                    local _rm_direct_gid = 1
-                }
-            }
-        }
-
-        if `_rm_direct_gid' {
-            quietly gen double __rm_gid = `_rm_by1'
-            frame __rm_using {
-                quietly gen double __rm_gid = `_rm_by1'
-            }
-        }
-        else {
-            local _rm_need_obs_resort = 1
-            * Create aligned group IDs across both frames.
-            * Build catalog of unique by-value combinations from both sides,
-            * then merge the sequential group ID back into each.
-
-            * Extract unique master by-values into a temp frame
-            capture frame drop __rm_grp
-            quietly frame put `by' if `touse', into(__rm_grp)
-            frame __rm_grp: quietly duplicates drop
-
-            * Append unique using by-values
-            frame __rm_using {
-                capture frame drop __rm_grp_u
-                quietly frame put `by', into(__rm_grp_u)
-                frame __rm_grp_u: quietly duplicates drop
-            }
-
-            * Combine and deduplicate
-            tempfile _grp_u_tmp
-            frame __rm_grp_u: quietly save `"`_grp_u_tmp'"'
-            frame __rm_grp {
-                quietly {
-                    append using `"`_grp_u_tmp'"'
-                    duplicates drop
-                    sort `by'
-                    gen long __rm_gid = _n
-                }
-            }
-            capture frame drop __rm_grp_u
-
-            * Save catalog to tempfile for merging
-            tempfile _grp_catalog
-            frame __rm_grp: quietly save `"`_grp_catalog'"'
-
-            * Merge group IDs into master (default frame, already preserved)
-            quietly {
-                merge m:1 `by' using `"`_grp_catalog'"', ///
-                    keep(match master) nogenerate keepusing(__rm_gid)
-                replace __rm_gid = 0 if __rm_gid >= .
-            }
-
-            * Merge group IDs into using
-            frame __rm_using {
-                quietly {
-                    merge m:1 `by' using `"`_grp_catalog'"', ///
-                        keep(match master) nogenerate keepusing(__rm_gid)
-                    replace __rm_gid = 0 if __rm_gid >= .
-                }
-            }
-
-            capture frame drop __rm_grp
-        }
-    }
-    else {
-        quietly gen byte __rm_gid = 1
-        frame __rm_using {
-            quietly gen byte __rm_gid = 1
-        }
-    }
-
-    if `_rm_need_obs_resort' {
-        quietly sort __rm_obs
-        frame __rm_using {
-            quietly sort __rm_obs
-        }
-    }
+    _rangematch_build_group_ids `"`by'"' `"`touse'"' ///
+        `"`N_master'"' `"`N_using'"'
 
     * Create master work frame
     local _rm_master_work_vars "__rm_gid __rm_low __rm_high __rm_obs"
@@ -785,147 +1084,80 @@ program define rangematch, rclass
             cond("`by'" != "", "yes (`by')", "none")
     }
 
-    capture frame drop __rm_out
-    if !`dryrun_mode' {
-        frame create __rm_out
-    }
-
     local _rm_show_progress = ("`verbose'" != "" & `N_master' > 100000)
     local _rm_stats_mode = ("`stats'" != "")
     local _rm_assert_match = (strpos(" `assert' ", " match ") > 0)
     local _rm_assert_using = (strpos(" `assert' ", " using ") > 0)
-    local _rm_backend "binary"
     local _rm_try_sweep = (`nearest_code' == 0)
     local _rm_sweep_sort_allowed = (`sort_output' | `dryrun_mode')
-    local _rm_sweep_ready 0
-    local _rm_sweep_sorted 0
-    local _rm_sweep_mode 0
-    if `_rm_try_sweep' {
-        mata: _rm_prepare_sweep_master("__rm_master", ///
-            `_rm_sweep_sort_allowed')
-    }
-    if `_rm_try_sweep' & `_rm_sweep_ready' {
-        mata: _rm_build_pairs_sweep("__rm_master", "__rm_uwork", ///
-            "__rm_out", `keep_unmatched_master', `keep_unmatched_using', ///
-            `maxpairs', `closed_code', `tolerance', `dryrun_mode', ///
-            `_rm_show_progress', `_rm_stats_mode', `_rm_assert_match', ///
-            `_rm_assert_using', `_rm_sweep_mode')
-        if "`_rm_err_maxpairs'" != "1" {
-            local _rm_backend "sweep"
-        }
-    }
-    if !`_rm_try_sweep' | !`_rm_sweep_ready' {
-        mata: _rm_build_pairs("__rm_master", "__rm_uwork", "__rm_out", ///
-            `keep_unmatched_master', `keep_unmatched_using', ///
-            `maxpairs', `closed_code', `nearest_code', `ties_code', ///
-            `tolerance', `dryrun_mode', `_rm_show_progress', ///
-            `_rm_stats_mode', `_rm_assert_match', `_rm_assert_using')
-    }
 
-    if `_rm_timing' {
-        timer off 92
-    }
+    _rangematch_run_backend, trysweep(`_rm_try_sweep') ///
+        sweepsort(`_rm_sweep_sort_allowed') dryrun(`dryrun_mode') ///
+        showprogress(`_rm_show_progress') statsmode(`_rm_stats_mode') ///
+        assertmatch(`_rm_assert_match') assertusing(`_rm_assert_using') ///
+        keepmaster(`keep_unmatched_master') keepusing(`keep_unmatched_using') ///
+        maxpairs(`maxpairs') closedcode(`closed_code') ///
+        tolerance(`tolerance') nearestcode(`nearest_code') ///
+        tiescode(`ties_code') timing(`_rm_timing')
 
-    if "`_rm_err_maxpairs'" == "1" {
-        display as error ///
-            "maxpairs(`maxpairs') exceeded; join would produce `_rm_n_pairs' output rows"
-        display as error "increase maxpairs() or add by() to reduce output size"
-        exit 198
-    }
-
-    local N_pairs = `_rm_n_pairs'
-    local N_matched_pairs = `_rm_n_matched_pairs'
-    local N_unmatched = `N_pairs' - `N_matched_pairs'
+    local _rm_backend "`s(backend)'"
+    local N_pairs = `s(N_pairs)'
+    local N_matched_pairs = `s(N_matched_pairs)'
+    local N_unmatched = `s(N_unmatched)'
     if `_rm_stats_mode' | `_rm_assert_match' {
-        local N_unmatched_master = `_rm_n_unmatched_master'
+        local N_unmatched_master = `s(N_unmatched_master)'
     }
     if `_rm_stats_mode' | `_rm_assert_using' {
-        local N_unmatched_using = `_rm_n_unmatched_using'
+        local N_unmatched_using = `s(N_unmatched_using)'
     }
     if `_rm_stats_mode' {
-        local N_matched_master = `_rm_n_matched_master'
-        local N_matched_using = `_rm_n_matched_using'
-        local N_unmatched_master = `_rm_n_unmatched_master'
-        local N_unmatched_using = `_rm_n_unmatched_using'
-        local max_matches = `_rm_max_matches'
-        local mean_matches = `_rm_mean_matches'
-        local median_matches = `_rm_median_matches'
-        local p50_matches = `_rm_p50_matches'
-        local p90_matches = `_rm_p90_matches'
-        local p99_matches = `_rm_p99_matches'
-        local N_empty_groups = `_rm_n_empty_groups'
-        local N_master_groups = `_rm_n_master_groups'
+        local N_matched_master = `s(N_matched_master)'
+        local N_matched_using = `s(N_matched_using)'
+        local N_unmatched_master = `s(N_unmatched_master)'
+        local N_unmatched_using = `s(N_unmatched_using)'
+        local max_matches = `s(max_matches)'
+        local mean_matches = `s(mean_matches)'
+        local median_matches = `s(median_matches)'
+        local p50_matches = `s(p50_matches)'
+        local p90_matches = `s(p90_matches)'
+        local p99_matches = `s(p99_matches)'
+        local N_empty_groups = `s(N_empty_groups)'
+        local N_master_groups = `s(N_master_groups)'
         local density_warn_threshold = 100
-    }
-
-    if `"`assert'"' != "" {
-        if `_rm_assert_match' {
-            if `N_unmatched_master' > 0 {
-                display as error ///
-                    "assert(match) failed: `N_unmatched_master' master observations had no match"
-                exit 9
-            }
-        }
-        if `_rm_assert_using' {
-            if `N_unmatched_using' > 0 {
-                display as error ///
-                    "assert(using) failed: `N_unmatched_using' using observations had no match"
-                exit 9
-            }
-        }
     }
 
     if `dryrun_mode' {
         restore
 
-        display as text ""
-        display as text "    Dry run result               " ///
-            "Number of obs"
-        display as text "    {hline 49}"
-        display as text "    Not matched" ///
-            _col(44) as result %12.0fc `N_unmatched'
-        display as text "    Matched" ///
-            _col(44) as result %12.0fc `N_matched_pairs'
-        display as text "    {hline 49}"
-        display as text "    Total output" ///
-            _col(44) as result %12.0fc `N_pairs'
-        display as text "    (data unchanged)"
+        _rangematch_display_counts, title("Dry run result") ///
+            unmatched(`N_unmatched') matched(`N_matched_pairs') ///
+            pairs(`N_pairs') dryrun
 
         if `_rm_stats_mode' {
-            if `max_matches' > `density_warn_threshold' {
-                display as error ///
-                    "warning: one master row matched `max_matches' using rows; consider maxpairs(), by(), or nearest()"
+            if "`by'" != "" {
+                _rangematch_display_stats, maxmatches(`max_matches') ///
+                    densitywarn(`density_warn_threshold') ///
+                    nmatchedmaster(`N_matched_master') ///
+                    nunmatchedmaster(`N_unmatched_master') ///
+                    nunmatchedusing(`N_unmatched_using') ///
+                    meanmatches(`mean_matches') ///
+                    medianmatches(`median_matches') ///
+                    p90(`p90_matches') p99(`p99_matches') ///
+                    nemptygroups(`N_empty_groups') ///
+                    nmastergroups(`N_master_groups') by("`by'")
             }
-            if "`by'" != "" & `N_master_groups' > 0 ///
-                    & `N_empty_groups' > (`N_master_groups' / 2) {
-                display as error ///
-                    "warning: `N_empty_groups' of `N_master_groups' by-groups had no using rows; check by() coding"
+            else {
+                _rangematch_display_stats, maxmatches(`max_matches') ///
+                    densitywarn(`density_warn_threshold') ///
+                    nmatchedmaster(`N_matched_master') ///
+                    nunmatchedmaster(`N_unmatched_master') ///
+                    nunmatchedusing(`N_unmatched_using') ///
+                    meanmatches(`mean_matches') ///
+                    medianmatches(`median_matches') ///
+                    p90(`p90_matches') p99(`p99_matches') ///
+                    nemptygroups(`N_empty_groups') ///
+                    nmastergroups(`N_master_groups')
             }
-
-            display as text ""
-            display as text "    Match density                " ///
-                "Value"
-            display as text "    {hline 49}"
-            display as text "    Matched master rows" ///
-                _col(44) as result %12.0fc `N_matched_master'
-            display as text "    Unmatched master rows" ///
-                _col(44) as result %12.0fc `N_unmatched_master'
-            display as text "    Unmatched using rows" ///
-                _col(44) as result %12.0fc `N_unmatched_using'
-            display as text "    Max matches/master row" ///
-                _col(44) as result %12.0fc `max_matches'
-            display as text "    Mean matches/master row" ///
-                _col(44) as result %12.3fc `mean_matches'
-            display as text "    p50 matches/master row" ///
-                _col(44) as result %12.3fc `median_matches'
-            display as text "    p90 matches/master row" ///
-                _col(44) as result %12.3fc `p90_matches'
-            display as text "    p99 matches/master row" ///
-                _col(44) as result %12.3fc `p99_matches'
-            display as text "    Master groups with no using keys" ///
-                _col(44) as result %12.0fc `N_empty_groups'
-            display as text "    Master groups considered" ///
-                _col(44) as result %12.0fc `N_master_groups'
         }
 
         if `_rm_timing' {
@@ -934,71 +1166,11 @@ program define rangematch, rclass
             quietly timer list 92
             local _rm_t_match = r(t92)
             local _rm_t_materialize = 0
-            display as text ""
-            display as text "    Timing                       Seconds"
-            display as text "    {hline 49}"
-            display as text "    Load" ///
-                _col(44) as result %12.3fc `_rm_t_load'
-            display as text "    Match" ///
-                _col(44) as result %12.3fc `_rm_t_match'
-            display as text "    Materialize" ///
-                _col(44) as result %12.3fc `_rm_t_materialize'
-            capture timer clear 91
-            capture timer clear 92
-            capture timer clear 93
+            _rangematch_display_timing, loadtime(`_rm_t_load') ///
+                matchtime(`_rm_t_match') ///
+                materializetime(`_rm_t_materialize')
         }
 
-        return scalar N_master         = `N_master'
-        return scalar N_using          = `N_using'
-        return scalar N_pairs          = `N_pairs'
-        return scalar N_unmatched      = `N_unmatched'
-        return scalar N_matched_pairs  = `N_matched_pairs'
-        return scalar N_missing_bounds = `N_missing_bounds'
-        if `_rm_stats_mode' {
-            return scalar N_matched_master = `N_matched_master'
-            return scalar N_matched_using  = `N_matched_using'
-            return scalar N_unmatched_master = `N_unmatched_master'
-            return scalar N_unmatched_using = `N_unmatched_using'
-            return scalar max_matches      = `max_matches'
-            return scalar mean_matches     = `mean_matches'
-            return scalar median_matches   = `median_matches'
-            return scalar p50_matches      = `p50_matches'
-            return scalar p90_matches      = `p90_matches'
-            return scalar p99_matches      = `p99_matches'
-            return scalar N_empty_groups   = `N_empty_groups'
-            return scalar N_master_groups  = `N_master_groups'
-        }
-        return scalar tolerance        = `tolerance'
-        return local using `"`using'"'
-        return local using_source "`using_source'"
-        return local key `"`key'"'
-        return local low `"`low'"'
-        return local high `"`high'"'
-        return local by `"`by'"'
-        return local keepusing `"`keepusing'"'
-        return local prefix `"`prefix'"'
-        return local suffix `"`suffix'"'
-        return local unmatched `"`unmatched'"'
-        return local closed `"`closed'"'
-        return local missing `"`missing'"'
-        return local nearest `"`nearest'"'
-        return local ties `"`ties'"'
-        return local sort "`sort'"
-        return local nosort "`nosort'"
-        return local assert `"`assert'"'
-        return local generate `"`generate'"'
-        return local distance `"`distance'"'
-        return local masterid `"`masterid'"'
-        return local usingid `"`usingid'"'
-        return local maxpairs "`maxpairs'"
-        return local all "`all'"
-        return local stats "`stats'"
-        return local dryrun "`dryrun'"
-        return local count "`count'"
-        return local verbose "`verbose'"
-        return local backend "`_rm_backend'"
-        return local cmdline `"`_rm_cmdline'"'
-        return local cmd "rangematch"
     }
     else {
 
@@ -1147,58 +1319,46 @@ program define rangematch, rclass
     * -------------------------------------------------------------------
     * Display
     * -------------------------------------------------------------------
-    display as text ""
-    display as text "    Result                       " ///
-        "Number of obs"
-    display as text "    {hline 49}"
-    display as text "    Not matched" ///
-        _col(44) as result %12.0fc `N_unmatched'
-    display as text "    Matched" ///
-        _col(44) as result %12.0fc `N_matched_pairs'
-    display as text "    {hline 49}"
-    display as text "    Total output" ///
-        _col(44) as result %12.0fc `N_pairs'
     if "`frame'" != "" {
-        display as text "    Output frame" _col(44) as result "`frame'"
+        _rangematch_display_counts, title("Result") ///
+            unmatched(`N_unmatched') matched(`N_matched_pairs') ///
+            pairs(`N_pairs') frame("`frame'")
     }
-    if `"`saving_file'"' != "" {
-        display as text "    Output file" _col(44) as result `"`saving_file'"'
+    else if `"`saving_file'"' != "" {
+        _rangematch_display_counts, title("Result") ///
+            unmatched(`N_unmatched') matched(`N_matched_pairs') ///
+            pairs(`N_pairs') saving(`"`saving_file'"')
+    }
+    else {
+        _rangematch_display_counts, title("Result") ///
+            unmatched(`N_unmatched') matched(`N_matched_pairs') ///
+            pairs(`N_pairs')
     }
     if `_rm_stats_mode' {
-        if `max_matches' > `density_warn_threshold' {
-            display as error ///
-                "warning: one master row matched `max_matches' using rows; consider maxpairs(), by(), or nearest()"
+        if "`by'" != "" {
+            _rangematch_display_stats, maxmatches(`max_matches') ///
+                densitywarn(`density_warn_threshold') ///
+                nmatchedmaster(`N_matched_master') ///
+                nunmatchedmaster(`N_unmatched_master') ///
+                nunmatchedusing(`N_unmatched_using') ///
+                meanmatches(`mean_matches') ///
+                medianmatches(`median_matches') ///
+                p90(`p90_matches') p99(`p99_matches') ///
+                nemptygroups(`N_empty_groups') ///
+                nmastergroups(`N_master_groups') by("`by'")
         }
-        if "`by'" != "" & `N_master_groups' > 0 ///
-                & `N_empty_groups' > (`N_master_groups' / 2) {
-            display as error ///
-                "warning: `N_empty_groups' of `N_master_groups' by-groups had no using rows; check by() coding"
+        else {
+            _rangematch_display_stats, maxmatches(`max_matches') ///
+                densitywarn(`density_warn_threshold') ///
+                nmatchedmaster(`N_matched_master') ///
+                nunmatchedmaster(`N_unmatched_master') ///
+                nunmatchedusing(`N_unmatched_using') ///
+                meanmatches(`mean_matches') ///
+                medianmatches(`median_matches') ///
+                p90(`p90_matches') p99(`p99_matches') ///
+                nemptygroups(`N_empty_groups') ///
+                nmastergroups(`N_master_groups')
         }
-
-        display as text ""
-        display as text "    Match density                " ///
-            "Value"
-        display as text "    {hline 49}"
-        display as text "    Matched master rows" ///
-            _col(44) as result %12.0fc `N_matched_master'
-        display as text "    Unmatched master rows" ///
-            _col(44) as result %12.0fc `N_unmatched_master'
-        display as text "    Unmatched using rows" ///
-            _col(44) as result %12.0fc `N_unmatched_using'
-        display as text "    Max matches/master row" ///
-            _col(44) as result %12.0fc `max_matches'
-        display as text "    Mean matches/master row" ///
-            _col(44) as result %12.3fc `mean_matches'
-        display as text "    p50 matches/master row" ///
-            _col(44) as result %12.3fc `median_matches'
-        display as text "    p90 matches/master row" ///
-            _col(44) as result %12.3fc `p90_matches'
-        display as text "    p99 matches/master row" ///
-            _col(44) as result %12.3fc `p99_matches'
-        display as text "    Master groups with no using keys" ///
-            _col(44) as result %12.0fc `N_empty_groups'
-        display as text "    Master groups considered" ///
-            _col(44) as result %12.0fc `N_master_groups'
     }
 
     if `_rm_timing' {
@@ -1208,18 +1368,10 @@ program define rangematch, rclass
         local _rm_t_match = r(t92)
         quietly timer list 93
         local _rm_t_materialize = r(t93)
-        display as text ""
-        display as text "    Timing                       Seconds"
-        display as text "    {hline 49}"
-        display as text "    Load" ///
-            _col(44) as result %12.3fc `_rm_t_load'
-        display as text "    Match" ///
-            _col(44) as result %12.3fc `_rm_t_match'
-        display as text "    Materialize" ///
-            _col(44) as result %12.3fc `_rm_t_materialize'
-        capture timer clear 91
-        capture timer clear 92
-        capture timer clear 93
+        _rangematch_display_timing, loadtime(`_rm_t_load') ///
+            matchtime(`_rm_t_match') ///
+            materializetime(`_rm_t_materialize')
+    }
     }
 
     * -------------------------------------------------------------------
@@ -1248,8 +1400,8 @@ program define rangematch, rclass
     return scalar tolerance        = `tolerance'
     return local using `"`using'"'
     return local using_source "`using_source'"
-    if "`frame'" != "" return local frame "`frame'"
-    if `"`saving_file'"' != "" return local saving `"`saving_file'"'
+    if "`frame'" != "" & !`dryrun_mode' return local frame "`frame'"
+    if `"`saving_file'"' != "" & !`dryrun_mode' return local saving `"`saving_file'"'
     return local key `"`key'"'
     return local low `"`low'"'
     return local high `"`high'"'
@@ -1278,11 +1430,6 @@ program define rangematch, rclass
     return local backend "`_rm_backend'"
     return local cmdline `"`_rm_cmdline'"'
     return local cmd "rangematch"
-
-    * Drop internal vars that may have leaked into current data
-    capture drop __rm_gid __rm_obs __rm_low __rm_high __rm_key
-
-    }
 
     }
     local rc = _rc
