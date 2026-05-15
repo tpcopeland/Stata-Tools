@@ -23,6 +23,11 @@ d KW: claims
 d KW: pattern matching
 d
 f codescan.ado
+f _codescan_codefile.ado
+f _codescan_definitions.ado
+f _codescan_outputs.ado
+f _codescan_score.ado
+f _codescan_hierarchy.ado
 f codescan.sthlp
 f codescan_describe.ado
 f codescan_describe.sthlp

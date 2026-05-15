@@ -83,6 +83,58 @@ program define codescan, rclass
         FORmat(string) COUNTMode]
 
     * =========================================================================
+    * LOAD SCORE/HIERARCHY HELPERS
+    * =========================================================================
+    if "`score'" != "" {
+        capture program list _codescan_assign_score_weights
+        local _need_score_helper = _rc
+        capture program list _codescan_apply_score
+        if _rc local _need_score_helper = 1
+        if `_need_score_helper' {
+            capture findfile _codescan_score.ado
+            if _rc == 0 {
+                run "`r(fn)'"
+            }
+            else {
+                display as error "_codescan_score.ado not found; reinstall codescan"
+                exit 111
+            }
+        }
+    }
+    if `"`hierarchy'"' != "" {
+        capture program list _codescan_check_hierarchy_syntax
+        local _need_hierarchy_helper = _rc
+        capture program list _codescan_parse_hierarchy
+        if _rc local _need_hierarchy_helper = 1
+        capture program list _codescan_apply_hierarchy
+        if _rc local _need_hierarchy_helper = 1
+        if `_need_hierarchy_helper' {
+            capture findfile _codescan_hierarchy.ado
+            if _rc == 0 {
+                run "`r(fn)'"
+            }
+            else {
+                display as error "_codescan_hierarchy.ado not found; reinstall codescan"
+                exit 111
+            }
+        }
+    }
+    capture program list _codescan_plan_outputs
+    local _need_outputs_helper = _rc
+    capture program list _codescan_cleanup_outputs
+    if _rc local _need_outputs_helper = 1
+    if `_need_outputs_helper' {
+        capture findfile _codescan_outputs.ado
+        if _rc == 0 {
+            run "`r(fn)'"
+        }
+        else {
+            display as error "_codescan_outputs.ado not found; reinstall codescan"
+            exit 111
+        }
+    }
+
+    * =========================================================================
     * ALLDATES SHORTHAND
     * =========================================================================
     if "`alldates'" != "" {
@@ -327,23 +379,10 @@ program define codescan, rclass
         }
     }
 
-    * hierarchy() validation — lightweight syntax check (name validation deferred until conditions parsed)
+    * hierarchy() validation - lightweight syntax check (name validation deferred until conditions parsed)
     if `"`hierarchy'"' != "" {
-        if "`collapse'" == "" & "`merge'" == "" {
-            display as error "hierarchy() requires collapse or merge"
-            exit 198
-        }
-        * Check each pair has a > separator
-        local _hcheck_str `"`hierarchy'"'
-        while `"`_hcheck_str'"' != "" {
-            gettoken _hchk_pair _hcheck_str : _hcheck_str, parse("\")
-            local _hchk_pair = strtrim(`"`_hchk_pair'"')
-            if `"`_hchk_pair'"' == "\" | `"`_hchk_pair'"' == "" continue
-            if !strpos(`"`_hchk_pair'"', ">") {
-                display as error "hierarchy(): each pair must use {bf:>} syntax: superior_name {bf:>} inferior_name"
-                exit 198
-            }
-        }
+        local _hier_arg = subinstr(`"`macval(hierarchy)'"', char(92), char(5), .)
+        _codescan_check_hierarchy_syntax, hierarchy(`macval(_hier_arg)') `collapse' `merge'
     }
     local _n_hier_pairs = 0
 
@@ -363,240 +402,82 @@ program define codescan, rclass
     local n_labels = 0
     local _defsrc = cond("`codefile'" != "", "codefile()", "define()")
 
+    capture program list _codescan_parse_define
+    local _need_definitions_helper = _rc
+    capture program list _codescan_apply_generate
+    if _rc local _need_definitions_helper = 1
+    capture program list _codescan_validate_def_regex
+    if _rc local _need_definitions_helper = 1
+    capture program list _codescan_apply_level
+    if _rc local _need_definitions_helper = 1
+    if `_need_definitions_helper' {
+        capture findfile _codescan_definitions.ado
+        if _rc == 0 {
+            run "`r(fn)'"
+        }
+        else {
+            display as error "_codescan_definitions.ado not found; reinstall codescan"
+            exit 111
+        }
+    }
+
     if "`codefile'" != "" {
         local _orig_codefile "`codefile'"
-        local ext = lower(substr("`codefile'", -4, .))
-        if "`ext'" != ".csv" & "`ext'" != ".dta" {
-            display as error "codefile() must be a .csv or .dta file"
-            exit 198
-        }
-        capture confirm file `"`codefile'"'
-        if _rc {
-            local _cf_base = lower(regexr(`"`codefile'"', ".*[\\/]", ""))
-            if inlist("`_cf_base'", "charlson_icd10_example.csv", "elixhauser_icd10_example.csv") {
-                local _builtin_found = 0
-                capture findfile "`_cf_base'"
-                if _rc == 0 {
-                    local codefile `"`r(fn)'"'
-                    local ext ".csv"
-                    local _builtin_found = 1
-                }
-                if !`_builtin_found' {
-                    capture findfile codescan.ado
-                    if _rc == 0 {
-                        local _pkg_dir = regexr(`"`r(fn)'"', "codescan\.ado$", "")
-                        local _pkg_csv `"`_pkg_dir'`_cf_base'"'
-                        capture confirm file `"`_pkg_csv'"'
-                        if _rc == 0 {
-                            local codefile `"`_pkg_csv'"'
-                            local ext ".csv"
-                            local _builtin_found = 1
-                        }
-                    }
-                }
-                if !`_builtin_found' {
-                    tempfile _builtin_codefile
-                    _codescan_write_builtin_codefile, name("`_cf_base'") target("`_builtin_codefile'")
-                    local codefile "`_builtin_codefile'"
-                    local ext ".dta"
-                }
+        capture program list _codescan_parse_codefile
+        local _need_codefile_helper = _rc
+        capture program list _codescan_write_builtin_codefile
+        if _rc local _need_codefile_helper = 1
+        if `_need_codefile_helper' {
+            capture findfile _codescan_codefile.ado
+            if _rc == 0 {
+                run "`r(fn)'"
             }
             else {
-                display as error `"codefile(): file not found: `codefile'"'
-                exit 601
+                display as error "_codescan_codefile.ado not found; reinstall codescan"
+                exit 111
             }
         }
 
-        preserve
-        quietly {
-            if "`ext'" == ".csv" {
-                import delimited `"`codefile'"', clear stringcols(_all) varnames(1)
-            }
-            else {
-                use `"`codefile'"', clear
-            }
+        if "`_score_type'" == "" {
+            _codescan_parse_codefile, codefile(`"`codefile'"')
         }
-
-        * R2: Case-tolerant column name matching
-        foreach _cfcol in name pattern label exclusion weight {
-            capture confirm variable `_cfcol'
-            if _rc {
-                * Try case-insensitive match
-                foreach _v of varlist * {
-                    if lower("`_v'") == "`_cfcol'" & "`_v'" != "`_cfcol'" {
-                        rename `_v' `_cfcol'
-                        continue, break
-                    }
-                }
-            }
+        else {
+            _codescan_parse_codefile, codefile(`"`codefile'"') scoretype("`_score_type'")
         }
-
-        * Validate required columns
-        capture confirm string variable name
-        if _rc {
-            restore
-            display as error "codefile(): file must contain a string variable {bf:name}"
-            exit 198
-        }
-        capture confirm string variable pattern
-        if _rc {
-            restore
-            display as error "codefile(): file must contain a string variable {bf:pattern}"
-            exit 198
-        }
-
-        * Optional columns
-        capture confirm string variable label
-        local _cf_has_label = (_rc == 0)
-        capture confirm string variable exclusion
-        local _cf_has_excl = (_rc == 0)
-        capture confirm variable weight
-        local _cf_has_weight = (_rc == 0)
-
-        quietly count
-        local n_conditions = r(N)
-        if `n_conditions' == 0 {
-            restore
-            display as error "codefile(): file is empty"
-            exit 198
-        }
-
+        local n_conditions = r(n_conditions)
+        local all_names "`r(all_names)'"
+        local n_labels = r(n_labels)
+        local codefile `"`r(resolved_codefile)'"'
         forvalues i = 1/`n_conditions' {
-            local def_name_`i' = name[`i']
-            local def_pattern_`i' = pattern[`i']
-            local def_excl_`i' ""
-            local all_names "`all_names' `def_name_`i''"
-
-            if `_cf_has_label' {
-                local _lbl = label[`i']
-                if `"`_lbl'"' != "" {
-                    local ++n_labels
-                    local lab_name_`n_labels' "`def_name_`i''"
-                    local lab_label_`n_labels' `"`_lbl'"'
-                }
-            }
-            if `_cf_has_excl' {
-                local _excl = exclusion[`i']
-                if `"`_excl'"' != "" {
-                    local def_excl_`i' `"`_excl'"'
-                }
-            }
-            if `_cf_has_weight' {
-                local def_weight_`i' = weight[`i']
-            }
-            else {
-                local def_weight_`i' = 0
+            local def_name_`i' "`r(def_name_`i')'"
+            local def_pattern_`i' `"`r(def_pattern_`i')'"'
+            local def_excl_`i' `"`r(def_excl_`i')'"'
+            local def_weight_`i' "`r(def_weight_`i')'"
+        }
+        if `n_labels' > 0 {
+            forvalues i = 1/`n_labels' {
+                local lab_name_`i' "`r(lab_name_`i')'"
+                local lab_label_`i' `"`r(lab_label_`i')'"'
             }
         }
-        local all_names = trim("`all_names'")
-
-        * R3: Codefile schema validation — batch all errors
-        local _cf_errors ""
-        local _cf_nerr = 0
-        if "`_score_type'" == "custom" & !`_cf_has_weight' {
-            local ++_cf_nerr
-            local _cf_errors `"`_cf_errors'"score(custom) requires a weight column in codefile()" "'
-        }
-        forvalues i = 1/`n_conditions' {
-            if "`def_name_`i''" == "" {
-                local ++_cf_nerr
-                local _cf_errors `"`_cf_errors'"row `i': empty name" "'
-            }
-            if `"`def_pattern_`i''"' == "" {
-                local ++_cf_nerr
-                local _cf_errors `"`_cf_errors'"row `i': empty pattern" "'
-            }
-            if "`def_name_`i''" != "" {
-                capture confirm name `def_name_`i''
-                if _rc {
-                    local ++_cf_nerr
-                    local _cf_errors `"`_cf_errors'"row `i': '`def_name_`i''' is not a valid Stata name" "'
-                }
-            }
-            if "`_score_type'" == "custom" & `_cf_has_weight' {
-                local _wval = weight[`i']
-                local _wnum = real("`_wval'")
-                if "`_wval'" == "" | "`_wnum'" == "." {
-                    local ++_cf_nerr
-                    local _cf_errors `"`_cf_errors'"row `i': weight is missing or non-numeric ('`_wval'')" "'
-                }
-            }
-            forvalues j = 1/`=`i'-1' {
-                if "`def_name_`i''" == "`def_name_`j''" & "`def_name_`i''" != "" {
-                    local ++_cf_nerr
-                    local _cf_errors `"`_cf_errors'"row `i': duplicate name '`def_name_`i''' (same as row `j')" "'
-                    continue, break
-                }
-            }
-        }
-        if `_cf_nerr' > 0 {
-            restore
-            display as error "codefile(): `_cf_nerr' validation error(s):"
-            local _cf_remain `"`_cf_errors'"'
-            forvalues _ei = 1/`_cf_nerr' {
-                gettoken _emsg _cf_remain : _cf_remain
-                display as error "  `_emsg'"
-            }
-            exit 198
-        }
-
-        restore
     }
 
     * =========================================================================
     * PARSE DEFINE()
     * =========================================================================
     else {
-        * tokenize respects quotes: "I2[0-5]|I6[0-9]" stays as one token
-        * Unquoted | becomes a separate token (space-separated)
-        * Format: name "pattern" [~ "excl" ...] | name "pattern" | ...
-        tokenize `"`define'"'
-
-        local i = 1
-        while `"``i''"' != "" {
-            * Skip | delimiter tokens
-            if `"``i''"' == "|" {
-                local ++i
-                continue
-            }
-
-            * Expect: name pattern [~ excl ...]
-            local ++n_conditions
-            local def_name_`n_conditions' `"``i''"'
-            local ++i
-            if `"``i''"' == "" | `"``i''"' == "|" {
-                display as error "define(): condition `def_name_`n_conditions'' has no pattern"
-                display as error "  Expected format: define(name {c 34}pattern{c 34} | name2 {c 34}pattern2{c 34})"
-                exit 198
-            }
-            local def_pattern_`n_conditions' `"``i''"'
-            local ++i
-
-            * Parse optional exclusion patterns (~ "pattern" ~ "pattern" ...)
-            local def_excl_`n_conditions' ""
-            while `"``i''"' == "~" {
-                local ++i
-                if `"``i''"' == "" | `"``i''"' == "|" | `"``i''"' == "~" {
-                    display as error "define(): ~ must be followed by an exclusion pattern"
-                    exit 198
-                }
-                if `"`def_excl_`n_conditions''"' == "" {
-                    local def_excl_`n_conditions' `"``i''"'
-                }
-                else {
-                    local def_excl_`n_conditions' `"`def_excl_`n_conditions''|``i''"'
-                }
-                local ++i
-            }
-
-            local def_weight_`n_conditions' = 0
-            local all_names "`all_names' `def_name_`n_conditions''"
-        }
-        local all_names = trim("`all_names'")
-
-        if `n_conditions' == 0 {
-            display as error "define() is empty"
-            exit 198
+        local _define_arg = subinstr(`"`macval(define)'"', `"""', char(1), .)
+        local _define_arg = subinstr(`"`macval(_define_arg)'"', "(", char(4), .)
+        local _define_arg = subinstr(`"`macval(_define_arg)'"', ")", char(2), .)
+        local _define_arg = subinstr(`"`macval(_define_arg)'"', ",", char(3), .)
+        _codescan_parse_define, define(`macval(_define_arg)')
+        local n_conditions = r(n_conditions)
+        local all_names "`r(all_names)'"
+        forvalues i = 1/`n_conditions' {
+            local def_name_`i' "`r(def_name_`i')'"
+            local def_pattern_`i' `"`r(def_pattern_`i')'"'
+            local def_excl_`i' `"`r(def_excl_`i')'"'
+            local def_weight_`i' "`r(def_weight_`i')'"
         }
     }
 
@@ -604,27 +485,19 @@ program define codescan, rclass
     * APPLY GENERATE PREFIX (F3)
     * =========================================================================
     if "`generate'" != "" {
-        * Validate prefix + longest name + _count suffix <= 32
-        local _max_nm_len = 0
-        forvalues _gi = 1/`n_conditions' {
-            if strlen("`def_name_`_gi''") > `_max_nm_len' {
-                local _max_nm_len = strlen("`def_name_`_gi''")
-            }
-        }
-        if strlen("`generate'") + `_max_nm_len' + 6 > 32 {
-            display as error "generate(): prefix + longest condition name + suffix exceeds 32 characters"
-            exit 198
-        }
-        * Apply prefix to all condition names
         local all_names ""
         forvalues i = 1/`n_conditions' {
-            local def_name_`i' "`generate'`def_name_`i''"
+            _codescan_apply_generate, prefix(`macval(generate)') ///
+                name(`macval(def_name_`i')') suffixlen(6)
+            local def_name_`i' "`r(name)'"
             local all_names "`all_names' `def_name_`i''"
         }
         local all_names = trim("`all_names'")
         * Also update label names
         forvalues j = 1/`n_labels' {
-            local lab_name_`j' "`generate'`lab_name_`j''"
+            _codescan_apply_generate, prefix(`macval(generate)') ///
+                name(`macval(lab_name_`j')') suffixlen(6)
+            local lab_name_`j' "`r(name)'"
         }
     }
 
@@ -635,10 +508,20 @@ program define codescan, rclass
     * We check for the most common structural issues: unmatched brackets.
     if "`mode'" == "regex" {
         forvalues i = 1/`n_conditions' {
-            mata: _codescan_validate_regex(`"`def_pattern_`i''"', "`def_name_`i''", "pattern")
-            if `"`def_excl_`i''"' != "" {
-                mata: _codescan_validate_regex(`"`def_excl_`i''"', "`def_name_`i''", "exclusion")
-            }
+            local _pat_arg `"`macval(def_pattern_`i')'"'
+            local _pat_arg = subinstr(`"`macval(_pat_arg)'"', `"""', char(1), .)
+            local _pat_arg = subinstr(`"`macval(_pat_arg)'"', "(", char(4), .)
+            local _pat_arg = subinstr(`"`macval(_pat_arg)'"', ")", char(2), .)
+            local _pat_arg = subinstr(`"`macval(_pat_arg)'"', ",", char(3), .)
+            local _excl_arg `"`macval(def_excl_`i')'"'
+            local _excl_arg = subinstr(`"`macval(_excl_arg)'"', `"""', char(1), .)
+            local _excl_arg = subinstr(`"`macval(_excl_arg)'"', "(", char(4), .)
+            local _excl_arg = subinstr(`"`macval(_excl_arg)'"', ")", char(2), .)
+            local _excl_arg = subinstr(`"`macval(_excl_arg)'"', ",", char(3), .)
+            _codescan_validate_def_regex, ///
+                name(`macval(def_name_`i')') ///
+                pattern(`macval(_pat_arg)') ///
+                exclusion(`macval(_excl_arg)')
         }
     }
 
@@ -647,247 +530,24 @@ program define codescan, rclass
     * =========================================================================
     if `level' > 0 & "`mode'" == "prefix" {
         forvalues i = 1/`n_conditions' {
-            * Truncate each pipe-separated prefix to level() characters
-            local _lv_remaining `"`def_pattern_`i''"'
-            local _lv_result ""
-            while `"`_lv_remaining'"' != "" {
-                local _lv_pos = strpos(`"`_lv_remaining'"', "|")
-                if `_lv_pos' > 0 {
-                    local _lv_tok = substr(`"`_lv_remaining'"', 1, `_lv_pos' - 1)
-                    local _lv_remaining = substr(`"`_lv_remaining'"', `_lv_pos' + 1, .)
-                }
-                else {
-                    local _lv_tok `"`_lv_remaining'"'
-                    local _lv_remaining ""
-                }
-                local _lv_tok = strtrim(`"`_lv_tok'"')
-                if `"`_lv_tok'"' != "" {
-                    local _lv_tok = substr(`"`_lv_tok'"', 1, `level')
-                    if `"`_lv_result'"' == "" {
-                        local _lv_result `"`_lv_tok'"'
-                    }
-                    else {
-                        local _lv_result `"`_lv_result'|`_lv_tok'"'
-                    }
-                }
-            }
-            local def_pattern_`i' `"`_lv_result'"'
+            local _pat_arg `"`macval(def_pattern_`i')'"'
+            local _pat_arg = subinstr(`"`macval(_pat_arg)'"', `"""', char(1), .)
+            local _pat_arg = subinstr(`"`macval(_pat_arg)'"', "(", char(4), .)
+            local _pat_arg = subinstr(`"`macval(_pat_arg)'"', ")", char(2), .)
+            local _pat_arg = subinstr(`"`macval(_pat_arg)'"', ",", char(3), .)
+            _codescan_apply_level, pattern(`macval(_pat_arg)') level(`level')
+            local def_pattern_`i' `"`r(pattern)'"'
         }
     }
 
     * =========================================================================
-    * SCORE() — Charlson default weights (F2)
+    * SCORE() - default weights (F2)
     * =========================================================================
-    if "`score'" != "" {
-        if "`_score_type'" == "charlson" {
-            * Quan et al. 2011 updated Charlson weights (ICD-10 codes from Quan et al. 2005)
-            * Map condition names to standard Charlson weights
-            forvalues i = 1/`n_conditions' {
-                local _snm = lower("`def_name_`i''")
-                * Strip any generate() prefix for matching
-                if "`generate'" != "" {
-                    local _snm = substr("`_snm'", strlen("`generate'") + 1, .)
-                }
-                local def_weight_`i' = 0
-                if inlist("`_snm'", "mi", "chf", "pvd", "dementia", "copd") {
-                    local def_weight_`i' = 1
-                }
-                if inlist("`_snm'", "cvd", "stroke", "cerebrovascular") {
-                    local def_weight_`i' = 1
-                }
-                if inlist("`_snm'", "rheumatic", "rheumatoid", "connective") {
-                    local def_weight_`i' = 1
-                }
-                if inlist("`_snm'", "peptic", "ulcer", "pud") {
-                    local def_weight_`i' = 1
-                }
-                if inlist("`_snm'", "liver_mild", "mild_liver") {
-                    local def_weight_`i' = 1
-                }
-                if inlist("`_snm'", "dm", "dm1", "dm2", "dm_uncomp", "diabetes") {
-                    local def_weight_`i' = 1
-                }
-                if inlist("`_snm'", "dm_comp", "dm_complicated", "diabetes_comp") {
-                    local def_weight_`i' = 2
-                }
-                if inlist("`_snm'", "hemiplegia", "paraplegia", "paralysis") {
-                    local def_weight_`i' = 2
-                }
-                if inlist("`_snm'", "renal", "ckd", "kidney") {
-                    local def_weight_`i' = 2
-                }
-                if inlist("`_snm'", "cancer", "malignancy", "tumor") {
-                    local def_weight_`i' = 2
-                }
-                if inlist("`_snm'", "liver_severe", "severe_liver") {
-                    local def_weight_`i' = 3
-                }
-                if inlist("`_snm'", "metastatic", "mets") {
-                    local def_weight_`i' = 6
-                }
-                if inlist("`_snm'", "hiv", "aids") {
-                    local def_weight_`i' = 6
-                }
-            }
-            * Warn for unrecognized condition names
-            forvalues i = 1/`n_conditions' {
-                if `def_weight_`i'' == 0 {
-                    local _warn_nm = lower("`def_name_`i''")
-                    if "`generate'" != "" {
-                        local _warn_nm = substr("`_warn_nm'", strlen("`generate'") + 1, .)
-                    }
-                    noisily display as text ///
-                        "(note: `_warn_nm' is not a recognized Charlson condition name; weight = 0)"
-                }
-            }
-        }
-        else if "`_score_type'" == "elixhauser" {
-            * Van Walraven et al. 2009 Elixhauser weights
-            * ICD-10 condition names mapped to van Walraven weights
-            * _elix_matched_`i' = 1 when name was recognized (even if weight = 0)
-            forvalues i = 1/`n_conditions' {
-                local _snm = lower("`def_name_`i''")
-                if "`generate'" != "" {
-                    local _snm = substr("`_snm'", strlen("`generate'") + 1, .)
-                }
-                local def_weight_`i' = 0
-                local _elix_matched_`i' = 0
-                if inlist("`_snm'", "chf", "heart_failure") {
-                    local def_weight_`i' = 7
-                    local _elix_matched_`i' = 1
-                }
-                if inlist("`_snm'", "arrhythmia", "cardiac_arrhythmia") {
-                    local def_weight_`i' = 5
-                    local _elix_matched_`i' = 1
-                }
-                if inlist("`_snm'", "valvular", "valvular_disease") {
-                    local def_weight_`i' = -1
-                    local _elix_matched_`i' = 1
-                }
-                if inlist("`_snm'", "pulmonary_circ", "pulmonary_circulation") {
-                    local def_weight_`i' = 4
-                    local _elix_matched_`i' = 1
-                }
-                if inlist("`_snm'", "pvd", "peripheral_vascular") {
-                    local def_weight_`i' = 2
-                    local _elix_matched_`i' = 1
-                }
-                if inlist("`_snm'", "htn_uncomp", "hypertension_uncomp") {
-                    local def_weight_`i' = 0
-                    local _elix_matched_`i' = 1
-                }
-                if inlist("`_snm'", "htn_comp", "hypertension_comp") {
-                    local def_weight_`i' = 0
-                    local _elix_matched_`i' = 1
-                }
-                if inlist("`_snm'", "paralysis") {
-                    local def_weight_`i' = 7
-                    local _elix_matched_`i' = 1
-                }
-                if inlist("`_snm'", "neuro_other", "other_neurological") {
-                    local def_weight_`i' = 6
-                    local _elix_matched_`i' = 1
-                }
-                if inlist("`_snm'", "copd", "chronic_pulmonary") {
-                    local def_weight_`i' = 3
-                    local _elix_matched_`i' = 1
-                }
-                if inlist("`_snm'", "dm_uncomp", "diabetes_uncomp") {
-                    local def_weight_`i' = 0
-                    local _elix_matched_`i' = 1
-                }
-                if inlist("`_snm'", "dm_comp", "diabetes_comp") {
-                    local def_weight_`i' = 0
-                    local _elix_matched_`i' = 1
-                }
-                if inlist("`_snm'", "hypothyroid", "hypothyroidism") {
-                    local def_weight_`i' = 0
-                    local _elix_matched_`i' = 1
-                }
-                if inlist("`_snm'", "renal", "renal_failure") {
-                    local def_weight_`i' = 5
-                    local _elix_matched_`i' = 1
-                }
-                if inlist("`_snm'", "liver", "liver_disease") {
-                    local def_weight_`i' = 11
-                    local _elix_matched_`i' = 1
-                }
-                if inlist("`_snm'", "pud", "peptic_ulcer") {
-                    local def_weight_`i' = 0
-                    local _elix_matched_`i' = 1
-                }
-                if inlist("`_snm'", "hiv", "aids") {
-                    local def_weight_`i' = 0
-                    local _elix_matched_`i' = 1
-                }
-                if inlist("`_snm'", "lymphoma") {
-                    local def_weight_`i' = 9
-                    local _elix_matched_`i' = 1
-                }
-                if inlist("`_snm'", "metastatic", "metastatic_cancer") {
-                    local def_weight_`i' = 12
-                    local _elix_matched_`i' = 1
-                }
-                if inlist("`_snm'", "solid_tumor", "solid_tumour") {
-                    local def_weight_`i' = 4
-                    local _elix_matched_`i' = 1
-                }
-                if inlist("`_snm'", "rheumatoid", "rheumatoid_arthritis", "collagen") {
-                    local def_weight_`i' = 0
-                    local _elix_matched_`i' = 1
-                }
-                if inlist("`_snm'", "coagulopathy") {
-                    local def_weight_`i' = 3
-                    local _elix_matched_`i' = 1
-                }
-                if inlist("`_snm'", "obesity") {
-                    local def_weight_`i' = -4
-                    local _elix_matched_`i' = 1
-                }
-                if inlist("`_snm'", "weight_loss") {
-                    local def_weight_`i' = 6
-                    local _elix_matched_`i' = 1
-                }
-                if inlist("`_snm'", "fluid_electrolyte", "fluid_electrolytes") {
-                    local def_weight_`i' = 5
-                    local _elix_matched_`i' = 1
-                }
-                if inlist("`_snm'", "blood_loss_anemia", "blood_loss") {
-                    local def_weight_`i' = -2
-                    local _elix_matched_`i' = 1
-                }
-                if inlist("`_snm'", "deficiency_anemia", "anemia") {
-                    local def_weight_`i' = -2
-                    local _elix_matched_`i' = 1
-                }
-                if inlist("`_snm'", "alcohol", "alcohol_abuse") {
-                    local def_weight_`i' = 0
-                    local _elix_matched_`i' = 1
-                }
-                if inlist("`_snm'", "drug", "drug_abuse") {
-                    local def_weight_`i' = -7
-                    local _elix_matched_`i' = 1
-                }
-                if inlist("`_snm'", "psychoses", "psychosis") {
-                    local def_weight_`i' = 0
-                    local _elix_matched_`i' = 1
-                }
-                if inlist("`_snm'", "depression") {
-                    local def_weight_`i' = -3
-                    local _elix_matched_`i' = 1
-                }
-            }
-            * Warn for unrecognized Elixhauser condition names (matched flag = 0)
-            forvalues i = 1/`n_conditions' {
-                if !`_elix_matched_`i'' {
-                    local _warn_nm = lower("`def_name_`i''")
-                    if "`generate'" != "" {
-                        local _warn_nm = substr("`_warn_nm'", strlen("`generate'") + 1, .)
-                    }
-                    noisily display as text ///
-                        "(note: `_warn_nm' is not a recognized Elixhauser condition name; weight = 0)"
-                }
-            }
+    if "`score'" != "" & "`_score_type'" != "custom" {
+        _codescan_assign_score_weights, scoretype("`_score_type'") ///
+            nconditions(`n_conditions') names("`all_names'") generate("`generate'")
+        forvalues i = 1/`n_conditions' {
+            local def_weight_`i' "`r(def_weight_`i')'"
         }
     }
 
@@ -932,134 +592,31 @@ program define codescan, rclass
         }
     }
 
-    local _scorename "_score"
-    if "`generate'" != "" {
-        local _scorename "`generate'_score"
-    }
-
     * Validate every created output up front so replace cannot clobber scan
     * inputs before the row scanner runs.
-    local _n_outputs = 0
-    forvalues i = 1/`n_conditions' {
-        local ++_n_outputs
-        local _output_`_n_outputs' "`def_name_`i''"
-        if "`collapse'" != "" | "`merge'" != "" {
-            if "`earliestdate'" != "" {
-                local ++_n_outputs
-                local _output_`_n_outputs' "`def_name_`i''_first"
-            }
-            if "`latestdate'" != "" {
-                local ++_n_outputs
-                local _output_`_n_outputs' "`def_name_`i''_last"
-            }
-            if "`countdate'" != "" {
-                local ++_n_outputs
-                local _output_`_n_outputs' "`def_name_`i''_count"
-            }
-            if "`countrows'" != "" {
-                local ++_n_outputs
-                local _output_`_n_outputs' "`def_name_`i''_nrows"
-            }
-        }
-    }
-    if "`score'" != "" {
-        local ++_n_outputs
-        local _output_`_n_outputs' "`_scorename'"
-    }
-    if "`unmatched'" != "" {
-        local ++_n_outputs
-        local _output_`_n_outputs' "`unmatched'"
-    }
-    if "`matched_code'" != "" {
-        local ++_n_outputs
-        local _output_`_n_outputs' "`matched_code'"
+    _codescan_plan_outputs, conditions("`all_names'") scanvars("`varlist'") ///
+        protected("`id' `date' `refdate'") score("`score'") ///
+        generate("`generate'") unmatched("`unmatched'") ///
+        matched_code("`matched_code'") `collapse' `merge' `earliestdate' ///
+        `latestdate' `countdate' `countrows' `replace'
+    local _n_outputs = r(n_outputs)
+    local _outputs "`r(outputs)'"
+    local _scorename "`r(scorename)'"
+    forvalues i = 1/`_n_outputs' {
+        local _output_`i' "`r(output_`i')'"
     }
     local _outputs_created = 0
 
-    forvalues i = 1/`_n_outputs' {
-        local _out_nm "`_output_`i''"
-        foreach v of local varlist {
-            if "`_out_nm'" == "`v'" {
-                display as error "output name `_out_nm' conflicts with a varlist variable"
-                exit 198
-            }
-        }
-        if "`_out_nm'" == "`id'" | "`_out_nm'" == "`date'" | "`_out_nm'" == "`refdate'" {
-            display as error "output name `_out_nm' conflicts with id(), date(), or refdate() variable"
-            exit 198
-        }
-        forvalues j = 1/`=`i'-1' {
-            if "`_out_nm'" == "`_output_`j''" {
-                display as error "output name `_out_nm' is specified more than once; choose distinct names"
-                exit 198
-            }
-        }
-        if "`replace'" == "" {
-            capture confirm new variable `_out_nm'
-            if _rc {
-                display as error "variable `_out_nm' already exists; use replace option"
-                exit 110
-            }
-        }
-    }
-
     * =========================================================================
-    * PARSE HIERARCHY() — full validation now that condition names are known
+    * PARSE HIERARCHY() - full validation now that condition names are known
     * =========================================================================
     if `"`hierarchy'"' != "" {
-        local _hier_str `"`hierarchy'"'
-        while `"`_hier_str'"' != "" {
-            gettoken _hpair _hier_str : _hier_str, parse("\")
-            local _hpair = strtrim(`"`_hpair'"')
-            if `"`_hpair'"' == "\" | `"`_hpair'"' == "" continue
-            local _n_hier_pairs = `_n_hier_pairs' + 1
-
-            * Split on >
-            gettoken _hsup _hinf : _hpair, parse(">")
-            local _hsup = strtrim(`"`_hsup'"')
-            local _hinf = strtrim(subinstr(`"`_hinf'"', ">", "", 1))
-
-            * Resolve hierarchy names by membership: exact match first, then
-            * generated-prefix fallback for bare names.
-            local _hsup_full "`_hsup'"
-            local _hinf_full "`_hinf'"
-            local _hfound_sup = 0
-            local _hfound_inf = 0
-            forvalues i = 1/`n_conditions' {
-                if "`def_name_`i''" == "`_hsup_full'" local _hfound_sup = 1
-                if "`def_name_`i''" == "`_hinf_full'" local _hfound_inf = 1
-            }
-            if "`generate'" != "" {
-                if !`_hfound_sup' {
-                    local _hsup_pref "`generate'`_hsup'"
-                    forvalues i = 1/`n_conditions' {
-                        if "`def_name_`i''" == "`_hsup_pref'" {
-                            local _hfound_sup = 1
-                            local _hsup_full "`_hsup_pref'"
-                        }
-                    }
-                }
-                if !`_hfound_inf' {
-                    local _hinf_pref "`generate'`_hinf'"
-                    forvalues i = 1/`n_conditions' {
-                        if "`def_name_`i''" == "`_hinf_pref'" {
-                            local _hfound_inf = 1
-                            local _hinf_full "`_hinf_pref'"
-                        }
-                    }
-                }
-            }
-            if !`_hfound_sup' {
-                display as error "hierarchy(): `_hsup' is not a defined condition name"
-                exit 198
-            }
-            if !`_hfound_inf' {
-                display as error "hierarchy(): `_hinf' is not a defined condition name"
-                exit 198
-            }
-
-            local _hier_sup_`_n_hier_pairs' "`_hsup_full'"
-            local _hier_inf_`_n_hier_pairs' "`_hinf_full'"
+        _codescan_parse_hierarchy, hierarchy(`macval(_hier_arg)') ///
+            nconditions(`n_conditions') names("`all_names'") generate("`generate'")
+        local _n_hier_pairs = r(n_hier_pairs)
+        forvalues _hp = 1/`_n_hier_pairs' {
+            local _hier_sup_`_hp' "`r(hier_sup_`_hp')'"
+            local _hier_inf_`_hp' "`r(hier_inf_`_hp')'"
         }
     }
 
@@ -1678,7 +1235,6 @@ program define codescan, rclass
         quietly merge m:1 `id' using `_merge_tf', nogenerate keep(master match)
 
         quietly count if `touse'
-        local N_merged = r(N)
         quietly {
             tempvar _uniq_id
             bysort `id': gen byte `_uniq_id' = (`touse' & sum(`touse') == 1)
@@ -1693,50 +1249,26 @@ program define codescan, rclass
     * Must run BEFORE score so zeroed-out conditions don't inflate the index.
     * Requires collapse or merge (patient-level data).
     if `_n_hier_pairs' > 0 {
-        quietly {
-            forvalues _hp = 1/`_n_hier_pairs' {
-                local _h_sup "`_hier_sup_`_hp''"
-                local _h_inf "`_hier_inf_`_hp''"
-                if "`countmode'" != "" {
-                    replace `_h_inf' = 0 if `_h_sup' > 0 & !missing(`_h_sup')
-                }
-                else {
-                    replace `_h_inf' = 0 if `_h_sup' == 1
-                }
-            }
+        local _hier_sups ""
+        local _hier_infs ""
+        forvalues _hp = 1/`_n_hier_pairs' {
+            local _hier_sups "`_hier_sups' `_hier_sup_`_hp''"
+            local _hier_infs "`_hier_infs' `_hier_inf_`_hp''"
         }
-        if "`noisily'" != "" {
-            noisily display as text "  (hierarchy: `_n_hier_pairs' rule(s) applied)"
-        }
+        _codescan_apply_hierarchy, nhierpairs(`_n_hier_pairs') ///
+            sups("`_hier_sups'") infs("`_hier_infs'") `countmode' `noisily'
     }
 
     * =========================================================================
-    * SCORE — weighted comorbidity index (F2)
+    * SCORE - weighted comorbidity index (F2)
     * =========================================================================
     if "`score'" != "" {
-        local _scorename "_score"
-        if "`generate'" != "" {
-            local _scorename "`generate'_score"
-        }
-        if "`replace'" != "" {
-            capture drop `_scorename'
-        }
-        quietly gen double `_scorename' = 0
+        local _score_weights ""
         forvalues i = 1/`n_conditions' {
-            local name "`def_name_`i''"
-            local wt = `def_weight_`i''
-            if `wt' != 0 {
-                if inlist("`_score_type'", "charlson", "elixhauser") {
-                    * Charlson/Elixhauser: binary presence regardless of countmode
-                    * sign() preserves missing propagation for unmatched merge rows
-                    quietly replace `_scorename' = `_scorename' + `wt' * sign(`name')
-                }
-                else {
-                    quietly replace `_scorename' = `_scorename' + `wt' * `name'
-                }
-            }
+            local _score_weights "`_score_weights' `def_weight_`i''"
         }
-        label variable `_scorename' "`_score_type' score"
+        _codescan_apply_score, scoretype("`_score_type'") scorename(`_scorename') ///
+            names("`all_names'") weights("`_score_weights'") `replace'
     }
 
     * =========================================================================
@@ -2250,98 +1782,11 @@ program define codescan, rclass
     if `rc' {
         * Clean up: restore any active user preserve, drop only variables this run started creating.
         capture restore
-        if "`_n_outputs'" != "" & "`_outputs_created'" == "1" {
-            forvalues i = 1/`_n_outputs' {
-                local _drop_nm "`_output_`i''"
-                local _drop_protected = 0
-                foreach v of local varlist {
-                    if "`_drop_nm'" == "`v'" local _drop_protected = 1
-                }
-                if "`_drop_nm'" == "`id'" | "`_drop_nm'" == "`date'" | "`_drop_nm'" == "`refdate'" {
-                    local _drop_protected = 1
-                }
-                if !`_drop_protected' capture drop `_drop_nm'
-            }
+        if "`_outputs'" != "" & "`_outputs_created'" == "1" {
+            capture noisily _codescan_cleanup_outputs, outputs("`_outputs'") ///
+                scanvars("`varlist'") protected("`id' `date' `refdate'")
         }
     }
-    set varabbrev `_orig_varabbrev'
-    if `rc' exit `rc'
-end
-
-program define _codescan_write_builtin_codefile, rclass
-    version 16.0
-    local _orig_varabbrev = c(varabbrev)
-    set varabbrev off
-    capture noisily {
-
-    syntax , NAME(string) TARGET(string)
-
-    tempname _cfh
-    postfile `_cfh' str32 name str2045 pattern str2045 exclusion str80 label double weight ///
-        using `"`target'"', replace
-
-    if lower("`name'") == "charlson_icd10_example.csv" {
-        post `_cfh' ("mi") ("I21|I22|I252") ("") ("Myocardial Infarction") (1)
-        post `_cfh' ("chf") ("I099|I110|I130|I132|I255|I420|I425|I426|I427|I428|I429|I43|I50|P290") ("") ("Congestive Heart Failure") (1)
-        post `_cfh' ("pvd") ("I70|I71|I731|I738|I739|I771|I790|I792|K551|K558|K559|Z958|Z959") ("") ("Peripheral Vascular Disease") (1)
-        post `_cfh' ("cvd") ("G45|G46|H340|I60|I61|I62|I63|I64|I65|I66|I67|I68|I69") ("") ("Cerebrovascular Disease") (1)
-        post `_cfh' ("dementia") ("F00|F01|F02|F03|F051|G30|G311") ("") ("Dementia") (1)
-        post `_cfh' ("copd") ("I278|I279|J40|J41|J42|J43|J44|J45|J46|J47|J60|J61|J62|J63|J64|J65|J66|J67|J684|J701|J703") ("") ("Chronic Pulmonary Disease") (1)
-        post `_cfh' ("rheumatic") ("M05|M06|M315|M32|M33|M34|M351|M353|M360") ("") ("Rheumatic Disease") (1)
-        post `_cfh' ("peptic") ("K25|K26|K27|K28") ("") ("Peptic Ulcer Disease") (1)
-        post `_cfh' ("liver_mild") ("B18|K700|K701|K702|K703|K709|K713|K714|K715|K717|K73|K74|K760|K762|K763|K764|K768|K769|Z944") ("") ("Mild Liver Disease") (1)
-        post `_cfh' ("dm_uncomp") ("E100|E101|E106|E108|E109|E110|E111|E116|E118|E119|E120|E121|E126|E128|E129|E130|E131|E136|E138|E139|E140|E141|E146|E148|E149") ("") ("Diabetes without Complications") (1)
-        post `_cfh' ("dm_comp") ("E102|E103|E104|E105|E107|E112|E113|E114|E115|E117|E122|E123|E124|E125|E127|E132|E133|E134|E135|E137|E142|E143|E144|E145|E147") ("") ("Diabetes with Complications") (2)
-        post `_cfh' ("hemiplegia") ("G041|G114|G801|G802|G81|G82|G830|G831|G832|G833|G834|G839") ("") ("Hemiplegia or Paraplegia") (2)
-        post `_cfh' ("renal") ("I120|I131|N032|N033|N034|N035|N036|N037|N052|N053|N054|N055|N056|N057|N18|N19|N250|Z490|Z491|Z492|Z940|Z992") ("") ("Renal Disease") (2)
-        post `_cfh' ("cancer") ("C00|C01|C02|C03|C04|C05|C06|C07|C08|C09|C10|C11|C12|C13|C14|C15|C16|C17|C18|C19|C20|C21|C22|C23|C24|C25|C26|C30|C31|C32|C33|C34|C37|C38|C39|C40|C41|C43|C45|C46|C47|C48|C49|C50|C51|C52|C53|C54|C55|C56|C57|C58|C60|C61|C62|C63|C64|C65|C66|C67|C68|C69|C70|C71|C72|C73|C74|C75|C76|C81|C82|C83|C84|C85|C88|C90|C91|C92|C93|C94|C95|C96|C97") ("") ("Any Malignancy") (2)
-        post `_cfh' ("liver_severe") ("I850|I859|I864|I982|K704|K711|K721|K729|K765|K766|K767") ("") ("Moderate or Severe Liver Disease") (3)
-        post `_cfh' ("metastatic") ("C77|C78|C79|C80") ("") ("Metastatic Solid Tumor") (6)
-        post `_cfh' ("hiv") ("B20|B21|B22|B24") ("") ("HIV/AIDS") (6)
-    }
-    else if lower("`name'") == "elixhauser_icd10_example.csv" {
-        post `_cfh' ("chf") ("I099|I110|I130|I132|I255|I420|I425|I426|I427|I428|I429|I43|I50|P290") ("") ("Congestive Heart Failure") (7)
-        post `_cfh' ("arrhythmia") ("I441|I442|I443|I456|I459|I47|I48|I49|R000|R001|R008|T821|Z450|Z950") ("") ("Cardiac Arrhythmias") (5)
-        post `_cfh' ("valvular") ("A520|I05|I06|I07|I08|I091|I098|I34|I35|I36|I37|I38|I39|Q230|Q231|Q232|Q233|Z952|Z953|Z954") ("") ("Valvular Disease") (-1)
-        post `_cfh' ("pulmonary_circ") ("I26|I27|I280|I288|I289") ("") ("Pulmonary Circulation Disorders") (4)
-        post `_cfh' ("pvd") ("I70|I71|I731|I738|I739|I771|I790|I792|K551|K558|K559|Z958|Z959") ("") ("Peripheral Vascular Disorders") (2)
-        post `_cfh' ("htn_uncomp") ("I10") ("") ("Hypertension Uncomplicated") (0)
-        post `_cfh' ("htn_comp") ("I11|I12|I13|I15") ("") ("Hypertension Complicated") (0)
-        post `_cfh' ("paralysis") ("G041|G114|G801|G802|G803|G81|G82|G830|G831|G832|G833|G834|G839") ("") ("Paralysis") (7)
-        post `_cfh' ("neuro_other") ("G10|G11|G12|G13|G20|G21|G22|G254|G255|G312|G318|G319|G32|G35|G36|G37|G40|G41|G931|G934") ("") ("Other Neurological Disorders") (6)
-        post `_cfh' ("copd") ("I278|I279|J40|J41|J42|J43|J44|J45|J46|J47|J60|J61|J62|J63|J64|J65|J66|J67|J684|J701|J703") ("") ("Chronic Pulmonary Disease") (3)
-        post `_cfh' ("dm_uncomp") ("E100|E101|E106|E108|E109|E110|E111|E116|E118|E119|E120|E121|E126|E128|E129|E130|E131|E136|E138|E139|E140|E141|E146|E148|E149") ("") ("Diabetes Uncomplicated") (0)
-        post `_cfh' ("dm_comp") ("E102|E103|E104|E105|E107|E112|E113|E114|E115|E117|E122|E123|E124|E125|E127|E132|E133|E134|E135|E137|E142|E143|E144|E145|E147") ("") ("Diabetes Complicated") (0)
-        post `_cfh' ("hypothyroid") ("E00|E01|E02|E03|E890") ("") ("Hypothyroidism") (0)
-        post `_cfh' ("renal") ("I120|I131|N032|N033|N034|N035|N036|N037|N052|N053|N054|N055|N056|N057|N18|N19|N250|Z490|Z491|Z492|Z940|Z992") ("") ("Renal Failure") (5)
-        post `_cfh' ("liver") ("B18|I850|I859|I864|I982|K700|K701|K702|K703|K704|K709|K711|K713|K714|K715|K717|K721|K729|K73|K74|K760|K762|K763|K764|K765|K766|K767|K768|K769|Z944") ("") ("Liver Disease") (11)
-        post `_cfh' ("pud") ("K25|K26|K27|K28") ("") ("Peptic Ulcer Disease") (0)
-        post `_cfh' ("hiv") ("B20|B21|B22|B24") ("") ("AIDS/HIV") (0)
-        post `_cfh' ("lymphoma") ("C81|C82|C83|C84|C85|C88|C96") ("") ("Lymphoma") (9)
-        post `_cfh' ("metastatic") ("C77|C78|C79|C80") ("") ("Metastatic Cancer") (12)
-        post `_cfh' ("solid_tumor") ("C00|C01|C02|C03|C04|C05|C06|C07|C08|C09|C10|C11|C12|C13|C14|C15|C16|C17|C18|C19|C20|C21|C22|C23|C24|C25|C26|C30|C31|C32|C33|C34|C37|C38|C39|C40|C41|C43|C45|C46|C47|C48|C49|C50|C51|C52|C53|C54|C55|C56|C57|C58|C60|C61|C62|C63|C64|C65|C66|C67|C68|C69|C70|C71|C72|C73|C74|C75|C76") ("") ("Solid Tumor Without Metastasis") (4)
-        post `_cfh' ("rheumatoid") ("L940|L941|L943|M05|M06|M08|M120|M123|M30|M31|M32|M33|M34|M35|M45|M46") ("") ("Rheumatoid Arthritis/Collagen Vascular Disease") (0)
-        post `_cfh' ("coagulopathy") ("D65|D66|D67|D68|D691|D693|D694|D695|D696") ("") ("Coagulopathy") (3)
-        post `_cfh' ("obesity") ("E66") ("") ("Obesity") (-4)
-        post `_cfh' ("weight_loss") ("E40|E41|E42|E43|E44|E45|E46|R634") ("") ("Weight Loss") (6)
-        post `_cfh' ("fluid_electrolyte") ("E222|E86|E87") ("") ("Fluid and Electrolyte Disorders") (5)
-        post `_cfh' ("blood_loss_anemia") ("D500") ("") ("Blood Loss Anemia") (-2)
-        post `_cfh' ("deficiency_anemia") ("D508|D509|D51|D52|D53") ("") ("Deficiency Anemia") (-2)
-        post `_cfh' ("alcohol") ("F10|K700|K703|K709|T51") ("") ("Alcohol Abuse") (0)
-        post `_cfh' ("drug") ("F11|F12|F13|F14|F15|F16|F18|F19") ("") ("Drug Abuse") (-7)
-        post `_cfh' ("psychoses") ("F20|F22|F23|F24|F25|F28|F29|F302|F312|F313|F314|F315") ("") ("Psychoses") (0)
-        post `_cfh' ("depression") ("F204|F313|F314|F315|F32|F33|F341|F351|F38|F39") ("") ("Depression") (-3)
-    }
-    else {
-        postclose `_cfh'
-        display as error "built-in codefile `name' is not supported"
-        exit 601
-    }
-
-    postclose `_cfh'
-    return local path `"`target'"'
-    }
-    local rc = _rc
     set varabbrev `_orig_varabbrev'
     if `rc' exit `rc'
 end

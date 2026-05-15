@@ -121,7 +121,7 @@ capture noisily {
     local p3 = "Stata-" + "Dev"
     local p4 = "." + "claude"
     local p5 = "." + "codex"
-    shell bash -lc 'cd "$1" && if git ls-files -z codescan | grep -zEv "^codescan/demo/.*\\.(xlsx|png)$" | xargs -0 rg -n -F -e "$3" -e "$4" -e "$5" -e "$6" -e "$7" > "$2.hits"; then echo FAIL > "$2"; else echo PASS > "$2"; fi' bash "`repo_dir'" "`marker'" "`p1'" "`p2'" "`p3'" "`p4'" "`p5'"
+    shell bash -lc 'cd "$1" && files=$(git ls-files codescan | grep -Ev "^codescan/demo/.*\\.(xlsx|png)$" || true); if [ -z "$files" ]; then files=$(awk "/^f /{print \"codescan/\" \$2}" codescan/codescan.pkg; printf "%s\n" codescan/codescan.pkg codescan/stata.toc codescan/README.md); files=$(printf "%s\n" "$files" | grep -Ev "^codescan/demo/.*\\.(xlsx|png)$" | sort -u); fi; if [ -n "$files" ] && printf "%s\n" "$files" | xargs rg -n -F -e "$3" -e "$4" -e "$5" -e "$6" -e "$7" > "$2.hits"; then echo FAIL > "$2"; else echo PASS > "$2"; fi' bash "`repo_dir'" "`marker'" "`p1'" "`p2'" "`p3'" "`p4'" "`p5'"
     _assert_marker_pass "`marker'"
 }
 if _rc == 0 {
@@ -136,7 +136,7 @@ else {
 local ++test_count
 capture noisily {
     tempfile marker
-    shell bash -lc 'cd "$1" && if git ls-files codescan | grep -Ev "^codescan/demo/" | grep -E "\\.(log|smcl|dta|xlsx)$" > "$2.hits"; then echo FAIL > "$2"; else echo PASS > "$2"; fi' bash "`repo_dir'" "`marker'"
+    shell bash -lc 'cd "$1" && files=$(git ls-files codescan || true); if [ -z "$files" ]; then files=$(awk "/^f /{print \"codescan/\" \$2}" codescan/codescan.pkg; printf "%s\n" codescan/codescan.pkg codescan/stata.toc codescan/README.md); fi; if printf "%s\n" "$files" | grep -Ev "^codescan/demo/" | grep -E "\\.(log|smcl|dta|xlsx)$" > "$2.hits"; then echo FAIL > "$2"; else echo PASS > "$2"; fi' bash "`repo_dir'" "`marker'"
     _assert_marker_pass "`marker'"
 }
 if _rc == 0 {

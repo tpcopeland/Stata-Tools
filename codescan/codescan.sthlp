@@ -58,7 +58,7 @@
 {synopt:{opt mer:ge}}attach patient-level results back to row-level data{p_end}
 {synopt:{opt earliest:date}}create {it:name}_first variables{p_end}
 {synopt:{opt latest:date}}create {it:name}_last variables{p_end}
-{synopt:{opt countd:ate}}create {it:name}_count variables (unique dates){p_end}
+{synopt:{opt count:date}}create {it:name}_count variables (unique dates){p_end}
 {synopt:{opt countr:ows}}create {it:name}_nrows variables (row counts){p_end}
 {synopt:{opt alld:ates}}shorthand for all three date-summary options{p_end}
 {synopt:{opt pre:serve}}restore the original data after producing results{p_end}
