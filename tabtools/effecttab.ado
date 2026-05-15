@@ -75,6 +75,7 @@ program define effecttab, rclass
 			exit 111
 		}
 	}
+	_tabtools_require_helpers
 
 	syntax, [xlsx(string) excel(string) sheet(string)] [sep(string asis) type(string) effect(string) ///
 	        models(string) title(string) clean TLABels(string asis) ///
@@ -165,15 +166,7 @@ quietly {
 
 	* Resolve formatting
 	_tabtools_resolve_format, theme(`theme') borderstyle(`borderstyle') headershade(`headershade') zebra(`zebra')
-	* Resolve header/zebra colors
-	local _headercolor "219 229 241"
-	local _zebracolor "237 242 249"
-	if "$TABTOOLS_HEADERCOLOR" != "" local _headercolor "$TABTOOLS_HEADERCOLOR"
-	if "$TABTOOLS_ZEBRACOLOR" != "" local _zebracolor "$TABTOOLS_ZEBRACOLOR"
-	if "`headercolor'" != "" local _headercolor "`headercolor'"
-	if "`zebracolor'" != "" local _zebracolor "`zebracolor'"
-	_tabtools_validate_color "`_headercolor'" "headercolor()"
-	_tabtools_validate_color "`_zebracolor'" "zebracolor()"
+	_tabtools_resolve_colors, headercolor(`"`headercolor'"') zebracolor(`"`zebracolor'"')
 
 	* Set defaults
 	if `"`sep'"' == "" local sep ", "

@@ -413,18 +413,18 @@ else {
 
 **# 5. tabtools detail listing — all commands and categories
 
-**## 5a. tabtools returns 11 commands
+**## 5a. tabtools returns 12 commands
 local ++test_count
 capture noisily {
     tabtools
-    assert r(n_commands) == 11
+    assert r(n_commands) == 12
 }
 if _rc == 0 {
-    display as result "  PASS: tabtools returns n_commands = 11"
+    display as result "  PASS: tabtools returns n_commands = 12"
     local ++pass_count
 }
 else {
-    display as error "  FAIL: tabtools n_commands != 11 (error `=_rc')"
+    display as error "  FAIL: tabtools n_commands != 12 (error `=_rc')"
     local ++fail_count
 }
 
@@ -496,7 +496,7 @@ else {
     local ++fail_count
 }
 
-**## 5e. r(commands) contains all 11 command names
+**## 5e. r(commands) contains all 12 command names
 local ++test_count
 local t5e_pass = 1
 capture noisily {
@@ -508,7 +508,7 @@ if _rc != 0 {
     local t5e_pass = 0
 }
 else {
-    foreach cmd in table1_tc crosstab corrtab regtab effecttab stratetab survtab diagtab comptab hrcomptab tabtools {
+    foreach cmd in table1_tc desctab crosstab corrtab regtab effecttab stratetab survtab diagtab comptab hrcomptab tabtools {
         if strpos("`cmds'", "`cmd'") > 0 {
             display as result "  PASS [5e.`cmd']: `cmd' in r(commands)"
         }
@@ -519,7 +519,7 @@ else {
     }
 }
 if `t5e_pass' == 1 {
-    display as result "  PASS: all 11 commands in r(commands)"
+    display as result "  PASS: all 12 commands in r(commands)"
     local ++pass_count
 }
 else {

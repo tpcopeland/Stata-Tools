@@ -22,7 +22,7 @@
         demo_hrcomptab.xlsx  (1 sheet)  - hrcomptab composite
 */
 
-version 16.0
+version 17.0
 local _orig_more = c(more)
 local _orig_varabbrev = c(varabbrev)
 local _orig_linesize = c(linesize)

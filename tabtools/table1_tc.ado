@@ -30,6 +30,7 @@ program define table1_tc, rclass
             exit 111
         }
     }
+    _tabtools_require_helpers
 
 **# Syntax Definition
     syntax [varlist] [if] [in] [fweight], ///
@@ -259,15 +260,7 @@ program define table1_tc, rclass
     * Resolve formatting
     _tabtools_resolve_format, theme(`theme') borderstyle(`borderstyle') headershade(`headershade')
 
-    * Resolve header/zebra colors
-    local _headercolor "219 229 241"
-    local _zebracolor "237 242 249"
-    if "$TABTOOLS_HEADERCOLOR" != "" local _headercolor "$TABTOOLS_HEADERCOLOR"
-    if "$TABTOOLS_ZEBRACOLOR" != "" local _zebracolor "$TABTOOLS_ZEBRACOLOR"
-    if "`headercolor'" != "" local _headercolor "`headercolor'"
-    if "`zebracolor'" != "" local _zebracolor "`zebracolor'"
-    _tabtools_validate_color "`_headercolor'" "headercolor()"
-    _tabtools_validate_color "`_zebracolor'" "zebracolor()"
+    _tabtools_resolve_colors, headercolor(`"`headercolor'"') zebracolor(`"`zebracolor'"')
 
     * Initialize test tracking for methods paragraph (C5)
     local _used_ttest 0
@@ -2435,7 +2428,7 @@ program define table1_tc, rclass
 			cap drop *_length *_max
             
             /*****************************************************************
-            * Build Excel column letter references
+            * Build Excel column position references
             *****************************************************************/
 			qui desc
 			local num_cols = `r(k)'  // Number of columns
@@ -2446,14 +2439,6 @@ program define table1_tc, rclass
 			if !_rc local num_cols = `num_cols' - 1
 			qui count
 			local num_rows = `r(N)'  // Number of rows
-
-            _tabtools_build_col_letters `num_cols'
-            local col_letters = "`result'"
-            
-            /* Extract important column letters */
-            local col1_letter: word 1 of `col_letters'  // First column
-            local col2_letter: word 2 of `col_letters'  // Second column
-            local lastcol_letter: word `num_cols' of `col_letters'  // Last column
             
             /* Find column position of level and data */
             local level_pos = 0
@@ -2464,11 +2449,6 @@ program define table1_tc, rclass
                     continue, break
                 }
                 local i = `i' + 1
-            }
-
-            /* Get level_letter from level_pos */
-            if `level_pos' > 0 {
-                local level_letter: word `level_pos' of `col_letters'
             }
 
             /* Find p-value column position if it exists */
@@ -2515,25 +2495,7 @@ program define table1_tc, rclass
                 local i = `i' + 1
             }
 
-            /* Get letters for formatting */
-            local factor_letter: word 2 of `col_letters'  // Factor column letter
-
 			local data_start_pos = 3
-
-            local data_start_letter: word `data_start_pos' of `col_letters'  // First data column
-
-            if `pvalue_pos' > 0 {
-                local pvalue_letter: word `pvalue_pos' of `col_letters'  // p-value column letter
-            }
-            if `test_pos' > 0 {
-                local test_letter: word `test_pos' of `col_letters'
-            }
-            if `statistic_pos' > 0 {
-                local statistic_letter: word `statistic_pos' of `col_letters'
-            }
-            if `smd_pos' > 0 {
-                local smd_letter: word `smd_pos' of `col_letters'
-            }
 
             /*****************************************************************
             * Apply all Excel formatting in a single Mata xl() session

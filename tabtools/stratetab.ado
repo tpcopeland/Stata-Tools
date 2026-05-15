@@ -64,6 +64,7 @@ if _rc {
 		exit 111
 	}
 }
+_tabtools_require_helpers
 
 syntax, using(string asis) [xlsx(string) excel(string)] outcomes(integer) ///
 	[sheet(string) title(string) outlabels(string) explabels(string) ///
@@ -119,15 +120,7 @@ if `outcomes' < 1 {
 	* Resolve formatting
 	_tabtools_resolve_format, theme(`theme') borderstyle(`borderstyle') headershade(`headershade') zebra(`zebra')
 
-	* Resolve header/zebra colors
-	local _headercolor "219 229 241"
-	local _zebracolor "237 242 249"
-	if "$TABTOOLS_HEADERCOLOR" != "" local _headercolor "$TABTOOLS_HEADERCOLOR"
-	if "$TABTOOLS_ZEBRACOLOR" != "" local _zebracolor "$TABTOOLS_ZEBRACOLOR"
-	if "`headercolor'" != "" local _headercolor "`headercolor'"
-	if "`zebracolor'" != "" local _zebracolor "`zebracolor'"
-	_tabtools_validate_color "`_headercolor'" "headercolor()"
-	_tabtools_validate_color "`_zebracolor'" "zebracolor()"
+	_tabtools_resolve_colors, headercolor(`"`headercolor'"') zebracolor(`"`zebracolor'"')
 
 	* Validate ratiodigits
 if `ratiodigits' < 0 | `ratiodigits' > 10 {

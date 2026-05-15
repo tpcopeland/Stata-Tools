@@ -30,6 +30,7 @@ program define desctab, rclass
             exit 111
         }
     }
+    _tabtools_require_helpers
 
     syntax , [XLSX(string) EXCEL(string) SHEET(string) TITLE(string asis) ///
         FOOTnote(string asis) COMPOSE(string asis) NFORMATS(string asis) ///
@@ -97,14 +98,7 @@ program define desctab, rclass
     local headershade "`_requested_headershade'"
     local zebra "`_requested_zebra'"
 
-    local _headercolor "219 229 241"
-    local _zebracolor "237 242 249"
-    if "$TABTOOLS_HEADERCOLOR" != "" local _headercolor "$TABTOOLS_HEADERCOLOR"
-    if "$TABTOOLS_ZEBRACOLOR" != "" local _zebracolor "$TABTOOLS_ZEBRACOLOR"
-    if "`headercolor'" != "" local _headercolor "`headercolor'"
-    if "`zebracolor'" != "" local _zebracolor "`zebracolor'"
-    _tabtools_validate_color "`_headercolor'" "headercolor()"
-    _tabtools_validate_color "`_zebracolor'" "zebracolor()"
+    _tabtools_resolve_colors, headercolor(`"`headercolor'"') zebracolor(`"`zebracolor'"')
 
     capture quietly collect query row
     if _rc {

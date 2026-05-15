@@ -34,6 +34,7 @@ program define hrcomptab, rclass
                 exit 111
             }
         }
+        _tabtools_require_helpers
 
         syntax anything(name=rateframe) , MODELFRAMES(string asis) ///
             [rows(string asis) ROWNAMES(string asis) ///
@@ -85,14 +86,7 @@ program define hrcomptab, rclass
         _tabtools_resolve_format, theme(`theme') borderstyle(`borderstyle') ///
             headershade(`headershade') zebra(`zebra')
 
-        local _headercolor "219 229 241"
-        local _zebracolor "237 242 249"
-        if "$TABTOOLS_HEADERCOLOR" != "" local _headercolor "$TABTOOLS_HEADERCOLOR"
-        if "$TABTOOLS_ZEBRACOLOR" != "" local _zebracolor "$TABTOOLS_ZEBRACOLOR"
-        if "`headercolor'" != "" local _headercolor "`headercolor'"
-        if "`zebracolor'" != "" local _zebracolor "`zebracolor'"
-        _tabtools_validate_color "`_headercolor'" "headercolor()"
-        _tabtools_validate_color "`_zebracolor'" "zebracolor()"
+        _tabtools_resolve_colors, headercolor(`"`headercolor'"') zebracolor(`"`zebracolor'"')
 
         * Validate rate frame
         capture frame `rateframe': quietly count

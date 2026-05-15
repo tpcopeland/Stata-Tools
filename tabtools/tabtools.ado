@@ -50,7 +50,9 @@ program define tabtools, rclass
         exit 111
     }
     run "`r(fn)'"
-    capture _tabtools_helpers_ready "_tabtools_validate_color _tabtools_resolve_format _tabtools_apply_theme"
+    capture _tabtools_require_helpers, ///
+        required("_tabtools_validate_color _tabtools_resolve_format _tabtools_apply_theme") ///
+        failmessage("_tabtools_common.ado failed to load; reinstall tabtools")
     if _rc {
         display as error "_tabtools_common.ado failed to load; reinstall tabtools"
         exit 111

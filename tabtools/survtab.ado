@@ -56,6 +56,7 @@ capture noisily {
             exit 111
         }
     }
+    _tabtools_require_helpers
 
 **# Syntax and Validation
     syntax, times(numlist >0) [by(varname) RMST(real -1) MEDian RISKset ///
@@ -164,14 +165,7 @@ capture noisily {
 
     * Resolve formatting
     _tabtools_resolve_format, theme(`theme') borderstyle(`borderstyle') headershade(`headershade') zebra(`zebra')
-    local _headercolor "219 229 241"
-    local _zebracolor "237 242 249"
-    if "$TABTOOLS_HEADERCOLOR" != "" local _headercolor "$TABTOOLS_HEADERCOLOR"
-    if "$TABTOOLS_ZEBRACOLOR" != "" local _zebracolor "$TABTOOLS_ZEBRACOLOR"
-    if "`headercolor'" != "" local _headercolor "`headercolor'"
-    if "`zebracolor'" != "" local _zebracolor "`zebracolor'"
-    _tabtools_validate_color "`_headercolor'" "headercolor()"
-    _tabtools_validate_color "`_zebracolor'" "zebracolor()"
+    _tabtools_resolve_colors, headercolor(`"`headercolor'"') zebracolor(`"`zebracolor'"')
 
     * Count timepoints
     local n_times : word count `times'

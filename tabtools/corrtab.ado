@@ -28,6 +28,7 @@ program define corrtab, rclass
                 exit 111
             }
         }
+        _tabtools_require_helpers
 
         syntax varlist(min=2 numeric) [if] [in], ///
             [xlsx(string) excel(string) sheet(string) ///
@@ -68,14 +69,7 @@ program define corrtab, rclass
         _tabtools_resolve_format, theme(`theme') borderstyle(`borderstyle') ///
             headershade(`headershade') zebra(`zebra')
 
-        local _headercolor "219 229 241"
-        local _zebracolor "237 242 249"
-        if "$TABTOOLS_HEADERCOLOR" != "" local _headercolor "$TABTOOLS_HEADERCOLOR"
-        if "$TABTOOLS_ZEBRACOLOR" != "" local _zebracolor "$TABTOOLS_ZEBRACOLOR"
-        if "`headercolor'" != "" local _headercolor "`headercolor'"
-        if "`zebracolor'" != "" local _zebracolor "`zebracolor'"
-        _tabtools_validate_color "`_headercolor'" "headercolor()"
-        _tabtools_validate_color "`_zebracolor'" "zebracolor()"
+        _tabtools_resolve_colors, headercolor(`"`headercolor'"') zebracolor(`"`zebracolor'"')
 
         local _shape_modes = 0
         if "`lower'" != "" local ++_shape_modes

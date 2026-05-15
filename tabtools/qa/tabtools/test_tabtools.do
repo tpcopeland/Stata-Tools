@@ -79,7 +79,8 @@ else {
 local ++test_count
 capture noisily {
     tabtools, category(descriptive)
-    assert r(n_commands) == 3
+    assert r(n_commands) == 4
+    assert strpos("`r(commands)'", "desctab") > 0
     assert strpos("`r(commands)'", "corrtab") > 0
     assert strpos("`r(commands)'", "hrcomptab") == 0
 }

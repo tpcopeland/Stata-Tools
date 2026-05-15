@@ -19,10 +19,12 @@ PROGRAMS INCLUDED:
     _tabtools_validate_sheet    - Validate Excel sheet name (length, forbidden chars)
     _tabtools_apply_theme       - Apply journal-style formatting presets
     _tabtools_resolve_format    - Resolve font/fontsize/borderstyle from options, globals, and themes
+    _tabtools_resolve_colors    - Resolve header/zebra colors from options and globals
     _tabtools_classify_stat      - Classify collect table statistics for formatting
     _tabtools_resolve_stat_format - Resolve per-statistic display formats
     _tabtools_frame_put         - Store output in a named frame with optional replace
     _tabtools_helpers_ready     - Verify the helper bundle is fully loaded
+    _tabtools_require_helpers   - Exit with package reinstall message if helpers are incomplete
 USAGE:
     These programs are called internally by tabtools commands (table1_tc, regtab,
     effecttab, stratetab, hrcomptab, and others). They are not intended for direct use.
@@ -487,6 +489,36 @@ program _tabtools_resolve_format
 end
 
 * =============================================================================
+* _tabtools_resolve_colors: Resolve header/zebra colors from options and globals
+* =============================================================================
+* Sets c_local variables in the caller's scope:
+*   _headercolor, _zebracolor
+*
+* Usage: _tabtools_resolve_colors, [headercolor(string) zebracolor(string)]
+
+capture program drop _tabtools_resolve_colors
+program _tabtools_resolve_colors
+    version 16.0
+    syntax , [HEADERColor(string) ZEBRAColor(string)]
+
+    local headercolor = strtrim(subinstr(`"`headercolor'"', char(34), "", .))
+    local zebracolor = strtrim(subinstr(`"`zebracolor'"', char(34), "", .))
+
+    local _headercolor "219 229 241"
+    local _zebracolor "237 242 249"
+    if "$TABTOOLS_HEADERCOLOR" != "" local _headercolor "$TABTOOLS_HEADERCOLOR"
+    if "$TABTOOLS_ZEBRACOLOR" != "" local _zebracolor "$TABTOOLS_ZEBRACOLOR"
+    if `"`headercolor'"' != "" local _headercolor `"`headercolor'"'
+    if `"`zebracolor'"' != "" local _zebracolor `"`zebracolor'"'
+
+    _tabtools_validate_color "`_headercolor'" "headercolor()"
+    _tabtools_validate_color "`_zebracolor'" "zebracolor()"
+
+    c_local _headercolor `"`_headercolor'"'
+    c_local _zebracolor `"`_zebracolor'"'
+end
+
+* =============================================================================
 * _tabtools_classify_stat: Classify collect table statistics for formatting
 * =============================================================================
 
@@ -655,12 +687,36 @@ program _tabtools_helpers_ready
     args required
 
     if `"`required'"' == "" {
-        local required "_tabtools_col_letter _tabtools_validate_path _tabtools_validate_color _tabtools_build_col_letters _tabtools_open_file _tabtools_detect_vartype _tabtools_validate_sheet _tabtools_apply_theme _tabtools_resolve_format _tabtools_classify_stat _tabtools_resolve_stat_format _tabtools_console_display _tabtools_frame_put"
+        local required "_tabtools_col_letter _tabtools_validate_path _tabtools_validate_color _tabtools_build_col_letters _tabtools_open_file _tabtools_detect_vartype _tabtools_validate_sheet _tabtools_apply_theme _tabtools_resolve_format _tabtools_resolve_colors _tabtools_classify_stat _tabtools_resolve_stat_format _tabtools_console_display _tabtools_frame_put _tabtools_require_helpers"
     }
 
     foreach _prog of local required {
         capture program list `_prog'
         if _rc exit 111
+    }
+end
+
+* =============================================================================
+* _tabtools_require_helpers: Require helper bundle completeness
+* =============================================================================
+* Displays the caller-compatible reinstall message and exits rc=111 when helpers
+* are not loaded completely.
+*
+* Usage: _tabtools_require_helpers [, required(string) failmessage(string)]
+
+capture program drop _tabtools_require_helpers
+program _tabtools_require_helpers
+    version 16.0
+    syntax [, REQUIRED(string asis) FAILMessage(string asis)]
+
+    if `"`failmessage'"' == "" {
+        local failmessage "_tabtools_common.ado failed to load fully; reinstall tabtools"
+    }
+
+    capture _tabtools_helpers_ready `"`required'"'
+    if _rc {
+        noisily display as error `"`failmessage'"'
+        exit 111
     }
 end
 

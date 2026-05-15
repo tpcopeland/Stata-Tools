@@ -116,7 +116,7 @@ tabtools - Publication-Ready Table Export Suite
   tabtools     - Suite controller and persistent defaults
 
 ──────────────────────────────────────────────────────────────────────
-Total commands: 11
+Total commands: 12
 ```
 
 ### table1_tc — Baseline characteristics
