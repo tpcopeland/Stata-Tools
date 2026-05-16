@@ -75,14 +75,14 @@ program define datadict, rclass
 	else if `"`filelist'"' != "" {
 		// filelist now contains dataset names directly (space-separated)
 		// Parse the list and write to temp file
-		_datadict_CollectFilelist `"`filelist'"' `"`filelist_tmp'"'
-		_datadict_CountFiles `"`filelist_tmp'"'
+		_datamap_collect_filelist `"`filelist'"' `"`filelist_tmp'"'
+		_datamap_count_files `"`filelist_tmp'"'
 		local nfiles = r(nfiles)
 	}
 	else {
 		if `"`directory'"' == "" local directory "."
-		_datadict_CollectFromDir `"`directory'"' "`recursive'" `"`filelist_tmp'"'
-		_datadict_CountFiles `"`filelist_tmp'"'
+		_datamap_collect_from_dir `"`directory'"' "`recursive'" `"`filelist_tmp'"'
+		_datamap_count_files `"`filelist_tmp'"'
 		local nfiles = r(nfiles)
 	}
 
@@ -125,112 +125,6 @@ program define datadict, rclass
 	local rc = _rc
 	set varabbrev `_varabbrev'
 	if `rc' exit `rc'
-end
-
-// =============================================================================
-// Helper: CollectFromFilelistOption
-// Parse space-separated dataset names and write to temp file
-// =============================================================================
-program define _datadict_CollectFilelist
-	version 16.0
-	args filelist tmpfile
-
-	tempname fh_out
-	quietly file open `fh_out' using `"`tmpfile'"', write text replace
-
-	// Parse the space-separated list
-	local remaining `"`filelist'"'
-	while `"`remaining'"' != "" {
-		gettoken dsname remaining : remaining
-		if `"`dsname'"' != "" {
-			// Add .dta extension if not present
-			local dsname = cond(regexm(`"`dsname'"', "\.dta$"), `"`dsname'"', `"`dsname'.dta"')
-			// Check file exists
-			capture quietly confirm file `"`dsname'"'
-			if _rc != 0 {
-				di as error `"file `dsname' not found"'
-				file close `fh_out'
-				exit 601
-			}
-			file write `fh_out' `"`dsname'"' _n
-		}
-	}
-	file close `fh_out'
-end
-
-// =============================================================================
-// Helper: CollectFromDir
-// =============================================================================
-program define _datadict_CollectFromDir
-	version 16.0
-	args directory recursive tmpfile
-
-	tempname fh
-	quietly file open `fh' using `"`tmpfile'"', write text replace
-
-	if "`recursive'" == "" {
-		local files : dir `"`directory'"' files "*.dta"
-		foreach f of local files {
-			if `"`directory'"' != "." {
-				file write `fh' `"`directory'/`f'"' _n
-			}
-			else {
-				file write `fh' `"`f'"' _n
-			}
-		}
-	}
-	else {
-		_datadict_RecursiveScan `"`directory'"' `fh'
-	}
-
-	file close `fh'
-end
-
-program define _datadict_RecursiveScan
-	version 16.0
-	args directory fh
-
-	local files : dir `"`directory'"' files "*.dta"
-	foreach f of local files {
-		if `"`directory'"' != "." {
-			file write `fh' `"`directory'/`f'"' _n
-		}
-		else {
-			file write `fh' `"`f'"' _n
-		}
-	}
-
-	local subdirs : dir `"`directory'"' dirs "*"
-	foreach subdir of local subdirs {
-		if substr(`"`subdir'"', 1, 1) != "." & `"`subdir'"' != "__pycache__" {
-			if `"`directory'"' != "." {
-				_datadict_RecursiveScan `"`directory'/`subdir'"' `fh'
-			}
-			else {
-				_datadict_RecursiveScan `"`subdir'"' `fh'
-			}
-		}
-	}
-end
-
-// =============================================================================
-// Helper: CountFiles
-// =============================================================================
-program define _datadict_CountFiles, rclass
-	version 16.0
-	args tmpfile
-
-	tempname fh
-	file open `fh' using `"`tmpfile'"', read text
-	local nfiles 0
-	file read `fh' line
-	while r(eof) == 0 {
-		local ++nfiles
-		file read `fh' line
-	}
-	file close `fh'
-
-	return scalar nfiles = `nfiles'
 end
 
 // =============================================================================
@@ -306,6 +200,53 @@ program define _datadict_EscapeMarkdown, rclass
 end
 
 // =============================================================================
+// Helper: ParseNameLine - parse basename|label metadata line
+// =============================================================================
+program define _datadict_ParseNameLine, rclass
+	version 16.0
+	local _varabbrev = c(varabbrev)
+	set varabbrev off
+	capture noisily {
+	args nameline
+
+	local pipepos = strpos(`"`nameline'"', "|")
+	if `pipepos' > 0 {
+		local dsname = substr(`"`nameline'"', 1, `pipepos'-1)
+		local dslabel = substr(`"`nameline'"', `pipepos'+1, .)
+	}
+	else {
+		local dsname `"`nameline'"'
+		local dslabel ""
+	}
+
+	return local dsname `"`dsname'"'
+	return local dslabel `"`macval(dslabel)'"'
+	}
+	local rc = _rc
+	set varabbrev `_varabbrev'
+	if `rc' exit `rc'
+end
+
+// =============================================================================
+// Helper: FormatDisplayName - format dataset name for Markdown display
+// =============================================================================
+program define _datadict_FormatDisplayName, rclass
+	version 16.0
+	local _varabbrev = c(varabbrev)
+	set varabbrev off
+	capture noisily {
+	args dsname
+
+	local dispname = proper(subinstr(`"`dsname'"', "_", " ", .))
+
+	return local dispname `"`dispname'"'
+	}
+	local rc = _rc
+	set varabbrev `_varabbrev'
+	if `rc' exit `rc'
+end
+
+// =============================================================================
 // Helper: ProcessCombined
 // =============================================================================
 program define _datadict_ProcessCombined
@@ -336,21 +277,16 @@ program define _datadict_ProcessCombined
 	file read `fh_names' nameline
 	while r(eof) == 0 {
 		local ++i
-		// Parse basename|label
-		local pipepos = strpos(`"`nameline'"', "|")
-		if `pipepos' > 0 {
-			local dsname = substr(`"`nameline'"', 1, `pipepos'-1)
-		}
-		else {
-			local dsname `"`nameline'"'
-		}
+		_datadict_ParseNameLine `"`macval(nameline)'"'
+		local dsname `"`r(dsname)'"'
 
 		// Create anchor
 		_datadict_MakeAnchor `i' `"`dsname'"'
 		local anchor = r(anchor)
 
 		// Format display name (capitalize, replace _ with space)
-		local dispname = proper(subinstr(`"`dsname'"', "_", " ", .))
+		_datadict_FormatDisplayName `"`dsname'"'
+		local dispname `"`r(dispname)'"'
 
 		file write `fh' `"`i'. [`dispname'](#`anchor')"' _n
 
@@ -376,16 +312,9 @@ program define _datadict_ProcessCombined
 	while r(eof) == 0 {
 		local ++i
 
-		// Parse name
-		local pipepos = strpos(`"`nameline'"', "|")
-		if `pipepos' > 0 {
-			local dsname = substr(`"`nameline'"', 1, `pipepos'-1)
-			local dslabel = substr(`"`nameline'"', `pipepos'+1, .)
-		}
-		else {
-			local dsname `"`nameline'"'
-			local dslabel ""
-		}
+		_datadict_ParseNameLine `"`macval(nameline)'"'
+		local dsname `"`r(dsname)'"'
+		local dslabel `"`r(dslabel)'"'
 
 		_datadict_ProcessOneDataset `fh' `"`macval(filepath)'"' `"`dsname'"' `"`macval(dslabel)'"' `i' "`showmissing'" "`showstats'" `maxcat' `maxfreq' "`dateformat'"
 
@@ -468,16 +397,9 @@ program define _datadict_ProcessSeparate
 	file read `fh_list' filepath
 	file read `fh_names' nameline
 	while r(eof) == 0 {
-		// Parse name
-		local pipepos = strpos(`"`nameline'"', "|")
-		if `pipepos' > 0 {
-			local dsname = substr(`"`nameline'"', 1, `pipepos'-1)
-			local dslabel = substr(`"`nameline'"', `pipepos'+1, .)
-		}
-		else {
-			local dsname `"`nameline'"'
-			local dslabel ""
-		}
+		_datadict_ParseNameLine `"`macval(nameline)'"'
+		local dsname `"`r(dsname)'"'
+		local dslabel `"`r(dslabel)'"'
 
 		// Derive output path from filepath (preserving directory)
 		local len = length(`"`macval(filepath)'"')
@@ -592,6 +514,28 @@ end
 // =============================================================================
 // Helper: WriteVariableRow
 // =============================================================================
+program define _datadict_DateDisplayFormat, rclass
+	version 16.0
+	local _orig_varabbrev = c(varabbrev)
+	set varabbrev off
+	capture noisily {
+		syntax, VFMT(string) DATEFORMAT(string)
+
+		local datefmt "`vfmt'"
+		if strpos("`vfmt'", "%td") > 0 | strpos("`vfmt'", "%d") > 0 {
+			local datefmt "`dateformat'"
+		}
+		else if strpos("`vfmt'", "%tc") > 0 | strpos("`vfmt'", "%tC") > 0 {
+			local datefmt = subinstr("`dateformat'", "%td", "%tc", 1)
+		}
+
+		return local display_format `"`datefmt'"'
+	}
+	local rc = _rc
+	set varabbrev `_orig_varabbrev'
+	if `rc' exit `rc'
+end
+
 program define _datadict_WriteVariableRow
 	version 16.0
 	args fh vname obs showmissing showstats maxcat maxfreq dateformat
@@ -710,19 +654,12 @@ program define _datadict_WriteVariableRow
 			quietly summarize `vname'
 			if r(N) > 0 {
 				local nvalid = r(N)
-				// Use dateformat for daily dates, adapt for datetime, native for others
-				if strpos("`vfmt'", "%td") > 0 {
-					local datefmt "`dateformat'"
-				}
-				else if strpos("`vfmt'", "%tc") > 0 | strpos("`vfmt'", "%tC") > 0 {
-					local datefmt = subinstr("`dateformat'", "%td", "%tc", 1)
-				}
-				else {
-					// Monthly, quarterly, etc. - use native format
-					local datefmt "`vfmt'"
-				}
-				local mindate = string(r(min), "`datefmt'")
-				local maxdate = string(r(max), "`datefmt'")
+				local raw_min = r(min)
+				local raw_max = r(max)
+				_datadict_DateDisplayFormat, vfmt("`vfmt'") dateformat("`dateformat'")
+				local datefmt "`r(display_format)'"
+				local mindate = string(`raw_min', "`datefmt'")
+				local maxdate = string(`raw_max', "`datefmt'")
 				local valsnotes "N=`nvalid'<br>Range: `mindate' to `maxdate'"
 			}
 			else {

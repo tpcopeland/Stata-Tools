@@ -625,14 +625,27 @@ capture noisily {
     logdoc using "`smcl_fixture2'", output("`t14_out'") format(tex) append quiet
 }
 if _rc == 0 {
-    tempfile grepout14
-    shell grep -c '^\\documentclass' "`t14_out'" > "`grepout14'" 2>&1
-    tempname gfh14
-    file open `gfh14' using "`grepout14'", read text
-    file read `gfh14' _gline14
-    file close `gfh14'
-    local _ndocclass = real(strtrim("`_gline14'"))
-    if `_ndocclass' == 1 {
+    local _ndocclass = 0
+    local _nbegindoc = 0
+    local _nenddoc = 0
+    tempname t14fh
+    file open `t14fh' using "`t14_out'", read text
+    file read `t14fh' _t14line
+    while r(eof) == 0 {
+        local _t14trim = strtrim(`"`_t14line'"')
+        if substr(`"`_t14trim'"', 1, 14) == `"\documentclass"' {
+            local _ndocclass = `_ndocclass' + 1
+        }
+        if `"`_t14trim'"' == `"\begin{document}"' {
+            local _nbegindoc = `_nbegindoc' + 1
+        }
+        if `"`_t14trim'"' == `"\end{document}"' {
+            local _nenddoc = `_nenddoc' + 1
+        }
+        file read `t14fh' _t14line
+    }
+    file close `t14fh'
+    if `_ndocclass' == 1 & `_nbegindoc' == 1 & `_nenddoc' == 1 {
         display as result "P78-T14 PASS: tex append preserves one document wrapper"
         local test_pass = `test_pass' + 1
     }

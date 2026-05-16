@@ -14,17 +14,15 @@ local test_count = 0
 local pass_count = 0
 local fail_count = 0
 
-local qa_dir  "`pkg_dir'/qa"
+* === Bootstrap ===
+local qa_dir  "`c(pwd)'"
+local pkg_dir "`qa_dir'/.."  
 local tmp_dir "`qa_dir'/data"
 
 * Create data directory for test outputs
 capture mkdir "`tmp_dir'"
 
 * Uninstall any existing version
-
-* === Bootstrap ===
-local qa_dir  "`c(pwd)'"
-local pkg_dir "`qa_dir'/.."  
 
 capture ado uninstall datamap
 

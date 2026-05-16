@@ -234,32 +234,16 @@ program define datamap, rclass
 	}
 	else if "`filelist'" != "" {
 		// File list mode: parse space-separated dataset names
-		_datamap_CollectFilelist `"`filelist'"' `"`filelist_tmp'"'
-		// Count lines in the temp file
-		tempname fh
-		file open `fh' using `"`filelist_tmp'"', read text
-		local nfiles 0
-		file read `fh' line
-		while r(eof) == 0 {
-			local ++nfiles
-			file read `fh' line
-		}
-		file close `fh'
+		_datamap_collect_filelist `"`filelist'"' `"`filelist_tmp'"'
+		_datamap_count_files `"`filelist_tmp'"'
+		local nfiles = r(nfiles)
 	}
 	else {
 		// Directory scan mode: find all .dta files in directory
 		if "`directory'" == "" local directory "."
-		_datamap_CollectFromDir `"`directory'"' "`recursive'" `"`filelist_tmp'"'
-		// Count lines in the temp file
-		tempname fh
-		file open `fh' using `"`filelist_tmp'"', read text
-		local nfiles 0
-		file read `fh' line
-		while r(eof) == 0 {
-			local ++nfiles
-			file read `fh' line
-		}
-		file close `fh'
+		_datamap_collect_from_dir `"`directory'"' "`recursive'" `"`filelist_tmp'"'
+		_datamap_count_files `"`filelist_tmp'"'
+		local nfiles = r(nfiles)
 	}
 	
 	// Error if no files found (except in single file mode)
@@ -328,104 +312,6 @@ program define datamap, rclass
 	local rc = _rc
 	set varabbrev `_varabbrev'
 	if `rc' exit `rc'
-end
-
-// =============================================================================
-// Helper: _datamap_CollectFilelist
-// Parse space-separated dataset names and write to temp file
-// =============================================================================
-program define _datamap_CollectFilelist
-	version 16.0
-	args filelist tmpfile
-
-	tempname fh_out
-	quietly file open `fh_out' using "`tmpfile'", write text replace
-
-	// Parse the space-separated list
-	local remaining `"`filelist'"'
-	while `"`remaining'"' != "" {
-		gettoken dsname remaining : remaining
-		if `"`dsname'"' != "" {
-			// Add .dta extension if not present
-			if !regexm(`"`dsname'"', "\.dta$") {
-				local dsname `"`dsname'.dta"'
-			}
-			// Check file exists
-			capture confirm file `"`dsname'"'
-			if _rc != 0 {
-				di as error `"file `dsname' not found"'
-				file close `fh_out'
-				exit 601
-			}
-			file write `fh_out' `"`dsname'"' _n
-		}
-	}
-	file close `fh_out'
-end
-
-// =============================================================================
-// Helper: _datamap_CollectFromDir
-// Scan directory for .dta files, optionally recursive
-// Write output to text file
-// =============================================================================
-program define _datamap_CollectFromDir
-	version 16.0
-	args directory recursive tmpfile
-
-	tempname fh
-	quietly file open `fh' using "`tmpfile'", write text replace
-
-	if "`recursive'" == "" {
-		// Non-recursive: simple directory scan
-		local files : dir "`directory'" files "*.dta"
-
-		foreach f of local files {
-			// Prepend directory path if not current directory
-			if "`directory'" != "." {
-				file write `fh' "`directory'/`f'" _n
-			}
-			else {
-				file write `fh' "`f'" _n
-			}
-		}
-	}
-	else {
-		// Recursive: scan subdirectories
-		_datamap_RecursiveScan "`directory'" `fh'
-	}
-
-	file close `fh'
-end
-
-// Helper for recursive scanning
-program define _datamap_RecursiveScan
-	version 16.0
-	args directory fh
-
-	// Get files in current directory
-	local files : dir "`directory'" files "*.dta"
-	foreach f of local files {
-		if "`directory'" != "." {
-			file write `fh' "`directory'/`f'" _n
-		}
-		else {
-			file write `fh' "`f'" _n
-		}
-	}
-
-	// Get subdirectories and recurse
-	local subdirs : dir "`directory'" dirs "*"
-	foreach subdir of local subdirs {
-		// Skip hidden directories and common excludes
-		if substr("`subdir'", 1, 1) != "." & "`subdir'" != "__pycache__" {
-			if "`directory'" != "." {
-				_datamap_RecursiveScan "`directory'/`subdir'" `fh'
-			}
-			else {
-				_datamap_RecursiveScan "`subdir'" `fh'
-			}
-		}
-	}
 end
 
 // =============================================================================
@@ -620,9 +506,7 @@ program define _datamap_ProcessDataset
 	if `idx' > 1 file write `fh' _n _n
 
 	// LLM-optimized header with structured sections
-	file write `fh' "========================================" _n
-	file write `fh' "DATASET: `basename'" _n
-	file write `fh' "========================================" _n _n
+	_datamap_write_rule_header `fh' "DATASET: `basename'"
 
 	file write `fh' "METADATA" _n
 	file write `fh' "--------" _n
@@ -719,9 +603,7 @@ program define _datamap_ProcessVariables
 	}
 
 	// Write variable summary table header with structured sections
-	file write `fh' "========================================" _n
-	file write `fh' "VARIABLE SUMMARY" _n
-	file write `fh' "========================================" _n _n
+	_datamap_write_rule_header `fh' "VARIABLE SUMMARY"
 
 	// First pass: classify all variables and compute basic stats
 	tempfile classifications
@@ -1027,6 +909,122 @@ program define _datamap_ProcessVariables
 	}
 end
 
+program define _datamap_write_rule_header
+	version 16.0
+	local _orig_varabbrev = c(varabbrev)
+	set varabbrev off
+	capture noisily {
+		args fh title
+
+		file write `fh' "========================================" _n
+		file write `fh' "`title'" _n
+		file write `fh' "========================================" _n _n
+	}
+	local rc = _rc
+	set varabbrev `_orig_varabbrev'
+	if `rc' exit `rc'
+end
+
+program define _datamap_DateFamily, rclass
+	version 16.0
+	local _orig_varabbrev = c(varabbrev)
+	set varabbrev off
+	capture noisily {
+		syntax, VFMT(string)
+
+		local is_date = (strpos("`vfmt'", "%t") > 0 | strpos("`vfmt'", "%d") > 0)
+		local family ""
+		if `is_date' {
+			if strpos("`vfmt'", "%td") > 0 | strpos("`vfmt'", "%d") > 0 {
+				local family "td"
+			}
+			else if strpos("`vfmt'", "%tc") > 0 | strpos("`vfmt'", "%tC") > 0 {
+				local family "tc"
+			}
+			else if strpos("`vfmt'", "%tw") > 0 {
+				local family "tw"
+			}
+			else if strpos("`vfmt'", "%tm") > 0 {
+				local family "tm"
+			}
+			else if strpos("`vfmt'", "%tq") > 0 {
+				local family "tq"
+			}
+			else if strpos("`vfmt'", "%th") > 0 {
+				local family "th"
+			}
+			else if strpos("`vfmt'", "%ty") > 0 {
+				local family "ty"
+			}
+			else {
+				local family "other"
+			}
+		}
+
+		return scalar is_date = `is_date'
+		return local family "`family'"
+	}
+	local rc = _rc
+	set varabbrev `_orig_varabbrev'
+	if `rc' exit `rc'
+end
+
+program define _datamap_DateDisplayFormat, rclass
+	version 16.0
+	local _orig_varabbrev = c(varabbrev)
+	set varabbrev off
+	capture noisily {
+		syntax, VFMT(string) DATEFORMAT(string)
+
+		local dispfmt "`vfmt'"
+		if strpos("`vfmt'", "%td") > 0 | strpos("`vfmt'", "%d") > 0 {
+			local dispfmt "`dateformat'"
+		}
+		else if strpos("`vfmt'", "%tc") > 0 | strpos("`vfmt'", "%tC") > 0 {
+			local dispfmt = subinstr("`dateformat'", "%td", "%tc", 1)
+		}
+
+		return local display_format `"`dispfmt'"'
+	}
+	local rc = _rc
+	set varabbrev `_orig_varabbrev'
+	if `rc' exit `rc'
+end
+
+program define _datamap_DateSpanUnit, rclass
+	version 16.0
+	local _orig_varabbrev = c(varabbrev)
+	set varabbrev off
+	capture noisily {
+		syntax, VFMT(string)
+
+		local span_unit "days"
+		if strpos("`vfmt'", "%tc") > 0 | strpos("`vfmt'", "%tC") > 0 {
+			local span_unit "milliseconds"
+		}
+		else if strpos("`vfmt'", "%tw") > 0 {
+			local span_unit "weeks"
+		}
+		else if strpos("`vfmt'", "%tm") > 0 {
+			local span_unit "months"
+		}
+		else if strpos("`vfmt'", "%tq") > 0 {
+			local span_unit "quarters"
+		}
+		else if strpos("`vfmt'", "%th") > 0 {
+			local span_unit "half-years"
+		}
+		else if strpos("`vfmt'", "%ty") > 0 {
+			local span_unit "years"
+		}
+
+		return local span_unit "`span_unit'"
+	}
+	local rc = _rc
+	set varabbrev `_orig_varabbrev'
+	if `rc' exit `rc'
+end
+
 program define _datamap_ProcessCategorical
 	version 16.0
 	args fh filepath classifications format nofreq maxfreq obs
@@ -1041,9 +1039,7 @@ program define _datamap_ProcessCategorical
 	quietly save `catdata', replace
 	local nvars = _N
 
-	file write `fh' "========================================" _n
-	file write `fh' "CATEGORICAL VARIABLES" _n
-	file write `fh' "========================================" _n _n
+	_datamap_write_rule_header `fh' "CATEGORICAL VARIABLES"
 	
 	assert _N == `nvars'  // Verify expected row count
 	forvalues i = 1/`nvars' {
@@ -1148,9 +1144,7 @@ program define _datamap_ProcessContinuous
 		exit
 	}
 	
-	file write `fh' "========================================" _n
-	file write `fh' "CONTINUOUS VARIABLES" _n
-	file write `fh' "========================================" _n _n
+	_datamap_write_rule_header `fh' "CONTINUOUS VARIABLES"
 	
 	quietly use "`classifications'", clear
 	quietly keep if classification == "continuous"
@@ -1282,9 +1276,7 @@ program define _datamap_ProcessDate
 		exit
 	}
 	
-	file write `fh' "========================================" _n
-	file write `fh' "DATE VARIABLES" _n
-	file write `fh' "========================================" _n _n
+	_datamap_write_rule_header `fh' "DATE VARIABLES"
 	
 	quietly use "`classifications'", clear
 	quietly keep if classification == "date"
@@ -1329,37 +1321,10 @@ program define _datamap_ProcessDate
 		local minval = r(min)
 		local maxval = r(max)
 
-		// Determine span unit from format
-		local span_unit "days"
-		if strpos("`vfmt'", "%tc") > 0 | strpos("`vfmt'", "%tC") > 0 {
-			local span_unit "milliseconds"
-		}
-		else if strpos("`vfmt'", "%tw") > 0 {
-			local span_unit "weeks"
-		}
-		else if strpos("`vfmt'", "%tm") > 0 {
-			local span_unit "months"
-		}
-		else if strpos("`vfmt'", "%tq") > 0 {
-			local span_unit "quarters"
-		}
-		else if strpos("`vfmt'", "%th") > 0 {
-			local span_unit "half-years"
-		}
-		else if strpos("`vfmt'", "%ty") > 0 {
-			local span_unit "years"
-		}
-
-		// Determine display format: use dateformat for daily/datetime,
-		// native format for weekly/monthly/quarterly/etc.
-		local dispfmt "`vfmt'"
-		if strpos("`vfmt'", "%td") > 0 | strpos("`vfmt'", "%d") > 0 {
-			local dispfmt "`dateformat'"
-		}
-		else if strpos("`vfmt'", "%tc") > 0 | strpos("`vfmt'", "%tC") > 0 {
-			// Adapt daily dateformat to datetime prefix
-			local dispfmt = subinstr("`dateformat'", "%td", "%tc", 1)
-		}
+		_datamap_DateSpanUnit, vfmt("`vfmt'")
+		local span_unit "`r(span_unit)'"
+		_datamap_DateDisplayFormat, vfmt("`vfmt'") dateformat("`dateformat'")
+		local dispfmt "`r(display_format)'"
 
 		if "`datesafe'" == "" {
 			// Show exact date range
@@ -1429,9 +1394,7 @@ program define _datamap_ProcessString
 		exit
 	}
 	
-	file write `fh' "========================================" _n
-	file write `fh' "STRING VARIABLES" _n
-	file write `fh' "========================================" _n _n
+	_datamap_write_rule_header `fh' "STRING VARIABLES"
 	
 	quietly use "`classifications'", clear
 	quietly keep if classification == "string"
@@ -1544,9 +1507,7 @@ program define _datamap_ProcessExcluded
 		exit
 	}
 	
-	file write `fh' "========================================" _n
-	file write `fh' "EXCLUDED VARIABLES" _n
-	file write `fh' "========================================" _n _n
+	_datamap_write_rule_header `fh' "EXCLUDED VARIABLES"
 	
 	quietly use "`classifications'", clear
 	quietly keep if classification == "excluded"
@@ -1611,9 +1572,7 @@ program define _datamap_ProcessValueLabels
 	
 	if "`vallabs'" == "" exit
 	
-	file write `fh' "========================================" _n
-	file write `fh' "VALUE LABEL DEFINITIONS" _n
-	file write `fh' "========================================" _n _n
+	_datamap_write_rule_header `fh' "VALUE LABEL DEFINITIONS"
 	
 	// Process each value label
 	foreach vl of local vallabs {
@@ -1748,9 +1707,7 @@ program define _datamap_ProcessQuality
 		exit
 	}
 
-	file write `fh' "========================================" _n
-	file write `fh' "DATA QUALITY FLAGS" _n
-	file write `fh' "========================================" _n _n
+	_datamap_write_rule_header `fh' "DATA QUALITY FLAGS"
 
 	quietly keep if quality_flag != ""
 	local nvars = _N
@@ -1773,9 +1730,7 @@ program define _datamap_ProcessSamples
 
 	quietly use "`filepath'", clear
 
-	file write `fh' "========================================" _n
-	file write `fh' "SAMPLE OBSERVATIONS" _n
-	file write `fh' "========================================" _n _n
+	_datamap_write_rule_header `fh' "SAMPLE OBSERVATIONS"
 	file write `fh' "First `nsamples' observations (excluded variables masked):" _n _n
 
 	// Get variable list
@@ -2111,7 +2066,6 @@ program define _datamap_SummarizeMissing
 	// Count variables by missing percentage
 	local vars_gt50 ""
 	local n_gt50 = 0
-	local vars_gt10 ""
 	local n_gt10 = 0
 
 	tempvar complete
@@ -2179,7 +2133,6 @@ program define _datamap_GenerateDatasetSummary
 	local summary "This dataset contains "
 
 	// Determine structure type
-	local is_panel 0
 	local is_cross_sectional 1
 
 	// Check for panel structure
@@ -2189,7 +2142,6 @@ program define _datamap_GenerateDatasetSummary
 			quietly tab `panelid'
 			local n_units = r(r)
 			local summary "`summary'longitudinal data with `n_units' units observed over time. "
-			local is_panel 1
 			local is_cross_sectional 0
 		}
 	}
@@ -2214,25 +2166,10 @@ program define _datamap_GenerateDatasetSummary
 
 	foreach vn of local allvars {
 		local vfmt: format `vn'
-		if strpos("`vfmt'", "%t") > 0 | strpos("`vfmt'", "%d") > 0 {
-			// Determine format family
-			local fam ""
-			if strpos("`vfmt'", "%td") > 0 | strpos("`vfmt'", "%d") > 0 {
-				local fam "td"
-			}
-			else if strpos("`vfmt'", "%tc") > 0 | strpos("`vfmt'", "%tC") > 0 {
-				local fam "tc"
-			}
-			else if strpos("`vfmt'", "%tw") > 0 {
-				local fam "tw"
-			}
-			else if strpos("`vfmt'", "%tm") > 0 {
-				local fam "tm"
-			}
-			else if strpos("`vfmt'", "%tq") > 0 {
-				local fam "tq"
-			}
-			else {
+		_datamap_DateFamily, vfmt("`vfmt'")
+		if r(is_date) {
+			local fam "`r(family)'"
+			if !inlist("`fam'", "td", "tc", "tw", "tm", "tq") {
 				local fam "other"
 			}
 
@@ -2270,13 +2207,8 @@ program define _datamap_GenerateDatasetSummary
 			local summary "`summary'The data includes date variables (exact range suppressed for privacy). "
 		}
 		else {
-			local dispfmt "`datefmt'"
-			if strpos("`datefmt'", "%td") > 0 | strpos("`datefmt'", "%d") > 0 {
-				local dispfmt "`dateformat'"
-			}
-			else if strpos("`datefmt'", "%tc") > 0 | strpos("`datefmt'", "%tC") > 0 {
-				local dispfmt = subinstr("`dateformat'", "%td", "%tc", 1)
-			}
+			_datamap_DateDisplayFormat, vfmt("`datefmt'") dateformat("`dateformat'")
+			local dispfmt "`r(display_format)'"
 			local earliest_str = string(`earliest', "`dispfmt'")
 			local latest_str = string(`latest', "`dispfmt'")
 			local summary "`summary'The data spans from `earliest_str' to `latest_str'. "

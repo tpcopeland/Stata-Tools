@@ -1,5 +1,5 @@
 Dataset Documentation
-Generated:  2 Apr 2026 01:12:16
+Generated: 15 May 2026 22:32:26
 
 ========================================
 DATASET: _demo_cohort.dta
@@ -14,7 +14,7 @@ Data Signature: 200:15(54652):3969222907:2203443266
 
 DESCRIPTION
 -----------
-This dataset contains cross-sectional data. It includes 200 observations and 15 variables. The data spans from 1918/03/29 to 2022/01/16. Key variable categories include: identifiers, demographics, clinical data, outcomes. 
+This dataset contains cross-sectional data. It includes 200 observations and 15 variables. The data includes date variables (exact range suppressed for privacy). Key variable categories include: identifiers, demographics, clinical data, outcomes. 
 
 Survival Analysis Variables Detected
   Likely time variables: follow_up_time
@@ -57,35 +57,35 @@ QUICK REFERENCE
     Type: int
     Format: %8.0g
     Label: Patient identifier
-    Missing: 0 (0%)
+    Missing: 0 (0.0%)
     Classification: excluded
 
   patient_name
     Type: str30
     Format: %30s
     Label: Patient full name
-    Missing: 0 (0%)
+    Missing: 0 (0.0%)
     Classification: excluded
 
   age
     Type: double
     Format: %10.0g
     Label: Age at enrollment (years)
-    Missing: 0 (0%)
+    Missing: 0 (0.0%)
     Classification: continuous
 
   sex
     Type: byte
     Format: %8.0g
     Label: Biological sex
-    Missing: 0 (0%)
+    Missing: 0 (0.0%)
     Classification: categorical
 
   smoking
     Type: byte
     Format: %8.0g
     Label: Smoking status
-    Missing: 36 (18%)
+    Missing: 36 (18.0%)
     Classification: categorical
 
   bmi
@@ -106,56 +106,56 @@ QUICK REFERENCE
     Type: double
     Format: %10.0g
     Label: Serum creatinine (mg/dL)
-    Missing: 24 (12%)
+    Missing: 24 (12.0%)
     Classification: continuous
 
   pct_adherence
     Type: double
     Format: %10.0g
     Label: Medication adherence (%)
-    Missing: 38 (19%)
+    Missing: 38 (19.0%)
     Classification: continuous
 
   enroll_date
     Type: double
     Format: %td
     Label: Date of enrollment
-    Missing: 0 (0%)
+    Missing: 0 (0.0%)
     Classification: date
 
   birth_date
     Type: double
     Format: %td
     Label: Date of birth
-    Missing: 0 (0%)
+    Missing: 0 (0.0%)
     Classification: date
 
   follow_up_time
     Type: double
     Format: %10.0g
     Label: Follow-up time (years)
-    Missing: 0 (0%)
+    Missing: 0 (0.0%)
     Classification: continuous
 
   event
     Type: byte
     Format: %8.0g
     Label: Primary endpoint
-    Missing: 0 (0%)
+    Missing: 0 (0.0%)
     Classification: categorical
 
   treatment
     Type: byte
     Format: %8.0g
     Label: Randomization arm
-    Missing: 0 (0%)
+    Missing: 0 (0.0%)
     Classification: categorical
 
   site
     Type: byte
     Format: %10.0g
     Label: Study site
-    Missing: 0 (0%)
+    Missing: 0 (0.0%)
     Classification: categorical
 
 ========================================
@@ -170,12 +170,12 @@ Display Format: %8.0g
 Label: Biological sex
 Value Label: sex_lbl
 Classification: categorical
-Missing: 0 obs (0%)
+Missing: 0 obs (0.0%)
 Unique Values: 2
 
   Frequencies:
-    0 = Female: 114 (57%)
-    1 = Male: 86 (43%)
+    0 = Female: 114 (57.0%)
+    1 = Male: 86 (43.0%)
 
 ANALYSIS GUIDANCE: Use as factor/categorical variable. This is a binary variable - suitable for binary outcome models. 
 
@@ -187,13 +187,13 @@ Display Format: %8.0g
 Label: Smoking status
 Value Label: smoke_lbl
 Classification: categorical
-Missing: 36 obs (18%)
+Missing: 36 obs (18.0%)
 Unique Values: 3
 
   Frequencies:
     0 = Never: 59 (29.5%)
     1 = Former: 53 (26.5%)
-    2 = Current: 52 (26%)
+    2 = Current: 52 (26.0%)
 
 ANALYSIS GUIDANCE: Use as factor/categorical variable. Low cardinality - suitable for stratification or interaction terms. 
 
@@ -205,12 +205,12 @@ Display Format: %8.0g
 Label: Primary endpoint
 Value Label: event_lbl
 Classification: categorical
-Missing: 0 obs (0%)
+Missing: 0 obs (0.0%)
 Unique Values: 2
 
   Frequencies:
-    0 = Censored: 146 (73%)
-    1 = Event: 54 (27%)
+    0 = Censored: 146 (73.0%)
+    1 = Event: 54 (27.0%)
 
 ANALYSIS GUIDANCE: Use as factor/categorical variable. This is a binary variable - suitable for binary outcome models. 
 
@@ -222,12 +222,12 @@ Display Format: %8.0g
 Label: Randomization arm
 Value Label: treat_lbl
 Classification: categorical
-Missing: 0 obs (0%)
+Missing: 0 obs (0.0%)
 Unique Values: 2
 
   Frequencies:
-    0 = Control: 100 (50%)
-    1 = Active: 100 (50%)
+    0 = Control: 100 (50.0%)
+    1 = Active: 100 (50.0%)
 
 ANALYSIS GUIDANCE: Use as factor/categorical variable. This is a binary variable - suitable for binary outcome models. 
 
@@ -239,17 +239,17 @@ Display Format: %10.0g
 Label: Study site
 Value Label: site_lbl
 Classification: categorical
-Missing: 0 obs (0%)
+Missing: 0 obs (0.0%)
 Unique Values: 8
 
   Frequencies:
-    1 = Stockholm: 34 (17%)
+    1 = Stockholm: 34 (17.0%)
     2 = Gothenburg: 23 (11.5%)
     3 = Malmo: 25 (12.5%)
     4 = Uppsala: 23 (11.5%)
-    5 = Linkoping: 22 (11%)
-    6 = Lund: 16 (8%)
-    7 = Umea: 34 (17%)
+    5 = Linkoping: 22 (11.0%)
+    6 = Lund: 16 (8.0%)
+    7 = Umea: 34 (17.0%)
     8 = Orebro: 23 (11.5%)
 
 ANALYSIS GUIDANCE: Use as factor/categorical variable. Consider reference category selection based on largest group or clinically meaningful baseline. 
@@ -265,7 +265,7 @@ Storage Type: double
 Display Format: %10.0g
 Label: Age at enrollment (years)
 Classification: continuous
-Missing: 0 obs (0%)
+Missing: 0 obs (0.0%)
 Unique Values: 160
 
 DISTRIBUTION:
@@ -325,7 +325,7 @@ Storage Type: double
 Display Format: %10.0g
 Label: Serum creatinine (mg/dL)
 Classification: continuous
-Missing: 24 obs (12%)
+Missing: 24 obs (12.0%)
 Unique Values: 96
 
 DISTRIBUTION:
@@ -345,7 +345,7 @@ Storage Type: double
 Display Format: %10.0g
 Label: Medication adherence (%)
 Classification: continuous
-Missing: 38 obs (19%)
+Missing: 38 obs (19.0%)
 Unique Values: 149
 
 DISTRIBUTION:
@@ -365,7 +365,7 @@ Storage Type: double
 Display Format: %10.0g
 Label: Follow-up time (years)
 Classification: continuous
-Missing: 0 obs (0%)
+Missing: 0 obs (0.0%)
 Unique Values: 69
 
 DISTRIBUTION:
@@ -389,7 +389,7 @@ Storage Type: double
 Display Format: %td
 Label: Date of enrollment
 Classification: date
-Missing: 0 obs (0%)
+Missing: 0 obs (0.0%)
 
 DATE RANGE: 721 days span (exact dates suppressed for privacy)
 
@@ -402,7 +402,7 @@ Storage Type: double
 Display Format: %td
 Label: Date of birth
 Classification: date
-Missing: 0 obs (0%)
+Missing: 0 obs (0.0%)
 
 DATE RANGE: 37914 days span (exact dates suppressed for privacy)
 
@@ -419,7 +419,7 @@ Storage Type: int
 Display Format: %8.0g
 Label: Patient identifier
 Classification: excluded (privacy)
-Missing: 0 obs (0%)
+Missing: 0 obs (0.0%)
 (values excluded from documentation)
 
 PRIVACY NOTE: This variable excluded to protect participant privacy. Do not attempt to re-identify individuals. Use for linkage only if authorized.
@@ -431,7 +431,7 @@ Storage Type: str30
 Display Format: %30s
 Label: Patient full name
 Classification: excluded (privacy)
-Missing: 0 obs (0%)
+Missing: 0 obs (0.0%)
 (values excluded from documentation)
 
 PRIVACY NOTE: This variable excluded to protect participant privacy. Do not attempt to re-identify individuals. Use for linkage only if authorized.
@@ -442,22 +442,22 @@ sex: Biological sex
   Type: byte (binary)
   Missing: 0 obs (0%)
   Frequency:
-    0 (Female): 114 (57%)
-    1 (Male): 86 (43%)
+    0 (Female): 114 (57.0%)
+    1 (Male): 86 (43.0%)
 
 event: Primary endpoint
   Type: byte (binary)
   Missing: 0 obs (0%)
   Frequency:
-    0 (Censored): 146 (73%)
-    1 (Event): 54 (27%)
+    0 (Censored): 146 (73.0%)
+    1 (Event): 54 (27.0%)
 
 treatment: Randomization arm
   Type: byte (binary)
   Missing: 0 obs (0%)
   Frequency:
-    0 (Control): 100 (50%)
-    1 (Active): 100 (50%)
+    0 (Control): 100 (50.0%)
+    1 (Active): 100 (50.0%)
 
 ========================================
 DATA QUALITY FLAGS

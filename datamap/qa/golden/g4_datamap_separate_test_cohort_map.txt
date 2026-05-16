@@ -1,0 +1,262 @@
+Dataset Documentation
+Generated: <normalized>
+
+========================================
+DATASET: test_cohort.dta
+========================================
+
+METADATA
+--------
+Observations: 100
+Variables: 8
+Label: Test cohort dataset
+Data Signature: 100:8(64926):392615947:797463798
+
+DESCRIPTION
+-----------
+This dataset contains cross-sectional data. It includes 100 observations and 8 variables. The data spans from 2020/01/03 to 2021/11/09. Key variable categories include: identifiers, demographics. 
+
+========================================
+VARIABLE SUMMARY
+========================================
+
+QUICK REFERENCE
+----------------------------------------
+  Variable                Type      Class          Miss%  Unique
+  id                      double    continuous      0.0%     100
+  age                     double    continuous      0.0%      48
+  sex                     byte      categorical     0.0%       2
+  bmi                     double    continuous      0.0%     100
+  region                  byte      categorical     0.0%       4
+  entry_date              double    date            0.0%       .
+  exit_date               double    date            0.0%       .
+  name                    str20     string          0.0%       .
+----------------------------------------
+
+  id
+    Type: double
+    Format: %10.0g
+    Label: Unique identifier
+    Missing: 0 (0.0%)
+    Classification: continuous
+
+  age
+    Type: double
+    Format: %10.0g
+    Label: Age in years
+    Missing: 0 (0.0%)
+    Classification: continuous
+
+  sex
+    Type: byte
+    Format: %8.0g
+    Label: Sex of participant
+    Missing: 0 (0.0%)
+    Classification: categorical
+
+  bmi
+    Type: double
+    Format: %10.0g
+    Label: Body mass index
+    Missing: 0 (0.0%)
+    Classification: continuous
+
+  region
+    Type: byte
+    Format: %8.0g
+    Label: Geographic region
+    Missing: 0 (0.0%)
+    Classification: categorical
+
+  entry_date
+    Type: double
+    Format: %td
+    Label: Study entry date
+    Missing: 0 (0.0%)
+    Classification: date
+
+  exit_date
+    Type: double
+    Format: %td
+    Label: Study exit date
+    Missing: 0 (0.0%)
+    Classification: date
+
+  name
+    Type: str20
+    Format: %20s
+    Label: Participant name
+    Missing: 0 (0.0%)
+    Classification: string
+
+========================================
+CATEGORICAL VARIABLES
+========================================
+
+VARIABLE: sex
+--------------------
+Position: 3
+Storage Type: byte
+Display Format: %8.0g
+Label: Sex of participant
+Value Label: sexlbl
+Classification: categorical
+Missing: 0 obs (0.0%)
+Unique Values: 2
+
+  Frequencies:
+    0 = Female: 46 (46.0%)
+    1 = Male: 54 (54.0%)
+
+ANALYSIS GUIDANCE: Use as factor/categorical variable. This is a binary variable - suitable for binary outcome models. 
+
+VARIABLE: region
+--------------------
+Position: 5
+Storage Type: byte
+Display Format: %8.0g
+Label: Geographic region
+Value Label: reglbl
+Classification: categorical
+Missing: 0 obs (0.0%)
+Unique Values: 4
+
+  Frequencies:
+    1 = North: 23 (23.0%)
+    2 = South: 31 (31.0%)
+    3 = East: 24 (24.0%)
+    4 = West: 22 (22.0%)
+
+ANALYSIS GUIDANCE: Use as factor/categorical variable. Low cardinality - suitable for stratification or interaction terms. 
+
+========================================
+CONTINUOUS VARIABLES
+========================================
+
+VARIABLE: id
+--------------------
+Position: 1
+Storage Type: double
+Display Format: %10.0g
+Label: Unique identifier
+Classification: continuous
+Missing: 0 obs (0.0%)
+Unique Values: 100
+
+DISTRIBUTION:
+  Valid N: 100
+  Mean: 50.5
+  SD: 29.01
+  Median: 50.5
+  IQR: 25.5-75.5
+  Range: 1 to 100
+
+ANALYSIS GUIDANCE: Use as continuous variable. 
+
+VARIABLE: age
+--------------------
+Position: 2
+Storage Type: double
+Display Format: %10.0g
+Label: Age in years
+Classification: continuous
+Missing: 0 obs (0.0%)
+Unique Values: 48
+
+DISTRIBUTION:
+  Valid N: 100
+  Mean: 48.85
+  SD: 18.39
+  Median: 46
+  IQR: 32-65
+  Range: 20 to 79
+
+ANALYSIS GUIDANCE: Use as continuous variable. 
+
+VARIABLE: bmi
+--------------------
+Position: 4
+Storage Type: double
+Display Format: %10.0g
+Label: Body mass index
+Classification: continuous
+Missing: 0 obs (0.0%)
+Unique Values: 100
+
+DISTRIBUTION:
+  Valid N: 100
+  Mean: 25.19
+  SD: 4.4
+  Median: 24.67
+  IQR: 21.04-29.12
+  Range: 18.61 to 32.95
+
+ANALYSIS GUIDANCE: Use as continuous variable. 
+
+========================================
+DATE VARIABLES
+========================================
+
+VARIABLE: entry_date
+--------------------
+Position: 6
+Storage Type: double
+Display Format: %td
+Label: Study entry date
+Classification: date
+Missing: 0 obs (0.0%)
+
+DATE RANGE:
+  Earliest: 2020/01/03
+  Latest: 2020/12/25
+  Span: 357 days
+
+ANALYSIS GUIDANCE: Can be used to calculate durations, create time-to-event variables, or generate time periods. Verify date ranges are plausible before analysis.
+
+VARIABLE: exit_date
+--------------------
+Position: 7
+Storage Type: double
+Display Format: %td
+Label: Study exit date
+Classification: date
+Missing: 0 obs (0.0%)
+
+DATE RANGE:
+  Earliest: 2020/02/23
+  Latest: 2021/11/09
+  Span: 625 days
+
+ANALYSIS GUIDANCE: Can be used to calculate durations, create time-to-event variables, or generate time periods. Verify date ranges are plausible before analysis.
+
+========================================
+STRING VARIABLES
+========================================
+
+VARIABLE: name
+--------------------
+Position: 8
+Storage Type: str20
+Label: Participant name
+Classification: string
+Max Length: 9 characters
+Missing: 0 obs (0.0%)
+Unique Values: 100
+(exact values suppressed)
+
+ANALYSIS GUIDANCE: String variable - may contain free text, codes, or identifiers. Verify encoding if contains non-ASCII characters.
+
+========================================
+VALUE LABEL DEFINITIONS
+========================================
+
+reglbl (used by: region)
+  1 = North
+  2 = South
+  3 = East
+  4 = West
+
+sexlbl (used by: sex)
+  0 = Female
+  1 = Male
+

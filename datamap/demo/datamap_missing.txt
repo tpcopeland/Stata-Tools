@@ -1,5 +1,5 @@
 Dataset Documentation
-Generated:  2 Apr 2026 01:12:16
+Generated: 15 May 2026 22:32:26
 
 ========================================
 DATASET: _demo_missing.dta
@@ -40,28 +40,28 @@ QUICK REFERENCE
     Type: int
     Format: %8.0g
     Label: Subject ID
-    Missing: 0 (0%)
+    Missing: 0 (0.0%)
     Classification: continuous
 
   x1
     Type: double
     Format: %10.0g
     Label: Biomarker A
-    Missing: 20 (25%)
+    Missing: 20 (25.0%)
     Classification: continuous
 
   x2
     Type: double
     Format: %10.0g
     Label: Biomarker B
-    Missing: 20 (25%)
+    Missing: 20 (25.0%)
     Classification: continuous
 
   x3
     Type: double
     Format: %10.0g
     Label: Biomarker C
-    Missing: 28 (35%)
+    Missing: 28 (35.0%)
     Classification: continuous
 
   x4
@@ -75,7 +75,7 @@ QUICK REFERENCE
     Type: byte
     Format: %8.0g
     Label: Binary outcome
-    Missing: 0 (0%)
+    Missing: 0 (0.0%)
     Classification: categorical
 
 ========================================
@@ -90,7 +90,7 @@ Display Format: %8.0g
 Label: Binary outcome
 Value Label: yn
 Classification: categorical
-Missing: 0 obs (0%)
+Missing: 0 obs (0.0%)
 Unique Values: 2
 
   Frequencies:
@@ -110,7 +110,7 @@ Storage Type: int
 Display Format: %8.0g
 Label: Subject ID
 Classification: continuous
-Missing: 0 obs (0%)
+Missing: 0 obs (0.0%)
 Unique Values: 80
 
 DISTRIBUTION:
@@ -130,7 +130,7 @@ Storage Type: double
 Display Format: %10.0g
 Label: Biomarker A
 Classification: continuous
-Missing: 20 obs (25%)
+Missing: 20 obs (25.0%)
 Unique Values: 60
 
 DISTRIBUTION:
@@ -141,7 +141,7 @@ DISTRIBUTION:
   IQR: -.66-.36
   Range: -3.15 to 3.33
 
-ANALYSIS GUIDANCE: Use as continuous variable. 25% missing - verify missingness mechanism before analysis. 
+ANALYSIS GUIDANCE: Use as continuous variable. 25.0% missing - verify missingness mechanism before analysis. 
 
 VARIABLE: x2
 --------------------
@@ -150,7 +150,7 @@ Storage Type: double
 Display Format: %10.0g
 Label: Biomarker B
 Classification: continuous
-Missing: 20 obs (25%)
+Missing: 20 obs (25.0%)
 Unique Values: 60
 
 DISTRIBUTION:
@@ -161,7 +161,7 @@ DISTRIBUTION:
   IQR: -.79-.86
   Range: -2.79 to 2.81
 
-ANALYSIS GUIDANCE: Use as continuous variable. 25% missing - verify missingness mechanism before analysis. 
+ANALYSIS GUIDANCE: Use as continuous variable. 25.0% missing - verify missingness mechanism before analysis. 
 
 VARIABLE: x3
 --------------------
@@ -170,7 +170,7 @@ Storage Type: double
 Display Format: %10.0g
 Label: Biomarker C
 Classification: continuous
-Missing: 28 obs (35%)
+Missing: 28 obs (35.0%)
 Unique Values: 52
 
 DISTRIBUTION:
@@ -181,7 +181,7 @@ DISTRIBUTION:
   IQR: -.71-.8200000000000001
   Range: -2.16 to 2.37
 
-ANALYSIS GUIDANCE: Use as continuous variable. 35% missing - verify missingness mechanism before analysis. 
+ANALYSIS GUIDANCE: Use as continuous variable. 35.0% missing - verify missingness mechanism before analysis. 
 
 VARIABLE: x4
 --------------------

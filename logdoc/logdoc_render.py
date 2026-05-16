@@ -2542,8 +2542,9 @@ def find_css_file(name, script_dir):
 
 _MD_FRONT_MATTER_RE = re.compile(r"\A---\n.*?\n---\n*", re.DOTALL)
 _LATEX_DOC_RE = re.compile(
-    r"\\begin\{document\}(.*?)\\end\{document\}", re.DOTALL
+    r"(?ms)^\\begin\{document\}\s*$(.*?)^\\end\{document\}\s*$"
 )
+_LATEX_END_DOC_RE = re.compile(r"(?m)^\\end\{document\}\s*$")
 
 
 def _append_html_document(existing, new_content):
@@ -2596,13 +2597,13 @@ def _append_latex_document(existing, new_content):
     if not new_body:
         return existing
 
-    marker = r"\end{document}"
-    end_pos = existing.rfind(marker)
-    if end_pos == -1:
+    matches = list(_LATEX_END_DOC_RE.finditer(existing))
+    if not matches:
         return existing.rstrip() + "\n\n" + new_body + "\n"
 
+    end_pos = matches[-1].start()
     prefix = existing[:end_pos].rstrip()
-    suffix = existing[end_pos:]
+    suffix = existing[end_pos:].lstrip()
     return prefix + "\n\n" + new_body + "\n\n" + suffix
 
 
@@ -2718,7 +2719,6 @@ def main():
         _path = getattr(args, _attr)
         if _path:
             if not os.path.isfile(_path):
-                _target = _attr.replace("_file", "")
                 print(f"LOGDOC_META: blocks=0 filesize=0")
                 print(f"Error: --{_attr.replace('_', '-')} not found: {_path}",
                       file=sys.stderr)

@@ -1,0 +1,81 @@
+Dataset Documentation
+Generated: <normalized>
+
+========================================
+DATASET: test_small.dta
+========================================
+
+METADATA
+--------
+Observations: 5
+Variables: 2
+Label: Small test dataset
+Data Signature: 5:2(44267):3583515540:1072230640
+
+DESCRIPTION
+-----------
+This dataset contains cross-sectional data. It includes 5 observations and 2 variables. 
+
+========================================
+VARIABLE SUMMARY
+========================================
+
+QUICK REFERENCE
+----------------------------------------
+  Variable                Type      Class          Miss%  Unique
+  x                       float     categorical     0.0%       5
+  y                       float     categorical     0.0%       5
+----------------------------------------
+
+  x
+    Type: float
+    Format: %9.0g
+    Missing: 0 (0.0%)
+    Classification: categorical
+
+  y
+    Type: float
+    Format: %9.0g
+    Missing: 0 (0.0%)
+    Classification: categorical
+
+========================================
+CATEGORICAL VARIABLES
+========================================
+
+VARIABLE: x
+--------------------
+Position: 1
+Storage Type: float
+Display Format: %9.0g
+Classification: categorical
+Missing: 0 obs (0.0%)
+Unique Values: 5
+
+  Frequencies:
+    1 = 1: 1 (20.0%)
+    2 = 2: 1 (20.0%)
+    3 = 3: 1 (20.0%)
+    4 = 4: 1 (20.0%)
+    5 = 5: 1 (20.0%)
+
+ANALYSIS GUIDANCE: Use as factor/categorical variable. Low cardinality - suitable for stratification or interaction terms. 
+
+VARIABLE: y
+--------------------
+Position: 2
+Storage Type: float
+Display Format: %9.0g
+Classification: categorical
+Missing: 0 obs (0.0%)
+Unique Values: 5
+
+  Frequencies:
+    2 = 2: 1 (20.0%)
+    4 = 4: 1 (20.0%)
+    6 = 6: 1 (20.0%)
+    8 = 8: 1 (20.0%)
+    10 = 10: 1 (20.0%)
+
+ANALYSIS GUIDANCE: Use as factor/categorical variable. Low cardinality - suitable for stratification or interaction terms. 
+

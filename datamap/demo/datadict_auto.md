@@ -6,7 +6,6 @@
 2. [Notes](#notes)
 3. [Change Log](#change-log)
 
----
 
 ## 1.  Demo Auto
 
@@ -17,7 +16,7 @@
 
 | Variable | Label | Type | Missing | Statistics/Values |
 |----------|-------|------|---------|-------------------|
-| `make` | Make and model | String | 0 (0.0%) | N=.; . unique values |
+| `make` | Make and model | String | 0 (0.0%) | N=74; 74 unique values |
 | `price` | Price | Numeric | 0 (0.0%) | N=74<br>Median=5,006; IQR=4,195-6,342<br>Mean=6,165 (SD=2,949)<br>Range=3,291-15,906 |
 | `mpg` | Mileage (mpg) | Numeric | 0 (0.0%) | Unique=21<br>12 (2; 2.7%)<br>14 (6; 8.1%)<br>15 (2; 2.7%)<br>16 (4; 5.4%)<br>17 (4; 5.4%)<br>18 (9; 12.2%)<br>19 (8; 10.8%)<br>20 (3; 4.1%)<br>21 (5; 6.8%)<br>22 (5; 6.8%)<br>23 (3; 4.1%)<br>24 (4; 5.4%)<br>25 (5; 6.8%)<br>26 (3; 4.1%)<br>28 (3; 4.1%)<br>29 (1; 1.4%)<br>30 (2; 2.7%)<br>31 (1; 1.4%)<br>34 (1; 1.4%)<br>35 (2; 2.7%)<br>41 (1; 1.4%) |
 | `rep78` | Repair record 1978 | Numeric | 5 (6.8%) | Unique=5<br>1 (2; 2.9%)<br>2 (8; 11.6%)<br>3 (30; 43.5%)<br>4 (18; 26.1%)<br>5 (11; 15.9%) |
@@ -30,18 +29,15 @@
 | `gear_ratio` | Gear ratio | Numeric | 0 (0.0%) | N=74<br>Median=2.96; IQR=2.73-3.37<br>Mean=3.01 (SD=0.456)<br>Range=2.19-3.89 |
 | `foreign` | Car origin | Numeric | 0 (0.0%) | Unique=2<br>0 Domestic (52; 70.3%)<br>1 Foreign (22; 29.7%) |
 
----
 
 ## Notes
 
 - No additional notes provided
 
----
 
 ## Change Log
 
 *No changes recorded.*
 
----
 
-**Last Updated:**  2 Apr 2026
+**Last Updated:** 15 May 2026

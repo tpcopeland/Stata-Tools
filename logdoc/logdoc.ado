@@ -1,4 +1,4 @@
-*! logdoc Version 1.0.0  2026/04/28
+*! logdoc Version 1.0.1  2026/05/15
 *! Convert Stata SMCL/log files to faithful HTML, Markdown, Word, LaTeX, Quarto, or PDF documents
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -352,31 +352,14 @@ program define _logdoc_convert, rclass
         }
         * Also check secondary file for format(both)
         if "`format'" == "both" {
-            local _dotpos = strrpos("`output'", ".")
-            if `_dotpos' > 0 {
-                local _base = substr("`output'", 1, `_dotpos' - 1)
-                local _ext = substr("`output'", `_dotpos', .)
-            }
-            else {
-                local _base "`output'"
-                local _ext ""
-            }
-            * Check both possible secondary files
-            if "`_ext'" == ".md" {
-                local _secondary "`_base'.html"
-            }
-            else if "`_ext'" == ".html" {
-                local _secondary "`_base'.md"
-            }
-            else {
-                * No extension: Python creates .html and .md variants
-                local _secondary "`_base'.html"
-                capture confirm file "`_secondary'"
-                if !_rc {
-                    display as error `"file "`_secondary'" already exists; use replace option"'
-                    exit 602
-                }
-                local _secondary "`_base'.md"
+            local _primary ""
+            local _secondary ""
+            _logdoc_both_paths, output("`output'") ///
+                primary(_primary) secondary(_secondary)
+            capture confirm file "`_primary'"
+            if !_rc {
+                display as error `"file "`_primary'" already exists; use replace option"'
+                exit 602
             }
             capture confirm file "`_secondary'"
             if !_rc {
@@ -406,26 +389,7 @@ program define _logdoc_convert, rclass
     * Find CSS files (expand ~ like _logdoc_find_script does)
     local light_css ""
     local dark_css ""
-
-    capture findfile logdoc_light.css
-    if _rc == 0 {
-        local light_css "`r(fn)'"
-        if substr("`light_css'", 1, 1) == "~" {
-            local homedir : environment HOME
-            local rest = substr("`light_css'", 2, .)
-            local light_css "`homedir'`rest'"
-        }
-    }
-
-    capture findfile logdoc_dark.css
-    if _rc == 0 {
-        local dark_css "`r(fn)'"
-        if substr("`dark_css'", 1, 1) == "~" {
-            local homedir : environment HOME
-            local rest = substr("`dark_css'", 2, .)
-            local dark_css "`homedir'`rest'"
-        }
-    }
+    _logdoc_find_css, light(light_css) dark(dark_css)
 
     * Build command (quote python path for paths with spaces)
     local cmd `""`python'" "`scriptpath'" "`input_file'" "`output'""'
@@ -435,10 +399,7 @@ program define _logdoc_convert, rclass
     if "`title'" != "" {
         * Write title to tempfile to avoid shell quoting issues
         tempfile titlefile
-        tempname fh
-        file open `fh' using "`titlefile'", write text
-        file write `fh' `"`title'"'
-        file close `fh'
+        _logdoc_write_argfile, path("`titlefile'") text(`"`title'"')
         local cmd `"`cmd' --title-file "`titlefile'""'
     }
 
@@ -476,10 +437,7 @@ program define _logdoc_convert, rclass
     if "`date'" != "" {
         * Write date to tempfile to avoid shell quoting issues
         tempfile datefile
-        tempname fh2
-        file open `fh2' using "`datefile'", write text
-        file write `fh2' `"`date'"'
-        file close `fh2'
+        _logdoc_write_argfile, path("`datefile'") text(`"`date'"')
         local cmd `"`cmd' --date-file "`datefile'""'
     }
 
@@ -504,10 +462,7 @@ program define _logdoc_convert, rclass
     * --- O8: Footer ---
     if `"`footer'"' != "" {
         tempfile footerfile
-        tempname fh3
-        file open `fh3' using "`footerfile'", write text
-        file write `fh3' `"`footer'"'
-        file close `fh3'
+        _logdoc_write_argfile, path("`footerfile'") text(`"`footer'"')
         local cmd `"`cmd' --footer-file "`footerfile'""'
     }
     if "`generated'" != "" {
@@ -522,10 +477,7 @@ program define _logdoc_convert, rclass
             local _stamp_str `"`_stamp_str' | `c(filename)'"'
         }
         tempfile stampfile
-        tempname fh4
-        file open `fh4' using "`stampfile'", write text
-        file write `fh4' `"`_stamp_str'"'
-        file close `fh4'
+        _logdoc_write_argfile, path("`stampfile'") text(`"`_stamp_str'"')
         local cmd `"`cmd' --stamp-file "`stampfile'""'
     }
 
@@ -555,18 +507,12 @@ program define _logdoc_convert, rclass
     * --- F6: Keep/drop patterns ---
     if `"`keep'"' != "" {
         tempfile keepfile
-        tempname fh5
-        file open `fh5' using "`keepfile'", write text
-        file write `fh5' `"`keep'"'
-        file close `fh5'
+        _logdoc_write_argfile, path("`keepfile'") text(`"`keep'"')
         local cmd `"`cmd' --keep-file "`keepfile'""'
     }
     if `"`drop'"' != "" {
         tempfile dropfile
-        tempname fh6
-        file open `fh6' using "`dropfile'", write text
-        file write `fh6' `"`drop'"'
-        file close `fh6'
+        _logdoc_write_argfile, path("`dropfile'") text(`"`drop'"')
         local cmd `"`cmd' --drop-file "`dropfile'""'
     }
 
@@ -621,28 +567,10 @@ program define _logdoc_convert, rclass
     }
 
     * --- I1: Parse LOGDOC_META from Python stdout ---
-    local _nblocks = 0
-    local _filesize = 0
-    local _py_lastmsg ""
-    capture {
-        tempname _pyofh
-        file open `_pyofh' using "`_pyout'", read text
-        file read `_pyofh' _pyoline
-        while r(eof) == 0 {
-            if regexm(`"`_pyoline'"', "LOGDOC_META: blocks=([0-9]+) filesize=([0-9]+)") {
-                local _nblocks = real(regexs(1))
-                local _filesize = real(regexs(2))
-            }
-            else if strtrim(`"`_pyoline'"') != "" {
-                local _trimline = strtrim(`"`_pyoline'"')
-                if !regexm(`"`_trimline'"', "^(Generated:|logdoc: processing )") {
-                    local _py_lastmsg `"`_trimline'"'
-                }
-            }
-            file read `_pyofh' _pyoline
-        }
-        file close `_pyofh'
-    }
+    _logdoc_parse_pyout using "`_pyout'"
+    local _nblocks = r(nblocks)
+    local _filesize = r(filesize)
+    local _py_lastmsg `"`r(lastmsg)'"'
 
     * --- F2/F1: Post-process for docx/pdf formats ---
     if "`_actual_format'" == "docx" {
@@ -750,28 +678,10 @@ program define _logdoc_convert, rclass
     * path may not exist if it has no extension, so compute expected paths.
     local _secondary_path ""
     if "`format'" == "both" {
-        local dotpos = strrpos("`output'", ".")
-        if `dotpos' > 0 {
-            local outbase = substr("`output'", 1, `dotpos' - 1)
-            local primary_ext = substr("`output'", `dotpos', .)
-        }
-        else {
-            local outbase "`output'"
-            local primary_ext ""
-        }
-        if "`primary_ext'" == ".md" {
-            local primary_file "`outbase'.md"
-            local secondary "`outbase'.html"
-        }
-        else if "`primary_ext'" == ".html" {
-            local primary_file "`outbase'.html"
-            local secondary "`outbase'.md"
-        }
-        else {
-            * No extension: Python creates .html and .md
-            local primary_file "`outbase'.html"
-            local secondary "`outbase'.md"
-        }
+        local primary_file ""
+        local secondary ""
+        _logdoc_both_paths, output("`output'") ///
+            primary(primary_file) secondary(secondary)
         capture confirm file "`primary_file'"
         if _rc {
             display as error "failed to generate output document"
@@ -834,98 +744,6 @@ program define _logdoc_convert, rclass
         }
     }
 
-    * --- W3: Store normalized args for replay (only on success) ---
-    local _replay_args `"using "`using'", output("`output'") format(`format') theme(`theme')"'
-    if `"`title'"' != "" {
-        local _replay_args `"`_replay_args' title("`title'")"'
-    }
-    if `"`date'"' != "" {
-        local _replay_args `"`_replay_args' date("`date'")"'
-    }
-    if "`preformatted'" != "" {
-        local _replay_args `"`_replay_args' preformatted"'
-    }
-    if "`nofold'" != "" {
-        local _replay_args `"`_replay_args' nofold"'
-    }
-    if "`nodots'" != "" {
-        local _replay_args `"`_replay_args' nodots"'
-    }
-    if `"`python'"' != "" {
-        local _replay_args `"`_replay_args' python("`python'")"'
-    }
-    if `"`css'"' != "" {
-        local _replay_args `"`_replay_args' css("`css'")"'
-    }
-    if "`quiet'" != "" {
-        local _replay_args `"`_replay_args' quiet"'
-    }
-    if "`verbose'" != "" {
-        local _replay_args `"`_replay_args' verbose"'
-    }
-    if "`replace'" != "" {
-        local _replay_args `"`_replay_args' replace"'
-    }
-    if `"`footer'"' != "" {
-        local _replay_args `"`_replay_args' footer("`footer'")"'
-    }
-    if "`stamp'" != "" {
-        local _replay_args `"`_replay_args' stamp"'
-    }
-    if "`nograph'" != "" {
-        local _replay_args `"`_replay_args' nograph"'
-    }
-    if `"`graphwidth'"' != "" {
-        local _replay_args `"`_replay_args' graphwidth("`graphwidth'")"'
-    }
-    if `"`graphheight'"' != "" {
-        local _replay_args `"`_replay_args' graphheight("`graphheight'")"'
-    }
-    if "`linenumbers'" != "" {
-        local _replay_args `"`_replay_args' linenumbers"'
-    }
-    if "`toc'" != "" {
-        local _replay_args `"`_replay_args' toc"'
-    }
-    if "`fold'" != "" {
-        local _replay_args `"`_replay_args' fold"'
-    }
-    if "`highlight'" != "" {
-        local _replay_args `"`_replay_args' highlight"'
-    }
-    if "`tables'" != "" {
-        local _replay_args `"`_replay_args' tables"'
-    }
-    if "`copy'" != "" {
-        local _replay_args `"`_replay_args' copy"'
-    }
-    if "`download'" != "" {
-        local _replay_args `"`_replay_args' download"'
-    }
-    if "`legacy'" != "" {
-        local _replay_args `"`_replay_args' legacy"'
-    }
-    if `"`keep'"' != "" {
-        local _replay_args `"`_replay_args' keep("`keep'")"'
-    }
-    if `"`drop'"' != "" {
-        local _replay_args `"`_replay_args' drop("`drop'")"'
-    }
-    if "`append'" != "" {
-        local _replay_args `"`_replay_args' append"'
-    }
-    if "`notebook'" != "" {
-        local _replay_args `"`_replay_args' notebook"'
-    }
-    if "`email'" != "" {
-        local _replay_args `"`_replay_args' email"'
-    }
-    if `"`annotate'"' != "" {
-        local _replay_args `"`_replay_args' annotate("`annotate'")"'
-    }
-    if "`generated'" != "" {
-        local _replay_args `"`_replay_args' generated"'
-    }
     global LOGDOC_LAST_INPUT `"`using'"'
     global LOGDOC_LAST_OUTPUT `"`output'"'
     global LOGDOC_LAST_FORMAT `"`format'"'
@@ -1372,12 +1190,8 @@ program define _logdoc_batch, rclass
     if "`append'" != "" local _opts `"`_opts' append"'
 
     * Determine file extension for output
-    local _outext ".html"
-    if "`format'" == "md" local _outext ".md"
-    else if "`format'" == "qmd" local _outext ".qmd"
-    else if "`format'" == "tex" local _outext ".tex"
-    else if "`format'" == "docx" local _outext ".docx"
-    else if "`format'" == "pdf" local _outext ".pdf"
+    local _outext ""
+    _logdoc_format_ext, format("`format'") ext(_outext)
 
     * Loop over files
     local _count = 0
@@ -1479,24 +1293,7 @@ program define _logdoc_diff, rclass
     * Find CSS files
     local light_css ""
     local dark_css ""
-    capture findfile logdoc_light.css
-    if _rc == 0 {
-        local light_css "`r(fn)'"
-        if substr("`light_css'", 1, 1) == "~" {
-            local homedir : environment HOME
-            local rest = substr("`light_css'", 2, .)
-            local light_css "`homedir'`rest'"
-        }
-    }
-    capture findfile logdoc_dark.css
-    if _rc == 0 {
-        local dark_css "`r(fn)'"
-        if substr("`dark_css'", 1, 1) == "~" {
-            local homedir : environment HOME
-            local rest = substr("`dark_css'", 2, .)
-            local dark_css "`homedir'`rest'"
-        }
-    }
+    _logdoc_find_css, light(light_css) dark(dark_css)
 
     * Build command
     local cmd `""`python'" "`scriptpath'" "`using'" "`output'""'
@@ -1521,22 +1318,8 @@ program define _logdoc_diff, rclass
     tempfile _pyout
     shell `cmd' > "`_pyout'" 2>&1
 
-    local _py_lastmsg ""
-    capture {
-        tempname _pyofh
-        file open `_pyofh' using "`_pyout'", read text
-        file read `_pyofh' _pyoline
-        while r(eof) == 0 {
-            if strtrim(`"`_pyoline'"') != "" {
-                local _trimline = strtrim(`"`_pyoline'"')
-                if !regexm(`"`_trimline'"', "^(Generated:|logdoc: processing )") {
-                    local _py_lastmsg `"`_trimline'"'
-                }
-            }
-            file read `_pyofh' _pyoline
-        }
-        file close `_pyofh'
-    }
+    _logdoc_parse_pyout using "`_pyout'"
+    local _py_lastmsg `"`r(lastmsg)'"'
 
     capture confirm file "`output'"
     if _rc {
@@ -1682,6 +1465,201 @@ program define _logdoc_replay, rclass
 
     _logdoc_convert `_replay_args'
     return add
+
+    }
+    local rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
+end
+
+
+* ---------------------------------------------------------------------------
+* Helper: parse renderer stdout
+* ---------------------------------------------------------------------------
+
+capture program drop _logdoc_parse_pyout
+program define _logdoc_parse_pyout, rclass
+    version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+
+    syntax using/
+
+    local _nblocks = 0
+    local _filesize = 0
+    local _lastmsg ""
+
+    capture confirm file "`using'"
+    if !_rc {
+        capture {
+            tempname _pyofh
+            file open `_pyofh' using "`using'", read text
+            file read `_pyofh' _pyoline
+            while r(eof) == 0 {
+                if regexm(`"`_pyoline'"', "LOGDOC_META: blocks=([0-9]+) filesize=([0-9]+)") {
+                    local _nblocks = real(regexs(1))
+                    local _filesize = real(regexs(2))
+                }
+                else if strtrim(`"`_pyoline'"') != "" {
+                    local _trimline = strtrim(`"`_pyoline'"')
+                    if !regexm(`"`_trimline'"', "^(Generated:|logdoc: processing )") {
+                        local _lastmsg `"`_trimline'"'
+                    }
+                }
+                file read `_pyofh' _pyoline
+            }
+            file close `_pyofh'
+        }
+        capture file close `_pyofh'
+    }
+
+    return scalar nblocks = `_nblocks'
+    return scalar filesize = `_filesize'
+    return local lastmsg `"`_lastmsg'"'
+
+    }
+    local rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
+end
+
+
+* ---------------------------------------------------------------------------
+* Helper: find default CSS files
+* ---------------------------------------------------------------------------
+
+capture program drop _logdoc_find_css
+program define _logdoc_find_css
+    version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+
+    syntax , light(name) dark(name)
+
+    local _light_css ""
+    local _dark_css ""
+
+    capture findfile logdoc_light.css
+    if _rc == 0 {
+        local _light_css "`r(fn)'"
+        if substr("`_light_css'", 1, 1) == "~" {
+            local homedir : environment HOME
+            local rest = substr("`_light_css'", 2, .)
+            local _light_css "`homedir'`rest'"
+        }
+    }
+
+    capture findfile logdoc_dark.css
+    if _rc == 0 {
+        local _dark_css "`r(fn)'"
+        if substr("`_dark_css'", 1, 1) == "~" {
+            local homedir : environment HOME
+            local rest = substr("`_dark_css'", 2, .)
+            local _dark_css "`homedir'`rest'"
+        }
+    }
+
+    c_local `light' "`_light_css'"
+    c_local `dark' "`_dark_css'"
+
+    }
+    local rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
+end
+
+
+* ---------------------------------------------------------------------------
+* Helper: write a caller-owned tempfile argument
+* ---------------------------------------------------------------------------
+
+capture program drop _logdoc_write_argfile
+program define _logdoc_write_argfile
+    version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+
+    syntax , path(string) text(string)
+
+    tempname _argfh
+    file open `_argfh' using "`path'", write text replace
+    file write `_argfh' `"`text'"'
+    file close `_argfh'
+
+    }
+    local rc = _rc
+    capture file close `_argfh'
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
+end
+
+
+* ---------------------------------------------------------------------------
+* Helpers: output path calculation
+* ---------------------------------------------------------------------------
+
+capture program drop _logdoc_format_ext
+program define _logdoc_format_ext
+    version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+
+    syntax , format(string) ext(name)
+
+    local _ext ".html"
+    if "`format'" == "md" local _ext ".md"
+    else if "`format'" == "qmd" local _ext ".qmd"
+    else if "`format'" == "tex" local _ext ".tex"
+    else if "`format'" == "docx" local _ext ".docx"
+    else if "`format'" == "pdf" local _ext ".pdf"
+
+    c_local `ext' "`_ext'"
+
+    }
+    local rc = _rc
+    set varabbrev `_orig_varabbrev'
+    if `rc' exit `rc'
+end
+
+
+capture program drop _logdoc_both_paths
+program define _logdoc_both_paths
+    version 16.0
+    local _orig_varabbrev = c(varabbrev)
+    set varabbrev off
+    capture noisily {
+
+    syntax , output(string) primary(name) secondary(name)
+
+    local _dotpos = strrpos("`output'", ".")
+    if `_dotpos' > 0 {
+        local _base = substr("`output'", 1, `_dotpos' - 1)
+        local _ext = substr("`output'", `_dotpos', .)
+    }
+    else {
+        local _base "`output'"
+        local _ext ""
+    }
+
+    if "`_ext'" == ".md" {
+        local _primary "`_base'.md"
+        local _secondary "`_base'.html"
+    }
+    else if "`_ext'" == ".html" {
+        local _primary "`_base'.html"
+        local _secondary "`_base'.md"
+    }
+    else {
+        local _primary "`_base'.html"
+        local _secondary "`_base'.md"
+    }
+
+    c_local `primary' "`_primary'"
+    c_local `secondary' "`_secondary'"
 
     }
     local rc = _rc

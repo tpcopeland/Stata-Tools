@@ -41,7 +41,7 @@
 
 {syntab:Document metadata}
 {synopt:{opt ti:tle(string)}}document title; default is {bf:Data Dictionary}{p_end}
-{synopt:{opt sub:title(string)}}subtitle or description line{p_end}
+{synopt:{opt subt:itle(string)}}subtitle or description line{p_end}
 {synopt:{opt ver:sion(string)}}version number shown in header and footer{p_end}
 {synopt:{opt auth:or(string)}}author name for the footer{p_end}
 {synopt:{opt date(string)}}date string; default is the current date{p_end}
@@ -152,7 +152,7 @@ of them affect the variable table itself.
 Default is "Data Dictionary".
 
 {phang}
-{opt sub:title(string)} adds an optional subtitle line below the title.
+{opt subt:itle(string)} adds an optional subtitle line below the title.
 
 {phang}
 {opt ver:sion(string)} adds a version number that appears in the header and

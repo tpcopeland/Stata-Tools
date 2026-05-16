@@ -395,7 +395,7 @@ Use `logdoc_py, save` to write the `python=` line automatically. Other keys corr
 
 ## Version
 
-**Version**: 1.0.0
+Version 1.0.1
 
 ## Author
 

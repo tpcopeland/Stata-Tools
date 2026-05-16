@@ -1,0 +1,278 @@
+Dataset Documentation
+Generated: <normalized>
+
+========================================
+DATASET: test_cohort_miss.dta
+========================================
+
+METADATA
+--------
+Observations: 100
+Variables: 8
+Label: Test cohort dataset
+Data Signature: 100:8(64926):2117236361:54269459
+
+DESCRIPTION
+-----------
+This dataset contains cross-sectional data. It includes 100 observations and 8 variables. The data includes date variables (exact range suppressed for privacy). Key variable categories include: identifiers, demographics. 
+
+Common Variable Patterns Detected
+  Likely IDs: id
+  Likely dates: entry_date exit_date
+  Demographics: age sex
+
+Missing Data Summary
+  Variables with >50% missing: 0
+  Variables with >10% missing: 1
+  Observations with complete data: 79 (79%)
+
+========================================
+VARIABLE SUMMARY
+========================================
+
+QUICK REFERENCE
+----------------------------------------
+  Variable                Type      Class          Miss%  Unique
+  id                      double    excluded        0.0%       .
+  age                     double    continuous     10.0%      45
+  sex                     byte      categorical     0.0%       2
+  bmi                     double    continuous     11.0%      89
+  region                  byte      categorical     6.0%       4
+  entry_date              double    date            0.0%       .
+  exit_date               double    date            0.0%       .
+  name                    str20     excluded        0.0%       .
+----------------------------------------
+
+  id
+    Type: double
+    Format: %10.0g
+    Label: Unique identifier
+    Missing: 0 (0.0%)
+    Classification: excluded
+
+  age
+    Type: double
+    Format: %10.0g
+    Label: Age in years
+    Missing: 10 (10.0%)
+    Classification: continuous
+
+  sex
+    Type: byte
+    Format: %8.0g
+    Label: Sex of participant
+    Missing: 0 (0.0%)
+    Classification: categorical
+
+  bmi
+    Type: double
+    Format: %10.0g
+    Label: Body mass index
+    Missing: 11 (11.0%)
+    Classification: continuous
+
+  region
+    Type: byte
+    Format: %8.0g
+    Label: Geographic region
+    Missing: 6 (6.0%)
+    Classification: categorical
+
+  entry_date
+    Type: double
+    Format: %td
+    Label: Study entry date
+    Missing: 0 (0.0%)
+    Classification: date
+
+  exit_date
+    Type: double
+    Format: %td
+    Label: Study exit date
+    Missing: 0 (0.0%)
+    Classification: date
+
+  name
+    Type: str20
+    Format: %20s
+    Label: Participant name
+    Missing: 0 (0.0%)
+    Classification: excluded
+
+========================================
+CATEGORICAL VARIABLES
+========================================
+
+VARIABLE: sex
+--------------------
+Position: 3
+Storage Type: byte
+Display Format: %8.0g
+Label: Sex of participant
+Value Label: sexlbl
+Classification: categorical
+Missing: 0 obs (0.0%)
+Unique Values: 2
+
+  Frequencies:
+    0 = Female: 46 (46.0%)
+    1 = Male: 54 (54.0%)
+
+ANALYSIS GUIDANCE: Use as factor/categorical variable. This is a binary variable - suitable for binary outcome models. 
+
+VARIABLE: region
+--------------------
+Position: 5
+Storage Type: byte
+Display Format: %8.0g
+Label: Geographic region
+Value Label: reglbl
+Classification: categorical
+Missing: 6 obs (6.0%)
+Unique Values: 4
+
+  Frequencies:
+    1 = North: 21 (21.0%)
+    2 = South: 30 (30.0%)
+    3 = East: 23 (23.0%)
+    4 = West: 20 (20.0%)
+
+ANALYSIS GUIDANCE: Use as factor/categorical variable. Low cardinality - suitable for stratification or interaction terms. 
+
+========================================
+CONTINUOUS VARIABLES
+========================================
+
+VARIABLE: age
+--------------------
+Position: 2
+Storage Type: double
+Display Format: %10.0g
+Label: Age in years
+Classification: continuous
+Missing: 10 obs (10.0%)
+Unique Values: 45
+
+DISTRIBUTION:
+  Valid N: 90
+  Mean: 49.31
+  SD: 18.87
+  Median: 46
+  IQR: 31-68
+  Range: 20 to 79
+
+ANALYSIS GUIDANCE: Use as continuous variable. 
+
+VARIABLE: bmi
+--------------------
+Position: 4
+Storage Type: double
+Display Format: %10.0g
+Label: Body mass index
+Classification: continuous
+Missing: 11 obs (11.0%)
+Unique Values: 89
+
+DISTRIBUTION:
+  Valid N: 89
+  Mean: 25.55
+  SD: 4.39
+  Median: 25.81
+  IQR: 21.22-29.54
+  Range: 18.61 to 32.95
+
+ANALYSIS GUIDANCE: Use as continuous variable. 
+
+========================================
+DATE VARIABLES
+========================================
+
+VARIABLE: entry_date
+--------------------
+Position: 6
+Storage Type: double
+Display Format: %td
+Label: Study entry date
+Classification: date
+Missing: 0 obs (0.0%)
+
+DATE RANGE: 357 days span (exact dates suppressed for privacy)
+
+ANALYSIS GUIDANCE: Can be used to calculate durations, create time-to-event variables, or generate time periods. Verify date ranges are plausible before analysis.
+
+VARIABLE: exit_date
+--------------------
+Position: 7
+Storage Type: double
+Display Format: %td
+Label: Study exit date
+Classification: date
+Missing: 0 obs (0.0%)
+
+DATE RANGE: 625 days span (exact dates suppressed for privacy)
+
+ANALYSIS GUIDANCE: Can be used to calculate durations, create time-to-event variables, or generate time periods. Verify date ranges are plausible before analysis.
+
+========================================
+EXCLUDED VARIABLES
+========================================
+
+VARIABLE: id
+--------------------
+Position: 1
+Storage Type: double
+Display Format: %10.0g
+Label: Unique identifier
+Classification: excluded (privacy)
+Missing: 0 obs (0.0%)
+(values excluded from documentation)
+
+PRIVACY NOTE: This variable excluded to protect participant privacy. Do not attempt to re-identify individuals. Use for linkage only if authorized.
+
+VARIABLE: name
+--------------------
+Position: 8
+Storage Type: str20
+Display Format: %20s
+Label: Participant name
+Classification: excluded (privacy)
+Missing: 0 obs (0.0%)
+(values excluded from documentation)
+
+PRIVACY NOTE: This variable excluded to protect participant privacy. Do not attempt to re-identify individuals. Use for linkage only if authorized.
+
+Binary Variables (potential outcomes/indicators)
+
+sex: Sex of participant
+  Type: byte (binary)
+  Missing: 0 obs (0%)
+  Frequency:
+    0 (Female): 46 (46.0%)
+    1 (Male): 54 (54.0%)
+
+========================================
+SAMPLE OBSERVATIONS
+========================================
+
+First 3 observations (excluded variables masked):
+
+| id(masked) | age | sex | bmi | region | entry_date | exit_date | name(masked) | 
+|---|---|---|---|---|---|---|---|
+| [MASKED] | . | 1 | 18.86556997754468 | 2 | 22190 | 22393 | [MASKED] | 
+| [MASKED] | . | 1 | 23.85505611204963 | 2 | 21960 | 22005 | [MASKED] | 
+| [MASKED] | . | 0 | 25.80522985751514 | 3 | 22057 | 22094 | [MASKED] | 
+
+========================================
+VALUE LABEL DEFINITIONS
+========================================
+
+reglbl (used by: region)
+  1 = North
+  2 = South
+  3 = East
+  4 = West
+
+sexlbl (used by: sex)
+  0 = Female
+  1 = Male
+

@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.0  28apr2026}{...}
+{* *! version 1.0.1  15may2026}{...}
 {vieweralsosee "logdoc_py" "help logdoc_py"}{...}
 {viewerjumpto "Syntax" "logdoc##syntax"}{...}
 {viewerjumpto "Setup" "logdoc##setup"}{...}

@@ -15,16 +15,14 @@ local test_count = 0
 local pass_count = 0
 local fail_count = 0
 
-local qa_dir  "`pkg_dir'/qa"
+* === Bootstrap ===
+local qa_dir  "`c(pwd)'"
+local pkg_dir "`qa_dir'/.."  
 local tmp_dir "`qa_dir'/data"
 
 capture mkdir "`tmp_dir'"
 
 * Uninstall any existing version
-
-* === Bootstrap ===
-local qa_dir  "`c(pwd)'"
-local pkg_dir "`qa_dir'/.."  
 
 capture ado uninstall datamap
 
@@ -927,6 +925,7 @@ else {
 * V8.1: datamap with no input returns rc 198
 local ++test_count
 capture noisily {
+    clear
     capture datamap, output("`tmp_dir'/_err.txt")
     assert _rc == 198
 }
@@ -972,6 +971,7 @@ else {
 * V8.4: datadict with no input returns rc 198
 local ++test_count
 capture noisily {
+    clear
     capture datadict, output("`tmp_dir'/_err.md")
     assert _rc == 198
 }

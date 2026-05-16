@@ -10,7 +10,6 @@ Version 1.0
 2. [Notes](#notes)
 3. [Change Log](#change-log)
 
----
 
 ## 1.  Demo Cohort
 
@@ -22,7 +21,7 @@ Version 1.0
 | Variable | Label | Type | Missing | Statistics/Values |
 |----------|-------|------|---------|-------------------|
 | `patient_id` | Patient identifier | Numeric | 0 (0.0%) | N=200<br>Median=100; IQR=50.50-150<br>Mean=100 (SD=57.88)<br>Range=1.00-200 |
-| `patient_name` | Patient full name | String | 0 (0.0%) | N=.; . unique values |
+| `patient_name` | Patient full name | String | 0 (0.0%) | N=200; 200 unique values |
 | `age` | Age at enrollment (years) | Numeric | 0 (0.0%) | N=200<br>Median=53.65; IQR=44.05-63.20<br>Mean=53.86 (SD=14.68)<br>Range=-3.00-100 |
 | `sex` | Biological sex | Numeric | 0 (0.0%) | Unique=2<br>0 Female (114; 57.0%)<br>1 Male (86; 43.0%) |
 | `smoking` | Smoking status | Numeric | 36 (18.0%) | Unique=3<br>0 Never (59; 36.0%)<br>1 Former (53; 32.3%)<br>2 Current (52; 31.7%) |
@@ -37,22 +36,19 @@ Version 1.0
 | `treatment` | Randomization arm | Numeric | 0 (0.0%) | Unique=2<br>0 Control (100; 50.0%)<br>1 Active (100; 50.0%) |
 | `site` | Study site | Numeric | 0 (0.0%) | Unique=8<br>1 Stockholm (34; 17.0%)<br>2 Gothenburg (23; 11.5%)<br>3 Malmo (25; 12.5%)<br>4 Uppsala (23; 11.5%)<br>5 Linkoping (22; 11.0%)<br>6 Lund (16; 8.0%)<br>7 Umea (34; 17.0%)<br>8 Orebro (23; 11.5%) |
 
----
 
 ## Notes
 
 - No additional notes provided
 
----
 
 ## Change Log
 
 *No changes recorded.*
 
----
 
 **Document Version:** 1.0
 
 **Author:** T. Copeland, Karolinska Institutet
 
-**Last Updated:**  2 Apr 2026
+**Last Updated:** 15 May 2026

@@ -26,3 +26,6 @@ f datamap.ado
 f datamap.sthlp
 f datadict.ado
 f datadict.sthlp
+f _datamap_collect_filelist.ado
+f _datamap_collect_from_dir.ado
+f _datamap_count_files.ado

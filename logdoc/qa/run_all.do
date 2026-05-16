@@ -16,7 +16,7 @@ local pkg_dir = regexr("`qa_dir'", "/qa/?$", "")
 local pass = 0
 local fail = 0
 
-foreach f in test_logdoc test_logdoc_py validation_logdoc test_logdoc_phase78 {
+foreach f in test_logdoc test_logdoc_py validation_logdoc test_logdoc_phase78 test_logdoc_refactor_guards {
     capture ado uninstall logdoc
     quietly net install logdoc, from("`pkg_dir'") replace
     capture noisily do "`qa_dir'/`f'.do"

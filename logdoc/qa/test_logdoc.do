@@ -52,7 +52,7 @@ sysuse auto, clear
 tabulate foreign rep78
 log close _logdoc_fixture2
 
-local outdir "/tmp/logdoc_tests"
+local outdir "`c(tmpdir)'/logdoc_tests"
 capture mkdir "`outdir'"
 
 * Clean up any prior test outputs
