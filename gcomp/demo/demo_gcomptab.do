@@ -6,7 +6,7 @@
 *
 * Pipeline: generate synthetic data → run gcomp → export with gcomptab
 *
-* Author: Timothy P Copeland
+* Author: Timothy P Copeland, Karolinska Institutet
 * Date: 2026-03-01
 *******************************************************************************/
 

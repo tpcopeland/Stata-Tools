@@ -1,10 +1,44 @@
 *! _gcomp_bootstrap_impl Version 1.1.2  2026/05/06
 *! Internal bootstrap implementation for gcomp
-*! Author: Timothy P Copeland (fork), Rhian Daniel (original)
+*! Author: Timothy P Copeland, Karolinska Institutet
+*! Original author: Rhian Daniel
 *! Program class: rclass
 
 * Inner bootstrap program (was gformula_.ado in SSC)
 * =============================================================================
+
+capture program drop _gcomp_filter_omitted
+program define _gcomp_filter_omitted, rclass
+version 16.0
+local _orig_varabbrev = c(varabbrev)
+set varabbrev off
+capture noisily {
+	syntax name(name=matrix_name), [COLNames(string)]
+
+	tempname noomit
+	local cols = colsof(`matrix_name')
+	_ms_omit_info `matrix_name'
+	matrix `noomit' = J(1, `cols', 1) - r(omit)
+	mata: st_matrix(st_local("matrix_name"), select(st_matrix(st_local("matrix_name")), st_matrix(st_local("noomit"))))
+
+	if `"`colnames'"' != "" {
+		local kept_colnames ""
+		forvalues _ci = 1/`cols' {
+			if `noomit'[1, `_ci'] == 1 {
+				local _name: word `_ci' of `colnames'
+				local kept_colnames "`kept_colnames' `_name'"
+			}
+		}
+		local kept_colnames = strtrim("`kept_colnames'")
+		matrix colnames `matrix_name' = `kept_colnames'
+		return local colnames "`kept_colnames'"
+	}
+	return scalar cols = colsof(`matrix_name')
+}
+local rc = _rc
+set varabbrev `_orig_varabbrev'
+if `rc' exit `rc'
+end
 
 capture program drop _gcomp_bootstrap_impl
 program define _gcomp_bootstrap_impl, rclass
@@ -1463,7 +1497,7 @@ if "`mediation'"=="" {
 							if rtrim(ltrim("`simvar`i''"))==rtrim(ltrim("`outcome'")) & "`minsim'"!="" {
 								if "`death'"!="" {
 									qui replace `simvar`i''=`pred_simvar`i'' if `simvar`i''==. ///
-										& `tvar'==`k' & `death'!=1 & `int_no'>0
+										& `tvar'==`k' & `death'!=1 & `int_no'>0 & `pred_simvar`i''<.
 								}
 								else {
 									qui replace `simvar`i''=`pred_simvar`i'' if `simvar`i''==. & `tvar'==`k' & `int_no'>0
@@ -2066,13 +2100,9 @@ if `_gc_chk_prt'==0 {
 if "`mediation'"=="" {
     if "`eofu'"!="" {
     	qui regress `outcome' i.`int_no'
-		tempname EPO noomit
+		tempname EPO
 	    mat `EPO'=e(b)
-		_ms_omit_info `EPO'
-		local cols = colsof(`EPO')
-		matrix `noomit' =  J(1,`cols',1) - r(omit)
-		mata: EPO = select(st_matrix(st_local("EPO")),(st_matrix(st_local("noomit"))))
-		mata: st_matrix(st_local("EPO"),EPO)
+		_gcomp_filter_omitted `EPO'
 		mat EPO=`EPO'
     	if `_gc_chk_prt'==0 {
     		noi di as text "{hline 10}{c RT}"
@@ -2081,13 +2111,9 @@ if "`mediation'"=="" {
     else {
     	qui stset `tvar', id(`idvar') failure(`outcome')
     	qui streg i.`int_no', nohr dist(e)
-		tempname EPO noomit
+		tempname EPO
 	    mat `EPO'=e(b)
-		_ms_omit_info `EPO'
-		local cols = colsof(`EPO')
-		matrix `noomit' =  J(1,`cols',1) - r(omit)
-		mata: EPO = select(st_matrix(st_local("EPO")),(st_matrix(st_local("noomit"))))
-		mata: st_matrix(st_local("EPO"),EPO)
+		_gcomp_filter_omitted `EPO'
 		mat EPO=`EPO'
     	if `_gc_chk_prt'==0 {
     		if "`graph'"!="" {
@@ -2172,23 +2198,11 @@ if "`mediation'"=="" {
     		tokenize "`msm'", parse(",")
     		qui `1' if `int_no'!=0 & `int_no'!=`nintplus1' `2' `3'
     	}
-		tempname msm_params noomit
+		tempname msm_params
 	    mat `msm_params'=e(b)
 		local _msm_orig_colnames: colfullnames `msm_params'
-		_ms_omit_info `msm_params'
-		local cols = colsof(`msm_params')
-		matrix `noomit' =  J(1,`cols',1) - r(omit)
-		mata: msm_params = select(st_matrix(st_local("msm_params")),(st_matrix(st_local("noomit"))))
-		mata: st_matrix(st_local("msm_params"),msm_params)
-		local colnames ""
-		forvalues _msm_ci = 1/`cols' {
-			if `noomit'[1,`_msm_ci'] == 1 {
-				local _msm_name: word `_msm_ci' of `_msm_orig_colnames'
-				local colnames "`colnames' `_msm_name'"
-			}
-		}
-		local colnames = strtrim("`colnames'")
-		matrix colnames `msm_params' = `colnames'
+		_gcomp_filter_omitted `msm_params', colnames(`_msm_orig_colnames')
+		local colnames "`r(colnames)'"
     	tokenize "`colnames'", parse(" ")
     	local nparams 0 			
     	while "`1'"!="" {
@@ -2495,23 +2509,11 @@ else {
 				qui `1' if `msm_switch_on'==1 & `2' `3'
 			}
 		}
-		tempname msm_params noomit
+		tempname msm_params
 		mat `msm_params'=e(b)
 		local _msm_orig_colnames: colfullnames `msm_params'
-		_ms_omit_info `msm_params'
-		local cols = colsof(`msm_params')
-		matrix `noomit' =  J(1,`cols',1) - r(omit)
-		mata: msm_params = select(st_matrix(st_local("msm_params")),(st_matrix(st_local("noomit"))))
-		mata: st_matrix(st_local("msm_params"),msm_params)
-		local colnames ""
-		forvalues _msm_ci = 1/`cols' {
-			if `noomit'[1,`_msm_ci'] == 1 {
-				local _msm_name: word `_msm_ci' of `_msm_orig_colnames'
-				local colnames "`colnames' `_msm_name'"
-			}
-		}
-		local colnames = strtrim("`colnames'")
-		matrix colnames `msm_params' = `colnames'
+		_gcomp_filter_omitted `msm_params', colnames(`_msm_orig_colnames')
+		local colnames "`r(colnames)'"
     	tokenize "`colnames'", parse(" ")
     	local nparams 0 			
     	while "`1'"!="" {
@@ -2592,179 +2594,6 @@ ereturn clear
 * Restore settings
 set varabbrev `_gc_varabbrev'
 if `_gc_rc' exit `_gc_rc'
-end
-
-capture program drop _gcomp_display_stats
-program define _gcomp_display_stats
-version 16.0
-* Display a single results row: estimate, SE, z, p-value, CI
-* Caller writes the row label with _cont, then calls this program
-syntax, est(real) se(real) ci_lo(real) ci_hi(real) ///
-	[est_col(integer 19) se_col(integer 33) p_col(integer 54) CONTinue]
-* Derived column positions from p_col
-local z_neg = `p_col' - 7
-local z_pos = `p_col' - 6
-local ci_col = `p_col' + 9
-local ci2_col = `p_col' + 21
-* Estimate and SE
-noi di as result %9.0g _col(`est_col') `est' _cont
-noi di as result _col(`se_col') %9.0g `se' _cont
-* z-score and p-value
-if `se' > 0 {
-	local z = round(`est'/`se', 0.01)
-	if `est' < 0 {
-		local w = `z_neg' - max(ceil(log10(abs(`z'))), 0)
-	}
-	else {
-		local w = `z_pos' - max(ceil(log10(abs(`z'))), 0)
-	}
-	noi di as result _col(`w') `z' _cont
-	local p = round(2*(1-normal(abs(`est'/`se'))), 0.001)
-	if `p' > 0 {
-		noi di as result _col(`p_col') "0" _col(`=`p_col'+1') `p' _cont
-		if `p' == round(`p', 0.1) {
-			noi di _col(`=`p_col'+3') "00" _cont
-		}
-		else {
-			if `p' == round(`p', 0.01) {
-				noi di _col(`=`p_col'+4') "0" _cont
-			}
-		}
-	}
-	else {
-		noi di as result _col(`p_col') "0.000" _cont
-	}
-}
-else {
-	noi di as result _col(`z_pos') "." _cont
-	noi di as result _col(`p_col') "    ." _cont
-}
-* CI
-if "`continue'" != "" {
-	noi di as result _col(`ci_col') %9.0g `ci_lo' _cont
-	noi di as result _col(`ci2_col') %9.0g `ci_hi' _cont
-}
-else {
-	noi di as result _col(`ci_col') %9.0g `ci_lo' _cont
-	noi di as result _col(`ci2_col') %9.0g `ci_hi'
-}
-end
-
-capture program drop _gcomp_detangle
-program define _gcomp_detangle
-version 16.0
-args target tname rhs separator
-if "`separator'"=="" {
-	local separator ","
-}
-unab rhs:`rhs'
-local nx: word count `rhs'
-forvalues j=1/`nx' {
-	local n`j': word `j' of `rhs'
-}
-tokenize "`target'", parse("`separator'")
-local ncl 0
-while "`1'"!="" {
-	if "`1'"=="`separator'" {
-		mac shift
-	}
-	local ncl=`ncl'+1
-	local clust`ncl' "`1'"
-	mac shift
-}
-if "`clust`ncl''"=="" {
-	local --ncl
-}
-if `ncl'>`nx' {
-	noi di as err "too many `tname'() values specified"
-	exit 198
-}
-forvalues i=1/`ncl' {
-	tokenize "`clust`i''", parse(":")
-	if "`2'"!=":" {
-		if `i'>1 {
-			noi di as err "invalid `clust`i'' in `tname'() (syntax error)"
-			exit 198
-		}
-		local 2 ":"
-		local 3 `1'
-		local 1
-		forvalues j=1/`nx' {
-			local 1 `1' `n`j''
-		}
-	}
-	local arg3 `3'
-	unab arg1:`1'
-	tokenize `arg1'
-	while "`1'"!="" {
-		* Inlined chkin logic
-		local _gc_k: list posof "`1'" in rhs
-		if `_gc_k' == 0 {
-			noi di as err "`1' is not a valid covariate"
-			exit 198
-		}
-		local v`_gc_k' `arg3'
-		mac shift
-	}
-}
-forvalues j=1/`nx' {
-	if "`v`j''"!="" {
-		global S_`j' `v`j''
-	}
-	else global S_`j'
-}
-end
-
-capture program drop _gcomp_formatline
-program define _gcomp_formatline, rclass
-version 16.0
-syntax, N(string) Maxlen(int) [ Format(string) Leading(int 1) Separator(string) ]
-if `leading'<0 {
-	noi di as err "invalid leading()"
-	exit 198
-}
-if "`separator'"!="" {
-	tokenize "`n'", parse("`separator'")
-}
-else tokenize "`n'"
-local n 0
-while "`1'"!="" {
-	if "`1'"!="`separator'" {
-		local ++n
-		local n`n' `1'
-	}
-	macro shift
-}
-local j 0
-local length 0
-forvalues i=1/`n' {
-	if "`format'"!="" {
-		capture local out: display `format' `n`i''
-		if _rc {
-			noi di as err "invalid format attempted for: " `"`n`i''"'
-			exit 198
-		}
-	}
-	else local out `n`i''
-	if `leading'>0 {
-		local out " `out'"
-	}
-	local l1=length("`out'")
-	local l2=`length'+`l1'
-	if `l2'>`maxlen' {
-		local ++j
-		return local line`j'="`line'"
-		local line "`out'"
-		local length `l1'
-	}
-	else {
-		local length `l2'
-		local line "`line'`out'"
-	}
-}
-local ++j
-return local line`j'="`line'"
-return scalar lines=`j'
 end
 
 exit

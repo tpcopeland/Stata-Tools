@@ -1,6 +1,6 @@
-*! _gcomp_xl_common Version 1.1.0  2026/04/26
+*! _gcomp_xl_common Version 1.1.2  2026/05/06
 *! Shared Excel export utility programs for gcomp package
-*! Author: Timothy P Copeland
+*! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
 DESCRIPTION:
@@ -13,6 +13,8 @@ PROGRAMS INCLUDED:
     _gcomp_xl_footnote       - Write a merged footnote row to an open putexcel session
     _gcomp_xl_open           - Open an xlsx file in the OS default application
     _gcomp_xl_validate_sheet - Validate Excel sheet name
+    _gcomp_xl_helpers_ready  - Verify helper bundle completeness
+    _gcomp_xl_require_helpers- Require helper bundle completeness
 
 USAGE:
     Called internally by gcomptab. Not intended for direct use.
@@ -104,6 +106,47 @@ program _gcomp_xl_open
     }
     else {
         shell xdg-open "`filepath'" &
+    }
+end
+
+* =============================================================================
+* _gcomp_xl_helpers_ready: Verify helper bundle completeness
+* =============================================================================
+* Returns rc=0 when all requested helpers are loaded; rc=111 otherwise.
+
+capture program drop _gcomp_xl_helpers_ready
+program _gcomp_xl_helpers_ready
+    version 16.0
+    args required
+
+    if `"`required'"' == "" {
+        local required "_gcomp_col_letter _gcomp_validate_path _gcomp_xl_footnote _gcomp_xl_open _gcomp_xl_validate_sheet _gcomp_xl_require_helpers"
+    }
+
+    foreach _prog of local required {
+        capture program list `_prog'
+        if _rc exit 111
+    }
+end
+
+* =============================================================================
+* _gcomp_xl_require_helpers: Require helper bundle completeness
+* =============================================================================
+* Displays a reinstall message and exits rc=111 when helpers are not loaded.
+
+capture program drop _gcomp_xl_require_helpers
+program _gcomp_xl_require_helpers
+    version 16.0
+    syntax [, REQUIRED(string asis) FAILMessage(string asis)]
+
+    if `"`failmessage'"' == "" {
+        local failmessage "_gcomp_xl_common.ado failed to load fully; reinstall gcomp"
+    }
+
+    capture _gcomp_xl_helpers_ready `"`required'"'
+    if _rc {
+        noisily display as error `"`failmessage'"'
+        exit 111
     }
 end
 

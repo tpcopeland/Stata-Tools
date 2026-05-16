@@ -27,6 +27,10 @@ d KW: time-varying confounding
 d KW: Monte Carlo simulation
 d
 f gcomp.ado
+f _gcomp_display_stats.ado
+f _gcomp_diag_capture.ado
+f _gcomp_detangle.ado
+f _gcomp_formatline.ado
 f _gcomp_bootstrap.ado
 f _gcomp_bootstrap_impl.ado
 f gcomp.sthlp
