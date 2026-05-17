@@ -66,7 +66,7 @@ After {cmd:mlogit} with a multi-valued treatment, supply {opt psv:ars()} with K 
 {phang}
 {cmd:psdash balance} [{it:treatment}] [{it:psvar}] [{it:{help if}}] [{it:{help in}}]
 [{cmd:,} {opt cov:ariates(varlist)} {opt w:var(varname)} {opt match:ed}
-{opt thr:eshold(#)} {opt now:var} {opt xlsx(filename)} {opt sheet(string)}
+{opt thr:eshold(#)} {opt now:var} {opt now:eights} {opt xlsx(filename)} {opt sheet(string)}
 {opt love:plot} {opt sav:ing(filename)} {opt sch:eme(schemename)}
 {opt graphopt:ions(string)} {opt f:ormat(string)} {opt ti:tle(string)}
 {opt name(string)} {opt ks} {opt esti:mand(string)}
@@ -219,6 +219,7 @@ Mutually exclusive with {opt wvar()}.
 
 {phang}
 {opt nowvar} suppresses automatic weight generation from the propensity score.
+{opt noweights} is an alias for {opt nowvar}.
 
 {phang}
 {opt loveplot} generates a Love plot showing SMDs for each covariate.

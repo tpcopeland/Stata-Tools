@@ -3,37 +3,7 @@
 
 clear all
 
-local _qa_plus_orig "`c(sysdir_plus)'"
-local _qa_personal_orig "`c(sysdir_personal)'"
-tempfile _qa_marker
-local _qa_sysroot "`_qa_marker'_sysdir"
-local _qa_plus "`_qa_sysroot'/plus"
-local _qa_personal "`_qa_sysroot'/personal"
-capture mkdir "`_qa_sysroot'"
-capture mkdir "`_qa_plus'"
-capture mkdir "`_qa_personal'"
-sysdir set PLUS "`_qa_plus'"
-sysdir set PERSONAL "`_qa_personal'"
-
-capture ado uninstall psdash
-
-* Install from local directory
-local qa_dir "`c(pwd)'"
-local pkg_dir "`qa_dir'"
-if strpos("`pkg_dir'", "/qa") > 0 {
-    local pkg_dir = subinstr("`pkg_dir'", "/qa", "", 1)
-}
-if !strpos("`pkg_dir'", "psdash") {
-    local pkg_dir "`pkg_dir'/psdash"
-}
-capture noisily net install psdash, from("`pkg_dir'") replace
-local install_rc = _rc
-if `install_rc' {
-    sysdir set PLUS "`_qa_plus_orig'"
-    sysdir set PERSONAL "`_qa_personal_orig'"
-    capture shell rm -rf "`_qa_sysroot'"
-    exit `install_rc'
-}
+do "`c(pwd)'/_psdash_bootstrap.do"
 
 * Test infrastructure
 global n_pass_count = 0

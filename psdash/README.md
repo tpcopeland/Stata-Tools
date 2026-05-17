@@ -57,9 +57,9 @@ Most users can start with `psdash combined`. It runs the four diagnostic panels 
 
 ## Worked Examples
 
-All examples below use Stata's built-in `sysuse` or `webuse` datasets, or self-contained simulated data, so they can be copied directly after installation. The `sysuse auto` examples use `foreign` as a convenient binary treatment indicator. The `webuse cattaneo2` examples show a more realistic treatment-effects workflow. The multi-group example generates a small simulated dataset so the multinomial treatment model has stable support. These examples are intended to illustrate syntax and diagnostics, not to endorse a final causal specification.
+The README keeps one binary and one multi-group workflow. The installed help file (`help psdash`) remains the authoritative source for complete examples, including `teffects`, ATT, pre-computed weights, focused option examples, and stored-result details. Full demo console transcripts are linked in the [Demo](#demo) section instead of embedded here.
 
-### 1. Manual propensity-score workflow with `sysuse auto`
+### 1. Binary manual workflow with `sysuse auto`
 
 Estimate the propensity score with `logit`, save fitted probabilities in `ps`, then run each diagnostic explicitly. Because this is a manual workflow, `balance` is told which covariates to assess.
 
@@ -73,64 +73,9 @@ psdash weights foreign ps
 psdash support foreign ps, crump generate(in_support)
 ```
 
-After `logit` or `probit`, the treatment and covariates are still available in `e()`, so the same workflow can be written more compactly:
+After `logit` or `probit`, treatment and covariates are still available in `e()`, so commands that need only the propensity score can also be called as `psdash overlap ps`, `psdash balance ps, loveplot`, and `psdash weights ps`.
 
-```stata
-psdash overlap ps
-psdash balance ps, loveplot
-psdash weights ps
-```
-
-### 2. Fully automatic workflow after `teffects` with `webuse cattaneo2`
-
-Here `teffects ipw` estimates the propensity score internally. After that, `psdash` reads the treatment (`mbsmoke`), the estimated PS, the covariates, and the implied weighting scheme from `e()`, so the subcommands can be called without retyping variable names.
-
-```stata
-webuse cattaneo2, clear
-teffects ipw (bweight) (mbsmoke mage prenatal1 mmarried fbaby)
-psdash combined
-psdash balance
-```
-
-### 3. Using pre-computed weights with `sysuse auto`
-
-If weights were created outside `psdash`, pass them through `wvar()` so that the weight and balance diagnostics use the same variable.
-
-```stata
-sysuse auto, clear
-logit foreign mpg weight length
-predict double ps, pr
-gen double ipw = cond(foreign == 1, 1/ps, 1/(1-ps))
-psdash weights foreign ps, wvar(ipw) detail graph
-psdash balance foreign ps, covariates(mpg weight length) wvar(ipw)
-```
-
-### 4. ATT workflow after `teffects, atet`
-
-When `teffects` is fit with `, atet`, `psdash` maps Stata's ATET result to `estimand(att)` internally. That lets the balance and weight diagnostics use ATT weights automatically.
-
-```stata
-webuse cattaneo2, clear
-teffects ipw (bweight) (mbsmoke mage prenatal1 mmarried fbaby), atet
-psdash balance
-psdash weights, detail
-```
-
-### 5. Focused option examples on `sysuse auto`
-
-These examples show common follow-up diagnostics once `ps` already exists: add KS statistics to the balance table, create trimmed or stabilized weights, and mark observations inside common support.
-
-```stata
-sysuse auto, clear
-logit foreign mpg weight length
-predict double ps, pr
-psdash balance foreign ps, covariates(mpg weight length) ks
-psdash weights foreign ps, trim(99) generate(ipw_trimmed)
-psdash weights foreign ps, stabilize generate(ipw_stab)
-psdash support foreign ps, crump generate(in_support)
-```
-
-### 6. Multi-group treatment with `mlogit`
+### 2. Multi-group treatment with `mlogit`
 
 When the treatment has more than two levels, estimate generalized propensity scores and pass the K predicted probabilities through `psvars()`.
 
@@ -157,6 +102,8 @@ psdash weights arm, psvars(ps0 ps1 ps2) detail
 psdash support arm, psvars(ps0 ps1 ps2) threshold(0.1)
 psdash balance arm, psvars(ps0 ps1 ps2) covariates(age female bmi) reference(1)
 ```
+
+For the automatic `teffects` workflow, ATT handling, pre-computed weights, and focused option examples, run `help psdash` after installation.
 
 ## Subcommands
 
@@ -189,7 +136,7 @@ psdash balance arm, psvars(ps0 ps1 ps2) covariates(age female bmi) reference(1)
 
 > **Default behavior:** When a PS is supplied, `balance` auto-generates IPTW weights for the requested `estimand()` (default: ATE) and displays *adjusted* SMD/VR columns alongside the raw columns. Pass `nowvar` to see raw balance only, or `wvar()` to supply a pre-computed weight variable.
 - `matched` - report matched/unweighted balance; mutually exclusive with `wvar()`
-- `nowvar` - suppress automatic weight generation and show raw balance only
+- `nowvar`, `noweights` - suppress automatic weight generation and show raw balance only
 - `loveplot` — generate Love plot
 - `threshold(#)` — SMD threshold (default: 0.1)
 - `ks` - display Kolmogorov-Smirnov statistics; KS values are stored either way
@@ -248,405 +195,29 @@ matrix list r(balance)
 
 ## Demo
 
+Demo output is generated from `demo/demo_psdash.do`. The README links to curated console markdown instead of embedding the full transcripts.
+
 ### Binary treatment (2 groups)
 
-Synthetic data: 800 observations, confounded treatment assignment (statin use), propensity scores via logit, IPTW weights.
+Synthetic data: 800 observations, confounded treatment assignment, propensity scores via `logit`, and IPTW weights.
 
-<details>
-<summary>Overlap diagnostics (click to expand)</summary>
-
-```stata
-. noisily psdash overlap statin ps, nograph
-```
-
-```
-----------------------------------------------------------------------
-Propensity Score Overlap
-----------------------------------------------------------------------
-Treatment:         statin
-PS variable:       ps
-----------------------------------------------------------------------
-
-----------------------------------------------------------------------
-Propensity Score Distribution
-----------------------------------------------------------------------
-                            Treated        Control
-----------------------------------------------------------------------
-                   N            551            249
-                Mean         0.7191         0.6217
-                  SD         0.1325         0.1486
-                 Min         0.3136         0.1853
-                 Max         0.9505         0.9206
-----------------------------------------------------------------------
-
--------------------------------------------------------
-Common Support Region
--------------------------------------------------------
-Lower bound:               0.3136
-Upper bound:               0.9206
-Outside support:               17 ( 2.12%)
-  Treated outside:             12
-  Control outside:              5
-C-statistic (AUC):         0.6881
--------------------------------------------------------
-
-Overlap: Good ( 2.1% outside support)
-```
-
-</details>
-
-![PS overlap density](demo/overlap_density.png)
-
-<details>
-<summary>Balance and weight diagnostics (click to expand)</summary>
-
-```stata
-. noisily psdash balance statin ps,
->     covariates(age female bmi sbp cholesterol) wvar(ipw)
-```
-
-```
----------------------------------------------------------------------------
-Covariate Balance Assessment
----------------------------------------------------------------------------
-Treatment:     statin
-Estimand:      ATE
-N (treated):          551
-N (control):          249
-Weights:       ipw
-Threshold:      0.100
----------------------------------------------------------------------------
-
-
----------------------------------------------------------------------------------------
-           Covariate |  SMD Raw  VR Raw  SMD Adj  VR Adj      Status
----------------------------------------------------------------------------------------
-                 age | 0.472  0.99 0.013  1.01    Balanced
-              female | 0.430  1.03 0.001  1.00    Balanced
-                 bmi | 0.156  1.02 0.014  1.07    Balanced
-                 sbp | 0.194  1.01 0.018  1.05    Balanced
-         cholesterol | 0.039  1.04 0.047  0.99    Balanced
----------------------------------------------------------------------------------------
-
-
-Maximum |SMD| (raw):       0.472
-Maximum |SMD| (adjusted):  0.047
-Maximum VR (raw):           1.04
-Maximum VR (adjusted):      1.07
-Covariates > SMD threshold:    0 of   5
----------------------------------------------------------------------------------------
-
-Balance: Adequate (max |SMD| =  0.047)
-```
-
-```stata
-. noisily psdash weights statin ps, wvar(ipw)
-```
-
-```
-----------------------------------------------------------------------
-IPTW Weight Diagnostics
-----------------------------------------------------------------------
-Weight variable:   ipw
-Treatment:         statin
-Observations:             800
-----------------------------------------------------------------------
-
-----------------------------------------------------------------------
-Weight Distribution Summary
-----------------------------------------------------------------------
-                                 Overall        Treated        Control
-----------------------------------------------------------------------
-                        N            800            551            249
-                     Mean          1.996          1.450          3.206
-                       SD          1.271          0.334          1.682
-                      Min          1.052          1.052          1.227
-                      Max         12.602          3.188         12.602
-----------------------------------------------------------------------
-
-----------------------------------------------------------------------
-Effective Sample Size (ESS)
-----------------------------------------------------------------------
-                                 Overall        Treated        Control
-----------------------------------------------------------------------
-                      ESS          569.4          523.2          195.4
-               ESS % of N          71.2%          95.0%          78.5%
-----------------------------------------------------------------------
-
---------------------------------------------------
-Extreme Weight Detection
---------------------------------------------------
-Coefficient of Variation:    0.637
-Weights > 10:                    3 ( 0.38%)
-Weights > 20:                    0
---------------------------------------------------
-
-Warning: 3 extreme weights detected (>10).
-
-Weights: Acceptable (ESS = 71.2% of N)
-```
-
-</details>
-
-![Love plot](demo/love_plot.png)
-
-<details>
-<summary>Common support assessment (click to expand)</summary>
-
-```stata
-. noisily psdash support statin ps, crump nograph
-```
-
-```
-----------------------------------------------------------------------
-Common Support Assessment
-----------------------------------------------------------------------
-Treatment:         statin
-PS variable:       ps
-Observations:             800
-----------------------------------------------------------------------
-
-------------------------------------------------------------
-Propensity Score Range
-------------------------------------------------------------
-                            Treated        Control
-------------------------------------------------------------
-                   N            551            249
-              Min PS         0.3136         0.1853
-              Max PS         0.9505         0.9206
-------------------------------------------------------------
-
--------------------------------------------------------
-Common Support Region
--------------------------------------------------------
-Lower bound:               0.3136
-Upper bound:               0.9206
-Outside support:               17 ( 2.12%)
-  Treated outside:             12
-  Control outside:              5
--------------------------------------------------------
-
--------------------------------------------------------
-Crump et al. (2009) Optimal Trimming
--------------------------------------------------------
-Optimal alpha:             0.1000
-Trim region:           [0.100, 0.900]
-Observations trimmed:          26 ( 3.25%)
-Remaining sample:             774
--------------------------------------------------------
-
-Support: Trimmed ( 3.2% excluded)
-```
-
-</details>
-
-![Combined dashboard](demo/dashboard.png)
+| Output | Console markdown | Image |
+|--------|------------------|-------|
+| Overlap diagnostics | [`demo/console_overlap.md`](demo/console_overlap.md) | ![PS overlap density](demo/overlap_density.png) |
+| Balance and weight diagnostics | [`demo/console_balance_weights.md`](demo/console_balance_weights.md) | ![Love plot](demo/love_plot.png) |
+| Common support assessment | [`demo/console_support.md`](demo/console_support.md) | |
+| Combined dashboard | | ![Combined dashboard](demo/dashboard.png) |
 
 ### Multi-group treatment (3 arms)
 
-Synthetic data: 1,200 observations, 3-arm treatment (placebo / low dose / high dose) assigned via multinomial logit with confounding by age, BMI, and SBP. Generalized propensity scores via `mlogit`, generalized IPTW weights.
+Synthetic data: 1,200 observations, a 3-arm treatment assigned via multinomial logit, generalized propensity scores via `mlogit`, and generalized IPTW weights.
 
-<details>
-<summary>Multi-group overlap (click to expand)</summary>
-
-```stata
-. noisily psdash overlap arm, psvars(ps0 ps1 ps2) nograph
-```
-
-```
-----------------------------------------------------------------------
-Propensity Score Overlap
-----------------------------------------------------------------------
-Treatment:         arm (3 groups)
-PS variable:       ps0
-Reference group:   0
-----------------------------------------------------------------------
-
------------------------------------------------------------
-Propensity Score Distribution
------------------------------------------------------------
-                          Placebo     Low dose    High dose
------------------------------------------------------------
-                   N          154          321          725
-                Mean       0.1515       0.2738       0.6163
-                  SD       0.0608       0.0409       0.0831
-                 Min       0.0422       0.1758       0.3046
-                 Max       0.3586       0.4003       0.8513
------------------------------------------------------------
-
--------------------------------------------------------
-Common Support Region
--------------------------------------------------------
-Lower bound:               0.3046
-Upper bound:               0.3586
-Outside support:             1129 (94.08%)
-  Placebo outside:        152
-  Low dose outside:        253
-  High dose outside:        724
--------------------------------------------------------
-Warning: >10% of observations outside common support region.
-
-Overlap: WARNING (94.1% outside support)
-  Consider: psdash support, threshold(0.05)
-```
-
-</details>
-
-![Multi-group overlap density](demo/mg_overlap_density.png)
-
-<details>
-<summary>Multi-group balance (click to expand)</summary>
-
-```stata
-. noisily psdash balance arm, psvars(ps0 ps1 ps2)
->     covariates(age female bmi sbp cholesterol creatinine) wvar(gipw)
-```
-
-```
----------------------------------------------------------------------------
-Covariate Balance Assessment (Multi-Group)
----------------------------------------------------------------------------
-Treatment:     arm (3 groups, ref = 0)
-Estimand:      ATE
-N (Group Placebo):       154
-N (Group Low dose):       321
-N (Group High dose):       725
-Weights:       gipw
-Threshold:      0.100
----------------------------------------------------------------------------
-
-
------------------------------------------------------------------------------------------------------
-           Covariate |  SMD 1v0      VR  SMD 2v0      VR  Adj 1v0      VR  Adj 2v0      VR      Status
------------------------------------------------------------------------------------------------------
-                 age | 0.228  1.35 0.483  1.24 0.091  1.45 0.087  1.34    Balanced
-              female |-0.013  1.00-0.018  0.99 0.006  1.00 0.009  1.00    Balanced
-                 bmi |-0.026  0.80 0.124  0.93-0.055  0.78-0.039  0.90    Balanced
-                 sbp | 0.126  1.11 0.077  1.08 0.026  1.17 0.018  1.16    Balanced
-         cholesterol |-0.033  0.91-0.099  0.97 0.020  0.95 0.012  1.03    Balanced
-          creatinine |-0.231  0.87-0.269  0.85 0.028  0.89 0.021  0.85    Balanced
------------------------------------------------------------------------------------------------------
-
-
-Maximum |SMD| (raw):       0.483
-Maximum |SMD| (adjusted):  0.091
-Covariates > SMD threshold:    0 of   6
------------------------------------------------------------------------------------------------------
-
-Balance: Adequate (max |SMD| =  0.091)
-```
-
-</details>
-
-![Multi-group Love plot](demo/mg_love_plot.png)
-
-<details>
-<summary>Multi-group weight diagnostics (click to expand)</summary>
-
-```stata
-. noisily psdash weights arm, psvars(ps0 ps1 ps2) wvar(gipw)
-```
-
-```
-----------------------------------------------------------------------
-IPTW Weight Diagnostics (Multi-Group)
-----------------------------------------------------------------------
-Weight variable:   gipw
-Treatment:         arm (3 groups, ref = 0)
-Observations:           1,200
-----------------------------------------------------------------------
-
--------------------------------------------------------------------------------------
-Weight Distribution Summary
--------------------------------------------------------------------------------------
-                                 Overall        Placebo       Low dose      High dose
--------------------------------------------------------------------------------------
-                        N          1,200            154            321            725
-                     Mean          2.989          7.708          3.737          1.655
-                       SD          2.351          3.212          0.577          0.251
-                      Min          1.175          2.789          2.498          1.175
-                      Max         23.690         23.690          5.688          3.283
--------------------------------------------------------------------------------------
-
--------------------------------------------------------------------------------------
-Effective Sample Size (ESS)
--------------------------------------------------------------------------------------
-                                 Overall        Placebo       Low dose      High dose
--------------------------------------------------------------------------------------
-                      ESS          741.5          131.3          313.6          708.8
-               ESS % of N          61.8%          85.3%          97.7%          97.8%
--------------------------------------------------------------------------------------
-
---------------------------------------------------
-Extreme Weight Detection
---------------------------------------------------
-Coefficient of Variation:    0.787
-Weights > 10:                   30 ( 2.50%)
-Weights > 20:                    1
---------------------------------------------------
-
-Warning: 30 extreme weights detected (>10).
-Warning: Maximum weight exceeds 20. Consider truncation.
-
-Weights: Acceptable (ESS = 61.8% of N)
-```
-
-</details>
-
-<details>
-<summary>Multi-group common support (click to expand)</summary>
-
-```stata
-. noisily psdash support arm, psvars(ps0 ps1 ps2) threshold(0.1) nograph
-```
-
-```
-----------------------------------------------------------------------
-Common Support Assessment
-----------------------------------------------------------------------
-Treatment:         arm (3 groups)
-PS variable:       ps0
-Reference group:   0
-Observations:           1,200
-----------------------------------------------------------------------
-
------------------------------------------------------------
-Propensity Score Range
------------------------------------------------------------
-                          Placebo     Low dose    High dose
------------------------------------------------------------
-                   N          154          321          725
-              Min PS       0.0422       0.1758       0.3046
-              Max PS       0.3586       0.4003       0.8513
------------------------------------------------------------
-
--------------------------------------------------------
-Common Support Region
--------------------------------------------------------
-Lower bound:               0.3046
-Upper bound:               0.3586
-Outside support:             1129 (94.08%)
-  Placebo outside:        152
-  Low dose outside:        253
-  High dose outside:        724
--------------------------------------------------------
-
--------------------------------------------------------
-Manual Threshold Trimming
--------------------------------------------------------
-Threshold:                 0.1000
-Trim region:           [0.100, 0.900]
-Observations trimmed:          30 ( 2.50%)
-Remaining sample:            1170
--------------------------------------------------------
-Warning: >10% of observations outside common support.
-
-Support: Trimmed ( 2.5% excluded)
-```
-
-</details>
-
-PNG demo images in demo/ are tracked in this repository.
+| Output | Console markdown | Image |
+|--------|------------------|-------|
+| Multi-group overlap | [`demo/console_mg_overlap.md`](demo/console_mg_overlap.md) | ![Multi-group overlap density](demo/mg_overlap_density.png) |
+| Multi-group balance | [`demo/console_mg_balance.md`](demo/console_mg_balance.md) | ![Multi-group Love plot](demo/mg_love_plot.png) |
+| Multi-group weight diagnostics | [`demo/console_mg_weights.md`](demo/console_mg_weights.md) | |
+| Multi-group common support | [`demo/console_mg_support.md`](demo/console_mg_support.md) | |
 
 ## Version History
 

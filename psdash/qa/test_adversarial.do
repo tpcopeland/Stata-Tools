@@ -3,12 +3,8 @@
 * Usage: cd psdash/qa && stata-mp -b do test_adversarial.do
 
 version 16.0
-local qa_dir "`c(pwd)'"
-local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
+do "`c(pwd)'/_psdash_bootstrap.do"
 local repo_dir = subinstr("`pkg_dir'", "/psdash", "", 1)
-
-capture ado uninstall psdash
-quietly net install psdash, from("`pkg_dir'") replace
 
 local test_count = 0
 local pass_count = 0
@@ -1507,8 +1503,10 @@ display as text "Failed:      " as result `fail_count'
 display as text "============================================"
 if `fail_count' > 0 {
     display as error "SOME TESTS FAILED"
+    _psdash_qa_cleanup
     exit 1
 }
 else {
     display as result "ALL TESTS PASSED"
 }
+_psdash_qa_cleanup

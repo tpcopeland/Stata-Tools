@@ -1,6 +1,7 @@
 *! _psdash_detect Version 1.0.1  2026/05/06
 *! Auto-detect propensity score components from estimation context
 *! Author: Timothy P Copeland
+*! Program class: nclass
 *! Internal helper — not user-facing
 
 /*
@@ -194,57 +195,14 @@ program define _psdash_detect
                 }
             }
             else {
-                * Validate psvars count matches K
-                local _n_psvars : word count `psvars'
-                if `_n_psvars' != `_K' {
-                    display as error "psvars() requires `_K' variables (one per treatment level)"
-                    display as error "  treatment levels: `_trt_levels'"
-                    display as error "  psvars provided: `_n_psvars'"
-                    exit 198
-                }
-                * Set per-level PS variable locals
-                local _ps_idx = 1
+                local _sample_opt ""
+                if "`samplevar'" != "" local _sample_opt "samplevar(`samplevar')"
+                _psdash_validate_psvars `psvars', levels(`_trt_levels') ///
+                    k(`_K') `_sample_opt'
                 foreach _lv of local _trt_levels {
-                    local _ps_v : word `_ps_idx' of `psvars'
-                    c_local _psd_ps_`_lv' "`_ps_v'"
-                    local _ps_idx = `_ps_idx' + 1
+                    c_local _psd_ps_`_lv' "`r(ps_`_lv')'"
                 }
-                tempvar _psv_sum _psv_complete
-                local _sv_cond "1"
-                if "`samplevar'" != "" local _sv_cond "`samplevar'"
-                quietly {
-                    gen double `_psv_sum' = 0 if `_sv_cond'
-                    gen byte `_psv_complete' = 1 if `_sv_cond'
-                }
-                local _bad_psvar ""
-                local _bad_range = 0
-                foreach _ps_v of local psvars {
-                    quietly count if `_sv_cond' & !missing(`_ps_v') ///
-                        & (`_ps_v' < 0 | `_ps_v' > 1)
-                    if r(N) > 0 & `_bad_range' == 0 {
-                        local _bad_psvar "`_ps_v'"
-                        local _bad_range = r(N)
-                    }
-                    quietly replace `_psv_complete' = 0 ///
-                        if `_sv_cond' & missing(`_ps_v')
-                    quietly replace `_psv_sum' = `_psv_sum' + `_ps_v' ///
-                        if `_sv_cond' & !missing(`_ps_v')
-                }
-                if `_bad_range' > 0 {
-                    display as error "propensity scores must be in [0,1]"
-                    display as error "  invalid values found in `_bad_psvar'"
-                    exit 198
-                }
-                quietly count if `_sv_cond' & `_psv_complete' ///
-                    & abs(`_psv_sum' - 1) > 1e-6
-                if r(N) > 0 {
-                    display as error "psvars() probabilities must sum to 1 within each observation"
-                    display as error "  offending complete rows: " r(N)
-                    exit 198
-                }
-                * First PS variable for backward compat
-                gettoken _first_psv _rest_psv : psvars
-                c_local _psd_psvar "`_first_psv'"
+                c_local _psd_psvar "`r(first_psvar)'"
                 c_local _psd_psvar_auto "0"
             }
 
@@ -357,9 +315,6 @@ program define _psdash_detect
         local cmdline "`e(cmdline)'"
 
         * Find the treatment model equation (second parenthesized group)
-        * First, find the position after the first closing paren
-        local tmodel_contents ""
-
         * future: prefer e(tvar)/e(treat_varlist) accessors once teffects populates them
         * Count parens to find second group
         local paren_depth = 0
@@ -827,54 +782,14 @@ program define _psdash_detect
 
         * Set PS variables
         if "`psvars'" != "" {
-            local _n_psvars : word count `psvars'
-            if `_n_psvars' != `_K' {
-                display as error "psvars() requires `_K' variables (one per treatment level)"
-                display as error "  treatment levels: `_trt_levels'"
-                display as error "  psvars provided: `_n_psvars'"
-                exit 198
-            }
-            local _ps_idx = 1
+            local _sample_opt ""
+            if "`samplevar'" != "" local _sample_opt "samplevar(`samplevar')"
+            _psdash_validate_psvars `psvars', levels(`_trt_levels') ///
+                k(`_K') `_sample_opt'
             foreach _lv of local _trt_levels {
-                local _ps_v : word `_ps_idx' of `psvars'
-                c_local _psd_ps_`_lv' "`_ps_v'"
-                local _ps_idx = `_ps_idx' + 1
+                c_local _psd_ps_`_lv' "`r(ps_`_lv')'"
             }
-            tempvar _psv_sum _psv_complete
-            local _sv_cond "1"
-            if "`samplevar'" != "" local _sv_cond "`samplevar'"
-            quietly {
-                gen double `_psv_sum' = 0 if `_sv_cond'
-                gen byte `_psv_complete' = 1 if `_sv_cond'
-            }
-            local _bad_psvar ""
-            local _bad_range = 0
-            foreach _ps_v of local psvars {
-                quietly count if `_sv_cond' & !missing(`_ps_v') ///
-                    & (`_ps_v' < 0 | `_ps_v' > 1)
-                if r(N) > 0 & `_bad_range' == 0 {
-                    local _bad_psvar "`_ps_v'"
-                    local _bad_range = r(N)
-                }
-                quietly replace `_psv_complete' = 0 ///
-                    if `_sv_cond' & missing(`_ps_v')
-                quietly replace `_psv_sum' = `_psv_sum' + `_ps_v' ///
-                    if `_sv_cond' & !missing(`_ps_v')
-            }
-            if `_bad_range' > 0 {
-                display as error "propensity scores must be in [0,1]"
-                display as error "  invalid values found in `_bad_psvar'"
-                exit 198
-            }
-            quietly count if `_sv_cond' & `_psv_complete' ///
-                & abs(`_psv_sum' - 1) > 1e-6
-            if r(N) > 0 {
-                display as error "psvars() probabilities must sum to 1 within each observation"
-                display as error "  offending complete rows: " r(N)
-                exit 198
-            }
-            gettoken _first_psv _rest_psv : psvars
-            c_local _psd_psvar "`_first_psv'"
+            c_local _psd_psvar "`r(first_psvar)'"
             c_local _psd_psvar_auto "0"
         }
         else if "`arg_psvar'" != "" {
@@ -915,36 +830,4 @@ program define _psdash_detect
     local rc = _rc
     set varabbrev `_vao'
     if `rc' exit `rc'
-end
-
-* Helper: strip factor-variable notation from covariate list
-* Input:  raw tokens (e.g., "i.rep78 c.weight##c.length age")
-* Output: unique underlying variable names via c_local (e.g., "rep78 weight length age")
-capture program drop _psdash_strip_fv  // idiomatic drop-then-define for private helper
-program define _psdash_strip_fv
-    args raw_covars
-
-    local clean ""
-    foreach token of local raw_covars {
-        * Replace interaction operators with spaces to split
-        local expanded : subinstr local token "##" " ", all
-        local expanded : subinstr local expanded "#" " ", all
-
-        foreach sub of local expanded {
-            * Strip factor/operator prefix (everything up to first dot)
-            local dotpos = strpos("`sub'", ".")
-            if `dotpos' > 0 {
-                local sub = substr("`sub'", `dotpos' + 1, .)
-            }
-            * Only keep if it is a real variable and not already in list
-            capture confirm variable `sub'
-            if _rc == 0 {
-                local dup : list sub in clean
-                if !`dup' {
-                    local clean "`clean' `sub'"
-                }
-            }
-        }
-    }
-    c_local _psd_stripped_covars "`=strtrim("`clean'")'"
 end

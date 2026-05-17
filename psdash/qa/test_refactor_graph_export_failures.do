@@ -9,30 +9,7 @@ set more off
 capture log close _all
 log using "test_refactor_graph_export_failures.log", replace nomsg
 
-local qa_dir "`c(pwd)'"
-local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
-
-local _qa_plus_orig "`c(sysdir_plus)'"
-local _qa_personal_orig "`c(sysdir_personal)'"
-tempfile _qa_marker
-local _qa_sysroot "`_qa_marker'_sysdir"
-local _qa_plus "`_qa_sysroot'/plus"
-local _qa_personal "`_qa_sysroot'/personal"
-capture mkdir "`_qa_sysroot'"
-capture mkdir "`_qa_plus'"
-capture mkdir "`_qa_personal'"
-sysdir set PLUS "`_qa_plus'"
-sysdir set PERSONAL "`_qa_personal'"
-
-capture ado uninstall psdash
-capture noisily net install psdash, from("`pkg_dir'") replace
-local install_rc = _rc
-if `install_rc' {
-    sysdir set PLUS "`_qa_plus_orig'"
-    sysdir set PERSONAL "`_qa_personal_orig'"
-    capture shell rm -rf "`_qa_sysroot'"
-    exit `install_rc'
-}
+do "`c(pwd)'/_psdash_bootstrap.do"
 
 capture program drop _gf_result
 program define _gf_result
@@ -232,6 +209,18 @@ capture noisily {
     assert "`r(levels)'" == "0 1 2"
 }
 _gf_result "multigroup_balance_xlsx_failure_returns" `=_rc'
+
+capture noisily {
+    _gf_binary_data
+    capture noisily psdash combined treat ps, covariates(x1 x2) wvar(wt) ///
+        saving("`bad_png'")
+    local cmd_rc = _rc
+    assert `cmd_rc' != 0
+    assert "`r(treatment)'" == "treat"
+    assert "`r(psvar)'" == "ps"
+    assert "`r(source)'" == "manual"
+}
+_gf_result "combined_graph_failure_returns" `=_rc'
 
 display as text _n "=== Refactor graph/export failure summary: " ///
     as result $GF_PASS_COUNT as text " passed, " ///

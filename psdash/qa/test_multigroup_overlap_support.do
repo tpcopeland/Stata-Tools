@@ -11,16 +11,7 @@ local n_tests = 0
 local n_passed = 0
 local n_failed = 0
 
-capture ado uninstall psdash
-
-* Load the package from local dev directory
-local pkg_dir "`c(pwd)'/.."
-foreach f in psdash psdash_overlap psdash_support psdash_combined ///
-    _psdash_detect _psdash_strip_fv psdash_balance psdash_weights ///
-    _psdash_overview {
-    capture program drop `f'
-    capture run "`pkg_dir'/`f'.ado"
-}
+do "`c(pwd)'/_psdash_bootstrap.do"
 
 * ============================================================
 * Create simulated 3-group dataset (N=300, groups 0/1/2)
@@ -469,10 +460,13 @@ display as text "{hline 60}"
 
 if `n_failed' > 0 {
     display as error "`n_failed' test(s) FAILED"
+    _psdash_qa_cleanup
+    log close mg_test
     exit 9
 }
 else {
     display as result "All `n_passed' tests passed."
 }
 
+_psdash_qa_cleanup
 log close mg_test

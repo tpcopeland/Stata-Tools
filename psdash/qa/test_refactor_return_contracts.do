@@ -9,30 +9,7 @@ set more off
 capture log close _all
 log using "test_refactor_return_contracts.log", replace nomsg
 
-local qa_dir "`c(pwd)'"
-local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
-
-local _qa_plus_orig "`c(sysdir_plus)'"
-local _qa_personal_orig "`c(sysdir_personal)'"
-tempfile _qa_marker
-local _qa_sysroot "`_qa_marker'_sysdir"
-local _qa_plus "`_qa_sysroot'/plus"
-local _qa_personal "`_qa_sysroot'/personal"
-capture mkdir "`_qa_sysroot'"
-capture mkdir "`_qa_plus'"
-capture mkdir "`_qa_personal'"
-sysdir set PLUS "`_qa_plus'"
-sysdir set PERSONAL "`_qa_personal'"
-
-capture ado uninstall psdash
-capture noisily net install psdash, from("`pkg_dir'") replace
-local install_rc = _rc
-if `install_rc' {
-    sysdir set PLUS "`_qa_plus_orig'"
-    sysdir set PERSONAL "`_qa_personal_orig'"
-    capture shell rm -rf "`_qa_sysroot'"
-    exit `install_rc'
-}
+do "`c(pwd)'/_psdash_bootstrap.do"
 
 capture program drop _rc_result
 program define _rc_result

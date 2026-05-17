@@ -34,6 +34,11 @@ capture mkdir "`demo_dir'"
 capture ado uninstall psdash
 quietly net install psdash, from("`repo'/psdash") replace
 
+* --- Graph scheme ---
+capture ado uninstall tc_schemes
+quietly net install tc_schemes, from("`repo'/tc_schemes") replace
+set scheme plotplainblind
+
 
 **# Binary treatment setup
 clear
@@ -178,8 +183,7 @@ log close mg_support
 
 **# Convert console logs to markdown via logdoc
 capture ado uninstall logdoc
-quietly net install logdoc, ///
-    from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/logdoc") replace
+quietly net install logdoc, from("`repo'/logdoc") replace
 
 foreach f in console_overlap console_balance_weights console_support ///
     console_mg_overlap console_mg_balance console_mg_weights ///

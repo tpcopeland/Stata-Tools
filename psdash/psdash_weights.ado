@@ -72,9 +72,7 @@ program define psdash_weights, rclass
 
     capture noisily {
 
-    * =========================================================================
     * SYNTAX PARSING
-    * =========================================================================
     syntax [anything] [if] [in], ///
         [Wvar(varname) ///
          TRIM(real 0) ///
@@ -93,15 +91,11 @@ program define psdash_weights, rclass
          ESTImand(string) ///
          PSVars(varlist numeric)]
 
-    * =========================================================================
     * MARK SAMPLE
-    * =========================================================================
     tempvar touse ps_auto wt_auto
     mark `touse' `if' `in'
 
-    * =========================================================================
     * AUTO-DETECT PS COMPONENTS
-    * =========================================================================
     * For weights, user may provide treatment + wvar without a PS variable.
     * The detect helper requires psvar for manual mode, so handle the
     * treatment-only + wvar case ourselves before falling through to detect.
@@ -109,57 +103,21 @@ program define psdash_weights, rclass
     local _n_pos_args : word count `anything'
     local _has_est_ctx = inlist("`e(cmd)'", "logit", "probit", "logistic", "mlogit", "teffects")
     if `_n_pos_args' == 1 & "`wvar'" != "" & !`_has_est_ctx' {
-        * Single positional arg (treatment) with explicit wvar: manual detect
-        tokenize `anything'
-        confirm variable `1'
-        confirm numeric variable `1'
-        local treatment "`1'"
+        local ref_manual_opt ""
+        if "`reference'" != "" local ref_manual_opt "reference(`reference')"
+        local estimand_manual_opt ""
+        if "`estimand'" != "" local estimand_manual_opt "estimand(`estimand')"
+        _psdash_manual_detect `anything' if `touse', ///
+            `ref_manual_opt' `estimand_manual_opt'
+        local treatment "`r(treatment)'"
         local psvar ""
-        local source "manual"
-        if "`estimand'" == "" local estimand "ate"
+        local source "`r(source)'"
+        local estimand "`r(estimand)'"
         local wvar_auto "0"
-
-        * Discover treatment levels
-        quietly levelsof `treatment' if `touse', local(_man_levels)
-        local K : word count `_man_levels'
-        local levels "`_man_levels'"
-
-        if `K' == 1 {
-            display as error "treatment must have at least 2 levels"
-            exit 198
-        }
-        if `K' == 0 error 2000
-
-        * Determine binary 0/1
-        local _is_bin01 = 0
-        if `K' == 2 {
-            local _l1 : word 1 of `_man_levels'
-            local _l2 : word 2 of `_man_levels'
-            if "`_l1'" == "0" & "`_l2'" == "1" local _is_bin01 = 1
-        }
-
-        if `_is_bin01' {
-            local multigroup "0"
-            local mg_reference "0"
-        }
-        else {
-            local multigroup "1"
-            if "`reference'" != "" {
-                local _ref_ok = 0
-                foreach _lv of local _man_levels {
-                    if "`reference'" == "`_lv'" local _ref_ok = 1
-                }
-                if !`_ref_ok' {
-                    display as error "reference(`reference') is not a treatment level"
-                    display as error "  treatment levels: `_man_levels'"
-                    exit 198
-                }
-                local mg_reference "`reference'"
-            }
-            else {
-                local mg_reference : word 1 of `_man_levels'
-            }
-        }
+        local multigroup "`r(multigroup)'"
+        local K = r(K)
+        local levels "`r(levels)'"
+        local mg_reference "`r(reference)'"
         local _manual_mg = 1
     }
     else if `_n_pos_args' == 0 & "`wvar'" != "" {
@@ -228,16 +186,25 @@ program define psdash_weights, rclass
     * Track all multigroup PS inputs so output-name guards can protect them.
     local mg_psvars_all ""
     if "`multigroup'" != "0" {
+        local _mg_det_psvars ""
         foreach lev of local levels {
             local this_ps "`_psd_ps_`lev''"
             if "`this_ps'" != "" {
-                local mg_psvars_all "`mg_psvars_all' `this_ps'"
+                local _mg_det_psvars "`_mg_det_psvars' `this_ps'"
             }
         }
-        if "`mg_psvars_all'" == "" & "`psvar'" != "" {
-            local mg_psvars_all "`psvar'"
+        local _mg_det_opt ""
+        if "`_mg_det_psvars'" != "" {
+            local _mg_det_opt "detpsvars(`_mg_det_psvars')"
         }
-        local mg_psvars_all : list uniq mg_psvars_all
+        local _mg_psvar_opt ""
+        if "`psvar'" != "" {
+            local _mg_psvar_opt "psvar(`psvar')"
+        }
+        _psdash_mgps_map, multigroup(`multigroup') k(`K') levels(`levels') ///
+            treatment(`treatment') samplevar(`touse') `_mg_psvar_opt' ///
+            `_mg_det_opt' allowempty
+        local mg_psvars_all "`r(mg_psvars_all)'"
     }
 
     if "`wvar'" == "" {
@@ -254,24 +221,9 @@ program define psdash_weights, rclass
     local n_ps_boundary = 0
     local n_ps_near = 0
     if "`psvar'" != "" & "`multigroup'" == "0" {
-        quietly summarize `psvar' if `touse'
-        if r(min) < 0 | r(max) > 1 {
-            display as error "propensity scores must be in [0,1]"
-            exit 198
-        }
-        quietly count if (`psvar' == 0 | `psvar' == 1) & `touse'
-        local n_ps_boundary = r(N)
-        if `n_ps_boundary' > 0 {
-            display as error "warning: `n_ps_boundary' observations have PS exactly 0 or 1"
-            display as error "  IPTW weights are undefined at these values"
-        }
-        quietly count if (`psvar' < 0.01 | `psvar' > 0.99) & `touse' ///
-            & `psvar' != 0 & `psvar' != 1
-        local n_ps_near = r(N)
-        if `n_ps_near' > 0 {
-            display as text "note: `n_ps_near' additional observations have PS < 0.01 or > 0.99"
-            display as text "  consider {cmd:psdash support, crump} or {cmd:psdash support, threshold(0.05)}"
-        }
+        _psdash_pscheck `psvar' if `touse'
+        local n_ps_boundary = r(n_ps_boundary)
+        local n_ps_near = r(n_ps_near)
     }
 
     * Mark out missing weights after PS diagnostics have been computed on
@@ -285,13 +237,9 @@ program define psdash_weights, rclass
     }
     local N = r(N)
 
-    * =========================================================================
     * BRANCH: BINARY vs MULTI-GROUP
-    * =========================================================================
     if "`multigroup'" == "0" {
-    * =====================================================================
     * BINARY PATH (unchanged from v1.1.9)
-    * =====================================================================
 
     * Validate treatment is binary
     capture assert inlist(`treatment', 0, 1) if `touse'
@@ -399,88 +347,45 @@ program define psdash_weights, rclass
     * Set defaults
     if "`name'" == "" local name "psdash_weights"
 
-    * =========================================================================
     * CALCULATE WEIGHT STATISTICS (binary)
-    * =========================================================================
-    quietly {
-        * Overall weight statistics
-        summarize `wvar' if `touse', detail
-        local mean_wt = r(mean)
-        local sd_wt = r(sd)
-        local min_wt = r(min)
-        local max_wt = r(max)
-        local p1 = r(p1)
-        local p5 = r(p5)
-        local p10 = r(p10)
-        local p25 = r(p25)
-        local p50 = r(p50)
-        local p75 = r(p75)
-        local p90 = r(p90)
-        local p95 = r(p95)
-        local p99 = r(p99)
+    _psdash_weights_stats, wvar(`wvar') treatment(`treatment') ///
+        samplevar(`touse') n(`N')
+    local mean_wt = r(mean_wt)
+    local sd_wt = r(sd_wt)
+    local min_wt = r(min_wt)
+    local max_wt = r(max_wt)
+    local p1 = r(p1)
+    local p5 = r(p5)
+    local p10 = r(p10)
+    local p25 = r(p25)
+    local p50 = r(p50)
+    local p75 = r(p75)
+    local p90 = r(p90)
+    local p95 = r(p95)
+    local p99 = r(p99)
+    local cv = r(cv)
+    local n_treated = r(n_treated)
+    local n_control = r(n_control)
+    local mean_wt_t = r(mean_wt_t)
+    local sd_wt_t = r(sd_wt_t)
+    local min_wt_t = r(min_wt_t)
+    local max_wt_t = r(max_wt_t)
+    local mean_wt_c = r(mean_wt_c)
+    local sd_wt_c = r(sd_wt_c)
+    local min_wt_c = r(min_wt_c)
+    local max_wt_c = r(max_wt_c)
+    local ess = r(ess)
+    local ess_pct = r(ess_pct)
+    local ess_t = r(ess_t)
+    local ess_pct_t = r(ess_pct_t)
+    local ess_c = r(ess_c)
+    local ess_pct_c = r(ess_pct_c)
+    local n_extreme = r(n_extreme)
+    local pct_extreme = r(pct_extreme)
+    local n_very_extreme = r(n_very_extreme)
 
-        * Coefficient of variation
-        local cv = `sd_wt' / `mean_wt'
-
-        * Statistics by treatment group
-        summarize `wvar' if `touse' & `treatment' == 1, detail
-        local mean_wt_t = r(mean)
-        local sd_wt_t = r(sd)
-        local min_wt_t = r(min)
-        local max_wt_t = r(max)
-        local n_treated = r(N)
-
-        summarize `wvar' if `touse' & `treatment' == 0, detail
-        local mean_wt_c = r(mean)
-        local sd_wt_c = r(sd)
-        local min_wt_c = r(min)
-        local max_wt_c = r(max)
-        local n_control = r(N)
-
-        * Effective Sample Size: ESS = (sum w)^2 / sum(w^2)
-        tempvar wt_sq
-        gen double `wt_sq' = `wvar'^2 if `touse'
-
-        * Overall ESS
-        summarize `wvar' if `touse'
-        local sum_wt = r(sum)
-        summarize `wt_sq' if `touse'
-        local sum_wt_sq = r(sum)
-        local ess = (`sum_wt'^2) / `sum_wt_sq'
-        local ess_pct = 100 * `ess' / `N'
-
-        * ESS by treatment group
-        summarize `wvar' if `touse' & `treatment' == 1
-        local sum_wt_t = r(sum)
-        summarize `wt_sq' if `touse' & `treatment' == 1
-        local sum_wt_sq_t = r(sum)
-        local ess_t = (`sum_wt_t'^2) / `sum_wt_sq_t'
-        local ess_pct_t = 100 * `ess_t' / `n_treated'
-
-        summarize `wvar' if `touse' & `treatment' == 0
-        local sum_wt_c = r(sum)
-        summarize `wt_sq' if `touse' & `treatment' == 0
-        local sum_wt_sq_c = r(sum)
-        local ess_c = (`sum_wt_c'^2) / `sum_wt_sq_c'
-        local ess_pct_c = 100 * `ess_c' / `n_control'
-
-        drop `wt_sq'
-
-        * Extreme weights
-        count if `wvar' > 10 & `touse'
-        local n_extreme = r(N)
-        local pct_extreme = 100 * `n_extreme' / `N'
-
-        count if `wvar' > 20 & `touse'
-        local n_very_extreme = r(N)
-    }
-
-    * =========================================================================
     * DISPLAY OUTPUT (binary)
-    * =========================================================================
-    display as text _n "{hline 70}"
-    display as text "IPTW Weight Diagnostics"
-    display as text "{hline 70}"
+    display as text _n "IPTW Weight Diagnostics"
     local wvar_label "`wvar'"
     if "`wvar_auto'" == "1" local wvar_label "auto-generated"
     display as text "Weight variable:   " as result "`wvar_label'"
@@ -489,7 +394,6 @@ program define psdash_weights, rclass
     if "`source'" != "manual" {
         display as text "Source:            " as result "`source'"
     }
-    display as text "{hline 70}"
     display ""
 
     * Weight distribution summary
@@ -580,61 +484,25 @@ program define psdash_weights, rclass
             as text " (ESS = " as result %4.1f `ess_pct' as text "% of N)"
     }
 
-    * =========================================================================
     * WEIGHT TRIMMING/STABILIZATION (binary)
-    * =========================================================================
     if "`generate'" != "" & `trim' == 0 & `truncate' == 0 & "`stabilize'" == "" {
         display as error "generate() requires trim(), truncate(), or stabilize"
         exit 198
     }
 
     if `trim' != 0 | `truncate' != 0 | "`stabilize'" != "" {
-        quietly {
-            if "`replace'" != "" {
-                capture drop `generate'  // safe: capture swallows 111 if var doesn't exist
-            }
-
-            if `trim' != 0 {
-                _pctile `wvar' if `touse', p(`trim')
-                local trim_val = r(r1)
-                gen double `generate' = min(`wvar', `trim_val') if `touse'
-                label variable `generate' "`wvar_label' trimmed at p`trim'"
-                local action "Trimmed at p`trim' (cutoff: `=string(`trim_val', "%6.3f")')"
-            }
-            else if `truncate' != 0 {
-                gen double `generate' = min(`wvar', `truncate') if `touse'
-                label variable `generate' "`wvar_label' truncated at `truncate'"
-                local action "Truncated at `truncate'"
-            }
-            else if "`stabilize'" != "" {
-                summarize `treatment' if `touse'
-                local p_treat = r(mean)
-
-                gen double `generate' = cond(`treatment' == 1, ///
-                    `p_treat' * `wvar', (1 - `p_treat') * `wvar') if `touse'
-                label variable `generate' "`wvar_label' stabilized"
-                local action "Stabilized (P(T=1) = `=string(`p_treat', "%6.3f")')"
-            }
-
-            * Report new weight statistics
-            summarize `generate' if `touse', detail
-            local new_mean = r(mean)
-            local new_sd = r(sd)
-            local new_min = r(min)
-            local new_max = r(max)
-            local new_cv = `new_sd' / `new_mean'
-
-            * New ESS
-            tempvar new_wt_sq
-            gen double `new_wt_sq' = `generate'^2 if `touse'
-            summarize `generate' if `touse'
-            local new_sum_wt = r(sum)
-            summarize `new_wt_sq' if `touse'
-            local new_sum_wt_sq = r(sum)
-            local new_ess = (`new_sum_wt'^2) / `new_sum_wt_sq'
-            local new_ess_pct = 100 * `new_ess' / `N'
-            drop `new_wt_sq'
-        }
+        _psdash_weights_modify, wvar(`wvar') treatment(`treatment') ///
+            samplevar(`touse') n(`N') generate(`generate') ///
+            wvarlabel("`wvar_label'") trim(`trim') truncate(`truncate') ///
+            `stabilize' `replace'
+        local new_mean = r(new_mean)
+        local new_sd = r(new_sd)
+        local new_min = r(new_min)
+        local new_max = r(new_max)
+        local new_cv = r(new_cv)
+        local new_ess = r(new_ess)
+        local new_ess_pct = r(new_ess_pct)
+        local action "`r(action)'"
 
         display ""
         display as text "{hline 70}"
@@ -659,9 +527,7 @@ program define psdash_weights, rclass
 
     }
 
-    * =========================================================================
     * WEIGHT DISTRIBUTION GRAPH (binary)
-    * =========================================================================
     if "`graph'" == "" {
         if "`saving'" != "" {
             display as text "note: saving() ignored without graph option"
@@ -671,7 +537,6 @@ program define psdash_weights, rclass
         }
     }
 
-    local graph_rc = 0
     if "`graph'" != "" {
         capture noisily {
             quietly {
@@ -702,7 +567,7 @@ program define psdash_weights, rclass
                        `scheme_opt' `graphoptions'
 
                 if "`saving'" != "" {
-                    noisily graph export "`saving'", replace
+                    _psdash_graph_export, saving("`saving'")
                 }
             }
         }
@@ -716,9 +581,7 @@ program define psdash_weights, rclass
 
     } // end binary path
     else {
-    * =====================================================================
     * MULTI-GROUP PATH (K >= 2 non-binary treatment)
-    * =====================================================================
 
     * Validate both weights and all groups
     quietly summarize `wvar' if `touse'
@@ -816,76 +679,40 @@ program define psdash_weights, rclass
 
     if "`name'" == "" local name "psdash_weights"
 
-    * =====================================================================
     * CALCULATE WEIGHT STATISTICS (multi-group)
-    * =====================================================================
-    quietly {
-        * Overall weight statistics
-        summarize `wvar' if `touse', detail
-        local mean_wt = r(mean)
-        local sd_wt = r(sd)
-        local min_wt = r(min)
-        local max_wt = r(max)
-        local p1 = r(p1)
-        local p5 = r(p5)
-        local p10 = r(p10)
-        local p25 = r(p25)
-        local p50 = r(p50)
-        local p75 = r(p75)
-        local p90 = r(p90)
-        local p95 = r(p95)
-        local p99 = r(p99)
-
-        local cv = `sd_wt' / `mean_wt'
-
-        * Per-group statistics
-        foreach lev of local levels {
-            summarize `wvar' if `touse' & `treatment' == `lev', detail
-            local mean_wt_`lev' = r(mean)
-            local sd_wt_`lev' = r(sd)
-            local min_wt_`lev' = r(min)
-            local max_wt_`lev' = r(max)
-            local n_group_`lev' = r(N)
-        }
-
-        * ESS overall
-        tempvar wt_sq
-        gen double `wt_sq' = `wvar'^2 if `touse'
-
-        summarize `wvar' if `touse'
-        local sum_wt = r(sum)
-        summarize `wt_sq' if `touse'
-        local sum_wt_sq = r(sum)
-        local ess = (`sum_wt'^2) / `sum_wt_sq'
-        local ess_pct = 100 * `ess' / `N'
-
-        * ESS per group
-        foreach lev of local levels {
-            summarize `wvar' if `touse' & `treatment' == `lev'
-            local sum_wt_`lev' = r(sum)
-            summarize `wt_sq' if `touse' & `treatment' == `lev'
-            local sum_wtsq_`lev' = r(sum)
-            local ess_`lev' = (`sum_wt_`lev''^2) / `sum_wtsq_`lev''
-            local ess_pct_`lev' = 100 * `ess_`lev'' / `n_group_`lev''
-        }
-
-        drop `wt_sq'
-
-        * Extreme weights
-        count if `wvar' > 10 & `touse'
-        local n_extreme = r(N)
-        local pct_extreme = 100 * `n_extreme' / `N'
-
-        count if `wvar' > 20 & `touse'
-        local n_very_extreme = r(N)
+    _psdash_weights_stats, wvar(`wvar') treatment(`treatment') ///
+        samplevar(`touse') n(`N') levels(`levels') multigroup(`multigroup')
+    local mean_wt = r(mean_wt)
+    local sd_wt = r(sd_wt)
+    local min_wt = r(min_wt)
+    local max_wt = r(max_wt)
+    local p1 = r(p1)
+    local p5 = r(p5)
+    local p10 = r(p10)
+    local p25 = r(p25)
+    local p50 = r(p50)
+    local p75 = r(p75)
+    local p90 = r(p90)
+    local p95 = r(p95)
+    local p99 = r(p99)
+    local cv = r(cv)
+    local ess = r(ess)
+    local ess_pct = r(ess_pct)
+    local n_extreme = r(n_extreme)
+    local pct_extreme = r(pct_extreme)
+    local n_very_extreme = r(n_very_extreme)
+    foreach lev of local levels {
+        local n_group_`lev' = r(n_group_`lev')
+        local mean_wt_`lev' = r(mean_wt_`lev')
+        local sd_wt_`lev' = r(sd_wt_`lev')
+        local min_wt_`lev' = r(min_wt_`lev')
+        local max_wt_`lev' = r(max_wt_`lev')
+        local ess_`lev' = r(ess_`lev')
+        local ess_pct_`lev' = r(ess_pct_`lev')
     }
 
-    * =====================================================================
     * DISPLAY (multi-group)
-    * =====================================================================
-    display as text _n "{hline 70}"
-    display as text "IPTW Weight Diagnostics (Multi-Group)"
-    display as text "{hline 70}"
+    display as text _n "IPTW Weight Diagnostics (Multi-Group)"
     local wvar_label "`wvar'"
     if "`wvar_auto'" == "1" local wvar_label "auto-generated"
     display as text "Weight variable:   " as result "`wvar_label'"
@@ -894,7 +721,6 @@ program define psdash_weights, rclass
     if "`source'" != "manual" {
         display as text "Source:            " as result "`source'"
     }
-    display as text "{hline 70}"
     display ""
 
     * Dynamic column width: Overall + one column per group
@@ -1040,72 +866,20 @@ program define psdash_weights, rclass
             as text " (ESS = " as result %4.1f `ess_pct' as text "% of N)"
     }
 
-    * =====================================================================
     * WEIGHT TRIMMING/STABILIZATION (multi-group)
-    * =====================================================================
     if `trim' != 0 | `truncate' != 0 | "`stabilize'" != "" {
-        quietly {
-            if "`replace'" != "" {
-                capture drop `generate'
-            }
-
-            if `trim' != 0 {
-                _pctile `wvar' if `touse', p(`trim')
-                local trim_val = r(r1)
-                gen double `generate' = min(`wvar', `trim_val') if `touse'
-                label variable `generate' "`wvar_label' trimmed at p`trim'"
-                local action "Trimmed at p`trim' (cutoff: `=string(`trim_val', "%6.3f")')"
-            }
-            else if `truncate' != 0 {
-                gen double `generate' = min(`wvar', `truncate') if `touse'
-                label variable `generate' "`wvar_label' truncated at `truncate'"
-                local action "Truncated at `truncate'"
-            }
-            else if "`stabilize'" != "" {
-                * Multi-group stabilization: multiply by P(A=a) for each group
-                gen double `generate' = . if `touse'
-                foreach lev of local levels {
-                    count if `treatment' == `lev' & `touse'
-                    local p_`lev' = r(N) / `N'
-                    replace `generate' = `p_`lev'' * `wvar' ///
-                        if `treatment' == `lev' & `touse'
-                }
-                label variable `generate' "`wvar_label' stabilized"
-
-                * Build action string
-                local action "Stabilized ("
-                local first = 1
-                foreach lev of local levels {
-                    if `first' {
-                        local action "`action'P(A=`lev') = `=string(`p_`lev'', "%6.3f")'"
-                        local first = 0
-                    }
-                    else {
-                        local action "`action', P(A=`lev') = `=string(`p_`lev'', "%6.3f")'"
-                    }
-                }
-                local action "`action')"
-            }
-
-            * Report new weight statistics
-            summarize `generate' if `touse', detail
-            local new_mean = r(mean)
-            local new_sd = r(sd)
-            local new_min = r(min)
-            local new_max = r(max)
-            local new_cv = `new_sd' / `new_mean'
-
-            * New ESS
-            tempvar new_wt_sq
-            gen double `new_wt_sq' = `generate'^2 if `touse'
-            summarize `generate' if `touse'
-            local new_sum_wt = r(sum)
-            summarize `new_wt_sq' if `touse'
-            local new_sum_wt_sq = r(sum)
-            local new_ess = (`new_sum_wt'^2) / `new_sum_wt_sq'
-            local new_ess_pct = 100 * `new_ess' / `N'
-            drop `new_wt_sq'
-        }
+        _psdash_weights_modify, wvar(`wvar') treatment(`treatment') ///
+            samplevar(`touse') n(`N') generate(`generate') ///
+            wvarlabel("`wvar_label'") trim(`trim') truncate(`truncate') ///
+            `stabilize' `replace' levels(`levels') multigroup(`multigroup')
+        local new_mean = r(new_mean)
+        local new_sd = r(new_sd)
+        local new_min = r(new_min)
+        local new_max = r(new_max)
+        local new_cv = r(new_cv)
+        local new_ess = r(new_ess)
+        local new_ess_pct = r(new_ess_pct)
+        local action "`r(action)'"
 
         display ""
         display as text "{hline 70}"
@@ -1130,9 +904,7 @@ program define psdash_weights, rclass
 
     }
 
-    * =====================================================================
     * WEIGHT DISTRIBUTION GRAPH (multi-group)
-    * =====================================================================
     if "`graph'" == "" {
         if "`saving'" != "" {
             display as text "note: saving() ignored without graph option"
@@ -1142,7 +914,6 @@ program define psdash_weights, rclass
         }
     }
 
-    local graph_rc = 0
     if "`graph'" != "" {
         capture noisily {
             quietly {
@@ -1183,7 +954,7 @@ program define psdash_weights, rclass
                     `scheme_opt' `graphoptions'
 
                 if "`saving'" != "" {
-                    noisily graph export "`saving'", replace
+                    _psdash_graph_export, saving("`saving'")
                 }
             }
         }

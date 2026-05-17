@@ -69,9 +69,7 @@ program define psdash_overlap, rclass
 
     capture noisily {
 
-    * =========================================================================
     * SYNTAX PARSING
-    * =========================================================================
     syntax [anything] [if] [in], ///
         [COVariates(varlist numeric) ///
          bins(integer 30) ///
@@ -87,9 +85,7 @@ program define psdash_overlap, rclass
          REFerence(string) ///
          PSVars(varlist numeric)]
 
-    * =========================================================================
     * MARK SAMPLE AND AUTO-DETECT
-    * =========================================================================
     tempvar touse ps_auto
     mark `touse' `if' `in'
 
@@ -121,37 +117,33 @@ program define psdash_overlap, rclass
     local levels "`_psd_levels'"
     local reference_grp "`_psd_reference'"
 
-    * Build multigroup PS mapping before markout. For K=2 with a single
-    * non-0/1 PS variable, treat the second sorted level as P(A=level2|X)
-    * and use 1-ps for the first level's own-group probability.
+    * Build multigroup PS mapping before markout.
     local mg_psvars_all ""
     if "`multigroup'" != "0" {
-        local n_group_ps = 0
+        local _mg_det_psvars ""
         foreach lev of local levels {
             local this_ps "`_psd_ps_`lev''"
             if "`this_ps'" != "" {
-                local group_ps_`lev' "`this_ps'"
-                local mg_psvars_all "`mg_psvars_all' `this_ps'"
-                local n_group_ps = `n_group_ps' + 1
+                local _mg_det_psvars "`_mg_det_psvars' `this_ps'"
             }
         }
-
-        if `n_group_ps' == 0 & `K' == 2 & "`psvar'" != "" {
-            local first_level : word 1 of `levels'
-            local second_level : word 2 of `levels'
-            tempvar ps_first_level
-            quietly gen double `ps_first_level' = 1 - `psvar' if `touse'
-            local group_ps_`first_level' "`ps_first_level'"
-            local group_ps_`second_level' "`psvar'"
-            local mg_psvars_all "`ps_first_level' `psvar'"
+        local _mg_det_opt ""
+        if "`_mg_det_psvars'" != "" {
+            local _mg_det_opt "detpsvars(`_mg_det_psvars')"
         }
-        else if `n_group_ps' != `K' {
-            display as error "internal error: multigroup propensity score mapping incomplete"
-            exit 498
+        local _mg_psvar_opt ""
+        if "`psvar'" != "" {
+            local _mg_psvar_opt "psvar(`psvar')"
         }
 
-        local mg_psvars_all : list uniq mg_psvars_all
-        markout `touse' `treatment' `mg_psvars_all'
+        tempvar ps_first_level
+        _psdash_mgps_map, multigroup(`multigroup') k(`K') levels(`levels') ///
+            treatment(`treatment') samplevar(`touse') `_mg_psvar_opt' ///
+            `_mg_det_opt' fallbackps(`ps_first_level') markout
+        local mg_psvars_all "`r(mg_psvars_all)'"
+        foreach lev of local levels {
+            local group_ps_`lev' "`r(group_ps_`lev')'"
+        }
     }
     else {
         * Mark out missing values
@@ -166,9 +158,7 @@ program define psdash_overlap, rclass
     local N = r(N)
 
     if "`multigroup'" == "0" {
-    * =========================================================================
     * BINARY PATH (unchanged from v1.1.9)
-    * =========================================================================
 
     * VALIDATE INPUTS
     capture assert inlist(`treatment', 0, 1) if `touse'
@@ -195,13 +185,6 @@ program define psdash_overlap, rclass
         exit 2001
     }
 
-    * Validate PS range
-    quietly summarize `psvar' if `touse'
-    if r(min) < 0 | r(max) > 1 {
-        display as error "propensity scores must be in [0,1]"
-        exit 198
-    }
-
     * Validate histogram bins
     if `bins' <= 0 {
         display as error "bins() must be positive"
@@ -209,61 +192,33 @@ program define psdash_overlap, rclass
     }
 
     * Positivity warnings
-    local n_ps_boundary = 0
-    local n_ps_near = 0
-    quietly count if (`psvar' == 0 | `psvar' == 1) & `touse'
-    local n_ps_boundary = r(N)
-    if `n_ps_boundary' > 0 {
-        display as error "warning: `n_ps_boundary' observations have PS exactly 0 or 1"
-        display as error "  IPTW weights are undefined at these values"
-    }
-    quietly count if (`psvar' < 0.01 | `psvar' > 0.99) & `touse' ///
-        & `psvar' != 0 & `psvar' != 1
-    local n_ps_near = r(N)
-    if `n_ps_near' > 0 {
-        display as text "note: `n_ps_near' additional observations have PS < 0.01 or > 0.99"
-        display as text "  consider {cmd:psdash support, crump} or {cmd:psdash support, threshold(0.05)}"
-    }
+    _psdash_pscheck `psvar' if `touse'
+    local n_ps_boundary = r(n_ps_boundary)
+    local n_ps_near = r(n_ps_near)
 
     * Set defaults
     if "`title'" == "" local title "Propensity Score Overlap"
     if "`name'" == "" local name "psdash_overlap"
 
     * CALCULATE OVERLAP STATISTICS
-    quietly {
-        * Treated group PS statistics
-        summarize `psvar' if `treatment' == 1 & `touse'
-        local n_treated = r(N)
-        local mean_ps_t = r(mean)
-        local min_ps_t = r(min)
-        local max_ps_t = r(max)
-        local sd_ps_t = r(sd)
-
-        * Control group PS statistics
-        summarize `psvar' if `treatment' == 0 & `touse'
-        local n_control = r(N)
-        local mean_ps_c = r(mean)
-        local min_ps_c = r(min)
-        local max_ps_c = r(max)
-        local sd_ps_c = r(sd)
-
-        * Common support region
-        local overlap_lower = max(`min_ps_t', `min_ps_c')
-        local overlap_upper = min(`max_ps_t', `max_ps_c')
-
-        * Count observations outside common support
-        count if (`psvar' < `overlap_lower' | `psvar' > `overlap_upper') & `touse'
-        local n_outside = r(N)
-        local pct_outside = 100 * `n_outside' / `N'
-
-        count if (`psvar' < `overlap_lower' | `psvar' > `overlap_upper') ///
-            & `treatment' == 1 & `touse'
-        local n_outside_t = r(N)
-
-        count if (`psvar' < `overlap_lower' | `psvar' > `overlap_upper') ///
-            & `treatment' == 0 & `touse'
-        local n_outside_c = r(N)
-    }
+    _psdash_support_stats, treatment(`treatment') samplevar(`touse') ///
+        psvar(`psvar') n(`N')
+    local n_treated = r(n_treated)
+    local n_control = r(n_control)
+    local mean_ps_t = r(mean_ps_t)
+    local mean_ps_c = r(mean_ps_c)
+    local min_ps_t = r(min_ps_t)
+    local min_ps_c = r(min_ps_c)
+    local max_ps_t = r(max_ps_t)
+    local max_ps_c = r(max_ps_c)
+    local sd_ps_t = r(sd_ps_t)
+    local sd_ps_c = r(sd_ps_c)
+    local overlap_lower = r(overlap_lower)
+    local overlap_upper = r(overlap_upper)
+    local n_outside = r(n_outside)
+    local pct_outside = r(pct_outside)
+    local n_outside_t = r(n_outside_t)
+    local n_outside_c = r(n_outside_c)
 
     * C-STATISTIC (AUC)
     local auc = .
@@ -273,15 +228,12 @@ program define psdash_overlap, rclass
     }
 
     * DISPLAY OUTPUT
-    display as text _n "{hline 70}"
-    display as text `"`title'"'
-    display as text "{hline 70}"
+    display as text _n `"`title'"'
     display as text "Treatment:         " as result "`treatment'"
     display as text "PS variable:       " as result "`psvar_label'"
     if "`source'" != "manual" {
         display as text "Source:            " as result "`source'"
     }
-    display as text "{hline 70}"
     display ""
 
     * PS distribution by group
@@ -337,7 +289,6 @@ program define psdash_overlap, rclass
     }
 
     * GRAPH
-    local graph_rc = 0
     if "`nograph'" == "" {
         capture noisily {
             quietly {
@@ -386,7 +337,7 @@ program define psdash_overlap, rclass
                 }
 
                 if "`saving'" != "" {
-                    noisily graph export "`saving'", replace
+                    _psdash_graph_export, saving("`saving'")
                 }
             }
         }
@@ -400,9 +351,7 @@ program define psdash_overlap, rclass
 
     }
     else {
-    * =========================================================================
     * MULTI-GROUP PATH (K >= 2 with non-0/1 values)
-    * =========================================================================
 
     * Validate each group has at least 2 observations
     foreach lev of local levels {
@@ -437,21 +386,9 @@ program define psdash_overlap, rclass
 
     * Positivity warnings are based on the probability of each observation's
     * observed treatment group.
-    local n_ps_boundary = 0
-    local n_ps_near = 0
-    quietly count if (`obs_ps' == 0 | `obs_ps' == 1) & `touse'
-    local n_ps_boundary = r(N)
-    if `n_ps_boundary' > 0 {
-        display as error "warning: `n_ps_boundary' observations have PS exactly 0 or 1"
-        display as error "  IPTW weights are undefined at these values"
-    }
-    quietly count if (`obs_ps' < 0.01 | `obs_ps' > 0.99) & `touse' ///
-        & `obs_ps' != 0 & `obs_ps' != 1
-    local n_ps_near = r(N)
-    if `n_ps_near' > 0 {
-        display as text "note: `n_ps_near' additional observations have PS < 0.01 or > 0.99"
-        display as text "  consider {cmd:psdash support, threshold(0.05)}"
-    }
+    _psdash_pscheck `obs_ps' if `touse', advice({cmd:psdash support, threshold(0.05)})
+    local n_ps_boundary = r(n_ps_boundary)
+    local n_ps_near = r(n_ps_near)
 
     * Set defaults
     if "`title'" == "" local title "Propensity Score Overlap"
@@ -464,52 +401,37 @@ program define psdash_overlap, rclass
     }
 
     * CALCULATE OVERLAP STATISTICS
-    quietly {
-        foreach lev of local levels {
-            local lev_ps "`group_ps_`lev''"
-            summarize `lev_ps' if `treatment' == `lev' & `touse'
-            local n_group_`lev' = r(N)
-            local mean_ps_`lev' = r(mean)
-            local min_ps_`lev' = r(min)
-            local max_ps_`lev' = r(max)
-            local sd_ps_`lev' = r(sd)
-        }
-
-        * Common support region: max of all mins, min of all maxes
-        local overlap_lower = 0
-        local overlap_upper = 1
-        foreach lev of local levels {
-            if `min_ps_`lev'' > `overlap_lower' local overlap_lower = `min_ps_`lev''
-            if `max_ps_`lev'' < `overlap_upper' local overlap_upper = `max_ps_`lev''
-        }
-
-        * Count observations outside common support
-        count if (`obs_ps' < `overlap_lower' | `obs_ps' > `overlap_upper') & `touse'
-        local n_outside = r(N)
-        local pct_outside = 100 * `n_outside' / `N'
-
-        * Per-group outside counts
-        foreach lev of local levels {
-            count if (`obs_ps' < `overlap_lower' | `obs_ps' > `overlap_upper') ///
-                & `treatment' == `lev' & `touse'
-            local n_outside_`lev' = r(N)
-        }
+    local _mg_group_psvars ""
+    foreach lev of local levels {
+        local _mg_group_psvars "`_mg_group_psvars' `group_ps_`lev''"
     }
+    _psdash_support_stats, treatment(`treatment') samplevar(`touse') ///
+        obsps(`obs_ps') levels(`levels') grouppsvars(`_mg_group_psvars') ///
+        multigroup(`multigroup') n(`N')
+    foreach lev of local levels {
+        local n_group_`lev' = r(n_group_`lev')
+        local mean_ps_`lev' = r(mean_ps_`lev')
+        local min_ps_`lev' = r(min_ps_`lev')
+        local max_ps_`lev' = r(max_ps_`lev')
+        local sd_ps_`lev' = r(sd_ps_`lev')
+        local n_outside_`lev' = r(n_outside_`lev')
+    }
+    local overlap_lower = r(overlap_lower)
+    local overlap_upper = r(overlap_upper)
+    local n_outside = r(n_outside)
+    local pct_outside = r(pct_outside)
 
     * AUC: skip for K > 2 (roctab is binary-only)
     local auc = .
 
     * DISPLAY OUTPUT
-    display as text _n "{hline 70}"
-    display as text `"`title'"'
-    display as text "{hline 70}"
+    display as text _n `"`title'"'
     display as text "Treatment:         " as result "`treatment'" as text " (`K' groups)"
     display as text "PS variable:       " as result "`psvar_label'"
     display as text "Reference group:   " as result "`reference_grp'"
     if "`source'" != "manual" {
         display as text "Source:            " as result "`source'"
     }
-    display as text "{hline 70}"
     display ""
 
     * PS distribution by group — dynamic columns
@@ -593,7 +515,6 @@ program define psdash_overlap, rclass
     }
 
     * GRAPH
-    local graph_rc = 0
     if "`nograph'" == "" {
         capture noisily {
             quietly {
@@ -665,7 +586,7 @@ program define psdash_overlap, rclass
                 }
 
                 if "`saving'" != "" {
-                    noisily graph export "`saving'", replace
+                    _psdash_graph_export, saving("`saving'")
                 }
             }
         }

@@ -54,6 +54,7 @@ else {
     capture noisily {
         local xlsx_files ///
             demo_table1.xlsx ///
+            demo_desctab.xlsx ///
             demo_regtab.xlsx ///
             demo_comptab.xlsx ///
             demo_effecttab.xlsx ///

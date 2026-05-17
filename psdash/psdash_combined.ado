@@ -31,12 +31,11 @@ program define psdash_combined, rclass
     version 16.0
     local _vao = c(varabbrev)
     set varabbrev off
+    local _psdash_side_rc = 0
 
     capture noisily {
 
-    * =========================================================================
     * SYNTAX PARSING
-    * =========================================================================
     syntax [anything] [if] [in], ///
         [COVariates(varlist numeric) ///
          Wvar(varname) ///
@@ -52,9 +51,7 @@ program define psdash_combined, rclass
          REFerence(string) ///
          PSVars(varlist numeric)]
 
-    * =========================================================================
     * MARK SAMPLE AND AUTO-DETECT
-    * =========================================================================
     tempvar touse ps_auto wt_auto
     mark `touse' `if' `in'
 
@@ -153,12 +150,8 @@ program define psdash_combined, rclass
     * Build if/in for subcommands from touse
     * (pass treatment and psvar explicitly so subcommands don't re-detect)
 
-    * =========================================================================
     * DISPLAY HEADER
-    * =========================================================================
-    display as text _n "{hline 75}"
-    display as result `"`title'"'
-    display as text "{hline 75}"
+    display as text _n as result `"`title'"'
     display as text "Treatment:     " as result "`treatment'"
     if "`multigroup'" != "0" {
         display as text "Groups:        " as result "`K'" as text " (levels: `levels')"
@@ -176,15 +169,12 @@ program define psdash_combined, rclass
     }
     display as text "Estimand:      " as result strupper("`estimand'")
     display as text "Source:        " as result "`source'"
-    display as text "{hline 75}"
 
     * Track which graphs to combine and verdict status
     local graph_list ""
     local verdict_warnings ""
 
-    * =========================================================================
     * OVERLAP PANEL
-    * =========================================================================
     if "`nooverlap'" == "" {
         display as text _n "{bf:=== OVERLAP DIAGNOSTICS ===}"
         psdash_overlap `treatment' `psvar' `if' `in', ///
@@ -198,9 +188,7 @@ program define psdash_combined, rclass
         return add
     }
 
-    * =========================================================================
     * BALANCE PANEL
-    * =========================================================================
     if "`nobalance'" == "" & "`covariates'" != "" {
         display as text _n "{bf:=== BALANCE DIAGNOSTICS ===}"
         local wvar_opt ""
@@ -221,9 +209,7 @@ program define psdash_combined, rclass
         display as text _n "note: balance panel skipped (no covariates detected)"
     }
 
-    * =========================================================================
     * WEIGHTS PANEL
-    * =========================================================================
     if "`noweights'" == "" {
         display as text _n "{bf:=== WEIGHT DIAGNOSTICS ===}"
         local wvar_opt ""
@@ -239,9 +225,7 @@ program define psdash_combined, rclass
         return add
     }
 
-    * =========================================================================
     * SUPPORT PANEL
-    * =========================================================================
     if "`nosupport'" == "" {
         display as text _n "{bf:=== COMMON SUPPORT ASSESSMENT ===}"
         psdash_support `treatment' `psvar' `if' `in', ///
@@ -255,38 +239,41 @@ program define psdash_combined, rclass
         return add
     }
 
-    * =========================================================================
     * COMBINE GRAPHS
-    * =========================================================================
     local ngraphs : word count `graph_list'
 
     if `ngraphs' > 0 {
-        * Determine layout
-        if `ngraphs' <= 2 {
-            local layout "rows(1)"
-        }
-        else {
-            local layout "rows(2)"
-        }
+        capture noisily {
+            * Determine layout
+            if `ngraphs' <= 2 {
+                local layout "rows(1)"
+            }
+            else {
+                local layout "rows(2)"
+            }
 
-        local combine_scheme ""
-        if "`scheme'" != "" {
-            local combine_scheme "scheme(`scheme')"
+            local combine_scheme ""
+            if "`scheme'" != "" {
+                local combine_scheme "scheme(`scheme')"
+            }
+
+            graph combine `graph_list', ///
+                `layout' ///
+                title(`"`title'"') ///
+                name(psdash_combined, replace) ///
+                `combine_scheme'
+
+            if "`saving'" != "" {
+                _psdash_graph_export, saving("`saving'")
+            }
         }
-
-        graph combine `graph_list', ///
-            `layout' ///
-            title(`"`title'"') ///
-            name(psdash_combined, replace) ///
-            `combine_scheme'
-
-        if "`saving'" != "" {
-            noisily graph export "`saving'", replace
+        local graph_rc = _rc
+        if `graph_rc' {
+            local _psdash_side_rc = `graph_rc'
         }
     }
 
     * Overall verdict
-    display as text _n "{hline 75}"
     local verdict_warnings = strtrim("`verdict_warnings'")
     if "`verdict_warnings'" == "" {
         display as text "Overall: " as result "PASS"
@@ -296,7 +283,6 @@ program define psdash_combined, rclass
             as text " — see " as result "`verdict_warnings'"
         display as text "  Consider: rerun failing panels individually for targeted diagnostics"
     }
-    display as text "{hline 75}"
 
     * Store shared return values
     return local treatment "`treatment'"
@@ -312,5 +298,8 @@ program define psdash_combined, rclass
     }
     local rc = _rc
     set varabbrev `_vao'
+    if `rc' == 0 & `_psdash_side_rc' {
+        local rc = `_psdash_side_rc'
+    }
     if `rc' exit `rc'
 end

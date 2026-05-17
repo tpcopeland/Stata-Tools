@@ -64,15 +64,14 @@ program define psdash_balance, rclass
 
     capture noisily {
 
-    * =========================================================================
     * SYNTAX PARSING
-    * =========================================================================
     syntax [anything] [if] [in], ///
         [COVariates(varlist numeric) ///
          Wvar(varname) ///
          MATCHed ///
          THReshold(real 0.1) ///
          NOWvar ///
+         NOWeights ///
          REFerence(string) ///
          xlsx(string) ///
          sheet(string) ///
@@ -87,15 +86,15 @@ program define psdash_balance, rclass
          ESTImand(string) ///
          PSVars(varlist numeric)]
 
-    * =========================================================================
+    if "`noweights'" != "" {
+        local nowvar "nowvar"
+    }
+
     * MARK SAMPLE
-    * =========================================================================
     tempvar touse ps_auto wt_auto
     mark `touse' `if' `in'  // validator-note: mark+markout pattern is equivalent to marksample
 
-    * =========================================================================
     * AUTO-DETECT PS COMPONENTS
-    * =========================================================================
     * For balance, user may provide treatment + wvar (or nowvar) without a PS
     * variable. The detect helper requires psvar for manual mode, so handle
     * the treatment-only case ourselves before falling through to detect.
@@ -103,57 +102,21 @@ program define psdash_balance, rclass
     local _n_pos_args : word count `anything'
     local _has_est_ctx = inlist("`e(cmd)'", "logit", "probit", "logistic", "mlogit", "teffects")
     if `_n_pos_args' == 1 & ("`wvar'" != "" | "`nowvar'" != "") & !`_has_est_ctx' {
-        * Single positional arg (treatment) with wvar or nowvar: manual detect
-        tokenize `anything'
-        confirm variable `1'
-        confirm numeric variable `1'
-        local treatment "`1'"
+        local ref_manual_opt ""
+        if "`reference'" != "" local ref_manual_opt "reference(`reference')"
+        local estimand_manual_opt ""
+        if "`estimand'" != "" local estimand_manual_opt "estimand(`estimand')"
+        _psdash_manual_detect `anything' if `touse', ///
+            `ref_manual_opt' `estimand_manual_opt'
+        local treatment "`r(treatment)'"
         local psvar ""
-        local source "manual"
-        if "`estimand'" == "" local estimand "ate"
+        local source "`r(source)'"
+        local estimand "`r(estimand)'"
         local wvar_auto "0"
-
-        * Discover treatment levels
-        quietly levelsof `treatment' if `touse', local(_man_levels)
-        local K : word count `_man_levels'
-        local levels "`_man_levels'"
-
-        if `K' == 1 {
-            display as error "treatment must have at least 2 levels"
-            exit 198
-        }
-        if `K' == 0 error 2000
-
-        * Determine binary 0/1
-        local _is_bin01 = 0
-        if `K' == 2 {
-            local _l1 : word 1 of `_man_levels'
-            local _l2 : word 2 of `_man_levels'
-            if "`_l1'" == "0" & "`_l2'" == "1" local _is_bin01 = 1
-        }
-
-        if `_is_bin01' {
-            local multigroup "0"
-            local mg_reference "0"
-        }
-        else {
-            local multigroup "1"
-            if "`reference'" != "" {
-                local _ref_ok = 0
-                foreach _lv of local _man_levels {
-                    if "`reference'" == "`_lv'" local _ref_ok = 1
-                }
-                if !`_ref_ok' {
-                    display as error "reference(`reference') is not a treatment level"
-                    display as error "  treatment levels: `_man_levels'"
-                    exit 198
-                }
-                local mg_reference "`reference'"
-            }
-            else {
-                local mg_reference : word 1 of `_man_levels'
-            }
-        }
+        local multigroup "`r(multigroup)'"
+        local K = r(K)
+        local levels "`r(levels)'"
+        local mg_reference "`r(reference)'"
         local _manual_mg = 1
     }
 
@@ -194,13 +157,9 @@ program define psdash_balance, rclass
         local wvar_auto "`_psd_wvar_auto'"
     }
 
-    * =========================================================================
     * BRANCH: BINARY vs MULTI-GROUP
-    * =========================================================================
     if "`multigroup'" == "0" {
-    * =====================================================================
     * BINARY PATH (unchanged from v1.1.9)
-    * =====================================================================
 
     * Auto-generate IPTW weights from PS if no weights available
     if "`wvar'" == "" & "`psvar'" != "" & "`nowvar'" == "" & "`matched'" == "" {
@@ -238,24 +197,9 @@ program define psdash_balance, rclass
     local n_ps_boundary = 0
     local n_ps_near = 0
     if "`psvar'" != "" {
-        quietly summarize `psvar' if `touse'
-        if r(min) < 0 | r(max) > 1 {
-            display as error "propensity scores must be in [0,1]"
-            exit 198
-        }
-        quietly count if (`psvar' == 0 | `psvar' == 1) & `touse'
-        local n_ps_boundary = r(N)
-        if `n_ps_boundary' > 0 {
-            display as error "warning: `n_ps_boundary' observations have PS exactly 0 or 1"
-            display as error "  IPTW weights are undefined at these values"
-        }
-        quietly count if (`psvar' < 0.01 | `psvar' > 0.99) & `touse' ///
-            & `psvar' != 0 & `psvar' != 1
-        local n_ps_near = r(N)
-        if `n_ps_near' > 0 {
-            display as text "note: `n_ps_near' additional observations have PS < 0.01 or > 0.99"
-            display as text "  consider {cmd:psdash support, crump} or {cmd:psdash support, threshold(0.05)}"
-        }
+        _psdash_pscheck `psvar' if `touse'
+        local n_ps_boundary = r(n_ps_boundary)
+        local n_ps_near = r(n_ps_near)
     }
 
     if "`wvar'" != "" markout `touse' `wvar'
@@ -277,9 +221,7 @@ program define psdash_balance, rclass
     * Use covariates as the working varlist
     local varlist "`covariates'"
 
-    * =========================================================================
     * VALIDATE INPUTS (binary)
-    * =========================================================================
     * Check wvar and matched are mutually exclusive
     if "`wvar'" != "" & "`matched'" != "" {
         display as error "wvar() and matched are mutually exclusive"
@@ -341,9 +283,7 @@ program define psdash_balance, rclass
         }
     }
 
-    * =========================================================================
     * SET DEFAULTS (binary)
-    * =========================================================================
     if "`format'" == "" local format "%6.3f"
     capture confirm format `format'
     if _rc {
@@ -365,196 +305,23 @@ program define psdash_balance, rclass
     * Determine if we have weighted adjustment (two-column display)
     local has_adj = ("`wvar'" != "")
 
-    * =========================================================================
-    * CALCULATE BALANCE STATISTICS (binary)
-    * =========================================================================
-    preserve
-    quietly keep if `touse'
-
-    * Get treatment/control counts
-    quietly count if `treatment' == 1
-    local n_treated = r(N)
-    quietly count if `treatment' == 0
-    local n_control = r(N)
-
-    if `n_treated' < 2 | `n_control' < 2 {
-        display as error "each treatment group must have at least 2 observations"
-        exit 2001
-    }
-
-    * Create results matrix
+    local wvar_opt ""
+    if "`wvar'" != "" local wvar_opt "wvar(`wvar')"
+    _psdash_balance_binary `varlist', treatment(`treatment') samplevar(`touse') ///
+        threshold(`threshold') `wvar_opt'
     tempname balance_mat
-    matrix `balance_mat' = J(`nvars', 10, .)
-    matrix colnames `balance_mat' = "Mean_T" "Mean_C" "SMD_Raw" "VR_Raw" "KS_Raw" "Mean_T_Adj" "Mean_C_Adj" "SMD_Adj" "VR_Adj" "KS_Adj"
-    local rownames ""
+    matrix `balance_mat' = r(balance)
+    local n_treated = r(n_treated)
+    local n_control = r(n_control)
+    local max_smd_raw = r(max_smd_raw)
+    local max_smd_adj = r(max_smd_adj)
+    local max_vr_raw = r(max_vr_raw)
+    local max_vr_adj = r(max_vr_adj)
+    local max_ks_raw = r(max_ks_raw)
+    local n_imbalanced = r(n_imbalanced)
+    local n_vr_imbalanced = r(n_vr_imbalanced)
 
-    * Calculate balance for each covariate
-    local i = 1
-    foreach var of local varlist {
-        local rownames "`rownames' `var'"
-
-        * Raw (unadjusted) statistics
-        quietly summarize `var' if `treatment' == 1
-        local mean_t = r(mean)
-        local var_t = r(Var)
-
-        quietly summarize `var' if `treatment' == 0
-        local mean_c = r(mean)
-        local var_c = r(Var)
-
-        * Calculate pooled SD
-        local sd_pooled = sqrt((`var_t' + `var_c') / 2)
-
-        * Calculate raw SMD
-        if `sd_pooled' > 0 {
-            local smd_raw = (`mean_t' - `mean_c') / `sd_pooled'
-        }
-        else if `mean_t' != `mean_c' {
-            local smd_raw = .
-        }
-        else {
-            local smd_raw = 0
-        }
-
-        * Variance ratio (raw)
-        if `var_t' > 0 & `var_c' > 0 {
-            local vr_raw = `var_t' / `var_c'
-        }
-        else {
-            local vr_raw = .
-        }
-
-        matrix `balance_mat'[`i', 1] = `mean_t'
-        matrix `balance_mat'[`i', 2] = `mean_c'
-        matrix `balance_mat'[`i', 3] = `smd_raw'
-        matrix `balance_mat'[`i', 4] = `vr_raw'
-
-        * KS statistic (raw) — must be after all summarize calls for this var
-        capture quietly ksmirnov `var', by(`treatment')
-        if _rc == 0 {
-            local ks_raw = r(D)
-        }
-        else {
-            local ks_raw = .
-        }
-        matrix `balance_mat'[`i', 5] = `ks_raw'
-
-        * Adjusted statistics (weighted only)
-        if `has_adj' {
-            quietly summarize `var' [aw=`wvar'] if `treatment' == 1
-            local mean_t_adj = r(mean)
-            local var_t_adj = r(Var)
-
-            quietly summarize `var' [aw=`wvar'] if `treatment' == 0
-            local mean_c_adj = r(mean)
-            local var_c_adj = r(Var)
-
-            * Adjusted SMD using raw pooled SD (standard practice)
-            if `sd_pooled' > 0 {
-                local smd_adj = (`mean_t_adj' - `mean_c_adj') / `sd_pooled'
-            }
-            else if `mean_t_adj' != `mean_c_adj' {
-                local smd_adj = .
-            }
-            else {
-                local smd_adj = 0
-            }
-
-            * Variance ratio (adjusted)
-            if `var_t_adj' > 0 & `var_c_adj' > 0 {
-                local vr_adj = `var_t_adj' / `var_c_adj'
-            }
-            else {
-                local vr_adj = .
-            }
-
-            matrix `balance_mat'[`i', 6] = `mean_t_adj'
-            matrix `balance_mat'[`i', 7] = `mean_c_adj'
-            matrix `balance_mat'[`i', 8] = `smd_adj'
-            matrix `balance_mat'[`i', 9] = `vr_adj'
-        }
-
-        local i = `i' + 1
-    }
-    matrix rownames `balance_mat' = `rownames'
-
-    restore
-
-    * =========================================================================
-    * CALCULATE SUMMARY STATISTICS (binary)
-    * =========================================================================
-    local max_smd_raw = 0
-    local max_smd_adj = 0
-    local max_vr_raw = 1
-    local max_vr_adj = 1
-    local max_vr_raw_dev = 0
-    local max_vr_adj_dev = 0
-    local max_ks_raw = 0
-    local n_imbalanced = 0
-    local n_vr_imbalanced = 0
-
-    forvalues i = 1/`nvars' {
-        * Raw SMD summary
-        if !missing(`balance_mat'[`i', 3]) {
-            local abs_smd_raw = abs(`balance_mat'[`i', 3])
-            if `abs_smd_raw' > `max_smd_raw' local max_smd_raw = `abs_smd_raw'
-        }
-
-        * Raw VR summary (track max deviation from 1.0)
-        if !missing(`balance_mat'[`i', 4]) {
-            local vr_i = `balance_mat'[`i', 4]
-            local dev_from_1 = max(abs(`vr_i' - 1), abs(1/`vr_i' - 1))
-            if `dev_from_1' > `max_vr_raw_dev' {
-                local max_vr_raw = `vr_i'
-                local max_vr_raw_dev = `dev_from_1'
-            }
-            if `vr_i' < 0.5 | `vr_i' > 2 {
-                local n_vr_imbalanced = `n_vr_imbalanced' + 1
-            }
-        }
-
-        * Raw KS summary
-        if !missing(`balance_mat'[`i', 5]) {
-            local ks_i = `balance_mat'[`i', 5]
-            if `ks_i' > `max_ks_raw' local max_ks_raw = `ks_i'
-        }
-
-        * Determine imbalance based on adjustment type
-        if `has_adj' {
-            if !missing(`balance_mat'[`i', 8]) {
-                local abs_smd_adj = abs(`balance_mat'[`i', 8])
-                if `abs_smd_adj' > `max_smd_adj' local max_smd_adj = `abs_smd_adj'
-                if `abs_smd_adj' > `threshold' local n_imbalanced = `n_imbalanced' + 1
-            }
-            else {
-                local n_imbalanced = `n_imbalanced' + 1
-            }
-
-            * Adjusted VR summary
-            if !missing(`balance_mat'[`i', 9]) {
-                local vr_adj_i = `balance_mat'[`i', 9]
-                local dev_adj = max(abs(`vr_adj_i' - 1), abs(1/`vr_adj_i' - 1))
-                if `dev_adj' > `max_vr_adj_dev' {
-                    local max_vr_adj = `vr_adj_i'
-                    local max_vr_adj_dev = `dev_adj'
-                }
-            }
-        }
-        else {
-            if !missing(`balance_mat'[`i', 3]) {
-                if abs(`balance_mat'[`i', 3]) > `threshold' {
-                    local n_imbalanced = `n_imbalanced' + 1
-                }
-            }
-            else {
-                local n_imbalanced = `n_imbalanced' + 1
-            }
-        }
-    }
-
-    * =========================================================================
     * DISPLAY OUTPUT (binary)
-    * =========================================================================
     if "`matched'" != "" {
         local smd_label "SMD (Matched)"
     }
@@ -562,9 +329,7 @@ program define psdash_balance, rclass
         local smd_label "SMD Raw"
     }
 
-    display as text _n "{hline 75}"
-    display as text `"`title'"'
-    display as text "{hline 75}"
+    display as text _n `"`title'"'
     display as text "Treatment:     " as result "`treatment'"
     display as text "Estimand:      " as result strupper("`estimand'")
     display as text "N (treated):   " as result %10.0fc `n_treated'
@@ -581,7 +346,6 @@ program define psdash_balance, rclass
         display as text "Source:        " as result "`source'"
     }
     display as text "Threshold:     " as result %6.3f `threshold'
-    display as text "{hline 75}"
     display _newline
 
     * Display balance table header
@@ -735,10 +499,7 @@ program define psdash_balance, rclass
             as text " (max |SMD| = " as result `format' `_verdict_smd' as text ")"
     }
 
-    * =========================================================================
     * LOVE PLOT (binary)
-    * =========================================================================
-    local graph_rc = 0
     if "`loveplot'" != "" {
         capture noisily {
             quietly {
@@ -812,7 +573,7 @@ program define psdash_balance, rclass
                 }
 
                 if "`saving'" != "" {
-                    noisily graph export "`saving'", replace
+                    _psdash_graph_export, saving("`saving'")
                 }
 
                 restore
@@ -825,10 +586,7 @@ program define psdash_balance, rclass
         }
     }
 
-    * =========================================================================
     * EXPORT TO EXCEL (binary)
-    * =========================================================================
-    local xlsx_rc = 0
     if "`xlsx'" != "" & `_psdash_side_rc' == 0 {
         capture noisily {
             quietly {
@@ -916,9 +674,7 @@ program define psdash_balance, rclass
 
     } // end binary path
     else {
-    * =====================================================================
     * MULTI-GROUP PATH (K >= 2 non-binary treatment)
-    * =====================================================================
 
     * Mark out missing treatment
     markout `touse' `treatment'
@@ -1004,251 +760,31 @@ program define psdash_balance, rclass
         }
     }
 
-    * Build contrast list: all non-reference levels
-    local contrasts ""
-    local n_contrasts = 0
-    foreach lev of local levels {
-        if "`lev'" != "`mg_reference'" {
-            local contrasts "`contrasts' `lev'"
-            local n_contrasts = `n_contrasts' + 1
-        }
-    }
-    local contrasts = strtrim("`contrasts'")
-
-    * =====================================================================
-    * CALCULATE BALANCE (multi-group)
-    * =====================================================================
-    preserve
-    quietly keep if `touse'
-
-    * Per-group counts
-    foreach lev of local levels {
-        quietly count if `treatment' == `lev'
-        local n_group_`lev' = r(N)
-        if `n_group_`lev'' < 2 {
-            display as error "group `lev' must have at least 2 observations"
-            exit 2001
-        }
-    }
-
-    * Matrix layout: for each contrast, 5 raw columns + 5 adj columns
-    * Column blocks: [SMD_raw VR_raw KS_raw Mean_a Mean_ref] per contrast
-    * With adj: + [SMD_adj VR_adj KS_adj Mean_a_adj Mean_ref_adj] per contrast
-    * Simpler: 5 cols per contrast raw, 5 cols per contrast adj
-    local ncols_raw = 5 * `n_contrasts'
-    local ncols_adj = 0
-    if `has_adj' {
-        local ncols_adj = 5 * `n_contrasts'
-    }
-    local ncols = `ncols_raw' + `ncols_adj'
-
+    local wvar_opt ""
+    if "`wvar'" != "" local wvar_opt "wvar(`wvar')"
+    _psdash_balance_multigroup `varlist', treatment(`treatment') samplevar(`touse') ///
+        levels(`levels') reference(`mg_reference') threshold(`threshold') `wvar_opt'
     tempname balance_mat
-    matrix `balance_mat' = J(`nvars', `ncols', .)
-
-    * Build column names
-    local colnames ""
-    foreach clev of local contrasts {
-        local colnames "`colnames' Mean_`clev' Mean_`mg_reference' SMD_`clev'v`mg_reference' VR_`clev'v`mg_reference' KS_`clev'v`mg_reference'"
+    matrix `balance_mat' = r(balance)
+    local contrasts "`r(contrasts)'"
+    local n_contrasts = r(n_contrasts)
+    local ncols_raw = r(ncols_raw)
+    local ncols = r(ncols)
+    foreach lev of local levels {
+        local n_group_`lev' = r(n_group_`lev')
     }
-    if `has_adj' {
-        foreach clev of local contrasts {
-            local colnames "`colnames' MnAdj_`clev' MnAdj_`mg_reference' SMDAdj_`clev'v`mg_reference' VRAdj_`clev'v`mg_reference' KSAdj_`clev'v`mg_reference'"
-        }
-    }
-    * Stata matrix colnames have a 32-char limit per name; truncate if needed
-    * but typical level labels (0,1,2...) will be short
-    matrix colnames `balance_mat' = `colnames'
-    local rownames ""
-
+    local max_smd_raw = r(max_smd_raw)
+    local max_smd_adj = r(max_smd_adj)
+    local max_ks_raw = r(max_ks_raw)
+    local n_imbalanced = r(n_imbalanced)
+    local n_vr_imbalanced = r(n_vr_imbalanced)
     local show_ks = ("`ks'" != "")
 
-    local i = 1
-    foreach var of local varlist {
-        local rownames "`rownames' `var'"
-
-        * Reference group stats
-        quietly summarize `var' if `treatment' == `mg_reference'
-        local mean_ref = r(mean)
-        local var_ref = r(Var)
-
-        local cnum = 0
-        foreach clev of local contrasts {
-            local cnum = `cnum' + 1
-            local col_base = (`cnum' - 1) * 5
-
-            * Contrast group stats
-            quietly summarize `var' if `treatment' == `clev'
-            local mean_a = r(mean)
-            local var_a = r(Var)
-
-            * Pooled SD
-            local sd_pooled = sqrt((`var_a' + `var_ref') / 2)
-
-            * Raw SMD
-            if `sd_pooled' > 0 {
-                local smd_raw = (`mean_a' - `mean_ref') / `sd_pooled'
-            }
-            else if `mean_a' != `mean_ref' {
-                local smd_raw = .
-            }
-            else {
-                local smd_raw = 0
-            }
-
-            * Variance ratio (raw)
-            if `var_a' > 0 & `var_ref' > 0 {
-                local vr_raw = `var_a' / `var_ref'
-            }
-            else {
-                local vr_raw = .
-            }
-
-            * KS statistic (pairwise: a vs ref)
-            capture quietly ksmirnov `var' if `treatment' == `clev' | `treatment' == `mg_reference', by(`treatment')
-            if _rc == 0 {
-                local ks_raw = r(D)
-            }
-            else {
-                local ks_raw = .
-            }
-
-            matrix `balance_mat'[`i', `col_base' + 1] = `mean_a'
-            matrix `balance_mat'[`i', `col_base' + 2] = `mean_ref'
-            matrix `balance_mat'[`i', `col_base' + 3] = `smd_raw'
-            matrix `balance_mat'[`i', `col_base' + 4] = `vr_raw'
-            matrix `balance_mat'[`i', `col_base' + 5] = `ks_raw'
-
-            * Adjusted statistics
-            if `has_adj' {
-                local adj_base = `ncols_raw' + (`cnum' - 1) * 5
-
-                quietly summarize `var' [aw=`wvar'] if `treatment' == `clev'
-                local mean_a_adj = r(mean)
-
-                quietly summarize `var' [aw=`wvar'] if `treatment' == `mg_reference'
-                local mean_ref_adj = r(mean)
-
-                * Adjusted SMD using raw pooled SD
-                if `sd_pooled' > 0 {
-                    local smd_adj = (`mean_a_adj' - `mean_ref_adj') / `sd_pooled'
-                }
-                else if `mean_a_adj' != `mean_ref_adj' {
-                    local smd_adj = .
-                }
-                else {
-                    local smd_adj = 0
-                }
-
-                * Adjusted VR
-                quietly summarize `var' [aw=`wvar'] if `treatment' == `clev'
-                local var_a_adj = r(Var)
-                quietly summarize `var' [aw=`wvar'] if `treatment' == `mg_reference'
-                local var_ref_adj = r(Var)
-
-                if `var_a_adj' > 0 & `var_ref_adj' > 0 {
-                    local vr_adj = `var_a_adj' / `var_ref_adj'
-                }
-                else {
-                    local vr_adj = .
-                }
-
-                * Adjusted KS not computed (ksmirnov does not accept weights)
-                local ks_adj = .
-
-                matrix `balance_mat'[`i', `adj_base' + 1] = `mean_a_adj'
-                matrix `balance_mat'[`i', `adj_base' + 2] = `mean_ref_adj'
-                matrix `balance_mat'[`i', `adj_base' + 3] = `smd_adj'
-                matrix `balance_mat'[`i', `adj_base' + 4] = `vr_adj'
-                matrix `balance_mat'[`i', `adj_base' + 5] = `ks_adj'
-            }
-        }
-
-        local i = `i' + 1
-    }
-    matrix rownames `balance_mat' = `rownames'
-
-    restore
-
-    * =====================================================================
-    * SUMMARY STATISTICS (multi-group)
-    * =====================================================================
-    local max_smd_raw = 0
-    local max_smd_adj = 0
-    local max_ks_raw = 0
-    local n_imbalanced = 0
-    local n_vr_imbalanced = 0
-
-    forvalues i = 1/`nvars' {
-        * Track per-covariate worst SMD across contrasts
-        local worst_smd_raw_i = 0
-        local worst_smd_adj_i = 0
-        local cov_imbalanced = 0
-
-        local cnum = 0
-        foreach clev of local contrasts {
-            local cnum = `cnum' + 1
-            local col_smd_raw = (`cnum' - 1) * 5 + 3
-            local col_vr_raw = (`cnum' - 1) * 5 + 4
-            local col_ks_raw = (`cnum' - 1) * 5 + 5
-
-            * Raw SMD
-            if !missing(`balance_mat'[`i', `col_smd_raw']) {
-                local abs_smd = abs(`balance_mat'[`i', `col_smd_raw'])
-                if `abs_smd' > `worst_smd_raw_i' local worst_smd_raw_i = `abs_smd'
-                if `abs_smd' > `max_smd_raw' local max_smd_raw = `abs_smd'
-            }
-
-            * Raw VR
-            if !missing(`balance_mat'[`i', `col_vr_raw']) {
-                local vr_i = `balance_mat'[`i', `col_vr_raw']
-                if `vr_i' < 0.5 | `vr_i' > 2 {
-                    local n_vr_imbalanced = `n_vr_imbalanced' + 1
-                }
-            }
-
-            * Raw KS
-            if !missing(`balance_mat'[`i', `col_ks_raw']) {
-                local ks_i = `balance_mat'[`i', `col_ks_raw']
-                if `ks_i' > `max_ks_raw' local max_ks_raw = `ks_i'
-            }
-
-            * Imbalance check
-            if `has_adj' {
-                local col_smd_adj = `ncols_raw' + (`cnum' - 1) * 5 + 3
-                if !missing(`balance_mat'[`i', `col_smd_adj']) {
-                    local abs_smd_a = abs(`balance_mat'[`i', `col_smd_adj'])
-                    if `abs_smd_a' > `worst_smd_adj_i' local worst_smd_adj_i = `abs_smd_a'
-                    if `abs_smd_a' > `max_smd_adj' local max_smd_adj = `abs_smd_a'
-                    if `abs_smd_a' > `threshold' local cov_imbalanced = 1
-                }
-                else {
-                    local cov_imbalanced = 1
-                }
-            }
-            else {
-                if !missing(`balance_mat'[`i', `col_smd_raw']) {
-                    if abs(`balance_mat'[`i', `col_smd_raw']) > `threshold' {
-                        local cov_imbalanced = 1
-                    }
-                }
-                else {
-                    local cov_imbalanced = 1
-                }
-            }
-        }
-
-        if `cov_imbalanced' local n_imbalanced = `n_imbalanced' + 1
-    }
-
-    * =====================================================================
     * DISPLAY (multi-group)
-    * =====================================================================
     local vr_fmt "%6.2f"
     local ks_fmt "%6.3f"
 
-    display as text _n "{hline 75}"
-    display as text `"`title'"'
-    display as text "{hline 75}"
+    display as text _n `"`title'"'
     display as text "Treatment:     " as result "`treatment'" as text " (`K' groups, ref = `mg_reference')"
     display as text "Estimand:      " as result strupper("`estimand'")
     foreach lev of local levels {
@@ -1272,7 +808,6 @@ program define psdash_balance, rclass
         display as text "Source:        " as result "`source'"
     }
     display as text "Threshold:     " as result %6.3f `threshold'
-    display as text "{hline 75}"
     display _newline
 
     * Build display header dynamically
@@ -1426,10 +961,7 @@ program define psdash_balance, rclass
             as text " (max |SMD| = " as result `format' `_verdict_smd' as text ")"
     }
 
-    * =====================================================================
     * LOVE PLOT (multi-group)
-    * =====================================================================
-    local graph_rc = 0
     if "`loveplot'" != "" {
         capture noisily {
             quietly {
@@ -1523,7 +1055,7 @@ program define psdash_balance, rclass
                     `plotopts' `graphoptions' name(`name', replace)
 
                 if "`saving'" != "" {
-                    noisily graph export "`saving'", replace
+                    _psdash_graph_export, saving("`saving'")
                 }
 
                 restore
@@ -1536,10 +1068,7 @@ program define psdash_balance, rclass
         }
     }
 
-    * =====================================================================
     * EXPORT TO EXCEL (multi-group)
-    * =====================================================================
-    local xlsx_rc = 0
     if "`xlsx'" != "" & `_psdash_side_rc' == 0 {
         capture noisily {
             quietly {

@@ -3,37 +3,7 @@
 
 clear all
 
-local _qa_plus_orig "`c(sysdir_plus)'"
-local _qa_personal_orig "`c(sysdir_personal)'"
-tempfile _qa_marker
-local _qa_sysroot "`_qa_marker'_sysdir"
-local _qa_plus "`_qa_sysroot'/plus"
-local _qa_personal "`_qa_sysroot'/personal"
-capture mkdir "`_qa_sysroot'"
-capture mkdir "`_qa_plus'"
-capture mkdir "`_qa_personal'"
-sysdir set PLUS "`_qa_plus'"
-sysdir set PERSONAL "`_qa_personal'"
-
-capture ado uninstall psdash
-
-* Install from local directory
-local qa_dir "`c(pwd)'"
-local pkg_dir "`qa_dir'"
-if strpos("`pkg_dir'", "/qa") > 0 {
-    local pkg_dir = subinstr("`pkg_dir'", "/qa", "", 1)
-}
-if !strpos("`pkg_dir'", "psdash") {
-    local pkg_dir "`pkg_dir'/psdash"
-}
-capture noisily net install psdash, from("`pkg_dir'") replace
-local install_rc = _rc
-if `install_rc' {
-    sysdir set PLUS "`_qa_plus_orig'"
-    sysdir set PERSONAL "`_qa_personal_orig'"
-    capture shell rm -rf "`_qa_sysroot'"
-    exit `install_rc'
-}
+do "`c(pwd)'/_psdash_bootstrap.do"
 
 foreach f in ///
     "/tmp/psdash_t96_loveplot.png" ///
@@ -1164,11 +1134,11 @@ capture {
     assert strpos(fileread("`pkg_dir'/README.md"), ///
         "https://raw.githubusercontent.com/tpcopeland/Stata-Tools/main/psdash") > 0
     assert strpos(fileread("`pkg_dir'/README.md"), ///
-        "All examples below use Stata's built-in `sysuse` or `webuse` datasets") > 0
+        "The README keeps one binary and one multi-group workflow") > 0
     assert strpos(fileread("`pkg_dir'/README.md"), ///
-        "webuse cattaneo2, clear") > 0
+        "sysuse auto, clear") > 0
     assert strpos(fileread("`pkg_dir'/README.md"), ///
-        "teffects ipw (bweight) (mbsmoke mage prenatal1 mmarried fbaby), atet") > 0
+        "mlogit arm age female bmi") > 0
     assert strpos(fileread("`pkg_dir'/README.md"), "stat(atet)") == 0
 }
 _test_result `=_rc'
@@ -1179,7 +1149,9 @@ capture {
     confirm file "`pkg_dir'/demo/love_plot.png"
     confirm file "`pkg_dir'/demo/dashboard.png"
     assert strpos(fileread("`pkg_dir'/README.md"), ///
-        "PNG demo images in demo/ are tracked in this repository.") > 0
+        "README links to curated console markdown instead of embedding the full transcripts.") > 0
+    assert strpos(fileread("`pkg_dir'/README.md"), ///
+        "demo/console_overlap.md") > 0
 }
 _test_result `=_rc'
 
