@@ -66,6 +66,7 @@ capture noisily {
     which _psdash_balance_multigroup
     which _psdash_detect
     which _psdash_graph_export
+    which _psdash_ltmle_diagnostics
     which _psdash_manual_detect
     which _psdash_mgps_map
     which _psdash_pscheck

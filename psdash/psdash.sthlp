@@ -42,6 +42,8 @@ where {it:subcommand} is one of:
 
 {pstd}
 After {cmd:teffects}, both {it:treatment} and {it:psvar} can be omitted and are auto-detected from {cmd:e()}.
+After cross-sectional {cmd:tmle}, {it:treatment}, {cmd:_tmle_ps}, covariates, and the estimand are read from the tmle contract state.
+After {cmd:ltmle}, use {cmd:psdash combined} for longitudinal period-by-period diagnostics; pooled subcommands require explicit variables.
 After {cmd:logit}/{cmd:probit}, {it:treatment} is auto-detected but {it:psvar} must be supplied explicitly.
 In that setting, {cmd:psdash overlap ps} and {cmd:psdash overlap treatment ps}
 are both valid; the one-argument form treats the argument as the propensity
@@ -109,9 +111,9 @@ After {cmd:mlogit} with a multi-valued treatment, supply {opt psv:ars()} with K 
 {pstd}
 {cmd:psdash} provides a unified interface for propensity score diagnostics.
 After estimating propensity scores (via {cmd:teffects}, {cmd:logit} + {cmd:predict},
-or manually), users need to assess overlap, balance, common support, and
-weight distribution. {cmd:psdash} consolidates these diagnostics under a single
-command with consistent syntax.
+cross-sectional {cmd:tmle}, or manually), users need to assess overlap, balance,
+common support, and weight distribution. {cmd:psdash} consolidates these
+diagnostics under a single command with consistent syntax.
 
 {pstd}
 {cmd:psdash} auto-detects the treatment variable, propensity score, covariates,
@@ -122,6 +124,8 @@ always override by providing explicit arguments.
 For most analyses, start with {cmd:psdash combined}. It runs overlap, balance,
 weight, and support diagnostics together. Then rerun the individual panel named
 in any warning message when you need a graph, export, or modified weights.
+After {cmd:ltmle}, {cmd:psdash combined} switches to longitudinal diagnostics:
+per-period PS overlap plus contract-weight summaries.
 
 {pstd}
 The four diagnostics answer different practical questions: {cmd:overlap} asks
@@ -335,24 +339,34 @@ the corresponding panel from the combined dashboard.
 {title:Remarks}
 
 {pstd}
-{cmd:psdash} is designed to work in four modes:
+{cmd:psdash} is designed to work in six modes:
 
 {phang2}
 1. {bf:After teffects}: treatment, covariates, PS, and weights are fully
 auto-detected. Just run {cmd:psdash combined}.
 
 {phang2}
-2. {bf:After logit/probit}: treatment and covariates are auto-detected from
+2. {bf:After tmle}: treatment, {cmd:_tmle_ps}, covariates, and estimand are
+auto-detected from the tmle contract state. Run {cmd:psdash combined} or an
+individual subcommand.
+
+{phang2}
+3. {bf:After ltmle}: run {cmd:psdash combined}. It reports period-by-period PS
+overlap and contract-weight summaries instead of silently pooling person-period
+rows as if they were cross-sectional observations.
+
+{phang2}
+4. {bf:After logit/probit}: treatment and covariates are auto-detected from
 {cmd:e()}. The user must provide the PS variable (from {cmd:predict}).
 
 {phang2}
-3. {bf:After mlogit (multi-group)}: for multi-valued treatments, treatment
+5. {bf:After mlogit (multi-group)}: for multi-valued treatments, treatment
 and covariates are auto-detected from {cmd:e()}. The user runs
 {cmd:predict ps1 ps2 ps3, pr} and passes the GPS variables via
 {opt psvars(ps1 ps2 ps3)}.
 
 {phang2}
-4. {bf:Manual}: the user provides treatment and PS variables explicitly,
+6. {bf:Manual}: the user provides treatment and PS variables explicitly,
 along with covariates and/or weights via options.
 
 {pstd}
@@ -661,12 +675,23 @@ If {opt trim()}, {opt truncate()}, or {opt stabilize} is specified, also returns
 {synopt:{cmd:r(treatment)}}treatment variable name{p_end}
 {synopt:{cmd:r(psvar)}}PS variable name, or {cmd:auto-generated} for a temporary PS from {cmd:teffects}{p_end}
 {synopt:{cmd:r(estimand)}}target estimand{p_end}
-{synopt:{cmd:r(source)}}detection source ({cmd:"manual"}, {cmd:"teffects"}, or {cmd:"estimation"}){p_end}
+{synopt:{cmd:r(source)}}detection source ({cmd:"manual"}, {cmd:"teffects"}, {cmd:"estimation"}, {cmd:"tmle"}, or {cmd:"ltmle"}){p_end}
+{synopt:{cmd:r(wvar)}}weight variable name for LTMLE longitudinal diagnostics{p_end}
+{synopt:{cmd:r(period)}}period variable for LTMLE longitudinal diagnostics{p_end}
+{synopt:{cmd:r(id)}}ID variable for LTMLE longitudinal diagnostics, when available{p_end}
+{synopt:{cmd:r(regime)}}LTMLE regime metadata, when available{p_end}
 {synopt:{cmd:r(levels)}}multi-group treatment levels, if K > 2{p_end}
 {synopt:{cmd:r(reference)}}multi-group reference level, if K > 2{p_end}
 
 {p2col 5 30 34 2: Scalars}{p_end}
 {synopt:{cmd:r(K)}}number of treatment groups, if K > 2{p_end}
+{synopt:{cmd:r(longitudinal)}}1 for LTMLE longitudinal diagnostics{p_end}
+{synopt:{cmd:r(N_periods)}}number of periods for LTMLE longitudinal diagnostics{p_end}
+{synopt:{cmd:r(max_pct_outside)}}maximum period-specific percentage outside overlap, LTMLE only{p_end}
+
+{p2col 5 30 34 2: Matrices}{p_end}
+{synopt:{cmd:r(overlap_by_period)}}period-specific PS overlap table, LTMLE only{p_end}
+{synopt:{cmd:r(weights_by_period)}}period-specific contract-weight table, LTMLE only{p_end}
 
 
 {marker author}{...}

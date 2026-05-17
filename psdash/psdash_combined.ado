@@ -67,7 +67,8 @@ program define psdash_combined, rclass
 
     _psdash_detect `anything' , covariates(`covariates') wvar(`wvar') ///
         samplevar(`touse') estimand(`estimand') ///
-        psout(`ps_auto') wout(`wt_auto') getwvar `ref_opt' `psvars_opt'
+        psout(`ps_auto') wout(`wt_auto') getwvar ///
+        allowlongitudinal `ref_opt' `psvars_opt'
 
     local treatment "`_psd_treatment'"
     local psvar "`_psd_psvar'"
@@ -76,6 +77,12 @@ program define psdash_combined, rclass
     local det_wvar "`_psd_wvar'"
     local wvar_auto "`_psd_wvar_auto'"
     local source "`_psd_source'"
+    local method "`_psd_method'"
+    local contract_version "`_psd_contract_version'"
+    local longitudinal "`_psd_longitudinal'"
+    local idvar "`_psd_id'"
+    local period "`_psd_period'"
+    local regime "`_psd_regime'"
     if "`estimand'" == "" local estimand "`_psd_estimand'"
     local psvar_label "`psvar'"
     if "`psvar_auto'" == "1" local psvar_label "auto-generated"
@@ -108,6 +115,39 @@ program define psdash_combined, rclass
     * Use detected weights if not explicitly provided
     if "`wvar'" == "" & "`det_wvar'" != "" {
         local wvar "`det_wvar'"
+    }
+
+    if "`longitudinal'" == "1" {
+        if "`title'" == "" local title "Longitudinal Propensity Score Diagnostics"
+        local id_opt ""
+        if "`idvar'" != "" local id_opt `"id("`idvar'")"'
+        local method_opt ""
+        if "`method'" != "" local method_opt `"method("`method'")"'
+        local contract_opt ""
+        if "`contract_version'" != "" {
+            local contract_opt `"contract("`contract_version'")"'
+        }
+        local regime_opt ""
+        if "`regime'" != "" local regime_opt `"regime("`regime'")"'
+        _psdash_ltmle_diagnostics, treatment(`treatment') ///
+            period(`period') psvar("`psvar'") wvar("`wvar'") ///
+            samplevar(`touse') `id_opt' ///
+            estimand(`"`estimand'"') `regime_opt' ///
+            `method_opt' `contract_opt' ///
+            title(`"`title'"')
+        return add
+        return local treatment "`treatment'"
+        return local psvar "`psvar'"
+        return local wvar "`wvar'"
+        return local estimand "`estimand'"
+        return local source "`source'"
+        return local method "`method'"
+        return local contract_version "`contract_version'"
+        return local id "`idvar'"
+        return local period "`period'"
+        return local regime "`regime'"
+        return scalar longitudinal = 1
+        exit
     }
 
     if "`multigroup'" != "0" & "`combined_psvars'" != "" {

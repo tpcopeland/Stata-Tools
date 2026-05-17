@@ -19,6 +19,11 @@ DESCRIPTION:
       _psd_K           - number of treatment groups
       _psd_levels      - space-separated list of treatment levels
       _psd_reference   - reference group level (smallest by default)
+      _psd_longitudinal - "1" for longitudinal LTMLE contract state
+      _psd_id          - longitudinal ID variable (LTMLE only)
+      _psd_period      - longitudinal period variable (LTMLE only)
+      _psd_regime      - longitudinal regime metadata (LTMLE only)
+      _psd_contract_version - upstream contract version when available
 
 USAGE:
     _psdash_detect [treatment] [psvar] , [covariates(varlist) wvar(varname) ///
@@ -35,7 +40,7 @@ program define _psdash_detect
     syntax [anything] , ///
         [COVariates(varlist numeric) Wvar(varname) SAMPLEvar(varname) ///
          ESTImand(string) PSOUT(name) WOUT(name) GETWvar ///
-         REFerence(string) PSVars(varlist numeric)]
+         REFerence(string) PSVars(varlist numeric) ALLOWLongitudinal]
 
     * Track whether estimand was explicitly provided; validate if so.
     * We don't default here — teffects auto-detection sets it from e(stat);
@@ -307,6 +312,316 @@ program define _psdash_detect
                 c_local _psd_wvar_auto "1"
             }
         }
+        exit
+    }
+
+    * -----------------------------------------------------------------
+    * Strategy 1b: Auto-detect from cross-sectional tmle contract state
+    * -----------------------------------------------------------------
+    if "`e(cmd)'" == "tmle" {
+        local tmle_treatment "`e(treatment)'"
+        if "`tmle_treatment'" == "" {
+            local tmle_treatment : char _dta[_tmle_treatment]
+        }
+        if "`tmle_treatment'" == "" {
+            display as error "tmle contract does not identify a treatment variable"
+            exit 198
+        }
+        confirm variable `tmle_treatment'
+        confirm numeric variable `tmle_treatment'
+
+        local tmle_psvar "`e(ps_var)'"
+        if "`tmle_psvar'" == "" {
+            local tmle_psvar : char _dta[_tmle_ps_var]
+        }
+        if "`tmle_psvar'" == "" {
+            capture confirm variable _tmle_ps
+            if _rc == 0 local tmle_psvar "_tmle_ps"
+        }
+        if "`tmle_psvar'" == "" {
+            display as error "tmle contract does not identify a propensity score variable"
+            display as error "  expected e(ps_var), _dta[_tmle_ps_var], or _tmle_ps"
+            exit 198
+        }
+        confirm variable `tmle_psvar'
+        confirm numeric variable `tmle_psvar'
+
+        if "`samplevar'" != "" {
+            capture confirm variable _tmle_esample
+            if _rc == 0 {
+                quietly replace `samplevar' = 0 ///
+                    if `samplevar' & (_tmle_esample != 1 | missing(_tmle_esample))
+            }
+        }
+
+        if "`covariates'" != "" {
+            c_local _psd_covariates "`covariates'"
+        }
+        else {
+            local tmle_covariates "`e(covariates)'"
+            if "`tmle_covariates'" == "" {
+                local tmle_covariates : char _dta[_tmle_covariates]
+            }
+            if "`tmle_covariates'" == "" {
+                local tmle_covariates "`e(tmodel)'"
+            }
+            if "`tmle_covariates'" == "" {
+                local tmle_covariates : char _dta[_tmle_tmodel]
+            }
+            if "`tmle_covariates'" != "" {
+                _psdash_strip_fv `"`tmle_covariates'"'
+                c_local _psd_covariates "`_psd_stripped_covars'"
+            }
+        }
+
+        local tmle_estimand "`estimand'"
+        if "`tmle_estimand'" == "" {
+            local tmle_estimand "`e(estimand)'"
+            if "`tmle_estimand'" == "" {
+                local tmle_estimand : char _dta[_tmle_estimand]
+            }
+        }
+        local tmle_estimand = strlower("`tmle_estimand'")
+        if "`tmle_estimand'" == "" local tmle_estimand "ate"
+
+        local tmle_method "`e(method)'"
+        if "`tmle_method'" == "" {
+            local tmle_method : char _dta[_tmle_method]
+        }
+        local tmle_contract "`e(contract_version)'"
+        if "`tmle_contract'" == "" {
+            local tmle_contract : char _dta[_tmle_contract_version]
+        }
+
+        local _sv_levelsof ""
+        if "`samplevar'" != "" local _sv_levelsof "if `samplevar'"
+        quietly levelsof `tmle_treatment' `_sv_levelsof', local(_trt_levels)
+        local _K : word count `_trt_levels'
+        if `_K' < 2 {
+            display as error "treatment must have at least 2 levels"
+            exit 198
+        }
+        local _is_binary01 = 0
+        if `_K' == 2 {
+            local _lev1 : word 1 of `_trt_levels'
+            local _lev2 : word 2 of `_trt_levels'
+            if ("`_lev1'" == "0" & "`_lev2'" == "1") {
+                local _is_binary01 = 1
+            }
+        }
+        if !`_is_binary01' {
+            display as error "tmle propensity diagnostics require binary 0/1 treatment"
+            exit 198
+        }
+
+        c_local _psd_treatment "`tmle_treatment'"
+        c_local _psd_psvar "`tmle_psvar'"
+        c_local _psd_psvar_auto "0"
+        c_local _psd_source "tmle"
+        c_local _psd_method "`tmle_method'"
+        c_local _psd_contract_version "`tmle_contract'"
+        c_local _psd_longitudinal "0"
+        c_local _psd_multigroup "0"
+        c_local _psd_K "2"
+        c_local _psd_levels "0 1"
+        c_local _psd_reference "0"
+        c_local _psd_estimand "`tmle_estimand'"
+
+        local tmle_wvar "`wvar'"
+        local tmle_wvar_auto "0"
+        if "`tmle_wvar'" == "" {
+            local tmle_wvar "`e(weight_var)'"
+            if "`tmle_wvar'" == "" {
+                local tmle_wvar : char _dta[_tmle_weight_var]
+            }
+        }
+        if "`tmle_wvar'" != "" {
+            confirm variable `tmle_wvar'
+            confirm numeric variable `tmle_wvar'
+            c_local _psd_wvar "`tmle_wvar'"
+            c_local _psd_wvar_auto "0"
+        }
+        else if "`getwvar'" != "" {
+            local wt_storage "_psdash_wt"
+            local wt_fixed = 1
+            if "`wout'" != "" {
+                local wt_storage "`wout'"
+                local wt_fixed = 0
+            }
+            capture confirm variable `wt_storage'
+            if _rc == 0 {
+                if `wt_fixed' {
+                    local _wt_auto : char `wt_storage'[_psdash_auto]
+                    if "`_wt_auto'" != "1" {
+                        display as error "variable `wt_storage' already exists"
+                        display as error "  drop or rename it before using psdash"
+                        exit 110
+                    }
+                }
+                drop `wt_storage'
+            }
+
+            quietly {
+                local _sv ""
+                if "`samplevar'" != "" local _sv "& `samplevar'"
+                gen double `wt_storage' = .
+                if "`tmle_estimand'" == "ate" {
+                    replace `wt_storage' = 1 / `tmle_psvar' ///
+                        if `tmle_treatment' == 1 & `tmle_psvar' > 0 `_sv'
+                    replace `wt_storage' = 1 / (1 - `tmle_psvar') ///
+                        if `tmle_treatment' == 0 & `tmle_psvar' < 1 `_sv'
+                }
+                else if "`tmle_estimand'" == "att" {
+                    replace `wt_storage' = 1 ///
+                        if `tmle_treatment' == 1 `_sv'
+                    replace `wt_storage' = `tmle_psvar' / (1 - `tmle_psvar') ///
+                        if `tmle_treatment' == 0 & `tmle_psvar' < 1 `_sv'
+                }
+                else if "`tmle_estimand'" == "atc" {
+                    replace `wt_storage' = (1 - `tmle_psvar') / `tmle_psvar' ///
+                        if `tmle_treatment' == 1 & `tmle_psvar' > 0 `_sv'
+                    replace `wt_storage' = 1 ///
+                        if `tmle_treatment' == 0 `_sv'
+                }
+            }
+            if `wt_fixed' {
+                char `wt_storage'[_psdash_auto] 1
+            }
+            c_local _psd_wvar "`wt_storage'"
+            c_local _psd_wvar_auto "1"
+        }
+
+        exit
+    }
+
+    * -----------------------------------------------------------------
+    * Strategy 1c: Auto-detect from longitudinal ltmle contract state
+    * -----------------------------------------------------------------
+    if "`e(cmd)'" == "ltmle" {
+        if "`allowlongitudinal'" == "" {
+            display as error "last estimation command is longitudinal ltmle"
+            display as error "  pooled psdash subcommands are not run automatically after ltmle"
+            display as error "  use {cmd:psdash combined} for longitudinal diagnostics"
+            display as error "  or specify treatment and propensity score variables explicitly"
+            exit 198
+        }
+
+        local ltmle_treatment "`e(treatment)'"
+        if "`ltmle_treatment'" == "" {
+            local ltmle_treatment : char _dta[_ltmle_treatment]
+        }
+        if "`ltmle_treatment'" == "" {
+            display as error "ltmle contract does not identify a treatment variable"
+            exit 198
+        }
+        confirm variable `ltmle_treatment'
+        confirm numeric variable `ltmle_treatment'
+
+        local ltmle_period "`e(period)'"
+        if "`ltmle_period'" == "" {
+            local ltmle_period : char _dta[_ltmle_period]
+        }
+        if "`ltmle_period'" == "" {
+            display as error "ltmle contract does not identify a period variable"
+            exit 198
+        }
+        confirm variable `ltmle_period'
+        confirm numeric variable `ltmle_period'
+
+        local ltmle_id "`e(id)'"
+        if "`ltmle_id'" == "" {
+            local ltmle_id : char _dta[_ltmle_id]
+        }
+        if "`ltmle_id'" != "" {
+            confirm variable `ltmle_id'
+        }
+
+        local ltmle_psvar "`e(ps_var)'"
+        if "`ltmle_psvar'" == "" {
+            local ltmle_psvar : char _dta[_ltmle_ps_var]
+        }
+        if "`ltmle_psvar'" != "" {
+            confirm variable `ltmle_psvar'
+            confirm numeric variable `ltmle_psvar'
+        }
+
+        local ltmle_wvar "`wvar'"
+        if "`ltmle_wvar'" == "" {
+            local ltmle_wvar "`e(weight_var)'"
+            if "`ltmle_wvar'" == "" {
+                local ltmle_wvar : char _dta[_ltmle_weight_var]
+            }
+        }
+        if "`ltmle_wvar'" != "" {
+            confirm variable `ltmle_wvar'
+            confirm numeric variable `ltmle_wvar'
+        }
+
+        if "`samplevar'" != "" {
+            capture confirm variable _ltmle_esample
+            if _rc == 0 {
+                quietly replace `samplevar' = 0 ///
+                    if `samplevar' & (_ltmle_esample != 1 | missing(_ltmle_esample))
+            }
+        }
+
+        if "`covariates'" != "" {
+            c_local _psd_covariates "`covariates'"
+        }
+        else {
+            local ltmle_covariates "`e(covariates)'"
+            local ltmle_baseline "`e(baseline)'"
+            if "`ltmle_covariates'" == "" {
+                local ltmle_covariates : char _dta[_ltmle_tmodel]
+            }
+            local ltmle_covariates "`ltmle_covariates' `ltmle_baseline'"
+            local ltmle_covariates : list uniq ltmle_covariates
+            if "`ltmle_covariates'" != "" {
+                _psdash_strip_fv `"`ltmle_covariates'"'
+                c_local _psd_covariates "`_psd_stripped_covars'"
+            }
+        }
+
+        local ltmle_estimand "`estimand'"
+        if "`ltmle_estimand'" == "" {
+            local ltmle_estimand "`e(estimand)'"
+            if "`ltmle_estimand'" == "" {
+                local ltmle_estimand : char _dta[_ltmle_estimand]
+            }
+        }
+        local ltmle_estimand = strlower("`ltmle_estimand'")
+        if "`ltmle_estimand'" == "" local ltmle_estimand "ate"
+
+        local ltmle_regime "`e(regime)'"
+        if "`ltmle_regime'" == "" {
+            local ltmle_regime : char _dta[_ltmle_regime]
+        }
+        local ltmle_contract "`e(contract_version)'"
+        if "`ltmle_contract'" == "" {
+            local ltmle_contract : char _dta[_ltmle_contract_version]
+        }
+        local ltmle_method "`e(method)'"
+        if "`ltmle_method'" == "" {
+            local ltmle_method : char _dta[_ltmle_method]
+        }
+
+        c_local _psd_treatment "`ltmle_treatment'"
+        c_local _psd_psvar "`ltmle_psvar'"
+        c_local _psd_psvar_auto "0"
+        c_local _psd_wvar "`ltmle_wvar'"
+        c_local _psd_wvar_auto "0"
+        c_local _psd_source "ltmle"
+        c_local _psd_method "`ltmle_method'"
+        c_local _psd_contract_version "`ltmle_contract'"
+        c_local _psd_longitudinal "1"
+        c_local _psd_id "`ltmle_id'"
+        c_local _psd_period "`ltmle_period'"
+        c_local _psd_regime "`ltmle_regime'"
+        c_local _psd_multigroup "0"
+        c_local _psd_K "2"
+        c_local _psd_levels "0 1"
+        c_local _psd_reference "0"
+        c_local _psd_estimand "`ltmle_estimand'"
         exit
     }
 
