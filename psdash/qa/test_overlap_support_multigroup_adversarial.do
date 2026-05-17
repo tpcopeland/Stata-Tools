@@ -12,11 +12,7 @@ local pass_count = 0
 local fail_count = 0
 local failed_tests ""
 
-local qa_dir "`c(pwd)'"
-local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
-
-capture ado uninstall psdash
-quietly net install psdash, from("`pkg_dir'") replace
+do "`c(pwd)'/_psdash_bootstrap.do"
 
 capture program drop _os_binary_known
 program define _os_binary_known
@@ -722,9 +718,11 @@ if `fail_count' > 0 {
     display as error "FAILED TESTS:`failed_tests'"
     display "RESULT: test_overlap_support_multigroup_adversarial tests=`test_count' pass=`pass_count' fail=`fail_count'"
     log close overlap_support_adv
+    _psdash_qa_cleanup
     exit 1
 }
 
 display as result "ALL TESTS PASSED"
 display "RESULT: test_overlap_support_multigroup_adversarial tests=`test_count' pass=`pass_count' fail=`fail_count'"
 log close overlap_support_adv
+_psdash_qa_cleanup

@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.1  06may2026}{...}
+{* *! version 1.0.2  17may2026}{...}
 {vieweralsosee "[TE] teffects" "help teffects"}{...}
 {vieweralsosee "[R] logit" "help logit"}{...}
 {vieweralsosee "[TE] tebalance" "help tebalance"}{...}
@@ -24,7 +24,8 @@
 {cmd:psdash} {it:subcommand} [{it:treatment}] [{it:psvar}] [{it:{help if}}] [{it:{help in}}] [{cmd:,} {it:options}]
 
 {pstd}
-For multi-group treatments (K > 2), supply one PS variable per level via {opt psv:ars()}:
+For multi-group treatments (K > 2), treatment levels must be nonnegative integers.
+Supply one PS variable per level via {opt psv:ars()}:
 
 {phang}
 {cmd:psdash} {it:subcommand} {it:treatment} [{it:{help if}}] [{it:{help in}}] [{cmd:,} {opt psv:ars(varlist)} {opt ref:erence(#)} {it:options}]
@@ -168,6 +169,12 @@ predicted probability of that treatment level. Required for K > 2 in manual
 mode; auto-generated after {cmd:teffects} with a multi-valued treatment.
 For binary treatment, the standard single {it:psvar} positional argument is
 sufficient.
+
+{pstd}
+Multi-group treatment values must be nonnegative integers because per-group
+stored results use the observed level values in result names, such as
+{cmd:r(N_group_2)}. Recode decimal or negative treatment values before running
+multi-group diagnostics.
 
 {phang}
 {opt reference(#)} specifies the reference treatment level for pairwise
@@ -372,7 +379,8 @@ treatments, and the ATE weights are the natural generalization.
 {pstd}
 {bf:Diagnostic workflow:} A typical PS analysis proceeds as follows:
 (1) estimate propensity scores; (2) check PS overlap and AUC;
-(3) trim if necessary using {cmd:psdash support, crump}; (4) check covariate
+(3) trim if necessary using {cmd:psdash support, crump} for binary treatments
+or {cmd:threshold()} for multi-group treatments; (4) check covariate
 balance using SMD, variance ratios, and optionally KS statistics; (5) assess
 weight distribution, ESS, and extreme weights; (6) proceed to outcome analysis
 only when diagnostics are satisfactory. {cmd:psdash combined} runs steps 2-5

@@ -386,6 +386,12 @@ program define iivw_weight, rclass sortpreserve
         local __iivw_visit_converged = 1
         local __iivw_stab_converged = 1
         local __iivw_iw_rc = 0
+        tempname __iivw_visit_est
+        local __iivw_visit_hold_ok = 0
+        capture _estimates hold `__iivw_visit_est', nullok
+        if _rc == 0 {
+            local __iivw_visit_hold_ok = 1
+        }
 
         preserve
         capture noisily {
@@ -451,8 +457,9 @@ program define iivw_weight, rclass sortpreserve
 
             * Warn if first observations have missing covariates
             * (predict xb gives missing when covariates are missing)
-            bysort `id' (`time'): gen byte __iivw_first = (_n == 1)
-            quietly count if __iivw_first & missing(`_xb_full')
+            tempvar _first_visit
+            bysort `id' (`time'): gen byte `_first_visit' = (_n == 1)
+            quietly count if `_first_visit' & missing(`_xb_full')
             if r(N) > 0 {
                 local n_miss_first = r(N)
                 noisily display as text "note: `n_miss_first' subjects have " ///
@@ -460,7 +467,6 @@ program define iivw_weight, rclass sortpreserve
                 noisily display as text "  weight set to 1 by convention; " ///
                     "check covariate completeness"
             }
-            drop __iivw_first
 
             * First observation per subject: set weight = 1
             bysort `id' (`time'): replace `prefix'iw = 1 if _n == 1
@@ -470,6 +476,11 @@ program define iivw_weight, rclass sortpreserve
         }
         local __iivw_iw_rc = _rc
         restore
+        if `__iivw_visit_hold_ok' {
+            capture _estimates unhold `__iivw_visit_est'
+            local __iivw_unhold_rc = _rc
+            local __iivw_visit_hold_ok = 0
+        }
 
         if `__iivw_iw_rc' != 0 {
             foreach v of local lag_created {
@@ -516,17 +527,29 @@ program define iivw_weight, rclass sortpreserve
 
         tempfile __iivw_psfile
         local logit_rc = 0
+        tempname __iivw_logit_est
+        local __iivw_logit_hold_ok = 0
+        capture _estimates hold `__iivw_logit_est', nullok
+        if _rc == 0 {
+            local __iivw_logit_hold_ok = 1
+        }
         preserve
         capture noisily {
             quietly keep if `_first_obs'
             logit `treat' `treat_covars', `log_opt'
-            predict double __iivw_ps_tmp, pr
-            keep `id' __iivw_ps_tmp
+            tempvar _ps_tmp
+            predict double `_ps_tmp', pr
+            keep `id' `_ps_tmp'
             bysort `id': keep if _n == 1
             save `__iivw_psfile', replace
         }
         local logit_rc = _rc
         restore
+        if `__iivw_logit_hold_ok' {
+            capture _estimates unhold `__iivw_logit_est'
+            local __iivw_unhold_rc = _rc
+            local __iivw_logit_hold_ok = 0
+        }
 
         if `logit_rc' != 0 {
             * Clean up IIW variables if they were created before IPTW failed
@@ -545,7 +568,7 @@ program define iivw_weight, rclass sortpreserve
         quietly {
             merge m:1 `id' using `__iivw_psfile', nogen assert(match)
             tempvar _ps
-            rename __iivw_ps_tmp `_ps'
+            rename `_ps_tmp' `_ps'
 
             * Warn about extreme propensity scores
             count if `_ps' < 0.01 & !missing(`_ps')

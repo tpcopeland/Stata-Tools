@@ -1,6 +1,6 @@
-*! _psdash_manual_detect Version 1.0.1  2026/05/06
+*! _psdash_manual_detect Version 1.0.2  2026/05/17
 *! Shared treatment-only detection for balance and weights
-*! Author: Timothy P Copeland
+*! Author: Timothy P Copeland, Karolinska Institutet
 *! Internal helper - rclass
 
 program define _psdash_manual_detect, rclass
@@ -28,11 +28,21 @@ program define _psdash_manual_detect, rclass
             if "`_l1'" == "0" & "`_l2'" == "1" local _is_bin01 = 1
         }
 
+        if "`estimand'" == "" local estimand "ate"
+        else {
+            local estimand = strlower("`estimand'")
+            if !inlist("`estimand'", "ate", "att", "atc") {
+                display as error "estimand() must be ate, att, or atc"
+                exit 198
+            }
+        }
+
         if `_is_bin01' {
             local multigroup "0"
             local mg_reference "0"
         }
         else {
+            _psdash_validate_levels, levels(`_man_levels')
             local multigroup "1"
             if "`reference'" != "" {
                 local _ref_ok = 0
@@ -50,8 +60,6 @@ program define _psdash_manual_detect, rclass
                 local mg_reference : word 1 of `_man_levels'
             }
         }
-
-        if "`estimand'" == "" local estimand "ate"
 
         return local treatment "`varlist'"
         return local source "manual"

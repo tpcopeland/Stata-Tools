@@ -278,19 +278,19 @@ else {
 
 local ++test_count
 capture noisily {
-    foreach file in ///
-        "`pkg_dir'/stata.log" ///
-        "`pkg_dir'/stdin.log" ///
-        "`pkg_dir'/-.log" ///
-        "`pkg_dir'/test_iivw_release_adversarial.log" ///
-        "`pkg_dir'/test_iivw_release_adversarial.smcl" ///
-        "`pkg_dir'/qa/stata.log" ///
-        "`pkg_dir'/qa/stdin.log" ///
-        "`pkg_dir'/qa/-.log" {
-        capture confirm file "`file'"
-        if _rc == 0 {
-            display as error "runtime artifact found: `file'"
-            exit 9
+    foreach folder in "`pkg_dir'" "`pkg_dir'/qa" {
+        foreach ext in log smcl dta xlsx {
+            local debris : dir "`folder'" files "*.`ext'"
+            foreach f of local debris {
+                local allowed = 0
+                if inlist("`f'", "run_all.log", "test_iivw_release_adversarial.log") {
+                    local allowed = 1
+                }
+                if !`allowed' {
+                    display as error "runtime artifact found: `folder'/`f'"
+                    exit 9
+                }
+            }
         }
     }
 }

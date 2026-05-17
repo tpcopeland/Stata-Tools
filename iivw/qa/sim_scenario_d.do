@@ -16,14 +16,23 @@ set varabbrev off
 *
 * Usage:
 *   do iivw/qa/sim_scenario_d.do
+*   do iivw/qa/sim_scenario_d.do manuscript
 *
 * Output:
-*   Displays mean beta, bias, and coverage for each of four estimators
-*   across 1000 replications.
+*   Displays mean beta, bias, and coverage for each of four estimators.
+*   Default QA mode runs a smaller gated simulation; manuscript mode runs
+*   1000 replications.
 *
 * See: iivw_manuscript_2026_05_11_v08.md, Section 4.7
 
 * === Bootstrap ===
+args mode
+if "`mode'" == "" local mode "qa"
+if !inlist("`mode'", "qa", "manuscript") {
+    display as error "mode must be qa or manuscript"
+    exit 198
+}
+
 local qa_dir  "`c(pwd)'"
 local pkg_dir "`qa_dir'/.."
 
@@ -31,18 +40,28 @@ capture ado uninstall iivw
 quietly net install iivw, from("`pkg_dir'") replace
 
 * === Parameters ===
-local n_sims     = 1000
-local n_subjects = 500
+if "`mode'" == "manuscript" {
+    local n_sims     = 1000
+    local n_subjects = 500
+}
+else {
+    local n_sims     = 40
+    local n_subjects = 200
+}
 local true_beta  = 0.5
 local max_visits = 12
 local artifact_mean = 1.5
 local artifact_sd   = 0.5
 local artifact_cap  = 6
+local min_success = floor(0.85 * `n_sims')
+local max_abs_bias = 2
+local min_coverage = 0.4
 
 * === Storage ===
 tempname results
+tempfile sim_results
 postfile `results' int(sim) str20(estimator) double(beta se coverage) ///
-    using "sim_d_results.dta", replace
+    using "`sim_results'", replace
 
 * === Simulation loop ===
 forvalues s = 1/`n_sims' {
@@ -166,9 +185,18 @@ forvalues s = 1/`n_sims' {
 postclose `results'
 
 * === Summarize ===
-use "sim_d_results.dta", clear
+use "`sim_results'", clear
+foreach estimator in "Unweighted" "IIW" "FIPTIW" "FIPTIW + test count" {
+    quietly count if estimator == "`estimator'"
+    if r(N) < `min_success' {
+        display as error "Scenario D estimator `estimator' had only " ///
+            r(N) " successful replications; expected at least `min_success'"
+        exit 9
+    }
+}
+
 display _n "{hline 72}"
-display "Scenario D: Heterogeneous and Saturating Artifact"
+display "Scenario D: Heterogeneous and Saturating Artifact (`mode' mode)"
 display "  N subjects = `n_subjects', N replications = `n_sims'"
 display "  True beta = `true_beta'"
 display "  Artifact coef ~ N(`artifact_mean', `artifact_sd'^2), truncated at 0"
@@ -183,4 +211,20 @@ format mean_coverage %6.3f
 
 list estimator mean_beta bias sd_beta mean_coverage, noobs clean
 
-capture erase "sim_d_results.dta"
+quietly count if missing(mean_beta, bias, sd_beta, mean_coverage)
+if r(N) > 0 {
+    display as error "Scenario D produced missing summary statistics"
+    exit 9
+}
+quietly count if abs(bias) > `max_abs_bias'
+if r(N) > 0 {
+    display as error "Scenario D bias exceeded `max_abs_bias'"
+    exit 9
+}
+quietly count if !inrange(mean_coverage, `min_coverage', 1)
+if r(N) > 0 {
+    display as error "Scenario D coverage outside [`min_coverage', 1]"
+    exit 9
+}
+
+display as result "RESULT: sim_scenario_d estimators=4 reps=`n_sims' min_success=`min_success'"

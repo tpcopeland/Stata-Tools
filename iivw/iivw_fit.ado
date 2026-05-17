@@ -604,6 +604,16 @@ program define iivw_fit, eclass
                     display as text "note: interaction variable name truncated to `ix_name'"
                 }
 
+                local ix_duplicate = 0
+                foreach prev of local ix_vars_created {
+                    if "`ix_name'" == "`prev'" local ix_duplicate = 1
+                }
+                if `ix_duplicate' {
+                    display as error "interaction variable name collision after truncation: `ix_name'"
+                    display as error "rename long interaction variables or use a shorter generate() prefix"
+                    error 198
+                }
+
                 capture confirm variable `ix_name'
                 if _rc == 0 {
                     if "`replace'" == "" {

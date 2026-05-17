@@ -7,11 +7,12 @@ version 16.0
 *   stata-mp -b do iivw/qa/run_all.do   (from Stata-Tools root)
 *   stata-mp -b do run_all.do           (from iivw/qa/)
 *   stata-mp -b do run_all.do quick     (skip R cross-validation lanes)
+*   stata-mp -b do run_all.do sim       (run Scenario D simulation gate only)
 
 args mode
 if "`mode'" == "" local mode "full"
-if !inlist("`mode'", "full", "quick") {
-    display as error "mode must be full or quick"
+if !inlist("`mode'", "full", "quick", "sim") {
+    display as error "mode must be full, quick, or sim"
     exit 198
 }
 
@@ -31,16 +32,22 @@ local repo_dir = subinstr("`pkg_dir'", "/iivw", "", 1)
 * Each sub-suite's bootstrap uses `c(pwd)' to find the package — run from qa
 cd "`qa_dir'"
 
-local suites          ///
-    test_iivw         ///
-    test_iivw_expanded ///
-    validation_iivw    ///
-    validation_iivw_expanded ///
-    validation_iivw_known_answers ///
-    test_iivw_weight_validation_guards ///
-    test_iivw_weight_adversarial ///
-    test_iivw_fit_adversarial ///
-    test_iivw_release_adversarial
+if "`mode'" == "sim" {
+    local suites sim_scenario_d
+}
+else {
+    local suites          ///
+        test_iivw         ///
+        test_iivw_expanded ///
+        validation_iivw    ///
+        validation_iivw_expanded ///
+        validation_iivw_known_answers ///
+        test_iivw_weight_validation_guards ///
+        test_iivw_weight_adversarial ///
+        test_iivw_fit_adversarial ///
+        test_iivw_v105_regressions ///
+        test_iivw_release_adversarial
+}
 
 if "`mode'" == "full" {
     display as text "Generating R references for crossval_iivw.do..."
@@ -56,6 +63,7 @@ if "`mode'" == "full" {
     }
 
     local suites `suites' ///
+        sim_scenario_d ///
         crossval_iivw ///
         crossval_iivw_external
 }

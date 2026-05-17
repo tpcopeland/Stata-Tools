@@ -1,6 +1,6 @@
-*! _psdash_detect Version 1.0.1  2026/05/06
+*! _psdash_detect Version 1.0.2  2026/05/17
 *! Auto-detect propensity score components from estimation context
-*! Author: Timothy P Copeland
+*! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: nclass
 *! Internal helper — not user-facing
 
@@ -128,6 +128,10 @@ program define _psdash_detect
             if ("`_lev1'" == "0" & "`_lev2'" == "1") {
                 local _is_binary01 = 1
             }
+        }
+
+        if !`_is_binary01' {
+            _psdash_validate_levels, levels(`_trt_levels')
         }
 
         * Set multi-group c_locals
@@ -406,6 +410,10 @@ program define _psdash_detect
                 if ("`_lev1'" == "0" & "`_lev2'" == "1") {
                     local _is_binary01 = 1
                 }
+            }
+
+            if !`_is_binary01' {
+                _psdash_validate_levels, levels(`_trt_levels')
             }
 
             c_local _psd_K "`_K'"
@@ -757,6 +765,8 @@ program define _psdash_detect
         local _trt_var "`est_treatment'"
         if "`arg_treatment'" != "" local _trt_var "`arg_treatment'"
         quietly levelsof `_trt_var' `_sv_levelsof', local(_trt_levels)
+
+        _psdash_validate_levels, levels(`_trt_levels')
 
         c_local _psd_multigroup "1"
         c_local _psd_K "`_K'"

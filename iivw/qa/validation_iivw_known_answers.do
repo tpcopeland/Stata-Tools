@@ -9,7 +9,8 @@ version 16.0
 *   stata-mp -b do validation_iivw_known_answers.do
 
 capture log close
-log using "validation_iivw_known_answers.log", replace nomsg
+tempfile validation_log
+log using "`validation_log'", replace nomsg
 
 local here "`c(pwd)'"
 local basename = substr("`here'", strrpos("`here'", "/") + 1, .)

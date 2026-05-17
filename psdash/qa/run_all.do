@@ -39,3 +39,4 @@ foreach f of local suite_files {
 display ""
 display as text "=== QA Summary: `pass' passed, `fail' failed, `skip' skipped ==="
 if `fail' > 0 exit 1
+if `skip' > 0 exit 77

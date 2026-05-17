@@ -1,6 +1,6 @@
-*! _psdash_validate_psvars Version 1.0.1  2026/05/17
+*! _psdash_validate_psvars Version 1.0.2  2026/05/17
 *! Validate multi-group propensity-score variable lists
-*! Author: Timothy P Copeland
+*! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
 *! Internal helper
 
@@ -10,9 +10,10 @@ program define _psdash_validate_psvars, rclass
     set varabbrev off
     capture noisily {
 
-        syntax varlist(numeric), levels(string) k(integer) [SAMPLEvar(varname)]
+        syntax varlist(numeric), levels(string asis) k(integer) [SAMPLEvar(varname)]
 
         local psvars "`varlist'"
+        _psdash_validate_levels, levels(`levels')
         local _n_psvars : word count `psvars'
         if `_n_psvars' != `k' {
             display as error "psvars() requires `k' variables (one per treatment level)"

@@ -71,6 +71,7 @@ capture noisily {
     which _psdash_pscheck
     which _psdash_support_stats
     which _psdash_strip_fv
+    which _psdash_validate_levels
     which _psdash_validate_psvars
     which _psdash_weights_modify
     which _psdash_weights_stats

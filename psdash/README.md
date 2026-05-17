@@ -1,6 +1,6 @@
 # psdash — Propensity Score Diagnostics Dashboard
 
-**Version 1.0.1** | 2026-05-06
+**Version 1.0.2** | 2026-05-17
 
 Unified diagnostics dashboard for propensity score analyses in Stata. After `teffects`, after `logit`/`probit` with manually supplied propensity scores from `predict`, or in fully manual mode, `psdash` assesses the four standard PS diagnostic domains through one command family: overlap between treatment groups (`psdash overlap`), covariate balance before and after weighting (`psdash balance`), weight distribution and effective sample size (`psdash weights`), and common-support regions (`psdash support`). `psdash combined` runs all four and produces a consolidated dashboard.
 
@@ -28,7 +28,7 @@ net install psdash, from("/path/to/psdash") replace
 
 - **After `teffects`**: treatment, covariates, propensity scores, and the implied weighting scheme are auto-detected from `e()`. This is the shortest workflow: fit `teffects`, then run `psdash combined` or one of the individual subcommands.
 - **After `logit`/`probit`**: treatment and covariates are read from the estimation context, but you still supply the PS variable created by `predict`.
-- **After `mlogit` (multi-group)**: for multi-valued treatments, treatment and covariates are auto-detected from `e()`. Run `predict ps1 ps2 ps3, pr` and pass the GPS variables via `psvars(ps1 ps2 ps3)`.
+- **After `mlogit` (multi-group)**: for multi-valued treatments with nonnegative integer levels, treatment and covariates are auto-detected from `e()`. Run `predict ps1 ps2 ps3, pr` and pass the GPS variables via `psvars(ps1 ps2 ps3)`.
 - **Manual mode**: provide treatment and PS explicitly, then pass `covariates()` to balance/combined and `wvar()` to balance/weights/combined when you want to override auto-detection.
 
 When a PS variable is available, `psdash balance` auto-generates IPTW weights for the requested `estimand()` unless you suppress that with `nowvar` or provide `wvar()` yourself.
@@ -119,7 +119,7 @@ For the automatic `teffects` workflow, ATT handling, pre-computed weights, and f
 
 ### Common and multi-group options
 - `estimand(ate|att|atc)` - target estimand for generated weights. Default is `ate`; after `teffects`, the value is read from `e(stat)` unless supplied explicitly.
-- `psvars(varlist)` - generalized propensity scores for multi-group treatments. Provide one probability variable per treatment level, ordered by ascending treatment value.
+- `psvars(varlist)` - generalized propensity scores for multi-group treatments. Provide one probability variable per nonnegative integer treatment level, ordered by ascending treatment value.
 - `reference(#)` - reference treatment level for pairwise multi-group balance and weight summaries. Default is the smallest observed treatment level.
 - `saving(filename)` - save the graph produced by the relevant subcommand. For `combined`, this saves the combined dashboard graph.
 - `scheme(schemename)`, `title(string)`, `name(string)`, `graphoptions(string)` - graph styling options where supported by the subcommand.
@@ -156,7 +156,7 @@ For the automatic `teffects` workflow, ATT handling, pre-computed weights, and f
 - `xlabel(numlist)` - custom x-axis labels for the histogram
 
 ### support
-- `crump` — Crump et al. (2009) optimal trimming
+- `crump` — Crump et al. (2009) optimal trimming for binary treatments; use `threshold()` for multi-group
 - `threshold(#)` — manual PS trimming threshold (0–0.5)
 - `generate(name)` — create an in-support indicator. With `crump` or `threshold()`, this marks the trimmed region; otherwise it marks the empirical common-support interval.
 - `replace` - allow `generate()` to replace an existing variable
@@ -221,5 +221,6 @@ Synthetic data: 1,200 observations, a 3-arm treatment assigned via multinomial l
 
 ## Version History
 
+- **v1.0.2** (17 May 2026): Rejected invalid manual `estimand()` values, added clean multi-group treatment-level validation, isolated remaining QA installs, and made the demo path handling relocatable with failure-safe cleanup.
 - **v1.0.1** (06 May 2026): Hardened PS detection and validation, fixed `teffects` binary PS orientation, K=2 non-0/1 auto-weights, support threshold validation, and binary variance-ratio summaries.
 - **v1.0.0** (29 Apr 2026): Initial release with five subcommands

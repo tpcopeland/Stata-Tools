@@ -4,15 +4,7 @@
 version 16.0
 clear all
 
-* -------------------------------------------------------------------------
-* SETUP: install psdash from local dev directory
-* -------------------------------------------------------------------------
-local pkg_dir = c(pwd)
-if strpos("`pkg_dir'", "/qa") > 0 {
-    local pkg_dir = subinstr("`pkg_dir'", "/qa", "", 1)
-}
-capture ado uninstall psdash
-net install psdash, from("`pkg_dir'") force
+do "`c(pwd)'/_psdash_bootstrap.do"
 
 * -------------------------------------------------------------------------
 * SETUP: simulate 3-group data
@@ -507,5 +499,7 @@ display as text "Multi-Group Balance + Weights: " as result "`n_passed'/`n_tests
 display as text "{hline 50}"
 
 if `n_passed' < `n_tests' {
+    _psdash_qa_cleanup
     exit 9
 }
+_psdash_qa_cleanup

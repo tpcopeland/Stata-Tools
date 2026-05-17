@@ -25,18 +25,40 @@ capture log close _all
 set varabbrev off
 set linesize 120
 
+capture noisily {
+
 * --- Paths ---
-local repo "`c(pwd)'"
-local demo_dir "`repo'/psdash/demo"
+local cwd = subinstr("`c(pwd)'", "\", "/", .)
+local pkg_dir ""
+if fileexists("`cwd'/psdash.pkg") {
+    local pkg_dir "`cwd'"
+}
+else if fileexists("`cwd'/../psdash.pkg") {
+    local pkg_dir = substr("`cwd'", 1, length("`cwd'") - 5)
+}
+else if fileexists("`cwd'/psdash/psdash.pkg") {
+    local pkg_dir "`cwd'/psdash"
+}
+else {
+    display as error "demo_psdash.do must be run from Stata-Tools, psdash, or psdash/demo"
+    exit 601
+}
+local repo = substr("`pkg_dir'", 1, length("`pkg_dir'") - 7)
+local demo_dir "`pkg_dir'/demo"
 capture mkdir "`demo_dir'"
 
 * --- Install local package build ---
 capture ado uninstall psdash
-quietly net install psdash, from("`repo'/psdash") replace
+quietly net install psdash, from("`pkg_dir'") replace
 
 * --- Graph scheme ---
+local tc_dir "`repo'/tc_schemes"
+if !fileexists("`tc_dir'/tc_schemes.pkg") {
+    display as error "tc_schemes package not found at `tc_dir'"
+    exit 601
+}
 capture ado uninstall tc_schemes
-quietly net install tc_schemes, from("`repo'/tc_schemes") replace
+quietly net install tc_schemes, from("`tc_dir'") replace
 set scheme plotplainblind
 
 
@@ -182,8 +204,13 @@ noisily psdash support arm, psvars(ps0 ps1 ps2) threshold(0.1) nograph
 log close mg_support
 
 **# Convert console logs to markdown via logdoc
+local logdoc_dir "`repo'/logdoc"
+if !fileexists("`logdoc_dir'/logdoc.pkg") {
+    display as error "logdoc package not found at `logdoc_dir'"
+    exit 601
+}
 capture ado uninstall logdoc
-quietly net install logdoc, from("`repo'/logdoc") replace
+quietly net install logdoc, from("`logdoc_dir'") replace
 
 foreach f in console_overlap console_balance_weights console_support ///
     console_mg_overlap console_mg_balance console_mg_weights ///
@@ -192,9 +219,14 @@ foreach f in console_overlap console_balance_weights console_support ///
         output("`demo_dir'/`f'.md") format(md) replace quiet
 }
 
+clear
+}
+local _demo_rc = _rc
+
 **# Cleanup
 capture log close _all
+capture graph close _all
 capture drop _psdash_ps
 capture drop _psdash_wt
-clear
 set varabbrev `_demo_varabbrev'
+if `_demo_rc' exit `_demo_rc'

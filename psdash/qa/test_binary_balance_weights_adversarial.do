@@ -729,6 +729,33 @@ else {
     local failed_tests "`failed_tests' N6"
 }
 
+local ++test_count
+capture noisily {
+    clear
+    set obs 8
+    gen byte treat = _n > 4
+    gen double w = cond(treat, 1.2, .9)
+    gen double x = _n
+
+    capture noisily psdash weights treat, wvar(w) estimand(foo)
+    assert _rc == 198
+
+    capture noisily psdash balance treat, covariates(x) wvar(w) estimand(foo)
+    assert _rc == 198
+
+    capture noisily psdash balance treat, covariates(x) nowvar estimand(foo)
+    assert _rc == 198
+}
+if _rc == 0 {
+    display as result "  PASS: N7 manual treatment-only paths reject invalid estimand()"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: N7 invalid estimand() rejection (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' N7"
+}
+
 **# Summary
 
 display as text ""

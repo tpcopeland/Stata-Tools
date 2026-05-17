@@ -86,6 +86,37 @@ capture noisily {
 _doc_result "D2" `=_rc'
 
 local ++test_count
+display as text _n "--- D2b: README documents binary-only Crump trimming ---"
+capture noisily {
+    assert strpos(fileread("`pkg_dir'/README.md"), ///
+        "Crump et al. (2009) optimal trimming for binary treatments") > 0
+    assert strpos(fileread("`pkg_dir'/README.md"), ///
+        "binary treatments; use") > 0
+    assert strpos(fileread("`pkg_dir'/README.md"), ///
+        "threshold()") > 0
+}
+_doc_result "D2b" `=_rc'
+
+local ++test_count
+display as text _n "--- D2c: ado headers use canonical author metadata ---"
+capture noisily {
+    local ado_files psdash.ado psdash_overlap.ado psdash_balance.ado ///
+        psdash_weights.ado psdash_support.ado psdash_combined.ado ///
+        _psdash_balance_binary.ado _psdash_balance_multigroup.ado ///
+        _psdash_detect.ado _psdash_graph_export.ado ///
+        _psdash_manual_detect.ado _psdash_mgps_map.ado ///
+        _psdash_pscheck.ado _psdash_strip_fv.ado ///
+        _psdash_support_stats.ado _psdash_validate_levels.ado ///
+        _psdash_validate_psvars.ado _psdash_weights_modify.ado ///
+        _psdash_weights_stats.ado
+    foreach f of local ado_files {
+        assert strpos(fileread("`pkg_dir'/`f'"), ///
+            "*! Author: Timothy P Copeland, Karolinska Institutet") > 0
+    }
+}
+_doc_result "D2c" `=_rc'
+
+local ++test_count
 display as text _n "--- D3: Stata can resolve installed help ---"
 capture noisily {
     help psdash

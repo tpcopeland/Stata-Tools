@@ -161,7 +161,9 @@ to interact with.
 {pmore}
 Interaction variables are named {cmd:_iivw_ix_{it:covar}_{it:suffix}} where
 {it:suffix} is {cmd:time}, {cmd:tsq}, {cmd:tcu}, or {cmd:tnsN}.  Names
-longer than 32 characters are truncated with a warning.
+longer than 32 characters are truncated with a warning.  If truncation would
+produce duplicate interaction-variable names, {cmd:iivw_fit} stops with an
+error so the model is not fit with a silently collapsed interaction list.
 
 {pmore}
 If a variable in {opt interaction()} is not included in {it:indepvars}, a
@@ -393,6 +395,11 @@ variables were dropped.  Re-run {cmd:iivw_weight} immediately before
 previous {cmd:iivw_fit} call created variables such as {cmd:_iivw_time_sq} or
 {cmd:_iivw_ix_*}.  Add {opt replace} if overwriting those generated variables
 is intended.{p_end}
+
+{phang2}{bf:Interaction variable name collision after truncation.}  Two long
+names in {opt interaction()} truncate to the same generated variable name.
+Rename one of the source variables or use a shorter generated-variable prefix
+from {cmd:iivw_weight, generate()}.{p_end}
 
 {phang2}{bf:No observations.}  The analysis sample becomes empty after
 applying {it:if}/{it:in} restrictions and marking out missing variables,

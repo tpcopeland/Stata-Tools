@@ -57,6 +57,23 @@ program define _setup_bad_psvars
     }
 end
 
+capture program drop _setup_bad_levels
+program define _setup_bad_levels
+    args mode
+    clear
+    set obs 9
+    if "`mode'" == "decimal" {
+        gen double arm = cond(_n <= 3, .5, cond(_n <= 6, 1.5, 2.5))
+    }
+    else {
+        gen double arm = cond(_n <= 3, -1, cond(_n <= 6, 0, 1))
+    }
+    gen double x = _n
+    gen double ps0 = .50
+    gen double ps1 = .30
+    gen double ps2 = .20
+end
+
 **# K=2 Non-0/1 Single PS Regressions
 
 local ++test_count
@@ -235,6 +252,32 @@ if `rc' == 0 {
 }
 else {
     display as error "  FAIL: valid psvars() rows summing to 1 remain accepted (rc=`rc')"
+    local ++fail_count
+}
+
+local ++test_count
+capture noisily {
+    _setup_bad_levels decimal
+    capture noisily psdash overlap arm, psvars(ps0 ps1 ps2) nograph
+    assert _rc == 198
+    capture noisily psdash support arm, psvars(ps0 ps1 ps2) nograph
+    assert _rc == 198
+    capture noisily psdash weights arm, psvars(ps0 ps1 ps2)
+    assert _rc == 198
+    capture noisily psdash balance arm, psvars(ps0 ps1 ps2) covariates(x)
+    assert _rc == 198
+
+    _setup_bad_levels negative
+    capture noisily psdash overlap arm, psvars(ps0 ps1 ps2) nograph
+    assert _rc == 198
+}
+local rc = _rc
+if `rc' == 0 {
+    display as result "  PASS: unsupported multi-group levels fail before result-name construction"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: unsupported multi-group level rejection (rc=`rc')"
     local ++fail_count
 }
 
