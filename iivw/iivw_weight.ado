@@ -1,4 +1,4 @@
-*! iivw_weight Version 1.0.5  2026/05/09
+*! iivw_weight Version 1.0.6  2026/05/18
 *! Compute inverse intensity of visit weights (IIW/IPTW/FIPTIW)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -72,16 +72,6 @@ program define iivw_weight, rclass sortpreserve
 
     local __iivw_created_vars ""
 
-    * Invalidate stored weighting/fitting state before any failure path.
-    * A failed rerun must not leave prior weights looking current.
-    foreach ch in _iivw_weighted _iivw_id _iivw_time _iivw_weighttype ///
-        _iivw_weight_var _iivw_prefix _iivw_treat _iivw_fitted ///
-        _iivw_model _iivw_timespec _iivw_cluster _iivw_time_vars ///
-        _iivw_interaction _iivw_ix_vars _iivw_categorical ///
-        _iivw_cat_vars _iivw_basecat {
-        char _dta[`ch'] ""
-    }
-
     if strlen("`prefix'") > 23 {
         display as error "generate() prefix must be 23 characters or fewer"
         display as error "longer prefixes can make downstream iivw_fit variable names invalid"
@@ -125,11 +115,11 @@ program define iivw_weight, rclass sortpreserve
     }
     if inlist("`wtype'", "iivw", "fiptiw") & "`visit_cov'" == "" {
         display as error "`wtype' requires visit_cov() option"
-        exit 198
+        error 198
     }
     if inlist("`wtype'", "iptw", "fiptiw") & "`treat_cov'" == "" {
         display as error "`wtype' requires treat_cov() option"
-        exit 198
+        error 198
     }
 
     * Note when visit_cov is supplied but ignored for IPTW-only
@@ -204,7 +194,7 @@ program define iivw_weight, rclass sortpreserve
             local n_single = r(N)
             display as error "`n_single' observations belong to subjects with only 1 visit"
             display as error "`wtype' requires at least 2 visits per subject"
-            exit 198
+            error 198
         }
         drop `_nvis'
     }
@@ -254,7 +244,7 @@ program define iivw_weight, rclass sortpreserve
         if r(N) > 0 & r(max) > 0 {
             display as error "treat() must be time-invariant within subjects"
             display as error "for time-varying treatments, consider marginal structural models (MSMs)"
-            exit 198
+            error 198
         }
         drop `_treat_sd'
 
@@ -308,6 +298,17 @@ program define iivw_weight, rclass sortpreserve
     * =========================================================================
     * LAG VARIABLES (if requested)
     * =========================================================================
+
+    * All inputs validated. Invalidate stored weighting/fitting state now so
+    * any error past this point (data mutation, model fit) leaves no stale
+    * metadata. Validation failures above preserve the user's prior weights.
+    foreach ch in _iivw_weighted _iivw_id _iivw_time _iivw_weighttype ///
+        _iivw_weight_var _iivw_prefix _iivw_treat _iivw_fitted ///
+        _iivw_model _iivw_timespec _iivw_cluster _iivw_time_vars ///
+        _iivw_interaction _iivw_ix_vars _iivw_categorical ///
+        _iivw_cat_vars _iivw_basecat {
+        char _dta[`ch'] ""
+    }
 
     local lag_created ""
     if "`lagvars'" != "" {
@@ -496,7 +497,7 @@ program define iivw_weight, rclass sortpreserve
 
         if `__iivw_visit_converged' == 0 {
             display as error "warning: visit intensity Cox model did not converge"
-            display as error "  IIW weights may be unreliable; check model specification"
+            display as text  "  IIW weights may be unreliable; check model specification"
         }
         if "`stabcov'" != "" & `__iivw_stab_converged' == 0 {
             display as error "warning: stabilization Cox model did not converge"
@@ -540,7 +541,6 @@ program define iivw_weight, rclass sortpreserve
             tempvar _ps_tmp
             predict double `_ps_tmp', pr
             keep `id' `_ps_tmp'
-            bysort `id': keep if _n == 1
             save `__iivw_psfile', replace
         }
         local logit_rc = _rc
@@ -567,13 +567,11 @@ program define iivw_weight, rclass sortpreserve
 
         quietly {
             merge m:1 `id' using `__iivw_psfile', nogen assert(match)
-            tempvar _ps
-            rename `_ps_tmp' `_ps'
 
             * Warn about extreme propensity scores
-            count if `_ps' < 0.01 & !missing(`_ps')
+            count if `_ps_tmp' < 0.01 & !missing(`_ps_tmp')
             local n_ps_lo = r(N)
-            count if `_ps' > 0.99 & !missing(`_ps')
+            count if `_ps_tmp' > 0.99 & !missing(`_ps_tmp')
             local n_ps_hi = r(N)
             if `n_ps_lo' > 0 | `n_ps_hi' > 0 {
                 local n_ps_extreme = `n_ps_lo' + `n_ps_hi'
@@ -587,12 +585,12 @@ program define iivw_weight, rclass sortpreserve
             local p_treat = r(mean)
 
             gen double `prefix'tw = .
-            replace `prefix'tw = `p_treat' / `_ps' ///
-                if `treat' == 1 & !missing(`treat', `_ps')
-            replace `prefix'tw = (1 - `p_treat') / (1 - `_ps') ///
-                if `treat' == 0 & !missing(`treat', `_ps')
+            replace `prefix'tw = `p_treat' / `_ps_tmp' ///
+                if `treat' == 1 & !missing(`treat', `_ps_tmp')
+            replace `prefix'tw = (1 - `p_treat') / (1 - `_ps_tmp') ///
+                if `treat' == 0 & !missing(`treat', `_ps_tmp')
 
-            drop `_ps'
+            drop `_ps_tmp'
             label variable `prefix'tw "Inverse probability of treatment weight"
             local __iivw_created_vars "`__iivw_created_vars' `prefix'tw"
         }
@@ -763,8 +761,6 @@ program define iivw_weight, rclass sortpreserve
             local __iivw_drop_rc = _rc
         }
     }
-    capture drop `_obsno'
-    local __iivw_drop_rc = _rc
     set varabbrev `__iivw_old_varabbrev'
     if `rc' exit `rc'
 end

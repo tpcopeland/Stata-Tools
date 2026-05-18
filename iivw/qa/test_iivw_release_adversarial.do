@@ -140,11 +140,11 @@ end
 
 local ++test_count
 capture noisily {
-    local version "1.0.5"
-    local ado_date "2026/05/09"
-    local sthlp_date "09may2026"
-    local iso_date "2026-05-09"
-    local pkg_date "20260509"
+    local version "1.0.6"
+    local ado_date "2026/05/18"
+    local sthlp_date "18may2026"
+    local iso_date "2026-05-18"
+    local pkg_date "20260518"
 
     _qa_iivw_must_contain, file("`pkg_dir'/README.md") ///
         pattern("**Version `version'** | `iso_date'")
@@ -283,7 +283,8 @@ capture noisily {
             local debris : dir "`folder'" files "*.`ext'"
             foreach f of local debris {
                 local allowed = 0
-                if inlist("`f'", "run_all.log", "test_iivw_release_adversarial.log") {
+                if inlist("`f'", "run_all.log", "test_iivw_release_adversarial.log", ///
+                    "test_iivw_v105_regressions.log", "test_iivw_v106_regressions.log") {
                     local allowed = 1
                 }
                 if !`allowed' {
@@ -382,7 +383,7 @@ capture noisily {
 
     iivw
     assert r(n_commands) == 2
-    assert "`r(version)'" == "1.0.5"
+    assert "`r(version)'" == "1.0.6"
 
     iivw_weight, id(id) time(days) visit_cov(edss relapse) nolog
     assert "`r(weighttype)'" == "iivw"

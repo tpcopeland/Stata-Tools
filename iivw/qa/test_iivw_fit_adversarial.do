@@ -436,7 +436,7 @@ if `run_only' == 0 | `run_only' == 12 {
     }
 }
 
-**## 13. e() remains coherent after failed refit
+**## 13. e() and fit metadata preserved after failed-validation refit (v1.0.6+)
 local ++test_count
 if `run_only' == 0 | `run_only' == 13 {
     capture noisily {
@@ -452,13 +452,12 @@ if `run_only' == 0 | `run_only' == 13 {
         assert "`e(iivw_model)'" == "`model_before'"
         assert reldif(_b[severity], b_before) < 1e-12
 
-        local fitted : char _dta[_iivw_fitted]
-        local ts : char _dta[_iivw_timespec]
-        assert "`fitted'" == ""
-        assert "`ts'" == ""
+        * v1.0.6+: validation-stage failures preserve fit metadata too
+        assert "`: char _dta[_iivw_fitted]'"   == "1"
+        assert "`: char _dta[_iivw_timespec]'" == "linear"
     }
     if _rc == 0 {
-        display as result "  PASS: A13 - e() coherent after failed refit"
+        display as result "  PASS: A13 - e() and fit metadata preserved after failed validation"
         local ++pass_count
     }
     else {

@@ -555,7 +555,7 @@ if `run_only' == 0 | `run_only' == 12 {
     }
 }
 
-* Test 13: failed rerun clears stale metadata characteristics
+* Test 13: failed validation-stage rerun preserves prior metadata (v1.0.6+)
 local ++test_count
 if `run_only' == 0 | `run_only' == 13 {
     capture noisily {
@@ -569,14 +569,13 @@ if `run_only' == 0 | `run_only' == 13 {
             visit_cov(severity) treat(bad_treat) treat_cov(sev_bl) ///
             generate(bad_) nolog
         assert _rc == 198
-        foreach ch in _iivw_weighted _iivw_id _iivw_time _iivw_weighttype ///
-            _iivw_weight_var _iivw_prefix _iivw_treat {
-            local val : char _dta[`ch']
-            assert "`val'" == ""
-        }
+        * v1.0.6+: validation-stage failure preserves prior metadata
+        assert "`: char _dta[_iivw_weighted]'"   == "1"
+        assert "`: char _dta[_iivw_weighttype]'" == "iivw"
+        assert "`: char _dta[_iivw_weight_var]'" == "_iivw_weight"
     }
     if _rc == 0 {
-        display as result "  PASS: 13 - failed rerun clears metadata"
+        display as result "  PASS: 13 - failed validation preserves prior metadata"
         local ++pass_count
     }
     else {

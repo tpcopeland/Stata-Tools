@@ -1,4 +1,4 @@
-*! iivw_fit Version 1.0.5  2026/05/09
+*! iivw_fit Version 1.0.6  2026/05/18
 *! Fit weighted outcome model for IIW/IPTW/FIPTIW analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: eclass (returns results in e())
@@ -56,14 +56,6 @@ program define iivw_fit, eclass
     * =========================================================================
     * CHECK PREREQUISITES
     * =========================================================================
-
-    * Clear prior fit metadata before validation. A failed refit should not
-    * leave stale model settings behind.
-    foreach ch in _iivw_fitted _iivw_model _iivw_timespec _iivw_cluster ///
-        _iivw_time_vars _iivw_interaction _iivw_ix_vars ///
-        _iivw_categorical _iivw_cat_vars _iivw_basecat {
-        char _dta[`ch'] ""
-    }
 
     _iivw_check_weighted
     _iivw_get_settings
@@ -144,6 +136,21 @@ program define iivw_fit, eclass
         error 198
     }
 
+    * Reject panel time variable in indepvars when timespec auto-adds it.
+    * Including both produces a duplicate column (silently dropped as
+    * collinear by glm/mixed) and a misleading row in the effects table.
+    if "`timespec'" != "none" {
+        foreach ipred of local indepvars {
+            if "`ipred'" == "`panel_time'" {
+                display as error ///
+                    "`panel_time' (panel time variable) is in indepvars but timespec(`timespec') also adds it"
+                display as error ///
+                    "  remove `panel_time' from indepvars, or use timespec(none) to suppress automatic time terms"
+                error 198
+            }
+        }
+    }
+
     * Validate categorical/basecat options
     if "`basecat'" != "" & "`categorical'" == "" {
         display as error "basecat() requires categorical()"
@@ -211,6 +218,15 @@ program define iivw_fit, eclass
     * =========================================================================
     * BUILD TIME SPECIFICATION VARIABLES
     * =========================================================================
+
+    * All inputs validated. Clear prior fit metadata now so that any error
+    * past this point (data mutation or model fit) leaves no stale settings.
+    * Validation-stage failures (above) preserve the user's prior fit state.
+    foreach ch in _iivw_fitted _iivw_model _iivw_timespec _iivw_cluster ///
+        _iivw_time_vars _iivw_interaction _iivw_ix_vars ///
+        _iivw_categorical _iivw_cat_vars _iivw_basecat {
+        char _dta[`ch'] ""
+    }
 
     local time_vars ""
     local time_vars_created ""
@@ -694,7 +710,7 @@ program define iivw_fit, eclass
 
         if `bootstrap' == 0 & e(converged) == 0 {
             display as error "warning: GEE outcome model did not converge"
-            display as error "  results may be unreliable; check model specification"
+            display as text  "  results may be unreliable; check model specification"
         }
     }
     else if "`model'" == "mixed" {
@@ -717,7 +733,7 @@ program define iivw_fit, eclass
 
         if `bootstrap' == 0 & e(converged) == 0 {
             display as error "warning: mixed outcome model did not converge"
-            display as error "  results may be unreliable; check model specification"
+            display as text  "  results may be unreliable; check model specification"
         }
     }
 
@@ -757,7 +773,14 @@ program define iivw_fit, eclass
         _col(65) "{ralign 6:P}"
     display as text "{hline 70}"
 
-    foreach pred of local all_covars {
+    * Build list with intercept first when present
+    local table_terms "`all_covars'"
+    capture local _cons_b = _b[_cons]
+    if _rc == 0 {
+        local table_terms "_cons `all_covars'"
+    }
+
+    foreach pred of local table_terms {
         local b_val = .
         local se_val = 0
         capture local b_val = _b[`pred']
@@ -765,19 +788,25 @@ program define iivw_fit, eclass
         capture local se_val = _se[`pred']
         local se_rc = _rc
         local coef_rc = max(`b_rc', `se_rc')
+
+        * Use variable label if available, else variable name (or "Intercept"
+        * for the model constant, which is not a real variable).
+        if "`pred'" == "_cons" {
+            local vlab "Intercept"
+        }
+        else {
+            local vlab : variable label `pred'
+            if `"`vlab'"' == "" local vlab "`pred'"
+        }
+        if strlen(`"`vlab'"') > 18 {
+            local vlab = substr(`"`vlab'"', 1, 16) + ".."
+        }
+
         if `coef_rc' == 0 & `se_val' > 0 & `se_val' < . {
             local z_val = `b_val' / `se_val'
             local p_val = 2 * normal(-abs(`z_val'))
             local ci_lo = `b_val' - invnormal((100+`level')/200) * `se_val'
             local ci_hi = `b_val' + invnormal((100+`level')/200) * `se_val'
-
-            * Use variable label if available, else variable name
-            local vlab : variable label `pred'
-            if `"`vlab'"' == "" local vlab "`pred'"
-            * Truncate long labels
-            if strlen(`"`vlab'"') > 18 {
-                local vlab = substr(`"`vlab'"', 1, 16) + ".."
-            }
 
             * Format p-value
             if `p_val' < 0.001 {
@@ -794,6 +823,12 @@ program define iivw_fit, eclass
                 _col(47) %7.4f `ci_lo' as text "," ///
                 as result %7.4f `ci_hi' ///
                 as text _col(65) "{ralign 6:`p_fmt'}"
+        }
+        else {
+            * Lookup failed (collinear-dropped or otherwise unestimated).
+            * Show a visible "(omitted)" row so the user notices the gap.
+            display as text _col(4) "{ralign 18:`vlab'}" ///
+                _col(24) "{ralign 41:(omitted)}"
         }
     }
 

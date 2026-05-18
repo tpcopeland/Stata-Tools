@@ -190,12 +190,14 @@ capture noisily {
     replace time = . in 2
     capture noisily iivw_weight, id(id) time(time) visit_cov(x z) replace nolog
     assert _rc == 198
-    assert "`: char _dta[_iivw_weighted]'" == ""
+    * v1.0.6+: validation-stage failures preserve prior weighting metadata
+    assert "`: char _dta[_iivw_weighted]'" == "1"
+    * iivw_fit can still use the prior valid weighting
     capture noisily iivw_fit x z, nolog
-    assert _rc == 198
+    assert _rc == 0
 }
 if _rc == 0 {
-    display as result "  PASS: failed validation invalidates stale weighting metadata"
+    display as result "  PASS: failed validation preserves prior weighting metadata (v1.0.6 behavior)"
     local ++pass_count
 }
 else {

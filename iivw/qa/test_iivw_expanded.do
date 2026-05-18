@@ -834,7 +834,8 @@ if `run_only' == 0 | `run_only' == 25 {
 }
 
 * =============================================================================
-* E26: Failed reweight invalidates stored metadata and blocks stale fit reuse
+* E26: Failed validation-stage reweight preserves prior weighting metadata
+* (v1.0.6+: validation failures no longer wipe; only post-validation errors do)
 * =============================================================================
 local ++test_count
 if `run_only' == 0 | `run_only' == 26 {
@@ -847,18 +848,20 @@ if `run_only' == 0 | `run_only' == 26 {
             treat(bad_treat) generate(wx_) nolog
         assert _rc == 198
 
+        * Validation-stage failure preserves prior weights and metadata
         local weighted : char _dta[_iivw_weighted]
         local wvar : char _dta[_iivw_weight_var]
         local wtype : char _dta[_iivw_weighttype]
-        assert "`weighted'" == ""
-        assert "`wvar'" == ""
-        assert "`wtype'" == ""
+        assert "`weighted'" == "1"
+        assert "`wvar'" == "_iivw_weight"
+        assert "`wtype'" == "iivw"
 
-        capture iivw_fit event severity, model(gee) timespec(linear) nolog
-        assert _rc == 198
+        * iivw_fit can still use the still-valid prior weighting
+        iivw_fit event severity, model(gee) timespec(linear) nolog
+        assert "`e(iivw_weighttype)'" == "iivw"
     }
     if _rc == 0 {
-        display as result "  PASS: E26 - Failed reweight invalidates stale metadata"
+        display as result "  PASS: E26 - Failed validation preserves prior weighting metadata"
         local ++pass_count
     }
     else {

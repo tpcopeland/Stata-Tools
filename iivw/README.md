@@ -1,6 +1,6 @@
 # iivw - Inverse intensity of visit weighting for longitudinal data
 
-**Version 1.0.5** | 2026-05-09
+**Version 1.0.6** | 2026-05-18
 
 `iivw` corrects bias from informative visit timing in irregular longitudinal data.  In clinic-based studies, sicker patients often visit more frequently, so they contribute more rows to the dataset and bias naive analyses.  This package re-weights each observation so the fitted outcome model targets the patient population more directly rather than the clinic-visit process.
 
@@ -273,6 +273,16 @@ do iivw/demo/demo_iivw.do
 - Tompkins G, Dubin JA, Wallace M. On flexible inverse probability of treatment and intensity weighting. *Statistical Methods in Medical Research*. 2025.
 
 ## Changelog
+
+### v1.0.6 (2026-05-18)
+
+- Rejected the panel time variable in `iivw_fit` `indepvars` when `timespec()` also adds it (prevents silent collinear duplication)
+- Deferred `iivw_weight` and `iivw_fit` metadata wipes past input validation so validation-stage failures preserve prior weights/fit state
+- Formatted effects table now shows an `(omitted)` row for predictors dropped by the estimator instead of silently skipping them
+- Added an Intercept row to the formatted effects table
+- Fixed `iivw_weight.sthlp` abbreviation documentation for `treat_cov()` (was full-form-only, now `treat_c:ov` to match the .ado minimum)
+- Softened convergence-warning advisory lines from `as error` to `as text`; standardized `exit 198` → `error 198` and removed a dead post-filter line
+- Added v1.0.6 regression QA covering all of the above
 
 ### v1.0.5 (2026-05-09)
 
