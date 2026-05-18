@@ -142,17 +142,39 @@ capture noisily {
     assert "`r(treatment)'" == "treat"
     assert "`r(estimand)'" == "att"
     assert "`r(wvar)'" == "auto-generated"
+
+    psdash support, nograph
+    assert r(N) == 120
+    assert "`r(treatment)'" == "treat"
+    assert "`r(psvar)'" == "_tmle_ps"
 }
-_tmlect_result tmle_contract_autodetects_cross_sectional_inputs `=_rc'
+_tmlect_result tmle_contract_autodetects_individual_subcommands `=_rc'
+
+local ++test_count
+capture noisily {
+    _tmlect_cross_sectional_data
+    _fake_tmle_contract
+    capture graph drop _all
+    psdash combined
+    assert "`r(source)'" == "tmle"
+    assert "`r(treatment)'" == "treat"
+    assert "`r(psvar)'" == "_tmle_ps"
+    assert "`r(estimand)'" == "att"
+    assert r(N) == 120
+    assert r(pct_outside) >= 0
+}
+_tmlect_result tmle_contract_uses_cross_sectional_combined_path `=_rc'
 
 local ++test_count
 capture noisily {
     _tmlect_longitudinal_data
     _fake_ltmle_contract
     local vabbrev_before "`c(varabbrev)'"
-    capture noisily psdash overlap
-    assert _rc == 198
-    assert "`c(varabbrev)'" == "`vabbrev_before'"
+    foreach subcmd in overlap balance weights support {
+        capture noisily psdash `subcmd'
+        assert _rc == 198
+        assert "`c(varabbrev)'" == "`vabbrev_before'"
+    }
 
     psdash combined
     assert "`c(varabbrev)'" == "`vabbrev_before'"
