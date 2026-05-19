@@ -7,7 +7,7 @@ version 16.0
 *   stata-mp -b do iivw/qa/run_all.do   (from Stata-Tools root)
 *   stata-mp -b do run_all.do           (from iivw/qa/)
 *   stata-mp -b do run_all.do quick     (skip R cross-validation lanes)
-*   stata-mp -b do run_all.do sim       (run Scenario D simulation gate only)
+*   stata-mp -b do run_all.do sim       (run simulation gates: Scenarios A-D)
 
 args mode
 if "`mode'" == "" local mode "full"
@@ -33,7 +33,7 @@ local repo_dir = subinstr("`pkg_dir'", "/iivw", "", 1)
 cd "`qa_dir'"
 
 if "`mode'" == "sim" {
-    local suites sim_scenario_d
+    local suites sim_scenarios_abc sim_scenario_d
 }
 else {
     local suites          ///
@@ -64,6 +64,7 @@ if "`mode'" == "full" {
     }
 
     local suites `suites' ///
+        sim_scenarios_abc ///
         sim_scenario_d ///
         crossval_iivw ///
         crossval_iivw_external
