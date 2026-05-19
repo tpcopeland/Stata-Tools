@@ -87,7 +87,8 @@ display as result "PASS: positional parser errors"
 local ++test_count
 use "`master'", clear
 foreach opt in "closed(open)" "nearest(side)" "ties(middle)" ///
-    "ties(first)" "unmatched(bad)" "tolerance(-1)" "tolerance(.)" {
+    "ties(first)" "unmatched(bad)" "tolerance(-1)" "tolerance(.)" ///
+    "maxpairs(-1)" "maxpairs(-1000)" {
     capture noisily rangematch keyval lo hi using "`using'", `opt'
     assert _rc == 198
     _rm_no_internal_frames

@@ -117,8 +117,14 @@ program define _rangematch_display_timing
             _col(44) as result %12.3fc `loadtime'
         display as text "    Match" ///
             _col(44) as result %12.3fc `matchtime'
-        display as text "    Materialize" ///
-            _col(44) as result %12.3fc `materializetime'
+        if `materializetime' >= . {
+            display as text "    Materialize" ///
+                _col(44) as result "     (skipped)"
+        }
+        else {
+            display as text "    Materialize" ///
+                _col(44) as result %12.3fc `materializetime'
+        }
         capture timer clear 91
         capture timer clear 92
         capture timer clear 93
@@ -814,6 +820,11 @@ program define rangematch, rclass
         exit 198
     }
 
+    if `maxpairs' < 0 {
+        display as error "maxpairs() must be a nonnegative integer"
+        exit 198
+    }
+
     if `"`missing'"' == "" local missing "wildcard"
     local missing = lower(`"`missing'"')
     if !inlist(`"`missing'"', "wildcard", "drop", "error") {
@@ -1165,7 +1176,7 @@ program define rangematch, rclass
             local _rm_t_load = r(t91)
             quietly timer list 92
             local _rm_t_match = r(t92)
-            local _rm_t_materialize = 0
+            local _rm_t_materialize = .
             _rangematch_display_timing, loadtime(`_rm_t_load') ///
                 matchtime(`_rm_t_match') ///
                 materializetime(`_rm_t_materialize')

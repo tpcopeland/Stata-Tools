@@ -219,8 +219,7 @@ rows themselves never appear in the output and do not trip {opt as:sert(match)}.
 The count of master rows with missing variable bounds is always posted in
 {cmd:r(N_missing_bounds)}; under {opt miss:ing(drop)}, {cmd:r(N_master)} is the
 post-drop master count, and {cmd:r(N_master) + r(N_missing_bounds)} recovers
-the pre-drop master count only when no other filter (an {cmd:if} or {cmd:in}
-clause) excluded rows.
+the post-{cmd:if}/{cmd:in}, pre-drop master count.
 
 {phang}
 {opt near:est(before|after|both)} keeps only nearest using observations within

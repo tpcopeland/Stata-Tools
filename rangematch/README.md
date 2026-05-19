@@ -203,7 +203,7 @@ rangematch event_date . 30 using `events'
 | `stats` | Display match-density diagnostics, including p50/p90/p99 matches per master row, and post match-density stored results. Core count results are posted even without `stats`. |
 | `closed(both|left|right|none)` | Control endpoint closure: `both` = `[lo,hi]`, `left` = `[lo,hi)`, `right` = `(lo,hi]`, `none` = `(lo,hi)`. |
 | `tolerance(#)` | Apply a nonnegative boundary-comparison tolerance for floating-point keys; default is `0`. |
-| `missing(wildcard|drop|error)` | Policy for master rows with a missing variable bound: `wildcard` (default) treats missing as open-ended on that side; `drop` removes those rows before matching; `error` aborts. Applies only to bound variables; literal `.` is unaffected. If `drop` empties an entire `by()` group from master, the corresponding using rows still surface under `unmatched(using|both)` and trip `assert(using)`. `r(N_master)` is the post-drop count; `r(N_master) + r(N_missing_bounds)` recovers the pre-drop count only when no `if`/`in` clause was applied. |
+| `missing(wildcard|drop|error)` | Policy for master rows with a missing variable bound: `wildcard` (default) treats missing as open-ended on that side; `drop` removes those rows before matching; `error` aborts. Applies only to bound variables; literal `.` is unaffected. If `drop` empties an entire `by()` group from master, the corresponding using rows still surface under `unmatched(using|both)` and trip `assert(using)`. `r(N_master)` is the post-drop count; `r(N_master) + r(N_missing_bounds)` recovers the post-`if`/`in`, pre-drop master count. |
 | `nearest(before|after|both)` | Keep nearest using observations within the interval relative to the master key. |
 | `ties(all|first|last)` | Tie handling for `nearest()`; default is `all`. |
 | `assert(match|using)` | Abort if every master row must match (`match`), every using row must match (`using`), or both. |
@@ -289,7 +289,7 @@ rangematch event_date . 30 using `events'
 - `tolerance(#)` expands lower and upper boundary comparisons by `#` to absorb floating-point representation noise; it is not a statistical matching rule.
 - Output is sorted by original master row and original using row by default; `nosort` skips this final sort.
 - `dryrun` and `count` are aliases. They never replace data and never write a frame.
-- With `by()`, `rangematch` warns when more than half of master by-groups have no using rows.
+- With `by()` and `stats`, `rangematch` warns when more than half of master by-groups have no using rows.
 
 ## Performance
 
