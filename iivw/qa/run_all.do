@@ -47,6 +47,7 @@ else {
         test_iivw_fit_adversarial ///
         test_iivw_v105_regressions ///
         test_iivw_v106_regressions ///
+        test_iivw_final_adversarial ///
         test_iivw_release_adversarial
 }
 

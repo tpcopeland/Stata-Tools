@@ -284,7 +284,8 @@ capture noisily {
             foreach f of local debris {
                 local allowed = 0
                 if inlist("`f'", "run_all.log", "test_iivw_release_adversarial.log", ///
-                    "test_iivw_v105_regressions.log", "test_iivw_v106_regressions.log") {
+                    "test_iivw_v105_regressions.log", "test_iivw_v106_regressions.log", ///
+                    "test_iivw_final_adversarial.log") {
                     local allowed = 1
                 }
                 if !`allowed' {
