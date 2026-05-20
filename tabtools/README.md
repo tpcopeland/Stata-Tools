@@ -1,6 +1,6 @@
 # tabtools - Publication-ready Excel tables across common Stata workflows
 
-**Version 1.1.0** | 2026-05-13
+**Version 1.2.0** | 2026-05-20
 
 `tabtools` is a suite of Stata commands for exporting manuscript-ready tables to Excel across descriptive summaries, regression models, treatment effects, survival analysis, diagnostic accuracy workflows, incidence rates, and composite tables. The package is organized around a shared formatting layer, so commands that come from very different analysis pipelines still produce tables that look like they belong in the same workbook.
 
@@ -225,6 +225,50 @@ Total commands: 12
  Prior cardiovascular disease 0.98       (0.92, 1.05)  0.63
 ```
 
+Compact layout keeps p-values but combines the point estimate and confidence interval:
+
+```stata
+. regtab, coef("OR") noint compact display
+```
+
+```
+                              Model
+──────────────────────────────────────────────────────────
+                              OR 95% CI          p-value
+ Age at cohort entry (years)  1.00 (1.00, 1.00)  0.27
+ Female sex                   0.99 (0.93, 1.06)  0.84
+ Education level
+   Primary                    Reference
+   Secondary                  1.02 (0.94, 1.11)  0.66
+   Tertiary                   1.09 (1.00, 1.18)  0.053
+ Diabetes                     1.01 (0.94, 1.08)  0.78
+ Hypertension                 1.10 (1.03, 1.17)  0.005
+ Anxiety disorder             1.00 (0.93, 1.08)  0.96
+ Prior cardiovascular disease 0.98 (0.92, 1.05)  0.63
+```
+
+The `nopvalue` option suppresses p-value columns:
+
+```stata
+. regtab, coef("OR") noint nopvalue display
+```
+
+```
+                              Model
+───────────────────────────────────────────────────────
+                              OR         95% CI
+ Age at cohort entry (years)  1.00       (1.00, 1.00)
+ Female sex                   0.99       (0.93, 1.06)
+ Education level
+   Primary                    Reference
+   Secondary                  1.02       (0.94, 1.11)
+   Tertiary                   1.09       (1.00, 1.18)
+ Diabetes                     1.01       (0.94, 1.08)
+ Hypertension                 1.10       (1.03, 1.17)
+ Anxiety disorder             1.00       (0.93, 1.08)
+ Prior cardiovascular disease 0.98       (0.92, 1.05)
+```
+
 ### corrtab — Correlation matrix
 
 ```stata
@@ -310,13 +354,13 @@ tabtools: all persistent defaults cleared
 
 ### Excel workbooks
 
-The demo generates 11 workbooks (53 sheets) covering every command and option combination:
+The demo generates 11 workbooks (55 sheets) covering every command and option combination:
 
 | Workbook | Sheets | Contents |
 |----------|--------|----------|
 | `demo_table1.xlsx` | 11 | table1_tc variants: basic, total, weighted, wtcompare, SMD, formats, missing, custom symbols, NEJM/BMJ/APA themes |
 | `demo_desctab.xlsx` | 6 | desctab: default unshaded exports, explicit shaded styling, events / N (%), mean (SD), median (IQR), separate statistic columns, and custom compose templates |
-| `demo_regtab.xlsx` | 11 | regtab: logistic, multi-model, Cox, mixed, CDISC, Poisson, GEE QIC, advanced formatting, keep/drop, addrow |
+| `demo_regtab.xlsx` | 13 | regtab: logistic, compact, nopvalue, multi-model, Cox, mixed, CDISC, Poisson, GEE QIC, advanced formatting, keep/drop, addrow |
 | `demo_effecttab.xlsx` | 4 | effecttab: ATE (IPW), IPW vs AIPW comparison, margins, average marginal effects |
 | `demo_comptab.xlsx` | 5 | comptab: source frames, composite, compact with sections, name-based row selection |
 | `demo_survtab.xlsx` | 3 | survtab: KM + median, RMST + difference, cumulative incidence |
@@ -335,6 +379,7 @@ The demo generates 11 workbooks (53 sheets) covering every command and option co
 
 ## Version History
 
+- **1.2.0** (2026-05-20): Add `regtab, nopvalue` to suppress p-value columns from console, frame, CSV, and Excel outputs while preserving internal p-values for significance stars and row highlighting.
 - **1.1.0** (2026-05-13): Add `desctab`, a formatter for active `table` collections with per-statistic number formats, `events / N (%)` and other composite cells, Excel/CSV/frame/display outputs, and shared tabtools styling defaults.
 - **1.0.15** (2026-05-07): Fix `regtab` ICC cross-pollution where a multi-model collection ending in `mepoisson`/`menbreg` silently suppressed ICC for all earlier mixed-effects models (now skipped per-model). Strip thousands separators from coefficient and CI cells so `digits()`, `stars`, `boldp`, `dimnonsig`, and `r(table)` work for coefficients ≥ 1000. Make reference-category detection match the underlying numeric value (0 or 1 with empty CI) instead of the rendered string, so non-default precision still labels rows "Reference". Emit a noisily warning when the per-model stats fallback fires for a multi-model collection. Document `table1_tc` reserved `by()` variable name prefixes (`N_`, `m_`, `_c…`). Plug a Mata workspace leak in `table1_tc` Excel error path. Use a tempname instead of the literal `beatles` value-label fallback. Replace ad-hoc `…2` suffix scratch columns in `headerperc` with tempvars to avoid name collisions. Move integer check before `recast long, force` to prevent silent truncation. Sthlp `boldp` colon-position fix.
 - **1.0.14** (2026-05-05): Add QIC (Quasi-likelihood Information Criterion) support to `regtab` for GEE models. When `stats(aic)` is requested after `xtgee`, QIC is automatically computed and displayed since AIC is undefined for quasi-likelihood estimators. QIC can also be requested explicitly via `stats(qic)`.

@@ -1,4 +1,4 @@
-*! _tabtools_common Version 1.1.0  2026/05/13
+*! _tabtools_common Version 1.2.0  2026/05/20
 *! Shared utility programs for tabtools package
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -28,7 +28,7 @@ PROGRAMS INCLUDED:
 USAGE:
     These programs are called internally by tabtools commands (table1_tc, regtab,
     effecttab, stratetab, hrcomptab, and others). They are not intended for direct use.
-    Callers set varabbrev off; helpers do not need to set it independently.
+    Callers manage variable-abbreviation state; helpers do not set it independently.
 */
 
 * =============================================================================

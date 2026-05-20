@@ -70,6 +70,7 @@ tabtools - Publication-Ready Table Export Suite
 
 **Descriptive Statistics**
   table1_tc    - Table 1 with automatic statistical tests
+  desctab      - Format descriptive table collects
   crosstab     - Cross-tabulation with association measures
   corrtab      - Correlation matrix with significance
 
@@ -94,7 +95,7 @@ tabtools - Publication-Ready Table Export Suite
   tabtools     - Suite controller and persistent defaults
 
 ──────────────────────────────────────────────────────────────────────
-Total commands: 11
+Total commands: 12
 
 Help:     help tabtools for overview
           help <command> for individual command help
@@ -119,6 +120,10 @@ tabtools - Publication-Ready Table Export Suite
                exact) based on variable type and distribution.
                Supports continuous, categorical, and binary
                variables with customizable formatting.
+
+  desctab      Format an active table collect with per-statistic
+               number formats and optional composite cells such
+               as events / N (%).
 
   crosstab     Cross-tabulation with row/column percentages
                and association measures. Supports chi-square,
@@ -235,6 +240,67 @@ tabtools - Publication-Ready Table Export Suite
 ```
 
 ```stata
+. noisily table1_tc, by(treated)
+>     vars(index_age contn %5.1f \ female bin \
+>          education cat \ income_quintile cat \
+>          born_abroad bin \ diabetes bin \ hypertension bin)
+>     nopvalue smd
+```
+
+```
+  ┌───────────────────────────────────────────────────────────────────────┐
+  │                               SSRI            SNRI            SMD     │
+  ├───────────────────────────────────────────────────────────────────────┤
+  │ No. (Column %) or Mean (SD)   N=8,934         N=6,066                 │
+  ├───────────────────────────────────────────────────────────────────────┤
+  │ Age at cohort entry (years)   58.3 (13.4)     58.5 (13.3)     0.019   │
+  ├───────────────────────────────────────────────────────────────────────┤
+  │ Female sex                    5,351 (59.9%)   3,621 (59.7%)           │
+  ├───────────────────────────────────────────────────────────────────────┤
+  │ Education level                                                       │
+  │    Primary                    2,333 (26.1%)   1,527 (25.2%)           │
+  │    Secondary                  3,530 (39.5%)   2,354 (38.8%)           │
+  │    Tertiary                   3,071 (34.4%)   2,185 (36.0%)           │
+  ├───────────────────────────────────────────────────────────────────────┤
+  │ Disposable income quintile                                            │
+  │    1                          1,778 (19.9%)   1,175 (19.4%)           │
+  │    2                          1,783 (20.0%)   1,249 (20.6%)           │
+  │    3                          1,769 (19.8%)   1,228 (20.2%)           │
+  │    4                          1,786 (20.0%)   1,209 (19.9%)           │
+  │    5                          1,818 (20.3%)   1,205 (19.9%)           │
+  ├───────────────────────────────────────────────────────────────────────┤
+  │ Born outside Sweden           1,362 (15.2%)   897 (14.8%)             │
+  ├───────────────────────────────────────────────────────────────────────┤
+  │ Diabetes                      4,107 (46.0%)   2,818 (46.5%)           │
+  ├───────────────────────────────────────────────────────────────────────┤
+  │ Hypertension                  4,112 (46.0%)   2,935 (48.4%)           │
+  └───────────────────────────────────────────────────────────────────────┘
+```
+
+```stata
+. log off demo
+```
+
+```stata
+. noisily desctab, compose(events_n_pct) display pctdigits(1)
+```
+
+```
+
+ Education level Value
+─────────────────────────────────────────
+   Primary       1,317 / 3,860 (34.1%)
+   Secondary     2,077 / 5,884 (35.3%)
+   Tertiary      1,855 / 5,256 (35.3%)
+   Total         5,249 / 15,000 (35.0%)
+
+```
+
+```stata
+. log off demo
+```
+
+```stata
 . noisily survtab, times(365 730 1095 1460) by(treated)
 >     rmst(1460) difference median timeunit(days)
 ```
@@ -276,6 +342,56 @@ tabtools - Publication-Ready Table Export Suite
  Hypertension                 1.10       (1.03, 1.17)  0.005
  Anxiety disorder             1.00       (0.93, 1.08)  0.96
  Prior cardiovascular disease 0.98       (0.92, 1.05)  0.63
+
+```
+
+```stata
+. log off demo
+```
+
+```stata
+. noisily regtab, coef("OR") noint compact display
+```
+
+```
+                              Model
+──────────────────────────────────────────────────────────
+                              OR 95% CI          p-value
+ Age at cohort entry (years)  1.00 (1.00, 1.00)  0.27
+ Female sex                   0.99 (0.93, 1.06)  0.84
+ Education level
+   Primary                    Reference
+   Secondary                  1.02 (0.94, 1.11)  0.66
+   Tertiary                   1.09 (1.00, 1.18)  0.053
+ Diabetes                     1.01 (0.94, 1.08)  0.78
+ Hypertension                 1.10 (1.03, 1.17)  0.005
+ Anxiety disorder             1.00 (0.93, 1.08)  0.96
+ Prior cardiovascular disease 0.98 (0.92, 1.05)  0.63
+
+```
+
+```stata
+. log off demo
+```
+
+```stata
+. noisily regtab, coef("OR") noint nopvalue display
+```
+
+```
+                              Model
+───────────────────────────────────────────────────────
+                              OR         95% CI
+ Age at cohort entry (years)  1.00       (1.00, 1.00)
+ Female sex                   0.99       (0.93, 1.06)
+ Education level
+   Primary                    Reference
+   Secondary                  1.02       (0.94, 1.11)
+   Tertiary                   1.09       (1.00, 1.18)
+ Diabetes                     1.01       (0.94, 1.08)
+ Hypertension                 1.10       (1.03, 1.17)
+ Anxiety disorder             1.00       (0.93, 1.08)
+ Prior cardiovascular disease 0.98       (0.92, 1.05)
 
 ```
 

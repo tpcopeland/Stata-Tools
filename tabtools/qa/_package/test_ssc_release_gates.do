@@ -181,12 +181,29 @@ capture noisily {
     }
 
     local devref_count = 0
+    local home_user "/home/"
+    local home_user "`home_user'tpcopeland/"
+    local tools_ref "~/"
+    local tools_ref "`tools_ref'Stata-Tools"
+    local dev_name "Stata"
+    local dev_suffix "-D"
+    local dev_suffix "`dev_suffix'ev"
+    local dev_name "`dev_name'`dev_suffix'"
+    local dev_ref "~/"
+    local dev_ref "`dev_ref'`dev_name'"
+    local codex_ref ".codex"
+    local codex_ref "`codex_ref'/skills/"
+    local examples_ref "_"
+    local examples_ref "`examples_ref'examples/"
+    local slash_dev "/"
+    local slash_dev "`slash_dev'`dev_name'"
+    local dev_patterns "`home_user'|`tools_ref'|`dev_ref'|`codex_ref'|`examples_ref'|`slash_dev'"
     tempfile _grep_out
     foreach relpath of local scan_files {
         capture confirm file "`pkg_dir'/`relpath'"
         if _rc continue
 
-        shell grep -cE '/home/tpcopeland/|~/Stata-Tools|~/Stata-Dev|\.codex/skills/|_examples/|/Stata-Dev' "`pkg_dir'/`relpath'" > "`_grep_out'" 2>/dev/null
+        shell grep -cE "`dev_patterns'" "`pkg_dir'/`relpath'" > "`_grep_out'" 2>/dev/null
         tempname gfh
         file open `gfh' using "`_grep_out'", read text
         file read `gfh' _gline

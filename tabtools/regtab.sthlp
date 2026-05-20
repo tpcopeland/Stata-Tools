@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.1.0  13may2026}{...}
+{* *! version 1.2.0  20may2026}{...}
 {vieweralsosee "effecttab" "help effecttab"}{...}
 {viewerjumpto "Package overview" "regtab##package"}{...}
 {viewerjumpto "Syntax" "regtab##syntax"}{...}
@@ -33,13 +33,13 @@ for treatment effects and margins tables.
 
 {marker syntax}{title:Syntax}
 
-{p 4 8 2}{cmd:regtab}, [{opt xlsx(filename)} {opt excel(filename)} {opt sheet(string)} {opt sep(string asis)} {opt models(string)} {opt coef(string)} {opt title(string)} {opt noint:ercept} {opt keepi:ntercept} {opt nore:effects} {opt stats(string)} {opt relab:el} {opt digits(#)} {opt foot:note(string)} {opt open} {opt zebra} {opt headers:hade} {opt high:light(#)} {opt bold:p(#)} {opt border:style(string)} {opt the:me(string)} {opt headerc:olor(string)} {opt zebrac:olor(string)} {opt csv(string)} {opt fra:me(name)} {opt dis:play} {opt keep(varlist)} {opt drop(varlist)} {opt dimnon:sig} {opt factorl:abel} {opt ref:cat(string)} {opt comp:act} {opt stars} {cmdab:starsl:evels(}{it:numlist}{cmd:)} {cmdab:addr:ow(}{it:string asis}{cmd:)} {opt pdp(#)} {opt highpdp(#)} {opt cdisc}]{p_end}
+{p 4 8 2}{cmd:regtab}, [{opt xlsx(filename)} {opt excel(filename)} {opt sheet(string)} {opt sep(string asis)} {opt models(string)} {opt coef(string)} {opt title(string)} {opt noint:ercept} {opt keepi:ntercept} {opt nore:effects} {opt stats(string)} {opt relab:el} {opt digits(#)} {opt foot:note(string)} {opt open} {opt zebra} {opt headers:hade} {opt high:light(#)} {opt bold:p(#)} {opt border:style(string)} {opt the:me(string)} {opt headerc:olor(string)} {opt zebrac:olor(string)} {opt csv(string)} {opt fra:me(name)} {opt dis:play} {opt keep(varlist)} {opt drop(varlist)} {opt dimnon:sig} {opt factorl:abel} {opt ref:cat(string)} {opt comp:act} {opt nop:value} {opt stars} {cmdab:starsl:evels(}{it:numlist}{cmd:)} {cmdab:addr:ow(}{it:string asis}{cmd:)} {opt pdp(#)} {opt highpdp(#)} {opt cdisc}]{p_end}
 
 {pstd}Required: an active {helpb collect} with items {cmd:_r_b}, {cmd:_r_ci}, and {cmd:_r_p} and dimensions including {cmd:colname} and {cmd:cmdset}.{p_end}
 
 {marker description}{title:Description}
 
-{pstd}{cmd:regtab} reads the current {helpb collect} table and writes a clean Excel sheet with, for each model (each {cmd:cmdset}), three columns: point estimate ({cmd:_r_b}), 95% CI ({cmd:_r_ci}), and p-value ({cmd:_r_p}). It applies labels and number formats, exports to a temporary workbook, re-imports to allow row edits (e.g., dropping intercept or random-effects rows), optionally merges model headers, writes to your target workbook/sheet, and styles borders, alignment, fonts, and column widths. Title text can be written to cell {cmd:A1}; the main table begins at {cmd:B2}.{p_end}
+{pstd}{cmd:regtab} reads the current {helpb collect} table and writes a clean Excel sheet with, for each model (each {cmd:cmdset}), columns for the point estimate ({cmd:_r_b}), 95% CI ({cmd:_r_ci}), and p-value ({cmd:_r_p}). Use {opt nopvalue} to suppress the p-value column in the rendered output. It applies labels and number formats, exports to a temporary workbook, re-imports to allow row edits (e.g., dropping intercept or random-effects rows), optionally merges model headers, writes to your target workbook/sheet, and styles borders, alignment, fonts, and column widths. Title text can be written to cell {cmd:A1}; the main table begins at {cmd:B2}.{p_end}
 
 {marker options}{title:Options}
 
@@ -79,6 +79,7 @@ for treatment effects and margins tables.
 {synopt:{opt factorl:abel}}Replace factor variable prefixes (e.g., {it:3.rep78}) with their value labels.{p_end}
 {synopt:{opt ref:cat(string)}}Label for reference category rows. Default is {cmd:"Reference"}. Set to customize, e.g., {cmd:refcat("Ref.")}.{p_end}
 {synopt:{opt comp:act}}Merge estimate and CI into a single column per model, producing a more compact layout: ({it:Est (CI)} | {it:p}) instead of ({it:Est} | {it:CI} | {it:p}).{p_end}
+{synopt:{opt nop:value}}Suppress p-value columns in the console, frame, CSV, and Excel output. With {opt compact}, this leaves one estimate-and-CI column per model. P-values remain available internally for {opt stars} and row highlighting.{p_end}
 {synopt:{cmdab:addr:ow(}{it:string asis}{cmd:)}}Append custom rows below the table body. Specify pairs of label and values. Use backslash to separate multiple rows: {cmd:addrow("P trend" 0.032 0.041 \ "P interaction" 0.15 0.22)}.{p_end}
 {synopt:{opt pdp(#)}}Maximum decimal places for small p-values (p < 0.10). Default is 3; allowed range is 1 to 10.{p_end}
 {synopt:{opt highpdp(#)}}Maximum decimal places for large p-values (p >= 0.10). Default is 2; allowed range is 1 to 10.{p_end}
@@ -112,6 +113,7 @@ random-effects rows if desired.{p_end}
 {p 4 8 2}- Baseline/reference rows: if a point estimate is 0 or 1 and the adjacent CI cell is empty, {cmd:regtab} substitutes {it:Reference} in the estimate column.{p_end}
 {p 4 8 2}- Random-effects variance components ({cmd:var()}, {cmd:cov()}, {cmd:sd()}) from {cmd:mixed}, {cmd:melogit}, {cmd:mepoisson}, and similar commands use the same {opt digits()} precision as the main coefficient rows. Random-effects rows can be removed entirely with {opt nore}.{p_end}
 {p 4 8 2}- Intercept rows can be removed with {opt noint}.{p_end}
+{p 4 8 2}- P-value columns can be removed from the rendered table with {opt nopvalue}. If {opt stars} is also specified, significance stars are still computed from the collected p-values before the p-value columns are dropped.{p_end}
 {p 4 8 2}- By default, fonts are set to Arial 10, but this can be overridden by {opt theme()}, session defaults set with {helpb tabtools:set font} / {helpb tabtools:set fontsize}, or both. Borders are drawn around the table and model blocks. Column widths and row heights are adjusted heuristically to fit labels and contents.{p_end}
 {p 4 8 2}- The command writes the Excel output using {helpb export excel} and applies formatting via the Mata {cmd:xl()} class.{p_end}
 {p 4 8 2}- Model statistics ({opt stats()}): For multi-model tables, N, AIC, BIC, QIC, log-likelihood, and groups are extracted per model from the {helpb collect} framework and placed in each model's column. If extraction fails, statistics fall back to the last model's {cmd:e()} values in the first column only. For GEE models ({cmd:xtgee}), AIC is undefined because GEE uses quasi-likelihood rather than full maximum likelihood; when {cmd:aic} is requested, {cmd:regtab} automatically computes and displays QIC (deviance + 2p) instead. QIC can also be requested directly via {cmd:stats(qic)}. ICC is computed per model from variance components in the collected results when that variance decomposition is defined. For model families without a closed-form level-1 variance, ICC is left blank rather than guessed. If the primary collection path cannot recover supported ICC components, {cmd:regtab} falls back to the last model's {cmd:e(b)} matrix.{p_end}
@@ -210,6 +212,6 @@ the threshold, and {opt highlight()} applies yellow fill to entire rows.{p_end}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 {pstd}{browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}{p_end}
-{pstd}{bf:Version} 1.1.0{p_end}
+{pstd}{bf:Version} 1.2.0{p_end}
 
 {hline}

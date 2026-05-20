@@ -6,12 +6,13 @@
       user.
 
     Produces:
-      Console (1 SMCL file):
+      Console (1 SMCL file + 1 markdown file):
         1. console_output.smcl        - consolidated display log
-      Per-command workbooks (11 xlsx files, 53 sheets total):
+        2. console_output.md          - markdown console output for README
+      Per-command workbooks (11 xlsx files, 55 sheets total):
         demo_table1.xlsx    (11 sheets) - table1_tc + themes
         demo_desctab.xlsx   (6 sheets)  - desctab table collect formatting
-        demo_regtab.xlsx    (11 sheets) - regtab all variants
+        demo_regtab.xlsx    (13 sheets) - regtab all variants
         demo_comptab.xlsx    (5 sheets) - comptab + source frames
         demo_effecttab.xlsx  (4 sheets) - effecttab ATE + margins
         demo_stratetab.xlsx  (1 sheet)  - stratetab rates
@@ -91,16 +92,18 @@ local xlsx_diagtab   "`pkg_dir'/demo_diagtab.xlsx"
 local xlsx_survtab   "`pkg_dir'/demo_survtab.xlsx"
 local xlsx_hrcomptab "`pkg_dir'/demo_hrcomptab.xlsx"
 local console_log    "`pkg_dir'/console_output.smcl"
+local console_md     "`pkg_dir'/console_output.md"
 foreach _f in table1 desctab regtab comptab effecttab stratetab corrtab crosstab diagtab survtab hrcomptab {
     capture erase "`xlsx_`_f''"
 }
 capture erase "`pkg_dir'/demo_tabtools.xlsx"
+capture erase "`console_md'"
 
 **# Build analysis dataset
 * Merge cohort, treatment, comorbidities, and outcomes
 use `repo_root'/_data/cohort.dta, clear
 merge 1:1 id using `repo_root'/_data/treatment.dta, nogen keep(match)
-merge 1:1 id using `repo_root'/_data/comorbidities.dta, nogen keep(master match)
+merge 1:1 id using `repo_root'/_data/comorbidities.dta, nogen keep(master match) nolabel
 merge 1:1 id using `repo_root'/_data/outcomes.dta, nogen keep(master match)
 
 * Fill missing comorbidities with 0
@@ -111,11 +114,11 @@ foreach v in diabetes hypertension anxiety prior_cvd {
 * Derive binary outcome
 gen byte cv_event = (cv_event_date < .)
 label variable cv_event "Cardiovascular event"
-label define cv_event_lbl 0 "No" 1 "Yes"
+label define cv_event_lbl 0 "No" 1 "Yes", replace
 label values cv_event cv_event_lbl
 
 * Add readable labels for female (cohort data uses yn_lbl 0=No/1=Yes)
-label define female_lbl 0 "Male" 1 "Female"
+label define female_lbl 0 "Male" 1 "Female", replace
 label values female female_lbl
 
 * Survival time for Cox models
@@ -152,7 +155,7 @@ replace smoking = 1 if missing(smoking) & runiform() < 0.45
 replace smoking = 2 if missing(smoking) & runiform() < 0.60
 * ~10% remain missing
 label variable smoking "Smoking status"
-label define smoke_lbl 0 "Never" 1 "Former" 2 "Current"
+label define smoke_lbl 0 "Never" 1 "Former" 2 "Current", replace
 label values smoking smoke_lbl
 
 * Save working dataset
@@ -233,6 +236,28 @@ quietly collect: logistic treated index_age female i.education ///
 log on demo
 
 noisily regtab, coef("OR") noint display
+
+log off demo
+
+**# Console: regtab compact display
+collect clear
+quietly collect: logistic treated index_age female i.education ///
+    diabetes hypertension anxiety prior_cvd
+
+log on demo
+
+noisily regtab, coef("OR") noint compact display
+
+log off demo
+
+**# Console: regtab nopvalue display
+collect clear
+quietly collect: logistic treated index_age female i.education ///
+    diabetes hypertension anxiety prior_cvd
+
+log on demo
+
+noisily regtab, coef("OR") noint nopvalue display
 
 log off demo
 
@@ -376,7 +401,25 @@ regtab, xlsx("`xlsx_regtab'") sheet("Logistic") frame(_demo_logistic) ///
     title("Table 2. Propensity Score Model (Logistic Regression)") ///
     coef("OR") noint models("Logistic")
 
-**# Sheet 11: Multi-Model -- Nested logistic models
+**# Sheet 11: Regtab Compact -- Estimate and CI in one column
+collect clear
+collect: logistic treated index_age female i.education ///
+    diabetes hypertension anxiety prior_cvd
+
+regtab, xlsx("`xlsx_regtab'") sheet("Regtab Compact") ///
+    title("Table 2a. Compact Propensity Score Model") ///
+    coef("OR") noint compact models("Compact")
+
+**# Sheet 12: Regtab NoPvalue -- P-value columns suppressed
+collect clear
+collect: logistic treated index_age female i.education ///
+    diabetes hypertension anxiety prior_cvd
+
+regtab, xlsx("`xlsx_regtab'") sheet("Regtab NoPvalue") ///
+    title("Table 2b. Propensity Score Model without P-values") ///
+    coef("OR") noint nopvalue models("No p-value")
+
+**# Sheet 13: Multi-Model -- Nested logistic models
 collect clear
 collect: logistic treated index_age female
 collect: logistic treated index_age female i.education ///
@@ -389,7 +432,7 @@ regtab, xlsx("`xlsx_regtab'") sheet("Multi-Model") ///
     coef("OR") models("Demographics \ + Comorbidities \ Full Model") ///
     stats(n aic bic) noint
 
-**# Sheet 12: Cox Model -- Survival analysis
+**# Sheet 14: Cox Model -- Survival analysis
 collect clear
 collect: stcox treated index_age female i.education ///
     diabetes hypertension anxiety
@@ -398,7 +441,7 @@ regtab, xlsx("`xlsx_regtab'") sheet("Cox Model") frame(_demo_cox) ///
     title("Table 4. Cox Proportional Hazards Model") ///
     coef("HR") stats(n ll) noint models("Cox PH")
 
-**# Sheet 13: Mixed Model -- Random effects with relabel + ICC
+**# Sheet 15: Mixed Model -- Random effects with relabel + ICC
 preserve
 clear
 set seed 20260323
@@ -429,7 +472,7 @@ regtab, xlsx("`xlsx_regtab'") sheet("Mixed Model") ///
     coef("Coef.") stats(n groups aic icc) relabel models("Mixed")
 restore
 
-**# Sheet 14: CDISC -- Regulatory-format regression output
+**# Sheet 16: CDISC -- Regulatory-format regression output
 * Demonstrates: regtab cdisc option (4-decimal precision, "Estimate" label)
 use `analysis', clear
 collect clear
@@ -439,7 +482,7 @@ regtab, xlsx("`xlsx_regtab'") sheet("CDISC") ///
     title("Table X. CDISC-Format Regression Output") ///
     coef("OR") cdisc noint models("CDISC")
 
-**# Sheet 15: Poisson -- Incidence rate ratios from Poisson regression
+**# Sheet 17: Poisson -- Incidence rate ratios from Poisson regression
 collect clear
 collect: poisson cv_event treated index_age female diabetes hypertension, ///
     irr exposure(follow_up)
@@ -448,7 +491,7 @@ regtab, xlsx("`xlsx_regtab'") sheet("Poisson") ///
     title("Table X. Poisson Regression -- Incidence Rate Ratios") ///
     coef("IRR") noint stats(n aic) models("Poisson")
 
-**# Sheet 16: GEE with QIC -- Population-averaged model with QIC statistic
+**# Sheet 18: GEE with QIC -- Population-averaged model with QIC statistic
 * Demonstrates: xtgee, stats(aic) auto-fallback to QIC, multi-model comparison
 preserve
 webuse nlswork, clear
@@ -462,7 +505,7 @@ regtab, xlsx("`xlsx_regtab'") sheet("GEE QIC") ///
     noint stats(n aic groups) models("Exchangeable" \ "Adjusted")
 restore
 
-**# Sheet 17: Regtab Advanced -- Conditional formatting and label features
+**# Sheet 19: Regtab Advanced -- Conditional formatting and label features
 * Demonstrates: dimnonsig, factorlabel, starslevels(), theme(bmj)
 collect clear
 collect: logistic cv_event treated index_age female i.education ///
@@ -474,7 +517,7 @@ regtab, xlsx("`xlsx_regtab'") sheet("Regtab Advanced") ///
     starslevels(0.05 0.01 0.001) ///
     theme(bmj) models("Advanced")
 
-**# Sheet 17: Regtab Select -- Covariate filtering with keep/drop
+**# Sheet 20: Regtab Select -- Covariate filtering with keep/drop
 * Demonstrates: keep() to show only selected covariates, stars
 collect clear
 collect: logistic cv_event treated index_age female i.education ///
@@ -487,7 +530,7 @@ regtab, xlsx("`xlsx_regtab'") sheet("Regtab Select") ///
     footnote("Selected covariates from full model. * p<0.05 ** p<0.01 *** p<0.001.") ///
     models("Selected")
 
-**# Sheet 18: Regtab Drop -- Exclude specific covariates with drop()
+**# Sheet 21: Regtab Drop -- Exclude specific covariates with drop()
 * Demonstrates: drop() to hide covariates while keeping them in the model
 collect clear
 collect: logistic cv_event treated index_age female i.education ///
@@ -500,7 +543,7 @@ regtab, xlsx("`xlsx_regtab'") sheet("Regtab Drop") ///
     footnote("Model adjusted for age, sex, and education (coefficients suppressed).") ///
     models("Adjusted")
 
-**# Sheet 19: Regtab AddRow -- Append custom summary rows
+**# Sheet 22: Regtab AddRow -- Append custom summary rows
 * Demonstrates: addrow() for P-trend, P-interaction, or other custom rows
 collect clear
 collect: logistic cv_event treated index_age female diabetes hypertension
@@ -511,6 +554,29 @@ regtab, xlsx("`xlsx_regtab'") sheet("Regtab AddRow") ///
     addrow("P for trend" 0.032 \ "P for interaction" 0.15) ///
     footnote("Custom rows appended below model estimates.") ///
     models("Model 1")
+
+**# Verify new regtab workbook content
+preserve
+import excel using "`xlsx_regtab'", sheet("Regtab Compact") clear allstring
+local _has_compact_ci 0
+local _has_compact_p 0
+foreach v of varlist _all {
+    quietly count if strpos(`v', "(") > 0 & strpos(`v', ")") > 0
+    if r(N) > 0 local _has_compact_ci 1
+    quietly count if strtrim(`v') == "p-value"
+    if r(N) > 0 local _has_compact_p 1
+}
+assert `_has_compact_ci' == 1
+assert `_has_compact_p' == 1
+restore
+
+preserve
+import excel using "`xlsx_regtab'", sheet("Regtab NoPvalue") clear allstring
+foreach v of varlist _all {
+    quietly count if strtrim(`v') == "p-value"
+    assert r(N) == 0
+}
+restore
 
 * Build purpose-built Cox model frames for composite demo
 * Both use HR -- same coefficient type so headers align correctly
@@ -1030,10 +1096,24 @@ import excel using "`xlsx_desctab'", sheet("Custom") clear allstring
 assert A[1] == "Custom composition template"
 restore
 
+**# Convert console output to markdown
+local logdoc_dir "`repo_root'/logdoc"
+capture confirm file "`logdoc_dir'/stata.toc"
+if _rc {
+    display as error "logdoc package not found at `logdoc_dir'"
+    exit 601
+}
+capture ado uninstall logdoc
+quietly net install logdoc, from("`logdoc_dir'") replace
+logdoc using "`console_log'", ///
+    output("`console_md'") ///
+    format(md) replace quiet
+
 **# Cleanup
 clear
 display as result "Demo complete. Outputs:"
 display as result "  `pkg_dir'/console_output.smcl"
+display as result "  `pkg_dir'/console_output.md"
 foreach _f in table1 desctab regtab comptab effecttab stratetab corrtab crosstab diagtab survtab hrcomptab {
     capture confirm file "`xlsx_`_f''"
     if _rc == 0 display as result "  `xlsx_`_f''"
@@ -1050,6 +1130,7 @@ set more `_orig_more'
 if `_demo_isolated' {
     capture ado uninstall tabtools
     capture ado uninstall tc_schemes
+    capture ado uninstall logdoc
     sysdir set PLUS "`_orig_plus'"
     sysdir set PERSONAL "`_orig_personal'"
     discard

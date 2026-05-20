@@ -1,4 +1,4 @@
-*! regtab Version 1.1.0  2026/05/13
+*! regtab Version 1.2.0  2026/05/20
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
@@ -70,7 +70,8 @@ syntax, [xlsx(string) excel(string) sheet(string)] [sep(string asis) models(stri
 	BOLDp(real -1) cdisc BORDERstyle(string) stars THEme(string) ///
 	STARSLevels(numlist) HEADERColor(string) ZEBRAColor(string) csv(string) ///
 	FRAme(string) DISplay keep(string) drop(string) DIMNONsig FACTORLabel ///
-	REFcat(string) ADDRow(string asis) COMPact pdp(integer -1) highpdp(integer -1)]
+	REFcat(string) ADDRow(string asis) COMPact NOPvalue ///
+	pdp(integer -1) highpdp(integer -1)]
 
 * Accept excel() as synonym for xlsx()
 if "`xlsx'" == "" & "`excel'" != "" local xlsx "`excel'"
@@ -91,6 +92,7 @@ if `digits' == -1 {
 if `boldp' == -1 & "$TABTOOLS_BOLDP" != "" local boldp = $TABTOOLS_BOLDP
 if `pdp' == -1 local pdp = 3
 if `highpdp' == -1 local highpdp = 2
+local _show_pvalues = ("`nopvalue'" == "")
 
 * Validate sheet name for Excel constraints
 _tabtools_validate_sheet "`sheet'" "sheet()"
@@ -1946,6 +1948,16 @@ gen title = ""
 order title
 replace title = "`title'" if _n == 1
 
+* Save p-value strings before optional layout changes remove p columns.
+if `has_boldp' | `has_highlight' {
+    forvalues _m = 1/`n_models' {
+        local _pvar = (`_m' - 1) * 3 + 3
+        forvalues _dr = 4/`=_N' {
+            local _bp_m`_m'_r`_dr' = strtrim(c`_pvar'[`_dr'])
+        }
+    }
+}
+
 * =====================================================================
 * COMPACT MODE — MERGE ESTIMATE + CI INTO SINGLE COLUMN
 * =====================================================================
@@ -1982,11 +1994,41 @@ if "`compact'" != "" {
 
     local n = `_new_idx' - 1
     local _cols_per_model = 2
-    local last = `n' - 1
 }
 else {
     local _cols_per_model = 3
 }
+
+* Optional p-value suppression. p-values remain available internally before
+* this point for stars and row highlighting, but are removed from all outputs.
+if !`_show_pvalues' {
+    local _drop_cols ""
+    if "`compact'" != "" {
+        forvalues m = 2(2)`n' {
+            local _drop_cols "`_drop_cols' c`m'"
+        }
+    }
+    else {
+        forvalues m = 3(3)`n' {
+            local _drop_cols "`_drop_cols' c`m'"
+        }
+    }
+    if "`_drop_cols'" != "" drop `_drop_cols'
+
+    qui ds c*
+    local _remaining `r(varlist)'
+    local _new_idx = 1
+    foreach v of local _remaining {
+        if "`v'" != "c`_new_idx'" {
+            rename `v' c`_new_idx'
+        }
+        local _new_idx = `_new_idx' + 1
+    }
+    local n = `_new_idx' - 1
+    local _cols_per_model = `_cols_per_model' - 1
+}
+
+local last = `n' - `_cols_per_model' + 1
 
 * Save _nonsig values before dropping (needed for formatting after export)
 if "`dimnonsig'" != "" {
@@ -2083,22 +2125,25 @@ forvalues i = 1(`_cols_per_model')`last' {
 }
 local ci_max = 0
 local p_max = 0
-if "`compact'" != "" {
-    forvalues i = 2(2)`n' {
-        sum c`i'_max, meanonly
-        if `r(max)' > `p_max' local p_max = `r(max)'
-    }
-}
-else {
-    forvalues i = 2(3)`n' {
+if "`compact'" == "" {
+    forvalues i = 2(`_cols_per_model')`n' {
+        capture confirm variable c`i'
+        if _rc continue
         sum c`i'_max, meanonly
         if `r(max)' > `ci_max' local ci_max = `r(max)'
     }
-    forvalues i = 3(3)`n' {
-        sum c`i'_max, meanonly
+}
+if `_show_pvalues' {
+    local _p_offset = `_cols_per_model' - 1
+    forvalues i = 1(`_cols_per_model')`last' {
+        local _p_col = `i' + `_p_offset'
+        capture confirm variable c`_p_col'
+        if _rc continue
+        sum c`_p_col'_max, meanonly
         if `r(max)' > `p_max' local p_max = `r(max)'
     }
 }
+else local p_max = 0
 
 * Calibrate widths to Stata's Excel writer, which lands about 0.7 wider than
 * the input width when read back from xlsx metadata.
@@ -2112,7 +2157,10 @@ if "`compact'" == "" {
     local ci_width = max(`ci_max' - 0.5, 10)
 }
 
-local p_width = max(`p_max' - 0.5, 7)
+local p_width = 0
+if `_show_pvalues' {
+    local p_width = max(`p_max' - 0.5, 7)
+}
 
 gen A_length = length(A)
 egen factor_length = max(A_length)
@@ -2148,16 +2196,6 @@ if `"`frame'"' != "" {
     _tabtools_frame_put `"`frame'"'
     local frame "`_frame_name'"
     return local frame "`frame'"
-}
-
-* Save p-value strings before clear (needed for boldp/highlight formatting)
-if `has_boldp' | `has_highlight' {
-    forvalues _m = 1/`n_models' {
-        local _pvar = `_m' * `_cols_per_model'
-        forvalues _dr = 4/`num_rows' {
-            local _bp_m`_m'_r`_dr' = strtrim(c`_pvar'[`_dr'])
-        }
-    }
 }
 
 clear
@@ -2206,34 +2244,25 @@ capture {
 	mata: b.set_row_height(1,1,30)
 	mata: b.set_column_width(1,1,1)
 	mata: b.set_column_width(2,2,`factor_length')
-	if "`compact'" != "" {
-		forvalues i = 3(2)`=`num_cols'-1'{
-			mata: b.set_column_width(`i',`i',`est_width')
+	local _total_model_width = `est_width'
+	if "`compact'" == "" local _total_model_width = `_total_model_width' + `ci_width'
+	if `_show_pvalues' local _total_model_width = `_total_model_width' + `p_width'
+	forvalues _mc = 1/`n_models' {
+		local _c_first = (`_mc' - 1) * `_cols_per_model' + 1
+		local _x_first = `_c_first' + 2
+		mata: b.set_column_width(`_x_first',`_x_first',`est_width')
+		if "`compact'" == "" {
+			local _x_ci = `_x_first' + 1
+			mata: b.set_column_width(`_x_ci',`_x_ci',`ci_width')
 		}
-		forvalues i = 4(2)`num_cols'{
-			mata: b.set_column_width(`i',`i',`p_width')
-		}
-		local _total_model_width = `est_width' + `p_width'
-		if `=`max_header_length'*.9' > `_total_model_width' {
-			local headerheight = ceil(`=`max_header_length'*.9'/`_total_model_width')
-			mata: b.set_row_height(2,2,`=`headerheight'*15')
+		if `_show_pvalues' {
+			local _x_p = `_x_first' + `_cols_per_model' - 1
+			mata: b.set_column_width(`_x_p',`_x_p',`p_width')
 		}
 	}
-	else {
-		forvalues i = 3(3)`=`num_cols'-2'{
-			mata: b.set_column_width(`i',`i',`est_width')
-		}
-		forvalues i = 4(3)`=`num_cols'-1'{
-			mata: b.set_column_width(`i',`i',`ci_width')
-		}
-		forvalues i = 5(3)`num_cols'{
-			mata: b.set_column_width(`i',`i',`p_width')
-		}
-		local _total_model_width = `est_width' + `ci_width' + `p_width'
-		if `=`max_header_length'*.9' > `_total_model_width' {
-			local headerheight = ceil(`=`max_header_length'*.9'/`_total_model_width')
-			mata: b.set_row_height(2,2,`=`headerheight'*15')
-		}
+	if `=`max_header_length'*.9' > `_total_model_width' {
+		local headerheight = ceil(`=`max_header_length'*.9'/`_total_model_width')
+		mata: b.set_row_height(2,2,`=`headerheight'*15')
 	}
 
 	* Font for entire table (single row-range call)
@@ -2259,30 +2288,28 @@ capture {
 
 	* Merge reference rows across model column spans
 	foreach row of local ref_rows {
-		local col_num = 3
-		while `col_num' <= `n' {
-			local _col_end = `col_num' + `_cols_per_model' - 1
-			mata: b.set_sheet_merge("`sheet'", (`row',`row'), (`col_num',`_col_end'))
-			mata: b.set_horizontal_align(`row', `col_num', "center")
-			mata: b.set_vertical_align(`row', `col_num', "center")
-			mata: b.set_font_italic(`row', `col_num', "on")
-			local col_num = `col_num' + `_cols_per_model'
+		forvalues _mc = 1/`n_models' {
+			local _col_start = 2 + (`_mc' - 1) * `_cols_per_model' + 1
+			local _col_end = `_col_start' + `_cols_per_model' - 1
+			mata: b.set_sheet_merge("`sheet'", (`row',`row'), (`_col_start',`_col_end'))
+			mata: b.set_horizontal_align(`row', `_col_start', "center")
+			mata: b.set_vertical_align(`row', `_col_start', "center")
+			mata: b.set_font_italic(`row', `_col_start', "on")
 		}
 	}
 
 	* Merge model headers (row 2) across column spans
-	local col_num = 3
-	while `col_num' <= `n' {
-		local _col_end = `col_num' + `_cols_per_model' - 1
-		mata: b.set_sheet_merge("`sheet'", (2,2), (`col_num',`_col_end'))
-		mata: b.set_horizontal_align(2, `col_num', "center")
-		mata: b.set_vertical_align(2, `col_num', "center")
-		mata: b.set_font_bold(2, `col_num', "on")
-		mata: b.set_text_wrap(2, `col_num', "on")
+	forvalues _mc = 1/`n_models' {
+		local _col_start = 2 + (`_mc' - 1) * `_cols_per_model' + 1
+		local _col_end = `_col_start' + `_cols_per_model' - 1
+		mata: b.set_sheet_merge("`sheet'", (2,2), (`_col_start',`_col_end'))
+		mata: b.set_horizontal_align(2, `_col_start', "center")
+		mata: b.set_vertical_align(2, `_col_start', "center")
+		mata: b.set_font_bold(2, `_col_start', "on")
+		mata: b.set_text_wrap(2, `_col_start', "on")
 		if "`borderstyle'" != "academic" {
 			mata: b.set_right_border((2,`num_rows'), `_col_end', "`borderstyle'")
 		}
-		local col_num = `col_num' + `_cols_per_model'
 	}
 
 	* Horizontal borders
@@ -2315,8 +2342,8 @@ capture {
 				local first_stat = 0
 			}
 			mata: b.set_bottom_border(`excel_row', (2,`num_cols'), "`_hborder'")
-			local _sc = 3
-			while `_sc' <= `n' {
+			forvalues _mc = 1/`n_models' {
+				local _sc = 2 + (`_mc' - 1) * `_cols_per_model' + 1
 				local _sc_end = `_sc' + `_cols_per_model' - 1
 				mata: b.set_sheet_merge("`sheet'", (`excel_row',`excel_row'), (`_sc',`_sc_end'))
 				mata: b.set_horizontal_align(`excel_row', `_sc', "center")
@@ -2324,7 +2351,6 @@ capture {
 				if "`borderstyle'" != "academic" {
 					mata: b.set_right_border(`excel_row', `_sc_end', "`borderstyle'")
 				}
-				local _sc = `_sc' + `_cols_per_model'
 			}
 		}
 	}
@@ -2339,8 +2365,8 @@ capture {
 				local first_ar = 0
 			}
 			mata: b.set_bottom_border(`excel_row', (2,`num_cols'), "`_hborder'")
-			local _ac = 3
-			while `_ac' <= `n' {
+			forvalues _mc = 1/`n_models' {
+				local _ac = 2 + (`_mc' - 1) * `_cols_per_model' + 1
 				local _ac_end = `_ac' + `_cols_per_model' - 1
 				mata: b.set_sheet_merge("`sheet'", (`excel_row',`excel_row'), (`_ac',`_ac_end'))
 				mata: b.set_horizontal_align(`excel_row', `_ac', "center")
@@ -2348,7 +2374,6 @@ capture {
 				if "`borderstyle'" != "academic" {
 					mata: b.set_right_border(`excel_row', `_ac_end', "`borderstyle'")
 				}
-				local _ac = `_ac' + `_cols_per_model'
 			}
 		}
 	}
@@ -2372,7 +2397,7 @@ capture {
 			forvalues _dr = 4/`num_rows' {
 				local _pnum = `_bp_m`_m'_r`_dr'_num'
 				if `_pnum' < . {
-					if `has_boldp' & `_pnum' < `boldp' {
+					if `has_boldp' & `_show_pvalues' & `_pnum' < `boldp' {
 						mata: b.set_font_bold(`_dr', `_pcol', "on")
 					}
 					if `has_highlight' & `_pnum' < `highlight' {

@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.1.0  13may2026}{...}
+{* *! version 1.2.0  20may2026}{...}
 {viewerjumpto "Recipe 1" "tabtools_cookbook##r1"}{...}
 {viewerjumpto "Recipe 2" "tabtools_cookbook##r2"}{...}
 {viewerjumpto "Recipe 3" "tabtools_cookbook##r3"}{...}
@@ -448,5 +448,13 @@ significance stars, and Spearman method for non-normal data.
 {pstd}{helpb table1_tc}, {helpb regtab}, {helpb effecttab}, {helpb stratetab},
 {helpb survtab}, {helpb crosstab}, {helpb diagtab},
 {helpb corrtab}, {helpb comptab}, {helpb hrcomptab} — individual command help{p_end}
+
+{hline}
+
+{title:Author}
+
+{pstd}Timothy P Copeland, Karolinska Institutet{p_end}
+{pstd}{browse "mailto:timothy.copeland@ki.se":timothy.copeland@ki.se}{p_end}
+{pstd}{bf:Version} 1.2.0{p_end}
 
 {hline}
