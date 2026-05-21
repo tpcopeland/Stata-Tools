@@ -324,6 +324,10 @@ msm_report, eform
 msm_table, xlsx(msm_results.xlsx) all eform replace
 ```
 
+For Excel workbooks, `replace` in `msm_report`, `msm_table`, and
+`msm_protocol` replaces only the report/table/protocol sheet(s) being written
+and preserves unrelated sheets in the same workbook.
+
 ### 2. Minimal estimation-and-prediction workflow
 
 If you want the core causal estimates first, this shorter sequence gets you from prepared data to standardized counterfactual predictions quickly.

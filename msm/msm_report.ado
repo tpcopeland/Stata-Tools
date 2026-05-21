@@ -17,7 +17,7 @@ Options:
   format(string)     - display (default) | csv | excel
   decimals(integer)  - Decimal places (default: 4)
   eform              - Exponentiated coefficients (OR/HR)
-  replace            - Replace existing export file
+  replace            - Replace report sheet(s) in existing workbook
   title(string)      - Title for Excel table (A1 row)
   font(string)       - Font name (default: Arial)
   fontsize(integer)  - Font size in points (default: 10)
@@ -347,7 +347,9 @@ program define msm_report, rclass
         }
 
         local rep_opt ""
-        if "`replace'" != "" local rep_opt "replace"
+        if "`replace'" != "" local rep_opt "sheetreplace"
+        local coef_sheet_opt "sheetmodify"
+        if "`replace'" != "" local coef_sheet_opt "sheetreplace"
 
         * Build title text
         local _title "`title'"
@@ -625,7 +627,7 @@ program define msm_report, rclass
                 local _coef_footnote_row = `_coef_total' + 1
 
                 export excel using "`export'", sheet("Coefficients") ///
-                    sheetmodify
+                    `coef_sheet_opt'
 
                 * Mata: column widths + numeric conversion
                 capture {

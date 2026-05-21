@@ -47,7 +47,7 @@
 {synopt:{opt dec:imals(#)}}decimal places; default is {cmd:3}{p_end}
 {synopt:{opt sep(string)}}CI delimiter; default is {cmd:", "}{p_end}
 {synopt:{opt tit:le(string)}}title for cell A1 of each sheet{p_end}
-{synopt:{opt replace}}replace existing file{p_end}
+{synopt:{opt replace}}replace selected sheet(s) in an existing workbook{p_end}
 {synopt:{opt f:ont(name)}}font name; default is {cmd:Arial}{p_end}
 {synopt:{opt fonts:ize(#)}}font size in points; default is {cmd:10}{p_end}
 {synopt:{opt border:style(style)}}{cmd:thin} (default), {cmd:medium}, or {cmd:academic}{p_end}
@@ -153,7 +153,8 @@ For example, {cmd:sep(" to ")} formats CIs as "(0.58 to 0.85)".
 omitted, each sheet gets a descriptive default title.
 
 {phang}
-{opt replace} allows overwriting an existing Excel file.
+{opt replace} replaces selected sheet(s) in an existing Excel workbook
+without deleting unrelated sheets.
 
 {phang}
 {opt f:ont(name)} sets the font.  Default is {cmd:Arial}.

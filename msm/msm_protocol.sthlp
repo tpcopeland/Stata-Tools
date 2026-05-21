@@ -45,7 +45,7 @@
 {syntab:Export}
 {synopt:{opt exp:ort(string)}}file path for export{p_end}
 {synopt:{opt for:mat(string)}}{cmd:display} (default), {cmd:csv}, {cmd:excel}, or {cmd:latex}{p_end}
-{synopt:{opt replace}}replace existing file{p_end}
+{synopt:{opt replace}}replace Protocol sheet or existing text file{p_end}
 {synoptline}
 
 
@@ -138,7 +138,9 @@ prints to the Results window.  {cmd:csv} writes a comma-separated file.
 using {cmd:booktabs} formatting.
 
 {phang}
-{opt replace} allows overwriting an existing file.
+{opt replace} replaces the Protocol sheet in an existing Excel workbook
+without deleting unrelated sheets. For CSV and LaTeX output, it overwrites
+the existing file.
 
 
 {marker examples}{...}

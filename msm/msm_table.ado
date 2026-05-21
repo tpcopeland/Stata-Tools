@@ -23,7 +23,7 @@ Formatting:
   decimals(#)          Decimal places (default: 3)
   sep(string)          CI delimiter (default: ", ")
   title(string)        Table title for cell A1
-  replace              Replace existing file
+  replace              Replace selected sheet(s) in existing workbook
   font(string)         Font name (default: Arial)
   fontsize(#)          Font size in points (default: 10)
   borderstyle(string)  Border style: thin, medium, or academic (default: thin)
@@ -96,11 +96,9 @@ program define msm_table, nclass
         exit 198
     }
 
-    * Handle file existence
-    if "`replace'" != "" {
-        capture erase "`xlsx'"
-    }
-    else {
+    * Handle file existence. With replace, subtable writers use sheetreplace,
+    * preserving unrelated sheets.
+    if "`replace'" == "" {
         capture confirm new file "`xlsx'"
         if _rc {
             display as error "file {bf:`xlsx'} already exists; use {bf:replace} option"

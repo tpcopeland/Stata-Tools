@@ -28,6 +28,7 @@ local table_pred_xlsx "`work_dir'/table_surface_pred.xlsx"
 local table_bal_wt_xlsx "`work_dir'/table_surface_bal_wt.xlsx"
 local table_sens_xlsx "`work_dir'/table_surface_sens.xlsx"
 local table_nclass_xlsx "`work_dir'/table_surface_nclass.xlsx"
+local table_preserve_xlsx "`work_dir'/table_surface_preserve.xlsx"
 
 capture program drop _setup_export_surface
 program define _setup_export_surface
@@ -71,6 +72,9 @@ if _rc {
 }
 
 capture erase "`report_xlsx'"
+putexcel set "`report_xlsx'", sheet("Keep") replace
+putexcel A1 = "sentinel"
+putexcel clear
 local ++test_count
 capture noisily msm_report, export("`report_xlsx'") format(excel) eform ///
     title("Export Surface Report") font("Times New Roman") fontsize(12) ///
@@ -87,6 +91,23 @@ else {
     display as error "  FAIL X1: msm_report custom Excel export (rc=`=_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' X1"
+}
+
+local ++test_count
+tempfile x1b_status
+capture noisily shell python3 "`tools_dir'/check_xlsx.py" "`report_xlsx'" ///
+    --sheet Keep ///
+    --cell A1 sentinel ///
+    --result-file "`x1b_status'"
+quietly _read_check_status "`x1b_status'"
+if "`r(status)'" == "PASS" {
+    display as result "  PASS X1b: msm_report replace preserves unrelated sheet"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL X1b: msm_report sheet preservation"
+    local ++fail_count
+    local failed_tests "`failed_tests' X1b"
 }
 
 local ++test_count
@@ -519,6 +540,32 @@ else {
     local failed_tests "`failed_tests' X10k"
 }
 
+capture erase "`table_preserve_xlsx'"
+putexcel set "`table_preserve_xlsx'", sheet("Keep") replace
+putexcel A1 = "sentinel"
+putexcel clear
+local ++test_count
+local _x10l_ok = 0
+capture noisily msm_table, xlsx("`table_preserve_xlsx'") coefficients replace
+if _rc == 0 {
+    tempfile x10l_status
+    capture noisily shell python3 "`tools_dir'/check_xlsx.py" "`table_preserve_xlsx'" ///
+        --sheet Keep ///
+        --cell A1 sentinel ///
+        --result-file "`x10l_status'"
+    quietly _read_check_status "`x10l_status'"
+    if "`r(status)'" == "PASS" local _x10l_ok = 1
+}
+if `_x10l_ok' {
+    display as result "  PASS X10l: msm_table replace preserves unrelated sheet"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL X10l: msm_table sheet preservation"
+    local ++fail_count
+    local failed_tests "`failed_tests' X10l"
+}
+
 local protocol_csv "`work_dir'/protocol_surface.csv"
 local protocol_xlsx "`work_dir'/protocol_surface.xlsx"
 local protocol_tex "`work_dir'/protocol_surface.tex"
@@ -557,6 +604,9 @@ else {
 }
 
 capture erase "`protocol_xlsx'"
+putexcel set "`protocol_xlsx'", sheet("Keep") replace
+putexcel A1 = "sentinel"
+putexcel clear
 local ++test_count
 capture noisily {
     msm_protocol, ///
@@ -583,6 +633,23 @@ else {
     display as error "  FAIL X12: msm_protocol Excel long text (rc=`=_rc')"
     local ++fail_count
     local failed_tests "`failed_tests' X12"
+}
+
+local ++test_count
+tempfile x12b_status
+capture noisily shell python3 "`tools_dir'/check_xlsx.py" "`protocol_xlsx'" ///
+    --sheet Keep ///
+    --cell A1 sentinel ///
+    --result-file "`x12b_status'"
+quietly _read_check_status "`x12b_status'"
+if "`r(status)'" == "PASS" {
+    display as result "  PASS X12b: msm_protocol replace preserves unrelated sheet"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL X12b: msm_protocol sheet preservation"
+    local ++fail_count
+    local failed_tests "`failed_tests' X12b"
 }
 
 capture erase "`protocol_tex'"
@@ -661,6 +728,7 @@ capture erase "`table_pred_xlsx'"
 capture erase "`table_bal_wt_xlsx'"
 capture erase "`table_sens_xlsx'"
 capture erase "`table_nclass_xlsx'"
+capture erase "`table_preserve_xlsx'"
 capture erase "`protocol_csv'"
 capture erase "`protocol_xlsx'"
 capture erase "`protocol_tex'"

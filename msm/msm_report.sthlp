@@ -33,7 +33,7 @@
 {synopt:{opt for:mat(string)}}{cmd:display} (default), {cmd:csv}, or {cmd:excel}{p_end}
 {synopt:{opt dec:imals(#)}}decimal places; default {cmd:4}{p_end}
 {synopt:{opt eform}}exponentiated coefficients (OR for logistic, HR for Cox){p_end}
-{synopt:{opt replace}}replace existing file{p_end}
+{synopt:{opt replace}}replace report sheet(s) in an existing workbook{p_end}
 
 {syntab:Excel formatting}
 {synopt:{opt tit:le(string)}}title for cell A1{p_end}
@@ -97,7 +97,9 @@ gives odds ratios with confidence intervals; for Cox models it gives hazard
 ratios.
 
 {phang}
-{opt replace} allows overwriting an existing export file.
+{opt replace} replaces the report sheet(s) in an existing Excel workbook
+without deleting unrelated sheets. For CSV output, it overwrites the existing
+file.
 
 {dlgtab:Excel formatting}
 

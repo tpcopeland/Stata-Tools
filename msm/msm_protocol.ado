@@ -24,7 +24,7 @@ Options:
   analysis(string)         - Statistical analysis plan
   export(string)           - File path for export
   format(string)           - display (default) | csv | excel | latex
-  replace                  - Replace existing file
+  replace                  - Replace Protocol sheet in existing workbook
 
 See help msm_protocol for complete documentation
 */
@@ -138,7 +138,7 @@ program define msm_protocol, rclass
         }
 
         local rep_opt ""
-        if "`replace'" != "" local rep_opt "replace"
+        if "`replace'" != "" local rep_opt "sheetreplace"
 
         quietly {
             preserve
