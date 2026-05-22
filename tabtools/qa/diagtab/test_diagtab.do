@@ -104,6 +104,46 @@ else {
 	    local ++fail_count
 	}
 
+**## cutoffs() renders undefined predictive values explicitly
+local ++test_count
+capture noisily {
+    clear
+    input byte gold double score
+    1 .25
+    1 .35
+    0 .25
+    0 .35
+    end
+
+    capture frame drop diag_undef
+    diagtab score gold, cutoffs(0.2 0.3 0.4) frame(diag_undef, replace)
+    matrix C = r(cutoff_table)
+
+    assert missing(C[1, 10])
+    assert missing(C[3, 7])
+
+    frame diag_undef {
+        ds, has(type string)
+        local string_vars `r(varlist)'
+        local saw_explicit 0
+        foreach v of varlist `string_vars' {
+            quietly count if strtrim(`v') == "--"
+            if r(N) > 0 local saw_explicit 1
+        }
+        assert `saw_explicit' == 1
+    }
+}
+if _rc == 0 {
+    display as result "  PASS: diagtab cutoffs() renders undefined values explicitly"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: diagtab cutoffs() undefined-value rendering (rc=`=_rc')"
+    local ++fail_count
+}
+capture frame drop diag_undef
+capture matrix drop C
+
 	**## optimal rejects binary test variables
 	local ++test_count
 	capture noisily {

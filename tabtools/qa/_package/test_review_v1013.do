@@ -408,9 +408,9 @@ else {
 capture erase "`output_dir'/_rev1013_i1_percent.xlsx"
 
 
-**# 8. diagtab degenerate 2x2 shows em-dash not ".%" (I6 regression)
+**# 8. diagtab degenerate 2x2 shows explicit undefined marker (I6 regression)
 
-**## 8a. All test-positive (FN=0, TN=0): NPV shows "—"
+**## 8a. All test-positive (FN=0, TN=0): NPV shows "--"
 local ++test_count
 capture noisily {
     clear
@@ -434,27 +434,27 @@ capture noisily {
             }
         }
     }
-    * Also check: find the NPV row and verify column B is "—"
+    * Also check: find the NPV row and verify column B is "--"
     local found_dash = 0
     forvalues i = 1/`=_N' {
         if strtrim(A[`i']) == "NPV" | strtrim(B[`i']) == "NPV" {
             * The value column follows the label column
-            if strtrim(A[`i']) == "NPV" & strtrim(B[`i']) == "—" local found_dash = 1
-            if strtrim(B[`i']) == "NPV" & strtrim(C[`i']) == "—" local found_dash = 1
+            if strtrim(A[`i']) == "NPV" & strtrim(B[`i']) == "--" local found_dash = 1
+            if strtrim(B[`i']) == "NPV" & strtrim(C[`i']) == "--" local found_dash = 1
         }
     }
     assert `found_dash' == 1
 }
 if _rc == 0 {
-    display as result "  PASS [8a]: diagtab all-test-positive: NPV shows em-dash"
+    display as result "  PASS [8a]: diagtab all-test-positive: NPV shows --"
     local ++pass_count
 }
 else {
-    display as error "  FAIL [8a]: diagtab all-test-positive: NPV does not show em-dash (rc=`=_rc')"
+    display as error "  FAIL [8a]: diagtab all-test-positive: NPV does not show -- (rc=`=_rc')"
     local ++fail_count
 }
 
-**## 8b. All test-negative (TP=0, FP=0): PPV shows "—" (Se=0% is correct, not undefined)
+**## 8b. All test-negative (TP=0, FP=0): PPV shows "--" (Se=0% is correct, not undefined)
 local ++test_count
 capture noisily {
     clear
@@ -469,17 +469,17 @@ capture noisily {
     import excel using "`i6b_xlsx'", sheet("AllNeg") allstring clear
     local ppv_dash = 0
     forvalues i = 1/`=_N' {
-        if strtrim(A[`i']) == "PPV" & strtrim(B[`i']) == "—" local ppv_dash = 1
-        if strtrim(B[`i']) == "PPV" & strtrim(C[`i']) == "—" local ppv_dash = 1
+        if strtrim(A[`i']) == "PPV" & strtrim(B[`i']) == "--" local ppv_dash = 1
+        if strtrim(B[`i']) == "PPV" & strtrim(C[`i']) == "--" local ppv_dash = 1
     }
     assert `ppv_dash' == 1
 }
 if _rc == 0 {
-    display as result "  PASS [8b]: diagtab all-test-negative: PPV shows em-dash"
+    display as result "  PASS [8b]: diagtab all-test-negative: PPV shows --"
     local ++pass_count
 }
 else {
-    display as error "  FAIL [8b]: diagtab all-test-negative: PPV not em-dash (rc=`=_rc')"
+    display as error "  FAIL [8b]: diagtab all-test-negative: PPV not -- (rc=`=_rc')"
     local ++fail_count
 }
 capture erase "`output_dir'/_rev1013_i6_diagtab.xlsx"

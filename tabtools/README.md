@@ -68,7 +68,7 @@ After installation, start with `help tabtools` for the suite overview, `help tab
 
 ## Repository Checkout Demo
 
-The rebuild demo is a repository-maintenance workflow, not part of the net install payload. It reads shared `_data/` fixtures and sibling packages from a local Stata-Tools checkout, then regenerates console output and 11 Excel workbooks (53 sheets total) covering every tabtools command.
+The rebuild demo is a repository-maintenance workflow, not part of the net install payload. It reads shared `_data/` fixtures and sibling packages from a local Stata-Tools checkout, then regenerates console output and 11 Excel workbooks (55 sheets total) covering every tabtools command.
 
 From a local checkout, run:
 

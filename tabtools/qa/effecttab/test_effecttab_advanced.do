@@ -53,6 +53,33 @@ if _rc == 0 {
 	    local ++n_fail
 	}
 
+	**# Test 2a: from() matrix CI strings do not contain fixed-width double spaces
+	capture frame drop eff_ci_from
+	capture noisily {
+	    matrix cimat = (0.10, -0.01, 0.02, 0.20 \ 0.35, 0.34, 0.36, 0.001)
+	    matrix rownames cimat = NearZero Tight
+	    effecttab, from(cimat) frame(eff_ci_from, replace) display digits(2)
+	    frame eff_ci_from {
+	        ds, has(type string)
+	        local string_vars `r(varlist)'
+	        foreach v of varlist `string_vars' {
+	            quietly count if strpos(`v', ",  ") > 0 ///
+	                & strpos(`v', "(") > 0 & strpos(`v', ")") > 0
+	            assert r(N) == 0
+	        }
+	    }
+	}
+	if _rc == 0 {
+	    display as result "PASS: T2a — from() CI strings are normalized"
+	    local ++n_pass
+	}
+	else {
+	    display as error "FAIL: T2a — from() CI strings contain double spaces (rc=`=_rc')"
+	    local ++n_fail
+	}
+	capture frame drop eff_ci_from
+	capture matrix drop cimat
+
 	**# Test 2c: final missing workbook guard returns rc=601
 	capture noisily {
 	    local final_missing "/tmp/test_from_matrix_final_missing.xlsx"
@@ -224,6 +251,35 @@ else {
     local ++n_fail
 }
 capture frame drop _eff_frame
+
+* ============================================================
+* Test 7b: collect CI strings do not contain fixed-width double spaces
+* ============================================================
+capture frame drop eff_ci_collect
+capture noisily {
+    webuse cattaneo2, clear
+    collect clear
+    collect: teffects ipw (bweight) (mbsmoke mage prenatal1 mmarried fbaby), ate
+    effecttab, frame(eff_ci_collect, replace) effect("ATE") clean display digits(2)
+    frame eff_ci_collect {
+        ds, has(type string)
+        local string_vars `r(varlist)'
+        foreach v of varlist `string_vars' {
+            quietly count if strpos(`v', ",  ") > 0 ///
+                & strpos(`v', "(") > 0 & strpos(`v', ")") > 0
+            assert r(N) == 0
+        }
+    }
+}
+if _rc == 0 {
+    display as result "PASS: T7b — collect CI strings are normalized"
+    local ++n_pass
+}
+else {
+    display as error "FAIL: T7b — collect CI strings contain double spaces (rc=`=_rc')"
+    local ++n_fail
+}
+capture frame drop eff_ci_collect
 
 * ============================================================
 * Test 8: effecttab CSV export

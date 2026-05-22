@@ -544,7 +544,11 @@ quietly {
 			local _pv = `from'[`_fr', 4]
 			if !missing(`_est') qui replace c1 = string(`_est', "%9.`digits'f") in `_obs'
 			if !missing(`_cilo') & !missing(`_cihi') {
-				qui replace c2 = "(" + string(`_cilo', "%9.`digits'f") + `"`sep'"' + string(`_cihi', "%9.`digits'f") + ")" in `_obs'
+				local _cilo_s : display %9.`digits'f `_cilo'
+				local _cihi_s : display %9.`digits'f `_cihi'
+				local _cilo_s = strtrim("`_cilo_s'")
+				local _cihi_s = strtrim("`_cihi_s'")
+				qui replace c2 = "(`_cilo_s'`sep'`_cihi_s')" in `_obs'
 			}
 			if !missing(`_pv') {
 				qui replace c3 = string(`_pv', "%21.0g") in `_obs'
@@ -773,6 +777,26 @@ quietly {
 		if _rc == 0 replace c`=`i'+1' = "" if _n == 1
 		capture confirm variable c`=`i'+2'
 		if _rc == 0 replace c`=`i'+2' = "" if _n == 1
+	}
+
+	* Normalize fixed-width CI cells without changing numeric return values.
+	forvalues i = 2(3)`n' {
+		capture confirm variable c`i'
+		if _rc == 0 {
+			replace c`i' = strtrim(c`i') if _n >= 3
+			quietly count if strpos(c`i', "( ") > 0 & _n >= 3
+			while r(N) > 0 {
+				replace c`i' = subinstr(c`i', "( ", "(", .) if _n >= 3
+				quietly count if strpos(c`i', "( ") > 0 & _n >= 3
+			}
+			if `"`sep'"' == ", " {
+				quietly count if strpos(c`i', ",  ") > 0 & _n >= 3
+				while r(N) > 0 {
+					replace c`i' = subinstr(c`i', ",  ", ", ", .) if _n >= 3
+					quietly count if strpos(c`i', ",  ") > 0 & _n >= 3
+				}
+			}
+		}
 	}
 
 	* Format p-values

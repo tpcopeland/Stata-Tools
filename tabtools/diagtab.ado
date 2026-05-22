@@ -169,6 +169,7 @@ capture noisily {
     _tabtools_resolve_colors, headercolor(`"`headercolor'"') zebracolor(`"`zebracolor'"')
 
     local _ci_method = cond("`exact'" != "", "exact", "wilson")
+    local _has_undefined 0
     return clear
 
     if "`cutoffs'" != "" {
@@ -355,6 +356,11 @@ capture noisily {
                 else if "`_m'" == "Acc" qui replace c1 = "  Accuracy" in `row'
                 if !missing(`_cut`_cuti'_`_m'') {
                     qui replace c2 = string(`_cut`_cuti'_`_m'' * 100, "%5.`digits'f") + "%" in `row'
+                }
+                else {
+                    local _has_undefined 1
+                    qui replace c2 = "--" in `row'
+                    qui replace c3 = "" in `row'
                 }
                 if !missing(`_cut`_cuti'_`_m'_lo') & !missing(`_cut`_cuti'_`_m'_hi') {
                     qui replace c3 = "(" + string(`_cut`_cuti'_`_m'_lo' * 100, "%5.`digits'f") + ", " + string(`_cut`_cuti'_`_m'_hi' * 100, "%5.`digits'f") + ")" in `row'
@@ -638,7 +644,8 @@ capture noisily {
             qui replace c3 = "(" + string(``_m'_lo' * 100, "%5.`digits'f") + ", " + string(``_m'_hi' * 100, "%5.`digits'f") + ")" in `row'
         }
         else {
-            qui replace c2 = "—" in `row'
+            local _has_undefined 1
+            qui replace c2 = "--" in `row'
             qui replace c3 = "" in `row'
         }
     }
@@ -657,7 +664,8 @@ capture noisily {
         }
     }
     else {
-        qui replace c2 = "—" in `row'
+        local _has_undefined 1
+        qui replace c2 = "--" in `row'
         qui replace c3 = "" in `row'
     }
 
@@ -674,7 +682,8 @@ capture noisily {
         }
     }
     else {
-        qui replace c2 = "—" in `row'
+        local _has_undefined 1
+        qui replace c2 = "--" in `row'
         qui replace c3 = "" in `row'
     }
 
@@ -691,7 +700,8 @@ capture noisily {
         }
     }
     else {
-        qui replace c2 = "—" in `row'
+        local _has_undefined 1
+        qui replace c2 = "--" in `row'
         qui replace c3 = "" in `row'
     }
 
@@ -748,6 +758,17 @@ capture noisily {
     local _ci_method = cond("`exact'" != "", "Clopper-Pearson exact", "Wilson score")
     local _methods "Diagnostic accuracy was assessed against the gold standard (`goldvar')."
     local _methods "`_methods' `_ci_method' 95% confidence intervals are reported."
+    local _footnote_display `"`footnote'"'
+    if `_has_undefined' {
+        local _undefined_note "Undefined estimates are shown as --."
+        local _methods "`_methods' `_undefined_note'"
+        if `"`_footnote_display'"' == "" {
+            local _footnote_display "`_undefined_note'"
+        }
+        else if strpos(`"`_footnote_display'"', "Undefined estimates") == 0 {
+            local _footnote_display `"`_footnote_display'; `_undefined_note'"'
+        }
+    }
     local _methods "`_methods' Analysis performed in Stata `c(stata_version)' (StataCorp, College Station, TX)."
     return local methods "`_methods'"
 
@@ -826,10 +847,10 @@ capture noisily {
             }
 
             * Footnote
-            if `"`footnote'"' != "" {
+            if `"`_footnote_display'"' != "" {
                 local _fn_row = `num_rows' + 1
                 local _fn_fontsize = max(`_fontsize' - 2, 6)
-                mata: b.put_string(`_fn_row', 2, `"`footnote'"')
+                mata: b.put_string(`_fn_row', 2, `"`_footnote_display'"')
                 mata: b.set_sheet_merge("`sheet'", (`_fn_row',`_fn_row'), (2,`num_cols'))
                 mata: b.set_horizontal_align(`_fn_row', 2, "left")
                 mata: b.set_vertical_align(`_fn_row', 2, "center")

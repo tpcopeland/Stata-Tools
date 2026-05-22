@@ -479,7 +479,7 @@ collect clear
 collect: logistic treated index_age female i.education diabetes hypertension
 
 regtab, xlsx("`xlsx_regtab'") sheet("CDISC") ///
-    title("Table X. CDISC-Format Regression Output") ///
+    title("Table 5a. CDISC-Format Regression Output") ///
     coef("OR") cdisc noint models("CDISC")
 
 **# Sheet 17: Poisson -- Incidence rate ratios from Poisson regression
@@ -488,7 +488,7 @@ collect: poisson cv_event treated index_age female diabetes hypertension, ///
     irr exposure(follow_up)
 
 regtab, xlsx("`xlsx_regtab'") sheet("Poisson") ///
-    title("Table X. Poisson Regression -- Incidence Rate Ratios") ///
+    title("Table 5b. Poisson Regression -- Incidence Rate Ratios") ///
     coef("IRR") noint stats(n aic) models("Poisson")
 
 **# Sheet 18: GEE with QIC -- Population-averaged model with QIC statistic
@@ -501,7 +501,7 @@ collect: xtgee ln_wage age tenure, family(gaussian) link(identity) corr(exchange
 collect: xtgee ln_wage age tenure i.race, family(gaussian) link(identity) corr(exchangeable)
 
 regtab, xlsx("`xlsx_regtab'") sheet("GEE QIC") ///
-    title("Table X. GEE Models -- QIC for Model Comparison") ///
+    title("Table 5c. GEE Models -- QIC for Model Comparison") ///
     noint stats(n aic groups) models("Exchangeable" \ "Adjusted")
 restore
 
@@ -512,7 +512,7 @@ collect: logistic cv_event treated index_age female i.education ///
     i.civil_status diabetes hypertension anxiety prior_cvd
 
 regtab, xlsx("`xlsx_regtab'") sheet("Regtab Advanced") ///
-    title("Table X. Logistic Regression with Advanced Formatting") ///
+    title("Table 5d. Logistic Regression with Advanced Formatting") ///
     coef("OR") noint dimnonsig factorlabel ///
     starslevels(0.05 0.01 0.001) ///
     theme(bmj) models("Advanced")
@@ -524,10 +524,10 @@ collect: logistic cv_event treated index_age female i.education ///
     diabetes hypertension anxiety prior_cvd
 
 regtab, xlsx("`xlsx_regtab'") sheet("Regtab Select") ///
-    title("Table X. Selected Covariates (keep/drop demo)") ///
+    title("Table 5e. Selected Covariates (keep/drop demo)") ///
     coef("OR") noint stars ///
     keep(treated index_age female diabetes) ///
-    footnote("Selected covariates from full model. * p<0.05 ** p<0.01 *** p<0.001.") ///
+    footnote("Selected covariates from full model.") ///
     models("Selected")
 
 **# Sheet 21: Regtab Drop -- Exclude specific covariates with drop()
@@ -537,7 +537,7 @@ collect: logistic cv_event treated index_age female i.education ///
     diabetes hypertension anxiety prior_cvd
 
 regtab, xlsx("`xlsx_regtab'") sheet("Regtab Drop") ///
-    title("Table X. Logistic Model (Confounders Suppressed)") ///
+    title("Table 5f. Logistic Model (Confounders Suppressed)") ///
     coef("OR") noint ///
     drop(index_age female 2.education 3.education) ///
     footnote("Model adjusted for age, sex, and education (coefficients suppressed).") ///
@@ -549,7 +549,7 @@ collect clear
 collect: logistic cv_event treated index_age female diabetes hypertension
 
 regtab, xlsx("`xlsx_regtab'") sheet("Regtab AddRow") ///
-    title("Table X. Logistic Regression with Custom Summary Rows") ///
+    title("Table 5g. Logistic Regression with Custom Summary Rows") ///
     coef("OR") noint stars ///
     addrow("P for trend" 0.032 \ "P for interaction" 0.15) ///
     footnote("Custom rows appended below model estimates.") ///
@@ -762,7 +762,7 @@ crosstab treated female, ///
 * Demonstrates: crosstab rr, rd for 2x2 table
 crosstab treated cv_event, ///
     xlsx("`xlsx_crosstab'") sheet("Cross-Tab Measures") ///
-    title("Table X. Treatment-Outcome Association Measures") ///
+    title("Table 16a. Treatment-Outcome Association Measures") ///
     rr rd label ///
     footnote("RR = risk ratio; RD = risk difference with 95% CI.")
 
@@ -786,7 +786,7 @@ label values exposure demo_exposure
 
 crosstab outcome exposure, ///
     xlsx("`xlsx_crosstab'") sheet("Cross-Tab Styled") ///
-    title("Table X. Outcome by Ordinal Exposure") ///
+    title("Table 16b. Outcome by Ordinal Exposure") ///
     trend label boldp(0.05) zebra ///
     footnote("Significant chi-squared and trend rows are bolded when p < 0.05.")
 restore
@@ -795,14 +795,14 @@ restore
 * Demonstrates: crosstab trend for ordinal exposure variable
 crosstab education cv_event, ///
     xlsx("`xlsx_crosstab'") sheet("Cross-Tab Trend") ///
-    title("Table X. CV Events by Education Level (Trend Test)") ///
+    title("Table 16c. CV Events by Education Level (Trend Test)") ///
     trend label zebra
 
 **# Sheet 37: Cross-Tab Row Pct -- Row percentages instead of column
 * Demonstrates: crosstab rowpct for row-based percentage display
 crosstab treated cv_event, ///
     xlsx("`xlsx_crosstab'") sheet("Cross-Tab Row Pct") ///
-    title("Table X. Treatment-Outcome (Row Percentages)") ///
+    title("Table 16d. Treatment-Outcome (Row Percentages)") ///
     rowpct or label ///
     footnote("Percentages are row percentages within each treatment group.")
 
@@ -821,7 +821,7 @@ diagtab phat cv_event, cutoff(0.35) ///
 * Demonstrates: diagtab prevalence() for population-level PPV/NPV adjustment
 diagtab phat cv_event, cutoff(0.35) ///
     xlsx("`xlsx_diagtab'") sheet("Diag Prevalence") ///
-    title("Table X. Diagnostic Accuracy (Prevalence-Adjusted)") ///
+    title("Table 17a. Diagnostic Accuracy (Prevalence-Adjusted)") ///
     prevalence(0.15) auc wilson ///
     footnote("PPV and NPV adjusted to population prevalence of 15%.")
 
@@ -829,7 +829,7 @@ diagtab phat cv_event, cutoff(0.35) ///
 * Demonstrates: diagtab cutoffs() for comparing sensitivity/specificity across thresholds
 diagtab phat cv_event, cutoffs(0.30 0.32 0.34 0.36 0.38 0.40) ///
     xlsx("`xlsx_diagtab'") sheet("Diag Multi-Cut") ///
-    title("Table X. Diagnostic Accuracy Across Multiple Cutoffs") ///
+    title("Table 17b. Diagnostic Accuracy Across Multiple Cutoffs") ///
     wilson ///
     footnote("Sensitivity and specificity shown at each probability threshold.")
 
@@ -848,7 +848,7 @@ survtab, times(365 730 1095 1460) by(treated) ///
 survtab, times(365 730 1095 1460) by(treated) ///
     rmst(1460) riskset difference ///
     xlsx("`xlsx_survtab'") sheet("Survival RMST") ///
-    title("Table X. Survival with RMST and Group Differences") ///
+    title("Table 18a. Survival with RMST and Group Differences") ///
     median timeunit(days) ///
     footnote("RMST = restricted mean survival time truncated at 1460 days.")
 
@@ -857,7 +857,7 @@ survtab, times(365 730 1095 1460) by(treated) ///
 survtab, times(365 730 1095 1460) by(treated) ///
     reverse ///
     xlsx("`xlsx_survtab'") sheet("Cumul Incidence") ///
-    title("Table X. Cumulative Incidence of CV Events") ///
+    title("Table 18b. Cumulative Incidence of CV Events") ///
     timeunit(days) theme(apa)
 
 
@@ -1003,7 +1003,7 @@ hrcomptab _demo_hr_rates, modelframes(_demo_hr_bin _demo_hr_dose) ///
     rows(1 \ 3/5) ///
     xlsx("`xlsx_hrcomptab'") sheet("HR Composite") ///
     effect("aHR") zebra headershade ///
-    title("Table X. Hormone Therapy Events, Person-Years, and Adjusted Hazard Ratios") ///
+    title("Table 19. Hormone Therapy Events, Person-Years, and Adjusted Hazard Ratios") ///
     footnote("Demo of hrcomptab. The stratetab frame supplies events, person-years, and rates; selected regtab rows supply adjusted hazard ratios and p-values.")
 
 capture frame drop _demo_hr_rates

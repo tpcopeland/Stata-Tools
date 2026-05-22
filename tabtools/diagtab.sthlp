@@ -138,6 +138,8 @@ Cannot be combined with {opt cutoffs()}.{p_end}
 
 {pstd}When {opt cutoffs()} is used, the output shows one section per
 cutoff with sensitivity, specificity, PPV, NPV, and accuracy.
+Undefined estimates are displayed as {cmd:--} while stored numeric
+results remain missing.
 The combined results are returned in {cmd:r(cutoff_table)}.{p_end}
 
 {pstd}{bf:Example 4: Prevalence-adjusted predictive values}{p_end}

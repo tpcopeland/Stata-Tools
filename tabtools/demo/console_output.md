@@ -179,7 +179,7 @@ tabtools - Publication-Ready Table Export Suite
   ────────────────────────────────────────────────────────────────────
   tabtools     Suite controller for listing commands and
                managing persistent formatting defaults with
-                and .
+               set and get.
 
 ```
 

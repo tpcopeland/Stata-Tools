@@ -65,18 +65,65 @@ else {
             demo_survtab.xlsx ///
             demo_hrcomptab.xlsx
 
+        local actual_sheets 0
         foreach f of local xlsx_files {
             local artifact "`demo_dir'/`f'"
             confirm file "`artifact'"
             shell test -s "`artifact'"
+            import excel using "`artifact'", describe
+            local nsheets = r(N_worksheet)
+            local actual_sheets = `actual_sheets' + `nsheets'
+            forvalues s = 1/`nsheets' {
+                local sheet_`s' `"`r(worksheet_`s')'"'
+            }
             import excel "`artifact'", cellrange(A1:A1) clear
+
+            forvalues s = 1/`nsheets' {
+                import excel using "`artifact'", sheet(`"`sheet_`s''"') clear allstring
+                foreach v of varlist _all {
+                    quietly count if strpos(`v', "Table X.") > 0
+                    assert r(N) == 0
+
+                    quietly count if strpos(`v', "* p<0.05") > 0 ///
+                        & strpos(substr(`v', strpos(`v', "* p<0.05") + 1, .), "* p<0.05") > 0
+                    assert r(N) == 0
+
+                    quietly count if strpos(`v', ",  ") > 0 ///
+                        & strpos(`v', "(") > 0 & strpos(`v', ")") > 0
+                    assert r(N) == 0
+                }
+            }
         }
+        assert `actual_sheets' == 55
+        tempfile readme_hit
+        shell grep -F "(`actual_sheets' sheets total)" "`pkg_dir'/README.md" > "`readme_hit'"
+        tempname readmefh
+        file open `readmefh' using "`readme_hit'", read text
+        file read `readmefh' readme_line
+        assert r(eof) == 0
+        file close `readmefh'
 
         confirm file "`demo_dir'/console_output.smcl"
         shell test -s "`demo_dir'/console_output.smcl"
+        confirm file "`demo_dir'/console_output.md"
+        shell test -s "`demo_dir'/console_output.md"
+        tempfile setget_hit corrupt_hit
+        shell grep -F "set and get" "`demo_dir'/console_output.md" > "`setget_hit'"
+        tempname setfh
+        file open `setfh' using "`setget_hit'", read text
+        file read `setfh' setget_line
+        assert r(eof) == 0
+        file close `setfh'
+
+        shell grep -F "and ." "`demo_dir'/console_output.md" > "`corrupt_hit'"
+        tempname corruptfh
+        file open `corruptfh' using "`corrupt_hit'", read text
+        file read `corruptfh' corrupt_line
+        assert r(eof) != 0
+        file close `corruptfh'
     }
     if _rc == 0 {
-        display as result "  PASS: demo workbooks and console log exist and are readable"
+        display as result "  PASS: demo workbooks and console output are readable and free of release text anomalies"
         local ++pass_count
     }
     else {

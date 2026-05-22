@@ -599,7 +599,7 @@ program define _tabtools_detail
             display as text "  {hline 60}"
             display as result "  tabtools" as text "     Suite controller for listing commands and"
             display as text "               managing persistent formatting defaults with"
-            display as text "               {cmd:set} and {cmd:get}."
+            display as text "               set and get."
             display as text ""
         }
 
