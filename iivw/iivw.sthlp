@@ -136,8 +136,8 @@ registry data.{p_end}
 
 {pstd}
 By default, {cmd:iivw_weight} auto-detects the weight type: if you specify
-{opt treat()}, it computes FIPTIW; otherwise it computes IIW.  You can
-override this with {opt wtype()}.
+{cmd:treat()}, it computes FIPTIW; otherwise it computes IIW.  You can
+override this with {cmd:wtype()}.
 
 
 {marker assumptions}{...}
@@ -163,7 +163,7 @@ near-certain treatment assignments create extreme weights and unstable
 estimates.{p_end}
 
 {phang2}(e) Built-in standard errors treat the weights as fixed.  The
-{opt bootstrap()} option re-samples the outcome model but does not re-fit
+{cmd:bootstrap()} option re-samples the outcome model but does not re-fit
 {cmd:iivw_weight} inside each replicate.{p_end}
 
 {pstd}
@@ -186,7 +186,7 @@ component weights when applicable, and dataset metadata used by
 {phang2}2. {bf:Inspect weights} using {cmd:summarize _iivw_weight, detail}.
 Look for extreme values (very large max or very small min).  If the weight
 distribution has heavy tails, re-run {cmd:iivw_weight} with
-{opt truncate(1 99)} to stabilize the weights.  A mean near 1.0 is expected
+{cmd:truncate(1 99)} to stabilize the weights.  A mean near 1.0 is expected
 for well-specified models.{p_end}
 
 {phang2}3. {bf:Fit the outcome model} with {cmd:iivw_fit}, which reads the
@@ -249,7 +249,7 @@ the timing of that same visit.
 
 {pstd}
 When both visit frequency and treatment assignment are driven by disease
-severity, add {opt treat()} and {opt treat_cov()} to correct for both
+severity, add {cmd:treat()} and {cmd:treat_cov()} to correct for both
 simultaneously:
 
 {phang2}{cmd:. iivw_weight, id(id) time(days) visit_cov(edss_bl age sex) lagvars(edss relapse) treat(treated) treat_cov(age sex edss_bl) truncate(1 99) replace nolog}{p_end}

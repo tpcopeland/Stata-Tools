@@ -179,7 +179,7 @@ iivw_fit edss treatment edss_bl, ///
 
 ### 6. Bootstrap standard errors
 
-Bootstrap replicates apply to the outcome model fit with fixed weights.  The weights are not re-estimated inside each bootstrap draw:
+Bootstrap replicates apply to the outcome model fit with fixed weights.  The weights are not re-estimated inside each bootstrap draw.  Bootstrap clustering uses `cluster()` when specified and otherwise defaults to the subject ID stored by `iivw_weight`:
 
 ```stata
 iivw_fit edss treated edss_bl, bootstrap(500) nolog replace
@@ -187,7 +187,7 @@ iivw_fit edss treated edss_bl, bootstrap(500) nolog replace
 
 ### 7. Export results to Excel
 
-Use the `collect` option with `regtab` (from the `tabtools` package) to build publication-ready tables:
+Use the `collect` option with non-bootstrap `model(gee)` fits and `regtab` (from the `tabtools` package) to build publication-ready tables:
 
 ```stata
 collect clear
@@ -222,7 +222,7 @@ After running `iivw_weight`, check these before fitting the outcome model:
 
 - **Coefficients** (default GEE with gaussian family) are the change in the outcome per one-unit change in the predictor, averaged over the population.
 - **Treatment effect**: The coefficient on the treatment variable is the weighted treatment contrast.  A causal interpretation additionally requires a correctly specified visit model, a correctly specified propensity model for IPTW/FIPTIW, no unmeasured confounding, and a treatment assignment mechanism appropriate for the chosen weight type.
-- **Standard errors** are sandwich (robust) SEs clustered at the subject level.  They do not account for weight estimation uncertainty.
+- **Standard errors** are sandwich (robust) SEs clustered at `cluster()` when specified and otherwise at the subject ID stored by `iivw_weight`.  They do not account for weight estimation uncertainty.
 - **Post-estimation**: All standard Stata post-estimation commands work after `iivw_fit` (`predict`, `lincom`, `test`, `margins`).
 
 ## What to Report
@@ -280,7 +280,7 @@ do iivw/demo/demo_iivw.do
 - Deferred `iivw_weight` and `iivw_fit` metadata wipes past input validation so validation-stage failures preserve prior weights/fit state
 - Formatted effects table now shows an `(omitted)` row for predictors dropped by the estimator instead of silently skipping them
 - Added an Intercept row to the formatted effects table
-- Fixed `iivw_weight.sthlp` abbreviation documentation for `treat_cov()` (was full-form-only, now `treat_c:ov` to match the .ado minimum)
+- Fixed `iivw_weight.sthlp` abbreviation documentation for `treat_cov()` (minimum abbreviation is `treat`)
 - Softened convergence-warning advisory lines from `as error` to `as text`; standardized `exit 198` → `error 198` and removed a dead post-filter line
 - Added v1.0.6 regression QA covering all of the above
 
@@ -308,7 +308,7 @@ do iivw/demo/demo_iivw.do
 ### v1.0.2 (2026-04-26)
 
 - Added `efron` option to `iivw_weight` for Efron tie-handling in the Cox model (matches R's coxph default; Breslow remains the Stata default)
-- Added `collect` option to `iivw_fit` for Stata's collect framework integration
+- Added `collect` option to non-bootstrap GEE fits in `iivw_fit` for Stata's collect framework integration
 - Improved `stabcov()` documentation with guidance on numerator model specification in FIPTIW settings
 - Added Remarks in `iivw_fit.sthlp` for choosing between GEE and mixed models, and for timespec selection
 - Expanded `entry()` documentation for late-entry/left-truncation designs

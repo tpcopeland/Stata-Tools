@@ -52,9 +52,11 @@ and untreated groups both before and after weighting, and reports how much
 each covariate improved.{p_end}
 
 {pstd}
-This command does not modify the dataset.  It reads the {cmd:_msm_weight}
-variable created by {helpb msm_weight} and the variable mapping stored by
-{helpb msm_prepare}.
+This command does not change observations or create/drop data variables.  It
+reads the {cmd:_msm_weight} variable created by {helpb msm_weight} and the
+variable mapping stored by {helpb msm_prepare}.  It does store diagnostic state
+in dataset characteristics so downstream commands can report or export the
+latest diagnostics.
 
 {pstd}
 If {cmd:balance_covariates()} is omitted, the command defaults to all
@@ -62,8 +64,9 @@ covariates registered with {helpb msm_prepare} (both time-varying and
 baseline).
 
 {pstd}
-The balance results are persisted in dataset characteristics and a Stata matrix
-so that {helpb msm_table} can export them to Excel.
+When balance diagnostics are requested, the balance results are also persisted
+in dataset characteristics and a Stata matrix so that {helpb msm_table} can
+export them to Excel.
 
 
 {marker interpreting}{...}

@@ -14,6 +14,9 @@
 **/qa/crossval_results/*.log
 **/qa/crossval_data/
 
+# gcomp demo outputs
+gcomp/demo/*.xlsx
+
 
 # codescan QA test artifacts
 codescan/qa/cs_test_*.dta

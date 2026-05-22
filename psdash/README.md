@@ -121,7 +121,7 @@ For the automatic `teffects` workflow, ATT handling, pre-computed weights, and f
 
 ### Common and multi-group options
 - `estimand(ate|att|atc)` - target estimand for generated weights. Default is `ate`; after `teffects`, the value is read from `e(stat)` unless supplied explicitly.
-- `psvars(varlist)` - generalized propensity scores for multi-group treatments. Provide one probability variable per nonnegative integer treatment level, ordered by ascending treatment value.
+- `psvars(varlist)` - generalized propensity scores for multi-group treatments, meaning K > 2 or K = 2 with non-0/1 treatment levels. Provide one probability variable per nonnegative integer treatment level, ordered by ascending treatment value.
 - `reference(#)` - reference treatment level for pairwise multi-group balance and weight summaries. Default is the smallest observed treatment level.
 - `saving(filename)` - save the graph produced by the relevant subcommand. For `combined`, this saves the combined dashboard graph.
 - `scheme(schemename)`, `title(string)`, `name(string)`, `graphoptions(string)` - graph styling options where supported by the subcommand.
@@ -159,13 +159,14 @@ For the automatic `teffects` workflow, ATT handling, pre-computed weights, and f
 
 ### support
 - `crump` — Crump et al. (2009) optimal trimming for binary treatments; use `threshold()` for multi-group
-- `threshold(#)` — manual PS trimming threshold (0–0.5)
+- `threshold(#)` — manual PS trimming threshold, strictly between 0 and 0.5
 - `generate(name)` — create an in-support indicator. With `crump` or `threshold()`, this marks the trimmed region; otherwise it marks the empirical common-support interval.
 - `replace` - allow `generate()` to replace an existing variable
 - `nograph` - show the support table without drawing a graph
 
 ### combined
 - `nooverlap`, `nobalance`, `noweights`, `nosupport` — suppress panels
+- `threshold(#)` — SMD imbalance threshold for the balance panel only
 
 ## Stored Results
 
@@ -178,7 +179,7 @@ Each subcommand stores results in `r()`. Technical users can use these values in
 | `weights` | `r(mean_wt)`, `r(sd_wt)`, `r(cv)`, `r(ess)`, `r(ess_pct)`, `r(n_extreme)`, `r(p1)`, `r(p99)`, `r(generate)` | none |
 | `support` | `r(lower_bound)`, `r(upper_bound)`, `r(n_outside)`, `r(pct_outside)`, `r(trim_lower)`, `r(trim_upper)`, `r(n_trimmed)`, `r(crump_alpha)` | none |
 | `combined` | Inherits subcommand results via `return add`; also stores `r(treatment)`, `r(psvar)`, `r(estimand)`, `r(source)`, and for multi-group runs `r(K)`, `r(levels)`, `r(reference)` | inherited when balance runs |
-| `combined` after `ltmle` | Stores `r(longitudinal)`, `r(period)`, `r(id)`, `r(wvar)`, `r(N_periods)`, `r(overlap_by_period)`, and `r(weights_by_period)` | LTMLE contract diagnostics only |
+| `combined` after `ltmle` | Stores LTMLE metadata (`r(longitudinal)`, `r(period)`, `r(periods)`, `r(id)`, `r(wvar)`, `r(method)`, `r(contract_version)`), weight diagnostics (`r(mean_wt)`, `r(ess)`, `r(ess_pct)`, percentiles), and `r(max_pct_outside)` | `r(overlap_by_period)`, `r(weights_by_period)` |
 
 For binary treatments, `r(balance)` has one row per covariate and columns for raw and adjusted means, SMDs, variance ratios, and KS statistics. For multi-group treatments, `r(balance)` has one five-column block per non-reference group, plus adjusted blocks when weights are applied; column names include the compared treatment levels.
 

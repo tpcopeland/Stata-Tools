@@ -46,7 +46,7 @@ errors.
 {synopt:{opt decimal(#)}}decimal places for numeric values; default is {cmd:3}; range 1-6{p_end}
 
 {syntab:Formatting}
-{synopt:{opt font(string)}}font family; default is {cmd:"Arial"}{p_end}
+{synopt:{opt f:ont(string)}}font family; default is {cmd:"Arial"}{p_end}
 {synopt:{opt fonts:ize(#)}}body font size; title uses fontsize+2; default is {cmd:10}{p_end}
 {synopt:{opt border:style(string)}}border style: {cmd:academic} (default), {cmd:thin}, or {cmd:medium}{p_end}
 {synopt:{opt zebra}}alternating row shading (light blue){p_end}
@@ -150,7 +150,7 @@ confidence limits, and standard errors. Default is {cmd:3}. Range is 1 to 6.
 {dlgtab:Formatting}
 
 {phang}
-{opt font(string)} sets the font family for all text in the workbook.
+{opt f:ont(string)} sets the font family for all text in the workbook.
 Default is {cmd:"Arial"}. Any font installed on your system can be used.
 Font names containing shell metacharacters are rejected before workbook
 creation.

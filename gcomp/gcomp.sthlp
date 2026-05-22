@@ -39,8 +39,8 @@ bootstrap inference.
 {opt out:come(varname)}
 {opt com:mands(string)}
 {opt eq:uations(string)}
-{opt idvar(varname)}
-{opt tvar(varname)}
+{opt i:dvar(varname)}
+{opt t:var(varname)}
 {opt var:yingcovariates(varlist)}
 {opt intvars(varlist)}
 {opt interventions(string)}
@@ -78,8 +78,8 @@ or {opt baseline(string)}.
 {synopt:{opt eq:uations(string)}}prediction equations for each variable{p_end}
 
 {syntab:Required (time-varying)}
-{synopt:{opt idvar(varname)}}subject identifier variable{p_end}
-{synopt:{opt tvar(varname)}}time variable{p_end}
+{synopt:{opt i:dvar(varname)}}subject identifier variable{p_end}
+{synopt:{opt t:var(varname)}}time variable{p_end}
 {synopt:{opt var:yingcovariates(varlist)}}time-varying covariates{p_end}
 {synopt:{opt intvars(varlist)}}intervention variables{p_end}
 {synopt:{opt interventions(string)}}intervention specifications{p_end}
@@ -221,7 +221,7 @@ construct confidence intervals.
 {bf:Data layout.}{break}
 Mediation analyses use {bf:cross-sectional} (wide) data: one row per subject.
 Time-varying analyses use {bf:panel} (long) data: one row per subject per time
-point, identified by {opt idvar()} and {opt tvar()}.
+point, identified by {opt i:dvar()} and {opt t:var()}.
 
 
 {marker options}{...}
@@ -254,12 +254,12 @@ and {cmd:c}.
 {dlgtab:Required (time-varying)}
 
 {phang}
-{opt idvar(varname)} specifies the subject identifier. Your data must be in
+{opt i:dvar(varname)} specifies the subject identifier. Your data must be in
 long (panel) format with one row per subject per time point. Each unique value
-of {opt idvar()} identifies a different subject.
+of {opt i:dvar()} identifies a different subject.
 
 {phang}
-{opt tvar(varname)} specifies the time variable. Each row in the panel records
+{opt t:var(varname)} specifies the time variable. Each row in the panel records
 the subject's values at the time identified by this variable. Time values
 should be consecutive integers starting from 1 (or any common integer
 sequence).
@@ -455,7 +455,7 @@ of the default risk difference (RD) scale.
 {opt impute(varlist)} specifies variables with missing values to be imputed
 before the g-computation using single stochastic imputation. This handles
 missing data under a missing-at-random (MAR) assumption.
-{it:Note:} the {varlist} of required variables ({opt idvar()}, {opt tvar()})
+{it:Note:} the {varlist} of required variables ({opt i:dvar()}, {opt t:var()})
 cannot be imputed; only covariates and mediators are eligible.
 
 {phang}
@@ -548,7 +548,7 @@ replication data.
 Verify that your data are in the correct layout. For mediation analyses, each
 subject should have exactly one row (cross-sectional / wide format). For
 time-varying analyses, data must be in long format with one row per subject-
-time observation, and the {opt idvar()} and {opt tvar()} variables must
+time observation, and the {opt i:dvar()} and {opt t:var()} variables must
 uniquely identify each row.
 
 {pstd}
@@ -577,7 +577,7 @@ results stabilize.
 
 {pstd}
 {cmd:gcomp} drops observations with missing values on required variables
-({opt idvar()}, {opt tvar()}, {opt intvars()}, etc.) and reports how many were
+({opt i:dvar()}, {opt t:var()}, {opt intvars()}, etc.) and reports how many were
 dropped. For intermittent missingness on covariates or mediators, use the
 {opt impute()} option to apply single stochastic imputation under MAR.
 

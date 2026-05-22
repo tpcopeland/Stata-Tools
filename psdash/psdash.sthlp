@@ -24,8 +24,9 @@
 {cmd:psdash} {it:subcommand} [{it:treatment}] [{it:psvar}] [{it:{help if}}] [{it:{help in}}] [{cmd:,} {it:options}]
 
 {pstd}
-For multi-group treatments (K > 2), treatment levels must be nonnegative integers.
-Supply one PS variable per level via {opt psv:ars()}:
+For multi-group treatments (K > 2, or K = 2 with non-0/1 treatment levels),
+treatment levels must be nonnegative integers. Supply one PS variable per level
+via {opt psv:ars()}:
 
 {phang}
 {cmd:psdash} {it:subcommand} {it:treatment} [{it:{help if}}] [{it:{help in}}] [{cmd:,} {opt psv:ars(varlist)} {opt ref:erence(#)} {it:options}]
@@ -167,12 +168,13 @@ They are not left behind in the user's dataset. Stored-result macros report
 
 {phang}
 {opt psvars(varlist)} specifies the generalized propensity score (GPS) variables
-for multi-group treatments (K > 2). Provide one variable per treatment level,
-ordered by level value (ascending). Each variable should contain P(A=a|X), the
-predicted probability of that treatment level. Required for K > 2 in manual
-mode; auto-generated after {cmd:teffects} with a multi-valued treatment.
-For binary treatment, the standard single {it:psvar} positional argument is
-sufficient.
+for multi-group treatments (K > 2, or K = 2 with non-0/1 treatment levels).
+Provide one variable per treatment level, ordered by level value (ascending).
+Each variable should contain P(A=a|X), the predicted probability of that
+treatment level. Required for manual multi-group mode except the special
+K = 2 non-0/1 case, where a single positional {it:psvar} is also accepted.
+Auto-generated after {cmd:teffects} with a multi-valued treatment. For binary
+0/1 treatment, the standard single {it:psvar} positional argument is sufficient.
 
 {pstd}
 Multi-group treatment values must be nonnegative integers because per-group
@@ -303,7 +305,7 @@ treatments, use {opt threshold()} instead.
 {phang}
 {opt threshold(#)} specifies a manual PS trimming threshold. Observations
 with PS < threshold or PS > 1-threshold are considered outside support.
-Must be between 0 and 0.5.
+Must be strictly between 0 and 0.5.
 
 {phang}
 {opt generate(name)} creates an indicator variable equal to 1 for
@@ -330,6 +332,10 @@ the optimal alpha is typically between 0.05 and 0.15.
 {phang}
 {opt nooverlap}, {opt nobalance}, {opt noweights}, {opt nosupport} suppress
 the corresponding panel from the combined dashboard.
+
+{phang}
+{opt threshold(#)} sets the SMD imbalance threshold for the balance panel in
+the combined dashboard. It is not passed to the support panel.
 
 {phang}
 {opt saving(filename)} saves the combined graph to {it:filename} (not individual panels).
@@ -385,7 +391,7 @@ or {cmd:psdash weights, generate()} with a modification option when you want to
 save a new weight variable.
 
 {pstd}
-{bf:Multi-group ATC note:} For treatments with K > 2, the ATC estimand uses
+{bf:Multi-group ATC note:} For multi-group treatments, the ATC estimand uses
 the same generalized IPTW formula as ATE ({cmd:w = 1 / P(A=a|X)}). This is
 standard practice; ATT and ATC are less commonly applied to multi-valued
 treatments, and the ATE weights are the natural generalization.
@@ -528,7 +534,7 @@ Each subcommand stores results in {cmd:r()}.
 {pstd}
 {bf:Multi-group note:} For binary (0/1) treatment, stored results use
 binary group names such as {cmd:r(N_treated)} and {cmd:r(N_control)}.
-For K > 2 treatment groups, per-group results use the naming convention
+For multi-group treatment runs, per-group results use the naming convention
 {cmd:r(N_group_{it:<level>})},
 {cmd:r(ess_group_{it:<level>})}, etc. Additionally, {cmd:r(K)} returns the number
 of groups, {cmd:r(levels)} lists the treatment values, and {cmd:r(reference)}
@@ -678,16 +684,26 @@ If {opt trim()}, {opt truncate()}, or {opt stabilize} is specified, also returns
 {synopt:{cmd:r(source)}}detection source ({cmd:"manual"}, {cmd:"teffects"}, {cmd:"estimation"}, {cmd:"tmle"}, or {cmd:"ltmle"}){p_end}
 {synopt:{cmd:r(wvar)}}weight variable name for LTMLE longitudinal diagnostics{p_end}
 {synopt:{cmd:r(period)}}period variable for LTMLE longitudinal diagnostics{p_end}
+{synopt:{cmd:r(periods)}}period values included in LTMLE longitudinal diagnostics{p_end}
 {synopt:{cmd:r(id)}}ID variable for LTMLE longitudinal diagnostics, when available{p_end}
 {synopt:{cmd:r(regime)}}LTMLE regime metadata, when available{p_end}
-{synopt:{cmd:r(levels)}}multi-group treatment levels, if K > 2{p_end}
-{synopt:{cmd:r(reference)}}multi-group reference level, if K > 2{p_end}
+{synopt:{cmd:r(method)}}LTMLE method metadata, when available{p_end}
+{synopt:{cmd:r(contract_version)}}LTMLE contract version metadata, when available{p_end}
+{synopt:{cmd:r(levels)}}multi-group treatment levels, if applicable{p_end}
+{synopt:{cmd:r(reference)}}multi-group reference level, if applicable{p_end}
 
 {p2col 5 30 34 2: Scalars}{p_end}
-{synopt:{cmd:r(K)}}number of treatment groups, if K > 2{p_end}
+{synopt:{cmd:r(K)}}number of treatment groups, if applicable{p_end}
+{synopt:{cmd:r(N)}}observations in the LTMLE diagnostic sample{p_end}
 {synopt:{cmd:r(longitudinal)}}1 for LTMLE longitudinal diagnostics{p_end}
 {synopt:{cmd:r(N_periods)}}number of periods for LTMLE longitudinal diagnostics{p_end}
 {synopt:{cmd:r(max_pct_outside)}}maximum period-specific percentage outside overlap, LTMLE only{p_end}
+{synopt:{cmd:r(mean_wt)}, {cmd:r(sd_wt)}}mean and SD of LTMLE contract weights{p_end}
+{synopt:{cmd:r(min_wt)}, {cmd:r(max_wt)}}minimum and maximum LTMLE contract weights{p_end}
+{synopt:{cmd:r(cv)}}coefficient of variation of LTMLE contract weights{p_end}
+{synopt:{cmd:r(ess)}, {cmd:r(ess_pct)}}effective sample size and ESS percentage for LTMLE contract weights{p_end}
+{synopt:{cmd:r(p1)}, {cmd:r(p5)}, {cmd:r(p50)}, {cmd:r(p95)}, {cmd:r(p99)}}selected LTMLE contract-weight percentiles{p_end}
+{synopt:{cmd:r(n_extreme)}, {cmd:r(pct_extreme)}}count and percentage of LTMLE contract weights above 10{p_end}
 
 {p2col 5 30 34 2: Matrices}{p_end}
 {synopt:{cmd:r(overlap_by_period)}}period-specific PS overlap table, LTMLE only{p_end}

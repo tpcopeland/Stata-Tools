@@ -123,8 +123,11 @@ never-treated, and {cmd:both} (the default) computes both.
 
 {phang}
 {opt diff:erence} computes risk differences (always-treated minus
-never-treated) at each time point with MC confidence intervals.  Only
-meaningful with {cmd:strategy(both)}; silently ignored otherwise.
+never-treated) at each time point with MC confidence intervals.  It is intended
+for {cmd:strategy(both)}.  With {cmd:strategy(always)} or
+{cmd:strategy(never)}, no risk difference can be computed; the prediction
+matrix may include empty difference columns and no {cmd:r(rd_#)} scalars are
+returned.
 
 {phang}
 {opt type(string)} specifies the output scale.  {cmd:cum_inc} (default)
@@ -224,10 +227,10 @@ datasets fitted by older versions.{p_end}
 
 {synoptset 20 tabbed}{...}
 {p2col 5 20 24 2: Matrices}{p_end}
-{synopt:{cmd:r(predictions)}}prediction matrix (period, estimates, CIs per strategy; plus diff columns with {opt difference}){p_end}
+{synopt:{cmd:r(predictions)}}prediction matrix (period, estimates, CIs per strategy; plus difference columns when {opt difference} is requested){p_end}
 
 {p2col 5 20 24 2: Scalars}{p_end}
-{synopt:{cmd:r(rd_#)}}risk difference at time # (only with {opt difference}){p_end}
+{synopt:{cmd:r(rd_#)}}risk difference at time # (only with {opt difference} and {cmd:strategy(both)}){p_end}
 {synopt:{cmd:r(n_times)}}number of time points requested{p_end}
 {synopt:{cmd:r(n_ref)}}number of individuals in the reference population{p_end}
 {synopt:{cmd:r(samples)}}number of MC draws used{p_end}

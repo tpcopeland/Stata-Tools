@@ -46,7 +46,7 @@
 
 {syntab:Treatment (IPTW)}
 {synopt:{opt treat(varname)}}binary treatment indicator (0/1){p_end}
-{synopt:{opt treat_c:ov(varlist)}}covariates for treatment logistic model{p_end}
+{synopt:{opt treat:_cov(varlist)}}covariates for treatment logistic model{p_end}
 
 {syntab:Weight specification}
 {synopt:{opt wt:ype(string)}}weight type: {cmd:iivw}, {cmd:iptw}, or {cmd:fiptiw}{p_end}
@@ -494,7 +494,7 @@ as predictors of when patients visit the clinic.
 Correct for both informative visits and treatment confounding.
 {opt truncate(1 99)} caps extreme weights at the 1st and 99th percentiles.
 
-{phang2}{cmd:. iivw_weight, id(id) time(days) visit_cov(edss_bl age sex) lagvars(edss relapse) treat(treated) treat_cov(age sex edss_bl) truncate(1 99) nolog}{p_end}
+{phang2}{cmd:. iivw_weight, id(id) time(days) visit_cov(edss_bl age sex) lagvars(edss relapse) treat(treated) treat_cov(age sex edss_bl) truncate(1 99) replace nolog}{p_end}
 
 {pstd}
 {bf:Example 3: Lagged covariates in the visit model}

@@ -207,8 +207,9 @@ level when patients are nested within clinics).
 {phang}
 {opt bootstrap(#)} specifies the number of bootstrap replicates.  When
 {cmd:bootstrap(0)} (the default), sandwich standard errors are used.  When
-positive, the {cmd:bootstrap} prefix is applied with clustering at the
-subject level.  Negative values are not allowed.
+positive, the {cmd:bootstrap} prefix is applied with clustering at
+{opt cluster()}, which defaults to the subject ID stored by
+{cmd:iivw_weight}.  Negative values are not allowed.
 
 {pmore}
 {bf:Important:} the bootstrap treats the IIW/IPTW weights as fixed
@@ -235,10 +236,12 @@ variables created by a previous {cmd:iivw_fit} call.  Without {opt replace},
 the command errors if any generated variable already exists.
 
 {phang}
-{opt col:lect} adds the {cmd:collect:} prefix to the underlying estimation
-command, enabling Stata's {cmd:collect} framework for building multi-model
-tables.  Use this when combining results from multiple {cmd:iivw_fit} calls
-into a single table via {helpb collect} or {helpb regtab}.
+{opt col:lect} adds the {cmd:collect:} prefix to non-bootstrap
+{cmd:model(gee)} fits, enabling Stata's {cmd:collect} framework for building
+multi-model tables.  Use this when combining results from multiple
+{cmd:iivw_fit} calls into a single table via {helpb collect} or
+{helpb regtab}.  This option is not applied to {opt bootstrap()} fits or
+{cmd:model(mixed)}.
 
 {phang}
 {opt gee:opts(string)} passes additional options directly to {cmd:glm}.
@@ -319,9 +322,11 @@ since the bootstrap wrapper does not expose convergence status.
 
 {pstd}
 {cmd:iivw_fit} is an {cmd:eclass} command and works with Stata's {cmd:collect}
-framework.  Use the {opt collect} option or the {cmd:collect:} prefix to
-accumulate results across models, then export with {helpb regtab} (from
-the {cmd:tabtools} package; install separately if needed).
+framework.  For non-bootstrap {cmd:model(gee)} fits, use the {opt collect}
+option or the {cmd:collect:} prefix to accumulate results across models, then
+export with {helpb regtab} (from the {cmd:tabtools} package; install
+separately if needed).  For bootstrap or {cmd:model(mixed)} fits, use Stata's
+standard post-estimation/export workflow after the model is fit.
 
 {phang2}{cmd:. collect clear}{p_end}
 {phang2}{cmd:. iivw_fit score drug age severity_bl, model(gee) collect}{p_end}
@@ -527,8 +532,8 @@ odds ratios.
 {bf:Example 7: Export results to Excel}
 
 {pstd}
-Use the {opt collect} option to accumulate results, then export with
-{cmd:regtab}.
+Use the {opt collect} option with non-bootstrap {cmd:model(gee)} fits to
+accumulate results, then export with {cmd:regtab}.
 
 {phang2}{cmd:. collect clear}{p_end}
 {phang2}{cmd:. iivw_fit edss treated edss_bl, model(gee) nolog replace collect}{p_end}
