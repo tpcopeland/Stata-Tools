@@ -1,4 +1,4 @@
-*! stratetab Version 1.2.0  2026/05/20
+*! stratetab Version 1.3.0  2026/05/23
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
@@ -617,28 +617,25 @@ return scalar N_rows = `lastrow'
 return scalar N_exposures = `n_exposures'
 return scalar N_outcomes = `outcomes'
 
-* Export to Excel
-if `_has_xlsx' {
-	order title c*
-	capture export excel using "`xlsx'", sheet("`sht'") sheetreplace
-	if _rc {
-		local saved_rc = _rc
-		noi di as err "Failed to export to `xlsx'"
-		noi di as err "Hint: ensure the xlsx file is not open in another application"
+	* Export to Excel
+	if `_has_xlsx' {
+		order title c*
+		capture noisily _tabtools_xlsx_write_current using "`xlsx'", sheet("`sht'") book(b)
+		if _rc {
+			local saved_rc = _rc
+			noi di as err "Failed to export to `xlsx'"
+			noi di as err "Hint: ensure the xlsx file is not open in another application"
 		qui use "`_userdata_path'", clear
 		set varabbrev `_orig_varabbrev'
 		local _fatal_rc = `saved_rc'
 		exit `saved_rc'
 	}
 	else {
-		* Apply formatting with mata
-		clear
-		capture {
-			mata: b = xl()
-			mata: b.load_book("`xlsx'")
-			mata: b.set_sheet("`sht'")
-			mata: b.set_row_height(1,1,30)
-			mata: b.set_column_width(1,1,1)
+			* Apply formatting with mata
+			clear
+			capture {
+				mata: b.set_row_height(1,1,30)
+				mata: b.set_column_width(1,1,1)
 			mata: b.set_column_width(2,2,18)
 
 			* Set data column widths based on row 3 header content

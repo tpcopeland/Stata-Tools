@@ -1,4 +1,4 @@
-*! regtab Version 1.2.0  2026/05/20
+*! regtab Version 1.3.0  2026/05/23
 *! Author: Timothy P Copeland, Karolinska Institutet
 
 /*
@@ -258,7 +258,7 @@ quietly{
     if _rc == 0 {
         preserve
         capture {
-            import excel "`meta_xlsx_file'", sheet(_meta) clear allstring
+            _tabtools_xlsx_read_current using "`meta_xlsx_file'", sheet(_meta)
 
             local meta_col_cmd ""
             local meta_col_cmdline ""
@@ -514,7 +514,7 @@ quietly{
             if `_stats_rc' == 0 {
                 preserve
                 capture {
-                    import excel "`stats_xlsx_file'", sheet(_stats) clear allstring
+                    _tabtools_xlsx_read_current using "`stats_xlsx_file'", sheet(_stats)
 
                     * Map header row to column positions
                     local stat_col_N ""
@@ -764,7 +764,7 @@ quietly{
             if _rc == 0 {
                 preserve
                 capture {
-                    import excel "`icc_xlsx_file'", sheet(_icc) clear allstring
+                    _tabtools_xlsx_read_current using "`icc_xlsx_file'", sheet(_icc)
 
                     * Find first data row (column A has cmdset number)
                     local _icc_hdr = 0
@@ -1060,7 +1060,7 @@ if _rc {
 * Preserve user data before import
 preserve
 
-capture import excel "`temp_xlsx'", sheet(temp) clear
+capture _tabtools_xlsx_read_current using "`temp_xlsx'", sheet(temp)
 if _rc {
 	noisily display as error "Failed to import temporary Excel file"
 	capture erase "`temp_xlsx'"
@@ -2091,7 +2091,7 @@ return local stars "`stars'"
 return local methods "`_methods'"
 
 if `_has_xlsx' {
-    capture export excel using "`xlsx'", sheet("`sheet'") sheetreplace
+    capture noisily _tabtools_xlsx_write_current using "`xlsx'", sheet("`sheet'") book(b)
     if _rc {
         local _export_rc = _rc
         noisily display as error "Failed to export to `xlsx', sheet `sheet'"
@@ -2236,10 +2236,6 @@ if "`dimnonsig'" != "" {
 
 * All formatting in a single Mata xl() session
 capture {
-	mata: b = xl()
-	mata: b.load_book("`xlsx'")
-	mata: b.set_sheet("`sheet'")
-
 	* Column widths
 	mata: b.set_row_height(1,1,30)
 	mata: b.set_column_width(1,1,1)

@@ -1,4 +1,4 @@
-*! table1_tc Version 1.2.0  2026/05/20 - Descriptive Statistics Table Generator
+*! table1_tc Version 1.3.0  2026/05/23 - Descriptive Statistics Table Generator
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Fork of -table1_mc- version 3.5 (2024-12-19) by Mark Chatfield
 *! This program generates descriptive statistics tables with formatting options
@@ -2361,22 +2361,34 @@ program define table1_tc, rclass
             }
             * Safety: drop any surviving internal variables before export
             * (catrowperc + slashN can leave N_* or _uwn* columns)
-            capture drop N_*
-            capture drop _columna_*
-            capture drop _columnb_*
-            capture drop m_*
-            capture drop _uwn*
-            export excel using "`excel'", sheet("`sheet'") sheetreplace
-            capture {
-                gen double _p_raw = .
-                mata: st_store(., "_p_raw", _p_raw_save)
-                mata: mata drop _p_raw_save
-            }
+	            capture drop N_*
+	            capture drop _columna_*
+	            capture drop _columnb_*
+	            capture drop m_*
+	            capture drop _uwn*
+	            capture noisily _tabtools_xlsx_write_current using "`excel'", sheet("`sheet'") book(b)
+	            local _xlsx_write_rc = _rc
+	            capture {
+	                gen double _p_raw = .
+	                mata: st_store(., "_p_raw", _p_raw_save)
+	                mata: mata drop _p_raw_save
+	            }
             capture {
                 gen double _smd_raw = .
-                mata: st_store(., "_smd_raw", _smd_raw_save)
-                mata: mata drop _smd_raw_save
-            }
+	                mata: st_store(., "_smd_raw", _smd_raw_save)
+	                mata: mata drop _smd_raw_save
+	            }
+	            if `_xlsx_write_rc' {
+	                local saved_rc = `_xlsx_write_rc'
+	                capture mata: b.close_book()
+	                capture mata: mata drop b
+	                capture mata: mata drop _p_raw_save
+	                capture mata: mata drop _smd_raw_save
+	                noisily display as error "Failed to export to `excel'"
+	                noisily display as error "Hint: ensure the xlsx file is not open in another application"
+	                restore
+	                exit `saved_rc'
+	            }
 
 **# Calculate column widths based on content length
 
@@ -2550,13 +2562,9 @@ program define table1_tc, rclass
                 local _stat_width = max(14, ceil(`_stat_maxlen' * 0.85) + 2)
             }
 
-            capture {
-                mata: b = xl()
-                mata: b.load_book("`excel'")
-                mata: b.set_sheet("`sheet'")
-
-                * Column widths and row heights
-                mata: b.set_row_height(1, 1, 30)
+	            capture {
+	                * Column widths and row heights
+	                mata: b.set_row_height(1, 1, 30)
                 local _hdr_len = strlen(`"`header_parts'"')
                 if `_hdr_len' > `factorwidth' * 1.2 {
                     local _hdr_lines = ceil(`_hdr_len' / (`factorwidth' * 1.2))

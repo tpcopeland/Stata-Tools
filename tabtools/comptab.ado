@@ -1,4 +1,4 @@
-*! comptab Version 1.2.0  2026/05/20
+*! comptab Version 1.3.0  2026/05/23
 *! Compose publication tables from regtab/effecttab output frames
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -732,7 +732,7 @@ program define comptab, rclass
     return scalar N_frames = `n_frames'
 
     if `_has_xlsx' {
-        capture export excel using "`xlsx'", sheet("`sheet'") sheetreplace
+        capture noisily _tabtools_xlsx_write_current using "`xlsx'", sheet("`sheet'") book(b)
         if _rc {
             local _export_rc = _rc
             noisily display as error `"Failed to export to `xlsx', sheet `sheet'"'
@@ -748,9 +748,6 @@ program define comptab, rclass
     if `_has_xlsx' {
 
     capture {
-        mata: b = xl()
-        mata: b.load_book("`xlsx'")
-        mata: b.set_sheet("`sheet'")
         mata: b.set_row_height(1,1,30)
         mata: b.set_column_width(1,1,1)
         mata: b.set_column_width(2,2,`factor_length')

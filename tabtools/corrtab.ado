@@ -1,4 +1,4 @@
-*! corrtab Version 1.2.0  2026/05/20
+*! corrtab Version 1.3.0  2026/05/23
 *! Correlation matrix table
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -315,7 +315,7 @@ program define corrtab, rclass
             local _data_width = max(`_data_width', min(24, ceil(`_max_label_len' * 0.80) + 2))
 
             order title c*
-            capture export excel using "`xlsx'", sheet("`sheet'") sheetreplace
+            capture noisily _tabtools_xlsx_write_current using "`xlsx'", sheet("`sheet'") book(b)
             if _rc {
                 local _export_rc = _rc
                 noisily display as error "Failed to export to `xlsx'"
@@ -325,10 +325,6 @@ program define corrtab, rclass
             }
 
             capture {
-                mata: b = xl()
-                mata: b.load_book("`xlsx'")
-                mata: b.set_sheet("`sheet'")
-
                 * Column widths
                 mata: b.set_column_width(1, 1, 1)
                 mata: b.set_column_width(2, 2, `_label_width')

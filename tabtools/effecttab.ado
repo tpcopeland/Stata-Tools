@@ -1,4 +1,4 @@
-*! effecttab Version 1.2.0  2026/05/20
+*! effecttab Version 1.3.0  2026/05/23
 *! Format treatment effects and margins results for Excel export
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -190,13 +190,13 @@ quietly {
 			collect layout (cmdset) (result[cmd cmdline])
 			collect export "`_meta_xlsx'", sheet(_meta) replace
 		}
-		if _rc == 0 {
-			preserve
-			capture {
-				import excel "`_meta_xlsx'", sheet(_meta) clear allstring
+			if _rc == 0 {
+				preserve
+				capture {
+					_tabtools_xlsx_read_current using "`_meta_xlsx'", sheet(_meta)
 
-				local _meta_col_cmd ""
-				local _meta_col_cmdline ""
+					local _meta_col_cmd ""
+					local _meta_col_cmdline ""
 				ds
 				local _meta_allvars `r(varlist)'
 				foreach _v of local _meta_allvars {
@@ -567,13 +567,13 @@ quietly {
 		exit _rc
 	}
 
-	* Preserve user data before import
-	preserve
+		* Preserve user data before import
+		preserve
 
-	capture import excel "`temp_xlsx'", sheet(temp) clear
-	if _rc {
-		noisily display as error "Failed to import temporary Excel file"
-		capture erase "`temp_xlsx'"
+		capture _tabtools_xlsx_read_current using "`temp_xlsx'", sheet(temp)
+		if _rc {
+			noisily display as error "Failed to import temporary Excel file"
+			capture erase "`temp_xlsx'"
 		restore
 		exit _rc
 	}
@@ -939,12 +939,12 @@ quietly {
 	return local type "`type'"
 	return local methods "`_methods'"
 
-	if `_has_xlsx' {
-		capture export excel using "`xlsx'", sheet("`sheet'") sheetreplace
-		if _rc {
-			local _export_rc = _rc
-			noisily display as error "Failed to export to `xlsx', sheet `sheet'"
-			noisily display as error "Check file permissions and that file is not open in Excel"
+		if `_has_xlsx' {
+			capture noisily _tabtools_xlsx_write_current using "`xlsx'", sheet("`sheet'") book(b)
+			if _rc {
+				local _export_rc = _rc
+				noisily display as error "Failed to export to `xlsx', sheet `sheet'"
+				noisily display as error "Check file permissions and that file is not open in Excel"
 			capture erase "`temp_xlsx'"
 			restore
 			error `_export_rc'
@@ -1056,13 +1056,9 @@ quietly {
 		}
 	}
 
-	capture {
-		mata: b = xl()
-		mata: b.load_book("`xlsx'")
-		mata: b.set_sheet("`sheet'")
-
-		* Column widths and row heights
-		mata: b.set_row_height(1,1,30)
+		capture {
+			* Column widths and row heights
+			mata: b.set_row_height(1,1,30)
 		mata: b.set_column_width(1,1,1)
 		mata: b.set_column_width(2,2,`factor_length')
 		forvalues i = 3(3)`=`num_cols'-2' {

@@ -1,4 +1,4 @@
-*! desctab Version 1.2.0  2026/05/20
+*! desctab Version 1.3.0  2026/05/23
 *! Format descriptive table collects with per-statistic formats and composite cells
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -303,7 +303,7 @@ program define desctab, rclass
 
     preserve
     local _preserved 1
-    capture import excel using "`_temp_xlsx'", clear allstring
+    capture _tabtools_xlsx_read_current using "`_temp_xlsx'", sheet("Sheet1")
     if _rc {
         display as error "Failed to import the temporary collect workbook"
         exit _rc
@@ -715,7 +715,7 @@ program define desctab, rclass
     return matrix table = `_rtable'
     return scalar N_cells = `n_cells'
     return scalar N_rows = `=`num_rows' - 1'
-    return local version "1.2.0"
+    return local version "1.3.0"
     return local rowvar "`rowdim'"
     return local colvar "`coldim'"
     return local stats "`stats_layout'"
@@ -742,7 +742,7 @@ program define desctab, rclass
     }
 
     if `_has_xlsx' {
-        capture export excel using "`xlsx'", sheet("`sheet'") sheetreplace
+        capture noisily _tabtools_xlsx_write_current using "`xlsx'", sheet("`sheet'") book(b)
         if _rc {
             local _export_rc = _rc
             display as error "Failed to export to `xlsx', sheet `sheet'"
@@ -752,9 +752,6 @@ program define desctab, rclass
 
         local _fn_text `"`footnote'"'
         capture {
-            mata: b = xl()
-            mata: b.load_book("`xlsx'")
-            mata: b.set_sheet("`sheet'")
             mata: b.set_column_width(1, 1, 1)
             mata: b.set_column_width(2, 2, `_label_width')
             forvalues _c = 3/`num_cols' {

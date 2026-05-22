@@ -1,4 +1,4 @@
-*! survtab Version 1.2.0  2026/05/20
+*! survtab Version 1.3.0  2026/05/23
 *! Survival summary table with Kaplan-Meier estimates, medians, and RMST
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -776,7 +776,7 @@ capture noisily {
     local _xlsx_ok 0
     if `_has_xlsx' {
         order title c*
-        capture export excel using "`xlsx'", sheet("`sheet'") sheetreplace
+        capture noisily _tabtools_xlsx_write_current using "`xlsx'", sheet("`sheet'") book(b)
         if _rc {
             local _export_rc = _rc
             noisily display as error "Failed to export to `xlsx'"
@@ -787,10 +787,6 @@ capture noisily {
 
         * Apply formatting (Mata xl())
         capture {
-            mata: b = xl()
-            mata: b.load_book("`xlsx'")
-            mata: b.set_sheet("`sheet'")
-
             * Column widths
             mata: b.set_column_width(1, 1, 1)
             mata: b.set_column_width(2, 2, 22)

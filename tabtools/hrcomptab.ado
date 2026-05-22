@@ -1,4 +1,4 @@
-*! hrcomptab Version 1.2.0  2026/05/20
+*! hrcomptab Version 1.3.0  2026/05/23
 *! Compose stratetab and regtab frames into Table 2-style survival tables
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -672,7 +672,7 @@ program define hrcomptab, rclass
             }
 
             order title c*
-            capture export excel using "`xlsx'", sheet("`sheet'") sheetreplace
+            capture noisily _tabtools_xlsx_write_current using "`xlsx'", sheet("`sheet'") book(b)
             if _rc {
                 local _export_rc = _rc
                 display as error "Failed to export to `xlsx'"
@@ -687,10 +687,6 @@ program define hrcomptab, rclass
 
             local _total_cols = `ncols' + 1
             capture {
-                mata: b = xl()
-                mata: b.load_book("`xlsx'")
-                mata: b.set_sheet("`sheet'")
-
                 * Column widths
                 mata: b.set_row_height(1, 1, 30)
                 mata: b.set_column_width(1, 1, 1)
