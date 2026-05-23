@@ -54,6 +54,42 @@ else {
 }
 capture frame drop _corr_pearson
 
+**## pairwise N matrix matches manual nonmissing overlaps
+local ++test_count
+capture noisily {
+    clear
+    input double x y z w
+    1  2  .  4
+    2  .  5  3
+    .  4  6  2
+    4  5  7  .
+    5  6  .  0
+    .  7  9  1
+    end
+
+    corrtab x y z w, full
+    matrix N = r(N)
+
+    local vars x y z w
+    forvalues i = 1/4 {
+        local vi : word `i' of `vars'
+        forvalues j = 1/4 {
+            local vj : word `j' of `vars'
+            quietly count if !missing(`vi') & !missing(`vj')
+            assert N[`i', `j'] == r(N)
+        }
+    }
+}
+if _rc == 0 {
+    display as result "  PASS: corrtab pairwise N matches manual overlaps"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: corrtab pairwise N manual-overlap equivalence (rc=`=_rc')"
+    local ++fail_count
+}
+capture matrix drop N
+
 **## Spearman returns match spearman
 local ++test_count
 capture noisily {
@@ -297,6 +333,44 @@ else {
 }
 capture frame drop _corr_sparse
 
+**## Spearman pairwise correlations and p-values keep Stata pairwise behavior
+local ++test_count
+capture noisily {
+    clear
+    input double x y z
+    1  1  .
+    2  4  .
+    3  9  3
+    4 16  2
+    . 25  1
+    . 36  0
+    end
+
+    quietly spearman x y if !missing(x, y)
+    local rho_xy = r(rho)
+    local p_xy = r(p)
+    quietly spearman y z if !missing(y, z)
+    local rho_yz = r(rho)
+    local p_yz = r(p)
+
+    corrtab x y z, spearman full
+
+    assert r(N)[1, 2] == 4
+    assert r(N)[2, 3] == 4
+    assert abs(r(C)[1, 2] - `rho_xy') < 1e-12
+    assert abs(r(P)[1, 2] - `p_xy') < 1e-12
+    assert abs(r(C)[2, 3] - `rho_yz') < 1e-12
+    assert missing(r(P)[2, 3]) & missing(`p_yz')
+}
+if _rc == 0 {
+    display as result "  PASS: corrtab Spearman preserves pairwise Stata behavior"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: corrtab Spearman pairwise equivalence (rc=`=_rc')"
+    local ++fail_count
+}
+
 **## invalid star thresholds and pvalues+star() reject cleanly
 local ++test_count
 capture noisily {
@@ -356,6 +430,43 @@ else {
 }
 
 **# Console and Export
+**## xlsx export preserves rendered correlation strings
+local ++test_count
+capture noisily {
+    clear
+    set obs 8
+    gen double x = _n
+    gen double y = _n
+    gen double z = 9 - _n
+
+    capture erase "`output_dir'/_corrtab_perf_full.xlsx"
+    corrtab x y z, full pvalues ///
+        xlsx("`output_dir'/_corrtab_perf_full.xlsx") sheet("CorrPerf") ///
+        title("Correlation Performance")
+    confirm file "`output_dir'/_corrtab_perf_full.xlsx"
+
+    import excel using "`output_dir'/_corrtab_perf_full.xlsx", ///
+        sheet("CorrPerf") clear allstring
+    assert A[1] == "Correlation Performance"
+    assert C[2] == "x"
+    assert D[2] == "y"
+    assert E[2] == "z"
+    assert C[3] == "1.00"
+    assert strpos(C[4], "1.00") > 0
+    assert strpos(C[4], "<0.001") > 0
+    assert strpos(E[3], "-1.00") > 0
+    assert strpos(E[3], "<0.001") > 0
+}
+if _rc == 0 {
+    display as result "  PASS: corrtab xlsx preserves rendered strings"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: corrtab xlsx rendered-string fidelity (rc=`=_rc')"
+    local ++fail_count
+}
+capture erase "`output_dir'/_corrtab_perf_full.xlsx"
+
 **## display writes a visible console table
 local ++test_count
 capture noisily {

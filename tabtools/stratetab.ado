@@ -631,41 +631,20 @@ return scalar N_outcomes = `outcomes'
 		exit `saved_rc'
 	}
 	else {
-			* Apply formatting with mata
-			clear
-			capture {
-				mata: b.set_row_height(1,1,30)
-				mata: b.set_column_width(1,1,1)
-			mata: b.set_column_width(2,2,18)
-
-			* Set data column widths based on row 3 header content
-			forvalues col = 3/`=`ncols'+1' {
-				mata: st_local("_hdr", b.get_string(3, `col'))
+			* Apply formatting (Mata xl()) in the open workbook returned by
+			* _tabtools_xlsx_write_current; avoid a save/reload pass.
+			local _total_cols = `ncols' + 1
+			local _xlsx_widths "1 18"
+			forvalues col = 3/`_total_cols' {
+				local _data_col = `col' - 1
+				local _hdr = c`_data_col'[3]
 				local _hdrlen = strlen("`_hdr'")
 				local _cw = max(8, `_hdrlen' + 2)
-				mata: b.set_column_width(`col', `col', `_cw')
+				local _xlsx_widths "`_xlsx_widths' `_cw'"
 			}
-			mata: b.close_book()
-		}
-		if _rc {
-			local saved_rc = _rc
-			capture mata: b.close_book()
-			capture mata: mata drop b
-			noi di as err "Excel formatting (Mata) failed with error `saved_rc'"
-			noi di as err "Hint: ensure the xlsx file is not open in another application"
-			qui use "`_userdata_path'", clear
-			set varabbrev `_orig_varabbrev'
-			local _fatal_rc = `saved_rc'
-			exit `saved_rc'
-		}
-		else {
-			capture mata: mata drop b
-
-			* Apply formatting (Mata xl())
-			local _total_cols = `ncols' + 1
 			capture {
-				mata: b = xl()
-				mata: b.load_book("`xlsx'")
+				mata: b.set_row_height(1,1,30)
+				_tabtools_xlsx_set_widths, book(b) widths(`_xlsx_widths')
 				mata: b.set_sheet("`sht'")
 
 				* Font
@@ -788,11 +767,10 @@ return scalar N_outcomes = `outcomes'
 					noisily display as text "Exported to " as result `"`xlsx'"' as text ", sheet " as result `"`sheet'"'
 				}
 			}
+			}
 		}
-	}
-	}
 
-} // end quietly block
+	} // end quietly block
 
 * Restore user data
 qui use "`_userdata_path'", clear

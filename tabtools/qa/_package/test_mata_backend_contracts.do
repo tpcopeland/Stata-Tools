@@ -97,6 +97,31 @@ else {
 local ++test_count
 capture noisily {
     clear
+    input str20 title str20 c1 str20 c2
+    "Width title" "A" "B"
+    "Width row" "1" "2"
+    end
+    capture erase "`output_dir'/_mb_widths.xlsx"
+    _tabtools_xlsx_write_current using "`output_dir'/_mb_widths.xlsx", sheet("Widths") book(b)
+    _tabtools_xlsx_set_widths, book(b) widths(5 18 27)
+    mata: b.close_book()
+    mata: mata drop b
+
+    _mb_assert_xlsx "`output_dir'/_mb_widths.txt" ///
+        `"`python_cmd' "`checker'" "`output_dir'/_mb_widths.xlsx" --sheet "Widths" --col-width-at-least A 5 --col-width-at-least B 18 --col-width-at-least C 27 --result-file "`output_dir'/_mb_widths.txt" --quiet"'
+}
+if _rc == 0 {
+    display as result "  PASS: shared width helper formats an open workbook"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: shared width helper contract (rc=`=_rc')"
+    local ++fail_count
+}
+
+local ++test_count
+capture noisily {
+    clear
     input str12 label str12 estimate str10 pvalue
     "Dose" "1.23" "0.04"
     "Comparator" "Reference" "<0.001"
@@ -120,6 +145,11 @@ else {
 }
 
 **# Public Writer Contracts
+
+* Collect-backed commands still use collect export as the rendered-table bridge:
+* collect is the source of row labels, column nesting, and style-aware cell text.
+* The public writer path below is locked to Mata read/write/formatting after that
+* compatibility boundary.
 
 local ++test_count
 capture noisily {

@@ -182,24 +182,18 @@ capture noisily {
         tempname _cutmat
         matrix `_cutmat' = J(`_ncuts', 15, .)
         matrix colnames `_cutmat' = Se Se_lo Se_hi Sp Sp_lo Sp_hi PPV PPV_lo PPV_hi NPV NPV_lo NPV_hi Acc Acc_lo Acc_hi
+        tempname _cellmat
+        mata: st_matrix("`_cellmat'", _diagtab_counts_at_cutoffs("`testvar'", "`goldvar'", "`touse'", strtoreal(tokens("`cutoffs'")), 1))
         local _cuti 0
 
         foreach _cv of local cutoffs {
             local _cuti = `_cuti' + 1
 
-            * Dichotomize at this cutoff
-            tempvar _tbin
-            qui gen byte `_tbin' = (`testvar' >= `_cv') if `touse'
-
             * 2x2 cells
-            qui count if `_tbin' == 1 & `goldvar' == 1 & `touse'
-            local TP = r(N)
-            qui count if `_tbin' == 1 & `goldvar' == 0 & `touse'
-            local FP = r(N)
-            qui count if `_tbin' == 0 & `goldvar' == 1 & `touse'
-            local FN = r(N)
-            qui count if `_tbin' == 0 & `goldvar' == 0 & `touse'
-            local TN = r(N)
+            local TP = `_cellmat'[`_cuti', 1]
+            local FP = `_cellmat'[`_cuti', 2]
+            local FN = `_cellmat'[`_cuti', 3]
+            local TN = `_cellmat'[`_cuti', 4]
             local _total = `TP' + `FP' + `FN' + `TN'
 
             * Diagnostic measures
@@ -291,7 +285,6 @@ capture noisily {
                 local _cut`_cuti'_`_m'_hi = ``_m'_hi'
             }
 
-            drop `_tbin'
         }
 
         * Return matrix with cutoff row names
@@ -380,16 +373,18 @@ capture noisily {
     local _opt_cutoff = .
     if "`optimal'" != "" {
         qui levelsof `testvar' if `touse', local(_opt_candidates)
+        tempname _optcell
+        mata: st_matrix("`_optcell'", _diagtab_counts_at_cutoffs("`testvar'", "`goldvar'", "`touse'", strtoreal(tokens("`_opt_candidates'")), 1))
         local _best_j = -1
+        local _opti 0
         foreach _c of local _opt_candidates {
-            qui count if `testvar' >= `_c' & `goldvar' == 1 & `touse'
-            local _tp_c = r(N)
-            qui count if `goldvar' == 1 & `touse'
-            local _pos_c = r(N)
-            qui count if `testvar' < `_c' & `goldvar' == 0 & `touse'
-            local _tn_c = r(N)
-            qui count if `goldvar' == 0 & `touse'
-            local _neg_c = r(N)
+            local _opti = `_opti' + 1
+            local _tp_c = `_optcell'[`_opti', 1]
+            local _fp_c = `_optcell'[`_opti', 2]
+            local _fn_c = `_optcell'[`_opti', 3]
+            local _tn_c = `_optcell'[`_opti', 4]
+            local _pos_c = `_tp_c' + `_fn_c'
+            local _neg_c = `_fp_c' + `_tn_c'
             if `_pos_c' > 0 & `_neg_c' > 0 {
                 local _se_c = `_tp_c' / `_pos_c'
                 local _sp_c = `_tn_c' / `_neg_c'
@@ -409,28 +404,21 @@ capture noisily {
         }
     }
 
-**# Dichotomize if Cutoff Specified
-    tempvar _test_bin
+**# Compute 2x2 Cells
     if `cutoff' != -999 {
-        qui gen byte `_test_bin' = (`testvar' >= `cutoff') if `touse'
+        local _diag_cut = `cutoff'
+        local _diag_usecut = 1
     }
     else {
-        qui gen byte `_test_bin' = `testvar' if `touse'
+        local _diag_cut = 1
+        local _diag_usecut = 0
     }
-
-**# Compute 2x2 Cells
-    * TP: test+ & gold+
-    qui count if `_test_bin' == 1 & `goldvar' == 1 & `touse'
-    local TP = r(N)
-    * FP: test+ & gold-
-    qui count if `_test_bin' == 1 & `goldvar' == 0 & `touse'
-    local FP = r(N)
-    * FN: test- & gold+
-    qui count if `_test_bin' == 0 & `goldvar' == 1 & `touse'
-    local FN = r(N)
-    * TN: test- & gold-
-    qui count if `_test_bin' == 0 & `goldvar' == 0 & `touse'
-    local TN = r(N)
+    tempname _onecell
+    mata: st_matrix("`_onecell'", _diagtab_counts_at_cutoffs("`testvar'", "`goldvar'", "`touse'", (`_diag_cut'), `_diag_usecut'))
+    local TP = `_onecell'[1, 1]
+    local FP = `_onecell'[1, 2]
+    local FN = `_onecell'[1, 3]
+    local TN = `_onecell'[1, 4]
 
     local _total = `TP' + `FP' + `FN' + `TN'
 
@@ -886,4 +874,48 @@ capture noisily {
     local _rc = _rc
     set varabbrev `_orig_varabbrev'
     if `_rc' exit `_rc'
+end
+
+version 16.0
+capture mata: mata drop _diagtab_counts_at_cutoffs()
+
+mata:
+mata set matastrict on
+
+real matrix _diagtab_counts_at_cutoffs(
+    string scalar testvar,
+    string scalar goldvar,
+    string scalar tousevar,
+    real rowvector cuts,
+    real scalar usecut)
+{
+    real matrix x, out
+    real colvector score, gold, testpos, testneg, goldpos, goldneg
+    real scalar k
+
+    x = st_data(., (testvar, goldvar), tousevar)
+    score = x[, 1]
+    gold = x[, 2]
+    goldpos = (gold :== 1)
+    goldneg = (gold :== 0)
+    out = J(cols(cuts), 4, .)
+
+    for (k = 1; k <= cols(cuts); k++) {
+        if (usecut) {
+            testpos = (score :>= cuts[k])
+            testneg = (score :< cuts[k])
+        }
+        else {
+            testpos = (score :== 1)
+            testneg = (score :== 0)
+        }
+        out[k, 1] = sum(testpos :& goldpos)
+        out[k, 2] = sum(testpos :& goldneg)
+        out[k, 3] = sum(testneg :& goldpos)
+        out[k, 4] = sum(testneg :& goldneg)
+    }
+
+    return(out)
+}
+
 end

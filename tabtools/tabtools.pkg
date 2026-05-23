@@ -33,6 +33,7 @@ f _tabtools_common.ado
 f _tabtools_xlsx_write_current.ado
 f _tabtools_xlsx_read_current.ado
 f _tabtools_table_metadata_current.ado
+f _tabtools_xlsx_set_widths.ado
 f table1_tc.ado
 f table1_tc.sthlp
 f desctab.ado

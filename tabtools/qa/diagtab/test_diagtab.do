@@ -104,6 +104,53 @@ else {
 	    local ++fail_count
 	}
 
+**## cutoffs() matrix matches manual threshold counts with missings
+local ++test_count
+capture noisily {
+    clear
+    input byte gold double score
+    1 0.95
+    1 0.70
+    1 0.30
+    1 .
+    0 0.85
+    0 0.45
+    0 0.15
+    0 .
+    end
+
+    diagtab score gold, cutoffs(0.2 0.5 0.8)
+    matrix C = r(cutoff_table)
+
+    local _row 0
+    foreach _cut in 0.2 0.5 0.8 {
+        local ++_row
+        quietly count if score >= `_cut' & gold == 1 & !missing(score, gold)
+        local TP = r(N)
+        quietly count if score >= `_cut' & gold == 0 & !missing(score, gold)
+        local FP = r(N)
+        quietly count if score < `_cut' & gold == 1 & !missing(score, gold)
+        local FN = r(N)
+        quietly count if score < `_cut' & gold == 0 & !missing(score, gold)
+        local TN = r(N)
+
+        assert abs(C[`_row', 1] - (`TP' / (`TP' + `FN'))) < 1e-12
+        assert abs(C[`_row', 4] - (`TN' / (`TN' + `FP'))) < 1e-12
+        assert abs(C[`_row', 7] - (`TP' / (`TP' + `FP'))) < 1e-12
+        assert abs(C[`_row', 10] - (`TN' / (`TN' + `FN'))) < 1e-12
+        assert abs(C[`_row', 13] - ((`TP' + `TN') / (`TP' + `FP' + `FN' + `TN'))) < 1e-12
+    }
+}
+if _rc == 0 {
+    display as result "  PASS: diagtab cutoffs() matches manual threshold counts"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: diagtab cutoffs() manual-count equivalence (rc=`=_rc')"
+    local ++fail_count
+}
+capture matrix drop C
+
 **## cutoffs() renders undefined predictive values explicitly
 local ++test_count
 capture noisily {
@@ -143,6 +190,46 @@ else {
 }
 capture frame drop diag_undef
 capture matrix drop C
+
+**## cutoffs() xlsx export preserves rendered table text
+local ++test_count
+capture noisily {
+    clear
+    input byte gold double score
+    1 0.95
+    1 0.70
+    1 0.30
+    0 0.85
+    0 0.45
+    0 0.15
+    end
+
+    capture erase "`output_dir'/_diagtab_perf_cutoffs.xlsx"
+    diagtab score gold, cutoffs(0.2 0.5) ///
+        xlsx("`output_dir'/_diagtab_perf_cutoffs.xlsx") sheet("DiagPerf") ///
+        title("Diagnostic Performance")
+    confirm file "`output_dir'/_diagtab_perf_cutoffs.xlsx"
+
+    import excel using "`output_dir'/_diagtab_perf_cutoffs.xlsx", ///
+        sheet("DiagPerf") clear allstring
+    assert A[1] == "Diagnostic Performance"
+    assert B[2] == "Cutoff"
+    assert C[2] == "Estimate"
+    assert D[2] == "(95% CI)"
+    assert B[3] == "Cutoff >= .2"
+    assert B[9] == "Cutoff >= .5"
+    assert C[4] == "100.0%"
+    assert C[10] == "66.7%"
+}
+if _rc == 0 {
+    display as result "  PASS: diagtab cutoffs() xlsx preserves rendered text"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: diagtab cutoffs() xlsx rendered-text fidelity (rc=`=_rc')"
+    local ++fail_count
+}
+capture erase "`output_dir'/_diagtab_perf_cutoffs.xlsx"
 
 	**## optimal rejects binary test variables
 	local ++test_count

@@ -113,16 +113,7 @@ program define corrtab, rclass
 
         local nvars : word count `varlist'
         tempname _corr _pmat _nmat
-        matrix `_nmat' = J(`nvars', `nvars', 0)
-        forvalues i = 1/`nvars' {
-            forvalues j = `i'/`nvars' {
-                local _vi : word `i' of `varlist'
-                local _vj : word `j' of `varlist'
-                quietly count if `_pwtouse' & !missing(`_vi') & !missing(`_vj')
-                matrix `_nmat'[`i', `j'] = r(N)
-                matrix `_nmat'[`j', `i'] = r(N)
-            }
-        }
+        mata: st_matrix("`_nmat'", _corrtab_pairwise_n(tokens("`varlist'"), "`_pwtouse'"))
         matrix rownames `_nmat' = `varlist'
         matrix colnames `_nmat' = `varlist'
 
@@ -427,4 +418,34 @@ program define corrtab, rclass
     local _rc = _rc
     set varabbrev `_orig_varabbrev'
     if `_rc' exit `_rc'
+end
+
+version 16.0
+capture mata: mata drop _corrtab_pairwise_n()
+
+mata:
+mata set matastrict on
+
+real matrix _corrtab_pairwise_n(string rowvector vars, string scalar tousevar)
+{
+    real matrix x, out
+    real colvector ok_i, ok_j
+    real scalar i, j, k
+
+    x = st_data(., vars, tousevar)
+    k = cols(x)
+    out = J(k, k, 0)
+
+    for (i = 1; i <= k; i++) {
+        ok_i = (x[, i] :< .)
+        for (j = i; j <= k; j++) {
+            ok_j = (x[, j] :< .)
+            out[i, j] = sum(ok_i :& ok_j)
+            out[j, i] = out[i, j]
+        }
+    }
+
+    return(out)
+}
+
 end

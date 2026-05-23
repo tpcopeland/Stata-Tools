@@ -747,32 +747,24 @@ program define comptab, rclass
     * =====================================================================
     if `_has_xlsx' {
 
+    local _xlsx_widths "1 `factor_length'"
+    if `_compact_output' {
+        forvalues i = 3(2)`=`num_cols'-1' {
+            local _xlsx_widths "`_xlsx_widths' `est_width'"
+            local _xlsx_widths "`_xlsx_widths' `p_width'"
+        }
+    }
+    else {
+        forvalues i = 3(3)`=`num_cols'-2' {
+            local _xlsx_widths "`_xlsx_widths' `est_width'"
+            local _xlsx_widths "`_xlsx_widths' `ci_width'"
+            local _xlsx_widths "`_xlsx_widths' `p_width'"
+        }
+    }
+
     capture {
         mata: b.set_row_height(1,1,30)
-        mata: b.set_column_width(1,1,1)
-        mata: b.set_column_width(2,2,`factor_length')
-
-        if `_compact_output' {
-            * Compact: 2 cols per model — est+CI and p-value
-            forvalues i = 3(2)`=`num_cols'-1' {
-                mata: b.set_column_width(`i',`i',`est_width')
-            }
-            forvalues i = 4(2)`num_cols' {
-                mata: b.set_column_width(`i',`i',`p_width')
-            }
-        }
-        else {
-            * Normal: 3 cols per model — estimate, CI, p-value
-            forvalues i = 3(3)`=`num_cols'-2' {
-                mata: b.set_column_width(`i',`i',`est_width')
-            }
-            forvalues i = 4(3)`=`num_cols'-1' {
-                mata: b.set_column_width(`i',`i',`ci_width')
-            }
-            forvalues i = 5(3)`num_cols' {
-                mata: b.set_column_width(`i',`i',`p_width')
-            }
-        }
+        _tabtools_xlsx_set_widths, book(b) widths(`_xlsx_widths')
 
         * Auto-adjust header row height for long model names
         local _data_width = 0
@@ -786,8 +778,6 @@ program define comptab, rclass
             local _headerht = ceil(`max_header_length' * 0.9 / `_data_width')
             mata: b.set_row_height(2,2,`=`_headerht'*15')
         }
-
-        mata: b.close_book()
     }
     if _rc {
         local saved_rc = _rc
@@ -797,7 +787,6 @@ program define comptab, rclass
         restore
         exit `saved_rc'
     }
-    capture mata: mata drop b
 
     * =====================================================================
     * EXCEL FORMATTING — Mata xl()
@@ -825,8 +814,6 @@ program define comptab, rclass
     }
 
     capture {
-        mata: b = xl()
-        mata: b.load_book("`xlsx'")
         mata: b.set_sheet("`sheet'")
 
         * Font

@@ -1,7 +1,15 @@
-* run_all.do — auto-discovering full-suite QA runner for tabtools
-* Usage: cd into qa/ directory, then: stata-mp -b do run_all.do
+* run_all.do - auto-discovering QA runner for tabtools
+* Usage: cd into qa/ directory, then: stata-mp -b do run_all.do [full|quick|release|benchmark]
 
 clear all
+
+args lane
+local lane = lower(strtrim("`lane'"))
+if "`lane'" == "" local lane "full"
+if !inlist("`lane'", "full", "quick", "release", "benchmark") {
+    display as error "Usage: run_all.do [full|quick|release|benchmark]"
+    exit 198
+}
 
 local qa_dir "`c(pwd)'"
 local pkg_dir = subinstr("`qa_dir'", "/qa", "", 1)
@@ -41,25 +49,37 @@ foreach d of local child_dirs {
 }
 
 local all_files ""
-foreach d of local scan_dirs {
-    local scan_path "`qa_dir'"
-    if "`d'" != "." {
-        local scan_path "`qa_dir'/`d'"
-    }
-
-    local test_files : dir "`scan_path'" files "test_*.do"
-    local val_files : dir "`scan_path'" files "validation_*.do"
-    local xval_files : dir "`scan_path'" files "crossval_*.do"
-    local dir_files : list test_files | val_files
-    local dir_files : list dir_files | xval_files
-    local dir_files : list sort dir_files
-
-    foreach f of local dir_files {
-        local rel_file "`f'"
+if "`lane'" != "benchmark" {
+    foreach d of local scan_dirs {
+        local scan_path "`qa_dir'"
         if "`d'" != "." {
-            local rel_file "`d'/`f'"
+            local scan_path "`qa_dir'/`d'"
         }
-        local all_files : list all_files | rel_file
+
+        local test_files : dir "`scan_path'" files "test_*.do"
+        local val_files : dir "`scan_path'" files "validation_*.do"
+        local xval_files : dir "`scan_path'" files "crossval_*.do"
+        local dir_files : list test_files | val_files
+        local dir_files : list dir_files | xval_files
+        local dir_files : list sort dir_files
+
+        foreach f of local dir_files {
+            local rel_file "`f'"
+            if "`d'" != "." {
+                local rel_file "`d'/`f'"
+            }
+            local all_files : list all_files | rel_file
+        }
+    }
+}
+
+if inlist("`lane'", "release", "benchmark") {
+    local benchmark_files "_package/benchmark_tabtools_speed.do"
+    foreach f of local benchmark_files {
+        capture confirm file "`qa_dir'/`f'"
+        if _rc == 0 {
+            local all_files : list all_files | f
+        }
     }
 }
 
@@ -91,12 +111,24 @@ if _rc == 0 {
 }
 
 local n_discovered = 0
+local quick_package_files "test_export_failure_returns.do test_mata_backend_contracts.do test_refactor_contracts.do test_regression_fixes.do"
 foreach f of local all_files {
     local base "`f'"
     if regexm("`f'", ".*/([^/]+)$") {
         local base = regexs(1)
     }
     if "`base'" != "run_all.do" & "`base'" != "refactor_baseline.do" {
+        local is_quick_package_drop = 0
+        if "`lane'" == "quick" & substr("`f'", 1, 9) == "_package/" {
+            local quick_keep : list base in quick_package_files
+            if !`quick_keep' local is_quick_package_drop = 1
+        }
+        if "`lane'" == "quick" & (substr("`base'", 1, 11) == "validation_" | ///
+            substr("`base'", 1, 9) == "crossval_" | `is_quick_package_drop' | ///
+            "`base'" == "test_stress.do" | "`base'" == "test_coverage_gaps.do" | ///
+            "`base'" == "test_adversarial_breakage.do") {
+            continue
+        }
         local ++n_discovered
     }
 }
@@ -107,6 +139,7 @@ local n_fail = 0
 local n_skip = 0
 local failed_files ""
 
+display as text "QA lane: `lane'"
 display as text "Discovered QA files: `n_discovered'"
 if "`skip_names'" != "" {
     display as text "Skip file: `skip_file'"
@@ -118,6 +151,17 @@ foreach f of local all_files {
         local base = regexs(1)
     }
     if "`base'" == "run_all.do" | "`base'" == "refactor_baseline.do" {
+        continue
+    }
+    local is_quick_package_drop = 0
+    if "`lane'" == "quick" & substr("`f'", 1, 9) == "_package/" {
+        local quick_keep : list base in quick_package_files
+        if !`quick_keep' local is_quick_package_drop = 1
+    }
+    if "`lane'" == "quick" & (substr("`base'", 1, 11) == "validation_" | ///
+        substr("`base'", 1, 9) == "crossval_" | `is_quick_package_drop' | ///
+        "`base'" == "test_stress.do" | "`base'" == "test_coverage_gaps.do" | ///
+        "`base'" == "test_adversarial_breakage.do") {
         continue
     }
 
