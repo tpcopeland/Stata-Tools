@@ -583,9 +583,9 @@ else {
 local ++test_count
 capture noisily {
     local hook_file "`output_dir'/table1_tc_fast_before_after_hooks.md"
-    capture program list table1_tc_fast_aggregate
+    capture program list _tabtools_table1_fast_collect
     local has_session_probe = (_rc == 0)
-    capture which table1_tc_fast_aggregate
+    capture which _tabtools_table1_fast_collect
     local has_installed_fast_helper = (_rc == 0)
     capture which _tabtools_xlsx_apply_styles
     local has_installed_style_helper = (_rc == 0)
@@ -593,15 +593,13 @@ capture noisily {
     file open _hooks using "`hook_file'", write text replace
     file write _hooks "# table1_tc fast before/after QA hooks" _n _n
     file write _hooks "Current status captured by this test:" _n
-    file write _hooks "- session table1_tc_fast_aggregate program available: `has_session_probe'" _n
-    file write _hooks "- installed table1_tc_fast_aggregate helper available: `has_installed_fast_helper'" _n
+    file write _hooks "- session _tabtools_table1_fast_collect program available: `has_session_probe'" _n
+    file write _hooks "- installed _tabtools_table1_fast_collect helper available: `has_installed_fast_helper'" _n
     file write _hooks "- installed _tabtools_xlsx_apply_styles helper available: `has_installed_style_helper'" _n _n
-    file write _hooks "Required production hooks before this becomes strict fast-path parity QA:" _n
-    file write _hooks "- a stable way to force legacy versus fast table1_tc aggregation in one Stata session" _n
-    file write _hooks "- a table1_tc return local identifying the aggregation engine used" _n
-    file write _hooks "- parity output from the fast path before Excel export, via clear or frame()" _n
-    file write _hooks "- a stable way to force legacy versus compact style-engine Excel formatting" _n
-    file write _hooks "- no changes to public row labels, p-value/test/statistic columns, SMD values, missing-row labels, or formatting strings" _n
+    file write _hooks "Production integration coverage:" _n
+    file write _hooks "- strict legacy TSV parity is covered by test_table1_tc_before_fixtures_parity.do when saved before fixtures are present" _n
+    file write _hooks "- public row labels, p-value/test/statistic columns, SMD values, missing-row labels, and formatting strings are covered by table1_tc aggregation contracts" _n
+    file write _hooks "- workbook styling remains covered by the shared style-engine before/after harness" _n
     file close _hooks
     confirm file "`hook_file'"
 }

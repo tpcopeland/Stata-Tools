@@ -721,9 +721,9 @@ local ++n_total
 capture noisily {
     * ATE for foreign ~ 4973 with p<0.001
     shell python3 "`checker'" "`output_dir'/_xl_effecttab.xlsx" --sheet "Effects" ///
-        --cell-contains C5 "4973" ///
-        --cell-contains E5 "<0.001" ///
-        --cell-not-empty D5 ///
+        --cell-contains C4 "4973" ///
+        --cell-contains E4 "<0.001" ///
+        --cell-not-empty D4 ///
         --result-file "`output_dir'/_xl_e2.txt" --quiet
     file open _fh using "`output_dir'/_xl_e2.txt", read text
     file read _fh _line

@@ -184,16 +184,14 @@ quietly {
 	local _collect_kind_mixed 0
 	local _teffects_tvar ""
 	if !`_from_matrix' {
-		tempfile _meta_export
-		local _meta_xlsx "`_meta_export'.xlsx"
 		capture {
 			collect layout (cmdset) (result[cmd cmdline])
-			collect export "`_meta_xlsx'", sheet(_meta) replace
 		}
 			if _rc == 0 {
 				preserve
 				capture {
-					_tabtools_xlsx_read_current using "`_meta_xlsx'", sheet(_meta)
+					_tabtools_collect_render_current, type(meta) rowdim(cmdset) ///
+						results(cmd cmdline) dropempty
 
 					local _meta_col_cmd ""
 					local _meta_col_cmdline ""
@@ -217,7 +215,6 @@ quietly {
 			if _rc local _collect_models = 0
 			restore
 		}
-		capture erase "`_meta_xlsx'"
 
 		if `_collect_models' == 0 {
 			noisily display as error "Could not inspect the active collect table"
@@ -558,25 +555,31 @@ quietly {
 		local last 1
 	}
 	else {
-	* Export collect table to temporary Excel file
-	* Note: Don't use 'modify' option as temp file is new
-	capture collect export "`temp_xlsx'", sheet("temp", replace)
-	if _rc {
-		noisily display as error "Failed to export collect table to temporary Excel file"
-		noisily display as error "Check that collect table is properly structured"
-		exit _rc
-	}
-
-		* Preserve user data before import
+		* Preserve user data before rendering the collect table into strings
 		preserve
 
-		capture _tabtools_xlsx_read_current using "`temp_xlsx'", sheet(temp)
-		if _rc {
-			noisily display as error "Failed to import temporary Excel file"
-			capture erase "`temp_xlsx'"
-		restore
-		exit _rc
-	}
+		capture _tabtools_collect_render_current, type(main) rowdim(colname) ///
+			rowlevels(`"`_colname_filter'"') coldim(cmdset) ///
+			results(_r_b _r_ci _r_p) sep("`sep'")
+		local _collect_render_rc = _rc
+		if `_collect_render_rc' {
+			restore
+			* Fallback: use the prior workbook renderer for unsupported layouts.
+			capture collect export "`temp_xlsx'", sheet("temp", replace)
+			if _rc {
+				noisily display as error "Failed to export collect table to temporary Excel file"
+				noisily display as error "Check that collect table is properly structured"
+				exit _rc
+			}
+			preserve
+			capture _tabtools_xlsx_read_current using "`temp_xlsx'", sheet(temp)
+			if _rc {
+				noisily display as error "Failed to import temporary Excel file"
+				capture erase "`temp_xlsx'"
+				restore
+				exit _rc
+			}
+		}
 	}
 
 	* Guard against empty collect tables (R3)

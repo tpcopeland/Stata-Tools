@@ -248,17 +248,14 @@ quietly{
     local _model_headers_mixed = 0
     local _all_auto_noint = 1
     local _coef_label_return "`coef'"
-    tempfile meta_temp
-    local meta_xlsx_file "`meta_temp'.xlsx"
-
     capture {
         collect layout (cmdset) (result[cmd cmdline])
-        collect export "`meta_xlsx_file'", sheet(_meta, replace) modify
     }
     if _rc == 0 {
         preserve
         capture {
-            _tabtools_xlsx_read_current using "`meta_xlsx_file'", sheet(_meta)
+            _tabtools_collect_render_current, type(meta) rowdim(cmdset) ///
+                results(cmd cmdline) dropempty
 
             local meta_col_cmd ""
             local meta_col_cmdline ""
@@ -280,7 +277,6 @@ quietly{
         if _rc local _meta_models = 0
         restore
     }
-    capture erase "`meta_xlsx_file'"
 
     if !`_user_noint_spec' {
         local nointercept ""
@@ -489,9 +485,6 @@ quietly{
         local result_levels : list uniq result_levels
 
         if "`result_levels'" != "" {
-            tempfile stats_temp
-            local stats_xlsx_file "`stats_temp'.xlsx"
-
             * Save original labels, set short labels for export headers
             foreach rlevel of local result_levels {
                 capture local _orig_lbl_`rlevel' : collect label levels result `rlevel'
@@ -500,7 +493,6 @@ quietly{
 
             capture {
                 collect layout (cmdset) (result[`result_levels'])
-                collect export "`stats_xlsx_file'", sheet(_stats, replace) modify
             }
             local _stats_rc = _rc
 
@@ -514,7 +506,8 @@ quietly{
             if `_stats_rc' == 0 {
                 preserve
                 capture {
-                    _tabtools_xlsx_read_current using "`stats_xlsx_file'", sheet(_stats)
+                    _tabtools_collect_render_current, type(stats) rowdim(cmdset) ///
+                        results(`result_levels') dropempty
 
                     * Map header row to column positions
                     local stat_col_N ""
@@ -590,7 +583,6 @@ quietly{
                 }
                 if _rc local n_stat_models = 0
                 restore
-                capture erase "`stats_xlsx_file'"
             }
         }
 
@@ -714,7 +706,9 @@ quietly{
         * var(e) = residual variance (continuous), not log-SD values
         local n_icc_models = 0
         if `want_icc' == 1 {
-            forvalues m = 1/`n_stat_models' {
+            local _icc_slots = max(`n_stat_models', `_meta_models')
+            if `_icc_slots' < 1 local _icc_slots = 1
+            forvalues m = 1/`_icc_slots' {
                 local stat_icc_`m' = .
             }
 
@@ -753,18 +747,15 @@ quietly{
                 }
             }
 
-            tempfile icc_temp
-            local icc_xlsx_file "`icc_temp'.xlsx"
-
             capture {
                 collect layout (cmdset) (colname[var(_cons) var(e)]#result[_r_b])
-                collect export "`icc_xlsx_file'", sheet(_icc, replace) modify
             }
 
             if _rc == 0 {
                 preserve
                 capture {
-                    _tabtools_xlsx_read_current using "`icc_xlsx_file'", sheet(_icc)
+                    _tabtools_collect_render_current, type(icc) rowdim(cmdset) ///
+                        coldim(colname) collevels("var(_cons) var(e)") results(_r_b)
 
                     * Find first data row (column A has cmdset number)
                     local _icc_hdr = 0
@@ -825,7 +816,6 @@ quietly{
                 }
                 if _rc local n_icc_models = 0
                 restore
-                capture erase "`icc_xlsx_file'"
             }
 
             * If the primary collect path found model rows but all ICC values are
@@ -835,7 +825,10 @@ quietly{
             if `n_icc_models' > 0 {
                 local _all_icc_miss = 1
                 forvalues _im = 1/`n_icc_models' {
-                    if `stat_icc_`_im'' != . local _all_icc_miss = 0
+                    local _this_icc `"`stat_icc_`_im''"'
+                    if `"`_this_icc'"' != "" {
+                        if real(`"`_this_icc'"') != . local _all_icc_miss = 0
+                    }
                 }
                 if `_all_icc_miss' local n_icc_models = 0
             }
@@ -1032,6 +1025,48 @@ quietly{
         }
     }
 
+    * collect export renders factor-variable children using value labels under
+    * their parent row. The raw .stjson items only carry levels like 2.agecat,
+    * so capture the same display labels before preserve switches to the
+    * rendered string dataset.
+    local _fvrow_label_n = 0
+    local _fvrow_parent_n = 0
+    capture quietly collect levelsof colname
+    if _rc == 0 {
+        local _fv_collevels `s(levels)'
+        foreach _fvterm of local _fv_collevels {
+            if regexm("`_fvterm'", "^([0-9]+)\.(.+)$") {
+                local _fvval = regexs(1)
+                local _fvvar = regexs(2)
+                if strpos("`_fvvar'", "#") > 0 continue
+                capture confirm variable `_fvvar'
+                if _rc == 0 {
+                    local _fvrow_parent_seen = 0
+                    if `_fvrow_parent_n' > 0 {
+                        forvalues _fvp = 1/`_fvrow_parent_n' {
+                            if `"`_fvrow_parent_var_`_fvp''"' == `"`_fvvar'"' {
+                                local _fvrow_parent_seen = 1
+                            }
+                        }
+                    }
+                    if !`_fvrow_parent_seen' {
+                        local _fvplbl : variable label `_fvvar'
+                        if `"`_fvplbl'"' == "" local _fvplbl `"`_fvvar'"'
+                        local ++_fvrow_parent_n
+                        local _fvrow_parent_var_`_fvrow_parent_n' `"`_fvvar'"'
+                        local _fvrow_parent_lab_`_fvrow_parent_n' `"`_fvplbl'"'
+                    }
+                    local _fvlbl "`_fvval'"
+                    capture local _fvlbl : label (`_fvvar') `_fvval'
+                    if `"`_fvlbl'"' == "" local _fvlbl "`_fvval'"
+                    local ++_fvrow_label_n
+                    local _fvrow_pat_`_fvrow_label_n' `"`_fvterm'"'
+                    local _fvrow_lab_`_fvrow_label_n' `"  `_fvlbl'"'
+                }
+            }
+        }
+    }
+
 collect label levels result _r_b "`coef'", modify
 collect label levels result _r_ci "`=c(level)'% CI", modify
 collect label levels result _r_p "p-value", modify
@@ -1050,22 +1085,36 @@ else {
     collect layout (colname) (cmdset#result[_r_b _r_ci _r_p]) ()
 }
 
-capture collect export "`temp_xlsx'", sheet(temp,replace) modify
-if _rc {
-	noisily display as error "Failed to export collect table to temporary Excel file"
-	noisily display as error "Check that collect table is properly structured"
-	exit _rc
-}
-
-* Preserve user data before import
+* Preserve user data before rendering the collect table into a string dataset
 preserve
 
-capture _tabtools_xlsx_read_current using "`temp_xlsx'", sheet(temp)
-if _rc {
-	noisily display as error "Failed to import temporary Excel file"
-	capture erase "`temp_xlsx'"
-	restore
-	exit _rc
+local _collect_render_rc = 0
+if `_is_multilevel' {
+    local _collect_render_rc = 459
+}
+else {
+    capture _tabtools_collect_render_current, type(main) rowdim(colname) ///
+        coldim(cmdset) results(_r_b _r_ci _r_p) sep("`sep'") factorparents
+    local _collect_render_rc = _rc
+}
+if `_collect_render_rc' {
+    * Multi-level coleq#colname layouts can carry nested equation headers.
+    * Keep the proven workbook fallback for that less common or unsupported shape.
+    restore
+    capture collect export "`temp_xlsx'", sheet(temp,replace) modify
+    if _rc {
+        noisily display as error "Failed to export collect table to temporary Excel file"
+        noisily display as error "Check that collect table is properly structured"
+        exit _rc
+    }
+    preserve
+    capture _tabtools_xlsx_read_current using "`temp_xlsx'", sheet(temp)
+    if _rc {
+        noisily display as error "Failed to import temporary Excel file"
+        capture erase "`temp_xlsx'"
+        restore
+        exit _rc
+    }
 }
 * Note: DO NOT TRIM WHITE SPACE--NEED IT FOR LEADING INDENT FOR CATEGORICAL VARIABLE
 
@@ -1369,6 +1418,7 @@ local n2 `=`n'-3'
 local n `=`n'-1'
 * Model count (used by stats() and ICC placement)
 local n_models = `n' / 3
+clonevar _raw_A = A
 
 if "`models'" != "" {
     * Split models string by backslashes
@@ -1411,12 +1461,27 @@ if !`_user_coef_spec' & "`cdisc'" == "" & `_meta_models' > 0 {
     }
 }
 
+* Apply collect-style factor parent and child labels captured before rendering.
+* Parent rows keep the variable label flush-left; child levels are indented.
+if `_fvrow_parent_n' > 0 {
+    forvalues _fvp = 1/`_fvrow_parent_n' {
+        replace A = `"`_fvrow_parent_lab_`_fvp''"' ///
+            if strtrim(A) == `"`_fvrow_parent_var_`_fvp''"' & _n >= 3
+    }
+}
+if `_fvrow_label_n' > 0 {
+    forvalues _fvi = 1/`_fvrow_label_n' {
+        replace A = `"`_fvrow_lab_`_fvi''"' ///
+            if strtrim(A) == `"`_fvrow_pat_`_fvi''"' & _n >= 3
+    }
+}
+
 * Apply factor variable value labels if requested
 if "`factorlabel'" != "" & "`_fvlabel_cmds'" != "" {
     foreach _fvcmd of local _fvlabel_cmds {
         local _fvpat = substr("`_fvcmd'", 1, strpos("`_fvcmd'", "=") - 1)
         local _fvlbl = substr("`_fvcmd'", strpos("`_fvcmd'", "=") + 1, .)
-        replace A = "`_fvlbl'" if strtrim(A) == "`_fvpat'" & _n >= 3
+        replace A = "  `_fvlbl'" if strtrim(A) == "`_fvpat'" & _n >= 3
     }
 }
 
@@ -1429,6 +1494,8 @@ if "`keep'" != "" {
     foreach _kvar in `keep' {
         replace _keep = 1 if strtrim(strlower(A)) == strlower("`_kvar'")
         replace _keep = 1 if strpos(strlower(A), strlower("`_kvar'")) > 0
+        replace _keep = 1 if strtrim(strlower(_raw_A)) == strlower("`_kvar'")
+        replace _keep = 1 if strpos(strlower(_raw_A), strlower("`_kvar'")) > 0
     }
     drop if !_keep
     drop _keep
@@ -1437,6 +1504,8 @@ if "`drop'" != "" {
     foreach _dvar in `drop' {
         drop if strtrim(strlower(A)) == strlower("`_dvar'") & _n > 2
         drop if strpos(strlower(A), strlower("`_dvar'")) > 0 & _n > 2
+        drop if strtrim(strlower(_raw_A)) == strlower("`_dvar'") & _n > 2
+        drop if strpos(strlower(_raw_A), strlower("`_dvar'")) > 0 & _n > 2
     }
 }
 
@@ -1678,6 +1747,7 @@ if `_mat_nrows' > 0 {
 capture drop _coefnum*
 drop _is_re _is_re_intercept _is_ancillary
 capture drop _re_group_label
+capture drop _raw_A
 capture drop _ci_seen
 
 *

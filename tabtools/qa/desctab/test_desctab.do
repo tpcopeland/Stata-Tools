@@ -924,19 +924,20 @@ capture noisily {
     local xlsx "`outdir'/desctab_no_shade.xlsx"
     tempfile stylesxml
     desctab, xlsx("`xlsx'") sheet("NoShade") title("No Shade") theme(lancet)
-    shell unzip -p "`xlsx'" xl/styles.xml > "`stylesxml'"
+    shell unzip -p "`xlsx'" xl/styles.xml | grep -o "<fills count=\"[0-9]*\"" > "`stylesxml'"
     file open _sfh using "`stylesxml'", read text
     file read _sfh line
-    local styles ""
+    local fillcount .
+    local q = char(34)
+    local pat "<fills count=`q'([0-9]+)`q'"
     while r(eof) == 0 {
-        local styles `"`styles'`line'"'
+        if missing(`fillcount') & regexm(`"`line'"', `"`pat'"') {
+            local fillcount = real(regexs(1))
+        }
         file read _sfh line
     }
     file close _sfh
-    local q = char(34)
-    local pat "<fills count=`q'([0-9]+)`q'"
-    assert regexm(`"`styles'"', `"`pat'"')
-    local fillcount = real(regexs(1))
+    assert !missing(`fillcount')
     assert `fillcount' == 2
 }
 if _rc == 0 {

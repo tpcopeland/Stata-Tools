@@ -24,8 +24,7 @@ log using "`output_dir'/table1_tc_fast_aggregate.log", replace text name(_t1tc_f
 
 adopath ++ "`pkg_dir'"
 which table1_tc
-run "`qa_dir'/_package/table1_tc_fast_aggregate.ado"
-program list table1_tc_fast_aggregate
+which _tabtools_table1_fast_collect
 
 local result_file "`output_dir'/table1_tc_fast_aggregate_results.tsv"
 tempname rf
@@ -98,7 +97,7 @@ capture noisily {
         vars(age contn \ female bin \ stage cat) total(after) nopvalue ///
         frame(t1fa_current, replace) format(%9.3f) percformat(%9.3f) nformat(%12.0f)
 
-    table1_tc_fast_aggregate, by(group) ///
+    _tabtools_table1_fast_collect, by(group) ///
         vars(age contn \ female bin \ stage cat) total(after) nopvalue ///
         saving("`fastout'") stub(group_) format(%9.3f) percformat(%9.3f) nformat(%12.0f)
 
@@ -150,7 +149,7 @@ local ++test_count
 tempfile faststats
 capture noisily {
     _t1fa_dataset
-    table1_tc_fast_aggregate, by(group) ///
+    _tabtools_table1_fast_collect, by(group) ///
         vars(age contn \ skew conts \ female bin \ stage cat) ///
         saving("`faststats'") stub(group_) test statistic smd
     use "`faststats'", clear
@@ -175,14 +174,15 @@ local ++test_count
 tempfile fastwt
 capture noisily {
     _t1fa_dataset
-    table1_tc_fast_aggregate, by(group) ///
+    _tabtools_table1_fast_collect, by(group) ///
         vars(age contn \ female bin \ stage cat) wt(iptw) smd total(after) ///
         saving("`fastwt'") stub(group_) format(%9.3f) percformat(%9.3f) nformat(%12.0f)
     use "`fastwt'", clear
 
     assert factor[1] == "N"
     assert factor[2] == "Effective sample size"
-    assert missing(p[3])
+    capture confirm variable p
+    assert _rc == 111
     count if inlist(factor, "Age", "Female", "Clinical stage") & smd_val < .
     assert r(N) == 3
     assert strpos(group_0[4], "%") > 0
@@ -199,7 +199,7 @@ local ++test_count
 tempfile fastmissing
 capture noisily {
     _t1fa_dataset
-    table1_tc_fast_aggregate, by(group) ///
+    _tabtools_table1_fast_collect, by(group) ///
         vars(stage cat) missing catrowperc percent_n slashN total(after) ///
         saving("`fastmissing'") stub(group_) percformat(%5.1f) nformat(%9.0f)
     use "`fastmissing'", clear
@@ -222,7 +222,7 @@ capture noisily {
     _t1fa_dataset
     quietly summarize fw if group == 0
     local fw_n0 = r(sum)
-    table1_tc_fast_aggregate [fw=fw], by(group) ///
+    _tabtools_table1_fast_collect [fw=fw], by(group) ///
         vars(age contn \ female bin \ stage cat) total(after) ///
         saving("`fastfw'") stub(group_) nformat(%9.0f)
     use "`fastfw'", clear

@@ -292,18 +292,32 @@ program define desctab, rclass
         local raw_data_start 3
     }
 
-    capture collect export "`_temp_xlsx'", replace
-    if _rc {
-        display as error "Failed to export the active collect to a temporary workbook"
-        exit _rc
-    }
-
     preserve
     local _preserved 1
-    capture _tabtools_xlsx_read_current using "`_temp_xlsx'", sheet("Sheet1")
-    if _rc {
-        display as error "Failed to import the temporary collect workbook"
-        exit _rc
+    if "`coldim'" != "" {
+        capture _tabtools_collect_render_current, type(desctab) rowdim(`rowdim') ///
+            coldim(`coldim') results(`stats_layout')
+    }
+    else {
+        capture _tabtools_collect_render_current, type(desctab) rowdim(`rowdim') ///
+            results(`stats_layout')
+    }
+    local _collect_render_rc = _rc
+    if `_collect_render_rc' {
+        restore
+        local _preserved 0
+        capture collect export "`_temp_xlsx'", replace
+        if _rc {
+            display as error "Failed to export the active collect to a temporary workbook"
+            exit _rc
+        }
+        preserve
+        local _preserved 1
+        capture _tabtools_xlsx_read_current using "`_temp_xlsx'", sheet("Sheet1")
+        if _rc {
+            display as error "Failed to import the temporary collect workbook"
+            exit _rc
+        }
     }
     capture erase "`_temp_xlsx'"
 

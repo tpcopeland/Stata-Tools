@@ -423,7 +423,7 @@ capture noisily {
     effecttab, xlsx("`output_dir'/_va_effecttab.xlsx") sheet("Test") digits(2)
 
     shell python3 "`checker'" "`output_dir'/_va_effecttab.xlsx" --sheet "Test" ///
-        --cell-contains C5 "`ate_fmt'" ///
+        --cell-contains C4 "`ate_fmt'" ///
         --result-file "`output_dir'/_va_e1.txt" --quiet
     file open _fh using "`output_dir'/_va_e1.txt", read text
     file read _fh _line

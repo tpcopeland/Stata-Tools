@@ -435,1078 +435,109 @@ program define table1_tc, rclass
     local _wtc_save_has_wt = `has_wt'
     local _wtc_save_has_smd = `has_smd'
 
-    foreach _wtc_pass of local _wtc_passes {
+**# Fast Aggregation
+    local _fast_weight ""
+    if "`weight'" != "" local _fast_weight "[`weight'`exp']"
 
-    * Reset sortorder for each pass so rows align for merge
-    local sortorder = `_wtc_save_sortorder'
+    local _fast_common_opts `"replace stub(`groupnum') totalcode(`_total_code')"'
+    if "`total'" != "" local _fast_common_opts `"`_fast_common_opts' total(`total')"'
+    if "`missing'" != "" local _fast_common_opts `"`_fast_common_opts' missing"'
+    if "`percent'" != "" local _fast_common_opts `"`_fast_common_opts' percent"'
+    if "`percent_n'" != "" local _fast_common_opts `"`_fast_common_opts' percent_n"'
+    if "`slashN'" != "" local _fast_common_opts `"`_fast_common_opts' slashN"'
+    if "`catrowperc'" != "" local _fast_common_opts `"`_fast_common_opts' catrowperc"'
+    if "`varlabplus'" != "" local _fast_common_opts `"`_fast_common_opts' varlabplus"'
+    if "`nospacelowpercent'" != "" local _fast_common_opts `"`_fast_common_opts' nospacelowpercent"'
+    if "`extraspace'" != "" local _fast_common_opts `"`_fast_common_opts' extraspace"'
+    if `"`format'"' != "" local _fast_common_opts `"`_fast_common_opts' format(`"`format'"')"'
+    if `"`percformat'"' != "" local _fast_common_opts `"`_fast_common_opts' percformat(`"`percformat'"')"'
+    if `"`nformat'"' != "" local _fast_common_opts `"`_fast_common_opts' nformat(`"`nformat'"')"'
+    if `"`iqrmiddle'"' != "" local _fast_common_opts `"`_fast_common_opts' iqrmiddle(`iqrmiddle')"'
+    if `"`sdleft'"' != "" local _fast_common_opts `"`_fast_common_opts' sdleft(`sdleft')"'
+    if `"`sdright'"' != "" local _fast_common_opts `"`_fast_common_opts' sdright(`sdright')"'
+    if `"`gsdleft'"' != "" local _fast_common_opts `"`_fast_common_opts' gsdleft(`gsdleft')"'
+    if `"`gsdright'"' != "" local _fast_common_opts `"`_fast_common_opts' gsdright(`gsdright')"'
+    if `"`percsign'"' != "" local _fast_common_opts `"`_fast_common_opts' percsign(`percsign')"'
 
-    if `has_wtcompare' {
-        if "`_wtc_pass'" == "crude" {
-            local has_wt 0
-            local has_smd 0
-            display as text "(wtcompare: computing crude statistics...)"
-        }
-        else {
-            local has_wt `_wtc_save_has_wt'
-            local has_smd `_wtc_save_has_smd'
-            display as text "(wtcompare: computing weighted statistics...)"
-        }
+    local _fast_analysis_opts ""
+    if "`smd'" != "" local _fast_analysis_opts `"`_fast_analysis_opts' smd"'
+    if "`test'" != "" local _fast_analysis_opts `"`_fast_analysis_opts' test"'
+    if "`statistic'" != "" local _fast_analysis_opts `"`_fast_analysis_opts' statistic"'
+    if "`nopvalue'" != "" local _fast_analysis_opts `"`_fast_analysis_opts' nopvalue"'
+
+    if !`has_wtcompare' {
+        local _fast_single_opts `"`_fast_common_opts' `_fast_analysis_opts'"'
+        if `has_wt' local _fast_single_opts `"`_fast_single_opts' wt(`wt')"'
+        _tabtools_table1_fast_collect `_fast_weight' if `touse', ///
+            by(`groupnum') vars(`vars') saving("`resultstable'") ///
+            `_fast_single_opts'
+
+        local _processed_varlist = strtrim("`r(varlist)'")
+        local _resolved_has_bin = r(has_bin)
+        local _resolved_has_cat = r(has_cat)
+        local _resolved_has_contn = r(has_contn)
+        local _resolved_has_contln = r(has_contln)
+        local _resolved_has_conts = r(has_conts)
+        local _used_ttest = r(used_ttest)
+        local _used_anova = r(used_anova)
+        local _used_wilcoxon = r(used_wilcoxon)
+        local _used_kw = r(used_kwallis)
+        local _used_chi2 = r(used_chi2)
+        local _used_fisher = r(used_fisher)
     }
+    else {
+        tempfile _wtc_cr_renamed
 
-**# Generate Sample Size Row (N)
-    preserve
-    qui keep if `touse'  // Keep only observations that satisfy if/in conditions
-    qui drop if missing(`groupnum')  // Drop observations with missing group values
-    
-    /* Create total column if requested */
-    if "`total'" != "" { 
-        qui expand 2, gen(_copy)  // Duplicate observations for total calculation
-        qui replace `groupnum' = `_total_code' if _copy == 1   // sentinel as placeholder for total
-    }
-    
-    /* Get counts by group (unweighted N when using wt()) */
-    if `has_wt' contract `groupnum'
-    else contract `groupnum' [`weight'`exp']
-    gen factor="N"  // Label for the row
-    gen factor_sep="N" // For neat output formatting
-    
-    /* Format the sample size display */
-    qui gen n= "N=" + string(_freq, "`nformat'")  // Format as "N=xxx"
-    rename _freq N_  // Rename frequency variable
-    
-    /* Reshape to wide format for display */
-    qui reshape wide n N_, i(factor) j(`groupnum')  // Create separate columns for each group
-    rename n* `groupnum'*  // Rename to match group values
-    
-    /* Add sort variable and save */
-    gen sort1=`sortorder++'  // Assign sort order
-    qui save "`resultstable'", replace  // Save initial table
-    restore
+        _tabtools_table1_fast_collect if `touse', ///
+            by(`groupnum') vars(`vars') saving("`_wtc_crude_table'") ///
+            `_fast_common_opts' nopvalue
 
-    /* Add ESS row when wt() specified — Kish's formula: ESS = (Σwi)² / Σwi² */
-    if `has_wt' {
+        local _fast_weighted_opts `"`_fast_common_opts' `_fast_analysis_opts' wt(`wt') wtcompare"'
+        _tabtools_table1_fast_collect if `touse', ///
+            by(`groupnum') vars(`vars') saving("`resultstable'") ///
+            `_fast_weighted_opts'
+
+        local _processed_varlist = strtrim("`r(varlist)'")
+        local _resolved_has_bin = r(has_bin)
+        local _resolved_has_cat = r(has_cat)
+        local _resolved_has_contn = r(has_contn)
+        local _resolved_has_contln = r(has_contln)
+        local _resolved_has_conts = r(has_conts)
+        local _used_ttest = r(used_ttest)
+        local _used_anova = r(used_anova)
+        local _used_wilcoxon = r(used_wilcoxon)
+        local _used_kw = r(used_kwallis)
+        local _used_chi2 = r(used_chi2)
+        local _used_fisher = r(used_fisher)
+
         preserve
-        qui keep if `touse'
-        qui drop if missing(`groupnum')
-        if "`total'" != "" {
-            qui expand 2, gen(_copy)
-            qui replace `groupnum' = `_total_code' if _copy == 1
+        use "`_wtc_crude_table'", clear
+        capture replace sort1 = sort1 + 1 if sort1 >= 2
+
+        local _wtc_merge_levels "`_group_levels'"
+        if "`total'" != "" local _wtc_merge_levels "`_wtc_merge_levels' `_total_code'"
+
+        foreach lv of local _wtc_merge_levels {
+            capture rename `groupnum'`lv' _cr_`lv'
+            capture rename _columna_`lv' _cr_columna_`lv'
+            capture rename _columnb_`lv' _cr_columnb_`lv'
+            capture rename N_`lv' _cr_N_`lv'
         }
-        qui gen double _wt_val = `wt'
-        qui gen double _wt_sq = _wt_val^2
-        qui collapse (sum) _sum_w=_wt_val (sum) _sum_w2=_wt_sq, by(`groupnum')
-        qui gen double _ess = (_sum_w^2) / _sum_w2
-        qui gen factor = "Effective sample size"
-        qui gen factor_sep = "ESS"
-        qui gen n = "ESS=" + string(_ess, "`nformat'")
-        qui gen N_ = .
-        qui keep `groupnum' factor factor_sep n N_
-        qui reshape wide n N_, i(factor) j(`groupnum')
-        rename n* `groupnum'*
-        qui gen sort1 = `sortorder++'
-        qui append using "`resultstable'"
-        qui save "`resultstable'", replace
+        capture confirm variable sort2
+        if _rc gen sort2 = 0
+        keep sort1 sort2 _cr_*
+        save "`_wtc_cr_renamed'", replace
+        restore
+
+        preserve
+        use "`resultstable'", clear
+        capture confirm variable sort2
+        if _rc gen sort2 = 0
+        merge 1:1 sort1 sort2 using "`_wtc_cr_renamed'", nogenerate
+        save "`resultstable'", replace
         restore
     }
 
-    * wtcompare crude pass: skip sortorder ahead to account for missing ESS row
-    if `has_wtcompare' & !`has_wt' & `_wtc_save_has_wt' {
-        local sortorder = `sortorder' + 1
-    }
-
-**# Process Variables Specified in vars() Option
-    local _processed_varlist ""
-    local _resolved_has_bin 0
-    local _resolved_has_cat 0
-    local _resolved_has_contn 0
-    local _resolved_has_contln 0
-    local _resolved_has_conts 0
-    if "`dots'" != "" display as text "Processing variables: " _continue
-    gettoken arg rest : vars, parse("\")  // Parse the first variable specification
-    while `"`arg'"' != "" {
-        if `"`arg'"' != "\" {
-            * Reset test statistics to prevent stale values leaking between variables
-            local p .
-            local chi2 .
-            local df .
-            local z .
-            local tstat .
-            local f .
-            local df1 .
-            local df2 .
-            local _smd_val .
-
-            local varname   : word 1 of `arg'  // Extract variable name
-            local vartype   : word 2 of `arg'  // Extract variable type
-            local varformat : word 3 of `arg'  // Extract custom format (if any)
-            local varformat2 : word 4 of `arg'  // Extract second format (if any)
-
-            /* Validate variable and type */
-            confirm variable `varname'  // Check that variable exists
-            local _processed_varlist "`_processed_varlist' `varname'"
-
-            // Auto-detect variable type if "auto" or omitted
-            if "`vartype'" == "auto" | "`vartype'" == "" {
-                _tabtools_detect_vartype `varname'
-                local vartype "`result'"
-                if "`noisily'" != "" noisily display as text "  `varname' classified as `vartype' (N unique = `result_nuniq')"
-                if "`dots'" != "" display as text "(auto: `varname' → `vartype') " _continue
-            }
-
-            // Check that variable type is valid
-            if !inlist("`vartype'", "contn", "contln", "conts", "cat", "cate", "bin", "bine") {
-                display as error "-`varname' `vartype'- not allowed in vars() option"
-                display as error "Variables must be classified as contn, contln, conts, cat, cate, bin or bine"
-                error 498
-            }
-            if inlist("`vartype'", "bin", "bine") local _resolved_has_bin 1
-            if inlist("`vartype'", "cat", "cate") local _resolved_has_cat 1
-            if "`vartype'" == "contn" local _resolved_has_contn 1
-            if "`vartype'" == "contln" local _resolved_has_contln 1
-            if "`vartype'" == "conts" local _resolved_has_conts 1
-            
-            /* Get variable label or use name if no label exists */
-            local varlab: variable label `varname'
-            if "`varlab'"=="" local varlab `varname'  // Use variable name if no label
-    
-        **## Process Continuous Normal Variables
-            if "`vartype'"=="contn" {
-                preserve
-                qui keep if `touse'  // Keep relevant observations
-                qui drop if missing(`groupnum')  // Drop observations with missing group values
-                                
-                // Count groups with non-missing values for this variable
-                qui levelsof `groupnum' if `varname'!=., local(glevels)
-                local nglevels: word count `glevels'
-
-                /* Calculate significance test (suppressed when wt() or nopvalue specified) */
-                if !`_suppress_p' {
-                    if `nglevels'>=2 {
-                        // ANOVA for >1 group
-                        qui anova `varname' `groupnum' [`weight'`exp']
-                        // Use Ftail() for numerical stability - equivalent to 1-F() but more robust
-                        local p = Ftail(e(df_m), e(df_r), e(F))
-                        local f : di %6.2f e(F)  // F statistic
-                        local df1 = e(df_m)  // Degrees of freedom (numerator)
-                        local df2 = e(df_r)  // Degrees of freedom (denominator)
-                    }
-                    if `nglevels'==2 {
-                        // t-test for exactly 2 groups
-                        qui regress `varname' ib(first).`groupnum' [`weight'`exp']
-                        tempname Tmat
-                        matrix `Tmat' = r(table)
-                        local tstat : di %6.2f -1*`Tmat'[3,2]  // t statistic
-                    }
-
-                    * Track tests used (C5)
-                    if `nglevels' == 2 local _used_ttest 1
-                    if `nglevels' > 2 local _used_anova 1
-                }
-
-                /* Compute SMD if requested (F1) */
-                local _smd_val .
-                if `has_smd' & `nglevels' >= 2 {
-                    if `has_wt' {
-                        qui su `varname' [aw=`wt'] if `groupnum' == `level1'
-                        local _smd_m1 = r(mean)
-                        local _smd_s1 = r(sd)
-                        qui su `varname' [aw=`wt'] if `groupnum' == `level2'
-                        local _smd_m2 = r(mean)
-                        local _smd_s2 = r(sd)
-                        local _smd_poolsd = sqrt((`_smd_s1'^2 + `_smd_s2'^2) / 2)
-                    }
-                    else {
-                        qui su `varname' if `groupnum' == `level1'
-                        local _smd_m1 = r(mean)
-                        local _smd_s1 = r(sd)
-                        local _smd_n1 = r(N)
-                        qui su `varname' if `groupnum' == `level2'
-                        local _smd_m2 = r(mean)
-                        local _smd_s2 = r(sd)
-                        local _smd_n2 = r(N)
-                        local _smd_poolsd = sqrt(((`_smd_n1'-1)*`_smd_s1'^2 + (`_smd_n2'-1)*`_smd_s2'^2) / (`_smd_n1'+`_smd_n2'-2))
-                    }
-                    if `_smd_poolsd' > 0 local _smd_val = (`_smd_m1' - `_smd_m2') / `_smd_poolsd'
-                }
-
-                /* Set display format */
-                if "`varformat'"=="" {
-                    // If no custom format, use either the format option or the variable's own format
-                    if "`format'"=="" local varformat: format `varname'
-                    else local varformat `format'
-                }
-
-                /* Calculate statistics by group */
-                if "`total'" != "" {
-                    qui expand 2, gen(_copy)  // Duplicate for total calculation
-                    qui replace `groupnum' = `_total_code' if _copy == 1  // Mark total rows
-                }
-
-                // Calculate mean, SD, and count by group
-                if `has_wt' {
-                    collapse (mean) mean=`varname' (sd) sd=`varname' (count) N_=`varname' ///
-                        [aw=`wt'], by(`groupnum')
-                }
-                else {
-                    collapse (mean) mean=`varname' (sd) sd=`varname' (count) N_=`varname' ///
-                        [`weight'`exp'], by(`groupnum')
-                }
-                format N_ %8.0g
-
-                /* Format results for display */
-                qui gen _columna_ = string(mean, "`varformat'")  // Format mean
-                if "`varformat2'"!="" local varformat "`varformat2'"  // Use second format for SD if specified
-                qui gen sd_ = string(sd, "`varformat'")  // Format SD
-                qui gen _columnb_ = `sdleft' + sd_ + `sdright'  // Format SD with symbols
-                qui replace _columna_ = "" if mean ==.  // Blank if missing
-                qui replace _columnb_ = "" if mean ==.  // Blank if missing
-                qui gen mean_sd = _columna_ + _columnb_  // Combine mean and SD
-                
-                /* Apply labels */
-                label var _columna_ "columna"
-                label var _columnb_ "columnb"
-                label var N_ "N"
-
-                // Create row label with variable name and stats type
-                qui gen factor="`varlab', `meanSD'"
-                if `"`varlabplus'"' == "" qui replace factor="`varlab'"  // Simplified if varlabplus not specified
-                qui clonevar factor_sep=factor  // Copy for formatting
-                
-                /* Reshape for display */
-                keep factor* `groupnum' mean_sd _columna_ _columnb_ N_
-                qui reshape wide mean_sd _columna_ _columnb_ N_, i(factor) j(`groupnum')
-                rename mean_sd* `groupnum'*  // Rename columns by group
-                
-                /* Add p-value, test type, and statistics (suppressed when wt() or nopvalue) */
-                if `nglevels'>1 & !`_suppress_p' qui {
-                    gen p=`p'
-                }
-
-                // Add SMD if requested
-                if `has_smd' qui gen smd_val = `_smd_val'
-
-                // Add test type label based on number of groups
-                if "`test'"=="test" & `nglevels'==2 & !`_suppress_p' gen test="Ind. t test"
-                if "`test'"=="test" & `nglevels'>2 & !`_suppress_p' gen test="ANOVA"
-
-                // Add test statistic details if requested
-                if "`statistic'"=="statistic" & `nglevels'==2 & !`_suppress_p' gen statistic="t(`df2')=`tstat'"
-                if "`statistic'"=="statistic" & `nglevels'>2 & !`_suppress_p' gen statistic="F(`df1',`df2')=`f'"
-
-                /* Add sort variable and append to results */
-                gen sort1=`sortorder++'
-                qui append using "`resultstable'"
-                qui save "`resultstable'", replace
-                if "`dots'" != "" noisily display as text "." _continue
-                restore
-            }
-
-        **## Process Continuous Log-Normal Variables
-            if "`vartype'"=="contln" {
-                preserve
-                qui keep if `touse'  // Keep relevant observations
-                qui drop if missing(`groupnum')  // Drop observations with missing group values
-                qui drop if `varname' <=0  // Drop values that would give missing after log transform
-                
-                // Create log-transformed variable
-                tempvar lvarname
-                qui gen `lvarname' = log(`varname')
-                
-                // Count groups with non-missing values
-                qui levelsof `groupnum' if `lvarname'!=., local(glevels)
-                local nglevels: word count `glevels'
-
-                /* Calculate significance test (suppressed when wt() or nopvalue specified) */
-                if !`_suppress_p' {
-                    if `nglevels'>=2 {
-                        // ANOVA on log-transformed values
-                        qui anova `lvarname' `groupnum' [`weight'`exp']
-                        // Use Ftail() for numerical stability - equivalent to 1-F() but more robust
-                        local p = Ftail(e(df_m), e(df_r), e(F))
-                        local f : di %6.2f e(F)  // F statistic
-                        local df1 = e(df_m)  // Degrees of freedom (numerator)
-                        local df2 = e(df_r)  // Degrees of freedom (denominator)
-                    }
-                    if `nglevels'==2 {
-                        // t-test for exactly 2 groups
-                        qui regress `lvarname' ib(first).`groupnum' [`weight'`exp']
-                        tempname Tmat
-                        matrix `Tmat' = r(table)
-                        local tstat : di %6.2f -1*`Tmat'[3,2]  // t statistic
-                    }
-
-                    * Track tests used (C5)
-                    if `nglevels' == 2 local _used_ttest 1
-                    if `nglevels' > 2 local _used_anova 1
-                }
-
-                /* Compute SMD if requested (F1) — on log-transformed values */
-                local _smd_val .
-                if `has_smd' & `nglevels' >= 2 {
-                    if `has_wt' {
-                        qui su `lvarname' [aw=`wt'] if `groupnum' == `level1'
-                        local _smd_m1 = r(mean)
-                        local _smd_s1 = r(sd)
-                        qui su `lvarname' [aw=`wt'] if `groupnum' == `level2'
-                        local _smd_m2 = r(mean)
-                        local _smd_s2 = r(sd)
-                        local _smd_poolsd = sqrt((`_smd_s1'^2 + `_smd_s2'^2) / 2)
-                    }
-                    else {
-                        qui su `lvarname' if `groupnum' == `level1'
-                        local _smd_m1 = r(mean)
-                        local _smd_s1 = r(sd)
-                        local _smd_n1 = r(N)
-                        qui su `lvarname' if `groupnum' == `level2'
-                        local _smd_m2 = r(mean)
-                        local _smd_s2 = r(sd)
-                        local _smd_n2 = r(N)
-                        local _smd_poolsd = sqrt(((`_smd_n1'-1)*`_smd_s1'^2 + (`_smd_n2'-1)*`_smd_s2'^2) / (`_smd_n1'+`_smd_n2'-2))
-                    }
-                    if `_smd_poolsd' > 0 local _smd_val = (`_smd_m1' - `_smd_m2') / `_smd_poolsd'
-                }
-
-                /* Set display format */
-                if "`varformat'"=="" {
-                    // If no custom format, use either the format option or the variable's own format
-                    if "`format'"=="" local varformat: format `varname'
-                    else local varformat `format'
-                }
-
-                /* Calculate statistics by group */
-                if "`total'" != "" {
-                    qui expand 2, gen(_copy)  // Duplicate for total calculation
-                    qui replace `groupnum' = `_total_code' if _copy == 1  // Mark total rows
-                }
-
-                // Calculate mean, SD, and count of log-transformed values by group
-                if `has_wt' {
-                    collapse (mean) mean=`lvarname' (sd) sd=`lvarname' (count) N_=`lvarname' ///
-                        [aw=`wt'], by(`groupnum')
-                }
-                else {
-                    collapse (mean) mean=`lvarname' (sd) sd=`lvarname' (count) N_=`lvarname' ///
-                        [`weight'`exp'], by(`groupnum')
-                }
-                format N_ %8.0g
-                
-                /* Back-transform from log scale and format results */
-                qui replace mean = exp(mean)  // Back-transform mean (geometric mean)
-                qui replace sd = exp(sd)      // Back-transform SD (geometric SD)
-                qui gen _columna_ = string(mean, "`varformat'")  // Format geometric mean
-                if "`varformat2'"!="" local varformat "`varformat2'"  // Use second format for GSD if specified
-                qui gen sd_ = string(sd, "`varformat'")  // Format GSD                                              
-                qui gen _columnb_ = `gsdleft' + sd_ + `gsdright'  // Format GSD with symbols
-                qui replace _columna_ = "" if mean ==.  // Blank if missing
-                qui replace _columnb_ = "" if mean ==.  // Blank if missing
-                qui gen mean_sd = _columna_ + _columnb_  // Combine geometric mean and GSD
-                
-                /* Apply labels */
-                label var _columna_ "columna"
-                label var _columnb_ "columnb"
-                label var N_ "N"
-
-                // Create row label with variable name and stats type
-                qui gen factor="`varlab', `gmeanSD'"
-                if `"`varlabplus'"' == "" qui replace factor="`varlab'"  // Simplified if varlabplus not specified
-                qui clonevar factor_sep=factor  // Copy for formatting
-                
-                /* Reshape for display */
-                keep factor* `groupnum' mean_sd _columna_ _columnb_ N_
-                qui reshape wide mean_sd _columna_ _columnb_ N_, i(factor) j(`groupnum')
-                rename mean_sd* `groupnum'*  // Rename columns by group
-                
-                /* Add p-value, test type, and statistics (suppressed when wt() or nopvalue) */
-                if `nglevels'>1 & !`_suppress_p' qui {
-                    gen p=`p'
-                }
-
-                if `has_smd' qui gen smd_val = `_smd_val'
-
-                // Add test type label based on number of groups
-                if "`test'"=="test" & `nglevels'==2 & !`_suppress_p' gen test="Ind. t test, logged data"
-                if "`test'"=="test" & `nglevels'>2 & !`_suppress_p' gen test="ANOVA, logged data"
-
-                // Add test statistic details if requested
-                if "`statistic'"=="statistic" & `nglevels'==2 & !`_suppress_p' gen statistic="t(`df2')=`tstat'"
-                if "`statistic'"=="statistic" & `nglevels'>2 & !`_suppress_p' gen statistic="F(`df1',`df2')=`f'"
-
-                /* Add sort variable and append to results */
-                gen sort1=`sortorder++'
-                qui append using "`resultstable'"
-                qui save "`resultstable'", replace
-                if "`dots'" != "" noisily display as text "." _continue
-                restore
-            }
-                        
-        **## Process Continuous Skewed Variables
-            if "`vartype'"=="conts" {
-                preserve
-                qui keep if `touse'  // Keep relevant observations
-                qui drop if missing(`groupnum')  // Drop observations with missing group values
-
-                /* Expand by frequency weight for rank-based tests (not needed with wt()) */
-                if "`weight'"=="fweight" & !`has_wt' qui expand `exp'
-
-                // Count groups with non-missing values
-                qui levelsof `groupnum' if `varname'!=., local(glevels)
-                local nglevels: word count `glevels'
-
-                /* Calculate significance test (suppressed when wt() or nopvalue specified) */
-                if !`_suppress_p' {
-                    if `nglevels'>2 {
-                        /* Kruskal-Wallis for >2 groups */
-                        capture qui kwallis `varname', by(`groupnum')
-                        if _rc == 0 {
-                            local p=chi2tail(r(df), r(chi2_adj))  // p-value
-                            local chi2 :di %6.2f r(chi2_adj)  // Chi-square statistic
-                            local df = r(df)  // Degrees of freedom
-                        }
-                    }
-                    if `nglevels'==2 {
-                        /* Rank-sum for 2 groups */
-                        capture qui ranksum `varname', by(`groupnum')
-                        if _rc == 0 {
-                            local z = r(z)  // z statistic
-                            local p=2*normal(-abs(`z'))  // Two-sided p-value
-                            local z : di %6.2f `z'  // Format z statistic
-                        }
-                    }
-
-                    * Track tests used (C5)
-                    if `nglevels' == 2 local _used_wilcoxon 1
-                    if `nglevels' > 2 local _used_kw 1
-                }
-
-                /* Compute SMD if requested (F1) — on raw values for skewed vars */
-                local _smd_val .
-                if `has_smd' & `nglevels' >= 2 {
-                    if `has_wt' {
-                        qui su `varname' [aw=`wt'] if `groupnum' == `level1'
-                        local _smd_m1 = r(mean)
-                        local _smd_s1 = r(sd)
-                        qui su `varname' [aw=`wt'] if `groupnum' == `level2'
-                        local _smd_m2 = r(mean)
-                        local _smd_s2 = r(sd)
-                        local _smd_poolsd = sqrt((`_smd_s1'^2 + `_smd_s2'^2) / 2)
-                    }
-                    else {
-                        qui su `varname' if `groupnum' == `level1'
-                        local _smd_m1 = r(mean)
-                        local _smd_s1 = r(sd)
-                        local _smd_n1 = r(N)
-                        qui su `varname' if `groupnum' == `level2'
-                        local _smd_m2 = r(mean)
-                        local _smd_s2 = r(sd)
-                        local _smd_n2 = r(N)
-                        local _smd_poolsd = sqrt(((`_smd_n1'-1)*`_smd_s1'^2 + (`_smd_n2'-1)*`_smd_s2'^2) / (`_smd_n1'+`_smd_n2'-2))
-                    }
-                    if `_smd_poolsd' > 0 local _smd_val = (`_smd_m1' - `_smd_m2') / `_smd_poolsd'
-                }
-
-                /* Set display format */
-                if "`varformat'"=="" {
-                    // If no custom format, use either the format option or the variable's own format
-                    if "`format'"=="" local varformat: format `varname'
-                    else local varformat `format'
-                }
-
-                /* Calculate statistics by group */
-                if "`total'" != "" {
-                    qui expand 2, gen(_copy)  // Duplicate for total calculation
-                    qui replace `groupnum' = `_total_code' if _copy == 1  // Mark total rows
-                }
-
-                // Calculate median and IQR by group
-                if `has_wt' {
-                    collapse (p50) p50=`varname' (p25) p25=`varname' ///
-                        (p75) p75=`varname' (count) N_=`varname' [aw=`wt'], by(`groupnum')
-                }
-                else {
-                    collapse (p50) p50=`varname' (p25) p25=`varname' ///
-                        (p75) p75=`varname' (count) N_=`varname' , by(`groupnum')
-                }
-                format N_ %8.0g
-                
-                /* Format results for display */
-                qui gen _columna_ = string(p50, "`varformat'")  // Format median
-                if "`varformat2'"!="" local varformat "`varformat2'"  // Use second format for quartiles if specified
-                // Format IQR with symbols
-                qui gen _columnb_ = "(" + string(p25, "`varformat'") + `iqrmiddle' + string(p75, "`varformat'") + ")"
-                qui gen median_iqr = _columna_ + " " + _columnb_  // Combine median and IQR
-                qui replace _columna_ = "" if p50 ==.  // Blank if missing
-                qui replace _columnb_ = "" if p50 ==.  // Blank if missing
-                qui replace median_iqr = "" if p50 ==.  // Blank if missing
-
-                /* Apply labels */
-                label var _columna_ "columna"
-                label var _columnb_ "columnb"
-                label var N_ "N"
-                
-                // Create row label with variable name and stats type
-                qui gen factor="`varlab', median (Q1, Q3)"
-                if `"`varlabplus'"' == "" qui replace factor="`varlab'"  // Simplified if varlabplus not specified
-                qui clonevar factor_sep=factor  // Copy for formatting
-                
-                /* Reshape for display */
-                keep factor* `groupnum' median_iqr _columna_ _columnb_ N_
-                qui reshape wide median_iqr _columna_ _columnb_ N_, i(factor) j(`groupnum')
-                rename median_iqr* `groupnum'*  // Rename columns by group
-
-                /* Add p-value, test type, and statistics (suppressed when wt() or nopvalue) */
-                if `nglevels'>1 & !`_suppress_p' qui {
-                    gen p=`p'
-                }
-
-                if `has_smd' qui gen smd_val = `_smd_val'
-
-                // Add test type label based on number of groups
-                if "`test'"=="test" & `nglevels'==2 & !`_suppress_p' gen test="Wilcoxon rank-sum"
-                if "`test'"=="test" & `nglevels'>2 & !`_suppress_p' gen test="Kruskal-Wallis"
-
-                // Add test statistic details if requested
-                if "`statistic'"=="statistic" & `nglevels'==2 & !`_suppress_p' gen statistic="Z=`z'"
-                if "`statistic'"=="statistic" & `nglevels'>2 & !`_suppress_p' gen statistic="Chi2(`df')=`chi2'"
-
-                /* Add sort variable and append to results */
-                gen sort1=`sortorder++'
-                qui append using "`resultstable'"
-                qui save "`resultstable'", replace
-                if "`dots'" != "" noisily display as text "." _continue
-                restore
-            }
-            
-        **## Process Categorical Variables
-            if "`vartype'"=="cat" | "`vartype'"=="cate" {
-                preserve
-                qui keep if `touse'  // Keep relevant observations
-                qui drop if missing(`groupnum')  // Drop observations with missing group values
-                if "`missing'"!="missing" qui drop if missing(`varname')  // Drop observations with missing values unless missing option specified
-                
-                // Check if observations remain after filtering
-                qui count
-                if r(N)==0 {
-                    display as error "no categories for `varname' ... cannot tabulate"
-                    exit 198
-                }
-
-                /* Ensure categorical variable is numeric */
-                tempvar varnum
-                capture confirm numeric variable `varname'
-                if !_rc qui clonevar `varnum'=`varname'  // Keep as is if numeric
-                else qui encode `varname', gen(`varnum')  // Encode if string
-                
-                // Count groups and variable levels
-                qui levelsof `groupnum', local(glevels)
-                local nglevels: word count `glevels'
-                qui levelsof `varnum', local(vlevels)
-                local nvlevels: word count `vlevels'                    
-                
-                // Add missing as another level if requested
-                if "`missing'"=="missing" {
-                    qui count if `varnum'==.
-                    if r(N)!=0 local nvlevels = `nvlevels'+1
-                }                
-                
-                /* Calculate significance test (suppressed when wt() or nopvalue specified) */
-                if `nglevels'>1 & `nvlevels'>1 & !`_suppress_p' {
-                    if "`vartype'"=="cat" {
-                        // Chi-square test for standard categorical
-                        qui tab `varnum' `groupnum' [`weight'`exp'], chi2 m
-                        local p=r(p)  // p-value
-                        local chi2 : di %6.2f r(chi2)  // Chi-square statistic
-                        local df = (r(r)-1)*(r(c)-1)  // Degrees of freedom
-
-                        * Track tests used (C5)
-                        local _used_chi2 1
-                    }
-                    else {
-                        // Fisher's exact test for cate type
-                        qui tab `varnum' `groupnum' [`weight'`exp'], exact m
-                        local p=r(p_exact)
-
-                        * Track tests used (C5)
-                        local _used_fisher 1
-                    }
-
-                    /* Compute SMD for categorical vars — Austin (2009) variance-ratio approach */
-                    if `has_smd' & `nglevels' >= 2 {
-                        local _smd_ssq 0
-                        qui levelsof `varnum', local(_cat_lvls)
-                        foreach _clv of local _cat_lvls {
-                            qui su `varnum' if `groupnum' == `level1'
-                            local _smd_n1 = r(N)
-                            if `_smd_n1' == 0 {
-                                local _smd_p1 = .
-                            }
-                            else {
-                                qui count if `varnum' == `_clv' & `groupnum' == `level1'
-                                local _smd_p1 = r(N) / `_smd_n1'
-                            }
-                            qui su `varnum' if `groupnum' == `level2'
-                            local _smd_n2 = r(N)
-                            if `_smd_n2' == 0 {
-                                local _smd_p2 = .
-                            }
-                            else {
-                                qui count if `varnum' == `_clv' & `groupnum' == `level2'
-                                local _smd_p2 = r(N) / `_smd_n2'
-                            }
-                            local _smd_pavg = (`_smd_p1' + `_smd_p2') / 2
-                            local _smd_denom = sqrt(`_smd_pavg' * (1 - `_smd_pavg'))
-                            if `_smd_denom' > 0 {
-                                local _smd_ssq = `_smd_ssq' + ((`_smd_p1' - `_smd_p2') / `_smd_denom')^2
-                            }
-                        }
-                        local _smd_val = sqrt(`_smd_ssq')
-                    }
-                }
-
-                /* Compute weighted SMD for categorical vars when wt() is active */
-                if `has_wt' & `has_smd' & `nglevels' >= 2 {
-                    local _smd_val .
-                    local _smd_ssq 0
-                    qui levelsof `varnum', local(_cat_lvls)
-                    foreach _clv of local _cat_lvls {
-                        * Weighted proportions via sum of weights
-                        qui su `wt' if `groupnum' == `level1'
-                        local _smd_wtot1 = r(sum)
-                        if `_smd_wtot1' == 0 {
-                            local _smd_p1 = .
-                        }
-                        else {
-                            qui su `wt' if `varnum' == `_clv' & `groupnum' == `level1'
-                            local _smd_p1 = r(sum) / `_smd_wtot1'
-                        }
-                        qui su `wt' if `groupnum' == `level2'
-                        local _smd_wtot2 = r(sum)
-                        if `_smd_wtot2' == 0 {
-                            local _smd_p2 = .
-                        }
-                        else {
-                            qui su `wt' if `varnum' == `_clv' & `groupnum' == `level2'
-                            local _smd_p2 = r(sum) / `_smd_wtot2'
-                        }
-                        local _smd_pavg = (`_smd_p1' + `_smd_p2') / 2
-                        local _smd_denom = sqrt(`_smd_pavg' * (1 - `_smd_pavg'))
-                        if `_smd_denom' > 0 {
-                            local _smd_ssq = `_smd_ssq' + ((`_smd_p1' - `_smd_p2') / `_smd_denom')^2
-                        }
-                    }
-                    local _smd_val = sqrt(`_smd_ssq')
-                }
-
-                /* Calculate frequencies by group */
-                if "`total'" != "" {
-                    qui expand 2, gen(_copy)  // Duplicate for total calculation
-                    qui replace `groupnum' = `_total_code' if _copy == 1  // Mark total rows
-                }
-                if `has_wt' {
-                    // Weighted frequencies: sum weights per cell, count observations
-                    gen double _wt_val = `wt'
-                    collapse (sum) _freq=_wt_val (count) _uwn=_wt_val, by(`varnum' `groupnum')
-                    fillin `varnum' `groupnum'
-                    qui replace _freq = 0 if _fillin
-                    qui replace _uwn = 0 if _fillin
-                    drop _fillin
-                    qui egen tot = total(_freq), by(`groupnum')
-                    qui egen _uwn_grp = total(_uwn), by(`groupnum')
-                }
-                else {
-                    qui contract `varnum' `groupnum' [`weight'`exp'], zero
-                    qui egen tot=total(_freq), by(`groupnum')
-                }
-                
-                /* Calculate row percentages if requested */
-                if "`catrowperc'" != "" {
-                    tempvar tot_alt coltot
-                    qui egen `tot_alt' = total(_freq), by(`varnum')  // Total by variable level (row)
-                    if "`total'" != "" qui replace `tot_alt' = `tot_alt'/2  // Adjust for duplicated data
-                    qui gen `coltot' = tot  // Store original totals
-                    qui replace tot = `tot_alt'  // Use row totals instead
-                }
-                
-                /* Set percentage format */
-                if "`varformat'"=="" {
-                    if "`percformat'"=="" {
-                        // Choose format based on totals
-                        sum tot, meanonly
-                        if r(max)<100 local varformat "%3.0f"  // Small samples
-                        else local varformat "%5.1f"  // Larger samples
-                    }
-                    else local varformat `percformat'  // Use specified format
-                }                
-
-                /* Format results for display */
-                qui gen perc = "" if tot == 0
-                qui replace perc = string(100*_freq/tot, "`varformat'") if tot > 0
-
-                /* Add leading space for percentages <10% for alignment */
-                if `"`nospacelowpercent'"' == "" & `"`extraspace'"' == "" {
-                    qui replace perc = " " + perc if tot > 0 & 100*_freq/tot < 10 & perc!="10" & perc!="10.0" & perc!="10.00"
-                }
-                if `"`nospacelowpercent'"' == "" & `"`extraspace'"' != "" {
-                    qui replace perc = "  " + perc if tot > 0 & 100*_freq/tot < 10 & perc!="10" & perc!="10.0" & perc!="10.00"
-                }
-
-                qui replace perc = perc + `percsign' if tot > 0
-
-                // Format count: use unweighted n when wt() specified
-                if `has_wt' {
-                    qui gen n_ = string(_uwn, "`nformat'")
-                    if `"`slashN'"' == "slashN" qui replace n_ = n_ + "/" + string(_uwn_grp, "`nformat'")
-                }
-                else {
-                    qui gen n_ = string(_freq, "`nformat'")
-                    if `"`slashN'"' == "slashN" qui replace n_ = n_ + "/" + string(tot, "`nformat'")
-                }
-
-                /* Format display based on options */
-                if "`percent_n'"=="" & "`percent'"=="" {
-                    // Standard format: n (%)
-                    qui gen _columna_ = n_
-                    qui gen _columnb_ = "(" + perc + ")"
-                }
-                else qui gen _columna_ = perc  // % first if percent_n specified
-
-                if "`percent_n'"=="percent_n" & "`percent'"=="" qui gen _columnb_ = "(" + n_ + ")"  // Format as % (n)
-                if "`percent'"=="percent" qui gen _columnb_ = ""  // Show percentage only
-
-                qui gen n_perc = _columna_ + " " + _columnb_  // Combine n and %
-
-                label var _columna_ "columna"
-                label var _columnb_ "columnb"
-
-                /* Restore total if using row percentages */
-                if "`catrowperc'" != "" {
-                    qui replace tot = `coltot'  // Restore original column totals
-                    drop `coltot'
-                    capture drop `tot_alt'  // Drop row-total tempvar to prevent it leaking into reshape
-                }
-                if `has_wt' {
-                    drop tot _uwn
-                    rename _uwn_grp N_
-                }
-                else {
-                    rename tot N_
-                }
-                label var N_ "N"
-
-                drop _freq perc n_
-                qui reshape wide n_perc _columna_ _columnb_ N_, i(`varnum') j(`groupnum')
-                rename n_perc* `groupnum'*  // Rename columns by group
-                
-                /* Format display of factor and level variables */
-                    /* Add new observation for variable name and p-value */
-                    qui set obs `=_N + 1'
-                    tempvar reorder
-                    qui gen `reorder'=1 in L  // Flag new observation
-                    sort `reorder' `varnum'  // Sort to put it at the top
-                    drop `reorder'
-
-                    // Copy N values to first row
-                    foreach v of var N_* {
-                        qui replace `v' = `v'[_n+1] if _n==1
-                    }
-
-                    // Format labels for single column display
-                    qui gen factor="`varlab', `percfootnote2'" if _n==1  // First row gets variable name and footnote
-                    if `"`varlabplus'"' == "" qui replace factor="`varlab'" if _n==1  // Simple label if varlabplus not used
-                    qui replace factor="   " + string(`varnum') if _n!=1  // Indent levels with numeric value
-                    qui gen factor_sep="`varlab'"  // For neat separation
-
-                    // Replace numeric levels with value labels if available
-                    qui levelsof `varnum', local(levels)
-                    foreach level of local levels {
-                        qui replace factor="   `: label (`varnum') `level''" if `varnum'==`level'
-                    }
-                    qui replace factor="   Missing" if `varnum'==. & _n!=1  // Label for missing values
-
-                /* Add p-value, test type, and statistics (suppressed when wt() or nopvalue) */
-                qui gen cat_not_top_row = 1 if _n!=1
-                if `nglevels'>1 & `nvlevels'>1 & !`_suppress_p' {
-                    qui gen p=`p' if _n==1
-                }
-
-                if `has_smd' qui gen smd_val = `_smd_val' if _n==1
-
-                // Show N only in first row
-                foreach v of var N_* {
-                    qui replace `v' = . if _n!=1
-                }
-
-                // Add test type and statistic labels if requested
-                if "`test'"=="test" & `nglevels'>1 & `nvlevels'>1 & !`_suppress_p' {
-                    if "`vartype'"=="cat" qui gen test="Chi-square" if _n==1
-                    else qui gen test="Fisher's exact" if _n==1
-                }
-                if "`statistic'"=="statistic" & `nglevels'>1 & `nvlevels'>1 & !`_suppress_p' {
-                    if "`vartype'"=="cat" qui gen statistic="Chi2(`df')=`chi2'" if _n==1
-                    else qui gen statistic="N/A" if _n==1
-                }                
-                
-                /* Add sort variables and append to results */
-                gen sort1=`sortorder++'
-                qui gen sort2=_n
-                qui drop `varnum'
-                qui append using "`resultstable'"
-                qui save "`resultstable'", replace
-                if "`dots'" != "" noisily display as text "." _continue
-                restore
-            }
-    
-        **## Process Binary Variables
-            if "`vartype'"=="bin" | "`vartype'"=="bine" {
-                preserve
-                qui keep if `touse'  // Keep relevant observations
-                qui drop if missing(`groupnum') | missing(`varname')  // Drop observations with missing values
-                
-                qui count
-                if r(N)==0 {
-                    display as error "no categories for `varname' ... cannot tabulate"
-                    exit 198
-                }
-
-                /* Verify variable is truly binary (0/1) */
-                capture assert `varname'==0 | `varname'==1
-                if _rc {
-                    display as error "binary variable `varname' must be 0 (negative) or 1 (positive)"
-                    display as error "Did you mean {it:cat}? Use vars(`varname' cat) for categorical"
-                    exit 198
-                }
-
-                // Count groups with non-missing values
-                qui levelsof `groupnum' if `varname'!=., local(glevels)
-                local nglevels: word count `glevels'
-                qui levelsof `varname', local(vlevels)
-                local nvlevels: word count `vlevels'
-                
-                /* Calculate significance test (suppressed when wt() or nopvalue specified) */
-                if !`_suppress_p' {
-                    if "`vartype'"=="bin" & `nglevels'>1 & `nvlevels'>1 {
-                        // Chi-square test for standard binary
-                        qui tab `varname' `groupnum' [`weight'`exp'], chi2
-                        local p=r(p)  // p-value
-                        local chi2 : di %6.2f r(chi2)  // Chi-square statistic
-                        local df = (r(r)-1)*(r(c)-1)  // Degrees of freedom
-
-                        * Track tests used (C5)
-                        local _used_chi2 1
-                    }
-                    if "`vartype'"=="bine" & `nglevels'>1 & `nvlevels'>1 {
-                        // Fisher's exact test for bine type
-                        qui tab `varname' `groupnum' [`weight'`exp'], exact
-                        local p=r(p_exact)
-
-                        * Track tests used (C5)
-                        local _used_fisher 1
-                    }
-
-                    /* Compute SMD for binary vars (F1) */
-                    if `has_smd' & `nglevels' >= 2 {
-                        qui su `varname' if `groupnum' == `level1'
-                        local _smd_p1 = r(mean)
-                        qui su `varname' if `groupnum' == `level2'
-                        local _smd_p2 = r(mean)
-                        local _smd_denom = sqrt((`_smd_p1'*(1-`_smd_p1') + `_smd_p2'*(1-`_smd_p2')) / 2)
-                        if `_smd_denom' > 0 local _smd_val = (`_smd_p1' - `_smd_p2') / `_smd_denom'
-                    }
-                }
-
-                /* Compute weighted SMD for binary vars when wt() is active */
-                if `has_wt' & `has_smd' & `nglevels' >= 2 {
-                    local _smd_val .
-                    qui su `varname' [aw=`wt'] if `groupnum' == `level1'
-                    local _smd_p1 = r(mean)
-                    qui su `varname' [aw=`wt'] if `groupnum' == `level2'
-                    local _smd_p2 = r(mean)
-                    local _smd_denom = sqrt((`_smd_p1'*(1-`_smd_p1') + `_smd_p2'*(1-`_smd_p2')) / 2)
-                    if `_smd_denom' > 0 local _smd_val = (`_smd_p1' - `_smd_p2') / `_smd_denom'
-                }
-
-                /* Calculate frequencies by group */
-                if "`total'" != "" {
-                    qui expand 2, gen(_copy)  // Duplicate for total calculation
-                    qui replace `groupnum' = `_total_code' if _copy == 1  // Mark total rows
-                }
-                if `has_wt' {
-                    // Weighted frequencies: sum weights per cell, count observations
-                    gen double _wt_val = `wt'
-                    collapse (sum) _freq=_wt_val (count) _uwn=_wt_val, by(`varname' `groupnum')
-                    fillin `varname' `groupnum'
-                    qui replace _freq = 0 if _fillin
-                    qui replace _uwn = 0 if _fillin
-                    drop _fillin
-                    qui egen tot = total(_freq), by(`groupnum')
-                    qui egen _uwn_grp = total(_uwn), by(`groupnum')
-                }
-                else {
-                    qui contract `varname' `groupnum' [`weight'`exp'], zero
-                    qui egen tot=total(_freq), by(`groupnum')
-                }
-
-                /* Set percentage format */
-                if "`varformat'"=="" {
-                    if "`percformat'"=="" {
-                        // Choose format based on totals
-                        sum tot, meanonly
-                        if r(max)<100 local varformat "%3.0f"  // Small samples
-                        else local varformat "%5.1f"  // Larger samples
-                    }
-                    else local varformat `percformat'  // Use specified format
-                }
-
-                /* Keep only the positive (=1) category */
-                qui count if `varname'==1
-                if r(N) > 0 qui keep if `varname'==1  // Keep only positive cases
-                if r(N) == 0 qui replace _freq = 0 if _freq > 0  // Handle case where no positives exist
-
-                /* Format results for display */
-                qui gen perc = "" if tot == 0
-                qui replace perc = string(100*_freq/tot, "`varformat'") if tot > 0
-
-                /* Add leading space for percentages <10% for alignment */
-                if "`nospacelowpercent'" == "" {
-                    qui replace perc = " " + perc if tot > 0 & 100*_freq/tot < 10 & perc!="10" & perc!="10.0" & perc!="10.00"
-                }
-
-                qui replace perc = perc + `percsign' if tot > 0
-
-                // Format count: use unweighted n when wt() specified
-                if `has_wt' {
-                    qui gen n_ = string(_uwn, "`nformat'")
-                    if `"`slashN'"' == "slashN" qui replace n_ = n_ + "/" + string(_uwn_grp, "`nformat'")
-                }
-                else {
-                    qui gen n_ = string(_freq, "`nformat'")
-                    if `"`slashN'"' == "slashN" qui replace n_ = n_ + "/" + string(tot, "`nformat'")
-                }
-
-                /* Format display based on options */
-                if "`percent_n'"=="" & "`percent'"=="" {
-                    // Standard format: n (%)
-                    qui gen _columna_ = n_
-                    qui gen _columnb_ = "(" + perc + ")"
-                }
-                else qui gen _columna_ = perc  // % first if percent_n specified
-
-                if "`percent_n'"=="percent_n" & "`percent'"=="" qui gen _columnb_ = "(" + n_ + ")"  // Format as % (n)
-                if "`percent'"=="percent" qui gen _columnb_ = ""  // Show percentage only
-
-                qui gen n_perc = _columna_ + " " + _columnb_  // Combine n and %
-
-                label var _columna_ "columna"
-                label var _columnb_ "columnb"
-                if `has_wt' {
-                    drop tot _uwn
-                    rename _uwn_grp N_
-                }
-                else {
-                    rename tot N_
-                }
-                label var N_ "N"
-
-                drop _freq perc n_
-                qui reshape wide n_perc _columna_ _columnb_ N_, i(`varname') j(`groupnum')
-                qui drop `varname'
-                qui gen factor="`varlab', `percfootnote'" if _n==1  // Row label with footnote
-                if `"`varlabplus'"' == "" qui replace factor="`varlab'" if _n==1  // Simple label if varlabplus not used                
-                qui clonevar factor_sep=factor  // Copy for formatting
-                rename n_perc* `groupnum'*  // Rename columns by group
-
-                /* Add p-value, test type, and statistics (suppressed when wt() or nopvalue) */
-                if `nglevels'>1 & `nvlevels'>1 & !`_suppress_p' {
-                    qui gen p=`p'
-                }
-
-                if `has_smd' qui gen smd_val = `_smd_val'
-
-                // Add test type and statistic labels if requested
-                if "`test'"=="test" & `nglevels'>1 & `nvlevels'>1 & !`_suppress_p' {
-                    if "`vartype'"=="bin" qui gen test="Chi-square"
-                    else qui gen test="Fisher's exact"
-                }
-                if "`statistic'"=="statistic" & `nglevels'>1 & `nvlevels'>1 & !`_suppress_p' {
-                    if "`vartype'"=="bin" qui gen statistic="Chi2(`df')=`chi2'"
-                    else qui gen statistic="N/A"
-                }
-
-                /* Add sort variable and append to results */
-                gen sort1=`sortorder++'
-                qui append using "`resultstable'"
-                qui save "`resultstable'", replace
-                if "`dots'" != "" noisily display as text "." _continue
-                restore
-            }            
-        }
-        gettoken arg rest : rest, parse("\")  // Get next variable specification
-    }
-    if "`dots'" != "" display ""
-
-    * wtcompare: save crude pass results and close the two-pass loop
-    if `has_wtcompare' & "`_wtc_pass'" == "crude" {
-        qui {
-            preserve
-            use "`resultstable'", clear
-            save "`_wtc_crude_table'", replace
-            restore
-        }
-    }
-
-    } // end foreach _wtc_pass
-
-    * Restore has_wt and has_smd after two-pass loop
-    local has_wt `_wtc_save_has_wt'
-    local has_smd `_wtc_save_has_smd'
-
-    * wtcompare: merge crude columns into the weighted resultstable
-    if `has_wtcompare' {
-        qui {
-            * Load crude results and rename group columns with _cr_ prefix
-            preserve
-            use "`_wtc_crude_table'", clear
-
-            * Build full list of group levels including total sentinel
-            local _wtc_merge_levels "`_group_levels'"
-            if "`total'" != "" local _wtc_merge_levels "`_wtc_merge_levels' `_total_code'"
-
-            foreach lv of local _wtc_merge_levels {
-                capture rename `groupnum'`lv' _cr_`lv'
-                capture rename _columna_`lv' _cr_columna_`lv'
-                capture rename _columnb_`lv' _cr_columnb_`lv'
-                capture rename N_`lv' _cr_N_`lv'
-            }
-
-            * Keep only crude group columns and merge keys
-            capture confirm variable sort2
-            if _rc gen sort2 = 0
-            keep sort1 sort2 _cr_*
-
-            tempfile _wtc_cr_renamed
-            save "`_wtc_cr_renamed'", replace
-            restore
-
-            * Merge crude columns into the weighted resultstable
-            preserve
-            use "`resultstable'", clear
-
-            * Ensure sort2 exists in both for safe merge
-            capture confirm variable sort2
-            if _rc gen sort2 = 0
-            save "`resultstable'", replace
-
-            use "`_wtc_cr_renamed'", clear
-            capture confirm variable sort2
-            if _rc gen sort2 = 0
-            save "`_wtc_cr_renamed'", replace
-
-            use "`resultstable'", clear
-            merge 1:1 sort1 sort2 using "`_wtc_cr_renamed'", nogenerate
-
-            save "`resultstable'", replace
-            restore
-        }
-    }
 
 **# Finalize Results Table
     
@@ -1523,6 +554,14 @@ program define table1_tc, rclass
     /* Load results table */
     preserve
     qui use "`resultstable'", clear
+    if `_suppress_p' {
+        capture drop p
+        capture drop test
+        capture drop statistic
+    }
+    if "`test'" != "test" capture drop test
+    if "`statistic'" != "statistic" capture drop statistic
+    if !`has_smd' capture drop smd_val
 
     /* Restore value labels if available */
     capture do "`labels'"

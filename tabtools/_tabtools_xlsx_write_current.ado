@@ -70,7 +70,7 @@ class xl scalar _tt_xlsx_write_mata(
         b.load_book(filepath)
         sheets = b.get_sheets()
         found = 0
-        for (i = 1; i <= cols(sheets); i++) {
+        for (i = 1; i <= length(sheets); i++) {
             if (sheets[i] == sheet) {
                 found = 1
                 break
