@@ -584,6 +584,8 @@ end
 * Displays the current dataset as a formatted console table. Assumes the
 * dataset has string columns c1..cN (and optionally a label variable), with
 * row 1 as title, rows 2..datastart-1 as headers, and rows datastart+ as data.
+* Rendering uses Stata's list, table style so console previews share the same
+* boxed-table look as table1_tc.
 *
 * Usage:
 *   _tabtools_console_display `num_cols' `"`title'"'
@@ -603,74 +605,34 @@ program _tabtools_console_display
     * Resolve compound-quoted title passed via `"`macro'"'
     local title `title'
 
-    local maxline = min(c(linesize), 250)
-
     if `"`title'"' != "" {
         display as text ""
         display as result `"`title'"'
     }
-    display as text ""
 
     local total_rows = _N
+    if `total_rows' < `headerstart' {
+        display as text ""
+        exit
+    }
 
-    * Compute label column width if labelvar specified
-    local _label_width = 0
+    local _display_vars ""
     if "`labelvar'" != "" {
-        forvalues r = 2/`total_rows' {
-            local _len = strlen(`labelvar'[`r'])
-            if `_len' > `_label_width' local _label_width = `_len'
-        }
-        local _label_width = max(`_label_width', 6) + 2
-        local _label_width = min(`_label_width', 40)
+        capture confirm variable `labelvar'
+        if !_rc local _display_vars "`labelvar'"
     }
 
-    * Compute max width per data column from actual content
     forvalues c = 1/`num_cols' {
-        local _maxw_`c' = 0
-        forvalues r = 2/`total_rows' {
-            local _len = strlen(c`c'[`r'])
-            if `_len' > `_maxw_`c'' local _maxw_`c' = `_len'
-        }
-        local _maxw_`c' = max(`_maxw_`c'', 4)
-        local _maxw_`c' = min(`_maxw_`c'', 40) + 2
+        capture confirm variable c`c'
+        if !_rc local _display_vars "`_display_vars' c`c'"
     }
 
-    * Display header rows (headerstart through datastart-1)
-    forvalues hr = `headerstart'/`=`datastart'-1' {
-        local _pos 1
-        local _hdr ""
-        if "`labelvar'" != "" {
-            local _val = `labelvar'[`hr']
-            local _hdr "{col `_pos'}`_val'"
-            local _pos = `_pos' + `_label_width'
-        }
-        forvalues c = 1/`num_cols' {
-            local _val = c`c'[`hr']
-            if `_pos' + `_maxw_`c'' > `maxline' continue, break
-            local _hdr "`_hdr'{col `_pos'}`_val'"
-            local _pos = `_pos' + `_maxw_`c''
-        }
-        display as text "`_hdr'"
+    if "`_display_vars'" == "" {
+        display as text ""
+        exit
     }
-    display as text "{hline `=`_pos'-1'}"
 
-    * Display data rows
-    forvalues r = `datastart'/`total_rows' {
-        local _pos 1
-        local _row ""
-        if "`labelvar'" != "" {
-            local _val = `labelvar'[`r']
-            local _row "{col `_pos'}`_val'"
-            local _pos = `_pos' + `_label_width'
-        }
-        forvalues c = 1/`num_cols' {
-            local _val = c`c'[`r']
-            if `_pos' + `_maxw_`c'' > `maxline' continue, break
-            local _row "`_row'{col `_pos'}`_val'"
-            local _pos = `_pos' + `_maxw_`c''
-        }
-        display as text "`_row'"
-    }
+    list `_display_vars' in `headerstart'/`total_rows', noobs noheader table
     display as text ""
 end
 

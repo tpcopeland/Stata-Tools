@@ -258,25 +258,25 @@ substring matching across model frames.{p_end}
 {marker r10}{...}
 {title:Recipe 10. Console preview without Excel}
 
-{pstd}Preview any tabtools output directly in the Results window without
-writing an Excel file. Works with {cmd:regtab}, {cmd:effecttab}, and
-{cmd:table1_tc}.{p_end}
+{pstd}All table-producing commands display the completed table directly in the
+Results window. You can omit {cmd:xlsx()} when you only need the console
+version.{p_end}
 
 {phang2}{cmd:sysuse auto, clear}{p_end}
 {phang2}{cmd:}{p_end}
-{phang2}{cmd:* regtab console preview}{p_end}
+{phang2}{cmd:* regtab console output}{p_end}
 {phang2}{cmd:collect clear}{p_end}
 {phang2}{cmd:collect: regress price mpg weight i.foreign}{p_end}
-{phang2}{cmd:regtab, display noint}{p_end}
+{phang2}{cmd:regtab, noint}{p_end}
 {phang2}{cmd:}{p_end}
-{phang2}{cmd:* table1_tc console preview (no xlsx option)}{p_end}
+{phang2}{cmd:* table1_tc console output}{p_end}
 {phang2}{cmd:table1_tc, by(foreign) vars(price contn \ mpg conts \ rep78 cat)}{p_end}
 {phang2}{cmd:}{p_end}
-{phang2}{cmd:* effecttab console preview}{p_end}
+{phang2}{cmd:* effecttab console output}{p_end}
 {phang2}{cmd:logit foreign mpg weight}{p_end}
 {phang2}{cmd:collect clear}{p_end}
 {phang2}{cmd:collect: margins, dydx(mpg weight)}{p_end}
-{phang2}{cmd:effecttab, display effect("AME")}{p_end}
+{phang2}{cmd:effecttab, effect("AME")}{p_end}
 
 {hline}
 {marker r11}{...}

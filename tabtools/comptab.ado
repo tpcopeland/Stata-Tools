@@ -55,7 +55,7 @@ SYNTAX:
     headercolor: RGB color for header rows (default: "219 229 241")
     zebracolor:  RGB color for zebra shading (default: "237 242 249")
     frame:       Save composite dataset to a named frame
-    display:     Show console preview
+    display:     Accepted for compatibility; output is displayed automatically
     csv:         Export to CSV file path
 
 PREREQUISITES:
@@ -82,7 +82,7 @@ EXAMPLES:
     comptab s1 s2, rows(1 \ 1 3/5) compact ///
         xlsx(results.xlsx) sheet("Summary") theme(lancet)
 
-    * Console preview only (no Excel output)
+    * Console output only (no Excel output)
     comptab s1 s2, rows(1 2 \ 1 3/5) display
 */
 
@@ -705,9 +705,7 @@ program define comptab, rclass
     * =====================================================================
     * CONSOLE DISPLAY
     * =====================================================================
-    if !`_has_xlsx' | "`display'" != "" {
-        noisily _tabtools_console_display `n' `"`title'"', labelvar(A) datastart(4)
-    }
+    noisily _tabtools_console_display `n' `"`title'"', labelvar(A) datastart(4)
 
     * =====================================================================
     * STORE IN FRAME

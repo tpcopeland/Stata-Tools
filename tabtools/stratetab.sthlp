@@ -27,7 +27,7 @@
 {title:Description}
 
 {pstd}
-{cmd:stratetab} combines pre-computed {helpb strate} output files and formats them with outcomes as column groups and exposure variables as rows. Output can be exported to Excel, displayed in the Results window, saved as CSV, or stored in a Stata frame. Each outcome spans three columns: Events, Person-Years, and Rate (95% CI).
+{cmd:stratetab} combines pre-computed {helpb strate} output files and formats them with outcomes as column groups and exposure variables as rows. The completed table is displayed in the Results window and can also be exported to Excel, saved as CSV, or stored in a Stata frame. Each outcome spans three columns: Events, Person-Years, and Rate (95% CI).
 
 {pstd}
 The command reads multiple .dta files produced by {helpb strate}, organized by exposure type. Files should be listed in order: all outcomes for exposure 1, then all outcomes for exposure 2, etc. For example, with 3 outcomes and 2 exposure types: {it:out1_exp1 out2_exp1 out3_exp1 out1_exp2 out2_exp2 out3_exp2}.
@@ -109,7 +109,7 @@ No dataset needs to be loaded before running {cmd:stratetab}; it reads the saved
 
 {phang2}{opt fra:me(name)} stores the output dataset in a named frame. Specify {cmd:frame(name, replace)} to replace an existing frame.{p_end}
 
-{phang2}{opt dis:play} displays the table in the Results window (automatic when {opt xlsx()} is omitted).{p_end}
+{phang2}{opt dis:play} is accepted for compatibility; the completed table is displayed automatically.{p_end}
 
 
 {marker examples}{...}

@@ -43,8 +43,8 @@ classification table: sensitivity, specificity, PPV, NPV, accuracy,
 likelihood ratios, diagnostic odds ratio, and optionally AUC. Confidence
 intervals use Wilson score (default) or Clopper-Pearson exact method. If
 {opt cutoff()}, {opt cutoffs()}, and {opt optimal} are all omitted, {it:test_var}
-must already be coded 0/1. Output may be displayed in the Results window,
-exported to Excel or CSV, or stored in a Stata frame.{p_end}
+must already be coded 0/1. The completed table is displayed in the Results
+window and may also be exported to Excel or CSV, or stored in a Stata frame.{p_end}
 
 {marker options}{title:Options}
 
@@ -65,7 +65,7 @@ exported to Excel or CSV, or stored in a Stata frame.{p_end}
 {synopt:{opt sheet(string)}}Excel sheet name; default is {cmd:"Diagnostics"}{p_end}
 {synopt:{opt csv(filename)}}also export the output dataset as CSV{p_end}
 {synopt:{cmdab:fra:me(}{it:name}{cmd:)}}store the output dataset in a named Stata frame; specify {cmd:frame(name, replace)} to replace an existing frame{p_end}
-{synopt:{opt dis:play}}show console output in addition to any file export{p_end}
+{synopt:{opt dis:play}}accepted for compatibility; the completed table is displayed automatically{p_end}
 {synopt:{opt open}}open the Excel file after export; requires {opt xlsx()} or {opt excel()}{p_end}
 {syntab:Formatting}
 {synopt:{opt title(string)}}table title{p_end}

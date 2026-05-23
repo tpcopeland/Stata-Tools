@@ -2348,17 +2348,21 @@ program define table1_tc, rclass
 			/* Set header description in the table */
 			replace factor = "`header_parts'" if _n == 2
 
-            /* Export to Excel — exclude internal columns */
-            capture confirm variable _p_raw
-            if !_rc {
-                mata: _p_raw_save = st_data(., "_p_raw")
-                drop _p_raw
-            }
-            capture confirm variable _smd_raw
-            if !_rc {
-                mata: _smd_raw_save = st_data(., "_smd_raw")
-                drop _smd_raw
-            }
+	            /* Export to Excel — exclude internal columns */
+	            local _had_p_raw = 0
+	            capture confirm variable _p_raw
+	            if !_rc {
+	                local _had_p_raw = 1
+	                mata: _p_raw_save = st_data(., "_p_raw")
+	                drop _p_raw
+	            }
+	            local _had_smd_raw = 0
+	            capture confirm variable _smd_raw
+	            if !_rc {
+	                local _had_smd_raw = 1
+	                mata: _smd_raw_save = st_data(., "_smd_raw")
+	                drop _smd_raw
+	            }
             * Safety: drop any surviving internal variables before export
             * (catrowperc + slashN can leave N_* or _uwn* columns)
 	            capture drop N_*
@@ -2366,25 +2370,25 @@ program define table1_tc, rclass
 	            capture drop _columnb_*
 	            capture drop m_*
 	            capture drop _uwn*
-	            capture noisily _tabtools_xlsx_write_current using "`excel'", sheet("`sheet'") book(b)
-	            local _xlsx_write_rc = _rc
-	            capture {
-	                gen double _p_raw = .
-	                mata: st_store(., "_p_raw", _p_raw_save)
-	                mata: mata drop _p_raw_save
-	            }
-            capture {
-                gen double _smd_raw = .
-	                mata: st_store(., "_smd_raw", _smd_raw_save)
-	                mata: mata drop _smd_raw_save
-	            }
-	            if `_xlsx_write_rc' {
-	                local saved_rc = `_xlsx_write_rc'
-	                capture mata: b.close_book()
-	                capture mata: mata drop b
-	                capture mata: mata drop _p_raw_save
-	                capture mata: mata drop _smd_raw_save
-	                noisily display as error "Failed to export to `excel'"
+		            capture noisily _tabtools_xlsx_write_current using "`excel'", sheet("`sheet'") book(b)
+		            local _xlsx_write_rc = _rc
+		            if `_had_p_raw' {
+		                gen double _p_raw = .
+		                mata: st_store(., "_p_raw", _p_raw_save)
+		                mata: mata drop _p_raw_save
+		            }
+		            if `_had_smd_raw' {
+		                gen double _smd_raw = .
+		                mata: st_store(., "_smd_raw", _smd_raw_save)
+		                mata: mata drop _smd_raw_save
+		            }
+		            if `_xlsx_write_rc' {
+			                local saved_rc = `_xlsx_write_rc'
+			                capture mata: b.close_book()
+			                local _xlsx_close_cleanup_rc = _rc
+			                capture mata: mata drop b
+			                local _xlsx_drop_cleanup_rc = _rc
+			                noisily display as error "Failed to export to `excel'"
 	                noisily display as error "Hint: ensure the xlsx file is not open in another application"
 	                restore
 	                exit `saved_rc'
@@ -2563,57 +2567,105 @@ program define table1_tc, rclass
             }
 
 	            capture {
+	                * Column widths, row heights, and styles are dispatched
+	                * through the shared Mata style engine. Rule columns are:
+	                * op r1 r2 c1 c2 value code r g b.
+	                tempname _xlsx_style_rules
+	                local _font_code = -1
+	                local _border_code = 1
+	                if "`_hborder'" == "medium" local _border_code = 2
+	                if "`_hborder'" == "thick" local _border_code = 3
+
 	                * Column widths and row heights
-	                mata: b.set_row_height(1, 1, 30)
+	                matrix `_xlsx_style_rules' = (12, 1, 1, 1, 1, 30, 0, 0, 0, 0)
                 local _hdr_len = strlen(`"`header_parts'"')
                 if `_hdr_len' > `factorwidth' * 1.2 {
                     local _hdr_lines = ceil(`_hdr_len' / (`factorwidth' * 1.2))
                     local _hdr_height = `_hdr_lines' * 15
-                    mata: b.set_row_height(2, 2, `_hdr_height')
+	                    matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
+	                        (12, 2, 2, 1, 1, `_hdr_height', 0, 0, 0, 0)
                 }
-                mata: b.set_column_width(1, 1, 1)
-                mata: b.set_column_width(2, 2, `factorwidth')
-                forvalues _wc = 3/`num_cols' {
-                    mata: b.set_column_width(`_wc', `_wc', `datawidth')
-                }
+	                matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
+	                    (13, 1, 1, 1, 1, 1, 0, 0, 0, 0)
+	                matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
+	                    (13, 1, 1, 2, 2, `factorwidth', 0, 0, 0, 0)
+	                foreach _dc of local _data_cols {
+	                    capture confirm variable `_dc'
+	                    if !_rc {
+	                        local _dc_pos = 0
+	                        local _dc_i = 1
+	                        foreach _dv of varlist * {
+	                            if "`_dv'" == "`_dc'" {
+	                                local _dc_pos = `_dc_i'
+	                                continue, break
+	                            }
+	                            local _dc_i = `_dc_i' + 1
+	                        }
+	                        if `_dc_pos' > 0 & `_dc_pos' <= `num_cols' {
+	                            matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
+	                                (13, 1, 1, `_dc_pos', `_dc_pos', `datawidth', 0, 0, 0, 0)
+	                        }
+	                    }
+	                }
                 if `pvalue_pos' > 0 {
-                    mata: b.set_column_width(`pvalue_pos', `pvalue_pos', 10)
+	                    matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
+	                        (13, 1, 1, `pvalue_pos', `pvalue_pos', 10, 0, 0, 0, 0)
                 }
                 if `test_pos' > 0 {
-                    mata: b.set_column_width(`test_pos', `test_pos', `_test_width')
+	                    matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
+	                        (13, 1, 1, `test_pos', `test_pos', `_test_width', 0, 0, 0, 0)
                 }
                 if `statistic_pos' > 0 {
-                    mata: b.set_column_width(`statistic_pos', `statistic_pos', `_stat_width')
+	                    matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
+	                        (13, 1, 1, `statistic_pos', `statistic_pos', `_stat_width', 0, 0, 0, 0)
                 }
                 if `smd_pos' > 0 {
-                    mata: b.set_column_width(`smd_pos', `smd_pos', 8)
+	                    matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
+	                        (13, 1, 1, `smd_pos', `smd_pos', 8, 0, 0, 0, 0)
                 }
 
                 * Font for entire table (single row-range call)
-                mata: b.set_font((1,`num_rows'), (1,`num_cols'), "`_font'", `_fontsize')
-                mata: b.set_font((1,1), (1,`num_cols'), "`_font'", `=`_fontsize'+2')
+	                matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
+	                    (1, 1, `num_rows', 1, `num_cols', `_fontsize', `_font_code', 0, 0, 0)
+	                matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
+	                    (1, 1, 1, 1, `num_cols', `=`_fontsize'+2', `_font_code', 0, 0, 0)
 
                 * Title row: merge + format
-                mata: b.set_sheet_merge("`sheet'", (1,1), (1,`num_cols'))
-                mata: b.set_text_wrap(1, 1, "on")
-                mata: b.set_horizontal_align(1, 1, "left")
-                mata: b.set_vertical_align(1, 1, "center")
-                mata: b.set_font_bold(1, 1, "on")
+	                matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
+	                    (14, 1, 1, 1, `num_cols', 0, 0, 0, 0, 0)
+	                matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
+	                    (4, 1, 1, 1, 1, 0, 1, 0, 0, 0)
+	                matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
+	                    (5, 1, 1, 1, 1, 0, 1, 0, 0, 0)
+	                matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
+	                    (6, 1, 1, 1, 1, 0, 2, 0, 0, 0)
+	                matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
+	                    (2, 1, 1, 1, 1, 0, 1, 0, 0, 0)
 
                 * Header rows: merge factor column across rows 2-3
-                mata: b.set_sheet_merge("`sheet'", (2,3), (2,2))
-                mata: b.set_horizontal_align((2,3), 2, "center")
-                mata: b.set_vertical_align((2,3), 2, "center")
-                mata: b.set_text_wrap((2,3), 2, "on")
-                mata: b.set_font_bold((2,3), 2, "on")
+	                matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
+	                    (14, 2, 3, 2, 2, 0, 0, 0, 0, 0)
+	                matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
+	                    (5, 2, 3, 2, 2, 0, 2, 0, 0, 0)
+	                matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
+	                    (6, 2, 3, 2, 2, 0, 2, 0, 0, 0)
+	                matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
+	                    (4, 2, 3, 2, 2, 0, 1, 0, 0, 0)
+	                matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
+	                    (2, 2, 3, 2, 2, 0, 1, 0, 0, 0)
 
                 * Level column header merge (if exists)
                 if `level_pos' > 0 {
-                    mata: b.set_sheet_merge("`sheet'", (2,3), (`level_pos',`level_pos'))
-                    mata: b.set_horizontal_align((2,3), `level_pos', "center")
-                    mata: b.set_vertical_align((2,3), `level_pos', "center")
-                    mata: b.set_text_wrap((2,3), `level_pos', "on")
-                    mata: b.set_font_bold((2,3), `level_pos', "on")
+	                    matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
+	                        (14, 2, 3, `level_pos', `level_pos', 0, 0, 0, 0, 0)
+	                    matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
+	                        (5, 2, 3, `level_pos', `level_pos', 0, 2, 0, 0, 0)
+	                    matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
+	                        (6, 2, 3, `level_pos', `level_pos', 0, 2, 0, 0, 0)
+	                    matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
+	                        (4, 2, 3, `level_pos', `level_pos', 0, 1, 0, 0, 0)
+	                    matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
+	                        (2, 2, 3, `level_pos', `level_pos', 0, 1, 0, 0, 0)
                 }
 
                 * Group data column headers (skip special columns)
@@ -2625,94 +2677,133 @@ program define table1_tc, rclass
                     if `data_col' == `statistic_pos' local _skip = 1
                     if `data_col' == `smd_pos' local _skip = 1
                     if !`_skip' {
-                        mata: b.set_horizontal_align((2,3), `data_col', "center")
-                        mata: b.set_vertical_align((2,3), `data_col', "center")
-                        mata: b.set_text_wrap((2,3), `data_col', "on")
-                        mata: b.set_font_bold((2,3), `data_col', "on")
+	                        matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
+	                            (5, 2, 3, `data_col', `data_col', 0, 2, 0, 0, 0)
+	                        matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
+	                            (6, 2, 3, `data_col', `data_col', 0, 2, 0, 0, 0)
+	                        matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
+	                            (4, 2, 3, `data_col', `data_col', 0, 1, 0, 0, 0)
+	                        matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
+	                            (2, 2, 3, `data_col', `data_col', 0, 1, 0, 0, 0)
                     }
                     local data_col = `data_col' + 1
                 }
 
                 * P-value column header merge
                 if `pvalue_pos' > 0 {
-                    mata: b.set_sheet_merge("`sheet'", (2,3), (`pvalue_pos',`pvalue_pos'))
-                    mata: b.set_horizontal_align((2,3), `pvalue_pos', "center")
-                    mata: b.set_vertical_align((2,3), `pvalue_pos', "center")
-                    mata: b.set_text_wrap((2,3), `pvalue_pos', "on")
-                    mata: b.set_font_bold((2,3), `pvalue_pos', "on")
+	                    matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
+	                        (14, 2, 3, `pvalue_pos', `pvalue_pos', 0, 0, 0, 0, 0)
+	                    matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
+	                        (5, 2, 3, `pvalue_pos', `pvalue_pos', 0, 2, 0, 0, 0)
+	                    matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
+	                        (6, 2, 3, `pvalue_pos', `pvalue_pos', 0, 2, 0, 0, 0)
+	                    matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
+	                        (4, 2, 3, `pvalue_pos', `pvalue_pos', 0, 1, 0, 0, 0)
+	                    matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
+	                        (2, 2, 3, `pvalue_pos', `pvalue_pos', 0, 1, 0, 0, 0)
                 }
 
                 * Test, statistic, SMD column header merges
                 if `test_pos' > 0 {
-                    mata: b.set_sheet_merge("`sheet'", (2,3), (`test_pos',`test_pos'))
-                    mata: b.set_horizontal_align((2,3), `test_pos', "center")
-                    mata: b.set_vertical_align((2,3), `test_pos', "center")
-                    mata: b.set_text_wrap((2,3), `test_pos', "on")
-                    mata: b.set_font_bold((2,3), `test_pos', "on")
+	                    matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
+	                        (14, 2, 3, `test_pos', `test_pos', 0, 0, 0, 0, 0)
+	                    matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
+	                        (5, 2, 3, `test_pos', `test_pos', 0, 2, 0, 0, 0)
+	                    matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
+	                        (6, 2, 3, `test_pos', `test_pos', 0, 2, 0, 0, 0)
+	                    matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
+	                        (4, 2, 3, `test_pos', `test_pos', 0, 1, 0, 0, 0)
+	                    matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
+	                        (2, 2, 3, `test_pos', `test_pos', 0, 1, 0, 0, 0)
                 }
                 if `statistic_pos' > 0 {
-                    mata: b.set_sheet_merge("`sheet'", (2,3), (`statistic_pos',`statistic_pos'))
-                    mata: b.set_horizontal_align((2,3), `statistic_pos', "center")
-                    mata: b.set_vertical_align((2,3), `statistic_pos', "center")
-                    mata: b.set_text_wrap((2,3), `statistic_pos', "on")
-                    mata: b.set_font_bold((2,3), `statistic_pos', "on")
+	                    matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
+	                        (14, 2, 3, `statistic_pos', `statistic_pos', 0, 0, 0, 0, 0)
+	                    matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
+	                        (5, 2, 3, `statistic_pos', `statistic_pos', 0, 2, 0, 0, 0)
+	                    matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
+	                        (6, 2, 3, `statistic_pos', `statistic_pos', 0, 2, 0, 0, 0)
+	                    matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
+	                        (4, 2, 3, `statistic_pos', `statistic_pos', 0, 1, 0, 0, 0)
+	                    matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
+	                        (2, 2, 3, `statistic_pos', `statistic_pos', 0, 1, 0, 0, 0)
                 }
                 if `smd_pos' > 0 {
-                    mata: b.set_sheet_merge("`sheet'", (2,3), (`smd_pos',`smd_pos'))
-                    mata: b.set_horizontal_align((2,3), `smd_pos', "center")
-                    mata: b.set_vertical_align((2,3), `smd_pos', "center")
-                    mata: b.set_text_wrap((2,3), `smd_pos', "on")
-                    mata: b.set_font_bold((2,3), `smd_pos', "on")
+	                    matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
+	                        (14, 2, 3, `smd_pos', `smd_pos', 0, 0, 0, 0, 0)
+	                    matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
+	                        (5, 2, 3, `smd_pos', `smd_pos', 0, 2, 0, 0, 0)
+	                    matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
+	                        (6, 2, 3, `smd_pos', `smd_pos', 0, 2, 0, 0, 0)
+	                    matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
+	                        (4, 2, 3, `smd_pos', `smd_pos', 0, 1, 0, 0, 0)
+	                    matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
+	                        (2, 2, 3, `smd_pos', `smd_pos', 0, 1, 0, 0, 0)
                 }
 
                 * Horizontal borders
-                mata: b.set_top_border(2, (2,`num_cols'), "`_hborder'")
-                mata: b.set_top_border(4, (2,`num_cols'), "`_hborder'")
-                mata: b.set_bottom_border(`num_rows', (2,`num_cols'), "`_hborder'")
+	                matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
+	                    (8, 2, 2, 2, `num_cols', 0, `_border_code', 0, 0, 0)
+	                matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
+	                    (8, 4, 4, 2, `num_cols', 0, `_border_code', 0, 0, 0)
+	                matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
+	                    (9, `num_rows', `num_rows', 2, `num_cols', 0, `_border_code', 0, 0, 0)
 
                 * Vertical borders (skip for academic)
                 if "`borderstyle'" != "academic" {
-                    mata: b.set_left_border((2,`num_rows'), 2, "`_hborder'")
-                    mata: b.set_right_border((2,`num_rows'), 2, "`_hborder'")
-                    mata: b.set_right_border((2,`num_rows'), `num_cols', "`_hborder'")
+	                    matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
+	                        (10, 2, `num_rows', 2, 2, 0, `_border_code', 0, 0, 0)
+	                    matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
+	                        (11, 2, `num_rows', 2, 2, 0, `_border_code', 0, 0, 0)
+	                    matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
+	                        (11, 2, `num_rows', `num_cols', `num_cols', 0, `_border_code', 0, 0, 0)
                 }
 
                 * Total column borders
                 if `total_col_pos' > 0 {
-                    mata: b.set_left_border((2,`num_rows'), `total_col_pos', "`_hborder'")
-                    mata: b.set_right_border((2,`num_rows'), `total_col_pos', "`_hborder'")
+	                    matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
+	                        (10, 2, `num_rows', `total_col_pos', `total_col_pos', 0, `_border_code', 0, 0, 0)
+	                    matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
+	                        (11, 2, `num_rows', `total_col_pos', `total_col_pos', 0, `_border_code', 0, 0, 0)
                 }
 
                 * P-value column left border
                 if `pvalue_pos' > 0 & "`borderstyle'" != "academic" {
-                    mata: b.set_left_border((2,`num_rows'), `pvalue_pos', "`_hborder'")
+	                    matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
+	                        (10, 2, `num_rows', `pvalue_pos', `pvalue_pos', 0, `_border_code', 0, 0, 0)
                 }
 
                 * Test/statistic/SMD column left borders
                 if `test_pos' > 0 & "`borderstyle'" != "academic" {
-                    mata: b.set_left_border((2,`num_rows'), `test_pos', "`_hborder'")
+	                    matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
+	                        (10, 2, `num_rows', `test_pos', `test_pos', 0, `_border_code', 0, 0, 0)
                 }
                 if `statistic_pos' > 0 & "`borderstyle'" != "academic" {
-                    mata: b.set_left_border((2,`num_rows'), `statistic_pos', "`_hborder'")
+	                    matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
+	                        (10, 2, `num_rows', `statistic_pos', `statistic_pos', 0, `_border_code', 0, 0, 0)
                 }
                 if `smd_pos' > 0 & "`borderstyle'" != "academic" {
-                    mata: b.set_left_border((2,`num_rows'), `smd_pos', "`_hborder'")
+	                    matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
+	                        (10, 2, `num_rows', `smd_pos', `smd_pos', 0, `_border_code', 0, 0, 0)
                 }
 
                 * Header background
                 if "`headershade'" != "" {
-                    mata: b.set_fill_pattern((2,3), (2,`num_cols'), "solid", "`_headercolor'")
+	                    matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
+	                        (7, 2, 3, 2, `num_cols', 0, -1, 0, 0, 0)
                 }
 
                 * Center-align data columns
                 if `num_rows' >= 4 {
-                    mata: b.set_horizontal_align((4,`num_rows'), (`data_start_pos',`num_cols'), "center")
+	                    matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
+	                        (5, 4, `num_rows', `data_start_pos', `num_cols', 0, 2, 0, 0, 0)
                 }
 
                 * Zebra striping
                 if "`zebra'" != "" {
                     forvalues _zr = 5(2)`num_rows' {
-                        mata: b.set_fill_pattern(`_zr', (2,`num_cols'), "solid", "`_zebracolor'")
+	                        matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
+	                            (7, `_zr', `_zr', 2, `num_cols', 0, -2, 0, 0, 0)
                     }
                 }
 
@@ -2720,7 +2811,8 @@ program define table1_tc, rclass
                 if `has_boldp' & `pvalue_pos' > 0 {
                     forvalues _br = 4/`num_rows' {
                         if `_pval_`_br'' < . & `_pval_`_br'' < `boldp' {
-                            mata: b.set_font_bold(`_br', `pvalue_pos', "on")
+	                            matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
+	                                (2, `_br', `_br', `pvalue_pos', `pvalue_pos', 0, 1, 0, 0, 0)
                         }
                     }
                 }
@@ -2729,7 +2821,8 @@ program define table1_tc, rclass
                 if `has_highlight' & `pvalue_pos' > 0 {
                     forvalues _hr = 4/`num_rows' {
                         if `_pval_`_hr'' < . & `_pval_`_hr'' < `highlight' {
-                            mata: b.set_fill_pattern(`_hr', (2,`num_cols'), "solid", "255 255 204")
+	                            matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
+	                                (7, `_hr', `_hr', 2, `num_cols', 0, -3, 0, 0, 0)
                         }
                     }
                 }
@@ -2738,8 +2831,10 @@ program define table1_tc, rclass
                 if `smd_pos' > 0 & `smdthreshold' > 0 {
                     forvalues _sr = 4/`num_rows' {
                         if `_sval_`_sr'' < . & `_sval_`_sr'' > `smdthreshold' {
-                            mata: b.set_font_bold(`_sr', `smd_pos', "on")
-                            mata: b.set_fill_pattern(`_sr', `smd_pos', "solid", "255 235 205")
+	                            matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
+	                                (2, `_sr', `_sr', `smd_pos', `smd_pos', 0, 1, 0, 0, 0)
+	                            matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
+	                                (7, `_sr', `_sr', `smd_pos', `smd_pos', 0, -4, 0, 0, 0)
                         }
                     }
                 }
@@ -2749,26 +2844,40 @@ program define table1_tc, rclass
                     local _fn_row = `num_rows' + 1
                     local _fn_fontsize = max(`_fontsize' - 2, 6)
                     mata: b.put_string(`_fn_row', 2, `"`footnote'"')
-                    mata: b.set_sheet_merge("`sheet'", (`_fn_row',`_fn_row'), (2,`num_cols'))
-                    mata: b.set_horizontal_align(`_fn_row', 2, "left")
-                    mata: b.set_vertical_align(`_fn_row', 2, "center")
-                    mata: b.set_text_wrap(`_fn_row', 2, "on")
-                    mata: b.set_font(`_fn_row', 2, "`_font'", `_fn_fontsize')
-                    mata: b.set_font_italic(`_fn_row', 2, "on")
+	                    matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
+	                        (14, `_fn_row', `_fn_row', 2, `num_cols', 0, 0, 0, 0, 0)
+	                    matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
+	                        (5, `_fn_row', `_fn_row', 2, 2, 0, 1, 0, 0, 0)
+	                    matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
+	                        (6, `_fn_row', `_fn_row', 2, 2, 0, 2, 0, 0, 0)
+	                    matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
+	                        (4, `_fn_row', `_fn_row', 2, 2, 0, 1, 0, 0, 0)
+	                    matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
+	                        (1, `_fn_row', `_fn_row', 2, 2, `_fn_fontsize', `_font_code', 0, 0, 0)
+	                    matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
+	                        (3, `_fn_row', `_fn_row', 2, 2, 0, 1, 0, 0, 0)
                 }
 
+	                _tabtools_xlsx_apply_styles, book(b) sheet("`sheet'") ///
+	                    rules(`_xlsx_style_rules') font("`_font'") ///
+	                    color1("`_headercolor'") color2("`_zebracolor'") ///
+	                    color3("255 255 204") color4("255 235 205")
                 mata: b.close_book()
             }
-            if _rc {
-                local saved_rc = _rc
-                capture mata: b.close_book()
-                capture mata: mata drop b
-                * Drop the saved-state Mata vectors so a failed Excel write
-                * does not leak _p_raw_save / _smd_raw_save into the user's
-                * Mata workspace. Without this, a retry on a different table
-                * size would hit a stale-vector error.
-                capture mata: mata drop _p_raw_save
-                capture mata: mata drop _smd_raw_save
+	            if _rc {
+	                local saved_rc = _rc
+	                capture mata: b.close_book()
+	                local _style_close_cleanup_rc = _rc
+	                capture mata: mata drop b
+	                local _style_drop_b_cleanup_rc = _rc
+	                * Drop the saved-state Mata vectors so a failed Excel write
+	                * does not leak _p_raw_save / _smd_raw_save into the user's
+	                * Mata workspace. Without this, a retry on a different table
+	                * size would hit a stale-vector error.
+	                capture mata: mata drop _p_raw_save
+	                local _style_drop_p_cleanup_rc = _rc
+	                capture mata: mata drop _smd_raw_save
+	                local _style_drop_s_cleanup_rc = _rc
                 noisily display as error "Excel formatting failed with error `saved_rc'"
                 restore
                 exit `saved_rc'

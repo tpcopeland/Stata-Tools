@@ -52,7 +52,7 @@
 {synopt:{opt sheet(string)}}Excel sheet name; default {cmd:"Composite"}{p_end}
 {synopt:{opt csv(filename)}}export to CSV file{p_end}
 {synopt:{cmdab:fra:me(}{it:name}{cmd:)}}save output in a named Stata frame; use {cmd:frame(name, replace)} to replace{p_end}
-{synopt:{cmdab:dis:play}}show console preview; if no {opt xlsx()}, {opt csv()}, or {opt frame()} is supplied, preview is the default{p_end}
+{synopt:{cmdab:dis:play}}accepted for compatibility; the completed table is displayed automatically{p_end}
 {synopt:{opt open}}open Excel file after export; requires {opt xlsx()} or {opt excel()}{p_end}
 
 {syntab:Content}
@@ -158,8 +158,9 @@ Default is {cmd:aHR}. Common alternatives are {cmd:HR}, {cmd:SHR}, or {cmd:IRR}.
 Default is {cmd:Reference}.
 
 {phang}
-{opt display} prints a console preview. If no {opt xlsx()}, {opt csv()}, or
-{opt frame()} target is supplied, {cmd:hrcomptab} defaults to preview mode.
+{opt display} is accepted for compatibility. {cmd:hrcomptab} always displays
+the completed table in the Results window, and can also write Excel, CSV, or
+frame output.
 
 
 {marker examples}{...}

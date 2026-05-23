@@ -63,9 +63,6 @@ program define hrcomptab, rclass
         if "`sheet'" == "" local sheet "Composite"
         if "`effect'" == "" local effect "aHR"
         if "`reflabel'" == "" local reflabel "Reference"
-        if !`_has_xlsx' & "`csv'" == "" & `"`frame'"' == "" & "`display'" == "" {
-            local display "display"
-        }
 
         if "`open'" != "" & !`_has_xlsx' {
             display as error "open requires xlsx() or excel()"
@@ -587,12 +584,10 @@ program define hrcomptab, rclass
         local exp_rows "`section_rows'"
 
         * Console display
-        if "`display'" != "" {
-            noisily _tabtools_console_display `ncols' `"`_out_title'"', datastart(4) headerstart(2)
-            if `"`footnote'"' != "" {
-                noisily display as text `"`footnote'"'
-                noisily display as text ""
-            }
+        noisily _tabtools_console_display `ncols' `"`_out_title'"', datastart(4) headerstart(2)
+        if `"`footnote'"' != "" {
+            noisily display as text `"`footnote'"'
+            noisily display as text ""
         }
 
         * CSV export

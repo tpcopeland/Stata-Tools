@@ -37,7 +37,7 @@ After installation, start with `help tabtools` for the suite overview, `help tab
 
 | Command | Description | Stata |
 |---------|-------------|-------|
-| `regtab` | Format the current `collect` from regression models into a polished Excel table or console preview | 17+ |
+| `regtab` | Format the current `collect` from regression models into a polished table with Excel export and automatic console display | 17+ |
 | `effecttab` | Format `teffects` or `margins` results from the current `collect` into an effects table | 17+ |
 
 ### File and frame workflow builders

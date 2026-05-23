@@ -427,9 +427,7 @@ capture noisily {
     order title c*
 
 **# Console Display
-    if !`_has_xlsx' | "`display'" != "" {
-        noisily _tabtools_console_display `out_ncols' `"`title'"'
-    }
+    noisily _tabtools_console_display `out_ncols' `"`title'"'
 
 **# CSV Export
     if "`csv'" != "" {

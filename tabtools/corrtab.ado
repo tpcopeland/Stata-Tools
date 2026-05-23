@@ -261,12 +261,10 @@ program define corrtab, rclass
             }
         }
 
-        if !`_has_xlsx' | "`display'" != "" {
-            noisily _tabtools_console_display `out_ncols' `"`title'"'
-            if `"`_star_note'"' != "" noisily display as text `"`_star_note'"'
-            if `"`footnote'"' != "" noisily display as text `"`footnote'"'
-            noisily display as text ""
-        }
+        noisily _tabtools_console_display `out_ncols' `"`title'"'
+        if `"`_star_note'"' != "" noisily display as text `"`_star_note'"'
+        if `"`footnote'"' != "" noisily display as text `"`footnote'"'
+        noisily display as text ""
 
         if "`csv'" != "" {
             export delimited using "`csv'", replace

@@ -49,9 +49,6 @@ program define desctab, rclass
     local statlabels : subinstr local statlabels `"""' "", all
     local _has_xlsx = "`xlsx'" != ""
     if "`sheet'" == "" local sheet "Descriptive"
-    if !`_has_xlsx' & "`csv'" == "" & `"`frame'"' == "" & "`display'" == "" {
-        local display "display"
-    }
 
     if `digits' == -1 {
         if "$TABTOOLS_DIGITS" != "" local digits = $TABTOOLS_DIGITS
@@ -736,10 +733,8 @@ program define desctab, rclass
         return local frame "`frame'"
     }
 
-    if "`display'" != "" {
-        noisily _tabtools_console_display `n_display_cols' `"`title'"', ///
-            labelvar(A) datastart(`data_start') headerstart(`header_start')
-    }
+    noisily _tabtools_console_display `n_display_cols' `"`title'"', ///
+        labelvar(A) datastart(`data_start') headerstart(`header_start')
 
     if `_has_xlsx' {
         capture noisily _tabtools_xlsx_write_current using "`xlsx'", sheet("`sheet'") book(b)

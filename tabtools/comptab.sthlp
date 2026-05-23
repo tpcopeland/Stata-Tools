@@ -47,7 +47,7 @@
 {synopt:{opt sheet(string)}}Excel sheet name (default: "Composite"){p_end}
 {synopt:{opt csv(filename)}}export to CSV file{p_end}
 {synopt:{cmdab:fra:me(}{it:name}{cmd:)}}save composite to a named Stata frame; specify {cmd:frame(name, replace)} to replace an existing frame{p_end}
-{synopt:{cmdab:dis:play}}show console preview{p_end}
+{synopt:{cmdab:dis:play}}accepted for compatibility; the completed table is displayed automatically{p_end}
 {synopt:{opt open}}open Excel file after export; requires {opt xlsx()} or {opt excel()}{p_end}
 
 {syntab:Content}

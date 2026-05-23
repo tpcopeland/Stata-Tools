@@ -111,7 +111,7 @@ if _rc == 0 {
 }
 
 local n_discovered = 0
-local quick_package_files "test_export_failure_returns.do test_mata_backend_contracts.do test_refactor_contracts.do test_regression_fixes.do"
+local quick_package_files "test_console_display_contracts.do test_export_failure_returns.do test_mata_backend_contracts.do test_refactor_contracts.do test_regression_fixes.do test_style_engine_apply_styles.do"
 foreach f of local all_files {
     local base "`f'"
     if regexm("`f'", ".*/([^/]+)$") {

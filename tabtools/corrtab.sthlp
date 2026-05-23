@@ -49,7 +49,7 @@ significance stars or p-values. It supports Pearson product-moment
 correlations (the default) and Spearman rank correlations, and can display
 the lower triangle (default), upper triangle, or the full symmetric matrix.{p_end}
 
-{pstd}Output may be displayed in the Results window, exported to a
+{pstd}Output is displayed automatically in the Results window and may also be exported to a
 professionally formatted Excel workbook, saved as CSV for use in other
 software, or stored in a Stata {helpb frames:frame} for programmatic access.
 When exported to Excel, the table includes a title row, formatted headers,
@@ -84,7 +84,7 @@ variables. The pairwise observation count matrix is stored in
 {synopt:{opt sheet(string)}}Excel sheet name; default is {cmd:"Correlation"}{p_end}
 {synopt:{opt csv(filename)}}also export the output dataset as CSV{p_end}
 {synopt:{cmdab:fra:me(}{it:name}{cmd:)}}store output in a named Stata frame; specify {cmd:frame(name, replace)} to replace an existing frame{p_end}
-{synopt:{opt dis:play}}show table in the Results window; automatic when {opt xlsx()} is omitted{p_end}
+{synopt:{opt dis:play}}accepted for compatibility; the completed table is displayed automatically{p_end}
 {synopt:{opt open}}open the Excel file after export; requires {opt xlsx()} or {opt excel()}{p_end}
 {synoptline}
 

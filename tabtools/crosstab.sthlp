@@ -72,7 +72,7 @@ cells are sparse), and a Spearman rank-correlation trend test.{p_end}
 {synopt:{opt excel(filename)}}synonym for {opt xlsx(filename)}{p_end}
 {synopt:{opt csv(filename)}}also export the output dataset as CSV{p_end}
 {synopt:{cmdab:fra:me(}{it:name}{cmd:)}}store the output dataset in a named Stata frame; specify {cmd:frame(name, replace)} to replace an existing frame{p_end}
-{synopt:{opt dis:play}}show formatted table in the Results window{p_end}
+{synopt:{opt dis:play}}accepted for compatibility; the completed table is displayed automatically{p_end}
 {synopt:{opt open}}open the Excel file after export; requires {opt xlsx()} or {opt excel()}{p_end}
 
 {pstd}{cmd:crosstab} supports {it:fweight}s only. When you request {opt or},

@@ -46,7 +46,7 @@ extends the table to the full set of survival summary measures often
 requested by reviewers.{p_end}
 
 {pstd}Output can be exported to a professionally formatted Excel workbook,
-displayed in the Results window, saved as CSV, or stored in a Stata
+displayed automatically in the Results window, saved as CSV, or stored in a Stata
 {helpb frames:frame} for programmatic access. All tabtools formatting
 options — themes, borders, zebra striping, bold p-values, and custom
 colors — are supported.{p_end}
@@ -73,7 +73,7 @@ colors — are supported.{p_end}
 {synopt:{opt sheet(string)}}Excel sheet name; default is {cmd:"Survival"}{p_end}
 {synopt:{opt title(string)}}table title in row 1{p_end}
 {synopt:{opt foot:note(string)}}footnote below the table{p_end}
-{synopt:{opt dis:play}}display table in the Results window{p_end}
+{synopt:{opt dis:play}}accepted for compatibility; the completed table is displayed automatically{p_end}
 {synopt:{opt csv(filename)}}export a CSV file alongside Excel output{p_end}
 {synopt:{opt fra:me(name)}}store output in a named Stata frame; specify {cmd:frame(name, replace)} to replace{p_end}
 {synopt:{opt open}}open the Excel file after export{p_end}

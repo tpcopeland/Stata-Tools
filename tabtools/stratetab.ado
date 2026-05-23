@@ -77,9 +77,6 @@ syntax, using(string asis) [xlsx(string) excel(string)] outcomes(integer) ///
 * Accept excel() as synonym for xlsx()
 if "`xlsx'" == "" & "`excel'" != "" local xlsx "`excel'"
 local _has_xlsx = "`xlsx'" != ""
-if !`_has_xlsx' & "`csv'" == "" & `"`frame'"' == "" & "`display'" == "" {
-	local display "display"
-}
 if "`open'" != "" & !`_has_xlsx' {
 	di as err "open requires xlsx() or excel()"
 	exit 198
@@ -492,9 +489,7 @@ if "`csv'" != "" {
 local sht = cond("`sheet'" != "", "`sheet'", "Results")
 _tabtools_validate_sheet "`sht'" "sheet()"
 * Console display
-if !`_has_xlsx' | "`display'" != "" {
-	noisily _tabtools_console_display `ncols' `"`title'"', datastart(4)
-}
+noisily _tabtools_console_display `ncols' `"`title'"', datastart(4)
 
 * Frame output
 if `"`frame'"' != "" {

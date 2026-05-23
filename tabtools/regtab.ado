@@ -2186,10 +2186,8 @@ if "`csv'" != "" {
     export delimited using "`csv'", replace
 }
 
-* Console display (when no xlsx or display option specified)
-if !`_has_xlsx' | "`display'" != "" {
-    noisily _tabtools_console_display `n' `"`title'"', labelvar(A)
-}
+* Console display
+noisily _tabtools_console_display `n' `"`title'"', labelvar(A)
 
 * Store output in frame if requested
 if `"`frame'"' != "" {

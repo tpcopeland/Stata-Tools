@@ -45,7 +45,7 @@ collection must remain unchanged.{p_end}
 
 {synoptset 27 tabbed}{...}
 {synoptline}
-{synopt:{opt xlsx(string)}}Output Excel filename (must end with {cmd:.xlsx}). If the file exists, only the named sheet is replaced. {opt excel()} is accepted as a synonym. If omitted, results are displayed in the console only.{p_end}
+{synopt:{opt xlsx(string)}}Output Excel filename (must end with {cmd:.xlsx}). If the file exists, only the named sheet is replaced. {opt excel()} is accepted as a synonym. The completed table is always displayed in the Results window.{p_end}
 {synopt:{opt sheet(string)}}Target sheet name to create/replace in {opt xlsx()}. Default is {cmd:"Effects"}.{p_end}
 {synopt:{opt type(string)}}Type of collected results: {cmd:teffects}, {cmd:margins}, or {cmd:auto} (default). Auto-detection inspects the active {cmd:collect} metadata, not ambient {cmd:e()}. Unsupported collections are rejected, and one active collection cannot mix {cmd:teffects} and {cmd:margins}. With {opt from()}, {cmd:auto} uses margins-style defaults and does not inspect or relabel the active collection.{p_end}
 {synopt:{opt effect(string)}}Header label for the effect column. Examples: {cmd:ATE}, {cmd:ATET}, {cmd:RD} (risk difference), {cmd:RR} (risk ratio), {cmd:AME} (average marginal effect), {cmd:Pr(Y)}. Default is "Effect" for teffects, "Estimate" for margins.{p_end}
@@ -63,7 +63,7 @@ collection must remain unchanged.{p_end}
 {synopt:{opt full}}Show all rows including those normally filtered (e.g., display all teffects rows, not just ATE/POmean).{p_end}
 {synopt:{opt digits(#)}}Number of decimal places for effects and CIs (default 2, range 0-6).{p_end}
 {synopt:{opt fra:me(name)}}Store output in a named Stata frame. Specify {cmd:frame(name, replace)} to replace an existing frame.{p_end}
-{synopt:{opt dis:play}}Show formatted table in the Results window (in addition to Excel export if {cmd:xlsx()} specified).{p_end}
+{synopt:{opt dis:play}}Accepted for compatibility; the completed table is displayed automatically.{p_end}
 {synopt:{opt the:me(string)}}Formatting theme: {cmd:lancet}, {cmd:nejm}, {cmd:bmj}, {cmd:apa}, {cmd:jama}, {cmd:plos}, {cmd:nature}, {cmd:cell}, {cmd:annals}, or {cmd:custom}. Overrides font/fontsize/borderstyle. Can also be set globally with {cmd:tabtools set theme}.{p_end}
 {synopt:{opt from(name)}}Pass results from a named Stata matrix instead of reading from {cmd:collect}. The matrix must contain estimate, lower CI, upper CI, and p-value columns in that order. This path leaves any active {cmd:collect} labels/layout unchanged.{p_end}
 {synopt:{opt headers:hade}}apply background fill to the header row{p_end}

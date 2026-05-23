@@ -35,9 +35,9 @@
 {opt highs:tat(string)}]{p_end}
 
 {pstd}
-Prerequisite: an active {helpb collect} created by {helpb table}. If no export,
-CSV, frame, or display option is specified, {cmd:desctab} displays the table in
-the Results window.
+Prerequisite: an active {helpb collect} created by {helpb table}. {cmd:desctab}
+always displays the completed table in the Results window, and can also export
+the same table to Excel, CSV, or a Stata frame.
 
 {marker description}{...}
 {title:Description}
@@ -91,7 +91,7 @@ format. For example, {cmd:desctab, compose(events_n_pct)} renders cells such as
 {synopt:{opt open}}open the workbook after export. Requires {opt xlsx()} or {opt excel()}.{p_end}
 {synopt:{opt csv(string)}}also export the display table as CSV.{p_end}
 {synopt:{opt fra:me(name)}}store the display table in a Stata frame. Use {cmd:frame(name, replace)} to replace an existing frame.{p_end}
-{synopt:{opt dis:play}}show the formatted table in the Results window.{p_end}
+{synopt:{opt dis:play}}accepted for compatibility; the completed table is displayed automatically.{p_end}
 {synopt:{opt high:light(#)}}highlight rows where {opt highlightstat()} is below the threshold.{p_end}
 {synopt:{opt highs:tat(string)}}statistic used for {opt highlight()}. Default is {cmd:mean}.{p_end}
 {synoptline}

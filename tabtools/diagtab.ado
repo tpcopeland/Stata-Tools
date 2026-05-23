@@ -727,9 +727,7 @@ capture noisily {
     local _top_header_row = 2
 
 **# Console Display
-    if !`_has_xlsx' | "`display'" != "" {
-        noisily _tabtools_console_display `out_ncols' `"`title'"'
-    }
+    noisily _tabtools_console_display `out_ncols' `"`title'"'
 
 **# CSV/Frame/Excel Export
     if "`csv'" != "" {

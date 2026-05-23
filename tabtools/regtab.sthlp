@@ -45,7 +45,7 @@ for treatment effects and margins tables.
 
 {synoptset 27 tabbed}{...}
 {synoptline}
-{synopt:{opt xlsx(string)}}Output Excel filename (must end with {cmd:.xlsx}). If the file exists, only the named sheet is replaced. {opt excel()} is accepted as a synonym. If omitted, results are displayed in the console only.{p_end}
+{synopt:{opt xlsx(string)}}Output Excel filename (must end with {cmd:.xlsx}). If the file exists, only the named sheet is replaced. {opt excel()} is accepted as a synonym. The completed table is always displayed in the Results window.{p_end}
 {synopt:{opt sheet(string)}}Target sheet name to create/replace in {opt xlsx()}. Default is {cmd:"Regression"}.{p_end}
 {synopt:{opt sep(string asis)}}Delimiter between CI endpoints used by {cmd:collect} {cmd:cidelimiter()}. Default is {cmd:", "}.{p_end}
 {synopt:{opt models(string)}}Labels to merge above each model's three columns. Separate labels with a backslash, e.g., {cmd:"Model 1 \ Model 2"}. If omitted, {cmd:regtab} auto-generates {cmd:Model} or {cmd:Model 1}, {cmd:Model 2}, ...{p_end}
@@ -72,7 +72,7 @@ for treatment effects and margins tables.
 {synopt:{cmdab:zebrac:olor(}{it:string}{cmd:)}}Custom zebra color as a named Excel color or RGB triplet (default: {cmd:"237 242 249"}).{p_end}
 {synopt:{opt csv("filename")}}Also export as CSV.{p_end}
 {synopt:{opt fra:me(name)}}Store output in a named Stata frame for programmatic access. Specify {cmd:frame(name, replace)} to replace an existing frame.{p_end}
-{synopt:{opt dis:play}}Show formatted table in the Results window (in addition to Excel export if {cmd:xlsx()} specified).{p_end}
+{synopt:{opt dis:play}}Accepted for compatibility; the completed table is displayed automatically.{p_end}
 {synopt:{opt keep(varlist)}}Show only rows matching specified variable names. Cannot be combined with {cmd:drop()}.{p_end}
 {synopt:{opt drop(varlist)}}Drop rows matching specified variable names. Cannot be combined with {cmd:keep()}.{p_end}
 {synopt:{opt dimnon:sig}}Gray out non-significant rows. Rows where every displayed fixed-effect confidence interval includes the null value (1 for OR/HR/IRR/SHR/TR, 0 for Coef.) are dimmed. Reference category rows are always dimmed. Category headers are dimmed unless at least one level is significant.{p_end}

@@ -255,7 +255,7 @@ else {
 }
 
 * -------------------------------------------------------------------------
-* 6. frame()-only output does not preview unless display is requested
+* 6. frame()-only output automatically previews the completed table
 * -------------------------------------------------------------------------
 local ++test_count
 capture noisily {
@@ -277,22 +277,22 @@ capture noisily {
         file read `fh' line
     }
     file close `fh'
-    assert strpos(`"`preview_text'"', "Binary HRT") == 0
+    assert strpos(`"`preview_text'"', "Binary HRT") > 0
     capture frame drop hrc_nodisplay
 }
 if _rc == 0 {
-    display as result "  PASS: hrcomptab frame()-only path does not auto-preview"
+    display as result "  PASS: hrcomptab frame()-only path auto-previews"
     local ++pass_count
 }
 else {
     capture log close _preview_off
-    display as error "  FAIL: hrcomptab frame()-only preview suppression (rc=`=_rc')"
+    display as error "  FAIL: hrcomptab frame()-only auto-preview (rc=`=_rc')"
     local ++fail_count
 }
 capture frame drop hrc_nodisplay
 
 * -------------------------------------------------------------------------
-* 7. display option still forces a preview
+* 7. display option remains accepted and still previews
 * -------------------------------------------------------------------------
 local ++test_count
 capture noisily {
@@ -318,7 +318,7 @@ capture noisily {
     capture frame drop hrc_display
 }
 if _rc == 0 {
-    display as result "  PASS: hrcomptab display option still previews"
+    display as result "  PASS: hrcomptab display option remains accepted"
     local ++pass_count
 }
 else {

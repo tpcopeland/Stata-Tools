@@ -698,11 +698,9 @@ capture noisily {
     capture matrix colnames `_rtable' = `_cnames'
 
 **# Console Display
-    if !`_has_xlsx' | "`display'" != "" {
-        noisily _tabtools_console_display `ncols' `"`title'"'
-        if "`reverse'" != "" {
-            noisily display as text "Note: 1-KM is shown. For competing risks, use stcrreg-based CIF."
-        }
+    noisily _tabtools_console_display `ncols' `"`title'"'
+    if "`reverse'" != "" {
+        noisily display as text "Note: 1-KM is shown. For competing risks, use stcrreg-based CIF."
     }
 
 **# CSV Export
