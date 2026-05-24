@@ -24,6 +24,8 @@ f iivw.ado
 f iivw.sthlp
 f iivw_weight.ado
 f iivw_weight.sthlp
+f iivw_balance.ado
+f iivw_balance.sthlp
 f iivw_fit.ado
 f iivw_fit.sthlp
 f iivw_exogtest.ado

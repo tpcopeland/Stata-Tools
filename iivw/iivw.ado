@@ -1,4 +1,4 @@
-*! iivw Version 1.1.0  2026/05/24
+*! iivw Version 1.2.0  2026/05/24
 *! Inverse intensity of visit weighting and diagnostics for Stata
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -24,7 +24,7 @@ program define iivw, rclass
 
     syntax
 
-    local version "1.1.0"
+    local version "1.2.0"
 
     display as text ""
     display as text "{hline 70}"
@@ -34,6 +34,7 @@ program define iivw, rclass
     display as text ""
     display as text "{bf:Commands}"
     display as result "  iivw_weight     " as text "- Compute IIW/IPTW/FIPTIW weights"
+    display as result "  iivw_balance    " as text "- Check weight leverage and visit-model balance"
     display as result "  iivw_fit        " as text "- Fit weighted or unweighted outcome model"
     display as result "  iivw_exogtest   " as text "- Test whether lagged outcomes predict visit timing"
     display as result "  iivw_diagnose   " as text "- Decompose marginal-slope movement across models"
@@ -48,9 +49,10 @@ program define iivw, rclass
     display as text ""
     display as text "  1. {cmd:iivw_fit, unweighted}  Fit baseline unweighted outcome model"
     display as text "  2. {cmd:iivw_weight}           Estimate weights from visit/treatment models"
-    display as text "  3. {cmd:iivw_fit}              Fit weighted and artifact-adjusted models"
-    display as text "  4. {cmd:iivw_exogtest}         Check measurement-process exogeneity"
-    display as text "  5. {cmd:iivw_diagnose}         Summarize sampling/artifact movement"
+    display as text "  3. {cmd:iivw_balance}          Check leverage and visit-model balance"
+    display as text "  4. {cmd:iivw_fit}              Fit weighted and artifact-adjusted models"
+    display as text "  5. {cmd:iivw_exogtest}         Check measurement-process exogeneity"
+    display as text "  6. {cmd:iivw_diagnose}         Summarize sampling/artifact movement"
     display as text ""
     display as text "{bf:Example}"
     display as text ""
@@ -64,14 +66,15 @@ program define iivw, rclass
     display as text ""
     display as text "Help:  " as result "{help iivw}" as text "  for documentation"
     display as text "       " as result "{help iivw_weight}" as text "  for weight computation"
+    display as text "       " as result "{help iivw_balance}" as text "  for balance diagnostics"
     display as text "       " as result "{help iivw_fit}" as text "  for outcome model"
     display as text "       " as result "{help iivw_exogtest}" as text "  for timing exogeneity diagnostics"
     display as text "       " as result "{help iivw_diagnose}" as text "  for diagnostic decomposition"
     display as text "{hline 70}"
 
     return local version "`version'"
-    return local commands "iivw_weight iivw_fit iivw_exogtest iivw_diagnose"
-    return scalar n_commands = 4
+    return local commands "iivw_weight iivw_balance iivw_fit iivw_exogtest iivw_diagnose"
+    return scalar n_commands = 5
 
     }
     local rc = _rc

@@ -66,12 +66,13 @@ local ++test_count
 capture noisily {
     which iivw
     which iivw_weight
+    which iivw_balance
     which iivw_fit
     which iivw_exogtest
     which iivw_diagnose
     iivw
-    assert r(n_commands) == 4
-    assert "`r(commands)'" == "iivw_weight iivw_fit iivw_exogtest iivw_diagnose"
+    assert r(n_commands) == 5
+    assert "`r(commands)'" == "iivw_weight iivw_balance iivw_fit iivw_exogtest iivw_diagnose"
 }
 if _rc == 0 {
     display as result "  PASS: T1 - local install exposes public commands"

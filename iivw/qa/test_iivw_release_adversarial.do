@@ -140,7 +140,7 @@ end
 
 local ++test_count
 capture noisily {
-    local version "1.1.0"
+    local version "1.2.0"
     local ado_date "2026/05/24"
     local sthlp_date "24may2026"
     local iso_date "2026-05-24"
@@ -167,6 +167,7 @@ capture noisily {
     foreach pair in ///
         "iivw.ado|iivw" ///
         "iivw_weight.ado|iivw_weight" ///
+        "iivw_balance.ado|iivw_balance" ///
         "iivw_fit.ado|iivw_fit" ///
         "iivw_exogtest.ado|iivw_exogtest" ///
         "iivw_diagnose.ado|iivw_diagnose" ///
@@ -183,7 +184,7 @@ capture noisily {
             pattern("*! Department of Clinical Neuroscience")
     }
 
-    foreach help in iivw iivw_weight iivw_fit iivw_exogtest iivw_diagnose {
+    foreach help in iivw iivw_weight iivw_balance iivw_fit iivw_exogtest iivw_diagnose {
         _qa_iivw_must_contain, file("`pkg_dir'/`help'.sthlp") ///
             pattern("{* *! version `version'  `sthlp_date'}")
         _qa_iivw_must_contain, file("`pkg_dir'/`help'.sthlp") ///
@@ -210,6 +211,8 @@ capture noisily {
         iivw.sthlp ///
         iivw_weight.ado ///
         iivw_weight.sthlp ///
+        iivw_balance.ado ///
+        iivw_balance.sthlp ///
         iivw_fit.ado ///
         iivw_fit.sthlp ///
         iivw_exogtest.ado ///
@@ -248,8 +251,14 @@ capture noisily {
         iivw.sthlp ///
         iivw_weight.ado ///
         iivw_weight.sthlp ///
+        iivw_balance.ado ///
+        iivw_balance.sthlp ///
         iivw_fit.ado ///
         iivw_fit.sthlp ///
+        iivw_exogtest.ado ///
+        iivw_exogtest.sthlp ///
+        iivw_diagnose.ado ///
+        iivw_diagnose.sthlp ///
         _iivw_get_settings.ado ///
         _iivw_check_weighted.ado ///
         _iivw_bs_estimate.ado ///
@@ -287,6 +296,7 @@ capture noisily {
     local allowed_logs ///
         run_all.log ///
         test_iivw_release_adversarial.log ///
+        test_iivw_balance.log ///
         test_iivw_v105_regressions.log ///
         test_iivw_v106_regressions.log ///
         test_iivw_final_adversarial.log ///
@@ -406,8 +416,8 @@ capture noisily {
     _qa_iivw_doc_data
 
     iivw
-    assert r(n_commands) == 4
-    assert "`r(version)'" == "1.1.0"
+    assert r(n_commands) == 5
+    assert "`r(version)'" == "1.2.0"
 
     iivw_weight, id(id) time(days) visit_cov(edss relapse) nolog
     assert "`r(weighttype)'" == "iivw"
@@ -415,6 +425,9 @@ capture noisily {
     assert r(n_ids) == 80
     confirm variable _iivw_iw
     confirm variable _iivw_weight
+    iivw_balance, nolog
+    assert r(N) == 320
+    assert "`r(weighttype)'" == "iivw"
 
     capture program drop _iivw_check_weighted
     capture program drop _iivw_get_settings

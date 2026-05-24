@@ -1,6 +1,7 @@
 {smcl}
-{* *! version 1.1.0  24may2026}{...}
+{* *! version 1.2.0  24may2026}{...}
 {vieweralsosee "iivw_weight" "help iivw_weight"}{...}
+{vieweralsosee "iivw_balance" "help iivw_balance"}{...}
 {vieweralsosee "iivw_fit" "help iivw_fit"}{...}
 {vieweralsosee "iivw_exogtest" "help iivw_exogtest"}{...}
 {vieweralsosee "iivw_diagnose" "help iivw_diagnose"}{...}
@@ -34,8 +35,8 @@
 
 {pstd}
 Typing {cmd:iivw} without arguments displays a package overview.  The
-working commands are {helpb iivw_weight}, {helpb iivw_fit},
-{helpb iivw_exogtest}, and {helpb iivw_diagnose}.
+working commands are {helpb iivw_weight}, {helpb iivw_balance},
+{helpb iivw_fit}, {helpb iivw_exogtest}, and {helpb iivw_diagnose}.
 
 
 {marker description}{...}
@@ -49,9 +50,10 @@ of treatment weighting (IPTW), and their multiplicative combination (FIPTIW;
 Tompkins et al. 2025).
 
 {pstd}
-The package provides four main commands:
+The package provides five main commands:
 
 {phang2}{helpb iivw_weight} computes IIW, IPTW, or FIPTIW weights{p_end}
+{phang2}{helpb iivw_balance} checks weight leverage and visit-model balance{p_end}
 {phang2}{helpb iivw_fit} fits unweighted or weighted outcome models via GEE or mixed effects{p_end}
 {phang2}{helpb iivw_exogtest} tests whether prior outcomes predict visit timing{p_end}
 {phang2}{helpb iivw_diagnose} decomposes marginal/reference-slope movement across models{p_end}
@@ -63,8 +65,10 @@ If patients with worse disease visit more often, they appear more often in
 the data and can dominate an ordinary regression.  {cmd:iivw_weight}
 estimates how expected each visit was and creates weights so that frequent
 visitors do not automatically receive more influence just because they have
-more rows.  {cmd:iivw_fit} then fits comparable unweighted and weighted
-outcome models.  {cmd:iivw_exogtest} and {cmd:iivw_diagnose} support a
+more rows.  {cmd:iivw_balance} checks whether those weights have enough
+leverage to make a null weighting movement informative.  {cmd:iivw_fit} then
+fits comparable unweighted and weighted outcome models.  {cmd:iivw_exogtest}
+and {cmd:iivw_diagnose} support a
 diagnostic workflow for separating sampling bias from residual measurement
 artifact.
 
@@ -119,6 +123,7 @@ probability of censoring weighting (IPCW) instead.{p_end}
 
 {synoptset 20}{...}
 {synopt:{helpb iivw_weight}}compute IIW/IPTW/FIPTIW weights from visit and treatment models{p_end}
+{synopt:{helpb iivw_balance}}check weight leverage and visit-model covariate balance{p_end}
 {synopt:{helpb iivw_fit}}fit unweighted or weighted outcome model using GEE or mixed effects{p_end}
 {synopt:{helpb iivw_exogtest}}test whether prior outcomes predict visit timing{p_end}
 {synopt:{helpb iivw_diagnose}}decompose marginal/reference-slope movement across models{p_end}
@@ -175,8 +180,8 @@ interaction on the chosen time scale and use Stata post-estimation commands
 for contrasts at clinically meaningful times.{p_end}
 {p2col:Sampling bias versus repeated-measurement artifact}
 Fit unweighted, weighted, and measurement-adjusted models; run
-{cmd:iivw_exogtest}; then summarize the marginal/reference time slope with
-{cmd:iivw_diagnose}.{p_end}
+{cmd:iivw_balance} and {cmd:iivw_exogtest}; then summarize the
+marginal/reference time slope with {cmd:iivw_diagnose}.{p_end}
 {p2colreset}{...}
 
 {pstd}
@@ -257,12 +262,13 @@ A typical diagnostic analysis proceeds as follows:
 
 {phang2}1. Fit an unweighted outcome model with {cmd:iivw_fit, unweighted}.{p_end}
 {phang2}2. Compute IIW/IPTW/FIPTIW weights with {cmd:iivw_weight}.{p_end}
-{phang2}3. Fit the weighted outcome model and a weighted model adjusted for
+{phang2}3. Check leverage and visit-model balance with {cmd:iivw_balance}.{p_end}
+{phang2}4. Fit the weighted outcome model and a weighted model adjusted for
 cumulative testing or another measurement-process variable with
 {cmd:iivw_fit}.{p_end}
-{phang2}4. Use {cmd:iivw_exogtest} to check whether lagged outcome or
+{phang2}5. Use {cmd:iivw_exogtest} to check whether lagged outcome or
 disease-activity variables predict future visit or test timing.{p_end}
-{phang2}5. Use {cmd:iivw_diagnose} to summarize the sampling gap,
+{phang2}6. Use {cmd:iivw_diagnose} to summarize the sampling gap,
 measurement-artifact gap, and artifact share for the marginal/reference time
 slope.{p_end}
 
@@ -317,7 +323,7 @@ When the main concern is that patients with worse disease are seen more
 often, but treatment assignment is either randomized or not being analyzed:
 
 {phang2}{cmd:. iivw_weight, id(id) time(days) visit_cov(edss_bl age sex) lagvars(edss relapse) nolog}{p_end}
-{phang2}{cmd:. summarize _iivw_weight, detail}{p_end}
+{phang2}{cmd:. iivw_balance}{p_end}
 {phang2}{cmd:. iivw_fit edss treated edss_bl, model(gee) timespec(linear)}{p_end}
 
 {pstd}
@@ -387,13 +393,13 @@ R package. CRAN.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.1.0, 2026-05-24{p_end}
+{pstd}Version 1.2.0, 2026-05-24{p_end}
 
 
 {title:Also see}
 
 {psee}
-Online:  {helpb iivw_weight}, {helpb iivw_fit}, {helpb iivw_exogtest},
-{helpb iivw_diagnose}, {helpb xtgee}, {helpb stcox}
+Online:  {helpb iivw_weight}, {helpb iivw_balance}, {helpb iivw_fit},
+{helpb iivw_exogtest}, {helpb iivw_diagnose}, {helpb xtgee}, {helpb stcox}
 
 {hline}

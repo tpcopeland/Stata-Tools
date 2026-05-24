@@ -71,8 +71,8 @@ local ++test_count
 if `run_only' == 0 | `run_only' == 1 {
     capture noisily {
         iivw
-        assert r(n_commands) == 4
-        assert "`r(version)'" == "1.1.0"
+        assert r(n_commands) == 5
+        assert "`r(version)'" == "1.2.0"
     }
     if _rc == 0 {
         display as result "  PASS: Test 1 - iivw overview runs and returns metadata"

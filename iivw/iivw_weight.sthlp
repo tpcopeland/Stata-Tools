@@ -1,6 +1,7 @@
 {smcl}
-{* *! version 1.1.0  24may2026}{...}
+{* *! version 1.2.0  24may2026}{...}
 {vieweralsosee "iivw" "help iivw"}{...}
+{vieweralsosee "iivw_balance" "help iivw_balance"}{...}
 {vieweralsosee "iivw_fit" "help iivw_fit"}{...}
 {vieweralsosee "iivw_exogtest" "help iivw_exogtest"}{...}
 {vieweralsosee "[ST] stcox" "help stcox"}{...}
@@ -110,6 +111,11 @@ variables to the dataset.  The final weight variable (by default
 step.  If you specified FIPTIW, two component variables are also created:
 {cmd:_iivw_iw} (the visit intensity weight) and {cmd:_iivw_tw} (the treatment
 weight).  You can change the prefix with {opt generate()}.
+
+{pstd}
+The command also stores the expanded visit-model covariate list used by
+{helpb iivw_balance}.  When {opt lagvars()} is specified, this list contains
+the generated lag variables, such as {cmd:severity_lag1}.
 
 
 {marker options}{...}
@@ -615,6 +621,7 @@ than the default Breslow method.
 {p2col 5 20 24 2: Macros}{p_end}
 {synopt:{cmd:r(weighttype)}}weight type (iivw, iptw, or fiptiw){p_end}
 {synopt:{cmd:r(weight_var)}}name of final weight variable{p_end}
+{synopt:{cmd:r(visit_covars)}}expanded visit-model covariates used for IIW/FIPTIW{p_end}
 
 {p2col 5 28 32 2: Dataset characteristics}{p_end}
 {synopt:{cmd:_dta[_iivw_weighted]}}flag that weights are current{p_end}
@@ -623,6 +630,7 @@ than the default Breslow method.
 {synopt:{cmd:_dta[_iivw_weighttype]}}weight type used{p_end}
 {synopt:{cmd:_dta[_iivw_weight_var]}}final weight variable name{p_end}
 {synopt:{cmd:_dta[_iivw_prefix]}}generated-variable prefix{p_end}
+{synopt:{cmd:_dta[_iivw_visit_covars]}}expanded visit-model covariate list for {cmd:iivw_balance}{p_end}
 {synopt:{cmd:_dta[_iivw_treat]}}treatment variable, if specified{p_end}
 
 
@@ -650,12 +658,13 @@ On flexible inverse probability of treatment and intensity weighting.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.1.0, 2026-05-24{p_end}
+{pstd}Version 1.2.0, 2026-05-24{p_end}
 
 
 {title:Also see}
 
 {psee}
-Online:  {helpb iivw}, {helpb iivw_fit}, {helpb iivw_exogtest}, {helpb stcox}, {helpb logit}
+Online:  {helpb iivw}, {helpb iivw_balance}, {helpb iivw_fit},
+{helpb iivw_exogtest}, {helpb stcox}, {helpb logit}
 
 {hline}

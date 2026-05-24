@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.1.0  24may2026}{...}
+{* *! version 1.2.0  24may2026}{...}
 {vieweralsosee "iivw" "help iivw"}{...}
 {vieweralsosee "iivw_weight" "help iivw_weight"}{...}
 {vieweralsosee "[XT] xtgee" "help xtgee"}{...}
@@ -792,7 +792,7 @@ On flexible inverse probability of treatment and intensity weighting.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.1.0, 2026-05-24{p_end}
+{pstd}Version 1.2.0, 2026-05-24{p_end}
 
 
 {title:Also see}

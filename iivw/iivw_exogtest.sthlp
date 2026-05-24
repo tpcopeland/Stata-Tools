@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.1.0  24may2026}{...}
+{* *! version 1.2.0  24may2026}{...}
 {vieweralsosee "iivw" "help iivw"}{...}
 {vieweralsosee "iivw_weight" "help iivw_weight"}{...}
 {vieweralsosee "iivw_fit" "help iivw_fit"}{...}
@@ -292,6 +292,6 @@ Analysis of longitudinal data with irregular, outcome-dependent follow-up.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.1.0, 2026-05-24{p_end}
+{pstd}Version 1.2.0, 2026-05-24{p_end}
 
 {hline}

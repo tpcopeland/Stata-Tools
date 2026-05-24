@@ -1,4 +1,4 @@
-*! iivw_weight Version 1.1.0  2026/05/24
+*! iivw_weight Version 1.2.0  2026/05/24
 *! Compute inverse intensity of visit weights (IIW/IPTW/FIPTIW)
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())
@@ -303,10 +303,10 @@ program define iivw_weight, rclass sortpreserve
     * any error past this point (data mutation, model fit) leaves no stale
     * metadata. Validation failures above preserve the user's prior weights.
     foreach ch in _iivw_weighted _iivw_id _iivw_time _iivw_weighttype ///
-        _iivw_weight_var _iivw_prefix _iivw_treat _iivw_fitted ///
-        _iivw_model _iivw_timespec _iivw_cluster _iivw_time_vars ///
-        _iivw_interaction _iivw_ix_vars _iivw_categorical ///
-        _iivw_cat_vars _iivw_basecat {
+        _iivw_weight_var _iivw_prefix _iivw_treat _iivw_visit_covars ///
+        _iivw_fitted _iivw_model _iivw_timespec _iivw_cluster ///
+        _iivw_time_vars _iivw_interaction _iivw_ix_vars ///
+        _iivw_categorical _iivw_cat_vars _iivw_basecat {
         char _dta[`ch'] ""
     }
 
@@ -690,6 +690,12 @@ program define iivw_weight, rclass sortpreserve
     char _dta[_iivw_weighttype] "`wtype'"
     char _dta[_iivw_weight_var] "`prefix'weight"
     char _dta[_iivw_prefix] "`prefix'"
+    if inlist("`wtype'", "iivw", "fiptiw") {
+        char _dta[_iivw_visit_covars] "`visit_covars'"
+    }
+    else {
+        char _dta[_iivw_visit_covars] ""
+    }
     if "`treat'" != "" {
         char _dta[_iivw_treat] "`treat'"
     }
@@ -752,6 +758,7 @@ program define iivw_weight, rclass sortpreserve
 
     return local weighttype "`wtype'"
     return local weight_var "`prefix'weight"
+    return local visit_covars "`visit_covars'"
 
     }
     local rc = _rc
