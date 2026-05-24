@@ -692,97 +692,60 @@ program define hrcomptab, rclass
                 if "`borderstyle'" == "none" local _vborder_code = 4
 
                 tempname _style_rules
-                matrix `_style_rules' = (12, 1, 1, 1, 1, 30, 0, 0, 0) \ ///
-                    (13, 1, 1, 1, 1, 1, 0, 0, 0) \ ///
-                    (13, 1, 1, 2, 2, `_label_width', 0, 0, 0)
+                local _style_rule_spec "12 1 1 1 1 30 0 0 0 | 13 1 1 1 1 1 0 0 0 | 13 1 1 2 2 `_label_width' 0 0 0"
                 forvalues _c = 2/`ncols' {
                     local _excel_col = `_c' + 1
-                    matrix `_style_rules' = `_style_rules' \ ///
-                        (13, 1, 1, `_excel_col', `_excel_col', `_cw`_c'', 0, 0, 0)
+                    local _style_rule_spec `"`_style_rule_spec' | 13 1 1 `_excel_col' `_excel_col' `_cw`_c'' 0 0 0"'
                 }
 
-                matrix `_style_rules' = `_style_rules' \ ///
-                    (1, 1, `lastrow', 1, `_total_cols', `_fontsize', 1, 0, 0) \ ///
-                    (1, 1, 1, 1, `_total_cols', `=`_fontsize'+2', 1, 0, 0) \ ///
-                    (14, 1, 1, 1, `_total_cols', 0, 0, 0, 0) \ ///
-                    (2, 1, 1, 1, 1, 0, 1, 0, 0) \ ///
-                    (4, 1, 1, 1, 1, 0, 1, 0, 0) \ ///
-                    (5, 1, 1, 1, 1, 0, 1, 0, 0) \ ///
-                    (6, 1, 1, 1, 1, 0, 2, 0, 0) \ ///
-                    (8, 2, 2, 2, `_total_cols', 0, `_hborder_code', 0, 0) \ ///
-                    (9, 3, 3, 2, `_total_cols', 0, `_hborder_code', 0, 0)
+                local _style_rule_spec `"`_style_rule_spec' | 1 1 `lastrow' 1 `_total_cols' `_fontsize' 1 0 0 | 1 1 1 1 `_total_cols' `=`_fontsize'+2' 1 0 0 | 14 1 1 1 `_total_cols' 0 0 0 0 | 2 1 1 1 1 0 1 0 0 | 4 1 1 1 1 0 1 0 0 | 5 1 1 1 1 0 1 0 0 | 6 1 1 1 1 0 2 0 0 | 8 2 2 2 `_total_cols' 0 `_hborder_code' 0 0 | 9 3 3 2 `_total_cols' 0 `_hborder_code' 0 0"'
 
                 local _merge_col = 3
                 forvalues _o = 1/`outcomes' {
                     local _col_end = `_merge_col' + 4
-                    matrix `_style_rules' = `_style_rules' \ ///
-                        (14, 2, 2, `_merge_col', `_col_end', 0, 0, 0, 0) \ ///
-                        (2, 2, 2, `_merge_col', `_merge_col', 0, 1, 0, 0) \ ///
-                        (5, 2, 2, `_merge_col', `_merge_col', 0, 2, 0, 0) \ ///
-                        (6, 2, 2, `_merge_col', `_merge_col', 0, 3, 0, 0) \ ///
-                        (9, 2, 2, `_merge_col', `_col_end', 0, `_hborder_code', 0, 0)
+                    local _style_rule_spec `"`_style_rule_spec' | 14 2 2 `_merge_col' `_col_end' 0 0 0 0 | 2 2 2 `_merge_col' `_merge_col' 0 1 0 0 | 5 2 2 `_merge_col' `_merge_col' 0 2 0 0 | 6 2 2 `_merge_col' `_merge_col' 0 3 0 0 | 9 2 2 `_merge_col' `_col_end' 0 `_hborder_code' 0 0"'
                     local _merge_col = `_merge_col' + 5
                 }
 
-                matrix `_style_rules' = `_style_rules' \ ///
-                    (14, 2, 3, 2, 2, 0, 0, 0, 0) \ ///
-                    (2, 2, 3, 2, 2, 0, 1, 0, 0) \ ///
-                    (5, 2, 3, 2, 2, 0, 2, 0, 0) \ ///
-                    (6, 2, 3, 2, 2, 0, 2, 0, 0) \ ///
-                    (9, 3, 3, 2, 2, 0, `_hborder_code', 0, 0) \ ///
-                    (2, 3, 3, 3, `_total_cols', 0, 1, 0, 0) \ ///
-                    (5, 3, 3, 3, `_total_cols', 0, 2, 0, 0) \ ///
-                    (6, 3, 3, 3, `_total_cols', 0, 2, 0, 0)
+                local _style_rule_spec `"`_style_rule_spec' | 14 2 3 2 2 0 0 0 0 | 2 2 3 2 2 0 1 0 0 | 5 2 3 2 2 0 2 0 0 | 6 2 3 2 2 0 2 0 0 | 9 3 3 2 2 0 `_hborder_code' 0 0 | 2 3 3 3 `_total_cols' 0 1 0 0 | 5 3 3 3 `_total_cols' 0 2 0 0 | 6 3 3 3 `_total_cols' 0 2 0 0"'
 
                 if "`headershade'" != "" {
-                    matrix `_style_rules' = `_style_rules' \ ///
-                        (7, 2, 3, 2, `_total_cols', 0, -1, 0, 0)
+                    local _style_rule_spec `"`_style_rule_spec' | 7 2 3 2 `_total_cols' 0 -1 0 0"'
                 }
                 if "`zebra'" != "" {
                     forvalues _zr = 5(2)`lastrow' {
-                        matrix `_style_rules' = `_style_rules' \ ///
-                            (7, `_zr', `_zr', 2, `_total_cols', 0, -2, 0, 0)
+                        local _style_rule_spec `"`_style_rule_spec' | 7 `_zr' `_zr' 2 `_total_cols' 0 -2 0 0"'
                     }
                 }
                 if `lastrow' >= 4 & `_total_cols' >= 3 {
-                    matrix `_style_rules' = `_style_rules' \ ///
-                        (5, 4, `lastrow', 3, `_total_cols', 0, 2, 0, 0)
+                    local _style_rule_spec `"`_style_rule_spec' | 5 4 `lastrow' 3 `_total_cols' 0 2 0 0"'
                 }
                 if "`borderstyle'" != "academic" {
-                    matrix `_style_rules' = `_style_rules' \ ///
-                        (10, 2, `lastrow', 2, 2, 0, `_vborder_code', 0, 0) \ ///
-                        (11, 2, `lastrow', 2, 2, 0, `_vborder_code', 0, 0)
+                    local _style_rule_spec `"`_style_rule_spec' | 10 2 `lastrow' 2 2 0 `_vborder_code' 0 0 | 11 2 `lastrow' 2 2 0 `_vborder_code' 0 0"'
                     local _vcol = 3
                     forvalues _o = 1/`outcomes' {
                         local _col_end = `_vcol' + 4
-                        matrix `_style_rules' = `_style_rules' \ ///
-                            (11, 2, `lastrow', `_col_end', `_col_end', 0, `_vborder_code', 0, 0)
+                        local _style_rule_spec `"`_style_rule_spec' | 11 2 `lastrow' `_col_end' `_col_end' 0 `_vborder_code' 0 0"'
                         local _vcol = `_vcol' + 5
                     }
                 }
                 foreach _sr of local exp_rows {
                     local _border_row = `_sr' - 1
                     if `_border_row' > 3 {
-                        matrix `_style_rules' = `_style_rules' \ ///
-                            (9, `_border_row', `_border_row', 2, `_total_cols', 0, `_hborder_code', 0, 0)
+                        local _style_rule_spec `"`_style_rule_spec' | 9 `_border_row' `_border_row' 2 `_total_cols' 0 `_hborder_code' 0 0"'
                     }
                 }
-                matrix `_style_rules' = `_style_rules' \ ///
-                    (9, `lastrow', `lastrow', 2, `_total_cols', 0, `_hborder_code', 0, 0)
+                local _style_rule_spec `"`_style_rule_spec' | 9 `lastrow' `lastrow' 2 `_total_cols' 0 `_hborder_code' 0 0"'
 
                 if `"`footnote'"' != "" {
                     local _fn_row = `lastrow' + 1
                     local _fn_fontsize = max(`_fontsize' - 2, 6)
                     mata: b.put_string(`_fn_row', 2, `"`footnote'"')
-                    matrix `_style_rules' = `_style_rules' \ ///
-                        (14, `_fn_row', `_fn_row', 2, `_total_cols', 0, 0, 0, 0) \ ///
-                        (5, `_fn_row', `_fn_row', 2, 2, 0, 1, 0, 0) \ ///
-                        (6, `_fn_row', `_fn_row', 2, 2, 0, 2, 0, 0) \ ///
-                        (4, `_fn_row', `_fn_row', 2, 2, 0, 1, 0, 0) \ ///
-                        (1, `_fn_row', `_fn_row', 2, 2, `_fn_fontsize', 1, 0, 0) \ ///
-                        (3, `_fn_row', `_fn_row', 2, 2, 0, 1, 0, 0)
+                    local _style_rule_spec `"`_style_rule_spec' | 14 `_fn_row' `_fn_row' 2 `_total_cols' 0 0 0 0 | 5 `_fn_row' `_fn_row' 2 2 0 1 0 0 | 6 `_fn_row' `_fn_row' 2 2 0 2 0 0 | 4 `_fn_row' `_fn_row' 2 2 0 1 0 0 | 1 `_fn_row' `_fn_row' 2 2 `_fn_fontsize' 1 0 0 | 3 `_fn_row' `_fn_row' 2 2 0 1 0 0"'
                 }
 
+                _tabtools_xlsx_build_styles, matrix(`_style_rules') ///
+                    rules(`_style_rule_spec') cols(9)
                 _tabtools_xlsx_apply_styles, book(b) sheet("`sheet'") ///
                     rules(`_style_rules') font("`_font'") ///
                     color1("`_headercolor'") color2("`_zebracolor'")

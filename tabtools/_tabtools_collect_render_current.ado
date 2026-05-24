@@ -22,31 +22,101 @@ program define _tabtools_collect_render_current, rclass
 
         quietly collect save "`_json'", replace
 
-        _tt_collect_dim_locals `"`rowdim'"' _tt_row, levels(`"`rowlevels'"')
-        local _row_n = r(n)
-        if `_row_n' == 0 {
-            noisily display as error "collect dimension `rowdim' has no levels"
-            exit 459
+        local _rowdims = subinstr(strtrim(`"`rowdim'"'), "#", " ", .)
+        local _rowdims : list retokenize _rowdims
+        local _row_dim_n : word count `_rowdims'
+        if `_row_dim_n' == 0 {
+            noisily display as error "rowdim() must specify at least one collect dimension"
+            exit 198
         }
-        local _tt_rowdim_label `"`r(dimlabel)'"'
-        forvalues _i = 1/`_row_n' {
-            local _tt_row_level_`_i' `"`r(level_`_i')'"'
-            local _tt_row_label_`_i' `"`r(label_`_i')'"'
+        if `_row_dim_n' > 1 & `"`rowlevels'"' != "" {
+            noisily display as error "rowlevels() is not supported with compound rowdim()"
+            exit 198
+        }
+        if `_row_dim_n' > 1 & !inlist("`type'", "main", "desctab") {
+            noisily display as error "compound rowdim() is supported only for type(main) and type(desctab)"
+            exit 198
+        }
+
+        local _tt_row_dim_n = `_row_dim_n'
+        local _row_n = 1
+        local _tt_rowdim_label ""
+        forvalues _d = 1/`_row_dim_n' {
+            local _dim : word `_d' of `_rowdims'
+            local _tt_row_dim_`_d' `"`_dim'"'
+            if `_row_dim_n' == 1 {
+                _tt_collect_dim_locals `"`_dim'"' _tt_row, levels(`"`rowlevels'"')
+            }
+            else {
+                _tt_collect_dim_locals `"`_dim'"' _tt_row
+            }
+            local _dim_n = r(n)
+            if `_dim_n' == 0 {
+                noisily display as error "collect dimension `_dim' has no levels"
+                exit 459
+            }
+            local _tt_row_dim_`_d'_n = `_dim_n'
+            if `_d' == 1 local _tt_rowdim_label `"`r(dimlabel)'"'
+            else local _tt_rowdim_label `"`_tt_rowdim_label'#`r(dimlabel)'"'
+            forvalues _i = 1/`_dim_n' {
+                local _tt_row_dim_`_d'_level_`_i' `"`r(level_`_i')'"'
+                local _tt_row_dim_`_d'_label_`_i' `"`r(label_`_i')'"'
+                if `_row_dim_n' == 1 {
+                    local _tt_row_level_`_i' `"`r(level_`_i')'"'
+                    local _tt_row_label_`_i' `"`r(label_`_i')'"'
+                }
+            }
+            local _row_n = `_row_n' * `_dim_n'
         }
 
         local _col_n = 0
+        local _tt_col_dim_n = 0
         local _tt_coldim_label ""
         if `"`coldim'"' != "" {
-            _tt_collect_dim_locals `"`coldim'"' _tt_col, levels(`"`collevels'"')
-            local _col_n = r(n)
-            if `_col_n' == 0 {
-                noisily display as error "collect dimension `coldim' has no levels"
-                exit 459
+            local _coldims = subinstr(strtrim(`"`coldim'"'), "#", " ", .)
+            local _coldims : list retokenize _coldims
+            local _col_dim_n : word count `_coldims'
+            if `_col_dim_n' == 0 {
+                noisily display as error "coldim() must specify at least one collect dimension"
+                exit 198
             }
-            local _tt_coldim_label `"`r(dimlabel)'"'
-            forvalues _i = 1/`_col_n' {
-                local _tt_col_level_`_i' `"`r(level_`_i')'"'
-                local _tt_col_label_`_i' `"`r(label_`_i')'"'
+            if `_col_dim_n' > 1 & `"`collevels'"' != "" {
+                noisily display as error "collevels() is not supported with compound coldim()"
+                exit 198
+            }
+            if `_col_dim_n' > 1 & !inlist("`type'", "desctab") {
+                noisily display as error "compound coldim() is supported only for type(desctab)"
+                exit 198
+            }
+
+            local _tt_col_dim_n = `_col_dim_n'
+            local _col_n = 1
+            forvalues _d = 1/`_col_dim_n' {
+                local _dim : word `_d' of `_coldims'
+                local _tt_col_dim_`_d' `"`_dim'"'
+                if `_col_dim_n' == 1 {
+                    _tt_collect_dim_locals `"`_dim'"' _tt_col, levels(`"`collevels'"')
+                }
+                else {
+                    _tt_collect_dim_locals `"`_dim'"' _tt_col
+                }
+                local _dim_n = r(n)
+                if `_dim_n' == 0 {
+                    noisily display as error "collect dimension `_dim' has no levels"
+                    exit 459
+                }
+                local _tt_col_dim_`_d'_n = `_dim_n'
+                if `_d' == 1 local _tt_coldim_label `"`r(dimlabel)'"'
+                else local _tt_coldim_label `"`_tt_coldim_label'#`r(dimlabel)'"'
+                forvalues _i = 1/`_dim_n' {
+                    local _tt_col_dim_`_d'_level_`_i' `"`r(level_`_i')'"'
+                    local _tt_col_dim_`_d'_label_`_i' `"`r(label_`_i')'"'
+                    if `_col_dim_n' == 1 {
+                        local _tt_col_level_`_i' `"`r(level_`_i')'"'
+                        local _tt_col_label_`_i' `"`r(label_`_i')'"'
+                    }
+                }
+                local _col_n = `_col_n' * `_dim_n'
             }
         }
 
@@ -168,14 +238,29 @@ end
 version 17.0
 capture mata: mata drop _tt_collect_render_mata()
 capture mata: mata drop _tt_collect_items()
+capture mata: mata drop _tt_collect_filter_results()
+capture mata: mata drop _tt_collect_index()
 capture mata: mata drop _tt_collect_render_meta()
 capture mata: mata drop _tt_collect_render_icc()
 capture mata: mata drop _tt_collect_render_main()
+capture mata: mata drop _tt_collect_render_main_multirow()
 capture mata: mata drop _tt_collect_render_desctab()
+capture mata: mata drop _tt_collect_render_desc_multi()
 capture mata: mata drop _tt_collect_item()
 capture mata: mata drop _tt_collect_sum_items()
 capture mata: mata drop _tt_collect_ci()
+capture mata: mata drop _tt_collect_lookup_key()
+capture mata: mata drop _tt_collect_key_fragment()
+capture mata: mata drop _tt_collect_dim_tokens()
 capture mata: mata drop _tt_collect_has_any()
+capture mata: mata drop _tt_collect_row_dims()
+capture mata: mata drop _tt_collect_row_levels()
+capture mata: mata drop _tt_collect_row_labels()
+capture mata: mata drop _tt_collect_col_dims()
+capture mata: mata drop _tt_collect_col_levels()
+capture mata: mata drop _tt_collect_col_labels()
+capture mata: mata drop _tt_collect_parent_label()
+capture mata: mata drop _tt_collect_join_labels()
 capture mata: mata drop _tt_collect_factor_parent()
 capture mata: mata drop _tt_collect_factor_prefix()
 capture mata: mata drop _tt_collect_frag()
@@ -205,24 +290,29 @@ void _tt_collect_render_mata(
     real scalar factorparents)
 {
     string matrix items, out
+    transmorphic scalar index
 
     items = _tt_collect_items(filepath)
     if (rows(items) == 0) _error(2000)
+    items = _tt_collect_filter_results(items, res_n)
+    if (rows(items) == 0) _error(2000)
+    index = _tt_collect_index(items, rowdim, coldim)
 
     if (type == "meta" | type == "stats") {
-        out = _tt_collect_render_meta(items, rowdim, coldim, sep, row_n,
+        out = _tt_collect_render_meta(index, items, rowdim, coldim, sep, row_n,
             col_n, res_n, dropempty)
     }
     else if (type == "icc") {
-        out = _tt_collect_render_icc(items, rowdim, coldim, sep, row_n, col_n)
+        out = _tt_collect_render_icc(index, items, rowdim, coldim, sep,
+            row_n, col_n)
     }
     else if (type == "main") {
-        out = _tt_collect_render_main(items, rowdim, coldim, sep, row_n,
+        out = _tt_collect_render_main(index, items, rowdim, coldim, sep, row_n,
             col_n, res_n, factorparents)
     }
     else if (type == "desctab") {
-        out = _tt_collect_render_desctab(items, rowdim, coldim, sep, row_n,
-            col_n, res_n)
+        out = _tt_collect_render_desctab(index, items, rowdim, coldim, sep,
+            row_n, col_n, res_n)
     }
     else {
         _error(198)
@@ -233,6 +323,7 @@ void _tt_collect_render_mata(
 }
 
 string matrix _tt_collect_render_meta(
+    transmorphic scalar index,
     string matrix items,
     string scalar rowdim,
     string scalar coldim,
@@ -255,10 +346,10 @@ string matrix _tt_collect_render_meta(
             for (i = 1; i <= row_n; i++) {
                 lev = st_local("_tt_row_level_" + strofreal(i))
                 if (coldim == "") {
-                    val = _tt_collect_item(items, (rowdim), (lev), rlev, sep)
+                    val = _tt_collect_item(index, items, (rowdim), (lev), rlev, sep)
                 }
                 else {
-                    val = _tt_collect_item(items, (rowdim, coldim),
+                    val = _tt_collect_item(index, items, (rowdim, coldim),
                         (lev, st_local("_tt_col_level_1")), rlev, sep)
                 }
                 if (val != "") {
@@ -291,12 +382,12 @@ string matrix _tt_collect_render_meta(
             jj++
             rlev = st_local("_tt_res_level_" + strofreal(j))
             if (coldim == "") {
-                val = _tt_collect_item(items, (rowdim), (lev), rlev, sep)
+                val = _tt_collect_item(index, items, (rowdim), (lev), rlev, sep)
             }
             else {
                 lab = st_local("_tt_col_level_1")
-                val = _tt_collect_item(items, (rowdim, coldim), (lev, lab),
-                    rlev, sep)
+                val = _tt_collect_item(index, items, (rowdim, coldim),
+                    (lev, lab), rlev, sep)
             }
             out[i + 1, jj] = val
         }
@@ -306,6 +397,7 @@ string matrix _tt_collect_render_meta(
 }
 
 string matrix _tt_collect_render_icc(
+    transmorphic scalar index,
     string matrix items,
     string scalar rowdim,
     string scalar coldim,
@@ -333,8 +425,8 @@ string matrix _tt_collect_render_icc(
                     (rowdim, coldim), (rowlev, clev), "_r_b")
             }
             else {
-                out[i + 1, j + 1] = _tt_collect_item(items, (rowdim, coldim),
-                    (rowlev, clev), "_r_b", sep)
+                out[i + 1, j + 1] = _tt_collect_item(index, items,
+                    (rowdim, coldim), (rowlev, clev), "_r_b", sep)
             }
         }
     }
@@ -342,6 +434,7 @@ string matrix _tt_collect_render_icc(
 }
 
 string matrix _tt_collect_render_main(
+    transmorphic scalar index,
     string matrix items,
     string scalar rowdim,
     string scalar coldim,
@@ -354,7 +447,13 @@ string matrix _tt_collect_render_main(
     string matrix out
     string rowvector vals
     string scalar rlev, rlab, clev, clab, rowlev, rowlab, val, parent, last_parent
-    real scalar i, j, k, c, rowout, kept
+    real scalar i, j, k, c, rowout, kept, row_dim_n
+
+    row_dim_n = strtoreal(st_local("_tt_row_dim_n"))
+    if (row_dim_n > 1) {
+        return(_tt_collect_render_main_multirow(index, items, coldim, sep,
+            row_n, col_n, res_n))
+    }
 
     if (coldim == "") col_n = 1
     out = J(row_n * 2 + 2, 1 + col_n * res_n, "")
@@ -394,11 +493,12 @@ string matrix _tt_collect_render_main(
                 c++
                 rlev = st_local("_tt_res_level_" + strofreal(k))
                 if (coldim != "") {
-                    val = _tt_collect_item(items, (rowdim, coldim),
+                    val = _tt_collect_item(index, items, (rowdim, coldim),
                         (rowlev, clev), rlev, sep)
                 }
                 else {
-                    val = _tt_collect_item(items, (rowdim), (rowlev), rlev, sep)
+                    val = _tt_collect_item(index, items, (rowdim), (rowlev),
+                        rlev, sep)
                 }
                 vals[c - 1] = val
                 if (val != "") kept = 1
@@ -418,6 +518,210 @@ string matrix _tt_collect_render_main(
     }
 
     if (rowout < rows(out)) out = out[|1, 1 \ rowout, cols(out)|]
+    return(out)
+}
+
+string matrix _tt_collect_render_main_multirow(
+    transmorphic scalar index,
+    string matrix items,
+    string scalar coldim,
+    string scalar sep,
+    real scalar row_n,
+    real scalar col_n,
+    real scalar res_n)
+{
+    string matrix out
+    string rowvector rowdims, rowlevels, rowlabels, vals
+    string scalar rlev, rlab, clev, clab, val, parent_key, last_parent
+    real scalar row_dim_n, i, j, k, d, c, rowout, kept
+
+    row_dim_n = strtoreal(st_local("_tt_row_dim_n"))
+    if (row_dim_n <= 1) _error(198)
+    if (coldim == "") col_n = 1
+
+    rowdims = _tt_collect_row_dims(row_dim_n)
+    out = J(row_n * row_dim_n + 2, 1 + col_n * res_n, "")
+
+    c = 1
+    for (j = 1; j <= col_n; j++) {
+        if (coldim != "") {
+            clev = st_local("_tt_col_level_" + strofreal(j))
+            clab = st_local("_tt_col_label_" + strofreal(j))
+        }
+        else {
+            clev = ""
+            clab = ""
+        }
+        for (k = 1; k <= res_n; k++) {
+            c++
+            rlab = st_local("_tt_res_label_" + strofreal(k))
+            out[1, c] = clab
+            out[2, c] = rlab
+        }
+    }
+
+    rowout = 2
+    last_parent = ""
+    for (i = 1; i <= row_n; i++) {
+        rowlevels = _tt_collect_row_levels(i, row_dim_n)
+        rowlabels = _tt_collect_row_labels(i, row_dim_n)
+
+        vals = J(1, col_n * res_n, "")
+        kept = 0
+        c = 1
+        for (j = 1; j <= col_n; j++) {
+            if (coldim != "") clev = st_local("_tt_col_level_" + strofreal(j))
+            else clev = ""
+            for (k = 1; k <= res_n; k++) {
+                c++
+                rlev = st_local("_tt_res_level_" + strofreal(k))
+                if (coldim != "") {
+                    val = _tt_collect_item(index, items, (rowdims, coldim),
+                        (rowlevels, clev), rlev, sep)
+                }
+                else {
+                    val = _tt_collect_item(index, items, rowdims, rowlevels,
+                        rlev, sep)
+                }
+                vals[c - 1] = val
+                if (val != "") kept = 1
+            }
+        }
+        if (kept) {
+            parent_key = rowlevels[1]
+            for (d = 2; d < row_dim_n; d++) {
+                parent_key = parent_key + char(9) + rowlevels[d]
+            }
+            if (parent_key != last_parent) {
+                rowout++
+                out[rowout, 1] = _tt_collect_parent_label(rowlabels, row_dim_n)
+                last_parent = parent_key
+            }
+            rowout++
+            out[rowout, 1] = rowlabels[row_dim_n]
+            for (c = 2; c <= cols(out); c++) out[rowout, c] = vals[c - 1]
+        }
+    }
+
+    if (rowout < rows(out)) out = out[|1, 1 \ rowout, cols(out)|]
+    return(out)
+}
+
+string rowvector _tt_collect_row_dims(real scalar row_dim_n)
+{
+    string rowvector out
+    real scalar d
+
+    out = J(1, row_dim_n, "")
+    for (d = 1; d <= row_dim_n; d++) {
+        out[d] = st_local("_tt_row_dim_" + strofreal(d))
+        if (out[d] == "") _error(198)
+    }
+    return(out)
+}
+
+string rowvector _tt_collect_row_levels(real scalar idx, real scalar row_dim_n)
+{
+    string rowvector out
+    real scalar d, n, p, q
+
+    out = J(1, row_dim_n, "")
+    q = idx - 1
+    for (d = row_dim_n; d >= 1; d--) {
+        n = strtoreal(st_local("_tt_row_dim_" + strofreal(d) + "_n"))
+        if (n <= 0) _error(198)
+        p = mod(q, n) + 1
+        q = floor(q / n)
+        out[d] = st_local("_tt_row_dim_" + strofreal(d) + "_level_" + strofreal(p))
+    }
+    return(out)
+}
+
+string rowvector _tt_collect_row_labels(real scalar idx, real scalar row_dim_n)
+{
+    string rowvector out
+    real scalar d, n, p, q
+
+    out = J(1, row_dim_n, "")
+    q = idx - 1
+    for (d = row_dim_n; d >= 1; d--) {
+        n = strtoreal(st_local("_tt_row_dim_" + strofreal(d) + "_n"))
+        if (n <= 0) _error(198)
+        p = mod(q, n) + 1
+        q = floor(q / n)
+        out[d] = st_local("_tt_row_dim_" + strofreal(d) + "_label_" + strofreal(p))
+    }
+    return(out)
+}
+
+string rowvector _tt_collect_col_dims(real scalar col_dim_n)
+{
+    string rowvector out
+    real scalar d
+
+    out = J(1, col_dim_n, "")
+    for (d = 1; d <= col_dim_n; d++) {
+        out[d] = st_local("_tt_col_dim_" + strofreal(d))
+        if (out[d] == "") _error(198)
+    }
+    return(out)
+}
+
+string rowvector _tt_collect_col_levels(real scalar idx, real scalar col_dim_n)
+{
+    string rowvector out
+    real scalar d, n, p, q
+
+    out = J(1, col_dim_n, "")
+    q = idx - 1
+    for (d = col_dim_n; d >= 1; d--) {
+        n = strtoreal(st_local("_tt_col_dim_" + strofreal(d) + "_n"))
+        if (n <= 0) _error(198)
+        p = mod(q, n) + 1
+        q = floor(q / n)
+        out[d] = st_local("_tt_col_dim_" + strofreal(d) + "_level_" + strofreal(p))
+    }
+    return(out)
+}
+
+string rowvector _tt_collect_col_labels(real scalar idx, real scalar col_dim_n)
+{
+    string rowvector out
+    real scalar d, n, p, q
+
+    out = J(1, col_dim_n, "")
+    q = idx - 1
+    for (d = col_dim_n; d >= 1; d--) {
+        n = strtoreal(st_local("_tt_col_dim_" + strofreal(d) + "_n"))
+        if (n <= 0) _error(198)
+        p = mod(q, n) + 1
+        q = floor(q / n)
+        out[d] = st_local("_tt_col_dim_" + strofreal(d) + "_label_" + strofreal(p))
+    }
+    return(out)
+}
+
+string scalar _tt_collect_parent_label(string rowvector labels, real scalar row_dim_n)
+{
+    string scalar out
+    real scalar d
+
+    out = labels[1]
+    for (d = 2; d < row_dim_n; d++) {
+        out = out + " > " + labels[d]
+    }
+    return(out)
+}
+
+string scalar _tt_collect_join_labels(string rowvector labels, real scalar label_n)
+{
+    string scalar out
+    real scalar d
+
+    out = labels[1]
+    for (d = 2; d <= label_n; d++) {
+        out = out + " > " + labels[d]
+    }
     return(out)
 }
 
@@ -454,6 +758,7 @@ real scalar _tt_collect_factor_prefix(string scalar prefix)
 }
 
 string matrix _tt_collect_render_desctab(
+    transmorphic scalar index,
     string matrix items,
     string scalar rowdim,
     string scalar coldim,
@@ -464,7 +769,14 @@ string matrix _tt_collect_render_desctab(
 {
     string matrix out
     string scalar rowlev, rowlab, clev, clab, rlev, rlab, val
-    real scalar i, j, k, c, rowout, kept
+    real scalar i, j, k, c, rowout, kept, row_dim_n, col_dim_n
+
+    row_dim_n = strtoreal(st_local("_tt_row_dim_n"))
+    col_dim_n = strtoreal(st_local("_tt_col_dim_n"))
+    if (row_dim_n > 1 | col_dim_n > 1) {
+        return(_tt_collect_render_desc_multi(index, items, coldim, sep,
+            row_n, col_n, res_n))
+    }
 
     if (coldim == "") {
         out = J(row_n + 2, 1 + res_n, "")
@@ -479,7 +791,8 @@ string matrix _tt_collect_render_desctab(
             kept = 0
             for (k = 1; k <= res_n; k++) {
                 rlev = st_local("_tt_res_level_" + strofreal(k))
-                val = _tt_collect_item(items, (rowdim), (rowlev), rlev, sep)
+                val = _tt_collect_item(index, items, (rowdim), (rowlev),
+                    rlev, sep)
                 out[rowout + 1, k + 1] = val
                 if (val != "") kept = 1
             }
@@ -513,7 +826,7 @@ string matrix _tt_collect_render_desctab(
                 for (k = 1; k <= res_n; k++) {
                     c++
                     rlev = st_local("_tt_res_level_" + strofreal(k))
-                    val = _tt_collect_item(items, (rowdim, coldim),
+                    val = _tt_collect_item(index, items, (rowdim, coldim),
                         (rowlev, clev), rlev, sep)
                     out[rowout + 1, c] = val
                     if (val != "") kept = 1
@@ -530,17 +843,110 @@ string matrix _tt_collect_render_desctab(
     return(out)
 }
 
+string matrix _tt_collect_render_desc_multi(
+    transmorphic scalar index,
+    string matrix items,
+    string scalar coldim,
+    string scalar sep,
+    real scalar row_n,
+    real scalar col_n,
+    real scalar res_n)
+{
+    string matrix out
+    string rowvector rowdims, rowlevels, rowlabels, coldims, collevels, collabels
+    string scalar clev, clab, rlev, val
+    real scalar row_dim_n, col_dim_n, i, j, k, c, rowout, kept
+
+    row_dim_n = strtoreal(st_local("_tt_row_dim_n"))
+    col_dim_n = strtoreal(st_local("_tt_col_dim_n"))
+    if (row_dim_n <= 0) _error(198)
+    rowdims = _tt_collect_row_dims(row_dim_n)
+
+    if (coldim == "") {
+        out = J(row_n + 2, 1 + res_n, "")
+        for (k = 1; k <= res_n; k++) {
+            out[1, k + 1] = st_local("_tt_res_label_" + strofreal(k))
+        }
+        out[2, 1] = st_local("_tt_rowdim_label")
+        rowout = 2
+        for (i = 1; i <= row_n; i++) {
+            rowlevels = _tt_collect_row_levels(i, row_dim_n)
+            rowlabels = _tt_collect_row_labels(i, row_dim_n)
+            kept = 0
+            for (k = 1; k <= res_n; k++) {
+                rlev = st_local("_tt_res_level_" + strofreal(k))
+                val = _tt_collect_item(index, items, rowdims, rowlevels,
+                    rlev, sep)
+                out[rowout + 1, k + 1] = val
+                if (val != "") kept = 1
+            }
+            if (kept) {
+                rowout++
+                out[rowout, 1] = _tt_collect_join_labels(rowlabels, row_dim_n)
+            }
+        }
+    }
+    else {
+        if (col_dim_n <= 0) _error(198)
+        coldims = _tt_collect_col_dims(col_dim_n)
+        out = J(row_n + 4, 1 + col_n * res_n, "")
+        c = 1
+        for (j = 1; j <= col_n; j++) {
+            collabels = _tt_collect_col_labels(j, col_dim_n)
+            clab = _tt_collect_join_labels(collabels, col_dim_n)
+            for (k = 1; k <= res_n; k++) {
+                c++
+                out[1, c] = st_local("_tt_coldim_label")
+                out[2, c] = clab
+                out[3, c] = st_local("_tt_res_label_" + strofreal(k))
+            }
+        }
+        out[4, 1] = st_local("_tt_rowdim_label")
+        rowout = 4
+        for (i = 1; i <= row_n; i++) {
+            rowlevels = _tt_collect_row_levels(i, row_dim_n)
+            rowlabels = _tt_collect_row_labels(i, row_dim_n)
+            kept = 0
+            c = 1
+            for (j = 1; j <= col_n; j++) {
+                collevels = _tt_collect_col_levels(j, col_dim_n)
+                for (k = 1; k <= res_n; k++) {
+                    c++
+                    rlev = st_local("_tt_res_level_" + strofreal(k))
+                    val = _tt_collect_item(index, items, (rowdims, coldims),
+                        (rowlevels, collevels), rlev, sep)
+                    out[rowout + 1, c] = val
+                    if (val != "") kept = 1
+                }
+            }
+            if (kept) {
+                rowout++
+                out[rowout, 1] = _tt_collect_join_labels(rowlabels, row_dim_n)
+            }
+        }
+    }
+
+    if (rowout < rows(out)) out = out[|1, 1 \ rowout, cols(out)|]
+    return(out)
+}
+
 string scalar _tt_collect_item(
+    transmorphic scalar index,
     string matrix items,
     string rowvector dims,
     string rowvector levels,
     string scalar result,
     string scalar sep)
 {
-    string scalar key, frag
+    string scalar key, frag, lookup_key
     real scalar i, j, ok
 
-    if (result == "_r_ci") return(_tt_collect_ci(items, dims, levels, sep))
+    if (result == "_r_ci") return(_tt_collect_ci(index, items, dims, levels, sep))
+
+    lookup_key = _tt_collect_lookup_key(dims, levels, result)
+    if (lookup_key != "" & asarray_contains(index, lookup_key)) {
+        return(asarray(index, lookup_key))
+    }
 
     for (i = 1; i <= rows(items); i++) {
         key = items[i, 1]
@@ -596,6 +1002,7 @@ string scalar _tt_collect_sum_items(
 }
 
 string scalar _tt_collect_ci(
+    transmorphic scalar index,
     string matrix items,
     string rowvector dims,
     string rowvector levels,
@@ -603,10 +1010,58 @@ string scalar _tt_collect_ci(
 {
     string scalar lo, hi
 
-    lo = _tt_collect_item(items, dims, levels, "_r_lb", sep)
-    hi = _tt_collect_item(items, dims, levels, "_r_ub", sep)
+    lo = _tt_collect_item(index, items, dims, levels, "_r_lb", sep)
+    hi = _tt_collect_item(index, items, dims, levels, "_r_ub", sep)
     if (lo == "" | hi == "") return("")
     return("(" + lo + sep + hi + ")")
+}
+
+string scalar _tt_collect_lookup_key(
+    string rowvector dims,
+    string rowvector levels,
+    string scalar result)
+{
+    string scalar out, frag
+    real scalar j
+
+    if (cols(dims) != cols(levels)) return("")
+    out = ""
+    for (j = 1; j <= cols(dims); j++) {
+        frag = _tt_collect_frag(dims[j], levels[j])
+        if (out == "") out = frag
+        else out = out + "#" + frag
+    }
+    if (result != "") {
+        frag = _tt_collect_frag("result", result)
+        if (out == "") out = frag
+        else out = out + "#" + frag
+    }
+
+    return(out)
+}
+
+string scalar _tt_collect_key_fragment(string scalar key, string scalar dim)
+{
+    string scalar needle
+    real scalar p, q
+
+    needle = dim + "["
+    p = strpos(key, needle)
+    if (p == 0) return("")
+    q = p + strlen(needle)
+    while (q <= strlen(key) & substr(key, q, 1) != "]") q++
+    if (q > strlen(key)) return("")
+    return(substr(key, p, q - p + 1))
+}
+
+string rowvector _tt_collect_dim_tokens(string scalar dims)
+{
+    string scalar txt
+
+    txt = strtrim(dims)
+    if (txt == "") return(J(1, 0, ""))
+    txt = subinstr(txt, "#", " ", .)
+    return(tokens(txt))
 }
 
 string scalar _tt_collect_frag(string scalar dim, string scalar level)
@@ -694,6 +1149,91 @@ string matrix _tt_collect_items(string scalar filepath)
     }
 
     return(out)
+}
+
+string matrix _tt_collect_filter_results(string matrix items, real scalar res_n)
+{
+    string rowvector wanted
+    string matrix out
+    string scalar rlev
+    real colvector keep
+    real scalar i, k, n, want_n
+
+    wanted = J(1, 0, "")
+    for (k = 1; k <= res_n; k++) {
+        rlev = st_local("_tt_res_level_" + strofreal(k))
+        if (rlev == "") continue
+        if (rlev == "_r_ci") {
+            wanted = wanted, _tt_collect_frag("result", "_r_lb")
+            wanted = wanted, _tt_collect_frag("result", "_r_ub")
+        }
+        else {
+            wanted = wanted, _tt_collect_frag("result", rlev)
+        }
+    }
+
+    want_n = cols(wanted)
+    if (want_n == 0) return(items)
+
+    keep = J(rows(items), 1, 0)
+    n = 0
+    for (i = 1; i <= rows(items); i++) {
+        for (k = 1; k <= want_n; k++) {
+            if (strpos(items[i, 1], wanted[k]) > 0) {
+                keep[i] = 1
+                n++
+                break
+            }
+        }
+    }
+
+    if (n == rows(items)) return(items)
+    if (n == 0) return(J(0, 2, ""))
+
+    out = J(n, 2, "")
+    k = 0
+    for (i = 1; i <= rows(items); i++) {
+        if (keep[i]) {
+            k++
+            out[k, 1] = items[i, 1]
+            out[k, 2] = items[i, 2]
+        }
+    }
+
+    return(out)
+}
+
+transmorphic scalar _tt_collect_index(
+    string matrix items,
+    string scalar rowdim,
+    string scalar coldim)
+{
+    transmorphic scalar index
+    string rowvector dims
+    string scalar key, frag
+    real scalar i, j, ok
+
+    index = asarray_create("string", 1)
+    dims = _tt_collect_dim_tokens(rowdim)
+    if (coldim != "") dims = dims, _tt_collect_dim_tokens(coldim)
+    dims = dims, "result"
+
+    for (i = 1; i <= rows(items); i++) {
+        key = ""
+        ok = 1
+        for (j = 1; j <= cols(dims); j++) {
+            frag = _tt_collect_key_fragment(items[i, 1], dims[j])
+            if (frag == "") {
+                ok = 0
+                break
+            }
+            if (key == "") key = frag
+            else key = key + "#" + frag
+        }
+        if (ok) asarray(index, key, items[i, 2])
+    }
+
+    return(index)
 }
 
 string scalar _tt_json_object_body(string scalar txt, string scalar key)

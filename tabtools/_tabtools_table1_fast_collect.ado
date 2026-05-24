@@ -949,16 +949,19 @@ void _t1tcfc_collect_mata(
     string scalar contc_name,
     string scalar cat_name)
 {
-    real colvector touse, group, group_levels, xvals, wvals
+    real colvector touse, group, group_levels, xvals, wvals, dvals, yvals, mask
+    real colvector base_mask, level_mask
+    real colvector xcol, gid
+    real colvector stat_source, disp_source
     real colvector fw, wt
     real matrix X
     string rowvector vars, types
-    real matrix sample, cont_n, cont_a, cont_b, cont_c, cat
-    real matrix cnt, nobs, sw, sx, sx2
+    real matrix sample, cont_n, cont_a, cont_b, cont_c, cat, block
     real matrix cell_disp, cell_w, group_disp, group_w
-    real colvector levels, rawlevels, realgroups, rowden
+    real colvector levels, rawlevels, rowden
     real scalar n, nv, ng, ngout, i, j, g, gi, li, L, is_cont, is_cat
-    real scalar x, y, statw, dispw, mean, var, ss, value_ok, denom
+    real scalar dispw, mean, var, ss, denom
+    real scalar swg, sxg, sx2g, nobsg, brow
 
     st_view(touse, ., touse_name)
     st_view(group, ., group_name)
@@ -971,11 +974,28 @@ void _t1tcfc_collect_mata(
     else fw = J(rows(group), 1, 1)
     if (has_wt) st_view(wt, ., wt_name)
     else wt = J(rows(group), 1, 1)
+    if (has_wt) {
+        stat_source = wt
+        disp_source = J(rows(group), 1, 1)
+    }
+    else if (has_fw) {
+        stat_source = fw
+        disp_source = fw
+    }
+    else {
+        stat_source = J(rows(group), 1, 1)
+        disp_source = stat_source
+    }
 
     group_levels = strtoreal(tokens(levels_string))'
     ng = rows(group_levels)
     ngout = ng + include_total
     n = rows(group)
+    gid = J(n, 1, .)
+    for (i = 1; i <= n; i++) {
+        if (touse[i] == 0 | group[i] >= .) continue
+        gid[i] = _t1tcfc_group_index(group[i], group_levels)
+    }
 
     sample = J(ngout, 5, .)
     for (g = 1; g <= ng; g++) {
@@ -994,10 +1014,9 @@ void _t1tcfc_collect_mata(
     }
 
     for (i = 1; i <= n; i++) {
-        if (touse[i] == 0 | group[i] >= .) continue
-        gi = _t1tcfc_group_index(group[i], group_levels)
+        gi = gid[i]
         if (gi >= .) continue
-        dispw = has_wt ? 1 : (has_fw ? fw[i] : 1)
+        dispw = disp_source[i]
         sample[gi, 3] = sample[gi, 3] + dispw
         if (has_wt) {
             sample[gi, 4] = sample[gi, 4] + wt[i]
@@ -1027,24 +1046,15 @@ void _t1tcfc_collect_mata(
         is_cont = (types[j] == "contn" | types[j] == "contln" | types[j] == "conts")
         if (!is_cont) continue
 
+        xcol = X[, j]
         if (types[j] == "conts") {
             for (g = 1; g <= ngout; g++) {
-                xvals = J(0, 1, .)
-                wvals = J(0, 1, .)
-                for (i = 1; i <= n; i++) {
-                    if (touse[i] == 0 | group[i] >= .) continue
-                    if (g <= ng) {
-                        if (group[i] != group_levels[g]) continue
-                    }
-                    x = X[i, j]
-                    if (x >= .) continue
-                    statw = has_wt ? wt[i] : (has_fw ? fw[i] : 1)
-                    dispw = has_wt ? 1 : statw
-                    xvals = xvals \ x
-                    wvals = wvals \ statw
-                    cont_n[j, g] = (cont_n[j, g] >= . ? 0 : cont_n[j, g]) + dispw
-                }
-                if (rows(xvals) > 0) {
+                mask = (gid :< .) :& (xcol :< .)
+                if (g <= ng) mask = mask :& (gid :== g)
+                if (sum(mask) > 0) {
+                    xvals = select(xcol, mask)
+                    wvals = select(stat_source, mask)
+                    cont_n[j, g] = sum(select(disp_source, mask))
                     cont_a[j, g] = _t1tcfc_wquantile(xvals, wvals, .50)
                     cont_b[j, g] = _t1tcfc_wquantile(xvals, wvals, .25)
                     cont_c[j, g] = _t1tcfc_wquantile(xvals, wvals, .75)
@@ -1053,47 +1063,30 @@ void _t1tcfc_collect_mata(
             continue
         }
 
-        cnt = J(1, ngout, 0)
-        nobs = J(1, ngout, 0)
-        sw = J(1, ngout, 0)
-        sx = J(1, ngout, 0)
-        sx2 = J(1, ngout, 0)
-        for (i = 1; i <= n; i++) {
-            if (touse[i] == 0 | group[i] >= .) continue
-            x = X[i, j]
-            value_ok = x < .
-            if (types[j] == "contln") value_ok = (x < . & x > 0)
-            if (!value_ok) continue
-            y = (types[j] == "contln" ? log(x) : x)
-            gi = _t1tcfc_group_index(group[i], group_levels)
-            if (gi >= .) continue
-            statw = has_wt ? wt[i] : (has_fw ? fw[i] : 1)
-            dispw = has_wt ? 1 : statw
-            cnt[1, gi] = cnt[1, gi] + dispw
-            nobs[1, gi] = nobs[1, gi] + 1
-            sw[1, gi] = sw[1, gi] + statw
-            sx[1, gi] = sx[1, gi] + statw * y
-            sx2[1, gi] = sx2[1, gi] + statw * y * y
-            if (include_total) {
-                cnt[1, ngout] = cnt[1, ngout] + dispw
-                nobs[1, ngout] = nobs[1, ngout] + 1
-                sw[1, ngout] = sw[1, ngout] + statw
-                sx[1, ngout] = sx[1, ngout] + statw * y
-                sx2[1, ngout] = sx2[1, ngout] + statw * y * y
-            }
-        }
         for (g = 1; g <= ngout; g++) {
-            cont_n[j, g] = cnt[1, g]
-            if (sw[1, g] <= 0) continue
-            mean = sx[1, g] / sw[1, g]
-            ss = sx2[1, g] - sx[1, g] * sx[1, g] / sw[1, g]
+            mask = (gid :< .) :& (xcol :< .)
+            if (types[j] == "contln") mask = mask :& (xcol :> 0)
+            if (g <= ng) mask = mask :& (gid :== g)
+            nobsg = sum(mask)
+            if (nobsg == 0) continue
+            xvals = select(xcol, mask)
+            yvals = (types[j] == "contln" ? log(xvals) : xvals)
+            wvals = select(stat_source, mask)
+            dvals = select(disp_source, mask)
+            cont_n[j, g] = sum(dvals)
+            swg = sum(wvals)
+            if (swg <= 0) continue
+            sxg = sum(wvals :* yvals)
+            sx2g = sum(wvals :* (yvals:^2))
+            mean = sxg / swg
+            ss = sx2g - sxg * sxg / swg
             if (ss < 0 & ss > -1e-8) ss = 0
             var = .
             if (has_wt) {
-                if (nobs[1, g] > 1) var = (nobs[1, g] / (sw[1, g] * (nobs[1, g] - 1))) * ss
+                if (nobsg > 1) var = (nobsg / (swg * (nobsg - 1))) * ss
             }
             else {
-                if (sw[1, g] > 1) var = ss / (sw[1, g] - 1)
+                if (swg > 1) var = ss / (swg - 1)
             }
             if (types[j] == "contln") {
                 cont_a[j, g] = exp(mean)
@@ -1115,22 +1108,18 @@ void _t1tcfc_collect_mata(
             levels = 1
         }
         else {
-            rawlevels = J(0, 1, .)
-            for (i = 1; i <= n; i++) {
-                if (touse[i] == 0 | group[i] >= .) continue
-                x = X[i, j]
-                if (x < .) rawlevels = rawlevels \ x
-            }
-            levels = uniqrows(sort(rawlevels, 1))
+            xcol = X[, j]
+            mask = (gid :< .) :& (xcol :< .)
+            if (sum(mask) > 0) rawlevels = select(X[, j], mask)
+            else rawlevels = J(0, 1, .)
+            if (rows(rawlevels) > 0) levels = uniqrows(sort(rawlevels, 1))
+            else levels = J(0, 1, .)
             if (include_missing) {
-                for (i = 1; i <= n; i++) {
-                    if (touse[i] != 0 & group[i] < . & X[i, j] >= .) {
-                        levels = levels \ .
-                        break
-                    }
-                }
+                mask = (gid :< .) :& (xcol :>= .)
+                if (sum(mask) > 0) levels = levels \ .
             }
         }
+        xcol = X[, j]
         L = rows(levels)
         if (L == 0) continue
         cell_disp = J(L, ngout, 0)
@@ -1138,51 +1127,52 @@ void _t1tcfc_collect_mata(
         group_disp = J(1, ngout, 0)
         group_w = J(1, ngout, 0)
 
-        for (i = 1; i <= n; i++) {
-            if (touse[i] == 0 | group[i] >= .) continue
-            x = X[i, j]
-            if (types[j] == "bin" | types[j] == "bine") {
-                if (x >= .) continue
-                li = (x == 1 ? 1 : .)
-                value_ok = 1
+        if (types[j] == "bin" | types[j] == "bine") {
+            base_mask = (gid :< .) :& (xcol :< .)
+        }
+        else if (include_missing) {
+            base_mask = (gid :< .)
+        }
+        else {
+            base_mask = (gid :< .) :& (xcol :< .)
+        }
+
+        for (g = 1; g <= ngout; g++) {
+            mask = base_mask
+            if (g <= ng) mask = mask :& (gid :== g)
+            if (sum(mask) > 0) {
+                group_disp[1, g] = sum(select(disp_source, mask))
+                group_w[1, g] = sum(select(stat_source, mask))
             }
-            else {
-                if (x >= . & !include_missing) continue
-                li = _t1tcfc_level_index(x, levels)
-                value_ok = li < .
-            }
-            if (!value_ok) continue
-            gi = _t1tcfc_group_index(group[i], group_levels)
-            if (gi >= .) continue
-            statw = has_wt ? wt[i] : (has_fw ? fw[i] : 1)
-            dispw = has_wt ? 1 : statw
-            group_disp[1, gi] = group_disp[1, gi] + dispw
-            group_w[1, gi] = group_w[1, gi] + statw
-            if (include_total) {
-                group_disp[1, ngout] = group_disp[1, ngout] + dispw
-                group_w[1, ngout] = group_w[1, ngout] + statw
-            }
-            if (li < .) {
-                cell_disp[li, gi] = cell_disp[li, gi] + dispw
-                cell_w[li, gi] = cell_w[li, gi] + statw
-                if (include_total) {
-                    cell_disp[li, ngout] = cell_disp[li, ngout] + dispw
-                    cell_w[li, ngout] = cell_w[li, ngout] + statw
+        }
+        for (li = 1; li <= L; li++) {
+            if (levels[li] >= .) level_mask = base_mask :& (xcol :>= .)
+            else level_mask = base_mask :& (xcol :== levels[li])
+            if (sum(level_mask) == 0) continue
+            for (g = 1; g <= ngout; g++) {
+                mask = level_mask
+                if (g <= ng) mask = mask :& (gid :== g)
+                if (sum(mask) > 0) {
+                    cell_disp[li, g] = sum(select(disp_source, mask))
+                    cell_w[li, g] = sum(select(stat_source, mask))
                 }
             }
         }
 
         rowden = J(L, 1, 0)
-        realgroups = (ng > 0 ? 1::ng : J(0, 1, .))
         for (li = 1; li <= L; li++) {
             for (g = 1; g <= ng; g++) rowden[li] = rowden[li] + cell_w[li, g]
         }
+        block = J(L * ngout, 9, .)
+        brow = 0
         for (li = 1; li <= L; li++) {
             for (g = 1; g <= ngout; g++) {
                 denom = group_w[1, g]
-                cat = cat \ (j, levels[li], li, g, cell_disp[li, g], group_disp[1, g], cell_w[li, g], denom, rowden[li])
+                brow = brow + 1
+                block[brow, .] = (j, levels[li], li, g, cell_disp[li, g], group_disp[1, g], cell_w[li, g], denom, rowden[li])
             }
         }
+        cat = cat \ block
     }
 
     if (rows(cat) == 0) cat = J(1, 9, .)

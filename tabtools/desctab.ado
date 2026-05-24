@@ -771,53 +771,46 @@ program define desctab, rclass
             if "`borderstyle'" == "none" local _vborder_code = 4
 
             tempname _style_rules
-            matrix `_style_rules' = (13, 1, 1, 1, 1, 1, 0, 0, 0) \ ///
-                (13, 1, 1, 2, 2, `_label_width', 0, 0, 0)
+            local _style_rule_rows ""
+            local _style_rule_rows `"`_style_rule_rows' | 13, 1, 1, 1, 1, 1, 0, 0, 0"'
+            local _style_rule_rows `"`_style_rule_rows' | 13, 1, 1, 2, 2, `_label_width', 0, 0, 0"'
             forvalues _c = 3/`num_cols' {
                 local _dc = `_c' - 2
-                matrix `_style_rules' = `_style_rules' \ ///
-                    (13, 1, 1, `_c', `_c', `_data_width_`_dc'', 0, 0, 0)
+                local _style_rule_rows `"`_style_rule_rows' | 13, 1, 1, `_c', `_c', `_data_width_`_dc'', 0, 0, 0"'
             }
-            matrix `_style_rules' = `_style_rules' \ ///
-                (12, 1, 1, 1, 1, 30, 0, 0, 0) \ ///
-                (1, 1, `num_rows', 1, `num_cols', `_fontsize', 1, 0, 0) \ ///
-                (1, 1, 1, 1, `num_cols', `=`_fontsize' + 2', 1, 0, 0) \ ///
-                (14, 1, 1, 1, `num_cols', 0, 0, 0, 0) \ ///
-                (4, 1, 1, 1, 1, 0, 1, 0, 0) \ ///
-                (5, 1, 1, 1, 1, 0, 1, 0, 0) \ ///
-                (6, 1, 1, 1, 1, 0, 2, 0, 0) \ ///
-                (2, 1, 1, 1, 1, 0, 1, 0, 0)
+            local _style_rule_rows `"`_style_rule_rows' | 12, 1, 1, 1, 1, 30, 0, 0, 0"'
+            local _style_rule_rows `"`_style_rule_rows' | 1, 1, `num_rows', 1, `num_cols', `_fontsize', 1, 0, 0"'
+            local _style_rule_rows `"`_style_rule_rows' | 1, 1, 1, 1, `num_cols', `=`_fontsize' + 2', 1, 0, 0"'
+            local _style_rule_rows `"`_style_rule_rows' | 14, 1, 1, 1, `num_cols', 0, 0, 0, 0"'
+            local _style_rule_rows `"`_style_rule_rows' | 4, 1, 1, 1, 1, 0, 1, 0, 0"'
+            local _style_rule_rows `"`_style_rule_rows' | 5, 1, 1, 1, 1, 0, 1, 0, 0"'
+            local _style_rule_rows `"`_style_rule_rows' | 6, 1, 1, 1, 1, 0, 2, 0, 0"'
+            local _style_rule_rows `"`_style_rule_rows' | 2, 1, 1, 1, 1, 0, 1, 0, 0"'
             if `_merge_group_headers' {
                 if `_merge_row_header' & `data_start' > 3 {
-                    matrix `_style_rules' = `_style_rules' \ ///
-                        (14, 2, `=`data_start' - 1', 2, 2, 0, 0, 0, 0) \ ///
-                        (6, 2, `=`data_start' - 1', 2, 2, 0, 2, 0, 0)
+                    local _style_rule_rows `"`_style_rule_rows' | 14, 2, `=`data_start' - 1', 2, 2, 0, 0, 0, 0"'
+                    local _style_rule_rows `"`_style_rule_rows' | 6, 2, `=`data_start' - 1', 2, 2, 0, 2, 0, 0"'
                 }
                 forvalues _g = 1/`n_groups' {
                     local _merge_start = 3 + (`_g' - 1) * `n_stats'
                     local _merge_end = `_merge_start' + `n_stats' - 1
                     if `_merge_end' > `_merge_start' {
-                        matrix `_style_rules' = `_style_rules' \ ///
-                            (14, 2, 2, `_merge_start', `_merge_end', 0, 0, 0, 0)
+                        local _style_rule_rows `"`_style_rule_rows' | 14, 2, 2, `_merge_start', `_merge_end', 0, 0, 0, 0"'
                     }
                 }
             }
-            matrix `_style_rules' = `_style_rules' \ ///
-                (2, 2, `=`data_start' - 1', 2, `num_cols', 0, 1, 0, 0) \ ///
-                (5, 2, `=`data_start' - 1', 3, `num_cols', 0, 2, 0, 0)
+            local _style_rule_rows `"`_style_rule_rows' | 2, 2, `=`data_start' - 1', 2, `num_cols', 0, 1, 0, 0"'
+            local _style_rule_rows `"`_style_rule_rows' | 5, 2, `=`data_start' - 1', 3, `num_cols', 0, 2, 0, 0"'
             if "`headershade'" != "" {
-                matrix `_style_rules' = `_style_rules' \ ///
-                    (7, 2, `=`data_start' - 1', 2, `num_cols', 0, -1, 0, 0)
+                local _style_rule_rows `"`_style_rule_rows' | 7, 2, `=`data_start' - 1', 2, `num_cols', 0, -1, 0, 0"'
             }
-            matrix `_style_rules' = `_style_rules' \ ///
-                (8, 2, 2, 2, `num_cols', 0, `_hborder_code', 0, 0) \ ///
-                (9, `=`data_start' - 1', `=`data_start' - 1', 2, `num_cols', 0, `_hborder_code', 0, 0) \ ///
-                (9, `num_rows', `num_rows', 2, `num_cols', 0, `_hborder_code', 0, 0)
+            local _style_rule_rows `"`_style_rule_rows' | 8, 2, 2, 2, `num_cols', 0, `_hborder_code', 0, 0"'
+            local _style_rule_rows `"`_style_rule_rows' | 9, `=`data_start' - 1', `=`data_start' - 1', 2, `num_cols', 0, `_hborder_code', 0, 0"'
+            local _style_rule_rows `"`_style_rule_rows' | 9, `num_rows', `num_rows', 2, `num_cols', 0, `_hborder_code', 0, 0"'
             if "`borderstyle'" != "academic" {
-                matrix `_style_rules' = `_style_rules' \ ///
-                    (10, 2, `num_rows', 2, 2, 0, `_vborder_code', 0, 0) \ ///
-                    (11, 2, `num_rows', `num_cols', `num_cols', 0, `_vborder_code', 0, 0) \ ///
-                    (11, 2, `num_rows', 2, 2, 0, `_vborder_code', 0, 0)
+                local _style_rule_rows `"`_style_rule_rows' | 10, 2, `num_rows', 2, 2, 0, `_vborder_code', 0, 0"'
+                local _style_rule_rows `"`_style_rule_rows' | 11, 2, `num_rows', `num_cols', `num_cols', 0, `_vborder_code', 0, 0"'
+                local _style_rule_rows `"`_style_rule_rows' | 11, 2, `num_rows', 2, 2, 0, `_vborder_code', 0, 0"'
                 if `n_groups' > 1 {
                     local _cols_per_group = `n_display_cols' / `n_groups'
                     forvalues _g = 1/`=`n_groups' - 1' {
@@ -829,16 +822,14 @@ program define desctab, rclass
                             | ("`_curr_label'" == "Total")
                         if `_draw' {
                             local _gcol_end = 2 + `_g' * `_cols_per_group'
-                            matrix `_style_rules' = `_style_rules' \ ///
-                                (11, 2, `num_rows', `_gcol_end', `_gcol_end', 0, `_vborder_code', 0, 0)
+                            local _style_rule_rows `"`_style_rule_rows' | 11, 2, `num_rows', `_gcol_end', `_gcol_end', 0, `_vborder_code', 0, 0"'
                         }
                     }
                 }
             }
             if "`zebra'" != "" {
                 forvalues _zr = `=`data_start' + 1'(2)`num_rows' {
-                    matrix `_style_rules' = `_style_rules' \ ///
-                        (7, `_zr', `_zr', 2, `num_cols', 0, -2, 0, 0)
+                    local _style_rule_rows `"`_style_rule_rows' | 7, `_zr', `_zr', 2, `num_cols', 0, -2, 0, 0"'
                 }
             }
             if `highlight' != -1 {
@@ -849,24 +840,23 @@ program define desctab, rclass
                         local _excel_hr = `_hr' - 1
                     }
                     if `_excel_hr' >= `data_start' & `_excel_hr' <= `num_rows' {
-                        matrix `_style_rules' = `_style_rules' \ ///
-                            (7, `_excel_hr', `_excel_hr', 2, `num_cols', 0, -3, 0, 0)
+                        local _style_rule_rows `"`_style_rule_rows' | 7, `_excel_hr', `_excel_hr', 2, `num_cols', 0, -3, 0, 0"'
                     }
                 }
             }
-            matrix `_style_rules' = `_style_rules' \ ///
-                (5, `data_start', `num_rows', 3, `num_cols', 0, 2, 0, 0)
+            local _style_rule_rows `"`_style_rule_rows' | 5, `data_start', `num_rows', 3, `num_cols', 0, 2, 0, 0"'
             if `"`_fn_text'"' != "" {
                 local _fn_row = `num_rows' + 1
                 local _fn_fontsize = max(`_fontsize' - 2, 6)
                 mata: b.put_string(`_fn_row', 2, `"`_fn_text'"')
-                matrix `_style_rules' = `_style_rules' \ ///
-                    (14, `_fn_row', `_fn_row', 2, `num_cols', 0, 0, 0, 0) \ ///
-                    (4, `_fn_row', `_fn_row', 2, 2, 0, 1, 0, 0) \ ///
-                    (1, `_fn_row', `_fn_row', 2, 2, `_fn_fontsize', 1, 0, 0) \ ///
-                    (3, `_fn_row', `_fn_row', 2, 2, 0, 1, 0, 0)
+                local _style_rule_rows `"`_style_rule_rows' | 14, `_fn_row', `_fn_row', 2, `num_cols', 0, 0, 0, 0"'
+                local _style_rule_rows `"`_style_rule_rows' | 4, `_fn_row', `_fn_row', 2, 2, 0, 1, 0, 0"'
+                local _style_rule_rows `"`_style_rule_rows' | 1, `_fn_row', `_fn_row', 2, 2, `_fn_fontsize', 1, 0, 0"'
+                local _style_rule_rows `"`_style_rule_rows' | 3, `_fn_row', `_fn_row', 2, 2, 0, 1, 0, 0"'
             }
 
+            _tabtools_xlsx_build_styles, matrix(`_style_rules') ///
+                rules(`"`_style_rule_rows'"') cols(9)
             _tabtools_xlsx_apply_styles, book(b) sheet("`sheet'") ///
                 rules(`_style_rules') font("`_font'") ///
                 color1("`_headercolor'") color2("`_zebracolor'") ///
@@ -921,8 +911,7 @@ program define _desctab_parse_layout, rclass
             local rowdim "`_dim'"
         }
         else if "`_dim'" != "" & "`_dim'" != "result" & "`rowdim'" != "" {
-            display as error "desctab supports one row dimension in v1"
-            exit 459
+            local rowdim "`rowdim'#`_dim'"
         }
     }
     foreach _tok in `=subinstr("`colspec'", "#", " ", .)' {
@@ -931,8 +920,7 @@ program define _desctab_parse_layout, rclass
             local coldim "`_dim'"
         }
         else if "`_dim'" != "" & "`_dim'" != "result" & "`coldim'" != "" {
-            display as error "desctab supports one column dimension in v1"
-            exit 459
+            local coldim "`coldim'#`_dim'"
         }
     }
     return local rowdim "`rowdim'"

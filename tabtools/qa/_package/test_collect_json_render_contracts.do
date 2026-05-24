@@ -96,6 +96,58 @@ else {
 
 local ++test_count
 capture noisily {
+    clear
+    set obs 1000
+    set seed 12345
+    gen school = ceil(_n/100)
+    gen class = ceil(_n/10)
+    gen x = rnormal()
+    tempvar us uc
+    gen `us' = rnormal()
+    gen `uc' = rnormal()
+    bysort school: gen u_school = `us'[1] * 1.2
+    bysort class: gen u_class = `uc'[1] * 0.7
+    gen y = 1 + 0.5*x + u_school + u_class + rnormal()
+
+    collect clear
+    quietly collect: mixed y x || school: || class:
+    collect label levels result _r_b "Coef.", modify
+    collect label levels result _r_ci "95% CI", modify
+    collect label levels result _r_p "p-value", modify
+    collect style cell result[_r_ci], warn sformat("(%s)") cidelimiter(", ")
+    collect layout (coleq#colname) (cmdset#result[_r_b _r_ci _r_p]) ()
+
+    preserve
+    _tabtools_collect_render_current, type(main) rowdim(coleq#colname) ///
+        coldim(cmdset) results(_r_b _r_ci _r_p) sep(", ")
+    assert _N == 11
+    assert c(k) == 4
+    assert A[3] == "y"
+    assert A[4] == "x"
+    assert A[6] == "school"
+    assert A[7] == "var(_cons)"
+    assert A[8] == "class"
+    assert A[9] == "var(_cons)"
+    assert A[10] == "Residual"
+    assert A[11] == "var(e)"
+    assert B[4] != ""
+    assert strpos(C[4], ", ") > 0
+    assert B[7] != ""
+    assert B[9] != ""
+    assert B[11] != ""
+    restore
+}
+if _rc == 0 {
+    display as result "  PASS: multilevel coleq#colname main layout renders without workbook fallback"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: multilevel coleq#colname raw render (rc=`=_rc')"
+    local ++fail_count
+}
+
+local ++test_count
+capture noisily {
     sysuse auto, clear
     collect clear
     quietly collect: regress price i.foreign mpg
@@ -286,6 +338,94 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL: desctab coldim layout render (rc=`=_rc')"
+    local ++fail_count
+}
+
+local ++test_count
+capture noisily {
+    sysuse auto, clear
+    collect clear
+    quietly collect: table rep78 foreign, statistic(mean price) ///
+        statistic(frequency)
+    collect layout (rep78#foreign) (result[mean frequency])
+
+    preserve
+    _tabtools_collect_render_current, type(desctab) rowdim(rep78#foreign) ///
+        results(mean frequency)
+    assert _N == 18
+    assert c(k) == 3
+    assert B[1] == "Mean"
+    assert C[1] == "Frequency"
+    assert A[2] == "Repair record 1978#Car origin"
+    assert A[3] == "1 > Domestic"
+    assert A[4] == "1 > Total"
+    assert A[8] == "3 > Foreign"
+    assert A[_N] == "Total > Total"
+    assert B[3] != ""
+    assert C[_N] != ""
+    restore
+
+    capture frame drop _cj_desc_compound
+    desctab, frame(_cj_desc_compound)
+    frame _cj_desc_compound: assert A[3] == "Repair record 1978#Car origin"
+    frame _cj_desc_compound: assert A[4] == "1 > Domestic"
+    frame _cj_desc_compound: assert c1[4] == "2"
+    frame drop _cj_desc_compound
+}
+if _rc == 0 {
+    display as result "  PASS: desctab compound row layout renders without workbook fallback"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: desctab compound row layout render (rc=`=_rc')"
+    local ++fail_count
+}
+
+local ++test_count
+capture noisily {
+    sysuse auto, clear
+    gen byte highmpg = mpg > 20
+    label define _cj_highmpg 0 "Low MPG" 1 "High MPG"
+    label values highmpg _cj_highmpg
+    label variable highmpg "Mileage band"
+
+    collect clear
+    quietly collect: table rep78 foreign highmpg, statistic(mean price) ///
+        statistic(frequency)
+    collect layout (rep78) (foreign#highmpg#result[mean frequency])
+
+    preserve
+    _tabtools_collect_render_current, type(desctab) rowdim(rep78) ///
+        coldim(foreign#highmpg) results(mean frequency)
+    assert _N == 10
+    assert c(k) == 19
+    assert B[1] == "Car origin#Mileage band"
+    assert B[2] == "Domestic > Low MPG"
+    assert B[3] == "Mean"
+    assert C[3] == "Frequency"
+    assert A[4] == "Repair record 1978"
+    assert A[5] == "1"
+    assert B[5] != ""
+    assert C[5] != ""
+    assert R[10] != ""
+    assert S[10] != ""
+    restore
+
+    capture frame drop _cj_desc_colcompound
+    desctab, frame(_cj_desc_colcompound)
+    frame _cj_desc_colcompound: assert A[2] == "Repair record 1978"
+    frame _cj_desc_colcompound: assert c1[2] == "Domestic > Low MPG"
+    frame _cj_desc_colcompound: assert c1[3] == "Frequency"
+    frame _cj_desc_colcompound: assert c2[3] == "Mean"
+    frame _cj_desc_colcompound: assert A[4] == "1"
+    frame drop _cj_desc_colcompound
+}
+if _rc == 0 {
+    display as result "  PASS: desctab compound column layout renders without workbook fallback"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: desctab compound column layout render (rc=`=_rc')"
     local ++fail_count
 }
 

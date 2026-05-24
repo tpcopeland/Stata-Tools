@@ -36,6 +36,7 @@ f _tabtools_collect_render_current.ado
 f _tabtools_table_metadata_current.ado
 f _tabtools_xlsx_set_widths.ado
 f _tabtools_xlsx_apply_styles.ado
+f _tabtools_xlsx_build_styles.ado
 f _tabtools_table1_fast_collect.ado
 f table1_tc.ado
 f table1_tc.sthlp

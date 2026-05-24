@@ -1068,54 +1068,47 @@ quietly {
 			if "`borderstyle'" == "none" local _vborder_code = 4
 
 			tempname _style_rules
-			matrix `_style_rules' = (12, 1, 1, 1, 1, 30, 0, 0, 0) \ ///
-				(13, 1, 1, 1, 1, 1, 0, 0, 0) \ ///
-				(13, 1, 1, 2, 2, `factor_length', 0, 0, 0)
+			local _style_rule_rows ""
+			local _style_rule_rows `"`_style_rule_rows' | 12, 1, 1, 1, 1, 30, 0, 0, 0"'
+			local _style_rule_rows `"`_style_rule_rows' | 13, 1, 1, 1, 1, 1, 0, 0, 0"'
+			local _style_rule_rows `"`_style_rule_rows' | 13, 1, 1, 2, 2, `factor_length', 0, 0, 0"'
 			forvalues i = 3(3)`=`num_cols'-2' {
-				matrix `_style_rules' = `_style_rules' \ ///
-					(13, 1, 1, `i', `i', `est_width', 0, 0, 0)
+				local _style_rule_rows `"`_style_rule_rows' | 13, 1, 1, `i', `i', `est_width', 0, 0, 0"'
 			}
 			forvalues i = 4(3)`=`num_cols'-1' {
-				matrix `_style_rules' = `_style_rules' \ ///
-					(13, 1, 1, `i', `i', `ci_width', 0, 0, 0)
+				local _style_rule_rows `"`_style_rule_rows' | 13, 1, 1, `i', `i', `ci_width', 0, 0, 0"'
 			}
 			forvalues i = 5(3)`num_cols' {
-				matrix `_style_rules' = `_style_rules' \ ///
-					(13, 1, 1, `i', `i', `p_width', 0, 0, 0)
+				local _style_rule_rows `"`_style_rule_rows' | 13, 1, 1, `i', `i', `p_width', 0, 0, 0"'
 			}
 			local _total_model_width = `est_width' + `ci_width' + `p_width'
 			if `=`max_header_length'*.9' > `_total_model_width' {
 				local headerheight = ceil(`=`max_header_length'*.9'/`_total_model_width')
-				matrix `_style_rules' = `_style_rules' \ ///
-					(12, 2, 2, 1, 1, `=`headerheight'*15', 0, 0, 0)
+				local _style_rule_rows `"`_style_rule_rows' | 12, 2, 2, 1, 1, `=`headerheight'*15', 0, 0, 0"'
 			}
 
-			matrix `_style_rules' = `_style_rules' \ ///
-				(1, 1, `num_rows', 1, `num_cols', `_fontsize', 1, 0, 0) \ ///
-				(1, 1, 1, 1, `num_cols', `=`_fontsize'+2', 1, 0, 0) \ ///
-				(14, 1, 1, 1, `num_cols', 0, 0, 0, 0) \ ///
-				(4, 1, 1, 1, 1, 0, 1, 0, 0) \ ///
-				(5, 1, 1, 1, 1, 0, 1, 0, 0) \ ///
-				(6, 1, 1, 1, 1, 0, 2, 0, 0) \ ///
-				(2, 1, 1, 1, 1, 0, 1, 0, 0)
+			local _style_rule_rows `"`_style_rule_rows' | 1, 1, `num_rows', 1, `num_cols', `_fontsize', 1, 0, 0"'
+			local _style_rule_rows `"`_style_rule_rows' | 1, 1, 1, 1, `num_cols', `=`_fontsize'+2', 1, 0, 0"'
+			local _style_rule_rows `"`_style_rule_rows' | 14, 1, 1, 1, `num_cols', 0, 0, 0, 0"'
+			local _style_rule_rows `"`_style_rule_rows' | 4, 1, 1, 1, 1, 0, 1, 0, 0"'
+			local _style_rule_rows `"`_style_rule_rows' | 5, 1, 1, 1, 1, 0, 1, 0, 0"'
+			local _style_rule_rows `"`_style_rule_rows' | 6, 1, 1, 1, 1, 0, 2, 0, 0"'
+			local _style_rule_rows `"`_style_rule_rows' | 2, 1, 1, 1, 1, 0, 1, 0, 0"'
 			if "`headershade'" != "" {
-				matrix `_style_rules' = `_style_rules' \ ///
-					(7, 2, 3, 2, `num_cols', 0, -1, 0, 0)
+				local _style_rule_rows `"`_style_rule_rows' | 7, 2, 3, 2, `num_cols', 0, -1, 0, 0"'
 			}
-			matrix `_style_rules' = `_style_rules' \ ///
-				(2, 3, 3, 2, `num_cols', 0, 1, 0, 0) \ ///
-				(5, 3, 3, 2, `num_cols', 0, 2, 0, 0) \ ///
-				(6, 3, 3, 2, `num_cols', 0, 2, 0, 0)
+			local _style_rule_rows `"`_style_rule_rows' | 2, 3, 3, 2, `num_cols', 0, 1, 0, 0"'
+			local _style_rule_rows `"`_style_rule_rows' | 5, 3, 3, 2, `num_cols', 0, 2, 0, 0"'
+			local _style_rule_rows `"`_style_rule_rows' | 6, 3, 3, 2, `num_cols', 0, 2, 0, 0"'
 
 			foreach row of local ref_rows {
 				local col_num = 3
 				while `col_num' <= `n' {
 					local _col_end = `col_num' + 2
-					matrix `_style_rules' = `_style_rules' \ ///
-						(14, `row', `row', `col_num', `_col_end', 0, 0, 0, 0) \ ///
-						(5, `row', `row', `col_num', `col_num', 0, 2, 0, 0) \ ///
-						(6, `row', `row', `col_num', `col_num', 0, 2, 0, 0) \ ///
-						(3, `row', `row', `col_num', `col_num', 0, 1, 0, 0)
+					local _style_rule_rows `"`_style_rule_rows' | 14, `row', `row', `col_num', `_col_end', 0, 0, 0, 0"'
+					local _style_rule_rows `"`_style_rule_rows' | 5, `row', `row', `col_num', `col_num', 0, 2, 0, 0"'
+					local _style_rule_rows `"`_style_rule_rows' | 6, `row', `row', `col_num', `col_num', 0, 2, 0, 0"'
+					local _style_rule_rows `"`_style_rule_rows' | 3, `row', `row', `col_num', `col_num', 0, 1, 0, 0"'
 					local col_num = `col_num' + 3
 				}
 			}
@@ -1123,39 +1116,33 @@ quietly {
 			local col_num = 3
 			while `col_num' <= `n' {
 				local _col_end = `col_num' + 2
-				matrix `_style_rules' = `_style_rules' \ ///
-					(14, 2, 2, `col_num', `_col_end', 0, 0, 0, 0) \ ///
-					(5, 2, 2, `col_num', `col_num', 0, 2, 0, 0) \ ///
-					(6, 2, 2, `col_num', `col_num', 0, 2, 0, 0) \ ///
-					(2, 2, 2, `col_num', `col_num', 0, 1, 0, 0) \ ///
-					(4, 2, 2, `col_num', `col_num', 0, 1, 0, 0)
+				local _style_rule_rows `"`_style_rule_rows' | 14, 2, 2, `col_num', `_col_end', 0, 0, 0, 0"'
+				local _style_rule_rows `"`_style_rule_rows' | 5, 2, 2, `col_num', `col_num', 0, 2, 0, 0"'
+				local _style_rule_rows `"`_style_rule_rows' | 6, 2, 2, `col_num', `col_num', 0, 2, 0, 0"'
+				local _style_rule_rows `"`_style_rule_rows' | 2, 2, 2, `col_num', `col_num', 0, 1, 0, 0"'
+				local _style_rule_rows `"`_style_rule_rows' | 4, 2, 2, `col_num', `col_num', 0, 1, 0, 0"'
 				if "`borderstyle'" != "academic" {
-					matrix `_style_rules' = `_style_rules' \ ///
-						(11, 2, `num_rows', `_col_end', `_col_end', 0, `_vborder_code', 0, 0)
+					local _style_rule_rows `"`_style_rule_rows' | 11, 2, `num_rows', `_col_end', `_col_end', 0, `_vborder_code', 0, 0"'
 				}
 				local col_num = `col_num' + 3
 			}
 
-			matrix `_style_rules' = `_style_rules' \ ///
-				(8, 2, 2, 2, `num_cols', 0, `_hborder_code', 0, 0) \ ///
-				(8, 3, 3, 3, `num_cols', 0, `_hborder_code', 0, 0) \ ///
-				(9, 3, 3, 2, `num_cols', 0, `_hborder_code', 0, 0) \ ///
-				(9, `num_rows', `num_rows', 2, `num_cols', 0, `_hborder_code', 0, 0)
+			local _style_rule_rows `"`_style_rule_rows' | 8, 2, 2, 2, `num_cols', 0, `_hborder_code', 0, 0"'
+			local _style_rule_rows `"`_style_rule_rows' | 8, 3, 3, 3, `num_cols', 0, `_hborder_code', 0, 0"'
+			local _style_rule_rows `"`_style_rule_rows' | 9, 3, 3, 2, `num_cols', 0, `_hborder_code', 0, 0"'
+			local _style_rule_rows `"`_style_rule_rows' | 9, `num_rows', `num_rows', 2, `num_cols', 0, `_hborder_code', 0, 0"'
 			if "`borderstyle'" != "academic" {
-				matrix `_style_rules' = `_style_rules' \ ///
-					(11, 2, `num_rows', `num_cols', `num_cols', 0, `_vborder_code', 0, 0) \ ///
-					(10, 2, `num_rows', 2, 2, 0, `_vborder_code', 0, 0) \ ///
-					(11, 2, `num_rows', 2, 2, 0, `_vborder_code', 0, 0)
+				local _style_rule_rows `"`_style_rule_rows' | 11, 2, `num_rows', `num_cols', `num_cols', 0, `_vborder_code', 0, 0"'
+				local _style_rule_rows `"`_style_rule_rows' | 10, 2, `num_rows', 2, 2, 0, `_vborder_code', 0, 0"'
+				local _style_rule_rows `"`_style_rule_rows' | 11, 2, `num_rows', 2, 2, 0, `_vborder_code', 0, 0"'
 			}
 			if "`zebra'" != "" {
 				forvalues _zr = 5(2)`num_rows' {
-					matrix `_style_rules' = `_style_rules' \ ///
-						(7, `_zr', `_zr', 2, `num_cols', 0, -2, 0, 0)
+					local _style_rule_rows `"`_style_rule_rows' | 7, `_zr', `_zr', 2, `num_cols', 0, -2, 0, 0"'
 				}
 			}
 			if `num_rows' >= 4 {
-				matrix `_style_rules' = `_style_rules' \ ///
-					(5, 4, `num_rows', 3, `num_cols', 0, 2, 0, 0)
+				local _style_rule_rows `"`_style_rule_rows' | 5, 4, `num_rows', 3, `num_cols', 0, 2, 0, 0"'
 			}
 			if `has_boldp' | `has_highlight' {
 				forvalues _m = 1/`_n_models' {
@@ -1164,12 +1151,10 @@ quietly {
 						local _pnum = `_bp_m`_m'_r`_dr''
 						if `_pnum' < . {
 							if `has_boldp' & `_pnum' < `boldp' {
-								matrix `_style_rules' = `_style_rules' \ ///
-									(2, `_dr', `_dr', `_pcol', `_pcol', 0, 1, 0, 0)
+								local _style_rule_rows `"`_style_rule_rows' | 2, `_dr', `_dr', `_pcol', `_pcol', 0, 1, 0, 0"'
 							}
 							if `has_highlight' & `_pnum' < `highlight' {
-								matrix `_style_rules' = `_style_rules' \ ///
-									(7, `_dr', `_dr', 2, `num_cols', 0, -3, 0, 0)
+								local _style_rule_rows `"`_style_rule_rows' | 7, `_dr', `_dr', 2, `num_cols', 0, -3, 0, 0"'
 							}
 						}
 					}
@@ -1179,15 +1164,16 @@ quietly {
 				local _fn_row = `num_rows' + 1
 				local _fn_fontsize = max(`_fontsize' - 2, 6)
 				mata: b.put_string(`_fn_row', 2, `"`footnote'"')
-				matrix `_style_rules' = `_style_rules' \ ///
-					(14, `_fn_row', `_fn_row', 2, `num_cols', 0, 0, 0, 0) \ ///
-					(5, `_fn_row', `_fn_row', 2, 2, 0, 1, 0, 0) \ ///
-					(6, `_fn_row', `_fn_row', 2, 2, 0, 2, 0, 0) \ ///
-					(4, `_fn_row', `_fn_row', 2, 2, 0, 1, 0, 0) \ ///
-					(1, `_fn_row', `_fn_row', 2, 2, `_fn_fontsize', 1, 0, 0) \ ///
-					(3, `_fn_row', `_fn_row', 2, 2, 0, 1, 0, 0)
+				local _style_rule_rows `"`_style_rule_rows' | 14, `_fn_row', `_fn_row', 2, `num_cols', 0, 0, 0, 0"'
+				local _style_rule_rows `"`_style_rule_rows' | 5, `_fn_row', `_fn_row', 2, 2, 0, 1, 0, 0"'
+				local _style_rule_rows `"`_style_rule_rows' | 6, `_fn_row', `_fn_row', 2, 2, 0, 2, 0, 0"'
+				local _style_rule_rows `"`_style_rule_rows' | 4, `_fn_row', `_fn_row', 2, 2, 0, 1, 0, 0"'
+				local _style_rule_rows `"`_style_rule_rows' | 1, `_fn_row', `_fn_row', 2, 2, `_fn_fontsize', 1, 0, 0"'
+				local _style_rule_rows `"`_style_rule_rows' | 3, `_fn_row', `_fn_row', 2, 2, 0, 1, 0, 0"'
 			}
 
+			_tabtools_xlsx_build_styles, matrix(`_style_rules') ///
+				rules(`"`_style_rule_rows'"') cols(9)
 			_tabtools_xlsx_apply_styles, book(b) sheet("`sheet'") ///
 				rules(`_style_rules') font("`_font'") ///
 				color1("`_headercolor'") color2("`_zebracolor'") ///

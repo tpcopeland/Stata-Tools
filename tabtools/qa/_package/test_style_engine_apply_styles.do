@@ -186,6 +186,7 @@ local fail_count = 0
 local ++test_count
 capture noisily {
     which _tabtools_xlsx_apply_styles
+    which _tabtools_xlsx_build_styles
     which _tabtools_xlsx_write_current
     which _tabtools_xlsx_read_current
 }
@@ -195,6 +196,37 @@ if _rc == 0 {
 }
 else {
     display as error "  FAIL: style engine helper autoload smoke (rc=`=_rc')"
+    local ++fail_count
+}
+
+local ++test_count
+capture noisily {
+    local builder_rows ""
+    forvalues _r = 1/`=rowsof(style_engine_rules)' {
+        local one_row ""
+        forvalues _c = 1/`=colsof(style_engine_rules)' {
+            local one_row "`one_row' `=style_engine_rules[`_r', `_c']'"
+        }
+        if `"`builder_rows'"' == "" local builder_rows "`one_row'"
+        else local builder_rows `"`builder_rows' | `one_row'"'
+    }
+
+    tempname built_rules diff_rules
+    _tabtools_xlsx_build_styles, matrix(`built_rules') ///
+        rules(`"`builder_rows'"') cols(9)
+    assert r(n_rules) == rowsof(style_engine_rules)
+    assert r(n_cols) == colsof(style_engine_rules)
+    matrix `diff_rules' = `built_rules' - style_engine_rules
+    mata: st_numscalar("_max_abs_diff", max(abs(st_matrix("`diff_rules'"))))
+    assert _max_abs_diff == 0
+    scalar drop _max_abs_diff
+}
+if _rc == 0 {
+    display as result "  PASS: Mata style-rule builder matches Stata-built rule matrix"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: style-rule builder matrix parity (rc=`=_rc')"
     local ++fail_count
 }
 

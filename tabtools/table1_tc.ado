@@ -1616,18 +1616,14 @@ program define table1_tc, rclass
 	                if "`_hborder'" == "thick" local _border_code = 3
 
 	                * Column widths and row heights
-	                matrix `_xlsx_style_rules' = (12, 1, 1, 1, 1, 30, 0, 0, 0, 0)
+	                local _xlsx_style_rule_spec "12 1 1 1 1 30 0 0 0 0"
                 local _hdr_len = strlen(`"`header_parts'"')
                 if `_hdr_len' > `factorwidth' * 1.2 {
                     local _hdr_lines = ceil(`_hdr_len' / (`factorwidth' * 1.2))
                     local _hdr_height = `_hdr_lines' * 15
-	                    matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
-	                        (12, 2, 2, 1, 1, `_hdr_height', 0, 0, 0, 0)
+	                    local _xlsx_style_rule_spec `"`_xlsx_style_rule_spec' | 12 2 2 1 1 `_hdr_height' 0 0 0 0"'
                 }
-	                matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
-	                    (13, 1, 1, 1, 1, 1, 0, 0, 0, 0)
-	                matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
-	                    (13, 1, 1, 2, 2, `factorwidth', 0, 0, 0, 0)
+	                local _xlsx_style_rule_spec `"`_xlsx_style_rule_spec' | 13 1 1 1 1 1 0 0 0 0 | 13 1 1 2 2 `factorwidth' 0 0 0 0"'
 	                foreach _dc of local _data_cols {
 	                    capture confirm variable `_dc'
 	                    if !_rc {
@@ -1641,70 +1637,35 @@ program define table1_tc, rclass
 	                            local _dc_i = `_dc_i' + 1
 	                        }
 	                        if `_dc_pos' > 0 & `_dc_pos' <= `num_cols' {
-	                            matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
-	                                (13, 1, 1, `_dc_pos', `_dc_pos', `datawidth', 0, 0, 0, 0)
+	                            local _xlsx_style_rule_spec `"`_xlsx_style_rule_spec' | 13 1 1 `_dc_pos' `_dc_pos' `datawidth' 0 0 0 0"'
 	                        }
 	                    }
 	                }
                 if `pvalue_pos' > 0 {
-	                    matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
-	                        (13, 1, 1, `pvalue_pos', `pvalue_pos', 10, 0, 0, 0, 0)
+	                    local _xlsx_style_rule_spec `"`_xlsx_style_rule_spec' | 13 1 1 `pvalue_pos' `pvalue_pos' 10 0 0 0 0"'
                 }
                 if `test_pos' > 0 {
-	                    matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
-	                        (13, 1, 1, `test_pos', `test_pos', `_test_width', 0, 0, 0, 0)
+	                    local _xlsx_style_rule_spec `"`_xlsx_style_rule_spec' | 13 1 1 `test_pos' `test_pos' `_test_width' 0 0 0 0"'
                 }
                 if `statistic_pos' > 0 {
-	                    matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
-	                        (13, 1, 1, `statistic_pos', `statistic_pos', `_stat_width', 0, 0, 0, 0)
+	                    local _xlsx_style_rule_spec `"`_xlsx_style_rule_spec' | 13 1 1 `statistic_pos' `statistic_pos' `_stat_width' 0 0 0 0"'
                 }
                 if `smd_pos' > 0 {
-	                    matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
-	                        (13, 1, 1, `smd_pos', `smd_pos', 8, 0, 0, 0, 0)
+	                    local _xlsx_style_rule_spec `"`_xlsx_style_rule_spec' | 13 1 1 `smd_pos' `smd_pos' 8 0 0 0 0"'
                 }
 
                 * Font for entire table (single row-range call)
-	                matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
-	                    (1, 1, `num_rows', 1, `num_cols', `_fontsize', `_font_code', 0, 0, 0)
-	                matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
-	                    (1, 1, 1, 1, `num_cols', `=`_fontsize'+2', `_font_code', 0, 0, 0)
+	                local _xlsx_style_rule_spec `"`_xlsx_style_rule_spec' | 1 1 `num_rows' 1 `num_cols' `_fontsize' `_font_code' 0 0 0 | 1 1 1 1 `num_cols' `=`_fontsize'+2' `_font_code' 0 0 0"'
 
                 * Title row: merge + format
-	                matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
-	                    (14, 1, 1, 1, `num_cols', 0, 0, 0, 0, 0)
-	                matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
-	                    (4, 1, 1, 1, 1, 0, 1, 0, 0, 0)
-	                matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
-	                    (5, 1, 1, 1, 1, 0, 1, 0, 0, 0)
-	                matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
-	                    (6, 1, 1, 1, 1, 0, 2, 0, 0, 0)
-	                matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
-	                    (2, 1, 1, 1, 1, 0, 1, 0, 0, 0)
+	                local _xlsx_style_rule_spec `"`_xlsx_style_rule_spec' | 14 1 1 1 `num_cols' 0 0 0 0 0 | 4 1 1 1 1 0 1 0 0 0 | 5 1 1 1 1 0 1 0 0 0 | 6 1 1 1 1 0 2 0 0 0 | 2 1 1 1 1 0 1 0 0 0"'
 
                 * Header rows: merge factor column across rows 2-3
-	                matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
-	                    (14, 2, 3, 2, 2, 0, 0, 0, 0, 0)
-	                matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
-	                    (5, 2, 3, 2, 2, 0, 2, 0, 0, 0)
-	                matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
-	                    (6, 2, 3, 2, 2, 0, 2, 0, 0, 0)
-	                matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
-	                    (4, 2, 3, 2, 2, 0, 1, 0, 0, 0)
-	                matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
-	                    (2, 2, 3, 2, 2, 0, 1, 0, 0, 0)
+	                local _xlsx_style_rule_spec `"`_xlsx_style_rule_spec' | 14 2 3 2 2 0 0 0 0 0 | 5 2 3 2 2 0 2 0 0 0 | 6 2 3 2 2 0 2 0 0 0 | 4 2 3 2 2 0 1 0 0 0 | 2 2 3 2 2 0 1 0 0 0"'
 
                 * Level column header merge (if exists)
                 if `level_pos' > 0 {
-	                    matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
-	                        (14, 2, 3, `level_pos', `level_pos', 0, 0, 0, 0, 0)
-	                    matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
-	                        (5, 2, 3, `level_pos', `level_pos', 0, 2, 0, 0, 0)
-	                    matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
-	                        (6, 2, 3, `level_pos', `level_pos', 0, 2, 0, 0, 0)
-	                    matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
-	                        (4, 2, 3, `level_pos', `level_pos', 0, 1, 0, 0, 0)
-	                    matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
-	                        (2, 2, 3, `level_pos', `level_pos', 0, 1, 0, 0, 0)
+	                    local _xlsx_style_rule_spec `"`_xlsx_style_rule_spec' | 14 2 3 `level_pos' `level_pos' 0 0 0 0 0 | 5 2 3 `level_pos' `level_pos' 0 2 0 0 0 | 6 2 3 `level_pos' `level_pos' 0 2 0 0 0 | 4 2 3 `level_pos' `level_pos' 0 1 0 0 0 | 2 2 3 `level_pos' `level_pos' 0 1 0 0 0"'
                 }
 
                 * Group data column headers (skip special columns)
@@ -1716,133 +1677,70 @@ program define table1_tc, rclass
                     if `data_col' == `statistic_pos' local _skip = 1
                     if `data_col' == `smd_pos' local _skip = 1
                     if !`_skip' {
-	                        matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
-	                            (5, 2, 3, `data_col', `data_col', 0, 2, 0, 0, 0)
-	                        matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
-	                            (6, 2, 3, `data_col', `data_col', 0, 2, 0, 0, 0)
-	                        matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
-	                            (4, 2, 3, `data_col', `data_col', 0, 1, 0, 0, 0)
-	                        matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
-	                            (2, 2, 3, `data_col', `data_col', 0, 1, 0, 0, 0)
+	                        local _xlsx_style_rule_spec `"`_xlsx_style_rule_spec' | 5 2 3 `data_col' `data_col' 0 2 0 0 0 | 6 2 3 `data_col' `data_col' 0 2 0 0 0 | 4 2 3 `data_col' `data_col' 0 1 0 0 0 | 2 2 3 `data_col' `data_col' 0 1 0 0 0"'
                     }
                     local data_col = `data_col' + 1
                 }
 
                 * P-value column header merge
                 if `pvalue_pos' > 0 {
-	                    matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
-	                        (14, 2, 3, `pvalue_pos', `pvalue_pos', 0, 0, 0, 0, 0)
-	                    matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
-	                        (5, 2, 3, `pvalue_pos', `pvalue_pos', 0, 2, 0, 0, 0)
-	                    matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
-	                        (6, 2, 3, `pvalue_pos', `pvalue_pos', 0, 2, 0, 0, 0)
-	                    matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
-	                        (4, 2, 3, `pvalue_pos', `pvalue_pos', 0, 1, 0, 0, 0)
-	                    matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
-	                        (2, 2, 3, `pvalue_pos', `pvalue_pos', 0, 1, 0, 0, 0)
+	                    local _xlsx_style_rule_spec `"`_xlsx_style_rule_spec' | 14 2 3 `pvalue_pos' `pvalue_pos' 0 0 0 0 0 | 5 2 3 `pvalue_pos' `pvalue_pos' 0 2 0 0 0 | 6 2 3 `pvalue_pos' `pvalue_pos' 0 2 0 0 0 | 4 2 3 `pvalue_pos' `pvalue_pos' 0 1 0 0 0 | 2 2 3 `pvalue_pos' `pvalue_pos' 0 1 0 0 0"'
                 }
 
                 * Test, statistic, SMD column header merges
                 if `test_pos' > 0 {
-	                    matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
-	                        (14, 2, 3, `test_pos', `test_pos', 0, 0, 0, 0, 0)
-	                    matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
-	                        (5, 2, 3, `test_pos', `test_pos', 0, 2, 0, 0, 0)
-	                    matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
-	                        (6, 2, 3, `test_pos', `test_pos', 0, 2, 0, 0, 0)
-	                    matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
-	                        (4, 2, 3, `test_pos', `test_pos', 0, 1, 0, 0, 0)
-	                    matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
-	                        (2, 2, 3, `test_pos', `test_pos', 0, 1, 0, 0, 0)
+	                    local _xlsx_style_rule_spec `"`_xlsx_style_rule_spec' | 14 2 3 `test_pos' `test_pos' 0 0 0 0 0 | 5 2 3 `test_pos' `test_pos' 0 2 0 0 0 | 6 2 3 `test_pos' `test_pos' 0 2 0 0 0 | 4 2 3 `test_pos' `test_pos' 0 1 0 0 0 | 2 2 3 `test_pos' `test_pos' 0 1 0 0 0"'
                 }
                 if `statistic_pos' > 0 {
-	                    matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
-	                        (14, 2, 3, `statistic_pos', `statistic_pos', 0, 0, 0, 0, 0)
-	                    matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
-	                        (5, 2, 3, `statistic_pos', `statistic_pos', 0, 2, 0, 0, 0)
-	                    matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
-	                        (6, 2, 3, `statistic_pos', `statistic_pos', 0, 2, 0, 0, 0)
-	                    matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
-	                        (4, 2, 3, `statistic_pos', `statistic_pos', 0, 1, 0, 0, 0)
-	                    matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
-	                        (2, 2, 3, `statistic_pos', `statistic_pos', 0, 1, 0, 0, 0)
+	                    local _xlsx_style_rule_spec `"`_xlsx_style_rule_spec' | 14 2 3 `statistic_pos' `statistic_pos' 0 0 0 0 0 | 5 2 3 `statistic_pos' `statistic_pos' 0 2 0 0 0 | 6 2 3 `statistic_pos' `statistic_pos' 0 2 0 0 0 | 4 2 3 `statistic_pos' `statistic_pos' 0 1 0 0 0 | 2 2 3 `statistic_pos' `statistic_pos' 0 1 0 0 0"'
                 }
                 if `smd_pos' > 0 {
-	                    matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
-	                        (14, 2, 3, `smd_pos', `smd_pos', 0, 0, 0, 0, 0)
-	                    matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
-	                        (5, 2, 3, `smd_pos', `smd_pos', 0, 2, 0, 0, 0)
-	                    matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
-	                        (6, 2, 3, `smd_pos', `smd_pos', 0, 2, 0, 0, 0)
-	                    matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
-	                        (4, 2, 3, `smd_pos', `smd_pos', 0, 1, 0, 0, 0)
-	                    matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
-	                        (2, 2, 3, `smd_pos', `smd_pos', 0, 1, 0, 0, 0)
+	                    local _xlsx_style_rule_spec `"`_xlsx_style_rule_spec' | 14 2 3 `smd_pos' `smd_pos' 0 0 0 0 0 | 5 2 3 `smd_pos' `smd_pos' 0 2 0 0 0 | 6 2 3 `smd_pos' `smd_pos' 0 2 0 0 0 | 4 2 3 `smd_pos' `smd_pos' 0 1 0 0 0 | 2 2 3 `smd_pos' `smd_pos' 0 1 0 0 0"'
                 }
 
                 * Horizontal borders
-	                matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
-	                    (8, 2, 2, 2, `num_cols', 0, `_border_code', 0, 0, 0)
-	                matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
-	                    (8, 4, 4, 2, `num_cols', 0, `_border_code', 0, 0, 0)
-	                matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
-	                    (9, `num_rows', `num_rows', 2, `num_cols', 0, `_border_code', 0, 0, 0)
+	                local _xlsx_style_rule_spec `"`_xlsx_style_rule_spec' | 8 2 2 2 `num_cols' 0 `_border_code' 0 0 0 | 8 4 4 2 `num_cols' 0 `_border_code' 0 0 0 | 9 `num_rows' `num_rows' 2 `num_cols' 0 `_border_code' 0 0 0"'
 
                 * Vertical borders (skip for academic)
                 if "`borderstyle'" != "academic" {
-	                    matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
-	                        (10, 2, `num_rows', 2, 2, 0, `_border_code', 0, 0, 0)
-	                    matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
-	                        (11, 2, `num_rows', 2, 2, 0, `_border_code', 0, 0, 0)
-	                    matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
-	                        (11, 2, `num_rows', `num_cols', `num_cols', 0, `_border_code', 0, 0, 0)
+	                    local _xlsx_style_rule_spec `"`_xlsx_style_rule_spec' | 10 2 `num_rows' 2 2 0 `_border_code' 0 0 0 | 11 2 `num_rows' 2 2 0 `_border_code' 0 0 0 | 11 2 `num_rows' `num_cols' `num_cols' 0 `_border_code' 0 0 0"'
                 }
 
                 * Total column borders
                 if `total_col_pos' > 0 {
-	                    matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
-	                        (10, 2, `num_rows', `total_col_pos', `total_col_pos', 0, `_border_code', 0, 0, 0)
-	                    matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
-	                        (11, 2, `num_rows', `total_col_pos', `total_col_pos', 0, `_border_code', 0, 0, 0)
+	                    local _xlsx_style_rule_spec `"`_xlsx_style_rule_spec' | 10 2 `num_rows' `total_col_pos' `total_col_pos' 0 `_border_code' 0 0 0 | 11 2 `num_rows' `total_col_pos' `total_col_pos' 0 `_border_code' 0 0 0"'
                 }
 
                 * P-value column left border
                 if `pvalue_pos' > 0 & "`borderstyle'" != "academic" {
-	                    matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
-	                        (10, 2, `num_rows', `pvalue_pos', `pvalue_pos', 0, `_border_code', 0, 0, 0)
+	                    local _xlsx_style_rule_spec `"`_xlsx_style_rule_spec' | 10 2 `num_rows' `pvalue_pos' `pvalue_pos' 0 `_border_code' 0 0 0"'
                 }
 
                 * Test/statistic/SMD column left borders
                 if `test_pos' > 0 & "`borderstyle'" != "academic" {
-	                    matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
-	                        (10, 2, `num_rows', `test_pos', `test_pos', 0, `_border_code', 0, 0, 0)
+	                    local _xlsx_style_rule_spec `"`_xlsx_style_rule_spec' | 10 2 `num_rows' `test_pos' `test_pos' 0 `_border_code' 0 0 0"'
                 }
                 if `statistic_pos' > 0 & "`borderstyle'" != "academic" {
-	                    matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
-	                        (10, 2, `num_rows', `statistic_pos', `statistic_pos', 0, `_border_code', 0, 0, 0)
+	                    local _xlsx_style_rule_spec `"`_xlsx_style_rule_spec' | 10 2 `num_rows' `statistic_pos' `statistic_pos' 0 `_border_code' 0 0 0"'
                 }
                 if `smd_pos' > 0 & "`borderstyle'" != "academic" {
-	                    matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
-	                        (10, 2, `num_rows', `smd_pos', `smd_pos', 0, `_border_code', 0, 0, 0)
+	                    local _xlsx_style_rule_spec `"`_xlsx_style_rule_spec' | 10 2 `num_rows' `smd_pos' `smd_pos' 0 `_border_code' 0 0 0"'
                 }
 
                 * Header background
                 if "`headershade'" != "" {
-	                    matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
-	                        (7, 2, 3, 2, `num_cols', 0, -1, 0, 0, 0)
+	                    local _xlsx_style_rule_spec `"`_xlsx_style_rule_spec' | 7 2 3 2 `num_cols' 0 -1 0 0 0"'
                 }
 
                 * Center-align data columns
                 if `num_rows' >= 4 {
-	                    matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
-	                        (5, 4, `num_rows', `data_start_pos', `num_cols', 0, 2, 0, 0, 0)
+	                    local _xlsx_style_rule_spec `"`_xlsx_style_rule_spec' | 5 4 `num_rows' `data_start_pos' `num_cols' 0 2 0 0 0"'
                 }
 
                 * Zebra striping
                 if "`zebra'" != "" {
                     forvalues _zr = 5(2)`num_rows' {
-	                        matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
-	                            (7, `_zr', `_zr', 2, `num_cols', 0, -2, 0, 0, 0)
+	                        local _xlsx_style_rule_spec `"`_xlsx_style_rule_spec' | 7 `_zr' `_zr' 2 `num_cols' 0 -2 0 0 0"'
                     }
                 }
 
@@ -1850,8 +1748,7 @@ program define table1_tc, rclass
                 if `has_boldp' & `pvalue_pos' > 0 {
                     forvalues _br = 4/`num_rows' {
                         if `_pval_`_br'' < . & `_pval_`_br'' < `boldp' {
-	                            matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
-	                                (2, `_br', `_br', `pvalue_pos', `pvalue_pos', 0, 1, 0, 0, 0)
+	                            local _xlsx_style_rule_spec `"`_xlsx_style_rule_spec' | 2 `_br' `_br' `pvalue_pos' `pvalue_pos' 0 1 0 0 0"'
                         }
                     }
                 }
@@ -1860,8 +1757,7 @@ program define table1_tc, rclass
                 if `has_highlight' & `pvalue_pos' > 0 {
                     forvalues _hr = 4/`num_rows' {
                         if `_pval_`_hr'' < . & `_pval_`_hr'' < `highlight' {
-	                            matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
-	                                (7, `_hr', `_hr', 2, `num_cols', 0, -3, 0, 0, 0)
+	                            local _xlsx_style_rule_spec `"`_xlsx_style_rule_spec' | 7 `_hr' `_hr' 2 `num_cols' 0 -3 0 0 0"'
                         }
                     }
                 }
@@ -1870,10 +1766,7 @@ program define table1_tc, rclass
                 if `smd_pos' > 0 & `smdthreshold' > 0 {
                     forvalues _sr = 4/`num_rows' {
                         if `_sval_`_sr'' < . & `_sval_`_sr'' > `smdthreshold' {
-	                            matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
-	                                (2, `_sr', `_sr', `smd_pos', `smd_pos', 0, 1, 0, 0, 0)
-	                            matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
-	                                (7, `_sr', `_sr', `smd_pos', `smd_pos', 0, -4, 0, 0, 0)
+	                            local _xlsx_style_rule_spec `"`_xlsx_style_rule_spec' | 2 `_sr' `_sr' `smd_pos' `smd_pos' 0 1 0 0 0 | 7 `_sr' `_sr' `smd_pos' `smd_pos' 0 -4 0 0 0"'
                         }
                     }
                 }
@@ -1883,20 +1776,11 @@ program define table1_tc, rclass
                     local _fn_row = `num_rows' + 1
                     local _fn_fontsize = max(`_fontsize' - 2, 6)
                     mata: b.put_string(`_fn_row', 2, `"`footnote'"')
-	                    matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
-	                        (14, `_fn_row', `_fn_row', 2, `num_cols', 0, 0, 0, 0, 0)
-	                    matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
-	                        (5, `_fn_row', `_fn_row', 2, 2, 0, 1, 0, 0, 0)
-	                    matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
-	                        (6, `_fn_row', `_fn_row', 2, 2, 0, 2, 0, 0, 0)
-	                    matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
-	                        (4, `_fn_row', `_fn_row', 2, 2, 0, 1, 0, 0, 0)
-	                    matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
-	                        (1, `_fn_row', `_fn_row', 2, 2, `_fn_fontsize', `_font_code', 0, 0, 0)
-	                    matrix `_xlsx_style_rules' = nullmat(`_xlsx_style_rules') \ ///
-	                        (3, `_fn_row', `_fn_row', 2, 2, 0, 1, 0, 0, 0)
+	                    local _xlsx_style_rule_spec `"`_xlsx_style_rule_spec' | 14 `_fn_row' `_fn_row' 2 `num_cols' 0 0 0 0 0 | 5 `_fn_row' `_fn_row' 2 2 0 1 0 0 0 | 6 `_fn_row' `_fn_row' 2 2 0 2 0 0 0 | 4 `_fn_row' `_fn_row' 2 2 0 1 0 0 0 | 1 `_fn_row' `_fn_row' 2 2 `_fn_fontsize' `_font_code' 0 0 0 | 3 `_fn_row' `_fn_row' 2 2 0 1 0 0 0"'
                 }
 
+	                _tabtools_xlsx_build_styles, matrix(`_xlsx_style_rules') ///
+	                    rules(`_xlsx_style_rule_spec') cols(10)
 	                _tabtools_xlsx_apply_styles, book(b) sheet("`sheet'") ///
 	                    rules(`_xlsx_style_rules') font("`_font'") ///
 	                    color1("`_headercolor'") color2("`_zebracolor'") ///

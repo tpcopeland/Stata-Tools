@@ -809,43 +809,26 @@ program define comptab, rclass
         if "`borderstyle'" == "none" local _vborder_code = 4
 
         tempname _style_rules
-        matrix `_style_rules' = (12, 1, 1, 1, 1, 30, 0, 0, 0)
+        local _style_rule_spec "12 1 1 1 1 30 0 0 0"
         local _width_col = 1
         foreach _width of numlist `_xlsx_widths' {
-            matrix `_style_rules' = `_style_rules' \ ///
-                (13, 1, 1, `_width_col', `_width_col', `_width', 0, 0, 0)
+            local _style_rule_spec `"`_style_rule_spec' | 13 1 1 `_width_col' `_width_col' `_width' 0 0 0"'
             local ++_width_col
         }
         if `_headerht' > 0 {
-            matrix `_style_rules' = `_style_rules' \ ///
-                (12, 2, 2, 1, 1, `=`_headerht'*15', 0, 0, 0)
+            local _style_rule_spec `"`_style_rule_spec' | 12 2 2 1 1 `=`_headerht'*15' 0 0 0"'
         }
-        matrix `_style_rules' = `_style_rules' \ ///
-            (1, 1, `num_rows', 1, `num_cols', `_fontsize', 1, 0, 0) \ ///
-            (1, 1, 1, 1, `num_cols', `=`_fontsize'+2', 1, 0, 0) \ ///
-            (14, 1, 1, 1, `num_cols', 0, 0, 0, 0) \ ///
-            (4, 1, 1, 1, 1, 0, 1, 0, 0) \ ///
-            (5, 1, 1, 1, 1, 0, 1, 0, 0) \ ///
-            (6, 1, 1, 1, 1, 0, 2, 0, 0) \ ///
-            (2, 1, 1, 1, 1, 0, 1, 0, 0)
+        local _style_rule_spec `"`_style_rule_spec' | 1 1 `num_rows' 1 `num_cols' `_fontsize' 1 0 0 | 1 1 1 1 `num_cols' `=`_fontsize'+2' 1 0 0 | 14 1 1 1 `num_cols' 0 0 0 0 | 4 1 1 1 1 0 1 0 0 | 5 1 1 1 1 0 1 0 0 | 6 1 1 1 1 0 2 0 0 | 2 1 1 1 1 0 1 0 0"'
         if "`headershade'" != "" {
-            matrix `_style_rules' = `_style_rules' \ ///
-                (7, 2, 3, 2, `num_cols', 0, -1, 0, 0)
+            local _style_rule_spec `"`_style_rule_spec' | 7 2 3 2 `num_cols' 0 -1 0 0"'
         }
-        matrix `_style_rules' = `_style_rules' \ ///
-            (2, 3, 3, 2, `num_cols', 0, 1, 0, 0) \ ///
-            (5, 3, 3, 2, `num_cols', 0, 2, 0, 0) \ ///
-            (6, 3, 3, 2, `num_cols', 0, 2, 0, 0)
+        local _style_rule_spec `"`_style_rule_spec' | 2 3 3 2 `num_cols' 0 1 0 0 | 5 3 3 2 `num_cols' 0 2 0 0 | 6 3 3 2 `num_cols' 0 2 0 0"'
 
         foreach row of local ref_rows {
             local col_num = 3
             while `col_num' <= `num_cols' {
                 local _col_end = `col_num' + `n_cols_per_model' - 1
-                matrix `_style_rules' = `_style_rules' \ ///
-                    (14, `row', `row', `col_num', `_col_end', 0, 0, 0, 0) \ ///
-                    (5, `row', `row', `col_num', `col_num', 0, 2, 0, 0) \ ///
-                    (6, `row', `row', `col_num', `col_num', 0, 2, 0, 0) \ ///
-                    (3, `row', `row', `col_num', `col_num', 0, 1, 0, 0)
+                local _style_rule_spec `"`_style_rule_spec' | 14 `row' `row' `col_num' `_col_end' 0 0 0 0 | 5 `row' `row' `col_num' `col_num' 0 2 0 0 | 6 `row' `row' `col_num' `col_num' 0 2 0 0 | 3 `row' `row' `col_num' `col_num' 0 1 0 0"'
                 local col_num = `col_num' + `n_cols_per_model'
             }
         }
@@ -853,56 +836,38 @@ program define comptab, rclass
         local col_num = 3
         while `col_num' <= `num_cols' {
             local _col_end = `col_num' + `n_cols_per_model' - 1
-            matrix `_style_rules' = `_style_rules' \ ///
-                (14, 2, 2, `col_num', `_col_end', 0, 0, 0, 0) \ ///
-                (5, 2, 2, `col_num', `col_num', 0, 2, 0, 0) \ ///
-                (6, 2, 2, `col_num', `col_num', 0, 2, 0, 0) \ ///
-                (2, 2, 2, `col_num', `col_num', 0, 1, 0, 0) \ ///
-                (4, 2, 2, `col_num', `col_num', 0, 1, 0, 0)
+            local _style_rule_spec `"`_style_rule_spec' | 14 2 2 `col_num' `_col_end' 0 0 0 0 | 5 2 2 `col_num' `col_num' 0 2 0 0 | 6 2 2 `col_num' `col_num' 0 2 0 0 | 2 2 2 `col_num' `col_num' 0 1 0 0 | 4 2 2 `col_num' `col_num' 0 1 0 0"'
             if "`borderstyle'" != "academic" {
-                matrix `_style_rules' = `_style_rules' \ ///
-                    (11, 2, `num_rows', `_col_end', `_col_end', 0, `_vborder_code', 0, 0)
+                local _style_rule_spec `"`_style_rule_spec' | 11 2 `num_rows' `_col_end' `_col_end' 0 `_vborder_code' 0 0"'
             }
             local col_num = `col_num' + `n_cols_per_model'
         }
 
-        matrix `_style_rules' = `_style_rules' \ ///
-            (8, 2, 2, 2, `num_cols', 0, `_hborder_code', 0, 0) \ ///
-            (8, 3, 3, 3, `num_cols', 0, `_hborder_code', 0, 0) \ ///
-            (9, 3, 3, 2, `num_cols', 0, `_hborder_code', 0, 0) \ ///
-            (9, `num_rows', `num_rows', 2, `num_cols', 0, `_hborder_code', 0, 0)
+        local _style_rule_spec `"`_style_rule_spec' | 8 2 2 2 `num_cols' 0 `_hborder_code' 0 0 | 8 3 3 3 `num_cols' 0 `_hborder_code' 0 0 | 9 3 3 2 `num_cols' 0 `_hborder_code' 0 0 | 9 `num_rows' `num_rows' 2 `num_cols' 0 `_hborder_code' 0 0"'
         if "`borderstyle'" != "academic" {
-            matrix `_style_rules' = `_style_rules' \ ///
-                (11, 2, `num_rows', `num_cols', `num_cols', 0, `_vborder_code', 0, 0) \ ///
-                (10, 2, `num_rows', 2, 2, 0, `_vborder_code', 0, 0) \ ///
-                (11, 2, `num_rows', 2, 2, 0, `_vborder_code', 0, 0)
+            local _style_rule_spec `"`_style_rule_spec' | 11 2 `num_rows' `num_cols' `num_cols' 0 `_vborder_code' 0 0 | 10 2 `num_rows' 2 2 0 `_vborder_code' 0 0 | 11 2 `num_rows' 2 2 0 `_vborder_code' 0 0"'
         }
         if "`_section_rows'" != "" {
             foreach _sr of local _section_rows {
                 local _sr_excel = `_sr' + 3
-                matrix `_style_rules' = `_style_rules' \ ///
-                    (2, `_sr_excel', `_sr_excel', 2, `num_cols', 0, 1, 0, 0) \ ///
-                    (8, `_sr_excel', `_sr_excel', 2, `num_cols', 0, `_hborder_code', 0, 0)
+                local _style_rule_spec `"`_style_rule_spec' | 2 `_sr_excel' `_sr_excel' 2 `num_cols' 0 1 0 0 | 8 `_sr_excel' `_sr_excel' 2 `num_cols' 0 `_hborder_code' 0 0"'
             }
         }
         if "`separator'" != "" {
             foreach _sep of local separator {
                 local _sep_excel = `_sep' + 3
                 if `_sep_excel' >= 4 & `_sep_excel' <= `num_rows' {
-                    matrix `_style_rules' = `_style_rules' \ ///
-                        (8, `_sep_excel', `_sep_excel', 2, `num_cols', 0, `_hborder_code', 0, 0)
+                    local _style_rule_spec `"`_style_rule_spec' | 8 `_sep_excel' `_sep_excel' 2 `num_cols' 0 `_hborder_code' 0 0"'
                 }
             }
         }
         if "`zebra'" != "" {
             forvalues _zr = 5(2)`num_rows' {
-                matrix `_style_rules' = `_style_rules' \ ///
-                    (7, `_zr', `_zr', 2, `num_cols', 0, -2, 0, 0)
+                local _style_rule_spec `"`_style_rule_spec' | 7 `_zr' `_zr' 2 `num_cols' 0 -2 0 0"'
             }
         }
         if `num_rows' >= 4 {
-            matrix `_style_rules' = `_style_rules' \ ///
-                (5, 4, `num_rows', 3, `num_cols', 0, 2, 0, 0)
+            local _style_rule_spec `"`_style_rule_spec' | 5 4 `num_rows' 3 `num_cols' 0 2 0 0"'
         }
         if `has_boldp' | `has_highlight' {
             forvalues _m = 1/`n_models' {
@@ -911,12 +876,10 @@ program define comptab, rclass
                     local _pnum = `_bp_m`_m'_r`_dr''
                     if `_pnum' < . {
                         if `has_boldp' & `_pnum' < `boldp' {
-                            matrix `_style_rules' = `_style_rules' \ ///
-                                (2, `_dr', `_dr', `_pcol_excel', `_pcol_excel', 0, 1, 0, 0)
+                            local _style_rule_spec `"`_style_rule_spec' | 2 `_dr' `_dr' `_pcol_excel' `_pcol_excel' 0 1 0 0"'
                         }
                         if `has_highlight' & `_pnum' < `highlight' {
-                            matrix `_style_rules' = `_style_rules' \ ///
-                                (7, `_dr', `_dr', 2, `num_cols', 0, -3, 0, 0)
+                            local _style_rule_spec `"`_style_rule_spec' | 7 `_dr' `_dr' 2 `num_cols' 0 -3 0 0"'
                         }
                     }
                 }
@@ -926,15 +889,11 @@ program define comptab, rclass
             local _fn_row = `num_rows' + 1
             local _fn_fontsize = max(`_fontsize' - 2, 6)
             mata: b.put_string(`_fn_row', 2, `"`footnote'"')
-            matrix `_style_rules' = `_style_rules' \ ///
-                (14, `_fn_row', `_fn_row', 2, `num_cols', 0, 0, 0, 0) \ ///
-                (5, `_fn_row', `_fn_row', 2, 2, 0, 1, 0, 0) \ ///
-                (6, `_fn_row', `_fn_row', 2, 2, 0, 2, 0, 0) \ ///
-                (4, `_fn_row', `_fn_row', 2, 2, 0, 1, 0, 0) \ ///
-                (1, `_fn_row', `_fn_row', 2, 2, `_fn_fontsize', 1, 0, 0) \ ///
-                (3, `_fn_row', `_fn_row', 2, 2, 0, 1, 0, 0)
+            local _style_rule_spec `"`_style_rule_spec' | 14 `_fn_row' `_fn_row' 2 `num_cols' 0 0 0 0 | 5 `_fn_row' `_fn_row' 2 2 0 1 0 0 | 6 `_fn_row' `_fn_row' 2 2 0 2 0 0 | 4 `_fn_row' `_fn_row' 2 2 0 1 0 0 | 1 `_fn_row' `_fn_row' 2 2 `_fn_fontsize' 1 0 0 | 3 `_fn_row' `_fn_row' 2 2 0 1 0 0"'
         }
 
+        _tabtools_xlsx_build_styles, matrix(`_style_rules') ///
+            rules(`_style_rule_spec') cols(9)
         _tabtools_xlsx_apply_styles, book(b) sheet("`sheet'") ///
             rules(`_style_rules') font("`_font'") ///
             color1("`_headercolor'") color2("`_zebracolor'") ///
