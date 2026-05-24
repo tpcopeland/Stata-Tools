@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.6  18may2026}{...}
+{* *! version 1.1.0  24may2026}{...}
 {vieweralsosee "iivw" "help iivw"}{...}
 {vieweralsosee "iivw_weight" "help iivw_weight"}{...}
 {vieweralsosee "[XT] xtgee" "help xtgee"}{...}
@@ -9,6 +9,7 @@
 {viewerjumpto "Description" "iivw_fit##description"}{...}
 {viewerjumpto "Options" "iivw_fit##options"}{...}
 {viewerjumpto "Remarks" "iivw_fit##remarks"}{...}
+{viewerjumpto "Analysis recipes" "iivw_fit##recipes"}{...}
 {viewerjumpto "Interpreting results" "iivw_fit##interpreting"}{...}
 {viewerjumpto "Troubleshooting" "iivw_fit##troubleshooting"}{...}
 {viewerjumpto "What to report" "iivw_fit##reporting"}{...}
@@ -19,7 +20,7 @@
 {title:Title}
 
 {p2colset 5 20 22 2}{...}
-{p2col:{cmd:iivw_fit} {hline 2}}Fit weighted outcome model for IIW/IPTW/FIPTIW analysis{p_end}
+{p2col:{cmd:iivw_fit} {hline 2}}Fit weighted or unweighted outcome model for IIVW analysis{p_end}
 {p2colreset}{...}
 
 
@@ -37,11 +38,16 @@
 {synoptset 30 tabbed}{...}
 {synopthdr}
 {synoptline}
+{syntab:Unweighted diagnostic fits}
+{synopt:{opt unw:eighted}}fit without applying IIVW/IPTW/FIPTIW weights{p_end}
+{synopt:{opt id(varname)}}subject identifier for {opt unweighted} fits without stored metadata{p_end}
+{synopt:{opt time(varname)}}time variable for {opt unweighted} fits without stored metadata{p_end}
+
 {syntab:Model}
 {synopt:{opt mod:el(string)}}estimation method: {cmd:gee} (default) or {cmd:mixed}{p_end}
 {synopt:{opt fam:ily(string)}}GEE family (default: {cmd:gaussian}){p_end}
 {synopt:{opt lin:k(string)}}GEE link function (default: canonical){p_end}
-{synopt:{opt time:spec(string)}}time specification: {cmd:linear} (default), {cmd:quadratic}, {cmd:cubic}, {cmd:ns(#)}, {cmd:none}{p_end}
+{synopt:{opt times:pec(string)}}time specification: {cmd:linear} (default), {cmd:quadratic}, {cmd:cubic}, {cmd:ns(#)}, {cmd:none}{p_end}
 {synopt:{opt int:eraction(varlist)}}create time x covariate interaction terms{p_end}
 {synopt:{opt categ:orical(varlist)}}expand categorical predictors into labeled dummies{p_end}
 {synopt:{opt base:cat(#)}}reference category for {opt categorical()} (default: lowest value){p_end}
@@ -66,8 +72,12 @@
 {title:Description}
 
 {pstd}
-{cmd:iivw_fit} fits a weighted outcome model using weights computed by
-{helpb iivw_weight}.  It supports GEE-equivalent estimation via
+{cmd:iivw_fit} fits weighted or unweighted outcome models.  Weighted fits use
+weights computed by {helpb iivw_weight}; unweighted fits use the same
+model-building surface without applying weights.  This is useful for
+diagnostic comparisons because the unweighted and weighted analyses share
+time terms, categorical expansion, interaction construction, clustering, and
+formatted output.  The command supports GEE-equivalent estimation via
 {cmd:glm} with clustered standard errors, and mixed-effects models via
 {cmd:mixed}.
 
@@ -78,29 +88,57 @@ errors.  This is the estimation method required by IIW theory (Buzkova &
 Lumley 2007).
 
 {pstd}
-The command automatically retrieves the weight variable, panel ID, time
-variable, and weight type from dataset characteristics stored by
-{cmd:iivw_weight}.  You do not need to re-specify panel structure.
+For weighted fits, the command automatically retrieves the weight variable,
+panel ID, time variable, and weight type from dataset characteristics stored
+by {cmd:iivw_weight}.  For {opt unweighted} fits, specify {opt id()} and
+{opt time()} when no package metadata are present.
 
 {pstd}
 {bf:What the command does.}  {cmd:iivw_fit} takes your outcome variable and
 predictors, optionally builds time trend variables and interaction terms,
-and fits a weighted regression.  It displays both the underlying model
+and fits a regression.  It displays both the underlying model
 output (from {cmd:glm} or {cmd:mixed}) and a formatted summary table of
-the weighted effects with coefficients, standard errors, confidence
+effects with coefficients, standard errors, confidence
 intervals, and p-values.
 
 {pstd}
 {bf:For non-technical readers.}  After {cmd:iivw_weight} has made the
 dataset behave less like "one row per clinic visit" and more like "one
 appropriately weighted patient history," {cmd:iivw_fit} estimates the
-association or treatment effect of interest in that weighted dataset.
+association or treatment effect of interest in that weighted dataset.  With
+{opt unweighted}, it estimates the corresponding baseline model before
+weights are applied.
 The default model reports a population-average effect with standard errors
 clustered by subject.
 
 
 {marker options}{...}
 {title:Options}
+
+{dlgtab:Unweighted diagnostic fits}
+
+{phang}
+{opt unweighted} fits the outcome model without applying IIVW/IPTW/FIPTIW
+weights.  It is intended for diagnostic comparisons where the unweighted,
+weighted, and measurement-process-adjusted models should use the same
+outcome-model machinery.
+
+{pmore}
+When {opt unweighted} is specified, {cmd:iivw_fit} does not require prior
+{cmd:iivw_weight} metadata and does not erase existing weight metadata.  If
+{cmd:iivw_weight} has already been run, the stored panel ID and time variable
+can be reused.
+
+{phang}
+{opt id(varname)} specifies the subject identifier for {opt unweighted} fits
+when no stored package metadata are present.  It is used as the default
+clustering variable and as the random-intercept grouping variable for
+{cmd:model(mixed)}.
+
+{phang}
+{opt time(varname)} specifies the time variable for {opt unweighted} fits
+when no stored package metadata are present.  It is required when
+{opt timespec()} is not {cmd:none} and no stored time metadata exist.
 
 {dlgtab:Model}
 
@@ -123,7 +161,7 @@ binomial, log for poisson).  Override when you need a non-canonical link (e.g.,
 {cmd:family(binomial) link(log)} for risk ratios).
 
 {phang}
-{opt time:spec(string)} specifies how time enters the outcome model.
+{opt times:pec(string)} specifies how time enters the outcome model.
 {cmd:linear} (default) includes the time variable as a single linear term.
 {cmd:quadratic} adds time and time-squared.
 {cmd:cubic} adds time, time-squared, and time-cubed.
@@ -268,11 +306,62 @@ weights).
 {bf:Prerequisites}
 
 {pstd}
-{cmd:iivw_weight} must be run before {cmd:iivw_fit}.  The weight variable and
-metadata are read from dataset characteristics set by {cmd:iivw_weight}.  If
-you modify the dataset between the two commands (e.g., dropping observations
-or replacing variables), the metadata may become stale.  In that case, re-run
-{cmd:iivw_weight}.
+For weighted fits, {cmd:iivw_weight} must be run before {cmd:iivw_fit}.  The
+weight variable and metadata are read from dataset characteristics set by
+{cmd:iivw_weight}.  If you modify the dataset between the two commands (e.g.,
+dropping observations or replacing variables), the metadata may become stale.
+In that case, re-run {cmd:iivw_weight}.
+
+{pstd}
+For {opt unweighted} fits, prior weighting is optional.  Specify {opt id()}
+and {opt time()} if no stored metadata are available.  Running
+{cmd:iivw_fit, unweighted} after {cmd:iivw_weight} does not clear the stored
+weight variable or weight metadata, so it can be used in the same dataset as
+weighted comparisons.
+
+
+{marker recipes}{...}
+{title:Analysis recipes}
+
+{pstd}
+These are practical modeling patterns to adapt after {cmd:iivw_weight} has
+created weights.
+
+{pstd}
+{bf:Population-average treatment effect.}  Use the default GEE model, include
+the treatment indicator and baseline confounders, and start with a simple
+time specification.
+
+{phang2}{cmd:. iivw_fit score treated age sex baseline_score, timespec(linear) nolog}{p_end}
+
+{pstd}
+{bf:Nonlinear disease trajectory.}  Use a natural spline when the outcome
+changes quickly early in follow-up and then plateaus, or when linear time is
+not credible.
+
+{phang2}{cmd:. iivw_fit score treated age sex baseline_score, timespec(ns(3)) replace nolog}{p_end}
+
+{pstd}
+{bf:Treatment effect that varies over time.}  Interact the treatment
+indicator with the generated time basis, then use {cmd:lincom},
+{cmd:margins}, or a prespecified contrast to report effects at meaningful
+follow-up times.
+
+{phang2}{cmd:. iivw_fit score treated age sex baseline_score, timespec(ns(3)) interaction(treated) replace nolog}{p_end}
+
+{pstd}
+{bf:Diagnostic comparison.}  Fit the unweighted model through the same command
+surface before fitting weighted and measurement-adjusted models.  Store each
+model and pass the marginal/reference time coefficient to
+{helpb iivw_diagnose}.
+
+{phang2}{cmd:. iivw_fit score treated age sex baseline_score, unweighted id(id) time(months) timespec(linear) nolog}{p_end}
+{phang2}{cmd:. estimates store M_unweighted}{p_end}
+
+{pstd}
+In all recipes, the unweighted and weighted models should differ only in the
+weighting decision unless there is a written design reason for changing the
+outcome model.  This keeps sensitivity comparisons interpretable.
 
 {pstd}
 {bf:Mixed vs. GEE}
@@ -443,6 +532,10 @@ diagnostics from the weighting step;{p_end}
 {phang2}(e) a sensitivity check comparing an untruncated and truncated
 weight analysis when weights are extreme.{p_end}
 
+{phang2}(f) for diagnostic workflows, the matching {opt unweighted} model
+specification and the coefficient used as the marginal/reference time-slope
+target for {helpb iivw_diagnose}.{p_end}
+
 
 {marker examples}{...}
 {title:Examples}
@@ -471,6 +564,16 @@ weight analysis when weights are extreme.{p_end}
 {phang2}{cmd:. label define arm 0 "Placebo" 1 "Low dose" 2 "High dose"}{p_end}
 {phang2}{cmd:. label values treatment arm}{p_end}
 {phang2}{cmd:. iivw_weight, id(id) time(days) visit_cov(edss_bl age sex) lagvars(edss relapse) nolog}{p_end}
+
+{pstd}
+{bf:Diagnostic baseline: Unweighted model}
+
+{pstd}
+Fit an unweighted model through the same interface before comparing it with
+weighted and measurement-adjusted models.
+
+{phang2}{cmd:. iivw_fit edss treated edss_bl, unweighted id(id) time(days) timespec(linear) nolog}{p_end}
+{phang2}{cmd:. estimates store Unweighted}{p_end}
 
 {pstd}
 {bf:Example 1: Basic GEE model with linear time}
@@ -629,10 +732,13 @@ a conditional (subject-specific) treatment effect rather than the marginal
 {p2col 5 24 28 2: Macros}{p_end}
 {synopt:{cmd:e(iivw_cmd)}}{cmd:iivw_fit}{p_end}
 {synopt:{cmd:e(iivw_model)}}estimation method (gee or mixed){p_end}
-{synopt:{cmd:e(iivw_weighttype)}}weight type (iivw, iptw, or fiptiw){p_end}
+{synopt:{cmd:e(iivw_weighttype)}}weight type (iivw, iptw, fiptiw, or unweighted){p_end}
+{synopt:{cmd:e(iivw_unweighted)}}1 if fit used {opt unweighted}, 0 otherwise{p_end}
 {synopt:{cmd:e(iivw_timespec)}}time specification used{p_end}
 {synopt:{cmd:e(iivw_weight_var)}}weight variable name{p_end}
 {synopt:{cmd:e(iivw_cluster)}}clustering variable used{p_end}
+{synopt:{cmd:e(iivw_id)}}panel ID used{p_end}
+{synopt:{cmd:e(iivw_time)}}time variable used{p_end}
 {synopt:{cmd:e(iivw_display_vars)}}terms displayed in the formatted effects table{p_end}
 {synopt:{cmd:e(iivw_interaction)}}variables specified in {opt interaction()}{p_end}
 {synopt:{cmd:e(iivw_ix_vars)}}interaction variables created{p_end}
@@ -686,12 +792,13 @@ On flexible inverse probability of treatment and intensity weighting.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.0.6, 2026-05-18{p_end}
+{pstd}Version 1.1.0, 2026-05-24{p_end}
 
 
 {title:Also see}
 
 {psee}
-Online:  {helpb iivw}, {helpb iivw_weight}, {helpb regtab}, {helpb glm}, {helpb xtgee}, {helpb mixed}
+Online:  {helpb iivw}, {helpb iivw_weight}, {helpb iivw_exogtest},
+{helpb iivw_diagnose}, {helpb regtab}, {helpb glm}, {helpb xtgee}, {helpb mixed}
 
 {hline}

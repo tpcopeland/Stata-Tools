@@ -247,15 +247,16 @@ capture noisily {
     capture noisily _iivw_bs_estimate y x z, weightvar(_iivw_weight) model(foo) family(gaussian)
     assert _rc == 198
 
-    * Missing required weightvar() must error
+    * v1.1.0+: missing weightvar() is the unweighted bootstrap path
     capture noisily _iivw_bs_estimate y x z, model(gee) family(gaussian)
-    assert _rc != 0
+    assert _rc == 0
+    assert _b[x] != .
 
     * Empty sample must error 2000
     capture noisily _iivw_bs_estimate y x z if id < 0, weightvar(_iivw_weight) model(gee) family(gaussian)
     assert _rc == 2000
 
-    * Happy path: gee with valid args succeeds
+    * Happy path: weighted gee with valid args succeeds
     _iivw_bs_estimate y x z, weightvar(_iivw_weight) model(gee) family(gaussian) nolog
     assert _b[x] != .
 }

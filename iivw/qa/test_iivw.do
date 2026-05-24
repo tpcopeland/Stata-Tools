@@ -71,8 +71,8 @@ local ++test_count
 if `run_only' == 0 | `run_only' == 1 {
     capture noisily {
         iivw
-        assert r(n_commands) == 2
-        assert "`r(version)'" == "1.0.6"
+        assert r(n_commands) == 4
+        assert "`r(version)'" == "1.1.0"
     }
     if _rc == 0 {
         display as result "  PASS: Test 1 - iivw overview runs and returns metadata"
@@ -2780,6 +2780,8 @@ if `run_only' == 0 | `run_only' == 112 {
         which iivw
         which iivw_weight
         which iivw_fit
+        which iivw_exogtest
+        which iivw_diagnose
         which _iivw_bs_estimate
         which _iivw_check_weighted
         which _iivw_get_settings

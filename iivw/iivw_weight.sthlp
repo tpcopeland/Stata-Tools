@@ -1,13 +1,15 @@
 {smcl}
-{* *! version 1.0.6  18may2026}{...}
+{* *! version 1.1.0  24may2026}{...}
 {vieweralsosee "iivw" "help iivw"}{...}
 {vieweralsosee "iivw_fit" "help iivw_fit"}{...}
+{vieweralsosee "iivw_exogtest" "help iivw_exogtest"}{...}
 {vieweralsosee "[ST] stcox" "help stcox"}{...}
 {vieweralsosee "[R] logit" "help logit"}{...}
 {viewerjumpto "Syntax" "iivw_weight##syntax"}{...}
 {viewerjumpto "Description" "iivw_weight##description"}{...}
 {viewerjumpto "Options" "iivw_weight##options"}{...}
 {viewerjumpto "Weight types" "iivw_weight##wtypes"}{...}
+{viewerjumpto "Covariate strategy" "iivw_weight##covariates"}{...}
 {viewerjumpto "Remarks" "iivw_weight##remarks"}{...}
 {viewerjumpto "Diagnostics" "iivw_weight##diagnostics"}{...}
 {viewerjumpto "Troubleshooting" "iivw_weight##troubleshooting"}{...}
@@ -305,6 +307,43 @@ simultaneously reweights for both informative visit timing and confounding
 by indication.
 
 
+{marker covariates}{...}
+{title:Covariate strategy}
+
+{pstd}
+The visit model and treatment model answer different design questions.  Do
+not copy the same covariate list into both models automatically.
+
+{p2colset 5 24 62 2}{...}
+{p2col:{bf:Covariate role}}{bf:Practical placement}{p_end}
+{p2col:Baseline disease severity}
+Usually belongs in both {cmd:visit_cov()} and {cmd:treat_cov()} when it
+predicts both follow-up intensity and treatment choice.{p_end}
+{p2col:Previous outcome or recent event}
+Use {cmd:lagvars()} or a precomputed lagged variable in {cmd:visit_cov()}.
+This avoids using the current measurement to explain why the current visit
+occurred.{p_end}
+{p2col:Calendar year, clinic, access variables}
+Include when they plausibly affect visit scheduling or treatment assignment.
+These variables are often useful for explaining structural patterns in
+registry data.{p_end}
+{p2col:Post-treatment mediator}
+Do not add by habit.  Adjusting for mediators can change the estimand and may
+remove part of the treatment effect.{p_end}
+{p2col:Cumulative test count or practice-effect proxy}
+Usually belongs in the outcome-model diagnostic adjustment, not in the
+primary visit model, unless the scientific estimand explicitly requires it.
+{p_end}
+{p2colreset}{...}
+
+{pstd}
+Start with a small subject-matter model and inspect the weight distribution.
+Adding many weak predictors can make the weights more variable without
+improving bias correction.  If the maximum weight is very large or the
+effective sample size is poor, simplify the visit or treatment model before
+interpreting a precise-looking weighted coefficient.
+
+
 {marker remarks}{...}
 {title:Remarks}
 
@@ -319,6 +358,18 @@ single row per subject.  The {opt id()} and {opt time()} combination must
 uniquely identify each row.  The {opt treat()} variable must be observed
 for every row used in IPTW/FIPTIW, binary (0/1), and time-invariant within
 subjects.
+
+{pstd}
+{bf:Relationship to exogeneity diagnostics}
+
+{pstd}
+Lagged outcome or disease-activity variables may be used in the visit model
+to estimate weights.  Use {helpb iivw_exogtest} when the analysis also plans
+to adjust the outcome model directly for cumulative testing or another
+measurement-process variable.  That diagnostic asks whether prior outcomes
+predict future visit or test timing strongly enough that a direct
+measurement-process adjustment should be interpreted as potentially
+endogenous.
 
 {pstd}
 {bf:First-observation weights}
@@ -599,12 +650,12 @@ On flexible inverse probability of treatment and intensity weighting.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.0.6, 2026-05-18{p_end}
+{pstd}Version 1.1.0, 2026-05-24{p_end}
 
 
 {title:Also see}
 
 {psee}
-Online:  {helpb iivw}, {helpb iivw_fit}, {helpb stcox}, {helpb logit}
+Online:  {helpb iivw}, {helpb iivw_fit}, {helpb iivw_exogtest}, {helpb stcox}, {helpb logit}
 
 {hline}

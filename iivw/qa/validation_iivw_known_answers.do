@@ -92,9 +92,9 @@ end
 local ++test_count
 capture noisily {
     iivw
-    assert "`r(version)'" == "1.0.6"
-    assert "`r(commands)'" == "iivw_weight iivw_fit"
-    assert r(n_commands) == 2
+    assert "`r(version)'" == "1.1.0"
+    assert "`r(commands)'" == "iivw_weight iivw_fit iivw_exogtest iivw_diagnose"
+    assert r(n_commands) == 4
 }
 if _rc == 0 {
     display as result "  PASS: KA1 - iivw overview returns exact contract"

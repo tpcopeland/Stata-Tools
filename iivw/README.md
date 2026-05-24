@@ -1,8 +1,8 @@
-# iivw - Inverse intensity of visit weighting for longitudinal data
+# iivw - Inverse intensity visit weighting and diagnostics for longitudinal data
 
-**Version 1.0.6** | 2026-05-18
+**Version 1.1.0** | 2026-05-24
 
-`iivw` corrects bias from informative visit timing in irregular longitudinal data.  In clinic-based studies, sicker patients often visit more frequently, so they contribute more rows to the dataset and bias naive analyses.  This package re-weights each observation so the fitted outcome model targets the patient population more directly rather than the clinic-visit process.
+`iivw` corrects bias from informative visit timing in irregular longitudinal data and provides diagnostics for separating sampling bias from residual measurement artifact.  In clinic-based studies, sicker patients often visit more frequently, so they contribute more rows to the dataset and bias naive analyses.  This package re-weights each observation so the fitted outcome model targets the patient population more directly rather than the clinic-visit process.
 
 Three weighting strategies are available:
 
@@ -10,7 +10,7 @@ Three weighting strategies are available:
 - **IPTW** (inverse probability of treatment weighting) — corrects for confounding by treatment indication
 - **FIPTIW** (IIW × IPTW) — corrects for both simultaneously
 
-Weighted outcome models are fit via GEE-style estimation (GLM with clustered robust SEs) or mixed effects.
+Outcome models are fit via GEE-style estimation (GLM with clustered robust SEs) or mixed effects, either unweighted or with IIW/IPTW/FIPTIW weights.
 
 ## Requirements
 
@@ -31,7 +31,9 @@ net install iivw, from("https://raw.githubusercontent.com/tpcopeland/Stata-Tools
 |---------|-------------|
 | `iivw` | Package overview and available commands |
 | `iivw_weight` | Compute IIW, IPTW, or FIPTIW weights |
-| `iivw_fit` | Fit a weighted outcome model after `iivw_weight` |
+| `iivw_fit` | Fit weighted or unweighted outcome models through a consistent interface |
+| `iivw_exogtest` | Check whether lagged outcome/disease activity predicts future visit timing |
+| `iivw_diagnose` | Compare unweighted, weighted, and artifact-adjusted marginal/reference-slope estimates |
 
 ## Plain-Language Summary
 
@@ -39,7 +41,7 @@ Longitudinal clinic data usually has one row per visit.  If some patients visit 
 
 `iivw` estimates how likely each observed visit was, then gives less influence to visits that were very likely to occur and more influence to visits that were less likely to occur.  If treatment assignment is also confounded, `iivw` can multiply those visit weights by propensity-score treatment weights.
 
-Use the package as a two-step workflow:
+Use the package as a weighting workflow:
 
 1. `iivw_weight` creates weights and stores the panel metadata.
 2. `iivw_fit` reads those weights and fits the weighted outcome model.
@@ -60,6 +62,113 @@ You probably do *not* need this if visits follow a fixed protocol (e.g., randomi
 2. **Choose the weighting strategy** that matches the scientific problem (see table below).
 3. **Inspect weights** with `summarize _iivw_weight, detail`.  Look for extreme values.  If the weight distribution has heavy tails, re-run with `truncate(1 99)` to cap extreme weights.
 4. **Fit the outcome model** with `iivw_fit`.  It reads the weight variable and panel structure from the dataset automatically.
+
+## Recommended Analysis Recipes
+
+Use these as starting templates, then adapt the covariates to the study design.
+
+### Descriptive disease trajectory in registry data
+
+Goal: estimate a population-average longitudinal trajectory when sicker patients are seen more often.
+
+```stata
+iivw_weight, id(id) time(months) ///
+    visit_cov(age sex baseline_score baseline_edss clinic_year) ///
+    lagvars(current_score relapse) truncate(1 99) efron nolog
+
+iivw_fit current_score age sex baseline_score, ///
+    timespec(ns(3)) nolog
+```
+
+Report the visit model, the weight distribution, effective sample size, and whether the trajectory changes materially when using `timespec(linear)` instead of `timespec(ns(3))`.
+
+### Binary treatment comparison with informative visits
+
+Goal: compare treatment groups when both treatment assignment and follow-up frequency depend on baseline severity.
+
+```stata
+iivw_weight, id(id) time(months) ///
+    visit_cov(age sex baseline_edss baseline_score clinic_year) ///
+    lagvars(current_score relapse) ///
+    treat(treated) treat_cov(age sex baseline_edss baseline_score) ///
+    truncate(1 99) efron replace nolog
+
+iivw_fit current_score treated age sex baseline_score, ///
+    timespec(linear) nolog
+```
+
+Use this only when `treated` is a binary, time-invariant subject-level exposure. If treatment switches during follow-up, this package is not a substitute for a time-varying treatment MSM.
+
+### Time-varying treatment effect or treatment trajectory
+
+Goal: test whether the treatment contrast changes as follow-up accumulates.
+
+```stata
+iivw_fit current_score treated age sex baseline_score, ///
+    timespec(ns(3)) interaction(treated) replace nolog
+```
+
+Interpret the interaction terms as a sensitivity description unless the time scale and functional form were prespecified. For a single clinically interpretable contrast at a time point, use Stata post-estimation tools such as `margins` or `lincom` after `iivw_fit`.
+
+### Sampling bias versus measurement artifact
+
+Goal: compare movement from weighting against movement from direct adjustment for repeated measurement, test practice, or cumulative testing.
+
+Use the detailed diagnostic workflow below. The main decomposition target should be a marginal or reference-arm time slope, not the treatment-by-time contrast.
+
+## Diagnostic Workflow: Sampling Bias vs Measurement Artifact
+
+IIVW corrects bias from the observation process. It cannot remove bias that lives inside the measurement itself, such as practice effects from repeated cognitive testing. The diagnostic workflow compares how much the marginal/reference-arm time slope moves after weighting and how much it moves after direct adjustment for the measurement process.
+
+```stata
+* 1. Unweighted model through the same outcome-model interface
+iivw_fit sdmt_score treatment months_since_tx interaction age sex, ///
+    unweighted id(id) time(months_since_tx) timespec(none) nolog
+estimates store M_unweighted
+
+* 2. FIPTIW weighted model
+iivw_weight, id(id) time(months_since_tx) ///
+    visit_cov(treatment age sex bl_edss bl_sdmt) ///
+    lagvars(sdmt_score recent_relapse) ///
+    treat(treatment) treat_cov(age sex bl_edss bl_sdmt) ///
+    truncate(1 99) efron replace nolog
+
+iivw_fit sdmt_score treatment months_since_tx interaction age sex, ///
+    timespec(none) nolog
+estimates store M_weighted
+
+* 3. Measurement-process adjustment
+gen double log_test_number = log(test_number + 1)
+iivw_fit sdmt_score treatment months_since_tx interaction age sex log_test_number, ///
+    timespec(none) replace nolog
+estimates store M_adjusted
+
+* 4. Check exogeneity of testing schedule
+iivw_exogtest sdmt_score recent_relapse, ///
+    id(id) time(months_since_tx) adjust(age sex bl_edss bl_sdmt) ///
+    by(treatment) efron nolog
+
+* 5. Quantify diagnostic movement
+iivw_diagnose months_since_tx, ///
+    unweighted(M_unweighted) weighted(M_weighted) adjusted(M_adjusted) ///
+    exogeneity(unknown)
+```
+
+The decomposition target is the marginal or reference-arm time slope. A large unweighted-to-weighted movement suggests sampling bias. A small weighting movement but large measurement-adjustment movement suggests residual measurement artifact. Treatment x time contrasts can be reported as ordinary sensitivity estimates, but they should not be interpreted with the sampling/artifact share formula. If `iivw_exogtest` finds lagged outcome predictors of visit timing, the measurement-process adjustment may be endogenous and should be read as a bound or sensitivity result rather than a clean correction.
+
+`iivw_diagnose` returns point diagnostic quantities. It does not produce an interval for the artifact share; that requires a subject-level bootstrap that refits all three models together.
+
+## Diagnostic Decision Guide
+
+| Pattern | Practical interpretation | Reporting language |
+|---------|--------------------------|--------------------|
+| Large unweighted-to-weighted movement, small measurement-adjustment movement | The visit process likely explains much of the naive trajectory distortion | "Results were sensitive to IIVW/FIPTIW correction, suggesting informative visit timing." |
+| Small weighting movement, large measurement-adjustment movement | Repeated measurement or practice/test artifact may dominate | "Direct measurement-process adjustment changed the marginal slope more than weighting." |
+| `iivw_exogtest` p-values small | Lagged outcomes predict future testing or visits; direct adjustment may be endogenous | "The adjusted estimate is presented as a sensitivity bound rather than a clean correction." |
+| Total gap near zero | Share estimates are unstable because there is little movement to decompose | "The three estimates were similar; artifact shares are not informative." |
+| Sampling or artifact shares outside 0 to 1 | Model movement is sign-inconsistent | "The decomposition is descriptive and sign-inconsistent; focus on the three estimates." |
+
+For expert analyses, the diagnostic workflow is best treated as a structured sensitivity analysis. The package helps make the comparison reproducible, but the scientific claim still depends on whether the visit model, treatment model, and measurement-process adjustment are credible for the design.
 
 ## Choosing a Weight Type
 
@@ -82,6 +191,20 @@ For IPTW and FIPTIW, `treat()` must be a binary 0/1 treatment indicator, observe
 By default, `iivw_weight` creates `_iivw_weight`, the final weight used by `iivw_fit`.  It also creates component weights when needed: `_iivw_iw` for visit-intensity weights and `_iivw_tw` for treatment weights.  Use `generate(prefix)` to change the prefix.
 
 The weighting step also stores dataset metadata, including the panel ID, time variable, weight type, weight variable, and prefix.  `iivw_fit` reads that metadata automatically, so the usual workflow is to run `iivw_weight`, inspect the weights, and then run `iivw_fit` without re-entering the panel structure.
+
+## Choosing Covariates
+
+The most common practical mistake is treating `visit_cov()` and `treat_cov()` as interchangeable lists. They answer different design questions.
+
+| Covariate role | Put it in | Rationale |
+|----------------|-----------|-----------|
+| Baseline disease severity that drives both visits and treatment | `visit_cov()` and `treat_cov()` | It can confound both observation and treatment assignment |
+| Previous outcome value or recent event | `lagvars()` or a precomputed lag in `visit_cov()` | It predicts future visit intensity without using the current visit outcome to explain itself |
+| Demographic or calendar design variable | Usually both models if it affects both mechanisms | It can capture structural visit access and treatment patterns |
+| Post-treatment mediator | Usually neither treatment model nor primary outcome covariate unless explicitly planned | It can change the estimand if adjusted for casually |
+| Cumulative test count or practice-effect proxy | Outcome model diagnostic adjustment, not `visit_cov()` by default | It is part of the measurement process being evaluated |
+
+Start with a subject-matter model that is smaller than the full dataset dictionary. Add variables because they plausibly drive the visit or treatment process, not because they improve in-sample fit. If the final weights are extreme or ESS is poor, simplify before interpreting a highly variable weighted estimate.
 
 ## Assumptions and Limits
 
@@ -235,6 +358,10 @@ For technical reports and papers, include enough detail for readers to assess th
 - whether weights were stabilized with `stabcov()` and/or truncated with `truncate()`
 - weight diagnostics: mean, min, max, selected percentiles, and effective sample size
 - outcome model family/link, time specification, clustering level, and whether SEs were sandwich or bootstrap
+- unweighted, weighted, and measurement-adjusted estimates for the marginal/reference time-slope coefficient when using the diagnostic workflow
+- the `iivw_exogtest` specification and whether lagged outcome or disease-activity variables predicted visit timing
+- the `iivw_diagnose` sampling/artifact gaps or endogenous diagnostic range
+- the definition of the measurement-process adjustment, such as raw cumulative test count, `log(test+1)`, inter-test interval, or categorical test occasion
 
 ## Practical Notes
 
@@ -242,10 +369,24 @@ For technical reports and papers, include enough detail for readers to assess th
 - `treat_cov()` is required for IPTW and FIPTIW; treatment-model covariates are not inferred from `visit_cov()`.
 - IPTW-only analyses may use one row per subject.  IIW and FIPTIW require repeated visits because they estimate a visit-intensity model.
 - `iivw_fit` automatically reads the weight variable, panel ID, and time variable stored by `iivw_weight`.
+- `iivw_fit, unweighted` can fit the same outcome-model surface before weights are computed; specify `id()` and `time()` if no package metadata are present.
 - `categorical()` is for the outcome model only.  It does not define IPTW treatment levels.
 - `lagvars()` is useful when a time-varying variable should enter the visit model using its previous-visit value rather than its current-visit value.
+- `iivw_exogtest` is a falsification diagnostic, not proof that visit or testing is exogenous.
+- `iivw_diagnose` is intended for the marginal/reference-arm time slope, not for assigning artifact shares to treatment x time contrasts.
 - `bootstrap()` reflects outcome-model uncertainty only because the weights are treated as fixed.
 - `efron` in `iivw_weight` uses the Efron tie-handling method in the Cox model (matches R's `coxph()` default; Breslow remains the Stata default).
+
+## Reproducible Analysis Checklist
+
+Before showing results, check:
+
+- `isid id time` succeeds or the duplicate visit-times have been resolved deliberately
+- `treat()` is binary and constant within subject for IPTW/FIPTIW
+- `summarize _iivw_weight, detail` has no implausible tails after any planned truncation
+- the effective sample size is acceptable relative to the scientific precision needed
+- the unweighted and weighted models use the same outcome, predictors, time specification, and clustering level unless a difference is explicitly justified
+- documentation of the final analysis includes the weight type, visit model, treatment model, truncation rule, tie method, outcome model, and diagnostic decisions
 
 ## Validation
 
@@ -273,6 +414,14 @@ do iivw/demo/demo_iivw.do
 - Tompkins G, Dubin JA, Wallace M. On flexible inverse probability of treatment and intensity weighting. *Statistical Methods in Medical Research*. 2025.
 
 ## Changelog
+
+### v1.1.0 (2026-05-24)
+
+- Added `iivw_fit, unweighted` for fitting the baseline outcome model through the same surface as weighted models
+- Added `iivw_exogtest` to test whether lagged outcomes or disease activity predict future visit/test timing
+- Added `iivw_diagnose` to compute marginal/reference-slope sampling and measurement-artifact movement across stored models
+- Added Scenario E QA for nonseparable headroom-dependent measurement artifact
+- Updated package overview, help, README, and install manifest for the diagnostic workflow
 
 ### v1.0.6 (2026-05-18)
 

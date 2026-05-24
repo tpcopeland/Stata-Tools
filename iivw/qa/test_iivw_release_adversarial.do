@@ -140,11 +140,11 @@ end
 
 local ++test_count
 capture noisily {
-    local version "1.0.6"
-    local ado_date "2026/05/18"
-    local sthlp_date "18may2026"
-    local iso_date "2026-05-18"
-    local pkg_date "20260518"
+    local version "1.1.0"
+    local ado_date "2026/05/24"
+    local sthlp_date "24may2026"
+    local iso_date "2026-05-24"
+    local pkg_date "20260524"
 
     _qa_iivw_must_contain, file("`pkg_dir'/README.md") ///
         pattern("**Version `version'** | `iso_date'")
@@ -168,6 +168,8 @@ capture noisily {
         "iivw.ado|iivw" ///
         "iivw_weight.ado|iivw_weight" ///
         "iivw_fit.ado|iivw_fit" ///
+        "iivw_exogtest.ado|iivw_exogtest" ///
+        "iivw_diagnose.ado|iivw_diagnose" ///
         "_iivw_get_settings.ado|_iivw_get_settings" ///
         "_iivw_check_weighted.ado|_iivw_check_weighted" ///
         "_iivw_bs_estimate.ado|_iivw_bs_estimate" {
@@ -181,7 +183,7 @@ capture noisily {
             pattern("*! Department of Clinical Neuroscience")
     }
 
-    foreach help in iivw iivw_weight iivw_fit {
+    foreach help in iivw iivw_weight iivw_fit iivw_exogtest iivw_diagnose {
         _qa_iivw_must_contain, file("`pkg_dir'/`help'.sthlp") ///
             pattern("{* *! version `version'  `sthlp_date'}")
         _qa_iivw_must_contain, file("`pkg_dir'/`help'.sthlp") ///
@@ -210,6 +212,10 @@ capture noisily {
         iivw_weight.sthlp ///
         iivw_fit.ado ///
         iivw_fit.sthlp ///
+        iivw_exogtest.ado ///
+        iivw_exogtest.sthlp ///
+        iivw_diagnose.ado ///
+        iivw_diagnose.sthlp ///
         _iivw_get_settings.ado ///
         _iivw_check_weighted.ado ///
         _iivw_bs_estimate.ado
@@ -278,15 +284,28 @@ else {
 
 local ++test_count
 capture noisily {
+    local allowed_logs ///
+        run_all.log ///
+        test_iivw_release_adversarial.log ///
+        test_iivw_v105_regressions.log ///
+        test_iivw_v106_regressions.log ///
+        test_iivw_final_adversarial.log ///
+        test_iivw_fit_unweighted.log ///
+        test_iivw_exogtest.log ///
+        test_iivw_diagnose.log ///
+        test_iivw_diagnostic_workflow.log ///
+        test_iivw_exogtest_adversarial.log ///
+        validation_iivw_diagnostics_known_answers.log
+
     foreach folder in "`pkg_dir'" "`pkg_dir'/qa" {
         foreach ext in log smcl dta xlsx {
             local debris : dir "`folder'" files "*.`ext'"
             foreach f of local debris {
                 local allowed = 0
-                if inlist("`f'", "run_all.log", "test_iivw_release_adversarial.log", ///
-                    "test_iivw_v105_regressions.log", "test_iivw_v106_regressions.log", ///
-                    "test_iivw_final_adversarial.log") {
-                    local allowed = 1
+                foreach allowed_log of local allowed_logs {
+                    if "`f'" == "`allowed_log'" {
+                        local allowed = 1
+                    }
                 }
                 if !`allowed' {
                     display as error "runtime artifact found: `folder'/`f'"
@@ -331,6 +350,8 @@ capture noisily {
         iivw.ado ///
         iivw_weight.ado ///
         iivw_fit.ado ///
+        iivw_exogtest.ado ///
+        iivw_diagnose.ado ///
         _iivw_get_settings.ado ///
         _iivw_check_weighted.ado ///
         _iivw_bs_estimate.ado ///
@@ -339,7 +360,9 @@ capture noisily {
         _tabtools_common.ado ///
         iivw.sthlp ///
         iivw_weight.sthlp ///
-        iivw_fit.sthlp {
+        iivw_fit.sthlp ///
+        iivw_exogtest.sthlp ///
+        iivw_diagnose.sthlp {
         findfile `file'
         assert strpos("`r(fn)'", "`plus_dir'") > 0
     }
@@ -383,8 +406,8 @@ capture noisily {
     _qa_iivw_doc_data
 
     iivw
-    assert r(n_commands) == 2
-    assert "`r(version)'" == "1.0.6"
+    assert r(n_commands) == 4
+    assert "`r(version)'" == "1.1.0"
 
     iivw_weight, id(id) time(days) visit_cov(edss relapse) nolog
     assert "`r(weighttype)'" == "iivw"

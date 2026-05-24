@@ -1,4 +1,4 @@
-*! iivw_fit Version 1.0.6  2026/05/18
+*! iivw_fit Version 1.1.0  2026/05/24
 *! Fit weighted outcome model for IIW/IPTW/FIPTIW analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: eclass (returns results in e())
@@ -43,11 +43,13 @@ program define iivw_fit, eclass
     syntax varlist(numeric min=1) [if] [in] , ///
         [MODel(string) ///
          FAMily(string) LINk(string) ///
-         TIMEspec(string) ///
+         TIMESpec(string) ///
          INTeraction(varlist numeric) ///
          CATEGorical(varlist numeric) ///
          BASEcat(string) ///
          CLuster(varname) ///
+         UNWeighted ///
+         ID(varname) TIME(varname) ///
          BOOTstrap(integer 0) ///
          Level(cilevel) noLOG ///
          REPLACE ///
@@ -57,24 +59,68 @@ program define iivw_fit, eclass
     * CHECK PREREQUISITES
     * =========================================================================
 
-    _iivw_check_weighted
-    _iivw_get_settings
-
-    local panel_id   "`r(id)'"
-    local panel_time "`r(time)'"
-    local weighttype "`r(weighttype)'"
-    local weight_var "`r(weight_var)'"
-    local prefix     "`r(prefix)'"
-
     * Parse depvar and indepvars
     gettoken depvar indepvars : varlist
+
+    * Defaults needed before metadata checks because timespec(none) does not
+    * require a time variable in unweighted mode.
+    if "`model'" == "" local model "gee"
+    if "`family'" == "" local family "gaussian"
+    if "`timespec'" == "" local timespec "linear"
+
+    if "`unweighted'" == "" {
+        if "`id'" != "" {
+            display as error "id() is only allowed with unweighted"
+            error 198
+        }
+        if "`time'" != "" {
+            display as error "time() is only allowed with unweighted"
+            error 198
+        }
+
+        _iivw_check_weighted
+        _iivw_get_settings
+
+        local panel_id   "`r(id)'"
+        local panel_time "`r(time)'"
+        local weighttype "`r(weighttype)'"
+        local weight_var "`r(weight_var)'"
+        local prefix     "`r(prefix)'"
+    }
+    else {
+        local panel_id "`id'"
+        local panel_time "`time'"
+        if "`panel_time'" != "" {
+            confirm numeric variable `panel_time'
+        }
+        if "`panel_id'" == "" {
+            local panel_id : char _dta[_iivw_id]
+        }
+        if "`panel_time'" == "" {
+            local panel_time : char _dta[_iivw_time]
+        }
+        if "`panel_id'" == "" {
+            display as error "id() required with unweighted when no iivw metadata are present"
+            error 198
+        }
+        if "`timespec'" != "none" & "`panel_time'" == "" {
+            display as error "time() required with unweighted when timespec() is not none and no iivw metadata are present"
+            error 198
+        }
+
+        local weighttype "unweighted"
+        local weight_var ""
+        local prefix "_iivw_"
+    }
 
     * =========================================================================
     * MARK SAMPLE
     * =========================================================================
 
     marksample touse
-    markout `touse' `weight_var'
+    if "`weight_var'" != "" {
+        markout `touse' `weight_var'
+    }
 
     quietly count if `touse'
     if r(N) == 0 {
@@ -87,9 +133,6 @@ program define iivw_fit, eclass
     * SET DEFAULTS
     * =========================================================================
 
-    if "`model'" == "" local model "gee"
-    if "`family'" == "" local family "gaussian"
-    if "`timespec'" == "" local timespec "linear"
     if "`cluster'" == "" local cluster "`panel_id'"
 
     * Extend markout to variables not in varlist()
@@ -180,10 +223,16 @@ program define iivw_fit, eclass
     * =========================================================================
 
     local wtype_display = upper("`weighttype'")
+    local header_wtype "`wtype_display'"
+    local fit_display "Weighted Outcome Model"
+    if "`unweighted'" != "" {
+        local header_wtype "Unweighted"
+        local fit_display "Outcome Model"
+    }
 
     display as text ""
     display as text "{hline 70}"
-    display as result "iivw_fit" as text " - `wtype_display' Weighted Outcome Model"
+    display as result "iivw_fit" as text " - `header_wtype' `fit_display'"
     display as text "{hline 70}"
     display as text ""
     display as text "Model type:       " as result "`model'"
@@ -208,7 +257,12 @@ program define iivw_fit, eclass
         }
         display as text "Estimation:       " as result "GLM with clustered robust SEs"
     }
-    display as text "Weight var:       " as result "`weight_var'"
+    if "`unweighted'" != "" {
+        display as text "Weight var:       " as result "(none, unweighted)"
+    }
+    else {
+        display as text "Weight var:       " as result "`weight_var'"
+    }
     display as text "Cluster var:      " as result "`cluster'"
     if `bootstrap' > 0 {
         display as text "Bootstrap reps:   " as result "`bootstrap'"
@@ -690,20 +744,25 @@ program define iivw_fit, eclass
             local glm_link "link(`link')"
         }
 
-        display as text "Fitting weighted GEE model..."
+        local wt_clause ""
+        if "`unweighted'" == "" local wt_clause "[pw=`weight_var']"
+
+        display as text "Fitting `weighttype' GEE model..."
         display as text ""
 
         if `bootstrap' > 0 {
+            local bs_weightopt ""
+            if "`unweighted'" == "" local bs_weightopt "weightvar(`weight_var')"
             bootstrap, reps(`bootstrap') cluster(`cluster') nodots: ///
                 _iivw_bs_estimate `depvar' `all_covars' if `touse', ///
-                weightvar(`weight_var') model(gee) ///
+                `bs_weightopt' model(gee) ///
                 family(`family') link(`link') `log_opt' ///
                 geeopts(`geeopts')
         }
         else {
             local _collect_prefix ""
             if "`collect'" != "" local _collect_prefix "collect:"
-            `_collect_prefix' glm `depvar' `all_covars' [pw=`weight_var'] if `touse', ///
+            `_collect_prefix' glm `depvar' `all_covars' `wt_clause' if `touse', ///
                 `glm_family' `glm_link' ///
                 vce(cluster `cluster') level(`level') `log_opt' `geeopts'
         }
@@ -715,18 +774,23 @@ program define iivw_fit, eclass
     }
     else if "`model'" == "mixed" {
 
-        display as text "Fitting weighted mixed model..."
+        local wt_clause ""
+        if "`unweighted'" == "" local wt_clause "[pw=`weight_var']"
+
+        display as text "Fitting `weighttype' mixed model..."
         display as text ""
 
         if `bootstrap' > 0 {
+            local bs_weightopt ""
+            if "`unweighted'" == "" local bs_weightopt "weightvar(`weight_var')"
             bootstrap, reps(`bootstrap') cluster(`cluster') nodots: ///
                 _iivw_bs_estimate `depvar' `all_covars' if `touse', ///
-                weightvar(`weight_var') model(mixed) ///
+                `bs_weightopt' model(mixed) ///
                 panelid(`panel_id') `log_opt' ///
                 mixedopts(`mixedopts')
         }
         else {
-            mixed `depvar' `all_covars' [pw=`weight_var'] if `touse' ///
+            mixed `depvar' `all_covars' `wt_clause' if `touse' ///
                 || `panel_id':, vce(cluster `cluster') level(`level') ///
                 `log_opt' `mixedopts'
         }
@@ -764,7 +828,12 @@ program define iivw_fit, eclass
 
     display as text ""
     display as text "{hline 70}"
-    display as text "`wtype_display'-weighted effects:"
+    if "`unweighted'" != "" {
+        display as text "Unweighted effects:"
+    }
+    else {
+        display as text "`wtype_display'-weighted effects:"
+    }
     display as text ""
     display as text _col(4) "{ralign 18:Variable}" ///
         _col(24) "{ralign 10:Coef.}" ///
@@ -838,9 +907,13 @@ program define iivw_fit, eclass
     ereturn local iivw_cmd "iivw_fit"
     ereturn local iivw_model "`model'"
     ereturn local iivw_weighttype "`weighttype'"
+    local unweighted_flag = ("`unweighted'" != "")
+    ereturn local iivw_unweighted "`unweighted_flag'"
     ereturn local iivw_timespec "`timespec'"
     ereturn local iivw_weight_var "`weight_var'"
     ereturn local iivw_cluster "`cluster'"
+    ereturn local iivw_id "`panel_id'"
+    ereturn local iivw_time "`panel_time'"
     ereturn local iivw_display_vars "`all_covars'"
     if "`interaction'" != "" {
         ereturn local iivw_interaction "`interaction'"

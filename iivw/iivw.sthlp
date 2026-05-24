@@ -1,7 +1,9 @@
 {smcl}
-{* *! version 1.0.6  18may2026}{...}
+{* *! version 1.1.0  24may2026}{...}
 {vieweralsosee "iivw_weight" "help iivw_weight"}{...}
 {vieweralsosee "iivw_fit" "help iivw_fit"}{...}
+{vieweralsosee "iivw_exogtest" "help iivw_exogtest"}{...}
+{vieweralsosee "iivw_diagnose" "help iivw_diagnose"}{...}
 {vieweralsosee "[XT] xtgee" "help xtgee"}{...}
 {vieweralsosee "[ST] stcox" "help stcox"}{...}
 {viewerjumpto "Syntax" "iivw##syntax"}{...}
@@ -9,8 +11,10 @@
 {viewerjumpto "When do I need this?" "iivw##when"}{...}
 {viewerjumpto "Commands" "iivw##commands"}{...}
 {viewerjumpto "Choosing a weight type" "iivw##choosing"}{...}
+{viewerjumpto "Practical decision guide" "iivw##decision"}{...}
 {viewerjumpto "Assumptions and limits" "iivw##assumptions"}{...}
 {viewerjumpto "Workflow" "iivw##workflow"}{...}
+{viewerjumpto "Diagnostic workflow" "iivw##diagnostic"}{...}
 {viewerjumpto "Examples" "iivw##examples"}{...}
 {viewerjumpto "Stored results" "iivw##results"}{...}
 {viewerjumpto "References" "iivw##references"}{...}
@@ -29,8 +33,9 @@
 {cmd:iivw}
 
 {pstd}
-Typing {cmd:iivw} without arguments displays a package overview.  The two
-working commands are {helpb iivw_weight} and {helpb iivw_fit}.
+Typing {cmd:iivw} without arguments displays a package overview.  The
+working commands are {helpb iivw_weight}, {helpb iivw_fit},
+{helpb iivw_exogtest}, and {helpb iivw_diagnose}.
 
 
 {marker description}{...}
@@ -44,10 +49,12 @@ of treatment weighting (IPTW), and their multiplicative combination (FIPTIW;
 Tompkins et al. 2025).
 
 {pstd}
-The package provides two main commands:
+The package provides four main commands:
 
 {phang2}{helpb iivw_weight} computes IIW, IPTW, or FIPTIW weights{p_end}
-{phang2}{helpb iivw_fit} fits weighted outcome models via GEE or mixed effects{p_end}
+{phang2}{helpb iivw_fit} fits unweighted or weighted outcome models via GEE or mixed effects{p_end}
+{phang2}{helpb iivw_exogtest} tests whether prior outcomes predict visit timing{p_end}
+{phang2}{helpb iivw_diagnose} decomposes marginal/reference-slope movement across models{p_end}
 
 {pstd}
 {bf:Plain-language summary.}  In many clinical datasets, the unit recorded
@@ -56,7 +63,10 @@ If patients with worse disease visit more often, they appear more often in
 the data and can dominate an ordinary regression.  {cmd:iivw_weight}
 estimates how expected each visit was and creates weights so that frequent
 visitors do not automatically receive more influence just because they have
-more rows.  {cmd:iivw_fit} then fits the weighted outcome model.
+more rows.  {cmd:iivw_fit} then fits comparable unweighted and weighted
+outcome models.  {cmd:iivw_exogtest} and {cmd:iivw_diagnose} support a
+diagnostic workflow for separating sampling bias from residual measurement
+artifact.
 
 
 {marker when}{...}
@@ -109,7 +119,9 @@ probability of censoring weighting (IPCW) instead.{p_end}
 
 {synoptset 20}{...}
 {synopt:{helpb iivw_weight}}compute IIW/IPTW/FIPTIW weights from visit and treatment models{p_end}
-{synopt:{helpb iivw_fit}}fit weighted outcome model using GEE or mixed effects{p_end}
+{synopt:{helpb iivw_fit}}fit unweighted or weighted outcome model using GEE or mixed effects{p_end}
+{synopt:{helpb iivw_exogtest}}test whether prior outcomes predict visit timing{p_end}
+{synopt:{helpb iivw_diagnose}}decompose marginal/reference-slope movement across models{p_end}
 
 
 {marker choosing}{...}
@@ -138,6 +150,41 @@ registry data.{p_end}
 By default, {cmd:iivw_weight} auto-detects the weight type: if you specify
 {cmd:treat()}, it computes FIPTIW; otherwise it computes IIW.  You can
 override this with {cmd:wtype()}.
+
+
+{marker decision}{...}
+{title:Practical decision guide}
+
+{pstd}
+Use the commands as a design-specific workflow rather than as a black-box
+regression wrapper.
+
+{p2colset 5 26 62 2}{...}
+{p2col:{bf:Study question}}{bf:Suggested starting point}{p_end}
+{p2col:Descriptive disease trajectory in registry data}
+Use {cmd:iivw_weight} with baseline predictors and lagged disease activity,
+then fit a marginal GEE model with {cmd:iivw_fit}.  Compare
+{cmd:timespec(linear)} with {cmd:timespec(ns(3))}.{p_end}
+{p2col:Binary treatment comparison with informative visits}
+Use FIPTIW: specify both {cmd:visit_cov()} and
+{cmd:treat()} plus {cmd:treat_cov()}.  Inspect both the final weight and the
+treatment-weight component.{p_end}
+{p2col:Treatment effect changes over time}
+Use {cmd:iivw_fit, interaction(treatment)} after weighting.  Interpret the
+interaction on the chosen time scale and use Stata post-estimation commands
+for contrasts at clinically meaningful times.{p_end}
+{p2col:Sampling bias versus repeated-measurement artifact}
+Fit unweighted, weighted, and measurement-adjusted models; run
+{cmd:iivw_exogtest}; then summarize the marginal/reference time slope with
+{cmd:iivw_diagnose}.{p_end}
+{p2colreset}{...}
+
+{pstd}
+For graduate-student projects, the safest reporting structure is to show the
+unweighted result, the weighted result, the weight diagnostics, and at least
+one sensitivity analysis using truncation or an alternate time specification.
+For expert applications, add design justification for the visit model, the
+treatment model, and any direct measurement-process adjustment.
 
 
 {marker assumptions}{...}
@@ -193,6 +240,40 @@ for well-specified models.{p_end}
 weights from the dataset automatically.  The default is a GEE-style model
 (GLM with clustered robust standard errors), equivalent to independence
 working correlation GEE.{p_end}
+
+
+{marker diagnostic}{...}
+{title:Diagnostic workflow}
+
+{pstd}
+{cmd:iivw_weight} corrects bias from the observation process.  It does not
+remove bias that lives inside the measurement itself, such as practice
+effects from repeated cognitive testing.  The diagnostic workflow compares
+how much a marginal/reference-arm time slope moves after weighting and how
+much it moves after direct adjustment for the measurement process.
+
+{pstd}
+A typical diagnostic analysis proceeds as follows:
+
+{phang2}1. Fit an unweighted outcome model with {cmd:iivw_fit, unweighted}.{p_end}
+{phang2}2. Compute IIW/IPTW/FIPTIW weights with {cmd:iivw_weight}.{p_end}
+{phang2}3. Fit the weighted outcome model and a weighted model adjusted for
+cumulative testing or another measurement-process variable with
+{cmd:iivw_fit}.{p_end}
+{phang2}4. Use {cmd:iivw_exogtest} to check whether lagged outcome or
+disease-activity variables predict future visit or test timing.{p_end}
+{phang2}5. Use {cmd:iivw_diagnose} to summarize the sampling gap,
+measurement-artifact gap, and artifact share for the marginal/reference time
+slope.{p_end}
+
+{pstd}
+The decomposition is descriptive.  It is intended for the marginal or
+reference-arm time slope, not for a treatment x time contrast.  Treatment
+contrasts may be useful sensitivity estimates, but they can be structurally
+insensitive to weighting even when the marginal trajectory is biased.  If
+{cmd:iivw_exogtest} suggests outcome-dependent testing, interpret the
+measurement-adjusted estimate as a bound or sensitivity result rather than a
+clean correction.
 
 
 {marker examples}{...}
@@ -306,12 +387,13 @@ R package. CRAN.
 {title:Author}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
-{pstd}Version 1.0.6, 2026-05-18{p_end}
+{pstd}Version 1.1.0, 2026-05-24{p_end}
 
 
 {title:Also see}
 
 {psee}
-Online:  {helpb iivw_weight}, {helpb iivw_fit}, {helpb xtgee}, {helpb stcox}
+Online:  {helpb iivw_weight}, {helpb iivw_fit}, {helpb iivw_exogtest},
+{helpb iivw_diagnose}, {helpb xtgee}, {helpb stcox}
 
 {hline}

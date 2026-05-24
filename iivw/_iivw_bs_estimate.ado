@@ -1,4 +1,4 @@
-*! _iivw_bs_estimate Version 1.0.6  2026/05/18
+*! _iivw_bs_estimate Version 1.1.0  2026/05/24
 *! Bootstrap wrapper for iivw_fit: applies pweights inside the estimation
 *! call so Stata's bootstrap prefix does not strip them.
 *! Author: Timothy P Copeland, Karolinska Institutet
@@ -9,12 +9,15 @@ program define _iivw_bs_estimate, eclass
     set varabbrev off
     capture noisily {
     syntax varlist(numeric min=1) [if] [in], ///
-        WEIGHTvar(varname) MODel(string) ///
-        [FAMily(string) LINk(string) PANELid(varname) ///
+        MODel(string) ///
+        [WEIGHTvar(varname) ///
+         FAMily(string) LINk(string) PANELid(varname) ///
          GEEopts(string asis) MIXEDopts(string asis) noLOG]
 
     marksample touse
-    markout `touse' `weightvar'
+    if "`weightvar'" != "" {
+        markout `touse' `weightvar'
+    }
     quietly count if `touse'
     if r(N) == 0 {
         display as error "no observations"
@@ -23,18 +26,24 @@ program define _iivw_bs_estimate, eclass
     gettoken depvar covars : varlist
 
     local log_opt = cond("`log'" == "nolog", "nolog", "")
+    local wt_clause ""
+    if "`weightvar'" != "" local wt_clause "[pw=`weightvar']"
 
     if "`model'" == "gee" {
         local glm_family "family(`family')"
         local glm_link ""
         if "`link'" != "" local glm_link "link(`link')"
         * vce(cluster) omitted: bootstrap prefix handles clustering
-        glm `depvar' `covars' [pw=`weightvar'] if `touse', ///
+        glm `depvar' `covars' `wt_clause' if `touse', ///
             `glm_family' `glm_link' `log_opt' `geeopts'
     }
     else if "`model'" == "mixed" {
+        if "`panelid'" == "" {
+            display as error "panelid() required with model(mixed)"
+            error 198
+        }
         * vce(cluster) omitted: bootstrap prefix handles clustering
-        mixed `depvar' `covars' [pw=`weightvar'] if `touse' ///
+        mixed `depvar' `covars' `wt_clause' if `touse' ///
             || `panelid':, `log_opt' `mixedopts'
     }
     else {
