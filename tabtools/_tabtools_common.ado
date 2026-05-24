@@ -1,4 +1,4 @@
-*! _tabtools_common Version 1.3.0  2026/05/23
+*! _tabtools_common Version 1.3.0  2026/05/25
 *! Shared utility programs for tabtools package
 *! Author: Timothy P Copeland, Karolinska Institutet
 
@@ -356,8 +356,13 @@ program _tabtools_apply_theme
         c_local _theme_zebra "0"
     }
     else if "`theme'" == "nejm" {
+        * 9pt matches NEJM manuscript table conventions (10pt was too large).
+        * zebra=1: NEJM uses light row alternation. The theme system does not
+        * support per-theme zebra colors, so the global default (237 242 249,
+        * blue-tinted) is used. For exact NEJM neutral-gray shading, override:
+        *   zebracolor("242 242 242")
         c_local _theme_font "Arial"
-        c_local _theme_fontsize "10"
+        c_local _theme_fontsize "9"
         c_local _theme_border "academic"
         c_local _theme_headershade "0"
         c_local _theme_headercolor ""
@@ -404,20 +409,23 @@ program _tabtools_apply_theme
         c_local _theme_zebra "0"
     }
     else if "`theme'" == "cell" {
+        * 8pt matches Cell Press table conventions (10pt was too large).
         c_local _theme_font "Arial"
-        c_local _theme_fontsize "10"
+        c_local _theme_fontsize "8"
         c_local _theme_border "academic"
         c_local _theme_headershade "0"
         c_local _theme_headercolor ""
         c_local _theme_zebra "0"
     }
     else if "`theme'" == "annals" {
+        * Annals of Internal Medicine uses a clean three-rule format (no row
+        * alternation). zebra was incorrectly set to 1.
         c_local _theme_font "Arial"
         c_local _theme_fontsize "10"
         c_local _theme_border "academic"
         c_local _theme_headershade "0"
         c_local _theme_headercolor ""
-        c_local _theme_zebra "1"
+        c_local _theme_zebra "0"
     }
     else if "`theme'" == "custom" {
         * Custom theme reads from globals set by tabtools set theme custom
