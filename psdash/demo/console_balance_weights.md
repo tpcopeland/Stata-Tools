@@ -2,9 +2,11 @@
 title: "console_balance_weights"
 ---
 
+## Binary balance and IPTW diagnostics
+
 ```stata
 . noisily psdash balance statin ps,
->     covariates(age female bmi sbp cholesterol) wvar(ipw)
+>     covariates(age female bmi sbp cholesterol) wvar(ipw) ks
 ```
 
 ```
@@ -17,15 +19,15 @@ Weights:       ipw
 Threshold:      0.100
 
 
----------------------------------------------------------------------------------------
-           Covariate |  SMD Raw  VR Raw  SMD Adj  VR Adj      Status
----------------------------------------------------------------------------------------
-                 age | 0.472  0.99 0.013  1.01    Balanced
-              female | 0.430  1.03 0.001  1.00    Balanced
-                 bmi | 0.156  1.02 0.014  1.07    Balanced
-                 sbp | 0.194  1.01 0.018  1.05    Balanced
-         cholesterol | 0.039  1.04 0.047  0.99    Balanced
----------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------------
+           Covariate |  SMD Raw  VR Raw      KS  SMD Adj  VR Adj      Status
+------------------------------------------------------------------------------------------------
+                 age | 0.472  0.99 0.209 0.013  1.01    Balanced
+              female | 0.430  1.03 0.211 0.001  1.00    Balanced
+                 bmi | 0.156  1.02 0.098 0.014  1.07    Balanced
+                 sbp | 0.194  1.01 0.103 0.018  1.05    Balanced
+         cholesterol | 0.039  1.04 0.039 0.047  0.99    Balanced
+------------------------------------------------------------------------------------------------
 
 
 Maximum |SMD| (raw):       0.472
@@ -33,10 +35,10 @@ Maximum |SMD| (adjusted):  0.047
 Maximum VR (raw):           1.04
 Maximum VR (adjusted):      1.07
 Covariates > SMD threshold:    0 of   5
----------------------------------------------------------------------------------------
+Maximum KS (raw):             0.211
+------------------------------------------------------------------------------------------------
 
 Balance: Adequate (max |SMD| =  0.047)
-
 ```
 
 ```stata
@@ -81,5 +83,4 @@ Weights > 20:                    0
 Warning: 3 extreme weights detected (>10).
 
 Weights: Acceptable (ESS = 71.2% of N)
-
 ```

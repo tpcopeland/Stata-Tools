@@ -2,8 +2,10 @@
 title: "console_mg_weights"
 ---
 
+## Multi-group weight diagnostics
+
 ```stata
-. noisily psdash weights arm, psvars(ps0 ps1 ps2) wvar(gipw)
+. noisily psdash weights arm, psvars(ps0 ps1 ps2) wvar(gipw) detail
 ```
 
 ```
@@ -23,6 +25,22 @@ Weight Distribution Summary
                       Min          1.175          2.789          2.498          1.175
                       Max         23.690         23.690          5.688          3.283
 -------------------------------------------------------------------------------------
+
+--------------------------------------------------
+Percentile Distribution (Overall)
+--------------------------------------------------
+     Percentile         Weight
+--------------------------------------------------
+             1%          1.281
+             5%          1.379
+            10%          1.435
+            25%          1.560
+   50% (median)          1.846
+            75%          3.703
+            90%          5.379
+            95%          8.102
+            99%         12.322
+--------------------------------------------------
 
 -------------------------------------------------------------------------------------
 Effective Sample Size (ESS)
@@ -45,5 +63,4 @@ Warning: 30 extreme weights detected (>10).
 Warning: Maximum weight exceeds 20. Consider truncation.
 
 Weights: Acceptable (ESS = 61.8% of N)
-
 ```

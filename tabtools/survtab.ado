@@ -783,84 +783,88 @@ capture noisily {
             exit `_export_rc'
         }
 
-        * Apply formatting (Mata xl())
+        * Apply formatting through the shared rule backend.
         capture {
-            * Column widths
-            mata: b.set_column_width(1, 1, 1)
-            mata: b.set_column_width(2, 2, 22)
+            local _hborder_code = 1
+            if "`_hborder'" == "medium" local _hborder_code = 2
+            if "`_hborder'" == "thick" local _hborder_code = 3
+            if "`_hborder'" == "none" local _hborder_code = 4
+
+            tempname _style_rules
+            matrix `_style_rules' = (13, 1, 1, 1, 1, 1, 0, 0, 0)
+            matrix `_style_rules' = `_style_rules' \ ///
+                (13, 1, 1, 2, 2, 22, 0, 0, 0)
             forvalues _wc = 3/`num_cols' {
-                mata: b.set_column_width(`_wc', `_wc', 18)
+                matrix `_style_rules' = `_style_rules' \ ///
+                    (13, 1, 1, `_wc', `_wc', 18, 0, 0, 0)
             }
 
-            * Font
-            mata: b.set_font((1,`num_rows'), (1,`num_cols'), "`_font'", `_fontsize')
-            mata: b.set_font((1,1), (1,`num_cols'), "`_font'", `=`_fontsize'+2')
-
-            * Title row
-            mata: b.set_sheet_merge("`sheet'", (1,1), (1,`num_cols'))
-            mata: b.set_font_bold(1, 1, "on")
-            mata: b.set_text_wrap(1, 1, "on")
-            mata: b.set_horizontal_align(1, 1, "left")
-            mata: b.set_vertical_align(1, 1, "center")
-
-            * Header row
-            mata: b.set_top_border(`_header_row', (2,`num_cols'), "`_hborder'")
-            mata: b.set_bottom_border(`_header_row', (2,`num_cols'), "`_hborder'")
-            mata: b.set_font_bold(`_header_row', (2,`num_cols'), "on")
-            mata: b.set_horizontal_align(`_header_row', (2,`num_cols'), "center")
-
-            * Header background
+            matrix `_style_rules' = `_style_rules' \ ///
+                (1, 1, `num_rows', 1, `num_cols', `_fontsize', 1, 0, 0) \ ///
+                (1, 1, 1, 1, `num_cols', `=`_fontsize'+2', 1, 0, 0) \ ///
+                (14, 1, 1, 1, `num_cols', 0, 0, 0, 0) \ ///
+                (2, 1, 1, 1, 1, 0, 1, 0, 0) \ ///
+                (4, 1, 1, 1, 1, 0, 1, 0, 0) \ ///
+                (5, 1, 1, 1, 1, 0, 1, 0, 0) \ ///
+                (6, 1, 1, 1, 1, 0, 2, 0, 0) \ ///
+                (8, `_header_row', `_header_row', 2, `num_cols', 0, `_hborder_code', 0, 0) \ ///
+                (9, `_header_row', `_header_row', 2, `num_cols', 0, `_hborder_code', 0, 0) \ ///
+                (2, `_header_row', `_header_row', 2, `num_cols', 0, 1, 0, 0) \ ///
+                (5, `_header_row', `_header_row', 2, `num_cols', 0, 2, 0, 0)
             if "`headershade'" != "" {
-                mata: b.set_fill_pattern(`_header_row', (2,`num_cols'), "solid", "`_headercolor'")
+                matrix `_style_rules' = `_style_rules' \ ///
+                    (7, `_header_row', `_header_row', 2, `num_cols', 0, -1, 0, 0)
             }
-
-            * Center-align data columns
             if `num_rows' >= `_data_start' & `num_cols' >= 3 {
-                mata: b.set_horizontal_align((`_data_start',`num_rows'), (3,`num_cols'), "center")
+                matrix `_style_rules' = `_style_rules' \ ///
+                    (5, `_data_start', `num_rows', 3, `num_cols', 0, 2, 0, 0)
             }
-
-            * Bottom border
-            mata: b.set_bottom_border(`num_rows', (2,`num_cols'), "`_hborder'")
-
-            * Zebra striping
+            matrix `_style_rules' = `_style_rules' \ ///
+                (9, `num_rows', `num_rows', 2, `num_cols', 0, `_hborder_code', 0, 0)
             if "`zebra'" != "" {
                 forvalues _zr = `=`_data_start'+1'(2)`num_rows' {
-                    mata: b.set_fill_pattern(`_zr', (2,`num_cols'), "solid", "`_zebracolor'")
+                    matrix `_style_rules' = `_style_rules' \ ///
+                        (7, `_zr', `_zr', 2, `num_cols', 0, -2, 0, 0)
                 }
             }
-
-            * Bold/highlight log-rank p-value
             if `has_boldp' & `has_by' & !missing(`logrank_p') & `logrank_p' < `boldp' {
                 if `_p_col' > 0 {
                     local _excel_p_col = `_p_col' + 1
-                    mata: b.set_font_bold(`_p_value_row', `_excel_p_col', "on")
+                    matrix `_style_rules' = `_style_rules' \ ///
+                        (2, `_p_value_row', `_p_value_row', `_excel_p_col', `_excel_p_col', 0, 1, 0, 0)
                 }
                 if `_logrank_row' > 0 {
-                    mata: b.set_font_bold(`_logrank_row', (2,`num_cols'), "on")
+                    matrix `_style_rules' = `_style_rules' \ ///
+                        (2, `_logrank_row', `_logrank_row', 2, `num_cols', 0, 1, 0, 0)
                 }
             }
             if `has_highlight' & `has_by' & !missing(`logrank_p') & `logrank_p' < `highlight' & `_logrank_row' > 0 {
-                mata: b.set_fill_pattern(`_logrank_row', (2,`num_cols'), "solid", "255 255 204")
+                matrix `_style_rules' = `_style_rules' \ ///
+                    (7, `_logrank_row', `_logrank_row', 2, `num_cols', 0, -3, 0, 0)
             }
             if `_logrank_row' > 0 {
-                mata: b.set_sheet_merge("`sheet'", (`_logrank_row',`_logrank_row'), (2,`num_cols'))
-                mata: b.set_horizontal_align(`_logrank_row', 2, "left")
-                mata: b.set_vertical_align(`_logrank_row', 2, "center")
+                matrix `_style_rules' = `_style_rules' \ ///
+                    (14, `_logrank_row', `_logrank_row', 2, `num_cols', 0, 0, 0, 0) \ ///
+                    (5, `_logrank_row', `_logrank_row', 2, 2, 0, 1, 0, 0) \ ///
+                    (6, `_logrank_row', `_logrank_row', 2, 2, 0, 2, 0, 0)
             }
-
-            * Footnote
             if `"`footnote'"' != "" {
                 local _fn_row = `num_rows' + 1
                 local _fn_fontsize = max(`_fontsize' - 2, 6)
                 mata: b.put_string(`_fn_row', 2, `"`footnote'"')
-                mata: b.set_sheet_merge("`sheet'", (`_fn_row',`_fn_row'), (2,`num_cols'))
-                mata: b.set_horizontal_align(`_fn_row', 2, "left")
-                mata: b.set_vertical_align(`_fn_row', 2, "center")
-                mata: b.set_text_wrap(`_fn_row', 2, "on")
-                mata: b.set_font(`_fn_row', 2, "`_font'", `_fn_fontsize')
-                mata: b.set_font_italic(`_fn_row', 2, "on")
+                matrix `_style_rules' = `_style_rules' \ ///
+                    (14, `_fn_row', `_fn_row', 2, `num_cols', 0, 0, 0, 0) \ ///
+                    (5, `_fn_row', `_fn_row', 2, 2, 0, 1, 0, 0) \ ///
+                    (6, `_fn_row', `_fn_row', 2, 2, 0, 2, 0, 0) \ ///
+                    (4, `_fn_row', `_fn_row', 2, 2, 0, 1, 0, 0) \ ///
+                    (1, `_fn_row', `_fn_row', 2, 2, `_fn_fontsize', 1, 0, 0) \ ///
+                    (3, `_fn_row', `_fn_row', 2, 2, 0, 1, 0, 0)
             }
 
+            _tabtools_xlsx_apply_styles, book(b) sheet("`sheet'") ///
+                rules(`_style_rules') font("`_font'") ///
+                color1("`_headercolor'") color2("`_zebracolor'") ///
+                color3("255 255 204")
             mata: b.close_book()
         }
         if _rc {

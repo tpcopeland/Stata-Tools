@@ -31,6 +31,7 @@ def cell_style(cell) -> tuple:
         float(font.sz) if font.sz is not None else None,
         bool(font.bold),
         bool(font.italic),
+        color_rgb(font.color),
         align.horizontal,
         align.vertical,
         bool(align.wrap_text),

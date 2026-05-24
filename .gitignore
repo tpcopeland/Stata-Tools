@@ -7,19 +7,3 @@
 *.swp
 *~
 *.tmp
-
-# QA test outputs (generated, not source)
-**/qa/output/
-**/qa/crossval_results/*.csv
-**/qa/crossval_results/*.log
-**/qa/crossval_data/
-
-# gcomp demo outputs
-gcomp/demo/*.xlsx
-
-
-# codescan QA test artifacts
-codescan/qa/cs_test_*.dta
-codescan/qa/codescan_ci_*.csv
-codescan/qa/codescan_results.*
-codescan/qa/chapter_rules.csv

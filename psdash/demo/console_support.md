@@ -2,8 +2,10 @@
 title: "console_support"
 ---
 
+## Common support with generated indicator
+
 ```stata
-. noisily psdash support statin ps, crump nograph
+. noisily psdash support statin ps, crump generate(in_support) nograph
 ```
 
 ```
@@ -41,6 +43,34 @@ Observations trimmed:          26 ( 3.25%)
 Remaining sample:             774
 -------------------------------------------------------
 
-Support: Trimmed ( 3.2% excluded)
+Support indicator generated: in_support
 
+Support: Trimmed ( 3.2% excluded)
+```
+
+```stata
+. noisily tabulate in_support statin, column
+```
+
+```
++-------------------+
+| Key               |
+|-------------------|
+|     frequency     |
+| column percentage |
++-------------------+
+
+In trimmed |
+   support |
+   [0.100, |      Statin use
+    0.900] |        No        Yes |     Total
+-----------+----------------------+----------
+         0 |         3         23 |        26
+           |      1.20       4.17 |      3.25
+-----------+----------------------+----------
+         1 |       246        528 |       774
+           |     98.80      95.83 |     96.75
+-----------+----------------------+----------
+     Total |       249        551 |       800
+           |    100.00     100.00 |    100.00
 ```

@@ -137,6 +137,7 @@ program define _style_engine_apply_legacy
         mata: b.set_bottom_border(2, (1, 5), "medium")
         mata: b.set_horizontal_align((3, 5), (2, 5), "center")
         mata: b.set_fill_pattern(4, (1, 5), "solid", "242 242 242")
+        mata: b.set_font(4, (1, 5), "Arial", 10, "160 160 160")
         mata: b.set_font_bold(5, (1, 5), "on")
         mata: b.set_bottom_border(5, (1, 5), "medium")
         mata: b.set_sheet_merge("`sheet'", (6, 6), (1, 5))
@@ -169,6 +170,7 @@ matrix style_engine_rules = ( ///
     9, 2, 2, 1, 5, 0, 2, 0, 0 \ ///
     5, 3, 5, 2, 5, 0, 2, 0, 0 \ ///
     7, 4, 4, 1, 5, 0, 242, 242, 242 \ ///
+    15, 4, 4, 1, 5, 10, 160, 160, 160 \ ///
     2, 5, 5, 1, 5, 0, 1, 0, 0 \ ///
     9, 5, 5, 1, 5, 0, 2, 0, 0 \ ///
     14, 6, 6, 1, 5, 0, 0, 0, 0 \ ///

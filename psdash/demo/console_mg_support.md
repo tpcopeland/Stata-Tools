@@ -2,8 +2,11 @@
 title: "console_mg_support"
 ---
 
+## Multi-group common support
+
 ```stata
-. noisily psdash support arm, psvars(ps0 ps1 ps2) threshold(0.1) nograph
+. noisily psdash support arm, psvars(ps0 ps1 ps2) threshold(0.1)
+>     generate(mg_support) nograph
 ```
 
 ```
@@ -42,8 +45,36 @@ Trim region:           [0.100, 0.900]
 Observations trimmed:          30 ( 2.50%)
 Remaining sample:            1170
 -------------------------------------------------------
+
+Support indicator generated: mg_support
 Warning: >10% of observations outside common support.
 
 Support: Trimmed ( 2.5% excluded)
+```
 
+```stata
+. noisily tabulate mg_support arm, column
+```
+
+```
++-------------------+
+| Key               |
+|-------------------|
+|     frequency     |
+| column percentage |
++-------------------+
+
+In trimmed |
+   support |
+   [0.100, |          Treatment arm
+    0.900] |   Placebo   Low dose  High dose |     Total
+-----------+---------------------------------+----------
+         0 |        30          0          0 |        30
+           |     19.48       0.00       0.00 |      2.50
+-----------+---------------------------------+----------
+         1 |       124        321        725 |     1,170
+           |     80.52     100.00     100.00 |     97.50
+-----------+---------------------------------+----------
+     Total |       154        321        725 |     1,200
+           |    100.00     100.00     100.00 |    100.00
 ```

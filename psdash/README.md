@@ -199,22 +199,26 @@ matrix list r(balance)
 
 ## Demo
 
-Demo output is generated from `demo/demo_psdash.do`. The README links to curated console markdown instead of embedding the full transcripts.
+Demo output is generated from `demo/demo_psdash.do`. Run it from the `Stata-Tools` repo root with `stata-mp -b do psdash/demo/demo_psdash.do`. The README links to curated console markdown instead of embedding the full transcripts.
 
 ### Binary treatment (2 groups)
 
-Synthetic data: 800 observations, confounded treatment assignment, propensity scores via `logit`, and IPTW weights.
+Synthetic data: 800 observations, confounded treatment assignment, propensity scores via `logit`, IPTW weights, a continuous outcome for the automatic `teffects` workflow, and generated support/modified-weight variables.
 
 | Output | Console markdown | Image |
 |--------|------------------|-------|
 | Overlap diagnostics | [`demo/console_overlap.md`](demo/console_overlap.md) | ![PS overlap density](demo/overlap_density.png) |
+| Overlap histogram | [`demo/console_overlap.md`](demo/console_overlap.md) | ![PS overlap histogram](demo/overlap_histogram.png) |
 | Balance and weight diagnostics | [`demo/console_balance_weights.md`](demo/console_balance_weights.md) | ![Love plot](demo/love_plot.png) |
-| Common support assessment | [`demo/console_support.md`](demo/console_support.md) | |
+| Detailed and modified weights | [`demo/console_weight_options.md`](demo/console_weight_options.md) | ![Weight distribution](demo/weight_distribution.png) |
+| Common support assessment | [`demo/console_support.md`](demo/console_support.md) | ![Common support region](demo/support_region.png) |
+| Stored results and balance matrix | [`demo/console_return_values.md`](demo/console_return_values.md) | |
 | Combined dashboard | | ![Combined dashboard](demo/dashboard.png) |
+| Automatic workflow after `teffects` | [`demo/console_teffects_auto.md`](demo/console_teffects_auto.md) | ![Teffects dashboard](demo/dashboard_teffects.png) |
 
 ### Multi-group treatment (3 arms)
 
-Synthetic data: 1,200 observations, a 3-arm treatment assigned via multinomial logit, generalized propensity scores via `mlogit`, and generalized IPTW weights.
+Synthetic data: 1,200 observations, a 3-arm treatment assigned via multinomial logit, generalized propensity scores via `mlogit`, generalized IPTW weights, threshold-based support indicators, and an alternate reference-arm balance check.
 
 | Output | Console markdown | Image |
 |--------|------------------|-------|
@@ -222,6 +226,8 @@ Synthetic data: 1,200 observations, a 3-arm treatment assigned via multinomial l
 | Multi-group balance | [`demo/console_mg_balance.md`](demo/console_mg_balance.md) | ![Multi-group Love plot](demo/mg_love_plot.png) |
 | Multi-group weight diagnostics | [`demo/console_mg_weights.md`](demo/console_mg_weights.md) | |
 | Multi-group common support | [`demo/console_mg_support.md`](demo/console_mg_support.md) | |
+| Multi-group reference arm change | [`demo/console_mg_reference.md`](demo/console_mg_reference.md) | |
+| Multi-group combined dashboard | | ![Multi-group dashboard](demo/mg_dashboard.png) |
 
 ## Version History
 

@@ -2,6 +2,8 @@
 title: "console_overlap"
 ---
 
+## Binary overlap diagnostics
+
 ```stata
 . noisily psdash overlap statin ps, nograph
 ```
@@ -35,5 +37,4 @@ C-statistic (AUC):         0.6881
 -------------------------------------------------------
 
 Overlap: Good ( 2.1% outside support)
-
 ```

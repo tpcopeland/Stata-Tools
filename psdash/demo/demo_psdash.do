@@ -3,20 +3,29 @@
     Produces:
 
     Binary treatment (2 groups):
-      1. Console output (overlap diagnostics)     -> console_overlap.log -> .md
+      1. Console output (overlap diagnostics)      -> console_overlap.log -> .md
       2. Console output (balance + weights)        -> console_balance_weights.log -> .md
-      3. Console output (support assessment)       -> console_support.log -> .md
-      4. Graph (PS overlap density)                -> overlap_density.png
-      5. Graph (Love plot)                         -> love_plot.png
-      6. Graph (combined dashboard)                -> dashboard.png
+      3. Console output (weight options)           -> console_weight_options.log -> .md
+      4. Console output (support assessment)       -> console_support.log -> .md
+      5. Console output (stored results)           -> console_return_values.log -> .md
+      6. Console output (teffects auto-detection)  -> console_teffects_auto.log -> .md
+      7. Graph (PS overlap density)                -> overlap_density.png
+      8. Graph (PS overlap histogram)              -> overlap_histogram.png
+      9. Graph (Love plot)                         -> love_plot.png
+     10. Graph (weight distribution)               -> weight_distribution.png
+     11. Graph (support region)                    -> support_region.png
+     12. Graph (manual combined dashboard)         -> dashboard.png
+     13. Graph (teffects dashboard)                -> dashboard_teffects.png
 
     Multi-group treatment (3 groups):
-      7. Console output (multi-group overlap)      -> console_mg_overlap.log -> .md
-      8. Console output (multi-group balance)      -> console_mg_balance.log -> .md
-      9. Console output (multi-group weights)      -> console_mg_weights.log -> .md
-     10. Console output (multi-group support)      -> console_mg_support.log -> .md
-     11. Graph (multi-group overlap density)       -> mg_overlap_density.png
-     12. Graph (multi-group Love plot)             -> mg_love_plot.png
+     14. Console output (multi-group overlap)      -> console_mg_overlap.log -> .md
+     15. Console output (multi-group balance)      -> console_mg_balance.log -> .md
+     16. Console output (multi-group weights)      -> console_mg_weights.log -> .md
+     17. Console output (multi-group support)      -> console_mg_support.log -> .md
+     18. Console output (reference group change)   -> console_mg_reference.log -> .md
+     19. Graph (multi-group overlap density)       -> mg_overlap_density.png
+     20. Graph (multi-group Love plot)             -> mg_love_plot.png
+     21. Graph (multi-group dashboard)             -> mg_dashboard.png
 */
 
 version 16.0
@@ -99,17 +108,23 @@ gen double ipw = cond(statin==1, 1/ps, 1/(1-ps))
 
 **# 1. Overlap diagnostics
 log using "`demo_dir'/console_overlap.log", replace text name(overlap) nomsg
+* # Binary overlap diagnostics
 noisily psdash overlap statin ps, nograph
 log close overlap
 
 psdash overlap statin ps, saving("`demo_dir'/overlap_density.png")
 capture graph close _all
 
+psdash overlap statin ps, histogram bins(25) ///
+    saving("`demo_dir'/overlap_histogram.png")
+capture graph close _all
+
 **# 2. Balance and weight diagnostics
 log using "`demo_dir'/console_balance_weights.log", replace text ///
     name(balwt) nomsg
+* # Binary balance and IPTW diagnostics
 noisily psdash balance statin ps, ///
-    covariates(age female bmi sbp cholesterol) wvar(ipw)
+    covariates(age female bmi sbp cholesterol) wvar(ipw) ks
 noisily psdash weights statin ps, wvar(ipw)
 log close balwt
 
@@ -117,15 +132,55 @@ psdash balance statin ps, covariates(age female bmi sbp cholesterol) ///
     wvar(ipw) loveplot saving("`demo_dir'/love_plot.png")
 capture graph close _all
 
-**# 3. Support assessment
+**# 3. Weight modification options
+log using "`demo_dir'/console_weight_options.log", replace text ///
+    name(weight_opts) nomsg
+* # Detailed and modified weights
+noisily psdash weights statin ps, wvar(ipw) detail
+noisily psdash weights statin ps, wvar(ipw) trim(99) generate(ipw_trimmed)
+noisily psdash weights statin ps, wvar(ipw) stabilize generate(ipw_stabilized)
+noisily summarize ipw ipw_trimmed ipw_stabilized
+log close weight_opts
+
+psdash weights statin ps, wvar(ipw) graph xlabel(0 2 5 10 15) ///
+    saving("`demo_dir'/weight_distribution.png")
+capture graph close _all
+
+**# 4. Support assessment
 log using "`demo_dir'/console_support.log", replace text name(support) nomsg
-noisily psdash support statin ps, crump nograph
+* # Common support with generated indicator
+noisily psdash support statin ps, crump generate(in_support) nograph
+noisily tabulate in_support statin, column
 log close support
 
-**# 4. Combined dashboard
+psdash support statin ps, crump saving("`demo_dir'/support_region.png")
+capture graph close _all
+
+**# 5. Stored result example
+log using "`demo_dir'/console_return_values.log", replace text ///
+    name(return_values) nomsg
+* # Stored results for automated checks
+noisily psdash balance statin ps, ///
+    covariates(age female bmi sbp cholesterol) wvar(ipw)
+noisily return list
+noisily matrix list r(balance)
+log close return_values
+
+**# 6. Manual combined dashboard
 psdash combined statin ps, ///
     covariates(age female bmi sbp cholesterol) wvar(ipw) ///
     saving("`demo_dir'/dashboard.png")
+capture graph close _all
+
+**# 7. Fully automatic workflow after teffects
+log using "`demo_dir'/console_teffects_auto.log", replace text ///
+    name(teffects_auto) nomsg
+* # Automatic detection after teffects
+noisily teffects ipw (ldl_change) (statin age female bmi sbp cholesterol)
+noisily psdash combined
+log close teffects_auto
+
+psdash combined, saving("`demo_dir'/dashboard_teffects.png")
 capture graph close _all
 
 **# Multi-group treatment setup (3 arms)
@@ -172,6 +227,7 @@ label variable gipw "Generalized IPTW"
 **# 5. Multi-group overlap
 log using "`demo_dir'/console_mg_overlap.log", replace text ///
     name(mg_overlap) nomsg
+* # Multi-group overlap diagnostics
 noisily psdash overlap arm, psvars(ps0 ps1 ps2) nograph
 log close mg_overlap
 
@@ -182,8 +238,9 @@ capture graph close _all
 **# 6. Multi-group balance
 log using "`demo_dir'/console_mg_balance.log", replace text ///
     name(mg_balance) nomsg
+* # Multi-group balance diagnostics
 noisily psdash balance arm, psvars(ps0 ps1 ps2) ///
-    covariates(age female bmi sbp cholesterol creatinine) wvar(gipw)
+    covariates(age female bmi sbp cholesterol creatinine) wvar(gipw) ks
 log close mg_balance
 
 psdash balance arm, psvars(ps0 ps1 ps2) ///
@@ -194,14 +251,33 @@ capture graph close _all
 **# 7. Multi-group weights
 log using "`demo_dir'/console_mg_weights.log", replace text ///
     name(mg_weights) nomsg
-noisily psdash weights arm, psvars(ps0 ps1 ps2) wvar(gipw)
+* # Multi-group weight diagnostics
+noisily psdash weights arm, psvars(ps0 ps1 ps2) wvar(gipw) detail
 log close mg_weights
 
 **# 8. Multi-group support
 log using "`demo_dir'/console_mg_support.log", replace text ///
     name(mg_support) nomsg
-noisily psdash support arm, psvars(ps0 ps1 ps2) threshold(0.1) nograph
+* # Multi-group common support
+noisily psdash support arm, psvars(ps0 ps1 ps2) threshold(0.1) ///
+    generate(mg_support) nograph
+noisily tabulate mg_support arm, column
 log close mg_support
+
+**# 9. Multi-group reference group change
+log using "`demo_dir'/console_mg_reference.log", replace text ///
+    name(mg_reference) nomsg
+* # Multi-group balance with reference arm 1
+noisily psdash balance arm, psvars(ps0 ps1 ps2) ///
+    covariates(age female bmi sbp cholesterol creatinine) ///
+    wvar(gipw) reference(1)
+log close mg_reference
+
+**# 10. Multi-group combined dashboard
+psdash combined arm, psvars(ps0 ps1 ps2) ///
+    covariates(age female bmi sbp cholesterol creatinine) wvar(gipw) ///
+    saving("`demo_dir'/mg_dashboard.png")
+capture graph close _all
 
 **# Convert console logs to markdown via logdoc
 local logdoc_dir "`repo'/logdoc"
@@ -212,9 +288,10 @@ if !fileexists("`logdoc_dir'/logdoc.pkg") {
 capture ado uninstall logdoc
 quietly net install logdoc, from("`logdoc_dir'") replace
 
-foreach f in console_overlap console_balance_weights console_support ///
+foreach f in console_overlap console_balance_weights console_weight_options ///
+    console_support console_return_values console_teffects_auto ///
     console_mg_overlap console_mg_balance console_mg_weights ///
-    console_mg_support {
+    console_mg_support console_mg_reference {
     logdoc using "`demo_dir'/`f'.log", ///
         output("`demo_dir'/`f'.md") format(md) replace quiet
 }

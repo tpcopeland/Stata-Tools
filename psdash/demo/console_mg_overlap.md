@@ -2,6 +2,8 @@
 title: "console_mg_overlap"
 ---
 
+## Multi-group overlap diagnostics
+
 ```stata
 . noisily psdash overlap arm, psvars(ps0 ps1 ps2) nograph
 ```
@@ -38,5 +40,4 @@ Warning: >10% of observations outside common support region.
 
 Overlap: WARNING (94.1% outside support)
   Consider: psdash support, threshold(0.05)
-
 ```

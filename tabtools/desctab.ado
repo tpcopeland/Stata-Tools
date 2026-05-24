@@ -761,49 +761,63 @@ program define desctab, rclass
 
         local _fn_text `"`footnote'"'
         capture {
-            mata: b.set_column_width(1, 1, 1)
-            mata: b.set_column_width(2, 2, `_label_width')
+            local _hborder_code = 1
+            if "`_hborder'" == "medium" local _hborder_code = 2
+            if "`_hborder'" == "thick" local _hborder_code = 3
+            if "`_hborder'" == "none" local _hborder_code = 4
+            local _vborder_code = 1
+            if "`borderstyle'" == "medium" local _vborder_code = 2
+            if "`borderstyle'" == "thick" local _vborder_code = 3
+            if "`borderstyle'" == "none" local _vborder_code = 4
+
+            tempname _style_rules
+            matrix `_style_rules' = (13, 1, 1, 1, 1, 1, 0, 0, 0) \ ///
+                (13, 1, 1, 2, 2, `_label_width', 0, 0, 0)
             forvalues _c = 3/`num_cols' {
                 local _dc = `_c' - 2
-                mata: b.set_column_width(`_c', `_c', `_data_width_`_dc'')
+                matrix `_style_rules' = `_style_rules' \ ///
+                    (13, 1, 1, `_c', `_c', `_data_width_`_dc'', 0, 0, 0)
             }
-            mata: b.set_row_height(1, 1, 30)
-            mata: b.set_font((1, `num_rows'), (1, `num_cols'), "`_font'", `_fontsize')
-            mata: b.set_font((1, 1), (1, `num_cols'), "`_font'", `=`_fontsize' + 2')
-            mata: b.set_sheet_merge("`sheet'", (1, 1), (1, `num_cols'))
-            mata: b.set_text_wrap(1, 1, "on")
-            mata: b.set_horizontal_align(1, 1, "left")
-            mata: b.set_vertical_align(1, 1, "center")
-            mata: b.set_font_bold(1, 1, "on")
+            matrix `_style_rules' = `_style_rules' \ ///
+                (12, 1, 1, 1, 1, 30, 0, 0, 0) \ ///
+                (1, 1, `num_rows', 1, `num_cols', `_fontsize', 1, 0, 0) \ ///
+                (1, 1, 1, 1, `num_cols', `=`_fontsize' + 2', 1, 0, 0) \ ///
+                (14, 1, 1, 1, `num_cols', 0, 0, 0, 0) \ ///
+                (4, 1, 1, 1, 1, 0, 1, 0, 0) \ ///
+                (5, 1, 1, 1, 1, 0, 1, 0, 0) \ ///
+                (6, 1, 1, 1, 1, 0, 2, 0, 0) \ ///
+                (2, 1, 1, 1, 1, 0, 1, 0, 0)
             if `_merge_group_headers' {
                 if `_merge_row_header' & `data_start' > 3 {
-                    mata: b.set_sheet_merge("`sheet'", (2, `=`data_start' - 1'), (2, 2))
-                    mata: b.set_vertical_align((2, `=`data_start' - 1'), 2, "center")
+                    matrix `_style_rules' = `_style_rules' \ ///
+                        (14, 2, `=`data_start' - 1', 2, 2, 0, 0, 0, 0) \ ///
+                        (6, 2, `=`data_start' - 1', 2, 2, 0, 2, 0, 0)
                 }
                 forvalues _g = 1/`n_groups' {
                     local _merge_start = 3 + (`_g' - 1) * `n_stats'
                     local _merge_end = `_merge_start' + `n_stats' - 1
                     if `_merge_end' > `_merge_start' {
-                        mata: b.set_sheet_merge("`sheet'", (2, 2), (`_merge_start', `_merge_end'))
+                        matrix `_style_rules' = `_style_rules' \ ///
+                            (14, 2, 2, `_merge_start', `_merge_end', 0, 0, 0, 0)
                     }
                 }
             }
-            mata: b.set_font_bold((2, `=`data_start' - 1'), (2, `num_cols'), "on")
-            mata: b.set_horizontal_align((2, `=`data_start' - 1'), (3, `num_cols'), "center")
+            matrix `_style_rules' = `_style_rules' \ ///
+                (2, 2, `=`data_start' - 1', 2, `num_cols', 0, 1, 0, 0) \ ///
+                (5, 2, `=`data_start' - 1', 3, `num_cols', 0, 2, 0, 0)
             if "`headershade'" != "" {
-                mata: b.set_fill_pattern((2, `=`data_start' - 1'), (2, `num_cols'), "solid", "`_headercolor'")
+                matrix `_style_rules' = `_style_rules' \ ///
+                    (7, 2, `=`data_start' - 1', 2, `num_cols', 0, -1, 0, 0)
             }
-            mata: b.set_top_border(2, (2, `num_cols'), "`_hborder'")
-            mata: b.set_bottom_border(`=`data_start' - 1', (2, `num_cols'), "`_hborder'")
-            mata: b.set_bottom_border(`num_rows', (2, `num_cols'), "`_hborder'")
+            matrix `_style_rules' = `_style_rules' \ ///
+                (8, 2, 2, 2, `num_cols', 0, `_hborder_code', 0, 0) \ ///
+                (9, `=`data_start' - 1', `=`data_start' - 1', 2, `num_cols', 0, `_hborder_code', 0, 0) \ ///
+                (9, `num_rows', `num_rows', 2, `num_cols', 0, `_hborder_code', 0, 0)
             if "`borderstyle'" != "academic" {
-                mata: b.set_left_border((2, `num_rows'), 2, "`borderstyle'")
-                mata: b.set_right_border((2, `num_rows'), `num_cols', "`borderstyle'")
-                * Separator between row labels (column B) and data (column C).
-                mata: b.set_right_border((2, `num_rows'), 2, "`borderstyle'")
-                * Separators between column groups: always before/after a Total
-                * group; for multi-column groups (super columns) between every
-                * group, matching manuscript-style table conventions.
+                matrix `_style_rules' = `_style_rules' \ ///
+                    (10, 2, `num_rows', 2, 2, 0, `_vborder_code', 0, 0) \ ///
+                    (11, 2, `num_rows', `num_cols', `num_cols', 0, `_vborder_code', 0, 0) \ ///
+                    (11, 2, `num_rows', 2, 2, 0, `_vborder_code', 0, 0)
                 if `n_groups' > 1 {
                     local _cols_per_group = `n_display_cols' / `n_groups'
                     forvalues _g = 1/`=`n_groups' - 1' {
@@ -815,14 +829,16 @@ program define desctab, rclass
                             | ("`_curr_label'" == "Total")
                         if `_draw' {
                             local _gcol_end = 2 + `_g' * `_cols_per_group'
-                            mata: b.set_right_border((2, `num_rows'), `_gcol_end', "`borderstyle'")
+                            matrix `_style_rules' = `_style_rules' \ ///
+                                (11, 2, `num_rows', `_gcol_end', `_gcol_end', 0, `_vborder_code', 0, 0)
                         }
                     }
                 }
             }
             if "`zebra'" != "" {
                 forvalues _zr = `=`data_start' + 1'(2)`num_rows' {
-                    mata: b.set_fill_pattern(`_zr', (2, `num_cols'), "solid", "`_zebracolor'")
+                    matrix `_style_rules' = `_style_rules' \ ///
+                        (7, `_zr', `_zr', 2, `num_cols', 0, -2, 0, 0)
                 }
             }
             if `highlight' != -1 {
@@ -833,20 +849,28 @@ program define desctab, rclass
                         local _excel_hr = `_hr' - 1
                     }
                     if `_excel_hr' >= `data_start' & `_excel_hr' <= `num_rows' {
-                        mata: b.set_fill_pattern(`_excel_hr', (2, `num_cols'), "solid", "255 255 204")
+                        matrix `_style_rules' = `_style_rules' \ ///
+                            (7, `_excel_hr', `_excel_hr', 2, `num_cols', 0, -3, 0, 0)
                     }
                 }
             }
-            mata: b.set_horizontal_align((`data_start', `num_rows'), (3, `num_cols'), "center")
+            matrix `_style_rules' = `_style_rules' \ ///
+                (5, `data_start', `num_rows', 3, `num_cols', 0, 2, 0, 0)
             if `"`_fn_text'"' != "" {
                 local _fn_row = `num_rows' + 1
                 local _fn_fontsize = max(`_fontsize' - 2, 6)
                 mata: b.put_string(`_fn_row', 2, `"`_fn_text'"')
-                mata: b.set_sheet_merge("`sheet'", (`_fn_row', `_fn_row'), (2, `num_cols'))
-                mata: b.set_text_wrap(`_fn_row', 2, "on")
-                mata: b.set_font(`_fn_row', 2, "`_font'", `_fn_fontsize')
-                mata: b.set_font_italic(`_fn_row', 2, "on")
+                matrix `_style_rules' = `_style_rules' \ ///
+                    (14, `_fn_row', `_fn_row', 2, `num_cols', 0, 0, 0, 0) \ ///
+                    (4, `_fn_row', `_fn_row', 2, 2, 0, 1, 0, 0) \ ///
+                    (1, `_fn_row', `_fn_row', 2, 2, `_fn_fontsize', 1, 0, 0) \ ///
+                    (3, `_fn_row', `_fn_row', 2, 2, 0, 1, 0, 0)
             }
+
+            _tabtools_xlsx_apply_styles, book(b) sheet("`sheet'") ///
+                rules(`_style_rules') font("`_font'") ///
+                color1("`_headercolor'") color2("`_zebracolor'") ///
+                color3("255 255 204")
             mata: b.close_book()
         }
         if _rc {

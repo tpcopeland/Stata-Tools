@@ -1,4 +1,4 @@
-*! _tabtools_xlsx_apply_styles Version 1.3.0  2026/05/23
+*! _tabtools_xlsx_apply_styles Version 1.3.0  2026/05/24
 *! Apply compact Excel style rules to an open Mata xl() workbook
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass
@@ -143,6 +143,10 @@ void _tt_xlsx_apply_styles(
         else if (op == 14) {
             b.set_sheet_merge(sheet, (r1, r2), (c1, c2))
         }
+        else if (op == 15) {
+            b.set_font((r1, r2), (c1, c2), font, rules[i, 6],
+                _tt_xlsx_style_rgb(rules[i, (7..9)], colors))
+        }
     }
 }
 
@@ -207,7 +211,7 @@ void _tt_xlsx_style_validate(
     real scalar op
 
     op = rules[row, 1]
-    _tt_xlsx_style_validate_code(op, row, "operation", 1, 14)
+    _tt_xlsx_style_validate_code(op, row, "operation", 1, 15)
 
     if (op == 12) {
         _tt_xlsx_style_validate_range(rules[row, 2], rules[row, 3],
@@ -245,6 +249,10 @@ void _tt_xlsx_style_validate(
         }
         else if (op >= 8 & op <= 11) {
             _tt_xlsx_style_validate_code(rules[row, 7], row, "border code", 1, 4)
+        }
+        else if (op == 15) {
+            _tt_xlsx_style_validate_positive(rules[row, 6], row, "font size")
+            _tt_xlsx_style_validate_rgb(rules[row, (7..9)], row, colors)
         }
     }
 }
