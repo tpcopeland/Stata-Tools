@@ -223,3 +223,5 @@ AG-refit view.{p_end}
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 
 {pstd}Version 1.2.1, 2026-05-25{p_end}
+
+{hline}

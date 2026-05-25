@@ -342,6 +342,33 @@ simultaneously:
 {phang2}{cmd:. iivw_weight, id(id) time(days) visit_cov(edss_bl age sex) lagvars(edss relapse) treat(treated) treat_cov(age sex edss_bl) truncate(1 99) replace nolog}{p_end}
 {phang2}{cmd:. iivw_fit edss treated age sex edss_bl, model(gee) timespec(quadratic)}{p_end}
 
+{pstd}
+{bf:Example 3: diagnostic decomposition with a measurement-process adjustment}
+
+{pstd}
+When repeated testing may itself change the outcome, fit three comparable
+models: unweighted, weighted, and weighted plus a measurement-process variable
+such as log cumulative test number.  The decomposition target should be the
+marginal or reference-arm time slope, here {cmd:days}.
+
+{phang2}{cmd:. iivw_fit edss treated days relapse age sex edss_bl, unweighted id(id) time(days) timespec(none) nolog}{p_end}
+{phang2}{cmd:. estimates store M_unweighted}{p_end}
+{phang2}{cmd:. iivw_weight, id(id) time(days) visit_cov(edss_bl age sex) lagvars(edss relapse) treat(treated) treat_cov(age sex edss_bl) truncate(1 99) replace nolog}{p_end}
+{phang2}{cmd:. iivw_balance, nolog}{p_end}
+{phang2}{cmd:. iivw_fit edss treated days relapse age sex edss_bl, model(gee) timespec(none) replace nolog}{p_end}
+{phang2}{cmd:. estimates store M_fiptiw}{p_end}
+{phang2}{cmd:. gen double log_visit = log(visit + 1)}{p_end}
+{phang2}{cmd:. iivw_fit edss treated days relapse age sex edss_bl log_visit, model(gee) timespec(none) replace nolog}{p_end}
+{phang2}{cmd:. estimates store M_adjusted}{p_end}
+{phang2}{cmd:. iivw_exogtest edss relapse, id(id) time(days) adjust(age sex edss_bl) by(treated) nolog}{p_end}
+{phang2}{cmd:. iivw_diagnose days, unweighted(M_unweighted) weighted(M_fiptiw) adjusted(M_adjusted) estimand(marginal) exogeneity(unknown)}{p_end}
+
+{pstd}
+If {cmd:iivw_exogtest} finds that lagged outcomes predict future visits,
+treat the adjusted estimate as a sensitivity bound rather than as a clean
+artifact correction.  The package demo, {cmd:iivw/demo/demo_iivw.do}, contains
+a runnable version of this workflow with synthetic SDMT-like data.
+
 
 {marker references}{...}
 {title:References}

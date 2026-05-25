@@ -406,17 +406,55 @@ The package ships with functional, validation, and cross-validation QA under `qa
 
 ## Demo
 
-The full FIPTIW workflow (weighting, weight diagnostics, outcome model) is rendered as a self-contained HTML document:
-
-**[View rendered output (console_output.html)](demo/console_output.html)**
-
-The demo also produces a multi-model comparison table (`demo/iivw_results.xlsx`) showing IIW, FIPTIW, FIPTIW with treatment-time interaction, and FIPTIW with categorical treatment side by side.
+The demo script builds a synthetic SDMT-like longitudinal panel inspired by the NTZ/RTX application workflow in the methods study. It demonstrates the current end-to-end diagnostic path: unweighted GEE through `iivw_fit, unweighted`, FIPTIW weighting, `iivw_balance`, direct `log(test+1)` measurement-artifact adjustment, `iivw_exogtest`, and `iivw_diagnose`.
 
 Regenerate from the repository root with:
 
 ```stata
 do iivw/demo/demo_iivw.do
 ```
+
+Generated outputs:
+
+- [`demo/console_output.md`](demo/console_output.md) — Markdown transcript of the workflow
+- `demo/iivw_results.xlsx` — Excel comparison of unweighted, FIPTIW, and FIPTIW + `log(test+1)` outcome models
+
+The key diagnostic pattern in the demo mirrors the study logic: weighting moves the marginal/reference time slope only modestly, while the measurement-process adjustment moves it sharply. Because the exogeneity check finds that lagged outcomes predict future visit timing, `iivw_diagnose` reports a diagnostic range rather than a point artifact share.
+
+<details>
+<summary>Key diagnostic output</summary>
+
+```stata
+. iivw_diagnose years, ///
+    unweighted(M_unweighted) weighted(M_fiptiw) adjusted(M_adjusted) ///
+    estimand(marginal) exogeneity(endogenous)
+```
+
+```text
+IIVW diagnostic decomposition for marginal/reference slope: years
+
+                       Model       Estimate          SE   95% CI
+------------------------------------------------------------------------------
+                  Unweighted         0.7262      0.0860      0.5577,   0.8947
+                    Weighted         0.6566      0.0826      0.4947,   0.8185
+    Weighted + artifact adj.        -0.4833      0.2235     -0.9213,  -0.0453
+------------------------------------------------------------------------------
+
+Diagnostic movement
+Sampling gap:           0.0696
+Artifact gap:           1.1398
+Total gap:              1.2094
+
+Sampling/artifact shares are not displayed because the measurement
+adjustment is marked as potentially endogenous.
+
+Because the measurement process appears outcome-dependent, the adjusted
+model may over-correct. Treat the weighted and adjusted estimates as a
+diagnostic range, not a point decomposition.
+Plausible diagnostic range:   -0.4833 to    0.6566
+```
+
+</details>
 
 ## References
 
@@ -429,7 +467,7 @@ do iivw/demo/demo_iivw.do
 
 ### v1.2.1 (2026-05-25)
 
-- Added `iivw_diagnose` to `iivw_balance.sthlp` Also see section
+- Refreshed the diagnostic documentation and demo around the current `iivw_balance`, `iivw_exogtest`, and `iivw_diagnose` workflow
 
 ### v1.2.0 (2026-05-24)
 
