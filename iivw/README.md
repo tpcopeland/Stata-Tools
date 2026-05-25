@@ -1,6 +1,6 @@
 # iivw - Inverse intensity visit weighting and diagnostics for longitudinal data
 
-**Version 1.2.0** | 2026-05-24
+**Version 1.2.1** | 2026-05-25
 
 `iivw` corrects bias from informative visit timing in irregular longitudinal data and provides diagnostics for separating sampling bias from residual measurement artifact.  In clinic-based studies, sicker patients often visit more frequently, so they contribute more rows to the dataset and bias naive analyses.  This package re-weights each observation so the fitted outcome model targets the patient population more directly rather than the clinic-visit process.
 
@@ -426,6 +426,10 @@ do iivw/demo/demo_iivw.do
 - Tompkins G, Dubin JA, Wallace M. On flexible inverse probability of treatment and intensity weighting. *Statistical Methods in Medical Research*. 2025.
 
 ## Changelog
+
+### v1.2.1 (2026-05-25)
+
+- Added `iivw_diagnose` to `iivw_balance.sthlp` Also see section
 
 ### v1.2.0 (2026-05-24)
 

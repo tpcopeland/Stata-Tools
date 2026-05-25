@@ -92,7 +92,7 @@ end
 local ++test_count
 capture noisily {
     iivw
-    assert "`r(version)'" == "1.2.0"
+    assert "`r(version)'" == "1.2.1"
     assert "`r(commands)'" == "iivw_weight iivw_balance iivw_fit iivw_exogtest iivw_diagnose"
     assert r(n_commands) == 5
 }

@@ -1,9 +1,10 @@
 {smcl}
-{* *! version 1.2.0  24may2026}{...}
+{* *! version 1.2.1  25may2026}{...}
 {vieweralsosee "iivw" "help iivw"}{...}
 {vieweralsosee "iivw_weight" "help iivw_weight"}{...}
 {vieweralsosee "iivw_fit" "help iivw_fit"}{...}
 {vieweralsosee "iivw_exogtest" "help iivw_exogtest"}{...}
+{vieweralsosee "iivw_diagnose" "help iivw_diagnose"}{...}
 {vieweralsosee "[ST] stcox" "help stcox"}{...}
 {viewerjumpto "Syntax" "iivw_balance##syntax"}{...}
 {viewerjumpto "Description" "iivw_balance##description"}{...}
@@ -221,4 +222,4 @@ AG-refit view.{p_end}
 
 {pstd}Timothy P Copeland, Karolinska Institutet{p_end}
 
-{pstd}Version 1.2.0, 2026-05-24{p_end}
+{pstd}Version 1.2.1, 2026-05-25{p_end}
