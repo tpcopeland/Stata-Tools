@@ -272,9 +272,11 @@ Example 3: simulation-style call with a known true value.
 {title:References}
 
 {phang}
-Buzkova, P., and T. Lumley. 2007. Longitudinal data analysis for generalized
-linear models with follow-up dependent on outcome-related variables.
-{it:Canadian Journal of Statistics} 35: 485-500.
+Buzkova P, Lumley T. 2007.
+Longitudinal data analysis for generalized linear models with follow-up
+dependent on outcome-related variables.
+{it:Canadian Journal of Statistics} 35(4): 485-500.
+doi:10.1002/cjs.5550350402.
 
 
 {marker author}{...}

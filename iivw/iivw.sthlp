@@ -377,28 +377,34 @@ a runnable version of this workflow with synthetic SDMT-like data.
 Buzkova P, Lumley T. 2007.
 Longitudinal data analysis for generalized linear models with follow-up
 dependent on outcome-related variables.
-{it:Canadian Journal of Statistics} 35: 485-500.
+{it:Canadian Journal of Statistics} 35(4): 485-500.
+doi:10.1002/cjs.5550350402.
 
 {phang}
 Lin H, Scharfstein DO, Rosenheck RA. 2004.
 Analysis of longitudinal data with irregular, outcome-dependent follow-up.
-{it:JRSS-B} 66: 791-813.
+{it:Journal of the Royal Statistical Society: Series B (Statistical Methodology)}
+66(3): 791-813.
+doi:10.1111/j.1467-9868.2004.b5543.x.
 
 {phang}
 Tompkins G, Dubin JA, Wallace M. 2025.
-On flexible inverse probability of treatment and intensity weighting.
-{it:Statistical Methods in Medical Research}.
+On flexible inverse probability of treatment and intensity weighting:
+Informative censoring, variable selection, and weight trimming.
+{it:Statistical Methods in Medical Research} 34(5): 915-937.
+doi:10.1177/09622802241313289.
 
 {phang}
 Pullenayegum EM. 2016.
 Multiple outputation for the analysis of longitudinal data subject to
 irregular observation.
-{it:Statistics in Medicine} 35: 1800-1818.
+{it:Statistics in Medicine} 35(11): 1800-1818.
+doi:10.1002/sim.6829.
 
 {phang}
-Pullenayegum EM. 2020.
+Pullenayegum EM. 2026.
 IrregLong: Analysis of longitudinal data with irregular observation times.
-R package. CRAN.
+R package version 0.4.1. CRAN.
 
 
 {marker results}{...}

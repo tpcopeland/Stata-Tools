@@ -280,12 +280,15 @@ diagnostic is positive, pass {cmd:exogeneity(endogenous)} to
 Buzkova P, Lumley T. 2007.
 Longitudinal data analysis for generalized linear models with follow-up
 dependent on outcome-related variables.
-{it:Canadian Journal of Statistics} 35: 485-500.
+{it:Canadian Journal of Statistics} 35(4): 485-500.
+doi:10.1002/cjs.5550350402.
 
 {phang}
 Lin H, Scharfstein DO, Rosenheck RA. 2004.
 Analysis of longitudinal data with irregular, outcome-dependent follow-up.
-{it:JRSS-B} 66: 791-813.
+{it:Journal of the Royal Statistical Society: Series B (Statistical Methodology)}
+66(3): 791-813.
+doi:10.1111/j.1467-9868.2004.b5543.x.
 
 
 {marker author}{...}
