@@ -297,6 +297,7 @@ capture noisily {
         run_all.log ///
         test_iivw_release_adversarial.log ///
         test_iivw_balance.log ///
+        test_iivw_performance.log ///
         test_iivw_v105_regressions.log ///
         test_iivw_v106_regressions.log ///
         test_iivw_final_adversarial.log ///

@@ -341,12 +341,20 @@ program define iivw_balance, rclass
         }
         local __iivw_ag_rc = _rc
         if `__iivw_restore_needed' {
-            restore
+            capture restore
+            local __iivw_restore_rc = _rc
             local __iivw_restore_needed = 0
+            if `__iivw_ag_rc' == 0 & `__iivw_restore_rc' != 0 {
+                local __iivw_ag_rc = `__iivw_restore_rc'
+            }
         }
         if `__iivw_hold_ok' {
             capture _estimates unhold `__iivw_esthold'
+            local __iivw_unhold_rc = _rc
             local __iivw_hold_ok = 0
+            if `__iivw_ag_rc' == 0 & `__iivw_unhold_rc' != 0 {
+                local __iivw_ag_rc = `__iivw_unhold_rc'
+            }
         }
         if `__iivw_ag_rc' != 0 {
             display as text "note: AG refit view could not be completed (rc=`__iivw_ag_rc')"

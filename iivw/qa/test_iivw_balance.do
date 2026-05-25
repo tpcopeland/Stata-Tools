@@ -307,6 +307,28 @@ else {
     local failed_tests "`failed_tests' T10"
 }
 
+local ++test_count
+capture noisily {
+    _balance_manual_panel good
+    regress x z
+    local active_cmd "`e(cmd)'"
+    local active_b = _b[z]
+    iivw_balance, agrefit nolog
+    assert "`e(cmd)'" == "`active_cmd'"
+    assert reldif(_b[z], `active_b') < 1e-12
+    matrix HW = r(hr_weighted)
+    assert HW[1,6] == 0
+}
+if _rc == 0 {
+    display as result "  PASS: T11 - agrefit preserves active estimates"
+    local ++pass_count
+}
+else {
+    display as error "  FAIL: T11 - agrefit active-estimate preservation (error `=_rc')"
+    local ++fail_count
+    local failed_tests "`failed_tests' T11"
+}
+
 **# Summary
 
 display as result "Test Results: `pass_count'/`test_count' passed, `fail_count' failed"
