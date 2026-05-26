@@ -140,7 +140,7 @@ end
 
 local ++test_count
 capture noisily {
-    local version "1.2.2"
+    local version "1.2.3"
     local ado_date "2026/05/26"
     local sthlp_date "26may2026"
     local iso_date "2026-05-26"
@@ -418,7 +418,7 @@ capture noisily {
 
     iivw
     assert r(n_commands) == 5
-    assert "`r(version)'" == "1.2.2"
+    assert "`r(version)'" == "1.2.3"
 
     iivw_weight, id(id) time(days) visit_cov(edss relapse) nolog
     assert "`r(weighttype)'" == "iivw"

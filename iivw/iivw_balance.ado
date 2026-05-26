@@ -1,4 +1,4 @@
-*! iivw_balance Version 1.2.2  2026/05/26
+*! iivw_balance Version 1.2.3  2026/05/26
 *! Check IIVW weight leverage and visit-model covariate balance
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: rclass (returns results in r())

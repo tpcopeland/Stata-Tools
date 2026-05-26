@@ -1,4 +1,4 @@
-*! iivw_fit Version 1.2.2  2026/05/26
+*! iivw_fit Version 1.2.3  2026/05/26
 *! Fit weighted outcome model for IIW/IPTW/FIPTIW analysis
 *! Author: Timothy P Copeland, Karolinska Institutet
 *! Program class: eclass (returns results in e())
@@ -861,7 +861,7 @@ program define iivw_fit, eclass
         if `bootstrap' > 0 {
             local bs_weightopt ""
             if "`unweighted'" == "" local bs_weightopt "weightvar(`weight_var')"
-            bootstrap, reps(`bootstrap') cluster(`cluster') nodots: ///
+            bootstrap, reps(`bootstrap') cluster(`cluster') level(`level') nodots: ///
                 _iivw_bs_estimate `depvar' `all_covars' if `touse', ///
                 `bs_weightopt' model(gee) ///
                 family(`family') link(`link') `log_opt' ///
@@ -891,7 +891,7 @@ program define iivw_fit, eclass
         if `bootstrap' > 0 {
             local bs_weightopt ""
             if "`unweighted'" == "" local bs_weightopt "weightvar(`weight_var')"
-            bootstrap, reps(`bootstrap') cluster(`cluster') nodots: ///
+            bootstrap, reps(`bootstrap') cluster(`cluster') level(`level') nodots: ///
                 _iivw_bs_estimate `depvar' `all_covars' if `touse', ///
                 `bs_weightopt' model(mixed) ///
                 panelid(`panel_id') `log_opt' ///
